@@ -63,6 +63,30 @@
  *   结构性看不见的一格如实报数:布尔 ack 落在**解析不出函数体**的位置(模块顶层、class 方法简写等)
  *     ⇒ `b1NoBody` 只报数不判红也不记绿;`--strict` 下与既有未判定同档 ⇒ 拒绝出合格证(exit 2)。
  *
+ * B2(2026-09-27 立,与 B1 并列、各计各的):**把"一跳委托"接进判据 —— 防的是摘掉 .returning( 的回退**。
+ *   B1 只看**同一函数体**内有没有写链,而 HEAD 面 38 处布尔 ack 里有一批的写法是
+ *   `await deleteXxx(id)` + `deleted: true` —— 真 `db.delete()` 住在**另一个文件**的被委托函数里,
+ *   函数体看不见写链 ⇒ **B1 结构上失明**。第二十六批刚把这一族改成"委托函数回报 RETURNING 命中集";
+ *   以后谁把某个委托函数里的 `.returning(` 摘掉(或把路由改回 `deleted: true`),B1 一声不响,
+ *   而账面仍是"这一族已清零"。B2 就是把这一跳接上。
+ *   判据:ack 所在函数体 ①**没有**直接写链(有链那一子集归 B1,同一格不得两道判据各计一次),
+ *   ②体内 `await` 了**经 import 说明符解析到本仓 `apps/api/src` 文件**的具名导出函数(一跳,不追传递闭包),
+ *   ③被调函数体含 `db|tx|trx` 上带 `.where(` 的 `.delete(`/`.update(` 链、**该链没有 `.returning(`**,
+ *   ④被调函数体内也没有 `batchWriteOutcome(` ⇒ 违规。
+ *   三条刻意收窄,每条都落到"未判定"并报数、在结论行点名(绝不静默算通过,也绝不因判不出而判红):
+ *     N1 命名空间转发(`import * as ns` + `await ns.del()`)、`export * from` / `export {} from` 再导出、
+ *        第三方与 workspace 包(`fastify` / `@ihui/database`)、被调文件不在所判面、相对/别名路径解析不到、
+ *        被调符号不是可解析的函数导出、被调链 opaque(where 里混函数字面量)⇒ **未判定**;
+ *     N2 被调函数体解析到了但**根本没有带 where 的写链**(纯归属预查、软删标记走别的路径)⇒
+ *        判"无写链",这是真绿,不塞进未判定充数;
+ *     N3 ack 体内既没有被 await 的 import 具名函数、也没有 N1 那些形态 ⇒ **不入 B2 的账**
+ *        (它已由 V1 的布尔 ack 惯例数逐条点名,再计一次就是把同一格算两遍)。
+ *   豁免:与 B1 **同一条通道、同一份实现** —— `delete-ack-exempt: <原因>`,只本行生效,原因不得由
+ *     注释闭合符冒充(M16 那把"不得另写第二份豁免判法"的锁同时管住这一族)。
+ *   取材:被调函数体与调用方**同面同轮**(head 判 HEAD、staged 判索引、worktree 判磁盘),needs 清单由
+ *     调用方那一遍得出、在同一次 analyze 里一次读满;枚举表(`ls-tree`/`ls-files`)也按同一面取,
+ *     不得"清单来自磁盘 + 内容来自 HEAD"。
+ *
  * 两份"惯例存量"计数(可见性,不是判据 —— **永不影响退出码**):上面那两个"刻意放过"的形状此前只有
  * 注释里的一句"全仓 257 处"撑着,而那句是人肉量的,下次谁扩面/收面账面没人知道它变了多少。现由本门
  * 每次现读数并报数:
@@ -708,10 +732,333 @@ export function readExemptMarker(rawLine, token = EXEMPT_TOKEN) {
   return rest ? { state: 'ok', reason: rest } : { state: 'bare', reason: '' }
 }
 
+/* ------------------------- B2:一跳委托的删除 ack ------------------------- */
+
+/** 被调文件的解析域:只有 apps/api/src 之内的模块算"本仓一跳"(实测量够、也能按同一面取到)。 */
+export const API_SRC_DIR = 'apps/api/src'
+/** apps/api/tsconfig.json 的 compilerOptions.paths 实测声明 `"@/*": ["./src/*"]`。
+ *  HEAD 面 `apps/api/src` 内 `from '@/'` 用量 0 处 —— 认它不是为了数现在的东西,而是为了让
+ *  "下一次有人改用别名"不被读成"解析不到";解析表只这一条别名,不臆造第二条。 */
+const ALIAS_AT = '@/'
+const TS_EXT_LIST = ['.ts', '.mts', '.cts']
+const JS_TO_TS = { '.js': '.ts', '.mjs': '.mts', '.cjs': '.cts' }
+
+function posixDirname(p) {
+  const i = p.lastIndexOf('/')
+  if (i < 0) return ''
+  const d = p.slice(0, i)
+  return d === '' ? '.' : d
+}
+
+/** 只按 `/` 走(git 给的路径恒是正斜杠);不引 node:path,免得 Windows 反斜杠把清单里的路径改弯。 */
+function posixJoin(base, rel) {
+  const segs = (base === '' || base === '.' ? [] : base.split('/')).concat(rel.split('/'))
+  const out = []
+  for (const s of segs) {
+    if (s === '' || s === '.') continue
+    if (s === '..') out.pop()
+    else out.push(s)
+  }
+  return out.join('/')
+}
+
+/**
+ * import 说明符 → 候选模块路径(相对 / `@/` 别名 / `.js`→`.ts` / 目录 index)。
+ * 返回 `{outside:true}` = 裸包名(fastify、zod、@ihui/database、node:*)⇒ 被调函数在 apps/api/src
+ * 之外,按 N1 落未判定;返回 `{candidates:[…]}` = 交给所判面的文件清单去验(解析不到同样落 N1)。
+ */
+export function moduleSpecCandidates(spec, fromFile) {
+  const clean = String(spec).trim().replace(/\\/g, '/')
+  if (!clean) return { outside: true }
+  let base = null
+  if (clean.startsWith(ALIAS_AT)) base = `${API_SRC_DIR}/${clean.slice(ALIAS_AT.length)}`
+  else if (clean === '.' || clean === '..' || clean.startsWith('./') || clean.startsWith('../'))
+    base = posixJoin(posixDirname(fromFile), clean)
+  else return { outside: true }
+  if (base !== API_SRC_DIR && !base.startsWith(`${API_SRC_DIR}/`)) return { outside: true }
+  const m = /\.([A-Za-z0-9]+)$/.exec(base)
+  const mapped = m ? JS_TO_TS[`.${m[1]}`] : undefined
+  const alreadyTs = m ? TS_EXT_LIST.includes(`.${m[1]}`) : false
+  // 把"扩展名替换"落成"去掉旧扩展名再逐个试 TS 三扩展":mapped 是**扩展名本身**,不是整路径
+  // (第一版直接把它当 stem 用,候选就成了 `.ts.ts` 这种谁也找不到的东西 ⇒ 整族未判定)。
+  const stem = m && (mapped || alreadyTs) ? base.slice(0, m.index) : base
+  const out = []
+  for (const e of TS_EXT_LIST) {
+    out.push(stem + e)
+    out.push(`${stem}/index${e}`)
+  }
+  // 末尾那段既不是 js 族也不是 ts 族(.json / .node / 无扩展名歧义)⇒ 原样也试一次,
+  // 落在"面里有但不是可解析 TS 模块"那一档,而不是悄悄猜成 .ts。
+  if (m && !mapped && !alreadyTs) out.push(base)
+  return { candidates: out }
+}
+
+/** 在**同一面**的文件清单里挑第一个命中的候选;都不在 ⇒ 未判定(unresolved-spec)。 */
+function resolveModuleSpec(spec, fromFile, knownPaths) {
+  const r = moduleSpecCandidates(spec, fromFile)
+  if (r.outside) return { kind: 'outside-src' }
+  for (const c of r.candidates) {
+    if (!knownPaths || !knownPaths.has(c)) continue
+    return TS_EXT_LIST.some((e) => c.endsWith(e)) ? { path: c } : { kind: 'non-ts-module' }
+  }
+  return { kind: 'unresolved-spec' }
+}
+
+/**
+ * import/export ... from '…' 的具名绑定表。跑在**保留字符串**那一档(模块说明符只活在那里,
+ * 与 E2 同一条教训:连字符串一起抹会直接失明),但**起始位必须同时在遮蔽后的代码面上** ——
+ * 否则一段模板字符串里的 "import x from 'y'" 就能凭空造出一条委托边。
+ * 只收具名绑定:`import * as ns` 记进 namespaces(N1 未判定),default / type-only 一律不认作可调用边。
+ */
+const IMPORT_FROM_RE = /\b(?:import|export)\s+([\s\S]*?)\bfrom\s*['"]([^'"]*)['"]/g
+export function parseImportBindings(nonBlankText, blankText) {
+  const named = new Map()
+  const namespaces = new Set()
+  let m
+  IMPORT_FROM_RE.lastIndex = 0
+  while ((m = IMPORT_FROM_RE.exec(nonBlankText)) !== null) {
+    if (blankText[m.index] !== nonBlankText[m.index]) continue // 起始位落在字符串/注释里 ⇒ 不是语句
+    const clause = m[1]
+    const spec = m[2]
+    if (/^\s*type\b/.test(clause)) continue
+    const rest = clause
+      .replace(/\{[\s\S]*\}/, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const ns = /\*\s+as\s+([A-Za-z_$][\w$]*)/.exec(rest)
+    if (ns) namespaces.add(ns[1])
+    const brace = /\{([\s\S]*)\}/.exec(clause)
+    if (!brace) continue
+    for (const part of brace[1].split(',')) {
+      const t = part.trim()
+      if (!t || /^type\b/.test(t)) continue
+      const mm = /^([A-Za-z_$][\w$]*)(?:\s+as\s+([A-Za-z_$][\w$]*))?$/.exec(t)
+      if (!mm) continue
+      if (!named.has(mm[2] || mm[1]))
+        named.set(mm[2] || mm[1], { exported: mm[1], specifier: spec })
+    }
+  }
+  return { named, namespaces }
+}
+
+/** 体内 `await foo(...)` / `await ns.foo(...)` 的被调表达式(不含 `await db.delete()` 那种链)。 */
+const AWAIT_CALL_RE = /\bawait\s+([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*(?:[<(]|as\s)/g
+
+/**
+ * 被调文件的导出索引(跑在遮蔽后的代码面上:注释里的 `// export async function del()` 不得算导出)。
+ *  byName        函数形态的具名导出 → { bodyText }
+ *  starReexport  文件里有 `export * from …`  ⇒ 名单不可枚举 ⇒ N1 未判定
+ *  reexportNames `export { A } from …` 的再导出名(同样不当作"本体的函数体")
+ */
+export function indexExportedFns(code) {
+  const byName = new Map()
+  const reexportNames = new Set()
+  let starReexport = false
+  let m
+  const fnRe = /\bexport\s+(?:default\s+)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)\s*\(/g
+  while ((m = fnRe.exec(code)) !== null) {
+    const open = code.indexOf('(', m.index + m[0].length - 1)
+    const close = open >= 0 ? closeParen(code, open) : -1
+    if (close < 0) continue
+    let i = close
+    while (i < code.length && code[i] !== '{' && code[i] !== ';' && code[i] !== ')') i++
+    const end = closeBrace(code, i)
+    if (end > 0 && !byName.has(m[1])) byName.set(m[1], { bodyText: code.slice(i, end) })
+  }
+  const varRe = /\bexport\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*/g
+  while ((m = varRe.exec(code)) !== null) {
+    if (byName.has(m[1])) continue
+    const from = m.index + m[0].length
+    const slice = code.slice(from, from + 400)
+    const block = /^(?:async\s+)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>\s*\{/.exec(slice)
+    if (block) {
+      const bi = from + block[0].length - 1
+      const end = closeBrace(code, bi)
+      if (end > 0) {
+        byName.set(m[1], { bodyText: code.slice(bi, end) })
+        continue
+      }
+    }
+    const expr = /^(?:async\s+)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/.exec(slice)
+    if (expr) {
+      const s0 = from + expr[0].length
+      byName.set(m[1], { bodyText: code.slice(s0, statementEnd(code, s0, code.length)) })
+      continue
+    }
+    const kf = /^function\b/.exec(slice)
+    if (kf) {
+      let i = from + kf[0].length
+      while (i < code.length && code[i] !== '{') i++
+      const end = closeBrace(code, i)
+      if (end > 0) byName.set(m[1], { bodyText: code.slice(i, end) })
+    }
+  }
+  const namedRe = /\bexport\s*\{([\s\S]*?)\}\s*from/g
+  while ((m = namedRe.exec(code)) !== null)
+    for (const p of m[1].split(',')) {
+      const t = p.trim().replace(/^type\s+/, '')
+      const mm = /^([A-Za-z_$][\w$]*)(?:\s+as\s+([A-Za-z_$][\w$]*))?$/.exec(t)
+      if (mm) reexportNames.add(mm[2] || mm[1])
+    }
+  if (/\bexport\s*\*\s*(?:as\s+[A-Za-z_$][\w$]*\s*)?from/g.test(code)) starReexport = true
+  return { byName, reexportNames, starReexport }
+}
+
+/** 被调函数体的定性:有没有"带 where 而无 returning、也无唯一出口"的那一条写链。 */
+function classifyCalleeBody(bodyText) {
+  if (BATCH_OUTCOME_IN_BODY_RE.test(bodyText))
+    return { state: 'confirmed', why: 'batchWriteOutcome' }
+  const chains = findWriteChains(bodyText).filter((c) => c.hasWhere)
+  if (!chains.length) return { state: 'no-write' }
+  if (chains.some((c) => !c.hasReturning && !c.opaque)) return { state: 'violation' }
+  if (chains.every((c) => c.opaque)) return { state: 'undetermined', kind: 'opaque-callee-chain' }
+  return { state: 'confirmed', why: 'returning' }
+}
+
+/**
+ * B2 的第一遍:纯本地信息(调用方正文 + 同面文件清单)⇒ 每个待判 ack 记下"要读哪个被调文件"。
+ * 刻意不调 git —— 自检可以只给一张 knownPaths 与一份被调正文就跑完整条判据(判据只此一份实现)。
+ */
+export function planDelegatedAckSites(
+  relPath,
+  code,
+  rawLines,
+  ackSites,
+  allChains,
+  imports,
+  knownPaths,
+) {
+  const bodies = findFunctionBodies(code)
+  const sites = []
+  const needs = []
+  for (const b of ackSites) {
+    const body = enclosingBody(bodies, b.index)
+    if (!body) continue // 解析不出函数体那一格归 B1 的 noBodySites,两道判据不重复计同一处
+    if (allChains.some((c) => c.start >= body.start && c.end <= body.end)) continue // 归 B1
+    const bodyText = code.slice(body.start, body.end)
+    const line = lineAt(code, b.index)
+    const site = {
+      file: relPath,
+      line,
+      needs: [],
+      undetermined: [],
+      marker: readExemptMarker(rawLines[line - 1] || '', DELETE_ACK_EXEMPT_TOKEN),
+    }
+    AWAIT_CALL_RE.lastIndex = 0
+    let m
+    while ((m = AWAIT_CALL_RE.exec(bodyText)) !== null) {
+      const parts = m[1].split(/\s*\.\s*/)
+      const base = parts[0]
+      if (parts.length > 1) {
+        // `await ns.del()`:命名空间转发 ⇒ 具名导出边判不出(N1),但**不**因此放过整处
+        if (imports.namespaces.has(base))
+          site.undetermined.push({ kind: 'namespace-forward', name: m[1] })
+        continue
+      }
+      const binding = imports.named.get(base)
+      if (!binding) continue // 本地 helper / 全局函数:不是"经 import 解析到仓内文件"那一跳
+      const r = resolveModuleSpec(binding.specifier, relPath, knownPaths)
+      if (!r.path) {
+        site.undetermined.push({ kind: r.kind, name: base, specifier: binding.specifier })
+        continue
+      }
+      site.needs.push({ path: r.path, name: binding.exported, local: base })
+      needs.push({ path: r.path })
+    }
+    // N3:既没有可判的一跳、也没有解析不到的形态 ⇒ 不入 B2 的账(V1 已逐条点名这一处)
+    if (!site.needs.length && !site.undetermined.length) continue
+    sites.push(site)
+  }
+  return { sites, needs }
+}
+
+/**
+ * B2 的第二遍:用**同面**取到的被调正文落结论。
+ *  任一被调体真发了无 returning 的写链 ⇒ 违规(标记只救"已判违规"那一处,与 B1 同序);
+ *  全部被调体都是 no-write/confirmed ⇒ 放过;
+ *  没有违规而有任一解析不出 ⇒ 未判定(不记为通过,也不冒红)。
+ */
+export function finishDelegatedAckSite(site, calleeIndex) {
+  const states = []
+  for (const n of site.needs) {
+    const idx = calleeIndex && calleeIndex.get ? calleeIndex.get(n.path) : null
+    if (!idx) {
+      states.push({
+        state: 'undetermined',
+        kind: 'callee-face-missing',
+        name: n.local,
+        file: n.path,
+      })
+      continue
+    }
+    const fn = idx.byName.get(n.name)
+    if (!fn) {
+      states.push({
+        state: 'undetermined',
+        kind:
+          idx.starReexport || idx.reexportNames.has(n.name) ? 'reexport' : 'callee-not-exported',
+        name: n.local,
+        file: n.path,
+      })
+      continue
+    }
+    const c = classifyCalleeBody(fn.bodyText)
+    states.push({ ...c, name: n.local, file: n.path })
+  }
+  const undet = site.undetermined.concat(states.filter((s) => s.state === 'undetermined'))
+  const violation = states.find((s) => s.state === 'violation')
+  const confirmed = states.find((s) => s.state === 'confirmed')
+  const out = {
+    file: site.file,
+    line: site.line,
+    states,
+    undetermined: undet,
+    disposition: 'none',
+  }
+  if (violation) {
+    if (site.marker.state === 'ok') out.disposition = 'marker'
+    else out.disposition = 'violation'
+    out.callee = { file: violation.file, name: violation.name }
+  } else if (confirmed) {
+    out.disposition = 'db-confirmed'
+    out.callee = { file: confirmed.file, name: confirmed.name, why: confirmed.why }
+  } else if (undet.length) out.disposition = 'undetermined'
+  else out.disposition = 'no-write'
+  out.bareExempt = violation && site.marker.state === 'bare' ? 1 : 0
+  return out
+}
+
+/** 空壳:B2 自己的五个键(与 B1 同形,既有的 candidates/violations/undetermined/exempt 一字不并入)。 */
+function emptyB2() {
+  return {
+    sites: [],
+    candidates: [],
+    violations: [],
+    undetermined: [],
+    exempt: { confirmed: 0, marker: 0 },
+    bareExempt: 0,
+    needs: [],
+  }
+}
+
+/** 把 planDelegatedAckSites 的落点跑成结论并写进 res.b2(自检与 analyze 共用这一份归集实现)。 */
+export function aggregateB2(res, judged) {
+  for (const j of judged) {
+    if (j.disposition === 'none') continue
+    res.b2.candidates.push(j)
+    if (j.disposition === 'violation') res.b2.violations.push(j)
+    else if (j.disposition === 'db-confirmed') res.b2.exempt.confirmed++
+    else if (j.disposition === 'marker') res.b2.exempt.marker++
+    else if (j.disposition === 'undetermined') res.b2.undetermined.push(j)
+    res.b2.bareExempt += j.bareExempt || 0
+  }
+  return res
+}
+
 /* ------------------------------- 单文件判据 ------------------------------- */
 
 /** 纯函数:一份文件正文 → 候选与处置。自检与端到面都跑它(判据只此一份实现)。 */
-export function scanFileText(relPath, text) {
+export function scanFileText(relPath, text, opts = {}) {
   const masked = maskText(text, { blankStrings: true })
   const code = masked.text
   const rawLines = text.split(/\r?\n/)
@@ -741,6 +1088,10 @@ export function scanFileText(relPath, text) {
       bareExempt: 0,
       noBodySites: [],
     },
+    // B2 必须在**建壳那一刻**就在位:U2 那一支在下面提前 return,漏了这行就会让 analyze 读到
+    // undefined.needs —— 一份"别人写坏的词法"把整道门换成 exit 2,而 exit 2 看起来像"无法判定",
+    // 实际是本门自己崩了。
+    b2: emptyB2(),
   }
   if (res.leaks.length) {
     res.undetermined.push({
@@ -811,8 +1162,36 @@ export function scanFileText(relPath, text) {
     key: b.key,
     value: b.value,
   }))
-  res.b1 = findBoolAckB1Sites(relPath, code, rawLines, findWriteChains(code), boolSites)
-  for (const c of findWriteChains(code).filter((x) => x.opaque))
+  const allChains = findWriteChains(code)
+  res.b1 = findBoolAckB1Sites(relPath, code, rawLines, allChains, boolSites)
+  // B2(一跳委托):第一遍只用**本地**信息(调用方正文 + 同面文件清单)得出"要读哪些被调文件";
+  // 被调正文由 analyze 在同一面一次读满后再跑第二遍。acks 与 B1 共用**同一份** boolSites —— 两处
+  // 各扫一遍 send 形态必然漂移(M16 那把锁的同族)。
+  res.b2 = emptyB2()
+  if (!res.leaks.length) {
+    const imports = parseImportBindings(
+      maskText(text, { blankStrings: false }).text,
+      code, // 遮蔽后的代码面:起始位不在这一面上就说明那条 import 活在字符串/注释里
+    )
+    const plan = planDelegatedAckSites(
+      relPath,
+      code,
+      rawLines,
+      boolSites,
+      allChains,
+      imports,
+      opts.knownPaths,
+    )
+    res.b2.sites = plan.sites
+    res.b2.needs = plan.needs
+    // 自检/夹具走这一档:被调正文由调用方直接给,不必派生 git(判据仍是同一份实现)。
+    if (opts.calleeIndex)
+      aggregateB2(
+        res,
+        plan.sites.map((s) => finishDelegatedAckSite(s, opts.calleeIndex)),
+      )
+  }
+  for (const c of allChains.filter((x) => x.opaque))
     res.undetermined.push({
       file: relPath,
       line: lineAt(code, c.start),
@@ -859,6 +1238,69 @@ export function readCandidates(root, face, paths) {
   return map
 }
 
+/**
+ * 同一面的 `apps/api/src` 文件全集(B2 解析 import 说明符用)。
+ * 枚举走 gitRaw(ls-tree / ls-files **不产正文**,不算散写读内容 —— 与 listCandidates 同一条口径),
+ * 且刻意按**所判的那一面**取:清单来自磁盘 + 内容来自 HEAD 就是自洽却错位的尺子(门 118 那一型)。
+ * --worktree 是人工逃生舱档:路径清单仍取跟踪面,面里没有的被调文件按"未判定"点名而不是猜。
+ */
+export function listFacePaths(root, face) {
+  const out =
+    face === 'head'
+      ? gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', API_SRC_DIR], root)
+      : gitRaw(['ls-files', '-z', '--', API_SRC_DIR], root)
+  return new Set(String(out).split('\0').filter(Boolean))
+}
+
+/**
+ * 被调文件的正文:与调用方**同面**,但取不到**不判死**。
+ * 这个不对称是刻意的:调用方文件取不到 = 本门没法审它 ⇒ exit 2;被调文件取不到 = 本门承认看不见
+ * 这一跳(N1 未判定),不能让"别人那半个还没 add 的文件"把整道门判死(恒红门同罪)。
+ */
+export function readCalleeTexts(root, face, paths) {
+  const map = new Map()
+  if (!paths.length) return map
+  if (face === 'worktree') {
+    for (const p of paths) {
+      const t = readWorktreeFile(root, p)
+      if (typeof t === 'string') map.set(p, t)
+    }
+    return map
+  }
+  const specs = paths.map((p) => (face === 'staged' ? ':' : 'HEAD:') + p)
+  const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: 180000 })
+  paths.forEach((p, k) => {
+    const t = got.get(specs[k])
+    if (typeof t === 'string') map.set(p, t)
+  })
+  return map
+}
+
+/**
+ * 一整个面的跑法:候选正文 → 逐文件判据 → B2 第二遍用**同一面**的被调正文落结论。
+ * 自检与 analyze 都走它 ⇒ "同面同轮"这件事只有一处实现,不会一处做到了另一处漏掉。
+ */
+export function scanFaceBundle(root, face, paths, texts, knownPaths) {
+  const per = paths.map((p) => scanFileText(p, texts.get(p), { knownPaths }))
+  const needs = new Set()
+  for (const r of per) for (const n of r.b2.needs) needs.add(n.path)
+  const idx = new Map()
+  // needs 为空**不等于**没有 B2 要判:一整批"那一跳解析不到"的落点就是 needs 为空、sites 非空,
+  // 早退会把它们静默吞成 0 条(第一版就是这么把 25 处未判定读成 0 的 —— 判据失效的表现永远是安静)。
+  if (needs.size) {
+    const calleeTexts = readCalleeTexts(root, face, [...needs])
+    for (const [p, t] of calleeTexts) idx.set(p, indexExportedFns(maskText(t).text))
+  }
+  for (const r of per) {
+    if (!r.b2.sites.length) continue
+    aggregateB2(
+      r,
+      r.b2.sites.map((s) => finishDelegatedAckSite(s, idx)),
+    )
+  }
+  return per
+}
+
 export function analyze(root, face, opts = {}) {
   assertRepoRoot(root, GATE)
   const paths = listCandidates(root, face)
@@ -873,11 +1315,13 @@ export function analyze(root, face, opts = {}) {
     throw new Undetermined(
       `--files 指定的路径没有一个落在本门覆盖面(${SCAN_DIRS.join(' / ')} · ${face} 面)⇒ 判据失效,不计通过`,
     )
-  const per = scanned.map((p) => scanFileText(p, texts.get(p)))
+  const per = scanFaceBundle(root, face, scanned, texts, listFacePaths(root, face))
   const violations = per.flatMap((r) => r.violations)
   const undetermined = per.flatMap((r) => r.undetermined)
   const b1Violations = per.flatMap((r) => r.b1.violations)
   const b1NoBody = per.reduce((a, r) => a + r.b1.noBodySites.length, 0)
+  const b2Violations = per.flatMap((r) => r.b2.violations)
+  const b2Undetermined = per.flatMap((r) => r.b2.undetermined)
   const exempt = ['returning', 'db', 'outlet', 'marker'].reduce(
     (a, k) => ({ ...a, [k]: per.reduce((x, r) => x + r.exempt[k], 0) }),
     {},
@@ -903,32 +1347,52 @@ export function analyze(root, face, opts = {}) {
     b1ExemptMarker: per.reduce((a, r) => a + r.b1.exempt.marker, 0),
     b1BareExempt: per.reduce((a, r) => a + r.b1.bareExempt, 0),
     b1NoBody,
+    // B2(一跳委托)自己的五个键 —— 既有四数与 booleanAck* / b1* / readQuery* 的取值一字不并入。
+    b2Candidates: per.reduce((a, r) => a + r.b2.candidates.length, 0),
+    b2Violations: b2Violations.length,
+    b2Files: per.filter((r) => r.b2.violations.length > 0).length,
+    b2Undetermined: b2Undetermined.length,
+    b2Exempt: per.reduce((a, r) => a + r.b2.exempt.confirmed + r.b2.exempt.marker, 0),
   }
   // 棘轮锚点:只在这一档才回读 HEAD 面(全量档本来就是 HEAD)。新文件不在 HEAD ⇒ 锚点 0,
   // 这是"第一个端点第一次就写错"必须判红的那一格;锚点文件取不到则判死,不拿 0 顶替。
-  // 两条判据(计数自算 / B1 假 ack)各按**各自**的 HEAD 计数当锚点 —— 共用一个数就是互相顶账
-  // (门 67/83 记过"同一笔债两道门各计一次会让两份基线互相顶掉"的反面:这里是两个键必须分开)。
+  // 三条判据(计数自算 / B1 假 ack / B2 一跳委托)各按**各自**的 HEAD 计数当锚点 —— 共用一个数就是
+  // 互相顶账(门 67/83 记过"同一笔债两道门各计一次会让两份基线互相顶掉"的反面:键必须分开)。
   let ratcheted = null
-  if (face === 'staged' && (violations.length || b1Violations.length)) {
+  if (face === 'staged' && (violations.length || b1Violations.length || b2Violations.length)) {
     const legacyByFile = new Map()
     for (const v of violations) legacyByFile.set(v.file, (legacyByFile.get(v.file) || 0) + 1)
     const b1ByFile = new Map()
     for (const v of b1Violations) b1ByFile.set(v.file, (b1ByFile.get(v.file) || 0) + 1)
-    const files = [...new Set([...legacyByFile.keys(), ...b1ByFile.keys()])]
+    const b2ByFile = new Map()
+    for (const v of b2Violations) b2ByFile.set(v.file, (b2ByFile.get(v.file) || 0) + 1)
+    const files = [...new Set([...legacyByFile.keys(), ...b1ByFile.keys(), ...b2ByFile.keys()])]
     const headSet = new Set(listCandidates(root, 'head'))
     const need = files.filter((p) => headSet.has(p))
-    const headTexts = need.length ? readCandidates(root, 'head', need) : new Map()
+    // B2 的锚点必须也在 HEAD 面把那一跳读完:索引面的 ack 数与 HEAD 面的 ack 数若各自用**自己那一面**
+    // 的被调正文,才是"同一把尺子在两个面上量出两个基准"的正解(反之混用就是自洽却错位的尺子)。
+    const headPer = need.length
+      ? scanFaceBundle(
+          root,
+          'head',
+          need,
+          readCandidates(root, 'head', need),
+          listFacePaths(root, 'head'),
+        )
+      : []
+    const headByFile = new Map(headPer.map((r) => [r.file, r]))
     ratcheted = []
     for (const file of files) {
       let anchorLegacy = 0
       let anchorB1 = 0
+      let anchorB2 = 0
       if (headSet.has(file)) {
-        const t = headTexts.get(file)
-        if (t === undefined)
+        const hr = headByFile.get(file)
+        if (!hr)
           throw new Undetermined(`HEAD 取不到棘轮锚点文件 ${file} ⇒ 无法判定(不回落、不拿 0 顶替)`)
-        const hr = scanFileText(file, t)
         anchorLegacy = hr.violations.length
         anchorB1 = hr.b1.violations.length
+        anchorB2 = hr.b2.violations.length
       }
       const nowLegacy = legacyByFile.get(file) || 0
       if (nowLegacy > anchorLegacy)
@@ -936,6 +1400,9 @@ export function analyze(root, face, opts = {}) {
       const nowB1 = b1ByFile.get(file) || 0
       if (nowB1 > anchorB1)
         ratcheted.push({ file, kind: 'b1', now: nowB1, anchor: anchorB1, added: nowB1 - anchorB1 })
+      const nowB2 = b2ByFile.get(file) || 0
+      if (nowB2 > anchorB2)
+        ratcheted.push({ file, kind: 'b2', now: nowB2, anchor: anchorB2, added: nowB2 - anchorB2 })
     }
   }
   const exit = decide({
@@ -946,6 +1413,8 @@ export function analyze(root, face, opts = {}) {
     strict: !!opts.strict,
     b1Violations,
     b1NoBody,
+    b2Violations,
+    b2Undetermined,
   })
   return {
     face,
@@ -959,6 +1428,8 @@ export function analyze(root, face, opts = {}) {
     exit,
     b1Violations,
     b1NoBody,
+    b2Violations,
+    b2Undetermined,
   }
 }
 
@@ -967,10 +1438,10 @@ export function analyze(root, face, opts = {}) {
  * 全量档默认不判红是设计前提而不是偷懒:HEAD 有存量时当场判红 = 恒红门(§12e)。
  * 未判定永不冒红,但 --strict 下拒绝出合格证 ⇒ exit 2(不冒红也不记绿)。
  * **签名即判据(2026-09-27 更新)**:本函数收 violations / undetermined / ratcheted / strict,
- * 外加 **B1 的 b1Violations / b1NoBody** —— B1 是判据,进退出码是它的本职(默认档仍只由
- * staged 棘轮与 --strict 触发,存量不冒红)。而两份**惯例存量**计数(booleanAck* / readQueryCount*)
- * **依旧刻意不在参数里**,所以"把可见性计数接进退出码"这一改法在结构上就要求改签名,
- * 而那一步由 self-test 的 X1/X1b + 镜像 M13 判红(惯例存量是**决策依据**不是**债**)。
+ * 外加 **B1 的 b1Violations / b1NoBody** 与 **B2 的 b2Violations / b2Undetermined** —— 两条都是判据,
+ * 进退出码是它们的本职(默认档仍只由 staged 棘轮与 --strict 触发,存量不冒红)。而两份**惯例存量**
+ * 计数(booleanAck* / readQueryCount*)**依旧刻意不在参数里**,所以"把可见性计数接进退出码"这一改法
+ * 在结构上就要求改签名,而那一步由 self-test 的 X1/X1b + 镜像 M13 判红(惯例存量是**决策依据**不是**债**)。
  */
 export function decide({
   face,
@@ -980,10 +1451,17 @@ export function decide({
   strict,
   b1Violations = [],
   b1NoBody = 0,
+  b2Violations = [],
+  b2Undetermined = [],
 }) {
   if (strict) {
-    if (undetermined.length || b1NoBody) return 2
-    if (face === 'staged' ? ratcheted && ratcheted.length : violations.length || b1Violations.length)
+    // 未判定(B1 找不到函数体 / B2 那一跳解析不到)在 --strict 下与既有 undetermined 同档:拒绝出合格证。
+    if (undetermined.length || b1NoBody || b2Undetermined.length) return 2
+    if (
+      face === 'staged'
+        ? ratcheted && ratcheted.length
+        : violations.length || b1Violations.length || b2Violations.length
+    )
       return 1
     return 0
   }
@@ -1003,15 +1481,18 @@ export function formatReport(out) {
   const L = []
   const c = out.counts
   const b1v = out.b1Violations || []
+  const b2v = out.b2Violations || []
+  const b2u = out.b2Undetermined || []
   if (out.ratcheted && out.ratcheted.length) {
     const nLegacy = out.ratcheted.filter((r) => (r.kind || 'count') === 'count').length
     const nB1 = out.ratcheted.filter((r) => r.kind === 'b1').length
+    const nB2 = out.ratcheted.filter((r) => r.kind === 'b2').length
     L.push(
-      `❌ 判红:${out.ratcheted.length} 条净新增越线(按 文件×判据;计数自算 ${nLegacy} · B1 假 ack ${nB1};锚点 = 该文件 HEAD 自身同判据计数)`,
+      `❌ 判红:${out.ratcheted.length} 条净新增越线(按 文件×判据;计数自算 ${nLegacy} · B1 假 ack ${nB1} · B2 委托假 ack ${nB2};锚点 = 该文件 HEAD 自身同判据计数)`,
     )
     for (const r of out.ratcheted)
       L.push(
-        `   [${(r.kind || 'count') === 'b1' ? 'B1假ack' : '计数自算'}] ${r.file}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
+        `   [${{ b1: 'B1假ack', b2: 'B2委托假ack' }[r.kind] || '计数自算'}] ${r.file}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
       )
     if (nLegacy) {
       L.push(
@@ -1027,9 +1508,20 @@ export function formatReport(out) {
         `   确属有意(如该表有触发器保证必删):写**同行**行内豁免 ${DELETE_ACK_EXEMPT_TOKEN}: <一句话原因>(须带原因,只本行生效,守门 108 按 30 天到期账管它)。`,
       )
     }
+    if (nB2) {
+      L.push(
+        '   B2 修法:回**被委托函数**里补 .returning({id}) 并让调用方按命中行回报(或直接走 batchWriteOutcome)——',
+      )
+      L.push(
+        '   摘掉被调函数里的 .returning( 就是这一型回退:缺陷隔了一个文件,B1 看不见,只有 B2 会红。',
+      )
+      L.push(
+        `   同一处确属有意(如级联清理必删主记录):写**同行**行内豁免 ${DELETE_ACK_EXEMPT_TOKEN}: <原因>(与 B1 同一条通道)。`,
+      )
+    }
   } else if (out.face === 'staged')
     L.push(
-      '✅ 索引面未见新增"批量写自算计数 / B1 假 ack"(存量按各文件 HEAD 自身计数豁免,不代裁)。',
+      '✅ 索引面未见新增"批量写自算计数 / B1 假 ack / B2 委托假 ack"(存量按各文件 HEAD 自身计数豁免,不代裁)。',
     )
   if (out.face !== 'staged' && c.violations) {
     L.push(
@@ -1046,6 +1538,18 @@ export function formatReport(out) {
       L.push(`   ${v.file}:${v.line}  (写链=${v.receiver}.delete/update,响应 deleted: true)`)
     if (c.b1Violations > 40) L.push(`   …另 ${c.b1Violations - 40} 处(--explain 看全量)`)
   }
+  // B2 与 B1 同档:它是判据不是可见性数 —— 全量默认档只报数(HEAD 有存量),--strict 才问责,
+  // 提交链走"该文件 HEAD 自身 B2 计数"的差值棘轮。措辞与上一段同形,免得两型读起来不一样。
+  if (out.face !== 'staged' && c.b2Violations) {
+    L.push(
+      `${out.strict ? '❌' : '⚠️'} 全量档现读 B2 委托假 ack ${c.b2Violations} 处 / ${c.b2Files} 文件(ack 体内无直接写链、await 了本仓具名导出函数、被调体有带 where 的写链而无 .returning()/batchWriteOutcome())${out.strict ? ' —— --strict 判红' : ' —— 存量只报数不拦提交;提交链走差值棘轮,新增即红(§12e)'}`,
+    )
+    for (const v of b2v.slice(0, 40))
+      L.push(
+        `   ${v.file}:${v.line}  → ${v.callee?.file ?? '?'}#${v.callee?.name ?? '?'}(被调体写链无 .returning(),响应 deleted: true)`,
+      )
+    if (c.b2Violations > 40) L.push(`   …另 ${c.b2Violations - 40} 处(--explain 看全量)`)
+  }
   if (c.undetermined) {
     L.push(`⚠️ 未判定 ${c.undetermined} 处 —— **未判定不等于通过**,下列每一处本门都承认自己看不见:`)
     for (const u of out.undetermined.slice(0, 40)) L.push(`   ${u.file}:${u.line}  ${u.why}`)
@@ -1055,20 +1559,36 @@ export function formatReport(out) {
     L.push(
       `⚠️ B1 未判定 ${c.b1NoBody} 处(布尔 ack 落在解析不出函数体的位置,如模块顶层/class 方法简写)—— 这**同样是未判定而不是通过**:判不了,不冒红也不记绿。`,
     )
-  if (out.strict && (c.undetermined || c.b1NoBody))
+  if (c.b2Undetermined) {
+    L.push(
+      `⚠️ B2 未判定 ${c.b2Undetermined} 处(那一跳解析不到:命名空间转发 / export * 再导出 / 第三方或 workspace 包 / 被调文件不在所判面 / 别名相对路径解不开 / 被调链 opaque)—— **未判定不是通过,也不是违规**:不冒红、不记绿,逐条点名如下:`,
+    )
+    let shown = 0
+    for (const u of b2u)
+      for (const k of u.undetermined) {
+        if (shown++ >= 40) break
+        L.push(
+          `   ${u.file}:${u.line}  ${k.kind}${k.name ? ` (${k.name})` : ''}${k.specifier ? ` ← '${k.specifier}'` : ''}`,
+        )
+      }
+    if (shown > 40) L.push(`   …另 ${shown - 40} 条(--explain 看全量)`)
+  }
+  if (out.strict && (c.undetermined || c.b1NoBody || c.b2Undetermined))
     L.push('❌ --strict 下未判定即拒绝出合格证 ⇒ exit 2(不冒红也不记绿)。')
   if (
     out.face !== 'staged' &&
     !c.violations &&
     !c.undetermined &&
     !c.b1Violations &&
-    !c.b1NoBody
+    !c.b1NoBody &&
+    !c.b2Violations &&
+    !c.b2Undetermined
   )
-    L.push('✅ 通过:覆盖面内无自算计数、无 B1 假 ack,且无未判定项。')
+    L.push('✅ 通过:覆盖面内无自算计数、无 B1/B2 假 ack,且无未判定项。')
   if (
     out.face === 'staged' &&
     !out.ratcheted?.length &&
-    (c.undetermined || c.b1NoBody)
+    (c.undetermined || c.b1NoBody || c.b2Undetermined)
   )
     L.push('ℹ️ 本门未拦本次提交,但上面列出的未判定项**没有被判过** —— 别让绿灯替它们说话。')
   L.push(
@@ -1083,7 +1603,11 @@ export function formatReport(out) {
       // 少喊一句,读报告的人就分不清"这一族没扫过"和"扫了是 0"。
       `;B1 假 ack(判据:违规 ${c.b1Violations ?? 0} 处 / ${c.b1Files ?? 0} 文件,` +
       `库确认放过 ${c.b1ExemptConfirmed ?? 0} · 行内标记 ${c.b1ExemptMarker ?? 0} 只报数,` +
-      `裸标记不计 ${c.b1BareExempt ?? 0},找不到函数体不判 ${c.b1NoBody ?? 0})`,
+      `裸标记不计 ${c.b1BareExempt ?? 0},找不到函数体不判 ${c.b1NoBody ?? 0})` +
+      // B2 与 B1 同形:措辞里"0 处 ≠ 没扫过"由这一句自己承担;五个键一律现读,不并入任何既有数。
+      `;B2 委托假 ack(判据:违规 ${c.b2Violations ?? 0} 处 / ${c.b2Files ?? 0} 文件,` +
+      `候选 ${c.b2Candidates ?? 0},放过 ${c.b2Exempt ?? 0} 只报数,` +
+      `那一跳解析不到不判 ${c.b2Undetermined ?? 0})`,
   )
   return L
 }
@@ -1093,8 +1617,12 @@ const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict]
     放过:链带 .returning( / 计数根可追到库确认集 / import ${UNIQUE_OUTLET} / 行内 ${EXEMPT_TOKEN}: <原因>(须带原因)
   判据二(B1 假 ack,2026-09-27):同函数体内 db|tx|trx .delete(/.update( 写链 + 响应对象里 deleted: true 字面量
     放过:体内 .returning( / 体内 batchWriteOutcome( / **同行**行内 ${DELETE_ACK_EXEMPT_TOKEN}: <原因>(须带原因)
+  判据三(B2 委托假 ack,2026-09-27):ack 体内**无**直接写链(那一子集归 B1),但 await 了经 import 解析到
+    ${API_SRC_DIR} 内某文件的具名导出函数,而被调函数体有带 .where( 的写链却无 .returning( / batchWriteOutcome(
+    放过:被调体走库确认 / **同行**行内 ${DELETE_ACK_EXEMPT_TOKEN}: <原因>(与 B1 同一条通道)
+    那一跳解析不到 ⇒ 计"未判定"并逐条点名(不记通过、也不因判不出而判红)
   只报数不判红(现读惯例存量,写在结论行):布尔 ack \`deleted: true\`(无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
-  两条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
+  三条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
   提交链档与 --strict 才问责。
   紧急跳过(接入提交链后):${SELF_SKIP}=1`
 
@@ -1147,6 +1675,18 @@ function main(argv) {
     for (const r of out.per)
       for (const n of r.b1.noBodySites)
         console.log(`  · B1未判定 ${n.file}:${n.line} 布尔 ack 解析不出所属函数体,不判红也不记绿`)
+    // B2 的逐条处置:每条都带"哪一跳、被调文件里的哪一个函数",这样判红时才复核得了结论。
+    for (const r of out.per)
+      for (const s of r.b2.candidates)
+        console.log(
+          `  · B2委托ack ${s.file}:${s.line} → ${s.callee ? `${s.callee.file}#${s.callee.name}` : '(未解析)'} ⇒ ${s.disposition}`,
+        )
+    for (const r of out.per)
+      for (const u of r.b2.undetermined)
+        for (const k of u.undetermined)
+          console.log(
+            `  · B2未判定 ${u.file}:${u.line} ${k.kind}${k.name ? ` (${k.name})` : ''}${k.specifier ? ` ← '${k.specifier}'` : ''} 那一跳判不出,不记通过也不判红`,
+          )
   }
   if (argv.includes('--json')) {
     console.log(
@@ -1162,10 +1702,12 @@ function main(argv) {
           undetermined: out.undetermined,
           ratcheted: out.ratcheted,
           exit: out.exit,
-          // B1 自己的键一律**追加在末尾**:既有顶层字段名与 counts 既有字段名的取值形态逐字不变
+          // B1 / B2 自己的键一律**追加在末尾**:既有顶层字段名与 counts 既有字段名的取值形态逐字不变
           // (镜像 M10 钉这一点)。
           b1Violations: out.b1Violations,
           b1NoBody: out.b1NoBody,
+          b2Violations: out.b2Violations,
+          b2Undetermined: out.b2Undetermined,
         },
         null,
         2,
@@ -1400,6 +1942,92 @@ const FIX = {
     '  const rows = await db.delete(table).where(eq(table.id, id)).returning({ id: table.id })',
     '  return reply.send(success({ id, deleted: rows.length > 0 }))',
   ]),
+}
+
+/* ---- B2(2026-09-27)夹具:一跳委托的删除 ack ----
+ * 调用方与**两条腿**的正文都是夹具,判据跑在注入的 calleeIndex 上 ⇒ 自检零 git 派生也能走完整条
+ * 判据(与 analyze 用的是同一份 planDelegatedAckSites / finishDelegatedAckSite 实现,不另写一份)。
+ */
+export const B2_CALLER = 'apps/api/src/routes/b2.ts'
+export const B2_CALLEE = 'apps/api/src/db/b2-queries.ts'
+const callerWith = (importLine, body) =>
+  [
+    "import { eq } from 'drizzle-orm'",
+    "import { success } from '../utils/envelope.js'",
+    importLine,
+    'server.delete(basePath, async (request, reply) => {',
+    '  const { id } = idParam.parse(request.params)',
+    ...body,
+    '  return reply.send(success({ id, deleted: true }))',
+    '})',
+    '',
+  ].join('\n')
+const namedImport = `import { deleteThing } from '${B2_CALLEE.replace('apps/api/src/', '../').replace('.ts', '.js')}'`
+/** 各夹具共用的体内语句(提成常量既避长行,也让"同一形态"在夹具里只有一份写法)。 */
+const AW = ['  await deleteThing(id)']
+const AW_NS = ['  await q.deleteThing(id)']
+
+const B2FIX = {
+  /** 委托本体:ack 体内没有直接写链,真 delete 住在另一文件的具名导出函数里。 */
+  delegated: callerWith(namedImport, AW),
+  /** 被调腿:写链上没有 .returning( ⇒ 这一跳就是"库没答复"。 */
+  calleeNoReturning:
+    'export async function deleteThing(id: string): Promise<void> {\n  await db.delete(things).where(eq(things.id, id))\n}\n',
+  /** 被调腿:第二十六批产出的形态(回报 RETURNING 命中集)⇒ 必须判放过,不得把修好的代码判红。 */
+  calleeReturning:
+    'export async function deleteThing(id: string): Promise<number> {\n  const rows = await db.delete(things).where(eq(things.id, id)).returning({ id: things.id })\n  return rows.length\n}\n',
+  /** 被调腿走唯一出口 ⇒ 同样放过(与 B1 的 F1b 同一条理由)。 */
+  calleeOutlet:
+    'export async function deleteThing(id: string) {\n  return batchWriteOutcome([id], await db.delete(things).where(eq(things.id, id)).returning({ id: things.id }))\n}\n',
+  /** 被调腿确实没有带 where 的写链(纯缓存清理)⇒ 真绿,不塞进未判定充数。 */
+  calleeNoWrite:
+    'export async function deleteThing(id: string): Promise<void> {\n  await cache.remove(id)\n}\n',
+  /** 被调腿是 const + 箭头(仓内实测两种导出形态都有)⇒ 判据必须认这一种。 */
+  calleeConstArrow:
+    'export const deleteThing = async (id: string) => db.delete(things).where(eq(things.id, id))\n',
+  /** 被调腿的 where 里混进函数字面量 ⇒ 分不清,落未判定。 */
+  calleeOpaque:
+    'export async function deleteThing(q: any): Promise<void> {\n  await db.delete(things).where((t) => eq(t.id, q.id))\n}\n',
+  /** 被调文件用 export * 转发:名单不可枚举 ⇒ N1 未判定。 */
+  calleeStar: "export * from './b2-impl.js'\n",
+  /** 被调文件具名再导出 ⇒ 一跳之外还有第二跳,刻意不追 ⇒ 未判定。 */
+  calleeReexport: "export { deleteThing } from './b2-impl.js'\n",
+  /** 命名空间转发(await ns.del()):具名导出边判不出 ⇒ 未判定,且**不**因此放过整处。 */
+  callerNamespace: callerWith(`import * as q from '../db/b2-queries.js'`, AW_NS),
+  /** 裸包名 / workspace 包:被调函数在 apps/api/src 之外 ⇒ 未判定。 */
+  callerBarePackage: callerWith("import { deleteThing } from '@ihui/database'", AW),
+  /** 路径解析不到(改名/忘 add 的在途文件)⇒ 未判定。 */
+  callerMissingModule: callerWith("import { deleteThing } from '../db/gone-mid-refactor.js'", [
+    '  await deleteThing(id)',
+  ]),
+  /** 别名形态:apps/api/tsconfig 的 paths 声明 @/* → src/*,必须与相对路径同判(门让你怎么写,门就看得见)。 */
+  callerAlias: callerWith("import { deleteThing } from '@/db/b2-queries.js'", AW),
+  /** B1 射程(同函数体有直接写链):B2 不得重复计同一格。 */
+  callerDirectChain: callerWith(namedImport, [
+    '  await deleteThing(id)',
+    '  await db.delete(other).where(eq(other.id, id))',
+  ]),
+  /** N3:委托给本文件里的 helper(不经 import)⇒ 不入 B2 的账,只在 V1 的惯例数里点名。 */
+  callerLocalHelper: callerWith('', [
+    '  await dropThing(id)',
+    '  async function dropThing(x: string) {',
+    '    await db.delete(things).where(eq(things.id, x))',
+    '  }',
+  ]),
+  /** 标记三形态:同行带原因 / 裸标记 / 写在紧邻上一行(与 B1 同一条通道的三种判法)。
+   *  标记必须落在 **ack 那一行** —— 命中行号取的是响应对象里 `deleted` 所在的位置。 */
+  callerMarkerOk: callerWith(namedImport, AW).replace(
+    '  return reply.send(success({ id, deleted: true }))',
+    '  return reply.send(success({ id, deleted: true })) // delete-ack-exempt: 级联清理后主记录必删,见 docs/b2.md',
+  ),
+  callerMarkerBare: callerWith(namedImport, AW).replace(
+    '  return reply.send(success({ id, deleted: true }))',
+    '  return reply.send(success({ id, deleted: true })) // delete-ack-exempt:',
+  ),
+  callerMarkerPrevLine: callerWith(namedImport, AW).replace(
+    '  await deleteThing(id)',
+    '  // delete-ack-exempt: 标记写在上一行,这一族不走"紧邻上一行"通道\n  await deleteThing(id)',
+  ),
 }
 
 function selfTest(argv) {
@@ -1683,6 +2311,178 @@ function selfTest(argv) {
     ],
     [0, 1, 1, 2],
   )
+  // ---- B2(2026-09-27):一跳委托的删除 ack。六元组 = [候选, 违规, 放过·库确认, 放过·标记, 裸标记, 未判定]。
+  //      调用方与被调腿都是夹具,calleeIndex 直接注入 ⇒ 判据实现与 analyze 走的是同一份函数。----
+  const b2 = (callerText, calleeText, opt = {}) => {
+    const known = opt.known === false ? new Set() : new Set([B2_CALLEE])
+    const idx = new Map()
+    if (calleeText !== null) idx.set(B2_CALLEE, indexExportedFns(maskText(calleeText).text))
+    const r = scanFileText(B2_CALLER, callerText, { knownPaths: known, calleeIndex: idx })
+    return [
+      r.b2.candidates.length,
+      r.b2.violations.length,
+      r.b2.exempt.confirmed,
+      r.b2.exempt.marker,
+      r.b2.bareExempt,
+      r.b2.undetermined.length,
+    ]
+  }
+  const NO_RET = B2FIX.calleeNoReturning
+  eq(
+    'B2 命中:ack 体内无直接写链、await 本仓具名导出、被调体写链无 .returning( ⇒ 候选 1 违规 1',
+    b2(B2FIX.delegated, NO_RET),
+    [1, 1, 0, 0, 0, 0],
+  )
+  eq(
+    'B2 违规必须点名被调文件与函数(只报"这行有问题"复核不了那一跳)',
+    (() => {
+      const r = scanFileText(B2_CALLER, B2FIX.delegated, {
+        knownPaths: new Set([B2_CALLEE]),
+        calleeIndex: new Map([[B2_CALLEE, indexExportedFns(maskText(NO_RET).text)]]),
+      })
+      const v = r.b2.violations[0]
+      return [v.file, v.callee.file, v.callee.name]
+    })(),
+    [B2_CALLER, B2_CALLEE, 'deleteThing'],
+  )
+  eq(
+    'B2p① 同一夹具只在被调体补 .returning({id}) ⇒ 违规 0、放过 1(判据必须认第二十六批产出的形态)',
+    b2(B2FIX.delegated, B2FIX.calleeReturning),
+    [1, 0, 1, 0, 0, 0],
+  )
+  eq('B2p② 被调体走唯一出口 batchWriteOutcome( ⇒ 放过', b2(B2FIX.delegated, B2FIX.calleeOutlet), [
+    1, 0, 1, 0, 0, 0,
+  ])
+  eq(
+    'B2p③ 被调腿是 const + 箭头写法 ⇒ 同一判据照样命中(仓内两种导出形态实测都有)',
+    b2(B2FIX.delegated, B2FIX.calleeConstArrow),
+    [1, 1, 0, 0, 0, 0],
+  )
+  eq(
+    'B2n 被调腿没有带 where 的写链 ⇒ 判"无写链"= 真绿,既不判红也不冒充未判定',
+    b2(B2FIX.delegated, B2FIX.calleeNoWrite),
+    [1, 0, 0, 0, 0, 0],
+  )
+  eq(
+    'B2u① 命名空间转发(await ns.del())⇒ 未判定 1、不判红(具名导出边判不出,但也不放过)',
+    b2(B2FIX.callerNamespace, NO_RET),
+    [1, 0, 0, 0, 0, 1],
+  )
+  eq(
+    'B2u② 裸包名 / workspace 包 ⇒ 被调函数在 apps/api/src 之外 ⇒ 未判定',
+    b2(B2FIX.callerBarePackage, NO_RET),
+    [1, 0, 0, 0, 0, 1],
+  )
+  eq(
+    'B2u③ 路径在面上找不到(改名 / 别人还没 add 的在途文件)⇒ 未判定,而不是判红',
+    b2(B2FIX.delegated, NO_RET, { known: false }),
+    [1, 0, 0, 0, 0, 1],
+  )
+  eq(
+    'B2u③b 清单有、正文取不到(同面第二次读落空)⇒ 未判定 callee-face-missing',
+    b2(B2FIX.delegated, null),
+    [1, 0, 0, 0, 0, 1],
+  )
+  eq(
+    'B2u④ export * 再导出 ⇒ 名单不可枚举 ⇒ 未判定(不猜第二跳,也不因此放过)',
+    b2(B2FIX.delegated, B2FIX.calleeStar),
+    [1, 0, 0, 0, 0, 1],
+  )
+  eq(
+    'B2u④b 具名再导出 export {} from ⇒ 同样未判定',
+    b2(B2FIX.delegated, B2FIX.calleeReexport),
+    [1, 0, 0, 0, 0, 1],
+  )
+  eq(
+    'B2u⑤ 被调链 opaque(where 里混函数字面量)⇒ 未判定:分不清的是命中集,不是有没有写',
+    b2(B2FIX.delegated, B2FIX.calleeOpaque),
+    [1, 0, 0, 0, 0, 1],
+  )
+  eq(
+    'B2u⑥ 被调符号不是可解析的函数导出 ⇒ callee-not-exported 未判定',
+    b2(B2FIX.delegated, 'export const deleteThing = 1\n'),
+    [1, 0, 0, 0, 0, 1],
+  )
+  eq(
+    'B2a 别名 @/db/…(apps/api tsconfig 的 paths 声明)与相对路径同判 —— 门让你怎么写,门就得看得见',
+    b2(B2FIX.callerAlias, NO_RET),
+    [1, 1, 0, 0, 0, 0],
+  )
+  eq(
+    'B2x B1 射程不重复计:同函数体有直接写链 ⇒ B2 候选 0,而 B1 违规仍是 1',
+    (() => {
+      const r = scanFileText(B2_CALLER, B2FIX.callerDirectChain, {
+        knownPaths: new Set([B2_CALLEE]),
+        calleeIndex: new Map([[B2_CALLEE, indexExportedFns(maskText(NO_RET).text)]]),
+      })
+      return [r.b2.candidates.length, r.b1.candidates.length, r.b1.violations.length]
+    })(),
+    [0, 1, 1],
+  )
+  eq(
+    'B2y N3:委托给本文件的本地 helper(不经 import)⇒ B2 不入账,但 V1 的惯例数照点名这一处',
+    (() => {
+      const r = scanFileText(B2_CALLER, B2FIX.callerLocalHelper, {
+        knownPaths: new Set([B2_CALLEE]),
+        calleeIndex: new Map(),
+      })
+      return [r.b2.candidates.length, r.b2.undetermined.length, r.booleanAck.length]
+    })(),
+    [0, 0, 1],
+  )
+  eq('B2m 同行带原因 delete-ack-exempt ⇒ 放过(与 B1 同一条通道、同一份实现)', b2(B2FIX.callerMarkerOk, NO_RET), [
+    1, 0, 0, 1, 0, 0,
+  ])
+  eq(
+    'B2f① 裸标记无原因 ⇒ 仍红且裸标记计数 1("须带原因"不得被放宽)',
+    b2(B2FIX.callerMarkerBare, NO_RET),
+    [1, 1, 0, 0, 1, 0],
+  )
+  eq(
+    'B2f② 标记写在紧邻上一行 ⇒ 不放行(与 B1 同规格:只本行生效)',
+    b2(B2FIX.callerMarkerPrevLine, NO_RET),
+    [1, 1, 0, 0, 0, 0],
+  )
+  eq(
+    'B2e 既有四数与 B1 六数一字不被 B2 顶动(两判据各计各的账)',
+    (() => {
+      const r = scanFileText(B2_CALLER, B2FIX.delegated, {
+        knownPaths: new Set([B2_CALLEE]),
+        calleeIndex: new Map([[B2_CALLEE, indexExportedFns(maskText(NO_RET).text)]]),
+      })
+      return [
+        r.candidates.length,
+        r.violations.length,
+        r.undetermined.length,
+        r.exempt.returning + r.exempt.db + r.exempt.outlet + r.exempt.marker,
+        r.b1.candidates.length,
+        r.b1.violations.length,
+        r.booleanAck.length,
+        r.readQuery.length,
+      ]
+    })(),
+    [0, 0, 0, 0, 0, 0, 1, 0],
+  )
+  const D2 = (over) =>
+    D({ face: 'head', violations: [], undetermined: [], ratcheted: null, strict: false, ...over })
+  eq(
+    'B2d decide:B2 是判据 —— 全量默认不红、--strict 红、staged 靠 kind=b2 那条红、未判定在 --strict 下 exit 2',
+    [
+      D2({ b2Violations: [{}] }),
+      D2({ strict: true, b2Violations: [{}] }),
+      D({
+        face: 'staged',
+        violations: [],
+        undetermined: [],
+        ratcheted: [{ file: 'x', kind: 'b2', now: 1, anchor: 0, added: 1 }],
+        strict: false,
+        b2Violations: [{}],
+      }),
+      D2({ strict: true, b2Undetermined: [{}] }),
+      D2({ b2Undetermined: [{}] }),
+    ],
+    [0, 1, 1, 2, 0],
+  )
   // ---- 只报数不改判据的两把锁:把惯例计数接进退出码 / 让它从结论行消失,各自必读红。----
   eq(
     'X1 惯例计数再大也不得进退出码(--strict 也一样:存量是决策依据,不是债)',
@@ -1805,7 +2605,7 @@ function selfTest(argv) {
     true,
   )
   eq(
-    'X3d staged 判红块按 kind 分列两条判据,措辞不得互相顶账',
+    'X3d staged 判红块按 kind 分列三条判据,措辞不得互相顶账',
     (() => {
       const t = formatReport({
         face: 'staged',
@@ -1813,20 +2613,56 @@ function selfTest(argv) {
         ratcheted: [
           { file: 'a.ts', kind: 'count', now: 2, anchor: 1, added: 1 },
           { file: 'b.ts', kind: 'b1', now: 1, anchor: 0, added: 1 },
+          { file: 'c.ts', kind: 'b2', now: 1, anchor: 0, added: 1 },
         ],
         violations: [],
         undetermined: [],
         exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
         b1Violations: [],
+        b2Violations: [],
         counts: BASE_COUNTS,
       }).join('\n')
       return (
         t.includes('[计数自算] a.ts') &&
         t.includes('[B1假ack] b.ts') &&
-        /计数自算 1 · B1 假 ack 1/.test(t)
+        t.includes('[B2委托假ack] c.ts') &&
+        /计数自算 1 · B1 假 ack 1 · B2 委托假 ack 1/.test(t)
       )
     })(),
     true,
+  )
+  eq(
+    'B2fmt 结论行必须现读点名 B2 的五个数(0 也照喊);有 B2 违规或未判定时不得出"✅ 通过"',
+    (() => {
+      const t0 = fmtB1()
+      const t1 = fmtB1(
+        { b2Violations: 3, b2Files: 2, b2Candidates: 5 },
+        {
+          b2Violations: [
+            {
+              file: 'apps/api/src/routes/y.ts',
+              line: 9,
+              callee: { file: 'apps/api/src/db/y.ts', name: 'deleteY' },
+            },
+          ],
+        },
+      )
+      const t2 = fmtB1(
+        { b2Undetermined: 4 },
+        { b2Undetermined: [{ file: 'a.ts', line: 3, undetermined: [{ kind: 'reexport', name: 'del' }] }] },
+      )
+      return [
+        /B2 委托假 ack\(判据:违规 0 处 \/ 0 文件,候选 0,放过 0 只报数,那一跳解析不到不判 0\)/.test(t0),
+        !/✅ 通过/.test(t1) &&
+          /B2 委托假 ack 3 处 \/ 2 文件/.test(t1) &&
+          /apps\/api\/src\/routes\/y\.ts:9/.test(t1) &&
+          /apps\/api\/src\/db\/y\.ts#deleteY/.test(t1),
+        !/✅ 通过/.test(t2) && /B2 未判定 4 处/.test(t2) && /reexport/.test(t2),
+        // B2 的数不得顶动既有四数与 B1 的那一句(X2b/X3 同一条要求的延续)
+        /^候选 0 \/ 违规 0 \/ 未判定 0 \/ 豁免 0/m.test(t1) && /B1 假 ack\(判据:违规 0 处 \/ 0 文件/.test(t1),
+      ]
+    })(),
+    [true, true, true, true],
   )
   eq(
     'S1 词法未闭合 ⇒ 整文件未判定(U2)',
@@ -2034,6 +2870,68 @@ function selfTest(argv) {
         //             HEAD 存量1  默认0  strict1  持平0  持平无红  新增1  锚点=1    修复0   锚点降0   改回1   仅1条红
         [1, 0, 1, 0, 0, 1, true, 0, 0, 1, 1],
       )
+      // B2R:B2 端到面 —— 同一棵临时仓里放"调用方 + 被调腿"两个路径,把"摘掉被调腿的 .returning("
+      // 这一型在**索引面**上跑成红、在 HEAD 面上只报数。这是 B2 的装车证明:构造面只证明函数会给
+      // 答案,"有人问了它"要靠真走一遍 analyze 的同面两遍取材(守门 118 的半接线同型)。
+      eq(
+        'B2R1–R6 端到面:HEAD 存量不红 / --strict 红 / 持平 0 / 补回 .returning( 即归零 / 摘掉必红且落在调用方 / 被调腿整文件不在面上⇒未判定不判红',
+        (() => {
+          const d4 = mkScratch('bch-b2-')
+          const C4 = 'apps/api/src/routes/b2-caller.ts'
+          const K4 = 'apps/api/src/db/b2-queries.ts'
+          try {
+            git(['init', '-q'], d4)
+            git(['config', 'user.email', 'g@f.local'], d4)
+            git(['config', 'user.name', 'g'], d4)
+            const st4 = (rel, text) => {
+              mkdirSync(join(d4, dirname(rel)), { recursive: true })
+              writeFileSync(join(d4, rel), text, 'utf8')
+              git(['add', '--', rel], d4)
+            }
+            // 夹具里的路径常量按真实仓形状拼,这里把两个夹具文件改成临时仓里的落点。
+            const caller = (calleeRel) =>
+              B2FIX.delegated.replace(
+                "from '../db/b2-queries.js'",
+                `from '${calleeRel}'`,
+              )
+            st4(C4, caller('../db/b2-queries.js'))
+            st4(K4, B2FIX.calleeNoReturning)
+            git(['commit', '-q', '-m', 'b2-debt'], d4)
+            const hd = analyze(d4, 'head')
+            const hdStrict = analyze(d4, 'head', { strict: true })
+            const flat = analyze(d4, 'staged')
+            st4(K4, B2FIX.calleeReturning) // 第二十六批产出的形态
+            const fixed = analyze(d4, 'staged')
+            git(['commit', '-q', '-m', 'b2-fixed'], d4)
+            st4(K4, B2FIX.calleeNoReturning) // 回退:调用方一个字没动
+            const regressed = analyze(d4, 'staged')
+            const b2Red = (a) => (a.ratcheted || []).filter((x) => x.kind === 'b2')
+            git(['commit', '-q', '-m', 'b2-restored', '--', K4], d4)
+            // 被调腿整个不在 HEAD 面上(别人还没 add 的在途文件)⇒ 那一跳判不出 ⇒ 未判定,不判红
+            git(['rm', '-q', '--cached', '-r', '--', 'apps/api/src/db'], d4)
+            git(['commit', '-q', '-m', 'drop-callee'], d4)
+            const gone = analyze(d4, 'head')
+            return [
+              hd.counts.b2Violations,
+              hd.exit,
+              hdStrict.exit,
+              flat.exit,
+              fixed.counts.b2Violations,
+              fixed.exit,
+              regressed.exit,
+              b2Red(regressed).length,
+              b2Red(regressed)[0]?.anchor,
+              b2Red(regressed)[0]?.now,
+              // 只有被调腿变了 ⇒ 红点必须落在**调用方**文件上(它才是那条假 ack 的主人)
+              b2Red(regressed)[0]?.file,
+              `${gone.counts.b2Violations}/${gone.counts.b2Undetermined}/${gone.exit}`,
+            ]
+          } finally {
+            rmScratch(d4)
+          }
+        })(),
+        [1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 'apps/api/src/routes/b2-caller.ts', '0/1/0'],
+      )
       const empty = mkScratch('bch-empty-')
       try {
         git(['init', '-q'], empty)
@@ -2118,5 +3016,19 @@ export const __test__ = {
   EXEMPT_TOKEN,
   DELETE_ACK_EXEMPT_TOKEN,
   SCAN_DIRS,
+  // B2 同族:一跳委托的两侧取材与判定都必须从这里取(镜像测试不得另写一份 import 解析或导出索引)。
+  parseImportBindings,
+  moduleSpecCandidates,
+  indexExportedFns,
+  planDelegatedAckSites,
+  finishDelegatedAckSite,
+  aggregateB2,
+  listFacePaths,
+  readCalleeTexts,
+  scanFaceBundle,
+  B2_FIXTURES: B2FIX,
+  B2_CALLER,
+  B2_CALLEE,
+  API_SRC_DIR,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
