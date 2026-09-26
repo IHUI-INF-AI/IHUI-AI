@@ -17,7 +17,7 @@
 // 不得新增/删除/改名任何 property,不得改动 required 集合。回归表现为"模型突然不会填参数"
 // (不报错,只会填错),所以证明只能是**同瞬间 A/B**,不是"跑绿了"。
 
-import type { ProviderJsonSchema, ToolShapeDescriptor } from './tool-contract'
+import type { ProviderJsonSchema, ToolShapeDescriptor } from './tool-contract.js'
 
 /** 归一化过程中"引用类"记账键:它们只服务于解析器,provider 侧无意义。 */
 const REFERENCE_BOOKKEEPING_KEYS = [
