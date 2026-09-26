@@ -175,4 +175,166 @@ export function skipsApprovalPermissionMode(mode: PermissionModeId): boolean {
   const policy = POLICY_BY_MODE[mode]
   return policy === 'auto-approve-safe' || policy === 'auto-approve-all'
 }
+
+// ===========================================================================
+// ChatMode × PermissionMode 笛卡尔矩阵(V3 #53,2026-09-27 立)
+// ===========================================================================
+//
+// Python 运行时真源在 apps/ai-service/app/core/permission_mode.py(同名三轴 + 25 格),
+// 本文件是它的跨语言镜像:两侧逐格必须等值,由
+// scripts/check-mode-permission-matrix.mjs 对账(guardian 注册由主会话落)。
+// 合成规矩与语义依据全部写在 Python 侧注释里,此处只镜像数据 —— 两处各写一份
+// 推导规则必然漂移,本仓已多次为此翻车。
+//
+// tools: 'all' 全工具 | 'readonly' 仅只读白名单 | 'none' 禁用全部
+// approval: 'all' 逐个高危审批 | 'safe' 只读/安全免批其余审批 | 'none' 不进审批门
+// 工具白名单本身不在这里(唯一真源 = ai-service app/services/plan_mode.py 的
+// READONLY_TOOLS,TS 侧快照在 chat-mode-policy.ts 的 CHAT_MODE_READONLY_TOOLS)。
+
+/** ChatMode 清单镜像(与 app/core/permission_mode.py 的 CHAT_MODES 同序同值)。 */
+export const CHAT_MODE_IDS = ['ask', 'build', 'plan', 'review', 'spec'] as const
+export type ChatModeId = (typeof CHAT_MODE_IDS)[number]
+
+/** 工具可用档(与 Python 的 ToolClass 同集合)。 */
+export type ToolClass = 'all' | 'readonly' | 'none'
+/** 审批档(与 Python 的 ApprovalClass 同集合)。 */
+export type ApprovalClass = 'all' | 'safe' | 'none'
+
+/** 轴一:ChatMode → 工具档(与 chat-mode-policy.ts 的 CHAT_MODE_TOOL_POLICY 同语义)。 */
+export const CHAT_MODE_TOOL_AXIS: Readonly<Record<ChatModeId, ToolClass>> = {
+  ask: 'none',
+  build: 'all',
+  plan: 'readonly',
+  review: 'readonly',
+  spec: 'all',
+}
+
+/** 轴二:PermissionMode → 工具档。 */
+export const PERMISSION_MODE_TOOL_AXIS: Readonly<Record<PermissionModeId, ToolClass>> = {
+  default: 'all',
+  acceptEdits: 'all',
+  bypassPermissions: 'all',
+  plan: 'readonly',
+  manual: 'all',
+}
+
+/** 轴三:PermissionMode → 审批档。plan 记 'all' 而非 'none' 的理由见 Python 侧轴三注释(不给绕过可用性闸的路径留 fail-open)。 */
+export const PERMISSION_MODE_APPROVAL_AXIS: Readonly<Record<PermissionModeId, ApprovalClass>> = {
+  default: 'all',
+  acceptEdits: 'safe',
+  bypassPermissions: 'none',
+  plan: 'all',
+  manual: 'all',
+}
+
+/** 25 格工具档(镜像 Python 的 CHAT_PERMISSION_TOOL_MATRIX)。 */
+export const CHAT_PERMISSION_TOOL_MATRIX: Readonly<
+  Record<ChatModeId, Readonly<Record<PermissionModeId, ToolClass>>>
+> = {
+  ask: {
+    default: 'none',
+    acceptEdits: 'none',
+    bypassPermissions: 'none',
+    plan: 'none',
+    manual: 'none',
+  },
+  build: {
+    default: 'all',
+    acceptEdits: 'all',
+    bypassPermissions: 'all',
+    plan: 'readonly',
+    manual: 'all',
+  },
+  plan: {
+    default: 'readonly',
+    acceptEdits: 'readonly',
+    bypassPermissions: 'readonly',
+    plan: 'readonly',
+    manual: 'readonly',
+  },
+  review: {
+    default: 'readonly',
+    acceptEdits: 'readonly',
+    bypassPermissions: 'readonly',
+    plan: 'readonly',
+    manual: 'readonly',
+  },
+  spec: {
+    default: 'all',
+    acceptEdits: 'all',
+    bypassPermissions: 'all',
+    plan: 'readonly',
+    manual: 'all',
+  },
+}
+
+/** 25 格审批档(镜像 Python 的 CHAT_PERMISSION_APPROVAL_MATRIX)。 */
+export const CHAT_PERMISSION_APPROVAL_MATRIX: Readonly<
+  Record<ChatModeId, Readonly<Record<PermissionModeId, ApprovalClass>>>
+> = {
+  ask: {
+    default: 'none',
+    acceptEdits: 'none',
+    bypassPermissions: 'none',
+    plan: 'none',
+    manual: 'none',
+  },
+  build: {
+    default: 'all',
+    acceptEdits: 'safe',
+    bypassPermissions: 'none',
+    plan: 'all',
+    manual: 'all',
+  },
+  plan: {
+    default: 'all',
+    acceptEdits: 'safe',
+    bypassPermissions: 'none',
+    plan: 'all',
+    manual: 'all',
+  },
+  review: {
+    default: 'all',
+    acceptEdits: 'safe',
+    bypassPermissions: 'none',
+    plan: 'all',
+    manual: 'all',
+  },
+  spec: {
+    default: 'all',
+    acceptEdits: 'safe',
+    bypassPermissions: 'none',
+    plan: 'all',
+    manual: 'all',
+  },
+}
+
+/** 工具可用档(与 Python 的 ToolClass 同集合)。 */
+export type ToolClass = 'all' | 'readonly' | 'none'
+/** 审批档(与 Python 的 ApprovalClass 同集合)。 */
+export type ApprovalClass = 'all' | 'safe' | 'none'
+
+/**
+ * (ChatMode, PermissionMode) → 该组合的工具档与审批档。
+ *
+ * 兜底方向与 Python 侧一致且刻意保守:认不出的 chat 按 'build',
+ * 认不出的 permission 按 'default'(审批档最严),**不得**把"没人认识"读成"放宽"。
+ * 未归一的入参请先过 normalizePermissionMode / 本文件的 CHAT_MODE_IDS。
+ */
+export function resolveChatPermissionPolicy(
+  chatMode: string | null | undefined,
+  permissionMode: unknown,
+): { chatMode: ChatModeId; permissionMode: PermissionModeId; tools: ToolClass; approval: ApprovalClass } {
+  const chat: ChatModeId =
+    chatMode && (CHAT_MODE_IDS as readonly string[]).includes(chatMode)
+      ? (chatMode as ChatModeId)
+      : 'build'
+  const perm = normalizePermissionMode(permissionMode) ?? 'default'
+  return {
+    chatMode: chat,
+    permissionMode: perm,
+    tools: CHAT_PERMISSION_TOOL_MATRIX[chat][perm],
+    approval: CHAT_PERMISSION_APPROVAL_MATRIX[chat][perm],
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
