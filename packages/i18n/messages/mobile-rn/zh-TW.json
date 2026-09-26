@@ -202,6 +202,16 @@
     "runtimeSend": "傳送"
   },
   "chat": {
+    "connectorAuth": {
+      "title": "連接到 {connectorName}",
+      "connected": "已連接",
+      "reconnect": "重新連接 {connectorName}",
+      "connect": "連接",
+      "connecting": "連接中…",
+      "moreInfo": "更多資訊",
+      "decline": "暫不",
+      "declined": "已拒絕連接 {connectorName}。本次對話不受影響。"
+    },
     "contextUsage": {
       "title": "上下文使用情況",
       "used": "已使用",
