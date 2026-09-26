@@ -213,13 +213,17 @@ jobs:
         # ERR_MODULE_NOT_FOUND(与 e2e.yml 同一教训)。
         run: pnpm --filter @ihui/database run build
 
-      - name: Build api-client package
+      - name: Build workspace deps (topological closure)
         # 抄自 e2e.yml 同名步骤(那条自 2026-08 在位,本文件创建时漏抄):
         # @ihui/api-client 的 main/module/types/exports 全指向 ./dist/* 且 dist 不入库,
         # 而 `pnpm --filter <pkg> run build` 不带 `...` 不做拓扑构建 ⇒ 不先建它就
         # 构建 api/web 必 Module not found(任务书诊断序第 2 条,正解先例
         # openapi-check.yml:77)。
-        run: pnpm --filter @ihui/api-client build
+        # 2026-09-26 起改用拓扑选择器 `^...`(= 该包的**全部 workspace 依赖**,不含本包):
+        # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
+        # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
+        # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
+        run: pnpm --filter "@ihui/api^..." --filter "@ihui/web^..." run build
 
       - name: Build API
         run: pnpm --filter @ihui/api run build

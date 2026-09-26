@@ -4,21 +4,38 @@
   "private": true,
   "description": "IHUI-AI 设计令牌(8端共享):cn() 类名合并工具 + design tokens 色板/间距/字号/圆角/阴影/z-index,导出 JS 对象 + CSS 变量双形式",
   "type": "module",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
-    "./styles/tokens.css": "./src/styles/tokens.css",
-    "./tailwind-preset": "./src/tailwind-preset.js"
+    "./styles/tokens.css": "./dist/styles/tokens.css",
+    "./tailwind-preset": "./dist/tailwind-preset.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IHUI-INF-AI/IHUI-AI.git",
+    "directory": "packages/design-tokens"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "rimraf dist && tsc -p tsconfig.json && node scripts/copy-assets.mjs",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "pnpm run build",
     "clean": "rimraf dist .turbo node_modules"
   },
   "dependencies": {

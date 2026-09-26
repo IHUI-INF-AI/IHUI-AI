@@ -1,11 +1,14 @@
 {
   "counts": {
-    "BottomActionBar": 16,
-    "Carousel": 2,
+    "BottomActionBar": 15,
+    "Carousel": 6,
     "FloatBox": 2,
-    "InputArea": 1,
+    "InputArea": 3,
+    "ModelConfigDialog": 6,
     "ModelList": 10,
-    "NavBar": 5
+    "NavBar": 5,
+    "UserInfoCard": 5,
+    "VideoPlayer": 4
   },
   "waivers": {}
 }

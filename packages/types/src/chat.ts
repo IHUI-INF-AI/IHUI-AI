@@ -23,7 +23,7 @@ import type {
   SubAgentActivity,
   PlanStep,
   TerminalTask,
-} from './ai'
+} from './ai.js'
 
 /**
  * 消息角色
