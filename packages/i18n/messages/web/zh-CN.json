@@ -8137,6 +8137,10 @@
           "title": "浏览器调试通道不可用",
           "action": "开启后重试"
         },
+        "CHAT_MODE_TOOL_BLOCKED": {
+          "title": "当前对话模式已拦截该操作",
+          "action": "切换到构建模式后重试"
+        },
         "CONCURRENCY_LIMIT_EXCEEDED": {
           "title": "请求过于频繁",
           "action": "稍后重试"
@@ -8480,6 +8484,10 @@
         "TOOL_FAILED": {
           "title": "工具执行失败",
           "action": "重试"
+        },
+        "TOOL_MODE_UNAVAILABLE": {
+          "title": "该工具在当前运行模式不可用",
+          "action": "改用等价的本地工具"
         },
         "TOOL_NOT_FOUND": {
           "title": "未找到目标资源",

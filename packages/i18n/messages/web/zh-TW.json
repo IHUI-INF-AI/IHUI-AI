@@ -8137,6 +8137,10 @@
           "title": "瀏覽器除錯通道不可用",
           "action": "開啟後重試"
         },
+        "CHAT_MODE_TOOL_BLOCKED": {
+          "title": "目前對話模式已封鎖該操作",
+          "action": "切換至建構模式後重試"
+        },
         "CONCURRENCY_LIMIT_EXCEEDED": {
           "title": "請求過於頻繁",
           "action": "稍後重試"
@@ -8480,6 +8484,10 @@
         "TOOL_FAILED": {
           "title": "工具執行失敗",
           "action": "重試"
+        },
+        "TOOL_MODE_UNAVAILABLE": {
+          "title": "該工具在目前執行模式不可用",
+          "action": "改用等價的本機工具"
         },
         "TOOL_NOT_FOUND": {
           "title": "找不到目標資源",

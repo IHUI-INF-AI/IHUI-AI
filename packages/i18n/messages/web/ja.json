@@ -8137,6 +8137,10 @@
           "title": "ブラウザのデバッグチャネルを利用できません",
           "action": "有効にして再試行"
         },
+        "CHAT_MODE_TOOL_BLOCKED": {
+          "title": "現在のチャットモードではこの操作はブロックされます",
+          "action": "ビルドモードに切り替えて再試行"
+        },
         "CONCURRENCY_LIMIT_EXCEEDED": {
           "title": "リクエストが多すぎます",
           "action": "しばらくしてから再試行"
@@ -8480,6 +8484,10 @@
         "TOOL_FAILED": {
           "title": "ツールの実行に失敗しました",
           "action": "再試行"
+        },
+        "TOOL_MODE_UNAVAILABLE": {
+          "title": "このツールは現在の実行モードでは利用できません",
+          "action": "等価なローカルツールに切り替え"
         },
         "TOOL_NOT_FOUND": {
           "title": "対象のリソースが見つかりません",
