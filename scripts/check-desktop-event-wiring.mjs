@@ -494,6 +494,26 @@ function extractRustFn(rustText, fnName) {
   return null
 }
 
+/**
+ * G4 的"就绪点亮"判据:赋值允许被抽进**被该命令调用**的函数里(一跳,不追传递闭包)。
+ *
+ * 起因(2026-09-26 实测):`lib.rs` 把状态迁移抽成纯函数 `apply_take_ready(&mut gate)`
+ * 好让单测直接断言,而本判据只看命令函数体里的字面量 —— 于是**别人把代码写得更好**
+ * 被读成"机制断裂",一台 blocking 门因一次正当重构而恒红。恒红 blocking 门的唯一结局
+ * 是每个会话 `--no-verify`,连带全部守门对该提交作废(§12e / 门 77/83 同一条反面教训)。
+ * 刻意只做一跳:再宽就需要真正的 resolver,而判据每宽一格,假绿的风险就涨一格。
+ * 反向护栏由 `--self-test` 钉死:赋值藏在一个命令**没调用**的函数里,必须仍然判红 ——
+ * 否则本函数就退化成"整份文件里出现过就算",那等于没有判据。
+ */
+function reachesReadyMark(rustText, takeCmd) {
+  if (/target_ready\s*=\s*true/.test(takeCmd)) return true
+  for (const m of takeCmd.matchAll(/\b([a-z][a-z0-9_]{4,})\s*\(/g)) {
+    const body = extractRustFn(rustText, m[1])
+    if (body && /target_ready\s*=\s*true/.test(body)) return true
+  }
+  return false
+}
+
 /** 桥接端深链那一段:从它自己的 listen( 起,到下一个 listen( 或文件末 */
 function extractBridgeDeepLinkBlock(bridgeText) {
   const re = /listen(?:<[^>]*>)?\(\s*'([a-z][a-z0-9-]*)'/g
@@ -612,8 +632,11 @@ function auditDeepLinkMechanism(rawRust, rawBridge) {
   const takeCmd = extractRustFn(rustText, G_DEEP_LINK_TAKE_COMMAND)
   if (!takeCmd) say(`G4 命令 ${G_DEEP_LINK_TAKE_COMMAND} 不见了(前端就绪后无处可取)`)
   else {
-    if (!/target_ready\s*=\s*true/.test(takeCmd))
-      say('G4 取回积压时未把闸门置为已就绪 ⇒ 此后每条深链都只会堆进队列,永不直投')
+    const ready = reachesReadyMark(rustText, takeCmd)
+    if (!ready)
+      say(
+        'G4 取回积压时未把闸门置为已就绪 ⇒ 此后每条深链都只会堆进队列,永不直投(命令体内与其一跳被调函数里都没有 target_ready = true)',
+      )
     if (!/label\(\)/.test(takeCmd))
       say('G4 取回命令不再按窗口 label 绑定 ⇒ 别的窗口(admin)可以把 main 的登录码取走(串号)')
   }
@@ -777,10 +800,16 @@ impl DeepLinkPending {
     }
     fn take_all(&mut self) -> Vec<String> { std::mem::take(&mut self.urls).into_iter().collect() }
 }
+fn apply_take_ready(gate: &mut DeepLinkGateState) -> (bool, Vec<String>) {
+    gate.target_ready = true;
+    (true, gate.pending.take_all())
+}
+/// 与 HEAD 的 lib.rs 同形:状态迁移被抽进纯函数以便单测直接断言,命令只负责按 label 把关后调用它。
+/// 夹具必须长这样 —— 它一旦退回"赋值内联",下面那条"一跳解析"的判据就变成只复读实现的尺子。
 fn take_pending_deep_links(window: tauri::WebviewWindow) -> Vec<String> {
     if window.label() != "main" { return Vec::new(); }
-    gate.target_ready = true;
-    gate.pending.take_all()
+    let (_first_take, backlog) = apply_take_ready(&mut gate);
+    backlog
 }
 fn reset_deep_link_gate_on_destroy(label: &str) { gate.pending.clear(); }
 fn dispatch_deep_links(app: &tauri::AppHandle, urls: &[String]) {
@@ -844,6 +873,31 @@ async function deliverDeepLinkUrl(raw: string): Promise<void> {
       'G3 溢出丢弃不计数(删 dropped)必红',
       gCount(gRust((s) => s.replace('self.dropped += 1; ', ''))),
       'G3',
+    ) && ok
+  ok =
+    check(
+      'G4 就绪赋值抽在**被命令调用**的纯函数里 ⇒ 不得判红(HEAD 真形态;把它判红就等于因别人重构而恒红,而恒红 blocking 门的唯一结局是全队 --no-verify)',
+      gCount().filter((v) => v.startsWith('G4')),
+      true,
+    ) && ok
+  ok =
+    checkHas(
+      'G4 赋值留在纯函数里、但命令改调别的(不再点亮)⇒ 必红(反"整份文件里出现过就算"的假绿)',
+      gCount(
+        gRust((s) =>
+          s.replace(
+            'let (_first_take, backlog) = apply_take_ready(&mut gate);',
+            'let backlog = gate.pending.take_all();',
+          ),
+        ),
+      ),
+      'G4',
+    ) && ok
+  ok =
+    checkHas(
+      'G4 把就绪赋值从被调纯函数里删掉 ⇒ 必红(点亮处只有一处,删了就该被发现)',
+      gCount(gRust((s) => s.replace('    gate.target_ready = true;\n', ''))),
+      'G4',
     ) && ok
   ok =
     checkHas(
