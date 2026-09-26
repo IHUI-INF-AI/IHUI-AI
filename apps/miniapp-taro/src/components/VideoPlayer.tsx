@@ -4,6 +4,16 @@
 
 import { useTt } from '@/i18n'
 import { View, Text, Video } from '@tarojs/components'
+import type { CSSProperties } from 'react'
+import { vpStageHeightRpx } from '@ihui/shared/ui/video-player-spec'
+import { rpx } from '@/utils/rpx'
+
+/**
+ * 舞台高度单一源是 `video-player-spec` 的 16:9 比例(与 RN `aspectRatio` 同源同值);
+ * 原先写死 `210px` 是"375 参考宽上的投影",换算成 rpx 后随屏宽缩放,行为也与 RN 对齐。
+ * 控制条是微信原生 chrome(平台机制,登记 waiver),故本端只吃舞台尺寸这一档。
+ */
+const STAGE_STYLE: CSSProperties = { height: rpx(vpStageHeightRpx()) }
 
 export interface VideoPlayerProps {
   src?: string
@@ -35,7 +45,7 @@ export default function VideoPlayer({
     return (
       <View
         className="flex items-center justify-center w-full bg-[var(--color-black)]"
-        style={{ height: '210px' }}
+        style={STAGE_STYLE}
       >
         <Text className="text-sm text-muted-foreground">
           {tt('common.loadingShort', '加载中...')}
@@ -48,7 +58,7 @@ export default function VideoPlayer({
     return (
       <View
         className="flex items-center justify-center w-full bg-[var(--color-black)]"
-        style={{ height: '210px' }}
+        style={STAGE_STYLE}
       >
         <Text className="text-sm text-muted-foreground">{tt('video.noVideo', '暂无视频')}</Text>
       </View>
@@ -56,10 +66,10 @@ export default function VideoPlayer({
   }
 
   return (
-    <View className="w-full bg-[var(--color-black)]" style={{ height: '210px' }}>
+    <View className="w-full bg-[var(--color-black)]" style={STAGE_STYLE}>
       <Video
         className="w-full"
-        style={{ height: '210px' }}
+        style={STAGE_STYLE}
         src={src}
         poster={poster}
         controls={controls}
