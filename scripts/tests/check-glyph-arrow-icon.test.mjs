@@ -14,6 +14,7 @@
  * 摘线或错接线都会被这里抓回,而不是靠人记得。
  */
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -47,6 +48,12 @@ test('§22c phase B:源脚本必须 export __test__ 且含核心判据(缺一项
     'classifyBackLabel',
     'findBackLabelChildren',
     'walkAffordanceChildren',
+    'findRnDoubleHeaders',
+    'headerBackFiles',
+    'importsOf',
+    'barrelExportMap',
+    'RN_SCREEN_PREFIXES',
+    'RN_APP_BARREL',
     'HANDLER_ATTR_RE',
     'PREFILTER',
     'SCAN_DIRS',
@@ -105,6 +112,10 @@ test('预筛必须是判据字面量的超集 —— 加了字形忘了加进预
   }
   for (const w of ['fontSize', 'font-size', '返回'])
     assert.ok(gate.PREFILTER.includes(w), `预筛漏了 ${w}:GA2/GA4 将永远扫不到`)
+  // GA7 的标识符与 GA6 同理是**跨文件判据**的识别字面量:漏 headerShown ⇒ H3 整型隐身;
+  // 漏 onBack ⇒ H2 的候选 wrapper 被预筛整批丢掉(2026-09-26 立项同批补,防"两次改动各写一半"复现)。
+  for (const w of ['BackChevron', 'NavBar', 'navigationStyle', 'headerShown', 'onBack'])
+    assert.ok(gate.PREFILTER.includes(w), `预筛漏了 ${w}:GA6/GA7 将永远扫不到`)
   // GA4 的键名判据必须认 back 与 back<数字> 两种,且**不得**认带宾语的标签
   for (const k of ['common.back', 'forgot.back', 'adaptersSelectertaro.back4'])
     assert.ok(
@@ -393,6 +404,64 @@ test('GA5 / GA6 必须真的挂在 scan() 上(判据写在文件里而没人调�
       readFileSync(join(ROOT, 'scripts', 'check-glyph-arrow-icon.mjs'), 'utf8'),
     ),
     'GA6 直接按磁盘读页面 config 会造出"索引里没改而磁盘上改了"的假红/假绿',
+  )
+})
+
+test('GA7 必须真挂在 scan() 上,且正反两例的输入逐字取自 HEAD 真文件(§22c:镜像只复读实现就是复读机)', () => {
+  // 立门的那一型是**跨文件组合**(wrapper 的 NavBar × 子屏的 BackChevron),所以判"接线"不能靠夹具
+  // 名字 —— 夹具复刻的是实现的形状;这里喂 git show 现读的三份真文件,scan() 必须量到 HEAD 上
+  // 真实存在的 SettingsScreen 双层页头,量不到 = 判据被摘或解析层坏了。
+  const gitShow = (p) =>
+    execFileSync('git', ['show', `HEAD:${p}`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 120000,
+      windowsHide: true,
+    })
+  const WRAP = 'apps/mobile-rn/src/screens/SettingsScreen.tsx'
+  const CHILD = 'packages/app/src/features/settings/SettingsScreen.tsx'
+  const BARREL = 'packages/app/src/index.ts'
+  const src = Object.fromEntries([WRAP, CHILD, BARREL].map((p) => [p, gitShow(p)]))
+  const { violations, notes } = gate.scan((p) => src[p] ?? null, [WRAP, CHILD, BARREL], {
+    checkWiring: false,
+  })
+  assert.ok(
+    violations.ga7.length >= 1,
+    'GA7 组合层双返回未经 scan() 产出(判据被摘线,或 barrel 一跳解析坏了)—— HEAD 全量实测该页就是红点之一',
+  )
+  assert.ok(
+    violations.ga7.some((x) => x.file === WRAP),
+    `GA7 应点名 wrapper(mobile-rn 侧组合层)而不是子屏:${violations.ga7.map((x) => x.file).join(' | ')}`,
+  )
+  assert.equal(
+    notes.rnDoubleUndetermined.length,
+    0,
+    '真文件 barrel 是命名再导出、三份齐备 ⇒ 不该有未判定;闪出未判定说明解析层对着真实形态失效了',
+  )
+  // 反向对照也用真文件:ActivityDetailScreen 的 3 套页头分属**互斥 return 分支**(returns@26,40,57),
+  // 那是正当形态 —— 首版按整文件计数把 12 处读数里的 9 处判成了假阳,这条锁禁止口径退回去。
+  const ADR = 'packages/app/src/features/activity-detail/ActivityDetailScreen.tsx'
+  const adr = gitShow(ADR)
+  assert.ok(
+    (adr.match(/\breturn\b/g) || []).length >= 3 && (adr.match(/<BackChevron\b/g) || []).length >= 3,
+    '夹具前提变了(该文件不再是"多分支各一套页头"的形态)⇒ 这条反向锁需要换受害者,不得删',
+  )
+  const r2 = gate.scan((p) => (p === ADR ? adr : null), [ADR], { checkWiring: false })
+  assert.equal(r2.violations.ga7.length, 0, '互斥分支各画一套被误判 = 假阳回流,分支口径已退化')
+  // 静态锁:scan() 真调 findRnDoubleHeaders;scanRepo 真把 headerBackFiles 补进批次(GA7 的依赖
+  // 与屏文件必须同面同轮 —— 漏补时 --staged 只含 wrapper,子屏永远"取不到",整条判据在提交链失明)
+  const SRC = readFileSync(join(ROOT, 'scripts', 'check-glyph-arrow-icon.mjs'), 'utf8')
+  assert.ok(/findRnDoubleHeaders\(readFile, files\)/.test(SRC), 'scan() 不再调用 findRnDoubleHeaders = 摘线')
+  assert.ok(
+    /\.\.\.headerBackFiles\(root, face\)/.test(SRC),
+    'scanRepo 的取材批次丢了 headerBackFiles = GA7 依赖读不到,会把"没读"洗成"没命中"',
+  )
+  const body = SRC.slice(SRC.indexOf('export function findRnDoubleHeaders'))
+  const ga7Body = body.slice(0, body.indexOf('// ── 扫描'))
+  assert.ok(
+    ga7Body.length > 100 && !ga7Body.includes('readFileSync('),
+    'GA7 直接按磁盘读 barrel/子屏 = 与 GA6 的 config 磁盘读同一型假红/假绿来源',
   )
 })
 
