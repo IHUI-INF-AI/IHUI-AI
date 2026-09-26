@@ -482,8 +482,6 @@
   "ai": {
     "contextUsage": {
       "title": "上下文使用情況",
-      "used": "已使用",
-      "max": "最大容量",
       "segSystem": "系統提示",
       "segToolSchema": "工具定義",
       "segSkill": "技能正文",
@@ -542,7 +540,6 @@
       "digitalHuman": "數字人生成 →",
       "voiceMessage": "語音消息",
       "downloading": "下載中",
-      "downloadSuccess": "已儲存到相簿",
       "downloadFailed": "下載失敗",
       "needAlbumAuth": "需要相簿權限才能儲存圖片,請在設定中開啟",
       "collapse": "收起",
