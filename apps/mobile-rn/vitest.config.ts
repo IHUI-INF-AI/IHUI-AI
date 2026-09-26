@@ -4,7 +4,21 @@
 
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import { readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
+
+const SHARED_UI_DIR = resolve(__dirname, '../../packages/shared/src/ui')
+
+/**
+ * `@ihui/shared/ui/*-spec` 是纯几何/结构源(不触 DOM/RN),别名必须指真实源码 ——
+ * 给它写 mock 测的就是 mock。逐条手写已被证明会漏:漏配 intelligent-assistant-spec 时
+ * 471 条用例照样"通过",而该组件的套件在收集期就炸(一条没跑)。所以按目录派生。
+ */
+const SHARED_UI_SPEC_ALIASES = Object.fromEntries(
+  readdirSync(SHARED_UI_DIR)
+    .filter((f) => f.endsWith('-spec.ts'))
+    .map((f) => [`@ihui/shared/ui/${f.replace(/\.ts$/, '')}`, resolve(SHARED_UI_DIR, f)]),
+)
 
 export default defineConfig({
   plugins: [react()],
@@ -100,25 +114,9 @@ export default defineConfig({
       // O81 票③:shared 包新增 './ui' 子路径导出(barrel + 纯 spec 模块,无 DOM/RN 依赖),
       // 当时漏配别名 ⇒ 父别名 '@ihui/shared' 按 startsWith(pattern+'/') 吞掉 '@ihui/shared/ui',
       // 改写成 <mock ihui-shared.ts>/ui 而解析失败(BackChevron.tsx / VoiceInput.tsx 等收集期即炸)。
-      // 与 app-control-intent / element-pack 同理:纯结构/几何源必须指真实源码,测 mock 即测假。
-      // 子路径别名排在 '@ihui/shared/ui' 之前、整体排在 '@ihui/shared' 之前(最长匹配优先)。
-      '@ihui/shared/ui/bottom-action-bar-spec': resolve(
-        __dirname,
-        '../../packages/shared/src/ui/bottom-action-bar-spec.ts',
-      ),
-      '@ihui/shared/ui/loading-spec': resolve(
-        __dirname,
-        '../../packages/shared/src/ui/loading-spec.ts',
-      ),
-      '@ihui/shared/ui/menu-spec': resolve(__dirname, '../../packages/shared/src/ui/menu-spec.ts'),
-      '@ihui/shared/ui/model-list-spec': resolve(
-        __dirname,
-        '../../packages/shared/src/ui/model-list-spec.ts',
-      ),
-      '@ihui/shared/ui/voice-input-spec': resolve(
-        __dirname,
-        '../../packages/shared/src/ui/voice-input-spec.ts',
-      ),
+      // 派生表见文件头 SHARED_UI_SPEC_ALIASES;必须整体排在 '@ihui/shared/ui' 与 '@ihui/shared'
+      // 之前(最长匹配优先)。
+      ...SHARED_UI_SPEC_ALIASES,
       '@ihui/shared/ui': resolve(__dirname, '../../packages/shared/src/ui/index.ts'),
       '@ihui/types/permission-mode': resolve(
         __dirname,

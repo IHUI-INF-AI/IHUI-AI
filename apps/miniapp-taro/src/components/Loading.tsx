@@ -6,6 +6,7 @@ import { t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
+  LOADING_INLINE_PADDING_X_PX,
   LOADING_INLINE_PADDING_Y_PX,
   LOADING_LABEL_FONT_PX,
   LOADING_LABEL_GAP_PX,
@@ -30,6 +31,8 @@ const LABEL_STYLE = {
 const INLINE_STYLE = {
   paddingTop: toUnit(LOADING_INLINE_PADDING_Y_PX),
   paddingBottom: toUnit(LOADING_INLINE_PADDING_Y_PX),
+  paddingLeft: toUnit(LOADING_INLINE_PADDING_X_PX),
+  paddingRight: toUnit(LOADING_INLINE_PADDING_X_PX),
 }
 
 export default function Loading({
