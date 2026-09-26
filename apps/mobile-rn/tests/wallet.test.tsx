@@ -49,7 +49,12 @@ vi.mock('react-native', async () => {
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
       const { style, onPress, onChangeText, ...rest } = props
-      const mergedStyle = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style
+      // RN Pressable 允许函数式 style(({pressed}) => style);不先求值就交给 React DOM,
+      // 报的是 "The `style` prop expects a mapping ... not a string"(BackChevron 即此形态)。
+      const resolved = typeof style === 'function' ? style({ pressed: false }) : style
+      const mergedStyle = Array.isArray(resolved)
+        ? Object.assign({}, ...resolved.filter(Boolean))
+        : resolved
       const extra: Record<string, unknown> = {}
       if (onPress) extra.onClick = onPress
       if (typeof onChangeText === 'function')
@@ -59,6 +64,14 @@ vi.mock('react-native', async () => {
       return createElement(tag, { ...rest, ...extra, style: mergedStyle }, props.children)
     }
   return {
+    // 本套件自建 react-native 替身,而共享替身里的 PixelRatio 不会自动带过来 —— MoreLink 经
+    // PixelRatio.getFontScale() 换算字号倍率,缺它则渲染即抛 "No PixelRatio export"。
+    PixelRatio: {
+      get: () => 1,
+      getFontScale: () => 1,
+      getPixelSizeForLayoutSize: (size: number) => size,
+      roundToNearestPixel: (size: number) => size,
+    },
     // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
     // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
@@ -67,6 +80,9 @@ vi.mock('react-native', async () => {
     Text: mk('span'),
     ScrollView: mk('div'),
     TouchableOpacity: mk('button'),
+    // BackChevron 等共享组件用 Pressable;本替身是自建对象而非 spread 真身,漏一个导出即
+    // "No 'Pressable' export is defined on the react-native mock" ⇒ 整文件渲染期失败。
+    Pressable: mk('button'),
     TextInput: mk('input'),
     RefreshControl: () => null,
     useColorScheme: () => 'light',
