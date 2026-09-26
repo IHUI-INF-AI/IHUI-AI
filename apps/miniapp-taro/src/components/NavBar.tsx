@@ -5,9 +5,25 @@ import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
-import { cn, rnRadius } from '@ihui/design-tokens'
+import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import {
+  NAVBAR_ACTION_GLYPH_PX,
+  NAVBAR_ACTION_HEIGHT_PX,
+  NAVBAR_ACTION_LABEL_FONT_PX,
+  NAVBAR_BACK_BOX_PX,
+  NAVBAR_SIDE_PADDING_PX,
+  NAVBAR_TITLE_FONT_PX,
+  navbarActionBoxStyle,
+} from '@ihui/shared/ui/navbar-spec'
 import { rpx, px } from '@/utils/rpx'
 import BackChevron from '@/components/BackChevron'
+
+/// 档位数字与盒子结构在 @ihui/shared/ui/navbar-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
+const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
+/// LineIcon 的 size 收 rpx 数值(与 BackChevron 同一口径)
+const ACTION_GLYPH_RPX_NUM = NAVBAR_ACTION_GLYPH_PX * TARO_RPX_PER_PX
+const ACTION_BOX_STYLE = navbarActionBoxStyle(toUnit)
+const TITLE_FONT = toUnit(NAVBAR_TITLE_FONT_PX)
 
 export interface NavBarNotification {
   text: string
@@ -62,12 +78,15 @@ export interface NavBarProps {
   onActiveNav?: (index: number) => void
 }
 
+/// 平台机制差异(waiver):状态栏占位与行高在小程序端由微信胶囊实测推导
+/// (menuButton.top / menuButton.height + 8),RN 端走 SafeAreaView + navbar-spec 行高档;
+/// 通道各端保留,可共享的几何档(行高 44/56、命中块、字号、间距)已全部收进 navbar-spec。
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
 
 export default function NavBar({
   title = '',
   showBack = true,
-  bgColor = 'var(--color-card)',
+  bgColor = 'var(--color-background)',
   textColor = 'var(--color-foreground)',
   onBack,
   rightText,
@@ -113,18 +132,21 @@ export default function NavBar({
         {/* 标题栏:flex 行布局,左菜单 / 中标题 / 右加入按钮 */}
         <View
           className="relative flex items-center"
-          style={{ height: px(navBarHeight), padding: '0 20rpx' }}
+          style={{
+            height: px(navBarHeight),
+            paddingLeft: toUnit(NAVBAR_SIDE_PADDING_PX),
+            paddingRight: toUnit(NAVBAR_SIDE_PADDING_PX),
+          }}
         >
           {/* 左侧:返回首页按钮 + 菜单按钮(对齐原项目 navigation-bars: @pack + @menu-click) */}
           <View className="flex items-center gap-[12rpx]">
             {onPack ? <BackChevron onTap={onPack} color={textColor} /> : null}
-            <View
-              className="flex items-center justify-center"
-              style={{ width: rpx(40), height: rpx(40) }}
-              onClick={onMenuClick}
-              hoverClass="opacity-60"
-            >
-              <LineIcon name="menu" size={40} color="var(--color-muted-foreground)" />
+            <View style={ACTION_BOX_STYLE} onClick={onMenuClick} hoverClass="opacity-60">
+              <LineIcon
+                name="menu"
+                size={ACTION_GLYPH_RPX_NUM}
+                color="var(--color-muted-foreground)"
+              />
             </View>
           </View>
           {/* 中间:标题切换(每日资讯/排行榜)或普通标题 */}
@@ -137,7 +159,7 @@ export default function NavBar({
                       activeTitleIndex === 0
                         ? 'var(--color-primary)'
                         : 'var(--color-muted-foreground)',
-                    fontSize: rpx(28),
+                    fontSize: TITLE_FONT,
                     fontWeight: activeTitleIndex === 0 ? '600' : ('normal' as const),
                   }}
                 >
@@ -151,7 +173,7 @@ export default function NavBar({
                       activeTitleIndex === 1
                         ? 'var(--color-primary)'
                         : 'var(--color-muted-foreground)',
-                    fontSize: rpx(28),
+                    fontSize: TITLE_FONT,
                     fontWeight: activeTitleIndex === 1 ? '600' : ('normal' as const),
                   }}
                 >
@@ -163,7 +185,7 @@ export default function NavBar({
             <View className="flex flex-1 items-center justify-center">
               <Text
                 className="font-bold truncate"
-                style={{ color: textColor, fontSize: rpx(30), maxWidth: rpx(300) }}
+                style={{ color: textColor, fontSize: TITLE_FONT, maxWidth: rpx(300) }}
               >
                 {title}
               </Text>
@@ -172,33 +194,30 @@ export default function NavBar({
           {/* 右侧:反馈按钮 / 分类按钮 / 搜索按钮 / 加入社区群按钮(对齐原项目 navigationBars) */}
           <View className="ml-auto flex flex-shrink-0 items-center gap-[12rpx]">
             {showFeedback ? (
-              <View
-                className="flex items-center justify-center"
-                style={{ width: rpx(40), height: rpx(40) }}
-                onClick={onFeedbackClick}
-                hoverClass="opacity-60"
-              >
-                <LineIcon name="message-circle" size={28} color="var(--color-muted-foreground)" />
+              <View style={ACTION_BOX_STYLE} onClick={onFeedbackClick} hoverClass="opacity-60">
+                <LineIcon
+                  name="message-circle"
+                  size={ACTION_GLYPH_RPX_NUM}
+                  color="var(--color-muted-foreground)"
+                />
               </View>
             ) : null}
             {showFenLei ? (
-              <View
-                className="flex items-center justify-center"
-                style={{ width: rpx(40), height: rpx(40) }}
-                onClick={onFenLeiClick}
-                hoverClass="opacity-60"
-              >
-                <LineIcon name="menu" size={28} color="var(--color-muted-foreground)" />
+              <View style={ACTION_BOX_STYLE} onClick={onFenLeiClick} hoverClass="opacity-60">
+                <LineIcon
+                  name="menu"
+                  size={ACTION_GLYPH_RPX_NUM}
+                  color="var(--color-muted-foreground)"
+                />
               </View>
             ) : null}
             {showSearch ? (
-              <View
-                className="flex items-center justify-center"
-                style={{ width: rpx(40), height: rpx(40) }}
-                onClick={onSearchClick}
-                hoverClass="opacity-60"
-              >
-                <LineIcon name="search" size={28} color="var(--color-muted-foreground)" />
+              <View style={ACTION_BOX_STYLE} onClick={onSearchClick} hoverClass="opacity-60">
+                <LineIcon
+                  name="search"
+                  size={ACTION_GLYPH_RPX_NUM}
+                  color="var(--color-muted-foreground)"
+                />
               </View>
             ) : null}
             {onJoinClick ? (
@@ -217,7 +236,7 @@ export default function NavBar({
                 <Text
                   style={{
                     color: 'var(--color-primary)',
-                    fontSize: rpx(22),
+                    fontSize: toUnit(NAVBAR_ACTION_LABEL_FONT_PX),
                     fontWeight: 'bold',
                     whiteSpace: 'nowrap',
                   }}
@@ -267,23 +286,29 @@ export default function NavBar({
           onTap={handleBack}
           color={textColor}
           className="absolute left-2"
-          style={{ top: px(statusBarHeight + (navBarHeight - 36) / 2) }}
+          // 垂直居中用共享命中块档(36),不写端内字面量
+          style={{ top: px(statusBarHeight + (navBarHeight - NAVBAR_BACK_BOX_PX) / 2) }}
         />
       )}
       <Text
-        className="text-base font-medium truncate max-w-[60%]"
-        style={{ color: textColor, lineHeight: px(navBarHeight) }}
+        className="font-medium truncate max-w-[60%]"
+        style={{ color: textColor, fontSize: TITLE_FONT, lineHeight: px(navBarHeight) }}
       >
         {title}
       </Text>
       {rightText && (
         <View
-          className={cn('absolute right-3 flex items-center justify-center h-8 px-2')}
-          style={{ top: px(statusBarHeight + (navBarHeight - 32) / 2) }}
+          className={cn('absolute right-3 flex items-center justify-center px-2')}
+          style={{
+            top: px(statusBarHeight + (navBarHeight - NAVBAR_ACTION_HEIGHT_PX) / 2),
+            height: toUnit(NAVBAR_ACTION_HEIGHT_PX),
+          }}
           onClick={onRightClick}
           hoverClass="opacity-60"
         >
-          <Text style={{ color: textColor, fontSize: '14px' }}>{rightText}</Text>
+          <Text style={{ color: textColor, fontSize: toUnit(NAVBAR_ACTION_LABEL_FONT_PX) }}>
+            {rightText}
+          </Text>
         </View>
       )}
       {notification && (
