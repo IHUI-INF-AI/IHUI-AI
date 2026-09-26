@@ -9016,9 +9016,7 @@
       "pinned": "ピン留めしました",
       "unpinned": "ピン留めを解除しました",
       "pinFailed": "ピン留め操作に失敗しました",
-      "orgSaved": {
-        "orgSaved": "会話の整理を保存しました"
-      }
+      "orgSaved": "会話の整理を保存しました"
     },
     "today": "今日",
     "openWorkPanel": "ワークパネルを開く",
@@ -9026,14 +9024,14 @@
     "toggleWorkPanel": "ワークパネルを切り替える",
     "user": "ユーザー",
     "org": {
-      "title": "整理會話",
-      "folderLabel": "資料夾",
-      "folderPlaceholder": "輸入或選擇資料夾",
-      "tagsLabel": "標籤",
-      "tagPlaceholder": "新增標籤後按 Enter",
-      "removeTagAria": "移除標籤 {tag}",
-      "filterLabel": "依資料夾篩選",
-      "filterAll": "全部",
+      "title": "会話を整理",
+      "folderLabel": "フォルダ",
+      "folderPlaceholder": "フォルダを入力または選択",
+      "tagsLabel": "タグ",
+      "tagPlaceholder": "タグを追加して Enter",
+      "removeTagAria": "タグ {tag} を削除",
+      "filterLabel": "フォルダで絞り込み",
+      "filterAll": "全て",
       "folderNone": "未分類"
     }
   },
@@ -10675,7 +10673,7 @@
       "roleAssistant": "アシスタント",
       "exportCard": "画像カードを共有",
       "shareCardUser": "ユーザー",
-      "exportPdf": "匯出 PDF"
+      "exportPdf": "PDF をエクスポート"
     },
     "fallbackNotice": "バックアップモデル {backup} に切り替えました(元モデル {primary} は一時的に利用不可)",
     "fallbackNoticeQuota": "今回の回答は {backup} が生成しました（{primary} を提供する事業者のアカウント利用枠が上限に達したため、同一系列の利用可能なモデルに自動で切り替えました）。",
