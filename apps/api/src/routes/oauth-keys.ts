@@ -163,11 +163,14 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(oauthPrivateKeys.id, keyId))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, '密钥不存在'))
-      await db
+      // revoked 由本写链的 RETURNING 命中集派生(2026-09-27):上面的存在性预读只防得住
+      // "根本没这行",防不住"读到之后 UPDATE 命中 0 行"(读-判-写窗口内行被并发删除)。
+      const revokedRows = await db
         .update(oauthPrivateKeys)
         .set({ isActive: 0, updatedAt: new Date() })
         .where(eq(oauthPrivateKeys.id, keyId))
-      return reply.send(success({ keyId, revoked: true }))
+        .returning({ id: oauthPrivateKeys.id })
+      return reply.send(success({ keyId, revoked: revokedRows.length > 0 }))
     } catch (e) {
       request.log.error({ err: e }, 'oauth-keys /revoke 失败')
       return reply.status(500).send(error(500, '密钥吊销失败'))
