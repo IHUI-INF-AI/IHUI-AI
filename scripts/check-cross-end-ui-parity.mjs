@@ -251,6 +251,55 @@ export function iconCarriers(src) {
   return [...out].sort()
 }
 
+/**
+ * 字形身份(不是载体模块):RN 取 lucide 导入名(PascalCase → kebab),小程序取 `<LineIcon name="…">`。
+ * 两端同名 = 同一份 lucide 路径数据 ⇒ 墨迹才可能逐位相同;模块说明符相同而字形名不同,依旧不是一张脸。
+ * 另收 `aizhsUrl('*.png')` 这类 CDN 位图槽 —— 位图不随主题反色、不跟字号缩放,当 UI 图标即分叉源。
+ */
+export function iconGlyphs(src) {
+  const code = stripComments(src)
+  const vector = new Set()
+  for (const m of code.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"][^'"]*lucide[^'"]*['"]/gi))
+    for (const raw of m[1].split(',')) {
+      const n = raw.trim().split(/\s+as\s+/)[0]?.trim()
+      if (n && /^[A-Z]/.test(n)) vector.add(pascalToKebab(n))
+    }
+  for (const m of code.matchAll(/<LineIcon\b[^>]*?\bname\s*=\s*["']([a-z0-9-]+)["']/g)) vector.add(m[1])
+  const bitmap = []
+  for (const m of code.matchAll(/aizhsUrl\(\s*['"]([^'"]*\.(?:png|jpe?g|gif))['"]/gi)) bitmap.push(m[1])
+  return { vector: [...vector].sort(), bitmap }
+}
+
+const pascalToKebab = (s) => s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+
+/**
+ * 图标载体对账(IC)。判据与几何判据刻意分开:几何已同值的族,图标仍可能一端矢量一端位图 ——
+ * 挂在"有几何差异才看"的分支上,就等于对最干净的那批组件失明。
+ * 返回按组件名的 { bitmap, onlyRn, onlyMiniapp };`bitmap` 是待问责计数,`only*` 只报数不判红
+ * (平台确有单侧控件,判红必成假阳)。
+ */
+export function iconAudit(pairs, text) {
+  const out = []
+  for (const p of pairs.pairs) {
+    const a = text[p.miniapp]
+    const b = text[p.rn]
+    if (a === undefined || b === undefined) continue
+    const ga = iconGlyphs(a)
+    const gb = iconGlyphs(b)
+    const av = new Set(ga.vector)
+    const bv = new Set(gb.vector)
+    const onlyRn = gb.vector.filter((n) => !av.has(n))
+    const onlyMiniapp = ga.vector.filter((n) => !bv.has(n))
+    // 豁免标记必须按**原始源码**数:它本身就住在注释里,拿 stripComments 后的面去找等于永远找不到
+    // (自检 ㉙ 第一次跑就抓到这个 —— 判据写了豁免却恒不生效,账面还会一路报绿)。
+    const exempted = (a.match(/icon-bitmap-exempt:/g) ?? []).length
+    const bitmap = Math.max(0, ga.bitmap.length - exempted)
+    if (!bitmap && !onlyRn.length && !onlyMiniapp.length) continue
+    out.push({ name: p.name, bitmap, onlyRn, onlyMiniapp, exempted })
+  }
+  return out
+}
+
 /* ───────────────── 端入口可达性:什么才算"一条腿" ───────────────── */
 
 /**
@@ -1029,7 +1078,44 @@ export function main(argv, repoRoot = ROOT) {
           '(那只是把第二份真相挪了个位置)。确属平台导致的差异写进台账 waivers 并带 reason。',
       )
   }
-  return res.red.length ? 1 : 0
+  /*
+   * ── IC 图标载体对账 ──────────────────────────────────────────────
+   * 与几何判据分开跑:几何已同值的族,图标照样可能一端 lucide 矢量、一端 CDN 位图 ——
+   * 挂在"有几何差异才看"的分支上,等于对最干净的那批组件失明(用户实拍反馈正是这一型)。
+   * 红条件 = 该组件位图槽数 **超过它自己在 HEAD 的存量**(棘轮,只拦新增;存量当场判红就是
+   * 与任何提交都无关的恒红门,唯一结局是逼人跳门,§12e 同型)。单侧矢量化只报数 ——
+   * 平台确有单侧控件(RN 的 <Switch>、小程序走 chooseMessageFile 无录音界面),判红必成假阳。
+   */
+  let icRed = []
+  const ic = iconAudit(collected.pairs, collected.text)
+  if (ic.length) {
+    if (face !== 'head') {
+      const base = collect(repoRoot, 'head', { pairAll })
+      const baseIc = new Map(iconAudit(base.pairs, base.text).map((x) => [x.name, x.bitmap]))
+      icRed = ic.filter((x) => x.bitmap > (baseIc.get(x.name) ?? 0))
+    }
+    if (!argv.includes('--json')) {
+      for (const x of ic) {
+        const bits = []
+        if (x.bitmap) bits.push(`小程序仍用 CDN 位图 ${x.bitmap} 处`)
+        if (x.exempted) bits.push(`带理由豁免 ${x.exempted} 处`)
+        if (x.onlyRn.length) bits.push(`仅 RN 矢量化 ${x.onlyRn.join('/')}`)
+        if (x.onlyMiniapp.length) bits.push(`仅小程序矢量化 ${x.onlyMiniapp.join('/')}`)
+        console.log(
+          `  ${icRed.some((r) => r.name === x.name) ? '×' : '·'} IC ${x.name} ${bits.join(' | ')}`,
+        )
+      }
+      console.log(
+        `图标载体对账 ${ic.length} 族 → 新增位图当图标判红 ${icRed.length} / 只报数 ${ic.length - icRed.length}`,
+      )
+    }
+  }
+  if (icRed.length && !argv.includes('--json'))
+    console.log(
+      '  IC 收口姿势 = 该槽位换成与 RN 同一个 lucide 字形(小程序走 LineIcon,名字照抄 RN 侧),' +
+        '确属多色插画才保留位图并写 icon-bitmap-exempt: <原因>',
+    )
+  return res.red.length + icRed.length ? 1 : 0
 }
 
 /**
@@ -1338,6 +1424,42 @@ function runSelfTest() {
       } finally {
         rmScratch(dir)
       }
+    })(),
+  )
+  t(
+    '㉘ IC:字形名解析 —— lucide 导入按 PascalCase→kebab,小程序按 LineIcon name,两者可逐名比',
+    (() => {
+      const rn = iconGlyphs("import { ChevronLeft, Mic as MicIcon } from 'lucide-react-native'\n")
+      const mp = iconGlyphs(
+        'import LineIcon from "@/components/LineIcon"\n<LineIcon name="chevron-left" size={24} />\n',
+      )
+      return rn.vector.join(',') === 'chevron-left,mic' && mp.vector.join(',') === 'chevron-left'
+    })(),
+  )
+  t(
+    '㉙ IC:CDN 位图当 UI 图标必须计数;带原因的逐行豁免把它抵消(成对对照,证明豁免不是恒放)',
+    (() => {
+      const pairs = { pairs: [{ name: 'X', miniapp: 'm', rn: 'r' }] }
+      const rnSrc = "import { Send } from 'lucide-react-native'\n"
+      const bare = iconAudit(pairs, {
+        m: 'const a = aizhsUrl("remote-images/send.png")\n<LineIcon name="send" />\n',
+        r: rnSrc,
+      })
+      const withEx = iconAudit(pairs, {
+        m: 'const a = aizhsUrl("remote-images/send.png") // icon-bitmap-exempt: 多色品牌插画\n<LineIcon name="send" />\n',
+        r: rnSrc,
+      })
+      return bare.length === 1 && bare[0].bitmap === 1 && withEx.length === 0
+    })(),
+  )
+  t(
+    '㉚ IC 与几何判据分开跑:几何已同值而字形集合不同形的族,必须仍被 IC 看见',
+    (() => {
+      const r = iconAudit({ pairs: [{ name: 'Y', miniapp: 'm', rn: 'r' }] }, {
+        m: '<LineIcon name="plus" />',
+        r: "import { Plus, Camera } from 'lucide-react-native'\n",
+      })
+      return r.length === 1 && r[0].bitmap === 0 && r[0].onlyRn.join(',') === 'camera'
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
