@@ -170,7 +170,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(developerApiKeys.id, id))
       .returning()
     if (!deleted) return reply.status(404).send(error(404, '应用不存在'))
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted: Boolean(deleted) }))
   })
 
   // ===== 套餐管理（plans）=====
@@ -211,7 +211,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
     const { id } = z.object({ id: z.string() }).parse(request.params)
     const [deleted] = await db.delete(plans).where(eq(plans.id, id)).returning()
     if (!deleted) return reply.status(404).send(error(404, '套餐不存在'))
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted: Boolean(deleted) }))
   })
 
   // ===== 计费管理 =====
