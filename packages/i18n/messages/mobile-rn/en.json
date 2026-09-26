@@ -202,6 +202,16 @@
     "runtimeSend": "Send"
   },
   "chat": {
+    "connectorAuth": {
+      "title": "Connect to {connectorName}",
+      "connected": "Connected",
+      "reconnect": "Reconnect {connectorName}",
+      "connect": "Connect",
+      "connecting": "Connecting…",
+      "moreInfo": "More info",
+      "decline": "Not now",
+      "declined": "Declined to connect {connectorName}. This conversation is unaffected."
+    },
     "contextUsage": {
       "title": "Context Usage",
       "used": "Used",
