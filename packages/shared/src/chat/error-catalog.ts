@@ -58,7 +58,9 @@ export type TurnErrorClass = (typeof TURN_ERROR_CLASSES)[number]
  * errorCode → { titleKey, actionKey, category }。
  *
  * 键即后端产出的原始错误码(不改名、不归一 —— 归一会让排障时 grep 不到)。
- * 解析脚本按行读取,故每条保持单行三字段形状,新增码直接照抄一行。
+ * 每条一行三字段是这里的书写习惯,但**不是**对账判据的前提:守门 94 按对象体解析,
+ * 任一条被改写成多行也不会让它读空(2026-09-26 一枚"只加两行"的提交把整表换成多行,
+ * 旧逐行判据当场把 106 条读成"未收录"—— 判据不得依附在排版上)。
  */
 export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = Object.freeze({
   ACCOUNT_RESTRICTED: {
