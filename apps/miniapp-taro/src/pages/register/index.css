@@ -150,7 +150,8 @@
 }
 
 .reg-checkbox-checked {
-  border-color: var(--color-foreground);
+  /* 同 login.css 的 .custom-checkbox-checked:实底即边界,描边不留墨色残留 */
+  border-color: transparent;
   background-color: var(--color-foreground);
 }
 
