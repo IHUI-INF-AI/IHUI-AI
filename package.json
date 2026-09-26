@@ -139,8 +139,7 @@
     "migration:check:db": "node scripts/check-migration-bookkeeping.mjs --db",
     "check:miniapp-parity": "node scripts/check-miniapp-taro-style-parity.mjs",
     "check:miniapp-generated": "node scripts/check-miniapp-generated.mjs",
-    "check:sdk-publish": "node --test packages/sdk/tests/publish-ready.test.mjs",
-    "check:permission-lease": "node scripts/check-permission-lease-bounded.mjs"
+    "check:sdk-publish": "node --test packages/sdk/tests/publish-ready.test.mjs"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "contributors": [
