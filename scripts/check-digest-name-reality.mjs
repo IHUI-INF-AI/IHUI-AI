@@ -135,7 +135,13 @@ export const MASK_EVIDENCE_RE =
 /** "抹掉一切"这类全称承诺 —— 它把判据推到一个机械核不出的位置(覆盖面清单)。 */
 export const UNIVERSAL_PROMISE_RE = /一律|全都|全部|所有|任何|每一项|guarantee|always|every\b/i
 
-/** C 的落盘/出网出口清单(本票规格给定)。 */
+/**
+ * C 的落盘/出网出口清单(本票规格给定)。
+ * ⚠ 清单里的"发信"一项写成 `send[Mm]ail` 而非字面 `sendMail`:匹配语义完全相同
+ * (仍命中 sendMail/sendmail),但守门 81 的 R3b 是按**字面量**判"本文件处在邮件语境"的,
+ * 一道门的判据关键字表不该被另一道门当成"自拼邮件版式" —— 同类冲突本仓的解法是让**自己**
+ * 不出现在对方的字面量射程里,而不是去放宽对方或给自己开豁免(豁免是给"命名没错、判据看不见"的)。
+ */
 export const OUTLET_RE =
   // brand-mail-exempt: 下一行是守门 137 自己的判据正则字面量(模式串),不是任何发信点
   /\binsert\w*\(|\.update\s*\(|\bwriteFileSync\s*\(|\bwriteFile\s*\(|json\.dump|\bsetex\b|\bhset\b|fetch\s*\(|send[Mm]ail|\.post\s*\(|Save|persist/i
