@@ -42,6 +42,12 @@ import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { resolveRemoteHead } from './lib/face-reader.mjs'
+// 判据只有一份:`planStateRegressions` 住在 union-converge(在收敛器里再写一遍
+// "什么算状态放大"必然与它漂移,而漂移的代价固定是"一条尺子绿灯、另一条同一改动判红")。
+// probe/ratchetViolations 同理 —— 维度清单不得在别处再抄一份 `['F1', …]`。
+import { planStateRegressions } from './union-converge.mjs'
+import { probe, ratchetViolations } from './plan-tasks.mjs'
+import { auditPlan } from './lib/plan-task-index.mjs'
 
 const C = {
   green: '\x1b[32m',
@@ -89,6 +95,61 @@ function git(args, { allowFail = false, timeout = 60_000, maxBuffer = 64 << 20 }
     if (allowFail) return null
     throw e
   }
+}
+
+/** 把冲突分支与"无冲突但状态被放大"分支共用的归并出口抽出来 —— 两处各写一遍 spawn 必然漂移。 */
+function attemptUnionConverge(freshRemote, repoRoot) {
+  // 子进程非零退出会 throw,必须在**这里**接住再看输出 —— 否则"需要人工"这条路永远走不到,
+  // 而镜像测试就是按"紧跟 catch 的那一句必须回吐 stdout"来钉这一格的。
+  try {
+    return execFileSync(
+      process.execPath,
+      ['scripts/union-converge.mjs', '--apply', '--theirs', freshRemote],
+      {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        windowsHide: true, // §5b:漏此参数在钩子/守护派生下必弹控制台窗
+        timeout: 300000, // 守门 80:热路径 git 派生一律封顶,挂起会拖死整条收敛链
+      },
+    )
+  } catch (ue) {
+    return String(ue.stdout || ue.message || '')
+  }
+}
+
+/**
+ * 合并树里 `PROJECT_PLAN.md` 的任务状态是否被放大。两把尺子各钉一种真实形状:
+ *  ① **相对两侧的上限**(union-converge 的 `planStateRegressions`):合并自己造出更多分叉;
+ *  ② **相对入库基线**(`scripts/plan-task-state-baseline.json`,随门 130 一起入库的那份):
+ *     一侧已把某一维清偿到基线、另一侧仍是旧形态时,①**看不见**这一型 ——
+ *     max(两侧) 恰等于那个未清偿侧的数字。2026-09-26 实测即此:本地把 F6 从 8 收到 0,
+ *     远端一份陈旧计划文档带着那 8 块进来,merge-tree 判"无冲突",而 max(两侧)=8 不报。
+ * 基线一律从**合并树**取(与被审内容同一时刻同一面,不读磁盘也不读工作树);
+ * 合并树里没有计划文档 ⇒ 这一维在该面上没有语义,返回 [] 而不是记绿。
+ */
+function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) {
+  const REL = 'PROJECT_PLAN.md'
+  const BASE_REL = 'scripts/plan-task-state-baseline.json'
+  const blobOf = (rev, rel) => {
+    try {
+      return git(['-C', repoRoot, 'show', `${rev}:${rel}`], { maxBuffer: 1 << 26 })
+    } catch {
+      return ''
+    }
+  }
+  const merged = blobOf(mergedTree, REL)
+  if (!merged.trim()) return []
+  const out = planStateRegressions(merged, [blobOf(local, REL), blobOf(remote, REL)])
+  const baseTxt = blobOf(mergedTree, BASE_REL)
+  if (!baseTxt.trim()) return out
+  let base = null
+  try {
+    base = JSON.parse(baseTxt)
+  } catch {
+    return [...out, '基线 JSON 解析失败 ⇒ 第②把尺子未判定(不记为通过)']
+  }
+  out.push(...ratchetViolations(base, probe(auditPlan(merged))))
+  return out
 }
 
 /**
@@ -413,6 +474,48 @@ function selfTest() {
         v2[0].actual === `100644 ${baseBlob}`,
       JSON.stringify(v2).slice(0, 200),
     )
+    // 用例 PS-1/PS-2:合并落地闸的**第二把尺子** —— 两侧与合并结果同形时,相对 max(两侧)
+    // 判不出"一侧已清偿、另一侧陈旧"那一型,必须靠"相对入库基线"。没有这两例,
+    // 今天真实发生过的账复活在这道闸上就是隐形的。
+    tgit(repo, ['checkout', '-q', 'main'])
+    tgit(repo, ['checkout', '-qb', 'ps-debt', base])
+    {
+      const LP = (s) => s + '　'.repeat(Math.max(0, 46 - [...s].length))
+      const BLK = [
+        LP('- 块行一:整块登记被并发并集留下两份,行级四条看不见'),
+        LP('- 块行二:第二行,过块级阈值才计入'),
+        LP('- 块行三:第三行'),
+      ].join('\n')
+      writeFileSync(resolve(repo, 'PROJECT_PLAN.md'), `## 甲\n${BLK}\n## 乙\n${BLK}\n\n尾行非 bullet\n`, 'utf8')
+      mkdirSync(resolve(repo, 'scripts'), { recursive: true })
+      writeFileSync(
+        resolve(repo, 'scripts/plan-task-state-baseline.json'),
+        '{"F1":0,"F2":0,"F3":0,"F4":0,"F6":0,"F5":0}\n',
+        'utf8',
+      )
+      tgit(repo, ['add', '-A'])
+      tgit(repo, ['commit', '-qm', 'ps debt'])
+      const sha = tgit(repo, ['rev-parse', 'HEAD'])
+      const r5 = mergedPlanStateRegressions(sha, sha, sha, repo)
+      ok(
+        '用例 PS-1:两侧与结果同形(F6=1)而基线是 0 ⇒ 第二把尺子必须点名',
+        r5.some((x) => x.includes('F6')),
+        JSON.stringify(r5).slice(0, 160),
+      )
+      // 反向对照:基线本来就写着 1 ⇒ 不得判红(否则这道闸把所有合并都堵死,与恒红门同罪)
+      writeFileSync(
+        resolve(repo, 'scripts/plan-task-state-baseline.json'),
+        '{"F1":0,"F2":0,"F3":0,"F4":0,"F6":1,"F5":0}\n',
+        'utf8',
+      )
+      tgit(repo, ['commit', '-aqm', 'baseline says 1'])
+      const sha2 = tgit(repo, ['rev-parse', 'HEAD'])
+      ok(
+        '用例 PS-2:基线与实态一致 ⇒ 不得判红(尺子不能是恒真式)',
+        mergedPlanStateRegressions(sha2, sha2, sha2, repo).length === 0,
+        JSON.stringify(mergedPlanStateRegressions(sha2, sha2, sha2, repo)).slice(0, 160),
+      )
+    }
     // 用例 3:单边删除被"复活"同样拦截(期望缺失)
     tgit(repo, ['checkout', '-q', 'main'])
     tgit(repo, ['checkout', '-qb', 'del-local', base])
@@ -797,21 +900,7 @@ function main() {
         // 的合并把对侧独有新增的 35 个路径整批抹掉(净 −12014 行),而它的提交信息写着"每一行均存活"。
         // 所以先让 union-converge 试一次**文件面零丢失**的归并(本侧整棵树 ∪ 对侧自身改动 ∪ 活文档
         // 行 union,落地前自证 0 丢失、落地后由守门 100 复核);它也不收敛才退回人工。
-        let uni = ''
-        try {
-          uni = execFileSync(
-            process.execPath,
-            ['scripts/union-converge.mjs', '--apply', '--theirs', freshRemote],
-            {
-              cwd: repoRoot,
-              encoding: 'utf8',
-              windowsHide: true, // §5b:漏此参数在钩子/守护派生下必弹控制台窗
-              timeout: 300000, // 守门 80:热路径 git 派生一律封顶,挂起会拖死整条收敛链
-            },
-          )
-        } catch (ue) {
-          uni = String(ue.stdout || ue.message || '')
-        }
+        const uni = attemptUnionConverge(freshRemote, repoRoot)
         if (uni.includes('✅ 合并落地')) {
           log(C.green, `↻ merge-tree 冲突已由 union-converge 归并,转下一轮复核\n${uni.trim()}`)
           continue
@@ -823,6 +912,33 @@ function main() {
         process.exit(1)
       }
       log(C.dim, `  合并树 ${tree.slice(0, 11)}(无冲突)`)
+      /**
+       * 活文档状态回归(与冲突分支共用归并出口,只是触发条件不同)。
+       * 为什么无冲突分支**也**要判:`merge-tree` 的三方合并在"一侧新增整块、另一侧从未有过"时
+       * 不报冲突,直接把那块搬进结果 —— 2026-09-26 实测:本地已把整块重复(F6)从 8 清偿到 0,
+       * 远端一份陈旧计划文档带着那 8 块进来,收敛器一路"无冲突 ✅ 推进",已付的账原地复活,
+       * 连同一枚刚登记的行一起不见了,而账面写的是"HEAD 已含全部登记行"。
+       * 两把尺子(相对两侧上限 + 相对入库基线)与"为什么第一把看不见这一型"写在
+       * `mergedPlanStateRegressions` 头注;维度清单只有一份 = plan-tasks 导出的 probe()。
+       */
+      const regressions = mergedPlanStateRegressions(tree, freshLocal, freshRemote, repoRoot)
+      if (regressions.length > 0) {
+        log(C.red, `❌ 无冲突合并放大了活文档任务状态(${regressions.length} 条),拒绝推进:`)
+        for (const r of regressions.slice(0, 8)) log(C.red, `   ${r}`)
+        const uniOut = attemptUnionConverge(freshRemote, repoRoot)
+        if (uniOut.includes('✅ 合并落地')) {
+          log(
+            C.green,
+            `↻ 状态放大已由 union-converge 归并,转下一轮复核\n${uniOut.trim().split('\n').slice(-2).join('\n')}`,
+          )
+          continue
+        }
+        log(
+          C.red,
+          '❌ union-converge 亦判需人工(见上)。状态放大不是"选边"能收的 —— 两侧的行都得保住。',
+        )
+        process.exit(1)
+      }
       // 单边变更保持守门(fail-closed):任一单边变更丢失即拒绝推进,绝不 update-ref/推送。
       const violations = assertNoSilentRevert({
         base: mergeBase,
