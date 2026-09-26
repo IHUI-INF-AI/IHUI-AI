@@ -621,7 +621,7 @@ export function Leaderboard({ entries }: Props) {
                         <span
                           className={`inline-flex h-3 w-3 items-center justify-center rounded-sm border ${
                             visible
-                              ? 'border-primary bg-cta text-cta-foreground'
+                              ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                               : 'border-muted-foreground/40'
                           }`}
                         >

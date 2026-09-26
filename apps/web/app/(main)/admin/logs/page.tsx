@@ -316,7 +316,7 @@ export default function AdminLogsPage() {
                       className={cn(
                         'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
                         cleanupDays === d
-                          ? 'border-primary bg-primary/10 text-primary'
+                          ? 'border-brand-accent-deep bg-primary/10 text-primary'
                           : 'border-input text-muted-foreground hover:text-foreground',
                       )}
                     >
