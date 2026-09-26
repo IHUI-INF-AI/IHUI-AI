@@ -32,6 +32,7 @@ import chalk from 'chalk';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
+import { missingTokenHint } from './token-manager.js';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 const TEXT_TRUNCATE_LEN = 60;
@@ -241,8 +242,8 @@ function readGlobalOpts(program: Command): { apiUrl?: string; apiKey?: string } 
 }
 
 /** 未登录统一提示。 */
-function reportNoToken(): void {
-  console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+function reportNoToken(baseUrl: string): void {
+  console.error(chalk.red(missingTokenHint(baseUrl)));
   process.exitCode = 1;
 }
 
@@ -523,7 +524,7 @@ export function registerKnowledgeCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          reportNoToken();
+          reportNoToken(baseUrl);
           return;
         }
         await listKnowledge(baseUrl, Boolean(opts.json), apiKey);
@@ -542,7 +543,7 @@ export function registerKnowledgeCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          reportNoToken();
+          reportNoToken(baseUrl);
           return;
         }
         await showKnowledge(baseUrl, id, Boolean(opts.json), apiKey);
@@ -562,7 +563,7 @@ export function registerKnowledgeCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          reportNoToken();
+          reportNoToken(baseUrl);
           return;
         }
         await createKnowledge(baseUrl, opts.name, Boolean(opts.json), apiKey);
@@ -581,7 +582,7 @@ export function registerKnowledgeCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          reportNoToken();
+          reportNoToken(baseUrl);
           return;
         }
         await deleteKnowledge(baseUrl, id, Boolean(opts.json), apiKey);
@@ -611,7 +612,7 @@ export function registerRagCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          reportNoToken();
+          reportNoToken(baseUrl);
           return;
         }
         await ragSearch(baseUrl, query, opts.kb, Boolean(opts.json), apiKey);
@@ -631,7 +632,7 @@ export function registerRagCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          reportNoToken();
+          reportNoToken(baseUrl);
           return;
         }
         await ragIndex(baseUrl, file, opts.kb, Boolean(opts.json), apiKey);
