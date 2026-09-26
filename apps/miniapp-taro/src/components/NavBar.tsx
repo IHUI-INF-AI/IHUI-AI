@@ -226,7 +226,7 @@ export default function NavBar({
                 style={{
                   height: rpx(48),
                   padding: '0 16rpx',
-                  border: '3rpx solid var(--color-primary)',
+                  border: '3rpx solid var(--color-brand-accent-deep)',
                   borderRadius: rnRadius.sm,
                   background: 'var(--color-card)',
                 }}
