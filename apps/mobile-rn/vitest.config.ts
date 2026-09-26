@@ -89,6 +89,13 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/chat/element-pack.ts',
       ),
+      // D20 会话置顶:conversation-pin 同为纯逻辑(不触网络/DOM),必须指向真实源码 ——
+      // 给它写 mock 测的就是 mock(同 app-control-intent 的理由)。子路径 alias 排在
+      // '@ihui/shared/chat' 父路径之前(最长匹配优先)。
+      '@ihui/shared/chat/conversation-pin': resolve(
+        __dirname,
+        '../../packages/shared/src/chat/conversation-pin.ts',
+      ),
       '@ihui/shared/chat': resolve(__dirname, '../../packages/shared/src/chat/index.ts'),
       '@ihui/types/permission-mode': resolve(
         __dirname,
