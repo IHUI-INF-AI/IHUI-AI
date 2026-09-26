@@ -205,13 +205,14 @@ const adminCouponsRoutes: FastifyPluginAsync = async (server) => {
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
 
     try {
-      const [row] = await db
+      const removed = await db
         .delete(promoCoupons)
         .where(eq(promoCoupons.id, p.data.id))
         .returning({ id: promoCoupons.id })
+      const [row] = removed
 
       if (!row) return reply.status(404).send(error(404, '优惠券不存在'))
-      return reply.send(success({ id: row.id, deleted: true }))
+      return reply.send(success({ id: row.id, deleted: removed.length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除优惠券失败'))
