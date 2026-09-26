@@ -11714,3 +11714,36 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - **必须先逐体定性再动手**,因为我的普查窗口只有 22 行、会把**相邻 handler** 的写调用算进来看,所以"同体无 `.returning`"这一栏**不能直接当债**(上面 20 处 `lie_same_body` 里就混着 admin 族那 11 处已判诚实的)。派单第一条:读函数体回答"这个布尔/计数从哪来",三类分流(真谎报 / 已诚实 / **语义根本不是"删了几行"** —— 例 `cleared: true` 可能只是"清空动作已完成"且动作本身无行概念)。
   - **判据侧同批改两半**(§4 圆角那条记过只改一半 ⇒ 整块动静默失效而门照报绿):守门 134 的 `COUNT_KEYS` 已含 `restored|removed`,但 **V1/B1/B2 的布尔档只认键名 `deleted`** ⇒ 扩键必须同时改①枚举/预筛的字面量超集、②判据键集、③结论行措辞与镜像的"两型分家"断言,并给棘轮留 per-file HEAD 锚点(存量不当场判红)。
   - 顺序仍照本批教训:**先改真、再收门**。
+- [x] ✅(2026-09-27 凌晨)**把"CI 红归因到具体那一步"做成固定动作,今晨由此清掉三枚与任何提交都无关的红**:
+  做法(不是"看 job 名字猜"):job 名会骗人(`Shared package typecheck` 与 `ai-service-schema-check` 都不含"lint"字样,
+  而真凶藏在 `Run pnpm run lint:strict` 这一**步**里)。链路固定为
+  `commits/<sha>/check-runs` → `actions/runs/<id>/jobs` → 取 `steps[conclusion=failure]` → `actions/jobs/<id>/logs`;
+  annotation 常常只写"Process completed with exit code 1"(端口那枚就是),**必须走到 step 级**才知道是谁。
+  - **`packages/database` 的 test 红(de95b29a73)** 两条腿:① `assertDataDirAllowed` **判序**错 —— 先拒"落在 $HOME 之下",
+    再认"仓库内 `.ihui-agent/tmp/**`";Linux CI 的检出**本身就在 `/home/runner` 下**,于是明令允许的落点被判违规,
+    而这台开发机(仓在 D:、家在 C:)结构上测不出这一型 ⇒ 又一枚"本地全绿、红只在 CI"。
+    同处第二个坑是 POSIX 下 `driveOf()` 抛"推不出盘符"被下游读成"落点非法";现把仓库内判定提到最前直接 return,
+    并把"没有盘符"如实处理成"DevEnv\Temp 这一支不适用"(它是 Windows 专属落点,不是错误)。
+    成对自检 **S2f**(家目录之内的仓库根仍收)/ **S2g**(同一家目录里仓库之外仍拒)—— 只加前者等于放宽禁令,
+    后者是它没放宽的证据。**变异自证**:删掉"仓库内优先 return"那一行 ⇒ 自检 **47/49**(S2d 与 S2f 同时红),
+    还原后哈希与改前**逐字一致**。② `tenant-rls-policies.test.ts:153` 断言 journal 的**末位**条目必须是本迁移 ——
+    台账只追加,任何后来者追加一枚迁移就把它钉成恒红(实测 `point_transactions` 一入库即断言失败);
+    真正要守的是"未登记 ⇒ drizzle-kit migrate 静默跳过"(脚本自己在 `:238` 用的就是 `entries.some`)⇒ 改成"存在且唯一",
+    `when` 严格递增与 `idx↔位置` 两条不变量原样保留。**位置不是不变量**,这条与 §"别把移动量钉成健康期望"同族。
+    取证:该文件 vitest 1 failed → **8 passed**、该包全量 **6 files / 104 passed**、`--self-test` **49/49**、typecheck exit 0。
+  - **CI `port-registry-check` 红(54ac250198)** 唯一违规是 `apps/cli/tests/goal-verification-e2e.test.ts:123` 的
+    **提示文案里**写了 `127.0.0.1:18803`。没有给该文件开豁免(先例 `apps/cli/src/lib/sso.ts` 那种逐文件豁免会
+    **关掉整个文件的端口扫描**,为一个句子削一面尺子不划算),而是把建议改成"88xx dev 档端口"并指向注册表文档 ——
+    本仓端口规矩明写"dev/宿主端口必须以 88 开头",留个违规示例本来就会教人照抄。`--all` 由 exit 1 → **exit 0**(10419 个文件无违规)。
+  - **`apk` job 红** 的报错点在 gradle 的 `createBundleReleaseJsAndAssets`:
+    `Cannot find module '.../@ihui/design-tokens/dist/tailwind-preset...'` —— 与 §"ci.yml 缺 api-client 前置"、
+    "test-real-db 缺闭包"是**同一族的第三次**:多个共享包 `exports` 指 `dist`(产物不入库),而 metro/tailwind
+    按运行时 require 解析,所以只有打包那一步会炸。修法与先例同形:在该 workflow 的 install 之后补
+    `pnpm --filter "@ihui/mobile-rn^..." run build`(**拓扑闭包,不手工点包名** —— 手工清单必然落后于新增依赖)。
+    该步 commit `889fe3fd90`;本地跑该闭包时 `@ihui/shared` 报 6 条 tsc 错,逐条核到**并发会话在飞的两份脏文件**
+    (`prompt-history.ts` 的 5 个导出在 HEAD 面**全在**、`bottom-action-bar-spec.ts` 引用的 `controlBox` 在 HEAD 的
+    geometry 两侧**都不存在**)⇒ 属"本机红 ≠ 仓库红",不当成本笔缺陷去"修";由 CI 当 oracle 复量。
+  - ↑ **归位说明(只加一行,不改写任何已有行)**:紧接本行下方的 ①② 两条,属于上面那枚「✅(2026-09-27 深夜)顺手清掉两件"实测出来、与任何提交都无关"的红与雷」条目 —— 本会话把「把 CI 红归因到具体那一步」这枚独立条目插在了**该条目的标题行与其内容之间**,标题与 ①② 被隔开了。按 §1"禁止无声删除"不删不移,只在此写明归属:读的时候 ①② 与那枚标题是一对。教训同时记在这里:**活文档插入要选在"整条条目的最后一行"之后,不能选在标题行之后** —— 标题行看起来唯一、命中数=1、结构等式也成立,三道判据都拦不住"插在中间"这一型。
+- **401 身份链在真机上闭环了(VC45 实拍,`bab970e275` 同批)**:装到 Redmi(c12617dd / 720×1640 / density 2.0)的当下 HEAD 包上进「广场」tab,弹层正文是 **「登录已过期,请重新登录」** —— 而这台机在修之前拍到的是同一位置、同一图标的「提交的信息有误,请检查后重试」。⇒ 守门 135 + `apiFailureToError` + api-client 空白体兜底三票合起来的**用户可见后果**第一次有了现场证据(此前只有单测与推理)。**同屏另一处如实记下**:页头返回键在 `动态` / `广场` 两屏实拍为矢量箭头、落位正确;而 `FloatingActionButton` 的实拍**没拿到** —— 它只在 `StudyIndexScreen` 挂载,从 tabBar 四屏走不到,所以那一处只有"门 131 读数 115→113 + typecheck 零错"两把尺子,**不构成端到端验证**。
+- **函数形态 style 存量:115 → 113(两处跨屏共用载体已收)**:`packages/app/src/components/BackChevron.tsx`(RN 唯一返回键实现)与 `apps/mobile-rn/src/components/FloatingActionButton.tsx` 改成 children render prop + 数组形态。**剩余 113 处的处置口径不是"继续盲扫"**:门自己的分诊实测 A 类(可盲改)= **0**,全部属"要逐屏确认观感"—— 每处都要把样式从 Pressable 挪到子 View,而子 View 会吃掉父容器的 flex 槽位,**没有屏幕证据就改 = 拿观感赌**。判"还剩多少"一律跑 `node scripts/check-rn-interop-fn-style.mjs --worktree` 看末行现值,不得引用本文数字派单。
+- **今夜交付面与可复核锚点**:VC45 这包的底稿 = 归档当下 HEAD `de95b29a73`(03:52 重归档,记在 `.ihui-agent/tmp/rn-preview/build-fixes2.log` 首行)**⊕ 本票两处修复文件**(逐字节校验一致后才起 gradle,`build-arm64.sh` 判据 4 亦过:JS 包新于起建)。装机后 `dumpsys package zh.ai.sq` 实读 `versionCode=45` —— **判"装的是不是这一版"只认 versionCode 与 JS 包 mtime,不认 APK 文件在不在**。截图三张:`vc45-home.png` / `vc45-plaza2.png`(401 文案现场)/ `vc45-tab4.png`(页头返回键)。

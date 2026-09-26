@@ -109,7 +109,6 @@ export function TaskStatusBar() {
     agentProgress.isStreaming ||
     agentProgress.planSteps.length > 0 ||
     agentProgress.changes.length > 0
-  const planSteps = fromAgentRuntime ? agentProgress.planSteps : (planMessage?.planSteps ?? [])
   const isStreaming = chatStreaming || agentProgress.isStreaming
 
   // null = 用户未干预,跟随流式状态自动展开/收起
@@ -132,12 +131,22 @@ export function TaskStatusBar() {
   const view = React.useMemo(
     () =>
       deriveTaskStatusBar({
-        planSteps,
+        // 条件式移进回调:原写法 `?? []` 在 planMessage 为空时每轮产出新数组,
+        // 使 useMemo 依赖每轮都变(与「每次渲染都重算」等价)。现依赖改为稳定输入,
+        // 派生值逐次等值,重算次数只减不增。
+        planSteps: fromAgentRuntime ? agentProgress.planSteps : (planMessage?.planSteps ?? []),
         fileChanges,
         isStreaming,
         overviewStatus: fromAgentRuntime ? agentProgress.overview.status : undefined,
       }),
-    [planSteps, fileChanges, isStreaming, fromAgentRuntime, agentProgress.overview.status],
+    [
+      fileChanges,
+      isStreaming,
+      fromAgentRuntime,
+      agentProgress.planSteps,
+      agentProgress.overview.status,
+      planMessage,
+    ],
   )
 
   // 活动文案按 kind + 名称本地化,不回落到 hook 内硬编码的中文 label。
