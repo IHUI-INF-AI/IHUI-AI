@@ -9,8 +9,10 @@ import LineIcon from '@/components/LineIcon'
 const tishiIcon = aizhsUrl('remote-images/tishi_icon.png')
 const floderInputIcon = aizhsUrl('remote-images/floder_input.png')
 const fileIcon = aizhsUrl('remote-images/file.png')
-// record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到 dist/static/ 而非打包进 common.js(对齐原项目 aigc/index.vue)
-const recordBackIcon = '/static/images/record_back.png'
+// record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到产物而非打包进 common.js(对齐原项目 aigc/index.vue)
+// 2026-09-26 主包余量治理:与 `pages/study/index.tsx` 同一张图,各自下沉进所在子包,
+// 主包不再承载(实测 36,542 B)。图片字节逐字未变(md5 97fef424f841ab997b161bc4ead93cbe)。
+const recordBackIcon = '/pkg-ai/assets/record_back.png'
 import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { rnRadius } from '@ihui/design-tokens'
