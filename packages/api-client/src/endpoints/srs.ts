@@ -4,8 +4,8 @@
 
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
-import { buildQs } from '../utils'
+import { fetchApi } from '../client.js'
+import { buildQs } from '../utils.js'
 
 /**
  * SRS 媒体服务器相关 API(对接后端 apps/api/src/routes/srs.ts)。

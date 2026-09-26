@@ -15,8 +15,8 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
-import { getDeveloperApiKeys, type DeveloperApiKeyItem } from './developer'
+import { fetchApi } from '../client.js'
+import { getDeveloperApiKeys, type DeveloperApiKeyItem } from './developer.js'
 
 /**
  * 5h / 1d / 7d 窗口**上限**(调用次数的天花板)。
