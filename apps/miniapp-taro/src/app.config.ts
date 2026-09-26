@@ -7,13 +7,21 @@ export default defineAppConfig({
   // (5 个 tabBar 页为平台硬性要求 + login/forgot-password/register/webview 启动关键页),
   // 其余 114 页迁入 pkg-ai/pkg-shop/pkg-learn/pkg-user/pkg-content/pkg-about 六个分包,
   // 同步全量重写 navigateTo/share path 等 '/pages/...' 引用(见 tmp/miniapp-subpackage-migrate.sh)
+  //
+  // 2026-09-26 主包余量治理(第四十三批):主包实测 2,094,695 B / 2,097,152 B = **99.88%**,
+  // 余量只剩 2,457 B —— 任何一次无关 UI 提交都会把它顶过微信硬上限,而提交链上没有任何一道门
+  // 跑这个端的构建(守门 110 只在 CI 判红),所以炸点必然推迟到"上传微信"那一刻。
+  // 这里把 login/register/forgot-password/webview 四页迁入**同路径 root 的子包**:
+  //   root: 'pages/login' + pages: ['login']  ⇒  路由仍是 /pages/login/login
+  // 与下方 `pages/distribution`、`pages/member`、`pages/setting` 等 7 个既有子包同一种形态,
+  // **URL 逐字不变** ⇒ 12 处 navigateTo/redirectTo/reLaunch 调用点与 4 处测试断言零改动
+  // (对照实测:移前后 dist/pages/login/login.js 路径与 app.json 里的完整路由串一致)。
+  // 为什么不用"并入 pkg-user"那种移法:那会改 URL,要动 12 处调用点 + 分享 path,
+  // 风险远大于收益。代价只有一个:会话过期跳登录时多一次 ~36 KB 的子包下载。
+  // 入口页(pages/index/index)与 5 个 tabBar 页**一律留在主包**(平台硬性要求)。
   pages: [
     'pages/index/index',
     'pages/community/index',
-    'pages/login/login',
-    'pages/forgot-password/index',
-    'pages/webview/index',
-    'pages/register/index',
     'pages/user/index',
     'pages/plaza/index/index',
     'pages/share/index',
@@ -200,6 +208,25 @@ export default defineAppConfig({
     {
       root: 'pages/setting',
       pages: ['index', 'notification', 'cache', 'language', 'theme', 'privacy'],
+    },
+    // 2026-09-26 主包余量治理:以下四个 root 与页面目录同名,**路由串与迁移前逐字相同**
+    // (root 'pages/login' + page 'login' ⇒ /pages/login/login)。所以本文件之外零调用点改动。
+    // 判据依据:这 4 页既不是入口页也不在 tabBar.list 里(主包必须保留的只有那两类)。
+    {
+      root: 'pages/login',
+      pages: ['login'],
+    },
+    {
+      root: 'pages/register',
+      pages: ['index'],
+    },
+    {
+      root: 'pages/forgot-password',
+      pages: ['index'],
+    },
+    {
+      root: 'pages/webview',
+      pages: ['index'],
     },
   ],
   // 微信原生 darkmode:theme.json 提供 light/dark 两组变量,auto 模式运行期由
