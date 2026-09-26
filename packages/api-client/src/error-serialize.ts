@@ -3,41 +3,81 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 关闭按钮统一样式 token(2026-09-16 立;2026-09-17 与 icon-button.ts 尺寸档位对齐)—
- * 全项目弹窗/抽屉/浮层关闭按钮单一真相源
+ * Error 序列化 —— @ihui/types 唯一出口的**包内逐字移植**(2026-09-26 立,发布收口)。
  *
- * 背景:此前各处关闭按钮样式漂移(dialog/drawer/sheet h-9 w-9 @ right-4 top-4、
- * Modal opacity-70 裸图标、LoginPopup h-5 裸图标…),且大按钮与弹窗标题重叠
- * (2026-09-16 用户反馈)。本文件为唯一规范,所有关闭按钮必须引用以下常量,
- * 禁止在业务代码中手写 right-4 top-4 / h-9 w-9 / opacity-70 等散装样式。
+ * 为什么包内有一份而不直接 import 值:
+ * `@ihui/api-client` 是可发布产物(pnpm pack → 纯 Node ESM 消费者),而 `@ihui/types` 仍是
+ * private、exports 指向 `./src/*.ts`(实测 `node scripts/check-pkg-installable.mjs packages/types`
+ * 判红),所以 dist 里任何一条 `import { serializeError } from '@ihui/types'` 都构成"运行时用了
+ * 却没(能)声明"的坏包 —— 可安装性自检判据 9 点名正是这一型。同文件上方
+ * nullDeviceFingerprintCollector 的收口(2026-09-26)走的是同一条路:值改成本包实现,
+ * 类型仍从 @ihui/types import,契约只有一个来源,漂移会响不会静默。
  *
- * 规范值(2026-09-17 与 icon-button.ts 同源统一,全项目图标按钮唯一尺寸):
- * - 尺寸:h-8 w-8(32×32),图标 h-4 w-4(16×16)
- * - 浮层定位:absolute right-3 top-3(贴近右上角,配合 DialogHeader pr-8 避让标题)
- * - 亮底:text-muted-foreground,hover 浅背景 bg-accent
- * - 深底(图片查看器/全屏遮罩):text-white/80,hover bg-white/10
- *
- * 消费方式:
- * - React 组件:import { CloseButton } from '@ihui/ui-react'(优先,自带 X 图标)
- * - 仅要类名字符串(如 Radix DialogPrimitive.Close / SheetPrimitive.Close):
- *   import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION, CLOSE_BUTTON_ON_DARK } from '@ihui/design-tokens'
+ * 形状锚定:本模块的返回类型**不是**本地重新声明,而是 `import type { SerializedError }
+ * from '@ihui/types'` —— 共享接口一旦新增必填成员,这里就地 typecheck 失败。
+ * 行为规格(闭集输出 / 深度封顶 + 循环检测 / 永不抛)逐字沿用 @ihui/types/src/error-serialize.ts
+ * 的三条纪律,不在此处重述成第二份散文。
  */
+import type { SerializedError } from '@ihui/types'
 
-// 尺寸档从 icon-button.ts 复用,避免再开一套尺寸
-import { ICON_BUTTON_SIZE, ICON_BUTTON_ICON_SIZE } from './icon-button.js'
+/** cause 链(含根节点)最多展开的节点数。与 @ihui/types 的 ERROR_SERIALIZE_MAX_DEPTH 同值。 */
+export const ERROR_SERIALIZE_MAX_DEPTH = 5
 
-/** 浮层(弹窗/抽屉)右上角定位。非浮层场景(标题栏行内)不加此类 */
-export const CLOSE_BUTTON_POSITION = 'absolute right-3 top-3'
+const NON_THROWN_NAME = 'NonThrownError'
 
-/** 按钮尺寸(与图标按钮同源唯一尺寸 32×32,2026-09-17 用户指令:全项目只有一种图标按钮尺寸) */
-export const CLOSE_BUTTON_SIZE = ICON_BUTTON_SIZE
+function safeString(value: unknown): string {
+  try {
+    return String(value)
+  } catch {
+    return '<unprintable>'
+  }
+}
 
-/** 图标尺寸(16×16,同源) */
-export const CLOSE_BUTTON_ICON = ICON_BUTTON_ICON_SIZE
+function fromNonThrown(err: unknown): SerializedError {
+  return { name: NON_THROWN_NAME, message: safeString(err) }
+}
 
-/** 亮底(默认)关闭按钮完整类名——浮层场景自行追加 CLOSE_BUTTON_POSITION */
-export const CLOSE_BUTTON_BASE = `inline-flex ${CLOSE_BUTTON_SIZE} shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none`
+function serializeErrorNode(err: Error, depth: number, seen: Set<Error>): SerializedError {
+  seen.add(err)
+  const out: SerializedError = {
+    name: typeof err.name === 'string' ? err.name : 'Error',
+    message: typeof err.message === 'string' ? err.message : safeString(err.message),
+  }
+  if (typeof err.stack === 'string') out.stack = err.stack
 
-/** 深底(全屏图片查看器/深色遮罩)关闭按钮完整类名——浮层场景自行追加 CLOSE_BUTTON_POSITION */
-export const CLOSE_BUTTON_ON_DARK = `inline-flex ${CLOSE_BUTTON_SIZE} shrink-0 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/50 disabled:pointer-events-none`
+  let cause: unknown
+  try {
+    cause = (err as { cause?: unknown }).cause
+  } catch {
+    // cause 是坏 getter:当作链尾返回,绝不让未知异常穿过恢复路径
+    return out
+  }
+  if (cause === undefined) return out
+
+  const circular = cause instanceof Error && seen.has(cause)
+  if (circular || depth + 1 >= ERROR_SERIALIZE_MAX_DEPTH) {
+    out.truncated = true
+    return out
+  }
+  try {
+    out.cause = cause instanceof Error ? serializeErrorNode(cause, depth + 1, seen) : fromNonThrown(cause)
+  } catch {
+    out.truncated = true
+  }
+  return out
+}
+
+/**
+ * 把任意被抛出的值转成闭集结构:字段只有 name/message/stack/cause/truncated。
+ * 非 Error 输入 ⇒ `{ name: 'NonThrownError', message: String(err) }`。
+ * 本函数在任何输入下都不抛(包括 getter 抛错、toString 抛错、循环 cause)。
+ */
+export function serializeError(err: unknown): SerializedError {
+  try {
+    if (err instanceof Error) return serializeErrorNode(err, 0, new Set())
+    return fromNonThrown(err)
+  } catch {
+    return { name: NON_THROWN_NAME, message: '<unserializable error>' }
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
