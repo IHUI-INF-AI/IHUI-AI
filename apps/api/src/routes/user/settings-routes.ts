@@ -278,8 +278,10 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
 
     // 注销 = 立即清除全部 PII（含 KYC/地址/设备/对话/记忆/笔记/推送 token 等）+ 彻底匿名化 + 吊销 token。
     // 幂等：重复调用不报错。
-    await purgeUserPii(userId)
-    return reply.send(success({ success: true, deleted: true, userId }))
+    // 2026-09-27 布尔删除 ack 清账:deleted 由 purgeUserPii 的库侧 RETURNING 证据
+    // (users 主行匿名化 UPDATE 的命中集)派生,不再是路由层常量;键名与语义逐字不变。
+    const purgeResult = await purgeUserPii(userId)
+    return reply.send(success({ success: true, deleted: purgeResult.userRowAnonymized, userId }))
   })
 
   server.put('/settings', async (request, reply) => {
