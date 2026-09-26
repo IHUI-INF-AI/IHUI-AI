@@ -7231,6 +7231,29 @@
     },
     "pane": {
       "elementPack": {
+        "backgroundTask": {
+          "state": {
+            "pending": "待启动",
+            "running": "运行中",
+            "stopping": "正在停止",
+            "stopFailed": "停止失败",
+            "completed": "已完成",
+            "failed": "失败",
+            "cancelled": "已取消",
+            "timeout": "已超时"
+          },
+          "hint": {
+            "stopping": "停止请求已发出,等待子任务退出…",
+            "stopFailed": "子任务仍在运行,停止请求未生效",
+            "timeout": "子任务等待超时,可重试"
+          },
+          "action": {
+            "stop": "停止",
+            "retryStop": "重试停止",
+            "retry": "重试",
+            "ignore": "忽略"
+          }
+        },
         "feedbackSurvey": {
           "question": "这次回复有没有帮你解决问题？",
           "answer": {
@@ -9794,6 +9817,11 @@
     "adoptHint": "把选中候选内容写入当前对话"
   },
   "goalCard": {
+    "editAriaLabel": "编辑目标",
+    "editSave": "保存",
+    "editCancel": "取消",
+    "collapse": "收起",
+    "expand": "展开",
     "achievedInTime": "已在 {totalTime} 内达成目标",
     "empty": "尚未设定会话目标",
     "emptyHint": "在输入框输入 /goal <目标> 设定,或由 AI 自动推进",

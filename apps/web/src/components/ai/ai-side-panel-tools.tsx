@@ -596,7 +596,7 @@ export function AiSidePanelTools() {
             agents={bgAgents}
             loading={activeDispatches.isFetching}
             onRefresh={() => void activeDispatches.refetch()}
-            onCancel={(id) => cancelDispatch.mutate(id)}
+            onCancel={(id) => cancelDispatch.mutateAsync(id)}
           />
         ) : (
           emptyHint
