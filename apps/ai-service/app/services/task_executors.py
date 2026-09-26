@@ -622,6 +622,33 @@ async def _exec_test_suite(ctx: TaskContext) -> dict[str, Any]:
     extra = [str(x) for x in extra_raw] if isinstance(extra_raw, list) else []
     unit_id = f"{framework}:{target}"
 
+    # **断点续跑在此真的生效**:整套测试是一个单元,单元已完成的续跑必须直接取回
+    # 计数与失败明细,而不是把套件再跑一遍。早先这格只有 mark_done 而没有 is_done 判,
+    # 于是"续跑"只写在账上 —— 与 patrol 同一型(票面警告的"框架里有就算有")。
+    if ctx.checkpoint.is_done(unit_id):
+        cached = ctx.checkpoint.payload.get(unit_id)
+        if isinstance(cached, dict):
+            raw_counts = cached.get("counts")
+            raw_failures = cached.get("failures")
+            counts = {str(k): int(v or 0) for k, v in raw_counts.items()} if isinstance(raw_counts, dict) else {}
+            failures = [str(x) for x in raw_failures] if isinstance(raw_failures, list) else []
+            return _proof(
+                ctx.task_type, False,
+                ok=(counts.get("failed", 0) == 0 and counts.get("error", 0) == 0),
+                framework=framework,
+                target=target,
+                command=None,
+                collected_any=sum(counts.values()) > 0,
+                counts=counts,
+                failures=failures[:200],
+                failures_truncated=len(failures) > 200,
+                exit_code=None,
+                timed_out=False,
+                duration_ms=0.0,
+                raw_tail="",
+                reused_from_checkpoint=True,
+            )
+
     report_path: Path | None = None
     if framework == "pytest":
         argv = [
@@ -680,6 +707,7 @@ async def _exec_test_suite(ctx: TaskContext) -> dict[str, Any]:
         timed_out=run.timed_out,
         duration_ms=round(run.duration_ms, 2),
         raw_tail=text[-4000:],
+        reused_from_checkpoint=False,
     )
 
 
@@ -704,7 +732,14 @@ async def _exec_code_index(ctx: TaskContext) -> dict[str, Any]:
 
     collected = await asyncio.to_thread(codebase_indexer._collect_code_files, root)
     scanned = len(collected)
-    collected = collected[:max_files]
+    # **护栏语义(如实登记,不得默默少东西)**:`max_files` 是**截断**,不是拒绝 ——
+    # 取前 N 个,余下部分计入 files_omitted_by_max_files 并在返回体里明说。
+    # 不做"超限即拒"是因为拒绝会让一次大仓库提交直接失败,而截断 + 计数 + 可续跑
+    # (下面每轮最多新读 50 个文件)合起来才是可用的形态。
+    # 刻意**不**把"没读到的文件"混进 read_errors:那是两件不同的事,混计就看不清了。
+    kept = collected[:max_files]
+    omitted_by_cap = scanned - len(kept)
+    collected = kept
 
     checkpoint = ctx.checkpoint
     index: dict[str, Any] = {}
@@ -718,6 +753,7 @@ async def _exec_code_index(ctx: TaskContext) -> dict[str, Any]:
     reused = 0
     read_errors: list[str] = []
     budget = 0  # 每次最多新读 50 个文件,避免一次性吃满内存(单元可续)
+    deferred_by_budget = 0  # 本轮因预算没轮到的单元数(下一轮从断点接着做)
 
     for path, language in collected:
         try:
@@ -728,7 +764,9 @@ async def _exec_code_index(ctx: TaskContext) -> dict[str, Any]:
             reused += 1
             continue
         if budget >= 50:
-            break
+            # 剩下的全部是"本轮没轮到",不是"读失败",也不是"永久省略"
+            deferred_by_budget += 1
+            continue
         budget += 1
         try:
             content = await asyncio.to_thread(path.read_text, encoding="utf-8")
@@ -759,6 +797,9 @@ async def _exec_code_index(ctx: TaskContext) -> dict[str, Any]:
         "files_scanned": scanned,
         "files_indexed": len(index),
         "files_reused_from_checkpoint": reused,
+        "files_considered_this_run": len(collected),
+        "files_omitted_by_max_files": omitted_by_cap,
+        "files_deferred_by_budget": deferred_by_budget,
         "chunks_total": sum(int(v.get("chunks", 0)) for v in index.values() if isinstance(v, dict)),
         "merkle_root": merkle,
         "read_errors": read_errors,
@@ -780,6 +821,11 @@ async def _exec_code_index(ctx: TaskContext) -> dict[str, Any]:
         files_scanned=scanned,
         files_indexed=len(index),
         files_reused_from_checkpoint=reused,
+        # 三个"少做了多少"的诚实计数:max_files 截断 / 每轮预算推迟 / 完全没轮到的比例
+        files_omitted_by_max_files=omitted_by_cap,
+        files_deferred_by_budget=deferred_by_budget,
+        truncated_by_max_files=omitted_by_cap > 0,
+        incomplete=omitted_by_cap > 0 or deferred_by_budget > 0,
         chunks_total=body["chunks_total"],
         symbols_total=sum(len(v["symbols"]) for v in index.values() if isinstance(v, dict)),
         merkle_root=merkle,
@@ -1031,10 +1077,11 @@ async def _exec_patrol(ctx: TaskContext) -> dict[str, Any]:
     findings: list[dict[str, str]] = []
     scanned = 0
     unreadable = 0
+    reused = 0
     truncated_by_cap = False
 
     def walk() -> None:  # noqa: C901 - 一遍遍历产多判据,拆函数反而绕
-        nonlocal scanned, unreadable, truncated_by_cap
+        nonlocal scanned, unreadable, truncated_by_cap, reused
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = sorted(d for d in dirnames if d not in _PATROL_SKIP_DIRS)
             dp = Path(dirpath)
@@ -1049,37 +1096,62 @@ async def _exec_patrol(ctx: TaskContext) -> dict[str, Any]:
                 rel = fp.relative_to(root).as_posix()
                 unit = f"file:{rel}"
                 scanned += 1
+                # **断点续跑在此真的生效**:已判过的文件不再 stat/读正文,
+                # 其结论从 checkpoint 里取回。早先这格只写了 `mark_done` 而不跳过,
+                # 于是"续跑"是装饰性的 —— 活照样全干一遍(票面警告的"框架里有就算有")。
+                if ctx.checkpoint.is_done(unit):
+                    reused += 1
+                    cached = ctx.checkpoint.payload.get(unit)
+                    if isinstance(cached, dict):
+                        for item in cached.get("findings", []):
+                            if isinstance(item, dict):
+                                findings.append(dict(item))
+                        unreadable += int(cached.get("unreadable", 0) or 0)
+                    continue
+                file_findings: list[dict[str, str]] = []
+                file_unreadable = 0
                 try:
                     st = fp.stat()
                 except OSError as e:
-                    unreadable += 1
+                    file_unreadable = 1
                     if "unreadable_files" in checks:
-                        findings.append({"check": "unreadable_files", "path": rel, "severity": "warning", "detail": str(e)[:200]})
-                    continue
-                if "large_files" in checks and st.st_size > max_bytes:
-                    findings.append({
-                        "check": "large_files", "path": rel, "severity": "warning",
-                        "detail": f"{st.st_size} B > 阈值 {max_bytes} B",
-                    })
-                if "stale_files" in checks and (now_ts - st.st_mtime) > stale_seconds:
-                    findings.append({
-                        "check": "stale_files", "path": rel, "severity": "info",
-                        "detail": f"mtime 距今 {(now_ts - st.st_mtime) / 86400:.0f} 天 > {stale_days} 天",
-                    })
-                if "todo_markers" in checks and fp.suffix.lower() in _PATROL_SCAN_EXTS:
-                    try:
-                        content = fp.read_text(encoding="utf-8", errors="replace")
-                    except OSError:
-                        unreadable += 1
-                        continue
-                    hits = len(_TODO_RE.findall(content))
-                    if hits >= todo_max:
-                        findings.append({
-                            "check": "todo_markers", "path": rel, "severity": "warning",
-                            "detail": f"{hits} 处 TODO/FIXME ≥ {todo_max}",
+                        file_findings.append({
+                            "check": "unreadable_files", "path": rel, "severity": "warning",
+                            "detail": str(e)[:200],
                         })
-                if not ctx.checkpoint.is_done(unit):
-                    ctx.checkpoint.mark_done(unit)
+                else:
+                    if "large_files" in checks and st.st_size > max_bytes:
+                        file_findings.append({
+                            "check": "large_files", "path": rel, "severity": "warning",
+                            "detail": f"{st.st_size} B > 阈值 {max_bytes} B",
+                        })
+                    if "stale_files" in checks and (now_ts - st.st_mtime) > stale_seconds:
+                        file_findings.append({
+                            "check": "stale_files", "path": rel, "severity": "info",
+                            "detail": f"mtime 距今 {(now_ts - st.st_mtime) / 86400:.0f} 天 > {stale_days} 天",
+                        })
+                    if "todo_markers" in checks and fp.suffix.lower() in _PATROL_SCAN_EXTS:
+                        try:
+                            content = fp.read_text(encoding="utf-8", errors="replace")
+                        except OSError:
+                            file_unreadable = 1
+                            if "unreadable_files" in checks:
+                                file_findings.append({
+                                    "check": "unreadable_files", "path": rel, "severity": "warning",
+                                    "detail": "正文读取失败",
+                                })
+                        else:
+                            hits = len(_TODO_RE.findall(content))
+                            if hits >= todo_max:
+                                file_findings.append({
+                                    "check": "todo_markers", "path": rel, "severity": "warning",
+                                    "detail": f"{hits} 处 TODO/FIXME ≥ {todo_max}",
+                                })
+                unreadable += file_unreadable
+                findings.extend(file_findings)
+                ctx.checkpoint.mark_done(
+                    unit, artifact={"findings": file_findings, "unreadable": file_unreadable}
+                )
 
     await asyncio.to_thread(walk)
 
@@ -1111,6 +1183,7 @@ async def _exec_patrol(ctx: TaskContext) -> dict[str, Any]:
         root=str(root),
         checks_run=checks,
         files_scanned=scanned,
+        files_reused_from_checkpoint=reused,
         unreadable=unreadable,
         findings_by_check=by_check,
         findings=findings[:500],
@@ -1231,6 +1304,21 @@ def get_spec(task_type: str) -> ExecutorSpec:
         raise TaskExecutionError(
             f"未知任务类型 {task_type!r};已实现类型={sorted(TASK_EXECUTORS)}"
         )
+    return spec
+
+
+_ORIGINAL_SPECS: Final[dict[str, ExecutorSpec]] = dict(TASK_EXECUTORS)
+
+
+def get_original_spec(task_type: str) -> ExecutorSpec:
+    """注册表的**原始**条目(不受运行期替换影响)。
+
+    存在的唯一理由:测试会把某条 spec 换成计数版(`tests/test_background_task_type_wiring_51.py`),
+    还原时不能调 `get_spec` —— 那拿回来的正是被换掉的那条,还原就成了空操作。
+    """
+    spec = _ORIGINAL_SPECS.get(str(task_type).strip())
+    if spec is None:
+        raise TaskExecutionError(f"注册表原始条目里没有 {task_type!r}")
     return spec
 
 
