@@ -10,6 +10,7 @@ import { authenticate, checkAuth } from '../plugins/auth.js'
 import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { sanitizeCsvCell } from '../utils/csv-utils.js'
+import { batchWriteOutcome } from '../utils/batch-outcome.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { db, dbRead } from '../db/index.js'
@@ -1040,7 +1041,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .where(inArray(agentExamines.id, recordIds))
       .returning()
-    return reply.send(success({ approved: rows.length, records: rows }))
+    // 批量写唯一出口:affected 由库确认的 returning 集合推出,未命中的逐条点名
+    const { affected, missedIds } = batchWriteOutcome(
+      recordIds,
+      rows.map((r) => r.id),
+    )
+    return reply.send(success({ approved: affected, records: rows, missedIds }))
   })
 
   // POST /examine/batch-reject - 批量拒绝
@@ -1066,7 +1072,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .where(inArray(agentExamines.id, recordIds))
       .returning()
-    return reply.send(success({ rejected: rows.length, records: rows }))
+    // 批量写唯一出口:affected 由库确认的 returning 集合推出,未命中的逐条点名
+    const { affected, missedIds } = batchWriteOutcome(
+      recordIds,
+      rows.map((r) => r.id),
+    )
+    return reply.send(success({ rejected: affected, records: rows, missedIds }))
   })
 
   // -------------------------------------------------------------------------
@@ -1210,8 +1221,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       if (!isSystemAdmin(request, { includeInternalChannel: false }))
         return reply.status(403).send(error(403, '无权删除此应用'))
     }
-    await deleteOAuthApp(clientId, existing.ownerUuid!)
-    return reply.send(success({ clientId, deleted: true }))
+    const removed = await deleteOAuthApp(clientId, existing.ownerUuid!)
+    return reply.send(success({ clientId, deleted: removed.length > 0 }))
   })
 
   // POST /oauth-apps/:clientId/regenerate-secret - 重新生成密钥

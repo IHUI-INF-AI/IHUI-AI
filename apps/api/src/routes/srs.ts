@@ -147,8 +147,11 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const { id } = idParam.parse(request.params)
-    await db.delete(srsStreams).where(eq(srsStreams.id, id))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(srsStreams)
+      .where(eq(srsStreams.id, id))
+      .returning({ id: srsStreams.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   server.post('/streams/:key/kick', async (request, reply) => {
@@ -218,8 +221,11 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const { id } = idParam.parse(request.params)
-    await db.delete(srsServers).where(eq(srsServers.id, id))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(srsServers)
+      .where(eq(srsServers.id, id))
+      .returning({ id: srsServers.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   server.get('/servers/:id/health', async (request, reply) => {
