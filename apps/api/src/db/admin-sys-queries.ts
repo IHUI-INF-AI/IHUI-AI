@@ -1140,23 +1140,25 @@ export async function cancelUserRole(userId: string, roleId: number): Promise<nu
   return rows.length
 }
 
-export async function cancelAllUserRole(userIds: string[], roleId: number): Promise<number> {
-  if (userIds.length === 0) return 0
+// 返回库确认的命中 id 集合(returning 的真实结果),不在 db 层自算 affected 条数 ——
+// 组装一律由路由侧的统一出口 batchWriteOutcome 负责(2026-09-26 静默失真修复)。
+export async function cancelAllUserRole(userIds: string[], roleId: number): Promise<string[]> {
+  if (userIds.length === 0) return []
   const rows = await db
     .update(users)
     .set({ roleId: 0, updatedAt: new Date() })
     .where(and(inArray(users.id, userIds), eq(users.roleId, roleId)))
     .returning({ id: users.id })
-  return rows.length
+  return rows.map((r) => r.id)
 }
 
-export async function selectAllUserRole(userIds: string[], roleId: number): Promise<number> {
-  if (userIds.length === 0) return 0
+export async function selectAllUserRole(userIds: string[], roleId: number): Promise<string[]> {
+  if (userIds.length === 0) return []
   const rows = await db
     .update(users)
     .set({ roleId, updatedAt: new Date() })
     .where(inArray(users.id, userIds))
     .returning({ id: users.id })
-  return rows.length
+  return rows.map((r) => r.id)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
