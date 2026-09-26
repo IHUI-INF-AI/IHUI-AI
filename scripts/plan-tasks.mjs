@@ -86,6 +86,10 @@ function report(a, face) {
   console.log(
     `  F4 同一件事多条待办: ${c.dupOpenGroups} 组 / 副本 ${c.dupOpenCopies} 行(不进派单口径)`,
   )
+  console.log(
+    `  F6 整块登记重复(块级,行级四条判不到这一维): ${c.dupBlocks} 块 / 共 ${c.dupBlockCopies} 份` +
+      ` —— 逐字相同才可自动收口;另有 ${c.dupBlockDrifted} 块首行相同而正文漂移(必须人工判哪份作数)`,
+  )
   console.log(`  同态重复(done 侧只报数): done ${c.dupDoneGroups} 组`)
   console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行`)
   console.log(
@@ -115,12 +119,15 @@ function listRows(rows, face) {
  */
 const BASELINE_REL = 'scripts/plan-task-state-baseline.json'
 
-/** 前四条判据的读数(只判变多),按同一顺序成对比较;F5 方向相反,单独在 grewViolations / gate 里判。 */
+/** 前五条判据的读数(只判变多),按同一顺序成对比较;F5 方向相反,单独在 grewViolations / gate 里判。 */
 const probe = (a) => [
   ['F1', '同主键两态并存(组)', a.counts.forks],
   ['F2', '带作废声明未落账(行)', a.counts.voidRows],
   ['F3', '行号指针已腐烂(处)', a.counts.rotatedPointers],
   ['F4', '同一件事多条待办(副本行)', a.counts.dupOpenCopies],
+  // F6 是**块**级量纲:一整块多行登记被追加两遍时,行级四条(F1–F4)一路通过 ——
+  // 每一行看起来都"只是又一个孪生行"。本仓 2026-09-26 真实自伤过三次(2 份 → 3 份)。
+  ['F6', '整块登记重复(块)', a.counts.dupBlocks],
 ]
 
 /** 棘轮纯函数:基线里没有某项 ⇒ 不判该项(既不"0 容忍"也不"通过")。 */
@@ -198,7 +205,7 @@ function gate(a, strict, root, before, beforeErr) {
     return 1
   }
   if (!nonZero.length) {
-    console.log('✅ 四条状态判据全部为零(F5 注记存续性另判,见上)')
+    console.log('✅ 五条"只判变多"的状态判据全部为零(F1–F4 + F6 块级;F5 注记存续性另判,见上)')
     return 0
   }
   if (!strict) {
@@ -311,6 +318,37 @@ function selfTest() {
   const loss = grewViolations(unnoted, noted)
   ok(loss.some((x) => x.includes('F5') && x.includes('掉到')), `注记被抹掉必须判红,实测 ${JSON.stringify(loss)}`)
   ok(auditPlan('').counts.mergeNotes === 0, '空面不得凭空数出注记')
+  // F6 块级重复:行级四条(F1–F4)对"整块被追加两遍"完全失明,所以这一组必须自成一把尺子。
+  // 阈值(>=3 行 / 每行 >=40 字符)是实测调出来的:低于它,台账里天然的成对短行会把噪声当债务。
+  const B1 = '- 第一行:整块登记的探针结论与取证命令,长度必须过阈值才纳入统计口径说明段'
+  const B2 = '- 第二行:同一块的第二条 bullet,同样要够长,短行(`- [x]` 之类)不参与块级判据'
+  const B3 = '- 第三行:第三条,三行构成一个"块";块是 F6 的量纲,单行不是 —— 这是本条的存在理由'
+  const blk = [B1, B2, B3]
+  const pad = (s) => s + '　'.repeat(Math.max(0, 42 - [...s].length))
+  const block = blk.map(pad).join('\n')
+  // 尾行刻意不是 bullet:bullet 会把上一个块"续"成 4 行 run,而 run 里只要有一行不够长,
+  // 整个 run 就不入统计 —— 第一版夹具就栽在 `- 别的行` 这一行上(报 0 而非 1)。
+  const oneCopy = auditPlan(`## 段\n${block}\n## 另一段\n尾部说明不是 bullet`)
+  const twoCopies = auditPlan(`## 段\n${block}\n## 另一段\n${block}\n\n尾部说明不是 bullet`)
+  ok(oneCopy.counts.dupBlocks === 0, `单份块不得数出重复,实测 ${oneCopy.counts.dupBlocks}`)
+  ok(twoCopies.counts.dupBlocks === 1, `逐字相同的两份应算 1 块重复,实测 ${twoCopies.counts.dupBlocks}`)
+  ok(twoCopies.counts.dupBlockCopies === 2, `份数应为 2,实测 ${twoCopies.counts.dupBlockCopies}`)
+  // 漂移(首行同而正文不同)不得混进"可自动收口"那一档 —— 机器折半必然有损,与 F4 同一条理由
+  const drift = auditPlan(`## 段\n${block}\n## 另一段\n${[pad(B1), pad(B2 + '(改)'), pad(B3)].join('\n')}`)
+  ok(drift.counts.dupBlocks === 0, `漂移副本不得算逐字重复,实测 ${drift.counts.dupBlocks}`)
+  ok(drift.counts.dupBlockDrifted === 1, `漂移应单独计 1,实测 ${drift.counts.dupBlockDrifted}`)
+  // 阈值两向:2 行块与短行块都不算(否则会产出成百条噪声,把这一维淹掉)
+  ok(auditPlan(`${pad(B1)}\n${pad(B2)}`).counts.dupBlocks === 0, '2 行块不得纳入块级判据')
+  ok(auditPlan('- a\n- b\n- c\n- a\n- b\n- c').counts.dupBlocks === 0, '短行块不得纳入块级判据')
+  // 方向:多出一份必点名,收口掉一份(清偿)不得判红
+  ok(
+    grewViolations(twoCopies, oneCopy).some((x) => x.startsWith('F6')),
+    `由 0 块涨到 1 块必须判红,实测 ${JSON.stringify(grewViolations(twoCopies, oneCopy))}`,
+  )
+  ok(
+    !grewViolations(oneCopy, twoCopies).some((x) => x.startsWith('F6')),
+    '清偿(1 块降到 0)不得判红 —— 反方向判红等于没人敢做归并',
+  )
   // 差值棘轮(提交链上的主判据):基准取不到时调用方根本不传 before,这里只比"变多"
   const mk = (f1, f2, f3) => ({ counts: { forks: f1, voidRows: f2, rotatedPointers: f3 } })
   ok(grewViolations(mk(4, 0, 0), mk(3, 0, 0)).length === 1, '相对 HEAD 变多必须点名')
@@ -349,6 +387,9 @@ function main() {
         F2: a.counts.voidRows,
         F3: a.counts.rotatedPointers,
         F4: a.counts.dupOpenCopies,
+        // F6 是块级量纲(整块登记被追加两遍)。存量非零时它只能当棘轮上限用,
+        // 清到零之后把基线写成 0 ⇒ 零容忍;不得为了让这条绿去调高它。
+        F6: a.counts.dupBlocks,
         // F5 与前四条**方向相反**:记的是"归并落账注记至少要有这么多条",掉了才判红
         F5: a.counts.mergeNotes,
       },
