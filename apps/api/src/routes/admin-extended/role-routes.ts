@@ -35,8 +35,10 @@ export const roleRoutes: FastifyPluginAsync = async (server) => {
         z.object({ roleId: z.string().min(1), userId: z.uuid() }),
         request.params,
       )
-      await removeUserRole(userId, roleId)
-      return reply.send(success({ userId, roleId, deleted: true }))
+      // deleted 由库侧 RETURNING 派生,不是代码常量(2026-09-27):removeUserRole 的 where
+      // 同时带 userId 与 roleId,这一对本就不在 userRoles 里时旧写法照样回 true。
+      const removed = await removeUserRole(userId, roleId)
+      return reply.send(success({ userId, roleId, deleted: removed.length > 0 }))
     },
   )
   // 授权用户:兼容单个 {userId} 与批量 {userIds[]}(userRoles 有 (user_id, role_id) 联合唯一,幂等)

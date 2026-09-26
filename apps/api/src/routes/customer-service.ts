@@ -280,8 +280,8 @@ export const customerServiceRoutes: FastifyPluginAsync = async (server) => {
       if (existing.userId !== request.userId) return reply.status(403).send(error(403, '无权操作'))
       if (existing.status !== 'pending')
         return reply.status(400).send(error(400, '工单状态不允许撤销'))
-      await deleteTicket(parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await deleteTicket(parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     },
   )
 
