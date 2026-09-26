@@ -2078,6 +2078,7 @@
     "decision": {
       "planBlocked": "Plan blocked",
       "securityBlocked": "Blocked by security policy",
+      "roleDenied": "Denied by role policy",
       "rejectedByUser": "Rejected by you",
       "approvalTimeout": "Approval timed out",
       "toolMissing": "Tool not found",
