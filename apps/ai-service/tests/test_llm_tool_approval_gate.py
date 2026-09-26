@@ -9,16 +9,13 @@
 纯函数经 importlib 直接加载源码片段,零外部依赖)。
 """
 
-import importlib.util
-import sys
-from pathlib import Path
-
 # ---------------------------------------------------------------------------
 # 轻量加载:llm.py 是重依赖路由模块(链路 llm_gateway/mcp 等),直接 import 会
 # 拖起整棵依赖树。此处按 ast 抽出模块头的审批判定区(常量 + 两个纯函数)单独 exec,
 # 与被测代码同源,不存在复制漂移。
 # ---------------------------------------------------------------------------
 import ast
+from pathlib import Path
 
 _LLM_PATH = Path(__file__).resolve().parent.parent / "app" / "routers" / "llm.py"
 _TARGET_NAMES = {

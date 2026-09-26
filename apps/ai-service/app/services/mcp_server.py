@@ -1705,10 +1705,11 @@ def approve_exec_prefix(command: str, tokens: int = 2) -> tuple[str, ...] | None
         "on", "1", "true", "yes"
     ):
         try:
-            from .exec_policy import PrefixRule as _PR, get_or_create_manager as _gocm
             from ..core.exec_policy_amendments import (
                 append_allow_prefix_rule as _ea_append,
             )
+            from .exec_policy import PrefixRule as _PR
+            from .exec_policy import get_or_create_manager as _gocm
             from .exec_policy import rules_dir_from_env as _rules_dir_env
 
             _mgr = _gocm()
@@ -2578,7 +2579,6 @@ async def _tool_analyze_code(arguments: dict[str, Any]) -> dict[str, Any]:
     lang = "python" if language in ("python", "py", "python3") else language
     if lang == "python":
         # 真实 AST 分析;语法错误本身就是分析结论(如实报告,不算工具失败)
-        import ast as _ast
 
         try:
             findings = _analyze_python_ast(code)

@@ -17,8 +17,6 @@ from __future__ import annotations
 from importlib import import_module
 from pathlib import Path
 
-import pytest
-
 mcp = import_module("app.core.model_context_window")
 
 
@@ -93,7 +91,7 @@ class TestTSSync:
             "skywork-4": 32_000,
             "internlm2.5-20b": 32_000,
         }
-        assert mcp.LOW_WINDOW_OVERRIDES == ts_low
+        assert ts_low == mcp.LOW_WINDOW_OVERRIDES
 
     def test_ts_source_snapshot_unchanged(self):
         """TS 表若被改动(新低窗口条目/值变化),本测试提醒同步 PY 侧。"""
