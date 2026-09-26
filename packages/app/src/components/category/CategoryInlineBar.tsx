@@ -110,46 +110,54 @@ export function CategoryInlineBar({
         accessibilityState={{ selected: active }}
         accessibilityLabel={item.a11yLabel ?? item.label}
         hitSlop={4}
-        style={({ pressed }) => (pressed ? styles.itemPressed : null)}
       >
-        {/* 容器视觉放在普通 View 上:真机 release 包实测过 Pressable 的函数式 style
-            这条路径整块不生效(文字样式正常、chip 的 padding/描边/底色全丢),
-            选中态因此变成"深底深字看不见"。按压反馈留在 Pressable,视觉与文字同路径。 */}
-        <View style={active ? [styles.item, styles.itemActive] : styles.item}>
-          {Icon ? (
-            <Icon
-              size={item.iconSize ?? 16}
-              color={active ? tk.brand.ctaForeground : tk.text.secondary}
-            />
-          ) : item.image ? (
-            <Image
-              source={item.image}
-              style={[
-                styles.itemImage,
-                item.iconSize ? { width: item.iconSize, height: item.iconSize } : null,
-              ]}
-              resizeMode="contain"
-            />
-          ) : null}
-          <Text
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            style={[styles.itemText, active ? styles.itemTextActive : null]}
+        {({ pressed }) => (
+          <View
+            style={[
+              active ? [styles.item, styles.itemActive] : styles.item,
+              pressed ? styles.itemPressed : null,
+            ]}
           >
-            {item.label}
-          </Text>
-          {typeof item.count === 'number' ? (
-            <CountBadge
-              value={item.count}
-              selected={active}
-              styles={styles}
-              activeTextColor={tk.brand.DEFAULT}
-              idleTextColor={tk.text.secondary}
-              activeBg={tk.brand.ctaForeground}
-              idleBg={tk.surface.muted}
-            />
-          ) : null}
-        </View>
+            {/* 容器视觉与按压态都挂在普通 View 上。真机 release 包实测:挂在 Pressable 的
+                **函数式** style 上的东西整块不生效(css-interop 的 wrap-jsx 把函数摊成 {},
+                见守门 131)—— 早先这里写 `style={({pressed}) => …}`,于是"按压反馈留在
+                Pressable"只是个账面说法,手机上从来没有淡出。改走 children 函数形态:
+                它是 RN 自己的 API,不经 interop 的 style 通道。 */}
+            {Icon ? (
+              <Icon
+                size={item.iconSize ?? 16}
+                color={active ? tk.brand.ctaForeground : tk.text.secondary}
+              />
+            ) : item.image ? (
+              <Image
+                source={item.image}
+                style={[
+                  styles.itemImage,
+                  item.iconSize ? { width: item.iconSize, height: item.iconSize } : null,
+                ]}
+                resizeMode="contain"
+              />
+            ) : null}
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[styles.itemText, active ? styles.itemTextActive : null]}
+            >
+              {item.label}
+            </Text>
+            {typeof item.count === 'number' ? (
+              <CountBadge
+                value={item.count}
+                selected={active}
+                styles={styles}
+                activeTextColor={tk.brand.DEFAULT}
+                idleTextColor={tk.text.secondary}
+                activeBg={tk.brand.ctaForeground}
+                idleBg={tk.surface.muted}
+              />
+            ) : null}
+          </View>
+        )}
       </Pressable>
     )
   }
