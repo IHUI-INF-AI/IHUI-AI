@@ -190,11 +190,28 @@ function scanFile(p) {
 
 if (!quiet) console.log('[check-auth-refresh-singleton] 扫描客户端 auth refresh 调用点...')
 
-const dirs = ['apps', 'packages']
-for (const d of dirs) {
-  const abs = join(root, d)
-  for (const f of collectFiles(abs)) scanFile(f)
-}
+/**
+ * 取材 = **被跟踪集**(`git ls-files`),不再递归扫磁盘。
+ * 旧写法把共享工作区里被 gitignore 的产物一起扫进来:实测它扫到某会话留在
+ * `apps/miniapp-taro/.tmp-twq-fix/common.js` 的压缩构建 dump(含 `refresh(` 字样),
+ * 于是**每一次提交**都被这道批外门挡下 —— 而那份内容进不了任何提交面,判它没有意义。
+ * 与守门 57/77/83 同取向:判仓库内容,不判共享工作区快照。
+ */
+import { execFileSync } from 'node:child_process'
+const trackedFiles = (() => {
+  try {
+    const out = execFileSync(
+      'git',
+      ['-c', 'safe.directory=*', 'ls-files', '-z', '--', 'apps', 'packages'],
+      { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 },
+    )
+    return out.split('\0').filter(Boolean).map((rel) => join(root, rel))
+  } catch (e) {
+    console.log(`[check-auth-refresh-singleton] ⚠️ git ls-files 失败,按失败处理(不静默放行):${e?.message ?? e}`)
+    process.exit(2)
+  }
+})()
+for (const f of trackedFiles) scanFile(f)
 
 if (violations.length === 0) {
   if (!quiet) console.log('[check-auth-refresh-singleton] ✅ 无绕过单例的裸 refresh 调用')
