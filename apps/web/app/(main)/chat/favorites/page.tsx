@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Star } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { sortPinnedFirst } from '@ihui/shared'
 import { BackButton } from '@/components/common'
 import { Button } from '@ihui/ui-react'
 import { ConversationList, type Conversation } from '@/components/chat/conversation-list'
@@ -27,7 +28,7 @@ export default function ChatFavoritesPage() {
     queryFn: fetchFavorites,
   })
 
-  const items = data ?? []
+  const items = sortPinnedFirst(data ?? [])
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-4">
