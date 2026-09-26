@@ -10564,6 +10564,7 @@
     "communityPublishing": "发布中...",
     "compaction": {
       "truncatedNotice": "最后一条消息过长,已截断内容以保持对话可用(已省略 {count} 条)",
+      "truncatedNoticeNoCount": "最后一条消息过长,已截断内容以保持对话可用",
       "viewArchived": "查看已压缩的 {count} 条原始消息",
       "archiveTitle": "压缩归档 · 原始消息",
       "archiveEmpty": "暂无压缩归档",

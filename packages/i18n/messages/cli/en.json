@@ -97,7 +97,8 @@
     "commandSafety": {
       "dangerous": "⚠ Dangerous command blocked: the command matched danger pattern {pattern}\nIf you really need to run it, set IHUI_YOLO=1",
       "alwaysConfirm": "⚠ Command blocked: it belongs to the \"always confirm\" tier (delete / force push / rebase / release, the hard-to-undo kind), and IHUI_YOLO must not let it pass silently.\nDrop IHUI_YOLO and retry so that you confirm each command."
-    }
+    },
+    "goalNotAchieved": "Independent verification did not pass: this run must not be reported as complete"
   },
   "waiting": {
     "agent": {
@@ -404,7 +405,13 @@
     "auditColTotal": "Total",
     "auditColSuccess": "OK",
     "auditColFailure": "Failed",
-    "auditColRate": "Success rate"
+    "auditColRate": "Success rate",
+    "goalDesc": "Goal mode: the objective text (used with --goal-criteria)",
+    "goalCriteriaDesc": "Goal mode: JSON file of hard criteria (array items with id/statement, optional probe_command/expected_exit_code/required)",
+    "goalCriteriaBadArg": "--goal-criteria requires a file path",
+    "goalCriteriaUnreadable": "Cannot read --goal-criteria file {file}: {error}",
+    "goalCriteriaNotAnArray": "{file} must contain a non-empty JSON array",
+    "goalCriteriaBadEntry": "Criterion #{index} is missing id or statement"
   },
   "cliWorkflows": {
     "contextBadJson": "--context is not valid JSON: {message}",
