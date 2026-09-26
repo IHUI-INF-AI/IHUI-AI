@@ -8137,6 +8137,10 @@
           "title": "브라우저 디버그 채널을 사용할 수 없습니다",
           "action": "활성화 후 재시도"
         },
+        "CHAT_MODE_TOOL_BLOCKED": {
+          "title": "현재 채팅 모드에서는 이 작업이 차단됩니다",
+          "action": "빌드 모드로 전환 후 재시도"
+        },
         "CONCURRENCY_LIMIT_EXCEEDED": {
           "title": "요청이 너무 잦습니다",
           "action": "나중에 재시도"
@@ -8480,6 +8484,10 @@
         "TOOL_FAILED": {
           "title": "도구 실행이 실패했습니다",
           "action": "재시도"
+        },
+        "TOOL_MODE_UNAVAILABLE": {
+          "title": "이 도구는 현재 실행 모드에서 사용할 수 없습니다",
+          "action": "동등한 로컬 도구로 대체"
         },
         "TOOL_NOT_FOUND": {
           "title": "대상 리소스를 찾을 수 없습니다",

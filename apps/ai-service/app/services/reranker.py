@@ -243,8 +243,13 @@ async def llm_rerank_scores(
     for entry in raw_scores:
         if not isinstance(entry, dict):
             continue
+        raw_index = entry.get("index")
+        if raw_index is None:
+            # schema 声明 index 必填,但 LLM 输出不保证遵守:缺键即跳过该候选。
+            # 与旧行为完全等价(此前 int(None) 抛 TypeError 被下方 except 吞掉 → continue)。
+            continue
         try:
-            idx = int(entry.get("index"))
+            idx = int(raw_index)
             score = float(entry.get("score", 0.0))
         except (TypeError, ValueError):
             continue
