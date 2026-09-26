@@ -10,6 +10,7 @@ import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { findUserById } from '../db/queries.js'
+import { getBalance, getTokenFlowTotals } from '../db/commission-queries.js'
 
 /**
  * 用户扩展接口(2026-08-26 立)
@@ -20,6 +21,7 @@ import { findUserById } from '../db/queries.js'
  *   GET  /api/user/qr-code    — 我的二维码(邀请链接)
  *   GET  /api/user/referrer   — 我的推荐人信息 + 我的邀请码
  *   POST /api/user/referrer   — 绑定推荐人(邀请码)
+ *   GET  /api/user/token-balance — 我的智汇值(余额 + 累计获得/累计消耗,2026-09-27 补)
  */
 
 const bindReferrerSchema = z.object({
@@ -118,6 +120,21 @@ export const userExtraRoutes: FastifyPluginAsync = async (server) => {
     }
     await db.update(users).set({ parentId: inviter.id }).where(eq(users.id, userId))
     return reply.send(success({ parentId: inviter.id }))
+  })
+
+  // GET /token-balance — 我的智汇值余额 + 累计获得/累计消耗
+  // 立因:api-client 的 getTokenBalance() 自写下起就打这条路径,而路由从未存在(实测 404),
+  // mobile-rn `AgentScreen` 读 `res.data.balance` 且失败保持 0 ⇒ "智汇值"卡恒显 0,而守门 8 一路绿。
+  // 契约与 `packages/api-client/src/endpoints/token.ts` 的 TokenBalance 逐字段对齐;
+  // vipLevel/monthlyQuota/discountRate 是**可选**字段,刻意不填 —— 那三项归 token-balance-service
+  // 的 VIP 口径,在这里猜一个值等于造第二个真相(要接就在服务端引那道出口,另计一票)。
+  server.get('/token-balance', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) {
+      return reply.status(401).send(error(401, '请先登录'))
+    }
+    const [balance, totals] = await Promise.all([getBalance(userId), getTokenFlowTotals(userId)])
+    return reply.send(success({ balance, totalEarned: totals.totalEarned, totalUsed: totals.totalUsed }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
