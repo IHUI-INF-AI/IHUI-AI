@@ -3603,6 +3603,43 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- background-task-type-parity(1 项,blocking)---
+  {
+    id: '136',
+    label:
+      '后台任务类型声明↔实现↔接线三面 parity(V3 #51:六类 executor 不得回到 sleep/echo 回显)',
+    script: 'check-background-task-type-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BG_TASK_TYPE_PARITY',
+    stagedTriggers: ['apps/ai-service/app/services/', 'apps/ai-service/app/api/'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 名字承诺/实现兑现对账(拦「函数或字段叫 hash/digest/指纹/脱敏,实现却是明文拼接且流向持久化或出网」这一型 —— 本仓 4 处真缺陷同族立门)(1 项,blocking)---
+  {
+    id: '137',
+    label:
+      '名字承诺/实现兑现对账(拦「函数或字段叫 hash/digest/指纹/脱敏,实现却是明文拼接且流向持久化或出网」这一型 —— 本仓 4 处真缺陷同族立门)',
+    script: 'check-digest-name-reality.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DIGEST_NAME_REALITY',
+    stagedTriggers: ['apps/', 'packages/', 'scripts/', 'deploy/', 'monitoring/', 'sdks/'],
+    onFailHint: [
+      '',
+      '  💡 三条与门缺一不可才判红:① 命名承诺(词元匹配,非子串)② 可达返回/赋值面无任何真散列 ③ 值流向持久化/出网出口或被当等值标识。',
+      '     判不出的一律落「未判定」并报数,既不判红也不冒充合规;--strict 下有未判定即 exit 2(拒绝出合格证)。',
+      '     行内出口:digest-name-exempt: <一句话原因>(必须带原因,已挂守门 108 的 30 天存活期档)。',
+      '     ⚠ 落地当天真仓 HEAD 现读 3 处命中经逐条复核**全为假阳性**(fingerprints=哈希值集合 / hashIdx=URL 片段位置 / hashed=混装列表局部变量),',
+      '       它们已作为该文件 HEAD 存量被棘轮放过;升更严判据前必须先修准这三型,不得为消红去放宽词元匹配。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

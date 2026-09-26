@@ -19,9 +19,16 @@
  *     run_in_background + 真的调用 get_spec)。若有人把白名单重新内联回工具层 ⇒ 红
  *     (第二个真相源是本仓所有对账门存在的理由)。
  *  P3 `mcp_server._BG_TASK_IMPLS` 的键必须 ⊆ 实现面:广告出去却没实现 = 真幽灵。
+ *     两种合法形态:仍自带白名单字典(own-whitelist),或工具层整体委托
+ *     `background_tasks.run_in_background`(delegated,此时广告面按定义 = 注册表)。
+ *     第三种形态(既无字典也无委托)判"广告面失明",不记绿。
  *  P4 「实现面 − 广告面」必须**逐字等于** `EXPECTED_UNWIRED_IN_MCP_SERVER`:
  *     新增未接线类型没入账 ⇒ 红;已接线却仍挂账 ⇒ 红(清单腐烂)。
- *     这张账存在的理由很实在:`mcp_server.py` 由并行会话持有,本票结构上改不动它。
+ *     这张账 2026-09-27 起为**空 = 零容忍**(工具层已整体委托,详见该常量处的收紧记录)。
+ *  P6 模型可见的**声明文字**(MCPTool description / schema 里的 "支持 X/Y"、"白名单:X/Y")
+ *     必须与实现面双向等值;或改为**可证的派生形态**(调用 `_bg_task_types_prose()`
+ *     且该函数体真读 `RUN_IN_BACKGROUND_TASK_TYPES`)。少一个方向就放过本票的真实缺口:
+ *     注册表接好了、描述还写着 "支持 sleep/echo" ⇒ 模型压根发现不了那 6 类。
  *  P5 `dag_scheduler._default_executor` 必须走 `execute_for_kanban` 且其 Return 字面量里
  *     不得再有 `echo`;`api/dag.py` 必须走 `execute_task` 并保留 `executed: False` 自证。
  *     「造好没装车」是本仓最高频失效型(守门 64/70/81 同型)。
@@ -61,16 +68,16 @@ const INPUTS = [PY_EXECUTORS, PY_BACKGROUND, PY_MCP, PY_DAG_SCHED, PY_DAG_API]
 
 /**
  * P4 欠账账本:实现已落地、但工具广告面(mcp_server)还没接上的类型。
- * 接线完成后必须删掉对应行,否则本门判「清单腐烂」红。
+ *
+ * **2026-09-27 由 6 行收紧为空 = 零容忍**(V3 #51 接线完成):`_tool_run_in_background`
+ * 已整体委托 `background_tasks.run_in_background`,广告面按定义等于注册表,
+ * 于是这里留任何一行都既是腐烂也是遮蔽 —— 新增一类 executor 若没接到分派出口,
+ * 由 P4 的 `新增未接线类型未登记欠账` 与 P6 的 `已实现的类型没进 schema 文字` 当场判红。
+ * 收紧前置条件(逐条实测达成后才动本表,否则就是恒红门):
+ *   ① 实现面 8 类全部可达(工具面 / DAG 面 / HTTP 面三条入口共用同一分派出口);
+ *   ② mcp_server 不再自带白名单字典;③ schema 描述文字改为派生形态。
  */
-export const EXPECTED_UNWIRED_IN_MCP_SERVER = Object.freeze([
-  'batch_llm',
-  'code_index',
-  'long_running_command',
-  'patrol',
-  'test_suite',
-  'web_batch',
-])
+export const EXPECTED_UNWIRED_IN_MCP_SERVER = Object.freeze([])
 
 // ---------------------------------------------------------------------------
 // 遮噪:剥行注释 + 剥三引号串(等长,行号不变);单行字符串原样保留
@@ -186,12 +193,19 @@ export function parseAdvertised(rawSrc) {
  * 刻意**只在 run_in_background 这一块里取**:全文件扫 `支持 X/Y` 会命中 40 多个无关 token
  * (写门时实测:"支持类型:class / function / interface / diff"、"支持 gif/png/webp" 全被捞进来),
  * 那种判据一出生就是假阳机 —— 假阳比漏报更贵(它指使人去"修"没坏的东西)。
- * 判据只取"广告了却没实现"这一方向;"prose 没列全"由 P4 的欠账账覆盖,不在这里重复计债。
+ *
+ * 两种合法形态:
+ *  - 字面量白名单(`支持 a/b/c`)⇒ 与实现面**双向**等值:多一个 = 模型会调到不存在的任务,
+ *    少一个 = 该类接了线却没人能发现(V3 #51 六类未接线就是这么活了很久的)。
+ *  - 派生形态(调用 `_bg_task_types_prose()`)⇒ **两跳都验**:块里真调了它,且它的函数体
+ *    真读 `RUN_IN_BACKGROUND_TASK_TYPES`。只验调用名会放过"函数名像派生、body 写死"的假同源表。
+ *
+ * @returns {{found: boolean, tokens: string[], derived: boolean, derivesUnproven: boolean}}
  */
 export function parseProseWhitelist(rawMcp) {
   const src = maskPyNoise(rawMcp)
   const start = src.indexOf('name="run_in_background"')
-  if (start < 0) return { found: false, tokens: [] }
+  if (start < 0) return { found: false, tokens: [], derived: false, derivesUnproven: false }
   const rest = src.slice(start + 1)
   const nextTool = rest.search(/\n\s{4}MCPTool\(/)
   const block = nextTool >= 0 ? rest.slice(0, nextTool) : rest.slice(0, 4000)
@@ -199,7 +213,16 @@ export function parseProseWhitelist(rawMcp) {
   for (const m of block.matchAll(/(?:支持|白名单:)\s*([a-z0-9_]+(?:\/[a-z0-9_]+)*)/g)) {
     for (const tok of m[1].split('/')) if (tok) tokens.add(tok)
   }
-  return { found: true, tokens: [...tokens].sort() }
+  const callsHelper = /\b_bg_task_types_prose\s*\(/.test(block)
+  const helperDef = /def _bg_task_types_prose\([\s\S]*?\n(?=\S)/.exec(src)
+  const helperReadsRegistry = Boolean(helperDef && /RUN_IN_BACKGROUND_TASK_TYPES/.test(helperDef[0]))
+  return {
+    found: true,
+    tokens: [...tokens].sort(),
+    derived: Boolean(callsHelper && helperReadsRegistry),
+    // 调了派生出口、但那个出口其实没读注册表 ⇒ 这是一张假装同源的表,必须点名而不是放过
+    derivesUnproven: Boolean(callsHelper && !helperReadsRegistry),
+  }
 }
 
 export function parseDispatchSurface(rawBg) {
@@ -297,6 +320,25 @@ export function judge(inputs, ledger = EXPECTED_UNWIRED_IN_MCP_SERVER) {
     notes.push(`P4 在账未接线 ${unwired.length} 类(${unwired.join(', ') || '无'});广告面已接线 ${advertised.length} 类`)
   }
 
+  // P6 —— 模型可见的**声明文字**那一面。此前这判据是个"造好没装车"的死函数
+  // (parseProseWhitelist 已实现却从没有被 judge 调用过),而它守的正是本票的真实缺口:
+  // 注册表落地 6 类、工具层也委托了,description 里还写着 "支持 sleep/echo" ⇒
+  // 模型压根不知道有 test_suite/patrol 可用,"接了线也调不到"。
+  const prose = parseProseWhitelist(inputs[PY_MCP])
+  if (!prose.found) {
+    violations.push('P6 mcp_server 的 run_in_background schema 解析不到 ⇒ 模型可见声明面失明,不得记为通过')
+  } else if (prose.derived) {
+    notes.push('P6 广告清单派生自注册表别名 RUN_IN_BACKGROUND_TASK_TYPES(结构上不可漂移)')
+  } else {
+    if (prose.derivesUnproven) {
+      violations.push('P6 schema 调了 _bg_task_types_prose 而该函数并未读 RUN_IN_BACKGROUND_TASK_TYPES ⇒ 假同源表(派生是名字不是事实)')
+    }
+    const proseGhosts = prose.tokens.filter((t) => !reg.implemented.includes(t))
+    const proseHidden = reg.implemented.filter((t) => !prose.tokens.includes(t))
+    if (proseGhosts.length) violations.push(`P6 schema 文字广告了未实现的类型(模型会提交不存在的任务):${proseGhosts.join(', ')}`)
+    if (proseHidden.length) violations.push(`P6 已实现的类型没进 schema 文字 ⇒ 模型无法发现(接线了也没人调得到):${proseHidden.join(', ')}`)
+  }
+
   const dag = parseDagWiring(inputs[PY_DAG_SCHED], inputs[PY_DAG_API])
   if (!dag.hasDefaultExecutorFn) {
     violations.push('P5 dag_scheduler._default_executor 解析不到 ⇒ 判据失明,不得记为通过')
@@ -310,7 +352,7 @@ export function judge(inputs, ledger = EXPECTED_UNWIRED_IN_MCP_SERVER) {
     violations.push('P5 /dag/execute 未声明类型的节点不再自证 executed:False ⇒ 桩可以重新伪装成成功')
   }
 
-  return { violations, notes, reg, dispatch, advertised, advertisedKind: advertisedInfo.kind, dag }
+  return { violations, notes, reg, dispatch, advertised, advertisedKind: advertisedInfo.kind, prose, dag }
 }
 
 // ---------------------------------------------------------------------------
@@ -354,6 +396,59 @@ export function readInputs(root, face) {
 
 export const FIXTURE_LEDGER = ['alpha', 'beta']
 
+/** 广告面字面量形态(半接线:handler 自带只有 echo 的白名单)。 */
+export const FIXTURE_MCP_HALF_WIRED = [
+  '_BG_TASK_IMPLS: dict[str, Callable[[dict[str, Any]], Awaitable[Any]]] = {',
+  '    "echo": _bg_impl_echo,',
+  '}',
+  '',
+  '',
+  '_TOOLS = [',
+  '    MCPTool(',
+  '        name="run_in_background",',
+  '        description=("提交后台任务并立即返回 task_id。支持 alpha/beta/echo"),',
+  '    ),',
+  '    MCPTool(',
+  '        name="bg_task_status",',
+  '    ),',
+  ']',
+].join('\n')
+
+/**
+ * 接线完成形态:handler 整体委托 + 声明文字**派生自注册表别名**。
+ * 派生出口必须真的读那个别名 —— 只挂个像样的函数名不算(见 parseProseWhitelist 的
+ * `derivesUnproven`)。
+ */
+export const FIXTURE_MCP_DELEGATED = [
+  'def _bg_task_types_prose() -> str:',
+  '    from .background_tasks import RUN_IN_BACKGROUND_TASK_TYPES',
+  '',
+  '    return "/".join(RUN_IN_BACKGROUND_TASK_TYPES)',
+  '',
+  '',
+  'async def _tool_run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:',
+  '    from .background_tasks import run_in_background',
+  '',
+  '    return await run_in_background(arguments)',
+  '',
+  '',
+  '_TOOLS = [',
+  '    MCPTool(',
+  '        name="run_in_background",',
+  '        description=("提交后台任务。支持 " + _bg_task_types_prose()),',
+  '    ),',
+  '    MCPTool(',
+  '        name="bg_task_status",',
+  '    ),',
+  ']',
+].join('\n')
+
+/** 派生出口名不副实(fixture 用:函数体写死,没读注册表)。 */
+export const FIXTURE_MCP_FAKE_DERIVED = FIXTURE_MCP_DELEGATED.replace(
+  '    from .background_tasks import RUN_IN_BACKGROUND_TASK_TYPES\n\n    return "/".join(RUN_IN_BACKGROUND_TASK_TYPES)',
+  '    return "alpha/beta/echo"',
+)
+
 export function fixtureBase() {
   return {
     [PY_EXECUTORS]: [
@@ -384,11 +479,7 @@ export function fixtureBase() {
       '    spec = get_spec(str(arguments.get("task", "")))',
       '    return {}',
     ].join('\n'),
-    [PY_MCP]: [
-      '_BG_TASK_IMPLS: dict[str, Callable[[dict[str, Any]], Awaitable[Any]]] = {',
-      '    "echo": _bg_impl_echo,',
-      '}',
-    ].join('\n'),
+    [PY_MCP]: FIXTURE_MCP_HALF_WIRED,
     [PY_DAG_SCHED]: [
       'async def _default_executor(task: KanbanTask) -> dict[str, Any]:',
       '    """旧实现回显 {"echo": payload} —— 这段散文不得被判成违规(遮噪有牙)。"""',
@@ -420,6 +511,10 @@ export function report(out, face) {
     `  声明面 ${(out.reg.declaredLiteral || []).length} 类 · 广告面 ${(out.advertised || []).length} 类` +
       ` · stub ${(out.reg.stubs.literal || []).length} 类`,
   )
+  lines.push(
+    `  schema 声明文字:${out.prose.derived ? '派生自注册表' : `字面量 ${out.prose.tokens.length} 类`}` +
+      `(形态=${out.advertisedKind})`,
+  )
   for (const n of out.notes) lines.push(`  · ${n}`)
   if (out.violations.length) {
     lines.push(`  违规 ${out.violations.length} 条:`)
@@ -437,6 +532,7 @@ export function buildJson(out, face) {
     declaredLiteral: out.reg.declaredLiteral,
     advertised: out.advertised,
     advertisedKind: out.advertisedKind,
+    prose: out.prose,
     stubs: out.reg.stubs,
     violations: out.violations,
     notes: out.notes,
@@ -490,13 +586,15 @@ function selfTest() {
   check('S3b 账本里已接线的行不删 ⇒ 红(清单腐烂)',
     has(judge(fixtureInputs(), ['alpha', 'beta', 'already_wired_entry']), 'P4 欠账清单腐烂'))
 
-  // 接线完成后的形态(mcp_server 改为整体委托)必须为绿 —— 否则"修好它"反而制造恒红门
-  const delegated = 'async def _tool_run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:\n    from .background_tasks import run_in_background\n\n    return await run_in_background(arguments)\n'
-  const delClean = judge(fixtureInputs({ [PY_MCP]: delegated }), [])
-  check('S3c 工具层已整体委托 background_tasks.run_in_background ⇒ 必须为绿(不得因账变而红)',
+  // 接线完成后的形态(mcp_server 改为整体委托 + 声明文字派生)必须为绿 ——
+  // 否则"修好它"反而制造恒红门(§12e 同型)
+  const delClean = judge(fixtureInputs({ [PY_MCP]: FIXTURE_MCP_DELEGATED }), [])
+  check('S3c 工具层已整体委托 + 声明文字派生自注册表 ⇒ 必须为绿(不得因账变而红)',
     delClean.violations.length === 0 && delClean.advertisedKind === 'delegated')
+  check('S3c2 派生形态必须被认出(否则 P6 会因 tokens 空而误判"没广告")',
+    delClean.prose.derived === true && delClean.prose.tokens.length === 0)
   check('S3d 委托后账本仍留一行 ⇒ 红(清单腐烂)',
-    has(judge(fixtureInputs({ [PY_MCP]: delegated }), ['alpha']), 'P4 工具已改为整体委托'))
+    has(judge(fixtureInputs({ [PY_MCP]: FIXTURE_MCP_DELEGATED }), ['alpha']), 'P4 工具已改为整体委托'))
   check('S3e 既无白名单也无委托 ⇒ 判"广告面失明",不得记绿',
     has(judge(fixtureInputs({ [PY_MCP]: 'x = 1\n' }), []), 'P3 mcp_server 既没有 _BG_TASK_IMPLS'))
 
@@ -543,6 +641,25 @@ function selfTest() {
 
   const jsonable = JSON.stringify(buildJson(clean, 'head'))
   check('S10 --json 输出必须可 parse 且含三面', JSON.parse(jsonable).implemented.length === 3)
+
+  // ---- P6 与"账本收紧为零容忍"的有牙证明(每条各一对正反) ----
+  check('S11a 账本清空后,handler 只广告 echo ⇒ 必红(零容忍不是口号)',
+    has(judge(fixtureInputs(), []), 'P4 新增未接线类型未登记欠账'))
+  check('S11b 同一条判据在旧账本下为绿 ⇒ 证明 S11a 的红来自收紧而非噪声',
+    judge(fixtureInputs(), FIXTURE_LEDGER).violations.length === 0)
+
+  const proseMissing = FIXTURE_MCP_HALF_WIRED.replace('支持 alpha/beta/echo', '支持 alpha/echo')
+  check('S11c schema 声明文字漏一类 ⇒ 红(接线了但模型发现不了)',
+    has(judge(fixtureInputs({ [PY_MCP]: proseMissing }), FIXTURE_LEDGER), 'P6 已实现的类型没进 schema 文字'))
+  const proseGhost = FIXTURE_MCP_HALF_WIRED.replace('支持 alpha/beta/echo', '支持 alpha/beta/echo/imaginary')
+  check('S11d schema 声明文字多一类 ⇒ 红(模型会提交不存在的任务)',
+    has(judge(fixtureInputs({ [PY_MCP]: proseGhost }), FIXTURE_LEDGER), 'P6 schema 文字广告了未实现的类型'))
+  check('S11e 派生出口名不副实(body 写死)⇒ 红,不得认作派生',
+    has(judge(fixtureInputs({ [PY_MCP]: FIXTURE_MCP_FAKE_DERIVED }), []), 'P6 schema 调了 _bg_task_types_prose'))
+  check('S11f schema 块解析不到 ⇒ 判"声明面失明",不得记绿',
+    has(judge(fixtureInputs({ [PY_MCP]: 'x = 1\n' }), FIXTURE_LEDGER), 'P6 mcp_server 的 run_in_background schema 解析不到'))
+  check('S11g 真派生形态下 prose.tokens 为空**不**算漏广告(S11c 的反向对照)',
+    delClean.violations.every((v) => !v.startsWith('P6')))
 
   const passed = results.filter(([, ok]) => ok).length
   for (const [name, ok] of results) console.log((ok ? 'PASS  ' : 'FAIL  ') + name)
@@ -600,6 +717,7 @@ export const __test__ = {
   judge,
   parseRegistryTypes,
   parseAdvertised,
+  parseProseWhitelist,
   parseDispatchSurface,
   parseDagWiring,
   maskPyNoise,
@@ -612,5 +730,8 @@ export const __test__ = {
   selfTest,
   EXPECTED_UNWIRED_IN_MCP_SERVER,
   FIXTURE_LEDGER,
+  FIXTURE_MCP_HALF_WIRED,
+  FIXTURE_MCP_DELEGATED,
+  FIXTURE_MCP_FAKE_DERIVED,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

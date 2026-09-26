@@ -25,7 +25,6 @@ URL 跳转但正文为空/文章不存在的假阳性)。
 """
 from __future__ import annotations
 
-import hashlib
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -60,9 +59,11 @@ def _all_cookies(credentials: dict[str, Any]) -> list[SetCookieParam]:
     return out
 
 
-def _account_id(credentials: dict[str, Any]) -> str:
-    first_cred = next((v for v in credentials.values() if v), "default")
-    return f"zhihu_{hashlib.md5(str(first_cred).encode()).hexdigest()[:8]}"
+def _account_id(credentials: dict[str, Any], db_account_id: int | str | None = None) -> str:
+    """核验会话用的身份键 —— 委托唯一出口(旧实现取「首个凭证值」哈希,刷新即换脸)。"""
+    from app.services.publish.anti_risk.account_identity import resolve_account_id
+
+    return resolve_account_id("zhihu", credentials, db_account_id)
 
 
 async def verify_published(
@@ -70,6 +71,7 @@ async def verify_published(
     credentials: dict[str, Any],
     content_id: str,
     expect_title: str,
+    db_account_id: int | str | None = None,
 ) -> dict[str, Any]:
     """核验已发布内容是否真实落地。
 
@@ -83,7 +85,7 @@ async def verify_published(
         统一核验结构(dict)。失败时 passed=False,issues 解释原因。
     """
     if platform == "zhihu":
-        return await _verify_zhihu(credentials, content_id, expect_title)
+        return await _verify_zhihu(credentials, content_id, expect_title, db_account_id)
     return {
         "checked_at": datetime.now(UTC).isoformat(),
         "passed": False,
@@ -98,6 +100,7 @@ async def _verify_zhihu(
     credentials: dict[str, Any],
     content_id: str,
     expect_title: str,
+    db_account_id: int | str | None = None,
 ) -> dict[str, Any]:
     checked_at = datetime.now(UTC).isoformat()
     issues: list[str] = []
@@ -119,7 +122,7 @@ async def _verify_zhihu(
     try:
         async with async_playwright() as p:
             browser, context = await create_stealth_browser_context(
-                account_id=_account_id(credentials),
+                account_id=_account_id(credentials, db_account_id),
                 platform="zhihu",
                 playwright_instance=p,
                 headless=True,

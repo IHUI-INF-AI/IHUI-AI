@@ -638,6 +638,8 @@ async def verify_account(account_id: int, request: Request) -> dict[str, Any]:
         adapter = get_adapter(row["platform"])
         if adapter is None:
             raise HTTPException(status_code=400, detail=f"adapter not found: {row['platform']}")
+        # 反风控身份键走稳定锚点(账号行 id),不再让"刷新后必变"的凭证值决定账号的脸
+        adapter.db_account_id = account_id
 
         # 真实验证
         ok, msg = await adapter.verify_credentials(credentials)
@@ -1574,7 +1576,7 @@ async def monitor_verify(body: MonitorVerifyRequest, request: Request) -> dict[s
     finally:
         await conn.close()
 
-    result = await verify_published(platform, credentials, content_id, title)
+    result = await verify_published(platform, credentials, content_id, title, account_id)
     await persist_style_check(body.task_id, platform, content_id, result)
     return _wrap_ok(result)
 
@@ -1601,7 +1603,7 @@ async def monitor_refresh_metrics(body: MonitorRefreshMetricsRequest, request: R
     finally:
         await conn.close()
 
-    await collect_metrics(body.task_id, platform, content_id, credentials)
+    await collect_metrics(body.task_id, platform, content_id, credentials, account_id)
     latest = await latest_metrics(body.task_id, platform)
     return _wrap_ok(latest)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

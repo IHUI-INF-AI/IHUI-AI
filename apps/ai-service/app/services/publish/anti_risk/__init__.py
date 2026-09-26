@@ -50,6 +50,7 @@
 诚实边界:"零风险"技术上不可达(平台风控黑盒且进化),本模块目标是
 "工业级低风险"—把风险压到接近真人手动操作水平。
 """
+from .account_identity import STABLE_IDENTITY_FIELDS, resolve_account_id
 from .account_profile import AccountProfile, get_account_profile
 from .audio_fingerprint import inject_audio_fingerprint_guard
 from .audit_logger import AuditEvent, AuditLogger
@@ -112,6 +113,7 @@ __all__ = [
     # 五层防线基础
     "create_stealth_browser_context",
     "close_stealth_context",
+    "resolve_account_id",
     "AccountProfile",
     "get_account_profile",
     "BrowserFingerprint",
