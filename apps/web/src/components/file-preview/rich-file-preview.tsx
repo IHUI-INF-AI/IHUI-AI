@@ -4,68 +4,55 @@
 
 'use client'
 
+import * as React from 'react'
+import { OfficePreview, SUPPORTED_EXTS } from '@/components/media/office-preview'
+import { richPreviewKindOf } from '@/lib/file-preview-attachment'
+import { DelimitedFilePreview } from './delimited-file-preview'
+import { PdfFilePreview } from './pdf-file-preview'
+import { PreviewErrorCard } from './preview-error-card'
+
 /**
- * 两栏(并排)diff 预览(V3 #66 收敛,2026-09-26)。
+ * 会话内富预览派发器(V3 #70)—— 唯一的"按扩展名选渲染器"入口。
  *
- * 本组件此前**自带一份 LCS**(`computeLcsDiff`)并两列各 map 一遍 rows ——
- * 那是仓里第三份行级 diff 实现(另两份在 `@/lib/hunk-diff` 与 chat 卡片),
- * 且不折叠、不配对、两侧行序无法保证同义。现只剩"容器 + 列头",排版全部
- * 交给 `@/lib/diff-split-rows` 的唯一投影与 `SplitDiffBody` 的唯一渲染体。
- *
- * props 形状保持向后兼容(`checkpoint-rollback-confirm.tsx` 是另一处调用方)。
+ * 三型各自复用仓内既有素材,不新起第二套:
+ *  - pdf → `PdfFilePreview`(内含既有 `PDFViewer`,pdf.js 真渲染 + 页码/翻页/缩放)
+ *  - csv / tsv → `DelimitedFilePreview`(表头固定 / 列宽自适应 / 行数上限如实提示)
+ *  - office 那一族 → 转交既有 `OfficePreview`;**支持与否由它的 `SUPPORTED_EXTS` 判**,
+ *    本文件不复制第二张支持表(转交后它自己会落"不支持"态)
+ *  - 其余 → 错误卡(该文件类型不支持预览 + 下载出口)
  */
 
-import * as React from 'react'
-import { useTranslations } from 'next-intl'
-import { cn } from '@/lib/utils'
-import { DEFAULT_CONTEXT_LINES } from '@/lib/diff-split-rows'
-import { buildSplitEntries, SplitDiffBody } from './inline-diff-viewer'
-
-interface DiffPreviewProps {
-  oldContent: string
-  newContent: string
-  language?: string
-  filename?: string
-  /** 折叠上下文行数;`Infinity` 关闭折叠 */
-  contextLines?: number
-  className?: string
+export interface RichFilePreviewProps {
+  /** 附件 href(同源或 https;CSP 现值两面都已放行,见 next.config.ts 与本票交付报告) */
+  readonly href: string
+  /** 归一化后的扩展名(由调用方给出,派发器不再自己解析一遍第二个真相) */
+  readonly ext: string
+  readonly className?: string
 }
 
-export function DiffPreview({
-  oldContent,
-  newContent,
-  language,
-  filename,
-  contextLines = DEFAULT_CONTEXT_LINES,
-  className,
-}: DiffPreviewProps) {
-  const t = useTranslations('ide')
-  const entries = React.useMemo(
-    () => buildSplitEntries(oldContent, newContent, contextLines),
-    [oldContent, newContent, contextLines],
-  )
+export function RichFilePreview({ href, ext, className }: RichFilePreviewProps) {
+  const kind = richPreviewKindOf(ext)
 
-  return (
-    <div className={cn('overflow-hidden rounded-md border border-border bg-background', className)}>
-      {(filename || language) && (
-        <div className="flex items-center justify-between gap-2 bg-muted/40 px-3 py-1.5">
-          {filename && <span className="text-xs font-medium text-muted-foreground">{filename}</span>}
-          {language && (
-            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-              {language}
-            </span>
-          )}
-        </div>
-      )}
-      <div className="overflow-x-auto font-mono text-xs">
-        <SplitDiffBody
-          entries={entries}
-          columnLabels={{ left: t('diffViewer.oldVersion'), right: t('diffViewer.newVersion') }}
+  switch (kind.kind) {
+    case 'pdf':
+      return <PdfFilePreview src={href} className={className} />
+    case 'delimited':
+      return (
+        <DelimitedFilePreview
+          src={href}
+          format={kind.format}
+          delimiter={kind.delimiter}
+          className={className}
         />
-      </div>
-    </div>
-  )
+      )
+    case 'office':
+      // SUPPORTED_EXTS 是"支持清单"的唯一真相:不在表里的一律不转交,直接落错误卡。
+      if (SUPPORTED_EXTS.has(ext)) {
+        return <OfficePreview src={href} ext={ext} />
+      }
+      return <PreviewErrorCard failure="unsupported" ext={ext} href={href} className={className} />
+    case 'unsupported':
+      return <PreviewErrorCard failure="unsupported" ext={ext} href={href} className={className} />
+  }
 }
-
-export default DiffPreview
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
