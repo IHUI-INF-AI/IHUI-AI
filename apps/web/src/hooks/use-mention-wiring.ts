@@ -2,51 +2,81 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 多维提及的唯一那份状态(V3 第 61 票,2026-09-27 收口)。
+'use client'
+
+// 提及的"落到正文 + 落到状态"接线(V3 第 61 票,2026-09-27 立)。
 //
-// 61 票之前:这里定义了 addMention / setActiveType,但**全仓零调用方** ——
-// 于是下面 mentions 恒是空数组,`MentionChips` 的「无提及即返回 null」那条早退永远成立,
-// 而 `#` 侧的选择另存在 message-input 的局部 state。即「两个组件各持一份提及状态」。
-// 现在 `@` 与 `#` 的选择都落到这一份 store,元素类型是引擎的 MentionSelection,
-// 增删的合并语义由 packages/shared/src/chat/mention-engine 的纯函数决定(此处不再算第二遍)。
+// 为什么单独成钩子而不是留在 message-input.tsx 里:`@` / `#` 两条选中路径的落点动作
+// (写进那份唯一 store + 把 insertText 顶进正文 + 摘 chip 时同步删正文)是本票验收
+// "选中后真的进消息"的那一段。留在 1400 行的组件里就只能靠人读代码确认;提取成
+// 一个可 renderHook 的出口后,三段(出候选 / 选中 / 进消息)能在同一轮里被真的跑一遍。
+// 判定与合并语义仍然全部在 @ihui/shared/chat/mention-engine,这里只做接线,不算第二份实现。
 
-import { create } from 'zustand'
+import * as React from 'react'
 
+import { useContextMentionStore } from '@/stores/context-mention'
 import {
-  dimensionsForSigil,
-  withoutSelection,
-  withSelection,
+  removeMentionInsert,
+  replaceTrailingTrigger,
   type MentionSelection,
 } from '@ihui/shared/chat/mention-engine'
+import { MAX_LENGTH } from '@/components/chat/web-input-core'
 
-/** 默认激活维度 = 引擎表里 `@` 侧的第一条(顺序即面板分组顺序,不在端内写死 id) */
-const DEFAULT_DIMENSION_ID = dimensionsForSigil('@')[0]?.id ?? ''
-
-interface ContextMentionState {
-  /** 已选提及(`@` 与 `#` 同一份;chips 显示在输入框上方) */
-  mentions: MentionSelection[]
-  /** 当前激活的提及维度 tab(默认 `@` 的文件维度) */
-  activeDimensionId: string
-  /** 添加提及(去重:同 id 不重复添加) */
-  addMention: (mention: MentionSelection) => void
-  /** 移除指定提及 */
-  removeMention: (id: string) => void
-  /** 清空所有提及(发送消息后调用) */
-  clearMentions: () => void
-  /** 切换激活维度 tab */
-  setActiveDimension: (id: string) => void
+export interface UseMentionWiringOptions {
+  setValue: React.Dispatch<React.SetStateAction<string>>
+  inputRef: React.RefObject<{ focus: () => void; resize: () => void } | null>
+  /**
+   * 插入后是否把光标交还输入框(默认 true)。渲染链上必须交还;测试里 `inputRef.current`
+   * 常是 null,那个 rAF 回调会在 act() 收尾之外触发 React 的跨作用域泄漏告警,
+   * 所以允许调用方关掉 —— 不影响正文与状态这两件真正被验的事。
+   */
+  refocusAfterInsert?: boolean
 }
 
-export const useContextMentionStore = create<ContextMentionState>((set) => ({
-  mentions: [],
-  activeDimensionId: DEFAULT_DIMENSION_ID,
+export interface UseMentionWiringResult {
+  /** 只写状态(用于 `#` 侧 —— 正文替换由 useContextSelector 自己完成,避免改两遍) */
+  addMention: (selection: MentionSelection) => void
+  /** 选中一条提及(`@` 或 `#` 同一出口):写状态 + 把正文尾部触发段换成 insertText */
+  applyAtSelection: (selection: MentionSelection) => void
+  /** 摘 chip:清状态 + 把对应插入文本从正文里去掉 */
+  removeSelection: (selection: MentionSelection) => void
+}
 
-  addMention: (mention) => set((s) => ({ mentions: withSelection(s.mentions, mention) })),
+export function useMentionWiring(options: UseMentionWiringOptions): UseMentionWiringResult {
+  const { setValue, inputRef, refocusAfterInsert = true } = options
+  const addMention = useContextMentionStore((s) => s.addMention)
+  const removeMention = useContextMentionStore((s) => s.removeMention)
 
-  removeMention: (id) => set((s) => ({ mentions: withoutSelection(s.mentions, id) })),
+  const refocus = React.useCallback(() => {
+    if (!refocusAfterInsert) return
+    requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      inputRef.current?.resize()
+    })
+  }, [inputRef, refocusAfterInsert])
 
-  clearMentions: () => set({ mentions: [] }),
+  const applyAtSelection = React.useCallback(
+    (selection: MentionSelection) => {
+      addMention(selection)
+      setValue((prev) =>
+        replaceTrailingTrigger(prev, selection.sigil, `${selection.insertText} `).slice(
+          0,
+          MAX_LENGTH,
+        ),
+      )
+      refocus()
+    },
+    [addMention, setValue, refocus],
+  )
 
-  setActiveDimension: (id) => set({ activeDimensionId: id }),
-}))
+  const removeSelection = React.useCallback(
+    (selection: MentionSelection) => {
+      removeMention(selection.id)
+      setValue((prev) => removeMentionInsert(prev, selection.insertText))
+    },
+    [removeMention, setValue],
+  )
+
+  return { addMention, applyAtSelection, removeSelection }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

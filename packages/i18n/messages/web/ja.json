@@ -10408,6 +10408,16 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "mentionEngine": {
+      "tabFile": "ファイル",
+      "tabFolder": "フォルダ",
+      "tabSymbol": "シンボル",
+      "tabDatabase": "データベース",
+      "tabWeb": "ウェブ",
+      "searching": "検索中…",
+      "loadFailed": "検索に失敗しました",
+      "noMatch": "一致する結果がありません"
+    },
     "modelSwitchStopped": "{model} に切り替えたため、この回答を終了しました",
     "filePreviewEmpty": "プレビューできるデータ行がありません。",
     "filePreviewTypeMismatch": "ファイルの内容が {ext} 形式と一致しません。",
@@ -11473,6 +11483,7 @@
     "voiceHandsFree": "ハンズフリー"
   },
   "chatHistory": {
+    "selectModeAriaLabel": "タスクの複数選択モードを切り替え",
     "backToHistory": "にる",
     "batchArchive": "アーカイブ",
     "batchArchiveSuccess": "一括アーカイブ成功",

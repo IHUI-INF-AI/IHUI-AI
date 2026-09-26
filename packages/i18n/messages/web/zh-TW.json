@@ -10408,6 +10408,16 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "mentionEngine": {
+      "tabFile": "檔案",
+      "tabFolder": "資料夾",
+      "tabSymbol": "符號",
+      "tabDatabase": "資料庫",
+      "tabWeb": "網頁",
+      "searching": "正在檢索…",
+      "loadFailed": "檢索失敗",
+      "noMatch": "無相符結果"
+    },
     "modelSwitchStopped": "已切換到 {model},本輪回答已終止",
     "filePreviewEmpty": "檔案沒有可預覽的資料列",
     "filePreviewTypeMismatch": "檔案內容與 {ext} 格式不符",
@@ -11473,6 +11483,7 @@
     "voiceHandsFree": "連續"
   },
   "chatHistory": {
+    "selectModeAriaLabel": "切換任務多選模式",
     "backToHistory": "返回任務列表",
     "batchArchive": "批量歸檔",
     "batchArchiveSuccess": "批量歸檔成功",

@@ -2,51 +2,24 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 多维提及的唯一那份状态(V3 第 61 票,2026-09-27 收口)。
+'use client'
+
+// 提及维度的取词出口(V3 第 61 票)。
 //
-// 61 票之前:这里定义了 addMention / setActiveType,但**全仓零调用方** ——
-// 于是下面 mentions 恒是空数组,`MentionChips` 的「无提及即返回 null」那条早退永远成立,
-// 而 `#` 侧的选择另存在 message-input 的局部 state。即「两个组件各持一份提及状态」。
-// 现在 `@` 与 `#` 的选择都落到这一份 store,元素类型是引擎的 MentionSelection,
-// 增删的合并语义由 packages/shared/src/chat/mention-engine 的纯函数决定(此处不再算第二遍)。
+// 维度表住在 packages/shared,只能带 **i18n 键**、不能带文案(否则共享层就写死了语言)。
+// 而"该去哪个命名空间取"也必须跟着表走 —— 若在组件里假定一个 ns,加一行 `@` 维度
+// 就得同时记得改组件,那正是本票要消除的那一型。所以这里只提供一个 (ns, key) → 文案
+// 的出口,取词位置一律读自 MENTION_DIMENSIONS。
+// 用无命名空间的 useTranslations():键是完整路径(`chat.mentionEngine.tabFile`),
+// 与本仓 AdminNav / LoginFormContent 同一处置。
 
-import { create } from 'zustand'
+import * as React from 'react'
+import { useTranslations } from 'next-intl'
 
-import {
-  dimensionsForSigil,
-  withoutSelection,
-  withSelection,
-  type MentionSelection,
-} from '@ihui/shared/chat/mention-engine'
+export type MentionTranslator = (ns: string, key: string) => string
 
-/** 默认激活维度 = 引擎表里 `@` 侧的第一条(顺序即面板分组顺序,不在端内写死 id) */
-const DEFAULT_DIMENSION_ID = dimensionsForSigil('@')[0]?.id ?? ''
-
-interface ContextMentionState {
-  /** 已选提及(`@` 与 `#` 同一份;chips 显示在输入框上方) */
-  mentions: MentionSelection[]
-  /** 当前激活的提及维度 tab(默认 `@` 的文件维度) */
-  activeDimensionId: string
-  /** 添加提及(去重:同 id 不重复添加) */
-  addMention: (mention: MentionSelection) => void
-  /** 移除指定提及 */
-  removeMention: (id: string) => void
-  /** 清空所有提及(发送消息后调用) */
-  clearMentions: () => void
-  /** 切换激活维度 tab */
-  setActiveDimension: (id: string) => void
+export function useMentionTranslator(): MentionTranslator {
+  const t = useTranslations()
+  return React.useCallback((ns: string, key: string) => t(`${ns}.${key}`), [t])
 }
-
-export const useContextMentionStore = create<ContextMentionState>((set) => ({
-  mentions: [],
-  activeDimensionId: DEFAULT_DIMENSION_ID,
-
-  addMention: (mention) => set((s) => ({ mentions: withSelection(s.mentions, mention) })),
-
-  removeMention: (id) => set((s) => ({ mentions: withoutSelection(s.mentions, id) })),
-
-  clearMentions: () => set({ mentions: [] }),
-
-  setActiveDimension: (id) => set({ activeDimensionId: id }),
-}))
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
