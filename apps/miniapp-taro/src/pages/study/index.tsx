@@ -10,8 +10,12 @@ import { useState, useCallback } from 'react'
 import { getStudyInfo, getStudyRecords, type StudyRecord } from '@/api'
 const rankoneIcon = aizhsUrl('remote-images/rankone.png')
 const kechengIcon = aizhsUrl('remote-images/kecheng.png')
-// record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到 dist/static/ 而非打包进 common.js
-const recordBackIcon = '/static/images/record_back.png'
+// record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到产物而非打包进 common.js
+// 2026-09-26 主包余量治理:本页属子包 `pages/study`,而该图的另一个引用方 `pkg-ai/ai/chat.tsx`
+// 同在子包 —— 主包 2 MB 是当下唯一的稀缺资源(实测余量 2,457 B),所以按"每个引用方各留一份"
+// 下沉进各自子包,主包腾出 36,542 B;子包总额 20 MB、本包实测 <80 KB,余量充足。
+// 图片字节与迁移前逐字节相同(md5 97fef424f841ab997b161bc4ead93cbe),**零像素改动**。
+const recordBackIcon = '/pages/study/assets/record_back.png'
 const studyIconAddIcon = aizhsUrl('remote-images/study_icon_add.png')
 const wenjianIcon = aizhsUrl('remote-images/wenjian.png')
 import ThemeRoot from '@/components/ThemeRoot'
