@@ -462,12 +462,38 @@ test('T21 锚点判据未被放宽(票面硬约束)+ 基参数收窄在位', () 
 test('T22 白名单两处"已知漏报"的前提必须仍然成立(前提一变这条就红)', () => {
   const verdicts = analyze(ROOT, 'head').verdicts
   const kindOf = (f) => verdicts.find((v) => v.file === f)?.kind
-  // ① 点开头的根级文件被 FILE_RE 挡在外面,所以 check-api-routes 那条读取目前**只能**靠旧合取兜住。
-  //    它哪天不再是 red,本票的排除就真的在漏东西 —— 那时必须回来重估 FILE_RE,而不是把这条注释改掉。
+  // ① 点开头的根级文件被 FILE_RE 挡在外面。**不得**把这条钉成"某个真实文件当前是 loose-fs" ——
+  //    原先钉的就是 `check-api-routes.mjs`,而它已于 2026-09-26(`1e7ed628e9b`,守门 8 扩三端)
+  //    迁进取材层变成 `face`,于是一道**变好了**的改动把这把尺子钉红(把仓库瞬时状态当恒定前提的
+  //    典型形状)。改判构造面:排除的代价由"造一个 dot 读取出来看它终态"证明,与仓里恰好有没有
+  //    样本无关。
+  //
+  //    为什么不是"扫人群":本枚改这条时实测扫过一遍 HEAD —— 唯一新增命中是
+  //    `check-uncommitted-age.mjs` 的 `existsSync(join(ROOT, '.git'))`,那是**存在性探测**不是
+  //    内容读取,它被判 `no-content` 是正确的。所以"任何 dot 读取都不得落到 no-content"这条
+  //    人群不变量会产假阳 ⇒ 放弃该形态(假阳比漏报更贵:它指使人去修没坏的东西)。
+  const PJ_HEAD =
+    "import { readFileSync } from 'node:fs'\nimport { dirname, join, resolve } from 'node:path'\nimport { fileURLToPath } from 'node:url'\nconst ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')\n"
+  const qualOf = (dotName) =>
+    prejoinedRepoConsts(
+      maskComments(`${PJ_HEAD}const X = join(ROOT, '${dotName}')\nreadFileSync(X, 'utf8')\n`),
+    ).size
+  const constructed = classify(
+    'scripts/check-t22.mjs',
+    `${PJ_HEAD}const IGNORE_FILE = join(ROOT, '.x-ignore.json')\nreadFileSync(IGNORE_FILE, 'utf8')\n`,
+  )
   assert.equal(
-    kindOf('scripts/check-api-routes.mjs'),
+    constructed.kind,
     'loose-fs',
-    '点文件排除的前提(已被旧判据抓到)不再成立',
+    '构造的 dot 内容读取必须仍被合取接住 —— 接不住才说明排除真在漏东西',
+  )
+  // qual 用门自己导出的 `prejoinedRepoConsts` 现算(不在测试里重抄判据,§22c)。
+  // 关键是**成对**:非点形态必须 qual 1,否则"dot 得 0"可能只是 helper 没跑(§22c 的复读机教训)。
+  assert.equal(qualOf('.x-ignore.json'), 0, '点开头根级文件必须**不**进首段白名单(被钉住的那一格排除)')
+  assert.equal(qualOf('x-not-dot.json'), 1, '同形只差一个点前缀 ⇒ 必须 qualify(否则上一条 0 是恒真)')
+  assert.ok(
+    !REPO_CONTENT_FILE_RE.test('.x-ignore.json') && REPO_CONTENT_FILE_RE.test('PROJECT_PLAN.md'),
+    'FILE_RE 的方向必须仍是"挡点前缀、认非点前缀"',
   )
   // ② 两跳(常量→遍历器→局部变量)**预拼规则**不追数据流。HEAD 面这两道门(check-tagsview-visual /
   //    check-i18n-namespace-passing)原先整道门被判 no-content,那格**是遮噪机的失明给的,不是这条规则**;
