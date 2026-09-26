@@ -2050,6 +2050,10 @@
     "title": "라이브 미리보기"
   },
   "messageCenter": {
+    "pin": "고정",
+    "unpin": "고정 해제",
+    "pinFailed": "고정 실패, 다시 시도하세요",
+    "unpinFailed": "고정 해제 실패, 다시 시도하세요",
     "conversations": "대화",
     "empty": "메시지 없음",
     "title": "메시지",

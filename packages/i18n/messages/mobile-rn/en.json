@@ -2050,6 +2050,10 @@
     "title": "Live Preview"
   },
   "messageCenter": {
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "pinFailed": "Failed to pin, please retry",
+    "unpinFailed": "Failed to unpin, please retry",
     "conversations": "Conversations",
     "empty": "No messages",
     "title": "Messages",
