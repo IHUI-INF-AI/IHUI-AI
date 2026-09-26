@@ -37,6 +37,16 @@
   flex: 1;
   padding: 24rpx 32rpx;
 }
+/* D20 留尾2:加载更早消息入口(顶部居中,弱化视觉,不与气泡抢注意力) */
+.load-earlier {
+  display: flex;
+  justify-content: center;
+  padding: 8rpx 0 16rpx;
+}
+.load-earlier-text {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
 .welcome {
   text-align: center;
   padding: 80rpx 0;

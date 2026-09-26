@@ -51,7 +51,12 @@ vi.mock('@ihui/api-client', () => ({
 }))
 
 vi.mock('@/i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key, tList: () => [], locale: 'zh-CN', setLocale: () => {} }),
+  useI18n: () => ({
+    t: (key: string) => key,
+    tList: () => [],
+    locale: 'zh-CN',
+    setLocale: () => {},
+  }),
   t: (key: string) => key,
   useTt: () => (key: string, fb: string) => fb,
 }))
@@ -80,6 +85,9 @@ vi.mock('@/constants/remote-icons', () => ({
 import {
   replayServerConversation,
   mapServerMessage,
+  fetchEarlierPage,
+  parseEarlierPage,
+  prependEarlierMessages,
   type ReplayOutcome,
 } from '../src/pkg-ai/ai/server-chat-replay'
 import {
@@ -113,6 +121,25 @@ function okResult(messages: unknown): ApiResult<GetMessagesResult> {
   } as unknown as ApiResult<GetMessagesResult>
 }
 
+/** 造一页「更早消息」响应(可覆写 hasMore/nextCursor 等分页位) */
+function okPage(
+  messages: unknown,
+  over: Partial<GetMessagesResult> = {},
+): ApiResult<GetMessagesResult> {
+  return {
+    success: true,
+    data: {
+      messages,
+      page: 1,
+      pageSize: 100,
+      total: 0,
+      hasMore: false,
+      nextCursor: null,
+      ...over,
+    },
+  } as unknown as ApiResult<GetMessagesResult>
+}
+
 /* ================================================================== *
  * ① 回放 —— 服务端会话消息
  * ================================================================== */
@@ -121,7 +148,10 @@ describe('① replayServerConversation 判序必须 fail-closed', () => {
   it('success:true + 数组 ⇒ 用服务端消息,时间戳与角色都落位', async () => {
     const out = await replayServerConversation({
       fetchMessages: async () =>
-        okResult([msg({ role: 'user', content: '你好' }), msg({ role: 'assistant', content: '在的' })]),
+        okResult([
+          msg({ role: 'user', content: '你好' }),
+          msg({ role: 'assistant', content: '在的' }),
+        ]),
     })
     expect(out.ok).toBe(true)
     if (!out.ok) return
@@ -142,7 +172,11 @@ describe('① replayServerConversation 判序必须 fail-closed', () => {
   it('success:false(未登录 401 / 会话不属于本人 403)⇒ request-failed', async () => {
     const out = await replayServerConversation({
       fetchMessages: async (): Promise<ApiResult<GetMessagesResult>> =>
-        ({ success: false, error: 'forbidden', status: 403 }) as unknown as ApiResult<GetMessagesResult>,
+        ({
+          success: false,
+          error: 'forbidden',
+          status: 403,
+        }) as unknown as ApiResult<GetMessagesResult>,
     })
     expect(out.ok).toBe(false)
   })
@@ -176,15 +210,21 @@ describe('① replayServerConversation 判序必须 fail-closed', () => {
   })
 
   it('reasoning 透传;空串 reasoning 不写字段(否则思考块会渲染成空壳)', () => {
-    expect(mapServerMessage(msg({ role: 'assistant', content: 'a', reasoning: '想了想' }))?.reasoning)
-      .toBe('想了想')
-    expect(mapServerMessage(msg({ role: 'assistant', content: 'a', reasoning: '' }))?.reasoning)
-      .toBeUndefined()
+    expect(
+      mapServerMessage(msg({ role: 'assistant', content: 'a', reasoning: '想了想' }))?.reasoning,
+    ).toBe('想了想')
+    expect(
+      mapServerMessage(msg({ role: 'assistant', content: 'a', reasoning: '' }))?.reasoning,
+    ).toBeUndefined()
   })
 
   it('tokenCount 只给 assistant —— 用户消息带"消耗"是假数据', () => {
-    expect(mapServerMessage(msg({ role: 'assistant', content: 'a', tokens: 123 }))?.tokenCount).toBe(123)
-    expect(mapServerMessage(msg({ role: 'user', content: 'a', tokens: 123 }))?.tokenCount).toBeUndefined()
+    expect(
+      mapServerMessage(msg({ role: 'assistant', content: 'a', tokens: 123 }))?.tokenCount,
+    ).toBe(123)
+    expect(
+      mapServerMessage(msg({ role: 'user', content: 'a', tokens: 123 }))?.tokenCount,
+    ).toBeUndefined()
   })
 })
 
@@ -196,7 +236,14 @@ describe('①b 卡片族的逆向读数(回放不能只剩正文)', () => {
         content: '我读了文件',
         metadata: {
           toolCalls: [
-            { id: 't1', toolName: 'read_file', args: { path: 'a.ts' }, result: 'ok', status: 'success', durationMs: 12 },
+            {
+              id: 't1',
+              toolName: 'read_file',
+              args: { path: 'a.ts' },
+              result: 'ok',
+              status: 'success',
+              durationMs: 12,
+            },
             { toolName: '缺 id 的脏项', status: 'success' },
             { id: 't3', status: 'success' },
           ],
@@ -204,7 +251,14 @@ describe('①b 卡片族的逆向读数(回放不能只剩正文)', () => {
       }),
     )
     expect(row?.aiCards?.toolCalls).toEqual([
-      { id: 't1', name: 'read_file', status: 'done', durationMs: 12, args: { path: 'a.ts' }, result: 'ok' },
+      {
+        id: 't1',
+        name: 'read_file',
+        status: 'done',
+        durationMs: 12,
+        args: { path: 'a.ts' },
+        result: 'ok',
+      },
     ])
   })
 
@@ -215,7 +269,15 @@ describe('①b 卡片族的逆向读数(回放不能只剩正文)', () => {
         content: '跑完了',
         metadata: {
           terminalTasks: [
-            { id: 'x1', command: 'pnpm test', status: 'completed', output: '…', truncated: true, totalChars: 90000, exitCode: 0 },
+            {
+              id: 'x1',
+              command: 'pnpm test',
+              status: 'completed',
+              output: '…',
+              truncated: true,
+              totalChars: 90000,
+              exitCode: 0,
+            },
           ],
         } as never,
       }),
@@ -241,7 +303,12 @@ describe('①b 卡片族的逆向读数(回放不能只剩正文)', () => {
       msg({
         role: 'assistant',
         content: 'a',
-        metadata: { citations: [{ source: 'doc', label: '文档' }, { source: 'web', label: '网页', url: 'https://x' }] } as never,
+        metadata: {
+          citations: [
+            { source: 'doc', label: '文档' },
+            { source: 'web', label: '网页', url: 'https://x' },
+          ],
+        } as never,
       }),
     )
     expect(row?.aiCards?.citations).toEqual([
@@ -275,21 +342,24 @@ describe('①b 卡片族的逆向读数(回放不能只剩正文)', () => {
 describe('② deleteServerConversation 三条同时成立才算删掉', () => {
   it('不抛 ∧ success:true ∧ deleted:true ⇒ ok', async () => {
     const out = await deleteServerConversation({
-      remove: async () => ({ success: true, data: { deleted: true } }) as ApiResult<{ deleted: boolean }>,
+      remove: async () =>
+        ({ success: true, data: { deleted: true } }) as ApiResult<{ deleted: boolean }>,
     })
     expect(out.ok).toBe(true)
   })
 
   it('success:false ⇒ 不算删掉(失败要能触发列表回滚)', async () => {
     const out = await deleteServerConversation({
-      remove: async () => ({ success: false, error: 'forbidden', status: 403 }) as ApiResult<{ deleted: boolean }>,
+      remove: async () =>
+        ({ success: false, error: 'forbidden', status: 403 }) as ApiResult<{ deleted: boolean }>,
     })
     expect(out.ok).toBe(false)
   })
 
   it('success:true 但 deleted 不是 true ⇒ 不算删掉(后端回了别的载荷不能当成功)', async () => {
     const out = await deleteServerConversation({
-      remove: async () => ({ success: true, data: { deleted: false } }) as ApiResult<{ deleted: boolean }>,
+      remove: async () =>
+        ({ success: true, data: { deleted: false } }) as ApiResult<{ deleted: boolean }>,
     })
     expect(out.ok).toBe(false)
   })
@@ -371,6 +441,109 @@ describe('③ decideLoadMore —— 先手侧、再服务端、最后才收口',
 })
 
 /* ================================================================== *
+ * ⑤ 留尾2:加载更早消息(向前翻)—— 判序与前插去重
+ * ================================================================== */
+
+describe('⑤ parseEarlierPage —— 与回放同一条 fail-closed 判序', () => {
+  it('success:true + 数组 ⇒ ok;hasMore/nextCursor 原样带回,不得吞掉或改造', () => {
+    const out = parseEarlierPage(
+      okPage([msg({ id: 'm-old', role: 'user', content: '更早的' })], {
+        hasMore: true,
+        nextCursor: 'cur-2',
+      }),
+    )
+    expect(out.ok).toBe(true)
+    if (!out.ok) return
+    expect(out.messages.map((m) => m.content)).toEqual(['更早的'])
+    expect(out.hasMore).toBe(true)
+    expect(out.nextCursor).toBe('cur-2')
+  })
+
+  it('success:false ⇒ request-failed(调用方必须保留已回放内容,不渲染成"前面没有了")', () => {
+    const out = parseEarlierPage({
+      success: false,
+      error: 'boom',
+      status: 500,
+    } as unknown as ApiResult<GetMessagesResult>)
+    expect(out).toEqual({ ok: false, reason: 'request-failed' })
+  })
+
+  it('messages 不是数组 ⇒ bad-payload(半截载荷不能当空页)', () => {
+    expect(parseEarlierPage(okPage(null))).toEqual({ ok: false, reason: 'bad-payload' })
+  })
+
+  it('system 行整条丢弃,脏行不连坐其余消息', () => {
+    const out = parseEarlierPage(
+      okPage([
+        msg({ id: 'm-s', role: 'system', content: '提示词' }),
+        msg({ id: 'm-u', role: 'user', content: '正文' }),
+      ]),
+    )
+    if (!out.ok) throw new Error('应当判成功')
+    expect(out.messages).toHaveLength(1)
+    expect(out.messages[0]?.content).toBe('正文')
+  })
+
+  it('hasMore/nextCursor 缺位 ⇒ false/null(宁缺不造,不给 UI 凭空入口)', () => {
+    const out = parseEarlierPage(okPage([]))
+    expect(out).toMatchObject({ ok: true, hasMore: false, nextCursor: null })
+  })
+
+  it('fetchEarlierPage:取数抛错 ⇒ request-failed 且不冒泡(与回放同口径收拢)', async () => {
+    const out = await fetchEarlierPage({
+      fetchMessages: async () => {
+        throw new Error('HttpError: 502')
+      },
+    })
+    expect(out).toEqual({ ok: false, reason: 'request-failed' })
+  })
+})
+
+describe('⑤ prependEarlierMessages —— 前插 + 按 id 去重', () => {
+  /** 造一条端内消息(id 可选,模拟流式占位) */
+  function uiMsg(id: string | undefined, content: string): ChatMessageLite {
+    return { ...(id ? { id } : {}), role: 'user', content } as ChatMessageLite
+  }
+  type ChatMessageLite = { id?: string; role: string; content: string }
+
+  it('新页整体排在已有消息之前(时间正序不被打乱)', () => {
+    const merged = prependEarlierMessages([uiMsg('m2', '新')], [uiMsg('m1', '更早')])
+    expect(merged.map((m) => m.content)).toEqual(['更早', '新'])
+  })
+
+  it('重叠页按 id 去重:已有 id 再来一遍就跳过,不会长出双胞胎', () => {
+    const merged = prependEarlierMessages(
+      [uiMsg('m2', '新'), uiMsg('m3', '更新')],
+      [uiMsg('m1', '更早'), uiMsg('m2', '重复的新')],
+    )
+    expect(merged.map((m) => m.content)).toEqual(['更早', '新', '更新'])
+  })
+
+  it('无 id 的端内消息(流式占位)不参与比对,永远保留', () => {
+    const merged = prependEarlierMessages([uiMsg(undefined, '流式占位')], [uiMsg('m1', '更早')])
+    expect(merged.map((m) => m.content)).toEqual(['更早', '流式占位'])
+  })
+
+  it('整页全是重复 ⇒ 已回放内容一字不动(等值不增)', () => {
+    const prev = [uiMsg('m1', '唯一')]
+    const merged = prependEarlierMessages(prev, [uiMsg('m1', '唯一')])
+    expect(merged.map((m) => m.content)).toEqual(['唯一'])
+  })
+
+  it('空页 ⇒ 原列表内容不变', () => {
+    const merged = prependEarlierMessages([uiMsg('m1', 'a')], [])
+    expect(merged.map((m) => m.content)).toEqual(['a'])
+  })
+
+  it('mapServerMessage 透传服务端 id(去重锚点);id 缺失不造', () => {
+    expect(mapServerMessage(msg({ id: 'srv-9', role: 'user', content: 'a' }))?.id).toBe('srv-9')
+    expect(
+      mapServerMessage(msg({ id: undefined as unknown as string, role: 'user', content: 'a' }))?.id,
+    ).toBeUndefined()
+  })
+})
+
+/* ================================================================== *
  * ④ 源码级反向锁:不另起炉灶 / 不直连后端 / 兜底不得静默
  * ================================================================== */
 
@@ -409,6 +582,30 @@ describe('④ 源码级反向锁', () => {
   it('页面内仍只有一处 .sort( —— 续页没顺手引入第二份排序', () => {
     expect(historySrc.match(/\.sort\(/g) ?? []).toHaveLength(1)
   })
+
+  it('向前翻:入口由服务端 hasMore 驱动,点击走 fetchEarlierPage + 前插去重(不得另起炉灶)', () => {
+    expect(chatSrc).toContain('earlierHasMore')
+    expect(chatSrc).toContain('getMessages(routeSessionId, { cursor, direction:')
+    expect(chatSrc).toContain('prependEarlierMessages(')
+    expect(chatSrc).toContain("t('ai.chat.loadEarlier')")
+  })
+
+  it('向前翻失败:必须 toast 且不得清空已回放内容(失败分支不得 setMessages([]))', () => {
+    const fn = /const handleLoadEarlier = [\s\S]*?\n  \}, \[/.exec(chatSrc)?.[0] ?? ''
+    expect(fn).not.toBe('')
+    expect(fn).toContain('Taro.showToast(')
+    expect(fn).not.toMatch(/setMessages\(\[\]\)/)
+  })
+
+  it('前插刻意不强制滚到底(handleLoadEarlier 内不得出现 scrollToBottom,阅读位置不被拽走)', () => {
+    const fn = /const handleLoadEarlier = [\s\S]*?\n  \}, \[/.exec(chatSrc)?.[0] ?? ''
+    expect(fn).not.toContain('scrollToBottom')
+  })
+
+  it('会话切换/清空/本机恢复必须重置向前翻页游标(resetEarlierPaging ≥ 4 处调用)', () => {
+    const calls = chatSrc.match(/resetEarlierPaging\(\)/g) ?? []
+    expect(calls.length).toBeGreaterThanOrEqual(4)
+  })
 })
 
 /* ================================================================== *
@@ -441,7 +638,11 @@ describe('④ availableFilterTypes —— 芯片只随真实数据出现', () =>
   })
 
   it('非数组入参安全回落 {all,chat};入参不被改写', () => {
-    expect(availableFilterTypes(undefined as unknown as Array<{ type?: HistoryItem['type'] }>).has('chat')).toBe(true)
+    expect(
+      availableFilterTypes(undefined as unknown as Array<{ type?: HistoryItem['type'] }>).has(
+        'chat',
+      ),
+    ).toBe(true)
     const src = [{ id: 'a', type: 'agent' }] as unknown as Array<{ type?: HistoryItem['type'] }>
     availableFilterTypes(src)
     expect(src).toEqual([{ id: 'a', type: 'agent' }])
@@ -454,7 +655,9 @@ describe('④ resolveActiveFilter —— 失效筛选回落『全部』,不渲�
     expect(resolveActiveFilter('image', base)).toBe('all')
   })
   it('正向:类型仍在集内 ⇒ 保持原筛选(不得偷偷重置)', () => {
-    expect(resolveActiveFilter('image', new Set<FilterTypeAlias>(['all', 'chat', 'image']))).toBe('image')
+    expect(resolveActiveFilter('image', new Set<FilterTypeAlias>(['all', 'chat', 'image']))).toBe(
+      'image',
+    )
     expect(resolveActiveFilter('all', base)).toBe('all')
   })
 })
