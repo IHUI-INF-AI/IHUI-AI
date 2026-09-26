@@ -12,7 +12,7 @@
 
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** 规格模板(对齐 @ihui/shared SpecTemplate,本地声明避免跨包依赖) */
 export interface SpecTemplate {
