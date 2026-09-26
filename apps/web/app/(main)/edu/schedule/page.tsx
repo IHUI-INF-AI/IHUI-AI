@@ -85,7 +85,7 @@ export default function EduSchedulePage() {
           {weekdays.map((day, idx) => (
             <Card
               key={day}
-              className={cn(idx === todayIdx && 'border-primary ring-1 ring-primary/20')}
+              className={cn(idx === todayIdx && 'border-brand-accent-deep ring-1 ring-primary/20')}
             >
               <CardHeader className="p-3 pb-2">
                 <CardTitle className="flex items-center justify-between gap-2 text-sm">
