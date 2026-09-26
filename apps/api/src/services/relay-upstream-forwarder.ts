@@ -21,6 +21,8 @@
 import type { SelectedChannelKey } from './relay-channel-router.js'
 export type { SelectedChannelKey }
 import { selectChannelCandidates, recordChannelResult } from './relay-channel-router.js'
+// 格②(2026-09-26)：耗时样本唯一出口——单调钟测量 × 墙钟交叉校验
+import { startStopwatch } from '../utils/elapsed-ms.js'
 // 插件系统(2026-09-17,补强 59):upstream_header_inject 解释器接线(带 30s 缓存,失败降级不注入)
 import { getEnabledPlugins, applyUpstreamHeaderPlugins } from './relay-plugins-service.js'
 
@@ -59,6 +61,8 @@ interface ForwardSuccess {
   channel: SelectedChannelKey
   /** 本渠道单次尝试的建立耗时(含上游响应头返回) */
   latencyMs: number
+  /** 格②：该耗时是否通过 单调×墙钟 交叉校验(false = 仅保留观测,未喂熔断) */
+  latencyTrusted: boolean
 }
 
 interface ForwardFailure {
@@ -157,7 +161,7 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
   const plugins = await getEnabledPlugins().catch(() => [])
 
   for (const channel of candidates) {
-    const startedAt = Date.now()
+    const started = startStopwatch()
     try {
       const resp = await fetch(upstreamEndpointUrl(channel.baseUrl, endpoint), {
         method: 'POST',
@@ -169,21 +173,32 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
         body: JSON.stringify(body),
         signal: req.signal,
       })
-      const latencyMs = Date.now() - startedAt
+      // 格②：到达即停表并交叉校验;不可信样本 elapsedMs=null,不喂熔断(计数在 elapsed-ms 与 router 两侧留痕)
+      const sample = started.stop()
+      const breakerLatency: number | null = sample.trustworthy ? sample.elapsedMs : null
+      const latencyMs = sample.perfMs
 
       if (!resp.ok || !resp.body) {
         lastHttpStatus = resp.status
         lastError = `upstream ${resp.status}`
-        await recordChannelResult(channel.keyPoolId, false, latencyMs).catch(() => {})
+        await recordChannelResult(channel.keyPoolId, false, breakerLatency).catch(() => {})
         continue // failover:下一候选
       }
 
-      await recordChannelResult(channel.keyPoolId, true, latencyMs).catch(() => {})
-      return { ok: true, response: resp, channel, latencyMs }
+      await recordChannelResult(channel.keyPoolId, true, breakerLatency).catch(() => {})
+      return {
+        ok: true,
+        response: resp,
+        channel,
+        latencyMs,
+        latencyTrusted: sample.trustworthy,
+      }
     } catch (e) {
       // 网络错误/DNS/超时 → 记熔断失败,尝试下一候选
       lastError = (e as Error)?.message || 'upstream network error'
-      await recordChannelResult(channel.keyPoolId, false, Date.now() - startedAt).catch(() => {})
+      const errSample = started.stop()
+      const errBreakerLatency: number | null = errSample.trustworthy ? errSample.elapsedMs : null
+      await recordChannelResult(channel.keyPoolId, false, errBreakerLatency).catch(() => {})
       if ((e as Error)?.name === 'AbortError') break // 客户端已断开,不再尝试
       continue
     }
