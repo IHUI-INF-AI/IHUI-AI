@@ -407,7 +407,17 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   }
   const skillsText = formatSkillsForPrompt(skills);
   const memoryText = formatMemoryForPrompt(memory);
-  const extraContext = [agentsMd, skillsText, memoryText].filter(Boolean).join('\n\n');
+  // AGENTS.md / memory 是**用户仓库与磁盘上的第三方文本**,直接拼进 system prompt 等于让
+  // 它们披宿主语气 —— 走登记出口的 reference_data 档(内部过 neutralizeBoundaries 剥冒充标签)。
+  // 没有内容时**不记 skipped**:仓库无 AGENTS.md 是常态不是降级,记一行就等于每轮造假噪声
+  // (上一票刚把"本轮没到档位"记成 skipped 判为噪声并回退,不得重犯)。
+  const agentsMdSection = agentsMd
+    ? injectHostSection('context_agents_md', agentsMd, { kind: 'reference_data' })
+    : '';
+  const memorySection = memoryText
+    ? injectHostSection('context_memory', memoryText, { kind: 'reference_data' })
+    : '';
+  const extraContext = [agentsMdSection, skillsText, memorySection].filter(Boolean).join('\n\n');
   const systemPrompt = buildSystemPrompt(tools, extraContext, opts.planFirst);
   const resolvedSandbox = resolveSandboxOptions(
     settings.sandbox?.profile,
