@@ -2,11 +2,26 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-# D30① 无人值守修复闭环 —— 信源接入(2026-09-26 立)。
+# D30① 无人值守修复闭环 —— 信源接入(2026-09-26 立;两态化同日 2026-09-26 改)。
 # 把「CI 红 / 全量守门失败」投进既有 HMAC 鉴权 webhook 路由 POST /api/webhooks/github
 # (apps/api/src/routes/github-webhook.ts),x-github-event 取 ci_failed / gate_failed。
 # 鉴权沿用 GITHUB_WEBHOOK_SECRET(HMAC-SHA256,X-Hub-Signature-256),不新造匿名端点。
 # 摘要只带短文本(服务端还会再截断+脱敏);凭据一律经 env 注入,绝不回显。
+#
+# ── 本 job 的退出语义是**两态**,不是一态 ─────────────────────────────────────
+#   ① 本机/本仓**还没开通**(缺 secrets.IHUI_UNATTENDED_INTAKE_WEBHOOK_SECRET 或
+#      vars.IHUI_UNATTENDED_INTAKE_API_URL)⇒ `::notice::` + exit 0。
+#      理由:"这台机尚未配置"不是"投递失败",把它记成红既不可行动、又掩盖真信号 ——
+#      与 §5e 那条「失败必须响」不冲突:那条管的是**真失败**,不是**还没装**。
+#      开通动作(生产机一次一条命令):deploy/win/ihui-enable-unattended-intake.ps1
+#      notice 里点名缺的是哪一个键、去哪配,不静默。
+#   ② 已配置而投递本身出问题(POST 非 2xx / 连接失败 / 超时)⇒ **仍然红**。
+#      这才是需要无人值守去修的那一类;绝不允许把它一并降绿。
+#   ③ 附带可见性:服务端对"签名通过但没有匹配规则"回 200 + accepted:false,
+#      那是**绿但没入队**(github-webhook.ts:107-111),故额外打一条 ::warning:: 点名,
+#      不改退出码 —— 本步的判据仍是 HTTP 状态,不是响应体。
+#   两态的分支存在性由 scripts/tests/unattended-intake-workflow-two-state.test.mjs 钉住。
+# ─────────────────────────────────────────────────────────────────────────────
 name: Unattended Fix Intake
 
 on:
@@ -50,7 +65,9 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
     env:
-      # 与服务端 GITHUB_WEBHOOK_SECRET 同值的仓库级 secret;缺失即显式失败,绝不静默跳过
+      # 与服务端 GITHUB_WEBHOOK_SECRET 同值的仓库级 secret。
+      # 缺失 = 「这台机还没开通」⇒ notice + 跳过(见文件头两态说明);
+      # **绝不**因此把已配置时的真失败一起放过。
       IHUI_INTAKE_SECRET: ${{ secrets.IHUI_UNATTENDED_INTAKE_WEBHOOK_SECRET }}
       IHUI_INTAKE_BASE_URL: ${{ vars.IHUI_UNATTENDED_INTAKE_API_URL }}
       INTAKE_KIND: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.kind || 'ci_failed' }}
@@ -67,14 +84,21 @@ jobs:
           GUARDIAN_ID: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.kind == 'gate_failed' && github.event.inputs.job_name || '' }}
         run: |
           set -eu
+          # ── 态①「还没开通」:缺任一配置 ⇒ 显式跳过(notice,不是 error,exit 0)──────
+          # 点名缺的是哪一个键、去哪儿配、开通动作是什么 —— 静默跳过与静默失败一样不可查。
           if [ -z "${IHUI_INTAKE_SECRET:-}" ]; then
-            echo "::error::缺少 secrets.IHUI_UNATTENDED_INTAKE_WEBHOOK_SECRET,信源投递无法鉴权,显式失败(不静默跳过)"
-            exit 1
+            echo "::notice::未开通:缺 secrets.IHUI_UNATTENDED_INTAKE_WEBHOOK_SECRET,信源投递跳过(这不是投递失败)。"
+            echo "::notice::  该 secret 须与服务端 IHUI-API 的 GITHUB_WEBHOOK_SECRET 同值。"
+            echo "::notice::  开通:生产机执行 deploy/win/ihui-enable-unattended-intake.ps1 -Apply,再用 gh secret set 配到本仓。"
+            exit 0
           fi
           if [ -z "${IHUI_INTAKE_BASE_URL:-}" ]; then
-            echo "::error::缺少 vars.IHUI_UNATTENDED_INTAKE_API_URL(api 基址),显式失败"
-            exit 1
+            echo "::notice::未开通:缺 vars.IHUI_UNATTENDED_INTAKE_API_URL(api 基址),信源投递跳过(这不是投递失败)。"
+            echo "::notice::  开通:gh variable set IHUI_UNATTENDED_INTAKE_API_URL --repo <owner>/<repo> --body \"https://<api 基址>\""
+            exit 0
           fi
+          # ── 态②「已配置」:从这里起的任何非 2xx / 网络失败一律保持红 ──────────────
+          # 真失败必须响(§5e),下面 node 段里 process.exit(1) 的三条分支就是这条边界。
           node <<'NODE_EOF'
           const { createHmac } = require('node:crypto')
           const base = process.env.IHUI_INTAKE_BASE_URL.replace(/\/+$/, '')
@@ -94,8 +118,14 @@ jobs:
           // 签名基于原始字节:body 只 stringify 一次,发送与签名共用同一份
           const body = JSON.stringify(payload)
           const sig = 'sha256=' + createHmac('sha256', process.env.IHUI_INTAKE_SECRET).update(body, 'utf8').digest('hex')
+          // 超时是"已配置但投递失败"的一种,必须响:AbortSignal.timeout 触发 AbortError
+          // → 落到下面的 catch → exit 1。没有它,挂住的连接会把 job 拖到 GitHub 的 6h 上限,
+          // 账面表现是"这个 job 再没红过",比红更难归因。30s 依据:同一站点的健康检查档
+          // (deploy/win/test-health.ps1)与 nginx 边缘超时都远大于它,足够覆盖冷启动。
+          const INTAKE_TIMEOUT_MS = 30000
           fetch(`${base}/api/webhooks/github`, {
             method: 'POST',
+            signal: AbortSignal.timeout(INTAKE_TIMEOUT_MS),
             headers: {
               'content-type': 'application/json',
               'x-github-event': kind,
@@ -108,10 +138,31 @@ jobs:
               const text = await res.text()
               // 只打印状态码与响应摘要,不回显任何凭据/签名
               console.log(`intake delivered: http=${res.status} body=${text.slice(0, 300)}`)
-              if (res.status < 200 || res.status >= 300) process.exit(1)
+              if (res.status < 200 || res.status >= 300) {
+                console.error(`::error::信源投递返回非 2xx(http=${res.status})—— 已配置即视为真失败,保持红`)
+                process.exit(1)
+              }
+              // 态③:200 但**没入队**也算送达成功(不改退出码),因为它结构上不是投递失败 ——
+              // 而它是"CI 绿而无人去修"的那一格静默,必须点名。判据仍只认 HTTP 状态。
+              // 已知两条会走到这里:no_matching_trigger(库里没有该 repo+kind 的启用规则)、
+              // intake_window_dedup(4h 风暴窗内同键)、duplicate_delivery(X-GitHub-Delivery 重投)。
+              try {
+                const j = JSON.parse(text)
+                const accepted = j && j.data && j.data.accepted
+                const reason = (j && j.data && j.data.reason) || 'unknown'
+                if (accepted !== true) {
+                  console.log(`::warning::投递 http=${res.status} 已送达,但服务端未入队(reason=${reason})。` +
+                    ` CI 保持绿,而"无人值守修复"这一轮并没有开工 —— 需在 agent_event_triggers 里为该 repo+event 建启用规则`)
+                }
+              } catch {
+                // 响应体不是 JSON:不猜。只如实报数,判据仍以 HTTP 状态为准。
+                console.log(`::warning::投递响应非 JSON,无法判断是否入队(http=${res.status})—— 不计失败,也不冒充"已入队"`)
+              }
             })
             .catch((err) => {
-              console.error(`intake delivery failed: ${String(err && err.message ? err.message : err)}`)
+              const name = err && err.name ? err.name : ''
+              const why = name === 'TimeoutError' ? `超时(>${INTAKE_TIMEOUT_MS}ms)` : String(err && err.message ? err.message : err)
+              console.error(`intake delivery failed: ${why}`)
               process.exit(1)
             })
           NODE_EOF
