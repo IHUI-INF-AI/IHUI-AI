@@ -21,7 +21,7 @@
  *    摘掉 .returning 则 mockDbRows 拿不到东西、deleted 归 0 ⇒ 用例 1/3/4 红。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyError } from 'fastify'
 
 vi.mock('../src/config/index.js', () => ({
   config: {
@@ -134,7 +134,7 @@ async function buildMessageApp(): Promise<FastifyInstance> {
   // 与生产装配同形的错误归一(参照 tests/message.test.ts):
   // schema 校验失败的 Fastify 原始错误体是 {statusCode, code:'FST_ERR_VALIDATION', ...},
   // 不经此 handler 会被路由 400 响应 schema 的 code:number 强转打崩成 500。
-  app.setErrorHandler((error, _request, reply) => {
+  app.setErrorHandler((error: FastifyError, _request, reply) => {
     const statusCode =
       error.statusCode && error.statusCode >= 400 && error.statusCode < 600
         ? error.statusCode
