@@ -265,6 +265,28 @@ export function iconGlyphs(src) {
       if (n && /^[A-Z]/.test(n)) vector.add(pascalToKebab(n))
     }
   for (const m of code.matchAll(/<LineIcon\b[^>]*?\bname\s*=\s*["']([a-z0-9-]+)["']/g)) vector.add(m[1])
+  /**
+   * 字形名也常**当数据传**(配置数组 `{ key, label, icon: 'camera' }` + `<LineIcon name={item.icon}/>`)。
+   * 只看 `<LineIcon name="…">` 字面量会把这些槽位判成"小程序未矢量化" —— 判据看不见自己产出的形态,
+   * 就是给人发一张假的分叉账单。刻意要求本文件 import 了 LineIcon,免得把别的 `icon:` 业务字段算进来。
+   */
+  if (/from\s+['"][^'"]*LineIcon['"]/.test(code))
+    for (const m of code.matchAll(/\bicon:\s*['"]([a-z0-9-]+)['"]/g)) vector.add(m[1])
+  /**
+   * 三元/条件传名(`name={mode === 'voice' ? 'keyboard' : 'mic'}`)里的字形名同样要认 ——
+   * 判据只吃属性位字面量的话,语音切换这一格会被算成"小程序未矢量化",给用户的是一张假分叉账单。
+   * 取 `name={…}` 花括号内的全部字符串字面量;模板拼接/变量传名取不到 ⇒ 不计(宁漏不误报,
+   * 且 IC 的这部分只报数不判红)。
+   */
+  for (const tag of code.matchAll(/<LineIcon\b[\s\S]*?\/>/g)) {
+    const expr = /\bname\s*=\s*\{([^}]*)\}/.exec(tag[0])
+    if (!expr) continue
+    // 只取第一个 `?` 之后的分支字面量 —— 条件操作数(`mode === 'voice'` 里的 'voice')不是字形名,
+    // 全量收集会把比较值混进图标集合(自检 ㉛ 第一次跑就抓到这个)。
+    const q = expr[1].indexOf('?')
+    if (q < 0) continue
+    for (const s of expr[1].slice(q).matchAll(/['"]([a-z0-9-]+)['"]/g)) vector.add(s[1])
+  }
   const bitmap = []
   for (const m of code.matchAll(/aizhsUrl\(\s*['"]([^'"]*\.(?:png|jpe?g|gif))['"]/gi)) bitmap.push(m[1])
   return { vector: [...vector].sort(), bitmap }
@@ -1460,6 +1482,21 @@ function runSelfTest() {
         r: "import { Plus, Camera } from 'lucide-react-native'\n",
       })
       return r.length === 1 && r[0].bitmap === 0 && r[0].onlyRn.join(',') === 'camera'
+    })(),
+  )
+  t(
+    '㉛ IC:字形名三种传法(属性字面量 / 配置数组 icon: / 三元 name={})都必须算进矢量化面;未 import LineIcon 不得乱认(成对)',
+    (() => {
+      const withChannel =
+        'import LineIcon from "@/components/LineIcon"\n' +
+        'const G = [{ icon: "camera" }]\n' +
+        "<LineIcon name={mode === 'voice' ? 'keyboard' : 'mic'} size={20} />\n" +
+        '<LineIcon name="send" size={20} />\n'
+      const noChannel = 'const G = [{ icon: "camera" }]\n'
+      return (
+        iconGlyphs(withChannel).vector.join(',') === 'camera,keyboard,mic,send' &&
+        iconGlyphs(noChannel).vector.join(',') === ''
+      )
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
