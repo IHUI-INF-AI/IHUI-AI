@@ -2078,6 +2078,7 @@
     "decision": {
       "planBlocked": "プランは中断されました",
       "securityBlocked": "セキュリティポリシーでブロック",
+      "roleDenied": "ロール権限で拒否",
       "rejectedByUser": "ユーザーが拒否しました",
       "approvalTimeout": "承認がタイムアウトしました",
       "toolMissing": "ツールが見つかりません",

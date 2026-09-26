@@ -11836,3 +11836,53 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - **改真两处**(键名/状态码一字未改):`user-llm-configs-v2.ts:891` 的 UPDATE 补 `RETURNING id` 并按命中集取值(命中集归一沿用**本文件既有写法**,不另立形态);`ai-extended.ts:360/365` 的"没发写"与"零命中兜底"两支由 `true` 改 `false`。`git grep -E "\.updated\b"` 跨 6 端实测**无任何调用方读这两处的布尔**(命中的全是 i18n toast 键名或别的端点的计数字段)⇒ 无 UX 回退面。
   - **两格刻意未做,都给了可判触发条件而不是"视情况"**:① B2 那一跳**未接**裸 SQL 维 —— 双向扫 10 个具名裸 SQL writer × 全部 ack 落点,HEAD 面该组合 **0 条**,无存量可验就补属投机;触发条件:任一 ack 落点的最小函数体 `await` 了"体内含无 RETURNING 裸 SQL 写"的具名函数 ⇒ 必补。② `updated`/`created` **未进** `BOOL_ACK_KEYS`(键族扩面属全 API 语义决策);触发条件:一旦拍板纳入,必须同时把 RETURNING 证据从**体内任一处**收窄到**该条调用**,否则"`UPDATE … RETURNING *` 零命中走 `?? {updated:true}` 兜底"那一型仍然隐身。
   - 取证:self-test **118 条**(新增 K4b 裸 SQL 写+`deleted:true`⇒必红且 `via=raw-sql` / K4c 只补 RETURNING⇒归零 / K4d 注释与 `='UPDATE'` 这类**值**⇒不红 / K4e 配平不到⇒未判定 1 违规 0);镜像 **24/24** 含新增 **M23** 源码级反向锁(动词表只许住一处、投影不得自带 `\bRETURNING\b`、B1/V 必须真吃到 `rawPool`、镜像自己不得抄动词表);变异 = 摘掉 `rawPool` ⇒ M23 必红;真仓三档 exit 0,HEAD 面违规 0 / 未判定 0 / 认出 73 / 配平不到 0;门 89/118 同轮 exit 0;`pnpm --filter @ihui/api typecheck` exit 0;`ai-extended.test.ts` 6/6(未改期望值、未 skip)。
+- **e2e 作业是"慢性红"而不是本批引入 —— 定案并把开口收成一个出口(`0fa533ec99` + `d9b669a9bb`)**:
+  `e2e.yml` 在 GitHub 上连续 250+ 次运行查不到一次成功(分页翻到 2026-09-23T04:51Z 仍全是 failure),
+  最近一次读数 `577 passed / 32 failed / 2 flaky / 71 skipped`,其中 **24 处**集中在四个 spec 的同一句
+  `expect(getByTestId('login-dialog')).toBeVisible()` → `element(s) not found`。
+  **根因是入口语义变了两次而补丁只加在测试层**:未登录态侧栏用户行自 2026-09 起是
+  DropdownMenu 的**触发器**(`SidebarUserRow.tsx` 的 `loginTrigger` 注释原话「整行作为 Dropdown
+  触发器打开同一套工具菜单(菜单末尾含"登录"项)」),真正 `store.getState().open('login')`
+  挂在 `guestMenuItems` 的 `key:'login'` 项上 ⇒ 单点一次只开菜单;而四个 spec 各自维护的开法都是
+  **单点**,其中两处还留着历次"再补一层重试"的注释(2026-08-26 的"入口从 header 搬到侧边栏"、
+  2026-08-28 的"hydration 竞态 ⇒ 有界 10 次 × 1s 重点")。
+  ⇒ **通用教训:同一件事在 4 个文件里各修一遍,产品再变一次就是集体失效**;本票把它收进
+  `apps/web/e2e/open-login-dialog.ts` 一条出口,两条出路按"先真 UI(用户行 → 菜单项)、
+  后生产重定向(`/?reauth=1&next=…` → `LoginRedirectListener`,承继已维护的
+  `desktop-window-controls-dim.spec.ts` 写法)"排,并打印走了哪条;两条都不成才失败,
+  且断言消息点名"试过哪两条" —— 判据失效的表现永远是安静,一条只说 not found 的失败消息等于没有。
+  trigger 与 menuitem 各试 `click()` 与 `dispatchEvent('click')` 两种派发,因为移动视口下该按钮以
+  fixed 定位、普通 click 会被 actionability 判 "outside of the viewport"(这正是它当初改用
+  dispatchEvent 的原因,不能退回去只认一种)。
+  **本机取证边界(不当已验证)**:这台机是开发机,8810/8811 无监听、没有可用 PostgreSQL 实例,
+  e2e 要 api+web+库 ⇒ 端到端结论只能由 CI 给;本机能量到的是 `playwright test --list` exit 0
+  (682 用例 / 97 文件全部可编译可发现)与新出口单独 `tsc --strict` 0 错。
+  **余下 8 处与登录无关,另计一票**:browser-hub-smoke ×2(ai-service 侧 Chromium 起不来 /
+  `/api/browser/sessions` 500)、mode-switch、navigation-full、work-panel、topbar-workarea-align、
+  ihui-download-verify、cli-import 各 1 —— 不冒充"e2e 已全绿"。
+- **CI 四红清完后的"下一层"读数,以及一个后端造词而词表没跟的缺口(`f2a7cf2429` + `940c22f594`)**:
+  合并头 `40513b2558` 上复量:Knip ✅、Mypy 步 ✅(改在 `test-python` 里往下露出 **Pytest** 步)、
+  `@ihui/database#test` ✅,而 `@ihui/shared#test` 报 1 例:
+  `step-decision 词汇表 > 与后端字面量双向一致(既不缺 also 不多)` → `extra: ["role_denied"]`。
+  **这条是本仓 D55/G-66 那道双向对账第一次真的抓到东西**:后端 `agent_loop_v2.py:4843`
+  角色矩阵拒工具时发 `"role_denied"`,而共享词表 `STEP_DECISIONS` 没有 ⇒ 用户界面上会直接喷
+  `role_denied` 这串英文码(不是崩,是"能跑但说人话失败")。补齐三处同一源:
+  `packages/shared/src/chat/step-decision.ts`(数组 + 取词键 + 归并态 `rejected`)、
+  `packages/i18n/messages/shared/{zh-CN,zh-TW,en,ja,ko}.json` 各加 `stepDecision.decision.roleDenied`、
+  以及**测试里写死的数量字面量**(15→16)—— 最后这一处最容易漏:改词表不改尺子,
+  下一次加词就会红在"数量"上而不是红在真问题上。
+  **这张表只有一份**(实测 `grep -l policySkipsApproval` 只命中 `messages/shared/*.json`),
+  所以不存在"同步五个端各抄一遍"的问题;但**小程序离线包是派生态** —— 加键后
+  守门 105 的 B2 立刻判"源比包多 1 键"(四语言),唯一修法是一条 `pnpm --filter @ihui/miniapp-taro gen:i18n`。
+  重生成前先按本仓那条老雷做了**零丢失证明**:解出改前/改后两份 gzip+base64 包,逐语言比键集合 ⇒
+  `en/ja/ko/zh-TW 各 5193 → 5194,丢 0,新增恰为 stepDecision.decision.roleDenied`
+  (取证脚本 `.ihui-agent/tmp/prove-pack-superset.mjs`,一次性件不入库;
+  第一版正则按 `"zh-CN": "…"` 猜格式解出 0 条 —— **凭猜写解析器会比不出一样的东西**,
+  现读源码形态是 `REMOTE_LOCALE_B64` 里 `'zh-TW': 'H4sI…'`,改完才解得出四语言)。
+- **同一轮把"本机红 ≠ 仓库红"量成了一条可复用的判据**:`pnpm --filter @ihui/shared test` 在本机报
+  3 文件 / 21 例,而 CI 在 HEAD 面只报 step-decision 一条 —— 多出来的 20 例其被测源码全是他人未提交的
+  在飞文件(`packages/shared/src/chat/{prompt-history,auto-topup,cloud-chat-ops,…}.ts` 逐个 ` M`)。
+  ⇒ 处置口径:**先跑同一条命令的 CI 读数(HEAD 面)做对照,再决定要不要动手**;
+  不去"修"别人的在飞现场,也不把它们的红记进本仓债务清单。
+- 另:门 105 顺带报出 9 组"孤儿/死资源只报数"(tabbar png 等),以及本机全量档的门 70
+  因他人在飞中文而红(见本文件门 70 条目的口径更正)—— 都不是本批引入、也都不动判据去消。
