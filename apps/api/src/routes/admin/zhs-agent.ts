@@ -53,8 +53,11 @@ const zhsAgentRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/zhs-agent/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(zhsAgentCategory).where(eq(zhsAgentCategory.id, Number(p.data.id)))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(zhsAgentCategory)
+      .where(eq(zhsAgentCategory.id, Number(p.data.id)))
+      .returning({ id: zhsAgentCategory.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   server.post('/zhs-agent', async (request, reply) => {
