@@ -101,6 +101,32 @@
  *         不带原因不生效;一行标记只救它自己那一处(同守门 97 M2)。
  *     走基线棘轮(新键 `nestMismatchCounts`,与 counts/ctaCounts/r4Counts/webClassPairCounts
  *     互不重叠):立门当日 HEAD 实测 16 处真跨档配对,已全部人工目检成立 ⇒ 冻存量、赦新增。
+ *  R8 描边取墨档(2026-09-26 立,补 R1..R7 的**语义盲区**):
+ *     R1..R7 全在算"前景 vs 容器"的**配对**,而**描边取哪一档**不在任何一条射程内 ——
+ *     于是 `borderColor: tk.brand.DEFAULT`(亮 #000000 / 暗 #FFFFFF)这类纯黑描边可以一直写,
+ *     门一路报绿。本门自己的修复提示里甚至写着"brand.DEFAULT 保留墨色、**描边**、文字色三义",
+ *     即文档主动把它列成了合法语义 —— 判据与散文一起漏,这一型才活得下来。
+ *     起因(用户实拍 + 真机像素量出,非推断):AI应用商店 tab 的分类弹层选中 chip 呈蓝灰底
+ *     + 一圈黑边;同一次装机量到描边像素 = (0,0,0) 而填充 = (74,122,150),两档不同值才露出黑环。
+ *     立门当日 HEAD 实测存量 **148 处**:RN style 面 33(`borderColor:` 30 + `text.primary` 3)、
+ *     web/小程序类名面 115(满不透明 `border-primary` / `ring-primary`)。全部并回既有档
+ *     (中性 → `border.*`,强调 → `brandAccent.*`,端内已有 7 处先例),清零后 R8 取**零容忍**。
+ *     覆盖面两条:① RN style 面 `border\w*:` 后跟墨档 —— 用 `border\w*` 而非 `borderColor`,
+ *       因为真仓存在 `borderBottomColor:` 这种拼法(立门当场就抓到 AiModelCard.tsx 一处,
+ *       而我先前按 `borderColor:` 枚举时它是隐身的 —— **判据比人工清扫清单更全,这就是证据**);
+ *       含模板串 `border: \`1px solid ${tk.brand.DEFAULT}\``。
+ *     ② 类名面只拦**满不透明**:`border-primary/20` 是染色、`border-primary-foreground` 是
+ *       另一个键名,都不属这一型(尾部字符类同时排除两者)。
+ *     与 R3 **互斥**:`brand.cta` 作描边不由 R8 判 —— R3_FILL_CTA 早已把
+ *     `(backgroundColor|borderColor): *.brand.cta` 计入自己的计数面,再算一次就是同一笔债
+ *     两道门各计、两份基线互相顶掉(R7 与 R1/R4 同一条理由)。
+ *     出路唯一两条(都是项目已有档):中性 `border.light` / `border.medium`,强调
+ *     `brandAccent.light` / `brandAccent.deep`;确需保留时同行写 `border-ink-exempt: <原因>`,
+ *     **必须带原因且逐行生效** —— 上一行算豁免的前提是它是纯注释行,否则代码行行尾的标记
+ *     会把下一行一起救掉(自检 M7 就是这条抓出来的)。
+ *     类名面走 git grep -P 预筛,失效时退回全量并在报告里亮 `prefallback` 旗标:
+ *     `-P` 的模式串含 `(?!`,一旦被 shell 历史展开成 `\!` 会让 git 直接 fatal,
+ *     若把 stderr 吞掉,这台尺子就永久"零命中"而报告全绿(本会话实测被骗过一次)。
  *
  * 用法:
  *   node scripts/check-brand-foreground.mjs                  # 全量
@@ -192,6 +218,36 @@ const R5_COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/
 const R5_EXEMPT = /r5-cta-exempt:/
 
 /**
+ * R8 墨档描边(2026-09-26 立):用户定的设计规矩是「本项目没有纯黑色的描边」。
+ * R1..R7 全部在算"前景 vs 容器"的配对,描边颜色**不在任何一条的射程内** —— 于是
+ * `borderColor: tk.brand.DEFAULT`(亮档 #000000 / 暗档 #FFFFFF)这类墨档描边可以一直写,
+ * 门一路报绿。实测这一型存量 148 处(RN style 面 33 + web/小程序类名面 115),本票清零后
+ * 必须有一道尺子看着,否则谁再写照样不红。
+ *
+ * 禁的是**墨档**:`brand.DEFAULT`(= --color-primary,兼任全站正文墨色)、`brand.foreground`、
+ * `brand.ctaForeground`、`text.primary`。出路只有两条,都是项目里已有的档:
+ *   中性描边 → `border.light` / `border.medium`;强调描边 → `brandAccent.*`(端内已有 7 处先例)。
+ *
+ * **刻意不含 `brand.cta`**:它是"主实底"档,与其同色填充并用作描边时语义是加厚而非描边,
+ * 且 R3 已经把 `(backgroundColor|borderColor): *.brand.cta` 计入自己的计数面
+ * (见 R3_FILL_CTA)—— 再算一次就是同一笔债两道门重复计账。
+ *
+ * 类名面只拦**满不透明**的 `border-primary` / `ring-primary`:`border-primary/20` 是染色,
+ * 不是这一型;`border-primary-foreground` 是另一个键名,靠尾部字符类排除。
+ */
+const BASELINE_R8_KEY = 'inkBorderCounts'
+const R8_INK_TIER = '(?:brand\\.DEFAULT|brand\\.foreground|brand\\.ctaForeground|text\\.primary)'
+/** RN style 对象面:任何 `border*: <expr>` 的值里出现墨档即债 */
+const R8_RN_BORDER = new RegExp(`\\bborder\\w*\\s*:\\s*[^\\n]*?${TKS}\\.(${R8_INK_TIER})\\b`)
+/** 类名面:满不透明 border-primary / ring-primary(后面不能是 - / 或单词字符) */
+const R8_CLASS_BORDER = /(^|[^A-Za-z0-9_-])(?:border|ring)-primary(?![-/\w])/g
+/** 预筛用的 git grep -P 模式:必须是上面判据的超集(不看注释/豁免,只认类名出现) */
+const R8_CLASS_GREP_PATTERN = '(border|ring)-primary(?![-/\\w])'
+const R8_EXEMPT = /border-ink-exempt:/
+/** R8 注释行不判(与 R5_COMMENT_LINE 同一条理由:零容忍门不得被叙述行钉红) */
+const R8_COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/
+
+/**
  * R5 前置:类名 token 是否作为**完整 Tailwind 类**出现在这一行。
  *
  * `indexOf` 裸匹配会把三种非实底形态也算进来,它们都属误伤(且会让棘轮被"写文档"顶红):
@@ -243,6 +299,52 @@ export function countWebClassPairs(lines) {
     if (solid || grad) count++
   }
   return count
+}
+
+/** R8 类名面计数:直接取明细长度,不另写一遍判据(两条并行真相必漂移)。 */
+export function countInkBorderClasses(lines) {
+  return findR8ClassHits(lines).length
+}
+
+/**
+ * R8 类名面的明细版(与 countInkBorderClasses 同一条判据,只是把命中行留下来供报告点名)。
+ * 两者必须同形 —— 一个计数一个列明细,判据写两遍必然漂移(本仓 R1/R4 同一条教训)。
+ */
+export function findR8ClassHits(lines) {
+  const out = []
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (R8_COMMENT_LINE.test(line)) continue
+    if (R8_EXEMPT.test(line)) continue
+    const hits = line.match(R8_CLASS_BORDER)
+    // 命中的首字符是"前一个非单词字符"(引号/冒号/空格),报告里剥掉它,否则明细写成
+    // `满不透明 'border-primary` 这种带引号的串,读的人以为在点另一个标识符
+    if (hits) out.push(`L${i + 1} 满不透明 ${hits.map((h) => h.replace(/^[^\w]+/, '')).join(',')}`)
+  }
+  return out
+}
+
+/**
+ * R8 RN style 面:逐行找 `border*: … <墨档>`。返回描述串数组(与 findR1Violations 同形态)。
+ * 豁免与类名面同一条出口 `border-ink-exempt: <原因>`,同行或紧邻上行均可(多行 style 对象
+ * 的注释常写在属性上方 —— 与 R5 同取向)。
+ */
+export function findR8Violations(lines) {
+  const out = []
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (R8_COMMENT_LINE.test(line)) continue
+    // 上一行算豁免的前提是它是**纯注释行**:否则"代码行行尾带豁免注释"会把下一行一起救掉
+    // (自检 M7 就是这条抓出来的 —— 一行标记救了两处债,等于豁免外溢)
+    if (
+      R8_EXEMPT.test(line) ||
+      (i > 0 && R8_COMMENT_LINE.test(lines[i - 1]) && R8_EXEMPT.test(lines[i - 1]))
+    )
+      continue
+    const m = line.match(R8_RN_BORDER)
+    if (m) out.push(`L${i + 1} 描边取墨档 ${m[1]}:${line.trim()}`)
+  }
+  return out
 }
 
 function isR5Scope(rel) {
@@ -326,6 +428,84 @@ function listR5Files() {
 
 /** R5 待判文件清单(--staged 口径:暂存文件 ∩ R5 范围,清单已经很小,不预筛) */
 function stagedR5Files() {
+  const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30000,
+  })
+    .split('\n')
+    .filter((f) => isR5Scope(f))
+  return {
+    files: out.map((rel) => path.join(ROOT, rel)),
+    candidates: out.length,
+    scopeTotal: out.length,
+    prefallback: false,
+  }
+}
+
+/** R8 类名面预筛:一次 git grep 拿"出现过满不透明 border-/ring-primary"的文件清单。
+ *  与 r5Prefilter 同一条纪律 —— 判不出来(非"零匹配"的退出码)必须返回 null 让调用方退回全量,
+ *  把"预筛失效"表现成"零命中"等于造一台在故障现场报绿的尺子。
+ *  模式串是判据的严格超集:预筛不看注释行/豁免,只会多带文件,不会漏。 */
+function r8Prefilter(fromHead) {
+  const revArgs = fromHead ? ['HEAD'] : ['--cached']
+  try {
+    const out = execFileSync(
+      'git',
+      [
+        '-c',
+        'safe.directory=*',
+        'grep',
+        '-l',
+        '-I',
+        '-P',
+        '-e',
+        R8_CLASS_GREP_PATTERN,
+        ...revArgs,
+        '--',
+        ...R5_DIRS,
+      ],
+      { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 30000 },
+    )
+    return out
+      .split('\n')
+      .filter(Boolean)
+      .map((f) => (fromHead ? f.replace(/^HEAD:/, '') : f))
+  } catch (err) {
+    if (err && err.status === 1) return []
+    return null
+  }
+}
+
+/** R8 类名面待判清单(全量口径:预筛 + 跟踪范围校验;预筛失效退回全量) */
+function listR8WebFiles() {
+  const tracked = [
+    ...new Set(
+      execFileSync('git', ['ls-files', ...R5_DIRS], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 30000,
+      })
+        .split('\n')
+        .filter((f) => isR5Scope(f)),
+    ),
+  ]
+  const trackedSet = new Set(tracked)
+  // IHUI_R8_NO_PREFILTER=1:镜像测试用它证明「预筛 ⊇ 实际命中」在真仓成立(同 R5 那条)
+  const pre = process.env.IHUI_R8_NO_PREFILTER === '1' ? null : r8Prefilter(true)
+  const rels = pre === null ? tracked : pre.filter((f) => trackedSet.has(f))
+  return {
+    files: rels.map((rel) => path.join(ROOT, rel)),
+    candidates: rels.length,
+    scopeTotal: tracked.length,
+    prefallback: pre === null,
+  }
+}
+
+/** R8 类名面待判清单(--staged 口径:暂存 ∩ 范围,清单已很小,不预筛) */
+function stagedR8WebFiles() {
   const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM'], {
     cwd: ROOT,
     encoding: 'utf8',
@@ -1199,7 +1379,9 @@ function readText(file) {
   const t = faceTexts.get(rel)
   if (typeof t === 'string') return t.split('\n')
   if (faceMode === 'staged')
-    throw new Undetermined(`${rel}: 索引 blob 取不到 —— --staged 面无法判定(不回退磁盘、不静默跳过)`)
+    throw new Undetermined(
+      `${rel}: 索引 blob 取不到 —— --staged 面无法判定(不回退磁盘、不静默跳过)`,
+    )
   const wt = readWorktreeFile(ROOT, rel)
   return typeof wt === 'string' ? wt.split('\n') : null
 }
@@ -1220,11 +1402,19 @@ function run(options) {
   // R5 覆盖面(web 类名面)与上面两条 RN 清单互不重叠,必须各自成立:
   // 只有两边都空才允许早退,否则"只改了 web 的提交"会整门跳过,R5 永远不醒(判据存在而永不调用 = 没有)。
   const r5Scan = options.staged ? stagedR5Files() : listR5Files()
+  // R8 类名面与 R5 共用范围但**候选集不同**(R5 要 bg-primary ∩ text-primary-foreground 同行,
+  // R8 只要 border-/ring-primary)—— 复用 r5Scan 会让 R8 对"只写黑描边、不配前景"的行整片隐身。
+  const r8Scan = options.staged ? stagedR8WebFiles() : listR8WebFiles()
   faceMode = options.staged ? 'staged' : 'head'
   console.log(
     `📎 内容口径:${faceMode === 'staged' ? '索引 blob(git show :<path>,一次 cat-file --batch)' : 'HEAD blob(一次 cat-file --batch;HEAD 无此路径才降级工作树)'} —— 工作树滞后不参与判定`,
   )
-  if (options.staged && files.length === 0 && r5Scan.files.length === 0) {
+  if (
+    options.staged &&
+    files.length === 0 &&
+    r5Scan.files.length === 0 &&
+    r8Scan.files.length === 0
+  ) {
     console.log(
       '⏭ 暂存区无 apps/mobile-rn/src、packages/app/src、apps/web、packages/ui-react、apps/miniapp-taro 文件,跳过',
     )
@@ -1236,10 +1426,12 @@ function run(options) {
     faceTexts = prefetchFace(
       ROOT,
       faceMode === 'staged' ? '' : 'HEAD',
-      [...files, ...r5Scan.files].map((f) => path.relative(ROOT, f).replace(/\\/g, '/')),
+      [...files, ...r5Scan.files, ...r8Scan.files].map((f) =>
+        path.relative(ROOT, f).replace(/\\/g, '/'),
+      ),
     )
   } catch (e) {
-    const msg = e instanceof Undetermined ? e.message : e?.message ?? String(e)
+    const msg = e instanceof Undetermined ? e.message : (e?.message ?? String(e))
     console.error(`❌ 无法判定(exit 2):${msg}`)
     if (!(e instanceof Undetermined)) console.error(e?.stack ?? '')
     return 2
@@ -1247,7 +1439,7 @@ function run(options) {
   // 暂存档的"取不到"必须在**判之前**就问出来:readText 里的 throw 是结构护栏(自检第三条钉它),
   // 但让异常从采集循环里冒出去会被外层当成脚本异常,措辞与退出码都不是判据给的这套。
   if (faceMode === 'staged') {
-    const missing = [...files, ...r5Scan.files]
+    const missing = [...files, ...r5Scan.files, ...r8Scan.files]
       .map((f) => path.relative(ROOT, f).replace(/\\/g, '/'))
       .filter((rel) => typeof faceTexts.get(rel) !== 'string')
     if (missing.length > 0) {
@@ -1263,6 +1455,7 @@ function run(options) {
   const ctaCounts = {}
   const r4ByFile = {}
   const r7ByFile = {}
+  const r8ByFile = {}
   r7ParseErrors.length = 0
   for (const file of files) {
     const rel = path.relative(ROOT, file).replace(/\\/g, '/')
@@ -1273,6 +1466,8 @@ function run(options) {
     if (r4Pairs.length > 0) r4ByFile[rel] = r4Pairs
     const r7Items = findR7Violations(lines)
     if (r7Items.length > 0) r7ByFile[rel] = r7Items
+    const r8Items = findR8Violations(lines)
+    if (r8Items.length > 0) r8ByFile[rel] = r8Items
     if (isR2Scope(rel)) {
       const c = countLightContainers(lines)
       if (c > 0) counts[rel] = c
@@ -1293,9 +1488,19 @@ function run(options) {
   for (const [rel, pairs] of Object.entries(r4ByFile)) r4Counts[rel] = pairs.length
   const nestMismatchCounts = {}
   for (const [rel, items] of Object.entries(r7ByFile)) nestMismatchCounts[rel] = items.length
+  // R8 类名面:与 RN 面合并成同一张计数表(同一笔债不因走两条清单而计两次)
+  for (const file of r8Scan.files) {
+    const rel = path.relative(ROOT, file).replace(/\\/g, '/')
+    const lines = readText(file)
+    if (lines === null) continue
+    const c = countInkBorderClasses(lines)
+    if (c > 0) r8ByFile[rel] = [...(r8ByFile[rel] ?? []), ...findR8ClassHits(lines)]
+  }
+  const inkBorderCounts = {}
+  for (const [rel, items] of Object.entries(r8ByFile)) inkBorderCounts[rel] = items.length
 
   if (options.updateBaseline) {
-    // 重新校准只重写五个计数面;他人手记的文档性注记(如 pairedCtaNotVisibleToRule)
+    // 重新校准只重写六个计数面;他人手记的文档性注记(如 pairedCtaNotVisibleToRule)
     // 不得被回写吞掉 —— 那是"计数为什么这样"的取证,吞了等于下一个人只能重查一遍。
     const prev = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {}
     const {
@@ -1304,12 +1509,21 @@ function run(options) {
       r4Counts: _omitR4,
       webClassPairCounts: _omitWebPair,
       nestMismatchCounts: _omitNest,
+      inkBorderCounts: _omitInk,
       ...notes
     } = prev
     writeFileSync(
       BASELINE_PATH,
       `${JSON.stringify(
-        { counts, ctaCounts, r4Counts, webClassPairCounts, nestMismatchCounts, ...notes },
+        {
+          counts,
+          ctaCounts,
+          r4Counts,
+          webClassPairCounts,
+          nestMismatchCounts,
+          inkBorderCounts,
+          ...notes,
+        },
         null,
         2,
       )}\n`,
@@ -1317,7 +1531,7 @@ function run(options) {
     const sum = (o) =>
       `${Object.keys(o).length} 文件 / ${Object.values(o).reduce((a, b) => a + b, 0)} 处`
     console.log(
-      `✅ 基线已更新:R2 ${sum(counts)};R3 ${sum(ctaCounts)};R4 ${sum(r4Counts)};R5 ${sum(webClassPairCounts)};R7 ${sum(nestMismatchCounts)}`,
+      `✅ 基线已更新:R2 ${sum(counts)};R3 ${sum(ctaCounts)};R4 ${sum(r4Counts)};R5 ${sum(webClassPairCounts)};R7 ${sum(nestMismatchCounts)};R8 ${sum(inkBorderCounts)}`,
     )
     return 0
   }
@@ -1431,6 +1645,27 @@ function run(options) {
     )
     console.error('   单独复验:node scripts/check-brand-foreground.mjs --staged')
   }
+  const r8Over = Object.entries(inkBorderCounts).filter(
+    ([f, n]) => n > (baseline[BASELINE_R8_KEY]?.[f] ?? 0),
+  )
+  if (r8Over.length > 0) {
+    failed = true
+    console.error(
+      `❌ R8 描边取墨档(用户定的设计规矩:本项目没有纯黑描边;基线棘轮只减不增):${r8Over.length} 文件`,
+    )
+    for (const [f, n] of r8Over) {
+      console.error(`   ${f} 现 ${n} 处 > 基线 ${baseline[BASELINE_R8_KEY]?.[f] ?? 0}`)
+      for (const d of r8ByFile[f] ?? []) console.error(`      ${d}`)
+    }
+    console.error(
+      '   出路只有两条,都是项目已有档:中性描边 → border.light / border.medium;强调描边 → brandAccent.*(端内已有先例)。',
+    )
+    console.error(
+      '   ⚠️ brand.cta 作描边**不由本条判**(它是"主实底"档,与同色填充并用作描边时语义是加厚),该形态归 R3 计数面。',
+    )
+    console.error('   确需保留时:同行写 `border-ink-exempt: <一句话原因>`(必须带原因)。')
+    console.error('   单独复验:node scripts/check-brand-foreground.mjs --staged')
+  }
 
   if (failed) {
     console.error(
@@ -1445,7 +1680,9 @@ function run(options) {
         '        要调主按钮观感,改 tokens.css 的 --color-cta **一处**(它不分 .dark,明暗两态同时动);',
         '     主 CTA / 选中态胶囊 / 悬浮钮一律 brand.cta + brand.ctaForeground 成对(= web 的',
         '     --color-cta + --color-cta-foreground,明暗同值不反转)—— 不要逐处硬写颜色;',
-        '     brand.DEFAULT / --color-primary 只保留墨色、描边、文字色三义,**不再**作大色块底',
+        '     brand.DEFAULT / --color-primary 只保留墨色与文字色两义,**既不作大色块底,也不作描边**',
+        '     (描边一律走 border.* 或 brandAccent.* —— 2026-09-26 用户定规矩"本项目没有纯黑描边";',
+        '     旧措辞曾把"描边"列为 DEFAULT 的合法语义之一,那正是 R8 这一型能长期写而无人拦的入口)',
         '     (2026-09-24 改档;旧写法亮=纯黑/暗=纯白,与页面反极);',
         '     R5(web / ui-react 类名面)唯一正解:bg-cta + text-cta-foreground(+ hover:bg-cta/90),',
         '     对应 RN 侧 brand.cta + brand.ctaForeground —— bg-primary/text-primary-foreground 是',
@@ -1472,6 +1709,13 @@ function run(options) {
   // "债真的清完了"与"门瞎了"(本仓硬规则:报 0 的判据必须有阳性对照撑着)。
   console.log(
     `✅ R5 web 类名面守门通过(范围 ${r5Scan.scopeTotal} 文件 → 候选 ${r5Scan.candidates}${r5Scan.prefallback ? '[预筛关闭/失效,已退回全量]' : ''},存量 ${r5Total} 处 / ${Object.keys(webClassPairCounts).length} 文件,全部 ≤ 基线)`,
+  )
+  // R8 同 R5:分母必须同行打印。它的类名面靠 git grep -P 预筛,而 `-P` 在本仓实测会因
+  // shell 历史展开把 `(?!...)` 变成 `\!` 让 git 直接 fatal —— 若把 stderr 吞掉,那台尺子
+  // 就永久"零命中"而报告全绿(本会话真就这么被骗过一次)。prefallback 旗标是这条的哨兵。
+  const r8Total = Object.values(inkBorderCounts).reduce((a, b) => a + b, 0)
+  console.log(
+    `✅ R8 描边墨档守门通过(RN style 面 ${files.length} 文件 + 类名面 范围 ${r8Scan.scopeTotal} → 候选 ${r8Scan.candidates}${r8Scan.prefallback ? '[预筛失效,已退回全量]' : ''},存量 ${r8Total} 处 / ${Object.keys(inkBorderCounts).length} 文件,全部 ≤ 基线)`,
   )
   return 0
 }
@@ -2326,6 +2570,111 @@ function selfTest() {
       `R7 复用了 ${other} ⇒ 一次 --update-baseline 会把另一条判据的存量发给 R7`,
     )
   }
+  // ── R8 描边取墨档(2026-09-26 立)────────────────────────────────────────
+  assert(BASELINE_R8_KEY === 'inkBorderCounts', 'R8 基线键必须是新键 inkBorderCounts')
+  for (const other of ['counts', 'ctaCounts', 'r4Counts', BASELINE_R5_KEY, BASELINE_R7_KEY]) {
+    assert(BASELINE_R8_KEY !== other, `R8 复用了 ${other} ⇒ 计数面互相发额度`)
+  }
+  // (M1) 阳性对照:墨档描边必须判出来 —— 四种墨档逐个验,漏一档就是门对该形态全盲
+  for (const tier of ['brand.DEFAULT', 'brand.foreground', 'brand.ctaForeground', 'text.primary']) {
+    assert(
+      findR8Violations([`    chip: { borderWidth: 1, borderColor: tk.${tier} },`]).length === 1,
+      `R8-M1 描边取 ${tier} 必须判红(判据必须覆盖每一档)`,
+    )
+    assert(
+      findR8Violations([`    chip: { borderWidth: 1, borderColor: tokens.${tier} },`]).length === 1,
+      `R8-M1b tokens 别名同样要判到 ${tier}`,
+    )
+  }
+  // (M2) 反向对照:两条合法出路一律不判
+  assert(
+    findR8Violations([
+      '    chip: { borderColor: tk.border.medium },',
+      '    chip2: { borderColor: tk.border.light },',
+      '    chip3: { borderColor: tk.brandAccent.deep },',
+    ]).length === 0,
+    'R8-M2 border.* / brandAccent.* 是合法出路,不得计债',
+  )
+  // (M3) brand.cta 作描边归 R3,不重复计债(同一笔债两道门各计一次会让基线互相打架)
+  assert(
+    findR8Violations(['    loginBtn: { borderColor: tokens.brand.cta },']).length === 0,
+    'R8-M3 brand.cta 描边不得由 R8 判(它已在 R3_FILL_CTA 计数面内)',
+  )
+  // (M4) 非描边属性取墨档一律不算(否则全站正文都成债)
+  assert(
+    findR8Violations([
+      '    title: { color: tk.text.primary },',
+      '    page: { backgroundColor: tk.brand.DEFAULT },',
+    ]).length === 0,
+    'R8-M4 color/backgroundColor 取墨档不属本条',
+  )
+  // (M5) 模板串形态必须判到:Selecter 那两处就是 `border: \`1px solid ${tk.brand.DEFAULT}\``,
+  //       只认 `borderColor:` 对象形态会让整类字符串写法隐身(判据必须覆盖门要防的形态)
+  assert(
+    findR8Violations(['    border: `1px solid ${active ? tk.brand.DEFAULT : tk.border.medium}`,'])
+      .length === 1,
+    'R8-M5 border 模板串里的墨档必须判到',
+  )
+  // (M6) 注释行不判(零容忍门不得被叙述行钉红)
+  assert(
+    findR8Violations(['    // borderColor: tk.brand.DEFAULT 是旧写法,已废']).length === 0,
+    'R8-M6 注释行不得计债',
+  )
+  // (M7) 豁免出口:必须带原因、只救本行
+  assert(
+    findR8Violations([
+      '    chip: { borderColor: tk.brand.DEFAULT }, // border-ink-exempt: 压在图上',
+      '    chip2: { borderColor: tk.brand.DEFAULT },',
+    ]).length === 1,
+    'R8-M7 豁免只救本行,不得外溢',
+  )
+  assert(
+    findR8Violations([
+      '    // border-ink-exempt: 整块都是刻意的墨色描边',
+      '    chip: { borderColor: tk.brand.DEFAULT },',
+    ]).length === 0,
+    'R8-M7b 紧邻上行豁免必须生效(多行 style 对象注释常写在属性上方)',
+  )
+  // (M8) 类名面:满不透明判、染色档与近名键不判
+  assert(
+    countInkBorderClasses([
+      "  return <div className='border-primary bg-cta' />",
+      "  return <div className='ring-primary' />",
+    ]) === 2,
+    'R8-M8 满不透明 border-primary / ring-primary 各计一处',
+  )
+  assert(
+    countInkBorderClasses([
+      "  return <div className='border-primary/20 border-primary-foreground' />",
+    ]) === 0,
+    'R8-M8b border-primary/20 是染色、border-primary-foreground 是另一键,都不属这一型',
+  )
+  assert(countInkBorderClasses(['  // border-primary 是已废档']) === 0, 'R8-M8c 类名面注释行不判')
+  // (M9) 预筛必须是判据的严格超集:真仓上"预筛候选" ⊇ "实际命中",
+  //      否则 git grep 的 `-P` 一旦失效(shell 历史展开把 `(?!` 变成 `\(!` 那类),
+  //      门会安静地零命中而报告全绿 —— 本会话实测被骗过一次。
+  {
+    const pre = listR8WebFiles()
+    assert(
+      pre.scopeTotal > 0,
+      'R8-M9 类名面范围为 0 ⇒ 范围正则或 ls-files 坏了,不得把"0 文件"读成"已清"',
+    )
+    const savedMode = faceMode
+    const savedTexts = faceTexts
+    faceMode = 'head'
+    faceTexts = prefetchFace(
+      ROOT,
+      'HEAD',
+      pre.files.map((f) => path.relative(ROOT, f).replace(/\\/g, '/')),
+    )
+    const hit = pre.files.filter((f) => countInkBorderClasses(readText(f)) > 0).length
+    faceMode = savedMode
+    faceTexts = savedTexts
+    assert(
+      hit <= pre.candidates,
+      `R8-M9b 预筛必须是判据超集:候选 ${pre.candidates} < 实际命中 ${hit} ⇒ 门漏判`,
+    )
+  }
   /**
    * 取材面(2026-09-26 迁到 scripts/lib/face-reader.mjs)的构造面证明。
    *
@@ -2334,7 +2683,12 @@ function selfTest() {
    * 其中一条必红,所以这不是一句恒真式。第三条钉"取不到 ⇒ 无法判定"而不是回退磁盘。
    */
   {
-    const dirty = ['  card: {', '    backgroundColor: tk.brand.cta,', '    color: tk.surface.light,', '  },']
+    const dirty = [
+      '  card: {',
+      '    backgroundColor: tk.brand.cta,',
+      '    color: tk.surface.light,',
+      '  },',
+    ]
     const clean = [
       '  card: {',
       '    backgroundColor: tk.brand.cta,',
@@ -2426,6 +2780,19 @@ export const __test__ = {
   R7_EXEMPT,
   r7ExemptAt,
   r7ParseErrors,
+  // R8(描边取墨档):判据函数 + 词法前置 + 预筛 + 基线键与正则本体。
+  // 导出正则的理由与 R5/R7 同一条 —— 镜像测试要靠"旧版只认 borderColor: 的正则 vs 现版"
+  // 做变异对照,证明 borderBottomColor 这一型的红真挂在 `border\w*` 上,而不是恒红。
+  findR8Violations,
+  findR8ClassHits,
+  countInkBorderClasses,
+  listR8WebFiles,
+  r8Prefilter,
+  BASELINE_R8_KEY,
+  R8_RN_BORDER,
+  R8_CLASS_BORDER,
+  R8_EXEMPT,
+  R8_INK_TIER,
   // §22c:判据正则本体也导出 —— 镜像测试用"旧版只认 DEFAULT 的正则 vs 现版"做变异对照,
   // 证明 cta 夹具的红/绿确实挂在扩面上(仅导出函数无法证伪"判据被改回只认 DEFAULT")。
   R1_BG,
