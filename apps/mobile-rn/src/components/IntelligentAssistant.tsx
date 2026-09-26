@@ -18,6 +18,18 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
 import { rnRadius } from '@ihui/design-tokens'
+import {
+  IA_GREETING_FONT_PX,
+  IA_HEADING_FONT_WEIGHT,
+  IA_MARGIN_PX,
+  IA_PADDING_PX,
+  IA_RECHARGE_FONT_PX,
+  IA_RECHARGE_HIT_PX,
+  IA_SUBTITLE_FONT_PX,
+  IA_TEXT_GAP_PX,
+  IA_TOKEN_FONT_PX,
+  IA_TOKEN_ROW_GAP_PX,
+} from '@ihui/shared/ui/intelligent-assistant-spec'
 
 export interface IntelligentAssistantProps {
   /** 剩余智汇值(对齐原 tokenQuantity) */
@@ -84,11 +96,12 @@ export default function IntelligentAssistant({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    marginHorizontal: 4,
-    marginTop: 8,
-    marginBottom: 4,
+    marginHorizontal: IA_MARGIN_PX,
+    marginTop: IA_MARGIN_PX,
+    marginBottom: IA_MARGIN_PX,
   },
   floatingDecoration: {
+    // 位图装饰(小程序是行内矢量墨迹,不同媒介,不进 spec)—— 尺寸随素材,非档位
     position: 'absolute',
     top: -8,
     right: 9,
@@ -97,14 +110,14 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   welcomeCard: {
+    // 圆角走 radius.js 的 2xl 档(与小程序 `--radius-2xl` 同档;裁决依据见 spec 头注)
     borderRadius: rnRadius['2xl'],
-    padding: 4,
+    padding: IA_PADDING_PX,
     backgroundColor: tokens.surface.card,
     overflow: 'hidden',
   },
   welcomeContent: {
     flexDirection: 'row',
-    marginBottom: 2,
   },
   welcomeMessage: {
     flex: 1,
@@ -114,16 +127,15 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   welcomeIntro: {
-    fontSize: 19,
-    fontWeight: '700',
+    fontSize: IA_GREETING_FONT_PX,
+    fontWeight: IA_HEADING_FONT_WEIGHT,
     color: tokens.brand.DEFAULT,
   },
   welcomeAction: {
-    fontSize: 12,
+    fontSize: IA_SUBTITLE_FONT_PX,
     color: tokens.text.secondary,
-    fontWeight: '700',
-    paddingTop: 4,
-    paddingBottom: 4,
+    fontWeight: IA_HEADING_FONT_WEIGHT,
+    marginTop: IA_TEXT_GAP_PX,
   },
   limitInfo: {
     flexDirection: 'row',
@@ -133,7 +145,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 5,
+    marginTop: IA_TOKEN_ROW_GAP_PX,
     marginLeft: 16,
   },
   limitText: {
@@ -141,18 +153,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   limitLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: IA_TOKEN_FONT_PX,
+    fontWeight: IA_HEADING_FONT_WEIGHT,
     color: tokens.text.primary,
   },
   limitCount: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: IA_TOKEN_FONT_PX,
+    fontWeight: IA_HEADING_FONT_WEIGHT,
     color: tokens.text.primary,
   },
   rechargeAction: {
+    // 命中块 ≥44 走 minHeight(可见胶囊不放大);小程序侧同一常数以 pad 兑现(通道差异)
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: IA_RECHARGE_HIT_PX,
     marginLeft: 10,
   },
   tokenButton: {
@@ -162,9 +177,9 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.xl,
   },
   tokenButtonText: {
-    fontSize: 12,
+    fontSize: IA_RECHARGE_FONT_PX,
     color: tokens.brand.ctaForeground,
-    fontWeight: '700',
+    fontWeight: IA_HEADING_FONT_WEIGHT,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -29,6 +29,7 @@ import { eq, and, or, desc, asc, sql, ilike, gte, lt } from 'drizzle-orm' // 新
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
 import { db, dbRead } from '../db/index.js'
+import { findPublishedVideoFeed } from '../db/learn-queries.js'
 import {
   lessons,
   lessonChapters,
@@ -175,6 +176,25 @@ const studyGroupsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().max(200).optional(),
 })
+
+/**
+ * GET /study/videos 查询参数。
+ *
+ * `category` 收的是**课程分类 UUID**;RN 端的「赛道」胶囊目前是静态占位
+ * (apps/mobile-rn StudyIndexScreen 的 TRACK_CATEGORIES 写死 all/douyin/private/…),
+ * 与 learn_categories 表没有对应关系。为免一次点胶囊就 400 把整个视频页打死,
+ * 非 UUID 的取值在路由层归一为「不按分类过滤」,而不是报错也不是伪造匹配。
+ * 补齐胶囊与分类表的映射属另一个议题(需要 learn_categories 落数据)。
+ */
+const studyVideosQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().max(200).optional(),
+  category: z.string().max(100).optional(),
+})
+
+/** UUID 判定:与 plugins/tenant.ts 的租户 id 探测同一套形状 */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const rankingQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -604,6 +624,43 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
         intro: lesson.intro,
         cover: lesson.coverImage,
         videos,
+      }),
+    )
+  })
+
+  // GET /study/videos — 学习视频列表(公开,分页 + 标题搜索 + 课程分类)
+  // 静态路由,注册在 /study/videos/:id 之前;两者互不遮蔽(Fastify 静态段优先),
+  // 但**不得**为省事把本路径并入某个 `/study/videos/[^/]+` 正则白名单 —— 见 AGENTS.md §5。
+  server.get('/study/videos', async (request, reply) => {
+    const parsed = studyVideosQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, search, category } = parsed.data
+    const result = await findPublishedVideoFeed({
+      page,
+      pageSize,
+      ...(search ? { search } : {}),
+      ...(category && UUID_RE.test(category) ? { categoryId: category } : {}),
+    })
+    // 本文件是「兼容层」:查询模块给领域字段名(courseTitle),出网时映射回两端已在用的
+    // 历史契约名(name = 课程名),避免在端内各拼一份适配。
+    return reply.send(
+      success({
+        list: result.list.map((v) => ({
+          id: v.id,
+          courseId: v.courseId,
+          title: v.title,
+          name: v.courseTitle,
+          cover: v.cover,
+          teacherName: v.teacherName,
+          avatar: v.avatar,
+          duration: v.duration,
+          createdAt: v.createdAt,
+        })),
+        total: result.total,
+        page: result.page,
+        pageSize: result.pageSize,
       }),
     )
   })

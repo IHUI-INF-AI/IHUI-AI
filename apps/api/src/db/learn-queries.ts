@@ -390,6 +390,102 @@ export async function findSectionById(id: string): Promise<LessonChapterSection 
   return rows[0]
 }
 
+export interface FindPublishedVideoFeedOpts {
+  page: number
+  pageSize: number
+  /** 小节标题模糊搜索 */
+  search?: string
+  /** 课程分类 id(learn_categories.id)。调用方只在值为 UUID 时传入,非 UUID 由路由层归一为 undefined。 */
+  categoryId?: string
+}
+
+/**
+ * 公开视频流列表项。**刻意只含展示字段**,不含 videoUrl / content 等受付费门槛保护的内容 ——
+ * 小节播放地址的唯一出口是 routes/learn/get-lesson-video.ts(它做报名/免费判定),
+ * 在本查询里顺带返回 URL 等于绕过那道闸。
+ */
+export interface PublishedVideoFeedItem {
+  id: string
+  title: string
+  /** 所属课程 id(与 GET /study/videos/:id 、GET /study/groups/:id 同一套 UUID) */
+  courseId: string
+  /** 所属课程名(列表封面下方那一行) */
+  courseTitle: string
+  cover: string | null
+  teacherName: string | null
+  avatar: string | null
+  duration: number
+  createdAt: Date
+}
+
+/**
+ * 分页查询「已发布课程下的小节视频」公开列表。
+ *
+ * 发布态判据与 findPublishedLessons 逐字同形(isPublished=true ∧ status=1),
+ * 且**写死在本函数内、不接受调用方覆盖** —— 这是游客可读端点的唯一自证
+ * (AGENTS.md §5「鉴权面公开化必须显式列举」:公开视图的过滤由 handler 自己强制)。
+ * 小节 → 章节 → 课程用 innerJoin,孤儿小节(课程已删/未发布)结构上不会进结果。
+ */
+export async function findPublishedVideoFeed(
+  opts: FindPublishedVideoFeedOpts,
+): Promise<{ list: PublishedVideoFeedItem[]; total: number; page: number; pageSize: number }> {
+  const { page, pageSize, search, categoryId } = opts
+  const conds = [eq(lessons.isPublished, true), eq(lessons.status, 1)]
+  if (categoryId) conds.push(eq(lessons.categoryId, categoryId))
+  if (search) conds.push(ilike(lessonChapterSections.title, `%${search}%`))
+  const where = and(...conds)
+
+  const selectShape = {
+    id: lessonChapterSections.id,
+    title: lessonChapterSections.title,
+    duration: lessonChapterSections.duration,
+    createdAt: lessonChapterSections.createdAt,
+    courseId: lessons.id,
+    courseTitle: lessons.title,
+    cover: lessons.coverImage,
+    lecturerName: lessons.lecturerName,
+    nickname: users.nickname,
+    avatar: users.avatar,
+  }
+
+  const [rows, countRows] = await Promise.all([
+    db
+      .select(selectShape)
+      .from(lessonChapterSections)
+      .innerJoin(lessonChapters, eq(lessonChapters.id, lessonChapterSections.chapterId))
+      .innerJoin(lessons, eq(lessons.id, lessonChapters.lessonId))
+      .leftJoin(users, eq(users.id, lessons.lecturerId))
+      .where(where)
+      .orderBy(desc(lessonChapterSections.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(lessonChapterSections)
+      .innerJoin(lessonChapters, eq(lessonChapters.id, lessonChapterSections.chapterId))
+      .innerJoin(lessons, eq(lessons.id, lessonChapters.lessonId))
+      .where(where),
+  ])
+
+  return {
+    list: rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      courseId: r.courseId,
+      courseTitle: r.courseTitle,
+      cover: r.cover,
+      // 课程表只存讲师名快照,取不到时回落到讲师账号的昵称
+      teacherName: r.lecturerName ?? r.nickname ?? null,
+      avatar: r.avatar,
+      duration: r.duration,
+      createdAt: r.createdAt,
+    })),
+    total: countRows[0]?.count ?? 0,
+    page,
+    pageSize,
+  }
+}
+
 export interface CreateSectionInput {
   title: string
   content?: string | null

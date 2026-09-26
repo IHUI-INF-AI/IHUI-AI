@@ -231,12 +231,16 @@ export const getOrderList = (params?: { page?: number; pageSize?: number; status
  * Miniapp-taro 端聊天消息类型(本地保留:依赖 @ihui/shared BaseChatMessage)。
  *
  * 继承 @ihui/shared 的 ChatMessage 通用基类,扩展小程序端独占字段。
- * 与基类的差异:role 限制为 user/assistant;不使用基类 id/createdAt。
+ * 与基类的差异:role 限制为 user/assistant;不使用基类 createdAt。
+ * id 在基类是必填,这里改成可选 —— 端内流式新产生的消息还没有 id,而服务端回放行必须带
+ * (向前翻页按 id 去重的唯一锚点,见 pkg-ai/ai/server-chat-replay.ts 的 mapServerMessage)。
  * 注:api-client chat.ts 有 ConversationMessage(DB 持久化层),与此处 UI 层 ChatMessage 语义不同。
  */
 export interface ChatMessage extends Omit<BaseChatMessage, 'id' | 'createdAt' | 'role'> {
   /** Miniapp 端只使用 user / assistant 两种角色(不发送 system) */
   role: 'user' | 'assistant'
+  /** 服务端消息 id;端内流式行在拿到落库 id 前为空,故不得当必填读 */
+  id?: string
   /** 创建时间戳(ms) — 对标原 ai_assistant.vue */
   timestamp?: number
   /** 图片 URL 列表(对标原 ai_assistant.vue imgUrlList) */
