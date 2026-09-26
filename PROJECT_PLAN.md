@@ -11828,6 +11828,14 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   按 §12/§16 一律不覆写他人现场,所以本票交的是**我持有的 18 处清零 + 剩下 15 处的归属与行号清单**,
   不是一句"lint 已全绿"。
 
+### 第五十一波·续六 —— 第三十批:病灶换了载体(裸 SQL)就无人看守,普查先于立判据(2026-09-27 凌晨,主会话独立复跑)
+
+- [x] ✅(2026-09-27) **把裸 SQL 写链并进守门 134 的写链池,并改真普查量出的两处 ack**(`41217bd9cd8` 代码 + `2060d3a34fe` 判据 + `8759fc7c7d1` AGENTS):
+  - 病灶载体不止 drizzle 方法链 —— `db.execute(sql\`DELETE FROM … WHERE …\`)` 也是写;判据此前只把 `.delete()/.update()` 当写链,裸 SQL 只当"证据"(认 `RETURNING` 字样),于是"SQL 发了写、命中 0 行、响应回布尔 true"这一格无人看守。现 `findRawSqlWriteChains` 一份实现同时供**写链判定**与**证据投影**(`hasRawSqlReturning` 降为投影,禁止两处各扫一遍),**V 与 B1 同看这一维**;B1 只认缺 RETURNING 那条 ⇒ 不新增恒红面;配平不到时"同体有 ack 才落未判定(U3,`--strict` 拒绝出合格证),否则只报数"。
+  - **普查反手抓到尺子自己的假阴**:`UPDATE\s+"?[A-Za-z_]\b` 对 `UPDATE ai_model_config_models`(整型表名)**永不成立** ⇒ 真仓 HEAD 上 4 条整型写隐身;修尺子后同一把才认出 **73 条**裸 SQL 写链、**9 处**与 ack 共处一体的候选,再逐条读体分 W1(5 已诚实)/ W2(1 有 RETURNING 却弃之判定)/ W3(1 无 RETURNING 且无条件回 true)。这是本仓第二次实录"扫到 0 先怀疑尺子,再相信世界"。
+  - **改真两处**(键名/状态码一字未改):`user-llm-configs-v2.ts:891` 的 UPDATE 补 `RETURNING id` 并按命中集取值(命中集归一沿用**本文件既有写法**,不另立形态);`ai-extended.ts:360/365` 的"没发写"与"零命中兜底"两支由 `true` 改 `false`。`git grep -E "\.updated\b"` 跨 6 端实测**无任何调用方读这两处的布尔**(命中的全是 i18n toast 键名或别的端点的计数字段)⇒ 无 UX 回退面。
+  - **两格刻意未做,都给了可判触发条件而不是"视情况"**:① B2 那一跳**未接**裸 SQL 维 —— 双向扫 10 个具名裸 SQL writer × 全部 ack 落点,HEAD 面该组合 **0 条**,无存量可验就补属投机;触发条件:任一 ack 落点的最小函数体 `await` 了"体内含无 RETURNING 裸 SQL 写"的具名函数 ⇒ 必补。② `updated`/`created` **未进** `BOOL_ACK_KEYS`(键族扩面属全 API 语义决策);触发条件:一旦拍板纳入,必须同时把 RETURNING 证据从**体内任一处**收窄到**该条调用**,否则"`UPDATE … RETURNING *` 零命中走 `?? {updated:true}` 兜底"那一型仍然隐身。
+  - 取证:self-test **118 条**(新增 K4b 裸 SQL 写+`deleted:true`⇒必红且 `via=raw-sql` / K4c 只补 RETURNING⇒归零 / K4d 注释与 `='UPDATE'` 这类**值**⇒不红 / K4e 配平不到⇒未判定 1 违规 0);镜像 **24/24** 含新增 **M23** 源码级反向锁(动词表只许住一处、投影不得自带 `\bRETURNING\b`、B1/V 必须真吃到 `rawPool`、镜像自己不得抄动词表);变异 = 摘掉 `rawPool` ⇒ M23 必红;真仓三档 exit 0,HEAD 面违规 0 / 未判定 0 / 认出 73 / 配平不到 0;门 89/118 同轮 exit 0;`pnpm --filter @ihui/api typecheck` exit 0;`ai-extended.test.ts` 6/6(未改期望值、未 skip)。
 - **e2e 作业是"慢性红"而不是本批引入 —— 定案并把开口收成一个出口(`0fa533ec99` + `d9b669a9bb`)**:
   `e2e.yml` 在 GitHub 上连续 250+ 次运行查不到一次成功(分页翻到 2026-09-23T04:51Z 仍全是 failure),
   最近一次读数 `577 passed / 32 failed / 2 flaky / 71 skipped`,其中 **24 处**集中在四个 spec 的同一句
@@ -11852,7 +11860,6 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   **余下 8 处与登录无关,另计一票**:browser-hub-smoke ×2(ai-service 侧 Chromium 起不来 /
   `/api/browser/sessions` 500)、mode-switch、navigation-full、work-panel、topbar-workarea-align、
   ihui-download-verify、cli-import 各 1 —— 不冒充"e2e 已全绿"。
-
 - **CI 四红清完后的"下一层"读数,以及一个后端造词而词表没跟的缺口(`f2a7cf2429` + `940c22f594`)**:
   合并头 `40513b2558` 上复量:Knip ✅、Mypy 步 ✅(改在 `test-python` 里往下露出 **Pytest** 步)、
   `@ihui/database#test` ✅,而 `@ihui/shared#test` 报 1 例:

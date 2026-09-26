@@ -925,4 +925,57 @@ test('M22 反向锁:键族只有一份真相、动词筛选只在 B2 那一侧�
   if (/BOOL_ACK|booleanAckByKey|removed|revoked|cleared/.test(d[0]))
     throw new Error('decide 里出现了键族标识符 ⇒ 惯例面被接进了退出码,扩面当天就会变成恒红门(§12e)')
 })
+
+test('M23 反向锁(裸 SQL 写链这一维):SQL 动词表只许一份、RETURNING 判据不得另写第二份、两条判据必须真接上', () => {
+  const BS = String.fromCharCode(92)
+  // 判"某段源码只有一份实现"必须先剥注释 —— 说明性文字里也会带执行性字符(门 103/117 各记过一次:
+  // 头注把模式原样写出来,按文本数次数就把"解释判据"当成了"第二份判据")。
+  const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  const fnOf = (name) => {
+    // 名字用拼接得到,否则本文件里出现的 `function <name>` 字面量会被 M8 的"测试不得复读判据"锁当成第二份实现。
+    const head = 'export ' + 'function ' + name
+    const i = CODE.indexOf(head)
+    if (i < 0) return null
+    const next = CODE.indexOf('\nexport function', i + head.length)
+    return CODE.slice(i, next < 0 ? CODE.length : next)
+  }
+  // ① 写动词表只住在 findRawSqlWriteChains 里。
+  const verbNeedle = 'DELETE' + BS + 's+FROM'
+  const holders = CODE.split(/\n(?=export function |function )/).filter((f) => f.includes(verbNeedle))
+  if (holders.length !== 1 || !holders[0].includes('findRawSqlWriteChains'))
+    throw new Error(
+      `裸 SQL 动词表落在 ${holders.length} 个函数里(应为 1 且是 findRawSqlWriteChains)⇒ 两份 SQL 解析必然漂移,` +
+        '一处改了另一处不跟着改,判据与"放过证据"就会说不同的话',
+    )
+  // ② hasRawSqlReturning 必须是**投影**,不得留自己的 RETURNING 扫描。
+  const proj = fnOf('hasRawSqlReturning')
+  if (!proj) throw new Error('hasRawSqlReturning 找不到 ⇒ 无法验证它是否仍为投影')
+  if (!proj.includes('findRawSqlWriteChains('))
+    throw new Error('hasRawSqlReturning 不再走 findRawSqlWriteChains ⇒ 第二套 SQL 取材回来了')
+  if (proj.includes(BS + 'bRETURNING' + BS + 'b'))
+    throw new Error('hasRawSqlReturning 里自己扫 RETURNING ⇒ RETURNING 判据有两份实现(本枚票的立论之一)')
+  // ③ 这一维必须**真接进两条判据**:B1 的候选与 V 的批量链池都要吃到 rawPool.chains。
+  //    函数在、自检过、但没人调用 = 提交链上一路绿灯(守门 70/76/81 同型,门 102 的 GA5/GA6 同锁)。
+  const b1 = fnOf('findBoolAckB1Sites')
+  if (!b1 || !b1.includes('findRawSqlWriteChains'))
+    throw new Error('B1 没接裸 SQL 写链 ⇒ "原生 SQL 发写 + 回布尔 true + 无 RETURNING"那一格重新失明')
+  if (!/!c\.hasReturning/.test(b1))
+    throw new Error(
+      'B1 的裸 SQL 那一支没有要求"该条 SQL 缺 RETURNING" ⇒ 会把已带库答复的形状判红(恒红门同罪)',
+    )
+  const scan = fnOf('scanFileText')
+  if (!scan || !scan.includes('[...findWriteChains(code), ...rawPool.chains]'))
+    throw new Error('V(自算计数)的批量链池没并进裸 SQL 写链 ⇒ 计数判据对这一维仍瞎')
+  if (!scan.includes('boolSites, nonBlank, rawPool)'))
+    throw new Error('scanFileText 没把 rawPool 传给 findBoolAckB1Sites ⇒ 每次 ack 重扫一遍(第二套取材)')
+  // ④ 配平不到必须落"未判定",且只有同体带 ack 时才参与退出码(否则无关文件会造恒红门)。
+  if (!scan || !scan.includes('res.rawSqlUnparsed = []') || !/if \(ackHere\)/.test(scan))
+    throw new Error(
+      'rawSqlUnparsed 的"未判定/只报数"分流不在位 ⇒ 要么静默放过解析不到的写,要么把与本次提交无关的文件钉红',
+    )
+  // ⑤ 镜像测试自己不得再抄一份动词表(§22c:测试只复读实现就是复读机)。
+  const self = readFileSync(join(HERE, 'check-batch-write-count-honesty.test.mjs'), 'utf8')
+  if (self.includes(verbNeedle))
+    throw new Error('镜像测试里出现了第二份裸 SQL 动词表 ⇒ 判据与取证各说各话')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
