@@ -819,6 +819,55 @@ def _detect_failed_test_signal(
     return None
 
 
+def _detect_extended_signal(
+    tool_calls: list[ToolCall], tool_results: list[ToolResult]
+) -> dict[str, Any] | None:
+    """V3 #56(2026-09-26 立):pytest 专用检测未命中时的四类信号兜底。
+
+    信号源从 pytest-only 扩到四类:测试框架/类型检查/构建/lint。判定委托
+    self_healing.classify_run_command_signal(纯离线分类器,判据见该函数);
+    只有 actionable 的信号才返回(环境性失败如网络超时修不了,不触发 heal)。
+
+    为什么不走 _detect_failed_test_signal:该函数在命令识别层就卡死 pytest-only
+    (_extract_pytest_target 只认 "pytest" token),且被既有契约测试钉住
+    (test_detect_signal_not_pytest_command 断言 pnpm test 返回 None),
+    改它会破 pytest 既有语义;兜底适配器保持两条路径互不干扰。
+    """
+    from .self_healing import classify_run_command_signal
+
+    for tc, tr in zip(tool_calls, tool_results, strict=False):
+        if tr.error or (tr.name or tc.name) != "run_command":
+            continue
+        args = tc.args if isinstance(tc.args, dict) else {}
+        command = str(args.get("command", ""))
+        result = tr.result if isinstance(tr.result, dict) else {}
+        sig = classify_run_command_signal(command, result)
+        if sig is None or not sig.actionable:
+            continue
+        # target 兜底为 ".":_validate_path_in_workspace 会把相对路径解析到
+        # 工作区根(heal 的文件边界);具体补丁文件路径由 apply_patch_descriptor
+        # 的白名单校验二次把关,这里不需要精确文件目标。
+        return {
+            "command": command,
+            "exit_code": sig.exit_code,
+            "failed": None,
+            "target": ".",
+            "category": sig.category,
+            "error_digest": sig.error_digest,
+        }
+    return None
+
+
+# V3 #56:四类扩展信号的 heal 任务描述(喂 LLM 的任务目标,中文明确验收标准 =
+# 原命令退出码归零,而非 pytest 通过)。
+_SELF_HEAL_CATEGORY_TASK_DESC = {
+    "type_check": "修复类型检查错误并让验证命令通过(exit=0)",
+    "build": "修复构建失败并让构建命令成功(exit=0)",
+    "lint": "修复 lint 错误并让 lint 命令通过(exit=0)",
+    "test_framework": "修复失败测试并让测试命令通过(exit=0)",
+}
+
+
 class AgentEventStream:
     """1-5 事件流协作层:收敛全部 hook_engine.emit 调用点(2026-09-08 立)。
 
@@ -2214,7 +2263,13 @@ class AgentLoopV2:
             return
         signal = _detect_failed_test_signal(tool_calls, tool_results)
         if signal is None:
-            return
+            # V3 #56(2026-09-26)信号源扩展:pytest 专用检测未命中时,走四类
+            # 分类器兜底(测试框架/类型检查/构建/lint,actionable 才触发)。
+            # 默认仍 off(AGENT_SELF_HEALING_ENABLED),放量待办见
+            # self_healing.classify_run_command_signal 注释。
+            signal = _detect_extended_signal(tool_calls, tool_results)
+            if signal is None:
+                return
         if signal["command"] in self._self_heal_commands:
             return
         self._self_heal_runs += 1
@@ -2309,13 +2364,31 @@ class AgentLoopV2:
             from starlette.concurrency import run_in_threadpool
 
             from .self_healing import heal
-            from .self_healing_llm import PytestSubprocessRunner, llm_gen_fn
-
-            task_desc = (
-                f"修复失败测试并让 pytest 通过。失败命令: {signal['command']}"
-                f"(exit_code={signal['exit_code']}, failed={signal['failed']})"
+            from .self_healing_llm import (
+                CommandReplayRunner,
+                PytestSubprocessRunner,
+                llm_gen_fn,
             )
-            runner = PytestSubprocessRunner(info)
+
+            if signal.get("category"):
+                # V3 #56:非 pytest 类信号(类型/构建/lint/非 pytest 测试框架)。
+                # 验证语义 = 重放原命令、退出码归零判绿,不能用 PytestSubprocessRunner
+                # (它只会重跑 pytest,对这些命令是错误判据);error_digest 直接
+                # 进 task_desc,LLM 补丁拿到的就是错误摘要而非空转。
+                category = str(signal["category"])
+                digest = str(signal.get("error_digest") or "")
+                task_desc = (
+                    f"{_SELF_HEAL_CATEGORY_TASK_DESC.get(category, '修复命令失败并让验证命令通过(exit=0)')}"
+                    f"。失败命令: {signal['command']}"
+                    f"(exit_code={signal['exit_code']})。错误摘要:\n{digest}"
+                )
+                runner: Any = CommandReplayRunner(signal["command"], cwd=str(info))
+            else:
+                task_desc = (
+                    f"修复失败测试并让 pytest 通过。失败命令: {signal['command']}"
+                    f"(exit_code={signal['exit_code']}, failed={signal['failed']})"
+                )
+                runner = PytestSubprocessRunner(info)
             # heal 是同步函数(内部 LLM 桥自带事件循环),必须 threadpool 包装,
             # 避免在 agent loop 的事件循环内同 loop await 造成死锁。
             outcome = await run_in_threadpool(
@@ -2365,8 +2438,14 @@ class AgentLoopV2:
         })
 
         if outcome_dict.get("ok") is True:
+            # V3 #56:扩展信号的修复对象不是"测试",措辞按信号来源区分,
+            # 避免给 LLM/用户"去改测试"的错误暗示。
+            if signal.get("category"):
+                fixed_noun = f"验证命令 {signal['command']} 已修复通过"
+            else:
+                fixed_noun = "失败测试已修复"
             summary = (
-                f"[self-heal] 自动修复成功:{signal['command']} 的失败测试已修复"
+                f"[self-heal] 自动修复成功:{fixed_noun}"
                 f"(attempts={outcome_dict.get('attempts')})。"
             )
         else:
