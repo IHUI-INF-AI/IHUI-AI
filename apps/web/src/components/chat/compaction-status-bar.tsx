@@ -66,6 +66,14 @@ export function CompactionStatusBar() {
 
   const isCompacting = compactionStatus.phase === 'compacting'
 
+  /** 「本轮实际省略了多少」的唯一出处 —— 本文件内所有披露口(摘要行 / 截断提示 / 归档入口)
+   *  只读这一个数,禁止在渲染处再算第二份。
+   *  数据链:`@ihui/context-compaction` 的 `CompressionResult.removedCount`
+   *  (packages/context-compaction/src/index.ts:463 等置位点 = 本次被折进摘要的原始消息条数)
+   *  → SSE `compaction` 帧 → api-client `onCompaction`(packages/api-client/src/client.ts:2195)
+   *  → chat store `compactionStatus.removedCount`(apps/web/src/hooks/use-chat/send-message.ts:632)。 */
+  const omittedCount = compactionStatus.phase === 'done' ? compactionStatus.removedCount : 0
+
   return (
     <div
       className={cn(
@@ -116,28 +124,42 @@ export function CompactionStatusBar() {
           {isCompacting ? '正在压缩上下文...' : '上下文已自动压缩'}
         </span>
 
-        {/* 压缩详情(仅完成态显示) */}
+        {/* 压缩详情(仅完成态显示)。
+         *  2026-09-26 A10B-7:"压缩 N 条历史为摘要"是一句省略量披露,N=0 时它自己就是废话,
+         *  故与下面两处披露同用 omittedCount 判据 —— 一个都没省就不要说"省了什么"。 */}
         {!isCompacting && (
           <span className="text-muted-foreground">
-            {compactionStatus.tokensBefore} → {compactionStatus.tokensAfter} tokens (压缩{' '}
-            {compactionStatus.removedCount} 条历史为摘要)
+            {compactionStatus.tokensBefore} → {compactionStatus.tokensAfter} tokens
+            {omittedCount > 0 ? ` (压缩 ${omittedCount} 条历史为摘要)` : ''}
           </span>
         )}
 
-        {/* truncated 截断降级专属提示(2026-09-01):超长单条消息被内容截断,而非摘要压缩 */}
-        {!isCompacting && compactionStatus.trigger === 'truncated' && (
-          <span className="text-muted-foreground">· {t('compaction.truncatedNotice')}</span>
+        {/* truncated 截断降级专属提示(2026-09-01;2026-09-26 A10B-7 补配对判据):
+         *  `trigger === 'truncated'` 只说明"发生过截断降级",它**不蕴含**真有历史被折叠 ——
+         *  截断兜底里 removedCount 取的是"除最后一组外被折进摘要的条数"
+         *  (packages/context-compaction/src/index.ts:463 `removedCount: toCompressAll.length`),
+         *  只剩一个配对组时它就是 0。此前这一句只看标志位、紧邻 5 行的归档入口却看计数,
+         *  两个相邻披露口宽严不同形 ⇒ 会念出"已截断…(省略 0 条)"这种自相矛盾的话。
+         *  现两者消费同一个 omittedCount,文案里的数字即该值,为 0 时整句不渲染。 */}
+        {!isCompacting && compactionStatus.trigger === 'truncated' && omittedCount > 0 && (
+          <span className="text-muted-foreground">
+            {/* 数字直接取 omittedCount(不在渲染处再算第二份)。与相邻摘要行 / 归档入口同格式:
+             *  实测本运行时(next-intl + zh-CN)裸 `{count}` 插值不加分组,渲染成 1234 而非 1,234;
+             *  该格式一致性由 compaction-status-bar.test.tsx 的千分位断言守着,换 locale/版本若开始
+             *  分组,那条断言会当场红,而不是悄悄产出"同一块里一个 1,234 一个 1234"。 */}
+            · {t('compaction.truncatedNotice', { count: omittedCount })}
+          </span>
         )}
 
         {/* 归档查看入口(2026-09-01 立,"归档记忆"):压缩原文已落库归档,点击回看被压掉的原始消息 */}
-        {!isCompacting && conversationId && compactionStatus.removedCount > 0 && (
+        {!isCompacting && conversationId && omittedCount > 0 && (
           <Tooltip content={t('compaction.archiveTitle')} side="top">
             <button
               type="button"
               onClick={() => setArchiveOpen(true)}
               className="shrink-0 rounded font-medium underline underline-offset-2 transition-opacity hover:opacity-80"
             >
-              {t('compaction.viewArchived', { count: compactionStatus.removedCount })}
+              {t('compaction.viewArchived', { count: omittedCount })}
             </button>
           </Tooltip>
         )}
