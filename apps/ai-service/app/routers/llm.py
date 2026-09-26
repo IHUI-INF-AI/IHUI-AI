@@ -20,7 +20,7 @@ import os
 import time
 import uuid
 from collections import Counter
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -40,9 +40,17 @@ from ..core.provider_caps import (
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
-# V3 #53(2026-09-26):ChatMode 硬收窄的只读白名单与 AgentLoopV2 plan 档同源
-# (services/plan_mode.py 单一真源,不复制)。模块级导入无环:plan_mode 仅依赖 core.llm_gateway。
-from ..services.plan_mode import READONLY_TOOLS as _PLAN_READONLY_TOOLS
+# V3 #53(2026-09-27):ChatMode × PermissionMode 硬收窄的**唯一判据出口**在
+# core/permission_mode.py(矩阵 + 交集实现 + 被拦文案)。本路由不再自带任何
+# 收窄表或 `in READONLY_TOOLS` 的散写判定 —— 只转发。
+# 只读白名单本身仍是 services/plan_mode.py 的 READONLY_TOOLS 一份真相(由该出口内部取)。
+from ..core.permission_mode import (
+    CHAT_MODE_TOOL_AXIS,
+    allowed_tool_names,
+    blocked_tool_message,
+    resolve_mode_policy,
+    tool_allowed_by_policy,
+)
 from ..services.agent_events import (
     SSE_CHUNK,
     SSE_CONTENT_BLOCK_DELTA,
@@ -1344,55 +1352,55 @@ def _resolve_chat_mode(mode: str | None, plan_mode: str | None) -> str | None:
     return None
 
 
-# ===== ChatMode 工具硬收窄(V3 #53,2026-09-26 立)=====
-# ChatMode → 工具可用策略(5 态全覆盖)。TS 侧契约镜像在
-# packages/types/src/chat-mode-policy.ts 的 CHAT_MODE_TOOL_POLICY,两侧成员与
-# 档位语义必须逐字一致,由 tests/test_chat_mode_tool_gate.py 的跨语言快照测试对账
-# (该测试解析 TS 文件与本常量做集合相等断言,任一侧漂移即红)。
-# 'readonly' 档的白名单复用 plan_mode.READONLY_TOOLS(AgentLoopV2 plan 档同一份,
-# 单一真源不复制);ask 的 'none' 在下方入口已跳过 tool loop,此处为契约兜底。
-_CHAT_MODE_TOOL_POLICY: dict[str, str] = {
-    "ask": "none",
-    "build": "all",
-    "plan": "readonly",
-    "review": "readonly",
-    "spec": "all",
-}
+# ===== ChatMode 工具硬收窄(V3 #53,2026-09-26 立;2026-09-27 归一到矩阵唯一真源)=====
+# 本段**不再持有自己的表**:三轴与 25 格笛卡尔矩阵的唯一真源在
+# app/core/permission_mode.py(TS 镜像 packages/types/src/permission-mode.ts,
+# 逐格对账 = scripts/check-mode-permission-matrix.mjs)。
+# 名字保留 _CHAT_MODE_TOOL_POLICY 是给既有阅读链(llm.py ↔ chat-mode-policy.ts 互指)
+# 一个稳定锚点,它现在是 CHAT_MODE_TOOL_AXIS 的别名而不是第二份抄本 ——
+# 一处改、处处改,正是"两份真相各写一半"的成因,已消除。
+_CHAT_MODE_TOOL_POLICY: Mapping[str, str] = CHAT_MODE_TOOL_AXIS
 
 
-def _chat_mode_allows_tool(chat_mode: str | None, tool_name: str) -> bool:
-    """判断 chat_mode 下是否允许调用 tool_name(V3 #53 硬收窄判定)。
+def _chat_mode_allows_tool(
+    chat_mode: str | None, tool_name: str, permission_mode: str | None = None
+) -> bool:
+    """判断 (chat_mode × permission_mode) 下是否允许调用 tool_name(V3 #53 硬收窄判定)。
 
-    - None/未知 mode(含 build/spec 语义)= 'all':全开放,与 _resolve_chat_mode
-      返回 None 时的默认行为一致
-    - ask = 'none':全拦截
-    - plan/review = 'readonly':仅 plan_mode.READONLY_TOOLS 白名单内放行
+    判定表在 core/permission_mode.py;此处只做出口转发,**不含任何本地 if**:
+    - 未知/None mode → 'build' 语义 = 'all'(与 _resolve_chat_mode 返回 None 的默认一致)
+    - ask(任一权限档)= 'none':全拦截
+    - plan / review = 'readonly':仅 plan_mode.READONLY_TOOLS 白名单内放行
+      —— 且该格**不随 permission_mode 放宽**:选了 plan 就是只读承诺,
+      bypassPermissions 不能把它顶开(V3 #53 判据三的核心一格)。
     """
-    policy = _CHAT_MODE_TOOL_POLICY.get(chat_mode or "", "all")
-    if policy == "all":
-        return True
-    if policy == "none":
-        return False
-    return tool_name in _PLAN_READONLY_TOOLS
+    return tool_allowed_by_policy(resolve_mode_policy(chat_mode, permission_mode), tool_name)
 
 
 def _filter_agent_tools_for_chat_mode(
-    chat_mode: str | None, agent_tools: list[str] | None
+    chat_mode: str | None,
+    agent_tools: list[str] | None,
+    permission_mode: str | None = None,
 ) -> list[str] | None:
-    """按 chat_mode 收窄 agent_tools(V3 #53:发给 LLM 的 tools 数组硬过滤)。
+    """按 (模式 × 权限档) 收窄 agent_tools(V3 #53:发给 LLM 的 tools 数组硬过滤)。
 
     在 control_autonomy.augment_agent_tools / filter_unauthorized_page_tools **之后**
     调用(服务端自主补全的浏览器/电脑控制族同样受本闸约束)。ask 模式上游已置 None,
-    此处保持 None 语义;plan/review 过滤为白名单交集;其余原样返回。
+    此处保持 None 语义。交集计算只有 core/permission_mode.allowed_tool_names 一处,
+    本函数只负责**保序**(发给 LLM 的数组顺序影响缓存与可读性)。
     """
     if agent_tools is None:
         return None
-    policy = _CHAT_MODE_TOOL_POLICY.get(chat_mode or "", "all")
-    if policy == "none":
-        return []
-    if policy == "readonly":
-        return [name for name in agent_tools if name in _PLAN_READONLY_TOOLS]
-    return agent_tools
+    policy = resolve_mode_policy(chat_mode, permission_mode)
+    allowed = allowed_tool_names(policy, agent_tools)
+    return [name for name in agent_tools if name in allowed]
+
+
+def _chat_mode_blocked_message(
+    chat_mode: str | None, tool_name: str, permission_mode: str | None = None
+) -> str:
+    """被拦文案唯一出口(V3 #53 判据一:原因 + 替代建议;V3 #49 同口径)。"""
+    return blocked_tool_message(resolve_mode_policy(chat_mode, permission_mode), tool_name)
 
 
 def _inject_system_prefix(messages: list[dict[str, Any]], prefix: str) -> list[dict[str, Any]]:
@@ -2637,14 +2645,16 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 agent_tools = await filter_unauthorized_page_tools(
                     agent_tools, _resolve_owner_uuid(request)
                 )
-                # V3 #53(2026-09-26 立):ChatMode 工具硬收窄 —— 第一道闸。
+                # V3 #53(2026-09-26 立,2026-09-27 归一到矩阵):ChatMode 工具硬收窄 —— 第一道闸。
                 # 此前 mode 只有提示词软注入("只制定计划不调用工具"),用户选了
                 # plan/review 模型照样拿到写类工具,权限承诺与实际不符。现在在
-                # 发给 LLM 前按 _CHAT_MODE_TOOL_POLICY 过滤:plan/review 收窄为
+                # 发给 LLM 前按 (mode × permission_mode) 矩阵过滤:plan/review 收窄为
                 # READONLY_TOOLS 交集(与 AgentLoopV2 plan 档同源同语义)。
                 # 必须在 augment 之后过滤:服务端自主补全的浏览器/电脑控制族同样受约束。
                 # ask 模式上游 if 已置 None(不进 tool loop),无需再过滤。
-                agent_tools = _filter_agent_tools_for_chat_mode(chat_mode, agent_tools)
+                agent_tools = _filter_agent_tools_for_chat_mode(
+                    chat_mode, agent_tools, getattr(req, "permission_mode", None)
+                )
             if agent_tools:
                 from ..services.mcp_server import mcp_server as _mcp
                 all_tools = _mcp.list_tools()
@@ -3063,22 +3073,20 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "result": None,
                             })
 
-                            # V3 #53(2026-09-26 立):ChatMode 硬收窄 —— 第二道闸(双保险)。
+                            # V3 #53(2026-09-26 立,2026-09-27 归一到矩阵):ChatMode 硬收窄 —— 第二道闸(双保险)。
                             # 工具清单在 loop 入口已按模式过滤,但模型仍可能幻觉调用未下发的
                             # 工具名(跨平台别名/训练数据污染)。此处不执行、不触碰
                             # _mcp.call_tool,直接回灌 errorCode=CHAT_MODE_TOOL_BLOCKED 的
                             # 失败结果,并由回灌文本显式要求 LLM 告知用户被拦截,防止幻觉
                             # "已完成"。ask 理论上进不到本循环(入口已跳过),一并兜底。
-                            if not _chat_mode_allows_tool(chat_mode, tool_name):
-                                if chat_mode == "ask":
-                                    _blocked_reason = (
-                                        f"当前为 Ask(纯问答)模式,已禁用全部工具;工具 {tool_name} 被拦截"
-                                    )
-                                else:
-                                    _blocked_reason = (
-                                        f"当前为 {chat_mode}(只读)模式,仅允许只读白名单内工具;"
-                                        f"工具 {tool_name} 不在白名单,已拦截"
-                                    )
+                            if not _chat_mode_allows_tool(
+                                chat_mode, tool_name, getattr(req, "permission_mode", None)
+                            ):
+                                # 文案唯一出口 = core/permission_mode.blocked_tool_message
+                                # (V3 #49 口径:原因 + 替代建议,禁止模糊"未知工具"让模型原地重试)
+                                _blocked_reason = _chat_mode_blocked_message(
+                                    chat_mode, tool_name, getattr(req, "permission_mode", None)
+                                )
                                 blocked_result = {
                                     "tool": tool_name,
                                     "ok": False,
