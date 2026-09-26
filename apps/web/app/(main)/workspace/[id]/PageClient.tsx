@@ -159,6 +159,7 @@ export default function ProjectDetailPage() {
 
       <FilesSection
         files={files}
+        projectId={projectId}
         filesLoading={filesLoading}
         filesError={filesError}
         filesErr={filesErr}

@@ -12,6 +12,8 @@ import { FileList, type FileItem } from '@/components/workspace/file-list'
 
 interface Props {
   files?: FileItem[]
+  /** 当前工程 id:喂给错误边界的复位键 —— 切到另一个工程时必须自动从错误态恢复 */
+  projectId?: string
   filesLoading: boolean
   filesError: boolean
   filesErr: unknown
@@ -30,6 +32,7 @@ interface Props {
 
 export function FilesSection({
   files,
+  projectId,
   filesLoading,
   filesError,
   filesErr,
@@ -70,7 +73,7 @@ export function FilesSection({
           {t('loading')}
         </div>
       ) : (
-        <ErrorBoundary>
+        <ErrorBoundary resetKeys={[projectId]}>
           <FileList
             files={files ?? []}
             downloadingId={downloadingId}
