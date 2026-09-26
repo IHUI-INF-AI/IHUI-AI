@@ -149,6 +149,7 @@ function main(face, root = ROOT) {
    * 免得盘上随后改对就算合规(旧写法用 `git diff` 文本,工作树一脏就跟着变)。
    */
   const del = deletionVerdict(oldContent, newContent)
+  const res = resurrectionVerdict(oldContent, newContent)
   const inputs = readAnchorInputs(root, face)
   const anchors = anchorVerdict(inputs)
   // A3 取不到正文的归档件 ⇒ 如实报数,绝不静默当成"那一层没问题"(判据失明不是通过)。
@@ -156,12 +157,14 @@ function main(face, root = ROOT) {
     ? `;A3 另有 ${inputs.archiveUndetermined} 份归档件正文取不到,那一层未判定`
     : ''
 
-  if (del.compliant && anchors.red.length === 0) {
+  if (del.compliant && res.compliant && anchors.red.length === 0) {
     console.log(
-      `${C.green}✅ PROJECT_PLAN.md 归档守门通过${C.reset} ${C.dim}(无已完成任务条目被删除;归档锚点齐备${anchors.baseline.length ? `;另有 ${anchors.baseline.length} 项已登记的缺失存量只报数` : ''}${undet})${C.reset}`,
+      `${C.green}✅ PROJECT_PLAN.md 归档守门通过${C.reset} ${C.dim}(无已完成任务条目被删除;归档锚点齐备${res.preexisting ? `;另有 ${res.preexisting} 条上一版即存在的复活存量只报数` : ''}${anchors.baseline.length ? `;另有 ${anchors.baseline.length} 项已登记的缺失存量只报数` : ''}${undet})${C.reset}`,
     )
     for (const b of anchors.baseline)
       console.log(`${C.dim}   报数(已登记缺失):${b}${C.reset}`)
+    for (const r of res.resurrected)
+      console.log(`${C.dim}   报数(复活存量,本次未追账):${r}${C.reset}`)
     return 0
   }
 
@@ -219,7 +222,23 @@ function main(face, root = ROOT) {
     console.error('')
   }
 
-  return del.compliant && anchors.red.length === 0 ? 0 : 1
+  if (res.introduced.length > 0) {
+    console.error(
+      `${C.red}❌ 已完成任务条目被**复活**${C.reset} ${C.bold}— 归档占位还在,条目正文又回到了计划文档(${res.introduced.length} 条,本次引入)${C.reset}`,
+    )
+    for (const r of res.introduced) console.error(`  ${C.red}· ${r}${C.reset}`)
+    console.error(
+      `${C.yellow}成因(2026-09-26 实测):${C.reset} 并发会话拿**滞后的工作树副本**提交,经行并集把已归档条目按回来 —— ` +
+        `行并集表示不了"删除",所以它不报冲突、不进 diff 报告,A0 也只看反方向。`,
+    )
+    console.error(
+      `${C.yellow}出路:${C.reset} ① 以当次 HEAD 为底重跑归档器(node scripts/archive-completed-tasks.mjs --all),把复活条目再搬走;` +
+        `\n       ② 或先把自己的工作树副本对齐 HEAD 再提交(node scripts/heal-worktree-tracked.mjs --dry-run 看差集)。`,
+    )
+    console.error('')
+  }
+
+  return del.compliant && res.compliant && anchors.red.length === 0 ? 0 : 1
 }
 
 /**
@@ -239,6 +258,68 @@ export function deletionVerdict(oldContent, newContent) {
 function placeholderLines(content) {
   if (!content) return []
   return content.split(/\r?\n/).filter((l) => /<!--\s*已归档/.test(l))
+}
+
+/**
+ * 归档器写占位时用的那段标题(`archive-completed-tasks.mjs`:`titleText.slice(0, 60)`)。
+ * 两处必须同形 —— 这里算得比它宽,A4 就把"已归档"的正常状态误判成复活;算得比它窄,
+ * 复活就检不出来。
+ */
+function archivedTitleOf(headingLine) {
+  return headingLine.replace(/^###\s+/, '').trim().slice(0, 60)
+}
+
+/**
+ * 占位注释里点名的条目标题集。
+ *
+ * 刻意用"最后一个 `,完整内容在`"切分而不是非贪婪正则:标题里本来就带中文逗号
+ * (`O36 追加(同日):对账门 5 枚红点…`),正则会在第一个逗号处断掉。
+ */
+function placeholderTitles(content) {
+  const out = new Set()
+  for (const line of placeholderLines(content)) {
+    const start = line.indexOf('):')
+    const end = line.lastIndexOf(',完整内容在')
+    if (start < 0 || end < 0 || end <= start) continue
+    out.add(line.slice(start + 2, end).trim())
+  }
+  return out
+}
+
+/**
+ * A4:已完成条目被并发 union 复活 —— **占位在、条目也回来了**。
+ *
+ * 为什么需要它(2026-09-26 一天内实测三次):归档提交落地后,别的会话拿着**滞后的工作树副本**
+ * 经 `union-converge` 的行并集(每行重数 = max(本侧,对侧))把整批条目按回计划文档。
+ * 行并集在数学上表示不了"删除",所以那 479 行必然回来,而 A0 只管反方向
+ * (删条目不留占位) —— 复活这件事过去**零判据**,谁都不知道自己刚把已归档的东西塞回来了。
+ *
+ * 判红条件刻意收窄成"本次引入":上一版就存在的复活只报数,不追账。
+ * 否则任何人提交任何无关内容都会被别人留下的状态钉红 ⇒ 全队 `--no-verify`
+ * ⇒ 全部守门作废(§12e 那一型,本仓写过多次:恒红门的代价从来不是"少做一件事")。
+ */
+export function resurrectionVerdict(oldContent, newContent) {
+  const phNew = placeholderTitles(newContent)
+  const phOld = placeholderTitles(oldContent)
+  const resurrected = [
+    ...new Set(
+      extractCompletedTaskHeadings(newContent)
+        .map(archivedTitleOf)
+        .filter((t) => t !== '' && phNew.has(t)),
+    ),
+  ]
+  const oldResurrected = new Set(
+    extractCompletedTaskHeadings(oldContent)
+      .map(archivedTitleOf)
+      .filter((t) => t !== '' && phOld.has(t)),
+  )
+  const introduced = resurrected.filter((t) => !oldResurrected.has(t))
+  return {
+    resurrected,
+    introduced,
+    preexisting: resurrected.length - introduced.length,
+    compliant: introduced.length === 0,
+  }
 }
 
 /**
@@ -405,6 +486,25 @@ export function selfTest() {
     const ph = '<!-- 已归档(2026-01-02):X,完整内容在 .ihui-agent/archive/Y.md -->\n'
     const v = deletionVerdict(`### X(已完成 ✅)\n${ph}`, ph)
     return v.addedPlaceholders.length === 0 && !v.compliant
+  })
+  // ===== A4「已完成条目被 union 复活」===== 2026-09-26 立,起因是当天三次实测:
+  // 归档提交落地后,并发会话的**滞后工作树副本**经 union-converge 的行并集(max(本侧,对侧))
+  // 把整批条目按回计划文档 —— 占位在、条目也回来了。A0 只挡"删条目不留占位",
+  // 反方向(条目回来)过去**零判据**,所以谁都不知道自己把已归档的东西复活了。
+  const PH_X = '<!-- 已归档(2026-01-02):X(已完成 ✅),完整内容在 .ihui-agent/archive/Y.md -->'
+  t('A4 占位与同一条目并存 ⇒ 识别为复活(不是"凡有占位即红")', () => {
+    const face = `### X(已完成 ✅)\n正文\n${PH_X}\n`
+    const r = resurrectionVerdict('', face)
+    return r.resurrected.length === 1 && r.introduced.length === 1
+  })
+  t('A4 归档完成态(占位在、条目不在)⇒ 复活集必须为 0', () => {
+    const r = resurrectionVerdict('', `${PH_X}\n`)
+    return r.resurrected.length === 0 && r.introduced.length === 0 && r.compliant
+  })
+  t('A4 上一版已复活 ⇒ 本次不追账(只报数),否则就是一台与任何提交无关的恒红门', () => {
+    const bad = `### X(已完成 ✅)\n${PH_X}\n`
+    const r = resurrectionVerdict(bad, bad)
+    return r.resurrected.length === 1 && r.introduced.length === 0 && r.compliant
   })
   t('A1 盘上有、审面没有 ⇒ 红;两边都有 ⇒ 绿', () => {
     const f = 'PROJECT_PLAN_2099-01-01_auto-archive.md'
