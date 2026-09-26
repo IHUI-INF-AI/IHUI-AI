@@ -17,6 +17,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/u
 import { fetchApi } from '@/lib/api'
 import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
+import { apiFailureToError } from '@ihui/shared/utils'
 
 interface OrderLite {
   id: string
@@ -105,7 +106,7 @@ export default function DeveloperEnterprisePage() {
     queryKey: ['developer', 'enterprise', 'profile'],
     queryFn: async () => {
       const r = await fetchApi<{ profile: Profile | null }>('/api/developer/enterprise/profile')
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       return r.data.profile
     },
   })
@@ -115,7 +116,7 @@ export default function DeveloperEnterprisePage() {
       const r = await fetchApi<{ list: OrderLite[] }>(
         '/api/developer/enterprise/invoice-eligible-orders',
       )
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       return r.data.list
     },
   })
@@ -123,7 +124,7 @@ export default function DeveloperEnterprisePage() {
     queryKey: ['developer', 'enterprise', 'pending-orders'],
     queryFn: async () => {
       const r = await fetchApi<{ list: OrderLite[] }>('/api/developer/enterprise/pending-orders')
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       return r.data.list
     },
   })
@@ -145,7 +146,7 @@ export default function DeveloperEnterprisePage() {
     setMsg('')
     try {
       const r = await fetchApi(path, { method: 'POST', body: JSON.stringify(body) })
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       setMsg('提交成功,等待审核')
       void qc.invalidateQueries({ queryKey: ['developer', 'enterprise'] })
     } catch (e) {
@@ -163,7 +164,7 @@ export default function DeveloperEnterprisePage() {
         method: 'PUT',
         body: JSON.stringify(profile),
       })
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       setMsg('认证资料已提交,等待审核')
       void profileQ.refetch()
     } catch (e) {

@@ -12,6 +12,7 @@ import { Modal } from '@/components/feedback'
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { runCommand } from '@ihui/api-client'
+import { apiFailureToError } from '@ihui/shared/utils'
 
 /**
  * EnvironmentCommitDialog — "提交或推送"弹窗(2026-08-17 Phase4,对齐 Cursor 弹窗交互)。
@@ -60,14 +61,14 @@ export function EnvironmentCommitDialog() {
         mode: 'workspace-write',
         timeoutMs: 10000,
       })
-      if (!addRes.success) throw new Error(addRes.error ?? 'git add 失败')
+      if (!addRes.success) throw apiFailureToError(addRes, 'git add 失败')
       const commitRes = await runCommand({
         command: `git commit -m "${commitMsg.trim().replace(/"/g, '\\"')}"`,
         workspacePath,
         mode: 'workspace-write',
         timeoutMs: 15000,
       })
-      if (!commitRes.success) throw new Error(commitRes.error ?? 'git commit 失败')
+      if (!commitRes.success) throw apiFailureToError(commitRes, 'git commit 失败')
 
       if (push) {
         const pushRes = await runCommand({
@@ -76,7 +77,7 @@ export function EnvironmentCommitDialog() {
           mode: 'workspace-write',
           timeoutMs: 30000,
         })
-        if (!pushRes.success) throw new Error(pushRes.error ?? 'git push 失败')
+        if (!pushRes.success) throw apiFailureToError(pushRes, 'git push 失败')
         toast.success(t('pushOk'))
       } else if (!hasRemote) {
         toast.success(t('commitNoRemote'))
