@@ -5807,8 +5807,15 @@ class AgentEngine:
 
     def _web_search_tool(self, thread: EngineThread) -> Any:
         """web_search:引擎原生网页搜索(2026-09-18 第八批,对标 Codex
-        web_search 内置工具):DuckDuckGo Lite 零 key 搜索,无需 MCP 装载。"""
-        from .agent_loop_v2 import ToolDefinition
+        web_search 内置工具):DuckDuckGo Lite 零 key 搜索,无需 MCP 装载。
+
+        V3 #47 末格(2026-09-27):name/description 不再引擎面手抄 —— 经唯一出口
+        `port_tool_definition` 现读唯一注册表(mcp_server._TOOLS 的 web_search 条目)。
+        下方 parameters 是 Codex JSON-RPC 面的 **协议 wire 形状**(camelCase 参数名 +
+        allowedDomains 协议专有过滤位),属"协议 ↔ 内部调用"适配层本体,不是第二份
+        能力定义;执行体本就调注册表那一份实现(mode=port 的既有结论,未变)。
+        """
+        from .engine_tool_bridge import port_tool_definition
 
         async def _exec(args: dict[str, Any]) -> dict[str, Any]:
             query = str(args.get("query") or "").strip()
@@ -5895,12 +5902,8 @@ class AgentEngine:
             },
             "required": ["query"],
         }
-        return ToolDefinition(
-            name="web_search",
-            description=(
-                "网页搜索:按关键词检索公开网页并返回标题/摘要/链接列表"
-                "(1-10 条)。适合查最新资讯、文档、事实核验;结果无网络时为空。"
-            ),
+        return port_tool_definition(
+            "web_search",
             parameters=parameters,
             executor=_exec,
         )
