@@ -99,7 +99,9 @@ import { FsEventSource, type FsEvent } from '../fs-watcher/index.js';
 import { t } from '../i18n/index.js';
 import {
   applyGoalVerificationToStopReason,
+  decideGoalContinuation,
   runGoalVerification,
+  STOP_GOAL_BLOCKED,
   type GoalToolCallRecord,
   type GoalVerifyRequest,
 } from '../goal-verification.js';
@@ -198,7 +200,13 @@ export type AgentStopReason =
    * 一族两值,两处必须同形(真源在 Python 侧,这里是对齐不是另立)。
    */
   | 'verification_not_achieved'
-  | 'verification_undetermined';
+  | 'verification_undetermined'
+  /**
+   * AGENTS.md §8 第 4 步(2026-09-26 立):goal 模式的独立校验**连续**未过到达上限,
+   * 循环不再续跑。与上面两档是三个不同档 —— 那两档是"这次没验过"(还在跑),
+   * 这一档是"生命周期收口"(别再跑了)。合并任何一档都会让恢复端看不出还剩几次机会。
+   */
+  | typeof STOP_GOAL_BLOCKED;
 
 export interface AgentResult {
   stopReason: AgentStopReason;
@@ -1287,6 +1295,16 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
    */
   const goalCallRecords: GoalToolCallRecord[] = [];
 
+  /**
+   * §8 第 4 步续跑所需的三个状态:本轮结论、连续未过计数、收口标志。
+   * `verification` 在这里声明而不是在循环尾部声明,是因为校验现在发生在**循环内的
+   * end_turn 位**(未过要回灌续跑);循环尾部那段只兜"根本没走到 end_turn 校验位"的路径。
+   */
+  let verification: GoalVerification | null = null;
+  let goalConsecutiveFailures = 0;
+  let goalBlocked = false;
+  let goalDeliverUnverified = false;
+
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
       iterations = i + 1;
@@ -1566,6 +1584,55 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         // 如果有 interjection,不 break,continue 进入下一轮让 LLM 响应
         if (drainAndAppendInterjections()) {
           continue;
+        }
+        /**
+         * AGENTS.md §8 第 3+4 步 —— 交账前的独立校验与续跑判定。
+         *
+         * 为什么要挪进循环:接线的第一版把校验放在循环**外**,于是"未过"只能一次性地
+         * 改写档位,§8 的"连续 N 轮 no → blocked"永远数不到第 2 轮 —— 计数方没有续跑
+         * 这件事可数。放进来之后:未过且有预算 ⇒ 把未达标项作为一条反馈回灌,循环继续干活;
+         * 连续未过到达上限 ⇒ 收口 goal_blocked;没预算 ⇒ 按未达标交账(绝不当 pass)。
+         */
+        if (opts.goalCriteria && opts.goalCriteria.length > 0) {
+          verification = await runGoalVerification({
+            goal: opts.goal ?? '',
+            criteria: opts.goalCriteria,
+            calls: goalCallRecords,
+            executorClaim: assistantText,
+            executorModel: opts.modelId,
+            requestVerification: opts.requestGoalVerification,
+          });
+          if (verification) {
+            await opts.onGoalVerification?.(verification);
+            const decision = decideGoalContinuation({
+              verification,
+              consecutiveFailures: goalConsecutiveFailures,
+              iterationsRemaining: opts.maxIterations - iterations,
+            });
+            goalConsecutiveFailures = decision.consecutiveFailures;
+            verification = decision.verification;
+            // 这一路是 hook/审计流水,刻意用 ASCII 键值形态:结论的人话版本由命令层
+            // 经 i18n 出口打印(§19),此处只求"任何抓日志的人都能机器判读档位"。
+            runHook('notification', {
+              workspacePath: opts.ctx.workspacePath,
+              sessionId: opts.sessionId,
+              notificationText:
+                `goal-verification status=${decision.verification.goal_status} ` +
+                `action=${decision.action} ` +
+                `consecutive_failures=${decision.consecutiveFailures}/${decision.maxConsecutiveFailures} ` +
+                `criteria=${decision.verification.criteria.length} ` +
+                `reason=${decision.verification.unavailable_reason ?? '-'}`,
+            });
+            if (decision.action === 'continue' && decision.feedback) {
+              opts.messages.push({ role: 'user', content: decision.feedback });
+              continue;
+            }
+            if (decision.action === 'blocked') {
+              goalBlocked = true;
+            } else if (decision.action === 'deliver_unverified') {
+              goalDeliverUnverified = true;
+            }
+          }
         }
         // P0-3 end_turn(LLM 主动结束)时重置连续签名检测器,表示对话正常推进
         signatureDetector.reset();
@@ -1907,6 +1974,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   } else if (planApprovalRequired) {
     // P0-C:plan 已提出但无审批机制(非交互、无回调、未显式 auto)— 需用户介入,非错误
     stopReason = 'plan_approval_required';
+  } else if (goalBlocked) {
+    // §8 第 4 步:连续未过到达上限 → 生命周期收口。排在 max_iterations 之前,
+    // 因为"验了三次都不过"比"这一轮恰好用完了轮次"更准确地描述了发生了什么。
+    stopReason = STOP_GOAL_BLOCKED;
+  } else if (goalDeliverUnverified) {
+    // 未过但已无预算续跑:按未达标交账,不得退化成 end_turn,也不得记成 blocked
+    stopReason = applyGoalVerificationToStopReason('end_turn', verification);
   } else if (iterations >= opts.maxIterations) {
     stopReason = 'max_iterations';
   } else {
@@ -1930,9 +2004,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
    * 只有 `end_turn`(循环自宣完成)才有"完成"这件事可校验;轮次耗尽 / 预算耗尽 / 错误 /
    * 取消根本不跑校验 —— 更绝不允许把"没跑成"写成"达成了"(校验不可达时
    * `runGoalVerification` 返回 undetermined,同样把档改掉)。
+   *
+   * `verification === null` 是续跑改造后的必要条件:校验已在循环内的 end_turn 位跑过
+   * 并据此决定过续跑/收口,这里再跑一次就是同一次交账问两遍(两遍之间服务端还可能给
+   * 出不同结论)。剩下的这一路只兜"没经过循环内校验位就交账"的形态。
    */
-  let verification: GoalVerification | null = null;
-  if (stopReason === 'end_turn' && opts.goalCriteria && opts.goalCriteria.length > 0) {
+  if (stopReason === 'end_turn' && verification === null && opts.goalCriteria && opts.goalCriteria.length > 0) {
     verification = await runGoalVerification({
       goal: opts.goal ?? '',
       criteria: opts.goalCriteria,
@@ -2347,6 +2424,9 @@ export function stopReasonToExitCode(reason: AgentStopReason): number {
     // 不得因为"循环自己说完成了"而退 0。
     case 'verification_not_achieved':
     case 'verification_undetermined':
+    // §8 第 4 步:连续未过收口(goal_blocked)。同样是失败 —— 目标没达成,
+    // 只是这一次连"继续试"的资格都用完了;退 0 会让 CI 把未完成的 goal 记成通过。
+    case STOP_GOAL_BLOCKED:
       return 1;
     default:
       return 1;
