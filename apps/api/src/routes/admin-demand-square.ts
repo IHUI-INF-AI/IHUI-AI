@@ -8,6 +8,7 @@ import { eq, and, or, ilike, desc, sql, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { batchWriteOutcome } from '../utils/batch-outcome.js'
 import { logger } from '../utils/logger.js'
 import { zhsDemandSquare } from '@ihui/database'
 
@@ -166,8 +167,12 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
       existingRows.filter((r) => r.status === 'pending').map((r) => r.id),
     )
 
+    let confirmedIds: string[] = []
     if (pendingIdSet.size > 0) {
-      await db
+      // 2026-09-26 修"读时 pending 就算已翻转":UPDATE 补 .returning(),
+      // 逐条状态以库确认命中的 id 集合为准,而不是读时快照 pendingIdSet ——
+      // 读与写之间被并发改掉/删掉的 id 结构上不可能出现在 returning 里。
+      const updatedRows = await db
         .update(zhsDemandSquare)
         .set({
           status: newStatus,
@@ -178,20 +183,25 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
           updatedAt: now,
         })
         .where(inArray(zhsDemandSquare.id, Array.from(pendingIdSet)))
+        .returning({ id: zhsDemandSquare.id })
+      confirmedIds = updatedRows.map((r) => r.id)
     }
 
-    // 保持输入顺序:pending → newStatus,其余 → skipped
+    const outcome = batchWriteOutcome(body.data.ids, confirmedIds)
+    const confirmedSet = new Set(confirmedIds)
+
+    // 保持输入顺序:库确认 → newStatus,其余 → skipped
     for (const id of body.data.ids) {
-      results.push({ id, status: pendingIdSet.has(id) ? newStatus : 'skipped' })
+      results.push({ id, status: confirmedSet.has(id) ? newStatus : 'skipped' })
     }
     // P2 修复(2026-08-06):批量审核无操作日志,补记操作人/动作/影响数量,便于审计追责。
     logger.info('admin demand-square batch-review executed', {
       userId: request.userId,
       action: body.data.action,
       total: body.data.ids.length,
-      affected: pendingIdSet.size,
+      affected: outcome.affected,
     })
-    return reply.send(success({ results }))
+    return reply.send(success({ results, missedIds: outcome.missedIds }))
   })
 
   server.put('/:id/task-status', async (request, reply) => {

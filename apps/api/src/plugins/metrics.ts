@@ -68,6 +68,9 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
     wsMessagesReceivedTotal: 0,
     wsMessagesSentTotal: 0,
     wsDisconnectsTotal: 0,
+    // 新增：广播丢帧指标（Counter）。与 wsDisconnectsTotal 成对递增但问的是另一件事：
+    // 本计数器只数"帧没送到人、并把那条陈旧连接摘掉"，不含客户端正常关连接。
+    wsBroadcastDroppedFramesTotal: 0,
     // 新增：DB 连接池指标
     dbPoolInUse: 0,
     dbPoolSize: 0,
@@ -243,6 +246,12 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
     lines.push('# TYPE ws_disconnects_total counter')
     lines.push(`ws_disconnects_total ${metrics.wsDisconnectsTotal}`)
 
+    lines.push(
+      '# HELP ws_broadcast_dropped_frames_total Frames that could not be delivered because the socket was already dead; each increment also removes that connection',
+    )
+    lines.push('# TYPE ws_broadcast_dropped_frames_total counter')
+    lines.push(`ws_broadcast_dropped_frames_total ${metrics.wsBroadcastDroppedFramesTotal}`)
+
     // ===== 新增：DB 连接池指标 =====
     lines.push('# HELP db_pool_in_use DB connections currently in use')
     lines.push('# TYPE db_pool_in_use gauge')
@@ -334,6 +343,8 @@ declare module 'fastify' {
       wsMessagesReceivedTotal: number
       wsMessagesSentTotal: number
       wsDisconnectsTotal: number
+      /** 广播丢帧 Counter：与 wsDisconnectsTotal 成对递增，只数"帧没送到人"那一件事。 */
+      wsBroadcastDroppedFramesTotal: number
       // 新增：DB 连接池指标
       dbPoolInUse: number
       dbPoolSize: number
