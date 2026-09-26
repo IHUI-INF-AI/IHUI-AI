@@ -9215,6 +9215,35 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
     ④ **开通剩下的最后一步已被实测钉成"不在我的可达范围",不是"忘了做"**:四重测量 —— (a) `POST https://aizhs.top/api/webhooks/github` 不带签名回 **401 而非 503**,按源码口径(`github-webhook.ts:145-149` 未配置=503 / 签名不过=401)即**生产侧 `GITHUB_WEBHOOK_SECRET` 早已配置**;(b) 本机 `Get-Service -Name IHUI*` 计数 **0** ⇒ 这台不是生产机,拿不到那份 nssm 环境块;(c) `ssh ssh.aizhs.top` 经 cloudflared 隧道**握手成功但 `Permission denied (publickey)`** ⇒ 没有可用身份去生产机取值;(d) 把 `密钥/` 全量扫一遍键名,**没有 `GITHUB_WEBHOOK_SECRET` 条目**(只有 `GITHUB_TOKEN` / OAuth client / `USDT_WEBHOOK_SECRET`(空))。⇒ GitHub 侧那枚 secret **无法从我够得到的地方配成与生产同值的**;而我若随手写一把新值,job 会从"未开通=如实的绿"变成"永远 401=红",比现状更糟。**开通动作(需持有人一次)**:生产机跑 `deploy/win/ihui-enable-unattended-intake.ps1`(默认 dry-run,`-Apply` 才写环境块,`-Rotate` 才允许换已在用的密钥 —— 那会打断现存的 GitHub webhook 集成),把现值经 §5d 用途子目录交回,再由持有人 `gh secret set IHUI_UNATTENDED_INTAKE_WEBHOOK_SECRET`;vars 一侧填 `https://aizhs.top`(实测该 host `/api/health` 200、`/api/agents` 200,路由活着)。
     ⑤ 开通脚本自身的卫生(照 §5e 的教训写死):`AppEnvironmentExtra` 是**整块覆盖**语义 ⇒ 读整块 → 备份 → 只动目标键 → **逐条逐字节比对其余项全等**才写 → 写回再读再比 → 不等即整块还原;凭据**绝不进 stdout/日志/命令行参数**,要判"是不是同一把"只打印长度 + SHA-256 前 12 位;可执行程序一律绝对路径解析(服务身份读的是机器级 PATH,那里 `D:\nodejs\` 是死路径);凭据根经 `node scripts/secret-path.mjs` 取,脚本内不抄第二份候选表。取证:`-SelfTest` **42/0**、`[Parser]::ParseInput` **0 错**、`#requires -Version 7` 在水印横幅之后(与 `deploy/win/ihui-deploy.ps1` 同形)。
   - **✅(2026-09-27 深夜)顺手清掉两件"实测出来、与任何提交都无关"的红与雷**:
+- [x] ✅(2026-09-27 凌晨)**把"CI 红归因到具体那一步"做成固定动作,今晨由此清掉三枚与任何提交都无关的红**:
+  做法(不是"看 job 名字猜"):job 名会骗人(`Shared package typecheck` 与 `ai-service-schema-check` 都不含"lint"字样,
+  而真凶藏在 `Run pnpm run lint:strict` 这一**步**里)。链路固定为
+  `commits/<sha>/check-runs` → `actions/runs/<id>/jobs` → 取 `steps[conclusion=failure]` → `actions/jobs/<id>/logs`;
+  annotation 常常只写"Process completed with exit code 1"(端口那枚就是),**必须走到 step 级**才知道是谁。
+  - **`packages/database` 的 test 红(de95b29a73)** 两条腿:① `assertDataDirAllowed` **判序**错 —— 先拒"落在 $HOME 之下",
+    再认"仓库内 `.ihui-agent/tmp/**`";Linux CI 的检出**本身就在 `/home/runner` 下**,于是明令允许的落点被判违规,
+    而这台开发机(仓在 D:、家在 C:)结构上测不出这一型 ⇒ 又一枚"本地全绿、红只在 CI"。
+    同处第二个坑是 POSIX 下 `driveOf()` 抛"推不出盘符"被下游读成"落点非法";现把仓库内判定提到最前直接 return,
+    并把"没有盘符"如实处理成"DevEnv\Temp 这一支不适用"(它是 Windows 专属落点,不是错误)。
+    成对自检 **S2f**(家目录之内的仓库根仍收)/ **S2g**(同一家目录里仓库之外仍拒)—— 只加前者等于放宽禁令,
+    后者是它没放宽的证据。**变异自证**:删掉"仓库内优先 return"那一行 ⇒ 自检 **47/49**(S2d 与 S2f 同时红),
+    还原后哈希与改前**逐字一致**。② `tenant-rls-policies.test.ts:153` 断言 journal 的**末位**条目必须是本迁移 ——
+    台账只追加,任何后来者追加一枚迁移就把它钉成恒红(实测 `point_transactions` 一入库即断言失败);
+    真正要守的是"未登记 ⇒ drizzle-kit migrate 静默跳过"(脚本自己在 `:238` 用的就是 `entries.some`)⇒ 改成"存在且唯一",
+    `when` 严格递增与 `idx↔位置` 两条不变量原样保留。**位置不是不变量**,这条与 §"别把移动量钉成健康期望"同族。
+    取证:该文件 vitest 1 failed → **8 passed**、该包全量 **6 files / 104 passed**、`--self-test` **49/49**、typecheck exit 0。
+  - **CI `port-registry-check` 红(54ac250198)** 唯一违规是 `apps/cli/tests/goal-verification-e2e.test.ts:123` 的
+    **提示文案里**写了 `127.0.0.1:18803`。没有给该文件开豁免(先例 `apps/cli/src/lib/sso.ts` 那种逐文件豁免会
+    **关掉整个文件的端口扫描**,为一个句子削一面尺子不划算),而是把建议改成"88xx dev 档端口"并指向注册表文档 ——
+    本仓端口规矩明写"dev/宿主端口必须以 88 开头",留个违规示例本来就会教人照抄。`--all` 由 exit 1 → **exit 0**(10419 个文件无违规)。
+  - **`apk` job 红** 的报错点在 gradle 的 `createBundleReleaseJsAndAssets`:
+    `Cannot find module '.../@ihui/design-tokens/dist/tailwind-preset...'` —— 与 §"ci.yml 缺 api-client 前置"、
+    "test-real-db 缺闭包"是**同一族的第三次**:多个共享包 `exports` 指 `dist`(产物不入库),而 metro/tailwind
+    按运行时 require 解析,所以只有打包那一步会炸。修法与先例同形:在该 workflow 的 install 之后补
+    `pnpm --filter "@ihui/mobile-rn^..." run build`(**拓扑闭包,不手工点包名** —— 手工清单必然落后于新增依赖)。
+    该步 commit `889fe3fd90`;本地跑该闭包时 `@ihui/shared` 报 6 条 tsc 错,逐条核到**并发会话在飞的两份脏文件**
+    (`prompt-history.ts` 的 5 个导出在 HEAD 面**全在**、`bottom-action-bar-spec.ts` 引用的 `controlBox` 在 HEAD 的
+    geometry 两侧**都不存在**)⇒ 属"本机红 ≠ 仓库红",不当成本笔缺陷去"修";由 CI 当 oracle 复量。
     ① **守门 81 在 HEAD 面上是红的**(commit `4a1c946446` 清):它把守门 137 自己的判据正则字面量(`OUTLET_RE` 里写着 `fetch(` / `sendMail`,那是**要去匹配别人的形态**)当成发信点判红。81 是 blocking ⇒ **这台机上每一次正常提交都被逼成 `--no-verify`**,一次绕过约等于全部守门对该提交作废。处置按 81 文档里的合法出口④(行内 `brand-mail-exempt:` + 一句话原因),**不动 81 的判据**(放宽判据去消别人的红是本仓明令禁止的方向)、也不动 137 的逻辑。取证:81 全量档 exit 1 → **exit 0** 且报告新增「豁免标记命中=1」(不是静默变绿),137 `--self-test` 35/0。
     ② **`apps/ai-service/app/routers/llm.py` 的工作树副本是一份 09-23 的陈旧拷贝**(比 HEAD 少 577 行,含 V3 #53/#58 两整节)。它不匹配我扫的近 30 个祖先版本,差点被我按"别人在飞"处理;决定性证据是 **mtime 09-23 13:28** 与 `git log --find-object` 命中 `56c4f9c5b8`。判据成立(索引==HEAD 且工作树==该路径某祖先 ⇒ 可证零独有数据)后用 `git checkout-index -f -- <path>` 对齐回 HEAD。**为什么这条值得单独留**:若当时按"把 ai-service 全量 dirty 路径一起提交"的省事做法落它,就是一枚把别人三天工作整批写回旧版的静默回滚,而 `git status` 只显一个 ` M`、门 84 判的是索引 blob 所以不响(§"一条本门看不见的时间窗"同型)。
   - **✅(2026-09-27 深夜)登记两枚"HEAD 引用了、文件却只活在本机"的孤儿(只登记,不代裁)**:`scripts/dev-stack.mjs`(HEAD 在位)每 10 分钟派生 `scripts/ensure-silent-tasks.mjs`,而后者**从未入库**(盘上 mtime 09-23 09:36、`git ls-files` 零命中)。它**有 `existsSync` 兜底** ⇒ 不会崩,但"桌面零弹窗全盘审计"这一层在除本机以外的任何检出上**静默不存在** —— 与 §5e 记过的"清单里写某生产者会喊人,实测没有出口"同型。另一枚 `scripts/lib/ts-uncommitted-culprit.mjs` 属**并发会话正在写的那一对**(`scripts/check-typecheck.mjs` 工作树副本 import 它,而 HEAD 副本引用计数为 0)⇒ 那是别人的在途交付,**不动、不代提交**,等其持有人的落库提交。
