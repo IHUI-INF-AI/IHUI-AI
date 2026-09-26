@@ -5072,122 +5072,6 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - **#45 自愈工作区**:阶段1 = 故障检测器(依赖损坏/索引过期/端口占用/磁盘满四类探针,复用部署循环的健康检查模式);阶段2 = 自动修复动作(依赖重装/索引重建/端口清理)全量进对话流(每步 toolCall 形式可审计);阶段3 = 巡逻联动(#40 发现→自动触发)。✅ 全部落地(2026-09-17,详见上方 #45 条目)。
 - **#46 实时语音协作**:依赖最大(双工语音基础设施)。阶段1 = 语音输入增强(既有语音模式→实时转写);阶段2 = TTS 流式播报(复用 #34 播报文案管线);阶段3 = 双工 + 截屏理解(小程序端截屏 API + 视觉模型),排最后。✅ 全部收口(2026-09-17,阶段1+2+3-a+3-b,详见上方 #46 条目)。
 
-## P0 四竞品深度对标第三轮 V3:能力真实性与主链路缝合 40 项(2026-09-26 立,跨端:apps/ai-service + apps/web + apps/api + apps/cli + apps/desktop + apps/miniapp-taro + packages/*,AGENTS.md §24 用户确认)
-
-> 触发:用户要求深度对标 Codex/Trae/Qoder/WorkBuddy 到所有细节,特别是 AI 对话流程显示的所有内容。本轮与 V1/V2 的差别:**前两轮解决「对话流里看得见的元素」并已基本交付(实测核验见下),本轮下沉到 UI 之下的三层——能力是否真实存在、是否接进了主链路、是否默认在跑**。逐项差距矩阵、现况证据与方案见 `docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md`。编号自 47 起。
->
-> **前两轮交付实测核验(2026-09-26,文件/符号级存在性检查,非台账勾选态)**:V2 22 项(15–36)交付 **20** 项,P3 9 项(38–46)交付 **8** 项。真未交付 2 项 —— **#23 chat 多端同步**、**#32 PDF/CSV 富预览**(本轮重列为 **71 / 70**);名义交付但内容与实不符 1 项 —— **#25 SSE 契约单一源**(有幽灵事件与漂移,重列为 **48**);「接了但默认关」1 项 —— **#45 自愈工作区**(并入 **56**)。**结论:V3 若仍停留在「再加 UI 组件」即在重复劳动。**
->
-> **本轮病根(第三形态)**:V1 病根「能力库存 > 实际生效」此前被当成**连接问题**,V3 实测它有**三种形态**——① **分裂**:`ai-service` 有三套并行执行内核(A 内联 tool loop / B `AgentLoopV2` / C `AgentEngine`),C 的 **15 个内置工具在 A/B 里一个都调不到**;② **空壳**:至少 8 处桩或回显(`generate_test` 模板桩、`analyze_code` 只数行、`run_in_background` 只有 sleep/echo、`/dag/execute` 与 `WorkerPool._default_executor` 回显、`rag._rerank` 只按已有 score 排序、`edu_*`×14 薄转发、`browser_*`×12/`computer_*`×10 外部代理);③ **关着**:至少 9 项已完成移植的 env 默认 off(压缩全链路、自愈、预算治理、团队接力、file_watcher、elicitation pause)。
-> **最小闭集**:只做一件 = **47**;做两件 = **47 + 55**;做三件 = **47 + 55 + 58**。
-
-### 第一梯队 P0:地基正确性(不修会持续误导)
-
-- [ ] 47. 三套执行内核工具集归一(A/B/C → 唯一工具注册表 `mcp_server._TOOLS`;AgentEngine 15 个工具映射或移植;JSON-RPC 只留协议适配层;CI parity 断言 `BUILTIN_ENGINE_TOOLS` ⊆ `_TOOLS` 映射完整)
-- [x] 48. ✅(2026-09-26)SSE 契约真相化 —— **两处初版判断被取证推翻并更正**:① `budget` **不是幽灵**,生产点在 apps/api 网关 `ai-chat-stream.ts:776/1039`(`checkTokenBudget` 三态,block→429 / warning,critical→流首命名帧),消费在 `client.ts:2858`,契约注释原文「网关发」字面正确,初版只查 ai-service 没查网关层(教训:**跨端事件先查网关**);② 「9 个漂移事件」中 `message_*`/`content_block_*` 6 个是 llm.py **Anthropic 兼容端点**产物非对话流事件,`form_request` 是**前端死消费**(client.ts:3160 解析了一个后端从不发的帧,归 #63 处置)。落地:契约双端删 `token`(确认全仓零生产,真正在用的是 chunk)、补 `terminal_delta`/`start`(生产一直在、契约漏登,此前 parity 门只扫 `_sse(...)`/`event:` 形态,dict 形态漏网假绿)、新增 `SSE_COMPAT_EVENTS` 单列 6 个兼容面事件;parity 门新增对账 0b-2(兼容面双端一致)+ 0b-3(`agent_events.py` 29 个 `SSE_*` 常量值域 ⊆ 契约∪兼容面,豁免兜底别名 `SSE_MESSAGE`);parity 门 1h 扫描器补**注释剥离**(施工中真抓到:新契约注释里带引号的 `"task_id"` 等被旧正则吸进集合造成假漂移,与 #49 守门取材铁律同型);`contract.test.ts` 编译期穷尽映射同步。验收:parity 门 rc=0(错 0/警 6 既有不阻断),兼容面 TS(6)=PY(6),常量 29/29 落契约
-- [x] 49. ✅(2026-09-26)工具可达面显式化 + 别名表扩充 + 新守门 —— **原判断已被取证推翻并更正**:这 4 个名字不是「谎言」,`apps/web/src/lib/workspace-tool-executor.ts` 有完整实现,只在**浏览器委托面**(`workspace_context`)可达;本地工作区模式下会因**不在 `_TOOL_HANDLERS`** 而报模糊的「未知工具」,模型只能原地重试到迭代打满。落地:① `llm.py` 新增 `_DELEGATE_ONLY_TOOLS`(4 项)+ `_DELEGATE_ONLY_HINTS`(本地等价建议);② tool loop 加可用性拦截,非委托模式返回 `TOOL_MODE_UNAVAILABLE` + 「请勿重试,改用 XXX」;③ `_TOOL_ALIASES` 2 → **26** 条(命令/目录/读取/内容搜索/语义检索/网页抓取六类,**不收写操作别名**,避免「新建」被静默变成「覆盖」);④ 新守门 `scripts/check-tool-registry-integrity.mjs` 已接 `pre-commit-hook.js`(J1–J7 七面互咬,`--self-test` ✅ 10/10 含变异验证,真仓 `--quiet` rc=0:fs 11 / 委托专有 4 / 别名 26 / 本地注册 86 / 前端实现 12),AGENTS.md + README.md 已点名满足 `check-gate-wiring` R4
-- [x] 50. `generate_test` / `analyze_code`(前者 LLM 生成 + 真跑 + 自愈回放,后者接 AST + lint;非真实产物必须 `ok:False` 或带 `stub:true`) ✅(2026-09-26,五路并行)generate_test:LLM 真生成 → pytest 子进程真跑(--junit-xml 计数+失败明细进返回体)→ 网关 stub 响应 ok:False 杜绝假产物;analyze_code:ast 六项真检查(未使用 import/裸 except/圈复杂度/超长函数/可变默认参数/TODO),非 Python 诚实降级 line-stats;返回体带 analysis_depth/executed;单测 12(含「错误断言被 pytest 真实抓出」反向验证)
-- [ ] 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 6 类 executor:长跑命令/测试套/代码索引/批量 LLM/网页批处理/patrol;带幂等键与断点续跑)
-- [x] 55. ✅(2026-09-26,工程件)AgentLoopV2 压缩上限按模型动态解析 —— **初版方案被取证推翻并更正**:压缩自 2026-09-12 起带**完整灰度放量体系**(`compaction_canary.py`:MODE off/ratio/full + canary percent 按 session 稳定哈希 + `compaction_metrics` 指标含 H7 run-outcome 观测),「默认 off」是测试钉住的部署契约(`test_compaction_disabled_by_default_zero_diff`)而非遗忘 —— **翻开关默认值不可行**(绕灰度设计+打红测试)。真缺:① `compaction_context_limit` 只能配全局静态值(1M 模型过小/32K 模型过大)= 放量不落的最后一缺工程件;② 放量动作从未执行。工程件落地:新增 `app/core/model_context_window.py`(`resolve_with_env_priority`:env 显式 >0 优先,否则按模型解析 —— 兜底 128K 与 TS `model-context-capacity.ts` 同值同因,22 条 <128K 例外逐字取自 TS 表精确匹配);`routers/agents.py` 两构造点(execute/stream + execute/resume)接线;单测 `test_model_context_window.py` rc=0(含 TS 表静态快照防漂移断言)。**剩余为运维待办(非代码)**:生产 env 配 `AGENT_COMPACTION_MODE=full`(或 ratio 灰度)后压缩即真实生效,验收=长会话触发压缩 + `compaction` 帧抵 `CompactionStatusBar`;彻底关压缩的语义正确入口=`MODE=off`
-- [x] 56.(`AGENT_SELF_HEALING_ENABLED` off → on;从 pytest-only 扩到类型检查/构建/lint) ✅(2026-09-26)SelfHealSignal 四类分类器(test_framework/type_check(mypy+tsc)/build/lint)+ 环境性失败(超时/网络)not-actionable + CommandReplayRunner 重放判绿;_maybe_self_heal 最小侵入(pytest 原路径逐字节不变);默认值不翻(test_agent_self_heal.py:102 钉子,放量前需参照 compaction_canary 补灰度,注释已登记);单测 16 + 既有自愈族 31+74 全绿
-- [x] 58.(`streamChat()` 增 `onToolApproval` 回调并接 `ToolApprovalDialog`——当前该弹窗只订阅 `/api/agents/tasks/stream`,主 `/chat` 链路工具调用**不受 approve/deny 门控**) ✅(2026-09-26)llm.py 审批门(_resolve_tool_approval 判定层:bypass 全放行/default 高中危全拦/accept-edits 放 medium 拦 high;tool-approval 帧 + 120s 分段等待 + keepalive;deny/超时 TOOL_APPROVAL_DENIED/TIMEOUT 失败 tool-result,工具不执行)+ POST /llm/complete/stream/{session_id}/approval-response + 网关透传 permission_mode(帧原样透传进 replay buffer)+ client.ts onToolApproval/permissionMode + 弹窗 channel 分流;tool-approval 已入 SSE 契约(双端+穷尽映射);单测 9(实测 passed)
-
-### 第二梯队 P1:对等性与体验
-
-- [ ] 52. RAG 真重排(RRF 多源融合 + 可选 cross-encoder/LLM 二段;`_keyword_fallback` 从兜底升为融合源)
-- [ ] 53. 计划模式硬约束下放到主聊天流(主链路从纯提示词注入改为 `tools ∩ READONLY_TOOLS` 硬收窄;mode × permission_mode 笛卡尔矩阵单一真源;ModeSwitcher 补 `ask` 态)
-- [ ] 54. 工具连续失败反思 / 卡死检测上提到主链路(failure-streak ≥3 换策略 + stuck 检测;CLI `doom-loop-detector` 逻辑抽共享层 + Python 等价实现 + parity 守门)
-- [x] 57.(capability matrix 端点 + 管理端开关页 + 禁止新增默认关 env) ✅(2026-09-26)capability_matrix.py 76 env 台账(开关 56/灰度 7/门控 13,逐条 grep 实证非凭记忆)+ main.py 启动自检 + GET /api/admin/capabilities(role_id≥1,403/200 测试)+ 守门 check-capability-matrix.mjs(剥注释取材,self-test 红绿咬合,真跑 553py 对账一致;J1 幽灵条目/J2 台账逃逸断言)已接 pre-commit;单测 7
-- [ ] 59. 消息级版本切换 ← 1/3 →(regenerate 改为新增 sibling 而非物理删除;共用 `CanvasVersionMenu` 交互)
-- [ ] 60. 真并行多窗格(store 从 `conversationId` 单例改为 `Map<paneId, State>`;独立 SSE/abort;服务端 fork 路由下放)
-- [ ] 61. `@` 多维提及接线(`useSearchMentions` 与 `addMention` 当前零调用 → `MentionChips` 恒 null;`@` 与 `#` 统一到一个 mention engine)
-- [ ] 63. `form_request` SSE 帧 UI(`send-message.ts` 无 `onFormRequest`;`BusinessFormCard` 只在派发事件未在对话流消费)
-- [ ] 65. 暂停 / 继续生成(后端 `AgentLoopV2._pause_requested` + `execute/resume` 已有,前端只暴露 Stop)
-- [ ] 66. side-by-side diff 切换 + 三方合并视图(现仅 unified 行级 + hunk 勾选)
-- [x] 67.(`TerminalSection` 现直接把 `\x1b[31m` 之类转义序列显示给用户) ✅(2026-09-26)取证:后端只脱敏不剥 ANSI,前端是唯一渲染面;src/lib/ansi.ts 零依赖解析器(SGR 8/16/256/truecolor + 粗斜下删反显;结构化 span 不拼 HTML=XSS 硬防线;不完整 CSI 按文本渲染下帧自愈);terminal-section 输出切换(无 ANSI 走原路径零回归),复制剥离转义;vitest 34/34
-- [ ] 69. 会话窗口额度实时进度条 —— **2026-09-26 更正:`budget` 帧并非幽灵**(生产在网关 `ai-chat-stream.ts` `checkTokenBudget` 三态,`client.ts:2858` 已解析),工作量骤降为**纯前端**:消费已解析的 budget 帧 → 输入框上方进度条(warning 琥珀/critical 红),与 43 联动;429 时错误卡显示「额度已用尽」
-- [ ] 70. PDF/CSV/表格富预览(**V2 #32 未交付,本轮重列**;注意 CSP `connect-src`/`frame-src` 同步放行)
-- [ ] 71. chat 多端/多标签实时同步(**V2 #23 未交付,本轮重列**;先定 SSE 与 WS 双通道的「同一消息 patch 幂等」契约)
-- [ ] 72. `apps/desktop` 从薄壳到本地能力端点(本地 workspace 通道 + 增量索引 + 本地 git/diff + 离线降级;**保留前端单一事实源在 web,不复制 UI**)
-- [ ] 73. `apps/miniapp-taro` AI 对话页(移植 `packages/app/src/features/agent-chat`;小程序用分块 `wx.request` 而非 stream)
-- [ ] 74. CLI 全屏 TUI 决策(三选一,建议 **A 真上 ink**:补依赖 + `tsconfig.include` 加 `.tsx`;顺带补或归档 README 声称的 `ihui config` / `ihui remote`)
-- [ ] 75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯 Python 遍历;懒索引护栏 `_LAZY_INDEX_MAX_FILES=2000` 对 monorepo 复评)
-- [ ] 76. 知识引擎:Knowledge Card 自动蒸馏 + Repo Wiki 自同步(图存储默认 `InMemoryGraphStore` **重启即失** → 落 Drizzle;会话结束异步蒸馏 + card 三维元数据:来源/时效/置信)
-- [ ] 77. Goal-driven 自评估闭环 + My Quests 跨 workspace 全局看板(依赖 51)
-- [ ] 78. Experts 多智能体并行子模式(专家模板产品化 + 同文件写冲突治理:串行化或 worktree 隔离)
-
-### 第三梯队 P2:长尾
-
-- [ ] 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatSearch` 零消费者;**按 #62 定下的规矩:孤儿件要么接要么删,并登记**)
-- [ ] 64. AI 消息可编辑 + 消息级 pin/书签(共用 59 的 sibling 存储)
-- [ ] 68. 流式中切换模型 → 终止后自动带入新模型
-
-### 第四梯队 P3:五年领先(79–86,均等 15–78 全绿后单独立项)
-
-- [ ] 79. 权限双轴化(`sandbox_mode` × `approval_policy`)+ config profiles(对齐 Codex 2026;起点是已有的 `packages/types/src/permission-mode.ts` 跨语言真源)
-- [ ] 80. Guardian 复核代理(用户点 approve 前由独立 agent 复核是否有更安全等价路径;底座已有 `guarded_tool_pipeline.py` + `tool_budget_governor.py` + `dispatch_subagent`)
-- [ ] 81. MTC 工作面(对标 Trae SOLO MTC:文档/数据表/报表/演示/竞品调研的产物流水线)
-- [ ] 82. Predictive Edit(对标 Trae CUE 的独立编辑意图预测器,现有 FIM 链路上升级)
-- [ ] 83. Spec ↔ Code 双向落差检测 + LSP 扩语言(现仅 TypeScript,硬编码 `LSP_BIN`)
-- [ ] 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + 77)
-- [ ] 85. 离线/边缘优先降级(依赖 72;本地向量索引 + `ollama`/`lmstudio`/`llama_cpp` 三路 provider 已在适配表里)
-- [ ] 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希 + 权限决策 + 操作者身份,导出签名 ledger)
-
-### 本轮新增的三条防回潮守门(建议进 scripts/ 与 pre-commit)
-
-| 守门 | 断言 | 防止什么 |
-|---|---|---|
-| `check-capability-matrix` | 启动时能力矩阵不含「默认关且无登记原因」的项;新增默认关 env 即红 | 再出现「移植完成但线上从不跑」(55/57) |
-| `check-tool-registry-integrity` | `_FS_DEPENDENT_TOOLS` ∪ `_TOOL_ALIASES` 值域 ⊆ `_TOOLS`;`BUILTIN_ENGINE_TOOLS` 每个成员必须有映射目标 | 幽灵工具名与内核分裂回潮(47/49) |
-| `check-stub-declaration` | 返回非真实产物的工具必须带 `stub: true` 或在 `_STUB_TOOLS` 白名单登记 | 再有「`ok:True` 但内容是占位」(50) |
-
-### 排期(Sprint,排序原则:先修「会误导的」再修「不好用的」)
-
-**S1 内核归一** 47→49→48 ｜ **S2 默认开关** 55→56→57 ｜ **S3 主链路缝合** 58→63→53 ｜ **S4 桩转正** 50→51→76 ｜ **S5 渲染深度** 67→66→65→69→70 ｜ **S6 会话模型升级** 59→64→60→61→62(60 的 store 改造风险最高,放最后且独占)｜ **S7 端落差** 72→74→73→75 ｜ **S8 形态级** 77→78→52→54→71 ｜ **P3 后置** 79–86。
-**并行冲突提示**:① 领地纪律(AGENTS.md §12)——每 Sprint 开工前跑 `git status` 与 `node scripts/check-task-claims.mjs`,提交走 pathspec 不卷带在途改动;② 涉 SSE 改动过 `check-agent-event-parity.mjs`(V3 #48 后含兼容面/常量值域两条新对账),涉 i18n 过 `check-i18n-keys` + `scan-dead-i18n-keys`,涉工具注册面过 `check-tool-registry-integrity`;③ **跨端事件取证先查网关层(apps/api)**——本轮 budget 帧两次翻案的共同根因都是只查了 ai-service。
-**验收基线**:每项须有 e2e/单测且做**变异验证**(改坏行为测试须红);UI 项 5 语言 i18n parity + 零死 key;三端 tsc/eslint/ruff/mypy 零新增错误;**默认开关类必须交上线前后对比实测**,不得仅改 env 即宣称完成。
-**孤儿件卫生规矩(本轮最痛处)**:全仓零消费者的组件/hook 要么接要么删,不允许留,新增集中登记段。本轮确认孤儿:`ChatSearchBar`、`useChatSearch`、`useContextMention`(含 `addMention`)、`MentionChips`(恒 null)、CLI `src/tui/mode-indicator.tsx`、desktop `scripts/ensure-web-out.mjs`。
-**方法论沉淀**:本轮核验用「文件/符号级存在性」而非台账勾选态判定交付,建议固化为 `scripts/audit-benchmark-delivery.mjs`,每轮对标直接复用。
-
-## P0 V3 对标第三轮 · 会话交接(2026-09-26 晚,交接给接手 agent,本分支 workbuddy/main-429651b5 删除前留档)
-
-> **交接背景**:V3 对标第三轮当日完成 8 项落地(48/49/50/55/56/57/58/67)+ 3 条新守门 + 部分完成 3 项(52/53/62,见下);后续并行批次因平台额度耗尽未启动(47/51/59/61 未开工)。**已完成部分以单枚「V3 第三轮成果合并」提交进入本分支后 fast-forward 合并进 main**;接手 agent 从下方「剩余工作全景」继续。
-> **开工铁律(本日五项取证翻案的教训,务必先读 `docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md` 的对应条目)**:① 委托面≠不存在 —— 工具在本地注册表查不到时先查前端 workspace-tool-executor 委托面;② 跨端事件先查网关(apps/api)—— budget 帧「幽灵」误判两次翻案的根因;③ 翻 env 默认值前先查灰度体系与钉住它的测试 —— #55/#56 的正确姿势是不翻默认、补工程件+登记放量待办;④ 凡从源码抽字面量必剥注释 —— 守门扫描器的血泪铁律;⑤ 新增默认关 env 必须登记 capability_matrix.py 台账,否则 check-capability-matrix 门会红。
-
-### 剩余工作全景(按 V3 编号,接手 agent 按此开工)
-
-**P0 地基(2 项未开工)**
-- 47. **三套执行内核工具集归一**(最大单点,建议第一个做):AgentEngine 的 15 个 BUILTIN_ENGINE_TOOLS 与主注册表零互通。方案:新建 engine_tool_bridge.py,`resolve_engine_tool(name)` 先查主注册表再落 Engine 本地;15 个工具映射结论需逐个取证(apply_patch→patch_diff / view_image→vision_analyze / clock_sleep|curr_time→model_tools_57 已有 handler / update_plan→plan_mode / spawn_subagent→_tool_dispatch_subagent / unified_exec→run_command / web_search→同名 / request_user_input→SSE question / run_code→**后端无沙箱执行器,取证后如实登记**);扩 check-agent-engine-parity.mjs 断言 BUILTIN_ENGINE_TOOLS ⊆ 桥接表
-- 51. **run_in_background 真实任务类型 + DAG 真实执行器**(26h 耐久执行的根因):_BG_TASK_IMPLS 只有 sleep/echo;/dag/execute 回显。方案:新建 bg_task_impls.py 注册六类(long_command/test_suite/code_index/batch_llm/web_fetch_batch/patrol_task,带幂等键与取消);dag.py 与 dag_scheduler.py 接 executor_factory,未注册类型明确报错
-
-**部分完成(3 项,有底子,接手补齐)**
-- 52. RAG 真重排 —— **reranker.py 已落地**(RRF 融合 + 可选 LLM 重排,零新依赖),rag.py 已改造(双路并行召回);待办:① **capability_matrix.py 台账补登 2 条** env(AGENT_RERANK_LLM_ENABLED=false / AGENT_RERANK_LLM_TOP_K=20,否则守门红);② 补测试 tests/test_reranker.py(RRF 手算断言/去重聚合/关键词单路降级/LLM mock 失败降级);③ 验收:pytest + 20 条近义文档查询集 Top-3 对比
-- 53. 计划模式硬约束 —— **packages/types/src/chat-mode-policy.ts 已建**(CHAT_MODE_TOOL_POLICY:ask=none/plan|review=readonly/build|spec=all + filterToolsForChatMode);llm.py 待办:tools 数组按 policy 硬过滤(取代纯提示词注入,幻觉调用返回 CHAT_MODE_TOOL_BLOCKED);前端 mode-switcher.tsx 补 ask 态(i18n key 若缺走近似并登记);测试:5 mode × 代表工具矩阵断言
-- 62. 会话搜索 —— **侧栏搜索已落地**(sidebar-chat-history.tsx 挂载,搜索时平铺/清空恢复分组;chat-search-bar.tsx + use-chat-search.ts 两个孤儿件已删除,tests/__tests__/sidebar-chat-search.test.ts 已建);待办:接手跑 vitest 验证 + 如有视觉问题微调
-
-**P1 体验(10 项未开工,方案都在 docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md §五对应编号)**
-- 54. 工具连续失败反思/卡死检测上提主链路(CLI doom-loop-detector 逻辑抽共享层)
-- 59. 消息级版本切换 ← 1/3 →(schema 加 parent_message_id/sibling_index,regenerate 从物理删除改 sibling 分支;**注意 apps/api 有 DB 测试基建与否先取证**)
-- 60. 真并行多窗格(store 单例改 Map<paneId,State>,风险最高独占做)
-- 61. @ 多维提及接线(useSearchMention/addMention/MentionChips 三个零消费孤儿件复活或删,统一提及引擎,file/folder/symbol 三维先行)
-- 63. form_request 死消费处置(后端要么实现生产要么删 client.ts:3160 解析,归 #63 范畴)
-- 65. 暂停/继续生成(后端 AgentLoopV2._pause_requested + execute/resume 已有,前端只暴露 Stop —— 补 Pause/Resume)
-- 66. side-by-side diff 切换 + 三方合并视图
-- 69. 会话窗口额度进度条(budget 帧网关已在发 client.ts 已解析,**纯前端**:onBudget → 进度条,与 #43 联动)
-- 70. PDF/CSV 富预览(注意 CSP connect-src/frame-src 同步放行)
-- 71. chat 多端同步(conversation 房间 + message:created/patched 幂等契约先定)
-
-**P1 端落差(4 项)与 P2/P3**
-- 72-78、P3 79-86:见 docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md §五 E/F 组,每项含现况证据/差距/方案/验收
-- **运维两项(非代码,用户侧)**:生产配 AGENT_COMPACTION_MODE=full 放量压缩(工程件已就绪);自愈参照 compaction_canary 补灰度后放量
-
-### 环境与交接注意事项(接手 agent 必读)
-
-1. **测试环境已就绪**:Node(pnpm install 完成,eslint/prettier/tsc/vitest 可用)、Python venv `C:/Users/Administrator/.workbuddy/binaries/python/envs/default`(pytest 9.1.1 + ai-service 全依赖)。本机 pnpm store 已热(D://caches//pnpm)。
-2. **本机沙箱两个硬限制**:① node spawnSync git 恒 EBUSY(守门 89 check-gate-wiring 无法本地跑,提交走 HUSKY_SKIP_GATE_WIRING=1 + §12 归因,合并前需在正常环境补跑);② reg.exe 被安全策略黑名单阻断(pre-commit 链跑不完 160 项;用户可在安全中心解除)。
-3. **合并方式已定**:本分支无独立提交,成果以工作区改动 → 单枚合并提交进本分支 → **fast-forward 进 main**(main 领先 160 提交,merge-base=本分支 HEAD,FF 无冲突)。**主工作树 G:/IHUI-AI 有他人在途 121 个文件改动,合并只动 refs 不动工作区(git branch -f 或 push),绝不 checkout main 到主工作树**。
-4. 台账纪律:开工前跑 `node scripts/check-task-claims.mjs`;涉工具注册面过 check-tool-registry-integrity;涉 SSE 过 check-agent-event-parity(含兼容面/常量值域新对账)。
-
 ### 4-1 对外售卖模型 API 产品化补强完成报告(2026-09-16)
 
 
@@ -6930,8 +6814,7 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
 - [x] ✅(2026-09-24) **修掉一处已经入库的文档截断**:HEAD 里守门 91 的**标题行被吞**,只剩一行 `—— packages/app 的主题驱动组件…` 的无头续行(现 `git show 0dc34f113b6:AGENTS.md` 可复现)。根因不是谁改坏了它,而是**我在编辑 AGENTS.md 的同一分钟里,并发会话把这个共享文件整文件提交了** —— 它把我当时"半成品态"的编辑一起收走:我的 89 速查条目因此提前入库(内容与终稿一致,侥幸),而我把 91 条目标题行与正文拆开的中间态被固化。**新面(值得记住):共享文档上"我正在编辑、尚未提交"的行,会以他人提交的形态定稿。** 已按 `aab1fe982f9` 逐字恢复标题行(numstat 1/1,替换掉那行截断态,基线其余每行存活)。
 - [x] ✅(2026-09-24) **一次假结论自查(同类教训第二次踩)**:判"格式漂移是不是我引入的"时,我把 HEAD~1 的副本放进 `.ihui-agent/tmp/` 再跑 `prettier --check`,得到「All matched files use Prettier code style!」—— 那是**假绿**:`.prettierignore` 第 16 行含 `.ihui-agent/`,被忽略的输入一律报"全部通过"(与既有记忆 [[formatters-report-clean-when-input-is-ignored]] 同型)。改用 `git show <rev>:<path> | prettier --stdin-filepath <path> --ignore-path <空文件>` 才测出:这三枚文件在 HEAD~1 **本来就不合规** ⇒ 漂移不是我引入的,且 `.mjs` 根本不在 lint-staged 的 prettier glob 里(只有 ts/tsx/js/jsx/json/md/yml/css)。我把误跑 `--write` 造成的 400 行无关重排**逐文件还原**(`check-gate-wiring.mjs` 347/112、`guardian-runner.mjs` 280/…)再复验三处绿。加固后的规矩:**测格式化器要先证明它真读到了这些文件。**
 - [x] ✅(2026-09-24) **本票提交是 `--no-verify` 落地的,但归因不是"他人代码违规"**:safe-commit Step 4 首试死于 `.git/index.lock` 竞争(并发会话的活锁),脚本按 §12 规则兜底跳过钩子。因此逐条补做 pre-commit 该做的核验:守门 89 全量 exit 0(已接线 139 / 台账豁免 13 / R4 0 枚)、`--self-test` 42 例全绿、镜像测试 13 例全绿、`watermark verify` 2/2 完好、`check-no-conflict-markers --rev HEAD` 无成对标记、`node --check` 三文件全过。
-- [x] ✅(2026-09-24) **顺带查出一场全机规模的门禁停摆(比本票原任务更严重)**:排查 eslint 为何没给我的提交做修复时实测 —— 根 `node_modules` 里 `typescript` / `eslint` 等 **7 枚链接指向 .pnpm 里的空目录**,`node_modules/.bin` 只剩 16 项且 **没有 eslint / tsc / tsserver / vitest / next**,而 09:32 的 hook 日志里 eslint 还 `✔`、10:31 的日志已变成 `✖ eslint --fix` + `✖ prettier --write` + 「`eslint` 不是内部或外部命令」并 `❌ 运行 lint-staged 失败,提交已阻止`。也就是说**从那一刻起每一次提交都只能 --no-verify,约 110 道守门对全队同时失效**,而 `git status`、typecheck 结论、守门报告里都看不出这件事(门 78 只看 workspace: 链接,且 existsSync 对"指向空目录的链接"仍返回 true ⇒ 结构上看不见这一类破损)。修复动作按 §12e 只有一个:全量 `pnpm install`(不带 --filter)。本机当场恢复实测 —— tsc:`Version 5.9.3`;eslint:`失败(node:internal/modules/cjs/loader:1520
-)`;安装日志尾:`[ERR_PNPM_EPERM] [importPackage G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc] EPERM: operation not permitted, rename 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc_tmp_8736_18' -> 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc'`。**注意:本机就是生产机且当时有 91 个 node 进程在跑,重链接有打断在途构建的风险,这一步属于高影响动作,已择机执行并逐值复验;若任何包解析异常,第一现场看 `.ihui-agent/tmp/pnpm-install-20260924.log`。**
+- [x] ✅(2026-09-24) **顺带查出一场全机规模的门禁停摆(比本票原任务更严重)**:排查 eslint 为何没给我的提交做修复时实测 —— 根 `node_modules` 里 `typescript` / `eslint` 等 **7 枚链接指向 .pnpm 里的空目录**,`node_modules/.bin` 只剩 16 项且 **没有 eslint / tsc / tsserver / vitest / next**,而 09:32 的 hook 日志里 eslint 还 `✔`、10:31 的日志已变成 `✖ eslint --fix` + `✖ prettier --write` + 「`eslint` 不是内部或外部命令」并 `❌ 运行 lint-staged 失败,提交已阻止`。也就是说**从那一刻起每一次提交都只能 --no-verify,约 110 道守门对全队同时失效**,而 `git status`、typecheck 结论、守门报告里都看不出这件事(门 78 只看 workspace: 链接,且 existsSync 对"指向空目录的链接"仍返回 true ⇒ 结构上看不见这一类破损)。修复动作按 §12e 只有一个:全量 `pnpm install`(不带 --filter)。本机当场恢复实测 —— tsc:`Version 5.9.3`;eslint:`失败(node:internal/modules/cjs/loader:1520)`;安装日志尾:`[ERR_PNPM_EPERM] [importPackage G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc] EPERM: operation not permitted, rename 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc_tmp_8736_18' -> 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc'`。**注意:本机就是生产机且当时有 91 个 node 进程在跑,重链接有打断在途构建的风险,这一步属于高影响动作,已择机执行并逐值复验;若任何包解析异常,第一现场看 `.ihui-agent/tmp/pnpm-install-20260924.log`。**
 - **O49 残余(不写作收口)**:① **门 78 的判据对这一类破损结构性失明** —— 它按 `existsSync(<pkg>/node_modules/<dep>)` 判,而"符号链接存在但目标目录被掏空"照样返回 true;要补的判据是"目标目录里必须有可读的 `package.json` 且 `name` 匹配",且范围要含外部依赖而非只 `workspace:`。这条我没有在本次直接改:门 78 此刻被并发会话持有(它的镜像测试正在改),改它要先与持有人对齐判据边界,否则又造一台恒红机。② R4 只拦"完全隐形",不拦"写得不够"—— 一次 incidental 提及即可放行(本门此前就只靠 README 表格一行活着);要把"必须进速查表且带 id/档位/应急通道"变成判据,得先给速查表定结构契约。③ 本票第 8 条那类"共享文档半成品被他人提交收走"的截断,门 71 只保护 PROJECT_PLAN 的登记行,**AGENTS.md 同类截断无人管**。④ AGENTS §26 写的 pnpm store 落点 `D:\DevEnv\tools\pnpm\store\v11` 与本机实测 `D:\caches\pnpm\store\v11` 不一致(文档漂移,未在本次范围内改)。
 
 
@@ -11085,6 +10968,8 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] **G-209 `git-sync-converge` 违反 §5b 自己那条"origin/main 以 FETCH_HEAD 为准"——拿一个对象不在本地的 packed remote ref 去 `merge-base`,直接崩在同一夜两次**:2026-09-26 两次实测(04:5x 与 08:5x),命令都是 `node scripts/git-sync-converge.mjs`,报错逐字相同 —— `fatal: Not a valid object name <远端 sha>`,栈顶 `scripts/git-sync-converge.mjs:79`(git() 包装器)← `:647`(main)。成因链:并发会话 push 之后,`refs/remotes/origin/main`(或 packed-refs)被更新到那枚新提交,但**本机对象库里还没有那枚提交的对象** ⇒ `merge-base <本地> <远端>` 结构上不可能成功。两次都是**先 `git fetch origin main` 再跑同一条命令就通过**(第二次实测:合并树无冲突、`56e6f7ebcc7` 推进并推送成功),所以这不是环境故障,是本工具缺一步前置。**该修的是判据顺序而不是报错文案**:① 入口先读 `git ls-remote origin main`(或 `fetch` 一次)取权威值,而不是读嵌套 ref —— §5b 明写嵌套 remote-tracking ref 会在 1 秒内被宿主清理层删掉、"读回旧值不代表真值";② 用它比对前必须先 `cat-file -e <sha>^{commit}`,取不到就自己 `fetch`,fetch 也失败则**判"无法判定"并退出**而不是抛 `Command failed` 让人看见一段 Node 栈;③ 与本仓"判据失效的表现永远是安静"那条相反,这次是**失效表现为崩溃**,同样不该留 —— 一个会崩的收敛入口在并发期等于没有。**刻意没顺手修**:该脚本是共享收敛路径(§12d/§5b 多处依赖),改它的取材来源属结构性改动,且它当前对"真分叉"的索引层合并逻辑已由别人取证(45 例自检),另计一票做。
 - [ ] **G-208 一次重启把 API 与部署环同时打死,而两者的成因是同一个:判"活着"用的是可被复用的身份,不是活性** —— 2026-09-26 08:4x 实测(本机=生产,站点 8801/8802/8803 跑在这份工作树里):机器 `LastBootUpTime = 07:58:10`,重启后到我发现为止 **API 从未监听过 8802**(`netstat` 零命中 + `curl /health = 000`),部署环从 08:37 起每 60s 打一行「跳过:检测到进行中的部署 loop(pid=8052)」连续 **46 分钟**,线上产物停在 `apps/web/.next/IHUI_BUILD_SHA = 6410cbdd00a`(落后 origin 96 枚)。**两条独立成因,都已当场处置**:<br>① **API 抢在 PostgreSQL 完成崩溃恢复之前启动**。`deploy/prod-bundle/svc/run-api.ps1` 起的进程在 `07:58:24.246` 抛 `Unhandled promise rejection` 后就再没有 `Server listening` 行,而 `sc query IHUI-API` 报 `RUNNING` —— **nssm 只看见 powershell 子进程没退出,看不见它根本没进 listen**;心跳日志(`ws-auto-recovery: health check`,每分钟一行)持续到 08:46 让它读起来完全健康。栈顶定位:`apps/api/src/routes/live-gifts.ts:70` 在**路由注册期**执行 `CREATE TABLE IF NOT EXISTS live_gift_catalog`,底层 `PostgresError: the database system is starting up` —— 注意这是 PG **服务已 RUNNING 但仍在恢复**的窗口,所以给 `IHUI-API` 加 `DependOnService=IHUI-PG` **并不能防这一型**(实测 `sc qc IHUI-API` 的 DEPENDENCIES 本来就是空,而服务顺序本来就已满足)。处置=PG `pg_isready -h 127.0.0.1 -p 8810` 报 accepting 之后 `nssm restart` + `nssm start`,`08:4x` 起 `0.0.0.0:8802 LISTENING`、`/health HTTP=200`(旧 pid 8932 在服务对象已 `STOPPED` 后仍写日志,是这次"看起来活着"的另一半来源)。**未修,留给归属方**:启动期 DDL 不该有能力打死 `listen`(一处注册期副作用抛错 ⇒ 整个 HTTP 面不 bind),要么给它包 try/catch 要么把建表挪进迁移;**这条属于别人的路由文件,按 §12b 我没动**。而"启动即建表"与本仓 §5 迁移纪律本就冲突,另计一票。<br>② **部署环被一枚跨越重启的陈旧锁永久挡住**。`deploy/win/ihui-deploy-loop.ps1:96-101` 的活性判据是 `Get-Process -Id <锁里的 pid>`,锁文件 `deploy/win/.deploy-loop.lock` mtime `04:53`(早于 07:58 的重启 ⇒ 写它的进程必然已随重启消失),而 pid `8052` 已被 **postgres.exe**(启动 07:58:15)复用 ⇒ `$alive` 恒真 ⇒ **每轮 return,永不部署**。这与 G-193(`deploy-lock.mjs` 把一次性 CLI 的 pid 当持锁者、被 nssm 复用后白等 600s)是**同一型缺陷的第二个实例**,而 §12 那套 `git-lock` 早就为此上了"每 5s 续期 `meta.ts` + 锁龄硬上限"两条 —— 这一处两样都没有:既没有心跳,也没有"名义存活但锁龄超上限即视为复用"的兜底。处置=按"锁 mtime 早于 LastBootUpTime"这条可证判据删除锁文件(删前把三项读数记在本行),`08:49` 环自行恢复并开始构建。**修法另计一票**(与 G-193 合票:锁元数据补 owner 语义 + 锁龄上限,而不是再等一次 pid 撞上)。**通用规矩**:凡"记一个 pid 来判某段活是否还在"的地方,pid 可被复用且跨重启毫无意义 —— 判据必须是**活性信号(续期时间戳)或身份唯一性(启动时刻比对)**,二者一个都不能少。
 
+## O82续三 本会话清账与落地（2026-09-26，三路守门票 + 两波功能票 + F4 新判据）
+- [x] ✅(2026-09-26) **O82续三 落账** 三路守门票全部入库：守门 8 前端调用面从 apps/web 扩到 mobile-rn/miniapp-taro/extension（`1e7ed628e9b`，死调用首现判据；新增 `OPAQUE_MOUNT_PREFIXES` 把 ai-service `mount_to_app` 那两条按守门 127 同一口径计「未判定」，web 侧此前把它们误报成死调用）；auth refresh 单例守门改判受审面（`1b5b10b4c1e`，默认 HEAD blob / `--staged` 索引 blob / 两面旗同给 exit 2，并给 `pre-commit-hook.js` 调用点补 `--staged` —— 门收口到判 HEAD 而钩子不传面旗，等于在审上一提交态）；守门 102 新增 GA7「同屏双返回 · 双层页头」（`3c9e3c7ec09`，H1 按紧邻 return 切段 / H2 跨文件一跳 / H3 `headerShown` 回潮，HEAD 存量 3 处按文件棘轮只报数）。
 ## O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）
 - 〔O81 续记 2026-09-26:判据换代 + 票④ 首族,台账两次同笔下调;并登记一次"登记行被并发提交连工作树一起抹掉"的现场〕
   **① 门 128 加"渲染腿前置"**(`7e10922a7f` + 本枚):同名配对必须有从端入口可达的腿才算一对
@@ -11157,5 +11042,5 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] **O82续三·D41后续①**：11 条新文案只在组件内联兜底（清单在 `.ihui-agent/tmp/i18n-d41.json`，键名 `previewView*` / `previewSource*`），**未入语言包** ⇒ 五种语言实际都不走取词通道；补录要按 §19 流水线（`i18n-diff` → 翻译 → `i18n-apply` → parity 复验），不得手改单个语言文件。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L11005,派单以那条为准,本行不再单独派单。〕
 - [ ] **O82续三·守门8后续①**：三端首纳入的死调用存量已冻进 `scripts/api-routes-baseline.json`（现值以 `node scripts/check-api-routes.mjs` 末行现读为准），清理另计；同票登记的 `GET /api/study/videos @ apps/mobile-rn/src/screens/StudyIndexScreen.tsx` 是"后端从未注册的列表接口"，与视频页那条归并处理，不得两处各修一遍。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L11006,派单以那条为准,本行不再单独派单。〕
 - [ ] **O82续三·GA7后续①**：RN 双层页头 HEAD 存量 3 处（`SettingsScreen.tsx`、`CourseDetailScreen.tsx`、`LiveDetailScreen.tsx`）只报数未清理；属移动端实现票，判据本体一字未改。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L11007,派单以那条为准,本行不再单独派单。〕
-
 - [x] ✅(2026-09-26) **Knip 棘轮装上"口径闸门":基线只允许记在与问责面同形的树上(`f218022153`)**:`check-knip-ratchet.mjs` 跑的是 `knip --reporter json` ⇒ 读**磁盘**,而锚点 `knip-baseline.json` 是**内容**读数;本机共享工作树常年带并发会话未提交改动(实跑点名 **238 个路径**),两个面不同形的后果不是"多报一次红",而是**把数永久记偏** —— 同一族数字今天已有一次脏树 `--update` 把基线从 3781 抬到 4314(+533 存量吸收),而 CI 至今仍红,正因那把尺子量的不是问责面。三层处置:① 判据拆成纯函数 `scripts/lib/knip-ratchet-face.mjs`(`comparable / incomparable / undetermined` 三态,**问不到条数一律"无法判定"**,不冒判可比);② 棘轮判死前先过它 —— 不可比即 **exit 2 且把出口写明白**(`--print` 只看数不判不写;确需在当前状态写基线必须 `--update --allow-dirty`,而 `provenanceNote()` 会把「DIRTY + 条数 + 经人工放行」**写进基线的 `recordedFrom` 字段** —— 静默放行等于没有出处);③ 本门按设计就是判工作树(knip 跑不了 HEAD blob),故内容读取改走取材层 `readWorktreeFile` 而非裸 `readFileSync`,把"我审的是哪一份"交回统一层。取证:`node scripts/check-knip-ratchet.mjs` → exit 2 并点名 238;`--print` → `total=4324` 正常出数;镜像 `scripts/tests/knip-ratchet-face.test.mjs` 6/6(含 K2"干净树必判可比"反向锁 —— 闸门不得一律判死;K6"放行与不放行文案必须不同形");`node --check` + eslint 通过;水印 verify 2/2。**同批暴露一条归因层的边界**:本枚提交链里门 118 在钩子那一轮判红、逐道复跑判绿(第一次那轮的索引里还留着上一枚被中止尝试的旧暂存态),按规则计 not-ours 放行并留痕 —— 这条瞬时窗口不是判据错,但值得 118 的持有者知道:**`--staged` 的结论会受"上一枚中止尝试留下的索引态"影响**。
+
