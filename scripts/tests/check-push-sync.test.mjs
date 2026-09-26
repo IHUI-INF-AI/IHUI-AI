@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -161,6 +161,95 @@ test('ahead: 本地 ahead 3 个 commit → exit 1(显示 3)', () => {
     assert.equal(r.status, 1, `ahead 3 应 exit 1,实际 ${r.status}`)
     // 错误消息走 console.error(stderr),含 ANSI 颜色码,需剥离后匹配
     assert.match(stripAnsi(r.stderr), /3 个未 push/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+// ─── 7b. push-state 四态:哪些"本地 ahead"该放行、哪些必须继续拦 ──────
+// 2026-09-26 实测:当天两次提交(12:53 / 12:57)都是被这一格判红,红之后 safe-commit
+// 走 --no-verify ⇒ 那 163 道门对那两枚提交根本没跑。所以"哪一态该红"必须能被机器问出来。
+function writePushState(dir, state) {
+  mkdirSync(join(dir, '.workbuddy'), { recursive: true })
+  writeFileSync(join(dir, '.workbuddy', 'push-state.json'), JSON.stringify(state))
+}
+
+test('push-state: running 且新鲜且持有者存活 → exit 0(在途推送不算忘记 push)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'unpushed while worker running')
+    writePushState(work, { status: 'running', headSha: 'deadbeef', ts: Date.now(), pid: process.pid })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 0, `running 在途应放行,实际 ${r.status}:${stripAnsi(r.stdout)}`)
+    assert.match(stripAnsi(r.stdout), /后台推送在途/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('push-state: done 且新鲜且 headSha 是 HEAD 祖先 → exit 0(上一轮已推成功,新提交会有新 worker)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'unpushed after a done push')
+    const parent = execSync('git rev-parse HEAD~1', { cwd: work, encoding: 'utf8' }).trim()
+    writePushState(work, { status: 'done', headSha: parent, ts: Date.now(), pid: process.pid })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 0, `done+祖先应放行,实际 ${r.status}:${stripAnsi(r.stdout)}`)
+    assert.match(stripAnsi(r.stdout), /上一轮推送已成功/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('push-state: done 但 headSha 不在 HEAD 祖先线上 → 仍 exit 1(不得把"别的分支的成功"当本分支的合格证)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'unpushed with unrelated done')
+    writePushState(work, {
+      status: 'done',
+      headSha: '0000000000000000000000000000000000000000',
+      ts: Date.now(),
+      pid: process.pid,
+    })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 1, `祖先不成立必须仍红,实际 ${r.status}`)
+    assert.match(stripAnsi(r.stdout), /不在本次 HEAD 的祖先线上/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('push-state: failed → 即使新鲜也必须 exit 1(真推不出去才是本门存在的理由)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'unpushed while push failed')
+    writePushState(work, { status: 'failed', headSha: 'deadbeef', ts: Date.now(), pid: process.pid })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 1, `failed 必须拦,实际 ${r.status}`)
+    assert.match(stripAnsi(r.stderr), /未 push 的 commit/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('push-state: running 但持有者 pid 已死 → exit 1(2026-09-19 记录的"猝死残留"型)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'unpushed with dead worker')
+    writePushState(work, {
+      status: 'running',
+      headSha: 'deadbeef',
+      ts: Date.now(),
+      pid: 2_000_000_000, // 不可能存活的 pid
+    })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 1, `残留 running 不算在途,实际 ${r.status}`)
+    assert.match(stripAnsi(r.stdout), /猝死残留/)
   } finally {
     rmScratch(work)
     rmScratch(origin)
