@@ -23,6 +23,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
+import type { GoalHardCriterion } from '@ihui/api-client';
 import { cliDeviceFingerprintCollector, CLI_USER_AGENT } from './lib/device-fingerprint.js';
 import { tryParseJson, isRecord } from './util/json.js';
 import { padCell } from './util/text-width.js';
@@ -145,12 +146,53 @@ program
   .option('--tools <list>', t('cliEntry.toolsAllowDesc'))
   .option('--disallowed-tools <list>', t('cliEntry.toolsDenyDesc'))
   .option('--permission-mode <mode>', t('cliEntry.permissionModeDesc'))
+  .option('--goal <text>', t('cliEntry.goalDesc'))
+  .option('--goal-criteria <file>', t('cliEntry.goalCriteriaDesc'))
   .option('--no-update-check', t('cliEntry.noUpdateCheckDesc'))
   .option('--no-setup', t('cliEntry.noSetupDesc'));
 
 interface ResolvedSession {
   sessionId?: string;
   history?: ChatMessage[];
+}
+
+/**
+ * WP-8③ —— `--goal-criteria <file>` 的解析出口。
+ *
+ * 判序刻意是"读不到 / 不是数组 / 条目缺 id 或 statement ⇒ 直接停",**绝不**
+ * "解析失败就当没声明指标" —— 那会把一次带验收条件的运行静默降级成无验收,
+ * 而 §8 要防的正是"看起来过了"。
+ */
+function resolveGoalCriteria(raw: unknown): GoalHardCriterion[] | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  if (typeof raw !== 'string') {
+    console.error(t('cliEntry.goalCriteriaBadArg'));
+    process.exit(2);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(raw, 'utf8').replace(/^﻿/, ''));
+  } catch (err) {
+    console.error(
+      t('cliEntry.goalCriteriaUnreadable', {
+        file: raw,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    process.exit(2);
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    console.error(t('cliEntry.goalCriteriaNotAnArray', { file: raw }));
+    process.exit(2);
+  }
+  const bad = parsed.findIndex(
+    (c) => !isRecord(c) || typeof c.id !== 'string' || typeof c.statement !== 'string',
+  );
+  if (bad >= 0) {
+    console.error(t('cliEntry.goalCriteriaBadEntry', { index: String(bad + 1) }));
+    process.exit(2);
+  }
+  return parsed as GoalHardCriterion[];
 }
 
 function resolveSession(opts: Record<string, unknown>): ResolvedSession {
@@ -302,6 +344,10 @@ async function runAgentAndExit(
         sampler: cfg.sampler,
         permissions: resolvePermissions(opts),
         permissionMode: cfg.permissionMode,
+        // WP-8③:goal 模式 —— 指标由 --goal-criteria 声明,文本由 --goal 给出;
+        // 不声明即完全走旧路径(逐零差异),声明了就必须过独立校验才允许退 0。
+        goalCriteria: resolveGoalCriteria(opts.goalCriteria),
+        goal: typeof opts.goal === 'string' ? opts.goal : prompt,
       });
       process.exitCode = stopReasonToExitCode(result.stopReason);
       cloudOutput = result.assistantText;
