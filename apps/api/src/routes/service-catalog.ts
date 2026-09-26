@@ -142,8 +142,8 @@ const serviceCatalogRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/:id', async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params)
     if (!registry.has(id)) return reply.status(404).send(error(404, '服务不存在'))
-    registry.delete(id)
-    return reply.send(success({ id, deleted: true }))
+    const removed = registry.delete(id)
+    return reply.send(success({ id, deleted: removed }))
   })
 }
 
