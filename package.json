@@ -46,6 +46,8 @@
     "check:compaction-denominator": "node scripts/check-compaction-denominator.mjs",
     "check:artifact-budget": "node scripts/check-artifact-budget.mjs --target miniapp",
     "check:test-collection": "node scripts/check-test-collection-runs.mjs --strict",
+    "check:plan-task-state": "node scripts/plan-tasks.mjs --gate --strict",
+    "check:plan-tasks": "node scripts/plan-tasks.mjs",
     "check:memory-owner": "node scripts/check-memory-owner-binding.mjs --strict",
     "check:gate-face": "node scripts/check-gate-face-discipline.mjs",
     "check:subagent-perm": "node scripts/check-subagent-permission-inherited.mjs",
