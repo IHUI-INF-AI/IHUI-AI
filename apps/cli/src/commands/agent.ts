@@ -96,6 +96,14 @@ import { PluginRegistry, loadPlugins, type PluginHookContext } from '../plugins/
 import type { PlanMachine } from '../plan/index.js';
 import { DoomLoopDetector, type DoomLoopAlert } from '../doom-loop-detector.js';
 import { FsEventSource, type FsEvent } from '../fs-watcher/index.js';
+import { t } from '../i18n/index.js';
+import {
+  applyGoalVerificationToStopReason,
+  runGoalVerification,
+  type GoalToolCallRecord,
+  type GoalVerifyRequest,
+} from '../goal-verification.js';
+import type { GoalHardCriterion, GoalVerification } from '@ihui/api-client';
 import {
   renderMermaid,
   extractMermaidBlocks,
@@ -165,6 +173,14 @@ export interface AgentOptions {
   permissions?: PermissionRules;
   /** 权限模式:default|acceptEdits|bypassPermissions|plan|manual */
   permissionMode?: PermissionMode;
+  /** WP-8③ —— 执行前声明的硬性指标;非空即 goal 模式(见 RunToolLoopOptions 同名注释) */
+  goalCriteria?: GoalHardCriterion[];
+  /** goal 原文(与指标一起送进独立校验轮) */
+  goal?: string;
+  /** 校验请求注入点(测试/离线部署) */
+  requestGoalVerification?: (req: GoalVerifyRequest) => Promise<unknown>;
+  /** 结论到达调用方的出口 —— §8 要求"落到用户可见处",命令层在此打印 */
+  onGoalVerification?: (v: GoalVerification) => void | Promise<void>;
 }
 
 export type AgentStopReason =
@@ -175,13 +191,22 @@ export type AgentStopReason =
   | 'doom_loop'
   | 'error'
   // P0-C(2026-09-17 立):plan 审批门修复 — LLM 提出 plan 但无可用审批机制(非交互、无回调、未显式 auto)时终止
-  | 'plan_approval_required';
+  | 'plan_approval_required'
+  /**
+   * WP-8③(2026-09-26 立):goal 模式下循环自宣完成,但**独立校验轮没让它过**。
+   * 两个档名与 ai-service `goal_completion_gate.py` 的 `STOP_VERIFICATION_*` 逐字同值 ——
+   * 一族两值,两处必须同形(真源在 Python 侧,这里是对齐不是另立)。
+   */
+  | 'verification_not_achieved'
+  | 'verification_undetermined';
 
 export interface AgentResult {
   stopReason: AgentStopReason;
   assistantText: string;
   iterations: number;
   usage: TokenUsage;
+  /** goal 模式的独立校验结论;未声明硬性指标(非 goal 模式)时为 null */
+  verification?: GoalVerification | null;
 }
 
 // ==================== P1-5 Headless 多格式输出(实现在 src/headless-format.ts,此处仅 re-export)====================
@@ -407,6 +432,18 @@ export interface RunToolLoopOptions {
   onDelta?: (delta: string) => void | Promise<void>;
   onToolCall?: (name: string, args: Record<string, unknown>) => void | Promise<void>;
   onToolResult?: (name: string, success: boolean, output: string) => void | Promise<void>;
+  /**
+   * WP-8③ —— 执行**前**声明的硬性指标。非空即进入 goal 模式:循环自宣完成
+   * (`end_turn`)必须先过一次独立校验,未通过 / 未判定的档会被改写,
+   * 绝不带着 `end_turn` 交账。不声明 = 现有全部调用方行为逐零差异。
+   */
+  goalCriteria?: GoalHardCriterion[];
+  /** goal 原文(送进校验轮,与执行者自述并列作对照) */
+  goal?: string;
+  /** 校验请求的注入点(测试与"校验端不在本机"的部署);缺省走 api-client 的 ai-service 出口 */
+  requestGoalVerification?: (req: GoalVerifyRequest) => Promise<unknown>;
+  /** 结论到达调用方的出口 —— §8 要求"落到用户可见处",不是只进日志 */
+  onGoalVerification?: (v: GoalVerification) => void | Promise<void>;
   onIteration?: (count: number, max: number) => void | Promise<void>;
   onError?: (message: string) => void | Promise<void>;
   /** 模型推理过程增量(reasoning/thinking)回调 — 透传 api-client 的 onReasoning,未传时零开销 */
@@ -666,6 +703,8 @@ export interface RunToolLoopResult {
   assistantText: string;
   iterations: number;
   usage: TokenUsage;
+  /** goal 模式的独立校验结论;非 goal 模式为 null(行为与接线前逐零差异) */
+  verification?: GoalVerification | null;
 }
 
 export interface TokenUsage {
@@ -1242,6 +1281,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     ledgerFinalized = false;
   };
 
+  /**
+   * WP-8③ 采集面:goal 校验只认"本轮真跑过什么"。这里存的是工具调用与结果,
+   * **不含**模型自述 —— 自述只能当对照,不构成证据(§8 禁止模型自评 yes)。
+   */
+  const goalCallRecords: GoalToolCallRecord[] = [];
+
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
       iterations = i + 1;
@@ -1751,6 +1796,15 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           }
         }
         await opts.onToolResult?.(call.name, result.success, result.output);
+        // WP-8③ 采集面:goal 校验只认"本轮真跑过什么"。这里记的是**调用与结果**,
+        // 模型的自述(final_response)不进这一列 —— §8 禁止执行者自证完成。
+        goalCallRecords.push({
+          id: `e${goalCallRecords.length + 1}`,
+          toolName: call.name,
+          args: call.arguments,
+          ok: result.success,
+          output: result.output,
+        });
         // Plugin hooks 入口:postToolCall(若 plugins 存在)
         await runPluginHooks(opts.plugins, 'postToolCall', {
           toolName: call.name,
@@ -1869,6 +1923,40 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
   // Hook 埋点:stop / stopFailure / notification
   const hookCtx = { workspacePath: opts.ctx.workspacePath, sessionId: opts.sessionId };
+
+  /**
+   * WP-8③ —— goal 模式的独立校验轮。
+   *
+   * 只有 `end_turn`(循环自宣完成)才有"完成"这件事可校验;轮次耗尽 / 预算耗尽 / 错误 /
+   * 取消根本不跑校验 —— 更绝不允许把"没跑成"写成"达成了"(校验不可达时
+   * `runGoalVerification` 返回 undetermined,同样把档改掉)。
+   */
+  let verification: GoalVerification | null = null;
+  if (stopReason === 'end_turn' && opts.goalCriteria && opts.goalCriteria.length > 0) {
+    verification = await runGoalVerification({
+      goal: opts.goal ?? '',
+      criteria: opts.goalCriteria,
+      calls: goalCallRecords,
+      executorClaim: assistantText,
+      executorModel: opts.modelId,
+      requestVerification: opts.requestGoalVerification,
+    });
+    if (verification) {
+      await opts.onGoalVerification?.(verification);
+      // 这一路是 hook/审计流水,刻意用 ASCII 键值形态:结论的**人话版本**由命令层
+      // 经 i18n 出口打印(§19),此处只求"任何抓日志的人都能机器判读档位"。
+      runHook('notification', {
+        ...hookCtx,
+        notificationText:
+          `goal-verification status=${verification.goal_status} ` +
+          `treat_as_complete=${verification.treat_as_complete} ` +
+          `criteria=${verification.criteria.length} ` +
+          `reason=${verification.unavailable_reason ?? '-'}`,
+      });
+    }
+    stopReason = applyGoalVerificationToStopReason(stopReason, verification);
+  }
+
   if (stopReason === 'error') {
     runHook('stopFailure', { ...hookCtx, error: lastErrorMessage || 'unknown error' });
     runHook('notification', { ...hookCtx, notificationText: `Agent 因错误终止: ${lastErrorMessage || 'unknown'}` });
@@ -1891,7 +1979,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     stopReason,
   });
 
-  return { stopReason, assistantText, iterations, usage };
+  return { stopReason, assistantText, iterations, usage, verification };
 }
 
 // ==================== Agent 模式(非交互式) ====================
@@ -2088,6 +2176,11 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       planFirst: opts.planFirst,
       // P0-C:plan 审批门 — 透传显式 auto 标志(headless 非交互无回调时由 runToolLoop fail-fast)
       autoApprovePlan: opts.autoApprovePlan,
+      // WP-8③:goal 模式 —— 指标声明 + 校验注入点 + 结论出口(全部可选,不声明即零差异)
+      goalCriteria: opts.goalCriteria,
+      goal: opts.goal,
+      requestGoalVerification: opts.requestGoalVerification,
+      onGoalVerification: opts.onGoalVerification,
       sampler: opts.sampler,
       plugins: pluginRegistry,
       fsEventSource,
@@ -2133,7 +2226,26 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     flushMdStream();
 
     if (!isStructured) {
-      console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${result.stopReason})`));
+      // WP-8③:自宣完成不再等于"完成"。校验未过 / 判不了时,终端上那句"✨ 完成"
+      // 必须是假的 —— 它会把一次未达标的运行读成成功。
+      const v = result.verification;
+      if (v && result.stopReason !== 'end_turn') {
+        const failed = v.criteria.filter((c) => c.verdict !== 'met');
+        console.info(chalk.red(`\n❌ ${t('cli.goalNotAchieved')}`));
+        console.info(
+          chalk.dim(
+            `   status=${v.goal_status} treat_as_complete=${v.treat_as_complete} ` +
+              `independent_request=${v.independent_request_made} ` +
+              `criteria=${v.criteria.length}/${failed.length ? `unmet ${failed.length}` : 'all met'}`,
+          ),
+        );
+        if (v.unavailable_reason) console.info(chalk.yellow(`   ${v.unavailable_reason}`));
+        for (const c of failed.slice(0, 10)) {
+          console.info(chalk.dim(`   - [${c.verdict}/${c.basis}] ${c.criterion_id}: ${c.reason}`));
+        }
+      } else {
+        console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${result.stopReason})`));
+      }
       const u = result.usage;
       const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
       console.info(chalk.dim(`📊 tokens: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens}) — ${cost}\n`));
@@ -2231,6 +2343,11 @@ export function stopReasonToExitCode(reason: AgentStopReason): number {
       return 2;
     case 'cancelled':
       return 130;
+    // WP-8③:独立校验没过 = 事先声明的验收条件没满足。对脚本/CI 而言这就是失败,
+    // 不得因为"循环自己说完成了"而退 0。
+    case 'verification_not_achieved':
+    case 'verification_undetermined':
+      return 1;
     default:
       return 1;
   }

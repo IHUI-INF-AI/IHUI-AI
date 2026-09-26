@@ -97,7 +97,8 @@
     "commandSafety": {
       "dangerous": "⚠ 危險命令被攔截：命令匹配危險模式 {pattern}\n如確需執行，請設定 IHUI_YOLO=1",
       "alwaysConfirm": "⚠ 命令被攔截：它屬於\"永遠需要確認\"檔（刪除 / 強推 / rebase / 發布一類難以撤銷的操作），IHUI_YOLO 不得靜默放行。\n去掉 IHUI_YOLO 後重試，由你逐條確認。"
-    }
+    },
+    "goalNotAchieved": "獨立校驗未通過:本次執行不得宣布完成"
   },
   "waiting": {
     "agent": {
@@ -404,7 +405,13 @@
     "auditColTotal": "總數",
     "auditColSuccess": "成功",
     "auditColFailure": "失敗",
-    "auditColRate": "成功率"
+    "auditColRate": "成功率",
+    "goalDesc": "goal 模式:目標原文(配合 --goal-criteria 使用)",
+    "goalCriteriaDesc": "goal 模式:硬性指標 JSON 檔案(陣列,每項含 id/statement,可選 probe_command/expected_exit_code/required)",
+    "goalCriteriaBadArg": "--goal-criteria 需要一個檔案路徑",
+    "goalCriteriaUnreadable": "讀不到 --goal-criteria 檔案 {file}:{error}",
+    "goalCriteriaNotAnArray": "{file} 的內容必須是非空 JSON 陣列",
+    "goalCriteriaBadEntry": "第 {index} 條指標缺少 id 或 statement"
   },
   "cliWorkflows": {
     "contextBadJson": "--context 不是有效的 JSON: {message}",
