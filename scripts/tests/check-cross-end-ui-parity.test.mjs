@@ -149,6 +149,21 @@ test('T10 具名档与单侧档两维都必须真接进 main(算出来又丢掉 
   )
 })
 
+test('T12 拆对声明必须成套:进配对层、被打印、坏声明与双记账都进退出码', () => {
+  const txt = readFileSync(SELF, 'utf8')
+  assert.ok(/export function rejectProblem\(/.test(txt), 'rejectProblem 被摘线')
+  assert.ok(/rejected:\s*rejNames/.test(txt), 'collect 没收到拆对名单 ⇒ 声明形同注释')
+  assert.ok(/rejected: rejectedHits/.test(txt), 'collect 算出被拆族却不交回调用方 ⇒ 静默消失')
+  assert.ok(
+    /rejInvalid\.length \+ rejStillAnchored\.length \+ rejGhosted\.length/.test(txt),
+    '三条红少算任何一条 ⇒ 坏声明可以静默存在',
+  )
+  assert.ok(
+    /if \(prior && prior\.pairingRejects\)/.test(txt),
+    'emitBaseline 不带走 pairingRejects ⇒ 重生成台账会冲掉他人的拆对声明(守门 83 同型)',
+  )
+})
+
 test('T11 G 维必须把 geometry.d.ts 一起取进被审面(只对表 ⇒ 类型那份真相永不在尺子上)', () => {
   const txt = readFileSync(SELF, 'utf8')
   assert.ok(
