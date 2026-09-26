@@ -26,7 +26,7 @@ import { join } from 'node:path'
 import { __test__ as src } from '../git-sync-converge.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-const { resolveRemoteHead, alignFailureNote } = src
+const { resolveRemoteHead, alignFailureNote, ensureCommitObjectPresent } = src
 const SHA = /^[0-9a-f]{40}$/
 
 /** 按命令前缀应答的假 git(只用来构造"ls-remote 通/不通、FETCH_HEAD 有没有"这几态) */
@@ -175,4 +175,71 @@ test('对齐器失败必须报"为什么",不是只剩一行 Command failed', ()
   // 超时是独立一态(与"被锁"处置动作不同),必须标出来
   assert.match(alignFailureNote({ timedOut: true, stderr: '' }), /超时/)
 })
+
+test(
+  '对象存在性核验(功能三态,注入构造):缺失⇒fetch 后仍缺判"无法判定"且不抛;' +
+    '在位⇒不多发 fetch;fetch 补回⇒必须带 recoveredByFetch',
+  () => {
+    const missing = 'd'.repeat(40)
+    const calls = []
+    const r = ensureCommitObjectPresent(missing, 'main', {
+      run: (args) => {
+        calls.push(args[0])
+        return args[0] === 'cat-file' ? null : ''
+      },
+    })
+    assert.equal(r.ok, false, '补不到必须判无法判定,绝不静默通过(把"没判"写成"判过了")')
+    assert.ok(r.reason.includes('d'.repeat(11)), '原因必须点名是哪个 sha')
+    assert.ok(/fetch origin main/.test(r.reason), '原因必须写清已试过哪条自愈路径')
+    assert.deepEqual(calls, ['cat-file', 'fetch', 'cat-file'], '次序:核验→自愈 fetch→复核')
+
+    let fetches = 0
+    const inPlace = ensureCommitObjectPresent('a'.repeat(40), 'main', {
+      run: (args) => {
+        if (args[0] === 'fetch') fetches++
+        return ''
+      },
+    })
+    assert.equal(inPlace.ok, true)
+    assert.equal(fetches, 0, '对象在位时不得发多余 fetch(每轮都白跑一次网络)')
+    assert.ok(!inPlace.recoveredByFetch)
+
+    let probes = 0
+    const recovered = ensureCommitObjectPresent('b'.repeat(40), 'main', {
+      run: (args) => (args[0] === 'cat-file' ? (probes++ === 0 ? null : '') : ''),
+    })
+    assert.equal(recovered.ok, true)
+    assert.equal(recovered.recoveredByFetch, true, '自愈成功必须可被调用方区分并留痕')
+  },
+)
+
+test(
+  '装车证明:对象核验在 main 循环里是唯一一处,且在任何需要对象的消费者(isAncestor/merge-base)之前;' +
+    '未预期异常出口不得再打裸栈',
+  () => {
+    // 与上一条"装车证明"同理读同目录源文件:钉的是"收口已经发生"。
+    const s = readFileSync(new URL('../git-sync-converge.mjs', import.meta.url), 'utf8')
+    const body = s.slice(s.indexOf('function main()'))
+    const calls = body.match(/ensureCommitObjectPresent\(/g) || []
+    assert.equal(calls.length, 1, `核验必须唯一一处,实得 ${calls.length} 处(各调用点各写一份必然漂移)`)
+    const at = body.indexOf('ensureCommitObjectPresent(remoteHead, branch)')
+    assert.ok(at > -1, 'main 循环必须核的是当轮解析出的 remoteHead(而非某个下游别名)')
+    assert.ok(
+      at < body.indexOf('isAncestor(localHead, remoteHead)'),
+      '必须在 isAncestor 之前 —— 它对缺对象静默返回 false,会把"本地纯领先"判错方向',
+    )
+    assert.ok(
+      at < body.indexOf("git(['merge-base', freshLocal, freshRemote])"),
+      '必须在 merge-base 之前 —— 它就是 2026-09-27 两处裸栈崩溃的爆点',
+    )
+    // 核验失败必须 continue(转下一轮重取),不得 exit(0) 冒充收敛完成
+    const guardBlock = body.slice(at, at + 600)
+    assert.match(guardBlock, /continue/, '补不到要跳过本轮')
+    assert.ok(!/if \(!obj\.ok\)[\s\S]{0,200}process\.exit\(0\)/.test(guardBlock), '绝不记绿')
+    // 收尾 catch 只打可读原因(alignFailureNote),不再打 e.stack
+    const tail = s.slice(s.indexOf('if (isDirectRun)'))
+    assert.match(tail, /alignFailureNote\(e\)/, '未预期异常必须给一行可诊断原因')
+    assert.ok(!/e\?\.stack/.test(tail), '裸栈退出就是本次要根治的形态')
+  },
+)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
