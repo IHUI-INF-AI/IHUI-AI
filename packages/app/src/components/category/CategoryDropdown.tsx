@@ -195,24 +195,31 @@ export function CategoryDropdown({
           accessibilityLabel={
             triggerA11yLabel ?? selected?.a11yLabel ?? selected?.label ?? placeholder
           }
-          style={({ pressed }) => (pressed ? styles.triggerPressed : null)}
         >
-          {/* 视觉不挂在 Pressable 的函数式 style 上(同 CategoryInlineBar 的真机取证) */}
-          <View ref={triggerRef} collapsable={false} style={styles.trigger}>
-            <Text
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[styles.triggerText, selected ? null : styles.triggerTextPlaceholder]}
+          {({ pressed }) => (
+            /* 视觉与按压态都挂在普通 View 上:Pressable 的**函数式** style 会被 css-interop
+               的 wrap-jsx 摊成 {}(守门 131),真机 release 包上整块不生效。挂在 View 上还有一
+               层额外好处 —— 底色落在 trigger 自己的圆角盒里,不会从圆角外漏出方角。 */
+            <View
+              ref={triggerRef}
+              collapsable={false}
+              style={[styles.trigger, pressed ? styles.triggerPressed : null]}
             >
-              {selected?.label ?? placeholder}
-            </Text>
-            {typeof selected?.count === 'number' ? (
-              <View style={styles.countWrap}>
-                <Text style={styles.countText}>{selected.count}</Text>
-              </View>
-            ) : null}
-            <ChevronDown size={16} color={tk.text.secondary} />
-          </View>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={[styles.triggerText, selected ? null : styles.triggerTextPlaceholder]}
+              >
+                {selected?.label ?? placeholder}
+              </Text>
+              {typeof selected?.count === 'number' ? (
+                <View style={styles.countWrap}>
+                  <Text style={styles.countText}>{selected.count}</Text>
+                </View>
+              ) : null}
+              <ChevronDown size={16} color={tk.text.secondary} />
+            </View>
+          )}
         </Pressable>
       )}
       <Modal visible={open} transparent animationType="none" onRequestClose={closePanel}>
@@ -254,27 +261,33 @@ export function CategoryDropdown({
                     accessibilityRole="menuitem"
                     accessibilityState={{ checked: active }}
                     accessibilityLabel={item.a11yLabel ?? item.label}
-                    style={({ pressed }) => (pressed ? styles.optionPressed : null)}
                   >
-                    <View style={active ? [styles.option, styles.optionActive] : styles.option}>
-                      {Icon ? (
-                        <Icon size={16} color={active ? tk.brandAccent.deep : tk.text.primary} />
-                      ) : item.image ? (
-                        <Image
-                          source={item.image}
-                          style={styles.optionImage}
-                          resizeMode="contain"
-                        />
-                      ) : null}
-                      <Text
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                        style={[styles.optionText, active ? styles.optionTextActive : null]}
+                    {({ pressed }) => (
+                      <View
+                        style={[
+                          active ? [styles.option, styles.optionActive] : styles.option,
+                          pressed ? styles.optionPressed : null,
+                        ]}
                       >
-                        {item.label}
-                      </Text>
-                      {active ? <Check size={16} color={tk.brandAccent.deep} /> : null}
-                    </View>
+                        {Icon ? (
+                          <Icon size={16} color={active ? tk.brandAccent.deep : tk.text.primary} />
+                        ) : item.image ? (
+                          <Image
+                            source={item.image}
+                            style={styles.optionImage}
+                            resizeMode="contain"
+                          />
+                        ) : null}
+                        <Text
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                          style={[styles.optionText, active ? styles.optionTextActive : null]}
+                        >
+                          {item.label}
+                        </Text>
+                        {active ? <Check size={16} color={tk.brandAccent.deep} /> : null}
+                      </View>
+                    )}
                   </Pressable>
                 )
               })
