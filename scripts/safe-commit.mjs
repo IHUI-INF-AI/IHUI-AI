@@ -87,16 +87,19 @@ function run(cmd, opts = {}) {
 
 // ─── 参数解析 ────────────────────────────────────────────
 const args = process.argv.slice(2)
-let message = null
+// 多个 `-m` 按 git 自己的语义拼成同一条消息(段间空行),不再"后者覆盖前者"。
+// 实测两次因此丢主题(2026-09-23 的 22d87f1b6 / 920d655dd,以及 2026-09-27 的 440675aa87 / 025a0a982a):
+// 旧写法 `message = args[++i]` 让最后一段正文变成唯一消息,主题行就此消失,而提交照样"成功"。
+const messageParts = []
 const expectedFiles = []
 let dryRun = false
 
 for (let i = 0; i < args.length; i++) {
   const a = args[i]
   if (a === '-m' || a === '--message') {
-    message = args[++i]
+    messageParts.push(args[++i])
   } else if (a.startsWith('--message=')) {
-    message = a.split('=').slice(1).join('=')
+    messageParts.push(a.split('=').slice(1).join('='))
   } else if (a === '--dry-run' || a === '-n') {
     dryRun = true
   } else if (a === '--' || a === '--help' || a === '-h') {
@@ -117,6 +120,8 @@ for (let i = 0; i < args.length; i++) {
     process.exit(2)
   }
 }
+
+const message = messageParts.filter((m) => typeof m === 'string' && m.length > 0).join('\n\n')
 
 if (!message) {
   console.error(`${C.red}❌ 必须提供 -m <commit message>${C.reset}`)
