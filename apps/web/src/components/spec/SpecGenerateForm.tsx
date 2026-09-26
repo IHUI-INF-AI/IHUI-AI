@@ -189,7 +189,7 @@ export function SpecGenerateForm({
                   disabled={loading}
                   className={`rounded-md border px-3 py-2 text-left transition-colors ${
                     selectedTemplate?.id === tpl.id
-                      ? 'border-primary bg-primary/5'
+                      ? 'border-brand-accent-deep bg-primary/5'
                       : 'border-border bg-background hover:bg-accent'
                   }`}
                 >

@@ -125,7 +125,7 @@ export function ContactContent({
               <a
                 key={label}
                 href={href}
-                className="group flex items-center gap-4 rounded-2xl border bg-card p-3 shadow-sm transition-all hover:border-primary hover:shadow-md"
+                className="group flex items-center gap-4 rounded-2xl border bg-card p-3 shadow-sm transition-all hover:border-brand-accent-deep hover:shadow-md"
               >
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
                   <Icon className="h-5 w-5 text-primary" />

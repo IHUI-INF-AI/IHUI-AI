@@ -53,7 +53,7 @@ export default function PackageCard({
     <div
       className={cn(
         'relative flex flex-col rounded-2xl border bg-card p-3 text-card-foreground shadow',
-        pkg.popular && 'border-primary shadow-md',
+        pkg.popular && 'border-brand-accent-deep shadow-md',
         className,
       )}
     >
