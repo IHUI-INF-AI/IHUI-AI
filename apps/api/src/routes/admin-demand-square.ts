@@ -168,10 +168,20 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
     )
 
     let confirmedIds: string[] = []
+    // 早退分支保留(纯优化,非合法性所必需):pendingIdSet 来自读时快照,为空时这条 UPDATE
+    // 只会写 0 行 —— 跳过它是省一次无谓的写 round-trip。(实测:drizzle 0.45 把
+    // inArray(id, []) 渲染成合法 SQL `false`,并不会生成非法的 `id in ()`,故此处不是硬约束。)
     if (pendingIdSet.size > 0) {
       // 2026-09-26 修"读时 pending 就算已翻转":UPDATE 补 .returning(),
       // 逐条状态以库确认命中的 id 集合为准,而不是读时快照 pendingIdSet ——
       // 读与写之间被并发改掉/删掉的 id 结构上不可能出现在 returning 里。
+      //
+      // 2026-09-26 二次修"读与写之间不原子":把 pending 条件写进 SQL 的 where,
+      // 由数据库(而非 JS 快照)裁决哪些行仍是 pending。否则另一管理员在两次
+      // round-trip 之间把某条改成 approved/rejected,本条 UPDATE(只按 id 集合过滤)
+      // 会无条件覆盖他的结论,并把 reviewedBy/reviewedAt 改写成第二个人。
+      // returning 因此只回报真被翻转的行 ⇒ missedIds 同时覆盖"读时非 pending"
+      // 与"并发已处理"两种未命中。
       const updatedRows = await db
         .update(zhsDemandSquare)
         .set({
@@ -182,7 +192,12 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
           reviewedAt: now,
           updatedAt: now,
         })
-        .where(inArray(zhsDemandSquare.id, Array.from(pendingIdSet)))
+        .where(
+          and(
+            inArray(zhsDemandSquare.id, Array.from(pendingIdSet)),
+            eq(zhsDemandSquare.status, 'pending'),
+          ),
+        )
         .returning({ id: zhsDemandSquare.id })
       confirmedIds = updatedRows.map((r) => r.id)
     }
