@@ -55,11 +55,50 @@ export default defineConfig(async (merge) => {
     },
     copy: {
       patterns: [
-        { from: 'src/static/', to: `${outputRoot}/static/` },
-        { from: 'src/assets/tabbar/', to: `${outputRoot}/assets/tabbar/` },
+        // 2026-09-26 主包余量治理(第四十三批):record_back.png(36,542 B)整目录随 `src/static/`
+        // 进主包,而它**全部**引用点都在子包里(`pages/study/index.tsx`、`pkg-ai/ai/chat.tsx`)。
+        // 主包 2 MB 是硬上限(改前实测余量 2,457 B),子包 20 MB 只用了 2.26 MB ⇒ 把它从主包
+        // 的整目录拷贝里排除,改由下面两条"单一源 → 两份产物"派生到各自子包目录。
+        // 源文件只有一份(`src/static/images/record_back.png`),不构成第二真相;
+        // 两条 ignore/派生必须同批改:只排不派 = 端上图片 404 且不报错。
+        {
+          from: 'src/static/',
+          to: `${outputRoot}/static/`,
+          ignore: ['**/images/record_back.png'],
+        },
+        {
+          from: 'src/static/images/record_back.png',
+          to: `${outputRoot}/pages/study/assets/record_back.png`,
+        },
+        {
+          from: 'src/static/images/record_back.png',
+          to: `${outputRoot}/pkg-ai/assets/record_back.png`,
+        },
+        // 2026-09-26 同一票:排除 8 张**守门 105 自己判定"没有任何静态引用"**的 tabbar 图标
+        // (`--worktree` 面 R2 逐条点名 agent/ai/share/square 的 normal+active 共 8 个,合计 15,022 B)。
+        // 为什么是"打包侧排除"而不是删文件:本机 `git-guardian` 的"工作区存续自愈"每 2 分钟把
+        // **未暂存的删除**按设计恢复(实测日志 11:56:08「恢复 9 个被外部删除的跟踪文件」),
+        // 删除只有 `git rm` 才落得住;而本票不得做 git 写操作。源文件因此留在树里(不丢历史),
+        // 只是不再占用主包。持有 `custom-tab-bar` 的人若要把它们清干净,`git rm` 后本条 ignore 即冗余无害。
+        // 注意:`community/home/course/live/user` 那五对**不在**本清单里 —— 它们被停放中的
+        // `src/custom-tab-bar/index.tsx` 引用,归该组件持有人一起处置(上一轮同类排查已记过这条边界)。
+        {
+          from: 'src/assets/tabbar/',
+          to: `${outputRoot}/assets/tabbar/`,
+          ignore: [
+            '**/agent.png',
+            '**/agent-active.png',
+            '**/ai.png',
+            '**/ai-active.png',
+            '**/share.png',
+            '**/share-active.png',
+            '**/square.png',
+            '**/square-active.png',
+          ],
+        },
         // 2026-09-12 主包体积治理:以下静态图只被对应分包页面用字符串路径引用,
         // 整目录下沉进分包避免占主包(约减 640KB)。default-avatar/default-agent/share
-        // 因主包分包混用、record_back 因跨分包(pages/study 与 pkg-ai)引用,保留主包。
+        // 因主包分包混用保留主包。
         { from: 'src/pages/member/assets/', to: `${outputRoot}/pages/member/assets/` },
         { from: 'src/pkg-learn/assets/', to: `${outputRoot}/pkg-learn/assets/` },
         { from: 'src/pkg-about/assets/', to: `${outputRoot}/pkg-about/assets/` },
