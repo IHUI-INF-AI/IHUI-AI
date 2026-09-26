@@ -178,7 +178,7 @@ export function healAndLand() {
     return 2
   }
   const b0 = auditPlan(src).counts
-  if (!b0.forks && !b0.voidRows && !b0.rotatedPointers) {
+  if (!b0.forks && !b0.voidRows && !b0.rotatedPointers && !b0.dupOpenCopies) {
     console.log('✅ 自愈:HEAD 无状态分叉,不动任何东西')
     return 0
   }
