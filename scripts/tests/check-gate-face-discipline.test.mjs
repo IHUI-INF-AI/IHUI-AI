@@ -25,6 +25,7 @@ const {
   prejoinedRepoConsts,
   readsPrejoinedConst,
   scanLiterals,
+  scanSpans,
   maskComments,
   blankStrings,
   analyze,
@@ -235,21 +236,48 @@ test('T14 票面原样形态 ⇒ loose-fs(这一型的终态)', () => {
   assert.equal(classify('scripts/check-x.mjs', src).kind, 'loose-fs')
 })
 
-test('T15 朴素遮噪被吞时新判据仍命中(证明牙齿在新判据上,不是旧合取)', () => {
+test('T15 正则字面量之后的预拼常量仍被抓到(遮噪只剩一台机器后的终态)', () => {
   const src =
     PJ_HEAD +
     BLIND +
     "const TOOL_FILE = join(ROOT, 'packages', 'shared', 'src', 'chat', 'tool-display.ts')\n" +
     PJ_TAIL
   assert.equal(classify('scripts/check-x.mjs', src).kind, 'loose-fs')
-  // 反向对照(这条才让 T15 不是复读机):同一份文本走**旧**那遍遮噪,`readFileSync(` 一个不剩,
-  // 于是旧判据的整文件合取第二半为空 ⇒ 旧口径只能给 no-content。新判据不是靠旧合取捡漏。
-  const naive = blankStrings(maskComments(src))
+  // ⚠️ 本条原来的反向对照写的是"朴素遮噪机把 readFileSync 吞了 ⇒ 证明红是新判据给的"。
+  // 那句话**就是本票要修的缺陷本身**(2026-09-26):遮噪收成一台认正则的机器之后,这一格不再被吞。
+  // 保留"吞了"当断言 = 把 bug 写成规格(§22c 的复读机形态)。现在反向锁**换了对象**:
+  // 锁的是"不得再退回那台盲掉的机器" —— 谁重新分叉出第二台朴素遮噪机,这一条立刻红。
+  const shared = blankStrings(maskComments(src))
   assert.ok(/readFileSync\s*\(/.test(src), '原文里确有调用')
-  assert.ok(!/readFileSync\s*\(/.test(naive), '朴素遮噪机把它吞了 —— 这正是原判据失明处')
+  assert.ok(
+    /readFileSync\s*\(/.test(shared),
+    '共享遮噪机必须仍然看得见该调用 —— 它认正则字面量;看不见即说明有人把 blankStrings 分叉回朴素那台',
+  )
+  // 而且遮噪**没有因此失效**:正则**体内**写的东西必须仍然不可见 —— 否则上面那条绿只是
+  // "遮噪被整体关掉"的假象。两条一起读才成立:体内不可见 + 体外的同一个标识符仍然可见。
+  assert.ok(
+    !/SENTINEL/.test(blankStrings(maskComments('const qre = /SENTINEL["\']/g\n'))),
+    '正则字面量的体必须被清空(遮噪仍在起作用)',
+  )
+  assert.ok(
+    /SENTINEL/.test(blankStrings(maskComments('const qre = 1\nconst SENTINEL = 2\n'))),
+    '阳性对照:正则之外的那个标识符必须仍看得见(否则上一条绿是"整片都被清掉")',
+  )
+  // 新判据自身的牙齿(与合取无关,单元层证明)
+  const code = maskComments(src)
+  const names = prejoinedRepoConsts(code)
+  assert.deepEqual([...names], ['TOOL_FILE'], '预拼常量必须被登记')
+  assert.ok(
+    readsPrejoinedConst(scanLiterals(code).blanked, names).length > 0,
+    '读取实参必须能配回该常量',
+  )
 })
 
-test('T16 白名单边界:运行台账 / 只在部署机的忽略副本 / tee 产物 / 逃出仓库根,都不得判红', () => {
+test('T16 白名单边界:运行台账 / 只在部署机的忽略副本 / tee 产物 / 逃出仓库根 —— 预拼规则一律不 qualify', () => {
+  // 期望的形状变了,理由要说清:**classify 的终档现在由那条整文件合取给出**(它本来就不看白名单、
+  // 不做就近配对),遮噪修复只是停止替它遮羞,不是新引入的假阳 —— 用修复前的分类器跑不带 BLIND
+  // 的同一份夹具,结论同样是 loose-fs。所以"白名单挡住了红"这句话从来不曾是真的;
+  // 本条现在锁的是**预拼规则自己**的边界(那才是白名单该守的地方)。
   const neg = [
     "const LEDGER = join(ROOT, '.workbuddy', 'push-state.json')\nreadFileSync(LEDGER, 'utf8')\n",
     "const RUNNING = join(ROOT, 'deploy', 'prod-bundle', 'monitor.ps1')\nreadFileSync(RUNNING, 'utf8')\n",
@@ -260,9 +288,25 @@ test('T16 白名单边界:运行台账 / 只在部署机的忽略副本 / tee �
     "const SCRATCH_DIR = mkScratch('t')\nreadFileSync(SCRATCH_DIR, 'utf8')\n",
   ]
   for (const body of neg) {
-    const k = classify('scripts/check-neg.mjs', PJ_HEAD + BLIND + body).kind
-    assert.notEqual(k, 'loose-fs', `假阳型被判红:${body.slice(0, 46)}`)
+    const code = maskComments(PJ_HEAD + BLIND + body)
+    const names = prejoinedRepoConsts(code)
+    assert.equal(
+      readsPrejoinedConst(scanLiterals(code).blanked, names).length,
+      0,
+      `预拼规则不该在这些形态上命中:${body.slice(0, 46)}`,
+    )
   }
+  // 阳性对照(名单不是死表):白名单内的那一格必须真能命中,否则上面那一排 0 只是判据没跑
+  const good = maskComments(
+    PJ_HEAD +
+      BLIND +
+      "const PLAN_FILE = join(ROOT, 'PROJECT_PLAN.md')\nreadFileSync(PLAN_FILE, 'utf8')\n",
+  )
+  const goodNames = prejoinedRepoConsts(good)
+  assert.ok(
+    readsPrejoinedConst(scanLiterals(good).blanked, goodNames).length > 0,
+    '白名单内的形态必须命中 —— 否则 T16 的六个 0 是空转',
+  )
 })
 
 test('T17 判序锁:层 > 半接线 > 新判据(新判据不得插队)', () => {
@@ -302,45 +346,100 @@ test('T18 名单正向证明:白名单每个首段都真能命中(名单不是�
   }
 })
 
-test('T19 真仓 HEAD 面:新判据抓到的门逐名在册(收紧的覆盖面必须是量出来的)', () => {
-  // 名单取"结论行带预拼常量标记"的那一批 —— 这就是本规则在真仓上的**全部**增量。
-  // 有人迁移了其中一道 ⇒ 名单该缩;新冒出一道 ⇒ 必须先读明它真判磁盘再登记。
-  // (不在这里重抄判据,§22c:名单只用于核覆盖面,不参与任何判定。)
+test('T19 真仓 HEAD 面:预拼常量的覆盖面逐名在册(收紧的覆盖面必须是量出来的)', () => {
+  // 名单取"该文件的预拼常量确实被读取实参命中"的那一批 —— 这是本规则在真仓上的全部增量。
+  // ⚠️ 2026-09-26 遮噪修复之后,这批门的 `why` 不再是"预拼常量"而是**整文件合取** ——
+  // 因为合取本来就不做就近配对,遮噪不再吞掉 token 之后它先接住了同一格。所以本条**不再按 why
+  // 标签取名单**(那会把一条规则的覆盖面记成另一条的),改为逐名到盘上验明正身:
+  // 该文件确实有一处读取调用,把**以 ROOT 为基参数**的常量当实参。
   const expected = [
     'scripts/check-adapter-wiring.mjs',
     'scripts/check-db-schema-drift.mjs',
     'scripts/check-next-env-dist.mjs',
   ].sort()
   const verdicts = analyze(ROOT, 'head').verdicts
-  const got = verdicts
-    .filter((v) => v.why.includes('预拼仓库常量'))
-    .map((v) => v.file)
-    .sort()
-  assert.deepEqual(got, expected, `本规则新抓到的门与登记名单不符:${got.join(',') || '(无)'}`)
   for (const f of expected) {
     const v = verdicts.find((x) => x.file === f)
-    assert.equal(v.kind, 'loose-fs')
-    // 逐名验明正身:该文件确实有一处读取调用把**以 ROOT 为基参数**的常量当实参
+    assert.equal(v.kind, 'loose-fs', `${f} 不在判红集里了 —— 名单该缩,或判据漂了`)
     const code = maskComments(g(['show', `HEAD:${f}`]))
     const names = prejoinedRepoConsts(code)
-    assert.ok(names.size > 0, `${f} 拿不出预拼常量 ⇒ 判红了个空`)
+    assert.ok(names.size > 0, `${f} 拿不出预拼常量 ⇒ 名单该删这一行`)
     assert.ok(
       readsPrejoinedConst(scanLiterals(code).blanked, names).length > 0,
       `${f} 的读取现场找不到该常量`,
     )
   }
+  // 反向锁:名单不得静默变成空表(全仓一条预拼常量都找不到 = 判据漂了而账面还在"通过")
+  const anyQualifying = expected.filter(
+    (f) => prejoinedRepoConsts(maskComments(g(['show', `HEAD:${f}`]))).size > 0,
+  ).length
+  assert.ok(anyQualifying > 0, '真仓 HEAD 面上预拼常量判据一条都不命中 ⇒ 判据可能已失效')
 })
 
-test('T20 第二遍遮噪必须认正则(否则它对立项那一型全盲)', () => {
+test('T20 遮噪机必须认正则字面量(否则它对立项那一型全盲)', () => {
   const code =
     "const re = /[\"']/g\nconst TOOL_FILE = join(ROOT, 'apps', 'x.ts')\nreadFileSync(TOOL_FILE, 'utf8')\n"
   const { mask, blanked } = scanLiterals(code)
   assert.match(blanked, /readFileSync\(/, '正则里的引号不得把后半份文件吞掉')
   assert.equal(mask[code.indexOf('readFileSync')], 0, '调用本身不得被当成字面量体')
-  // 反向对照:朴素那遍确实吞了 —— T15 的 BLIND 夹具因此不是摆设,而是真复现了失明现场
+  // ⚠️ 这里原来是一条"朴素那遍确实吞了"的反向对照 —— 它钉的是**缺陷行为**(24 道门被判
+  // no-content 的原因),不是判据该有的性质。缺陷修好之后它还要求红,等于要求代码是坏的。
+  // 反向对照换了方向:现在锁的是"**只有一台机器**" —— blankStrings 必须是 scanLiterals 的投影,
+  // 两条实现一条规则是本仓记的最多的漂移成因(§22c / 守门 103 的"取源只能有一份实现")。
+  assert.equal(
+    blankStrings(code),
+    scanLiterals(code).blanked,
+    'blankStrings 必须是同一台分词器的投影(分叉成第二台 ⇒ 一半判定重新变盲)',
+  )
+  assert.match(
+    readFileSync(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs'), 'utf8'),
+    /export function blankStrings\(text\) \{\n\s*return scanLiterals\(text\)\.blanked\n\}/,
+    'blankStrings 的函数体必须是那一行投影(不得再自带一遍状态机)',
+  )
+  // 正则体内的假调用仍必须不可见 —— 否则上面那条绿只是"遮噪被整体关掉"的假象
   assert.ok(
-    !/readFileSync\s*\(/.test(blankStrings(code)),
-    '朴素遮噪机吞掉了 readFileSync —— 原判据失明的原因',
+    !/readFileSync\s*\(/.test(scanLiterals('const re = /readFileSync\\(join\\(ROOT/g\n').blanked),
+    '正则体内的 readFileSync 必须仍被清空',
+  )
+})
+
+test('T23 立项那一型的最小复现:唯一读取藏在正则行之后 ⇒ loose-fs(修前 = no-content)', () => {
+  // 阳性对子(票面要求):这一格在遮噪修复前判 no-content,修复后必须判 loose-fs。
+  const hidden =
+    "import { readFileSync } from 'node:fs'\nconst re = /[\"']/g\nreadFileSync(join(ROOT, 'apps/web/src/x.ts'), 'utf8')\n"
+  assert.equal(classify('scripts/check-t23.mjs', hidden).kind, 'loose-fs')
+  // 阴性对子(票面要求):**真除法不得开正则状态**。`width / height` 之后同一行还有字符串,
+  // 若那个 `/` 被当正则起始,扫描器会一路清到行尾 ⇒ 'apps/web' 从 strings 里消失
+  // ⇒ 首段白名单再也看不见它(判据静默变宽,而不是报错)。
+  const div =
+    "const ratio = width / height\nconst note = 'apps/web'\nreadFileSync(join(ROOT, note), 'utf8')\n"
+  const { strings, blanked } = scanLiterals(div)
+  assert.ok(
+    strings.some((s) => s.closed && s.body === 'apps/web'),
+    '除法之后的字符串必须仍在册 —— 那个 / 被误认成正则起始就是判据变宽',
+  )
+  assert.match(blanked, /readFileSync\(/)
+  // 除法链一个正则 span 都不许产出(连续两个 / 也不许)
+  assert.equal(
+    scanSpans('const q = a / b / c\nconst r = d / e\n').filter((s) => s.kind === 'regex').length,
+    0,
+    '真除法被当成正则 ⇒ 遮噪面被扩大,判据会开始看不见真 token',
+  )
+})
+
+test('T24 遮噪只剩一台机器:maskComments 必须走同一个 scanSpans', () => {
+  const src = readFileSync(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs'), 'utf8')
+  assert.match(
+    src,
+    /export function maskComments\(src\) \{[\s\S]{0,400}?for \(const s of scanSpans\(src\)\)/,
+    'maskComments 不得再自带一遍引号状态机(它服务的判据是"字符串要保留",但**注释区间**必须由同一台分词器给出)',
+  )
+  // 反向锁:全文件只允许**一处** `readStringSpan` 开栏实现,且不得再出现"逐字符找配对引号"的旧循环
+  const scannerDefs = (src.match(/function readStringSpan\(/g) || []).length
+  assert.equal(scannerDefs, 1, '字符串扫描只能有一份实现')
+  assert.ok(
+    !/while \(i < text\.length\) \{\n\s*if \(text\[i\] === '\\\\\\\\'\) \{/.test(src),
+    '不得再留着第二台朴素字符串状态机(那台就是 24 道门被判 no-content 的原因)',
   )
 })
 
@@ -370,11 +469,25 @@ test('T22 白名单两处"已知漏报"的前提必须仍然成立(前提一变�
     'loose-fs',
     '点文件排除的前提(已被旧判据抓到)不再成立',
   )
-  // ② 两跳(常量→遍历器→局部变量)不追数据流:HEAD 面实测 2 道门属于这一型,至今仍是 no-content。
-  //    它们被迁移或判据升级时该更新这里,但**不得**为了让这条绿就把判据放宽到"任何含 ROOT 的 const"。
+  // ② 两跳(常量→遍历器→局部变量)**预拼规则**不追数据流。HEAD 面这两道门(check-tagsview-visual /
+  //    check-i18n-namespace-passing)原先整道门被判 no-content,那格**是遮噪机的失明给的,不是这条规则**;
+  //    遮噪修好后它们由整文件合取落到 loose-fs,所以这里断言的是"预拼规则仍然不追两跳" + 终档已是红。
+  //    **不得**为了让这条绿就把判据放宽到"任何含 ROOT 的 const"(§12 记过:那等于没有白名单)。
   const twoHop = ['scripts/check-tagsview-visual.mjs', 'scripts/check-i18n-namespace-passing.mjs']
-  for (const f of twoHop)
-    assert.equal(kindOf(f), 'no-content', `${f} 的两跳漏报形态变了,请重估本条与本规则`)
+  for (const f of twoHop) {
+    assert.equal(
+      kindOf(f),
+      'loose-fs',
+      `${f} 的档位变了:两跳形态被重新估过,请同步本条与自检 P21 的期望`,
+    )
+    const code = maskComments(g(['show', `HEAD:${f}`]))
+    const names = prejoinedRepoConsts(code)
+    assert.ok(names.size > 0, `${f} 现在连一个仓库常量都拿不出 ⇒ 本条前提需重估`)
+    assert.equal(
+      readsPrejoinedConst(scanLiterals(code).blanked, names).length,
+      0,
+      `${f} 的读取实参真能找到该常量 ⇒ 两跳已不再是漏报,本条与自检 P21 都要改`,
+    )
+  }
 })
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
