@@ -12,6 +12,7 @@ import {
 } from '@ihui/context-compaction'
 import { authenticate } from '../plugins/auth.js'
 import { db } from '../db/index.js'
+import { dedupeIds, batchWriteOutcome } from '../utils/batch-outcome.js'
 // 批量操作的"哪些 id 根本没被写"对账需要直接按 (userId, ids) 查一次归属(见 POST /conversations/batch)
 import { chatConversations } from '@ihui/database'
 import {
@@ -607,13 +608,12 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       // 兼容性:响应只**新增** missedIds 字段,既有 action/affected 语义与字段名逐字不变。
       // 已知粒度限制(如实登记):unfavorite 的 affected 计的是真删掉的收藏行数,
       // "属于本人但本就没收藏"的 id 不进 missedIds —— 那已是要达到的状态,不是未命中。
-      const uniqueIds = [...new Set(ids)]
+      const uniqueIds = dedupeIds(ids)
       const ownedRows = await db
         .select({ id: chatConversations.id })
         .from(chatConversations)
         .where(and(eq(chatConversations.userId, userId), inArray(chatConversations.id, uniqueIds)))
-      const ownedIds = new Set(ownedRows.map((r) => r.id))
-      const missedIds = uniqueIds.filter((id) => !ownedIds.has(id))
+      const { missedIds } = batchWriteOutcome(uniqueIds, ownedRows.map((r) => r.id))
 
       let affected = 0
       switch (action) {
