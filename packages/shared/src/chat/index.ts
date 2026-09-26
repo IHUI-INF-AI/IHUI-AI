@@ -100,3 +100,8 @@ export * from './model-load'
 // D76 产物归属 turn 派生层(分型判据 + originating turn 序列 + 轮次序号 + 产物锚点→轮下标;
 // 纯函数零平台依赖,web 渲染层 artifact-turn-badge 原样 re-export,残余票 2026-09-25 自端内提取)
 export * from './artifact-turn'
+// D20 会话组织纯逻辑层(chat/conversation-org.ts)刻意不从本 barrel 导出:根 barrel 已由
+// utils/conversation-org(单一正主)导出同名符号,此处再导出会触发 TS2308 二义,使
+// @ihui/shared 整体 typecheck 红。文件本体保留 —— conversation-pin.ts 深路径依赖其
+// sortPinnedFirst;消费方一律走 @ihui/shared/chat/conversation-pin(RN 即此用法),
+// org 组织函数的跨端出口统一为 utils 版,严禁两份同名符号同时漏到根 barrel。
