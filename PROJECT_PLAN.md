@@ -11095,34 +11095,6 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   ⑤ `pnpm --filter @ihui/shared typecheck` 当前红在 `src/chat/__tests__/prompt-history.test.ts` 引两个不存在的导出,
   而 `src/chat/prompt-history.ts` 正被并发会话持有(工作树脏)—— 属他人在飞改动,本票未碰。
 
-- 〔O81 票⑤ 2026-09-26:图标载体是"两端还是不一样"的真凶,已立判据 + 收两组,余两组在做〕
-  **用户反馈定位**:台账能降到 4 键 29 档而观感仍不同,因为门只量**数字档**;真正没被任何尺子看着的是
-  **图标载体**。新 IC 判据上线即量到 **24 处 CDN 位图当 UI 图标**(InputArea 9 / BottomActionBar 5 /
-  ModelConfigDialog 7 / ModelList 3)—— 小程序端走 `aizhsUrl('remote-images/*.png')`,RN 端走 lucide 矢量。
-  位图不随主题反色、不跟字号缩放、描边粗细与 lucide 不一致,且违反 AGENTS §4「UI 图标一律用矢量图标库」。
-  **择优结论按既有规则定:矢量优先**,字形名一律照 RN 端同槽位的 lucide 名取(同名才可能是同一份路径数据)。
-  **已落**(`2898c6237c` + `95b805bacb` + `3fe58986bf` + `058fe9de2c`):
-  ① `icons.ts` 的生成器补回(头注指向的 `gen-line-icons.mjs` **从来不存在**,而 AGENTS §4 让人用的
-  `gen-taro-lucide-icons.mjs` 把版本写死成未安装的 lucide-react@1.31.0,实测 `plus` 直接抛错 —— 文档给的出路是死的);
-  源钉到 **RN 端 lucide-react-native 的实际版本**(现 1.37.0),目录动态解析不写哈希;三态报告 generated/别名/custom,
-  `heart-fill` 这类填充变体刻意**不**按路径认别名(否则生成器会把填充版悄悄重生成描边版)。
-  ② 门 128 新增 **IC 判据**,与几何判据分开跑(几何同值的族最容易被跳过,而它恰恰可能图标不同形);
-  红条件 = 位图槽数 > 该组件自己在 HEAD 的存量(棘轮),单侧矢量化只报数不判红(RN 用平台 `<Switch>`、
-  小程序走 `chooseMessageFile` 无录音界面这类是真实单侧控件)。豁免 `icon-bitmap-exempt: <原因>` 已进守门 108(365 天)。
-  ③ InputArea + BottomActionBar 的 14 枚位图常量退役、保留 0 枚,尺寸从 spec 取、颜色走 token,
-  `IconButtonItem.icon` 类型由 string 收窄到 `IconName` ⇒ 字形是否存在登记表成编译期保证。
-  **三条必须后续处理的(都不是"已收口")**:
-  A. **两端元素集合本身不一致** —— `selected_model` 那行"已默认自动切换"提示 RN 整条不存在,
-  代理按矢量优先取了同族 `check` 并标注待追认。**换个图标名盖不住这个差异**:要么 RN 补这行、要么小程序撤,属产品裁量,
-  本票不替它选(同样形态的还有 BottomActionBar 的 chevron-down/paperclip/scissors/settings 与 InputArea 的 film/play,
-  IC 现按"单侧控件"只报数)。
-  B. **IC 认不出"变量/模板拼接传名"** —— 已补属性字面量、配置数组 `icon:`、三元 `name={}` 三种写法
-  (㉛ 成对用例先抓到"漏认"、又抓到"把比较操作数 `'voice'` 当字形名"两次自误),但 `name={item.icon}` 这类
-  跨变量解析仍取不到 ⇒ 不计。失效方向刻意是**少报不误报**,判红维不吃它。
-  C. **观感未经设备取证** —— 以上全部是代码级与判据级对账。小程序端 weapp 与 h5 的 CSS 产出形态不同
-  (本仓实测 h5 有命名档 utility、weapp 全无),所以 h5 截图不能当 weapp 的代理;RN 侧真机是 release 包不吃 Metro。
-  **设备像素复核是这一票的收尾条件**,未做之前不得把"两端已一致"当结论。
-
 ## O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）
 - 〔O81 续记 2026-09-26:判据换代 + 票④ 首族,台账两次同笔下调;并登记一次"登记行被并发提交连工作树一起抹掉"的现场〕
   **① 门 128 加"渲染腿前置"**(`7e10922a7f` + 本枚):同名配对必须有从端入口可达的腿才算一对
@@ -11364,6 +11336,54 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 
 - [x] ✅(2026-09-26) **把自己登记里的证据指针从"一次性探针"改成常驻判据(上一行 R6 条目里那句 `.ihui-agent/tmp` 作废)**:`node --test scripts/tests/check-lock-manifest-consistency.test.mjs` 的 **T26** 才是"真仓 HEAD 面 0 条跨段"这条前置的长期载体(它跑 `gate.runCheck(repoRoot,'head')` 并断言 `section-drift` 集合为空),任何检出都能重跑;而探针脚本只活在我这台机的工作树里。**这是 §1「可审计锚点必须受版本控制」那条规矩在我自己身上的第二次命中** —— 第一次是门 107 的 P5(specFile 指到 gitignored 路径 ⇒ 作者机常绿、别的检出每次提交被逼绕钩子)。登记行留在原地不删(前向更正不抹旧行)。**新入库的 `scripts/plan-line-audit.mjs` 已按四道元门自检**:`check-no-visible-spawn` / `check-git-read-timeout` / `check-gate-face-discipline` / `check-gate-wiring` 各 exit 0 且均未点名该文件(它不硬编码盘符、git 走层的绝对路径、派生带 `windowsHide` 与 timeout、不声称任何接线)。
+
+### 第五十一波·续二末 —— 第二十四批:把"那几处同型残留"当成**形状**而不是清单(2026-09-26 夜,主会话独立复跑)
+
+- **本批起点是被点名的一句"把那几处同型残留也顺手改掉"**。我点名的清单原本只有 4 项(`admin-sys/role-routes.ts`×2、`admin-demand-square.ts`、`relay-health-check-service.ts`×3 + 可选丢帧计数器)。做法上先做了一轮**有界同族普查**再派单,结果是同一形状在本仓长成三族、共 **8 票**:
+  - **族一 批量写把请求侧 `.length` 当 `affected`/`deleted`/`restored`**(改了 0 行与改成功同形):`chat.ts` batch(上一票已修)、`admin-sys/role-routes.ts` cancelAll+selectAll、`admin-demand-square.ts`、**`admin/_shared.ts` 的 `registerCrud` 批量删(19 处 admin 路由复用同一个工厂)**、`message.ts` 批量删、`workspace.ts` batch-delete/batch-restore(其 db 层 `batchSoftDelete`/`batchRestore` 原本返回 `void`,**结构上无法回报命中集**)。唯一出口 = `apps/api/src/utils/batch-outcome.ts`(`dedupeIds` + `batchWriteOutcome`),db 层一律 `.returning({id})`,响应新增 `missedIds`(既有键名与 status code 逐字不变)。
+  - **族二 裸墙钟差值当耗时**(上一票迁了 16 处/8 文件,漏了两族):`relay-health-check-service.ts:135/152/161`(喂 admin 展示面)+ **v1 中转站 23 处**(`v1-messages` 5、`v1-public` 7、`v1-responses` 5、`v1-mcp-gateway` 2、`v1-assistants` 1 + 3 处 `ttftMs`)—— 后者写的正是 **`llm_call_logs.latency_ms`**(`packages/database/src/schema/llm-call-logs.ts:53` 非空整列),而该列被 `relay-stats.ts:64-65` 的 `percentile_cont(0.95)`、`developer-relay-usage-analytics.ts:136-138` 的 p50/p95、`relay-logs.ts:134` 与 `admin/export-csv.ts:368` 的过滤直接聚合 ⇒ **一条 NTP 步进/休眠样本就能把付费用户看板上某模型的 p95 整体带偏,且账面什么都看不出来**。另 `db-keepalive.ts:55/68` 两处裸差值喂 `recordSqlQuery` 的 SQL 耗时直方图。
+  - **族三 观测面混计两件事**:`ws_disconnects_total` 同时收"客户端正常关连接"和"我们丢了一帧并摘掉陈旧连接",后者正是该告警的那件事,却只能靠总和猜 ⇒ 新增 `ws_broadcast_dropped_frames_total`(初始化块 / `/metrics` 三行 / `declare module 'fastify'` 类型**三处成套**,`noteDropped` 内与断开计数成对递增)。
+- **提交(每条都由主会话当轮实跑取证后落,不采信代理自陈)**:`495618883bf` 六票 + `4464758cb0a` 用户面回归件的类型面收口 + `9e94d7175bc` 补漏带的 `registerCrud` 回归件 + `afa93d9b604` v1 落库 23 处 + `49a1e3d38f0` 注册表接线 + `680b880a792` AGENTS 点名 + `2bc3343aa0c` 新门实现件与豁免到期档 + `8905a467d9a` 修我自己写坏的注册块。推收用 `git-sync-converge`,回读 `merge-base --is-ancestor <sha> FETCH_HEAD` 逐枚 YES。
+- **新守门**:`scripts/check-batch-write-count-honesty.mjs`(guardian id **134**,`blocking`,`stagedTriggers=apps/api/src/routes/` + `apps/api/src/db/`,紧急跳过 `HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY=1`)。四条放过通道各带正反用例(同链 `.returning(` / 计数根 ≤2 跳可追到归属预查询 / import 唯一出口 / 行内 `batch-count-exempt: <原因>`,该族已挂进守门 108 的 **30 天**档 —— 待偿迁移债,不给到期日等于让"先记着"永远留在提交树里)。**HEAD 面现读**:候选 4 / 违规 0 / 未判定 0 / 豁免 4(库确认·链 3 + 库确认·预查询 1)/ 文件 573/573 ⇒ 上线即零存量,不新增恒红面。取证 `--self-test` 35 条(连跑两次读数一字未变)+ 镜像 10 例;**阳性对照用修复前的 HEAD blob** 喂同一判据,点名 `_shared.ts:342` 与 `message.ts:348`。
+- **主会话当轮实跑的尺**(代理报告只算线索):`pnpm --filter @ihui/api typecheck` **exit 0**(两次,重跑取证);vitest 逐票复跑 = A 20 例 / B+C 26 例 / D 12 例(含 `_server-smoke` 真注册该插件)/ F 192 例(4 套件)/ H 11+72 例 / E 66 例;周边门复核 = 守门 89 exit 0(已接线 **180**、文档未点名 0)、守门 118 exit 0(新门走 `face-reader` 而非自派生 git 读内容)、守门 108 `--self-test` 52/52 + 镜像 fail 0、`check-watermark-coverage --no-fix` exit 0、`check-no-conflict-markers --rev HEAD` exit 0。
+- **三处代理结论被我改正/否证**(记这一类,因为它们的形态永远是"安静"):
+  ① **B 的展示面取向被我推翻**:`?? 0` 只属于**写库面**(列非空 ⇒ 0 + `metadata.latencyTrusted`);**响应面**必须原样透出 `null`,否则 `0` 会被读成"该 key 0ms"。判据源是仓内既有的 `relay-channels.ts:797-803`(响应透 null)与 `:771-788`(写库落 0),我上一票给 B 的任务书把这两型混成一句话 ⇒ 落地成 `?? 0`,已连同该票的静态锁一起改成"响应面出现 `?? 0` 即红"。
+  ② **C 抓到我自己上一票的 harness 缺陷**:`silent-distortion` 的 fake metrics 只有 `wsDisconnectsTotal`,新字段在那儿会被 `+= 1` 写成 `NaN`(无人读,不影响断言)—— 已就地补键。
+  ③ **两条否证,免得下一个人去回补不存在的洞**:`other/business-card-routes.ts` 与 `admin-extended/user-routes.ts` 的批量端点**已经**是"先查 owned 再删 + 逐条点名 `failed`"的正确写法;`logininfor-routes.ts:50`/`oss-files.ts:86`/`edu-ai-management.ts:4213`/`search.ts:458` 的计数本就出自库确认集合。普查命中 8 处、其中 4 处经复核属已诚实。
+- **本轮我自己造出来的两个坑(形状值得抄给后人)**:① 接线工具用 `JSON.stringify` 生成注册块 ⇒ `id: "134"` 双引号形态对一切按 `id: '(\d+)'` 解析注册表的判据(含守门 89 的撞号 R5)**隐身**,而且抬头注释被 `slice(0,24)` 截成半句 ⇒ 整块按仓内单引号风格重写 + 落地后回读 id 行形态;② 零损失判据一开始写成"重复行计数",被 runner 里天然存在的 `  },` / 空串行顶出"凭空多出 1322 条"而一次也落不下去 —— 正解是**结构等值**(`next == 前缀 ⊕ 本块 ⊕ 后缀`),零丢失由构造保证而非事后统计。
+- **未闭环的格子(不写作收口,逐格给归属与解阻判据)**:
+  - `admin-demand-square.ts` 的 UPDATE 仍缺 `eq(status,'pending')` 条件写 ⇒ 读与写之间被并发改掉状态的行会被**覆盖写回**(本轮只做到"没命中的不再谎报",没改写入语义)。归属:该路由持有者(本会话可接)。解阻判据:条件写 + 一条"并发已审核者不被二次覆盖"用例。
+  - 布尔 `deleted: true` 这一型**未动**(HEAD 面实测 257 处、`admin-missing-routes.test.ts` 10+ 条把它当契约钉)。改它 = 全 API 语义决策(删不存在的行到底回 404 还是 `deleted:false`),**归用户拍板**,守门 134 也刻意不判它。
+  - `relay-channels.ts:771-788` 那份内联 `?? 0 + latencyTrusted` **未提取**到新 `utils/latency-persistence.ts` ⇒ 同一约定现存两副本。归属:本会话下一票(改点在禁改面内,当时为避免与并行会话对撞而按住)。
+  - `scripts/guardian-runner.mjs` 与 `AGENTS.md` 的**共享索引里挂着别人暂存的旧版**(非父提交态),我的对齐器按判据"归属他人"**不动并点名**;而这两个文件的工作树副本实测分别比 HEAD 少 91 / 22 行 —— 出口是 `node scripts/heal-worktree-tracked.mjs --align-drift`(判据成立才动),不代裁。
+  - 一次性对象空间落地器现存 **6 份、全部在 `.ihui-agent/tmp/` 不受版本控制**(且已经互相漂移:索引可动性判据两种写法、零损失判据三种写法)。正由票 I 收成 `scripts/` 常驻工具 + 镜像测试(含"双引号 id 也必须被取号逻辑看见"这条本轮自伤的反向锁)。在它落地前,本批的落地路径**不可复现** —— 这一条按未闭环记账,不算已完成。
+- 〔O81 票⑤ 2026-09-26:图标载体是"两端还是不一样"的真凶,已立判据 + 收两组,余两组在做〕
+  **用户反馈定位**:台账能降到 4 键 29 档而观感仍不同,因为门只量**数字档**;真正没被任何尺子看着的是
+  **图标载体**。新 IC 判据上线即量到 **24 处 CDN 位图当 UI 图标**(InputArea 9 / BottomActionBar 5 /
+  ModelConfigDialog 7 / ModelList 3)—— 小程序端走 `aizhsUrl('remote-images/*.png')`,RN 端走 lucide 矢量。
+  位图不随主题反色、不跟字号缩放、描边粗细与 lucide 不一致,且违反 AGENTS §4「UI 图标一律用矢量图标库」。
+  **择优结论按既有规则定:矢量优先**,字形名一律照 RN 端同槽位的 lucide 名取(同名才可能是同一份路径数据)。
+  **已落**(`2898c6237c` + `95b805bacb` + `3fe58986bf` + `058fe9de2c`):
+  ① `icons.ts` 的生成器补回(头注指向的 `gen-line-icons.mjs` **从来不存在**,而 AGENTS §4 让人用的
+  `gen-taro-lucide-icons.mjs` 把版本写死成未安装的 lucide-react@1.31.0,实测 `plus` 直接抛错 —— 文档给的出路是死的);
+  源钉到 **RN 端 lucide-react-native 的实际版本**(现 1.37.0),目录动态解析不写哈希;三态报告 generated/别名/custom,
+  `heart-fill` 这类填充变体刻意**不**按路径认别名(否则生成器会把填充版悄悄重生成描边版)。
+  ② 门 128 新增 **IC 判据**,与几何判据分开跑(几何同值的族最容易被跳过,而它恰恰可能图标不同形);
+  红条件 = 位图槽数 > 该组件自己在 HEAD 的存量(棘轮),单侧矢量化只报数不判红(RN 用平台 `<Switch>`、
+  小程序走 `chooseMessageFile` 无录音界面这类是真实单侧控件)。豁免 `icon-bitmap-exempt: <原因>` 已进守门 108(365 天)。
+  ③ InputArea + BottomActionBar 的 14 枚位图常量退役、保留 0 枚,尺寸从 spec 取、颜色走 token,
+  `IconButtonItem.icon` 类型由 string 收窄到 `IconName` ⇒ 字形是否存在登记表成编译期保证。
+  **三条必须后续处理的(都不是"已收口")**:
+  A. **两端元素集合本身不一致** —— `selected_model` 那行"已默认自动切换"提示 RN 整条不存在,
+  代理按矢量优先取了同族 `check` 并标注待追认。**换个图标名盖不住这个差异**:要么 RN 补这行、要么小程序撤,属产品裁量,
+  本票不替它选(同样形态的还有 BottomActionBar 的 chevron-down/paperclip/scissors/settings 与 InputArea 的 film/play,
+  IC 现按"单侧控件"只报数)。
+  B. **IC 认不出"变量/模板拼接传名"** —— 已补属性字面量、配置数组 `icon:`、三元 `name={}` 三种写法
+  (㉛ 成对用例先抓到"漏认"、又抓到"把比较操作数 `'voice'` 当字形名"两次自误),但 `name={item.icon}` 这类
+  跨变量解析仍取不到 ⇒ 不计。失效方向刻意是**少报不误报**,判红维不吃它。
+  C. **观感未经设备取证** —— 以上全部是代码级与判据级对账。小程序端 weapp 与 h5 的 CSS 产出形态不同
+  (本仓实测 h5 有命名档 utility、weapp 全无),所以 h5 截图不能当 weapp 的代理;RN 侧真机是 release 包不吃 Metro。
+  **设备像素复核是这一票的收尾条件**,未做之前不得把"两端已一致"当结论。
 - [x] ✅(2026-09-26) **门 101 补上第 6 维 R6"分区同形"—— 把今晚 CI 那一片红的形状变成判据,且当场零容忍**:`check-lock-manifest-consistency.mjs` 原有 R1(缺条目)与 mismatch(值不等)都**只看名字与值**,所以"`@ihui/types` 声明在 `devDependencies` 而 lock 记在 `dependencies`"这一型两侧都不红 —— 而那正是今晚让 `pnpm install --frozen-lockfile` 整段跳过链接、CI 全线红的形状(名字对、值对,**依赖类型**不一致:安装面按 lock 走、打包闭包按 manifest 走)。新判据:非 peer 的声明必须在 lock 的**同名段**里有条目,否则 `kind='section-drift'` 并点名两侧段名;唯一豁免仍是 R5 的 peer(pnpm 把 peer 记进 dev 段是文档化行为,`react >=18 → 19.2.8` 那 3 枚)。**为什么不需要棘轮**:先用探针量存量 —— `HEAD` 面 27 包 / 26 importer / 515 条声明,**跨段 0 条**(`.ihui-agent/tmp` 的一次性探针,读数即上面这组),存量既为零就直接零容忍;带基线的分区判据等于把这型债留给下一个撞见它的人。取证:`--self-test` **37/37**(新增阳性"跨段必红并点名两侧段"、反向"摆回同段即绿"、以及"peer 豁免不得被 R6 吃回来"三条)+ 镜像 **26/26**(T25 端到端三条 + 源码形状锁必须真有 `kind: 'section-drift'` 与 `[分区漂移]` 报告分支,T26 把"真仓 HEAD 面 0 跨段"钉成**落地前置**:谁把分区债带进仓,这条当场红)。**变异自证**:把触发条件短路成 `if (false)` ⇒ T25 翻红、exit 1,还原后源文件**逐字节一致**(`md5 5a83ccfccd05eb1a57f18f6cc9612615`)—— 这一步是必需的:T25 绿只证明"当下不红",不证明"判据失效时它会红"。**顺带修掉一枚会炸到别人身上的地雷**:本门的镜像测试有一组**源码形状锁**(T20:取材必须走 `face-reader` 的 `readFace/catBatch`,面外不得有 `readFileSync`),它们原本是**按原文逐字 match** 的 —— 而我跑 `prettier` 之后 `catBatch(root, need.map(...))` 被折成多行,T20 当场翻红,红的与任何人的改动都无关。这一型最坏的地方是它由 lint-staged 触发:**下一个碰这文件的提交者会替我挨这条红**,而那条红的唯一出路是绕钩子(§12e 同型)。现改成比**空白归一化后**的文本(`flat = t.replace(/\s+/g,' ')`,只压空白、不重排 token ⇒ "调用存在"这一判据原样成立),并按同一把尺子跑了变异自证:把 `catBatch(` 换成不存在的名字 ⇒ T20 仍翻红、还原后逐字节一致(证明"允许折行"没有把尺子磨钝)。**规矩:形状锁若比源码文本,必须先归一化空白**;本仓 §22c 的镜像测试已有多条同款按原文 match 的锁,这一型在其他门上同样会炸,后续碰谁改谁。**刻意没做的两件事,不是因为漏**:① AGENTS.md / README.md 的门 101 条目未同步 —— 实测这两个文件此刻 `M ` / `MM`(并发会话持有索引),按工作树提交等于替别人回退,而门 89 R4 只要求"点名该门"(已满足,新增一维不改点名状态),判据的权威自述写在脚本头注 R6 段;② 报告文案里给的修法明确是"在干净检出里跑全量 pnpm install 重导出 importer",**不是**手改 lock(手改就是伪造 lock,与本仓 §12e 那条 `--filter` 事故同源)。
 - [x] ✅(2026-09-26) **探针块 F6(块级判据)立起并当场清偿自己的账(守门 130 的第五维)**:本节此前四条判据的量纲都是"一行",而本会话真实自伤的那一型量纲是"块"—— 往本文件追加探针登记块时先追加后核重,同一块以两份**逐字相同**形态入库,之后并发 union 又叠一层(1 份 → 3 份),F1/F2/F3/F4 与门 71 **同时全绿**(每一行看起来都只是又一个孪生行,而"每行重数 = max(两侧)"这条并集规则本身就是该型的生产机制,合并提交又不跑 pre-commit)。四件同笔落地:① 判据 `findDupBlocks`(`scripts/lib/plan-task-index.mjs`,单一实现三层共用)只认 ≥3 行且每行 ≥40 字符的连续 bullet 块逐字相同 —— 阈值是实测调出来的,低于它会把台账里天然成对的短行数成千百条噪声而淹掉信号;漂移副本(首行同而正文不同)**单列只报数**,机器折半即有损,与 F4 同一条理由;② 提交链维度进 `probe()` ⇒ 差值棘轮 + 基线棘轮 + `--strict` 三层同时管到;③ 合并落地闸 `union-converge` 的 KEYS 增加 F6;④ 修复出口 `node scripts/plan-tasks-merge.mjs --dedupe-blocks [--commit]`,只删逐字相同的第 2..N 份,四条零损失断言(幸存份仍在 ∧ 行多重集只减不增 ∧ F1–F4+F6 无一上涨 ∧ 归并注记不降)任一不过即整批停手,**刻意不进 post-commit 自动档**(删行是活文档上最危险的动作;`--heal` 那类只改行内状态的自动修不能套到它身上)。存量按当次实测清偿:立项现读 F6 = 8 块 / 16 份,`6c9c4b41f75` 删 41 行第 2 份收到 0,基线随之写 `F6:0` = 零容忍;同刻 F1 又被并发 union 带回 3 组,由 `ca6807acfd4` 自愈归零。取证:`--self-test` 三件 38 / 26 / 47 全绿 + 镜像四件 40 例全绿,其中两条是新增的**成套性锁** —— M9"每一维判据都必须有基线键"(`ratchetViolations` 明写"基线缺项 ⇒ 不判该维",加维忘写基线 = 那一维静默失去看守而账面看不出来)、T7"`--dedupe-blocks` 必须真在 CLI 上且真调落地函数"(函数在而入口不在 = 造好没装车)。**两条路上踩到并就地修掉的自身缺陷值得留**:写 F6 夹具时把尾行写成 bullet ⇒ 上一个 run 被续成 4 行、整块因一行不够长而不入统计,判据自数 0(现夹具尾行刻意非 bullet 并写明原因);候选索引落地器把**镜像测试**也在 `GIT_INDEX_FILE` 下跑 ⇒ 那些"判真仓 HEAD 面"的断言看见我这一批暂存项而假红,整批被拒且 `755b0c5` 只落了 3 个路径就写了全件的信息 ⇒ 补 `88d96c5` 带其余 7 路径并在信息里**先纠正上一枚的声称范围**(不撤销不改写,完整交付以两枚合并读为准)。**已知空档如实登记**:README 的守门 130 行有两份逐字相同的历史 twin,而表格行以 `|` 开头、不在 bullet-block 量纲内 ⇒ F6 看不见那一型,本枚两处同步改一致但**没有把它变成判据**;漂移副本现读 11 块仍留人工。
 - **G-211 更正的残余(如实登记,不是待办)** 上两条提交链里,de7f150bac 除截掉 6 行文档尾行(已由 7d400f4d6d 逐行回补、归一化对账 0 缺失)外,还把 3 条 `**[归并]** 本行与已完成登记同题(主键 G-206/G-207/G-209)` **孪生副本各削掉 1 份**(4→3)。这一份**刻意不插回**,理由有三:① 同一时段并发会话正在做去重(实测 06b3996954 把它们 3→2),插回就是替别人回滚一次归并动作;② 这些行的语义是"同一件事的重复副本已并勾",副本计数由门 130 的差值棘轮管,不是内容损失;③ 每条主键的**登记正文都仍在**(现存 2 份),读的人不会缺信息。逐枚提交的副本计数取证:`git show <c>:PROJECT_PLAN.md | grep -c "本行与已完成登记同题(主键 「G-206」)"` → de7f150bac^=4 / de7f150bac=3 / 06b3996954=2 / 7d400f4d6d=2。
