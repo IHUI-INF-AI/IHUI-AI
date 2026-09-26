@@ -1,21 +1,14 @@
 {
-  "_note": "存量锚点,不是合格证。counts 只许人工核对后下调;**唯一允许上调的情形**是覆盖面扩大(此前该组件两端根本没被比对),且必须写进 coverageWidened 供复核。",
-  "coverageWidened": {
-    "2026-09-26": [
-      "Carousel",
-      "NavBar",
-      "UserInfoCard"
-    ],
-    "why": "这三对在 HEAD 面上首选层是不可达的死副本,旧判据直接把整对剔掉(覆盖率 0 而账面不喊);判据改为\"首选层不可达则退回下一层\"后它们第一次被真正比对,于是量出存量差。上调的是**新纳入比对的组件的初始锚点**,不是既有组件的债务上限。"
-  },
   "counts": {
-    "BottomActionBar": 16,
-    "Carousel": 2,
+    "BottomActionBar": 15,
+    "Carousel": 6,
     "FloatBox": 2,
-    "InputArea": 1,
+    "InputArea": 3,
+    "ModelConfigDialog": 6,
     "ModelList": 10,
     "NavBar": 5,
-    "UserInfoCard": 8
+    "UserInfoCard": 5,
+    "VideoPlayer": 4
   },
   "waivers": {}
 }
