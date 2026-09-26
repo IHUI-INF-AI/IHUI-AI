@@ -1879,8 +1879,9 @@ impl DeepLinkPending {
 
 #[derive(Default)]
 struct DeepLinkGateState {
-    /// 渲染端是否已注册监听 —— 由 take_pending_deep_links 置真,目标窗口销毁时复位。
-    /// 在第一次 take 之前,任何抵达的 URL 都只进队列,不做"发了就当作收到了"的假设。
+    /// 渲染端是否已注册监听 —— 由 take_pending_deep_links 置真;目标窗口销毁**或导航发起**时复位。
+    /// 未就绪期间(冷启动窗口期 / location.href·reload 造成的渲染端暂存期)抵达的 URL 只进队列,
+    /// 不做"发了就当作收到了"的假设。
     target_ready: bool,
     pending: DeepLinkPending,
 }
@@ -2003,11 +2004,9 @@ fn take_pending_deep_links(window: tauri::WebviewWindow) -> Vec<String> {
         );
         return Vec::new();
     }
-    let first_take = !gate.target_ready;
-    gate.target_ready = true;
-    let backlog = gate.pending.take_all();
+    let (first_take, backlog) = apply_take_ready(&mut gate);
     log::info!(
-        "[deep-link] 渲染端就绪(首次取回: {}) —— 补投 {} 条,队列已清空",
+        "[deep-link] 渲染端就绪(本次取回点亮就绪标记: {}) —— 补投 {} 条,队列已清空",
         first_take,
         backlog.len()
     );
@@ -2033,11 +2032,52 @@ fn reset_deep_link_gate_on_destroy(label: &str) {
     }
 }
 
+/// 导航发起时的状态迁移(纯函数,供单测直接断言):
+/// 就绪标记拉回 false,**pending 队列原样保留**。
+/// 与 destroy 路径(reset_deep_link_gate_on_destroy)的差别是两条,且都是刻意的:
+///  - destroy = 会话终结 ⇒ 清账,旧 code 不得活到下一次冷启动;
+///  - 导航 = 同一会话里渲染端短暂不在 ⇒ 已入队的条目是**未兑现的补投债务**,
+///    由新页面注册监听后的 take_pending_deep_links 一次取走;导航时清账反而把
+///    "未就绪不丢"这条立命之本弄丢。
+fn apply_navigation_reset(gate: &mut DeepLinkGateState) -> (bool, usize) {
+    let was_ready = gate.target_ready;
+    gate.target_ready = false;
+    (was_ready, gate.pending.urls.len())
+}
+
+/// 渲染端取回时的状态迁移(纯函数):点亮就绪 + 一次性取回积压(取即清)。
+/// "就绪"只由这一处置真 —— take 被调用结构上意味着 listen 已注册成功,
+/// 这比任何页面加载事件(如 Tauri 的 on_page_load Finished)都强:
+/// Finished 只保证文档加载完,不保证监听已挂上,拿它点亮就复刻本机制立项的那一型。
+fn apply_take_ready(gate: &mut DeepLinkGateState) -> (bool, Vec<String>) {
+    let first_take = !gate.target_ready;
+    gate.target_ready = true;
+    (first_take, gate.pending.take_all())
+}
+
+/// **导航发起处(auto_refresh.rs 的 `location.href` / `location.reload` 各站点)必须先调用本函数**。
+/// 页面重载期间渲染端不存在,此时抵达的深链若按"曾经就绪过"直投,emit 会打在一个没有监听者的
+/// webview 上静默消失(既不入队也没人消费)—— 与冷启动丢码同型,只是换了触发面。
+/// 复位后新 URL 一律走"未就绪 ⇒ 入队";就绪由新页面的 take_pending_deep_links 重新点亮。
+/// 若新页面始终没能加载(断网/崩溃),闸门保持"未就绪"——这是正确的保守态:
+/// 链接继续留在队列(上限 8 + 丢弃计数),而不是点亮一个不存在监听者的"就绪"。
+pub(crate) fn reset_deep_link_gate_for_navigation(label: &str) {
+    if label != DEEP_LINK_TARGET_LABEL {
+        return;
+    }
+    let (was_ready, kept_pending) = apply_navigation_reset(&mut deep_link_gate());
+    log::info!(
+        "[deep-link] 导航发起:就绪标记已复位(原值 {}) —— 导航期间抵达的链接转入队,既有 {} 条补投债务保留待新页取回",
+        was_ready,
+        kept_pending
+    );
+}
+
 #[cfg(test)]
 mod deep_link_gate_tests {
     use super::{
-        decide_deep_link_deliveries, deep_link_log_form, DeepLinkDelivery, DeepLinkPending,
-        DEEP_LINK_PENDING_CAP,
+        apply_navigation_reset, apply_take_ready, decide_deep_link_deliveries, deep_link_log_form,
+        DeepLinkDelivery, DeepLinkGateState, DeepLinkPending, DEEP_LINK_PENDING_CAP,
     };
 
     fn urls(n: usize) -> Vec<String> {
@@ -2142,6 +2182,121 @@ mod deep_link_gate_tests {
         assert!(
             !deep_link_log_form("ihui://sso?sso_code=secret123").contains("secret123"),
             "掩完不得残留原取值"
+        );
+    }
+
+    /// 本票(2026-09-26 补"导航期间直投丢失"窗口)的核心正例,走完整状态序列:
+    /// 冷启动入队 → take 点亮 → 就绪期入队一条债务 → **导航复位** →
+    /// 新 URL 必须入队而不是直投(复位缺失时这里是 Emit,即原缺陷形态)→
+    /// 再 take 点亮且把债务与新链一并交回 → 此后恢复直投。
+    /// 变异对照:把 apply_navigation_reset 里 `target_ready = false` 删掉(模拟"导航处不复位"),
+    /// ③ 之后的 Queue 断言与 `kept==1` 之外还会让"新链入队"变"新链直投"立刻红。
+    #[test]
+    fn 就绪后导航复位_新链接必入队_重新点亮后恢复直投() {
+        let mut gate = DeepLinkGateState::default();
+
+        // ① 冷启动未就绪:两条全进队列,一条都不许直投
+        let cold = urls(2);
+        for d in decide_deep_link_deliveries(gate.target_ready, &cold) {
+            match d {
+                DeepLinkDelivery::Queue(u) => {
+                    gate.pending.push(&u);
+                }
+                DeepLinkDelivery::Emit(_) => panic!("冷启动未就绪时不得出现直投分支"),
+            }
+        }
+        assert_eq!(gate.pending.urls.len(), 2);
+
+        // ② 渲染端注册完成,第一次 take:点亮就绪并一次取回(取即清)
+        let (first_take, backlog) = apply_take_ready(&mut gate);
+        assert!(first_take, "第一次 take 必须报告'首次点亮'");
+        assert_eq!(backlog, cold);
+        assert!(gate.target_ready);
+        assert!(gate.pending.urls.is_empty(), "取即清:取回后队列必须为空");
+
+        // 就绪期有一条 emit 失败回填(模拟 dispatch 的失败回填入队路径),导航前它是欠账
+        gate.pending.push("ihui://sso?sso_code=debt");
+
+        // ③ 导航发起:就绪拉回 false,**债务保留**(这是与 destroy 清账的刻意分野)
+        let (was_ready, kept) = apply_navigation_reset(&mut gate);
+        assert!(was_ready, "复位前是就绪态");
+        assert_eq!(kept, 1, "导航复位不得清账 —— 队列里的补投债务归新页取");
+        assert!(!gate.target_ready);
+
+        // ④ 导航期间新 URL 抵达:必须走"未就绪 ⇒ 入队",绝不能直投给已不存在的渲染端
+        let arrived: Vec<String> = vec!["ihui://sso?sso_code=nav".to_string()];
+        let got = decide_deep_link_deliveries(gate.target_ready, &arrived);
+        assert!(
+            matches!(got[0], DeepLinkDelivery::Queue(_)),
+            "导航复位后仍直投 = 本票要修的缺陷: {:?}",
+            got
+        );
+        gate.pending.push(&arrived[0]);
+        assert_eq!(gate.pending.urls.len(), 2, "债务 + 新链都必须在队");
+
+        // ⑤ 新页面注册完监听、再次 take:重新点亮,债务与新链一并交回
+        let (relit_first, backlog2) = apply_take_ready(&mut gate);
+        assert!(
+            relit_first,
+            "导航复位后就绪标记已是 false,这次的 take 就是重新点亮那一次(first_take 必为 true)"
+        );
+        assert_eq!(
+            backlog2,
+            vec!["ihui://sso?sso_code=debt".to_string(), "ihui://sso?sso_code=nav".to_string()],
+            "积压按到达顺序全量交回"
+        );
+        assert!(gate.target_ready, "take 之后恢复就绪");
+
+        // ⑥ 此后抵达恢复直投(对照:若不点亮则永远是队列,把 take 变成唯一通路)
+        let after = decide_deep_link_deliveries(gate.target_ready, &arrived);
+        assert!(matches!(after[0], DeepLinkDelivery::Emit(_)));
+    }
+
+    /// 复位对"本来就未就绪"的状态是幂等的(启动早期/连续两次导航都不该报错或清账)。
+    #[test]
+    fn 未就绪时导航复位幂等且不动队列() {
+        let mut gate = DeepLinkGateState::default();
+        gate.pending.push("ihui://sso?sso_code=keep");
+        let (was_ready, kept) = apply_navigation_reset(&mut gate);
+        assert!(!was_ready);
+        assert_eq!(kept, 1);
+        let (was_ready2, kept2) = apply_navigation_reset(&mut gate);
+        assert!(!was_ready2);
+        assert_eq!(kept2, 1, "二次复位不得吞队列");
+        assert_eq!(gate.pending.take_all(), vec!["ihui://sso?sso_code=keep".to_string()]);
+    }
+
+    /// "导航发起处必须调用复位函数"的源码级棘轮 —— 单元测试只能证明纯函数分支正确,
+    /// 真正会让运行时丢链接的是**调用点被摘掉**(本仓最高频的"修好但没人看守"一型)。
+    /// 判据:auto_refresh.rs 里每一处发起整页导航的 eval(`location.href=` / `location.reload()`)
+    /// 之前 ≤8 行内必须出现 reset_deep_link_gate_for_navigation。
+    /// 变异对照:删掉 auto_refresh.rs 任一处的复位调用 ⇒ 本用例红;新增导航站点不复位 ⇒ 同样红。
+    /// (守门 scripts/check-desktop-event-wiring.mjs 的 G 组按同一判据在提交链上再看一遍。)
+    #[test]
+    fn 导航发起处无一例外必须先复位闸门() {
+        let src = include_str!("auto_refresh.rs");
+        let lines: Vec<&str> = src.lines().collect();
+        let mut nav_sites = 0usize;
+        for (i, line) in lines.iter().enumerate() {
+            let is_nav = line.contains(".eval(")
+                && (line.contains("location.href=") || line.contains("location.reload()"));
+            if !is_nav {
+                continue;
+            }
+            nav_sites += 1;
+            let start = i.saturating_sub(8);
+            let window = &lines[start..=i];
+            assert!(
+                window.iter().any(|l| l.contains("reset_deep_link_gate_for_navigation")),
+                "auto_refresh.rs 第 {} 行发起整页导航却没有先复位深链闸门(导航期间抵达的链接会被直投丢失): {}",
+                i + 1,
+                line.trim()
+            );
+        }
+        assert_eq!(
+            nav_sites, 5,
+            "导航发起处数量与登记的 5 处不符(启动离线/切离线/恢复/挂起热刷/热刷新)—— \
+             若确属新增或删除导航站点,先在本断言处同步数字并在提交信息说明依据"
         );
     }
 }
