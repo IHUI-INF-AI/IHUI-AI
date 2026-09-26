@@ -227,6 +227,21 @@ export function findRotatedPointers(content) {
   return bad
 }
 
+/**
+ * 归并动作留下的"落账:复测"注记 —— 它是**内容级**存续性证据,不属四条状态判据,但补的是它们
+ * 共同看不见的那一格:一次"按内存里旧计划文档整文件提交"把已落账的行退回未落账形态时,
+ * 退回后的两态仍是同态的(全是未勾选或全是已完成),于是 F1/F2/F3/F4 与门 71 同时全绿,
+ * 只有注记的**条数**会掉。2026-09-26 一小时内实测被这样抹掉两次。
+ * 方向与其余判据相反,故单列:**只许增不许减**。
+ */
+export const MERGE_NOTE_RE = /〔【归并】[^〕]{0,80}?落账:复测 \d{4}-\d{2}-\d{2}/g
+export function countMergeNotes(content) {
+  const re = new RegExp(MERGE_NOTE_RE.source, 'g')
+  let n = 0
+  for (let m = re.exec(String(content)); m !== null; m = re.exec(String(content))) n++
+  return n
+}
+
 /** 一把跑完四条统计。数字一律现读,不得写进文档当恒定事实。 */
 export function auditPlan(content) {
   const rows = parseTaskRows(content)
@@ -278,6 +293,11 @@ export function auditPlan(content) {
       rotatedPointers: rotated.length,
       dupOpenGroups: dupOpen.length,
       dupOpenCopies: dupCopies.length,
+      // 已写明"重复登记副本"的未勾选行:它们与 dupOpenCopies 是两件事 —— 副本是**当次**算出来的,
+      // 标过指针的是历史上已归并过的。派单口径两条都扣,所以报告里必须分列,否则读者对不上账。
+      dupPointerRows: openRows.filter((r) => DUP_POINTER_RE.test(r.raw)).length,
+      // 内容级存续性证据(只许增不许减,方向与四条状态判据相反 ⇒ 单独一把尺子,别塞进同一个 ratchet)
+      mergeNotes: countMergeNotes(content),
       dupDoneGroups: dupDone.length,
       claimable: unclaimedRows.filter(isClaimable).length,
     },
