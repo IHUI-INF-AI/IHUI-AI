@@ -664,7 +664,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       if (!deleted) {
         return reply.status(404).send(error(404, '分享不存在或无权撤销'))
       }
-      return reply.send(success({ deleted: true }))
+      return reply.send(success({ deleted }))
     },
   )
 

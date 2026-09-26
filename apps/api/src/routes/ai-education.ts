@@ -277,11 +277,12 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(aiEducationPolicy.id, parsed.data.id), isNull(aiEducationPolicy.deletedAt)))
       .limit(1)
     if (!existing[0]) return reply.status(404).send(error(404, '政策不存在'))
-    await db
+    const removed = await db
       .update(aiEducationPolicy)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(aiEducationPolicy.id, parsed.data.id))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+      .returning({ id: aiEducationPolicy.id })
+    return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -394,11 +395,12 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
         )
         .limit(1)
       if (!existing[0]) return reply.status(404).send(error(404, '师资认证不存在'))
-      await db
+      const removed = await db
         .update(aiTeacherCertification)
         .set({ deletedAt: new Date(), updatedAt: new Date() })
         .where(eq(aiTeacherCertification.id, parsed.data.id))
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+        .returning({ id: aiTeacherCertification.id })
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     },
   )
 
@@ -495,11 +497,12 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(aigcToolDetail.id, parsed.data.id), isNull(aigcToolDetail.deletedAt)))
       .limit(1)
     if (!existing[0]) return reply.status(404).send(error(404, 'AIGC工具不存在'))
-    await db
+    const removed = await db
       .update(aigcToolDetail)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(aigcToolDetail.id, parsed.data.id))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+      .returning({ id: aigcToolDetail.id })
+    return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -595,11 +598,12 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(k12AiCurriculum.id, parsed.data.id), isNull(k12AiCurriculum.deletedAt)))
       .limit(1)
     if (!existing[0]) return reply.status(404).send(error(404, '课程标准不存在'))
-    await db
+    const removed = await db
       .update(k12AiCurriculum)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(k12AiCurriculum.id, parsed.data.id))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+      .returning({ id: k12AiCurriculum.id })
+    return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -696,11 +700,12 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(universityAiCourse.id, parsed.data.id), isNull(universityAiCourse.deletedAt)))
       .limit(1)
     if (!existing[0]) return reply.status(404).send(error(404, '课程不存在'))
-    await db
+    const removed = await db
       .update(universityAiCourse)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(universityAiCourse.id, parsed.data.id))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+      .returning({ id: universityAiCourse.id })
+    return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
   })
 }
 

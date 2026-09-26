@@ -296,8 +296,11 @@ const developerApiKeyGroupsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '仅 owner 可删除分组'))
       }
 
-      await db.delete(apiKeyGroups).where(eq(apiKeyGroups.id, p.data.id))
-      return reply.send(success({ deleted: true }))
+      const removed = await db
+        .delete(apiKeyGroups)
+        .where(eq(apiKeyGroups.id, p.data.id))
+        .returning({ id: apiKeyGroups.id })
+      return reply.send(success({ deleted: removed.length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除分组失败'))

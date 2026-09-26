@@ -47,7 +47,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
     if (!row) return reply.status(404).send(error(404, '订单不存在'))
     // Phase 3: 同步删除统一 orders 表
     await db.delete(orders).where(eq(orders.id, id))
-    return reply.send(success({ id, deleted: true }))
+    return reply.send(success({ id, deleted: Boolean(row) }))
   })
   server.post(
     '/admin/shop/payments/:id/ship',

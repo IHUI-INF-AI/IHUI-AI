@@ -199,7 +199,7 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
     try {
       const ok = await knowledgeRagService.deleteDoc(id, owner)
       if (!ok) return reply.status(404).send(error(404, '文档不存在或已删除'))
-      return reply.send(success({ deleted: true }))
+      return reply.send(success({ deleted: ok }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除失败'))

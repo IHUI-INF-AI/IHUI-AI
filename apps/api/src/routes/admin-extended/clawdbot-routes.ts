@@ -129,7 +129,7 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
       const [row] = await db.delete(clawdbotBots).where(eq(clawdbotBots.id, id)).returning()
       if (!row) return reply.status(404).send(error(404, '机器人不存在'))
-      return reply.send(success({ id, deleted: true }))
+      return reply.send(success({ id, deleted: Boolean(row) }))
     },
   )
   server.get('/admin/clawdbot/stats', { preHandler: requireAdmin }, async (_request, reply) => {
@@ -195,7 +195,7 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(clawdbotPermissions.id, id))
         .returning()
       if (!row) return reply.status(404).send(error(404, '权限不存在'))
-      return reply.send(success({ id, deleted: true }))
+      return reply.send(success({ id, deleted: Boolean(row) }))
     },
   )
   server.get('/admin/clawdbot/sessions', { preHandler: requireAdmin }, async (request, reply) => {

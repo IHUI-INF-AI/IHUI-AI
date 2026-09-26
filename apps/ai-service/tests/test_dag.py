@@ -436,18 +436,30 @@ def test_get_pool_recreates_after_shutdown():
 
 
 # =============================================================================
-# _default_node_executor
+# V3 #51:_node_executor —— 未声明 taskType 的节点必须**自证没跑业务**
+# (旧实现无条件回 `{"executed": True, "contextKeys": [...]}`,正是票面点名的
+#  「/dag/execute 回显」病根;下面两条断言方向已反转。)
 # =============================================================================
 
 
-async def test_default_node_executor_echoes_context_keys():
-    """_default_node_executor:回显 context 的 keys。"""
-    result = await dag_module._default_node_executor({"a": 1, "b": 2})
-    assert result == {"executed": True, "contextKeys": ["a", "b"]}
+async def test_node_without_task_type_self_proves_not_executed():
+    """未声明 taskType:调度照跑,但返回体必须 executed=False / stub=True。"""
+    spec = dag_module.DAGNodeSpec(id="n1", name="节点一")
+    result = await dag_module._node_executor(spec)({"a": 1, "b": 2})
+    assert result["executed"] is False
+    assert result["stub"] is True
+    assert result["analysis_depth"] == "none"
+    assert sorted(result["contextKeys"]) == ["a", "b"]
+    assert result["supported_task_types"], "应把可用类型回给调用方,而不是只说失败"
 
 
-async def test_default_node_executor_empty_context():
-    """_default_node_executor:空 context → contextKeys=[]。"""
-    result = await dag_module._default_node_executor({})
-    assert result == {"executed": True, "contextKeys": []}
+async def test_node_with_unknown_task_type_raises_not_echoes():
+    """声明了不存在的 taskType:抛 TaskExecutionError(节点记 failed),不伪装成功。"""
+    from app.services.task_executors import TaskExecutionError
+
+    spec = dag_module.DAGNodeSpec(id="n2", name="节点二", taskType="not_a_real_type")
+    import pytest
+
+    with pytest.raises(TaskExecutionError):
+        await dag_module._node_executor(spec)({})
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

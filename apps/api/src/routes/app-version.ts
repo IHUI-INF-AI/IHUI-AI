@@ -167,14 +167,14 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
     if (!parsedP.success) {
       return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
     }
-    const [version] = await db
+    const removed = await db
       .delete(appVersions)
       .where(eq(appVersions.id, parsedP.data.id))
-      .returning()
-    if (!version) {
+      .returning({ id: appVersions.id })
+    if (removed.length === 0) {
       return reply.status(404).send(error(404, '版本不存在'))
     }
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // GET /check-update — 检查更新（公开，对比当前版本与最新版本）

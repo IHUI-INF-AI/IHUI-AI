@@ -30,6 +30,7 @@ import { db, dbRead } from '../../db/index.js'
 import { businessCards, businessCardFavorites, users } from '@ihui/database'
 import { parseIdParam, parsePagination } from './_shared.js'
 import { logAction } from '../../services/audit-service.js'
+import { batchWriteOutcome } from '../../utils/batch-outcome.js'
 
 // ===== 业务校验(Zod 严格化)=====
 // 手机号:支持 +86 11 位 / 国际格式 7-20 位数字
@@ -174,24 +175,22 @@ export const businessCardRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success)
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId!
-    const owned = await dbRead
-      .select({ id: businessCards.id })
-      .from(businessCards)
+    const removed = await db
+      .delete(businessCards)
       .where(and(eq(businessCards.userId, userId), inArray(businessCards.id, body.data.ids)))
-    const ownedIds = owned.map((r) => r.id)
-    const failed = body.data.ids
-      .filter((id) => !ownedIds.includes(id))
-      .map((id) => ({ id, reason: 'not_found_or_forbidden' }))
-    if (ownedIds.length > 0) {
-      await db.delete(businessCards).where(inArray(businessCards.id, ownedIds))
-    }
+      .returning({ id: businessCards.id })
+    const { affected, missedIds } = batchWriteOutcome(
+      body.data.ids,
+      removed.map((r) => r.id),
+    )
+    const failed = missedIds.map((id) => ({ id, reason: 'not_found_or_forbidden' }))
     await logAction({
       ...auditCtx(request),
       action: 'business_card.batch_delete',
       resourceType: 'business_card',
-      details: { requested: body.data.ids.length, deleted: ownedIds.length, failed },
+      details: { requested: body.data.ids.length, deleted: affected, failed },
     })
-    return reply.send(success({ deleted: ownedIds.length, failed }))
+    return reply.send(success({ deleted: affected, failed, missedIds }))
   })
 
   // ===== 原有:GET /business-card/:id — 按 id 查询名片(404 处理)+ viewCount +1 =====
@@ -273,7 +272,7 @@ export const businessCardRoutes: FastifyPluginAsync = async (server) => {
       resourceType: 'business_card',
       resourceId: id,
     })
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted: Boolean(deleted) }))
   })
 
   // ===== 原有(深化):DELETE /business-card/favorites — 清空当前用户所有收藏 =====
@@ -303,7 +302,10 @@ export const businessCardRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) return reply.status(404).send(error(404, '名片不存在'))
     if (existing.userId !== request.userId)
       return reply.status(403).send(error(403, '无权删除此名片'))
-    await db.delete(businessCards).where(eq(businessCards.id, id))
+    const removed = await db
+      .delete(businessCards)
+      .where(eq(businessCards.id, id))
+      .returning({ id: businessCards.id })
     await logAction({
       ...auditCtx(request),
       action: 'business_card.delete',
@@ -311,7 +313,7 @@ export const businessCardRoutes: FastifyPluginAsync = async (server) => {
       resourceId: id,
       details: { name: existing.name },
     })
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===== 原有(深化):POST /business-card/:id — 创建/更新名片(upsert by userId)+ 防滥用 + 审计 =====
