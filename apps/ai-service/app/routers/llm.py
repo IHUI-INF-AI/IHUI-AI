@@ -40,6 +40,9 @@ from ..core.provider_caps import (
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
+# V3 #53(2026-09-26):ChatMode 硬收窄的只读白名单与 AgentLoopV2 plan 档同源
+# (services/plan_mode.py 单一真源,不复制)。模块级导入无环:plan_mode 仅依赖 core.llm_gateway。
+from ..services.plan_mode import READONLY_TOOLS as _PLAN_READONLY_TOOLS
 from ..services.agent_events import (
     SSE_CHUNK,
     SSE_CONTENT_BLOCK_DELTA,
@@ -138,9 +141,97 @@ _DELEGATE_TIMEOUT = 60  # 秒
 _steer_sessions: dict[str, list[dict[str, Any]]] = {}
 _STEER_QUEUE_LIMIT = 8  # 单流引导队列上限,超限 steer 端点返回 429(防刷)
 
+# =============================================================================
+# V3 #58(2026-09-26 立):主对话流工具审批门(语义对齐 agent_loop_v2 tool_approval)
+# =============================================================================
+# 为什么:主聊天 /api/llm/complete/stream 的 tool loop 此前工具直接执行,只有
+# 「工作区权限模式档位」在前端管;agent 任务流(agent_loop_v2)早已有审批门
+# (decision approve/reject + scope once/session/always)。本节把同语义审批门
+# 接入主对话流。帧契约(供 parity 对账与前端解析,事件名对账由主会话统一维护):
+#   SSE 帧名:`tool-approval`(event: tool-approval + data JSON)
+#   payload(snake_case,与 agent 任务流 tool-approval 事件同形):
+#     {type:'tool-approval', approval_id, tool_name, tool_call_id,
+#      args_preview, danger_level, session_id}
+#   决策回传:POST /llm/complete/stream/{session_id}/approval-response
+#     {approval_id, decision:'approve'|'reject', scope:'once'|'session'|'always', reason?}
+# 注意:本帧常量定义在 llm.py 本地(agent_events.py 非本任务领地);
+# sse_contract 契约清单由主会话登记,_sse() 诊断对未登记帧仅告警不阻断。
+_SSE_TOOL_APPROVAL = "tool-approval"
+_APPROVAL_TIMEOUT = 120  # 秒:人工决策窗口(人在环延迟高于机器回传,比委托 60s 宽)
+_APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端 30s 读超时掐流
+
+# 审批等待注册表:session_id -> approval_id -> {event, decision, scope, reason}。
+# 与 _delegate_sessions 同生命周期模式:条目仅在人工弹窗等待窗口内存在,
+# 决策/超时后由等待方清理(防内存泄漏)。
+_approval_sessions: dict[str, dict[str, dict[str, Any]]] = {}
+
+# 会话内「总是允许」授权缓存(内存 dict;轻量对齐 agent_loop_v2 审批缓存语义):
+# key = f"{session_id}::{tool_name}" -> scope('session'|'always')。
+# once 不落缓存;进程重启即失效(session/always 均为内存态,V3 #58 先落地主链路)。
+_tool_approval_grants: dict[str, str] = {}
+
+# 工具危险级映射(主对话流已知高危/中危工具;未收录工具不拦截 —— 主聊天工具面
+# 由 mcp_server._TOOLS 与浏览器委托面构成,默认全拦会打断日常使用;高危口径与
+# agent_loop_v2 对齐:命令执行/删除/移动为 high,文件写入/编辑为 medium)。
+_TOOL_DANGER_LEVELS: dict[str, str] = {
+    # 命令执行:可执行任意命令,最高危
+    "run_command": "high",
+    "execute_command": "high",
+    # 删除/移动/git:不可逆操作
+    "delete_file": "high",
+    "move_file": "high",
+    "git_operations": "high",
+    # 文件写入/编辑:可覆盖内容(accept-edits 档语义放行的就是这一类)
+    "write_file": "medium",
+    "create_file": "medium",
+    "file_edit": "medium",
+    "apply_patch": "medium",
+}
+
+
+def _normalize_permission_mode(mode: str | None) -> str:
+    """归一权限模式档位(前端 kebab-case 与 agent 侧 camelCase 两种写法都收)。"""
+    if not mode:
+        return "default"
+    m = str(mode).strip()
+    if m in ("bypassPermissions", "bypass-permissions"):
+        return "bypass-permissions"
+    if m in ("acceptEdits", "accept-edits"):
+        return "accept-edits"
+    if m == "plan":
+        return "plan"
+    return "default"
+
+
+def _resolve_tool_approval(permission_mode: str | None, tool_name: str) -> tuple[bool, str]:
+    """主对话流审批判定:返回 (是否需要弹窗, 危险级)。
+
+    档位语义(与 agent_loop_v2 既有语义对齐):
+    - bypass-permissions:不拦截(用户已显式选择完全访问,既有档位语义);
+    - accept-edits:文件写入/编辑类(medium)自动放行 —— 该档语义即"替我审批编辑",
+      命令执行/删除类(high)仍需审批;
+    - default / plan / None:收录的高/中危工具都需审批(plan 档主对话流本就只靠
+      prompt 约束不执行工具,此处兜底同 default,不额外拒绝)。
+    """
+    danger = _TOOL_DANGER_LEVELS.get(tool_name)
+    if danger is None:
+        return False, ""
+    mode = _normalize_permission_mode(permission_mode)
+    if mode == "bypass-permissions":
+        return False, danger
+    if mode == "accept-edits" and danger == "medium":
+        return False, danger
+    return True, danger
+
 # fs 类工具集合(依赖本地文件系统,浏览器端需委托前端执行)
 # 2026-08-06:list_files 移出本集合 —— 只读目录列表已由 mcp_server 本地实现
 # (工作区白名单约束),委托前端反而依赖 workspace 句柄易失败。
+#
+# 2026-09-26(V3 #49)补口径:本集合成员的**可达性分两种**,此前无文档说明:
+#   (a) 本地注册面 —— 名字在 mcp_server._TOOLS 里,任何部署形态都可执行;
+#   (b) 浏览器委托面 —— 名字**不在** _TOOLS,仅在 req.workspace_context 存在时
+#       由前端 apps/web/src/lib/workspace-tool-executor.ts 执行。
+# 二者相交但不对等:下面的 _DELEGATE_ONLY_TOOLS 是 (b) 减 (a) 的部分。
 _FS_DEPENDENT_TOOLS = {
     "read_file", "write_file", "file_edit", "file_search",
     "search_codebase", "apply_patch",
@@ -148,12 +239,67 @@ _FS_DEPENDENT_TOOLS = {
     "analyze_code", "generate_test",
 }
 
+# 2026-09-26(V3 #49)立:仅存在于浏览器委托面、本地 _TOOLS 未注册的工具。
+# 后果此前无人交代谢=Tauri/本地工作区(workspace_path 模式,无 workspace_context)下,
+# LLM 调这些名字会一路走到 _mcp.call_tool 得到模糊的「未知工具」,模型既不知道换哪个
+# 工具也不知道为什么 —— 而现在它们会得到一条带等价建议的明确错误(见 tool loop 拦截)。
+# 新增成员时必须同步给 apps/web workspace-tool-executor.ts 加实现,
+# scripts/check-tool-registry-integrity.mjs 负责双向对账。
+# 2026-09-26 注:写成 set 字面量而非 frozenset(...) —— 守门 check-tool-registry-integrity
+# 需要静态读出成员做双向对账,包一层 Call 会让可解析性失效(§「让工具能被看见」同型教训)。
+_DELEGATE_ONLY_TOOLS = {"apply_patch", "create_file", "delete_file", "move_file"}
+
+# 委托专有工具的本地等价建议(仅用于错误提示文案;不参与 _TOOL_ALIASES 归一化,
+# 因为语义不等价 —— 例如 create_file 有「已存在则报错」语义,write_file 是覆盖写)。
+_DELEGATE_ONLY_HINTS: dict[str, str] = {
+    "apply_patch": "file_edit(按 old_string/new_string 改)或 write_file(整文件重写)",
+    "create_file": "write_file(注意:它是覆盖写,覆盖语义由调用方保证)",
+    "delete_file": "git_operations 或 run_command(需走命令审批)",
+    "move_file": "git_operations 或 run_command(需走命令审批)",
+}
+
 # 2026-08-06 生产修复:LLM(stepfun step_plan 等)返回的工具名可能与系统注册名不一致
 # (模型幻觉/跨平台别名),导致 call_tool 报"未知工具"→ 工具执行失败 → 对话显示失败。
 # 统一映射到实际注册的工具名(execute_command 是 Claude/Codex 风格别名,本项目为 run_command)。
+#
+# 2026-09-26(V3 #49)扩充:原仅 2 条,对抗模型工具名幻觉的覆盖面过窄。扩充原则 ——
+#   ① 值域必须是 mcp_server._TOOLS 里真实注册的名字(守门 check-tool-registry-integrity 校验);
+#   ② 只收**语义等价**的别名:写操作一律不收(如 create_file→write_file 会把「新建」
+#      语义静默变成「覆盖」,宁可让它走到 _DELEGATE_ONLY_HINTS 的明确报错);
+#   ③ 只读与命令类可放心扩,映射错了最坏是行为略偏,不会静默破环。
 _TOOL_ALIASES: dict[str, str] = {
+    # 命令执行(Claude / Codex / 通用 LLM 习惯名)
     "execute_command": "run_command",
+    "execute_bash": "run_command",
+    "bash": "run_command",
+    "shell": "run_command",
+    "run_shell": "run_command",
+    "terminal": "run_command",
+    # 目录列举
     "list_directory": "list_files",
+    "list_dir": "list_files",
+    "find_files": "list_files",
+    "glob_files": "list_files",
+    # 文件读取
+    "read": "read_file",
+    "view": "read_file",
+    "view_file": "read_file",
+    "open_file": "read_file",
+    "cat_file": "read_file",
+    # 内容搜索
+    "search_files": "file_search",
+    "search_content": "file_search",
+    "grep": "file_search",
+    "grep_files": "file_search",
+    "search_in_files": "file_search",
+    # 语义/符号检索
+    "code_search": "search_codebase",
+    "search_symbol": "search_codebase",
+    # 网页抓取
+    "fetch": "fetch_url",
+    "browse": "fetch_url",
+    "http_request": "fetch_url",
+    "open_url": "fetch_url",
 }
 
 
@@ -1234,6 +1380,57 @@ def _resolve_chat_mode(mode: str | None, plan_mode: str | None) -> str | None:
     return None
 
 
+# ===== ChatMode 工具硬收窄(V3 #53,2026-09-26 立)=====
+# ChatMode → 工具可用策略(5 态全覆盖)。TS 侧契约镜像在
+# packages/types/src/chat-mode-policy.ts 的 CHAT_MODE_TOOL_POLICY,两侧成员与
+# 档位语义必须逐字一致,由 tests/test_chat_mode_tool_gate.py 的跨语言快照测试对账
+# (该测试解析 TS 文件与本常量做集合相等断言,任一侧漂移即红)。
+# 'readonly' 档的白名单复用 plan_mode.READONLY_TOOLS(AgentLoopV2 plan 档同一份,
+# 单一真源不复制);ask 的 'none' 在下方入口已跳过 tool loop,此处为契约兜底。
+_CHAT_MODE_TOOL_POLICY: dict[str, str] = {
+    "ask": "none",
+    "build": "all",
+    "plan": "readonly",
+    "review": "readonly",
+    "spec": "all",
+}
+
+
+def _chat_mode_allows_tool(chat_mode: str | None, tool_name: str) -> bool:
+    """判断 chat_mode 下是否允许调用 tool_name(V3 #53 硬收窄判定)。
+
+    - None/未知 mode(含 build/spec 语义)= 'all':全开放,与 _resolve_chat_mode
+      返回 None 时的默认行为一致
+    - ask = 'none':全拦截
+    - plan/review = 'readonly':仅 plan_mode.READONLY_TOOLS 白名单内放行
+    """
+    policy = _CHAT_MODE_TOOL_POLICY.get(chat_mode or "", "all")
+    if policy == "all":
+        return True
+    if policy == "none":
+        return False
+    return tool_name in _PLAN_READONLY_TOOLS
+
+
+def _filter_agent_tools_for_chat_mode(
+    chat_mode: str | None, agent_tools: list[str] | None
+) -> list[str] | None:
+    """按 chat_mode 收窄 agent_tools(V3 #53:发给 LLM 的 tools 数组硬过滤)。
+
+    在 control_autonomy.augment_agent_tools / filter_unauthorized_page_tools **之后**
+    调用(服务端自主补全的浏览器/电脑控制族同样受本闸约束)。ask 模式上游已置 None,
+    此处保持 None 语义;plan/review 过滤为白名单交集;其余原样返回。
+    """
+    if agent_tools is None:
+        return None
+    policy = _CHAT_MODE_TOOL_POLICY.get(chat_mode or "", "all")
+    if policy == "none":
+        return []
+    if policy == "readonly":
+        return [name for name in agent_tools if name in _PLAN_READONLY_TOOLS]
+    return agent_tools
+
+
 def _inject_system_prefix(messages: list[dict[str, Any]], prefix: str) -> list[dict[str, Any]]:
     """在 system prompt 最顶部前置注入 prefix(无 system message 时在开头插入新 system message)。
 
@@ -1436,6 +1633,13 @@ class LLMCompleteRequest(BaseModel):
     # 优先级高于 workspace_context 模式的自生成 id(两者同为每流唯一 uuid)。
     streamSessionId: str | None = Field(
         None, description="调用方预生成的流会话 ID,steer(中途引导)入队寻址用"
+    )
+    # V3 #58(2026-09-26 立):工作区权限模式档位,透传自前端 ai-panel store
+    # ('default'/'accept-edits'/'bypass-permissions'/'plan')。工具审批门据此决定
+    # 高危工具执行前是否弹审批:bypass 不拦截;accept-edits 放行文件编辑类(medium)。
+    # 缺省按 default 处理(保守:高危工具需审批)。
+    permission_mode: str | None = Field(
+        None, description="权限模式档位:default/accept-edits/bypass-permissions/plan"
     )
 
 
@@ -2469,6 +2673,14 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 agent_tools = await filter_unauthorized_page_tools(
                     agent_tools, _resolve_owner_uuid(request)
                 )
+                # V3 #53(2026-09-26 立):ChatMode 工具硬收窄 —— 第一道闸。
+                # 此前 mode 只有提示词软注入("只制定计划不调用工具"),用户选了
+                # plan/review 模型照样拿到写类工具,权限承诺与实际不符。现在在
+                # 发给 LLM 前按 _CHAT_MODE_TOOL_POLICY 过滤:plan/review 收窄为
+                # READONLY_TOOLS 交集(与 AgentLoopV2 plan 档同源同语义)。
+                # 必须在 augment 之后过滤:服务端自主补全的浏览器/电脑控制族同样受约束。
+                # ask 模式上游 if 已置 None(不进 tool loop),无需再过滤。
+                agent_tools = _filter_agent_tools_for_chat_mode(chat_mode, agent_tools)
             if agent_tools:
                 from ..services.mcp_server import mcp_server as _mcp
                 all_tools = _mcp.list_tools()
@@ -2887,6 +3099,69 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "result": None,
                             })
 
+                            # V3 #53(2026-09-26 立):ChatMode 硬收窄 —— 第二道闸(双保险)。
+                            # 工具清单在 loop 入口已按模式过滤,但模型仍可能幻觉调用未下发的
+                            # 工具名(跨平台别名/训练数据污染)。此处不执行、不触碰
+                            # _mcp.call_tool,直接回灌 errorCode=CHAT_MODE_TOOL_BLOCKED 的
+                            # 失败结果,并由回灌文本显式要求 LLM 告知用户被拦截,防止幻觉
+                            # "已完成"。ask 理论上进不到本循环(入口已跳过),一并兜底。
+                            if not _chat_mode_allows_tool(chat_mode, tool_name):
+                                if chat_mode == "ask":
+                                    _blocked_reason = (
+                                        f"当前为 Ask(纯问答)模式,已禁用全部工具;工具 {tool_name} 被拦截"
+                                    )
+                                else:
+                                    _blocked_reason = (
+                                        f"当前为 {chat_mode}(只读)模式,仅允许只读白名单内工具;"
+                                        f"工具 {tool_name} 不在白名单,已拦截"
+                                    )
+                                blocked_result = {
+                                    "tool": tool_name,
+                                    "ok": False,
+                                    "error": _blocked_reason,
+                                    "errorCode": "CHAT_MODE_TOOL_BLOCKED",
+                                    "message": _blocked_reason,
+                                }
+                                ok = False
+                                tool_exec_tracker.append(ok)
+                                _hist_idx_blocked = len(tool_calls_history) - 1
+                                if _hist_idx_blocked >= 0 and tool_calls_history[_hist_idx_blocked].get("toolCallId") == tc.get("id", ""):
+                                    tool_calls_history[_hist_idx_blocked].update({
+                                        "result": blocked_result,
+                                        "isError": True,
+                                        "durationMs": int((time.time() - _tc_start_ts) * 1000),
+                                        "endedAt": datetime.now(UTC).isoformat(),
+                                    })
+                                tc_blocked_evt = {
+                                    "type": "tool-result",
+                                    "toolCallId": tc.get("id", ""),
+                                    "toolName": tool_name,
+                                    "args": args,
+                                    "result": blocked_result,
+                                    "isError": True,
+                                    "iteration": _tool_iter + 1,
+                                    "serverSource": _src,
+                                    "serverId": _sid,
+                                    "serverName": _sname,
+                                }
+                                yield _sse(SSE_TOOL_RESULT, tc_blocked_evt)
+                                yield _format_plan_updated_event(
+                                    tool_calls_history,
+                                    explanation=f"工具 {tool_name} 被 ChatMode 拦截",
+                                    message_id=message_id,
+                                )
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tc.get("id", ""),
+                                    "name": tool_name,
+                                    "content": (
+                                        "TOOL EXECUTION FAILED. errorCode=CHAT_MODE_TOOL_BLOCKED. "
+                                        f"error={_blocked_reason}. You MUST tell the user this tool "
+                                        "is blocked in the current chat mode. Do NOT claim success."
+                                    ),
+                                })
+                                continue
+
                             # W1(2026-09-12 立)终端类工具:执行前发 terminal_start 事件。
                             # 前端 onTerminalStart → chatStore.appendMessageTerminalTask
                             # → MessageItem 的 TerminalSection 实时显示"运行中"命令区块。
@@ -3024,6 +3299,217 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
                             # 首次调用:记录到集合(不管成功失败都记录,防止 LLM 重复调用同一参数的同一工具)
                             executed_tool_keys.add(dedup_key)
+
+                            # ===== V3 #49(2026-09-26 立):委托专有工具的可用性拦截 =====
+                            # _DELEGATE_ONLY_TOOLS 里的名字只存在于浏览器委托面(前端
+                            # workspace-tool-executor.ts 实现),本地 _TOOLS 未注册。当请求不带
+                            # workspace_context(桌面端/本地工作区)时它们不会命中下面的 delegate
+                            # 分支,会一路走到 _mcp.call_tool 拿到模糊的「未知工具」—— 模型既不知道
+                            # 为什么失败也不知道换哪个工具,只会原地重试到 max_iterations。
+                            # 此处提前返回一条带等价建议的明确错误,把「静默失败」变成「可自愈的提示」。
+                            if tool_name in _DELEGATE_ONLY_TOOLS and not req.workspace_context:
+                                _hint = _DELEGATE_ONLY_HINTS.get(tool_name, "其他已注册工具")
+                                exec_result = {
+                                    "tool": tool_name,
+                                    "ok": False,
+                                    "error": (
+                                        f"工具 '{tool_name}' 在当前运行模式不可用:它属于浏览器工作区"
+                                        f"委托工具(需前端提供 workspace_context),当前为本地工作区模式。"
+                                        f"请勿重试该工具,改用:{_hint}。"
+                                    ),
+                                    "errorCode": "TOOL_MODE_UNAVAILABLE",
+                                    "message": f"工具 {tool_name} 需要浏览器工作区模式",
+                                }
+                                ok = False
+                                tool_exec_tracker.append(ok)
+                                _r_src, _r_sid, _r_sname = resolve_tool_source(tool_name)
+                                tc_result_evt = {
+                                    "type": "tool-result",
+                                    "toolCallId": tc.get("id", ""),
+                                    "toolName": tool_name,
+                                    "args": args,
+                                    "result": exec_result,
+                                    "isError": True,
+                                    "iteration": _tool_iter + 1,
+                                    "serverSource": _r_src,
+                                    "serverId": _r_sid,
+                                    "serverName": _r_sname,
+                                }
+                                yield _sse(SSE_TOOL_RESULT, tc_result_evt)
+                                _hist_idx = len(tool_calls_history) - 1
+                                if _hist_idx >= 0 and tool_calls_history[_hist_idx].get("toolCallId") == tc.get("id", ""):
+                                    tool_calls_history[_hist_idx].update({
+                                        "result": exec_result,
+                                        "isError": True,
+                                        "durationMs": int((time.time() - _tc_start_ts) * 1000),
+                                        "endedAt": datetime.now(UTC).isoformat(),
+                                    })
+                                # plan 快照收尾(该步标记失败,前端 PlanStepsCard 可见)
+                                yield _format_plan_updated_event(
+                                    tool_calls_history,
+                                    explanation=f"工具 {tool_name} 在当前模式下不可用(需浏览器工作区)",
+                                    message_id=message_id,
+                                )
+                                # 回灌工具结果 —— 模型据此换工具,而不是重试同一名字
+                                result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tc.get("id", ""),
+                                    "name": tool_name,
+                                    "content": result_json,
+                                })
+                                continue
+
+                            # ===== V3 #58(2026-09-26 立):主对话流工具审批门 =====
+                            # 位置语义:在重复调用/委托可用性拦截(上方)与浏览器委托、
+                            # 本地 _mcp.call_tool 执行(下方)之间 —— 无论工具走哪条执行
+                            # 路径,执行前都要过门。deny/超时时工具不执行,回填带
+                            # errorCode=TOOL_APPROVAL_DENIED / TOOL_APPROVAL_TIMEOUT 的
+                            # 明确失败 tool-result(收尾与 delegate-timeout 分支同构),
+                            # 让模型知道工具被拒,而非静默失败后原地重试。
+                            _approval_needed, _danger = _resolve_tool_approval(
+                                getattr(req, "permission_mode", None), tool_name
+                            )
+                            if _approval_needed:
+                                if session_id is None:
+                                    # 兜底:理论上 gen() 开始时已生成(与 delegate 分支同防御)
+                                    session_id = str(uuid.uuid4())
+                                _grant_key = f"{session_id}::{tool_name}"
+                                if _tool_approval_grants.get(_grant_key) in ("session", "always"):
+                                    # 会话内「总是允许」命中:免弹窗(与 agent_loop_v2 审批缓存同语义)
+                                    _approval_needed = False
+                            if _approval_needed:
+                                tool_call_id = tc.get("id", "")
+                                _approval_id = f"appr_{uuid.uuid4().hex[:12]}"
+                                # 参数预览截断 200 字符(与 agent 任务流 tool-approval 口径一致)
+                                _args_preview = json.dumps(args, ensure_ascii=False)[:200]
+                                _approval_ev = asyncio.Event()
+                                _approval_sessions.setdefault(session_id, {})[_approval_id] = {
+                                    "event": _approval_ev,
+                                    "decision": None,
+                                    "scope": None,
+                                    "reason": None,
+                                }
+                                # 发 tool-approval SSE 帧(帧名/payload 见模块头注释,与
+                                # agent 任务流同形,前端 ToolApprovalDialog 可复用解析)
+                                yield _sse(
+                                    _SSE_TOOL_APPROVAL,
+                                    {
+                                        "type": "tool-approval",
+                                        "approval_id": _approval_id,
+                                        "tool_name": tool_name,
+                                        "tool_call_id": tool_call_id,
+                                        "args_preview": _args_preview,
+                                        "danger_level": _danger,
+                                        "session_id": session_id,
+                                    },
+                                )
+                                # 等待人工决策:分段等待 + 注释行 keepalive。
+                                # 为什么不一次 wait_for(120):前端 streamChat 有 30s 读超时
+                                # (readWithTimeout),SSE 流静默超 30s 会被前端掐断重连;
+                                # SSE 注释行(": ...")对所有解析器透明,专治此症。
+                                _decision: str | None = None
+                                _scope = "once"
+                                try:
+                                    _waited = 0.0
+                                    while _waited < _APPROVAL_TIMEOUT:
+                                        _remain = _APPROVAL_TIMEOUT - _waited
+                                        try:
+                                            await asyncio.wait_for(
+                                                _approval_ev.wait(),
+                                                timeout=min(_APPROVAL_KEEPALIVE_INTERVAL, _remain),
+                                            )
+                                        except TimeoutError:
+                                            _waited += _APPROVAL_KEEPALIVE_INTERVAL
+                                            if _waited < _APPROVAL_TIMEOUT:
+                                                yield ": keep-alive (waiting tool approval)\n\n"
+                                            continue
+                                        # 事件已置位:读取决策(回传端点已写入 entry)
+                                        _entry = _approval_sessions.get(session_id, {}).get(_approval_id)
+                                        if _entry is not None:
+                                            _decision = str(_entry.get("decision") or "")
+                                            _scope = str(_entry.get("scope") or "once")
+                                        break
+                                finally:
+                                    # 条目清理(决策/超时后都不残留,与 agent_loop_v2
+                                    # _approval_registry 同语义,防内存泄漏)
+                                    _approval_sessions.get(session_id, {}).pop(_approval_id, None)
+                                if _decision == "approve" and _scope in ("session", "always"):
+                                    # 落会话内授权缓存(once 不落,下次同工具仍弹窗)
+                                    _tool_approval_grants[_grant_key] = _scope
+                                if _decision is None or _decision != "approve":
+                                    _is_timeout = _decision is None
+                                    _denied_why = (
+                                        f"审批等待超时({_APPROVAL_TIMEOUT}s),未执行"
+                                        if _is_timeout
+                                        else "用户拒绝了本次工具执行"
+                                    )
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        "ok": False,
+                                        "error": _denied_why,
+                                        "errorCode": (
+                                            "TOOL_APPROVAL_TIMEOUT"
+                                            if _is_timeout
+                                            else "TOOL_APPROVAL_DENIED"
+                                        ),
+                                        "message": (
+                                            f"工具 {tool_name} 未执行"
+                                            f"({'审批超时' if _is_timeout else '审批拒绝'})"
+                                        ),
+                                    }
+                                    ok = False
+                                    tool_exec_tracker.append(ok)
+                                    # 推送 tool-result 事件(前端工具卡显示失败态)
+                                    _r_src, _r_sid, _r_sname = resolve_tool_source(tool_name)
+                                    tc_result_evt = {
+                                        "type": "tool-result",
+                                        "toolCallId": tc.get("id", ""),
+                                        "toolName": tool_name,
+                                        "args": args,
+                                        "result": exec_result,
+                                        "isError": True,
+                                        "iteration": _tool_iter + 1,
+                                        "serverSource": _r_src,
+                                        "serverId": _r_sid,
+                                        "serverName": _r_sname,
+                                    }
+                                    yield _sse(SSE_TOOL_RESULT, tc_result_evt)
+                                    _hist_idx = len(tool_calls_history) - 1
+                                    if _hist_idx >= 0 and tool_calls_history[_hist_idx].get("toolCallId") == tc.get("id", ""):
+                                        tool_calls_history[_hist_idx].update({
+                                            "result": exec_result,
+                                            "isError": True,
+                                            "durationMs": int((time.time() - _tc_start_ts) * 1000),
+                                            "endedAt": datetime.now(UTC).isoformat(),
+                                        })
+                                    # W1:终端类工具收尾(拒绝/超时分支视为已结束)
+                                    if _is_terminal_tool:
+                                        yield _format_terminal_end_event(
+                                            _terminal_id, exec_result, ok, _tc_start_ts, message_id
+                                        )
+                                        # D24:同步收集终端任务记录,回调落库(恢复/回放/审计)
+                                        terminal_tasks_history.append(_build_terminal_task(
+                                            _terminal_id, exec_result, ok, _tc_start_ts,
+                                            str((args if isinstance(args, dict) else {}).get("command", "") or ""),
+                                        ))
+                                    yield _format_plan_updated_event(
+                                        tool_calls_history,
+                                        explanation=(
+                                            f"工具 {tool_name} "
+                                            f"{'审批超时' if _is_timeout else '被用户拒绝'},未执行"
+                                        ),
+                                        message_id=message_id,
+                                    )
+                                    # 回灌工具结果 —— 模型据此改道(换工具/向用户解释),不重试同名工具
+                                    result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                                    messages.append({
+                                        "role": "tool",
+                                        "tool_call_id": tc.get("id", ""),
+                                        "name": tool_name,
+                                        "content": result_json,
+                                    })
+                                    continue
 
                             # ===== 阶段 2:浏览器端工具委托执行(2026-08-02 立)=====
                             # web 非 Tauri 环境(workspace_context 模式)下,fs 类工具委托前端用
@@ -3834,6 +4320,38 @@ async def post_delegated_tool_result(session_id: str, body: dict[str, Any] = Bod
     if event and isinstance(event, asyncio.Event):
         event.set()
     return {"ok": True}
+
+
+@router.post("/llm/complete/stream/{session_id}/approval-response", response_model=None)
+async def post_tool_approval_response(session_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """V3 #58(2026-09-26 立):主对话流工具审批决策回传端点。
+
+    前端弹窗(ToolApprovalDialog,channel='chat-stream')收到 tool-approval SSE 帧
+    后,用户批准/拒绝经此端点回传,唤醒 llm.py tool loop 中等待审批的 asyncio.Event。
+    与 agent 任务流的 /agents/approval-response 注册表互相独立(两套 session 域,
+    主对话流审批条目在 _approval_sessions,agent 任务流在 agent_loop_v2 注册表)。
+    兼容 camelCase(approvalId,与网关 /agent/approval-response 同款双写法)。
+    """
+    session = _approval_sessions.get(session_id)
+    if not session:
+        return {"ok": False, "error": "session not found or expired"}
+    approval_id = str(body.get("approval_id") or body.get("approvalId") or "")
+    entry = session.get(approval_id)
+    if not entry or not isinstance(entry.get("event"), asyncio.Event):
+        return {"ok": False, "error": "approval not found or expired"}
+    decision = str(body.get("decision", "")).strip().lower()
+    if decision not in ("approve", "reject"):
+        return {"ok": False, "error": "decision must be approve/reject"}
+    # scope 缺省 once(最小特权;与前端弹窗默认档一致,防旧客户端意外放大授权)
+    scope = str(body.get("scope") or "once").strip().lower()
+    if scope not in ("once", "session", "always"):
+        scope = "once"
+    entry["decision"] = decision
+    entry["scope"] = scope
+    reason = body.get("reason")
+    entry["reason"] = str(reason)[:500] if reason else None  # 截断与网关 schema 上限对齐
+    entry["event"].set()
+    return {"ok": True, "accepted": True, "approvalId": approval_id, "decision": decision}
 
 
 @router.post("/llm/complete/stream/{session_id}/steer", response_model=None)
