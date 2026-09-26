@@ -77,7 +77,7 @@ export function WebhookDialog({
                   className={cn(
                     'rounded-md border px-2.5 py-1 text-xs transition-colors',
                     events.includes(ev)
-                      ? 'border-primary bg-primary/10 text-primary'
+                      ? 'border-brand-accent-deep bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-accent',
                   )}
                 >

@@ -108,7 +108,10 @@ export default function WithdrawalPage() {
               onInput={(e) => setAmount(e.detail.value)}
               placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
             />
-            <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]" onClick={fillAll}>
+            <Text
+              className="text-[length:22rpx] text-[var(--color-text-tertiary)]"
+              onClick={fillAll}
+            >
               {tt('distribution.withdraw.all', '全部提现')}
             </Text>
           </View>
@@ -131,7 +134,7 @@ export default function WithdrawalPage() {
                 </View>
                 <Text className="flex-1 text-[length:32rpx] text-foreground">{m.label}</Text>
                 <View
-                  className={`w-[36rpx] h-[36rpx] border-[length:2rpx] rounded-sm flex items-center justify-center ${method === m.value ? 'bg-primary border-primary' : 'border-border bg-card'}`}
+                  className={`w-[36rpx] h-[36rpx] border-[length:2rpx] rounded-sm flex items-center justify-center ${method === m.value ? 'bg-primary border-brand-accent-deep' : 'border-border bg-card'}`}
                 >
                   {method === m.value && (
                     <LineIcon name="check" size={24} color="var(--color-primary-foreground)" />

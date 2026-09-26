@@ -331,7 +331,7 @@ export function GithubConfigDialog() {
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     placeholder={t('tokenPlaceholder')}
-                    className="h-8 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary"
+                    className="h-8 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-brand-accent-deep"
                     data-testid="github-token-input"
                     autoComplete="off"
                     spellCheck={false}

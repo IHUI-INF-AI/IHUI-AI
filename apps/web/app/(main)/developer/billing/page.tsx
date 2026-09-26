@@ -132,7 +132,7 @@ export default function BillingPage() {
                   key={p.id}
                   className={cn(
                     'flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs',
-                    p.isDefault && 'border-primary bg-primary/5',
+                    p.isDefault && 'border-brand-accent-deep bg-primary/5',
                   )}
                 >
                   <span className="font-medium">

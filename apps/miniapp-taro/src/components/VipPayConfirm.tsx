@@ -65,7 +65,7 @@ export default function VipPayConfirm({
         <View className="flex space-x-3 mb-4">
           <View
             className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
-              paymentMethod === 'wechat' ? 'border-primary bg-primary/10' : 'vip-border'
+              paymentMethod === 'wechat' ? 'border-brand-accent-deep bg-primary/10' : 'vip-border'
             }`}
             onClick={() => onMethodChange?.('wechat')}
             hoverClass="opacity-60"
@@ -80,7 +80,7 @@ export default function VipPayConfirm({
           </View>
           <View
             className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
-              paymentMethod === 'alipay' ? 'border-primary bg-primary/10' : 'vip-border'
+              paymentMethod === 'alipay' ? 'border-brand-accent-deep bg-primary/10' : 'vip-border'
             }`}
             onClick={() => onMethodChange?.('alipay')}
             hoverClass="opacity-60"

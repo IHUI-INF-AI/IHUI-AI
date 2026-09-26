@@ -181,7 +181,10 @@ export default function SubscriptionPage() {
               <p className="mb-2 text-sm font-semibold">{t('upgradePlans')}</p>
               <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
                 {plans.map((p) => (
-                  <Card key={p.id} className={cn(p.isCurrent && 'border-primary bg-primary/5')}>
+                  <Card
+                    key={p.id}
+                    className={cn(p.isCurrent && 'border-brand-accent-deep bg-primary/5')}
+                  >
                     <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold">{p.name}</p>
