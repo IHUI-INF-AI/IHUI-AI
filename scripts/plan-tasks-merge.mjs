@@ -30,11 +30,13 @@
  * §5c 溯源水印:本文件受 `scripts/watermark.mjs` 管理。
  */
 
-import { writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { auditPlan, compositeKeyOf } from './lib/plan-task-index.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -124,6 +126,112 @@ export function buildMerge(content, today) {
   return { text: lines.join('\n'), changed, refused, dupTwins, before: a.counts }
 }
 
+
+// ── 自愈层(挂 post-commit)──────────────────────────────────────────
+/**
+ * 对**当时**的 HEAD 重算归并,并落地一枚前向修复提交。
+ *
+ * 为什么不能只有提交链上那道门:并发会话 routinely 用 `--no-verify`,pre-commit 会被一起跳过;
+ * 而"按内存里那份旧计划文档整文件提交"会把刚归并好的行**原样复活**。本票第一次落地(118 行)
+ * 就在同一小时内被这样一次回写吞掉 —— 108 行 `[归并]` 从 HEAD 全部消失。
+ * 只判不修 = 把红留给下一个人(§12e 同型),所以修必须长在 post-commit 上。
+ *
+ * 防自伤四条:① 结论一律按当次 HEAD 现读,行号绝不复用;② 零损失对账 + 三条归零断言任一不过
+ * 就整批停手(宁可留着喊人,也不写一版没验证过的内容);③ 提交走临时索引 + commit-tree + CAS,
+ * 钩子不跑 ⇒ 结构上不会递归,但仍按 §1 惯例带 `IHUI_PLAN_STATE_HEAL_COMMIT` 供钩子侧判读;
+ * ④ CAS 输了就放弃(下一次提交会再试),绝不重抢别人的 HEAD。
+ */
+function gitIn(idx, args) {
+  return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: idx ? { ...process.env, GIT_INDEX_FILE: idx } : process.env,
+    windowsHide: true,
+    timeout: 60000,
+    maxBuffer: 1 << 28,
+  }).trim()
+}
+
+export function healAndLand() {
+  const stamp = Date.now()
+  const head = gitIn(null, ['rev-parse', 'HEAD'])
+  const spec = `HEAD:${PLAN_REL}`
+  const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
+  if (src === null || src === undefined) {
+    console.log('自愈未判定 —— HEAD 取不到 PROJECT_PLAN.md(不记为已修)')
+    return 2
+  }
+  const b0 = auditPlan(src).counts
+  if (!b0.forks && !b0.voidRows && !b0.rotatedPointers) {
+    console.log('✅ 自愈:HEAD 无状态分叉,不动任何东西')
+    return 0
+  }
+  const r = buildMerge(src, new Date().toISOString().slice(0, 10))
+  const bad = healStopReasons(src, r.text, r.changed, r.refused.length)
+  if (bad.length) {
+    console.log(`❌ 自愈停手:${bad.join(' / ')} —— 现场保留,交人工`)
+    return 1
+  }
+  // 临时件一律走 mkScratch(工作树同盘的 DevEnv/Temp/ihui-scratch):写死 `.ihui-agent/tmp/`
+  // 在**没有该目录的检出**上直接 ENOENT —— 独立仓端到端证明就是这么抓出来的。
+  const scratch = mkScratch(`plan-state-heal-${stamp}`)
+  const tmp = path.join(scratch, 'pp.md')
+  const msgFile = path.join(scratch, 'msg.txt')
+  const idx = path.join(scratch, 'index')
+  writeFileSync(tmp, r.text, 'utf8')
+  writeFileSync(
+    msgFile,
+    [
+      'fix(plan): 自愈被回写的任务状态副本(守门 130 的 post-commit 层)',
+      '',
+      `触发时 HEAD 现读:F1 ${b0.forks} / F2 ${b0.voidRows} / F3 ${b0.rotatedPointers} → 归并 ${r.changed.length} 行后 0 / 0 / 0。`,
+      `行数 ${src.split('\n').length} → ${r.text.split('\n').length}(一行不删一行不加),未参与改写的 ${src.split('\n').length - r.changed.length} 行逐字不变。`,
+      '成因与修法同源:scripts/plan-tasks-merge.mjs 按当次 HEAD 重算行号(绝不用旧行号)。',
+      '复活路径是"按内存里旧计划文档整文件提交 + --no-verify 跳过 pre-commit",所以这一层必须挂 post-commit。',
+    ].join('\n'),
+    'utf8',
+  )
+  try {
+    gitIn(idx, ['read-tree', head])
+    const blob = gitIn(idx, ['hash-object', '-w', tmp])
+    gitIn(idx, ['update-index', '--add', '--cacheinfo', `100644,${blob},${PLAN_REL}`])
+    const tree = gitIn(idx, ['write-tree'])
+    const commit = gitIn(idx, ['commit-tree', tree, '-p', head, '-F', msgFile])
+    gitIn(null, ['update-ref', 'HEAD', commit, head])
+    if (gitIn(null, ['rev-parse', 'HEAD']) !== commit) {
+      console.log('❌ CAS 失败(HEAD 被并发抢进),本次自愈放弃 —— 下一次提交会再试')
+      return 1
+    }
+    const t0 = Date.now()
+    while (existsSync(path.join(ROOT, '.git', 'index.lock'))) {
+      if (Date.now() - t0 > 120000) {
+        console.log('❌ 等锁超时:共享索引未对齐,必须复跑(否则下一次普通提交会写回旧版)')
+        return 1
+      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400)
+    }
+    gitIn(null, ['update-index', '--add', '--cacheinfo', `100644,${blob},${PLAN_REL}`])
+    console.log(`✅ 自愈落地 ${commit.slice(0, 11)}:归并 ${r.changed.length} 行 → F1/F2/F3 = 0/0/0`)
+    return 0
+  } finally {
+    rmScratch(scratch)
+  }
+}
+
+/** 自愈的"该不该停手"判据 —— 抽成纯函数,否则这一层最要紧的安全断言只能在真仓上验一次。 */
+export function healStopReasons(srcText, merged, changed, refusedCount) {
+  const a0 = String(srcText).split('\n')
+  const a1 = String(merged).split('\n')
+  const touched = new Set(changed.map((c) => c.line))
+  const after = auditPlan(merged).counts
+  return [
+    refusedCount ? `拒写 ${refusedCount} 项` : null,
+    a0.length !== a1.length ? `行数不等 ${a0.length}→${a1.length}` : null,
+    a0.some((l, i) => !touched.has(i + 1) && l !== a1[i]) ? '有未登记行被改动' : null,
+    after.forks || after.voidRows || after.rotatedPointers ? '归并后未归零' : null,
+  ].filter(Boolean)
+}
+
 /** 零损失对账:行数相等 ∧ 未被改写的行逐字不变(多重集),外加"三条判据必须归零"。 */
 export function verifyMerge(original, merged, changed) {
   const problems = []
@@ -167,6 +275,17 @@ function selfTest() {
   // 反向对照:未参与改写的行被偷偷动一下,零损失断言必须炸
   const sabotage = r.text.replace('- [ ] **D98 真待办**:谁都没做过,不得被动。', '- [ ] **D98 真待办**:被偷偷改了。')
   ok(verifyMerge(src, sabotage, r.changed).problems.length > 0, '破坏未登记行时断言必须炸(不得静默通过)')
+  // 自愈层的"该不该停手" —— 纯函数,三条各一对
+  ok(healStopReasons(src, r.text, r.changed, 0).length === 0, '正当归并结果不得停手')
+  ok(
+    healStopReasons(src, `${r.text}\n多塞一行`, r.changed, 0).join().includes('行数不等'),
+    '多塞一行必须停手',
+  )
+  ok(
+    healStopReasons(src, src, r.changed, 0).join().includes('未归零'),
+    '什么都不改(分叉仍在)必须停手 —— 否则自愈会变成"跑过一次就算修好"',
+  )
+  ok(healStopReasons(src, r.text, r.changed, 2).join().includes('拒写'), '有拒写项必须停手')
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
@@ -175,6 +294,10 @@ function main() {
   const argv = process.argv.slice(2)
   const has = (f) => argv.includes(f)
   if (has('--self-test')) return selfTest()
+  if (has('--heal') && has('--commit')) return healAndLand()
+  if (has('--heal')) {
+    console.log('ℹ️ --heal 需与 --commit 同给才动手(单独的 --heal 只出报告,不写任何内容)')
+  }
   const sel = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
   if (sel.error) {
     console.log(`⚠️ 无法判定 —— ${sel.error}`)
