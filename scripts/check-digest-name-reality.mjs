@@ -143,6 +143,7 @@ export const UNIVERSAL_PROMISE_RE = /一律|全都|全部|所有|任何|每一�
  * 不出现在对方的字面量射程里,而不是去放宽对方或给自己开豁免(豁免是给"命名没错、判据看不见"的)。
  */
 export const OUTLET_RE =
+  // brand-mail-exempt: 下一行是守门 137 自己的判据正则字面量(模式串),不是任何发信点
   /\binsert\w*\(|\.update\s*\(|\bwriteFileSync\s*\(|\bwriteFile\s*\(|json\.dump|\bsetex\b|\bhset\b|fetch\s*\(|send[Mm]ail|\.post\s*\(|Save|persist/i
 
 /** 只做字符串活的那一族调用。 */
