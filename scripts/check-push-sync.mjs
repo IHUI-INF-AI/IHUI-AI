@@ -187,15 +187,37 @@ function isAncestorOfHead(sha, head) {
   return run(`git merge-base --is-ancestor ${sha} ${head}`, { allowFail: true }) !== null
 }
 
-/** 放行结论的四种合法形态,以及"回到原判据(阻塞)"的一种。
+/** 放行结论的合法形态,以及"回到原判据(阻塞)"的一种。
  *  刻意保持窄口径:`failed` 一律阻塞(真推送不出去才是本门存在的理由);
- *  `running` 但未新鲜/持有者已死 也回到阻塞,那正是 2026-09-19 记录的"猝死残留"型。 */
+ *  `running` 但未新鲜/持有者已死 也回到阻塞,那正是 2026-09-19 记录的"猝死残留"型。
+ *  `diverged`(2026-09-26 由 git-push-guard 新增的终态)**新鲜时放行、过期时阻塞**。
+ *  它和 failed 的差别不是轻重,而是下一步动作不同:failed 是"通道坏了,查凭据/网络/门禁",
+ *  diverged 是"远端已推进,唯一出路是 git-sync-converge(§5b「🔄 主动收敛」)"。
+ *  为什么新鲜那一档必须放行(主会话在 subagent 交付后补的判据,理由要留在案上):
+ *  guard 自己**不能**收敛 —— 收敛要在有锁、有判据的入口做,所以 diverged 落下之后
+ *  没有人会自动清掉它。若照 failed 那样一律拦,并发期(本机常态)每一次提交都被拦,
+ *  唯一结局就是各会话 `--no-verify`,那正是今天 13:1x 修掉的那型(见下面 done 档的注释)。
+ *  拦的仍是"没人管":状态一过期就回到阻塞,出路照旧点名收敛器。
+ *  向后兼容:老状态文件里没有这个值,该分支对它们完全不生效。 */
 function pushVerdict(st, { now, localHead }) {
   if (!st || typeof st.ts !== 'number') return { pass: false, why: '无 push-state(或形状不对)' }
   const fresh = now - st.ts < PUSH_STATE_STALE_MS
   const alive = isPidAlive(st.pid)
   if (st.status === 'failed') {
     return { pass: false, why: `最近一次后台推送判 failed(${ageText(now, st.ts)}前),本门必须继续拦` }
+  }
+  if (st.status === 'diverged') {
+    const remedy = st.nextCommand ? `出路:${st.nextCommand}` : '出路:node scripts/git-sync-converge.mjs'
+    if (fresh) {
+      return {
+        pass: true,
+        why: `上一轮推送被远端拒收 non-fast-forward(diverged,${ageText(now, st.ts)}前)⇒ ${remedy};本门不拦,但这条必须由人或会话跑一次`,
+      }
+    }
+    return {
+      pass: false,
+      why: `diverged 已 ${ageText(now, st.ts)}无人收敛(超过 ${Math.round(PUSH_STATE_STALE_MS / 60000)}min 窗口)⇒ 先跑 ${remedy} 再提交`,
+    }
   }
   if (st.status === 'running' && fresh && alive) {
     return { pass: true, why: `后台推送在途(running,${ageText(now, st.ts)}前,pid ${st.pid} 存活)` }
