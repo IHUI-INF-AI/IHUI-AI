@@ -35,12 +35,14 @@
  *   --parity-only: 仅做 5 语言 parity 校验,跳过源文件扫描;与 --staged 一起用时强制跑 parity
  *   无参数:        全量检查(CI 用, 历史遗留问题标 warning, exit 0)
  */
-import { execSync, execFileSync } from 'node:child_process'
+import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { createRequire } from 'node:module'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
-import { resolveGitBin } from './lib/gitdir.mjs'
+// 判定面取材的唯一出口(2026-09-26 迁)。语言包是这道门唯一的"内容输入",
+// 清单与正文必须经同一面、同一次取材拿到 —— 各写一遍必然不同形(守门 118 的 half-wired 档)。
+import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 // 2026-09:解析端内 lib/*.ts 的 messagesZhCN TS 对象字面量。
@@ -169,46 +171,45 @@ function collectSourceFiles(dir, result = []) {
   return result
 }
 
-// 2026-09-07 根治:--staged 模式下 parity 数据源必须是暂存区 blob,而非工作区文件。
-// 此前 readFileSync 直接读工作区:并行会话未暂存的 i18n WIP 键(只加了部分语言)
-// 会污染校验,导致无关 commit 被 parity 假失败阻塞。
-// 规则:文件在暂存区有改动 → 读 `git show :<path>`(staged blob);
-//       不在暂存区 → 工作区与 HEAD 一致,readFileSync 即可。
-const stagedI18nFiles = (() => {
-  if (!isStaged) return null
+/**
+ * 源文件清单的**按面**枚举(2026-09-26 收口)。
+ * 旧写法在所有模式下都是 `collectSourceFiles`(磁盘遍历)—— 语言包已改按面判之后,
+ * 它就成了同一把尺子的另一半错位:并行会话在磁盘新写一个引用未登记键的组件,
+ * HEAD 面上"源码 × 词表"两头都干净的仓被它顶红(实测 `sideQueued` 型)。
+ * 过滤规则与 collectSourceFiles 逐字同形(扩展名 + EXCLUDE_DIRS + isExcludedDirName 按段判),
+ * 只换取材面、不改判据覆盖 —— 少一段就是放宽判据,多一段就是另造一台门。
+ */
+function listSourceFilesOnFace(dirAbs) {
+  if (FACE === 'worktree') return collectSourceFiles(dirAbs)
+  const relDir = relOf(dirAbs)
+  let out
   try {
-    const out = execSync(`git diff --cached --name-only -- "${MESSAGES_DIR}" "${SHARED_DIR}"`, {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-    })
-    return new Set(out.split('\n').filter(Boolean))
-  } catch {
-    return null
+    out =
+      FACE === 'index'
+        ? gitRaw(['ls-files', '--', `${relDir}/`], REPO_ROOT)
+        : gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', `${relDir}/`], REPO_ROOT)
+  } catch (e) {
+    throw new Error(
+      `${FACE_LABEL[FACE]} 列不到 ${relDir} 的源文件清单:${String((e && e.message) || e).split('\n')[0]}`,
+    )
   }
-})()
-
-/** 取"将要进入本次提交"的语言包内容。
- *  2026-09-24 根治:旧实现假设"文件不在暂存区 ⇒ 工作区与 HEAD 一致",在**共享工作区**里
- *  这个前提不成立 —— 并发会话未暂存的 i18n WIP(本次实测:web 的 en/ja/ko 三包被删掉
- *  `admin.announcements.maintenanceNotice` 整块,而 HEAD 里五语言齐全)会让 parity 读到
- *  脏数据,于是**完全不含 packages/i18n/\*\* 的提交也被这道 blocking 门拦下** ⇒
- *  每个会话只能 --no-verify ⇒ 115 道门一起被跳过(本会话实测连续两次因此跳门)。
- *  判据必须落在 HEAD(已入库真相)+ 本次暂存(将要入库)上,才与提交结果等价。
- *  全量模式(不带 --staged,CI/人工审计)仍读工作区 —— 那是它该看的口径。 */
-/** 读某个 git 版本里的文件(spec 为**完整** revspec,如 `:a/b.json` 取索引、`HEAD:a/b.json`)。
- *  刻意不拆成 `${spec}:${path}` 两段拼接 —— 变异测试实测:索引前缀本身就含冒号,
- *  再拼一次会产出 `::path`,git 报 "ambiguous argument",而调用方把它当"读不到"静默跳过,
- *  于是 parity 少比一门语言仍然打印"通过"(假绿)。签名要与两种口径天然兼容。 */
-function gitBlob(spec) {
-  return execFileSync(resolveGitBin(), ['show', spec], {
-    cwd: REPO_ROOT,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    windowsHide: true,
-    timeout: 60_000,
-  })
+  return out
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((p) => p.replace(/\\/g, '/'))
+    .filter((p) => p.endsWith('.ts') || p.endsWith('.tsx'))
+    .filter((p) => !p.split('/').some((seg) => EXCLUDE_DIRS.has(seg) || isExcludedDirName(seg)))
+    .map((p) => join(REPO_ROOT, p))
 }
+
+// 语言包的判定面唯一出口在下方 `FACE` / `listPackJsonEntries` / `readPackText`(2026-09-26 收口)。
+// 此前这里是两套已废弃的口径,都实测过它们的失效形态,留名以免被"顺手改回去":
+//  · `stagedI18nFiles` = 按 `git diff --cached` 列"哪些文件在暂存区",其余一律读**磁盘** ——
+//    那句"不在暂存区 ⇒ 工作区与 HEAD 一致"在共享工作区里根本不成立(2026-09-24 记过一次);
+//  · `gitBlob(spec)` = 自己 `execFileSync(git show …)`,正是守门 118 的 `loose-git` 档,
+//    且它只读正文、不读清单,于是"清单来自 readdirSync(磁盘) + 正文来自提交面"这种
+//    自洽却错位的尺子一直成立。两者现由 face-reader 的 catBatch / gitRaw 统一代劳。
 
 /** 读不出/解析失败的语言包 ⇒ 记名,末尾**判红**。
  *  为什么必须记:两处调用点原本 `catch {}` / `catch { continue }` 静默跳过,parity 于是
@@ -216,20 +217,143 @@ function gitBlob(spec) {
  *  拼错的 revspec 就让五语言变成四语言而全绿 —— 少一门就少一门的漏检,绝不能算通过。 */
 const unreadablePacks = []
 
+/**
+ * 语言包的判定面(2026-09-26 收口)。
+ *
+ * 收口前两处不同面,都实测过:
+ *  ① 「同层重复 key / 含点键」那一段一直是裸 `readFileSync`(磁盘) —— 连 `--staged` 也一样,
+ *     于是并发会话往 `packages/i18n/messages/**` 写的半成品(本次实测 124 处重复键)
+ *     把**完全不含 i18n 改动**的提交钉红 ⇒ 只能 --no-verify ⇒ 约 156 道门一起被跳过(§12e 同型)。
+ *  ② 语言包**清单**来自 `readdirSync`(磁盘),**正文**来自提交面 —— 别人在磁盘上新建一个
+ *     `xx.json` 就进清单而读不到正文,少一门语言时旧代码会 `catch{continue}` 静默跳过,
+ *     parity 于是"四语言也打印通过"(本文件 :212 记过的同型假绿)。
+ * 现:清单与正文同面同轮;默认 **HEAD**、`--staged` **索引**、`--worktree` 只作人工/CI
+ * 想看磁盘时的逃生舱;两面旗同给 ⇒ exit 2;该面取不到 ⇒ 记 unreadablePacks 并判红,**不回落**另一个面。
+ */
+const FACE = (() => {
+  const staged = process.argv.includes('--staged')
+  const worktree = process.argv.includes('--worktree')
+  if (staged && worktree) return 'conflict'
+  if (staged) return 'index'
+  if (worktree) return 'worktree'
+  return 'head'
+})()
+const FACE_LABEL = {
+  index: '索引 blob(git ls-files + :<path>)',
+  head: 'HEAD blob(git ls-tree HEAD + HEAD:<path>)',
+  worktree: '工作树(磁盘,人工逃生舱)',
+  conflict: '两面包旗冲突',
+}
+if (FACE === 'conflict') {
+  console.error(
+    `${C.red}[i18n 键检查] ❌ --staged 与 --worktree 不得同用(两个判定面互斥,取哪一面都会让另一面成为假绿)${C.reset}`,
+  )
+  process.exit(2)
+}
+
+/** 绝对路径 → 仓内相对路径(git 只认正斜杠形态) */
+function relOf(absPath) {
+  return relative(REPO_ROOT, absPath).replace(/\\/g, '/')
+}
+
+// ---------- 判定面正文取材(2026-09-26 补源面;同面同轮,一次 batch) ----------
+// 语言包**与源文件**的正文都从这一层走:清单算出规格 → `prefetchFaceTexts` 一次
+// `cat-file --batch` 装满缓存 → 各判据只查缓存。此前源文件扫描(1577 个 .ts/.tsx)在
+// 所有模式下都是磁盘 `readFileSync`,而语言包已按面判 —— 于是"清单/正文都来自 HEAD 的包"
+// × "引用了并行会话未提交 WIP 键的磁盘源码"会造出**HEAD 面上根本不存在的红**
+// (2026-09-26 实测:`sideQueued`/`sideAnswerNow` 只在脏工作树的 message-input.tsx 里,
+// HEAD 的源码与五语言包两侧都没有,门却按混合面判红 —— 归因层量到的正是这一型)。
+// `--worktree` 档才允许磁盘直读;两个提交面一律不回退磁盘(把"没判"写成"判过了"是守门 94 同型)。
+const faceTextCache = new Map()
+// 冒号必须在三元**外面**(index 规格是 `:path`,不是裸路径):写成 `? '' : 'HEAD:'` 时
+// 索引面产出裸路径,`cat-file --batch` 按对象名解析它并回 missing ⇒ 暂存区永远"读不到"。
+// 这个坑在守门 90 的 readLedger 注释里被逐字描述过,本枚改动第一版又踩了一遍,
+// 由镜像 F 组(索引面必须读到内容)抓出 —— 判据只能被跑,不能被抄。
+const faceSpecOf = (rel) => `${FACE === 'index' ? '' : 'HEAD'}:${rel}`
+function prefetchFaceTexts(relList) {
+  if (FACE === 'worktree') return
+  const specs = [...new Set(relList.filter(Boolean).map(faceSpecOf))].filter(
+    (s) => !faceTextCache.has(s),
+  )
+  if (specs.length === 0) return
+  const got = catBatch(REPO_ROOT, specs, { maxBuffer: 1 << 29, timeout: 120000 })
+  for (const [k, v] of got) faceTextCache.set(k, typeof v === 'string' ? v : null)
+}
+/** 按面读一份正文;取不到返回 null(调用方按"该面没有此对象"处置,绝不换面凑)。 */
+function faceReadText(rel) {
+  if (FACE === 'worktree') return readWorktreeFile(REPO_ROOT, rel)
+  const spec = faceSpecOf(rel)
+  if (!faceTextCache.has(spec)) prefetchFaceTexts([rel]) // 清单漏算的兜底:仍走层,不派生裸 git show
+  const v = faceTextCache.get(spec)
+  return typeof v === 'string' ? v : null
+}
+
+/**
+ * 按判定面列某个语言包目录下的 `.json`。
+ * 返回空数组有两种,处置动作不同,所以必须分开说:
+ *  · **该面根本没有这个目录**(某个端的语言包尚未入库 / 夹具里就没这目录)⇒ 真的无事可查;
+ *  · 目录在而列到 0 个包 ⇒ git 根本表示不了空目录,所以在两个提交面上这两种形态同形,
+ *    本函数不区分,交给调用方按"0 语言"走 skip —— **不**把它冒充成"5 语言 parity OK"。
+ * git 自身问不到(非仓库 / 超时 / 该面不可达)⇒ 抛 `Undetermined`,由调用方折成 exit 2「无法判定」。
+ */
+function listPackJsonEntries(dirAbs) {
+  const relDir = relOf(dirAbs)
+  if (FACE === 'worktree') {
+    if (!existsSync(dirAbs)) return []
+    return readdirSync(dirAbs).filter((f) => f.endsWith('.json'))
+  }
+  const depth = relDir.split('/').length
+  const out =
+    FACE === 'index'
+      ? gitRaw(['ls-files', '--', `${relDir}/`], REPO_ROOT)
+      : gitRaw(['ls-tree', '--name-only', 'HEAD', '--', `${relDir}/`], REPO_ROOT)
+  return (
+    out
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((p) => p.replace(/\\/g, '/'))
+      // `ls-tree --name-only` 回的是裸名、`ls-files` 回的是全路径,统一成"直接子"两层判据:
+      // 只收深度恰好等于 dir+1 的路径,以及 ls-tree 的裸名 —— 漏判会把子目录当成语言包列进来。
+      .filter((p) => p.split('/').length === depth + 1 || !p.includes('/'))
+      .map((p) => p.split('/').pop())
+      .filter((n) => n.endsWith('.json'))
+  )
+}
+
+/** 按判定面读某个语言包的**原文**(重复键判据要的是字节级文本,不能是 JSON.parse 之后的)。
+ *  @param optional 该包允许在此面不存在(shared 基础包按语言可选)⇒ 返回 null;
+ *                  必填包取不到一律抛,由调用方记 unreadablePacks 判红 —— 绝不静默少比一门语言。 */
+function readPackText(repoRel, { optional = false } = {}) {
+  let text = null
+  try {
+    text = faceReadText(repoRel)
+  } catch (e) {
+    if (optional) return null
+    throw new Error(
+      `${FACE_LABEL[FACE]} 取不到 ${repoRel}:${String((e && e.message) || e).split('\n')[0]}(不回落另一个面)`,
+    )
+  }
+  if (text === null) {
+    if (optional) return null
+    throw new Error(`${FACE_LABEL[FACE]} 取不到 ${repoRel}(该面没有此对象 —— 不回落另一个面)`)
+  }
+  return text
+}
+
 function readMessageJson(absPath) {
-  const repoRel = absPath.replaceAll('\\', '/').replace(/^.*?packages\/i18n\//, 'packages/i18n/')
-  if (stagedI18nFiles && stagedI18nFiles.has(repoRel)) {
-    return JSON.parse(gitBlob(`:${repoRel}`))
-  }
-  if (stagedI18nFiles) {
-    try {
-      return JSON.parse(gitBlob(`HEAD:${repoRel}`))
-    } catch {
-      // HEAD 里没有这个包(本轮新增的语言包)⇒ 退回工作区读,不得因为读不到就当作"无键"
-      return JSON.parse(readFileSync(absPath, 'utf8'))
-    }
-  }
-  return JSON.parse(readFileSync(absPath, 'utf8'))
+  return JSON.parse(readPackText(relOf(absPath)))
+}
+
+/** shared 基础包:某一语言可以只有端包没有 shared 包(现状如此),所以是 optional 读。 */
+function readSharedBaseJson(absPath) {
+  const t = readPackText(relOf(absPath), { optional: true })
+  return t === null ? null : JSON.parse(t)
+}
+
+/** 原文出口(重复键 / 含点键判据用):同一次判定面、同一个"取不到就记名"口径。 */
+function readMessageRaw(absPath) {
+  return readPackText(relOf(absPath))
 }
 
 // 2026-09-07: staged 模式缺失键降级判定——工作区(含并行会话未暂存 WIP)消息。
@@ -271,22 +395,40 @@ function worktreeBaseHas(ns, key) {
 
 function loadMessages() {
   const langs = {}
-  if (!existsSync(MESSAGES_DIR)) return langs
+  // 清单与正文同一判定面(见 listPackJsonEntries 的理由)。旧写法是 `existsSync` + `readdirSync`
+  // —— 磁盘列清单、提交面读正文,那把尺子自洽却基准错位。
+  const entries = listPackJsonEntries(MESSAGES_DIR)
+  if (entries.length === 0) return langs
+  // 一次 batch 装满本面所有语言包正文(目标包 + 非 shared 模式下的 shared base)——
+  // 逐包 catBatch 是 N 次派生;清单此刻已全部在手,必须同轮读满。
+  {
+    const rels = entries
+      .filter((e) => e.endsWith('.json'))
+      .flatMap((entry) =>
+        isShared || isCli
+          ? [relOf(join(MESSAGES_DIR, entry))]
+          : [relOf(join(MESSAGES_DIR, entry)), relOf(join(SHARED_DIR, entry))],
+      )
+    prefetchFaceTexts(rels)
+  }
   // shared 模式:仅读 MESSAGES_DIR(=== SHARED_DIR),不合并
   if (isShared || isCli) {
-    for (const entry of readdirSync(MESSAGES_DIR)) {
+    for (const entry of entries) {
       if (!entry.endsWith('.json')) continue
       try {
         langs[entry.replace('.json', '')] = readMessageJson(join(MESSAGES_DIR, entry))
       } catch (e) {
-        unreadablePacks.push({ file: `shared/<${entry}>`, why: String((e && e.message) || e).slice(0, 130) })
+        unreadablePacks.push({
+          file: `shared/<${entry}>`,
+          why: String((e && e.message) || e).slice(0, 130),
+        })
       }
     }
     return langs
   }
   // web/extension 非 shared 模式:读 shared + 端合并集(shared base,端 override)
   // 端的 key 覆盖 shared 同名 key,shared 提供跨端共享基础 key
-  for (const entry of readdirSync(MESSAGES_DIR)) {
+  for (const entry of entries) {
     if (!entry.endsWith('.json')) continue
     let targetMsg
     try {
@@ -295,17 +437,17 @@ function loadMessages() {
       unreadablePacks.push({ file: entry, why: String((e && e.message) || e).slice(0, 130) })
       continue
     }
-    // 读 shared/<lang>.json 作为 base
+    // 读 shared/<lang>.json 作为 base。某一语言可以只有端包没有 shared 包(现状如此),
+    // 所以是 optional 读:该面没有此对象 ⇒ 空 base,而不是"读不到就判红"。
     let sharedMsg = {}
-    if (existsSync(SHARED_DIR)) {
-      const sharedPath = join(SHARED_DIR, entry)
-      if (existsSync(sharedPath)) {
-        try {
-          sharedMsg = readMessageJson(sharedPath)
-        } catch (e) {
-          unreadablePacks.push({ file: `base:${entry}`, why: String((e && e.message) || e).slice(0, 130) })
-        }
-      }
+    try {
+      const base = readSharedBaseJson(join(SHARED_DIR, entry))
+      if (base !== null) sharedMsg = base
+    } catch (e) {
+      unreadablePacks.push({
+        file: `base:${entry}`,
+        why: String((e && e.message) || e).slice(0, 130),
+      })
     }
     langs[entry.replace('.json', '')] = deepMerge(sharedMsg, targetMsg)
   }
@@ -499,12 +641,47 @@ function extractDynamicPrefixes(src, varName) {
 
 const dynamicPrefixIssues = []
 
-const messages = loadMessages()
+// 判定面问不到(git 失败 / 非仓库 / 该面不可达)= **无法判定**,不是"没有违规"。
+// 旧写法这一带是 `catch {}` / `continue`,少一门语言照样打印"5 语言 parity OK" ——
+// 本文件 :183 记过的同型假绿,以及守门 70「空暂存恒绿」、守门 78「扫到 0 条一律判红」同族。
+let messages
+try {
+  messages = loadMessages()
+} catch (e) {
+  console.error(
+    `${C.red}[i18n 键检查] ❌ ${FACE_LABEL[FACE]} 无法取材:${String((e && e.message) || e).slice(0, 200)}${C.reset}`,
+  )
+  console.error('   这不是"没有违规" —— 判据没跑成就不记为通过,也不冒红成判据失败。')
+  process.exit(2)
+}
 const langNames = Object.keys(messages).sort()
 
-if (langNames.length === 0 || !messages[BASE_LANG]) {
-  console.log(`${C.yellow}[i18n 键检查] messages 文件不存在或不完整,跳过${C.reset}`)
+if (langNames.length === 0) {
+  // 该面没有可比的语言包。两种成因必须分开:清单为空(这个端在该面尚未入库 ⇒ 无事可查,
+  // 与迁移前的 skip 语义一致);**清单非空而每一包都读失败**(读不到还"跳过"就是
+  // "四语言也打印通过"的同型假绿,本文件 :183 反过来钉过它一次 ⇒ 判"无法判定")。
+  if (unreadablePacks.length > 0) {
+    console.error(
+      `${C.red}[i18n 键检查] ❌ ${FACE_LABEL[FACE]} 一个可比语言包都没取到(${unreadablePacks.length} 处取材失败)⇒ 无法判定,不按"无事可查"跳过${C.reset}`,
+    )
+    for (const u of unreadablePacks.slice(0, 6)) console.error(`   · ${u.file} — ${u.why}`)
+    process.exit(2)
+  }
+  console.log(
+    `${C.yellow}[i18n 键检查] ${FACE_LABEL[FACE]} 无 ${relOf(MESSAGES_DIR)} 语言包,跳过${C.reset}`,
+  )
+  console.log(`判定面:${FACE_LABEL[FACE]}`)
   process.exit(0)
+}
+
+if (!messages[BASE_LANG]) {
+  // 有语言包、却拿不到基准语言(zh-CN)⇒ parity 没有可比的那一侧。
+  // 旧写法在这里与上一条合并成 exit 0 "跳过",于是"zh-CN 读坏了"与"这个端还没有语言包"
+  // 是同一种绿 —— 而前者恰恰是本文件对 ko.json 已经反转过的假绿形态(见 9b)。
+  console.error(
+    `${C.red}[i18n 键检查] ❌ ${FACE_LABEL[FACE]} 拿不到基准语言 ${BASE_LANG}(已取到 ${langNames.length} 门:${langNames.join(', ')})⇒ 无法判定${C.reset}`,
+  )
+  process.exit(2)
 }
 
 const baseLeaves = new Set(collectLeafKeys(messages[BASE_LANG]))
@@ -527,7 +704,11 @@ if (isStaged) {
       // parity-only 模式跳过源码使用检测(extension useI18n() 不适用;shared 无源码消费方)
       sourceFiles = []
     } else if (messagesChanged) {
-      sourceFiles = APP_SRC_DIR ? collectSourceFiles(APP_SRC_DIR) : collectSourceFiles(WEB_DIR)
+      // 按面全量枚举(2026-09-26):旧写法遍历磁盘 —— HEAD 面下它会把并发会话未提交的
+      // WIP 组件算进"本提交引用了未登记键",而那份源码根本不进这枚提交(实测 sideQueued 型假红)。
+      sourceFiles = APP_SRC_DIR
+        ? listSourceFilesOnFace(APP_SRC_DIR)
+        : listSourceFilesOnFace(WEB_DIR)
     } else {
       sourceFiles = staged
         .filter(
@@ -547,19 +728,22 @@ if (isStaged) {
           )
         })
         .map((f) => join(REPO_ROOT, f))
-        .filter((f) => existsSync(f))
+      // 2026-09-26:去掉 `.filter(existsSync)` —— 它按磁盘判"在不在",而正文按索引读。
+      // 暂存后又被并行会话从磁盘删掉的文件,旧写法会整条丢弃(该判的没判),
+      // 面口径下它照常进清单,索引取不到正文时由取材循环如实跳过(见 prefetch 处的报数)。
     }
   } catch {
     sourceFiles = []
   }
 } else if (!isParityOnly) {
-  sourceFiles = APP_SRC_DIR ? collectSourceFiles(APP_SRC_DIR) : collectSourceFiles(WEB_DIR)
+  sourceFiles = APP_SRC_DIR ? listSourceFilesOnFace(APP_SRC_DIR) : listSourceFilesOnFace(WEB_DIR)
 }
 // parity-only 非 staged 模式:sourceFiles 保持 [] (跳过源码使用检测,只做 key parity)
 
 // parity-only 模式无源码扫描,仅靠 parity 校验驱动,不能因 sourceFiles 空 + messagesChanged 假就跳过
 if (!isParityOnly && sourceFiles.length === 0 && !messagesChanged) {
   console.log(`${C.green}[i18n 键检查] 无源文件变更,跳过${C.reset}`)
+  console.log(`判定面:${FACE_LABEL[FACE]}`)
   process.exit(0)
 }
 
@@ -567,6 +751,7 @@ if (!isParityOnly && sourceFiles.length === 0 && !messagesChanged) {
 // 例外: --parity-only 显式标记必须跑(guardian-runner 2n-web 项,即使没改 i18n JSON 也要验)
 if (isParityOnly && isStaged && !messagesChanged && !isParityOnlyFlag) {
   console.log(`${C.green}[i18n 键检查] ${TARGET} 模式:暂存区无 i18n JSON 改动,跳过${C.reset}`)
+  console.log(`判定面:${FACE_LABEL[FACE]}`)
   process.exit(0)
 }
 
@@ -646,10 +831,16 @@ const FALLBACK_DICTS = {
 function loadFallbackDict(target) {
   const rel = FALLBACK_DICTS[target]
   if (!rel) return null
-  const file = join(REPO_ROOT, rel)
-  if (!existsSync(file)) return null
+  // 兜底词典也是被审内容:与源文件/语言包同一判定面读(2026-09-26;旧写法 readFileSync 磁盘,
+  // 在 HEAD/staged 面下等于"源码按面判、词典按磁盘判"的第三次错面)。
+  let src
   try {
-    const src = readFileSync(file, 'utf8')
+    src = faceReadText(rel)
+  } catch {
+    return null
+  }
+  if (src === null) return null
+  try {
     const m = /messagesZhCN\s*[:=]/.exec(src)
     if (!m) return null
     let start = src.indexOf('{', m.index)
@@ -754,12 +945,33 @@ function pushMissingKeyIssue(issue) {
 
 let checkedFiles = 0
 let checkedKeys = 0
+// 该面取不到的源文件数(清单来自面 ⇒ 正文也应来自面;读不到不再假装扫过,末行如实报数)。
+let sourceUnread = 0
+if (sourceFiles.length > 0) {
+  // 同轮批量装满正文(端兜底词典一并预取)。派生失败 ⇒ exit 2「无法判定」,绝不静默少扫。
+  try {
+    const rels = sourceFiles.map(relOf)
+    if (FALLBACK_DICTS[TARGET]) rels.push(FALLBACK_DICTS[TARGET])
+    prefetchFaceTexts(rels)
+  } catch (e) {
+    console.error(
+      `${C.red}[i18n 键检查] ❌ ${FACE_LABEL[FACE]} 源文件批量取材失败:${String((e && e.message) || e).slice(0, 200)}${C.reset}`,
+    )
+    console.error('   这不是"没有违规" —— 判据没跑成就不记为通过,也不冒红成判据失败。')
+    process.exit(2)
+  }
+}
 
 for (const file of sourceFiles) {
   let src
   try {
-    src = readFileSync(file, 'utf8')
+    src = faceReadText(relOf(file))
+    if (src === null) {
+      sourceUnread++
+      continue
+    }
   } catch {
+    sourceUnread++
     continue
   }
 
@@ -1045,15 +1257,33 @@ function findDuplicateKeys(text) {
   return dups
 }
 
-if (existsSync(MESSAGES_DIR)) {
-  for (const entry of readdirSync(MESSAGES_DIR).filter((f) => f.endsWith('.json'))) {
+// 「同层重复 key / 含点键」这两条判据要的是**字节级原文**(JSON.parse 之后重复键已经消失了),
+// 所以必须与 parity 用同一个判定面。此前它一直是裸 readFileSync(磁盘),连 --staged 也一样 ——
+// 那正是本次交付报告里"`[2n-web]` 先红后绿"的成因:磁盘上的 i18n 半成品在动,索引里没有。
+{
+  let dupEntries = []
+  try {
+    dupEntries = listPackJsonEntries(MESSAGES_DIR)
+  } catch (e) {
+    // 列不到清单时不静默跳过整段判据:记进 unreadablePacks,末尾按"无法判定"处理。
+    unreadablePacks.push({
+      file: relOf(MESSAGES_DIR),
+      why: String((e && e.message) || e).slice(0, 130),
+    })
+  }
+  for (const entry of dupEntries.filter((f) => f.endsWith('.json'))) {
     const file = join(MESSAGES_DIR, entry)
     let raw
     let text
     try {
-      raw = readMessageJson(file)
-      text = readFileSync(file, 'utf8')
-    } catch {
+      text = readMessageRaw(file)
+      raw = JSON.parse(text)
+    } catch (e) {
+      // 旧写法是 `catch { continue }` —— 一个包读不到就少判一个包而账面全绿。
+      unreadablePacks.push({
+        file: `dup:${entry}`,
+        why: String((e && e.message) || e).slice(0, 130),
+      })
       continue
     }
     const walkDotted = (node, prefix) => {
@@ -1155,6 +1385,7 @@ if (shouldBlock) {
   if (!isParityOnly) {
     console.log(`  3. 多命名空间文件用不同变量名(t/tc/te)避免冲突`)
   }
+  console.log(`判定面:${FACE_LABEL[FACE]}`)
   process.exit(1)
 }
 
@@ -1184,10 +1415,16 @@ if (unreadablePacks.length) {
     `${C.red}[i18n 键检查] ❌ ${unreadablePacks.length} 个语言包读不出来 ⇒ parity 实际只比对了 ${langNames.length} 门语言,拒绝当作通过${C.reset}`,
   )
   for (const u of unreadablePacks.slice(0, 8)) console.error(`   · ${u.file} — ${u.why}`)
+  console.error(`判定面:${FACE_LABEL[FACE]}`)
   process.exit(1)
 }
 console.log(
   `${C.green}[i18n 键检查] ${targetLabel}通过,${parityScope}, ${langNames.length} 语言 parity OK${C.reset}`,
 )
+if (sourceUnread > 0)
+  console.log(
+    `${C.yellow}  ⚠ 另有 ${sourceUnread} 个清单内源文件在 ${FACE_LABEL[FACE]} 取不到正文,已跳过(报数不静默)${C.reset}`,
+  )
+console.log(`判定面:${FACE_LABEL[FACE]}`)
 process.exit(0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
