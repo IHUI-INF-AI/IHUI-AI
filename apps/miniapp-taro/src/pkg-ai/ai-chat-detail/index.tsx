@@ -324,7 +324,9 @@ export default function AiChatDetail() {
               onClick={loadData}
               hoverClass="opacity-60"
             >
-              <Text className="text-[length:28rpx] text-primary-foreground">{t('common.retry')}</Text>
+              <Text className="text-[length:28rpx] text-primary-foreground">
+                {t('common.retry')}
+              </Text>
             </View>
           </View>
         ) : messages.length ? (
@@ -397,9 +399,15 @@ export default function AiChatDetail() {
 
       {isInputFullscreen ? (
         <View className="flex flex-row items-center justify-between px-[32rpx] py-[24rpx] border-b-[length:2rpx] border-border">
-          <View onClick={handleFullscreenToggle} hoverClass="opacity-60">
+          {/* back-label-exempt: 全屏输入态的退出按钮,「返回」是按钮文案且箭头已矢量化(LineIcon 在同一按钮内) until 2026-12-31 */}
+          <View
+            onClick={handleFullscreenToggle}
+            hoverClass="opacity-60"
+            className="flex flex-row items-center"
+          >
+            <LineIcon name="chevron-left" size={32} className="mr-[8rpx]" />
             <Text className="text-[length:32rpx] text-muted-foreground mr-[24rpx]">
-              ← {t('messageInput.fullscreenBack')}
+              {t('messageInput.fullscreenBack')}
             </Text>
           </View>
           <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">

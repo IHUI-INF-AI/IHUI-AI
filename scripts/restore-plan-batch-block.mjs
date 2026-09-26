@@ -17,35 +17,23 @@
 //   node scripts/restore-plan-batch-block.mjs --from <sha> 第N批     # 换内容来源(默认 HEAD)
 //   node scripts/restore-plan-batch-block.mjs --self-test            # 逻辑自检,零副作用
 import { readFileSync, writeFileSync } from 'node:fs'
-import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { resolveGitBin, resolveWorktree } from './lib/gitdir.mjs'
+import { resolveWorktree } from './lib/gitdir.mjs'
+// 取内容一律走取材层:它内部用 gitBinary()(绝对路径,§5b 服务账户与交互账户的 safe.directory
+// 互不相通)、quotepath、windowsHide、maxBuffer,并把"输出被截断"判成失败而不是空结果。
+// 旧写法自己 spawnSync(gitBin() || 'git') ⇒ 那个 `|| 'git'` 兜底是 PATH 依赖,正是本层要消灭的形态
+// (型 B 棘尺抓到它:常量绑到裸 git)。
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN = 'PROJECT_PLAN.md'
 
-/** 解析 git 二进制(绝对路径:服务账户与交互账户的 safe.directory 互不相通,§5b) */
-function gitBin() {
-  try {
-    const r = resolveGitBin()
-    return typeof r === 'string' ? r : r?.git || r?.path || null
-  } catch {
-    return null
-  }
-}
-
 /** 读一个提交里的文件原文(不解码,保持字节级行内容) */
 function showAt(sha, rel, root) {
-  const bin = gitBin() || 'git'
-  const r = spawnSync(bin, ['-c', 'safe.directory=*', 'show', `${sha}:${rel}`], {
-    cwd: root,
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 1 << 27,
-  })
-  if (r.status !== 0) throw new Error(`git show ${sha}:${rel} → ${String(r.stderr).slice(0, 160)}`)
-  return String(r.stdout)
+  const out = gitRaw(['show', `${sha}:${rel}`], root, { maxBuffer: 1 << 27 })
+  if (out === null) throw new Error(`git show ${sha}:${rel} 取不到(该提交无此路径,或 git 不可达)`)
+  return out
 }
 
 /**
