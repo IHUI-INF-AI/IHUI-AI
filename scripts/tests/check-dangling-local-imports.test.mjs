@@ -21,14 +21,43 @@ import {
   parseExports,
   parseImports,
   templateInteriorLines,
+  aliasEntries,
+  resolveAliasSpec,
+  buildAliasIndex,
+  KNOWN_ALIAS_LEDGER,
 } from '../check-dangling-local-imports.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GUARD = join(ROOT, 'scripts/check-dangling-local-imports.mjs')
 
-test('源模块导出四个可单测的纯函数(§22c 前置条件)', () => {
-  for (const fn of [parseImports, parseExports, auditFile, templateInteriorLines])
+test('源模块导出可单测的纯函数(§22c 前置条件;D3 那三个必须在列,否则判据只能靠端到端摸)', () => {
+  for (const fn of [
+    parseImports,
+    parseExports,
+    auditFile,
+    templateInteriorLines,
+    aliasEntries,
+    resolveAliasSpec,
+    buildAliasIndex,
+  ])
     assert.equal(typeof fn, 'function')
+  assert.ok(Array.isArray(KNOWN_ALIAS_LEDGER), 'KNOWN_ALIAS_LEDGER 必须是数组(待偿台账不是豁免清单)')
+})
+
+test('D3 装车证明:真 tsconfig 的 glob 列表不得把映射吃掉(正则剥注释的翻车现场)', () => {
+  const ts =
+    '{\n  "extends": "../tsconfig.base.json",\n  "compilerOptions": { "paths": { "@/*": ["./src/*"] } },\n  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],\n  "exclude": ["node_modules", ".next*"]\n}'
+  const e = aliasEntries('apps/web/tsconfig.json', ts)
+  assert.ok(e && e.length === 1, `应当解析出 1 条映射,实得 ${JSON.stringify(e)}`)
+  assert.equal(e[0].dir, 'apps/web/src')
+  const idx = new Map([['apps/web/src', e]])
+  assert.equal(
+    resolveAliasSpec('apps/web/src/a/b.ts', '@/stores/x', idx),
+    'apps/web/src/stores/x',
+    '别名必须映射到包内真实前缀(不是把 @/ 当相对路径,也不是判不了就放过)',
+  )
+  assert.equal(resolveAliasSpec('apps/web/src/a/b.ts', 'react/jsx-runtime', idx), null)
+  assert.equal(resolveAliasSpec('packages/app/src/a.ts', '@/stores/x', idx), null, '别的包没有该映射 ⇒ 不猜')
 })
 
 test('D1 正反成对:导入不存在的名字必拦,存在必放行', () => {
@@ -61,7 +90,7 @@ test('装车证明:guardian-runner 里 id 98 必须存在、blocking、只出现
   assert.match(block, /skipEnv: 'HUSKY_SKIP_DANGLING_IMPORTS'/)
 })
 
-test('真仓 HEAD 零容忍:悬空必须为 0(存量已于 2026-09-24 清零,任何回归都是合并把修复吞了)', () => {
+test('真仓 HEAD:D1/D2 必须为 0,D3 只能是已登记的 G-195 那一处(多一处就是有人又提交了半成品)', () => {
   let out
   try {
     out = execFileSync(process.execPath, [GUARD], {
@@ -75,13 +104,27 @@ test('真仓 HEAD 零容忍:悬空必须为 0(存量已于 2026-09-24 清零,任
     //  exit 1 时也要把"到底是哪几处"报出来 —— 只说"失败了"等于没有哨兵
     const back = [...((e.stdout || '').toString().matchAll(/^   (\S+):\d+ \[(D\d)\] (.+?)  →/gm))]
     assert.fail(
-      `HEAD 上出现 ${back.length} 处悬空具名导入(本门零容忍):\n` +
+      `HEAD 上出现 ${back.length} 处未登记的悬空具名导入:\n` +
         back.map(([, f, r, raw]) => `     ${f} [${r}] ${raw}`).join('\n'),
     )
   }
   assert.match(out, /内容口径:HEAD 内容/)
   assert.match(out, /新增 0 文件/)
-  assert.match(out, /悬空 0 处/)
+  const found = [...out.matchAll(/(\S+\.[\w.]+(?:tsx|ts|jsx|js|mjs|cjs)):(\d+) \[(D\d)\] (\S+)/g)].map(
+    (m) => ({ file: m[1], line: m[2], rule: m[3], spec: m[4] }),
+  )
+  const d12 = found.filter((v) => v.rule !== 'D3')
+  assert.equal(d12.length, 0, `D1/D2 存量已于 2026-09-24 清零,又出现说明合并把修复吞了:${JSON.stringify(d12)}`)
+  // 别名表若整体失效(读不到 tsconfig ⇒ 索引为空),"0 处"是假的绿 —— 所以先验尺子本身在岗。
+  const m = /生效映射 (\d+) 个包目录/.exec(out)
+  assert.ok(m && Number(m[1]) > 0, `别名表空 ⇒ D3 根本没上岗,报告里的"0 处"不成立:${out}`)
+  // D3 允许出现的唯一形态:在待偿台账里(= G-195 那处已知半成品)。多出一处就说明
+  // 有人又把"消费者入库、被调用方没写"提交进了 HEAD —— 那正是本判据要拦的东西。
+  for (const v of found.filter((x) => x.rule === 'D3'))
+    assert.ok(
+      KNOWN_ALIAS_LEDGER.includes(`${v.file}|${v.spec}`),
+      `未登记的 D3 悬空别名导入:${v.file}:${v.line} ${v.spec} —— 修它,或按 G-195 的格式登记并说明为什么不能现在修`,
+    )
 })
 
 /**
