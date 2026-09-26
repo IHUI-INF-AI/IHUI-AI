@@ -2,78 +2,56 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
-import {
-  backChevronBoxStyle,
-  backChevronGlyphPx,
-  BACK_CHEVRON_PRESSED_OPACITY,
-} from '@ihui/shared/ui'
-import { getTokens, type AppThemeMode } from '../theme/tokens'
-import { useFontMultiplier } from './MoreLink'
+/**
+ * 页头返回键的结构与几何单一源(小程序端与 RN 端共用)。
+ *
+ * 为什么不是"一份 JSX 两端跑":Taro 要 `@tarojs/components` 的 View + hoverClass,RN 要
+ * Pressable + StyleSheet + hitSlop + 系统字号缩放通道 —— 原语与样式系统按平台分叉是平台事实
+ * (实测本仓无 bundler 级文件换读机制:零 .rn.tsx 约定、metro 无 resolveFilter、Taro alias 无
+ * 平台映射)。所以"改一端另一端自动生效"落在这一层:会显形的数字与盒子结构只在本文件出现一次,
+ * 端内只负责"换算成本平台单位 + 挂自己的原语"。
+ *
+ * 端内不得再写 const BOX_SIZE = <数字> / const ICON = <数字>,也不得自己重排居中三件套 ——
+ * 那是守门 128 立项量出的 174 处差异档的成因:两份自称"唯一实现"的返回键,小程序端 40/72、
+ * RN 端 22/36,两句注释都写"与 web 同档",屏幕上差 2px。
+ *
+ * 消费方式只能是子路径 `@ihui/shared/ui` 或 `@ihui/shared/ui/<模块>`,**禁止挂根桶**
+ * (根桶 main 指向 src/index.ts,消费端 tsc 会沿桶把整棵 src/chat 拉进被检程序;实测加一行根桶
+ * 出口就让 @ihui/rn-app typecheck 从 0 错变 8 错,报错全在没碰的 chat 文件上)。
+ * 新增本目录下的模块时,package.json 的 ./ui/* 与架构表的 public_entrypoints 已覆盖,无需再改出口表。
+ */
+import { GEOMETRY_PX } from '@ihui/design-tokens'
+
+/** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
+export type GeometryUnit<U extends string | number> = (px: number) => U
 
 /**
- * 命中块与图标墨迹**不在本文件取数** —— 档位唯一真相源是
- * `packages/design-tokens/src/geometry.js`(取值依据写在那个头注里,含"为什么移动端不取
- * web 顶栏的 14px")。这里取它的 dp 投影,与小程序端 `taroGeometry` 同表同枚。
- *
- * 之前本文件写 `ICON = 22`、小程序端写 `40rpx`(=20px),两句注释都自称"与 web 同档"
- * 而屏幕上差 2px —— "端内既定档"就是第二份真相。守门 128 立项时把这处量成差异档。
+ * 命中方块:方块即命中区,居中结构只在这一处(不用负 margin 造第二种几何)。
+ * 返回类型必须由泛型带出:写成 string | number 时 RN 的 ViewStyle 编译不过(实测 TS1360)。
  */
-/// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等;数字与居中结构在 @ihui/shared/ui
-const BOX_STYLE = backChevronBoxStyle((px: number) => px)
-const ICON = backChevronGlyphPx()
-
-export interface BackChevronProps {
-  onPress?: () => void
-  /**
-   * 「返回」的本地化文案。**只用于 accessibilityLabel,不参与渲染** ——
-   * 可见侧是裸箭头,无障碍名称必须脱离上下文也成立(RN 的屏幕阅读器只会念这一个字符串)。
-   */
-  label: string
-  /**
-   * 必填而非 `= 'light'` 默认值:守门 91 的判据把"形参带 light 默认值"认作静默脱主题开关,
-   * 而默认值一旦存在,漏传就静默锁死浅色档案且 typecheck 不红。必填让 `tsc` 直接接管这件事,
-   * 比门更严格(门只审带默认值的那一类)。
-   */
-  colorScheme: AppThemeMode
-  style?: StyleProp<ViewStyle>
-  testID?: string
+export function backChevronBoxStyle<U extends string | number>(
+  toUnit: GeometryUnit<U>,
+): {
+  width: U
+  height: U
+  display: 'flex'
+  alignItems: 'center'
+  justifyContent: 'center'
+} {
+  return {
+    width: toUnit(GEOMETRY_PX.tapBox),
+    height: toUnit(GEOMETRY_PX.tapBox),
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  }
 }
 
-/**
- * 页头返回键 —— RN 端唯一实现(共享层,`packages/app` 各屏与 `apps/mobile-rn` 共用)。
- *
- * 为什么不用「返回」两个汉字当箭头:那是把**文案**当**图标**用。web 端早在 2026-09-08 就把
- * 这一 affordance 收进顶栏唯一实现并用 lucide `ChevronLeft`,小程序端 2026-09-25 收进
- * `components/BackChevron.tsx`;RN 侧此前 223 处 / 168 文件各写各的 `<Text>{t('common.back')}</Text>`
- * 加各自的 `styles.back*`,于是"手机上返回键和网页长得不一样"。载体统一为零新素材
- * (`lucide-react-native` 已是本端图标库,`ChevronLeft` 亦在 7 个既有屏里这么用)。
- */
-export function BackChevron({ onPress, label, colorScheme, style, testID }: BackChevronProps) {
-  const tk = getTokens(colorScheme)
-  const multiplier = useFontMultiplier()
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      testID={testID}
-      hitSlop={4}
-      style={({ pressed }) => [styles.box, pressed ? styles.pressed : null, style]}
-    >
-      <ChevronLeft size={Math.round(ICON * multiplier)} color={tk.text.medium} />
-    </Pressable>
-  )
+/** 图标墨迹边长(逻辑 px)。两端必须同一个数,差异只允许出现在单位换算。 */
+export function backChevronGlyphPx(): number {
+  return GEOMETRY_PX.glyphMd
 }
 
-const styles = StyleSheet.create({
-  box: BOX_STYLE,
-  pressed: {
-    opacity: BACK_CHEVRON_PRESSED_OPACITY,
-  },
-})
-
-export default BackChevron
+/** 按下态弱化值:两端此前各自写 0.6,收进一处(RN pressed 样式与小程序 hoverClass 同值)。 */
+export const BACK_CHEVRON_PRESSED_OPACITY = 0.6
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
