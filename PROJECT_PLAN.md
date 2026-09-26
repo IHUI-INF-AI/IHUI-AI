@@ -10526,6 +10526,9 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   **两条出路,待人选**:A 由 D20 持有会话补齐 provider(store + shared 六导出 + 落点决策);B 若 A 迟迟不来,需要一个"构建可用性优先于半成品上线"的显式决定(例如把那两处消费侧引用暂时退回未接状态并保留 dialog/i18n),那属功能取舍,须拍板后做。
   **顺带暴露的门禁盲区(下一票的题面)**:守门 98 只管**仓内相对路径**(`!spec.startsWith('./') && !spec.startsWith('../') ⇒ continue`),所以 `@/stores/conversation-org` 这种**别名指向不存在模块**它结构上看不见;而 154 道门全绿 + 生产构建死,正是本仓最典型的"绿钩子冒充已验证"。修法已想清楚但没有实现:给 98 加 **D3 = tsconfig `compilerOptions.paths` 解析后的别名路径必须存在**(只认尾随 `*` 的前缀映射;解析失败计"判不出"),难点在**装上它的那一刻 HEAD 就有真违规** ⇒ 必须先清 A/B 之一,否则就是造一台恒红门(§12e 那一型)。**现状事实(按产物面量,不按日志猜):线上跑的仍是 `apps/web/.next/IHUI_BUILD_SHA` = `8bd9fdcb060b`(11:15 的 merge,11:20 落盘),`.rollback` 位同值 —— 即从 11:20 起今天的几十枚提交一枚都没产出物。**
 - [x] ✅(2026-09-26 09:1x) **"miniapp typecheck 断在 @ihui/types 没有 AgentInstanceState"一案定性为`工作树陈旧基线`,不是 HEAD 债**,并补上这一格的尺子。取证:索引 == HEAD(空 diff),HEAD 面 `packages/types/src/agent-runtime.ts:138/149` 两个导出齐、barrel 第 18 行 `export * from './agent-runtime'` 在位、消费方(shared `agent-actions.ts` / web `agent-actions-card.tsx`)三面一致;而**工作树那份副本的 blob 恰等于祖先提交 `1d0a143f71`(2026-09-23)的版本**(用 `git log --find-object=0f71447b2f` 钉死),内容是一次纯 45 行删除(D103 整块)⇒ 这是并发会话旧基线写回,不是谁在改类型。处置:按 §12d 第 3 层用 `git checkout-index -f -- <该文件>` 把工作树对齐到索引/HEAD(可证无损:盘上那份是**祖先**版本,不含任何独有数据),对齐后 `@ihui/types build/typecheck` 双 0、`AgentInstanceState` 那枚 TS2305 消失。**同批留在册的另一格不是同一型**:`packages/shared/src/chat/prompt-history.ts` 工作树副本丢了 HEAD 有的 5 个导出,但它**不等于任何祖先 blob** ⇒ 判不出是不是他人正在写的现场,按 §12 不代裁、不覆写,归该文件持有者(它眼下是 `@ihui/shared typecheck` 唯一剩下的红源)。
+- [x] ✅(2026-09-26 09:4x) **小程序运行时改名腿缺 theme 入口:死规则 31 → 12、C1 93.93% → 96.38%**,并否证了我自己先前写的"地板是 6"。修复只有一行(`apps/miniapp-taro/src/app.css` 补 `@import 'tailwindcss/theme.css';`),但**它的价值在于把一维缺陷变成了有判据的二维**:改前只看 CSS 侧永远绿。取证是两次私有构建的并排读数(共享 `dist` 零写入,687 产物全部新于起建时间):`app-origin.wxss` **逐字节未变**、只有 10 个 js 变;候选集 `transformRuntimeSet` 670 → 868;A 面复现了先前那份 31 名清单(同一把尺子,不是换了口径)。整族复活的 19 个 = `!p-0 !px-4 !py-2 first:mt-0 last:mb-0 gap-1.5 h-2.5 mb-1.5 mr-1.5 mr-2.5 mt-0.5 mt-1.5 p-3.5 px-1.5 px-2.5 py-0.5 py-1.5 py-2.5 w-2.5`。
+  - **"剩下 12 条"里有 6 条根本不是 CSS 问题(这条推翻的是我自己上一轮的登记)**:`mx-0.5 top-1/2 z-[1040] z-[9995] w-[400rpx] w-[420rpx]` 来自 `Toast`/`ConfirmDialog`/`VoiceInput`/`TitleSwitchScrollPicker`/`TitleSwitchOverlap` —— 这几个组件**在本端零 import**(只有 barrel 的 `export`),它们的类名字符串连同 `translate(-50%` 在整个产物里 0 次出现,只有转写形式孤零零留在 CSS 里。同 `custom-tab-bar` 一类:**源码在、组件不装配**。**地板因此是 12 而不是 6。** 剩下两条路都不做,理由是它们都比现状更糟:删组件属 §7(要先回答"承载什么功能、有无等价实现",这里连"该不该有这几个 UI"都不是我能替产品裁的);给门加 `@source not` 排除表则会在**某天真有人 import 它的那天**把这些样式静默丢掉 —— 用一条更窄的判据换来一个假绿地板,是这笔账里最贵的选项。登记归属,不代裁。
+  - 一条**方法论教训**(比这条修复本身更通用):我先前那句"6 条属 custom-tab-bar,是地板"是**只数了已知的一类**就当成了全集 —— 而"地板"这种结论的正确算法是**逐名归因到"为什么这条运行时看不见"**,不是"我认识的那一类有几个"。这次是代理按逐名查 import 图才发现另外 6 条,否则我会带着一个错地板数字继续排期。另:本次 `config/index.ts` 那份实验补丁(`cache:false`)经比对**已在 HEAD**(`f459df544b`),应用它是 no-op ⇒ 已回退未落。门侧取证:css-landing `--self-test` 112 例全绿 + 镜像 45 例全绿;门 36(--worktree 436/436)、门 105、门 93(R6/R7/R8 全 0)、门 77 无新增违规;水印 verify 完好;`typecheck` 剩 2 枚 `onTerminalDelta` 错在 `src/pkg-ai/ai/chat.tsx:636`,该文件盘上 == HEAD blob ⇒ 他人现场,不碰。
 ### 第五十波·续末③ —— 三路并行审计推翻了我上一轮的两句结论;把"散文式后续"换成机器可见的欠账清单(2026-09-26)
 - [x] ✅(2026-09-26) **先销自己的错**(上一格"续末②"里我写的两个数都是错的,现按实测更正):
   - "49 处文字返回按钮逐条带豁免" ⇒ 现读 **47 处**(45 处标记在合法落点 + 2 处见下"判据失明")。多出的 2 条是
@@ -10626,6 +10629,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   而 CSS 腿照样把选择器转写进 wxss ⇒ **单侧改名 = 死规则**(实测该族 20 个类 / 76 处用法 / 39 个文件长期完全无样式;
   补 theme.css 后候选集 670 → 868,19 个名字全部入集)。
   **但这一行是并行会话写进工作树的、尚未提交** ⇒ 我这些读数依赖一个不在版本库里的改动;
+  **现已由守门 C7 变成构建失败而非一个需要人注意的数字**(`spacingFamily`:需求 ≥8 档而改名集合命中 0 ⇒ off 判红,不受 `--min-coverage` 管辖;`but 这一行是并行会话写进工作树的、尚未提交** ⇒ 我这些读数依赖一个不在版本库里的改动;
   若它不被提交或被回退,下一枚干净检出的构建会退回 93.90% / 31 条死规则。归属是其持有者,本票不代裁。
   另一条同族约束(该 import **不得**放到派生 `@theme` 块之后,否则 v4 的 theme 后置导入会覆盖项目色档)
   是并行会话注释里的断言,**本会话未独立取证**。
@@ -10662,3 +10666,30 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 <!-- 已归档(2026-09-26):O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
 <!-- 已归档(2026-09-26):O71 取材层收口的最后一跳:守门 93 自带的那份 `cat-file --batch` 归一(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
 <!-- 已归档(2026-09-26):小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+- [x] ✅(2026-09-26) **祖先栈根因找到并修掉;`<a>` 扩面因此从"撤回"变成"已装"**。
+  上一格说"真正要修的是出栈时机"—— 定位到了,比预想的更基本:
+  `parseTagAt` 第一行就调 `prevAllowsTagStart`,而它拒绝"前一个字符是 `\w$)\"'` 之一"的 `<`
+  (本意是防 `a < b` 比较运算符被当标签)。**闭合标签天然紧跟文本内容**(`A</a>`、`›</span>`),
+  于是 `</…>` 从来没被解析过 ⇒ 栈只进不出 ⇒ ① 祖先跨兄弟泄漏(面包屑 `<a>A</a><span>›</span>` 被判成
+  "祖先 <a> 可点",这正是我上次撤回扩面的那条红),② 真正该看到的格子反被错嵌套的栈漏掉。
+  修法:先认 `</` 是闭合起点,**闭合标签不受该守卫约束**(串内的 `</` 由 strMask 挡)。
+  ⇒ 同一枚提交里 `AFFORDANCE_TAG_RE` 纳 `a|button` 成立:自检 **85 → 86 全绿**(新增两条锁:
+  面包屑反向锁 + 原生 `<a>`/`<button>` 阳性锁),镜像 17/17,全量面 GA1 精确抓到
+  `apps/web/app/(main)/docs/manual/page.tsx:158`(生产 DOM 7 个渲染实例那个),**源码已同笔改掉**
+  (`<span>→</span>` → lucide `ChevronRight`,保留 `group-hover:translate-x-1` 与 `aria-hidden`),
+  该文件 `--files` 复验 0、eslint rc=0。
+- [ ] **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什么这一枚仍没修**:
+  分页块写在 `ListFooterComponent={ totalPages > 1 ? (<View>…</View>) : null }` ——
+  **属性表达式里嵌 JSX**。外层 `<FlatList …` 的 `parseTagAt` 一路吃到 131 行那个单独成行的 `/>`,
+  把整个表达式(含分页块)吞成一个自闭合标签 ⇒ 遍历从不进入内部。
+  正解是"属性表达式里若含 JSX 就带着祖先栈递归进去",那是 walker 的一项能力,不是一行判据;
+  **现在它由 `backBlind` 探针点名**,所以症状从"静默报 0"变成"喊出这一格没人看守"。同型还可能有:
+  任何把 JSX 写进 prop 的地方(`renderItem=` / `header=` / `ListHeaderComponent=` 等)。
+- [x] ✅(2026-09-26) **C 清单里 `Picker`/`onChange` 与"字形当 i18n 兜底实参"两型:判据已扩、源码已清**。
+  `HANDLER_ATTR_RE` 纳入 `onChange|onSelect`,`AFFORDANCE_TAG_RE` 纳入 `Picker` ⇒ 扩面后全量面精确报出 3 处,
+  而这 3 处正是本轮已改的:`pages/study/publish/index.tsx:116/132`(两个 `<Picker>` 选择行的 `›` → `LineIcon chevron-right`,
+  24rpx 档沿用原 `ml-[16rpx]`)与 `docs/manual/page.tsx:158`。**`pkg-learn/live/calendar.tsx:162/171` 是同型第三例**:
+  它不是"整格字形",而是把字形当 **i18n 兜底实参** —— `tt('live.calendar.prevMonth', '‹')`,
+  词表缺键时直接把 `‹` 渲染出来;已改为 `<View ariaRole="button" ariaLabel={tt(key,'')}>` + `LineIcon chevron-left|right`
+  (可见侧求矢量、无障碍名称脱离上下文成立,与 §4「更多」入口同一条口径)。
+  自检 86/86(扩面未弄红任何既有反向锁,含上一格新加的面包屑锁)、两文件 eslint rc=0、`--files` 复验 0。
