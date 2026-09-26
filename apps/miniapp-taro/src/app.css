@@ -838,8 +838,8 @@ iframe#webpack-dev-server-client-overlay {
 }
 
 .search-box2-img {
-  width: 50rpx;
-  height: 50rpx;
+  width: 28rpx;
+  height: 28rpx;
   transition: transform 0.3s ease;
 }
 
@@ -855,8 +855,8 @@ iframe#webpack-dev-server-client-overlay {
 }
 
 .search-box3-img {
-  width: 50rpx;
-  height: 50rpx;
+  width: 28rpx;
+  height: 28rpx;
 }
 
 .search-right {

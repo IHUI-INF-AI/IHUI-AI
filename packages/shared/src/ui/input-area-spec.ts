@@ -34,6 +34,8 @@
 //     变好看,但违反那条口径,故保留类名。这是本族唯一剩余的差异档,登记而非遮掉。
 
 /** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
+import { GEOMETRY_PX } from '@ihui/design-tokens'
+
 export type GeometryUnit<U extends string | number> = (px: number) => U
 
 /**
@@ -304,7 +306,7 @@ export const INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX = 9
  * 【B 单端档·小程序】ai-home 原项目图标盒 25(=50rpx 方形:语音钮盒宽、发送/清空图标)。
  * 与 RN 的 40/44 实底钮不同形态(裸图标无底),故不成对。
  */
-export const INPUT_AREA_AI_HOME_ICON_BOX_PX = 25
+export const INPUT_AREA_AI_HOME_ICON_BOX_PX = GEOMETRY_PX.controlGlyph
 
 /** 【B 单端档·小程序】ai-home 行内 10rpx 留白(表情面板与输入条之间、清空图标与发送图标之间)= 5。 */
 export const INPUT_AREA_AI_HOME_INLINE_GAP_PX = 5
@@ -331,7 +333,7 @@ export const INPUT_AREA_GLYPH_MD_PX = 20
  * 原项目的 44rpx 内联盒(RN 端同一功能走共享 `PlusButton` 实底钮,墨迹 16/26 两档另有形态),
  * 强行并档会改写首页输入条的观感,故登记为单端档,换算入表以免端内裸数字。
  */
-export const INPUT_AREA_AI_HOME_ADD_GLYPH_PX = 22
+export const INPUT_AREA_AI_HOME_ADD_GLYPH_PX = GEOMETRY_PX.controlGlyph
 
 /**
  * 【B 单端档·小程序】ai-home 放大/缩小钮墨迹 24(= 收编前位图内联 `rpx(48)`)。
