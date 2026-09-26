@@ -3119,6 +3119,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [x] ✅(2026-09-24 复核) **D85 自动审查统计条(G-116,与 D55 合批)**:在 D55 决策徽章之上加**聚合**——`自动审查统计`、`已接受 N / 已拒绝 N`、`命令历史` 展开、**`自动审查未提供理由`** 显式缺省(Trae 有代批无统计、Codex 有统计无逐条理由文案,我方一次做完可同超两家)。**验收**:统计计数与逐条徽章同源(不许两套数)+ 无理由缺省用例
 - [x] ✅(2026-09-26) **D86 钩子摘要卡(G-117;D65 口径升级为三家同证)**:Qoder `hook_non_blocking_error` + Trae `enterpriseHooks.toolFailure` + **Codex `assistantMessage.hookStats`**(运行/错误/已阻止/· 运行了 N 次 + **来源归属枚举 管理员/用户/项目/插件/会话**)。我方 hook 体系已有 source 语义 → 属"数据在手未上屏",**先自证再开工**的判定已完成(三家证据齐)。**验收**:摘要卡五态 + 来源枚举 + 折叠进活动条不抢主流程 〔2026-09-26 翻勾:摘要卡五态+来源归属枚举(管理员/用户/项目/插件/会话)已落地并折叠进活动条展开区(commit 同日入库,10/10 用例,parity 过)〕
 - [ ]（进行中@2026-09-26/Esc层栈票,主会话第九批） **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window 的 Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 同时关掉遮罩、弹层、pane、搜索条。**正解不是逐处补 `stopPropagation`**(跨层顺序不可控),而是:①新增 `apps/web/src/lib/overlay-stack.ts` —— `pushOverlay(id)/popOverlay(id)/isTopOverlay(id)`(模块级数组,注册幂等,卸载必 pop);②每个浮层在 open 时 push、close 时 pop,其 Esc 处理器首行 `if (!isTopOverlay(myId)) return`;③`packages/ui-react` 的 Dialog/Popover 家族优先内建该注册(一处接全部端),web 端自绘 portal 层逐个接入;④已有正例可参照其消费写法:`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`(已用 stopPropagation 的三层)。解阻判据:构造"遮罩 + 弹层 + pane 三层叠开"场景按一次 Esc,只有最上层关闭(真机 `aria-expanded`/`data-state` 逐层断言)。注意 `work-panel.tsx` 属共享包,须与结构改造项同票评估。 〔PROGRESS 2026-09-25: overlay-stack 已 30 处在栈,本批补命令面板桥接 commit 69523d6e5;ui-react 家族内建与"三层叠开"真机断言仍未做〕
+- [x] ✅(2026-09-25) O10 对外 run 语义：幂等 run 创建（`Idempotency-Key`）、外部 run 句柄（不依赖 IHUI session_id）、通用幂等层、游标分页规范  ⏳(幂等重放保护已入库(af96921c95);run 句柄与游标分页另列 O10b)（进行中@2026-09-26/O10b票,主会话第九批） 〔2026-09-25 翻勾:四件(幂等创建/外部句柄/通用幂等层/游标分页)经代理逐件核验已由 15e4f1f742e 落库,O10 测试 98/98 全绿;六条尾巴各自属主/需§24确认,已在其条登记〕
 - [x] ✅(2026-09-25) O10 对外 run 语义：幂等 run 创建（`Idempotency-Key`）、外部 run 句柄（不依赖 IHUI session_id）、通用幂等层、游标分页规范  ⏳(幂等重放保护已入库(af96921c95);run 句柄与游标分页另列 O10b) 〔2026-09-25 翻勾:四件(幂等创建/外部句柄/通用幂等层/游标分页)经代理逐件核验已由 15e4f1f742e 落库,O10 测试 98/98 全绿;六条尾巴各自属主/需§24确认,已在其条登记〕
   - **D86 自证更正(第 66 轮,实测推翻台账前提,防返工)**:「我方 hook 体系已有 source 语义」**不成立** —— 实测 `packages/types/src/hooks.ts` 的 Hook/HookLog 均**无 source/来源归属字段**;`apps/ai-service/app/routers/hooks.py`(464 行)同样零 source(注:`source_pillar="hook"` 是证据体系支柱标签,非来源归属枚举,勿混淆);HookStats 仅 total/success/failed/avgDuration,**缺"已阻止"计数**。真实缺口 = 数据面三层:① hook 注册/存储增 source 字段(管理员/用户/项目/插件/会话 五枚举)② hook_logs 落 source + stats 增 blocked ③ 然后才是摘要卡上屏。**本票解阻条件:数据面①②先立项**(建议随 hook 数据面改造批),卡片组件与五态用例可在数据面就绪后一轮补齐。
   - **D86 自证补充(第 66 轮二探,架构事实)**:仓库存在**两套 hook 体系**,摘要卡必须先钉死聚合对象 —— ① REST `/api/hooks`(hooks.py,CRUD+logs+stats 存储系统,用户/管理端可建,当前唯一注册通道=API ⇒ source 若即刻实现则恒为单值);② 进程内 `core/hook_runtime.py` HookRuntime(engine 生命周期执行器,`denial_reason`(PRE_TOOL_USE 非 None 即拒绝)=**"已阻止"语义唯一存在处**,代码注册无 CRUD)。结论:**"blocked"计数只能来自②,"来源归属"目前只有①且单值** —— 摘要卡立项前必须先定:聚合对象是哪套、跨两套还是分卡;禁止在两套语义未钉死前各写一份 stats。
@@ -10388,6 +10389,48 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 <!-- 已归档(2026-09-26):O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
 <!-- 已归档(2026-09-26):O71 取材层收口的最后一跳:守门 93 自带的那份 `cat-file --batch` 归一(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
 <!-- 已归档(2026-09-26):小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+
+### O62 附⑬:dev(`--watch`)实测**同样**受这条持久缓存影响 —— 判据先在已知会漂移的那一档喂出红,再来读 dev
+- [x] ✅(2026-09-26)**结论:受影响,构型与 production 一模一样。** 附⑫ 只测了 `taro build --type weapp`(production)
+  一条路径就把它关掉了,而 dev 是否同一暴露面当时**没有读数** —— 本票补上。量法与读数(同一份 config、同一棵源码树,
+  唯一变量是缓存态;产物**全部落到私有目录** `IHUI_MINIAPP_OUTPUT_ROOT=.tmp-devc-<档名>`,共享 `dist` 一字节未动):
+
+  | 档 | 模式 | cache | 携带 app 级整包的 wxss 数 | 其中在 `pages/` 下 | 最大单页 wxss | 产物总字节 |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | P1 | build(生产) | on · 冷 | 1 | 0 | 19,637 B | 4,322,234 |
+  | **P2** | build(生产) | on · **热** | **43** | **16** | **82,178 B** | **7,077,196(+2,754,962)** |
+  | D1 | build --watch | on · 冷 | 1 | 0 | 34,291 B | 22,078,154 |
+  | **D2** | build --watch | on · **热** | **43** | **16** | **92,016 B** | **24,701,961(+2,623,807)** |
+  | D3 | build --watch | on · 热(第三次) | 43 | 16 | 92,016 B | 24,701,961 |
+  | D4 | build --watch | **off** | 1 | 0 | 34,309 B | 22,079,063 |
+  | D5 | build --watch | on · 冷(**在 D2/D3 之后**) | 1 | 0 | 34,309 B | 22,079,035 |
+
+  - **P1/P2 是阳性对照,不是顺带测的**:同一把尺子在"已知 12/12 漂移"那一档必须变红 —— 它红了(1 → 43),
+    所以 D2 的 43 才是读数而不是噪声。缺这一步,dev 的"干净"与"没测"在账面上长得一样。
+  - **D5 是反向对照**:清掉缓存重跑,读数回到 1 ⇒ 变量是**缓存态**,不是这几分钟里别人对 `src/` 的改动。
+    没有 D5,D2 的漂移完全可以被解释成"源码变了"。
+  - 结构因由(静态读码,不是猜):`@tarojs/webpack5-runner/dist/webpack/BaseConfig.js:78-93` 构造文件系统缓存时
+    **没有 `isWatch` 分流**,缓存名在 `:88` = `${process.env.NODE_ENV}-${process.env.TARO_ENV}` ⇒ dev 有**自己那一份**
+    `development-weapp`(实测落盘目录名即此),它不共享 production 的损坏条目,但**同一种损坏会自己在 dev 名下长出来**;
+    `weapp-tailwindcss/dist/webpack-CkeFhPY2.js:2161-2220` 的 CSS 采集读挂在 `processAssets`,**也没有 watch 门**,
+    空集回退分支(`:1055 → :1061`)两档同形。
+  - **dev 与生产的影响不同,不得混为一谈**:生产档会把主包推过微信 2,097,152 B 硬上限(上传直接失败,附⑫);
+    dev 档不受上传约束,量到的后果是**单页 wxss 2.9×**(index.wxss 31,794 → 91,615 B、规则 80 → 998 条),
+    而**级联顺序没被推翻**(页面自有 `.ai-pulse` 仍在注入的 900 条工具类之后)⇒ 在 dev 里"看着没事"。
+    真正代价两条:① 一个 watch 会话的**首次**编译在热缓存上就是坏构型,且增量重编不自我修正(D2 改 `app.css` 触发重编后仍是 43);
+    ② 同一份源码在 dev 与 release 下构型不同,拿 dev 产物得出的样式结论不能外推到上传包。
+  - 关掉缓存这一动作**同时覆盖 dev**:`cache` 在 base 配置里、dev/prod 共用,`scripts/dev-weapp.mjs:225` 派的也是
+    同一条 `taro build --type weapp --watch`(D4 即为证:cache off ⇒ dev 冷/热皆 1)。
+  - **同批把"观测档"这条自我削弱的口子收掉**:`build` 末端此前恒带 `--min-coverage 0`,即"覆盖率再塌也不红"。
+    现三档写进 `--help`:0.5 = build 末端自检 / 0.9 = 问责档(`pnpm check:miniapp-css-landing`,README 早就在点名这个入口,
+    但**它此前在根 package.json 里不存在** —— 文档给了条跑不通的出路,今日补上)/ 0 = 纯取证档(`…:report`)。
+    为什么不是默认 1:C1 分母含"CSS 有规则但运行时挂不上"的死规则档,现测上限就是 96.36%,拿 100% 当门就是恒红门(§12e)。
+  - **顺带修掉本门报告自身的一处失衡**:`report()` 里 C6 那次 `console.log` 少一个闭括号,于是 C7 的打印变成 C6 的**第二个参数**
+    —— 判据没坏,坏的是报告:两行顺序倒过来且尾部拖一个 `undefined`。这类缺陷只能靠读自家输出发现,断言看不见。
+  - **两条取证方法上的账,记下来免得重演**:① 改被跟踪文件做实验的 harness **必须启动即自愈**(`if (哨兵在位) 从 HEAD 还原`),
+    因为父进程被杀时 `finally` 根本不跑 —— 实测第一版就留下 `config/index.ts` 处于已改状态,靠 `git diff` 才抓到;
+    ② 取证构建**不得删共享 `dist`**:它被微信开发者工具持有句柄(`rename` 报 `EBUSY`、`rm` 报 `EPERM`),
+    正解是走 config 里已有的 `IHUI_MINIAPP_OUTPUT_ROOT` 改道到 `.tmp-*`(根 .gitignore:239 已忽略该形态)。
 ### O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅)
 - [x] ✅(2026-09-24) **第 3、4 次同型事故(继守门 64、70 之后)**:用五处权威接线点求差集实测抓到三枚脚本存在却**无人调用**的守门 —— `check-test-paths`(AGENTS §23 写"CI / pre-commit 必跑")、`check-verify-tmp-files`(§25 写"CI")、`check-i18n-messages-exist`(自称 pre-commit 模式)。已按实测档位登记为 **85 blocking / 86 warn / 87 blocking**,装门前逐枚实测真仓全量与 `--staged` 双口径均 exit 0(不误伤任何在途提交)。commit `66d2ae1a26d`。
 - [x] ✅(2026-09-24) **本仓结构性事实(以后所有接线核查必须知道)**:`.husky/pre-commit` 自 2026-09-22 起只是 5 行薄壳(`wscript //nologo scripts/hook-run-hidden.vbs pre-commit scripts/lib/pre-commit-hook.js`),**真实 pre-commit 逻辑在 `scripts/lib/pre-commit-hook.js`**。所以"权威接线点"是**五处**:`guardian-runner.mjs` 的 `script:` 值 ∪ `scripts/lib/pre-commit-hook.js` ∪ `.husky/*` ∪ 根 `package.json` ∪ `.github/workflows/*`(+ `run-8end-consistency-cert.mjs`)。**只查 `.husky/pre-commit` 会得出完全相反的结论** —— 我一开始就据此误判 `check-pwsh-version`/`check-button-height` "没装车",实际它们在 hook.js:517/560 生效,是文档写的调用点名字不对。
@@ -10863,3 +10906,20 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   同笔清掉:`DownloadDetailContent.tsx:99`(按钮里已有 `ArrowLeft`,「返回」是标签 ⇒ 带理由豁免)、
   `MessageInput.tsx:96`(全屏退出按钮**只有文字没有箭头** ⇒ 补 lucide `ChevronLeft` + 行内 flex 样式键 + 带理由豁免)。
   自检 86/86、5 个改动文件 eslint rc=0、逐文件 `--files` 复验 0。
+
+### 红米真机走屏:四条 UI 缺陷登记(2026-09-26,取证在 `.ihui-agent/tmp/rn-preview/`)
+
+HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12617dd`(Redmi 2411DRN47C / Android 16 / 720x1640 / 320dpi),覆盖安装保数据(`lastUpdateTime` 与 `versionCode` 均回读确认)。逐屏 `screencap` 自行读图,不靠"安装返回 Success"。
+
+**先核对前提**:下列文件在 `6aa9403ba3..HEAD`(98 枚提交)之间**一字未改**,所以缺陷在 HEAD 同样成立 —— `packages/app/src/components/MoreLink.tsx`、`packages/app/src/features/learn/LearnScreen.tsx`、`apps/mobile-rn/src/components/{CardWithList,MoreTitles}.tsx`、两端 `HomeScreen.tsx`。
+
+- [ ] P1 **区段头「更多」与箭头折成两行**(学习页 3 个区段 + 首页区段,明暗两态均复现)。1:1 裁图确认**不是降采样伪影**(`crop-study1.png`)。**根因未定**:`MoreLink` 自身是 `flexDirection:'row'` 且 Yoga 默认 `nowrap`,按推理不可能换行;调用面(`LearnScreen.renderSectionHeader` / `MoreTitles` / `CardWithList` / 两端 HomeScreen)**全部委托唯一实现**,没有第四份自拼。⇒ 本票要求先**量出真实 bounds 再动手**:用 `uiautomator dump`(前提是把 `window_animation_scale`/`transition_animation_scale`/`animator_duration_scale` 三项设 0,否则恒报 `ERROR: could not get idle state` —— 本票踩过,且我一开始把键名写成 `window_transition_animation_scale` 是错的,设了等于没设),取「更多」文本节点与相邻箭头节点的 `[x1,y1][x2,y2]`,分清"同行被挤到下一行"与"父容器给的宽度小于内容宽度"。**无 bounds 证据前不得给 MoreLink 打 `flexShrink`/`flexWrap` 补丁** —— 那是三端共享组件,盲改只会新增第二类债。
+- [ ] P1 **首页「独家开发 AI Agent 应用」宫格中间列两张卡文字重叠**,另有一个机器人图标游离压在卡上。两帧复现,其中一帧**无遮罩、无弹层**(`phone-clean-home.png`)⇒ 排除动画过渡帧。定位入口:`apps/mobile-rn/src/screens/HomeScreen.tsx:1521` 一带 `moreText` 的消费组件与宫格容器。
+- [ ] P1 **广场(AI需求广场)首屏直接进错误态**:文案「提交的信息有误,请检查后重试」属 400 类;错误态图标是**纯黑方块内一个红叉、且图标贴边被裁**(`phone-guangchang.png`)。两件事必须分开归因:① 首屏请求为什么 400(按守门 116 的 `proxiedFetch` / `readEgressFacts` 口径取"这趟实际用了哪份出站配置",不要只看日志);② 那个黑块是否属守门 83 "无配对前景的实底块"那一型。
+- [ ] P2 **设置页双层页头**:顶上「设置 + 菜单」一条栏,下面又一条「`<` 设置」(`phone-set2.png`)——同屏两个标题、两个返回 affordance。守门 102 **GA6 立的正是这一型,但它现只判小程序端**,RN 端这一型零判据 ⇒ 优先**扩门**而不是手改单点(改单点等于给下一处留口子)。
+
+**本票未做的(不折进"已完成")**:① 视频页(`VideoPlayer`,O57 顶部 34dp 色带修复的落点)**真机无入口** —— 该账号 `总课程数 0 / 暂无推荐 / 分类点入无列表`,而唯一入口是 `CourseDetailScreen.tsx:79` 与 `StudyIndexScreen.tsx:328`,属**数据不具备**,不是漏验;② 上述四条**均未修**,理由逐条写在各自条目里。
+
+**设备侧已还原**:动画缩放三项设回 1(为 dump 曾设 0)、`/sdcard/wd.xml|w2.xml|w3.xml` 已删、主题由深色改回浅色(原值即浅色,截图回读确认)、输入法未动。
+
+**一条操作教训(值得推广)**:快速连点驱动真机 UI 会打到**生产 API 限流** —— 我在 dump 里读到「请求频率过高,需完成人机验证」,而限流态画面长得像正常页面。真机走屏必须**每步停顿 + 读回当前屏**(量 `mCurrentFocus` 或比对 dump 的 package/text),不能"点了就当到了"。
