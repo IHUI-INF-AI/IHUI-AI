@@ -4,7 +4,11 @@
 
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
-import { rnGeometry } from '@ihui/design-tokens'
+import {
+  backChevronBoxStyle,
+  backChevronGlyphPx,
+  BACK_CHEVRON_PRESSED_OPACITY,
+} from '@ihui/shared/ui'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 import { useFontMultiplier } from './MoreLink'
 
@@ -16,8 +20,9 @@ import { useFontMultiplier } from './MoreLink'
  * 之前本文件写 `ICON = 22`、小程序端写 `40rpx`(=20px),两句注释都自称"与 web 同档"
  * 而屏幕上差 2px —— "端内既定档"就是第二份真相。守门 128 立项时把这处量成差异档。
  */
-const BOX = rnGeometry.tapBox
-const ICON = rnGeometry.glyphMd
+/// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等;数字与居中结构在 @ihui/shared/ui
+const BOX_STYLE = backChevronBoxStyle((px: number) => px)
+const ICON = backChevronGlyphPx()
 
 export interface BackChevronProps {
   onPress?: () => void
@@ -64,14 +69,9 @@ export function BackChevron({ onPress, label, colorScheme, style, testID }: Back
 }
 
 const styles = StyleSheet.create({
-  box: {
-    width: BOX,
-    height: BOX,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  box: BOX_STYLE,
   pressed: {
-    opacity: 0.6,
+    opacity: BACK_CHEVRON_PRESSED_OPACITY,
   },
 })
 
