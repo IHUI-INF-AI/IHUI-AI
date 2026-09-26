@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { aizhsUrl } from '@/constants/icon-urls'
 import { useI18n } from '@/i18n'
 import { View, Text, Textarea, ScrollView, Image, Video } from '@tarojs/components'
 import Taro from '@tarojs/taro'
@@ -27,27 +26,22 @@ import {
   INPUT_AREA_AI_HOME_EMOJI_PANEL_H_PX,
   INPUT_AREA_AI_HOME_EMOJI_CELL_PX,
   INPUT_AREA_AI_HOME_VOICE_BTN_W_PX,
-  INPUT_AREA_AI_HOME_VOICE_GLYPH_TEXT_W_PX,
-  INPUT_AREA_AI_HOME_VOICE_GLYPH_TEXT_H_PX,
-  INPUT_AREA_AI_HOME_VOICE_GLYPH_VOICE_W_PX,
-  INPUT_AREA_AI_HOME_VOICE_GLYPH_VOICE_H_PX,
   INPUT_AREA_ATTACHMENT_BADGE_FONT_PX,
   INPUT_AREA_ATTACHMENT_BADGE_LINE_PX,
   INPUT_AREA_VIDEO_THUMB_W_PX,
   INPUT_AREA_VIDEO_THUMB_H_PX,
+  // 票⑤:图标墨迹档(位图退役后,矢量字形是正方形盒,取数一律经这三枚)
+  INPUT_AREA_GLYPH_MD_PX,
+  INPUT_AREA_AI_HOME_ADD_GLYPH_PX,
+  INPUT_AREA_AI_HOME_EXPAND_GLYPH_PX,
+  INPUT_AREA_THUMB_GLYPH_PX,
+  INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX,
 } from '@ihui/shared/ui/input-area-spec'
-// ai-home 模式图标(对齐原项目 InputArea.vue):
-// search-hua(文字模式切语音)/ input_qie(语音模式切文字)/ search-add(附件)/ sand_msg(发送)
-const searchHuaPng = aizhsUrl('remote-images/search-hua.png')
-const inputQiePng = aizhsUrl('remote-images/input_qie.png')
-const searchAddPng = aizhsUrl('remote-images/search-add.png')
-const sandMsgPng = aizhsUrl('remote-images/sand_msg.png')
-// 附件回显/全屏放大/清空按钮图标
-const closeChatPng = aizhsUrl('remote-images/close_chat.png')
-const fangdaPng = aizhsUrl('remote-images/fangda.png')
-const suoxiaoPng = aizhsUrl('remote-images/suoxiao.png')
-const closeInputPng = aizhsUrl('remote-images/close_input.png')
-const filePng = aizhsUrl('remote-images/file.png')
+// O81 票⑤(2026-09-26):本组件原先把 9 个 UI 图标位指向 aizhs.top 的 CDN 位图。
+// 位图不能随主题反色、不跟字号缩放、描边粗细与 RN 端不一致,且违反 AGENTS §4
+// 「UI 图标一律用矢量图标库」,故按"矢量优先"逐个换成与 RN 端**同一个 lucide 字形**
+// (`<LineIcon name="…">`,CSS mask 渲染 ⇒ 随 token 换色)。字形名对照见交付报告。
+import LineIcon from '@/components/LineIcon'
 import { rpx } from '@/utils/rpx'
 
 /**
@@ -389,12 +383,15 @@ export default function InputArea({
               <ScrollView scrollX className="imgs-list" style={{ flexBasis: '100%' }}>
                 {imgsList.map((item, index) => (
                   <View key={`img-${index}-${item.imgUrl || index}`} className="imgs-list-item">
-                    <Image
-                      src={closeInputPng}
+                    {/* 删除附件角标:圆形底色与命中盒仍由 .imgs-list-close 类臂负责,
+                        里面的叉号换成与 RN `thumbClose` 同一个 lucide 字形(X ⇒ name="x")。 */}
+                    <View
                       className="imgs-list-close"
-                      mode="widthFix"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       onClick={() => handleRemoveImage(index)}
-                    />
+                    >
+                      <LineIcon name="x" size={toUnit(INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX)} />
+                    </View>
                     {item.fileType === 'document' && item.filename ? (
                       <View
                         style={{
@@ -443,12 +440,21 @@ export default function InputArea({
                           }}
                         />
                       </View>
-                    ) : (
-                      <Image
-                        src={item.fileType === 'document' ? filePng : item.imgUrl}
+                    ) : item.fileType === 'document' ? (
+                      /* 文档缩略占位:与 RN `thumbDoc` 里的 lucide FileText 同字形、
+                         同墨迹档(INPUT_AREA_THUMB_GLYPH_PX),占位盒仍是 .imgs-list-item-img 类臂 */
+                      <View
                         className="imgs-list-item-img"
-                        mode="heightFix"
-                      />
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <LineIcon name="file-text" size={toUnit(INPUT_AREA_THUMB_GLYPH_PX)} />
+                      </View>
+                    ) : (
+                      <Image src={item.imgUrl} className="imgs-list-item-img" mode="heightFix" />
                     )}
                     {/* 附件类型角标:文档/视频(对齐 messageInput.document/video) */}
                     {item.fileType === 'document' || item.fileType === 'video' ? (
@@ -541,21 +547,12 @@ export default function InputArea({
                 onClick={toggleMode}
                 hoverClass="opacity-60"
               >
-                <Image
+                {/* 文字态 → 切到语音(lucide Mic)/ 语音态 → 切回文字(lucide Keyboard),
+                    与 RN `voiceBtn` 那对 `<Mic size={20}/>` / `<Keyboard size={20}/>` 同字形同墨迹档 */}
+                <LineIcon
                   className="search-box1-img"
-                  src={mode === 'voice' ? inputQiePng : searchHuaPng}
-                  // 原项目两张 PNG 的墨迹比(38×40 / 50×30 rpx):素材固有尺寸,非布局档
-                  style={{
-                    width:
-                      mode === 'voice'
-                        ? toUnit(INPUT_AREA_AI_HOME_VOICE_GLYPH_VOICE_W_PX)
-                        : toUnit(INPUT_AREA_AI_HOME_VOICE_GLYPH_TEXT_W_PX),
-                    height:
-                      mode === 'voice'
-                        ? toUnit(INPUT_AREA_AI_HOME_VOICE_GLYPH_VOICE_H_PX)
-                        : toUnit(INPUT_AREA_AI_HOME_VOICE_GLYPH_TEXT_H_PX),
-                  }}
-                  mode="widthFix"
+                  name={mode === 'voice' ? 'keyboard' : 'mic'}
+                  size={toUnit(INPUT_AREA_GLYPH_MD_PX)}
                 />
               </View>
 
@@ -639,11 +636,11 @@ export default function InputArea({
                   }}
                 >
                   <View className="search-box3">
-                    <Image
+                    {/* 放大:与 RN 底部辅助行「放大」槽位同一个 lucide 字形(Maximize) */}
+                    <LineIcon
                       className="search-box3-img"
-                      src={fangdaPng}
-                      style={{ width: rpx(48), height: rpx(48) }}
-                      mode="widthFix"
+                      name="maximize"
+                      size={toUnit(INPUT_AREA_AI_HOME_EXPAND_GLYPH_PX)}
                       onClick={toggleFangda}
                     />
                   </View>
@@ -666,11 +663,11 @@ export default function InputArea({
                   }}
                 >
                   <View className="search-box3">
-                    <Image
+                    {/* 缩小:Maximize 的成对档 lucide Minimize(登记表同名键 minimize) */}
+                    <LineIcon
                       className="search-box3-img"
-                      src={suoxiaoPng}
-                      style={{ width: rpx(48), height: rpx(48) }}
-                      mode="widthFix"
+                      name="minimize"
+                      size={toUnit(INPUT_AREA_AI_HOME_EXPAND_GLYPH_PX)}
                       onClick={toggleFangda}
                     />
                   </View>
@@ -683,21 +680,19 @@ export default function InputArea({
                 style={{ position: 'relative', opacity: 0, pointerEvents: 'none' }}
               >
                 <View className="search-box2">
-                  <Image
+                  <LineIcon
                     className={cn('search-box2-img', isShowIcon ? 'rotate-icon' : '')}
-                    src={searchAddPng}
+                    name="plus"
+                    size={toUnit(INPUT_AREA_AI_HOME_ADD_GLYPH_PX)}
                   />
                 </View>
                 <View className="search-box3">
-                  <Image
+                  <LineIcon
                     className="search-box3-img"
-                    src={sandMsgPng}
-                    style={{
-                      width: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
-                      height: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
-                      marginLeft: toUnit(INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX),
-                    }}
-                    mode="widthFix"
+                    name="send"
+                    size={toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX)}
+                    color="var(--color-brand)"
+                    style={{ marginLeft: toUnit(INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX) }}
                   />
                 </View>
               </View>
@@ -717,38 +712,35 @@ export default function InputArea({
               >
                 {/* 附件按钮 search-box2:44rpx×44rpx,默认可见,isShowIcon 只控制旋转 */}
                 <View className="search-box2" onClick={handleUploadToggle} hoverClass="opacity-60">
-                  <Image
+                  {/* 与 RN `PlusButton`(search-box2 的同一槽位)同字形:lucide Plus */}
+                  <LineIcon
                     className={cn('search-box2-img', isShowIcon ? 'rotate-icon' : '')}
-                    src={searchAddPng}
+                    name="plus"
+                    size={toUnit(INPUT_AREA_AI_HOME_ADD_GLYPH_PX)}
                   />
                 </View>
 
                 {/* 清空 + 发送 search-box3 */}
                 <View className="search-box3">
-                  {/* 清空按钮 close_chat.png 50rpx×50rpx marginRight 10rpx */}
+                  {/* 清空按钮:叉号与 RN 附件删除角标同字形(lucide X),盒仍是 50rpx 档 */}
                   {mode === 'text' && value.length > 0 ? (
-                    <Image
+                    <LineIcon
                       className="search-box3-img"
-                      src={closeChatPng}
-                      style={{
-                        width: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
-                        height: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
-                        marginRight: toUnit(INPUT_AREA_AI_HOME_INLINE_GAP_PX),
-                      }}
+                      name="x"
+                      size={toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX)}
+                      style={{ marginRight: toUnit(INPUT_AREA_AI_HOME_INLINE_GAP_PX) }}
                       onClick={handleClear}
                     />
                   ) : null}
 
-                  {/* 发送按钮 sand_msg.png 50rpx×50rpx marginLeft 18rpx(纯图标无背景容器) */}
-                  <Image
+                  {/* 发送按钮:与 RN `<Send>`(框外/框内两态)同字形;这一枚是纯图标无背景容器,
+                      故前景取品牌色而不是 RN 的 ctaForeground(那是白字压黑底,裸图标会看不见) */}
+                  <LineIcon
                     className="search-box3-img"
-                    src={sandMsgPng}
-                    style={{
-                      width: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
-                      height: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
-                      marginLeft: toUnit(INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX),
-                    }}
-                    mode="widthFix"
+                    name="send"
+                    size={toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX)}
+                    color="var(--color-brand)"
+                    style={{ marginLeft: toUnit(INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX) }}
                     onClick={handleSend}
                   />
                 </View>
@@ -789,10 +781,12 @@ export default function InputArea({
             onClick={toggleMode}
             hoverClass="opacity-60"
           >
-            <Image
-              src={mode === 'text' ? searchHuaPng : inputQiePng}
-              className="w-5 h-5"
-              mode="aspectFit"
+            {/* 文字态 = 切到语音(Mic)/ 语音态 = 切回文字(Keyboard),与 RN 同一对字形;
+                取色沿用本 View 上原有的 text-primary / text-muted-foreground 两态 */}
+            <LineIcon
+              name={mode === 'text' ? 'mic' : 'keyboard'}
+              size={toUnit(INPUT_AREA_GLYPH_MD_PX)}
+              color={mode === 'voice' ? 'var(--color-primary)' : 'var(--color-muted-foreground)'}
             />
           </View>
         </View>
@@ -848,7 +842,8 @@ export default function InputArea({
               onClick={handleUploadToggle}
               hoverClass="opacity-60"
             >
-              <Image src={searchAddPng} className="w-5 h-5" mode="aspectFit" />
+              {/* 与 RN `PlusButton`(附件槽位)同字形:lucide Plus */}
+              <LineIcon name="plus" size={toUnit(INPUT_AREA_GLYPH_MD_PX)} />
             </View>
             <Text className="text-[length:18rpx] text-muted-foreground leading-none mt-[4rpx]">
               {t('messageInput.addFile')}
