@@ -414,6 +414,42 @@ function normalizeUrl(url: string, useStreamBase = false): string {
 }
 
 /**
+ * 非 2xx 响应体 → { message, errorCode } 的唯一派生出口。
+ *
+ * 立门前这张逻辑有三份副本(fetchOnce / fetchApiOnce / SSE 直连),且已经漂到三个不同方向:
+ *   - 兜底文案一份写全角括号、一份写半角;
+ *   - message 与 detail 的优先级一份是 message 优先、另一份是 detail 覆盖 message;
+ *   - SSE 那一腿干脆不做空白判定,`text ||` 让一个空格的 body 原样进 Error.message。
+ * 空白 body 不是格式问题:nginx 的空 404、被裁过的错误页都会返回长度为 1 的空白,调用方普遍写
+ * `showToast(res.error || t('…'))`,同一个 `||` 兜不住 ⇒ 真机拍到一个只有图标没有文字的深色方块。
+ * 所以判据只能有一处实现,三条腿都从这里取(§3 共享层优先 / §22c 同一件事不得有两份真相)。
+ *
+ * 优先级口径取 message 先、detail 后:自家 api 的契约是 `{code, message, data}`,
+ * `{detail}` 是 FastAPI 经 api 原样透传那一族,两者同时出现时前者才是我们要给用户看的那条。
+ */
+export function deriveFailureFromBody(
+  text: string,
+  status: number,
+): { message: string; errorCode?: string } {
+  let message = text.trim() || `请求失败（${status}）`
+  let errorCode: string | undefined
+  let parsed: Record<string, unknown> | undefined
+  try {
+    const raw: unknown = JSON.parse(text)
+    if (raw && typeof raw === 'object') parsed = raw as Record<string, unknown>
+  } catch {
+    // 非 JSON 响应,保留 text 作为 message
+  }
+  if (parsed) {
+    // FastAPI 的错误体是 {detail:"..."};只认 message 会让 toast 直接显示整段原始 JSON 文本。
+    if (typeof parsed.message === 'string' && parsed.message.trim()) message = parsed.message
+    else if (typeof parsed.detail === 'string' && parsed.detail.trim()) message = parsed.detail
+    if (typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
+  }
+  return { message, errorCode }
+}
+
+/**
  * 内部:执行一次 fetch 并解析为 ApiResult。
  *
  * 失败语义(供 CircuitBreaker 计样本):
@@ -442,24 +478,9 @@ async function fetchOnce<T>(
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')
-    let errorCode: string | undefined
-    // `.trim()` 不是风格问题:响应体是一个空格时(nginx 空 404、被裁过的错误页),
-    // `text || 兜底` 判真,error 就带着"可见长度为 0"的字符串回到调用方;调用方普遍写
-    // `showToast(res.error || t('…'))`,同一个 `||` 也兜不住 ⇒ 渲染成只有图标、没有文字的
-    // 深色方块(真机实测约 57×63dp)。修在出口而不是逐个调用方:这是所有端共用的派生点。
-    let message = text.trim() || `请求失败（${response.status}）`
-    try {
-      const parsed = JSON.parse(text)
-      if (parsed && typeof parsed.message === 'string' && parsed.message.trim())
-        message = parsed.message
-      // FastAPI 的错误体是 {detail:"..."}(api 原样透传 ai-service 的 4xx 全属此类);
-      // 只认 message 会让调用方 toast 直接显示整段原始 JSON 文本。
-      else if (parsed && typeof parsed.detail === 'string' && parsed.detail.trim())
-        message = parsed.detail
-      if (parsed && typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
-    } catch {
-      // 非 JSON 响应,保留 text 作为 message
-    }
+    const derived = deriveFailureFromBody(text, response.status)
+    const message = derived.message
+    const errorCode = derived.errorCode
     const retryAfterHeader = response.headers.get('retry-after')
     const retryAfter = retryAfterHeader ? Number(retryAfterHeader) : undefined
     const retryAfterValue = retryAfter && Number.isFinite(retryAfter) ? retryAfter : undefined
@@ -838,24 +859,12 @@ export async function fetchAiServiceJson<T>(
 
     if (!response.ok) {
       const text = await response.text().catch(() => '')
-      // 同 fetchApiOnce 里那条注释:空白 body 必须走兜底文案,不能当有效 error 返回。
-      let message = text.trim() || `请求失败(${response.status})`
-      let errorCode: string | undefined
-      try {
-        const parsed = JSON.parse(text)
-        if (parsed && typeof parsed.message === 'string' && parsed.message.trim())
-          message = parsed.message
-        if (parsed && typeof parsed.detail === 'string' && parsed.detail.trim())
-          message = parsed.detail
-        if (parsed && typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
-      } catch {
-        // 非 JSON 响应,保留 text 作为 message
-      }
+      const derived = deriveFailureFromBody(text, response.status)
       return {
         success: false,
-        error: message,
+        error: derived.message,
         status: response.status,
-        errorCode,
+        errorCode: derived.errorCode,
       }
     }
 
@@ -2096,24 +2105,18 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       })
       if (!resp.ok || !resp.body) {
         const text = await resp.text().catch(() => '')
-        let parsedBody: Record<string, unknown> | undefined
-        try {
-          if (text) parsedBody = JSON.parse(text) as Record<string, unknown>
-        } catch {
-          /* 非 JSON 响应忽略 */
-        }
-        const err = new Error(text || `请求失败（${resp.status}）`)
+        // 与另两条腿共用同一个派生出口(空白 body 走兜底、message 优先于 detail、errorCode 一并取出),
+        // 本腿只在出口之后追加 SSE 消费方约定的 `（status）` 后缀。
+        const derived = deriveFailureFromBody(text, resp.status)
+        const err = new Error(derived.message)
         ;(err as Error & { name: string }).name = 'SSEError'
         ;(err as Error & { code: number }).code = resp.status
-        if (parsedBody) {
-          const ec = parsedBody.errorCode
-          if (typeof ec === 'string') {
-            ;(err as Error & { errorCode: string }).errorCode = ec
-          }
-          const msg = parsedBody.message
-          if (typeof msg === 'string' && msg) {
-            err.message = `${msg}（${resp.status}）`
-          }
+        if (derived.errorCode) {
+          ;(err as Error & { errorCode: string }).errorCode = derived.errorCode
+        }
+        // getSSEErrorInfo 会从文本里回捞 `[（(]\d{3}[)）]`,文本自带状态码时不再追加。
+        if (!/[（(]\d{3}[)）]/.test(err.message)) {
+          err.message = `${err.message}（${resp.status}）`
         }
         const retryAfterHeader = resp.headers.get('retry-after')
         if (retryAfterHeader) {
