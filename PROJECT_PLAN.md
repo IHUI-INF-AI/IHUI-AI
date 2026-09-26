@@ -10900,3 +10900,11 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - 取证：`node scripts/union-converge.mjs --self-test` 45 例全绿，本枚新增 4 条成对 —— ① 两侧各 0 分叉而并集出 1 组 ⇒ 必报（拦住"门自己产出的形态"）；② 与较好一侧持平 ⇒ 不报（防恒红）；③ 副本被正当翻勾后并入 ⇒ 不报；④ 空输入 ⇒ 不判也不假绿。
 - 提交：`c5a4db3a451`。
 - 本条自身的已知边界：`planStateRegressions` 只在**归并真的动了** `PROJECT_PLAN.md` 时判（`mergedClean` 含该路径）；一侧整文件覆盖另一侧而内容逐字相同的场景不产生新分叉，也不报 —— 那是守门 100 的面。
+
+## O82续 测试面的一处自伤：断言在"清偿成功"那一轮变红（2026-09-26 立并完成 ✅）
+
+- 现象：`plan-tasks` 的镜像测试 M4/M5 与 `plan-tasks.mjs --self-test` 的真实形态样本，都写成"从**当前 HEAD** 找 `判:裸副本` 的未勾选行 / 找腐烂的 `存活于 L<数字>` 指针"。存量归零之后，这三条断言**因为修好了而失败** —— 报的错还是"判据失明"，方向完全反了。
+- 根因：把"仓库当下的脏状态"当成了恒定前提（与 §判据不得靠仓库瞬时状态 同型，只是这次栽在测试面上，而不是门面上）。
+- 修法：真实形态样本一律钉在**固定历史版本** `0bc0af653df^`（首次归并的前一版）上读；取不到该版本 ⇒ **直接失败**，不许静默跳过（跳过就是把"没判"写成"判过了"）。
+- 复验：`node scripts/plan-tasks.mjs --self-test` 21/21；`node --test scripts/tests/plan-tasks.test.mjs scripts/tests/plan-tasks-merge.test.mjs` 12/12；`--gate --strict` exit 0（存量清零 ⇒ 零容忍这一档现在是安全的）。
+- 同批：`plan-tasks.mjs` 去掉清偿后不再使用的 `HEAD_PLAN()` / `parseTaskRows` 导入，`healStopReasons` 由本票测试与 `--self-test` 双向钉住。
