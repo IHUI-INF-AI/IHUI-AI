@@ -94,7 +94,7 @@ def _extract_prose(text: str) -> list[str]:
         para = block.strip()
         if len(para) < _MIN_PARA_CHARS:
             continue
-        if para.startswith(("#", "!", "-", "|", ">", "*", "`", "  ")) or para in out:
+        if para.startswith(("#", "!", "-", "|", ">", "*", "`", "<", "  ")) or para in out:
             continue
         out.append(para)
     return out
