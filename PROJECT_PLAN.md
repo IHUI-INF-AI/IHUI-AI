@@ -10128,3 +10128,60 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   **顺带纠正派单里两处失效指令**(记下来,免得下次还这么派):`check-theme-prop-wiring`(91)与
   `check-brand-foreground`(83)**没有 `--worktree`/`--files` 参数**(实测只有 `--staged/--strict/--update-baseline/--self-test/--json`),
   二者全量判 HEAD blob ⇒ 看不见工作树改动;代理改用"全量同读数比对 + 逐文件 grep 色档"补证,方向正确。
+
+
+
+
+
+- [ ]（进行中）**WP-7 浏览器语义快照与可复用元素句柄**(规格已写,未开工)。
+- [ ]（进行中）**WP-8 上下文占用归因 + 流式工具账本 + 目标完成独立校验轮**。后者是补
+- [ ] D17 专家包/技能市场/连接器授权中心统一入口(对标 WorkBuddy 生态)(G-25/G-26)
+- [ ] **D78 连接器授权卡(G-107)**:对话流内 `连接到 {connectorName}` / 已连接 / **`重新连接 {connectorName}`** / 更多信息 / **`暂不`**(负向出口必须存在,不得只有"允许")。复用我方 connectors 体系与 `permission-mode-popover` 通道,不新建授权流。**验收**:五态用例(未连/连接中/已连/需重连/已拒绝)+ 断言"暂不"后本轮任务可继续而非中断 **[O60 判:裸副本]** 本行正题逐字存活于 L2773 的同编号登记(那行已勾,本行没勾) ⇒ 不重复计账、勿照本行派单;该勾选态是否属实以 O60 的 HEAD 复跑结论为准,欠项照 O60 三态清单追。
+  | --- | --- | --- | --- |
+- [ ]（进行中） **D106 消息级"交代帧"跨端消费缺口(G-148;实测量化,不是推测)**:多落点 grep(`--include=*.ts --include=*.tsx`,排除 node_modules)得 **extension / miniapp-taro / mobile-rn / cli 四端对 `citations` 与 `onSteer` 均 0 命中,只有 web 消费**;对照 `compaction` 四端各有落点(extension 1 / miniapp-taro 3 / mobile-rn 2 / cli 15)→ 证明**不是"这些端不接 SSE 交代帧",而是逐帧漏接**,同一类缺口第 N 次出现(D34 的 `injection_applied` 我一开始也只接了 web,即本条的又一实例)。**根因层 = C 客户端通道(api-client 已给 `onInjectionApplied` / `onRetryScheduled` / `onCitations` 回调,端内没人注册)+ P 呈现(各端无对应组件)**。**做法纪律**:① 表现层组件沉 `@ihui/ui-react`(取词函数由 props 注入,不得在组件内 `useTranslations`,否则又变成 web 独占);② 每端注册回调时必须**逐字段显式承接**(各端 store 都是枚举式合并,未知字段会被静默丢掉 —— 与 D40 截断字段完全同因);③ 交代类文案一律走各端命名空间词表,**禁止把后端 `collapsed` 中文当界面文本**(第 42 轮已为此把 kind 定为取词键);④ 端内不得再抄一份渲染模型(mobile-rn 的 `utils/chat-render-model.ts` 属既有违例,收编另立任务)。**验收(可机检)**:守门 57 的 `context-injection-disclosure` 元素锚点从"仅 web"扩到 **web + extension + miniapp-taro + mobile-rn**;每端至少 1 条"帧字段进了 store、界面出本地化文案、未知 kind 回退 collapsed"的用例;`citations` 与 `steer` 在四端的命中数由 0 变非 0(脚本可复算,分母用四端目录)。
+- [ ] **D106 消息级"交代帧"跨端消费缺口(G-148;实测量化,不是推测)**:多落点 grep(`--include=*.ts --include=*.tsx`,排除 node_modules)得 **extension / miniapp-taro / mobile-rn / cli 四端对 `citations` 与 `onSteer` 均 0 命中,只有 web 消费**;对照 `compaction` 四端各有落点(extension 1 / miniapp-taro 3 / mobile-rn 2 / cli 15)→ 证明**不是"这些端不接 SSE 交代帧",而是逐帧漏接**,同一类缺口第 N 次出现(D34 的 `injection_applied` 我一开始也只接了 web,即本条的又一实例)。**根因层 = C 客户端通道(api-client 已给 `onInjectionApplied` / `onRetryScheduled` / `onCitations` 回调,端内没人注册)+ P 呈现(各端无对应组件)**。**做法纪律**:① 表现层组件沉 `@ihui/ui-react`(取词函数由 props 注入,不得在组件内 `useTranslations`,否则又变成 web 独占);② 每端注册回调时必须**逐字段显式承接**(各端 store 都是枚举式合并,未知字段会被静默丢掉 —— 与 D40 截断字段完全同因);③ 交代类文案一律走各端命名空间词表,**禁止把后端 `collapsed` 中文当界面文本**(第 42 轮已为此把 kind 定为取词键);④ 端内不得再抄一份渲染模型(mobile-rn 的 `utils/chat-render-model.ts` 属既有违例,收编另立任务)。**验收(可机检)**:守门 57 的 `context-injection-disclosure` 元素锚点从"仅 web"扩到 **web + extension + miniapp-taro + mobile-rn**;每端至少 1 条"帧字段进了 store、界面出本地化文案、未知 kind 回退 collapsed"的用例;`citations` 与 `steer` 在四端的命中数由 0 变非 0(脚本可复算,分母用四端目录)。**进度(2026-09-24)**:① **三端 onSteer 消费落地**(cli/miniapp-taro/mobile-rn,各自 streamChat 调用点注册 + 渲染"引导已生效"交代,词表 15 文件直入正仓 packages/i18n/messages/{cli,miniapp-taro,mobile-rn} 五语言、译法与 web steerNoticeBar 逐字同源,端内 override 已摘除);测试 cli 4/4 + miniapp 7/7 + rn 9/9 全绿,三端文件域 tsc 0 错误;`onSteer` 命中 cli/miniapp/rn 由 0 变非 0。② **extension 已补齐(2026-09-24 第三轮,前述"无通道"结论系分母路径错误:extension 代码在 entrypoints/ 非 src/,该端早有 onCitations/onInjectionApplied/onRetryScheduled 消费)**:ChatPage 注册 onSteer(逐字段承接/空文本防御/8 条封顶)、MessageContent 渲染 steer-notice 交代条、词表五语言 steerNoticeTitle(与 web steerNoticeBar 同源)、@ihui/types ChatMessage 加 steerNotices 字段,steer-notice.test.tsx 4/4 过、tsc 0 错误。③ **守门 57 已闭合**:steer-injection-disclosure 条目入清单(implemented 32→33,13 锚点:ai-service 收集点/api schema/api-client 回调/五端消费与渲染),check-chat-element-coverage.mjs 实跑 EXIT 0(清单 125 条一致)。④ **历史灌回三端闭合(2026-09-24 第四轮)**:web readSteerAppliedFromMetadata(第一轮)+ miniapp backfillSteerNoticesFromMetadata(types.ts 守卫同 web/8 封顶/全坏不写,chat.tsx 两处历史恢复点接入)+ mobile-rn readSteerAppliedFromMetadata(chat-render-model 纯函数,双入口历史加载接入;顺带修复 ChatScreen toChatScreenMessage 不透传 steerNotices 导致 live 渲染死代码的缺陷);测试 miniapp 17/17 + rn 16/16,两端文件域 tsc 0。miniapp 注意:该端无服务端会话消息拉取(历史走本地存储),跨端 metadata 读回需先接服务端历史接口(读回函数已备好,行带 metadata 进来即可消费)。
+- [ ] **D78 连接器授权卡(G-107)**:对话流内 `连接到 {connectorName}` / 已连接 / **`重新连接 {connectorName}`** / 更多信息 / **`暂不`**(负向出口必须存在,不得只有"允许")。复用我方 connectors 体系与 `permission-mode-popover` 通道,不新建授权流。**验收**:五态用例(未连/连接中/已连/需重连/已拒绝)+ 断言"暂不"后本轮任务可继续而非中断
+- [ ]（进行中） **D106 消息级"交代帧"跨端消费缺口(G-148;实测量化,不是推测)**:多落点 grep(`--include=*.ts --include=*.tsx`,排除 node_modules)得 **extension / miniapp-taro / mobile-rn / cli 四端对 `citations` 与 `onSteer` 均 0 命中,只有 web 消费**;对照 `compaction` 四端各有落点(extension 1 / miniapp-taro 3 / mobile-rn 2 / cli 15)→ 证明**不是"这些端不接 SSE 交代帧",而是逐帧漏接**,同一类缺口第 N 次出现(D34 的 `injection_applied` 我一开始也只接了 web,即本条的又一实例)。**根因层 = C 客户端通道(api-client 已给 `onInjectionApplied` / `onRetryScheduled` / `onCitations` 回调,端内没人注册)+ P 呈现(各端无对应组件)**。**做法纪律**:① 表现层组件沉 `@ihui/ui-react`(取词函数由 props 注入,不得在组件内 `useTranslations`,否则又变成 web 独占);② 每端注册回调时必须**逐字段显式承接**(各端 store 都是枚举式合并,未知字段会被静默丢掉 —— 与 D40 截断字段完全同因);③ 交代类文案一律走各端命名空间词表,**禁止把后端 `collapsed` 中文当界面文本**(第 42 轮已为此把 kind 定为取词键);④ 端内不得再抄一份渲染模型(mobile-rn 的 `utils/chat-render-model.ts` 属既有违例,收编另立任务)。**验收(可机检)**:守门 57 的 `context-injection-disclosure` 元素锚点从"仅 web"扩到 **web + extension + miniapp-taro + mobile-rn**;每端至少 1 条"帧字段进了 store、界面出本地化文案、未知 kind 回退 collapsed"的用例;`citations` 与 `steer` 在四端的命中数由 0 变非 0(脚本可复算,分母用四端目录)。 **[O60r 判:裸副本]** 本行正题与同编号已勾登记同题(判据 = 剥状态前缀后字符二元组 Jaccard ≥0.6 或逐字包含,与活文档对账同一把尺),不重复计账、勿照本行派单;现行判定以当次 HEAD 复跑该票点名的实现面为准。
+- [ ] **D106 消息级"交代帧"跨端消费缺口(G-148;实测量化,不是推测)**:多落点 grep(`--include=*.ts --include=*.tsx`,排除 node_modules)得 **extension / miniapp-taro / mobile-rn / cli 四端对 `citations` 与 `onSteer` 均 0 命中,只有 web 消费**;对照 `compaction` 四端各有落点(extension 1 / miniapp-taro 3 / mobile-rn 2 / cli 15)→ 证明**不是"这些端不接 SSE 交代帧",而是逐帧漏接**,同一类缺口第 N 次出现(D34 的 `injection_applied` 我一开始也只接了 web,即本条的又一实例)。**根因层 = C 客户端通道(api-client 已给 `onInjectionApplied` / `onRetryScheduled` / `onCitations` 回调,端内没人注册)+ P 呈现(各端无对应组件)**。**做法纪律**:① 表现层组件沉 `@ihui/ui-react`(取词函数由 props 注入,不得在组件内 `useTranslations`,否则又变成 web 独占);② 每端注册回调时必须**逐字段显式承接**(各端 store 都是枚举式合并,未知字段会被静默丢掉 —— 与 D40 截断字段完全同因);③ 交代类文案一律走各端命名空间词表,**禁止把后端 `collapsed` 中文当界面文本**(第 42 轮已为此把 kind 定为取词键);④ 端内不得再抄一份渲染模型(mobile-rn 的 `utils/chat-render-model.ts` 属既有违例,收编另立任务)。**验收(可机检)**:守门 57 的 `context-injection-disclosure` 元素锚点从"仅 web"扩到 **web + extension + miniapp-taro + mobile-rn**;每端至少 1 条"帧字段进了 store、界面出本地化文案、未知 kind 回退 collapsed"的用例;`citations` 与 `steer` 在四端的命中数由 0 变非 0(脚本可复算,分母用四端目录)。**进度(2026-09-24)**:① **三端 onSteer 消费落地**(cli/miniapp-taro/mobile-rn,各自 streamChat 调用点注册 + 渲染"引导已生效"交代,词表 15 文件直入正仓 packages/i18n/messages/{cli,miniapp-taro,mobile-rn} 五语言、译法与 web steerNoticeBar 逐字同源,端内 override 已摘除);测试 cli 4/4 + miniapp 7/7 + rn 9/9 全绿,三端文件域 tsc 0 错误;`onSteer` 命中 cli/miniapp/rn 由 0 变非 0。② **extension 已补齐(2026-09-24 第三轮,前述"无通道"结论系分母路径错误:extension 代码在 entrypoints/ 非 src/,该端早有 onCitations/onInjectionApplied/onRetryScheduled 消费)**:ChatPage 注册 onSteer(逐字段承接/空文本防御/8 条封顶)、MessageContent 渲染 steer-notice 交代条、词表五语言 steerNoticeTitle(与 web steerNoticeBar 同源)、@ihui/types ChatMessage 加 steerNotices 字段,steer-notice.test.tsx 4/4 过、tsc 0 错误。③ **守门 57 已闭合**:steer-injection-disclosure 条目入清单(implemented 32→33,13 锚点:ai-service 收集点/api schema/api-client 回调/五端消费与渲染),check-chat-element-coverage.mjs 实跑 EXIT 0(清单 125 条一致)。④ **历史灌回三端闭合(2026-09-24 第四轮)**:web readSteerAppliedFromMetadata(第一轮)+ miniapp backfillSteerNoticesFromMetadata(types.ts 守卫同 web/8 封顶/全坏不写,chat.tsx 两处历史恢复点接入)+ mobile-rn readSteerAppliedFromMetadata(chat-render-model 纯函数,双入口历史加载接入;顺带修复 ChatScreen toChatScreenMessage 不透传 steerNotices 导致 live 渲染死代码的缺陷);测试 miniapp 17/17 + rn 16/16,两端文件域 tsc 0。miniapp 注意:该端无服务端会话消息拉取(历史走本地存储),跨端 metadata 读回需先接服务端历史接口(读回函数已备好,行带 metadata 进来即可消费)。 **[O60r 判:裸副本]** 本行正题与同编号已勾登记同题(判据 = 剥状态前缀后字符二元组 Jaccard ≥0.6 或逐字包含,与活文档对账同一把尺),不重复计账、勿照本行派单;现行判定以当次 HEAD 复跑该票点名的实现面为准。
+### O62 附⑫:构建漂移的**根因是 webpack 持久缓存**,以及一条我差点漏掉的"门自己作假证"
+- [x] ✅(2026-09-26)`cache: { enable: true } → false`(提交见 `apps/miniapp-taro/config/index.ts` 的当前面)。
+  附⑪ 留的那格"档③ 根因未查"今日闭合了,而且**根因不是档③,是整族**:weapp-tailwindcss 每轮编译要从
+  loader 运行态取"本轮 CSS 模块集"(`dist/webpack-*.js:2218 getWebpackCssSources()`,判据在 :1141-1162)
+  来决定"整包注入 app 级"还是"逐页复制";而 **webpack 文件系统缓存恢复 CSS 模块时不重跑 loader 链 ⇒ 采集面为空**。
+  三组对照(同配置、唯一变量是缓存;采样 17 次,机器可读记录 `.ihui-agent/tmp/mode3/samples.jsonl`):
+  | 缓存状态 | 构建次数 | 正常构型 | 漂移构型(整包被复制进 42 个页面 wxss) |
+  | 冷缓存 | 1 | 1 | 0 |
+  | `enable: true` 热缓存 | 12 | 0 | **12** |
+  | `enable: false` | 5 | **5** | 0 |
+  ⇒ **热缓存是漂移的吸引子**(12/12),且漂移缓存会自我复制;正常构型不是不动点。
+  代价量出来了:漂移构型**主包 +1,033,700 B**(3,850,421 vs 2,816,721)—— 直接越过微信 2,097,152 B 硬上限,
+  且 `app-origin.wxss` 退回未加工副本(残留 486 条 `\[` 转义选择器 + `--spacing:0.25rem`)。
+  **备选修法被实测否证,不要再用**:把 `app.css`/`tailwind.config.ts` 加进 `cache.buildDependencies` 无效 ——
+  漂移发生在**零文件变更**的连续构建之间,任何文件指纹都不会失效。
+  改后复验:连续两次 `pnpm run build:weapp` 产物**逐字节同构型**(主包 2,069,921 B / 余量 27,231 B),
+  C5=in、C6=in、C1 96.36%。
+- [x] ✅ **补 C3 硬红线:主包超上限必须判红 —— 这条是门在给自己刚装的承诺作假证**。
+  我把 `build:weapp` 末端接上这道门时说"以后传不上去的构建会直接失败",但门**根本没有这一条判据**:
+  实测拿一份健康产物塞进 60 KB 把余量打穿(主包 2,129,951 > 上限 2,097,152、余量 −32,799),
+  它照旧打印 `结论:exit 0 —— 通过`。
+  ⇒ 现补 `headroomBytes < 0 ⇒ 判红`,且刻意放在**不受 `--min-coverage` 管辖**的那一批
+  (超上限是平台事实,不是阈值偏好,任何观测档都不该把它读成通过)。
+  写第一版时把这段插进了 `runCheck`(锚点字符串在 `runCheck` 与 `selfTest` 里都出现),
+  `eq is not defined` 当场把整道门炸瘫 —— **锚点不唯一时,插错地方不会报错,只会静默改变语义**;
+  现按行号定位到 selfTest 内,并留 P76/P77 两条成对锁。
+- [x] ✅ **附⑪ 说的"档① 由 `cssEntries` 修掉"只对了半句**:它压住了 JS 腿空转,但热缓存仍会把整包复制进 42 个页面。
+  真正收口的是本条的 `cache:false`。`cssEntries` 保留(它对应插件 README 的显式要求,是独立的一条正确性)。
+- [ ] ⚠️ **一条还挂在别人工作树里的修复(如实登记,不是已完成)**:C1 从 93.90% 涨到 **96.36%**、
+  死规则从 31 掉到 **12**,靠的是 `apps/miniapp-taro/src/app.css` 里新增的 `@import 'tailwindcss/theme.css';`。
+  机制由本会话定位到:JS/WXML 改名腿的候选集要过一道 `resolveValidTailwindV4Candidates(designSystem, …)`,
+  而入口 CSS 只 import 了 `utilities.css` ⇒ 那台校验器**看不见默认 theme 的 `--spacing` 档**,
+  于是 `gap-1.5`/`py-0.5`/`!p-0`/`first:mt-0` 这一整族被判"无效候选"、进不了改名集合,
+  而 CSS 腿照样把选择器转写进 wxss ⇒ **单侧改名 = 死规则**(实测该族 20 个类 / 76 处用法 / 39 个文件长期完全无样式;
+  补 theme.css 后候选集 670 → 868,19 个名字全部入集)。
+  **但这一行是并行会话写进工作树的、尚未提交** ⇒ 我这些读数依赖一个不在版本库里的改动;
+  若它不被提交或被回退,下一枚干净检出的构建会退回 93.90% / 31 条死规则。归属是其持有者,本票不代裁。
+  另一条同族约束(该 import **不得**放到派生 `@theme` 块之后,否则 v4 的 theme 后置导入会覆盖项目色档)
+  是并行会话注释里的断言,**本会话未独立取证**。
+- **仍未闭环**:① 12 条残余死规则里 11 条是死码/未打包(组件没进 bundle,用户可见影响 0)、1 条 `container` 机制未查;
+  ② 5 条确定缺失(`text-[length:28/32/36/44rpx]` 与 `container`)未逐条归因;③ `%` 等转写表外标点的真实形态零证据;
+  ④ dev(watch) 链路是否同样受缓存漂移影响**未测**(本票只测了 build 路径)。

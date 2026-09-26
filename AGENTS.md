@@ -2091,3 +2091,4 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 > 同一轮还量到"第二/三份自绘返回键"6+3 处、以及 web 端 16 处 `router.back()` 落在守门 46 扫描面之外 ——
 > 清单、file:line 与处置顺序在 PROJECT_PLAN 第五十波·续末③ 的 A/B/C/D 四格,**派单前先读它**。
 - **锁异常处理**:超时自动报错;超过 10min 的悬挂锁(持锁进程已死)自动抢占;紧急可删项目根 `.deploy.lock`(先确认无构建进程)。`.deploy.lock/` 已 gitignore。
+  ② 两腿都在(补 `cssEntries` 显式入口后)⇒ `93.77% / 死规则 31 / C5=in`;**而热缓存仍会把整包复制进 42 个页面 wxss(主包 +1,033,700 B ⇒ 越过 2MB 硬上限),该构型由关闭 `cache.enable` 收口,见附⑫**;
