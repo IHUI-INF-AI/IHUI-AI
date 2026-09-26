@@ -120,7 +120,7 @@ let probeData: unknown = null;
 try {
   const probe = await postVerify(REQ_MET);
   if (probe.status === 401) {
-    skipReason = `端点被 JWT 中间件拦截(HTTP 401 ${ENDPOINT})—— 本机服务默认要求 Bearer token,测试不持有凭据;` + ' 可指向一个 dev 档实例(AI_SERVICE_URL=http://127.0.0.1:18803)真跑';
+    skipReason = `端点被 JWT 中间件拦截(HTTP 401 ${ENDPOINT})—— 本机服务默认要求 Bearer token,测试不持有凭据;` + ' 可指向一个 dev 档实例(AI_SERVICE_URL=http://127.0.0.1:<88xx dev 档端口>,见 docs/port-management.md)真跑';
   } else if (probe.status !== 200) {
     skipReason = `探活返回 HTTP ${probe.status}(${ENDPOINT}),非 200`;
   } else if (!isVerifyShape(probe.data)) {

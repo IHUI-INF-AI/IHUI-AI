@@ -75,39 +75,43 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import UTC
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
-from app.core.command_safety import dangerous_command_match as _dangerous_command_match
-from app.core.image_preparation import (
-    detail_limits as _image_detail_limits,
-)
-from app.core.image_preparation import (
-    load_data_url_for_prompt as _load_data_url_for_prompt,
-)
 from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(对标 codex agents_md.rs)
-from app.core.retained_context import RetainedContext, RetainedUserMessage  # 批58:宿主事实账本(对标 codex retained_context.rs)
-from app.core.output_cleaning import strip_ansi as _strip_ansi
-from app.core.sandbox_policy import PROTECTED_METADATA_PATH_NAMES as _PROTECTED_METADATA_PATH_NAMES
+from app.core.command_safety import dangerous_command_match as _dangerous_command_match
+from app.core.feature_flags import FeatureRegistry, FeatureSpec
+
 # 批58 接线:5 个已写但零生产引用的模块(假覆盖 → 真接线)。
 # 各模块仅纯函数/数据结构,导入无副作用;运行行为仍由各自 env 开关门控。
 from app.core.git_workspaces_metadata import (
     collect_git_workspaces,
     workspaces_to_metadata_value,
 )
+from app.core.image_preparation import (
+    detail_limits as _image_detail_limits,
+)
+from app.core.image_preparation import (
+    load_data_url_for_prompt as _load_data_url_for_prompt,
+)
+from app.core.installation_id import INSTALLATION_ID_FILENAME
+from app.core.output_cleaning import strip_ansi as _strip_ansi
+from app.core.permission_mode import normalize_permission_mode, permission_mode_error
+from app.core.queue_items import build_queue_items
+from app.core.retained_context import (  # 批58:宿主事实账本(对标 codex retained_context.rs)
+    RetainedContext,
+    RetainedUserMessage,
+)
+from app.core.sandbox_policy import PROTECTED_METADATA_PATH_NAMES as _PROTECTED_METADATA_PATH_NAMES
 from app.core.thread_originator import (
     effective_originator_value,
     originator_from_service_name,
 )
-from app.core.installation_id import INSTALLATION_ID_FILENAME
-from app.core.permission_mode import normalize_permission_mode
-from app.core.permission_mode import permission_mode_error
-from app.core.queue_items import build_queue_items
 from app.core.turn_metadata import (
     CodexResponsesMetadata,
     CodexResponsesRequestKind,
 )
-from app.core.feature_flags import FeatureRegistry, FeatureSpec
 
 from .engine_tool_bridge import capability_equivalent, execution_mode
 from .session_store import ItemBase, SessionStore
@@ -5999,8 +6003,9 @@ class AgentEngine:
         首次调用新建持久进程会话(输出 head+tail 有界缓冲);后续按 sessionId
         续写 stdin 并只回传增量输出。会话上限/空闲 TTL/工具级审批策略照常生效。
         """
-        from .agent_loop_v2 import ToolDefinition
         from app.core.shell_snapshot import snapshot_env_for_exec
+
+        from .agent_loop_v2 import ToolDefinition
 
         parameters = {
             "type": "object",
@@ -6239,7 +6244,7 @@ class AgentEngine:
             if loop is not None:
                 # 批58 接线:标记请求开新窗;_maybe_compact_context 见标志跳过摘要压缩
                 with contextlib.suppress(Exception):
-                    setattr(loop, "_new_context_window_requested", True)
+                    loop._new_context_window_requested = True
             return {"status": "context_window_requested"}
 
         return ToolDefinition(
@@ -6335,12 +6340,12 @@ class AgentEngine:
     def _clock_curr_time_tool(self, thread: EngineThread) -> Any:
         """clock_curr_time:模型主动查询当前时间(批58,对标 Codex
         tools/handlers/current_time.rs);输出 "YYYY-MM-DD HH:MM:SS UTC"。"""
-        from datetime import datetime, timezone as _tz
+        from datetime import datetime
 
         from .agent_loop_v2 import ToolDefinition
 
         async def _exec(args: dict[str, Any]) -> Any:
-            now = datetime.now(_tz.utc)
+            now = datetime.now(UTC)
             thread.touch()
             return {
                 "current_time": now.strftime("%Y-%m-%d %H:%M:%S") + " UTC",

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -16,8 +16,8 @@ from app.core.model_tools_57 import (
     NEW_CONTEXT_WINDOW_TOOL_NAME,
     NEW_CONTEXT_WINDOW_TOOL_SPEC,
     REQUEST_USER_INPUT_ASYNC_TOOL_SPEC,
-    SLEEP_TOOL_SPEC,
     SEND_MESSAGE_TO_USER_ASYNC_TOOL_SPEC,
+    SLEEP_TOOL_SPEC,
     build_async_questions_payload,
     build_async_user_notification,
     build_current_time_result,
@@ -128,7 +128,7 @@ def test_current_time_default_utc() -> None:
 
 
 def test_current_time_custom_input() -> None:
-    now = datetime(2026, 9, 20, 12, 34, 56, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 20, 12, 34, 56, tzinfo=UTC)
     out = build_current_time_result(now)
     assert out["current_time"] == "2026-09-20 12:34:56 UTC"
     out2 = build_current_time_result(now, timezone_name="Asia/Shanghai")

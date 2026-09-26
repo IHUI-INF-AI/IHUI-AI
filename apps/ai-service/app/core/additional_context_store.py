@@ -77,7 +77,6 @@ def _truncate_middle_chars(s: str, max_bytes: int) -> str:
         suffix_start = prefix_end
     before = "".join(chars[:prefix_end])
     after = "".join(chars[suffix_start:])
-    removed_bytes = max(0, total_bytes - max_bytes)
     marker = f"…{removed_chars} chars truncated…"
     # 与 Rust 一致:chars 版标记用 removed_chars;这里 truncate_middle_chars 直接输出 chars 标记
     return before + marker + after

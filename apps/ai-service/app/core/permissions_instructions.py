@@ -222,7 +222,7 @@ def _hash_instructions_body(body: str) -> str:
     前缀域字符串 ``permissions.instructions:`` 为自定命名空间前缀(与 WorldStateHash
     对同片段哈希一致的语义;因本批 instructions 正文不含前缀域,等价于只对正文哈希)。
     """
-    return hashlib.sha1(f"permissions.instructions:{body}".encode("utf-8")).hexdigest()
+    return hashlib.sha1(f"permissions.instructions:{body}".encode()).hexdigest()
 
 
 class PermissionsState:
@@ -270,7 +270,7 @@ class PermissionsState:
         writable_roots: list[str],
         cwd: str,
         approved_prefixes: set[list[str]] | list[list[str]],
-    ) -> "PermissionsState":
+    ) -> PermissionsState:
         """对齐 codex ``PermissionsState::new``(本批签名不携带 network_access)。"""
         return cls(
             approval_policy=approval_policy,
