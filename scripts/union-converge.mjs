@@ -232,6 +232,15 @@ export function planStateRegressions(mergedText, sideTexts) {
     const worst = Math.max(...sides.map((t) => auditPlan(t).counts[k]))
     if (m[k] > worst) out.push(`${label} 各侧最多 ${worst},归并结果 ${m[k]}`)
   }
+  /**
+   * F5 方向与前四条相反:注记**少**了才坏。这一条正是本会话被咬两次的形状的落地闸 ——
+   * 活文档按"每行重数 = max(两侧)"归并时,已落账的行会连同它的注记一起被未落账形态顶掉,
+   * 而 F1-F4 与门 71 对此**同时全绿**(退回的是同态行、编号标记也还在)。
+   * 合并提交不跑 pre-commit,所以只能在落地闸这里拦。
+   */
+  const noteMax = Math.max(...sides.map((t) => auditPlan(t).counts.mergeNotes))
+  if (m.mergeNotes < noteMax)
+    out.push(`F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条(被未落账形态顶掉)`)
   return out
 }
 
@@ -883,6 +892,18 @@ function selfTest() {
     ok(
       '状态判据:输入取不到(空文本/无对照侧)⇒ 返回空且不声称已判(调用方只对真做了判定的路径说话)',
       planStateRegressions('', [PS_A]).length === 0 && planStateRegressions(PS_A, []).length === 0,
+    )
+    // F5 存续性:方向与前四条相反 —— 注记**少了**才坏,这正是本会话被活文档并集抹掉两次的形状
+    const PS_N1 = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。〔【归并】D9 落账:复测 2026-09-26: 取证。\n'
+    const PS_N0 = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。\n'
+    ok(
+      'F5:一侧带落账注记、归并结果把注记顶掉 ⇒ 必须报(前四条此时全绿)',
+      planStateRegressions(PS_N0, [PS_N1, PS_N0]).join('').includes('F5'),
+    )
+    ok(
+      'F5:注记与较好一侧持平或更多 ⇒ 不得报(否则清完账反而恒红)',
+      planStateRegressions(PS_N1, [PS_N1, PS_N0]).length === 0 &&
+        planStateRegressions(PS_N1 + PS_N1, [PS_N1]).length === 0,
     )
 
     // ── 活文档三方行 union(2026-09-25 实测逼出:旧写法 max(ours,theirs) 会把"本侧就地改写"
