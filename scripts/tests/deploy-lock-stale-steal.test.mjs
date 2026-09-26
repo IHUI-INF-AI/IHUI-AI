@@ -18,6 +18,7 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { auditClaimStaleLockSource } from '../lib/stale-lock-claim.mjs'
 import { __test__ as dl } from '../deploy-lock.mjs'
 
 const DEAD_PID = 999000
@@ -196,4 +197,43 @@ function leftoverStale(dir) {
     return -1
   }
 }
+
+// ── 7. 防复发锁:抢占实现只允许有一份(scripts/lib/stale-lock-claim.mjs)────────
+// 与 git-lock-stale-steal.test.mjs 的 ⑥ 同一把尺子(判据从 lib import,不在测试里各抄)。
+test('⑦防复发:git-lock/deploy-lock 都不得再出现第二份 claimStaleLock 实现', () => {
+  for (const rel of ['../git-lock.mjs', '../deploy-lock.mjs']) {
+    const src = readFileSync(new URL(rel, import.meta.url), 'utf8')
+    const codeOnly = src
+      .split('\n')
+      .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+      .join('\n')
+    assert.deepEqual(
+      auditClaimStaleLockSource(codeOnly, rel),
+      [],
+      `${rel} 的抢占必须是委托 scripts/lib/stale-lock-claim.mjs 的 wrapper`,
+    )
+    assert.ok(
+      /from ['"]\.\/lib\/stale-lock-claim\.mjs['"]/.test(codeOnly),
+      `${rel} 必须 import 合并后的唯一实现`,
+    )
+  }
+  // 变异对照(负向证明"往任一脚本再塞一份必红"):换名的副本 1 红;同名回退 3 红。
+  const dup = [
+    'function claimStaleLockOld(dir, judged, why, opts) {',
+    '  renameSync(dir, target)',
+    '  return { ok: true }',
+    '}',
+  ].join('\n')
+  const flagged = auditClaimStaleLockSource(dup, 'mutation-fixture')
+  assert.equal(flagged.length, 1, `换名的第二份实现必须判红,实得 ${JSON.stringify(flagged)}`)
+  assert.ok(flagged[0].includes('renameSync(dir'), '点名的是"对原锁路径的改名回到了调用方"')
+  const replaced = [
+    'function claimStaleLock(dir, judged, why, opts) {',
+    '  renameSync(dir, target)',
+    '  return { ok: true }',
+    '}',
+  ].join('\n')
+  const flagged2 = auditClaimStaleLockSource(replaced, 'mutation-fixture-2')
+  assert.equal(flagged2.length, 3, `同名回退必须三条判据各自点名,实得 ${JSON.stringify(flagged2)}`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
