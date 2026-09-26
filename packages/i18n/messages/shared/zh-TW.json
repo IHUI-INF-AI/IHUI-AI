@@ -2078,6 +2078,7 @@
     "decision": {
       "planBlocked": "計畫受阻",
       "securityBlocked": "被安全策略攔截",
+      "roleDenied": "角色權限拒絕",
       "rejectedByUser": "你已拒絕",
       "approvalTimeout": "審批超時",
       "toolMissing": "工具不存在",
