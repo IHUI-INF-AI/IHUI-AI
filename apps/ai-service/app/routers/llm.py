@@ -34,12 +34,7 @@ from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.llm_gateway import llm_gateway, moa_router
 from ..core.model_naming import to_official_model_name
-from ..core.provider_caps import (
-    cap_to_dict,
-    cap_with_max_context,
-    get_provider_cap,
-)
-from ..core.question_parser import QuestionStreamParser
+
 # V3 #53(2026-09-27):ChatMode × PermissionMode 硬收窄的**唯一判据出口**在
 # core/permission_mode.py(矩阵 + 交集实现 + 被拦文案)。本路由不再自带任何
 # 收窄表或 `in READONLY_TOOLS` 的散写判定 —— 只转发。
@@ -51,6 +46,12 @@ from ..core.permission_mode import (
     resolve_mode_policy,
     tool_allowed_by_policy,
 )
+from ..core.provider_caps import (
+    cap_to_dict,
+    cap_with_max_context,
+    get_provider_cap,
+)
+from ..core.question_parser import QuestionStreamParser
 from ..services.agent_events import (
     SSE_CHUNK,
     SSE_CONTENT_BLOCK_DELTA,

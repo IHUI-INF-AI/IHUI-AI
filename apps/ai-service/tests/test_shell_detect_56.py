@@ -8,8 +8,6 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
-import pytest
-
 from app.core import shell_detect
 from app.core.shell_detect import (
     ShellType,
@@ -20,7 +18,6 @@ from app.core.shell_detect import (
     get_shell_by_model_provided_path,
     ultimate_fallback_shell,
 )
-
 
 # --- ShellType.name() -------------------------------------------------------
 
