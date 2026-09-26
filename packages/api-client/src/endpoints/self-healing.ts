@@ -18,7 +18,7 @@
  */
 
 import type { ApiResult } from '@ihui/types'
-import { fetchAiServiceJson } from '../client'
+import { fetchAiServiceJson } from '../client.js'
 
 // ===================== 类型定义(镜像 services/self_healing.py dataclass) =====================
 

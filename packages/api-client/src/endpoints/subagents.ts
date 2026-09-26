@@ -22,7 +22,7 @@
  *   (stats 的 total/totalTokens、queue 条目的 dispatchId、per-dispatch stats 的
  *   totalDurationMs/totalTokens 等),漂移字段在本文件声明为可选,消费方用 `??` 兜底。
  */
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** Agent 角色(对齐 API Zod agentRole enum) */
 export type AgentRole = 'researcher' | 'coder' | 'reviewer' | 'architect' | 'debugger'
