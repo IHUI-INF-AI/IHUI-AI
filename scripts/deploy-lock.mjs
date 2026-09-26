@@ -42,7 +42,7 @@
  *        (读报告的人会把"读不出"当成"没进程持锁")。
  *
  * 用法(CLI):
- *   node scripts/deploy-lock.mjs acquire [--mode <build|dev>] [--timeout <ms>] [--stale <ms>]
+ *   node scripts/deploy-lock.mjs acquire [--mode <build|dev>] [--timeout <ms>] [--stale <ms>] [--owner-pid <pid>]
  *   node scripts/deploy-lock.mjs release [--mode <build|dev>]
  *   node scripts/deploy-lock.mjs check            # 只读:exit 0=无锁 1=有锁(打印持锁信息)
  *   node scripts/deploy-lock.mjs --self-test      # 临时夹具内自检,绝不触碰真实 .deploy.lock
@@ -68,6 +68,16 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '..')
 const POLL_MS = 500
+/**
+ * "持有者名义存活"却把锁握过这个时长 ⇒ 只有一种解释:**pid 被复用了**。
+ * 取 30 分钟:一次「构建 + 部署」单元实测约 4-10 分钟,30 分钟已是 3 倍余量;
+ * 与 `scripts/git-lock.mjs` 的 1800s 硬上限同一条设计(AGENTS §12 ③)。
+ * 换机/极端慢机构可用 `IHUI_DEPLOY_LOCK_HARD_CAP_MS` 放宽,但放宽到多大都该先看日志实测时长。
+ */
+const HARD_CAP_MS = (() => {
+  const v = Number(process.env.IHUI_DEPLOY_LOCK_HARD_CAP_MS)
+  return Number.isFinite(v) && v > 0 ? v : 1_800_000
+})()
 
 /** 锁目录(默认路径:项目根 .deploy.lock,不随 cwd 变化) */
 function lockDir() {
@@ -125,11 +135,14 @@ function classifyMeta(rawText) {
     }
   }
   const ts = Number(parsed.ts)
+  const ownerPid = Number(parsed.ownerPid)
   return {
     kind: 'ok',
     meta: {
       mode: typeof parsed.mode === 'string' ? parsed.mode : '',
       pid,
+      // 真正持锁的**那个构建单元**的 pid(见 writeMeta 的说明);没有它就退回 pid。
+      ownerPid: Number.isInteger(ownerPid) && ownerPid > 0 ? ownerPid : 0,
       // ts 缺失/非法不致命:活性判据靠 pid,锁龄可降级用目录 mtime(见 lockAgeMs)
       ts: Number.isFinite(ts) && ts > 0 ? ts : 0,
     },
@@ -156,12 +169,33 @@ function readMeta(dir) {
   return classifyMeta(raw)
 }
 
-function writeMeta(dir, mode) {
+/**
+ * 写下持锁元数据。
+ *
+ * ⚠️ `pid` 记的**只是本次 CLI 调用自己**的 pid,而 CLI 打印"锁已获取"就退出了 ——
+ * 所以单看 `pid` 判活是无效的:要么恒"已退出"(于是别人正在跑的构建被抢),
+ * 要么 pid 被系统复用给别的过程(于是本工具永远等一个"活着"的幽灵;2026-09-25 实测
+ * 部署环因此冻结 11h50m,每轮白等 600s)。`ownerPid` 才是这段锁的真正主人:
+ * 由调用方(构建脚本自己的 `$PID`)经 `--owner-pid` 或 `IHUI_DEPLOY_LOCK_OWNER_PID` 传入。
+ */
+function writeMeta(dir, mode, opts = {}) {
+  const ownerPid = Number(opts.ownerPid ?? process.env.IHUI_DEPLOY_LOCK_OWNER_PID) || 0
   writeFileSync(
     metaFile(dir),
-    JSON.stringify({ mode: mode ?? '', pid: process.pid, ts: Date.now() }),
+    JSON.stringify({
+      mode: mode ?? '',
+      pid: process.pid,
+      ownerPid,
+      ts: Date.now(),
+    }),
     'utf8',
   )
+}
+
+/** 判活应当问的那把 pid:有 owner 用 owner,没有就退回 CLI 自己(向后兼容旧 meta)。 */
+function holderPid(meta) {
+  const m = meta || {}
+  return Number(m.ownerPid) > 0 ? Number(m.ownerPid) : Number(m.pid) || 0
 }
 
 /** 删除锁目录 */
@@ -279,19 +313,24 @@ function archiveScene(dir, state, why) {
  *   - `steal`   可抢占(调用方仍须二次确认 + 归档现场)
  *   - `wait`    继续等
  */
-function decideSteal({ dir, mode, staleMs, now = Date.now() }) {
+function decideSteal({ dir, mode, staleMs, hardCapMs = HARD_CAP_MS, now = Date.now() }) {
   const state = readMeta(dir)
   const age = lockAgeMs(dir, state, now)
   const info = { state, ageMs: age.ageMs, ageSource: age.source }
 
   if (state.kind === 'ok') {
-    const alive = isProcessAlive(state.meta.pid)
+    const pid = holderPid(state.meta)
+    const alive = isProcessAlive(pid)
+    const who =
+      Number(state.meta.ownerPid) > 0
+        ? `owner pid=${state.meta.ownerPid}(CLI pid=${state.meta.pid})`
+        : `pid=${state.meta.pid}(无 owner,退回 CLI pid)`
     if (mode === 'dev' && state.meta.mode === 'dev' && alive) {
       return {
         action: 'coexist',
         holderAlive: alive,
         ...info,
-        why: `dev+dev 共存(持有者 pid=${state.meta.pid} 存活)`,
+        why: `dev+dev 共存(持有者 ${who} 存活)`,
       }
     }
     if (!alive) {
@@ -301,14 +340,32 @@ function decideSteal({ dir, mode, staleMs, now = Date.now() }) {
         immediate: true,
         holderAlive: alive,
         ...info,
-        why: `持有者 pid=${state.meta.pid} 已退出(锁龄 ${age.ageMs}ms 来源 ${age.source},按 2026-08-27 判据不限锁龄)`,
+        why: `持有者 ${who} 已退出(锁龄 ${age.ageMs}ms 来源 ${age.source},按 2026-08-27 判据不限锁龄)`,
+      }
+    }
+    /**
+     * "持有者活着" 与 "锁龄超过硬上限" 同时成立 ⇒ 这个 pid 已经不属于持锁的那个过程了
+     * (**pid 复用**),没有第二种解释:一次构建+部署单元不会把锁握到几十分钟以上。
+     * 这一格就是 2026-09-25 冻结部署环 11h50m 的那一格 —— 旧代码在这里无条件 `wait`,
+     * 而"活着"是量出来的、锁龄也是量出来的,两者矛盾时却谁都不肯认账。
+     * 与 `scripts/git-lock.mjs` 的 1800s 硬上限是同一条设计(AGENTS §12 心跳机制③)。
+     */
+    if (age.ageMs > hardCapMs) {
+      return {
+        action: 'steal',
+        immediate: false,
+        holderAlive: alive,
+        ...info,
+        why:
+          `持有者 ${who} 名义存活,但锁龄 ${age.ageMs}ms 已超硬上限 ${hardCapMs}ms ⇒ 这是被复用的 pid,` +
+          `不是持锁过程本身(一次构建+部署不可能握锁这么久)⇒ 归档现场后抢占`,
       }
     }
     return {
       action: 'wait',
       holderAlive: alive,
       ...info,
-      why: `持有者 pid=${state.meta.pid} 仍在运行`,
+      why: `持有者 ${who} 仍在运行(锁龄 ${age.ageMs}ms / 硬上限 ${hardCapMs}ms)`,
     }
   }
 
@@ -366,6 +423,8 @@ async function acquire({
   mode = 'build',
   timeoutMs = 600_000,
   staleMs = 600_000,
+  hardCapMs = HARD_CAP_MS,
+  ownerPid,
   dir = lockDir(),
 } = {}) {
   const deadline = Date.now() + timeoutMs
@@ -373,8 +432,9 @@ async function acquire({
     let mkdirErr = null
     try {
       mkdirSync(dir, { recursive: false })
-      writeMeta(dir, mode)
-      console.log(`[deploy-lock] ${mode} 锁已获取 (pid=${process.pid})`)
+      writeMeta(dir, mode, { ownerPid })
+      const owner = Number(ownerPid) > 0 ? `owner pid=${ownerPid}` : 'owner 未声明(退回 CLI pid 判活)'
+      console.log(`[deploy-lock] ${mode} 锁已获取 (cli pid=${process.pid};${owner})`)
       return true
     } catch (e) {
       // 只有"目录已存在"(EEXIST)才是"别人持锁"。mkdir 成功而 writeMeta 失败(ENOSPC/权限)
@@ -392,14 +452,14 @@ async function acquire({
       mkdirErr = e
     }
     // 锁已存在:判断是否可共存 / 是否可抢占
-    const decision = decideSteal({ dir, mode, staleMs })
+    const decision = decideSteal({ dir, mode, staleMs, hardCapMs })
     if (decision.action === 'coexist') {
-      console.log(`[deploy-lock] dev+dev 共存,继续 (持有者 pid=${decision.state.meta.pid})`)
+      console.log(`[deploy-lock] dev+dev 共存,继续 (持有者 ${decision.why})`)
       return true
     }
     if (decision.action === 'steal') {
       // 二次确认:判据必须仍然成立(这一轮与上一轮之间持有者可能已换人/已复活)
-      const again = decideSteal({ dir, mode, staleMs })
+      const again = decideSteal({ dir, mode, staleMs, hardCapMs })
       if (again.action !== 'steal') {
         console.warn(`[deploy-lock] 抢占判据在二次确认时不再成立(${again.why}),继续等待`)
       } else {
@@ -466,15 +526,28 @@ function release({ mode, dir = lockDir() } = {}) {
   // 若调用方指定 mode,要求锁的 mode 一致才释放(避免误删他人不同类型的锁)
   if (mode && state.meta.mode !== mode)
     return { released: false, why: `mode 不匹配(锁=${state.meta.mode} 调用=${mode})` }
-  const self = state.meta.pid === process.pid
-  if (!self && isProcessAlive(state.meta.pid)) {
+  const self = state.meta.pid === process.pid || Number(state.meta.ownerPid) === process.pid
+  const holder = holderPid(state.meta)
+  if (!self && isProcessAlive(holder)) {
     // 锁持有进程还活着且不是自己 → 不释放(尊重持有者)
-    console.warn(`[deploy-lock] 锁由 pid=${state.meta.pid} 持有且仍在运行,拒绝释放`)
+    const age = lockAgeMs(dir, state)
+    if (age.ageMs > HARD_CAP_MS) {
+      // 2026-09-25 实测就卡在这一格:pid 被复用 ⇒ "活着"是假的,而 release 不敢删,
+      // acquire 那边旧判据又会无限 wait ⇒ 部署环冻结 11h50m。这里**仍然不删**(删锁是
+      // 持有者的动作),但必须把真实出路说清楚:acquire 侧现在会按硬上限归档并抢占。
+      console.warn(
+        `[deploy-lock] 名义持有者 pid=${holder} 存活,但锁龄 ${age.ageMs}ms 已超硬上限 ${HARD_CAP_MS}ms` +
+          ` ⇒ 该 pid 极可能已被复用。本命令不代删别人的锁;` +
+          `自动出路是下一次 \`deploy-lock.mjs acquire\`(它会先归档现场再抢占)。`,
+      )
+      return { released: false, why: 'pid 疑似被复用(超硬上限),交 acquire 归档抢占' }
+    }
+    console.warn(`[deploy-lock] 锁由 pid=${holder} 持有且仍在运行,拒绝释放`)
     return { released: false, why: '他人持锁且存活' }
   }
   if (!self) {
     // 非持有者代为收口 = 破坏性动作:先留现场,再二次确认持有者确实已退出
-    if (isProcessAlive(state.meta.pid)) {
+    if (isProcessAlive(holderPid(state.meta))) {
       console.warn(`[deploy-lock] 二次确认:pid=${state.meta.pid} 已恢复存活,拒绝释放`)
       return { released: false, why: '二次确认持有者存活' }
     }
@@ -496,9 +569,12 @@ function check({ dir = lockDir(), log = (...a) => console.log(...a) } = {}) {
   const state = readMeta(dir)
   const age = lockAgeMs(dir, state)
   if (state.kind === 'ok') {
-    const alive = isProcessAlive(state.meta.pid)
+    const alive = isProcessAlive(holderPid(state.meta))
     log(
-      `locked: mode=${state.meta.mode} pid=${state.meta.pid} alive=${alive} ts=${state.meta.ts ? new Date(state.meta.ts).toISOString() : '(无)'} age=${age.ageMs}ms 锁龄来源=${age.source}`,
+      `locked: mode=${state.meta.mode} pid=${state.meta.pid}${Number(state.meta.ownerPid) > 0 ? ` ownerPid=${state.meta.ownerPid}` : ''} 判活对象=${holderPid(state.meta)} alive=${alive} ts=${state.meta.ts ? new Date(state.meta.ts).toISOString() : '(无)'} age=${age.ageMs}ms 锁龄来源=${age.source}` +
+        (alive && age.ageMs > HARD_CAP_MS
+          ? ` ⇒ ⚠️ 名义存活而锁龄超硬上限 ${HARD_CAP_MS}ms:该 pid 极可能已被复用,acquire 侧会归档并抢占`
+          : ''),
     )
     return 1
   }
@@ -765,6 +841,43 @@ async function runSelfTest() {
       !!err34 && /创建\/写入锁/.test(err34.message) && /ENOENT/.test(err34.message),
       err34?.message ?? '未抛错',
     )
+
+    // —— 35) pid 复用:名义存活 + 锁龄超硬上限 ⇒ 不得无限 wait(2026-09-25 部署环冻结 11h50m 那一格)
+    const d35 = freshDir()
+    putMeta(
+      d35,
+      JSON.stringify({ mode: 'build', pid: process.pid, ts: Date.now() - HARD_CAP_MS - 10_000 }),
+    )
+    const dec35 = decideSteal({ dir: d35, mode: 'build', staleMs: 600_000, hardCapMs: HARD_CAP_MS })
+    t(
+      'S35 持有者是自己 CLI pid 且"存活",但锁龄超硬上限 ⇒ steal(pid 复用兜底)而不是 wait',
+      dec35.action === 'steal' && /硬上限/.test(dec35.why),
+      `${dec35.action} / ${dec35.why}`,
+    )
+    // —— 36) 同一把锁在硬上限**之内**不得被抢(否则就是把活人的构建打断)
+    const d36 = freshDir()
+    putMeta(d36, JSON.stringify({ mode: 'build', pid: process.pid, ts: Date.now() - 60_000 }))
+    const dec36 = decideSteal({ dir: d36, mode: 'build', staleMs: 600_000, hardCapMs: HARD_CAP_MS })
+    t('S36 锁龄在上限内且持有者存活 ⇒ wait(硬上限不得变成新的秒抢判据)', dec36.action === 'wait', dec36.why)
+    // —— 37) ownerPid 才是判活对象:CLI pid 已退而 owner 仍活 ⇒ 不得抢占
+    const d37 = freshDir()
+    putMeta(
+      d37,
+      JSON.stringify({ mode: 'build', pid: DEAD_PID, ownerPid: process.pid, ts: Date.now() }),
+    )
+    const dec37 = decideSteal({ dir: d37, mode: 'build', staleMs: 600_000, hardCapMs: HARD_CAP_MS })
+    t(
+      'S37 有 ownerPid 时按 owner 判活:CLI pid 死了而 owner 活着 ⇒ wait',
+      dec37.action === 'wait' && /owner pid/.test(dec37.why),
+      `${dec37.action} / ${dec37.why}`,
+    )
+    // —— 38) writeMeta 必须把 owner 落进 meta.json(否则判活退化成 CLI 自己那把死 pid)
+    const d38 = freshDir()
+    mkdirSync(d38, { recursive: true })
+    writeMeta(d38, 'build', { ownerPid: 4242 })
+    const m38 = JSON.parse(readFileSync(metaFile(d38), 'utf8'))
+    t('S38 writeMeta 记录 ownerPid', m38.ownerPid === 4242 && Number(m38.pid) === process.pid, JSON.stringify(m38))
+    t('S39 holderPid:有 owner 用 owner,没有退回 CLI pid', holderPid({ pid: 7, ownerPid: 4242 }) === 4242 && holderPid({ pid: 7, ownerPid: 0 }) === 7)
   } finally {
     rmScratch(base)
   }
@@ -800,6 +913,8 @@ async function main() {
         mode: getOpt('--mode') ?? 'build',
         timeoutMs: Number(getOpt('--timeout') ?? 600_000),
         staleMs: Number(getOpt('--stale') ?? 600_000),
+        // 调用方(构建脚本)自己的 pid 才是这段锁的主人;CLI 自己会立刻退出。
+        ownerPid: getOpt('--owner-pid') ? Number(getOpt('--owner-pid')) : undefined,
         ...(dir ? { dir } : {}),
       })
     } else if (cmd === 'release') {
@@ -836,6 +951,8 @@ export const __test__ = {
   readMeta,
   writeMeta,
   isProcessAlive,
+  holderPid,
+  HARD_CAP_MS,
   lockAgeMs,
   decideSteal,
   acquire,

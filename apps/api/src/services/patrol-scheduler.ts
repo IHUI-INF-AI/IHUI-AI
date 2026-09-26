@@ -20,11 +20,12 @@
  */
 
 import type { FastifyRequest } from 'fastify'
-import { and, asc, eq, lte } from 'drizzle-orm'
+import { and, asc, eq, lte, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { chatConversations, chatMessages, patrolRuns, patrolTasks } from '@ihui/database'
 import { parseNextRun, consumeAgentStream } from './agent-automation-scheduler.js'
 import type { AgentStreamParams } from './agent-automation-scheduler.js'
+import { turnOrdinalForRole } from './turn-ordinal.js'
 
 // =============================================================================
 // 巡检类型模板 + prompt 构建(纯函数,可单测)
@@ -190,7 +191,19 @@ export async function executePatrol(
       try {
         conversationId = await ensureAlertConversation(task)
         const content = buildPatrolAlertMessage(task.name, task.patrolType, verdict.diagnosis)
-        await db.insert(chatMessages).values({ conversationId, role: 'assistant', content })
+        // D35(2026-09-26 第二段):本路径绕过 chat-queries 直插,必须自己补齐 turn_ordinal。
+        // 诊断消息是 assistant → 沿用会话当前轮(告警会话尚无轮时归 turn 1),
+        // 规则一律取 services/turn-ordinal.js 这个唯一出口,不得在此重写 role 判断。
+        const turnRows = await db
+          .select({ maxTurn: sql<number | null>`max(${chatMessages.turnOrdinal})` })
+          .from(chatMessages)
+          .where(eq(chatMessages.conversationId, conversationId))
+        await db.insert(chatMessages).values({
+          conversationId,
+          role: 'assistant',
+          content,
+          turnOrdinal: turnOrdinalForRole(Number(turnRows[0]?.maxTurn ?? 0), 'assistant'),
+        })
         await db
           .update(chatConversations)
           .set({ lastMessageAt: new Date() })
