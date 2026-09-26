@@ -103,7 +103,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1rpx solid var(--color-primary);
+  border: 1rpx solid var(--color-brand-accent-deep);
   border-radius: var(--radius-xl);
   background-color: var(--color-card);
   flex-shrink: 0;

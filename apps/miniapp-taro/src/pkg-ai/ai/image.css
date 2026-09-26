@@ -89,7 +89,7 @@
   color: var(--color-muted-foreground);
 }
 .size.active {
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
   color: var(--color-primary);
 }
 .btn {
