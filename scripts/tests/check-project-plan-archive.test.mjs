@@ -4,7 +4,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawnSync, execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -399,5 +399,40 @@ test('阻塞判据不得回到 `!del.addedPlaceholders`(空数组是真值 ⇒ �
       '调用方只看到"提交被阻止"看不到原因(9bd6748ba 落地后由本文件的端到端用例抓到)',
   )
   assert.match(src, /if \(!del\.compliant\) \{/, 'A0 阻塞分支必须走 deletionVerdict 的 compliant')
+})
+
+// ==================== A4「已完成条目被并发 union 复活」====================
+// 2026-09-26:归档落地后别的会话拿滞后工作树副本提交,行并集把条目正文按回计划文档
+// (占位在、条目也回来)。A0 只看反方向,这一族当天演了三次。
+const { resurrectionVerdict } = await import('../check-project-plan-archive.mjs')
+
+test('A4 判据必须真的接在 runCheck 的返回值上(判据在、没挂上 = 没有)', async () => {
+  const src = await readFile(new URL('../check-project-plan-archive.mjs', import.meta.url), 'utf8')
+  assert.match(src, /return del\.compliant && res\.compliant/, 'A4 的 compliant 没进退出码 = 提交链上一路绿灯')
+  assert.match(src, /const res = resurrectionVerdict\(/, 'A4 必须在 runCheck 里被调用(不是只导出)')
+})
+
+test('A4 真实标题形态:占位与同一条目并存 ⇒ 判本次引入的复活', () => {
+  // 输入逐字取自 HEAD 版计划文档里的真实占位与真实标题(§22c:判据的对象是文件形态时,
+  // 至少一条用例的输入必须来自真实文件,否则夹具只是在复读实现)。
+  const head = execFileSync(
+    'git',
+    ['-c', 'safe.directory=*', 'show', 'HEAD:PROJECT_PLAN.md'],
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true },
+  )
+  const ph = head.split('\n').find((l) => /^<!-- 已归档/.test(l))
+  assert.ok(ph, 'HEAD 版计划文档里应能找到至少一条归档占位(找不到说明本用例的尺子失效)')
+  const title = ph.slice(ph.indexOf('):') + 2, ph.lastIndexOf(',完整内容在')).trim()
+  const face = `### ${title}\n正文一行\n${ph}\n`
+
+  const r = resurrectionVerdict('', face)
+  assert.equal(r.introduced.length, 1, '真实形态的复活必须被点名')
+  assert.equal(r.compliant, false)
+
+  // 反向对照两条,缺一就是一场恒红门:
+  //  ① 存量(上一版就这样)不得追账到本次提交者头上;
+  //  ② 正常归档完成态(只有占位、没有条目)必须为 0。
+  assert.equal(resurrectionVerdict(face, face).introduced.length, 0, '上一版即存在的复活不得判红')
+  assert.equal(resurrectionVerdict(face, `${ph}\n`).introduced.length, 0, '归档完成态被判红 = 门反着咬自己')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
