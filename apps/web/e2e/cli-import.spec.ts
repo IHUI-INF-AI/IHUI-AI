@@ -129,9 +129,10 @@ test.describe('CLI 配置导入', () => {
         .getByRole('button', { name: /cc-switch/ })
         .first()
         .click()
-      // 选中按钮应有 border-primary 类
+      // 选中按钮应有强调描边类 —— 2026-09-26 起描边不再取墨档 `border-primary`
+      // (守门 83 R8:本项目没有纯黑描边),改断 `border-brand-accent-deep`
       const selected = authenticatedPage.getByRole('button', { name: /cc-switch/ }).first()
-      await expect(selected).toHaveClass(/border-primary/)
+      await expect(selected).toHaveClass(/border-brand-accent-deep/)
       // 选中后显示文件上传区域(strict mode:多个元素含"上传文件",取 first)
       await expect(authenticatedPage.getByText(/上传文件|选择文件|拖拽/).first()).toBeVisible({
         timeout: 5000,
