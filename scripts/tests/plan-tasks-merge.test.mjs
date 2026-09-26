@@ -19,7 +19,7 @@ import { test } from 'node:test'
 
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { healStopReasons, buildMerge } from '../plan-tasks-merge.mjs'
+import { healStopReasons, buildMerge, __test__ } from '../plan-tasks-merge.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const gitQ = (cwd, args) =>
@@ -39,6 +39,16 @@ function fixtureRepo() {
   copyScriptWithClosure(path.join(ROOT, 'scripts'), 'plan-tasks-merge.mjs', sdst, ['lib/plan-task-index.mjs'])
   copyScriptWithClosure(path.join(ROOT, 'scripts'), 'check-plan-line-loss.mjs', sdst)
   gitQ(dir, ['init', '-q', '-b', 'main'])
+  /**
+   * 夹具仓必须配**本仓级**身份 —— 被测工具自己的 `commit-tree` 不带 `-c user.*`
+   * (它不该硬编码作者:在真仓里那会篡改提交署名)。而本机实测**没有全局 git 身份**
+   * (`git config --global user.email` 为空,新 init 的仓拿不到 author),于是 T1/T3 的
+   * 落地步骤一直 `fatal: unable to auto-detect email address` ⇒ 这个门的端到端臂
+   * 在这台机上从未真正跑通过,而账面只看得到"两个测试红了",看不出守门工具的落地路径
+   * 一次都没被执行过(AGENTS:"判据失效的表现永远是安静")。
+   */
+  gitQ(dir, ['config', 'user.email', 't@e2e'])
+  gitQ(dir, ['config', 'user.name', 'e2e'])
   writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), PLAN_A, 'utf8')
   gitQ(dir, ['add', 'PROJECT_PLAN.md'])
   gitQ(dir, ['commit', '-q', '-m', 'fixture: 一条已做完 + 一条未翻勾的副本'])
@@ -122,5 +132,33 @@ test('T5 停手判据必须能认出"偷偷改了一行没登记的东西"', () 
   const tampered = r.text.replace('- [ ] **D8 真待办**:还没人做。', '- [ ] **D8 真待办**:被偷改了。')
   const reasons = healStopReasons(PLAN_A, tampered, r.changed, 0)
   if (!reasons.some((x) => x.includes('未登记行'))) throw new Error(`未登记的改动未被识别:${JSON.stringify(reasons)}`)
+})
+
+/**
+ * T6 翻勾必须同时摘牌(2026-09-26 立 —— 本工具自己产出的行自相矛盾)。
+ *
+ * 起因:rewriteFork 过去只把 `- [ ]` 换成 `- [x] ✅`,**正文里挂着的 `（进行中@…）` 原样留下**,
+ * 于是产出的行同时是"已完成"又"进行中"。守门 109 的 CL3 正是判这一型 ⇒ 归并每跑一次就往 HEAD
+ * 里种几颗红点;而 PROJECT_PLAN.md 是门 109 的 stagedTriggers 文件,谁下一次提交计划文档都被这台
+ * 恒红门拦住,唯一出路是 --no-verify(连带废掉全部守门 —— AGENTS §12e 那条最高反面教训)。
+ * 两道机制互咬时,修的是**生产者**,不是手抹产出行。
+ */
+test('T6 翻勾必须摘牌:产出行不得同时含 [x] 与（进行中）(守门 109 CL3 的互咬面)', () => {
+  for (const marker of ['（进行中@2026-09-26/某票）', '（进行中）']) {
+    const src = `- [ ] ${marker} D99 复合主键正例:某件已做完的事。`
+    const out = __test__.rewriteFork(src, 'D99#复合主键正例', '2026-09-26')
+    if (!/^- \[x\]/.test(out)) throw new Error(`未翻勾:${out}`)
+    if (out.includes('进行中')) throw new Error(`标记未摘除 ⇒ 产出行自相矛盾:${out}`)
+    // 摘牌不等于删账:正文本体必须逐字保住
+    if (!out.includes('D99 复合主键正例:某件已做完的事。')) throw new Error(`正文被吞:${out}`)
+  }
+  // 反向对照:已经是 [x] 的行必须原样返回(本工具不得二次改写已完成登记)
+  const done = '- [x] ✅(2026-09-25) D98 早就完成的事。'
+  if (__test__.rewriteFork(done, 'D98#早就完成的事', '2026-09-26') !== done) {
+    throw new Error('[x] 行被二次改写')
+  }
+  // 有牙证明:若"摘牌"那步被去掉,本条必须红 —— 用变异夹具自证判据不是恒真式
+  const leaky = `- [x] ✅(2026-09-26) **[归并]** 注记。 ${'- [ ] （进行中@2026-09-26/x） D99 事'.replace(/^- \[ \]\s*/, '')}`
+  if (!leaky.includes('进行中')) throw new Error('变异夹具本身不含标记 ⇒ T6 无牙,须重造')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
