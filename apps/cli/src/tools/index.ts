@@ -25,6 +25,8 @@ import { checkPermission, checkRulesWithLease, type PermissionRules } from './pe
 import { activePermissionLease } from './permission-lease.js';
 import { shadowValidateToolArguments } from './argument-validation-telemetry.js';
 import { noteDangerousApproval } from './danger-gate.js';
+import { recordApprovedInvocation } from './permission-lease.js';
+import { leaseWorkspaceIdOf } from '../utils/permission-lease-flag.js';
 import { injectHostSection } from '../utils/prompt-injection-registry.js';
 import { BROWSER_TOOLS } from './browser.js';
 import { BROWSER_PAGE_TOOLS } from './browser-page.js';
@@ -721,7 +723,19 @@ export async function executeToolCall(
   if (tool.dangerLevel === 'dangerous' || leaseContentDrifted) {
     const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
     // 披露面(L7905 收口):只记账不改判定 —— 放行路径(会话级 flag / 回调自批)可追溯
-    if (allowed) noteDangerousApproval(ctx.allowDangerous === true, tool.name);
+    if (allowed) {
+      noteDangerousApproval(ctx.allowDangerous === true, tool.name);
+      // 批准这一刻的内容就是"人被问过并同意的那件事" —— 把它登记进租约的槽位指纹,
+      // 之后同工具换内容旧批准自动失效(`content-drifted`)。档位未开 / 无生效租约 ⇒
+      // 该出口内部自行拒收并给原因,**不抛、不改判定**,所以既有 `--permission-lease`
+      // 使用者行为零变化(绑定要在授予时显式开 `digestTrackOnApproval`)。
+      recordApprovedInvocation({
+        toolName: tool.name,
+        invocationContent: JSON.stringify(call.arguments ?? null),
+        dangerLevel: tool.dangerLevel ?? 'write',
+        workspaceId: leaseWorkspaceIdOf(ctx.workspacePath),
+      });
+    }
     if (!allowed) {
       return {
         success: false,
