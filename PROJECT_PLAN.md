@@ -11211,12 +11211,12 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 ### 第二梯队 P1:对等性与体验
 
 - [x] ✅(2026-09-27) 52. RAG 真重排(RRF 多源融合 + 可选 cross-encoder/LLM 二段;`_keyword_fallback` 从兜底升为融合源) 交付:_keyword_fallback 升为常驻融合源 + RRF(k 默认 60,`RAG_RRF_K` 可配已登记能力矩阵)+ 二段按入参开关、拿不到可信结果即诚实降级 `DEPTH_RRF`;真实语料夹具逐字取自 `skills/content_engine/articles/archive/{0713,0714,0716}.md` 并造出 k=60/k=2 名次真分叉对照。回归 RAG 族 126 passed。
-- [ ]（进行中@2026-09-27/v3wave2）53. 计划模式硬约束下放到主聊天流(主链路从纯提示词注入改为 `tools ∩ READONLY_TOOLS` 硬收窄;mode × permission_mode 笛卡尔矩阵单一真源;ModeSwitcher 补 `ask` 态)
+- [x] ✅(2026-09-27) 53. 计划模式硬约束下放到主聊天流(主链路从纯提示词注入改为 `tools ∩ READONLY_TOOLS` 硬收窄;mode × permission_mode 笛卡尔矩阵单一真源;ModeSwitcher 补 `ask` 态) 完成(2026-09-27):判定收进共享出口 `apps/ai-service/app/core/permission_mode.py` 的 `CHAT_MODE_TOOL_AXIS`(三轴表),入口 `routers/llm.py` 与执行层 `services/agent_loop_v2.py` 只调出口、各设一道闸(双保险);TS 镜像 `packages/types/src/permission-mode.ts`,两侧 5×5 逐格等值由跨语言快照测试 `apps/ai-service/tests/test_chat_mode_tool_gate.py` + 常驻守门(本枚落地取到 runner id **139**,`mode: 'blocking'`)对账;`ModeSwitcher` 的 `ask` 态实测早在 HEAD(`apps/web/src/components/chat/mode-switcher.tsx:35`)。取证:`--self-test` 13 条 / 镜像 9 例 / mypy 干净 / `26 passed` 两次同读。**残余两条,不在本票面**:① `test_permission_modes.py` 有 4 枚红,已用 `git archive HEAD` 干净副本 A/B 证明是既有债(工作树与 HEAD 同为 4 failed/11 passed),归该测试持有人;② 本门只比**成员集合与档位语义**,不校验运行时行为(模型实际拿到哪份 tools 数组由快照测试覆盖,不覆盖审批链路)。
 - [ ] 54. 工具连续失败反思 / 卡死检测上提到主链路(failure-streak ≥3 换策略 + stuck 检测;CLI `doom-loop-detector` 逻辑抽共享层 + Python 等价实现 + parity 守门)
 - [x] 57.(capability matrix 端点 + 管理端开关页 + 禁止新增默认关 env) ✅(2026-09-26)capability_matrix.py 76 env 台账(开关 56/灰度 7/门控 13,逐条 grep 实证非凭记忆)+ main.py 启动自检 + GET /api/admin/capabilities(role_id≥1,403/200 测试)+ 守门 check-capability-matrix.mjs(剥注释取材,self-test 红绿咬合,真跑 553py 对账一致;J1 幽灵条目/J2 台账逃逸断言)已接 pre-commit;单测 7
 - [ ] 59. 消息级版本切换 ← 1/3 →(regenerate 改为新增 sibling 而非物理删除;共用 `CanvasVersionMenu` 交互)
 - [ ] 60. 真并行多窗格(store 从 `conversationId` 单例改为 `Map<paneId, State>`;独立 SSE/abort;服务端 fork 路由下放)
-- [ ]（进行中@2026-09-27/v3wave2）61. `@` 多维提及接线(`useSearchMentions` 与 `addMention` 当前零调用 → `MentionChips` 恒 null;`@` 与 `#` 统一到一个 mention engine)
+- [x] ✅(2026-09-27) 61. `@` 多维提及接线(`useSearchMentions` 与 `addMention` 当前零调用 → `MentionChips` 恒 null;`@` 与 `#` 统一到一个 mention engine) 完成(2026-09-27):`@` 与 `#` 归一到 `packages/shared/src/chat/mention-engine.ts` 一份引擎(维度清单与触发符解析各只许一份),三个件 `useSearchMentions` / `addMention` / `MentionChips` 均有生产调用方,由常驻守门(本枚取到 runner id **138**)零容忍守 W1、棘轮守 W2/W3。**残余三条**:① `apps/web/src/stores/context-mention.ts` 的 `clearMentions` 仍零调用方 —— §7 三问已答(它承载「提交后/切会话时清空提及」,全仓无等价实现,所以这是**未接通**而非冗余),处置只有「接进发送路径」或「删除并登记」两条出口,而 `message-input.tsx` 正被并发会话持有(其工作树副本含未跟踪的 `use-prompt-drafts.ts`),不在本票硬动,归下一票;② 运行时未做浏览器实测(本机 8801 未监听,§17 豁免③降级为单测);③ `#` 侧旧表按守门 138 的棘轮放过,后续改动不得把第二份加回来。
 - [ ] 63. `form_request` SSE 帧 UI(`send-message.ts` 无 `onFormRequest`;`BusinessFormCard` 只在派发事件未在对话流消费) 〔更正票面前提(2026-09-27 现读):`form_request` **全仓后端零生产点** —— `apps/api/src` 与 `apps/ai-service/app` grep 均 0 命中,`packages/shared/src/sse/contract.ts` 亦未登记该成员(旧 client.ts 注释声称"与 contract 逐字段同形"是失实的,已就地更正)。D77/G-106 的对话流宿主以 `onFormRequest` 为装车落点且仍在飞 ⇒ 不删(砸他人承重点)、不补假生产者。真缺口 = 契约登记 + 生产者 + `form_response` 接收端三件,归 D77 后续票。〕
 - [ ] 65. 暂停 / 继续生成(后端 `AgentLoopV2._pause_requested` + `execute/resume` 已有,前端只暴露 Stop)
 - [x] ✅(2026-09-27) 66. side-by-side diff 切换 + 三方合并视图(现仅 unified 行级 + hunk 勾选) 交付:view mode 收进单一 zustand persist 源(chat 卡与 IDE 面板共读,IDE 那份 store 降级为镜像),split 由 rows→两栏纯投影且共享同一份折叠规划,行级差分**只调** `computeHunkDiff`(不写第二份 LCS),三方逐块选 ours/theirs/both 且未决冲突不产出结果;`diff-preview`/`inline-diff-card` 各自那份实现已删。15 files / 218 tests 全绿。
@@ -11227,16 +11227,16 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] 72. `apps/desktop` 从薄壳到本地能力端点(本地 workspace 通道 + 增量索引 + 本地 git/diff + 离线降级;**保留前端单一事实源在 web,不复制 UI**)
 - [ ] 73. `apps/miniapp-taro` AI 对话页(移植 `packages/app/src/features/agent-chat`;小程序用分块 `wx.request` 而非 stream)
 - [ ] 74. CLI 全屏 TUI 决策(三选一,建议 **A 真上 ink**:补依赖 + `tsconfig.include` 加 `.tsx`;顺带补或归档 README 声称的 `ihui config` / `ihui remote`)
-- [ ] 75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯 Python 遍历;懒索引护栏 `_LAZY_INDEX_MAX_FILES=2000` 对 monorepo 复评)
+- [ ] 75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯 Python 遍历;懒索引护栏 `_LAZY_INDEX_MAX_FILES=2000` 对 monorepo 复评) 进度(2026-09-27,不翻勾):两条通道已统一到同一份枚举实现 —— `file_search` 与 `mcp__filesystem__search_files` 共用 `apps/ai-service/app/services/rg_fallback_parity.py`(rg 优先、降级并行遍历),并各自回报 `enum_engine` / `enum_degraded`;`normalize_suffixes` 支持 `suffixes=None`(不过滤扩展名),因为 `file_search` 用的是**扩展名黑名单**而枚举层原先取白名单 —— 这是两通道结果集不一致的真因,已按「不改行为、只统一实现」收口,工具级对账 15 passed。**未达标题面**:「10 万文件级」只完成枚举侧,懒索引护栏 `mcp_server.py:634 _LAZY_INDEX_MAX_FILES = 2000` 对 monorepo 未复评(超 2000 即静默不建索引、返回 []),所以本票不翻勾。
 - [ ] 76. 知识引擎:Knowledge Card 自动蒸馏 + Repo Wiki 自同步(图存储默认 `InMemoryGraphStore` **重启即失** → 落 Drizzle;会话结束异步蒸馏 + card 三维元数据:来源/时效/置信)
 - [ ] 77. Goal-driven 自评估闭环 + My Quests 跨 workspace 全局看板(依赖 51)
 - [ ] 78. Experts 多智能体并行子模式(专家模板产品化 + 同文件写冲突治理:串行化或 worktree 隔离)
 
 ### 第三梯队 P2:长尾
 
-- [ ]（进行中@2026-09-27/v3wave2）62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatSearch` 零消费者;**按 #62 定下的规矩:孤儿件要么接要么删,并登记**)
+- [ ] 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatSearch` 零消费者;**按 #62 定下的规矩:孤儿件要么接要么删,并登记**) 进度(2026-09-27,不翻勾):`ChatSearchBar` 已挂载并有消费方(`apps/web/src/components/sidebar-chat-history.tsx`),侧栏批量选择的多选态/选中集唯一持有者/批量动作条亦已在该文件落地(走 api-client 唯一出口)。**未闭环的是本票自定那条规矩的另一半** —— `apps/web/src/hooks/use-chat-search.ts` 在 HEAD 面上仍**零消费者**(按 §7 三问:它承载跨会话搜索,无等价实现 ⇒ 属未接通,不是冗余),处置只有「接进搜索栏的输入链路」或「删除并登记」两条出口,须由本票持有人当场选一条。
 - [ ] 64. AI 消息可编辑 + 消息级 pin/书签(共用 59 的 sibling 存储)
-- [ ]（进行中@2026-09-27/v3wave2）68. 流式中切换模型 → 终止后自动带入新模型
+- [x] ✅(2026-09-27) 68. 流式中切换模型 → 终止后自动带入新模型 完成(2026-09-27):流式中切模型 → 终止当前这一轮 → 下一轮自动用新模型,实现收在 `apps/web/src/hooks/use-chat.ts:95`(终止在途流的**唯一**出口,「停止」按钮与「流式中切换」共用)与 `:135`(切换登记),发送侧在 `apps/web/src/hooks/use-chat/send-message.ts`。本票的关键产出是**可达性证明**:此前 `<ModelSelector disabled={isStreaming}>` 让整条链路在 UI 上根本走不到(代码在、测试绿、用户按不到),已移除该 prop(`message-input.tsx` 净改动 0 增 1 删),并补两条锁死「流式中确实可选模型」的渲染级用例;`use-chat/__tests__/model-switch.test.ts` 18 passed。**残余**:运行时浏览器实测未做(本机 8801 未监听,§17 豁免③);`message-input-history.test.tsx` 的 5 枚红经归属证明是并发会话的未跟踪件 + 缺 RTL `cleanup()` 所致(我的 diff 在该文件是 0 增 1 删且不引用 `ModelSelector`),归该会话。
 
 ### 第四梯队 P3:五年领先(79–86,均等 15–78 全绿后单独立项)
 
