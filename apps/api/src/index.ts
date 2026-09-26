@@ -45,9 +45,24 @@ import { stopRelayChannelRouterSweep } from './services/relay-channel-router.js'
 import { stopRegistryRateLimitSweep } from './routes/registry-sync.js'
 import { stopPoolTracker, registerPoolTrackerCleanup } from './db/index.js'
 import { logger } from './utils/logger.js'
+import { runShutdownPhases, type ShutdownPhase } from './utils/shutdown-phases.js'
 
 const PORT = Number(process.env.PORT ?? 8802)
 const HOST = process.env.HOST ?? '0.0.0.0'
+
+// ── 关停相位超时档位(取值依据,2026-09-27 有序相可靠性票)──────────────────
+// SYNC_STOP_MS=1s:以下 stop* 全部是 clearInterval / cron.stop 级别的同步收尾,
+//   正常耗时 <1ms;若某相跑满 1s 即已是挂死而非"慢"。
+//   (诚实登记:同步函数真死循环时事件循环被占死,任何 JS 超时都救不了 ——
+//    本档只对"返回 promise / 未来变异步"的 disposer 有牙,取值只为预算有界。)
+// QUEUE_WORKER_MS=5s:BullMQ worker.close() 需与 Redis 往返并等当前 job 结算。
+// SERVER_CLOSE_MS=8s:Fastify close 是最重的一步 —— 所有 onClose 钩子(WS 连接、
+//   DB 连接池、Redis、poolTracker 等)都挂在它身上统一释放,不拆plugins(禁改面)。
+// 总预算 = Σ各相 + 最大单相档(见 defaultShutdownBudgetMs)⇒ 当前组合 ≈ 44s,
+// 只有多相同时挂死才会顶到;正常关停 <3s。
+const SYNC_STOP_MS = 1_000
+const QUEUE_WORKER_MS = 5_000
+const SERVER_CLOSE_MS = 8_000
 
 /**
  * 启动期生产环境安全检查:
@@ -98,106 +113,72 @@ async function start() {
   // P1 修复(2026-08-02):加 shuttingDown 守卫,防 SIGTERM/SIGINT 重复触发 shutdown;
   // 配合下方 once 注册,二次信号直接走默认行为(强制退出)。
   let shuttingDown = false
-  const shutdown = async (signal: string, exitCode = 0): Promise<void> => {
+  // 2026-09-27 有序相改造(运行期可靠性票):原"一串 try/catch 平铺 + 无超时 await"改为
+  // 经 runShutdownPhases 唯一出口执行 —— disposer 顺序**逐字保留**(语义不变),
+  // 差别有三:① 每相独立超时,挂死不再阻塞后续相;② 失败/超时/未跑记入清单并由
+  // exitCode 承担(旧路径抛错被吞、信号路径仍 exit 0);③ awaited disposer 的 reject
+  // 不再冒成 unhandledRejection(旧形状 ⇒ 进程存活不 exit 的假死)。
+  const syncStopPhase = (name: string, fn: () => unknown): ShutdownPhase => ({
+    name,
+    timeoutMs: SYNC_STOP_MS,
+    run: fn,
+  })
+  const shutdown = async (signal: string, requestedExitCode = 0): Promise<void> => {
     if (shuttingDown) return
     shuttingDown = true
     server.log.info({ signal }, 'Shutting down...')
-    // P2 修复(2026-08-02):7 个清理函数的空 catch 加 logger.warn,避免静默吞错难诊断
-    try {
-      stopAiWorldSyncScheduler()
-    } catch (e) {
-      logger.warn('stopAiWorldSyncScheduler failed', { err: e })
-    }
-    try {
-      stopRankingScheduler()
-    } catch (e) {
-      logger.warn('stopRankingScheduler failed', { err: e })
-    }
-    try {
-      stopTrendingScheduler()
-    } catch (e) {
-      logger.warn('stopTrendingScheduler failed', { err: e })
-    }
-    try {
-      stopSourceProbeScheduler()
-    } catch (e) {
-      logger.warn('stopSourceProbeScheduler failed', { err: e })
-    }
-    try {
-      stopLiteLLMPriceSyncScheduler()
-    } catch (e) {
-      logger.warn('stopLiteLLMPriceSyncScheduler failed', { err: e })
-    }
-    try {
-      stopHotWordsScheduler()
-    } catch (e) {
-      logger.warn('stopHotWordsScheduler failed', { err: e })
-    }
-    try {
-      stopPiiRetentionScheduler()
-    } catch (e) {
-      logger.warn('stopPiiRetentionScheduler failed', { err: e })
-    }
-    try {
-      stopRelayAlertEvaluationScheduler()
-    } catch (e) {
-      logger.warn('stopRelayAlertEvaluationScheduler failed', { err: e })
-    }
-    try {
-      stopImageTaskWorker()
-    } catch (e) {
-      logger.warn('stopImageTaskWorker failed', { err: e })
-    }
-    try {
-      stopBackupCronScheduler()
-    } catch (e) {
-      logger.warn('stopBackupCronScheduler failed', { err: e })
-    }
-    try {
-      stopAgentAutomationScheduler()
-      stopPatrolScheduler()
-    } catch (e) {
-      logger.warn('stopAgentAutomationScheduler failed', { err: e })
-    }
-    // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
-    try {
-      stopAutoRollbackMonitor()
-    } catch (e) {
-      logger.warn('stopAutoRollbackMonitor failed', { err: e })
-    }
-    try {
-      routineManager.stopScheduler()
-    } catch (e) {
-      logger.warn('routineManager.stopScheduler failed', { err: e })
-    }
-    try {
-      stopScheduledWarmup()
-    } catch (e) {
-      logger.warn('stopScheduledWarmup failed', { err: e })
-    }
-    // P2 修复(2026-07-31):显式停止模块作用域 setInterval,不依赖 unref
-    try {
-      stopRelayChannelRouterSweep()
-    } catch (e) {
-      logger.warn('stopRelayChannelRouterSweep failed', { err: e })
-    }
-    try {
-      stopRegistryRateLimitSweep()
-    } catch (e) {
-      logger.warn('stopRegistryRateLimitSweep failed', { err: e })
-    }
-    try {
-      stopPoolTracker()
-    } catch (e) {
-      logger.warn('stopPoolTracker failed', { err: e })
-    }
+    const phases: ShutdownPhase[] = [
+      syncStopPhase('stopAiWorldSyncScheduler', stopAiWorldSyncScheduler),
+      syncStopPhase('stopRankingScheduler', stopRankingScheduler),
+      syncStopPhase('stopTrendingScheduler', stopTrendingScheduler),
+      syncStopPhase('stopSourceProbeScheduler', stopSourceProbeScheduler),
+      syncStopPhase('stopLiteLLMPriceSyncScheduler', stopLiteLLMPriceSyncScheduler),
+      syncStopPhase('stopHotWordsScheduler', stopHotWordsScheduler),
+      syncStopPhase('stopPiiRetentionScheduler', stopPiiRetentionScheduler),
+      syncStopPhase('stopRelayAlertEvaluationScheduler', stopRelayAlertEvaluationScheduler),
+      syncStopPhase('stopImageTaskWorker', stopImageTaskWorker),
+      syncStopPhase('stopBackupCronScheduler', stopBackupCronScheduler),
+      syncStopPhase('stopAgentAutomationScheduler', stopAgentAutomationScheduler),
+      syncStopPhase('stopPatrolScheduler', stopPatrolScheduler),
+      // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
+      syncStopPhase('stopAutoRollbackMonitor', stopAutoRollbackMonitor),
+      syncStopPhase('routineManager.stopScheduler', () => routineManager.stopScheduler()),
+      syncStopPhase('stopScheduledWarmup', stopScheduledWarmup),
+      // P2 修复(2026-07-31):显式停止模块作用域 setInterval,不依赖 unref
+      syncStopPhase('stopRelayChannelRouterSweep', stopRelayChannelRouterSweep),
+      syncStopPhase('stopRegistryRateLimitSweep', stopRegistryRateLimitSweep),
+      syncStopPhase('stopPoolTracker', stopPoolTracker),
+    ]
     if (workers) {
-      await Promise.allSettled(workers.map((w) => w.close()))
+      phases.push({
+        name: 'bullmq-workers-close',
+        timeoutMs: QUEUE_WORKER_MS,
+        run: () => Promise.allSettled(workers.map((w) => w.close())),
+      })
     }
     if (schedulerWorker) {
-      await schedulerWorker.close()
+      phases.push({
+        name: 'scheduler-worker-close',
+        timeoutMs: QUEUE_WORKER_MS,
+        run: () => schedulerWorker.close(),
+      })
     }
-    await server.close()
+    phases.push({
+      name: 'http-close-pools-release',
+      timeoutMs: SERVER_CLOSE_MS,
+      run: () => server.close(),
+    })
+    let exitCode = requestedExitCode
+    try {
+      const result = await runShutdownPhases({ phases })
+      // listen-failure 路径带 1 进来必须保留;相位清单的非零结论与之取 max
+      exitCode = Math.max(requestedExitCode, result.exitCode)
+    } catch (e) {
+      // 相位执行器设计上不应 reject(所有失败已收进清单);兜底再接一层,
+      // 防 shutdown() 自身冒成 unhandledRejection ⇒ 复刻"存活不 exit"假死。
+      logger.warn('runShutdownPhases unexpected failure', { err: e })
+      if (exitCode === 0) exitCode = 1
+    }
     process.exit(exitCode)
   }
 
