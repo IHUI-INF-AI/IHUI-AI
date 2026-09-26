@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from typing import Any, List, Tuple
+from typing import Any
 
 from app.core.sandbox_policy import (
     POLICY_DANGER_FULL_ACCESS,
@@ -157,7 +157,7 @@ class SandboxTags:
     policy: str
 
     @classmethod
-    def from_policy(cls, policy: SandboxPolicy, cwd: str) -> "SandboxTags":
+    def from_policy(cls, policy: SandboxPolicy, cwd: str) -> SandboxTags:
         """复用 ihui sandbox_policy 的变体/可写根 API 推导两标签。"""
         profile_variant = _profile_variant_from_policy(policy)
         sandbox = sandbox_backend_tag(
@@ -176,7 +176,7 @@ class SandboxTags:
         )
         return cls(sandbox=sandbox, policy=policy_label)
 
-    def append_metric_tags(self, tags: List[Tuple[str, str]]) -> None:
+    def append_metric_tags(self, tags: list[tuple[str, str]]) -> None:
         """对标 append_metric_tags:追加速度/策略两标签。"""
         tags.append(("sandbox", self.sandbox))
         tags.append(("sandbox_policy", self.policy))
@@ -198,6 +198,6 @@ def record_policy_metadata(profile: SandboxPolicy, cwd: str, metadata: Any) -> N
         return
     try:
         tags = SandboxTags.from_policy(profile, cwd)
-        setattr(metadata, "sandbox_mode", tags.policy)
+        metadata.sandbox_mode = tags.policy
     except Exception:
         pass

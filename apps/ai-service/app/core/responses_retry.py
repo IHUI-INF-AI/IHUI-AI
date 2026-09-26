@@ -27,9 +27,8 @@ from __future__ import annotations
 import asyncio
 import random
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
-
 
 # --- 常量(对标 codex-rs 同名 const)---------------------------------------
 INITIAL_CONNECTION_RETRY_DELAY: float = 5.0
@@ -70,7 +69,7 @@ class ExhaustedResponseRetry:
     """普通重试耗尽后保留的 server 重试建议(对标 codex ExhaustedResponseRetry)。"""
 
     turn_id: str
-    retry_at: Optional[float]
+    retry_at: float | None
 
 
 @dataclass
@@ -79,9 +78,9 @@ class RetryDecision:
 
     action: str = "retry"
     delay: float = 0.0
-    notify_message: Optional[str] = None
+    notify_message: str | None = None
     report_error: bool = False
-    exhausted: Optional[ExhaustedResponseRetry] = None
+    exhausted: ExhaustedResponseRetry | None = None
 
 
 def decide_stream_retry(
@@ -93,10 +92,10 @@ def decide_stream_retry(
     session_is_internal: bool,
     provider_is_bedrock: bool,
     fallback_transport_available: bool,
-    server_retry_delay: Optional[float] = None,
+    server_retry_delay: float | None = None,
     websocket_transport: bool = False,
     debug_assertions: bool = False,
-    error_summary: Optional[str] = None,
+    error_summary: str | None = None,
     turn_id: str = "",
     clock: Callable[[], float] = time.monotonic,
 ) -> tuple[ResponsesStreamRetryState, RetryDecision]:
@@ -160,7 +159,7 @@ def decide_stream_retry(
         return state, decision
 
     # 4) 耗尽分支:保留 server 重试建议(retry_at 由单调时钟 + server_retry_delay 决定)。
-    retry_at: Optional[float] = None
+    retry_at: float | None = None
     if server_retry_delay is not None:
         retry_at = clock() + server_retry_delay
     decision = RetryDecision(
@@ -191,10 +190,10 @@ async def handle_retryable_stream_error(
     session_is_internal: bool,
     provider_is_bedrock: bool,
     fallback_transport_available: bool,
-    server_retry_delay: Optional[float] = None,
+    server_retry_delay: float | None = None,
     websocket_transport: bool = False,
     debug_assertions: bool = False,
-    error_summary: Optional[str] = None,
+    error_summary: str | None = None,
     turn_id: str = "",
     clock: Callable[[], float] = time.monotonic,
 ) -> RetryDecision:

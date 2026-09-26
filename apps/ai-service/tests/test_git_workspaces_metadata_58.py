@@ -22,7 +22,8 @@ def _init_repo(tmp_path: str) -> str:
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.email", "t@t"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.name", "t"], cwd=tmp_path, check=True)
-    open(os.path.join(tmp_path, "f.txt"), "w").write("x")
+    with open(os.path.join(tmp_path, "f.txt"), "w") as _fh:
+        _fh.write("x")
     subprocess.run(["git", "add", "f.txt"], cwd=tmp_path, check=True)
     subprocess.run(["git", "commit", "-qm", "c1"], cwd=tmp_path, check=True)
     return tmp_path
@@ -78,7 +79,8 @@ class TestCollectGitWorkspaces:
     def test_detects_uncommitted_changes(self, tmp_path) -> None:
         root = str(tmp_path)
         _init_repo(root)
-        open(os.path.join(root, "f.txt"), "a").write("more")
+        with open(os.path.join(root, "f.txt"), "a") as _fh:
+            _fh.write("more")
         meta = next(iter(collect_git_workspaces(root).values()))
         assert meta.has_changes is True
 

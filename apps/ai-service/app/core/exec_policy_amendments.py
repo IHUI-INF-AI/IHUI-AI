@@ -22,9 +22,10 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any
 
 __all__ = [
     "AmendError",
@@ -320,7 +321,7 @@ def format_network_rule(
     host: str,
     protocol: NetworkRuleProtocol,
     decision: str,
-    justification: Optional[str] = None,
+    justification: str | None = None,
 ) -> str:
     """对标 amend.rs:85 blocking_append_network_rule 的格式化部分。
 
@@ -399,7 +400,9 @@ def append_rule_line(policy_path: Path, line: str) -> None:
         raise PolicyFileIOError("create policy directory", parent, source) from source
 
     try:
-        handle = open(policy_path, "a+", encoding="utf-8", newline="")
+        handle = open(  # noqa: SIM115 — 句柄跨多段 try 持有(含 advisory lock),在下方 finally 里显式 close
+            policy_path, "a+", encoding="utf-8", newline=""
+        )
     except OSError as source:
         raise PolicyFileIOError("open policy file", policy_path, source) from source
 
@@ -438,7 +441,7 @@ def append_network_rule(
     host: str,
     protocol: NetworkRuleProtocol,
     decision: str,
-    justification: Optional[str] = None,
+    justification: str | None = None,
 ) -> None:
     """对标 amend.rs:85 blocking_append_network_rule。"""
     rule = format_network_rule(host, protocol, decision, justification)
