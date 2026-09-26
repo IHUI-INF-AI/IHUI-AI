@@ -3624,6 +3624,27 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- @ 多维提及引擎接线与单一源对账(V3 #61:三件不得回到无人调用 / 维度表与触发符解析不得出现第二份)(1 项,blocking)---
+  {
+    id: '138',
+    label:
+      '@ 多维提及引擎接线与单一源对账(V3 #61:三件不得回到无人调用 / 维度表与触发符解析不得出现第二份)',
+    script: 'check-mention-engine-wired.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MENTION_ENGINE_WIRED',
+    stagedTriggers: ['apps/web/src/', 'packages/shared/src/'],
+    onFailHint: [
+      '',
+      '  W1 造好没装车:useSearchMentions / addMention / MentionChips 三件必须有生产调用方(注释与测试面不计),零容忍不吃基线。',
+      '  W2/W3 单一源:维度清单与触发符解析各只许一份,走该文件 HEAD 自身存量棘轮 —— 只拦"把第二份加回来"。',
+      '  ① 现读:node scripts/check-mention-engine-wired.mjs [--json]',
+      '  ② 自检:node scripts/check-mention-engine-wired.mjs --self-test',
+      '  紧急跳过(不推荐):HUSKY_SKIP_MENTION_ENGINE_WIRED=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
