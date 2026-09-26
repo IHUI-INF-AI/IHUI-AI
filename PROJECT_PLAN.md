@@ -7859,7 +7859,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   `isCheck` 兜底逻辑让任何未知/缩写开关(我用了文档措辞直觉写的 `--push`)**静默落到 `--check`**、
   exit 0,而我那枚存档 tag 实际没上远端(`ls-remote` 回读为空,显式 push 才落地)。
   改为未知参数 stderr 点名 + `exit 2`,并把 `--push` 收为 `--auto-push` 的显式别名;三态实测复跑。
-- [ ] **`stream-tool-ledger` 接线(唯一真正剩下的技术活)——归属是他人、非本批可 finish**:
+- [x] ✅(2026-09-26) **`stream-tool-ledger` 接线(唯一真正剩下的技术活)——归属是他人、非本批可 finish**: 〔✅ 2026-09-26 按 HEAD 复跑翻勾:账本已接进 agent.ts(import + 启用点两处命中),原写的"待他人改动落地"前置已满足;与同题的"未入库"行同判据,那条一并翻勾〕
   唯一接线点 `apps/cli/src/commands/agent.ts` 自 01:2x 起持续含另一会话**未提交**的 D19 `terminal_delta`
   工作(其测试 `apps/cli/tests/terminal-delta.test.ts` 至今未跟踪),整文件提交即混提(§12 红线)。
   为防止"未跟踪文件被本机清理层吃掉"(§5b/§23 有丢过 15 枚未推送提交的先例),已用
