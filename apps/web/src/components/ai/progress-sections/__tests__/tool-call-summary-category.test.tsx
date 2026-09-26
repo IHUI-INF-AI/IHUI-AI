@@ -74,7 +74,8 @@ describe('D58 卡片 · 同类连续聚合成卡(被中断断卡)', () => {
     )
     const cards = container.querySelectorAll('[data-testid^="tool-call-category-"]')
     expect(cards).toHaveLength(1)
-    expect(cards[0].getAttribute('data-testid')).toBe('tool-call-category-file_read')
+    // ?. :缺元素时 getAttribute 得 undefined,对具体期望照样判失败
+    expect(cards[0]?.getAttribute('data-testid')).toBe('tool-call-category-file_read')
   })
 })
 
@@ -96,7 +97,7 @@ describe('D58 卡片 · 折叠点击埋点', () => {
     fireEvent.click(header)
 
     expect(track).toHaveBeenCalledTimes(1)
-    const event = track.mock.calls[0][0]
+    const event = track.mock.calls[0]?.[0]
     expect(event.name).toBe('tool_category_toggle')
     expect(event.category).toBe('ai')
     expect(event.props).toMatchObject({
@@ -114,7 +115,7 @@ describe('D58 卡片 · 折叠点击埋点', () => {
     fireEvent.click(cmdCard.querySelector<HTMLElement>('button[data-section-header="true"]')!)
 
     expect(track).toHaveBeenCalledTimes(1)
-    expect(track.mock.calls[0][0].props).toMatchObject({
+    expect(track.mock.calls[0]?.[0].props).toMatchObject({
       cardType: 'tool_category',
       group_key: 'command',
       children_count: 1,
