@@ -662,8 +662,7 @@
       "noResult": "No matching chats",
       "refreshSuccess": "Refreshed successfully",
       "searchPlaceholder": "Search chat history",
-      "startNew": "Start new conversation",
-      "unpin": "Unpin"
+      "startNew": "Start new conversation"
     },
     "image": {
       "download": "Download",
