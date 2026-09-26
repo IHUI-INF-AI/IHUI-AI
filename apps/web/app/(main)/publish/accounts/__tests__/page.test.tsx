@@ -15,6 +15,10 @@ import React from 'react'
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import AccountsPage from '../page'
 import type { PublishAccount } from '@/hooks/use-publish-accounts'
+// `typeof import('@ihui/api-client')` 这种内联 import() 类型注解被 eslint
+// (@typescript-eslint/consistent-type-imports)禁止,改为具名类型命名空间导入;
+// `import type` 编译期即擦除,不会给 vi.mock 工厂增加真实运行时依赖。
+import type * as ApiClientModule from '@ihui/api-client'
 
 // 批量端点与两个逐账号端点的调用监视(vi.hoisted:mock 工厂会被提前求值)
 const { healthSummaryMock, cookieHealthSpy, accountRiskSpy } = vi.hoisted(() => ({
@@ -142,7 +146,7 @@ vi.mock('@/lib/api', () => ({
 }))
 // 只替换这三个端点,其余导出保持真实(整模块替换会打断间接依赖方的 import)
 vi.mock('@ihui/api-client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  const actual = await importOriginal<typeof ApiClientModule>()
   const stub = (spy: (id: number) => void) => (accountId: number) => {
     spy(accountId)
     return Promise.resolve({ success: true, data: null })
