@@ -4,7 +4,7 @@
 
 import type { RegisterDeviceTokenInput, RegisterDeviceTokenResponse } from '@ihui/types'
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /**
  * 设备推送令牌端点(2026-09-06 立,mobile-cap 推送链路,跨端共享)

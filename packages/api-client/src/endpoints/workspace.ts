@@ -6,8 +6,8 @@ import type { ApiResult, GitStatusSnapshot } from '@ihui/types'
 // 权限档 wire 拼写的唯一来源是共享类型(本包不再自抄一份,见 528 行附近)
 import type { PermissionModeWire as WorkspacePermissionMode } from '@ihui/types/permission-mode'
 
-import { fetchApi } from '../client'
-import { buildQs, type PageData } from '../utils'
+import { fetchApi } from '../client.js'
+import { buildQs, type PageData } from '../utils.js'
 
 export interface Workspace {
   id: string
