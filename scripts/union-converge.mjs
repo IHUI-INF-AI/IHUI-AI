@@ -222,6 +222,7 @@ export function planStateRegressions(mergedText, sideTexts) {
     ['forks', 'F1 同主键两态并存(组)'],
     ['voidRows', 'F2 带作废声明未落账(行)'],
     ['rotatedPointers', 'F3 行号指针已腐烂(处)'],
+    ['dupOpenCopies', 'F4 同一件事多条待办(副本行)'],
   ]
   const sides = (sideTexts ?? []).filter((t) => typeof t === 'string' && t.trim() !== '')
   if (typeof mergedText !== 'string' || mergedText.trim() === '' || sides.length === 0) return []

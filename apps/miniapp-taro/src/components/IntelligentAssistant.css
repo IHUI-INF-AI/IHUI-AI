@@ -4,17 +4,21 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+/*
+ * 数字档(margin/padding/font-size/font-weight/行距/充值命中补量)一律来自
+ * `packages/shared/src/ui/intelligent-assistant-spec`,经 .tsx 的 toUnit(rpx) 内联落在此处的元素上;
+ * 本文件只留布局骨架与配色(色值走 CSS 变量)。圆角裁决为 2xl 档(RN 侧同档 `rnRadius['2xl']`,
+ * 两张脸都引 radius.js,不在 spec 里再存第三个数字)。
+ */
 .ia-card {
   display: flex;
   align-items: center;
-  margin: 16rpx;
-  padding: 24rpx;
   background: var(--color-card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
 }
 
 .ia-robot {
-  font-size: 64rpx;
+  /* 装饰字面量:小程序行内矢量墨迹 64rpx 与 RN 位图装饰是不同媒介(见 spec 头注 waivers) */
   margin-right: 20rpx;
   flex-shrink: 0;
   line-height: 1;
@@ -28,15 +32,11 @@
 
 .ia-greeting {
   display: block;
-  font-size: 28rpx;
-  font-weight: 500;
   color: var(--color-foreground);
 }
 
 .ia-subtitle {
   display: block;
-  margin-top: 8rpx;
-  font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
 
@@ -44,16 +44,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 12rpx;
 }
 
 .ia-token-text {
-  font-size: 24rpx;
   color: var(--color-foreground);
 }
 
 .ia-recharge-btn {
-  font-size: 24rpx;
   color: var(--color-primary);
 }
 
