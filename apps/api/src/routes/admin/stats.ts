@@ -228,8 +228,11 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const id = Number(p.data.id)
-    await db.delete(aiModelConfig).where(eq(aiModelConfig.id, id))
-    return reply.send(success({ id, deleted: true }))
+    const removed = await db
+      .delete(aiModelConfig)
+      .where(eq(aiModelConfig.id, id))
+      .returning({ id: aiModelConfig.id })
+    return reply.send(success({ id, deleted: removed.length > 0 }))
   })
 
   server.post('/ai-model-config/:id/test', async (request, reply) => {

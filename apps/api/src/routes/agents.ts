@@ -1363,7 +1363,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const { id } = needTaskIdParam.parse(request.params)
     const rows = await db.delete(zhsAgentNeedTask).where(eq(zhsAgentNeedTask.id, id)).returning()
     if (!rows[0]) return reply.status(404).send(error(404, '需求任务不存在'))
-    return reply.send(success({ id, deleted: true }))
+    return reply.send(success({ id, deleted: rows.length > 0 }))
   })
 
   // -------------------------------------------------------------------------
