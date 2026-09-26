@@ -61,6 +61,21 @@
  *   J14 处置结论(mode ∈ BRIDGE_MODES,现读自桥模块,不抄第二份)与「有没有注册表等价物」
  *      必须双向咬合:port/map ⇒ 必有等价物;local ⇒ 必无等价物。否则 mode 就是一列
  *      可以随时改口的标签 —— 把 local 涂成 map 就等于宣称"已归一"。
+ *   J15 票面末格「JSON-RPC 只留协议适配层」(V3 #47,2026-09-27):
+ *      agent_engine 是 JSON-RPC 协议层,它的内置工具面必须**只由处置表 + 唯一注册表驱动**:
+ *        a) 代码面每一处 `ToolDefinition(name=<字面量> …)` 构造必须落在 BUILTIN_ENGINE_TOOLS
+ *           在案的内置名的 `_<name>_tool` 构造函数里,且字面量名 == 构造函数名 —— 新增一个
+ *           未登记的构造函数(RPC 面又自带工具定义)= 红;
+ *        b) 处置为 'port' 的名字,其构造函数**不得**再内联 `ToolDefinition(`(name/description
+ *           的唯一来源是注册表),必须走 `engine_tool_bridge.port_tool_definition`;桥模块
+ *           必须定义该出口(出口没了而 port 条目还在 = 判据落空,红);
+ *        c) map/local 的构造必须存在且恰好一处(0 处 = "名单里有、构造不出来",
+ *           ≥2 处 = 同名双定义,都红)。
+ *      `name=` 非字面量的构造(如 `_build_host_tool_definitions` 把**客户端注册**的
+ *      HostToolSpec 转成循环定义)正是"协议 ↔ 内部调用"的适配层本体 —— 只如实报数,
+ *      绝不判红(一刀切会把这个票禁止删的东西删没,§7 三问)。
+ *      判构造前必须抹 docstring:说明文字里会出现 `ToolDefinition(执行体回调客户端)`
+ *      这种带括号的提法(真仓 6815 行就有),按全文判就是"解释自己的散文被判违规"。
  *
  * 形态漂移也是判据:桥表的值被改成裸字符串/构造调用时逐条记 malformed 并判红,
  * 因为"解析器读空"在这套判据里的表现就是 0 处违规 = 假绿。
@@ -584,6 +599,40 @@ function strayBuiltinLists(texts, builtins) {
   return out
 }
 
+/**
+ * J15 的取材(V3 #47 末格):把 `_*_tool` 构造函数按 4 空格缩进的 def 切段,
+ * 找出每段里的 `ToolDefinition(` 构造与它的 `name=` 字面量。
+ * 只在**已抹 docstring** 的代码面上跑 —— 真仓 `_build_host_tool_definitions` 的
+ * docstring 里就写着「转成主循环的 ToolDefinition(执行体回调客户端)」,
+ * 不抹会把说明文字判成构造点(本仓 131/70 同型假阳)。
+ */
+function definitionSites(strippedEngineSrc) {
+  const defs = []
+  for (const m of strippedEngineSrc.matchAll(/^ {4}(?:async )?def ([A-Za-z0-9_]+)\(/gm))
+    defs.push({ name: m[1], idx: m.index })
+  const sites = []
+  for (const m of strippedEngineSrc.matchAll(/ToolDefinition\s*\(/g)) {
+    const openIdx = m.index + m[0].length - 1
+    const closeIdx = matchBracket(strippedEngineSrc, openIdx, '(', ')')
+    const body =
+      closeIdx === -1
+        ? strippedEngineSrc.slice(openIdx + 1)
+        : strippedEngineSrc.slice(openIdx + 1, closeIdx)
+    let owner = null
+    for (const dd of defs) {
+      if (dd.idx < m.index) owner = dd
+      else break
+    }
+    const lit = /(?:^|[(,])\s*name\s*=\s*(["'])([^"']+)\1/.exec(body)
+    sites.push({
+      owner: owner ? owner.name : null,
+      nameLit: lit ? lit[2] : null,
+      idx: m.index,
+    })
+  }
+  return { defs, sites }
+}
+
 function collect(texts) {
   const llm = texts[PY_LLM]
   const take = (name) => {
@@ -846,6 +895,101 @@ function check(d, aliasDefs) {
         '—— 两份表 = 同一个别名在 A 内核(llm tool loop)与 call_tool 两个入口结论不同,「未知工具」随机出现;合成本票的成果不得再被拆回去',
     )
   }
+
+  // J15 —— JSON-RPC 面只留协议适配层(V3 #47 末格,2026-09-27)。
+  // 票面原文:"JSON-RPC 只留协议适配层,工具定义一律来自唯一注册表"。前三格把**名单、
+  // 授权解析、执行入口**收了口,但 RPC 面(agent_engine)仍逐条手抄自己的工具定义 ——
+  // 其中处置为 'port' 的 web_search 与注册表**同名**,承载层合并时引擎面遮蔽注册表面,
+  // 于是注册表那条 MCPTool 定义成了死元数据(第二份真相,且两份会长得越来越不像)。
+  // 本判据把"自带定义"钉成三条结构事实(见文件头 J15);name 非字面量的构造是
+  // 客户端 tools/register 的适配层(§7 不可删),只报数。
+  const j15 = definitionSites(stripPyDocstrings(d.engineSrc ?? ''))
+  // **偏移一致性**:stripPyDocstrings 是"删内容"不是"等长遮罩",defs/sites 的下标都在
+  // 抹后的面上算,region 就必须从同一份抹后的面切 —— 拿 raw engineSrc 配 stripped 下标
+  // 会切错窗口(本门第一版在真仓 web_search 上就是这么假红的)。
+  const j15CodeFace = stripPyDocstrings(d.engineSrc ?? '')
+  const literalSites = j15.sites.filter((s) => s.nameLit !== null)
+  const dataDrivenSites = j15.sites.length - literalSites.length
+  const ctorCountByBuilder = new Map()
+  for (const s of literalSites) {
+    const nm = s.nameLit
+    const builder = s.owner
+    const derived =
+      builder !== null && builder !== undefined && builder.startsWith('_') && builder.endsWith('_tool')
+        ? builder.slice(1, -'_tool'.length)
+        : null
+    if (derived === null) {
+      failures.push(
+        `J15 ${PY_ENGINE} 的构造 name="${nm}" 落在 \`_*_tool\` 构造函数之外(${builder ?? '模块/类级别'}) ` +
+          '—— JSON-RPC 面的自带工具定义只能住在登记于名单的构造函数里,别处出现即第二份真相',
+      )
+      continue
+    }
+    if (derived !== nm) {
+      failures.push(
+        `J15 ${PY_ENGINE} 的构造函数 _${derived}_tool 里构造的名字是 "${nm}" —— 构造函数与定义名分叉,` +
+          '表现是"改了一处另一处静默不跟随"(与 J12 消除的 builders dict 同型)',
+      )
+      continue
+    }
+    if (!d.builtins.has(nm)) {
+      failures.push(
+        `J15 RPC 面又自带工具定义:name="${nm}" 有 _${nm}_tool 构造,却不在 BUILTIN_ENGINE_TOOLS —— ` +
+          '新增内置能力必须先过处置表(J8/J14),协议层不得自己长工具',
+      )
+      continue
+    }
+    const mode = d.bridge.get(nm)?.mode
+    if (mode === 'port') {
+      failures.push(
+        `J15 port 工具 "${nm}" 的定义不得内联 —— 处置为 port 意味着"执行体与定义就是注册表那一份",` +
+          `必须经 ${PY_BRIDGE}.port_tool_definition 现读唯一注册表;内联 name/description 就是第二份真相 ` +
+          '(承载层合并时引擎面遮蔽注册表面,注册表那条退化成死元数据)',
+      )
+      continue
+    }
+    ctorCountByBuilder.set(`_${nm}_tool`, (ctorCountByBuilder.get(`_${nm}_tool`) ?? 0) + 1)
+  }
+  for (const name of sorted(d.builtins)) {
+    const entry = d.bridge.get(name)
+    if (!entry || entry.malformed || entry.mode === null) continue // J8/J14 已各自点名,不重复定罪
+    const builderDef = j15.defs.find((dd) => dd.name === `_${name}_tool`)
+    if (!builderDef) {
+      failures.push(
+        `J15 内置名 '${name}' 没有 _${name}_tool 构造函数 —— 运行时会 fail-fast(RuntimeError),` +
+          '但那是"到第一次构造才炸";名单与实现分叉必须在提交前就红',
+      )
+      continue
+    }
+    if (entry.mode === 'port') {
+      const nextIdx = j15.defs
+        .map((dd) => dd.idx)
+        .filter((x) => x > builderDef.idx)
+        .sort((a, b) => a - b)[0]
+      const region = j15CodeFace.slice(builderDef.idx, nextIdx ?? j15CodeFace.length)
+      if (!/port_tool_definition\s*\(/.test(region)) {
+        failures.push(
+          `J15 port 工具 '${name}' 的构造函数没有调用 port_tool_definition —— 唯一定义出口没装车,` +
+            '"工具定义一律来自唯一注册表"就只是一句注释(守门 13/64/70/81 的"造好没装车"同型)',
+        )
+      }
+      continue
+    }
+    const ctors = ctorCountByBuilder.get(`_${name}_tool`) ?? 0
+    if (ctors !== 1) {
+      failures.push(
+        `J15 内置名 '${name}'(mode=${entry.mode})的字面量定义构造应恰好 1 处,实测 ${ctors} 处 —— ` +
+          '0 处 = 名单里有而定义构造不出来;≥2 处 = 同名双定义,最后一处静默覆盖前一处',
+      )
+    }
+  }
+  if (!/def port_tool_definition\b/.test(d.bridgeSrc ?? '')) {
+    failures.push(
+      `J15 ${PY_BRIDGE} 未定义 port_tool_definition —— port 档的唯一定义出口不存在,` +
+        '而票面还有 mode=port 的条目,那条"定义来自唯一注册表"无处执行',
+    )
+  }
+  d.j15DataDriven = dataDrivenSites
   return failures
 }
 
@@ -898,13 +1042,31 @@ ${cases.map((n) => `    case '${n}':`).join('\n')}
 `
 
 // withBuilders=true 时还原 #47 第一格要消除的那一型:内置名被**再抄一遍**的构造表。
-const fixEngine = (names, withBuilders = false) => `# -*- coding: utf-8 -*-
+// J15(V3 #47 末格)起,夹具必须与真仓同形:每个内置名都有一个 `_<name>_tool` 构造函数;
+// portNames 里的名字走 port_tool_definition 出口,其余内联 ToolDefinition 构造。
+// 默认 portNames=['view_image'] 与 CLEAN_BRIDGE 里 view_image 的 'port' 处置对齐;
+// 自定义桥面把 view_image 改判 map 的用例要显式传 [] ,否则夹具自己就不自洽。
+const fixEngine = (names, withBuilders = false, portNames = ['view_image']) => `# -*- coding: utf-8 -*-
 BUILTIN_ENGINE_TOOLS: tuple[str, ...] = (
 ${names.map((n) => `    "${n}",`).join('\n')}
 )
+class AgentEngine:
+${names
+  .map((n) =>
+    portNames.includes(n)
+      ? `    def _${n}_tool(self, thread):\n` +
+        '        from .engine_tool_bridge import port_tool_definition\n\n' +
+        '        async def _exec(args):\n            return await _registry_impl(args)\n\n' +
+        `        return port_tool_definition(\n            "${n}",\n            parameters={"type": "object", "properties": {}},\n            executor=_exec,\n        )\n`
+      : `    def _${n}_tool(self, thread):\n` +
+        '        from .agent_loop_v2 import ToolDefinition\n\n' +
+        '        async def _exec(args):\n            return {}\n\n' +
+        `        return ToolDefinition(\n            name="${n}",\n            description="fixture",\n            parameters={"type": "object", "properties": {}},\n            executor=_exec,\n        )\n`,
+  )
+  .join('\n')}
 ${
   withBuilders
-    ? `class AgentEngine:\n    def _x(self):\n        return {\n${names
+    ? `class AgentEngineLegacy:\n    def _x(self):\n        return {\n${names
         .map((n) => `            "${n}": self._${n}_tool,`)
         .join('\n')}\n        }\n`
     : ''
@@ -918,6 +1080,9 @@ def resolve_engine_tool(name: str) -> str | None:
     from .mcp_server import _TOOL_HANDLERS
 
     return name if name in _TOOL_HANDLERS else None
+
+def port_tool_definition(engine_name: str, *, parameters: dict, executor) -> object:
+    raise RuntimeError("fixture")
 
 ENGINE_TOOL_BRIDGE: dict[str, tuple[str | None, str | None, str]] = {
 ${body}
@@ -1089,6 +1254,9 @@ function runSelfTest() {
       'J10 多段拼接理由必须被认作已带理由(应零失败)',
       {
         ...cleanFiles,
+        // 该用例的桥面把 view_image 记成 map —— 夹具的构造函数必须同形走内联
+        // (portNames=[]),否则 J15 会因"夹具自身不自洽"红,测不到 J10 本尊。
+        [PY_ENGINE]: fixEngine(['unified_exec', 'view_image', 'update_plan'], false, []),
         [PY_BRIDGE]: fixBridge(
           '    "unified_exec": ("run_command", None, "map"),\n' +
             '    "view_image": ("read_file", None, "map"),\n' +
@@ -1244,6 +1412,94 @@ function runSelfTest() {
       },
       null,
     ],
+    // ── J15(V3 #47 末格):RPC 面只留协议适配层 —— 阳性对照逐型 ─────────────
+    [
+      'J15 阳性对照:RPC 面又自带一个工具定义(新构造函数,名字没进名单)必红',
+      {
+        ...cleanFiles,
+        [PY_ENGINE]:
+          fixEngine(['unified_exec', 'view_image', 'update_plan']) +
+          'class AgentEngineRogue:\n' +
+          '    def _rogue_tool(self, thread):\n' +
+          '        from .agent_loop_v2 import ToolDefinition\n\n' +
+          '        return ToolDefinition(\n' +
+          '            name="rogue_tool",\n' +
+          '            description="协议层自己长出来的工具",\n' +
+          '            parameters={"type": "object", "properties": {}},\n' +
+          '            executor=None,\n' +
+          '        )\n',
+      },
+      'J15',
+    ],
+    [
+      'J15 port 定义退回内联手抄必红(第二份真相回潮)',
+      {
+        ...cleanFiles,
+        // 桥面 CLEAN_BRIDGE 记 view_image 为 port,而夹具改走内联构造(portNames=[])
+        [PY_ENGINE]: fixEngine(['unified_exec', 'view_image', 'update_plan'], false, []),
+      },
+      'J15 port 工具',
+    ],
+    [
+      'J15 桥模块摘掉唯一定义出口必红(port 无处归口,判据不得对着空气绿)',
+      {
+        ...cleanFiles,
+        [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE).replace(
+          'def port_tool_definition(engine_name: str, *, parameters: dict, executor) -> object:\n    raise RuntimeError("fixture")\n\n',
+          '',
+        ),
+      },
+      ['J15', 'port_tool_definition'],
+    ],
+    [
+      'J15 构造名与构造函数名分叉必红(_update_plan_tool 里造 "update_plan_x")',
+      {
+        ...cleanFiles,
+        [PY_ENGINE]:
+          fixEngine(['unified_exec', 'view_image', 'update_plan']) +
+          'class AgentEngineFork:\n' +
+          '    def _update_plan_tool(self, thread):\n' +
+          '        from .agent_loop_v2 import ToolDefinition\n\n' +
+          '        return ToolDefinition(\n' +
+          '            name="update_plan_x",\n' +
+          '            description="d",\n' +
+          '            parameters={},\n' +
+          '            executor=None,\n' +
+          '        )\n',
+      },
+      'J15',
+    ],
+    [
+      'J15 name 非字面量的宿主适配构造不算自带定义(应零失败)',
+      {
+        ...cleanFiles,
+        [PY_ENGINE]:
+          fixEngine(['unified_exec', 'view_image', 'update_plan']) +
+          'class AgentEngineAdapter:\n' +
+          '    def _build_host_tool_definitions(self, thread):\n' +
+          '        from .agent_loop_v2 import ToolDefinition\n\n' +
+          '        return ToolDefinition(\n' +
+          '            name=name,\n' +
+          '            description=spec.description,\n' +
+          '            parameters=spec.parameters,\n' +
+          '            executor=_execute,\n' +
+          '        )\n',
+      },
+      null,
+    ],
+    [
+      'J15 docstring 里写出 ToolDefinition( 带括号也不算构造(散文不判红)',
+      {
+        ...cleanFiles,
+        [PY_ENGINE]:
+          fixEngine(['unified_exec', 'view_image', 'update_plan']) +
+          'class AgentEngineProse:\n' +
+          '    def _note(self, thread):\n' +
+          '        """说明:把宿主工具转成 ToolDefinition(执行体回调客户端)是适配层。"""\n' +
+          '        return None\n',
+      },
+      null,
+    ],
   ]
 
   let bad = 0
@@ -1326,8 +1582,12 @@ try {
 if (failures.length === 0) {
   if (!quiet) {
     const d = collect(texts)
+    const j15n = definitionSites(stripPyDocstrings(d.engineSrc)).sites.length
+    const j15literal = definitionSites(stripPyDocstrings(d.engineSrc)).sites.filter(
+      (s) => s.nameLit !== null,
+    ).length
     console.log(
-      `${C.green}✅ 工具注册表完整性通过${C.reset} — 判定面 ${FACE_TXT[FACE_SEL.face]} / fs 委托集 ${d.fs.size} / 委托专有 ${d.delegateOnly.size} / 别名 ${Object.keys(d.aliases).length} 条 / 本地注册 ${d.local.size} / 前端实现 ${d.frontend.size}`,
+      `${C.green}✅ 工具注册表完整性通过${C.reset} — 判定面 ${FACE_TXT[FACE_SEL.face]} / fs 委托集 ${d.fs.size} / 委托专有 ${d.delegateOnly.size} / 别名 ${Object.keys(d.aliases).length} 条 / 本地注册 ${d.local.size} / 前端实现 ${d.frontend.size} / RPC 面定义构造 ${j15literal} 处(应 = 内置名数 − port 数)/ 宿主适配构造 ${j15n - j15literal} 处(只报数不计红)`,
     )
   }
   process.exit(0)
@@ -1361,6 +1621,7 @@ export const __test__ = {
   engineBuiltins,
   bridgeModeSet,
   strayBuiltinLists,
+  definitionSites,
   localRegistry,
   collect,
   check,
