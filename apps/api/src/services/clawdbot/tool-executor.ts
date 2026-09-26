@@ -4,6 +4,7 @@
 
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
+import { startStopwatch } from '../../utils/elapsed-ms.js'
 
 export interface ToolDef {
   name: string
@@ -25,6 +26,8 @@ export interface ToolExecResult {
   output?: unknown
   error?: string
   durationMs: number
+  /** 格②(2026-09-26):false = durationMs 未通过时钟交叉校验,只可观测不可当结论消费 */
+  latencyTrusted?: boolean
   timedOut: boolean
 }
 
@@ -73,20 +76,29 @@ export class ToolRunner extends EventEmitter {
     if (!tool) throw new ToolExecutorError(`工具不存在: ${name}`, 'not_found')
     if (!tool.def.enabled) throw new ToolExecutorError(`工具已禁用: ${name}`, 'disabled')
     this.checkPermissions(tool.def, ctx)
-    const start = Date.now()
+    const sw = startStopwatch()
     this.execCount.set(name, (this.execCount.get(name) ?? 0) + 1)
     try {
       const result = await this.withTimeout(tool.handler(params, ctx), tool.def.timeout)
+      const sample = sw.stop()
       this.emit('executed', { name, success: true })
-      return { success: true, output: result, durationMs: Date.now() - start, timedOut: false }
+      return {
+        success: true,
+        output: result,
+        durationMs: sample.elapsedMs ?? sample.perfMs,
+        latencyTrusted: sample.trustworthy,
+        timedOut: false,
+      }
     } catch (err) {
+      const sample = sw.stop()
       this.failCount.set(name, (this.failCount.get(name) ?? 0) + 1)
       const code = err instanceof ToolExecutorError ? err.code : 'failed'
       logger.error({ tool: name, err: (err as Error).message }, '[ToolRunner] Execution failed')
       return {
         success: false,
         error: (err as Error).message,
-        durationMs: Date.now() - start,
+        durationMs: sample.elapsedMs ?? sample.perfMs,
+        latencyTrusted: sample.trustworthy,
         timedOut: code === 'timeout',
       }
     }
