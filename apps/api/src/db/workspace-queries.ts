@@ -120,8 +120,10 @@ export async function updateProject(id: string, data: UpdateProjectInput): Promi
 /**
  * 删除项目（级联删除文件/成员由数据库外键保证）。
  */
-export async function deleteProject(id: string): Promise<void> {
-  await db.delete(projects).where(eq(projects.id, id))
+/** 删除项目(级联由库外键负责)。返回库确认已删除的 id 集合(未命中为空数组)。 */
+export async function deleteProject(id: string): Promise<string[]> {
+  const rows = await db.delete(projects).where(eq(projects.id, id)).returning({ id: projects.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================
@@ -226,8 +228,19 @@ export async function findTrashedFiles(userId: string): Promise<File[]> {
 /**
  * 软删除单个文件（移入回收站）。
  */
-export async function softDeleteFile(id: string, userId: string): Promise<void> {
-  await db.update(files).set({ deletedAt: new Date(), deletedBy: userId }).where(eq(files.id, id))
+/**
+ * 软删除单个文件（标记 deletedAt/deletedBy，不删磁盘文件）。
+ * 2026-09-27 修「改了 0 行与改成功同形」：返回值由 void 改为 UPDATE ... RETURNING 命中的
+ * id 集合 —— 归属校验与写不发生在同一瞬间，并发删除/已在回收站只能由这次写自己回报，
+ * 与 batchSoftDelete / utils/batch-outcome.ts 同一口径。
+ */
+export async function softDeleteFile(id: string, userId: string): Promise<string[]> {
+  const rows = await db
+    .update(files)
+    .set({ deletedAt: new Date(), deletedBy: userId })
+    .where(eq(files.id, id))
+    .returning({ id: files.id })
+  return rows.map((r) => r.id)
 }
 
 /**

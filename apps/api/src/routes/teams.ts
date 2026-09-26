@@ -384,8 +384,8 @@ export const teamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(403).send(error(403, '无权删除该团队'))
     }
 
-    await deleteTeam(id)
-    return reply.send(success({ deleted: true }))
+    const removed = await deleteTeam(id)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ---------------------------------------------------------------------------
@@ -477,8 +477,8 @@ export const teamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '不能移除 owner'))
     }
 
-    await removeTeamMember(id, targetUserId)
-    return reply.send(success({ deleted: true }))
+    const removed = await removeTeamMember(id, targetUserId)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ---------------------------------------------------------------------------
