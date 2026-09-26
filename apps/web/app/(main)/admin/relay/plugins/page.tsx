@@ -17,6 +17,7 @@ import { Button, Input } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
+import { apiFailureToError } from '@ihui/shared/utils'
 
 interface Plugin {
   id: string
@@ -73,7 +74,7 @@ export default function RelayPluginsPage() {
     queryKey: ['admin', 'relay', 'plugins'],
     queryFn: async () => {
       const r = await fetchApi<{ list: Plugin[]; total: number }>('/api/admin/relay/plugins')
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       return r.data.list
     },
   })
@@ -87,7 +88,7 @@ export default function RelayPluginsPage() {
         method: 'POST',
         body: body ? JSON.stringify(body) : undefined,
       })
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       setMsg('操作成功')
       void qc.invalidateQueries({ queryKey: ['admin', 'relay', 'plugins'] })
     } catch (e) {
@@ -102,7 +103,7 @@ export default function RelayPluginsPage() {
     try {
       // method 用小写字面量:check-api-routes 的 sameLine 正则区分大小写
       const r = await fetchApi(path, { method: 'delete' })
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       setMsg('操作成功')
       void qc.invalidateQueries({ queryKey: ['admin', 'relay', 'plugins'] })
     } catch (e) {
