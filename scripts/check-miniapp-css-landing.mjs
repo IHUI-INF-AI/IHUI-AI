@@ -223,6 +223,11 @@ export const WEAPP_CLASS_MANGLE_TABLE = new Map([
   // 立票时按 `\!`(CSS 反斜杠转义)去找 ⇒ 零命中,于是这一族 11 条被留在"表外标点"桶里判不出
   // "真没落地 vs 表还缺一条"。教训同 P53:**取证要按构建方真实产出的形态查,不是按 CSS 规范里"应该"的形态查**。
   ['!', '_e'],
+  // `%` → `_v`(2026-09-26 取证补上)。**判"表还缺一条"不能只试一种映射**:
+  // 拿真产物选择器集喂 6 个候选(`_v/_w/_x/_y/_z` + 不映射),只有 `_v` 命中 11/12 种含 `%` 的档,
+  // 其余全 0 —— 见证串 `max-w-[78%]` → `max-w-_b78_v_B`、`w-[calc(50%_-_8rpx)]` → `w-_bcalc_p50_v_-_8rpx_P_B`。
+  // 补这一条前,那 11 类被归进"表外标点 ⇒ 判不出真没落地还是表缺项"而只报数(读数 96.36% 里它们是缺项)。
+  ['%', '_v'],
 ])
 
 /** ASCII 标点全集(用于识别"表外标点");字母/数字/-/_ 不在其内,不是标点。 */
@@ -577,6 +582,25 @@ export function countMangledRuleKinds(landedNames) {
  * 哪些 class token 属于 v4 spacing 刻度档 —— 即由 calc(var(--spacing) * N) 派生的那一批
  * (整数/小数间距、! 前缀的间距、first:/last: 变体间距)。
  */
+/**
+ * 工作树 vs HEAD 的**路径级**错位计数 —— 只吃 `git status --porcelain` 的文本,不读任何文件内容。
+ * 为什么看产物的门必须喊这一句:源码面按 HEAD(或索引)判,而磁盘上的产物是构建器按**工作树**做出来的。
+ * 两侧不是同一个世界时,"HEAD 用了、工作树已删"的档在产物里必然缺席 —— 本会话差点把 4 个
+ * `text-[length:*rpx]` 读成真缺陷(实测 HEAD 面 425 行用到、工作树面 0 行),所以这条必须打印,
+ * 不能让人把尺子的错位当成端的债。
+ */
+export function countWorktreeDrift(statusText, prefix) {
+  const paths = new Set()
+  for (const line of String(statusText || '').split(/\r?\n/)) {
+    if (line.length < 4) continue
+    let p = line.slice(3)
+    const arrow = p.indexOf(' -> ')
+    if (arrow >= 0) p = p.slice(arrow + 4) // 重命名:取新路径
+    if (p.startsWith(prefix)) paths.add(p)
+  }
+  return paths.size
+}
+
 export function isSpacingScaleCandidate(name) {
   const bare = name.replace(/^!/, '').replace(/^(?:[a-z]+:)+/, '')
   return /^(?:[pm][xytrbl]?|gap(?:-[xy])?|space-[xy])-(?:\d+(?:\.\d+)?|px)$/.test(bare)
@@ -1716,6 +1740,26 @@ export async function runCheck(opts) {
       `C2 盲区 ${blindSpots.length} 个:这些类名在 ${face} 面确实用了且自有 CSS 同名定义了,但不在参考层里 ⇒ 无法判它是否 Tailwind 候选(样例 ${blindSpots.slice(0, MISSING_SAMPLES).join(', ')})。逐个自查,不得当作零双义`,
     )
   }
+  // 面错位对账:源码面是 git 面(HEAD/索引),而**产物永远是工作树的产物** —— 构建器不看 git 面。
+  // 两侧路径有差异时,"HEAD 用了而工作树已删"的档结构上必然出现在缺项里,而它不是端的缺陷。
+  // 不喊出来,下一个人(或下一个我)就会去"修"一批不存在的问题。
+  if (face !== 'worktree') {
+    let drift
+    try {
+      drift = countWorktreeDrift(
+        gitRaw(['status', '--porcelain', '--', `${APP_REL}/src`], root, { timeout: 60000 }),
+        `${APP_REL}/src/`,
+      )
+    } catch (e) {
+      drift = null
+      notices.push(`工作树↔${face} 面错位对账判不出:${String(e.message).split('\n')[0].slice(0, 120)} —— 这一格不得当成"两侧同世界"`)
+    }
+    if (drift > 0)
+      notices.push(
+        `面错位提示:${APP_REL}/src 有 ${drift} 个路径在工作树里与 ${face} 不同。磁盘产物是按**工作树**构建的,而本门源码面按 ${face} 判 ⇒ ` +
+          `"${face} 用了、工作树已删"的档必然在产物里缺席,那类"缺项"不是缺陷;逐条核对前先做一次从被审面干净检出的构建(取证法见 PROJECT_PLAN O62 附⑭)`,
+      )
+  }
   // 反向盲区 = 「产物真出了规则、源码确实用了、参考层却不认」的名字。
   // 这一维直接量的是**分母有没有在藏东西**:参考层漏认一个真 utility,
   // 症状恰恰是"覆盖率变好看"。必须报出来,不能静默。
@@ -2666,9 +2710,9 @@ export function selfTest() {
     ],
   )
   eq(
-    'P48 表外标点不得猜转写(% @ # * ~ 原样保留)',
-    [weappMangleClassName('w-[50%]'), weappMangleClassName('a@b#c'), weappMangleClassName('d*e~f')],
-    ['w-_b50%_B', 'a@b#c', 'd*e~f'],
+    'P48 表外标点不得猜转写(@ # * ~ 原样保留;% 已于 P48c 拿到真产物证据,故从本例移出)',
+    [weappMangleClassName('w-[50@]'), weappMangleClassName('a@b#c'), weappMangleClassName('d*e~f')],
+    ['w-_b50@_B', 'a@b#c', 'd*e~f'],
   )
   eq(
     // `!` 不在本例里:它已于本轮拿到真产物三条证(`._ebg-muted{…!important}`),是**表内条目**。
@@ -2676,6 +2720,16 @@ export function selfTest() {
     'P48b 已取证的 ! 必须进表(反向锁:退回"不猜"会让 11 条 important 档永远判不出归属)',
     weappMangleClassName('!bg-muted'),
     '_ebg-muted',
+  )
+  eq(
+    'P48c 已取证的 % 必须进表(取证法:6 个候选映射里只有 _v 在真产物选择器上命中 11/12)',
+    weappMangleClassName('max-w-[78%]'),
+    'max-w-_b78_v_B',
+  )
+  eq(
+    'P48d 含 calc 的百分号档要同时吃 `( ) [ ] %` 五条映射(少一条就退化成"表外标点"而不进命中)',
+    weappMangleClassName('w-[calc(50%_-_8rpx)]'),
+    'w-_bcalc_p50_v_-_8rpx_P_B',
   )
   eq(
     'P49 两态分开计数:原名直中与转写后中各记各的(合计当数会把"表漏一条"藏起来)',
@@ -2701,7 +2755,7 @@ export function selfTest() {
   eq(
     'P51 表外标点桶:只报数、不并入 hit、字符点名,且不进确定缺失的样例',
     (() => {
-      const c = computeCoverage(['w-[50%]'], new Set(['w-[50%]']), new Set(['w-full']))
+      const c = computeCoverage(['w-[50@]'], new Set(['w-[50@]']), new Set(['w-full']))
       return [
         c.hitKinds,
         c.missKinds,
@@ -2711,7 +2765,7 @@ export function selfTest() {
         c.missingSamples.length,
       ]
     })(),
-    [0, 1, 1, ['%'], 0, 0],
+    [0, 1, 1, ['@'], 0, 0],
   )
   eq(
     'P52 反向:同一含表外标点的名字若原名直中,不得落进表外标点桶',
@@ -3156,6 +3210,33 @@ export function selfTest() {
     countMangledRuleKinds(new Set(['bg-_bvar_p--color-card_P_B', 'flex', 'text-sm', 'z-_b1001_B'])),
     2,
   )
+  eq(
+    'P78 面错位计数只数目标前缀下的路径(别的端/别的面不得混进来)',
+    countWorktreeDrift(
+      [
+        ' M apps/miniapp-taro/src/pages/a.tsx',
+        ' M apps/miniapp-taro/src/pages/b.css',
+        ' M apps/web/src/app/page.tsx',
+        '?? packages/shared/src/x.ts',
+      ].join('\n'),
+      'apps/miniapp-taro/src/',
+    ),
+    2,
+  )
+  eq(
+    'P78b 重命名行取新路径(旧路径已不存在,按它筛前缀会漏计)',
+    countWorktreeDrift(' R apps/miniapp-taro/src/old.tsx -> apps/miniapp-taro/src/new.tsx', 'apps/miniapp-taro/src/'),
+    1,
+  )
+  eq(
+    'P78c 同一文件重复出现只计一次;空/异常输入 ⇒ 0 而不是猜',
+    [
+      countWorktreeDrift(' M apps/miniapp-taro/src/a.tsx\nM  apps/miniapp-taro/src/a.tsx', 'apps/miniapp-taro/src/'),
+      countWorktreeDrift('', 'apps/miniapp-taro/src/'),
+      countWorktreeDrift(null, 'apps/miniapp-taro/src/'),
+    ].join(','),
+    '1,0,0',
+  )
 
   let failed = 0
   for (const x of results) {
@@ -3278,6 +3359,7 @@ export const __test__ = {
   unescapeClassName,
   weappMangleClassName,
   unmappedPunctIn,
+  countWorktreeDrift,
   missFamily,
   WEAPP_CLASS_MANGLE_TABLE,
   classifyDist,
