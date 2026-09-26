@@ -1,18 +1,18 @@
 {
   "note": "Knip 棘轮基线:各项计数不得超过此值。新增死代码会使 CI 失败;清理后请重跑 --update 收紧。",
-  "generatedAt": "2026-09-15T10:06:09.078Z",
-  "total": 3781,
+  "generatedAt": "2026-09-26T08:20:03.759Z",
+  "total": 4314,
   "counts": {
-    "files": 689,
-    "exports": 1519,
-    "types": 1238,
-    "duplicates": 203,
+    "files": 675,
+    "exports": 1852,
+    "types": 1385,
+    "duplicates": 273,
     "enumMembers": 5,
     "namespaceMembers": 0,
     "dependencies": 29,
-    "devDependencies": 75,
+    "devDependencies": 73,
     "optionalPeerDependencies": 0,
-    "unlisted": 7,
+    "unlisted": 6,
     "binaries": 16,
     "unresolved": 0
   }
