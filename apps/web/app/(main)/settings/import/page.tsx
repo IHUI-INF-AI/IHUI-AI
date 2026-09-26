@@ -199,7 +199,7 @@ function CliImportSection() {
                     onClick={() => setSource(s.source)}
                     className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                       active
-                        ? 'border-primary bg-primary/5 text-foreground'
+                        ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                         : 'border-border text-muted-foreground hover:bg-accent'
                     }`}
                   >

@@ -103,7 +103,7 @@ export default function SkillsPopup({
             {filtered.map((agent) => (
               <View
                 key={agent.id}
-                className={`flex items-center p-3 mb-2 rounded-xl ${selectedId === agent.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
+                className={`flex items-center p-3 mb-2 rounded-xl ${selectedId === agent.id ? 'bg-primary/10 border border-brand-accent-deep' : 'bg-muted'}`}
                 onClick={() => handleSelect(agent)}
                 hoverClass="opacity-60"
               >

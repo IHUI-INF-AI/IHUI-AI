@@ -62,7 +62,7 @@ export const Checkbox = React.forwardRef<HTMLSpanElement, CheckboxProps>(functio
         onKeyDown={handleKeyDown}
         className={cn(
           'flex h-4 w-4 items-center justify-center rounded border border-input transition-colors',
-          (checked || indeterminate) && 'border-primary bg-cta text-cta-foreground',
+          (checked || indeterminate) && 'border-brand-accent-deep bg-cta text-cta-foreground',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         )}
       >
