@@ -19,7 +19,7 @@
  *   ③ 一个都没命中 ⇒ deleted===0(不再是 3)、missedIds 等于请求全集
  *   ④ 请求含重复 id ⇒ deleted 不重复计(去重语义与出口一致)
  *   ⑤ 非法 UUID / 空清单 ⇒ 仍 400,文案逐字不变(防顺手改校验)
- *   ⑥ 单条删除端点 deleted:true 不受影响(回归锁,证明未越界)
+ *   ⑥ 单条删除端点同样以库确认为准(2026-09-26 语义改造:命中⇒true / 未命中⇒false,状态码仍 200)
  * 另有一条机制锁:断言 returning 确实被调用并带上 id 列 —— 否则 ①③ 可以靠"少报数"蒙过。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -54,8 +54,8 @@ const { mockDeleteReturning } = vi.hoisted(() => ({
   ),
 }))
 
-// 链式 mock:delete → where → returning(批量删除走这条),delete → where(单条删除走这条,
-// await 一个非 thenable 对象即原样返回,与 drizzle 的可 await 语义一致)。
+// 链式 mock:delete → where → returning(批量与单条删除**都**走这条 —— 2026-09-26 起
+// 单条也取库确认集合,不再依赖"await 非 thenable 对象原样返回"那条旧形态)。
 vi.mock('../src/db/index.js', () => ({
   db: {
     select: vi.fn(() => {
@@ -182,17 +182,19 @@ describe('registerCrud 批量删除:deleted 由库确认,未命中逐条点名',
     expect(mockDeleteReturning).not.toHaveBeenCalled()
   })
 
-  it('⑥ 单条删除端点的 deleted:true 语义不受影响(回归锁:证明未越界)', async () => {
+  it('⑥ 单条删除的 deleted 也必须是库确认结果(2026-09-26 语义改造后本锁方向已反转)', async () => {
     const app = await buildApp()
-    const res = await app.inject({ method: 'DELETE', url: `${BASE}/${ID_1}` })
+    // 库里真删掉一行 ⇒ true
+    mockDeleteReturning.mockResolvedValueOnce([{ id: ID_1 }])
+    const hit = await app.inject({ method: 'DELETE', url: `${BASE}/${ID_1}` })
+    expect(hit.statusCode).toBe(200)
+    expect(hit.json()).toEqual({ code: 0, message: 'success', data: { id: ID_1, deleted: true } })
 
-    expect(res.statusCode).toBe(200)
-    // 刻意仍是布尔确认,没有改成条数(全 API 语义决策属另立一票)
-    expect(res.json()).toEqual({
-      code: 0,
-      message: 'success',
-      data: { id: ID_1, deleted: true },
-    })
+    // 库里没有这一行(打错 id / 已被别人删掉)⇒ 不再谎报成功,状态码仍 200
+    mockDeleteReturning.mockResolvedValueOnce([])
+    const miss = await app.inject({ method: 'DELETE', url: `${BASE}/${ID_2}` })
+    expect(miss.statusCode).toBe(200)
+    expect(miss.json()).toEqual({ code: 0, message: 'success', data: { id: ID_2, deleted: false } })
     await app.close()
   })
 })
