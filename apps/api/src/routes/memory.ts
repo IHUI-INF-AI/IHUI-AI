@@ -189,9 +189,9 @@ export const memoryRoutes: FastifyPluginAsync = async (server) => {
       const entries = lists[i]!
       const idx = entries.findIndex((e) => e.id === request.params.id)
       if (idx >= 0) {
-        entries.splice(idx, 1)
+        const removed = entries.splice(idx, 1)
         await writeEntries(server.redis, targetKeys[i]!, entries)
-        return reply.send(success({ id: request.params.id, deleted: true }))
+        return reply.send(success({ id: request.params.id, deleted: removed.length > 0 }))
       }
     }
 
