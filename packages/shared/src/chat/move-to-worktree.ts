@@ -111,7 +111,7 @@ function assertNeverPrecheck(precheck: never): never {
  * 与 D72 `isSingleWriterViolation` 的"缺失不判违规"同纪律。
  */
 export function canMoveNow(turnState: TurnState | null | undefined): boolean {
-  if (turnState == null) return true
+  if (turnState === null || turnState === undefined) return true
   return !isActiveTurnState(turnState)
 }
 
@@ -144,7 +144,11 @@ export function validateWorktreeBranch(
   const trimmed = typeof name === 'string' ? name.trim() : ''
   if (trimmed.length === 0) return { ok: false, errorKey: 'worktreeBranchRequired' }
   if (trimmed.endsWith('/')) return { ok: false, errorKey: 'trailingSlashError' }
-  if (ctx.defaultBranch != null && ctx.defaultBranch.length > 0 && trimmed === ctx.defaultBranch) {
+  if (
+    (ctx.defaultBranch !== null && ctx.defaultBranch !== undefined) &&
+    ctx.defaultBranch.length > 0 &&
+    trimmed === ctx.defaultBranch
+  ) {
     return { ok: false, errorKey: 'defaultBranchError' }
   }
   if (ctx.existingBranches?.includes(trimmed)) {
