@@ -46,6 +46,9 @@ export const SLASH_COMMANDS: readonly SlashCommandMeta[] = [
   { name: 'todo', description: '管理任务清单(显示/清除)', usage: '/todo [clear]', category: 'session' },
   { name: 'tool', description: '回看最近工具调用完整输出(diff 着色)', usage: '/tool [倒数第N次]', category: 'session' },
   { name: 'plan', description: 'Plan Mode 控制', usage: '/plan [on|off|approve|reject|edit|show]', category: 'session' },
+  // ZCode 吸收线收尾票:REPL 内第二档租约授予来源(grantor:'repl-command')。
+  // 描述/用法取词 —— 本文件在守门 70(硬编码中文棘轮)射程内,新增行不得加命中数。
+  { name: 'lease', description: t('cliEntry.replLeaseDesc'), usage: t('cliEntry.replLeaseUsage'), category: 'session' },
   { name: 'context', description: '显示当前会话 token 用量', usage: '/context', category: 'session' },
   { name: 'compact', description: '立即手动压缩当前对话上下文(无视 88% 自动阈值)', usage: '/compact', category: 'session' },
   { name: 'announcements', aliases: ['announce'], description: '查看公告', usage: '/announcements [list|unread|read <id>|read-all|refresh]', category: 'session' },
