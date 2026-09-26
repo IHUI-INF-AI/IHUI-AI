@@ -87,6 +87,8 @@ import {
   mergeHistoryRows,
   decideLoadMore,
   deleteServerConversation,
+  availableFilterTypes,
+  resolveActiveFilter,
   type HistoryItem,
 } from '../src/pkg-ai/ai/history'
 import type { ConversationMessage, GetMessagesResult } from '@ihui/api-client'
@@ -408,4 +410,54 @@ describe('④ 源码级反向锁', () => {
     expect(historySrc.match(/\.sort\(/g) ?? []).toHaveLength(1)
   })
 })
+
+/* ================================================================== *
+ * ④ 筛选芯片由数据派生 —— image/voice/agent 从无任何写入方
+ * (服务端 chat_messages 无类型列,本机快照写入也不设 type),
+ * 恒空芯片是死 UI;芯片必须只随真实存在的类型出现,失效筛选回落『全部』。
+ * ================================================================== */
+
+describe('④ availableFilterTypes —— 芯片只随真实数据出现', () => {
+  it('服务端行(无 type)⇒ 只有 all/chat 两枚,image/voice/agent 不得渲染', () => {
+    const rows = [{ id: 'a' }, { id: 'b' }] as unknown as Array<{ type?: HistoryItem['type'] }>
+    const got = availableFilterTypes(rows)
+    expect(got.has('all')).toBe(true)
+    expect(got.has('chat')).toBe(true)
+    expect(got.has('image')).toBe(false)
+    expect(got.has('voice')).toBe(false)
+    expect(got.has('agent')).toBe(false)
+  })
+
+  it('快照条目带 type:image ⇒ image 芯片出现(将来有写入方时自动回归)', () => {
+    const rows = [{ id: 'a', type: 'image' }, { id: 'b' }] as unknown as Array<{
+      type?: HistoryItem['type']
+    }>
+    expect(availableFilterTypes(rows).has('image')).toBe(true)
+  })
+
+  it('反向:没有任何行带 voice ⇒ voice 不在集内(不许凭空给芯片)', () => {
+    const rows = [{ id: 'a', type: 'image' }] as unknown as Array<{ type?: HistoryItem['type'] }>
+    expect(availableFilterTypes(rows).has('voice')).toBe(false)
+  })
+
+  it('非数组入参安全回落 {all,chat};入参不被改写', () => {
+    expect(availableFilterTypes(undefined as unknown as Array<{ type?: HistoryItem['type'] }>).has('chat')).toBe(true)
+    const src = [{ id: 'a', type: 'agent' }] as unknown as Array<{ type?: HistoryItem['type'] }>
+    availableFilterTypes(src)
+    expect(src).toEqual([{ id: 'a', type: 'agent' }])
+  })
+})
+
+describe('④ resolveActiveFilter —— 失效筛选回落『全部』,不渲染空列表', () => {
+  const base = new Set<FilterTypeAlias>(['all', 'chat'])
+  it('数据重载后 image 已不存在 ⇒ 活跃筛选回落 all', () => {
+    expect(resolveActiveFilter('image', base)).toBe('all')
+  })
+  it('正向:类型仍在集内 ⇒ 保持原筛选(不得偷偷重置)', () => {
+    expect(resolveActiveFilter('image', new Set<FilterTypeAlias>(['all', 'chat', 'image']))).toBe('image')
+    expect(resolveActiveFilter('all', base)).toBe('all')
+  })
+})
+
+type FilterTypeAlias = Parameters<typeof resolveActiveFilter>[0]
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
