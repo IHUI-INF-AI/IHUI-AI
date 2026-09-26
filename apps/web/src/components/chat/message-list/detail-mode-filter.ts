@@ -42,7 +42,8 @@ function toCommandsView(messages: readonly ChatMessage[]): ChatMessage[] {
       continue
     }
     const commands = (m.toolCalls ?? []).filter((tc) => isCommandToolCall(tc.toolName))
-    const hasQuestion = m.question != null
+    // `!= null` 的严格等价形式:既非 null 也非 undefined(question 是可选字段)
+    const hasQuestion = m.question !== null && m.question !== undefined
     // 错误交代(失败原因文本)属用户必读信息,命令视图保留
     if (commands.length === 0 && !hasQuestion && !m.error) continue
     kept.push({
@@ -67,7 +68,8 @@ function toNarrativeView(messages: readonly ChatMessage[]): ChatMessage[] {
       kept.push(m)
       continue
     }
-    const hasQuestion = m.question != null
+    // `!= null` 的严格等价形式:既非 null 也非 undefined
+    const hasQuestion = m.question !== null && m.question !== undefined
     if (!m.content.trim() && !hasQuestion) continue
     kept.push({
       ...m,

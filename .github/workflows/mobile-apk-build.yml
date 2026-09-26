@@ -96,6 +96,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 构建 mobile-rn 的**全部 workspace 依赖闭包**(拓扑序,不含本包)。
+      # 为什么必须有这一步:多个共享包的 package.json 把 exports 指向 dist(产物不入库),
+      # 而 metro / tailwind 是**按运行时 require 去解析**的 —— 这一步缺失时,报错点不在 install、
+      # 不在 typecheck,而是在 gradle 的 createBundleReleaseJsAndAssets:
+      #   Error: Cannot find module '.../@ihui/design-tokens/dist/tailwind-preset...'
+      # 选择器用 `^...`(该包所有 workspace 依赖的闭包)而不是手工点名:手工清单必然落后于新增依赖
+      # (同型事故本仓记过三次:ci.yml 缺 api-client 前置、test-real-db 缺闭包、这次轮到 design-tokens)。
+      - name: Build mobile-rn's workspace deps (topological closure — their exports point at dist)
+        run: pnpm --filter "@ihui/mobile-rn^..." run build
+
       - name: Generate Android project (expo prebuild)
         working-directory: apps/mobile-rn
         env:

@@ -146,7 +146,7 @@ export default function TeamKnowledgePage() {
                   className="w-full text-left"
                   onClick={() => setSelectedId(space.id)}
                 >
-                  <CardContent className="flex flex-col gap-1 p-3">
+                  <CardContent className="min-[640px]:p-3 flex flex-col gap-1 p-3">
                     <div className="flex items-center gap-2">
                       <Library className="text-muted-foreground size-4" />
                       <span className="flex-1 truncate text-sm font-medium">{space.name}</span>

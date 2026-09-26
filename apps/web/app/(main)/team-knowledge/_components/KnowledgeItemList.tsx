@@ -99,7 +99,7 @@ export function KnowledgeItemList({ space }: { space: KnowledgeSpaceDTO }) {
 
   return (
     <Card>
-      <CardContent className="flex flex-col gap-3 p-3">
+      <CardContent className="min-[640px]:p-3 flex flex-col gap-3 p-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-medium">{t('itemsTitle')}</h2>
           <Button size="sm" onClick={() => setEditTarget({ item: null })} disabled={!canEdit}>
