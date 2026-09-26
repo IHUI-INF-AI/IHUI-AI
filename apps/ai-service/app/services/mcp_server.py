@@ -7123,9 +7123,15 @@ def _mcp_model_tools_enabled_from_env() -> bool:
 # run_in_background:立即返回 task_id,后台执行,完成后经 message_bus 推送 IM 通知;
 # bg_task_status:查询单个任务状态或列出某用户任务。两工具只读/低危,不进 _ADMIN_ONLY_TOOLS。
 #
-# 内置任务实现注册表 _BG_TASK_IMPLS:task 名 → 接收参数字典、返回结果协程的异步函数。
-# 扩展点:后续批次在此注册真实长任务(如 codebase_indexer / spec_generator / 长搜索),
-# 仅需实现 async(args: dict) -> Any 并加入本字典,task 名即进入白名单。
+# 扩展点(V3 #51 接线改档,2026-09-27):**不要**在本文件再维护一张任务白名单表。
+# 旧形态是一张 `_BG_TASK_IMPLS`(只有 sleep/echo)在这里自建分派,那既是第二个真相源
+# (注册表新增一类,本文件不改就永远广告不出去),也让幂等键与断点续跑结构上接不到工具面。
+# 现在唯一的分派出口是 `background_tasks.run_in_background` → `task_executors.get_spec`。
+#
+# 下面两个 `_bg_impl_*` 是**批58 的行为面宿主**(tests/test_mcp_wiring_58b.py 逐条断言其
+# off/on/越界/异常隔离四态),生产链路已不再经它们;注册表里的 `_exec_sleep` / `_exec_echo`
+# 是同一行为的唯一生产实现。两者的等价性由 tests/test_background_task_type_wiring_51.py
+# 的对照断言钉死 —— 改任一侧而不改另一侧即红,不得让这份重复变成静默漂移。
 async def _bg_impl_sleep(args: dict[str, Any]) -> Any:
     """演示实现:休眠指定秒数(测试 / 占位用)。
 
@@ -7151,62 +7157,35 @@ async def _bg_impl_echo(args: dict[str, Any]) -> Any:
     return {"echo": args.get("message", "")}
 
 
-_BG_TASK_IMPLS: dict[str, Callable[[dict[str, Any]], Awaitable[Any]]] = {
-    "sleep": _bg_impl_sleep,
-    "echo": _bg_impl_echo,
-}
+def _bg_task_types_prose() -> str:
+    """`run_in_background` schema 里那份**广告面白名单文字**的唯一派生出口(V3 #51 判据 6 / P6)。
+
+    为什么必须有它:模型在 `tools/list` 里读到的"支持哪些任务类型"来自这段描述文字,
+    而不是 Python 分派表。旧写法把 "sleep/echo" 写死在 description 里 ——
+    于是注册表落地了 6 类真实 executor、工具层也委托过去了,模型**仍然看不见它们**,
+    "接了线也调不到"。现在这一段逐字派生自 `background_tasks.RUN_IN_BACKGROUND_TASK_TYPES`
+    (它就是 `task_executors.IMPLEMENTED_TASK_TYPES`),新增一类无需改本文件即自动进入广告面。
+    """
+    from .background_tasks import RUN_IN_BACKGROUND_TASK_TYPES
+
+    return "/".join(RUN_IN_BACKGROUND_TASK_TYPES)
 
 
 async def _tool_run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
     """run_in_background:提交后台任务并立即返回 task_id(不阻塞当前循环)。
 
-    仅接受 _BG_TASK_IMPLS 白名单内的 task 类型,防任意代码注入。
-    完成后若 notify_on_done,经 message_bus 的 IM 通道给调用用户推送完成通知。
+    V3 #51 接线(2026-09-27):整份 `arguments` 直接交给
+    `background_tasks.run_in_background`,由它经 `task_executors.get_spec` 分派到
+    6 类真实 executor + 2 类自证 stub;本文件不再自带白名单,也不再自己拼协程。
+    于是幂等键去重与断点续跑(`submit_typed`)第一次真正接到工具面 ——
+    旧形态走 `manager.submit(coro_factory)`,结构上拿不到这两件事。
+
+    未知类型由那一层返回 `ok:False` + `supported_task_types` + `executed:False`,
+    绝不伪装成执行成功。完成后若 notify_on_done,经 message_bus 的 IM 通道推送通知。
     """
-    task = str(arguments.get("task", "")).strip()
-    raw_args = arguments.get("arguments")
-    task_args = raw_args if isinstance(raw_args, dict) else {}
-    notify = bool(arguments.get("notify_on_done", True))
-    timeout_s = arguments.get("timeout_s")
-    timeout_s = max(1, int(timeout_s)) if timeout_s is not None else 300
-    name = str(arguments.get("name") or task or "background_task")
+    from .background_tasks import run_in_background
 
-    impl = _BG_TASK_IMPLS.get(task)
-    if impl is None:
-        return {
-            "ok": False,
-            "error": f"未知后台任务类型: {task}",
-            "available": sorted(_BG_TASK_IMPLS.keys()),
-        }
-
-    # 调用者身份由 call_tool 注入(LLM 不可控),用于归属与通知推送
-    user_id = arguments.get("__user_id")
-    session_id = arguments.get("__session_id")
-
-    from .background_tasks import background_task_manager
-
-    def coro_factory() -> Awaitable[Any]:
-        return impl(task_args)
-
-    submit_result = await background_task_manager.submit(
-        coro_factory,
-        name=name,
-        user_id=user_id,
-        session_id=session_id,
-        notify_on_done=notify,
-        timeout_s=timeout_s,
-    )
-    if isinstance(submit_result, dict) and submit_result.get("error"):
-        return {"ok": False, "tool": "run_in_background", **submit_result}
-    return {
-        "ok": True,
-        "tool": "run_in_background",
-        "task_id": submit_result,
-        "name": name,
-        "task_type": task,
-        "notify_on_done": notify,
-        "message": "后台任务已提交,用 bg_task_status 凭 task_id 查询结果",
-    }
+    return await run_in_background(arguments)
 
 
 async def _tool_bg_task_status(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -8621,20 +8600,36 @@ _TOOLS: list[MCPTool] = [
         name="run_in_background",
         description=(
             "提交后台任务并立即返回 task_id(不阻塞循环),"
-            "完成后经 IM 推送完成通知。支持 sleep/echo(可扩展)"
+            "完成后经 IM 推送完成通知。支持 "
+            + _bg_task_types_prose()
+            + "(真实长任务 + 演示档;清单派生自 task_executors 注册表,勿在此写死)"
         ),
         input_schema={
             "type": "object",
             "properties": {
                 "task": {
                     "type": "string",
-                    "description": "后台任务类型(白名单:sleep/echo;后续批次扩展真实长任务)",
+                    "description": (
+                        "后台任务类型(白名单:"
+                        + _bg_task_types_prose()
+                        + ";各类型的 arguments 形状见 task_executors 注册表)"
+                    ),
                 },
                 "arguments": {
                     "type": "object",
-                    "description": "任务参数,如 sleep 的 {seconds:number},echo 的 {message:string}",
+                    "description": (
+                        "任务参数,如 sleep 的 {seconds:number}、echo 的 {message:string}、"
+                        "test_suite 的 {target:string}、patrol 的 {root:string}"
+                    ),
                 },
                 "name": {"type": "string", "description": "任务显示名(可选,默认=task)"},
+                "idempotency_key": {
+                    "type": "string",
+                    "description": (
+                        "幂等键(可选)。同一键的重复提交命中同一条任务记录、不重复执行;"
+                        "缺省由 task 类型 + arguments 规范化派生"
+                    ),
+                },
                 "notify_on_done": {
                     "type": "boolean",
                     "description": "完成后经 message_bus 推送 IM 通知(默认 true)",

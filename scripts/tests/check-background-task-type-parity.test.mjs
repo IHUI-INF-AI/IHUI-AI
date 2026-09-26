@@ -14,12 +14,13 @@
  *      不得按磁盘 `readFileSync(join(ROOT…))` 判被审内容,也不得在测试里出现第二份判据正则
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-import { __test__ as parity } from '../check-background-task-type-parity.mjs'
+import { PY_MCP, __test__ as parity } from '../check-background-task-type-parity.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS_DIR = resolve(HERE, '..')
@@ -158,5 +159,80 @@ test('T5 干净构造面必须零违规(正向证明:名单/判据不是死表)'
   const masked = parity.maskPyNoise('# task_type="ghost"\nS = ExecutorSpec(task_type="real", stub=True)\n')
   if (masked.includes('ghost')) throw new Error('注释未被遮罩:门会把"解释自己的散文"判成违规(守门 70/131 同型)')
   if (!masked.includes('task_type="real"')) throw new Error('代码里的 task_type 被一起抹掉了 ⇒ 判据失明')
+})
+
+// ---------------------------------------------------------------------------
+// T6/T7 —— 收紧"必须走生产入口"(CLI + 真仓现读),而不是只在函数层面自证
+// ---------------------------------------------------------------------------
+
+/** 把五份被测文件按真实相对路径铺进临时根目录。 */
+function writeFixtureFace(root, files) {
+  for (const [rel, text] of Object.entries(files)) {
+    const abs = join(root, ...rel.split('/'))
+    mkdirSync(dirname(abs), { recursive: true })
+    writeFileSync(abs, text, 'utf8')
+  }
+}
+
+test('T6 CLI 端到端:半接线形态必红、委托+派生形态必绿(收紧有牙且不误伤)', () => {
+  const scratch = mkScratch('bg-parity-')
+  try {
+    const halfWired = parity.fixtureInputs()
+    writeFixtureFace(scratch, halfWired)
+    const bad = runGateStatus(['--worktree', '--root', scratch])
+    if (bad.code !== 1) {
+      throw new Error(
+        `账本已清空,而"handler 只广告 echo"的形态必须判红(否则零容忍是口号)。` +
+          `实得 exit=${bad.code}\n${bad.out}`,
+      )
+    }
+    if (!/未接线/.test(bad.out)) throw new Error(`红了但没说是哪一类没接线:\n${bad.out}`)
+
+    writeFixtureFace(scratch, { ...halfWired, [PY_MCP]: parity.FIXTURE_MCP_DELEGATED })
+    const good = runGateStatus(['--worktree', '--root', scratch])
+    if (good.code !== 0) throw new Error(`委托+派生形态必须为绿,实得 ${good.code}\n${good.out}`)
+    if (!/未接线 0 类/.test(good.out)) throw new Error(`绿了但结论行没报"未接线 0 类":\n${good.out}`)
+
+    // 第三档:P6 的那一面必须真的挂在 judge 上(自检过 != 生产入口会调它 —— 守门 102 同型)
+    writeFixtureFace(scratch, {
+      ...halfWired,
+      [PY_MCP]: parity.FIXTURE_MCP_HALF_WIRED.replace('支持 alpha/beta/echo', '支持 alpha/echo'),
+    })
+    const proseGap = runGateStatus(['--worktree', '--root', scratch])
+    if (proseGap.code !== 1 || !/schema 文字/.test(proseGap.out)) {
+      throw new Error(`声明文字漏一类必须被 CLI 判红并点名,实得 exit=${proseGap.code}\n${proseGap.out}`)
+    }
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('T7 真仓阳性对照:账本确已清空,且派生+委托两形态是本仓实际产出的样子', () => {
+  if (parity.EXPECTED_UNWIRED_IN_MCP_SERVER.length !== 0) {
+    throw new Error('欠账账本没清空 ⇒ 所谓"收紧到接线必须齐"只是文案')
+  }
+  const inputs = parity.readInputs(ROOT, 'worktree')
+  const out = parity.judge(inputs)
+  if (out.advertisedKind !== 'delegated') {
+    throw new Error(`mcp_server 未整体委托(=${out.advertisedKind}) ⇒ 六类接线未落地`)
+  }
+  if (out.prose.derived !== true) {
+    throw new Error('schema 声明文字不是派生态 ⇒ 注册表新增一类会静默地不被模型看见')
+  }
+  const proseSource = inputs[PY_MCP]
+  if (/_bg_task_types_prose\s*\(/.test(proseSource) === false) {
+    throw new Error('派生出口在 mcp_server 里不存在(P6 的 derived 判定就成了读不到东西的默认真)')
+  }
+})
+
+test('T8 反向锁:P6 的判据不得在镜像测试里有第二份实现(§22c)', () => {
+  const selfSrc = readFileSync(join(HERE, 'check-background-task-type-parity.test.mjs'), 'utf8')
+  // 本文件只允许喂输入、读结论;出现"支持 X/Y"的解析正则就是复制判据
+  if (/matchAll\(\s*\/\(\?:支持/.test(selfSrc)) {
+    throw new Error('镜像测试里抄了一份 schema 文字解析判据 ⇒ 与源脚本必然漂移(§22c 明令禁止)')
+  }
+  if (!/parseProseWhitelist/.test(Object.keys(parity).join(','))) {
+    throw new Error('__test__ 未导出 parseProseWhitelist ⇒ 测试只能靠复制来验 P6')
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
