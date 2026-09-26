@@ -20,6 +20,14 @@
  * 2026-09-27 为 B1(假删除 ack 判据)补的是 **M14–M16**:CLI 端到端的"存量不红 / 改回字面量必红 /
  * 四数不受顶动",跨文件锁"新豁免族 delete-ack-exempt 必须进守门 108 的存活期表",以及源码锁
  * "B1 的豁免判法与落点取材不得另起第二份实现"。
+ * 同日第二十九批(布尔档键族从单一眼 `deleted` 扩到五键)补的是 **M21–M22**:临时 git 仓端到 CLI 的
+ * "新键写回字面量必红并点名该族 / 补回归零"变异对照,与三条源码级反向锁(键族只有一份真相、
+ * 写动词筛选只许用在 B2 那一侧、decide 仍看不见任何一族键名)。
+ * ⚠️ **M11 那把独立尺子随判据同批扩面** —— 它上一版只量 `deleted` 一族。今天 `17 ≤ 21` 侥幸还成立,
+ * 但第二十六批正在把 `deleted` 那一族往下清:清到 0 的那天,"合计 ≤ deleted 字面量数"与
+ * "字面量为 0 ⇒ V1 必为 0"两条都会把**还活着的新四族**当成混计判红 —— 那就是与任何提交都无关的
+ * 恒红锁,而恒红锁的结局和被删一样(§12e)。现改成**逐键各量各的上界**,比原来的单个合计上界更严、
+ * 不是更松;并把"按键表五键恒在位、且之和等于合计"补成硬条件(否则"少一族"与"那一族是 0"同形)。
  */
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -193,11 +201,14 @@ test('M2b 差值棘轮:存量与索引持平时不拦,加回来才判红(防恒�
       throw new Error(`索引==HEAD 应有 1 处存量,实得 ${same.counts.violations}`)
     if (same.exit !== 0)
       throw new Error(`与改动无关的存量不得判红(唯一结局是逼人 --no-verify),实得 exit ${same.exit}`)
-    // 再加一处同型自算 ⇒ 净新增 1 ⇒ 必须红,且锚点必须是该文件 HEAD 自身计数
+    // 再加一处**同键**同型自算 ⇒ 该文件×该判据×该键 = 2 > 锚点 1 ⇒ 必须红,且锚点必须是
+    // 「该文件 HEAD 自身同一(判据,键)桶的计数」。
+    // 2026-09-27 第二十九批:这里刻意用**同一个键** —— 锚点的粒度已下沉到 ack 键,换成另一族的键
+    // (如 affected)就是"新键从 0 起算"的另一条红路径,那条由 self-test 的 BK1 专门钉。
     put(
       dir,
       REL,
-      `${BAD}\nserver.put(async (request, reply) => {\n  await db.update(table).set({ a: 1 }).where(inArray(table.id, idList2))\n  return reply.send(success({ affected: idList2.length }))\n})\n`,
+      `${BAD}\nserver.put(async (request, reply) => {\n  await db.update(table).set({ a: 1 }).where(inArray(table.id, idList2))\n  return reply.send(success({ deleted: idList2.length }))\n})\n`,
     )
     gitIn(dir, ['add', REL])
     const moreR = run(dir, ['--root', dir, '--staged', '--json'])
@@ -205,7 +216,11 @@ test('M2b 差值棘轮:存量与索引持平时不拦,加回来才判红(防恒�
       throw new Error(`索引 2 > HEAD 1 应判红,实得 exit ${moreR.code}:${moreR.out}`)
     const more = JSON.parse(moreR.out)
     if (!more.ratcheted?.length || more.ratcheted[0].anchor !== 1)
-      throw new Error(`必须报出锚点 = 该文件 HEAD 自身计数:${JSON.stringify(more.ratcheted)}`)
+      throw new Error(`必须报出锚点 = 该文件 HEAD 自身同桶计数:${JSON.stringify(more.ratcheted)}`)
+    if (more.ratcheted[0].key !== 'deleted')
+      throw new Error(
+        `红点必须点名是哪个 ack 键(锚点粒度到键之后,报告说不出键就复核不了):${JSON.stringify(more.ratcheted)}`,
+      )
   } finally {
     rmScratch(dir)
   }
@@ -355,6 +370,17 @@ test('M10 --json 只新增不改动:四个判据数字段与既有形态逐字�
     ])
       if (!Number.isInteger(j.counts[k]) || j.counts[k] < 0)
         throw new Error(`新计数字段 ${k} 缺失或为负:${JSON.stringify(j.counts)}`)
+    // 2026-09-27 追加的按键分组表:五键必须**恒在位**(缺键 = 报表与判据的键表分叉,静默少一族)。
+    const byKey = j.counts.booleanAckByKey
+    if (!byKey || typeof byKey !== 'object')
+      throw new Error(`counts.booleanAckByKey 缺失:${JSON.stringify(byKey)}`)
+    for (const k of ['deleted', 'removed', 'restored', 'revoked', 'cleared'])
+      if (!Number.isInteger(byKey[k]) || byKey[k] < 0)
+        throw new Error(`booleanAckByKey.${k} 缺失或为负(五键恒在位):${JSON.stringify(byKey)}`)
+    if (byKey.deleted !== 1 || byKey.removed !== 0)
+      throw new Error(
+        `夹具只有一处 deleted 那一族(removed 应为 0),实得 ${JSON.stringify(byKey)} —— 既有 booleanAckSites 的语义随键族扩大,但**按键必须分得清是哪一族**`,
+      )
     if (j.counts.booleanAckSites !== 1 || j.counts.booleanAckFiles !== 1)
       throw new Error(
         `夹具那份只有一处布尔 ack,实得 ${j.counts.booleanAckSites}/${j.counts.booleanAckFiles}`,
@@ -438,27 +464,60 @@ test('M11 真仓 HEAD 阳性对照(两把互相独立的尺子,不只量下限)'
     )
   }
   const probe = grepFace('=>')
-  const ackLit = grepFace('deleted[[:space:]]*:[[:space:]]*true')
+  /*
+   * 独立尺子必须与判据**同一次扩面**(2026-09-27 第二十九批)。上一版它只量 `deleted` 一族,
+   * 而判据的键族扩到五键 —— 不改这把尺子,`booleanAckSites > ackLit` 会在**判据完全正确**的那天
+   * 恒红(§12e 同型:恒红锁的结局和被删一样)。改法是"逐键各量各的",不是"把合计放大":
+   * 每个键的上界由它自己的字面量数给出,比原来的单个合计上界**更严**,不是更松。
+   */
+  const ACK_FAMILY = ['deleted', 'removed', 'restored', 'revoked', 'cleared']
+  const ackLitBy = {}
+  for (const k of ACK_FAMILY) ackLitBy[k] = grepFace(`${k}[[:space:]]*:[[:space:]]*true`)
+  const ackLit = ACK_FAMILY.reduce((a, k) => a + ackLitBy[k], 0)
   const countLit = grepFace('count[[:space:]]*:')
   console.log(
-    `    · 现读:布尔 ack ${j.counts.booleanAckSites} 处 / ${j.counts.booleanAckFiles} 文件;读查询 count ${j.counts.readQueryCountSites} 处 / ${j.counts.readQueryCountFiles} 文件;独立尺子:字面量 ${ackLit} / count 键面 ${countLit} / 管道控制 => ${probe}`,
+    `    · 现读:布尔 ack ${j.counts.booleanAckSites} 处 / ${j.counts.booleanAckFiles} 文件` +
+      `(按键 ${ACK_FAMILY.map((k) => `${k}=${j.counts.booleanAckByKey?.[k] ?? '缺'}`).join(' ')});` +
+      `读查询 count ${j.counts.readQueryCountSites} 处 / ${j.counts.readQueryCountFiles} 文件;` +
+      `独立尺子:字面量 ${ackLit}(${ACK_FAMILY.map((k) => `${k}=${ackLitBy[k]}`).join(' ')})/` +
+      ` count 键面 ${countLit} / 管道控制 => ${probe}`,
   )
   if (probe < 1)
     throw new Error(
       `控制测量(覆盖面内 =>)读到 0 ⇒ 第二把尺子的管道或版式漂了,本轮上界与零位对照全部作废`,
     )
+  // 报表漏一族(缺键/为 undefined)在这一点上就地红 —— 静默少一族比数字错更难查。
+  for (const k of ACK_FAMILY)
+    if (!Number.isInteger(j.counts.booleanAckByKey?.[k]))
+      throw new Error(
+        `booleanAckByKey 缺 '${k}' 一族(实得 ${JSON.stringify(j.counts.booleanAckByKey)})⇒ 报表与判据的键表分叉`,
+      )
+  if (ACK_FAMILY.reduce((a, k) => a + j.counts.booleanAckByKey[k], 0) !== j.counts.booleanAckSites)
+    throw new Error(
+      `按键分组之和 ≠ 合计(${ACK_FAMILY.map((k) => j.counts.booleanAckByKey[k]).join('+')} vs ${j.counts.booleanAckSites})⇒ 有两族被并成一族计数`,
+    )
   if (j.counts.booleanAckSites > ackLit)
     throw new Error(
-      `布尔 ack ${j.counts.booleanAckSites} > 覆盖面内字面量 ${ackLit} ⇒ 判据被放宽到"含 deleted 就算"那一型(混计)`,
+      `布尔 ack ${j.counts.booleanAckSites} > 覆盖面内字面量 ${ackLit} ⇒ 判据被放宽到"含键名就算"那一型(混计)`,
     )
+  for (const k of ACK_FAMILY)
+    if (j.counts.booleanAckByKey[k] > ackLitBy[k])
+      throw new Error(
+        `'${k}' 一族报 ${j.counts.booleanAckByKey[k]} > 独立字面量 ${ackLitBy[k]} ⇒ 该族的形态判据被放宽(逐键上界比合计更严,不得退回合计口径)`,
+      )
   if (j.counts.readQueryCountSites > countLit)
     throw new Error(
       `读查询 count ${j.counts.readQueryCountSites} > 覆盖面内 count 键面 ${countLit} ⇒ V2 数到了"键逐字为 count"之外的形状`,
     )
   // 零位对照:字面量真被清干净了,V1/V2 必须跟着归零 —— 还报数就说明它数的是这一族之外的东西。
+  for (const k of ACK_FAMILY)
+    if (ackLitBy[k] === 0 && j.counts.booleanAckByKey[k] !== 0)
+      throw new Error(
+        `覆盖面内 '${k}' 字面量已为 0,而按键报表报 ${j.counts.booleanAckByKey[k]} ⇒ 两把尺子对不上账`,
+      )
   if (ackLit === 0 && j.counts.booleanAckSites !== 0)
     throw new Error(
-      `覆盖面内 deleted:true 字面量已为 0,而 V1 报 ${j.counts.booleanAckSites} ⇒ 两把尺子对不上账`,
+      `覆盖面内布尔 ack 字面量已为 0,而 V1 报 ${j.counts.booleanAckSites} ⇒ 两把尺子对不上账`,
     )
   if (countLit === 0 && j.counts.readQueryCountSites !== 0)
     throw new Error(
@@ -536,15 +595,21 @@ test('M14 B1 端到面:存量在 HEAD 默认只报数、--strict 问责;提交�
     writeRepo(d1, { body: B1BAD })
     const def = parse(run(d1, ['--root', d1, '--json']))
     if (def.code !== 0)
-      throw new Error(`HEAD 有 B1 存量时默认档必须 0(恒红门唯一结局是逼人 --no-verify),实得 ${def.code}`)
+      throw new Error(
+        `HEAD 有 B1 存量时默认档必须 0(恒红门唯一结局是逼人 --no-verify),实得 ${def.code}`,
+      )
     if (def.j.counts.b1Violations !== 1)
       throw new Error(`夹具那份必须被 B1 现读到 1 处,实得 ${def.j.counts.b1Violations}`)
     for (const k of ['candidates', 'violations', 'undetermined', 'exempt'])
       if (def.j.counts[k] !== 0)
-        throw new Error(`B1 不得顶动既有四数的 ${k}(应 0,实得 ${def.j.counts[k]})—— 两判据各计各的账`)
+        throw new Error(
+          `B1 不得顶动既有四数的 ${k}(应 0,实得 ${def.j.counts[k]})—— 两判据各计各的账`,
+        )
     const strict = run(d1, ['--root', d1, '--strict', '--json'])
     if (strict.code !== 1)
-      throw new Error(`--strict 下 B1 存量必须判红(它是判据不是惯例数,与 X1 对惯例计数的要求相反),实得 ${strict.code}`)
+      throw new Error(
+        `--strict 下 B1 存量必须判红(它是判据不是惯例数,与 X1 对惯例计数的要求相反),实得 ${strict.code}`,
+      )
   } finally {
     rmScratch(d1)
   }
@@ -556,7 +621,9 @@ test('M14 B1 端到面:存量在 HEAD 默认只报数、--strict 问责;提交�
     gitIn(d2, ['add', REL])
     const r = parse(run(d2, ['--root', d2, '--staged', '--json']))
     if (r.code !== 1)
-      throw new Error(`把已改真的点改回字面量 true 必须 exit 1(用户拍板改真实语义后这是净新增),实得 ${r.code}`)
+      throw new Error(
+        `把已改真的点改回字面量 true 必须 exit 1(用户拍板改真实语义后这是净新增),实得 ${r.code}`,
+      )
     const b1 = (r.j.ratcheted || []).filter((x) => x.kind === 'b1')
     if (b1.length !== 1 || b1[0].anchor !== 0 || b1[0].now !== 1)
       throw new Error(`必须恰有一条 kind=b1、锚点 0、现值 1:${JSON.stringify(r.j.ratcheted)}`)
@@ -576,7 +643,9 @@ test('M15 跨文件锁:B1 的豁免族必须登记进守门 108 的 FAMILY_LIFET
       'delete-ack-exempt 没进存活期表 ⇒ 它会走 90 天默认档:迁移债被登记成半永久豁免,正是"豁免只有出生没有死亡"那一型',
     )
   if (m[1] !== '30')
-    throw new Error(`delete-ack-exempt 的存活期必须是 30 天(待偿迁移债,理由写在表旁注释),实得 ${m[1]}`)
+    throw new Error(
+      `delete-ack-exempt 的存活期必须是 30 天(待偿迁移债,理由写在表旁注释),实得 ${m[1]}`,
+    )
 })
 
 /**
@@ -610,9 +679,12 @@ test('M17 真仓 HEAD 变异对照:摘掉委托腿的 .returning( 必被 B2 点�
   // 那等于改了另一个函数却让本条对照以为自己改了这一个 —— 对照就退化成恒绿)。
   const base = T.indexExportedFns(T.maskText(calleeSrc).text)
   const fn = base.byName.get(FN)
-  if (!fn) throw new Error(`HEAD 的 ${CALLEE} 里没有函数形态导出 ${FN} ⇒ 夹具失去依据,先核对再改本条`)
+  if (!fn)
+    throw new Error(`HEAD 的 ${CALLEE} 里没有函数形态导出 ${FN} ⇒ 夹具失去依据,先核对再改本条`)
   if (!/\.returning\s*\(/.test(fn.bodyText))
-    throw new Error(`${CALLEE}#${FN} 的函数体里没有 .returning( ⇒ 它不再是"已入库的正确形态"样本,本条对照失效`)
+    throw new Error(
+      `${CALLEE}#${FN} 的函数体里没有 .returning( ⇒ 它不再是"已入库的正确形态"样本,本条对照失效`,
+    )
   // ① 现读的 HEAD:委托腿已带 .returning( ⇒ B2 必须判放过、违规 0。
   const asIs = judge(new Map([[CALLEE, base]]))
   if (asIs.v.length !== 0)
@@ -628,11 +700,14 @@ test('M17 真仓 HEAD 变异对照:摘掉委托腿的 .returning( 必被 B2 点�
   stripped.set(FN, { bodyText: fn.bodyText.replace(/\.returning\s*\([^)]*\)/, '') })
   const after = judge(new Map([[CALLEE, { ...base, byName: stripped }]]))
   if (after.v.length !== 1)
-    throw new Error(`摘掉 .returning( 后必须恰被点名 1 处,实得 ${after.v.length}(${after.v.join(' ')})`)
+    throw new Error(
+      `摘掉 .returning( 后必须恰被点名 1 处,实得 ${after.v.length}(${after.v.join(' ')})`,
+    )
   if (!after.v[0].includes('admin-agreements.ts') || !after.v[0].endsWith(`→${FN}`))
     throw new Error(`违规必须点名调用方与这一个委托函数,实得 ${after.v[0]}`)
   // ③ 还原 ⇒ 归零(证明②的红是那一次改动造成的,不是判据恒红)。
-  if (judge(new Map([[CALLEE, base]])).v.length !== 0) throw new Error('还原后仍判红 ⇒ 判据与变异无关,是恒红')
+  if (judge(new Map([[CALLEE, base]])).v.length !== 0)
+    throw new Error('还原后仍判红 ⇒ 判据与变异无关,是恒红')
 })
 
 test('M18 --json 只追加五个 b2* 键且既有键形态逐字不变;真仓结论行必须现读点名 B2', () => {
@@ -741,11 +816,113 @@ test('M16 反向锁:B1 的豁免判法与 ack 落点取材不得各写第二份�
   // ① 豁免通道必须复用 readExemptMarker(只换 token),而不是自己再解一次"须带原因/须在注释里";
   //    ② ack 落点必须来自 findBooleanAckSends(或其入参注入),BOOL_ACK_RE 的 .exec 全源只许一次。
   if (!/readExemptMarker\([^)]*DELETE_ACK_EXEMPT_TOKEN/.test(SRC))
-    throw new Error('B1 没有走共享的 readExemptMarker(换 token 不换实现)⇒ 两条豁免通道的宽严会各自漂移')
+    throw new Error(
+      'B1 没有走共享的 readExemptMarker(换 token 不换实现)⇒ 两条豁免通道的宽严会各自漂移',
+    )
   const execs = SRC.match(/BOOL_ACK_RE\.exec/g) || []
   if (execs.length !== 1)
     throw new Error(`布尔 ack 的形态正则被执行 ${execs.length} 次(应为 1)⇒ V1 与 B1 各扫一遍必漂移`)
   if (!/for \(const b of ackSites \|\| findBooleanAckSends\(code\)\)/.test(SRC))
     throw new Error('findBoolAckB1Sites 必须优先吃调用方传入的落点清单(scanFileText 只扫一遍)')
+})
+
+/**
+ * 2026-09-27 第二十九批(键族扩面)补的两例。要各自证明的东西不同,不混在一条里:
+ *  M21 **临时 git 仓端到 CLI** 的变异对照:把一处"已按新键族诚实"的端点写回布尔字面量 ⇒ --staged
+ *      必读红、必须点名 kind=b1、判红块必须现读出是 `removed` 那一族;补回 ⇒ 归零。
+ *      这一例同时是"扩键族不是只扩报表"的装车证明 —— K 段那条构造面用例只能证明函数会给答案,
+ *      "有人问它(而且是走差值棘轮而不是 --strict)"只能这样跑一遍。
+ *  M22 源码级反向锁:键族只许一份真相(报表/正则都派生自 BOOL_ACK_KEYS,下游不得再抄硬编码名单)、
+ *      动词筛选只许出现在 B2 那一侧(B1 若被筛,`deleted` 一族既有判据就被悄悄削弱)、
+ *      decide 仍看不见任何一族键名(扩面不得把惯例计数接进退出码)。
+ */
+const REMOVED_HONEST = [
+  'server.delete(basePath, async (request, reply) => {',
+  '  await db.delete(table).where(eq(table.id, id))',
+  '  return reply.send(success({ id, removed: rows.length > 0 }))',
+  '})',
+  '',
+].join('\n')
+const REMOVED_LIED = [
+  'server.delete(basePath, async (request, reply) => {',
+  '  await db.delete(table).where(eq(table.id, id))',
+  '  return reply.send(success({ id, removed: true }))',
+  '})',
+  '',
+].join('\n')
+
+test('M21 端到面变异(新键族):把 removed 那一处诚实端点写回布尔字面量 ⇒ 差值棘轮必红并点名该族;补回归零', () => {
+  const dir = mkScratch('bch-removed-')
+  try {
+    writeRepo(dir, { body: REMOVED_HONEST })
+    // ① HEAD 就是诚实那份:新键族在 HEAD 面不得有违规(有就是恒红门,唯一结局是逼人 --no-verify)。
+    const clean = parse(run(dir, ['--root', dir, '--json']))
+    if (clean.code !== 0 || clean.j.counts.b1Violations !== 0)
+      throw new Error(
+        `诚实形状不得被 B1 判红(实得 exit ${clean.code} / b1Violations ${clean.j.counts.b1Violations})⇒ 门不认自己产出的形态`,
+      )
+    if (clean.j.counts.booleanAckByKey?.removed !== 0)
+      throw new Error(
+        `诚实形状连惯例面都不该数到(实得 ${JSON.stringify(clean.j.counts.booleanAckByKey)})`,
+      )
+    // ② 索引写回字面量 ⇒ 净新增 1 > 锚点 0,必须红,且红点必须说是哪一族。
+    put(dir, REL, REMOVED_LIED)
+    gitIn(dir, ['add', REL])
+    const bad = parse(run(dir, ['--root', dir, '--staged', '--json']))
+    if (bad.code !== 1) throw new Error(`写回布尔字面量必须 exit 1,实得 ${bad.code}:${bad.out}`)
+    const hits = (bad.j.ratcheted || []).filter((x) => x.kind === 'b1')
+    if (hits.length !== 1 || hits[0].anchor !== 0 || hits[0].now !== 1)
+      throw new Error(`必须恰有一条 kind=b1、锚点 0、现值 1:${JSON.stringify(bad.j.ratcheted)}`)
+    if (!bad.j.b1Violations?.[0] || bad.j.b1Violations[0].key !== 'removed')
+      throw new Error(
+        `违规落点必须带键名 removed(实得 ${JSON.stringify(bad.j.b1Violations)})⇒ 扩了键族却说不清红在哪一族,等于没扩`,
+      )
+    const rep = run(dir, ['--root', dir, '--staged'])
+    if (!/removed/.test(rep.out) || !/\[B1假ack\]/.test(rep.out))
+      throw new Error(`判红报告必须现读出族名与 kind:${rep.out}`)
+    // ③ 补回 ⇒ 归零(证明②的红是那一次改动造成的,不是判据恒红)。
+    put(dir, REL, REMOVED_HONEST)
+    gitIn(dir, ['add', REL])
+    const back = run(dir, ['--root', dir, '--staged', '--json'])
+    if (back.code !== 0)
+      throw new Error(`补回诚实形状后必须归零,实得 exit ${back.code}:${back.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('M22 反向锁:键族只有一份真相、动词筛选只在 B2 那一侧、decide 仍看不见任何一族键名', () => {
+  // ① 判据正则与按键分组的报表都必须派生自 BOOL_ACK_KEYS(下游再抄一份硬编码名单就是第二真相)。
+  const uses = (SRC.match(/BOOL_ACK_KEYS/g) || []).length
+  if (uses < 5)
+    throw new Error(
+      `BOOL_ACK_KEYS 只被引用 ${uses} 次 ⇒ 报表/正则里有人手抄了键名单,削短键表不会有人喊`,
+    )
+  if (!/new RegExp\(`\[\{,\][^`]*\$\{BOOL_ACK_KEYS\.join/.test(SRC))
+    throw new Error(
+      '布尔档的形态正则没有从 BOOL_ACK_KEYS 派生 ⇒ 键表与判据会各自漂移(换键即隐身那一型)',
+    )
+  if (!/booleanAckByKey:\s*Object\.fromEntries\(BOOL_ACK_KEYS\.map/.test(SRC))
+    throw new Error('按键分组的报表没有从 BOOL_ACK_KEYS 派生 ⇒ 少一族会静默变成"那一族是 0"')
+  // ② 聚合也必须走同一张表(否则新那一族的数根本进不了 counts)。
+  if (!/for \(const k of BOOL_ACK_KEYS\) acc\[k\] \+=/.test(SRC))
+    throw new Error('按键分组的全仓聚合没有遍历 BOOL_ACK_KEYS ⇒ 新那一族进不了账,报表与判据分叉')
+  // ③ 动词筛选只许用在 B2 的被调体:B1 若也筛,"同体内 update 链 + deleted 档"就漏判(削弱既有键族)。
+  const b1Body = /export function findBoolAckB1Sites\([\s\S]*?\n\}/.exec(SRC)
+  if (!b1Body) throw new Error('findBoolAckB1Sites 找不到 ⇒ 无法验证 B1 是否被动词筛选削弱')
+  if (/BOOL_ACK_KEY_VERBS/.test(b1Body[0]))
+    throw new Error(
+      'B1 用了 BOOL_ACK_KEY_VERBS ⇒ 对既有 deleted 一族是**放宽**(体内 update 链不再算罪证);动词筛选是给 B2 的被调体用的,不得搬过来',
+    )
+  const classify = /function classifyCalleeBody\([\s\S]*?\n\}/.exec(SRC)
+  if (!classify || !/BOOL_ACK_KEY_VERBS\[/.test(classify[0]))
+    throw new Error(
+      'classifyCalleeBody 没有按 ack 键筛写动词 ⇒ 委托体做两件写事的诚实形状会被误判红',
+    )
+  // ④ decide 仍不得看见任何一族键名(扩面不得把惯例计数接进退出码)。
+  const d = /export function decide\([\s\S]*?\n\}/.exec(SRC)
+  if (!d) throw new Error('decide 找不到')
+  if (/BOOL_ACK|booleanAckByKey|removed|revoked|cleared/.test(d[0]))
+    throw new Error('decide 里出现了键族标识符 ⇒ 惯例面被接进了退出码,扩面当天就会变成恒红门(§12e)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
