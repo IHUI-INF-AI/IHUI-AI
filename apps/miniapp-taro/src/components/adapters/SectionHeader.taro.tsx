@@ -6,6 +6,13 @@ import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import type { CSSProperties, ReactNode } from 'react'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import {
+  SECTION_HEADER_ARROW_MARGIN_LEFT_PX,
+  SECTION_HEADER_MORE_MARGIN_LEFT_PX,
+  SECTION_HEADER_SUBTITLE_FONT_PX,
+  SECTION_HEADER_SUBTITLE_GAP_PX,
+  SECTION_HEADER_TITLE_FONT_PX,
+} from '@ihui/shared/ui/section-header-spec'
 import { useAppTheme } from '@/lib/theme'
 import LineIcon from '@/components/LineIcon'
 import type { TFunction } from '@ihui/types'
@@ -36,8 +43,9 @@ export interface SectionHeaderProps {
   t?: TFunction
 }
 
-const SUBTITLE_GAP = 8
 const DEFAULT_FALLBACK = t('common.more')
+/// 标题区字号/间距唯一源在 @ihui/shared/ui/section-header-spec(与 packages/app 的 RN 实现同表)。
+/// 「更多」文字 12 是 §4 定档(MoreLink 单源),不在本表重复。
 
 /** 容器样式(独立函数避免联合类型) */
 const containerStyle = (): CSSProperties => ({
@@ -50,7 +58,7 @@ const containerStyle = (): CSSProperties => ({
 /** 文本样式集中管理(避免 style 联合类型) */
 const textStyles = {
   title: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: 14,
+    fontSize: SECTION_HEADER_TITLE_FONT_PX,
     fontWeight: 700,
     color: tk.text.primary,
     overflow: 'hidden',
@@ -58,14 +66,15 @@ const textStyles = {
     whiteSpace: 'nowrap',
   }),
   subtitle: (tk: RnThemeTokens): CSSProperties => ({
-    marginLeft: SUBTITLE_GAP,
-    fontSize: 12,
+    marginLeft: SECTION_HEADER_SUBTITLE_GAP_PX,
+    fontSize: SECTION_HEADER_SUBTITLE_FONT_PX,
     color: tk.text.secondary,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   }),
   moreLabel: (tk: RnThemeTokens): CSSProperties => ({
+    // 「更多」文字 12 = §4 定档(MoreLink 单源),不重复登记
     fontSize: 12,
     color: tk.text.secondary,
   }),
@@ -103,11 +112,11 @@ export function SectionHeader({
   // Taro 端样式:把 px 转为 rpx 字符串(weapp-taitwindcss 在编译时也能识别 number)
   const titleStyle: CSSProperties = {
     ...textStyles.title(tk),
-    fontSize: toRpx(14),
+    fontSize: toRpx(SECTION_HEADER_TITLE_FONT_PX),
   }
   const subtitleStyle: CSSProperties = {
     ...textStyles.subtitle(tk),
-    fontSize: toRpx(12),
+    fontSize: toRpx(SECTION_HEADER_SUBTITLE_FONT_PX),
   }
   const moreLabelStyle: CSSProperties = {
     ...textStyles.moreLabel(tk),
@@ -128,7 +137,7 @@ export function SectionHeader({
             style={{
               display: 'flex',
               alignItems: 'center',
-              marginLeft: toRpx(8),
+              marginLeft: toRpx(SECTION_HEADER_MORE_MARGIN_LEFT_PX),
               cursor: onMore ? 'pointer' : 'default',
             }}
             hoverClass="opacity-60"
@@ -138,7 +147,7 @@ export function SectionHeader({
               name="chevron-right"
               size={24}
               color={tk.text.secondary}
-              style={{ marginLeft: toRpx(2) }}
+              style={{ marginLeft: toRpx(SECTION_HEADER_ARROW_MARGIN_LEFT_PX) }}
             />
           </View>
         ) : null}

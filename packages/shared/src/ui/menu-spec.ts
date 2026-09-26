@@ -32,6 +32,12 @@ export const MENU_LABEL_GAP_PX = 8
 /** 单格上下留白 8:小程序 `py-2` = 8 vs RN `paddingVertical: 10` —— 取紧凑档(AGENTS.md §4 compact)。 */
 export const MENU_ITEM_PADDING_Y_PX = 8
 
+/**
+ * 网格容器整块上下留白 8:此前 RN `paddingVertical: 8` 是端内独有一档、小程序网格容器无整块留白。
+ * 规则 2「间距取两端较大者」→ 定 8 并两端的网格容器同取,不再一端有档一端没有。
+ */
+export const MENU_CONTAINER_PADDING_PX = 8
+
 /** 图块盒子:方档 + 居中(兜底位要在 40×40 里把 emoji 排正),居中原语只在这一处。 */
 export function menuTileStyle<U extends string | number>(
   toUnit: GeometryUnit<U>,
