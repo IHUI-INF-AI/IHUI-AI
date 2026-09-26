@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, Info, Zap, MessageCircle, X, Wand2 } from 'lucide-react'
+import { Send, Square, Info, Zap, MessageCircle, X, Wand2, ListFilter } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -19,6 +19,20 @@ import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
+// D68 统一多源建议面板(2026-09-26):六源聚合 + 逐源来源标注 + 部分失败三句降级 +
+// 粘贴引用有效性预览;"旧三浮层入口不回归"为硬验收,FileMentionPopover /
+// ContextSelectorPopover / SlashCommandPalette 的挂载与触发一律原样保留。
+import {
+  UnifiedSuggestionPanel,
+  UnifiedPasteReferencePreview,
+} from '@/components/chat/unified-suggestion-panel'
+import {
+  capReferences,
+  previewPastedReferences,
+  type PastedReferencePreview,
+  type UnifiedSuggestionItem,
+} from '@/components/chat/unified-suggestion-sources'
+import { useUnifiedSuggestions } from '@/hooks/use-unified-suggestions'
 import { WebInputCore, MAX_LENGTH, type WebInputCoreHandle } from './web-input-core'
 import {
   PermissionModePopover,
@@ -269,6 +283,12 @@ export function MessageInput({
   }, [value])
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
+  // D68 统一多源建议面板:单一聚合入口(工具栏按钮),旧三浮层入口原样保留不回归。
+  const tSuggest = useTranslations('unifiedSuggestion')
+  const [unifiedOpen, setUnifiedOpen] = React.useState(false)
+  const [unifiedCapRejected, setUnifiedCapRejected] = React.useState(false)
+  const [pastedRefPreviews, setPastedRefPreviews] = React.useState<PastedReferencePreview[]>([])
+  const unifiedAddedIdsRef = React.useRef<Set<string>>(new Set())
   // W20 九类 # 上下文选择器(2026-09-14 立,对标 Trae):
   // - 正文行首/空格后 `#` 触发浮层(open 状态由 value 派生,见 use-context-selector.ts)
   // - 选中类目 → 正文尾部 `#query` 替换为类目 token(如 `#Problems `)随消息发送
@@ -382,7 +402,20 @@ export function MessageInput({
   })
   // AI Skills 列表 + @ 提及文件列表:懒加载逻辑已提取到 use-lazy-resource-hooks(2026-07-30)
   const { aiSkills, skillsLoading } = useAiSkills(slashOpen)
-  const { mentionFiles } = useMentionFiles(mentionOpen)
+  const { mentionFiles } = useMentionFiles(mentionOpen || unifiedOpen)
+  // D68:把 @ 提及文件映射为建议面板 file 源条目(复用 useMentionFiles 懒加载链,
+  // 不新建第二条取数出口;provenance 取 file 源默认档 userRemote —— 文件经服务端资产库)
+  const unifiedFileItems = React.useMemo<UnifiedSuggestionItem[]>(
+    () =>
+      mentionFiles.map((f) => ({
+        id: `file:${f.id}`,
+        source: 'file' as const,
+        label: f.name,
+        detail: f.path,
+      })),
+    [mentionFiles],
+  )
+  const unifiedSuggestions = useUnifiedSuggestions(unifiedOpen, unifiedFileItems)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   // 输入区容器锚点:FileMentionPopover 的 PortalPanel 以它做定位(2026-09-15 对齐浮层收敛契约)
   const inputAreaRef = React.useRef<HTMLDivElement>(null)
@@ -642,6 +675,45 @@ export function MessageInput({
       inputCoreRef.current?.focus()
       inputCoreRef.current?.resize()
     })
+  }
+
+  // D68 建议面板选中:引用上限判定(拒收必须可见回显,不静默丢)+ 按源插入形态。
+  // file → 反引号 path(与 @ 提及既有插入同形态);skill → /skill 模板(与斜杠面板同形态);
+  // 其余源 → 反引号 label 引用标签。引用标签只是上下文引用,不新增执行授权
+  // (面板底部有可见声明,见 unified-suggestion-panel.tsx)。
+  const handleUnifiedSelect = (item: UnifiedSuggestionItem) => {
+    const { kept, rejected } = capReferences(unifiedAddedIdsRef.current.size, [item])
+    if (rejected.length > 0) {
+      setUnifiedCapRejected(true)
+      return
+    }
+    setUnifiedCapRejected(false)
+    for (const k of kept) unifiedAddedIdsRef.current.add(k.id)
+    const snippet =
+      item.source === 'skill'
+        ? `/skill ${item.label} `
+        : `\`${item.source === 'file' ? (item.detail ?? item.label) : item.label}\` `
+    setValue((prev) => {
+      const merged = prev && !prev.endsWith(' ') ? `${prev} ${snippet}` : `${prev}${snippet}`
+      return merged.slice(0, MAX_LENGTH)
+    })
+    setUnifiedOpen(false)
+    requestAnimationFrame(() => {
+      inputCoreRef.current?.focus()
+      inputCoreRef.current?.resize()
+    })
+  }
+
+  // D68 粘贴引用有效性预览:在既有 handlePaste 之前把剪贴板文本里的 @token / 反引号
+  // path 与当前已知文件集比对,结果可见呈现在输入区上方(可关闭);粘贴行为本身零变更。
+  const handlePasteWithReferencePreview = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const text = e.clipboardData?.getData('text') ?? ''
+    const previews = previewPastedReferences(text, {
+      paths: mentionFiles.map((f) => f.path),
+      labels: mentionFiles.map((f) => f.name),
+    })
+    if (previews.length > 0) setPastedRefPreviews(previews)
+    handlePaste(e)
   }
 
   const fillInput = (text: string) => {
@@ -999,6 +1071,11 @@ export function MessageInput({
           }
           onInterruptAndRun={handleInterruptAndRun}
         />
+        {/* D68 粘贴引用有效性预览条(可见、可关闭;无可预览引用时不渲染不占位) */}
+        <UnifiedPasteReferencePreview
+          previews={pastedRefPreviews}
+          onDismiss={() => setPastedRefPreviews([])}
+        />
         <div ref={inputAreaRef} className="relative">
           <FileMentionPopover
             files={mentionFiles}
@@ -1016,6 +1093,17 @@ export function MessageInput({
             anchorRef={inputAreaRef}
             onHover={contextSelector.setActiveIndex}
             onSelect={contextSelector.select}
+          />
+          {/* D68 统一多源建议面板:六源(任务/技能/插件/连接器/Agent/文件)聚合为单一建议面。
+              上方 @ / # / 斜杠 三个旧浮层挂载一律保留(硬验收「旧三浮层入口不回归」)。 */}
+          <UnifiedSuggestionPanel
+            open={unifiedOpen}
+            anchorRef={inputAreaRef}
+            onClose={() => setUnifiedOpen(false)}
+            states={unifiedSuggestions.states}
+            onSelect={handleUnifiedSelect}
+            onRetry={unifiedSuggestions.retry}
+            capRejected={unifiedCapRejected}
           />
           {/* 极简风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
               高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告
@@ -1219,7 +1307,7 @@ export function MessageInput({
               stopLabel={stopLabel}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
+              onPaste={handlePasteWithReferencePreview}
             />
             {/* 底部工具栏:左侧 / @ 触发按钮,右侧 ContextUsageRing + ModelSelector + VoiceInput
                 + 流式指示(发送/停止按钮已上移至 WebInputCore)
@@ -1261,6 +1349,26 @@ export function MessageInput({
                   }}
                 />
               </SlashCommandPalette>
+              {/* D68 统一多源建议面板入口(2026-09-26):单一聚合建议面的开关按钮。
+                  不新增全局快捷键(守门 69 声明与归属对账),复用面板内 ↑↓/Enter/ESC 键位。 */}
+              <button
+                type="button"
+                aria-label={tSuggest('title')}
+                data-testid="unified-suggestion-entry"
+                aria-haspopup="dialog"
+                aria-expanded={unifiedOpen}
+                data-state={unifiedOpen ? 'open' : 'closed'}
+                disabled={isStreaming}
+                onClick={() => setUnifiedOpen((o) => !o)}
+                className={cn(
+                  'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none',
+                  'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                )}
+              >
+                <ListFilter className="h-3.5 w-3.5 shrink-0" />
+                <span className="min-w-0 truncate">{tSuggest('title')}</span>
+              </button>
               {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
                   与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
               <ModeSwitcher disabled={isStreaming} />
