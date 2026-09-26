@@ -1,0 +1,9 @@
+{
+  "$schemaNote": "本清单是守门 99(check-staged-deletions)的显式豁免面。每条必须写 reason —— 没有理由的条目等于把'删除'伪装成'已核实'。",
+  "paths": [
+    {
+      "path": "apps/miniapp-taro/src/components/PageLoading.tsx",
+      "reason": "唯一引用方 apps/miniapp-taro/scripts/i18n-migration/codemod-i18n-10.py:23 是一条**已完成使命的一次性 codemod 的规则表项**,不构成在役依赖:该脚本 SRC 指向 `G:/IHUI-AI/apps/miniapp-taro/src`,此路径本机不存在(实测 fs.existsSync=false)⇒ 脚本根本不可执行;同目录 18 个迁移脚本对 `git grep -l i18n-migration`(排除自身目录)零命中 ⇒ 无任何在役调用方;其 RULES 里多个目标文件早于本枚就不存在。被删件自身的存续性已由守门 99 另一条证据排除:全仓 6642 个非测试文件按 import/barrel/JSX 三形态解析后消费者为 0(阳性对照 BackChevron=5、CategoryBar=8、NavBar=5 均 >0,证明尺子有效)。该件的语言包键 tail.8 与其同批删除。⇒ 该 codemod 的归档清理另计,不以本条豁免为终点。"
+    }
+  ]
+}
