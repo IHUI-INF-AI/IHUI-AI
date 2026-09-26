@@ -269,7 +269,7 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
       }
       const deleted = await deleteWatch(parsed.data.id, parsed.data.userId)
       if (!deleted) return reply.status(404).send(error(404, '浏览记录不存在'))
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      return reply.send(success({ id: parsed.data.id, deleted }))
     },
   )
 
