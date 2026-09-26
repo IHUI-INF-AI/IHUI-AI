@@ -10,7 +10,13 @@ import { useState, useCallback, useEffect } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import type { CSSProperties } from 'react'
 import voiceRecorder from '@/utils/voice-recorder'
-import { cn, rnRadius } from '@ihui/design-tokens'
+import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+// 放大钮内缩 / 语音钮间距 —— 唯一源在 @ihui/shared/ui/input-area-spec(与 RN 端同档);
+// 本文件只做 rpx 换算。两侧的同族裸 6 必须同枚提交进 spec,漏一侧就是台账 +1(上一轮的 23→24)。
+import {
+  INPUT_AREA_FANGDA_TOP_PX,
+  INPUT_AREA_VOICE_BTN_GAP_PX,
+} from '@ihui/shared/ui/input-area-spec'
 // ai-home 模式图标(对齐原项目 InputArea.vue):
 // search-hua(文字模式切语音)/ input_qie(语音模式切文字)/ search-add(附件)/ sand_msg(发送)
 const searchHuaPng = aizhsUrl('remote-images/search-hua.png')
@@ -480,7 +486,8 @@ export default function InputArea({
                   display: 'flex',
                   alignItems: 'center',
                   flex: 'none',
-                  marginRight: mode === 'voice' ? '0' : rpx(20),
+                  marginRight:
+                    mode === 'voice' ? '0' : rpx(INPUT_AREA_VOICE_BTN_GAP_PX * TARO_RPX_PER_PX),
                 }}
                 onClick={toggleMode}
                 hoverClass="opacity-60"
@@ -564,7 +571,7 @@ export default function InputArea({
                     position: 'absolute',
                     justifyContent: 'flex-end',
                     right: 0,
-                    top: rpx(12),
+                    top: rpx(INPUT_AREA_FANGDA_TOP_PX * TARO_RPX_PER_PX),
                     width: rpx(40),
                     height: rpx(40),
                     zIndex: 2,
@@ -591,7 +598,7 @@ export default function InputArea({
                     position: 'absolute',
                     justifyContent: 'flex-end',
                     right: 0,
-                    top: rpx(12),
+                    top: rpx(INPUT_AREA_FANGDA_TOP_PX * TARO_RPX_PER_PX),
                     width: rpx(40),
                     height: rpx(40),
                     zIndex: 2,
