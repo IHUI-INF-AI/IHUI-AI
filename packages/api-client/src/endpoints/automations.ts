@@ -7,7 +7,7 @@
  * 创建定时任务 → 服务端调度器到点自动执行 agent → 查看结果/暂停/恢复/立即运行/删除。
  */
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** 自动化计划类型:once=一次性定时;recurring=按 rrule 重复 */
 export type AutomationScheduleType = 'once' | 'recurring'

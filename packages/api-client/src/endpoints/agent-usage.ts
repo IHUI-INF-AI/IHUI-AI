@@ -10,7 +10,7 @@
  * 数据源:agent checkpoint 按轮估算(字符数/4),缺失时降级 _trace_store;
  * 响应为裸 JSON(code===undefined 由 fetchApi 归一化为 data)。
  */
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** 单轮用量条目(后端 checkpoint/trace 逐轮估算) */
 export interface AgentTokenUsageItem {

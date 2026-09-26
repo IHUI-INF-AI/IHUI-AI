@@ -19,7 +19,7 @@ import type {
   ImPlatform,
   ImPlatformMeta,
 } from '@ihui/types'
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** 消息历史分页响应(GET /api/im-gateway/messages) */
 export interface ImMessageHistoryPage {

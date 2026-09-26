@@ -14,7 +14,7 @@
 
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi, fetchRaw } from '../client'
+import { fetchApi, fetchRaw } from '../client.js'
 
 // =============================================================================
 // 账号管理

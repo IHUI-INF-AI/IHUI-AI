@@ -15,7 +15,7 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 // =============================================================================
 // Types

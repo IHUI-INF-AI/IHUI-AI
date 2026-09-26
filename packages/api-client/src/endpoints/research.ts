@@ -10,7 +10,7 @@
  *   GET  /api/research/{research_id} → 研究进度 + 中间产物 + 终态报告(裸 JSON)
  * 字段契约对齐 services/deep_research.py ResearchReport.to_dict()(snake_case)。
  */
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** 来源引用(SourceRef):统一 URL 去重锚点,含来源分级与可信度标注 */
 export interface ResearchSourceRef {

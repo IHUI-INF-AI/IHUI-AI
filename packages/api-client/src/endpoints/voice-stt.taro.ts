@@ -24,8 +24,8 @@
  * 响应:{ text: string, stub: boolean, model: string }
  */
 
-import type { VoiceSttResponse } from './voice-stt'
-import { VoiceSttHttpError } from './voice-stt'
+import type { VoiceSttResponse } from './voice-stt.js'
+import { VoiceSttHttpError } from './voice-stt.js'
 
 /** ai-service 基础 URL(与 web 端 voice-input.tsx 保持一致)。 */
 const DEFAULT_AI_SERVICE_URL =
