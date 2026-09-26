@@ -47,12 +47,23 @@ export function selfTest(ctx) {
     return a.includes('127.0.0.1') && a.includes('54320')
   })(), '')
 
-  // S2 data dir 落点判据
-  rec('S2a 拒 C:\\temp\\ihui-rls', rejects(() => assertDataDirAllowed('C:\\temp\\ihui-rls')) !== null, '')
-  rec('S2b 拒 C:\\ihui-rls(盘根下一层)', rejects(() => assertDataDirAllowed('C:\\ihui-rls')) !== null, '')
+  // S2 data dir 落点判据。**两面都要有断言,不得整块按平台 skip** —— 整块 skip 就是"把没判写成判过了"。
+  const IS_WIN = process.platform === 'win32'
   rec('S2c 拒家目录', rejects(() => assertDataDirAllowed(join(process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\x', '.ihui-rls'))) !== null, '')
   rec('S2d 收仓库内 .ihui-agent/tmp/**', rejects(() => assertDataDirAllowed(join(ctx.repoRoot, '.ihui-agent', 'tmp', 'o13-cluster', 'data'))) === null, '')
-  rec('S2e 收同盘 DevEnv\\Temp\\**', rejects(() => assertDataDirAllowed(`${ctx.driveOf(ctx.repoRoot)}:\\DevEnv\\Temp\\ihui-rls`)) === null, '')
+  if (IS_WIN) {
+    // 三条禁止路径各自命中**不同**的分支 —— 混成一句"都不许"就看不见哪一支失效了,所以逐条判原因。
+    rec('S2a 拒 C:\\temp\\ihui-rls', /temp/.test(rejects(() => assertDataDirAllowed('C:\\temp\\ihui-rls')) || ''), '')
+    rec('S2b 拒 C:\\ihui-rls(盘根下一层 = 第五个落点)', /落点/.test(rejects(() => assertDataDirAllowed('C:\\ihui-rls')) || ''), '')
+    rec('S2e 收同盘 DevEnv\\Temp\\**', rejects(() => assertDataDirAllowed(`${ctx.driveOf(ctx.repoRoot)}:\\DevEnv\\Temp\\ihui-rls`)) === null, '')
+  } else {
+    // POSIX 上没有盘符,上面三条的形状会先被 resolve() 折成"仓库里一个带反斜杠的相对路径",
+    // 于是判到的分支根本不是它要判的那一条(CI 上就是这么把"家目录"读成"temp"禁令命中的)。
+    // 换成 POSIX 真实形状,并保住同一设计意图:两个允许落点之外的地方一律拒。
+    rec('S2a-posix 拒 /tmp/ihui-rls(系统临时目录不是允许落点)', /不在允许/.test(rejects(() => assertDataDirAllowed('/tmp/ihui-rls')) || ''), '')
+    rec('S2b-posix 拒盘根 /', /不在允许/.test(rejects(() => assertDataDirAllowed('/')) || ''), '')
+    rec('S2e-posix Windows 专属落点在 POSIX 上不得被认作允许', /不在允许/.test(rejects(() => assertDataDirAllowed('/DevEnv/Temp/ihui-rls')) || ''), '')
+  }
   // S2f/S2g:**Linux CI 的检出本身就在 $HOME 之下**(/home/runner/work/...),旧判序先拒家目录,
   // 于是"仓库内 .ihui-agent/tmp/**"这个明令允许的落点在 CI 上被判违规 —— 开发机(仓在 D:、家在 C:)
   // 结构上测不出这一型。成对写:仓库内必须收,家目录里别的位置仍必须拒。
