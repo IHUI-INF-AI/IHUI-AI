@@ -10263,3 +10263,34 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 <!-- 已归档(2026-09-26):O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
 <!-- 已归档(2026-09-26):O71 取材层收口的最后一跳:守门 93 自带的那份 `cat-file --batch` 归一(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
 <!-- 已归档(2026-09-26):小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+  `HANDLER_ATTR_RE` 纳入 `onChange|onSelect`,`AFFORDANCE_TAG_RE` 纳入 `Picker` ⇒ 扩面后全量面精确报出 3 处,
+  而这 3 处正是本轮已改的:`pages/study/publish/index.tsx:116/132`(两个 `<Picker>` 选择行的 `›` → `LineIcon chevron-right`,
+  24rpx 档沿用原 `ml-[16rpx]`)与 `docs/manual/page.tsx:158`。**`pkg-learn/live/calendar.tsx:162/171` 是同型第三例**:
+  它不是"整格字形",而是把字形当 **i18n 兜底实参** —— `tt('live.calendar.prevMonth', '‹')`,
+  词表缺键时直接把 `‹` 渲染出来;已改为 `<View ariaRole="button" ariaLabel={tt(key,'')}>` + `LineIcon chevron-left|right`
+  (可见侧求矢量、无障碍名称脱离上下文成立,与 §4「更多」入口同一条口径)。
+  自检 86/86(扩面未弄红任何既有反向锁,含上一格新加的面包屑锁)、两文件 eslint rc=0、`--files` 复验 0。
+  分页块写在 `ListFooterComponent={ totalPages > 1 ? (<View>…</View>) : null }` ——
+  **属性表达式里嵌 JSX**。外层 `<FlatList …` 的 `parseTagAt` 一路吃到 131 行那个单独成行的 `/>`,
+  把整个表达式(含分页块)吞成一个自闭合标签 ⇒ 遍历从不进入内部。
+  正解是"属性表达式里若含 JSX 就带着祖先栈递归进去",那是 walker 的一项能力,不是一行判据;
+  **现在它由 `backBlind` 探针点名**,所以症状从"静默报 0"变成"喊出这一格没人看守"。同型还可能有:
+  任何把 JSX 写进 prop 的地方(`renderItem=` / `header=` / `ListHeaderComponent=` 等)。
+  上一格说"真正要修的是出栈时机"—— 定位到了,比预想的更基本:
+  `parseTagAt` 第一行就调 `prevAllowsTagStart`,而它拒绝"前一个字符是 `\w$)\"'` 之一"的 `<`
+  (本意是防 `a < b` 比较运算符被当标签)。**闭合标签天然紧跟文本内容**(`A</a>`、`›</span>`),
+  于是 `</…>` 从来没被解析过 ⇒ 栈只进不出 ⇒ ① 祖先跨兄弟泄漏(面包屑 `<a>A</a><span>›</span>` 被判成
+  "祖先 <a> 可点",这正是我上次撤回扩面的那条红),② 真正该看到的格子反被错嵌套的栈漏掉。
+  修法:先认 `</` 是闭合起点,**闭合标签不受该守卫约束**(串内的 `</` 由 strMask 挡)。
+  ⇒ 同一枚提交里 `AFFORDANCE_TAG_RE` 纳 `a|button` 成立:自检 **85 → 86 全绿**(新增两条锁:
+  面包屑反向锁 + 原生 `<a>`/`<button>` 阳性锁),镜像 17/17,全量面 GA1 精确抓到
+  `apps/web/app/(main)/docs/manual/page.tsx:158`(生产 DOM 7 个渲染实例那个),**源码已同笔改掉**
+  (`<span>→</span>` → lucide `ChevronRight`,保留 `group-hover:translate-x-1` 与 `aria-hidden`),
+  该文件 `--files` 复验 0、eslint rc=0。
+  - **"剩下 12 条"里有 6 条根本不是 CSS 问题(这条推翻的是我自己上一轮的登记)**:`mx-0.5 top-1/2 z-[1040] z-[9995] w-[400rpx] w-[420rpx]` 来自 `Toast`/`ConfirmDialog`/`VoiceInput`/`TitleSwitchScrollPicker`/`TitleSwitchOverlap` —— 这几个组件**在本端零 import**(只有 barrel 的 `export`),它们的类名字符串连同 `translate(-50%` 在整个产物里 0 次出现,只有转写形式孤零零留在 CSS 里。同 `custom-tab-bar` 一类:**源码在、组件不装配**。**地板因此是 12 而不是 6。** 剩下两条路都不做,理由是它们都比现状更糟:删组件属 §7(要先回答"承载什么功能、有无等价实现",这里连"该不该有这几个 UI"都不是我能替产品裁的);给门加 `@source not` 排除表则会在**某天真有人 import 它的那天**把这些样式静默丢掉 —— 用一条更窄的判据换来一个假绿地板,是这笔账里最贵的选项。登记归属,不代裁。
+  - 一条**方法论教训**(比这条修复本身更通用):我先前那句"6 条属 custom-tab-bar,是地板"是**只数了已知的一类**就当成了全集 —— 而"地板"这种结论的正确算法是**逐名归因到"为什么这条运行时看不见"**,不是"我认识的那一类有几个"。这次是代理按逐名查 import 图才发现另外 6 条,否则我会带着一个错地板数字继续排期。另:本次 `config/index.ts` 那份实验补丁(`cache:false`)经比对**已在 HEAD**(`f459df544b`),应用它是 no-op ⇒ 已回退未落。门侧取证:css-landing `--self-test` 112 例全绿 + 镜像 45 例全绿;门 36(--worktree 436/436)、门 105、门 93(R6/R7/R8 全 0)、门 77 无新增违规;水印 verify 完好;`typecheck` 剩 2 枚 `onTerminalDelta` 错在 `src/pkg-ai/ai/chat.tsx:636`,该文件盘上 == HEAD blob ⇒ 他人现场,不碰。
+  **现已由守门 C7 变成构建失败而非一个需要人注意的数字**(`spacingFamily`:需求 ≥8 档而改名集合命中 0 ⇒ off 判红,不受 `--min-coverage` 管辖;`but 这一行是并行会话写进工作树的、尚未提交** ⇒ 我这些读数依赖一个不在版本库里的改动;
+  **但这一行仍是并行会话写进工作树的、尚未提交** ⇒ 我这些读数依赖一个不在版本库里的改动;
+  若它被回退,下一枚干净检出的构建会退回 93.90% / 31 条死规则 ——
+  现由守门 **C7** 兜住:spacing 刻度档需求 ≥8 而改名集合命中 0 ⇒ `off` 判红,且**不受 `--min-coverage` 管辖**,
+  所以那条单点依赖一旦被抽走,构建会直接失败,而不是留下一个要人肉眼发现的数字。
