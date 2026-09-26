@@ -20,6 +20,7 @@ import { checkDailyAlerts } from '../services/alert-check-service.js'
 import { archiveDailyData } from '../services/data-archive-service.js'
 import { startExpirationMonitor } from '../services/expiration-monitor-service.js'
 import { runFileCleanup } from '../services/cleanup-service.js'
+import { cleanupExpiredUploadSessions } from '../services/upload-integrity.js'
 import { expireVipMembers } from '../services/vip-expire-service.js'
 import { autoCloseExpiredActivities } from '../services/activity-status-service.js'
 import { calibrateCommissionSettlement } from '../services/commission-settle-service.js'
@@ -596,6 +597,25 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             )
             try {
               server.recordJobExecution(name, result.hasMore ? 'failed' : 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'upload-session-reap-hourly': {
+            // A9R12-G1 ③:过期分片会话回收(删 upload_sessions 行 + uploads/chunks/<uuid>/)。
+            // cleanupExpiredUploadSessions 只按本表 uuid 形态删目录,不会整片删 uploads/。
+            const result = await cleanupExpiredUploadSessions()
+            server.log.info(
+              {
+                sessions: result.sessions,
+                dirs: result.dirs,
+                dirsRejected: result.dirsRejected,
+              },
+              'expired upload sessions reaped',
+            )
+            try {
+              server.recordJobExecution(name, 'success')
             } catch {
               /* 指标采集失败不影响业务 */
             }
