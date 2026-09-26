@@ -8,15 +8,19 @@
  */
 import { z } from 'zod'
 import { eq, ilike, desc, sql, inArray, type Column, type SQL } from 'drizzle-orm'
-import type { PgTable } from 'drizzle-orm/pg-core'
+import type { PgColumn, PgTable } from 'drizzle-orm/pg-core'
 import { db } from '../../db/index.js'
 import type { FastifyInstance } from 'fastify'
 import { emptyToUndefined, success, error } from '../../utils/response.js'
+import { batchWriteOutcome } from '../../utils/batch-outcome.js'
 
-// Drizzle CRUD 工厂接受的表类型:PgTable 且含 id/createdAt 列
+// Drizzle CRUD 工厂接受的表类型:PgTable 且含 id/createdAt 列。
+// 2026-09-26:id/createdAt 由泛型 `Column` 收窄为 `PgColumn` —— 批量删除现在要用
+// `.returning({ id: table.id })` 向库取确认集合,而 drizzle 的 returning 只收 PgColumn,
+// 留 Column 会在编译期拒(所有真实消费方传的都是 PgColumn,收窄不减可用性)。
 type CrudTable = PgTable & {
-  id: Column
-  createdAt: Column
+  id: PgColumn
+  createdAt: PgColumn
 }
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -338,8 +342,22 @@ export function registerCrud(
       if (idList.length === 0 || idList.some((x) => !z.uuid().safeParse(x).success)) {
         return reply.status(400).send(error(400, '无效的 ID'))
       }
-      await db.delete(table).where(inArray(table.id, idList))
-      return reply.send(success({ deleted: idList.length }))
+      // 修复(2026-09-26):旧写法 `deleted: idList.length` 是**请求侧自己数的**,
+      // id 打错 / 行已被别人删掉 / id 属于别的表 ⇒ 一行没删也回 deleted:N。
+      // 本工厂被多处 admin 路由复用(grep `registerCrud(` 取现值),故"UI 显示已删除 3 项、
+      // 库里一行没动"是这些后台页的通病形态,不是一处偶发。
+      // 现由库确认的 returning 集合经唯一出口 batchWriteOutcome() 推出条数,并逐条点名
+      // missedIds —— 与 chat.ts batch / admin-sys role-routes cancelAll+selectAll 同一形状,
+      // 不得在本文件再手写一份集合差(那正是本票要消灭的第二实现)。
+      const confirmedRows = await db
+        .delete(table)
+        .where(inArray(table.id, idList))
+        .returning({ id: table.id })
+      const { affected, missedIds } = batchWriteOutcome(
+        idList,
+        confirmedRows.map((r) => String(r.id)),
+      )
+      return reply.send(success({ deleted: affected, missedIds }))
     } catch (err) {
       server.log.error({ err }, 'registerCrud operation failed')
       return reply.status(500).send(error(500, '服务器内部错误'))

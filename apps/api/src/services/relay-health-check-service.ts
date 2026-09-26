@@ -17,6 +17,7 @@ import { eq, and } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayKeyPool, aiModelConfig } from '@ihui/database'
 import { decryptJSON, type EncryptedPayload } from '../utils/crypto.js'
+import { startStopwatch } from '../utils/elapsed-ms.js'
 
 const HEALTH_CHECK_TIMEOUT_MS = 10_000
 const CONSECUTIVE_FAILURES_THRESHOLD = 3
@@ -29,7 +30,12 @@ export type HealthStatus = 'healthy' | 'degraded' | 'down'
 export interface HealthCheckResult {
   keyId: string
   status: HealthStatus
-  latencyMs: number
+  /**
+   * 本次巡检耗时(ms)。null 有两种含义,都必须被下游当作"没有可信耗时":
+   * ① 时钟交叉校验判样本不可信(NTP 步进 / 休眠 / 容器漂移),见 utils/elapsed-ms.ts;
+   * ② 根本没测量(如 key 不存在这条早退分支)——禁止用 0 冒充"很快"。
+   */
+  latencyMs: number | null
   errorMessage?: string
 }
 
@@ -121,9 +127,16 @@ async function pingModelsEndpoint(
   }
 }
 
-/** 执行一次巡检（解密 + 查 base_url + ping），不写 DB。 */
+/**
+ * 执行一次巡检（解密 + 查 base_url + ping），不写 DB。
+ *
+ * 格②接线(2026-09-26):耗时一律经 utils/elapsed-ms.ts 唯一出口采样(单调钟 + 墙钟交叉校验),
+ * 不再写裸墙钟差值 —— 那种差值会被 NTP 步进 / 休眠 / 容器时钟漂移打穿成负数或巨大值，
+ * 而它直接进 admin 展示面(relay-key-pool.ts 的 :id/health 响应)。
+ * 每次巡检只在一个分支 return 处 stop 一次，样本不可信时 latencyMs 为 null。
+ */
 async function runHealthCheck(row: KeyRowForCheck): Promise<HealthCheckResult> {
-  const startedAt = Date.now()
+  const sw = startStopwatch()
 
   let apiKey: string
   try {
@@ -132,7 +145,7 @@ async function runHealthCheck(row: KeyRowForCheck): Promise<HealthCheckResult> {
     return {
       keyId: row.id,
       status: 'down',
-      latencyMs: Date.now() - startedAt,
+      latencyMs: sw.stop().elapsedMs,
       errorMessage: `解密失败: ${err instanceof Error ? err.message : String(err)}`,
     }
   }
@@ -149,7 +162,7 @@ async function runHealthCheck(row: KeyRowForCheck): Promise<HealthCheckResult> {
     return {
       keyId: row.id,
       status: 'degraded',
-      latencyMs: Date.now() - startedAt,
+      latencyMs: sw.stop().elapsedMs,
       errorMessage: `未找到 provider=${row.providerCode} 的 base_url`,
     }
   }
@@ -158,7 +171,7 @@ async function runHealthCheck(row: KeyRowForCheck): Promise<HealthCheckResult> {
   return {
     keyId: row.id,
     status: ping.status,
-    latencyMs: Date.now() - startedAt,
+    latencyMs: sw.stop().elapsedMs,
     errorMessage: ping.errorMessage,
   }
 }
@@ -214,7 +227,9 @@ export async function checkSingleKey(keyId: string): Promise<HealthCheckResult> 
     .limit(1)
 
   if (!row) {
-    return { keyId, status: 'down', latencyMs: 0, errorMessage: 'Key 不存在' }
+    // latencyMs = null 而非 0：这条分支根本没发起测量（连库查行都没命中），
+    // 写 0 会被展示面读成"该 key 响应 0ms"——与"耗时未知"是两件事。
+    return { keyId, status: 'down', latencyMs: null, errorMessage: 'Key 不存在' }
   }
 
   const result = await runHealthCheck(row)

@@ -5,6 +5,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
+import { batchWriteOutcome } from '../../utils/batch-outcome.js'
 import { parseNum, parseStr } from './_shared.js'
 import {
   updateAdminRoleStatus,
@@ -163,8 +164,13 @@ export const roleRoutes: FastifyPluginAsync = async (s) => {
         if (userIds.length === 0) {
           return reply.status(400).send(error(400, 'userIds 不能为空'))
         }
-        const affected = await cancelAllUserRole(userIds, roleId)
-        return reply.send(success({ success: true, affected }))
+        // 2026-09-26 修"改了 0 行"与"改成功"同形:affected 由库确认(returning)的命中集
+        // 推出,未命中的 userId 逐条点名进新增字段 missedIds;既有 success/affected 字段名不变。
+        // cancelAll 的 where 带 eq(roleId),用户当前角色不符即被静默跳过,旧响应完全看不见。
+        const outcome = batchWriteOutcome(userIds, await cancelAllUserRole(userIds, roleId))
+        return reply.send(
+          success({ success: true, affected: outcome.affected, missedIds: outcome.missedIds }),
+        )
       })
 
       // PUT /role/authUser/selectAll - 批量分配角色(userIds 逗号分隔)
@@ -181,8 +187,11 @@ export const roleRoutes: FastifyPluginAsync = async (s) => {
         if (userIds.length === 0) {
           return reply.status(400).send(error(400, 'userIds 不能为空'))
         }
-        const affected = await selectAllUserRole(userIds, roleId)
-        return reply.send(success({ success: true, affected }))
+        // 同上:命中集合以库 returning 为准,missedIds 点名未命中的 userId。
+        const outcome = batchWriteOutcome(userIds, await selectAllUserRole(userIds, roleId))
+        return reply.send(
+          success({ success: true, affected: outcome.affected, missedIds: outcome.missedIds }),
+        )
       })
     },
     { prefix: '/authUser' },
