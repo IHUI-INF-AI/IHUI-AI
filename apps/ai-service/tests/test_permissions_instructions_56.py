@@ -5,12 +5,11 @@
 # app/core 权限指令与已批准命令前缀片段测试 — 第五十六批(对标 Codex
 # permissions_instructions.rs / approved_command_prefix_saved.rs /
 # world_state/permissions.rs)
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import pytest
 
 from app.core.permissions_instructions import (
     APPROVED_COMMAND_PREFIX_SAVED_MESSAGE_PREFIX,
