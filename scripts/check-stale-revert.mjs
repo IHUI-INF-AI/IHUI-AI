@@ -137,6 +137,39 @@ function worktreeBlobs(repoRoot, paths) {
  * 核心判据。source='index' 比对暂存内容;source='worktree' 比对工作区内容。
  * 返回 [{path, commit}] —— commit 为被写回的那个历史版本。
  */
+/**
+ * 判"该路径的**工作树**副本处于哪种形态",用来决定失败提示能安全地建议什么。
+ *
+ * 起因(2026-09-26 实测):本门原有出口 ① 写着 `git restore --source=HEAD --worktree -- <文件>`,
+ * 而我当场遇到的一格是「索引==祖先版本,而工作树是一份**不等于任何祖先**的真新内容」——
+ * 也就是有人正在写这个文件、还没 add。那时执行出口 ① 会**直接抹掉别人未提交的内容**。
+ * 一道给出会造成损失的出路的红门,和恒红门同罪(后者逼人跳门,前者逼人删数据)。
+ *
+ * 分类:
+ *  - 'same-as-index'     工作树 == 索引 ⇒ 两者一样旧,对齐工作树无损;
+ *  - 'ahead-of-index'    工作树 == HEAD 而索引旧 ⇒ 只需 `--staged` 对齐索引,动工作树是空操作;
+ *  - 'lagging-ancestor'  工作树等于某祖先版本 ⇒ 属共享工作区滞后,可安全对齐;
+ *  - 'uncommitted-novel' 工作树不等于索引/HEAD/任何祖先 ⇒ **他人在写**,禁止动工作树;
+ *  - 'missing'           工作树没有该文件(删除态,本门只 warn)。
+ */
+export function classifyWorktree(repoRoot, p) {
+  const idxSpec = `:${p}`
+  const headSpec = `HEAD:${p}`
+  const blobs = resolveBlobs(repoRoot, [idxSpec, headSpec])
+  const idxB = blobs.get(idxSpec)
+  const headB = blobs.get(headSpec)
+  const wtB = worktreeBlobs(repoRoot, [p]).get(p)
+  if (!wtB) return 'missing'
+  if (wtB === idxB) return 'same-as-index'
+  if (wtB === headB) return 'ahead-of-index'
+  const anc = ancestorCommits(repoRoot, p)
+  if (anc.length) {
+    const ab = resolveBlobs(repoRoot, anc.map((c) => `${c}:${p}`))
+    for (const v of ab.values()) if (v === wtB) return 'lagging-ancestor'
+  }
+  return 'uncommitted-novel'
+}
+
 export function analyze(repoRoot, paths, { source = 'index' } = {}) {
   const present =
     source === 'worktree' ? paths.filter((p) => existsSync(join(repoRoot, p))) : paths
@@ -290,10 +323,37 @@ function audit(repoRoot, { staged }) {
     if (violations.length > 30) lines.push(`   ... 另有 ${violations.length - 30} 个`)
     lines.push('')
     lines.push('   最常见成因:共享工作区落后 HEAD(converge 只推进 index 不 checkout)→ 提交的是旧基线。')
+    /**
+     * 出口按**工作树形态**分流。原提示无条件先建议 `git restore --source=HEAD --worktree`,
+     * 而"索引旧 / 工作树是别人未提交的真新内容"这一格里,照它做就是替别人删掉未提交的工作。
+     * 判错的代价不是多一行报告,是丢内容 —— 所以这一格必须被识别出来并给出不同的出路。
+     */
+    const novel = new Set(
+      violations
+        .filter((v) => classifyWorktree(repoRoot, v.path) === 'uncommitted-novel')
+        .map((v) => v.path),
+    )
     lines.push('   正确做法:')
-    lines.push('     ① 先对齐该文件(仅当其中没有你自己的未提交改动):')
-    lines.push('        git restore --source=HEAD --worktree -- <文件>')
-    lines.push('        再重新施加你的改动;')
+    if (novel.size < violations.length) {
+      lines.push('     ① 先对齐该文件(仅当其中没有你自己的未提交改动):')
+      lines.push('        git restore --source=HEAD --worktree -- <文件>')
+      lines.push('        再重新施加你的改动;')
+    }
+    if (novel.size) {
+      lines.push(
+        `     ⚠️ 其中 ${novel.size} 个路径的**工作树副本不等于该文件任何祖先版本** ——`,
+      )
+      lines.push(
+        '        那不是工作区滞后,是有人正在写、还没 `add`。这一格**禁止** --worktree:',
+      )
+      lines.push(
+        '        那等于替别人把工作树里未提交的新内容抹掉。安全出口只有两条:',
+      )
+      lines.push('          · 只对齐索引、不动工作树:git restore --staged -- <文件>')
+      lines.push('          · 或等该文件持有者自己 add 新版本再提交(活文档走这条)')
+      for (const p of [...novel].slice(0, 8)) lines.push(`          ! ${p}`)
+      if (novel.size > 8) lines.push(`          … 另有 ${novel.size - 8} 个`)
+    }
     lines.push('     ② 确属有意回退 → 改用 `git revert <commit>` 生成前向提交,')
     lines.push(`        或 ${SKIP_ENV}=1 并在提交信息里写明理由。`)
   }
@@ -341,6 +401,31 @@ function selfTestRun() {
     g(['add', '-A'])
     const v = analyze(repo, ['a.ts'])
     check('2 写回 v1 判红且点名', v.length === 1 && v[0].path === 'a.ts')
+
+    /**
+     * 5e–5h 工作树形态分类。它决定失败提示**敢不敢**建议 `--worktree`:
+     * 对"索引旧、工作树是别人未提交的真新内容"那一格建议对齐工作树,等于替别人删掉未提交的工作。
+     * 四条各占一个真实形态,缺一即说明分类有一格没被证明。
+     */
+    check('5e 索引与工作树同为旧版 ⇒ same-as-index(可安全对齐工作树)', classifyWorktree(repo, 'a.ts') === 'same-as-index')
+    writeFileSync(join(repo, 'a.ts'), 'v4-never-committed\n')
+    check(
+      '5f 工作树不等于索引/HEAD/任何祖先 ⇒ uncommitted-novel(禁止建议 --worktree)',
+      classifyWorktree(repo, 'a.ts') === 'uncommitted-novel',
+    )
+    writeFileSync(join(repo, 'a.ts'), 'v2\n')
+    check(
+      '5g 工作树==HEAD 而索引仍旧版 ⇒ ahead-of-index(只该对齐索引,动工作树是空操作)',
+      classifyWorktree(repo, 'a.ts') === 'ahead-of-index',
+    )
+    g(['add', '-A']) // 索引追平 HEAD=v2,为下一条造"只有工作树落后"的形态
+    writeFileSync(join(repo, 'a.ts'), 'v1\n')
+    check(
+      '5h 工作树等于祖先而索引仍是 HEAD ⇒ lagging-ancestor(共享工作区滞后,可安全恢复)',
+      classifyWorktree(repo, 'a.ts') === 'lagging-ancestor',
+    )
+    writeFileSync(join(repo, 'a.ts'), 'v2\n')
+    g(['add', '-A'])
 
     writeFileSync(join(repo, 'a.ts'), 'v2\n')
     g(['add', '-A'])
@@ -445,6 +530,7 @@ if (isDirectRun) {
 export const __test__ = {
   analyze,
   analyzeMerge,
+  classifyWorktree,
   mergeHeadSha,
   stagedPaths,
   resolveBlobs,
