@@ -126,6 +126,17 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   token6688_model_info: 'toolVendorModelInfo',
   token6688_upload_file: 'toolVendorUploadFile',
   token6688_cancel_task: 'toolVendorCancelTask',
+  // DAP 调试会话族(apps/cli/src/tools/debug.ts,DEBUG_TOOLS 注册给模型)
+  debug_launch: 'toolDebugLaunch',
+  debug_attach: 'toolDebugAttach',
+  debug_set_breakpoints: 'toolDebugSetBreakpoints',
+  debug_continue: 'toolDebugContinue',
+  debug_step: 'toolDebugStep',
+  debug_get_stack_trace: 'toolDebugGetStackTrace',
+  debug_get_variables: 'toolDebugGetVariables',
+  debug_eval: 'toolDebugEval',
+  debug_disconnect: 'toolDebugDisconnect',
+  debug_list_sessions: 'toolDebugListSessions',
   token6688_voice_clone: 'toolVendorVoiceClone',
 }
 
