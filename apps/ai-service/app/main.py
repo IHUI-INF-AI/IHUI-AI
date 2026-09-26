@@ -184,6 +184,11 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[schema_check] 启动校验异常(忽略): %s", e)
 
+    # V3 #57 能力矩阵开机自检:实读 env 输出全量能力台账(默认关能力一目了然)
+    from app.core.capability_matrix import log_capability_matrix
+
+    log_capability_matrix()
+
     # 媒体任务统一落库建表(2026-09-09 立;此前 ensure_table 从未被调用,
     # media_tasks 表不存在导致对话内媒体工具落库静默失败。失败仅告警不阻塞启动)
     try:
@@ -887,6 +892,11 @@ def create_app() -> FastAPI:
     from app.routers import killer_extras
 
     killer_extras.register(app)
+
+    # V3 #57 能力台账只读端点(GET /api/admin/capabilities,role_id>=1)
+    from app.core.capability_matrix import router as capability_matrix_router
+
+    app.include_router(capability_matrix_router)
 
     # P2-③(2026-09-18 立):Agent Engine —— JSON-RPC 2.0 编排引擎传输层。
     # 对标 Codex app-server 的"任意应用嵌入 agent 循环"能力,接口直接暴露我方差异化:

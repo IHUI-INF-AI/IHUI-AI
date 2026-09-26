@@ -333,6 +333,38 @@ const declaredSharedEvents = new Map(); // 事件名 → 声明来源(仅兜底,
 }
 
 // —— 1h. 共享 SSE 契约 Python 侧(#25 单一事实源)——
+// V3 #48(2026-09-26)补注释剥离: 契约集合的注释里会出现带引号的字段名/事件名
+// (terminal_delta 条目注释写着 {"type": SSE_START, "task_id", ...}), 不剥会把注释
+// 里的词吸进集合造成假漂移 —— 与 check-tool-registry-integrity 的取材铁律同型。
+function stripPyLineComments(src) {
+  const out = [];
+  for (const line of src.split('\n')) {
+    let buf = '';
+    let quote = null;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (quote) {
+        if (ch === '\\') {
+          buf += ch + (line[i + 1] ?? '');
+          i++;
+          continue;
+        }
+        if (ch === quote) quote = null;
+        buf += ch;
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        quote = ch;
+        buf += ch;
+        continue;
+      }
+      if (ch === '#') break;
+      buf += ch;
+    }
+    out.push(buf);
+  }
+  return out.join('\n');
+}
 const PY_SHARED_CONTRACT_RE = /"([a-z_-]+)"/g;
 const pySharedContract = new Set();
 {
@@ -340,7 +372,7 @@ const pySharedContract = new Set();
   if (!existsSync(contractFile)) {
     errors.push('apps/ai-service/app/core/sse_contract.py 缺失: #25 SSE 契约单一事实源被移动/删除, 请同步本守门');
   } else {
-    const text = readFileSync(contractFile, 'utf-8');
+    const text = stripPyLineComments(readFileSync(contractFile, 'utf-8'));
     // 兼容 typing.FrozenSet[str] 与内置 frozenset[str] 两种注解写法(2026-09-19 同步)
     const contractHead = text.match(/SSE_EVENTS:\s*(?:FrozenSet|frozenset)\[str\]\s*=\s*frozenset\(/);
     const start = contractHead === null ? -1 : contractHead.index;
@@ -417,6 +449,59 @@ const agentTaskEventValues = new Set();    // wire 事件值集合(对账 0c 用
     }
   }
   scanStats.agentEventConstants = agentTaskEventConstants.size;
+}
+
+// —— 1k. 共享 SSE 兼容面契约(V3 #48): Anthropic Messages API 兼容端点事件 ——
+// 单列不入对话流 SSE_EVENTS(llm.py Anthropic 兼容端点产出, 非对话流 UI 事件);
+// 双端一致由对账 0b-2 看护。
+const tsCompatEvents = new Set();
+{
+  const contractFile = path.join(ROOT, 'packages/shared/src/sse/contract.ts');
+  if (existsSync(contractFile)) {
+    const text = readFileSync(contractFile, 'utf-8');
+    const start = text.indexOf('export const SSE_COMPAT_EVENTS');
+    if (start === -1) {
+      errors.push('packages/shared/src/sse/contract.ts 未找到 export const SSE_COMPAT_EVENTS(V3 #48 兼容面契约被移动/删除, 请同步本守门)');
+    } else {
+      const end = text.indexOf('} as const', start);
+      const body = end === -1 ? text.slice(start, start + 2000) : text.slice(start, end);
+      for (const m of body.matchAll(TS_SHARED_CONTRACT_RE)) tsCompatEvents.add(m[2]);
+    }
+  }
+  scanStats.tsCompatContract = tsCompatEvents.size;
+}
+
+// —— 1l. PY 兼容面契约 + agent_events.py 常量值域(V3 #48)——
+// agent 侧事件 wire 名集中在 agent_events.py 的 SSE_* 常量;dict 形态生产点
+// ({"type": SSE_XXX})引用常量, 字符串扫描天然漏网 —— 对账常量事实源即可全覆盖。
+const pyCompatEvents = new Set();
+const pyAgentEventConstants = new Map(); // SSE_XXX(去前缀) → wire 事件值
+{
+  const contractFile = path.join(ROOT, 'apps/ai-service/app/core/sse_contract.py');
+  if (existsSync(contractFile)) {
+    const text = stripPyLineComments(readFileSync(contractFile, 'utf-8'));
+    const head = text.match(/SSE_COMPAT_EVENTS:\s*(?:FrozenSet|frozenset)\[str\]\s*=\s*frozenset\(/);
+    if (!head) {
+      errors.push('apps/ai-service/app/core/sse_contract.py 未找到 SSE_COMPAT_EVENTS frozenset(V3 #48 兼容面契约被移动/删除, 请同步本守门)');
+    } else {
+      const start = head.index;
+      const closeLine = /\n\s*\)/.exec(text.slice(start));
+      const end = closeLine === null ? -1 : start + closeLine.index;
+      const body = end === -1 ? text.slice(start, start + 2000) : text.slice(start, end);
+      for (const m of body.matchAll(PY_SHARED_CONTRACT_RE)) pyCompatEvents.add(m[1]);
+    }
+  }
+  const evFile = path.join(ROOT, 'apps/ai-service/app/services/agent_events.py');
+  if (existsSync(evFile)) {
+    const evText = readFileSync(evFile, 'utf-8');
+    for (const m of evText.matchAll(/^SSE_([A-Z_0-9]+)\s*=\s*"([a-z_-]+)"/gm)) {
+      pyAgentEventConstants.set(m[1], m[2]);
+    }
+  } else {
+    errors.push('apps/ai-service/app/services/agent_events.py 缺失: agent 侧事件常量事实源被移动/删除');
+  }
+  scanStats.pyCompatContract = pyCompatEvents.size;
+  scanStats.pyAgentEventConstants = pyAgentEventConstants.size;
 }
 
 console.log(
@@ -526,8 +611,11 @@ const SANITY_MIN = [
   { key: 'tsContract', min: 6, label: 'AgentSSEEvent 契约声明(当前 6 个 type;D44 回收 task_progress/worker_status/dag_level_advanced/log 死声明)' },
   { key: 'pyMapping', min: 5, label: 'PY hook→SSE 映射表(当前 7 条)' },
   { key: 'pyDict', min: 3, label: 'PY 事件 dict 字面量(start/done/error)' },
-  { key: 'tsSharedContract', min: 19, label: '共享 SSE 契约 TS 侧事件数(#25, 当前 24 个)' },
-  { key: 'pySharedContract', min: 19, label: '共享 SSE 契约 PY 侧事件数(#25, 当前 24 个)' },
+  { key: 'tsSharedContract', min: 19, label: '共享 SSE 契约 TS 侧事件数(#25, V3 #48 后 25 个)' },
+  { key: 'pySharedContract', min: 19, label: '共享 SSE 契约 PY 侧事件数(#25, V3 #48 后 25 个)' },
+  { key: 'tsCompatContract', min: 6, label: '兼容面契约 TS 侧(V3 #48 SSE_COMPAT_EVENTS, 6 个)' },
+  { key: 'pyCompatContract', min: 6, label: '兼容面契约 PY 侧(V3 #48 SSE_COMPAT_EVENTS, 6 个)' },
+  { key: 'pyAgentEventConstants', min: 20, label: 'agent_events.py SSE_* 常量(V3 #48 值域对账)' },
   { key: 'llmDialog', min: 10, label: 'llm.py 对话流事件数(#25 纳入对账, 当前 15 个)' },
   { key: 'agentEventConstants', min: 14, label: 'Agent 任务流单源常量(t4 agent-events.ts, 当前 15 个)' },
   { key: 'eventSourceFiles', min: 2, label: '前端 EventSource 文件(use-agent-runtime/useAgentSSE/tool-approval-dialog)' },
@@ -603,6 +691,51 @@ if (llmDialogEvents.size === 0) {
         `请在 contract.ts + sse_contract.py 补入定义, 或确认非 SSE 契约事件后加入 LLM_EVENT_DICT_EXCLUDE(注释理由)`,
     );
     console.log(`  ${C.red}✗ ${n}: 对话流生产但契约未登记${C.reset}`);
+  }
+}
+
+// —— 对账 0b-2: V3 #48 兼容面契约 —— SSE_COMPAT_EVENTS 两端一致(阻断)——
+console.log(`\n${C.cyan}对账: Anthropic 兼容面契约两端一致(V3 #48 单列)${C.reset}`);
+if (tsCompatEvents.size > 0 && pyCompatEvents.size > 0) {
+  const tsOnly = [...tsCompatEvents].filter((n) => !pyCompatEvents.has(n));
+  const pyOnly = [...pyCompatEvents].filter((n) => !tsCompatEvents.has(n));
+  if (tsOnly.length === 0 && pyOnly.length === 0) {
+    console.log(`  ${C.green}✓ 兼容面 TS(${tsCompatEvents.size}) 与 PY(${pyCompatEvents.size}) 集合一致${C.reset}`);
+  } else {
+    for (const n of tsOnly) {
+      errors.push(`兼容面契约漂移: 事件 "${n}" 仅存在于 TS 侧 SSE_COMPAT_EVENTS, PY 侧缺失`);
+      console.log(`  ${C.red}✗ ${n}: 仅 TS 兼容面有${C.reset}`);
+    }
+    for (const n of pyOnly) {
+      errors.push(`兼容面契约漂移: 事件 "${n}" 仅存在于 PY 侧 SSE_COMPAT_EVENTS, TS 侧缺失`);
+      console.log(`  ${C.red}✗ ${n}: 仅 PY 兼容面有${C.reset}`);
+    }
+  }
+} else {
+  errors.push('兼容面契约集合为空: SSE_COMPAT_EVENTS 提取失败, 扫描器需同步');
+}
+
+// —— 对账 0b-3: V3 #48 agent_events.py 常量值域 ⊆ 契约 ∪ 兼容面(阻断)——
+console.log(`\n${C.cyan}对账: agent_events.py SSE_* 常量 ⊆ 契约(V3 #48)${C.reset}`);
+{
+  const known = new Set([...declaredSharedEvents.keys(), ...tsCompatEvents]);
+  // SSE_MESSAGE 是缺省兜底别名(agents.py:959 事件无 type 时取它), 非显式事件名
+  const PY_CONSTANT_EXEMPT = new Set(['MESSAGE']);
+  let bad = 0;
+  for (const [constName, wire] of pyAgentEventConstants) {
+    if (PY_CONSTANT_EXEMPT.has(constName)) continue;
+    if (!known.has(wire)) {
+      bad++;
+      errors.push(
+        `契约漂移: agent_events.py SSE_${constName} = "${wire}" 不在 SSE_EVENTS ∪ SSE_COMPAT_EVENTS — 补契约或登记豁免(注释理由)`,
+      );
+      console.log(`  ${C.red}✗ SSE_${constName} = "${wire}": 常量在契约外${C.reset}`);
+    }
+  }
+  if (bad === 0) {
+    console.log(
+      `  ${C.green}✓ ${pyAgentEventConstants.size} 个常量全部落在契约内(豁免别名 ${PY_CONSTANT_EXEMPT.size} 个)${C.reset}`,
+    );
   }
 }
 

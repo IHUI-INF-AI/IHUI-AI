@@ -999,6 +999,15 @@ export interface StreamChatOptions {
   /** 阶段 2:工具委托执行回调(浏览器端收到 tool-delegate SSE 事件时触发)
    * 前端用 FileSystemDirectoryHandle 执行 fs 类工具,通过 postToolResult 回传结果 */
   onToolDelegate?: (event: ToolDelegateEvent) => void | Promise<void>
+  /** V3 #58(2026-09-26 立):主对话流工具审批回调 —— ai-service tool loop 在
+   *  高危工具执行前发 tool-approval 帧,前端弹窗请求用户批准/拒绝,决策经
+   *  postToolApprovalResponse 回传。未注册回调时不解析;等待方按 120s 超时兜底
+   *  (工具不执行,回填 TOOL_APPROVAL_TIMEOUT)。 */
+  onToolApproval?: (event: ToolApprovalEvent) => void | Promise<void>
+  /** V3 #58(2026-09-26 立):工作区权限模式档位,经网关透传为 ai-service 的
+   *  permission_mode,工具审批门据此决定高危工具是否弹审批
+   *  (bypass-permissions 不拦截;accept-edits 放行文件编辑类)。 */
+  permissionMode?: string
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一)。
    * 由 use-chat.ts 调 getModelContextCapacity(model) 取得,后端不传则不压缩。 */
   contextLimit?: number
@@ -1460,6 +1469,27 @@ export interface FormResponseEvent {
 
 /** 业务表单成对动作(与判定层 FORM_ACTIONS 同取值;本包不依赖 @ihui/shared,故本地收窄) */
 export const FORM_RESPONSE_ACTIONS = ['approve', 'reject'] as const
+
+/** V3 #58(2026-09-26 立):主对话流工具审批请求事件。
+ *  ai-service tool loop 在高危工具执行前发 `event: tool-approval` 命名帧,
+ *  payload 与 agent 任务流 tool-approval 事件同形(snake_case wire 形态),
+ *  本接口为 streamChat 回调消费形态(camelCase)。决策经 postToolApprovalResponse
+ *  回传 ai-service 流级审批端点(与 postToolResult 同族,不经网关)。 */
+export interface ToolApprovalEvent {
+  type: 'tool-approval'
+  /** 审批请求唯一 id(决策回传时随响应带回) */
+  approvalId: string
+  /** 目标工具名(如 run_command / write_file) */
+  toolName: string
+  /** 工具调用 id */
+  toolCallId: string
+  /** 参数预览(后端截断 200 字符) */
+  argsPreview: string
+  /** 危险等级 */
+  dangerLevel: 'high' | 'medium' | 'low'
+  /** 发起审批的流会话 id(回传端点寻址用) */
+  sessionId?: string
+}
 
 /**
  * 阶段 2:工具委托执行事件(2026-08-02 立,浏览器端工具执行代理)。
@@ -2010,6 +2040,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (opts.contextLimit !== undefined) body.contextLimit = opts.contextLimit
   if (opts.agentId) body.agentId = opts.agentId
   if (opts.agentTools && opts.agentTools.length > 0) body.agentTools = opts.agentTools
+  // V3 #58(2026-09-26 立):权限模式档位透传。api-client 仅在字段存在时写入 body;
+  // 网关 schema 已声明 permissionMode(否则 zod strip 静默丢弃,链路掐断),
+  // 网关再以 permission_mode(snake_case)透传到 ai-service 审批门。
+  if (opts.permissionMode) body.permissionMode = opts.permissionMode
   if (opts.extraBody) Object.assign(body, opts.extraBody)
   // 2026-08-15 立:streamChat 默认流式,后端 detectStreamUsage 依赖 request.stream===true 才启用 usage chunk。
   // 默认 true,允许 extraBody 或显式 opts.stream 覆盖为 false。
@@ -2088,6 +2122,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasToolSummary = typeof opts.onToolSummary === 'function'
       // 阶段 2:工具委托执行(浏览器端 fs 工具执行代理,2026-08-02 立)
       const hasToolDelegate = typeof opts.onToolDelegate === 'function'
+      // V3 #58(2026-09-26 立):主对话流工具审批请求解析开关(onToolApproval 注册才解析)
+      const hasToolApproval = typeof opts.onToolApproval === 'function'
       // W1(2026-09-12 立):plan / terminal SSE 事件能力检测
       const hasPlanUpdate = typeof opts.onPlanUpdate === 'function'
       const hasTerminal =
@@ -2545,6 +2581,54 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** V3 #58(2026-09-26 立):解析 tool-approval SSE 帧(主对话流工具审批门)。
+       *  - ai-service 在高危工具执行前发 `event: tool-approval` + data {type:'tool-approval',...}
+       *  - wire payload 与 agent 任务流 tool-approval 同形(snake_case),此处收窄为 camelCase
+       *  - 畸形帧(缺 approval_id)一律不发回调 —— 回调方没有 id 就无法回传决策,
+       *    弹了窗也只会让后端 120s 超时,等于欺骗用户
+       *  - 决策回传走 postToolApprovalResponse(直连 ai-service 流级端点,与
+       *    postToolResult 同族;不经网关 /agent/approval-response —— 两套审批注册表独立) */
+      const tryParseToolApproval = (line: string): void => {
+        if (!hasToolApproval) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'tool-approval') return
+          const approvalId = json.approval_id
+          if (typeof approvalId !== 'string' || approvalId === '') return
+          opts.onToolApproval!({
+            type: 'tool-approval',
+            approvalId,
+            toolName: typeof json.tool_name === 'string' ? json.tool_name : '',
+            toolCallId: typeof json.tool_call_id === 'string' ? json.tool_call_id : '',
+            argsPreview: typeof json.args_preview === 'string' ? json.args_preview : '',
+            // danger_level 缺省 high(保守 UI 展示;后端仅在收录工具上发帧)
+            dangerLevel:
+              json.danger_level === 'medium'
+                ? 'medium'
+                : json.danger_level === 'low'
+                  ? 'low'
+                  : 'high',
+            ...(typeof json.session_id === 'string' && json.session_id !== ''
+              ? { sessionId: json.session_id }
+              : {}),
+          })
+        } catch {
+          /* 非 JSON 或非 tool-approval 事件忽略 */
+        }
+      }
+
       /** W1(2026-09-12 立):解析 plan_updated SSE 事件(消息级 plan steps 快照)。
        *  - ai-service 在 plan 更新时发送 `event: plan_updated` + `data: {"type":"plan_updated",...}`
        *  - 前端按 messageId 整体替换 message.planSteps(权威快照)
@@ -2928,6 +3012,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
        *  - subagent_spawn / subagent_progress / subagent_end:tryParseSubagent
        *  - tool-summary:tryParseToolSummary
        *  - tool-delegate:tryParseToolDelegate
+       *  - tool-approval:tryParseToolApproval(V3 #58 2026-09-26 立,主对话流审批门)
        *  - plan_updated / plan:tryParsePlanUpdate(W1 2026-09-12 立)
        *  - terminal_start / terminal_end:tryParseTerminal(W1 2026-09-12 立)
        *  - usage:tryParseUsage(OpenAI 协议 usage chunk,基于 json.usage 字段,非 type)
@@ -3105,6 +3190,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
               return 'tool_summary'
             case 'tool-delegate':
               return 'tool_delegate'
+            // V3 #58(2026-09-26 立):主对话流工具审批请求帧
+            case 'tool-approval':
+              return 'tool_approval'
             case 'plan_updated':
             case 'plan':
               return 'plan'
@@ -3159,6 +3247,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseToolSummary(line)
         } else if (route === 'tool_delegate') {
           await tryParseToolDelegate(line)
+        } else if (route === 'tool_approval') {
+          tryParseToolApproval(line)
         } else if (route === 'plan') {
           tryParsePlanUpdate(line)
         } else if (route === 'terminal') {
@@ -3193,6 +3283,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParsePlanUpdate(line)
           tryParseTerminal(line)
           await tryParseToolDelegate(line)
+          tryParseToolApproval(line)
           tryParseCitations(line)
           tryParseUsage(line)
           tryParseMemoryUpdates(line)
@@ -3392,6 +3483,59 @@ export async function postToolResult(
     }
     throw new Error(
       `postToolResult failed: HTTP ${resp.status} (session=${sessionId}, tool=${toolCallId})${detail ? `: ${detail}` : ''}`,
+    )
+  }
+}
+
+/**
+ * V3 #58(2026-09-26 立):主对话流工具审批决策回传。
+ *
+ * 与 postToolResult 同族:直连 ai-service `/llm/complete/stream/{sessionId}/approval-response`,
+ * 唤醒 llm.py tool loop 中等待审批的协程(approve → 工具继续执行;reject/超时 → 不执行,
+ * 回填 errorCode=TOOL_APPROVAL_DENIED / TOOL_APPROVAL_TIMEOUT 的失败 tool-result)。
+ * 不走网关 /agent/approval-response —— 那条通道指向 agent_loop_v2 的审批注册表,
+ * 与主对话流的 llm.py _approval_sessions 是两套独立 session 域,互相寻址不到。
+ */
+export async function postToolApprovalResponse(input: {
+  /** 发起审批的流会话 id(tool-approval 帧的 session_id) */
+  sessionId: string
+  /** 审批请求唯一 id */
+  approvalId: string
+  /** 用户决策 */
+  decision: 'approve' | 'reject'
+  /** 审批作用域(仅 approve 时有意义;缺省由后端按 once 处理,最小特权) */
+  scope?: 'once' | 'session' | 'always'
+  /** 用户附带原因(可选,拒绝理由为主) */
+  reason?: string
+}): Promise<void> {
+  const aiServiceUrl = aiServiceBaseUrl()
+  let resp: Response
+  try {
+    resp = await fetch(`${aiServiceUrl}/llm/complete/stream/${input.sessionId}/approval-response`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        approval_id: input.approvalId,
+        decision: input.decision,
+        ...(input.scope !== undefined ? { scope: input.scope } : {}),
+        // 空原因不携带(与"用户没说原因"区分于"说了个空原因")
+        ...(input.reason !== undefined && input.reason !== '' ? { reason: input.reason } : {}),
+      }),
+    })
+  } catch (e) {
+    throw new Error(
+      `postToolApprovalResponse network error (session=${input.sessionId}, approval=${input.approvalId}): ${(e as Error).message}`,
+    )
+  }
+  if (!resp.ok) {
+    let detail = ''
+    try {
+      detail = (await resp.text()).slice(0, 200)
+    } catch {
+      // 忽略 body 读取失败,只保留 status
+    }
+    throw new Error(
+      `postToolApprovalResponse failed: HTTP ${resp.status} (session=${input.sessionId}, approval=${input.approvalId})${detail ? `: ${detail}` : ''}`,
     )
   }
 }
