@@ -131,4 +131,21 @@ test('T9 主判定不得被摘线(函数在但没人调 = 提交链上一路绿�
   assert.ok(/export function collect\(/.test(txt), 'collect 被摘线')
   assert.ok(/audit\(collected\.pairs/.test(txt), 'main 不再调用主判定 ⇒ 门形同虚设')
 })
+
+test('T10 具名档与单侧档两维都必须真接进 main(算出来又丢掉 = 判据没装车)', () => {
+  const txt = readFileSync(SELF, 'utf8')
+  assert.ok(
+    /audit\(\s*collected\.pairs,\s*collected\.text,\s*baseline,\s*collected\.tiers\s*\)/.test(txt),
+    'collect 算了 tiers 而 audit 没收到 ⇒ 具名档解析整维隐身(票⑥㉜/㉝ 的修复从未生效)',
+  )
+  assert.ok(/export function specLegAudit\(/.test(txt), 'specLegAudit 被摘线')
+  assert.ok(
+    /specLegAudit\(collected\.pairs,\s*collected\.text,\s*collected\.tiers\)/.test(txt),
+    'main 没调用 specLegAudit ⇒ SL 只是自检里的摆设',
+  )
+  assert.ok(
+    /res\.red\.length \+ icRed\.length \+ slRed\.length/.test(txt),
+    'slRed 没进退出码 ⇒ SL 判红了也不拦提交',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
