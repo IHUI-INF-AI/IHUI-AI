@@ -216,10 +216,37 @@ function helperInFace(face) {
   return detectHelper(readFace([HELPER_FILE], face).get(HELPER_FILE))
 }
 
+/**
+ * 暂存档的"无射程内文件 ⇒ 回退全量"判定,单独抽成纯函数:回退那一路只能用真仓的暂存集端到端验,
+ * 而**不该回退**的三种情形(有射程内文件 / 显式 --files / 本来就是全量档)只能靠构造面证明 ——
+ * 否则这条判据被顺手改成"无条件回退"时,门就在暂存档永久失明而账面什么都看不出来。
+ */
+export function shouldRetreatToHead({ face, hasOnlyFiles, stagedInScopeCount }) {
+  return face === 'staged' && !hasOnlyFiles && stagedInScopeCount === 0
+}
+
 export function analyze(face, onlyFiles = null) {
-  const all = onlyFiles ?? listFacePaths(face)
+  // **暂存档在"本次没有射程内文件"时回退全量,而不是判"无法判定"**:一次只改文档/语言包的
+  // 提交,其暂存集里结构上不会有 .ts —— 若把这当成空扫判死,本门就会替**每一次**无关提交
+  // 挡路(实测 ffdb860744 即此型),而恒红/恒挡的唯一结局是各会话走应急跳门、连带全部守门作废
+  // (§12e)。口径同门 70「暂存集为空时回退全量防"空暂存恒绿"」与门 101「--staged 恒全量」。
+  let effFace = face
+  let retreatReason = null
+  if (
+    shouldRetreatToHead({
+      face,
+      hasOnlyFiles: onlyFiles !== null,
+      stagedInScopeCount: face === 'staged' ? listFacePaths('staged').filter(inScope).length : -1,
+    })
+  ) {
+    effFace = 'head'
+    retreatReason = '本次暂存集里没有本门射程内的文件(.ts/.tsx/.js/.jsx) ⇒ 回退 HEAD 全量面'
+  }
+  const all = onlyFiles ?? listFacePaths(effFace)
+
   const files = all.filter(inScope)
-  const contents = readFace(files, face)
+  const contents = readFace(files, effFace)
+
   const unreadable = []
   const red = []
   const exempted = []
@@ -236,26 +263,28 @@ export function analyze(face, onlyFiles = null) {
     for (const h of hits) classes[h.cls] = (classes[h.cls] ?? 0) + 1
     exempted.push(...ex.map((e) => ({ file: f, ...e })))
     if (!hits.length) continue
-    if (face === 'staged') {
+    if (effFace === 'staged') {
       // 暂存档:只拦"这次改动新出现的" —— 锚点取该文件 HEAD 自身存量
       const headText = readFace([f], 'head').get(f)
       const cap = typeof headText === 'string' ? findBareApiThrows(headText).hits.length : 0
       if (hits.length > cap) red.push({ file: f, n: hits.length, cap, sites: hits.slice(0, 3) })
       continue
     }
-    if (face === 'worktree') {
+    if (effFace === 'worktree') {
       const headText = readFace([f], 'head').get(f)
       const cap = typeof headText === 'string' ? findBareApiThrows(headText).hits.length : 0
       if (hits.length > cap) red.push({ file: f, n: hits.length, cap, sites: hits.slice(0, 3) })
     }
   }
-  const helper = helperInFace(face)
+  const helper = helperInFace(effFace)
   const emptyScan = files.length === 0
   let exit = 0
   if (unreadable.length || emptyScan || helper === 'undetermined') exit = 2
   else if (red.length || helper === 'missing') exit = 1
   return {
-    face,
+    face: effFace,
+    retreatReason,
+
     scannedFiles: files.length,
     total,
     classes,
@@ -355,7 +384,22 @@ function runSelfTest() {
   const head = analyze('head')
   ok(`真仓 HEAD 阳性对照:必须看得见存量(实得 ${head.total} 处 / ${head.red.length ? '有' : '无'}红)`, head.total > 100)
   ok('HEAD 全量档不得因存量判红(锚点是该文件自身,当场判红就是恒红门)', head.exit !== 1)
-  ok('测试面/夹具不进射程(否则迁移者被自己的测试拦住)', !head.scannedFiles || true)
+  ok(
+    '测试面/夹具不进射程,而生产路由仍进(否则迁移者被自己的测试拦住,或门根本看不见案发现场)',
+    !inScope('apps/api/tests/x.test.ts') &&
+      !inScope('apps/web/e2e/y.ts') &&
+      !inScope('apps/api/src/__tests__/z.ts') &&
+      inScope('apps/api/src/routes/a.ts'),
+  )
+  // 回退判定的构造面四例:端到端那一例只能靠真仓暂存集,这里锁"不该回退"的三种情形
+  ok('暂存档 + 无 --files + 射程内 0 个 ⇒ 回退全量(否则无关提交被替它判"无法判定")',
+    shouldRetreatToHead({ face: 'staged', hasOnlyFiles: false, stagedInScopeCount: 0 }))
+  ok('暂存档里有一个射程内文件 ⇒ 绝不回退(回退就等于把本次改动放过去)',
+    !shouldRetreatToHead({ face: 'staged', hasOnlyFiles: false, stagedInScopeCount: 1 }))
+  ok('显式 --files 通道 ⇒ 不回退(自检与人工定位都靠它指向指定面)',
+    !shouldRetreatToHead({ face: 'staged', hasOnlyFiles: true, stagedInScopeCount: 0 }))
+  ok('全量档不存在"回退"一说(0 个候选仍是判死,不是改判成别的面)',
+    !shouldRetreatToHead({ face: 'head', hasOnlyFiles: false, stagedInScopeCount: -1 }))
   console.log(okAll ? '--self-test: 全部通过' : '--self-test: 有失败')
   process.exitCode = okAll ? 0 : 1
 }
@@ -386,6 +430,7 @@ function main() {
   console.log(
     `[api-failure-throw] 面:${r.face} · 出口 ${HELPER_NAME}:${r.helper} · 扫描 ${r.scannedFiles} 文件 · 同型 throw ${r.total} 处`,
   )
+  if (r.retreatReason) console.log(`↩️ ${r.retreatReason}(不是"没判",判的是 HEAD 全量面)`)
   if (r.helper === 'missing')
     console.log(`❌ 具名出口不在被审面上(${HELPER_FILE} 未导出 ${HELPER_NAME})—— 判据没有出路,先补出口`)
   if (r.exempted.length)
