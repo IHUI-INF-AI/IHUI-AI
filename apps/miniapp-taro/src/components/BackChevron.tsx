@@ -4,6 +4,7 @@
 
 import type { CSSProperties } from 'react'
 import { View, type ITouchEvent } from '@tarojs/components'
+import { taroGeometry } from '@ihui/design-tokens'
 import LineIcon from '@/components/LineIcon'
 import { useTt } from '@/i18n'
 import { rpx } from '@/utils/rpx'
@@ -19,14 +20,14 @@ import { rpx } from '@/utils/rpx'
  * 平台特有:依赖 @tarojs/components 与 rpx 换算,不进 packages/ 共享层。
  */
 
-/** 图标墨迹边长(rpx),取端内既定档 pkg-about/about/index.tsx 的同值 */
-const ICON_SIZE = 40
 /**
- * 按钮方块 72rpx = 36px,与 web 端顶栏返回键同档
- * (GlobalTopBar 的 TOPBAR_BTN_W9 + h-9 = 36×36 正方形)。方块即命中区,
- * 不用负 margin 造第二种几何 —— 那会让每个页面的返回键宽度各不相同。
+ * 图标墨迹与按钮方块**不在本文件取数** —— 档位唯一真相源是
+ * `packages/design-tokens/src/geometry.js`,这里只取它的 rpx 投影。
+ * 之前本地写 `ICON_SIZE = 40` / `BOX_SIZE = 72`,RN 侧写 22 / 36,两句注释都自称
+ * "与 web 同档"而屏幕上差 2px —— 端内既定档就是第二份真相(守门 128 立项读数 174 处)。
  */
-const BOX_SIZE = 72
+const ICON_SIZE = taroGeometry.glyphMd
+const BOX_SIZE = taroGeometry.tapBox
 
 export interface BackChevronProps {
   /** 返回动作;各页语义不同(navigateBack / switchTab / 回登录页),由调用方持有 */
