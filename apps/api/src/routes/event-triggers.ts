@@ -191,7 +191,7 @@ const eventTriggersRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(agentEventTriggers.id, parsed.data.id), eq(agentEventTriggers.userId, userId)))
       .returning({ id: agentEventTriggers.id })
     if (deleted.length === 0) return reply.status(404).send(error(404, '触发规则不存在'))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    return reply.send(success({ id: parsed.data.id, deleted: deleted.length > 0 }))
   })
 }
 

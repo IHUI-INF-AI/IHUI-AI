@@ -55,7 +55,23 @@ function createChainableMock() {
 vi.mock('../src/db/index.js', () => ({
   db: {
     select: vi.fn(() => createChainableMock()),
-    update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) })) })),
+    // 真 drizzle 的 `update().set().where()` 既可 await,也可再 `.returning()`;
+    // 本文件的软删端点已改成以 RETURNING 的命中集判 deleted(旧夹具只给 await 一侧,
+    // 于是 .returning 是 undefined ⇒ 500 —— 那是夹具比真库更弱,不是代码错)。
+    update: vi.fn(() => {
+      const settled = Promise.resolve([{ id: 'file-1' }])
+      return {
+        set: vi.fn(() => ({
+          where: vi.fn(() => ({
+            returning: () => settled,
+            then: (
+              resolve: (v: unknown) => void,
+              reject?: (e: unknown) => void,
+            ) => settled.then(resolve, reject),
+          })),
+        })),
+      }
+    }),
     insert: vi.fn(() => ({ values: vi.fn(() => ({ returning: vi.fn().mockResolvedValue([]) })) })),
     delete: vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) })),
     execute: vi.fn().mockResolvedValue([]),
