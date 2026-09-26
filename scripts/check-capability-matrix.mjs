@@ -52,8 +52,16 @@ const ROOT = rootFlagIdx >= 0 && args[rootFlagIdx + 1] ? resolvePath(args[rootFl
 
 /** 默认值字面量为这些值时,视为「默认关」能力(J2 的红域)。 */
 const OFF_DEFAULTS = new Set(['false', '0', 'off'])
-/** 读 env 的两种 Python 写法(单行内联字面量形态)。 */
+/** 读 env 的写法。旧判据只认「内联字面量 + 带默认值」这一种,实测 235 个读取点只看得见 76 个:
+ *  经模块常量(`X_ENV = "X"`)或经辅助函数(`_env_flag(X_ENV, default=False)`)的读取**整条隐身**,
+ *  于是门一路报「台账全部对账一致」而替漏登的项背书。现四种形态同视。 */
 const ENV_READ_RE = /os\.(?:environ\.get|getenv)\(\s*"([A-Z][A-Z0-9_]+)"\s*,\s*"([A-Za-z0-9_]+)"/g
+/** `X_ENV = "ACTUAL_ENV"` —— 常量名到 env 名的映射,按文件现读,不抄第二份表。 */
+const ENV_CONST_DECL_RE = /^([A-Z][A-Z0-9_]*_ENV)\s*=\s*["']([A-Z][A-Z0-9_]+)["']/gm
+/** 常量形态:`os.environ.get(X_ENV)` / `os.getenv(X_ENV, "false")`。 */
+const ENV_READ_CONST_RE = /os\.(?:environ\.get|getenv)\(\s*([A-Z][A-Z0-9_]*_ENV)\b\s*(?:,\s*"([A-Za-z0-9_]+)")?/g
+/** 辅助函数形态:`_env_flag(X_ENV, default=False)` / `_env_flag("X", default=False)`。 */
+const ENV_FLAG_RE = /_env_flag\(\s*(?:"([A-Z][A-Z0-9_]+)"|([A-Z][A-Z0-9_]*_ENV))\s*,\s*default=(True|False)/g
 /** 矩阵条目的 env 字段。 */
 const MATRIX_ENV_RE = /"env":\s*"([A-Z][A-Z0-9_]+)"/g
 
@@ -141,17 +149,39 @@ export function runCheck(root) {
   const pyFiles = listPyFiles(appDir).filter((f) => f !== matrixFile)
   let corpus = ''
   const defaultOff = new Map() // env -> 首个出现文件(相对路径, 供报错定位)
+  const anyRead = new Set() // 四种形态合起来「代码真读了」的 env 名,用于诚实报账
   for (const f of pyFiles) {
     const text = stripPyLineComments(readFileSync(f, 'utf-8'))
     corpus += text + '\n'
+    const rel = f.slice(root.length + 1)
+    const consts = new Map()
+    for (const m of text.matchAll(ENV_CONST_DECL_RE)) consts.set(m[1], m[2])
+    const noteOff = (env) => {
+      if (!defaultOff.has(env)) defaultOff.set(env, rel)
+    }
     for (const m of text.matchAll(ENV_READ_RE)) {
-      if (OFF_DEFAULTS.has(m[2]) && !defaultOff.has(m[1])) {
-        defaultOff.set(m[1], f.slice(root.length + 1))
-      }
+      anyRead.add(m[1])
+      if (OFF_DEFAULTS.has(m[2])) noteOff(m[1])
+    }
+    for (const m of text.matchAll(ENV_READ_CONST_RE)) {
+      const env = consts.get(m[1])
+      if (!env) continue
+      anyRead.add(env)
+      if (m[2] !== undefined && OFF_DEFAULTS.has(m[2])) noteOff(env)
+    }
+    for (const m of text.matchAll(ENV_FLAG_RE)) {
+      const env = m[1] ?? consts.get(m[2])
+      if (!env) continue
+      anyRead.add(env)
+      if (m[3] === 'False') noteOff(env)
     }
   }
   stats.scannedFiles = pyFiles.length
   stats.defaultOffEnvs = defaultOff.size
+  // 台账外但**不属 J2 红域**的读取点(阈值/URL/密钥路径等非默认关项):原样报数不判红。
+  // 报出来的理由是「放过」与「没看见」在账面上必须不同形 —— 本门此前就是后者。
+  stats.envNamesRead = anyRead.size
+  stats.undocumentedNotOff = [...anyRead].filter((e) => !matrixEnvs.has(e)).length
 
   // J1: 幽灵条目 —— 矩阵登记的 env 必须在源码里真实存在。
   for (const env of [...matrixEnvs].sort()) {
@@ -182,7 +212,9 @@ function main() {
   }
   if (!quiet) {
     console.log(
-      `✅ check-capability-matrix: 台账 ${stats.matrixEnvs} 条 / 扫描 ${stats.scannedFiles} 个 py 文件 / 代码默认关 env ${stats.defaultOffEnvs} 个, 全部对账一致`,
+      `✅ check-capability-matrix: 台账 ${stats.matrixEnvs} 条 / 扫描 ${stats.scannedFiles} 个 py 文件 / ` +
+        `代码可读到的 env 名 ${stats.envNamesRead} 个,其中可判「默认关」${stats.defaultOffEnvs} 个已全部登记; ` +
+        `台账外且非默认关 ${stats.undocumentedNotOff} 个(阈值/URL/密钥路径等,按设计不属 J2 红域,只报数不判红)`,
     )
   }
   process.exit(0)
@@ -202,7 +234,15 @@ function selfTestRun() {
       `import os\n` +
       `# 注释陷阱: os.environ.get("FIXTURE_COMMENT_ENABLED", "false") 出现在注释里, 不许被吸\n` +
       `A = os.environ.get("FIXTURE_MISSING_ENABLED", "false")\n` +
-      `B = os.environ.get("FIXTURE_REAL_ENABLED", "false")\n`
+      `B = os.environ.get("FIXTURE_REAL_ENABLED", "false")\n` +
+      // 下面两行是本门旧判据的结构盲区:env 名经模块常量、以及经 `_env_flag` 辅助函数读取,
+      // 形态上没有内联字面量 ⇒ 旧正则一条都吸不到,而门照报"全部对账一致"。
+      `FIXTURE_CONST_ENV = "FIXTURE_CONST_ENABLED"\n` +
+      `C = os.environ.get(FIXTURE_CONST_ENV, "false")\n` +
+      `FIXTURE_FLAG_ENV = "FIXTURE_FLAG_ENABLED"\n` +
+      `D = _env_flag(FIXTURE_FLAG_ENV, default=False)\n`
+
+    const ALL_FOUR = ['FIXTURE_MISSING_ENABLED', 'FIXTURE_REAL_ENABLED', 'FIXTURE_CONST_ENABLED', 'FIXTURE_FLAG_ENABLED']
 
     const run = (envs) => {
       writeFileSync(join(coreDir, 'capability_matrix.py'), matrixSrc(envs))
@@ -210,13 +250,24 @@ function selfTestRun() {
       return runCheck(dir)
     }
 
-    // 场景 1(应绿): 两个真实 env 都登记 → 无错误, 且注释里的 env 未被误吸。
+    // 场景 1(应绿): 四个真实 env 都登记 → 无错误, 且注释里的 env 未被误吸。
     {
-      const { errors } = run(['FIXTURE_MISSING_ENABLED', 'FIXTURE_REAL_ENABLED'])
+      const { errors } = run(ALL_FOUR)
       const commentLeak = errors.some((e) => e.includes('FIXTURE_COMMENT_ENABLED'))
       if (errors.length !== 0 || commentLeak) {
         console.error(`❌ self-test 绿场景失败: 期望 0 错误, 实得 ${errors.length}${commentLeak ? '(注释被误吸!)' : ''}:`, errors)
         return 1
+      }
+    }
+    // 场景 1b(应红,放宽判据的阳性对照): 只登记内联字面量那两个 ⇒ 经常量与经 `_env_flag`
+    // 读的两个必须被抓出来。少这一条,「放宽形态」就等于只写在注释里。
+    {
+      const { errors } = run(['FIXTURE_MISSING_ENABLED', 'FIXTURE_REAL_ENABLED'])
+      for (const need of ['FIXTURE_CONST_ENABLED', 'FIXTURE_FLAG_ENABLED']) {
+        if (!errors.some((e) => e.includes('J2') && e.includes(need))) {
+          console.error(`❌ self-test 场景 1b 失败: 未检出台账逃逸 ${need}(该形态仍是盲区)`, errors)
+          return 1
+        }
       }
     }
     // 场景 2(应红): 少登记 MISSING → J2 台账逃逸。
