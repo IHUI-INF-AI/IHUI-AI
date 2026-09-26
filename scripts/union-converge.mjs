@@ -223,6 +223,9 @@ export function planStateRegressions(mergedText, sideTexts) {
     ['voidRows', 'F2 带作废声明未落账(行)'],
     ['rotatedPointers', 'F3 行号指针已腐烂(处)'],
     ['dupOpenCopies', 'F4 同一件事多条待办(副本行)'],
+    // F6 是块级量纲:整块被并集追加两遍时行级四条一路绿灯,而"每行重数 = max(两侧)"
+    // 正是它的生产机制 —— 所以这一维必须在落地闸上判,合并提交不跑 pre-commit。
+    ['dupBlocks', 'F6 整块登记重复(块)'],
   ]
   const sides = (sideTexts ?? []).filter((t) => typeof t === 'string' && t.trim() !== '')
   if (typeof mergedText !== 'string' || mergedText.trim() === '' || sides.length === 0) return []
