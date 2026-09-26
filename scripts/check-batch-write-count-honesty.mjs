@@ -30,12 +30,47 @@
  *   E3 命中行或其紧邻上一行有行内豁免 `batch-count-exempt: <原因>` —— **必须带非空原因**,裸标记
  *       不算(与门 102/108 同规矩),且必须在注释里(否则把标记写进字符串就能冒充豁免)。
  *
- * 刻意不判的邻近形状(反向锁,不得为消红放宽判据):N1 `success({ deleted: true })` 布尔确认里
- * **与写链无关的那一型**(同函数体内没有 db|tx|trx 的 delete/update ⇒ 它只是"惯例 ack",改它属
- * 全 API 语义决策,不归这道门顺手做;带写链的那一半自 2026-09-27 起升级成判据 **B1**,见下一段)
- * 与 `deleted: ids.length > 0` 这类比较式;N2 `count: rows.length` 读查询计数(函数体内无写链);
+ * 刻意不判的邻近形状(反向锁,不得为消红放宽判据):N1 布尔确认里**与写链无关的那一型**(同函数体内
+ * 没有 db|tx|trx 的 delete/update ⇒ 它只是"惯例 ack",改它属全 API 语义决策,不归这道门顺手做;带写链
+ * 的那一半自 2026-09-27 起升级成判据 **B1**,见下一段)与"布尔档的值是一枚比较式"那一型;
+ * N2 `count: rows.length` 读查询计数(函数体内无写链);
  * N3 注释与字符串里的字样 —— 判据跑在"剥注释 + 抹字符串"的代码面上,模块说明符是唯一例外(E2 只能
  * 从字符串里读),所以 import 判据跑在另一档上;两型遮噪方向不同,门 118 头注记过同一条教训,各有用例。
+ *
+ * **布尔档的键族(2026-09-27 第二十九批扩面)**:判据此前只认 `deleted` 一个键,于是"同一形状换个
+ * 键名"整型隐身 —— 第二十八批(`9155c57ed06`)逐体清掉的 15 处里,10 处改真的键是 removed/restored/
+ * revoked/cleared,判据一处也看不见,下一次同样写法照样进 HEAD 而门一路报绿。现键族 =
+ * `deleted | removed | restored | revoked | cleared`(BOOL_ACK_KEYS 一份真相:判据正则、按键分组的
+ * 报表、结论行逐键点名三处都从它派生;自检 K0 另备一份**独立写死**的期望表对账它有没有被削短)。
+ * **不与 COUNT_KEYS 复用同一个常量**:那张表问的是"自算的计数值",这张表问的是"布尔档承诺了什么",
+ * 且键集并不相同(前者有 affected/count 无 revoked/cleared,后者反之)—— 合并就是混计。
+ * 报表**按键分组**(`booleanAckByKey`,五键恒在位含 0),因为扩面后"合计 17 处"这句话分不清
+ * "新那一族一处没有"与"新那一族全是" —— 而这两种情况的下一步动作完全不同。
+ *
+ * 四类"证据在别处"的放过通道(2026-09-27,第二十九批:扩键族必须同时扩**认证据**的能力,否则
+ * 第二十八批逐体判为诚实的五处会被新键当场判红 = 与任何提交都无关的恒红门,§12e):
+ *   ① 一跳委托的 RETURNING —— B2 的被调体可以做**两件**写事(实测 `detachTag`:先
+ *     `delete … .returning()` 拿命中集,再把计数列 -1 的 update 不带 returning)。旧口径"任一链缺
+ *     returning 即违规"把这种**已诚实**的形状判红。现按 ack 键筛写动词(BOOL_ACK_KEY_VERBS):
+ *     只有该动词的链参与定罪,筛完没有匹配链则**退回旧口径**(只少误伤、不给"根本没做过那次写"发
+ *     合格证);摘掉那条 returning 后同一夹具必读红(K12)。**B1 不做这一层筛选** —— 调用方体内任何
+ *     db 写都算"这一屏真发了写",筛动词等于削弱 `deleted` 那一族既有判据(自检 B1b 钉着)。
+ *   ② 原生 SQL 里的 RETURNING —— `db.execute(sql\`DELETE … RETURNING id\`)` 的库答复住在模板串里,
+ *     而模板内容在遮蔽后的代码面上被抹成空格,既有 F1 的 `.returning(` 结构上读不到它。现另开一条:
+ *     在"剥注释、**保留字符串**"那一档(与 E2 的 import 说明符同一档、同一份取材)按同一行号窗口读
+ *     execute 调用的原文,RETURNING 关键字必须落在**该次调用的括号内**才算(注释里提一句不配放过 ——
+ *     与"注释里的 .returning( 不算"同一条规矩)。
+ *   ③ 内存 store/Map 的删除返回真布尔 —— 由**接收者白名单**放过(db|tx|trx 之外不算库写),
+ *     这一型没有"库侧行"的概念,不属本型(自检 K5/K6 各钉一处真实形状)。
+ *   ④ 同响应里另有诚实字段承载行数 —— `{ cleared: true, deleted, prefix }`:受影响键数由同一份响应里
+ *     那枚行数键(简写形态)诚实承载,布尔档不承诺行数。**只认简写**:带冒号的那一支随便写个不相干的
+ *     标识符就能洗白,所以结构上不匹配(自检 K9 去掉载体必红 / K10 带冒号那支仍红)。
+ *   ②③④ 的放过都**折进既有的 confirmed 桶**(它们说的是"库答复已在别处存在",不是"有人给了豁免"),
+ *   所以 b1* 与 b2* 的既有键、取值形态一字不变;具体靠哪一条证据放过由 confirmWhy 带出(`--explain` 里
+ *   点名)—— "放过"与"没看见"必须能各自被问到。
+ *   **已知空档(如实登记,不得为覆盖它去猜)**:门**不把** `db.execute(sql\`DELETE …\`)` 当成一条
+ *   写链(只把它当放过的证据)。所以"原生 SQL 发了写 + 回布尔 true + SQL 里没有 RETURNING"这一格
+ *   B1 仍然看不见 —— 要补它得先给"模板串里的 SQL 动词"建一份解析器,那是独立的判定面,不是扩键族。
  *
  * B1(2026-09-27 立):布尔 ack 里**可判的那一部分**从"只报数"升级成棘轮判据。用户已拍板把
  * `deleted: true` 改成真实语义(= 库里真删了一行,6 路并行改造在跑),所以"函数里真发了 delete/update,
@@ -90,10 +125,13 @@
  * 两份"惯例存量"计数(可见性,不是判据 —— **永不影响退出码**):上面那两个"刻意放过"的形状此前只有
  * 注释里的一句"全仓 257 处"撑着,而那句是人肉量的,下次谁扩面/收面账面没人知道它变了多少。现由本门
  * 每次现读数并报数:
- *   V1 `booleanAckSites` / `booleanAckFiles` —— 窄到形态:`.send(<X>success({ … deleted: true … }))`
- *      对象字面量里 **键逐字为 `deleted`、值为布尔字面量 `true`、其后紧跟 `,` 或 `}`**。
- *      因此 `deleted: affected` / `deleted: rows.length` / `deleted: true === x` / `isDeleted: true` /
- *      `restored: true`(别的键族)**一律不混进这一计数**。
+ *   V1 `booleanAckSites` / `booleanAckFiles` —— 窄到形态:`.send(<X>success({ … <键族成员>: true … }))`
+ *      对象字面量里 **键逐字等于 BOOL_ACK_KEYS 的某一员、值为布尔字面量、其后紧跟 `,` 或 `}`**。
+ *      因此"值是标识量 / 是 `.length` 链 / 字面量后还接着算式"、以及"键名带前缀(`isDeleted` 这类)"
+ *      **一律不混进这一计数**。
+ *      **2026-09-27 语义变化(必须如实说)**:这两个数的口径从"`deleted` 一族"扩大为"五键全集",
+ *      所以同一份 HEAD 在扩面前后读数不同(现读 12 → 17)—— 不是判据变松,是**看得见多了四族**。
+ *      要问"哪一族多少处"读 `booleanAckByKey`(五键恒在位,含 0),不要读那两个合计。
  *      **V1 仍是全形态的"现读可见性"数,自身依旧不参与任何退出码**;但自 2026-09-27 起它是 B1 的
  *      超集 —— 其中"同函数体有写链且无库确认"的那一子集被 B1 判据问责(走 `b1*` 自己的键,
  *      V1 的读数一字不动)。"布尔 ack 惯例不计红"这句现在只对**无写链**的那一半成立。
@@ -102,14 +140,14 @@
  *      的那些已经落在 U1 未判定里,不重复计)。
  *   两型各计各的,**混计就等于没有信息**。口径与违规判据同面同轮,所以 U2(词法未闭合)那一份文件
  *   两份都不计 —— 该文件已在"未判定"清单里逐条点名,不会静默少掉。
- *   **锚点边界(不是漏判,是口径,扩面前先读这句)**:V1 只认 `.send(<X>success({ … deleted: true … }))`
- *   这一个形态。同族但形态不同的一律不进这一数 —— ① 裸 `return { deleted: true }`(legacy-ask /
- *   legacy-exam / zhs-legacy / tenant);② `reply.send({ … deleted: true })` 不走 success 信封的
+ *   **锚点边界(不是漏判,是口径,扩面前先读这句)**:V1 只认 `.send(<X>success({ … }))` 这一个形态
+ *   (键族扩面扩的是**信封里那一个对象**的键集,不是信封本身)。同族但形态不同的一律不进这一数 ——
+ *   ① 裸 `return { … }`(legacy-ask / legacy-exam / zhs-legacy / tenant);② 不走 success 信封的
  *   OpenAI 兼容契约(v1-assistants);③ 代码生成器**模板字符串**里的该字样(gen-table,由遮蔽面排除,
  *   与 V1c 同一把锁);④ SCAN_DIRS 之外的落点(如 `apps/api/src/plugins/ws-chat.ts`)。
- *   上一轮人肉量的"257 处"就是这么来的:它按 `grep "deleted: true"` 数整个 `apps/api/src`,
- *   把这四类全算进去了。要并掉①②④必须**同批改枚举表与判据两半**(§4 圆角那条记过只改一半 ⇒
- *   整块动静默失效而门照报绿),并另立键族;不得只放宽正则把一个数做大。
+ *   上一轮人肉量的"257 处"就是这么来的:它按整串 grep 数整个 `apps/api/src`,把这四类全算进去了。
+ *   要并掉①②④必须**同批改枚举表与判据两半**(§4 圆角那条记过只改一半 ⇒ 整块动静默失效而门照报绿),
+ *   并另立键族;不得只放宽正则把一个数做大。
  *
  * 判不了 / 未判定(如实登记,绝不静默成"看起来全绿"):U1 链在 send 之后 ⇒ 顺序不成立,计入未判定
  * 并点名;U2 词法状态到文件末尾没闭合(疑正则字面量吞掉引号)⇒ 整份文件结论不可信 ⇒ 未判定,不冒红;
@@ -613,12 +651,33 @@ function* sendSuccessObjects(code) {
   }
 }
 
-/** `.send(<X>success({ … deleted: true … }))` 的**布尔 ack** 落点(V1,只报数不判红)。
- *  窄到形态才算:键逐字 `deleted`(故 `isDeleted:` / `deleted_count:` 不纳)、值逐字 `true`
- *  (故 `deleted: affected` / `rows.length` 不纳 —— 那一型归违规判据)、值后必须紧跟 `,` 或 `}`
- *  (故 `deleted: true ? a : b` / `deleted: trueOrFalse` 不纳)。键族刻意只有 `deleted`:
- *  `restored: true` 是另一种语义(可撤销的软删),混进来就等于把两型合成一个没有信息的数。 */
-const BOOL_ACK_RE = /[{,]\s*deleted\s*:\s*true\s*(?=[,}])/g
+/** `.send(<X>success({ … <键族成员>: true … }))` 的**布尔 ack** 落点(V1 可见性计数 + B1/B2 判据的
+ *  共用取材)。窄到形态才算:键名必须**逐字等于键族成员**(故 `isDeleted:` / `deleted_count:` 不纳)、
+ *  值逐字是布尔字面量(故 `deleted: affected` / `rows.length` 不纳 —— 那一型归计数判据)、
+ *  值后必须紧跟 `,` 或 `}`(故"字面量后面还接着算式或更长的标识符"不纳)。
+ *  2026-09-27 扩面:键族从单一眼 `deleted` 扩到 BOOL_ACK_KEYS 五键 —— 病灶是"同一形状换个键名即隐身",
+ *  **每个键各计各的**(报表按键分组),因为 `restored` 是软删撤销、`cleared` 是整片重置,与 `deleted`
+ *  的语义并不相同,混成一个数就等于没有信息。 */
+/** 布尔写 ack 的**键族**(2026-09-27 第二十九批扩面:判据的布尔档此前只认第一个键,于是
+ *  "同一形状换个键名"就整型隐身 —— 本仓最高频的失效型之一。键族取自 COUNT_KEYS 的写法但**不复用
+ *  那个常量**:两处语义不同(那一张是"自算计数的值",这一张是"布尔 ack 的承诺"),而且键集并不相同
+ *  (计数面有 affected/count 而无 revoked/cleared;布尔面无这两键而有三个新键),合并就等于混计。
+ *  **单一真相**:判据正则、按键分组的报表、结论行的逐键点名三处都由这一个数组派生 —— 下游再抄一份
+ *  硬编码名单就是第二真相,自检 K0 用一份**独立写死的**期望表对账它(名单被削短 ⇒ 当场红)。 */
+export const BOOL_ACK_KEYS = Object.freeze(['deleted', 'removed', 'restored', 'revoked', 'cleared'])
+/** 每个键**可能**由哪一种写动词应答(只给 B2 的被调体用:B2 的 ack 由**另一个函数**答复,而被调体
+ *  可以同时做两件写事 —— 实测 `detachTag` 先 `delete … .returning()` 再 `update`(计数递减),按旧口径
+ *  "任一链缺 returning 即违规"会把这一处**已诚实**的委托判红(恒红门的唯一结局是逼人 --no-verify,§12e)。
+ *  B1 **刻意不做这一层筛选**:调用方体内任何 db 写都算"这一屏真发了写",筛动词等于把 `deleted` 那一族
+ *  现有的判据削弱(镜像/自检里"update 链同判"那条用例钉着它)。表里没有的键 ⇒ 不筛选(退回旧口径)。 */
+export const BOOL_ACK_KEY_VERBS = Object.freeze({
+  deleted: Object.freeze(['delete']),
+  removed: Object.freeze(['delete']),
+  cleared: Object.freeze(['delete']),
+  restored: Object.freeze(['update']),
+  revoked: Object.freeze(['update', 'delete']),
+})
+const BOOL_ACK_RE = new RegExp(`[{,]\\s*(${BOOL_ACK_KEYS.join('|')})\\s*:\\s*true\\s*(?=[,}])`, 'g')
 export function findBooleanAckSends(code) {
   const out = []
   for (const { objOpen, objText } of sendSuccessObjects(code)) {
@@ -626,12 +685,52 @@ export function findBooleanAckSends(code) {
     let k
     while ((k = BOOL_ACK_RE.exec(objText)) !== null)
       out.push({
-        index: objOpen + k.index + k[0].indexOf('deleted'),
-        key: 'deleted',
+        index: objOpen + k.index + k[0].indexOf(k[1]),
+        key: k[1],
         value: 'true',
+        objText,
       })
   }
   return out
+}
+
+/**
+ * 同响应对象里是否**另有一枚诚实的行数载体**(2026-09-27,第二十九批:认"证据在别处"的第四型)。
+ * 病灶形状是 `{ cleared: true, deleted, prefix }` —— 布尔档不承诺行数,受影响键数由同一份响应里那枚
+ * 行数键诚实承载(实测它的值就是库里 `del` 命令的答复),所以把布尔档当"谎报删了几行"判红就是误伤。
+ * **刻意只认 ES6 简写**(键名后不接冒号 ⇒ 值就是与键同名的那个变量):
+ *  - 带冒号那一支(`x: 某个标识量`)**可以被凭空捏造** —— 随便写一个不相干的同名标识符就洗白了,
+ *    而简写要求调用方真有一个同名变量在别处被赋过值,那道赋值就在同一份文件里,要滥用得连变量一起编,
+ *    成本与直接写诚实实现相当(判据的失效方向必须是"更难作弊",不是"更容易作弊");
+ *  - 实测唯一的诚实形状(agents.ts 那一处)恰好是简写,所以收窄**不损失任何真站点**(现读见自检 K7/K8)。
+ * @returns {null | {key:string}}
+ */
+export function findHonestCarrierSibling(objText) {
+  // 键名后直接跟 `,` 或 `}` ⇒ 简写形态;带冒号的那一支结构上匹配不到。
+  const m = /[,{]\s*(deleted|affected|restored|removed|revoked|cleared|count)\s*(?=[,}])/.exec(
+    objText,
+  )
+  return m ? { key: m[1] } : null
+}
+
+/**
+ * 原始 SQL 文本里的 `RETURNING`(2026-09-27,第二十九批:认"证据在别处"的第二型)。
+ * `db.execute(sql\`DELETE … RETURNING id\`)` 走的是 drizzle 的原生 SQL 通道 —— 模板串在**遮蔽后的代码面**
+ * 上被抹成空格,所以既有 F1 的 `.returning(` 永远看不见这条库答复。这里改在"剥注释、**保留字符串**"
+ * 那一档上按同一下标窗口读 execute 调用的原文,只认落在该次调用括号内的 RETURNING 关键字
+ * (注释里提一句 RETURNING 不配放过 —— 与"注释里的 .returning( 不算"同一条规矩,由 K-raw② 钉住)。
+ */
+export function hasRawSqlReturning(nonBlankCode, bodyStart, bodyEnd) {
+  const re = /\b(?:db|tx|trx)\s*\.\s*execute\s*\(/g
+  let m
+  while ((m = re.exec(nonBlankCode)) !== null) {
+    if (m.index < bodyStart || m.index >= bodyEnd) continue
+    const open = nonBlankCode.indexOf('(', m.index + m[0].length - 1)
+    const end = open >= 0 ? closeParen(nonBlankCode, open) : -1
+    if (end < 0 || end > bodyEnd) continue
+    if (/\bRETURNING\b/i.test(nonBlankCode.slice(open, end))) return true
+  }
+  return false
 }
 
 /**
@@ -651,7 +750,14 @@ export function findBooleanAckSends(code) {
  *    动词是 delete/update 这一点不受参数里有什么影响,分不清的是命中数而不是"有没有写"。
  * 找不到所属函数体的布尔 ack 记 `noBodySites`(不判红也不记绿 —— 静默跳过就是这一族门最常犯的假绿)。
  */
-export function findBoolAckB1Sites(relPath, code, rawLines, allChains = null, ackSites = null) {
+export function findBoolAckB1Sites(
+  relPath,
+  code,
+  rawLines,
+  allChains = null,
+  ackSites = null,
+  nonBlankCode = null,
+) {
   const bodies = findFunctionBodies(code)
   const chains = allChains || findWriteChains(code)
   const out = {
@@ -671,11 +777,28 @@ export function findBoolAckB1Sites(relPath, code, rawLines, allChains = null, ac
     }
     const chain = chains.find((c) => c.start >= body.start && c.end <= body.end)
     if (!chain) continue // 同函数体无写链:纯惯例面(V1 已计),B1 不判
-    const site = { file: relPath, line, receiver: chain.receiver }
+    const site = { file: relPath, line, key: b.key, receiver: chain.receiver }
     out.candidates.push(site)
     const bodyText = code.slice(body.start, body.end)
     if (RETURNING_IN_BODY_RE.test(bodyText) || BATCH_OUTCOME_IN_BODY_RE.test(bodyText)) {
       site.disposition = 'db-confirmed'
+      out.exempt.confirmed++
+      continue
+    }
+    // 放过通道之二/之三(2026-09-27 第二十九批,认"证据在别处"):原始 SQL 的 RETURNING 与同响应里的
+    // 诚实行数载体。两者都**折进 confirmed 这一桶**(与 F1 同族:它们说的是"库答复在别处已存在",
+    // 不是"有人给了豁免"),所以 b1*/b2* 的既有键与取值形态一字不变;具体是哪一种由 confirmWhy 带出,
+    // 复核 --explain 时才分得开 —— "放过"与"没看见"必须能各自被问到。
+    if (nonBlankCode && hasRawSqlReturning(nonBlankCode, body.start, body.end)) {
+      site.disposition = 'db-confirmed'
+      site.confirmWhy = 'raw-sql-returning'
+      out.exempt.confirmed++
+      continue
+    }
+    const carrier = findHonestCarrierSibling(b.objText || '')
+    if (carrier) {
+      site.disposition = 'db-confirmed'
+      site.confirmWhy = `sibling-carrier:${carrier.key}`
       out.exempt.confirmed++
       continue
     }
@@ -904,14 +1027,23 @@ export function indexExportedFns(code) {
   return { byName, reexportNames, starReexport }
 }
 
-/** 被调函数体的定性:有没有"带 where 而无 returning、也无唯一出口"的那一条写链。 */
-function classifyCalleeBody(bodyText) {
+/**
+ * 被调函数体的定性:有没有"带 where 而无 returning、也无唯一出口"的那一条写链。
+ * 2026-09-27 第二十九批:带上 **ack 键** 再筛一道写动词(理由见 BOOL_ACK_KEY_VERBS 旁注释)——
+ * 委托体常做两件写事(实测 `detachTag`:先 `delete … .returning()` 拿命中集、再把计数列 -1),
+ * 布尔档回答的是前一件。筛完**没有该动词的链** ⇒ 不筛(退回旧口径),所以这一层只会少误伤、
+ * 不会给"根本没做过那次写"的形状发合格证;摘掉 `.returning(` 之后该动词只剩无答复的那一条 ⇒ 照样红。
+ */
+function classifyCalleeBody(bodyText, ackKey = '') {
   if (BATCH_OUTCOME_IN_BODY_RE.test(bodyText))
     return { state: 'confirmed', why: 'batchWriteOutcome' }
   const chains = findWriteChains(bodyText).filter((c) => c.hasWhere)
   if (!chains.length) return { state: 'no-write' }
-  if (chains.some((c) => !c.hasReturning && !c.opaque)) return { state: 'violation' }
-  if (chains.every((c) => c.opaque)) return { state: 'undetermined', kind: 'opaque-callee-chain' }
+  const verbs = BOOL_ACK_KEY_VERBS[ackKey]
+  const scoped = verbs ? chains.filter((c) => verbs.includes(c.names[0])) : []
+  const scope = scoped.length ? scoped : chains
+  if (scope.some((c) => !c.hasReturning && !c.opaque)) return { state: 'violation' }
+  if (scope.every((c) => c.opaque)) return { state: 'undetermined', kind: 'opaque-callee-chain' }
   return { state: 'confirmed', why: 'returning' }
 }
 
@@ -927,6 +1059,7 @@ export function planDelegatedAckSites(
   allChains,
   imports,
   knownPaths,
+  nonBlankCode = null,
 ) {
   const bodies = findFunctionBodies(code)
   const sites = []
@@ -940,9 +1073,25 @@ export function planDelegatedAckSites(
     const site = {
       file: relPath,
       line,
+      // ack 键必须带上:被调体的写动词筛选(BOOL_ACK_KEY_VERBS)按它判,缺了就等于把
+      // "委托体做了两件写事"的诚实形状按最严的那一条定罪。
+      key: b.key,
       needs: [],
       undetermined: [],
       marker: readExemptMarker(rawLines[line - 1] || '', DELETE_ACK_EXEMPT_TOKEN),
+    }
+    // 与 B1 同两条"证据在别处"的放过通道:调用方体内自己就带着库答复(raw SQL 的 RETURNING),
+    // 或同一份响应里另有诚实的行数载体 —— 这一跳就没必要再去被调体里找罪证。
+    if (nonBlankCode && hasRawSqlReturning(nonBlankCode, body.start, body.end)) {
+      site.confirmedBy = 'raw-sql-returning'
+      sites.push(site)
+      continue
+    }
+    const carrier = findHonestCarrierSibling(b.objText || '')
+    if (carrier) {
+      site.confirmedBy = `sibling-carrier:${carrier.key}`
+      sites.push(site)
+      continue
     }
     AWAIT_CALL_RE.lastIndex = 0
     let m
@@ -979,6 +1128,20 @@ export function planDelegatedAckSites(
  *  没有违规而有任一解析不出 ⇒ 未判定(不记为通过,也不冒红)。
  */
 export function finishDelegatedAckSite(site, calleeIndex) {
+  // 调用方体内自带库答复(raw SQL 的 RETURNING / 同响应的诚实行数载体)⇒ 这一处按放过记账,
+  // 并留下 confirmWhy 让 --explain 说得出**为什么**放过("放过"与"没看见"必须能各自被问到)。
+  if (site.confirmedBy) {
+    return {
+      file: site.file,
+      line: site.line,
+      key: site.key,
+      states: [],
+      undetermined: [],
+      disposition: 'db-confirmed',
+      callee: { file: site.file, name: site.confirmedBy, why: 'caller-side-evidence' },
+      bareExempt: 0,
+    }
+  }
   const states = []
   for (const n of site.needs) {
     const idx = calleeIndex && calleeIndex.get ? calleeIndex.get(n.path) : null
@@ -1002,7 +1165,7 @@ export function finishDelegatedAckSite(site, calleeIndex) {
       })
       continue
     }
-    const c = classifyCalleeBody(fn.bodyText)
+    const c = classifyCalleeBody(fn.bodyText, site.key)
     states.push({ ...c, name: n.local, file: n.path })
   }
   const undet = site.undetermined.concat(states.filter((s) => s.state === 'undetermined'))
@@ -1011,6 +1174,7 @@ export function finishDelegatedAckSite(site, calleeIndex) {
   const out = {
     file: site.file,
     line: site.line,
+    key: site.key,
     states,
     undetermined: undet,
     disposition: 'none',
@@ -1061,11 +1225,15 @@ export function aggregateB2(res, judged) {
 export function scanFileText(relPath, text, opts = {}) {
   const masked = maskText(text, { blankStrings: true })
   const code = masked.text
+  // "剥注释、保留字符串"那一档:import 说明符(E2)与原始 SQL 的 RETURNING 关键字都只活在这里,
+  // 而注释在两档中都被剥 ⇒ 注释里提一句 RETURNING 不配给假 ack 发合格证。同一份只算一次
+  // (两处各 maskText 一遍就是第二套取材,门 118/93 记过同型)。
+  const nonBlank = maskText(text, { blankStrings: false }).text
   const rawLines = text.split(/\r?\n/)
   const bodies = findFunctionBodies(code)
   const batchChains = findWriteChains(code).filter((c) => c.hasWhere && c.hasInArray && !c.opaque)
   const sends = findCountSends(code)
-  const usesOutlet = SPEC_RE.test(maskText(text, { blankStrings: false }).text)
+  const usesOutlet = SPEC_RE.test(nonBlank)
   const res = {
     file: relPath,
     candidates: [],
@@ -1079,6 +1247,9 @@ export function scanFileText(relPath, text, opts = {}) {
     // 两份"惯例存量"落点(可见性,不进 decide、不进四个判据数)。U2 那份文件在此提前 return  ⇒ 两份都不计,
     // 而该文件已在 undetermined 清单里点名 —— 少掉的数有对应的名字,不是静默少掉。
     booleanAck: [],
+    // 按键分组的可见性数(与 booleanAck* 同为**只报数**,**不进 decide**):U2 提前 return 那一路
+    // 也要有这张表,否则报表读 undefined ⇒ 结论行少一族,而"少一族"看起来就像"那一族是 0"。
+    booleanAckByKey: Object.fromEntries(BOOL_ACK_KEYS.map((k) => [k, 0])),
     readQuery: [],
     // B1(判据,自带 b1* 键;既有四数 candidates/violations/undetermined/exempt 一字不并入)。
     b1: {
@@ -1162,15 +1333,19 @@ export function scanFileText(relPath, text, opts = {}) {
     key: b.key,
     value: b.value,
   }))
+  // 按键分组(2026-09-27 第二十九批):扩键族后只报一个合计,读报告的人就分不清"这一族没扫过"
+  // 与"扫了是 0"—— 与结论行逐键点名同一条理由。表由 BOOL_ACK_KEYS 派生,五键恒在位(含 0)。
+  res.booleanAckByKey = Object.fromEntries(BOOL_ACK_KEYS.map((k) => [k, 0]))
+  for (const b of res.booleanAck) res.booleanAckByKey[b.key] = (res.booleanAckByKey[b.key] || 0) + 1
   const allChains = findWriteChains(code)
-  res.b1 = findBoolAckB1Sites(relPath, code, rawLines, allChains, boolSites)
+  res.b1 = findBoolAckB1Sites(relPath, code, rawLines, allChains, boolSites, nonBlank)
   // B2(一跳委托):第一遍只用**本地**信息(调用方正文 + 同面文件清单)得出"要读哪些被调文件";
   // 被调正文由 analyze 在同一面一次读满后再跑第二遍。acks 与 B1 共用**同一份** boolSites —— 两处
   // 各扫一遍 send 形态必然漂移(M16 那把锁的同族)。
   res.b2 = emptyB2()
   if (!res.leaks.length) {
     const imports = parseImportBindings(
-      maskText(text, { blankStrings: false }).text,
+      nonBlank, // 模块说明符只活在"保留字符串"那一档
       code, // 遮蔽后的代码面:起始位不在这一面上就说明那条 import 活在字符串/注释里
     )
     const plan = planDelegatedAckSites(
@@ -1181,6 +1356,7 @@ export function scanFileText(relPath, text, opts = {}) {
       allChains,
       imports,
       opts.knownPaths,
+      nonBlank,
     )
     res.b2.sites = plan.sites
     res.b2.needs = plan.needs
@@ -1353,20 +1529,46 @@ export function analyze(root, face, opts = {}) {
     b2Files: per.filter((r) => r.b2.violations.length > 0).length,
     b2Undetermined: b2Undetermined.length,
     b2Exempt: per.reduce((a, r) => a + r.b2.exempt.confirmed + r.b2.exempt.marker, 0),
+    // 2026-09-27 追加在**最末尾**:布尔 ack 按键分组的现读数(五键恒在位,含 0)。
+    // 语义变化必须如实说:`booleanAckSites` / `booleanAckFiles` 自本批改用**键族五键**计数,
+    // 所以这两个数的口径比扩面前宽(扩面前只有 `deleted`)—— 它们仍**不参与任何退出码**(X1/R7/R8/M13
+    // 那几把锁一字未动);要知道每一族各多少处,读这一张表,不要读那两个合计。
+    booleanAckByKey: per.reduce(
+      (acc, r) => {
+        for (const k of BOOL_ACK_KEYS) acc[k] += r.booleanAckByKey[k] || 0
+        return acc
+      },
+      Object.fromEntries(BOOL_ACK_KEYS.map((k) => [k, 0])),
+    ),
   }
   // 棘轮锚点:只在这一档才回读 HEAD 面(全量档本来就是 HEAD)。新文件不在 HEAD ⇒ 锚点 0,
   // 这是"第一个端点第一次就写错"必须判红的那一格;锚点文件取不到则判死,不拿 0 顶替。
   // 三条判据(计数自算 / B1 假 ack / B2 一跳委托)各按**各自**的 HEAD 计数当锚点 —— 共用一个数就是
   // 互相顶账(门 67/83 记过"同一笔债两道门各计一次会让两份基线互相顶掉"的反面:键必须分开)。
+  // **锚点的粒度 = 文件 × 判据 × ack 键**(2026-09-27 第二十九批随键族扩面同批改):
+  //  只到"文件 × 判据"那一层,把一处 `deleted` 假 ack 换成 `removed` 假 ack 就是 1 → 1 净零,
+  //  而这恰恰是扩键族**新造出来**的一条逃逸路径(扩面前只有一族,换无可换)。自检 BK1 用一次性临时
+  //  仓把这条换键路径钉成必红;代价是红点会更细,而细红点正是本门存在的理由。
   let ratcheted = null
   if (face === 'staged' && (violations.length || b1Violations.length || b2Violations.length)) {
-    const legacyByFile = new Map()
-    for (const v of violations) legacyByFile.set(v.file, (legacyByFile.get(v.file) || 0) + 1)
-    const b1ByFile = new Map()
-    for (const v of b1Violations) b1ByFile.set(v.file, (b1ByFile.get(v.file) || 0) + 1)
-    const b2ByFile = new Map()
-    for (const v of b2Violations) b2ByFile.set(v.file, (b2ByFile.get(v.file) || 0) + 1)
-    const files = [...new Set([...legacyByFile.keys(), ...b1ByFile.keys(), ...b2ByFile.keys()])]
+    const bucketBy = (list) => {
+      const m = new Map()
+      for (const v of list) {
+        const k = `${v.file}\u0000${v.key || ''}`
+        m.set(k, (m.get(k) || 0) + 1)
+      }
+      return m
+    }
+    const legacyByFile = bucketBy(violations)
+    const b1ByFile = bucketBy(b1Violations)
+    const b2ByFile = bucketBy(b2Violations)
+    const files = [
+      ...new Set(
+        [...legacyByFile.keys(), ...b1ByFile.keys(), ...b2ByFile.keys()].map(
+          (k) => k.split('\u0000')[0],
+        ),
+      ),
+    ]
     const headSet = new Set(listCandidates(root, 'head'))
     const need = files.filter((p) => headSet.has(p))
     // B2 的锚点必须也在 HEAD 面把那一跳读完:索引面的 ack 数与 HEAD 面的 ack 数若各自用**自己那一面**
@@ -1381,29 +1583,26 @@ export function analyze(root, face, opts = {}) {
         )
       : []
     const headByFile = new Map(headPer.map((r) => [r.file, r]))
+    // HEAD 侧必须按**同一把尺子**(文件 × 判据 × ack 键)分桶 —— 只到文件那一层,就是上面说的那条换键逃逸。
+    const headLegacyBy = bucketBy(headPer.flatMap((r) => r.violations))
+    const headB1By = bucketBy(headPer.flatMap((r) => r.b1.violations))
+    const headB2By = bucketBy(headPer.flatMap((r) => r.b2.violations))
     ratcheted = []
-    for (const file of files) {
-      let anchorLegacy = 0
-      let anchorB1 = 0
-      let anchorB2 = 0
+    const pushRatchet = (bucket, headBucket, compositeKey, kind) => {
+      const [file, key] = compositeKey.split('\u0000')
+      let anchor = 0
       if (headSet.has(file)) {
-        const hr = headByFile.get(file)
-        if (!hr)
+        if (!headByFile.get(file))
           throw new Undetermined(`HEAD 取不到棘轮锚点文件 ${file} ⇒ 无法判定(不回落、不拿 0 顶替)`)
-        anchorLegacy = hr.violations.length
-        anchorB1 = hr.b1.violations.length
-        anchorB2 = hr.b2.violations.length
+        anchor = headBucket.get(compositeKey) || 0
       }
-      const nowLegacy = legacyByFile.get(file) || 0
-      if (nowLegacy > anchorLegacy)
-        ratcheted.push({ file, kind: 'count', now: nowLegacy, anchor: anchorLegacy, added: nowLegacy - anchorLegacy })
-      const nowB1 = b1ByFile.get(file) || 0
-      if (nowB1 > anchorB1)
-        ratcheted.push({ file, kind: 'b1', now: nowB1, anchor: anchorB1, added: nowB1 - anchorB1 })
-      const nowB2 = b2ByFile.get(file) || 0
-      if (nowB2 > anchorB2)
-        ratcheted.push({ file, kind: 'b2', now: nowB2, anchor: anchorB2, added: nowB2 - anchorB2 })
+      const now = bucket.get(compositeKey) || 0
+      if (now > anchor)
+        ratcheted.push({ file, kind, key: key || undefined, now, anchor, added: now - anchor })
     }
+    for (const k of legacyByFile.keys()) pushRatchet(legacyByFile, headLegacyBy, k, 'count')
+    for (const k of b1ByFile.keys()) pushRatchet(b1ByFile, headB1By, k, 'b1')
+    for (const k of b2ByFile.keys()) pushRatchet(b2ByFile, headB2By, k, 'b2')
   }
   const exit = decide({
     face,
@@ -1492,7 +1691,7 @@ export function formatReport(out) {
     )
     for (const r of out.ratcheted)
       L.push(
-        `   [${{ b1: 'B1假ack', b2: 'B2委托假ack' }[r.kind] || '计数自算'}] ${r.file}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
+        `   [${{ b1: 'B1假ack', b2: 'B2委托假ack' }[r.kind] || '计数自算'}] ${r.file}${r.key ? `〈ack 键 ${r.key}〉` : ''}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
       )
     if (nLegacy) {
       L.push(
@@ -1535,7 +1734,7 @@ export function formatReport(out) {
       `${out.strict ? '❌' : '⚠️'} 全量档现读 B1 假 ack ${c.b1Violations} 处 / ${c.b1Files} 文件(同函数体有 db/tx 写链、回 deleted: true 字面量、体内无 .returning()/batchWriteOutcome())${out.strict ? ' —— --strict 判红' : ' —— 存量只报数不拦提交;提交链走差值棘轮,新增即红(§12e)'}`,
     )
     for (const v of b1v.slice(0, 40))
-      L.push(`   ${v.file}:${v.line}  (写链=${v.receiver}.delete/update,响应 deleted: true)`)
+      L.push(`   ${v.file}:${v.line}  (写链=${v.receiver}.delete/update,响应布尔档键=${v.key})`)
     if (c.b1Violations > 40) L.push(`   …另 ${c.b1Violations - 40} 处(--explain 看全量)`)
   }
   // B2 与 B1 同档:它是判据不是可见性数 —— 全量默认档只报数(HEAD 有存量),--strict 才问责,
@@ -1546,7 +1745,7 @@ export function formatReport(out) {
     )
     for (const v of b2v.slice(0, 40))
       L.push(
-        `   ${v.file}:${v.line}  → ${v.callee?.file ?? '?'}#${v.callee?.name ?? '?'}(被调体写链无 .returning(),响应 deleted: true)`,
+        `   ${v.file}:${v.line}  → ${v.callee?.file ?? '?'}#${v.callee?.name ?? '?'}(被调体写链无 .returning(),响应布尔档键=${v.key})`,
       )
     if (c.b2Violations > 40) L.push(`   …另 ${c.b2Violations - 40} 处(--explain 看全量)`)
   }
@@ -1607,7 +1806,12 @@ export function formatReport(out) {
       // B2 与 B1 同形:措辞里"0 处 ≠ 没扫过"由这一句自己承担;五个键一律现读,不并入任何既有数。
       `;B2 委托假 ack(判据:违规 ${c.b2Violations ?? 0} 处 / ${c.b2Files ?? 0} 文件,` +
       `候选 ${c.b2Candidates ?? 0},放过 ${c.b2Exempt ?? 0} 只报数,` +
-      `那一跳解析不到不判 ${c.b2Undetermined ?? 0})`,
+      `那一跳解析不到不判 ${c.b2Undetermined ?? 0})` +
+      // 逐键点名(2026-09-27):扩键族后"合计 12 处"这句话什么都没说 —— 新那一族可能一处都没有,
+      // 也可能全是新那一族。含 0 也照喊,理由与 B1/B2 段同一句("0 处 ≠ 没扫过")。
+      // 表由 BOOL_ACK_KEYS 派生:**报表漏键在这里结构上不可能发生**,自检 K0 再用一份独立写死的
+      // 期望表对账"键族本身有没有被人削短"(那才是会静默失明的那一格)。
+      `;布尔 ack 按键族现读(不计红):${BOOL_ACK_KEYS.map((k) => `${k} ${(c.booleanAckByKey && c.booleanAckByKey[k]) ?? 0}`).join(' · ')}`,
   )
   return L
 }
@@ -1615,13 +1819,15 @@ export function formatReport(out) {
 const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict] [--explain] [--json] [--files a,b] [--root <dir>] [--self-test]
   判据一(计数诚实性):同函数体内 inArray 批量写链 + .send(success({ deleted|affected|… : <请求侧>.length }))
     放过:链带 .returning( / 计数根可追到库确认集 / import ${UNIQUE_OUTLET} / 行内 ${EXEMPT_TOKEN}: <原因>(须带原因)
-  判据二(B1 假 ack,2026-09-27):同函数体内 db|tx|trx .delete(/.update( 写链 + 响应对象里 deleted: true 字面量
-    放过:体内 .returning( / 体内 batchWriteOutcome( / **同行**行内 ${DELETE_ACK_EXEMPT_TOKEN}: <原因>(须带原因)
+  判据二(B1 假 ack,2026-09-27):同函数体内 db|tx|trx .delete(/.update( 写链 + 响应对象里布尔档键取字面值
+    (键族:${BOOL_ACK_KEYS.join(' | ')})
+    放过:体内 .returning( / 体内 batchWriteOutcome( / 同次 db.execute 的原生 SQL 里有 RETURNING /
+          同响应另有诚实行数载体 / **同行**行内 ${DELETE_ACK_EXEMPT_TOKEN}: <原因>(须带原因)
   判据三(B2 委托假 ack,2026-09-27):ack 体内**无**直接写链(那一子集归 B1),但 await 了经 import 解析到
     ${API_SRC_DIR} 内某文件的具名导出函数,而被调函数体有带 .where( 的写链却无 .returning( / batchWriteOutcome(
-    放过:被调体走库确认 / **同行**行内 ${DELETE_ACK_EXEMPT_TOKEN}: <原因>(与 B1 同一条通道)
-    那一跳解析不到 ⇒ 计"未判定"并逐条点名(不记通过、也不因判不出而判红)
-  只报数不判红(现读惯例存量,写在结论行):布尔 ack \`deleted: true\`(无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
+    被调体做两件写事时按 ack 键的写动词筛(见 BOOL_ACK_KEY_VERBS);那一跳判不出 ⇒ 未判定并点名
+    放过:被调体走库确认 / 与 B1 同一条行内豁免通道
+  只报数不判红(现读惯例存量,写在结论行):布尔 ack(五键按键分组现读,无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
   三条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
   提交链档与 --strict 才问责。
   紧急跳过(接入提交链后):${SELF_SKIP}=1`
@@ -1671,7 +1877,9 @@ function main(argv) {
     // B1 的逐条处置(V1 的子集,处置各说各话时这里就是复核入口)。
     for (const r of out.per)
       for (const s of r.b1.candidates)
-        console.log(`  · B1假ack ${s.file}:${s.line} (写链=${s.receiver}.…) ⇒ ${s.disposition}`)
+        console.log(
+          `  · B1假ack ${s.file}:${s.line} (键=${s.key},写链=${s.receiver}.…) ⇒ ${s.disposition}${s.confirmWhy ? ` 证据=${s.confirmWhy}` : ''}`,
+        )
     for (const r of out.per)
       for (const n of r.b1.noBodySites)
         console.log(`  · B1未判定 ${n.file}:${n.line} 布尔 ack 解析不出所属函数体,不判红也不记绿`)
@@ -1679,7 +1887,7 @@ function main(argv) {
     for (const r of out.per)
       for (const s of r.b2.candidates)
         console.log(
-          `  · B2委托ack ${s.file}:${s.line} → ${s.callee ? `${s.callee.file}#${s.callee.name}` : '(未解析)'} ⇒ ${s.disposition}`,
+          `  · B2委托ack ${s.file}:${s.line} (键=${s.key}) → ${s.callee ? `${s.callee.file}#${s.callee.name}` : '(未解析)'} ⇒ ${s.disposition}${s.callee?.why ? ` (${s.callee.why})` : ''}`,
         )
     for (const r of out.per)
       for (const u of r.b2.undetermined)
@@ -1816,12 +2024,13 @@ const FIX = {
     ['  return reply.send(success({ id: 2, deleted: true, }))'],
     ['  return reply.send(success({', '    deleted: true,', '  }))'],
   ),
-  // V1 必须**不**数的近邻形状:键族别的(restored/isDeleted)、值不是布尔字面量(affected/rows.length)、
-  // 字面量后面还接着算式或更长的标识符。放宽到"任何含 deleted 的行"就会把这些一并混进同一个数。
+  // V1 必须**不**数的近邻形状:键族不在这一档(restored 自 2026-09-27 起**已是**键族成员,所以它
+  // 从这里移走、换成 `archived`)、值不是布尔字面量(affected/rows.length)、字面量后面还接着算式或
+  // 更长的标识符。放宽到"任何含 deleted 的行"就会把这些一并混进同一个数。
   boolAckNearMiss: h(
     ['  const affected = 1', '  return reply.send(success({ deleted: affected }))'],
     ['  return reply.send(success({ deleted: rows.length }))'],
-    ['  return reply.send(success({ restored: true }))'],
+    ['  return reply.send(success({ archived: true }))'],
     ['  return reply.send(success({ isDeleted: true }))'],
     ['  return reply.send(success({ deleted: true === flag }))'],
     ['  return reply.send(success({ deleted: trueOrFalse }))'],
@@ -1880,7 +2089,10 @@ const FIX = {
   /** 同文件第二处同型(供"新增即红"与"违规×2"读数)。 */
   b1FalseAckTwice: h(
     ['  await db.delete(a).where(eq(a.id, id))', '  return reply.send(success({ deleted: true }))'],
-    ['  await db.update(b).set({ gone: true }).where(eq(b.id, id2))', '  return reply.send(success({ deleted: true }))'],
+    [
+      '  await db.update(b).set({ gone: true }).where(eq(b.id, id2))',
+      '  return reply.send(success({ deleted: true }))',
+    ],
   ),
   /** 放过 F1a:链上 .returning( —— 体内有库确认调用即放过,不追问这条 ack 用的是不是它。 */
   b1ConfirmedReturning: h([
@@ -1943,6 +2155,79 @@ const FIX = {
     '  return reply.send(success({ id, deleted: rows.length > 0 }))',
   ]),
 }
+
+/* ---- 2026-09-27 第二十九批:键族扩面 + "证据在别处"四型的夹具 ----
+ * FAMILY_KEYS_EXPECTED 是**自检侧独立写死**的期望表(不从 BOOL_ACK_KEYS 派生):把判据的键表削短,
+ * K0 这一支必读红 —— 那正是"预筛/键表漏一个键 ⇒ 门对整型静默失明而账面照报绿"的形态(门 102 的
+ * 预筛超集对账同一条理由、同一写法)。
+ */
+const FAMILY_KEYS_EXPECTED = ['deleted', 'removed', 'restored', 'revoked', 'cleared']
+/** 逐键"命中"正例:每键一枚 handler,体内真发 delete、无库确认、无载体 ⇒ 键键都该被 B1 判违规。 */
+const FAMILY_HIT = h(
+  ...FAMILY_KEYS_EXPECTED.map((k) => [
+    '  await db.delete(table).where(eq(table.id, id))',
+    `  return reply.send(success({ ${k}: true }))`,
+  ]),
+)
+/** 逐键"该放过"反例:形状逐字相同,只是体内**没有**任何 db/tx 写链 ⇒ 纯惯例面,B1 一律不判。 */
+const FAMILY_LETGO = h(
+  ...FAMILY_KEYS_EXPECTED.map((k) => ['  return reply.send(success({ ' + k + ': true }))']),
+)
+/** 型②:organization.ts 的真实形状 —— 删除走 db.execute 的原生 SQL,库答复住在模板串里
+ *  (遮蔽后的代码面看不见模板内容,所以既有 F1 的 .returning( 永远读不到它)。 */
+const RAW_SQL_DELETE =
+  '    sql`DELETE FROM organization_members WHERE org_id::text = ${id} RETURNING id`,'
+const HONEST_RAW_SQL = h([
+  '  const rows = await db.execute(',
+  RAW_SQL_DELETE,
+  '  )',
+  '  if (rows.length === 0) return reply.status(404).send(error(404, "成员不存在"))',
+  '  return reply.send(success({ userId: id, removed: true }))',
+])
+/** 型②的"有牙"版本:同一体内**另外**还有一条看得见的 drizzle 写链(即"摘掉 .returning( 的那一型")
+ *  —— 只有承认"体内有写"这一格仍然放过,才说明放过来自那条 RETURNING 证据,而不是来自判据看不见。 */
+const HONEST_RAW_SQL_WITH_CHAIN = h([
+  '  await db.delete(table).where(eq(table.id, id))',
+  '  const rows = await db.execute(',
+  RAW_SQL_DELETE,
+  '  )',
+  '  return reply.send(success({ userId: id, removed: true }))',
+])
+const HONEST_RAW_SQL_NO_RETURNING = HONEST_RAW_SQL_WITH_CHAIN.replace(' RETURNING id', '')
+/** 型③:内存 Map 的 delete 返回真布尔,404 由它派生 —— 没有"库侧行"这个概念,不属本型。 */
+const HONEST_MEMORY_MAP_DELETE = h([
+  '  if (!ipBlacklist.delete(ip)) {',
+  '    return reply.status(404).send(error(404, "IP 不在黑名单中"))',
+  '  }',
+  '  return reply.send(success({ removed: true }))',
+])
+/** 型③之二:整片重置一个内存 store(visit/openclaw 两处的共同形状)。 */
+const HONEST_MEMORY_STORE_RESET = h([
+  '  memoryStore.set(userId, [])',
+  '  return reply.send(success({ cleared: true }))',
+])
+/** 型④:agents.ts 的真实形状 —— 布尔档不承诺行数,行数由同响应里那枚诚实字段承载。 */
+const HONEST_SIBLING_CARRIER = h([
+  '  const keys = await redis.keys(pattern)',
+  '  const deleted = await redis.del(...keys)',
+  '  return reply.send(success({ cleared: true, deleted, prefix: CACHE_PREFIX }))',
+])
+/** 型④的"有牙"版本:同体内再挂一条无答复的 drizzle 写链 ⇒ 载体仍然成立(放过);去掉载体则必红。 */
+const HONEST_SIBLING_WITH_CHAIN = h([
+  '  await db.delete(table).where(eq(table.id, id))',
+  '  const deleted = await redis.del(...keys)',
+  '  return reply.send(success({ cleared: true, deleted, prefix: CACHE_PREFIX }))',
+])
+const NO_SIBLING_WITH_CHAIN = h([
+  '  await db.delete(table).where(eq(table.id, id))',
+  '  const deleted = await redis.del(...keys)',
+  '  return reply.send(success({ cleared: true, prefix: CACHE_PREFIX }))',
+])
+/** 载体写成"键 : 某个标识量"(带冒号)⇒ 结构上不算载体:那支可以被凭空捏造,简写才要求真有同名变量。 */
+const FAKE_SIBLING_REQUEST_SIDE = h([
+  '  await db.delete(table).where(eq(table.id, id))',
+  '  return reply.send(success({ cleared: true, deleted: idList.length }))',
+])
 
 /* ---- B2(2026-09-27)夹具:一跳委托的删除 ack ----
  * 调用方与**两条腿**的正文都是夹具,判据跑在注入的 calleeIndex 上 ⇒ 自检零 git 派生也能走完整条
@@ -2027,6 +2312,43 @@ const B2FIX = {
   callerMarkerPrevLine: callerWith(namedImport, AW).replace(
     '  await deleteThing(id)',
     '  // delete-ack-exempt: 标记写在上一行,这一族不走"紧邻上一行"通道\n  await deleteThing(id)',
+  ),
+  /* ---- 2026-09-27 第二十九批:型①"一跳委托的 RETURNING"的真实形状(files.ts 那一处)----
+   * 委托体做**两件**写事:先 `delete … .returning()` 拿命中集、再把计数列 -1(update 无 returning)。
+   * 布尔档回答的是前一件 ⇒ 按 ack 键的写动词筛选后必须判"库确认放过";旧口径"任一链缺 returning 即
+   * 违规"会把这一处**已入库的诚实形状**判红,那就是与任何提交都无关的恒红门(§12e)。 */
+  calleeMixedVerb:
+    'export async function deleteThing(input: any): Promise<boolean> {\n' +
+    '  return db.transaction(async (tx) => {\n' +
+    '    const rows = await tx.delete(rel).where(eq(rel.tagId, input.tagId)).returning()\n' +
+    '    if (rows.length > 0) {\n' +
+    '      await tx.update(tags).set({ usageCount: sql`GREATEST(usageCount - 1, 0)` }).where(eq(tags.id, input.tagId))\n' +
+    '      return true\n' +
+    '    }\n' +
+    '    return false\n' +
+    '  })\n' +
+    '}\n',
+  /** 委托腿的"回退"版:摘掉 delete 链上的 .returning( ⇒ 动词筛选后剩下的正是无答复那一条 ⇒ 必红。 */
+  calleeMixedVerbStripped:
+    'export async function deleteThing(input: any): Promise<boolean> {\n' +
+    '  return db.transaction(async (tx) => {\n' +
+    '    const rows = await tx.delete(rel).where(eq(rel.tagId, input.tagId))\n' +
+    '    if (rows.length > 0) {\n' +
+    '      await tx.update(tags).set({ usageCount: sql`GREATEST(usageCount - 1, 0)` }).where(eq(tags.id, input.tagId))\n' +
+    '      return true\n' +
+    '    }\n' +
+    '    return false\n' +
+    '  })\n' +
+    '}\n',
+  /** 调用方那一侧的键换成 `removed`(真实形状),其余与 B2FIX.delegated 逐字同构。 */
+  callerRemoved: callerWith(namedImport, AW).replace(
+    '  return reply.send(success({ id, deleted: true }))',
+    '  return reply.send(success({ removed: true }))',
+  ),
+  /** 型④的委托版:响应里另有诚实行数载体 ⇒ 那一跳不必再去被调体找罪证,直接按放过记账。 */
+  callerSiblingCarrier: callerWith(namedImport, AW).replace(
+    '  return reply.send(success({ id, deleted: true }))',
+    '  return reply.send(success({ removed: true, deleted }))',
   ),
 }
 
@@ -2207,9 +2529,11 @@ function selfTest(argv) {
       r.b1.noBodySites.length,
     ]
   }
-  eq('B1 命中:同函数体 db.delete + deleted:true 字面量、无库确认 ⇒ 候选 1 违规 1', b1(FIX.b1FalseAck), [
-    1, 1, 0, 0, 0, 0,
-  ])
+  eq(
+    'B1 命中:同函数体 db.delete + deleted:true 字面量、无库确认 ⇒ 候选 1 违规 1',
+    b1(FIX.b1FalseAck),
+    [1, 1, 0, 0, 0, 0],
+  )
   eq('B1b update 链同判(set().where() 也是写)', b1(FIX.b1FalseAckTwice), [2, 2, 0, 0, 0, 0])
   eq('B1p①a 体内 .returning( ⇒ 放过(库确认口径)', b1(FIX.b1ConfirmedReturning), [1, 0, 1, 0, 0, 0])
   eq('B1p①b 体内 batchWriteOutcome( ⇒ 放过', b1(FIX.b1ConfirmedOutletCall), [1, 0, 1, 0, 0, 0])
@@ -2247,9 +2571,11 @@ function selfTest(argv) {
     b1(FIX.b1OutletFileStillJudged),
     [1, 1, 0, 0, 0, 0],
   )
-  eq('B1n 顶层布尔 ack 解析不出函数体 ⇒ 未判定 1、不判红也不记绿', b1(FIX.b1NoBody), [
-    0, 0, 0, 0, 0, 1,
-  ])
+  eq(
+    'B1n 顶层布尔 ack 解析不出函数体 ⇒ 未判定 1、不判红也不记绿',
+    b1(FIX.b1NoBody),
+    [0, 0, 0, 0, 0, 1],
+  )
   eq(
     'B1x 无写链的纯惯例 ack 只进 V1、B1 六数全 0(两型分家)',
     (() => {
@@ -2260,12 +2586,7 @@ function selfTest(argv) {
   )
   eq(
     'B1y B1 不改判据一的四数:selfCount 面 B1 全 0,readQuery 面 B1 全 0',
-    [
-      b1(FIX.selfCount),
-      b1(FIX.readQuery),
-      st(FIX.selfCount),
-      st(FIX.readQuery),
-    ],
+    [b1(FIX.selfCount), b1(FIX.readQuery), st(FIX.selfCount), st(FIX.readQuery)],
     [
       [0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0],
@@ -2350,9 +2671,11 @@ function selfTest(argv) {
     b2(B2FIX.delegated, B2FIX.calleeReturning),
     [1, 0, 1, 0, 0, 0],
   )
-  eq('B2p② 被调体走唯一出口 batchWriteOutcome( ⇒ 放过', b2(B2FIX.delegated, B2FIX.calleeOutlet), [
-    1, 0, 1, 0, 0, 0,
-  ])
+  eq(
+    'B2p② 被调体走唯一出口 batchWriteOutcome( ⇒ 放过',
+    b2(B2FIX.delegated, B2FIX.calleeOutlet),
+    [1, 0, 1, 0, 0, 0],
+  )
   eq(
     'B2p③ 被调腿是 const + 箭头写法 ⇒ 同一判据照样命中(仓内两种导出形态实测都有)',
     b2(B2FIX.delegated, B2FIX.calleeConstArrow),
@@ -2430,9 +2753,11 @@ function selfTest(argv) {
     })(),
     [0, 0, 1],
   )
-  eq('B2m 同行带原因 delete-ack-exempt ⇒ 放过(与 B1 同一条通道、同一份实现)', b2(B2FIX.callerMarkerOk, NO_RET), [
-    1, 0, 0, 1, 0, 0,
-  ])
+  eq(
+    'B2m 同行带原因 delete-ack-exempt ⇒ 放过(与 B1 同一条通道、同一份实现)',
+    b2(B2FIX.callerMarkerOk, NO_RET),
+    [1, 0, 0, 1, 0, 0],
+  )
   eq(
     'B2f① 裸标记无原因 ⇒ 仍红且裸标记计数 1("须带原因"不得被放宽)',
     b2(B2FIX.callerMarkerBare, NO_RET),
@@ -2482,6 +2807,166 @@ function selfTest(argv) {
       D2({ b2Undetermined: [{}] }),
     ],
     [0, 1, 1, 2, 0],
+  )
+  // ---- 2026-09-27 第二十九批:键族扩面 + "证据在别处"四型。K0 先跑,因为它同时是这一整段的
+  //      "键表没被人削短"的前提:判据的键表与期望表逐字同集才谈得上"每一族都被扫过"。----
+  const b1Of = (t) => {
+    const r = v(t)
+    return [
+      r.b1.candidates.length,
+      r.b1.violations.length,
+      r.b1.exempt.confirmed,
+      r.b1.exempt.marker,
+    ]
+  }
+  const ackOf = (t) => {
+    const r = v(t)
+    return [r.booleanAck.length, ...BOOL_ACK_KEYS.map((k) => r.booleanAckByKey[k])]
+  }
+  eq(
+    'K0 键族对账:判据的键表与自检侧独立写死的期望表**逐字同集**(少一族=门对该型全盲,多一族=报表与判据分叉)',
+    [[...BOOL_ACK_KEYS].sort().join(','), [...FAMILY_KEYS_EXPECTED].sort().join(',')],
+    [FAMILY_KEYS_EXPECTED.slice().sort().join(','), FAMILY_KEYS_EXPECTED.slice().sort().join(',')],
+  )
+  eq(
+    'K0b 逐键都能被扫到:五键各一枚站点 ⇒ 合计 5 且按键分组每族恰 1(混计/漏族当场红)',
+    ackOf(FAMILY_HIT),
+    [5, 1, 1, 1, 1, 1],
+  )
+  eq('K0c 同五枚站点在 B1 里也是五枚候选五枚违规(扩键不是只扩报表)', b1Of(FAMILY_HIT), [5, 5, 0, 0])
+  eq(
+    'K0d 逐键"该放过"反体:体内无写链 ⇒ 五键全部只进惯例面、B1 六数不涨',
+    b1Of(FAMILY_LETGO),
+    [0, 0, 0, 0],
+  )
+  eq(
+    'K0e 放过反体的按键读数仍是 5(报表不得跟着判据一起漏)',
+    ackOf(FAMILY_LETGO),
+    [5, 1, 1, 1, 1, 1],
+  )
+  eq(
+    'K1 每一族单独构造都能命中(不从 BOOL_ACK_KEYS 派生的构造文本 ⇒ 判据漏一族当场红)',
+    FAMILY_KEYS_EXPECTED.map((k) => {
+      const r = findBooleanAckSends(
+        maskText(
+          [
+            'server.delete(basePath, async (request, reply) => {',
+            '  await db.delete(table).where(eq(table.id, id))',
+            `  return reply.send(success({ ${k}: true }))`,
+            '})',
+            '',
+          ].join('\n'),
+        ).text,
+      )
+      return [r.length, r[0]?.key]
+    }),
+    [
+      [1, 'deleted'],
+      [1, 'removed'],
+      [1, 'restored'],
+      [1, 'revoked'],
+      [1, 'cleared'],
+    ],
+  )
+  // ---- "证据在别处"四型:每一型一条正例 + 一条"把证据拿掉就必须红"的反例(有牙证明)。----
+  eq(
+    'K2 型②真实形状(organization):删除住在原生 SQL 模板里 ⇒ 体内无可见写链,B1 不入候选、惯例面照点名',
+    [b1Of(HONEST_RAW_SQL), ackOf(HONEST_RAW_SQL)],
+    [
+      [0, 0, 0, 0],
+      [1, 0, 1, 0, 0, 0],
+    ],
+  )
+  eq(
+    'K3 型②有牙版:同体另挂一条无答复的写链 ⇒ 仍放过,且 confirmWhy 必须是 raw-sql-returning(不是"没看见")',
+    (() => {
+      const r = v(HONEST_RAW_SQL_WITH_CHAIN)
+      return [
+        r.b1.candidates.length,
+        r.b1.violations.length,
+        r.b1.exempt.confirmed,
+        r.b1.violations[0]?.disposition ?? r.b1.candidates[0]?.confirmWhy,
+      ]
+    })(),
+    [1, 0, 1, 'raw-sql-returning'],
+  )
+  eq(
+    'K4 型②反例:把模板里的 RETURNING 拿掉 ⇒ 同一夹具必红(证明 K3 的放过来自那一条证据)',
+    b1Of(HONEST_RAW_SQL_NO_RETURNING),
+    [1, 1, 0, 0],
+  )
+  eq(
+    'K5 型③(visit-tracking):内存 Map 的 delete 返回真布尔、404 由它派生 ⇒ 无"库侧行"概念,不属本型',
+    [b1Of(HONEST_MEMORY_MAP_DELETE), ackOf(HONEST_MEMORY_MAP_DELETE)],
+    [
+      [0, 0, 0, 0],
+      [1, 0, 1, 0, 0, 0],
+    ],
+  )
+  eq(
+    'K6 型③之二(openclaw):无条件重置内存 store ⇒ 同样不入 B1 的账,惯例面照点名 cleared',
+    [b1Of(HONEST_MEMORY_STORE_RESET), ackOf(HONEST_MEMORY_STORE_RESET)],
+    [
+      [0, 0, 0, 0],
+      [1, 0, 0, 0, 0, 1],
+    ],
+  )
+  eq(
+    'K7 型④真实形状(agents):行数由同响应里的诚实字段承载 ⇒ 体内无 drizzle 写链,不入候选',
+    [b1Of(HONEST_SIBLING_CARRIER), ackOf(HONEST_SIBLING_CARRIER)],
+    [
+      [0, 0, 0, 0],
+      [1, 0, 0, 0, 0, 1],
+    ],
+  )
+  eq(
+    'K8 型④有牙版:同体挂一条无答复写链 ⇒ 载体仍然成立(放过,confirmWhy 点名 sibling-carrier)',
+    (() => {
+      const r = v(HONEST_SIBLING_WITH_CHAIN)
+      return [
+        r.b1.candidates.length,
+        r.b1.violations.length,
+        r.b1.exempt.confirmed,
+        r.b1.candidates[0]?.confirmWhy,
+      ]
+    })(),
+    [1, 0, 1, 'sibling-carrier:deleted'],
+  )
+  eq(
+    'K9 型④反例①:去掉那枚诚实字段 ⇒ 同一夹具必红(载体通道不是恒真放过)',
+    b1Of(NO_SIBLING_WITH_CHAIN),
+    [1, 1, 0, 0],
+  )
+  eq(
+    'K10 型④反例②:载体写成"键 : 标识量"(带冒号,这里还是请求侧 .length)⇒ 不算诚实载体,同一夹具必红',
+    b1Of(FAKE_SIBLING_REQUEST_SIDE),
+    [1, 1, 0, 0],
+  )
+  eq(
+    'K11 型①(一跳委托的 RETURNING,files.ts 真实形状):委托体做两件写事 ⇒ 按 ack 键的动词筛后判库确认放过',
+    b2(B2FIX.callerRemoved, B2FIX.calleeMixedVerb),
+    [1, 0, 1, 0, 0, 0],
+  )
+  eq(
+    'K12 型①反例:摘掉**该动词**那条链的 .returning( ⇒ 同一夹具必红(动词筛选不是给回退开的口子)',
+    b2(B2FIX.callerRemoved, B2FIX.calleeMixedVerbStripped),
+    [1, 1, 0, 0, 0, 0],
+  )
+  eq(
+    'K13 型④的委托版:调用方自带诚实载体 ⇒ 那一跳不必去被调体找罪证,按放过记账',
+    b2(B2FIX.callerSiblingCarrier, NO_RET),
+    [1, 0, 1, 0, 0, 0],
+  )
+  eq(
+    'K14 违规落点必须带**键名**(否则扩了键族也说不清红在哪一族)',
+    v(
+      FIX.boolAckNearMiss +
+        h([
+          '  await db.delete(t).where(eq(t.id, 1))',
+          '  return reply.send(success({ revoked: true }))',
+        ]),
+    ).b1.violations.map((x) => x.key),
+    ['revoked'],
   )
   // ---- 只报数不改判据的两把锁:把惯例计数接进退出码 / 让它从结论行消失,各自必读红。----
   eq(
@@ -2649,17 +3134,24 @@ function selfTest(argv) {
       )
       const t2 = fmtB1(
         { b2Undetermined: 4 },
-        { b2Undetermined: [{ file: 'a.ts', line: 3, undetermined: [{ kind: 'reexport', name: 'del' }] }] },
+        {
+          b2Undetermined: [
+            { file: 'a.ts', line: 3, undetermined: [{ kind: 'reexport', name: 'del' }] },
+          ],
+        },
       )
       return [
-        /B2 委托假 ack\(判据:违规 0 处 \/ 0 文件,候选 0,放过 0 只报数,那一跳解析不到不判 0\)/.test(t0),
+        /B2 委托假 ack\(判据:违规 0 处 \/ 0 文件,候选 0,放过 0 只报数,那一跳解析不到不判 0\)/.test(
+          t0,
+        ),
         !/✅ 通过/.test(t1) &&
           /B2 委托假 ack 3 处 \/ 2 文件/.test(t1) &&
           /apps\/api\/src\/routes\/y\.ts:9/.test(t1) &&
           /apps\/api\/src\/db\/y\.ts#deleteY/.test(t1),
         !/✅ 通过/.test(t2) && /B2 未判定 4 处/.test(t2) && /reexport/.test(t2),
         // B2 的数不得顶动既有四数与 B1 的那一句(X2b/X3 同一条要求的延续)
-        /^候选 0 \/ 违规 0 \/ 未判定 0 \/ 豁免 0/m.test(t1) && /B1 假 ack\(判据:违规 0 处 \/ 0 文件/.test(t1),
+        /^候选 0 \/ 违规 0 \/ 未判定 0 \/ 豁免 0/m.test(t1) &&
+          /B1 假 ack\(判据:违规 0 处 \/ 0 文件/.test(t1),
       ]
     })(),
     [true, true, true, true],
@@ -2870,6 +3362,50 @@ function selfTest(argv) {
         //             HEAD 存量1  默认0  strict1  持平0  持平无红  新增1  锚点=1    修复0   锚点降0   改回1   仅1条红
         [1, 0, 1, 0, 0, 1, true, 0, 0, 1, 1],
       )
+      // BK1:锚点的粒度必须是「文件 × 判据 × ack 键」。这一支专门钉"换键逃逸":
+      // HEAD 一枚 `deleted` 假 ack、索引换成同体量的 `removed` 假 ack —— 文件级计数 1 → 1 净零,
+      // 只到"文件 × 判据"那一层的锚点会**放过它**,而扩键族之后这条通道是新造的(扩面前只有一族)。
+      eq(
+        'BK1 换键逃逸:同文件把 deleted 假 ack 换成 removed 假 ack(文件级 1→1)⇒ 仍必读红且点名该键',
+        (() => {
+          const d5 = mkScratch('bch-keyswap-')
+          try {
+            git(['init', '-q'], d5)
+            git(['config', 'user.email', 'g@f.local'], d5)
+            git(['config', 'user.name', 'g'], d5)
+            const st5 = (rel, text) => {
+              mkdirSync(join(d5, dirname(rel)), { recursive: true })
+              writeFileSync(join(d5, rel), text, 'utf8')
+              git(['add', '--', rel], d5)
+            }
+            const X5 = 'apps/api/src/routes/ks.ts'
+            st5(X5, FIX.b1FalseAck)
+            git(['commit', '-q', '-m', 'deleted-family-debt'], d5)
+            st5(
+              X5,
+              h([
+                '  await db.delete(table).where(eq(table.id, id))',
+                '  return reply.send(success({ id, removed: true }))',
+              ]),
+            )
+            const a = analyze(d5, 'staged')
+            const hits = (a.ratcheted || []).filter((x) => x.kind === 'b1')
+            return [
+              a.counts.b1Violations,
+              a.exit,
+              hits.length,
+              hits[0]?.key,
+              hits[0]?.anchor,
+              hits[0]?.now,
+              formatReport(a).some((l) => /〈ack 键 removed〉/.test(l)),
+            ]
+          } finally {
+            rmScratch(d5)
+          }
+        })(),
+        //   违规 1  红  一条红点  键=removed  该键锚点 0  现值 1  报告点名该键
+        [1, 1, 1, 'removed', 0, 1, true],
+      )
       // B2R:B2 端到面 —— 同一棵临时仓里放"调用方 + 被调腿"两个路径,把"摘掉被调腿的 .returning("
       // 这一型在**索引面**上跑成红、在 HEAD 面上只报数。这是 B2 的装车证明:构造面只证明函数会给
       // 答案,"有人问了它"要靠真走一遍 analyze 的同面两遍取材(守门 118 的半接线同型)。
@@ -2890,10 +3426,7 @@ function selfTest(argv) {
             }
             // 夹具里的路径常量按真实仓形状拼,这里把两个夹具文件改成临时仓里的落点。
             const caller = (calleeRel) =>
-              B2FIX.delegated.replace(
-                "from '../db/b2-queries.js'",
-                `from '${calleeRel}'`,
-              )
+              B2FIX.delegated.replace("from '../db/b2-queries.js'", `from '${calleeRel}'`)
             st4(C4, caller('../db/b2-queries.js'))
             st4(K4, B2FIX.calleeNoReturning)
             git(['commit', '-q', '-m', 'b2-debt'], d4)
@@ -3002,6 +3535,12 @@ export const __test__ = {
   findCountSends,
   findBooleanAckSends,
   findBoolAckB1Sites,
+  // 2026-09-27 键族扩面:键表、动词表与两条"证据在别处"的出口都必须从这里取 ——
+  // 测试里再抄一份键名单或再解一次 RETURNING,就成了第二真相(§22c)。
+  BOOL_ACK_KEYS,
+  BOOL_ACK_KEY_VERBS,
+  findHonestCarrierSibling,
+  hasRawSqlReturning,
   sendSuccessObjects,
   readExemptMarker,
   scanFileText,
