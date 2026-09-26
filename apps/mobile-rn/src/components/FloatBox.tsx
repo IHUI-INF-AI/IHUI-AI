@@ -60,7 +60,10 @@ const DEFAULT_DURATION_MS = 3000
 const Z_INDEX = 9999
 // styles.icon 是文本字形图标的回退样式(当前无人引用,渲染走 lucide 组件);
 // 删它属逻辑清理、超出本票范围,登记见 float-box-spec 文末第 1)条。
-const ICON_LINE_HEIGHT = 20
+// 该回退样式的行高**不再在端内留第二份数字**:取两端共用锚档 FLOAT_BOX_TEXT_LINE_HEIGHT_PX,
+// 小程序端 FloatBox 的 caption 行高用的就是同一档(现值同为 20)—— 同锚即同值。
+// 剩下的 ICON_FONT_SIZE=16 无任何锚可取(web 端无同一元素:float-indicator 是滚动圆点轨、
+// Toaster 无几何),且它所在样式根本不被引用 ⇒ 不在本票"收档"范围,须记 waiver(见交付报告)。
 const ICON_FONT_SIZE = 16
 const MAX_WIDTH_RATIO = 0.8
 const TEXT_COLOR = tokens.surface.light
@@ -175,7 +178,7 @@ const styles = StyleSheet.create({
   icon: {
     width: FLOAT_BOX_ICON_SIZE_PX,
     fontSize: ICON_FONT_SIZE,
-    lineHeight: ICON_LINE_HEIGHT,
+    lineHeight: FLOAT_BOX_TEXT_LINE_HEIGHT_PX,
     textAlign: 'center',
   } as TextStyle,
   message: {
