@@ -40,6 +40,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { catBatch, readWorktreeFile, selectFace, gitRaw } from './lib/face-reader.mjs'
 
+import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120000
 const SKIP_ENV = 'HUSKY_SKIP_RN_INTEROP_FN_STYLE'
@@ -122,64 +124,6 @@ export function readInteropSource(root) {
   return null
 }
 
-/**
- * 把注释与字符串抹成等长空格(行号、列号都不变)。
- *
- * 为什么必须保长度:本门按"命中行向前回溯最近的 JSX 开标签"归属,且豁免标记本身就写在
- * 注释里 —— 删字符会让行号错位,把 `style={` 整行抹掉更是直接判据失明。
- *
- * 刻意只用于**判据面**,豁免判定仍看原文(见 findFnStyleHits 里的 raw)。字符串也要抹:
- * 带协议前缀的 URL 字面量里有"块注释开符"形态,只剥注释不剥字符串的状态机会被它带进
- * 假注释态(守门 70 实测踩过);反过来留下字符串不抹,则一行里的引号会把整行后半吞掉。
- * 已知边界:JS 正则字面量里含未配对引号(如 `/["']/`)会让状态机失配 ⇒ 那一行之后到行尾
- * 被抹 ⇒ 漏判。方向是"少判不误判",且 T5 阳性对照(真仓命中量级)会先于仓库发现整片失配。
- */
-export function maskCommentsAndStrings(src) {
-  if (typeof src !== 'string') return ''
-  const out = src.split('')
-  let i = 0
-  const blank = (from, to) => {
-    for (let k = from; k < to && k < out.length; k++) if (out[k] !== '\n') out[k] = ' '
-  }
-  while (i < src.length) {
-    const c = src[i]
-    const n = src[i + 1]
-    if (c === '/' && n === '/') {
-      let j = src.indexOf('\n', i)
-      if (j < 0) j = src.length
-      blank(i, j)
-      i = j
-      continue
-    }
-    if (c === '/' && n === '*') {
-      let j = src.indexOf('*/', i + 2)
-      j = j < 0 ? src.length : j + 2
-      blank(i, j)
-      i = j
-      continue
-    }
-    if (c === '"' || c === "'" || c === '`') {
-      let j = i + 1
-      while (j < src.length) {
-        if (src[j] === '\\') {
-          j += 2
-          continue
-        }
-        if (src[j] === c) {
-          j++
-          break
-        }
-        if (src[j] === '\n' && c !== '`') break // 未闭合的引号不当字符串(防整文件被吞)
-        j++
-      }
-      blank(i, j)
-      i = j
-      continue
-    }
-    i++
-  }
-  return out.join('')
-}
 
 /**
  * F1:找 `style={(...) => ...}` 落在注册表内组件上的站点。
