@@ -296,28 +296,31 @@ const ARCHIVE_REL = '.ihui-agent/archive'
 const ARCHIVE_FILE_RE = /^PROJECT_PLAN_.*\.md$/
 
 /** 某一面里真实存在的归档副本路径(= 已入库的那些)。`staged` 读索引,其余读 HEAD 树。 */
-function faceArchiveFiles(face) {
+function faceArchiveFiles(face, root = ROOT) {
   const args =
     face === 'staged'
       ? ['ls-files', '-z', '--', ARCHIVE_REL]
       : ['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ARCHIVE_REL]
-  return gitRaw(args, ROOT, { timeout: GIT_TIMEOUT })
+  return gitRaw(args, root, { timeout: GIT_TIMEOUT })
     .split('\0')
     .filter(Boolean)
     .filter((p) => ARCHIVE_FILE_RE.test(p.split('/').pop()))
 }
 
 /**
- * 按面缓存「路径 → 该面 blob 内容」,整进程各面至多一次批量派生。
+ * 按面缓存「路径 → 该面 blob 内容」,整进程每个 (仓库根, 面) 至多一次批量派生。
  * 逐 marker 各开一次 git 是本仓守门 80 立过的 fork 风暴形态,所以一次读满一批。
+ * 缓存键**必须含根**:`--self-test` 会在同一进程里对多个临时仓取证,只按面缓存会让第二个
+ * 仓借到第一个仓的归档内容 —— 那是一道自洽却错基准的假绿(守门 118 的"两面同轮"同条纪律)。
  */
 const ARCHIVE_BLOB_CACHE = new Map()
-function faceArchiveBlobs(face) {
-  if (ARCHIVE_BLOB_CACHE.has(face)) return ARCHIVE_BLOB_CACHE.get(face)
-  const files = faceArchiveFiles(face)
+function faceArchiveBlobs(face, root = ROOT) {
+  const key = `${root}\u0000${face}`
+  if (ARCHIVE_BLOB_CACHE.has(key)) return ARCHIVE_BLOB_CACHE.get(key)
+  const files = faceArchiveFiles(face, root)
   const rev = face === 'staged' ? ':' : 'HEAD:'
   const specs = files.map((p) => `${rev}${p}`)
-  const got = specs.length ? catBatch(ROOT, specs, { timeout: GIT_TIMEOUT }) : new Map()
+  const got = specs.length ? catBatch(root, specs, { timeout: GIT_TIMEOUT }) : new Map()
   const map = new Map()
   for (let i = 0; i < files.length; i++) {
     const v = got.get(specs[i])
@@ -325,7 +328,7 @@ function faceArchiveBlobs(face) {
     // 少一条豁免只会多要一次定向说明,而拿不准时放行才是本闸最怕的那一型。
     if (typeof v === 'string') map.set(files[i], v)
   }
-  ARCHIVE_BLOB_CACHE.set(face, map)
+  ARCHIVE_BLOB_CACHE.set(key, map)
   return map
 }
 
@@ -341,10 +344,12 @@ function faceArchiveBlobs(face) {
  *
  * `list` / `read` 可注入,使三条组合(未入库⇒不放行 / 已入库⇒放行 / 面里有名字但 blob 取不到
  * ⇒ 不放行)能在不往真仓 archive 目录写文件的前提下取证(那正是要防的取证姿势)。
+ * `root` 可注入只为**取证**(临时 git 仓构造三面互异的现场);生产调用点一律走默认仓库根。
  */
 export function archivedCopy(marker, opts = {}) {
   const face = opts.face ?? 'head'
-  const blobs = opts.list ? null : faceArchiveBlobs(face)
+  const root = opts.root ?? ROOT
+  const blobs = opts.list ? null : faceArchiveBlobs(face, root)
   const files = opts.list ? opts.list() : [...blobs.keys()]
   const read = opts.read ?? ((p) => blobs.get(p) ?? null)
   for (const p of files) {
@@ -356,13 +361,13 @@ export function archivedCopy(marker, opts = {}) {
 }
 
 /**
- * 按当次判定面选出归档豁免函数:`--staged` 判索引、全量判 HEAD。
+ * 按当次判定面选出归档豁免函数:`--staged` 判索引、全量与人工档判 HEAD 树。
  * 与「内容面」同面是刻意的 —— 豁免所依据的归档副本必须是这次提交真的带得走(或已入库)的那份,
- * 而不是盘上随后被谁改过的那份。
+ * 而不是盘上随后被谁改过的那份。`--worktree` 也走 HEAD 树:磁盘面从来不是归档凭据(G-183)。
  */
-export function archiveExemptFor(isStaged) {
+export function archiveExemptFor(isStaged, root = ROOT) {
   const face = isStaged ? 'staged' : 'head'
-  return (marker) => archivedCopy(marker, { face })
+  return (marker) => archivedCopy(marker, { face, root })
 }
 
 /**
@@ -388,15 +393,15 @@ export function headingLosses(lost) {
  * **冒号不可省** —— 省了就是拿裸路径问 cat-file,每个版本都"不存在",于是本闸的
  * "从历史回捞"会静默变成"无登记行可回捞"(= 判据对整类丢失失明)。
  */
-function readSpec(spec) {
-  const v = catBatch(ROOT, [spec], { timeout: GIT_TIMEOUT }).get(spec)
+function readSpec(spec, root = ROOT) {
+  const v = catBatch(root, [spec], { timeout: GIT_TIMEOUT }).get(spec)
   if (typeof v !== 'string') throw new Error(`取材面 ${spec} 取不到内容`)
   return v
 }
 
-function readSpecOrNull(spec) {
+function readSpecOrNull(spec, root = ROOT) {
   try {
-    return readSpec(spec)
+    return readSpec(spec, root)
   } catch {
     return null
   }
@@ -420,54 +425,110 @@ export function pickPlanContent({ face, readIndex, readHead, readDisk }) {
   return readHead(PLAN)
 }
 
-function candidateContent(face) {
+function candidateContent(face, root = ROOT) {
   return pickPlanContent({
     face,
     // 暂存区里没有该文件(本次不改计划文档)→ 返回 null,调用方据此无需比对
-    readIndex: () => readSpecOrNull(`:${PLAN}`),
-    readHead: () => readSpecOrNull(`HEAD:${PLAN}`),
-    readDisk: () => (existsSync(path.join(ROOT, PLAN)) ? readFileSync(path.join(ROOT, PLAN), 'utf8') : null),
+    readIndex: () => readSpecOrNull(`:${PLAN}`, root),
+    readHead: () => readSpecOrNull(`HEAD:${PLAN}`, root),
+    // 磁盘面走取材层:它把"读失败"抛成 Undetermined,而不是伪装成"该文件不存在"的业务结论
+    readDisk: () => readWorktreeFile(root, PLAN),
   })
 }
 
-export function runCheck(isStaged, faceOverride) {
+/**
+ * 三面判据的总入口。
+ * @param isStaged  提交链形态(索引 vs HEAD)—— 语义与收口前**一字未动**
+ * @param faceOverride 非提交链时选 `head`(缺省)或 `worktree`(人工逃生舱)
+ * @param opts.root 取证通道:临时 git 仓构造"三面互异"的现场用;生产调用点不传 ⇒ 默认仓库根
+ * @returns {{face:string, ok?:boolean, lost?:Array, prose?:{lostCount:number,sample:string[]}|null,
+ *            undetermined?:boolean, reason?:string, scanned?:number}}
+ */
+export function runCheck(isStaged, faceOverride, { root = ROOT } = {}) {
   const face = isStaged ? 'staged' : faceOverride || 'head'
-  const candidate = candidateContent(face)
+  const candidate = candidateContent(face, root)
   if (candidate === null) {
-    if (face === 'head') throw new Error(`HEAD 面取不到 ${PLAN}(无提交 / 浅克隆 / git 失败)—— 无法判定`)
-    return { ok: true, lost: [], face }
+    // 暂存区里根本没有该文件 = 本次提交不动计划文档,无需比对(既有语义,保持不变)
+    if (face === 'staged') return { ok: true, lost: [], face, prose: null }
+    // 其余两面取不到 ⇒ **无法判定**:既不记绿也不冒红。无提交 / 浅克隆 / git 失败都落这一支。
+    return {
+      undetermined: true,
+      face,
+      reason: `${FACE_LABEL[face] ?? face} 取不到 ${PLAN}(无提交 / 浅克隆 / git 失败)—— 无法判定,不算通过也不算违规`,
+    }
   }
+  // 归档豁免必须绑**当次判定面 + 当次根**(镜像测试里那条反向锁):staged ⇒ 索引,head/worktree ⇒ HEAD 树
+  const archive = archiveExemptFor(face === 'staged', root)
   let lost
+  let prose = null
+  let scanned = 0
   if (face === 'staged') {
-    const baseline = readSpec(`HEAD:${PLAN}`)
-    // 归档豁免必须绑**当次判定面**(镜像测试里那条反向锁):staged ⇒ 索引,head/worktree ⇒ HEAD 树
-    lost = dropArchivedLost(lostMarkers(baseline, candidate), archiveExemptFor(isStaged))
+    const baseline = readSpec(`HEAD:${PLAN}`, root)
+    lost = dropArchivedLost(lostMarkers(baseline, candidate), archive)
+    // 叙述行差值:提交链上是"索引 vs HEAD"(与收口前同一对输入,只报数不判红)
+    prose = proseLossReport(baseline, candidate)
   } else {
     // 全量档问的是本来那个问题:**最近历史里已入库的登记行,在被审面上是否仍在**
     // (与 --heal 共用同一把尺子 missingFrom,不另写一份判据;豁免面同样是当次面)
-    lost = missingFrom(historyMarkers(), candidate, archiveExemptFor(isStaged))
+    let seen
+    try {
+      seen = historyMarkers(60, root)
+    } catch (e) {
+      // 历史面问不出来(无提交 / 浅克隆 / git 失败)⇒ 无法判定。这里必须 catch 住派生失败:
+      // 让它冒到 CLI 会被打成"检查失败",而"我读不到历史"与"读到的历史里没有丢行"是两件事。
+      return {
+        undetermined: true,
+        face,
+        reason: `历史面无法取材:${e?.message ?? e} —— 无法判定,不算通过也不算违规`,
+      }
+    }
+    scanned = seen.size
+    if (scanned === 0) {
+      return {
+        undetermined: true,
+        face,
+        reason: `历史面未枚举到任何受保护登记行(无提交 / 浅克隆 / 该仓计划文档不含编号族)—— 空扫不是通过`,
+      }
+    }
+    lost = missingFrom(seen, candidate, archive)
+    // 人工档与工作树同问"磁盘 vs HEAD";HEAD 档另把同一差值作为**旁证**报数(不参与判定):
+    // 它说的是"你的工作树滞后多少行",与"HEAD 里丢没丢"是两件事,不得混成一个结论。
+    const disk = candidateContent('worktree', root)
+    const base = readSpecOrNull(`HEAD:${PLAN}`, root)
+    if (disk !== null && base !== null) prose = proseLossReport(base, disk)
   }
-  return {
-    ok: lost.length === 0,
-    lost,
-    face,
-    // 叙述行差值仍拿"磁盘 vs HEAD"量,**只报数**:它是"你工作树滞后"的信号,不是判红依据
-    prose: proseLossReport(readSpec(`HEAD:${PLAN}`), candidateContent('worktree') ?? ''),
-  }
+  return { ok: lost.length === 0, lost, face, prose, scanned }
+}
+
+/**
+ * 人工档的工作树提示 —— 抽成纯函数的理由是"这句话必须能被取证":它写在 CLI 里,而 CLI 只在有人
+ * 真跑时才执行;判据改错一次(比如哪天把缺省面又换回磁盘)这句话就会静默消失。故 self-test 直接
+ * 钉它的**存在与措辞**,端到端测试再钉"CLI 确实把它打出来了"(两道各管一格,缺一格就是假绿)。
+ * @returns {string|null} 只有 worktree 面返回警告语,其余面返回 null(不得替别人发声)
+ */
+export function faceNoticeFor(face) {
+  if (face !== 'worktree') return null
+  return (
+    '⚠️ [plan-line-loss] 你在审**工作树磁盘副本**:这里报出的红点与任何提交都无关,\n' +
+    '   缺的行多半仍在 HEAD 里(自证:`git show HEAD:PROJECT_PLAN.md | grep -c "<标记>"`)。\n' +
+    '   **不要照下面的 1) 去"从 HEAD 取回再提交"** —— 那会把别人未提交的在飞内容整批覆盖掉(§12)。\n' +
+    '   要判"已入库的登记行还在不在",跑不带旗号的缺省档(HEAD blob)。'
+  )
 }
 
 /**
  * 扫最近 N 个提交的计划版本,收集登记行,找出当前内容里已消失的那些。
  * (并发"旧基线整文件提交"与 git-sync-converge 的索引层合并都可能把别人的行合掉;
- *  本函数是"从历史里回捞"的通用手段,不依赖是谁、哪一枚提交弄丢的。)
+ *  本函数是"从历史回捞"的通用手段,不依赖是谁、哪一枚提交弄丢的。)
  * 同时记下每行在历史里的**前一行**,回插时用得上。
  */
 /**
  * 扫最近 N 个提交的计划版本,收集登记行(含每行在历史里的**前一行**,回插时用得上)。
  * 单独拆出来是因为同一份历史要和两个目标比对:工作区、HEAD(见 heal)。
+ * `root` 只为取证通道(临时仓构造历史)而设;生产调用点一律走默认仓库根。
  */
-export function historyMarkers(depth = 60) {
-  const shas = git(['rev-list', `--max-count=${depth}`, 'HEAD'])
+export function historyMarkers(depth = 60, root = ROOT) {
+  const shas = git(['rev-list', `--max-count=${depth}`, 'HEAD'], root)
     .trim()
     .split(/\r?\n/)
     .filter(Boolean)
@@ -476,7 +537,7 @@ export function historyMarkers(depth = 60) {
   const specs = shas.map((sha) => `${sha}:${PLAN}`)
   let historic
   try {
-    historic = catBatch(ROOT, specs, { timeout: GIT_TIMEOUT })
+    historic = catBatch(root, specs, { timeout: GIT_TIMEOUT })
   } catch {
     historic = new Map()
   }
@@ -694,6 +755,70 @@ export function healContent(targetSrc, missing) {
   return { out: lines.join(eol), inserted, appended }
 }
 
+/**
+ * 取证夹具:真造一个临时 git 仓,把 **HEAD / 索引 / 磁盘** 三面摆成互不相同的现场。
+ *
+ * 为什么必须真造而不是拿真仓现读:取材面判据的断言一旦依赖仓库瞬时状态,下一次并发提交就会把它
+ * 变成假账(守门 103 把这条写成了硬规矩,守门 83 的 R3 登记一天被回退三次是同一型的反面教材)。
+ * 只有"同一棵仓里三面各是什么答案"能证明全量档读的到底是哪一面。
+ *
+ * @param {{commits?:Array<{plan?:string, extra?:Record<string,string>, msg?:string}>,
+ *          index?:string, disk?:string, diskExtra?:Record<string,string>}} spec
+ *   `commits` 依序提交(最后一枚即 HEAD);`extra` 里的文件与计划文档**同枚提交入库**(= 已入库的归档锚点);
+ *   `index` 只写索引(add,不动 HEAD);`disk` / `diskExtra` 只写磁盘(不 add ⇒ 与任何提交都无关)。
+ */
+function faceFixtureRepo(spec = {}) {
+  const dir = mkScratch('planloss-face-')
+  const g = (args) => git(args, dir)
+  const put = (rel, body) => {
+    const abs = path.join(dir, rel)
+    mkdirSync(path.dirname(abs), { recursive: true })
+    writeFileSync(abs, body, 'utf8')
+  }
+  g(['init', '-q', '-b', 'main'])
+  g(['config', 'user.email', 'gate71-selftest@local'])
+  g(['config', 'user.name', 'gate71-selftest'])
+  g(['config', 'commit.gpgsign', 'false'])
+  for (const step of spec.commits ?? []) {
+    const paths = []
+    if (step.plan !== undefined) {
+      put(PLAN, step.plan)
+      paths.push(PLAN)
+    }
+    for (const [rel, body] of Object.entries(step.extra ?? {})) {
+      put(rel, body)
+      paths.push(rel)
+    }
+    if (paths.length) g(['add', '-A', '--', ...paths])
+    g(['commit', '-q', '-m', step.msg ?? 'step'])
+  }
+  if (spec.index !== undefined) {
+    put(PLAN, spec.index)
+    g(['add', '-A', '--', PLAN])
+  }
+  if (spec.disk !== undefined) put(PLAN, spec.disk)
+  for (const [rel, body] of Object.entries(spec.diskExtra ?? {})) put(rel, body)
+  return dir
+}
+
+/** 夹具语料:一条条目标题 + 一条无关登记行(后者三面都在,用于确认只动了要动的那一行) */
+const FIX_HEADING =
+  '## O42 夹具条目标题(2026-09-26 立并完成 ✅,单端工程治理:scripts 与计划文档登记,内容足够长以入选基线)'
+const FIX_PLAN_FULL = [
+  '# 计划',
+  '',
+  FIX_HEADING,
+  '',
+  '- **G-9001 夹具无关登记行**:这一行三面都在,用来确认现场里只有 O42 标题那一行被挪走。',
+  '',
+].join('\n')
+/** 与 FIX_PLAN_FULL 只差那一行条目标题 —— 即"旧基线整文件提交"的最小可复现形态 */
+const FIX_PLAN_NO_HEADING = FIX_PLAN_FULL.split('\n')
+  .filter((l) => l !== FIX_HEADING)
+  .join('\n')
+const FIX_ARCHIVE_REL = '.ihui-agent/archive/PROJECT_PLAN_2099-01-01_selftest.md'
+const FIX_ARCHIVE_BODY = ['# 归档(自检夹具)', '', FIX_HEADING, ''].join('\n')
+
 function selfTest() {
   const base = [
     '### 某任务',
@@ -723,6 +848,104 @@ function selfTest() {
     pickPlanContent({ face: 'worktree', readIndex: boom('索引'), readHead: boom('HEAD'), readDisk: () => '磁盘面' }) === '磁盘面')
   t('face 缺失(旧调用形态)不得回落到磁盘 —— 回落等于把"没判"写成"判过了"', () =>
     pickPlanContent({ readIndex: boom('索引'), readHead: () => 'HEAD面', readDisk: boom('磁盘') }) === 'HEAD面')
+
+  // ── 端到面:同一棵临时仓里三面各是什么答案(2026-09-26 收口的取证主体)──────────────────
+  // 旧实现在「面①」这一支必红(它把全量档的待提交内容取成磁盘副本),所以这四条同时是新判据
+  // 有牙的 A/B 证明 —— 变异自证:把 runCheck 的 head 面改回读磁盘,「面①」立即翻红。
+  t('面①:磁盘副本缺一条登记行而索引与 HEAD 都在 ⇒ staged 绿、**全量必须绿**、--worktree 才红', () => {
+    const dir = faceFixtureRepo({ commits: [{ plan: FIX_PLAN_FULL }], disk: FIX_PLAN_NO_HEADING })
+    try {
+      const staged = runCheck(true, 'staged', { root: dir })
+      const head = runCheck(false, 'head', { root: dir })
+      const wt = runCheck(false, 'worktree', { root: dir })
+      return (
+        staged.ok === true &&
+        head.ok === true &&
+        head.lost.length === 0 &&
+        head.scanned > 0 &&
+        wt.ok === false &&
+        wt.lost.length === 1 &&
+        wt.lost[0].id === 'O42' &&
+        wt.lost[0].shape === 'heading'
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  t('面②:HEAD 真丢了历史里有的登记行 ⇒ 全量必红并点名那一行(此时 staged 仍绿 —— 两问各有答案)', () => {
+    const dir = faceFixtureRepo({
+      commits: [{ plan: FIX_PLAN_FULL }, { plan: FIX_PLAN_NO_HEADING, msg: '旧基线整文件提交' }],
+    })
+    try {
+      const head = runCheck(false, 'head', { root: dir })
+      const staged = runCheck(true, 'staged', { root: dir })
+      return (
+        head.ok === false &&
+        head.lost.length === 1 &&
+        head.lost[0].id === 'O42' &&
+        head.lost[0].shape === 'heading' &&
+        staged.ok === true &&
+        headingLosses(head.lost).length === 1
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  t('面③:该行已逐字进入**已入库**的归档件 ⇒ 全量放行(新面上归档豁免不得做丢)', () => {
+    const dir = faceFixtureRepo({
+      commits: [
+        { plan: FIX_PLAN_FULL },
+        { plan: FIX_PLAN_NO_HEADING, msg: '归档搬迁', extra: { [FIX_ARCHIVE_REL]: FIX_ARCHIVE_BODY } },
+      ],
+    })
+    try {
+      const head = runCheck(false, 'head', { root: dir })
+      return head.ok === true && head.lost.length === 0
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  t('面③反向对照:同一份归档正文**只写在磁盘**(未 add)⇒ 全量仍判红(G-183 在新面上继续成立)', () => {
+    const dir = faceFixtureRepo({
+      commits: [{ plan: FIX_PLAN_FULL }, { plan: FIX_PLAN_NO_HEADING, msg: '旧基线整文件提交' }],
+      diskExtra: { [FIX_ARCHIVE_REL]: FIX_ARCHIVE_BODY },
+    })
+    try {
+      const head = runCheck(false, 'head', { root: dir })
+      return head.ok === false && head.lost.length === 1 && head.lost[0].id === 'O42'
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  t('面④:被审面取不到(无提交)⇒ 判"无法判定",既不记绿也不冒红,磁盘上有副本也不得救场', () => {
+    const dir = faceFixtureRepo({ disk: FIX_PLAN_FULL })
+    try {
+      const head = runCheck(false, 'head', { root: dir })
+      const wt = runCheck(false, 'worktree', { root: dir })
+      // 两面都必须落"无法判定":磁盘副本不参与 HEAD 面的判定(面①已证),
+      // 而人工档也没有历史可比 —— 报"绿"就是替一个没跑成的判定发合格证。
+      return (
+        head.undetermined === true &&
+        head.ok === undefined &&
+        typeof head.reason === 'string' &&
+        head.reason.includes('无法判定') &&
+        wt.undetermined === true &&
+        wt.ok === undefined
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  t('人工档提示只有 --worktree 面发声,head/staged 面必须为 null(不得替别人喊话)', () => {
+    const warn = faceNoticeFor('worktree')
+    return (
+      typeof warn === 'string' &&
+      warn.includes('与任何提交都无关') &&
+      warn.includes('不要') &&
+      faceNoticeFor('head') === null &&
+      faceNoticeFor('staged') === null
+    )
+  })
 
   t('登记行被删除 → 报两条', () => {
     const cand = base.replace(/ {2}- \*\*G-166[^\n]*\n/, '').replace(/ {2}- \*\*D107b[^\n]*\n/, '')
@@ -1256,6 +1479,15 @@ function heal(commit) {
    */
   const diskMissing = missingFrom(seen, disk)
   const headMissing = missingFrom(seen, head)
+  /**
+   * 两档结论**分开报**,不得合成一个数(2026-09-26):"工作树缺"通常是别人那份滞后的在飞副本,
+   * 处置是等它自己的持有者提交;"HEAD 缺"才是已入库的行被旁路提交合掉,处置是前向恢复提交。
+   * 混成一个结论会让人拿工作树去"修"HEAD(= §12 禁止的覆盖),或反之把该恢复的行当成噪音跳过。
+   */
+  console.log(
+    `   [分档] 历史登记行 ${seen.size} 条 ⇒ 工作树副本缺 ${diskMissing.length} 条 / HEAD 提交树缺 ${headMissing.length} 条` +
+      `(两档含义不同:前者多为滞后的在飞副本,后者才是已入库行被合掉)`,
+  )
   if (diskMissing.length === 0 && headMissing.length === 0) {
     console.log(`✅ [plan-line-loss] 扫描 ${seen.size} 条登记行:无缺失,无需回捞`)
     return 0
@@ -1263,7 +1495,10 @@ function heal(commit) {
   // 规模安全闸:回捞量异常 ⇒ 判为基线错(活文档被并发重排/改写措辞),拒绝自动写盘。
   const scale = assessHealScale(Math.max(diskMissing.length, headMissing.length), seen.size)
   if (!scale.ok) {
-    console.error(`❌ [plan-line-loss] 规模安全闸拦截 —— ${scale.reason}`)
+    console.error(
+      `❌ [plan-line-loss] 规模安全闸拦截 —— ${scale.reason}` +
+        `(取两档较大者判量:工作树缺 ${diskMissing.length} / HEAD 缺 ${headMissing.length})`,
+    )
     console.error(
       '   一次回捞四成以上登记行,几乎不可能是"真的全丢了",而是比对基线已变(并发会话重排了文档、\n' +
         '   或把同一条登记改写了措辞)。此时照单回捞 = 把同一内容的两个版本都留下,造出两份真相。\n' +
@@ -1405,26 +1640,28 @@ if (isDirectRun) {
   // 提交链/CI 上的 check 模式:**先验自己还在不在链上**。摘线时若照常报"无丢失",
   // 那就是最坏的一种绿 —— 门没跑,却以门的名义宣布通过。
   guardWiring(true)
-  const isStaged = args.includes('--staged')
-  const useWorktree = args.includes('--worktree')
   /**
-   * 两面旗同时给 ⇒ 判死,不猜优先级,也**不回落**到另一个面。
-   * (回落就是把"没判"写成"判过了"—— 守门 124 的 mobile-rn 那条收口记过同一型。)
+   * 选面走取材层的 `selectFace`(三门共用的唯一实现)。两面旗同时给 ⇒ 判死,不猜优先级,也
+   * **不回落**到另一个面(回落就是把"没判"写成"判过了" —— 守门 124 的 mobile-rn 那条收口记过同一型)。
    */
-  if (isStaged && useWorktree) {
-    console.error('❌ [plan-line-loss] --staged 与 --worktree 同时给出:两面判据相互矛盾,拒绝判定')
+  const { face, error: faceError } = selectFace({
+    staged: args.includes('--staged'),
+    worktree: args.includes('--worktree'),
+    def: 'head',
+  })
+  if (faceError) {
+    console.error(`❌ [plan-line-loss] ${faceError}:拒绝判定,取哪一面都会让另一面成为假绿`)
     process.exit(2)
   }
-  const face = isStaged ? 'staged' : useWorktree ? 'worktree' : 'head'
-  if (face === 'worktree') {
-    console.warn(
-      '⚠️ [plan-line-loss] 你在审**工作树磁盘副本**:这里报出的红点与任何提交都无关,\n' +
-        '   缺的行多半在 HEAD 里(`git show HEAD:PROJECT_PLAN.md | grep -c ...` 自证)。\n' +
-        '   **不要照下面的 1) 去"从 HEAD 取回再提交"** —— 那会覆盖别人未提交的在飞内容(§12)。',
-    )
-  }
+  const notice = faceNoticeFor(face)
+  if (notice) console.warn(notice)
   try {
-    const { ok, lost, prose } = runCheck(isStaged, face)
+    const { ok, lost, prose, undetermined, reason, scanned } = runCheck(face === 'staged', face, { root: ROOT })
+    if (undetermined) {
+      // 既不记绿也不冒红:结论行必须喊"无法判定"并点名原因(无提交 / 浅克隆 / git 失败 / 空扫)
+      console.error(`⚠️  [plan-line-loss] 无法判定:${reason}`)
+      process.exit(2)
+    }
     /** 非登记行丢失只报数(理由见 proseLossReport 注释);阈值只影响措辞强度,不改变退出码 */
     const reportProse = () => {
       if (!prose?.lostCount) return
@@ -1432,22 +1669,30 @@ if (isDirectRun) {
         prose.lostCount >= 100
           ? `❗ [plan-line-loss] 非登记行丢失 ${prose.lostCount} 行(≥100 高度疑似"旧基线整文件提交")`
           : `ℹ️ [plan-line-loss] 非登记行比 HEAD 少 ${prose.lostCount} 行`
+      const srcNote =
+        face === 'staged' ? '' : '\n     (该差值量的是**工作树副本 vs HEAD**,只是"你本地滞后"的旁证,不参与判定)'
       console.warn(
         `${head} —— 本闸只锚编号登记行,这类行**不在红灯判据内**。\n` +
           prose.sample.map((l) => `     样例: ${l.slice(0, 88)}`).join('\n') +
           `\n     自查:确认这些行是否已被有意改写/归档(归档须落 .ihui-agent/archive/PROJECT_PLAN_*.md);\n` +
-          `           若确属误覆盖,按上面 1) 的三步从 HEAD 逐行取回后再提交。`,
+          `           若确属误覆盖,${
+            face === 'staged'
+              ? '按上面 1) 的三步从 HEAD 逐行取回后再提交。'
+              : '走 --heal(只写工作区)或 --heal --commit(建前向恢复提交),不要手工拿 HEAD 覆盖在飞副本。'
+          }${srcNote}`,
       )
     }
     if (ok) {
       console.log(
-        `✅ [plan-line-loss] PROJECT_PLAN.md 无登记行丢失(判定面:${face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树磁盘(人工档)' : 'HEAD blob'})`,
+        `✅ [plan-line-loss] PROJECT_PLAN.md 无登记行丢失(判定面:${FACE_LABEL[face]}${
+          face === 'staged' ? '' : `,历史面登记行 ${scanned} 条`
+        })`,
       )
       reportProse()
       process.exit(0)
     }
     console.error(
-      `❌ [plan-line-loss] ${lost.length} 条已入库的登记行在本次提交内容里彻底消失:\n` +
+      `❌ [plan-line-loss] ${lost.length} 条登记行在判定面(${FACE_LABEL[face]})上已不在,而最近历史里出现过:\n` +
         lost
           .map(
             (x) =>
@@ -1469,6 +1714,11 @@ if (isDirectRun) {
       '\n  💡 这几乎总是"按内存里的旧计划文档整文件提交"造成的覆盖,不是有意删除:\n' +
         '     1) 从原始提交逐字取回:`git log --all -S "<标记>" -- PROJECT_PLAN.md` 找到引入它\n' +
         '        的提交,`git show <sha>:PROJECT_PLAN.md` 取整行,插回原锚点后再提交;\n' +
+        '        ' +
+        (face === 'staged'
+          ? '提交链上判的是索引这一份,所以取回后要 `git add` 再提交;\n'
+          : '**本面不是提交链**:要恢复已入库的行,走 `--heal`(只写工作区)或\n' +
+            '        `--heal --commit`(基线取 HEAD、建前向恢复提交);拿本地工作树副本整文件覆盖 = §12 禁止动作。\n') +
         '     2) 确属归档 → 原文必须出现在**已入库**的 .ihui-agent/archive/PROJECT_PLAN_*.md 里(本闸按\n' +
         '        被审面核对,本机写一份未提交的副本不算凭据;§1 归档流程 + G-183);\n' +
         '     3) 提交计划文档前一律现取 HEAD 版本再插自己的行,别相信自己内存里的那份;\n' +
@@ -1506,5 +1756,10 @@ export const __test__ = {
   proseLossReport,
   healSuspectRatio,
   assessHealScale,
+  // 取材面三件套:镜像测试据此证明"选面"这件事只有一份实现(§22c 禁止在测试里再抄一份)
+  pickPlanContent,
+  faceNoticeFor,
+  runCheck,
+  historyMarkers,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
