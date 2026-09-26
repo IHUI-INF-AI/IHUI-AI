@@ -22,7 +22,7 @@ export default function LoadingSpinner({
   return (
     <View className={`flex items-center justify-center ${inline ? 'inline-flex' : 'py-8'}`}>
       <View
-        className={`${sizeClass} mr-2 rounded-full border-2 border-border border-t-brand-accent-deep animate-spin`}
+        className={`${sizeClass} mr-2 rounded-full border-2 border-border border-t-primary animate-spin`} /* border-ink-exempt: 零消费者死件(仅 components/index.ts re-export),待删除票一并清,不给死代码改档 until 2026-10-26 */
       />
       <Text className={`${textClass} text-muted-foreground`}>{text}</Text>
     </View>
