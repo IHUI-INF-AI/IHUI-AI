@@ -990,9 +990,25 @@ test('R8 覆盖面必须按整面取,且枚举与筛选同表、预筛含 CSS �
   assert.ok(!body.includes('...R5_DIRS'), '枚举面里不得再出现 R5 的目录表')
   const patAt = src.indexOf('const R8_CLASS_GREP_PATTERN')
   assert.ok(patAt >= 0, '预筛模式常量不见了')
+  const patBody = src.slice(patAt, patAt + 420)
+  /**
+   * 原来这条锁的是字面 `--color-primary`。2026-09-26 预筛扩成 `--color-(primary|foreground)`
+   * 之后那个字面**合法地消失了**,锁把它判红 —— 按字面锁源码形状的代价就在这:实现写得更好了,
+   * 尺子却要求它退回旧写法。改成锁**结构 + 档位齐全**,意图不变(预筛不得漏 CSS 形态)、
+   * 但不依赖某一种字符串形状。
+   */
   assert.ok(
-    src.slice(patAt, patAt + 300).includes('--color-primary'),
-    '预筛必须含 CSS 声明形态 —— 少了它,该类命中永远进不了候选,门对该形态全盲',
+    patBody.includes('var\\\\('),
+    '预筛必须含 CSS 声明形态 —— 少了 var\\( 那一支,该类命中永远进不了候选,门对该形态全盲',
+  )
+  assert.ok(
+    /--color-[^\s]*primary/.test(patBody) && /foreground/.test(patBody),
+    '预筛必须同时带 primary 与 foreground 两档 —— 摘掉任一档,判据有牙而预筛失明(同 2026-09-26 那一型)',
+  )
+  // 方向中缀必须同时在预筛里:判据认 `border-t-primary` 而预筛不认,文件在第一道就被筛掉。
+  assert.ok(
+    /\[xysteblr\]/.test(patBody),
+    '预筛必须含单边方向中缀形态,否则 Tailwind `border-t-*` 整族在候选阶段就消失',
   )
 })
 

@@ -239,7 +239,8 @@
 }
 
 .ai-chu-row-active {
-  border-color: var(--color-foreground);
+  /* 强调描边取 brandAccent 档(§4 描边不得取墨档;原 var(--color-foreground) 是近黑描边) */
+  border-color: var(--color-brand-accent-deep);
   box-shadow: 0 0 10rpx var(--color-black-10);
 }
 
