@@ -5,6 +5,7 @@
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
 import { vueToNextRedirects } from './src/config/redirects.config'
+import { buildAiServiceEdgeRewrites } from './src/config/ai-service-edge'
 
 // GitHub Pages 部署需要 basePath(仓库名作为路径前缀)
 const isGitHubPages = process.env.GITHUB_PAGES === 'true'
@@ -389,6 +390,17 @@ const nextConfig: NextConfig = {
           source: '/.well-known/agent-card.json',
           destination: `${IHUI_AI_PROXY_TARGET}/.well-known/agent-card.json`,
         },
+        // 2026-09-26 新增(O20 公网拓扑·ai-service 对外能力调用面):
+        // 见 src/config/ai-service-edge.ts 的完整理由 —— 上面那条发现文档只解决「第三方
+        // 读得到卡片」,卡片里 advertised 的调用端点仍要有一条公网可达路径。
+        // 为什么另起 /ai-service/* 命名空间而不复用 /api/*:tunnel ingress 把
+        // aizhs.top/api/* 直接送到 Fastify 8802,本文件里既有的 /api/mcp/*、/api/connectors/*
+        // 等规则对公网流量结构性不可见(只在 Next 作为前门的形态下生效)。
+        // 默认拒绝:表由环境变量决定,**两个条件都不满足时返回空数组** = 一条 rewrite
+        // 都不注册 = 请求由 Next 自己 404,不存在「路径通了但任何人都能调」。
+        // 鉴权不在本层:凭据头原样透传,放行与否由 ai-service 的 JWTAuthMiddleware +
+        // capability_gate 决定(在 Next 里再写一套鉴权就是第二套真相)。
+        ...buildAiServiceEdgeRewrites(process.env),
         // 2026-07-31 新增:MCP 路由直接转发到 ai-service 8803
         // 原因:MCP 工具/资源/提示词/skill/slash 命令的 router 注册在 ai-service 8803 的 /api 前缀下,
         // IDE McpPane 组件调用 listMCPTools 等端点路径为 /mcp/*,normalizeUrl 加 /api 前缀后变成 /api/mcp/*,
