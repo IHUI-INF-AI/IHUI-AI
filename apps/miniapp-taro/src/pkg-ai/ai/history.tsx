@@ -111,6 +111,24 @@ const FILTERS = (
   },
 ]
 
+/**
+ * 残格④:筛选芯片由数据派生 —— image/voice/agent 三类从无任何写入方
+ * (服务端 chat_messages 无类型列,本机快照写入也不设 type),恒空芯片是死 UI。
+ * 只有当前列表真存在该类型时才渲染对应芯片;无 type 的行归 'chat'。
+ */
+export function availableFilterTypes(
+  items: ReadonlyArray<{ type?: FilterType }>,
+): Set<FilterType> {
+  const s = new Set<FilterType>(['all', 'chat'])
+  for (const x of Array.isArray(items) ? items : []) s.add(x.type || 'chat')
+  return s
+}
+
+/** 数据重载后当前筛选可能失效(该类型已不存在)⇒ 回落『全部』,不渲染空列表 */
+export function resolveActiveFilter(filter: FilterType, available: Set<FilterType>): FilterType {
+  return available.has(filter) ? filter : 'all'
+}
+
 const GROUP_LABELS = (tt: TtFn): Array<{ key: GroupKey; labelKey: string; fallback: string }> => [
   { key: 'today', labelKey: 'live.calendar.today', fallback: tt('live.calendar.today', '今天') },
   {
@@ -330,9 +348,15 @@ export default function HistoryPage() {
     void load()
   })
 
+  // 筛选芯片由数据派生(D20 残格④):image/voice/agent 三类从无任何写入方
+  // (服务端 chat_messages 无类型列,本机快照写入也不设 type),恒空芯片是死 UI ——
+  // 只有当前列表真存在该类型时才渲染对应芯片;数据重载后失效的筛选自动回落『全部』。
+  const availableTypes = useMemo(() => availableFilterTypes(list), [list])
+  const activeFilter: FilterType = resolveActiveFilter(filter, availableTypes)
+
   const filtered = useMemo(() => {
     let arr = list
-    if (filter !== 'all') arr = arr.filter((x) => (x.type || 'chat') === filter)
+    if (activeFilter !== 'all') arr = arr.filter((x) => (x.type || 'chat') === activeFilter)
     if (keyword.trim()) {
       const kw = keyword.trim().toLowerCase()
       arr = arr.filter(
@@ -343,7 +367,7 @@ export default function HistoryPage() {
     }
     // 时间倒序打底 + 置顶优先(唯一排序出口 orderHistoryRows,页面内不再写第二处 sort)
     return orderHistoryRows(arr)
-  }, [list, filter, keyword])
+  }, [list, activeFilter, keyword])
 
   const visible = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page])
 
@@ -589,10 +613,12 @@ export default function HistoryPage() {
       ) : null}
 
       <View className="flex gap-[12rpx] py-[16rpx] px-[32rpx] bg-card overflow-x-auto whitespace-nowrap">
-        {FILTERS(tt).map((f) => (
-          <View
-            key={f.key}
-            className={`inline-flex items-center gap-[6rpx] py-[8rpx] px-[24rpx] bg-background rounded-sm flex-shrink-0 ${filter === f.key ? 'bg-primary text-foreground' : 'text-muted-foreground'}`}
+        {FILTERS(tt)
+          .filter((f) => availableTypes.has(f.key))
+          .map((f) => (
+            <View
+              key={f.key}
+              className={`inline-flex items-center gap-[6rpx] py-[8rpx] px-[24rpx] bg-background rounded-sm flex-shrink-0 ${activeFilter === f.key ? 'bg-primary text-foreground' : 'text-muted-foreground'}`}
             onClick={() => {
               setFilter(f.key)
               setPage(1)
