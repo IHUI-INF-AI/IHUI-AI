@@ -619,8 +619,8 @@ export const adminStatisticsRoutes: FastifyPluginAsync = async (server) => {
       if (!existing) {
         return reply.status(404).send(error(404, '快照不存在'))
       }
-      await deleteStatisticsSnapshot(parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await deleteStatisticsSnapshot(parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     },
   )
 

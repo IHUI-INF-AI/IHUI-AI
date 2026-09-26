@@ -296,12 +296,15 @@ test('M8 判据只此一份实现:__test__ 必须把核心函数交出去,测试
   const i = SRC.indexOf('export const __test__')
   if (i < 0) throw new Error('源脚本必须 export __test__ —— 否则判据不可被直接复用,只能被复读')
   const block = SRC.slice(i)
-  // findBooleanAckSends 也在这张清单里:惯例计数的出口被摘掉一个,测试就会拿 undefined 跑出一片绿。
+  // findBooleanAckSends / B2 的一跳三件套也在这张清单里:出口被摘掉一个,测试就会拿 undefined 跑出一片绿。
   for (const k of [
     'maskText',
     'findWriteChains',
     'findCountSends',
     'findBooleanAckSends',
+    'indexExportedFns',
+    'planDelegatedAckSites',
+    'finishDelegatedAckSite',
     'scanFileText',
     'decide',
     'analyze',
@@ -574,6 +577,164 @@ test('M15 跨文件锁:B1 的豁免族必须登记进守门 108 的 FAMILY_LIFET
     )
   if (m[1] !== '30')
     throw new Error(`delete-ack-exempt 的存活期必须是 30 天(待偿迁移债,理由写在表旁注释),实得 ${m[1]}`)
+})
+
+/**
+ * B2 的镜像段(M17–M20)。三件事各自要证明的东西不同,不混在一条里:
+ *  M17 真仓 HEAD 的**变异对照**(摘掉已入库委托腿的 .returning( 必红 / 还原必归零)——
+ *      这条同时是"B2 不会在第二十六批产出的正确形态上报红"的证明;
+ *  M18 CLI 契约:`--json` 只追加五个 b2* 键、既有键形态不变,结论行必须现读点名 B2;
+ *  M19 源码级反向锁:B2 不得另写第二份豁免判法 / 第二份 ack 落点取材,被调正文不得按磁盘读,
+ *      "needs 为空即早退"这一型(会把整批未判定静默吞成 0 条)不得回来;
+ *  M20 解析表只认实测存在的形态:门里那条别名必须真声明在 apps/api/tsconfig.json 的 paths 里。
+ * 夹具与判据一律从 `__test__` 取(§22c:测试里再抄一份 import 解析或导出索引,就成了第二套真相)。
+ */
+const T = (await import(`../${GATE_REL}`)).__test__
+test('M17 真仓 HEAD 变异对照:摘掉委托腿的 .returning( 必被 B2 点名,还原必归零(正确形态不得判红)', () => {
+  const root = resolve(SCRIPTS_DIR, '..')
+  const CALLER = 'apps/api/src/routes/admin-agreements.ts'
+  const CALLEE = 'apps/api/src/db/agreements-queries.ts'
+  const FN = 'deleteAgreement'
+  const texts = T.readCandidates(root, 'head', [CALLER, CALLEE])
+  const calleeSrc = texts.get(CALLEE)
+  const callerSrc = texts.get(CALLER)
+  const judge = (idx) => {
+    const r = T.scanFileText(CALLER, callerSrc, { knownPaths: new Set([CALLEE]), calleeIndex: idx })
+    return {
+      v: r.b2.violations.map((x) => `${x.file}:${x.line}→${x.callee?.name}`),
+      c: r.b2.exempt.confirmed,
+      r,
+    }
+  }
+  // 被审面就是遮蔽后的代码面 ⇒ 变异也做在这一面上(整文件级 replace 会先撞见别的 .returning(,
+  // 那等于改了另一个函数却让本条对照以为自己改了这一个 —— 对照就退化成恒绿)。
+  const base = T.indexExportedFns(T.maskText(calleeSrc).text)
+  const fn = base.byName.get(FN)
+  if (!fn) throw new Error(`HEAD 的 ${CALLEE} 里没有函数形态导出 ${FN} ⇒ 夹具失去依据,先核对再改本条`)
+  if (!/\.returning\s*\(/.test(fn.bodyText))
+    throw new Error(`${CALLEE}#${FN} 的函数体里没有 .returning( ⇒ 它不再是"已入库的正确形态"样本,本条对照失效`)
+  // ① 现读的 HEAD:委托腿已带 .returning( ⇒ B2 必须判放过、违规 0。
+  const asIs = judge(new Map([[CALLEE, base]]))
+  if (asIs.v.length !== 0)
+    throw new Error(
+      `已入库的正确形态(被调腿回报 RETURNING)被判红 ⇒ 恒红门:${asIs.v.join(' ')}(B2 必须认第二十六批产出的写法)`,
+    )
+  if (asIs.c < 1)
+    throw new Error(
+      `HEAD 面上这一处应被记为"库确认放过",实得 ${asIs.c} ⇒ 判据没看见那条 .returning(,归零是假绿`,
+    )
+  // ② 变异:只摘掉**这一个函数**的 .returning(...)(真仓既有 `.returning()` 也有 `.returning({id})`)。
+  const stripped = new Map(base.byName)
+  stripped.set(FN, { bodyText: fn.bodyText.replace(/\.returning\s*\([^)]*\)/, '') })
+  const after = judge(new Map([[CALLEE, { ...base, byName: stripped }]]))
+  if (after.v.length !== 1)
+    throw new Error(`摘掉 .returning( 后必须恰被点名 1 处,实得 ${after.v.length}(${after.v.join(' ')})`)
+  if (!after.v[0].includes('admin-agreements.ts') || !after.v[0].endsWith(`→${FN}`))
+    throw new Error(`违规必须点名调用方与这一个委托函数,实得 ${after.v[0]}`)
+  // ③ 还原 ⇒ 归零(证明②的红是那一次改动造成的,不是判据恒红)。
+  if (judge(new Map([[CALLEE, base]])).v.length !== 0) throw new Error('还原后仍判红 ⇒ 判据与变异无关,是恒红')
+})
+
+test('M18 --json 只追加五个 b2* 键且既有键形态逐字不变;真仓结论行必须现读点名 B2', () => {
+  const dir = mkScratch('b2-json-')
+  try {
+    // 两腿都要在面上:调用方走 REL(在 SCAN_DIRS 内),被调腿落在 apps/api/src/db 下
+    // —— 只放调用方的话,那一跳会被判"解析不到",B2 的账就成了 0,而 0 与"没判"长得一样。
+    writeRepo(dir, { body: BAD })
+    put(dir, REL, `${BAD}\n${T.B2_FIXTURES.delegated}`)
+    put(dir, 'apps/api/src/db/b2-queries.ts', T.B2_FIXTURES.calleeNoReturning)
+    gitIn(dir, ['add', '-A'])
+    gitIn(dir, ['commit', '-q', '-m', 'b2-two-legs'])
+    const j = json(run(dir, ['--root', dir, '--json']))
+    for (const k of [
+      'files',
+      'enumerated',
+      'candidates',
+      'violations',
+      'undetermined',
+      'exempt',
+      'bareExempt',
+      'booleanAckSites',
+      'b1Violations',
+      'readQueryCountSites',
+    ])
+      if (!(k in j.counts)) throw new Error(`既有 counts.${k} 不见了 ⇒ 追加只许往末尾加键`)
+    for (const k of ['b2Candidates', 'b2Violations', 'b2Files', 'b2Undetermined', 'b2Exempt'])
+      if (!Number.isInteger(j.counts[k]) || j.counts[k] < 0)
+        throw new Error(`counts.${k} 缺失或为负:${JSON.stringify(j.counts)}`)
+    // B2 命中必须被数到,而计数判据那一处仍只由 BAD 贡献(两判据各计各的账)
+    if (j.counts.b2Violations !== 1 || j.counts.violations !== 1)
+      throw new Error(
+        `b2Violations=${j.counts.b2Violations} violations=${j.counts.violations}(应 1/1)—— 只追加不顶动`,
+      )
+    const rep = run(dir, ['--root', dir])
+    if (!/B2 委托假 ack\(判据:违规 1 处 \/ 1 文件/.test(rep.out))
+      throw new Error(`结论行必须现读点名 B2:${rep.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+  const real = run(resolve(SCRIPTS_DIR, '..'), [])
+  if (
+    !/B2 委托假 ack\(判据:违规 \d+ 处 \/ \d+ 文件,候选 \d+,放过 \d+ 只报数,那一跳解析不到不判 \d+\)/.test(
+      real.out,
+    )
+  )
+    throw new Error(`真仓结论行少了 B2 的五个现读数:${String(real.out).split('\n').pop()}`)
+})
+
+test('M19 反向锁:B2 不得另写豁免判法/ack 落点取材,被调正文不得按磁盘读,"needs 为空即早退"不得回来', () => {
+  // ① 豁免:必须复用 readExemptMarker 且带 DELETE_ACK_EXEMPT_TOKEN(与 B1 同一份实现)。
+  if (!/readExemptMarker\([^)]*DELETE_ACK_EXEMPT_TOKEN/.test(SRC))
+    throw new Error('B2 没走共享的 readExemptMarker ⇒ 两条通道的宽严会各自漂移(镜像 M16 同族)')
+  // ② ack 落点:B2 必须吃调用方传进来的那一份 ackSites,不得自己再调一次 findBooleanAckSends。
+  const plan = /export function planDelegatedAckSites\([\s\S]*?\n\}/.exec(SRC)
+  if (!plan) throw new Error('planDelegatedAckSites 找不到 ⇒ 无法验证这一族是否共用同一份 ack 取材')
+  if (/findBooleanAckSends\(/.test(plan[0]))
+    throw new Error('B2 自己又扫了一遍布尔 ack 落点 ⇒ 与 V1/B1 三处各扫一遍必漂移')
+  if (!/for \(const b of ackSites\)/.test(plan[0]))
+    throw new Error('planDelegatedAckSites 必须优先吃注入的 ackSites(单遍取材)')
+  // ③ 被调正文只能走 face-reader;按磁盘读被调文件就是把"没判"写成"判过了"。
+  if (!/readCalleeTexts\(root, face, \[\.\.\.needs\]\)/.test(SRC))
+    throw new Error('B2 的被调正文没有按所判面取(必须 readCalleeTexts(root, face, …))')
+  if (/readFileSync\([^)]*callee/i.test(SRC))
+    throw new Error('被调文件不得按磁盘读:共享工作树常年滞后 HEAD,同一份代码会在恒红与假绿之间跳')
+  // ④ 静默吞未判定那一型(B2 落地当天真实踩过:needs 为空就 return,整批"那一跳解析不到"被读成 0 条)。
+  const bundle = /export function scanFaceBundle\([\s\S]*?\n\}/.exec(SRC)
+  if (!bundle) throw new Error('scanFaceBundle 找不到 ⇒ 无法验证这一条早退锁')
+  if (/if \(!needs\.size\) return per/.test(bundle[0]))
+    throw new Error('scanFaceBundle 里 "needs 为空即早退" 回来了 ⇒ 未判定会被静默吞成 0 条')
+  // ⑤ B2 的数不得被并进任何既有判据数:aggregateB2 只写 res.b2.*。
+  const agg = /export function aggregateB2\([\s\S]*?\n\}/.exec(SRC)
+  if (!agg) throw new Error('aggregateB2 找不到')
+  if (/res\.(violations|candidates|undetermined|exempt|b1)\b/.test(agg[0]))
+    throw new Error('aggregateB2 写了既有键 ⇒ B2 与别的判据互相顶账')
+})
+
+test('M20 解析表只认实测存在的形态:门里的别名必须真声明在 apps/api/tsconfig.json 的 paths 里', () => {
+  const alias = /const ALIAS_AT = '([^']+)'/.exec(SRC)
+  if (!alias) throw new Error('找不到 ALIAS_AT ⇒ 无法验证别名是不是臆造的')
+  const ts = readFileSync(join(resolve(SCRIPTS_DIR, '..'), 'apps/api/tsconfig.json'), 'utf8')
+  const pathsBlock = /"paths"\s*:\s*([{][\s\S]*?[}])/.exec(ts)
+  if (!pathsBlock)
+    throw new Error(
+      'apps/api/tsconfig.json 里没有 paths 块 ⇒ 门的别名表失去依据(要么恢复声明,要么把别名从解析表里去掉)',
+    )
+  const keys = [...pathsBlock[1].matchAll(/"([^"]+)"\s*:/g)].map((m) => m[1])
+  // tsconfig 的键写的是 `@/*`(带通配星),门里那一条是前缀 `@/` —— 补回星再比,
+  // 否则这条锁在**声明完全正确**时恒红,而恒红锁的结局和被删一样。
+  const aliasKey = `${alias[1].replace(/\*+$/, '')}*`
+  if (!keys.includes(aliasKey))
+    throw new Error(
+      `门解析了别名 '${alias[1]}'(对应 tsconfig 键 ${aliasKey}),但 paths 未声明它(实测声明:${keys.join(' / ')})⇒ 解析表在臆造形态`,
+    )
+  // 候选生成必须覆盖 .js→.ts 与目录 index 两条实测形态(仓内 import 全部带 .js 后缀)。
+  const cands = T.moduleSpecCandidates('../db/x.js', 'apps/api/src/routes/r.ts')
+  if (!cands.candidates?.includes('apps/api/src/db/x.ts'))
+    throw new Error(`.js→.ts 的候选没生成:${JSON.stringify(cands)}`)
+  if (!cands.candidates?.includes('apps/api/src/db/x/index.ts'))
+    throw new Error(`目录 index 的候选没生成:${JSON.stringify(cands)}`)
+  if (T.moduleSpecCandidates('@ihui/database', 'apps/api/src/routes/r.ts').outside !== true)
+    throw new Error('workspace 包必须被判为"在 apps/api/src 之外",不得当本仓一跳解析')
 })
 
 test('M16 反向锁:B1 的豁免判法与 ack 落点取材不得各写第二份实现', () => {
