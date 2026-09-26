@@ -3370,6 +3370,38 @@ const checks = [
       '',
     ]
   },
+  // --- 任务状态一致性 (1 项, 2026-09-26 立) ---
+  {
+    id: '130',
+    label:
+      '🗂  任务状态分叉对账(blocking,差值棘轮:一次提交不得让"同一件事既已完成又挂着未勾"变多 —— 既有防护全在防丢,没有一道防错)',
+    script: 'plan-tasks.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PLAN_TASK_STATE',
+    stagedTriggers: ['PROJECT_PLAN.md', 'scripts/plan-tasks.mjs', 'scripts/lib/plan-task-index.mjs'],
+    onFailHint: [
+      '',
+      '  💡 本门拦的是"这次改动让状态分叉变多",不是"文档里有存量分叉"。存量(F1/F2/F3)默认只报数。',
+      '     为什么必须有:§1 让每个 agent 往计划文档追加登记,但文档**没有主键约束** ——',
+      '     同一任务编号被不同批次各登记一次,做完时只翻自己那一批的那份,其余副本永久烂成"未勾选";',
+      '     而既有防护链全部**单向防丢**(门 71 防丢行 / 84 防写回旧版 / 100 防合并吞文件 / 工作区自愈',
+      '     把删掉的行原地恢复),没有一道门判"状态分叉";并集合并策略又是"每行重数取 max",',
+      '     所以改写必然产出两份 —— 每天在产,账面全绿。',
+      '     三条判据都不依赖行号顺序、也不依赖相似度:',
+      '       F1 复合主键(编号 + 标题前缀,逐字等值)下 `- [x]` 与 `- [ ]` 并存;',
+      '       F2 行首未勾选,但正文自带"判:已完成/裸副本/读数过期/勿照本行派单"这类闭合或作废声明;',
+      '       F3 证据写成 `存活于 L<行号>` 而被指的行在当前面上已不是那条正题(行号一次 append 就挪位)。',
+      '     ① 看差在哪:node scripts/plan-tasks.mjs --forks / --void / --pointers;',
+      '     ② 唯一正确修法 = **归并**(把副本行翻成已完成并注记归并到谁),不是删行(§1 禁止无声删除);',
+      '     ③ 新登记的指针必须用**内容锚点**(编号 + 标题),不得写行号;',
+      '     ④ 严禁为过门去 `--update-baseline` 抬高基线或削判据 —— 那等于关掉这一维。',
+      '     单独复验:node scripts/plan-tasks.mjs --gate(全量档) / --staged --gate(本次提交档,含差值棘轮)',
+      '     自检:node scripts/plan-tasks.mjs --self-test;镜像测试:node --test scripts/tests/plan-tasks.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_PLAN_TASK_STATE=1 git commit ...(会把别人的分叉塞进 HEAD)',
+      '',
+    ],
+  },
   // --- info (1 项) ---
   {
     id: '23',
