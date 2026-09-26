@@ -57,8 +57,15 @@ export async function updateVipLevel(
     .where(eq(vipLevels.id, id))
 }
 
-export async function deleteVipLevel(id: string) {
-  await db.delete(vipLevels).where(eq(vipLevels.id, id))
+// 2026-09-27 布尔删除 ack 清账:旧版未标注返回类型且调用方拿不到命中集
+// (原 `await db.delete(...)` 丢弃返回值,路由层只能回 deleted:true 常量)。
+// 现回报 RETURNING 命中集合,路由层据此派生 deleted。
+export async function deleteVipLevel(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(vipLevels)
+    .where(eq(vipLevels.id, id))
+    .returning({ id: vipLevels.id })
+  return rows.map((r) => r.id)
 }
 
 // ============================================================================
