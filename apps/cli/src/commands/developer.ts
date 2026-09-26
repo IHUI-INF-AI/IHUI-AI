@@ -27,7 +27,7 @@
 import type { Command } from 'commander';
 import chalk from 'chalk';
 import { loadSettings } from './settings.js';
-import { ensureFreshAccessToken } from './token-manager.js';
+import { ensureFreshAccessToken, missingTokenHint } from './token-manager.js';
 import type { V1ChatCompletionResponse, ApiKeyStatus } from '@ihui/types';
 
 const DEFAULT_TIMEOUT_MS = 60_000; // playground 调用可能较慢,放宽到 60s
@@ -674,7 +674,7 @@ export function registerDeveloperCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const jwt = await resolveJwtAsync(cliApiKey, baseUrl);
         if (!jwt) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(missingTokenHint(baseUrl)));
           process.exitCode = 1;
           return;
         }
@@ -698,7 +698,7 @@ export function registerDeveloperCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const jwt = await resolveJwtAsync(cliApiKey, baseUrl);
         if (!jwt) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(missingTokenHint(baseUrl)));
           process.exitCode = 1;
           return;
         }
@@ -725,7 +725,7 @@ export function registerDeveloperCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const jwt = await resolveJwtAsync(cliApiKey, baseUrl);
         if (!jwt) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(missingTokenHint(baseUrl)));
           process.exitCode = 1;
           return;
         }
@@ -763,7 +763,7 @@ export function registerPlaygroundCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const jwt = await resolveJwtAsync(cliApiKey, baseUrl);
         if (!jwt) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(missingTokenHint(baseUrl)));
           process.exitCode = 1;
           return;
         }
@@ -789,7 +789,7 @@ export function registerPlaygroundCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const jwt = await resolveJwtAsync(cliApiKey, baseUrl);
         if (!jwt) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(missingTokenHint(baseUrl)));
           process.exitCode = 1;
           return;
         }
