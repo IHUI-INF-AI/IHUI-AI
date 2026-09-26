@@ -37,7 +37,7 @@
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveKeyDir } from './lib/key-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -208,8 +208,62 @@ function toAbs(p) {
   return (isAbsolute(p) ? p : resolve(ROOT, p)).replace(/\\/g, '/')
 }
 
+/**
+ * 写盘并按"读回"(read-back)确认写入 ≠ 生效(2026-09-26 票引入)。
+ * 旧实现写盘后只拿内存串比较就打印"✅ 回填完成" —— 文件只读、被外部进程持有
+ * 或被并发改写时,写入可能没发生或内容不符,而内存比较永远看不见(AGENTS §13
+ * "文件修改后必须立即用 Read 验证"对 CLI 脚本是同一条规矩)。
+ * 读回不一致只点名行号与两侧的**键名**,绝不回显值 —— 输出恒为脱敏态(§5d):
+ * 被外部改坏的行可能整行就是裸 token,按"行前缀"回显等于把值倒进日志。
+ * fsImpl 是测试注入缝(默认真实 fs),让镜像测试能离线构造"盘上被外部改动"
+ * 场景而不碰真盘;生产调用方一律不传。
+ * @returns {{attempted: boolean, writeErr: string|null, mismatch: string|null}}
+ */
+function writeEnvWithReadBack(envPath, expected, fsImpl = { writeFileSync, readFileSync }) {
+  if (expected === null || expected === undefined) {
+    return { attempted: false, writeErr: null, mismatch: null }
+  }
+  try {
+    fsImpl.writeFileSync(envPath, expected)
+  } catch (e) {
+    return { attempted: true, writeErr: String((e && e.code) || e), mismatch: null }
+  }
+  let onDisk
+  try {
+    onDisk = fsImpl.readFileSync(envPath, 'utf8')
+  } catch (e) {
+    return { attempted: true, writeErr: null, mismatch: `读回失败(${String((e && e.code) || e)})` }
+  }
+  if (onDisk === expected) return { attempted: true, writeErr: null, mismatch: null }
+  const want = expected.split(/\r?\n/)
+  const got = onDisk.split(/\r?\n/)
+  let line = -1
+  for (let i = 0; i < Math.max(want.length, got.length); i += 1) {
+    if (want[i] !== got[i]) {
+      line = i
+      break
+    }
+  }
+  // 只认 `KEY=` 前缀;不匹配就整行省略 —— 绝不回显任何可能是值的字符
+  const keyOf = (s) => {
+    if (s === undefined) return '(行缺失)'
+    const m = /^([A-Za-z_][A-Za-z0-9_]*)=/.exec(s)
+    return m ? m[1] : '(非键值行,内容省略)'
+  }
+  return {
+    attempted: true,
+    writeErr: null,
+    mismatch: `第 ${line + 1} 行与盘上内容不一致(期望键 ${keyOf(want[line])},实读 ${keyOf(got[line])})—— 值已省略`,
+  }
+}
+
 const args = parseArgs(process.argv.slice(2))
 
+// 2026-09-26:以下全部是真正的 CLI 流程,收进 main() 并由 §22d isDirectRun 守卫触发 ——
+// 镜像测试 scripts/tests/env-backfill-readback.test.mjs 需要 import 本模块直接跑
+// writeEnvWithReadBack(§22c:不复制实现);没有守卫,import 就会触发整轮巡检甚至
+// process.exit。函数体保持零缩进以最小化 diff,行为与原顶层代码逐字一致。
+async function main() {
 if (args.help) {
   console.log(
     [
@@ -308,10 +362,32 @@ for (const { entry, pick, reason } of plan) {
   report.push(`${entry.key}: 已回填 ${describe(pick)}`)
 }
 
-if (out !== envText) writeFileSync(ENV, out)
+// 写盘 + 读回确认(2026-09-26):旧写法 `if (out !== envText) writeFileSync(ENV, out)` 后
+// 直接拿内存串决定打不打"回填完成" —— 写入未生效时照样报成功。现在只有
+// writeEnvWithReadBack 判"写成功且盘上内容与预期逐字节一致"才允许出现完成字样。
+const wb = out !== envText ? writeEnvWithReadBack(ENV, out) : { attempted: false, writeErr: null, mismatch: null }
 
 console.log(`备份: ${backupPath.replace(/\\/g, '/')}`)
 console.log(report.map((r) => `  - ${r}`).join('\n'))
 console.log('')
-console.log(out !== envText ? '✅ 回填完成' : '⏭ 无键需要回填')
+if (wb.attempted && (wb.writeErr || wb.mismatch)) {
+  console.log(`❌ 写入未生效:${wb.writeErr ? `写盘异常(${wb.writeErr})` : wb.mismatch}`)
+  console.log('   回填**未完成** —— 磁盘上的 .env 与回填预期不一致,修好文件权限/外部写入后重跑;本输出不含任何 key 值。')
+  process.exitCode = 1
+} else {
+  console.log(wb.attempted ? '✅ 回填完成(读回比对一致)' : '⏭ 无键需要回填')
+}
+console.log('注: .env 改动须重启对应服务(ai-service 等)才生效 —— 进程在启动时把它读进内存,改文件不动运行中的进程(AGENTS §5e)。')
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+export const __test__ = { writeEnvWithReadBack, parseArgs, describe, tokens }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -8,11 +8,13 @@ import type { CSSProperties } from 'react'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   IA_GREETING_FONT_PX,
+  IA_GREETING_TOP_PX,
   IA_HEADING_FONT_WEIGHT,
   IA_MARGIN_PX,
   IA_PADDING_PX,
   IA_RECHARGE_FONT_PX,
   IA_RECHARGE_TOUCH_PAD_PX,
+  IA_ROBOT_ICON_INK_PX,
   IA_SUBTITLE_FONT_PX,
   IA_TEXT_GAP_PX,
   IA_TOKEN_FONT_PX,
@@ -42,6 +44,9 @@ const SUBTITLE_STYLE: CSSProperties = {
   marginTop: toUnit(IA_TEXT_GAP_PX),
 }
 const TOKEN_ROW_STYLE: CSSProperties = { marginTop: toUnit(IA_TOKEN_ROW_GAP_PX) }
+// 文本块顶偏移:两端同档(RN 文本块原有 paddingTop 4,本端同一落点补同值 ——
+// 裁决依据写在 spec 的 IA_GREETING_TOP_PX 注释)
+const CONTENT_STYLE: CSSProperties = { paddingTop: toUnit(IA_GREETING_TOP_PX) }
 const TOKEN_TEXT_STYLE: CSSProperties = {
   fontSize: toUnit(IA_TOKEN_FONT_PX),
   fontWeight: IA_HEADING_FONT_WEIGHT,
@@ -78,11 +83,13 @@ export default function IntelligentAssistant({
     <View className="ia-card" style={CARD_BOX_STYLE}>
       <LineIcon
         name="bot"
-        size={64}
+        // 行内矢量墨迹单端档(与 RN 位图装饰是不同媒介,不构成同一元素;依据见 spec)
+        // × TARO_RPX_PER_PX 后仍是 LineIcon 的 rpx 数值通道,与收编前 size={64} 逐位同值
+        size={IA_ROBOT_ICON_INK_PX * TARO_RPX_PER_PX}
         color="var(--color-muted-foreground)"
         className="ia-robot ia-float"
       />
-      <View className="ia-content">
+      <View className="ia-content" style={CONTENT_STYLE}>
         <Text className="ia-greeting" style={GREETING_STYLE}>
           {t('ai.intelligentAssistant.greeting')}
         </Text>
