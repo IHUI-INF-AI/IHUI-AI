@@ -6,7 +6,8 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { useState, useMemo } from 'react'
 import { useI18n, useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import { cn, rnRadius } from '@ihui/design-tokens'
+import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { MODEL_LIST_EMPTY_FONT_PX } from '@ihui/shared/ui/model-list-spec'
 import type { ModelUsageCategory } from '@ihui/shared/constants'
 import type { LlmModel } from '@/api'
 import type { ModelType } from './ModelTypeButton'
@@ -131,7 +132,11 @@ export default function ModelList({
     if (!models.length) {
       return (
         <View className="flex items-center justify-center" style={{ padding: '40rpx 0' }}>
-          <Text className="text-[length:24rpx] text-muted-foreground">
+          {/* 空态字号取共享源(与 RN emptyText 同档);list 变体的 text-sm 是端内另一档,待裁决 */}
+          <Text
+            className="text-muted-foreground"
+            style={{ fontSize: rpx(MODEL_LIST_EMPTY_FONT_PX * TARO_RPX_PER_PX) }}
+          >
             {tt('model.empty', '暂无模型')}
           </Text>
         </View>
