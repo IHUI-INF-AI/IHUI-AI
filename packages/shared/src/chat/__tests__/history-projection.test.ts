@@ -18,6 +18,7 @@ import { describe, expect, it } from 'vitest'
 import {
   HISTORY_TURN_DIRECTIONS,
   HISTORY_LIMIT_DEFAULT,
+  advanceHistoryPagingCursors,
   clampHistoryLimit,
   decodeHistoryTurnCursor,
   deriveHistoryBoundary,
@@ -25,7 +26,9 @@ import {
   isHistoryPageExhausted,
   isUsableTurnOrdinal,
   mergeHistoryTurnPages,
+  parseHistoryRolloutBreakpoint,
   projectHistoryPage,
+  resolveHistoryRolloutSeed,
 } from '../history-projection'
 import * as sharedChatBarrel from '../index'
 
@@ -214,6 +217,168 @@ describe('边界四:序数缺失', () => {
   })
 })
 
+// ============================================================================
+// O82续四·投影消费段①:projectionState 断点的读侧消费
+// ============================================================================
+
+/** 断点线形态:逐字取自写入侧 jsonb 落库形态(chat-queries 的 HistoryProjectionState)。 */
+function bp(ordinal: number, bytes = 4096, at = '2026-09-26T00:00:00.000Z') {
+  return { nextRolloutOrdinal: ordinal, nextRolloutByteOffset: bytes, lastRolledAt: at }
+}
+
+const BOUNDARY_BASE = {
+  hasOlder: false,
+  hasNewer: false,
+  olderCursor: null,
+  newerCursor: null,
+  oldestTurnOrdinal: null,
+  newestTurnOrdinal: null,
+} as const
+
+describe('断点解析:与服务端 parseHistoryProjectionState 同一把尺', () => {
+  it('服务端落库形态可解析,三字段原样透出', () => {
+    expect(parseHistoryRolloutBreakpoint(bp(7, 1234))).toEqual({
+      nextRolloutOrdinal: 7,
+      nextRolloutByteOffset: 1234,
+      lastRolledAt: '2026-09-26T00:00:00.000Z',
+    })
+  })
+
+  it('残缺/非法形态一律 null(不得当断点用,否则断点永久卡死)', () => {
+    const bad: unknown[] = [
+      null,
+      undefined,
+      'null',
+      [],
+      {},
+      { ...bp(1), nextRolloutOrdinal: 1.5 },
+      { ...bp(1), nextRolloutOrdinal: '1' },
+      { ...bp(1), nextRolloutByteOffset: Number.NaN },
+      { ...bp(1), nextRolloutByteOffset: '12' },
+      { ...bp(1), lastRolledAt: '' },
+      { nextRolloutOrdinal: 3, nextRolloutByteOffset: 12 },
+    ]
+    for (const raw of bad) expect(parseHistoryRolloutBreakpoint(raw)).toBeNull()
+  })
+
+  it('序号 0 是合法断点(首轮回放前的起点),不得被当 falsy 丢弃', () => {
+    expect(parseHistoryRolloutBreakpoint(bp(0))).not.toBeNull()
+  })
+})
+
+describe('续读起点推导:断点 → direction=newer 的游标', () => {
+  it('产出的游标与服务端 encodeHistoryCursor 同字节(跨侧等价靠夹具,不靠 import 服务端代码)', () => {
+    const seed = resolveHistoryRolloutSeed(bp(12), null)
+    // 夹具串逐字取自本文件上方服务端产物夹具表
+    expect(seed.cursor).toBe('eyJ0dXJuT3JkaW5hbCI6MTJ9')
+    expect(encodeHistoryTurnCursor({ turnOrdinal: 12 })).toBe(seed.cursor)
+  })
+
+  it('前进(5→9)不算重写;起点跟随新断点', () => {
+    const seed = resolveHistoryRolloutSeed(bp(9), 5)
+    expect(seed.rewritten).toBe(false)
+    expect(seed.breakpointOrdinal).toBe(9)
+    expect(decodeHistoryTurnCursor(seed.cursor)).toEqual({ turnOrdinal: 9 })
+  })
+
+  it('同值(9→9)不算重写(未投影出收口轮次时服务端原样回旧值)', () => {
+    expect(resolveHistoryRolloutSeed(bp(9), 9).rewritten).toBe(false)
+  })
+
+  it('倒退(9→2)⇒ 判重写,且**绝不产出游标**(半真起点会伪装成"已在续读"而静默漏轮)', () => {
+    const seed = resolveHistoryRolloutSeed(bp(2), 9)
+    expect(seed.rewritten).toBe(true)
+    expect(seed.cursor).toBeNull()
+    // 仍把新断点交回调用方覆盖旧值,否则下一次仍拿旧基准比,永远判重写
+    expect(seed.breakpointOrdinal).toBe(2)
+  })
+
+  it('首次采用(prev=null)永不判倒退;未投影一律不产游标且不判倒退', () => {
+    expect(resolveHistoryRolloutSeed(bp(0), null).rewritten).toBe(false)
+    expect(resolveHistoryRolloutSeed(null, 9)).toEqual({
+      cursor: null,
+      breakpointOrdinal: null,
+      rewritten: false,
+    })
+    expect(resolveHistoryRolloutSeed({ junk: true }, 9).rewritten).toBe(false)
+  })
+
+  it('字节断点不参与分页判定:同序号不同字节 ⇒ 推导结果全等', () => {
+    expect(resolveHistoryRolloutSeed(bp(7, 1), 5)).toEqual(
+      resolveHistoryRolloutSeed(bp(7, 99999), 5),
+    )
+  })
+})
+
+describe('游标推进:advanceHistoryPagingCursors(三动作共用口径)', () => {
+  it('首屏(newest)无 boundary.newerCursor ⇒ 由断点种子点亮 newer', () => {
+    const r = advanceHistoryPagingCursors({
+      direction: 'newest',
+      boundary: { ...BOUNDARY_BASE, hasOlder: true, olderCursor: 'SOME', newestTurnOrdinal: 9 },
+      seed: resolveHistoryRolloutSeed(bp(9), null),
+      previous: { older: null, newer: null },
+    })
+    expect(r.discardFolded).toBe(false)
+    expect(r.cursors.older).toBe('SOME')
+    // 这就是"不接会错在哪"的正面形态:首屏之后 newer 端不再恒 null
+    expect(decodeHistoryTurnCursor(r.cursors.newer)).toEqual({ turnOrdinal: 9 })
+  })
+
+  it('服务端链游标优先于断点种子(续读链已在推进时以链为准)', () => {
+    const r = advanceHistoryPagingCursors({
+      direction: 'newer',
+      boundary: { ...BOUNDARY_BASE, hasNewer: true, newerCursor: 'CHAIN' },
+      seed: resolveHistoryRolloutSeed(bp(9), null),
+      previous: { older: null, newer: 'OLD' },
+    })
+    expect(r.cursors.newer).toBe('CHAIN')
+  })
+
+  it('未投影时沿用上一次 newer 链(不得让断点缺位把已有链清成 null)', () => {
+    const r = advanceHistoryPagingCursors({
+      direction: 'older',
+      boundary: { ...BOUNDARY_BASE, hasOlder: true, olderCursor: 'SOME' },
+      seed: resolveHistoryRolloutSeed(null, null),
+      previous: { older: 'STALE', newer: 'KEEP' },
+    })
+    expect(r.cursors.newer).toBe('KEEP')
+    // older 端只认本页边界:服务端说没有更早就是没有更早
+    expect(r.cursors.older).toBe('SOME')
+  })
+
+  it('倒退 ⇒ discardFolded 且两端归零(除 newest:那一页本身就是整段重建)', () => {
+    const r = advanceHistoryPagingCursors({
+      direction: 'newer',
+      boundary: { ...BOUNDARY_BASE, hasNewer: true, newerCursor: 'CHAIN' },
+      seed: resolveHistoryRolloutSeed(bp(2), 9),
+      previous: { older: 'SOME', newer: 'CHAIN' },
+    })
+    expect(r.discardFolded).toBe(true)
+    expect(r.cursors).toEqual({ older: null, newer: null })
+  })
+
+  it('倒退 + newest:不丢弃折叠,但旧的链游标一并作废(序号已被重编号取代)', () => {
+    const r = advanceHistoryPagingCursors({
+      direction: 'newest',
+      boundary: { ...BOUNDARY_BASE, hasOlder: true, olderCursor: 'NEW' },
+      seed: resolveHistoryRolloutSeed(bp(2), 9),
+      previous: { older: 'DEAD', newer: 'DEAD' },
+    })
+    expect(r.discardFolded).toBe(false)
+    expect(r.cursors).toEqual({ older: 'NEW', newer: null })
+  })
+
+  it('整段重建(newest)不得沿用上一次 newer 链', () => {
+    const r = advanceHistoryPagingCursors({
+      direction: 'newest',
+      boundary: BOUNDARY_BASE,
+      seed: { cursor: null, breakpointOrdinal: null, rewritten: false },
+      previous: { older: 'X', newer: 'STALE' },
+    })
+    expect(r.cursors.newer).toBeNull()
+  })
+})
+
 describe('接线锁:barrel 真导出 + 存在非测试面 importer', () => {
   // __dirname = packages/shared/src/chat/__tests__ ⇒ 仓库根要上跳 5 级
   // (5 不是 4:写成 4 会解析到 packages/apps/**,报 ENOENT 而不是报判据错)
@@ -249,6 +414,28 @@ describe('接线锁:barrel 真导出 + 存在非测试面 importer', () => {
       imported = false
     }
     expect(imported).toBe(true)
+  })
+
+  it('断点消费真接进 web 钩子(O82续四:存而不读回到旧态即红)', () => {
+    // 判"调用点"而非"提到名字":注释/类型引用不构成消费(守门 70/76/81 同型)。
+    // 变异对照:把钩子里两处调用改回不消费(删调用或注释掉),本条必须红。
+    const hookSrc = readFileSync(
+      join(repoRoot, 'apps', 'web', 'src', 'hooks', 'use-chat-history-projection.ts'),
+      'utf8',
+    )
+    const importBlock = hookSrc.match(/import\s*\{[\s\S]*?\}\s*from\s*'@ihui\/shared\/chat'/)
+    expect(importBlock).not.toBeNull()
+    expect(importBlock?.[0]).toMatch(/\bresolveHistoryRolloutSeed\b/)
+    expect(importBlock?.[0]).toMatch(/\badvanceHistoryPagingCursors\b/)
+    // 真正的调用点(去掉注释行的代码面上找:本仓最高频失效型是"看起来有、其实没装车")
+    const codeFace = hookSrc
+      .split('\n')
+      .filter((l) => !l.trimStart().startsWith('//') && !l.trimStart().startsWith('*'))
+      .join('\n')
+    expect(codeFace).toMatch(/resolveHistoryRolloutSeed\(/)
+    expect(codeFace).toMatch(/advanceHistoryPagingCursors\(\{/)
+    // 断点基准必须与会话作用域绑定(跨会话拿旧断点比新会话首屏 = 误判重写)
+    expect(codeFace).toMatch(/breakpointRef\.current = null/)
   })
 
   it('api-client 暴露 getConversationHistory 且路径指向 turn 分片端点', () => {
