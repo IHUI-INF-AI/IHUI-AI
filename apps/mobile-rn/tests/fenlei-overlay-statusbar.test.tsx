@@ -2,78 +2,86 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
-import { rnGeometry } from '@ihui/design-tokens'
-import { getTokens, type AppThemeMode } from '../theme/tokens'
-import { useFontMultiplier } from './MoreLink'
+// 分类弹层(FenLeiOverlay)顶距避让状态栏的取证。
+//
+// 起因(真机实测,非推断):红米 2411DRN47C 首页 NavBar「分类」打开的赛道弹层,首行选项
+// 「全公司/技术/设计」落在 y=10..74,而该机状态栏带 = 68px(34dp)—— 整行压在时钟/电量下面。
+// 根因是本弹层用 `<Modal statusBarTranslucent>` 把窗口铺满整屏,而 Modal 渲染在
+// `App.tsx` 的 `<SafeAreaView edges={['top']}>` 那一单点**之外**(守门 97 的 M1 那一格),
+// 面板只写了 `paddingTop: 12`,所以状态栏没人避让。
+//
+// 为什么用两条对照而不是一条:只测 `insets.top=34 ⇒ 46` 的话,把 46 写死也能过。
+// 所以必须同时测 `insets.top=0 ⇒ 12` —— 顶距要随 inset **动**,这才是本票的不变量。
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render } from '@testing-library/react'
 
-/**
- * 命中块与图标墨迹**不在本文件取数** —— 档位唯一真相源是
- * `packages/design-tokens/src/geometry.js`(取值依据写在那个头注里,含"为什么移动端不取
- * web 顶栏的 14px")。这里取它的 dp 投影,与小程序端 `taroGeometry` 同表同枚。
- *
- * 之前本文件写 `ICON = 22`、小程序端写 `40rpx`(=20px),两句注释都自称"与 web 同档"
- * 而屏幕上差 2px —— "端内既定档"就是第二份真相。守门 128 立项时把这处量成差异档。
- */
-const BOX = rnGeometry.tapBox
-const ICON = rnGeometry.glyphMd
+const insetsBox = vi.hoisted(() => ({ top: 0 }))
 
-export interface BackChevronProps {
-  onPress?: () => void
-  /**
-   * 「返回」的本地化文案。**只用于 accessibilityLabel,不参与渲染** ——
-   * 可见侧是裸箭头,无障碍名称必须脱离上下文也成立(RN 的屏幕阅读器只会念这一个字符串)。
-   */
-  label: string
-  /**
-   * 必填而非 `= 'light'` 默认值:守门 91 的判据把"形参带 light 默认值"认作静默脱主题开关,
-   * 而默认值一旦存在,漏传就静默锁死浅色档案且 typecheck 不红。必填让 `tsc` 直接接管这件事,
-   * 比门更严格(门只审带默认值的那一类)。
-   */
-  colorScheme: AppThemeMode
-  style?: StyleProp<ViewStyle>
-  testID?: string
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: insetsBox.top, bottom: 0, left: 0, right: 0 }),
+  SafeAreaProvider: ({ children }: { children: unknown }) => children,
+  useSafeAreaFrame: () => ({ x: 0, y: 0, width: 375, height: 812 }),
+}))
+
+import { FenLeiOverlay } from '../src/components/FenLeiOverlay'
+
+const TRACK = [
+  { id: '', name: '全公司' },
+  { id: 'tech', name: '技术' },
+]
+const MAIN = [{ id: '', name: '全部' }]
+
+/** 面板 = 标题「分类」的直接父节点;取它落到元素上的实算顶距(不是读 styles 对象) */
+function panelPaddingTop(): number {
+  const head = Array.from(document.querySelectorAll('span')).find((s) => s.textContent === '分类')
+  const panel = head?.parentElement
+  if (!panel) throw new Error('未找到分类弹层面板(标题「分类」不在 DOM 里 ⇒ 弹层没渲染)')
+  const raw = panel.style.paddingTop
+  const n = Number.parseFloat(raw)
+  if (!Number.isFinite(n))
+    throw new Error(`面板 paddingTop 没有落到元素上(实读 ${JSON.stringify(raw)})`)
+  return n
 }
 
-/**
- * 页头返回键 —— RN 端唯一实现(共享层,`packages/app` 各屏与 `apps/mobile-rn` 共用)。
- *
- * 为什么不用「返回」两个汉字当箭头:那是把**文案**当**图标**用。web 端早在 2026-09-08 就把
- * 这一 affordance 收进顶栏唯一实现并用 lucide `ChevronLeft`,小程序端 2026-09-25 收进
- * `components/BackChevron.tsx`;RN 侧此前 223 处 / 168 文件各写各的 `<Text>{t('common.back')}</Text>`
- * 加各自的 `styles.back*`,于是"手机上返回键和网页长得不一样"。载体统一为零新素材
- * (`lucide-react-native` 已是本端图标库,`ChevronLeft` 亦在 7 个既有屏里这么用)。
- */
-export function BackChevron({ onPress, label, colorScheme, style, testID }: BackChevronProps) {
-  const tk = getTokens(colorScheme)
-  const multiplier = useFontMultiplier()
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      testID={testID}
-      hitSlop={4}
-      style={({ pressed }) => [styles.box, pressed ? styles.pressed : null, style]}
-    >
-      <ChevronLeft size={Math.round(ICON * multiplier)} color={tk.text.medium} />
-    </Pressable>
+function openOverlay(): void {
+  render(
+    <FenLeiOverlay
+      visible
+      onClose={() => {}}
+      trackCategories={TRACK}
+      mainCategories={MAIN}
+      selectedTrackId=""
+      selectedMainId=""
+      onConfirm={() => {}}
+    />,
   )
 }
 
-const styles = StyleSheet.create({
-  box: {
-    width: BOX,
-    height: BOX,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pressed: {
-    opacity: 0.6,
-  },
-})
+describe('FenLeiOverlay 顶距避让状态栏', () => {
+  beforeEach(() => {
+    insetsBox.top = 0
+    document.body.innerHTML = ''
+  })
 
-export default BackChevron
+  it('真机档位(insets.top=34dp)下面板顶距 = 34 + 12,首行选项落在状态栏带之外', () => {
+    insetsBox.top = 34
+    openOverlay()
+    expect(panelPaddingTop()).toBe(46)
+  })
+
+  it('反向对照:insets.top=0 时顶距回到 12 —— 证明加的是 inset,不是写死的 46', () => {
+    insetsBox.top = 0
+    openOverlay()
+    expect(panelPaddingTop()).toBe(12)
+  })
+
+  it('顶距恒 >= 当前 inset(任何机型都不把内容送回状态栏带)', () => {
+    for (const top of [0, 24, 34, 44, 59]) {
+      document.body.innerHTML = ''
+      insetsBox.top = top
+      openOverlay()
+      expect(panelPaddingTop()).toBeGreaterThanOrEqual(top)
+    }
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
