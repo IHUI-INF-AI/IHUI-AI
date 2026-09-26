@@ -11771,3 +11771,59 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - `（API 测试面)` **`tests/**/*.real.test.ts` 被默认 `vitest.config.ts` 排除**,而多条真库断言(含本波次新写的 `vip-auth-routes.real.test.ts` 41 枚、`workspace-queries.real`、`statistics-queries.real`、`comments.real`、`customer-service-queries.real`)只在 `vitest.real.config.ts` 下跑 ⇒ **提交链与 CI 默认档永不执行它们**,本机还因 `apps/api/.env.test` 不存在而跑不了。这是"看起来有一族测试,实际没人跑"的那一型,需要单开一票定落点。
   - `（全量并发面)` `tests/o13-bg-rls-live.test.ts` 在全量满载下会因临时 PG 集群互踩产出 218 枚迁移重放失败,**单跑同一文件 1 passed(43.8s)** ⇒ 属"DB-live 套件不能与全量并发共跑",与删除 ack 无因果;要么给它单独 serial 档,要么从默认收集里摘出并写明。
   - `（relay 管理面)` 第二十七批泳道五实测登记:`relay-peak-pricing` / `relay-pricing` / `relay-prompt-audit` / `relay-user-attributes` 四个删除端点**当前零用例覆盖**(`apps/api/tests/peak-pricing-service.test.ts` 的 db 夹具是 `{db:{}}` 整层空对象,结构上跑不了删除链)—— 诚实性只有源码文本撑着,摘掉 `.returning()` 不会被测试拦。补测前置=那把夹具换成与真 drizzle 同形的链。
+### 第五十一批 · 续(2026-09-27 拂晓,CI 红清零 + 两型"门替无关提交挡路"的收口)✅(2026-09-27)
+- **CI 在 `0e823ca6ba` 上实测 4 红,逐条走到 step 级再看归因(job 名会骗人这件事本轮又用上一次)**:
+  ① `lint` 红在 `Run pnpm run lint:strict` → 只有 `@ihui/web#lint` 失败,`eslint . --max-warnings 0` 下
+  **19 error + 14 warning 一律判红**(warning 也算,这条容易只记 error 而以为"警告不挡");
+  ② `test` 红在 `@ihui/database#test` 的唯一用例 = 我当日自己写的 data dir 落点判据(**红的是夹具不是判据**:
+  镜像测试用 `/^[A-Za-z]/.exec(REPO_ROOT)` 取盘符,Linux 上取到 `/home/...` 的首字母 `h`,拼出
+  `H:\DevEnv\Temp\…` 又被 POSIX `resolve()` 折成仓库内的相对路径 ⇒ 判到的分支是"家目录禁令",
+  不是这一条要判的"允许落点");③ `test-python` 红在 **Mypy**(不是 Ruff —— Ruff 步当日已绿,
+  `Found 20 errors in 3 files`);④ `Knip 死代码检查` 红在棘轮"未用导出 1862 → 1867(+5)"。
+  四红**全部清偿并已推**(`c797414079` / `2aec9d116a`)。
+- **mypy 那 20 条逐处核实后是"类型噪声",但必须先核实一遍才敢说**:Linux 面**从未**调用过
+  `fcntl.locking`(非 Windows 分支写的都是正确的 `fcntl.flock`),`ctypes.windll` 也确被守卫挡住。
+  坏在写法:mypy 按 `sys.platform` 剪分支、**不认 `os.name == "nt"`**,于是两分支一起被分析。
+  修法一律换 `sys.platform`(CPython 上两者互为等价,本机实测该等价式 True),
+  并删掉因此变 unused 的 2 条 ignore、**零新增 ignore、未碰 strict 配置**。
+  `proc_sandbox.py` 那一处**不是换判据就行**:早退守卫必须改成整块包裹形态(mypy 剪的是被证伪的
+  分支体,`return` 之后的代码在 Linux 面照样被分析),Windows 实现逐行未动、`reason` 字符串逐字保留。
+  **两面取证**(`--platform linux` / `--platform win32`):linux 20→0 且"恰好消失 CI 那 20 条、新增 0 条"、
+  win32 改前改后逐条同集合 ⇒ 没有把红从一个平台搬到另一个。通用出口:**凡平台条件代码的类型判据,
+  取证必须同时跑两面**,单面绿只证明"这台机的那个平台"没事。
+- **同一批还量到"本机门红 ≠ 仓库红"的第二格(守门 35 mypy 在本机恒红)**:改完 20 条后本机仍报
+  6 条,全在白名单外的 4 个文件,逐条读成因是 `.venv` 里**没装 pyproject 已声明的主依赖**
+  (`beautifulsoup4>=4.15.0`、`firecrawl-anydoc>=0.2.4`)⇒ `--ignore-missing-imports` 把缺失导入降成
+  `Any`,于是原本为"导入成功"写的 `type: ignore` 变 unused、一处变 `no-any-return`。
+  补装这两个声明内依赖(不装任何未声明的东西)后门 35 由 exit 1 → **exit 0**,
+  `pytest -k "crawl or document or indexer or formatter"` **357 passed** 无回归。
+  ⇒ 记成一条排查顺序:**门红先问"尺子依赖齐不齐",再问"代码坏没坏"** —— 这两型的修法完全相反,
+  而现象都是同一行 `error: Unused "type: ignore"`。
+- **Knip 的 +5 不是"数差 5",是名单差集**:第一版比对用「名字|路径:行」顶出"7 增 7 删",全是他人重排
+  造成的行号漂移噪声;换成「名字|路径」后 9 增 1 删才看得见信号。逐个问"谁在用"再定处置:
+  4 个纯函数只被同文件 hook 用 ⇒ 摘 `export`(函数一字未动);`export default` 是冗余别名 ⇒ 删;
+  3 个孤儿 hook ⇒ **先过 §7 三问**再删(等价实现确在 `apps/web/src/lib/context-api.ts` 且有 4 个真实页面在用);
+  1 个诊断函数 `dimensionsMissingView` **不删,而是补上它本来就在等的消费者**(测试里成对断言:
+  先证兜底档在位,否则"为空"可能只是探针恒返回 [])。变异自证:删一行外观 ⇒ 该断言当场红,
+  还原后 `git hash-object` 与动手前逐字相同。
+- **两型"门替无关提交挡路"当夜收口(同一种失效,两个载体)**:
+  ① 钩子里批外的 `i18n 死 key 扫描` 判出 1 个死键(`mentionPopover.removeLabel`,
+  9e9612e148 那次批量回填带进来的从未被引用项;`grep mentionPopover` 在 ts/tsx 面零命中、
+  中文原值「取消提及」也零命中 ⇒ 不是"引用形式扫不到"),它一红就**挡住每一次提交**,
+  而守门批那 150+ 道全部不跑 ⇒ 清零(`ffdb860744`)。同名的 `chat.mentionPopover.removeLabel` 是
+  另一个命名空间、有真引用者,一字未动。
+  ② 守门 135 的 `--staged` 在"本次暂存集里没有射程内文件"时把 0 候选判成"无法判定"(exit 2)——
+  文档/语言包类提交**结构上**不会带 `.ts`,于是它替每一次无关提交挡路。现改为**回退全量并喊出来**
+  (报告多一条 `↩️ …回退 HEAD 全量面(不是"没判",判的是 HEAD 全量面)`),口径与门 70/101 同形;
+  判据一个字没放松:有射程内文件 / 显式 `--files` / 全量档三种情形**绝不回退**,这四路由
+  纯函数 `shouldRetreatToHead` + 构造面锁住(自检 3 → 7 例、镜像 8 → 9 例;顺手把自检里那句
+  `!head.scannedFiles || true` 的**恒真断言**换成 `inScope` 的四路真实判定 —— 永远绿的断言比没有断言更糟)。
+  端到端那一例刻意**不进**镜像测试:它取决于共享索引此刻有什么,拿仓库瞬时状态当尺子是守门 103 的 T12 那一课。
+- **如实登记的剩余(不是"已全清")**:`lint:strict` 在 CI 读数里的另 **15 处**全部落在 4 个
+  **他人在途**文件(`work-panel/cdp-browser-view.tsx` 3、`work-panel/web-work-panel.tsx` 3、
+  `chat/message-list/FallbackBanner.tsx` 8、`media/__tests__/office-preview.test.tsx` 1)。
+  其中 FallbackBanner 那 8 处**对方工作树副本已经修好、只欠提交**(HEAD 面逐字仍在,行号与 CI 报告完全对齐);
+  work-panel 那 6 处与 office-preview.test.tsx 那 1 处在对方副本里**仍坏**,且行号已相对 CI 读数漂移
+  (cdp 308/432/666、web-work-panel 155/196/203)⇒ 那是"正在被编辑"的直接证据。
+  按 §12/§16 一律不覆写他人现场,所以本票交的是**我持有的 18 处清零 + 剩下 15 处的归属与行号清单**,
+  不是一句"lint 已全绿"。
