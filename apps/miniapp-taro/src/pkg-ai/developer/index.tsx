@@ -230,8 +230,8 @@ export default function DeveloperIndex() {
     <ThemeRoot>
       {/* RN shell: bg surface.bg */}
       <View className="min-h-screen bg-background flex flex-col">
-        {/* RN NavBar: 高 44dp=88rpx,bg surface.card,底部描边,标题居中 18dp=36rpx semibold */}
-        <View className="h-[88rpx] flex items-center justify-center bg-card border-b border-[var(--color-border)]">
+        {/* RN NavBar: 高 44dp=88rpx(透明底、无下描边 ⇒ 透出页面底色),标题居中 18dp=36rpx semibold */}
+        <View className="h-[88rpx] flex items-center justify-center">
           <Text className="text-[length:36rpx] font-semibold text-foreground">
             {tt('developer.index.myAgents', '我的智能体')}
           </Text>

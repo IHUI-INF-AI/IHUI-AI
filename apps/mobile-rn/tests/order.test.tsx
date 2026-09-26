@@ -72,6 +72,14 @@ vi.mock('react-native', async () => {
     )
   }
   return {
+    // 本套件自建 react-native 替身,而共享替身里的 PixelRatio 不会自动带过来 —— MoreLink 经
+    // PixelRatio.getFontScale() 换算字号倍率,缺它则渲染即抛 "No PixelRatio export"。
+    PixelRatio: {
+      get: () => 1,
+      getFontScale: () => 1,
+      getPixelSizeForLayoutSize: (size: number) => size,
+      roundToNearestPixel: (size: number) => size,
+    },
     // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
     // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },

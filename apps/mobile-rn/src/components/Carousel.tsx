@@ -23,6 +23,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
+import { tokens } from '../theme/active-tokens'
 import { useAutoPlay } from '@ihui/shared'
 import type { CarouselItem } from '@ihui/ui-native'
 
@@ -69,10 +70,12 @@ export default function Carousel({
   if (!banner || banner.length === 0) {
     return (
       <View
-        className="w-full items-center justify-center bg-gray-100 rounded-lg"
-        style={{ height }}
+        className="w-full items-center justify-center rounded-lg"
+        style={{ height, backgroundColor: tokens.surface.muted }}
       >
-        <Text className="text-xs text-gray-400">暂无轮播图</Text>
+        <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
+          暂无轮播图
+        </Text>
       </View>
     )
   }
