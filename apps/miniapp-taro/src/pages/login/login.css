@@ -191,7 +191,8 @@
 }
 
 .login-phone-row-focused {
-  border-color: var(--color-foreground);
+  /* 聚焦强调取 brandAccent 档(§4 描边不得取墨档) */
+  border-color: var(--color-brand-accent-deep);
 }
 
 .login-phone-input {
@@ -287,7 +288,10 @@
 }
 
 .custom-checkbox-checked {
-  border-color: var(--color-foreground);
+  /* 实底即边界 —— 描边与底同色时那 2rpx 只是残留(与未选态比看不出差别,却让墨色当描边入账)。
+     照 packages/ui-react/checkbox.tsx 的 2026-08-13 定稿改 transparent:勾选态无残留描边,
+     完全靠填充提供视觉边界。两端同一裁决,不在端内另立一档。 */
+  border-color: transparent;
   background-color: var(--color-foreground);
 }
 
