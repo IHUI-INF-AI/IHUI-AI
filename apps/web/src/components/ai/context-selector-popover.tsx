@@ -10,6 +10,9 @@ import { X, Hash } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import type { ContextSelectorCategory } from '@/hooks/use-context-selector'
+import { useMentionTranslator } from '@/hooks/use-mention-dimension-label'
+import { viewOfSelection } from '@/components/chat/mention/dimension-views'
+import type { MentionSelection } from '@ihui/shared/chat/mention-engine'
 // 2026-09-15 治理:定位/portal 逻辑统一收敛到 PortalPanel(全项目浮层一套逻辑)
 import { PortalPanel } from '@/components/feedback/portal-panel'
 
@@ -40,6 +43,8 @@ export function ContextSelectorPopover({
   onSelect,
 }: ContextSelectorPopoverProps) {
   const t = useTranslations('contextSelector')
+  // 类目名/说明的命名空间跟着维度表走(不在组件里假定 ns)—— 见 use-mention-dimension-label
+  const tm = useMentionTranslator()
   const listRef = React.useRef<HTMLUListElement>(null)
 
   React.useEffect(() => {
@@ -93,13 +98,13 @@ export function ContextSelectorPopover({
                   <Icon className={cn('h-4 w-4 shrink-0', category.colorClass)} />
                   <div className="min-w-0 flex-1">
                     <p className="break-words font-medium">
-                      {t(category.labelKey)}{' '}
+                      {tm(category.labelNs, category.labelKey)}{' '}
                       <span className="font-mono text-xs text-muted-foreground">
                         {category.token}
                       </span>
                     </p>
                     <p className="break-words text-xs text-muted-foreground">
-                      {t(category.descKey)}
+                      {tm(category.labelNs, category.descKey)}
                     </p>
                   </div>
                 </button>
@@ -112,33 +117,48 @@ export function ContextSelectorPopover({
   )
 }
 
-interface ContextSelectorChipsProps {
-  chips: ContextSelectorCategory[]
-  onRemove: (token: string) => void
+interface MentionChipRow {
+  selection: MentionSelection
+  /** 类目名(`#` 侧解自 i18n;`@` 侧标签来自数据本身,可留空) */
+  name?: string
 }
 
-/** 类型徽章 chips 行(选中九类目后渲染在输入区上方,随消息发送 token) */
-export function ContextSelectorChips({ chips, onRemove }: ContextSelectorChipsProps) {
+interface ContextSelectorChipsProps {
+  /** 已选提及(`@` 与 `#` 同一份 —— 唯一那份 mention engine 状态) */
+  rows: MentionChipRow[]
+  onRemove: (selection: MentionSelection) => void
+}
+
+/**
+ * 提及 chip 行(无状态渲染器)。
+ *
+ * V3 第 61 票:原先它只渲染 `#` 侧、且吃 message-input 的局部 state,与 `@` 侧的
+ * MentionChips 是「两份状态两个面」。现在它是**唯一的 chip 渲染器**,由 MentionChips
+ * 喂 store 里那份统一 selections —— 组件保持无状态,状态只在 context-mention 一处。
+ */
+export function ContextSelectorChips({ rows, onRemove }: ContextSelectorChipsProps) {
   const t = useTranslations('contextSelector')
-  if (chips.length === 0) return null
+  if (rows.length === 0) return null
   return (
-    <div className="flex flex-wrap items-center gap-1.5" data-testid="context-selector-chips">
-      {chips.map((chip) => {
-        const Icon = chip.icon
+    <div className="mb-2 flex flex-wrap items-center gap-1.5" data-testid="mention-chip-row">
+      {rows.map(({ selection, name }) => {
+        const view = viewOfSelection(selection)
+        const Icon = view.icon
         return (
           <span
-            key={chip.kind}
-            className="inline-flex items-center gap-1 rounded-md border bg-muted/50 px-1.5 py-0.5 text-xs"
-            data-testid={`context-selector-chip-${chip.kind}`}
+            key={selection.id}
+            className="inline-flex h-6 max-w-full items-center gap-1 rounded-md bg-muted px-2 text-xs text-muted-foreground"
+            data-testid={`mention-chip-${selection.id}`}
           >
-            <Icon className={cn('h-3 w-3', chip.colorClass)} />
-            <span className="font-mono text-[11px]">{chip.token}</span>
-            <span className="text-muted-foreground">{t(chip.labelKey)}</span>
+            <Icon className={cn('h-3 w-3 shrink-0', view.colorClass)} />
+            <span className="truncate font-mono text-[11px]">{selection.insertText}</span>
+            {name && <span className="truncate">{name}</span>}
             <button
               type="button"
-              onClick={() => onRemove(chip.token)}
+              data-testid={`mention-chip-remove-${selection.id}`}
+              onClick={() => onRemove(selection)}
               aria-label={t('removeChip')}
-              className="rounded-sm text-muted-foreground hover:text-foreground"
+              className="ml-0.5 inline-flex shrink-0 items-center rounded-sm text-muted-foreground/70 transition-colors hover:text-foreground"
             >
               <X className="h-3 w-3" />
             </button>

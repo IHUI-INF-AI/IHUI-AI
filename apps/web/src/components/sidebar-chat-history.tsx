@@ -33,6 +33,8 @@ import {
   // V3 #62:侧栏会话搜索开关图标(放大镜=收起态,X=激活态,点击收起并清空)
   Search,
   X,
+  // V3 #62:侧栏批量选择开关(多选态)
+  ListChecks,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
@@ -43,6 +45,9 @@ import {
   exportConversation,
   compressConversation,
   setConversationPinned,
+  // V3 #62:侧栏批量动作走 api-client 唯一出口(§3 禁止端内裸 fetch 调后端)
+  batchOperateConversations,
+  type BatchConversationAction,
 } from '@ihui/api-client'
 import {
   filterByFolder,
@@ -52,10 +57,7 @@ import {
   type ConversationOrgMap,
 } from '@ihui/shared'
 import { useChatStore } from '@/stores/chat'
-import {
-  useConversationOrgMap,
-  useConversationOrgStore,
-} from '@/stores/conversation-org'
+import { useConversationOrgMap, useConversationOrgStore } from '@/stores/conversation-org'
 import {
   ConversationOrgDialog,
   type ConversationOrgSubmitValue,
@@ -64,10 +66,7 @@ import {
   ConversationAttentionBadges,
   type ConversationAttentionById,
 } from '@/components/chat/conversation-list'
-import {
-  isWaitingForConversation,
-  resolveConversationAttention,
-} from '@/hooks/use-sidebar'
+import { isWaitingForConversation, resolveConversationAttention } from '@/hooks/use-sidebar'
 import {
   downloadConversationJson,
   downloadConversationSnapshot,
@@ -97,7 +96,12 @@ import {
   Button,
   // V3 #62:侧栏搜索框复用全项目统一搜索井(/chat/history 页同款)
   SearchInput,
+  // V3 #62:批量选择复选框(与 /chat/history 同一控件)
+  Checkbox,
 } from '@ihui/ui-react'
+// V3 #62:侧栏批量选择的选中集唯一持有者 + 动作条(动作条不持有选中集,只读 props)
+import { useConversationSelection } from '@/components/sidebar/use-conversation-selection'
+import { ConversationBatchBar } from '@/components/sidebar/conversation-batch-bar'
 
 interface ConversationItem {
   id: string
@@ -367,6 +371,63 @@ export function SidebarChatHistory({
     [locale],
   )
 
+  // V3 #62:搜索/筛选管道必须提到条件早退之前算完 —— useConversationSelection 是
+  // hook,摆在 `if (collapsed) return null` / 未登录 return 之后就违反 Rules of Hooks
+  // (折叠与展开两条路径的 hook 数量不同)。管道本身与移动前逐字同形,只是换了位置。
+  const rawItems = React.useMemo(
+    // items: flatten 所有已加载页的 conversations(infinite scroll 累积)
+    () => data?.pages.flatMap((p) => p.conversations) ?? [],
+    [data],
+  )
+  // D20(G-11) + V3 #62:管道 = 文件夹筛选 → 关键词过滤(标题/文件夹名/标签名) → 置顶优先(稳定排序)
+  const items = React.useMemo(
+    () =>
+      sortPinnedFirst(
+        filterConversationsByKeyword(
+          filterByFolder(rawItems, orgMap, folderFilter),
+          searchQuery,
+          orgMap,
+        ),
+      ),
+    [rawItems, orgMap, folderFilter, searchQuery],
+  )
+  /** 当前**可见**会话 id:全选/反选的取值面(不得拿未筛的全量 rawItems,否则会勾上用户看不见的项) */
+  const visibleIds = React.useMemo(() => items.map((item) => item.id), [items])
+  // V3 #62:选中集的唯一持有者。行内复选框与批量动作条都只读这一份,不分叉。
+  const selection = useConversationSelection(visibleIds)
+  const [batchBusy, setBatchBusy] = React.useState(false)
+
+  // V3 #62:批量动作(删除/归档/取消归档)。走 api-client 唯一出口;
+  // !success 必须 throw —— 否则后端 400(如单次 >100 项)会被当成成功、界面无反馈。
+  const batchMutation = useMutation({
+    mutationFn: async ({ action, ids }: { action: BatchConversationAction; ids: string[] }) => {
+      const res = await batchOperateConversations(action, ids)
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
+    onSuccess: (_data, { action }) => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+      const msgMap: Record<BatchConversationAction, string> = {
+        delete: t('batchDeleteSuccess'),
+        archive: t('batchArchiveSuccess'),
+        unarchive: t('batchUnarchiveSuccess'),
+        favorite: t('batchFavoriteSuccess'),
+        unfavorite: t('batchUnfavoriteSuccess'),
+      }
+      success(msgMap[action])
+      // 删除成功后显式清空:可见集裁剪已让残留不可见,但选中态本身不该继续挂着
+      if (action === 'delete') selection.clear()
+    },
+    onError: (err: Error) => error(err.message || tc('deleteFailed')),
+  })
+
+  const runBatch = (action: BatchConversationAction) => {
+    const ids = [...selection.orderedSelectedIds]
+    if (ids.length === 0) return
+    setBatchBusy(true)
+    batchMutation.mutate({ action, ids }, { onSettled: () => setBatchBusy(false) })
+  }
+
   if (collapsed) return null
 
   // 2026-09-02 修复:bootstrap 未就绪时,即使 localStorage 残留 isAuthenticated=true,
@@ -390,21 +451,12 @@ export function SidebarChatHistory({
     )
   }
 
-  // items: flatten 所有已加载页的 conversations(infinite scroll 累积);
   // total: 后端真实总数(首页返回,所有页一致)
-  const rawItems = data?.pages.flatMap((p) => p.conversations) ?? []
+  // items / rawItems / 管道已上移到条件早退之前(V3 #62,Rules of Hooks)
   const total = data?.pages[0]?.total ?? 0
   // V3 #62:搜索关键词(小写包含匹配);searching 标记搜索态,渲染层据此降级为平铺
   const searchKeyword = searchQuery.trim().toLowerCase()
   const searching = searchKeyword.length > 0
-  // D20(G-11) + V3 #62:管道 = 文件夹筛选 → 关键词过滤(标题/文件夹名/标签名) → 置顶优先(稳定排序)
-  const items = sortPinnedFirst(
-    filterConversationsByKeyword(
-      filterByFolder(rawItems, orgMap, folderFilter),
-      searchQuery,
-      orgMap,
-    ),
-  )
   const filteredOut = rawItems.length > 0 && items.length === 0
 
   const handleSelect = (item: ConversationItem) => {
@@ -603,9 +655,23 @@ export function SidebarChatHistory({
     })
     return (
       <li key={item.id} className="group relative">
+        {/* V3 #62:多选态下行内复选框。aria-label 带会话标题 —— 只写"选择"的无障碍名称
+            脱离上下文不成立(读屏器逐个念过一遍时分不清勾的是哪一行)。 */}
+        {selection.selectionMode && (
+          <Checkbox
+            checked={selection.isSelected(item.id)}
+            onCheckedChange={(checked) => selection.toggleSelected(item.id, checked === true)}
+            aria-label={`${t('select')} ${item.title}`}
+            data-testid={`conversation-checkbox-${item.id}`}
+            className="absolute left-0.5 top-2 z-10 h-3.5 w-3.5"
+          />
+        )}
         <button
           type="button"
-          onClick={() => handleSelect(item)}
+          // 多选态下点击整行 = 勾选/取消,不再跳转对话(否则"批量勾选"会一路换页)
+          onClick={() =>
+            selection.selectionMode ? selection.toggleSelected(item.id) : handleSelect(item)
+          }
           aria-current={active ? 'true' : undefined}
           // D22 会话拖入输入框引用(2026-09-19 立,对标 Qoder 0.2.x):会话行可拖拽,
           // dataTransfer 携带会话 JSON,输入框 handleDropWithConversation 消费
@@ -621,6 +687,8 @@ export function SidebarChatHistory({
             'relative block w-full rounded-sm px-2.5 py-1.5 pr-7 text-left transition-colors',
             'before:absolute before:inset-x-2 before:inset-y-0 before:rounded-sm before:transition-colors',
             'before:content-[""] before:-z-10',
+            // 多选态给左侧复选框让出 20px,否则行首文字被压在框下
+            selection.selectionMode && 'pl-7',
             active
               ? 'text-primary before:bg-primary/10'
               : 'hover:text-foreground hover:before:bg-muted',
@@ -892,6 +960,21 @@ export function SidebarChatHistory({
             >
               {searchOpen ? <X className="h-3 w-3" /> : <Search className="h-3 w-3" />}
             </button>
+            {/* V3 #62:多选态开关(与搜索开关同档 20x20)。aria-pressed 而非 aria-expanded ——
+                它开的是一条动作条而不是输入框,且再点一次是"退出并清空选中"。 */}
+            <button
+              type="button"
+              aria-label={t('selectModeAriaLabel')}
+              aria-pressed={selection.selectionMode}
+              data-testid="conversation-select-toggle"
+              onClick={selection.toggleSelectionMode}
+              className={cn(
+                'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
+                selection.selectionMode && 'bg-primary/10 text-primary',
+              )}
+            >
+              <ListChecks className="h-3 w-3" />
+            </button>
             {/* D20(G-11):文件夹筛选器(仅在已建文件夹时出现,undefined=不过滤) */}
             {orgFolders.length > 0 && (
               <DropdownMenu>
@@ -947,6 +1030,21 @@ export function SidebarChatHistory({
           </div>
         )}
 
+        {/* V3 #62:多选态动作条。选中集只从 selection 读(唯一持有者),本组件不另存一份 */}
+        {selection.selectionMode && (
+          <ConversationBatchBar
+            selectedCount={selection.selectedCount}
+            totalCount={items.length}
+            allSelected={selection.allSelected}
+            someSelected={selection.someSelected}
+            busy={batchBusy || batchMutation.isPending}
+            onToggleAll={(checked) => selection.selectAll(checked, visibleIds)}
+            onInvert={() => selection.invert(visibleIds)}
+            onBatch={runBatch}
+            onCancel={selection.clear}
+          />
+        )}
+
         {isLoading ? (
           <div className="flex items-center gap-2 px-2 py-3 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -954,15 +1052,19 @@ export function SidebarChatHistory({
           </div>
         ) : queryError ? (
           <div className="px-2 py-3 text-xs text-muted-foreground">{tCommon('loadFailed')}</div>
+        ) : filteredOut ? (
+          // D20(G-11)+V3 #62:有会话、但被文件夹筛选或关键词筛到空 —— 必须走"未找到匹配"
+          // 而不是"暂无任务记录"。此前判据顺序是 items.length===0 在前,所以搜不到时
+          // 界面喊的是"你没有任何任务",清空关键词后文案又变回来 —— 两个完全不同的事实
+          // 被同一句文案覆盖(判据 1 的"空态有明确文案"要求正是这一格)。
+          <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+            {t('noResults')}
+          </div>
         ) : items.length === 0 ? (
+          // 真的一条会话都没有(首屏空库),给新建引导而不是"未找到"
           <div className="flex flex-col items-center gap-1.5 px-2 py-4 text-center">
             <MessageCirclePlus className="h-5 w-5 text-muted-foreground/50" />
             <span className="text-xs text-muted-foreground">{tc('noHistory')}</span>
-          </div>
-        ) : filteredOut ? (
-          // D20(G-11):文件夹筛选后为空(会话存在但都不在该文件夹)
-          <div className="px-2 py-4 text-center text-xs text-muted-foreground">
-            {t('noResults')}
           </div>
         ) : (
           <div className="flex flex-col">

@@ -4,164 +4,66 @@
 
 'use client'
 
+// W20 九类 # 上下文选择器 —— 现在只是统一提及引擎的 **`#` 侧键盘导航 adapter**。
+//
+// V3 第 61 票(2026-09-27):九类目表与 `#` 触发解析原先都住在本文件里,与
+// message-input.tsx 里那份 `@` 触发解析各写一遍「是哪几个维度、trigger 怎么解」——
+// 这就是票面说的「两套引擎」。表和解析现在都归到
+// `@ihui/shared/chat/mention-engine`(MENTION_DIMENSIONS / parseMentionTrigger),
+// 本文件只保留:键盘导航、高亮游标、Esc 抑制,以及把选中结果交回调用方写进唯一那份 store。
+// 新增维度只在引擎表里加,不得在这里再抄一份(常驻对账:守门 W2/W3)。
+
 import * as React from 'react'
+
+import { MAX_LENGTH } from '@/components/chat/web-input-core'
+import { viewOfDimensionId } from '@/components/chat/mention/dimension-views'
 import {
-  BookOpen,
-  CircleAlert,
-  Code2,
-  FileText,
-  FolderOpen,
-  Globe,
-  History,
-  ScrollText,
-  Terminal,
-} from 'lucide-react'
+  dimensionsForSigil,
+  parseMentionTrigger,
+  replaceTrailingTrigger,
+  selectionFromDimension,
+  type MentionDimension,
+  type MentionSelection,
+} from '@ihui/shared/chat/mention-engine'
 
-import { MAX_LENGTH, type WebInputCoreHandle } from '@/components/chat/web-input-core'
-
-// ============================================================================
-// W20 九类 # 上下文选择器(对标 Trae)
-// ============================================================================
-
-/** 上下文选择器九类目 */
-export type ContextSelectorKind =
-  'file' | 'folder' | 'code' | 'problems' | 'terminal' | 'web' | 'doc' | 'pastChats' | 'rule'
-
-/** i18n label key(chat.contextSelector.kind*) */
-export type ContextSelectorLabelKey =
-  | 'kindFile'
-  | 'kindFolder'
-  | 'kindCode'
-  | 'kindProblems'
-  | 'kindTerminal'
-  | 'kindWeb'
-  | 'kindDoc'
-  | 'kindPastChats'
-  | 'kindRule'
-
-/** i18n desc key(chat.contextSelector.desc*) */
-export type ContextSelectorDescKey =
-  | 'descFile'
-  | 'descFolder'
-  | 'descCode'
-  | 'descProblems'
-  | 'descTerminal'
-  | 'descWeb'
-  | 'descDoc'
-  | 'descPastChats'
-  | 'descRule'
-
+/** `#` 侧一个类目的渲染视图(引擎维度 + web 外观),供浮层直接消费 */
 export interface ContextSelectorCategory {
-  kind: ContextSelectorKind
-  /** 随消息发送的 # token(插入正文) */
+  /** 引擎维度 id(`hash:<类>`),浮层 testid 与埋点锚它 */
+  dimensionId: string
+  /** 旧字段名保留:即类目短名(file / folder / code / …) */
+  kind: string
   token: string
-  labelKey: ContextSelectorLabelKey
-  descKey: ContextSelectorDescKey
+  /** 取词位置跟着表走,不在组件里假定命名空间 */
+  labelNs: string
+  labelKey: string
+  descKey: string
   icon: React.ComponentType<{ className?: string }>
-  /** 图标颜色 class(弹层列表与引用 chip 共用) */
   colorClass: string
 }
 
-/** 九类目常量(token 命名对齐 Trae) */
-export const CONTEXT_SELECTOR_CATEGORIES: ContextSelectorCategory[] = [
-  {
-    kind: 'file',
-    token: '#File',
-    labelKey: 'kindFile',
-    descKey: 'descFile',
-    icon: FileText,
-    colorClass: 'text-sky-500',
+/** 九类目 = 引擎表里 sigil === '#' 的那些维度(一份表驱动,非第二份清单) */
+export const CONTEXT_SELECTOR_CATEGORIES: ContextSelectorCategory[] = dimensionsForSigil('#').map(
+  (dim) => {
+    const view = viewOfDimensionId(dim.id)
+    return {
+      dimensionId: dim.id,
+      kind: dim.id.replace(/^hash:/, ''),
+      token: dim.token,
+      labelNs: dim.labelNs,
+      labelKey: dim.labelKey,
+      descKey: dim.descKey ?? dim.labelKey,
+      icon: view.icon,
+      colorClass: view.colorClass,
+    }
   },
-  {
-    kind: 'folder',
-    token: '#Folder',
-    labelKey: 'kindFolder',
-    descKey: 'descFolder',
-    icon: FolderOpen,
-    colorClass: 'text-amber-500',
-  },
-  {
-    kind: 'code',
-    token: '#Code',
-    labelKey: 'kindCode',
-    descKey: 'descCode',
-    icon: Code2,
-    colorClass: 'text-violet-500',
-  },
-  {
-    kind: 'problems',
-    token: '#Problems',
-    labelKey: 'kindProblems',
-    descKey: 'descProblems',
-    icon: CircleAlert,
-    colorClass: 'text-rose-500',
-  },
-  {
-    kind: 'terminal',
-    token: '#Terminal',
-    labelKey: 'kindTerminal',
-    descKey: 'descTerminal',
-    icon: Terminal,
-    colorClass: 'text-emerald-500',
-  },
-  {
-    kind: 'web',
-    token: '#Web',
-    labelKey: 'kindWeb',
-    descKey: 'descWeb',
-    icon: Globe,
-    colorClass: 'text-cyan-500',
-  },
-  {
-    kind: 'doc',
-    token: '#Doc',
-    labelKey: 'kindDoc',
-    descKey: 'descDoc',
-    icon: BookOpen,
-    colorClass: 'text-indigo-500',
-  },
-  {
-    kind: 'pastChats',
-    token: '#PastChats',
-    labelKey: 'kindPastChats',
-    descKey: 'descPastChats',
-    icon: History,
-    colorClass: 'text-purple-500',
-  },
-  {
-    kind: 'rule',
-    token: '#Rule',
-    labelKey: 'kindRule',
-    descKey: 'descRule',
-    icon: ScrollText,
-    colorClass: 'text-orange-500',
-  },
-]
+)
 
-/**
- * 从输入值提取行首/空格后的 # 触发 query;非触发态返回 null。
- * 例:"修复 #ter" → "ter";"issue #12" → null(# 前非空格)。
- */
-function extractHashQuery(value: string): string | null {
-  const match = value.match(/(?:^|\s)#([^\s#]*)$/)
-  return match?.[1] ?? null
+/** 渲染视图 ↔ 引擎维度:浮层拿到的是视图,选中要还原成维度才能建 selection */
+function dimensionOf(category: ContextSelectorCategory): MentionDimension | undefined {
+  return dimensionsForSigil('#').find((d) => d.id === category.dimensionId)
 }
 
-/**
- * W20 九类 # 上下文选择器 hook(对标 Trae):
- * - 输入行首/空格后的 `#` 触发浮层,继续输入过滤九类目
- * - ↑/↓ 导航,Enter/Tab 选中,Esc 关闭;选中后:
- *   1. 正文尾部 `#query` 替换为类目 token(如 `#Problems `)
- *   2. onAddChip 回调渲染类型徽章 chip(随消息发送)
- * - open 状态由 value 派生:query 为 null 或 Esc 关闭后自动复位
- */
-export function useContextSelector(options: {
-  /** 当前输入值(open 状态由 value 派生) */
-  value: string
-  setValue: React.Dispatch<React.SetStateAction<string>>
-  inputRef: React.RefObject<WebInputCoreHandle | null>
-  onAddChip: (category: ContextSelectorCategory) => void
-}): {
+export interface UseContextSelectorResult {
   open: boolean
   query: string
   filtered: ContextSelectorCategory[]
@@ -170,47 +72,61 @@ export function useContextSelector(options: {
   select: (category: ContextSelectorCategory) => void
   /** textarea keydown 前置拦截;返回 true 表示事件已被选择器消费 */
   handleKeyDown: (e: React.KeyboardEvent) => boolean
-} {
-  const { setValue, inputRef, onAddChip } = options
+}
+
+/**
+ * `#` 侧选择器:
+ * - 触发态一律问 `parseMentionTrigger`(与 `@` 同一把尺子)
+ * - 选中 → 正文尾部触发段替换为类目 token,并把 MentionSelection 交回 onSelect
+ *   (调用方写进 context-mention store —— 唯一那份提及状态)
+ * - open 由 value 派生;Esc 关闭后直到触发态消失才复位
+ */
+export function useContextSelector(options: {
+  /** 当前输入值(open 状态由 value 派生) */
+  value: string
+  setValue: React.Dispatch<React.SetStateAction<string>>
+  inputRef: React.RefObject<{ focus: () => void; resize: () => void } | null>
+  onSelect: (selection: MentionSelection) => void
+}): UseContextSelectorResult {
+  const { setValue, inputRef, onSelect } = options
   const [dismissed, setDismissed] = React.useState(false)
   const [activeIndex, setActiveIndex] = React.useState(0)
 
-  const query = React.useMemo(() => extractHashQuery(options.value), [options.value])
+  const trigger = React.useMemo(() => parseMentionTrigger(options.value), [options.value])
+  const hashTrigger = trigger?.sigil === '#' ? trigger : null
 
-  // query 消失(空格/删除/选中)后复位 Esc 关闭标记
   React.useEffect(() => {
-    if (query === null) setDismissed(false)
-  }, [query])
+    if (hashTrigger === null) setDismissed(false)
+  }, [hashTrigger])
 
-  const open = query !== null && !dismissed
+  const query = hashTrigger?.query ?? ''
+  const open = hashTrigger !== null && !dismissed
 
   const filtered = React.useMemo(() => {
-    const q = (query ?? '').trim().toLowerCase()
+    const q = query.trim().toLowerCase()
     if (!q) return CONTEXT_SELECTOR_CATEGORIES
     return CONTEXT_SELECTOR_CATEGORIES.filter(
       (c) => c.token.toLowerCase().includes(q) || c.kind.toLowerCase().includes(q),
     )
   }, [query])
 
-  // query 变化时重置高亮到首项
   React.useEffect(() => {
     setActiveIndex(0)
   }, [query])
 
   const select = React.useCallback(
     (category: ContextSelectorCategory) => {
-      setValue((prev) => {
-        const next = prev.replace(/#[^\s#]*$/, `${category.token} `)
-        return next.slice(0, MAX_LENGTH)
-      })
+      const dim = dimensionOf(category)
+      const token = dim?.token ?? category.token
+      setValue((prev) => replaceTrailingTrigger(prev, '#', `${token} `).slice(0, MAX_LENGTH))
       setDismissed(true)
-      onAddChip(category)
+      if (dim) onSelect(selectionFromDimension(dim))
       requestAnimationFrame(() => {
         inputRef.current?.focus()
         inputRef.current?.resize()
       })
     },
-    [setValue, onAddChip, inputRef],
+    [setValue, onSelect, inputRef],
   )
 
   const handleKeyDown = React.useCallback(
@@ -246,7 +162,7 @@ export function useContextSelector(options: {
 
   return {
     open,
-    query: query ?? '',
+    query,
     filtered,
     activeIndex,
     setActiveIndex,
