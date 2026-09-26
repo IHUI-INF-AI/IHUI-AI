@@ -244,4 +244,58 @@ export function grantDigestTrackedLeaseFromFlag(
 export function releaseLeaseAfterRun(reason: string): boolean {
   return revokePermissionLease(reason);
 }
+
+// ==================== 内容绑定档位的**显式**开关入口(2026-09-26 收尾票)====================
+
+/**
+ * 操作员**写了** `--permission-lease-digest` 却没写 `--permission-lease <tools>` 时的拒因。
+ *
+ * 为什么不能静默当成"没给":这一档的语义是**收紧**(内容变了旧批准即失效 ⇒ 更多次问人),
+ * 它必须挂在一个已存在的能力清单上才有意义。把"写了开关却没清单"读成"那就不开",
+ * 操作员拿到的是他明确没要求的那一套 —— 与本文件头部第三条约束同一条禁令。
+ * 文案取英文技术串(同 `parseLeaseTools` 的既有口径:新写的中文字面量会被守门 70 判成
+ * "比基线更多"),面向用户的包装语句走 i18n(`cliEntry.permissionLeaseInvalid`)。
+ */
+export const LEASE_DIGEST_WITHOUT_LEASE_REASON =
+  '--permission-lease-digest was given without --permission-lease <tools> (content binding only tightens an existing capability list; it cannot grant one by itself)';
+
+/**
+ * 授予的**档位前置校验**:两个命令入口(CLI `--permission-lease-digest` / REPL `/lease --digest`)
+ * 在选出口**之前**都只问这一句。返回非空 = 必须失败关闭的拒因;返回 null = 可以继续授予。
+ *
+ * 判的只有一件事:开了这一档却拿不出能力清单。
+ * 为什么不能静默当成"没给":这一档的语义是**收紧**(内容变了旧批准即失效 ⇒ 更多次问人),
+ * 它必须挂在一个已存在的能力清单上才有意义。把"写了开关却没清单"读成"那就不开",
+ * 操作员拿到的是他明确没要求的那一套 —— 与本文件头部第三条约束同一条禁令。
+ * 清单/ttl/轮次的解析仍在各自的唯一出口里做,本函数不重复实现(重复必然漂移)。
+ */
+export function digestGateRejectionFor(
+  digestEnabled: boolean,
+  toolsRaw: string | null | undefined,
+): string | null {
+  if (!digestEnabled) return null;
+  // 判"有没有清单"只能问唯一解析出口:自己再写一遍 trim/split 就会与它分叉
+  // (`--permission-lease ,` 这类"写了却解析出零个工具"的形态,裸 trim 会放过)。
+  const parsed = parseLeaseTools(toolsRaw);
+  if (parsed.error) return parsed.error;
+  if (parsed.tools.length === 0) return LEASE_DIGEST_WITHOUT_LEASE_REASON;
+  return null;
+}
+
+/**
+ * 已绑定的摘要槽位数(供 `/lease` 查询面回读)。
+ *
+ * 为什么必须单独报数而不是只报"档位开/关":bind-on-first-approval 的租约**出生时槽位表是空的**,
+ * 只有第一次真人批准才写入。只显示"关/开"会把"开着但还没绑"读成"没开" —— 那是本仓反复出现的
+ * "状态读数与语义分叉"形态,所以查询面必须同时给出档位与槽位数两个数。
+ */
+export function digestSlotCountOf(lease: PermissionLease | null | undefined): number {
+  if (!lease?.slotDigests) return 0;
+  return Object.keys(lease.slotDigests).length;
+}
+
+/** 档位是否在位(只认显式 true;缺省/undefined 一律算关 —— 与构造器的展开写法同形)。 */
+export function isDigestTrackedLease(lease: PermissionLease | null | undefined): boolean {
+  return lease?.digestTrackOnApproval === true;
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
