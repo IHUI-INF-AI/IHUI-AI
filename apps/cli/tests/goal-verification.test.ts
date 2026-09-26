@@ -16,9 +16,14 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import type { GoalVerification } from '@ihui/api-client';
+
 import {
   applyGoalVerificationToStopReason,
   buildGoalEvidence,
+  decideGoalContinuation,
+  GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES,
+  resolveMaxConsecutiveFailures,
   runGoalVerification,
   type GoalToolCallRecord,
 } from '../src/goal-verification.js';
@@ -200,6 +205,172 @@ describe('applyGoalVerificationToStopReason —— 结论必须改变退出档',
     for (const reason of ['max_iterations', 'budget_limited', 'error', 'cancelled'] as const) {
       expect(applyGoalVerificationToStopReason(reason, null)).toBe(reason);
     }
+  });
+});
+
+/**
+ * AGENTS.md §8 第 4 步的收口语义(2026-09-26 补,上一条闸门只做到"未过就一次性改档退出")。
+ *
+ * 三件事必须分开,合并任何两件都会把这条规则读歪:
+ *   - **单次未过** ⇒ 回灌未达标项续跑(循环还没干完活,不该交账);
+ *   - **连续未过到达上限** ⇒ goal 落 blocked(生命周期收口,不是又一次未过);
+ *   - **没预算了** ⇒ 按未达标交账,绝不得当成 pass —— 这是本文件那条"绝不 fail-open"
+ *     取向在续跑逻辑里的投影,所以它的用例是这个 describe 里最贵的一条。
+ */
+const fullVerification = (over: Partial<GoalVerification> = {}): GoalVerification => ({
+  status: 'not_achieved',
+  goal_status: 'not_achieved',
+  treat_as_complete: false,
+  criteria: [
+    {
+      criterion_id: 'c1',
+      statement: 'typecheck 必须 0 错误',
+      verdict: 'unmet',
+      basis: 'machine',
+      reason: 'exit=2',
+      evidence_ids: ['e1'],
+      contradicted: false,
+    },
+  ],
+  independent_request_made: true,
+  judge_model: 'judge-x',
+  unavailable_reason: null,
+  independence_warnings: [],
+  consecutive_failures: 0,
+  // 刻意不上报服务端档位(0)⇒ 判序必须落回跨端镜像常量,而不是"没有就不收口"
+  max_consecutive_failures: 0,
+  ...over,
+});
+
+describe('resolveMaxConsecutiveFailures —— 上限缺失/非法只允许落到保守默认', () => {
+  it('服务端未给档位(缺失/0/负数/NaN/Infinity)⇒ 一律取跨端镜像常量', () => {
+    for (const raw of [undefined, null, 0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(resolveMaxConsecutiveFailures(raw)).toBe(GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES);
+    }
+  });
+
+  it('保守方向的定义是"更少的续跑":默认必须是有限正整数,绝不可能是 Infinity', () => {
+    const d = resolveMaxConsecutiveFailures(undefined);
+    expect(Number.isFinite(d)).toBe(true);
+    expect(Number.isInteger(d)).toBe(true);
+    expect(d).toBeGreaterThanOrEqual(1);
+  });
+
+  it('服务端显式给的合法档位照采纳(计数在端内,阈值以真源下发为准)', () => {
+    expect(resolveMaxConsecutiveFailures(5)).toBe(5);
+    expect(resolveMaxConsecutiveFailures(2.9)).toBe(2);
+  });
+});
+
+describe('decideGoalContinuation —— 未过 ≠ 交账,连续未过才落 blocked', () => {
+  it('盖章通过 ⇒ pass,且计数归零(未过之后的一次通过不得继续背着旧账)', () => {
+    const d = decideGoalContinuation({
+      verification: fullVerification({
+        status: 'achieved',
+        goal_status: 'achieved',
+        treat_as_complete: true,
+      }),
+      consecutiveFailures: 2,
+      iterationsRemaining: 5,
+    });
+    expect(d.action).toBe('pass');
+    expect(d.consecutiveFailures).toBe(0);
+    expect(d.feedback).toBeUndefined();
+  });
+
+  it('单次未过 + 还有预算 ⇒ continue,且这一档不得被写成 blocked(两档必须可分)', () => {
+    const d = decideGoalContinuation({
+      verification: fullVerification(),
+      consecutiveFailures: 0,
+      iterationsRemaining: 5,
+    });
+    expect(d.action).toBe('continue');
+    expect(d.consecutiveFailures).toBe(1);
+    expect(d.verification.goal_status).toBe('not_achieved');
+    expect(d.verification.goal_status).not.toBe('blocked');
+  });
+
+  it('回灌正文必须逐条点名 criterion_id / verdict / reason,并带上 unavailable_reason', () => {
+    const d = decideGoalContinuation({
+      verification: fullVerification({
+        status: 'undetermined',
+        goal_status: 'undetermined',
+        unavailable_reason: '独立校验不可达: ECONNREFUSED',
+      }),
+      consecutiveFailures: 0,
+      iterationsRemaining: 5,
+    });
+    expect(d.action).toBe('continue');
+    expect(d.feedback).toContain('c1');
+    expect(d.feedback).toContain('unmet');
+    expect(d.feedback).toContain('exit=2');
+    expect(d.feedback).toContain('ECONNREFUSED');
+  });
+
+  it('undetermined 与 not_achieved 同样计入连续未过(拿"没判成"当免费续跑就是 fail-open)', () => {
+    const d = decideGoalContinuation({
+      verification: fullVerification({
+        status: 'undetermined',
+        goal_status: 'undetermined',
+        unavailable_reason: '校验返回体不是对象',
+      }),
+      consecutiveFailures: 0,
+      iterationsRemaining: 9,
+    });
+    expect(d.action).toBe('continue');
+    expect(d.consecutiveFailures).toBe(1);
+  });
+
+  it('连续未过到达上限 ⇒ blocked,且 verification.goal_status 落 blocked(与单次未过不同档)', () => {
+    const d = decideGoalContinuation({
+      verification: fullVerification(),
+      consecutiveFailures: GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES - 1,
+      iterationsRemaining: 9,
+    });
+    expect(d.action).toBe('blocked');
+    expect(d.consecutiveFailures).toBe(GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES);
+    expect(d.verification.goal_status).toBe('blocked');
+    // 收口≠放行:落 blocked 时 treat_as_complete 必须仍是 false
+    expect(d.verification.treat_as_complete).toBe(false);
+    // 已经收口就不该再往循环里塞反馈消息
+    expect(d.feedback).toBeUndefined();
+  });
+
+  it('预算耗尽 ⇒ 按未达标交账(deliver_unverified),绝不得当 pass —— 这一条就是 fail-open 锁', () => {
+    for (const remaining of [0, -3]) {
+      const d = decideGoalContinuation({
+        verification: fullVerification(),
+        consecutiveFailures: 0,
+        iterationsRemaining: remaining,
+      });
+      expect(d.action).toBe('deliver_unverified');
+      expect(d.verification.treat_as_complete).toBe(false);
+      expect(d.consecutiveFailures).toBe(1);
+    }
+  });
+
+  it('判序:同一轮既没预算又到达上限 ⇒ blocked 优先(收口比"没预算"更具体)', () => {
+    const d = decideGoalContinuation({
+      verification: fullVerification(),
+      consecutiveFailures: GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES - 1,
+      iterationsRemaining: 0,
+    });
+    expect(d.action).toBe('blocked');
+  });
+
+  it('不原地改写传入的 verification 对象(调用方还要拿它交账)', () => {
+    const v = fullVerification();
+    const snapshot = structuredClone(v);
+    const d = decideGoalContinuation({
+      verification: v,
+      consecutiveFailures: GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES - 1,
+      iterationsRemaining: 0,
+    });
+    expect(v).toEqual(snapshot);
+    // 落 blocked 时改的是副本:原对象档位仍是 not_achieved,新档才可见
+    expect(v.goal_status).toBe('not_achieved');
+    expect(d.verification.goal_status).toBe('blocked');
+    expect(d.verification).not.toBe(v);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

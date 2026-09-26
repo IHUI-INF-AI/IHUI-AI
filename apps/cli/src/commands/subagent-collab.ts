@@ -736,7 +736,7 @@ class WorkerPoolCollaborationExecutor implements CollaborationExecutor {
   private pool: SubagentWorkerPool | null = null;
   private disposed = false;
 
-  constructor(private readonly maxWorkers = 4) {}
+  constructor(private readonly maxWorkers = resolveMaxConcurrency()) {}
 
   /** 角色 → persona:内置(researcher/coder/reviewer/planner/general)直通,未知回落 general */
   private toPersona(role: string): SubagentSpawnRequest['persona'] {
@@ -824,6 +824,8 @@ export {
 // 与 CollaborationManager(单进程 async executor)互补:需要 OS 级真并行时用 spawnParallel。
 
 import { SubagentWorkerPool, defaultWorkerPoolConfig } from '../subagents/worker-pool.js';
+// 并发档位的默认值与钳制只有这一个出口(见该文件头注)
+import { resolveMaxConcurrency } from '../subagents/concurrency-budget.js';
 import type { SubagentSpawnRequest, SubagentSpawnResponse } from '@ihui/types';
 
 /**
@@ -839,7 +841,7 @@ import type { SubagentSpawnRequest, SubagentSpawnResponse } from '@ihui/types';
  *
  * @param reqs spawn 请求数组
  * @param opts.topology 协作拓扑(默认 star)
- * @param opts.maxWorkers 最大并发(默认 4)
+ * @param opts.maxWorkers 最大并发(未传 ⇒ 按 CPU 推导;传了 ⇒ 钳到 [1, 硬上限]。见 subagents/concurrency-budget.ts)
  */
 export async function spawnParallel(
   reqs: SubagentSpawnRequest[],
@@ -847,7 +849,7 @@ export async function spawnParallel(
 ): Promise<SubagentSpawnResponse[]> {
   if (reqs.length === 0) return [];
   const topology = opts?.topology ?? 'star';
-  const maxWorkers = opts?.maxWorkers ?? 4;
+  const maxWorkers = resolveMaxConcurrency(opts?.maxWorkers);
   const pool = new SubagentWorkerPool(defaultWorkerPoolConfig({ maxWorkers }));
 
   try {
