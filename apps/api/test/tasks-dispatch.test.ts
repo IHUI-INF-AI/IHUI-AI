@@ -739,13 +739,17 @@ describe('Tasks Dispatch API', () => {
       expect(list.json().data.total).toBe(0)
     })
 
-    it('删除不存在设备仍返回 removed=true(幂等)', async () => {
+    it('删除不存在设备返回 200 但 removed=false(幂等 ≠ 谎报)', async () => {
       const res = await app.inject({
         method: 'DELETE',
         url: '/api/tasks/devices/never-existed',
       })
+      // 2026-09-27 期望值翻转(第二十八批):`removeDevice` 现把 Redis HDEL 的**回复计数**回报给路由,
+      // 删不存在的 field ⇒ HDEL 回 0 ⇒ `removed:false`。旧断言把"什么都没下线"钉成 `removed:true`,
+      // 与本批消灭的是同一型;幂等性由**状态码 200** 承担(未变)。
+      // 正向对照在本文件上一枚用例里(真存在设备 ⇒ `removed:true` + 列表 total 归 0),两臂成对才不假修。
       expect(res.statusCode).toBe(200)
-      expect(res.json().data.removed).toBe(true)
+      expect(res.json().data.removed).toBe(false)
     })
   })
 
