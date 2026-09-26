@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -62,9 +62,28 @@ function initGitRepo(root) {
 }
 
 // 辅助:运行 check-i18n-keys.mjs
+// ⚠️ 2026-09-26:本门默认判定面从"磁盘"改成 **HEAD blob**(见下 F 组用例)。
+// 本文件绝大多数用例的夹具是 `mkdtempSync` 造的**合成目录、没有 .git**,语言包只存在于磁盘上 ——
+// 按 HEAD 判就必然"列到 0 个包 ⇒ 无法判定 exit 2",于是 30+ 条判据用例会集体翻红,
+// 而红的理由是"取材面里没有这份输入",不是判据本身。所以这里默认补 `--worktree`
+// (门提供的**人工/夹具**逃生舱),让夹具继续测它们要测的那件事:判据形态。
+// 判定面本身**不靠这一条兜过去**:它由下面 F1–F4 在一棵**真临时 git 仓**上直接测,
+// 那几例一律显式传面旗,不走这里的默认注入。
+const FACE_FLAGS = ['--staged', '--worktree']
 function runScript(args = [], opts = {}) {
-  return spawnSync('node', [SCRIPT_PATH, ...args], {
+  const finalArgs = FACE_FLAGS.some((f) => args.includes(f)) ? args : [...args, '--worktree']
+  return spawnSync('node', [SCRIPT_PATH, ...finalArgs], {
     cwd: opts.cwd || process.cwd(),
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, ...opts.env },
+  })
+}
+
+/** 判定面用例专用:**不**注入 --worktree,面旗必须由调用方显式给出。 */
+function runFaceScript(args, opts = {}) {
+  return spawnSync('node', [SCRIPT_PATH, ...args], {
+    cwd: opts.cwd,
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env, ...opts.env },
@@ -204,8 +223,8 @@ test('白名单: 脚本无白名单机制,所有 key 严格 parity 检查', () =
   }
 })
 
-// ─── 9. JSON 解析失败(zh-CN 基准损坏 → 跳过) ───────────
-test('JSON 解析失败: zh-CN.json 损坏 → exit 0(messages 不完整,跳过)', () => {
+// ─── 9. JSON 解析失败(zh-CN 基准损坏 → 无法判定,不是"跳过") ───────────
+test('JSON 解析失败: zh-CN.json 损坏 → exit 2「无法判定」(旧政策 exit 0 跳过 = 假绿)', () => {
   const root = createTempProject()
   try {
     const dir = join(root, 'packages', 'i18n', 'messages', 'web')
@@ -216,9 +235,21 @@ test('JSON 解析失败: zh-CN.json 损坏 → exit 0(messages 不完整,跳过)
       writeFileSync(join(dir, `${lang}.json`), JSON.stringify(PARITY_OK[lang]))
     }
     const r = runScript(['--parity-only'], { cwd: root })
-    // zh-CN 解析失败 → messages[BASE_LANG] 不存在 → exit 0 "messages 文件不存在或不完整,跳过"
-    assert.equal(r.status, 0, `zh-CN 解析失败应 exit 0(跳过),实际 ${r.status}`)
-    assert.match(r.stdout, /不存在或不完整|跳过/)
+    // —— 2026-09-26 收紧并完成:旧期望是 exit 0 + "messages 文件不存在或不完整,跳过",
+    // 它把两种完全不同的事实并进同一种绿:
+    //   ① 这个端在判定面上根本没有语言包(无事可查,skip 正当);
+    //   ② **基准语言 zh-CN 读坏了**(parity 没有可比的那一侧 —— 判据失明)。
+    // ② 恰恰是本文件对 ko.json 已经反转过的假绿形态(见 9b:非基准语言损坏从"跳过"改成
+    // "判红并点名"),基准侧却还留着旧绿 —— 基准比所有语言都更要紧:它坏了等于整道门没跑。
+    // 现按面纪律判 exit 2「无法判定」:既不冒红成"判据失败"(仓库没坏,是输入坏),
+    // 也绝不记绿(把"没判"写成"判过了")。上一轮派单在停摆前把门改成了这个行为,
+    // 期望值差最后一步没跟上 —— 本条就是那句"只剩一条我故意收紧的期望待更新"的落地。
+    assert.equal(
+      r.status,
+      2,
+      `zh-CN 基准损坏应 exit 2「无法判定」,实际 ${r.status}:${r.stdout}${r.stderr}`,
+    )
+    assert.match(r.stderr, /无法判定|拿不到基准语言/, 'exit 2 必须给可诊断原因,不静默')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -853,3 +884,137 @@ test('含点键: 深层嵌套内部含点 key 也要检出(递归覆盖)', () =>
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ─── F 组:判定面(2026-09-26 收口的兑现) ─────────────────────────────
+// 上面 runScript 的默认 `--worktree` 注入只保夹具测"判据形态";**面本身**必须在一棵
+// 真临时 git 仓上三面各出各的答案 —— 这正是本文件头部注释承诺却缺位的那组用例。
+// 立因(真仓实测):语言包已按面读,而**源文件清单/正文一直是磁盘遍历**,于是
+// "HEAD 的包 × 磁盘 WIP 组件"造出 HEAD 面上根本不存在的红(sideQueued/sideAnswerNow
+// 型,归因层当日量到"复跑仍红但不点名本次文件")。F1/F6 的绿臂就是那台混合尺子的反证。
+test('F1–F5 同一棵临时仓三面三答:磁盘脏不污染 HEAD 面;入索引才转红;两面旗同给判死', () => {
+  const root = createTempProject()
+  try {
+    initGitRepo(root)
+    writeWebMessages(root, PARITY_OK)
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(join(srcDir, 'index.ts'), 'export const x = 1\n')
+    execSync('git add -A && git commit -m base', { cwd: root, stdio: 'pipe' })
+    // 三面对齐的基线:先证明默认面确实绿(否则后面的"绿"没有对照价值)
+    const g = runFaceScript([], { cwd: root })
+    assert.equal(g.status, 0, `基线(三面一致)默认面必须绿:${g.stdout}${g.stderr}`)
+
+    // 只在磁盘上弄脏:en 包失去 common.cancel(并行会话未暂存 WIP 的形态)
+    const enPath = join(root, 'packages', 'i18n', 'messages', 'web', 'en.json')
+    const broken = JSON.parse(readFileSync(enPath, 'utf8'))
+    delete broken.common.cancel
+    writeFileSync(enPath, JSON.stringify(broken, null, 2))
+
+    // F1 默认 = HEAD 面:磁盘脏不得进结论(迁移前的混合尺子在这里会判红 —— 假红即本型)
+    const f1 = runFaceScript([], { cwd: root })
+    assert.equal(f1.status, 0, `F1 磁盘污染不得影响 HEAD 面:\n${f1.stdout}${f1.stderr}`)
+    assert.match(f1.stdout, /判定面:HEAD blob/u, 'F1 末行必须自称 HEAD blob')
+
+    // F2 --worktree:磁盘面必须看见这份脏(它就是给人查磁盘的,但永不是提交门禁)
+    const f2 = runFaceScript(['--worktree'], { cwd: root })
+    assert.equal(f2.status, 1, `F2 磁盘面必须按脏副本判红:\n${f2.stdout}${f2.stderr}`)
+    assert.match(f2.stdout, /判定面:工作树/u, 'F2 末行必须自称工作树档')
+
+    // F3 --staged(索引仍是干净副本):必须绿。若 index 规格少了冒号(裸路径 ⇒ git 报
+    // missing),这里会变成"一个可比语言包都没取到 ⇒ exit 2" —— 本枚改动第一版正是这样炸的。
+    const f3 = runFaceScript(['--staged'], { cwd: root })
+    assert.equal(f3.status, 0, `F3 索引面(脏未入索引)必须绿:\n${f3.stdout}${f3.stderr}`)
+
+    // F4 两面旗同给:判死,不猜哪一面
+    const f4 = runFaceScript(['--staged', '--worktree'], { cwd: root })
+    assert.equal(f4.status, 2, 'F4 两面旗同给必须 exit 2')
+    assert.match(String(f4.stderr), /不得同用|互斥/u, 'F4 判死必须带原因')
+
+    // F5 把脏放进索引:--staged 必须随之转红 —— 证明 F3 的绿不是"staged 永远绿",
+    // 索引面确实在读索引(与守门 90 镜像 ⑩ 同一条"条件式,不赌仓库此刻内容"的规矩)。
+    execSync('git add -A', { cwd: root, stdio: 'pipe' })
+    const f5 = runFaceScript(['--staged'], { cwd: root })
+    assert.equal(f5.status, 1, `F5 索引含脏副本时 --staged 必须判红:\n${f5.stdout}${f5.stderr}`)
+    assert.match(f5.stdout, /判定面:索引 blob/u, 'F5 末行必须自称索引 blob')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('F6 源文件面:只在磁盘上的 WIP 组件不得把 HEAD 面顶红(混合尺子的根治证明)', () => {
+  const root = createTempProject()
+  try {
+    initGitRepo(root)
+    writeWebMessages(root, PARITY_OK)
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(join(srcDir, 'index.ts'), 'export const x = 1\n')
+    execSync('git add -A && git commit -m base', { cwd: root, stdio: 'pipe' })
+    // 磁盘上再放一个**未提交**组件,引用五语言包都没有的键 —— 这就是 sideQueued 现场:
+    // 磁盘枚举(旧)会把它算进"本提交引用未登记键",而它结构上进不了任何一面提交。
+    writeFileSync(
+      join(srcDir, 'wip-only-disk.tsx'),
+      "const t = useTranslations('common')\nt('keyOnlyOnDiskWipComponent')\n",
+    )
+    const head = runFaceScript([], { cwd: root })
+    assert.equal(head.status, 0, `F6 HEAD 面不得被磁盘 WIP 组件顶红:\n${head.stdout}${head.stderr}`)
+    assert.doesNotMatch(
+      head.stdout,
+      /keyOnlyOnDiskWipComponent/,
+      'F6 红因文本竟出现磁盘专属键 ⇒ 源清单没按面枚举',
+    )
+    const wt = runFaceScript(['--worktree'], { cwd: root })
+    assert.equal(
+      wt.status,
+      1,
+      `F6 对照:同一份脏在 --worktree 面必须可见(否则 F6 只是恒绿)\n${wt.stdout}${wt.stderr}`,
+    )
+    assert.match(wt.stdout, /keyOnlyOnDiskWipComponent/, 'worktree 面必须点名 WIP 组件的缺失键')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('F7 形状锁:清单/正文/源文件必须全部经 face-reader 按面取,不得再回磁盘混合', () => {
+  // 与守门 118 的 half-wired 档同族:按文件整体分类的"面纪律门"看不见同文件里另一处错面
+  // (它把"import 了层"当合规),所以这里锁**代码形态**。剥掉整行注释后才判 ——
+  // 注释在描述被推翻的旧写法,不剥就是替旧写法背书(守门 57⑤"注释式摘线"同族)。
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  const code = src
+    .split('\n')
+    .filter((l) => !/^\s*(\/\/|\/?\*)/.test(l))
+    .join('\n')
+  assert.match(
+    code,
+    /import\s*\{[^}]*\bcatBatch\b[^}]*\}\s*from\s*['"]\.\/lib\/face-reader\.mjs['"]/u,
+    'catBatch 未从层里来(半接线)',
+  )
+  assert.match(code, /gitRaw\(\['ls-files', '--', `\$\{relDir\}\/`\]/u, '索引面清单未走 ls-files')
+  assert.match(code, /ls-tree', '-r', '--name-only', 'HEAD'/u, 'HEAD 面源清单未走 ls-tree -r')
+  assert.match(
+    code,
+    /listSourceFilesOnFace\(APP_SRC_DIR\)|listSourceFilesOnFace\(WEB_DIR\)/u,
+    '源文件枚举未经按面出口(还在磁盘遍历)',
+  )
+  assert.match(
+    code,
+    /function faceSpecOf|const faceSpecOf = /u,
+    'faceSpecOf 不在位(规格组装又散落两处)',
+  )
+  // 反向锁:冒号必须在三元外 —— `? '' : 'HEAD:'}` 这一支在守门 90 与本门各炸过一次,
+  // 只靠"跑一遍"防不住回归,必须锁字面量。
+  assert.ok(
+    !/\? '' : 'HEAD:'\}/u.test(code),
+    '规格冒号又并进了三元 ⇒ index 面退化成裸路径,暂存区永远"读不到"',
+  )
+  // 反向锁:旧的磁盘混合形态不得回来。
+  assert.ok(
+    !/src = readFileSync\(file/u.test(code),
+    '源文件正文又改回磁盘 readFileSync(混合面假红的成因)',
+  )
+  assert.ok(!/text = readFileSync\(file/u.test(code), '重复键判据的原文又改回磁盘 readFileSync')
+  assert.ok(
+    !/readdirSync\(MESSAGES_DIR\)\.filter/u.test(code),
+    '重复键判据的语言包清单又回到磁盘 readdirSync',
+  )
+})
