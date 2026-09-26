@@ -32,3 +32,26 @@ License:
   distribute must retain this NOTICE and all copyright/provenance statements,
   include the full License and NOTICE, and prominently credit the copyright
   owner (Li Chunchuan) and source <https://aizhs.top>.
+
+------------------------------------------------------------------
+
+第三方来源台账（Inbound third-party provenance ledger）：
+  上面两段讲的是**出站**（别人复制我们的代码时必须保留什么）。本节讲**入站**：
+  本仓库携带的第三方 / 嵌入 / 复制内容，逐条登记在
+    config/third-party-provenance/embedded.json   （打进产物的组件，如 vendored crate）
+    config/third-party-provenance/copied.json     （复制进仓的源码与素材）
+    config/third-party-provenance/overrides.json  （被 override 换掉来源的依赖）
+    config/third-party-provenance/mechanisms.json （只吸收机制、不带走代码的借鉴）
+  每条登记上游项目、获取来源、revision（不可考则显式 null 并说明）、许可证、
+  许可原文的位置与 sha256、本仓是否改过（Apache-2.0 §4(b) 要求标注修改），
+  以及"仍需审计"的义务清单。
+  判据：node scripts/provenance-ledger.mjs（--report 出人读盘点，--self-test 出取证），
+  入口 pnpm check:provenance。它同时反向核查：盘上任何 vendored 目录或带第三方
+  版权 / SPDX 头的文件，若台账里没有对应条目即判红。
+
+  分发本仓库任何部分（含 vendored 目录内的文件）时，除保留本 NOTICE 外，
+  还必须按台账登记的各自许可保留其上游版权声明与许可原文：
+    apps/desktop/src-tauri/vendor/tray-icon-0.24.2/ —— tray-icon (tauri-apps)，
+      MIT OR Apache-2.0，许可原文随目录内的 LICENSE-APACHE / LICENSE-MIT 一并分发；
+      本仓对该副本的 Windows 后端修改见该条目 modification 字段。
+  本节是登记面的指针，不构成对上述任何组件的再授权；各组件许可以上述文件为准。

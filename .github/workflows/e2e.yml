@@ -127,7 +127,7 @@ jobs:
         # 实测受害者:`pnpm --filter @ihui/api run build`(下一步)与 `pnpm --filter @ihui/web run build`
         # —— `--filter` 直跑 pnpm 不做拓扑构建,不会替我把依赖建好(照 ci.yml 的同名步骤补,
         # 那条自 2026-08 起就在那儿,只是没被抄进本文件)。
-        run: pnpm --filter @ihui/api-client build
+        run: pnpm --filter @ihui/api-client build && pnpm --filter @ihui/context-compaction build
 
       - name: Build API
         run: pnpm --filter @ihui/api run build
