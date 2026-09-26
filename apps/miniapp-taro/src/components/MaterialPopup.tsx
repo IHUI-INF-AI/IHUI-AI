@@ -119,7 +119,7 @@ export default function MaterialPopup({
                   <View
                     key={item.id}
                     /* weapp 端不支持 CSS :active,active:opacity-80 为死样式,精确翻译为 hoverClass */
-                    className={`relative aspect-square rounded-lg overflow-hidden bg-muted ${selectedId === item.id ? 'ring-2 ring-primary' : ''}`}
+                    className={`relative aspect-square rounded-lg overflow-hidden bg-muted ${selectedId === item.id ? 'ring-2 ring-brand-accent-deep' : ''}`}
                     hoverClass="opacity-80"
                     onClick={() => onSelect?.(item)}
                   >
@@ -143,7 +143,7 @@ export default function MaterialPopup({
                 {items.map((item) => (
                   <View
                     key={item.id}
-                    className={`flex p-3 mb-2 rounded-xl ${selectedId === item.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
+                    className={`flex p-3 mb-2 rounded-xl ${selectedId === item.id ? 'bg-primary/10 border border-brand-accent-deep' : 'bg-muted'}`}
                     onClick={() => onSelect?.(item)}
                     hoverClass="opacity-60"
                   >

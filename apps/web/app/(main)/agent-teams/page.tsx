@@ -133,7 +133,7 @@ export default function AgentTeamsPage() {
               className={cn(
                 'rounded-md border px-3 py-1 text-xs transition-colors',
                 filter === f
-                  ? 'border-primary bg-primary/10 text-primary'
+                  ? 'border-brand-accent-deep bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-accent',
               )}
             >
