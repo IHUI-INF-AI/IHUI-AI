@@ -8137,6 +8137,10 @@
           "title": "Browser debug channel unavailable",
           "action": "Enable it and retry"
         },
+        "CHAT_MODE_TOOL_BLOCKED": {
+          "title": "This action is blocked in the current chat mode",
+          "action": "Switch to Build Mode and retry"
+        },
         "CONCURRENCY_LIMIT_EXCEEDED": {
           "title": "Too many requests",
           "action": "Retry later"
@@ -8480,6 +8484,10 @@
         "TOOL_FAILED": {
           "title": "Tool execution failed",
           "action": "Retry"
+        },
+        "TOOL_MODE_UNAVAILABLE": {
+          "title": "This tool is not available in the current runtime mode",
+          "action": "Use an equivalent local tool"
         },
         "TOOL_NOT_FOUND": {
           "title": "Target resource not found",
