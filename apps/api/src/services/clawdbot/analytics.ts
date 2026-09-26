@@ -12,6 +12,8 @@ export interface AnalyticsRecord {
   intent: string
   success: boolean
   latencyMs: number
+  /** 格②(2026-09-26)：false = 耗时样本未通过时钟可信性判据,不计入 avg/p95(计数在案,不静默丢) */
+  latencyTrusted?: boolean
   timestamp: number
 }
 
@@ -22,6 +24,8 @@ export interface AnalyticsSummary {
   successRate: number
   avgLatencyMs: number
   p95LatencyMs: number
+  /** 格②：被排除出 avg/p95 的不可信耗时样本数(0 = 无;非 0 时消费者应视为统计被时钟问题影响) */
+  untrustedLatencyExcluded: number
   topIntents: Array<{ intent: string; count: number }>
   callsByBot: Array<{ botId: string; count: number }>
 }
@@ -42,8 +46,14 @@ export class AnalyticsService extends EventEmitter {
   private readonly records: AnalyticsRecord[] = []
 
   record(input: Omit<AnalyticsRecord, 'id' | 'timestamp'>): AnalyticsRecord {
+    // 格②(2026-09-26)：生产者侧应走 utils/elapsed-ms.ts 做单调×墙钟交叉校验;
+    // 未走(或直接报 latencyTrusted:false)时,负值/非有限值在这里兜底判不可信——
+    // 时钟回拨样本不得进 avg/p95,但记录保留、计数可见,绝不静默丢。
+    const latencyTrusted =
+      input.latencyTrusted !== false && Number.isFinite(input.latencyMs) && input.latencyMs >= 0
     const full: AnalyticsRecord = {
       ...input,
+      latencyTrusted,
       id: `an_${crypto.randomUUID()}`,
       timestamp: Date.now(),
     }
@@ -72,12 +82,15 @@ export class AnalyticsService extends EventEmitter {
         successRate: 0,
         avgLatencyMs: 0,
         p95LatencyMs: 0,
+        untrustedLatencyExcluded: 0,
         topIntents: [],
         callsByBot: [],
       }
     }
     const successCount = records.filter((r) => r.success).length
-    const latencies = records.map((r) => r.latencyMs).sort((a, b) => a - b)
+    // 格②：不可信耗时样本不参与 avg/p95(计数在案)
+    const trusted = records.filter((r) => r.latencyTrusted !== false)
+    const latencies = trusted.map((r) => r.latencyMs).sort((a, b) => a - b)
     const p95Idx = Math.min(Math.floor(latencies.length * 0.95), latencies.length - 1)
     const intentMap = new Map<string, number>()
     const botMap = new Map<string, number>()
@@ -90,8 +103,10 @@ export class AnalyticsService extends EventEmitter {
       successCount,
       failedCount: total - successCount,
       successRate: (successCount / total) * 100,
-      avgLatencyMs: latencies.reduce((a, b) => a + b, 0) / latencies.length,
-      p95LatencyMs: latencies[p95Idx] ?? 0,
+      avgLatencyMs:
+        latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0,
+      p95LatencyMs: latencies.length > 0 ? (latencies[p95Idx] ?? 0) : 0,
+      untrustedLatencyExcluded: records.length - trusted.length,
       topIntents: Array.from(intentMap.entries())
         .map(([intent, count]) => ({ intent, count }))
         .sort((a, b) => b.count - a.count)
