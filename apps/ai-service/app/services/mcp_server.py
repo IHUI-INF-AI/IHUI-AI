@@ -2892,28 +2892,31 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 "ok": False,
             }
 
+        # V3 #75:两处遍历收成一个出口(原先各写一遍 os.walk = 同一个工具两份实现)。
+        # 扩展名沿用本工具的**黑名单**语义(跳二进制),所以给枚举层传 suffixes=None ——
+        # 把 file_search 当"只要代码"的白名单来用会静默缩小结果集,那是改行为不是提速。
+        from .rg_fallback_parity import enumerate_code_files
+
+        _rel_all, _enum_prov = enumerate_code_files(root, ignored_dirs=_IGNORED_DIRS, suffixes=None)
+        searchable = [
+            rp for rp in _rel_all if os.path.splitext(rp)[1].lower() not in _IGNORED_EXTS
+        ]
+
         # 模糊文件名搜索(2026-09-18 第十一批,对标 Codex file-search/nucleo):
         # query 作为子序列模式对相对路径评分排序(fzf 语义:连续命中/词首加分)
         if fuzzy and query:
             from app.core.output_cleaning import fuzzy_score
 
             scored: list[tuple[int, str, str]] = []
-            for dirpath, dirnames, filenames in os.walk(root):
-                dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
-                for fname in filenames:
-                    ext = os.path.splitext(fname)[1].lower()
-                    if ext in _IGNORED_EXTS:
-                        continue
-                    rel_path = os.path.relpath(
-                        os.path.join(dirpath, fname), root
-                    ).replace("\\", "/")
-                    score = fuzzy_score(query, rel_path)
-                    if score is None:
-                        name_score = fuzzy_score(query, fname)
-                        if name_score is not None:
-                            score = name_score - 20  # 仅文件名命中降权
-                    if score is not None:
-                        scored.append((score, rel_path, fname))
+            for rel_path in searchable:
+                fname = rel_path.rsplit("/", 1)[-1]
+                score = fuzzy_score(query, rel_path)
+                if score is None:
+                    name_score = fuzzy_score(query, fname)
+                    if name_score is not None:
+                        score = name_score - 20  # 仅文件名命中降权
+                if score is not None:
+                    scored.append((score, rel_path, fname))
             scored.sort(key=lambda x: (-x[0], x[1]))
             matches = [
                 {"path": rp, "file": fn, "score": sc}
@@ -2928,6 +2931,10 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 "total": len(matches),
                 "candidates": len(scored),
                 "truncated": len(scored) > max_results,
+                # V3 #75:枚举走了哪条通道、有没有降级,必须在响应里可读 ——
+                # "降级只是慢一点"不成立:两条通道的结果集必须等价,不等价时得有人能发现。
+                "enum_engine": _enum_prov.engine,
+                "enum_degraded": _enum_prov.degraded_reason,
                 "message": f"模糊匹配 {len(scored)} 个候选,返回前 {len(matches)}"
                 "(按相关度排序)",
                 "ok": True,
@@ -2935,64 +2942,56 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
 
         query_lower = query.lower() if query else None
         count = 0
-        for dirpath, dirnames, filenames in os.walk(root):
-            # 原地修改 dirnames 跳过忽略目录
-            dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
-            for fname in filenames:
-                if count >= max_results:
-                    break
-                if not fnmatch.fnmatch(fname, pattern):
-                    continue
-                ext = os.path.splitext(fname)[1].lower()
-                if ext in _IGNORED_EXTS:
-                    continue
-                fpath = os.path.join(dirpath, fname)
-                try:
-                    rel_path = os.path.relpath(fpath, root)
-                    # 若有 query,需读取文件内容匹配
-                    if query_lower:
-                        try:
-                            with open(fpath, encoding="utf-8", errors="ignore") as f:
-                                content = f.read()
-                            if query_lower not in content.lower():
-                                continue
-                            # 提取匹配行上下文
-                            lines = content.splitlines()
-                            line_numbers = [
-                                i + 1 for i, ln in enumerate(lines) if query_lower in ln.lower()
-                            ]
-                            preview = ""
-                            if line_numbers:
-                                ln = line_numbers[0]
-                                start = max(0, ln - 2)
-                                end = min(len(lines), ln + 1)
-                                preview = "\n".join(
-                                    f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
-                                )
-                            matches.append({
-                                "path": rel_path,
-                                "file": fname,
-                                "line_numbers": line_numbers[:10],
-                                "preview": preview[:500],
-                            })
-                        except (OSError, UnicodeDecodeError):
+        # V3 #75:同一个工具的第二处遍历,现共用上面那一次枚举的结果(原先两份 os.walk)。
+        for rel_path in searchable:
+            fname = rel_path.rsplit("/", 1)[-1]
+            if count >= max_results:
+                break
+            if not fnmatch.fnmatch(fname, pattern):
+                continue
+            fpath = os.path.join(str(root), *rel_path.split("/"))
+            try:
+                if query_lower:
+                    try:
+                        with open(fpath, encoding="utf-8", errors="ignore") as f:
+                            content = f.read()
+                        if query_lower not in content.lower():
                             continue
-                    else:
-                        # 无 query,仅文件名匹配
-                        try:
-                            size = os.path.getsize(fpath)
-                        except OSError:
-                            size = 0
+                        # 提取匹配行上下文
+                        lines = content.splitlines()
+                        line_numbers = [
+                            i + 1 for i, ln in enumerate(lines) if query_lower in ln.lower()
+                        ]
+                        preview = ""
+                        if line_numbers:
+                            ln = line_numbers[0]
+                            start = max(0, ln - 2)
+                            end = min(len(lines), ln + 1)
+                            preview = "\n".join(
+                                f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
+                            )
                         matches.append({
                             "path": rel_path,
                             "file": fname,
-                            "size": size,
+                            "line_numbers": line_numbers[:10],
+                            "preview": preview[:500],
                         })
-                    count += 1
-                except OSError:
-                    continue
-            if count >= max_results:
-                break
+                    except (OSError, UnicodeDecodeError):
+                        continue
+                else:
+                    # 无 query,仅文件名匹配
+                    try:
+                        size = os.path.getsize(fpath)
+                    except OSError:
+                        size = 0
+                    matches.append({
+                        "path": rel_path,
+                        "file": fname,
+                        "size": size,
+                    })
+                count += 1
+            except OSError:
+                continue
 
         message = (
             f"在 {path} 下找到 {len(matches)} 个匹配文件"
@@ -3013,6 +3012,8 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             "matches": matches,
             "total": len(matches),
             "truncated": count >= max_results,
+            "enum_engine": _enum_prov.engine,
+            "enum_degraded": _enum_prov.degraded_reason,
             "message": message,
             "ok": True,
         }
