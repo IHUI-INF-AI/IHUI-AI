@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     overflow: 'hidden',
   },
-  cardActive: { borderColor: tokens.brand.DEFAULT },
+  cardActive: { borderColor: tokens.brandAccent.deep },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

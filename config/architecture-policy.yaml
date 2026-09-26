@@ -452,6 +452,8 @@ modules:
       - 'packages/design-tokens'
     public_entrypoints:
       - '.'
+      - './ui'
+      - './ui/*'
       - './auth'
       - './auth/*'
       - './context'
