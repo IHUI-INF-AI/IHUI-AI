@@ -276,8 +276,12 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
   }, [data])
 
   // 切 tab 时重算当前 sheet 的行(从已解析的 book 取,不重新拉文件)
+  // 解构提到 effect 外:本 effect 自己会 setState 产出新 `state` 对象,
+  // 依赖数组若直接写 `state` 即自触发死循环(setState→新对象→effect 重跑→再 setState)。
+  // book 是解析结果引用、active 是字符串,二者仅在真正换文档/换 tab 时变化,
+  // 与原先的 `state.book`/`state.active` 成员依赖逐次等值,重跑时机不变。
+  const { book, active } = state
   React.useEffect(() => {
-    const { book, active } = state
     if (!book || !active) return
     let cancelled = false
     loadXlsx().then((mod) => {
@@ -298,7 +302,7 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
     return () => {
       cancelled = true
     }
-  }, [state.book, state.active, maxRows])
+  }, [book, active, maxRows])
 
   if (failed) {
     return <p className="p-3 text-xs text-muted-foreground">{t('officeFailed')}</p>
