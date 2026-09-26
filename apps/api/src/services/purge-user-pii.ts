@@ -130,7 +130,10 @@ export async function purgeUserPii(userId: string, tx: Database = db): Promise<P
 
   // 彻底匿名化 users 主行（见文件头设计决策）
   const baseUsername = `erased_${userId}`
-  await (tx as Database)
+  // 2026-09-27 布尔删除 ack 清账(第四型):userRowAnonymized 此前是硬编码 true ——
+  // UPDATE 命中 0 行(用户行不存在/并发被删)时旧代码仍报"已匿名化"。
+  // 现由 RETURNING 命中集派生;响应侧键名与语义逐字不变,只允许值从常量变成库侧证据。
+  const anonymizedRows = await (tx as Database)
     .update(users)
     .set({
       phone: null,
@@ -149,7 +152,8 @@ export async function purgeUserPii(userId: string, tx: Database = db): Promise<P
       updatedAt: new Date(),
     })
     .where(eq(users.id, userId))
+    .returning({ id: users.id })
 
-  return { userPiiTableCount: cleaned, userRowAnonymized: true }
+  return { userPiiTableCount: cleaned, userRowAnonymized: anonymizedRows.length > 0 }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
