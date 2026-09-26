@@ -112,6 +112,11 @@ test('§22c 装车证明:判据符号必须来自源文件导出(__test__ 或具
     'dropArchivedLost',
     'headingLosses',
     'healContent',
+    // 取材面三件套(2026-09-26 收口):选面、人工档提示、总入口、历史面基线
+    'pickPlanContent',
+    'faceNoticeFor',
+    'runCheck',
+    'historyMarkers',
   ])
     assert.equal(typeof G[fn], 'function', `源导出缺判据 ${fn}(§22c 锚点漂移,或该判据被整块删掉)`)
 })
@@ -269,12 +274,100 @@ test('反向回归锁:归档豁免不得退回「按磁盘判」,且必须绑当
   assert.doesNotMatch(src, /^\s*const ARCHIVE_DIR\s*=/m, '磁盘归档目录常量已无消费者,不得加回')
   for (const verb of ["'ls-tree'", "'ls-files'"])
     assert.ok(src.includes(verb), `面清单判据缺 ${verb}(全量走 HEAD 树、--staged 走索引)`)
-  const rc = src.slice(src.indexOf('export function runCheck'), src.indexOf('export function runCheck') + 600)
+  // 归档豁免必须**在 runCheck 内按当次判定面 + 当次根**绑定后再喂给两条消费通道。
+  // 旧写法 `archiveExemptFor(isStaged)` 直接内联在 dropArchivedLost 里;三面判据落地后它换成
+  // 一个 `archive` 闭包被 missingFrom 与 dropArchivedLost 共用 —— 判据没变,**变了的是形状**,
+  // 所以锁必须跟着换成"绑面 + 两路都吃到",否则它会在一次正当重构里静默变成空断言。
+  const rc = src.slice(src.indexOf('export function runCheck'), src.indexOf('export function faceNoticeFor'))
+  assert.ok(rc.length > 200, '没切到 runCheck 段 ⇒ 本锁变成空判据')
   assert.match(
     rc,
-    /dropArchivedLost\([\s\S]{0,200}?archiveExemptFor\(isStaged\)/,
-    'runCheck 必须把当次判定面喂给归档豁免 —— 用默认面等于 --staged 时偷偷按 HEAD 判',
+    /const archive = archiveExemptFor\(face === 'staged',\s*root\)/,
+    "归档豁免必须由当次判定面(face)与当次根(root)绑定 —— 用默认面等于 --staged 时偷偷按 HEAD 判",
   )
+  assert.match(
+    rc,
+    /dropArchivedLost\([\s\S]{0,160}?,\s*archive\)/,
+    'staged 通道必须吃到绑好面的 archive,否则收口等于把豁免面写死',
+  )
+  assert.match(
+    rc,
+    /missingFrom\([\s\S]{0,160}?,\s*archive\)/,
+    '全量/人工档(历史面)同样必须吃到绑好面的 archive —— 新判据最容易做丢的就是这一路',
+  )
+})
+
+test('取材面形状锁:缺省面必须是 head,磁盘面只能经取材层,三面各一支且不回落', () => {
+  const src = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
+  const pick = src.slice(
+    src.indexOf('export function pickPlanContent'),
+    src.indexOf('function candidateContent'),
+  )
+  assert.ok(pick.length > 100, '没切到 pickPlanContent ⇒ 本锁变成空判据')
+  for (const f of ['staged', 'worktree', 'head'])
+    assert.ok(pick.includes(`'${f}'`) || f === 'head', `选面缺 ${f} 一支`)
+  assert.match(pick, /return readHead\(PLAN\)/, '缺省(未匹配任何旗号)必须落 HEAD,不得落磁盘')
+  assert.doesNotMatch(pick, /readDisk\(PLAN\)\s*\|\|/, '不得用"取不到就换一面"的回落写法(回落=把没判写成判过了)')
+  const cand = src.slice(src.indexOf('function candidateContent'), src.indexOf('export function runCheck'))
+  assert.ok(cand.length > 100, '没切到 candidateContent ⇒ 本锁变成空判据')
+  assert.match(cand, /readWorktreeFile\(root, PLAN\)/, '磁盘面必须经取材层 readWorktreeFile(读失败要抛,不得伪装成"不存在")')
+  assert.doesNotMatch(cand, /readFileSync\(path\.join\(ROOT/, 'candidateContent 不得再自己拼仓库根读磁盘')
+})
+
+test('CLI 面旗成套:两面旗同给判死;缺省档绿而 --worktree 在同一现场红且大声提示', () => {
+  // 夹具:HEAD 与索引都是完整那份,只有磁盘副本被"旧基线"写回(= 与任何提交都无关的滞后)
+  const dir = tempPlanRepo(V1)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE, 'utf8')
+    const both = runGate(dir, ['--staged', '--worktree'])
+    assert.equal(both.status, 2, `--staged 与 --worktree 同给必须 exit 2,实际 ${both.status}`)
+    assert.match(`${both.stdout}\n${both.stderr}`, /不得同用|同时给出|拒绝判定/)
+    const head = runGate(dir, [])
+    assert.equal(head.status, 0, `磁盘缺行不得把 HEAD 面钉红(这正是收口前那道恒红门):\n${head.stderr}`)
+    const wt = runGate(dir, ['--worktree'])
+    assert.equal(wt.status, 1, `人工档必须仍看得见磁盘滞后,否则逃生舱名不副实:\n${wt.stderr}`)
+    const out = `${wt.stdout}\n${wt.stderr}`
+    assert.match(out, /你在审\*\*工作树磁盘副本\*\*/, '人工档必须打印"你在审工作树副本"')
+    assert.match(out, /与任何提交都无关/, '人工档必须明说红点与任何提交无关')
+    assert.match(out, /不要照下面的 1\)|不要.*覆盖/, '人工档必须挡住"拿 HEAD 覆盖在飞副本"这个动作')
+    // 反向对照:缺省档不得替人工档喊话(否则会稀释这句提示的意义)
+    assert.doesNotMatch(`${head.stdout}\n${head.stderr}`, /你在审\*\*工作树磁盘副本\*\*/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('CLI 全量档端到:HEAD 真丢了历史里的登记行 ⇒ exit 1 并点名;同一现场 --staged 仍绿', () => {
+  const dir = tempPlanRepo(V1)
+  try {
+    // 把"旧基线写回"真正提交进去 ⇒ HEAD 从此缺那行(全量档该红),而索引==HEAD ⇒ 提交链档该绿
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-q', '-m', '旧基线整文件提交(夹具)')
+    const head = runGate(dir, [])
+    assert.equal(head.status, 1, `HEAD 缺行必须红,实际 ${head.status}\n${head.stdout}${head.stderr}`)
+    assert.match(head.stderr, /条目标题 O42/)
+    assert.match(head.stderr, /无法判定|判定面/, '结论行必须说自己审的是哪一面')
+    const staged = runGate(dir, ['--staged'])
+    assert.equal(staged.status, 0, `索引与 HEAD 一致时提交链档不该红:\n${staged.stderr}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('CLI 端到:被审面取不到(无提交)⇒ exit 2「无法判定」,不得 rc=0 也不得 rc=1', () => {
+  const dir = mkScratch('planloss-nocommit-')
+  try {
+    copyGateClosure(dir)
+    git(dir, 'init', '-q', '-b', 'main')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), V1, 'utf8') // 磁盘上有,但一次也没提交
+    const r = runGate(dir, [])
+    assert.equal(r.status, 2, `无提交时全量档必须 exit 2,实际 ${r.status}\n${r.stdout}${r.stderr}`)
+    assert.match(`${r.stdout}\n${r.stderr}`, /无法判定/)
+    assert.doesNotMatch(`${r.stdout}\n${r.stderr}`, /无登记行丢失/, '取不到面却宣布通过 = 替没跑成的判定发合格证')
+  } finally {
+    rmScratch(dir)
+  }
 })
 
 test('端到端(不误伤):只改写标题文案的提交 → exit 0', () => {
@@ -370,7 +463,10 @@ test('接线自检:脚本被复制进临时夹具仓(五处落点全不存在)�
     gi(['init', '-q', '-b', 'main'])
     gi(['config', 'user.email', 't@t.t'])
     gi(['config', 'user.name', 't'])
-    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '## O9 夹具标题\n\n- [ ] 一条登记\n')
+    // 语料必须是**含受保护编号族**的那份(V1):全量档自 2026-09-26 起把"历史面一条登记行都没枚举到"
+    // 判成「无法判定」exit 2(空扫不发合格证),所以夹具若写 `## O9 夹具标题` 这种短而无编号的行,
+    // 本例会以"门坏了"的形式红 —— 那是判据在正确地点拒绝出合格证,不是夹具该改判据。
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), V1)
     gi(['add', 'PROJECT_PLAN.md'])
     gi(['commit', '-q', '-m', 'fixture'])
     // 夹具里连 guardian-runner / .husky 都没有:这不是"门被摘掉",是"这里不是本仓"。
