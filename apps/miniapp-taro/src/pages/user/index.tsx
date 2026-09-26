@@ -866,7 +866,7 @@ export default function UserIndex() {
           ) : (
             <View className="flex items-center" hoverClass="opacity-60" onClick={goLogin}>
               <Image
-                className="w-[120rpx] h-[120rpx] rounded-md border-[length:4rpx] border-solid border-primary"
+                className="w-[120rpx] h-[120rpx] rounded-md border-[length:4rpx] border-solid border-brand-accent-deep"
                 src={defaultAvatar}
                 mode="aspectFill"
               />
@@ -1069,7 +1069,9 @@ export default function UserIndex() {
                         <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[length:24rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[length:24rpx] text-muted-foreground">
+                          {item.time}
+                        </Text>
                       </View>
                       {renderMarkdown(item.content)}
                     </View>
@@ -1102,7 +1104,9 @@ export default function UserIndex() {
                         <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[length:24rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[length:24rpx] text-muted-foreground">
+                          {item.time}
+                        </Text>
                       </View>
                       {/* 纵向单列大图(对齐 RN imageColumn gap rpx(16) + imageColumnImg 高 200dp)*/}
                       <View className="flex flex-col" style={{ gap: rpx(16) }}>
@@ -1146,7 +1150,9 @@ export default function UserIndex() {
                         <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[length:24rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[length:24rpx] text-muted-foreground">
+                          {item.time}
+                        </Text>
                       </View>
                       <View
                         className="relative mx-[24rpx] mb-[24rpx] rounded-lg overflow-hidden bg-muted"
@@ -1203,7 +1209,9 @@ export default function UserIndex() {
                         <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[length:24rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[length:24rpx] text-muted-foreground">
+                          {item.time}
+                        </Text>
                       </View>
                       <View className="flex-row items-center gap-[12rpx]">
                         {/* 播放/暂停按钮(对齐 RN audioPlayBtn 36dp→72rpx 圆角 16rpx) */}
@@ -1268,7 +1276,9 @@ export default function UserIndex() {
                 onClick={() => goPage(entry.path)}
               >
                 {renderIcon(entry.icon, 'text-[length:44rpx]', 'w-[44rpx] h-[44rpx]')}
-                <Text className="mt-[6rpx] text-[length:24rpx] text-foreground">{t(entry.key)}</Text>
+                <Text className="mt-[6rpx] text-[length:24rpx] text-foreground">
+                  {t(entry.key)}
+                </Text>
               </View>
             ))}
           </View>
@@ -1286,8 +1296,12 @@ export default function UserIndex() {
               onClick={() => goPage(item.path)}
             >
               {renderIcon(item.icon, 'text-[length:40rpx]', 'w-[40rpx] h-[40rpx]')}
-              <Text className="flex-1 ml-[20rpx] text-[length:30rpx] text-foreground">{t(item.key)}</Text>
-              <Text className="text-[length:26rpx] text-[var(--color-brand-accent-deep)]">{'>'}</Text>
+              <Text className="flex-1 ml-[20rpx] text-[length:30rpx] text-foreground">
+                {t(item.key)}
+              </Text>
+              <Text className="text-[length:26rpx] text-[var(--color-brand-accent-deep)]">
+                {'>'}
+              </Text>
             </View>
           ))}
         </View>
@@ -1295,7 +1309,7 @@ export default function UserIndex() {
         {/* 退出登录 */}
         {isLogin ? (
           <View
-            className="mx-[20rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-primary text-primary rounded-lg text-[length:30rpx]"
+            className="mx-[20rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-brand-accent-deep text-primary rounded-lg text-[length:30rpx]"
             hoverClass="opacity-60"
             onClick={handleLogout}
           >

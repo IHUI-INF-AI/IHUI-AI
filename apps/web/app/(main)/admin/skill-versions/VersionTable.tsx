@@ -153,7 +153,7 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                                 type="button"
                                 className={`flex h-4 w-4 items-center justify-center rounded-sm border transition-colors ${
                                   isCompareTarget
-                                    ? 'border-primary bg-cta text-cta-foreground'
+                                    ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                                     : 'border-muted-foreground/30 hover:border-muted-foreground/50'
                                 }`}
                                 onClick={(e) => {

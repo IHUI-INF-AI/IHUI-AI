@@ -103,7 +103,7 @@ export function MemberCard() {
                 className={`mt-3 inline-flex items-center gap-1.5 rounded-md border px-4 py-1.5 text-xs transition-colors ${
                   checkedIn
                     ? 'border-border text-muted-foreground'
-                    : 'border-primary text-primary hover:bg-cta hover:text-cta-foreground'
+                    : 'border-brand-accent-deep text-primary hover:bg-cta hover:text-cta-foreground'
                 }`}
               >
                 <CalendarCheck className="h-3.5 w-3.5" />

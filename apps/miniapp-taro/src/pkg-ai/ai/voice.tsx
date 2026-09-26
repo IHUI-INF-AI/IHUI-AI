@@ -295,7 +295,7 @@ export default function VoicePage() {
           {SPEEDS.map((s) => (
             <Text
               key={s}
-              className={`py-[12rpx] px-[20rpx] rounded-lg text-[length:24rpx] ${speed === s ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
+              className={`py-[12rpx] px-[20rpx] rounded-lg text-[length:24rpx] ${speed === s ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-brand-accent-deep text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setSpeed(s)}
             >
               {tt(SPEED_KEY[s] ?? 'aiVoice.q1', speedLabel[s])}
@@ -309,7 +309,7 @@ export default function VoicePage() {
           {TIMBRES.map((tb) => (
             <Text
               key={tb}
-              className={`py-[12rpx] px-[20rpx] rounded-lg text-[length:24rpx] ${timbre === tb ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
+              className={`py-[12rpx] px-[20rpx] rounded-lg text-[length:24rpx] ${timbre === tb ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-brand-accent-deep text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setTimbre(tb)}
             >
               {tt(TIMBRE_KEY[tb] ?? 'aiVoice.q4', timbreLabel[tb])}
