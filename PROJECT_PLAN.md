@@ -10003,6 +10003,15 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 
 
 
+- **第十五批 ZCode 吸收线尾格(2026-09-26 午,`0ed3cf378eb`):把"状态字典"从注释换成代码 —— `checksum_mismatch` 不再是只有代码知道的第五态**。
+  - 成因(第十四批登记过的遗留):合并校验失败终态 `checksum_mismatch` 由 `chunked-upload.ts` **写**、由 `upload-integrity.ts` 的 `TERMINAL_STATUSES` **判**,而"状态字典"当时只是 `packages/database/src/schema/upload-sessions.ts` 里的一句**注释**,那句注释列了四态、漏第五态。**typecheck 看不见注释**,所以这个分叉可以无限期存在 —— 与守门 72/78/121 同族("本地全绿、出事的是别人/运行时")。
+  - 处置:字典落成 `UPLOAD_SESSION_STATUS` + 两个子集(`…TERMINAL_STATUSES` / `…REAPABLE_STATUSES`),两处消费方改取子集,注释不再重列清单而改为指向导出。回归 `apps/api/tests/upload-status-vocabulary.test.ts` 4 例:V1 分档完备且不相交、V2 第五态在词表且在终态侧、V3 **结构锁**(两个消费文件不得再出现 `status: '…'` / `.status !== '…'` 裸字面量,也不得再 `new Set(['…'])` 就地列清单)、V4 变异对照。
+  - 判据有牙是**变异量出来的**,不是写出来的:把一处改回 `status: 'merging'` ⇒ 仅 V3 红且断言原文点名该字面量(`expected [ 'status: 'merging'', …(3) ] to deeply equal []`),还原后 4/4 绿。另 `pnpm --filter @ihui/database typecheck` 与 `pnpm --filter @ihui/api typecheck` 均 0 错,`upload-integrity.test.ts` **15 例**同轮全绿(第一版这里我写的 18 是把"两文件合计 19"心算错的,已按单文件实跑改成正测值 —— 登记数字必须量,不得推算)。
+  - **写测试时自己踩到的一条,值得留**:仓库根第一版用 `process.cwd()` + 三个候选路径 `try/catch` 兜底 ⇒ 在 `apps/api` 下跑时**三个候选全失败**,红在"取不到文件"而不是判据上。改成由 `import.meta.url` 推导(本仓守门 70 的"13/14 例恒红因为 ROOT 忽略 cwd"是同一条教训的反面形态:**根要么按文件位置推,要么显式注入,不得靠调用者站哪**)。
+  - 本批仍**未做**的一格(有主有判据,不读成已收口):`maxConcurrentUploads` 仍**刻意不声明** —— 声明而无消费者正好会被守门 121 判红,而真正的并发上限需要信号量/队列语义,属另一票。
+  - **落地形态与自己犯的一格都如实登记**(不是"正常提交"):① 同一改动在 `safe-commit` 下把 161 道门**完整跑到结束、blocking 失败 0**,却在更新 HEAD 时连撞并发 CAS(本仓 HEAD 每 1-2 分钟推进),每轮重试要再花 10 分钟 ⇒ 改走临时索引 `commit-tree` + 紧循环 CAS + **逐路径 clobber 护栏**(若 HEAD 上目标路径已被别人改动立即放弃而非覆盖),第 1 次即成功;门禁结论取自那两轮的实测。② 我在准备临时索引时有一条 `git read-tree HEAD` **漏带 `GIT_INDEX_FILE`**,等价于一次 `git reset` ⇒ 把别人当时挂在索引里的暂存态整批 unstage(工作树未损、无内容丢进提交,但"别人暂存了什么"这一状态被我抹掉,属 §12 明令禁止的那一型)。已当场盘点并按"索引只是缓存、worktree 完好 ⇒ 由持有者重新 add"处置;此格即出口,不靠沉默带过。教训与 [[one-shot-git-scripts-must-check-index-target-per-call]] 同条,再犯一次就该按红线处理。
+
+
 ### 第五十波·续末② —— 守门 102 的 HEAD 存量清到 0,并把"全端已覆盖"这句话换成实测(2026-09-26)
 - [x] ✅(2026-09-26) **终读(HEAD 面,全量审计):S0 0 / GA1 0 / GA2 0 / GA4 0 / GA5 0 / GA6 0**,受管面 5442 个跟踪文件、实读 2560、`back-label-exempt` 放过 54 处。
   此前一格写的"GA1 70/31 存量、GA5 2→1、GA6 31→0"是**过程读数**,现行以本条为准;那道门从"只报数"变成"零存量"。
