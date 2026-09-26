@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
 import {
   backChevronBoxStyle,
@@ -55,15 +55,22 @@ export function BackChevron({ onPress, label, colorScheme, style, testID }: Back
   const multiplier = useFontMultiplier()
 
   return (
+    // 动态样式**不得写成 `style={({pressed}) => …}`**:Pressable 注册过 cssInterop,interop 对
+    // 非数组声明执行 `{ ...declaration }`,而 `{ ...函数 }` === `{}`,且 applyStyles 先把
+    // `state.props` 清成 `{}` ⇒ 这份内联 style 整份静默消失(守门 131 立项那一型,真机 A/B 定案)。
+    // 改法是把样式落到子 View 的**数组形态**上,pressed 由 children render prop 供。
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
       testID={testID}
       hitSlop={4}
-      style={({ pressed }) => [styles.box, pressed ? styles.pressed : null, style]}
     >
-      <ChevronLeft size={Math.round(ICON * multiplier)} color={tk.text.medium} />
+      {({ pressed }) => (
+        <View style={[styles.box, pressed ? styles.pressed : null, style]}>
+          <ChevronLeft size={Math.round(ICON * multiplier)} color={tk.text.medium} />
+        </View>
+      )}
     </Pressable>
   )
 }
