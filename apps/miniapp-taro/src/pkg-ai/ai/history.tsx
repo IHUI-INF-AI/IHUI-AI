@@ -13,6 +13,8 @@ import { formatDateByTemplate } from '@ihui/shared'
 import {
   listConversations,
   setConversationPinned,
+  // D20 服务端来源下的删除唯一出口(端内不得裸 Taro.request,守门 73)
+  deleteConversation,
   type ConversationDetail,
   type ListConversationsResult,
 } from '@ihui/api-client'
@@ -69,8 +71,8 @@ export type ConversationRow = ConversationDetail & { messageCount?: number }
 const HISTORY_KEY = 'ai_chat_history'
 const PAGE_SIZE = 20
 /**
- * 服务端一次取的条数。取 50 是为了与本机快照的既有上限对齐(chat.tsx MAX_HISTORY_COUNT=50),
- * 让页面的分页/「没有更多了」语义在两个数据源下长得一样;要真正的服务端翻页属另票。
+ * 服务端一页取的条数。取 50 是为了与本机快照的既有上限对齐(chat.tsx MAX_HISTORY_COUNT=50),
+ * 让页面的分页/「没有更多了」语义在两个数据源下长得一样;第 2 页起由 fetchNextServerPage 续取。
  */
 const SERVER_PAGE_SIZE = 50
 
@@ -147,6 +149,77 @@ export function mapServerConversation(c: ConversationRow): HistoryItem {
 }
 
 /**
+ * 服务端还有没有下一页 —— 只认后端给的 total,量不到时按"满页即可能还有"保守判。
+ *
+ * 为什么允许这一条启发式:它只会**多问一次**(下一轮拿到空页 ⇒ merged 不变 ⇒ 再次判 false),
+ * 不会把"还有"洗成"没有";反过来,total 缺失就一律判 false 才是会丢数据的错判。
+ */
+export function serverHasMoreFromPage(
+  loadedCount: number,
+  total: unknown,
+  pageSize: number = SERVER_PAGE_SIZE,
+): boolean {
+  if (typeof total === 'number' && Number.isFinite(total) && total >= 0) {
+    return loadedCount < total
+  }
+  return loadedCount >= pageSize
+}
+
+/**
+ * 追加服务端下一页:按 id 去重、保持已有顺序、新行接在后面。
+ *
+ * 去重不是可选项 —— 服务端按时间倒序分页,两页之间若有人新建/置顶会话,同一条会
+ * 同时出现在第 1 页尾与第 2 页头;不去重就是列表里长出双胞胎。
+ */
+export function mergeHistoryRows(
+  prev: readonly HistoryItem[],
+  next: readonly HistoryItem[],
+): HistoryItem[] {
+  const seen = new Set(prev.map((x) => x.id))
+  return [...prev, ...next.filter((x) => !seen.has(x.id))]
+}
+
+/** 「上拉加载更多」该做的三件事之一(noop=本轮无事可做,finish=到此为止并收起手) */
+export type LoadMoreAction = 'noop' | 'advance-page' | 'fetch-server' | 'finish'
+
+/**
+ * 上拉时该做什么 —— 本侧还没展示完就先展示,展示完了且服务端还有才去取,
+ * 两头都没有才落「没有更多了」。顺序不能反:先问服务端就会在"本机还有一屏没露出"
+ * 时白打一次接口,而兜底态(source='local')结构上不该再打服务端。
+ */
+export function decideLoadMore(s: {
+  hasMore: boolean
+  loadingMore: boolean
+  source: HistorySource
+  serverHasMore: boolean
+  shownCount: number
+  filteredCount: number
+}): LoadMoreAction {
+  if (!s.hasMore || s.loadingMore) return 'noop'
+  if (s.shownCount < s.filteredCount) return 'advance-page'
+  if (s.source === 'server' && s.serverHasMore) return 'fetch-server'
+  return 'finish'
+}
+
+/**
+ * 删除一个服务端会话(D20 服务端源下唯一删除出口)。
+ *
+ * 判序与取列表同形,三条同时成立才算删掉:不抛 ∧ success===true ∧ data.deleted===true。
+ * 调用方失败必须回滚列表 + 给可见提示,不得"发了请求就当删好了"—— 那是假成功。
+ */
+export async function deleteServerConversation(deps: {
+  remove: () => Promise<ApiResult<{ deleted: boolean }>>
+}): Promise<{ ok: true } | { ok: false; error: unknown }> {
+  try {
+    const res = await deps.remove()
+    if (res.success === true && res.data?.deleted === true) return { ok: true }
+    return { ok: false, error: res }
+  } catch (error) {
+    return { ok: false, error }
+  }
+}
+
+/**
  * 取列表:服务端优先,取不到才回落本机快照。
  *
  * 判序是 fail-closed 的,三条都要成立才算「拿到服务端数据」
@@ -157,25 +230,35 @@ export function mapServerConversation(c: ConversationRow): HistoryItem {
  *   ③ `conversations` 真是数组。
  * 任何一条不满足 ⇒ 用 localStorage 快照并把 source 标成 'local',由页面显式喊出
  * 「当前显示本机历史记录」—— 不得把旧数据当新数据静默呈现。
+ *
+ * 一并回传 serverHasMore:兜底态没有"服务端下一页"这件事,必须是 false。
  */
 export async function loadHistoryRows(deps: {
   fetchServer: () => Promise<ApiResult<ListConversationsResult>>
   readLocal: () => HistoryItem[]
-}): Promise<{ items: HistoryItem[]; source: HistorySource }> {
+}): Promise<{ items: HistoryItem[]; source: HistorySource; serverHasMore: boolean }> {
   let serverItems: HistoryItem[] | null = null
+  let serverTotal: unknown
   try {
     const res = await deps.fetchServer()
     if (res.success === true) {
       const rows = res.data.conversations
       if (Array.isArray(rows)) {
         serverItems = (rows as ConversationRow[]).map(mapServerConversation)
+        serverTotal = res.data.total
       }
     }
   } catch {
     serverItems = null
   }
-  if (serverItems) return { items: serverItems, source: 'server' }
-  return { items: deps.readLocal(), source: 'local' }
+  if (serverItems) {
+    return {
+      items: serverItems,
+      source: 'server',
+      serverHasMore: serverHasMoreFromPage(serverItems.length, serverTotal),
+    }
+  }
+  return { items: deps.readLocal(), source: 'local', serverHasMore: false }
 }
 
 function getGroupKey(ts: number): GroupKey {
@@ -220,6 +303,10 @@ export default function HistoryPage() {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  // 服务端续页状态:page=1 由 load 取;serverHasMore 由后端 total 判(兜底态恒 false)
+  const [serverPage, setServerPage] = useState(1)
+  const [serverHasMore, setServerHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const load = useCallback(async () => {
     const result = await loadHistoryRows({
@@ -231,6 +318,8 @@ export default function HistoryPage() {
     setDegraded(result.source === 'local')
     setPage(1)
     setHasMore(true)
+    setServerPage(1)
+    setServerHasMore(result.serverHasMore)
     setLoading(false)
     // 回传本次结果:下拉刷新要不要报「刷新成功」取决于真拿到的是哪一路数据,
     // 兜底态报成功就是对失败作假交代。
@@ -286,15 +375,64 @@ export default function HistoryPage() {
     })
   }, [load, tt])
 
-  const onLoadMore = useCallback(() => {
-    if (!hasMore) return
-    const next = page + 1
-    if (next * PAGE_SIZE >= filtered.length) {
+  /**
+   * 取服务端下一页并并进列表(D20 第三格:此前一次只取 50、无续页)。
+   *
+   * 失败判序同取列表(不抛 ∧ success ∧ 数组),任一不成立 ⇒
+   * 列表原样(绝不把"没取到"渲染成"就这么多")+ toast 点名 + 收掉 hasMore,
+   * 否则一次失败会变成每次上拉都重打同一页的死循环。
+   */
+  const fetchNextServerPage = useCallback(async () => {
+    setLoadingMore(true)
+    const nextPage = serverPage + 1
+    let items: HistoryItem[] | null = null
+    let total: unknown
+    try {
+      const res = await listConversations({ page: nextPage, pageSize: SERVER_PAGE_SIZE })
+      if (res.success === true && Array.isArray(res.data.conversations)) {
+        items = (res.data.conversations as ConversationRow[]).map(mapServerConversation)
+        total = res.data.total
+      }
+    } catch {
+      items = null
+    }
+    if (!items) {
+      setLoadingMore(false)
       setHasMore(false)
+      Taro.showToast({
+        title: tt('ai.historyPage.loadMoreFailed', '加载更多失败,请下拉刷新重试'),
+        icon: 'none',
+      })
       return
     }
-    setPage(next)
-  }, [hasMore, page, filtered.length])
+    const merged = mergeHistoryRows(list, items)
+    setList(merged)
+    setServerPage(nextPage)
+    setServerHasMore(serverHasMoreFromPage(merged.length, total))
+    setLoadingMore(false)
+  }, [list, serverPage, tt])
+
+  const onLoadMore = useCallback(() => {
+    const action = decideLoadMore({
+      hasMore,
+      loadingMore,
+      source,
+      serverHasMore,
+      shownCount: page * PAGE_SIZE,
+      filteredCount: filtered.length,
+    })
+    if (action === 'advance-page') setPage((p) => p + 1)
+    else if (action === 'fetch-server') void fetchNextServerPage()
+    else if (action === 'finish') setHasMore(false)
+  }, [
+    hasMore,
+    loadingMore,
+    source,
+    serverHasMore,
+    page,
+    filtered.length,
+    fetchNextServerPage,
+  ])
 
   const goChat = useCallback((h?: HistoryItem) => {
     Taro.navigateTo({ url: `/pkg-ai/ai/chat${h ? `?sessionId=${h.id}` : ''}` })
@@ -326,8 +464,8 @@ export default function HistoryPage() {
     [list, source, tt],
   )
 
-  // 兜底态下的行级动作只在「动作真能生效」时给:删除/清空写的是本机快照,
-  // 服务端来源下点了只会在本地抹掉一条并不存在的记录 = 假成功,所以整条收掉。
+  // 「清空全部」只写本机快照 ⇒ 仅兜底态给这个动作;行级删除在两个来源下各有出口
+  // (本机快照走 setStorageSync,服务端会话走 api-client deleteConversation)。
   const canManageLocal = source === 'local'
 
   const onDeleteOne = useCallback(
@@ -349,6 +487,44 @@ export default function HistoryPage() {
       })
     },
     [t, tt],
+  )
+
+  /**
+   * 删除一个**服务端**会话(D20 第二格:此前服务端来源下根本没有删除入口)。
+   *
+   * 乐观移除 + 失败回滚:先按快照摘掉这一行,删除请求没被后端确认(deleted!==true)
+   * 就把整表还原并 toast 点名 —— 两个方向都不留"看着删了其实没删"的中间态。
+   * 刻意不写本机快照:服务端会话 id 与快照的 hist_* 不是一回事,顺手写快照等于
+   * 把一条并不存在的本机记录删了个空。
+   */
+  const onDeleteServerConversation = useCallback(
+    (h: HistoryItem) => {
+      Taro.showModal({
+        title: tt('ai.historyPage.deleteOne', '删除该对话'),
+        content: h.title || h.id,
+        confirmText: t('common.confirm'),
+        cancelText: t('common.cancel'),
+        success: (res) => {
+          if (!res.confirm) return
+          const snapshot = list
+          setList(snapshot.filter((x) => x.id !== h.id))
+          void deleteServerConversation({ remove: () => deleteConversation(h.id) }).then(
+            (outcome) => {
+              if (outcome.ok) {
+                Taro.showToast({ title: t('success.deleted'), icon: 'none' })
+                return
+              }
+              setList(snapshot)
+              Taro.showToast({
+                title: tt('ai.historyPage.deleteFailed', '删除失败,请重试'),
+                icon: 'none',
+              })
+            },
+          )
+        },
+      })
+    },
+    [list, t, tt],
   )
 
   const onClearAll = useCallback(() => {
@@ -498,7 +674,11 @@ export default function HistoryPage() {
                           pinnedLabel={tt('ai.historyPage.pinned', '已置顶')}
                           onOpen={() => goChat(h)}
                           onTogglePin={() => void onTogglePin(h)}
-                          onLongPress={canManageLocal ? () => onDeleteOne(h) : undefined}
+                          onLongPress={
+                            source === 'server'
+                              ? () => void onDeleteServerConversation(h)
+                              : () => onDeleteOne(h)
+                          }
                         />
                       </ThemeRoot>
                     )
@@ -506,6 +686,12 @@ export default function HistoryPage() {
                 </View>
               )
             })}
+            {loadingMore ? (
+              // 「加载更多」必须看得见在取,否则用户以为到底了 —— 复用既有 common.loading 档
+              <Text className="block text-center p-[32rpx] text-[length:24rpx] text-muted-foreground">
+                {tt('common.loading', '加载中')}
+              </Text>
+            ) : null}
             {!hasMore ? (
               <Text className="block text-center p-[32rpx] text-[length:24rpx] text-muted-foreground">
                 {tt('ai.historyPage.noMore', '没有更多了')}
