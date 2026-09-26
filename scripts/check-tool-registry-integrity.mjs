@@ -30,6 +30,13 @@
  *   J6 前端实现了的工具必须 ∈ `_FS_DEPENDENT_TOOLS` ∪ 本地注册表 —— 否则前端那支实现
  *      永远不会被调到,是死代码。
  *   J7 `_DELEGATE_ONLY_HINTS` 的键集合 === `_DELEGATE_ONLY_TOOLS`(提示文案不许漏新老)。
+ *   J8 `BUILTIN_ENGINE_TOOLS` 的每个成员必须在 `ENGINE_TOOL_BRIDGE` 有条目,且桥表不得留
+ *      已不在这个名单里的旧条目(V3 #47 —— 引擎内核自带的名字此前对全部门禁盲视:实测
+ *      `unified_exec` / `run_code` / `apply_patch` 既不在 `_ADMIN_ONLY_TOOLS` 也不在
+ *      `_DEFAULT_HIGH_RISK_TOOLS`,于是**永不进审批门**,而同一能力经 run_command / file_edit
+ *      进主链路时要审批 —— 授权面随入口而变就是 #47 的病根)。
+ *   J9 桥表声明的注册表等价物必须真在 `_TOOL_HANDLERS` 里(回查落到空气上=等价声明没写)。
+ *   J10 等价物为 None 的条目必须带理由字符串(否则「注册表确实没有」与「漏登记」在账面同形)。
  *
  * 取材铁律:Python 侧一律经 Python 自身的 `ast.literal_eval` 取集合成员,**不靠整行 grep**。
  *   `_FS_DEPENDENT_TOOLS` 上方有一段注释里写着 `list_files`(2026-08-06 移出说明),
@@ -71,13 +78,17 @@ const ROOT = HAS_ROOT_FLAG ? resolvePath(args[rootFlagIdx + 1]) : ROOT_DEFAULT
  * 面取不到 ⇒ exit 2「无法判定」,不冒红也不记绿;而"面里真没有那个字面量"仍是判据红(exit 1)。
  */
 export function pickFace(argv) {
-  return selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
+  return selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
 }
 
 /** 三份被审文件按同一个面、同一轮读满;取不到一律抛 Undetermined(绝不回落另一个面)。 */
 function inputRels() {
   // 不在模块顶层求值:PY_LLM/PY_MCP/TS_EXEC 声明在本函数之后,顶层数组会撞 TDZ。
-  return [PY_LLM, PY_MCP, TS_EXEC]
+  return [PY_LLM, PY_MCP, TS_EXEC, PY_ENGINE, PY_BRIDGE]
 }
 function readInputs(root, face) {
   const rels = inputRels()
@@ -85,7 +96,8 @@ function readInputs(root, face) {
     const out = {}
     for (const rel of rels) {
       const text = readWorktreeFile(root, rel)
-      if (text === null || text === undefined) throw new Undetermined(rel + ' 在磁盘上不存在(工作树档)')
+      if (text === null || text === undefined)
+        throw new Undetermined(rel + ' 在磁盘上不存在(工作树档)')
       out[rel] = text
     }
     return out
@@ -106,6 +118,12 @@ function readInputs(root, face) {
 const PY_LLM = 'apps/ai-service/app/routers/llm.py'
 const PY_MCP = 'apps/ai-service/app/services/mcp_server.py'
 const TS_EXEC = 'apps/web/src/lib/workspace-tool-executor.ts'
+// V3 #47(2026-09-26 并入):引擎内核自带的内置名,与「能力归口」声明表。
+// 这张表存在的理由就是本门此前对 C 内核全盲 —— 全文 BUILTIN 0 命中,
+// 于是 unified_exec / run_code / apply_patch 三个「起 shell、跑代码、写文件」
+// 的名字在两条链上套着不同判定而无人看守。
+const PY_ENGINE = 'apps/ai-service/app/services/agent_engine.py'
+const PY_BRIDGE = 'apps/ai-service/app/services/engine_tool_bridge.py'
 
 /**
  * 剥掉 Python 行注释(保留字符串内部的 `#`)。
@@ -148,12 +166,12 @@ function stripLineComments(src) {
  */
 function pyCollection(src, varName) {
   const lines = stripLineComments(src)
-  const decl = new RegExp(`^${varName}\\s*(?::[^=\\n]*)?=\\s*([{\\[])`, 'm')
+  const decl = new RegExp(`^${varName}\\s*(?::[^=\\n]*)?=\\s*([{\\[(])`, 'm')
   const m = decl.exec(lines)
   if (!m) return null
   const openIdx = lines.indexOf(m[1], m.index)
   const open = m[1]
-  const close = open === '{' ? '}' : ']'
+  const close = open === '{' ? '}' : open === '[' ? ']' : ')'
   let depth = 0
   let quote = null
   for (let i = openIdx; i < lines.length; i++) {
@@ -185,7 +203,8 @@ function dictKeySet(fileAbs, src, varName) {
   const lit = pyCollection(src, varName)
   if (lit === null) throw new Error(`${fileAbs}: 未找到 ${varName} 的字面量赋值`)
   const keys = new Set()
-  for (const m of lit.matchAll(/(?:"([A-Za-z0-9_]+)"|'([A-Za-z0-9_]+)')\s*:/g)) keys.add(m[1] ?? m[2])
+  for (const m of lit.matchAll(/(?:"([A-Za-z0-9_]+)"|'([A-Za-z0-9_]+)')\s*:/g))
+    keys.add(m[1] ?? m[2])
   return keys
 }
 
@@ -194,7 +213,9 @@ function dictMap(fileAbs, src, varName) {
   const lit = pyCollection(src, varName)
   if (lit === null) throw new Error(`${fileAbs}: 未找到 ${varName} 的字面量赋值`)
   const out = {}
-  for (const m of lit.matchAll(/(?:"([A-Za-z0-9_]+)"|'([A-Za-z0-9_]+)')\s*:\s*(?:"([A-Za-z0-9_]+)"|'([A-Za-z0-9_]+)')/g)) {
+  for (const m of lit.matchAll(
+    /(?:"([A-Za-z0-9_]+)"|'([A-Za-z0-9_]+)')\s*:\s*(?:"([A-Za-z0-9_]+)"|'([A-Za-z0-9_]+)')/g,
+  )) {
     out[m[1] ?? m[2]] = m[3] ?? m[4]
   }
   return out
@@ -213,6 +234,42 @@ function localRegistry(texts) {
   return dictKeySet(PY_MCP, texts[PY_MCP], '_TOOL_HANDLERS')
 }
 
+/**
+ * 引擎能力桥表 `ENGINE_TOOL_BRIDGE` 的条目。
+ *
+ * 每条读两件事:第一个元组元素(注册表里的同一能力拥有者,或 None)、
+ * 第二个元素是否存在(理由)。第二个元素的内容刻意不解析 ——
+ * 理由里有多段隐式拼接的字符串,把它们当值读只会让判据随格式化漂移;
+ * 本门要问的是「有没有交代」,不是「交代了什么」。
+ */
+function bridgeEntries(texts) {
+  const src = texts[PY_BRIDGE]
+  const lit = pyCollection(src, 'ENGINE_TOOL_BRIDGE')
+  if (lit === null) {
+    throw new Error(`${PY_BRIDGE}: 未找到 ENGINE_TOOL_BRIDGE 的字面量赋值(读空=判据失明,不记绿)`)
+  }
+  const out = new Map()
+  const re =
+    /"([A-Za-z0-9_]+)"\s*:\s*\(\s*(?:"([A-Za-z0-9_]+)"|None)\s*,\s*("(?:[^"\\]|\\.)*"|None)/g
+  for (const m of lit.matchAll(re)) {
+    out.set(m[1], {
+      equivalent: m[2] ?? null,
+      hasReason: typeof m[3] === 'string' && m[3][0] === '"',
+    })
+  }
+  return out
+}
+
+/** 引擎内核自带的内置名(`BUILTIN_ENGINE_TOOLS` 元组成员)。 */
+function engineBuiltins(texts) {
+  const src = texts[PY_ENGINE]
+  const lit = pyCollection(src, 'BUILTIN_ENGINE_TOOLS')
+  if (lit === null) {
+    throw new Error(`${PY_ENGINE}: 未找到 BUILTIN_ENGINE_TOOLS 的字面量赋值(读空=判据失明,不记绿)`)
+  }
+  return setMembers(lit)
+}
+
 function collect(texts) {
   const llm = texts[PY_LLM]
   const take = (name) => {
@@ -227,6 +284,8 @@ function collect(texts) {
     aliases: dictMap(PY_LLM, llm, '_TOOL_ALIASES'),
     local: localRegistry(texts),
     frontend: frontendCases(texts),
+    builtins: engineBuiltins(texts),
+    bridge: bridgeEntries(texts),
   }
 }
 
@@ -246,7 +305,9 @@ function check(d) {
   // J2 —— 别名值域不许指向空气
   for (const [alias, target] of Object.entries(d.aliases)) {
     if (!d.local.has(target)) {
-      failures.push(`J2 别名 '${alias}' → '${target}',但 '${target}' 不在本地注册表 —— 别名指向空气`)
+      failures.push(
+        `J2 别名 '${alias}' → '${target}',但 '${target}' 不在本地注册表 —— 别名指向空气`,
+      )
     }
   }
 
@@ -263,39 +324,91 @@ function check(d) {
       failures.push(`J4 别名键 '${alias}' 是委托专有工具 —— 会窃取浏览器委托语义`)
     }
     if (d.delegateOnly.has(target)) {
-      failures.push(`J4 别名 '${alias}' → '${target}' 是委托专有工具 —— 本地路径会调到本地不存在的名字`)
+      failures.push(
+        `J4 别名 '${alias}' → '${target}' 是委托专有工具 —— 本地路径会调到本地不存在的名字`,
+      )
     }
   }
 
   // J5 —— 「委托专有」的三条定义
   for (const name of sorted(d.delegateOnly)) {
     if (!d.fs.has(name)) {
-      failures.push(`J5 '${name}' 在 _DELEGATE_ONLY_TOOLS 却不在 _FS_DEPENDENT_TOOLS —— 永远不会走委托分支`)
+      failures.push(
+        `J5 '${name}' 在 _DELEGATE_ONLY_TOOLS 却不在 _FS_DEPENDENT_TOOLS —— 永远不会走委托分支`,
+      )
     }
     if (!d.frontend.has(name)) {
-      failures.push(`J5 '${name}' 标为委托专有,但 ${TS_EXEC} 没有对应 case —— 委托过去只会得到「浏览器端不支持」`)
+      failures.push(
+        `J5 '${name}' 标为委托专有,但 ${TS_EXEC} 没有对应 case —— 委托过去只会得到「浏览器端不支持」`,
+      )
     }
     if (d.local.has(name)) {
-      failures.push(`J5 '${name}' 已在本地注册表,却仍标为委托专有 —— 语义失效,应移出 _DELEGATE_ONLY_TOOLS`)
+      failures.push(
+        `J5 '${name}' 已在本地注册表,却仍标为委托专有 —— 语义失效,应移出 _DELEGATE_ONLY_TOOLS`,
+      )
     }
   }
 
   // J6 —— 前端实现了却没人会调到 = 死代码
   for (const name of sorted(d.frontend)) {
     if (!d.fs.has(name) && !d.local.has(name)) {
-      failures.push(`J6 ${TS_EXEC} 实现了 '${name}',但它既不可委托也不在本地注册 —— 该实现永远执行不到`)
+      failures.push(
+        `J6 ${TS_EXEC} 实现了 '${name}',但它既不可委托也不在本地注册 —— 该实现永远执行不到`,
+      )
     }
   }
 
   // J7 —— 提示文案必须与集合同步(双向)
   for (const name of sorted(d.delegateOnly)) {
     if (!d.hints.has(name)) {
-      failures.push(`J7 _DELEGATE_ONLY_HINTS 缺 '${name}' 的等价建议 —— 报错时模型拿不到「该换哪个工具」`)
+      failures.push(
+        `J7 _DELEGATE_ONLY_HINTS 缺 '${name}' 的等价建议 —— 报错时模型拿不到「该换哪个工具」`,
+      )
     }
   }
   for (const name of sorted(d.hints)) {
     if (!d.delegateOnly.has(name)) {
-      failures.push(`J7 _DELEGATE_ONLY_HINTS 多出 '${name}' —— 已不在 _DELEGATE_ONLY_TOOLS,属过期条目`)
+      failures.push(
+        `J7 _DELEGATE_ONLY_HINTS 多出 '${name}' —— 已不在 _DELEGATE_ONLY_TOOLS,属过期条目`,
+      )
+    }
+  }
+
+  // J8 —— 引擎内置名与能力桥双向对账(V3 #47,2026-09-26 并入)。
+  // 只查「内置名有没有条目」是单向的:内置名被删或改名后,桥表会留一条无人认领的旧映射;
+  // 而新内置名照样能悄悄加进 BUILTIN_ENGINE_TOOLS 不登记 —— 两个方向各判一次。
+  for (const name of sorted(d.builtins)) {
+    if (!d.bridge.has(name)) {
+      failures.push(
+        `J8 引擎内置名 '${name}'(${PY_ENGINE} 的 BUILTIN_ENGINE_TOOLS)在 ${PY_BRIDGE} 没有能力桥条目 ` +
+          '—— 它绕开统一注册表的判定,授权面随入口而变',
+      )
+    }
+  }
+  for (const name of sorted(d.bridge.keys())) {
+    if (!d.builtins.has(name)) {
+      failures.push(
+        `J8 能力桥条目 '${name}' 已不在 ${PY_ENGINE} 的 BUILTIN_ENGINE_TOOLS —— 清单腐烂(登记比现实旧)`,
+      )
+    }
+  }
+
+  // J9 —— 桥表声明的等价物必须真在注册表里,否则「回查」回查到空气,判定静默不变。
+  for (const [name, entry] of [...d.bridge.entries()].sort()) {
+    if (entry.equivalent !== null && !d.local.has(entry.equivalent)) {
+      failures.push(
+        `J9 引擎内置名 '${name}' 声明等价物 '${entry.equivalent}',但它不在 ${PY_MCP}._TOOL_HANDLERS ` +
+          '—— 等价声明等于没写',
+      )
+    }
+  }
+
+  // J10 —— 无等价物必须带理由:「注册表确实没有」与「有人漏登记」在账面必须不同形。
+  for (const [name, entry] of [...d.bridge.entries()].sort()) {
+    if (entry.equivalent === null && !entry.hasReason) {
+      failures.push(
+        `J10 引擎内置名 '${name}' 登记为「仅引擎本地」却没写理由 —— 空位与漏登记无法区分`,
+      )
     }
   }
   return failures
@@ -338,6 +451,23 @@ ${cases.map((n) => `    case '${n}':`).join('\n')}
 }
 `
 
+const fixEngine = (names) => `# -*- coding: utf-8 -*-
+BUILTIN_ENGINE_TOOLS: tuple[str, ...] = (
+${names.map((n) => `    "${n}",`).join('\n')}
+)
+`
+
+const fixBridge = (body) => `# -*- coding: utf-8 -*-
+ENGINE_TOOL_BRIDGE: dict[str, tuple[str | None, str | None]] = {
+${body}
+}
+`
+
+const CLEAN_BRIDGE =
+  '    "unified_exec": ("run_command", None),\n' +
+  '    "view_image": ("read_file", None),\n' +
+  '    "update_plan": (None, "协议对位件,注册表无 plan 类工具"),\n'
+
 function runSelfTest() {
   const cleanFiles = {
     [PY_LLM]: fixPy(
@@ -348,6 +478,8 @@ function runSelfTest() {
     ),
     [PY_MCP]: fixHandlers(['read_file', 'write_file', 'run_command']),
     [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']),
+    [PY_ENGINE]: fixEngine(['unified_exec', 'view_image', 'update_plan']),
+    [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE),
   }
 
   // [用例名, 变更后的文件, 期望命中的失败子串;null = 期望零失败]
@@ -355,27 +487,67 @@ function runSelfTest() {
     ['基线干净(应零失败)', cleanFiles, null],
     [
       'J1 真幽灵名必红',
-      { ...cleanFiles, [PY_LLM]: fixPy('    "ghost_tool",', '    "apply_patch",', '    "apply_patch": "用 file_edit",', '    "execute_command": "run_command",') },
+      {
+        ...cleanFiles,
+        [PY_LLM]: fixPy(
+          '    "ghost_tool",',
+          '    "apply_patch",',
+          '    "apply_patch": "用 file_edit",',
+          '    "execute_command": "run_command",',
+        ),
+      },
       'J1 真幽灵工具名',
     ],
     [
       'J2 别名指向空气必红',
-      { ...cleanFiles, [PY_LLM]: fixPy('    "read_file",\n    "apply_patch",', '    "apply_patch",', '    "apply_patch": "用 file_edit",', '    "execute_command": "no_such_tool",') },
+      {
+        ...cleanFiles,
+        [PY_LLM]: fixPy(
+          '    "read_file",\n    "apply_patch",',
+          '    "apply_patch",',
+          '    "apply_patch": "用 file_edit",',
+          '    "execute_command": "no_such_tool",',
+        ),
+      },
       'J2 别名',
     ],
     [
       'J3 别名键抢占真工具名必红',
-      { ...cleanFiles, [PY_LLM]: fixPy('    "read_file",\n    "apply_patch",', '    "apply_patch",', '    "apply_patch": "用 file_edit",', '    "read_file": "run_command",') },
+      {
+        ...cleanFiles,
+        [PY_LLM]: fixPy(
+          '    "read_file",\n    "apply_patch",',
+          '    "apply_patch",',
+          '    "apply_patch": "用 file_edit",',
+          '    "read_file": "run_command",',
+        ),
+      },
       'J3 别名键',
     ],
     [
       'J4 别名值指向委托专有必红',
-      { ...cleanFiles, [PY_LLM]: fixPy('    "read_file",\n    "apply_patch",', '    "apply_patch",', '    "apply_patch": "用 file_edit",', '    "execute_command": "apply_patch",') },
+      {
+        ...cleanFiles,
+        [PY_LLM]: fixPy(
+          '    "read_file",\n    "apply_patch",',
+          '    "apply_patch",',
+          '    "apply_patch": "用 file_edit",',
+          '    "execute_command": "apply_patch",',
+        ),
+      },
       'J4 别名',
     ],
     [
       'J5 委托专有却已本地注册必红',
-      { ...cleanFiles, [PY_LLM]: fixPy('    "read_file",\n    "apply_patch",', '    "read_file",', '    "apply_patch": "用 file_edit",', '    "execute_command": "run_command",') },
+      {
+        ...cleanFiles,
+        [PY_LLM]: fixPy(
+          '    "read_file",\n    "apply_patch",',
+          '    "read_file",',
+          '    "apply_patch": "用 file_edit",',
+          '    "execute_command": "run_command",',
+        ),
+      },
       'J5',
     ],
     [
@@ -385,25 +557,101 @@ function runSelfTest() {
     ],
     [
       'J6 前端死实现必红',
-      { ...cleanFiles, [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch', 'never_called']) },
+      {
+        ...cleanFiles,
+        [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch', 'never_called']),
+      },
       'J6',
     ],
     [
       'J7 提示表缺项必红',
-      { ...cleanFiles, [PY_LLM]: fixPy('    "read_file",\n    "apply_patch",', '    "apply_patch",', '', '    "execute_command": "run_command",') },
+      {
+        ...cleanFiles,
+        [PY_LLM]: fixPy(
+          '    "read_file",\n    "apply_patch",',
+          '    "apply_patch",',
+          '',
+          '    "execute_command": "run_command",',
+        ),
+      },
       'J7',
     ],
     [
       // 变异验证:注释里提到的名字不得被读成集合成员 —— 这是本门取材铁律的执行凭据。
       // 若 stripLineComments 失效,`ghost_in_comment` 会被算进 _FS_DEPENDENT_TOOLS 并触发 J1。
-      ['注释里的名字不被误吸(应零失败)', {
-        [PY_LLM]:
-          '# 2026-08-06:ghost_in_comment 移出本集合 —— 它曾经在这里,现在别读了\n' +
-          fixPy('    "read_file",\n    "apply_patch",', '    "apply_patch",', '    "apply_patch": "用 file_edit",', '    "execute_command": "run_command",'),
-        [PY_MCP]: fixHandlers(['read_file', 'write_file', 'run_command']),
-        [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']),
-      }, null],
+      [
+        '注释里的名字不被误吸(应零失败)',
+        {
+          [PY_LLM]:
+            '# 2026-08-06:ghost_in_comment 移出本集合 —— 它曾经在这里,现在别读了\n' +
+            fixPy(
+              '    "read_file",\n    "apply_patch",',
+              '    "apply_patch",',
+              '    "apply_patch": "用 file_edit",',
+              '    "execute_command": "run_command",',
+            ),
+          [PY_MCP]: fixHandlers(['read_file', 'write_file', 'run_command']),
+          [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']),
+          [PY_ENGINE]: fixEngine(['unified_exec', 'view_image', 'update_plan']),
+          [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE),
+        },
+        null,
+      ],
     ].flat(),
+    [
+      'J8 内置名缺桥条目必红(V3 #47 的立项型:引擎自带名字此前对全部门禁盲视)',
+      {
+        ...cleanFiles,
+        [PY_ENGINE]: fixEngine(['unified_exec', 'view_image', 'update_plan', 'new_tool_no_bridge']),
+      },
+      'J8 引擎内置名',
+    ],
+    [
+      'J8 桥表留旧条目必红(清单腐烂)',
+      {
+        ...cleanFiles,
+        [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE + '    "retired_tool": ("read_file", None),\n'),
+      },
+      'J8 能力桥条目',
+    ],
+    [
+      'J9 等价物不在注册表必红(回查落到空气上)',
+      {
+        ...cleanFiles,
+        [PY_BRIDGE]: fixBridge(
+          '    "unified_exec": ("no_such_tool", None),\n' +
+            '    "view_image": ("read_file", None),\n' +
+            '    "update_plan": (None, "协议对位件,注册表无 plan 类工具"),\n',
+        ),
+      },
+      'J9 引擎内置名',
+    ],
+    [
+      'J10 无等价物却不带理由必红(空位与漏登记必须不同形)',
+      {
+        ...cleanFiles,
+        [PY_BRIDGE]: fixBridge(
+          '    "unified_exec": ("run_command", None),\n' +
+            '    "view_image": ("read_file", None),\n' +
+            '    "update_plan": (None, None),\n',
+        ),
+      },
+      'J10 引擎内置名',
+    ],
+    // 正向对照:J10 认隐式拼接的多段字符串(真表里 6 条就是这么写的)。
+    // 若判据只认单段字面量,「有理由」会被读成「没理由」⇒ 一道对真实写法恒红的门。
+    [
+      'J10 多段拼接理由必须被认作已带理由(应零失败)',
+      {
+        ...cleanFiles,
+        [PY_BRIDGE]: fixBridge(
+          '    "unified_exec": ("run_command", None),\n' +
+            '    "view_image": ("read_file", None),\n' +
+            '    "update_plan": (\n        None,\n        "协议对位件;"\n        "注册表无 plan 类工具",\n    ),\n',
+        ),
+      },
+      null,
+    ],
   ]
 
   let bad = 0
@@ -427,7 +675,11 @@ function runSelfTest() {
       )
     }
   }
-  console.log(bad === 0 ? `${C.green}✅ 自检通过 ${cases.length}/${cases.length}${C.reset}` : `${C.red}❌ 自检失败 ${bad}/${cases.length}${C.reset}`)
+  console.log(
+    bad === 0
+      ? `${C.green}✅ 自检通过 ${cases.length}/${cases.length}${C.reset}`
+      : `${C.red}❌ 自检失败 ${bad}/${cases.length}${C.reset}`,
+  )
   process.exit(bad === 0 ? 0 : 1)
 }
 
@@ -458,7 +710,9 @@ try {
 } catch (e) {
   if (e instanceof Undetermined) {
     // "面取不到"与"面里没有那个字面量"是两件事:前者无法判定,后者是判据红。
-    console.log(`${C.red}${C.bold}❌ 工具注册表完整性无法判定(不冒红也不记绿)${C.reset} — ${e.message}`)
+    console.log(
+      `${C.red}${C.bold}❌ 工具注册表完整性无法判定(不冒红也不记绿)${C.reset} — ${e.message}`,
+    )
     process.exit(2)
   }
   console.log(`${C.red}${C.bold}❌ 工具注册表完整性无法判定${C.reset} — ${e.message}`)
