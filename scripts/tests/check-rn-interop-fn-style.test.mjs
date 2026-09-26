@@ -88,6 +88,13 @@ test('T5 真仓阳性对照:全量面必须看得见存量(看不见=判据对�
   assert.ok(r.total > 50, `真仓存量读出来只有 ${r.total} 处 —— 判据或射程被改窄了,这不算通过`)
   assert.ok(r.filesWithHits > 20, `命中文件数 ${r.filesWithHits} 异常偏低`)
   assert.ok(r.scannedFiles > 300, `扫描文件数 ${r.scannedFiles} 异常偏低(枚举面失效)`)
+  // 空扫判据必须是"**能**判死"而不是"一直判死":真仓 head 面若 emptyScan=true,
+  // 这扇门就成了与任何提交都无关的恒红门(§12e 那条),所以这里反向钉它一次。
+  assert.equal(
+    r.emptyScan,
+    false,
+    '真仓 head 面被判定为空扫 ⇒ 枚举面或仓库根错位,本门会恒判无法判定',
+  )
 })
 
 test('T6 注册表必须现读,且内置兜底清单是它的子集(清单腐烂即红)', () => {
