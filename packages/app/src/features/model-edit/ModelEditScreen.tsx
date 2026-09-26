@@ -305,7 +305,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    chipActive: { borderColor: tk.brand.DEFAULT, backgroundColor: tk.surface.muted },
+    chipActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     chipText: { fontSize: 14, color: tk.text.medium },
     chipTextActive: { color: tk.text.primary, fontWeight: '600' },
     paidCard: {
