@@ -81,7 +81,7 @@ export default function AiCircle() {
 
   return (
     <View className="min-h-screen bg-background pb-[160rpx]">
-      <View className="p-[24rpx] bg-card border-b border-[var(--color-border)]">
+      <View className="p-[24rpx]">
         <Text className="text-[length:36rpx] font-semibold text-foreground">
           {t('aiCircle.title')}
         </Text>

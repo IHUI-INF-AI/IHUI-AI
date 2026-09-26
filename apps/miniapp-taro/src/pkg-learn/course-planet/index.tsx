@@ -179,8 +179,8 @@ export default function CoursePlanet() {
       <ThemeRoot>
         {/* 对齐 RN CoursePlanetScreen:root 底色 brandAccent.light → --color-brand-accent-light */}
         <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
-          {/* 对齐 RN NavBar:bg surface.card / 高 44dp→88rpx / 底边框 border.light */}
-          <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
+          {/* 对齐 RN NavBar:高 44dp→88rpx(透明底、无下描边 ⇒ 透出页面底色) */}
+          <View className="h-[88rpx] flex items-center px-[24rpx]">
             <Text className="text-[length:36rpx] font-semibold text-foreground">
               {t('coursePlanet.title')}
             </Text>
@@ -199,7 +199,7 @@ export default function CoursePlanet() {
     return (
       <ThemeRoot>
         <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
-          <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
+          <View className="h-[88rpx] flex items-center px-[24rpx]">
             <Text className="text-[length:36rpx] font-semibold text-foreground">
               {t('coursePlanet.title')}
             </Text>
@@ -225,8 +225,8 @@ export default function CoursePlanet() {
     <ThemeRoot>
       {/* 对齐 RN root 底色 brandAccent.light → --color-brand-accent-light;scrollContent padding rpx(20) */}
       <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
-        {/* 对齐 RN NavBar:bg surface.card / 高 44dp→88rpx / 底边框 border.light */}
-        <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
+        {/* 对齐 RN NavBar:高 44dp→88rpx(透明底、无下描边 ⇒ 透出页面底色) */}
+        <View className="h-[88rpx] flex items-center px-[24rpx]">
           <Text className="text-[length:36rpx] font-semibold text-foreground">
             {t('coursePlanet.title')}
           </Text>
