@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 export default function StudyPublish() {
   const { t, tList } = useI18n()
@@ -113,7 +114,7 @@ export default function StudyPublish() {
               <Text className="flex-1 text-[length:28rpx] text-muted-foreground text-right">
                 {categories[category]}
               </Text>
-              <Text className="text-[length:32rpx] text-muted-foreground ml-[16rpx]">›</Text>
+              <LineIcon name="chevron-right" size={32} className="ml-[16rpx]" />
             </View>
           </Picker>
           <Picker
@@ -129,7 +130,7 @@ export default function StudyPublish() {
               <Text className="flex-1 text-[length:28rpx] text-muted-foreground text-right">
                 {visibilityOptions[visibility]}
               </Text>
-              <Text className="text-[length:32rpx] text-muted-foreground ml-[16rpx]">›</Text>
+              <LineIcon name="chevron-right" size={32} className="ml-[16rpx]" />
             </View>
           </Picker>
           <Input

@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getLiveCalendar, subscribeLive, type Live } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 import './calendar.css'
 
 type LiveStatus = Live['status']
@@ -158,18 +159,28 @@ export default function LiveCalendar() {
     <View className="cal-page">
       <View className="cal-header">
         <View className="cal-nav">
-          <Text className="cal-nav-btn" onClick={() => shift(-1)}>
-            {tt('live.calendar.prevMonth', '‹')}
-          </Text>
+          <View
+            className="cal-nav-btn"
+            onClick={() => shift(-1)}
+            ariaRole="button"
+            ariaLabel={tt('live.calendar.prevMonth', '')}
+          >
+            <LineIcon name="chevron-left" size={32} />
+          </View>
           <Text className="cal-title">
             {year}
             {tt('live.calendar.year', '年')}
             {month + 1}
             {tt('live.calendar.month', '月')}
           </Text>
-          <Text className="cal-nav-btn" onClick={() => shift(1)}>
-            {tt('live.calendar.nextMonth', '›')}
-          </Text>
+          <View
+            className="cal-nav-btn"
+            onClick={() => shift(1)}
+            ariaRole="button"
+            ariaLabel={tt('live.calendar.nextMonth', '')}
+          >
+            <LineIcon name="chevron-right" size={32} />
+          </View>
         </View>
         <Text className="cal-today-btn" onClick={goToday}>
           {tt('live.calendar.today', '今天')}
