@@ -34,6 +34,7 @@ import { spawn } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
 import { setCredential } from './mcp-credentials.js';
 import { tryParseJson, isRecord } from '../util/json.js';
+import { assertSafeFetchUrl, formatSsrfRejection, type SelfHostedTrust } from '@ihui/shared/utils/ssrf-guard';
 
 const OAUTH_LOCK_FILENAME = 'mcp-oauth.lock';
 const OAUTH_TIMEOUT_MS = 5 * 60_000; // 5 分钟
@@ -57,6 +58,12 @@ export interface OAuthConfig {
   scope: string[];
   /** MCP server URL,作为凭证 key */
   serverUrl: string;
+  /**
+   * token endpoint 的信任声明(D-1):仅当这份端点出自用户自己写的
+   * `mcpServers[].auth.oauth.tokenEndpoint` 时才可传;由服务端元数据发现/远端下发的
+   * 端点一律不得带 —— 无声明即默认档,内网与元数据地址照旧拒。
+   */
+  tokenEndpointTrust?: SelfHostedTrust;
 }
 
 export interface OAuthResult {
@@ -288,7 +295,7 @@ export async function exchangeCodeForToken(
   if (config.clientSecret) body.set('client_secret', config.clientSecret);
   if (codeVerifier) body.set('code_verifier', codeVerifier);
 
-  const json = await postTokenEndpoint(config.tokenEndpoint, body);
+  const json = await postTokenEndpoint(config.tokenEndpoint, body, config.tokenEndpointTrust);
   if (!json.access_token) {
     throw new Error('token endpoint 响应缺少 access_token');
   }
@@ -308,7 +315,7 @@ export async function refreshAccessToken(
   body.set('client_id', config.clientId);
   if (config.clientSecret) body.set('client_secret', config.clientSecret);
 
-  const json = await postTokenEndpoint(config.tokenEndpoint, body);
+  const json = await postTokenEndpoint(config.tokenEndpoint, body, config.tokenEndpointTrust);
   if (!json.access_token) {
     throw new Error('refresh 响应缺少 access_token');
   }
@@ -324,6 +331,7 @@ export async function refreshAccessToken(
 async function postTokenEndpoint(
   tokenEndpoint: string,
   body: URLSearchParams,
+  trust?: SelfHostedTrust,
 ): Promise<{
   access_token?: string;
   refresh_token?: string;
@@ -335,6 +343,10 @@ async function postTokenEndpoint(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);
   try {
+    // 出站前过一次共享 SSRF 守卫。此前这条 POST 完全没有守卫:tokenEndpoint 可能出自
+    // 服务端元数据下发(远端可控),带着 client_secret 打内网或元数据地址即 SSRF。
+    const verdict = await assertSafeFetchUrl(tokenEndpoint, { selfHosted: trust });
+    if (!verdict.safe) throw new Error(formatSsrfRejection(verdict));
     const resp = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {

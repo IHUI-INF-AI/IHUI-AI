@@ -4,7 +4,8 @@
 
 import type { CSSProperties } from 'react'
 import { View, type ITouchEvent } from '@tarojs/components'
-import { taroGeometry } from '@ihui/design-tokens'
+import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { backChevronBoxStyle, backChevronGlyphPx } from '@ihui/shared/ui'
 import LineIcon from '@/components/LineIcon'
 import { useTt } from '@/i18n'
 import { rpx } from '@/utils/rpx'
@@ -26,8 +27,13 @@ import { rpx } from '@/utils/rpx'
  * 之前本地写 `ICON_SIZE = 40` / `BOX_SIZE = 72`,RN 侧写 22 / 36,两句注释都自称
  * "与 web 同档"而屏幕上差 2px —— 端内既定档就是第二份真相(守门 128 立项读数 174 处)。
  */
-const ICON_SIZE = taroGeometry.glyphMd
-const BOX_SIZE = taroGeometry.tapBox
+/// 数字档在 design-tokens 的 GEOMETRY_PX,跨端结构与居中在 @ihui/shared/ui;本文件只做单位换算。
+/// LineIcon 的 size 收的是 rpx **数值**(它自己再换算),所以这里给数字而不是 rpx() 的字符串。
+const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
+const BOX_STYLE = backChevronBoxStyle(toUnit)
+const ICON_SIZE = backChevronGlyphPx() * TARO_RPX_PER_PX
+/// 按下态弱化值与共享源 BACK_CHEVRON_PRESSED_OPACITY(0.6)同值;
+/// 类名必须是静态字面量,否则端内 Tailwind 生成器不产出该规则,故不写模板串。
 
 export interface BackChevronProps {
   /** 返回动作;各页语义不同(navigateBack / switchTab / 回登录页),由调用方持有 */
@@ -57,11 +63,7 @@ export default function BackChevron({
       onClick={onTap}
       hoverClass="opacity-60"
       style={{
-        width: rpx(BOX_SIZE),
-        height: rpx(BOX_SIZE),
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        ...BOX_STYLE,
         ...style,
       }}
     >
