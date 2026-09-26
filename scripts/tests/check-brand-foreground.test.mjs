@@ -80,7 +80,7 @@ test('__test__ 出口齐备(§22c 锚点:判据函数 + 扩面所系的正则本
   )
   assert.ok(
     gate.R7_BAD_ON_CTA.has('surface.light'),
-    'R7:cta × surface.light 必须在错配表里(深色 #262626 压 #4A7A96 = 3.25:1)',
+    'R7:cta × surface.light 必须在错配表里(非配对前景档,档位法则判)',
   )
   assert.ok(
     !gate.R7_BAD_ON_DEFAULT.has('surface.light'),
@@ -104,7 +104,7 @@ test('__test__ 出口齐备(§22c 锚点:判据函数 + 扩面所系的正则本
 
 // ══ 缺陷 2 的五条必补夹具(成对:坏例子必红 + 好例子必绿)══
 
-test('夹具 1:cta 实底 + 同块 surface.light → R1 必红(深色档案 #262626 压 #4A7A96 仅 3.25:1)', () => {
+test('夹具 1:cta 实底 + 同块 surface.light → R1 必红(surface.light 非配对前景档,档位法则判)', () => {
   const bad = [
     '  btn: {',
     '    backgroundColor: tokens.brand.cta,',
@@ -219,7 +219,8 @@ test('夹具 4:countCtaFills 必须计 cta 填充 —— 扩面前这一组实�
     0,
     'R3 兄弟键成对(cta↔ctaForeground)不计(与 R4 同一套命名配对)',
   )
-  // 跨档配对不放行:DEFAULT 底 × ctaForeground 在深色档案下是白压白,恰是要拦的债
+  // 跨档配对不放行:DEFAULT 底 × ctaForeground 违反"底与字同档成对"档位法则(现行黑/白取值下
+  // 两档恰巧同色,但法则不随取值巧合松动 —— 换回中间调时它就是隐形债),恰是要拦的债
   assert.equal(
     gate.countCtaFills([
       '  btn: {',
