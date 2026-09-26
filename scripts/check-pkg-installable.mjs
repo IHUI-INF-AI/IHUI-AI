@@ -2,17 +2,19 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 可安装性自检:证明一个 workspace 包 `npm pack` 出来的 tarball 真的能被外部装到并用。
+// 可安装性自检:证明一个 workspace 包 `pnpm pack` 出来的 tarball 真的能被外部装到并用。
+// (取包工具必须与实际发布工具同侧 —— 2026-09-26 起由 npm pack 改为 pnpm pack,理由见 main() 内头注。)
 //
 // 用法:
 //   node scripts/check-pkg-installable.mjs packages/api-client
 //   node scripts/check-pkg-installable.mjs packages/api-client --keep   (保留解包现场)
 //
 // 判据(全部为"发布前硬闸",任一不过即 exit 1):
-//   1. npm pack 真产出 tarball,并能列出成员(不是 --dry-run --json 的推断)
+//   1. pnpm pack 真产出 tarball,并能列出成员(不是 --dry-run --json 的推断)
 //   2. 含 dist/index.js + dist/index.d.ts(编译产物 + 类型声明都在包里)
 //   3. 不含 src/(外部装到的是 dist,泄漏源码即说明 exports 仍指向 src)
-//   4. 不含 .env / .npmrc / *.pem / *.key / id_rsa / *secret* / *credential* / *.token
+//   4. 不含 .env / .npmrc / *.pem / *.key / id_rsa / *.token,也不含 *secret* / *credential*
+//      形态的**数据文件**(一方代码模块名含 credential 不判红,理由与正反对照见 SECRET_PATTERNS 头注);
 //      以及 node_modules / .turbo / .git / *.tsbuildinfo 等构建噪音
 //   5. packed package.json 的 dependencies / peerDependencies 里没有 `workspace:` 残留
 //      (workspace: 协议只在本仓库内有意义,发出去 = 外部装到一个不存在的包)
@@ -35,8 +37,9 @@
 // 输出顺序:解包成员清单(最多 40 条)→ 结论 → blocker 明细 → private 状态提示。
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import { isBuiltin } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // §26 临时夹具唯一落点(2026-09-25 迁):解包现场此前留在仓库树内 .ihui-agent/tmp/,
 // 而 scratch-dir 的硬约束是临时物既不写 Node 的 TEMP 变量(活进程 TEMP 可能钉在 C 盘)
@@ -45,16 +48,20 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-const SECRET_PATTERNS = [
-  /\.env(\.|$)/i,
-  /\.npmrc$/i,
-  /\.pem$/i,
-  /\.key$/i,
-  /id_rsa/i,
-  /secret/i,
-  /credential/i,
-  /\.token$/i,
-]
+// 判据 4 的名模式分两组 —— 这个拆分是 2026-09-26 apps/cli 发布收口时被实测假阳逼出来的:
+// - SECRET_PATTERNS(结构性):.env / .npmrc / .pem / .key / id_rsa / .token 这类名字本身就是
+//   密钥材料形态,不分文件类型,出现在 tarball 里即红。
+// - SENSITIVE_DATA_PATTERNS(语义性,secret/credential):本仓有一批**一方代码模块**字面就叫
+//   `credentials.ts`(实现凭据的读取/存储,内容不是凭据本身,见 apps/cli/src/config/credentials.ts)。
+//   纯文件名正则会把编译产物 `dist/config/credentials.js` 一并点名 —— 于是含此类模块的可发布包
+//   永远过不了自己的发布门,而这条红既不指素材也不指行为,是判据把自己的合法输入判死。
+//   现该组只判**非代码形态**的文件(.json/.txt/无扩展等数据文件照判红);代码文件里若真烤进
+//   明文密钥,由内容级的凭据守门(如 guardian 第 1 项 API key 泄露扫描)问责,不归本门这条问"名字"。
+//   正反对照由镜像测试钉:credentials.json 仍红,credentials.js 绿。
+const SECRET_PATTERNS = [/\.env(\.|$)/i, /\.npmrc$/i, /\.pem$/i, /\.key$/i, /id_rsa/i, /\.token$/i]
+const SENSITIVE_DATA_PATTERNS = [/secret/i, /credential/i]
+// 编译/源码形态:判"混入密钥素材"的名规则对它们不适用(理由见上)。
+const CODE_FILE_RE = /\.(?:[cm]?[jt]sx?|map)$/i
 
 const JUNK_PATTERNS = [/^package\/(node_modules|\.turbo|\.git)\//, /\.tsbuildinfo$/i]
 
@@ -73,15 +80,26 @@ export function normalizeTarEntries(stdout) {
  * Node 的 ESM 解析是完全指定的:`from './client'` 不会被补成 `./client.js`,
  * 直接 ERR_MODULE_NOT_FOUND。tsc 在 moduleResolution: Bundler 下不改写扩展名,
  * 所以这类产物只有打包器能用,外部纯 Node ESM 消费者装到即坏。
+ *
+ * 两处 2026-09-26 的判据修正(apps/cli 收口时实测逼出,两处都是精度收紧而非放宽):
+ * ① 动态形态原写法是 `\(\s*['"]…['"]\s*\)` —— 那是**任意单字符串实参调用**,不是动态 import。
+ *    `target.startsWith('./')` / `source.startsWith('./')` 这类真实代码被当成"无扩展名 import"
+ *    点名(apps/cli/dist/tools/codegraph.js:95、dist/plugins/installer.js:186),一张发布硬闸
+ *    把一个本来健康的产物判红,还害派单文书把不存在的缺陷写进票面。现要求 `import` 关键字紧贴左括号。
+ * ② 本判据先过 stripJsComments。头注原写"判据 7 刻意不剥注释(注释里的同形文本也值得报)"——
+ *    该前提在"包的工作就是解析 import 语句"时被实测证伪:codegraph.ts 的解析器模式说明注释
+ *    (`// import x from './path'`)逐字命中判据形态,而注释结构上不可能被消费者执行,
+ *    与本判据声明的失败模式(ERR_MODULE_NOT_FOUND)无关。与判据 9 对齐为同一行为口径。
  */
 export function findExtensionlessRelativeImports(text) {
+  const code = stripJsComments(text)
   const bad = new Set()
   const re = /(?:^|\s|;|})(?:import|export)\s[^'"]*?from\s*(['"])(\.\.?\/[^'"]*)\1/gm
-  for (const m of String(text).matchAll(re)) {
+  for (const m of code.matchAll(re)) {
     if (!/\.[A-Za-z0-9]+$/.test(m[2])) bad.add(m[2])
   }
-  const dyn = /\(\s*(['"])(\.\.?\/[^'"]*)\1\s*\)/g
-  for (const m of String(text).matchAll(dyn)) {
+  const dyn = /\bimport\s*\(\s*(['"])(\.\.?\/[^'"]*)\1\s*\)/g
+  for (const m of code.matchAll(dyn)) {
     if (!/\.[A-Za-z0-9]+$/.test(m[2])) bad.add(m[2])
   }
   return [...bad]
@@ -188,7 +206,11 @@ export function findBareImportSpecifiers(text) {
   const code = stripJsComments(text)
   const found = new Set()
   const take = (spec) => {
-    if (!spec || spec.startsWith('.') || spec.startsWith('/') || /^node:/.test(spec)) return
+    if (!spec || spec.startsWith('.') || spec.startsWith('/')) return
+    // Node 内建模块不参与"未声明"判定。原写法只免了 `node:` 前缀形态,裸内建名
+    // (`import { join } from 'path'` / `from 'http'` / `from 'https'`,apps/cli/dist 实测各有)
+    // 被判成"外部包未声明"—— 那是门的假阳:内建永远装得到,消费者不会 ERR_MODULE_NOT_FOUND。
+    if (isBuiltin(spec) || isBuiltin(barePackageName(spec))) return
     found.add(barePackageName(spec))
   }
   for (const m of code.matchAll(/(?:^|[\s;{}(])(?:import|export)\b[^'"`;]*?\bfrom\s*(['"])([^'"]+)\1/gm)) take(m[2])
@@ -242,6 +264,9 @@ export function collectBlockers(prefix, entries, manifest, repoManifestPath) {
   for (const p of rel) {
     const hitSecret = SECRET_PATTERNS.find((re) => re.test(p))
     if (hitSecret) blockers.push(`tarball 混入疑似密钥/敏感文件 ${at(p)}(命中 ${hitSecret})`)
+    // 语义名组只对非代码文件生效,理由见 SENSITIVE_DATA_PATTERNS 头注。
+    const hitName = CODE_FILE_RE.test(p) ? undefined : SENSITIVE_DATA_PATTERNS.find((re) => re.test(p))
+    if (hitName) blockers.push(`tarball 混入疑似密钥/敏感文件 ${at(p)}(命中 ${hitName})`)
     const hitJunk = JUNK_PATTERNS.find((re) => re.test(at(p)))
     if (hitJunk) blockers.push(`tarball 混入构建噪音 ${at(p)}`)
   }
@@ -305,22 +330,27 @@ async function main() {
   }
   const workDir = mkScratch('pkg-installable-run-')
   try {
-    console.log(`▶ npm pack → ${target}`)
-    // --json:清单走 stdout,"npm notice" 人类可读行进 stderr,避免靠肉眼切最后一行。
-    const packJson = sh('npm', ['pack', '--json', '--pack-destination', workDir], { cwd: pkgDir })
-    let packed
+    // 为什么用 pnpm pack 而不是 npm pack(2026-09-26 apps/cli 收口的同瞬间 A/B 取证):
+    // 本仓经 pnpm 发布,`workspace:*` → 具体版本的改写由 pnpm 完成。实测同一份 manifest 两侧 pack:
+    // npm pack 产物 dependencies 仍留 7 条 `workspace:*`,pnpm pack 产物同键全部是版本号,
+    // 成员数一致(458)。用 npm pack 做模拟,判据 5 会把"真发布出去是健康的"包永久判红,
+    // 且分不清"真没声明"与"发布工具会改写"两件事 —— **门取包的工具必须与实际发布的工具一致**。
+    // pnpm 不可用 ⇒ 判"无法判定"(exit 2),**不回落 npm pack**:回落等于把错的尺子整体继承。
+    console.log(`▶ pnpm pack → ${target}`)
     try {
-      packed = JSON.parse(packJson)[0]
-    } catch {
-      console.error(`❌ npm pack --json 解析失败:${packJson.slice(0, 400)}`)
+      sh('pnpm', ['pack', '--pack-destination', workDir], { cwd: pkgDir })
+    } catch (e) {
+      console.error(
+        `❌ pnpm pack 不可用/失败(无法判定,刻意不回落 npm pack):${String(e?.stderr || e?.message || e).slice(0, 400)}`,
+      )
       process.exit(2)
     }
-    const tarball = packed?.filename
+    const tarball = readdirSync(workDir).find((f) => f.endsWith('.tgz'))
     if (!tarball || !existsSync(join(workDir, tarball))) {
-      console.error(`❌ npm pack 未产出 tarball(filename=${JSON.stringify(tarball)})`)
+      console.error('❌ pnpm pack 未产出 tarball')
       process.exit(1)
     }
-    console.log(`  tarball: ${tarball}(${(packed.size / 1024).toFixed(1)}KB,解包 ${(packed.unpackedSize / 1024 / 1024).toFixed(2)}MB)`)
+    console.log(`  tarball: ${tarball}(${(statSync(join(workDir, tarball)).size / 1024).toFixed(1)}KB)`)
 
     // tar 用相对路径 + cwd:Git for Windows 的 /usr/bin/tar 会把 `G:\x\y` 里的
     // `G:` 当成 "host:" 前缀去连远程("Cannot connect to G: resolve failed")。
@@ -386,6 +416,8 @@ export const __test__ = {
   findBareImportSpecifiers,
   collectBareImportBlockers,
   SECRET_PATTERNS,
+  SENSITIVE_DATA_PATTERNS,
+  CODE_FILE_RE,
   JUNK_PATTERNS,
   REQUIRED_ENTRIES,
 }
