@@ -26,7 +26,7 @@ import { Plus } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import { BottomPops } from './BottomPops'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 
 // ── PlusButton 统一加号按钮 ──────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ export function PlusButton({
   active = false,
   onPress,
   disabled = false,
-  size = 20,
+  size = rnGeometry.controlGlyph,
   label,
 }: PlusButtonProps) {
   return (
@@ -116,8 +116,8 @@ export function AddPanel({ visible, onClose, items, title = '添加' }: AddPanel
 
 const styles = StyleSheet.create({
   plusButton: {
-    width: 40,
-    height: 40,
+    width: rnGeometry.controlBox,
+    height: rnGeometry.controlBox,
     borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
     alignItems: 'center',
     justifyContent: 'center',
