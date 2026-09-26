@@ -18,7 +18,7 @@ Windows,Job Object 即内核级等价物):
 
 import asyncio
 import ctypes
-import os
+import sys
 from typing import Any
 
 __all__ = ["apply_job_sandbox"]
@@ -106,67 +106,71 @@ def apply_job_sandbox(
         {"active": True, "memoryLimit": ..., "activeProcessLimit": ...}
         或 {"active": False, "reason": "..."}(非 Windows / 已退出 / 调用失败)。
     """
-    if os.name != "nt":
-        return {"active": False, "reason": "non-windows(仅生产 Windows 生效)"}
-    pid = getattr(proc, "pid", None)
-    if not pid:
-        return {"active": False, "reason": "process pid 不可用"}
-    kernel32 = ctypes.windll.kernel32
-    PROCESS_SET_QUOTA = 0x0100
-    PROCESS_TERMINATE = 0x0001
-    handle = kernel32.OpenProcess(
-        PROCESS_SET_QUOTA | PROCESS_TERMINATE, False, int(pid)
-    )
-    if not handle:
-        return {
-            "active": False,
-            "reason": f"OpenProcess({pid}) 失败: {ctypes.GetLastError()}",
-        }
-    try:
-        job = kernel32.CreateJobObjectW(None, None)
-        if not job:
-            return {"active": False, "reason": f"CreateJobObjectW 失败: {ctypes.GetLastError()}"}
-
-        limits = _JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
-        limits.BasicLimitInformation.LimitFlags = (
-            _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-            | _JOB_OBJECT_LIMIT_PROCESS_MEMORY
-            | _JOB_OBJECT_LIMIT_ACTIVE_PROCESS
+    # 平台判据用 sys.platform,且把整个 Windows 实现包进该分支:typeshed 只按
+    # sys.platform 收窄模块属性可用性(ctypes.windll / ctypes.GetLastError 都是
+    # win32-only)。写成「非 win32 就提前 return」不解决问题 —— mypy 消除的是被
+    # 证伪的分支体,提前 return 之后的代码在 Linux 面照样被分析。
+    if sys.platform == "win32":
+        pid = getattr(proc, "pid", None)
+        if not pid:
+            return {"active": False, "reason": "process pid 不可用"}
+        kernel32 = ctypes.windll.kernel32
+        PROCESS_SET_QUOTA = 0x0100
+        PROCESS_TERMINATE = 0x0001
+        handle = kernel32.OpenProcess(
+            PROCESS_SET_QUOTA | PROCESS_TERMINATE, False, int(pid)
         )
-        limits.ProcessMemoryLimit = memory_limit
-        limits.BasicLimitInformation.ActiveProcessLimit = active_process_limit
-        ok = kernel32.SetInformationJobObject(
-            job,
-            _JobObjectExtendedLimitInformation,
-            ctypes.byref(limits),
-            ctypes.sizeof(limits),
-        )
-        if not ok:
-            kernel32.CloseHandle(job)
-            return {"active": False, "reason": f"SetInformationJobObject 失败: {ctypes.GetLastError()}"}
+        if not handle:
+            return {
+                "active": False,
+                "reason": f"OpenProcess({pid}) 失败: {ctypes.GetLastError()}",
+            }
+        try:
+            job = kernel32.CreateJobObjectW(None, None)
+            if not job:
+                return {"active": False, "reason": f"CreateJobObjectW 失败: {ctypes.GetLastError()}"}
 
-        ui_limits = ctypes.c_uint32(_UI_RESTRICTIONS)
-        ok = kernel32.SetInformationJobObject(
-            job,
-            _JobObjectBasicUIRestrictions,
-            ctypes.byref(ui_limits),
-            ctypes.sizeof(ui_limits),
-        )
-        if not ok:
-            kernel32.CloseHandle(job)
-            return {"active": False, "reason": f"UI 限制设置失败: {ctypes.GetLastError()}"}
+            limits = _JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+            limits.BasicLimitInformation.LimitFlags = (
+                _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+                | _JOB_OBJECT_LIMIT_PROCESS_MEMORY
+                | _JOB_OBJECT_LIMIT_ACTIVE_PROCESS
+            )
+            limits.ProcessMemoryLimit = memory_limit
+            limits.BasicLimitInformation.ActiveProcessLimit = active_process_limit
+            ok = kernel32.SetInformationJobObject(
+                job,
+                _JobObjectExtendedLimitInformation,
+                ctypes.byref(limits),
+                ctypes.sizeof(limits),
+            )
+            if not ok:
+                kernel32.CloseHandle(job)
+                return {"active": False, "reason": f"SetInformationJobObject 失败: {ctypes.GetLastError()}"}
 
-        if not kernel32.AssignProcessToJobObject(job, handle):
-            kernel32.CloseHandle(job)
-            return {"active": False, "reason": f"AssignProcessToJobObject 失败: {ctypes.GetLastError()}"}
+            ui_limits = ctypes.c_uint32(_UI_RESTRICTIONS)
+            ok = kernel32.SetInformationJobObject(
+                job,
+                _JobObjectBasicUIRestrictions,
+                ctypes.byref(ui_limits),
+                ctypes.sizeof(ui_limits),
+            )
+            if not ok:
+                kernel32.CloseHandle(job)
+                return {"active": False, "reason": f"UI 限制设置失败: {ctypes.GetLastError()}"}
 
-        return {
-            "active": True,
-            "memoryLimit": memory_limit,
-            "activeProcessLimit": active_process_limit,
-            "killOnClose": True,
-            "uiRestrictions": "clipboard/systemparams/handles/globalatoms/display/exitwindows",
-        }
-    except Exception as e:  # noqa: BLE001 - 沙箱失败绝不影响子进程主流程
-        return {"active": False, "reason": f"沙箱异常: {e}"}
+            if not kernel32.AssignProcessToJobObject(job, handle):
+                kernel32.CloseHandle(job)
+                return {"active": False, "reason": f"AssignProcessToJobObject 失败: {ctypes.GetLastError()}"}
+
+            return {
+                "active": True,
+                "memoryLimit": memory_limit,
+                "activeProcessLimit": active_process_limit,
+                "killOnClose": True,
+                "uiRestrictions": "clipboard/systemparams/handles/globalatoms/display/exitwindows",
+            }
+        except Exception as e:  # noqa: BLE001 - 沙箱失败绝不影响子进程主流程
+            return {"active": False, "reason": f"沙箱异常: {e}"}
+    return {"active": False, "reason": "non-windows(仅生产 Windows 生效)"}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

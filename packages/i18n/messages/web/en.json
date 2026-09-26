@@ -24510,9 +24510,6 @@
     "completed": "Completed",
     "failed": "Failed"
   },
-  "mentionPopover": {
-    "removeLabel": "Remove mention"
-  },
   "message": {
     "shareLinkCopied": "Share link copied",
     "hideContent": "Hide content",
