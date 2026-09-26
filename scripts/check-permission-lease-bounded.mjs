@@ -19,7 +19,8 @@
  *
  * 接线现状(如实登记、不夸大):本门**尚未**进 `scripts/guardian-runner.mjs` 注册表 ——
  * 该文件当日被他人在飞改动持有,并行改注册表会互相覆盖注册块(门 93 记过同型事故)。
- * 当前问责入口 = 根 `package.json` 的 `check:permission-lease`。接进提交链时必须同时
+ * 当前问责入口 = 直接跑本脚本(手动 / CI)。刻意**不**登记进根 package.json:守门 89 R4
+ * 会把它算作已接线并要文档点名,而登记一条跑不通的出路比不登记更贵。接进提交链时必须同时
  * 补 `blocking` + `skipEnv`,由镜像测试 T1 钉住"未注册 ⇒ 不得声称已装车"。
  *
  * 用法:node scripts/check-permission-lease-bounded.mjs [--staged|--worktree|--self-test]
@@ -66,17 +67,54 @@ function lineOf(text, offset) {
   return n;
 }
 
-/** 剥整行注释(字符串面量保留 —— 判据字面量本身常出现在字符串里) */
-function stripLineComments(text) {
-  return text
-    .split('\n')
-    .map((line) => (line.trimStart().startsWith('//') ? '' : line))
-    .join('\n');
+/**
+ * 剥注释(字符串感知状态机)。
+ * 两条实测教训一起处理:① 只按行首 `//` 剥会把文件头 JSDoc 里提到的
+ * `grantPermissionLease()` 当成调用点判红(本门第一次自跑就咬到了自己);
+ * ② 不能用正则剥块注释 —— `'https://x/*'` 这类串内序列会骗掉状态机(守门 70 记过同型)。
+ */
+function stripComments(text) {
+  const out = [];
+  let i = 0;
+  let state = 'code'; // code | line | block | squote | dquote | template
+  while (i < text.length) {
+    const c = text[i];
+    const n = text[i + 1];
+    if (state === 'code') {
+      if (c === '/' && n === '/') { state = 'line'; i += 2; continue; }
+      if (c === '/' && n === '*') { state = 'block'; i += 2; continue; }
+      if (c === "'") { state = 'squote'; }
+      else if (c === '"') { state = 'dquote'; }
+      else if (c === '`') { state = 'template'; }
+      out.push(c);
+      i += 1;
+      continue;
+    }
+    if (state === 'line') {
+      if (c === '\n') { state = 'code'; out.push(c); }
+      i += 1;
+      continue;
+    }
+    if (state === 'block') {
+      if (c === '*' && n === '/') { state = 'code'; i += 2; continue; }
+      if (c === '\n') out.push(c); // 保住行号
+      i += 1;
+      continue;
+    }
+    // 字符串态:整段保留(判据字面量常出现在字符串里),转义跳一位
+    if (c === '\\') { out.push(c, n ?? ''); i += 2; continue; }
+    if ((state === 'squote' && c === "'") || (state === 'dquote' && c === '"') || (state === 'template' && c === '`')) {
+      state = 'code';
+    }
+    out.push(c);
+    i += 1;
+  }
+  return out.join('');
 }
 
 export function scanSource(text, file = '') {
   const findings = [];
-  const code = stripLineComments(text);
+  const code = stripComments(text);
   for (const m of code.matchAll(GRANT_RE)) {
     // 声明处(`export function grantPermissionLease(`)不是调用点 —— 它没有实参可判
     const before = code.slice(Math.max(0, (m.index ?? 0) - 24), m.index ?? 0);
