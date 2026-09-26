@@ -61,10 +61,10 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 from ..core.permission_mode import (
-    PermissionModeId as _PermissionModeId,
+    ModePolicy,
 )
 from ..core.permission_mode import (
-    ModePolicy,
+    PermissionModeId as _PermissionModeId,
 )
 from ..core.permission_mode import (
     allowed_tool_names as _allowed_tool_names,
@@ -121,6 +121,7 @@ from .llm_budget_governor import (
     BudgetExceededError,
     llm_budget_governor,
 )
+
 # V3 #53(2026-09-27):工具集的**收窄**已由 core/permission_mode 的矩阵出口承担
 # (交集只算一次);此处只保留"某工具是否只读"这一谓词 —— 它服务的是 acceptEdits
 # 的免审批分支(4846 行),不是可用性判定。
@@ -505,7 +506,7 @@ def grant_tool_approval_persist(approval_id: str, scope: str) -> bool:
     return True
 
 
-class ApprovalOutcome(str, Enum):
+class ApprovalOutcome(str, Enum):  # noqa: UP042 — 枚举值进审计事件与前端比对,换 StrEnum 会改序列化字面量
     """审批决策回填的三态结论(供路由层区分 403 与 404)。"""
 
     APPLIED = "applied"
