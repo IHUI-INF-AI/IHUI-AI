@@ -46,7 +46,7 @@ import {
   type CategoryItem,
   type PlazaScreenProps,
 } from '@ihui/rn-app'
-import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useTheme } from '../context/ThemeContext'
 import Drawer, {
@@ -207,7 +207,13 @@ export function PlazaScreen() {
           // 赛道筛选(对齐原项目 categorys 参数,''=全公司,非空时传单元素数组)
           categories: selectedCategory ? [selectedCategory] : undefined,
         })
-        if (!res.success) throw new Error(res.error)
+        // status/errorCode 必须跟着 throw 一起走:toUserFriendlyMessage 的判序是
+        // errorCode → HTTP status → 文案正则。只抛 message 时,401 的
+        // "Invalid or expired token" 会先撞上参数类正则(/invalid/),用户看到的是
+        // "提交的信息有误,请检查后重试"而不是"登录已过期"(真机实测:进广场 tab 即弹)。
+        // 出口用 apiFailureToError —— 全仓另有 212 处同型 `throw new Error(res.error)`,
+        // 迁移时逐处换成本函数,不要各处手搓 Object.assign。
+        if (!res.success) throw apiFailureToError(res)
         const list = (res.data.list ?? []) as PlazaScreenProps['items']
         setItems((prev) => (reset ? list : [...prev, ...list]))
         setTotal(res.data.total ?? 0)
