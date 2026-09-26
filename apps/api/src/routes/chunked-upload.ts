@@ -12,15 +12,31 @@ import {
   writeFileSync,
   unlinkSync,
   rmSync,
+  statSync,
   createWriteStream,
   createReadStream,
 } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
 import { uploadSessions } from '@ihui/database'
+import {
+  PROTOCOL_UPLOAD_LIMITS,
+  countUniqueReceivedChunks,
+  findMissingChunkNumbers,
+  hashFile,
+  digestMatches,
+  listReceivedChunkNumbers,
+} from '../services/upload-integrity.js'
+
+/** 校验和失败后的会话终态:不再接受分片、不再产出 url、由 reaper 到期收目录。 */
+const STATUS_CHECKSUM_MISMATCH = 'checksum_mismatch'
+
+function expiresAtFrom(now: Date): Date {
+  return new Date(now.getTime() + PROTOCOL_UPLOAD_LIMITS.ttlMs)
+}
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
 // P2 修复(2026-08-06):合并后的成品文件(返回公开 URL /uploads/<id>)写入
@@ -89,7 +105,21 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     }
     const { fileName, fileSize, totalChunks, fileMd5, mimeType, chunkSize } = parsed.data
 
+    // 参数自洽性(2026-09-26):声明的字节数装不进声明的分片数 = 客户端把参数写错了,
+    // 当场拒比等全部数据传完才在 merge 处失败便宜得多。chunkSize 亦不得超过协议档。
+    if (chunkSize > PROTOCOL_UPLOAD_LIMITS.maxChunkBytes) {
+      return reply
+        .status(400)
+        .send(error(400, `chunkSize 不得超过 ${PROTOCOL_UPLOAD_LIMITS.maxChunkBytes} 字节`))
+    }
+    if (fileSize > totalChunks * PROTOCOL_UPLOAD_LIMITS.maxChunkBytes) {
+      return reply
+        .status(400)
+        .send(error(400, `fileSize(${fileSize}) 与 totalChunks(${totalChunks}) 不自洽`))
+    }
+
     const uploadId = randomUUID()
+    const now = new Date()
 
     try {
       await db.insert(uploadSessions).values({
@@ -103,6 +133,8 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         mimeType,
         status: 'uploading',
         userId: request.userId,
+        // TTL 回收的读侧在 services/upload-integrity.ts 的 cleanupExpiredUploadSessions
+        expiresAt: expiresAtFrom(now),
       })
     } catch (e) {
       request.log.error({ err: e }, '初始化分片上传会话失败')
@@ -167,6 +199,17 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '分片内容为空'))
     }
 
+    if (chunkNumber > session.totalChunks) {
+      return reply
+        .status(400)
+        .send(error(400, `x-chunk-number 超出 totalChunks(${session.totalChunks})`))
+    }
+    if (buffer.byteLength > PROTOCOL_UPLOAD_LIMITS.maxChunkBytes) {
+      return reply
+        .status(413)
+        .send(error(413, `单片不得超过 ${PROTOCOL_UPLOAD_LIMITS.maxChunkBytes} 字节`))
+    }
+
     // 将分片写入 uploads/chunks/{uploadId}/{chunkNumber}.part
     const chunkDir = join(UPLOAD_DIR, 'chunks', uploadIdStr)
     const chunkPath = join(chunkDir, `${chunkNumber}.part`)
@@ -178,17 +221,21 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(500).send(error(500, '分片写入失败'))
     }
 
-    // 更新 uploadSessions.uploadedChunks += 1
-    const updated = await db
+    // 进度以**磁盘上真实收到的分片索引集合**为准,不再是 `uploadedChunks + 1` 累加计数器。
+    // 旧写法的错误语义:重传第 3 片两次 + 漏传第 5 片 ⇒ 计数 5/5 通过完整性判定,
+    // merge 时读 5.part 才 ENOENT —— 计数与磁盘集合可以背离,而账本看起来是齐的。
+    const uploadedChunks = countUniqueReceivedChunks(
+      listReceivedChunkNumbers(chunkDir),
+      session.totalChunks,
+    )
+    await db
       .update(uploadSessions)
       .set({
-        uploadedChunks: sql`${uploadSessions.uploadedChunks} + 1`,
+        uploadedChunks,
+        expiresAt: expiresAtFrom(new Date()),
         updatedAt: new Date(),
       })
       .where(eq(uploadSessions.uploadId, uploadIdStr))
-      .returning({ uploadedChunks: uploadSessions.uploadedChunks })
-
-    const uploadedChunks = updated[0]?.uploadedChunks ?? session.uploadedChunks + 1
 
     return reply.send(
       success({
@@ -221,11 +268,20 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '上传会话不存在'))
     }
 
-    // 验证 uploadedChunks === totalChunks
-    if (session.uploadedChunks !== session.totalChunks) {
-      return reply
-        .status(400)
-        .send(error(400, `分片未上传完整: ${session.uploadedChunks}/${session.totalChunks}`))
+    // 完整性判定按"1..totalChunks 每一片是否真的在磁盘上",不是按计数相等。
+    // 缺哪几片直接点名 —— 让客户端能补传,而不是回一句"不完整"再让它猜。
+    const chunkDir = join(UPLOAD_DIR, 'chunks', uploadId)
+    const missingChunks = findMissingChunkNumbers(
+      listReceivedChunkNumbers(chunkDir),
+      session.totalChunks,
+    )
+    if (missingChunks.length > 0) {
+      return reply.status(400).send(
+        error(
+          400,
+          `分片未收齐:缺第 ${missingChunks.join('、')} 片(共 ${session.totalChunks} 片,实收 ${session.totalChunks - missingChunks.length} 片)`,
+        ),
+      )
     }
 
     // 更新 status=merging
@@ -234,7 +290,6 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       .set({ status: 'merging', updatedAt: new Date() })
       .where(eq(uploadSessions.uploadId, uploadId))
 
-    const chunkDir = join(UPLOAD_DIR, 'chunks', uploadId)
     const fileId = randomUUID()
     const finalPath = join(PUBLIC_UPLOAD_DIR, fileId)
 
@@ -263,7 +318,40 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         writeStream.end(() => resolve())
       })
 
-      // 清理 chunks 目录
+      // 校验和兑现(2026-09-26 补):此前 `fileMd5` 全仓零验证点 —— 客户端声明什么
+      // 都收,校验位形同装饰。现在合并完就按服务端**实算**摘要逐字比对,不符即:
+      // 删除已合并文件 + 会话置终态 + 返回 4xx **不带 url**。绝不"记条日志继续交付"。
+      const digests = await hashFile(finalPath)
+      if (!digestMatches(session.fileMd5, digests.md5)) {
+        const actualSize = statSync(finalPath).size
+        try {
+          unlinkSync(finalPath)
+        } catch (cleanErr) {
+          request.log.error({ err: cleanErr, finalPath }, '校验失败后清理合并文件失败')
+        }
+        await db
+          .update(uploadSessions)
+          .set({ status: STATUS_CHECKSUM_MISMATCH, updatedAt: new Date() })
+          .where(eq(uploadSessions.uploadId, uploadId))
+        request.log.error(
+          {
+            uploadId,
+            declaredMd5: session.fileMd5,
+            actualMd5: digests.md5,
+            actualSha256: digests.sha256,
+            actualSize,
+          },
+          '分片合并结果与声明校验和不符,已拒绝交付',
+        )
+        return reply.status(400).send(
+          error(
+            400,
+            `校验和不符:声明 md5=${session.fileMd5 ?? '(未声明)'} 实算 md5=${digests.md5}(sha256=${digests.sha256}, ${actualSize} 字节),已拒绝并清理合并文件`,
+          ),
+        )
+      }
+
+      // 校验通过才清理 chunks 目录
       if (existsSync(chunkDir)) rmSync(chunkDir, { recursive: true, force: true })
     } catch (e) {
       request.log.error({ err: e }, '合并分片失败')

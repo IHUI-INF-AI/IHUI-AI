@@ -7295,6 +7295,19 @@
           "submit": "제출",
           "dismiss": "건너뛰기",
           "submitted": "접수되었습니다. 감사합니다"
+        },
+        "imagePreview": {
+          "prev": "이전",
+          "next": "다음",
+          "zoomIn": "확대",
+          "zoomOut": "축소",
+          "save": "이미지 저장",
+          "copy": "이미지 복사",
+          "counter": "{total}장 중 {index}장",
+          "saveSuccess": "저장됨",
+          "saveFailed": "저장 실패",
+          "copySuccess": "복사됨",
+          "copyFailed": "복사 실패"
         }
       },
       "hookSummary": {
