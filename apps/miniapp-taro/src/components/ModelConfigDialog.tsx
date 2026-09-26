@@ -11,16 +11,26 @@ import Taro from '@tarojs/taro'
 import type { ModelConfigType } from '@ihui/types'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
-  modelConfigDeleteBadgeStyle,
+  MODEL_CONFIG_INLINE_GLYPH_PX,
+  MODEL_CONFIG_SWITCH_THUMB_PX,
+  MODEL_CONFIG_SWITCH_THUMB_TRAVEL_PX,
+  MODEL_CONFIG_UPLOAD_MARK_PX,
+  MODEL_CONFIG_UPLOAD_TILE_PX,
   modelConfigAudioMenuIconStyle,
+  modelConfigDeleteBadgeStyle,
+  modelConfigInputBoxStyle,
+  modelConfigSquareStyle,
+  modelConfigSwitchTrackStyle,
 } from '@ihui/shared/ui/model-config-dialog-spec'
 import { rpx } from '@/utils/rpx'
 import { Selecter } from './adapters/Selecter.taro'
 import './ModelConfigDialog.css'
 import LineIcon from '@/components/LineIcon'
 
-/// 删除角标 / 音色菜单图标块尺寸不在本文件取数 —— 唯一源是
-/// @ihui/shared/ui/model-config-dialog-spec(与 RN 端同档);本文件只做 rpx 换算。
+/// 本组件所有会显形的几何数字(删除角标 / 音色菜单图标块 / 上传图块与标记盒 / 自绘开关轨道
+/// 与拇指及其行程 / 参数输入行高 / 行内字形)一律不在本文件取数 —— 唯一源是
+/// @ihui/shared/ui/model-config-dialog-spec(与 RN 端同档,裁决依据写在该文件);
+/// 本文件只做 rpx 换算与挂自己的布局原语。
 const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
 
 // aigc variant 上传按钮图标(对齐原项目 ModelConfigDialog/indexa.vue):
@@ -236,6 +246,7 @@ export default function ModelConfigDialog({
               <Input
                 type="digit"
                 className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
+                style={modelConfigInputBoxStyle(toUnit)}
                 placeholder="0.7"
                 value={config.temperature?.toString() || ''}
                 onInput={(e) => update({ temperature: parseFloat(e.detail.value) || 0 })}
@@ -248,6 +259,7 @@ export default function ModelConfigDialog({
               <Input
                 type="number"
                 className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
+                style={modelConfigInputBoxStyle(toUnit)}
                 placeholder="2048"
                 value={config.maxTokens?.toString() || ''}
                 onInput={(e) => update({ maxTokens: parseInt(e.detail.value) || 0 })}
@@ -258,6 +270,7 @@ export default function ModelConfigDialog({
               <Input
                 type="digit"
                 className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
+                style={modelConfigInputBoxStyle(toUnit)}
                 placeholder="0.9"
                 value={config.topP?.toString() || ''}
                 onInput={(e) => update({ topP: parseFloat(e.detail.value) || 0 })}
@@ -269,6 +282,7 @@ export default function ModelConfigDialog({
               </Text>
               <Input
                 className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
+                style={modelConfigInputBoxStyle(toUnit)}
                 placeholder="You are a helpful assistant"
                 value={config.systemPrompt || ''}
                 onInput={(e) => update({ systemPrompt: e.detail.value })}
@@ -525,14 +539,24 @@ export default function ModelConfigDialog({
               >
                 <View className="relative">
                   {!it.url ? (
-                    <View className="w-[74rpx] h-[74rpx] flex items-center justify-center bg-muted rounded-lg">
-                      <Image src={it.emptyIcon} className="w-[50rpx] h-[50rpx]" mode="aspectFit" />
+                    <View
+                      className="flex items-center justify-center bg-muted rounded-lg"
+                      style={modelConfigSquareStyle(MODEL_CONFIG_UPLOAD_TILE_PX, toUnit)}
+                    >
+                      <Image
+                        src={it.emptyIcon}
+                        style={modelConfigSquareStyle(MODEL_CONFIG_UPLOAD_MARK_PX, toUnit)}
+                        mode="aspectFit"
+                      />
                     </View>
                   ) : (
-                    <View className="w-[74rpx] h-[74rpx] flex items-center justify-center bg-primary/10 rounded-lg">
+                    <View
+                      className="flex items-center justify-center bg-primary/10 rounded-lg"
+                      style={modelConfigSquareStyle(MODEL_CONFIG_UPLOAD_TILE_PX, toUnit)}
+                    >
                       <Image
                         src={it.successIcon}
-                        className="w-[50rpx] h-[50rpx]"
+                        style={modelConfigSquareStyle(MODEL_CONFIG_UPLOAD_MARK_PX, toUnit)}
                         mode="aspectFit"
                       />
                     </View>
@@ -624,7 +648,12 @@ export default function ModelConfigDialog({
                       {tt('ModelConfigDialog.upload12', '上传音频文件克隆音色')}
                     </Text>
                   </View>
-                  <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
+                  {/* LineIcon 的 number size 量纲是 rpx(见 components/LineIcon),故把逻辑 px 乘系数 */}
+                  <LineIcon
+                    name="chevron-right"
+                    size={MODEL_CONFIG_INLINE_GLYPH_PX * TARO_RPX_PER_PX}
+                    color="var(--color-muted-foreground)"
+                  />
                 </View>
               </View>
             </View>
@@ -639,16 +668,23 @@ export default function ModelConfigDialog({
                 <View key={item.name} className="flex items-center justify-between py-2 mb-2">
                   <Text className="text-sm text-foreground">{item.desc}</Text>
                   <View
-                    className="w-[88rpx] h-[44rpx] rounded-lg flex items-center px-[4rpx]"
+                    className="rounded-lg flex items-center"
                     style={{
+                      ...modelConfigSwitchTrackStyle(toUnit),
                       backgroundColor: checked ? 'var(--color-primary)' : 'var(--color-muted)',
                     }}
                     onClick={() => setConfigValue(item.name, !checked)}
                     hoverClass="opacity-60"
                   >
                     <View
-                      className="w-[36rpx] h-[36rpx] rounded-full bg-[var(--color-white-98)] transition-transform"
-                      style={{ transform: checked ? 'translateX(44rpx)' : 'translateX(0)' }}
+                      className="rounded-full bg-[var(--color-white-98)] transition-transform"
+                      style={{
+                        ...modelConfigSquareStyle(MODEL_CONFIG_SWITCH_THUMB_PX, toUnit),
+                        // 位移由"轨道宽 − 拇指 − 左右内衬"在 spec 里派生,与原文案 translateX(44rpx) 同值
+                        transform: checked
+                          ? `translateX(${toUnit(MODEL_CONFIG_SWITCH_THUMB_TRAVEL_PX)})`
+                          : 'translateX(0)',
+                      }}
                     />
                   </View>
                 </View>
@@ -678,6 +714,7 @@ export default function ModelConfigDialog({
                 <Text className="block text-xs text-muted-foreground mb-1">{item.desc}</Text>
                 <Input
                   className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
+                  style={modelConfigInputBoxStyle(toUnit)}
                   placeholder={t('ModelConfigDialog.y2', { p1: item.desc })}
                   value={(configParamsObj[item.name] as string) || ''}
                   onInput={(e) => setConfigValue(item.name, e.detail.value)}

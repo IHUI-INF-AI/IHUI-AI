@@ -41,7 +41,13 @@ import {
 } from 'react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
-import { MODEL_LIST_EMPTY_FONT_PX } from '@ihui/shared/ui/model-list-spec'
+import {
+  MODEL_LIST_CONTENT_BOTTOM_PADDING_PX,
+  MODEL_LIST_EMPTY_FONT_PX,
+  MODEL_LIST_EMPTY_PADDING_Y_PX,
+  MODEL_LIST_NAME_FONT_PX,
+  MODEL_LIST_SECTION_HEADER_FONT_PX,
+} from '@ihui/shared/ui/model-list-spec'
 
 /** 排名第一徽章金色(design-tokens 无同值金色,复刻 rankone 用;文字用品牌对比白) */
 const RANK_GOLD_BG = '#F5B301'
@@ -341,7 +347,8 @@ export default function ModelList({
 const styles = StyleSheet.create({
   listBody: {
     backgroundColor: tokens.surface.bg,
-    paddingBottom: 24,
+    // 底部留白唯一源在 spec(小程序端同档补在 popup 容器上,规则 3)
+    paddingBottom: MODEL_LIST_CONTENT_BOTTOM_PADDING_PX,
   },
   sectionHeader: {
     paddingHorizontal: 16,
@@ -349,10 +356,13 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   sectionHeaderText: {
-    fontSize: 12,
+    // 分组头字号唯一源在 spec(与小程序折叠区/分组标题同档,规则 4:非档值就近吸附到 12)
+    fontSize: MODEL_LIST_SECTION_HEADER_FONT_PX,
     fontWeight: '600',
     color: tokens.text.secondary,
     textTransform: 'uppercase',
+    // 0.5 是西文大写字距(typography tracking),不是布局档;小程序端分组头是中文、
+    // 无对应字距档 ⇒ 机制差异,非取值分叉,故不经 spec。
     letterSpacing: 0.5,
   },
   row: {
@@ -368,6 +378,9 @@ const styles = StyleSheet.create({
   },
   iconWrap: {
     width: 40,
+    // 44 = 块高(与宽不等方形):小程序同一位是 20×20(80rpx 行高内),两端行结构整体分叉
+    // (RN 由 SectionList 自增高、小程序行盒在 pages/index/index.css 的 .ai-chu-row)——
+    // 收同一档必然改一端整行高度,属设计裁决项而非取值分叉,登记在 spec 头注,不经 spec。
     height: 44,
     borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.muted,
@@ -375,6 +388,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconEmoji: {
+    // 块内字形 20:与小程序 popup 的首字母 10 同属上面那个 logo 块裁决项,一并保留
     fontSize: 20,
   },
   body: {
@@ -385,7 +399,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   name: {
-    fontSize: 16,
+    // 模型名称字号唯一源在 spec(规则 2 取紧凑档:此前本端 16 vs 小程序 14)
+    fontSize: MODEL_LIST_NAME_FONT_PX,
     fontWeight: '600',
     color: tokens.text.primary,
     flexShrink: 1,
@@ -393,6 +408,7 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 12,
     color: tokens.text.secondary,
+    // 2 = 描述行距:该行本端独有(小程序该行装的是"用途分类"标签,不同元素),不经 spec
     marginTop: 2,
   },
   rankBadge: {
@@ -403,6 +419,8 @@ const styles = StyleSheet.create({
     backgroundColor: RANK_GOLD_BG,
   },
   rankBadgeText: {
+    // 9 / 11 是"文字徽章"字号:同一位在小程序端是位图徽章(rankone.png / mian_label.png),
+    // 媒介不同、不构成同一元素 ⇒ 机制差异,保留本端取值,不经 spec。
     fontSize: 9,
     fontWeight: '700',
     color: RANK_GOLD_TEXT,
@@ -456,12 +474,15 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   separator: {
+    // 1 / 68 属 RN 列表机制:SectionList 的 ItemSeparatorComponent(小程序 popup 用行间距与
+    // 背景对比分隔,§4 禁止分割线)—— 机制差异,非取值分叉,不经 spec。
     height: 1,
     backgroundColor: tokens.border.light,
     marginLeft: 68,
   },
   empty: {
-    paddingVertical: 48,
+    // 空态纵向留白唯一源在 spec(规则 2 取紧凑档:此前本端 48 vs 小程序 20)
+    paddingVertical: MODEL_LIST_EMPTY_PADDING_Y_PX,
     alignItems: 'center',
   },
   emptyText: {
