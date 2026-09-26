@@ -309,11 +309,6 @@ export const CHAT_PERMISSION_APPROVAL_MATRIX: Readonly<
   },
 }
 
-/** 工具可用档(与 Python 的 ToolClass 同集合)。 */
-export type ToolClass = 'all' | 'readonly' | 'none'
-/** 审批档(与 Python 的 ApprovalClass 同集合)。 */
-export type ApprovalClass = 'all' | 'safe' | 'none'
-
 /**
  * (ChatMode, PermissionMode) → 该组合的工具档与审批档。
  *
@@ -324,7 +319,12 @@ export type ApprovalClass = 'all' | 'safe' | 'none'
 export function resolveChatPermissionPolicy(
   chatMode: string | null | undefined,
   permissionMode: unknown,
-): { chatMode: ChatModeId; permissionMode: PermissionModeId; tools: ToolClass; approval: ApprovalClass } {
+): {
+  chatMode: ChatModeId
+  permissionMode: PermissionModeId
+  tools: ToolClass
+  approval: ApprovalClass
+} {
   const chat: ChatModeId =
     chatMode && (CHAT_MODE_IDS as readonly string[]).includes(chatMode)
       ? (chatMode as ChatModeId)
