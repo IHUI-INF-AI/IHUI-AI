@@ -4,13 +4,20 @@
 
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
+import { rnGeometry } from '@ihui/design-tokens'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 import { useFontMultiplier } from './MoreLink'
 
-/** 命中块边长 —— 与 web 端唯一渲染点 `GlobalTopBar` 的 `TopBarBackButton`(36×36)同档 */
-const BOX = 36
-/** 与 packages/app 既有矢量返回写法(SpecScreen / PublishScreen 等)`size={22}` 同档 */
-const ICON = 22
+/**
+ * 命中块与图标墨迹**不在本文件取数** —— 档位唯一真相源是
+ * `packages/design-tokens/src/geometry.js`(取值依据写在那个头注里,含"为什么移动端不取
+ * web 顶栏的 14px")。这里取它的 dp 投影,与小程序端 `taroGeometry` 同表同枚。
+ *
+ * 之前本文件写 `ICON = 22`、小程序端写 `40rpx`(=20px),两句注释都自称"与 web 同档"
+ * 而屏幕上差 2px —— "端内既定档"就是第二份真相。守门 128 立项时把这处量成差异档。
+ */
+const BOX = rnGeometry.tapBox
+const ICON = rnGeometry.glyphMd
 
 export interface BackChevronProps {
   onPress?: () => void
