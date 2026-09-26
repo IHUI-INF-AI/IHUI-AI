@@ -9,7 +9,16 @@ import { useTranslations } from 'next-intl'
 import { ExternalLink, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
+import {
+  PreviewSourceText,
+  PreviewViewSwitch,
+  PREVIEW_SOURCE_MAX_CHARS,
+  type PreviewSourceAvailability,
+  type PreviewSourceText as SourceTextValue,
+  type PreviewViewMode,
+} from './preview-view-switch'
 import type { WorkBook } from 'xlsx'
+import type * as XlsxTypes from 'xlsx'
 
 /**
  * OfficePreview — Office 消息内富预览(D41,2026-09-24 立)。
@@ -47,6 +56,70 @@ export const SUPPORTED_EXTS = new Set(['docx', 'xlsx', 'pptx'])
 export type OfficePreviewStatus =
   'probing' | 'lazy' | 'loading' | 'ready' | 'too-large' | 'expired' | 'unsupported'
 
+/**
+ * 状态机 ↔ 源码视图的显式关系(D41 唯一还没钉成判据的一格)。
+ *
+ * 只有 ready(手里真的已有字节)才可切源码;too-large / expired / unsupported 三态**内容从未
+ * 取回**,源码档只能是"禁用 + 说明",既不能隐藏(可发现面被抹掉),也不能"切过去是空白"。
+ * probing / lazy / loading 是"还没拿到",同一 reason 通道,不给第二种说法。
+ */
+export function officeSourceAvailability(status: OfficePreviewStatus): PreviewSourceAvailability {
+  switch (status) {
+    case 'ready':
+      return { available: true }
+    case 'too-large':
+      return { available: false, reason: 'previewSourceUnavailableTooLarge' }
+    case 'expired':
+      return { available: false, reason: 'previewSourceUnavailableExpired' }
+    case 'unsupported':
+      return { available: false, reason: 'previewSourceUnavailableUnsupported' }
+    case 'probing':
+    case 'lazy':
+    case 'loading':
+      return { available: false, reason: 'previewSourceUnavailableLoad' }
+  }
+}
+
+/** OOXML 里可当文本读的部件(其余是图片/字体等二进制,倒进源码视图只会是乱码)。 */
+const OOXML_TEXT_PART_RE = /\.(xml|rels|txt)$/i
+
+/**
+ * 从**已在手里的** ArrayBuffer 派生 OOXML 部件原文(docx/xlsx/pptx 同为 zip 容器)。
+ *
+ * 这里一次 fetch 都没有 —— jszip 只在内存字节上解包,`import('jszip')` 走 parsePptx 已建立的
+ * 同一份模块缓存。切视图因此结构上不可能触发新取数,而不是"记得没写 fetch"。
+ */
+export async function extractOfficeSourceText(
+  data: ArrayBuffer,
+  maxChars: number = PREVIEW_SOURCE_MAX_CHARS,
+): Promise<SourceTextValue> {
+  const JSZip = (await import('jszip')).default
+  const zip = await JSZip.loadAsync(data)
+  const parts: string[] = []
+  zip.forEach((relPath, file) => {
+    if (!file.dir && OOXML_TEXT_PART_RE.test(relPath)) parts.push(relPath)
+  })
+  parts.sort()
+
+  const chunks: string[] = []
+  let used = 0
+  let truncated = false
+  for (const part of parts) {
+    const entry = zip.file(part)
+    if (!entry) continue
+    const body = await entry.async('string')
+    const header = `--- ${part} ---\n`
+    if (used + header.length + body.length > maxChars) {
+      chunks.push(header + body.slice(0, Math.max(0, maxChars - used - header.length)))
+      truncated = true
+      break
+    }
+    chunks.push(header + body)
+    used += header.length + body.length
+  }
+  return { text: chunks.join('\n'), truncated }
+}
+
 /** 0 基列号 → 表格列标(A/B/…/Z/AA/…)。 */
 export function xlsxColumnRef(col: number): string {
   let s = ''
@@ -58,7 +131,9 @@ export function xlsxColumnRef(col: number): string {
   return s
 }
 
-type XlsxModule = typeof import('xlsx')
+// eslint 的 consistent-type-imports 禁止 `typeof import('xlsx')` 这种 import() 类型标注;
+// 类型面用 `import type * as` 拿同一份声明,值面仍走下面 loadXlsx 的动态 import(不进主包)。
+type XlsxModule = typeof XlsxTypes
 let xlsxModPromise: Promise<XlsxModule> | null = null
 function loadXlsx(): Promise<XlsxModule> {
   xlsxModPromise ??= import('xlsx')
@@ -92,32 +167,43 @@ function DocxBody({ data }: { data: ArrayBuffer }) {
     }
   }, [data])
 
+  // D91 选区采集:mouseup 时取 window 选区,锚定所在段落(1 起)与文本摘要。
+  // 监听器挂在容器上(addEventListener)而不是 JSX 的 onMouseUp:这一处不是"可点交互",
+  // 而是选区读取,写在 JSX 上会被 jsx-a11y 判成非交互元素带鼠标事件(要么静态元素要么
+  // 非交互元素,两条规则互相把这条路堵死),而给它加 role 是替 D91 的功能改语义。
+  React.useEffect(() => {
+    const container = ref.current
+    if (!container) return
+    const handleDocxMouseUp = (): void => {
+      const sel = document.getSelection()
+      const text = sel?.toString().trim() ?? ''
+      if (!sel || sel.isCollapsed || !text) {
+        setSelection(null)
+        return
+      }
+      const node = sel.anchorNode
+      if (!node || !container.contains(node)) {
+        setSelection(null)
+        return
+      }
+      const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element)
+      const p = el?.closest('p') ?? null
+      const paragraphs = container.querySelectorAll('p')
+      const index = p ? Array.prototype.indexOf.call(paragraphs, p) : -1
+      if (index < 0) {
+        setSelection(null)
+        return
+      }
+      setSelection({ paragraph: index + 1, excerpt: text.slice(0, 200) })
+    }
+    container.addEventListener('mouseup', handleDocxMouseUp)
+    return () => {
+      container.removeEventListener('mouseup', handleDocxMouseUp)
+    }
+  }, [])
+
   if (failed) {
     return <p className="p-3 text-xs text-muted-foreground">{t('officeFailed')}</p>
-  }
-  // D91 选区采集:mouseup 时取 window 选区,锚定所在段落(1 起)与文本摘要
-  const handleDocxMouseUp = (): void => {
-    const container = ref.current
-    const sel = document.getSelection()
-    const text = sel?.toString().trim() ?? ''
-    if (!container || !sel || sel.isCollapsed || !text) {
-      setSelection(null)
-      return
-    }
-    const node = sel.anchorNode
-    if (!node || !container.contains(node)) {
-      setSelection(null)
-      return
-    }
-    const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element)
-    const p = el?.closest('p') ?? null
-    const paragraphs = container.querySelectorAll('p')
-    const index = p ? Array.prototype.indexOf.call(paragraphs, p) : -1
-    if (index < 0) {
-      setSelection(null)
-      return
-    }
-    setSelection({ paragraph: index + 1, excerpt: text.slice(0, 200) })
   }
 
   return (
@@ -134,7 +220,6 @@ function DocxBody({ data }: { data: ArrayBuffer }) {
       )}
       <div
         ref={ref}
-        onMouseUp={handleDocxMouseUp}
         data-testid="docx-body"
         className="max-h-[420px] overflow-auto bg-white p-3 text-sm"
       />
@@ -417,7 +502,18 @@ export interface OfficePreviewProps {
   readonly lazyThreshold?: number
   readonly hardMax?: number
   readonly maxRows?: number
+  /** 源码视图字符上限(默认 PREVIEW_SOURCE_MAX_CHARS);超出即截断并如实说明。 */
+  readonly sourceMaxChars?: number
 }
+
+/** 源码文本的解析进度形态:idle = 还没开始(只有切到源码档才解析)。 */
+type OfficeSourceState = Readonly<{
+  status: 'idle' | 'extracting' | 'ready' | 'failed'
+  text: string
+  truncated: boolean
+}>
+
+const IDLE_OFFICE_SOURCE: OfficeSourceState = { status: 'idle', text: '', truncated: false }
 
 export function OfficePreview({
   src,
@@ -426,6 +522,7 @@ export function OfficePreview({
   lazyThreshold = OFFICE_LAZY_THRESHOLD,
   hardMax = OFFICE_HARD_MAX,
   maxRows = XLSX_PREVIEW_MAX_ROWS,
+  sourceMaxChars = PREVIEW_SOURCE_MAX_CHARS,
 }: OfficePreviewProps) {
   const t = useTranslations('chat')
   const kind = ext.toLowerCase().replace(/^\./, '')
@@ -433,6 +530,8 @@ export function OfficePreview({
     SUPPORTED_EXTS.has(kind) ? 'probing' : 'unsupported',
   )
   const [data, setData] = React.useState<ArrayBuffer | null>(null)
+  const [view, setView] = React.useState<PreviewViewMode>('preview')
+  const [source, setSource] = React.useState<OfficeSourceState>(IDLE_OFFICE_SOURCE)
 
   const load = React.useCallback(async () => {
     setStatus('loading')
@@ -486,64 +585,111 @@ export function OfficePreview({
     }
   }, [status, src, hardMax, lazyThreshold, load])
 
+  // 换产物(含 src 变更导致 data 复位)⇒ 视图与源码文本一起退回「渲染视图 + 未解析」,
+  // 否则旧产物的源码会留在屏幕上,读起来像新产物的内容(内容身份错位)
+  const extractedFor = React.useRef<ArrayBuffer | null>(null)
+  React.useEffect(() => {
+    setView('preview')
+    setSource(IDLE_OFFICE_SOURCE)
+    extractedFor.current = null
+  }, [data])
+
+  // 源码档的文本只在①已切到源码 ②状态 ready ③手里有字节 ④这份字节还没解析过 时派生一次。
+  // 依赖刻意不含 source.status,也不带 cleanup 的 cancelled 旗:含它会让本 effect 在置 extracting
+  // 后立刻重跑,而上一轮的 cleanup 把 cancelled 置真 ⇒ 在途解析的 then 被吞,视图永久停在「正在解析」。
+  // 依赖里没有 fetch/load ⇒ "切视图不触发新取数"是结构保证,不是记得没写 fetch。
+  React.useEffect(() => {
+    if (view !== 'source' || status !== 'ready' || !data) return
+    if (extractedFor.current === data) return
+    extractedFor.current = data
+    setSource((prev) => (prev.status === 'idle' ? { ...prev, status: 'extracting' } : prev))
+    extractOfficeSourceText(data, sourceMaxChars)
+      .then((r) => {
+        setSource({ status: 'ready', text: r.text, truncated: r.truncated })
+      })
+      .catch(() => {
+        // 落 failed(不是退回 idle):退回 idle 会让一次解析失败变成反复重试
+        setSource({ status: 'failed', text: '', truncated: false })
+      })
+  }, [view, status, data, sourceMaxChars])
+
+  const sourceAvailability = officeSourceAvailability(status)
+
   return (
     <div
       className={cn('my-0 overflow-hidden rounded-md border border-border', className)}
       data-testid="office-preview"
       data-office-state={status}
+      data-preview-view={view}
       data-artifact-preview-kind={kind}
     >
       <div className="flex items-center justify-between gap-2 bg-muted/40 px-2 py-1">
         <span className="truncate text-[10px] font-medium text-muted-foreground">
           {kind.toUpperCase()}
         </span>
-        <a
-          href={src}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-testid="office-download"
-          className="inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ExternalLink className="h-3 w-3" />
-          {t('officeDownload')}
-        </a>
-      </div>
-      {status === 'unsupported' && (
-        <p className="p-3 text-xs text-muted-foreground" data-testid="office-unsupported">
-          {t('officeUnsupported')}
-        </p>
-      )}
-      {status === 'too-large' && (
-        <p className="p-3 text-xs text-muted-foreground" data-testid="office-too-large">
-          {t('officeTooLarge')}
-        </p>
-      )}
-      {status === 'expired' && (
-        <p className="p-3 text-xs text-muted-foreground" data-testid="office-expired">
-          {t('officeExpired')}
-        </p>
-      )}
-      {status === 'lazy' && (
-        <div className="flex items-center justify-center p-6">
-          <button
-            type="button"
-            data-testid="office-lazy-btn"
-            onClick={() => void load()}
-            className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        <span className="flex shrink-0 items-center gap-2">
+          <PreviewViewSwitch mode={view} onModeChange={setView} source={sourceAvailability} />
+          <a
+            href={src}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="office-download"
+            className="inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
           >
-            {t('officeLazyLoad')}
-          </button>
-        </div>
+            <ExternalLink className="h-3 w-3" />
+            <span>{t('officeDownload')}</span>
+          </a>
+        </span>
+      </div>
+      {view === 'source' && status === 'ready' ? (
+        <PreviewSourceText
+          status={source.status === 'idle' ? 'extracting' : source.status}
+          text={source.text}
+          truncated={source.truncated}
+          maxChars={sourceMaxChars}
+        />
+      ) : (
+        <>
+          {status === 'unsupported' && (
+            <p className="p-3 text-xs text-muted-foreground" data-testid="office-unsupported">
+              {t('officeUnsupported')}
+            </p>
+          )}
+          {status === 'too-large' && (
+            <p className="p-3 text-xs text-muted-foreground" data-testid="office-too-large">
+              {t('officeTooLarge')}
+            </p>
+          )}
+          {status === 'expired' && (
+            <p className="p-3 text-xs text-muted-foreground" data-testid="office-expired">
+              {t('officeExpired')}
+            </p>
+          )}
+          {status === 'lazy' && (
+            <div className="flex items-center justify-center p-6">
+              <button
+                type="button"
+                data-testid="office-lazy-btn"
+                onClick={() => void load()}
+                className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <span>{t('officeLazyLoad')}</span>
+              </button>
+            </div>
+          )}
+          {status === 'loading' && (
+            <p className="flex items-center gap-1.5 p-3 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>{t('officeLoading')}</span>
+            </p>
+          )}
+          {status === 'ready' && data && kind === 'docx' && <DocxBody data={data} />}
+          {status === 'ready' && data && kind === 'xlsx' && (
+            <XlsxGrid data={data} maxRows={maxRows} />
+          )}
+          {status === 'ready' && data && kind === 'pptx' && <PptxOutline data={data} />}
+        </>
       )}
-      {status === 'loading' && (
-        <p className="flex items-center gap-1.5 p-3 text-xs text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          {t('officeLoading')}
-        </p>
-      )}
-      {status === 'ready' && data && kind === 'docx' && <DocxBody data={data} />}
-      {status === 'ready' && data && kind === 'xlsx' && <XlsxGrid data={data} maxRows={maxRows} />}
-      {status === 'ready' && data && kind === 'pptx' && <PptxOutline data={data} />}
     </div>
   )
 }
