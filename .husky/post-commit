@@ -187,4 +187,18 @@ if (process.env.IHUI_PLAN_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_HEA
       /* 日志截断失败不影响主流程 */
     }
   }
+
+// 任务状态分叉自愈(2026-09-26 立,守门 130 的第二层)
+// 为什么 pre-commit 那道门不够:并发改计划文档的会话 routinely 用 --no-verify,pre-commit
+// 被一起跳过;而"按内存里旧计划文档整文件提交"会把刚归并好的行原样复活 —— 实测本票第一次
+// 落地(118 行)在同一小时内就被一次这样的回写吞掉,108 行 [归并] 从 HEAD 全部消失。
+// 判据在 pre-commit 会红给下一个人(还不是他的债),修必须挂在这里。
+// 递归:提交走 commit-tree + update-ref,钩子结构性不跑;仍带 IHUI_PLAN_STATE_HEAL_COMMIT
+// 供判读。跳过:HUSKY_SKIP_PLAN_STATE_HEAL=1
+if (process.env.IHUI_PLAN_STATE_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_STATE_HEAL !== '1') {
+  runLogged('post-commit-plan-state-heal', 'node scripts/plan-tasks-merge.mjs --heal --commit', {
+    timeout: 120000,
+    env: { IHUI_PLAN_STATE_HEAL_COMMIT: '1' },
+  })
+}
 }
