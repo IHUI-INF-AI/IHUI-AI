@@ -1,0 +1,57 @@
+IHUI-AI
+Copyright 2026 IHUI AI (智汇AI) · 版权所有 (c) 2026 李春川 (Li Chunchuan) · https://aizhs.top
+
+Copyright (c) 2026 Li Chunchuan (李春川). All rights reserved.
+
+------------------------------------------------------------------
+
+本仓库（"本项目"）由 李春川 (Li Chunchuan) 拥有并维护，官方网站：https://aizhs.top。
+
+开源许可：
+  本项目开源部分采用 Apache License 2.0（见根目录 LICENSE）。依据 Apache-2.0
+  第 4(a)(c) 条，任何分发 / 再分发本软件（含修改版）的副本，都必须：
+    - 保留本 NOTICE 文件与所有版权 / 溯源声明，不得删除或淡化；
+    - 随副本附上许可证与 NOTICE 的完整副本；
+    - 在显著位置注明来源（https://aizhs.top）与版权所有者（李春川）。
+
+版权溯源水印：
+  本项目全部源文件均嵌入版权溯源水印（可见声明头 + 不可见零宽字符隐写，
+  可运行 `node scripts/watermark.mjs decode <file>` 验证）。移除水印不改变版权
+  归属；未授权商用（含去除品牌标识、SaaS 转售、闭源二次分发）将被技术溯源
+  并依法追究。
+
+商用授权：
+  闭源商用 / 去除品牌标识 / SaaS 转售须另行获得版权所有者（李春川）书面授权，
+  联系方式见官网 https://aizhs.top。
+
+------------------------------------------------------------------
+
+License:
+  This project is licensed under the Apache License 2.0 (see LICENSE).
+  Under Apache-2.0 §4(a)(c), every copy (including modified versions) you
+  distribute must retain this NOTICE and all copyright/provenance statements,
+  include the full License and NOTICE, and prominently credit the copyright
+  owner (Li Chunchuan) and source <https://aizhs.top>.
+
+------------------------------------------------------------------
+
+第三方来源台账（Inbound third-party provenance ledger）：
+  上面两段讲的是**出站**（别人复制我们的代码时必须保留什么）。本节讲**入站**：
+  本仓库携带的第三方 / 嵌入 / 复制内容，逐条登记在
+    config/third-party-provenance/embedded.json   （打进产物的组件，如 vendored crate）
+    config/third-party-provenance/copied.json     （复制进仓的源码与素材）
+    config/third-party-provenance/overrides.json  （被 override 换掉来源的依赖）
+    config/third-party-provenance/mechanisms.json （只吸收机制、不带走代码的借鉴）
+  每条登记上游项目、获取来源、revision（不可考则显式 null 并说明）、许可证、
+  许可原文的位置与 sha256、本仓是否改过（Apache-2.0 §4(b) 要求标注修改），
+  以及"仍需审计"的义务清单。
+  判据：node scripts/provenance-ledger.mjs（--report 出人读盘点，--self-test 出取证），
+  入口 pnpm check:provenance。它同时反向核查：盘上任何 vendored 目录或带第三方
+  版权 / SPDX 头的文件，若台账里没有对应条目即判红。
+
+  分发本仓库任何部分（含 vendored 目录内的文件）时，除保留本 NOTICE 外，
+  还必须按台账登记的各自许可保留其上游版权声明与许可原文：
+    apps/desktop/src-tauri/vendor/tray-icon-0.24.2/ —— tray-icon (tauri-apps)，
+      MIT OR Apache-2.0，许可原文随目录内的 LICENSE-APACHE / LICENSE-MIT 一并分发；
+      本仓对该副本的 Windows 后端修改见该条目 modification 字段。
+  本节是登记面的指针，不构成对上述任何组件的再授权；各组件许可以上述文件为准。

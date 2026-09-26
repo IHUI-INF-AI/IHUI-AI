@@ -45,7 +45,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: pnpm --filter @ihui/cli build
+        run: pnpm --filter @ihui/context-compaction build && pnpm --filter @ihui/cli build
 
       - name: Typecheck
         run: pnpm --filter @ihui/cli typecheck
@@ -111,7 +111,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: pnpm --filter @ihui/cli build
+        run: pnpm --filter @ihui/context-compaction build && pnpm --filter @ihui/cli build
 
       - name: Create SEA blob config
         shell: bash
