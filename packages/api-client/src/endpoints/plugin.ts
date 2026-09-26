@@ -33,7 +33,7 @@ import type {
   PluginUninstallResponse,
 } from '@ihui/types'
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** 查询当前登录用户所有已安装插件的安装态(未登录返回 authenticated=false + 空 states) */
 export function getInstalledPlugins(): Promise<PluginInstalledResponse> {

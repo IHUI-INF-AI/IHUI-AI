@@ -4,8 +4,8 @@
 
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
-import { buildQs, type PageData } from '../utils'
+import { fetchApi } from '../client.js'
+import { buildQs, type PageData } from '../utils.js'
 
 export interface TokenBalance {
   /** 当前余额(user_margins.tokenQuantity,Redis 缓存 5 分钟) */

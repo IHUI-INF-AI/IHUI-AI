@@ -12,7 +12,7 @@
  * - deleteRepoWikiDoc   DELETE /:id     删除文档
  */
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** 文档类型:overview = 仓库总览;module = 模块文档 */
 export type RepoWikiDocKind = 'overview' | 'module'

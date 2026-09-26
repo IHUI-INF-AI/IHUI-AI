@@ -12,8 +12,8 @@
 
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
-import { buildQs } from '../utils'
+import { fetchApi } from '../client.js'
+import { buildQs } from '../utils.js'
 
 /** 后端商品记录:字段命名不统一,保留可选兜底字段(兜底收敛进 normalizeCartGoods 适配层) */
 export interface CartGoods {

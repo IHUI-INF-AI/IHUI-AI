@@ -24,7 +24,7 @@
  * 此处刻意本地声明(与 team-memory.ts 同形态)—— api-client 不依赖 @ihui/database。
  */
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 // =============================================================================
 // 枚举与 DTO
