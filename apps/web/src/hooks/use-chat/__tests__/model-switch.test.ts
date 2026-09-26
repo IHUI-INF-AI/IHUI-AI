@@ -230,4 +230,24 @@ describe('装车证明:判据必须真接在主链路上', () => {
     expect(src).not.toContain("from '@/stores/chat'")
   })
 })
+
+// V3 #68 的可达性锁:机制齐但界面够不到 = 没交付。
+// 上一轮实测 `ModelSelector disabled={isStreaming}` 让流式中根本点不到选择器,
+// 于是三判据全部只在单测里成立。这条断言防它悄悄退回去。
+describe('换档入口必须真的可达(不只是机制就绪)', () => {
+  // 上面那个 describe 里的 read() 是块内作用域,这里复用会 ReferenceError
+  // —— 整个文件收集期就挂,16 条既有用例一起被吞掉(本仓记过"收集失败静默削覆盖"那一型)。
+  const readInput = (rel: string) =>
+    readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
+  const input = readInput('../../../components/chat/message-input.tsx')
+
+  it('流式中不得再禁用模型选择器', () => {
+    const block = input.slice(input.indexOf('<ModelSelector'), input.indexOf('/>', input.indexOf('<ModelSelector')))
+    expect(block).not.toMatch(/disabled=\{isStreaming\}/)
+  })
+
+  it('选择器仍被渲染(不得用"删掉整块"来糊上一条断言)', () => {
+    expect(input).toContain('<ModelSelector')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
