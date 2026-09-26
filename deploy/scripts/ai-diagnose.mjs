@@ -18,8 +18,12 @@
 //   IHUI_AI_TIMEOUT_MS 选填。请求超时,默认 90000
 //
 // 安全设计:
-//   - 发送前对日志做密钥脱敏(api key/token/password/secret/Authorization/Bearer/sk-)
-//   - 只取日志尾部(默认 400 行 / 24000 字符),控制上下文体积
+//   - 发送前对日志做密钥脱敏 —— **有界,不是"一律抹掉"**:只盖 `sk-` 前缀 / `Bearer <token>` /
+//     `api key|token|password|passwd|secret|authorization` 的 k=v 赋值三族;
+//     `ihui_…`、`sk_…`、`ghp_…`/`github_pat_…`、`AKIA/ASIA`、裸 JWT `eyJ…`、PEM 私钥、
+//     `scheme://user:pass@host` 均未覆盖,逐条理由与实测证据见下面 redact() 的注释块。
+//   - 只取日志尾部(默认 400 行 / 24,000 字符),这既是上下文预算也是长度上限:
+//     进入模型的不可信文本一律受该档约束,超限即加"前文已截断"可见标记(不静默变短)。
 //   - 退出码:0 成功 / 2 配置缺失 / 3 API 失败或超时 / 4 无日志输入
 //
 // 平台特有:依赖 Node fetch/DOM 编码,作为部署机独立工具,不适合进 packages/。
@@ -42,7 +46,37 @@ function parseArgs(argv) {
   return args
 }
 
-// 密钥脱敏:部署日志里最常见的 key/token/password 形态,发送前一律抹掉
+// 密钥脱敏:**只覆盖下面三条正则真能命中的形态**,不承诺"一律抹掉"。
+//
+// 为什么不复用共享层那一份更宽的并集(`packages/shared/src/utils/redact.ts`,
+// 含 ihui_/sk_/ghp_/github_pat_/AKIA/ASIA/裸 JWT/PEM 私钥/URL 内联凭据/邮箱/IP):
+// **实测被否证,不是没试。** 本文件在 `deploy/` 下,而 `pnpm-workspace.yaml` 的 globs 只有
+// `apps/*` 与 `packages/*` ⇒ deploy 不是 workspace 包、自身没有 package.json/node_modules;
+// 又因 `nodeLinker: isolated`,workspace 包只软链进各消费包自己的 node_modules,
+// 根 `node_modules/@ihui/` 里只有 eslint-config。实测:
+//   createRequire('G:/IHUI-AI/deploy/scripts/ai-diagnose.mjs').resolve('@ihui/shared')
+//   → MODULE_NOT_FOUND: Cannot find module '@ihui/shared'
+// 要接通必须新建 deploy/package.json + 改 workspace globs + 跑全量 pnpm install,
+// 那是依赖树动作(§12e 记过 `--filter` 剪链接把约 110 道守门一起废掉的事故),不属本票范围。
+// **结论:本文件是一份刻意更窄的本地实现,不是"共享层之外不该有第二套"的例外 ——
+// 第二套更窄的规则正是 §3 禁止的形状,所以这里以注释把差集写在脸上,而不是假装盖全。
+//
+// 实测已覆盖(逐条跑过,输入为本文件真实产出形态):
+//   1. `sk-` 前缀 key(OpenAI/Anthropic 风格,>=8 位)
+//   2. `Bearer <token>` 整段
+//   3. `api[_-]?key|token|password|passwd|secret|authorization` 的 `k=v` / `k: v` 赋值
+//      (引号包裹亦盖)
+//
+// 实测**未覆盖**(裸形态、键名不在上面那串里,就原样发给网关):
+//   · `ihui_xxx` 对客 key(只在跟在 `Authorization:` 后面时被第 3 条顺带盖掉)
+//   · `sk_xxx` 上游号池 key(下划线,第 1 条只认连字符)
+//   · `ghp_xxx` / `github_pat_xxx` GitHub token
+//   · `AKIAxxxxxxxx` / `ASIAxxxxxxxx` AWS Access Key ID
+//   · 裸 JWT `eyJ….….…`(只有带 `Bearer ` 前缀时才盖)
+//   · PEM 私钥整块、`scheme://user:pass@host` 内联凭据
+//   · 邮箱 / IPv4 / 24 位以上 hex 串
+// 处置口径:要给 LLM 诊断的日志若可能含上述裸形态,先人工过一遍再喂本脚本;
+// 真正需要宽脱敏的链路(交接单/出库边界)请走 `sanitizeEvidenceText`,别扩这里的正则。
 function redact(text) {
   return text
     .replace(/sk-[\w-]{8,}/g, '[REDACTED]')

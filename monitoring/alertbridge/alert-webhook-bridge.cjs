@@ -42,6 +42,11 @@
 //   版式由 apps/api/src/services/email-templates.ts 的 renderSystemAlertEmail 单点决定 ——
 //   本文件**不得**出现 SMTP/Resend 传输层、色值或模板字符串(守门 81「品牌邮件通道对账」)。
 //
+// 外部文本纪律(2026-09-26 立):Alertmanager 送来的 labels/annotations 是**不受控外部文本**,
+//   进正文前一律过 stripCtl(剥控制/零宽字符、labels 折行)+ redact(先封顶 → 脱敏 → 截断,
+//   截断必须在正文里点名丢弃字节数);整封正文再受 MAIL_BODY_MAX_BYTES 字节闸门约束。
+//   判据在 --self-test 的 ⑤/⑤b/⑥ 三段(含"未超限不得出现截断说明"的反向锁)。
+//
 // 命令行旗标:
 //   (缺省)         作为常驻服务监听 webhook
 //   --self-test    逻辑自检(零网络、零子进程、零邮件投递),失败 exit 1
@@ -94,14 +99,16 @@ function writeLog(msg) {
 }
 
 // 单条告警的可读行(邮件正文按行拼接)
+// ⚠️ labels 与 annotations **全部是 Alertmanager 送来的外部文本**,一条都不许原样进正文:
+//    统一过 stripCtl(形状归一)+ redact(脱敏 + 截断,截断量可见)。
 function formatAlert(alert) {
   const labels = alert.labels || {}
   const anns = alert.annotations || {}
-  const name = labels.alertname || 'unnamed'
-  const inst = labels.instance || '-'
-  const lv = labels.severity || 'unknown'
-  const desc = anns.description || anns.summary || ''
-  return `[${lv}] ${name} (${inst})${desc ? '\n' + desc : ''}`
+  const name = redact(stripCtl(labels.alertname, false) || 'unnamed')
+  const inst = redact(stripCtl(labels.instance, false) || '-')
+  const lv = redact(stripCtl(labels.severity, false) || 'unknown')
+  const desc = redact(stripCtl(anns.description || anns.summary || '', true), MAIL_ANN_MAX_CHARS)
+  return `[${lv}] ${name} (${inst})${desc === '(无内容)' ? '' : '\n' + desc}`
 }
 
 // ── 身份去重 + 状态持久化 ──────────────────────────────────────────────────────
@@ -163,19 +170,105 @@ function loadDedupState(file, store, nowMs = Date.now(), windowMs = MAX_DEDUP_AG
   } catch (e) { return null }
 }
 
-// ── 脱敏(任何诊断文本落盘前一律过这一层:子进程可能把 .env 片段倒进 stderr)──────────
+// ── 脱敏 + 长度上限(任何诊断文本落盘/进邮件正文前一律过这一层:子进程可能把 .env 片段
+//    倒进 stderr,Alertmanager 可能把上游原文塞进 labels/annotations)────────────────
+// 为什么上限必须在这一层:邮件是**唯一到人通道**(AGENTS.md §5e),而本文件的正文内容
+// 逐字来自 Alertmanager 送来的 labels/annotations —— 那是不受控的外部文本,parseBody
+// 允许到 5e6 字符(见文件内 `data.length > 5e6`),不设上限就等于把邮箱当垃圾桶。
+// 「静默变短」比「变短」更糟:运维必须能从正文里看出**少了一段**,否则截断就是在伪造完整性。
 const SECRETISH_LINE_RE = /(api[_-]?key|token|secret|credential|passw|authorization|bearer)/i
+
+/**
+ * 裸凭据前缀族:值出现在正文里但**同一行没有** key/token/secret 这类关键词时,
+ * SECRETISH_LINE_RE 结构上看不见 —— 那正是"annotation 里躺着一把 key"的形态。
+ *
+ * 权威清单是 `packages/shared/src/utils/redact.ts` 的 `SECRET_RULES`。本文件是**零依赖常驻
+ * .cjs 服务**,结构上 import 不了 TS 源码包(与 deploy/scripts/ai-diagnose.mjs 头注里那条
+ * `createRequire(...).resolve('@ihui/shared') → MODULE_NOT_FOUND` 是同一个否证),所以这里是
+ * 一份副本 —— 副本的风险由 --self-test 的"逐族正向证明"兜:每个前缀都必须有一条用例证明
+ * 它真被脱敏,清单烂掉(加了族没测/测了没生效)当场判红。
+ * 共享层新增一族而这里没跟上时,没有机器判据横跨两侧 —— 已如实登记,不是"已收口"。
+ */
+const BARE_SECRET_PREFIXES = Object.freeze(['ihui_', 'ihui-', 'sk_', 'sk-', 'ghp_', 'github_pat_', 'gho_', 'AKIA', 'ASIA', 'eyJ'])
+// 前置一个"非词字符"闸门:否则 `task-12345678` 会被里面的 `sk-` 误伤(告警正文里 job/task 名极常见)。
+// 尾巴要求 ≥8 位,避免把普通缩写/短 ID 打成掩码。
+const BARE_SECRET_RE = new RegExp(`(^|[^A-Za-z0-9_-])(?:${BARE_SECRET_PREFIXES.join('|')})[A-Za-z0-9_+/=-]{8,}`, 'g')
+
+/**
+ * 进入 SECRETISH_LINE_RE 之前的输入硬封顶(字符数)。
+ * 取值理由:与 apps/api/src/services/log-sanitizer.ts 的 `MAX_SANITIZE_INPUT_CHARS = 4096`
+ * **同值同理由** —— 该文件原文:「先封顶、后正则:脱敏正则永远只面对 ≤cap 的输入,
+ * ReDoS/无界 CPU 成本被结构性排除」。反过来「先正则后封顶」,成本与回溯风险已经发生。
+ */
+const REDACT_INPUT_CAP_CHARS = 4096
+
+/**
+ * 单条 annotation(description/summary)进正文的上限(字符)。
+ * 取值理由:取 REDACT_INPUT_CAP_CHARS 的一半 —— 4096 是「正则能吃下的量」,不是「该给人看的量」。
+ * Alertmanager 的 annotation 典型形态是 1~3 行说明(本仓 alertmanager 规则里最长的一条 <600 字符),
+ * 2,000 足够装下真实故障描述,同时结构上保证「一条 annotation 撑爆整封正文」不可能发生
+ * (MAIL_BODY_MAX_BYTES ÷ 本档 ≫ 一批告警的正常条数)。
+ */
+const MAIL_ANN_MAX_CHARS = 2000
+
+/**
+ * 整封邮件正文的字节上限(UTF-8)。
+ * 取值理由:夹在本仓既有三档之间 —— deploy/win/ihui-deploy.ps1:155 的单条诊断串 300 字符、
+ * deploy/scripts/ai-diagnose.mjs 的上下文档 24,000 字符、本文件 runDispatcher 对子进程输出的
+ * 兜底档 64,000 字符。告警邮件的主体是**我们自己写的结论行**,外部原文只是佐证,
+ * 20,000 字节足够列完一批告警又低于上述任何一档 ⇒ 本门在下游兜底之前收口,而不是依赖它。
+ */
+const MAIL_BODY_MAX_BYTES = 20_000
+
+/** 截断说明自身要占的字节预留:预留后总长仍 ≤ MAIL_BODY_MAX_BYTES,上限才是真上限 */
+const MAIL_BODY_NOTICE_RESERVE_BYTES = 400
+
+function utf8Bytes(s) {
+  return Buffer.byteLength(s, 'utf8')
+}
+
 function redact(text, limit = 200) {
-  const scrubbed = String(text === undefined || text === null ? '' : text).split('\n').map((line) => {
+  const raw = String(text === undefined || text === null ? '' : text)
+  // ① 先封顶(正则不吃无界输入)② 再脱敏 ③ 最后按输出档截断 —— 三步的丢弃量合并成一个诚实数字
+  const capped = raw.length > REDACT_INPUT_CAP_CHARS ? raw.slice(0, REDACT_INPUT_CAP_CHARS) : raw
+  let droppedBytes = utf8Bytes(raw) - utf8Bytes(capped)
+  const scrubbed = capped.split('\n').map((line) => {
     let l = line.trimEnd()
     if (SECRETISH_LINE_RE.test(l)) {
       const sep = /[=:]/.exec(l)
       l = sep && sep.index < 40 ? `${l.slice(0, sep.index + 1)}***` : '[已脱敏]'
     }
-    return l
+    // 恒走 replace:带 /g 的 .test() 会推进 lastIndex,逐行复用时下一行从串中间开始匹配 ⇒ 漏。
+    // (String.replace 用 /g 时自带 lastIndex 归零,所以不判直接替换才是安全形态。)
+    return l.replace(BARE_SECRET_RE, '$1[已脱敏]')
   }).join('\n')
-  if (!scrubbed.trim()) return '(无内容)'
-  return scrubbed.length > limit ? `${scrubbed.slice(0, limit)}…(截断)` : scrubbed
+  if (!scrubbed.trim()) return droppedBytes > 0 ? `(无内容)[已丢弃 ${droppedBytes} 字节]` : '(无内容)'
+  if (scrubbed.length > limit) {
+    const kept = scrubbed.slice(0, limit)
+    droppedBytes += utf8Bytes(scrubbed) - utf8Bytes(kept)
+    return `${kept}…(截断,已丢弃 ${droppedBytes} 字节)`
+  }
+  if (droppedBytes > 0) return `${scrubbed}…[输入超封顶,已丢弃 ${droppedBytes} 字节]`
+  return scrubbed
+}
+
+/**
+ * 剥控制字符 + 零宽字符(外部文本进正文前的形状归一):
+ * - keepNewline=false:labels 用 —— alertname/instance/severity 本应是**单行标识符**,
+ *   换行必须折成空格,否则一条外部文本能在正文里凭空造出若干行冒充别的告警。
+ * - keepNewline=true:annotations 用 —— 保留换行(它是给人读的多行说明),只收成行首尾空白。
+ * 为什么零宽字符也算这一层:本仓 §5c 的溯源水印正是靠 U+200B/200C/200D/2060 生存,
+ * 放任外部文本原样带这些字符进正文,等于允许它在我们的格式里藏不可见内容(肉眼与
+ * diff 都看不见 —— 与本仓"判据失效的表现永远是安静"同型)。
+ */
+function stripCtl(value, keepNewline) {
+  const raw = String(value === undefined || value === null ? '' : value).replace(
+    //  C0(除 \n \t)  \x7f  零宽/word-joiner  LS/PS
+    /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u200b-\u200d\u2060\u2028\u2029]/g,
+    ' ',
+  )
+  if (keepNewline) return raw.replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n').trim()
+  return raw.replace(/\s+/g, ' ').trim()
 }
 
 // ── Alertmanager 批次 → 品牌邮件载荷 ───────────────────────────────────────────
@@ -198,9 +291,34 @@ function mailSeverity(alerts) {
 
 /** 邮件标题:告警名可读,过长时截断为"前 4 项 + 等 N 项"(标题不是正文,别把注意力花在长串上) */
 function mailTitle(alerts) {
-  const names = (alerts || []).map((a) => (a.labels || {}).alertname || 'unnamed')
+  // 标题同样喂给派发器的 --title 命令行参数(还要过一层控制台代码页),所以 alertname
+  // 在这里也必须折行 + 走 redact 的单行档 —— 与正文用的是同一把尺子,不是第二套规则。
+  const names = (alerts || []).map((a) => redact(stripCtl((a.labels || {}).alertname, false) || 'unnamed'))
   const head = names.length <= 4 ? names.join(' / ') : `${names.slice(0, 4).join(' / ')} 等 ${names.length} 项`
   return `基础设施告警 — ${head}`
+}
+
+/**
+ * 整封正文的字节闸门(纯函数,--self-test 钉死"超限必须留可见说明")。
+ * 截断说明自身占的字节先从预算里扣掉 ⇒ 追加后总长仍 ≤ MAIL_BODY_MAX_BYTES,
+ * 上限才是**真上限**而不是"上限 + 一条说明"。
+ * ⚠️ 按码点累加字节,不按 UTF-16 索引切 —— 切在代理对中间会产出坏字符,
+ * 那等于把人要看的那半句也弄坏。
+ */
+function capMailBody(text) {
+  const bytes = utf8Bytes(text)
+  if (bytes <= MAIL_BODY_MAX_BYTES) return text
+  const budget = MAIL_BODY_MAX_BYTES - MAIL_BODY_NOTICE_RESERVE_BYTES
+  let used = 0
+  let cut = 0
+  for (const ch of text) {
+    const b = utf8Bytes(ch)
+    if (used + b > budget) break
+    used += b
+    cut += ch.length
+  }
+  const dropped = bytes - used
+  return `${text.slice(0, cut)}\n…[正文已达上限 ${MAIL_BODY_MAX_BYTES} 字节,已丢弃 ${dropped} 字节;` + '被丢弃的告警明细不在本邮件内,请到 Alertmanager 界面按身份查看完整批次]'
 }
 
 /** 邮件正文(纯文本多行;版式由 renderSystemAlertEmail 单点决定,本函数不得含 HTML) */
@@ -208,11 +326,12 @@ function buildMailMessage(alerts) {
   const parts = ['Prometheus 指标告警(Prometheus → Alertmanager → alert-webhook-bridge 链路)', '']
   for (const a of alerts || []) parts.push(formatAlert(a), '')
   parts.push(
-    `告警条数:${alerts.length};去重窗口:${DEDUP_WINDOW_MIN} 分钟(同一 alertname+instance 窗口内不重复投递)。`,
+    `告警条数:${(alerts || []).length};去重窗口:${DEDUP_WINDOW_MIN} 分钟(同一 alertname+instance 窗口内不重复投递)。`,
     '说明:邮件是唯一到人通道,无每日总量封顶 —— 同一条告警窗口内只寄一封,不同告警一律照寄。',
     `来源:${MAIL_SOURCE}(本机即生产机,仓库根 ${REPO_ROOT})。`,
+    `长度上限:单条 annotation ≤${MAIL_ANN_MAX_CHARS} 字符,整封正文 ≤${MAIL_BODY_MAX_BYTES} 字节(超出即在正文里点名丢弃字节数)。`,
   )
-  return parts.join('\n')
+  return capMailBody(parts.join('\n'))
 }
 
 /**
@@ -527,12 +646,37 @@ async function runSelfTest() {
   eq('密钥样行留键名抹值(诊断仍读得懂)', redact('RESEND_API_KEY=re-secret-value-123'), 'RESEND_API_KEY=***')
   eq('无分隔符可切的命中行整行打码', redact('Bearer eyJhbGciOiJIUzI1Ni5x'), '[已脱敏]')
   eq('普通行原样保留', redact('SMTP 发送失败,回落 Resend'), 'SMTP 发送失败,回落 Resend')
-  eq('超长诊断文本截断(日志不被撑爆)', redact('x'.repeat(500)).endsWith('…(截断)'), true)
+  eq('超长诊断文本截断且**点名丢了多少字节**(不得静默变短)', redact('x'.repeat(500)), `${'x'.repeat(200)}…(截断,已丢弃 300 字节)`)
+  eq('正则前先封顶:5e5 字符输入不得原样喂给 SECRETISH_LINE_RE', redact('y'.repeat(500000)).length < 500, true)
+  eq('输入封顶这件事必须可见(报出被丢字节数;limit 大于封顶档时才走到这一支)', /输入超封顶,已丢弃 \d+ 字节/.test(redact('z'.repeat(REDACT_INPUT_CAP_CHARS + 1234), 6000)), true)
+  eq('零宽字符不得活着进正文(不可见内容不算内容)', stripCtl('a\u200bb\u2060c', true), 'a b c')
+  eq('labels 里的换行折成空格(外部文本不得凭空多造一行告警)', stripCtl('HighCPU\n[Fake] 伪造行', false), 'HighCPU [Fake] 伪造行')
+  eq('annotations 保留换行(它是给人读的多行说明)', stripCtl('第一行\n第二行', true), '第一行\n第二行')
+
+  // ⑤b 邮件正文面:外部文本必须"经过脱敏 + 受长度上限约束",且截断可见
+  const evil = [{
+    labels: { alertname: 'Evil\n[Fake] 注入行', instance: 'x:1', severity: 'critical' },
+    annotations: { description: `api_key = leak-me-please\n${'A'.repeat(3000)}` },
+  }]
+  const evilBody = buildMailMessage(evil)
+  eq('annotation 里的密钥样行经 redact:值不得出现在正文', evilBody.includes('leak-me-please'), false)
+  eq('annotation 里的密钥样行经 redact:键名仍在(诊断价值不丢)', evilBody.includes('api_key =***'), true)
+  eq('单条 annotation 受 MAIL_ANN_MAX_CHARS 约束且点名丢弃量', /已丢弃 \d+ 字节/.test(evilBody) && evilBody.split('\n').find((l) => /^A+$/.test(l.slice(0, 10))).length <= MAIL_ANN_MAX_CHARS + 40, true)
+  eq('labels 的换行不会在正文里多造一行(注入行不独立成行)', evilBody.includes('\n[Fake] 注入行'), false)
+  const stormBody = buildMailMessage(Array.from({ length: 40 }, (_, i) => ({
+    labels: { alertname: `S${i}`, instance: `n${i}:9100`, severity: 'warning' },
+    annotations: { description: 'D'.repeat(1900) },
+  })))
+  eq('整封正文不得越过 MAIL_BODY_MAX_BYTES(预留后追加说明也算)', utf8Bytes(stormBody) <= MAIL_BODY_MAX_BYTES, true)
+  eq('正文被截断时必须吼出来(丢了多少字节 + 去哪看剩下的)', /正文已达上限 \d+ 字节,已丢弃 \d+ 字节/.test(stormBody), true)
+  eq('未超限时不得出现截断说明(不得虚报)', /正文已达上限/.test(buildMailMessage(alerts)), false)
+  eq('标题里的 alertname 同样折行 + 封顶(它进的是命令行 --title)', mailTitle(evil).includes('\n'), false)
 
   // ⑥ 版式零手抄:邮件正文必须是纯文本(模板归 renderSystemAlertEmail 单点)
   const msg = buildMailMessage(alerts)
   eq('正文不含任何 HTML 标签(未手抄版式)', /<[a-z!/][^>]*>/i.test(msg), false)
   eq('正文如实声明唯一通道与无封顶口径', /唯一到人通道,无每日总量封顶/.test(msg), true)
+  eq('正文把本封适用的长度上限写在脸上(读信的人不必猜)', new RegExp(`annotation ≤${MAIL_ANN_MAX_CHARS} 字符`).test(msg), true)
   eq('severity 映射:page→critical、未知→warning', [mailSeverity([{ labels: { severity: 'page' } }]), mailSeverity([{ labels: { severity: 'weird' } }]), mailSeverity([{ labels: { severity: 'info' } }, { labels: { severity: 'critical' } }])], ['critical', 'warning', 'critical'])
   eq('标题过长时截断为"前 4 项 等 N 项"', mailTitle(Array.from({ length: 7 }, (_, i) => ({ labels: { alertname: `A${i}` } }))), '基础设施告警 — A0 / A1 / A2 / A3 等 7 项')
 
@@ -559,6 +703,18 @@ async function runSelfTest() {
   const rEmpty = await sendMailLeg([], { dispatch: counting, log: fakeLog, undelFile })
   eq('空批经生产入口 sendMailLeg ⇒ 跳过且不派任何子进程', [rEmpty.skipped, dispatchCalls], [true, 0])
   eq('BRIDGE_MAIL_ENABLED=0 时 mailGate 不放行(开关关"要不要发",不是"发几封")', mailGate({ enabled: false, count: 3 }).pass, false)
+
+  // ⑦ 裸凭据前缀族:逐族正向证明(名单类判据必须至少有一条断言的输入取自名单本身 ——
+  //    只写一条"能拦"的笼统断言,清单可以在完全失效的状态下一路报绿)。
+  for (const p of BARE_SECRET_PREFIXES) {
+    // 样本在运行时拼装:源码里绝不出现「前缀 + 长随机串」的完整形态,
+    // 否则 push protection 会按 commit 拦下整条 main(本仓为一枚假 token 样本卡死过一次)。
+    const probe = `job ${p}${'AbCd1234'.repeat(3)} ended`
+    eq(`裸前缀族 ${p} 进正文前被脱敏`, redact(probe).includes('[已脱敏]'), true)
+    eq(`裸前缀族 ${p} 掩码后原值不再出现`, redact(probe).includes('AbCd1234'), false)
+  }
+  eq('反向锁:task-12345678 这类正常 job 名不得被 sk- 误伤', redact('job task-12345678 done'), 'job task-12345678 done')
+  eq('反向锁:无凭据形态的告警行逐字不变(脱敏不得顺手改写正常文本)', redact('CPU 使用率 95% 持续 5 分钟'), 'CPU 使用率 95% 持续 5 分钟')
 
   let bad = 0
   for (const [label, pass, why] of cases) {
