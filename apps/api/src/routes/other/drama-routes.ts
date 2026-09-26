@@ -28,6 +28,7 @@ import { withAudit, withAuditBoth } from '../../utils/audit.js'
 import { dbRead } from '../../db/index.js'
 import { users } from '@ihui/database'
 import { paginationSchema, parseIdParam } from './_shared.js'
+import { batchWriteOutcome } from '../../utils/batch-outcome.js'
 
 // ===== 类型定义 =====
 type DramaStatus = 'draft' | 'published' | 'archived'
@@ -254,20 +255,17 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
     const operatorId = request.userId ?? null
-    let deleted = 0
-    const skipped: Array<{ id: string; reason: string }> = []
+    const confirmedIds: string[] = []
     for (const id of body.data.ids) {
-      if (dramaStore.delete(id)) {
-        deleted++
-      } else {
-        skipped.push({ id, reason: '不存在' })
-      }
+      if (dramaStore.delete(id)) confirmedIds.push(id)
     }
+    const { affected, missedIds } = batchWriteOutcome(body.data.ids, confirmedIds)
+    const skipped = missedIds.map((id) => ({ id, reason: '不存在' }))
     request.log.info(
-      { deleted, skippedCount: skipped.length, operatorId },
+      { deleted: affected, skippedCount: skipped.length, operatorId },
       'drama audit: batch-delete',
     )
-    return reply.send(success({ deleted, skipped }))
+    return reply.send(success({ deleted: affected, skipped, missedIds }))
   })
 
   // GET /drama/:id — 详情(JOIN users 展示作者)
@@ -327,12 +325,12 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
     if (id === null) return
     const existing = dramaStore.get(id)
     if (!existing) return reply.status(404).send(error(404, '剧本不存在'))
-    dramaStore.delete(id)
+    const removed = dramaStore.delete(id)
     request.log.info(
       { id, operatorId: request.userId ?? null, action: 'delete', title: existing.title },
       'drama audit: deleted',
     )
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted: removed }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
