@@ -156,24 +156,87 @@ if (ahead === 0) {
 // → --no-verify 重试 → 80 项守门全跳过(实测今日每次 commit 都如此)。
 // 故:后台推送在途(running 且未过期)→ 放行;仅"无在途推送且 ahead>0"(真忘记 push)才阻塞。
 const PUSH_STATE_STALE_MS = 5 * 60 * 1000
-try {
-  const st = JSON.parse(readFileSync(resolve(repoRoot, '.workbuddy/push-state.json'), 'utf8'))
-  // 在途判定 = running + 未过期 + 持有者存活(死 worker 的残留状态不算在途)
-  let alive = true
+
+/** 读 `.workbuddy/push-state.json`;缺文件/坏 JSON ⇒ null(回到原判据,不猜)。 */
+function readPushState() {
   try {
-    process.kill(Number(st.pid), 0)
-  } catch (e) {
-    alive = e.code === 'EPERM'
+    return JSON.parse(readFileSync(resolve(repoRoot, '.workbuddy/push-state.json'), 'utf8'))
+  } catch {
+    return null
   }
-  if (st.status === 'running' && Date.now() - st.ts < PUSH_STATE_STALE_MS && alive) {
-    console.log(
-      `⏭  后台推送进行中(HEAD ${String(st.headSha).slice(0, 7)},pid ${st.pid}),不阻塞本次 commit;新提交将由 post-commit 随新 worker 重推`,
-    )
-    process.exit(0)
-  }
-} catch {
-  /* 无状态文件 → 按原逻辑继续 */
 }
+
+/** pid 存活探测(signal 0)。`isPidAlive` 与 worker 侧同一语义:EPERM = 活着但不属于我。 */
+function isPidAlive(pid) {
+  if (!pid || Number(pid) === process.pid) return true
+  try {
+    process.kill(Number(pid), 0)
+    return true
+  } catch (e) {
+    return e.code === 'EPERM'
+  }
+}
+
+/** `headSha` 是否是本地 HEAD 的祖先(含自身)。取不到/不认识一律判"不是"——
+ *  本函数只在"要不要放行"这一格被用,判不出时选择继续拦,不猜通过。
+ *  刻意不用 `git cat-file -e <sha>^{commit}`:`execSync` 在 Windows 走 cmd.exe,
+ *  而 `^` 是 cmd 的转义符,该形态会被吃掉后报"未知对象"(实测踩过一次,表现为
+ *  done+祖先这一格永远判红)。 */
+function isAncestorOfHead(sha, head) {
+  if (!sha || !head || !/^[0-9a-f]{7,40}$/i.test(sha)) return false
+  return run(`git merge-base --is-ancestor ${sha} ${head}`, { allowFail: true }) !== null
+}
+
+/** 放行结论的四种合法形态,以及"回到原判据(阻塞)"的一种。
+ *  刻意保持窄口径:`failed` 一律阻塞(真推送不出去才是本门存在的理由);
+ *  `running` 但未新鲜/持有者已死 也回到阻塞,那正是 2026-09-19 记录的"猝死残留"型。 */
+function pushVerdict(st, { now, localHead }) {
+  if (!st || typeof st.ts !== 'number') return { pass: false, why: '无 push-state(或形状不对)' }
+  const fresh = now - st.ts < PUSH_STATE_STALE_MS
+  const alive = isPidAlive(st.pid)
+  if (st.status === 'failed') {
+    return { pass: false, why: `最近一次后台推送判 failed(${ageText(now, st.ts)}前),本门必须继续拦` }
+  }
+  if (st.status === 'running' && fresh && alive) {
+    return { pass: true, why: `后台推送在途(running,${ageText(now, st.ts)}前,pid ${st.pid} 存活)` }
+  }
+  if (st.status === 'running' && fresh && !alive) {
+    return { pass: false, why: `running 但持有者 pid ${st.pid} 已死 ⇒ 猝死残留,不算在途` }
+  }
+  // 2026-09-26 新增的一格:上一轮推送**已成功落终态(done)**,而本次 ahead 来自其后
+  // 的新提交。实测成因:本机 12:53 / 12:57 两枚提交都因这一格被判红,而红之后
+  // safe-commit 走 --no-verify ⇒ 当天多数提交实际上没跑那 163 道门。
+  // 这不算放宽:`done` 只说明"推送通道是通的、guard 在位",post-commit 必然为新提交
+  // 再起一个 worker(§5b「异步推送」条);真推不出去会写 failed,仍由上一条拦下。
+  if (st.status === 'done' && fresh && isAncestorOfHead(String(st.headSha), localHead)) {
+    return {
+      pass: true,
+      why: `上一轮推送已成功(done ${String(st.headSha).slice(0, 7)},${ageText(now, st.ts)}前),本次 ahead 来自其后的新提交,post-commit 会再起 worker 重推`,
+    }
+  }
+  if (st.status === 'done' && fresh) {
+    return {
+      pass: false,
+      why: `push-state 是 done,但那一枚 headSha 不在本次 HEAD 的祖先线上 ⇒ 不得拿别的历史的成功当本分支的合格证`,
+    }
+  }
+  return { pass: false, why: `push-state status=${st.status} 且已过期(${ageText(now, st.ts)}前)` }
+}
+
+function ageText(now, ts) {
+  const s = Math.max(0, Math.round((now - ts) / 1000))
+  return s < 60 ? `${s}s` : `${Math.round(s / 60)}min`
+}
+
+const pushState = readPushState()
+const verdict = pushVerdict(pushState, { now: Date.now(), localHead })
+if (verdict.pass) {
+  console.log(`⏭  ${verdict.why};新提交将由 post-commit 随新 worker 重推,不阻塞本次 commit`)
+  process.exit(0)
+}
+// 判红时把"读到了什么"一起打出来:这道门判的是**远端态**,与提交内容无关,
+// 没有这一行,每一次红都要有人从头猜一遍(今天就是这样)。
+console.log(`ℹ️  push-state 读数:${pushState ? `status=${pushState.status} headSha=${String(pushState.headSha).slice(0, 7)} pid=${pushState.pid}` : '无文件'} ⇒ ${verdict.why}`)
 
 const localShort = localHead.substring(0, 7)
 const remoteShort = remoteHead.substring(0, 7)
