@@ -3423,12 +3423,12 @@ const checks = [
   },
   // --- 工具族注册对账(1 项,warn)---
   {
-    id: '131',
+    id: '132',
     label:
-      '🔧 工具族注册对账(warn,存量棘轮:tools/** 里导出的一族工具必须能在生产面找到把它挂进注册表的调用点 —— "造好没装车"那一型)',
+      '🔧 工具族注册对账(blocking,存量已归零:tools/** 里导出的一族工具必须能在生产面找到把它挂进注册表的调用点 —— "造好没装车"那一型)',
     script: 'check-tool-family-registered.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_TOOL_FAMILY_REGISTERED',
     stagedTriggers: ['apps/cli/src/'],
     onFailHint: [
