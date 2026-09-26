@@ -601,6 +601,26 @@ export function countWorktreeDrift(statusText, prefix) {
   return paths.size
 }
 
+/**
+ * 「裸形态 / `length:` 提示形态坍缩」识别器(2026-09-26 实测归因后新增)。
+ * weapp-tailwindcss 的 v4 生成器会先把 `text-[28rpx]` 与 `text-[length:28rpx]` **归一成同一条候选**
+ * (dist/generator-*.js:69-89 的 Set 坍缩),Tailwind 因此只出**一条**规则;随后
+ * `restoreRpxLengthCssSelectors`(:97-106)把那条规则的选择器**反写成没有提示的裸形态**。
+ * 结果:源码写提示形态的那些元素**挂不上任何规则**,而它在产物里的"缺项"看上去像整档没生成。
+ * 本函数就是把这一型从"未落地"里摘出来 —— 量到的现象是"提示名不在、裸名在",不是"字号没生成"。
+ * 判据要覆盖门自己产出的形态:不看这一格,下一个人就会去修一个不存在的生成缺陷。
+ */
+export function findCollapsedLengthMisses(missNames, landedSet) {
+  const out = []
+  for (const n of missNames || []) {
+    const m = /^(.*?)-\[length:(.+)\]$/.exec(n)
+    if (!m) continue
+    const bare = `${m[1]}-[${m[2]}]`
+    if (landedSet && (landedSet.has(bare) || landedSet.has(weappMangleClassName(bare)))) out.push({ hinted: n, bare })
+  }
+  return out
+}
+
 export function isSpacingScaleCandidate(name) {
   const bare = name.replace(/^!/, '').replace(/^(?:[a-z]+:)+/, '')
   return /^(?:[pm][xytrbl]?|gap(?:-[xy])?|space-[xy])-(?:\d+(?:\.\d+)?|px)$/.test(bare)
@@ -1801,6 +1821,7 @@ export async function runCheck(opts) {
   /* ---- C1 落地覆盖率 ---- */
   let coverage = null
   let missingSamples = []
+  let collapsedLengthMisses = []
   // C5 的红在 C1 段里算,但要合进下面统一的 `failing` —— 先单独收着,免得看起来像被 minCoverage 管着
   const failingC5 = []
   let mangleLeg = {
@@ -1891,6 +1912,16 @@ export async function runCheck(opts) {
     // 旧写法在这里原地重写第二份谓词,注释自己也警告"两处各写一遍必然漂移" ——
     // 第三态一出来它就真的漂了(复合首族命中的名字会被这行重新算成 miss)。现直接吃 missNames。
     coverage.missOccurrences = coverage.missNames.reduce((a, n) => a + (usedTokens.get(n) || 0), 0)
+    // 先把"坍缩型缺项"挑出来(必须在 delete 之前,missNames 之后就不在了):
+    // 这一型的表现是**提示名不在产物里、裸名却在**,把它算成"整档没生成"会引我去修一个不存在的生成缺陷。
+    collapsedLengthMisses = landed ? findCollapsedLengthMisses(coverage.missNames, landed) : []
+    if (collapsedLengthMisses.length)
+      notices.push(
+        `裸/提示坍缩 ${collapsedLengthMisses.length} 档(不是"整档没生成"):源码写 \`X-[length:V]\`,而产物里只有裸形态 \`X-[V]\` 的规则` +
+          `(weapp 生成器把两种写法归一成一条候选,再把选择器反写成裸形态)⇒ 运行时挂的是提示名,取不到样式。` +
+          `样例 ${collapsedLengthMisses.slice(0, 3).map((x) => `${x.hinted}→有${x.bare}`).join(' ')}。` +
+          `修法只有一条:**同一次构建里不得两种形态并存**(加显式 \`length:\` 提示,见守门 93 R7),不得去改生成器`,
+      )
     missingSamples = coverage.missingSamples
     delete coverage.missingSamples
     delete coverage.missNames
@@ -1954,6 +1985,7 @@ export async function runCheck(opts) {
     cssLeg,
     spacingFamily,
     missingSamples,
+    collapsedLengthMisses,
     dual,
     blindSpots,
     referenceBlindSpots,
@@ -3237,6 +3269,27 @@ export function selfTest() {
     ].join(','),
     '1,0,0',
   )
+  // 坍缩型识别:必须"提示名缺 + 裸名在产物里"同时成立才算,单侧都不算(否则会把真没生成洗白)。
+  eq(
+    'P79 坍缩型缺项识别:裸名以**转写形态**在产物里时也算(真产物就是这一型)',
+    JSON.stringify(
+      findCollapsedLengthMisses(['text-[length:28rpx]'], new Set(['text-_b28rpx_B', 'flex'])).map((x) => `${x.hinted}|${x.bare}`),
+    ),
+    JSON.stringify(['text-[length:28rpx]|text-[28rpx]']),
+  )
+  eq(
+    'P79b 反向对照:裸名也不在产物 ⇒ 那是真没生成,不得算坍缩(算了就是给缺陷洗白)',
+    findCollapsedLengthMisses(['text-[length:28rpx]'], new Set(['flex'])).length,
+    0,
+  )
+  eq(
+    'P79c 变体前缀要同视(dark:text-[length:…] 的裸形态是 dark:text-[…]);非 length 档一律不纳',
+    [
+      findCollapsedLengthMisses(['dark:text-[length:32rpx]'], new Set(['dark_ctext-_b32rpx_B'])).length,
+      findCollapsedLengthMisses(['w-[50%]'], new Set(['w-_b50_v_B'])).length,
+    ].join(','),
+    '1,0',
+  )
 
   let failed = 0
   for (const x of results) {
@@ -3360,6 +3413,7 @@ export const __test__ = {
   weappMangleClassName,
   unmappedPunctIn,
   countWorktreeDrift,
+  findCollapsedLengthMisses,
   missFamily,
   WEAPP_CLASS_MANGLE_TABLE,
   classifyDist,
