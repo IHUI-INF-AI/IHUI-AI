@@ -1231,34 +1231,47 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       const { text, extractType } = parsed.data as V1KnowledgeGraphExtractRequest
       const body: Record<string, unknown> = { text }
       if (extractType) body.extractType = extractType
-      return forwardAiService(reply, '/api/v1/extract', jsonInit(body), (data) => {
-        const d = asObj(data)
-        const result: V1KnowledgeGraphExtractResponse = {
-          entities: Array.isArray(d.entities)
-            ? d.entities.map((e) => {
-                const o = asObj(e)
-                return {
-                  id: String(o.id ?? ''),
-                  name: String(o.name ?? ''),
-                  type: String(o.type ?? ''),
-                  ...(o.properties ? { properties: o.properties as Record<string, unknown> } : {}),
-                }
-              })
-            : [],
-          relations: Array.isArray(d.relations)
-            ? d.relations.map((r) => {
-                const o = asObj(r)
-                return {
-                  source: String(o.source ?? ''),
-                  target: String(o.target ?? ''),
-                  type: String(o.type ?? ''),
-                  ...(o.properties ? { properties: o.properties as Record<string, unknown> } : {}),
-                }
-              })
-            : [],
-        }
-        return result
-      })
+      // 守门 127 B组修复(2026-09-26):原写 '/api/v1/extract' 少了一层挂载前缀。
+      // ai-service 实际注册 = main.py include(api_v1_router, prefix="/api/v1")
+      //   + api/v1/router.py include(knowledge_graph.router, prefix="/ai/knowledge-graph")
+      //   + knowledge_graph.py @router.post("/extract"),三段拼接为下面这条。
+      return forwardAiService(
+        reply,
+        '/api/v1/ai/knowledge-graph/extract',
+        jsonInit(body),
+        (data) => {
+          const d = asObj(data)
+          const result: V1KnowledgeGraphExtractResponse = {
+            entities: Array.isArray(d.entities)
+              ? d.entities.map((e) => {
+                  const o = asObj(e)
+                  return {
+                    id: String(o.id ?? ''),
+                    name: String(o.name ?? ''),
+                    type: String(o.type ?? ''),
+                    ...(o.properties
+                      ? { properties: o.properties as Record<string, unknown> }
+                      : {}),
+                  }
+                })
+              : [],
+            relations: Array.isArray(d.relations)
+              ? d.relations.map((r) => {
+                  const o = asObj(r)
+                  return {
+                    source: String(o.source ?? ''),
+                    target: String(o.target ?? ''),
+                    type: String(o.type ?? ''),
+                    ...(o.properties
+                      ? { properties: o.properties as Record<string, unknown> }
+                      : {}),
+                  }
+                })
+              : [],
+          }
+          return result
+        },
+      )
     },
   )
 
@@ -1278,7 +1291,12 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       preHandler: [requireApiKeyAuth, requireCapability('knowledge:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
-      return forwardAiService(reply, '/api/v1/build', jsonInit(request.body ?? {}))
+      // 守门 127 B组修复:同上,真注册路径带 '/ai/knowledge-graph' 前缀(knowledge_graph.py @router.post("/build"))。
+      return forwardAiService(
+        reply,
+        '/api/v1/ai/knowledge-graph/build',
+        jsonInit(request.body ?? {}),
+      )
     },
   )
 
@@ -1303,32 +1321,38 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       preHandler: [requireApiKeyAuth, requireCapability('knowledge:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
-      return forwardAiService(reply, '/api/v1/data', { method: 'GET' }, (data) => {
-        const d = asObj(data)
-        const result: V1KnowledgeGraphDataResponse = {
-          nodes: Array.isArray(d.nodes)
-            ? d.nodes.map((n) => {
-                const o = asObj(n)
-                return {
-                  id: String(o.id ?? ''),
-                  label: String(o.label ?? ''),
-                  type: String(o.type ?? ''),
-                }
-              })
-            : [],
-          edges: Array.isArray(d.edges)
-            ? d.edges.map((e) => {
-                const o = asObj(e)
-                return {
-                  source: String(o.source ?? ''),
-                  target: String(o.target ?? ''),
-                  label: String(o.label ?? ''),
-                }
-              })
-            : [],
-        }
-        return result
-      })
+      // 守门 127 B组修复:同上(knowledge_graph.py @router.get("/data"))。
+      return forwardAiService(
+        reply,
+        '/api/v1/ai/knowledge-graph/data',
+        { method: 'GET' },
+        (data) => {
+          const d = asObj(data)
+          const result: V1KnowledgeGraphDataResponse = {
+            nodes: Array.isArray(d.nodes)
+              ? d.nodes.map((n) => {
+                  const o = asObj(n)
+                  return {
+                    id: String(o.id ?? ''),
+                    label: String(o.label ?? ''),
+                    type: String(o.type ?? ''),
+                  }
+                })
+              : [],
+            edges: Array.isArray(d.edges)
+              ? d.edges.map((e) => {
+                  const o = asObj(e)
+                  return {
+                    source: String(o.source ?? ''),
+                    target: String(o.target ?? ''),
+                    label: String(o.label ?? ''),
+                  }
+                })
+              : [],
+          }
+          return result
+        },
+      )
     },
   )
 
@@ -1347,7 +1371,8 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       preHandler: [requireApiKeyAuth, requireCapability('knowledge:write'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
-      return forwardAiService(reply, '/api/v1/data', { method: 'DELETE' })
+      // 守门 127 B组修复:同上(knowledge_graph.py @router.delete("/data"))。
+      return forwardAiService(reply, '/api/v1/ai/knowledge-graph/data', { method: 'DELETE' })
     },
   )
 
