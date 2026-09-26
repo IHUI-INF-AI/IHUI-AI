@@ -49,9 +49,12 @@ const GEO_KEY =
 /**
  * 必须先过这道否定筛:GEO_KEY 的 `font` 会命中 `fontWeight: 700`、`line` 命中 `lineCount`、
  * `size` 命中 `pageSize`。不排就是拿字重当尺寸判差异 —— 噪音尺与静默尺同样没用。
+ * `letter` 是 2026-09-26 补的:`spacing` 一支会命中 `letterSpacing`(字距 0.2 被当尺寸读数),
+ * RN 端 BottomActionBar 的头注当时已把这一处如实写成"读数噪音"—— 噪音登记进注释不配当判据,
+ * 尺子自己把它喂进集合就是判据错(RN 侧 `LABEL_LETTER_SPACING = 0.2` 即实例)。
  */
 const NON_GEO_KEY =
-  /(weight|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page)/i
+  /(weight|letter|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page)/i
 const TW_SPACING_PX = (n) => n * 4
 const TW_FONT_PX = { xs: 12, sm: 14, base: 16, lg: 18, xl: 20, '2xl': 24, '3xl': 30 }
 /** 超过此值的"尺寸"不是组件几何(屏宽 / 动画毫秒 / 密度),不判。 */
@@ -131,7 +134,7 @@ const RADIUS_FORM_RE = /rounded|radius|cornerradius|border-radius/i
 /**
  * 一个文件 → 归一后的几何档集合 + 具名常量表。纯函数:自检钉的是它,不是打印。
  */
-export function readGeometry(src, side) {
+export function readGeometry(src, side, tiers = {}) {
   const code = stripComments(src)
   const named = {}
   const values = new Set()
@@ -160,13 +163,68 @@ export function readGeometry(src, side) {
     /(?:^|[\s"'`])(?:size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
   ))
     push(toPx(m[1], m[2], side))
-  for (const m of code.matchAll(/(?:^|[\s"'`])([hw])-([0-9]+(?:\.[0-9]+)?)(?=$|[\s"'`/:])/g))
+  for (const m of code.matchAll(
+    /(?:^|[\s"'`:](?:[a-z-]+:)?)size-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g,
+  ))
+    push(round(TW_SPACING_PX(Number(m[1]))))
+  // 内联盒/留白的**刻度档**(非任意值形态):`px-3`/`py-2`/`gap-4`/`mt-2` … 一律 ×4 折 px。
+  // 不收这一档,同一族的两侧就不在同一口径上读数 —— RN 写 `paddingHorizontal: 12` 记进集合,
+  // 小程序写 `px-3` 却不进集合,于是"仅 RN 档 12"是一条纯粹的比对噪声(实测 BottomActionBar 就这么错判过)。
+  for (const m of code.matchAll(
+    /(?:^|[\s"'`:](?:[a-z-]+:)?)(?:p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|space-x|space-y)-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g,
+  ))
+    push(round(TW_SPACING_PX(Number(m[1]))))
+  // 尾视里**不含 `/`**:`w-1/3` 这类分数宽度不是 px 档(旧写法把 `w-1` 折成 4px 喂进集合,
+  // 实测 ModelList 的骨架条 `w-1/3` 因此凭空多出一档"仅小程序 4")。
+  for (const m of code.matchAll(/(?:^|[\s"'`:](?:[a-z-]+:)?)([hw])-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g))
     push(round(TW_SPACING_PX(Number(m[2]))))
   for (const m of code.matchAll(/(?:^|[\s"'`])text-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g))
     push(toPx(m[1], m[2], side))
   for (const m of code.matchAll(/(?:^|[\s"'`])text-(xs|sm|base|lg|xl|2xl|3xl)(?=$|[\s"'`/:])/g))
     push(TW_FONT_PX[m[1]] ?? null)
   for (const m of code.matchAll(/\bsize=\{(\d+(?:\.\d+)?)\}/g)) push(toPx(m[1], undefined, side))
+  /**
+   * **具名档必须也进集合**,否则尺子奖励隐藏:把数字收编进 `packages/shared/src/ui/*-spec.ts`
+   * 或 `design-tokens/geometry.js` 之后,组件里只剩标识符,前面所有"数字形态"的提取式全部落空
+   * —— 于是"两端各取 spec 里不同的一档"读起来比"两端各抄一个裸数字"更加隐身。
+   * 这一格是 2026-09-26 用户实拍"两端还是不一样"时定位出来的判据缺陷:几何同值的族能看见,
+   * 已经收进单一源的族反而看不见。
+   * 口径:`_PX` 结尾的导出档名按逻辑 px 直接计入(**不做 rpx 换算** —— spec 存的就是逻辑 px),
+   * `geometry.<键>` 同;本文件的局部别名(`const X = SPEC_Y` / `const X = rnGeometry.tapBox`)
+   * 追一跳,别名本身也按名字记进 named 表。
+   */
+  if (tiers && Object.keys(tiers).length) {
+    const alias = {}
+    for (const m of code.matchAll(
+      /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:(?:rnGeometry|taroGeometry|GEOMETRY_PX)\.([A-Za-z_$][\w$]*)|([A-Z][A-Z0-9_]*))(?![\w.])/g,
+    )) {
+      const target = m[2] ? `geometry.${m[2]}` : m[3]
+      if (tiers[target] !== undefined) alias[m[1]] = tiers[target]
+    }
+    /**
+     * 取标识符全集用**一遍**扫描再与档表求交,而不是"每个档名建一条正则扫全文":
+     * 档表现有 600+ 条,×24 个配对文件 = 一万多次全文回溯,一次判据跑成分钟级;
+     * 求交是 O(文件长度)。两种写法判的是同一件事,成本差三个数量级。
+     */
+    const ids = new Set(code.match(/[A-Za-z_$][\w$]*/g) || [])
+    const geoMember = new Set(
+      [...code.matchAll(/\b(?:rnGeometry|taroGeometry|GEOMETRY_PX)\.([A-Za-z_$][\w$]*)/g)].map(
+        (m) => m[1],
+      ),
+    )
+    for (const [name, px] of Object.entries(tiers)) {
+      const hit = name.startsWith('geometry.')
+        ? geoMember.has(name.slice(9))
+        : ids.has(name)
+      if (!hit || !(px > 0) || px > MAX_GEO_PX) continue
+      push(px)
+      if (named[name] === undefined) named[name] = px
+    }
+    for (const [name, px] of Object.entries(alias)) {
+      push(px)
+      if (named[name] === undefined) named[name] = px
+    }
+  }
   return { values, named }
 }
 
@@ -191,6 +249,32 @@ export function diffValues(mini, rn) {
 }
 
 const fileName = (f) => f.split('/').pop()
+/**
+ * 单一源表(共享 spec + design-tokens 几何表)→ 具名档表。
+ * 键:`SPEC_…_PX` 原样;`GEOMETRY_PX` 的档挂 `geometry.` 前缀(与消费侧 `rnGeometry.tapBox` 同形)。
+ * 排除项按判据面而非按名字猜:带 `PER_` 的是单位换算系数(`TARO_RPX_PER_PX = 2` 不是尺寸档)、
+ * 命中 NON_GEO_KEY / 圆角形态的不入表 —— 收了就是把换算系数当几何档喂进集合。
+ */
+export function specTiers(sources) {
+  const tiers = {}
+  for (const [rel, src] of Object.entries(sources)) {
+    const code = stripComments(src)
+    for (const m of code.matchAll(
+      /export const ([A-Z][A-Z0-9_]*_PX)\s*=\s*(\d+(?:\.\d+)?)(?![\w.])/g,
+    )) {
+      const name = m[1]
+      if (/PER_/.test(name) || NON_GEO_KEY.test(name) || RADIUS_FORM_RE.test(name)) continue
+      tiers[name] = Number(m[2])
+    }
+    if (!/[\\/]geometry\.[jt]s$/.test(rel)) continue
+    const table = code.match(/GEOMETRY_PX\s*=\s*\{([\s\S]*?)\n\}/)
+    if (!table) continue
+    for (const m of table[1].matchAll(/([A-Za-z_$][\w$]*)\s*:\s*(\d+(?:\.\d+)?)/g))
+      tiers[`geometry.${m[1]}`] = Number(m[2])
+  }
+  return tiers
+}
+
 const normKey = (file) =>
   fileName(file)
     .replace(/\.(tsx|jsx|ts|js)$/i, '')
@@ -826,33 +910,71 @@ export function pruneUnreachableLegs(repoRoot, face, scanned) {
   }
   const unreachable = []
   const kept = []
+  const fallbacks = []
+  /**
+   * 首选层是**死副本**时退回下一层,而不是把整对丢掉(2026-09-26 实测:UserInfoCard / NavBar /
+   * Carousel 的 `packages/app` 那份零可达消费者,而 `apps/mobile-rn` 的同名件真在屏幕上)。
+   * 旧行为"锁定首选层 → 不可达 → 剔对" ⇒ 这三对**覆盖率为 0 而账面不喊**,读报告的人会以为已同值。
+   * 候选顺序仍按 SIDES 目录优先级不变,只是把"不可达"从"剔对"降级为"换腿";
+   * 换到的是哪条腿必须留痕(静默换腿等于把判据的输入挪走而没人知道)。
+   */
+  const altsBySide = {}
+  for (const side of Object.keys(SIDES)) {
+    const m = new Map()
+    for (const dir of SIDES[side]) {
+      for (const p of all) {
+        if (!p.startsWith(`${dir}/`) || !/\.(tsx|jsx)$/i.test(fileName(p))) continue
+        const k = normKey(p)
+        if (!m.has(k)) m.set(k, [])
+        if (!m.get(k).includes(p)) m.get(k).push(p)
+      }
+    }
+    altsBySide[side] = m
+  }
   for (const p of scanned.pairs) {
+    const cur = { miniapp: p.miniapp, rn: p.rn }
+    const moved = []
+    for (const side of ['miniapp', 'rn']) {
+      const reach = usedBySide[side]
+      if (reach.has(cur[side]) || missing.has(cur[side])) continue
+      const alt = (altsBySide[side].get(normKey(cur[side])) ?? []).find(
+        (f) => f !== cur[side] && !missing.has(f) && reach.has(f),
+      )
+      if (alt) {
+        moved.push(`${cur[side]} → ${alt}`)
+        cur[side] = alt
+      }
+    }
     // 取不到内容的文件不参与判定(可能是二进制)—— 宁可不剔,也不把"没判"当"不可达"。
-    const bad = [p.miniapp, p.rn].filter(
-      (f, i) => !usedBySide[i === 0 ? 'miniapp' : 'rn'].has(f) && !missing.has(f),
-    )
+    const bad = ['miniapp', 'rn'].filter((s) => !usedBySide[s].has(cur[s]) && !missing.has(cur[s]))
     if (!bad.length) {
-      kept.push(p)
+      if (moved.length) fallbacks.push({ name: p.name, moved })
+      kept.push({ ...p, miniapp: cur.miniapp, rn: cur.rn })
       continue
     }
     unreachable.push({
       name: p.name,
-      side: p.miniapp === bad[0] ? 'miniapp' : 'rn',
-      legs: bad,
-      reason: bad.map((f) => `${f} 从端入口不可达`).join(';'),
+      side: bad[0],
+      legs: bad.map((s) => cur[s]),
+      reason: bad.map((s) => `${cur[s]} 从端入口不可达`).join(';'),
     })
   }
   // 全被剔除不再是"判据失明"(小夹具本就可能只剩一份死副本),但必须喊出来 —— 覆盖面掉了要看得见。
   const note =
     scanned.pairs.length && !kept.length
       ? `全部 ${scanned.pairs.length} 对的两端都不可达:本门这一轮对空气判定,请核种子`
-      : null
+      : fallbacks.length
+        ? `${kept.length} 对中有 ${fallbacks.length} 对换了腿(首选层是不可达的死副本,已退回下一层):${fallbacks
+            .map((f) => f.name)
+            .join(', ')} —— 覆盖面因此比账面大,不是"存量已同值"`
+        : null
   return {
     pairs: { ...scanned, pairs: kept },
     unreachable,
     undetermined: undet,
     reason: null,
     note,
+    fallbacks,
   }
 }
 
@@ -895,6 +1017,7 @@ export function collect(repoRoot, face, { pairAll = false } = {}) {
   let unreachable = []
   let undeterminedEdges = []
   let coverageNote = null
+  let fallbacks = []
   if (pairAll) pairs = { ...pairs, pairAll: true }
   else {
     const pruned = pruneUnreachableLegs(repoRoot, face, pairs)
@@ -903,6 +1026,7 @@ export function collect(repoRoot, face, { pairAll = false } = {}) {
     unreachable = pruned.unreachable
     undeterminedEdges = pruned.undetermined
     coverageNote = pruned.note ?? null
+    fallbacks = pruned.fallbacks ?? []
   }
   const need = [...new Set(pairs.pairs.flatMap((p) => [p.miniapp, p.rn]))]
   const text = {}
@@ -913,7 +1037,47 @@ export function collect(repoRoot, face, { pairAll = false } = {}) {
     if (t === null || t === undefined) throw new Undetermined(`${FACE_TXT[face]}取不到 ${need[i]}`)
     text[need[i]] = t
   }
-  return { pairs, text, unreachableLegs: unreachable, undeterminedEdges, coverageNote }
+  /**
+   * 具名档表与组件正文**同面同轮**取:清单来自被审面,内容也来自被审面。
+   * 取不到任何一份 ⇒ Undetermined。空表不等于"没有单源档",那是一台瞎了的尺子 ——
+   * 正因如此,枚举到 0 个 spec 文件也判死(不得把"表空"读成"两端都没用单源,所以差异为 0")。
+   */
+  const specDir = 'packages/shared/src/ui'
+  const specList = listFace(repoRoot, face, specDir)
+  if (specList === null) throw new Undetermined(`${FACE_TXT[face]}取不到目录清单 ${specDir}`)
+  const specFiles = specList.filter((p) => /-spec\.ts$/.test(p))
+  if (!specFiles.length)
+    throw new Undetermined(`${FACE_TXT[face]}在 ${specDir} 枚举到 0 个 *-spec.ts ⇒ 具名档判据失明`)
+  /**
+   * 几何表(`GEOMETRY_PX`)按**是否真被引用**决定缺件算不算失明:夹具可以没有它,
+   * 但只要有一个配对文件写着 `rnGeometry.` / `taroGeometry.` 而表取不到,那就是判据看不见
+   * 这一档 —— 与"目录清单为空却记绿"同型,必须喊死。
+   */
+  const geoPath = 'packages/design-tokens/src/geometry.js'
+  const geoList = listFace(repoRoot, face, 'packages/design-tokens/src')
+  const hasGeo = geoList === null ? false : geoList.includes(geoPath)
+  const tierPaths = hasGeo ? [...specFiles, geoPath] : [...specFiles]
+  const tierSpecs = tierPaths.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
+  const tierGot = catBatch(repoRoot, tierSpecs, { maxBuffer: 1 << 26 })
+  const specSources = {}
+  for (let i = 0; i < tierPaths.length; i++) {
+    const t = tierGot.get(tierSpecs[i])
+    if (t === null || t === undefined)
+      throw new Undetermined(`${FACE_TXT[face]}取不到具名档来源 ${tierPaths[i]}`)
+    specSources[tierPaths[i]] = t
+  }
+  if (!hasGeo && need.some((rel) => /\b(?:rnGeometry|taroGeometry|GEOMETRY_PX)\./.test(text[rel])))
+    throw new Undetermined(`${FACE_TXT[face]}取不到 ${geoPath},而配对组件在引用几何表 ⇒ 判据失明`)
+  const tiers = specTiers(specSources)
+  return {
+    pairs,
+    text,
+    tiers,
+    unreachableLegs: unreachable,
+    undeterminedEdges,
+    coverageNote,
+    fallbacks,
+  }
 }
 
 /** 一处"看得见的差异" = 一个档值(具名常量不同值另计,同一处不双计)。 */
@@ -929,14 +1093,14 @@ export function waiverProblem(w) {
   return null
 }
 
-export function audit(pairs, text, baseline = {}) {
+export function audit(pairs, text, baseline = {}, tiers = {}) {
   const findings = []
   for (const p of pairs.pairs) {
     const a = text[p.miniapp]
     const b = text[p.rn]
     if (a === undefined || b === undefined) continue
-    const ga = readGeometry(a, 'miniapp')
-    const gb = readGeometry(b, 'rn')
+    const ga = readGeometry(a, 'miniapp', tiers)
+    const gb = readGeometry(b, 'rn', tiers)
     const named = namedConflicts(ga.named, gb.named)
     const geometry = diffValues(ga.values, gb.values)
     if (!named.length && !geometry.onlyMiniapp.length && !geometry.onlyRn.length) continue
@@ -1167,6 +1331,9 @@ function FIXTURE_BASE({ rn }) {
     'packages/app/src/components/Bar.tsx': 'export function Bar() { return null }\n',
     'packages/app/src/components/Foo.tsx':
       'export function Foo() { return <div style={{ width: 36 }} /> }\n',
+    // 具名档表与组件同面取,夹具必须自带一份 spec —— 否则 collect() 按"判据失明"判死,
+    // 这一组用例红的原因就不是判据,而是夹具缺件。
+    'packages/shared/src/ui/foo-spec.ts': 'export const FOO_BOX_PX = 24\n',
   }
 }
 
@@ -1497,6 +1664,90 @@ function runSelfTest() {
         iconGlyphs(withChannel).vector.join(',') === 'camera,keyboard,mic,send' &&
         iconGlyphs(noChannel).vector.join(',') === ''
       )
+    })(),
+  )
+  /* 票⑥(2026-09-26)读数面四条不对称 + 具名档解析。
+     这一组存在的理由:用户实拍"两端还是不一样",而本门一路报绿 —— 查下来不是台账数字错,
+     是**读数面本身两侧不同形**:字距被当尺寸、`w-1/3` 被折成 4px、小程序的 `px-3` 不进集合而
+     RN 的 `paddingHorizontal: 12` 进集合,以及最要命的一条 —— 数字一旦收编进 shared spec,
+     组件里只剩标识符,前面所有数字形态的提取式全部落空,于是"收进单一源"= 从尺子上消失。
+     每条都配正反对照(阴性结论必须有阳性对照,否则等于没测)。 */
+  t(
+    '㉙ letterSpacing 不是尺寸(反面对照:同键名换成 width 必须仍被读)',
+    readGeometry('letterSpacing: 0.2\nfoo: 3\n', 'rn').values.size === 0 &&
+      readGeometry('letterSpacing: 0.2\nwidth: 300\n', 'rn').values.has(300),
+  )
+  t(
+    '㉚ 分数宽度 w-1/3 不得被折成 4px;同串里的真档 w-8 仍要读到',
+    (() => {
+      const g = readGeometry('className="w-1/3"\n', 'miniapp')
+      const h = readGeometry('className="w-8"\n', 'miniapp')
+      return !g.values.has(4) && !g.values.has(1) && h.values.has(32)
+    })(),
+  )
+  t(
+    '㉛ 刻度档 px-3 / gap-4 在小程序侧同样进集合(与 RN 的 paddingHorizontal: 12 对形)',
+    (() => {
+      const g = readGeometry('className="px-3 gap-4"\n', 'miniapp')
+      const r = readGeometry('paddingHorizontal: 12\ngap: 16\n', 'rn')
+      return (
+        g.values.has(12) && g.values.has(16) && !diffValues(g.values, r.values).onlyRn.length &&
+        !diffValues(g.values, r.values).onlyMiniapp.length
+      )
+    })(),
+  )
+  t(
+    '㉜ 具名档:一端写字面量、另一端读同一 spec 档 ⇒ 必须判同值(旧尺子在这里报"仅小程序档 32")',
+    (() => {
+      const tiers = { BOTTOM_ACTION_BAR_CONTROL_BOX_PX: 32 }
+      // 裸数字写在 RN 侧(该端量纲即逻辑 px);小程序侧的裸数字按 rpx 折半,不是本例要证的口径
+      const a = readGeometry('width: 32\n', 'rn', tiers)
+      const b = readGeometry(
+        'import { BOTTOM_ACTION_BAR_CONTROL_BOX_PX } from "spec"\nwidth: toUnit(BOTTOM_ACTION_BAR_CONTROL_BOX_PX)\n',
+        'rn',
+        tiers,
+      )
+      const d = diffValues(a.values, b.values)
+      return a.values.has(32) && b.values.has(32) && !d.onlyMiniapp.length && !d.onlyRn.length
+    })(),
+  )
+  t(
+    '㉝ 具名档有真分叉时必须现形(上一条的阳性对照:同一通道不能只会藏)',
+    (() => {
+      const tiers = { BOTTOM_ACTION_BAR_CONTROL_BOX_PX: 32, BOTTOM_ACTION_BAR_OTHER_PX: 44 }
+      const a = readGeometry('width: BOTTOM_ACTION_BAR_CONTROL_BOX_PX\n', 'miniapp', tiers)
+      const b = readGeometry('width: BOTTOM_ACTION_BAR_OTHER_PX\n', 'rn', tiers)
+      const d = diffValues(a.values, b.values)
+      return d.onlyMiniapp.join() === '32' && d.onlyRn.join() === '44'
+    })(),
+  )
+  t(
+    '㉞ geometry 表的档经 rnGeometry.tapBox 取用同样入集合;换算系数 TARO_RPX_PER_PX 不得当档',
+    (() => {
+      const src = {
+        'packages/design-tokens/src/geometry.js':
+          'export const GEOMETRY_PX = {\n  tapBox: 36,\n}\nexport const TARO_RPX_PER_PX = 2\n',
+      }
+      const tiers = specTiers(src)
+      const g = readGeometry('const VOICE = rnGeometry.tapBox\nheight: VOICE\n', 'rn', tiers)
+      return tiers['geometry.tapBox'] === 36 && tiers['TARO_RPX_PER_PX'] === undefined && g.values.has(36)
+    })(),
+  )
+  t(
+    '㉟ spec 档表按被审面取;面枚举不到任何 *-spec.ts ⇒ 判"无法判定",不得记绿',
+    (() => {
+      const files = { ...FIXTURE_BASE({}) }
+      // 夹具默认带一份 spec(见 FIXTURE_BASE);本例要证的正是"没有具名档来源时门必须喊瞎"
+      delete files['packages/shared/src/ui/foo-spec.ts']
+      const dir = makeFixtureRepo(files)
+      try {
+        collect(dir, 'head')
+        return '未抛 Undetermined'
+      } catch (e) {
+        return /spec|Undetermined|无法判定/.test(String(e?.message ?? e))
+      } finally {
+        rmScratch(dir)
+      }
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
