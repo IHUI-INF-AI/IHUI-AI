@@ -17,8 +17,11 @@
  *    `.ai-chu-row` 定,在本票文件清单外),属设计裁决项而非取值分叉,故不收;
  *  - **行内次要标注**:小程序 popup 的"用途分类"标注 10(20rpx) 对 RN 的"描述"行 12 ——
  *    两端该行装的内容不同(分类标签 vs 描述文本),不构成同一元素;
- *  - **仅一端存在的元素**:小程序 list 变体的骨架屏(4/8/10/12/20/40/80)、popup 的位图徽章
- *    (rankone.png / mian_label.png 20×20) 在 RN 侧没有对应实现;RN 的 `ItemSeparatorComponent`
+ *  - **仅一端存在的元素**:小程序 list 变体的骨架屏(4/8/10/12/20/40/80)、popup 行尾的
+ *    "免/排名第一"位图徽章(rankone.png / mian_label.png 20×20,票⑤续 2026-09-26 起带
+ *    `icon-bitmap-exempt` 就地登记 —— RN 同一位是 TOP1/免费/付费**文字**徽章,媒介不同、
+ *    且该位 RN 无 lucide 字形可照抄,按规则 5 不硬凑,留待产品裁量)在 RN 侧没有对应图标实现;
+ *    RN 的 `ItemSeparatorComponent`
  *    (高 1、缩进 68)、文字徽章(TOP1/NEW 9、免费/付费 11)、字距 `letterSpacing` 0.5、
  *    描述行距 2 在小程序侧没有对应实现 —— 机制/媒介差异,按守门 128 的口径走台账 waivers,
  *    不是"再收一档"就能消掉的。
@@ -66,4 +69,24 @@ export const MODEL_LIST_EMPTY_PADDING_Y_PX = 20
  * `LOADING_INLINE_PADDING_X_PX`)→ 定 24,两端的列表容器同取,不再一端有档一端没有。
  */
 export const MODEL_LIST_CONTENT_BOTTOM_PADDING_PX = 24
+
+/**
+ * Agent 模式行 logo 位的字形墨迹档(逻辑 px)。
+ * 取值依据(O81 票⑤续,2026-09-26):该槽位小程序端此前用 CDN 位图 mian_label.png 当 UI 图标,
+ * 矢量化为 `<LineIcon name="bot">` 后取 RN `AgentModeRow` 同一槽 `<Bot size={20}>` 的现值 ——
+ * **非单侧档**(两端同有 Agent 行,两端墨迹自本档起同值)。行盒本身
+ * (小程序 20×20 vs RN iconWrap 40×44)仍是文件头登记的裁决项,不因本档改变。
+ * 小程序消费方式:`size={MODEL_LIST_AGENT_GLYPH_PX * TARO_RPX_PER_PX}`(LineIcon number 量纲 rpx)。
+ */
+export const MODEL_LIST_AGENT_GLYPH_PX = 20
+
+/**
+ * 选中态圆点徽标内的字形墨迹档(逻辑 px)。
+ * 取值依据(O81 票⑤续,2026-09-26):该槽位小程序端此前用 CDN 位图 selected_model.png,
+ * 矢量化为 `<LineIcon name="check">` 后取 RN `Check()` 组件 `<CheckIcon size={12}>` 的现值 ——
+ * **非单侧档**。前景取 AGENTS §4 品牌实底成对档(底 `--color-cta` / 字形 `--color-cta-foreground`,
+ * 与 RN `brand.cta` + `brand.ctaForeground` 同形);外盒尺寸与圆角(小程序 16px vs RN 20px 正圆)
+ * 仍是文件头登记的行盒分叉,不在本档射程。
+ */
+export const MODEL_LIST_CHECK_GLYPH_PX = 12
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
