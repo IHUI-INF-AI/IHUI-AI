@@ -458,8 +458,8 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       // 忽略磁盘清理错误
     }
 
-    await hardDeleteFile(id)
-    return reply.send(success({ deleted: true }))
+    const removed = await hardDeleteFile(id)
+    return reply.send(success({ deleted: removed !== undefined }))
   })
 
   // POST /files/batch-delete - 批量软删除（移入回收站）

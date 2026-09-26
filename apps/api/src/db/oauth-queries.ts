@@ -67,10 +67,16 @@ export async function listOAuthApps(ownerUuid: string, page: number, limit: numb
   return { items: rows, total: count }
 }
 
-export async function deleteOAuthApp(clientId: string, ownerUuid: string) {
-  await db
+/**
+ * 删除 OAuth 应用(按 clientId + ownerUuid 双条件,跨 owner 一律删不到)。
+ * 返回库确认已删除的行 id 集合(未命中为空数组,调用方据此判 deleted 真假)。
+ */
+export async function deleteOAuthApp(clientId: string, ownerUuid: string): Promise<string[]> {
+  const rows = await db
     .delete(oauthApps)
     .where(and(eq(oauthApps.clientId, clientId), eq(oauthApps.ownerUuid, ownerUuid)))
+    .returning({ id: oauthApps.id })
+  return rows.map((r) => r.id)
 }
 
 export async function updateOAuthApp(

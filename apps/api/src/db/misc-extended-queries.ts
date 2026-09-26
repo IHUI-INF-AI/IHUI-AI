@@ -60,8 +60,10 @@ export async function updateHotWord(
   return rows[0]
 }
 
-export async function deleteHotWord(id: string): Promise<void> {
-  await db.delete(hotWords).where(eq(hotWords.id, id))
+/** 删除热搜词。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteHotWord(id: string): Promise<string[]> {
+  const rows = await db.delete(hotWords).where(eq(hotWords.id, id)).returning({ id: hotWords.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================
@@ -109,8 +111,13 @@ export async function updateNewsTopSort(
   return rows[0]
 }
 
-export async function deleteNewsTop(newsId: string): Promise<void> {
-  await db.delete(newsTops).where(eq(newsTops.newsId, newsId))
+/** 取消资讯置顶。返回库确认已删除的行 id 集合(按 newsId 匹配,未置顶时为空数组)。 */
+export async function deleteNewsTop(newsId: string): Promise<string[]> {
+  const rows = await db
+    .delete(newsTops)
+    .where(eq(newsTops.newsId, newsId))
+    .returning({ id: newsTops.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================
@@ -167,7 +174,12 @@ export async function updateNewsRecommendSort(
   return rows[0]
 }
 
-export async function deleteNewsRecommend(newsId: string): Promise<void> {
-  await db.delete(newsRecommends).where(eq(newsRecommends.newsId, newsId))
+/** 取消资讯推荐。返回库确认已删除的行 id 集合(按 newsId 匹配,未推荐时为空数组)。 */
+export async function deleteNewsRecommend(newsId: string): Promise<string[]> {
+  const rows = await db
+    .delete(newsRecommends)
+    .where(eq(newsRecommends.newsId, newsId))
+    .returning({ id: newsRecommends.id })
+  return rows.map((r) => r.id)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

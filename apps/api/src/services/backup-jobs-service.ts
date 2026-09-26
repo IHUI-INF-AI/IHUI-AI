@@ -200,8 +200,11 @@ export async function deleteBackupJob(
       fileRemoved = true
     }
   }
-  await db.delete(backupJobs).where(eq(backupJobs.id, id))
-  return { deleted: true, fileRemoved }
+  const removed = await db
+    .delete(backupJobs)
+    .where(eq(backupJobs.id, id))
+    .returning({ id: backupJobs.id })
+  return { deleted: removed.length > 0, fileRemoved }
 }
 
 /** 定时调度 tick(cron 驱动):读 enabled 决定是否执行。 */

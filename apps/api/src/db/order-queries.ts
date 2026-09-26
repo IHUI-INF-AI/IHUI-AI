@@ -596,8 +596,13 @@ export async function updateInvoiceTitle(
   return rows[0]
 }
 
-export async function deleteInvoiceTitle(id: string): Promise<void> {
-  await db.delete(eduInvoiceTitles).where(eq(eduInvoiceTitles.id, id))
+/** 删除发票抬头。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteInvoiceTitle(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(eduInvoiceTitles)
+    .where(eq(eduInvoiceTitles.id, id))
+    .returning({ id: eduInvoiceTitles.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================
@@ -675,8 +680,13 @@ export async function findInvoiceApplicationById(
   return rows[0]
 }
 
-export async function deleteInvoiceApplication(id: string): Promise<void> {
-  await db.delete(eduInvoiceApplications).where(eq(eduInvoiceApplications.id, id))
+/** 删除发票申请。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteInvoiceApplication(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(eduInvoiceApplications)
+    .where(eq(eduInvoiceApplications.id, id))
+    .returning({ id: eduInvoiceApplications.id })
+  return rows.map((r) => r.id)
 }
 
 export interface ListInvoiceApplicationsOpts {
