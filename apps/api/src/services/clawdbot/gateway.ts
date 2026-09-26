@@ -16,6 +16,7 @@ import {
   type ModelCompletionResponse,
 } from './models.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
+import { startStopwatch } from '../../utils/elapsed-ms.js'
 
 export interface GatewayConfig {
   wsUrl?: string
@@ -274,10 +275,21 @@ export class ClawdbotGateway extends EventEmitter {
 
     let lastError: Error | null = null
     for (const id of candidates) {
-      const start = Date.now()
+      const sw = startStopwatch()
       try {
         const response = await modelManager.complete({ ...request, modelId: id })
-        this.recordLatency(id, Date.now() - start)
+        // 格②(2026-09-26):latencyStats 直接喂 least_latency 路由决策,
+        // 时钟分歧/回拨的脏样本一旦入窗口会把流量导向错误的模型——不可信样本不入库,
+        // 但计数由 elapsedClockStats() 观测面兜住,不静默。
+        const sample = sw.stop()
+        if (sample.trustworthy && sample.elapsedMs !== null) {
+          this.recordLatency(id, sample.elapsedMs)
+        } else {
+          logger.warn(
+            { modelId: id, reason: sample.reason, perfMs: sample.perfMs, wallMs: sample.wallMs },
+            '[Gateway] 耗时样本未通过时钟交叉校验,不计入 least_latency 统计',
+          )
+        }
         return response
       } catch (err) {
         lastError = err as Error
