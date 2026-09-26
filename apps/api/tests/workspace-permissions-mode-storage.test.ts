@@ -33,8 +33,8 @@ const {
   appendAuditLog,
   clearUserRules,
   createRulesBulk,
-  findUserPreferences,
-  upsertUserPreference,
+  // findUserPreferences / upsertUserPreference 仍留在下面的 hoisted 工厂里(生产码要用),
+  // 但本文件的用例不直接断言它们 ⇒ 不再解构绑定(consistent no-unused-vars)。
   storedPrefs,
 } = vi.hoisted(() => ({
   upsertPermission: vi.fn(),
