@@ -52,6 +52,8 @@ import { pathToFileURL } from 'node:url'
 // 现场归档的唯一落点(AGENTS §15b / §5b「现场归档一律落在 gitArchiveDir(),手工抢修也不得例外」)。
 // 抢占产生的 `.stale-*` 目录**绝不**留在 .git 里,更不落工作区根或盘根。
 import { gitArchiveDir } from './lib/gitdir.mjs'
+// 抢占算法的唯一实现(2026-09-26 合并:本脚本与 deploy-lock.mjs 曾各写一份 claimStaleLock)。
+import { claimStaleLockCore } from './lib/stale-lock-claim.mjs'
 
 function run(cmd, allowFail = false) {
   try {
@@ -136,112 +138,91 @@ function writeStaleNote(dirPath, { judged, rawMeta, why, stolenByPid }) {
   }
 }
 
+// 抢占动作的唯一实现在 scripts/lib/stale-lock-claim.mjs(2026-09-26 合并,
+// 出处见 git log --grep 锁抢占 —— 本函数与 deploy-lock.mjs 的同名函数曾各写一份,
+// 算法骨架只留那一份;两侧真实差异(指纹算法、归档落点、现场格式与处置策略)在此注入)。
+
 /**
- * 原子抢占:**先把锁目录改名搬走、只删自己改到的那一份**(2026-09-26 根治运行期竞态)。
- *
- * 故障形态(旧实现):判"持有者已死"之后直接 `rmSync(dir)`。在"我判它已死"与"我删它"之间,
- * 别的进程可以已经删掉旧锁并 `mkdir` 拿到**新锁** —— 我 `rmSync` 掉的就是别人的活锁,
- * 于是两个写者同时进临界区(git 侧 = `.git/index.lock` 双写者;部署侧 = 两次构建同时写 `.next`)。
- * `:205` 那句"调用方必须回读 existsSync 复核"只判"删没删掉",**不判"删的是不是我刚看过的那把"**。
- *
- * 三步,一步都不能少:
- *   ① `renameSync(dir, 归档出口/<name>.stale-<pid>-<ts>)` —— 改名是原子的,成功即独占。
- *      抛错(ENOENT=锁已不见 / EPERM·EBUSY=被占用 / EXDEV=跨卷)一律算**没抢到**,
- *      **绝不回退去 rmSync 原路径**(那正是本票要根治的那一步)。跨卷时退到同父目录暂存,
- *      但退的是"落点",不是"改名这一步"(仍是 rename-first)。
- *   ② 改名成功后回读**改名后目录**里的 meta,与判死时那份三要素比对。不等 ⇒ 我改到的是
- *      别人新建的活锁 ⇒ 原样放回、什么都没删(失效方向是"多等一轮",不是"多删一把")。
- *   ③ 只有②通过才处置改名后的那份:留在归档出口当现场,落不进归档才递归删除;
- *      删除失败也不回头碰原路径。
+ * 抢占 git 写锁的悬挂锁:委托 lib 的「改名→身份回读→只处置改到的那份」骨架,
+ * 本函数只负责 ① 注入 git 侧差异(三字段指纹 sameLock、现场 txt、归档落点 gitArchiveDir()、
+ * 现场落不进归档就搬运/删除的处置策略),② 把结构化结果逐字渲染回旧日志文案。
+ * 语义与合并前逐字等价,算法不变式(改名优先、失败绝不碰原路径)见 lib 头注。
  *
  * @param {string} dir 锁目录
  * @param {{unitId?:string,pid?:number,ts?:number}|null} judged 判死时读到的 meta(也是②的比对基准)
  * @param {string} why 判死理由(进归档现场与日志,供事后追责)
  * @param {{archiveRoot?:string|null, suffix?:string}} [opts]
- * @returns {{ok:boolean, phase:string, code?:string, stagedPath:string|null, archived:string|null, log:string}}
+ * @returns {{ok:boolean, phase:string, code?:string, restored?:boolean, stagedPath:string|null, archived:string|null, log:string}}
  */
 function claimStaleLock(dir, judged, why, { archiveRoot = gitArchiveDir(), suffix } = {}) {
-  // 提前一次"锁目录在不在"只为了不去建归档目录 —— **它不是抢占的安全凭据**:
-  // 安全凭据是①的改名 + ②的身份回读,二者才决定"我能不能处置这一份"。
-  if (!existsSync(dir)) {
-    return {
-      ok: false,
-      phase: 'rename',
-      code: 'ENOENT',
-      stagedPath: null,
-      archived: null,
-      log: `[git-lock] 抢占放弃:锁目录 ${dir} 此刻已不存在 ⇒ 未删除、未创建任何目录`,
-    }
-  }
-  const tag = suffix ?? `.stale-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-  let rawMeta = null
-  try {
-    rawMeta = readFileSync(metaFile(dir), 'utf8')
-  } catch {
-    rawMeta = null
-  }
-  // ① 原子改名:优先直接搬进归档出口(§15b 批准落点,不落工作区根/盘根)
-  let stagedPath = null
-  if (archiveRoot) {
-    const target = join(archiveRoot, `${basename(dir)}${tag}`)
-    try {
-      mkdirSync(archiveRoot, { recursive: true })
-      renameSync(dir, target)
-      stagedPath = target
-    } catch (e) {
-      if (e?.code === 'ENOENT') {
-        return {
-          ok: false,
-          phase: 'rename',
-          code: 'ENOENT',
-          stagedPath: null,
-          archived: null,
-          log: `[git-lock] 抢占放弃(锁目录已不见:${dir})——未删除任何目录,继续等待`,
-        }
-      }
-      stagedPath = null // 跨卷/权限等:退到同父目录暂存(仍是 rename-first)
-    }
-  }
-  if (!stagedPath) {
-    const local = `${dir}${tag}`
-    try {
-      renameSync(dir, local)
-      stagedPath = local
-    } catch (e) {
+  const r = claimStaleLockCore(dir, judged, why, {
+    archiveRoot,
+    suffix,
+    readState: readMeta,
+    same: sameLock,
+    writeNote: (stagedPath, ctx) => writeStaleNote(stagedPath, { judged, rawMeta: ctx.rawMeta, why, stolenByPid: process.pid }),
+    placeScene: placeGitScene,
+  })
+  switch (r.cause) {
+    case 'dir-gone-early':
       return {
         ok: false,
         phase: 'rename',
-        code: e?.code ?? 'unknown',
+        code: 'ENOENT',
         stagedPath: null,
         archived: null,
-        log: `[git-lock] 抢占未成功(改名 ${e?.code ?? e?.message})——原路径 ${dir} 未被触碰,继续等待`,
+        log: `[git-lock] 抢占放弃:锁目录 ${dir} 此刻已不存在 ⇒ 未删除、未创建任何目录`,
       }
-    }
+    case 'archive-rename-enoent':
+      return {
+        ok: false,
+        phase: 'rename',
+        code: 'ENOENT',
+        stagedPath: null,
+        archived: null,
+        log: `[git-lock] 抢占放弃(锁目录已不见:${dir})——未删除任何目录,继续等待`,
+      }
+    case 'rename-failed':
+      return {
+        ok: false,
+        phase: 'rename',
+        code: r.localErr?.code ?? 'unknown',
+        stagedPath: null,
+        archived: null,
+        log: `[git-lock] 抢占未成功(改名 ${r.localErr?.code ?? r.localErr?.message})——原路径 ${dir} 未被触碰,继续等待`,
+      }
+    case 'identity-mismatch':
+      return {
+        ok: false,
+        phase: 'mismatch',
+        restored: r.restored,
+        stagedPath: r.restored ? null : r.stagedPath,
+        archived: null,
+        log:
+          `[git-lock] 抢占放弃:${dir} 上的锁在改名瞬间已被替换` +
+          `(判死时 ${fmtLock(judged)},改名后 ${fmtLock(r.nowState)})` +
+          ` ⇒ ${r.restored ? '已原样放回,未删除任何锁' : `⚠️ 放回失败,现场保留在 ${r.stagedPath}(未删除,请人工处置)`}`,
+      }
+    default:
+      return {
+        ok: true,
+        phase: 'claimed',
+        stagedPath: r.stagedPath,
+        archived: r.archived,
+        log:
+          `[git-lock] 已抢占悬挂锁:被抢的持有者 = ${fmtLock(judged)};判死理由:${why}。` +
+          `现场=${r.archived ?? '(归档不可得,已就地删除)'}${r.noteResult.ok ? '' : ` ⚠️ 现场说明写入失败:${r.noteResult.error}`}`,
+      }
   }
-  // ② 回读校验:改名后目录里的 meta 必须就是判死时那把
-  const nowMeta = readMeta(stagedPath)
-  if (!sameLock(nowMeta, judged)) {
-    let restored = false
-    try {
-      renameSync(stagedPath, dir)
-      restored = true
-    } catch {
-      /* 放不回(原路径又被占了)⇒ 现场原地保留、绝不删,大声喊出来交人工 */
-    }
-    return {
-      ok: false,
-      phase: 'mismatch',
-      restored,
-      stagedPath: restored ? null : stagedPath,
-      archived: null,
-      log:
-        `[git-lock] 抢占放弃:${dir} 上的锁在改名瞬间已被替换` +
-        `(判死时 ${fmtLock(judged)},改名后 ${fmtLock(nowMeta)})` +
-        ` ⇒ ${restored ? '已原样放回,未删除任何锁' : `⚠️ 放回失败,现场保留在 ${stagedPath}(未删除,请人工处置)`}`,
-    }
-  }
-  // ③ 处置改名后的那一份(且只有这一份)
-  const note = writeStaleNote(stagedPath, { judged, rawMeta, why, stolenByPid: process.pid })
+}
+
+/**
+ * git 侧的现场处置策略(与合并前逐字同形):
+ * 现场已在归档内 ⇒ 就地留档;否则先试着搬进归档,搬不动就递归删除,
+ * 删除失败也不回头碰原路径 —— 部署侧是「原地保留」,这一分歧是既有语义,
+ * 未统一(登记在合并票报告里,由主会话定夺)。
+ */
+function placeGitScene({ dir, stagedPath, archiveRoot }) {
   const staysInArchive = !!archiveRoot && stagedPath.startsWith(archiveRoot)
   let archived = staysInArchive ? stagedPath : null
   if (!staysInArchive) {
@@ -265,15 +246,7 @@ function claimStaleLock(dir, judged, why, { archiveRoot = gitArchiveDir(), suffi
       }
     }
   }
-  return {
-    ok: true,
-    phase: 'claimed',
-    stagedPath,
-    archived,
-    log:
-      `[git-lock] 已抢占悬挂锁:被抢的持有者 = ${fmtLock(judged)};判死理由:${why}。` +
-      `现场=${archived ?? '(归档不可得,已就地删除)'}${note.ok ? '' : ` ⚠️ 现场说明写入失败:${note.error}`}`,
-  }
+  return { archived }
 }
 
 /** meta 的一行式身份描述(日志与测试断言共用,避免两处各拼一遍漂移) */
