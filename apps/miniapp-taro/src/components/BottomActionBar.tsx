@@ -6,7 +6,11 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, t } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
 import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
-import { BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX } from '@ihui/shared/ui/bottom-action-bar-spec'
+import {
+  BOTTOM_ACTION_BAR_CHIP_FONT_PX,
+  BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
+  BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX,
+} from '@ihui/shared/ui/bottom-action-bar-spec'
 import LineIcon from '@/components/LineIcon'
 import InputArea, { type InputAreaProps } from './InputArea'
 // 4 个图标按钮 + 选中勾 PNG:对齐原项目 BottomActionBar.vue line 65-80,统一从 @/assets/remote/ 引入
@@ -80,6 +84,14 @@ export interface BottomActionBarProps {
   onVoiceInputToggle?: () => void
 }
 
+/**
+ * 与 RN 端同含义的几何档不在本文件取数 —— 单一源是
+ * `packages/shared/src/ui/bottom-action-bar-spec`(模式同 IntelligentAssistant / BackChevron);
+ * 这里只做单位换算(逻辑 px → rpx)。圆角走 `rnRadius.*` 档(守门 77 的单一源)。
+ * 端内保留的数字都在 spec 头注里逐条给了理由(图标卡组、模型行徽标等:RN 端无同一元素)。
+ */
+const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
+
 const DEFAULT_TOGGLE_BUTTONS: ToggleButtonItem[] = [
   { key: 'superAgent', label: t('index.feature.superAgent') },
   { key: 'mcp', label: t('index.feature.mcp') },
@@ -132,7 +144,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
               padding: '0 20rpx 10rpx',
               // chip 行间距取共享源(与 RN toggleRow 同档);图标行/模型行的 rpx(16)
               // 是别的元素,RN 侧对应档分叉或在 AddPanel 内,不经本常数
-              gap: rpx(BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX * TARO_RPX_PER_PX),
+              gap: toUnit(BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX),
             }}
           >
             {toggleButtons.map((btn) => {
@@ -148,7 +160,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                     width: 'calc(25% - 12rpx)',
                     border: '4rpx solid var(--color-card)',
                     borderRadius: rnRadius.lg,
-                    fontSize: rpx(28),
+                    fontSize: toUnit(BOTTOM_ACTION_BAR_CHIP_FONT_PX),
                     padding: '12rpx 0',
                     background: active ? 'var(--color-brand)' : 'var(--color-muted)',
                     color: active ? 'var(--color-primary-foreground)' : 'var(--color-foreground)',
@@ -169,7 +181,10 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         {/* InputArea:ai-home 模式(padding 20rpx + bg #E6F3FA 圆角 30rpx + send 100rpx 圆角 30rpx)*/}
         <InputArea variant="ai-home" {...inputAreaProps} value={inputAreaProps?.value ?? ''} />
 
-        {/* icon-button-group:4 个图标按钮 + 语音输入按钮(对齐原项目 .icon-button-group)*/}
+        {/* icon-button-group:4 个图标按钮 + 语音输入按钮(对齐原项目 .icon-button-group)。
+            这一组的卡盒 / 墨迹 / 标文字号保留端内数字:RN 侧同一功能的实现是**共享 AddPanel
+            滑出面板**(另一种媒介、另一种布局角色,不构成本组件里的同一元素),配对与裁档要到
+            AddPanel 那一票一并做,现在把这两端的数字强行对齐等于单方面改写小程序观感 */}
         {showIconButtons ? (
           <View
             className="flex"
@@ -245,7 +260,9 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           </View>
         ) : null}
 
-        {/* button-group-box:已选模型提示(对齐原项目 .button-group-box)*/}
+        {/* button-group-box:已选模型提示(对齐原项目 .button-group-box)。
+            文字字号取共享源(与 RN modelBar 同档);本行的 rpx(16) 间距与 24/8 的徽标图
+            是这一行自己的元素,RN 侧无对照(那端是 28 高的条 + 16 配置按钮),不经共享档 */}
         {modelName ? (
           <View
             className="flex justify-between items-center"
@@ -257,7 +274,10 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           >
             <View
               className="flex items-center"
-              style={{ color: 'var(--color-foreground)', fontSize: rpx(20) }}
+              style={{
+                color: 'var(--color-foreground)',
+                fontSize: toUnit(BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX),
+              }}
             >
               <Image
                 src={selectedModelPng}
@@ -266,7 +286,12 @@ export default function BottomActionBar(props: BottomActionBarProps) {
               />
               <Text>{tt('BottomActionBar.text1', '已默认自动切换深度思考')}</Text>
             </View>
-            <View style={{ color: 'var(--color-link)', fontSize: rpx(20) }}>
+            <View
+              style={{
+                color: 'var(--color-link)',
+                fontSize: toUnit(BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX),
+              }}
+            >
               <Text>{tt('tail.11', '已选模型: {m}', { m: modelName })}</Text>
             </View>
           </View>

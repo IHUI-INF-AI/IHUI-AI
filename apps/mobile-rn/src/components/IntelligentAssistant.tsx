@@ -20,13 +20,22 @@ import { tokens } from '../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
 import {
   IA_GREETING_FONT_PX,
+  IA_GREETING_TOP_PX,
   IA_HEADING_FONT_WEIGHT,
   IA_MARGIN_PX,
   IA_PADDING_PX,
+  IA_RECHARGE_CAPSULE_PAD_X_PX,
+  IA_RECHARGE_CAPSULE_PAD_Y_PX,
   IA_RECHARGE_FONT_PX,
+  IA_RECHARGE_GAP_PX,
   IA_RECHARGE_HIT_PX,
+  IA_ROBOT_DECOR_H_PX,
+  IA_ROBOT_DECOR_RIGHT_PX,
+  IA_ROBOT_DECOR_TOP_PX,
+  IA_ROBOT_DECOR_W_PX,
   IA_SUBTITLE_FONT_PX,
   IA_TEXT_GAP_PX,
+  IA_TEXT_INDENT_PX,
   IA_TOKEN_FONT_PX,
   IA_TOKEN_ROW_GAP_PX,
 } from '@ihui/shared/ui/intelligent-assistant-spec'
@@ -101,12 +110,13 @@ const styles = StyleSheet.create({
     marginBottom: IA_MARGIN_PX,
   },
   floatingDecoration: {
-    // 位图装饰(小程序是行内矢量墨迹,不同媒介,不进 spec)—— 尺寸随素材,非档位
+    // 位图装饰(小程序是行内矢量墨迹,不同媒介)—— 布局盒与位置是单端档,数字住 spec
+    // (裁决与"机制差异,非取值分叉"的依据写在 IA_ROBOT_DECOR_* 注释)
     position: 'absolute',
-    top: -8,
-    right: 9,
-    width: 107,
-    height: 110,
+    top: IA_ROBOT_DECOR_TOP_PX,
+    right: IA_ROBOT_DECOR_RIGHT_PX,
+    width: IA_ROBOT_DECOR_W_PX,
+    height: IA_ROBOT_DECOR_H_PX,
     zIndex: 2,
   },
   welcomeCard: {
@@ -123,8 +133,10 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column',
     justifyContent: 'center',
-    paddingLeft: 16,
-    paddingTop: 4,
+    // 左缩进:装饰走 absolute 不占流,文本左缘靠它避让(单端档,依据见 IA_TEXT_INDENT_PX);
+    // 顶偏移两端同档(小程序 .ia-content 补同值,依据见 IA_GREETING_TOP_PX)
+    paddingLeft: IA_TEXT_INDENT_PX,
+    paddingTop: IA_GREETING_TOP_PX,
   },
   welcomeIntro: {
     fontSize: IA_GREETING_FONT_PX,
@@ -146,7 +158,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: IA_TOKEN_ROW_GAP_PX,
-    marginLeft: 16,
+    // 与上方文本块同档(两行左缘必须对齐,裁决依据见 IA_TEXT_INDENT_PX)
+    marginLeft: IA_TEXT_INDENT_PX,
   },
   limitText: {
     flexDirection: 'row',
@@ -168,12 +181,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: IA_RECHARGE_HIT_PX,
-    marginLeft: 10,
+    // 胶囊与值文本的间距:RN 值行左聚拢、靠本档留距;小程序 space-between 无固定档
+    // (机制差异,非取值分叉 —— 依据见 IA_RECHARGE_GAP_PX)
+    marginLeft: IA_RECHARGE_GAP_PX,
   },
   tokenButton: {
     backgroundColor: tokens.brand.cta,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    // 胶囊可见内衬:小程序是纯文字链、无胶囊本体,单端档(依据见 IA_RECHARGE_CAPSULE_PAD_*)
+    paddingHorizontal: IA_RECHARGE_CAPSULE_PAD_X_PX,
+    paddingVertical: IA_RECHARGE_CAPSULE_PAD_Y_PX,
     borderRadius: rnRadius.xl,
   },
   tokenButtonText: {
