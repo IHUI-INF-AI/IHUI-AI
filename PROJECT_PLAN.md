@@ -11852,3 +11852,30 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   **余下 8 处与登录无关,另计一票**:browser-hub-smoke ×2(ai-service 侧 Chromium 起不来 /
   `/api/browser/sessions` 500)、mode-switch、navigation-full、work-panel、topbar-workarea-align、
   ihui-download-verify、cli-import 各 1 —— 不冒充"e2e 已全绿"。
+
+- **CI 四红清完后的"下一层"读数,以及一个后端造词而词表没跟的缺口(`f2a7cf2429` + `940c22f594`)**:
+  合并头 `40513b2558` 上复量:Knip ✅、Mypy 步 ✅(改在 `test-python` 里往下露出 **Pytest** 步)、
+  `@ihui/database#test` ✅,而 `@ihui/shared#test` 报 1 例:
+  `step-decision 词汇表 > 与后端字面量双向一致(既不缺 also 不多)` → `extra: ["role_denied"]`。
+  **这条是本仓 D55/G-66 那道双向对账第一次真的抓到东西**:后端 `agent_loop_v2.py:4843`
+  角色矩阵拒工具时发 `"role_denied"`,而共享词表 `STEP_DECISIONS` 没有 ⇒ 用户界面上会直接喷
+  `role_denied` 这串英文码(不是崩,是"能跑但说人话失败")。补齐三处同一源:
+  `packages/shared/src/chat/step-decision.ts`(数组 + 取词键 + 归并态 `rejected`)、
+  `packages/i18n/messages/shared/{zh-CN,zh-TW,en,ja,ko}.json` 各加 `stepDecision.decision.roleDenied`、
+  以及**测试里写死的数量字面量**(15→16)—— 最后这一处最容易漏:改词表不改尺子,
+  下一次加词就会红在"数量"上而不是红在真问题上。
+  **这张表只有一份**(实测 `grep -l policySkipsApproval` 只命中 `messages/shared/*.json`),
+  所以不存在"同步五个端各抄一遍"的问题;但**小程序离线包是派生态** —— 加键后
+  守门 105 的 B2 立刻判"源比包多 1 键"(四语言),唯一修法是一条 `pnpm --filter @ihui/miniapp-taro gen:i18n`。
+  重生成前先按本仓那条老雷做了**零丢失证明**:解出改前/改后两份 gzip+base64 包,逐语言比键集合 ⇒
+  `en/ja/ko/zh-TW 各 5193 → 5194,丢 0,新增恰为 stepDecision.decision.roleDenied`
+  (取证脚本 `.ihui-agent/tmp/prove-pack-superset.mjs`,一次性件不入库;
+  第一版正则按 `"zh-CN": "…"` 猜格式解出 0 条 —— **凭猜写解析器会比不出一样的东西**,
+  现读源码形态是 `REMOTE_LOCALE_B64` 里 `'zh-TW': 'H4sI…'`,改完才解得出四语言)。
+- **同一轮把"本机红 ≠ 仓库红"量成了一条可复用的判据**:`pnpm --filter @ihui/shared test` 在本机报
+  3 文件 / 21 例,而 CI 在 HEAD 面只报 step-decision 一条 —— 多出来的 20 例其被测源码全是他人未提交的
+  在飞文件(`packages/shared/src/chat/{prompt-history,auto-topup,cloud-chat-ops,…}.ts` 逐个 ` M`)。
+  ⇒ 处置口径:**先跑同一条命令的 CI 读数(HEAD 面)做对照,再决定要不要动手**;
+  不去"修"别人的在飞现场,也不把它们的红记进本仓债务清单。
+- 另:门 105 顺带报出 9 组"孤儿/死资源只报数"(tabbar png 等),以及本机全量档的门 70
+  因他人在飞中文而红(见本文件门 70 条目的口径更正)—— 都不是本批引入、也都不动判据去消。
