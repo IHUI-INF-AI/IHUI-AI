@@ -137,7 +137,7 @@ export const UNIVERSAL_PROMISE_RE = /一律|全都|全部|所有|任何|每一�
 
 /** C 的落盘/出网出口清单(本票规格给定)。 */
 export const OUTLET_RE =
-  /\binsert\w*\(|\.update\s*\(|\bwriteFileSync\s*\(|\bwriteFile\s*\(|json\.dump|\bsetex\b|\bhset\b|fetch\s*\(|sendMail|\.post\s*\(|Save|persist/i
+  /\binsert\w*\(|\.update\s*\(|\bwriteFileSync\s*\(|\bwriteFile\s*\(|json\.dump|\bsetex\b|\bhset\b|fetch\s*\(|sendMail|\.post\s*\(|Save|persist/i // brand-mail-exempt: 本行是守门 137 自己的判据正则字面量(模式串),不是任何发信点
 
 /** 只做字符串活的那一族调用。 */
 const BENIGN_CALLEES = new Set([
