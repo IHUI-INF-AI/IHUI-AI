@@ -338,8 +338,10 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { workspacePath } = z.object({ workspacePath: z.string() }).parse(request.query)
-    await deletePermission(request.userId, workspacePath)
-    return reply.send(success({ deleted: true }))
+    // deleted 取主记录那一行的库侧命中集(2026-09-27):deletePermission 是级联清理,
+    // 附属表为 0 不算失败,主记录没删掉才算 —— 旧写法的 true 与"这条权限本就不存在"同形。
+    const removed = await deletePermission(request.userId, workspacePath)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // GET /permissions/rules — 列出白名单规则
@@ -410,8 +412,10 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { id } = z.object({ id: z.string() }).parse(request.params)
-    await deleteRule(id, request.userId)
-    return reply.send(success({ deleted: true }))
+    // deleted 由库侧 RETURNING 派生(2026-09-27):deleteRule 的 where 带 userId 归属过滤,
+    // 删别人的规则在旧写法下也回 true。
+    const removed = await deleteRule(id, request.userId)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // POST /permissions/rules/reset — 重置为预置安全模板
