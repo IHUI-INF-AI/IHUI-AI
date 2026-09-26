@@ -160,14 +160,14 @@ export default function EduExamTakePage() {
                   onClick={() => toggle(q.id, opt.key, q.type === 'single')}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left text-sm transition-colors',
-                    selected ? 'border-primary bg-primary/5' : 'hover:bg-accent',
+                    selected ? 'border-brand-accent-deep bg-primary/5' : 'hover:bg-accent',
                   )}
                 >
                   <span
                     className={cn(
                       'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs',
                       selected
-                        ? 'border-primary bg-cta text-cta-foreground'
+                        ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                         : 'text-muted-foreground',
                     )}
                   >

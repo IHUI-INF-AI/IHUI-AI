@@ -102,7 +102,10 @@ export function MoveToWorktreeDialog({
   // 空输入不即时报错 —— required 由 continue 门兜住,避免一打开就见红。
   const branchError: WorktreeBranchErrorKey | null =
     target === 'createNew' && branchInput.trim().length > 0
-      ? validateWorktreeBranch(branchInput, { defaultBranch, existingBranches: existingWorktreeBranches }).errorKey
+      ? validateWorktreeBranch(branchInput, {
+          defaultBranch,
+          existingBranches: existingWorktreeBranches,
+        }).errorKey
       : null
 
   if (!open) return null
@@ -141,7 +144,10 @@ export function MoveToWorktreeDialog({
           ) : null}
 
           {precheck === 'loading' ? (
-            <p className="flex items-center gap-2 py-2 text-sm text-muted-foreground" data-precheck-line="loading">
+            <p
+              className="flex items-center gap-2 py-2 text-sm text-muted-foreground"
+              data-precheck-line="loading"
+            >
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               <span>{t('loading')}</span>
             </p>
@@ -160,7 +166,7 @@ export function MoveToWorktreeDialog({
                   aria-checked={option === target}
                   data-target-option={option}
                   onClick={() => setTarget(option)}
-                  className="rounded-md border px-3 py-1.5 text-sm transition-colors aria-checked:border-primary aria-checked:bg-primary/10"
+                  className="rounded-md border px-3 py-1.5 text-sm transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
                 >
                   {t(TARGET_LABEL_KEY[option])}
                 </button>
@@ -170,8 +176,12 @@ export function MoveToWorktreeDialog({
 
           {target === 'createNew' ? (
             <div className="space-y-2" data-slot="create-new-section">
-              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-              <label htmlFor="m2w-branch-input" className="text-xs font-medium" data-slot="branch-label">
+              { }
+              <label
+                htmlFor="m2w-branch-input"
+                className="text-xs font-medium"
+                data-slot="branch-label"
+              >
                 {t('worktreeBranchLabel')}
               </label>
               <input
@@ -194,16 +204,14 @@ export function MoveToWorktreeDialog({
                 </span>
                 {list.statusKey ? (
                   <div className="flex items-center gap-2">
-                    <span data-branches-status={list.statusKey} className="text-xs text-muted-foreground">
+                    <span
+                      data-branches-status={list.statusKey}
+                      className="text-xs text-muted-foreground"
+                    >
                       {t(list.statusKey)}
                     </span>
                     {precheck === 'error' && onRetry ? (
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        data-action="retry"
-                        onClick={onRetry}
-                      >
+                      <Button variant="outline" size="xs" data-action="retry" onClick={onRetry}>
                         {t('branchesRetry')}
                       </Button>
                     ) : null}
@@ -230,7 +238,12 @@ export function MoveToWorktreeDialog({
               </div>
             </div>
           ) : (
-            <div className="space-y-1" role="radiogroup" aria-label={t('existingWorktreeLabel')} data-slot="existing-list">
+            <div
+              className="space-y-1"
+              role="radiogroup"
+              aria-label={t('existingWorktreeLabel')}
+              data-slot="existing-list"
+            >
               {(existingWorktreeBranches ?? []).map((b) => (
                 <button
                   key={b}
@@ -239,7 +252,7 @@ export function MoveToWorktreeDialog({
                   aria-checked={b === selectedExisting}
                   data-existing-branch={b}
                   onClick={() => setSelectedExisting(b)}
-                  className="block w-full rounded-md border px-3 py-1.5 text-left font-mono text-xs transition-colors aria-checked:border-primary aria-checked:bg-primary/10"
+                  className="block w-full rounded-md border px-3 py-1.5 text-left font-mono text-xs transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
                 >
                   {b}
                 </button>
@@ -251,7 +264,12 @@ export function MoveToWorktreeDialog({
             <Button variant="outline" size="sm" data-action="cancel" onClick={onClose}>
               {t('cancel')}
             </Button>
-            <Button size="sm" data-action="continue" disabled={!view.canContinue} onClick={handleContinue}>
+            <Button
+              size="sm"
+              data-action="continue"
+              disabled={!view.canContinue}
+              onClick={handleContinue}
+            >
               {t('continue')}
             </Button>
           </div>

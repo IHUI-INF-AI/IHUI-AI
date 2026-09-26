@@ -42,7 +42,7 @@ export function ThemeCard({ t, mounted, theme, onSelect }: Props) {
                 className={cn(
                   'flex flex-col items-center gap-2 rounded-lg border p-3 text-sm transition-colors',
                   active
-                    ? 'border-primary bg-primary/5 text-primary'
+                    ? 'border-brand-accent-deep bg-primary/5 text-primary'
                     : 'hover:bg-accent hover:text-accent-foreground',
                 )}
               >

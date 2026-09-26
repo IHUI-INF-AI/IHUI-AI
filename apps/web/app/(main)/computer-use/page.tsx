@@ -357,7 +357,9 @@ export default function ComputerUsePage() {
               <li
                 key={el.ref}
                 className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
-                  selectedRef === el.ref ? 'border-primary bg-primary/10' : 'hover:bg-accent/60'
+                  selectedRef === el.ref
+                    ? 'border-brand-accent-deep bg-primary/10'
+                    : 'hover:bg-accent/60'
                 }`}
               >
                 <button
