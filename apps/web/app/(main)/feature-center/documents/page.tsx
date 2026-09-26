@@ -345,6 +345,7 @@ export default function DocumentsPage() {
   // ../xxx.md 或 ../../xxx.md → 逐级回退 dirBase
   function resolveMdLink(href: string): string | null {
     if (!href.endsWith('.md') && !href.includes('.md#')) return null
+    // digest-name-exempt: hashIdx 是 URL 片段('#')的**位置下标**,与"摘要"无关 —— 同词不同义。
     const hashIdx = href.indexOf('#')
     const mdPart = hashIdx >= 0 ? href.slice(0, hashIdx) : href
     const hash = hashIdx >= 0 ? href.slice(hashIdx) : ''
