@@ -58,6 +58,22 @@ import {
 import { renderErrorCard, renderBannerGradient } from './ui-banners.js';
 import { t } from '../i18n/index.js';
 import type { PermissionRules, PermissionMode } from '../tools/permissions.js';
+// ZCode 吸收线收尾票之二:REPL 内 `/lease` 的第二档授予来源(grantor:'repl-command')。
+// 只复用既有唯一构造/撤销出口(grantPermissionLease / revokePermissionLease),并借 cli-flag 档
+// 同一份"解析+封顶"出口(parseLeaseTools / resolveLeaseTtlMinutes / resolveLeaseTurns)——
+// 不在 repl 里拼 lease 对象、不开第四条放宽通道、不碰 bypassPermissions。
+import {
+  activePermissionLease,
+  grantPermissionLease,
+  isPermissionLeaseLive,
+  leaseExpiryMs,
+  revokePermissionLease,
+} from '../tools/permission-lease.js';
+import {
+  parseLeaseTools,
+  resolveLeaseTtlMinutes,
+  resolveLeaseTurns,
+} from '../utils/permission-lease-flag.js';
 import type { PluginRegistry } from '../plugins/index.js';
 import { readTodoList } from '../tools/todo-write.js';
 import { findSkill, type Skill } from '../skills/index.js';
@@ -1648,6 +1664,10 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       handleDiff(state, args);
       break;
 
+    case 'lease':
+      handleLease(state, args);
+      break;
+
     case 'read':
       cmdRead(state.opts.workspacePath, args[0] ?? '');
       break;
@@ -2256,6 +2276,139 @@ function handleDiff(state: ReplState, args: string[]): void {
   }
   console.info(chalk.cyan('╰─'));
   console.info('');
+}
+
+/**
+ * `/lease` 的租约作用域前缀 —— 与 cli-flag 档的 `cli-agent:` 区分,
+ * audit.jsonl 里一眼可辨授予来源(REPL 交互授予 vs 命令行 flag)。
+ */
+const REPL_LEASE_SCOPE_PREFIX = 'cli-repl:';
+
+/**
+ * `/lease` —— 交互式授予/查看/撤销限时权限租约(grantor:'repl-command')。
+ *
+ * 三态:
+ *  1. `/lease <工具1,工具2> [--ttl=分钟] [--turns=轮]` ⇒ 显式授予;
+ *  2. `/lease` 裸命令 ⇒ 打印当前租约(scope/能力/剩余秒/轮次进度/auditRef),无租约明写"未授予(默认档)";
+ *  3. `/lease off` ⇒ 立即撤销并回显审计引用。
+ *
+ * 失败方向与 cli-flag 档同形:非法输入只打印一行拒因、**当前租约状态逐字不变** ——
+ * 绝不把"清空当前租约"当成报错的副作用。通配/空清单/无到期/叠租约由唯一构造出口判死,
+ * 这里只把拒因转译成可读提示,不重复实现第二份黑名单(重复必然漂移)。
+ */
+export function handleLease(state: ReplState, args: string[]): void {
+  // —— 撤销态 ——
+  if (args[0] === 'off') {
+    if (args.length > 1) {
+      console.info(chalk.yellow(t('cliEntry.replLeaseInvalid', { reason: '/lease off takes no extra arguments' })));
+      return;
+    }
+    const current = activePermissionLease();
+    if (!current) {
+      console.info(chalk.dim(t('cliEntry.replLeaseNothingToRevoke')));
+      return;
+    }
+    // 走既有唯一撤销出口(落 permission_lease_revoked 审计行),不在这里再拼一份撤销语义
+    const revoked = revokePermissionLease('repl:/lease off (interactive revoke)');
+    console.info(
+      revoked
+        ? chalk.green(t('cliEntry.replLeaseRevoked', { auditRef: current.auditRef }))
+        : chalk.dim(t('cliEntry.replLeaseNothingToRevoke')),
+    );
+    return;
+  }
+
+  // —— 查看态(裸命令)——
+  if (args.length === 0) {
+    const lease = activePermissionLease();
+    if (!lease) {
+      console.info(chalk.dim(t('cliEntry.replLeaseNone')));
+      return;
+    }
+    if (!isPermissionLeaseLive(lease)) {
+      console.info(chalk.yellow(t('cliEntry.replLeaseExpired', { auditRef: lease.auditRef })));
+      return;
+    }
+    const remainingSeconds = Math.max(0, Math.floor((leaseExpiryMs(lease) - Date.now()) / 1000));
+    console.info(
+      chalk.cyan(
+        t('cliEntry.replLeaseActive', {
+          scope: lease.scope,
+          tools: lease.capabilities.join(','),
+          remainingSeconds: String(remainingSeconds),
+          turnsUsed: String(lease.turnsUsed),
+          turnsTotal: lease.expiresAfterTurns === undefined ? '—' : String(lease.expiresAfterTurns),
+          expiresAt: lease.expiresAt,
+          auditRef: lease.auditRef,
+        }),
+      ),
+    );
+    return;
+  }
+
+  // —— 授予态 ——
+  const positional: string[] = [];
+  let ttlRaw: string | undefined;
+  let turnsRaw: string | undefined;
+  for (const token of args) {
+    if (token.startsWith('--ttl=')) ttlRaw = token.slice('--ttl='.length);
+    else if (token.startsWith('--turns=')) turnsRaw = token.slice('--turns='.length);
+    else if (token.startsWith('--')) {
+      // 未知 flag 一律失败关闭:猜它的语义等于悄悄换一套授予规则
+      console.info(
+        chalk.yellow(
+          t('cliEntry.replLeaseInvalid', {
+            reason: `unknown option: ${token} (allowed: --ttl=<minutes>, --turns=<turns>)`,
+          }),
+        ),
+      );
+      return;
+    } else positional.push(token);
+  }
+  const parsed = parseLeaseTools(positional.join(','));
+  if (parsed.error) {
+    console.info(chalk.yellow(t('cliEntry.replLeaseInvalid', { reason: parsed.error })));
+    return;
+  }
+  if (parsed.tools.length === 0) {
+    // 写了授予形态却没点任何工具(如 `/lease --ttl=5`):这不是"没给清单",
+    // 静默转成查看态就是把操作员要的语义换成另一套 ⇒ 失败关闭。
+    console.info(
+      chalk.yellow(
+        t('cliEntry.replLeaseInvalid', {
+          reason: 'no tool names given (usage: /lease <tool1,tool2> [--ttl=minutes] [--turns=<turns>])',
+        }),
+      ),
+    );
+    return;
+  }
+  const ttlMinutes = resolveLeaseTtlMinutes(ttlRaw);
+  const turns = resolveLeaseTurns(turnsRaw);
+  const target = (state.session?.id ?? '').trim() || `pid-${process.pid}`;
+  try {
+    // 唯一构造出口:判死(空清单/通配/无到期/叠租约)都在它内部,本命令只转译拒因
+    const lease = grantPermissionLease({
+      scope: `${REPL_LEASE_SCOPE_PREFIX}${target}`,
+      capabilities: parsed.tools,
+      grantor: 'repl-command',
+      ttlMs: ttlMinutes * 60_000,
+      expiresAfterTurns: turns,
+    });
+    console.info(
+      chalk.green(
+        t('cliEntry.replLeaseGranted', {
+          tools: lease.capabilities.join(','),
+          ttl: String(ttlMinutes),
+          turns: String(turns),
+          expiresAt: lease.expiresAt,
+          auditRef: lease.auditRef,
+        }),
+      ),
+    );
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.info(chalk.yellow(t('cliEntry.replLeaseInvalid', { reason })));
+  }
 }
 
 async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise<void> {
