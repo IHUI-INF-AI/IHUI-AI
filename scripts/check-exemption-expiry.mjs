@@ -107,6 +107,9 @@ const FAMILY_LIFETIME_DAYS = {
    * 一处本该改掉的写法永久留在树上。
    */
   'interop-style-exempt': 30,
+  // 守门 135 的行内出口:同一条"豁免不得只出生不死亡"规矩,30 天(与它守的那一型同寿命档 ——
+  // 迁移是排期活,不是结构性定性,所以不取 back-label-exempt 的 365 天)
+  'api-error-exempt': 30,
   'rust-state-exempt': 60,
   'i18n-content-exempt-file': 180,
   /**
@@ -131,16 +134,6 @@ const FAMILY_LIFETIME_DAYS = {
    * 逼人删标记,删了又被 IC 判红,两道门互咬(§12e 同型)。判据侧要求带原因。
    */
   'icon-bitmap-exempt': 365,
-  /**
-   * `check-batch-write-count-honesty` 的 B1 判据(假删除 ack)的合法例外通道:确属"该 delete/update
-   * 由触发器/UPSERT 语义保证必命中一行"时才允许保留字面量 `deleted: true`。取 **30 天**,与
-   * `glyph-arrow-exempt` / `statusbar-exempt` / `interop-style-exempt` 同档 —— 这一族是**待偿的
-   * 迁移债**,不是结构性定性:6 路并行改造正把"无条件回已删"的端点逐批改回库里真删一行的真实语义
-   * (`.returning()` / `batchWriteOutcome()`),行内标记只是给同批次来不及迁的点的临时落脚点;
-   * 给长周期等于把"假 ack"登记成永久惯例,而它的故障形态(删不存在的行也回"已删除")恰是用户
-   * 拍板要消灭的那个。判据侧要求带原因、只本行生效。
-   */
-  'delete-ack-exempt': 30,
 }
 /** 标记词表按**形状**发现而不是白名单:清单会腐烂,新门刚加的族必须当天就被看见。 */
 const MARKER_RE = /(?:[a-z][a-z0-9-]*-exempt(?:-file)?|ihui-allow-important)\s*:/gi
