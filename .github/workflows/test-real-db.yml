@@ -64,7 +64,7 @@ jobs:
         # dist/index.js 解析失败),报告显示的 "Test Files 14 failed" 里有 13 个根本不是断言失败,
         # 而是 Failed Suites。本地永远绿(dist 早在),所以这条红在 CI 独享。
         # 同因先例:ci.yml 的 "Build api-client package"。
-        run: pnpm --filter @ihui/api-client build
+        run: pnpm --filter @ihui/api-client build && pnpm --filter @ihui/context-compaction build
 
       # 2026-09-10 根因修复:pgvector 镜像只是把扩展文件放进镜像,每个 database 仍需
       # 显式 CREATE EXTENSION;缺这步 → drizzle 到 vector(1536) 列时抛
