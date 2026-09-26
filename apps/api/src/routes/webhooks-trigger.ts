@@ -187,6 +187,12 @@ async function executeAgentAsync(event: WebhookTriggerEvent): Promise<void> {
   event.executedAt = new Date().toISOString()
 
   try {
+    // ⚠️ 守门 127 B组判定(2026-09-26):`/api/agents/<agentId>/run` 在 ai-service 侧
+    // **从未注册过**(`git log --all -S '/api/agents/{agent_id}/run' -- apps/ai-service` 零命中);
+    // 运行时真发请求 ⇒ 404 ⇒ 本函数按 !resp.ok 抛错、指数退避重试 3 次后事件标 failed,不静默。
+    // 对侧现役执行入口只有 POST /api/agents/execute(AgentExecuteRequest.goal 驱动、**不接收 agentId**、
+    // 需登录属主),webhook 场景没有用户身份 ⇒ 直接改路径过去是猜契约。
+    // 正确修法需要决策:为 webhook 定义"以谁的身份跑哪个 agent"的契约(属安全/产品票范围),本票按任务书停手登记。
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 30000)
     let resp: Response
