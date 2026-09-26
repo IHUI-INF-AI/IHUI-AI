@@ -8,6 +8,8 @@ import { useI18n, useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
+  MODEL_LIST_AGENT_GLYPH_PX,
+  MODEL_LIST_CHECK_GLYPH_PX,
   MODEL_LIST_CONTENT_BOTTOM_PADDING_PX,
   MODEL_LIST_EMPTY_FONT_PX,
   MODEL_LIST_EMPTY_PADDING_Y_PX,
@@ -17,10 +19,15 @@ import {
 import type { ModelUsageCategory } from '@ihui/shared/constants'
 import type { LlmModel } from '@/api'
 import type { ModelType } from './ModelTypeButton'
+// O81 票⑤续(2026-09-26):本组件 3 处 CDN 位图槽里,"选中态徽标"(selected_model.png)与
+// "Agent 行 logo"(mian_label.png 首位用法)是功能图标,已按矢量优先换成与 RN 端
+// `ModelList.tsx` 同一 lucide 字形(Agent 行 = `Bot`,选中圆点 = `Check`,守门 128 IC 实测
+// RN 字形集 bot/check);行尾"免/排名第一"两枚是原项目的**文字图形徽章**(RN 同一位是
+// TOP1/免费/付费文字徽章、无 lucide 字形可照抄,票规 5 不硬凑),按票规 4 保留位图并就地豁免。
+import LineIcon from '@/components/LineIcon'
 // 原项目 ModelList.vue 静态图标(本地副本 import,对齐 zhs_app-ZZ)
-const mianLabelIcon = aizhsUrl('remote-images/default/mian_label.png')
-const selectedModelIcon = aizhsUrl('remote-images/selected_model.png')
-const rankoneIcon = aizhsUrl('remote-images/default/rankone.png')
+const mianLabelIcon = aizhsUrl('remote-images/default/mian_label.png') // icon-bitmap-exempt: 行尾"免"文字图形徽章,RN 同一位是文字徽章无字形可照抄,留待产品裁量 until 2027-09-26
+const rankoneIcon = aizhsUrl('remote-images/default/rankone.png') // icon-bitmap-exempt: "排名第一"奖牌图形徽章,RN 同一位是 TOP1 文字徽章无字形可照抄,留待产品裁量 until 2027-09-26
 import { rpx } from '@/utils/rpx'
 import {
   categoryLabel as categoryLabelOf,
@@ -193,11 +200,12 @@ export default function ModelList({
             hoverClass="opacity-60"
           >
             <View className="flex items-center">
-              {/* image_logo + chu-icon:对齐原项目 /static/images/default/mian_label.png */}
-              <Image
-                src={mianLabelIcon}
-                mode="widthFix"
-                style={{ width: rpx(40), height: rpx(40), borderRadius: rnRadius.sm }}
+              {/* 票⑤续:本槽位原为 CDN 位图 mian_label.png,已矢量化为 RN AgentModeRow 同槽的
+                  `<Bot size={20}>` 同字形(墨迹档 MODEL_LIST_AGENT_GLYPH_PX,色 = RN text.secondary) */}
+              <LineIcon
+                name="bot"
+                size={MODEL_LIST_AGENT_GLYPH_PX * TARO_RPX_PER_PX}
+                color="var(--color-muted-foreground)"
               />
               <Text
                 className="ml-[10rpx]"
@@ -223,14 +231,16 @@ export default function ModelList({
                   width: rpx(32),
                   height: rpx(32),
                   borderRadius: '50%', // radius-exempt: 32rpx 见方的选中模型圆形徽标(几何正圆,方档化会变方块)
-                  background: 'var(--color-foreground)',
+                  // 票⑤续:底色与字形改为 §4 品牌实底成对档,与 RN `styles.check`
+                  // (brand.cta 底 + ctaForeground 勾)同形;此前位图压在 --color-foreground 上
+                  background: 'var(--color-cta)',
                 }}
               >
-                {/* selected-icon:对齐原项目 /static/images/selected_model.png 80rpx×80rpx */}
-                <Image
-                  src={selectedModelIcon}
-                  mode="widthFix"
-                  style={{ width: rpx(80), height: rpx(80) }}
+                {/* RN 同槽 = Check() 组件 `<CheckIcon size={12}>`(票⑤续:selected_model.png 退役) */}
+                <LineIcon
+                  name="check"
+                  size={MODEL_LIST_CHECK_GLYPH_PX * TARO_RPX_PER_PX}
+                  color="var(--color-cta-foreground)"
                 />
               </View>
             ) : null}
@@ -308,13 +318,14 @@ export default function ModelList({
                       width: rpx(32),
                       height: rpx(32),
                       borderRadius: rnRadius.lg,
-                      background: 'var(--color-foreground)',
+                      // 票⑤续:§4 品牌实底成对档,与 RN styles.check 同形(见 Agent 行同注释)
+                      background: 'var(--color-cta)',
                     }}
                   >
-                    <Image
-                      src={selectedModelIcon}
-                      mode="widthFix"
-                      style={{ width: rpx(80), height: rpx(80) }}
+                    <LineIcon
+                      name="check"
+                      size={MODEL_LIST_CHECK_GLYPH_PX * TARO_RPX_PER_PX}
+                      color="var(--color-cta-foreground)"
                     />
                   </View>
                 ) : null}
@@ -417,13 +428,14 @@ export default function ModelList({
                               width: rpx(32),
                               height: rpx(32),
                               borderRadius: rnRadius.lg,
-                              background: 'var(--color-foreground)',
+                              // 票⑤续:§4 品牌实底成对档,与 RN styles.check 同形(见 Agent 行同注释)
+                              background: 'var(--color-cta)',
                             }}
                           >
-                            <Image
-                              src={selectedModelIcon}
-                              mode="widthFix"
-                              style={{ width: rpx(80), height: rpx(80) }}
+                            <LineIcon
+                              name="check"
+                              size={MODEL_LIST_CHECK_GLYPH_PX * TARO_RPX_PER_PX}
+                              color="var(--color-cta-foreground)"
                             />
                           </View>
                         ) : null}

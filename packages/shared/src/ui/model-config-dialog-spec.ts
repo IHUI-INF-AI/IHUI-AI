@@ -14,8 +14,10 @@
 //    5 字标签,取大(80)会把小程序图块放大 2.2 倍成空白方块 ⇒ 两条出路都破坏观感,按规则 6
 //    "判不准宁可保留并写明未决"处理,留待设计定夺(改的是标签在块内/块外,不是某个数字)。
 //
-// 已真正同值的档:MARK 25(规则 2 取紧凑端,RN 图标盒 32→25)、INPUT_HEIGHT 40(规则 3 取较大端,
-// 小程序端 5 处参数输入补同档)、DELETE_BADGE 20 与 AUDIO_MENU_ICON 40(票①②已收)、
+// 已真正同值的档:MARK 25(规则 2 取紧凑端,RN 图标盒 32→25;票⑤续后小程序端不再内套
+// 25 盒,该档转为 RN 单侧盒档,小程序同槽直接按 BLOCK_GLYPH 落字形,见 MARK 注释)、
+// INPUT_HEIGHT 40(规则 3 取较大端,小程序端 5 处参数输入补同档)、
+// DELETE_BADGE 20 与 AUDIO_MENU_ICON 40(票①②已收)、
 // INLINE_GLYPH 12(两端现值已同:小程序 `LineIcon size={24}` 走 rpx 即 12px,RN `size={12}` 是 dp)。
 //
 // 单位口径:本表只存**逻辑 px**。小程序侧经 `toUnit`(= `rpx(px * TARO_RPX_PER_PX)`)落位,
@@ -40,9 +42,11 @@ export const MODEL_CONFIG_DELETE_BADGE_PX = 20
 export const MODEL_CONFIG_AUDIO_MENU_ICON_PX = 40
 
 /**
- * 上传控件里的"状态标记盒" 25:小程序 `w-[50rpx] h-[50rpx]`(=25 位图状态图)vs
- * RN `h-8 w-8`(=32 装 lucide 字形)。同一枚槽位(上传按钮内表示"待添加 / 已添加"的方块),
- * 裁决规则 2 取 compact 较小档 → 25;RN 的 18px 字形放进 25 盒仍有 3.5px 余量,不裁切。
+ * 上传控件里的"状态标记盒" 25:曾是小程序 `w-[50rpx] h-[50rpx]`(=25 位图状态图)vs
+ * RN `h-8 w-8`(=32 装 lucide 字形),裁决规则 2 取 compact 较小档 → 25。
+ * **票⑤续(2026-09-26)后为 RN 单侧盒档** —— 小程序端位图退役,37 图块内直接落
+ * BLOCK_GLYPH 字形,不再内套 25 盒;本档保留是因为 RN UploadButton 仍用它,
+ * 且"另一端将来若给字形补内盒必须复用本档"。
  */
 export const MODEL_CONFIG_UPLOAD_MARK_PX = 25
 
@@ -98,8 +102,9 @@ export const MODEL_CONFIG_SWITCH_THUMB_TRAVEL_PX =
 export const MODEL_CONFIG_INLINE_GLYPH_PX = 12
 
 /**
- * 块内字形 18(音色菜单的 Music/Mic、上传卡的 Check/Plus)。**RN 独有** —— 小程序端同一槽位放
- * 的是位图状态图,尺寸由 UPLOAD_MARK 决定,矢量字形档在另一端没有对应元素。
+ * 块内字形 18(音色菜单的 Music/Mic、上传卡的 Check/Plus)。**两端同档** ——
+ * 票⑤续(2026-09-26)小程序端把该槽位的 CDN 位图退役为 `<LineIcon>`
+ * (plus/check/mic),墨迹一律经本档 × `TARO_RPX_PER_PX` 落位,与 RN 侧同值。
  */
 export const MODEL_CONFIG_BLOCK_GLYPH_PX = 18
 
