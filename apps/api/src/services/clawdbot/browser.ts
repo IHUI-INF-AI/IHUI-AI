@@ -12,6 +12,7 @@ import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
 import { ensureSafeFetchUrl } from '../../utils/ssrf-guard.js'
+import { startStopwatch } from '../../utils/elapsed-ms.js'
 
 /** 转义字符串中的正则元字符,防止用户输入注入 ReDoS(2026-08-02 安全加固) */
 function escapeRegex(str: string): string {
@@ -56,7 +57,7 @@ export class BrowserAutomation extends EventEmitter {
     url: string,
     options?: { headers?: Record<string, string>; timeout?: number },
   ): Promise<BrowserPage> {
-    const start = Date.now()
+    const sw = startStopwatch()
     logger.info({ url }, '[Browser] Navigating')
     // 2026-08-02 SSRF 防护:fetch 前校验 URL,拒绝内网/保留地址
     await ensureSafeFetchUrl(url)
@@ -76,7 +77,13 @@ export class BrowserAutomation extends EventEmitter {
         statusCode: response.status,
       }
       this.pages.set(page.id, page)
-      this.emit('navigated', { page, duration: Date.now() - start })
+      // 格②(2026-09-26):navigate 耗时经 elapsed-ms 出口,事件面同时透出 trusted 标记
+      const sample = sw.stop()
+      this.emit('navigated', {
+        page,
+        duration: sample.elapsedMs ?? sample.perfMs,
+        latencyTrusted: sample.trustworthy,
+      })
       return page
     } catch (err) {
       logger.error({ url, err: err as Error }, '[Browser] Navigation failed')

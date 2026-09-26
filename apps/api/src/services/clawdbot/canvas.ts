@@ -10,6 +10,7 @@
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { getNodeExecutor, type NodeExecutionContext } from './nodes.js'
+import { startStopwatch } from '../../utils/elapsed-ms.js'
 
 /** 危险键:可能通过 [[Set]] 触发原型链污染(Object.prototype.__proto__ setter / constructor 重写) */
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
@@ -61,6 +62,8 @@ export interface CanvasExecutionResult {
   success: boolean
   outputs: Record<string, unknown>
   duration: number
+  /** 格②(2026-09-26):false = duration 未通过时钟交叉校验,只可观测不可当结论消费 */
+  latencyTrusted?: boolean
   error?: string
 }
 
@@ -121,7 +124,7 @@ export class CanvasService extends EventEmitter {
     if (!canvas)
       return { canvasId: id, success: false, outputs: {}, duration: 0, error: 'Canvas not found' }
 
-    const start = Date.now()
+    const sw = startStopwatch()
     const nodeExecutor = getNodeExecutor()
 
     // 注册画布节点
@@ -141,11 +144,13 @@ export class CanvasService extends EventEmitter {
 
     const startNode = canvas.nodes.find((n) => n.type === 'start') ?? canvas.nodes[0]
     if (!startNode) {
+      const sample = sw.stop()
       return {
         canvasId: id,
         success: false,
         outputs: {},
-        duration: Date.now() - start,
+        duration: sample.elapsedMs ?? sample.perfMs,
+        latencyTrusted: sample.trustworthy,
         error: 'No start node',
       }
     }
@@ -163,23 +168,34 @@ export class CanvasService extends EventEmitter {
       while (current) {
         const result = await nodeExecutor.execute(current, context)
         if (!result.success) {
+          const sample = sw.stop()
           return {
             canvasId: id,
             success: false,
             outputs: context.outputs,
-            duration: Date.now() - start,
+            duration: sample.elapsedMs ?? sample.perfMs,
+            latencyTrusted: sample.trustworthy,
             error: result.error,
           }
         }
         current = result.nextNodes[0] ?? ''
       }
-      return { canvasId: id, success: true, outputs: context.outputs, duration: Date.now() - start }
+      const sample = sw.stop()
+      return {
+        canvasId: id,
+        success: true,
+        outputs: context.outputs,
+        duration: sample.elapsedMs ?? sample.perfMs,
+        latencyTrusted: sample.trustworthy,
+      }
     } catch (err) {
+      const sample = sw.stop()
       return {
         canvasId: id,
         success: false,
         outputs: context.outputs,
-        duration: Date.now() - start,
+        duration: sample.elapsedMs ?? sample.perfMs,
+        latencyTrusted: sample.trustworthy,
         error: (err as Error).message,
       }
     }
