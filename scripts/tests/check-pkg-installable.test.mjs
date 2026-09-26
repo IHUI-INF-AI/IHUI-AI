@@ -66,6 +66,8 @@ test('__test__ 导出形状齐全(§22c 锚点)', () => {
     'findBareImportSpecifiers',
     'collectBareImportBlockers',
     'SECRET_PATTERNS',
+    'SENSITIVE_DATA_PATTERNS',
+    'CODE_FILE_RE',
     'JUNK_PATTERNS',
     'REQUIRED_ENTRIES',
   ]) {
@@ -296,4 +298,72 @@ test('真实文件锁:sdk 源码头注的文档示例 import 不得被判成裸�
   const real = readFileSync(join(REPO_ROOT, 'packages', 'sdk', 'src', 'client.ts'), 'utf8')
   assert.match(real, /^\s*\*\s+import \{ createClient \} from '@ihui\/sdk'/m, '示例已不在真实文件里 → 本锁退化为恒真,须重找载体')
   assert.deepEqual(src.findBareImportSpecifiers(real), [], '注释里的文档示例不该被算成运行时依赖')
+})
+
+/* ───── 2026-09-26 apps/cli 收口:三处"门假阳"的修正各配成对正反例 ───── */
+
+/**
+ * 判据 4 修正:一方代码模块名含 credential 不构成"密钥素材混入"。
+ * 立据:apps/cli/src/config/credentials.ts 是凭据**读写实现**(HEAD 在库源码),
+ * 编译产物 dist/config/credentials.js 被纯文件名正则点名,令健康发布件永不过自己的发布门。
+ * 反向锁:credential/secret 形态的**数据文件**必须照旧判红 —— 收窄只针对代码形态,不许顺手关掉整条。
+ */
+test('判据 4 正反例:credential 名的代码文件放过,同名的数据文件仍红', () => {
+  const codeEntries = [
+    ...GOOD_ENTRIES,
+    'package/dist/config/credentials.js',
+    'package/dist/config/credentials.js.map',
+    'package/dist/tools/mcp-credentials.js',
+  ]
+  const clean = collectBlockers('package', codeEntries, { name: '@ihui/api-client', version: '0.0.0', dependencies: {} }, fakeRepoManifest({ name: '@ihui/api-client', version: '0.0.0' }))
+  assert.deepEqual(clean, [], `代码模块名不得触发密钥判据:\n${clean.join('\n')}`)
+  const dataEntries = [...GOOD_ENTRIES, 'package/dist/data/prod-credentials.json', 'package/secrets/api-secret.txt']
+  const dirty = collectBlockers('package', dataEntries, { name: '@ihui/api-client', version: '0.0.0', dependencies: {} }, fakeRepoManifest({ name: '@ihui/api-client', version: '0.0.0' }))
+  const secretHits = dirty.filter((b) => b.includes('敏感文件'))
+  assert.equal(secretHits.length, 2, dirty.join('\n'))
+  assert.ok(secretHits.every((b) => /credential|secret/.test(b)), secretHits.join('\n'))
+})
+
+/**
+ * 判据 7 修正①:动态形态必须锚定 `import(`,否则 `target.startsWith('./')` 这类
+ * 普通字符串方法调用被当成"无扩展名动态 import"(实测 apps/cli/dist/plugins/installer.js:186
+ * 与 dist/tools/codegraph.js:95 全部由此误报,派单文书据此立了一条不存在的缺陷)。
+ * 修正②:与判据 9 统一为剥注释后判 —— 解析 import 的工具在注释里写 import 样本是本职
+ * (apps/cli/src/tools/codegraph.ts 的 IMPORT_PATTERNS 说明注释即此型)。
+ * 反向锁:代码面的真·无扩展名 import / import('./dyn') 必须照旧抓到。
+ */
+test('判据 7 正反例:startsWith 与注释形态不误报,代码面真 import 仍抓', () => {
+  const realShapes = [
+    "const isRelative = target.startsWith('./') || target.startsWith('../');",
+    "// import x from './path'",
+    '/* export { a } from "./legacy" */',
+    "import { ok } from './fine.js'",
+  ].join('\n')
+  assert.deepEqual(findExtensionlessRelativeImports(realShapes), [], `startsWith/注释形态被误判成 import:\n${JSON.stringify(findExtensionlessRelativeImports(realShapes))}`)
+  // 阳性对照:同一份文本里真·坏写法必须抓到(判据变窄 ≠ 判据失明)
+  const withRealBad = realShapes + "\nimport { bad } from './broken'"
+  assert.deepEqual(findExtensionlessRelativeImports(withRealBad), ['./broken'])
+  assert.deepEqual(findExtensionlessRelativeImports("const m = await import('./chunk')"), ['./chunk'])
+})
+
+/**
+ * 判据 9 修正:Node **裸内建名**不参与"未声明"判定。原写法只免 `node:` 前缀,
+ * `from 'path'/'http'/'https'`(apps/cli/dist 实测存在)被判成外部包缺失,
+ * 而内建永远 resolve 得到 —— 门把自己的合法输入判死。
+ * 反向锁:真第三方 `chokidar`(未声明时)必须照旧红,且带样例文件点名。
+ */
+test('判据 9 正反例:裸内建不误报,真第三方未声明仍红', () => {
+  const files = [
+    ['dist/util/spawn.js', "import { join } from 'path'\nimport http from 'http'\nimport https from 'https'"],
+  ]
+  assert.deepEqual(collectBareImportBlockers('package', files, { name: '@ihui/cli', dependencies: {} }), [], '裸内建名不得算未声明外部包')
+  const withThirdParty = [...files, ['dist/fs-watcher/index.js', "const c = await import('chokidar')"]]
+  const blockers = collectBareImportBlockers('package', withThirdParty, { name: '@ihui/cli', dependencies: {} })
+  assert.equal(blockers.length, 1, JSON.stringify(blockers))
+  assert.match(blockers[0], /chokidar/, blockers[0])
+  // 声明进 optionalDependencies 即放过(fs-watcher 的"装了才启用、没装就降级"正是该形态)
+  assert.deepEqual(
+    collectBareImportBlockers('package', withThirdParty, { name: '@ihui/cli', dependencies: {}, optionalDependencies: { chokidar: '^4.0.3' } }),
+    [],
+  )
 })

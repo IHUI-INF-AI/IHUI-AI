@@ -37,6 +37,8 @@ import {
   findFileVersions,
 } from '../db/workspace-queries.js'
 import { success, error } from '../utils/response.js'
+// 批量写的 affected 一律由库确认集合经唯一出口推出,不得由请求侧自算(2026-09-26 静默失真修复)
+import { batchWriteOutcome } from '../utils/batch-outcome.js'
 import { canAccessFile } from '../db/file-queries.js'
 import type { FileVersion } from '@ihui/database'
 import { getBulkhead } from '../plugins/resilience-extended.js'
@@ -484,8 +486,12 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
-    await batchSoftDelete(parsed.data.fileIds, userId)
-    return reply.send(success({ deleted: parsed.data.fileIds.length }))
+    // 2026-09-26 修「改了 0 行与改成功同形」:deleted 由 batchSoftDelete 的 RETURNING 命中集
+    // 经 batchWriteOutcome 推出,校验通过后被并发删除的行不再被读成成功;missedIds 逐条点名。
+    // 既有响应键 deleted 与 status code 不变,只新增 missedIds。
+    const confirmedIds = await batchSoftDelete(parsed.data.fileIds, userId)
+    const { affected, missedIds } = batchWriteOutcome(parsed.data.fileIds, confirmedIds)
+    return reply.send(success({ deleted: affected, missedIds }))
   })
 
   // POST /files/batch-restore - 批量恢复（从回收站恢复）
@@ -512,8 +518,10 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
-    await batchRestore(parsed.data.fileIds)
-    return reply.send(success({ restored: parsed.data.fileIds.length }))
+    // 2026-09-26 同 batch-delete:restored 由 batchRestore 的 RETURNING 命中集经唯一出口推出。
+    const confirmedIds = await batchRestore(parsed.data.fileIds)
+    const { affected, missedIds } = batchWriteOutcome(parsed.data.fileIds, confirmedIds)
+    return reply.send(success({ restored: affected, missedIds }))
   })
 
   // GET /files/:id/versions - 文件版本历史
