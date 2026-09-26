@@ -16,17 +16,29 @@
  * 接线现状(如实登记,不是已完成):本钩子是投影层的**唯一生产面消费者**,
  * **尚未挂进聊天主列表**(message-list / MessageItem 为并行会话长期持有的热文件,
  * 本票禁止改动 ⇒ 无限滚动的 UI 落点是遗留项)。接入形态:
- * `const { turns, boundary, loadLatest, loadOlder } = useChatHistoryProjection(id)`。
+ * `const { turns, boundary, needsReload, loadLatest, loadOlder, refreshNewer } =
+ *   useChatHistoryProjection(id)`。
+ *
+ * projectionState 的消费(O82续四·投影消费段①收口):服务端每页响应携带的 rollout
+ * 断点 `nextRolloutOrdinal` 被解析为 direction='newer' 的续读起点 —— 在此之前
+ * `refreshNewer` 结构上永不触发(newerCursor 只由 'newer' 响应产生,而发起 'newer'
+ * 需要先有它;首屏 'newest' 页的 newer 端恒 null)。接上后:中途进入流式会话看到的
+ * "半截最新轮"可被增量续读补全,流结束后的补拉也有权威起点(断点前轮次已收口不变)。
+ * 断点**倒退**唯一对应写入侧 `replaceMessages` 的 reset(自动压缩整段重写 + 重编号),
+ * 此时投影与服务端行集失配 ⇒ 清空并要求 `loadLatest`(needsReload)。
+ * `nextRolloutByteOffset` 不消费:它是写入侧 rollout 量具,读侧端点无按字节续读参数。
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { getConversationHistory } from '@ihui/api-client'
 import type { ConversationMessage } from '@ihui/api-client'
 import {
+  advanceHistoryPagingCursors,
   decodeHistoryTurnCursor,
   deriveHistoryBoundary,
   mergeHistoryTurnPages,
   projectHistoryPage,
+  resolveHistoryRolloutSeed,
 } from '@ihui/shared/chat'
 import type { HistoryBoundary, HistoryPageWire, HistoryTurnWire } from '@ihui/shared/chat'
 
@@ -70,8 +82,14 @@ export interface UseChatHistoryProjectionResult {
   turns: MutableTurn[]
   boundary: HistoryBoundary
   summary: ChatHistoryProjectionSummary
-  /** 会话投影状态透传(null = 尚未投影);内容不由本层解释。 */
+  /** 服务端投影状态原样透传(null = 尚未投影);其断点语义已由本层解析消费(见 needsReload)。 */
   projectionState: unknown
+  /**
+   * 断点倒退(= 自动压缩整段重写历史)后为 true:时间线已清空、两端游标已作废,
+   * 任何翻页都不再发起请求,直到调用方执行 `loadLatest` 整段重建。
+   * 这是**状态**不是错误码:它没有对应文案,也不该被渲染成失败 —— 唯一处置是重拉。
+   */
+  needsReload: boolean
   loading: boolean
   /** null = 未加载过/正常;非 null 是失败**码**,由渲染位翻成文案。 */
   error: ChatHistoryErrorCode | null
@@ -124,6 +142,7 @@ export function useChatHistoryProjection(
     lastReplacedTurns: 0,
   })
   const [projectionState, setProjectionState] = useState<unknown>(null)
+  const [needsReload, setNeedsReload] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<ChatHistoryErrorCode | null>(null)
   // 上一次成功页的两端游标。放 ref 而非 state:并发触发时要读到最新值,
@@ -132,6 +151,18 @@ export function useChatHistoryProjection(
     older: null,
     newer: null,
   })
+  // 上一次采用的 rollout 断点序号(null = 尚未投影)。它只服务一件事:
+  // 判"断点倒退 ⇒ 历史被压缩重写"。跨会话必须作废(不同会话的序号空间无关,
+  // 拿 A 会话的断点比 B 会话会把正常首屏误判成重写),故与 conversationId 绑定。
+  const breakpointRef = useRef<number | null>(null)
+  const scopeRef = useRef<string | null | undefined>(undefined)
+
+  const syncConversationScope = useCallback(() => {
+    if (scopeRef.current === conversationId) return
+    scopeRef.current = conversationId
+    breakpointRef.current = null
+    cursorsRef.current = { older: null, newer: null }
+  }, [conversationId])
 
   const fetchPage = useCallback(
     async (
@@ -170,49 +201,75 @@ export function useChatHistoryProjection(
     [conversationId],
   )
 
-  const applyFolded = useCallback((folded: FoldedPage, page: HistoryPage) => {
-    setTurns(folded.turns)
-    setBoundary(folded.boundary)
-    setSummary({
-      droppedUnordained: folded.droppedUnordained,
-      lastReplacedTurns: folded.replacedTurns,
-    })
-    setProjectionState(page.projectionState)
-    return folded.boundary
-  }, [])
+  /**
+   * 三个动作共用的唯一落点:断点解析 → 游标推进 → 状态写回。
+   * 断点消费(此前 projectionState 存而不读)全部集中在这里 ——
+   * 起点推导与"倒退丢弃"的判据在 @ihui/shared/chat 纯函数内,本层只接线。
+   */
+  const applyFolded = useCallback(
+    (folded: FoldedPage, page: HistoryPage, direction: 'newest' | 'older' | 'newer') => {
+      const seed = resolveHistoryRolloutSeed(page.projectionState, breakpointRef.current)
+      breakpointRef.current = seed.breakpointOrdinal
+      const { cursors, discardFolded } = advanceHistoryPagingCursors({
+        direction,
+        boundary: folded.boundary,
+        seed,
+        previous: cursorsRef.current,
+      })
+      cursorsRef.current = cursors
+      setProjectionState(page.projectionState)
+      if (discardFolded) {
+        // 历史被整段重写:已合并时间线与服务端行集无对应关系(轮次按 1 重编号),
+        // 整轮替换修不了"旧序号行在服务端已不存在"——只剩整段重建一条路。
+        setTurns([])
+        setBoundary(EMPTY_BOUNDARY)
+        setSummary({ droppedUnordained: 0, lastReplacedTurns: 0 })
+        setNeedsReload(true)
+        return
+      }
+      setTurns(folded.turns)
+      setBoundary(folded.boundary)
+      setSummary({
+        droppedUnordained: folded.droppedUnordained,
+        lastReplacedTurns: folded.replacedTurns,
+      })
+      if (direction === 'newest') setNeedsReload(false)
+    },
+    [],
+  )
 
   const loadLatest = useCallback(
     async (limit?: number) => {
+      syncConversationScope()
       const page = await fetchPage('newest', limit, null)
       if (!page) return
-      const b = applyFolded(foldPage(page, 'newest', []), page)
-      cursorsRef.current = { older: b.olderCursor, newer: b.newerCursor }
+      applyFolded(foldPage(page, 'newest', []), page, 'newest')
     },
-    [fetchPage, applyFolded],
+    [fetchPage, applyFolded, syncConversationScope],
   )
 
   const loadOlder = useCallback(
     async (limit?: number) => {
+      syncConversationScope()
       const cursor = cursorsRef.current.older
       if (!cursor) return
       const page = await fetchPage('older', limit, cursor)
       if (!page) return
-      const b = applyFolded(foldPage(page, 'older', turns), page)
-      cursorsRef.current = { older: b.olderCursor, newer: cursorsRef.current.newer }
+      applyFolded(foldPage(page, 'older', turns), page, 'older')
     },
-    [fetchPage, applyFolded, turns],
+    [fetchPage, applyFolded, turns, syncConversationScope],
   )
 
   const refreshNewer = useCallback(
     async (limit?: number) => {
+      syncConversationScope()
       const cursor = cursorsRef.current.newer
       if (!cursor) return
       const page = await fetchPage('newer', limit, cursor)
       if (!page) return
-      const b = applyFolded(foldPage(page, 'newer', turns), page)
-      cursorsRef.current = { older: cursorsRef.current.older, newer: b.newerCursor }
+      applyFolded(foldPage(page, 'newer', turns), page, 'newer')
     },
-    [fetchPage, applyFolded, turns],
+    [fetchPage, applyFolded, turns, syncConversationScope],
   )
 
   return useMemo(
@@ -221,6 +278,7 @@ export function useChatHistoryProjection(
       boundary,
       summary,
       projectionState,
+      needsReload,
       loading,
       error,
       loadLatest,
@@ -232,6 +290,7 @@ export function useChatHistoryProjection(
       boundary,
       summary,
       projectionState,
+      needsReload,
       loading,
       error,
       loadLatest,

@@ -39,6 +39,9 @@ import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
 import { error } from '../utils/response.js'
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
+// 格②(2026-09-26):耗时一律走单调钟出口,落库形态经唯一适配器投影
+import { startStopwatch, type ElapsedSample, type Stopwatch } from '../utils/elapsed-ms.js'
+import { persistableLatency } from '../utils/latency-persistence.js'
 import {
   anthropicRequestToOpenAI,
   openAIResponseToAnthropic,
@@ -140,7 +143,8 @@ async function streamAnthropicMessages(
     apiKeyId?: string
     userId?: string
     promptText: string
-    startTime: number
+    /** 格②(2026-09-26):由 handler 起表后传入的单调钟(替代原墙钟 epoch startTime) */
+    sw: Stopwatch
     mode: 'relay' | 'byok'
     /** P0 中转站造血能力批次(2026-08-01):审计字段透传 */
     providerCode?: string
@@ -161,7 +165,8 @@ async function streamAnthropicMessages(
   let responseText = ''
   let streamError: string | null = null
   /** P0 中转站造血能力批次(2026-08-01):TTFT + 上游 HTTP 状态码 */
-  let firstTokenTime: number | null = null
+  /** 格②(2026-09-26):首 token 时刻再取一次样本(不再拿两个墙钟读数相减) */
+  let ttftSample: ElapsedSample | null = null
   let upstreamHttpStatus: number | null = null
 
   const writeEvents = (events: ReturnType<typeof openAIStreamChunkToAnthropicEvents>) => {
@@ -170,7 +175,8 @@ async function streamAnthropicMessages(
       // 累计 text_delta 文本用于计费估算
       if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
         // P0 中转站造血能力批次(2026-08-01):记录首 token 时间用于 TTFT
-        if (firstTokenTime === null) firstTokenTime = Date.now()
+        // 格②(2026-09-26):改为在首 token 处 stop 一次,与总耗时各自独立成样本
+        if (ttftSample === null) ttftSample = opts.sw.stop()
         responseText += ev.delta.text
       }
     }
@@ -290,6 +296,9 @@ async function streamAnthropicMessages(
       const promptTokens = Math.ceil(opts.promptText.length / 4)
       const completionTokens = Math.ceil(responseText.length / 4)
       const totalTokens = promptTokens + completionTokens
+      // 格②(2026-09-26):总耗时与 TTFT 各取一次独立样本、各自交叉校验;不可信样本落 0 并随行标真
+      const latency = persistableLatency(opts.sw.stop())
+      const ttft = ttftSample === null ? null : persistableLatency(ttftSample)
       void recordCall({
         apiKeyId: opts.apiKeyId,
         userId: opts.userId,
@@ -299,15 +308,20 @@ async function streamAnthropicMessages(
         promptTokens,
         completionTokens,
         totalTokens,
-        latencyMs: Date.now() - opts.startTime,
+        latencyMs: latency.latencyMs,
         status: streamError ? 'error' : 'success',
         errorMessage: streamError,
-        metadata: { stream: true, protocol: 'anthropic-messages' },
+        metadata: {
+          stream: true,
+          protocol: 'anthropic-messages',
+          latencyTrusted: latency.latencyTrusted,
+          ...(ttft ? { ttftTrusted: ttft.latencyTrusted } : {}),
+        },
         mode: opts.mode,
         providerCode: opts.providerCode,
         clientIp: opts.clientIp,
         httpStatus: upstreamHttpStatus ?? undefined,
-        ttftMs: firstTokenTime !== null ? firstTokenTime - opts.startTime : undefined,
+        ttftMs: ttft ? ttft.latencyMs : undefined,
       }).catch(() => {})
     }
   }
@@ -380,7 +394,8 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
 
       // P0-5 中转站计费:调用前检查 API Key 余额
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
-      const startTime = Date.now()
+      // 格②(2026-09-26):原 `const startTime = Date.now()` 是墙钟 epoch,换成单调钟表
+      const sw = startStopwatch()
       const promptText = body.messages
         .map((m) => {
           if (typeof m.content === 'string') return `${m.role}: ${m.content}`
@@ -458,7 +473,7 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
           apiKeyId: apiKey?.id,
           userId: apiKey?.userId,
           promptText,
-          startTime,
+          sw,
           mode,
           providerCode: modelToProviderCode(body.model),
           clientIp: request.ip,
@@ -475,6 +490,7 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
 
         if (!resp.ok) {
           if (apiKey) {
+            const latency = persistableLatency(sw.stop())
             void recordCall({
               apiKeyId: apiKey.id,
               userId: apiKey.userId,
@@ -484,10 +500,13 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
               promptTokens: 0,
               completionTokens: 0,
               totalTokens: 0,
-              latencyMs: Date.now() - startTime,
+              latencyMs: latency.latencyMs,
               status: 'error',
               errorMessage: `AI service unavailable (${resp.status})`,
-              metadata: { protocol: 'anthropic-messages' },
+              metadata: {
+                protocol: 'anthropic-messages',
+                latencyTrusted: latency.latencyTrusted,
+              },
               mode,
               providerCode: modelToProviderCode(body.model),
               clientIp: request.ip,
@@ -507,6 +526,7 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
 
         if (data.error) {
           if (apiKey) {
+            const latency = persistableLatency(sw.stop())
             void recordCall({
               apiKeyId: apiKey.id,
               userId: apiKey.userId,
@@ -516,10 +536,13 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
               promptTokens: 0,
               completionTokens: 0,
               totalTokens: 0,
-              latencyMs: Date.now() - startTime,
+              latencyMs: latency.latencyMs,
               status: 'error',
               errorMessage: data.error_message ?? 'AI service error',
-              metadata: { protocol: 'anthropic-messages' },
+              metadata: {
+                protocol: 'anthropic-messages',
+                latencyTrusted: latency.latencyTrusted,
+              },
               mode,
               providerCode: modelToProviderCode(body.model),
               clientIp: request.ip,
@@ -564,6 +587,7 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
 
         // P0-5 中转站计费:调用成功,记录流水 + 扣减余额
         if (apiKey) {
+          const latency = persistableLatency(sw.stop())
           recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,
@@ -573,9 +597,9 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
             promptTokens,
             completionTokens,
             totalTokens,
-            latencyMs: Date.now() - startTime,
+            latencyMs: latency.latencyMs,
             status: 'success',
-            metadata: { protocol: 'anthropic-messages' },
+            metadata: { protocol: 'anthropic-messages', latencyTrusted: latency.latencyTrusted },
             mode,
             providerCode: modelToProviderCode(body.model),
             clientIp: request.ip,
@@ -588,6 +612,7 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(anthropicResp)
       } catch (e) {
         if (apiKey) {
+          const latency = persistableLatency(sw.stop())
           void recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,
@@ -597,10 +622,10 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
             promptTokens: 0,
             completionTokens: 0,
             totalTokens: 0,
-            latencyMs: Date.now() - startTime,
+            latencyMs: latency.latencyMs,
             status: 'error',
             errorMessage: (e as Error).message || 'AI service unavailable',
-            metadata: { protocol: 'anthropic-messages' },
+            metadata: { protocol: 'anthropic-messages', latencyTrusted: latency.latencyTrusted },
             mode,
             providerCode: modelToProviderCode(body.model),
             clientIp: request.ip,

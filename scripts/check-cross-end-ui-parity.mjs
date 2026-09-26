@@ -9,6 +9,10 @@
 //
 // 样式语言(className vs StyleSheet)与 props 命名只随读数打印 —— 它们是 S1 的证据,不是观感本身。
 //
+// 配对的前置条件(2026-09-26 换判据):一条腿必须**从该端入口可达**(见 SEED_FILES 注)。
+// 旧的"被自己以外引用一次"太弱 —— 桶文件顺手再导出就算引用,于是门会对一份根本不在 RN 屏幕上
+// 渲染的 DOM 副本判"一致性"。人工核对想退回"同名即配对"用 `--pair-all`(默认档必做可达性剔除)。
+//
 // 判定面与守门 77/83/93/98/103 同形:全量判 HEAD blob、--staged 判索引 blob、两面旗同给判死、
 // 清单与正文**同面同轮**取;任一面取不到 ⇒ exit 2「无法判定」,不回落另一个面(回落就是把"没判"
 // 写成"判过了")。刻意不开 --worktree 档:共享工作树常年滞后 HEAD,按磁盘判会在恒红与假绿之间来回跳,
@@ -17,9 +21,12 @@
 // 定级:棘轮 blocking(锚点 = 台账里钉住的 HEAD 读数,只拦"把两端差异加大")。
 // 为什么不是"当场全红 blocking":立项实测同名配对 19 对、其中 17 对有可见几何差异。与本次改动无关的
 // 恒红门,唯一结局是逼人 --no-verify,一次绕过等于当天全部守门作废(§12e 实测型)。
-import { dirname, resolve } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
+import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -131,28 +138,32 @@ export function readGeometry(src, side) {
   const push = (px) => {
     if (px !== null && px !== undefined) values.add(px)
   }
-  const keyed = (name) => GEO_KEY.test(name) && !NON_GEO_KEY.test(name) && !RADIUS_FORM_RE.test(name)
+  const keyed = (name) =>
+    GEO_KEY.test(name) && !NON_GEO_KEY.test(name) && !RADIUS_FORM_RE.test(name)
 
-  for (const m of code.matchAll(/\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(\d+(?:\.\d+)?)(?![\w.])/g)) {
+  for (const m of code.matchAll(
+    /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(\d+(?:\.\d+)?)(?![\w.])/g,
+  )) {
     if (!keyed(m[1])) continue
     const px = toPx(m[2], undefined, side)
     named[m[1]] = px
     push(px)
   }
-  for (const m of code.matchAll(/\b([A-Za-z_$][\w$]*)\s*[:=]\s*(\d+(?:\.\d+)?)(rpx|px)?(?![\w.])/g)) {
+  for (const m of code.matchAll(
+    /\b([A-Za-z_$][\w$]*)\s*[:=]\s*(\d+(?:\.\d+)?)(rpx|px)?(?![\w.])/g,
+  )) {
     if (!keyed(m[1])) continue
     push(toPx(m[2], m[3], side))
   }
   for (const m of code.matchAll(/\brpx\(\s*(\d+(?:\.\d+)?)\s*\)/g)) push(toPx(m[1], 'rpx', side))
-  for (
-    const m of code.matchAll(
-      /(?:^|[\s"'`])(?:size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
-    )
-  )
+  for (const m of code.matchAll(
+    /(?:^|[\s"'`])(?:size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
+  ))
     push(toPx(m[1], m[2], side))
   for (const m of code.matchAll(/(?:^|[\s"'`])([hw])-([0-9]+(?:\.[0-9]+)?)(?=$|[\s"'`/:])/g))
     push(round(TW_SPACING_PX(Number(m[2]))))
-  for (const m of code.matchAll(/(?:^|[\s"'`])text-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g)) push(toPx(m[1], m[2], side))
+  for (const m of code.matchAll(/(?:^|[\s"'`])text-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g))
+    push(toPx(m[1], m[2], side))
   for (const m of code.matchAll(/(?:^|[\s"'`])text-(xs|sm|base|lg|xl|2xl|3xl)(?=$|[\s"'`/:])/g))
     push(TW_FONT_PX[m[1]] ?? null)
   for (const m of code.matchAll(/\bsize=\{(\d+(?:\.\d+)?)\}/g)) push(toPx(m[1], undefined, side))
@@ -168,7 +179,8 @@ export function namedConflicts(a, b) {
   const out = []
   for (const [k, v] of Object.entries(a)) {
     const w = b[k]
-    if (w !== undefined && v !== undefined && round(v) !== round(w)) out.push(`${k}: miniapp=${v} rn=${w}`)
+    if (w !== undefined && v !== undefined && round(v) !== round(w))
+      out.push(`${k}: miniapp=${v} rn=${w}`)
   }
   return out.sort()
 }
@@ -200,7 +212,8 @@ export function scan(listMini, listRn) {
     if (!miniMap.has(normKey(f))) miniMap.set(normKey(f), f)
   }
   const pairs = []
-  for (const [k, f] of miniMap) if (rnMap.has(k)) pairs.push({ name: nameOf(f), miniapp: f, rn: rnMap.get(k) })
+  for (const [k, f] of miniMap)
+    if (rnMap.has(k)) pairs.push({ name: nameOf(f), miniapp: f, rn: rnMap.get(k) })
   const out = {
     pairs: pairs.sort((a, b) => a.name.localeCompare(b.name)),
     onlyMiniapp: [...miniMap.keys()].filter((k) => !rnMap.has(k)).length,
@@ -210,7 +223,11 @@ export function scan(listMini, listRn) {
   }
   // 空扫就是本门要防的那一型故障(判据看不见 ⇒ 一路绿灯)。宁判死,不记通过。
   if (out.miniappCount === 0 || out.rnCount === 0)
-    return { ...out, undetermined: true, reason: `组件面枚举为空(小程序 ${out.miniappCount} / RN ${out.rnCount})` }
+    return {
+      ...out,
+      undetermined: true,
+      reason: `组件面枚举为空(小程序 ${out.miniappCount} / RN ${out.rnCount})`,
+    }
   return { ...out, undetermined: false, reason: null }
 }
 
@@ -227,48 +244,545 @@ export function styleLanguage(src) {
 /** 图标载体:素材源不同则同一枚箭头的墨迹不可能逐位相同(端内 SVG 由 gen-taro-lucide-icons 从 lucide 提取)。 */
 export function iconCarriers(src) {
   const out = new Set()
-  for (const m of stripComments(src).matchAll(/from\s+['"]([^'"]*(?:lucide|LineIcon|icons\/|\.svg)[^'"]*)['"]/gi))
+  for (const m of stripComments(src).matchAll(
+    /from\s+['"]([^'"]*(?:lucide|LineIcon|icons\/|\.svg)[^'"]*)['"]/gi,
+  ))
     out.add(m[1])
   return [...out].sort()
 }
 
+/* ───────────────── 端入口可达性:什么才算"一条腿" ───────────────── */
+
 /**
- * 剔掉"没在渲染的那一份"。立因(2026-09-26 实测):`packages/app` 里的 `NavBar` / `UserInfoCard`
- * 是渲染 `div`/`span` 的**零调用 DOM 副本** —— 拿它当 RN 那一腿比对,数字再绿也不是屏幕上那件事。
- * 判据:组件名在被审面上必须被"它自己以外、且非测试/非快照"的文件引用,否则不构成一条腿,剔除并
- * **如实计数**(静默剔除会让"没判"读成"已通过")。取不到引用信息 ⇒ 判"无法判定",不猜。
+ * 种子 = 每端的入口。一条腿必须从这些点沿 import 走到,否则它只是"被执行过、没人用"。
+ *
+ * 立因(2026-09-26 实测):`packages/app/src/components/NavBar.tsx` 与 `UserInfoCard.tsx` 渲染的是
+ * `div`/`span`(web DOM),在 RN 端根本不在屏幕上;旧判据"被自己以外引用一次就算一条腿"却因为
+ * `packages/app/src/components/index.ts` 顺手再导出它们而放行。**桶文件在运行时确实会把未被人用的
+ * 再导出一起求值,但求值 ≠ 有人在渲染** —— 本门要的是后者,所以再导出按**名字**路由:只有真被上游
+ * import 点到的那个名字,才把它指向的源文件带进可达集。这不是完整 resolver,只回答"可达否"。
  */
-export function pruneDeadCopies(repoRoot, face, scanned) {
-  const kept = []
-  const dead = []
-  for (const p of scanned.pairs) {
-    const args =
-      face === 'staged'
-        ? ['grep', '-l', '--cached', '-e', p.name, '--', 'apps', 'packages']
-        : ['grep', '-l', '-e', p.name, 'HEAD', '--', 'apps', 'packages']
-    let out
-    try {
-      out = gitRaw(args, repoRoot, {})
-    } catch (e) {
-      return { pairs: scanned, undetermined: `${FACE_TXT[face]}:git grep 派生失败(${e?.message ?? e})` }
-    }
-    if (out === null || out === undefined)
-      return { pairs: scanned, undetermined: `${FACE_TXT[face]}:git grep 取不到 ${p.name} 的引用面` }
-    const importers = out
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(
-        (f) =>
-          f &&
-          f !== p.rn &&
-          f !== p.miniapp &&
-          !/(^|\/)(tests?|__tests__)\//.test(f) &&
-          !/\.(md|snap)$/.test(f),
-      ).length
-    if (importers === 0) dead.push({ name: p.name, rn: p.rn })
-    else kept.push(p)
+const SEED_FILES = { miniapp: ['apps/miniapp-taro/src/app.tsx'], rn: ['apps/mobile-rn/App.tsx'] }
+const SEED_DIRS = { miniapp: [], rn: ['apps/mobile-rn/src/navigation'] }
+/** 小程序的路由表在 `app.config.ts` 的**数据**里(不是 import),必须单独喂进种子。 */
+const PAGE_MANIFEST = { miniapp: 'apps/miniapp-taro/src/app.config.ts', rn: null }
+/** 遍历面:两端源码 + `packages/`。apps/web·api·cli 不可能被这两端 import,不取。 */
+const REACH_ROOTS = ['apps/miniapp-taro', 'apps/mobile-rn', 'packages']
+const REACH_SRC_RE = /\.(?:tsx|jsx|ts|js|mjs|cjs)$/
+const TEST_PATH_RE = /(^|\/)(?:tests?|__tests__|__mocks__|e2e)\//
+const TEST_FILE_RE = /\.(?:test|spec)\.[cm]?[jt]sx?$/
+/** `@/` 实测只有两处来源:miniapp 的 tsconfig 声明 `@/* -> ./src/*`,mobile-rn 同构(全仓仅一处)。 */
+const SLASH_ALIAS = {
+  'apps/miniapp-taro/': 'apps/miniapp-taro/src/',
+  'apps/mobile-rn/': 'apps/mobile-rn/src/',
+}
+const EXT_CANDIDATES = [
+  '',
+  '.tsx',
+  '.ts',
+  '.jsx',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '/index.tsx',
+  '/index.ts',
+  '/index.jsx',
+  '/index.js',
+]
+/** 非模块导入(样式 / 资产):跟着走没有意义,单独一态,不混进"未判定"。 */
+const NON_MODULE_RE =
+  /\.(?:css|scss|sass|less|json|svg|png|jpe?g|gif|webp|avif|ttf|woff2?|ico|md|html)$/i
+
+const EDGE_IMPORT = /(?:^|[\s;{}])import\s+(type\s+)?([^'"();]*?)\s*from\s*['"]([^'"]+)['"]/g
+const EDGE_SIDE = /(?:^|[\s;{}])import\s*['"]([^'"]+)['"]/g
+const EDGE_REEXPORT =
+  /(?:^|[\s;{}])export\s+(type\s+)?(\*(?:\s+as\s+[A-Za-z_$][\w$]*)?|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]/g
+const EDGE_LOCAL_LIST = /(?:^|[\s;{}])export\s*\{([^}]*)\}(?!\s*from)/g
+const EDGE_DYNAMIC = /(?:^|[^\w$.])import\s*\(([^)]*)\)/g
+const EDGE_REQUIRE = /(?:^|[^\w$.])require\s*\(([^)]*)\)/g
+const LOCAL_DEF =
+  /(?:^|[\s;{}])export\s+(?:default\s+)?(?:async\s+)?(?:function|class|const|let|var)\s+([A-Za-z_$][\w$]*)/g
+const HAS_DEFAULT = /(?:^|[\s;{}])export\s+default\b/
+
+/** `{ A, B as C }` → `[{original:A,exported:A},{original:B,exported:C}]`;解不出的形态返回 null(交调用方按整模块处理)。 */
+function specList(text) {
+  const out = []
+  for (const raw of String(text).split(',')) {
+    const s = raw.trim()
+    if (!s || /^type\b/.test(s)) continue
+    const m = /^([A-Za-z_$][\w$]*)(?:\s+as\s+([A-Za-z_$][\w$]*))?$/.exec(s)
+    if (!m) return null
+    out.push({ original: m[1], exported: m[2] || m[1] })
   }
-  return { pairs: { ...scanned, pairs: kept }, dead }
+  return out
+}
+
+/** import 子句 → 需要的原始名集合;`null` = 整模块被用(默认导入 / `* as` / 副作用 / 混用)。 */
+export function clauseDemand(clause) {
+  const t = String(clause || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!t) return null
+  if (/\*\s*as\b/.test(t)) return null
+  const b = t.indexOf('{')
+  if (b < 0) return null
+  if (t.slice(0, b).replace(/,/g, ' ').trim()) return null
+  const end = t.lastIndexOf('}')
+  if (end < b) return null
+  const list = specList(t.slice(b + 1, end))
+  if (!list || !list.length) return null
+  return list.map((s) => s.original)
+}
+
+/**
+ * 一个模块 → 它依赖的边。四类:
+ *   `use`   真实 import(整模块或按名)—— 无论本文件怎么被用,这些边都会被执行,**总是跟**
+ *   `re`    `export { A as B } from 'x'` —— 只在被点名时按名字往下传
+ *   `star`  `export * from 'x'` —— 通配,任何被点的名字都可能从这里过
+ *   `ns`    `export * as n from 'x'` —— 等价于整模块被用
+ * `type` / `export type` 一律不算(类型不进产物),与守门 126 同取向。
+ */
+export function parseModuleEdges(src) {
+  const code = stripComments(src)
+  const edges = []
+  const undetermined = []
+  const localExports = new Set()
+  for (const m of code.matchAll(EDGE_IMPORT)) {
+    if (m[1]) continue
+    edges.push({ kind: 'use', spec: m[3], names: clauseDemand(m[2]) })
+  }
+  for (const m of code.matchAll(EDGE_SIDE)) edges.push({ kind: 'use', spec: m[1], names: null })
+  for (const m of code.matchAll(EDGE_REEXPORT)) {
+    if (m[1]) continue
+    const body = m[2]
+    if (body.startsWith('*')) {
+      edges.push({ kind: /\bas\b/.test(body) ? 'ns' : 'star', spec: m[3], names: null })
+      continue
+    }
+    const list = specList(body.slice(1, -1))
+    if (!list) {
+      edges.push({ kind: 'use', spec: m[3], names: null })
+      continue
+    }
+    edges.push({
+      kind: 're',
+      spec: m[3],
+      names: null,
+      map: new Map(list.map((s) => [s.exported, s.original])),
+    })
+  }
+  for (const m of code.matchAll(EDGE_DYNAMIC)) {
+    const lit = /^\s*['"]([^'"]+)['"]\s*$/.exec(m[1] || '')
+    if (lit) edges.push({ kind: 'use', spec: lit[1], names: null })
+    else
+      undetermined.push({ spec: (m[1] || '').trim().slice(0, 60), reason: '动态拼接的 import()' })
+  }
+  for (const m of code.matchAll(EDGE_REQUIRE)) {
+    const lit = /^\s*['"]([^'"]+)['"]\s*$/.exec(m[1] || '')
+    if (lit) edges.push({ kind: 'use', spec: lit[1], names: null })
+    else
+      undetermined.push({ spec: (m[1] || '').trim().slice(0, 60), reason: '动态拼接的 require()' })
+  }
+  for (const m of code.matchAll(LOCAL_DEF)) localExports.add(m[1])
+  if (HAS_DEFAULT.test(code)) localExports.add('default')
+  // `export { A, B }`(无 from)= 本文件把局部定义对外命名,同样算定义处。
+  for (const m of code.matchAll(EDGE_LOCAL_LIST)) {
+    const list = specList(m[1])
+    if (list) for (const s of list) localExports.add(s.exported)
+  }
+  return { edges, localExports, undetermined }
+}
+
+/** 相对路径拼接:git 面恒为正斜杠,不用 node:path(它在 win32 上会写成反斜杠)。 */
+function relJoin(baseDir, spec) {
+  const out = []
+  for (const s of `${baseDir}/${spec}`.split('/')) {
+    if (!s || s === '.') continue
+    if (s === '..') out.pop()
+    else out.push(s)
+  }
+  return out.join('/')
+}
+
+/**
+ * 解析到一个仓内文件。四态必分,尤其:**解析不到 ≠ 不存在**。
+ * `{file}` 命中源码 / `{asset}` 样式或资产(不 traverse,也不计未判定)/
+ * `{external}` 第三方包 / `{unresolved:原因}` 判不出 —— 交调用方计数并打印。
+ */
+function resolveSpecifier(spec, fromFile, ctx) {
+  if (!spec) return { unresolved: '空说明符' }
+  if (NON_MODULE_RE.test(spec)) return { asset: true }
+  const tryCandidates = (base) => {
+    for (const ext of EXT_CANDIDATES) if (ctx.files.has(base + ext)) return base + ext
+    const stripped = base.replace(/\.[cm]?[jt]sx?$/, '')
+    if (stripped !== base)
+      for (const ext of EXT_CANDIDATES) if (ctx.files.has(stripped + ext)) return stripped + ext
+    return null
+  }
+  let base = null
+  if (spec.startsWith('./') || spec.startsWith('../') || spec === '.' || spec === '..') {
+    base = relJoin(fromFile.split('/').slice(0, -1).join('/'), spec)
+  } else if (spec.startsWith('@/')) {
+    const owner = Object.keys(SLASH_ALIAS).find((root) => fromFile.startsWith(root))
+    if (!owner) return { unresolved: '@/ 别名在该包未声明(不猜目标)' }
+    base = SLASH_ALIAS[owner] + spec.slice(2)
+  } else if (spec.startsWith('@ihui/')) {
+    const m = /^@ihui\/([\w-]+)(?:\/(.*))?$/.exec(spec)
+    const name = m ? `@ihui/${m[1]}` : null
+    const dir = name && ctx.pkgDir.get(name)
+    if (!dir) return { external: true }
+    const sub = m[2] || ''
+    /**
+     * 三个候选基准,不做完整 resolver:清单给的入口(`main` / `exports['.']`,常指向**未构建的
+     * dist**)→ 包根直拼 → 包根 `src/` 直拼(本仓多数包源码在 src/,而清单只记产物)。
+     * 三个都拼不通才算"未判定",绝不当"这个模块不存在"。
+     */
+    const entry = sub ? null : ctx.pkgEntry.get(name)
+    const bases = [entry, relJoin(dir, sub), relJoin(dir, `src/${sub}`)].filter(Boolean)
+    for (const b of bases) {
+      const hit = tryCandidates(b)
+      if (hit) return { file: hit }
+    }
+    return { unresolved: `workspace 包入口解析不到:${spec}` }
+  } else if (!spec.startsWith('/') && !/^[A-Za-z]:/.test(spec)) {
+    return { external: true }
+  } else {
+    return { unresolved: `无法归类的说明符 ${spec}` }
+  }
+  const hit = tryCandidates(base)
+  if (!hit) return { unresolved: `解析不到文件:${spec}` }
+  if (!REACH_SRC_RE.test(hit)) return { asset: true }
+  return { file: hit }
+}
+
+/**
+ * Taro 路由表:`app.config.ts` 的 `pages` / `subPackages[].pages`(数据,不是 import)。
+ * `root` 与紧随其后的 `pages` 配对;顶层 `pages` 出现在任何 root 之前,故初值为 ''。
+ * 拼出来的 / 引号里带反引号的路径一律回 `unresolved`,交调用方计数 —— 不当"这个页不存在"。
+ */
+export function readTaroPages(src, pageDir) {
+  const code = stripComments(src)
+  const pages = []
+  const unresolved = []
+  let root = ''
+  for (const m of code.matchAll(/(?:root|pages)\s*:\s*(\[[\s\S]*?\]|['"][^'"]*['"])/g)) {
+    const chunk = m[1]
+    if (!chunk.startsWith('[')) {
+      const lit = /['"]([^'"]*)['"]/.exec(chunk)
+      if (lit) root = lit[1]
+      continue
+    }
+    for (const s of chunk.matchAll(/(['"])([^'"]*)\1|`([^`]*)`/g)) {
+      // 反引号那一路(或引号里带 `${`)一律算拼出来的 —— 不得当"这个页不存在"
+      const p = s[2] !== undefined ? s[2] : s[3]
+      if (s[3] !== undefined || /\$\{/.test(p)) {
+        unresolved.push(p)
+        continue
+      }
+      pages.push(root ? `${pageDir}/${root}/${p}` : `${pageDir}/${p}`)
+    }
+  }
+  return { pages, unresolved }
+}
+
+/**
+ * 从端入口出发的可达集(名字路由见 SEED_FILES 上方注释)。
+ * `ctx` = { face, files, pkgDir, pkgEntry, reached, read } —— 取材与解析都从 ctx 走,
+ * 所以这一遍是纯图遍历:同一份 ctx 给两次,结论必相同(自检的构造面由此而来)。
+ */
+export function buildReach(seeds, ctx) {
+  const state = new Map()
+  const queue = []
+  const undetermined = []
+  const parsed = new Map()
+  const st = (f) => {
+    let s = state.get(f)
+    if (!s) state.set(f, (s = { full: false, routed: new Set() }))
+    return s
+  }
+  const askFull = (f) => {
+    const s = st(f)
+    if (s.full) return
+    s.full = true
+    queue.push({ f, names: null })
+  }
+  const askNames = (f, names) => {
+    const s = st(f)
+    if (s.full) return
+    const fresh = names.filter((n) => !s.routed.has(n))
+    if (!fresh.length) return
+    for (const n of fresh) s.routed.add(n)
+    queue.push({ f, names: fresh })
+  }
+  const edgesOf = (f, text) => {
+    let p = parsed.get(f)
+    if (!p) {
+      p = parseModuleEdges(text)
+      for (const u of p.undetermined) undetermined.push({ from: f, spec: u.spec, reason: u.reason })
+      parsed.set(f, p)
+    }
+    return p
+  }
+  const route = (from, e, given) => {
+    const r = resolveSpecifier(e.spec, from, ctx)
+    if (r.external || r.asset) return
+    if (r.unresolved) {
+      undetermined.push({ from, spec: e.spec, reason: r.unresolved })
+      return
+    }
+    if (given === null) askFull(r.file)
+    else askNames(r.file, given)
+  }
+  for (const s of seeds) askFull(s)
+  let steps = 0
+  while (queue.length) {
+    if (++steps > 200000) throw new Undetermined('可达性遍历步数超上限 ⇒ 判据失效,不得记为通过')
+    const { f, names } = queue.shift()
+    ctx.reached.add(f)
+    const text = ctx.read(f)
+    if (text === null || text === undefined) {
+      undetermined.push({ from: null, spec: f, reason: `${FACE_TXT[ctx.face]}取不到内容` })
+      continue
+    }
+    const { edges, localExports } = edgesOf(f, text)
+    const served = new Set()
+    for (const e of edges) {
+      if (e.kind === 'use' || e.kind === 'ns') {
+        route(f, e, e.kind === 'use' ? e.names : null)
+        continue
+      }
+      if (names === null) {
+        route(f, e, e.kind === 'star' ? null : [...e.map.values()])
+        continue
+      }
+      if (e.kind === 'star') {
+        // 通配再导出把需求整个传下去了 —— 名字若真没人接,由更深层自己报未判定,
+        // 不在这一层重复喊(否则每个 `export *` 桶都会替它转发的每个名字编一条假"未判定")。
+        for (const n of names) served.add(n)
+        route(f, e, names)
+        continue
+      }
+      const hit = names.filter((n) => e.map.has(n))
+      if (!hit.length) continue
+      for (const n of hit) served.add(n)
+      route(
+        f,
+        e,
+        hit.map((n) => e.map.get(n)),
+      )
+    }
+    for (const n of names || []) {
+      if (served.has(n)) continue
+      if (localExports.has(n)) askFull(f)
+      // 只有"这文件根本不是桶"(没有任何对外再导出)时,才把它当名字的 definitions 处整模块展开;
+      // 是桶却没这个名 ⇒ 判不出,只计数。反过来(桶一律整展开)会把整个桶目录灌进可达集,
+      // 那正是本判据要防的那一型 —— 两条分支各由一条自检钉住。
+      else if (!edges.some((e) => e.kind === 're' || e.kind === 'star')) askFull(f)
+      else undetermined.push({ from: f, spec: n, reason: '被点名的名字既无定义也无可路由的再导出' })
+    }
+  }
+  return { used: ctx.reached, undetermined }
+}
+
+/** 整面清单(可达性要能走到任何路径,不随组件目录收窄)。取不到返回 null。 */
+function listAllFace(repoRoot, face) {
+  const args = face === 'staged' ? ['ls-files'] : ['ls-tree', '-r', '--name-only', 'HEAD']
+  let out
+  try {
+    out = gitRaw(args, repoRoot, { timeout: 120000, maxBuffer: 1 << 26 })
+  } catch {
+    return null
+  }
+  if (out === null || out === undefined) return null
+  return out
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+/**
+ * 剔掉不构成一条腿的配对:腿文件必须从**该端入口**可达(旧判据"被引用一次"太弱,见 SEED_FILES 注)。
+ * 三态都不静默:剔除逐条点名并带"从端入口不可达";解析不到的边计"未判定"并给总数;
+ * 种子 / 路由表 / 清单取不到 ⇒ 整判据"无法判定";全部配对都被剔除 ⇒ 判据失明,同样不记通过。
+ */
+export function pruneUnreachableLegs(repoRoot, face, scanned) {
+  const all = listAllFace(repoRoot, face)
+  if (!all || !all.length)
+    return {
+      pairs: scanned,
+      unreachable: [],
+      undetermined: [],
+      reason: `${FACE_TXT[face]}:取不到整面清单`,
+    }
+  const files = new Set(all)
+  const inScope = (p) => REACH_ROOTS.some((r) => p === r || p.startsWith(`${r}/`))
+  const corpus = all.filter(
+    (p) => inScope(p) && REACH_SRC_RE.test(p) && !TEST_PATH_RE.test(p) && !TEST_FILE_RE.test(p),
+  )
+  const manifests = all.filter((p) => /^(?:apps|packages)\/[^/]+\/package\.json$/.test(p))
+  const needed = [...new Set([...corpus, ...manifests])]
+  const specs = needed.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
+  const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 29, timeout: 180000 })
+  const texts = new Map()
+  const missing = new Set()
+  for (let i = 0; i < needed.length; i++) {
+    const t = got.get(specs[i])
+    if (t === null || t === undefined) missing.add(needed[i])
+    else texts.set(needed[i], t)
+  }
+  const pkgDir = new Map()
+  const pkgEntry = new Map()
+  for (const rel of manifests) {
+    const raw = texts.get(rel)
+    if (raw === undefined) continue
+    let j
+    try {
+      j = JSON.parse(raw)
+    } catch {
+      continue // 坏清单:该包按"解析不到"处理(它的 import 会落进未判定),不猜
+    }
+    if (typeof j.name !== 'string' || !j.name.startsWith('@ihui/')) continue
+    const dir = rel.split('/').slice(0, -1).join('/')
+    pkgDir.set(j.name, dir)
+    const x = j.exports
+    const dot = typeof x === 'string' ? x : x && typeof x === 'object' ? x['.'] : null
+    let e = null
+    if (typeof dot === 'string') e = dot
+    else if (dot && typeof dot === 'object')
+      e = dot.import || dot.default || Object.values(dot).find((v) => typeof v === 'string') || null
+    if (!e && typeof j.main === 'string') e = j.main
+    if (e) pkgEntry.set(j.name, relJoin(dir, e))
+  }
+  const extraUndet = []
+  /**
+   * 可达集**按端各跑一遍**。混成一张图会串味:小程序页面只要 import 一次 `@ihui/rn-app`,
+   * RN 侧那一份副本就被"另一端"走亮了 —— 而本门问的从来是"在**它自己那一端**的屏幕上有没有人用"。
+   */
+  const seedsBySide = {}
+  for (const side of Object.keys(SEED_FILES)) {
+    const seeds = []
+    for (const f of SEED_FILES[side]) {
+      if (!files.has(f))
+        return {
+          pairs: scanned,
+          unreachable: [],
+          undetermined: [],
+          reason: `种子入口不在被审面上(${f})`,
+        }
+      seeds.push(f)
+    }
+    for (const dir of SEED_DIRS[side]) {
+      const hits = all.filter(
+        (p) =>
+          p.startsWith(`${dir}/`) &&
+          REACH_SRC_RE.test(p) &&
+          !TEST_PATH_RE.test(p) &&
+          !TEST_FILE_RE.test(p),
+      )
+      if (!hits.length)
+        return {
+          pairs: scanned,
+          unreachable: [],
+          undetermined: [],
+          reason: `种子目录里没有源码(${dir})`,
+        }
+      seeds.push(...hits)
+    }
+    const manifest = PAGE_MANIFEST[side]
+    if (manifest) {
+      if (!files.has(manifest))
+        return {
+          pairs: scanned,
+          unreachable: [],
+          undetermined: [],
+          reason: `路由表不在被审面上(${manifest})`,
+        }
+      const src = texts.get(manifest)
+      if (src === undefined)
+        return {
+          pairs: scanned,
+          unreachable: [],
+          undetermined: [],
+          reason: `${FACE_TXT[face]}取不到路由表 ${manifest}`,
+        }
+      const pageDir = manifest.split('/').slice(0, -1).join('/')
+      const { pages, unresolved } = readTaroPages(src, pageDir)
+      if (!pages.length)
+        return {
+          pairs: scanned,
+          unreachable: [],
+          undetermined: [],
+          reason: `${manifest} 里读不到任何页面 ⇒ 判据失明`,
+        }
+      for (const p of unresolved)
+        extraUndet.push({ from: manifest, spec: p, reason: '路由表里拼出来的页路径' })
+      for (const p of pages) {
+        const hit = EXT_CANDIDATES.map((x) => p + x).find((x) => files.has(x))
+        if (hit) seeds.push(hit)
+        else
+          extraUndet.push({
+            from: manifest,
+            spec: p,
+            reason: '路由表页路径解析不到文件(不当"不存在")',
+          })
+      }
+      seeds.push(manifest)
+    }
+    seedsBySide[side] = seeds
+  }
+  const usedBySide = {}
+  const undet = [...extraUndet]
+  for (const side of Object.keys(seedsBySide)) {
+    const ctx = {
+      face,
+      files,
+      pkgDir,
+      pkgEntry,
+      reached: new Set(),
+      read: (f) => (texts.has(f) ? texts.get(f) : null),
+    }
+    const { undetermined } = buildReach(seedsBySide[side], ctx)
+    undet.push(...undetermined)
+    // 一端一个文件都没走到 = 种子/清单本身错了(不是"这份没被用"),必须判死而非把整端剔光。
+    if (!ctx.reached.size)
+      return {
+        pairs: scanned,
+        unreachable: [],
+        undetermined: undet,
+        reason: `${side} 端入口一个文件都没走到 ⇒ 判据失明`,
+      }
+    usedBySide[side] = ctx.reached
+  }
+  const unreachable = []
+  const kept = []
+  for (const p of scanned.pairs) {
+    // 取不到内容的文件不参与判定(可能是二进制)—— 宁可不剔,也不把"没判"当"不可达"。
+    const bad = [p.miniapp, p.rn].filter(
+      (f, i) => !usedBySide[i === 0 ? 'miniapp' : 'rn'].has(f) && !missing.has(f),
+    )
+    if (!bad.length) {
+      kept.push(p)
+      continue
+    }
+    unreachable.push({
+      name: p.name,
+      side: p.miniapp === bad[0] ? 'miniapp' : 'rn',
+      legs: bad,
+      reason: bad.map((f) => `${f} 从端入口不可达`).join(';'),
+    })
+  }
+  // 全被剔除不再是"判据失明"(小夹具本就可能只剩一份死副本),但必须喊出来 —— 覆盖面掉了要看得见。
+  const note =
+    scanned.pairs.length && !kept.length
+      ? `全部 ${scanned.pairs.length} 对的两端都不可达:本门这一轮对空气判定,请核种子`
+      : null
+  return {
+    pairs: { ...scanned, pairs: kept },
+    unreachable,
+    undetermined: undet,
+    reason: null,
+    note,
+  }
 }
 
 const FACE_TXT = { head: 'HEAD', staged: '索引' }
@@ -279,7 +793,9 @@ const FACE_TXT = { head: 'HEAD', staged: '索引' }
  */
 function listFace(repoRoot, face, dir) {
   const args =
-    face === 'staged' ? ['ls-files', '--', dir] : ['ls-tree', '-r', '--name-only', 'HEAD', '--', dir]
+    face === 'staged'
+      ? ['ls-files', '--', dir]
+      : ['ls-tree', '-r', '--name-only', 'HEAD', '--', dir]
   const out = gitRaw(args, repoRoot, {})
   if (out === null || out === undefined) return null
   return out
@@ -288,8 +804,11 @@ function listFace(repoRoot, face, dir) {
     .filter(Boolean)
 }
 
-/** 面 → 两端清单 + 同名配对正文。一次 cat-file --batch 同面同轮读完;任一份取不到即 Undetermined。 */
-export function collect(repoRoot, face) {
+/**
+ * 面 → 两端清单 + 同名配对正文。一次 cat-file --batch 同面同轮读完;任一份取不到即 Undetermined。
+ * `pairAll` 是人工核对的逃生舱:退回"只要同名就配对",不做可达性剔除(默认档必做)。
+ */
+export function collect(repoRoot, face, { pairAll = false } = {}) {
   const lists = {}
   for (const [side, dirs] of Object.entries(SIDES)) {
     const acc = []
@@ -302,9 +821,18 @@ export function collect(repoRoot, face) {
   }
   let pairs = scan(lists.miniapp, lists.rn)
   if (pairs.undetermined) throw new Undetermined(`${pairs.reason} ⇒ 判据失明,不得记为通过`)
-  const pruned = pruneDeadCopies(repoRoot, face, pairs)
-  if (pruned.undetermined) throw new Undetermined(`渲染腿判据无法成立:${pruned.undetermined}`)
-  pairs = pruned.pairs
+  let unreachable = []
+  let undeterminedEdges = []
+  let coverageNote = null
+  if (pairAll) pairs = { ...pairs, pairAll: true }
+  else {
+    const pruned = pruneUnreachableLegs(repoRoot, face, pairs)
+    if (pruned.reason) throw new Undetermined(`端入口可达性判据无法成立:${pruned.reason}`)
+    pairs = pruned.pairs
+    unreachable = pruned.unreachable
+    undeterminedEdges = pruned.undetermined
+    coverageNote = pruned.note ?? null
+  }
   const need = [...new Set(pairs.pairs.flatMap((p) => [p.miniapp, p.rn]))]
   const text = {}
   const specs = need.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
@@ -314,7 +842,7 @@ export function collect(repoRoot, face) {
     if (t === null || t === undefined) throw new Undetermined(`${FACE_TXT[face]}取不到 ${need[i]}`)
     text[need[i]] = t
   }
-  return { pairs, text, deadCopies: pruned.dead }
+  return { pairs, text, unreachableLegs: unreachable, undeterminedEdges, coverageNote }
 }
 
 /** 一处"看得见的差异" = 一个档值(具名常量不同值另计,同一处不双计)。 */
@@ -325,7 +853,8 @@ export function diffCount(f) {
 /** 豁免必须是带理由的声明,不是消红通道;到期由守门 108 单独问责。 */
 export function waiverProblem(w) {
   if (!w) return null
-  if (typeof w.reason !== 'string' || w.reason.trim().length < 6) return '豁免无理由或理由不足以复核'
+  if (typeof w.reason !== 'string' || w.reason.trim().length < 6)
+    return '豁免无理由或理由不足以复核'
   return null
 }
 
@@ -374,7 +903,8 @@ export function verdictOf(findings, baseline) {
       continue
     }
     const anchor = counts[f.name] ?? 0
-    if (n > anchor) red.push({ name: f.name, diffCount: n, anchor, named: f.named, geometry: f.geometry })
+    if (n > anchor)
+      red.push({ name: f.name, diffCount: n, anchor, named: f.named, geometry: f.geometry })
     else if (n < anchor) shrunk.push({ name: f.name, diffCount: n, anchor })
   }
   return { red, shrunk, waived }
@@ -413,16 +943,18 @@ export function faceFromArgv(argv) {
   })
   // 把 error 当 face 往下传 = --staged 静默按 HEAD 判,账面却读成"审过本次提交的那一份"。
   if (error) throw new Undetermined(error)
-  if (face === 'worktree') throw new Undetermined('本门不开工作树档:共享工作树滞后 HEAD,按磁盘判会把错数写回台账')
+  if (face === 'worktree')
+    throw new Undetermined('本门不开工作树档:共享工作树滞后 HEAD,按磁盘判会把错数写回台账')
   return face
 }
 
 export function main(argv, repoRoot = ROOT) {
+  const pairAll = argv.includes('--pair-all')
   let face, collected, baseline
   try {
     face = faceFromArgv(argv)
     baseline = loadBaseline(repoRoot, face)
-    collected = collect(repoRoot, face)
+    collected = collect(repoRoot, face, { pairAll })
   } catch (e) {
     if (e instanceof Undetermined) {
       console.log(`⚠️ 无法判定:${e.message}`)
@@ -433,27 +965,48 @@ export function main(argv, repoRoot = ROOT) {
   const res = audit(collected.pairs, collected.text, baseline)
   if (argv.includes('--emit-baseline')) {
     console.log(JSON.stringify(emitBaseline(res.findings), null, 2))
-    console.log(`模板按 ${FACE_TXT[face]} 面生成;逐条核过再放进 ${BASELINE_REL}(它是存量锚点,不是合格证)`)
+    console.log(
+      `模板按 ${FACE_TXT[face]} 面生成;逐条核过再放进 ${BASELINE_REL}(它是存量锚点,不是合格证)`,
+    )
     return 0
   }
   if (argv.includes('--json')) {
     console.log(
       JSON.stringify({
         face,
+        pairAll,
         pairCount: res.pairCount,
-        findings: res.findings.map((f) => ({ name: f.name, diffCount: diffCount(f), lang: f.lang })),
+        findings: res.findings.map((f) => ({
+          name: f.name,
+          diffCount: diffCount(f),
+          lang: f.lang,
+        })),
+        unreachable: (collected.unreachableLegs ?? []).map((u) => ({ name: u.name, legs: u.legs })),
+        undeterminedEdges: (collected.undeterminedEdges ?? []).length,
         red: res.red,
         waived: res.waived.length,
       }),
     )
   } else {
-    const dead = collected.deadCopies ?? []
+    const off = collected.unreachableLegs ?? []
+    const undet = collected.undeterminedEdges ?? []
     console.log(
       `判定面 ${FACE_TXT[face]}:同名配对组件 ${res.pairCount} 对(重复实现 = 改一端另一端不跟随)` +
-        (dead.length
-          ? `;已剔除零调用副本 ${dead.length} 个(${dead.map((d) => d.name).join('/')})—— 它们不在渲染路径上,配对它们等于对空气判一致`
+        (pairAll
+          ? '【--pair-all 人工档:只要同名就配对,未做端入口可达性剔除】'
+          : off.length
+            ? `;已剔除 ${off.length} 对(腿文件从端入口不可达:${off.map((o) => o.name).join('/')})—— ` +
+              '配一份没在屏幕上渲染的副本,绿灯不算数'
+            : '') +
+        (undet.length
+          ? `;未判定边 ${undet.length} 处(路径解析不到 / 动态拼接,不当"不存在"也不当"不可达")`
           : ''),
     )
+    for (const o of off) console.log(`  ⊘ ${o.name} —— ${o.reason}`)
+    if (collected.coverageNote) console.log(`  ⚠ ${collected.coverageNote}`)
+    for (const u of undet.slice(0, 12))
+      console.log(`  ? 未判定:${u.from ?? '(清单)'} → ${u.spec}:${u.reason}`)
+    if (undet.length > 12) console.log(`  ? 其余 ${undet.length - 12} 处未判定同上(不静默省略计数)`)
     for (const f of res.findings) {
       const bits = []
       if (f.named.length) bits.push(`同名常量不同值 ${f.named.join(', ')}`)
@@ -467,7 +1020,9 @@ export function main(argv, repoRoot = ROOT) {
         (res.shrunk.length ? ` / 已变好可下调台账 ${res.shrunk.length}` : ''),
     )
     if (res.shrunk.length)
-      console.log(`  下调:${res.shrunk.map((s) => `${s.name} ${s.anchor}→${s.diffCount}`).join(', ')}`)
+      console.log(
+        `  下调:${res.shrunk.map((s) => `${s.name} ${s.anchor}→${s.diffCount}`).join(', ')}`,
+      )
     if (res.red.length)
       console.log(
         '  收口姿势 = 一份与平台无关的组件源 + 两端各自注入 primitive adapter;**不得给单端补数字凑平**' +
@@ -477,49 +1032,143 @@ export function main(argv, repoRoot = ROOT) {
   return res.red.length ? 1 : 0
 }
 
+/**
+ * 可达性判据的成对夹具:一座最小**真** git 仓(判据全程按 git 面取数,夹具不入库就测不到)。
+ * 两端各一枚同名 `Foo`;RN 那枚**只被桶文件再导出** —— `packages/app/src/components/index.ts`
+ * 带着它,而桶从 `@ihui/rn-app` 只被要求提供 `Bar`。这正是 NavBar / UserInfoCard 在真仓的形态。
+ * `rn` 改的就是"导航器到底 import 哪些名字"这一处 ⇒ 传 `{Bar}` 必剔、传 `{Bar,Foo}` 必留,
+ * 两条用例互为可逆对照(只有恒红或恒绿两种坏实现会同时错过它们)。
+ */
+function FIXTURE_BASE({ rn }) {
+  return {
+    'apps/miniapp-taro/src/app.tsx': 'export default function App() { return null }\n',
+    'apps/miniapp-taro/src/app.config.ts':
+      "export default defineAppConfig({ pages: ['pages/index/index'] })\n",
+    'apps/miniapp-taro/src/pages/index/index.tsx':
+      "import { Foo } from '@/components'\nexport default function P() { return <Foo /> }\n",
+    'apps/miniapp-taro/src/components/index.ts': "export { Foo } from './Foo'\n",
+    'apps/miniapp-taro/src/components/Foo.tsx':
+      'export function Foo() { return <div className="w-[72rpx]" /> }\n',
+    'apps/mobile-rn/App.tsx':
+      "import { RootNavigator } from './src/navigation/RootNavigator'\nexport default function App() { return <RootNavigator /> }\n",
+    'apps/mobile-rn/src/navigation/RootNavigator.tsx': `${rn}\n`,
+    'packages/app/package.json': '{"name":"@ihui/rn-app","main":"./src/index.ts"}\n',
+    'packages/app/src/index.ts': "export { Bar, Foo } from './components'\n",
+    'packages/app/src/components/index.ts':
+      "export { Bar } from './Bar'\nexport { Foo } from './Foo'\n",
+    'packages/app/src/components/Bar.tsx': 'export function Bar() { return null }\n',
+    'packages/app/src/components/Foo.tsx':
+      'export function Foo() { return <div style={{ width: 36 }} /> }\n',
+  }
+}
+
+/** 造夹具仓:写文件 → init → add → commit(--no-verify + 自带身份,不碰任何全局钩子)。 */
+function makeFixtureRepo(files) {
+  const dir = mkScratch('ui-parity-')
+  const run = (args) =>
+    execFileSync(gitBinary(), ['-c', 'safe.directory=*', '-C', dir, ...args], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+      maxBuffer: 1 << 24,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  for (const [rel, text] of Object.entries(files)) {
+    const abs = join(dir, rel)
+    mkdirSync(dirname(abs), { recursive: true })
+    writeFileSync(abs, text, 'utf8')
+  }
+  run(['init', '-q'])
+  run(['add', '-A'])
+  run([
+    '-c',
+    'user.email=self-test@local',
+    '-c',
+    'user.name=self-test',
+    'commit',
+    '-q',
+    '--no-verify',
+    '-m',
+    'fixture',
+  ])
+  return dir
+}
+
 function runSelfTest() {
   let pass = 0
   let fail = 0
-  const t = (name, cond) => {
-    if (cond) pass++
+  const t = (name, cond, note) => {
+    if (cond === true) pass++
     else fail++
-    console.log(`  ${cond ? 'ok  ' : 'FAIL'} ${name}`)
+    console.log(
+      `  ${cond === true ? 'ok  ' : 'FAIL'} ${name}${cond === true ? '' : ` —— 实得:${String(cond)}${note ? ` (${note})` : ''}`}`,
+    )
   }
-  t('S1 注释里的数字不得被当成几何档', readGeometry('// BOX = 99\nconst a = 1\n', 'rn').values.size === 0)
-  t('S2 字符串里的块注释开闭序列不得吞掉后续判据', stripComments('const s="/*"\nconst BOX=8\n').includes('BOX'))
+  t(
+    'S1 注释里的数字不得被当成几何档',
+    readGeometry('// BOX = 99\nconst a = 1\n', 'rn').values.size === 0,
+  )
+  t(
+    'S2 字符串里的块注释开闭序列不得吞掉后续判据',
+    stripComments('const s="/*"\nconst BOX=8\n').includes('BOX'),
+  )
   t(
     'S3 72rpx 与 36px 归一到同一档(单位不是差异)',
-    readGeometry('w-[72rpx]', 'miniapp').values.has(36) && readGeometry('w-[36px]', 'rn').values.has(36),
+    readGeometry('w-[72rpx]', 'miniapp').values.has(36) &&
+      readGeometry('w-[36px]', 'rn').values.has(36),
   )
-  t('S4 同名常量两侧不同值必须点名(阳性对照)', namedConflicts({ ICON: 20 }, { ICON: 22 }).length === 1)
-  t('S5 同名常量两侧同值不得点名(反向对照)', namedConflicts({ ICON: 22 }, { ICON: 22 }).length === 0)
+  t(
+    'S4 同名常量两侧不同值必须点名(阳性对照)',
+    namedConflicts({ ICON: 20 }, { ICON: 22 }).length === 1,
+  )
+  t(
+    'S5 同名常量两侧同值不得点名(反向对照)',
+    namedConflicts({ ICON: 22 }, { ICON: 22 }).length === 0,
+  )
   t(
     'S6 非几何键(字重/时长/index)不计入',
     readGeometry('fontWeight: 700\nduration: 300\nrowIndex = 3\n', 'rn').values.size === 0,
   )
-  t('S7 配对认 .jsx 与 .tsx 同判(门不得对自己产出的形态失明)', scan(['a/Back.jsx'], ['b/Back.tsx']).pairs.length === 1)
+  t(
+    'S7 配对认 .jsx 与 .tsx 同判(门不得对自己产出的形态失明)',
+    scan(['a/Back.jsx'], ['b/Back.tsx']).pairs.length === 1,
+  )
   t('S8 两端清单为空 ⇒ 判死而非记绿(空扫不通过)', scan([], []).undetermined === true)
   t('S9 豁免缺理由仍算红', waiverProblem({ until: '2027-01-01' }) !== null)
-  t('S10 豁免带理由才算 waived', waiverProblem({ reason: '平台 chrome:原生导航栏不参与 CSS' }) === null)
+  t(
+    'S10 豁免带理由才算 waived',
+    waiverProblem({ reason: '平台 chrome:原生导航栏不参与 CSS' }) === null,
+  )
   t(
     'S11 棘轮:不超锚点绿 / 超过锚点红(成对)',
     (() => {
-      const f = { name: 'X', named: [], geometry: { onlyMiniapp: [1, 2], onlyRn: [] }, waived: false }
+      const f = {
+        name: 'X',
+        named: [],
+        geometry: { onlyMiniapp: [1, 2], onlyRn: [] },
+        waived: false,
+      }
       return (
-        verdictOf([f], { counts: { X: 2 } }).red.length === 0 && verdictOf([f], { counts: { X: 1 } }).red.length === 1
+        verdictOf([f], { counts: { X: 2 } }).red.length === 0 &&
+        verdictOf([f], { counts: { X: 1 } }).red.length === 1
       )
     })(),
   )
   t(
     'S12 台账缺该组件 ⇒ 锚点 0,新配对的任何差异直接红',
-    verdictOf([{ name: 'New', named: [], geometry: { onlyMiniapp: [8], onlyRn: [] }, waived: false }], {}).red.length ===
-      1,
+    verdictOf(
+      [{ name: 'New', named: [], geometry: { onlyMiniapp: [8], onlyRn: [] }, waived: false }],
+      {},
+    ).red.length === 1,
   )
   t(
     'S13 变好了只提示下调,不自动改账',
-    verdictOf([{ name: 'X', named: [], geometry: { onlyMiniapp: [1], onlyRn: [] }, waived: false }], {
-      counts: { X: 5 },
-    }).shrunk.length === 1,
+    verdictOf(
+      [{ name: 'X', named: [], geometry: { onlyMiniapp: [1], onlyRn: [] }, waived: false }],
+      {
+        counts: { X: 5 },
+      },
+    ).shrunk.length === 1,
   )
   t(
     'S14 audit 端到端:同档绿 / 差一档红',
@@ -541,59 +1190,156 @@ function runSelfTest() {
       }
     })(),
   )
-  t('S16 工作树档被拒(本门拒绝按磁盘判,防错数写回台账)', (() => {
-    try {
-      faceFromArgv(['--worktree'])
-      return false
-    } catch (e) {
-      return e instanceof Undetermined
-    }
-  })())
-  t('S17 圆角档不参与本门(守门 77 单一源,不得两台尺子互相指认)', readGeometry('rounded-[99px]\nborderRadius: 99\n', 'rn').values.size === 0)
-  t('S18 RN 同名多命中 ⇒ 取排序靠前的层(共享层优先)', scan(['a/X.tsx'], ['p1/X.tsx', 'p2/X.tsx']).pairs[0].rn === 'p1/X.tsx')
-  t('S19 台账坏 JSON ⇒ 判死,不得当"没有豁免"蒙过', (() => {
-    try {
-      parseBaseline('{坏 json', 'ledger')
-      return false
-    } catch (e) {
-      return e instanceof Undetermined
-    }
-  })())
   t(
-    '㉒ 渲染腿判据在真仓可跑通且不误伤有调用方的组件(BackChevron 必须留在配对里)',
+    'S16 工作树档被拒(本门拒绝按磁盘判,防错数写回台账)',
     (() => {
       try {
-        const scanned = collect(ROOT, 'head')
-        const r = pruneDeadCopies(ROOT, 'head', { pairs: scanned.pairs.pairs.map((p) => ({ ...p })), ...scanned.pairs })
-        if (r.undetermined) return false
-        return r.pairs.pairs.every((p) => p.name !== 'BackChevron') === false
-      } catch {
+        faceFromArgv(['--worktree'])
         return false
+      } catch (e) {
+        return e instanceof Undetermined
       }
     })(),
   )
   t(
-    '㉓ 被剔除的每个副本都必须真的零引用(重算一遍,不靠同一遍结果自证)',
+    'S17 圆角档不参与本门(守门 77 单一源,不得两台尺子互相指认)',
+    readGeometry('rounded-[99px]\nborderRadius: 99\n', 'rn').values.size === 0,
+  )
+  t(
+    'S18 RN 同名多命中 ⇒ 取排序靠前的层(共享层优先)',
+    scan(['a/X.tsx'], ['p1/X.tsx', 'p2/X.tsx']).pairs[0].rn === 'p1/X.tsx',
+  )
+  t(
+    'S19 台账坏 JSON ⇒ 判死,不得当"没有豁免"蒙过',
     (() => {
       try {
-        const scanned = collect(ROOT, 'head')
-        const r = pruneDeadCopies(ROOT, 'head', scanned.pairs)
-        if (r.undetermined) return false
-        return (r.dead ?? []).every((d) => {
-          const out = gitRaw(['grep', '-l', '-e', d.name, 'HEAD', '--', 'apps', 'packages'], ROOT, {}) ?? ''
-          return (
-            out
-              .split('\n')
-              .map((s) => s.trim())
-              .filter((f) => f && f !== d.rn && !/(^|\/)(tests?|__tests__)\//.test(f) && !/\.(md|snap)$/.test(f)).length === 0
-          )
-        })
-      } catch {
+        parseBaseline('{坏 json', 'ledger')
         return false
+      } catch (e) {
+        return e instanceof Undetermined
       }
     })(),
   )
-  t('㉔ 引用面取不到 ⇒ 判"无法判定",绝不按"零引用"把组件悄悄剔掉', !!pruneDeadCopies(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..'), 'head', { pairs: [{ name: 'X', miniapp: 'a/X.tsx', rn: 'b/X.tsx' }] }).undetermined)
+  t(
+    '㉑ 路由表读页:顶层 pages 不带 root、subPackages 的页必须带自己的 root',
+    (() => {
+      const { pages, unresolved } = readTaroPages(
+        "export default defineAppConfig({\n  pages: ['pages/index/index'],\n  subPackages: [{ root: 'pkg-ai', pages: ['ai/chat', `dyn/${x}`] }]\n})\n",
+        'apps/miniapp-taro/src',
+      )
+      return (
+        pages.join('|') ===
+          'apps/miniapp-taro/src/pages/index/index|apps/miniapp-taro/src/pkg-ai/ai/chat' &&
+        unresolved.length === 1
+      )
+    })(),
+  )
+  t(
+    '㉒ import 子句:具名导入按名路由,默认/命名空间/混用一律整模块(不得少算可达)',
+    (() => {
+      const names = clauseDemand('{ A, B as C }')
+      return (
+        JSON.stringify(names) === '["A","B"]' &&
+        clauseDemand('Foo, { A }') === null &&
+        clauseDemand('* as ns') === null &&
+        clauseDemand('') === null
+      )
+    })(),
+  )
+  t(
+    '㉓ type-only 边不成腿(import type / export type 都不算)',
+    (() => {
+      const { edges } = parseModuleEdges(
+        "import type { A } from './a'\nexport type { B } from './b'\nexport { C } from './c'\n",
+      )
+      return edges.length === 1 && edges[0].spec === './c'
+    })(),
+  )
+  t(
+    '㉔ 阳性对照:被桶文件再导出、但从端入口不可达的副本必须被剔除(真临时 git 仓端到端)',
+    (() => {
+      const dir = makeFixtureRepo(
+        FIXTURE_BASE({
+          rn: "import { Bar } from '@ihui/rn-app'\nexport function RootNavigator() { return null }\n",
+        }),
+      )
+      try {
+        const r = collect(dir, 'head')
+        return (
+          r.pairs.pairs.length === 0 &&
+          r.unreachableLegs.length === 1 &&
+          r.unreachableLegs[0].name === 'Foo' &&
+          r.unreachableLegs[0].legs.join('|') === 'packages/app/src/components/Foo.tsx' &&
+          /从端入口不可达/.test(r.unreachableLegs[0].reason)
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+    '真仓可达性判据在临时仓上没跑通',
+  )
+  t(
+    '㉕ 反向对照:同一组件改成从端入口链上 import ⇒ 必须留在配对里(证明 ㉔ 的红不是恒红)',
+    (() => {
+      const dir = makeFixtureRepo(
+        FIXTURE_BASE({
+          rn: "import { Bar, Foo } from '@ihui/rn-app'\nexport function RootNavigator() { return null }\n",
+        }),
+      )
+      try {
+        const r = collect(dir, 'head')
+        return (
+          r.unreachableLegs.length === 0 &&
+          r.pairs.pairs.length === 1 &&
+          r.pairs.pairs[0].rn === 'packages/app/src/components/Foo.tsx'
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+  )
+  t(
+    '㉖ 解析不到的路径走"未判定",绝不当"不可达"把组件剔掉(成对:与 ㉕ 唯一差别是多一条坏 import)',
+    (() => {
+      const dir = makeFixtureRepo(
+        FIXTURE_BASE({
+          rn: "import { Bar, Foo } from '@ihui/rn-app'\nimport { Gone } from './gen/missing'\nexport function RootNavigator() { return null }\n",
+        }),
+      )
+      try {
+        const r = collect(dir, 'head')
+        const hit = r.undeterminedEdges.some(
+          (u) => /missing/.test(u.spec) && !/不存在/.test(u.reason),
+        )
+        return r.unreachableLegs.length === 0 && r.pairs.pairs.length === 1 && hit
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+  )
+  t(
+    '㉗ 逃生口:--pair-all 档退回"同名即配对"(人工核对用,默认档才是可达性判据)',
+    (() => {
+      const dir = makeFixtureRepo(
+        FIXTURE_BASE({
+          rn: "import { Bar } from '@ihui/rn-app'\nexport function RootNavigator() { return null }\n",
+        }),
+      )
+      try {
+        return collect(dir, 'head', { pairAll: true }).pairs.pairs.length === 1
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+  )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
@@ -625,6 +1371,12 @@ export const __test__ = {
   scan,
   styleLanguage,
   iconCarriers,
+  clauseDemand,
+  parseModuleEdges,
+  readTaroPages,
+  buildReach,
+  pruneUnreachableLegs,
+  collect,
   audit,
   verdictOf,
   emitBaseline,

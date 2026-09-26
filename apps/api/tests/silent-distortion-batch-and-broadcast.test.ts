@@ -240,8 +240,9 @@ async function buildBroadcastHarness() {
   let routeHandler: ((socket: FakeSocket, request: unknown) => Promise<void>) | null = null
 
   const server = {
-    // 既有观测出口:只读它已有的字段,不新建第二套 metrics
-    metrics: { wsDisconnectsTotal: 0 },
+    // 既有观测出口:只读它已有的字段,不新建第二套 metrics。
+    // 两个计数器成对递增(ws-broadcast 的 noteDrop),夹具缺键会在 `+= 1` 处写出 NaN。
+    metrics: { wsDisconnectsTotal: 0, wsBroadcastDroppedFramesTotal: 0 },
     log: {
       warn: (fields: Record<string, unknown>, msg: string): void => {
         warnings.push({ fields, msg })

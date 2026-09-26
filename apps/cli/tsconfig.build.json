@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "//": "发布产物专用构建配置:与 typecheck 分开 —— typecheck(基础 tsconfig)仍含 src 内 *.test.ts 保类型覆盖,本配置只产出可发布的 dist(排除测试,不开 sourceMap 之外的噪音),并按发布门判据 2 产出 dist/index.d.ts。",
+  "compilerOptions": {
+    "declaration": true,
+    "noEmit": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests", "src/**/*.test.ts", "src/**/__tests__/**"]
+}
