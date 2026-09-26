@@ -95,8 +95,11 @@ const taskDeveloperRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/task-developer/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(zhsAgentDeveloper).where(eq(zhsAgentDeveloper.id, Number(p.data.id)))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(zhsAgentDeveloper)
+      .where(eq(zhsAgentDeveloper.id, Number(p.data.id)))
+      .returning({ id: zhsAgentDeveloper.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 }
 

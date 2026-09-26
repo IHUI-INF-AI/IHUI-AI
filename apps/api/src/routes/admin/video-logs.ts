@@ -48,8 +48,11 @@ const videoLogsRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/video-logs/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(zhsUserVideoLog).where(eq(zhsUserVideoLog.id, Number(p.data.id)))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(zhsUserVideoLog)
+      .where(eq(zhsUserVideoLog.id, Number(p.data.id)))
+      .returning({ id: zhsUserVideoLog.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 }
 
