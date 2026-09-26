@@ -87,8 +87,10 @@ function report(a, face) {
     `  F4 同一件事多条待办: ${c.dupOpenGroups} 组 / 副本 ${c.dupOpenCopies} 行(不进派单口径)`,
   )
   console.log(`  同态重复(done 侧只报数): done ${c.dupDoneGroups} 组`)
+  console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行(= 未勾选 ${c.open} 里不命中下列任何一条的行)`)
   console.log(
-    `派单口径 —— 真·无人认领: ${c.claimable} 行(= 未勾选 ${c.open} − 已认领 ${c.claimed} − 分叉副本 − 作废声明 − 同题待办副本)`,
+    `  排除项计数(**集合可重叠,不得当成减法核账**):已认领 ${c.claimed} / 同题已完成副本 ${c.forkOpenLines}` +
+      ` / 自带作废声明 ${c.voidRows} / 当次算出的同题待办副本 ${c.dupOpenCopies} / 已标副本指针 ${c.dupPointerRows}`,
   )
 }
 
@@ -110,7 +112,7 @@ function listRows(rows, face) {
  */
 const BASELINE_REL = 'scripts/plan-task-state-baseline.json'
 
-/** 三条判据的读数,按同一顺序成对比较。 */
+/** 前四条判据的读数(只判变多),按同一顺序成对比较;F5 方向相反,单独在 grewViolations / gate 里判。 */
 const probe = (a) => [
   ['F1', '同主键两态并存(组)', a.counts.forks],
   ['F2', '带作废声明未落账(行)', a.counts.voidRows],
@@ -130,9 +132,15 @@ export function ratchetViolations(base, items) {
 export function grewViolations(now, before) {
   const items = probe(now)
   const prev = new Map(probe(before).map(([k, label, n]) => [k, { label, n }]))
-  return items
+  const out = items
     .filter(([k, , n]) => typeof prev.get(k)?.n === 'number' && n > prev.get(k).n)
     .map(([k, label, n]) => `${k} ${label} 由 ${prev.get(k).n} 涨到 ${n}(+$ ${n - prev.get(k).n})`)
+  // F5 方向相反(只许增不许减),**不塞进上面那个"比变多"的循环** —— 一把尺子对同一维
+  // 既判涨又判跌,读的人就无法知道哪个方向是坏。
+  const b5 = before?.counts?.mergeNotes
+  if (typeof b5 === 'number' && now.counts.mergeNotes < b5)
+    out.push(`F5 归并落账注记由 ${b5} 条掉到 ${now.counts.mergeNotes} 条(被一次旧计划文档整文件提交抹掉了)`)
+  return out
 }
 
 function readBaseline(root) {
@@ -179,8 +187,15 @@ function gate(a, strict, root, before, beforeErr) {
     console.log(`   出路:清偿后人工跑 \`node scripts/plan-tasks.mjs --update-baseline\` 并说明为什么 —— 调高基线等于关掉这一维。`)
     return 1
   }
+  // F5 与上面同层但方向相反:基线记的是"至少要有这么多条落账注记",**掉了**才判红。
+  // 这一维专治"四条状态判据全绿而内容已被旧副本顶掉"(2026-09-26 一小时内实测发生两次)。
+  if (typeof base?.F5 === 'number' && a.counts.mergeNotes < base.F5) {
+    console.log(`❌ 存续性棘轮:归并落账注记由基线 ${base.F5} 条掉到 ${a.counts.mergeNotes} 条`)
+    console.log('   成因只会是"按内存里那份旧计划文档整文件提交"或跳门回写;出路是重放那批注记,不是下调基线。')
+    return 1
+  }
   if (!nonZero.length) {
-    console.log('✅ 三条状态判据全部为零')
+    console.log('✅ 四条状态判据全部为零(F5 注记存续性另判,见上)')
     return 0
   }
   if (!strict) {
@@ -279,6 +294,20 @@ function selfTest() {
   )
   ok(ratchetViolations({ F1: 9, F2: 9 }, items).length === 0, '低于基线不得判红(清偿应当变绿)')
   ok(ratchetViolations({ F1: 'x' }, items).length === 0, '基线值不是数字时不得判红,也不得当作通过(由 --json 现读兜底)')
+  // F5 存续性:方向与前四条**相反**(只许增不许减),故三例各判一个方向,缺一条就可能把"抹掉注记"当成好转绿
+  const noted = auditPlan(
+    '- [x] ✅(2026-09-26) **D9 带注记**:说明。〔【归并】D9 落账:复测 2026-09-26: 取证。\n' +
+      '- [x] ✅(2026-09-26) **D10 带注记**:说明。〔【归并】D10 落账:复测 2026-09-26: 取证。',
+  )
+  const unnoted = auditPlan('- [x] ✅(2026-09-26) **D9 带注记**:说明。\n- [x] ✅(2026-09-26) **D10 带注记**:说明。')
+  ok(noted.counts.mergeNotes === 2, `注记计数应为 2,实测 ${noted.counts.mergeNotes}`)
+  ok(
+    !grewViolations(noted, unnoted).some((x) => x.startsWith('F5')),
+    '注记由 0 涨到 2 不得判红(那是好转)—— 反方向才判红,下一例核',
+  )
+  const loss = grewViolations(unnoted, noted)
+  ok(loss.some((x) => x.includes('F5') && x.includes('掉到')), `注记被抹掉必须判红,实测 ${JSON.stringify(loss)}`)
+  ok(auditPlan('').counts.mergeNotes === 0, '空面不得凭空数出注记')
   // 差值棘轮(提交链上的主判据):基准取不到时调用方根本不传 before,这里只比"变多"
   const mk = (f1, f2, f3) => ({ counts: { forks: f1, voidRows: f2, rotatedPointers: f3 } })
   ok(grewViolations(mk(4, 0, 0), mk(3, 0, 0)).length === 1, '相对 HEAD 变多必须点名')
@@ -317,6 +346,8 @@ function main() {
         F2: a.counts.voidRows,
         F3: a.counts.rotatedPointers,
         F4: a.counts.dupOpenCopies,
+        // F5 与前四条**方向相反**:记的是"归并落账注记至少要有这么多条",掉了才判红
+        F5: a.counts.mergeNotes,
       },
       null,
       2,
