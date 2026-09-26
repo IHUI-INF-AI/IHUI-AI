@@ -324,7 +324,7 @@
 .trader-package-btn-primary {
   color: var(--color-cta-foreground);
   background: var(--color-cta);
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
 }
 
 /* ===== 用户评价 ===== */

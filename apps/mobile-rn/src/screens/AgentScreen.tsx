@@ -16,6 +16,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -144,6 +145,7 @@ export function AgentScreen() {
   const { t } = useI18n()
   const { token, user } = useAuth()
   const { resolvedTheme } = useTheme()
+  const insets = useSafeAreaInsets()
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
   const [viewMode, setViewMode] = useState<ViewMode>('shared')
@@ -793,7 +795,10 @@ export function AgentScreen() {
       >
         <View style={styles.trackOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setTagWrapVisible(false)} />
-          <View style={styles.trackContent}>
+          {/* 顶距自加 `insets.top`:targetSdk 36 起 Android 强制 edge-to-edge,本 Modal 的窗口
+           *  同样铺进状态栏带,而它渲染在 App.tsx `<SafeAreaView edges={['top']}>` 单点之外
+           *  (守门 97 M1)。真机实测两行赛道 chip 曾落在 y=10..74,压在时钟/电量下面。 */}
+          <View style={[styles.trackContent, { paddingTop: insets.top + TRACK_PADDING_V }]}>
             <CategoryInlineBar
               items={trackCategoryItems}
               selectedId={activeCategory}
@@ -834,6 +839,9 @@ function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem 
     favorited: c.favorite === true,
   }
 }
+
+/** 赛道弹层自身上下留白(与状态栏避让无关,单列以免和 `insets.top` 混成一个数) */
+const TRACK_PADDING_V = rpx(10)
 
 const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: tokens.surface.bg },
@@ -913,7 +921,8 @@ const styles = StyleSheet.create({
   trackContent: {
     backgroundColor: tokens.surface.card,
     paddingHorizontal: rpx(20),
-    paddingVertical: rpx(10),
+    // paddingTop 由组件内联注入 `insets.top + TRACK_PADDING_V`(见弹层处注释)
+    paddingBottom: TRACK_PADDING_V,
     borderBottomLeftRadius: rnRadius.xl,
     borderBottomRightRadius: rnRadius.xl,
     gap: rpx(10),
