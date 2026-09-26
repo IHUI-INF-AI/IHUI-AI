@@ -118,6 +118,10 @@ AGENT_DECISION_CHAIN_REASONING_CHARS = int(
 # 这里沉淀的是**判定口径**,不是实现细节,改动即改变 goal 生命周期,故入唯一真源。
 # 属 ai-service 服务端生命周期常量(TS 端不自行计数,只透传服务端给的 goal_status),
 # 因此刻意不进 KILLER_CONSTANTS parity 集 —— 在 TS 侧再抄一份数字反而会造出两个真相。
+# 2026-09-26 补(实测逼出来的口径澄清):CLI 的 `ihui agent --goal` 跑的是**它自己的**循环,
+# 本服务的 gate 管不到它的轮次,所以计数确实发生在端内;为免"端内抄一份数字"这条本注释
+# 反对的形态,`POST /api/agent/goal-verify` 现在把本值随响应回送,端内镜像常量
+# (`packages/shared/src/constants.ts` 同名导出)只在服务端没给时兜底 —— 权威仍在这里。
 GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES = 3
 # 送给独立校验轮的"执行轨迹摘要"字符上限。摘要只含**工具调用与结果**(可观察副作用),
 # 不含执行模型的自述正文(那是 executor_claim,§8 禁止作为判定输入)。超限即截断并标
