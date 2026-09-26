@@ -202,6 +202,16 @@
     "runtimeSend": "전송"
   },
   "chat": {
+    "connectorAuth": {
+      "title": "{connectorName}에 연결",
+      "connected": "연결됨",
+      "reconnect": "{connectorName} 다시 연결",
+      "connect": "연결",
+      "connecting": "연결 중…",
+      "moreInfo": "자세히 보기",
+      "decline": "나중에",
+      "declined": "{connectorName} 연결을 거부했습니다. 이 대화에는 영향을 주지 않습니다"
+    },
     "contextUsage": {
       "title": "컨텍스트 사용 현황",
       "used": "사용량",
