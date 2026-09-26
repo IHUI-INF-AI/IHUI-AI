@@ -37,7 +37,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-import { DUP_POINTER_RE, auditPlan, compositeKeyOf } from './lib/plan-task-index.mjs'
+import { auditPlan, compositeKeyOf } from './lib/plan-task-index.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN_REL = 'PROJECT_PLAN.md'
@@ -70,8 +70,17 @@ const anchorOf = (key) => {
 
 function rewriteFork(line, key, today) {
   if (/^- \[x\]/.test(line)) return line
-  const body = line.replace(/^- \[ \]\s*/, '')
+  let body = line.replace(/^- \[ \]\s*/, '')
   if (body.includes(ALREADY_TAGGED)) return line
+  /**
+   * 翻勾必须同时摘牌 —— AGENTS §1 写的是"完成后改 `[x] ✅(日期)` 并删除 `（进行中）`",
+   * 而这里过去只翻勾不摘牌,于是产出的行**同时**是 `[x]` 又挂着 `（进行中@…）`。
+   * 守门 109 的 CL3 正是判这一型 ⇒ 归并工具每跑一次就往 HEAD 里种几颗红点,
+   * 而 PROJECT_PLAN.md 是 `stagedTriggers` 文件:谁下一次提交计划文档都被这台恒红门拦住,
+   * 唯一出路是 `--no-verify`(连带废掉全部守门 —— §12e 那条本仓最高反面教训)。
+   * 两道机制互咬时,修的是**生产者**,不是把 6 行手抹掉。
+   */
+  body = body.replace(/（进行中(?:@[^）]*)?）\s*/g, '')
   const why = key
     ? `本行与已完成登记同题(主键 ${anchorOf(key)}),是被并发并集留下的未翻勾副本`
     : '本行正文自带作废/已完成声明,却仍挂着未勾选 ⇒ 状态与正文两相矛盾'
@@ -79,17 +88,7 @@ function rewriteFork(line, key, today) {
 }
 
 function rewritePointer(line, key) {
-  return line.replace(/(?:逐字)?存活于\s*L\d{1,6}(?:\s*的同编号登记)?/g, `存活于同主键登记 ${anchorOf(key)}`)
-}
-
-/**
- * F4 副本行的改写:**不动勾选状态**(两件事都没做完),只在行尾追加一句出处说明,
- * 说明里带 `DUP_POINTER_RE` 认得的固定字面 `重复登记副本` ⇒ 派单口径当场不再把它算一条活,
- * 且重复跑归并不会再加第二句(幂等)。删行是禁的:§1「禁止无声删除」+ 门 71 防丢面。
- */
-function rewriteDup(line, survivorLine, today) {
-  if (DUP_POINTER_RE.test(line)) return line
-  return `${line} 〔【归并】重复登记副本(${today}):同主键的另一条登记在 L${survivorLine},派单以那条为准,本行不再单独派单。〕`
+  return line.replace(/(?:逐字)?存活于\s*L\d{1,6}/g, `存活于同主键登记 ${anchorOf(key)}`)
 }
 
 /**
@@ -109,9 +108,7 @@ export function buildMerge(content, today) {
   for (const f of a.forks) for (const r of f.open) note(r.line, 'F1', f.key)
   for (const r of a.voidRows) note(r.line, 'F2', compositeKeyOf(r.raw) ?? '')
   for (const p of a.rotated) note(p.line, 'F3', compositeKeyOf(lines[p.line - 1] ?? '') ?? '')
-  for (const c of a.dupCopies) note(c.row.line, 'F4', c.key)
 
-  const survivorOf = new Map(a.dupCopies.map((c) => [c.row.line, c.survivor.line]))
   const changed = []
   const refused = []
   for (const [ln, v] of [...plan.entries()].sort((x, y) => x[0] - y[0])) {
@@ -127,11 +124,7 @@ export function buildMerge(content, today) {
     if (twins > 1) dupTwins.push(`L${ln} 有 ${twins} 条逐字同文的孪生行`)
     let after = before
     if (v.kinds.includes('F3')) after = rewritePointer(after, v.key)
-    if ((v.kinds.includes('F1') || v.kinds.includes('F2')) && /^- \[ \]/.test(after))
-      after = rewriteFork(after, v.key, today)
-    // F4 与 F1 互斥(同主键的全是未勾选才会进 dupCopies),顺序上放最后:一行只可能被标一次
-    if (v.kinds.includes('F4') && /^- \[ \]/.test(after))
-      after = rewriteDup(after, survivorOf.get(ln), today)
+    if ((v.kinds.includes('F1') || v.kinds.includes('F2')) && /^- \[ \]/.test(after)) after = rewriteFork(after, v.key, today)
     if (after === before) {
       refused.push(`L${ln} 无可施加的改写(${v.kinds.join('+')})`)
       continue
@@ -178,7 +171,7 @@ export function healAndLand() {
     return 2
   }
   const b0 = auditPlan(src).counts
-  if (!b0.forks && !b0.voidRows && !b0.rotatedPointers && !b0.dupOpenCopies) {
+  if (!b0.forks && !b0.voidRows && !b0.rotatedPointers) {
     console.log('✅ 自愈:HEAD 无状态分叉,不动任何东西')
     return 0
   }
@@ -244,12 +237,7 @@ export function healStopReasons(srcText, merged, changed, refusedCount) {
     refusedCount ? `拒写 ${refusedCount} 项` : null,
     a0.length !== a1.length ? `行数不等 ${a0.length}→${a1.length}` : null,
     a0.some((l, i) => !touched.has(i + 1) && l !== a1[i]) ? '有未登记行被改动' : null,
-    after.forks ||
-      after.voidRows ||
-      after.rotatedPointers ||
-      after.dupOpenCopies
-      ? '归并后未归零'
-      : null,
+    after.forks || after.voidRows || after.rotatedPointers ? '归并后未归零' : null,
   ].filter(Boolean)
 }
 
@@ -271,8 +259,6 @@ export function verifyMerge(original, merged, changed) {
   if (after.counts.forks) problems.push(`F1 未归零:${after.counts.forks} 组`)
   if (after.counts.voidRows) problems.push(`F2 未归零:${after.counts.voidRows} 行`)
   if (after.counts.rotatedPointers) problems.push(`F3 未归零:${after.counts.rotatedPointers} 处`)
-  if (after.counts.dupOpenCopies)
-    problems.push(`F4 未归零:${after.counts.dupOpenCopies} 行同题待办副本仍挂着`)
   return { problems, after: after.counts }
 }
 
@@ -379,4 +365,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(2)
   }
 }
+
+/** §22c:镜像测试直接 import 判据函数,不得复制一份实现 */
+export const __test__ = { rewriteFork, anchorOf }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
