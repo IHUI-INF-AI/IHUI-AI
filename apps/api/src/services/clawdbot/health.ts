@@ -4,6 +4,7 @@
 
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
+import { startStopwatch } from '../../utils/elapsed-ms.js'
 
 export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy'
 
@@ -11,6 +12,11 @@ export interface DependencyCheck {
   name: string
   status: HealthStatus
   latencyMs: number
+  /**
+   * 格②生产者侧接线(2026-09-26):false = 样本未通过 单调钟×墙钟 交叉校验,
+   * 此时 latencyMs 携带的是原始观测量(perfMs,可能为负/异常),只可观测不可当结论消费。
+   */
+  latencyTrusted?: boolean
   message?: string
   checkedAt: number
 }
@@ -51,21 +57,27 @@ export class HealthChecker extends EventEmitter {
   async checkDependency(name: string): Promise<DependencyCheck> {
     const checker = this.checkers.get(name)
     if (!checker) throw new HealthError(`依赖未注册: ${name}`, 'not_found')
-    const start = Date.now()
+    // 格②:走 elapsed-ms 唯一出口(单调钟测量 + 墙钟交叉校验),不再裸 Date.now()-start——
+    // 生产者侧不经出口,消费者(analytics 兜底)就只能见到差值,看不到两个钟。
+    const sw = startStopwatch()
     try {
       const result = await checker()
+      const sample = sw.stop()
       return {
         name,
         status: result.status,
-        latencyMs: Date.now() - start,
+        latencyMs: sample.elapsedMs ?? sample.perfMs,
+        latencyTrusted: sample.trustworthy,
         message: result.message,
         checkedAt: Date.now(),
       }
     } catch (err) {
+      const sample = sw.stop()
       return {
         name,
         status: 'unhealthy',
-        latencyMs: Date.now() - start,
+        latencyMs: sample.elapsedMs ?? sample.perfMs,
+        latencyTrusted: sample.trustworthy,
         message: (err as Error).message,
         checkedAt: Date.now(),
       }
