@@ -26,6 +26,8 @@ import {
 } from '@ihui/shared/chat/mention-engine'
 // 归一后的等价出口:`#` 侧选择器的类目清单必须是这张表的投影,而不是第二份清单
 import { CONTEXT_SELECTOR_CATEGORIES } from '@/hooks/use-context-selector'
+// 外观表是同一张维度表的第二个投影:维度加了却忘配图标时,这里必须点名而不是静默掉兜底
+import { dimensionsMissingView, viewOfDimensionId } from '@/components/chat/mention/dimension-views'
 
 /** 归一之前 `#` 侧那份九类目表的 token —— 逐字比对,证明合并没顺手改语义 */
 const LEGACY_HASH_TOKENS = [
@@ -63,6 +65,17 @@ describe('mention engine —— 维度由一张表决定', () => {
     for (const dim of dimensionsForSigil('@')) {
       expect(dim.mentionType).toBeTruthy()
       expect(dim.token).toBe('')
+    }
+  })
+
+  it('每个引擎维度都配了自己的外观(正反成对:缺配会被点名,而不是静默掉到兜底档)', () => {
+    // 兜底档确实在位 —— 没有这一条,下面的"为空"就可能只是"探针永远返回 []"
+    const fallback = viewOfDimensionId('__not_a_dimension__')
+    expect(fallback.colorClass).toBe('text-muted-foreground')
+    // 真实全表不得有任何一行靠兜底渲染:新增维度忘配图标必须在这里点名
+    expect(dimensionsMissingView()).toEqual([])
+    for (const dim of MENTION_DIMENSIONS) {
+      expect(viewOfDimensionId(dim.id).colorClass).not.toBe('text-muted-foreground')
     }
   })
 

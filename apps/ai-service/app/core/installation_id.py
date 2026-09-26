@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import uuid
 from pathlib import Path
 from typing import Any
@@ -26,18 +27,22 @@ INSTALLATION_ID_FILENAME = "installation_id"
 
 
 def _lock_file(f: Any) -> None:  # pragma: no cover - 平台分支
-    if os.name == "nt":
+    # 平台判据一律用 sys.platform(与 os.name == "nt" 在 CPython 上互为等价):
+    # typeshed 只按 sys.platform 收窄模块可用性,用它 mypy 才会把非本平台的那条
+    # 分支整段跳过 —— 用 os.name 时两条分支都被分析,Linux 面就会报 msvcrt 无
+    # locking/LK_* 属性(Windows 是本项目的生产形态,不能反过来用 ignore 糊)。
+    if sys.platform == "win32":
         import msvcrt
 
         msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
     else:
         import fcntl
 
-        fcntl.flock(f.fileno(), fcntl.LOCK_EX)  # type: ignore[attr-defined]
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
 
 
 def _unlock_file(f: Any) -> None:  # pragma: no cover - 平台分支
-    if os.name == "nt":
+    if sys.platform == "win32":
         import msvcrt
 
         try:
@@ -48,7 +53,7 @@ def _unlock_file(f: Any) -> None:  # pragma: no cover - 平台分支
     else:
         import fcntl
 
-        fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # type: ignore[attr-defined]
+        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 def resolve_installation_id(base_dir: Path, filename: str = INSTALLATION_ID_FILENAME) -> str:
@@ -74,7 +79,7 @@ def resolve_installation_id(base_dir: Path, filename: str = INSTALLATION_ID_FILE
             f.write(installation_id.encode("ascii"))
             f.flush()
             os.fsync(f.fileno())
-            if os.name != "nt":
+            if sys.platform != "win32":
                 # 权限规范化 0644(POSIX)
                 try:
                     os.chmod(path, 0o644)

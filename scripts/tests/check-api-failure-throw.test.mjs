@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -112,4 +112,35 @@ test('T8 --self-test 端到端 exit 0(判据自身可取证)', () => {
   const out = runNode([join(REPO, 'scripts', 'check-api-failure-throw.mjs'), '--self-test'])
   assert.match(out, /--self-test: 全部通过/)
 })
+
+test('T9 暂存档的"回退全量"只在无射程内文件时发生 —— 不得被顺手改成无条件回退', async () => {
+  // 只用纯函数 + 构造面证明:端到端那一例取决于**共享索引此刻有什么**,而并发会话随时在 stage .ts
+  // —— 拿它做断言就是在拿仓库瞬时状态当尺子(守门 103 的 T12 同课)。
+  const { shouldRetreatToHead } = await import(pathToFileURL(SRC).href)
+  assert.equal(
+    shouldRetreatToHead({ face: 'staged', hasOnlyFiles: false, stagedInScopeCount: 0 }),
+    true,
+    '无关提交(暂存集里没有 .ts)必须回退,否则本门替每一次文档提交挡路',
+  )
+  // 三条"绝不该回退":有射程内文件 / 显式 --files / 本来就是全量档。
+  // 少锁任何一条,把判据改成"无条件回退"都能让本门在暂存档永久失明而账面一片绿。
+  assert.equal(
+    shouldRetreatToHead({ face: 'staged', hasOnlyFiles: false, stagedInScopeCount: 1 }),
+    false,
+    '暂存集里有射程内文件时回退 = 把本次改动放过去',
+  )
+  assert.equal(
+    shouldRetreatToHead({ face: 'staged', hasOnlyFiles: true, stagedInScopeCount: 0 }),
+    false,
+    '显式 --files 指定了面 yet 被改判成 HEAD,自检与人工定位就都不成立',
+  )
+  assert.equal(
+    shouldRetreatToHead({ face: 'head', hasOnlyFiles: false, stagedInScopeCount: -1 }),
+    false,
+    '全量档的 0 候选仍是判死,不得"回退"到自己身上冒充判过',
+  )
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(src, /retreatReason/, '回退必须留可读证据(报告行),不得静默换面')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
