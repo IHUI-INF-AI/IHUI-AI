@@ -340,7 +340,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 4,
       borderRadius: rnRadius.md,
       borderWidth: 1,
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.light,
     },
     copyBtnText: { fontSize: 12, fontWeight: '500', color: tk.brand.DEFAULT },

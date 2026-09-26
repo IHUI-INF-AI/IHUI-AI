@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
   },
   checkboxChecked: {
     backgroundColor: tokens.brand.cta,
-    borderColor: tokens.brand.DEFAULT,
+    borderColor: tokens.brandAccent.deep,
   },
   checkboxMark: {
     fontSize: 11,
@@ -733,7 +733,7 @@ const styles = StyleSheet.create({
     height: FOOTER_BUTTON_HEIGHT,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
-    borderColor: tokens.brand.DEFAULT,
+    borderColor: tokens.brandAccent.deep,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',

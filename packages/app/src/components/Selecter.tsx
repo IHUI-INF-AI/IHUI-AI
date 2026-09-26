@@ -100,7 +100,7 @@ const viewStyles = {
     borderRadius: rnRadius.xl,
     marginRight: 10,
     flexShrink: 0,
-    border: `1px solid ${active ? tk.brand.DEFAULT : tk.text.primary}`,
+    border: `1px solid ${active ? tk.brandAccent.deep : tk.border.medium}`,
     backgroundColor: tk.surface.light,
     opacity: disabled ? 0.5 : 1,
     pointerEvents: disabled ? 'none' : 'auto',
@@ -109,7 +109,7 @@ const viewStyles = {
   }),
   ratioIcon: (tk: AppThemeTokens, active: boolean, w: number, h: number): CSSProperties => ({
     marginRight: 8,
-    border: `1px solid ${active ? tk.brand.DEFAULT : tk.text.primary}`,
+    border: `1px solid ${active ? tk.brandAccent.deep : tk.border.medium}`,
     width: w,
     height: h,
     borderRadius: rnRadius.sm,
@@ -400,6 +400,7 @@ export function Selecter({
             </div>
           ) : (
             <div style={viewStyles.inner()}>
+              {/* back-label-exempt: 子面板(比例档)收合回退按钮,文字是标签非页头返回键;本文件无 i18n/矢量图标通道,until 2026-12-31 */}
               <div
                 role="button"
                 tabIndex={0}
@@ -412,7 +413,7 @@ export function Selecter({
                   }
                 }}
               >
-                <span style={textStyles.backText(tk)}>← 返回</span>
+                <span style={textStyles.backText(tk)}>返回</span>
               </div>
               <div style={viewStyles.sizeLabel()}>
                 <span style={{ ...textStyles.sizeLabel(), color: tk.brand.DEFAULT }}>
