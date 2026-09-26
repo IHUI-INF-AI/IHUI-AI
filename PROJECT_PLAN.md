@@ -9400,8 +9400,13 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **RN/共享层 GA4 存量 8 处**清零:全部换 `<BackChevron onPress label colorScheme/>`(照抄已收口屏的写法),
     8 个 `backText` 样式键随无使用者删除;`colorScheme` 一律取各屏已有 prop,未新写死、未新建色源
     (`check-theme-prop-wiring` exit 0)。
-  - 遗留(已量化,须改语言包故不在本票授权面):`aiGroup.back` / `aigcCover.back` / `aigcPublish.back`
-    三键现全仓零引用 —— 清理属 i18n 死键票,不得为消红留孤儿键。
+  - 遗留已清偿(2026-09-26,i18n 死键票):`aiGroup.back` / `aigcCover.back` / `aigcPublish.back`
+    三键实为 **mobile-rn 词包**里已入库的孤儿(web 侧同名键只是本机滞后副本的假象);同票另清小程序端
+    `ai.contextUsage.used` / `ai.contextUsage.max` / `ai.chatMessageItem.downloadSuccess` / `ai.historyPage.unpin`。
+    权威读数一律取**干净 HEAD 检出**(`git archive` + 同一条扫描命令):五端死键现测全 0、退出码 0,
+    CI 的 i18n Dead Key Audit 已 success。删除按"键路径栈只摘匹配行"执行,7 枚键 × 5 语 = 35 行,
+    每轮带阳性对照(`common.back`、`ai.historyPage.pin/pinned` 必须存活),并对"父提交↔提交后"做键集合差
+    自审(每份恰好只减预期数,零附带回滚)。配套:重复键 0 / 五语 parity 0 / 守门 105 0。
 - **验证(全部实跑,读数即现值)**:守门 102 全量面 exit 0,HEAD 存量 GA1 70/31、GA4 8/8、GA5 2/2、GA6 31/31
   (工作树面 GA4/GA5/GA6 分别 0/0/0 ⇒ 提交后即落);`--staged` 面 exit 0;门 108 登记 `nav-chrome-exempt` 族
   (365 天,与 `back-label-exempt` 同一理由:结构性定性而非待偿债务)+ 门自身文档提及数并入存量账
@@ -9950,7 +9955,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **先纠正我自己写进台账的一条幻影**：本会话曾据一路代理的"穷举报告"写下"上游 2027 个 py 文件属自家产品面 ⇒ 判不需要"。实测**该克隆全仓 `.py` 数量为 0**（`apps/` 1343 + `packages/` 1862 个 `.ts`），那组数字不存在。⇒ 规矩：**代理给的"覆盖面数字"必须先用一条便宜的总量判据对质**（一条 `find | wc -l` 就能否掉 2027），否则我会拿别人的幻影给自己定性。同类见 [[always-independently-verify-subagent-claims]]。
   - **同一型第二次犯在我自己派单上**：我把另一路烧尽代理留在通知里的"已实测：`setSkillActive`/`toggleSkill` 缺 `disabled` 分支"当事实写进新票的"已实测事实（不要重新调研）"段 ⇒ 新票 6 次调用就**否证整张票**（这两个函数在 HEAD 与工作树都不存在，是被 `05f049ba09a` 整树回写带走的）。规矩：**只有我自己跑过的命令或已进 HEAD 的内容算"已实测"**；代理未落盘的中间结论要传下去必须降级为"待复核假设"。
   - **落地五票（每票由主会话或代理独立复跑权威入口，退出码进 commit）**：
-    1. `6bda46b3aca` + `173d0cd20e2` **目标级限时权限租约**（吸收自"把更宽权限只开给本目标、不放全局后门"）—— `apps/cli/src/tools/permission-lease.ts` 构造器判死（无到期 / 通配 / 空清单 / 空作用域 / 叠加授予**无法构造**），放宽只落在 `permissions.ts:applyLeaseToDecision` **一处**且只把 `'ask'` 翻放行，`'deny'` 与 `dangerLevel==='dangerous'` 结构上碰不到；无租约时返回体逐字同改造前（"默认关闭"是实测事实不是承诺）；授予/使用/轮次/撤销四类行同 `auditRef` 落既有 `audit.ts`（未另立第二份真相）。回归 18 例 + 变异 A（摘到期⇒4 红）/ B（覆盖高危⇒1 红）；守门 `check-permission-lease-bounded.mjs` 自检 7 例 + 镜像 4 例（**未进 runner**，注册表当日在飞）。**遗留**：`agent.ts:1238/1605/1723` 三处尚未消费租约（该文件被并发会话持有）、CLI flag `--permission-lease` 未接（前置是 5 语言 i18n 键）。
+    1. `6bda46b3aca` + `173d0cd20e2` **目标级限时权限租约**（吸收自"把更宽权限只开给本目标、不放全局后门"）—— `apps/cli/src/tools/permission-lease.ts` 构造器判死（无到期 / 通配 / 空清单 / 空作用域 / 叠加授予**无法构造**），放宽只落在 `permissions.ts:applyLeaseToDecision` **一处**且只把 `'ask'` 翻放行，`'deny'` 与 `dangerLevel==='dangerous'` 结构上碰不到；无租约时返回体逐字同改造前（"默认关闭"是实测事实不是承诺）；授予/使用/轮次/撤销四类行同 `auditRef` 落既有 `audit.ts`（未另立第二份真相）。回归 18 例 + 变异 A（摘到期⇒4 红）/ B（覆盖高危⇒1 红）；守门 `check-permission-lease-bounded.mjs` 自检 7 例 + 镜像 4 例（**未进 runner**，注册表当日在飞）。**遗留**：`agent.ts:1238/1605/1723` 三处尚未消费租约（该文件被并发会话持有）、CLI flag `--permission-lease` 未接（前置是 5 语言 i18n 键）。**该票的一处断链已收(2026-09-26)**:它把必填档 dangerLevel 接到可选的 Tool.dangerLevel 上,apps/cli 的 typecheck 当场断在 tools/index.ts:678(CI 的 Smoke New Modules 一路红,而提交者当时走了跳门);修法是「无 dangerLevel 声明的工具不走租约分支,回到租约之前的 checkPermission」—— 替它编一个默认档等于凭空放宽或凭空新增批准,而 16 个待补档工具由守门 111 的 flip-audit 记着账。
     2. `18793d76a73` **并发预算收成单一出口** —— 票面给的两个路径**都不存在**，按磁盘重量到 5 处写死（`subagents/worker-pool.ts:42`、`commands/subagent-collab.ts:850/739`、`commands/subagent-parallel.ts:109`、`tools/subagent.ts:596`），且比票面更糟两条：上下限钳制**全仓不存在**、CPU 推导**零命中**（从来没有，不是"只用于够不够用"）。新建 `subagents/concurrency-budget.ts`（`MAX/MIN_CONCURRENCY` 只此一档），五处全改走它；关键一处是 `defaultWorkerPoolConfig` 的 `maxWorkers` 必须移到 `...overrides` **之后**，否则调用方传的 999 会在最后一刻盖掉钳制。5 例 + 变异（删钳制⇒2 红）。**pool 复用未做**（shutdown 会 resolve pending 任务，共享池要重做生命周期语义），只把"并发总量可观测"做掉 ⇒ "两个并发 fan-out = 2×maxWorkers"现在**可看见**但仍不约束。
     3. `ee5a6537704` **调试会话回收接线**（票面原描述的 `mcpHubSessions`/"上限 20" 经实测均不存在，真缺陷在另一格：`tools/debug.ts` 的 `cleanupIdleSessions()` 导出零调用方 ⇒ "30 分钟自动清理"只是注释）—— launch/attach/list 单一摘除出口 + 删 list 内联的第二条写路径 + 回收计数摊进输出；4 例走生产入口 + 变异（摘回收⇒2 红）。**刻意不加条数上限**：唯一能被挤掉的是用户正在用的会话，杀比留更坏（解阻需先定"超限挤掉谁"的用户语义）。
     4. `2930556319f` **cloud-run 台账失败不再静默** —— 生产调用 1 处、静默吞失败出口 4 处；复用 `util/inflight-ledger` 的原因码词表基底（不扩其封闭集、不复用 `run()` 固化 —— 云写入每次新 runId，跨 run 固化等于再造一层静默），失败落 `getCloudRunDegradeFacts()`，首次立即喊话 + 60s 节流复读；分档 network/auth/timeout/cancelled/server。17/17 绿 + 变异（摘两处 recordDegrade⇒4 红、成功回归锁仍绿）。
