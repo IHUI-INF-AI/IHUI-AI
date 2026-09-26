@@ -185,6 +185,17 @@ export interface CompressionResult {
   compressedTokens: number
   removedCount: number
   /**
+   * 本轮被**内容级截断**的消息条数(与 `removedCount` 不同维,不可互相代替):
+   *   - `removedCount` = 被折进摘要而移出上下文的**整条**消息数;
+   *   - `truncatedCount` = 原地把内容切短、**仍然存在**的消息数。
+   * 立因(A10B-8,2026-09-26):截断兜底路径在"只剩一个配对组"时 `removedCount` 恒为 0,
+   * 而内容确实被切过 —— 只靠 `trigger === 'truncated'` 判披露会把"已省略 0 条"这种
+   * 自相矛盾的话念出来,把它当唯一判据改成"整句不显示"又是从说谎退成沉默。
+   * 这个字段就是"这一轮到底截断了多少"的独立事实,消费侧据此决定报量还是只报"已截断"。
+   * 可选 ⇒ 旧调用方与旧帧零改动(缺席读作"未知",不读作 0)。
+   */
+  truncatedCount?: number
+  /**
    * 压缩触发方式:
    *   - 'ratio':百分比阈值触发并压缩成功
    *   - 'absolute':绝对值阈值触发并压缩成功
@@ -461,6 +472,10 @@ function tryTruncateFallback(
     originalTokens,
     compressedTokens: tokens,
     removedCount: toCompressAll.length,
+    // 本路径**必然**切了最后一条消息的内容(上面 truncatedCopy 就地改写了 keptGroup[truncateIdx]),
+    // 而 removedCount 在"只剩一个配对组"时是 0 ⇒ 披露侧拿它当唯一判据就会整句沉默。
+    // 这一格就是那一轮的真实截断量:1 条被截断(与 toCompressAll 是否为空无关)。
+    truncatedCount: 1,
     trigger: 'truncated',
     usageRatio,
   }
@@ -622,6 +637,8 @@ export function compressContext(
     originalTokens,
     compressedTokens,
     removedCount: toCompress.length,
+    // 摘要压缩路径不切任何人的内容:显式填 0,消费侧因此能把"0"读成事实而非未知
+    truncatedCount: 0,
     trigger: 'absolute',
   }
 }
@@ -712,6 +729,8 @@ export function compressContextIfNeeded(
         originalTokens,
         compressedTokens: candidateTokens,
         removedCount: toCompress.length,
+        // 摘要压缩路径不切任何人的内容:显式填 0,消费侧因此能把"0"读成事实而非未知
+        truncatedCount: 0,
         trigger: 'ratio',
         usageRatio,
       }
@@ -725,6 +744,8 @@ export function compressContextIfNeeded(
         originalTokens,
         compressedTokens: candidateTokens,
         removedCount: toCompress.length,
+        // 摘要压缩路径不切任何人的内容:显式填 0,消费侧因此能把"0"读成事实而非未知
+        truncatedCount: 0,
         trigger: 'ratio',
         usageRatio,
       }
@@ -751,6 +772,8 @@ export function compressContextIfNeeded(
       originalTokens,
       compressedTokens: candidateTokens,
       removedCount: nonSystem.length,
+      // 极端兜底同样是"整条折进摘要",没有内容级截断 ⇒ 0
+      truncatedCount: 0,
       trigger: 'ratio',
       usageRatio,
     }

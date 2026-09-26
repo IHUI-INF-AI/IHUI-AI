@@ -54,6 +54,11 @@ const messages = JSON.parse(readFileSync(MESSAGES_FILE, 'utf8')) as Messages
 const truncatedTemplate =
   (((messages.chat as Messages).compaction as Messages).truncatedNotice as string) ?? ''
 
+/** A10B-8:同一命名空间里"只报事实、不报条数"的那一句(无 `{count}` 占位)。
+ *  刻意从真词包取而不是在测试里抄一份字面量 —— 抄一份就成了"测试替身自证"。 */
+const truncatedNoCountTemplate =
+  (((messages.chat as Messages).compaction as Messages).truncatedNoticeNoCount as string) ?? ''
+
 /** 把真词包模板按"裸数字"口径填成期望文案 —— 即组件实际应当渲染出的那一串。 */
 const expectedNotice = (count: number): string =>
   truncatedTemplate.replace('{count}', String(count))
@@ -167,6 +172,64 @@ describe('CompactionStatusBar / 截断披露与实际省略量配对(A10B-7)', (
     const text = container.textContent ?? ''
     expect(text).toContain('查看已压缩的 4 条原始消息')
     expect(text).toContain(expectedNotice(4))
+  })
+
+  // ==================== A10B-8(2026-09-26):截断量成为独立事实 ====================
+  // 立因:A10B-7 把"省略量为 0"当成"什么都没发生",于是整句不显示 —— 从说谎退成沉默。
+  // 真相是"这一轮确实切过内容,只是没整条移出历史",该事实现由帧上的 `truncatedCount` 携带。
+
+  it('词包自检:无条数那一句在位且不带 {count} 占位(带占位却又不填就是半成品)', () => {
+    expect(truncatedNoCountTemplate.length).toBeGreaterThan(0)
+    expect(truncatedNoCountTemplate).not.toContain('{count}')
+  })
+
+  it('截断但省略量为 0、帧报 truncatedCount=1 → 必须报"已截断"(沉默即缺陷),且不出现任何条数', () => {
+    useChatStore.setState({
+      compactionStatus: status({ trigger: 'truncated', removedCount: 0, truncatedCount: 1 }),
+    })
+    const { container } = renderBar()
+    const text = container.textContent ?? ''
+    expect(text).toContain(truncatedNoCountTemplate)
+    // 报事实 ≠ 编数:既不能出现"省略 0",也不能出现"省略 1"(1 是截断量,不是省略量)
+    expect(text).not.toMatch(/省略\s*\d/)
+    expect(text).not.toContain(expectedNotice(0))
+    expect(text).not.toContain(expectedNotice(1))
+    // tokens 摘要行照常显示(整行不得被一起关掉)
+    expect(text).toContain('100')
+    expect(text).toContain('50')
+  })
+
+  it('截断且省略量为 5 → 报数那一句,数取 removedCount 而非 truncatedCount(两维不得混用)', () => {
+    useChatStore.setState({
+      compactionStatus: status({ trigger: 'truncated', removedCount: 5, truncatedCount: 1 }),
+    })
+    const { container } = renderBar()
+    const text = container.textContent ?? ''
+    expect(text).toContain(expectedNotice(5))
+    // ⚠️ 无条数那句在词包里有且仅是有条数那句的**前缀**(去掉括号就是它),
+    // 所以 `not.toContain(前缀)` 结构上不可能成立 —— 那样写会把一条正确的实现判成失败。
+    // 判"只出一句"只能用出现次数:两个分支同时渲染时前缀会出现两次。
+    expect(text.split(truncatedNoCountTemplate).length - 1).toBe(1)
+    // 而报的数必须是省略量 5,不是截断量 1
+    expect(text).not.toContain(expectedNotice(1))
+  })
+
+  it('生产者明说 truncatedCount=0(本轮确实没切内容)→ 截断句不得出现', () => {
+    useChatStore.setState({
+      compactionStatus: status({ trigger: 'truncated', removedCount: 0, truncatedCount: 0 }),
+    })
+    const { container } = renderBar()
+    const text = container.textContent ?? ''
+    expect(text).not.toContain(truncatedNoCountTemplate)
+    expect(text).not.toMatch(/省略\s*\d/)
+  })
+
+  it('旧帧未带该字段(undefined)→ 按标志位兜底报"已截断"(向后兼容:不崩、也不因缺字段而沉默)', () => {
+    useChatStore.setState({
+      compactionStatus: status({ trigger: 'truncated', removedCount: 0 }),
+    })
+    const { container } = renderBar()
+    expect(container.textContent ?? '').toContain(truncatedNoCountTemplate)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
