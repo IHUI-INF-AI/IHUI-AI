@@ -13,13 +13,9 @@
 """
 
 import asyncio
-import os
 from typing import Any
 
-import pytest
-
 from app.services.agent_engine import AgentEngine
-
 
 # ---------------------------------------------------------------------------
 # 测试替身(与 tests/test_agent_engine.py 同手法)

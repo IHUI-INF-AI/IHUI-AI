@@ -13,7 +13,6 @@ import hashlib
 import os
 
 from app.core import instructional_fragments
-from app.core import network_rule_amendments as nra
 from app.core.network_rule_amendments import (
     ExecPolicyNetworkRuleAmendment,
     NetworkApprovalContext,
@@ -280,7 +279,7 @@ def test_fragment_body_matches_rule_saved():
 # F. 水印头逐字节一致 (对标 rollout_budget.py 前 3 行)
 # ---------------------------------------------------------------------------
 def _head3_md5(path: str) -> str:
-    with open(path, "r", newline="", encoding="utf-8") as f:
+    with open(path, newline="", encoding="utf-8") as f:
         raw = f.read()
     head3 = "\n".join(raw.split("\n")[:3]) + "\n"
     return hashlib.md5(head3.encode("utf-8")).hexdigest()

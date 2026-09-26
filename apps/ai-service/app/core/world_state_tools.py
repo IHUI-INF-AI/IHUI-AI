@@ -54,7 +54,7 @@ def _byte_len(value: str) -> int:
     return len(value.encode("utf-8"))
 
 
-class PreviousSectionState(Generic[T]):
+class PreviousSectionState(Generic[T]):  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式  # noqa: UP046 — 同文件其余泛型仍用 Generic,单点换 PEP695 会混两种绑定方式
     """模型可见世界状态片段的上一次已知状态三态。
 
     Known(snapshot): 精确持久化快照可用。

@@ -29,7 +29,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
-from xml.sax.saxutils import escape as _sax_escape
 
 __all__ = [
     "ENVIRONMENT_CONTEXT_OPEN_TAG",
@@ -182,7 +181,7 @@ class EnvironmentSnapshot:
     error: str | None = None
     is_primary: bool = False
 
-    def has_same_diff_value(self, other: "EnvironmentSnapshot") -> bool:
+    def has_same_diff_value(self, other: EnvironmentSnapshot) -> bool:
         return (
             self.cwd == other.cwd
             and self.status == other.status

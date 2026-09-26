@@ -22,7 +22,7 @@ class _Registration:
 
     __slots__ = ("_service", "_released")
 
-    def __init__(self, service: "ElicitationService") -> None:
+    def __init__(self, service: ElicitationService) -> None:
         self._service = service
         self._released = False
 
@@ -35,13 +35,13 @@ class _Registration:
     async def aclose(self) -> None:
         self.release()
 
-    def __enter__(self) -> "_Registration":
+    def __enter__(self) -> _Registration:
         return self
 
     def __exit__(self, *exc: Any) -> None:
         self.release()
 
-    async def __aenter__(self) -> "_Registration":
+    async def __aenter__(self) -> _Registration:
         return self
 
     async def __aexit__(self, *exc: Any) -> None:

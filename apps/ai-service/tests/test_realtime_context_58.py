@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.core.realtime_context import (
     CONTENT_KIND_CUSTOM_START,
     CONTENT_KIND_DELEGATION,
