@@ -514,6 +514,10 @@ export function resolveEffectiveConfig(args: {
   cliMaxIterations?: string;
   cliMaxTurns?: string;
   cliAllowDangerous?: boolean;
+  /** 权限租约:工具清单原文(`--permission-lease a,b`)。**只有 CLI 层**——见返回类型注释。 */
+  cliPermissionLease?: string;
+  cliPermissionLeaseTtl?: string;
+  cliPermissionLeaseTurns?: string;
   cliPlan?: boolean;
   cliAutoApprovePlan?: boolean;
   cliMcp?: boolean;
@@ -541,6 +545,14 @@ export function resolveEffectiveConfig(args: {
   sandboxBlockedEnvVars: string[];
   sampler?: SamplerSettings;
   permissionMode: PermissionMode;
+  /** 权限租约的工具清单原文;`undefined` = 操作员未点名 ⇒ 整条租约链路逐字不参与。
+   *  **刻意只有 CLI 一层**:settings.json 没有同名键,`loadSettingsV2` 也不收它 ——
+   *  `GrantLeaseInput.grantor` 的枚举只认 `'cli-flag'|'repl-command'|'goal-mode'`,
+   *  让配置文件能表达"长期放宽某几个工具"就等于造出一条无需操作员在场的放宽通道。
+   *  生效值(含 ttl/轮次的封顶后读数)由 `utils/permission-lease-flag.ts` 决定并打印。 */
+  permissionLease: string | undefined;
+  permissionLeaseTtl: string | undefined;
+  permissionLeaseTurns: string | undefined;
   /** 离线模式(来自合并后 settings.offline) */
   offline: boolean;
 } {
@@ -636,6 +648,11 @@ export function resolveEffectiveConfig(args: {
     model,
     maxIterations,
     allowDangerous,
+    // 租约三值原样透传(不在这里解析/校验)—— 解析、封顶、授予的唯一出口是
+    // `utils/permission-lease-flag.ts`,配置层再算一遍就会有两把尺子。
+    permissionLease: args.cliPermissionLease?.trim() || undefined,
+    permissionLeaseTtl: args.cliPermissionLeaseTtl?.trim() || undefined,
+    permissionLeaseTurns: args.cliPermissionLeaseTurns?.trim() || undefined,
     planFirst,
     autoApprovePlan,
     enableMcp,
