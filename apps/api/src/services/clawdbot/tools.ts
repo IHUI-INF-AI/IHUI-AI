@@ -9,6 +9,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
+import { startStopwatch } from '../../utils/elapsed-ms.js'
 
 export interface ToolDefinition {
   name: string
@@ -24,6 +25,8 @@ export interface ToolExecutionResult {
   output?: unknown
   error?: string
   duration: number
+  /** 格②(2026-09-26):false = duration 未通过时钟交叉校验,只可观测不可当结论消费 */
+  latencyTrusted?: boolean
   metadata?: Record<string, unknown>
 }
 
@@ -74,16 +77,24 @@ export class ToolExecutor extends EventEmitter {
     if (!this.checkPermissions(tool.definition, context)) {
       return { success: false, error: 'Permission denied', duration: 0 }
     }
-    const start = Date.now()
+    const sw = startStopwatch()
     try {
       const result = await tool.handler(params, context)
-      result.duration = Date.now() - start
+      const sample = sw.stop()
+      result.duration = sample.elapsedMs ?? sample.perfMs
+      result.latencyTrusted = sample.trustworthy
       this.emit('executed', { name, result })
       return result
     } catch (err) {
       const error = err as Error
+      const sample = sw.stop()
       logger.error({ tool: name, err: error }, '[Tools] Execution failed')
-      return { success: false, error: error.message, duration: Date.now() - start }
+      return {
+        success: false,
+        error: error.message,
+        duration: sample.elapsedMs ?? sample.perfMs,
+        latencyTrusted: sample.trustworthy,
+      }
     }
   }
 
