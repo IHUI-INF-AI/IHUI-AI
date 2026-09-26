@@ -10408,6 +10408,7 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "modelSwitchStopped": "{model} に切り替えたため、この回答を終了しました",
     "filePreviewEmpty": "プレビューできるデータ行がありません。",
     "filePreviewTypeMismatch": "ファイルの内容が {ext} 形式と一致しません。",
     "filePreviewCorrupt": "ファイルを解析できません。破損している可能性があります。",
