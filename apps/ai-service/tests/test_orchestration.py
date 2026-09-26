@@ -141,7 +141,19 @@ async def test_emit_event_success(_mock_services):
         event_type="task.done", source_pillar="rag", payload={"n": 1}, severity="warning"
     )
     resp = await emit_event(body)
-    assert resp == {"code": 0, "message": "success", "data": {"event_id": "evt-9"}}
+    # 原断言是 `resp == {"code":0,"message":"success","data":{"event_id":"evt-9"}}`
+    # —— 整字典等值。第九轮 B2 往 data 面**加性**接入了 outcome / degraded /
+    # non_ok_pillars 三键(让调用方不看 dashboard 也能判"这次有没有真联动上"),
+    # 整字典等值于是变成了"把旧形状当契约"。改判既有键不回退 + 新键的语义:
+    # 本桩的 get_status 不提供 hub 的计数键 ⇒ 尺子失灵 ⇒ 必须落"未知"档,
+    # 而不是 degraded=False(三态的完整判据在 tests/test_orchestration_emit_outcome.py)。
+    assert resp["code"] == 0
+    assert resp["message"] == "success"
+    assert resp["data"]["event_id"] == "evt-9"
+    assert resp["data"]["outcome"] == "unsettled"
+    assert resp["data"]["degraded"] is None
+    assert resp["data"]["degraded"] is not False
+    assert resp["data"]["non_ok_pillars"] is None
     assert seen == {
         "event_type": "task.done",
         "source_pillar": "rag",

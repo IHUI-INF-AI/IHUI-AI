@@ -1951,7 +1951,11 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
 
     # 非 local 后端:委托 sandbox_executor(Docker/SSH/预留后端)
     if sandbox_backend != "local":
-        from .sandbox import sandbox_executor
+        try:
+            from .sandbox import sandbox_executor
+        except ImportError:
+            # 过渡态守卫:sandbox/ 包(D14 在飞)遮蔽 sandbox.py 期间经兼容层取符号
+            from ._sandbox_legacy_compat import sandbox_executor
         result = await sandbox_executor.execute(
             command, backend=sandbox_backend, timeout=timeout, workdir=cwd,
             docker_image=docker_image, ssh_host=ssh_host, ssh_user=ssh_user,
