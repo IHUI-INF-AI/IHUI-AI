@@ -668,6 +668,7 @@ async def run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
     try:
         spec = get_spec(task)
     except TaskExecutionError as e:
+        available = supported_task_types()
         return {
             "ok": False,
             "tool": "run_in_background",
@@ -676,7 +677,11 @@ async def run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
             "executed": False,
             "stub": False,
             "analysis_depth": "none",
-            "supported_task_types": supported_task_types(),
+            "supported_task_types": available,
+            # `available` 是 mcp_server 自带白名单时代的旧字段名。工具面已改为整体委托到
+            # 这里(同一个未知类型分支),但响应键名是对外的契约(test_background_tasks 把它
+            # 当契约钉),所以**保留为同值别名**而不是让一次内部重构悄悄改掉调用方看到的东西。
+            "available": available,
         }
 
     submit_result = await background_task_manager.submit_typed(
