@@ -3579,6 +3579,29 @@ const checks = [
       '',
     ].join('\n'),
   },
+  {
+    id: '136',
+    label:
+      '🧵 后台任务类型三面 parity(blocking,拦「广告了任务类型却没实现 / 实现了却没接线 / 欠账清单腐烂」—— 声明面↔实现面↔接线面必须同时成立)',
+    script: 'check-background-task-type-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BG_TASK_TYPE_PARITY',
+    stagedTriggers: ['apps/ai-service/'],
+    onFailHint: [
+      '',
+      '  💡 本门是**补装**的:脚本与 AGENTS.md 的『已接线』声称早已入库,而 runner/钩子/package.json',
+      '     CI 五处权威点全部零命中 —— 即守门 89 的 RED-R2 一直红,每一次提交都被逼 --no-verify,',
+      '     一次绕过等于约 150 道门对该提交作废(§12e 那条本仓最高反面教训)。',
+      '     接线前置都实测过:全量面 exit 0(不在 HEAD 上造新红)、--self-test 30/30、自带 skipEnv。',
+      '     三面判据:P3 广告了却没实现(真幽灵)/ P4 新增未接线类型未入账 或 欠账清单腐烂',
+      '     (已接线还挂着账)—— 三种都要求**改一侧对齐另一侧**,不得删判据或清空账本消红。',
+      '     ① 看清单:node scripts/check-background-task-type-parity.mjs [--json]',
+      '     ② 自检:node scripts/check-background-task-type-parity.mjs --self-test(30 例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_BG_TASK_TYPE_PARITY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
 
   // --- background-task-type-parity(1 项,blocking)---
   {

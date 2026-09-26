@@ -27,6 +27,29 @@ export async function getBalance(userId: string): Promise<number> {
   return rows[0]?.tokenQuantity ?? 0
 }
 
+/**
+ * 智汇值累计口径(2026-09-27 立,供 `GET /api/user/token-balance` 用)。
+ *
+ * 为什么单独有一个出口:`packages/api-client` 的 `getTokenBalance()` 自写下起就打
+ * `/api/user/token-balance`,而这条路由**从未存在过**(实测 404,同前缀兄弟路由回 401)
+ * ⇒ RN/web 的"智汇值"卡读 `res.data.balance` 且失败保持 0,界面恒显 0 而守门全绿。
+ * 分类按 `token_flows.op_type` 取,与既有小程序 compat 口径**不同**(那边读
+ * `user_token_balance.balance` 单表余额),所以不复用它、也不去改它。
+ *  - 累计获得 = op_type ∈ {0,3,4,5,6}
+ *  - 累计消耗 = op_type = 1
+ * 其余 op_type(2=冻结/过期等既非净增也非净耗)刻意**两边都不计**,不得为凑数塞进任一侧。
+ */
+export async function getTokenFlowTotals(userId: string): Promise<{ totalEarned: number; totalUsed: number }> {
+  const rows = await db
+    .select({
+      totalEarned: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} IN (0,3,4,5,6) THEN ${tokenFlows.quantity} ELSE 0 END)::int, 0)`,
+      totalUsed: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} = 1 THEN ${tokenFlows.quantity} ELSE 0 END)::int, 0)`,
+    })
+    .from(tokenFlows)
+    .where(eq(tokenFlows.userId, userId))
+  return { totalEarned: rows[0]?.totalEarned ?? 0, totalUsed: rows[0]?.totalUsed ?? 0 }
+}
+
 export async function ensureMargin(userId: string): Promise<UserMargin> {
   const existing = await db
     .select()
