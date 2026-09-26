@@ -28,6 +28,17 @@ import { getTokens, type AppThemeMode } from '../theme/tokens'
  * `globals.css` 的全局 `--text-vcenter-offset` 补偿规则处理(要求文字包 `<span>`,
  * 见 `apps/web/src/components/common/view-more-link.tsx`);RN 端不得再用 translateY
  * 手调 —— 那会重新变回 `marginBottom:-2` 那一类按肉眼凑的补丁,且换机型即失效。
+ *
+ * 为什么 `style` 只能是数组、不能用 `style={({pressed}) => …}`(2026-09-26 真机事故):
+ * `react-native-css-interop/dist/runtime/components.js:7` 给 `Pressable` 注册了
+ * `cssInterop(Pressable, {className:"style"})`,而 `runtime/wrap-jsx.js` 是**无条件**替换
+ * (与用没用 className 无关)。`native-interop.js` 收集内联档时对函数形态执行
+ * `assignToTarget(props, { ...declaration }, …)`,而 `{ ...函数 }` === `{}`
+ * (name/length 不可枚举)⇒ `props.style` 被写成 `{}` 并在 `render-component.js:76`
+ * 覆盖掉原函数 ⇒ 容器**整份** style 消失(实测:按钮 28dp = 文字 16 + 箭头 12,
+ * padding 与 gap 全不见,即默认 column + stretch 的竖排)。数组/对象形态不受影响,
+ * 因为 collectInlineRules 会递归数组并按序并入自有对象。
+ * 按压反馈因此改走 Pressable 的 children 渲染函数:不新增布局节点,几何不变。
  */
 
 /** 与 web 端 `text-xs` + `ChevronRight h-3 w-3` 同档 */
@@ -79,12 +90,24 @@ export function MoreLink({
       accessibilityLabel={accessibilityLabel ?? label}
       hitSlop={4}
       testID={testID}
-      style={({ pressed }) => [styles.hit, pressed ? styles.pressed : null, style]}
+      style={[styles.hit, style]}
     >
-      <Text style={[styles.label, { color }]} numberOfLines={1} maxFontSizeMultiplier={multiplier}>
-        {label}
-      </Text>
-      <ChevronRight size={Math.round(ICON_SIZE * multiplier)} color={color} />
+      {({ pressed }) => (
+        <>
+          <Text
+            style={[styles.label, { color }, pressed ? styles.pressed : null]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={multiplier}
+          >
+            {label}
+          </Text>
+          <ChevronRight
+            size={Math.round(ICON_SIZE * multiplier)}
+            color={color}
+            style={pressed ? styles.pressed : undefined}
+          />
+        </>
+      )}
     </Pressable>
   )
 }
