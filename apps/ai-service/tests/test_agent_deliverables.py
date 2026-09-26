@@ -230,7 +230,16 @@ async def test_loop_v2_wiring_success(monkeypatch):
         executor=write_executor,
     )
     loop = AgentLoopV2(
-        mock_llm, [write_tool], max_iterations=5, session_id="sess-d27-wiring",
+        mock_llm,
+        [write_tool],
+        max_iterations=5,
+        session_id="sess-d27-wiring",
+        # V3 #47 第二格(2026-09-26):本例的样本工具是 `write_file`,它同在
+        # `mcp_server._ADMIN_ONLY_TOOLS` 里,而角色闸现在排在审批门**之前**(默认 0 = 普通
+        # 用户即拒)。这里声明 role=1 是为了让本文件继续测它声称测的那件事
+        # (产物采集链路),不是把角色判据削掉 —— 角色门自身的正反例在
+        # `tests/test_engine_role_parity.py` 与 `tests/test_agents_role_parity.py`。
+        user_role=1,
     )
     result = await loop.run([
         {"role": "system", "content": "你是助手"},

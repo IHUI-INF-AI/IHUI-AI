@@ -64,6 +64,11 @@ def _make_loop(monkeypatch: pytest.MonkeyPatch, events: _FakeEvents) -> AgentLoo
     loop._approval_policies = {}
     loop._approval_timeout = 1
     loop._extra_high_risk_tools = frozenset()
+    # V3 #47 第二格(2026-09-26):本夹具绕过 __init__ 手搭实例,新增的角色属性必须同步
+    # 补上,否则 _execute_single 读 self._user_role 直接 AttributeError。给 0 = 与
+    # "未鉴权/未声明角色"同档(fail-closed);本文件的工具名(t / t_ok / good)都不在
+    # _ADMIN_ONLY_TOOLS,所以角色闸对它们不介入,断言语义不变。
+    loop._user_role = 0
     loop._hook_runtime = None
     loop._llm_complete = None
     loop._model_params = {}
