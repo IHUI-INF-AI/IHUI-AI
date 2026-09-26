@@ -1647,8 +1647,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth/oauth/my-authorized/:sessionId', async (request, reply) => {
     await authenticate(request)
     const { sessionId } = z.object({ sessionId: z.string() }).parse(request.params)
-    await deleteSession(sessionId)
-    return reply.send(success({ deleted: true }))
+    // deleted 由库侧 RETURNING 派生,不是代码常量(2026-09-27)
+    const removed = await deleteSession(sessionId)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // Scope 元数据
@@ -1667,8 +1668,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth/bindings/:id', async (request, reply) => {
     await authenticate(request)
     const { id } = z.object({ id: z.string() }).parse(request.params)
-    await removeBinding(id, request.userId!)
-    return reply.send(success({ deleted: true }))
+    // deleted 由库侧 RETURNING 派生(2026-09-27):removeBinding 的 where 带 userId 归属过滤,
+    // 解绑别人的行在旧形态下也回 true。
+    const removed = await removeBinding(id, request.userId!)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   server.post('/auth/bindings/remove', async (request, reply) => {
@@ -1709,8 +1712,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth/user-sk/:skId', async (request, reply) => {
     await authenticate(request)
     const { skId } = skIdParam.parse(request.params)
-    await deleteUserSk(skId, request.userId!)
-    return reply.send(success({ deleted: true }))
+    // deleted 由库侧 RETURNING 派生(2026-09-27):deleteUserSk 的 where 带 userId 归属过滤。
+    const removed = await deleteUserSk(skId, request.userId!)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // 注：实名认证端点已迁移到独立路由文件 auth-identity.ts（M-67）
