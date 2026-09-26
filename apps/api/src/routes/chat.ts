@@ -1091,8 +1091,8 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     const owned = await ensureOwnedConversation(id, userId, reply)
     if (!owned.conversation) return
 
-    await clearMessages(id)
-    return reply.send(success({ cleared: true }))
+    const cleared = await clearMessages(id)
+    return reply.send(success({ cleared: cleared.length > 0 }))
   })
 
   // POST /conversations/:id/archive - 归档对话
