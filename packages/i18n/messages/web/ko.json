@@ -9016,9 +9016,7 @@
       "pinned": "상단 고정됨",
       "unpinned": "상단 고정 해제됨",
       "pinFailed": "상단 고정 실패",
-      "orgSaved": {
-        "orgSaved": "대화 정리가 저장되었습니다"
-      }
+      "orgSaved": "대화 정리가 저장되었습니다"
     },
     "today": "오늘",
     "openWorkPanel": "작업 패널 열기",
@@ -10675,7 +10673,7 @@
       "roleAssistant": "어시스턴트",
       "exportCard": "이미지 카드 공유",
       "shareCardUser": "사용자",
-      "exportPdf": "PDF をエクスポート"
+      "exportPdf": "PDF 내보내기"
     },
     "fallbackNotice": "백업 모델 {backup}(으)로 전환됨(원본 모델 {primary} 일시 사용 불가)",
     "fallbackNoticeQuota": "이번 답변은 {backup} 모델이 생성했습니다({primary} 모델의 제공사 계정 한도가 모두 소진되어 동일 계열의 사용 가능한 모델로 자동 전환했습니다).",
