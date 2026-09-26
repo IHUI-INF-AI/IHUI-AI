@@ -52,6 +52,7 @@ import {
   Mic,
   Paperclip,
   Scissors,
+  Send,
   Settings,
 } from 'lucide-react-native'
 
@@ -60,7 +61,12 @@ import {
   BOTTOM_ACTION_BAR_CHIP_FONT_PX,
   BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
   BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX,
+  BOTTOM_ACTION_BAR_MODEL_BADGE_PX,
   BOTTOM_ACTION_BAR_TEXT_FONT_PX,
+  // 票⑥(2026-09-26):附件/发送这一簇的方块与墨迹 —— 与小程序端同读这两个常量(此前本端是
+  // 56×44 的文字胶囊 + 硬编码 '发送',三端里唯一的异类;AGENTS §4 图标一律用矢量库)
+  BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
+  BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX,
 } from '@ihui/shared/ui/bottom-action-bar-spec'
 
 // ── 兼容旧 API:简单按钮列表 ──
@@ -184,9 +190,6 @@ const INPUT_BORDER_RADIUS = rnRadius['2xl'] // 原 15,R1 吸附至 2xl(16)
 const INPUT_FONT_SIZE = BOTTOM_ACTION_BAR_TEXT_FONT_PX
 const INPUT_PADDING_HORIZONTAL = 12
 const INPUT_MAX_HEIGHT = 100 // 多行输入的自然生长上限(键盘避让下的可视高度),非布局档,两端不同形
-
-const SEND_BTN_WIDTH = 56
-const SEND_BTN_HEIGHT = 44
 
 /** 语音按钮命中方块:取共享几何表档(小程序端本文件里没有这枚方块)。 */
 const VOICE_BTN_SIZE = rnGeometry.tapBox
@@ -498,7 +501,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               <Text style={styles.modelNameLabel} numberOfLines={1}>
                 {modelName ?? '选择模型'}
               </Text>
-              <ChevronDown size={10} color={tokens.text.tertiary} />
+              <ChevronDown size={BOTTOM_ACTION_BAR_MODEL_BADGE_PX} color={tokens.text.tertiary} />
             </Pressable>
           ) : null}
           {onShowModelConfig !== undefined ? (
@@ -601,14 +604,15 @@ function ChatInputBar(props: BottomActionBarProps) {
             disabled={isLoading}
             hitSlop={4}
             accessibilityRole="button"
-            accessibilityLabel={isLoading ? '加载中' : '发送'}
+            accessibilityLabel={t('chat.send')}
           >
             {isLoading ? (
               <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
             ) : (
-              <Text style={styles.sendLabel} numberOfLines={1}>
-                {'发送'}
-              </Text>
+              /* 此前这一格渲染的是文字「发送」(硬编码中文,不走 i18n),而 web / 小程序同一槽
+                 都是 lucide `send` 矢量 —— 三端里唯一的文字胶囊,即用户实拍"两端图标不一样"的
+                 直接成因(AGENTS §4:UI 图标一律用矢量图标库)。前景取配对档 ctaForeground。 */
+              <Send size={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX} color={tokens.brand.ctaForeground} />
             )}
           </Pressable>
         ) : null}
@@ -974,9 +978,11 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
     includeFontPadding: false,
   } as TextStyle,
+  // 发送可见方块:档源在共享 spec(= web `message-input.tsx` 的 `h-8 w-8` = 32)。
+  // 可点区不减:`hitSlop`(本文件多处已在用)把命中区扩到 40,可见盒与小程序端逐档同值。
   sendBtn: {
-    width: SEND_BTN_WIDTH,
-    height: SEND_BTN_HEIGHT,
+    width: BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
+    height: BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
     borderRadius: INPUT_BORDER_RADIUS,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
@@ -985,11 +991,6 @@ const styles = StyleSheet.create({
   sendBtnDisabled: {
     opacity: 0.6,
   } as ViewStyle,
-  sendLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: tokens.brand.ctaForeground,
-  } as TextStyle,
 
   // ── 新模式:辅助按钮行 ──
   secondaryRow: {
