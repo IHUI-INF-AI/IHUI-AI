@@ -55,8 +55,13 @@ import {
   Settings,
 } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
-import { BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX } from '@ihui/shared/ui/bottom-action-bar-spec'
+import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import {
+  BOTTOM_ACTION_BAR_CHIP_FONT_PX,
+  BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
+  BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX,
+  BOTTOM_ACTION_BAR_TEXT_FONT_PX,
+} from '@ihui/shared/ui/bottom-action-bar-spec'
 
 // ── 兼容旧 API:简单按钮列表 ──
 
@@ -142,6 +147,16 @@ export interface BottomActionBarProps {
 }
 
 // ── 常量 ──
+//
+// 与小程序端**同一元素**的档一律从共享源取数(出处注释写在对应行上):
+//  - 字号 → `@ihui/shared/ui/bottom-action-bar-spec`(裁决依据写在该文件里)
+//  - 命中方块 → `rnGeometry.tapBox`(design-tokens 几何表,与 web 顶栏 `w-9` 同档)
+//  - 圆角 → `rnRadius.*`(守门 77 的单一源,本文件不存第三个圆角数字)
+// 端内仍写数字的两类都不属"两端各写一份同一元素":
+//  - 小程序端本文件里没有对应元素(图片预览行、模型条高与配置按钮、发送胶囊宽、旧模式按钮方块),
+//    或不是尺寸(letterSpacing 0.2);
+//  - 容器/行级 padding 与 gap:两端切分不同(RN 逐属性、小程序 CSS 简写串),强行配对会把一次
+//    定档变成多次裁决 —— 逐条理由写在共享 spec 的头注里,不得为读数好看硬凑。
 
 const CONTAINER_PADDING_HORIZONTAL = 12
 const CONTAINER_PADDING_VERTICAL = 4
@@ -149,29 +164,35 @@ const ROW_GAP = 12
 const COLUMN_GAP = 8
 
 const ACTION_BUTTON_HEIGHT = 44
-const ACTION_BUTTON_FONT_SIZE = 15
+/** 旧模式文字按钮字号:与输入框同一档,取共享源(原 15 不在 design-tokens 字号档上)。 */
+const ACTION_BUTTON_FONT_SIZE = BOTTOM_ACTION_BAR_TEXT_FONT_PX
 const ICON_BUTTON_SIZE = 44
 const ICON_BUTTON_EMOJI_SIZE = 18
 const ICON_BUTTON_BORDER_RADIUS = ICON_BUTTON_SIZE / 2 // radius-exempt: 图标按钮几何正圆(44dp 直径/2)
+/** 字距不是尺寸(守门 128 因键名含 spacing 会把它计入读数),不进几何表,登记为读数噪音。 */
 const LABEL_LETTER_SPACING = 0.2
 
 const TOGGLE_CHIP_HEIGHT = 32
-const TOGGLE_CHIP_FONT_SIZE = 13
+/** chip 文字字号:两端同值档,取共享源(小程序端 chip 本就是 14,RN 原 13 就近吸附)。 */
+const TOGGLE_CHIP_FONT_SIZE = BOTTOM_ACTION_BAR_CHIP_FONT_PX
 // chip 行间距不在本文件取数 —— 唯一源是 @ihui/shared/ui/bottom-action-bar-spec(与小程序端同档)
 const TOGGLE_CHIP_LETTER_SPACING = 0.2
 
 const INPUT_MIN_HEIGHT = 44
 const INPUT_BORDER_RADIUS = rnRadius['2xl'] // 原 15,R1 吸附至 2xl(16)
-const INPUT_FONT_SIZE = 15
+/** 输入框字号:与小程序默认变体的 `text-sm` 同档,取共享源。 */
+const INPUT_FONT_SIZE = BOTTOM_ACTION_BAR_TEXT_FONT_PX
 const INPUT_PADDING_HORIZONTAL = 12
-const INPUT_MAX_HEIGHT = 100
+const INPUT_MAX_HEIGHT = 100 // 多行输入的自然生长上限(键盘避让下的可视高度),非布局档,两端不同形
 
 const SEND_BTN_WIDTH = 56
 const SEND_BTN_HEIGHT = 44
 
-const VOICE_BTN_SIZE = 36
+/** 语音按钮命中方块:取共享几何表档(小程序端本文件里没有这枚方块)。 */
+const VOICE_BTN_SIZE = rnGeometry.tapBox
 
-const SECONDARY_BTN_SIZE = 36
+/** 辅助按钮命中方块:同上,tapBox 档。 */
+const SECONDARY_BTN_SIZE = rnGeometry.tapBox
 const SECONDARY_BTN_EMOJI_SIZE = 18
 
 /** 图标按钮组标准项(相机/相册/本地文件/微信文件,对齐 Uniapp isShowIcon 图标组;
@@ -187,11 +208,14 @@ const ICON_GROUP_ITEMS: ReadonlyArray<{
   { type: 'wxfile', label: '微信文件', Icon: MessageCircle },
 ]
 
+// 图片预览行:小程序端本文件里没有这一行(该端预览在 InputArea)—— 这些档无对照,保留端内。
 const IMAGE_PREVIEW_SIZE = 48
 const IMAGE_REMOVE_SIZE = 16
 
+// 模型条高度与配置按钮方块:小程序端模型条无固定高、也没有配置按钮 —— 同上,无对照。
 const MODEL_BAR_HEIGHT = 28
-const MODEL_BAR_FONT_SIZE = 13
+/** 模型提示条字号:两端原值(小程序 10 / RN 13)都不在字号档上,公共吸附档 = 12,取共享源。 */
+const MODEL_BAR_FONT_SIZE = BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX
 
 const EMPTY_ACTIONS: ReadonlyArray<BottomActionBarAction> = []
 
@@ -671,7 +695,9 @@ function ChatInputBar(props: BottomActionBarProps) {
       ) : null}
 
       {/* 图标按钮组:相机 / 相册 / 本地文件 / 微信文件(统一走共享 AddPanel 底部滑出面板;
-          onIconClick('camera'|'album'|'file'|'wxfile') 契约不变,ChatScreen/AssistantScreen 零改动) */}
+          onIconClick('camera'|'album'|'file'|'wxfile') 契约不变,ChatScreen/AssistantScreen 零改动)。
+          24 是面板项图标墨迹档 —— 小程序端的同一功能是内联 PNG 卡(另一枚布局角色),
+          两端配对要到 AddPanel 那一票一并裁,本票不在此单独立档。 */}
       {onIconClick !== undefined ? (
         <AddPanel
           visible={showIconGroup}
@@ -825,6 +851,7 @@ const styles = StyleSheet.create({
   modelNameLabel: {
     fontSize: MODEL_BAR_FONT_SIZE,
     color: tokens.text.secondary,
+    // 200 是文本截断上限(内容自适应,不是布局档),与小程序端"整行 flex 换行"是两种机制 —— 不同形
     maxWidth: 200,
   } as TextStyle,
   modelArrow: {

@@ -7,7 +7,13 @@ import { useState, useMemo } from 'react'
 import { useI18n, useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
-import { MODEL_LIST_EMPTY_FONT_PX } from '@ihui/shared/ui/model-list-spec'
+import {
+  MODEL_LIST_CONTENT_BOTTOM_PADDING_PX,
+  MODEL_LIST_EMPTY_FONT_PX,
+  MODEL_LIST_EMPTY_PADDING_Y_PX,
+  MODEL_LIST_NAME_FONT_PX,
+  MODEL_LIST_SECTION_HEADER_FONT_PX,
+} from '@ihui/shared/ui/model-list-spec'
 import type { ModelUsageCategory } from '@ihui/shared/constants'
 import type { LlmModel } from '@/api'
 import type { ModelType } from './ModelTypeButton'
@@ -26,6 +32,14 @@ import {
 } from '@/utils/model-catalog'
 
 export type ModelItem = LlmModel
+
+/**
+ * 会显形的字号与留白不在本文件取数 —— 单一源是
+ * `packages/shared/src/ui/model-list-spec`(模式同 IntelligentAssistant / BackChevron);
+ * 这里只做单位换算(逻辑 px → rpx)。用函数形态而非 `'40rpx'` 字符串字面量:
+ * SWC 会剥离 inline 的 rpx 字符串字面量(见 `@/utils/rpx` 头注),函数调用才保得住。
+ */
+const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
 
 /**
  * ModelList 模型列表
@@ -131,11 +145,17 @@ export default function ModelList({
 
     if (!models.length) {
       return (
-        <View className="flex items-center justify-center" style={{ padding: '40rpx 0' }}>
-          {/* 空态字号取共享源(与 RN emptyText 同档);list 变体的 text-sm 是端内另一档,待裁决 */}
+        <View
+          className="flex items-center justify-center"
+          style={{
+            paddingTop: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
+            paddingBottom: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
+          }}
+        >
+          {/* 空态字号与纵向留白取共享源(与 RN emptyText / empty 容器同档) */}
           <Text
             className="text-muted-foreground"
-            style={{ fontSize: rpx(MODEL_LIST_EMPTY_FONT_PX * TARO_RPX_PER_PX) }}
+            style={{ fontSize: toUnit(MODEL_LIST_EMPTY_FONT_PX) }}
           >
             {tt('model.empty', '暂无模型')}
           </Text>
@@ -149,13 +169,17 @@ export default function ModelList({
         style={{
           background: 'transparent',
           borderRadius: rnRadius.lg,
-          padding: '10rpx 0 0',
+          // 顶部 10rpx 是端内既有档(与上方骨架屏容器同值,不属本票收口的跨端档),按原样保留;
+          // 底部留白取共享源 —— RN `listBody.paddingBottom` 此前是端内独有一档,
+          // 规则 3「一端有档另一端无 ⇒ 取较大者并让缺失端补同档」→ 本端补 24。
+          paddingTop: '10rpx',
+          paddingBottom: toUnit(MODEL_LIST_CONTENT_BOTTOM_PADDING_PX),
         }}
       >
         {/* 分类标题(对齐原项目 .title,display:none 在原项目但保留为视觉锚点)*/}
         {currentType && TYPE_LABELS(tt)[currentType] ? (
           <View style={{ padding: '0 15rpx', height: rpx(40), display: 'none' }}>
-            <Text style={{ fontSize: rpx(24), fontWeight: 600 }}>
+            <Text style={{ fontSize: toUnit(MODEL_LIST_SECTION_HEADER_FONT_PX), fontWeight: 600 }}>
               {TYPE_LABELS(tt)[currentType]}
             </Text>
           </View>
@@ -178,7 +202,7 @@ export default function ModelList({
               <Text
                 className="ml-[10rpx]"
                 style={{
-                  fontSize: rpx(28),
+                  fontSize: toUnit(MODEL_LIST_NAME_FONT_PX),
                   color: 'var(--color-foreground)',
                   fontWeight: agentActive ? 'bold' : 'normal',
                 }}
@@ -244,7 +268,7 @@ export default function ModelList({
                 <Text
                   className="ml-[10rpx]"
                   style={{
-                    fontSize: rpx(28),
+                    fontSize: toUnit(MODEL_LIST_NAME_FONT_PX),
                     color: 'var(--color-foreground)',
                     fontWeight: selected ? 'bold' : 'normal',
                   }}
@@ -307,10 +331,20 @@ export default function ModelList({
             onClick={() => setHistoryExpanded((v) => !v)}
             hoverClass="opacity-60"
           >
-            <Text style={{ fontSize: rpx(26), color: 'var(--color-foreground)' }}>
+            <Text
+              style={{
+                fontSize: toUnit(MODEL_LIST_SECTION_HEADER_FONT_PX),
+                color: 'var(--color-foreground)',
+              }}
+            >
               {`${historyLabel(locale)} (${split.archivedCount})`}
             </Text>
-            <Text style={{ fontSize: rpx(24), color: 'var(--color-muted-foreground)' }}>
+            <Text
+              style={{
+                fontSize: toUnit(MODEL_LIST_SECTION_HEADER_FONT_PX),
+                color: 'var(--color-muted-foreground)',
+              }}
+            >
               {showArchived ? collapseLabel(locale) : expandLabel(locale)}
             </Text>
           </View>
@@ -321,7 +355,12 @@ export default function ModelList({
               <View key={`archived-${group.category}`}>
                 {/* 分组标题:用途分类 + 数量(用间距分隔,不用 border 分割线)*/}
                 <View style={{ padding: '16rpx 24rpx 4rpx' }}>
-                  <Text style={{ fontSize: rpx(22), color: 'var(--color-muted-foreground)' }}>
+                  <Text
+                    style={{
+                      fontSize: toUnit(MODEL_LIST_SECTION_HEADER_FONT_PX),
+                      color: 'var(--color-muted-foreground)',
+                    }}
+                  >
                     {`${categoryLabel(group.category)} · ${group.items.length}`}
                   </Text>
                 </View>
@@ -353,7 +392,7 @@ export default function ModelList({
                         <Text
                           className="ml-[10rpx]"
                           style={{
-                            fontSize: rpx(26),
+                            fontSize: toUnit(MODEL_LIST_NAME_FONT_PX),
                             color: 'var(--color-foreground)',
                             fontWeight: selected ? 'bold' : 'normal',
                           }}
@@ -419,7 +458,13 @@ export default function ModelList({
   if (!models.length) {
     return (
       <View className="flex items-center justify-center py-12">
-        <Text className="text-sm text-muted-foreground">{tt('model.empty', '暂无模型')}</Text>
+        {/* 空态字号与 popup 变体、RN 端同档 —— 同一组件的两枚空态不该有两种字号 */}
+        <Text
+          className="text-muted-foreground"
+          style={{ fontSize: toUnit(MODEL_LIST_EMPTY_FONT_PX) }}
+        >
+          {tt('model.empty', '暂无模型')}
+        </Text>
       </View>
     )
   }
