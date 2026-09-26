@@ -171,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtnPrimaryText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     actionBtnSecondary: {
       borderWidth: 1,
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.bg,
     },
     actionBtnSecondaryText: { color: tk.brand.DEFAULT, fontSize: 16, fontWeight: '600' },
