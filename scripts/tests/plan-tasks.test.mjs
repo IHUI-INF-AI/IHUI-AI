@@ -161,3 +161,19 @@ test('M10 F6 只有"变多"判红,清偿必须能变绿(反方向判红=没人�
   if (shrank.some((x) => x.startsWith('F6'))) throw new Error(`收口(2 份→1 份)不得判红:${JSON.stringify(shrank)}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('P-x 跨文件出口锁:probe 必须由 plan-tasks 真导出,且收敛器引得到(427e529947 引了它却没导出 ⇒ 所有会话的推送收敛当场崩)', async () => {
+  // ① 直接按名字 import:导出被改名或删掉 ⇒ 本文件加载即红(比任何字符串断言都硬)。
+  const mod = await import('../plan-tasks.mjs')
+  if (typeof mod.probe !== 'function') throw new Error('plan-tasks.mjs 不再导出 probe(命名维度清单的唯一来源)')
+  const dims = mod.probe({ counts: { forks: 0, voidRows: 0, rotatedPointers: 0, dupOpenCopies: 0, dupBlocks: 0, mergeNotes: 0 } })
+  if (dims.length < 4) throw new Error(`probe 读数维度少于 4 条:${JSON.stringify(dims.map((d) => d[0]))}`)
+  for (const [k, label, n] of dims) {
+    if (!/^F\d$/.test(k) || typeof label !== 'string' || typeof n !== 'number')
+      throw new Error(`维度元组形态不符 [F?, label, number]:${JSON.stringify([k, label, n])}`)
+  }
+  // ② 消费者侧:收敛器必须真的引这个名字(它自己抄一份维度清单就是第二把尺子,必漂)。
+  const conv = readFileSync(path.resolve(ROOT, 'scripts', 'git-sync-converge.mjs'), 'utf8')
+  if (!/import \{[^}]*\bprobe\b[^}]*\} from '\.\/plan-tasks\.mjs'/.test(conv))
+    throw new Error('git-sync-converge.mjs 未从 plan-tasks 引 probe(要么改用别的名字,要么在别处抄了清单)')
+})
