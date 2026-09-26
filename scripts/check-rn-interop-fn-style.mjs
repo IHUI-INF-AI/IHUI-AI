@@ -123,6 +123,65 @@ export function readInteropSource(root) {
 }
 
 /**
+ * 把注释与字符串抹成等长空格(行号、列号都不变)。
+ *
+ * 为什么必须保长度:本门按"命中行向前回溯最近的 JSX 开标签"归属,且豁免标记本身就写在
+ * 注释里 —— 删字符会让行号错位,把 `style={` 整行抹掉更是直接判据失明。
+ *
+ * 刻意只用于**判据面**,豁免判定仍看原文(见 findFnStyleHits 里的 raw)。字符串也要抹:
+ * 带协议前缀的 URL 字面量里有"块注释开符"形态,只剥注释不剥字符串的状态机会被它带进
+ * 假注释态(守门 70 实测踩过);反过来留下字符串不抹,则一行里的引号会把整行后半吞掉。
+ * 已知边界:JS 正则字面量里含未配对引号(如 `/["']/`)会让状态机失配 ⇒ 那一行之后到行尾
+ * 被抹 ⇒ 漏判。方向是"少判不误判",且 T5 阳性对照(真仓命中量级)会先于仓库发现整片失配。
+ */
+export function maskCommentsAndStrings(src) {
+  if (typeof src !== 'string') return ''
+  const out = src.split('')
+  let i = 0
+  const blank = (from, to) => {
+    for (let k = from; k < to && k < out.length; k++) if (out[k] !== '\n') out[k] = ' '
+  }
+  while (i < src.length) {
+    const c = src[i]
+    const n = src[i + 1]
+    if (c === '/' && n === '/') {
+      let j = src.indexOf('\n', i)
+      if (j < 0) j = src.length
+      blank(i, j)
+      i = j
+      continue
+    }
+    if (c === '/' && n === '*') {
+      let j = src.indexOf('*/', i + 2)
+      j = j < 0 ? src.length : j + 2
+      blank(i, j)
+      i = j
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      let j = i + 1
+      while (j < src.length) {
+        if (src[j] === '\\') {
+          j += 2
+          continue
+        }
+        if (src[j] === c) {
+          j++
+          break
+        }
+        if (src[j] === '\n' && c !== '`') break // 未闭合的引号不当字符串(防整文件被吞)
+        j++
+      }
+      blank(i, j)
+      i = j
+      continue
+    }
+    i++
+  }
+  return out.join('')
+}
+
+/**
  * F1:找 `style={(...) => ...}` 落在注册表内组件上的站点。
  * 归属做法:命中处**向前回溯**最近的一个 JSX 开标签 `<Tag`,只有 Tag ∈ registry 才算。
  * 回溯而不是全文配对,是因为这一型的判据只需要"离得最近的那个标签";做完整 JSX 解析
@@ -132,18 +191,19 @@ export function findFnStyleHits(text, registry) {
   const hits = []
   const undetermined = []
   if (typeof text !== 'string') return { hits, undetermined: [{ reason: '内容取不到' }] }
-  const lines = text.split('\n')
+  const raw = text.split('\n')
+  const code = maskCommentsAndStrings(text).split('\n')
   const RE = /\bstyle=\{\s*\(([^)]*)\)\s*(?:=>|function)/g
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
+  for (let i = 0; i < raw.length; i++) {
+    const line = raw[i]
     RE.lastIndex = 0
-    if (!RE.test(line)) continue
+    if (!RE.test(code[i] ?? '')) continue
     if (
       EXEMPT.test(line) ||
-      (i > 0 && COMMENT_LINE.test(lines[i - 1]) && EXEMPT.test(lines[i - 1]))
+      (i > 0 && COMMENT_LINE.test(raw[i - 1]) && EXEMPT.test(raw[i - 1]))
     )
       continue
-    const before = lines.slice(Math.max(0, i - 14), i + 1).join('\n')
+    const before = code.slice(Math.max(0, i - 14), i + 1).join('\n')
     const tags = [...before.matchAll(/<([A-Z][\w$]*)[\s\n/>]/g)].map((x) => x[1])
     const tag = tags.length ? tags[tags.length - 1] : null
     if (!tag) {
@@ -306,6 +366,34 @@ function runSelfTest() {
   ok('裸标记(冒号后无原因)不得放行', findFnStyleHits(t4b, new Set(['Pressable'])).hits.length === 1)
   const t5 = `<View style={[styles.a]} />`
   ok('数组形态放过(数组不受 interop 影响)', findFnStyleHits(t5, REG).hits.length === 0)
+  /**
+   * 注释/字符串里的该形态**不得**计入。起因是本门自己的修复说明写了这个字面量:
+   * 给 CategoryInlineBar 补注释讲"早先这里写 style={({pressed}) => …}"之后,
+   * `--worktree` 读数从预期的 115 变成 116 —— **门把解释自己的散文判成了违规**。
+   * 这不是假想缺陷:任何一道描述自己射程的门都会撞上(守门 70 的 `'https://x/*'`、
+   * 守门 52 的夹具字符串同型)。配对的另一半 t6b 才是这条判据的牙:同一份文本,
+   * 只把注释改成真代码就必须命中,否则"遮罩"只是把判据关掉了。
+   */
+  const t6 = `<Pressable>
+  {/* 早先这里写 style={({ pressed }) => …},手机上从来没有淡出 */}
+  <View style={[styles.a]} />
+</Pressable>`
+  ok('注释里的该形态不得计入(判据不能把自己写的说明读成违规)', findFnStyleHits(t6, REG).hits.length === 0)
+  const t6b = `<Pressable>
+  <View style={({ pressed }) => [styles.a, pressed && styles.b]} />
+</Pressable>`
+  ok('阳性对照:同一形态换成真代码必须命中(遮罩不是关掉判据)', findFnStyleHits(t6b, REG).hits.length === 1)
+  ok(
+    '遮罩保行号:抹完注释后命中行号与原文一致(否则向前回溯 JSX 开标签会错位)',
+    (() => {
+      const src = `<Pressable
+  // 说明文字
+  style={({ pressed }) => [a, pressed && b]}
+>`
+      const { hits } = findFnStyleHits(src, REG)
+      return hits.length === 1 && hits[0].line === 3
+    })(),
+  )
   ok(
     '注册表解析:必须真抽出组件名(逐字取自真包的 CJS 转译形态,不是自造夹具)',
     (() => {
@@ -404,6 +492,7 @@ if (
 
 export const __test__ = {
   findFnStyleHits,
+  maskCommentsAndStrings,
   deriveInteropRegistry,
   readInteropSource,
   analyze,
