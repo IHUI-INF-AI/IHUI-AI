@@ -85,7 +85,8 @@ import { loadMcpTools, loadMcpConnections } from '../tools/mcp-runtime.js';
 import { registerMcpToolsToHub } from '../tools/hub/mcp-adapter.js';
 import { InMemoryRegistry } from '../tools/hub/registry.js';
 import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.js';
-import { neutralizeBoundaries } from '../utils/prompt-boundary.js';
+import { frameSystemReminder, neutralizeBoundaries } from '../utils/prompt-boundary.js';
+import { injectHostSection, injectReminderSection } from '../utils/prompt-injection-registry.js';
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
 import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '../hooks/index.js';
@@ -676,7 +677,13 @@ function formatFsEventsForPrompt(events: FsEvent[]): string {
   if (events.length === 0) return '';
   const recent = events.slice(-10);
   const lines = recent.map((e) => `  - [${e.kind}] ${e.path}`);
-  return `[系统提示] 工作区最近文件变更(60s 内,共 ${events.length} 条,显示最近 ${lines.length} 条):\n${lines.join('\n')}`;
+  // 走登记出口:fs 事件是**第三方内容**(宿主观察到的事实,不是宿主的指令),
+  // 旧写法给它套 `[系统提示]` 前缀 = 让第三方内容冒充宿主语气,模型无从分辨。
+  return injectHostSection(
+    'context_fs_events',
+    `工作区最近文件变更(60s 内,共 ${events.length} 条,显示最近 ${lines.length} 条):\n${lines.join('\n')}`,
+    { kind: 'reference_data' },
+  );
 }
 
 /**
@@ -1858,7 +1865,15 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           const next = prev + 1;
           consecutiveFailures.set(call.name, next);
           if (next >= FAILURE_REFLECTION_THRESHOLD) {
-            resultParts.push(`[系统提示] 工具 ${call.name} 已连续失败 ${next} 次。请反思:参数是否正确?是否应该换一种工具或方案?当前失败原因:${result.error ?? '未知'}`);
+            resultParts.push(
+              injectReminderSection(
+                'reminder_tool_failure',
+                frameSystemReminder(
+                  'tool_failure_reflection',
+                  `工具 ${call.name} 已连续失败 ${next} 次。请反思:参数是否正确?是否应该换一种工具或方案?当前失败原因:${result.error ?? '未知'}`,
+                ),
+              ),
+            );
             consecutiveFailures.set(call.name, 0);
           }
         }
