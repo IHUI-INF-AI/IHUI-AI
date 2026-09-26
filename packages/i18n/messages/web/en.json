@@ -27217,5 +27217,39 @@
         "following": "Waiting to send"
       }
     }
+  },
+  "unifiedSuggestion": {
+    "title": "Suggestions",
+    "searchPlaceholder": "Search suggestions…",
+    "noMatch": "No matching suggestions",
+    "sourceTask": "Tasks",
+    "sourceSkill": "Skills",
+    "sourcePlugin": "Plugins",
+    "sourceConnector": "Connectors",
+    "sourceAgent": "Agents",
+    "sourceFile": "Files",
+    "provBuiltin": "Built-in",
+    "provUserLocal": "User config (local)",
+    "provUserRemote": "User config (remote)",
+    "provProject": "Project config",
+    "provMarket": "Marketplace",
+    "provPluginProvided": "Plugin-provided",
+    "loadingLabel": "Loading",
+    "sourceFailedTag": "Temporarily unavailable",
+    "retryLabel": "Retry",
+    "degradeSingle": "{failed} is temporarily unavailable.",
+    "degradePartial": "{failed} is temporarily unavailable. You can keep using {ok}.",
+    "degradeAll": "All suggestion sources are temporarily unavailable. You can still type and send messages.",
+    "referenceCapFull": "Reference limit reached ({max}); this addition was ignored.",
+    "referenceCount": "{n}/{max}",
+    "pastePreviewTitle": "Pasted reference validity preview",
+    "pasteValid": "Valid",
+    "pasteUnknown": "Unrecognized",
+    "pastePreviewDismiss": "Dismiss pasted reference preview",
+    "authorizationNotice": "Reference tags do not grant additional execution permission.",
+    "hintSelect": "select",
+    "hintConfirm": "confirm",
+    "hintClose": "close",
+    "clearAriaLabel": "Clear search"
   }
 }
