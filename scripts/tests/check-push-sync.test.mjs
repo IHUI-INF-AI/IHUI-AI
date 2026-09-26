@@ -256,6 +256,45 @@ test('push-state: running 但持有者 pid 已死 → exit 1(2026-09-19 记录�
   }
 })
 
+test('push-state: diverged 新鲜 → exit 0 并点名收敛器(guard 自己不能收敛,一律拦=每次提交都跳门)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'unpushed while diverged')
+    writePushState(work, {
+      status: 'diverged',
+      headSha: 'deadbeef',
+      ts: Date.now(),
+      pid: process.pid,
+      nextCommand: 'node scripts/git-sync-converge.mjs',
+    })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 0, `新鲜 diverged 应放行,实际 ${r.status}:${stripAnsi(r.stdout)}${stripAnsi(r.stderr)}`)
+    assert.match(stripAnsi(r.stdout), /git-sync-converge/, '放行也必须把唯一出路说出口,不能静默')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('push-state: diverged 已过期 → exit 1(没人管的分叉才是本门该拦的)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'unpushed while long-diverged')
+    writePushState(work, {
+      status: 'diverged',
+      headSha: 'deadbeef',
+      ts: Date.now() - 11 * 60 * 1000,
+      pid: process.pid,
+    })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 1, `过期 diverged 必须拦,实际 ${r.status}:${stripAnsi(r.stdout)}`)
+    assert.match(stripAnsi(r.stderr), /未 push 的 commit/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
 // ─── 8. 本地 behind origin → exit 0(跳过,不阻塞) ──────
 test('behind: 本地 behind origin → exit 0(无 ahead commit,跳过)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
