@@ -28,9 +28,11 @@
  * 说明:计数取自 `knip --reporter json` 的 issues 聚合,与终端报告的分节数字同源。
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import { classifyFace, provenanceNote } from './lib/knip-ratchet-face.mjs'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(SCRIPT_DIR, '..')
@@ -118,6 +120,33 @@ function total(counts) {
 const args = new Set(process.argv.slice(2))
 const tolerance = Number.parseInt(process.env.KNIP_RATCHET_TOLERANCE ?? '0', 10) || 0
 
+/**
+ * 口径闸门(2026-09-26 立):`knip` 读磁盘,而基线锚点是**内容**读数 —— 本机共享工作树常年
+ * 带着并发会话的未提交改动,此时量到的数与 CI(干净检出)结构上不可比:拿它判红会误伤,
+ * 拿它 `--update` 更糟(数被永久记偏)。实测教训就在本文件的历史里:今天有一枚 `--update`
+ * 把基线从 3781 抬到 4314,量它的那份树当时并不干净。
+ * 判据本身拆到 `scripts/lib/knip-ratchet-face.mjs`(纯函数,镜像测试直接喂构造面)。
+ */
+function dirtyPathCount() {
+  try {
+    // gitRaw 已自带 `-c safe.directory=*` 与 `-C <root>`,此处不再重复传
+    const out = gitRaw(['status', '--porcelain'], ROOT, { timeout: 60_000 })
+    return out.split('\n').filter((l) => l.trim() !== '').length
+  } catch {
+    return null // 问不到条数 ⇒ 交给 classifyFace 判"无法判定",不猜可比
+  }
+}
+
+const dirty = dirtyPathCount()
+const face = classifyFace({ ci: process.env.CI === 'true' || process.env.CI === '1', dirtyCount: dirty })
+const forced = args.has('--allow-dirty')
+if (face.verdict !== 'comparable' && !forced && !args.has('--print')) {
+  console.error(`[knip-ratchet] ❌ 口径不可比(${face.verdict}):${face.reason}`)
+  console.error('[knip-ratchet]    问责面是 CI 的干净检出;本机只想看数请跑 --print(不判、不写基线)。')
+  console.error('[knip-ratchet]    确需在当前状态下写基线:`--update --allow-dirty`(会把 DIRTY 出处写进基线的 recordedFrom,不静默)。')
+  process.exit(2)
+}
+
 const counts = countByCategory(runKnipJson())
 const currentTotal = total(counts)
 
@@ -133,6 +162,12 @@ if (args.has('--update') || !existsSync(BASELINE_PATH)) {
     // 说明:这是「允许存在的历史债上限」。只允许通过修复来收紧(重新 --update),
     // 不允许为了过门禁而放大——放大会在 PR 审查中被看见。
     note: 'Knip 棘轮基线:各项计数不得超过此值。新增死代码会使 CI 失败;清理后请重跑 --update 收紧。',
+    // 出处必须随数走:同一组数字从脏树量出来和从干净检出量出来不是一回事(见 classifyFace)。
+    recordedFrom: provenanceNote({
+      comparable: face.verdict === 'comparable',
+      dirtyCount: dirty,
+      forced,
+    }),
     generatedAt: new Date().toISOString(),
     total: currentTotal,
     counts,
@@ -145,7 +180,7 @@ if (args.has('--update') || !existsSync(BASELINE_PATH)) {
   process.exit(0)
 }
 
-const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
+const baseline = JSON.parse(readWorktreeFile(ROOT, 'knip-baseline.json') ?? '')
 const baseCounts = baseline.counts ?? {}
 
 console.log('[knip-ratchet] 类别             当前    基线    增量')
