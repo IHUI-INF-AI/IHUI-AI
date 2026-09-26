@@ -282,6 +282,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **禁止**用兜底正则把 `/api/<前缀>/[^/]+` 这类"参数路由"形态当作公开面 —— 它会连同**静态子路由**一起放行。实测 `agents.ts` 的 `^/api/agents/[^/]+$` 让 `/agents/health` 游客可访问,而 `/agents/need-tasks` 的 handler 依赖 `request.userId`,游客走到它不是 401 而是 **500**:fail-open 直接崩在鉴权层后面,比 401 更难发现。
 - 正确做法:**显式白名单列路径**(如 `/api/agents`、`/api/agents/list`、`/api/categories/list`),详情路由用正则时**必须**配一张静态段排除表(`AGENTS_PROTECTED_STATIC_SEGMENTS`)。**新增 `/agents/<静态段>` 的 GET 路由时必须同步登记该表**,否则会被当成游客详情放行。
 - 游客视图的公开数据由 handler 自证:强制 `status=published` + `sanitizePublicAgent` 脱敏,并且测试要断言"未发布读不到 + 脱敏字段不出现",不得只断言 200。
+- **对外公开面不止"路由级",还包括**反代级**(强制,2026-09-26 立,O20)**:`apps/web/src/config/ai-service-edge.ts` 是 ai-service 对外能力**唯一**的边缘放行表,它必须是 `packages/types/src/capability-catalog.ts` 的**派生态** —— 新增/改动一条公网路径,正确姿势是先在能力目录里把该能力标成 `host:'ai-service'` + `thirdPartyEligible:true`,再让这张表由测试现算的期望集合追平;**禁止**直接往表里加一行(测试双向对账会红),更**禁止**用前缀通配把 `/ai-service/*` 整片放行(同上一条"兜底正则当公开面"那一型)。Next.js rewrites **没有 method 维度**,所以"同一路径 GET 可公开、POST 不可公开"的路径必须**整条不放行并登记进 `AI_SERVICE_EDGE_BLOCKED_PATHS`** —— 静默不放行会被后来人当成漏配顺手补开。默认拒绝由环境变量决定,鉴权只在 ai-service 一侧(`JWTAuthMiddleware` + `capability_gate`),**不得**在 Next 里再写第二套"看起来像鉴权"的东西。
 - 改动 router 鉴权面前必须做**影响面核查**:全仓 grep 该路径(含 `packages/` 与各端)确认没有未登录调用方;本仓这两个端点的实际调用方为 0。
 - 部署侧 nginx 与蓝绿 nginx 是两份配置:边缘限流(`limit_req_zone` / `limit_req_status 429` / `error_page 429`)改一处必须同步另一处,docker 侧 zone 名须带 `docker_` 前缀以免与 `deploy/nginx/conf.d/*.conf` 重名(Nginx 同 http 上下文重名 zone 会**启动失败**)。静态自检:`apps/api/tests/o5-nginx-edge-ratelimit.test.ts`。
 
