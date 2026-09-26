@@ -231,13 +231,21 @@ export function toUserFriendlyMessage(error: unknown): string {
  * 迁移这 213 处时**逐处换成本函数**,不要各处再手搓一次 Object.assign(那正是本仓
  * "两处算同一件事必漂移"反复记过的形态)。
  */
-export function apiFailureToError(res: {
-  error: string
-  status?: number
-  errorCode?: string
-  retryAfter?: number
-}): Error {
-  const err = new Error(res.error)
+export function apiFailureToError(
+  res: {
+    error: string
+    status?: number
+    errorCode?: string
+    retryAfter?: number
+  },
+  fallback?: string,
+): Error {
+  // 兜底文案:调用方原先普遍写 `throw new Error(r.error || '导入失败')`,换成具名出口时
+  // 那句端内文案会被顺手丢掉。空串按 `||` 处理(取兜底)—— 有站点原本写 `?? `,而 `'' ?? x` 会得到
+  // 空消息;空消息 toast 渲成"只有图标没有文字的方块"(api-client 侧真机实测过),所以这里
+  // 刻意统一到 `||` 语义,不给"可见长度为 0 的成功文案"留活路。
+  const message = typeof res.error === 'string' && res.error ? res.error : (fallback ?? '')
+  const err = new Error(message)
   // 只挂"真的带了值"的字段:挂 status: undefined 会让 toUserFriendlyMessage 的
   // `if (status)` 判空分支与"字段不存在"混成一类,以后想区分就分不出来了。
   if (typeof res.status === 'number') (err as Error & { status?: number }).status = res.status

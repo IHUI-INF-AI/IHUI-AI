@@ -48,6 +48,7 @@ import {
   SelectItem,
 } from '@ihui/ui-react'
 import { CountdownTimer } from '@/components/publish/CountdownTimer'
+import { apiFailureToError } from '@ihui/shared/utils'
 
 export interface ScanLoginDialogProps {
   open: boolean
@@ -159,7 +160,8 @@ export function ScanLoginDialog({
         viewport_width: 1024,
         viewport_height: 720,
       })
-      if (!r.success || !r.data?.session_id) throw new Error(r.error || '创建浏览器会话失败')
+      if (!r.success) throw apiFailureToError(r, '创建浏览器会话失败')
+      if (!r.data?.session_id) throw new Error('创建浏览器会话失败')
       const sid = r.data.session_id
       setSessionId(sid)
       startTimeRef.current = Date.now()
@@ -215,7 +217,8 @@ export function ScanLoginDialog({
     setImportError('')
     try {
       const r = await importCookiesManually(platform, cookiesInput)
-      if (!r.success || !r.data?.account_id) throw new Error(r.error || '导入失败')
+      if (!r.success) throw apiFailureToError(r, '导入失败')
+      if (!r.data?.account_id) throw new Error('导入失败')
       setPhase('success')
       toast.success(`${t('accounts.importCookiesSuccess')} (${r.data.cookies_count} cookies)`)
       onSuccess?.()
