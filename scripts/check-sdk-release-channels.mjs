@@ -110,6 +110,40 @@ export function validateStructure(manifest) {
 // ───────────────────────── 判据聚合(纯函数) ─────────────────────────
 
 /**
+ * 「摘掉 `private`」这一个动作的全部**廉价**前置。纯函数,不碰 git/npm pack ——
+ * 需要真解包的那一半(无扩展名相对 import 等)由调用方在**非 private 时**才付代价去跑
+ * `scripts/check-pkg-installable.mjs`,因为保险丝在位时 registry 侧本就拒发。
+ *
+ * 存在理由(实测,不是假想):2026-09-24 的 `69aa86183dc` 标题即「api-client 去 private」,
+ * 而当天两条前置都不成立 —— `dependencies.@ihui/types = "workspace:*"`(发出去即装不到)、
+ * `version` 仍是占位的 `0.0.0`。`check-pkg-installable.mjs` 头注写着"本脚本正是去 private
+ * 之前必须通过的自检",但没有任何东西在那个时刻执行它 ⇒ 散文。本函数把那句话说成代码。
+ *
+ * @param {{private?:unknown, version?:unknown,
+ *          dependencies?:Record<string,string>, devDependencies?:Record<string,string>,
+ *          peerDependencies?:Record<string,string>}} pkg 包清单(已 parse)
+ * @returns {string[]} 空数组 = 无欠账;每条点名一个可修的字段
+ */
+export function publishPreconditionFailures(pkg) {
+  if (pkg?.private === true) return []
+  const red = []
+  if (!pkg || typeof pkg !== 'object') return ['清单不可解析(取不到内容,不得记为通过)']
+  if (pkg.version === undefined || pkg.version === '0.0.0') {
+    red.push(`version = ${JSON.stringify(pkg.version)} 仍是占位档 ⇒ 这不是一个准备发布的版本`)
+  }
+  const all = {
+    ...(pkg.dependencies ?? {}),
+    ...(pkg.devDependencies ?? {}),
+    ...(pkg.peerDependencies ?? {}),
+  }
+  const ws = Object.entries(all)
+    .filter(([, v]) => typeof v === 'string' && v.startsWith('workspace:'))
+    .map(([k, v]) => `${k}=${v}`)
+  if (ws.length > 0) red.push(`带 workspace: 依赖 ⇒ 发出去即装不到:${ws.join(', ')}`)
+  return red
+}
+
+/**
  * 单通道判定。输入全部是已经量好的三态,本函数不触碰 git/网络 —— 变异对照因此可钉成用例。
  * @param {{id:string,status:string,verifyCommand?:string,requiredSecrets?:string[]}} ch
  * @param {{bin: boolean | 'undetermined', binName?: string, outcome: {state:'present'|'absent'|'undetermined',detail:string}}} m
