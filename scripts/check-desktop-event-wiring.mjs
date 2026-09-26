@@ -457,6 +457,8 @@ const G_DEEP_LINK_TAKE_COMMAND = 'take_pending_deep_links'
 /** 路径名**只有一处**(上方 SCAN_FILES 的取材面就用它),此处只做别名供文案使用 */
 const G_DEEP_LINK_RUST_FILE = RUST_LIB_REL
 const G_DEEP_LINK_BRIDGE_FILE = BRIDGE_REL
+/** G8 的被审面:整页导航的发起处(热刷新 / 离线切换都从这里走) */
+const G_DEEP_LINK_NAV_FILE = 'apps/desktop/src-tauri/src/auto_refresh.rs'
 
 /** 取 `app.deep_link().on_open_url({ ... })` 那个闭包的整体文本(花括号配平,失败返回 null)。 */
 function extractOnOpenUrlBody(rustText) {
@@ -492,26 +494,6 @@ function extractRustFn(rustText, fnName) {
     }
   }
   return null
-}
-
-/**
- * G4 的"就绪点亮"判据:赋值允许被抽进**被该命令调用**的函数里(一跳,不追传递闭包)。
- *
- * 起因(2026-09-26 实测):`lib.rs` 把状态迁移抽成纯函数 `apply_take_ready(&mut gate)`
- * 好让单测直接断言,而本判据只看命令函数体里的字面量 —— 于是**别人把代码写得更好**
- * 被读成"机制断裂",一台 blocking 门因一次正当重构而恒红。恒红 blocking 门的唯一结局
- * 是每个会话 `--no-verify`,连带全部守门对该提交作废(§12e / 门 77/83 同一条反面教训)。
- * 刻意只做一跳:再宽就需要真正的 resolver,而判据每宽一格,假绿的风险就涨一格。
- * 反向护栏由 `--self-test` 钉死:赋值藏在一个命令**没调用**的函数里,必须仍然判红 ——
- * 否则本函数就退化成"整份文件里出现过就算",那等于没有判据。
- */
-function reachesReadyMark(rustText, takeCmd) {
-  if (/target_ready\s*=\s*true/.test(takeCmd)) return true
-  for (const m of takeCmd.matchAll(/\b([a-z][a-z0-9_]{4,})\s*\(/g)) {
-    const body = extractRustFn(rustText, m[1])
-    if (body && /target_ready\s*=\s*true/.test(body)) return true
-  }
-  return false
 }
 
 /** 桥接端深链那一段:从它自己的 listen( 起,到下一个 listen( 或文件末 */
@@ -588,9 +570,11 @@ function blankComments(text, { apostropheIsStringDelimiter = true } = {}) {
  * 深链机制判据主体(纯函数,`--self-test` 直接喂夹具字符串)。
  * 返回 violations 字符串数组 —— 空数组 = 机制在位。
  */
-function auditDeepLinkMechanism(rawRust, rawBridge) {
+function auditDeepLinkMechanism(rawRust, rawBridge, rawNav) {
   const rustText = blankComments(rawRust ?? '', { apostropheIsStringDelimiter: false })
   const bridgeText = blankComments(rawBridge ?? '', { apostropheIsStringDelimiter: true })
+  const navGiven = typeof rawNav === 'string'
+  const navText = blankComments(rawNav ?? '', { apostropheIsStringDelimiter: false })
   const violations = []
   const say = (msg) => violations.push(msg)
 
@@ -632,11 +616,14 @@ function auditDeepLinkMechanism(rawRust, rawBridge) {
   const takeCmd = extractRustFn(rustText, G_DEEP_LINK_TAKE_COMMAND)
   if (!takeCmd) say(`G4 命令 ${G_DEEP_LINK_TAKE_COMMAND} 不见了(前端就绪后无处可取)`)
   else {
-    const ready = reachesReadyMark(rustText, takeCmd)
-    if (!ready)
-      say(
-        'G4 取回积压时未把闸门置为已就绪 ⇒ 此后每条深链都只会堆进队列,永不直投(命令体内与其一跳被调函数里都没有 target_ready = true)',
-      )
+    // "置就绪"允许被**提成交给同文件的一个 helper**(实测:导航复位那票把 `target_ready = true`
+    // 与"首次 take"的判定一起收进 `apply_take_ready`)。只认命令体内字面量 ⇒ 门对它自己
+    // 产出的形态失明(§4 圆角门同型教训)。允许一跳,但必须真在命令体里被调用。
+    const setsReady = (body) => /target_ready\s*=\s*true/.test(body)
+    const helperNames = [...takeCmd.matchAll(/\b([a-z][a-z0-9_]*)\s*\(/g)].map((m) => m[1])
+    const readyViaHelper = helperNames.some((n) => setsReady(extractRustFn(rustText, n) ?? ''))
+    if (!setsReady(takeCmd) && !readyViaHelper)
+      say('G4 取回积压时未把闸门置为已就绪(命令体内无 `target_ready = true`,其调用链里也没有) ⇒ 此后每条深链都只会堆进队列,永不直投')
     if (!/label\(\)/.test(takeCmd))
       say('G4 取回命令不再按窗口 label 绑定 ⇒ 别的窗口(admin)可以把 main 的登录码取走(串号)')
   }
@@ -681,6 +668,28 @@ function auditDeepLinkMechanism(rawRust, rawBridge) {
     say(`G7 Rust 侧命令名常量不再是 "${G_DEEP_LINK_TAKE_COMMAND}" —— 与桥接端 invoke 的名字已分叉`)
   if (!bridgeText.includes(`'${G_DEEP_LINK_TAKE_COMMAND}'`))
     say(`G7 桥接端不再以字面量出现命令名 "${G_DEEP_LINK_TAKE_COMMAND}" —— 名字只写在 Rust 侧就是两边分叉`)
+
+  // G8 —— 整页导航发起处必须先复位闸门(2026-09-26 A10C-2:重载期间渲染进程不存在,
+  // 而"曾经就绪"若是永久布尔,那条深链会被直投给一个已不存在的 webview 而静默消失)
+  if (navGiven) {
+    const navLines = navText.split(/\r?\n/)
+    let navSites = 0
+    navLines.forEach((l, i) => {
+      if (!/\.eval\(/.test(l) || !/location\.(href\s*=|reload\(\))/.test(l)) return
+      navSites++
+      const win = navLines.slice(Math.max(0, i - 8), i + 1)
+      if (!win.some((w) => w.includes('reset_deep_link_gate_for_navigation')))
+        say(
+          `G8 ${G_DEEP_LINK_NAV_FILE} 第 ${i + 1} 行发起整页导航而未先复位深链闸门 ⇒ 重载期间抵达的链接会被直投丢失: ${l.trim().slice(0, 90)}`,
+        )
+    })
+    if (navSites === 0)
+      say(
+        `G8 在 ${G_DEEP_LINK_NAV_FILE} 里找不到任何整页导航发起点 —— 判据已对该文件失明(不是"没有违规")`,
+      )
+  } else {
+    say(`G8 未取到 ${G_DEEP_LINK_NAV_FILE} 内容 ⇒ 导航期复位这条判据本轮未判定(不记为通过)`)
+  }
 
   return violations
 }
@@ -800,16 +809,10 @@ impl DeepLinkPending {
     }
     fn take_all(&mut self) -> Vec<String> { std::mem::take(&mut self.urls).into_iter().collect() }
 }
-fn apply_take_ready(gate: &mut DeepLinkGateState) -> (bool, Vec<String>) {
-    gate.target_ready = true;
-    (true, gate.pending.take_all())
-}
-/// 与 HEAD 的 lib.rs 同形:状态迁移被抽进纯函数以便单测直接断言,命令只负责按 label 把关后调用它。
-/// 夹具必须长这样 —— 它一旦退回"赋值内联",下面那条"一跳解析"的判据就变成只复读实现的尺子。
 fn take_pending_deep_links(window: tauri::WebviewWindow) -> Vec<String> {
     if window.label() != "main" { return Vec::new(); }
-    let (_first_take, backlog) = apply_take_ready(&mut gate);
-    backlog
+    gate.target_ready = true;
+    gate.pending.take_all()
 }
 fn reset_deep_link_gate_on_destroy(label: &str) { gate.pending.clear(); }
 fn dispatch_deep_links(app: &tauri::AppHandle, urls: &[String]) {
@@ -836,7 +839,18 @@ async function deliverDeepLinkUrl(raw: string): Promise<void> {
   }
 }
 `)
-  const gCount = (rust, bridge) => auditDeepLinkMechanism(rust ?? gRust(), bridge ?? gBridge())
+  /** G8 的"齐备"夹具:5 处整页导航,每处上方都有复位调用。
+   *  站点之间必须隔 ≥9 行 —— 判据的窗口是"上方 8 行",不留间隔会让上一个站点的
+   *  复位被当成下一个站点的证据,变异(删掉某一处复位)就测不出红。 */
+  const gNavOk = [
+    'fn a(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.href=u", None); }',
+    'fn b(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.reload()", None); }',
+    'fn c(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.reload()", None); }',
+    'fn d(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.href=u", None); }',
+    'fn e(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.reload()", None); }',
+  ].join('\n\n\n\n\n\n\n\n\n')
+  const gCount = (rust, bridge, nav) =>
+    auditDeepLinkMechanism(rust ?? gRust(), bridge ?? gBridge(), nav === undefined ? gNavOk : nav)
 
   /** 反向锁:每条变异必须红在**它自己那一组**判据上 —— 只要求"有违规"会被别的判据凑数,
    *  于是判据失效表现为"绿",而不是"红在错的地方"。 */
@@ -873,31 +887,6 @@ async function deliverDeepLinkUrl(raw: string): Promise<void> {
       'G3 溢出丢弃不计数(删 dropped)必红',
       gCount(gRust((s) => s.replace('self.dropped += 1; ', ''))),
       'G3',
-    ) && ok
-  ok =
-    check(
-      'G4 就绪赋值抽在**被命令调用**的纯函数里 ⇒ 不得判红(HEAD 真形态;把它判红就等于因别人重构而恒红,而恒红 blocking 门的唯一结局是全队 --no-verify)',
-      gCount().filter((v) => v.startsWith('G4')),
-      true,
-    ) && ok
-  ok =
-    checkHas(
-      'G4 赋值留在纯函数里、但命令改调别的(不再点亮)⇒ 必红(反"整份文件里出现过就算"的假绿)',
-      gCount(
-        gRust((s) =>
-          s.replace(
-            'let (_first_take, backlog) = apply_take_ready(&mut gate);',
-            'let backlog = gate.pending.take_all();',
-          ),
-        ),
-      ),
-      'G4',
-    ) && ok
-  ok =
-    checkHas(
-      'G4 把就绪赋值从被调纯函数里删掉 ⇒ 必红(点亮处只有一处,删了就该被发现)',
-      gCount(gRust((s) => s.replace('    gate.target_ready = true;\n', ''))),
-      'G4',
     ) && ok
   ok =
     checkHas(
@@ -960,6 +949,54 @@ async function deliverDeepLinkUrl(raw: string): Promise<void> {
       'G7 事件名两边分叉(Rust 侧常量被改名)必红',
       gCount(gRust((s) => s.replace('const DEEP_LINK_EVENT: &str = "desktop-deep-link";', 'const DEEP_LINK_EVENT: &str = "desktop-deeplink";'))),
       'G7',
+    ) && ok
+  ok =
+    checkHas(
+      'G8 导航发起处删掉复位调用必红(重载期直投丢失那一型)',
+      gCount(
+        null,
+        null,
+        gNavOk.replace(
+          'fn c(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.reload()", None); }',
+          'fn c(){ let _ = w.eval("location.reload()", None); }',
+        ),
+      ),
+      'G8',
+    ) && ok
+  ok =
+    checkHas(
+      'G8 导航面一个发起点都找不到 ⇒ 判"失明"而不是通过',
+      gCount(null, null, 'fn noop(){ /* 没有导航 */ }'),
+      'G8',
+    ) && ok
+  ok =
+    checkHas(
+      'G8 未取到导航文件 ⇒ 计未判定(不得记为通过)',
+      gCount(null, null, null),
+      'G8',
+    ) && ok
+  ok =
+    check(
+      'G4 "置就绪"提成交给同文件 helper ⇒ 不得判红(门必须认自己产出的形态)',
+      gCount(
+        gRust((s) =>
+          s
+            .replace('    gate.target_ready = true;\n', '    apply_take_ready(&mut gate);\n')
+            .replace(
+              'fn reset_deep_link_gate_on_destroy',
+              'fn apply_take_ready(gate: &mut DeepLinkGateState) -> bool { gate.target_ready = true; true }\nfn reset_deep_link_gate_on_destroy',
+            ),
+        ),
+      ),
+      true,
+    ) && ok
+  ok =
+    checkHas(
+      'G4 命令体与 helper 都不置就绪 ⇒ 必红(允许一跳不等于放过)',
+      gCount(
+        gRust((s) => s.replace('    gate.target_ready = true;\n', '    apply_take_ready(&mut gate);\n')),
+      ),
+      'G4',
     ) && ok
 
   // ===========================================================================
@@ -1136,10 +1173,13 @@ const rustSources = new Map()
 let rustEmitHits = 0
 /** 规则 G 复用同一遍取材的 lib.rs 文本(不另开一次读:取材面纪律见守门 118) */
 let rustLibText = ''
+/** G8 的导航发起面:与 lib.rs 同一次 catBatch 取,不另开读、也不按磁盘判 */
+let rustNavText = ''
 
 for (const f of RUST_FILES) {
   const text = textOf(CONTENTS, f)
   if (f === G_DEEP_LINK_RUST_FILE) rustLibText = text
+  if (f === G_DEEP_LINK_NAV_FILE) rustNavText = text
   for (const m of text.matchAll(RUST_EMIT_RE)) {
     const event = m[1]
     // 变量形态 payload(payload 非字符串字面量/unit)不在静态对账范围,正则本就不匹配
@@ -1578,7 +1618,7 @@ if (!rustLibText) {
   errors.push(`规则 G 无法判定: ${G_DEEP_LINK_BRIDGE_FILE} 内容为空 —— 深链机制不再被看守`)
   console.log(`  ${C.red}✗ G 桥接端取不到内容,计「无法判定」${C.reset}`)
 } else {
-  const gViolations = auditDeepLinkMechanism(rustLibText, bridgeText)
+  const gViolations = auditDeepLinkMechanism(rustLibText, bridgeText, rustNavText)
   for (const v of gViolations) {
     errors.push(`深链机制断裂(规则 G): ${v}`)
     console.log(`  ${C.red}✗ ${v}${C.reset}`)
