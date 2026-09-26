@@ -141,7 +141,7 @@
 }
 .special-tab-active {
   background: var(--color-border);
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
 }
 .special-tab-icon {
   font-size: 26rpx;
