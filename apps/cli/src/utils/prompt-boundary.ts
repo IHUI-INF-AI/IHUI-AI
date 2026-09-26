@@ -30,7 +30,7 @@ export function neutralizeBoundaries(text: string): string {
 }
 
 /** 提醒类型封闭集:新增一档必须同时在这里登记,否则编译期不通过。 */
-export const SYSTEM_REMINDER_KINDS = ['context_budget', 'iteration_progress'] as const;
+export const SYSTEM_REMINDER_KINDS = ['context_budget', 'iteration_progress', 'tool_failure_reflection'] as const;
 export type SystemReminderKind = (typeof SYSTEM_REMINDER_KINDS)[number];
 
 /**
