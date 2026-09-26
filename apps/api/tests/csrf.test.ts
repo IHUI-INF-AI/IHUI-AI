@@ -36,6 +36,10 @@ describe('csrf — 双提交 Cookie 模式', () => {
     await server.register(csrfPlugin)
     server.post('/api/protected', async (_req, reply) => reply.send({ ok: true }))
     server.post('/api/auth/login', async (_req, reply) => reply.send({ ok: true }))
+    // D15 GitHub App webhook 桩(本测只证 CSRF 层放行;HMAC 验签在真实路由层,见
+    // github-app-webhook.test.ts)。matchesPrefix 是段边界前缀语义:精确命中 +
+    // `entry/` 开头的子路径命中;**兄弟路由不连带** —— 用兄弟路径钉死这一点。
+    server.post('/api/github-app/webhook', async (_req, reply) => reply.send({ ok: true }))
     await server.ready()
   })
 
@@ -184,6 +188,28 @@ describe('csrf — 双提交 Cookie 模式', () => {
     it('公开白名单 /api/auth/ 豁免', async () => {
       const res = await server.inject({ method: 'POST', url: '/api/auth/login' })
       expect(res.statusCode).toBe(200)
+    })
+
+    it('D15 GitHub App webhook 豁免(机器投递无 CSRF token,HMAC 验签自证)', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/github-app/webhook',
+        payload: { zen: 'Keep it simple.' },
+        headers: { 'x-github-event': 'ping' },
+      })
+      // 不被 CSRF 403 拦截即抵达路由桩(生产上签名层 fail-closed 再拦无效签名)
+      expect(res.statusCode).toBe(200)
+      expect(res.json()).toEqual({ ok: true })
+    })
+
+    it('D15 豁免不连带兄弟路由:/api/github-app/ 其它路径仍被 CSRF 拦', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/github-app/installations',
+        payload: {},
+      })
+      expect(res.statusCode).toBe(403)
+      expect(res.json().message).toContain('CSRF')
     })
   })
 })
