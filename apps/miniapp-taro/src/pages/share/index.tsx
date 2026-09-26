@@ -721,7 +721,7 @@ export default function ShareIndexPage() {
         <NavBar
           variant="ai-home"
           title={tt('share.index.title', 'AI资讯')}
-          bgColor="var(--color-card)"
+          bgColor="var(--color-background)"
           activeTitleIndex={activeTitleIndex}
           onActiveNav={activeNav}
           showFenLei
