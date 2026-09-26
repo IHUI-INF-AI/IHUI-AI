@@ -34,9 +34,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services import rg_fallback_parity as rgp  # noqa: E402
 from app.services.codebase_indexer import (  # noqa: E402
-    MAX_FILES_PER_INDEX,
     _EXT_TO_LANG,
     _IGNORED_DIRS,
+    MAX_FILES_PER_INDEX,
     codebase_indexer,
 )
 

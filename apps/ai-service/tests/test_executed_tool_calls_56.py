@@ -5,7 +5,6 @@
 # app/core 测试:executed_tool_calls.py 第五十六批(对标 Codex
 # executed_tool_calls.rs / seen_ids.rs / request_metadata.rs 单测语义)。
 
-import pytest
 
 from app.core.executed_tool_calls import (
     ExecutedToolCalls,
