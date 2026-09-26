@@ -15,6 +15,7 @@
 import { tokens } from '../../theme/active-tokens'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import {
+  LOADING_INLINE_PADDING_X_PX,
   LOADING_INLINE_PADDING_Y_PX,
   LOADING_LABEL_FONT_PX,
   LOADING_LABEL_GAP_PX,
@@ -46,7 +47,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: LOADING_INLINE_PADDING_Y_PX,
-    paddingHorizontal: 16, // 仅 RN 侧有这一档(小程序端内联态无横向留白)——差异已登记,待裁决
+    paddingHorizontal: LOADING_INLINE_PADDING_X_PX, // 两端同档,唯一源在 @ihui/shared/ui/loading-spec
     gap: LOADING_LABEL_GAP_PX,
   },
   spinnerBox: loadingSpinnerBoxStyle((px: number) => px),
