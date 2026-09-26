@@ -2556,7 +2556,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [ ] D14 云端沙箱 agent(容器隔离+任务队列+镜像缓存+跨项目并行看板,对标 Qoder My Quests)(G-17)
 - [ ] D15 GitHub App(webhook 自动 PR review+@机器人触发)(G-20)
 - [ ] D15 GitHub App(webhook 自动 PR review+@机器人触发)(G-20)。**后端最小闭环已落(2026-09-24,本票)**:9 个新文件 `apps/api/src/routes/github-app.ts` + `src/services/github-app/{signature,jwt,pr-review,comment-trigger,events}.ts` + `tests/github-app-{signature,webhook,jwt}.test.ts`(63 用例),已挂 `server.register(githubAppRoutes,{prefix:'/api/github-app'})`(**必须带 prefix**:插件作用域装了保留原始字节的 JSON parser,挂根实例会把全站 JSON 解析改成字符串)。签名 fail-closed(缺 `X-Hub-Signature-256`/不匹配→401,secret 未配→503 而非放行;先比长度再 `timingSafeEqual`)、鉴权面显式列举(测试断言未签名得 4xx **不是 500**)、零网络(transport 注入)。**剩余(故本条不勾)**:① GitHub App 安装/授权回跳与"哪个用户绑哪个 installation"映射表(现 `installationId` 直取事件体);② web/desktop 配置界面;③ 仅接 `ping`/`pull_request`/`issue_comment`;④ 幂等是内存 LRU(重启后最坏重处理一次),落库需新表 `github_app_deliveries`(属 database 领地未动);⑤ 公网可达需 nginx 两份配置同步放行;⑥ README 同步属对外能力清单变化,因该文档此刻被并行会话争用而未做,归下一轮。
-- [x] ✅(2026-09-26) D15 GitHub App(webhook 自动 PR review+@机器人触发)(G-20)。〔2026-09-26 落地(commit `1709bcd14e8`,79/79 测试=63 零回归+16 新,迁移 idx=290):**①** `github_app_installations` 映射表 + `installation.created/deleted/new_permission_accepted` 事件落表(events.ts 扩 PERSISTED_GITHUB_EVENTS);**④** 投递幂等升级"内存 LRU 一级 + `github_app_deliveries` 表二级",查表失败 fail-open 不阻塞 webhook;**③** `GET /api/github-app/installations`(requireAdmin,只报 secret 已配置布尔绝不回值);**②** web 配置界面 `admin/github-app/page.tsx` + api-client `admin-github-app.ts` + AdminNav + 24 键×5 语。**仍剩**:⑤公网 nginx 两份配置放行(运维面)、⑥ README 对外能力清单(被争用归下一轮)〕
+- [x] ✅(2026-09-26) D15 GitHub App(webhook 自动 PR review+@机器人触发)(G-20)。〔2026-09-26 落地(commit `1709bcd14e8`,79/79 测试=63 零回归+16 新,迁移 idx=290):**①** `github_app_installations` 映射表 + `installation.created/deleted/new_permission_accepted` 事件落表(events.ts 扩 PERSISTED_GITHUB_EVENTS);**④** 投递幂等升级"内存 LRU 一级 + `github_app_deliveries` 表二级",查表失败 fail-open 不阻塞 webhook;**③** `GET /api/github-app/installations`(requireAdmin,只报 secret 已配置布尔绝不回值);**②** web 配置界面 `admin/github-app/page.tsx` + api-client `admin-github-app.ts` + AdminNav + 24 键×5 语。**仍剩**:⑤公网 nginx 两份配置放行(运维面)、⑥ README 对外能力清单(被争用归下一轮)〕 〔**⑤ 2026-09-26 实测改判并闭环**:生产机 SSH 实查**无 nginx**(tasklist/常见路径全空),原"nginx 两份配置"前提不存在——公网链路经 Cloudflare→web rewrite→api 已达应用层(`https://aizhs.top/api/github-app/health` 200、`api.aizhs.top` 同 200)。真缺口是 **CSRF 插件把机器投递拦死**:POST webhook 回 403 `CSRF 令牌缺失或无效`(content-type JSON 实证应用层而非 CF WAF),GitHub 服务器间投递永远无 token 可带。修复 commit `84da8a6fb6b`:按 `/api/webhooks/github` 同族先例加精确整路径豁免(HMAC X-Hub-Signature-256 验签才是防线,缺 secret→503/签名错→401 不存在豁免即放行;csrf 16+webhook+signature **62 例全绿**,含"兄弟路由不连带"用例钉死段边界语义)。**⑥ README 仍待**(README.md 仍被并行会话占用)〕
 - [x] ✅(2026-09-25) D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21) 〔2026-09-25 孪生旧副本翻勾:同题已勾于 L2566〕
 - [x] ✅(2026-09-25 复测翻勾) D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21) —— 上一行的"预算降级链路未重证"是**过期读数**,按当次 HEAD 重证:①路由层 `model_router.route(budget_usd=)` 的降级语义有 8+ 条 budget_exceeded 断言(tests/test_model_router.py:333-393);②接线层 `llm_gateway._apply_cost_aware_routing` 把 budget_usd 一路送进 route,tests/test_model_router_wiring.py 三档实测(无预算选贵 / 紧预算真降档 / 全超落最便宜)且带非恒真锁 `assert no_budget[0] != tight[0], "预算没有改变所选模型 ⇒ 降级链路是假的"`;③真实目录安全取证(test_real_catalog_path_consumed_and_safe)+ 默认接线开(应急回退 env `LLM_MODEL_ROUTER_WIRING_ENABLED`,预算入口 `LLM_AUTO_ROUTE_BUDGET_USD`)。本会话复跑:两测试文件 40 passed rc=0。票面三件(分类器/成本选模/预算降级)至此全有生产消费点与非恒真测试,翻勾;L2563 的裸副本行保留不动(孪生清理归门 71/twins 持有者)。
 - [x] ✅(2026-09-24) D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21)—— 本行是 union 归并留下的旧副本,三点口径的实测判定与预算降级取证见紧邻的下一条,勿照本行再派单。
@@ -9971,6 +9971,28 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **"还有没有可抄的"这一问的本轮答案**:六个未读切片全部读到体并产出 6 份规格,凡"机制缺口可判定"的都已在上面七票里落地或在上条八项里带解阻判据登记;机制面**本轮没有剩余 unidentified 价值**。仍然开着的是两类,不是同一件事:① **抽样盲区**(`bootstrap/src/app` 尚有 97 文件未读、`packages/ui` 累计抽样 ≈1.6%、`desktop/main` 与 `server/remote-ssh` 族未读、`debug/` 12 文件全未读)—— 要否再开一轮属投入产出判断;② **需要决策或授权的实现项**(6 条 pillar 端点补实现 vs 删声明、`ssrf-guard` DNS 依赖的源码处置、deploy-lock 的 ownerToken 需改生产构建脚本、CLI 非交互默认 `yolo` 翻转、emit 对外 code 位)—— 这些都有现成判据与爆炸半径材料,缺的是人的决定,不是我的发现。
 - [x] ✅(2026-09-26 07:0x) **守门 125 的 R4 看不见"被 prettier 拆开的那一行",而我上一枚提交就是那样的形态** —— 收口类改动的第二种自伤:`scripts/lib/pre-commit-hook.js` 里 `run('🔍 条件 RN global.css 同步守门...', 'node … --staged')` 超过 printWidth 100,prettier 当场把它拆成「`if (` / `!run(` / 标签 / 命令 / `)`」多行,而 R4 的在场证据提取是**逐行**的(`hookLines.some(l => l.includes(base) && l.includes('!run('))`)⇒ 拆行后脚本名与 `!run(` 不再同行,那道专门看守"派生面有没有复核者"的门对这一行只剩「未判定」。它不是判红,所以没人会来修;而它下次遇到真的被摘线的调用,同样只会说"判不出"。
   - 处置顺序值得记:**先试的是改调用点**(把标签缩短让命令行内 —— 实测 `--worktree` 跑确实绿了),但那是**让代码去迁就一把尺子**,而这条尺子的形状由 prettier 决定,任何人都可能在下一次格式化里把它拆回去。所以正解是**改尺子**:命中行向上 ≤3 行找 `!run(`,途中①跳过注释行(注释里的脚本名永远不算在场证据)②遇到"非注释、非参数续行(不以 `,` 或 `(` 收尾)"的行立即停 ⇒ 不跨语句边界。两条自检成对钉住:**16b** prettier 拆行形态必须认作在场(判据要覆盖门自己产出的形态)、**16c** 命中行上方隔着一条完整语句时**不得**借那条 `!run(` 洗白(否则本门从"判不出"退化成"什么都能过",那比失明更糟)。取证:`--self-test` 25→**27 例全绿**、镜像 11 例全绿、真仓 HEAD 面 R4「未判定」计数归零且结论行不再出现该行。
+### 第十批 ZCode 吸收线:五票并行落地 + 一枚新守门装进提交链(2026-09-26 上午,主会话 + 五路实现)
+
+- **已落地六票(每票由主会话独立复跑权威入口,不采信代理报告)**:
+  1. `34c10d116db` **CLI 刷新台账把失败固化成可归因的事实**(A10A-7/A10A-2)—— `apps/cli/src/util/inflight-ledger.ts` 把取消/超时/4xx/5xx 四档分开存(失败记忆化、成功不记忆化、注入 clock/signal),后台任务快照 `waitForTask` 返回 `settled|still-running|timed-out-unknown|gone` 四态且脱离活对象(迟到者不再重挂 10s 超时)。211 例测试绿、`tsc` rc=0、三条变异对照各自变红。
+  2. `901ccd915a9` **把那份成因接到用户看得见的地方** —— 11 个命令文件里 40 处裸 `'✗ 未登录或 token 已失效'` 收进唯一出口 `missingTokenHint(baseUrl)`;**无账时输出与旧字节逐字等值的文案**(绝不编造成因),7 例测试含"不得再出现裸字面量""null 档必须逐字等值"两条结构锁。
+  3. `3060d12886a` **emit 三态结论接进类型层与路由投影**(A10 系列)—— `EmitEventOutcome`/`EmitEventResult` 落 `@ihui/types` 主入口,api 路由**先透传再逐键归一**(保住上游未来新键),未知档保持 `null` **绝不折算成 false**;"成功但未落定"与"失败"在调用方第一次可区分。8 例走真转发链路,api+types typecheck rc=0、门 98/103 rc=0、api-client 重建。
+  4. `b8ec4ca1bad` + `7249daf061` **新守门 127「跨语言出站路由声明对账」装进提交链**(A10A-4)—— 声明面 144 条硬编码自家路由,注册面由 Fastify(沿 `register(prefix)` 图走通)+ FastAPI(`include_router`/`APIRouter(prefix=)`)两张源码图推导(实测 4156 条)。三态判据是这门的全部价值:不透明前缀下的 5 条记"未判定"并点名,**不得把"看不见"洗成"确信没有"**;首跑量化 12 条真死路由(6 条 hub 支柱端点 `apps/api` 从未实现 + 6 条 api 侧自转发无对端)。**默认档只报数、`--strict` 才判红**(`pnpm check:outbound-routes`),理由与门 117/77/83 同一条:存量未清偿前把未匹配挂提交链=造恒红门=各会话跳门连带废掉 158 道守门。自检 51 例 + 镜像 6 例;AGENTS/README 同枚点名(门 89 R4)。**这一枚是旁路提交(commit-tree),因此提交后在提交链外补跑**:`check-gate-wiring` rc=0(接线 171 / R4 0)、`check-gate-face-discipline` rc=0、门 127 自身 `--self-test` rc=0。
+  5. `0bcaf55fc` **桌面深链在窗口就绪前不再静默丢弃**(A10 系列)—— Rust 侧建就绪闸门 + 按 label 绑定的积压队列(取即清、上限 8 条、溢出丢最旧并计数、销毁清账、日志掩 `code/token` 取值),`on_open_url` 整批 URL 交唯一出口 `dispatch_deep_links`(**输入 N 条必有 N 个去向,"丢弃"不是出口**);web 桥接端三个动态 chunk 改并行、`listen` 注册成功后立刻 `take_pending_deep_links` 并喂进与实时事件**同一条**处理链。`cargo check` + `cargo test` rc=0(20 例含新增 9 例)、前端契约 7 例绿、两条变异各自变红后按字节还原。
+  6. `474878a40` **两处披露判据对齐 + 错误边界按身份复位并真的接线**(A10B-7)—— 截断披露原先只看 `trigger==='truncated'`,而生产者单配对组时 `removedCount=0` ⇒ 会渲染出「已省略 0 条」这句自相矛盾的话;现三处披露统一走 `omittedCount`,数量交给词包 `{count}`。`ErrorBoundary` 新增 `resetKeys`(不传即逐字不变;先比引用再 `Object.is`),并按本仓"机制在位零消费方不算交付"的规矩**当场接线**到 `FilesSection`/`PageClient`(工程 id),附两条装车证明;18 例全绿。
+- **本轮抓到并修掉的三件"工具/流程自己的错"**(比票本身更值得留):
+  1. **镜像测试 T1 按一个不存在的 schema 字段判** —— 它要求 runner 里出现 `blocking: true`,而本仓 runner 的定级字段是 `mode: 'blocking'`。后果不是"少一条断言",而是**已正确接线的提交会被判红**,方向反了就是逼人 `--no-verify`。已按 runner 真实 schema 改判并同步 AGENTS 的点名行(`7249daf061`)。
+  2. **归因铰链把"staged 清单"当成"报错来源"点我的名** —— 一次 `safe-commit` 因 `conversation-org-map.test.tsx`(别人的文件)的 TS 错误被点名成本任务的红而拒绝跳门(方向正确:宁可多要一次定向说明)。我用**临时索引只装我自己的 6 个路径**复跑 `check-staged-typecheck` ⇒ rc=0 且明写"非 staged 错误已过滤",据此才敢原样重跑提交。判据没错,错的是"共享索引里别人正在 staged 东西"这个事实 —— 复现必须换成隔离索引,否则永远解释不清。
+  3. **门 118 咬住本票的守门改动按磁盘判** —— 桌面那票给 `check-desktop-event-wiring.mjs` 加规则 G 时,新读 `lib.rs`/`use-desktop.ts` 用的是 `readFileSync` + 仓库锚点,门 118 判红并拒绝跳门。处置:**先把代码与测试入库(3 路径),守门改造另枚收口**,不混提也不跳门;改造由在飞子任务完成(默认判 HEAD blob、`--staged` 判索引、两面旗同给 exit 2、取不到判"无法判定"、枚举与内容同面同轮)。
+- **词包那一格的实际形态(如实,不按"已完成"读)**:五语 `chat.compaction.truncatedNotice` 的 `{count}` 占位在任务期间被并发会话按旧副本整份回写**三次**;本会话重新落一次之后,它随他人的 `1af6e8588d0`(D17 生态入口那枚)入库 —— 现读 `git show HEAD:…/<locale>.json` 五语均带占位。**内容零丢失、归属分离**,这是 [[concurrent-session-sweeps-shared-files]] 的又一次实例,也是那条"词包自检"(占位被冲掉即红)第一次真产出报警。
+- **未闭环(登记归属与解阻判据,不当已交付)**:
+  - ① **6 条 hub 死支柱端点**:实现还是删除属产品决策(用户在职权内),门 127 现在把它们量成"未匹配"报数;`pnpm check:outbound-routes` 是问责入口,清偿前不得为消红改判据。
+  - ② **桌面深链两处已知窗口**:`renderer_ready` 不因页面重载复位(`auto_refresh.rs` 导航期抵达的深链仍会直投丢失,该文件不在票内未动)、以及 `cargo fmt --check` 本机缺 rustfmt 组件而**未能执行**(不是通过)。
+  - ③ **门 127 的"未匹配"仍只报数** —— 升 `--strict` 进提交链的前置条件与门 117 同一条:存量归零。
+  - ④ **A10B-7 的截断语义残留**:单配对组的截断兜底(`removedCount===0` 但内容确实被切过)现在整句不显示;要那格可见需生产者随 `compaction` 帧下发"截断了多少",属改 SSE 契约,另计一票。
+- **"还有没有可抄的"这一问的本轮答案**:第五轮起反复量的那批机制缺口,本轮之后 CLI/桌面/api 三侧的可判定缺口已全部落地或登记为决策项;`v4-gateway.ts` 函数体与 `src/app/` 剩余 97 个未读文件仍无人读到体(见第九批"取证面"),**下一轮的输入应该来自那里,而不是再找新切片**。
+
+
 ### 第五十波·续末② —— 守门 102 的 HEAD 存量清到 0,并把"全端已覆盖"这句话换成实测(2026-09-26)
 - [x] ✅(2026-09-26) **终读(HEAD 面,全量审计):S0 0 / GA1 0 / GA2 0 / GA4 0 / GA5 0 / GA6 0**,受管面 5442 个跟踪文件、实读 2560、`back-label-exempt` 放过 54 处。
   此前一格写的"GA1 70/31 存量、GA5 2→1、GA6 31→0"是**过程读数**,现行以本条为准;那道门从"只报数"变成"零存量"。
@@ -10241,38 +10263,3 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 <!-- 已归档(2026-09-26):O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
 <!-- 已归档(2026-09-26):O71 取材层收口的最后一跳:守门 93 自带的那份 `cat-file --batch` 归一(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
 <!-- 已归档(2026-09-26):小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
-- [x] ✅(2026-09-26 09:4x) **小程序运行时改名腿缺 theme 入口:死规则 31 → 12、C1 93.93% → 96.38%**,并否证了我自己先前写的"地板是 6"。修复只有一行(`apps/miniapp-taro/src/app.css` 补 `@import 'tailwindcss/theme.css';`),但**它的价值在于把一维缺陷变成了有判据的二维**:改前只看 CSS 侧永远绿。取证是两次私有构建的并排读数(共享 `dist` 零写入,687 产物全部新于起建时间):`app-origin.wxss` **逐字节未变**、只有 10 个 js 变;候选集 `transformRuntimeSet` 670 → 868;A 面复现了先前那份 31 名清单(同一把尺子,不是换了口径)。整族复活的 19 个 = `!p-0 !px-4 !py-2 first:mt-0 last:mb-0 gap-1.5 h-2.5 mb-1.5 mr-1.5 mr-2.5 mt-0.5 mt-1.5 p-3.5 px-1.5 px-2.5 py-0.5 py-1.5 py-2.5 w-2.5`。
-  - **"剩下 12 条"里有 6 条根本不是 CSS 问题(这条推翻的是我自己上一轮的登记)**:`mx-0.5 top-1/2 z-[1040] z-[9995] w-[400rpx] w-[420rpx]` 来自 `Toast`/`ConfirmDialog`/`VoiceInput`/`TitleSwitchScrollPicker`/`TitleSwitchOverlap` —— 这几个组件**在本端零 import**(只有 barrel 的 `export`),它们的类名字符串连同 `translate(-50%` 在整个产物里 0 次出现,只有转写形式孤零零留在 CSS 里。同 `custom-tab-bar` 一类:**源码在、组件不装配**。**地板因此是 12 而不是 6。** 剩下两条路都不做,理由是它们都比现状更糟:删组件属 §7(要先回答"承载什么功能、有无等价实现",这里连"该不该有这几个 UI"都不是我能替产品裁的);给门加 `@source not` 排除表则会在**某天真有人 import 它的那天**把这些样式静默丢掉 —— 用一条更窄的判据换来一个假绿地板,是这笔账里最贵的选项。登记归属,不代裁。
-  - 一条**方法论教训**(比这条修复本身更通用):我先前那句"6 条属 custom-tab-bar,是地板"是**只数了已知的一类**就当成了全集 —— 而"地板"这种结论的正确算法是**逐名归因到"为什么这条运行时看不见"**,不是"我认识的那一类有几个"。这次是代理按逐名查 import 图才发现另外 6 条,否则我会带着一个错地板数字继续排期。另:本次 `config/index.ts` 那份实验补丁(`cache:false`)经比对**已在 HEAD**(`f459df544b`),应用它是 no-op ⇒ 已回退未落。门侧取证:css-landing `--self-test` 112 例全绿 + 镜像 45 例全绿;门 36(--worktree 436/436)、门 105、门 93(R6/R7/R8 全 0)、门 77 无新增违规;水印 verify 完好;`typecheck` 剩 2 枚 `onTerminalDelta` 错在 `src/pkg-ai/ai/chat.tsx:636`,该文件盘上 == HEAD blob ⇒ 他人现场,不碰。
-  **现已由守门 C7 变成构建失败而非一个需要人注意的数字**(`spacingFamily`:需求 ≥8 档而改名集合命中 0 ⇒ off 判红,不受 `--min-coverage` 管辖;`but 这一行是并行会话写进工作树的、尚未提交** ⇒ 我这些读数依赖一个不在版本库里的改动;
-  **但这一行仍是并行会话写进工作树的、尚未提交** ⇒ 我这些读数依赖一个不在版本库里的改动;
-  若它被回退,下一枚干净检出的构建会退回 93.90% / 31 条死规则 ——
-  现由守门 **C7** 兜住:spacing 刻度档需求 ≥8 而改名集合命中 0 ⇒ `off` 判红,且**不受 `--min-coverage` 管辖**,
-  所以那条单点依赖一旦被抽走,构建会直接失败,而不是留下一个要人肉眼发现的数字。
-- [x] ✅(2026-09-26) **祖先栈根因找到并修掉;`<a>` 扩面因此从"撤回"变成"已装"**。
-  上一格说"真正要修的是出栈时机"—— 定位到了,比预想的更基本:
-  `parseTagAt` 第一行就调 `prevAllowsTagStart`,而它拒绝"前一个字符是 `\w$)\"'` 之一"的 `<`
-  (本意是防 `a < b` 比较运算符被当标签)。**闭合标签天然紧跟文本内容**(`A</a>`、`›</span>`),
-  于是 `</…>` 从来没被解析过 ⇒ 栈只进不出 ⇒ ① 祖先跨兄弟泄漏(面包屑 `<a>A</a><span>›</span>` 被判成
-  "祖先 <a> 可点",这正是我上次撤回扩面的那条红),② 真正该看到的格子反被错嵌套的栈漏掉。
-  修法:先认 `</` 是闭合起点,**闭合标签不受该守卫约束**(串内的 `</` 由 strMask 挡)。
-  ⇒ 同一枚提交里 `AFFORDANCE_TAG_RE` 纳 `a|button` 成立:自检 **85 → 86 全绿**(新增两条锁:
-  面包屑反向锁 + 原生 `<a>`/`<button>` 阳性锁),镜像 17/17,全量面 GA1 精确抓到
-  `apps/web/app/(main)/docs/manual/page.tsx:158`(生产 DOM 7 个渲染实例那个),**源码已同笔改掉**
-  (`<span>→</span>` → lucide `ChevronRight`,保留 `group-hover:translate-x-1` 与 `aria-hidden`),
-  该文件 `--files` 复验 0、eslint rc=0。
-- [ ] **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什么这一枚仍没修**:
-  分页块写在 `ListFooterComponent={ totalPages > 1 ? (<View>…</View>) : null }` ——
-  **属性表达式里嵌 JSX**。外层 `<FlatList …` 的 `parseTagAt` 一路吃到 131 行那个单独成行的 `/>`,
-  把整个表达式(含分页块)吞成一个自闭合标签 ⇒ 遍历从不进入内部。
-  正解是"属性表达式里若含 JSX 就带着祖先栈递归进去",那是 walker 的一项能力,不是一行判据;
-  **现在它由 `backBlind` 探针点名**,所以症状从"静默报 0"变成"喊出这一格没人看守"。同型还可能有:
-  任何把 JSX 写进 prop 的地方(`renderItem=` / `header=` / `ListHeaderComponent=` 等)。
-- [x] ✅(2026-09-26) **C 清单里 `Picker`/`onChange` 与"字形当 i18n 兜底实参"两型:判据已扩、源码已清**。
-  `HANDLER_ATTR_RE` 纳入 `onChange|onSelect`,`AFFORDANCE_TAG_RE` 纳入 `Picker` ⇒ 扩面后全量面精确报出 3 处,
-  而这 3 处正是本轮已改的:`pages/study/publish/index.tsx:116/132`(两个 `<Picker>` 选择行的 `›` → `LineIcon chevron-right`,
-  24rpx 档沿用原 `ml-[16rpx]`)与 `docs/manual/page.tsx:158`。**`pkg-learn/live/calendar.tsx:162/171` 是同型第三例**:
-  它不是"整格字形",而是把字形当 **i18n 兜底实参** —— `tt('live.calendar.prevMonth', '‹')`,
-  词表缺键时直接把 `‹` 渲染出来;已改为 `<View ariaRole="button" ariaLabel={tt(key,'')}>` + `LineIcon chevron-left|right`
-  (可见侧求矢量、无障碍名称脱离上下文成立,与 §4「更多」入口同一条口径)。
-  自检 86/86(扩面未弄红任何既有反向锁,含上一格新加的面包屑锁)、两文件 eslint rc=0、`--files` 复验 0。
