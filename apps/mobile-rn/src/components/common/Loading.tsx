@@ -14,6 +14,12 @@
  */
 import { tokens } from '../../theme/active-tokens'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
+import {
+  LOADING_INLINE_PADDING_Y_PX,
+  LOADING_LABEL_FONT_PX,
+  LOADING_LABEL_GAP_PX,
+  loadingSpinnerBoxStyle,
+} from '@ihui/shared/ui/loading-spec'
 
 export interface LoadingProps {
   text?: string
@@ -26,7 +32,10 @@ export default function Loading({
 }: LoadingProps): React.JSX.Element {
   return (
     <View style={[styles.root, fullscreen && styles.fullscreen]}>
-      <ActivityIndicator size="large" color={tokens.brand.DEFAULT} />
+      {/* 原生指示器的字形尺寸由平台控件决定(数值档在 Android 不生效),这里只对齐它占的盒子 */}
+      <View style={styles.spinnerBox}>
+        <ActivityIndicator size="large" color={tokens.brand.DEFAULT} />
+      </View>
       {text ? <Text style={styles.text}>{text}</Text> : null}
     </View>
   )
@@ -36,10 +45,11 @@ const styles = StyleSheet.create({
   root: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    gap: 12,
+    paddingVertical: LOADING_INLINE_PADDING_Y_PX,
+    paddingHorizontal: 16, // 仅 RN 侧有这一档(小程序端内联态无横向留白)——差异已登记,待裁决
+    gap: LOADING_LABEL_GAP_PX,
   },
+  spinnerBox: loadingSpinnerBoxStyle((px: number) => px),
   fullscreen: {
     position: 'absolute',
     top: 0,
@@ -50,7 +60,7 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   text: {
-    fontSize: 14,
+    fontSize: LOADING_LABEL_FONT_PX,
     color: tokens.text.secondary,
   },
 })
