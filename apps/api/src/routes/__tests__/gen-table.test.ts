@@ -9,7 +9,7 @@
  *   - db.select() 按调用顺序消费 selectQueue
  *   - db.insert().returning() 消费 insertQueue,insertCalls 记录 values
  *   - db.execute() 消费 executeQueue(模拟 information_schema 查询结果)
- *   - db.delete().where() 记录 deleteCalls
+ *   - db.delete().where() 记录 deleteCalls,并同形支持 await 与 .returning()(库确认集合)
  * requireAdmin 直接放行。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
@@ -103,7 +103,17 @@ vi.mock('../../db/index.js', () => {
     delete: (target: unknown) => ({
       where: () => {
         deleteCalls.push(target)
-        return Promise.resolve([])
+        // 本文件的 DELETE 端点已从自报 `deleted: true` 改成 `.returning({…}) → removed.length > 0`
+        // (库确认)。真实 drizzle 的 `where()` 产物**既可 await 也可再 .returning()**,所以夹具
+        // 必须同时给出这两侧:只给 await 就是夹具比真库更弱,而被测代码依赖的正是更强的那一侧。
+        // 行内容不被消费(路由只读 .length),但**基数必须非零** —— 返回 `[]` 等于让夹具宣称
+        // "库里没有这行",那正是旧代码谎报 deleted:true 时被 mock 掩盖掉、测试却跟着点头的形状。
+        const removedRows = [{ tableId: 't-1' }]
+        return {
+          returning: () => Promise.resolve(removedRows),
+          then: (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
+            Promise.resolve(removedRows).then(resolve, reject),
+        }
       },
     }),
     execute: () => {

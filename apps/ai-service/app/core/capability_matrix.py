@@ -119,6 +119,36 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
     },
     # ============ 开关类(默认关,移植完成待放量)============
     {
+        # V3 #52:RRF 融合常数 k(唯一 env 读取点 rag.py:76)。
+        "key": "rag_rrf_k",
+        "env": "RAG_RRF_K",
+        "default": "60",
+        "category": "开关类",
+        "owner_module": "app.services.rag",
+        "doc_ref": "app/services/rag.py:76",
+        "reason_if_off": "非开关而是融合常数:未设置即用论文默认 60,非法/非正数回退默认",
+    },
+    {
+        # 二段 LLM 重排的总开关。上一版本条注释把它写成"构造入参 rag_llm_rerank_enabled"
+        # 是错的(那个标识符全仓不存在),真读取点在此,默认关 ⇒ 恒降级为一阶段融合。
+        "key": "agent_rerank_llm",
+        "env": "AGENT_RERANK_LLM_ENABLED",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.services.reranker",
+        "doc_ref": "app/services/reranker.py:73",
+        "reason_if_off": "LLM 二段重排默认关:开了才对 top-K 候选二次打分,关时返回体标 DEPTH_RRF",
+    },
+    {
+        "key": "agent_rerank_llm_top_k",
+        "env": "AGENT_RERANK_LLM_TOP_K",
+        "default": "20",
+        "category": "开关类",
+        "owner_module": "app.services.reranker",
+        "doc_ref": "app/services/reranker.py:78",
+        "reason_if_off": "非开关而是候选数上限:未设置即用默认 20,非法值回退默认",
+    },
+    {
         "key": "agent_budget",
         "env": "AGENT_BUDGET_ENABLED",
         "default": "false",

@@ -388,7 +388,7 @@ export const userLlmConfigRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(aiModelConfig.id, p.data.id), eq(aiModelConfig.ownerUuid, userId)))
       .returning({ id: aiModelConfig.id })
     if (result.length === 0) return reply.status(404).send(error(404, '配置不存在或无权限'))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    return reply.send(success({ id: p.data.id, deleted: result.length > 0 }))
   })
 
   // -----------------------------------------------------------------

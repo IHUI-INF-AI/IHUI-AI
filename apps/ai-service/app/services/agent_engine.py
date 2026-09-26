@@ -109,6 +109,7 @@ from app.core.turn_metadata import (
 )
 from app.core.feature_flags import FeatureRegistry, FeatureSpec
 
+from .engine_tool_bridge import capability_equivalent, execution_mode
 from .session_store import ItemBase, SessionStore
 
 logger = logging.getLogger(__name__)
@@ -4956,34 +4957,38 @@ class AgentEngine:
     # 引擎内置工具(2026-09-18 第二批,对标 Codex plan/collab/view_image 工具面)
     # ------------------------------------------------------------------
 
+    def _builtin_tool_builder(self, name: str) -> Callable[[EngineThread], Any]:
+        """按内置名取它的构造函数 —— **命名约定即唯一真相**(V3 #47 第一格)。
+
+        改前这里是一张把 14 个内置名**又抄了一遍**的 dict(内置名 -> 绑定方法),
+        那份表才是 `_builtin_tool_definitions` 真正构造定义时用的键集,而
+        `BUILTIN_ENGINE_TOOLS` 只是"名单"。两张表一旦分叉
+        (加名字只改一处),表现不是报错而是"某个内置名永远构造不出来"或
+        "名单里有、构造时 KeyError" —— 而守门 J8 读的是名单,看不见这张表。
+        现由名单单向推导:新增内置名却没有对应 `_<name>_tool` 方法,直接 fail-fast
+        并点名,而不是让它在运行时静默缺一件能力。
+        """
+        builder = getattr(self, f"_{name}_tool", None)
+        if not callable(builder):
+            raise RuntimeError(
+                f"引擎内置工具 {name!r} 在 BUILTIN_ENGINE_TOOLS 里登记,却没有 "
+                f"{type(self).__name__}._{name}_tool 构造函数 —— 名单与实现分叉"
+            )
+        cast: Callable[[EngineThread], Any] = builder
+        return cast
+
     def _builtin_tool_definitions(self, thread: EngineThread) -> list[Any]:
         """构造引擎内置工具定义(宿主同名覆盖 / denyTools / tools 白名单生效)。"""
 
         whitelist = thread.tool_names
         host_names = set(thread.host_tools)
-        builders = {
-            "update_plan": self._update_plan_tool,
-            "spawn_subagent": self._spawn_subagent_tool,
-            "view_image": self._view_image_tool,
-            "request_permissions": self._request_permissions_tool,
-            "unified_exec": self._unified_exec_tool,
-            "request_user_input": self._request_user_input_tool,
-            "apply_patch": self._apply_patch_tool,
-            "run_code": self._run_code_tool,
-            "web_search": self._web_search_tool,
-            "new_context": self._new_context_tool,
-            "clock_sleep": self._clock_sleep_tool,
-            "clock_curr_time": self._clock_curr_time_tool,
-            "send_message_to_user_async": self._send_message_to_user_async_tool,
-            "request_user_input_async": self._request_user_input_async_tool,
-        }
         definitions: list[Any] = []
         for name in BUILTIN_ENGINE_TOOLS:
             if name in host_names or name in thread.deny_tools:
                 continue
             if whitelist is not None and name not in whitelist:
                 continue
-            definitions.append(builders[name](thread))
+            definitions.append(self._builtin_tool_builder(name)(thread))
         return definitions
 
     def _update_plan_tool(self, thread: EngineThread) -> Any:
@@ -6632,9 +6637,22 @@ class AgentEngine:
 
     async def _tool_catalog(self, thread: EngineThread | None) -> list[dict[str, Any]]:
         """合并工具目录快照(2026-09-18 第四批,对标 Codex tool_search 目录面):
-        内置工具 + 线程宿主工具 + MCP 超级工具池(承载体注入)。"""
+        内置工具 + 线程宿主工具 + MCP 超级工具池(承载层注入)。
+
+        V3 #47 第三格(2026-09-26):JSON-RPC 面**不再自己判断"这个名字是什么能力"** ——
+        每个内置条目现读同一份 `ENGINE_TOOL_BRIDGE`,带上它在注册表里的归口名 `mapsTo`
+        与处置结论 `executionMode`。此前 catalog 只发 `{"source": "builtin", "description": ""}`,
+        等于对客户端宣称"这是引擎独有的一面",而 #47 的病根正是"同一能力在两条链上顶着
+        不同名字、各自套上不同判定";把归口写进协议面,客户端与门禁看的才是同一份结论。
+        """
         catalog: list[dict[str, Any]] = [
-            {"name": name, "source": "builtin", "description": ""}
+            {
+                "name": name,
+                "source": "builtin",
+                "description": "",
+                "mapsTo": capability_equivalent(name),
+                "executionMode": execution_mode(name),
+            }
             for name in BUILTIN_ENGINE_TOOLS
         ]
         if thread is not None:

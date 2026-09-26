@@ -60,8 +60,11 @@ export const productIdentityRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request, reply) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
-      await db.delete(productIdentities).where(eq(productIdentities.id, id))
-      return reply.send(success({ id, deleted: true }))
+      const removed = await db
+        .delete(productIdentities)
+        .where(eq(productIdentities.id, id))
+        .returning({ id: productIdentities.id })
+      return reply.send(success({ id, deleted: removed.length > 0 }))
     },
   )
 }

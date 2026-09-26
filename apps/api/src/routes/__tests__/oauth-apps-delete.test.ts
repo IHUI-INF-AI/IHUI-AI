@@ -90,7 +90,9 @@ describe('O13c 自助 OAuth 应用删除', () => {
     expect(created.statusCode).toBe(200)
 
     oauthMocks.findOAuthAppByClientId.mockResolvedValue(probeAppRow(USER_A))
-    oauthMocks.deleteOAuthApp.mockResolvedValue(undefined)
+    // deleteOAuthApp 现回报库确认的 client_id 集合(旧契约是 void);
+    // 路由的 deleted 由 removedIds.length 派生 ⇒ 夹具必须给出"真删掉了哪一行"。
+    oauthMocks.deleteOAuthApp.mockResolvedValue([PROBE_CLIENT_ID])
     const deleted = await app.inject({
       method: 'DELETE',
       url: `/api/auth/oauth/apps/${PROBE_CLIENT_ID}`,

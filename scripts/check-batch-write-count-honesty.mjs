@@ -30,11 +30,38 @@
  *   E3 命中行或其紧邻上一行有行内豁免 `batch-count-exempt: <原因>` —— **必须带非空原因**,裸标记
  *       不算(与门 102/108 同规矩),且必须在注释里(否则把标记写进字符串就能冒充豁免)。
  *
- * 刻意不判的邻近形状(反向锁,不得为消红放宽判据):N1 `success({ deleted: true })` 布尔确认
- * (DELETE 幂等 ack,改它属全 API 语义决策"删不存在的行回 404 还是 deleted:false",不归这道门顺手做)
+ * 刻意不判的邻近形状(反向锁,不得为消红放宽判据):N1 `success({ deleted: true })` 布尔确认里
+ * **与写链无关的那一型**(同函数体内没有 db|tx|trx 的 delete/update ⇒ 它只是"惯例 ack",改它属
+ * 全 API 语义决策,不归这道门顺手做;带写链的那一半自 2026-09-27 起升级成判据 **B1**,见下一段)
  * 与 `deleted: ids.length > 0` 这类比较式;N2 `count: rows.length` 读查询计数(函数体内无写链);
  * N3 注释与字符串里的字样 —— 判据跑在"剥注释 + 抹字符串"的代码面上,模块说明符是唯一例外(E2 只能
  * 从字符串里读),所以 import 判据跑在另一档上;两型遮噪方向不同,门 118 头注记过同一条教训,各有用例。
+ *
+ * B1(2026-09-27 立):布尔 ack 里**可判的那一部分**从"只报数"升级成棘轮判据。用户已拍板把
+ * `deleted: true` 改成真实语义(= 库里真删了一行,6 路并行改造在跑),所以"函数里真发了 delete/update,
+ * 却无条件回 `deleted: true`"从惯例变成了**已知在偿的债** —— 新写一处这种假 ack、或把已改真的点改回
+ * 字面量,都必须当场红;而 HEAD 存量不判红(与改动无关的恒红门唯一结局是逼人 `--no-verify`,§12e)。
+ *   判据一条:同一**函数体**内 ① 有一条 `db|tx|trx` 发起的 `.delete(`/`.update(` 链(不要求 inArray ——
+ *     B1 只问"这一屏真的发了写",不问命中集算法),② 有 `.send(<X>success({ … deleted: true … }))`
+ *     字面量(与 V1 **共用同一份取材**:`sendSuccessObjects` + `findBooleanAckSends`,两处各扫一遍必漂移,
+ *     M13 的 send-success 扫描式单点锁同时管住这一族),③ 体内没有 `.returning(`、也没有 `batchWriteOutcome(`
+ *     ⇒ 违规。判据只在**响应对象面**里找 `deleted: true` —— select 结果映射、类型注解、注释、字符串里的
+ *     同字样一律不算(所以它不是整行 grep,`B1r` 用例钉死这一点)。
+ *   两条放过通道(与违规判据同一次扫描内判定,各配正反用例):
+ *     F1 同函数体有 `.returning(` 或 `batchWriteOutcome(` 调用 —— 已是库确认口径(注释/字符串里的这两个
+ *        字样不算:判据跑在遮蔽后的代码面上);
+ *     F2 行内豁免 `delete-ack-exempt: <原因>` —— **必须带非空原因**(裸标记不计,同门 102/108 的
+ *        "注释闭合符冒充原因"教训)、**必须落在注释里**(字符串里的标记不算)、**只命中本行生效**(比
+ *        `batch-count-exempt` 的"本行或紧邻上一行"更严:假 ack 的标记写在上一行是直觉动作,那条通道
+ *        宽一寸,一个标记就能救整块,反向锁由 `B1p②c` 钉住)。它已登记进守门 108 的
+ *        `FAMILY_LIFETIME_DAYS` 取 **30 天** —— 这是待偿的迁移债,不是结构性定性。
+ *   **E2(文件级 import 唯一出口)刻意不救 B1**:import 了 `utils/batch-outcome` 不等于这一处 ack
+ *     走了库确认(实测 fixture `b1OutletFileStillJudged`),文件级放过是计数判据的口径,搬过来就
+ *     把最典型的"迁了一半的端点"洗成通过。
+ *   棘轮锚点 = **该文件 HEAD 自身的 B1 计数**(与门 70/77/83/98 同形,禁止手工白名单文件清单 ——
+ *     清单必然腐烂):存量只报数、新增即红、把已改真的点改回字面量即红、清掉后锚点自动下降。
+ *   结构性看不见的一格如实报数:布尔 ack 落在**解析不出函数体**的位置(模块顶层、class 方法简写等)
+ *     ⇒ `b1NoBody` 只报数不判红也不记绿;`--strict` 下与既有未判定同档 ⇒ 拒绝出合格证(exit 2)。
  *
  * 两份"惯例存量"计数(可见性,不是判据 —— **永不影响退出码**):上面那两个"刻意放过"的形状此前只有
  * 注释里的一句"全仓 257 处"撑着,而那句是人肉量的,下次谁扩面/收面账面没人知道它变了多少。现由本门
@@ -43,6 +70,9 @@
  *      对象字面量里 **键逐字为 `deleted`、值为布尔字面量 `true`、其后紧跟 `,` 或 `}`**。
  *      因此 `deleted: affected` / `deleted: rows.length` / `deleted: true === x` / `isDeleted: true` /
  *      `restored: true`(别的键族)**一律不混进这一计数**。
+ *      **V1 仍是全形态的"现读可见性"数,自身依旧不参与任何退出码**;但自 2026-09-27 起它是 B1 的
+ *      超集 —— 其中"同函数体有写链且无库确认"的那一子集被 B1 判据问责(走 `b1*` 自己的键,
+ *      V1 的读数一字不动)。"布尔 ack 惯例不计红"这句现在只对**无写链**的那一半成立。
  *   V2 `readQueryCountSites` / `readQueryCountFiles` —— N2 那一族,复用同一份 sends 判据而不是另写
  *      正则(两处算同一件事必漂移):键为 `count` 且**函数体内没有任何批量写链**(有链而顺序不成立
  *      的那些已经落在 U1 未判定里,不重复计)。
@@ -77,9 +107,14 @@
  * **V1/V2 两份惯例存量计数不参与任何一档退出码**(含 --strict);--explain 会逐条点名它们的 file:line,
  * --json 在 counts 里追加 booleanAckSites/booleanAckFiles/readQueryCountSites/readQueryCountFiles
  * 四个新字段,既有字段名与取值形态逐字不变。
+ * **B1 是判据不是可见性数**,自带一组 `b1*` 键进 counts 与退出码:staged 档走「该文件 HEAD 自身
+ * B1 计数」的差值棘轮判红;全量档默认只报数、--strict 判红;--json 既有四个判据数
+ * (candidates/violations/undetermined/exempt)的取值**逐字不变**(B1 不并入,只追加)。
  *
- * 本门**尚未接入提交链**(注册表与活文档由主会话单写,§12),故头注不声称"已接 pre-commit / 第 N
- * 项" —— 守门 89 正判这一型。接入后应急跳过按 HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY=1。
+ * 本门**已接入提交链**(guardian-runner id 134,blocking,`stagedTriggers=apps/api/src/routes/` +
+ * `apps/api/src/db/`):暂存档走「该文件 HEAD 自身 B1/违规计数」的差值棘轮判红。
+ * 编号一律以 runner 现值为准,照本行派单前先 `grep -n "check-batch-write-count-honesty" scripts/guardian-runner.mjs`。
+ * 应急跳过 HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY=1。
  */
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -104,12 +139,18 @@ export const SELF_SKIP = 'HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY'
 /** 覆盖面只有这两面(批量写的落点就在这里)。扩面必须同批改"枚举表 + 判据"两半 —— §4 记过同型。 */
 export const SCAN_DIRS = ['apps/api/src/routes', 'apps/api/src/db']
 export const EXEMPT_TOKEN = 'batch-count-exempt'
+/** B1 的行内豁免族(守门 108 FAMILY_LIFETIME_DAYS 取 30 天:待偿的迁移债,不是结构性定性)。 */
+export const DELETE_ACK_EXEMPT_TOKEN = 'delete-ack-exempt'
 export const UNIQUE_OUTLET = 'utils/batch-outcome'
 const WRITE_RECEIVERS = new Set(['db', 'tx', 'trx'])
 const COUNT_KEYS = 'deleted|affected|restored|removed|count'
 const FILE_RE = /\.(ts|mts|cts)$/
 const SKIP_RE = /(^|\/)(?:tests?|__tests__|e2e)\//
 const SPEC_RE = /(?:from|require\()\s*['"][^'"]*utils\/batch-outcome(?:\.js)?['"]/
+// B1 放过通道 F1:同函数体内出现库确认调用。跑在**遮蔽后的代码面**上,所以注释/字符串里的
+// `.returning(` 或 `batchWriteOutcome(` 不配放过(否则一句解释性注释就能给假 ack 发合格证)。
+const RETURNING_IN_BODY_RE = /\.\s*returning\s*\(/
+const BATCH_OUTCOME_IN_BODY_RE = /\bbatchWriteOutcome\s*\(/
 
 /* ------------------------------- 词法遮噪 ------------------------------- */
 
@@ -569,6 +610,65 @@ export function findBooleanAckSends(code) {
   return out
 }
 
+/**
+ * B1(2026-09-27):布尔 ack 中**可判的那一子集** —— 同一函数体内有 `db|tx|trx` 的 `.delete(`/`.update(`
+ * 写链、且体内无库确认(`.returning(` / `batchWriteOutcome(`)、且命中行无带原因豁免 ⇒ 假 ack 违规。
+ *
+ * 三条设计决定,每条都有用例钉住(改任何一条前先读它的反例):
+ *  ① **落点取材与 V1 共用 `findBooleanAckSends`**(同一处 `sendSuccessObjects` 扫描,扫描式在源码里
+ *    只许出现一次 —— M13 的单点锁同时管住这一族)—— 两处各扫
+ *    一遍 send 形态,一处改了另一处不跟着改,惯例数和判据数就会说不同的话(§"两处算同一件事"教训);
+ *    也因此 B1 结构上只会看见**响应对象面**里的 `deleted: true`,select 映射 / 类型注解 / 注释 /
+ *    字符串里的同字样不进面(判据不退化成整行 grep)。
+ *  ② **函数体而不是"最小花括号块"**(沿用 findFunctionBodies 的理由):取最小块会让兄弟 handler
+ *    互相借链 —— A 里的 delete 替 B 里的 ack 定罪/发合格证,判据就建立在花括号几何上了。
+ *  ③ **写链不要求 inArray/.where**:计数判据问"affected 怎么算的",B1 只问"这一屏是否真发了写并
+ *    无条件回已删";opaque 链(混进函数字面量、U0 那一型)在这里**照算写链** —— 接收者是 db|tx|trx、
+ *    动词是 delete/update 这一点不受参数里有什么影响,分不清的是命中数而不是"有没有写"。
+ * 找不到所属函数体的布尔 ack 记 `noBodySites`(不判红也不记绿 —— 静默跳过就是这一族门最常犯的假绿)。
+ */
+export function findBoolAckB1Sites(relPath, code, rawLines, allChains = null, ackSites = null) {
+  const bodies = findFunctionBodies(code)
+  const chains = allChains || findWriteChains(code)
+  const out = {
+    file: relPath,
+    candidates: [],
+    violations: [],
+    exempt: { confirmed: 0, marker: 0 },
+    bareExempt: 0,
+    noBodySites: [],
+  }
+  for (const b of ackSites || findBooleanAckSends(code)) {
+    const line = lineAt(code, b.index)
+    const body = enclosingBody(bodies, b.index)
+    if (!body) {
+      out.noBodySites.push({ file: relPath, line })
+      continue
+    }
+    const chain = chains.find((c) => c.start >= body.start && c.end <= body.end)
+    if (!chain) continue // 同函数体无写链:纯惯例面(V1 已计),B1 不判
+    const site = { file: relPath, line, receiver: chain.receiver }
+    out.candidates.push(site)
+    const bodyText = code.slice(body.start, body.end)
+    if (RETURNING_IN_BODY_RE.test(bodyText) || BATCH_OUTCOME_IN_BODY_RE.test(bodyText)) {
+      site.disposition = 'db-confirmed'
+      out.exempt.confirmed++
+      continue
+    }
+    // F2 只命中本行生效(刻意比 batch-count-exempt 的"本行或紧邻上一行"严一档,见头注 F2)。
+    const mk = readExemptMarker(rawLines[line - 1] || '', DELETE_ACK_EXEMPT_TOKEN)
+    if (mk.state === 'ok') {
+      site.disposition = 'marker'
+      out.exempt.marker++
+      continue
+    }
+    if (mk.state === 'bare') out.bareExempt++
+    site.disposition = 'violation'
+    out.violations.push(site)
+  }
+  return out
+}
+
 /** `.send(<X>success({ … <key>: <点号链>.length … }))` 的每一处落点。 */
 export function findCountSends(code) {
   const value = String.raw`[A-Za-z_$][\w$]*(?:\s*(?:\?\.|\.\s*[A-Za-z_$][\w$]*|\[[^\]]*\]|\([^)]*\)))*\s*(?:\?\.|\.)\s*length\b`
@@ -588,19 +688,20 @@ export function findCountSends(code) {
 }
 
 /**
- * 行内豁免 `batch-count-exempt: <原因>`:必须带非空原因,且必须落在注释里。
+ * 行内豁免 `<token>: <原因>`(两条通道共用这一份实现 —— 各写一份"须带原因"的判法必然漂移):
+ * `batch-count-exempt`(计数判据,本行或紧邻上一行)与 `delete-ack-exempt`(B1,只本行,调用方决定)。
  * 两件事各堵一个洞 —— 原因由注释闭合符冒充(先剥尾随闭合符与前导星号再判空,门 102 的 GA1
  * 就漏在这一格);把标记写进字符串冒充(判"标记之前是否有注释起始符")。
  * @returns {{state:'none'|'ok'|'bare', reason:string}}
  */
-export function readExemptMarker(rawLine) {
-  const at = rawLine.indexOf(`${EXEMPT_TOKEN}:`)
-  const idx = at >= 0 ? at : rawLine.indexOf(`${EXEMPT_TOKEN} :`)
+export function readExemptMarker(rawLine, token = EXEMPT_TOKEN) {
+  const at = rawLine.indexOf(`${token}:`)
+  const idx = at >= 0 ? at : rawLine.indexOf(`${token} :`)
   if (idx < 0) return { state: 'none', reason: '' }
   const head = rawLine.slice(0, idx)
   if (!/(?:^|[^\S\n])(?:\/\/|\/\*|\*)/.test(head)) return { state: 'none', reason: '' }
   const rest = rawLine
-    .slice(idx + EXEMPT_TOKEN.length + 1)
+    .slice(idx + token.length + 1)
     .replace(/\*\/\s*$/, '')
     .replace(/^[:*\s]+/, '')
     .trim()
@@ -632,6 +733,14 @@ export function scanFileText(relPath, text) {
     // 而该文件已在 undetermined 清单里点名 —— 少掉的数有对应的名字,不是静默少掉。
     booleanAck: [],
     readQuery: [],
+    // B1(判据,自带 b1* 键;既有四数 candidates/violations/undetermined/exempt 一字不并入)。
+    b1: {
+      candidates: [],
+      violations: [],
+      exempt: { confirmed: 0, marker: 0 },
+      bareExempt: 0,
+      noBodySites: [],
+    },
   }
   if (res.leaks.length) {
     res.undetermined.push({
@@ -693,12 +802,16 @@ export function scanFileText(relPath, text) {
   }
   // V1:布尔 ack 惯例落点(DELETE 幂等确认)。与违规判据同面同轮、同一份遮蔽后的代码面,
   // 所以注释/字符串里的 `deleted: true` 不计数(N3 那一型),而跨行对象字面量数得到。
-  res.booleanAck = findBooleanAckSends(code).map((b) => ({
+  // B1 从**这一份落点清单**里派生(findBoolAckSends 只调一次)—— 惯例面与判据面若各扫一遍,
+  // 一处改了另一处不会跟着改,V1 的数就会与 B1 的子集对不上账(M13 同源的一条锁)。
+  const boolSites = findBooleanAckSends(code)
+  res.booleanAck = boolSites.map((b) => ({
     file: relPath,
     line: lineAt(code, b.index),
     key: b.key,
     value: b.value,
   }))
+  res.b1 = findBoolAckB1Sites(relPath, code, rawLines, findWriteChains(code), boolSites)
   for (const c of findWriteChains(code).filter((x) => x.opaque))
     res.undetermined.push({
       file: relPath,
@@ -763,6 +876,8 @@ export function analyze(root, face, opts = {}) {
   const per = scanned.map((p) => scanFileText(p, texts.get(p)))
   const violations = per.flatMap((r) => r.violations)
   const undetermined = per.flatMap((r) => r.undetermined)
+  const b1Violations = per.flatMap((r) => r.b1.violations)
+  const b1NoBody = per.reduce((a, r) => a + r.b1.noBodySites.length, 0)
   const exempt = ['returning', 'db', 'outlet', 'marker'].reduce(
     (a, k) => ({ ...a, [k]: per.reduce((x, r) => x + r.exempt[k], 0) }),
     {},
@@ -780,29 +895,58 @@ export function analyze(root, face, opts = {}) {
     booleanAckFiles: per.filter((r) => r.booleanAck.length > 0).length,
     readQueryCountSites: per.reduce((a, r) => a + r.readQuery.length, 0),
     readQueryCountFiles: per.filter((r) => r.readQuery.length > 0).length,
+    // B1(判据)自己的键 —— 既有四数(candidates/violations/undetermined/exempt)刻意不并入 B1。
+    b1Candidates: per.reduce((a, r) => a + r.b1.candidates.length, 0),
+    b1Violations: b1Violations.length,
+    b1Files: per.filter((r) => r.b1.violations.length > 0).length,
+    b1ExemptConfirmed: per.reduce((a, r) => a + r.b1.exempt.confirmed, 0),
+    b1ExemptMarker: per.reduce((a, r) => a + r.b1.exempt.marker, 0),
+    b1BareExempt: per.reduce((a, r) => a + r.b1.bareExempt, 0),
+    b1NoBody,
   }
   // 棘轮锚点:只在这一档才回读 HEAD 面(全量档本来就是 HEAD)。新文件不在 HEAD ⇒ 锚点 0,
   // 这是"第一个端点第一次就写错"必须判红的那一格;锚点文件取不到则判死,不拿 0 顶替。
+  // 两条判据(计数自算 / B1 假 ack)各按**各自**的 HEAD 计数当锚点 —— 共用一个数就是互相顶账
+  // (门 67/83 记过"同一笔债两道门各计一次会让两份基线互相顶掉"的反面:这里是两个键必须分开)。
   let ratcheted = null
-  if (face === 'staged' && violations.length) {
-    const byFile = new Map()
-    for (const v of violations) byFile.set(v.file, (byFile.get(v.file) || 0) + 1)
+  if (face === 'staged' && (violations.length || b1Violations.length)) {
+    const legacyByFile = new Map()
+    for (const v of violations) legacyByFile.set(v.file, (legacyByFile.get(v.file) || 0) + 1)
+    const b1ByFile = new Map()
+    for (const v of b1Violations) b1ByFile.set(v.file, (b1ByFile.get(v.file) || 0) + 1)
+    const files = [...new Set([...legacyByFile.keys(), ...b1ByFile.keys()])]
     const headSet = new Set(listCandidates(root, 'head'))
-    const need = [...byFile.keys()].filter((p) => headSet.has(p))
+    const need = files.filter((p) => headSet.has(p))
     const headTexts = need.length ? readCandidates(root, 'head', need) : new Map()
     ratcheted = []
-    for (const [file, now] of byFile) {
-      let anchor = 0
+    for (const file of files) {
+      let anchorLegacy = 0
+      let anchorB1 = 0
       if (headSet.has(file)) {
         const t = headTexts.get(file)
         if (t === undefined)
           throw new Undetermined(`HEAD 取不到棘轮锚点文件 ${file} ⇒ 无法判定(不回落、不拿 0 顶替)`)
-        anchor = scanFileText(file, t).violations.length
+        const hr = scanFileText(file, t)
+        anchorLegacy = hr.violations.length
+        anchorB1 = hr.b1.violations.length
       }
-      if (now > anchor) ratcheted.push({ file, now, anchor, added: now - anchor })
+      const nowLegacy = legacyByFile.get(file) || 0
+      if (nowLegacy > anchorLegacy)
+        ratcheted.push({ file, kind: 'count', now: nowLegacy, anchor: anchorLegacy, added: nowLegacy - anchorLegacy })
+      const nowB1 = b1ByFile.get(file) || 0
+      if (nowB1 > anchorB1)
+        ratcheted.push({ file, kind: 'b1', now: nowB1, anchor: anchorB1, added: nowB1 - anchorB1 })
     }
   }
-  const exit = decide({ face, violations, undetermined, ratcheted, strict: !!opts.strict })
+  const exit = decide({
+    face,
+    violations,
+    undetermined,
+    ratcheted,
+    strict: !!opts.strict,
+    b1Violations,
+    b1NoBody,
+  })
   return {
     face,
     strict: !!opts.strict,
@@ -813,6 +957,8 @@ export function analyze(root, face, opts = {}) {
     ratcheted,
     per,
     exit,
+    b1Violations,
+    b1NoBody,
   }
 }
 
@@ -820,14 +966,25 @@ export function analyze(root, face, opts = {}) {
  * 纯映射:面 + 结论 → 退出码。判红只算两型:staged 的差值棘轮、全量档的 --strict。
  * 全量档默认不判红是设计前提而不是偷懒:HEAD 有存量时当场判红 = 恒红门(§12e)。
  * 未判定永不冒红,但 --strict 下拒绝出合格证 ⇒ exit 2(不冒红也不记绿)。
- * **签名即判据**:本函数只收 violations / undetermined / ratcheted / strict 四个输入 ——
- * 两份惯例存量计数(booleanAck* / readQueryCount*)**刻意不在参数里**,所以"把可见性计数接进退出码"
- * 这一改法在结构上就要求改签名,而那一步由 self-test 的 X2 直接判红(惯例存量是**决策依据**不是**债**)。
+ * **签名即判据(2026-09-27 更新)**:本函数收 violations / undetermined / ratcheted / strict,
+ * 外加 **B1 的 b1Violations / b1NoBody** —— B1 是判据,进退出码是它的本职(默认档仍只由
+ * staged 棘轮与 --strict 触发,存量不冒红)。而两份**惯例存量**计数(booleanAck* / readQueryCount*)
+ * **依旧刻意不在参数里**,所以"把可见性计数接进退出码"这一改法在结构上就要求改签名,
+ * 而那一步由 self-test 的 X1/X1b + 镜像 M13 判红(惯例存量是**决策依据**不是**债**)。
  */
-export function decide({ face, violations, undetermined, ratcheted, strict }) {
+export function decide({
+  face,
+  violations,
+  undetermined,
+  ratcheted,
+  strict,
+  b1Violations = [],
+  b1NoBody = 0,
+}) {
   if (strict) {
-    if (undetermined.length) return 2
-    if (face === 'staged' ? ratcheted && ratcheted.length : violations.length) return 1
+    if (undetermined.length || b1NoBody) return 2
+    if (face === 'staged' ? ratcheted && ratcheted.length : violations.length || b1Violations.length)
+      return 1
     return 0
   }
   if (face === 'staged') return ratcheted && ratcheted.length ? 1 : 0
@@ -845,18 +1002,35 @@ const FACE_TXT = {
 export function formatReport(out) {
   const L = []
   const c = out.counts
+  const b1v = out.b1Violations || []
   if (out.ratcheted && out.ratcheted.length) {
+    const nLegacy = out.ratcheted.filter((r) => (r.kind || 'count') === 'count').length
+    const nB1 = out.ratcheted.filter((r) => r.kind === 'b1').length
     L.push(
-      `❌ 判红:${out.ratcheted.length} 个文件把"计数自算"加回来了(锚点 = 该文件 HEAD 自身违规数)`,
+      `❌ 判红:${out.ratcheted.length} 条净新增越线(按 文件×判据;计数自算 ${nLegacy} · B1 假 ack ${nB1};锚点 = 该文件 HEAD 自身同判据计数)`,
     )
     for (const r of out.ratcheted)
-      L.push(`   ${r.file}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`)
-    L.push(
-      `   修法二选一:① db 层补 .returning({id}) 并以真实命中集算 affected;② 走唯一出口 ${UNIQUE_OUTLET} 的 batchWriteOutcome(requested, confirmed)。`,
-    )
-    L.push(`   确属有意(如全量改写后必得请求数):写行内豁免 ${EXEMPT_TOKEN}: <一句话原因>。`)
+      L.push(
+        `   [${(r.kind || 'count') === 'b1' ? 'B1假ack' : '计数自算'}] ${r.file}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
+      )
+    if (nLegacy) {
+      L.push(
+        `   修法二选一:① db 层补 .returning({id}) 并以真实命中集算 affected;② 走唯一出口 ${UNIQUE_OUTLET} 的 batchWriteOutcome(requested, confirmed)。`,
+      )
+      L.push(`   确属有意(如全量改写后必得请求数):写行内豁免 ${EXEMPT_TOKEN}: <一句话原因>。`)
+    }
+    if (nB1) {
+      L.push(
+        '   B1 修法:deleted 取库里真删的行(rows.length > 0 / batchWriteOutcome 的 affected > 0)—— 用户已拍板改真实语义,不得再无条件回 true。',
+      )
+      L.push(
+        `   确属有意(如该表有触发器保证必删):写**同行**行内豁免 ${DELETE_ACK_EXEMPT_TOKEN}: <一句话原因>(须带原因,只本行生效,守门 108 按 30 天到期账管它)。`,
+      )
+    }
   } else if (out.face === 'staged')
-    L.push('✅ 索引面未见新增"批量写自算计数"(存量按各文件 HEAD 自身计数豁免,不代裁)。')
+    L.push(
+      '✅ 索引面未见新增"批量写自算计数 / B1 假 ack"(存量按各文件 HEAD 自身计数豁免,不代裁)。',
+    )
   if (out.face !== 'staged' && c.violations) {
     L.push(
       `${out.strict ? '❌' : '⚠️'} 全量档现读 ${c.violations} 处自算计数${out.strict ? '(--strict 判红)' : '(只报数,不拦提交:与改动无关的恒红门只会逼人 --no-verify,§12e)'}`,
@@ -864,16 +1038,38 @@ export function formatReport(out) {
     for (const v of out.violations)
       L.push(`   ${v.file}:${v.line}  ${v.key}: ${v.expr}  (写链=${v.receiver}.… 无 .returning())`)
   }
+  if (out.face !== 'staged' && c.b1Violations) {
+    L.push(
+      `${out.strict ? '❌' : '⚠️'} 全量档现读 B1 假 ack ${c.b1Violations} 处 / ${c.b1Files} 文件(同函数体有 db/tx 写链、回 deleted: true 字面量、体内无 .returning()/batchWriteOutcome())${out.strict ? ' —— --strict 判红' : ' —— 存量只报数不拦提交;提交链走差值棘轮,新增即红(§12e)'}`,
+    )
+    for (const v of b1v.slice(0, 40))
+      L.push(`   ${v.file}:${v.line}  (写链=${v.receiver}.delete/update,响应 deleted: true)`)
+    if (c.b1Violations > 40) L.push(`   …另 ${c.b1Violations - 40} 处(--explain 看全量)`)
+  }
   if (c.undetermined) {
     L.push(`⚠️ 未判定 ${c.undetermined} 处 —— **未判定不等于通过**,下列每一处本门都承认自己看不见:`)
     for (const u of out.undetermined.slice(0, 40)) L.push(`   ${u.file}:${u.line}  ${u.why}`)
     if (c.undetermined > 40) L.push(`   …另 ${c.undetermined - 40} 处(--explain 看全量)`)
   }
-  if (out.strict && c.undetermined)
+  if (c.b1NoBody)
+    L.push(
+      `⚠️ B1 未判定 ${c.b1NoBody} 处(布尔 ack 落在解析不出函数体的位置,如模块顶层/class 方法简写)—— 这**同样是未判定而不是通过**:判不了,不冒红也不记绿。`,
+    )
+  if (out.strict && (c.undetermined || c.b1NoBody))
     L.push('❌ --strict 下未判定即拒绝出合格证 ⇒ exit 2(不冒红也不记绿)。')
-  if (out.face !== 'staged' && !c.violations && !c.undetermined)
-    L.push('✅ 通过:覆盖面内无自算计数,且无未判定项。')
-  if (out.face === 'staged' && !out.ratcheted?.length && c.undetermined)
+  if (
+    out.face !== 'staged' &&
+    !c.violations &&
+    !c.undetermined &&
+    !c.b1Violations &&
+    !c.b1NoBody
+  )
+    L.push('✅ 通过:覆盖面内无自算计数、无 B1 假 ack,且无未判定项。')
+  if (
+    out.face === 'staged' &&
+    !out.ratcheted?.length &&
+    (c.undetermined || c.b1NoBody)
+  )
     L.push('ℹ️ 本门未拦本次提交,但上面列出的未判定项**没有被判过** —— 别让绿灯替它们说话。')
   L.push(
     `候选 ${c.candidates} / 违规 ${c.violations} / 未判定 ${c.undetermined} / 豁免 ${c.exempt}` +
@@ -882,16 +1078,24 @@ export function formatReport(out) {
       // 结论行必须**点名**两份惯例存量:放着一个不喊出的数,读报告的人就会以为覆盖面内没有这两种形状
       // ("判据失效的表现永远是安静"同型)。它们不参与退出码 —— 措辞里"不计红"是这一句的约束力所在。
       ` 布尔 ack 惯例(不计红,仅现读计数): ${c.booleanAckSites} 处 / ${c.booleanAckFiles} 文件` +
-      `;读查询 count 惯例(不计红,仅现读计数): ${c.readQueryCountSites} 处 / ${c.readQueryCountFiles} 文件`,
+      `;读查询 count 惯例(不计红,仅现读计数): ${c.readQueryCountSites} 处 / ${c.readQueryCountFiles} 文件` +
+      // B1 是判据,结论行同样必须现读点名(含 0):它的"存量只报数"与"新增即红"共用这份数字,
+      // 少喊一句,读报告的人就分不清"这一族没扫过"和"扫了是 0"。
+      `;B1 假 ack(判据:违规 ${c.b1Violations ?? 0} 处 / ${c.b1Files ?? 0} 文件,` +
+      `库确认放过 ${c.b1ExemptConfirmed ?? 0} · 行内标记 ${c.b1ExemptMarker ?? 0} 只报数,` +
+      `裸标记不计 ${c.b1BareExempt ?? 0},找不到函数体不判 ${c.b1NoBody ?? 0})`,
   )
   return L
 }
 
 const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict] [--explain] [--json] [--files a,b] [--root <dir>] [--self-test]
-  判据:同函数体内 inArray 批量写链 + .send(success({ deleted|affected|… : <请求侧>.length }))
-  放过:链带 .returning( / 计数根可追到库确认集 / import ${UNIQUE_OUTLET} / 行内 ${EXEMPT_TOKEN}: <原因>(须带原因)
-  只报数不判红(现读惯例存量,写在结论行):布尔 ack \`deleted: true\` 与读查询 \`count: X.length\`;--explain 逐条点名
-  全量档只报数不判红(HEAD 有存量,当场判红 = 恒红门 = 逼人 --no-verify);提交链档走差值棘轮。
+  判据一(计数诚实性):同函数体内 inArray 批量写链 + .send(success({ deleted|affected|… : <请求侧>.length }))
+    放过:链带 .returning( / 计数根可追到库确认集 / import ${UNIQUE_OUTLET} / 行内 ${EXEMPT_TOKEN}: <原因>(须带原因)
+  判据二(B1 假 ack,2026-09-27):同函数体内 db|tx|trx .delete(/.update( 写链 + 响应对象里 deleted: true 字面量
+    放过:体内 .returning( / 体内 batchWriteOutcome( / **同行**行内 ${DELETE_ACK_EXEMPT_TOKEN}: <原因>(须带原因)
+  只报数不判红(现读惯例存量,写在结论行):布尔 ack \`deleted: true\`(无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
+  两条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
+  提交链档与 --strict 才问责。
   紧急跳过(接入提交链后):${SELF_SKIP}=1`
 
 function main(argv) {
@@ -936,6 +1140,13 @@ function main(argv) {
     for (const r of out.per)
       for (const q of r.readQuery)
         console.log(`  · 读查询count ${q.file}:${q.line} ${q.key}: ${q.expr}(不计红)`)
+    // B1 的逐条处置(V1 的子集,处置各说各话时这里就是复核入口)。
+    for (const r of out.per)
+      for (const s of r.b1.candidates)
+        console.log(`  · B1假ack ${s.file}:${s.line} (写链=${s.receiver}.…) ⇒ ${s.disposition}`)
+    for (const r of out.per)
+      for (const n of r.b1.noBodySites)
+        console.log(`  · B1未判定 ${n.file}:${n.line} 布尔 ack 解析不出所属函数体,不判红也不记绿`)
   }
   if (argv.includes('--json')) {
     console.log(
@@ -951,6 +1162,10 @@ function main(argv) {
           undetermined: out.undetermined,
           ratcheted: out.ratcheted,
           exit: out.exit,
+          // B1 自己的键一律**追加在末尾**:既有顶层字段名与 counts 既有字段名的取值形态逐字不变
+          // (镜像 M10 钉这一点)。
+          b1Violations: out.b1Violations,
+          b1NoBody: out.b1NoBody,
         },
         null,
         2,
@@ -1051,18 +1266,13 @@ const FIX = {
     '  return reply.send(success({ id: p.data.id, deleted: true }))',
   ]),
   // V1 阳性对照的三个真形态:单行无尾逗号 / 带尾逗号 / 跨行对象字面量 —— 三个都该被现读到。
+  // 2026-09-27 起这里刻意**不放写链**:同函数体有 db.delete/update 的那一子集已是 B1 的射程
+  // (见 FIX.b1FalseAck),R8「惯例形态不改退出码(含 --strict)」这条不变量要的是纯惯例面 ——
+  // 带链的两型各有夹具,混在一起就分不清"V1 只报数"和"B1 判红"是谁的账。
   boolAckCount: h(
-    ['  await db.delete(t).where(eq(t.id, 1))', '  return reply.send(success({ deleted: true }))'],
-    [
-      '  await db.delete(t).where(eq(t.id, 2))',
-      '  return reply.send(success({ id: 2, deleted: true, }))',
-    ],
-    [
-      '  await db.delete(t).where(eq(t.id, 3))',
-      '  return reply.send(success({',
-      '    deleted: true,',
-      '  }))',
-    ],
+    ['  return reply.send(success({ deleted: true }))'],
+    ['  return reply.send(success({ id: 2, deleted: true, }))'],
+    ['  return reply.send(success({', '    deleted: true,', '  }))'],
   ),
   // V1 必须**不**数的近邻形状:键族别的(restored/isDeleted)、值不是布尔字面量(affected/rows.length)、
   // 字面量后面还接着算式或更长的标识符。放宽到"任何含 deleted 的行"就会把这些一并混进同一个数。
@@ -1119,6 +1329,77 @@ const FIX = {
     '  await db.delete(table).where(inArray(table.id, ids))',
     '  return reply.send(success({ deleted: ids.length }))',
   ]).replace('server.delete(basePath', 'server.delete("/x"'),
+  // ---- B1(2026-09-27)夹具:布尔 ack × 写链 × 库确认/豁免 的成对正反例 ----
+  /** 假 ack 本尊:同函数体真发了 delete,却无条件回 deleted: true(HEAD 存量主型)。 */
+  b1FalseAck: h([
+    '  await db.delete(table).where(eq(table.id, id))',
+    '  return reply.send(success({ id, deleted: true }))',
+  ]),
+  /** 同文件第二处同型(供"新增即红"与"违规×2"读数)。 */
+  b1FalseAckTwice: h(
+    ['  await db.delete(a).where(eq(a.id, id))', '  return reply.send(success({ deleted: true }))'],
+    ['  await db.update(b).set({ gone: true }).where(eq(b.id, id2))', '  return reply.send(success({ deleted: true }))'],
+  ),
+  /** 放过 F1a:链上 .returning( —— 体内有库确认调用即放过,不追问这条 ack 用的是不是它。 */
+  b1ConfirmedReturning: h([
+    '  await db.delete(table).where(eq(table.id, id)).returning({ id: table.id })',
+    '  return reply.send(success({ id, deleted: true }))',
+  ]),
+  /** 放过 F1b:体内 batchWriteOutcome( 调用(即便这处仍回字面量,已在迁移途中,不算"新写假 ack")。 */
+  b1ConfirmedOutletCall: h([
+    '  const rows = await db.delete(table).where(eq(table.id, id))',
+    '  const o = batchWriteOutcome(idList, rows)',
+    '  return reply.send(success({ id, deleted: true }))',
+  ]),
+  /** F1 的反面:.returning( 只活在注释里 ⇒ 不配放过(判据跑在遮蔽后的代码面上)。 */
+  b1ReturningOnlyInComment: h([
+    '  await db.delete(table).where(eq(table.id, id))',
+    '  // 这里本该写 .returning( 但没写,门不得被一句解释性注释骗过',
+    '  return reply.send(success({ id, deleted: true }))',
+  ]),
+  /** 放过 F2:带原因、同行尾注释的行内豁免。 */
+  b1MarkerOk: h([
+    '  await db.delete(table).where(eq(table.id, id))',
+    '  return reply.send(success({ id, deleted: true })) // delete-ack-exempt: 该表触发器保证必删一行,见 docs/z.md',
+  ]),
+  /** F2 反面①:裸标记无原因 ⇒ 仍红并计裸标记数(与门 102/108 同规矩)。 */
+  b1MarkerBare: h([
+    '  await db.delete(table).where(eq(table.id, id))',
+    '  return reply.send(success({ id, deleted: true })) // delete-ack-exempt:',
+  ]),
+  /** F2 反面②:标记写在紧邻上一行 ⇒ 不放行(B1 刻意只本行生效,比 batch-count-exempt 严一档)。 */
+  b1MarkerPrevLine: h([
+    '  await db.delete(table).where(eq(table.id, id))',
+    '  // delete-ack-exempt: 标记在上一行,这一族不走"紧邻上一行"通道',
+    '  return reply.send(success({ id, deleted: true }))',
+  ]),
+  /** F2 反面③:标记落在字符串里 ⇒ 不是注释,不放行。 */
+  b1MarkerInString: h([
+    '  await db.delete(table).where(eq(table.id, id))',
+    '  return reply.send(success({ id, deleted: true, doc: "delete-ack-exempt: 这不是注释" }))',
+  ]),
+  /** 读查询面(N3③):deleted: true 出现在 select 映射 / 字符串 / 注释 ⇒ V1 与 B1 都不进。 */
+  b1ReadFace: h([
+    '  await db.delete(table).where(eq(table.id, id))',
+    '  const rows = await db.select({ id: t.id, deleted: true }).from(t)',
+    "  const doc = '老响应形如 reply.send(success({ deleted: true }))'",
+    '  // reply.send(success({ deleted: true })) 是旧写法,已废',
+    '  return reply.send(success({ rows, doc, ok: true }))',
+  ]),
+  /** E2(文件级 import 唯一出口)不救 B1:import 了 ≠ 这一处走了库确认。 */
+  b1OutletFileStillJudged:
+    "import { batchWriteOutcome } from '../utils/batch-outcome.js'\n" +
+    h([
+      '  await db.delete(table).where(eq(table.id, id))',
+      '  return reply.send(success({ id, deleted: true }))',
+    ]),
+  /** 找不到函数体:模块顶层的布尔 ack ⇒ B1 未判定(不判红也不记绿),也不进候选。 */
+  b1NoBody: 'const legacy = api.send(success({ deleted: true }))\n',
+  /** 已改真的形状(BR 棘轮序列用):库确认集合推出真值,响应里不再有字面量 true。 */
+  b1Migrated: h([
+    '  const rows = await db.delete(table).where(eq(table.id, id)).returning({ id: table.id })',
+    '  return reply.send(success({ id, deleted: rows.length > 0 }))',
+  ]),
 }
 
 function selfTest(argv) {
@@ -1286,6 +1567,122 @@ function selfTest(argv) {
     D({ face: 'staged', violations: [1], undetermined: [], ratcheted: [], strict: false }),
     0,
   )
+  // ---- B1(2026-09-27):布尔 ack × 写链的棘轮判据。六元组 = [候选, 违规, 库确认放过, 标记放过, 裸标记, 无函数体]。----
+  const b1 = (t) => {
+    const r = v(t)
+    return [
+      r.b1.candidates.length,
+      r.b1.violations.length,
+      r.b1.exempt.confirmed,
+      r.b1.exempt.marker,
+      r.b1.bareExempt,
+      r.b1.noBodySites.length,
+    ]
+  }
+  eq('B1 命中:同函数体 db.delete + deleted:true 字面量、无库确认 ⇒ 候选 1 违规 1', b1(FIX.b1FalseAck), [
+    1, 1, 0, 0, 0, 0,
+  ])
+  eq('B1b update 链同判(set().where() 也是写)', b1(FIX.b1FalseAckTwice), [2, 2, 0, 0, 0, 0])
+  eq('B1p①a 体内 .returning( ⇒ 放过(库确认口径)', b1(FIX.b1ConfirmedReturning), [1, 0, 1, 0, 0, 0])
+  eq('B1p①b 体内 batchWriteOutcome( ⇒ 放过', b1(FIX.b1ConfirmedOutletCall), [1, 0, 1, 0, 0, 0])
+  eq(
+    'B1f① .returning( 只活在注释里 ⇒ 不放行(判据跑在遮蔽后的代码面上,反向锁)',
+    b1(FIX.b1ReturningOnlyInComment),
+    [1, 1, 0, 0, 0, 0],
+  )
+  eq('B1p② 同行带原因 delete-ack-exempt ⇒ 放过', b1(FIX.b1MarkerOk), [1, 0, 0, 1, 0, 0])
+  eq(
+    'B1f② 裸标记无原因 ⇒ 仍红且裸标记计数 1("须带原因"不得被放宽成裸标记即放过)',
+    b1(FIX.b1MarkerBare),
+    [1, 1, 0, 0, 1, 0],
+  )
+  eq(
+    'B1f②b 标记写在紧邻上一行 ⇒ 不放行(B1 只本行生效,刻意比 batch-count-exempt 严)',
+    b1(FIX.b1MarkerPrevLine),
+    [1, 1, 0, 0, 0, 0],
+  )
+  eq(
+    'B1f②c 标记落在字符串里 ⇒ 不是注释,不放行(与门 102 的"注释闭合符冒充"同族反向锁)',
+    b1(FIX.b1MarkerInString),
+    [1, 1, 0, 0, 0, 0],
+  )
+  eq(
+    'B1r 读查询面:select 映射/类型位/注释/字符串里的 deleted: true 既不进 V1 也不进 B1(不是响应对象面)',
+    (() => {
+      const r = v(FIX.b1ReadFace)
+      return [r.booleanAck.length, r.b1.candidates.length, r.b1.violations.length]
+    })(),
+    [0, 0, 0],
+  )
+  eq(
+    'B1e E2 的文件级出口 import 不救 B1(同函数体没走库确认就照判,迁一半的端点不得自我洗白)',
+    b1(FIX.b1OutletFileStillJudged),
+    [1, 1, 0, 0, 0, 0],
+  )
+  eq('B1n 顶层布尔 ack 解析不出函数体 ⇒ 未判定 1、不判红也不记绿', b1(FIX.b1NoBody), [
+    0, 0, 0, 0, 0, 1,
+  ])
+  eq(
+    'B1x 无写链的纯惯例 ack 只进 V1、B1 六数全 0(两型分家)',
+    (() => {
+      const r = v(FIX.boolAckCount)
+      return [r.booleanAck.length, ...b1(FIX.boolAckCount)]
+    })(),
+    [3, 0, 0, 0, 0, 0, 0],
+  )
+  eq(
+    'B1y B1 不改判据一的四数:selfCount 面 B1 全 0,readQuery 面 B1 全 0',
+    [
+      b1(FIX.selfCount),
+      b1(FIX.readQuery),
+      st(FIX.selfCount),
+      st(FIX.readQuery),
+    ],
+    [
+      [0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0],
+      [1, 1, 0],
+      [0, 0, 0],
+    ],
+  )
+  eq(
+    'B1d decide:B1 是判据 —— 全量档默认不红、--strict 红、staged 靠 ratcheted 里 kind=b1 那条红',
+    [
+      D({
+        face: 'head',
+        violations: [],
+        undetermined: [],
+        ratcheted: null,
+        strict: false,
+        b1Violations: [{}],
+      }),
+      D({
+        face: 'head',
+        violations: [],
+        undetermined: [],
+        ratcheted: null,
+        strict: true,
+        b1Violations: [{}],
+      }),
+      D({
+        face: 'staged',
+        violations: [],
+        undetermined: [],
+        ratcheted: [{ file: 'x', kind: 'b1', now: 1, anchor: 0, added: 1 }],
+        strict: false,
+        b1Violations: [{}],
+      }),
+      D({
+        face: 'head',
+        violations: [],
+        undetermined: [],
+        ratcheted: null,
+        strict: true,
+        b1NoBody: 1,
+      }),
+    ],
+    [0, 1, 1, 2],
+  )
   // ---- 只报数不改判据的两把锁:把惯例计数接进退出码 / 让它从结论行消失,各自必读红。----
   eq(
     'X1 惯例计数再大也不得进退出码(--strict 也一样:存量是决策依据,不是债)',
@@ -1327,6 +1724,13 @@ function selfTest(argv) {
     booleanAckFiles: 148,
     readQueryCountSites: 12,
     readQueryCountFiles: 9,
+    b1Candidates: 0,
+    b1Violations: 0,
+    b1Files: 0,
+    b1ExemptConfirmed: 0,
+    b1ExemptMarker: 0,
+    b1BareExempt: 0,
+    b1NoBody: 0,
   }
   const fmt = (countsOver = {}) =>
     formatReport({
@@ -1354,6 +1758,74 @@ function selfTest(argv) {
     /布尔 ack 惯例\(不计红,仅现读计数\): 0 处 \/ 0 文件/.test(
       fmt({ booleanAckSites: 0, booleanAckFiles: 0 }),
     ),
+    true,
+  )
+  // ---- B1 的报告面:结论行必须点名判据计数;✅/未判定 是两句话;有 B1 违规时不得出"✅ 通过"。----
+  const fmtB1 = (over = {}, outOver = {}) =>
+    formatReport({
+      face: 'head',
+      strict: false,
+      ratcheted: null,
+      violations: [],
+      undetermined: [],
+      exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
+      b1Violations: [],
+      ...outOver,
+      counts: { ...BASE_COUNTS, ...over },
+    }).join('\n')
+  eq(
+    'X3 结论行必须点名 B1 的现读数(违规/放过/裸标记/不判),0 也照喊(不得静默)',
+    /B1 假 ack\(判据:违规 0 处 \/ 0 文件,库确认放过 0 · 行内标记 0 只报数,裸标记不计 0,找不到函数体不判 0\)/.test(
+      fmtB1(),
+    ),
+    true,
+  )
+  eq(
+    'X3b 全量档有 B1 违规 ⇒ 逐条点名且不再打"✅ 通过"(B1 是判据,惯例数不动)',
+    (() => {
+      const t = fmtB1(
+        { b1Violations: 2, b1Files: 1, b1Candidates: 2 },
+        { b1Violations: [{ file: 'apps/api/src/routes/x.ts', line: 7, receiver: 'db' }] },
+      )
+      return (
+        !/✅ 通过/.test(t) &&
+        /B1 假 ack 2 处 \/ 1 文件/.test(t) &&
+        /apps\/api\/src\/routes\/x\.ts:7/.test(t) &&
+        /^候选 0 \/ 违规 0 \/ 未判定 0 \/ 豁免 0/m.test(t)
+      )
+    })(),
+    true,
+  )
+  eq(
+    'X3c B1 未判定与"通过"各说各话:b1NoBody>0 既不打 ✅ 也必须单列一句未判定',
+    (() => {
+      const t = fmtB1({ b1NoBody: 3 })
+      return !/✅ 通过/.test(t) && /B1 未判定 3 处/.test(t) && /不冒红也不记绿/.test(t)
+    })(),
+    true,
+  )
+  eq(
+    'X3d staged 判红块按 kind 分列两条判据,措辞不得互相顶账',
+    (() => {
+      const t = formatReport({
+        face: 'staged',
+        strict: false,
+        ratcheted: [
+          { file: 'a.ts', kind: 'count', now: 2, anchor: 1, added: 1 },
+          { file: 'b.ts', kind: 'b1', now: 1, anchor: 0, added: 1 },
+        ],
+        violations: [],
+        undetermined: [],
+        exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
+        b1Violations: [],
+        counts: BASE_COUNTS,
+      }).join('\n')
+      return (
+        t.includes('[计数自算] a.ts') &&
+        t.includes('[B1假ack] b.ts') &&
+        /计数自算 1 · B1 假 ack 1/.test(t)
+      )
+    })(),
     true,
   )
   eq(
@@ -1505,6 +1977,63 @@ function selfTest(argv) {
         })(),
         [3, 1, 1, 0, 0, 0, 0],
       )
+      // BR:B1 棘轮四向 —— 存量只报数 / 新增即红 / 改回字面量即红 / 清掉后锚点下降。
+      // 另起一棵干净仓:上面那张面上已经叠了惯例文件与真违规文件,锚点序列必须在**只有 B1 形态**
+      // 的面上走,否则"exit 前后都非零"会把判红分支的走向糊成不可分辨(与 R8 同一条理由)。
+      eq(
+        'BR1–BR4 B1 棘轮四向(临时仓端到面):存量报数不红、--strict 问责、新增/改回红、清掉后锚点降',
+        (() => {
+          const d3 = mkScratch('bch-b1-')
+          try {
+            git(['init', '-q'], d3)
+            git(['config', 'user.email', 'g@f.local'], d3)
+            git(['config', 'user.name', 'g'], d3)
+            const st3 = (rel, text) => {
+              mkdirSync(join(d3, dirname(rel)), { recursive: true })
+              writeFileSync(join(d3, rel), text, 'utf8')
+              git(['add', '--', rel], d3)
+            }
+            const X3 = 'apps/api/src/routes/b1.ts'
+            st3(X3, FIX.b1FalseAck)
+            git(['commit', '-q', '-m', 'b1-debt'], d3)
+            const hd = analyze(d3, 'head')
+            const hdStrict = analyze(d3, 'head', { strict: true })
+            // BR1 存量只报数:HEAD 有 1 处、索引与 HEAD 持平 ⇒ staged exit 0(全量默认档也只报数),
+            // 但 --strict 必须 1(它是判据不是惯例;这一条与 X1 对惯例数的要求正好相反,两型不得互抄)。
+            const flat = analyze(d3, 'staged')
+            // BR2 新增即红:同文件再写一处同型 ⇒ 2 > 锚点 1。
+            st3(X3, FIX.b1FalseAckTwice)
+            const added = analyze(d3, 'staged')
+            // BR3 改回字面量即红的另一半先要在"已改真"上成立:提交修复版 ⇒ 锚点下降到 0。
+            st3(X3, FIX.b1Migrated)
+            const fixed = analyze(d3, 'staged')
+            git(['commit', '-q', '-m', 'b1-fixed'], d3)
+            const afterHead = analyze(d3, 'head')
+            // BR3/BR4 把已改真的点改回字面量 true ⇒ 1 > 新锚点 0 判红(锚点随清偿自动下降,由这一次
+            // 的"红"反证:若锚点还停在旧存量 1,这次改回就不会红)。
+            st3(X3, FIX.b1FalseAck)
+            const regressed = analyze(d3, 'staged')
+            const b1Red = (a) => a.ratcheted.filter((r) => r.kind === 'b1')
+            return [
+              hd.counts.b1Violations,
+              hd.exit,
+              hdStrict.exit,
+              flat.exit,
+              flat.ratcheted.length,
+              added.exit,
+              JSON.stringify(b1Red(added)[0]).includes('"anchor":1'),
+              fixed.exit,
+              afterHead.counts.b1Violations,
+              regressed.exit,
+              regressed.ratcheted.length,
+            ]
+          } finally {
+            rmScratch(d3)
+          }
+        })(),
+        //             HEAD 存量1  默认0  strict1  持平0  持平无红  新增1  锚点=1    修复0   锚点降0   改回1   仅1条红
+        [1, 0, 1, 0, 0, 1, true, 0, 0, 1, 1],
+      )
       const empty = mkScratch('bch-empty-')
       try {
         git(['init', '-q'], empty)
@@ -1567,11 +2096,14 @@ export const __test__ = {
   // 判据只此一份实现:镜像测试与自检都从这里取,不得在测试里再抄一份(§22c)。
   // findBooleanAckSends / sendSuccessObjects 也在这里 —— 惯例计数的取材与违规判据共用同一遍 send 扫描,
   // 镜像测试要复核"数到了什么"只能调这两个出口,不得自己再写一份正则。
+  // B1 同族:findBoolAckB1Sites 吃 findBooleanAckSends 的落点清单,豁免判法与判据一共用
+  // readExemptMarker(换 token 不换实现)—— 测试不得另写"裸标记放不放行"的第二把尺子。
   maskText,
   findWriteChains,
   findFunctionBodies,
   findCountSends,
   findBooleanAckSends,
+  findBoolAckB1Sites,
   sendSuccessObjects,
   readExemptMarker,
   scanFileText,
@@ -1584,6 +2116,7 @@ export const __test__ = {
   SELF_SKIP,
   UNIQUE_OUTLET,
   EXEMPT_TOKEN,
+  DELETE_ACK_EXEMPT_TOKEN,
   SCAN_DIRS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

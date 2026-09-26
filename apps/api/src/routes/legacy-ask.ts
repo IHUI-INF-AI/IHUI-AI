@@ -80,7 +80,7 @@ export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       .where(and(eq(askAnswers.id, id), eq(askAnswers.userId, request.userId!)))
       .returning()
     if (!deleted) return reply.status(404).send(error(404, '回答不存在'))
-    return { deleted: true }
+    return { deleted: Boolean(deleted) }
   })
 
   fastify.patch('/ask/answers/:id', { preHandler: authenticate }, async (request, reply) => {

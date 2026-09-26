@@ -413,7 +413,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!deleted) {
       return reply.status(404).send(error(404, '角色不存在'))
     }
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted }))
   })
 
   // ---------- POST /subagents/roles/auto-generate(调用 ai-service 生成角色定义) ----------

@@ -597,11 +597,12 @@ const eduCanteenRoutes: FastifyPluginAsync = async (server) => {
       )
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '采购单不存在'))
-    await db
+    const removed = await db
       .update(eduCanteenProcurement)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduCanteenProcurement.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduCanteenProcurement.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -848,11 +849,12 @@ const eduCanteenRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduCanteenSupplier.id, parsed.data.id), isNull(eduCanteenSupplier.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '供应商不存在'))
-    await db
+    const removed = await db
       .update(eduCanteenSupplier)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduCanteenSupplier.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduCanteenSupplier.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================

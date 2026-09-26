@@ -330,7 +330,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     if (!deleted) {
       return reply.status(404).send(error(404, '规则不存在'))
     }
-    return reply.send(success({ id: request.params.id, deleted: true }))
+    return reply.send(success({ id: request.params.id, deleted: Boolean(deleted) }))
   })
 
   // POST /rules/:id/test — 测试规则

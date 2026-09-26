@@ -204,8 +204,8 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/about-us/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    await db.delete(docs).where(eq(docs.id, id))
-    return reply.send(success({ id, deleted: true }))
+    const removed = await db.delete(docs).where(eq(docs.id, id)).returning({ id: docs.id })
+    return reply.send(success({ id, deleted: removed.length > 0 }))
   })
 
   // ----- /advertise（carousels 表）-----
@@ -295,8 +295,11 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/advertise/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    await db.delete(carousels).where(eq(carousels.id, id))
-    return reply.send(success({ id, deleted: true }))
+    const removed = await db
+      .delete(carousels)
+      .where(eq(carousels.id, id))
+      .returning({ id: carousels.id })
+    return reply.send(success({ id, deleted: removed.length > 0 }))
   })
 
   // ----- /contact（feedbacks 表，type='contact'）-----
@@ -385,8 +388,11 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/contact/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    await db.delete(feedbacks).where(eq(feedbacks.id, id))
-    return reply.send(success({ id, deleted: true }))
+    const removed = await db
+      .delete(feedbacks)
+      .where(eq(feedbacks.id, id))
+      .returning({ id: feedbacks.id })
+    return reply.send(success({ id, deleted: removed.length > 0 }))
   })
 
   // ----- /mobile-adapter（systemConfigs 表，category='mobile-adapter'）-----
@@ -570,8 +576,11 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/recommendation-config/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    await db.delete(systemConfigs).where(eq(systemConfigs.id, id))
-    return reply.send(success({ id, deleted: true }))
+    const removed = await db
+      .delete(systemConfigs)
+      .where(eq(systemConfigs.id, id))
+      .returning({ id: systemConfigs.id })
+    return reply.send(success({ id, deleted: removed.length > 0 }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

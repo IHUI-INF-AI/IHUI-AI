@@ -141,8 +141,11 @@ export const educationPlatformRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(educationPlatform.id, pid))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '平台不存在'))
-    await db.delete(educationPlatform).where(eq(educationPlatform.id, pid))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(educationPlatform)
+      .where(eq(educationPlatform.id, pid))
+      .returning({ id: educationPlatform.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // POST /:pid/sync - 同步数据

@@ -33,10 +33,10 @@ import { applyCodeBlockToFile } from '@/lib/apply-code-block'
 import { useCodeBlockRun, isRunnableLanguage, type RunResult } from '@/components/ai/code-block-run'
 // P3 #35(2026-09-16 立):流式稳定段/活跃段切分——稳定前缀 memo 缓存跳过 parse
 import { splitMarkdownStable } from '@/lib/markdown-stable-split'
-// P3 #32(2026-09-16 立):PDF/CSV 消息内富预览(非流式时升级渲染)
-import { CsvPreview, PdfEmbed } from '@/components/media/message-file-preview'
-// D41(2026-09-24 立):docx/xlsx/pptx 消息内富预览(docx-preview / SheetJS / jszip 降级)
-import { OfficePreview } from '@/components/media/office-preview'
+// V3 #70(2026-09-27 立):PDF/CSV/TSV/office 消息内富预览的唯一入口。
+// 取代此前 P3 #32 的两个分支与 D41 的 office 分支 —— 派发器内部仍复用既有
+// PDFViewer(pdf.js)/ OfficePreview(SUPPORTED_EXTS 唯一支持表),不是第二套实现。
+import { RichFilePreview } from '@/components/file-preview'
 // D76 残余②(2026-09-25 立):正文产物链接 → 反向聚焦产物卡。复用 MessageList 已挂的
 // ihui:focus-artifact 通道(不新增事件名/payload 形状);无对应卡时接管失败,保持原行为。
 import { tryFocusArtifactFromLink } from '@/components/media/artifact-turn-badge'
@@ -546,7 +546,8 @@ function MarkdownVideo({ src }: { src?: string }) {
 }
 
 // Office 文件链接卡片:Word/Excel/PPT/PDF
-const OFFICE_EXT = /\.(docx?|xlsx?|pptx?|pdf|csv|md|txt|rtf|odt|ods|odp)(\?|$)/i
+// V3 #70:补 tsv —— 原表把 CSV 放进来却没有 TSV,分隔符表格预览因此对 TSV 整型失明。
+const OFFICE_EXT = /\.(docx?|xlsx?|pptx?|pdf|csv|tsv|md|txt|rtf|odt|ods|odp)(\?|$)/i
 function isOfficeLink(href: string): boolean {
   return OFFICE_EXT.test(href)
 }
@@ -577,16 +578,13 @@ function MarkdownLink({
     const fileName = hrefStr.split('/').pop()?.split('?')[0] ?? 'file'
     const ext = (fileName.match(/\.([^.]+)$/)?.[1] ?? '').toLowerCase()
 
-    // P3 #32:PDF/CSV 非流式时升级为消息内富预览(PDF 原生查看器 / CSV 表格化)
-    if (!isStreaming && ext === 'pdf') {
-      return <PdfEmbed src={hrefStr} />
-    }
-    if (!isStreaming && ext === 'csv') {
-      return <CsvPreview src={hrefStr} />
-    }
-    // D41:docx/xlsx/pptx 非流式时升级为消息内富预览(四态降级见 office-preview)
-    if (!isStreaming && (ext === 'docx' || ext === 'xlsx' || ext === 'pptx')) {
-      return <OfficePreview src={hrefStr} ext={ext} />
+    // V3 #70:PDF/CSV/TSV 与 office 那一族的富预览统一走 file-preview 派发器
+    // (pdf = pdf.js 真渲染 + 页码/翻页/缩放;csv|tsv = 表头固定 + 列宽自适应 + 行数如实提示)
+    if (
+      !isStreaming &&
+      (ext === 'pdf' || ext === 'csv' || ext === 'tsv' || ext === 'docx' || ext === 'xlsx' || ext === 'pptx')
+    ) {
+      return <RichFilePreview href={hrefStr} ext={ext} />
     }
 
     return (

@@ -83,7 +83,7 @@ const skillCategoriesRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(skillCategories.id, idParsed.data.id))
       .returning()
     if (!row) return reply.status(404).send(error(404, '技能分类不存在'))
-    return reply.send(success({ id: idParsed.data.id, deleted: true }))
+    return reply.send(success({ id: idParsed.data.id, deleted: Boolean(row) }))
   })
 }
 

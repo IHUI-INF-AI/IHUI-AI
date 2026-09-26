@@ -623,8 +623,8 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
     if (existing.userId !== request.userId) {
       return reply.status(403).send(error(403, '只能删除自己的帖子'))
     }
-    await deletePost(parsed.data.id, request.userId!)
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    const removed = await deletePost(parsed.data.id, request.userId!)
+    return reply.send(success({ id: parsed.data.id, deleted: removed }))
   })
 
   // POST /circles - 创建圈子

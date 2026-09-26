@@ -213,7 +213,7 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
       if ((rows as Record<string, unknown>[]).length === 0) {
         return reply.status(404).send(error(404, '通知渠道不存在'))
       }
-      return reply.send(success({ id, deleted: true }))
+      return reply.send(success({ id, deleted: (rows as Record<string, unknown>[]).length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除通知渠道失败'))
