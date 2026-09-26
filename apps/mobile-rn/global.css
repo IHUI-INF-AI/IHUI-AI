@@ -87,8 +87,8 @@
   --rn-line: #d4d4d4;
 
   /* 以下 71 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
-  --color-cta: #4a7a96;
-  --color-cta-foreground: #ffffff;
+  --color-cta: hsl(0 0% 0%);
+  --color-cta-foreground: hsl(0 0% 100%);
   --color-tag-inactive-bg: hsl(0 0% 88%);
   --color-pinned-tag-bg: hsl(0 0% 88%);
   --color-streamed-container-bg: hsl(0 0% 92%);
@@ -291,6 +291,10 @@
   --color-model-type-av-bg: #e8f5e9;
   --color-agent-name: #517bff;
   --color-screen-canvas: #171717;
+
+  /* 以下 2 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
+  --color-cta: hsl(0 0% 100%);
+  --color-cta-foreground: hsl(0 0% 0%);
 }
 
 /* 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
