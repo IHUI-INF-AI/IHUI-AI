@@ -546,7 +546,7 @@ function Build-Web {
     #    design-tokens/types,ui-react→design-tokens,api-client→types,实测 2026-09-21:
     #    shared 排在 api-client 前会对其旧 dist 报 TS2305 CitationsEvent),单包失败即
     #    中止并定位到包;未来新增 dist 型 workspace 依赖时须同步调整清单与顺序。
-    foreach ($pkg in @('@ihui/types','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
+    foreach ($pkg in @('@ihui/types','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
         Log "重建 $pkg dist ..."
         & "D:\DevEnv\tools\npm-global\pnpm.cmd" --filter $pkg run build
         if ($LASTEXITCODE -ne 0) { throw "workspace 包 $pkg dist 重建失败(exit $LASTEXITCODE)" }
