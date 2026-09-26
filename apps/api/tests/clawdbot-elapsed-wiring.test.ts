@@ -12,13 +12,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve, dirname } from 'node:path'
+// consistent-type-imports 禁止 `typeof import('…')` 内联注解 ⇒ 用 type-only 命名空间导入(零运行时副作用)
+import type * as elapsedMsType from '../src/utils/elapsed-ms.js'
 
 const { clock } = vi.hoisted(() => ({ clock: { perf: 0, wall: 0 } }))
 
 // 把生产者内部 startStopwatch() 的时钟换成假时钟(唯一出口模块本身不 mock 判据,只注入 clocks)
 vi.mock('../src/utils/elapsed-ms.js', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('../src/utils/elapsed-ms.js')>()
+    await importOriginal<typeof elapsedMsType>()
   return {
     ...actual,
     startStopwatch: (opts?: Parameters<typeof actual.startStopwatch>[0]) =>

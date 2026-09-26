@@ -22,6 +22,8 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyError } from 'fastify'
+// consistent-type-imports 禁止 `typeof import('…')` 这种内联导入型注解 ⇒ 用一条 type-only 命名空间导入代替
+import type * as workspaceQueriesType from '../src/db/workspace-queries.js'
 
 vi.mock('../src/config/index.js', () => ({
   config: {
@@ -105,7 +107,7 @@ vi.mock('../src/db/message-queries.js', () => ({
 // 它们对 mock db 链跑 UPDATE ... RETURNING,用例因此同时覆盖"db 层回报命中集"这一半。
 // 只有校验环路的三个查询函数被替换(它们不是本票改动点)。
 vi.mock('../src/db/workspace-queries.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/db/workspace-queries.js')>()
+  const actual = await importOriginal<typeof workspaceQueriesType>()
   return {
     ...actual,
     findFileById: mockFindFileById,
