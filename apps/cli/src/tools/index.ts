@@ -21,7 +21,8 @@
 
 import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
-import { checkPermission, type PermissionRules } from './permissions.js';
+import { checkPermission, checkRulesWithLease, type PermissionRules } from './permissions.js';
+import { activePermissionLease } from './permission-lease.js';
 import { shadowValidateToolArguments } from './argument-validation-telemetry.js';
 import { noteDangerousApproval } from './danger-gate.js';
 import { BROWSER_TOOLS } from './browser.js';
@@ -668,8 +669,14 @@ export async function executeToolCall(
   // 已知覆盖面缺口:hubEnabled 分支在 getTool 之前就 return 了,那里拿不到 Tool 对象,本票不扩面。
   shadowValidateToolArguments(tool, call.arguments);
   // P0-7 Permission rules:白名单/黑名单拦截(在 rate limit 之前,避免被限流工具仍消耗配额)
+  // 权限租约(默认关闭):`activePermissionLease()` 为 null 时走的仍是改造前那一份
+  // `checkPermission` 调用,行为逐字不变;有租约时也**只**可能把 rules 里的 'ask'
+  // 放宽成放行 —— 'deny'(黑名单/不在白名单)与下方 `dangerous` 确认闸都不受影响。
   if (ctx.permissions) {
-    const perm = checkPermission(call.name, ctx.permissions);
+    const lease = activePermissionLease();
+    const perm = lease
+      ? checkRulesWithLease(call.name, ctx.permissions, tool.dangerLevel, lease)
+      : checkPermission(call.name, ctx.permissions);
     if (!perm.allowed) {
       return {
         success: false,
