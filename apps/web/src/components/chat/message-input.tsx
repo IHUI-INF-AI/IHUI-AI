@@ -1066,9 +1066,7 @@ export function MessageInput({
           onEdit={(id, text) => {
             if (conversationId) useChatStore.getState().editQueued(conversationId, id, text)
           }}
-          onModeChange={(mode: FollowUpMode) =>
-            useChatStore.getState().setFollowUpQueueMode(mode)
-          }
+          onModeChange={(mode: FollowUpMode) => useChatStore.getState().setFollowUpQueueMode(mode)}
           onInterruptAndRun={handleInterruptAndRun}
         />
         {/* D68 粘贴引用有效性预览条(可见、可关闭;无可预览引用时不渲染不占位) */}
@@ -1119,7 +1117,7 @@ export function MessageInput({
               'flex flex-col rounded-xl border bg-card transition-colors focus-within:border-foreground/20',
               // 互斥的边框逻辑:拖拽(文件或会话) > 高风险 > 默认
               isDragOver || isConvDragOver
-                ? 'border-primary ring-2 ring-ring/20'
+                ? 'border-brand-accent-deep ring-2 ring-ring/20'
                 : isHighRisk
                   ? 'border-amber-500/50 focus-within:border-amber-500/70 shadow-[0_0_0_1px_rgba(245,158,11,0.08)] animate-pulse-soft'
                   : 'border-input',
