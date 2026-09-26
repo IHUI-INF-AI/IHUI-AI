@@ -92,7 +92,14 @@ def _cmd_tool(calls: list[dict], *, needs_approval_first: bool = True, name: str
     )
 
 
-def _make_loop(tool: ToolDefinition, *, approval_enabled: bool = False) -> AgentLoopV2:
+def _make_loop(
+    tool: ToolDefinition, *, approval_enabled: bool = False, user_role: int = 0
+) -> AgentLoopV2:
+    """user_role 默认 0(fail-closed):本文件多数用例用良性工具名,角色闸不介入,
+    所以保持 0 本身就是一个非回归信号。只有测 admin 专属能力(run_command)的用例才
+    显式提到 1 —— 那是"角色闸在前、审批/策略闸在后"的前置条件,不是给判据开后门。
+    """
+
     async def mock_llm(messages, tools):  # noqa: ANN001, ANN202
         return {"content": "done", "tool_calls": None}
 
@@ -101,6 +108,7 @@ def _make_loop(tool: ToolDefinition, *, approval_enabled: bool = False) -> Agent
         [tool],
         max_iterations=3,
         approval_enabled=approval_enabled,
+        user_role=user_role,
     )
 
 
@@ -197,7 +205,7 @@ async def test_exec_policy_gate_approved_skips_second_popup(
         return None
 
     calls: list[dict] = []
-    loop = _make_loop(_cmd_tool(calls), approval_enabled=True)
+    loop = _make_loop(_cmd_tool(calls), approval_enabled=True, user_role=1)
     monkeypatch.setattr(loop, "_request_approval", fake_approval)
     tr = await loop._execute_single(
         ToolCall(id="c1", name="run_command", args={"command": "git push origin main"})
