@@ -70,9 +70,13 @@ export async function findUsers(
 
 /**
  * 删除用户。
+ *
+ * 2026-09-27 布尔删除 ack 清账:RETURNING 回报**库侧确认的命中集合**。
+ * 旧写法 Promise<void> 让路由层无从判"真删了几行",只能回 deleted:true 常量。
  */
-export async function deleteUser(id: string): Promise<void> {
-  await db.delete(users).where(eq(users.id, id))
+export async function deleteUser(id: string): Promise<string[]> {
+  const rows = await db.delete(users).where(eq(users.id, id)).returning({ id: users.id })
+  return rows.map((r) => r.id)
 }
 
 /**
@@ -183,8 +187,13 @@ export async function updateDepartment(
   return rows[0]
 }
 
-export async function deleteDepartment(id: string): Promise<void> {
-  await db.delete(departments).where(eq(departments.id, id))
+// 2026-09-27 布尔删除 ack 清账:回报 RETURNING 命中集合(路由层据此派生 deleted,不再是常量)
+export async function deleteDepartment(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(departments)
+    .where(eq(departments.id, id))
+    .returning({ id: departments.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================
@@ -227,8 +236,13 @@ export async function createUserCertificate(
   return row
 }
 
-export async function deleteUserCertificate(id: string): Promise<void> {
-  await db.delete(userCertificates).where(eq(userCertificates.id, id))
+// 2026-09-27 布尔删除 ack 清账:回报 RETURNING 命中集合(路由层据此派生 deleted,不再是常量)
+export async function deleteUserCertificate(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(userCertificates)
+    .where(eq(userCertificates.id, id))
+    .returning({ id: userCertificates.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================

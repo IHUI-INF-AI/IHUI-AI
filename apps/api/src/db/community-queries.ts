@@ -78,9 +78,13 @@ export async function findCircleByIdOrSlug(idOrSlug: string): Promise<Circle | u
   return findCircleBySlug(idOrSlug)
 }
 
-/** 管理员删除圈子（硬删除）。 */
-export async function deleteCircle(id: string): Promise<void> {
-  await db.delete(circles).where(eq(circles.id, id))
+/**
+ * 管理员删除圈子（硬删除）。
+ * 返回库确认已删除的行 id 集合(未命中为空数组,调用方据此判 deleted 真假)。
+ */
+export async function deleteCircle(id: string): Promise<string[]> {
+  const rows = await db.delete(circles).where(eq(circles.id, id)).returning({ id: circles.id })
+  return rows.map((r) => r.id)
 }
 
 /** 管理员更新圈子显示状态。 */

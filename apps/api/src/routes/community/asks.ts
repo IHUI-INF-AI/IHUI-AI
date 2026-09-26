@@ -453,8 +453,8 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) {
       return reply.status(404).send(error(404, '圈子不存在'))
     }
-    await deleteCircle(parsed.data.id)
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    const removed = await deleteCircle(parsed.data.id)
+    return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
   })
 
   // PUT /admin/circles/:id/show - 更新圈子显示状态

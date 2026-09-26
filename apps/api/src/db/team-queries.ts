@@ -153,9 +153,11 @@ export async function updateTeam(id: string, data: UpdateTeamInput): Promise<Tea
 
 /**
  * 删除团队（级联删除成员/邀请由数据库外键保证）。
+ * 返回库确认已删除的行 id 集合(未命中为空数组,调用方据此判 deleted 真假)。
  */
-export async function deleteTeam(id: string): Promise<void> {
-  await db.delete(teams).where(eq(teams.id, id))
+export async function deleteTeam(id: string): Promise<string[]> {
+  const rows = await db.delete(teams).where(eq(teams.id, id)).returning({ id: teams.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================
@@ -211,11 +213,15 @@ export async function findTeamMember(
 
 /**
  * 移除团队成员。
+ * 返回库确认已删除的成员行 id 集合 —— where 除 teamId 还带 userId,
+ * 跨团队/非成员的目标一律删不到,调用方据返回集合判 deleted 真假(未命中为空数组)。
  */
-export async function removeTeamMember(teamId: string, userId: string): Promise<void> {
-  await db
+export async function removeTeamMember(teamId: string, userId: string): Promise<string[]> {
+  const rows = await db
     .delete(teamMembers)
     .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+    .returning({ id: teamMembers.id })
+  return rows.map((r) => r.id)
 }
 
 /**
