@@ -3,91 +3,90 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 统一日志工具。
+ * Error 序列化唯一出口(2026-09-26 立)。
  *
- * 优先使用 Fastify 的 pino 实例（通过 setFastify 注入），
- * 未注入时回退到 console（保持向后兼容）。
+ * 缺陷:Error 的 name/message/stack/cause 全是**非枚举自有属性**,
+ * `JSON.stringify(new Error("boom")) === "{}"`。于是凡"把 error 对象塞进
+ * 日志/响应/IPC"的地方,事故现场全部退化成空对象 —— 越是要看错误的时候,
+ * 越什么也看不到。
  *
- * 用法：
- *   import { logger } from '../utils/logger.js'
- *   logger.info('message', { meta: 'data' })
- *   logger.error('message', { error: err })
+ * 本模块的三条纪律:
+ * 1. 闭集输出 —— 只倒 name/message/stack/cause,调用方挂在 Error 上的未知字段
+ *    (可能是请求体/响应体/凭据)一律不带出。
+ * 2. 封顶 + 循环检测 —— cause 链最多展开 ERROR_SERIALIZE_MAX_DEPTH 个节点;
+ *    深度耗尽或撞上循环 cause 时,在截断处标 `truncated: true`,不静默丢。
+ * 3. 永不抛 —— 本出口常站在**崩溃恢复路径**上(crash handler / 日志写盘),
+ *    出口自身再抛会把一次可诊断故障升级成二次故障。所有对外部世界的读取
+ *    (属性 getter、toString)都在 try 内,失败落兜底形状。
  */
 
-import { serializeError } from '@ihui/types'
+/** cause 链(含根节点)最多展开的节点数。5 层足够定位事故,再深是噪音。 */
+export const ERROR_SERIALIZE_MAX_DEPTH = 5
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error'
-
-interface FastifyLogger {
-  debug: (msg: string, meta?: object) => void
-  info: (msg: string, meta?: object) => void
-  warn: (msg: string, meta?: object) => void
-  error: (msg: string, meta?: object) => void
+export interface SerializedError {
+  name: string
+  message: string
+  stack?: string
+  cause?: SerializedError
+  /** true = 下方仍有 cause 未展示(深度封顶或循环 cause),勿读成"链到此为止"。 */
+  truncated?: true
 }
 
-export interface FastifyLogInstance {
-  log: {
-    debug: (m: object, msg: string) => void
-    info: (m: object, msg: string) => void
-    warn: (m: object, msg: string) => void
-    error: (m: object, msg: string) => void
+const NON_THROWN_NAME = 'NonThrownError'
+
+function safeString(value: unknown): string {
+  try {
+    return String(value)
+  } catch {
+    return '<unprintable>'
   }
 }
 
-let fastifyInstance: FastifyLogInstance | null = null
+function fromNonThrown(err: unknown): SerializedError {
+  return { name: NON_THROWN_NAME, message: safeString(err) }
+}
 
-export function setFastify(fastify: FastifyLogInstance): void {
-  fastifyInstance = fastify
+function serializeErrorNode(err: Error, depth: number, seen: Set<Error>): SerializedError {
+  seen.add(err)
+  const out: SerializedError = {
+    name: typeof err.name === 'string' ? err.name : 'Error',
+    message: typeof err.message === 'string' ? err.message : safeString(err.message),
+  }
+  if (typeof err.stack === 'string') out.stack = err.stack
+
+  let cause: unknown
+  try {
+    cause = (err as { cause?: unknown }).cause
+  } catch {
+    // cause 是坏 getter:当作链尾返回,绝不让未知异常穿过恢复路径
+    return out
+  }
+  if (cause === undefined) return out
+
+  const circular = cause instanceof Error && seen.has(cause)
+  if (circular || depth + 1 >= ERROR_SERIALIZE_MAX_DEPTH) {
+    out.truncated = true
+    return out
+  }
+  try {
+    out.cause = cause instanceof Error ? serializeErrorNode(cause, depth + 1, seen) : fromNonThrown(cause)
+  } catch {
+    out.truncated = true
+  }
+  return out
 }
 
 /**
- * meta 里 Error 值的序列化(唯一出口 serializeError,2026-09-26 立)。
- *
- * pino 把 meta 做 JSON 序列化,而 JSON.stringify(Error) === "{}"(name/message/stack
- * 均为非枚举自有属性)—— 本文件头注释推荐的写法 `{ error: err }` 在日志里就是一具
- * 空尸体。例外:`err` 保留键刻意不动 —— pino 对它自带标准错误序列化,覆盖反而会改变
- * 既有日志消费方看到的字段形状。其余键上的 Error 一律换成闭集结构;挂在 Error 上的
- * 未知字段(请求体/凭据一类)不带出。无任何 Error 时返回原对象(零开销、零行为变化)。
+ * 把任意被抛出的值转成闭集结构:字段只有 name/message/stack/cause/truncated。
+ * 非 Error 输入 ⇒ `{ name: 'NonThrownError', message: String(err) }`。
+ * 本函数在任何输入下都不抛(包括 getter 抛错、toString 抛错、循环 cause)。
  */
-export function serializeErrorFields(meta: object | undefined): object | undefined {
-  if (meta === undefined || meta === null) return meta
-  if (meta instanceof Error) return { error: serializeError(meta) }
-  const source = meta as Record<string, unknown>
-  let changed = false
-  const out: Record<string, unknown> = {}
-  for (const key of Object.keys(source)) {
-    const value = source[key]
-    if (key !== 'err' && value instanceof Error) {
-      out[key] = serializeError(value)
-      changed = true
-    } else {
-      out[key] = value
-    }
+export function serializeError(err: unknown): SerializedError {
+  try {
+    if (err instanceof Error) return serializeErrorNode(err, 0, new Set())
+    return fromNonThrown(err)
+  } catch {
+    return { name: NON_THROWN_NAME, message: '<unserializable error>' }
   }
-  return changed ? out : meta
-}
-
-function log(level: LogLevel, msg: string, rawMeta?: object): void {
-  const meta = serializeErrorFields(rawMeta)
-  if (fastifyInstance) {
-    // pino 签名：fastify.log.info(meta, msg)
-    fastifyInstance.log[level](meta ?? {}, msg)
-  } else {
-    // 回退到 console（测试环境/未初始化）
-    const prefix = `[${level.toUpperCase()}]`
-    const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.info
-    if (meta) {
-      fn(`${prefix} ${msg}`, meta)
-    } else {
-      fn(`${prefix} ${msg}`)
-    }
-  }
-}
-
-export const logger: FastifyLogger = {
-  debug: (msg, meta) => log('debug', msg, meta),
-  info: (msg, meta) => log('info', msg, meta),
-  warn: (msg, meta) => log('warn', msg, meta),
-  error: (msg, meta) => log('error', msg, meta),
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
