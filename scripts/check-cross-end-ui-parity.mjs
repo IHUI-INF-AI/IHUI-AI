@@ -22,7 +22,7 @@
 // 为什么不是"当场全红 blocking":立项实测同名配对 19 对、其中 17 对有可见几何差异。与本次改动无关的
 // 恒红门,唯一结局是逼人 --no-verify,一次绕过等于当天全部守门作废(§12e 实测型)。
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
@@ -257,20 +257,29 @@ const fileName = (f) => f.split('/').pop()
  */
 export function specTiers(sources) {
   const tiers = {}
+  // 两遍:几何表可能排在 spec 之后,先收表,再解析 `export const X = GEOMETRY_PX.y` 这类投影档。
+  const geom = []
   for (const [rel, src] of Object.entries(sources)) {
+    if (!/[\\/]geometry\.[jt]s$/.test(rel)) continue
+    const table = stripComments(src).match(/GEOMETRY_PX\s*=\s*\{([\s\S]*?)\n\}/)
+    if (!table) continue
+    for (const m of table[1].matchAll(/([A-Za-z_$][\w$]*)\s*:\s*(\d+(?:\.\d+)?)/g))
+      geom.push([m[1], Number(m[2])])
+  }
+  for (const [k, v] of geom) tiers[`geometry.${k}`] = v
+  for (const [rel, src] of Object.entries(sources)) {
+    if (/[\\/]geometry\.[jt]s$/.test(rel)) continue
     const code = stripComments(src)
     for (const m of code.matchAll(
-      /export const ([A-Z][A-Z0-9_]*_PX)\s*=\s*(\d+(?:\.\d+)?)(?![\w.])/g,
+      /export const ([A-Z][A-Z0-9_]*_PX)\s*=\s*(?:(\d+(?:\.\d+)?)(?![\w.])|(?:GEOMETRY_PX|rnGeometry|taroGeometry)\.([A-Za-z_$][\w$]*))/g,
     )) {
       const name = m[1]
       if (/PER_/.test(name) || NON_GEO_KEY.test(name) || RADIUS_FORM_RE.test(name)) continue
-      tiers[name] = Number(m[2])
+      const px = m[2] !== undefined ? Number(m[2]) : tiers[`geometry.${m[3]}`]
+      if (typeof px === 'number' && px > 0) tiers[name] = px
+      // 投影源取不到(表里没这一档 / 改了名)⇒ **不计入档表**:把"解析不出"当成 0 或跳过,
+      // 等于让一次改名把整条具名档判据静默关掉 —— 与本门"判不出即点名"的口径同形,这里如实留空。
     }
-    if (!/[\\/]geometry\.[jt]s$/.test(rel)) continue
-    const table = code.match(/GEOMETRY_PX\s*=\s*\{([\s\S]*?)\n\}/)
-    if (!table) continue
-    for (const m of table[1].matchAll(/([A-Za-z_$][\w$]*)\s*:\s*(\d+(?:\.\d+)?)/g))
-      tiers[`geometry.${m[1]}`] = Number(m[2])
   }
   return tiers
 }
@@ -402,6 +411,37 @@ export function iconAudit(pairs, text) {
     const bitmap = Math.max(0, ga.bitmap.length - exempted)
     if (!bitmap && !onlyRn.length && !onlyMiniapp.length) continue
     out.push({ name: p.name, bitmap, onlyRn, onlyMiniapp, exempted })
+  }
+  return out
+}
+
+/**
+ * SL —— 一张 spec 档**只被一条腿消费**的清单。
+ *
+ * 为什么单列一维:具名档解析把"这条腿到底走没走单一源"变成了可读事实,于是出现一类
+ * 既不是"同名不同值"、也不是"几何集合差档"的形态 —— `NAVBAR_BACK_BOX_PX` 只有小程序端引用,
+ * RN 端仍写自己的数。把它折进 `values` 集合会造出一批"仅 RN 档 / 仅小程序档"的**假分叉读数**
+ * (两端各有 3-26 枚单侧档,一次就是 9 族判红),而它真正的含义是"另一条腿还没接线"。
+ * 所以这一维**只列名字、不折进几何集合**,并按 IC 同一形状做 HEAD 棘轮:存量只报数,
+ * 新增单侧档(或新增一族)才判红 —— 当场判红就是一台与任何提交都无关的恒红门(§12e 同型)。
+ * 域取 `tiers` 里 spec 导出的档名(**不含 `geometry.*`**)：通用档天然被很多端很多文件引用,
+ * 按配对文件两两求差只会产出噪声。
+ */
+export function specLegAudit(pairs, text, tiers) {
+  const specNames = Object.keys(tiers ?? {}).filter((n) => !n.startsWith('geometry.'))
+  if (!specNames.length) return []
+  const out = []
+  for (const p of pairs.pairs) {
+    const a = text[p.miniapp]
+    const b = text[p.rn]
+    if (a === undefined || b === undefined) continue
+    const idsOf = (src) => new Set(src.match(/[A-Za-z_$][\w$]*/g) || [])
+    const ia = idsOf(stripComments(a))
+    const ib = idsOf(stripComments(b))
+    const onlyMiniapp = specNames.filter((n) => ia.has(n) && !ib.has(n))
+    const onlyRn = specNames.filter((n) => ib.has(n) && !ia.has(n))
+    if (!onlyMiniapp.length && !onlyRn.length) continue
+    out.push({ name: p.name, onlyMiniapp, onlyRn })
   }
   return out
 }
@@ -1197,7 +1237,7 @@ export function main(argv, repoRoot = ROOT) {
     }
     throw e
   }
-  const res = audit(collected.pairs, collected.text, baseline)
+  const res = audit(collected.pairs, collected.text, baseline, collected.tiers)
   if (argv.includes('--emit-baseline')) {
     console.log(JSON.stringify(emitBaseline(res.findings), null, 2))
     console.log(
@@ -1301,7 +1341,45 @@ export function main(argv, repoRoot = ROOT) {
       '  IC 收口姿势 = 该槽位换成与 RN 同一个 lucide 字形(小程序走 LineIcon,名字照抄 RN 侧),' +
         '确属多色插画才保留位图并写 icon-bitmap-exempt: <原因>',
     )
-  return res.red.length + icRed.length ? 1 : 0
+  /*
+   * ── SL 单侧具名档对账 ───────────────────────────────────────────
+   * 具名档解析接通后新可读的一维:一张 spec 档只被一条腿引用 = 另一条腿还没走单一源。
+   * 与几何集合分开跑(折进 values 会把"没接线"报成"分叉",两者处置动作不同)。
+   * 红条件与 IC 同形 = 该族单侧档数**超过它自己在 HEAD 的存量**;存量只报数 ——
+   * 首次接通时 9 族全有单侧档,当场判红就是一台恒红门(§12e 同型)。
+   */
+  const sl = specLegAudit(collected.pairs, collected.text, collected.tiers)
+  let slRed = []
+  if (sl.length) {
+    if (face !== 'head') {
+      const base = collect(repoRoot, 'head', { pairAll })
+      const baseSl = new Map(
+        specLegAudit(base.pairs, base.text, base.tiers).map((x) => [
+          x.name,
+          x.onlyMiniapp.length + x.onlyRn.length,
+        ]),
+      )
+      slRed = sl.filter(
+        (x) => x.onlyMiniapp.length + x.onlyRn.length > (baseSl.get(x.name) ?? 0),
+      )
+    }
+    if (!argv.includes('--json')) {
+      for (const x of sl) {
+        const n = x.onlyMiniapp.length + x.onlyRn.length
+        const bits = []
+        if (x.onlyMiniapp.length) bits.push(`仅小程序引用 ${x.onlyMiniapp.join('/')}`)
+        if (x.onlyRn.length) bits.push(`仅 RN 引用 ${x.onlyRn.join('/')}`)
+        console.log(
+          `  ${slRed.some((r) => r.name === x.name) ? '×' : '·'} SL ${x.name}(${n}) ${bits.join(' | ')}`,
+        )
+      }
+      console.log(
+        `单侧具名档 ${sl.length} 族 → 新增判红 ${slRed.length} / 只报数 ${sl.length - slRed.length}` +
+          '(一档只被一条腿引用 = 另一条腿还没走单一源;不得靠给单端补数字消账)',
+      )
+    }
+  }
+  return res.red.length + icRed.length + slRed.length ? 1 : 0
 }
 
 /**
@@ -1748,6 +1826,89 @@ function runSelfTest() {
       } finally {
         rmScratch(dir)
       }
+    })(),
+  )
+  t(
+    '㊱ spec 档写成几何表的投影(`= GEOMETRY_PX.controlBox`)仍必须解出数值 —— 否则改成投影就等于回到隐身',
+    (() => {
+      const tiers = specTiers({
+        'packages/design-tokens/src/geometry.js':
+          'export const GEOMETRY_PX = {\n  controlBox: 32,\n  controlGlyph: 14,\n}\n',
+        'packages/shared/src/ui/x-spec.ts':
+          "import { GEOMETRY_PX } from '@ihui/design-tokens'\n" +
+          'export const X_CONTROL_BOX_PX = GEOMETRY_PX.controlBox\n' +
+          'export const X_CONTROL_GLYPH_PX = GEOMETRY_PX.controlGlyph\n',
+      })
+      const g = readGeometry('width: X_CONTROL_BOX_PX\nsize={X_CONTROL_GLYPH_PX}\n', 'rn', tiers)
+      return (
+        tiers.X_CONTROL_BOX_PX === 32 &&
+        tiers.X_CONTROL_GLYPH_PX === 14 &&
+        g.values.has(32) &&
+        g.values.has(14)
+      )
+    })(),
+  )
+  t(
+    '㊲ 投影源在表里取不到(改名 / 删档)⇒ 该具名档不入表,不得凭名字造一个数',
+    (() => {
+      const tiers = specTiers({
+        'packages/design-tokens/src/geometry.js': 'export const GEOMETRY_PX = {\n  tapBox: 36,\n}\n',
+        'packages/shared/src/ui/y-spec.ts':
+          'export const Y_GONE_PX = GEOMETRY_PX.renamedAway\nexport const Y_REAL_PX = 20\n',
+      })
+      return tiers.Y_GONE_PX === undefined && tiers.Y_REAL_PX === 20
+    })(),
+  )
+  t(
+    '㊳ SL:一张 spec 档只被一条腿引用必须点名(正反对照:两侧同引用 ⇒ 不列)',
+    (() => {
+      const tiers = { Z_BOX_PX: 36, Z_GLYPH_PX: 20, 'geometry.tapBox': 36 }
+      const pairs = { pairs: [{ name: 'Z', miniapp: 'a/Z.tsx', rn: 'b/Z.tsx' }] }
+      const oneLeg = specLegAudit(
+        pairs,
+        {
+          'a/Z.tsx': 'width: toUnit(Z_BOX_PX)\n',
+          'b/Z.tsx': 'width: Z_GLYPH_PX\n',
+        },
+        tiers,
+      )
+      const bothLegs = specLegAudit(
+        pairs,
+        {
+          'a/Z.tsx': 'width: toUnit(Z_BOX_PX)\nsize: Z_GLYPH_PX\n',
+          'b/Z.tsx': 'width: Z_BOX_PX\nsize: Z_GLYPH_PX\n',
+        },
+        tiers,
+      )
+      return (
+        oneLeg.length === 1 &&
+        oneLeg[0].onlyMiniapp.join(',') === 'Z_BOX_PX' &&
+        oneLeg[0].onlyRn.join(',') === 'Z_GLYPH_PX' &&
+        bothLegs.length === 0
+      )
+    })(),
+  )
+  t(
+    '㊴ SL 域不含 `geometry.*` 通用档(两侧都无引用 ⇒ 整族不列;有引用也只列 spec 档)',
+    (() => {
+      const tiers = { 'geometry.tapBox': 36 }
+      const pairs = { pairs: [{ name: 'Z', miniapp: 'a/Z.tsx', rn: 'b/Z.tsx' }] }
+      const none = specLegAudit(
+        pairs,
+        { 'a/Z.tsx': 'const t = rnGeometry.tapBox\n', 'b/Z.tsx': 'padding: 8\n' },
+        tiers,
+      )
+      const emptyTiers = specLegAudit(pairs, { 'a/Z.tsx': 'x\n', 'b/Z.tsx': 'y\n' }, {})
+      return none.length === 0 && emptyTiers.length === 0
+    })(),
+  )
+  t(
+    '㊵ 装车锁:`main` 必须把 `collected.tiers` 喂进 `audit` —— 算出档表又丢掉,等于判据没接线',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      return /audit\(\s*collected\.pairs,\s*collected\.text,\s*baseline,\s*collected\.tiers\s*\)/.test(
+        src,
+      )
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
