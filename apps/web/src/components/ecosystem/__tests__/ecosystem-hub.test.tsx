@@ -185,6 +185,38 @@ describe('D17 生态统一入口', () => {
     ).not.toContain('12')
   })
 
+  /**
+   * 运行时取证(2026-09-26,D17 §17 自验)抓到的那一型:取数失败时**只有分区头徽章**喊
+   * "统计暂不可用",正文那一段渲染的是一个空 `<ul>` —— 用户读到的是"这个市场没有东西",
+   * 而不是"取不到"。上面那条只核徽章,所以它对这一格全盲。
+   * 判据刻意钉在「取数的那两个分区的尾元素」上:静态分区(专家包/能力市场)尾元素本来就是
+   * 非空 `<ul>`,拿整页当判据会假红;ready 档同断言反向取"尾部是非空 ul",防这条被判成恒真。
+   */
+  const fetchedSection = (container: HTMLElement, id: string): Element | undefined =>
+    [...container.querySelectorAll('section')].find((s) => s.querySelector('h2')?.id === id)
+
+  it('取数失败时分区正文不得整段空白:尾部必须是说话的一行,不是空 <ul>', async () => {
+    const ready = renderHub()
+    await waitFor(() => {
+      const s = fetchedSection(ready.container, 'ecosystem-skills')
+      expect(s?.lastElementChild?.tagName).toBe('UL')
+      expect((s?.lastElementChild?.querySelectorAll('li').length ?? 0)).toBeGreaterThan(0)
+    })
+    ready.unmount()
+
+    api.mode = 'failed'
+    const failed = renderHub()
+    await waitFor(() => {
+      for (const id of ['ecosystem-skills', 'ecosystem-connectors']) {
+        const s = fetchedSection(failed.container, id)
+        expect(s, `找不到分区 ${id}`).toBeDefined()
+        const tail = s!.lastElementChild
+        expect(tail?.tagName, `${id} 尾部仍是 <ul> ⇒ 失败态整段空白`).toBe('P')
+        expect(tail?.textContent ?? '', `${id} 尾部没说"取不到"`).toContain('ecosystem.countFailed')
+      }
+    })
+  })
+
   it('组件被页面真实挂载(文件面装车证明)', () => {
     const page = readFileSync(join(process.cwd(), 'app/(main)/ecosystem/page.tsx'), 'utf8')
     expect(page).toMatch(/import\s*\{\s*EcosystemHub\s*\}\s*from/)
