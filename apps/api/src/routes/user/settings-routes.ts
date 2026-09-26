@@ -132,9 +132,11 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/settings/authorizations/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
+    // ok 本身就是 revokeSession 那条 UPDATE 的 RETURNING 命中集(rows.length > 0),
+    // 闸后常量 true 与它同值 —— 2026-09-27 改为直接回派生态,消灭"键位上是常量"这一形状。
     const ok = await revokeSession(request.userId!, id)
     if (!ok) return reply.code(404).send(error(404, 'Session not found'))
-    return reply.send(success({ revoked: true }))
+    return reply.send(success({ revoked: ok }))
   })
 
   server.get('/settings/export', async (request, reply) => {
@@ -317,8 +319,10 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { deviceId } = request.params
       if (!deviceId) return reply.status(400).send(error(400, '缺少 deviceId'))
-      await deleteUserPreference(request.userId!, 'devices', deviceId)
-      return reply.send(success({ success: true, deviceId, removed: true }))
+      // removed 由 deleteUserPreference 的 RETURNING 命中集派生(2026-09-27):
+      // 旧形态丢弃委托回报、无条件回 true —— "没有这条设备偏好"与"删除成功"同形。
+      const removed = await deleteUserPreference(request.userId!, 'devices', deviceId)
+      return reply.send(success({ success: true, deviceId, removed }))
     },
   )
 
