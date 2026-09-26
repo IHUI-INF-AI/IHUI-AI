@@ -718,7 +718,6 @@
       "fallbackNotice": "サーバーから会話を読み込めなかったため、端末内の履歴を表示しています。",
       "refreshSuccess": "更新成功",
       "startNew": "新しい会話を開始",
-      "unpin": "固定を解除",
       "msgCount": "{n}件のメッセージ",
       "noMore": "これ以上ありません",
       "pinned": "固定済み",
