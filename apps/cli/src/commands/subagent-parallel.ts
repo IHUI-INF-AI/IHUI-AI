@@ -24,6 +24,8 @@
 import type { Command, OptionValues } from 'commander';
 import chalk from 'chalk';
 import { spawnParallel, type Topology } from './subagent-collab.js';
+// 并发档位解析与总量观测的唯一出口
+import { concurrencyBudgetSnapshot, resolveMaxConcurrency } from '../subagents/concurrency-budget.js';
 import type { SubagentSpawnRequest, SubagentPersona, IsolationMode } from '@ihui/types';
 
 /** 把 --persona / --task 收集的数组配对为 SubagentSpawnRequest[] */
@@ -106,11 +108,15 @@ export function registerSubagentParallelCommand(program: Command): void {
         return; // unreachable,TS 不知道 process.exit 的返回类型是 never
       }
 
-      const maxWorkers = typeof opts.maxWorkers === 'number' ? opts.maxWorkers : 4;
+      // 未传 --max-workers 时按 CPU 推导;传了则钳到 [1, 硬上限](档位字面量不在本文件)
+      const maxWorkers = resolveMaxConcurrency(
+        typeof opts.maxWorkers === 'number' ? opts.maxWorkers : undefined,
+      );
       const jsonOutput = opts.json === true || !process.stdout.isTTY;
 
       if (!jsonOutput) {
-        console.info(chalk.cyan(`\n🚀 并行 spawn ${reqs.length} 个子 agent(topology=${topology}, maxWorkers=${maxWorkers})`));
+        const budget = concurrencyBudgetSnapshot();
+        console.info(chalk.cyan(`\n🚀 并行 spawn ${reqs.length} 个子 agent(topology=${topology}, maxWorkers=${maxWorkers}/${budget.ceiling} activePools=${budget.activePools})`));
         for (const r of reqs) {
           console.info(chalk.dim(`  · [${r.persona}] ${r.task.slice(0, 80)}`));
         }
