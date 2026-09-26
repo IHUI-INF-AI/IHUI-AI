@@ -10564,6 +10564,7 @@
     "communityPublishing": "게시 중...",
     "compaction": {
       "truncatedNotice": "마지막 메시지가 너무 길어 대화를 유지할 수 있도록 내용을 잘라냈습니다 (생략 {count}개)",
+      "truncatedNoticeNoCount": "마지막 메시지가 너무 길어 대화를 유지할 수 있도록 내용을 잘라냈습니다",
       "viewArchived": "압축 전 원본 메시지 {count}개 보기",
       "archiveTitle": "압축 아카이브 · 원본 메시지",
       "archiveEmpty": "압축 아카이브가 없습니다",

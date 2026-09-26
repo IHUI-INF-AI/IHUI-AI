@@ -10715,3 +10715,67 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   同笔清掉:`DownloadDetailContent.tsx:99`(按钮里已有 `ArrowLeft`,「返回」是标签 ⇒ 带理由豁免)、
   `MessageInput.tsx:96`(全屏退出按钮**只有文字没有箭头** ⇒ 补 lucide `ChevronLeft` + 行内 flex 样式键 + 带理由豁免)。
   自检 86/86、5 个改动文件 eslint rc=0、逐文件 `--files` 复验 0。
+  - 〔PROGRESS 2026-09-26(第③件执行侧已接线;票保持未勾 —— 仍差两条,见本条末尾)〕**goal 独立校验轮进了 CLI 循环**:新模块 `apps/cli/src/goal-verification.ts`(采集面 `buildGoalEvidence` + 归一化 `normalizeGoalVerdict` + 档位改写 `applyGoalVerificationToStopReason`),`commands/agent.ts` 在 `end_turn` **交账之前**真跑一次 ai-service `POST /api/agent/goal-verify`(基址复用 `resolveCloudRunBase` 这一份出口、传输复用 api-client 的 `fetchAiServiceJson`,端内零裸 fetch),未通过 / 判不了分别改写成 `verification_not_achieved` / `verification_undetermined` 两个新 stopReason,并在 `stopReasonToExitCode` 里退 1 —— 循环自宣完成从此不再等价于"完成"。三条不可让各有用例:服务不可达 ⇒ undetermined 而非放行;返回体缺 `treat_as_complete` 章 ⇒ 不采信 status 字面;探针命令没跑过 ⇒ 只点名"缺证据",绝不拿相近命令冒充。**变异取证**(不是只跑绿):把档位改写短路 ⇒ 2 枚红;把"缺章"当通过 ⇒ 1 枚红;把交账前那一处调用摘掉 ⇒ 装车证明 1 枚红(`tests/goal-verification-wiring.test.ts` 判的是**调用位**不是 import 位)。**仍差两条**:① 校验端在本机不可达(8803 无监听),端到端"真判一次"没取证 —— 目前只证明到"不可达时按未完成"这一半;② CLI 没有"连续 N 轮未过 ⇒ blocked"的续跑语义(该档由 ai-service `goal_completion_gate.py` 持有,常量 `GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES=3` 也还没有 TS 镜像),另计一票。README 的 `--goal` / `--goal-criteria` 行**本枚未写**:`README.md` 工作树副本当前比 HEAD **少 31 行**(他人持有在飞改写),按 pathspec 提交会把别人的行写回旧态(§12 那条一夜三次自伤),待其落定单独补。
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次1:考勤管理(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次2:家长端(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次3:成绩管理(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次4:智能排课(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次5:作业管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次6:招生管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次7:财务管理(P3) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次8:现有功能优化 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60 未认领票全量 HEAD 对账(2026-09-25 完成 ✅):53 张票三态判定 + 台账漂移量化 + 三处代,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60c D17 入库 + 同一机制的第二条成因被当场逮到(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):第五十批(2026-09-25,✅ 已闭环,用户指令"我需要所有都做到自动同步 以 web app 为主"),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60d 第二波并行编码落地(2026-09-25 完成 ✅):6 票入库 + 1 票按住 + 两处 HEAD 级恒红当,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60e 收尾三件:收敛器落地闸的"搬家≠吞并"、一批 HEAD 级红的逐条归因、六路报告转正(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60f D19 解锁入库 + 一次"上一票的按住结论会不会过期"的实战(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60g 我自己那张"未开工清单"里有两处过期判定 —— 复测更正,并给出剩下真未开工的门槛(2026-09-25 完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60h 第三波:9 路并行取证与清理的双态行收口、清单更正,以及量出来的 12 条新敞口(2026-09-25 完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60i D94 交接单接进对话流失败位，并自曝一条"装车"判据的漏洞（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O71 取材层收口的最后一跳:守门 93 自带的那份 `cat-file --batch` 归一(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+  `HANDLER_ATTR_RE` 纳入 `onChange|onSelect`,`AFFORDANCE_TAG_RE` 纳入 `Picker` ⇒ 扩面后全量面精确报出 3 处,
+  而这 3 处正是本轮已改的:`pages/study/publish/index.tsx:116/132`(两个 `<Picker>` 选择行的 `›` → `LineIcon chevron-right`,
+  24rpx 档沿用原 `ml-[16rpx]`)与 `docs/manual/page.tsx:158`。**`pkg-learn/live/calendar.tsx:162/171` 是同型第三例**:
+  它不是"整格字形",而是把字形当 **i18n 兜底实参** —— `tt('live.calendar.prevMonth', '‹')`,
+  词表缺键时直接把 `‹` 渲染出来;已改为 `<View ariaRole="button" ariaLabel={tt(key,'')}>` + `LineIcon chevron-left|right`
+  (可见侧求矢量、无障碍名称脱离上下文成立,与 §4「更多」入口同一条口径)。
+  自检 86/86(扩面未弄红任何既有反向锁,含上一格新加的面包屑锁)、两文件 eslint rc=0、`--files` 复验 0。
+  分页块写在 `ListFooterComponent={ totalPages > 1 ? (<View>…</View>) : null }` ——
+  **属性表达式里嵌 JSX**。外层 `<FlatList …` 的 `parseTagAt` 一路吃到 131 行那个单独成行的 `/>`,
+  把整个表达式(含分页块)吞成一个自闭合标签 ⇒ 遍历从不进入内部。
+  正解是"属性表达式里若含 JSX 就带着祖先栈递归进去",那是 walker 的一项能力,不是一行判据;
+  **现在它由 `backBlind` 探针点名**,所以症状从"静默报 0"变成"喊出这一格没人看守"。同型还可能有:
+  任何把 JSX 写进 prop 的地方(`renderItem=` / `header=` / `ListHeaderComponent=` 等)。
+  上一格说"真正要修的是出栈时机"—— 定位到了,比预想的更基本:
+  `parseTagAt` 第一行就调 `prevAllowsTagStart`,而它拒绝"前一个字符是 `\w$)\"'` 之一"的 `<`
+  (本意是防 `a < b` 比较运算符被当标签)。**闭合标签天然紧跟文本内容**(`A</a>`、`›</span>`),
+  于是 `</…>` 从来没被解析过 ⇒ 栈只进不出 ⇒ ① 祖先跨兄弟泄漏(面包屑 `<a>A</a><span>›</span>` 被判成
+  "祖先 <a> 可点",这正是我上次撤回扩面的那条红),② 真正该看到的格子反被错嵌套的栈漏掉。
+  修法:先认 `</` 是闭合起点,**闭合标签不受该守卫约束**(串内的 `</` 由 strMask 挡)。
+  ⇒ 同一枚提交里 `AFFORDANCE_TAG_RE` 纳 `a|button` 成立:自检 **85 → 86 全绿**(新增两条锁:
+  面包屑反向锁 + 原生 `<a>`/`<button>` 阳性锁),镜像 17/17,全量面 GA1 精确抓到
+  `apps/web/app/(main)/docs/manual/page.tsx:158`(生产 DOM 7 个渲染实例那个),**源码已同笔改掉**
+  (`<span>→</span>` → lucide `ChevronRight`,保留 `group-hover:translate-x-1` 与 `aria-hidden`),
+  该文件 `--files` 复验 0、eslint rc=0。
+  - **"剩下 12 条"里有 6 条根本不是 CSS 问题(这条推翻的是我自己上一轮的登记)**:`mx-0.5 top-1/2 z-[1040] z-[9995] w-[400rpx] w-[420rpx]` 来自 `Toast`/`ConfirmDialog`/`VoiceInput`/`TitleSwitchScrollPicker`/`TitleSwitchOverlap` —— 这几个组件**在本端零 import**(只有 barrel 的 `export`),它们的类名字符串连同 `translate(-50%` 在整个产物里 0 次出现,只有转写形式孤零零留在 CSS 里。同 `custom-tab-bar` 一类:**源码在、组件不装配**。**地板因此是 12 而不是 6。** 剩下两条路都不做,理由是它们都比现状更糟:删组件属 §7(要先回答"承载什么功能、有无等价实现",这里连"该不该有这几个 UI"都不是我能替产品裁的);给门加 `@source not` 排除表则会在**某天真有人 import 它的那天**把这些样式静默丢掉 —— 用一条更窄的判据换来一个假绿地板,是这笔账里最贵的选项。登记归属,不代裁。
+  - 一条**方法论教训**(比这条修复本身更通用):我先前那句"6 条属 custom-tab-bar,是地板"是**只数了已知的一类**就当成了全集 —— 而"地板"这种结论的正确算法是**逐名归因到"为什么这条运行时看不见"**,不是"我认识的那一类有几个"。这次是代理按逐名查 import 图才发现另外 6 条,否则我会带着一个错地板数字继续排期。另:本次 `config/index.ts` 那份实验补丁(`cache:false`)经比对**已在 HEAD**(`f459df544b`),应用它是 no-op ⇒ 已回退未落。门侧取证:css-landing `--self-test` 112 例全绿 + 镜像 45 例全绿;门 36(--worktree 436/436)、门 105、门 93(R6/R7/R8 全 0)、门 77 无新增违规;水印 verify 完好;`typecheck` 剩 2 枚 `onTerminalDelta` 错在 `src/pkg-ai/ai/chat.tsx:636`,该文件盘上 == HEAD blob ⇒ 他人现场,不碰。
+  **现已由守门 C7 变成构建失败而非一个需要人注意的数字**(`spacingFamily`:需求 ≥8 档而改名集合命中 0 ⇒ off 判红,不受 `--min-coverage` 管辖;`but 这一行是并行会话写进工作树的、尚未提交** ⇒ 我这些读数依赖一个不在版本库里的改动;
+  **但这一行仍是并行会话写进工作树的、尚未提交** ⇒ 我这些读数依赖一个不在版本库里的改动;
+  若它被回退,下一枚干净检出的构建会退回 93.90% / 31 条死规则 ——
+  现由守门 **C7** 兜住:spacing 刻度档需求 ≥8 而改名集合命中 0 ⇒ `off` 判红,且**不受 `--min-coverage` 管辖**,
+  所以那条单点依赖一旦被抽走,构建会直接失败,而不是留下一个要人肉眼发现的数字。
+  - 〔PROGRESS 2026-09-26(上面这条"无生产消费方"已过期,消费方已入库,勿照它派单)〕执行侧出口已接:CLI `apps/cli/src/goal-verification.ts` 采集本轮真跑过的命令族调用 → `POST {AI_SERVICE_URL}/api/agent/goal-verify`,结论决定 `end_turn` 能否交账(未通过 / 判不了 ⇒ `verification_not_achieved` / `verification_undetermined`,退出码 1);提交 `a17e137e4a6`,取证 20 例 + 三条变异。仍开的两格:①端到端"真判一次"未取证(本机 8803 无监听);②CLI 无"连续 N 轮未过 ⇒ blocked"续跑语义(常量 `GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES=3` 尚无 TS 镜像)。
+- [x] ✅(2026-09-26 01:4x) **G-195 生产构建被 HEAD 上的一处半成品卡住(D20 的消费者已入库、被调用方从未写过)—— 归属 D20 持有会话,处置需拍板**:实测链四步,每步可复跑 —— ① `git merge-base --is-ancestor 2bbde1e7b HEAD` ⇒ 真(`feat(web): D20 会话组织与导出 …(代理中断于半成品)`,2026-09-26 05:42);② 该提交改了 8 个文件,**全部是消费侧**(sidebar-chat-history.tsx +210 行、conversation-org-dialog.tsx 新 175 行、conversation-export.ts、五语 i18n),`git show --stat` 里**没有任何 `packages/shared/**` 或新 store 文件**;③ 它引用的东西现在哪儿都没有:`@/stores/conversation-org`(`useConversationOrgMap` / `useConversationOrgStore`)在工作树与 HEAD **均不存在**(`git ls-tree -r HEAD | grep conversation-org` 只剩 dialog 一个),而 `@ihui/shared` 的六个名字 `normalizeOrgName` / `normalizeTagList` / `ORG_FOLDER_MAX_LENGTH` / `ConversationOrgMeta` / `filterByFolder` / `getOrgMeta` / `listFolderNames` / `sortPinnedFirst` 在 `packages/shared/src` + `packages/types/src` 的**导出命中全为 0**,`git log --all -S filterByFolder` 只指向 ② 那一枚提交 —— 即"从未写过",不是"被谁回写掉了";④ 这文件在构建图里跑不掉:`sidebar-chat-history.tsx` 被 `Sidebar.tsx` 引用(应用外壳),所以 `next build` 必然死在模块解析,而 `ignoreBuildErrors: true` 只兜类型、**兜不了 module-not-found**。部署环日志的实证与此吻合:23:10 / 23:12 / 23:15 三轮 `构建尝试` 全 `exit=1`,trace 行逐条点的正是这些 import 位(`ItemEditDialog.tsx:18`、`KnowledgeItemList.tsx:18`、`SpaceMembersPanel.tsx:19`、`sidebar-chat-history.tsx:44`)。
+  G-195 那一格已随 G-203 补齐:共享层规则 + web 端 store 都进 HEAD,守门 98 的 D3 台账行同日删除。
+- [x] ✅(2026-09-26 01:4x) **G-203 补齐 D20 缺的那一半:生产构建从 11:20 起重新产出物**(用户拍板「先解决2」)
+  **契约是从已入库的调用点反推出来的,不是替 D20 重新设计** —— 消费的两侧写得很死:`sidebar-chat-history.tsx:189-192/343/427-430/525/965` 给出 `useConversationOrgMap(userId)` / `useConversationOrgStore((s)=>s.setFolder|setTags)` / `filterByFolder(rawItems, orgMap, folderFilter)` / `sortPinnedFirst` / `listFolderNames` / `getOrgMeta`,`conversation-org-dialog.tsx:53-79` 给出 `normalizeOrgName(input, ORG_FOLDER_MAX_LENGTH)` / `normalizeTagList`。落点也**沿用调用方自己写好的档位**(`sidebar-chat-history.tsx:188` 注释:「客户端元数据 store(v1,localStorage 按 userId 分桶)」)—— 所以这一步没有替别人做产品决策,只是把已声明的那一半实现出来。**如实登记的边界**:后端至今没有承载文件夹/标签的列(实测 chat 会话路由与 `packages/database/src/schema/` 对 `folder|tags` 双零命中),所以这份数据**不跨设备**;改成服务端属性要另立 schema 迁移票,不在本票范围。
+  - **新增 `packages/shared/src/utils/conversation-org.ts`**(经 `utils/index.ts` 进主入口,§3 共享层优先):读侧 `normalizeOrgName` / `normalizeTagList` / `getOrgMeta` / `getOrgFolder` / `listFolderNames` / `filterByFolder`(三态:`undefined` 不过滤 / `null` 只未分组 / 字符串精确匹配)/ `sortPinnedFirst`(稳定),写侧 `withFolderMeta` / `withTagsMeta`;上限 `ORG_FOLDER_MAX_LENGTH=64` 的取值依据写在文件里(本仓短名一律 varchar(64),同 `stock.ts` 的 conversationId)。**采用 origin 上 `d848dfb92` 已写好的那份 web store 而不是我自己那版** —— 它 import 的正是这几个共享函数(`withFolderMeta` / `withTagsMeta` / `ConversationOrgMap`),即两边各是互补的一半,不是我做了他一遍;我那版被逐字节替换掉,只留下行为测试。
+  - **一条不显眼但会崩全站的规定:值没变必须返回同一个对象。** `getOrgMeta` 未命中返回模块级常量、`with*Meta` 等价时返回入参本体(store 靠 `next === base` 短路 `set()`)。这不是风格洁癖:并发会话已经因"selector 每次返回新字面量"吃过一次**全路由 Maximum update depth exceeded**(`d848dfb92` 带来的 `conversation-org-map.test.tsx` 就是那一条的阳性对照),同一型故障在写侧一并钉住。取证 `packages/shared/src/utils/__tests__/conversation-org.test.ts` **26 例**(成对正反例 + frozen 数组喂"不改入参" + 三条引用稳定性)+ `apps/web/src/stores/__tests__/conversation-org.test.ts` **7 例**(按 userId 分桶互不串、只清标签不丢文件夹、hook 面走 renderHook 的真订阅路径)。
+  - **同枚 D20 提交还带进来三处机械写坏的语种数据,而 parity 门一路绿灯**:`aiChat.org` 块 **ja 装了繁体、zh-TW 装了谚文**;`chat.exportMenu.exportPdf` 是 **ja←zh-TW、zh-TW←ko、ko←ja 的三向轮转**(按码位量出来的,不是看字形猜:ko 那份里是 U+3092/U+30A8 假名);而 `aiChat.toast.orgSaved` 被写成 `orgSaved:{orgSaved:"…"}` **自套一层**,调用侧取 `t('toast.orgSaved')` 拿到的是对象 ⇒ 保存成功但 toast 永远不响。现全部按语言归属修正并复验:五语 `check-i18n-keys` parity OK、`scan-i18n-zh-residue` 的 zh-TW/ko/ja 三门绿、`scan-dead-i18n-keys --target=web --exit 1` **死 key 0 / 翻译不完整 0**、全量五语"同名自套层"扫描 **0 处**。**门禁缺口如实登记(本票不顺手补门)**:`check-i18n-keys` 判的是**键集**,现有语种门判的是"有没有中文残留",所以"整块落成了另一门语言"与"键自套一层"这两型结构上看不见 —— 补门要逐语种建内容语种判据(CJK 三族互判),另立一票。
+  - **清掉两处挡着部署的东西**:① 守门 98 的 `KNOWN_ALIAS_LEDGER` 那行删除(它自己写的就是"修好必须删",留着等于替一条已兑现的承诺继续喊欠),全量面现读 `悬空 0 处 / 生效映射 4 个包目录`;② `scripts/guardian-runner.mjs` 的工作树副本实测等于祖先提交 `4c1610662`(09-25 19:34)——**比 HEAD 少 3 道门(124/125/126)**,而它没有暂存,所以判索引内容的守门 84 结构上看不见它;按 `heal-worktree-tracked` 的幻影漂移口径用 `git checkout-index -f --` 对齐(可证无损:盘上那份是祖先版本,不含任何独有数据)。部署环 `BLOCKED-WIP` 清单里点的正是这类路径。**一句话记法:84 量的是索引,危险窗口恰恰是"别人下一次 git add"。**
+  - **验证与未完**:shared typecheck 0 错;web typecheck 中与本票相关的文件 **0 错**(HEAD 上另有 24 处他人既有 TS 错,分布在 `PriceChart.tsx` / `progress-sections/` / `use-subagent-dispatch-auth-guard.test.tsx`,而 `next.config` 的 `ignoreBuildErrors:true` 从不判类型 ⇒ 本票不代裁、不顺手修)。生产构建是否真的重新产出物,**以 `apps/web/.next/IHUI_BUILD_SHA` 是否离开 `8bd9fdcb060b` 为准**,按产物面判、不按日志猜。

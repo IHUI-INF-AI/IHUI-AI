@@ -725,6 +725,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           originalTokens: result.originalTokens,
           compressedTokens: result.compressedTokens,
           removedCount: result.removedCount,
+          truncatedCount: result.truncatedCount,
           usageRatio: result.usageRatio,
         })
         if (result.compressed) {
@@ -737,6 +738,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
               tokensBefore: result.originalTokens,
               tokensAfter: result.compressedTokens,
               removedCount: result.removedCount,
+              // A10B-8:截断量随帧下发(可选字段;旧消费方读不到即"未知",不会崩)
+              truncatedCount: result.truncatedCount,
               usageRatio: result.usageRatio ?? 0,
               compressedMessages: result.messages.map((m) => ({
                 role: m.role,
@@ -992,6 +995,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           originalTokens: result.originalTokens,
           compressedTokens: result.compressedTokens,
           removedCount: result.removedCount,
+          truncatedCount: result.truncatedCount,
           usageRatio: result.usageRatio,
         })
         if (result.compressed) {
@@ -1004,6 +1008,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
               tokensBefore: result.originalTokens,
               tokensAfter: result.compressedTokens,
               removedCount: result.removedCount,
+              // A10B-8:截断量随帧下发(可选字段;旧消费方读不到即"未知",不会崩)
+              truncatedCount: result.truncatedCount,
               usageRatio: result.usageRatio ?? 0,
               compressedMessages: result.messages.map((m) => ({
                 role: m.role,

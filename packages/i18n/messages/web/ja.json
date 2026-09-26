@@ -10564,6 +10564,7 @@
     "communityPublishing": "公開中...",
     "compaction": {
       "truncatedNotice": "最後のメッセージが長すぎるため、会話を維持するために内容を切り詰めました（{count} 件を省略しました）",
+      "truncatedNoticeNoCount": "最後のメッセージが長すぎるため、会話を維持するために内容を切り詰めました",
       "viewArchived": "圧縮前の元のメッセージ（{count} 件）を表示",
       "archiveTitle": "圧縮アーカイブ · 元のメッセージ",
       "archiveEmpty": "圧縮アーカイブはまだありません",
