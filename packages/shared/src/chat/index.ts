@@ -77,7 +77,11 @@ export * from './quota-ownership'
 // D36 会话内输入草稿(截断上限/安全读取;分桶 key 由调用方决定,形态对齐 prompt-history)
 // export * from './prompt-drafts'
 // D35 长会话分页投影(turn 分片纯函数:keyset cursor 往返一致 + 流追加后旧页稳定=增量回放语义)
-// export * from './history-projection'
+// 2026-09-26 落地并接线(消费点:packages/api-client getConversationHistory +
+// apps/web/src/hooks/use-chat-history-projection.ts);此前这行是注释态而服务端端点已入库,
+// 即"数据面在、投影层无人实现"。上方"三个模块都不存在"的说明对 voice-note / prompt-drafts
+// 也已失真(两者文件在 HEAD 面存在),但那两行的归属不在本票,此处只动 history-projection。
+export * from './history-projection'
 // D65 Hook 失败可见性(定档 C:hook_engine 失败信息内存有/SSE 通道无/DLQ 消费出口无 ⇒ 本票仅契约先行
 // 六态词汇表含 resultNotRecorded 终态缺省;attachment stderr/command 过 shared/utils/redact;渲染位待 D34 补事件)
 export * from './hook-failures'
