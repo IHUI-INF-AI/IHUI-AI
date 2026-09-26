@@ -224,13 +224,12 @@ export type {
   CourseCardProps,
 } from './features/cards'
 
-/** 跨端共享小组件(SectionHeader / ColorfulLoader / PayButton / Selecter,从 miniapp-taro 提取) */
-export { SectionHeader, ColorfulLoader, PayButton, Selecter, SearchInput } from './components'
+/** 跨端共享小组件(SectionHeader / Selecter,从 miniapp-taro 提取)。
+ *  ColorfulLoader / PayButton 两条出口于 2026-09-26 随其 packages/app 侧死副本一并摘除 ——
+ *  全仓 6642 个非测试文件跨行解析后零具名消费者,真正的渲染腿在 apps/mobile-rn 与 miniapp adapters。 */
+export { SectionHeader, Selecter, SearchInput } from './components'
 export type {
   SectionHeaderProps,
-  ColorfulLoaderProps,
-  PayButtonProps,
-  PayButtonType,
   SelecterProps,
   SelecterType,
   SelecterOption,
