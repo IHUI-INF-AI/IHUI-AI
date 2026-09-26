@@ -26,6 +26,8 @@ import {
   formatSSEError,
   getModelContextCapacity,
   getWorkspacePermissionDefault,
+  // D20 服务端会话回放:消息体唯一出口(端内不得裸 Taro.request,守门 73)
+  getMessages,
 } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
@@ -56,6 +58,7 @@ import {
 } from './cards/types'
 import { toolActivityText } from './cards/tool-line'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
+import { replayServerConversation } from './server-chat-replay'
 import AgentTipDialog from './AgentTipDialog'
 import './chat.css'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -319,6 +322,47 @@ export default function ChatPage() {
 
   const captureScreenHandlerRef = useRef<(() => void) | null>(null)
 
+  /**
+   * D20 服务端会话回放(小程序端剩下的三格之一)。
+   *
+   * 历史页 86ef4ab06e3 起,`?sessionId=` 带的是 chat_conversations 主键;本机快照的 id
+   * 形如 hist_<ts>,结构上匹配不到 ⇒ 点进去是新会话。这里在本机快照没命中时改走服务端。
+   *
+   * 判序与提示:
+   * - 只按 routeSessionId 跑一次(replayedSessionRef)—— 页面每次 didShow 都重放会把
+   *   用户正在输入的这一屏抹掉;
+   * - 失败**不动消息区**(取不到就显示"没有消息"等于把故障洗成空数据),
+   *   改为弹窗点名原因 + 给「重试」出口 —— 与历史页兜底条同一条 fail-closed 规矩。
+   */
+  const replayedSessionRef = useRef('')
+  const runServerReplay = useCallback(() => {
+    if (!routeSessionId || replayedSessionRef.current === routeSessionId) return
+    replayedSessionRef.current = routeSessionId
+    void replayServerConversation({
+      fetchMessages: () => getMessages(routeSessionId, { direction: 'initial', pageSize: 100 }),
+    }).then((outcome) => {
+      if (outcome.ok) {
+        setMessages(outcome.messages)
+        setImgsList([])
+        setInputValue('')
+        setSelectedMaterial(null)
+        scrollToBottom()
+        return
+      }
+      // 半个租约都比没有更危险 —— 允许下一次 didShow 重新尝试前先清掉"已试"标记
+      replayedSessionRef.current = ''
+      Taro.showModal({
+        title: t('common.hint'),
+        content: t('ai.chat.replayFailed'),
+        confirmText: t('common.retry'),
+        cancelText: t('common.cancel'),
+        success: (res) => {
+          if (res.confirm) runServerReplay()
+        },
+      })
+    })
+  }, [routeSessionId, scrollToBottom, t])
+
   useDidHide(() => {
     try {
       if (captureScreenHandlerRef.current) {
@@ -345,6 +389,7 @@ export default function ChatPage() {
       // 部分平台不支持截屏监听,静默跳过
     }
     // 加载历史对话(对标原 ai_assistant.vue 加载历史)
+    let restoredFromLocal = false
     try {
       const savedHistory = Taro.getStorageSync(HISTORY_STORAGE_KEY)
       if (Array.isArray(savedHistory)) {
@@ -355,6 +400,7 @@ export default function ChatPage() {
             (h) => h.id === routeSessionId && Array.isArray(h.messages) && h.messages.length > 0,
           )
           if (target) {
+            restoredFromLocal = true
             // D106 收尾:历史恢复时从 metadata.steerApplied 重建 aiCards.steerNotices
             // (live 已写的不覆盖;无 metadata 不写空数组,不渲染空态)
             setMessages(backfillSteerNoticesFromMetadata(target.messages))
@@ -368,6 +414,12 @@ export default function ChatPage() {
       }
     } catch {
       // 存储读取失败忽略
+    }
+    // D20:本机快照没命中 ⇒ 走服务端回放。`hist_` 前缀是本文件写入快照时自造的 id 命名空间
+    // (见 clearChat 的 `hist_${Date.now()}`),它不是 chat_conversations 主键 —— 拿它去问
+    // 服务端必 404,那种失败不该弹给用户看。
+    if (routeSessionId && !restoredFromLocal && !routeSessionId.startsWith('hist_')) {
+      runServerReplay()
     }
     // 加载收藏消息(对标原 ai_assistant.vue 收藏列表)
     try {
