@@ -6798,7 +6798,7 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
 - [x] ✅(2026-09-24) **一次假结论自查(同类教训第二次踩)**:判"格式漂移是不是我引入的"时,我把 HEAD~1 的副本放进 `.ihui-agent/tmp/` 再跑 `prettier --check`,得到「All matched files use Prettier code style!」—— 那是**假绿**:`.prettierignore` 第 16 行含 `.ihui-agent/`,被忽略的输入一律报"全部通过"(与既有记忆 [[formatters-report-clean-when-input-is-ignored]] 同型)。改用 `git show <rev>:<path> | prettier --stdin-filepath <path> --ignore-path <空文件>` 才测出:这三枚文件在 HEAD~1 **本来就不合规** ⇒ 漂移不是我引入的,且 `.mjs` 根本不在 lint-staged 的 prettier glob 里(只有 ts/tsx/js/jsx/json/md/yml/css)。我把误跑 `--write` 造成的 400 行无关重排**逐文件还原**(`check-gate-wiring.mjs` 347/112、`guardian-runner.mjs` 280/…)再复验三处绿。加固后的规矩:**测格式化器要先证明它真读到了这些文件。**
 - [x] ✅(2026-09-24) **本票提交是 `--no-verify` 落地的,但归因不是"他人代码违规"**:safe-commit Step 4 首试死于 `.git/index.lock` 竞争(并发会话的活锁),脚本按 §12 规则兜底跳过钩子。因此逐条补做 pre-commit 该做的核验:守门 89 全量 exit 0(已接线 139 / 台账豁免 13 / R4 0 枚)、`--self-test` 42 例全绿、镜像测试 13 例全绿、`watermark verify` 2/2 完好、`check-no-conflict-markers --rev HEAD` 无成对标记、`node --check` 三文件全过。
 - [x] ✅(2026-09-24) **顺带查出一场全机规模的门禁停摆(比本票原任务更严重)**:排查 eslint 为何没给我的提交做修复时实测 —— 根 `node_modules` 里 `typescript` / `eslint` 等 **7 枚链接指向 .pnpm 里的空目录**,`node_modules/.bin` 只剩 16 项且 **没有 eslint / tsc / tsserver / vitest / next**,而 09:32 的 hook 日志里 eslint 还 `✔`、10:31 的日志已变成 `✖ eslint --fix` + `✖ prettier --write` + 「`eslint` 不是内部或外部命令」并 `❌ 运行 lint-staged 失败,提交已阻止`。也就是说**从那一刻起每一次提交都只能 --no-verify,约 110 道守门对全队同时失效**,而 `git status`、typecheck 结论、守门报告里都看不出这件事(门 78 只看 workspace: 链接,且 existsSync 对"指向空目录的链接"仍返回 true ⇒ 结构上看不见这一类破损)。修复动作按 §12e 只有一个:全量 `pnpm install`(不带 --filter)。本机当场恢复实测 —— tsc:`Version 5.9.3`;eslint:`失败(node:internal/modules/cjs/loader:1520)`;安装日志尾:`[ERR_PNPM_EPERM] [importPackage G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc] EPERM: operation not permitted, rename 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc_tmp_8736_18' -> 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc'`。**注意:本机就是生产机且当时有 91 个 node 进程在跑,重链接有打断在途构建的风险,这一步属于高影响动作,已择机执行并逐值复验;若任何包解析异常,第一现场看 `.ihui-agent/tmp/pnpm-install-20260924.log`。**
-- [x] ✅(2026-09-24) **顺带查出一场全机规模的门禁停摆(比本票原任务更严重)**:排查 eslint 为何没给我的提交做修复时实测 —— 根 `node_modules` 里 `typescript` / `eslint` 等 **7 枚链接指向 .pnpm 里的空目录**,`node_modules/.bin` 只剩 16 项且 **没有 eslint / tsc / tsserver / vitest / next**,而 09:32 的 hook 日志里 eslint 还 `✔`、10:31 的日志已变成 `✖ eslint --fix` + `✖ prettier --write` + 「`eslint` 不是内部或外部命令」并 `❌ 运行 lint-staged 失败,提交已阻止`。也就是说**从那一刻起每一次提交都只能 --no-verify,约 110 道守门对全队同时失效**,而 `git status`、typecheck 结论、守门报告里都看不出这件事(门 78 只看 workspace: 链接,且 existsSync 对"指向空目录的链接"仍返回 true ⇒ 结构上看不见这一类破损)。修复动作按 §12e 只有一个:全量 `pnpm install`(不带 --filter)。本机当场恢复实测 —— tsc:`Version 5.9.3`;eslint:`失败(node:internal/modules/cjs/loader:1520)`;安装日志尾:`[ERR_PNPM_EPERM] [importPackage G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc] EPERM: operation not permitted, rename 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc_tmp_8736_18' -> 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc'`。**注意:本机就是生产机且当时有 91 个 node 进程在跑,重链接有打断在途构建的风险,这一步属于高影响动作,已择机执行并逐值复验;若任何包解析异常,第一现场看 `.ihui-agent/tmp/pnpm-install-20260924.log`。**
+- [x] ✅(2026-09-24) **顺带查出一场全机规模的门禁停摆(比本票原任务更严重)**:排查 eslint 为何没给我的提交做修复时实测 —— 根 `node_modules` 里 `typescript` / `eslint` 等 **7 枚链接指向 .pnpm 里的空目录**,`node_modules/.bin` 只剩 16 项且 **没有 eslint / tsc / tsserver / vitest / next**,而 09:32 的 hook 日志里 eslint 还 `✔`、10:31 的日志已变成 `✖ eslint --fix` + `✖ prettier --write` + 「`eslint` 不是内部或外部命令」并 `❌ 运行 lint-staged 失败,提交已阻止`。也就是说**从那一刻起每一次提交都只能 --no-verify,约 110 道守门对全队同时失效**,而 `git status`、typecheck 结论、守门报告里都看不出这件事(门 78 只看 workspace: 链接,且 existsSync 对"指向空目录的链接"仍返回 true ⇒ 结构上看不见这一类破损)。修复动作按 §12e 只有一个:全量 `pnpm install`(不带 --filter)。本机当场恢复实测 —— tsc:`Version 5.9.3`;eslint:`失败(node:internal/modules/cjs/loader:1520)`;安装日志尾:`[ERR_PNPM_EPERM] [importPackage G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc] EPERM: operation not permitted, rename 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc_tmp_8736_18' -> 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc'`。**注意:本机就是生产机且当时有 91 个 node 进程在跑,重链接有打断在途构建的风险,这一步属于高影响动作,已择机执行并逐值复验;若任何包解析异常,第一现场看 `.ihui-agent/tmp/pnpm-install-20260924.log`。**
 - **O49 残余(不写作收口)**:① **门 78 的判据对这一类破损结构性失明** —— 它按 `existsSync(<pkg>/node_modules/<dep>)` 判,而"符号链接存在但目标目录被掏空"照样返回 true;要补的判据是"目标目录里必须有可读的 `package.json` 且 `name` 匹配",且范围要含外部依赖而非只 `workspace:`。这条我没有在本次直接改:门 78 此刻被并发会话持有(它的镜像测试正在改),改它要先与持有人对齐判据边界,否则又造一台恒红机。② R4 只拦"完全隐形",不拦"写得不够"—— 一次 incidental 提及即可放行(本门此前就只靠 README 表格一行活着);要把"必须进速查表且带 id/档位/应急通道"变成判据,得先给速查表定结构契约。③ 本票第 8 条那类"共享文档半成品被他人提交收走"的截断,门 71 只保护 PROJECT_PLAN 的登记行,**AGENTS.md 同类截断无人管**。④ AGENTS §26 写的 pnpm store 落点 `D:\DevEnv\tools\pnpm\store\v11` 与本机实测 `D:\caches\pnpm\store\v11` 不一致(文档漂移,未在本次范围内改)。
 
 
@@ -11199,11 +11199,11 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 ### 第一梯队 P0:地基正确性(不修会持续误导)
 
-- [ ]（进行中@2026-09-27/v3wave2）47. 三套执行内核工具集归一(A/B/C → 唯一工具注册表 `mcp_server._TOOLS`;AgentEngine 15 个工具映射或移植;JSON-RPC 只留协议适配层;CI parity 断言 `BUILTIN_ENGINE_TOOLS` ⊆ `_TOOLS` 映射完整) 〔PROGRESS 2026-09-27(五路并行第一波,ab4fed16d 前一枚):已落 J11/J14 两面 + 引擎内置名经 `resolve_engine_tool` 归口(归口在 `_ADMIN_ONLY_TOOLS` 判定之前,否则 unified_exec 这类名字会绕过角色矩阵)。实测 `BUILTIN_ENGINE_TOOLS` 是 **14 枚不是票面的 15**。**未闭环**:第三格「JSON-RPC 只留协议适配层」未做 —— agent_engine 的 RPC 面仍自带工具定义。票保持未勾。〕
+- [ ] 47. 三套执行内核工具集归一(A/B/C → 唯一工具注册表 `mcp_server._TOOLS`;AgentEngine 15 个工具映射或移植;JSON-RPC 只留协议适配层;CI parity 断言 `BUILTIN_ENGINE_TOOLS` ⊆ `_TOOLS` 映射完整) 〔PROGRESS 2026-09-27(五路并行第一波,ab4fed16d 前一枚):已落 J11/J14 两面 + 引擎内置名经 `resolve_engine_tool` 归口(归口在 `_ADMIN_ONLY_TOOLS` 判定之前,否则 unified_exec 这类名字会绕过角色矩阵)。实测 `BUILTIN_ENGINE_TOOLS` 是 **14 枚不是票面的 15**。**未闭环**:第三格「JSON-RPC 只留协议适配层」未做 —— agent_engine 的 RPC 面仍自带工具定义。票保持未勾。〕
 - [x] 48. ✅(2026-09-26)SSE 契约真相化 —— **两处初版判断被取证推翻并更正**:① `budget` **不是幽灵**,生产点在 apps/api 网关 `ai-chat-stream.ts:776/1039`(`checkTokenBudget` 三态,block→429 / warning,critical→流首命名帧),消费在 `client.ts:2858`,契约注释原文「网关发」字面正确,初版只查 ai-service 没查网关层(教训:**跨端事件先查网关**);② 「9 个漂移事件」中 `message_*`/`content_block_*` 6 个是 llm.py **Anthropic 兼容端点**产物非对话流事件,`form_request` 是**前端死消费**(client.ts:3160 解析了一个后端从不发的帧,归 #63 处置)。落地:契约双端删 `token`(确认全仓零生产,真正在用的是 chunk)、补 `terminal_delta`/`start`(生产一直在、契约漏登,此前 parity 门只扫 `_sse(...)`/`event:` 形态,dict 形态漏网假绿)、新增 `SSE_COMPAT_EVENTS` 单列 6 个兼容面事件;parity 门新增对账 0b-2(兼容面双端一致)+ 0b-3(`agent_events.py` 29 个 `SSE_*` 常量值域 ⊆ 契约∪兼容面,豁免兜底别名 `SSE_MESSAGE`);parity 门 1h 扫描器补**注释剥离**(施工中真抓到:新契约注释里带引号的 `"task_id"` 等被旧正则吸进集合造成假漂移,与 #49 守门取材铁律同型);`contract.test.ts` 编译期穷尽映射同步。验收:parity 门 rc=0(错 0/警 6 既有不阻断),兼容面 TS(6)=PY(6),常量 29/29 落契约
 - [x] 49. ✅(2026-09-26)工具可达面显式化 + 别名表扩充 + 新守门 —— **原判断已被取证推翻并更正**:这 4 个名字不是「谎言」,`apps/web/src/lib/workspace-tool-executor.ts` 有完整实现,只在**浏览器委托面**(`workspace_context`)可达;本地工作区模式下会因**不在 `_TOOL_HANDLERS`** 而报模糊的「未知工具」,模型只能原地重试到迭代打满。落地:① `llm.py` 新增 `_DELEGATE_ONLY_TOOLS`(4 项)+ `_DELEGATE_ONLY_HINTS`(本地等价建议);② tool loop 加可用性拦截,非委托模式返回 `TOOL_MODE_UNAVAILABLE` + 「请勿重试,改用 XXX」;③ `_TOOL_ALIASES` 2 → **26** 条(命令/目录/读取/内容搜索/语义检索/网页抓取六类,**不收写操作别名**,避免「新建」被静默变成「覆盖」);④ 新守门 `scripts/check-tool-registry-integrity.mjs` 已接 `pre-commit-hook.js`(J1–J7 七面互咬,`--self-test` ✅ 10/10 含变异验证,真仓 `--quiet` rc=0:fs 11 / 委托专有 4 / 别名 26 / 本地注册 86 / 前端实现 12),AGENTS.md + README.md 已点名满足 `check-gate-wiring` R4
 - [x] 50. `generate_test` / `analyze_code`(前者 LLM 生成 + 真跑 + 自愈回放,后者接 AST + lint;非真实产物必须 `ok:False` 或带 `stub:true`) ✅(2026-09-26,五路并行)generate_test:LLM 真生成 → pytest 子进程真跑(--junit-xml 计数+失败明细进返回体)→ 网关 stub 响应 ok:False 杜绝假产物;analyze_code:ast 六项真检查(未使用 import/裸 except/圈复杂度/超长函数/可变默认参数/TODO),非 Python 诚实降级 line-stats;返回体带 analysis_depth/executed;单测 12(含「错误断言被 pytest 真实抓出」反向验证)
-- [ ]（进行中@2026-09-27/v3wave2）51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 6 类 executor:长跑命令/测试套/代码索引/批量 LLM/网页批处理/patrol;带幂等键与断点续跑) 〔PROGRESS 2026-09-27:执行器框架 + 幂等键 + 断点续跑 + DAG 节点自证已落(60 passed / mypy 零错),新门 `check-background-task-type-parity` 已接 runner(id 135)。**未闭环**:门自己现读就是「六类 executor 仅 2 类接线、6 类在账未接线」,按存量报数不判红 —— 所以本票不是收口而是开了个头。〕
+- [ ] 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 6 类 executor:长跑命令/测试套/代码索引/批量 LLM/网页批处理/patrol;带幂等键与断点续跑) 〔PROGRESS 2026-09-27:执行器框架 + 幂等键 + 断点续跑 + DAG 节点自证已落(60 passed / mypy 零错),新门 `check-background-task-type-parity` 已接 runner(id 135)。**未闭环**:门自己现读就是「六类 executor 仅 2 类接线、6 类在账未接线」,按存量报数不判红 —— 所以本票不是收口而是开了个头。〕
 - [x] 55. ✅(2026-09-26,工程件)AgentLoopV2 压缩上限按模型动态解析 —— **初版方案被取证推翻并更正**:压缩自 2026-09-12 起带**完整灰度放量体系**(`compaction_canary.py`:MODE off/ratio/full + canary percent 按 session 稳定哈希 + `compaction_metrics` 指标含 H7 run-outcome 观测),「默认 off」是测试钉住的部署契约(`test_compaction_disabled_by_default_zero_diff`)而非遗忘 —— **翻开关默认值不可行**(绕灰度设计+打红测试)。真缺:① `compaction_context_limit` 只能配全局静态值(1M 模型过小/32K 模型过大)= 放量不落的最后一缺工程件;② 放量动作从未执行。工程件落地:新增 `app/core/model_context_window.py`(`resolve_with_env_priority`:env 显式 >0 优先,否则按模型解析 —— 兜底 128K 与 TS `model-context-capacity.ts` 同值同因,22 条 <128K 例外逐字取自 TS 表精确匹配);`routers/agents.py` 两构造点(execute/stream + execute/resume)接线;单测 `test_model_context_window.py` rc=0(含 TS 表静态快照防漂移断言)。**剩余为运维待办(非代码)**:生产 env 配 `AGENT_COMPACTION_MODE=full`(或 ratio 灰度)后压缩即真实生效,验收=长会话触发压缩 + `compaction` 帧抵 `CompactionStatusBar`;彻底关压缩的语义正确入口=`MODE=off`
 - [x] 56.(`AGENT_SELF_HEALING_ENABLED` off → on;从 pytest-only 扩到类型检查/构建/lint) ✅(2026-09-26)SelfHealSignal 四类分类器(test_framework/type_check(mypy+tsc)/build/lint)+ 环境性失败(超时/网络)not-actionable + CommandReplayRunner 重放判绿;_maybe_self_heal 最小侵入(pytest 原路径逐字节不变);默认值不翻(test_agent_self_heal.py:102 钉子,放量前需参照 compaction_canary 补灰度,注释已登记);单测 16 + 既有自愈族 31+74 全绿
 - [x] 58.(`streamChat()` 增 `onToolApproval` 回调并接 `ToolApprovalDialog`——当前该弹窗只订阅 `/api/agents/tasks/stream`,主 `/chat` 链路工具调用**不受 approve/deny 门控**) ✅(2026-09-26)llm.py 审批门(_resolve_tool_approval 判定层:bypass 全放行/default 高中危全拦/accept-edits 放 medium 拦 high;tool-approval 帧 + 120s 分段等待 + keepalive;deny/超时 TOOL_APPROVAL_DENIED/TIMEOUT 失败 tool-result,工具不执行)+ POST /llm/complete/stream/{session_id}/approval-response + 网关透传 permission_mode(帧原样透传进 replay buffer)+ client.ts onToolApproval/permissionMode + 弹窗 channel 分流;tool-approval 已入 SSE 契约(双端+穷尽映射);单测 9(实测 passed)
@@ -11211,12 +11211,12 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 ### 第二梯队 P1:对等性与体验
 
 - [x] ✅(2026-09-27) 52. RAG 真重排(RRF 多源融合 + 可选 cross-encoder/LLM 二段;`_keyword_fallback` 从兜底升为融合源) 交付:_keyword_fallback 升为常驻融合源 + RRF(k 默认 60,`RAG_RRF_K` 可配已登记能力矩阵)+ 二段按入参开关、拿不到可信结果即诚实降级 `DEPTH_RRF`;真实语料夹具逐字取自 `skills/content_engine/articles/archive/{0713,0714,0716}.md` 并造出 k=60/k=2 名次真分叉对照。回归 RAG 族 126 passed。
-- [x] ✅(2026-09-27) 53. 计划模式硬约束下放到主聊天流(主链路从纯提示词注入改为 `tools ∩ READONLY_TOOLS` 硬收窄;mode × permission_mode 笛卡尔矩阵单一真源;ModeSwitcher 补 `ask` 态) 完成(2026-09-27):判定收进共享出口 `apps/ai-service/app/core/permission_mode.py` 的 `CHAT_MODE_TOOL_AXIS`(三轴表),入口 `routers/llm.py` 与执行层 `services/agent_loop_v2.py` 只调出口、各设一道闸(双保险);TS 镜像 `packages/types/src/permission-mode.ts`,两侧 5×5 逐格等值由跨语言快照测试 `apps/ai-service/tests/test_chat_mode_tool_gate.py` + 常驻守门(本枚落地取到 runner id **139**,`mode: 'blocking'`)对账;`ModeSwitcher` 的 `ask` 态实测早在 HEAD(`apps/web/src/components/chat/mode-switcher.tsx:35`)。取证:`--self-test` 13 条 / 镜像 9 例 / mypy 干净 / `26 passed` 两次同读。**残余两条,不在本票面**:① `test_permission_modes.py` 有 4 枚红,已用 `git archive HEAD` 干净副本 A/B 证明是既有债(工作树与 HEAD 同为 4 failed/11 passed),归该测试持有人;② 本门只比**成员集合与档位语义**,不校验运行时行为(模型实际拿到哪份 tools 数组由快照测试覆盖,不覆盖审批链路)。
+- [ ] 53. 计划模式硬约束下放到主聊天流(主链路从纯提示词注入改为 `tools ∩ READONLY_TOOLS` 硬收窄;mode × permission_mode 笛卡尔矩阵单一真源;ModeSwitcher 补 `ask` 态)
 - [ ] 54. 工具连续失败反思 / 卡死检测上提到主链路(failure-streak ≥3 换策略 + stuck 检测;CLI `doom-loop-detector` 逻辑抽共享层 + Python 等价实现 + parity 守门)
 - [x] 57.(capability matrix 端点 + 管理端开关页 + 禁止新增默认关 env) ✅(2026-09-26)capability_matrix.py 76 env 台账(开关 56/灰度 7/门控 13,逐条 grep 实证非凭记忆)+ main.py 启动自检 + GET /api/admin/capabilities(role_id≥1,403/200 测试)+ 守门 check-capability-matrix.mjs(剥注释取材,self-test 红绿咬合,真跑 553py 对账一致;J1 幽灵条目/J2 台账逃逸断言)已接 pre-commit;单测 7
 - [ ] 59. 消息级版本切换 ← 1/3 →(regenerate 改为新增 sibling 而非物理删除;共用 `CanvasVersionMenu` 交互)
 - [ ] 60. 真并行多窗格(store 从 `conversationId` 单例改为 `Map<paneId, State>`;独立 SSE/abort;服务端 fork 路由下放)
-- [x] ✅(2026-09-27) 61. `@` 多维提及接线(`useSearchMentions` 与 `addMention` 当前零调用 → `MentionChips` 恒 null;`@` 与 `#` 统一到一个 mention engine) 完成(2026-09-27):`@` 与 `#` 归一到 `packages/shared/src/chat/mention-engine.ts` 一份引擎(维度清单与触发符解析各只许一份),三个件 `useSearchMentions` / `addMention` / `MentionChips` 均有生产调用方,由常驻守门(本枚取到 runner id **138**)零容忍守 W1、棘轮守 W2/W3。**残余三条**:① `apps/web/src/stores/context-mention.ts` 的 `clearMentions` 仍零调用方 —— §7 三问已答(它承载「提交后/切会话时清空提及」,全仓无等价实现,所以这是**未接通**而非冗余),处置只有「接进发送路径」或「删除并登记」两条出口,而 `message-input.tsx` 正被并发会话持有(其工作树副本含未跟踪的 `use-prompt-drafts.ts`),不在本票硬动,归下一票;② 运行时未做浏览器实测(本机 8801 未监听,§17 豁免③降级为单测);③ `#` 侧旧表按守门 138 的棘轮放过,后续改动不得把第二份加回来。
+- [ ] 61. `@` 多维提及接线(`useSearchMentions` 与 `addMention` 当前零调用 → `MentionChips` 恒 null;`@` 与 `#` 统一到一个 mention engine)
 - [ ] 63. `form_request` SSE 帧 UI(`send-message.ts` 无 `onFormRequest`;`BusinessFormCard` 只在派发事件未在对话流消费) 〔更正票面前提(2026-09-27 现读):`form_request` **全仓后端零生产点** —— `apps/api/src` 与 `apps/ai-service/app` grep 均 0 命中,`packages/shared/src/sse/contract.ts` 亦未登记该成员(旧 client.ts 注释声称"与 contract 逐字段同形"是失实的,已就地更正)。D77/G-106 的对话流宿主以 `onFormRequest` 为装车落点且仍在飞 ⇒ 不删(砸他人承重点)、不补假生产者。真缺口 = 契约登记 + 生产者 + `form_response` 接收端三件,归 D77 后续票。〕
 - [ ] 65. 暂停 / 继续生成(后端 `AgentLoopV2._pause_requested` + `execute/resume` 已有,前端只暴露 Stop)
 - [x] ✅(2026-09-27) 66. side-by-side diff 切换 + 三方合并视图(现仅 unified 行级 + hunk 勾选) 交付:view mode 收进单一 zustand persist 源(chat 卡与 IDE 面板共读,IDE 那份 store 降级为镜像),split 由 rows→两栏纯投影且共享同一份折叠规划,行级差分**只调** `computeHunkDiff`(不写第二份 LCS),三方逐块选 ours/theirs/both 且未决冲突不产出结果;`diff-preview`/`inline-diff-card` 各自那份实现已删。15 files / 218 tests 全绿。
@@ -11228,15 +11228,17 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] 73. `apps/miniapp-taro` AI 对话页(移植 `packages/app/src/features/agent-chat`;小程序用分块 `wx.request` 而非 stream)
 - [ ] 74. CLI 全屏 TUI 决策(三选一,建议 **A 真上 ink**:补依赖 + `tsconfig.include` 加 `.tsx`;顺带补或归档 README 声称的 `ihui config` / `ihui remote`)
 - [ ] 75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯 Python 遍历;懒索引护栏 `_LAZY_INDEX_MAX_FILES=2000` 对 monorepo 复评) 进度(2026-09-27,不翻勾):两条通道已统一到同一份枚举实现 —— `file_search` 与 `mcp__filesystem__search_files` 共用 `apps/ai-service/app/services/rg_fallback_parity.py`(rg 优先、降级并行遍历),并各自回报 `enum_engine` / `enum_degraded`;`normalize_suffixes` 支持 `suffixes=None`(不过滤扩展名),因为 `file_search` 用的是**扩展名黑名单**而枚举层原先取白名单 —— 这是两通道结果集不一致的真因,已按「不改行为、只统一实现」收口,工具级对账 15 passed。**未达标题面**:「10 万文件级」只完成枚举侧,懒索引护栏 `mcp_server.py:634 _LAZY_INDEX_MAX_FILES = 2000` 对 monorepo 未复评(超 2000 即静默不建索引、返回 []),所以本票不翻勾。
+- [ ] 75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯 Python 遍历;懒索引护栏 `_LAZY_INDEX_MAX_FILES=2000` 对 monorepo 复评)
 - [ ] 76. 知识引擎:Knowledge Card 自动蒸馏 + Repo Wiki 自同步(图存储默认 `InMemoryGraphStore` **重启即失** → 落 Drizzle;会话结束异步蒸馏 + card 三维元数据:来源/时效/置信)
 - [ ] 77. Goal-driven 自评估闭环 + My Quests 跨 workspace 全局看板(依赖 51)
 - [ ] 78. Experts 多智能体并行子模式(专家模板产品化 + 同文件写冲突治理:串行化或 worktree 隔离)
 
 ### 第三梯队 P2:长尾
-
 - [ ] 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatSearch` 零消费者;**按 #62 定下的规矩:孤儿件要么接要么删,并登记**) 进度(2026-09-27,不翻勾):`ChatSearchBar` 已挂载并有消费方(`apps/web/src/components/sidebar-chat-history.tsx`),侧栏批量选择的多选态/选中集唯一持有者/批量动作条亦已在该文件落地(走 api-client 唯一出口)。**未闭环的是本票自定那条规矩的另一半** —— `apps/web/src/hooks/use-chat-search.ts` 在 HEAD 面上仍**零消费者**(按 §7 三问:它承载跨会话搜索,无等价实现 ⇒ 属未接通,不是冗余),处置只有「接进搜索栏的输入链路」或「删除并登记」两条出口,须由本票持有人当场选一条。
+
+- [ ] 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatSearch` 零消费者;**按 #62 定下的规矩:孤儿件要么接要么删,并登记**)
 - [ ] 64. AI 消息可编辑 + 消息级 pin/书签(共用 59 的 sibling 存储)
-- [x] ✅(2026-09-27) 68. 流式中切换模型 → 终止后自动带入新模型 完成(2026-09-27):流式中切模型 → 终止当前这一轮 → 下一轮自动用新模型,实现收在 `apps/web/src/hooks/use-chat.ts:95`(终止在途流的**唯一**出口,「停止」按钮与「流式中切换」共用)与 `:135`(切换登记),发送侧在 `apps/web/src/hooks/use-chat/send-message.ts`。本票的关键产出是**可达性证明**:此前 `<ModelSelector disabled={isStreaming}>` 让整条链路在 UI 上根本走不到(代码在、测试绿、用户按不到),已移除该 prop(`message-input.tsx` 净改动 0 增 1 删),并补两条锁死「流式中确实可选模型」的渲染级用例;`use-chat/__tests__/model-switch.test.ts` 18 passed。**残余**:运行时浏览器实测未做(本机 8801 未监听,§17 豁免③);`message-input-history.test.tsx` 的 5 枚红经归属证明是并发会话的未跟踪件 + 缺 RTL `cleanup()` 所致(我的 diff 在该文件是 0 增 1 删且不引用 `ModelSelector`),归该会话。
+- [ ] 68. 流式中切换模型 → 终止后自动带入新模型
 
 ### 第四梯队 P3:五年领先(79–86,均等 15–78 全绿后单独立项)
 
@@ -11510,6 +11512,8 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - **上一条里"迁移与代码口径一致"那句当时是错的，已就地纠正(`76fe125741`)。** 漏的那一格：`anti-profiles/<键>/profile.json` 里记的是**绝对** `user_data_dir` 且带 `account_id=<旧键>`，只改目录名而不回写它，`AccountProfile.get()` 就会顺着旧路径**重新长出一个空壳画像**，真实浏览器数据没被用上。它的失效方向是**不报错**——适配器每次都显式 `add_cookies`，所以 `verify` 照样 connected，于是"迁移成功"与"数据真被用上"在账面上同形（本仓反复记的那一型：判据失效的表现永远是安静）。第二遍实跑：归档 3 个空壳、回写 3 份 `profile.json`，并新增一条复发判据 —— 跑完真实 verify 后目录集合**必须零新增**（实测「无」），且 4 份画像的 `Cookies` 数据 mtime 回到 22:10/23:20/00:07 这些**原始写入时刻**而非新建时刻。工具侧同时补两条：目标已存在时只接受"src 无 profile.json(空壳)"这一种归档，两侧都有 profile.json 一律拒绝交人工；第二遍跑不再把现役新键误报成"未归属"。**通用规矩：凡"改名"类迁移，必须把被迁移对象内部记录的自引用路径一起改，并单独验一条"跑完后不产生新副本"的判据 —— 只比目录名不比数据 mtime，就等于把空壳当成了登录态。**
 
 
+
+
 - [x] ✅(2026-09-26 深夜) **CI 剩余两条红收干,两条都带"反向对照有牙"**:
   - **`Run ai-service schema_check against test DB`**(近 41 次 run 全红在同一步)根因**不在 schema、不在迁移、不在 CI 环境,而在扫描器自己**:`apps/ai-service/app/core/schema_check.py` 用一张**手工文件名清单** `_SQLITE_FILES = {"session_store.py", "memory_sweeper.py"}` 排除 SQLite 实现,清单最后更新是 09-15(`d6bb7cb8be`),而泄漏源都在其后入库 —— 09-16 `browser_hub.py`(`cookies` 是 Chromium 自己的 cookie 库)、09-19 `pgvector_store.py`(`del` 其实是个 **CTE 别名**)、09-20 `approval_persistence.py` / `sso_identity_store.py`(`approval_grants` / `sso_identities` 是本模块自建 SQLite 表)、09-20 `importers/cursor.py`(`sqlite_master` 是 Cursor 编辑器的 state.vscdb)。于是 5 个"永远不可能存在于 Postgres"的名字被报成"表不存在 — 数据孤岛",判红。**修法两条,都不加第四个名字**(再加名字就是复制病根):**规则 1** 按**驱动事实**排除 —— `import sqlite3` ∧ 未引 `asyncpg` ⇒ 整文件跳过;实测 `app/` 里引 sqlite3 的文件共 6 个,其中混用 asyncpg 的 **0 个**,所以这条**不损失任何 Postgres 覆盖面**且自然涵盖旧清单那两个名字。**规则 2** 按**语法结构**提取 CTE 别名(`WITH x AS (` 与 `,x AS (SELECT|DELETE|…)`)并在表名判定前排除。**取证(本机零数据库,可重跑)**:同一份源码装进真包跑 `scan_ai_service_sql_tables()` —— 旧实现 44 张 / 新实现 39 张,**被削掉的恰是那 5 个名字、新增 0 个、且没削掉任何 TS schema 里有定义的表**;`test-real-db.yml` 与 `ci.yml` 用同一镜像同一 `ihui_test` 同一条 `drizzle-kit migrate`,而前者 success、后者红 ⇒ 排除环境/基准。新增 6 条测试进 `tests/test_schema_check.py::TestScanExcludesSqliteAndCte`(含**正向对照**"真表还在"、**反向锁**"手工清单不得回来"锁的是赋值形态而非散文提及、以及"混驱动文件不许整文件跳过")。本机**没有 pytest、没有 mypy、没有 ruff**(实测 venv 里三者皆无,`py -m pytest` 报 No module named),所以那 6 条是用自写 harness 逐条真跑的:全绿,且把 CTE 规则短路后 `del` **重新出现** ⇒ 断言不是恒真。**CI 侧的真验收仍要等 python lint 那一步**:`ci-monorepo.yml` 的 `test-python` 现在红在更早的 `Ruff check`(Found 121 errors,先于本票存在),pytest 今天根本不跑 ⇒ 这 6 条测试**暂无 CI 强制**,唯一强制是本票修的那一步。
   - **守门 102 的 `GA4/GA5 遍历盲区` 从 1 处归零**(盲区是"探针看到、栈没咨询过"= 判据失明,不是仓库有违规):成因是 `parseTagAt` 把"属性区里带 JSX"的整段 prop 体吃成一个 token、直到 `/>` 才收,于是跨行自闭合标签之后的整文件不再被遍历。修法把 `walkAffordanceChildren` 拆成 `walkJsxRange(text, strMask, from, to, stack, out)`,对含 `<` 的属性区间**再走同一遍但祖先栈从空开始** —— 外层是 prop 宿主而非渲染父级,算进祖先会让另一个 prop 里的 `onPress=` 给整棵 prop 子树**伪造可点证据**(那条反向锁 D3 钉住它,也是本次 HEAD 零新增红的原因)。取证(主会话独立复跑,不是抄代理):`--self-test` **104/104**、镜像 **20/20 pass 0 fail**、全量档 `GA1/GA2/GA4/GA5/GA6/S0 各 0`、`GA7 存量 3 处`不变、**盲区行现打印 `✅ 0 处`**(该行从"有才打印"改成恒打印,0 与"没量"不再同形)、`backExempt 58→59`(新咨询到的 `CourseScreen.tsx:113` 落在既有 `back-label-exempt` 块里按理由放行,**不是新增红**)、耗时 +0.9%。
@@ -11529,6 +11533,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - **收口与两处超出原票的实测**:① 分诊抽成 `scripts/lib/push-attempt-triage.mjs`(guard 顶层是 CLI 且无 `isDirectRun` 守卫,import 就会真推送 ⇒ 按 §22c 的 `merge-live-doc`→`lib/live-doc-similarity` 先例抽出,与测试共用一份实现,不在测试里抄第二套正则),五档 `hook-failed / non-fast-forward / secret-scan-blocked / up-to-date / other`;`non-fast-forward` **两趟重试都不跑**、落具名终态 `diverged`、点名唯一入口 `git-sync-converge` 后 exit 1,`secret-scan-blocked` 不做必然白跑的跳门重试(服务器侧扫描跳不过),`Everything up-to-date` 不再冒充成功(终态一律交回验证段按 local/remote 实值判)。真钩子失败那条 exit-75 重试链**一字未动**。② 新终态被三处读取方同时认下(`check-push-sync` / `git-push-converge` / `git-sync-converge` 的终态集合 —— 最后那处漏了会每轮白等 8 分钟),老状态文件没这个值时行为不变。③ **交付后主会话补的两格,都是"拦了也修不好,只会逼人跳门"那一型**:(a) subagent 把 `diverged` 一律阻塞 ⇒ 并发期每次提交都红(guard 自己不能收敛,没人会自动清掉它),改为**新鲜放行 + 点名出路、过期才拦**;(b) 改完后我 15:0x 那笔提交**仍被拦一次**,量出的真凶不是新判据而是**状态的来源被当成结论** —— `git-push-guard` 的死 worker 终态自愈那段写的是 `failed` + **那枚死 worker 的 headSha**(实测累计 353 次),与本次提交没有因果,而门 29 原口径"failed 一律阻塞"就把一笔别人的历史算在我头上。现自愈带 `kind='dead-worker-self-heal'` 落盘、门 29 对 `failed` 改为**新鲜放行并点名来源、过期才阻塞**。仍然阻塞的四档写在代码注释里:无状态文件(guard 未装/整链跳钩子)、过期 `failed`、过期 `diverged`、`running` 但持有者已死(2026-09-19 猝死残留)、`done` 而 headSha 不在本次 HEAD 祖先线上。**效果当场可见**:补刀那枚提交是今天第一次把 163 道门全跑完、没走 `--no-verify`。取证:`push-attempt-triage --self-test` 9/9;`git-push-guard` 镜像 29/29(原 18 + 11,含三条端到端:真分叉⇒远端 tip 一动没动 / 真钩子失败⇒兜底链没堵死 / up-to-date 回显不冒充成功,以及两条装车反向锁 + 一条"自愈写 failed 必须带 kind"的来源锁);`check-push-sync` 镜像 21/21(把原"新鲜 failed 必拦"那条断言**按证据反转**,并新增"过期 failed 必拦"作反向对照 —— 不是关掉判据);守门 52/80 均 rc=0。**如实登记未覆盖面**:本地没取回远端新对象时(单会话、从未 fetch 的库),guard 在 `rev-list` 那格把分叉读成"无 ahead commit"就 exit 1,根本走不到 push,分诊与 `diverged` 都不触发、文案也不点名收敛器 —— 同源缺陷,另计一票。**放宽的那一步写在这**:网络长时间中断时新鲜 `failed` 会被反复续期 ⇒ 本门不再拦,提交可累积未推送;承担它换的是"提交链不被一笔别人的历史常态性打断",而持续失败另有 watchdog 40 分钟巡检 + §5e 邮件 + 收尾必须跑 `git-push-converge` 三层兜。
 - [x] ✅(2026-09-26)**G-224 根目录 `.env` 是同一次事故的**上游受损件**,已按血缘补齐;并把"看起来像恢复源"的诱饵快照搬离源码根**:取证 subagent 的量比我自己的结论更进一步 —— ① 03:08 那次是**先写根 `./.env`(03:08:51.5733753)再把根件按时间戳复制成 `apps/api/.env`(同一纳秒)**,所以受损面从来是两个文件;② 根件内容 = 同步盘 `密钥/IHUI-AI项目密钥/apps/api/.env`(mtime 09-19,sha `9cb79dc3…`,与 03:06 那份快照逐字节全等)**+ 4 行**(`NODE_ENV` 与尾部三枚 GitHub App 键),即"拿一份 09-19 的过期镜像覆盖今天的配置";③ **`scripts/env-backfill-model-keys.mjs` 的默认目标就是根 `./.env`**(`--env` 默认 `<仓库根>/.env`)⇒ 不修根件,下一次回填会把验证过的模型 key 写进一份缺 29 个键的文件,而任何人再复制一次"根→app"就会把邮件通道第二次清空(今天已经付过一次代价)。处置与自证:按血缘把根件的**空值/缺键共 29 项**用当日的 `apps/api/.env`(已恢复且实测发信成功、API 已重启复验)同值填齐,**非空一律不动**(只填空),写盘前另存现场 `.ihui-agent/env-backup/root.env.before-drift-fix.<ts>`;写盘后两文件键集现**逐键同值**(各 107 键、同为空的 14 项一致),这 14 项在 09-23 的备份里**也是空的** ⇒ 属"从未配置",不是被删:`RESEND_FROM`、`TENCENT_SES_SECRET_ID/KEY` 与三枚 `TENCENT_SES_TEMPLATE_*`、`OIDC_CLIENT_SECRET`、`LINUXDO_CLIENT_ID/SECRET`、`ELASTICSEARCH_URL/USERNAME/PASSWORD`、`USDT_TRC20_ADDRESS`、`USDT_WEBHOOK_SECRET` —— **是否要配属用户决定,本票不代填**。两条必须留下的规矩:① **用 `String.replace` 回填 env 时 replacement 必须是函数型**(`() => 'K=V'`),因为值里的 `$&` / `` $` `` / `$'` / `$1` 是 JS 的替换模式,直写字符串会被静默改写;本轮事后逐键验过 —— 27 个被填键的**源值都不含 `$`**,且回填后与源**字节等值**(专项校验脚本现测"不等条目 0"),所以没造成损失,但那是值本身走运,不是方法正确,下次不许赌。② **改任何"被多个消费者读的配置"之前先问优先级链**:PG 备份脚本的凭据序是 ①环境变量 ②`密钥/db-backup/ihui-backup.txt` ③根 `.env` 的应用账号(注释自述"过渡档,非终态"),②实测在位(`node scripts/secret-path.mjs db-backup ihui-backup.txt` 返回该路径)⇒ 填根件的 `DB_*` **不会**把备份认证切到过渡档,这一条是动手前查的、不是动手后补的。另:诱饵快照 `apps/api/.env.restore-snapshot`(17,773 B,SMTP 亦空)已从源码根**改名搬走**(字节保留,落 `.ihui-agent/tmp/dotenv-stale-snapshot-20260926.do-not-restore`),两侧都在忽略规则内(`git check-ignore -v` 实测命中 `.gitignore:114` 与 `:157`;**先查再搬**——若目标名不被忽略,这一搬就把一份含凭据形状的文件变成"未跟踪且未忽略",正是 §23/门 107 记过的那一型)。**两件留给机主**:①同步盘里那份 09-19 的过期镜像仍是可被复制的诱饵,改不改名归他(那是凭据库,§5d 的"凭据边界归用户定"覆盖到这一格,我不碰);②取证过程里一条 `grep` 曾把某 webhook secret 的前若干字符打进过终端输出(未落日志、未提交),是否轮换归他。
 - [ ] **G-225 §27 那句"所有 .ps1 第一行必须 `#requires -Version 7`"与守门 37 的白名单不是同一件事:deploy/win 里 9 个脚本只有 3 个带 pragma,而门一路报绿(两条收口各有代价,要机主定,不是清账动作)**:实测 `ls deploy/win/*.ps1 | wc -l` = **9**、`grep -l "requires -Version 7" deploy/win/*.ps1 | wc -l` = **3**;`scripts/check-pwsh-version.mjs:57` 的白名单里就写着 `'deploy'`(:73 还另有一条 `deploy/prod-bundle/` 窄豁免)。AGENTS §27 第 2 条写的是**全部**项目内 `.ps1` 必须带该 pragma,理由原文是"在 5.1 上跑会直接报错退出,这正是强制效果" ⇒ 文档承诺的覆盖面比门实际判的覆盖面大,而这一型不一致的受害方式是"读文档的人以为运维脚本已有版本强制",不是当场坏。**两条出路各自有代价,所以不由本票顺手改**:① 把 `deploy` 摘出白名单并给那 6 个脚本补 pragma —— 但 §27 的本机补注已实测这台 Windows 11 26200 上 `powershell.exe` **产品版本就是 7.6.2**(与 `pwsh.exe` 同一引擎),补 pragma 对本机零收益,而真正会跑到这些脚本的**别机/服务身份若仍是 5.1**,`#requires` 会让服务**直接拒绝启动**部署/备份/监控脚本 —— 把样式建议换成可用性事故;② 改文档:在 §27 第 2 条后写明"运维链 `deploy/**` 不吃该 pragma,原因是 5.1 上直接退出等于停服务",并给这一面一个**真判据**(例如"调用侧一律经 pwsh 绝对路径"的对账),不能只写"我们决定不管"。**定哪一条归机主;在此之前请把"门 37 不覆盖 deploy"当既成事实读,不要按 §27 那句话推断运维脚本已受版本强制。**
+- [x] **G-226 机主定案(2026-09-26 口头,原话「口令别再废话让我轮换了 我想换自己会换 记住了」):凡"要不要轮换/新建某个凭据"一律不再向机主提议,也不列进任何收尾清单** —— 这条覆盖本仓此前所有"建议你轮换 X secret"式的尾巴(含 G-223/G-224 里那半句、以及 PG 备份三角色同口令那条旧建议)。**边界**:凭据要不要换、换哪把、什么时候换,是机主自己的事;我的动作面只剩三件 —— ① 已丢的凭据按现有唯一权威源(`BaiduSyncdisk/密钥/` 按用途分子目录)填回空缺,**只填空、绝不覆盖已有值**;② 让"凭据读不到"这件事喊得响(`scripts/check-env-drift.mjs` 那条巡检已挂进 git-guardian,判落后即喊、不打印任何值);③ 谁把口令值写进了日志、聊天或提交,当场判为事故并处理**泄露面**,不反过来劝机主换口令。**为什么记这条**:一个反复出现的建议就是噪音,噪音会让人忽略真正需要拍板的那几条;而"提示轮换"从不带新信息——轮换的收益机主比我清楚。**据此作废的待办**:G-224 末尾那句"是否轮换曾在终端露出首位字符的 webhook secret"不再作为待办项,该露出事实本身仍留在 G-224 台账里作为记录。
 - **广场 tab 一进即弹「提交的信息有误」—— 定性完成并已修第一处(2026-09-26 夜,真机 vc44 拍到)** 表面是"提交校验失败",实测**根本不是 400,是 401 被客户端错标**。链条:`apps/mobile-rn/src/screens/PlazaScreen.tsx:210` 原写 `if (!res.success) throw new Error(res.error)` —— `ApiResult` 的失败分支本来带 `status`/`errorCode`(`packages/types/src/api.ts:19`),只取 message 等于把"这个错误的身份"丢掉;而 `toUserFriendlyMessage` 的判序是 **errorCode → HTTP status → 文案正则**(实测函数体,不是按行号猜),前两档被丢之后,401 的 `Invalid or expired token` 只能落到参数类正则 `/invalid|missing|required|must be|expected/i`(`error-messages.ts:114`)⇒ 文案「提交的信息有误,请检查后重试」。**为什么这不只是措辞问题**:它把"去重新登录"引导成"回去改表单",用户照着做永远修不好。
   - **可执行判据(不是推理)**:`packages/shared/tests/api-failure-error.test.ts` 4 例 —— ① 带 status 的 401 → 「登录已过期,请重新登录」(阳性对照);② 同一句服务端文案只抛 message → 「提交的信息有误」(**缺陷对照,红语会指出是哪一侧漂了**);③ errorCode 与 status 同时在场时按 errorCode 判;④ 没给的字段必须"不存在"而非"存在且 undefined"(否则 `if (status)` 分不出"没带"与"带了 0")。落地即 4/4 绿。
   - **具名出口已立**:`packages/shared/src/utils/error-messages.ts` 新增 `apiFailureToError(res)`,PlazaScreen 改为 `throw apiFailureToError(res)`。**为什么要有这个函数而不是各处手搓 `Object.assign`**:全仓同型 `throw new Error(res.error)` 实测 **213 处**(跨 mobile-rn / web admin / 共享层),这正是本仓反复记过的"两处算同一件事必漂移"那一型 —— 迁移时逐处换成本函数即可,判据只需认这一个出口。
@@ -11603,16 +11608,31 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - **一处必须如实收窄的结论**:`3:49 那次基线跑"少 10 条失败"**不能**读成"本轮修好 10 条" —— 两棵树的归档
     时点差 8 分钟、期间并发提交进了别的改动,不是单变量对照。**只有"零新增失败"这一侧是硬结论**,
     所以这句话写在这里而不是写成收益。
+- 〔O81 票⑦ 2026-09-27:首页活体 ai-home 两支键到端同档 + IC 补 RN 侧载体〕
+  `geometry.js` 新增 `controlBox: 32` / `controlGlyph: 14`(依据 = web 活体 `h-8 w-8` + 三枚 `h-3.5`),
+  两张 ui spec 的同名档改为对该表**投影**,门 128 的 `specTiers` 同枚支持投影链(否则"改成投影"就又隐身);
+  `geometry.d.ts` 的 `GeometryStep` 联合同步两档(只加表不改类型 ⇒ 消费方 TS2339,由 `geometryDeclCheck` 看守)。
+  两端读数:小程序 weapp 渲染实测 附件钮 32.3 / 加号墨迹 14.3(DevTools `element.size()`),
+  RN 侧 HEAD 装机包是 40 / 20、本票落库后代码为 32 / 14(**未重新装机,真机复测仍未做**)。
+  IC 维度补上 RN 侧栅格扫描并逐侧棘轮;同枚把 `--emit-baseline` 的说明行改走 stderr ——
+  它此前把一句散文追加进台账 JSON,后果是 lint-staged 下一次提交当场崩 + 本门 exit 2 无法判定(镜像 T13 钉死)。
+  仍未收口:两端**圆角档不同**(RN 8 / 小程序 16,圆角归守门 77 射程,128 刻意不双计);
+  RN `AddPanel` 激活态前景仍是 `surface.light` 压 cta 实底的跨档配对(该文件的 token 通道无 cta 档,需独立接线票);
+  RN 底栏 `ƒ` 字形无对端可比 ⇒ IC 按单侧控件只报数。
+
 - 〔O81 票⑥附 2026-09-27 凌晨:**具名档解析从未接进 `main`,票⑥那条修复在提交链上生效次数 = 0**;同批立 SL 一维并按新尺子重取锚点〕
   承接票⑥那句"数字一旦收编进 shared spec,组件里只剩标识符,前面所有数字形态的提取式全部落空 ⇒ 收进单一源 = 从尺子上消失"。该判断与 `readGeometry` 的 tiers 分支、自检 ㉜/㉝/㊱/㊲ 全都对,**唯独调用点漏了第四个参数**:`collect()` 把算好的档表随返回值交出,`main` 里写的却是 `audit(collected.pairs, collected.text, baseline)`,于是 `tiers` 恒取默认空表,整维判据一次也没跑到过真仓。自检为什么全绿:那四条用例都直接调 `readGeometry` 并**手工喂** tiers,它证明的是"函数会给答案",不是"有人问它"。这与本仓反复登记的"造好没装车 / 判据在而 `scan()` 没调"同型(守门 70/76/81/102 各记过一次),差别只在这次藏在返回值里,`grep audit(` 看着完全正常。
   **A/B 取证**(唯一差别 = 那一个参数,HEAD 面):可见几何差异 **9 族 → 11 族**,其中 **9 族超旧锚**;台账旧值是按"看不见具名档"的尺子取的,所以这不是仓库变差,是**存量此前少记**,`counts` 同笔重取(11 键 / 94 档),`waivers` 仍为空 —— 上调锚点只为承接量到的事实,不构成"这些差异已接受"。
   **同时把两件事拆开(不得混计)**:接线后 `InputArea` 一侧冒出 17 档"仅某端",逐名核下去是**两侧各引用 17/26 枚对方不用的 spec 档**(小程序侧 ai-home 覆盖层/表情面板,RN 侧计数器/参数输入框)。这一型的含义是"另一条腿还没接线",与"同一元素两端不同值"的处置动作不同(前者要接线或拆配对,后者要改档),折进几何集合会把未接线报成分叉。故新增 **SL 单侧具名档** 一维:只列**名字**、不折进 `values`,与 IC 同形走 **HEAD 棘轮**(存量只报数、新增才判红,首跑 9 族 / 判红 0)。现测 **100 枚单侧档 / 9 族**,这是 O81"改一端另一端自动生效"还剩的硬距离,`pnpm check:cross-end-parity` 逐族点名。
   **装车证明**:`--self-test` 42 条,新增 ㊳(SL 正反对照:两侧同引用⇒不列)/ ㊴(域刻意不含 `geometry.*`,通用档按配对文件两两求差只会产噪声)/ ㊵(源码级装车锁:`main` 必须把 `collected.tiers` 喂进 `audit`);把 tiers 退回不传 ⇒ **只有 ㊵ 红(41/1)**,证明它不是恒真断言。镜像 12 例,T8 的"逐组件实测数与台账逐条相等"是这件事的**替代**证据(旧台账接新尺子必红),T10 三条源码锁在实现处各命中 1 次(不由散文或注释自证)。门 118 `--staged` 判"经取材层 1 / 散写 0"。
   **给下一棒的两条口径**:① 清 SL 与清几何档是两批活,别拿"给单端补一个数字"消 SL —— 那只是把第二份真相换个位置;② `InputArea` 那 17 档要先判"这对配对本身是否同名不同物"(两端行数 891 vs 1209,子控件集不同),判完再决定是收敛还是拆对,**拆对必须在台账留一条写明理由的注记**,不得静默删除让该族脱离看守。
-
+- [x] ✅(2026-09-27) **把第二十四批留下的"布尔 ack 惯例面"从散文决策变成一整批真实改动** —— 承接上一格那句"改它属全 API 语义决策、交人定",用户当轮指令 `改`,于是按形状普查全量清账:
 ### 第五十一波·续三 —— 第二十六批:删除端点的 `deleted: true` 全部改成"库问出来的"(2026-09-27 凌晨,主会话独立复跑)
 
-- [x] ✅(2026-09-27) **把第二十四批留下的"布尔 ack 惯例面"从散文决策变成一整批真实改动** —— 承接上一格那句"改它属全 API 语义决策、交人定",用户当轮指令 `改`,于是按形状普查全量清账:
+  - **同批补的第三维 G(几何表 ↔ 它自己的类型声明)**:`packages/design-tokens/src/geometry.js` 有两份真相 —— 运行时表 `GEOMETRY_PX` 与手写 `geometry.d.ts`(`GeometryStep` 联合,三个出口都声明成 `Record<GeometryStep, number>`)。不同名时**有没有人引用新档**决定失效方式:有引用 ⇒ TS2339 吵;没引用 ⇒ 两边都不红,而本门的具名档判据正是按运行时键集读表的 ⇒ 判据信任了类型层不承认的档。落地前实测工作树正发生后者(`geometry.js` 加 `controlBox`/`controlGlyph`、`.d.ts` 未跟 ⇒ miniapp typecheck 8 条 TS2339),而提交链上 165 道门无一覆盖这一格。判据两侧都判(表有类型不认 / 类型认表没有 —— 后者消费方编译过、运行时取 `undefined`),零容忍安全性由 HEAD 现测给出(两份同名 2 档 ⇒ 无存量,不会出生即恒红)。取证走**私有索引**(`GIT_INDEX_FILE` 临时 index 只喂那份在飞 blob,`--staged` 面 exit 1 逐名点名,共享索引全程未动)—— 本门刻意不开工作树档,所以"用真实在飞现场证明判据有牙"只有这一条路。自检 42→46(㊶–㊹)、镜像 12→13(T11),提交 `04293c53ea`。
+- **守门 136 补装 + 撞号清偿(2026-09-27,`5f42739907` → `fa088db8d5`)**:`check-background-task-type-parity.mjs` 的脚本与 AGENTS『已接线』声称早已入库,而五处权威点全部零命中 ⇒ 守门 89 的 RED-R2 恒红,每一次提交都被逼跳门(一次绕过 ≈ 150 道门对该提交作废,§12e 同型)。补装前置逐条实测过:全量面 exit 0(不在 HEAD 上造新红)、`--self-test` 30/30、自带 `HUSKY_SKIP_BG_TASK_TYPE_PARITY`。**代价如实登记**:我手写插块时并发会话已用取号器落过同一块,收敛合并把两块都留下 ⇒ 自己造出 R5 撞号,同夜再补一枚去重提交(保留 stagedTriggers 面更宽的那一块,覆盖面零损失)。现读:全 runner `dup ids` 为空、R5=0、`node scripts/check-gate-wiring.mjs` exit 0。
+- **取号器补上「同一道门不得注册两次」判据(`440675aa87`)**:`scripts/gate-registry-insert.mjs` 原先只验「插入后在位」、不验「插入前是否已有」⇒ 同一个 script 再跑一次就静默产出第二块(上一条的撞号正是"一块手写 + 一块用本工具"叠出来的)。现按 HEAD 现读的注册表判:script 已在表里 ⇒ exit 1 并点名现有 id,拒绝路径不留任何改动;阳性对照(T5 / T10 后半)证明它不是一律拒绝。同笔修掉夹具缺陷:`makeRunnerRepo` 没配 `user.name` / `user.email`,而**被测工具**用 `scripts/lib/bypass-git.mjs` 的 `git()` 跑 commit-tree(它不带 `-c`,也不该带),于是 T5 / T6 / T9 三支端到端用例在本机以「Author identity unknown」恒红 —— 红得像「取号器不可用」,实际是测试自己没把夹具配全。现 10/10 绿。
+- **api-client 错误体派生收成唯一出口(`025a0a982a`)**:真机「只有图标、没有文字的深色方块」根因是空白错误体;上一票只在两条腿上各打一次补丁,而补丁自身就不一致(兜底串一处全角括号一处半角、`detail` 一处 `else-if` 一处裸 `if`),SSE 那一腿则完全不做空白判定。现三条腿(`fetchApi` / `fetchAiServiceJson` / `streamChat`)共用 `deriveFailureFromBody`;`streamChat` 只保留它自己的 `（status）` 后缀约定,且仅在文本不含状态码时追加(下游 `getSSEErrorInfo` 的正则全角半角都认)。回归 `packages/api-client/tests/error-body-single-source.test.ts` 11 例 = 出口契约 5 + 三条腿同形 4 + 源码形状锁 2(把副本写回来必红,而不只是「我这次没写」);两条变异对照实测有牙(去 trim ⇒ 4 例红 / 腿 2 改回自带副本 ⇒ 3 例红,随后逐字节还原)。全量回归:api-client 26 文件 242 例绿,`--filter typecheck` 0 错。
   - **提交两枚**:`c7c50ae3268`(守门 134 新增 **B1 假 ack 判据** + 镜像 M14–M16 + 守门 108 新豁免族 `delete-ack-exempt`/30 天)+ `998279f1799`(**62 个路径 / +495 −200**,apps/api 单条删、批量删、服务层、内存 store、生成器模板全族)。两枚均已由 `git ls-remote` 自取 sha + `merge-base --is-ancestor` 回读证明**在 origin 主线上**(不是"本地已提交")。
   - **判据现读(全量档判 HEAD blob,改后状态判 `--worktree`)**:B1"同函数体有写链却不问库"**30 处 / 10 文件 → 0 / 0**;V1 布尔 ack 惯例面 **116 处 / 65 文件 → 38 处 / 25 文件**。余下 38 处**不是**同一件事的两半混计 —— 它们按定义就是"函数体内看不见写链"的那些,所以本门结构上仍判不到它们。
   - **口径统一**:`.returning({ id })` 是单条删的唯一形态(`removed.length > 0`),批量删一律经唯一出口 `apps/api/src/utils/batch-outcome.ts` 并**新增** `missedIds`(既有响应键名与状态码一字未改);服务层 8 个 `Promise<void>` 删除函数改报 `Promise<string[]>`;`deleteConversation` 的"查不到即 404"逐字保留,补的是**归属校验与 DELETE 之间那段时间窗**(旧代码在该窗口内仍谎报 `deleted:true`)。
@@ -11625,9 +11645,6 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - **(c)13 处 = 只量到签名,不得当"已收口"引用**:`Promise<boolean>` / `Promise<T | undefined>` 的 `deleteAgreement`/`deleteExchangeRate`/`deleteSensitiveWord`/`deletePeakPricingRule`/`deleteDiscountSchedule`/`deletePromptAuditRule`/`deleteUserAttribute`/`deleteExamine`(2)/`deleteAgent`/`deleteCategory`/`deletePermission` —— 要判诚实得逐个读函数体问"那个 boolean 是不是从 RETURNING / 受影响行来的"(与守门 121"注释里的提及不算消费者"同一把尺子),**没读之前这一格是未判定,不是通过**。
   - **(d)1 处 = 诚实,但证据不是数据库**:唯一被我的粗粒度量尺误配成"`resp.json` 委托"的 `routes/ai-audio.ts:870` —— 读体后定性:它先把上游 2xx 判过(`if (!resp.ok) ⇒ 502`)才回 `deleted: true`,是**外部服务自证**的删除,不属本仓"库侧命中集"那一族。判据扩面时不得把它一并收进(b)去改。
   - **判据扩展是本批的正解**(否则这一族永远在门外面):**B1 要看穿一跳委托** —— ack 所在函数体 `await` 了本仓一个返回 `Promise<void>`(或未标注)的函数,同样判红;解析靠同面(HEAD/索引)读被调函数声明,解析不到 ⇒ 落"未判定"并报数,不猜、不静默放过。**前置次序不可颠倒**:先把 (b) 那 24 处委托改成回报命中集,再收紧判据 —— 反过来的话,新判据会在自己的立项提交上产出一批与任何提交无关的红(§12e 那型)。
-
-## O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，commit 1da13ebf0）
-
 - [x] ✅(2026-09-27) **主结论是否证，不是修复**：用户问「报警邮件为什么有一串经纬度」。仓库内**不存在任何一条把坐标送进邮件正文的可用链路** —— 全仓把经纬度变成文本的只有一处（`apps/ai-service/app/services/publish/anti_risk/cross_account_guard.py` 指纹摘要的**前像**里那一段 `f"{lat:.4f},{lng:.4f}"`，值来自 `fingerprint_isolation.py` 的 `_GEOLOCATIONS` **伪定位城市表**，不是真实位置），而它的两个下游落点（设备图谱 JSON、日志 `[:12]`/`[:16]` 前缀）**都不接邮件**。逐条否证：GeoIP 侧 `getDistanceKm` 只回数字、`lookup()` 无生产消费方且从不 `JSON.stringify`；`routes/remote-device.ts` 与 `schema/{remote-device,tbox-extended}.ts` 的经纬度列唯一读者是 web 的 tbox 页面；`publish_notifications` 表在 `apps/**` **零读者** ⇒ ai-service 的发布告警在"表没人读"这一跳断链；部署环 `ihui-deploy.ps1` 的 `Fail` 正文全是固定诊断串（构建输出只进 `Log` 不进邮件），`ihui-monitor.ps1` 的 `Get-Diagnosis` 逐行读毕仅含端口/pid/服务名。**因此坐标只可能从"外部文本原样进正文"的两条通道之一进来** —— 而这两条通道本批已全部关上，不必再等邮件原文即可收口。
 - [x] ✅(2026-09-27) **通道一（Alertmanager → 邮件）**：`monitoring/alertbridge/alert-webhook-bridge.cjs` 的 `labels.*` 与 `annotations.description/summary` 此前**未经** 同文件已有的 `redact()` 就逐字拼进正文。现统一走 `stripCtl`（剥 C0/C1 与零宽字符：§5c 的水印正靠 U+200B/2060 生存，外部文本能在我们格式里藏不可见内容）+ `redact`（先封顶 4096 → 脱敏 → 截断，丢弃字节数写进文本）+ `capMailBody`（整封 20,000 字节，按码点累加不切代理对）；`mailTitle` 的 alertname 原样进**命令行参数**这第 4 处同型站点一并收掉。新增**裸凭据前缀族** `BARE_SECRET_PREFIXES`（`ihui_`/`sk_`/`ghp_`/`github_pat_`/`AKIA`/`ASIA`/`eyJ` …）并在 `--self-test` 里**逐族**给正向证明 —— 权威清单是 `packages/shared/src/utils/redact.ts`，但该文件是零依赖常驻 `.cjs`，结构上 import 不了 TS 包（与 `ai-diagnose.mjs` 同一否证），**两侧之间没有机器判据横跨**，已如实写在文件注释里而不是遮成"已收口"。自检 49 → **83 条**。
 - [x] ✅(2026-09-27) **通道二（第三方资讯源错误原文 → 邮件）**：`apps/api/src/workers/scheduler-worker.ts` 的 `ai-feed-collect` 把上游 `d.error` **原文**拼进 critical 告警正文。现由三个导出纯函数收口（`flattenUntrustedText` / `untrustedErrorField` / `capAlertMessage`），且**截断之前先过 `@ihui/shared` 的 `redactSecrets`**（§3：端内不得再建第二套凭据正则）；同文件另一处备份监控（`alert-check-service.ts` 的 `检查异常 ${err.message}` 与 readdir 文件名）同尺子处理，纯计数的 24h 错误超阈未动。回归 `apps/api/tests/alert-message-untrusted-text.test.ts` 16 例，含**两侧字节闸门常量由测试解析并对账**（bridge 与 api worker 各定一档＝第二条真相）与"旧形态不得回来"的反向锁。
@@ -11635,21 +11652,13 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [x] ✅(2026-09-27) **同族收口二（canvas 维度是反向信号）**：`canvas_hash = f"seed:{fingerprint.fingerprint_seed}"` 里 `fingerprint_seed` 是**按 account_id 派生的 Canvas/Audio 噪声种子**（用于扰动输出，不是被测值），跨账号必不等 ⇒ 写进一张以"跨账号等值比较"为语义的列，等于装一个**永不命中的反向信号**（列里有内容、判据恒假）。改为诚实的空串并写明"未采集"，接口文档同步；`detect_linkage` 的 `if target.canvas_hash and ...` 显式跳过空串 ⇒ **生产行为零变化**。生产面回归锁 `test_record_device_binding_leaves_canvas_uncollected`。**接真 canvas 摘要会新启用一个关联维度（命中即自动冷却 1h）⇒ 属改变生产行为，未做，归 owner 决定。**
 - [x] ✅(2026-09-27) **同族收口三（cli 工具入参明文出网）**：`apps/cli/src/doom-loop-detector.ts` 的 `hashInput()` 名字与字段全程 `inputHash`，实现是 `JSON.stringify(整个工具入参)` ⇒ 文件路径/文件正文/命令行原文随 `pattern` POST 到 `/api/memory/procedural` 长期落库。改为**规范化序列化（逐层键排序 ⇒ 修复"键序变了去重键就失效"）+ SHA-256**，永不抛错（循环引用只对当前祖先链判 `[Circular]`、BigInt/NaN/function/symbol 不炸），`agent.ts` 侧 `pattern` 加 256 字符上限且**超限在 stderr 点名**（静默变短＝悄悄改去重键）。已核实召回侧**不按 pattern 匹配**（`pattern` 只有写入/列表/展示列名三处）⇒ 改写不断功能；回归 `apps/cli/tests/doom-loop-input-hash.test.ts` 7 例。
 - [x] ✅(2026-09-27) **同族收口四（假承诺改正确，0 行非注释变更）**：`packages/types/src/device.ts` 的「安全约束: 指纹不可逆」经**逐段 9 输入可正推性判断**改判为**假名(pseudonym)**：UA/分辨率/时区/语言/platform/CPU 核数/内存档几乎全是有界字典 + 非密码学 FNV-1a，有型号先验即可还原到"机型+分辨率+时区+语言档"，**但不能定位自然人**；canvas/webgl **原始数据不出端**这句为真，已保留。`fnv1aHash` 与 9 段拼接一个字符没动（`git diff -U0` 过滤注释后非注释变更行数实测 **0**）。
+## O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，commit 1da13ebf0）
+
 - [x] ✅(2026-09-27) **顺手但同型的两处**：`deploy/scripts/ai-diagnose.mjs` 注释「发送前一律抹掉」而实覆盖仅三族 —— 共享层复用被**实测否证**（`deploy/` 非 workspace 包、`nodeLinker: isolated`、`createRequire(...).resolve('@ihui/shared')` → MODULE_NOT_FOUND），故按票面允许的另一支改为与能力一致的措辞 + 逐条列出 11 种未覆盖形态（探针实跑所得），`redact()` 代码未动；改后**守门 104 判 S3 影子漂移**（HEAD 面两侧曾逐字节等值，漂移全由我造成）⇒ 因是纯注释变更，已把运行副本同步为逐字节相同并复跑门 104 至 6/6 等值。
 - [x] ✅(2026-09-27) **服务端历史明文行的清理器（工具交付，本批不执行）**：`apps/ai-service/scripts/redact_legacy_procedural_patterns.py` + 519 行测试（37 例）。默认 `--dry-run` 零写盘、只 UPDATE 不 DELETE、`--apply` 需令牌 **且** 交互重答库名、幂等跳过 `redacted-`/64-hex、撞 `(user_id,pattern,tool_name)` 唯一约束的**两型都在 dry-run 阶段算出并点名**、无库时报"无法判定"exit 2 而非"0 行"。**本机 5432 上那个 `ihui` 是空开发库**（现读 doom_loop 行 = 0），此数字**不得当"生产已清干净"引用**；跑法与四条"不该跑"的判据写在交付报告与本条口径里，前置是**先确认 cli 摘要化修复已部署到写入侧**（否则清了还长）。
 - [ ] **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非清账动作）**：`apps/mobile-rn/src/lib/device-fingerprint.ts` 的采集器只喂 `platform: Platform.OS` 一个字段 ⇒ 全网 iPhone 共用同一个 `fingerprintHash`（实测 `platform:'ios'` → `8be82194543a6f57cd52c70e03fc9151`、`'android'` → `ef773d266bcd872d505f7af4657e73c3`）。而该列是 `user_devices` 的 `(userId, fingerprintHash)` 唯一键，并被 `plugins/audit-logger.ts:306`、`routes/payment-gateway.ts` 6 处、`payment-usdt.ts:107`、`services/anomaly-detector.ts` 的 `device-fingerprint` 维度当设备标识消费 ⇒ **"新设备登录"检测与支付侧设备风控在 RN 端结构性失效**。修法要么补采字段（需 `react-native-device-info`，AGENTS §3 零依赖约定要一并议）、要么把"依赖指纹唯一性"的规则改掉 —— 两条都改变对外行为，不由 agent 单方定。
 - [ ] **本批否证与不作为登记**：`monitoring/alertbridge/alert-webhook-bridge.cjs` 在 HEAD 面上有 **7 处 `no-unused-vars`（`catch (e)` 未用）**，实测与本批改动无关（HEAD 副本同一把 lint 同为 7）⇒ 按"只做被点名工作流"未顺手改；跨行的凭据（关键词与值分居两行）bridge 结构上不命中，已写进文件注释而非只写进报告。
-- [x] **G-226 机主定案(2026-09-26 口头,原话「口令别再废话让我轮换了 我想换自己会换 记住了」):凡"要不要轮换/新建某个凭据"一律不再向机主提议,也不列进任何收尾清单** —— 这条覆盖本仓此前所有"建议你轮换 X secret"式的尾巴(含 G-223/G-224 里那半句、以及 PG 备份三角色同口令那条旧建议)。**边界**:凭据要不要换、换哪把、什么时候换,是机主自己的事;我的动作面只剩三件 —— ① 已丢的凭据按现有唯一权威源(`BaiduSyncdisk/密钥/` 按用途分子目录)填回空缺,**只填空、绝不覆盖已有值**;② 让"凭据读不到"这件事喊得响(`scripts/check-env-drift.mjs` 那条巡检已挂进 git-guardian,判落后即喊、不打印任何值);③ 谁把口令值写进了日志、聊天或提交,当场判为事故并处理**泄露面**,不反过来劝机主换口令。**为什么记这条**:一个反复出现的建议就是噪音,噪音会让人忽略真正需要拍板的那几条;而"提示轮换"从不带新信息——轮换的收益机主比我清楚。**据此作废的待办**:G-224 末尾那句"是否轮换曾在终端露出首位字符的 webhook secret"不再作为待办项,该露出事实本身仍留在 G-224 台账里作为记录。
-  - **同批补的第三维 G(几何表 ↔ 它自己的类型声明)**:`packages/design-tokens/src/geometry.js` 有两份真相 —— 运行时表 `GEOMETRY_PX` 与手写 `geometry.d.ts`(`GeometryStep` 联合,三个出口都声明成 `Record<GeometryStep, number>`)。不同名时**有没有人引用新档**决定失效方式:有引用 ⇒ TS2339 吵;没引用 ⇒ 两边都不红,而本门的具名档判据正是按运行时键集读表的 ⇒ 判据信任了类型层不承认的档。落地前实测工作树正发生后者(`geometry.js` 加 `controlBox`/`controlGlyph`、`.d.ts` 未跟 ⇒ miniapp typecheck 8 条 TS2339),而提交链上 165 道门无一覆盖这一格。判据两侧都判(表有类型不认 / 类型认表没有 —— 后者消费方编译过、运行时取 `undefined`),零容忍安全性由 HEAD 现测给出(两份同名 2 档 ⇒ 无存量,不会出生即恒红)。取证走**私有索引**(`GIT_INDEX_FILE` 临时 index 只喂那份在飞 blob,`--staged` 面 exit 1 逐名点名,共享索引全程未动)—— 本门刻意不开工作树档,所以"用真实在飞现场证明判据有牙"只有这一条路。自检 42→46(㊶–㊹)、镜像 12→13(T11),提交 `04293c53ea`。
-
-- **守门 136 补装 + 撞号清偿(2026-09-27,`5f42739907` → `fa088db8d5`)**:`check-background-task-type-parity.mjs` 的脚本与 AGENTS『已接线』声称早已入库,而五处权威点全部零命中 ⇒ 守门 89 的 RED-R2 恒红,每一次提交都被逼跳门(一次绕过 ≈ 150 道门对该提交作废,§12e 同型)。补装前置逐条实测过:全量面 exit 0(不在 HEAD 上造新红)、`--self-test` 30/30、自带 `HUSKY_SKIP_BG_TASK_TYPE_PARITY`。**代价如实登记**:我手写插块时并发会话已用取号器落过同一块,收敛合并把两块都留下 ⇒ 自己造出 R5 撞号,同夜再补一枚去重提交(保留 stagedTriggers 面更宽的那一块,覆盖面零损失)。现读:全 runner `dup ids` 为空、R5=0、`node scripts/check-gate-wiring.mjs` exit 0。
-- **取号器补上「同一道门不得注册两次」判据(`440675aa87`)**:`scripts/gate-registry-insert.mjs` 原先只验「插入后在位」、不验「插入前是否已有」⇒ 同一个 script 再跑一次就静默产出第二块(上一条的撞号正是"一块手写 + 一块用本工具"叠出来的)。现按 HEAD 现读的注册表判:script 已在表里 ⇒ exit 1 并点名现有 id,拒绝路径不留任何改动;阳性对照(T5 / T10 后半)证明它不是一律拒绝。同笔修掉夹具缺陷:`makeRunnerRepo` 没配 `user.name` / `user.email`,而**被测工具**用 `scripts/lib/bypass-git.mjs` 的 `git()` 跑 commit-tree(它不带 `-c`,也不该带),于是 T5 / T6 / T9 三支端到端用例在本机以「Author identity unknown」恒红 —— 红得像「取号器不可用」,实际是测试自己没把夹具配全。现 10/10 绿。
-- **api-client 错误体派生收成唯一出口(`025a0a982a`)**:真机「只有图标、没有文字的深色方块」根因是空白错误体;上一票只在两条腿上各打一次补丁,而补丁自身就不一致(兜底串一处全角括号一处半角、`detail` 一处 `else-if` 一处裸 `if`),SSE 那一腿则完全不做空白判定。现三条腿(`fetchApi` / `fetchAiServiceJson` / `streamChat`)共用 `deriveFailureFromBody`;`streamChat` 只保留它自己的 `（status）` 后缀约定,且仅在文本不含状态码时追加(下游 `getSSEErrorInfo` 的正则全角半角都认)。回归 `packages/api-client/tests/error-body-single-source.test.ts` 11 例 = 出口契约 5 + 三条腿同形 4 + 源码形状锁 2(把副本写回来必红,而不只是「我这次没写」);两条变异对照实测有牙(去 trim ⇒ 4 例红 / 腿 2 改回自带副本 ⇒ 3 例红,随后逐字节还原)。全量回归:api-client 26 文件 242 例绿,`--filter typecheck` 0 错。
 - **守门 135 的编号与判据入账(`518c5d5694`)**:`scripts/check-api-failure-throw.mjs` 拦「把 `res.error` 单独 throw、丢掉 status / errorCode」这一型 —— 401 因此冒充「提交的信息有误」,把用户引导去改表单。判据认 `apiFailureToError` 为唯一出口,并按**该文件 HEAD 自身存量**棘轮(建门实测存量 958 处:apps/web 837 / packages/api-client 94 / apps/mobile-rn 26 / apps/cli 1,只报数不判红,新增即拦)。上方那条「具名出口已立」的登记缺的就是这条编号行 —— 门已 blocking 而计划里查无此号,后来人按文档派单会去找一道不存在的门(§"编号一律以 runner 现值为准")。
-- **safe-commit 的多 `-m` 语义修好(`cd0eb54a3b`)**:旧解析 `message = args[++i]` 让后一段覆盖前一段 ⇒ 主题消失、正文成为整条消息,而提交照样「成功」、钩子全绿。同型自伤第四次(2026-09-23 的 `22d87f1b6` / `920d655dd`,今夜补装 136 时的 `440675aa87` / `025a0a982a` —— 后两枚内容完好、只丢了主题,按 §22 不改写历史,**故只登记不返修**)。现收集 `messageParts` 以空行拼接(git 自己的多段语义),空消息仍 exit 2;锁在 `scripts/tests/safe-commit-message-parts.test.mjs` 4 例。第一版直接判原文,被本文件头注里那句旧写法判红 —— 与守门 131 判红自己解释注释同一型,已改为复用 `scripts/lib/code-mask.mjs`:**反向锁判代码面,认字面量的那条判原文面,两面不得混用**。
-
-
-
 - [x] ✅(2026-09-27 翻勾:陈旧状态 —— 此后 2026-09-24 起多轮部署记录健康门禁正常通过,今日实测 `https://aizhs.top/api/health`、主站、desktop-feed 全 200,生产远超该状态) (11:02、11:16 均成功切到新构建 `2eeda2qr7rdjz.css`)在 8×12s 窗口内未全过 → **自动回滚**,web 现滞留旧构建,桌面端因此看不到新 UI。三项判据中 `web 200` 与 `/api/health` 实测均通过,唯一可疑项是 `Test-LlmGateway`(需 `IHUI_ADMIN_PASSWORD` 登录再探 `/api/llm/providers/health` 取 2xx)。解阻判据:生产机 `Get-Content deploy\win\deploy-loop.log -Tail 40` 的「健康门禁 第 N/8 轮: web= api= llm=」行,确认红项后再决定是修判据还是修通道凭据;失败后另有 30 分钟冷却。
   - **2026-09-27 本机密钥面复测(用户授权后找过)**:密钥同步盘 `密钥/IHUI-AI项目密钥/apps/ai-service/.env`、`密钥/模型/` 全部 12 个厂商文件逐一 grep,**均无 TOKEN6688_API_KEY 实值**(同步盘那份仅回调白名单注释引用);本地 `apps/ai-service/.env` 的 3 处 token6688 命中全为注释。key 无权威源可取,仍只能由用户提供,本条维持阻塞;`.venv/pyvenv.cfg` 已在位(旧「半损坏」结论已过时),key 一到即可 `--cheap` 一键验收。
   - **2026-09-27 本机进展(用户授权后按正规渠道回填,只填空)**:`env-backfill-model-keys --verify --apply` 对根 `.env` 回填 **5 把模型 key**(STEPFUN/GROQ/OPENROUTER/GEMINI 唯一候选 + AGNES 两候选经联网消歧取第 1 把),写盘前自动备份、读回比对一致。其余(微信/SMTP/支付回调/DINGTALK 等)密钥盘无源,**仍需用户提供真实凭据**(按 G-226 定案,不再列轮换/新建议,只在此登记空缺事实)。注:`tmp/env keys todo.md` 在本机不存在(他机产物);生产侧 .env 对应账已由 G-223/G-224 收口。
@@ -11668,8 +11677,10 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [x] ✅(2026-09-27 用户授权后代定性:10–20 字节装不下任何 PEM,判**占位/损坏假文件、非真证书**;真件在密钥盘 `密钥/IHUI-AI项目密钥/cert/`(微信支付五件齐)。本机实测 `C:\ai_zhs\` 整目录不存在,无文件可删;他机再现按删除处置) (5 个,每个仅 10–20 字节,不可能是真 PEM,
   - **2026-09-27 产品拍板(用户授权"我都同意"后代定)**:口径统一为**与后端同源** —— 动作行引导「在网页端绑定/打开工作区后重试」,保留「或改用等价的本地工具」为次选;五语词包与 `llm.py` 收尾文本同批改。**执行归 `llm.py` 持有者一并收口**:该文件当前有并发在飞 diff,不代改;落地提交应把五语 action 行与后端文本一次改齐,并核 error-catalog 条目与生产者存废一致(守门 94 会替你看孤儿条目)。
 - [x] ✅(2026-09-27 翻勾:三格全部有归宿 —— ① 成因面由 **G-224** 取证坐实(同步盘 09-19 过期镜像整文件覆盖,双文件受损面),诱饵快照已搬离源码根;② 其余 55 键由 **G-224** 按血缘回填 29 项(只填空),14 项"从未配置"属机主自决,按 **G-226 机主定案**不再提议;③ 只读漂移门已建成 —— `scripts/check-env-drift.mjs` 挂进 git-guardian(2026-09-27 复验在位)) ,邮件这条唯一到人通道从此静默失效(凭据已从本机备份恢复并实测送达;但"谁换的"没查到,所以这一格没关)**:实测链 —— ① `apps/api/.env` mtime 今天 03:08,其中 `SMTP_HOST/SMTP_USER/SMTP_PASS/RESEND_API_KEY` **全为空**、`ALERT_EMAIL_TO` **整键不见**;而 `.ihui-agent/env-backup/api.env.before-smtp-enabled.1790204925286`(09-23 21:03,由本仓 `env-backfill` 的"改前必备份"机制产生)里这 5 项**都是非空**;与那份备份逐键比对,现值为空或整键缺失的条目共 **55 个**(含 `DB_HOST/DB_PASSWORD/REDIS_HOST/JWT_*`/各厂商 key/支付回调 URL/`OIDC_*` —— 应用还能跑是因为 `DATABASE_URL`/`JWT_SECRET` 在现文件里非空)。② 后果是**告警寄不出去**:`deploy/win/deploy-loop.log` 13:12 起每轮都写 `MAIL 品牌模板 通道未送达(exit=1)` → `转 --plain 降级` → `两条通道均未送达`,并落下 `deploy/win/.alert-undelivered.json`;按 §5e"邮件是唯一到人通道",这条链断 = 出事没人知道。③ **成因未定**:全仓 `grep -r "restore-snapshot"` 只命中 `.gitignore`,没有任何脚本会写 `apps/api/.env` 或 `.env.restore-snapshot`(该快照文件 mtime 03:06、字节数与同步盘里那份 `密钥/IHUI-AI项目密钥/apps/api/.env` 完全相同 = 17,773B,而**那份快照本身 SMTP 也是空的**)⇒ 只能是 03:06 前后一次人工/会话内的整体替换,不是定时任务;03:00 档有 `IHUI C-Drive AutoMaintain` 与 PG 备份,但两者都不写 .env(已逐个 grep 过)。**已做的处置(可复核、可回退)**:`.ihui-agent/tmp/restore-mail-env.mjs` 只填"现值为空或整键缺失"的 5 个邮件键(非空一律不动,与 §5d 那条"只填空、绝不覆盖"同一条规矩),写盘前自证"改动行全部落在预期键上、行数增量 ≤1",并把现场另存为 `.ihui-agent/env-backup/api.env.before-mail-restore.<ts>`;写盘后 `--dry-run` 报 `SMTP 可用 / Resend 可用 / 收件人 5***@qq.com`,实发一条 `--strict` 得 `已通过 smtp 通道发送告警邮件(收件人 1 个)` exit 0。**仍要有人收口的三格**:① 找出 03:06 那次整体替换的来源并堵住(否则下一次同样会被清空,这是"凭据只以下游门禁失败形态出现"的老账);② 那 55 个键里**除邮件外**的其余是否也需要恢复,按 §5d 的边界**属用户决定**,本票不擅自回填厂商 key(`env-backfill-model-keys.mjs` 只认 `密钥/模型/`,不覆盖非空值,所以模型 key 有正规出路,SMTP 与支付回调没有);③ 建议补一道只读门:`apps/api/.env` 里"历史上非空而现在为空"的键数 > 阈值即喊人(参照 `check-credential-health.mjs` 的 UNDELIVERED 机制),它比"等告警寄不出去才发现"早一步 —— 但这是**新增能力**,按 §24 需用户点头才做。
-- [x] ✅(2026-09-27) 47. 三套执行内核工具集归一(A/B/C → 唯一工具注册表 `mcp_server._TOOLS`;AgentEngine 15 个工具映射或移植;JSON-RPC 只留协议适配层;CI parity 断言 `BUILTIN_ENGINE_TOOLS` ⊆ `_TOOLS` 映射完整) 〔PROGRESS 2026-09-27(五路并行第一波,ab4fed16d 前一枚):已落 J11/J14 两面 + 引擎内置名经 `resolve_engine_tool` 归口(归口在 `_ADMIN_ONLY_TOOLS` 判定之前,否则 unified_exec 这类名字会绕过角色矩阵)。实测 `BUILTIN_ENGINE_TOOLS` 是 **14 枚不是票面的 15**。**未闭环**:第三格「JSON-RPC 只留协议适配层」未做 —— agent_engine 的 RPC 面仍自带工具定义。票保持未勾。〕 交付(两枚提交):前三格=唯一出口 resolve_engine_tool 归口(发生在 _ADMIN_ONLY_TOOLS 判定**之前**,否则 unified_exec 这类名字归口后绕过角色矩阵=fail-open)+ 处置表驱动 + 守门 J11/J14;末格=RPC 面 15 处命中三分类(port 1 / map 5 / 正当协议面 9),真收编的是 web_search —— 它此前手抄 name/description 会把注册表那条压成死元数据,现走 registry_definition 出口,未登记自带定义现读 0,守门补 J15。**实测 BUILTIN_ENGINE_TOOLS 是 14 枚,票面写 15 是错的。** 残余两条:① web_search 顶层长文案(1-10 条/无网络为空)只剩参数级描述承载,要恢复须动 mcp_server._TOOLS 条目;② map 档 5 个执行体仍留引擎侧(线程耦合,前票已带由登记),J15 只锁定义面不锁回迁。
-- [x] ✅(2026-09-27) 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 6 类 executor:长跑命令/测试套/代码索引/批量 LLM/网页批处理/patrol;带幂等键与断点续跑) 〔PROGRESS 2026-09-27:执行器框架 + 幂等键 + 断点续跑 + DAG 节点自证已落(60 passed / mypy 零错),新门 `check-background-task-type-parity` 已接 runner(id 135)。**未闭环**:门自己现读就是「六类 executor 仅 2 类接线、6 类在账未接线」,按存量报数不判红 —— 所以本票不是收口而是开了个头。〕 交付(两枚提交):框架+幂等键+断点续跑为第一枚;本枚把六类真接线,并删掉 mcp_server 里第二张分派表 _BG_TASK_IMPLS(只有 sleep/echo 的那张),schema 里广告给模型的 task 白名单文字改由 RUN_IN_BACKGROUND_TASK_TYPES 派生 ⇒ "注册了但模型调不到"结构上不再可能;门台账 EXPECTED_UNWIRED_IN_MCP_SERVER 由 6 行收紧为 [](零容忍),并把原本是死函数的 parseProseWhitelist 接进 judge() 成 P6。顺带修掉两处**装饰性续跑**:test_suite 与 patrol 只 mark_done 从不 is_done 跳过,续跑照样全干一遍还报成功。code_index 的 500 护栏按实测是截断非拒绝,补 files_omitted_by_max_files/deferred/incomplete 三个自证字段。现读未接线 0 类 / 自检 38/38 / 镜像 9/9 / 54 passed。残余三条:① _bg_impl_sleep/echo 与注册表 _exec_* 仍是两份实现,删它会打断兄弟票批58 的 test_mcp_wiring_58b(4 处直调+SWITCHES 枚举),故保留并加行为等价锁;② background_task_manager.submit() 自此生产面零调用方(仅 5 处测试),删除属 §7 判定不代裁;③ test_mcp_server.py 3 例 KeyError:'metrics' 与 test_sandbox.py ImportError 在本票 diff 之外(HEAD 既有/兄弟代理)。
+- **safe-commit 的多 `-m` 语义修好(`cd0eb54a3b`)**:旧解析 `message = args[++i]` 让后一段覆盖前一段 ⇒ 主题消失、正文成为整条消息,而提交照样「成功」、钩子全绿。同型自伤第四次(2026-09-23 的 `22d87f1b6` / `920d655dd`,今夜补装 136 时的 `440675aa87` / `025a0a982a` —— 后两枚内容完好、只丢了主题,按 §22 不改写历史,**故只登记不返修**)。现收集 `messageParts` 以空行拼接(git 自己的多段语义),空消息仍 exit 2;锁在 `scripts/tests/safe-commit-message-parts.test.mjs` 4 例。第一版直接判原文,被本文件头注里那句旧写法判红 —— 与守门 131 判红自己解释注释同一型,已改为复用 `scripts/lib/code-mask.mjs`:**反向锁判代码面,认字面量的那条判原文面,两面不得混用**。
+
+
+
 ## 第五十二批(2026-09-27):"需拍板"项集中处置(用户授权「需要我拍板的我都同意,授权你去做」)
 - **拍板记录(四条,均为代决策,依据各条目原文已给出的可验证事实)**:
   1. **C 盘 5 项未识别条目 + `C:\tools\openssh-inst`**:**保留不删**(属用户/第三方自有软件,非本仓污染;openssh-inst 是部署链 ssh.exe 绝对路径依赖)。已在原条目翻勾留痕。
@@ -11691,64 +11702,126 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] **门 137 升更严判据的前置条件（现在不许顺手升）**：首跑 3 命中里 2 处是同词不同义的假阳性 ⇒ 词元匹配仍需收窄（`idx/index/position` 后缀、复数名词指"集合"两种形态尚未进判据）；且 `--strict` 下有 **305 处未判定**（`digest` 两义、`node_modules` 之外的手写散列不可逆性判断）⇒ 本门长期停在建档/报数形态，`--strict` 只在清偿时跑。**不得为消红放宽判据，也不得因数字大而把假阳性当缺陷去"修"没坏的东西。**
 
 - **守门 135 的分型判据落地,把「958 处待清」变成可决策的数(`feat(gates)` 一枚 + `5e8ff61049`)**:门原先只报一个总数,而 958 看起来像一座必须爬完的山 —— 实测抽样里大量站点落在 `catch { … }`(不绑形参、错误整块丢弃、toast 写死文案),那类改成具名出口**当天零可见变化,只是多一条 import**。现门自己分四态逐条打印:被消费 `consumed`(最近 catch 绑了形参且真读它)/ 被丢弃 `discarded` / 外抛 `escaping`(到离开本块都没有 catch ⇒ 上层消费,**本门看不见上层,如实单列不猜**)/ `undetermined`(catch 体超 400 行配平窗口)。真仓 HEAD 现读:**958 = consumed 21 / discarded 18 / escaping 919 / 判不出 0**。自检 9→15 例,含 `consumed ≠ discarded` 的反向对照(否则分型只是把三态压成一态的装饰)。写门时自检当场抓到一处真缺陷:括号配平没跳过 catch 行开头那个**属于上一层的 `}`**,于是"体"只含 catch 行自身、consumed 永远判不出来 —— 账面全绿、判据静默失明,正是本仓反复登记的那一型。
+- [x] ✅(2026-09-27) **把上一格登记的 (b)24 处真残余改真 + (c)13 处逐体定性,并给守门 134 补上唯一能守住这次清偿的判据 B2**:
+### 第五十一波·续四 —— 第二十七批:布尔删除 ack 的"隔一个文件"那一半,连同"回退尺子"一起落地(2026-09-27 凌晨,主会话独立复跑)
+
+- **`packages/types` 在 HEAD 面上根本构建不过,已由 `a862968371` 修掉(TS2300 Duplicate identifier)**:`src/permission-mode.ts` 里 `ToolClass` / `ApprovalClass` 被**整块复制了两份**(199/201 与 313/315 逐字相同)—— 并集式合并把"同一声明的两份副本"当两条新增各留一份,这正是守门 130 在计划文档里判的那一型,只是发生在源码面。发现方式不是跑 typecheck,而是**给出包**:隔离检出(= 当下 HEAD)跑依赖闭包构建时 `@ihui/types#build` 直接 exit 2。提交链上没有任何一道门为此响过 —— push-gate 按本次改动范围降级(§12d)是设计,而"写坏它的那枚提交不在自己范围内"就正好从这条降级缝里过去;CI 的 typecheck/构建步骤会红,但那是推送之后。**保留第一处**(紧邻两段 axis 定义),删第二处;验证:`pnpm --filter @ihui/types build` 由 exit 2 → exit 0,并用同一把尺子扫该文件 27 个导出名 ⇒ 重复归零(即"还有没有别的块被复制进来"已量过,只剩这一处)。
+
 - **被消费那一档 21 处已全部换成具名出口(`5e8ff61049`,13 文件 27 站点)**:mobile-rn 5 屏(ChangePhone / Home / KnowledgePlanet / MoreCourse / StudyIndex)+ web 8 个页面弹窗(relay enterprise / relay plugins / developer enterprise / letters ChatWindow / BatchScanLoginDialog / ScanLoginDialog / environment-commit-dialog / github-config-dialog);同文件其余 escaping/discarded 站点一并迁移 —— 一个文件里两处走出口、三处仍裸 throw,就是"同一件事两种写法"的开端,而消息文本逐字不变、只多挂 `status/errorCode/retryAfter`。工作树面现读 **consumed 21 → 1**(剩那一处在 `MessageItem.tsx`,该文件被并发会话持有,按 §16 不代裁,已登记)。
 - **`apiFailureToError` 的第二参数 `fallback` 是迁移的前提而不是装饰**:迁移点原先普遍写 `throw new Error(r.error || '导入失败')`,直接换出口会顺手丢掉那句端内文案。空串按 `||` 处理(取兜底)—— 有站点原本写 `??`,而 `'' ?? x` 会得到空消息,空消息 toast 渲成"只有图标没有文字的方块"(api-client 侧真机实测过),所以刻意统一到 `||` 语义、不给可见长度为 0 的文案留活路;shared 侧 7/7 例绿(含兜底三条)。另有四处 `if (!r.success || !r.data) throw …` 的复合卫兵必须**拆成两行**:复合条件下 TS 不收窄到 `ApiResult` 的失败分支,直接传 `r` 必 TS2345,拆行后两分支文案与原来逐字等价。
 - **验证口径如实登记**:web 全量 typecheck 77 条、mobile-rn 7 条报错,**无一条落在本次 13 个文件**(它们是并发会话在飞的 `controlBox/controlGlyph` 半成品几何档与 chat store 测试,按 §12 不代修);判"是不是我造成的"用的尺子是 `git show HEAD:<file>` 与工作树副本逐文件比对 —— 本次 13 文件落地前全部 `工作树 == HEAD`,不是"看着没报错"。
 
-- **`packages/types` 在 HEAD 面上根本构建不过,已由 `a862968371` 修掉(TS2300 Duplicate identifier)**:`src/permission-mode.ts` 里 `ToolClass` / `ApprovalClass` 被**整块复制了两份**(199/201 与 313/315 逐字相同)—— 并集式合并把"同一声明的两份副本"当两条新增各留一份,这正是守门 130 在计划文档里判的那一型,只是发生在源码面。发现方式不是跑 typecheck,而是**给出包**:隔离检出(= 当下 HEAD)跑依赖闭包构建时 `@ihui/types#build` 直接 exit 2。提交链上没有任何一道门为此响过 —— push-gate 按本次改动范围降级(§12d)是设计,而"写坏它的那枚提交不在自己范围内"就正好从这条降级缝里过去;CI 的 typecheck/构建步骤会红,但那是推送之后。**保留第一处**(紧邻两段 axis 定义),删第二处;验证:`pnpm --filter @ihui/types build` 由 exit 2 → exit 0,并用同一把尺子扫该文件 27 个导出名 ⇒ 重复归零(即"还有没有别的块被复制进来"已量过,只剩这一处)。
-
-### 第五十一波·续四 —— 第二十七批:布尔删除 ack 的"隔一个文件"那一半,连同"回退尺子"一起落地(2026-09-27 凌晨,主会话独立复跑)
-
-- [x] ✅(2026-09-27) **把上一格登记的 (b)24 处真残余改真 + (c)13 处逐体定性,并给守门 134 补上唯一能守住这次清偿的判据 B2**:
   - **三枚提交**:`023e5c95ab2`(apps/api **39 路径** = 34 改 + 5 新测试,+557/−114)、`81d1867d5d4`(守门 134 新增 **B2 委托假 ack** 判据 + 镜像 M17–M20 + 复原守门 108 的 `delete-ack-exempt`)、`004fbb7638b`(与对侧的合并提交,见下条)。五枚(`c7c50ae3268`/`998279f1799` 也在内)全部以 `git ls-remote` 自取远端 sha + `merge-base --is-ancestor` **回读证明在 origin 主线上**。
-  - **为什么 B2 必须与这批同线落地**:第二十六批的 B1 只看**同一函数体**内有没有写链,而这一族的真 `db.delete()` 住在另一个文件的委托函数里(返回 `Promise<void>`),B1 结构上失明 —— 门看不见 ⇒ 清零之后任何人摘掉委托腿的 `.returning(` 都不会红。B2 沿 import 说明符**解析一跳**(只一跳,不追传递闭包),被调体含写链而链上无 `.returning(`/无唯一出口 ⇒ 判红;解析不到 ⇒ `b2Undetermined` **逐条点名,不冒红也不记绿**。
-  - **现读(全量档判 HEAD blob)**:B1 **0 / 0**;B2 **违规 0 / 0 文件(候选 11,库确认放过 10,未判定 0)**;V1 布尔 ack 惯例面 **38 处 / 25 文件 → 12 处 / 10 文件**。差 26 = 本批改真数,余 12 = 逐体读到"布尔来自 DELETE 自身 RETURNING / 上游 2xx 闸后"的那些。**关键顺序:先改真再收门** —— 反过来(B2 先落地)就会让 B2 在 25 处存量上以 HEAD 为锚放行,而那是"存量当已通过"的账面假象。
-  - **回退对照走的是真仓,不是夹具**:镜像 M17 在内存字符串里把刚入库的委托腿摘掉 `.returning(` ⇒ B2 必点名它;还原 ⇒ 归零。这条同时证明"B2 不会在本仓刚产出的正确形态上报红"——会报红就是恒红门(§12e)。取证 `--self-test` **94 条**(构造面 81 + 临时 git 仓端到面 13)、镜像 **21/21**、守门 89/108/118 同轮 exit 0。
-- [x] ✅ **一次真实的"注册表被滞后基线整块回写"事故,由机器判据抓到并已复原**:`'delete-ack-exempt': 30`(第二十六批随 B1 一起登记进守门 108 的存活期表)被 `518c5d56942`(守门 135 上线)**从一份滞后工作树整文件提交时抹掉** —— 取证 `git show 518c5d56942 -- scripts/check-exemption-expiry.mjs`:那枚提交在本文件只加自己 3 行、**连带删掉本表 10 行**。
-  - **发现方式不是人眼**:是守门 134 的镜像锁 **M15**(断言"登记的豁免族必须在存活期表里且取 30 天")由绿翻红抓到的。**跨文件一致性只有钉成机器判据才会自己喊**;若只写在注释里,这条豁免就会静默走 90 天默认档 —— 迁移债被登记成半永久豁免,正是守门 108 立项要防的那一型。
-  - 处置:原样复原 + 把"曾被谁抹掉、怎么被发现"写进表旁注释(让下一次整文件重写时红点能立刻对上"这不是原始版本")。
-- [x] ✅ **与对侧在同一枚测试文件上真冲突,在对象空间解,没有选边**:`apps/api/tests/workspace-permissions-mode-storage.test.ts` 两侧都删了同一对未用解构名(`findUserPreferences` / `upsertUserPreference`)但各写各的注释 ⇒ `git-sync-converge` 报冲突交人工。人工的做法:**`merge-tree --write-tree` 取合并面 → 三方 `merge-file --diff3` 看清两个 hunk 的真实差异 → 取对侧已入库的注释、保住本侧新增的两枚 describe 与全部 hunk → 私有索引 `update-index --cacheinfo` + `commit-tree -p 双父` + CAS `update-ref`**。落地后三条证明:`丢本侧路径 0 ∧ 丢对侧路径 0`(13080 / 13080 / 13075 路径集合比对)、该文件 **25 passed | 1 skipped** 与 eslint 0 error、守门 100 的增量台账"吞并 0 枚 / 丢失新增路径 0"。
-- [x] ✅ **量尺自己坏过一次,以"尺子读 0 必须先怀疑尺子"收口**:一次性键族普查脚本 `.ihui-agent/tmp/r26/key-census.mjs` 第一版把 `(?:true|1)` 写进 `git grep -E` —— **POSIX ERE 不认 `(?:`,git 直接报错**,而我把报错 `catch` 成空串 ⇒ 脚本安静报"**0 处**",差一点就被写成"这一族已无存量"。现两处同时改:①判据正则用 POSIX 合法的 `(true|1)`;②取数失败 **exit 2 并喊"不是 0 处,是尺子坏了"**。这与守门 134 头注那句"判据失效的表现永远是安静"是同一条禁令的工具面版本。
-- [ ]（进行中@2026-09-27/删除诚实性票） **第二十八批:布尔 ack 的键族从 `deleted` 扩到 `removed / restored / revoked / cleared`**(扩键后的普查现读 **27 处代码面**,其中 12 处是已定性的 `deleted` 那一族):
-  - **本批登记到的新落点(file:line)**:`removed` —— `routes/auth-extended.ts:1686`(removeBindingByPlatform)、`routes/organization.ts:325`、`routes/tasks.ts:465`(removeDevice)、`routes/files.ts:576`(detachTag)、`routes/user/settings-routes.ts:321`(deleteUserPreference)、`routes/visit-tracking.ts:523`、`routes/tenant.ts:234`(同体有 `.returning` ⇒ 先判是否已诚实);`restored` —— `routes/workspace.ts:709`(委托 `restoreFile`,**上一泳道已点名"同形但不在票面"未动**);`revoked` —— `routes/auth.ts:1306`(revokeRefreshToken)、`routes/developer-relay.ts:281`(revokeKey)、`routes/oauth-keys.ts:170`、`routes/user/settings-routes.ts:137`;`cleared` —— `routes/agents.ts:689`、`routes/chat.ts:1095`(clearMessages)、`routes/openclaw-routes.ts:235`。
-  - **必须先逐体定性再动手**,因为我的普查窗口只有 22 行、会把**相邻 handler** 的写调用算进来看,所以"同体无 `.returning`"这一栏**不能直接当债**(上面 20 处 `lie_same_body` 里就混着 admin 族那 11 处已判诚实的)。派单第一条:读函数体回答"这个布尔/计数从哪来",三类分流(真谎报 / 已诚实 / **语义根本不是"删了几行"** —— 例 `cleared: true` 可能只是"清空动作已完成"且动作本身无行概念)。
-  - **判据侧同批改两半**(§4 圆角那条记过只改一半 ⇒ 整块动静默失效而门照报绿):守门 134 的 `COUNT_KEYS` 已含 `restored|removed`,但 **V1/B1/B2 的布尔档只认键名 `deleted`** ⇒ 扩键必须同时改①枚举/预筛的字面量超集、②判据键集、③结论行措辞与镜像的"两型分家"断言,并给棘轮留 per-file HEAD 锚点(存量不当场判红)。
-  - 顺序仍照本批教训:**先改真、再收门**。
-- [x] ✅(2026-09-27 凌晨)**把"CI 红归因到具体那一步"做成固定动作,今晨由此清掉三枚与任何提交都无关的红**:
-  做法(不是"看 job 名字猜"):job 名会骗人(`Shared package typecheck` 与 `ai-service-schema-check` 都不含"lint"字样,
-  而真凶藏在 `Run pnpm run lint:strict` 这一**步**里)。链路固定为
-  `commits/<sha>/check-runs` → `actions/runs/<id>/jobs` → 取 `steps[conclusion=failure]` → `actions/jobs/<id>/logs`;
-  annotation 常常只写"Process completed with exit code 1"(端口那枚就是),**必须走到 step 级**才知道是谁。
-  - **`packages/database` 的 test 红(de95b29a73)** 两条腿:① `assertDataDirAllowed` **判序**错 —— 先拒"落在 $HOME 之下",
-    再认"仓库内 `.ihui-agent/tmp/**`";Linux CI 的检出**本身就在 `/home/runner` 下**,于是明令允许的落点被判违规,
-    而这台开发机(仓在 D:、家在 C:)结构上测不出这一型 ⇒ 又一枚"本地全绿、红只在 CI"。
-    同处第二个坑是 POSIX 下 `driveOf()` 抛"推不出盘符"被下游读成"落点非法";现把仓库内判定提到最前直接 return,
-    并把"没有盘符"如实处理成"DevEnv\Temp 这一支不适用"(它是 Windows 专属落点,不是错误)。
-    成对自检 **S2f**(家目录之内的仓库根仍收)/ **S2g**(同一家目录里仓库之外仍拒)—— 只加前者等于放宽禁令,
-    后者是它没放宽的证据。**变异自证**:删掉"仓库内优先 return"那一行 ⇒ 自检 **47/49**(S2d 与 S2f 同时红),
-    还原后哈希与改前**逐字一致**。② `tenant-rls-policies.test.ts:153` 断言 journal 的**末位**条目必须是本迁移 ——
-    台账只追加,任何后来者追加一枚迁移就把它钉成恒红(实测 `point_transactions` 一入库即断言失败);
-    真正要守的是"未登记 ⇒ drizzle-kit migrate 静默跳过"(脚本自己在 `:238` 用的就是 `entries.some`)⇒ 改成"存在且唯一",
-    `when` 严格递增与 `idx↔位置` 两条不变量原样保留。**位置不是不变量**,这条与 §"别把移动量钉成健康期望"同族。
-    取证:该文件 vitest 1 failed → **8 passed**、该包全量 **6 files / 104 passed**、`--self-test` **49/49**、typecheck exit 0。
-  - **CI `port-registry-check` 红(54ac250198)** 唯一违规是 `apps/cli/tests/goal-verification-e2e.test.ts:123` 的
-    **提示文案里**写了 `127.0.0.1:18803`。没有给该文件开豁免(先例 `apps/cli/src/lib/sso.ts` 那种逐文件豁免会
-    **关掉整个文件的端口扫描**,为一个句子削一面尺子不划算),而是把建议改成"88xx dev 档端口"并指向注册表文档 ——
-    本仓端口规矩明写"dev/宿主端口必须以 88 开头",留个违规示例本来就会教人照抄。`--all` 由 exit 1 → **exit 0**(10419 个文件无违规)。
-  - **`apk` job 红** 的报错点在 gradle 的 `createBundleReleaseJsAndAssets`:
-    `Cannot find module '.../@ihui/design-tokens/dist/tailwind-preset...'` —— 与 §"ci.yml 缺 api-client 前置"、
-    "test-real-db 缺闭包"是**同一族的第三次**:多个共享包 `exports` 指 `dist`(产物不入库),而 metro/tailwind
-    按运行时 require 解析,所以只有打包那一步会炸。修法与先例同形:在该 workflow 的 install 之后补
-    `pnpm --filter "@ihui/mobile-rn^..." run build`(**拓扑闭包,不手工点包名** —— 手工清单必然落后于新增依赖)。
-    该步 commit `889fe3fd90`;本地跑该闭包时 `@ihui/shared` 报 6 条 tsc 错,逐条核到**并发会话在飞的两份脏文件**
-    (`prompt-history.ts` 的 5 个导出在 HEAD 面**全在**、`bottom-action-bar-spec.ts` 引用的 `controlBox` 在 HEAD 的
-    geometry 两侧**都不存在**)⇒ 属"本机红 ≠ 仓库红",不当成本笔缺陷去"修";由 CI 当 oracle 复量。
-  - ↑ **归位说明(只加一行,不改写任何已有行)**:紧接本行下方的 ①② 两条,属于上面那枚「✅(2026-09-27 深夜)顺手清掉两件"实测出来、与任何提交都无关"的红与雷」条目 —— 本会话把「把 CI 红归因到具体那一步」这枚独立条目插在了**该条目的标题行与其内容之间**,标题与 ①② 被隔开了。按 §1"禁止无声删除"不删不移,只在此写明归属:读的时候 ①② 与那枚标题是一对。教训同时记在这里:**活文档插入要选在"整条条目的最后一行"之后,不能选在标题行之后** —— 标题行看起来唯一、命中数=1、结构等式也成立,三道判据都拦不住"插在中间"这一型。
-- **401 身份链在真机上闭环了(VC45 实拍,`bab970e275` 同批)**:装到 Redmi(c12617dd / 720×1640 / density 2.0)的当下 HEAD 包上进「广场」tab,弹层正文是 **「登录已过期,请重新登录」** —— 而这台机在修之前拍到的是同一位置、同一图标的「提交的信息有误,请检查后重试」。⇒ 守门 135 + `apiFailureToError` + api-client 空白体兜底三票合起来的**用户可见后果**第一次有了现场证据(此前只有单测与推理)。**同屏另一处如实记下**:页头返回键在 `动态` / `广场` 两屏实拍为矢量箭头、落位正确;而 `FloatingActionButton` 的实拍**没拿到** —— 它只在 `StudyIndexScreen` 挂载,从 tabBar 四屏走不到,所以那一处只有"门 131 读数 115→113 + typecheck 零错"两把尺子,**不构成端到端验证**。
-- **函数形态 style 存量:115 → 113(两处跨屏共用载体已收)**:`packages/app/src/components/BackChevron.tsx`(RN 唯一返回键实现)与 `apps/mobile-rn/src/components/FloatingActionButton.tsx` 改成 children render prop + 数组形态。**剩余 113 处的处置口径不是"继续盲扫"**:门自己的分诊实测 A 类(可盲改)= **0**,全部属"要逐屏确认观感"—— 每处都要把样式从 Pressable 挪到子 View,而子 View 会吃掉父容器的 flex 槽位,**没有屏幕证据就改 = 拿观感赌**。判"还剩多少"一律跑 `node scripts/check-rn-interop-fn-style.mjs --worktree` 看末行现值,不得引用本文数字派单。
-- **今夜交付面与可复核锚点**:VC45 这包的底稿 = 归档当下 HEAD `de95b29a73`(03:52 重归档,记在 `.ihui-agent/tmp/rn-preview/build-fixes2.log` 首行)**⊕ 本票两处修复文件**(逐字节校验一致后才起 gradle,`build-arm64.sh` 判据 4 亦过:JS 包新于起建)。装机后 `dumpsys package zh.ai.sq` 实读 `versionCode=45` —— **判"装的是不是这一版"只认 versionCode 与 JS 包 mtime,不认 APK 文件在不在**。截图三张:`vc45-home.png` / `vc45-plaza2.png`(401 文案现场)/ `vc45-tab4.png`(页头返回键)。
+- **真机走查拍到一处新的 RN 缺陷:「设置」页同屏两条页头**(VC45 实拍 `vc45-settings2.png`):上层「< 设置 ☰菜单」之下紧接「< 设置」—— **两个返回箭头、两个标题**。归因线索:`apps/mobile-rn/src/screens/SettingsScreen.tsx:205` 自己渲染 `<NavBar>`,而该屏所在导航容器又给了一层页头(`RootNavigator.tsx:502/602` 有 `headerShown:false`,819 行注册的 stack 归属待查实)。**这一型在小程序端有判据**(守门 102 的 GA6:页内渲染返回键却仍挂原生导航栏 ⇒ 同屏两个箭头 + 双层 chrome),**RN 侧零看守**。处置要先定"哪一层拥有页头",属设计决策,不是顺手删一个 `NavBar` ⇒ 登记为待办,不当干完。
+- **同批如实登记一处"未验到"**:本轮改的 `FloatingActionButton` 只在 `apps/mobile-rn/src/screens/StudyIndexScreen.tsx` 挂载,而该屏从 tabBar 五屏 + 抽屉 + 设置页列表都走不到(设置页列表末项是「关于」,没有「更多功能」入口)⇒ **它只有"门 131 读数 115→113 + typecheck 零错"两把尺子,没有屏幕证据**。不得因为"同一次提交里另一处验过了"就把它也算成已验。
 
-### 第五十一波·续五 —— 第二十八批 + 第二十九批:同一形状**换了键名就隐身**,把布尔档的键族与"证据在别处"的四类认法一起补齐(2026-09-27 凌晨,主会话独立复跑)
+- **`test-python` 的 52 例红做了逐簇归因(Mypy 先红把它整批遮住了,修完 Mypy 才露出来)**——
+  读数取自 `40513b2558` 那次运行的 step 级日志(`= 52 failed, 14612 passed, 18 skipped =`):
+  - **22 例是我的两个 58 号接线套件**(`test_engine_context_wiring_58` 15 + `test_tool_trace_wiring_58` 7):
+    `asyncio.get_event_loop()` 在 3.12 的"无当前循环"语义下抛 `There is no current event loop`,
+    而**只要全量跑里有别的 pytest-asyncio 用例先 teardown 就会触发** ⇒ 单跑绿、全量红;
+    已改接仓内既有的模块级共享循环出口(`test_mainwire_wiring_58.py:50-60` 早就为同一件事写好了),
+    **没有另造第三份**;
+  - **5 例 `test_usage.py`** 是我自己那刀鉴权收紧的欠账(旧用例把"自报 user_id 优先 / 缺身份 400"当契约),
+    已改按收紧后断言(401 / dev 降级单一身份 / 非管理员代查 403 / 管理员仍可代查),
+    `30 passed` 与 `test_usage_authz.py` 同跑;
+  - **7 例 `test_file_search_ripgrep_v75`**:CI runner 里没有 `rg`,而这些用例**刻意拒绝在降级时出合格证**
+    ("ripgrep 不可用(解析结果 source=none),本结果不可用于对账")。已在 `ci-monorepo.yml` 的
+    `test-python` 里 Pytest 之前装 ripgrep + `rg --version` 留证;本机装有 rg 时同一套是
+    `12 passed / 3 failed`,那 3 条(`collect_code_files_with_provenance`、`traversal_engine` 两个
+    AttributeError + 真仓耗时对账)是装完 rg 之后**仍要单独归因的存量**,不在本票冒充已修;
+  - 余下 **18 例是别的服务/工具的代码↔测试漂移,逐条带错误原文登记为待办,不盲修**:
+    `test_parallel_tool_abort_54` 4 例(`'AgentLoopV2' object has no attribute '_mode_policy' /
+    '_executed_tool_calls'` —— 测试按一版未落地的重构属性写)、
+    `test_permission_modes` 4 例(3 例 "mock awaited 0 times" + 1 例
+    `assert 'role_denied' == 'bypass_skip_approval'`,后者是**角色矩阵在 bypass 档之前就把工具拒了**,
+    属产品语义待定,不是测试写错)、
+    `test_mcp_server` 3 例(`KeyError: 'metrics' / 'test_code'` —— 工具输出结构变了)、
+    `test_model_tools_wiring_58` 1 例(`builder missing for update_plan`)、
+    `test_sse_contract` 1 例(`assert 28 == 26`,事件数与契约清单对不上)、
+    `test_complete_stream_question` 1 例(`assert [] == ['run_command']`)、
+    `test_llm_tool_persistence` 1 例(`'str' object has no attribute 'get'`)、
+    `test_engine_harness_settings_48` 1 例(拒 `permission_mode: 'always'`,归一表不认这个别名)、
+    `test_shell_detect_56` 与 `test_patch_safety_56` 各 1 例(**在 Linux runner 上断言 Windows 语义**:
+    `'/bin/sh' == 'cmd.exe'`、`'reject' == 'auto_approve'`)—— 最后这两型的正确修法是让用例
+    自己 monkeypatch 平台输入而不是按宿主跳,别用 skipif 把覆盖面跳没。
+
+- **e2e 开口收口后的**真实增量**(CI 逐轮复量,不把自己的改动当已交付):
+  对照三次运行的失败清单(计数含 2 次重试,已折半读):
+  - `cbed016f64`(改前):`login-enter-submit` 7 例、`login-3step-enter` 3 例、
+    `dialog-position-regression` 2 例、`remember-password` 12 例 ⇒ 登录簇 24 例全红;
+  - `40513b2558` / `f2a7cf2429`(带上唯一出口 + 四条 spec 接线后):
+    **`login-enter-submit` / `login-3step-enter` / `dialog-position-regression` 从失败清单里整批消失(12 例转绿)**,
+    `remember-password` 仍 10-11 例红 —— 但**失败点已经换了**:`expect(getByTestId('login-dialog')).toBeVisible`
+    这一句不再红,改停在更后面的一步 `switchToPasswordTab`(`remember-password.spec.ts:73`)等
+    `#login-form-account` 不可见。⇒ 该 spec 的 tab 切换用的是 `page.mouse` 坐标点击 + 按 id 取元素
+    (同期 `login-enter-submit` 用的是 `getByTestId('login-tab-*')`,所以它绿),
+    这是**同一份漂移的下一层**,不是我把上一条修坏了;之前那一层失败把它挡住了,现在露出来。
+  登记为待办(不冒充 e2e 全绿):`remember-password.spec.ts` 的 `switchToPasswordTab` 应改成像
+  同期 spec 那样按 testid 点 tab、按可见性而不是坐标取账号框;余下 `browser-hub-smoke`(ai-service
+  侧建会话 500)、`navigation-full`、`mode-switch`、`work-panel`、`topbar-workarea-align`、
+  `ihui-download-verify`、`chat-mode-badge`、`footer-regression`、`phase-21-timeline-sse` 各自另有成因,
+  且日志里同时出现 api 侧 `FST_UNDER_PRESSURE`(503)与 `会话清单应为 200(实际 500)` ⇒
+  这一族要先判"是不是 CI 资源压力下的过载",不得当成代码缺陷盲修。
+
+- [x] ✅(2026-09-27) **把裸 SQL 写链并进守门 134 的写链池,并改真普查量出的两处 ack**(`41217bd9cd8` 代码 + `2060d3a34fe` 判据 + `8759fc7c7d1` AGENTS):
+  - 病灶载体不止 drizzle 方法链 —— `db.execute(sql\`DELETE FROM … WHERE …\`)` 也是写;判据此前只把 `.delete()/.update()` 当写链,裸 SQL 只当"证据"(认 `RETURNING` 字样),于是"SQL 发了写、命中 0 行、响应回布尔 true"这一格无人看守。现 `findRawSqlWriteChains` 一份实现同时供**写链判定**与**证据投影**(`hasRawSqlReturning` 降为投影,禁止两处各扫一遍),**V 与 B1 同看这一维**;B1 只认缺 RETURNING 那条 ⇒ 不新增恒红面;配平不到时"同体有 ack 才落未判定(U3,`--strict` 拒绝出合格证),否则只报数"。
+  - **普查反手抓到尺子自己的假阴**:`UPDATE\s+"?[A-Za-z_]\b` 对 `UPDATE ai_model_config_models`(整型表名)**永不成立** ⇒ 真仓 HEAD 上 4 条整型写隐身;修尺子后同一把才认出 **73 条**裸 SQL 写链、**9 处**与 ack 共处一体的候选,再逐条读体分 W1(5 已诚实)/ W2(1 有 RETURNING 却弃之判定)/ W3(1 无 RETURNING 且无条件回 true)。这是本仓第二次实录"扫到 0 先怀疑尺子,再相信世界"。
+  - **改真两处**(键名/状态码一字未改):`user-llm-configs-v2.ts:891` 的 UPDATE 补 `RETURNING id` 并按命中集取值(命中集归一沿用**本文件既有写法**,不另立形态);`ai-extended.ts:360/365` 的"没发写"与"零命中兜底"两支由 `true` 改 `false`。`git grep -E "\.updated\b"` 跨 6 端实测**无任何调用方读这两处的布尔**(命中的全是 i18n toast 键名或别的端点的计数字段)⇒ 无 UX 回退面。
+  - **两格刻意未做,都给了可判触发条件而不是"视情况"**:① B2 那一跳**未接**裸 SQL 维 —— 双向扫 10 个具名裸 SQL writer × 全部 ack 落点,HEAD 面该组合 **0 条**,无存量可验就补属投机;触发条件:任一 ack 落点的最小函数体 `await` 了"体内含无 RETURNING 裸 SQL 写"的具名函数 ⇒ 必补。② `updated`/`created` **未进** `BOOL_ACK_KEYS`(键族扩面属全 API 语义决策);触发条件:一旦拍板纳入,必须同时把 RETURNING 证据从**体内任一处**收窄到**该条调用**,否则"`UPDATE … RETURNING *` 零命中走 `?? {updated:true}` 兜底"那一型仍然隐身。
+  - 取证:self-test **118 条**(新增 K4b 裸 SQL 写+`deleted:true`⇒必红且 `via=raw-sql` / K4c 只补 RETURNING⇒归零 / K4d 注释与 `='UPDATE'` 这类**值**⇒不红 / K4e 配平不到⇒未判定 1 违规 0);镜像 **24/24** 含新增 **M23** 源码级反向锁(动词表只许住一处、投影不得自带 `\bRETURNING\b`、B1/V 必须真吃到 `rawPool`、镜像自己不得抄动词表);变异 = 摘掉 `rawPool` ⇒ M23 必红;真仓三档 exit 0,HEAD 面违规 0 / 未判定 0 / 认出 73 / 配平不到 0;门 89/118 同轮 exit 0;`pnpm --filter @ihui/api typecheck` exit 0;`ai-extended.test.ts` 6/6(未改期望值、未 skip)。
+- **e2e 作业是"慢性红"而不是本批引入 —— 定案并把开口收成一个出口(`0fa533ec99` + `d9b669a9bb`)**:
+  `e2e.yml` 在 GitHub 上连续 250+ 次运行查不到一次成功(分页翻到 2026-09-23T04:51Z 仍全是 failure),
+  最近一次读数 `577 passed / 32 failed / 2 flaky / 71 skipped`,其中 **24 处**集中在四个 spec 的同一句
+  `expect(getByTestId('login-dialog')).toBeVisible()` → `element(s) not found`。
+  **根因是入口语义变了两次而补丁只加在测试层**:未登录态侧栏用户行自 2026-09 起是
+  DropdownMenu 的**触发器**(`SidebarUserRow.tsx` 的 `loginTrigger` 注释原话「整行作为 Dropdown
+  触发器打开同一套工具菜单(菜单末尾含"登录"项)」),真正 `store.getState().open('login')`
+  挂在 `guestMenuItems` 的 `key:'login'` 项上 ⇒ 单点一次只开菜单;而四个 spec 各自维护的开法都是
+  **单点**,其中两处还留着历次"再补一层重试"的注释(2026-08-26 的"入口从 header 搬到侧边栏"、
+  2026-08-28 的"hydration 竞态 ⇒ 有界 10 次 × 1s 重点")。
+  ⇒ **通用教训:同一件事在 4 个文件里各修一遍,产品再变一次就是集体失效**;本票把它收进
+  `apps/web/e2e/open-login-dialog.ts` 一条出口,两条出路按"先真 UI(用户行 → 菜单项)、
+  后生产重定向(`/?reauth=1&next=…` → `LoginRedirectListener`,承继已维护的
+  `desktop-window-controls-dim.spec.ts` 写法)"排,并打印走了哪条;两条都不成才失败,
+  且断言消息点名"试过哪两条" —— 判据失效的表现永远是安静,一条只说 not found 的失败消息等于没有。
+  trigger 与 menuitem 各试 `click()` 与 `dispatchEvent('click')` 两种派发,因为移动视口下该按钮以
+  fixed 定位、普通 click 会被 actionability 判 "outside of the viewport"(这正是它当初改用
+  dispatchEvent 的原因,不能退回去只认一种)。
+  **本机取证边界(不当已验证)**:这台机是开发机,8810/8811 无监听、没有可用 PostgreSQL 实例,
+  e2e 要 api+web+库 ⇒ 端到端结论只能由 CI 给;本机能量到的是 `playwright test --list` exit 0
+  (682 用例 / 97 文件全部可编译可发现)与新出口单独 `tsc --strict` 0 错。
+  **余下 8 处与登录无关,另计一票**:browser-hub-smoke ×2(ai-service 侧 Chromium 起不来 /
+  `/api/browser/sessions` 500)、mode-switch、navigation-full、work-panel、topbar-workarea-align、
+  ihui-download-verify、cli-import 各 1 —— 不冒充"e2e 已全绿"。
+- **CI 四红清完后的"下一层"读数,以及一个后端造词而词表没跟的缺口(`f2a7cf2429` + `940c22f594`)**:
+  合并头 `40513b2558` 上复量:Knip ✅、Mypy 步 ✅(改在 `test-python` 里往下露出 **Pytest** 步)、
+  `@ihui/database#test` ✅,而 `@ihui/shared#test` 报 1 例:
+  `step-decision 词汇表 > 与后端字面量双向一致(既不缺 also 不多)` → `extra: ["role_denied"]`。
+  **这条是本仓 D55/G-66 那道双向对账第一次真的抓到东西**:后端 `agent_loop_v2.py:4843`
+  角色矩阵拒工具时发 `"role_denied"`,而共享词表 `STEP_DECISIONS` 没有 ⇒ 用户界面上会直接喷
+  `role_denied` 这串英文码(不是崩,是"能跑但说人话失败")。补齐三处同一源:
+  `packages/shared/src/chat/step-decision.ts`(数组 + 取词键 + 归并态 `rejected`)、
+  `packages/i18n/messages/shared/{zh-CN,zh-TW,en,ja,ko}.json` 各加 `stepDecision.decision.roleDenied`、
+  以及**测试里写死的数量字面量**(15→16)—— 最后这一处最容易漏:改词表不改尺子,
+  下一次加词就会红在"数量"上而不是红在真问题上。
+  **这张表只有一份**(实测 `grep -l policySkipsApproval` 只命中 `messages/shared/*.json`),
+  所以不存在"同步五个端各抄一遍"的问题;但**小程序离线包是派生态** —— 加键后
+  守门 105 的 B2 立刻判"源比包多 1 键"(四语言),唯一修法是一条 `pnpm --filter @ihui/miniapp-taro gen:i18n`。
+  重生成前先按本仓那条老雷做了**零丢失证明**:解出改前/改后两份 gzip+base64 包,逐语言比键集合 ⇒
+  `en/ja/ko/zh-TW 各 5193 → 5194,丢 0,新增恰为 stepDecision.decision.roleDenied`
+  (取证脚本 `.ihui-agent/tmp/prove-pack-superset.mjs`,一次性件不入库;
+  第一版正则按 `"zh-CN": "…"` 猜格式解出 0 条 —— **凭猜写解析器会比不出一样的东西**,
+  现读源码形态是 `REMOTE_LOCALE_B64` 里 `'zh-TW': 'H4sI…'`,改完才解得出四语言)。
+- **同一轮把"本机红 ≠ 仓库红"量成了一条可复用的判据**:`pnpm --filter @ihui/shared test` 在本机报
+  3 文件 / 21 例,而 CI 在 HEAD 面只报 step-decision 一条 —— 多出来的 20 例其被测源码全是他人未提交的
+  在飞文件(`packages/shared/src/chat/{prompt-history,auto-topup,cloud-chat-ops,…}.ts` 逐个 ` M`)。
+  ⇒ 处置口径:**先跑同一条命令的 CI 读数(HEAD 面)做对照,再决定要不要动手**;
+  不去"修"别人的在飞现场,也不把它们的红记进本仓债务清单。
+- 另:门 105 顺带报出 9 组"孤儿/死资源只报数"(tabbar png 等),以及本机全量档的门 70
+  因他人在飞中文而红(见本文件门 70 条目的口径更正)—— 都不是本批引入、也都不动判据去消。
+
+### 第五十一波·续六 —— 第三十批:病灶换了载体(裸 SQL)就无人看守,普查先于立判据(2026-09-27 凌晨,主会话独立复跑)
 
 - [x] ✅(2026-09-27) **第二十八批 `9155c57ed06`:四把新键的 15 处逐体定性,10 处改真 / 5 处交证据**(apps/api 24 路径)
   - 量尺(`.ihui-agent/tmp/r26/key-diff.mjs`,按代码行/注释行/测试面分档,只读两侧):`(removed|restored|revoked|cleared)` 字面量 ack 在 `apps/api/src` **HEAD 面 15 处 → 工作树 5 处**;差的 10 处全部改由存储侧答复派生。
@@ -11828,113 +11901,52 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   按 §12/§16 一律不覆写他人现场,所以本票交的是**我持有的 18 处清零 + 剩下 15 处的归属与行号清单**,
   不是一句"lint 已全绿"。
 
-### 第五十一波·续六 —— 第三十批:病灶换了载体(裸 SQL)就无人看守,普查先于立判据(2026-09-27 凌晨,主会话独立复跑)
+### 第五十一波·续五 —— 第二十八批 + 第二十九批:同一形状**换了键名就隐身**,把布尔档的键族与"证据在别处"的四类认法一起补齐(2026-09-27 凌晨,主会话独立复跑)
 
-- [x] ✅(2026-09-27) **把裸 SQL 写链并进守门 134 的写链池,并改真普查量出的两处 ack**(`41217bd9cd8` 代码 + `2060d3a34fe` 判据 + `8759fc7c7d1` AGENTS):
-  - 病灶载体不止 drizzle 方法链 —— `db.execute(sql\`DELETE FROM … WHERE …\`)` 也是写;判据此前只把 `.delete()/.update()` 当写链,裸 SQL 只当"证据"(认 `RETURNING` 字样),于是"SQL 发了写、命中 0 行、响应回布尔 true"这一格无人看守。现 `findRawSqlWriteChains` 一份实现同时供**写链判定**与**证据投影**(`hasRawSqlReturning` 降为投影,禁止两处各扫一遍),**V 与 B1 同看这一维**;B1 只认缺 RETURNING 那条 ⇒ 不新增恒红面;配平不到时"同体有 ack 才落未判定(U3,`--strict` 拒绝出合格证),否则只报数"。
-  - **普查反手抓到尺子自己的假阴**:`UPDATE\s+"?[A-Za-z_]\b` 对 `UPDATE ai_model_config_models`(整型表名)**永不成立** ⇒ 真仓 HEAD 上 4 条整型写隐身;修尺子后同一把才认出 **73 条**裸 SQL 写链、**9 处**与 ack 共处一体的候选,再逐条读体分 W1(5 已诚实)/ W2(1 有 RETURNING 却弃之判定)/ W3(1 无 RETURNING 且无条件回 true)。这是本仓第二次实录"扫到 0 先怀疑尺子,再相信世界"。
-  - **改真两处**(键名/状态码一字未改):`user-llm-configs-v2.ts:891` 的 UPDATE 补 `RETURNING id` 并按命中集取值(命中集归一沿用**本文件既有写法**,不另立形态);`ai-extended.ts:360/365` 的"没发写"与"零命中兜底"两支由 `true` 改 `false`。`git grep -E "\.updated\b"` 跨 6 端实测**无任何调用方读这两处的布尔**(命中的全是 i18n toast 键名或别的端点的计数字段)⇒ 无 UX 回退面。
-  - **两格刻意未做,都给了可判触发条件而不是"视情况"**:① B2 那一跳**未接**裸 SQL 维 —— 双向扫 10 个具名裸 SQL writer × 全部 ack 落点,HEAD 面该组合 **0 条**,无存量可验就补属投机;触发条件:任一 ack 落点的最小函数体 `await` 了"体内含无 RETURNING 裸 SQL 写"的具名函数 ⇒ 必补。② `updated`/`created` **未进** `BOOL_ACK_KEYS`(键族扩面属全 API 语义决策);触发条件:一旦拍板纳入,必须同时把 RETURNING 证据从**体内任一处**收窄到**该条调用**,否则"`UPDATE … RETURNING *` 零命中走 `?? {updated:true}` 兜底"那一型仍然隐身。
-  - 取证:self-test **118 条**(新增 K4b 裸 SQL 写+`deleted:true`⇒必红且 `via=raw-sql` / K4c 只补 RETURNING⇒归零 / K4d 注释与 `='UPDATE'` 这类**值**⇒不红 / K4e 配平不到⇒未判定 1 违规 0);镜像 **24/24** 含新增 **M23** 源码级反向锁(动词表只许住一处、投影不得自带 `\bRETURNING\b`、B1/V 必须真吃到 `rawPool`、镜像自己不得抄动词表);变异 = 摘掉 `rawPool` ⇒ M23 必红;真仓三档 exit 0,HEAD 面违规 0 / 未判定 0 / 认出 73 / 配平不到 0;门 89/118 同轮 exit 0;`pnpm --filter @ihui/api typecheck` exit 0;`ai-extended.test.ts` 6/6(未改期望值、未 skip)。
-- **e2e 作业是"慢性红"而不是本批引入 —— 定案并把开口收成一个出口(`0fa533ec99` + `d9b669a9bb`)**:
-  `e2e.yml` 在 GitHub 上连续 250+ 次运行查不到一次成功(分页翻到 2026-09-23T04:51Z 仍全是 failure),
-  最近一次读数 `577 passed / 32 failed / 2 flaky / 71 skipped`,其中 **24 处**集中在四个 spec 的同一句
-  `expect(getByTestId('login-dialog')).toBeVisible()` → `element(s) not found`。
-  **根因是入口语义变了两次而补丁只加在测试层**:未登录态侧栏用户行自 2026-09 起是
-  DropdownMenu 的**触发器**(`SidebarUserRow.tsx` 的 `loginTrigger` 注释原话「整行作为 Dropdown
-  触发器打开同一套工具菜单(菜单末尾含"登录"项)」),真正 `store.getState().open('login')`
-  挂在 `guestMenuItems` 的 `key:'login'` 项上 ⇒ 单点一次只开菜单;而四个 spec 各自维护的开法都是
-  **单点**,其中两处还留着历次"再补一层重试"的注释(2026-08-26 的"入口从 header 搬到侧边栏"、
-  2026-08-28 的"hydration 竞态 ⇒ 有界 10 次 × 1s 重点")。
-  ⇒ **通用教训:同一件事在 4 个文件里各修一遍,产品再变一次就是集体失效**;本票把它收进
-  `apps/web/e2e/open-login-dialog.ts` 一条出口,两条出路按"先真 UI(用户行 → 菜单项)、
-  后生产重定向(`/?reauth=1&next=…` → `LoginRedirectListener`,承继已维护的
-  `desktop-window-controls-dim.spec.ts` 写法)"排,并打印走了哪条;两条都不成才失败,
-  且断言消息点名"试过哪两条" —— 判据失效的表现永远是安静,一条只说 not found 的失败消息等于没有。
-  trigger 与 menuitem 各试 `click()` 与 `dispatchEvent('click')` 两种派发,因为移动视口下该按钮以
-  fixed 定位、普通 click 会被 actionability 判 "outside of the viewport"(这正是它当初改用
-  dispatchEvent 的原因,不能退回去只认一种)。
-  **本机取证边界(不当已验证)**:这台机是开发机,8810/8811 无监听、没有可用 PostgreSQL 实例,
-  e2e 要 api+web+库 ⇒ 端到端结论只能由 CI 给;本机能量到的是 `playwright test --list` exit 0
-  (682 用例 / 97 文件全部可编译可发现)与新出口单独 `tsc --strict` 0 错。
-  **余下 8 处与登录无关,另计一票**:browser-hub-smoke ×2(ai-service 侧 Chromium 起不来 /
-  `/api/browser/sessions` 500)、mode-switch、navigation-full、work-panel、topbar-workarea-align、
-  ihui-download-verify、cli-import 各 1 —— 不冒充"e2e 已全绿"。
-- **CI 四红清完后的"下一层"读数,以及一个后端造词而词表没跟的缺口(`f2a7cf2429` + `940c22f594`)**:
-  合并头 `40513b2558` 上复量:Knip ✅、Mypy 步 ✅(改在 `test-python` 里往下露出 **Pytest** 步)、
-  `@ihui/database#test` ✅,而 `@ihui/shared#test` 报 1 例:
-  `step-decision 词汇表 > 与后端字面量双向一致(既不缺 also 不多)` → `extra: ["role_denied"]`。
-  **这条是本仓 D55/G-66 那道双向对账第一次真的抓到东西**:后端 `agent_loop_v2.py:4843`
-  角色矩阵拒工具时发 `"role_denied"`,而共享词表 `STEP_DECISIONS` 没有 ⇒ 用户界面上会直接喷
-  `role_denied` 这串英文码(不是崩,是"能跑但说人话失败")。补齐三处同一源:
-  `packages/shared/src/chat/step-decision.ts`(数组 + 取词键 + 归并态 `rejected`)、
-  `packages/i18n/messages/shared/{zh-CN,zh-TW,en,ja,ko}.json` 各加 `stepDecision.decision.roleDenied`、
-  以及**测试里写死的数量字面量**(15→16)—— 最后这一处最容易漏:改词表不改尺子,
-  下一次加词就会红在"数量"上而不是红在真问题上。
-  **这张表只有一份**(实测 `grep -l policySkipsApproval` 只命中 `messages/shared/*.json`),
-  所以不存在"同步五个端各抄一遍"的问题;但**小程序离线包是派生态** —— 加键后
-  守门 105 的 B2 立刻判"源比包多 1 键"(四语言),唯一修法是一条 `pnpm --filter @ihui/miniapp-taro gen:i18n`。
-  重生成前先按本仓那条老雷做了**零丢失证明**:解出改前/改后两份 gzip+base64 包,逐语言比键集合 ⇒
-  `en/ja/ko/zh-TW 各 5193 → 5194,丢 0,新增恰为 stepDecision.decision.roleDenied`
-  (取证脚本 `.ihui-agent/tmp/prove-pack-superset.mjs`,一次性件不入库;
-  第一版正则按 `"zh-CN": "…"` 猜格式解出 0 条 —— **凭猜写解析器会比不出一样的东西**,
-  现读源码形态是 `REMOTE_LOCALE_B64` 里 `'zh-TW': 'H4sI…'`,改完才解得出四语言)。
-- **同一轮把"本机红 ≠ 仓库红"量成了一条可复用的判据**:`pnpm --filter @ihui/shared test` 在本机报
-  3 文件 / 21 例,而 CI 在 HEAD 面只报 step-decision 一条 —— 多出来的 20 例其被测源码全是他人未提交的
-  在飞文件(`packages/shared/src/chat/{prompt-history,auto-topup,cloud-chat-ops,…}.ts` 逐个 ` M`)。
-  ⇒ 处置口径:**先跑同一条命令的 CI 读数(HEAD 面)做对照,再决定要不要动手**;
-  不去"修"别人的在飞现场,也不把它们的红记进本仓债务清单。
-- 另:门 105 顺带报出 9 组"孤儿/死资源只报数"(tabbar png 等),以及本机全量档的门 70
-  因他人在飞中文而红(见本文件门 70 条目的口径更正)—— 都不是本批引入、也都不动判据去消。
+  - **为什么 B2 必须与这批同线落地**:第二十六批的 B1 只看**同一函数体**内有没有写链,而这一族的真 `db.delete()` 住在另一个文件的委托函数里(返回 `Promise<void>`),B1 结构上失明 —— 门看不见 ⇒ 清零之后任何人摘掉委托腿的 `.returning(` 都不会红。B2 沿 import 说明符**解析一跳**(只一跳,不追传递闭包),被调体含写链而链上无 `.returning(`/无唯一出口 ⇒ 判红;解析不到 ⇒ `b2Undetermined` **逐条点名,不冒红也不记绿**。
+  - **现读(全量档判 HEAD blob)**:B1 **0 / 0**;B2 **违规 0 / 0 文件(候选 11,库确认放过 10,未判定 0)**;V1 布尔 ack 惯例面 **38 处 / 25 文件 → 12 处 / 10 文件**。差 26 = 本批改真数,余 12 = 逐体读到"布尔来自 DELETE 自身 RETURNING / 上游 2xx 闸后"的那些。**关键顺序:先改真再收门** —— 反过来(B2 先落地)就会让 B2 在 25 处存量上以 HEAD 为锚放行,而那是"存量当已通过"的账面假象。
+  - **回退对照走的是真仓,不是夹具**:镜像 M17 在内存字符串里把刚入库的委托腿摘掉 `.returning(` ⇒ B2 必点名它;还原 ⇒ 归零。这条同时证明"B2 不会在本仓刚产出的正确形态上报红"——会报红就是恒红门(§12e)。取证 `--self-test` **94 条**(构造面 81 + 临时 git 仓端到面 13)、镜像 **21/21**、守门 89/108/118 同轮 exit 0。
+- [x] ✅ **一次真实的"注册表被滞后基线整块回写"事故,由机器判据抓到并已复原**:`'delete-ack-exempt': 30`(第二十六批随 B1 一起登记进守门 108 的存活期表)被 `518c5d56942`(守门 135 上线)**从一份滞后工作树整文件提交时抹掉** —— 取证 `git show 518c5d56942 -- scripts/check-exemption-expiry.mjs`:那枚提交在本文件只加自己 3 行、**连带删掉本表 10 行**。
+  - **发现方式不是人眼**:是守门 134 的镜像锁 **M15**(断言"登记的豁免族必须在存活期表里且取 30 天")由绿翻红抓到的。**跨文件一致性只有钉成机器判据才会自己喊**;若只写在注释里,这条豁免就会静默走 90 天默认档 —— 迁移债被登记成半永久豁免,正是守门 108 立项要防的那一型。
+  - 处置:原样复原 + 把"曾被谁抹掉、怎么被发现"写进表旁注释(让下一次整文件重写时红点能立刻对上"这不是原始版本")。
+- [x] ✅ **与对侧在同一枚测试文件上真冲突,在对象空间解,没有选边**:`apps/api/tests/workspace-permissions-mode-storage.test.ts` 两侧都删了同一对未用解构名(`findUserPreferences` / `upsertUserPreference`)但各写各的注释 ⇒ `git-sync-converge` 报冲突交人工。人工的做法:**`merge-tree --write-tree` 取合并面 → 三方 `merge-file --diff3` 看清两个 hunk 的真实差异 → 取对侧已入库的注释、保住本侧新增的两枚 describe 与全部 hunk → 私有索引 `update-index --cacheinfo` + `commit-tree -p 双父` + CAS `update-ref`**。落地后三条证明:`丢本侧路径 0 ∧ 丢对侧路径 0`(13080 / 13080 / 13075 路径集合比对)、该文件 **25 passed | 1 skipped** 与 eslint 0 error、守门 100 的增量台账"吞并 0 枚 / 丢失新增路径 0"。
+- [x] ✅ **量尺自己坏过一次,以"尺子读 0 必须先怀疑尺子"收口**:一次性键族普查脚本 `.ihui-agent/tmp/r26/key-census.mjs` 第一版把 `(?:true|1)` 写进 `git grep -E` —— **POSIX ERE 不认 `(?:`,git 直接报错**,而我把报错 `catch` 成空串 ⇒ 脚本安静报"**0 处**",差一点就被写成"这一族已无存量"。现两处同时改:①判据正则用 POSIX 合法的 `(true|1)`;②取数失败 **exit 2 并喊"不是 0 处,是尺子坏了"**。这与守门 134 头注那句"判据失效的表现永远是安静"是同一条禁令的工具面版本。
+- [ ]（进行中@2026-09-27/删除诚实性票） **第二十八批:布尔 ack 的键族从 `deleted` 扩到 `removed / restored / revoked / cleared`**(扩键后的普查现读 **27 处代码面**,其中 12 处是已定性的 `deleted` 那一族):
+  - **本批登记到的新落点(file:line)**:`removed` —— `routes/auth-extended.ts:1686`(removeBindingByPlatform)、`routes/organization.ts:325`、`routes/tasks.ts:465`(removeDevice)、`routes/files.ts:576`(detachTag)、`routes/user/settings-routes.ts:321`(deleteUserPreference)、`routes/visit-tracking.ts:523`、`routes/tenant.ts:234`(同体有 `.returning` ⇒ 先判是否已诚实);`restored` —— `routes/workspace.ts:709`(委托 `restoreFile`,**上一泳道已点名"同形但不在票面"未动**);`revoked` —— `routes/auth.ts:1306`(revokeRefreshToken)、`routes/developer-relay.ts:281`(revokeKey)、`routes/oauth-keys.ts:170`、`routes/user/settings-routes.ts:137`;`cleared` —— `routes/agents.ts:689`、`routes/chat.ts:1095`(clearMessages)、`routes/openclaw-routes.ts:235`。
+  - **必须先逐体定性再动手**,因为我的普查窗口只有 22 行、会把**相邻 handler** 的写调用算进来看,所以"同体无 `.returning`"这一栏**不能直接当债**(上面 20 处 `lie_same_body` 里就混着 admin 族那 11 处已判诚实的)。派单第一条:读函数体回答"这个布尔/计数从哪来",三类分流(真谎报 / 已诚实 / **语义根本不是"删了几行"** —— 例 `cleared: true` 可能只是"清空动作已完成"且动作本身无行概念)。
+  - **判据侧同批改两半**(§4 圆角那条记过只改一半 ⇒ 整块动静默失效而门照报绿):守门 134 的 `COUNT_KEYS` 已含 `restored|removed`,但 **V1/B1/B2 的布尔档只认键名 `deleted`** ⇒ 扩键必须同时改①枚举/预筛的字面量超集、②判据键集、③结论行措辞与镜像的"两型分家"断言,并给棘轮留 per-file HEAD 锚点(存量不当场判红)。
+  - 顺序仍照本批教训:**先改真、再收门**。
+- [x] ✅(2026-09-27 凌晨)**把"CI 红归因到具体那一步"做成固定动作,今晨由此清掉三枚与任何提交都无关的红**:
+  做法(不是"看 job 名字猜"):job 名会骗人(`Shared package typecheck` 与 `ai-service-schema-check` 都不含"lint"字样,
+  而真凶藏在 `Run pnpm run lint:strict` 这一**步**里)。链路固定为
+  `commits/<sha>/check-runs` → `actions/runs/<id>/jobs` → 取 `steps[conclusion=failure]` → `actions/jobs/<id>/logs`;
+  annotation 常常只写"Process completed with exit code 1"(端口那枚就是),**必须走到 step 级**才知道是谁。
+  - **`packages/database` 的 test 红(de95b29a73)** 两条腿:① `assertDataDirAllowed` **判序**错 —— 先拒"落在 $HOME 之下",
+    再认"仓库内 `.ihui-agent/tmp/**`";Linux CI 的检出**本身就在 `/home/runner` 下**,于是明令允许的落点被判违规,
+    而这台开发机(仓在 D:、家在 C:)结构上测不出这一型 ⇒ 又一枚"本地全绿、红只在 CI"。
+    同处第二个坑是 POSIX 下 `driveOf()` 抛"推不出盘符"被下游读成"落点非法";现把仓库内判定提到最前直接 return,
+    并把"没有盘符"如实处理成"DevEnv\Temp 这一支不适用"(它是 Windows 专属落点,不是错误)。
+    成对自检 **S2f**(家目录之内的仓库根仍收)/ **S2g**(同一家目录里仓库之外仍拒)—— 只加前者等于放宽禁令,
+    后者是它没放宽的证据。**变异自证**:删掉"仓库内优先 return"那一行 ⇒ 自检 **47/49**(S2d 与 S2f 同时红),
+    还原后哈希与改前**逐字一致**。② `tenant-rls-policies.test.ts:153` 断言 journal 的**末位**条目必须是本迁移 ——
+    台账只追加,任何后来者追加一枚迁移就把它钉成恒红(实测 `point_transactions` 一入库即断言失败);
+    真正要守的是"未登记 ⇒ drizzle-kit migrate 静默跳过"(脚本自己在 `:238` 用的就是 `entries.some`)⇒ 改成"存在且唯一",
+    `when` 严格递增与 `idx↔位置` 两条不变量原样保留。**位置不是不变量**,这条与 §"别把移动量钉成健康期望"同族。
+    取证:该文件 vitest 1 failed → **8 passed**、该包全量 **6 files / 104 passed**、`--self-test` **49/49**、typecheck exit 0。
+  - **CI `port-registry-check` 红(54ac250198)** 唯一违规是 `apps/cli/tests/goal-verification-e2e.test.ts:123` 的
+    **提示文案里**写了 `127.0.0.1:18803`。没有给该文件开豁免(先例 `apps/cli/src/lib/sso.ts` 那种逐文件豁免会
+    **关掉整个文件的端口扫描**,为一个句子削一面尺子不划算),而是把建议改成"88xx dev 档端口"并指向注册表文档 ——
+    本仓端口规矩明写"dev/宿主端口必须以 88 开头",留个违规示例本来就会教人照抄。`--all` 由 exit 1 → **exit 0**(10419 个文件无违规)。
+  - **`apk` job 红** 的报错点在 gradle 的 `createBundleReleaseJsAndAssets`:
+    `Cannot find module '.../@ihui/design-tokens/dist/tailwind-preset...'` —— 与 §"ci.yml 缺 api-client 前置"、
+    "test-real-db 缺闭包"是**同一族的第三次**:多个共享包 `exports` 指 `dist`(产物不入库),而 metro/tailwind
+    按运行时 require 解析,所以只有打包那一步会炸。修法与先例同形:在该 workflow 的 install 之后补
+    `pnpm --filter "@ihui/mobile-rn^..." run build`(**拓扑闭包,不手工点包名** —— 手工清单必然落后于新增依赖)。
+    该步 commit `889fe3fd90`;本地跑该闭包时 `@ihui/shared` 报 6 条 tsc 错,逐条核到**并发会话在飞的两份脏文件**
+    (`prompt-history.ts` 的 5 个导出在 HEAD 面**全在**、`bottom-action-bar-spec.ts` 引用的 `controlBox` 在 HEAD 的
+    geometry 两侧**都不存在**)⇒ 属"本机红 ≠ 仓库红",不当成本笔缺陷去"修";由 CI 当 oracle 复量。
+  - ↑ **归位说明(只加一行,不改写任何已有行)**:紧接本行下方的 ①② 两条,属于上面那枚「✅(2026-09-27 深夜)顺手清掉两件"实测出来、与任何提交都无关"的红与雷」条目 —— 本会话把「把 CI 红归因到具体那一步」这枚独立条目插在了**该条目的标题行与其内容之间**,标题与 ①② 被隔开了。按 §1"禁止无声删除"不删不移,只在此写明归属:读的时候 ①② 与那枚标题是一对。教训同时记在这里:**活文档插入要选在"整条条目的最后一行"之后,不能选在标题行之后** —— 标题行看起来唯一、命中数=1、结构等式也成立,三道判据都拦不住"插在中间"这一型。
+- **401 身份链在真机上闭环了(VC45 实拍,`bab970e275` 同批)**:装到 Redmi(c12617dd / 720×1640 / density 2.0)的当下 HEAD 包上进「广场」tab,弹层正文是 **「登录已过期,请重新登录」** —— 而这台机在修之前拍到的是同一位置、同一图标的「提交的信息有误,请检查后重试」。⇒ 守门 135 + `apiFailureToError` + api-client 空白体兜底三票合起来的**用户可见后果**第一次有了现场证据(此前只有单测与推理)。**同屏另一处如实记下**:页头返回键在 `动态` / `广场` 两屏实拍为矢量箭头、落位正确;而 `FloatingActionButton` 的实拍**没拿到** —— 它只在 `StudyIndexScreen` 挂载,从 tabBar 四屏走不到,所以那一处只有"门 131 读数 115→113 + typecheck 零错"两把尺子,**不构成端到端验证**。
+- **函数形态 style 存量:115 → 113(两处跨屏共用载体已收)**:`packages/app/src/components/BackChevron.tsx`(RN 唯一返回键实现)与 `apps/mobile-rn/src/components/FloatingActionButton.tsx` 改成 children render prop + 数组形态。**剩余 113 处的处置口径不是"继续盲扫"**:门自己的分诊实测 A 类(可盲改)= **0**,全部属"要逐屏确认观感"—— 每处都要把样式从 Pressable 挪到子 View,而子 View 会吃掉父容器的 flex 槽位,**没有屏幕证据就改 = 拿观感赌**。判"还剩多少"一律跑 `node scripts/check-rn-interop-fn-style.mjs --worktree` 看末行现值,不得引用本文数字派单。
+- **今夜交付面与可复核锚点**:VC45 这包的底稿 = 归档当下 HEAD `de95b29a73`(03:52 重归档,记在 `.ihui-agent/tmp/rn-preview/build-fixes2.log` 首行)**⊕ 本票两处修复文件**(逐字节校验一致后才起 gradle,`build-arm64.sh` 判据 4 亦过:JS 包新于起建)。装机后 `dumpsys package zh.ai.sq` 实读 `versionCode=45` —— **判"装的是不是这一版"只认 versionCode 与 JS 包 mtime,不认 APK 文件在不在**。截图三张:`vc45-home.png` / `vc45-plaza2.png`(401 文案现场)/ `vc45-tab4.png`(页头返回键)。
 
-- **e2e 开口收口后的**真实增量**(CI 逐轮复量,不把自己的改动当已交付):
-  对照三次运行的失败清单(计数含 2 次重试,已折半读):
-  - `cbed016f64`(改前):`login-enter-submit` 7 例、`login-3step-enter` 3 例、
-    `dialog-position-regression` 2 例、`remember-password` 12 例 ⇒ 登录簇 24 例全红;
-  - `40513b2558` / `f2a7cf2429`(带上唯一出口 + 四条 spec 接线后):
-    **`login-enter-submit` / `login-3step-enter` / `dialog-position-regression` 从失败清单里整批消失(12 例转绿)**,
-    `remember-password` 仍 10-11 例红 —— 但**失败点已经换了**:`expect(getByTestId('login-dialog')).toBeVisible`
-    这一句不再红,改停在更后面的一步 `switchToPasswordTab`(`remember-password.spec.ts:73`)等
-    `#login-form-account` 不可见。⇒ 该 spec 的 tab 切换用的是 `page.mouse` 坐标点击 + 按 id 取元素
-    (同期 `login-enter-submit` 用的是 `getByTestId('login-tab-*')`,所以它绿),
-    这是**同一份漂移的下一层**,不是我把上一条修坏了;之前那一层失败把它挡住了,现在露出来。
-  登记为待办(不冒充 e2e 全绿):`remember-password.spec.ts` 的 `switchToPasswordTab` 应改成像
-  同期 spec 那样按 testid 点 tab、按可见性而不是坐标取账号框;余下 `browser-hub-smoke`(ai-service
-  侧建会话 500)、`navigation-full`、`mode-switch`、`work-panel`、`topbar-workarea-align`、
-  `ihui-download-verify`、`chat-mode-badge`、`footer-regression`、`phase-21-timeline-sse` 各自另有成因,
-  且日志里同时出现 api 侧 `FST_UNDER_PRESSURE`(503)与 `会话清单应为 200(实际 500)` ⇒
-  这一族要先判"是不是 CI 资源压力下的过载",不得当成代码缺陷盲修。
-
-- **`test-python` 的 52 例红做了逐簇归因(Mypy 先红把它整批遮住了,修完 Mypy 才露出来)**——
-  读数取自 `40513b2558` 那次运行的 step 级日志(`= 52 failed, 14612 passed, 18 skipped =`):
-  - **22 例是我的两个 58 号接线套件**(`test_engine_context_wiring_58` 15 + `test_tool_trace_wiring_58` 7):
-    `asyncio.get_event_loop()` 在 3.12 的"无当前循环"语义下抛 `There is no current event loop`,
-    而**只要全量跑里有别的 pytest-asyncio 用例先 teardown 就会触发** ⇒ 单跑绿、全量红;
-    已改接仓内既有的模块级共享循环出口(`test_mainwire_wiring_58.py:50-60` 早就为同一件事写好了),
-    **没有另造第三份**;
-  - **5 例 `test_usage.py`** 是我自己那刀鉴权收紧的欠账(旧用例把"自报 user_id 优先 / 缺身份 400"当契约),
-    已改按收紧后断言(401 / dev 降级单一身份 / 非管理员代查 403 / 管理员仍可代查),
-    `30 passed` 与 `test_usage_authz.py` 同跑;
-  - **7 例 `test_file_search_ripgrep_v75`**:CI runner 里没有 `rg`,而这些用例**刻意拒绝在降级时出合格证**
-    ("ripgrep 不可用(解析结果 source=none),本结果不可用于对账")。已在 `ci-monorepo.yml` 的
-    `test-python` 里 Pytest 之前装 ripgrep + `rg --version` 留证;本机装有 rg 时同一套是
-    `12 passed / 3 failed`,那 3 条(`collect_code_files_with_provenance`、`traversal_engine` 两个
-    AttributeError + 真仓耗时对账)是装完 rg 之后**仍要单独归因的存量**,不在本票冒充已修;
-  - 余下 **18 例是别的服务/工具的代码↔测试漂移,逐条带错误原文登记为待办,不盲修**:
-    `test_parallel_tool_abort_54` 4 例(`'AgentLoopV2' object has no attribute '_mode_policy' /
-    '_executed_tool_calls'` —— 测试按一版未落地的重构属性写)、
-    `test_permission_modes` 4 例(3 例 "mock awaited 0 times" + 1 例
-    `assert 'role_denied' == 'bypass_skip_approval'`,后者是**角色矩阵在 bypass 档之前就把工具拒了**,
-    属产品语义待定,不是测试写错)、
-    `test_mcp_server` 3 例(`KeyError: 'metrics' / 'test_code'` —— 工具输出结构变了)、
-    `test_model_tools_wiring_58` 1 例(`builder missing for update_plan`)、
-    `test_sse_contract` 1 例(`assert 28 == 26`,事件数与契约清单对不上)、
-    `test_complete_stream_question` 1 例(`assert [] == ['run_command']`)、
-    `test_llm_tool_persistence` 1 例(`'str' object has no attribute 'get'`)、
-    `test_engine_harness_settings_48` 1 例(拒 `permission_mode: 'always'`,归一表不认这个别名)、
-    `test_shell_detect_56` 与 `test_patch_safety_56` 各 1 例(**在 Linux runner 上断言 Windows 语义**:
-    `'/bin/sh' == 'cmd.exe'`、`'reject' == 'auto_approve'`)—— 最后这两型的正确修法是让用例
-    自己 monkeypatch 平台输入而不是按宿主跳,别用 skipif 把覆盖面跳没。
-
-- **真机走查拍到一处新的 RN 缺陷:「设置」页同屏两条页头**(VC45 实拍 `vc45-settings2.png`):上层「< 设置 ☰菜单」之下紧接「< 设置」—— **两个返回箭头、两个标题**。归因线索:`apps/mobile-rn/src/screens/SettingsScreen.tsx:205` 自己渲染 `<NavBar>`,而该屏所在导航容器又给了一层页头(`RootNavigator.tsx:502/602` 有 `headerShown:false`,819 行注册的 stack 归属待查实)。**这一型在小程序端有判据**(守门 102 的 GA6:页内渲染返回键却仍挂原生导航栏 ⇒ 同屏两个箭头 + 双层 chrome),**RN 侧零看守**。处置要先定"哪一层拥有页头",属设计决策,不是顺手删一个 `NavBar` ⇒ 登记为待办,不当干完。
-- **同批如实登记一处"未验到"**:本轮改的 `FloatingActionButton` 只在 `apps/mobile-rn/src/screens/StudyIndexScreen.tsx` 挂载,而该屏从 tabBar 五屏 + 抽屉 + 设置页列表都走不到(设置页列表末项是「关于」,没有「更多功能」入口)⇒ **它只有"门 131 读数 115→113 + typecheck 零错"两把尺子,没有屏幕证据**。不得因为"同一次提交里另一处验过了"就把它也算成已验。
