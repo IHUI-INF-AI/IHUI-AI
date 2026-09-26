@@ -713,7 +713,6 @@
       "fallbackNotice": "伺服器端對話載入失敗,當前顯示本機歷史記錄。",
       "refreshSuccess": "重新整理成功",
       "startNew": "開始新對話",
-      "unpin": "取消置頂",
       "msgCount": "{n} 條訊息",
       "noMore": "沒有更多了",
       "pinned": "已置頂",
