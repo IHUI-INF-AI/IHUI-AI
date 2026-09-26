@@ -27,6 +27,8 @@ import ora from 'ora';
 import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent } from '@ihui/api-client';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
+// 2026-09-27:doom_loop pattern 外发前过一次脱敏兜底(防原文字段流入服务端落库)
+import { redactSecrets } from '../redact.js';
 import {
   registerTools,
   registerBrowserTools,
@@ -568,11 +570,16 @@ export interface RunToolLoopOptions {
   providerSupportsTools?: boolean | 'auto';
 }
 
+/** pattern 外发长度上限:超出即截断并在 stderr 点名(不得静默) */
+const DOOM_LOOP_PATTERN_MAX_LEN = 256;
+
 /**
  * L1-4(2026-07-25 立):fire-and-forget 把 doom_loop 失败模式沉淀到 procedural memory。
  *
  * 调用 ai-service POST /api/memory/procedural 端点:
- * - pattern: `doom_loop:<toolName>:<inputHash>`(unique 反模式标识)
+ * - pattern: `doom_loop:<toolName>:<inputHash>`(unique 反模式标识;inputHash 段为
+ *   定长 SHA-256 hex,2026-09-27 起不再是入参原文 —— 原文含文件路径/正文/命令行,
+ *   曾随本 pattern 明文 POST 到服务端长期落库)
  * - success: false
  * - metadata: { source, repeatCount, message, suggestion, workspacePath, sessionId }
  *
@@ -589,7 +596,23 @@ async function persistDoomLoopProcedural(
   const config = loadConfig();
   const baseUrl = (config.apiUrl || 'http://localhost:8803').replace(/\/+$/, '');
   for (const alert of alerts) {
-    const pattern = `doom_loop:${alert.toolName}:${alert.inputHash}`;
+    // pattern 只由「前缀 + 工具名 + 摘要」构成,不得含任何入参原文:
+    // - inputHash 段自 2026-09-27 起为定长 SHA-256 hex(doom-loop-detector.ts hashInput)
+    // - toolName/inputHash 仍统一过 redactSecrets 兜底(工具名字段理论上可携带
+    //   路径/凭据形态文本;hex 段不含分隔符,脱敏对其为恒等变换)
+    // - 前缀 `doom_loop:<toolName>:` 的格式逐字保留(服务端/召回侧按它匹配)
+    const safeToolName = redactSecrets(String(alert.toolName ?? ''));
+    const safeInputHash = redactSecrets(String(alert.inputHash ?? ''));
+    let pattern = `doom_loop:${safeToolName}:${safeInputHash}`;
+    if (pattern.length > DOOM_LOOP_PATTERN_MAX_LEN) {
+      // 截断必须喊出来:静默变短等于悄悄改了去重键,比超长更危险
+      process.stderr.write(
+        chalk.yellow(
+          `[doom-loop] pattern 超长已截断:${pattern.length} > ${DOOM_LOOP_PATTERN_MAX_LEN} 字符(tool=${safeToolName.slice(0, 60)})\n`,
+        ),
+      );
+      pattern = pattern.slice(0, DOOM_LOOP_PATTERN_MAX_LEN);
+    }
     const body = {
       user_id: opts.userId,
       pattern,
