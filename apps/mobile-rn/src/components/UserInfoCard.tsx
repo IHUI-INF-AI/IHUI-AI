@@ -31,16 +31,26 @@ import {
   USER_INFO_CARD_AVATAR_PX,
   USER_INFO_CARD_BADGE_PADDING_X_PX,
   USER_INFO_CARD_BADGE_PADDING_Y_PX,
+  USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX,
   USER_INFO_CARD_HEADER_GAP_PX,
   USER_INFO_CARD_LOGIN_FONT_PX,
+  USER_INFO_CARD_LOGIN_PADDING_Y_PX,
   USER_INFO_CARD_NAME_FONT_PX,
   USER_INFO_CARD_PADDING_PX,
   USER_INFO_CARD_ROW_MARGIN_TOP_PX,
   USER_INFO_CARD_SMALL_FONT_PX,
   USER_INFO_CARD_TOKEN_FONT_PX,
+  userInfoCardAvatarStyle,
 } from '@ihui/shared/ui/user-info-card-spec'
 
 import { rnRadius } from '@ihui/design-tokens'
+
+/**
+ * 头像盒子结构只在 spec 出口里摆一次(方档 + overflow + 居中),端内三个头像位
+ * (可点外框 / 图片 / initials 兜底)各自 spread 它,不再逐处重摆 width/height。
+ * RN 侧 1 逻辑 px = 1 dp,故投影就是恒等函数。
+ */
+const AVATAR_BOX = userInfoCardAvatarStyle<number>((px) => px)
 
 // 共享类型 UserInfo 已下沉到 @ihui/types,本地 re-export 保持调用方兼容
 export type { UserInfo }
@@ -303,6 +313,21 @@ function UserInfoCardNew({
   )
 }
 
+/**
+ * 本表里**刻意仍写着数字**的档位,逐条给出去向(不是漏改):
+ *  - `paddingHorizontal: 32`(两枚登录钮)/ `paddingVertical: 4`(nameRow)/ `paddingHorizontal: 8`
+ *    + `paddingVertical: 6`(tokenRow / growthRow / inviteRow 的 muted 面板)/ `marginLeft: 4` × 3
+ *    + `marginBottom: 4` × 2 / 弹窗整套(`padding: 20`、`fontSize: 18`、`paddingHorizontal: 24`、
+ *    `paddingVertical: 8`、`fontSize: 14`、`marginBottom: 16`、`gap: 6`、`lineHeight: 20`)
+ *    / initials(`fontSize: 32`、旧变体 `28`)。
+ *  共同锚里没有对应的档,原因只有两种:① **小程序端根本不渲染这一格**(登录钮的胶囊横向档、
+ *  等级弹窗、邀请码行、initials 兜底、旧变体 —— spec 文件末差异登记第 1/3/4 条);
+ *  ② **另一端同一属性没有额外一档**(行级面板容器、nameRow 的上下档 —— 小程序端那些行是平的,
+ *  差异登记第 5 条)。把它们搬进 spec 只会让守门 128 看不见,屏幕上什么都不会变 ——
+ *  那正是这道门(守门 128 跨端 UI 单一源对账)的失效模式,故宁可留着数字并点名。
+ *  另:`marginLeft: 4` / `marginBottom: 4` 与小程序端 `gap-1` / `mb-1` **屏幕同值**,
+ *  只是门的类名正则读不到 `gap-*` / `mb-*`(差异登记第 6 条),属测量残留,不是分叉。
+ */
 const newStyles = StyleSheet.create({
   loggedOutWrap: {
     marginTop: 8,
@@ -315,7 +340,9 @@ const newStyles = StyleSheet.create({
     // 本块填充就是 brand.cta,描边同色即"加厚",两态观感与改前一致且不再出现墨档
     borderColor: tokens.brand.cta,
     borderRadius: rnRadius.xl,
-    paddingVertical: 14,
+    // 上下内边距与小程序端同档(原写死 14,小程序 `py-3` 是 12 ⇒ 同一按钮两个数);
+    // 左右 32 是本端胶囊形态,按 spec 文件末差异登记保持不动
+    paddingVertical: USER_INFO_CARD_LOGIN_PADDING_Y_PX,
     paddingHorizontal: 32,
   },
   loginBtnText: {
@@ -338,31 +365,32 @@ const newStyles = StyleSheet.create({
     padding: 8,
   },
   avatarWrap: {
-    // 头像档唯一源 user-info-card-spec(48dp:≥44 命中块 + Tailwind 整档,与小程序端同值;
+    // 盒子结构(边长 + overflow + 居中)取自 spec 出口,端内不重摆;
+    // 48dp 的唯一源在 user-info-card-spec(≥44 命中块 + Tailwind 整档,与小程序端同值;
     // 原 rpx(163)≈81.5 是 Uniapp 旧稿换算 hack,非注册档,已收口)
-    width: USER_INFO_CARD_AVATAR_PX,
-    height: USER_INFO_CARD_AVATAR_PX,
+    ...AVATAR_BOX,
     borderRadius: rnRadius.lg,
-    overflow: 'hidden',
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.brandAccent.light,
   },
   avatar: {
+    // ImageStyle 不吃居中/display 那几项(硬 spread 会被 tsc 判死),故这里只取边长档本身,
+    // 数字仍住在 spec 常量里 —— 端内没有第二个 48
     width: USER_INFO_CARD_AVATAR_PX,
     height: USER_INFO_CARD_AVATAR_PX,
     resizeMode: 'cover',
   },
   // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
   avatarFallback: {
-    width: USER_INFO_CARD_AVATAR_PX,
-    height: USER_INFO_CARD_AVATAR_PX,
+    ...AVATAR_BOX,
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.brandAccent.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   avatarFallbackText: {
+    // initials 字号:小程序端这一格落的是默认位图头像、根本没有 initials 可渲染
+    // ⇒ 单侧档,不进共同锚表(spec 文件末差异登记第 4 条);旧变体同一角色写着 28,是本文件内
+    //    的端内一致性缺陷,已登记待组件源统一票处理,不在此凭空立档
     fontSize: 32,
     fontWeight: '700',
     color: tokens.brandAccent.foreground,
@@ -383,7 +411,7 @@ const newStyles = StyleSheet.create({
     color: tokens.text.primary,
   },
   editText: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.brandAccent.deep,
     marginLeft: 4,
   },
@@ -446,7 +474,8 @@ const newStyles = StyleSheet.create({
   },
   unsubscribeBtn: {
     alignSelf: 'flex-end',
-    marginTop: 6,
+    // 与上一行的间距:此前写着 6(小程序端的操作按钮行是 8),同一属性漏改的第二个数,已归到行档
+    marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
     paddingHorizontal: USER_INFO_CARD_ACTION_PADDING_X_PX,
     paddingVertical: USER_INFO_CARD_ACTION_PADDING_Y_PX,
     borderRadius: rnRadius.sm,
@@ -458,6 +487,8 @@ const newStyles = StyleSheet.create({
     color: tokens.text.tertiary,
   },
   // 成长值进度条
+  // 条粗细两端原分叉:小程序 `h-2` = 8 / RN 这里写 4 ⇒ 现同一档 spec GROWTH_BAR_HEIGHT(8)。
+  // 细于 8 的进度条在触屏上几乎看不见,故按规则 2 取较大者;改它只改 spec 一处。
   growthRow: {
     marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
     paddingHorizontal: 8,
@@ -481,13 +512,13 @@ const newStyles = StyleSheet.create({
     color: tokens.brandAccent.deep,
   },
   growthBarBg: {
-    height: 4,
+    height: USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.xs,
     overflow: 'hidden',
   },
   growthBarFill: {
-    height: 4,
+    height: USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX,
     backgroundColor: tokens.brandAccent.DEFAULT,
     borderRadius: rnRadius.xs,
   },
@@ -502,24 +533,27 @@ const newStyles = StyleSheet.create({
     borderRadius: rnRadius.md,
   },
   inviteLabel: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.secondary,
   },
   inviteCode: {
     flex: 1,
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     fontWeight: '600',
     color: tokens.text.primary,
     marginLeft: 4,
   },
+  // 复制钮的 8/2 与徽章档同值,但它是单侧结构(小程序端没有邀请码行)⇒ 保持本端数字,
+  // 见 spec 文件末差异登记第 3 条
   copyBtn: {
     paddingHorizontal: 8,
     paddingVertical: 2,
     backgroundColor: tokens.brandAccent.light,
     borderRadius: rnRadius.sm,
   },
+  // 此前写着 11(低于 spec 的可读下限 12),属"该端没改成引用",不是另有属性
   copyBtnText: {
-    fontSize: 11,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.brandAccent.foreground,
     fontWeight: '500',
   },
@@ -544,12 +578,12 @@ const newStyles = StyleSheet.create({
     marginBottom: 8,
   },
   modalExpireText: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.tertiary,
     marginBottom: 8,
   },
   modalDesc: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.secondary,
     textAlign: 'center',
     marginBottom: 12,
@@ -561,7 +595,7 @@ const newStyles = StyleSheet.create({
     marginBottom: 16,
   },
   modalBenefitItem: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.primary,
   },
   modalCloseBtn: {
@@ -649,17 +683,19 @@ const oldStyles = StyleSheet.create({
     // 本块填充就是 brand.cta,描边同色即"加厚",两态观感与改前一致且不再出现墨档
     borderColor: tokens.brand.cta,
     borderRadius: rnRadius.xl,
-    paddingVertical: 12,
+    // 旧变体此前写着 12,而新变体(同一枚登录钮、同一个属性)是 spec 档 ⇒ 收口到同一处
+    paddingVertical: USER_INFO_CARD_LOGIN_PADDING_Y_PX,
     paddingHorizontal: 32,
   },
   loginBtnText: {
-    fontSize: 16,
+    fontSize: USER_INFO_CARD_LOGIN_FONT_PX,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   },
   card: {
     marginTop: 8,
-    padding: 16,
+    // 卡片内边距唯一源 = spec(web `p-3` 同值 12);旧变体此前写 16,是同一根容器的第二个数
+    padding: USER_INFO_CARD_PADDING_PX,
     borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -672,18 +708,20 @@ const oldStyles = StyleSheet.create({
   },
   username: {
     flex: 1,
-    fontSize: 16,
+    // 昵称字号唯一源 = spec(旧变体此前写 16,与新变体的 14 分叉)
+    fontSize: USER_INFO_CARD_NAME_FONT_PX,
     fontWeight: '700',
     color: tokens.text.primary,
   },
   editBtn: {
     backgroundColor: tokens.brandAccent.light,
     borderRadius: rnRadius.xl,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    // 操作按钮内边距与 spec 的 ACTION 档同值(旧变体此前写 12/6,6 低于其它钮的 4 档)
+    paddingHorizontal: USER_INFO_CARD_ACTION_PADDING_X_PX,
+    paddingVertical: USER_INFO_CARD_ACTION_PADDING_Y_PX,
   },
   editBtnText: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     fontWeight: '500',
     color: tokens.brandAccent.foreground,
   },
@@ -693,11 +731,11 @@ const oldStyles = StyleSheet.create({
     marginBottom: 12,
   },
   membershipText: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.secondary,
   },
   vipText: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     fontWeight: '700',
     color: tokens.warning.DEFAULT,
     marginLeft: 4,
@@ -707,8 +745,9 @@ const oldStyles = StyleSheet.create({
     marginBottom: 12,
   },
   avatar: {
-    width: 64,
-    height: 64,
+    // 头像槽位唯一源 = spec(旧变体此前另写 64,与新变体的 48 是同一角色的第二个数)
+    width: USER_INFO_CARD_AVATAR_PX,
+    height: USER_INFO_CARD_AVATAR_PX,
     borderRadius: rnRadius.xl,
     borderWidth: 2,
     borderColor: tokens.surface.light,
@@ -717,38 +756,41 @@ const oldStyles = StyleSheet.create({
   },
   // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
   avatarFallback: {
-    width: 64,
-    height: 64,
+    ...AVATAR_BOX,
     borderRadius: rnRadius.xl,
     backgroundColor: tokens.brandAccent.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 4,
   },
   avatarFallbackText: {
+    // initials 字号是单侧档(小程序端无头像 URL 时落默认位图,根本不渲染 initials)——
+    // 见 spec 文件末差异登记第 4 条。它与新变体同角色写的 32 是本文件内的端内一致性缺陷,
+    // 不是两端分叉,留给组件源统一票裁,不在此凭空立档。
     fontSize: 28,
     fontWeight: '700',
     color: tokens.brandAccent.foreground,
   },
   userId: {
-    fontSize: 11,
+    // 此前写着 11,低于 spec 可读下限 12 ⇒ 属"该端没改成引用"
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.tertiary,
   },
   tokenInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    // 面板内边距:旧变体写 8/12、新变体 tokenRow 写 8/6 —— 两个变体各自为政,而共同锚没有
+    // "行级面板内边距"这一档(小程序端这些行没有面板容器),故按单侧结构登记、不在此统一
     paddingVertical: 8,
     paddingHorizontal: 12,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.xl,
   },
   tokenLabel: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.primary,
   },
   tokenValue: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     fontWeight: '600',
     color: tokens.text.primary,
   },
