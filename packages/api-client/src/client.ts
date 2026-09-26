@@ -16,6 +16,10 @@ export type { CitationsEvent }
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker.js'
 import { getTransport, type TransportInit } from './transport.js'
 import type { DeviceFingerprintCollector } from '@ihui/types'
+// error 序列化唯一出口(2026-09-26 立)。上行 tool-result 帧的 error 字段若被调用方在
+// catch 里把 Error 本体(as 强转即可过 tsc)塞进来,JSON.stringify 会得 "{}" ——
+// ai-service 的 tool loop 唤醒时收到的是空对象事故现场。详见 postToolResult 上方 toWireError。
+import { serializeError } from '@ihui/types'
 
 /**
  * 默认空采集器(发布物自包含,2026-09-26 立)。
@@ -3449,6 +3453,31 @@ function aiServiceBaseUrl(): string {
   return baseUrl || 'http://localhost:8803'
 }
 
+/**
+ * 上行 error 字段归一(2026-09-26 立,唯一出口 serializeError)。
+ *
+ * 契约上 error 是 string | null,但 TS 类型挡不住调用方在 catch 分支把 Error 对象
+ * 强转塞进来 —— 而 `JSON.stringify(Error实例) === "{}"`(name/message/stack 都是
+ * 非枚举自有属性),等于回传一个"什么都没发生"的事故现场。越界值经唯一出口压成
+ * `Name: message <- Caused by: …`(含 truncated 标注)的单行链;wire 类型仍是
+ * string | null,后端契约不变;合规 string 输入逐字节走原路径,零行为变化。
+ */
+function toWireError(error: string | null): string | null {
+  const raw: unknown = error
+  if (raw === null || typeof raw === 'string') return raw
+  const parts: string[] = []
+  let node: ReturnType<typeof serializeError> | undefined = serializeError(raw)
+  while (node) {
+    parts.push(`${node.name}: ${node.message}`)
+    if (node.truncated) {
+      parts.push('[truncated]')
+      break
+    }
+    node = node.cause
+  }
+  return parts.join(' <- ')
+}
+
 export async function postToolResult(
   sessionId: string,
   toolCallId: string,
@@ -3467,7 +3496,7 @@ export async function postToolResult(
     resp = await fetch(`${aiServiceUrl}/llm/complete/stream/${sessionId}/tool-result`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tool_call_id: toolCallId, result, error }),
+      body: JSON.stringify({ tool_call_id: toolCallId, result, error: toWireError(error) }),
     })
   } catch (e) {
     throw new Error(
