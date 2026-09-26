@@ -83,8 +83,21 @@ test('T5 台账必须在索引里且非空(不在被审面上 = 判据退化成�
 
 test('T5b 台账一旦进 HEAD,全量面必须认它(存量锚点永不生效 = 台账白装)', () => {
   if (!headHasLedger()) return // 首次装车那一枚提交尚未落地,由 T8 在 --staged 面证明
-  const r = spawnSync(process.execPath, [SELF], { cwd: ROOT, encoding: 'utf8', timeout: 180000 })
-  assert.equal(r.status, 0, `台账已在 HEAD 而全量面仍判红 ⇒ 锚点没被读到:\n${r.stdout.slice(-500)}`)
+  /**
+   * "同一枚提交里既收紧判据、又按新口径重锚台账"是本仓的正当形态(与本门 `--staged` 索引优先、
+   * 守门 89 的文档面 HEAD∪索引例外同一条理由)。此刻索引里的台账**比 HEAD 新**,
+   * 拿旧台账去判新判据必然红 —— 那一红不是在说"锚点没被读到",而是在说"这枚提交还没落地"。
+   * 判据失效的表现必须是红,不是"逼人绕钩子",所以这里按面分流:索引与 HEAD 的台账不一致 ⇒ 走 `--staged`
+   * (审的就是这枚待落地的状态);两面一致 ⇒ 照旧要求全量面绿。
+   */
+  const ledgerDirty = git(['diff', '--cached', '--name-only', '--', LEDGER_REL]).stdout.trim().length > 0
+  const args = ledgerDirty ? [SELF, '--staged'] : [SELF]
+  const r = spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8', timeout: 180000 })
+  assert.equal(
+    r.status,
+    0,
+    `台账已在 HEAD 而${ledgerDirty ? '索引' : '全量'}面仍判红 ⇒ 存量锚点没被读到:\n${r.stdout.slice(-500)}`,
+  )
 })
 
 test('T6 判据有牙:同一份差异在 .jsx 与 .tsx 上必须同判', () => {

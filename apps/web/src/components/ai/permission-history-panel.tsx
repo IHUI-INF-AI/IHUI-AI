@@ -64,7 +64,7 @@ import {
 } from '@/components/ai/full-access-confirm-dialog'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 // 权限档读侧归一(G-161/G-164):跨界拼写多套,查表/比较前先归一到 wire 拼写
-import { permissionModeWire } from '@ihui/types/permission-mode'
+import { PERMISSION_MODE_WIRE_VALUES, permissionModeWire } from '@ihui/types/permission-mode'
 // 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
 import { useConfirm } from '@/hooks/use-confirm'
 import { permissionTierText } from '@/lib/permission-tier-text'
@@ -192,8 +192,10 @@ function HistoryList({ entries, now }: HistoryListProps) {
 function StatsFooter() {
   const t = useTranslations('chat.permission')
   const tTier = useTranslations()
-  // 档名一律经 permissionTierText() 走共享词表(G-166),这里只留档位本身
-  const stats: WorkspacePermissionMode[] = ['plan', 'default', 'accept-edits', 'bypass-permissions']
+  // 档名一律经 permissionTierText() 走共享词表(G-166),这里只留档位本身。
+  // 清单从注册表派生(G-164:端内不得抄第二份完整档清单)—— 可见后果:页脚行序由
+  // "plan 优先"改为注册表的规范序(default / plan / accept-edits / bypass-permissions)。
+  const stats = [...PERMISSION_MODE_WIRE_VALUES] as WorkspacePermissionMode[]
   return (
     <div className="border-t pt-1.5">
       <div className="mb-1 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
