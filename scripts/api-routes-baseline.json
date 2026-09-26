@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "anchor": "该文件在基线里的死调用存量数(只减不增;新增即判红,存量只报数)",
+  "reason": "2026-09-26 把守门 8 的前端调用面从 apps/web 扩到 mobile-rn / miniapp-taro / extension,首次纳入的存量",
+  "ends": ["extension", "miniapp-taro", "mobile-rn"],
+  "face": "head",
+  "perFileCount": {
+    "apps/mobile-rn/src/screens/StudyIndexScreen.tsx": 1
+  }
+}
