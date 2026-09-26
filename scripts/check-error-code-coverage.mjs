@@ -103,9 +103,15 @@ const CODE_RE = /\berrorCode\b["']?\s*[:=]?\s*["']([A-Z][A-Z0-9_]{2,})["']/g
 const CONST_NAME_RE = /QUOTA|ERROR|BUDGET|RATE|TIMEOUT|CODE/
 const CONST_RE = /export const ([A-Z][A-Z0-9_]*)\s*=\s*'([A-Z][A-Z0-9_]{3,})'/g
 
-/** catalog 单条目行(解析脚本按行读,故表内每条必须保持单行三字段形状)。 */
-const CATALOG_ENTRY_RE =
-  /^ {2}([A-Z][A-Z0-9_]{2,}): \{ titleKey: '([^']*)', actionKey: '([^']*)', category: '([^']*)' \},$/gm
+/** catalog 声明的定位:只到对象体的第一个 `{`,体内容由 `catalogBody()` 花括号配平取。
+ *  刻意**不按行**解析 —— 2026-09-26 实测:一枚只往表里加两个码的提交,表被写成整表多行形态
+ *  (成因不是 prettier:实测两种排版 prettier 都原样保留,是写表那一方换了排版),旧逐行正则
+ *  当场读空 106 条,于是 HEAD 上报出 106 处"未收录"—— 一道对全队每次提交恒红的 blocking 门,
+ *  唯一结局就是人人 `--no-verify`、约 160 道门一起作废(§12e 同型)。
+ *  判据依附在排版上,等于把自己交给"下一个人怎么敲回车"。 */
+const CATALOG_DECL_RE = /export const ERROR_CODE_CATALOG\b[^{]*\{/
+/** 表内单条目:`CODE: { … }`,三字段各占几行都算(字段级再各自容忍换行)。 */
+const CATALOG_ENTRY_RE = /([A-Z][A-Z0-9_]{2,})\s*:\s*\{([^{}]*?)\}/g
 
 /** 八类块解析(TURN_ERROR_CLASSES 数组)。 */
 const CLASS_BLOCK_RE = /export const TURN_ERROR_CLASSES = \[([\s\S]*?)\] as const/
@@ -304,11 +310,56 @@ export function scanErrorCodes(files) {
 // catalog 解析
 // ---------------------------------------------------------------------------
 
-/** 读 catalog 源文件 → { entries, classes }。 */
-export function parseCatalog(src) {
+/** 取 ERROR_CODE_CATALOG 的对象体(花括号配平)。表内字段值都是单引号短字符串,
+ *  不含裸花括号,所以配平不需要真正的 JS 词法器 —— 这一点写在注释里是为了让下一个
+ *  往表里塞模板字符串(可能含 `{`)的人知道要先改这里。 */
+function catalogBody(src) {
+  const m = CATALOG_DECL_RE.exec(src)
+  if (!m) return null
+  let i = m.index + m[0].length
+  const start = i
+  let depth = 1
+  while (i < src.length) {
+    const ch = src[i]
+    if (ch === '{') depth += 1
+    else if (ch === '}') {
+      depth -= 1
+      if (depth === 0) return src.slice(start, i)
+    }
+    i += 1
+  }
+  return null
+}
+
+/** 读 catalog 源文件 → { entries, classes }。
+ *  取不到表体或一条都解不出来 ⇒ **抛 UndeterminedError(exit 2「无法判定」)**,
+ *  而不是返回空清单 —— 空清单会让每一条真实产出的错误码都被判成"未收录",
+ *  把"判据失明"伪装成"106 处违规"(2026-09-26 实测形态)。 */
+export function parseCatalog(src, label = CATALOG_FILE) {
+  const body = catalogBody(src)
+  if (body === null) {
+    throw new UndeterminedError(
+      `catalog 里定位不到 ERROR_CODE_CATALOG 对象体(${label})—— 形状漂了,不等于没有错误码`,
+    )
+  }
   const entries = []
-  for (const m of src.matchAll(CATALOG_ENTRY_RE)) {
-    entries.push({ code: m[1], titleKey: m[2], actionKey: m[3], category: m[4] })
+  for (const m of body.matchAll(CATALOG_ENTRY_RE)) {
+    const inner = m[2]
+    const field = (name) => {
+      const f = new RegExp(`${name}\\s*:\\s*'([^']*)'`).exec(inner)
+      return f ? f[1] : ''
+    }
+    entries.push({
+      code: m[1],
+      titleKey: field('titleKey'),
+      actionKey: field('actionKey'),
+      category: field('category'),
+    })
+  }
+  if (entries.length === 0) {
+    throw new UndeterminedError(
+      `catalog 表体解出 0 条(${label})—— 判据看不见条目时不得把全部错误码判成"未收录"`,
+    )
   }
   const block = CLASS_BLOCK_RE.exec(src)
   const classes = block ? [...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]) : []
@@ -569,6 +620,51 @@ function selfTest() {
     ).some((p) => p.includes('不在 D92 分类学内')),
   )
   t('R3 现状零兜底', checkNoFallback(base, msgs).length === 0)
+
+  // —— 排版无关性(2026-09-26 实测教训):同一张表,单行与多行必须解出同一批条目 ——
+  const SINGLE = `export const ERROR_CODE_CATALOG = Object.freeze({
+  ALPHA_ONE: { titleKey: 'ALPHA_ONE.title', actionKey: 'ALPHA_ONE.action', category: 'runtimeException' },
+  BETA_TWO: { titleKey: 'BETA_TWO.title', actionKey: 'BETA_TWO.action', category: 'authForbidden' },
+})`
+  const MULTI = `export const ERROR_CODE_CATALOG = Object.freeze({
+  ALPHA_ONE: {
+    titleKey: 'ALPHA_ONE.title',
+    actionKey: 'ALPHA_ONE.action',
+    category: 'runtimeException',
+  },
+  BETA_TWO: {
+    titleKey: 'BETA_TWO.title',
+    actionKey: 'BETA_TWO.action',
+    category: 'authForbidden',
+  },
+})`
+  const sEntries = parseCatalog(SINGLE, 'fixture-single').entries
+  const mEntries = parseCatalog(MULTI, 'fixture-multi').entries
+  t(
+    '排版无关:条目写成多行后条目数不变(2026-09-26 整表换排版 ⇒ 旧逐行正则读空,HEAD 上 106 处假红)',
+    sEntries.length === 2 && mEntries.length === 2,
+  )
+  t(
+    '排版无关:两种形态解出的 code 与三字段逐条全等(不是"少读几条"而是读法不能依赖排版)',
+    JSON.stringify(sEntries) === JSON.stringify(mEntries),
+  )
+  let noDecl = false
+  try {
+    parseCatalog('export const SOME_OTHER_TABLE = {}', 'fixture-nodecl')
+  } catch (e) {
+    noDecl = e instanceof UndeterminedError
+  }
+  t(
+    '无法判定口径:定位不到 catalog 表体 ⇒ 抛 UndeterminedError,不得把全部错误码判成"未收录"',
+    noDecl,
+  )
+  let emptyBody = false
+  try {
+    parseCatalog('export const ERROR_CODE_CATALOG = Object.freeze({})', 'fixture-empty')
+  } catch (e) {
+    emptyBody = e instanceof UndeterminedError
+  }
+  t('无法判定口径:表体解出 0 条 ⇒ 判"无法判定"而非"零条目、全线违规"', emptyBody)
 
   // —— 无法判定口径(exit 2 面):取材失败必须显式抛,绝不冒烟成判据红/绿 ——
   let subtreeCase = false
