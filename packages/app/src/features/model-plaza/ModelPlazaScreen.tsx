@@ -308,7 +308,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 44,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       alignItems: 'center',
       justifyContent: 'center',
     },

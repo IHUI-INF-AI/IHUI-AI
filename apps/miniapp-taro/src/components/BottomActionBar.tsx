@@ -5,7 +5,8 @@
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, t } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
-import { cn, rnRadius } from '@ihui/design-tokens'
+import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX } from '@ihui/shared/ui/bottom-action-bar-spec'
 import LineIcon from '@/components/LineIcon'
 import InputArea, { type InputAreaProps } from './InputArea'
 // 4 个图标按钮 + 选中勾 PNG:对齐原项目 BottomActionBar.vue line 65-80,统一从 @/assets/remote/ 引入
@@ -129,7 +130,9 @@ export default function BottomActionBar(props: BottomActionBarProps) {
             className="flex"
             style={{
               padding: '0 20rpx 10rpx',
-              gap: rpx(16),
+              // chip 行间距取共享源(与 RN toggleRow 同档);图标行/模型行的 rpx(16)
+              // 是别的元素,RN 侧对应档分叉或在 AddPanel 内,不经本常数
+              gap: rpx(BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX * TARO_RPX_PER_PX),
             }}
           >
             {toggleButtons.map((btn) => {

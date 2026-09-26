@@ -5,8 +5,11 @@
 import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { VOICE_INPUT_RECORD_ROW_GAP_PX } from '@ihui/shared/ui/voice-input-spec'
 import streamingRecognizer from '@/utils/streaming-recognizer'
 import type { VoiceInputMinimalProps } from '@ihui/types'
+import { rpx } from '@/utils/rpx'
 
 // 共享类型 VoiceInputMinimalProps 已下沉到 @ihui/types,
 // 本地 Props 完全匹配 Minimal,直接用 type alias。
@@ -101,7 +104,12 @@ export default function VoiceInput({
       >
         {recording ? (
           <View className="flex flex-row items-center">
-            <View className="flex flex-row items-center mr-2 h-5">
+            {/* 录音行内间距取共享源(与 RN recordingText.marginLeft 同档),
+                原 mr-2 类携带同一数字即是第二份真相 */}
+            <View
+              className="flex flex-row items-center h-5"
+              style={{ marginRight: rpx(VOICE_INPUT_RECORD_ROW_GAP_PX * TARO_RPX_PER_PX) }}
+            >
               {WAVE_BARS.map((i) => (
                 <View
                   key={i}
@@ -110,7 +118,10 @@ export default function VoiceInput({
                 />
               ))}
             </View>
-            <Text className="text-sm text-[var(--color-danger)] mr-2">
+            <Text
+              className="text-sm text-[var(--color-danger)]"
+              style={{ marginRight: rpx(VOICE_INPUT_RECORD_ROW_GAP_PX * TARO_RPX_PER_PX) }}
+            >
               {mm}:{ss}
             </Text>
             <Text className="text-xs text-muted-foreground">
