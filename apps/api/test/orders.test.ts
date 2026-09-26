@@ -701,7 +701,9 @@ describe('order routes', () => {
     it('DELETE /api/invoices/titles/:id 删除成功返回 200', async () => {
       authAs()
       mockDbChainResult.value = [{ userId: 'user-001' }]
-      mockDeleteInvoiceTitle.mockResolvedValueOnce(undefined)
+      // db.delete 现在回报**库确认集合**(string[]),不再是 undefined ——
+      // 路由侧 deleted 由 removed.length 派生,夹具给空集合就等于宣称"库里没删掉任何行"。
+      mockDeleteInvoiceTitle.mockResolvedValueOnce(['invoice-title-id'])
       const res = await app.inject({
         method: 'DELETE',
         url: `/api/invoices/titles/${UUID}`,
