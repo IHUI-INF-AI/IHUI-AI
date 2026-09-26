@@ -1379,7 +1379,6 @@ export function MessageInput({
                 <ModelSelector
                   value={model}
                   onChange={onModelChange}
-                  disabled={isStreaming}
                   label={modelLabel}
                 />
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
