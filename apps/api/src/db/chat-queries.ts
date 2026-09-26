@@ -757,6 +757,150 @@ export function decodeHistoryCursor(raw: string): { turnOrdinal: number } | null
   return null
 }
 
+// =============================================================================
+// D35 历史投影状态写入侧(投影器)
+// 第一段(迁移 20260924100000)只立列,并写明"投影器写入与消费在后续段落接线";
+// 本段就是把写入接上:读侧 GET /conversations/:id/history 透传的 projectionState
+// 自此由真实推进产生,不再恒为 null。
+// =============================================================================
+
+/**
+ * 会话投影状态。三个字段名与语义**逐字取自**立列迁移
+ * `packages/database/drizzle/20260924100000_chat_history_projection.sql` 的注释:
+ * 「null = 尚未投影过;形态 { nextRolloutByteOffset, nextRolloutOrdinal, lastRolledAt }
+ *  byte_offset 为增量回放的字节断点(流式续读),ordinal 为 turn 级语义断点」。
+ * 读侧只透传不解释(chat.ts 的 `projectionState`),共享层同样把它当 opaque
+ * (`packages/shared/src/chat/history-projection.ts` 的 `HistoryPageWire.projectionState: unknown`)。
+ */
+export interface HistoryProjectionState {
+  /** 增量回放的字节断点:已收口轮次消息正文的 UTF-8 字节累计 */
+  nextRolloutByteOffset: number
+  /** turn 级语义断点:最后一个已收口轮次的序号 */
+  nextRolloutOrdinal: number
+  /** 本次推进时间(ISO 8601) */
+  lastRolledAt: string
+}
+
+/** 一个轮次喂给投影器的切片:轮次序号 + 该轮全部消息正文的 UTF-8 字节数。 */
+export interface HistoryTurnSlice {
+  readonly turnOrdinal: number
+  readonly byteLength: number
+}
+
+/** db 与事务内 tx 的共用形状(createMessage / replaceMessages 都在事务里推进)。 */
+type ChatTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
+ * jsonb 落的是 unknown,读回必须先过守卫再当断点用:形态不合一律按"尚未投影"
+ * (null)处理,让下一次写入从 0 重算 —— 把一个残缺对象当断点会让断点永久卡死。
+ */
+export function parseHistoryProjectionState(raw: unknown): HistoryProjectionState | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
+  const o = raw as Record<string, unknown>
+  if (typeof o.nextRolloutByteOffset !== 'number' || !Number.isFinite(o.nextRolloutByteOffset)) {
+    return null
+  }
+  if (typeof o.nextRolloutOrdinal !== 'number' || !Number.isInteger(o.nextRolloutOrdinal)) {
+    return null
+  }
+  if (typeof o.lastRolledAt !== 'string' || o.lastRolledAt.length === 0) return null
+  return {
+    nextRolloutByteOffset: o.nextRolloutByteOffset,
+    nextRolloutOrdinal: o.nextRolloutOrdinal,
+    lastRolledAt: o.lastRolledAt,
+  }
+}
+
+/**
+ * 纯函数:由「上一状态 + 断点之后的轮次切片」推出新状态。
+ * 判据全部集中在这里(SQL 里的 `turn_ordinal > 断点` 只是同一规则的取数优化,
+ * 不是判据本体 —— 因此本函数可脱离数据库单测,取数侧多给行也不会算错)。
+ *
+ * "已收口" = 序号严格小于本次看到的最大轮次。最新一轮**不**计入:assistant 占位行
+ * 先建、正文与 reasoning 随后由 updateMessage 填,把还在变长的一轮写进断点,
+ * 增量回放就会读到一个半截轮。用户发下一条消息时该轮才闭合,断点随之推进。
+ *
+ * 单调性:断点只前进不后退,没有新收口轮次时原样返回 prev(调用方据此跳过写入,
+ * 不空刷 lastRolledAt);prev 为 null 且无收口轮次时返回 null —— 读侧保持可空语义。
+ */
+export function advanceHistoryProjection(
+  prev: HistoryProjectionState | null,
+  slices: readonly HistoryTurnSlice[],
+  rolledAt: Date,
+): HistoryProjectionState | null {
+  const base = prev?.nextRolloutOrdinal ?? 0
+  const closed = slices.filter((s) => Number.isInteger(s.turnOrdinal) && s.turnOrdinal > base)
+  if (closed.length === 0) return prev
+  // 用 reduce 而不是 Math.max(...spread):长会话轮次可能上千,展开成实参有栈上限风险
+  const maxSeen = closed.reduce((m, s) => (s.turnOrdinal > m ? s.turnOrdinal : m), base)
+  const rolled = closed.filter((s) => s.turnOrdinal < maxSeen)
+  if (rolled.length === 0) return prev // 只看到最新一轮 ⇒ 尚无轮次收口
+  const bytes = rolled.reduce((sum, s) => sum + Math.max(0, Math.trunc(s.byteLength)), 0)
+  const rolledMax = rolled.reduce((m, s) => (s.turnOrdinal > m ? s.turnOrdinal : m), base)
+  return {
+    nextRolloutByteOffset: (prev?.nextRolloutByteOffset ?? 0) + bytes,
+    // 断点落在**最后一个真正计入**的轮次上:轮次序号有缺口时不得越过缺口伪造断点
+    nextRolloutOrdinal: rolledMax,
+    lastRolledAt: rolledAt.toISOString(),
+  }
+}
+
+/**
+ * 投影器写入:把会话的 rollout 断点推进到"已收口轮次"并落库,返回落库后的状态
+ * (null = 无可推进 / 尚未投影,此时**不发 UPDATE**)。
+ *
+ * `reset: true` 用于整段历史被重写的写入路径(压缩 replaceMessages):旧的字节累计
+ * 对应的行集已不存在,继续累加会得到与产物无关的断点,必须从 0 重算。
+ */
+export async function rollHistoryProjection(
+  executor: ChatTx,
+  conversationId: string,
+  opts: { reset?: boolean; rolledAt?: Date } = {},
+): Promise<HistoryProjectionState | null> {
+  const rolledAt = opts.rolledAt ?? new Date()
+  let prev: HistoryProjectionState | null = null
+  if (!opts.reset) {
+    const stateRows = await executor
+      .select({ historyProjectionState: chatConversations.historyProjectionState })
+      .from(chatConversations)
+      .where(eq(chatConversations.id, conversationId))
+      .limit(1)
+    prev = parseHistoryProjectionState(stateRows[0]?.historyProjectionState)
+  }
+
+  // 只取断点之后的行:断点每轮递增,已收口轮次的正文不会再变,无需每轮重扫全量。
+  const base = prev?.nextRolloutOrdinal ?? 0
+  const convEq = eq(chatMessages.conversationId, conversationId)
+  const rows = await executor
+    .select({ turnOrdinal: chatMessages.turnOrdinal, content: chatMessages.content })
+    .from(chatMessages)
+    .where(
+      base > 0
+        ? and(convEq, gt(chatMessages.turnOrdinal, base))
+        : and(convEq, isNotNull(chatMessages.turnOrdinal)),
+    )
+
+  const bytesByTurn = new Map<number, number>()
+  for (const row of rows) {
+    const ordinal = row.turnOrdinal
+    if (typeof ordinal !== 'number' || typeof row.content !== 'string') continue
+    // 字节数按 UTF-8 实际字节量,不是字符数:断点是"回放量"的度量,中文会话两者差 3 倍
+    const byteLength = Buffer.byteLength(row.content, 'utf8')
+    bytesByTurn.set(ordinal, (bytesByTurn.get(ordinal) ?? 0) + byteLength)
+  }
+  const slices: HistoryTurnSlice[] = [...bytesByTurn.entries()].map(
+    ([turnOrdinal, byteLength]) => ({ turnOrdinal, byteLength }),
+  )
+
+  const next = advanceHistoryProjection(prev, slices, rolledAt)
+  if (next === prev) return prev
+  await executor
+    .update(chatConversations)
+    .set({ historyProjectionState: next })
+    .where(eq(chatConversations.id, conversationId))
+  return next
+}
+
 /** 分享页面专用：走只读副本，无数量上限 */
 export async function findMessagesForShare(id: string): Promise<ChatMessage[]> {
   return dbRead
@@ -822,6 +966,12 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
           lt(chatConversations.lastMessageAt, row.createdAt),
         ),
       )
+
+    // D35 第二段接线(本票):同一事务内推进投影断点。用户消息开启新轮的瞬间,
+    // 上一轮即已收口,所以写入与推进原子 —— 断点不会领先于已落库的轮次,也不会
+    // 因"消息已写、状态未推"而停在旧值(停在旧值只是滞后,下一次写入会补上,
+    // 但同事务可让读侧看到的断点从不错位)。
+    await rollHistoryProjection(tx, input.conversationId)
 
     return row
   })
@@ -1116,6 +1266,9 @@ export async function replaceMessages(
         }),
       )
     }
+    // D35 投影断点:整段历史已被重写(压缩后的消息集),旧的字节累计指向的是一批
+    // 已经不存在的行 ⇒ 必须 reset 从 0 重算,不能在旧断点上继续累加。
+    await rollHistoryProjection(tx, conversationId, { reset: true })
   })
 }
 
