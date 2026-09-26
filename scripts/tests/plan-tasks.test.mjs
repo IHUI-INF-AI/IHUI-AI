@@ -11,12 +11,13 @@
  * §5c 溯源水印：本文件受 `scripts/watermark.mjs` 管理。
  */
 import path from 'node:path'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 import { VOID_MARK_RE, auditPlan, findRotatedPointers } from '../lib/plan-task-index.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
-import { ratchetViolations } from '../plan-tasks.mjs'
+import { grewViolations, ratchetViolations } from '../plan-tasks.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -120,5 +121,43 @@ test('M8 F4 同题待办:两条只算一条活,已标副本的行不重复计(�
   if (b.counts.dupOpenCopies !== 0) throw new Error(`已标副本仍在计债:${b.counts.dupOpenCopies}`)
   if (b.counts.voidRows !== 0) throw new Error('副本指针不得被 F2 当作废声明(F2 与 F4 判据不串门)')
   if (b.counts.claimable !== 1) throw new Error(`标记后派单口径仍应为 1,实测 ${b.counts.claimable}`)
+})
+
+/**
+ * M9 F6 块级维度的**成套性**。为什么单独立一条而不是靠自测:
+ * `ratchetViolations` 明写"基线里没有某项 ⇒ 不判该项(既不 0 容忍也不通过)" —— 这条善意
+ * 的缺项放过意味着:加一维判据却忘了往基线里写键,那一维就**静默不再被看守**,
+ * 而报告一切正常。所以这里判的是"probe 里出现的每一维,基线必须都有数字键"。
+ */
+test('M9 每一维判据都必须有基线键(缺项=那一维静默不判,而账面看不出来)', () => {
+  const src = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  const body = src.slice(src.indexOf('const probe = (a) => ['))
+  const arr = body.slice(0, body.indexOf('\n]') + 1)
+  const keys = [...arr.matchAll(/\['(F\d)'/g)].map((m) => m[1])
+  if (keys.length < 5) throw new Error(`probe 维度解析异常(只数到 ${keys.length} 个,数组截断了):判据本身失效`)
+  if (!keys.includes('F6')) throw new Error('F6 块级维度不在 probe 里 ⇒ 提交链根本不判它,本条随之无牙')
+  const base = JSON.parse(
+    readFileSync(new URL('../../scripts/plan-task-state-baseline.json', import.meta.url), 'utf8'),
+  )
+  for (const k of keys) {
+    if (k === 'F5') continue // F5 方向相反,单独由 gate() 判,不走 ratchetViolations
+    if (typeof base[k] !== 'number')
+      throw new Error(`基线缺 ${k}(棘轮对缺项那一维完全不判 ⇒ 加维必须同笔写基线):${JSON.stringify(base)}`)
+  }
+})
+
+test('M10 F6 只有"变多"判红,清偿必须能变绿(反方向判红=没人敢做归并)', () => {
+  const LP = (s) => s + '　'.repeat(Math.max(0, 46 - [...s].length))
+  const BLK = [
+    LP('- 块行一:整块登记被并发 union 追加两遍,行级四条看不见这一维'),
+    LP('- 块行二:第二行,过块级阈值才计入'),
+    LP('- 块行三:第三行,三行成一个块'),
+  ].join('\n')
+  const one = `## 甲\n${BLK}\n\n尾行非 bullet`
+  const two = `## 甲\n${BLK}\n## 乙\n${BLK}\n\n尾行非 bullet`
+  const grew = grewViolations(auditPlan(two), auditPlan(one))
+  if (!grew.some((x) => x.startsWith('F6'))) throw new Error(`多出一份块必须点名 F6,实测 ${JSON.stringify(grew)}`)
+  const shrank = grewViolations(auditPlan(one), auditPlan(two))
+  if (shrank.some((x) => x.startsWith('F6'))) throw new Error(`收口(2 份→1 份)不得判红:${JSON.stringify(shrank)}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
