@@ -3242,14 +3242,6 @@
     "streaming": "Streaming Output",
     "empty": "No Models"
   },
-  "verify": {
-    "getCode": "Get Code",
-    "phoneEmpty": "Phone is empty",
-    "phoneInvalid": "Please enter valid phone",
-    "codeSent": "Code sent",
-    "codeIncomplete": "Please enter complete code",
-    "verifySuccess": "Verified"
-  },
   "notification": {
     "settings": "Notification Settings"
   },
@@ -3733,9 +3725,6 @@
     "d7": "Track 7",
     "d8": "Track 8"
   },
-  "Menu": {
-    "d1": "Music"
-  },
   "PhoneAreaCodePicker": {
     "d1": "China"
   },
@@ -3960,11 +3949,9 @@
   "tail": {
     "6": "No data",
     "7": "Retry",
-    "8": "Loading...",
     "9": "Enter a description",
     "10": "No withdrawal records",
     "11": "Selected model: {m}",
-    "12": "Code sent to {m}",
     "13": "Joined on {m}",
     "14": "Select tracks you are interested in for personalized recommendations",
     "15": "Default model",
@@ -4076,18 +4063,11 @@
   "TeamManager": {
     "p1": "Inactive"
   },
-  "VerifyCodeModal": {
-    "p2": "Resend",
-    "p3": "Verifying…"
-  },
   "VideoInfo": {
     "p1": "Video details"
   },
   "VideoPlayer": {
     "p1": "Playback error"
-  },
-  "VoiceInput": {
-    "p1": "Failed to start recording"
   },
   "shareInformationItem": {
     "z1": "views"
