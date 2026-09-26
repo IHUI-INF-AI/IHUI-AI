@@ -31,6 +31,12 @@ export const LOADING_LABEL_GAP_PX = 8
 /** 内联态上下留白 24:小程序 `py-8` = 32 vs RN `paddingVertical: 24` —— 同上取紧凑档。 */
 export const LOADING_INLINE_PADDING_Y_PX = 24
 
+/**
+ * 内联态左右留白 16:此前 RN `paddingHorizontal: 16` 是端内独有一档、小程序内联态无横向留白。
+ * 规则 2「间距取两端较大者」→ 定 16 并两端的内联容器同取,不再一端有档一端没有。
+ */
+export const LOADING_INLINE_PADDING_X_PX = 16
+
 /** 原生指示器不进布局档,但占位盒必须同档:居中原语只在这一处排。 */
 export function loadingSpinnerBoxStyle<U extends string | number>(
   toUnit: GeometryUnit<U>,
