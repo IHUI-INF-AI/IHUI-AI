@@ -3,6 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { CSSProperties } from 'react'
+import {
+  COLORFUL_LOADER_DEFAULT_SIZE_PX,
+  COLORFUL_LOADER_DOT_COUNT,
+  COLORFUL_LOADER_SPIN_MS,
+  colorfuleLoaderDotSizePx,
+  colorfuleLoaderDotColor,
+  colorfuleLoaderRadiusPx,
+} from '@ihui/shared/ui/colorful-loader-spec'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 
 /**
@@ -22,8 +30,7 @@ export interface ColorfulLoaderProps {
   colorScheme?: AppThemeMode
 }
 
-const DOT_COUNT = 72
-const DEFAULT_SIZE = 80
+/// 数字档唯一源在 @ihui/shared/ui/colorful-loader-spec(与小程序端两条腿、RN Animated 端同表)。
 /** 容器背景色 token key:浅色 = 透明,深色 = 极深透明 */
 const CONTAINER_BG: Record<AppThemeMode, string> = {
   light: 'transparent',
@@ -56,7 +63,7 @@ const viewStyles = (size: number, colorScheme: AppThemeMode): CSSProperties => (
   width: size,
   height: size,
   backgroundColor: CONTAINER_BG[colorScheme],
-  animation: 'ihui-colorful-loader-spin 1.2s linear infinite',
+  animation: `ihui-colorful-loader-spin ${COLORFUL_LOADER_SPIN_MS / 1000}s linear infinite`,
 })
 
 /** dot 样式 */
@@ -79,7 +86,7 @@ const dotStyles = (
 })
 
 export function ColorfulLoader({
-  size = DEFAULT_SIZE,
+  size = COLORFUL_LOADER_DEFAULT_SIZE_PX,
   visible = true,
   className,
   colorScheme = 'light',
@@ -88,16 +95,16 @@ export function ColorfulLoader({
 
   ensureKeyframes()
 
-  const radius = size / 2
-  const dotSize = Math.max(2, size / 20)
+  const radius = colorfuleLoaderRadiusPx(size)
+  const dotSize = colorfuleLoaderDotSizePx(size)
   // 抑制未使用变量警告
   void getTokens(colorScheme)
 
   return (
     <div className={className} style={viewStyles(size, colorScheme)}>
-      {Array.from({ length: DOT_COUNT }).map((_, i) => {
-        const angle = (360 / DOT_COUNT) * i
-        const color = `hsl(${i * 5}, 70%, 60%)`
+      {Array.from({ length: COLORFUL_LOADER_DOT_COUNT }).map((_, i) => {
+        const angle = (360 / COLORFUL_LOADER_DOT_COUNT) * i
+        const color = colorfuleLoaderDotColor(i)
         return <span key={i} style={dotStyles(dotSize, radius, angle, color)} />
       })}
     </div>
