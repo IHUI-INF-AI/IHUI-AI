@@ -235,11 +235,12 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
           ) {
             return reply.status(403).send(error(403, '无权删除该文件'))
           }
-          await db
+          const removed = await db
             .update(files)
             .set({ deletedAt: new Date(), deletedBy: userId ?? null })
             .where(eq(files.id, target.id))
-          return reply.send(success({ id: target.id, deleted: true, matched: true }))
+            .returning({ id: files.id })
+          return reply.send(success({ id: target.id, deleted: removed.length > 0, matched: true }))
         }
         // 未匹配到 DB 记录(可能是直传 OSS 的 URL),返回成功让前端继续清理本地状态
         return reply.send(success({ deleted: false, matched: false }))
@@ -719,8 +720,8 @@ export const adminOssRoutes: FastifyPluginAsync = async (server) => {
       if (!existing) {
         return reply.status(404).send(error(404, '驱动不存在'))
       }
-      await deleteOssDriver(parsedParams.data.id)
-      return reply.send(success({ id: parsedParams.data.id, deleted: true }))
+      const removed = await deleteOssDriver(parsedParams.data.id)
+      return reply.send(success({ id: parsedParams.data.id, deleted: removed !== undefined }))
     },
   )
 }
