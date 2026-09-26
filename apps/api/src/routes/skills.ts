@@ -547,7 +547,9 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
 
     const key = redisKey(userId)
-    const skills = await readSkills(server.redis, key)
+    const allSkills = await readSkills(server.redis, key)
+    // 运行面单一出口:被停用的市场技能不再出现在列表里(用户自建技能不受影响)
+    const skills = await filterRuntimeVisibleSkills(userId, allSkills)
     return reply.send(success({ skills, total: skills.length }))
   })
 
@@ -605,7 +607,12 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     if (!skill) {
       return reply.status(404).send(error(404, 'Skill 不存在'))
     }
-    return reply.send(success(skill))
+    // 详情与列表走同一个运行面出口:停用的市场技能取不到(404,不泄露"存在但被停用")
+    const [visible] = await filterRuntimeVisibleSkills(userId, [skill])
+    if (!visible) {
+      return reply.status(404).send(error(404, 'Skill 不存在'))
+    }
+    return reply.send(success(visible))
   })
 
   // DELETE /skills/:name — 删除 skill
@@ -692,10 +699,12 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     }
 
     if (action === 'pull') {
-      let result = skills
+      // 跨端下发的运行面:被停用的市场技能不再 materialize 到其他设备(拉不到 ⇒ 不进端侧提示拼装)
+      const visible = await filterRuntimeVisibleSkills(userId, skills)
+      let result = visible
       if (Array.isArray(body.skillNames) && body.skillNames.length > 0) {
         const nameSet = new Set(body.skillNames)
-        result = skills.filter((s) => nameSet.has(s.name))
+        result = result.filter((s) => nameSet.has(s.name))
       }
       return reply.send(
         success({
@@ -714,15 +723,18 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // action === 'list'
+    // 与 pull 同一运行面出口:list 是 pull 的省带宽预览,两者可见集必须一致,
+    // 否则端侧"列得到却拉不到"会退化成第二次真相。
+    const visibleForList = await filterRuntimeVisibleSkills(userId, skills)
     return reply.send(
       success({
         action: 'list',
-        skills: skills.map((s) => ({
+        skills: visibleForList.map((s) => ({
           name: s.name,
           description: s.description,
           source: s.source,
         })),
-        count: skills.length,
+        count: visibleForList.length,
         syncedAt,
       }),
     )
@@ -789,6 +801,10 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.warn({ err: e, userId, name: entry.name }, 'install: 写入用户私有库失败')
     }
+    // install ⇒ 立即可用:运行面按启用集白名单发放(见 filterRuntimeVisibleSkills),
+    // 不在这里补一笔启用集,"安装后可被 Agent 调用"就永远不成立(装完即处于停用态)。
+    // addEnabled 自带 Redis 降级,不抛错、不阻塞 install 响应。
+    await addEnabled(server.redis, enabledKey(userId), entry.name)
 
     const resp: SkillInstallResponse = {
       name: parsed.data.name,
@@ -1222,6 +1238,8 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
   // ===================== 启停(用户级启用/停用)P3-产品化 =====================
   // Redis key:skill-enabled:<userId> → Set<skillName>(该用户启用的 skill 集合)
   // 进程内降级:enabledFallback(Map<key, Set<string>>)
+  // 运行面消费者 = filterRuntimeVisibleSkills(GET /skills、GET /skills/:name、
+  // POST /skills/sync 的 pull/list)—— 2026-09-27 前该集合零消费,停用是 no-op。
 
   const enabledFallback = new Map<string, Set<string>>()
 
@@ -1252,6 +1270,39 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     } catch {
       enabledFallback.get(key)?.delete(member)
     }
+  }
+
+  /**
+   * 运行面「启用集」过滤的**唯一出口**(2026-09-27 立,修"服务端停用是 no-op")。
+   *
+   * 缺陷登记原文(第十二批台账):启用集 `skill-enabled:<userId>` 此前**运行面零消费者** ——
+   * 唯一读它的端点是 GET /skills/enabled,而它只是把集合原样回显给市场页画开关,
+   * 于是 POST /skills/:name/disable 落库之后,列表(GET /skills)、详情(GET /skills/:name)、
+   * 跨端下发(POST /skills/sync 的 pull/list ⇒ 端侧落本地技能目录并进提示拼装)
+   * 照旧把被停用的 skill 交出去。"停用"在服务端语义上不存在。
+   *
+   * 语义与市场页 UI 逐字同形(不在启用集 = 页面显示"启用"按钮 ⇒ 当前是停用态),所以是**白名单**;
+   * 但射程刻意收窄到"名字命中市场目录的记录":
+   *  - 市场名的 skill 记录 ⇒ 必须在调用者启用集里才在运行面发放;
+   *  - 用户自有技能(名字不在市场)⇒ 不受启用集约束 —— enable 端点本身只接受市场技能
+   *    (:name/enable 对非市场名 404),两者正交,这里不得越界把用户自建技能也藏掉。
+   *
+   * 身份:userId 一律由调用点传 checkAuth 注入的 request.userId,本函数不读任何请求参数里的
+   * 身份字段 ⇒ 别人的启用集既借不到,也躲不过。
+   * 失败方向:启用集读不到时 readEnabled 落到进程内降级(可能为空集)⇒ 市场名记录一律不发,
+   * fail-closed(宁可暂时看不见,绝不让停用静默失效)。
+   */
+  async function filterRuntimeVisibleSkills<T extends { name: string }>(
+    userId: string,
+    records: readonly T[],
+  ): Promise<T[]> {
+    if (records.length === 0) return []
+    const marketEntries = await readMarket(server.redis, MARKET_KEY)
+    const marketNames = new Set(marketEntries.map((e) => e.name))
+    // 快速路径:本批记录没有一个市场名 ⇒ 无需读启用集,原样通过
+    if (!records.some((r) => marketNames.has(r.name))) return [...records]
+    const enabled = new Set(await readEnabled(server.redis, enabledKey(userId)))
+    return records.filter((r) => !marketNames.has(r.name) || enabled.has(r.name))
   }
 
   // GET /skills/enabled — 当前用户已启用的 skill 名称列表(页面初始化 启停状态)
