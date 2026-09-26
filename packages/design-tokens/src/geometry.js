@@ -2,78 +2,50 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
-import { rnGeometry } from '@ihui/design-tokens'
-import { getTokens, type AppThemeMode } from '../theme/tokens'
-import { useFontMultiplier } from './MoreLink'
-
 /**
- * 命中块与图标墨迹**不在本文件取数** —— 档位唯一真相源是
- * `packages/design-tokens/src/geometry.js`(取值依据写在那个头注里,含"为什么移动端不取
- * web 顶栏的 14px")。这里取它的 dp 投影,与小程序端 `taroGeometry` 同表同枚。
+ * 界面几何档 —— 尺寸/命中块的唯一真相源(与 `radius.js` 同一套形状:一张 px 表 + 每端投影)。
  *
- * 之前本文件写 `ICON = 22`、小程序端写 `40rpx`(=20px),两句注释都自称"与 web 同档"
- * 而屏幕上差 2px —— "端内既定档"就是第二份真相。守门 128 立项时把这处量成差异档。
+ * 立因(2026-09-26,PROJECT_PLAN O81):同一枚页头返回键在两端各写一个数字 ——
+ * 小程序 `ICON_SIZE = 40`(rpx,折 20px,注释写"取端内既定档")、RN `ICON = 22`
+ * (注释写"与 packages/app 既有矢量返回同档")。**两句注释都对,而屏幕上差 2px**,
+ * 因为"端内既定档"本身就是第二份真相。守门 128 把这类差异量出来:174 处。
+ *
+ * 取值依据(不是审美偏好,逐条可复核):
+ *  - `tapBox = 36`:web 顶栏返回键 `TOPBAR_BTN_W9` = `w-9` = 36px,两端已各自对齐到它,
+ *    这里只是把它从"两处注释"变成"一处数字"。命中区即方块,不用负 margin 造第二种几何。
+ *  - `glyphMd = 20`:**刻意不取 web 的 14px**(`TOPBAR_BTN_BASE` 的 `[&>svg]:!h-3.5`)。
+ *    那条规则是给桌面密集工具条(4 类按钮同排、字重 12-14px)定的;触屏上箭头是主要
+ *    affordance,14px 在 36px 方块里视觉上明显偏弱,而小程序端图标体系(端内所有 `LineIcon`
+ *    默认档)与 RN 既有矢量返回都落在 20-22 这一带。取 20 = 两端的公共整档,
+ *    也等于 `LineIcon` 的默认墨迹档(40rpx),**不新造第三档**。
+ *  - 系统字号缩放:RN 侧图标随 `useFontMultiplier()` 放大,小程序侧 rpx 只随屏宽缩放 ——
+ *    这是平台机制差异,不是档差;要"两端同步放大"得先让小程序也有字号缩放通道,另计一票。
+ *
+ * 取用形态(不得自创写法):
+ *  - RN / 共享包数值场景 → `rnGeometry.tapBox`(dp 数值)
+ *  - 小程序 rpx 场景     → `taroGeometry.tapBox`(已折好 2 倍,直接喂 `rpx()`)
+ *  - CSS/类名侧          → 本表不落 CSS 变量;尺寸走 Tailwind 档位,禁写 px/rpx 字面量
+ *
+ * 新增档位的正确顺序:先在本表落一档(带取值依据)→ 两端同枚提交取用 → 由守门 128 复核。
+ * 禁止在端内再写 `const *_SIZE = <数字>` 当第二份真相。
  */
-const BOX = rnGeometry.tapBox
-const ICON = rnGeometry.glyphMd
 
-export interface BackChevronProps {
-  onPress?: () => void
-  /**
-   * 「返回」的本地化文案。**只用于 accessibilityLabel,不参与渲染** ——
-   * 可见侧是裸箭头,无障碍名称必须脱离上下文也成立(RN 的屏幕阅读器只会念这一个字符串)。
-   */
-  label: string
-  /**
-   * 必填而非 `= 'light'` 默认值:守门 91 的判据把"形参带 light 默认值"认作静默脱主题开关,
-   * 而默认值一旦存在,漏传就静默锁死浅色档案且 typecheck 不红。必填让 `tsc` 直接接管这件事,
-   * 比门更严格(门只审带默认值的那一类)。
-   */
-  colorScheme: AppThemeMode
-  style?: StyleProp<ViewStyle>
-  testID?: string
+/** 档位 → 逻辑 px(与 web 端同一量纲;1 逻辑 px = 2 rpx = 1 dp) */
+export const GEOMETRY_PX = {
+  /** 可点方块边长(命中区):对齐 web 顶栏 `w-9` */
+  tapBox: 36,
+  /** 中等图标墨迹:页头返回键、行内操作图标 */
+  glyphMd: 20,
 }
 
-/**
- * 页头返回键 —— RN 端唯一实现(共享层,`packages/app` 各屏与 `apps/mobile-rn` 共用)。
- *
- * 为什么不用「返回」两个汉字当箭头:那是把**文案**当**图标**用。web 端早在 2026-09-08 就把
- * 这一 affordance 收进顶栏唯一实现并用 lucide `ChevronLeft`,小程序端 2026-09-25 收进
- * `components/BackChevron.tsx`;RN 侧此前 223 处 / 168 文件各写各的 `<Text>{t('common.back')}</Text>`
- * 加各自的 `styles.back*`,于是"手机上返回键和网页长得不一样"。载体统一为零新素材
- * (`lucide-react-native` 已是本端图标库,`ChevronLeft` 亦在 7 个既有屏里这么用)。
- */
-export function BackChevron({ onPress, label, colorScheme, style, testID }: BackChevronProps) {
-  const tk = getTokens(colorScheme)
-  const multiplier = useFontMultiplier()
+/** RN / 共享包侧消费入口:StyleSheet 与内联 style 里写 `width: rnGeometry.tapBox` */
+export const rnGeometry = GEOMETRY_PX
 
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      testID={testID}
-      hitSlop={4}
-      style={({ pressed }) => [styles.box, pressed ? styles.pressed : null, style]}
-    >
-      <ChevronLeft size={Math.round(ICON * multiplier)} color={tk.text.medium} />
-    </Pressable>
-  )
-}
+/** 小程序侧消费入口:`rpx(taroGeometry.tapBox)`,2 倍换算只在这一处发生 */
+export const taroGeometry = Object.fromEntries(
+  Object.entries(GEOMETRY_PX).map(([step, px]) => [step, px * 2]),
+)
 
-const styles = StyleSheet.create({
-  box: {
-    width: BOX,
-    height: BOX,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pressed: {
-    opacity: 0.6,
-  },
-})
-
-export default BackChevron
+/** 单位换算系数本身也是单源:小程序 750 设计宽 / 375pt ⇒ 2 */
+export const TARO_RPX_PER_PX = 2
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
