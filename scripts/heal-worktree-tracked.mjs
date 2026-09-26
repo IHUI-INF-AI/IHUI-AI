@@ -24,8 +24,12 @@
  *   node scripts/heal-worktree-tracked.mjs --self-test  # 独立临时仓端到端演练
  *   node scripts/heal-worktree-tracked.mjs --json       # 供 git-guardian 巡检读取
  *   node scripts/heal-worktree-tracked.mjs --check      # 只判不改 + 有可恢复项即 exit 1(CI/巡检口径)
- *   node scripts/heal-worktree-tracked.mjs --align-drift # 额外对齐"幻影漂移"(索引==HEAD 且内容==祖先版本)
+ *   node scripts/heal-worktree-tracked.mjs --align-drift # 对齐"幻影漂移" + 恢复"旁路提交孤儿路径"(第四层)
  * 紧急跳过:IHUI_SKIP_WORKTREE_HEAL=1
+ *
+ * 分层:第一层 findOrphanedDeletions+heal(` D` 外部删除)、第二/三层 refreshStaleIndex+alignDrifts
+ * (` M ` 落后索引与幻影漂移)、第四层 restoreBypassOrphans(2026-09-26 补:HEAD 有 / 索引无 / 盘无,
+ * 前三层判据都从"索引里的 blob"出发,这一型索引里根本没有 blob,结构上永不成立 —— 只在 --align-drift 档执行)。
  */
 import {
   copyFileSync,
@@ -45,6 +49,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 判据复用守门 84(§22d 已把 CLI 入口与导出分离,import 不会触发副作用)
 import { analyze } from './check-stale-revert.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
+// §26:新增临时夹具唯一落点(mkScratch 不落 os.tmpdir、不落仓库树内)。第四层取证用。
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 export const SKIP_ENV = 'IHUI_SKIP_WORKTREE_HEAL'
 
@@ -140,6 +146,8 @@ export function findOrphanedDeletions(repoRoot) {
    * 处于此态而**加载失败**(报的是 vite "Failed to resolve import",看不出与工作区存续有关),
    * 而当时的巡检口径把它整个漏掉、还回一句"存续正常"。故本分支**如实报数**(退出码非 0),
    * 恢复动作仍交归属会话 —— 与守门层"分不清就不动"的取向一致。
+   * (2026-09-26 补:这一型在**默认恢复档**依旧只报不修;分离办法落在第四层 ——
+   * `restoreBypassOrphans` 的父树签名判据④,只在 --align-drift 上下文执行。)
    */
   const orphanIndex = []
   for (const rec of st.split('\0')) {
@@ -415,13 +423,34 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
  * 为什么需要它:§12d 的 converge 用 merge-tree/commit-tree 只推进 HEAD 与 index、从不 checkout,
  * HEAD 每前进一次,工作区就多一批落后文件(实测 503 个文件落后 486 个提交)。这些文件被
  * `git add` 提交出去就是静默回滚 —— 守门 84 会拦,但拦住之后仍要有人手工对齐,故在此自动化。
+ *
+ * 本函数同时是第四层 restoreBypassOrphans 的唯一执行面(2026-09-26):converge 成功出口调的就是
+ * `--align-drift`,旁路孤儿恢复挂在这里等于"HEAD 每被旁路推进一次,下一拍就被补一次"。
+ * 恢复层(heal 默认档)刻意**不**调用它 —— 新档只在显式的 --align-drift 下写盘。
  */
 export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   const g = makeGit(repoRoot)
   // 先刷新"落后索引"(CAS/converge 只推进 HEAD 的后遗症),否则下面判据①会把它们全部误挡掉
   const refreshed = refreshStaleIndex(repoRoot, { dryRun })
+  // 第四层:旁路提交孤儿路径(HEAD 有 / 索引无 / 盘无)。跑在 dirty 计算之前 —— 恢复完的
+  // 路径已不再是"工作区 vs HEAD"的差集;若排在后面,它们会以"缺失"混进漂移判定并被
+  // skippedStaged 错计。判据与恢复动作见 restoreBypassOrphans 头注(四判据全成立才动手)。
+  const bypass = restoreBypassOrphans(repoRoot, { dryRun })
+  const bp = {
+    bypassRestored: bypass.restored,
+    bypassPaths: bypass.paths,
+    bypassHeldOnDisk: bypass.heldOnDisk,
+    bypassHeldUnproven: bypass.heldUnproven,
+    bypassUnprovenPaths: bypass.unprovenPaths,
+    bypassSkippedNotBlob: bypass.skippedNotBlob,
+    bypassDeferred: bypass.deferred,
+    // no-bypass-orphans 是本层的常态,不占字段;其余态必须把原因带到输出里(静默与"无事发生"是两回事)
+    ...(bypass.reason && bypass.reason !== 'no-bypass-orphans'
+      ? { bypassReason: bypass.reason }
+      : {}),
+  }
   const dirty = g(['diff', '--name-only', 'HEAD', '--no-renames']).split('\n').filter(Boolean)
-  if (!dirty.length) return { aligned: 0, paths: [], refreshed: refreshed.refreshed }
+  if (!dirty.length) return { aligned: 0, paths: [], refreshed: refreshed.refreshed, ...bp }
   // ① 索引 == HEAD 的路径才可对齐
   const indexLines = lsStageChunked(g, dirty)
   const indexBlob = new Map()
@@ -442,7 +471,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     const ib = indexBlob.get(p)
     return ib && ib === headBlob.get(p)
   })
-  if (!eligible.length) return { aligned: 0, paths: [], skippedStaged: dirty.length }
+  if (!eligible.length) return { aligned: 0, paths: [], skippedStaged: dirty.length, ...bp }
   const hits = analyze(repoRoot, eligible, { source: 'worktree' })
   const whole = new Set(hits.map((h) => h.path))
   // 第二条通道:整块不等于任何祖先、但逐块都能对上(索引层重建的拼合旧基线)
@@ -458,6 +487,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
       composite: composite.length,
       dryRun: true,
       skippedStaged: dirty.length - eligible.length,
+      ...bp,
     }
   }
   // 护栏④:拼合通道覆盖前留现场快照(整块通道命中的工作区内容本就 == 某历史版本,无独有数据)
@@ -470,6 +500,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     snapshots: snapshots.length,
     deferred,
     skippedStaged: dirty.length - eligible.length,
+    ...bp,
   }
 }
 
@@ -556,6 +587,225 @@ function reconcileStaleIndexOrphansInner(g, repoRoot, dryRun) {
     reason: rec2.deferred.length
       ? `陈旧索引已对齐 ${rec2.done.length} 个,${rec2.deferred.length} 个因 git 写锁竞争延到下一轮`
       : '陈旧索引已对齐 HEAD',
+  }
+}
+
+/**
+ * 第四层:旁路提交孤儿路径恢复(2026-09-26 立,**只挂在 --align-drift 档**)。
+ *
+ * 补的是既有各层共同的结构盲区:converge / commit-tree 旁路把路径**加进** HEAD 却不写共享索引,
+ * 于是这些路径 HEAD 有、索引没有、磁盘也没有 ⇒ `git status` 首列 `D `。第一层(缺失恢复)与
+ * 第二/三层(refreshStaleIndex / alignDrifts)的判据都从"索引里的 blob"出发,这一型**索引里根本
+ * 没有 blob**,条件结构上永不成立 ⇒ 层与层之间是空档而不是分工。立因(2026-09-26 实测):远端
+ * `5f1d207b2` 新增 16 个文件,converge 推进 HEAD 后 `--align-drift` 只做了前几层,16 条 `D ` 长挂
+ * —— 任何人一次不带 pathspec 的普通提交就会把刚上线的功能整批从版本树里删掉。
+ *
+ * 四条判据(全部成立才恢复;任一不成立 ⇒ 只报数,绝不代裁):
+ *   ① 被审面 HEAD 里该路径以 **blob** 存在(gitlink/树条目不判 —— checkout 语义不同,交人工);
+ *   ② 索引里没有该路径(`git diff --cached HEAD --diff-filter=D` 全集即此类);
+ *   ③ 磁盘上没有该文件 —— **只要盘上存在(哪怕内容与 HEAD 不同)一律不碰**:那可能是别人
+ *      正在写的现场(§16 越权红线),也是 `git rm --cached`/取消跟踪的可见形态,计入 heldOnDisk;
+ *   ④ 与"有意 `git rm` 并等待提交"的显式区分 —— 不看意图,看父树:候选必须**缺席于 HEAD 至少
+ *      一个直接父提交的树**,即它是"HEAD 前进时新带进来的路径",共享索引只是没跟上。人做
+ *      `git rm <老文件>` 的前提是该文件在跟踪中 ⇒ 它存在于所有父树 ⇒ 本条不成立,只报数不修
+ *      (失效方向 = 少修,不是多修)。①②③成立而 ④ 也成立的唯一残余误伤形态是"别人刚用旁路
+ *      提交收下新文件、又立即连工作树副本一起 rm 并等待提交"—— 与本仓反复出现的"已入库交付
+ *      被一次误提交整批抹掉"相比,选择修 + 在审计行点名,不静默。
+ *
+ * 恢复动作 = `git checkout HEAD -- <path>`(索引与工作树一次回写;"索引没有该路径"时
+ * restore --worktree 无从落点,checkout 是唯一有既有语义的形态)。逐路径、分批、失败只延不抛
+ * (与 restoreToHead 同一取向);**动手前逐批复读 ③** —— 判据计算与写盘之间并行会话可能刚落盘。
+ */
+const BYPASS_READ_TIMEOUT_MS = 60_000
+/** 150 一批:同 lsStageChunked 的 ENAMETOOLONG 理由(Windows 命令行长度上限) */
+const BYPASS_CHUNK = 150
+/** 与 restoreToHead 同批宽:一次锁竞争只延一批,不炸整轮 */
+const BYPASS_RESTORE_CHUNK = 40
+
+/** 分批问 HEAD:"这些路径各是什么对象类型"(判据①只认 blob) */
+function headEntryTypes(g, paths) {
+  const types = new Map()
+  for (let i = 0; i < paths.length; i += BYPASS_CHUNK) {
+    const batch = paths.slice(i, i + BYPASS_CHUNK)
+    for (const l of g(['ls-tree', '--format=%(objecttype) %(path)', 'HEAD', '--', ...batch], {
+      timeout: BYPASS_READ_TIMEOUT_MS,
+    })
+      .split('\n')
+      .filter(Boolean)) {
+      const sp = l.indexOf(' ')
+      if (sp <= 0) continue
+      types.set(l.slice(sp + 1), l.slice(0, sp))
+    }
+  }
+  return types
+}
+
+/** 某个提交(如 HEAD 的某父)的树里存在哪些候选路径;不存在的路径不会出现在输出里 */
+function presentInTree(g, rev, paths) {
+  const has = new Set()
+  for (let i = 0; i < paths.length; i += BYPASS_CHUNK) {
+    const batch = paths.slice(i, i + BYPASS_CHUNK)
+    for (const p of g(['ls-tree', '--name-only', '-z', rev, '--', ...batch], {
+      timeout: BYPASS_READ_TIMEOUT_MS,
+    }).split('\0')) {
+      if (p) has.add(p)
+    }
+  }
+  return has
+}
+
+/**
+ * 判据④的求值。HEAD 没有父(根提交)⇒ 无可证明,一律不修 —— "路径很新"本身不构成
+ * "是旁路带进来的"的证据。
+ */
+function splitByParentSignature(g, candidates) {
+  let parents = []
+  try {
+    // 用 rev-list 而不是 rev-parse:`--parents` 不是 rev-parse 的选项(实测 git 2.55 会把
+    // 无法识别的参数**原样打印到 stdout**,于是 parents 数组里混进 HEAD 自己 ⇒ 候选被误判
+    // "存在于每个父树" ⇒ 本层恒不修)。`--parents` 输出的第一个 token 是提交**自己**
+    // (§12d 记过的同一陷阱),必须丢掉。
+    const line = g(['rev-list', '--parents', '-n1', 'HEAD'], {
+      timeout: BYPASS_READ_TIMEOUT_MS,
+    }).trim()
+    parents = line.split(/\s+/).slice(1).filter(Boolean)
+  } catch {
+    return { proven: [], unproven: candidates }
+  }
+  if (!parents.length) return { proven: [], unproven: candidates }
+  const present = parents.map((rev) => presentInTree(g, rev, candidates))
+  const proven = candidates.filter((p) => present.some((set) => !set.has(p)))
+  const provenSet = new Set(proven)
+  return { proven, unproven: candidates.filter((p) => !provenSet.has(p)) }
+}
+
+/**
+ * 逐批 `git checkout HEAD -- <path>`(索引+工作树一次回写;绝不 read-tree/reset 整树 —— 那会
+ * 连带吞掉别人真正的暂存,§12d"逐路径"纪律)。checkout 是写操作:刻意不加 timeout
+ * (守门 80 的口径 —— 写操作中途被 SIGTERM 可能留下 index.lock,把挂起换成全局阻塞)。
+ */
+function restoreMissingFromHead(g, repoRoot, paths) {
+  const done = []
+  const deferred = []
+  const appeared = []
+  for (let i = 0; i < paths.length; i += BYPASS_RESTORE_CHUNK) {
+    const batch = paths.slice(i, i + BYPASS_RESTORE_CHUNK).filter((p) => {
+      if (existsSync(resolve(repoRoot, p))) {
+        appeared.push(p) // 判据③与动手之间别人落了盘 ⇒ 让路,绝不覆盖现场
+        return false
+      }
+      return true
+    })
+    if (!batch.length) continue
+    try {
+      g(['checkout', 'HEAD', '--', ...batch])
+      done.push(...batch)
+    } catch {
+      deferred.push(...batch)
+    }
+  }
+  return { done, deferred, appeared }
+}
+
+export function restoreBypassOrphans(repoRoot, { dryRun = false } = {}) {
+  const g = makeGit(repoRoot)
+  try {
+    return restoreBypassOrphansInner(g, repoRoot, dryRun)
+  } catch (e) {
+    // 与 reconcileStaleIndexOrphans 同一让路规矩:锁竞争延到下一轮,但原因必须带出来,
+    // 不得静默成"无事发生"。
+    const msg = String(e?.message ?? e)
+    if (/lock|Another git process/i.test(msg))
+      return {
+        restored: 0,
+        paths: [],
+        heldOnDisk: 0,
+        heldUnproven: 0,
+        unprovenPaths: [],
+        skippedNotBlob: 0,
+        deferred: [],
+        reason: 'git 索引被占用,本轮让路',
+      }
+    throw e
+  }
+}
+
+function restoreBypassOrphansInner(g, repoRoot, dryRun) {
+  const base = {
+    restored: 0,
+    paths: [],
+    heldOnDisk: 0,
+    heldUnproven: 0,
+    unprovenPaths: [],
+    skippedNotBlob: 0,
+    deferred: [],
+  }
+  // ② 索引没有该路径 = HEAD↔索引差集里"删除"那一类(`D ` 形态,与 reconcileStaleIndexOrphans 同源)
+  let missing = []
+  try {
+    missing = g(['diff', '--cached', '--diff-filter=D', '--name-only', '-z'], {
+      timeout: BYPASS_READ_TIMEOUT_MS,
+    })
+      .split('\0')
+      .filter(Boolean)
+  } catch {
+    return { ...base, reason: '索引↔HEAD 差集取不到 ⇒ 本层不判(不记为通过)' }
+  }
+  if (!missing.length) return { ...base, reason: 'no-bypass-orphans' }
+  // ① HEAD 面必须是 blob;gitlink 等只报数
+  const types = headEntryTypes(g, missing)
+  const inHead = missing.filter((p) => types.get(p) === 'blob')
+  const skippedNotBlob = missing.length - inHead.length
+  // ③ 磁盘上没有的才是候选;盘上有的(内容与 HEAD 是否相同都算)一律不碰
+  const candidates = []
+  let heldOnDisk = 0
+  for (const p of inHead) {
+    if (existsSync(resolve(repoRoot, p))) heldOnDisk++
+    else candidates.push(p)
+  }
+  if (!candidates.length)
+    return {
+      ...base,
+      heldOnDisk,
+      skippedNotBlob,
+      reason: heldOnDisk
+        ? '候选全部有工作树副本(git rm --cached / 取消跟踪形态)⇒ 只报数不碰'
+        : '差集全为 gitlink/非 blob ⇒ 不判',
+    }
+  // ④ 父树签名:与"有意 git rm 并等待提交"分开
+  const { proven, unproven } = splitByParentSignature(g, candidates)
+  if (!proven.length)
+    return {
+      ...base,
+      heldOnDisk,
+      heldUnproven: unproven.length,
+      unprovenPaths: unproven,
+      skippedNotBlob,
+      reason: '候选存在于 HEAD 的每个父树 ⇒ 与有意 git rm 分不清,只报数不修',
+    }
+  if (dryRun)
+    return {
+      ...base,
+      paths: proven,
+      heldOnDisk,
+      heldUnproven: unproven.length,
+      unprovenPaths: unproven,
+      skippedNotBlob,
+      dryRun: true,
+      reason: '旁路提交孤儿路径,四判据成立,可恢复(未执行)',
+    }
+  const { done, deferred, appeared } = restoreMissingFromHead(g, repoRoot, proven)
+  return {
+    restored: done.length,
+    paths: done,
+    heldOnDisk: heldOnDisk + appeared,
+    heldUnproven: unproven.length,
+    unprovenPaths: unproven,
+    skippedNotBlob,
+    deferred,
+    reason: deferred.length
+      ? `已恢复 ${done.length} 个,${deferred.length} 个因 git 写锁竞争延到下一轮`
+      : `恢复 ${done.length} 个旁路提交孤儿路径(HEAD有blob/索引无/盘无/父树签名)`,
   }
 }
 
@@ -761,7 +1011,9 @@ function selfTestRun() {
      * 但"判据的分支条件里有没有 deferred"是形状,形状锁不会被重构悄悄改掉。
      */
     const selfSrc = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-    const allClear = selfSrc.match(/if \(([^)]*?)\) \{\s*\n\s*console\.log\('✅ 工作区已跟踪文件存续正常'/)
+    const allClear = selfSrc.match(
+      /if \(([^)]*?)\) \{\s*\n\s*console\.log\('✅ 工作区已跟踪文件存续正常'/,
+    )
     check(
       '㉑ "存续正常"判据必须含 deferred 守卫(反向锁:延后≠正常)',
       !!allClear && /deferred/.test(allClear[1]),
@@ -809,7 +1061,10 @@ function selfTestRun() {
     )
 
     // ⑴ HEAD 有、索引与磁盘都没有(旁路提交把路径加进 HEAD 却不动共享索引,或有意 git rm)
-    //    ⇒ 必须**报数**(本仓 5 个测试文件因此静默加载失败),但不得自动恢复(与有意删除分不清)
+    //    ⇒ 默认恢复档必须**报数**(本仓 5 个测试文件因此静默加载失败),但 heal 不自动恢复;
+    //    第四层(restoreBypassOrphans,仅 --align-drift)用父树签名把两种成因分开后才动手 ——
+    //    本例的 orphan.ts 是"HEAD tip 新增"(父树没有它),在第四层会被判为旁路签名并恢复,
+    //    这正是 ㉖(老文件的完整 git rm ⇒ 不修)成对的另一侧。
     writeFileSync(join(tmp, 'orphan.ts'), 'export const orphan = 1' + String.fromCharCode(10))
     g(['add', 'orphan.ts'])
     g(['commit', '-qm', 'G: 新增 orphan.ts'])
@@ -868,6 +1123,110 @@ function selfTestRun() {
       rmSync(t3, { recursive: true, force: true })
     }
 
+    // ㉒–㉗ 第四层(旁路提交孤儿路径恢复,2026-09-26)—— 全部用独立小仓,理由同 ⑭⑮:
+    //     父树签名判据对累积的索引状态敏感,复用主演练仓必然互踩。
+    {
+      const t4 = mkScratch('wt-heal-bypass-')
+      try {
+        const q = makeGit(t4)
+        q(['init', '-q', '--initial-branch=main'])
+        q(['config', 'user.email', 't@t'])
+        q(['config', 'user.name', 't'])
+        q(['config', 'core.autocrlf', 'false'])
+        writeFileSync(join(t4, 'a.ts'), 'a1\n')
+        writeFileSync(join(t4, 'old.ts'), 'old content\n')
+        q(['add', '-A'])
+        q(['commit', '-qm', 'base'])
+        // ㉒ 旁路提交推进 HEAD 后的典型残留:HEAD 有 born.ts、索引停在父树、磁盘也没有
+        writeFileSync(join(t4, 'born.ts'), 'born by commit-tree\n')
+        q(['add', 'born.ts'])
+        q(['commit', '-qm', 'advance: HEAD 多一个 born.ts'])
+        rmSync(join(t4, 'born.ts'), { force: true })
+        q(['read-tree', 'HEAD~1']) // 索引停在旁路提交之前 ⇒ 与 commit-tree+update-ref 同形
+        const b1 = restoreBypassOrphans(t4)
+        check(
+          '㉒ 四判据齐备 ⇒ 索引+工作树同时恢复(checkout 语义,恢复后 status 干净)',
+          b1.restored === 1 &&
+            b1.paths.includes('born.ts') &&
+            existsSync(join(t4, 'born.ts')) &&
+            readFileSync(join(t4, 'born.ts'), 'utf8') === 'born by commit-tree\n' &&
+            q(['ls-files', '-s', '--', 'born.ts']).trim() !== '' &&
+            q(['status', '--porcelain']).trim() === '',
+        )
+        // ㉓ 幂等:第二次跑必须 no-op
+        const b2 = restoreBypassOrphans(t4)
+        check('㉓ 第二次跑幂等 no-op', b2.restored === 0 && b2.paths.length === 0)
+        // ㉔ 反向回归锁:同型路径只要**磁盘存在文件**(git rm --cached 那一型)就一律不碰 ——
+        //     这一例真拦住,判据就不能被简化成"看盘上没有就补"(任务书点名的失效方向)
+        writeFileSync(join(t4, 'kept.ts'), 'export const v = 1\n')
+        q(['add', 'kept.ts'])
+        q(['commit', '-qm', 'add kept.ts'])
+        q(['rm', '-q', '--cached', 'kept.ts'])
+        writeFileSync(join(t4, 'kept.ts'), '别人正在写的现场\n')
+        const b3 = restoreBypassOrphans(t4)
+        check(
+          '㉔ 盘上有副本 ⇒ 计数不碰,且现场内容一字不改',
+          b3.restored === 0 &&
+            b3.heldOnDisk === 1 &&
+            readFileSync(join(t4, 'kept.ts'), 'utf8') === '别人正在写的现场\n',
+        )
+        // ㉕ 索引里有该路径(仅工作树缺失 ` D`)⇒ 本层不判,边界交给第一层
+        rmSync(join(t4, 'a.ts'), { force: true })
+        const b4 = restoreBypassOrphans(t4)
+        check(
+          '㉕ 索引里有该路径 ⇒ 本层不碰(边界:第一层负责)',
+          b4.restored === 0 && !b4.paths.includes('a.ts') && !existsSync(join(t4, 'a.ts')),
+        )
+        // ㉖ 他人对**老文件**做完整 git rm 等待提交:该路径存在于每个父树 ⇒ 判据④不成立 ⇒ 只报数不修
+        q(['rm', '-q', 'old.ts']) // 索引与磁盘一起删 —— 与旁路残留在单路径面上同形,靠父树签名分开
+        const b5 = restoreBypassOrphans(t4)
+        check(
+          '㉖ 老文件的完整 git rm ⇒ 父树签名分判为分不清,只报数不修',
+          b5.restored === 0 &&
+            b5.heldUnproven === 1 &&
+            b5.unprovenPaths.includes('old.ts') &&
+            !existsSync(join(t4, 'old.ts')),
+        )
+      } finally {
+        rmScratch(t4)
+      }
+    }
+    // ㉗ 事故真实形态(converge 合并:路径来自**第二父**,第一父没有)+ 装车证明 ——
+    //    走 alignDrifts(converge 成功出口调的就是它)而不是直调本层函数,防"函数在、自检过,
+    //    但 alignDrifts 没接线"那一型(守门 70/76/81/102 同型盲区)。
+    {
+      const t5 = mkScratch('wt-heal-merge-')
+      try {
+        const q = makeGit(t5)
+        q(['init', '-q', '--initial-branch=main'])
+        q(['config', 'user.email', 't@t'])
+        q(['config', 'user.name', 't'])
+        q(['config', 'core.autocrlf', 'false'])
+        writeFileSync(join(t5, 'a.ts'), 'a1\n')
+        q(['add', '-A'])
+        q(['commit', '-qm', 'root'])
+        q(['checkout', '-q', '-b', 'feature'])
+        writeFileSync(join(t5, 'fborn.ts'), 'from remote\n')
+        q(['add', 'fborn.ts'])
+        q(['commit', '-qm', 'feature: 新增 fborn.ts'])
+        q(['checkout', '-q', 'main'])
+        writeFileSync(join(t5, 'a.ts'), 'a2\n')
+        q(['commit', '-qam', 'main 前进'])
+        q(['merge', '-q', '--no-ff', 'feature', '-m', 'merge']) // HEAD 两父:HEAD^1 无 fborn、HEAD^2 有
+        rmSync(join(t5, 'fborn.ts'), { force: true })
+        q(['read-tree', 'HEAD^1']) // 索引停在收敛前位置 ⇒ 与 commit-tree+update-ref 同形
+        const m1 = alignDrifts(t5)
+        check(
+          '㉗ 合并形态(路径来自第二父)经 alignDrifts 装车被恢复',
+          m1.bypassRestored === 1 &&
+            m1.bypassPaths.includes('fborn.ts') &&
+            existsSync(join(t5, 'fborn.ts')),
+        )
+      } finally {
+        rmScratch(t5)
+      }
+    }
+
     let threw = false
     try {
       refreshStaleIndex(tmp)
@@ -911,18 +1270,46 @@ async function main() {
   // 直接 `git restore` 复活(2026-09-24 差点咬掉并发会话正在收口的 4 个分类栏文件)。
   const checkOnly = argv.includes('--check')
   const dryRun = argv.includes('--dry-run') || checkOnly
-  // --align-drift:跳过缺失恢复,只做幻影漂移对齐(git-sync-converge 推进 HEAD 后调用)
+  // --align-drift:幻影漂移对齐 + 落后索引刷新 + 第四层旁路孤儿恢复(git-sync-converge 推进 HEAD 后调用)
   if (argv.includes('--align-drift')) {
     const d = alignDrifts(repoRoot, { dryRun })
     if (argv.includes('--json')) console.log(JSON.stringify(d))
-    else if (d.aligned)
-      console.log(
-        `${dryRun ? '[check] 可对齐' : '✅ 幻影漂移对齐'} ${d.aligned} 个文件(索引==HEAD 且内容==祖先版本)`,
-      )
-    else
-      console.log(
-        `✅ 无需对齐(可判定 ${d.paths ? d.paths.length : 0} 个,已跳过有暂存的 ${d.skippedStaged || 0} 个)`,
-      )
+    else {
+      // 审计行只在非 --json 档打印:守护/converge 都是"取 stdout 最后一行 JSON.parse",
+      // 任何一行跟在 JSON 之后都会把整轮记成"自愈失败"(§22c 记过的静默失效形态)。
+      if (d.bypassRestored) {
+        console.log(
+          `✅ 旁路提交孤儿路径已恢复 ${d.bypassRestored} 个(四判据齐备:HEAD 有 blob / 索引无 / 磁盘无 / 缺席于至少一个父树 ⇒ 陈旧索引遗留,非人为 git rm;checkout 语义索引+工作树同回写,零独有数据)`,
+        )
+        for (const p of (d.bypassPaths || []).slice(0, 10)) console.log('   - 已恢复 ' + p)
+      }
+      if (dryRun && d.bypassPaths?.length)
+        console.log(
+          `[check] ${d.bypassPaths.length} 个旁路提交孤儿路径可恢复(HEAD有/索引无/盘无/父树签名;未执行)`,
+        )
+      if (d.bypassHeldOnDisk)
+        console.log(
+          `ℹ️ ${d.bypassHeldOnDisk} 个路径 HEAD 有而索引无,但磁盘存在文件(git rm --cached / 别人现场)⇒ 不碰,只报数`,
+        )
+      if (d.bypassHeldUnproven)
+        console.log(
+          `⚠️ ${d.bypassHeldUnproven} 个路径 HEAD 有而索引+磁盘都无,但存在于 HEAD 每个父树 ⇒ 与有意 git rm 分不清,只报数不修(处置出口:归属会话提交其删除,或人工 git checkout HEAD -- <path>)`,
+        )
+      for (const p of (d.bypassUnprovenPaths || []).slice(0, 10)) console.log('   ⚠ 未判定 ' + p)
+      if (d.bypassDeferred?.length)
+        console.log(
+          `⚠️ ${d.bypassDeferred.length} 个旁路孤儿本轮未恢复(git 写锁竞争,已延后):` +
+            (d.bypassDeferred || []).slice(0, 10).join(', '),
+        )
+      if (d.aligned)
+        console.log(
+          `${dryRun ? '[check] 可对齐' : '✅ 幻影漂移对齐'} ${d.aligned} 个文件(索引==HEAD 且内容==祖先版本)`,
+        )
+      else
+        console.log(
+          `✅ 无需对齐(可判定 ${d.paths ? d.paths.length : 0} 个,已跳过有暂存的 ${d.skippedStaged || 0} 个)`,
+        )
+    }
     return d.aligned && checkOnly ? 1 : 0
   }
   const res = heal(repoRoot, { dryRun })
@@ -930,7 +1317,13 @@ async function main() {
     console.log(JSON.stringify(res))
     return checkOnly && (res.paths.length || res.orphanIndex) ? 1 : 0
   }
-  if (!res.restored && !res.paths.length && !res.held && !res.orphanIndex && !res.deferred?.length) {
+  if (
+    !res.restored &&
+    !res.paths.length &&
+    !res.held &&
+    !res.orphanIndex &&
+    !res.deferred?.length
+  ) {
     console.log('✅ 工作区已跟踪文件存续正常')
     return 0
   }
@@ -947,21 +1340,27 @@ async function main() {
         '下一次不带 pathspec 的普通提交就会把它们从版本树里抹掉。',
     )
     for (const p of res.deferred.slice(0, 10)) console.log('   - 待恢复 ' + p)
-    console.log('   出口:等锁释放后重跑本脚本,或直接 `git cat-file blob HEAD:<path> > <path>`(回写工作树不需要索引)')
+    console.log(
+      '   出口:等锁释放后重跑本脚本,或直接 `git cat-file blob HEAD:<path> > <path>`(回写工作树不需要索引)',
+    )
     return 0
   }
   console.log(
     `${dryRun ? '[check] 可恢复' : '已恢复'} ${res.restored || res.paths.length} 个被外部删除的跟踪文件` +
       (res.held ? `;另有 ${res.held} 个他人已暂存的删除(不碰)` : '') +
       (res.orphanIndex
-        ? `;⚠️ ${res.orphanIndex} 个路径 HEAD 有而索引+磁盘都无(旁路提交孤儿或有意 git rm,只报不修)`
+        ? `;⚠️ ${res.orphanIndex} 个路径 HEAD 有而索引+磁盘都无(旁路提交孤儿或有意 git rm;恢复走 --align-drift 第四层,四判据可证才修,其余只报数)`
         : ''),
   )
   for (const p of res.paths.slice(0, 20)) console.log('   - ' + p)
   if (res.orphanIndex) {
     const { orphanIndex } = findOrphanedDeletions(repoRoot)
     for (const p of orphanIndex.slice(0, 10))
-      console.log('   ⚠ 索引孤儿 ' + p + ' —— 归属会话提交或 git rm --cached 后方可判清')
+      console.log(
+        '   ⚠ 索引孤儿 ' +
+          p +
+          ' —— 出口:node scripts/heal-worktree-tracked.mjs --align-drift(第四层按四判据可证才恢复);确属删除则由归属会话提交',
+      )
   }
   return checkOnly && (res.paths.length || res.orphanIndex) ? 1 : 0
 }
@@ -988,6 +1387,7 @@ export const __test__ = {
   refreshStaleIndex,
   compositeDriftPaths,
   restoreToHead,
+  restoreBypassOrphans,
   SKIP_ENV,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
