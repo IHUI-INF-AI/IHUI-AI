@@ -97,7 +97,7 @@ import {
 } from '@ihui/rn-app'
 import type { CarouselItem } from '@ihui/ui-native'
 import type { AiModelData, ApiResult, AppIcon } from '@ihui/types'
-import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import Carousel from '../components/Carousel'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
@@ -1434,7 +1434,7 @@ export function HomeScreen() {
       try {
         const res =
           kind === 'like' ? await postAgentLike(uuid, id) : await postAgentCollect(uuid, id)
-        if (!res.success) throw new Error(res.error)
+        if (!res.success) throw apiFailureToError(res)
         showToast('success', kind === 'like' ? '点赞成功' : '收藏成功')
       } catch (e: unknown) {
         // 失败回滚
