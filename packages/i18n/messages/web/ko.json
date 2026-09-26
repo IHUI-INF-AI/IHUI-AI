@@ -27196,5 +27196,39 @@
         "following": "보내기 대기 중"
       }
     }
+  },
+  "unifiedSuggestion": {
+    "title": "다중 소스 제안",
+    "searchPlaceholder": "제안 검색…",
+    "noMatch": "일치하는 제안이 없습니다",
+    "sourceTask": "작업",
+    "sourceSkill": "스킬",
+    "sourcePlugin": "플러그인",
+    "sourceConnector": "커넥터",
+    "sourceAgent": "에이전트",
+    "sourceFile": "파일",
+    "provBuiltin": "내장",
+    "provUserLocal": "사용자 구성(로컬)",
+    "provUserRemote": "사용자 구성(원격)",
+    "provProject": "프로젝트 구성",
+    "provMarket": "마켓",
+    "provPluginProvided": "플러그인 제공",
+    "loadingLabel": "불러오는 중",
+    "sourceFailedTag": "일시적으로 로드 불가",
+    "retryLabel": "재시도",
+    "degradeSingle": "{failed}을(를) 일시적으로 불러올 수 없습니다.",
+    "degradePartial": "{failed}을(를) 일시적으로 불러올 수 없습니다. {ok}은(는) 계속 사용할 수 있습니다.",
+    "degradeAll": "모든 제안 소스를 일시적으로 사용할 수 없습니다. 그대로 입력해 메시지를 보낼 수 있습니다.",
+    "referenceCapFull": "참조 상한({max})에 도달하여 추가가 무시되었습니다.",
+    "referenceCount": "{n}/{max}",
+    "pastePreviewTitle": "붙여넣은 참조 유효성 미리보기",
+    "pasteValid": "유효",
+    "pasteUnknown": "인식 불가",
+    "pastePreviewDismiss": "붙여넣은 참조 미리보기 닫기",
+    "authorizationNotice": "참조 태그는 실행 권한을 추가하지 않습니다.",
+    "hintSelect": "선택",
+    "hintConfirm": "확인",
+    "hintClose": "닫기",
+    "clearAriaLabel": "검색 지우기"
   }
 }

@@ -25,6 +25,7 @@ import { checkPermission, checkRulesWithLease, type PermissionRules } from './pe
 import { activePermissionLease } from './permission-lease.js';
 import { shadowValidateToolArguments } from './argument-validation-telemetry.js';
 import { noteDangerousApproval } from './danger-gate.js';
+import { injectHostSection } from '../utils/prompt-injection-registry.js';
 import { BROWSER_TOOLS } from './browser.js';
 import { BROWSER_PAGE_TOOLS } from './browser-page.js';
 import {
@@ -434,6 +435,22 @@ export function clearTools(): void {
   registry.clear();
 }
 
+/**
+ * 强制规划段的正文(宿主指令原文)。单独成常量,是为了让下面的 `injectHostSection` 调用
+ * 与 id **落在同一行** —— 守门 128 的 R1 按行配对判"这一行真走了出口"。
+ */
+const PLAN_FIRST_DIRECTIVE = `## 任务规划(必须先规划后执行)
+
+在执行任何工具调用前,你必须先输出一个任务规划块:
+
+\`\`\`plan
+1. <步骤1描述>
+2. <步骤2描述>
+3. <步骤N描述>
+\`\`\`
+
+规划完成后再逐步执行工具调用。每完成一步,简要说明进度并继续下一步。若规划需调整,先输出新的 plan 块再继续。`;
+
 export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirst?: boolean): string {
   const toolDescriptions = tools
     .map((t) => {
@@ -452,19 +469,16 @@ export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirs
     ? `\n\n## 项目上下文\n\n${extraContext}\n`
     : '';
 
-  const planSection = planFirst
-    ? `\n\n## 任务规划(必须先规划后执行)
-
-在执行任何工具调用前,你必须先输出一个任务规划块:
-
-\`\`\`plan
-1. <步骤1描述>
-2. <步骤2描述>
-3. <步骤N描述>
-\`\`\`
-
-规划完成后再逐步执行工具调用。每完成一步,简要说明进度并继续下一步。若规划需调整,先输出新的 plan 块再继续。`
+  // 强制规划段是**宿主自己下的指令**(区别于同函数里被转述的 extraContext),
+  // 但它同样进模型消息 ⇒ 必须走登记出口(host_directive 档 = 过 neutralizeBoundaries)。
+  // planFirst 未开启时**一律不记账**:那是"本轮没到档位"而不是"降级",
+  // 记成 skipped 会让可见行每轮多一行假噪声(上一票刚回退过同一型)。
+  // 出口调用与 id 必须**同一行**:守门 128 的 R1 按行配对判"这一行真走了出口",
+  // 把出口写在上一行、id 孤零零占一行 = 登记了没人生产(字符串内的 `${}` 调用同样不算)。
+  const planFirstDirective = planFirst
+    ? injectHostSection('directive_plan_first', PLAN_FIRST_DIRECTIVE, { kind: 'host_directive' })
     : '';
+  const planSection = planFirstDirective ? `\n\n${planFirstDirective}` : '';
 
   return `你是一个强大的编码助手。你可以使用以下工具来完成任务。
 ${contextSection}${planSection}
@@ -672,15 +686,20 @@ export async function executeToolCall(
   // 权限租约(默认关闭):`activePermissionLease()` 为 null 时走的仍是改造前那一份
   // `checkPermission` 调用,行为逐字不变;有租约时也**只**可能把 rules 里的 'ask'
   // 放宽成放行 —— 'deny'(黑名单/不在白名单)与下方 `dangerous` 确认闸都不受影响。
+  let leaseContentDrifted = false;
   if (ctx.permissions) {
     const lease = activePermissionLease();
-    // 没有 dangerLevel 声明的工具(守门 111 的 flip-audit 存量)不走租约路径 ——
-    // 替它补一个默认档就是在替"批准边界"做默认决策(凭空放宽或凭空新增批准),
-    // 而租约票自己的承诺是"默认关闭不改变现有判定"。缺声明 ⇒ 回到租约之前的 checkPermission。
-    const perm =
-      lease && tool.dangerLevel
-        ? checkRulesWithLease(call.name, ctx.permissions, tool.dangerLevel, lease)
-        : checkPermission(call.name, ctx.permissions);
+    // `dangerLevel ?? 'write'`:该参数只被用来拒绝"把 dangerous 放宽",undefined 在本函数的
+    // 既有语义里等同非危险(下方确认闸判的是 `=== 'dangerous'`),取 write 档是保守写法。
+    const perm = lease
+      ? checkRulesWithLease(
+          call.name,
+          ctx.permissions,
+          tool.dangerLevel ?? 'write',
+          lease,
+          JSON.stringify(call.arguments ?? null),
+        )
+      : checkPermission(call.name, ctx.permissions);
     if (!perm.allowed) {
       return {
         success: false,
@@ -689,13 +708,17 @@ export async function executeToolCall(
         errorType: 'permission_denied',
       };
     }
+    // 执行点必须把内容喂进判定,并且**必须消费漂移结论**:
+    // `checkRulesWithLease` 在摘要不符时返回 `allowed:true + requiresApproval:true`,
+    // 而本函数原先只看 `!perm.allowed` ⇒ 整套槽位指纹在运行时是死代码(造好没装车)。
+    leaseContentDrifted = 'approvalState' in perm && perm.approvalState === 'content-drifted';
   }
   // P1-4 Rate limiting:同一工具 10 秒内最多 5 次,超限返回 error
   const rateLimit = checkRateLimit(call.name);
   if (!rateLimit.allowed) {
     return { success: false, output: '', error: rateLimit.reason, errorType: 'rate_limited' };
   }
-  if (tool.dangerLevel === 'dangerous') {
+  if (tool.dangerLevel === 'dangerous' || leaseContentDrifted) {
     const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
     // 披露面(L7905 收口):只记账不改判定 —— 放行路径(会话级 flag / 回调自批)可追溯
     if (allowed) noteDangerousApproval(ctx.allowDangerous === true, tool.name);
@@ -703,7 +726,9 @@ export async function executeToolCall(
       return {
         success: false,
         output: '',
-        error: `危险操作被拒绝(需用户确认): ${call.name}`,
+        error: leaseContentDrifted
+          ? `工具 ${call.name} 的本次参数与租约批准过的内容不符(摘要漂移)，旧批准失效，需重新确认`
+          : `危险操作被拒绝(需用户确认): ${call.name}`,
       };
     }
   }
