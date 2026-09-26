@@ -89,6 +89,13 @@ const FAMILY_LIFETIME_DAYS = {
    * (那种取 365,短到期只会逼人删标记、删了又被原判据红,两道门互咬)。
    */
   'handcopy-token-exempt': 60,
+  /**
+   * 守门 131(RN 函数形态 style 被 cssInterop 吃掉)的合法例外通道。取 **30 天**,与
+   * `glyph-arrow-exempt` / `statusbar-exempt` 同档 —— 它是**待偿的迁移债**(改回数组形态
+   * 要顺带给按压反馈找落点,可能涉及组件结构),不是"结构性定性";写长周期会让人把
+   * 一处本该改掉的写法永久留在树上。
+   */
+  'interop-style-exempt': 30,
   'rust-state-exempt': 60,
   'i18n-content-exempt-file': 180,
   /**
