@@ -128,7 +128,7 @@ export default function LoginPage({ onSuccess }: Props) {
         >
           {ssoLoading ? (
             <>
-              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-brand-accent-deep" />
               <span>{t('auth.ssoLoading')}</span>
             </>
           ) : (
