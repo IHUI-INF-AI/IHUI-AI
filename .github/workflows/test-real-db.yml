@@ -59,12 +59,16 @@ jobs:
       - name: Build database package
         run: pnpm --filter @ihui/database build
 
-      - name: Build api-client package
+      - name: Build workspace deps (topological closure)
         # 缺这一步时,**13 个 real 测试文件在收集期就整片炸**(vitest 按 exports 找
         # dist/index.js 解析失败),报告显示的 "Test Files 14 failed" 里有 13 个根本不是断言失败,
         # 而是 Failed Suites。本地永远绿(dist 早在),所以这条红在 CI 独享。
         # 同因先例:ci.yml 的 "Build api-client package"。
-        run: pnpm --filter @ihui/api-client build && pnpm --filter @ihui/context-compaction build
+        # 2026-09-26 起改用拓扑选择器 `^...`(= 该包的**全部 workspace 依赖**,不含本包):
+        # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
+        # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
+        # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
+        run: pnpm --filter "@ihui/api^..." run build
 
       # 2026-09-10 根因修复:pgvector 镜像只是把扩展文件放进镜像,每个 database 仍需
       # 显式 CREATE EXTENSION;缺这步 → drizzle 到 vector(1536) 列时抛
