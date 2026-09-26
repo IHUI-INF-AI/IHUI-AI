@@ -128,17 +128,30 @@ const tolerance = Number.parseInt(process.env.KNIP_RATCHET_TOLERANCE ?? '0', 10)
  * 判据本身拆到 `scripts/lib/knip-ratchet-face.mjs`(纯函数,镜像测试直接喂构造面)。
  */
 function dirtyPathCount() {
+  // 先分清"这里是不是 git 检出"与"git 问不到":前者是本仓做 HEAD 干净验证用的隔离树
+  // (git archive 出去、无 .git),它的内容就是被量面;只有后者才是无法判定。
+  // 混成一种,这道闸门就会恰好挡住唯一正确的基线记录方式。
+  try {
+    gitRaw(['rev-parse', '--is-inside-work-tree'], ROOT, { timeout: 30_000 })
+  } catch {
+    return { insideRepo: false, dirty: 0 }
+  }
   try {
     // gitRaw 已自带 `-c safe.directory=*` 与 `-C <root>`,此处不再重复传
     const out = gitRaw(['status', '--porcelain'], ROOT, { timeout: 60_000 })
-    return out.split('\n').filter((l) => l.trim() !== '').length
+    return { insideRepo: true, dirty: out.split('\n').filter((l) => l.trim() !== '').length }
   } catch {
-    return null // 问不到条数 ⇒ 交给 classifyFace 判"无法判定",不猜可比
+    return { insideRepo: true, dirty: null } // 问不到条数 ⇒ 判"无法判定",不猜可比
   }
 }
 
-const dirty = dirtyPathCount()
-const face = classifyFace({ ci: process.env.CI === 'true' || process.env.CI === '1', dirtyCount: dirty })
+const { insideRepo, dirty } = dirtyPathCount()
+const isolated = insideRepo === false
+const face = classifyFace({
+  ci: process.env.CI === 'true' || process.env.CI === '1',
+  dirtyCount: dirty,
+  insideRepo,
+})
 const forced = args.has('--allow-dirty')
 if (face.verdict !== 'comparable' && !forced && !args.has('--print')) {
   console.error(`[knip-ratchet] ❌ 口径不可比(${face.verdict}):${face.reason}`)
@@ -167,6 +180,7 @@ if (args.has('--update') || !existsSync(BASELINE_PATH)) {
       comparable: face.verdict === 'comparable',
       dirtyCount: dirty,
       forced,
+      isolated,
     }),
     generatedAt: new Date().toISOString(),
     total: currentTotal,
