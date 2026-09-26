@@ -510,7 +510,6 @@
       "message": "功能開發中"
     },
     "aiGenBtn": "AI 生成封面",
-    "back": "返回",
     "confirmBtn": "確定",
     "empty": "暫無封面",
     "loadFailed": "載入失敗",
@@ -524,7 +523,6 @@
       "title": "發布成功",
       "message": "作品已提交審核"
     },
-    "back": "返回",
     "errorMaxFiles": "最多上傳 {max} 個檔案",
     "errorNoDescription": "請輸入描述",
     "errorNoFile": "請選擇檔案",
@@ -561,7 +559,6 @@
       "title": "加入群組",
       "message": "已申請加入「{name}」"
     },
-    "back": "返回",
     "cardMembers": "成員",
     "detailEnter": "進入群聊",
     "detailMembers": "群組成員",
