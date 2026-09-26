@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl'
 import { Clock, Loader2, Plus, Star } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { sortPinnedFirst } from '@ihui/shared'
 import { BackButton } from '@/components/common'
 import { Button, SearchInput } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
@@ -41,8 +42,10 @@ export default function ChatHistoryPage() {
   })
 
   const keyword = q.trim().toLowerCase()
-  const items = (data?.conversations ?? []).filter(
-    (c) => !keyword || c.title.toLowerCase().includes(keyword),
+  // 列表渲染序必须过唯一排序出口:ConversationList 的置顶乐观更新只翻标记,
+  // 不在这里排的话,"取消置顶"那一行会原地停到下次 refetch 才落位。
+  const items = sortPinnedFirst(
+    (data?.conversations ?? []).filter((c) => !keyword || c.title.toLowerCase().includes(keyword)),
   )
   const total = data?.total ?? items.length
 
