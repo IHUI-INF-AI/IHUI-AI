@@ -206,7 +206,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
     },
     calendarCellSigned: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brand.cta,
     },
     calendarCellUnsigned: {

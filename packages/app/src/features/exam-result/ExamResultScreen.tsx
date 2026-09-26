@@ -127,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       marginBottom: 12,
     },
-    scoreCardPassed: { borderColor: tk.brand.DEFAULT, backgroundColor: tk.success.light },
+    scoreCardPassed: { borderColor: tk.brandAccent.deep, backgroundColor: tk.success.light },
     scoreCardFailed: { borderColor: tk.border.light },
     scoreText: { fontSize: 36, fontWeight: '700', color: tk.text.primary },
     passedText: { marginTop: 8, fontSize: 16, fontWeight: '600', color: tk.brand.DEFAULT },
