@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import sys
 import tempfile
 
 from app.core.sandbox_policy import (

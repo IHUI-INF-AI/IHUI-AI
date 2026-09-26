@@ -64,15 +64,15 @@ class PatchSafetyDecision:
     reason: str | None = None
 
     @classmethod
-    def auto_approve(cls) -> "PatchSafetyDecision":
+    def auto_approve(cls) -> PatchSafetyDecision:
         return cls(outcome="auto_approve")
 
     @classmethod
-    def ask_user(cls) -> "PatchSafetyDecision":
+    def ask_user(cls) -> PatchSafetyDecision:
         return cls(outcome="ask_user")
 
     @classmethod
-    def reject(cls, reason: str) -> "PatchSafetyDecision":
+    def reject(cls, reason: str) -> PatchSafetyDecision:
         return cls(outcome="reject", reason=reason)
 
 

@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.core.responses_headers import (
     CODEX_VERSION_KEY,
     DEFAULT_IMAGE_DETAIL,
