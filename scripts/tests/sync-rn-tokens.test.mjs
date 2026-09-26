@@ -95,15 +95,19 @@ test('T3 该红的真红:受管档改脏 ⇒ 立刻点名那一档并写回源�
   const plan = realPlan(original)
   assert.equal(plan.changes.length, 0, '前置:真仓当前无待写回项')
 
-  // 挑一档受管的(三张表都有 brand.cta ← --color-cta)与一档不可派生的(overlay.modal)各改脏。
+  // 挑一档受管的(三张表都有 brand.cta ← --color-cta;2026-09-26 起亮 #000000 / 暗 #ffffff)
+  // 与一档不可派生的(overlay.modal)各改脏。
   const dirty = original
-    .replace(/cta: '#4A7A96'/g, "cta: '#BADBEE'")
+    .replace(/cta: '#(?:000000|ffffff)'/g, "cta: '#BADBEE'")
     .replace(/modal: 'rgba\(0,0,0,0\.4\)'/g, "modal: 'rgba(9,9,9,0.9)'")
   assert.notEqual(dirty, original, '夹具必须真的改到两处')
   const p2 = realPlan(dirty)
   const hits = p2.changes.filter((c) => c.path === 'brand.cta')
   assert.equal(hits.length, 3, `三张表各有一处 brand.cta 待写回,实得:${hits.length}`)
-  for (const h of hits) assert.equal(h.to, '#4a7a96', '写回值必须等于源(tokens.css --color-cta)')
+  for (const h of hits) {
+    const want = h.table === 'rnDarkTokens' ? '#ffffff' : '#000000'
+    assert.equal(h.to, want, '写回值必须等于源(tokens.css 同主题 --color-cta)')
+  }
   assert.ok(
     !p2.changes.some((c) => c.path === 'overlay.modal'),
     '不可派生档不得被顺手改写 —— 误伤端内档就是本门的返工条件',
@@ -118,7 +122,7 @@ test('T3 该红的真红:受管档改脏 ⇒ 立刻点名那一档并写回源�
 
 test('T4 写回不破坏溯源载荷(§5c):横幅行与文件尾行逐字节不变,且改动面只在受管字面量上', () => {
   const original = readFileSync(join(ROOT, RN_REL), 'utf8')
-  const dirty = original.replace(/cta: '#4A7A96'/g, "cta: '#BADBEE'")
+  const dirty = original.replace(/cta: '#(?:000000|ffffff)'/g, "cta: '#BADBEE'")
   const p2 = realPlan(dirty)
   const applied = sync.applyPlan(dirty, p2)
   const lines = (s) => s.split('\n')
