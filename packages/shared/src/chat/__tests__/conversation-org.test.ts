@@ -4,9 +4,14 @@
 
 // D20 会话文件夹/标签纯逻辑层用例:归一化 / 增删查 / 分组 / 筛选 / 置顶稳定排序。
 
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { describe, expect, it } from 'vitest'
 
 import {
+  ORG_FOLDER_MAX_LENGTH,
   ORG_TAG_MAX_COUNT,
   ORG_TAG_MAX_LENGTH,
   filterByFolder,
@@ -22,6 +27,11 @@ import {
   withTagRemoved,
   withTagsMeta,
 } from '../conversation-org'
+import {
+  ORG_FOLDER_MAX_LENGTH as UTILS_ORG_FOLDER_MAX_LENGTH,
+  ORG_TAG_MAX_COUNT as UTILS_ORG_TAG_MAX_COUNT,
+  ORG_TAG_MAX_LENGTH as UTILS_ORG_TAG_MAX_LENGTH,
+} from '../../utils/conversation-org'
 
 describe('normalizeOrgName / normalizeTagList', () => {
   it('去控制字符 + trim + 按上限截断', () => {
@@ -142,6 +152,31 @@ describe('sortPinnedFirst', () => {
     const src = [{ id: 'x', pinned: false }]
     sortPinnedFirst(src)
     expect(src).toEqual([{ id: 'x', pinned: false }])
+  })
+})
+
+// ── 常量同源守卫(变异对照) ──────────────────────────────────────────────────────
+// 变异说明:chat/conversation-org.ts 曾是第二真相源(v1 本地字面量 40/32/8 + 一套独立
+// normalize),2026-09-26 已归一为 re-export utils/conversation-org(64/24/8,唯一正主)。
+// 下面两条用例钉死「chat 版 ORG_* 与 utils 版同一绑定」,任何人拆掉它测试必红:
+//   · 数值同源断言(toBe):把 re-export 改回本地字面量且数值漂移(如改回 40/32)→ 红;
+//   · 源码断言(禁 `export const ORG_`):哪怕把本地字面量数值抄成与 utils 一致,
+//     第二真相源复活本身也 → 红。要改常量只准去 utils/conversation-org.ts,只有一个入口。
+describe('常量同源守卫(变异对照)', () => {
+  const chatSource = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '../conversation-org.ts'),
+    'utf8',
+  )
+
+  it('chat 版 ORG_* 与 utils 版数值一致(同源 re-export,=== 语义)', () => {
+    expect(ORG_FOLDER_MAX_LENGTH).toBe(UTILS_ORG_FOLDER_MAX_LENGTH)
+    expect(ORG_TAG_MAX_LENGTH).toBe(UTILS_ORG_TAG_MAX_LENGTH)
+    expect(ORG_TAG_MAX_COUNT).toBe(UTILS_ORG_TAG_MAX_COUNT)
+  })
+
+  it('chat 版常量必须来自 utils re-export,禁止本地字面量(改回即红)', () => {
+    expect(chatSource).toContain("from '../utils/conversation-org'")
+    expect(chatSource).not.toMatch(/export\s+const\s+ORG_/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
