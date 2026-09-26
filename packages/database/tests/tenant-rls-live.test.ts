@@ -66,9 +66,20 @@ describe('O13 第二格:RLS 运行时验证器的镜像测试', () => {
     expect(existsSync(FIXTURE_SCRIPT)).toBe(true)
     const liveSrc = readFileSync(LIVE_SCRIPT, 'utf8')
     // 出口必须在 isDirectRun 之后(§22d:放前面会让 import 方拿到 undefined)
-    expect(liveSrc.indexOf('export const __test__')).toBeGreaterThan(liveSrc.indexOf('if (isDirectRun)'))
+    expect(liveSrc.indexOf('export const __test__')).toBeGreaterThan(
+      liveSrc.indexOf('if (isDirectRun)'),
+    )
     expect(liveSrc).toMatch(/pathToFileURL\(process\.argv\[1\]\)\.href/)
-    for (const key of ['assertPortChoice', 'assertDataDirAllowed', 'buildRoleDdl', 'judgeOne', 'buildJudgementPlan', 'parseProbeOutput', 'lastNonEmptyLine', 'resolvePgBin']) {
+    for (const key of [
+      'assertPortChoice',
+      'assertDataDirAllowed',
+      'buildRoleDdl',
+      'judgeOne',
+      'buildJudgementPlan',
+      'parseProbeOutput',
+      'lastNonEmptyLine',
+      'resolvePgBin',
+    ]) {
       expect(Object.keys(live), `__test__ 缺出口 ${key}`).toContain(key)
     }
   })
@@ -76,7 +87,9 @@ describe('O13 第二格:RLS 运行时验证器的镜像测试', () => {
   // ---------------------------------------------------------------- 1) 无 PG ⇒ 未判定
   it('没有可用 PostgreSQL 二进制时判 null,而不是"看起来能跑"', () => {
     // 决定性:override 指到一个必然不存在 initdb 的目录(不依赖本机装没装 PG)
-    const missing = resolvePgBin('win32', { IHUI_RLS_LIVE_PG_BIN: join(REPO_ROOT, '.ihui-agent', 'tmp', 'no-such-pg-bin-' + process.pid) })
+    const missing = resolvePgBin('win32', {
+      IHUI_RLS_LIVE_PG_BIN: join(REPO_ROOT, '.ihui-agent', 'tmp', 'no-such-pg-bin-' + process.pid),
+    })
     expect(missing).toBeNull()
   })
 
@@ -85,7 +98,15 @@ describe('O13 第二格:RLS 运行时验证器的镜像测试', () => {
       encoding: 'utf8',
       windowsHide: true, // §5b
       timeout: 120_000,
-      env: { ...process.env, IHUI_RLS_LIVE_PG_BIN: join(REPO_ROOT, '.ihui-agent', 'tmp', 'no-such-pg-bin-' + process.pid) },
+      env: {
+        ...process.env,
+        IHUI_RLS_LIVE_PG_BIN: join(
+          REPO_ROOT,
+          '.ihui-agent',
+          'tmp',
+          'no-such-pg-bin-' + process.pid,
+        ),
+      },
     })
     const out = `${r.stdout || ''}\n${r.stderr || ''}`
     expect(r.error).toBeUndefined()
@@ -111,26 +132,58 @@ describe('O13 第二格:RLS 运行时验证器的镜像测试', () => {
 
   it('连接参数唯一出口自带端口护栏(不靠调用方记得先 assert)', () => {
     for (const p of [...PRODUCTION_PORTS, ...ALREADY_USED_PORTS]) {
-      expect(() => psqlArgs({ port: p, user: 'u', database: 'd', inline: 'select 1' }), `psqlArgs 对 ${p} 必须抛`).toThrow(/端口/)
+      expect(
+        () => psqlArgs({ port: p, user: 'u', database: 'd', inline: 'select 1' }),
+        `psqlArgs 对 ${p} 必须抛`,
+      ).toThrow(/端口/)
     }
     const a = psqlArgs({ port: 54320, user: 'u', database: 'd', inline: 'select 1' })
-    expect(a.slice(a.indexOf('-h'), a.indexOf('-h') + 4)).toEqual(['-h', '127.0.0.1', '-p', '54320'])
+    expect(a.slice(a.indexOf('-h'), a.indexOf('-h') + 4)).toEqual([
+      '-h',
+      '127.0.0.1',
+      '-p',
+      '54320',
+    ])
   })
 
-  it('data dir 落点判据:两个允许落点收、三类禁止落点拒(§15/§15b)', () => {
-    expect(assertDataDirAllowed(join(REPO_ROOT, '.ihui-agent', 'tmp', 'o13-cluster', 'data'))).toBeTruthy()
-    const drive = /^[A-Za-z]/.exec(REPO_ROOT)?.[0].toUpperCase()
-    expect(assertDataDirAllowed(`${drive}:\\DevEnv\\Temp\\ihui-rls-cluster`)).toBeTruthy()
-    // 三条禁止路径各自命中**不同**的分支 —— 混成一句"都不许"就看不见哪一支失效了
-    expect(() => assertDataDirAllowed('C:\\temp\\ihui-rls')).toThrow(/temp/)
-    expect(() => assertDataDirAllowed(`${drive}:\\`)).toThrow(/盘根/)
-    expect(() => assertDataDirAllowed('C:\\ihui-rls')).toThrow(/落点/)
-    expect(() => assertDataDirAllowed(join(process.env.USERPROFILE || process.env.HOME || '/tmp', 'ihui-rls'))).toThrow(/家目录/)
+  it('data dir 落点判据:两个允许落点收、其余一律拒(§15/§15b,两面各按其真实形状判)', () => {
+    expect(
+      assertDataDirAllowed(join(REPO_ROOT, '.ihui-agent', 'tmp', 'o13-cluster', 'data')),
+    ).toBeTruthy()
+    expect(() =>
+      assertDataDirAllowed(join(process.env.USERPROFILE || process.env.HOME || '/tmp', 'ihui-rls')),
+    ).toThrow(/家目录/)
+    // CI 形态:仓库根本身就在 $HOME 之下(/home/runner/work/...)⇒ 仓库内必须收、家目录别处仍必须拒
+    const HOME = process.env.USERPROFILE || process.env.HOME || '/tmp'
+    const ciLikeRepo = join(HOME, 'runner-work', 'IHUI-AI')
+    expect(
+      assertDataDirAllowed(join(ciLikeRepo, '.ihui-agent', 'tmp', 'data'), ciLikeRepo),
+    ).toBeTruthy()
+    expect(() => assertDataDirAllowed(join(HOME, 'elsewhere'), ciLikeRepo)).toThrow()
+    // 平台专属落点各判各的形状:把 Windows 形状喂给 POSIX 会被 resolve() 折成
+    // "仓库里一个带反斜杠的相对路径",于是判到的分支根本不是这一条要判的那一支
+    // (CI 上就是这样把"家目录"那一读当成了 temp 禁令命中 —— 红的是夹具,不是判据)。
+    if (process.platform === 'win32') {
+      const drive = /^([A-Za-z]):/.exec(REPO_ROOT)?.[1].toUpperCase()
+      expect(drive, `win32 上 REPO_ROOT=${REPO_ROOT} 取不出盘符,本用例的盘符形状失效`).toMatch(
+        /^[A-Z]$/,
+      )
+      expect(assertDataDirAllowed(`${drive}:\\DevEnv\\Temp\\ihui-rls-cluster`)).toBeTruthy()
+      // 三条禁止路径各自命中**不同**的分支 —— 混成一句"都不许"就看不见哪一支失效了
+      expect(() => assertDataDirAllowed('C:\\temp\\ihui-rls')).toThrow(/temp/)
+      expect(() => assertDataDirAllowed(`${drive}:\\`)).toThrow(/盘根/)
+      expect(() => assertDataDirAllowed('C:\\ihui-rls')).toThrow(/落点/)
+    } else {
+      expect(() => assertDataDirAllowed('/tmp/ihui-rls')).toThrow(/不在允许/)
+      expect(() => assertDataDirAllowed('/')).toThrow(/不在允许/)
+      expect(() => assertDataDirAllowed('/DevEnv/Temp/ihui-rls')).toThrow(/不在允许/)
+    }
   })
 
   it('被审主体必须 NOSUPERUSER + NOBYPASSRLS,且变异版本必须被同一条判据判假', () => {
     const ddl = buildRoleDdl().join('\n')
-    const isBound = (t: string) => (t.match(/NOSUPERUSER/g) || []).length === 2 && (t.match(/NOBYPASSRLS/g) || []).length === 2
+    const isBound = (t: string) =>
+      (t.match(/NOSUPERUSER/g) || []).length === 2 && (t.match(/NOBYPASSRLS/g) || []).length === 2
     expect(isBound(ddl)).toBe(true)
     // 正向证明(§22c/守门 120 那一课):判据必须真能命中名单里那一条,否则它可以是张死表
     expect(isBound(ddl.replaceAll('NOBYPASSRLS', 'BYPASSRLS'))).toBe(false)
@@ -156,24 +209,42 @@ describe('O13 第二格:RLS 运行时验证器的镜像测试', () => {
 
   it('派生点必须一律带 windowsHide(§5b 禁弹窗),且不得出现 execSync', () => {
     const src = readFileSync(LIVE_SCRIPT, 'utf8')
-    const spawnCalls = (src.match(/spawnSync\(/g) || []).length + (src.match(/[^a-zA-Z]spawn\(/g) || []).length
+    const spawnCalls =
+      (src.match(/spawnSync\(/g) || []).length + (src.match(/[^a-zA-Z]spawn\(/g) || []).length
     expect(spawnCalls, '本门至少要有 psql 与 pg_ctl 两类派生').toBeGreaterThan(0)
     const hideCalls = (src.match(/windowsHide/g) || []).length
-    expect(hideCalls, `派生 ${spawnCalls} 处 / windowsHide ${hideCalls} 处`).toBeGreaterThanOrEqual(spawnCalls)
+    expect(hideCalls, `派生 ${spawnCalls} 处 / windowsHide ${hideCalls} 处`).toBeGreaterThanOrEqual(
+      spawnCalls,
+    )
     expect(src).not.toMatch(/exec[Ss]ync\(/)
   })
 
   // ---------------------------------------------------------------- 4) 断言器有牙 + 覆盖面对账
   it('judgeOne 的三态不可混:fail-open 判 P0、非策略错误判 SKIP、无输出不判 PASS', () => {
-    const cSpec = { id: 'C 不设 app.user_id ⇒ 租户行一律不可见(fail-closed;若可见即 P0)', expect: 'missing=a,b' }
+    const cSpec = {
+      id: 'C 不设 app.user_id ⇒ 租户行一律不可见(fail-closed;若可见即 P0)',
+      expect: 'missing=a,b',
+    }
     expect(judgeOne(cSpec, { status: 0, value: 'a' }).verdict).toBe('P0')
     expect(judgeOne(cSpec, { status: 0, value: '' }).verdict).toBe('PASS')
     expect(judgeOne(cSpec, null).verdict).toBe('SKIP')
     // "改不动"的两种正当形态都要认,而第三种(探针自己坏了)必须不认
     const uSpec = { id: 'U', expect: 'affected=0' }
     expect(judgeOne(uSpec, { status: 0, value: '0' }).verdict).toBe('PASS')
-    expect(judgeOne(uSpec, { status: 3, value: null, stderr: 'ERROR:  new row violates row-level security policy' }).verdict).toBe('PASS')
-    expect(judgeOne(uSpec, { status: 3, value: null, stderr: 'ERROR: column "updated_at" does not exist' }).verdict).toBe('SKIP')
+    expect(
+      judgeOne(uSpec, {
+        status: 3,
+        value: null,
+        stderr: 'ERROR:  new row violates row-level security policy',
+      }).verdict,
+    ).toBe('PASS')
+    expect(
+      judgeOne(uSpec, {
+        status: 3,
+        value: null,
+        stderr: 'ERROR: column "updated_at" does not exist',
+      }).verdict,
+    ).toBe('SKIP')
     expect(judgeOne(uSpec, { status: 0, value: '1' }).verdict).toBe('FAIL')
     expect(judgeOne(uSpec, { status: 0, value: null, stderr: '' }).verdict).toBe('FAIL')
     // 探针取数:set_config 的噪音行不得被当成读数(第一轮真跑就栽在这)
@@ -193,7 +264,10 @@ describe('O13 第二格:RLS 运行时验证器的镜像测试', () => {
       expect(roles.has(OWNER_ROLE), `${t} 缺属主角色(FORCE 无法证)`).toBe(true)
       expect(roles.has(MEMBER_ROLE), `${t} 缺非属主角色(无法把筛选归因到 RLS)`).toBe(true)
       for (const prefix of ['A ', 'B ', 'C ', 'U ', 'D ', 'P ', 'F ']) {
-        expect(plan.some((p) => p.table === t && String(p.id).startsWith(prefix)), `${t} 缺判据 ${prefix.trim()}`).toBe(true)
+        expect(
+          plan.some((p) => p.table === t && String(p.id).startsWith(prefix)),
+          `${t} 缺判据 ${prefix.trim()}`,
+        ).toBe(true)
       }
       // 每表都要有跨租户写判据(只看 SELECT 的验证会整侧漏掉 WITH CHECK)
       expect(plan.some((p) => p.table === t && p.id.startsWith('U '))).toBe(true)

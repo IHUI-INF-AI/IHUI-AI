@@ -21,6 +21,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import sys
 import threading
 import time
 from collections.abc import Iterable, Iterator
@@ -36,7 +37,11 @@ DEFAULT_HISTORY_PATH = DEFAULT_HISTORY_DIR / "history.jsonl"
 
 
 def _lock_fileregion(fd: Any, length: int) -> None:
-    if os.name == "nt":
+    # 平台判据一律用 sys.platform(与 os.name == "nt" 在 CPython 上互为等价):
+    # typeshed 只按 sys.platform 收窄模块可用性,用它 mypy 才会把非本平台的那条
+    # 分支整段跳过 —— 用 os.name 时两条分支都被分析,Linux 面就会报 msvcrt 无
+    # locking/LK_* 属性(Windows 是本项目的生产形态,不能反过来用 ignore 糊)。
+    if sys.platform == "win32":
         import msvcrt
 
         msvcrt.locking(fd.fileno(), msvcrt.LK_LOCK, max(1, length))
@@ -46,7 +51,7 @@ def _lock_fileregion(fd: Any, length: int) -> None:
 
 
 def _unlock_fileregion(fd: Any, length: int) -> None:
-    if os.name == "nt":
+    if sys.platform == "win32":
         import msvcrt
 
         with_state = fd.seek(0)
@@ -78,7 +83,7 @@ class _CrossProcessLock:
     def __enter__(self) -> _CrossProcessLock:
         try:
             self._fd = open(self._path, "a+b")
-            if os.name == "nt":
+            if sys.platform == "win32":
                 import msvcrt
 
                 deadline = time.monotonic() + self._timeout
@@ -102,7 +107,7 @@ class _CrossProcessLock:
         if self._fd is None:
             return
         try:
-            if os.name == "nt":
+            if sys.platform == "win32":
                 import msvcrt
 
                 self._fd.seek(0)
