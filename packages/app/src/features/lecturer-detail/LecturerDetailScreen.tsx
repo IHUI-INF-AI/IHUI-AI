@@ -15,8 +15,9 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { ChevronLeft, Star } from 'lucide-react-native'
-import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Star } from 'lucide-react-native'
+import { BackChevron } from '../../components/BackChevron'
+import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 import type {
   LecturerDetailCourse,
   LecturerDetailInfo,
@@ -82,7 +83,13 @@ export function LecturerDetailScreen({
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <Header title={t('teacher.list.title')} onBack={onBack} styles={styles} />
+        <Header
+          title={t('teacher.list.title')}
+          onBack={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          styles={styles}
+        />
         <ActivityIndicator color={tk.text.secondary} />
       </View>
     )
@@ -91,7 +98,13 @@ export function LecturerDetailScreen({
   if (error && !info) {
     return (
       <View style={styles.container}>
-        <Header title={t('teacher.list.title')} onBack={onBack} styles={styles} />
+        <Header
+          title={t('teacher.list.title')}
+          onBack={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          styles={styles}
+        />
         <View style={styles.center}>
           <Text style={styles.emptyText}>{error}</Text>
         </View>
@@ -101,7 +114,13 @@ export function LecturerDetailScreen({
 
   return (
     <View style={styles.container}>
-      <Header title={info?.nickname ?? t('teacher.list.title')} onBack={onBack} styles={styles} />
+      <Header
+        title={info?.nickname ?? t('teacher.list.title')}
+        onBack={onBack}
+        label={t('common.back')}
+        colorScheme={colorScheme}
+        styles={styles}
+      />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* 头部:头像 + 姓名/金牌徽章/头衔 + 关注按钮 */}
         <View style={styles.header}>
@@ -274,22 +293,19 @@ export function LecturerDetailScreen({
 function Header({
   title,
   onBack,
+  label,
+  colorScheme,
   styles,
 }: {
   title: string
   onBack: () => void
+  label: string
+  colorScheme: AppThemeMode
   styles: ReturnType<typeof createStyles>
 }) {
   return (
     <View style={styles.headerBar}>
-      <Pressable
-        style={styles.headerBackBtn}
-        onPress={onBack}
-        accessibilityRole="button"
-        accessibilityLabel="back"
-      >
-        <ChevronLeft size={22} color={styles.headerIcon.color} />
-      </Pressable>
+      <BackChevron onPress={onBack} label={label} colorScheme={colorScheme} />
       <Text style={styles.headerTitle} numberOfLines={1}>
         {title}
       </Text>
@@ -344,15 +360,6 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       height: 44,
       paddingHorizontal: 10,
-    },
-    headerBackBtn: {
-      width: 32,
-      height: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    headerIcon: {
-      color: tk.brand.DEFAULT,
     },
     headerTitle: {
       flex: 1,
