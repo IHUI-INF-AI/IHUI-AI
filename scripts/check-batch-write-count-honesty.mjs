@@ -68,9 +68,16 @@
  *   ②③④ 的放过都**折进既有的 confirmed 桶**(它们说的是"库答复已在别处存在",不是"有人给了豁免"),
  *   所以 b1* 与 b2* 的既有键、取值形态一字不变;具体靠哪一条证据放过由 confirmWhy 带出(`--explain` 里
  *   点名)—— "放过"与"没看见"必须能各自被问到。
- *   **已知空档(如实登记,不得为覆盖它去猜)**:门**不把** `db.execute(sql\`DELETE …\`)` 当成一条
- *   写链(只把它当放过的证据)。所以"原生 SQL 发了写 + 回布尔 true + SQL 里没有 RETURNING"这一格
- *   B1 仍然看不见 —— 要补它得先给"模板串里的 SQL 动词"建一份解析器,那是独立的判定面,不是扩键族。
+ *   **原"已知空档"已于同日关闭(第三十批)**:门此前**不把** `db.execute(sql\`DELETE …\`)` 当成一条
+ *   写链(只把它当放过的证据),所以"原生 SQL 发了写 + 回布尔 true + SQL 里没有 RETURNING"这一格
+ *   B1/V 都看不见。现已补上 **裸 SQL 写链**这一维(`findRawSqlWriteChains`,写判据用
+ *   `DELETE FROM` / `UPDATE <ident>` / `INSERT INTO` / `TRUNCATE TABLE` 的**搭配式**而非裸关键字,
+ *   以免把 `WHERE action = 'UPDATE'` 这类读查询判成写)。**仍开着两格,如实登记**:
+ *     ① B2 那一跳(ack 在调用方、写住在**另一个文件**的委托函数里)仍只认 drizzle 链 —— 普查实测
+ *       HEAD 面"含裸 SQL 写的具名函数"**零个**被 ack 落点调用,所以补它当前无存量可验,属投机;
+ *       出现该形状时必须回来接(`indexExportedFns` 需同时收"保留字符串"那一档正文)。
+ *     ② ack 键在 `BOOL_ACK_KEYS` 五键**之外**的同一形状(实测两处病灶的回的是 `updated:true`)——
+ *       加键属全 API 语义决策(见上"布尔档的键族"一段),不是这道门能顺手扩的;两处病灶已改真。
  *
  * B1(2026-09-27 立):布尔 ack 里**可判的那一部分**从"只报数"升级成棘轮判据。用户已拍板把
  * `deleted: true` 改成真实语义(= 库里真删了一行,6 路并行改造在跑),所以"函数里真发了 delete/update,
@@ -720,17 +727,70 @@ export function findHonestCarrierSibling(objText) {
  * 那一档上按同一下标窗口读 execute 调用的原文,只认落在该次调用括号内的 RETURNING 关键字
  * (注释里提一句 RETURNING 不配放过 —— 与"注释里的 .returning( 不算"同一条规矩,由 K-raw② 钉住)。
  */
-export function hasRawSqlReturning(nonBlankCode, bodyStart, bodyEnd) {
-  const re = /\b(?:db|tx|trx)\s*\.\s*execute\s*\(/g
+/**
+ * **裸 SQL 写链**(2026-09-27 第三十批):`db.execute(sql\`DELETE FROM …\`)` 这一族**就是一条写**。
+ *
+ * 立因(普查实测,不是假想):HEAD 面 `apps/api/src` 的 raw-SQL 写共 90 处(括号可解析的那一档),
+ * 其中两处被逐体读成病灶 ——
+ *   ① `routes/user-llm-configs-v2.ts` PUT `/llm-providers/:pid/models/:mid`:UPDATE **不带 RETURNING**
+ *      而响应无条件回 `updated: true`,且 `sets.length===1` 那一支**整趟事务没发任何写**也回 true;
+ *   ② `routes/ai-extended.ts` PUT `/model-info/:id`:`UPDATE … RETURNING *` 的命中集为空(id 不存在)时
+ *      走 `?? { id, updated: true }` 兜底 —— 库答复就在手上却没据它判定。
+ * 旧口径**只把 `db|tx|trx` 上的 drizzle 方法链当写链**,raw SQL 只被当"放过的证据"(RETURNING 字样),
+ * 所以 B1/B2/V 三条判据对这一格全体失明。本函数把"写"这一维补齐,`hasRawSqlReturning` 改为它的投影
+ * (两处各写一份 SQL 解析必然漂移 —— 本仓为这条记过多次)。
+ *
+ * 判"是不是写"用**搭配式**而非裸关键字:`DELETE\s+FROM` / `UPDATE\s+"?[A-Za-z_]` / `INSERT\s+INTO` /
+ * `TRUNCATE\s+TABLE`。理由:SELECT 语句里完全可能出现大写 `'UPDATE'` 这样的**值**(审计表的 action 列),
+ * 只认 `\bUPDATE\b` 会把读查询判成写链 = 假阳,而假阳比漏报贵(它指使人去"修"没坏的东西)。
+ * `${…}` 插值先剥成 `?`,不拿 JS 表达式里的标识符当 SQL 关键字。
+ *
+ * @returns {{chains:Array<{start:number,end:number,receiver:string,hasReturning:boolean,
+ *            hasWhere:boolean,hasInArray:boolean,rawSql:true,opaque:false}>,
+ *            unparsed:Array<{index:number}>}}
+ *   `unparsed` = 括号配平不到的 execute 调用(判不了它的动词与 RETURNING)⇒ 由调用方按"未判定"点名,
+ *   **既不冒红也不静默算通过**。
+ */
+export function findRawSqlWriteChains(nonBlankCode) {
+  const chains = []
+  const unparsed = []
+  const re = /\b([A-Za-z_$][\w$]*)\s*\.\s*execute\s*\(/g
   let m
   while ((m = re.exec(nonBlankCode)) !== null) {
-    if (m.index < bodyStart || m.index >= bodyEnd) continue
+    const receiver = m[1]
+    if (!WRITE_RECEIVERS.has(receiver)) continue
     const open = nonBlankCode.indexOf('(', m.index + m[0].length - 1)
     const end = open >= 0 ? closeParen(nonBlankCode, open) : -1
-    if (end < 0 || end > bodyEnd) continue
-    if (/\bRETURNING\b/i.test(nonBlankCode.slice(open, end))) return true
+    if (end < 0) {
+      unparsed.push({ index: m.index })
+      continue
+    }
+    const call = nonBlankCode.slice(open, end)
+    const sqlish = call.replace(/\$\{[^{}]*\}/g, ' ? ')
+    // 尾部的 `\b` 曾把这一判据**整体打死**:`UPDATE\s+"?[A-Za-z_]` 后面紧跟标识符的第二个字母 ⇒ 不是词边界 ⇒
+    // 真仓 HEAD 上 4 条 `UPDATE ai_model_config_*` 全部不被认出(阳性对照量出来的,见镜像 M23 与自检 K4b)。
+    if (!/\b(?:DELETE\s+FROM|UPDATE\s+"?[A-Za-z_]|INSERT\s+INTO|TRUNCATE\s+TABLE)/.test(sqlish))
+      continue
+    chains.push({
+      start: m.index,
+      end,
+      receiver,
+      hasReturning: /\bRETURNING\b/i.test(sqlish),
+      hasWhere: /\bWHERE\b/i.test(sqlish),
+      hasInArray: /\bIN\s*\(/i.test(sqlish) || /\binArray\s*\(/.test(call),
+      rawSql: true,
+      opaque: false,
+    })
   }
-  return false
+  return { chains, unparsed }
+}
+
+/** 原始 SQL 的 RETURNING 证据:`findRawSqlWriteChains` 的投影(单一实现,见上)。 */
+export function hasRawSqlReturning(nonBlankCode, bodyStart, bodyEnd) {
+  return findRawSqlWriteChains(nonBlankCode).chains.some(
+    (c) =>
+      c.hasReturning && c.start >= bodyStart && c.start < bodyEnd && (c.opaque ? false : true),
+  )
 }
 
 /**
@@ -757,9 +817,12 @@ export function findBoolAckB1Sites(
   allChains = null,
   ackSites = null,
   nonBlankCode = null,
+  rawPool = null,
 ) {
   const bodies = findFunctionBodies(code)
   const chains = allChains || findWriteChains(code)
+  // 裸 SQL 写链(第三十批):与 drizzle 链**同一条判据、同一份取材**,只是写住在模板串里。
+  const rawChains = (rawPool || findRawSqlWriteChains(nonBlankCode || '')).chains
   const out = {
     file: relPath,
     candidates: [],
@@ -775,9 +838,16 @@ export function findBoolAckB1Sites(
       out.noBodySites.push({ file: relPath, line })
       continue
     }
-    const chain = chains.find((c) => c.start >= body.start && c.end <= body.end)
-    if (!chain) continue // 同函数体无写链:纯惯例面(V1 已计),B1 不判
+    const chain =
+      chains.find((c) => c.start >= body.start && c.end <= body.end) ||
+      // 体里没有 drizzle 链时,才看裸 SQL:**不带 RETURNING** 的那一条才算写
+      // (带 RETURNING 的已由 hasRawSqlReturning 当库答复证据放过,两种形状不重复计账)。
+      rawChains.find(
+        (c) => !c.hasReturning && c.start >= body.start && c.end <= (body.end ?? 1 << 30),
+      )
+    if (!chain) continue // 同函数体无写链(含裸 SQL 那一维):纯惯例面(V1 已计),B1 不判
     const site = { file: relPath, line, key: b.key, receiver: chain.receiver }
+    if (chain.rawSql) site.via = 'raw-sql'
     out.candidates.push(site)
     const bodyText = code.slice(body.start, body.end)
     if (RETURNING_IN_BODY_RE.test(bodyText) || BATCH_OUTCOME_IN_BODY_RE.test(bodyText)) {
@@ -1231,7 +1301,12 @@ export function scanFileText(relPath, text, opts = {}) {
   const nonBlank = maskText(text, { blankStrings: false }).text
   const rawLines = text.split(/\r?\n/)
   const bodies = findFunctionBodies(code)
-  const batchChains = findWriteChains(code).filter((c) => c.hasWhere && c.hasInArray && !c.opaque)
+  // 裸 SQL 写链与 drizzle 写链**并进同一个池**(第三十批):两条判据(V/B1)问的是"这一屏真发了写
+  // 而没有库答复",写住在方法链上还是模板串里不改变这个问题的答案。分池实现必然只有一边在动。
+  const rawPool = findRawSqlWriteChains(nonBlank)
+  const batchChains = [...findWriteChains(code), ...rawPool.chains].filter(
+    (c) => c.hasWhere && c.hasInArray && !c.opaque,
+  )
   const sends = findCountSends(code)
   const usesOutlet = SPEC_RE.test(nonBlank)
   const res = {
@@ -1251,6 +1326,10 @@ export function scanFileText(relPath, text, opts = {}) {
     // 也要有这张表,否则报表读 undefined ⇒ 结论行少一族,而"少一族"看起来就像"那一族是 0"。
     booleanAckByKey: Object.fromEntries(BOOL_ACK_KEYS.map((k) => [k, 0])),
     readQuery: [],
+    // 本文件被认出的裸 SQL 写链(可见性桶;带 ack 的落点由 B1/V 判,不参与 decide 之外的四个判据数)。
+    rawSqlWrites: rawPool.chains.map((c) => ({ start: c.start, returning: c.hasReturning })),
+    // 裸 SQL execute 解析不到的落点(可见性桶;带 ack 的那些同时进 undetermined,见 U3)。
+    rawSqlUnparsed: [],
     // B1(判据,自带 b1* 键;既有四数 candidates/violations/undetermined/exempt 一字不并入)。
     b1: {
       candidates: [],
@@ -1338,7 +1417,26 @@ export function scanFileText(relPath, text, opts = {}) {
   res.booleanAckByKey = Object.fromEntries(BOOL_ACK_KEYS.map((k) => [k, 0]))
   for (const b of res.booleanAck) res.booleanAckByKey[b.key] = (res.booleanAckByKey[b.key] || 0) + 1
   const allChains = findWriteChains(code)
-  res.b1 = findBoolAckB1Sites(relPath, code, rawLines, allChains, boolSites, nonBlank)
+  res.b1 = findBoolAckB1Sites(relPath, code, rawLines, allChains, boolSites, nonBlank, rawPool)
+  // 裸 SQL 写链**解析不到**(括号配平失败)那一格:只有当同一函数体里确实有 ack 时,判据的结论
+  // 才依赖它 ⇒ 记"未判定"(与 U1/U2 同档,--strict 下拒绝出合格证);体里没有 ack 的解析失败不影响
+  // 任何结论,只进 rawSqlUnparsed 可见性桶(报数点名,不冒红也不静默算通过)。
+  res.rawSqlUnparsed = []
+  for (const u of rawPool.unparsed) {
+    const line = lineAt(nonBlank, u.index)
+    const body = enclosingBody(bodies, u.index)
+    const ackHere =
+      !!body &&
+      (sends.some((s) => s.index >= body.start && s.index < body.end) ||
+        boolSites.some((s) => s.index >= body.start && s.index < body.end))
+    res.rawSqlUnparsed.push({ file: relPath, line, ackHere })
+    if (ackHere)
+      res.undetermined.push({
+        file: relPath,
+        line,
+        why: `db*.execute(...) 括号配平不到 ⇒ 判不了这条裸 SQL 是不是写、有没有 RETURNING,而同一函数体里有 ack(U3)`,
+      })
+  }
   // B2(一跳委托):第一遍只用**本地**信息(调用方正文 + 同面文件清单)得出"要读哪些被调文件";
   // 被调正文由 analyze 在同一面一次读满后再跑第二遍。acks 与 B1 共用**同一份** boolSites —— 两处
   // 各扫一遍 send 形态必然漂移(M16 那把锁的同族)。
@@ -1515,6 +1613,11 @@ export function analyze(root, face, opts = {}) {
     booleanAckFiles: per.filter((r) => r.booleanAck.length > 0).length,
     readQueryCountSites: per.reduce((a, r) => a + r.readQuery.length, 0),
     readQueryCountFiles: per.filter((r) => r.readQuery.length > 0).length,
+    // 裸 SQL 写链的可见性数(第三十批):`rawSqlWriteSites` = 面上被认出的裸 SQL 写;
+    // `rawSqlUnparsed*` = 括号配平不到的 execute(带 ack 的那些已进 undetermined,其余只报数)。
+    rawSqlWriteSites: per.reduce((a, r) => a + r.rawSqlWrites.length, 0),
+    rawSqlUnparsedSites: per.reduce((a, r) => a + r.rawSqlUnparsed.length, 0),
+    rawSqlUnparsedFiles: per.filter((r) => r.rawSqlUnparsed.length > 0).length,
     // B1(判据)自己的键 —— 既有四数(candidates/violations/undetermined/exempt)刻意不并入 B1。
     b1Candidates: per.reduce((a, r) => a + r.b1.candidates.length, 0),
     b1Violations: b1Violations.length,
@@ -1798,6 +1901,9 @@ export function formatReport(out) {
       // ("判据失效的表现永远是安静"同型)。它们不参与退出码 —— 措辞里"不计红"是这一句的约束力所在。
       ` 布尔 ack 惯例(不计红,仅现读计数): ${c.booleanAckSites} 处 / ${c.booleanAckFiles} 文件` +
       `;读查询 count 惯例(不计红,仅现读计数): ${c.readQueryCountSites} 处 / ${c.readQueryCountFiles} 文件` +
+      // 裸 SQL 写链这一维(第三十批)同样"现读点名":没有这一句,读报告的人分不清"面上没有裸 SQL 写"
+      // 与"有,但都被判过/放过";配平不到的那些若带 ack 已进未判定,其余在此报数。
+      `;裸 SQL 写链(第三十批补的写维):认出 ${c.rawSqlWriteSites ?? 0} 处,括号配平不到 ${c.rawSqlUnparsedSites ?? 0} 处 / ${c.rawSqlUnparsedFiles ?? 0} 文件(带 ack 的已计未判定)` +
       // B1 是判据,结论行同样必须现读点名(含 0):它的"存量只报数"与"新增即红"共用这份数字,
       // 少喊一句,读报告的人就分不清"这一族没扫过"和"扫了是 0"。
       `;B1 假 ack(判据:违规 ${c.b1Violations ?? 0} 处 / ${c.b1Files ?? 0} 文件,` +
@@ -2194,6 +2300,36 @@ const HONEST_RAW_SQL_WITH_CHAIN = h([
   '  return reply.send(success({ userId: id, removed: true }))',
 ])
 const HONEST_RAW_SQL_NO_RETURNING = HONEST_RAW_SQL_WITH_CHAIN.replace(' RETURNING id', '')
+/* ---- 2026-09-27 第三十批:**裸 SQL 写链**这一维的夹具(普查实测的两处病灶形状)----
+ * 立门前的事实:HEAD 面 `apps/api/src` 的 raw-SQL 写 90 处,其中两处被逐体读成病灶
+ * (user-llm-configs-v2.ts 的 UPDATE 不带 RETURNING 而回 `updated:true`、
+ *  ai-extended.ts 的 RETURNING 命中集为空时走 `?? { updated: true }` 兜底)。
+ * 这两处的 ack 键是 `updated` —— **不在** BOOL_ACK_KEYS 五键族内(加键属全 API 语义决策,须逐键
+ * 拍板并先清偿存量,不是这道门能顺手扩的),所以本维对它们的覆盖方式是:**换同族键即红**由 RAW_WRITE_*
+ * 钉死(把 `updated` 换成 `deleted` 就是 HEAD 面已判红的那一型),而不是把这两个键塞进键表凑数。 */
+/** 正例(必红):写住在 `db.execute(sql`DELETE FROM …`)` 里、**没有 RETURNING**,响应回布尔字面量。 */
+const RAW_WRITE_LIE = h([
+  '  await db.execute(',
+  '    sql`DELETE FROM organization_members WHERE org_id::text = ${id} AND user_id::text = ${uid}`,',
+  '  )',
+  '  return reply.send(success({ id, deleted: true }))',
+])
+/** 反例(必 0 违规、按库确认放过):逐字同上,只补 `RETURNING id`。 */
+const RAW_WRITE_HONEST = RAW_WRITE_LIE.replace(
+  'AND user_id::text = ${uid}`',
+  'AND user_id::text = ${uid} RETURNING id`',
+)
+/** 反假阳:读查询里出现大写 `'UPDATE'` **值**、以及把写动词藏进注释 ⇒ 不得算写链。 */
+const RAW_READ_ONLY = h([
+  '  // 这里注释提到 DELETE FROM 与 UPDATE x,但正文只读',
+  "  const rows = await db.execute(sql`SELECT id, action FROM audit WHERE action = 'UPDATE'`)",
+  '  return reply.send(success({ id, deleted: true }))',
+])
+/** 未判定:execute 调用的括号配不到(模板里混进未闭合括号)⇒ 判不了动词,不冒红也不记绿。 */
+const RAW_WRITE_UNPARSED = h([
+  '  await db.execute(sql`DELETE FROM t WHERE id IN (${id}`,',
+  '  return reply.send(success({ id, deleted: true }))',
+])
 /** 型③:内存 Map 的 delete 返回真布尔,404 由它派生 —— 没有"库侧行"这个概念,不属本型。 */
 const HONEST_MEMORY_MAP_DELETE = h([
   '  if (!ipBlacklist.delete(ip)) {',
@@ -2870,7 +3006,8 @@ function selfTest(argv) {
   )
   // ---- "证据在别处"四型:每一型一条正例 + 一条"把证据拿掉就必须红"的反例(有牙证明)。----
   eq(
-    'K2 型②真实形状(organization):删除住在原生 SQL 模板里 ⇒ 体内无可见写链,B1 不入候选、惯例面照点名',
+    'K2 型②真实形状(organization):删除住在原生 SQL 模板里、**该条 SQL 自带 RETURNING** ⇒ 库答复在手,B1 不入候选、惯例面照点名' +
+      '(第三十批扩维后这一条不再等于"体内没有可见写链"——写链看得见,只是它带着 RETURNING)',
     [b1Of(HONEST_RAW_SQL), ackOf(HONEST_RAW_SQL)],
     [
       [0, 0, 0, 0],
@@ -2893,6 +3030,45 @@ function selfTest(argv) {
   eq(
     'K4 型②反例:把模板里的 RETURNING 拿掉 ⇒ 同一夹具必红(证明 K3 的放过来自那一条证据)',
     b1Of(HONEST_RAW_SQL_NO_RETURNING),
+    [1, 1, 0, 0],
+  )
+  // ---- 第三十批:**裸 SQL 写链**这一维(成对三条 + 一条未判定)。K2 那句"B1 不入候选"在扩维后
+  //      只因为那条 SQL 带 RETURNING 才成立,所以必须有一组"不带 RETURNING 就红"的正反对照,
+  //      否则这一维可以整块被摘掉而自检照绿(守门 70/76/81 同型:判据失效的表现永远是安静)。----
+  eq(
+    'K4b 裸 SQL 写(DELETE FROM,无 RETURNING)+ deleted:true ⇒ B1 必红并点名经由 raw-sql',
+    (() => {
+      const r = v(RAW_WRITE_LIE)
+      return [
+        r.b1.candidates.length,
+        r.b1.violations.length,
+        r.b1.violations[0]?.via ?? '',
+        r.b1.exempt.confirmed,
+      ]
+    })(),
+    [1, 1, 'raw-sql', 0],
+  )
+  eq(
+    'K4c 逐字同一夹具只补 RETURNING ⇒ 不入候选、违规归零(K4b↔K4c 这一对就是"红来自缺库答复、不是来自判据看不见"的变异对照)',
+    b1Of(RAW_WRITE_HONEST),
+    [0, 0, 0, 0],
+  )
+  eq(
+    'K4d 反假阳:读查询里的 UPDATE **值** + 注释里的 DELETE FROM ⇒ 不得算写链(否则 SELECT 也能给假 ack 定罪)',
+    b1Of(RAW_READ_ONLY),
+    [0, 0, 0, 0],
+  )
+  eq(
+    'K4e 括号配平不到的 execute ⇒ 未判定(U3)且不判红也不记绿;同一格没有 ack 时只报数',
+    (() => {
+      const r = v(RAW_WRITE_UNPARSED)
+      return [
+        r.rawSqlUnparsed.length,
+        r.undetermined.length,
+        r.b1.violations.length,
+        r.violations.length,
+      ]
+    })(),
     [1, 1, 0, 0],
   )
   eq(
@@ -3541,6 +3717,7 @@ export const __test__ = {
   BOOL_ACK_KEY_VERBS,
   findHonestCarrierSibling,
   hasRawSqlReturning,
+  findRawSqlWriteChains,
   sendSuccessObjects,
   readExemptMarker,
   scanFileText,
