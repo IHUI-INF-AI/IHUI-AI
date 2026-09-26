@@ -27,9 +27,9 @@ import {
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 26 个契约事件', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(26)
-    expect(SSE_EVENT_NAMES).toHaveLength(26)
+  it('包含全部 28 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval)', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(28)
+    expect(SSE_EVENT_NAMES).toHaveLength(28)
   })
 
   // D34(2026-09-22,G-40/G-44):运行环境交代两帧。
@@ -102,7 +102,6 @@ describe('isSSEEventName', () => {
  */
 const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   CHUNK: 'chunk',
-  TOKEN: 'token',
   REASONING: 'reasoning',
   TOOL_CALL_START: 'tool-call-start',
   TOOL_RESULT: 'tool-result',
@@ -118,6 +117,11 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   PLAN_UPDATED: 'plan_updated',
   TERMINAL_START: 'terminal_start',
   TERMINAL_END: 'terminal_end',
+  // V3 #48(2026-09-26)补登:终端逐行增量 / agent 流执行开始
+  TERMINAL_DELTA: 'terminal_delta',
+  START: 'start',
+  // V3 #58(2026-09-26):主聊天流工具审批帧
+  TOOL_APPROVAL: 'tool-approval',
   DONE: 'done',
   ERROR: 'error',
   COMPACTION: 'compaction',

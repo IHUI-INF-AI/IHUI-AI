@@ -1019,6 +1019,9 @@ async def execute_agent_stream(
                 from ..services.hook_engine import hook_engine
 
                 session_id = req.session_id or f"session-{asyncio.get_running_loop().time()}"
+                # V3 #55:压缩上限按模型动态解析(函数内局部 import,与本文件风格一致)
+                from app.core.model_context_window import resolve_with_env_priority
+
                 # O19:登记属主,供 tasks/stream 与 /agents/{id}/stream 做事件级属主过滤
                 record_ownership(session_id, current_user)
                 owned_sessions.append(session_id)
@@ -1035,6 +1038,11 @@ async def execute_agent_stream(
                     # (agent_loop_v2._request_approval → self._user_id),并启用 P1-6
                     # 记忆闭环的用户隔离。
                     user_id=current_user,
+                    # V3 #55(2026-09-26):压缩上限缺省按请求模型动态解析
+                    # (env AGENT_COMPACTION_CONTEXT_LIMIT 显式配置仍优先;彻底关压缩
+                    # 走灰度总闸 AGENT_COMPACTION_MODE=off,语义正确且可放量)。
+                    # 此前缺省 0=永不压缩,放量基建(灰度/指标/回退)齐备但线上从未生效。
+                    compaction_context_limit=resolve_with_env_priority(req.model),
                 )
                 # 订阅事件 → SSE(统一订阅集合 agent_events.AGENT_SUBSCRIBE_EVENTS,
                 # 补齐 thinking.delta/plan.step/session.end/permission.mode,
@@ -1242,6 +1250,8 @@ async def resume_agent_execute(
             record_ownership(resumed_session, current_user)
 
     try:
+        from app.core.model_context_window import resolve_with_env_priority
+
         loop = AgentLoopV2(
             _make_loop_v2_llm(req.model),
             tools=await _build_loop_v2_tools(req.tools),
@@ -1249,6 +1259,9 @@ async def resume_agent_execute(
             enable_checkpoint=True,
             # O19:principal 贯通(审批属主登记 + 记忆隔离口径与 execute 一致)
             user_id=current_user,
+            # V3 #55(2026-09-26):与 execute/stream 同口径,压缩上限按模型动态解析
+            # (env 显式配置优先;断点续跑恢复的历史消息同样受压缩保护)。
+            compaction_context_limit=resolve_with_env_priority(req.model),
         )
         try:
             result = await loop.resume_from_checkpoint(req.checkpoint_id)

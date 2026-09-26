@@ -30,6 +30,9 @@ import {
   Tags,
   Pin,
   PinOff,
+  // V3 #62:侧栏会话搜索开关图标(放大镜=收起态,X=激活态,点击收起并清空)
+  Search,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
@@ -41,7 +44,13 @@ import {
   compressConversation,
   setConversationPinned,
 } from '@ihui/api-client'
-import { filterByFolder, getOrgMeta, listFolderNames, sortPinnedFirst } from '@ihui/shared'
+import {
+  filterByFolder,
+  getOrgMeta,
+  listFolderNames,
+  sortPinnedFirst,
+  type ConversationOrgMap,
+} from '@ihui/shared'
 import { useChatStore } from '@/stores/chat'
 import {
   useConversationOrgMap,
@@ -86,6 +95,8 @@ import {
   DialogFooter,
   Input,
   Button,
+  // V3 #62:侧栏搜索框复用全项目统一搜索井(/chat/history 页同款)
+  SearchInput,
 } from '@ihui/ui-react'
 
 interface ConversationItem {
@@ -140,6 +151,35 @@ function groupByDate(items: ConversationItem[]): { key: GroupKey; items: Convers
     .map((k) => ({ key: k, items: buckets[k] }))
 }
 
+/** V3 #62:可搜索会话的最小结构(仅声明搜索所需字段,便于纯函数单测与泛型复用) */
+export interface SearchableConversation {
+  id: string
+  title: string
+}
+
+/**
+ * V3 #62:侧栏会话关键词过滤(纯函数,导出供单测)。
+ * 匹配面以侧栏真实数据结构为准:会话标题 + 文件夹名 + 标签名(D20 客户端元数据 orgMap)。
+ * 检索面为本地过滤,无后端接口 —— 与 /chat/history 页已验证的
+ * `title.toLowerCase().includes(keyword)` 模式同款,并按侧栏元数据自然扩展两个匹配面。
+ * 关键词为空白时返回原列表的浅拷贝(不返回原引用,保证 React 渲染语义稳定)。
+ */
+export function filterConversationsByKeyword<T extends SearchableConversation>(
+  items: readonly T[],
+  keyword: string,
+  orgMap?: ConversationOrgMap | null,
+): T[] {
+  const q = keyword.trim().toLowerCase()
+  if (!q) return [...items]
+  return items.filter((item) => {
+    if (item.title?.toLowerCase().includes(q)) return true
+    const meta = orgMap ? getOrgMeta(orgMap, item.id) : undefined
+    if (meta?.folder?.toLowerCase().includes(q)) return true
+    if (meta?.tags?.some((tag) => tag.toLowerCase().includes(q))) return true
+    return false
+  })
+}
+
 /**
  * 侧边栏内嵌的任务列表卡片(对齐旧架构 SidebarChatHistory.vue 视觉设计)。
  * - 卡片容器:border + rounded-md + bg-card,宽度与上方"新建任务"按钮一致(w-full,无 mx-2)
@@ -164,6 +204,8 @@ export function SidebarChatHistory({
   const t = useTranslations('chatHistory')
   const tc = useTranslations('aiChat')
   const te = useTranslations('chat.exportMenu')
+  // V3 #62:复用 chatSearchBar.searchAriaLabel(孤儿件 ChatSearchBar 删除后该键的唯一消费者)
+  const t2 = useTranslations('chatSearchBar')
   const tCommon = useTranslations('common')
   const locale = useLocale()
   const queryClient = useQueryClient()
@@ -193,6 +235,20 @@ export function SidebarChatHistory({
   /** 文件夹筛选:undefined=全部,null=未分组,字符串=指定文件夹 */
   const [folderFilter, setFolderFilter] = React.useState<string | null | undefined>(undefined)
   const [pendingOrgItem, setPendingOrgItem] = React.useState<ConversationItem | null>(null)
+
+  // V3 #62:侧栏会话搜索(收起态=放大镜按钮,展开态=SearchInput;纯本地过滤,无后端接口)
+  const [searchOpen, setSearchOpen] = React.useState(false)
+  const [searchQuery, setSearchQuery] = React.useState('')
+  const searchInputRef = React.useRef<HTMLInputElement>(null)
+  // 展开时自动聚焦(对齐已删除旧孤儿件 ChatSearchBar 的 show→focus 交互)
+  React.useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus()
+  }, [searchOpen])
+  /** 收起搜索:必须同步清空关键词,否则隐藏的输入框会残留旧过滤条件导致列表"消失" */
+  const closeSearch = React.useCallback(() => {
+    setSearchOpen(false)
+    setSearchQuery('')
+  }, [])
 
   React.useEffect(() => {
     if (pendingRenameId) {
@@ -338,9 +394,17 @@ export function SidebarChatHistory({
   // total: 后端真实总数(首页返回,所有页一致)
   const rawItems = data?.pages.flatMap((p) => p.conversations) ?? []
   const total = data?.pages[0]?.total ?? 0
-  // D20(G-11):先按文件夹筛选(undefined=不过滤),再置顶优先(稳定排序),
-  // 最后沿用按时间分组 —— 置顶项在各组内仍居前,与后端排序一致
-  const items = sortPinnedFirst(filterByFolder(rawItems, orgMap, folderFilter))
+  // V3 #62:搜索关键词(小写包含匹配);searching 标记搜索态,渲染层据此降级为平铺
+  const searchKeyword = searchQuery.trim().toLowerCase()
+  const searching = searchKeyword.length > 0
+  // D20(G-11) + V3 #62:管道 = 文件夹筛选 → 关键词过滤(标题/文件夹名/标签名) → 置顶优先(稳定排序)
+  const items = sortPinnedFirst(
+    filterConversationsByKeyword(
+      filterByFolder(rawItems, orgMap, folderFilter),
+      searchQuery,
+      orgMap,
+    ),
+  )
   const filteredOut = rawItems.length > 0 && items.length === 0
 
   const handleSelect = (item: ConversationItem) => {
@@ -814,6 +878,20 @@ export function SidebarChatHistory({
                 {total}
               </span>
             )}
+            {/* V3 #62:搜索开关(收起态放大镜,激活态 X + 高亮;展开的输入框渲染在标题行下方) */}
+            <button
+              type="button"
+              aria-label={t2('searchAriaLabel')}
+              aria-expanded={searchOpen}
+              data-testid="conversation-search-toggle"
+              onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+              className={cn(
+                'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
+                searchOpen && 'bg-primary/10 text-primary',
+              )}
+            >
+              {searchOpen ? <X className="h-3 w-3" /> : <Search className="h-3 w-3" />}
+            </button>
             {/* D20(G-11):文件夹筛选器(仅在已建文件夹时出现,undefined=不过滤) */}
             {orgFolders.length > 0 && (
               <DropdownMenu>
@@ -851,6 +929,24 @@ export function SidebarChatHistory({
           </span>
         </div>
 
+        {/* V3 #62:搜索输入框(仅展开态渲染;Esc 收起并清空,恢复完整列表) */}
+        {searchOpen && (
+          <div className="px-1 pb-1">
+            <SearchInput
+              ref={searchInputRef}
+              size="sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') closeSearch()
+              }}
+              placeholder={t('searchPlaceholder')}
+              aria-label={t2('searchAriaLabel')}
+              data-testid="conversation-search-input"
+            />
+          </div>
+        )}
+
         {isLoading ? (
           <div className="flex items-center gap-2 px-2 py-3 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -883,14 +979,21 @@ export function SidebarChatHistory({
                 }
               }}
             >
-              {groupByDate(items).map((group) => (
-                <div key={group.key} className="mb-0.5 last:mb-0">
-                  <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                    {tc(group.key)}
+              {/* V3 #62:搜索态平铺(自然降级) —— 时间分组(今天/本周/本月)是浏览型导航,
+                  搜索时用户目标是快速定位匹配项,分组头反而稀释结果、增加扫视成本,
+                  故搜索中平铺展示全部匹配项(置顶优先仍保留),清空关键词即恢复分组 */}
+              {searching ? (
+                <ul>{items.map(renderItem)}</ul>
+              ) : (
+                groupByDate(items).map((group) => (
+                  <div key={group.key} className="mb-0.5 last:mb-0">
+                    <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                      {tc(group.key)}
+                    </div>
+                    <ul>{group.items.map(renderItem)}</ul>
                   </div>
-                  <ul>{group.items.map(renderItem)}</ul>
-                </div>
-              ))}
+                ))
+              )}
               {isFetchingNextPage && (
                 <div className="flex justify-center py-1.5">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
