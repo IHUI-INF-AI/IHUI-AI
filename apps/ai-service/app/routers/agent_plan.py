@@ -182,6 +182,12 @@ async def _execute_plan(rec: Any, tool_names: frozenset[str]) -> dict[str, Any]:
     rec.updated_at = _now()
     plan_store.save(rec)
     try:
+        # 角色在此**刻意保持默认 0(最小权限),不是漏接线**(V3 #47 第二格同日说明):
+        # 计划是"批准后异步执行",执行时刻已经没有请求上下文可读 `request.state.role_id`。
+        # 后果只有一条 —— 只读集里 3 个 admin 专属工具(`crawl_site`/`fetch_url`/
+        # `screenshot_url`,实测 READONLY ∩ _ADMIN_ONLY_TOOLS)在计划执行里不可用。
+        # 要放开必须先把"批准人角色"落到计划记录(涉及 plan_store 数据面),
+        # 而不是在这里伪造一个 role=1 —— 那等于让后台任务自己给自己提权。
         loop = AgentLoopV2(
             llm_complete_fn=_make_loop_v2_llm(None),
             tools=_build_readonly_tools(tool_names),

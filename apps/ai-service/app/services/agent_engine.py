@@ -233,7 +233,9 @@ LoopFactory = Callable[[dict[str, Any], list[Any]], Awaitable[Any]]
 """主循环工厂:(spec, host_tools) → AgentLoopV2 实例(承载层注入,便于替换与测试)。
 
 spec 键:model / permission_mode / max_iterations / tool_names / workspace /
-        user_id / conversation_id / session_id / thread_id / enable_checkpoint。
+        user_id / role_id / conversation_id / session_id / thread_id / enable_checkpoint。
+        (role_id:V3 #47 第二格,承载层须把它喂给 AgentLoopV2 的 user_role,否则引擎自带
+        的 admin 专属能力又会回到"不经角色矩阵"那一格。)
 host_tools 为引擎构造的宿主工具 ToolDefinition 列表(承载层需并入工具集)。
 """
 
@@ -653,6 +655,13 @@ class EngineThread:
     # 默认 None(off,零行为变化);ENGINE_THREAD_ORIGINATOR_ENABLED=on 时于线程
     # 创建/恢复处经 effective_originator_value 解析并归一挂到线程。
     originator: str | None = None
+    # 角色 id(2026-09-26 V3 #47 第二格):JWT payload 的 roleId,由承载层在**已验证身份**
+    # 处写入(routers/engine.py::_bind_principal 与 _persist/_restore 的 metadata 同字段),
+    # 客户端自述值一律被覆盖 —— 否则"谎报 role=1"就是新的提权面。
+    # 默认 0 = fail-closed:取不到角色一律按普通用户处理,与 mcp_server 角色矩阵同档。
+    # 它经 _spec(thread) 落到 AgentLoopV2(user_role=…),使"谁有权执行 admin 专属能力"
+    # 在 A/B/C 三条执行内核里给出同一个答案。
+    role_id: int = 0
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -1663,6 +1672,24 @@ def _parse_deny_tools(params: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(deny))
 
 
+def _coerce_role_id(value: Any) -> int:
+    """把请求/元数据里的角色字段归一为非负整数,**取不到即 0**(fail-closed)。
+
+    之所以不 raise:`roleId` 从来不是客户端该填的字段 —— 承载层(routers/engine.py)
+    在鉴权之后无条件覆盖它。走到"值不合型"只有两种可能(未鉴权通道 / 历史元数据),
+    两者的正确处置都是按普通用户处理,而不是拒绝起线程(那会把没鉴权通道变成
+    "拒绝服务"的新故障面)。真值由 call_tool 的角色矩阵与 loop 的 `_role_denied_name`
+    各自再判一次,不靠这里放行。
+    """
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value if value >= 0 else 0
+    if isinstance(value, str) and value.strip().isdigit():
+        return max(0, int(value.strip()))
+    return 0
+
+
 def _spec(thread: EngineThread) -> dict[str, Any]:
     """把线程配置转成主循环工厂的 spec(承载层据此构造 AgentLoopV2)。
 
@@ -1678,6 +1705,8 @@ def _spec(thread: EngineThread) -> dict[str, Any]:
         "tool_names": ctx.get("tool_names", thread.tool_names),
         "workspace": ctx.get("workspace", thread.workspace),
         "user_id": thread.user_id,
+        # V3 #47 第二格:角色随身份一起过桥,承载层工厂据此喂 AgentLoopV2(user_role=…)
+        "role_id": thread.role_id,
         "conversation_id": thread.conversation_id,
         "approval_policies": ctx.get("approval_policies"),
         "model_params": ctx.get("model_params") or {},
@@ -1955,6 +1984,9 @@ class AgentEngine:
                     "toolNames": thread.tool_names,
                     "workspace": thread.workspace,
                     "userId": thread.user_id,
+                    # 角色与属主同字段族落库,使"重启恢复的线程"不静默降回 role 0
+                    # (那是权限漂移;仍按 fail-closed 还原 —— 值不合型即 0)
+                    "roleId": thread.role_id,
                     "conversationId": thread.conversation_id,
                     "approvalPolicies": thread.approval_policies or None,
                     "modelParams": thread.model_params or None,
@@ -2109,6 +2141,8 @@ class AgentEngine:
                 tool_names=list(md["toolNames"]) if isinstance(md.get("toolNames"), list) else None,
                 workspace=md.get("workspace") if isinstance(md.get("workspace"), str) else None,
                 user_id=md.get("userId") if isinstance(md.get("userId"), str) else None,
+                # 角色随属主一起从元数据还原;缺失/不合型 → 0(fail-closed,见 _coerce_role_id)
+                role_id=_coerce_role_id(md.get("roleId")),
                 conversation_id=md.get("conversationId")
                 if isinstance(md.get("conversationId"), str)
                 else None,
@@ -2321,6 +2355,9 @@ class AgentEngine:
             else None,
             # userId 已在承载层被绑定为已验证身份(routers/engine.py::_bind_principal)
             user_id=params.get("userId") if isinstance(params.get("userId"), str) else None,
+            # roleId 同样在承载层被无条件覆盖为令牌里的 roleId(routers/engine.py::_bind_principal)
+            # —— 客户端自述的 role 在这里结构上不可能是真值;取不到即 0(fail-closed)。
+            role_id=_coerce_role_id(params.get("roleId")),
             conversation_id=params.get("conversationId")
             if isinstance(params.get("conversationId"), str)
             else None,
@@ -4649,6 +4686,8 @@ class AgentEngine:
             tool_names=list(thread.tool_names) if thread.tool_names else None,
             workspace=thread.workspace,
             user_id=thread.user_id,
+            # 分叉线程继承属主与角色(两者同源:都来自承载层已验证身份)
+            role_id=thread.role_id,
             conversation_id=thread.conversation_id,
             messages=deepcopy(thread.messages),
             approval_policies=dict(thread.approval_policies),

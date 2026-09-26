@@ -9027,11 +9027,57 @@ def get_registered_tool_names() -> set[str]:
     return {t.name for t in _TOOLS}
 
 
-# 2026-08-06 生产修复:LLM 可能返回与注册工具不一致的别名(模型幻觉/跨平台命名),
-# 统一映射到实际注册工具名,防止 call_tool 报"未知工具"。
+# 全仓**唯一一份** `_TOOL_ALIASES`(V3 #47 第三格,2026-09-26 合成):
+# A 内核(llm.py tool loop 的执行前归一,原 llm.py 本地定义已删、改为 import 本表)
+# 与 call_tool 未命中时的 `_normalize_tool_name` 归一共用同一对象。
+# 2026-09-26 之前这里是第二份独立真相(只有 2 条 execute_command/list_directory),
+# 与 llm.py 那份 26 条表各自漂移 —— 同一个模型写的别名在一个入口被归一、在另一个
+# 入口报「未知工具」随机出现,且没有任何东西校验这一份。守门
+# scripts/check-tool-registry-integrity.mjs 的 J2/J3/J4 校验本表值域/键域,
+# J11 对账「全 app 包内模块级定义恰好 1 处」,防本表合成后又长回两份。
+#
+# 2026-08-06 生产修复:LLM(stepfun step_plan 等)返回的工具名可能与系统注册名不一致
+# (模型幻觉/跨平台别名),导致 call_tool 报"未知工具"→ 工具执行失败 → 对话显示失败。
+# 统一映射到实际注册的工具名(execute_command 是 Claude/Codex 风格别名,本项目为 run_command)。
+#
+# 2026-09-26(V3 #49)扩充:原仅 2 条,对抗模型工具名幻觉的覆盖面过窄。扩充原则 ——
+#   ① 值域必须是 _TOOLS 里真实注册的名字(守门 check-tool-registry-integrity 校验);
+#   ② 只收**语义等价**的别名:写操作一律不收(如 create_file→write_file 会把「新建」
+#      语义静默变成「覆盖」,宁可让它走到 _DELEGATE_ONLY_HINTS 的明确报错);
+#   ③ 只读与命令类可放心扩,映射错了最坏是行为略偏,不会静默破环。
 _TOOL_ALIASES: dict[str, str] = {
-    "execute_command": "run_command",  # Claude/Codex 风格 → 本项目 run_command
+    # 命令执行(Claude / Codex / 通用 LLM 习惯名)
+    "execute_command": "run_command",
+    "execute_bash": "run_command",
+    "bash": "run_command",
+    "shell": "run_command",
+    "run_shell": "run_command",
+    "terminal": "run_command",
+    # 目录列举
     "list_directory": "list_files",
+    "list_dir": "list_files",
+    "find_files": "list_files",
+    "glob_files": "list_files",
+    # 文件读取
+    "read": "read_file",
+    "view": "read_file",
+    "view_file": "read_file",
+    "open_file": "read_file",
+    "cat_file": "read_file",
+    # 内容搜索
+    "search_files": "file_search",
+    "search_content": "file_search",
+    "grep": "file_search",
+    "grep_files": "file_search",
+    "search_in_files": "file_search",
+    # 语义/符号检索
+    "code_search": "search_codebase",
+    "search_symbol": "search_codebase",
+    # 网页抓取
+    "fetch": "fetch_url",
+    "browse": "fetch_url",
+    "http_request": "fetch_url",
+    "open_url": "fetch_url",
 }
 
 
