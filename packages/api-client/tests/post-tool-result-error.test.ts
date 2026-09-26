@@ -3,91 +3,75 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 统一日志工具。
+ * 上行 tool-result 帧的 error 字段归一回归(2026-09-26 立)。
  *
- * 优先使用 Fastify 的 pino 实例（通过 setFastify 注入），
- * 未注入时回退到 console（保持向后兼容）。
- *
- * 用法：
- *   import { logger } from '../utils/logger.js'
- *   logger.info('message', { meta: 'data' })
- *   logger.error('message', { error: err })
+ * 事故形态:调用方在 catch 里把 Error 本体(as 强转)塞进 postToolResult 的
+ * error:string|null 参数 → JSON.stringify 得 "{}" → ai-service 的 tool loop
+ * 收到空对象事故现场。经唯一出口 serializeError 压成单行链后 message 必须可见,
+ * 而合规 string 输入必须逐字节原样(不破坏任何既有调用方)。
  */
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { postToolResult } from '../src/client.js'
 
-import { serializeError } from '@ihui/types'
-
-type LogLevel = 'debug' | 'info' | 'warn' | 'error'
-
-interface FastifyLogger {
-  debug: (msg: string, meta?: object) => void
-  info: (msg: string, meta?: object) => void
-  warn: (msg: string, meta?: object) => void
-  error: (msg: string, meta?: object) => void
+interface Sent {
+  url: string
+  body: string
 }
 
-export interface FastifyLogInstance {
-  log: {
-    debug: (m: object, msg: string) => void
-    info: (m: object, msg: string) => void
-    warn: (m: object, msg: string) => void
-    error: (m: object, msg: string) => void
-  }
+function stubFetchCapturingBodies(calls: Sent[]): void {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: unknown, init: unknown): Promise<Response> => {
+      calls.push({ url: String(url), body: String((init as { body?: unknown }).body ?? '') })
+      return new Response('', { status: 200 })
+    }),
+  )
 }
 
-let fastifyInstance: FastifyLogInstance | null = null
+describe('postToolResult error 字段上线路径', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
 
-export function setFastify(fastify: FastifyLogInstance): void {
-  fastifyInstance = fastify
-}
+  it('Error 对象经我方出口后 message 在请求体可见(旧行为是 "{}")', async () => {
+    const calls: Sent[] = []
+    stubFetchCapturingBodies(calls)
+    const err = new Error('fs read failed')
+    await postToolResult('s1', 'tc1', null, err as unknown as string)
+    const first = calls.at(-1)
+    expect(first).toBeDefined()
+    const payload = JSON.parse(first?.body ?? '{}') as { error: unknown }
+    expect(typeof payload.error).toBe('string')
+    expect(String(payload.error)).toContain('fs read failed')
+    expect(payload.error).not.toBe('{}')
+  })
 
-/**
- * meta 里 Error 值的序列化(唯一出口 serializeError,2026-09-26 立)。
- *
- * pino 把 meta 做 JSON 序列化,而 JSON.stringify(Error) === "{}"(name/message/stack
- * 均为非枚举自有属性)—— 本文件头注释推荐的写法 `{ error: err }` 在日志里就是一具
- * 空尸体。例外:`err` 保留键刻意不动 —— pino 对它自带标准错误序列化,覆盖反而会改变
- * 既有日志消费方看到的字段形状。其余键上的 Error 一律换成闭集结构;挂在 Error 上的
- * 未知字段(请求体/凭据一类)不带出。无任何 Error 时返回原对象(零开销、零行为变化)。
- */
-export function serializeErrorFields(meta: object | undefined): object | undefined {
-  if (meta === undefined || meta === null) return meta
-  if (meta instanceof Error) return { error: serializeError(meta) }
-  const source = meta as Record<string, unknown>
-  let changed = false
-  const out: Record<string, unknown> = {}
-  for (const key of Object.keys(source)) {
-    const value = source[key]
-    if (key !== 'err' && value instanceof Error) {
-      out[key] = serializeError(value)
-      changed = true
-    } else {
-      out[key] = value
-    }
-  }
-  return changed ? out : meta
-}
+  it('cause 链在 wire 上逐层可见', async () => {
+    const calls: Sent[] = []
+    stubFetchCapturingBodies(calls)
+    const inner = new Error('root cause')
+    const outer = new Error('wrapper') as Error & { cause?: unknown }
+    outer.cause = inner
+    await postToolResult('s2', 'tc2', null, outer as unknown as string)
+    const payload = JSON.parse(calls.at(-1)?.body ?? '{}') as { error: string }
+    expect(payload.error).toContain('wrapper')
+    expect(payload.error).toContain('<- Error: root cause')
+  })
 
-function log(level: LogLevel, msg: string, rawMeta?: object): void {
-  const meta = serializeErrorFields(rawMeta)
-  if (fastifyInstance) {
-    // pino 签名：fastify.log.info(meta, msg)
-    fastifyInstance.log[level](meta ?? {}, msg)
-  } else {
-    // 回退到 console（测试环境/未初始化）
-    const prefix = `[${level.toUpperCase()}]`
-    const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.info
-    if (meta) {
-      fn(`${prefix} ${msg}`, meta)
-    } else {
-      fn(`${prefix} ${msg}`)
-    }
-  }
-}
+  it('合规 string 输入逐字节原样(零行为变化)', async () => {
+    const calls: Sent[] = []
+    stubFetchCapturingBodies(calls)
+    await postToolResult('s3', 'tc3', null, 'No active workspace')
+    const payload = JSON.parse(calls.at(-1)?.body ?? '{}') as { error: string | null }
+    expect(payload.error).toBe('No active workspace')
+  })
 
-export const logger: FastifyLogger = {
-  debug: (msg, meta) => log('debug', msg, meta),
-  info: (msg, meta) => log('info', msg, meta),
-  warn: (msg, meta) => log('warn', msg, meta),
-  error: (msg, meta) => log('error', msg, meta),
-}
+  it('null 保持 null(不把"无错误"写成空串)', async () => {
+    const calls: Sent[] = []
+    stubFetchCapturingBodies(calls)
+    await postToolResult('s4', 'tc4', 'ok', null)
+    const payload = JSON.parse(calls.at(-1)?.body ?? '{}') as { error: string | null }
+    expect(payload.error).toBeNull()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
