@@ -6,6 +6,7 @@ import { useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { cn, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
+  MENU_CONTAINER_PADDING_PX,
   MENU_DEFAULT_COLUMNS,
   MENU_LABEL_FONT_PX,
   menuItemStyle,
@@ -62,6 +63,10 @@ const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
 const ITEM_STYLE = menuItemStyle(toUnit)
 const TILE_STYLE = menuTileStyle(toUnit)
 const LABEL_STYLE = { fontSize: toUnit(MENU_LABEL_FONT_PX) }
+const CONTAINER_STYLE = {
+  paddingTop: toUnit(MENU_CONTAINER_PADDING_PX),
+  paddingBottom: toUnit(MENU_CONTAINER_PADDING_PX),
+}
 
 export default function Menu(props: MenuProps) {
   const tt = useTt()
@@ -72,7 +77,7 @@ export default function Menu(props: MenuProps) {
     className = '',
   } = props
   return (
-    <View className={cn('flex flex-wrap', className)}>
+    <View className={cn('flex flex-wrap', className)} style={CONTAINER_STYLE}>
       {items.map((item, index) => (
         <View
           key={item.id ?? index}
