@@ -150,7 +150,7 @@ export const legacyExamRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
       .where(and(eq(examSignups.id, id), eq(examSignups.userId, request.userId!)))
       .returning()
     if (!deleted) return reply.status(404).send(error(404, '报名记录不存在'))
-    return { deleted: true }
+    return { deleted: Boolean(deleted) }
   })
 
   // 检查是否已报名
@@ -236,7 +236,7 @@ export const legacyExamRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
         .where(and(eq(examWrongQuestion.id, id), eq(examWrongQuestion.userId, request.userId!)))
         .returning()
       if (!deleted) return reply.status(404).send(error(404, '错题记录不存在'))
-      return { deleted: true }
+      return { deleted: Boolean(deleted) }
     },
   )
 }
