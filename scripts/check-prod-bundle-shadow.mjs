@@ -110,6 +110,25 @@ export const PAIRS = [
     runner: 'deploy/prod-bundle/ai-diagnose.mjs',
     why: '部署失败时的 AI 诊断调用器(同上,与 deploy-diagnose.sh 同批接线)',
   },
+  // 三个 nssm 服务的实际执行体(AppParameters 指向 deploy/prod-bundle/svc/run-*.ps1)。
+  // 2026-09-26 实测 `git ls-files deploy/prod-bundle/svc/` = 0 行 ⇒ 在服务却在跑、日志在写,
+  // 而全仓 grep 对它零覆盖 —— 正是 §5e 那句"等于写进盲区"的原始形态。入库源按本文件
+  // 头注的落点规则镜像目录名(svc/),basename 保持 1:1。
+  {
+    tracked: 'deploy/scripts/prod-bundle/svc/run-api.ps1',
+    runner: 'deploy/prod-bundle/svc/run-api.ps1',
+    why: '服务 IHUI-API 的执行体(tsx 直跑 apps/api/src/index.ts —— 工作区源码就是线上代码)',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/svc/run-web.ps1',
+    runner: 'deploy/prod-bundle/svc/run-web.ps1',
+    why: '服务 IHUI-WEB 的执行体(8801)',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/svc/run-ai.ps1',
+    runner: 'deploy/prod-bundle/svc/run-ai.ps1',
+    why: '服务 IHUI-AI-SERVICE 的执行体(8803)',
+  },
 ]
 
 const sha1 = (buf) => createHash('sha1').update(buf).digest('hex')

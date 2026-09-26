@@ -7,6 +7,7 @@ import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
+import { removeIfSame } from '../utils/connection-registry.js'
 import { config } from '../config/index.js'
 import { db } from '../db/index.js'
 import { eq, and } from 'drizzle-orm'
@@ -47,7 +48,8 @@ const wsTasksPlugin: FastifyPluginAsync = async (server) => {
         try {
           ws.send(message)
         } catch {
-          conns.delete(ws)
+          // 发送失败只摘"这一条"连接(身份判等),空集合才摘 taskId key —— 不得整删
+          removeIfSame(connections, taskId, ws)
         }
       }
     })
@@ -63,12 +65,13 @@ const wsTasksPlugin: FastifyPluginAsync = async (server) => {
 
   const heartbeatTimer = setInterval(() => {
     const ping = JSON.stringify({ type: 'ping' })
-    for (const conns of connections.values()) {
+    for (const [taskId, conns] of connections) {
       for (const ws of conns) {
         try {
           ws.send(ping)
         } catch {
-          conns.delete(ws)
+          // 同一不变量:按连接身份摘,集合空了才摘 key(迭代中删除当前条目对 Map 安全)
+          removeIfSame(connections, taskId, ws)
         }
       }
     }
@@ -175,11 +178,8 @@ const wsTasksPlugin: FastifyPluginAsync = async (server) => {
       })
 
       socket.on('close', () => {
-        const conns = connections.get(taskId)
-        if (conns) {
-          conns.delete(socket)
-          if (conns.size === 0) connections.delete(taskId)
-        }
+        // 迟到 close 只能按"这条 socket"删,不得按 taskId 整删替代品连接
+        removeIfSame(connections, taskId, socket)
         // 2026-08-02 P1 安全审计:释放连接槽位
         userConnectionLimiter.release(userId)
       })
