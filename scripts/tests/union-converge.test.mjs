@@ -310,11 +310,27 @@ test('装车证明:收敛器冲突分支真的会调它,守护真的会调 --all
   )
   assert.match(conv, /windowsHide: true/, '派生必须禁弹窗(§5b)')
   assert.match(conv, /timeout: 300000/, '派生必须封顶(守门 80)')
+  // 判"结构"而不是判"某行文字长什么样":spawn 与接错被提成 attemptUnionConverge() 后,
+  // 原先钉的 `uni = String(ue.stdout …)` 只是换了个变量名,不变量没变 ——
+  // **子进程非零退出必须先接住再看输出**(否则 throw 甩成未捕获异常,人工出路根本打不出来)。
   assert.match(
     conv,
-    /uni = String\(ue\.stdout \|\| ue\.message/,
-    '子进程非零退出会 throw,必须先接住再看输出,否则错误被甩成未捕获异常',
+    /function attemptUnionConverge\([\s\S]{0,700}?catch \(ue\) \{\s*return String\(ue\.stdout \|\| ue\.message/,
+    '归并出口必须自己接住子进程非零退出',
   )
+  assert.match(
+    conv,
+    /attemptUnionConverge\(/g,
+    '出口必须被调用',
+  )
+  // 两个调用点(冲突分支 + 无冲突但状态被放大分支)都走同一个出口,不得各写一遍 spawn。
+  // 计数要减掉**定义行**本身 —— 定义与调用的文本形态只差一个 `function ` 前缀,
+  // 直接数出现次数会把定义算成第三个调用点(本条第一次跑就是这么红的)。
+  {
+    const all = (conv.match(/attemptUnionConverge\(freshRemote, repoRoot\)/g) ?? []).length
+    const defs = (conv.match(/function attemptUnionConverge\(freshRemote, repoRoot\)/g) ?? []).length
+    assert.equal(all - defs, 2, '调用点必须恰好两处(多出来就是有人又写了一遍 spawn)')
+  }
   assert.match(conv, /union-converge 亦判需人工/, 'union 也收不了时必须退回人工路径(不得静默)')
 
   const guard = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
