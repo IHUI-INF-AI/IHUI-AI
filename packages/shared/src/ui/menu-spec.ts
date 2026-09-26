@@ -3,65 +3,72 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Loading 通用加载态 (mobile-rn 端)
+ * Menu 网格的结构与几何单一源(小程序端与 RN 端共用),形状照 back-chevron-spec。
  *
- * 对齐历史项目 common/Loading.vue + loading/index.vue:
- * - 居中 ActivityIndicator + 文字提示。
- * - fullscreen=true:固定半透明白色遮罩居中,覆盖整屏(对齐历史 loading-full / loading-mask)。
- * - fullscreen=false:内联居中(适应父容器)。
- * - 浅色优雅风;颜色走 theme/active-tokens 的主题 token。
- * - 类型零 any,精确标注。
+ * 两端能在同一档上对齐的是**格子结构**(图块盒子、图文间距、行内留白、每行列数);
+ * 图标载体不同(小程序走 CDN PNG + emoji 兜底,RN 只有 Image)属平台/功能差异,不在本文件表达。
+ *
+ * 消费方式只能是子路径 `@ihui/shared/ui/menu-spec`(禁挂根桶)。
  */
-import { tokens } from '../../theme/active-tokens'
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
-import {
-  LOADING_INLINE_PADDING_Y_PX,
-  LOADING_LABEL_FONT_PX,
-  LOADING_LABEL_GAP_PX,
-  loadingSpinnerBoxStyle,
-} from '@ihui/shared/ui/loading-spec'
 
-export interface LoadingProps {
-  text?: string
-  fullscreen?: boolean
-}
+/** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
+export type GeometryUnit<U extends string | number> = (px: number) => U
 
-export default function Loading({
-  text = '加载中...',
-  fullscreen = false,
-}: LoadingProps): React.JSX.Element {
-  return (
-    <View style={[styles.root, fullscreen && styles.fullscreen]}>
-      {/* 原生指示器的字形尺寸由平台控件决定(数值档在 Android 不生效),这里只对齐它占的盒子 */}
-      <View style={styles.spinnerBox}>
-        <ActivityIndicator size="large" color={tokens.brand.DEFAULT} />
-      </View>
-      {text ? <Text style={styles.text}>{text}</Text> : null}
-    </View>
-  )
-}
+/** 每行列数:两端默认值都是 4,收进一处后改一端即改两端。 */
+export const MENU_DEFAULT_COLUMNS = 4
 
-const styles = StyleSheet.create({
-  root: {
+/**
+ * 图块边长 40:小程序 `w-10 h-10` = 40、RN `icon.width` = 40 两端同档;
+ * RN 的 `height: 44` 是手抄漂移(守门 128 立项点名的正是这一型),现按 40 方档收口。
+ */
+export const MENU_TILE_PX = 40
+
+/** 标签字号 12:两端现值已同(小程序 `text-xs` / RN `fontSize: 12`)。 */
+export const MENU_LABEL_FONT_PX = 12
+
+/** 图块与标签之间 8:小程序 `gap-2` = 8、RN `marginTop: 8` —— 同一个空间两种机制,数字收一处。 */
+export const MENU_LABEL_GAP_PX = 8
+
+/** 单格上下留白 8:小程序 `py-2` = 8 vs RN `paddingVertical: 10` —— 取紧凑档(AGENTS.md §4 compact)。 */
+export const MENU_ITEM_PADDING_Y_PX = 8
+
+/** 图块盒子:方档 + 居中(兜底位要在 40×40 里把 emoji 排正),居中原语只在这一处。 */
+export function menuTileStyle<U extends string | number>(
+  toUnit: GeometryUnit<U>,
+): {
+  width: U
+  height: U
+  display: 'flex'
+  alignItems: 'center'
+  justifyContent: 'center'
+} {
+  return {
+    width: toUnit(MENU_TILE_PX),
+    height: toUnit(MENU_TILE_PX),
+    display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: LOADING_INLINE_PADDING_Y_PX,
-    paddingHorizontal: 16, // 仅 RN 侧有这一档(小程序端内联态无横向留白)——差异已登记,待裁决
-    gap: LOADING_LABEL_GAP_PX,
-  },
-  spinnerBox: loadingSpinnerBoxStyle((px: number) => px),
-  fullscreen: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: tokens.overlay.loading,
-    zIndex: 999,
-  },
-  text: {
-    fontSize: LOADING_LABEL_FONT_PX,
-    color: tokens.text.secondary,
-  },
-})
+  }
+}
+
+/** 单格结构:竖排 + 水平居中 + 图文间距 + 上下留白(拆成 top/bottom:CSSProperties 不认 paddingVertical)。 */
+export function menuItemStyle<U extends string | number>(
+  toUnit: GeometryUnit<U>,
+): {
+  display: 'flex'
+  flexDirection: 'column'
+  alignItems: 'center'
+  gap: U
+  paddingTop: U
+  paddingBottom: U
+} {
+  return {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: toUnit(MENU_LABEL_GAP_PX),
+    paddingTop: toUnit(MENU_ITEM_PADDING_Y_PX),
+    paddingBottom: toUnit(MENU_ITEM_PADDING_Y_PX),
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

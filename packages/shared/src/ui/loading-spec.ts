@@ -3,65 +3,50 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Loading 通用加载态 (mobile-rn 端)
+ * Loading 的结构与几何单一源(小程序端与 RN 端共用),形状照 back-chevron-spec。
  *
- * 对齐历史项目 common/Loading.vue + loading/index.vue:
- * - 居中 ActivityIndicator + 文字提示。
- * - fullscreen=true:固定半透明白色遮罩居中,覆盖整屏(对齐历史 loading-full / loading-mask)。
- * - fullscreen=false:内联居中(适应父容器)。
- * - 浅色优雅风;颜色走 theme/active-tokens 的主题 token。
- * - 类型零 any,精确标注。
+ * 为什么不是"一份 JSX 两端跑":小程序端的转圈是一枚 CSS 环(w/h + border + rounded + animate-spin),
+ * RN 端的转圈是原生 ActivityIndicator(字形尺寸由平台控件决定,Android 不认数值档)。
+ * 两端能在同一档上对齐的是**它占的盒子**与**文字/留白**,所以数字只写在本文件里,
+ * 端内只做"单位换算 + 挂自己的原语"。
+ *
+ * 消费方式只能是子路径 `@ihui/shared/ui/loading-spec`(禁挂根桶,根桶会把整棵 src/chat 拉进被检程序)。
  */
-import { tokens } from '../../theme/active-tokens'
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
-import {
-  LOADING_INLINE_PADDING_Y_PX,
-  LOADING_LABEL_FONT_PX,
-  LOADING_LABEL_GAP_PX,
-  loadingSpinnerBoxStyle,
-} from '@ihui/shared/ui/loading-spec'
 
-export interface LoadingProps {
-  text?: string
-  fullscreen?: boolean
-}
+/** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
+export type GeometryUnit<U extends string | number> = (px: number) => U
 
-export default function Loading({
-  text = '加载中...',
-  fullscreen = false,
-}: LoadingProps): React.JSX.Element {
-  return (
-    <View style={[styles.root, fullscreen && styles.fullscreen]}>
-      {/* 原生指示器的字形尺寸由平台控件决定(数值档在 Android 不生效),这里只对齐它占的盒子 */}
-      <View style={styles.spinnerBox}>
-        <ActivityIndicator size="large" color={tokens.brand.DEFAULT} />
-      </View>
-      {text ? <Text style={styles.text}>{text}</Text> : null}
-    </View>
-  )
-}
+/**
+ * 转圈盒子 32:小程序端现档 `w-8 h-8` = 32px。RN 端没有对应的数字档(原生控件),
+ * 用它包一层同档盒子,使两端的这一行高度由同一个数决定。
+ */
+export const LOADING_SPINNER_PX = 32
 
-const styles = StyleSheet.create({
-  root: {
+/** 说明文字 14:两端现值已同(小程序 `text-sm` / RN `fontSize: 14`),收进一处只为不再分叉。 */
+export const LOADING_LABEL_FONT_PX = 14
+
+/** 转圈与文字之间 8:小程序 `mt-2` = 8 vs RN `gap: 12` —— 取紧凑档(AGENTS.md §4 compact)。 */
+export const LOADING_LABEL_GAP_PX = 8
+
+/** 内联态上下留白 24:小程序 `py-8` = 32 vs RN `paddingVertical: 24` —— 同上取紧凑档。 */
+export const LOADING_INLINE_PADDING_Y_PX = 24
+
+/** 原生指示器不进布局档,但占位盒必须同档:居中原语只在这一处排。 */
+export function loadingSpinnerBoxStyle<U extends string | number>(
+  toUnit: GeometryUnit<U>,
+): {
+  width: U
+  height: U
+  display: 'flex'
+  alignItems: 'center'
+  justifyContent: 'center'
+} {
+  return {
+    width: toUnit(LOADING_SPINNER_PX),
+    height: toUnit(LOADING_SPINNER_PX),
+    display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: LOADING_INLINE_PADDING_Y_PX,
-    paddingHorizontal: 16, // 仅 RN 侧有这一档(小程序端内联态无横向留白)——差异已登记,待裁决
-    gap: LOADING_LABEL_GAP_PX,
-  },
-  spinnerBox: loadingSpinnerBoxStyle((px: number) => px),
-  fullscreen: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: tokens.overlay.loading,
-    zIndex: 999,
-  },
-  text: {
-    fontSize: LOADING_LABEL_FONT_PX,
-    color: tokens.text.secondary,
-  },
-})
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

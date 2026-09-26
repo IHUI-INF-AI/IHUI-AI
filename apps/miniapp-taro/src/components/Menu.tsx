@@ -4,9 +4,16 @@
 
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import { cn } from '@ihui/design-tokens'
+import { cn, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import {
+  MENU_DEFAULT_COLUMNS,
+  MENU_LABEL_FONT_PX,
+  menuItemStyle,
+  menuTileStyle,
+} from '@ihui/shared/ui/menu-spec'
 import type { MenuItem } from '@ihui/types'
 import { BSPAPP_BASE } from '@/constants/icon-urls'
+import { rpx } from '@/utils/rpx'
 
 // 共享类型 MenuItem 已下沉到 packages/types,两端复用。
 // 统一为必选版(id/icon 必选),本组件原 `item.id ?? index` 和 `item.icon ?` 仍合法。
@@ -50,31 +57,44 @@ const DEFAULT_ITEMS = (tt: TtFn): MenuItem[] => [
   { id: 8, name: tt('setting.other', '其他'), icon: `${BSPAPP_BASE}/tabbar/coursePlanet/10.png` },
 ]
 
+/// 格结构与档位数字在 @ihui/shared/ui/menu-spec;本文件只做 rpx 换算 + 挂 Taro 原语。
+const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
+const ITEM_STYLE = menuItemStyle(toUnit)
+const TILE_STYLE = menuTileStyle(toUnit)
+const LABEL_STYLE = { fontSize: toUnit(MENU_LABEL_FONT_PX) }
+
 export default function Menu(props: MenuProps) {
   const tt = useTt()
-  const { items = DEFAULT_ITEMS(tt), columns = 4, onItemClick, className = '' } = props
+  const {
+    items = DEFAULT_ITEMS(tt),
+    columns = MENU_DEFAULT_COLUMNS,
+    onItemClick,
+    className = '',
+  } = props
   return (
     <View className={cn('flex flex-wrap', className)}>
       {items.map((item, index) => (
         <View
           key={item.id ?? index}
-          className="flex flex-col items-center gap-2 py-2"
-          style={{ width: `${100 / columns}%` }}
+          style={{ ...ITEM_STYLE, width: `${100 / columns}%` }}
           onClick={() => onItemClick?.(item, index)}
           hoverClass="opacity-60"
         >
           {item.icon ? (
             /^(https?:)?\/\//.test(item.icon) || item.icon.startsWith('/') ? (
-              <Image src={item.icon} mode="aspectFill" className="w-10 h-10 rounded-md" />
+              <Image src={item.icon} mode="aspectFill" className="rounded-md" style={TILE_STYLE} />
             ) : (
-              <View className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+              // text-2xl(24) 是本端独有的 emoji 兜底字面 —— RN 端没有这一格,不共档
+              <View className="rounded-md bg-primary/10" style={TILE_STYLE}>
                 <Text className="text-2xl">{item.icon}</Text>
               </View>
             )
           ) : (
-            <View className="w-10 h-10 rounded-md bg-primary/10" />
+            <View className="rounded-md bg-primary/10" style={TILE_STYLE} />
           )}
-          <Text className="text-xs text-foreground">{item.name}</Text>
+          <Text className="text-foreground" style={LABEL_STYLE}>
+            {item.name}
+          </Text>
         </View>
       ))}
     </View>
