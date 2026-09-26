@@ -262,13 +262,25 @@ export async function removeBinding(id: string, userId: string): Promise<string[
   return rows.map((r) => r.id)
 }
 
-export async function removeBindingByPlatform(userId: string, platform: string) {
-  await db
+/**
+ * 解绑指定平台的全部第三方账号(软删),回报**库侧确认改动的那批 id**(2026-09-27)。
+ * 旧形态返回 Promise<void> —— 调用方无从区分"真的改了行"与"where 没命中",
+ * 于是 `/auth/bindings/remove` 把常量 true 当解绑结果回给前端。
+ * 如实登记:where 只有 (userId, platform) 而无 `deletedAt IS NULL` 过滤,
+ * 重复解绑同一平台仍会软删同一行并回报其 id(软删时间被刷新)。
+ */
+export async function removeBindingByPlatform(
+  userId: string,
+  platform: string,
+): Promise<string[]> {
+  const rows = await db
     .update(userThirdPartyAccounts)
     .set({ deletedAt: new Date() })
     .where(
       and(eq(userThirdPartyAccounts.userId, userId), eq(userThirdPartyAccounts.platform, platform)),
     )
+    .returning({ id: userThirdPartyAccounts.id })
+  return rows.map((r) => r.id)
 }
 
 // ============================================================================
