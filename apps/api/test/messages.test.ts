@@ -632,6 +632,13 @@ describe('message routes', () => {
     it('发送成功返回 201', async () => {
       authAs()
       enqueue([{ id: UUID, userId: 'user-001' }]) // chatConversations
+      /**
+       * D35 第三段(`message.ts:522`)把这条路径改成"直插 + 自己补 turn_ordinal",于是
+       * insert 之前多了一次 `max(turn_ordinal)` 读 —— 老的假库是**按队列顺序**发结果的,
+       * 不给这一格,insert 就会拿到后面的空集 ⇒ `[created]` undefined ⇒ 路由 500。
+       * 这不是投影写侧(本文件不 import chat-queries),是直插段把队列对齐的问题。
+       */
+      enqueue([{ maxTurn: 0 }]) // max(turn_ordinal) —— 新开第 1 轮
       enqueue([{ id: 'msg-1', conversationId: UUID, role: 'user', content: 'hi', createdAt: NOW }]) // insert returning
       enqueue([]) // update chatConversations
       const res = await app.inject({
