@@ -63,11 +63,14 @@ export async function withTenant<T>(
  * 2026-07-22 P1 鲁棒性加固:
  * - 强制要求 reason 参数,非白名单 reason 抛错(防任意代码绕过 RLS)
  * - 每次调用写审计日志(含 reason + 调用栈),便于事故追溯
- * - 生产环境只允许 migration / seed / cleanup,测试环境放行 test-cleanup
+ * - 生产环境只允许 migration / seed / cleanup / background,测试环境另放行 test-cleanup
  *
- * @param reason 必填,白名单:`migration` / `seed` / `cleanup` / `test-cleanup`
+ * @param reason 必填,白名单:`migration` / `seed` / `cleanup` / `test-cleanup` / `background`
+ *   (`background` 于 2026-09-27 O13 第三格前置加入:worker / 定时器 / 维护脚本 / 导入导出
+ *   等**非 HTTP 请求路径**的通道;请求路径的旁路由 apps/api 侧出口
+ *   `src/db/background-context.ts` 的前置守卫拒绝,不在本包判据内)
  */
-const BYPASS_RLS_REASON_WHITELIST = new Set(['migration', 'seed', 'cleanup', 'test-cleanup'])
+const BYPASS_RLS_REASON_WHITELIST = new Set(['migration', 'seed', 'cleanup', 'test-cleanup', 'background'])
 
 export async function withBypassRls<T>(
   db: Database,
