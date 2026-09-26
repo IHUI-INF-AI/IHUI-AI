@@ -119,9 +119,7 @@ function listRows(rows, face) {
  */
 const BASELINE_REL = 'scripts/plan-task-state-baseline.json'
 
-/** 前五条判据的读数(只判变多),按同一顺序成对比较;F5 方向相反,单独在 grewViolations / gate 里判。
- *  导出理由:同一份维度清单还被 `git-sync-converge` 的合并落地闸用(它拿基线核合并结果),
- *  在别处再抄一遍 `['F1', ...]` 就是第二个真相 —— 加一维时漏抄一处,那一维就静默不判。 */
+/** 前五条判据的读数(只判变多),按同一顺序成对比较;F5 方向相反,单独在 grewViolations / gate 里判。 */
 export const probe = (a) => [
   ['F1', '同主键两态并存(组)', a.counts.forks],
   ['F2', '带作废声明未落账(行)', a.counts.voidRows],
