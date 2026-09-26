@@ -3330,28 +3330,6 @@ const checks = [
   },
 
   {
-    id: '128',
-    label: '🧬 提示注入登记对账(blocking,登记了没人生产 / 可见行没装车 / 裸宿主前缀旁路)',
-    script: 'check-prompt-injection-registry.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_PROMPT_INJECTION_REGISTRY',
-    stagedTriggers: ['apps/cli/src/'],
-    onFailHint: [
-      '',
-      '  💡 三条判据:**R1** 登记的 producer 必须真的调记账出口(注释里的提及不算 ——',
-      '     "看起来有、其实没装车"是本仓最高频失效型);**R2** `renderInjectionNotice(` 在',
-      '     生产面必须至少一个调用点(测试里调一次不算装车);**R3** 以宿主名义的裸',
-      '     `[系统提醒]` / `[系统提示]` 前缀未走出口 ⇒ 新增即红,**锚点 = 该文件 HEAD 自身',
-      '     违规数**(存量只报数;与改动无关的恒红门只会逼人 --no-verify 连带废掉全部门)。',
-      '     修法:在 `apps/cli/src/utils/prompt-injection-registry.ts` 登记 id/kind/生产者/消费者,',
-      '     并把产出改接 `injectHostSection` / `injectReminderSection`;不得为消红去删登记项',
-      '     或把 producer 改成不存在的文件(那是把判据改成合格证)。',
-      '     单独复验:node scripts/check-prompt-injection-registry.mjs --self-test',
-      '',
-    ]
-  },
-  {
     id: '127',
     label: '🛰️ 跨语言出站路由声明对账(blocking,默认档只报数;--strict 才判红,防恒红门)',
     script: 'check-declared-outbound-routes.mjs',
@@ -3364,6 +3342,31 @@ const checks = [
       '     ① 问责:node scripts/check-declared-outbound-routes.mjs --strict --explain 逐条看证据与匹配结果;',
       '     ② 处置二选一 —— 在对侧实现该路由,或删除这行硬编码声明;',
       '     ③ 禁止用基线文件/豁免清单遮红,禁止改阈值让它好看(台账会腐烂而这批是真缺陷)。',
+      '',
+    ]
+  },
+  {
+    id: '128',
+    label:
+      '🪞 跨端 UI 差异账对账(blocking,同名配对组件的小程序/RN 可见几何档只减不增 —— 重复实现就是"改一端另一端不跟随"的根因)',
+    script: 'check-cross-end-ui-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_UI_PARITY',
+    stagedTriggers: [
+      'apps/miniapp-taro/src/components/',
+      'packages/app/src/components/',
+      'apps/mobile-rn/src/components/',
+      'scripts/check-cross-end-ui-parity.mjs',
+      'scripts/cross-end-ui-parity-baseline.json',
+    ],
+    onFailHint: [
+      '',
+      '  💡 本门拦的是"两端差异变大",不是"两端有差异"。台账钉着 HEAD 读数,与本次改动无关的存量不会拦你。',
+      '     ① 看差在哪:node scripts/check-cross-end-ui-parity.mjs 逐条点名(仅小程序档 / 仅 RN 档 / 同名常量不同值);',
+      '     ② 唯一正确的收口姿势 = 让两端取**同一份源**(packages/shared 的平台无关组件源 + 每端注入 primitives adapter);',
+      '     ③ 禁止给单端补一个数字去凑平 —— 那只是把第二份真相挪了个位置,下次又漂;',
+      '     ④ 确属平台导致(原生导航栏/输入法/状态栏):在台账 waivers 里写 reason,由守门 108 管到期,不得静默。',
       '',
     ]
   },
