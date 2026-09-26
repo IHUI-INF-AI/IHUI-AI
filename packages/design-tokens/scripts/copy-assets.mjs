@@ -2,42 +2,74 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * 关闭按钮统一样式 token(2026-09-16 立;2026-09-17 与 icon-button.ts 尺寸档位对齐)—
- * 全项目弹窗/抽屉/浮层关闭按钮单一真相源
- *
- * 背景:此前各处关闭按钮样式漂移(dialog/drawer/sheet h-9 w-9 @ right-4 top-4、
- * Modal opacity-70 裸图标、LoginPopup h-5 裸图标…),且大按钮与弹窗标题重叠
- * (2026-09-16 用户反馈)。本文件为唯一规范,所有关闭按钮必须引用以下常量,
- * 禁止在业务代码中手写 right-4 top-4 / h-9 w-9 / opacity-70 等散装样式。
- *
- * 规范值(2026-09-17 与 icon-button.ts 同源统一,全项目图标按钮唯一尺寸):
- * - 尺寸:h-8 w-8(32×32),图标 h-4 w-4(16×16)
- * - 浮层定位:absolute right-3 top-3(贴近右上角,配合 DialogHeader pr-8 避让标题)
- * - 亮底:text-muted-foreground,hover 浅背景 bg-accent
- * - 深底(图片查看器/全屏遮罩):text-white/80,hover bg-white/10
- *
- * 消费方式:
- * - React 组件:import { CloseButton } from '@ihui/ui-react'(优先,自带 X 图标)
- * - 仅要类名字符串(如 Radix DialogPrimitive.Close / SheetPrimitive.Close):
- *   import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION, CLOSE_BUTTON_ON_DARK } from '@ihui/design-tokens'
- */
+// 构建资源复制器(把 tsc 不编译的非 .ts 资源**原字节**复制进 dist)。
+//
+// 为什么需要这一步:`packages/design-tokens/src/` 里除 .ts 外还有四份被按路径消费的 JS
+// (radius.js / geometry.js / tailwind-preset.js / tailwind-alpha-plugin.js)、两份手写
+// 类型声明(radius.d.ts / geometry.d.ts)、以及 styles/ 下的 CSS。tsc 的 include 只有
+// `src/**/*.ts`,所以纯 tsc 构建产出的 dist/index.js 里 `from './radius.js'` 会落空,
+// dist/index.d.ts 也解析不到 RadiusStep —— 包"编译成功"却装起来就坏。
+//
+// 为什么是复制而**不是搬源**:`scripts/lib/design-token-blocks.mjs` + sync-*.mjs +
+// 守门 36/77/93/124/128 共 60+ 处按 `packages/design-tokens/src/...` 字面路径读取这些
+// 文件(见 `git grep -l "design-tokens/src/"`)。src 是唯一真相源,路径一动整片瞎;
+// dist 里的副本只服务 npm 消费方,由 prepack 每次重建 ⇒ 派生态,不得手改。
+//
+// 退出码:0 = 全部复制并回读校验通过 / 1 = 源缺失或字节不等(不静默跳过,理由见头注)。
 
-// 尺寸档从 icon-button.ts 复用,避免再开一套尺寸
-import { ICON_BUTTON_SIZE, ICON_BUTTON_ICON_SIZE } from './icon-button.js'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-/** 浮层(弹窗/抽屉)右上角定位。非浮层场景(标题栏行内)不加此类 */
-export const CLOSE_BUTTON_POSITION = 'absolute right-3 top-3'
+const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const SRC_DIR = join(PKG_ROOT, 'src')
+const DIST_DIR = join(PKG_ROOT, 'dist')
 
-/** 按钮尺寸(与图标按钮同源唯一尺寸 32×32,2026-09-17 用户指令:全项目只有一种图标按钮尺寸) */
-export const CLOSE_BUTTON_SIZE = ICON_BUTTON_SIZE
+// tsc 不产出、但 exports / dist/index.* 需要的固定清单。
+const FIXED_FILES = [
+  'radius.js',
+  'radius.d.ts',
+  'geometry.js',
+  'geometry.d.ts',
+  'tailwind-preset.js',
+  'tailwind-alpha-plugin.js',
+]
 
-/** 图标尺寸(16×16,同源) */
-export const CLOSE_BUTTON_ICON = ICON_BUTTON_ICON_SIZE
+/** styles/ 整目录跟着走:新增一份 CSS 不需要改这里(漏登记正是"造好没装车"那一型)。 */
+function stylesFiles() {
+  const dir = join(SRC_DIR, 'styles')
+  return readdirSync(dir)
+    .filter((name) => name.endsWith('.css'))
+    .map((name) => `styles/${name}`)
+}
 
-/** 亮底(默认)关闭按钮完整类名——浮层场景自行追加 CLOSE_BUTTON_POSITION */
-export const CLOSE_BUTTON_BASE = `inline-flex ${CLOSE_BUTTON_SIZE} shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none`
+function copyOne(rel) {
+  const from = join(SRC_DIR, rel)
+  const to = join(DIST_DIR, rel)
+  if (!existsSync(from)) {
+    console.error(`❌ 源缺失:${rel}(dist 需要它,不得静默跳过)`)
+    return false
+  }
+  mkdirSync(dirname(to), { recursive: true })
+  copyFileSync(from, to)
+  // 原字节校验:这一步同时防"复制器自己悄悄做了转码/换行改写"——
+  // 这些文件里有 CSS 与手写 .d.ts,任何重排都会让按路径读 src 的守门与按 exports 读 dist 的消费方分叉。
+  if (readFileSync(from).compare(readFileSync(to)) !== 0) {
+    console.error(`❌ 复制后字节不等:${rel}`)
+    return false
+  }
+  return true
+}
 
-/** 深底(全屏图片查看器/深色遮罩)关闭按钮完整类名——浮层场景自行追加 CLOSE_BUTTON_POSITION */
-export const CLOSE_BUTTON_ON_DARK = `inline-flex ${CLOSE_BUTTON_SIZE} shrink-0 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/50 disabled:pointer-events-none`
+function main() {
+  const files = [...FIXED_FILES, ...stylesFiles()]
+  const failed = files.filter((rel) => !copyOne(rel))
+  if (failed.length > 0) {
+    console.error(`❌ 资源复制失败 ${failed.length} 项:${failed.join(', ')}`)
+    process.exit(1)
+  }
+  console.log(`✅ 已原字节复制 ${files.length} 项非 TS 资源进 dist: ${files.join(', ')}`)
+}
+
+main()
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
