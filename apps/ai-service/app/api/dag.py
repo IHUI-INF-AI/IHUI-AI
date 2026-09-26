@@ -34,6 +34,7 @@ from ..services.dag_scheduler import (
     WorkerPool,
     WorkerPoolConfig,
 )
+from ..services.task_executors import execute_task
 
 router = APIRouter()
 
@@ -60,7 +61,14 @@ class KanbanTaskCreate(BaseModel):
 
 
 class DAGNodeSpec(BaseModel):
-    """DAG 节点规格(JSON 可序列化,executor 用默认回显实现)。"""
+    """DAG 节点规格。
+
+    V3 #51(2026-09-26):节点可声明 `taskType` + `arguments` 以绑定 `task_executors`
+    注册表里的**真实 executor**(与 `run_in_background` 同一份实现)。
+    未声明 ⇒ 节点仍被真实调度(拓扑分层/并行/重试都是真的),但业务执行体为空,
+    返回体如实自证 `executed: False, stub: True`(旧实现无条件回 `executed: True`,
+    这正是票面点名的"回显"病根)。
+    """
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -69,6 +77,9 @@ class DAGNodeSpec(BaseModel):
     dependencies: list[str] = Field(default_factory=list)
     max_retries: int = Field(3, alias="maxRetries")
     timeout: float = 300.0
+    task_type: str | None = Field(None, alias="taskType")
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: str | None = Field(None, alias="idempotencyKey")
 
 
 class DAGExecuteRequest(BaseModel):
@@ -109,16 +120,38 @@ async def _ensure_pool_started() -> WorkerPool:
 # ---------------------------------------------------------------------------
 
 
-async def _default_node_executor(context: dict[str, Any]) -> dict[str, Any]:
-    """DAG 节点默认 executor:回显 context keys(无业务 executor 时兜底)。"""
-    return {"executed": True, "contextKeys": list(context.keys())}
+def _node_executor(node_spec: DAGNodeSpec) -> Callable[[dict[str, Any]], Any]:
+    """把一个节点规格折成真实 executor(与 run_in_background 共用同一注册表)。"""
+
+    async def _executor(context: dict[str, Any]) -> dict[str, Any]:
+        from ..services.task_executors import supported_task_types
+
+        if not node_spec.task_type:
+            # 未声明业务类型:DAG 调度本身(拓扑/分层/并行/重试)仍然真跑了,
+            # 但业务执行体为空 —— 如实自证,不再冒充 executed: True。
+            return {
+                "executed": False,
+                "stub": True,
+                "analysis_depth": "none",
+                "reason": "节点未声明 taskType,仅完成 DAG 结构调度",
+                "supported_task_types": supported_task_types(),
+                "contextKeys": sorted(context.keys()),
+            }
+        return await execute_task(
+            node_spec.task_type,
+            node_spec.arguments,
+            checkpoint_key=node_spec.idempotency_key or f"dag:{node_spec.id}",
+        )
+
+    return _executor
 
 
 @router.post("/dag/execute")
 async def execute_dag(req: DAGExecuteRequest) -> dict[str, Any]:
     """提交 DAG 执行,返回 executionId。
 
-    节点 executor 用默认回显实现(真实业务应通过 WorkerPool + executor_factory 注册)。
+    节点业务体由 `node.taskType` 声明并分派到 `task_executors` 的真实 executor
+    (V3 #51);未声明的节点如实自证 `stub: True`。
     """
     scheduler = cast(Callable[[], DAGScheduler], DAGScheduler)()
     try:
@@ -127,7 +160,7 @@ async def execute_dag(req: DAGExecuteRequest) -> dict[str, Any]:
                 DAGNode(
                     id=node_spec.id,
                     name=node_spec.name,
-                    executor=_default_node_executor,
+                    executor=_node_executor(node_spec),
                     dependencies=node_spec.dependencies,
                     max_retries=node_spec.max_retries,
                     timeout=node_spec.timeout,
