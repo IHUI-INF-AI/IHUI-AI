@@ -128,8 +128,11 @@ export const adminFaqRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     if (faq) return reply.status(400).send(error(400, '分类下仍有 FAQ，无法删除'))
 
-    await db.delete(zhsFaqCategory).where(eq(zhsFaqCategory.id, parsed.data.id))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    const removed = await db
+      .delete(zhsFaqCategory)
+      .where(eq(zhsFaqCategory.id, parsed.data.id))
+      .returning({ id: zhsFaqCategory.id })
+    return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
   })
 
   server.get('/', async (request, reply) => {
@@ -246,8 +249,11 @@ export const adminFaqRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(zhsFaq.id, parsed.data.id))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, 'FAQ 不存在'))
-    await db.delete(zhsFaq).where(eq(zhsFaq.id, parsed.data.id))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    const removed = await db
+      .delete(zhsFaq)
+      .where(eq(zhsFaq.id, parsed.data.id))
+      .returning({ id: zhsFaq.id })
+    return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
