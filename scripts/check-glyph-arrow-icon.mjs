@@ -178,10 +178,10 @@ const BARE_GLYPH_RE = /^[›»→》‹←>]$/
 const BRACED_GLYPH_RE = /^\{\s*(['"`])([›»→》‹←>])\1\s*\}$/
 /** affordance 证据:事件/角色属性 */
 const HANDLER_ATTR_RE =
-  /\bon(?:Click|Press|LongPress|PressIn|PressOut|Tap)\b|\b(?:role|accessibilityRole)\s*=\s*['"]button['"]/
+  /\bon(?:Click|Press|LongPress|PressIn|PressOut|Tap|Change|Select)\b|\b(?:role|accessibilityRole)\s*=\s*['"]button['"]/
 /** …或组件名本身就是可点容器 */
 const AFFORDANCE_TAG_RE =
-  /^(?:Link|Pressable|TouchableOpacity|TouchableHighlight|TouchableWithoutFeedback|Touchable|Button|MoreLink|ViewMoreLink)$/
+  /^(?:Link|Pressable|TouchableOpacity|TouchableHighlight|TouchableWithoutFeedback|Touchable|Button|MoreLink|ViewMoreLink|a|button|Picker)$/
 
 const EXEMPT_LINE_RE = /glyph-arrow-exempt:\s*(\S.*)/
 /** GA4 专用人工出口:与 glyph-arrow 分开收集,免得给 GA1 开第二条豁免通道 */
@@ -206,7 +206,7 @@ const MAX_ANCESTORS = 8
  *    单个「返回」,是带宾语的按钮标签,换成裸箭头反而不表意。
  *  - 字面量 `<Text>返回</Text>` 同判(不走 i18n 的写法更该拦)。
  */
-const BACK_LABEL_EXPR_RE = /^\{\s*(?:[\w$]+\.)?(?:tt?|i18nT)\s*\(\s*['"][^'"]*\bback\d*['"]/
+const BACK_LABEL_EXPR_RE = /^\{\s*(?:[\w$]+\.)?(?:tt?|i18nT)\s*\(\s*['"][^'"]*(?:\bback|[a-z]Back)\d*['"]/
 const BACK_TEXT_LITERAL_RE = /^[「『]?返回[」』]?$/
 
 /**
@@ -457,7 +457,12 @@ function prevAllowsTagStart(text, i) {
 /** 从 i 处解析一个标签:属性里的 `{}`/`()`/`[]` 计入深度后才认配平的 `>`;不是标签返回 null */
 export function parseTagAt(text, i, strMask) {
   if (text[i] !== '<' || strMask[i]) return null
-  if (!prevAllowsTagStart(text, i)) return null
+  // **闭合标签不受 prevAllowsTagStart 约束**:它天然紧跟文本内容(`A</a>`、`›</span>`),
+  // 而那条守卫是为"比较运算符 `a < b` 不是标签"设计的 —— 把它一并套到 `</` 上,后果是
+  // 闭合标签永不入栈出栈 ⇒ 祖先栈跨兄弟泄漏(面包屑 `<a>A</a><span>›</span>` 会被判成"祖先 <a> 可点"),
+  // 且真正该被看到的格子反过来被漏掉(CourseScreen 的盲区即此型)。
+  const isCloseStart = text[i + 1] === '/' && !strMask[i + 1]
+  if (!isCloseStart && !prevAllowsTagStart(text, i)) return null
   let j = i + 1
   let closing = false
   if (text[j] === '/') {
@@ -542,7 +547,7 @@ function isOutsideString(strMask, pos) {
  *        无关文案"算成一对,那是造假红。
  */
 const BACK_GLYPH_PREFIX_RE = /^[‹←«‹]\s*返回$/
-const BACK_CALL_ON_LINE_RE = /\{\s*(?:[\w$]+\.)?(?:tt?|i18nT)\s*\(\s*['"][^'"]*\bback\d*['"]/
+const BACK_CALL_ON_LINE_RE = /\{\s*(?:[\w$]+\.)?(?:tt?|i18nT)\s*\(\s*['"][^'"]*(?:\bback|[a-z]Back)\d*['"]/
 const LONE_BACK_GLYPH_RE = /(^|[>\s{])\s*([‹←«])\s*(?=[\s<{]|$)/
 
 /** 该子内容是否为「返回」类文案(GA4 判据);返回命中的形态名或 null */
@@ -1548,11 +1553,19 @@ function selfTest() {
     }).n1 === 0,
   )
   t(
-    'GA1 反向:面包屑分隔符(祖先无可点标记)不判',
+    'GA1 反向:面包屑分隔符(字形是锚点的兄弟、祖先 <nav> 无可点标记)不判 —— 闭合标签必须真出栈',
     only({
       'packages/app/d.tsx':
         "export const Crumbs = () => <nav><a href='/1'>A</a><span>›</span><a href='/2'>B</a></nav>\n",
     }).n1 === 0,
+  )
+  t(
+    'GA1 阳性:原生 <a href> 里的整格字形必须当图标判(2026-09-26 补;生产 DOM 实测 7 个渲染实例)',
+    only({
+      'apps/web/app/x/a.tsx':
+        'export const Card = () => (<a href="/d/1"><span>→</span></a>)\n',
+    }).n1 === 1 &&
+      only({ 'apps/web/app/x/b.tsx': 'export const C = () => (<button><span>›</span></button>)\n' }).n1 === 1,
   )
   t(
     'GA1 反向:比较运算符 / 泛型尖括号 / JSX 属性语法都不判',
