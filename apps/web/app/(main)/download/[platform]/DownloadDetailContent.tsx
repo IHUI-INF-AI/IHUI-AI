@@ -90,6 +90,7 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-4">
       {/* 返回按钮 */}
+      {/* back-label-exempt: 详情页的「返回」是带矢量箭头的按钮文案(ArrowLeft 已在同一按钮内),不是把两个字当箭头 until 2026-12-31 */}
       <button
         type="button"
         onClick={() => router.back()}

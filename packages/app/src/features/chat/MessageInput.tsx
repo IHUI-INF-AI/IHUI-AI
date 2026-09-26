@@ -26,6 +26,7 @@ import {
   Play,
   Plus,
   X,
+  ChevronLeft,
 } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
@@ -89,10 +90,13 @@ export function MessageInput({
       {/* 全屏模式 header(返回按钮 + 提示) */}
       {isFullscreen ? (
         <View style={styles.fullscreenHeader}>
+          {/* back-label-exempt: 全屏输入态的退出按钮,「返回」是按钮文案且箭头已矢量化(ChevronLeft 在同一按钮内) until 2026-12-31 */}
           <TouchableOpacity
             onPress={onFullscreenToggle}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.fullscreenBackBtn}
           >
+            <ChevronLeft size={16} color={tk.text.secondary} />
             <Text style={styles.fullscreenBackText}>{t('messageInput.fullscreenBack')}</Text>
           </TouchableOpacity>
           <Text style={styles.fullscreenHint}>{t('messageInput.fullscreenHint')}</Text>
@@ -322,6 +326,7 @@ function createStyles(tk: AppThemeTokens) {
       borderBottomWidth: 1,
       borderBottomColor: tk.border.light,
     },
+    fullscreenBackBtn: { flexDirection: 'row', alignItems: 'center' },
     fullscreenBackText: { fontSize: 16, color: tk.text.secondary, marginRight: 12 },
     fullscreenHint: { fontSize: 12, color: tk.text.tertiary },
     agentVarsContainer: {
