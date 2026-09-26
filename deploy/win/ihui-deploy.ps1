@@ -876,23 +876,28 @@ function Get-PsqlExe {
 }
 
 function Get-PendingMigrationCount {
-    # 返回 $null 表示"判不了"(取不到 journal 或连不上库)—— 宁可不说,也不误报 0
+    # 返回 $null 表示"判不了"(取不到 journal 或连不上库)—— 宁可不说,也不误报 0。
+    # 2026-09-26 票:$null 有 6 条路径,而旧写法把它们全折成一句"未知"—— 而调用侧
+    # $null -gt 0 为假 ⇒ "判不了"与"没有待办"在输出面合流,直落"完成"。现在每条 $null
+    # 路径都写 $script:PendingMigrationReason,由调用侧"无法判定"分支原样打印。
+    $script:PendingMigrationReason = $null
     $total = 0
     try {
         $jp = Join-Path $Root 'packages\database\drizzle\meta\_journal.json'
-        if (-not (Test-Path $jp)) { return $null }
+        if (-not (Test-Path $jp)) { $script:PendingMigrationReason = "journal 文件缺失:$jp"; return $null }
         $total = (@((Get-Content $jp -Raw | ConvertFrom-Json).entries)).Count
-        if ($total -lt 1) { return $null }
-    } catch { return $null }
+        if ($total -lt 1) { $script:PendingMigrationReason = 'journal entries 为空'; return $null }
+    } catch { $script:PendingMigrationReason = "journal 读取异常:$_"; return $null }
     try {
         $psql = Get-PsqlExe
-        if (-not $psql -or -not $env:DATABASE_URL) { return $null }
+        if (-not $psql) { $script:PendingMigrationReason = 'psql.exe 不可达(绝对候选与 PATH 均落空)'; return $null }
+        if (-not $env:DATABASE_URL) { $script:PendingMigrationReason = 'DATABASE_URL 未设'; return $null }
         $raw = ((& $psql $env:DATABASE_URL -At -c "select count(*) from drizzle.__drizzle_migrations;" 2>$null) | Out-String).Trim()
-        if ($raw -notmatch '^\d+$') { return $null }
+        if ($raw -notmatch '^\d+$') { $script:PendingMigrationReason = 'psql 输出非数字(连不上库或迁移表不存在)'; return $null }
         $d = $total - ([int]$raw)
         if ($d -lt 0) { $d = 0 }
         return $d
-    } catch { return $null }
+    } catch { $script:PendingMigrationReason = "psql 调用异常:$_"; return $null }
 }
 
 function Test-MigrateOrphans {
@@ -944,6 +949,76 @@ function Note-MigrateFailure {
     } catch { Log "MIG   告警推送异常: $_" }
 }
 
+function Get-MigrateBudgetSec {
+    # db:migrate 硬预算(秒)。默认 180 的依据:部署环每 30 分钟一轮,正常迁移实测远小于
+    # 此值,而"迁移挂死"恰是必须放手的场景(§80 无界挂起同型,且这里是写路径,不能只加
+    # timeout 不终止进程)。env IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC 覆写;生效值在每次调用前
+    # 打进日志 —— 报告里的数字必须以当轮日志行为准,不得照文档派单。
+    $raw = "$env:IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC"
+    if ($raw -match '^\d+$' -and [int]$raw -gt 0) { return [int]$raw }
+    return 180
+}
+
+function Get-MigrateOutcome {
+    # 纯判据:不打日志、不派生命令、无副作用,返回 ASCII 枚举供调用方分流 ——
+    # 使 scripts/tests/deploy-migrate-exitcode.test.mjs 能离线用假数据抽出本函数直接跑。
+    #   TIMEOUT — 超硬预算被终止,没有可信退出码,判"超时未判定"(不得冒充失败或成功)
+    #   FAIL    — migrate 自身退出码≠0;此判优先于 Pending,后面 psql 成败不改判
+    #   UNDET   — exit 0 但 pending 取不出来 ⇒ "无法判定",既不是完成也不是失败
+    #   PEND    — exit 0 但仍落后(跑过但没应用完)
+    #   OK      — exit 0 且 pending=0
+    param(
+        [int]$MigExit,
+        [AllowNull()][object]$Pending,
+        [switch]$TimedOut
+    )
+    if ($TimedOut) { return 'TIMEOUT' }
+    if ($MigExit -ne 0) { return 'FAIL' }
+    if ($null -eq $Pending) { return 'UNDET' }
+    if ([int]$Pending -gt 0) { return 'PEND' }
+    return 'OK'
+}
+
+function Invoke-MigrateWithBudget {
+    # 2026-09-26 票:db:migrate 此前是无 timeout 的同步 `&`。同文件构建段(2026-09-21 注释)
+    # 记过那一型:直调可被孤儿孙进程持管道永久挂起。这里按构建段同形改 Start-Process +
+    # stdout/stderr 重定向文件 + WaitForExit(ms),超时 taskkill /T 杀整树(pnpm.cmd 派生
+    # node/psql,只杀根进程会留它们继续写库)。重定向落点用完即删 —— 服务身份(LocalSystem)
+    # 的 $env:TEMP 在 C:\Windows\Temp,HKCU 迁盘对它无效(§26 实测),留着就是每天堆垃圾。
+    # 返回 @{ Exit; Out; TimedOut };超时没有退出码,Exit=$null(判定层按 TIMEOUT 走)。
+    param([int]$BudgetSec)
+    $migOutFile = Join-Path $env:TEMP "ihui-migrate-$PID-out.log"
+    $migErrFile = Join-Path $env:TEMP "ihui-migrate-$PID-err.log"
+    $timedOut = $false
+    $code = $null
+    try {
+        try {
+            $migProc = Start-Process -FilePath 'D:\DevEnv\tools\npm-global\pnpm.cmd' -ArgumentList 'run', 'db:migrate' `
+                -WorkingDirectory (Get-Location).Path -NoNewWindow -PassThru `
+                -RedirectStandardOutput $migOutFile -RedirectStandardError $migErrFile
+            if (-not $migProc.WaitForExit($BudgetSec * 1000)) {
+                Log "WARN  db:migrate 超 ${BudgetSec}s 墙钟(pid=$($migProc.Id))判挂死,taskkill /T 整树"
+                & taskkill /PID $migProc.Id /T /F 2>&1 | Out-Null
+                $timedOut = $true
+            } else {
+                $migProc.WaitForExit()   # 确保重定向文件缓冲已落盘再读
+                $code = $migProc.ExitCode
+            }
+        } catch {
+            # 与构建段同形的兜底:Start-Process 起不来时回退直调(无预算保护,如实喊出来)。
+            # 回退分支同样**取码即存** —— 本票修的就是隔步读码,不在兜底路径上重犯。
+            Log "Start-Process 迁移异常($($_.Exception.Message)),回退直调(本轮无超时保护,生效预算=不适用)"
+            & "D:\DevEnv\tools\npm-global\pnpm.cmd" run db:migrate 2>&1 | Out-File -FilePath $migOutFile -Encoding utf8
+            $code = $LASTEXITCODE
+        }
+        $out = ((Get-Content $migOutFile -Raw -ErrorAction SilentlyContinue) + "`n" +
+                (Get-Content $migErrFile -Raw -ErrorAction SilentlyContinue))
+        return @{ Exit = $code; Out = "$out"; TimedOut = $timedOut }
+    } finally {
+        try { Remove-Item -LiteralPath $migOutFile, $migErrFile -Force -ErrorAction SilentlyContinue } catch {}
+    }
+}
+
 function Invoke-DbMigrate {
     Log "DB 迁移检查(packages/database db:migrate)"
     $apiEnv = "$Root\apps\api\.env"
@@ -954,28 +1029,55 @@ function Invoke-DbMigrate {
     }
     Push-Location "$Root\packages\database"
     try {
-        $migOut = & "D:\DevEnv\tools\npm-global\pnpm.cmd" run db:migrate 2>&1 | Out-String
+        $migBudgetSec = Get-MigrateBudgetSec
+        Log "MIG   db:migrate 硬预算=${migBudgetSec}s(env IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC 可覆写;生效值以此行为准)"
+        $mig = Invoke-MigrateWithBudget -BudgetSec $migBudgetSec
+        # 取码即存(2026-09-26 主修点,现读复现):旧顺序是 & pnpm db:migrate → Get-PendingMigrationCount
+        # (原生 psql)→ Test-MigrateOrphans(又一次原生 psql)→ 才判 $LASTEXITCODE —— 两次 psql 把它
+        # 覆写,第 4 步判的根本不是 migrate 的退出码:迁移失败也照样打"完成(exit 0)"。
+        # 现在码在诞生处就落成 $migExit/$migTimedOut,本函数后续判定一律不碰 $LASTEXITCODE。
+        $migExit = $mig.Exit
+        $migTimedOut = [bool]$mig.TimedOut
+        $migOut = $mig.Out
         $migOut | Write-Host
         $pend = Get-PendingMigrationCount
         $pendTxt = if ($null -eq $pend) { '未知' } else { "$pend 个" }
         Log "MIG   待应用迁移=$pendTxt(journal vs drizzle.__drizzle_migrations)"
         # 孤儿记录检测(2026-09-21 加):有孤儿时 pending 永远清不掉且 migrate 假成功,必须显式告警
-        if (Test-MigrateOrphans) {
+        $orphans = Test-MigrateOrphans
+        if ($orphans) {
             Note-MigrateFailure -reason "孤儿迁移记录(DB max created_at 超过 journal 最大 when)" -pendingTxt $pendTxt
+        } elseif ($null -eq $orphans) {
+            # 旧写法 if (Test-MigrateOrphans) 把 $null(判不了)与 $false(无孤儿)合流成静默通过;
+            # 与本票主修点是同一型"判不了冒充已判定",此处一并点名,只喊原因不定性。
+            Log "WARN  孤儿迁移检测无法判定(原因:${script:PendingMigrationReason})—— 不计「已核」,也不冒判有孤儿"
         }
-        if ($LASTEXITCODE -eq 0) {
-            if ($pend -gt 0) {
+        $outcome = Get-MigrateOutcome -MigExit ([int]$migExit) -Pending $pend -TimedOut:$migTimedOut
+        switch ($outcome) {
+            'FAIL' {
+                # 2026-09-13 加固:失败必须能定位到具体迁移,而不是只报退出码
+                $bad = ($migOut -split "`n" | Where-Object { $_ -match "\.sql|ERROR|error:" } | Select-Object -First 6) -join " | "
+                Log "WARN  db:migrate 失败(exit $migExit),本轮继续但需人工核查;线索: $bad"
+                Note-MigrateFailure -reason "exit $migExit" -pendingTxt $pendTxt
+            }
+            'TIMEOUT' {
+                # 超时不改写退出码语义(根本没有码)、不静默继续:按既有失败记账器记,标注未判定
+                Log "WARN  db:migrate 超 ${migBudgetSec}s 被终止 —— **超时未判定**(成败未知,无退出码可引用),本轮记 degraded"
+                Note-MigrateFailure -reason "超时 ${migBudgetSec}s(未判定,无退出码)" -pendingTxt $pendTxt
+            }
+            'UNDET' {
+                # 显式"无法判定"分支:既不得记成功,也不得记失败(两回事);打印取不到的原因。
+                # 措辞刻意不含「完成」二字 —— 让"判不了"在日志 grep 面上也不冒充成功态。
+                Log "WARN  db:migrate exit 0 但待应用数**无法判定**(原因:${script:PendingMigrationReason})—— 不计为成功,也不计失败"
+            }
+            'PEND' {
                 Log "WARN  db:migrate exit 0 但仍落后 $pend 个迁移 —— 属于「跑过但没应用完」,需人工核查"
                 Note-MigrateFailure -reason "exit 0 但仍有待应用" -pendingTxt $pendTxt
-            } else {
+            }
+            'OK' {
+                # 唯一能打出"完成"字样的分支:退出码=0(取码即存的那份)且 pending=0 两者齐备。
                 Ok "db:migrate 完成(exit 0)"
             }
-        }
-        else {
-            # 2026-09-13 加固:失败必须能定位到具体迁移,而不是只报退出码
-            $bad = ($migOut -split "`n" | Where-Object { $_ -match "\.sql|ERROR|error:" } | Select-Object -First 6) -join " | "
-            Log "WARN  db:migrate 失败(exit $LASTEXITCODE),本轮继续但需人工核查;线索: $bad"
-            Note-MigrateFailure -reason "exit $LASTEXITCODE" -pendingTxt $pendTxt
         }
     } finally { Pop-Location }
 }
