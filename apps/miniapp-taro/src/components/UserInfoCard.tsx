@@ -35,7 +35,8 @@ const NAME_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_NAME_FONT_PX) }
 const SMALL_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_SMALL_FONT_PX) }
 const TOKEN_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_TOKEN_FONT_PX) }
 const LOGIN_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_LOGIN_FONT_PX) }
-/// CSSProperties(Taro)不认 paddingXxxHorizontal/Vertical 简写,拆成四键喂同一档位(参照 Loading.tsx 口径)
+/// CSSProperties(Taro)不认 paddingXxxHorizontal/Vertical 简写,拆成四键喂同一档位
+/// (原写"参照 Loading.tsx 口径" —— 那份零消费者死副本已于 2026-09-26 摘除,不再是指向)
 const BADGE_PAD_STYLE = {
   paddingLeft: toUnit(USER_INFO_CARD_BADGE_PADDING_X_PX),
   paddingRight: toUnit(USER_INFO_CARD_BADGE_PADDING_X_PX),
