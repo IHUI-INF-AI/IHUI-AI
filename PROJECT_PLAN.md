@@ -11551,6 +11551,58 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
     (b8) **一条落地面事故值得留(不是推测,是这次真踩的)**:旁路提交(私有索引 + `commit-tree` + CAS `update-ref`)**不碰共享主索引**,于是新建的文件在共享索引里没有条目 ⇒ `git status` 打成 `D ` + `??` 两行(**HEAD 有、索引无 = git 算成暂存删除**),而 `heal-worktree-tracked --align-drift` 第四层的判据是"候选全部有工作树副本 ⇒ 只报数不碰",**结构上不覆盖这一型**(它管的是"磁盘上没了"的那种)。不补齐的话,下一枚不带 pathspec 的普通提交就会把我的新测试文件记成删除。补齐动作:先证工作树 blob == HEAD blob,再逐路径 `git update-index --add -- <path>`(绝不 `git add -A`,共享索引里此刻还挂着别人的 `scripts/guardian-runner.mjs`)。
 - [x] ✅(2026-09-27) **`@ihui/shared` 的两条 `eqeqeq` 红收干(同型第二例,`== null` 惯用法在本仓规则下必红)**:`lint` job 的红步是 `Run pnpm run lint:strict`(= `turbo run lint -- --max-warnings 0`),日志点名 `packages/shared/src/chat/move-to-worktree.ts:114/147`,由 `97f55b9e3c` 引入后**每次 CI 都红**。改成显式两比较,行为逐字不变(该处判据本就是"null 与 undefined 都算缺失",注释里已自述)。取证:该文件 eslint `--max-warnings 0` 由红转**零输出**;`pnpm exec vitest run move-to-worktree.test.ts worktree-lifecycle.test.ts` **2 passed**;`git diff HEAD` 只有我那 2 个 hunk。**两条值得留的判读规矩**:① 本机 `pnpm --filter @ihui/shared typecheck` 同时报 5 条 `prompt-history` 缺导出 —— 一查 HEAD 面**五个导出全在**,红源是并发会话正在写的 `prompt-history.ts`(工作树 ` M`),即"**本机 tsc 红 ≠ 仓库红**",判 CI 必须先问 HEAD 面(§"诊断只能取同一个面"同族),否则我会去"修"一个不存在的洞;② `@ihui/shared#lint` 与 `ai-service-schema-check` 的 job 名都不含 "lint" 语义,红必须**走到 step 级**才能归位 —— 上一格"唯一仍红是 intake"的过度断言就是没走到 step 级留下的(现已两次被实测推翻并就地更正)。
 - [x] ✅(2026-09-27) **CI 的 `Shared package typecheck` 红收到根子上:前置构建步从"手工点名 api-client"换成 `@ihui/shared^...` 拓扑闭包**。红原文是 3 条 `TS2307 Cannot find module '@ihui/design-tokens'`(`src/design/design-templates.ts:22`、`src/ui/back-chevron-spec.ts:23`、`src/ui/navbar-spec.ts:20` —— 后两枚是今天 O81 跨端 UI 线新加的文件)。该步原样只建 `@ihui/api-client...`,而 `@ihui/design-tokens` 的 `exports` 同样指 `dist`(产物不入库),**它不在被点名的那棵子树里 ⇒ 这一步"建了却仍红"**。修法不是再补一个包名,而是换选择器:`pnpm --filter "@ihui/shared^..." run build`(`^...` = 该包**全部 workspace 依赖的拓扑闭包**,不含本包),先例既有 `test-real-db.yml:71`(09-26 已换过一次并写明理由:"手工点名要先建哪几个包必然落后于新增;本仓 7+ 个包 exports 指 dist")。**同型事故的第三次** —— 第一次 ci.yml 缺 api-client 前置(09-25 补)、第二次 test-real-db 缺闭包(09-26 补)、这次轮到 design-tokens;三次都同一个形状:**本地 dist 早就在,所以本地永远绿,红只在 CI 独享**。取证:`pnpm --filter "@ihui/shared^..." run build` exit 0,日志逐条可见 `packages/types build: Done` / `packages/design-tokens build$ rimraf dist && tsc && node scripts/copy-assets.mjs → Done(原字节复制 8 项非 TS 资源)` / `packages/api-client build: Done`,即三个 exports 指 dist 的依赖全在建;**步骤名一并改成 `Build shared's workspace deps (topological closure, prerequisite of shared typecheck)`**(原名"Build api-client"在新语义下会撒谎 —— 名字与实际做的事不符,是下一族人误判的起点)。护栏:`check-workflow-step-order` 复跑 exit 0;缩进与同 job 步骤逐字一致(本机无 `js-yaml`/`pyyaml`,故未做全文件 parse 校验,这条如实登记)。
+- [x] ✅(2026-09-27 凌晨)**`ai-service` 的 Ruff 红从 133 做到 0 —— 但入库的那份不是子代理留下的树,它被实测判为不可信**(commit `3508d64bb7`,52 路径):
+  - **为什么不用那份现成的**:派去清红的那路代理在 150 轮上限处停摆(最后一条自述"Wrong filename again"),
+    盘上留了 49 个脏文件(我后来补的 4 个也在同一批里落地),`ruff check .` 确实从 133 降到 4。
+    **但 A/B 一跑就露馅**:那份副本相对 HEAD 有一处**函数级删除** —— HEAD 的
+    `app/services/mcp_server.py` 里 `_bg_task_types_prose` 出现 **3 次、副本里 0 次**,
+    `tests/test_background_task_type_wiring_51.py` 五条用例因此 `AttributeError`。
+    一次"风格清理"里夹带删函数,而 `ruff` / `mypy` / `compileall` **三道都不响**(没人引用就等于不存在)。
+    我自己写的丢行探针其实报出了这一族(**45 个文件 / 161 行 / 其中 30 行是 def-class**),
+    是我把它的输出用 `head -50` 截断看了 —— **信号一直在,截断它的人是我。**
+  - **改用的办法**:另起一棵按当前 HEAD 归档的隔离树(补 `.env` / `.data` —— 归档不含未跟踪件,基线树会自己
+    多出一堆假失败,上一版 A/B "基线 3:49 跑完却多 42 条失败"就是这个),只吃 `ruff check --fix` 的
+    **safe 修复(136 项)**;剩下 **23 项逐条人工判**,每条写成"命中数必须恰好 N 否则整条不应用"的断言脚本
+    (`.ihui-agent/tmp/ai-redo/apply-*.mjs`)。落回真仓前逐文件过一道前置 **"归档以来 HEAD 未动该路径"**
+    (`hash-object <基线件> == rev-parse HEAD:<path>`):3 个文件(`mcp_server` / `agent_loop_v2` / `routers/llm`)
+    因并发会话在这半小时内推进了 HEAD 而**按住**,改为"先恢复到新 HEAD 基线、再重放同一条修复",不整批覆盖。
+    同批还按住一次 `git checkout` 式的复制失败(4 个文件 UNKNOWN 瞬时错误,重试后哈希逐字一致)。
+  - **23 项里值得留档的四类判断**:
+    ① **UP042 × 4(`class X(str, Enum)`)刻意不改基类**:混入式的 `str()` / f-string 输出是 `"Class.MEMBER"`,
+      换 `StrEnum` 会变 `"value"` —— 那是**序列化字面量重写**,而 `ApprovalOutcome` 的值要进审计事件与前端比对。
+      处置=带理由逐点 `# noqa: UP042`。**代理那版正是把它们改了,才造出"def 行消失"。**
+    ② **F821 × 9 不是 bug 而是静态局限**:`scripts/e2e_token6688.py` 的 `Token6688Provider` 只在 `main()` 内
+      函数级 import(为绕开 `app/providers/__init__` 的聚合重链),而模块级注解引用它;文件顶部有
+      `from __future__ import annotations` ⇒ 注解不求值,运行时无事。修法=加 `if TYPE_CHECKING:` 块只喂静态面,
+      **运行时零变化**(没有用 9 条 noqa 糊)。
+    ③ **F811 抓到一条"从来没跑过的用例"**:`tests/test_loop_wiring_58b.py:253` 与 `:259` 是**逐字相同**的
+      同名函数 ⇒ 第一份被永久遮蔽。删第二份前先断言"两份 body 逐字等值"(**等值才允许删,不等等值就是
+      有人在写**),删后再验"该名字只剩 1 处定义"且"没产出三连空行"。
+    ④ **F841 里有一条是测试自己没在断言**:`test_tool_trace_wiring_58.py` 的 `has_tool_msg` 在嵌套 helper 里
+      算完就丢 —— 改成下划线保留计算,并在同一行写明"**该分支没有被这条用例判过**";不做的是"顺手补个 assert"
+      (那会在别人没验过的语义上替它背书)。`additional_context_store.py` 的 `removed_bytes` 是纯死赋值,删。
+      `exec_policy_amendments.py` 的 SIM115 **不改** `with`:句柄跨多段 try 持有且带 advisory lock、
+      在下方 `finally` 里显式 `close()`,改成 `with` 会动锁的生命周期 —— 带理由 noqa。
+  - **取证(全部现读;本地 ruff `0.16.6` 与 `pyproject.toml:88` 的 `ruff==0.16.6` 同版,所以不是"我机器上绿")**:
+    `ruff check .` 由 **133 → All checks passed**;`compileall app scripts tests` exit 0;
+    被改到的 **23 个 app 模块逐个 `importlib.import_module` 全 OK**(这一项才是抓 `mcp_server` 那种删除的尺子
+    —— `--fix` 之后最怕的就是导入/注解重排,而它恰好也最不容易被 tsc 类的静态检查抓到);
+    `mypy app/` 在派生树与基线树**同为 6 错 / 4 文件**,那 6 条全是 `unused-ignore` + `no-any-return`,
+    成因是本地 venv 缺 `anydoc` / `bs4`(CI 装了依赖就不报),**与本轮无关的证据是"同一工具在基线树报同样 6 条"**,
+    不是我推断的;同一批 **28 个测试文件**在两棵树上各跑一遍(`-o addopts=""` 关掉 xdist,避开"worker 被后台任务打死"):
+    基线 `17 failed / 693 passed`、派生 `17 failed / 693 passed`,**失败名集合 `comm` 双向为空 ⇒ 零回归候选**;
+    落盘前再验 `check-watermark-coverage --no-fix` exit 0(导入重排没把溯源横幅挪走 —— `I001` 会搬注释,
+    而本仓水印横幅就在文件头,这一条必须实测而不是假设)。
+  - **两条工具级教训(都会复发)**:① `python <script.py>` **不把 cwd 放进 `sys.path`**(只放脚本所在目录),
+    于是在隔离树里 `import app` 直接 `ModuleNotFoundError` —— 我第一次烟测拿到"23/23 envmiss"就是这么来的,
+    加 `PYTHONPATH=<隔离树根>` 后同一批变成 **23/23 OK**。"整整齐齐全都缺包"这种读数**先怀疑自己的启动方式**。
+    ② MSYS 下 `env VAR=… node -e "console.log(...)"` 会**一声不响地零输出**(`env` 解析到 WindowsApps 的
+    执行别名 stub,与 §"Python was not found" 同源),而 `$?` 仍是 0 —— 我因此两次以为落地命令跑了。
+    设 env 一律用 shell 内建 `export VAR=… && node …`,并在命令后**显式回显 REAL_EXIT**
+    (同族坑见 [[feedback-capture-exit-code-not-through-pipe]])。
+  - **一处必须如实收窄的结论**:`3:49 那次基线跑"少 10 条失败"**不能**读成"本轮修好 10 条" —— 两棵树的归档
+    时点差 8 分钟、期间并发提交进了别的改动,不是单变量对照。**只有"零新增失败"这一侧是硬结论**,
+    所以这句话写在这里而不是写成收益。
 - 〔O81 票⑥附 2026-09-27 凌晨:**具名档解析从未接进 `main`,票⑥那条修复在提交链上生效次数 = 0**;同批立 SL 一维并按新尺子重取锚点〕
   承接票⑥那句"数字一旦收编进 shared spec,组件里只剩标识符,前面所有数字形态的提取式全部落空 ⇒ 收进单一源 = 从尺子上消失"。该判断与 `readGeometry` 的 tiers 分支、自检 ㉜/㉝/㊱/㊲ 全都对,**唯独调用点漏了第四个参数**:`collect()` 把算好的档表随返回值交出,`main` 里写的却是 `audit(collected.pairs, collected.text, baseline)`,于是 `tiers` 恒取默认空表,整维判据一次也没跑到过真仓。自检为什么全绿:那四条用例都直接调 `readGeometry` 并**手工喂** tiers,它证明的是"函数会给答案",不是"有人问它"。这与本仓反复登记的"造好没装车 / 判据在而 `scan()` 没调"同型(守门 70/76/81/102 各记过一次),差别只在这次藏在返回值里,`grep audit(` 看着完全正常。
   **A/B 取证**(唯一差别 = 那一个参数,HEAD 面):可见几何差异 **9 族 → 11 族**,其中 **9 族超旧锚**;台账旧值是按"看不见具名档"的尺子取的,所以这不是仓库变差,是**存量此前少记**,`counts` 同笔重取(11 键 / 94 档),`waivers` 仍为空 —— 上调锚点只为承接量到的事实,不构成"这些差异已接受"。
