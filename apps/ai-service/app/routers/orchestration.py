@@ -47,6 +47,109 @@ from ..services.telemetry_service import telemetry_service
 
 router = APIRouter()
 
+# ---------------------------------------------------------------------------
+# emit 响应面的「结论三态」(第九轮 B2,additive)
+# ---------------------------------------------------------------------------
+# 为什么需要三态而不是一个 bool:hub.emit() 的返回值只有 event_id,编排结论
+# (degraded / non_ok_pillars)住在 hub 的内存台账 _orchestration_outcomes 里,
+# 只有 hub **未启动消费循环**时 emit 才会同步跑完 _process_event 并把结论留在
+# 台账尾部(见 OrchestrationHub.emit 里 `if not self._running:` 那一段)。消费
+# 循环在跑时事件交给 Redis stream,本次 HTTP 调用结构上拿不到结论 —— 把"还没
+# 拿到"写成 degraded=False 等于把"没判"写成"判过了",正是本仓最高频的失效型,
+# 所以未结算档一律取 None(而不是 False),并由 outcome 键做区分档位。
+EMIT_OUTCOME_SETTLED = "settled"  # 本次调用拿到了可关联到该事件的结论
+EMIT_OUTCOME_ACCEPTED = "accepted"  # 事件已交给后台消费循环,结论稍后出现在 status
+EMIT_OUTCOME_UNSETTLED = "unsettled"  # 同步路径但没拿到可关联的结论(skipped/异常/交错)
+
+
+def _attempt_count(status: dict[str, object]) -> int | None:
+    """读 hub status 里的编排执行次数;读不到返回 None(**不返回 0**)。
+
+    返回 0 会把"取不到"伪装成"取到了且一次都没执行过",下游就分不出这两件事。
+    bool 单独排除:Python 里 isinstance(True, int) 为真,计数键写成布尔属于形态
+    漂移,不能当成合法计数。
+    """
+    raw = status.get("orchestration_attempts")
+    if isinstance(raw, bool):
+        return None
+    if not isinstance(raw, int):
+        return None
+    return raw
+
+
+def _last_orchestration(status: dict[str, object]) -> dict[str, object] | None:
+    """读 status 里的 last_orchestration;形态不对返回 None(不猜、不兜空 dict)。"""
+    raw = status.get("last_orchestration")
+    if isinstance(raw, dict):
+        return raw
+    return None
+
+
+def _non_ok_pillar_names(entries: object) -> list[str]:
+    """把结论里的 non_ok_pillars 折成支柱名列表(去重、保序)。
+
+    hub 侧的每条记录是 {pillar, action, status} 三字段(见 OrchestrationDecision
+    .to_dict),这里只投影"哪几条支柱"这一层 —— action/status 的细粒度事实在
+    /orchestration/status 与 /orchestration/decisions 上,本端点不复制第二份。
+    读不出支柱名的条目跳过而非塞空串:空串在列表里会被读成"有一条但名字是空的"。
+    裸字符串条目原样透传(它已经是名字了):把"hub 哪天简化成 list[str]"投影成
+    空列表,会让 degraded=True 却点不出任何支柱 —— 那是"把没判写成判过了"的近亲。
+    """
+    if not isinstance(entries, list):
+        return []
+    names: list[str] = []
+    for entry in entries:
+        pillar = entry.get("pillar") if isinstance(entry, dict) else entry
+        if isinstance(pillar, str) and pillar and pillar not in names:
+            names.append(pillar)
+    return names
+
+
+def resolve_emit_outcome(
+    status_before: dict[str, object],
+    status_after: dict[str, object],
+    event_type: str,
+) -> tuple[str, bool | None, list[str] | None]:
+    """由 emit 前后的两次 status 快照,折出"这次到底有没有真联动上"。
+
+    判序(任何一条弱化都会把"未判定"洗成"成功"):
+      1) 前置快照 running 为真 ⇒ 事件走 Redis stream 由后台消费循环处理,
+         本次调用拿不到结论 ⇒ ("accepted", None, None)。
+         刻意只看**前置**快照:emit 之后 running 可能恰好被人 start/stop。
+      2) 两侧次数取不到 ⇒ ("unsettled", None, None) —— 尺子失灵不是通过。
+      3) 后置次数未增加 ⇒ 本次 emit 没留下结论(playbook 未命中而 skipped、
+         _process_event 吞异常、execute_decision 返回非 dict)⇒ ("unsettled", None, None)。
+         skipped 尤其不得读成 degraded=False:那次联动**根本没发生**。
+      4) 结论的 event_type 与本次请求不一致 ⇒ 台账尾部是别人的事件(并发交错),
+         不能张冠李戴 ⇒ ("unsettled", None, None)。
+      5) 全部成立 ⇒ ("settled", degraded, non_ok_pillars);degraded 必须是 bool,
+         否则同样落 unsettled。
+
+    已知局限(如实登记,不是待补的 bug 清单):第 3 步的"次数 +1"只能证明
+    "本次调用窗口内产生了一条结论",不能证明它归属本事件 —— 并发 emit 可能
+    交错。event_type 一致性是把这种交错**收窄**而非消除。真要逐事件归属,需要
+    hub 侧给结论带上 event_id,而那属线程模型/数据结构的改动,不在本票范围。
+    """
+    if status_before.get("running") is True:
+        return EMIT_OUTCOME_ACCEPTED, None, None
+
+    before_count = _attempt_count(status_before)
+    after_count = _attempt_count(status_after)
+    if before_count is None or after_count is None:
+        return EMIT_OUTCOME_UNSETTLED, None, None
+    if after_count <= before_count:
+        return EMIT_OUTCOME_UNSETTLED, None, None
+
+    last = _last_orchestration(status_after)
+    if last is None or last.get("event_type") != event_type:
+        return EMIT_OUTCOME_UNSETTLED, None, None
+
+    degraded = last.get("degraded")
+    if not isinstance(degraded, bool):
+        return EMIT_OUTCOME_UNSETTLED, None, None
+
+    return EMIT_OUTCOME_SETTLED, degraded, _non_ok_pillar_names(last.get("non_ok_pillars"))
+
 
 # ---------------------------------------------------------------------------
 # 请求模型
@@ -131,19 +234,58 @@ async def get_events(
 
 @router.post("/orchestration/events/emit")
 async def emit_event(body: EmitEventBody) -> dict[str, Any]:
-    """发射事件到编排中枢。"""
+    """发射事件到编排中枢。
+
+    响应面(第九轮 B2,加性):`data` 除既有 `event_id` 外新增
+      - `outcome`: "settled" | "accepted" | "unsettled"
+      - `degraded`: 仅 outcome=="settled" 时为 bool,其余档位为 **null**(未知)
+      - `non_ok_pillars`: 仅 outcome=="settled" 时为支柱名列表,其余为 null
+
+    为什么要这么绕:emit 的语义是"事件已交给中枢",而**联动结论只在 hub 同步
+    编排的那一档里当场可得**(消费循环未启动时)。消费循环启动后事件进 Redis
+    stream 由后台处理,HTTP 这一趟拿不到它 —— 此时如实返回"未知"而不是
+    degraded=false,调用方才不会被"成功"二字骗过去。
+
+    读结论的另两个出口(未结算时**必须**去这里再查,不得在本端点猜):
+      - GET /orchestration/status → last_orchestration / orchestration_degraded
+      - GET /orchestration/dashboard
+
+    ⚠️ 一处结构性限制(不是本票漏改,改了要动线程模型):`outcome="accepted"`
+    也不等于"稍后一定会出结论"。消费循环只在 Redis 可用时才取事件
+    (OrchestrationHub._consume_loop 的 else 分支在内存降级模式下只 sleep 空转),
+    所以 Redis 不可用时该事件**永远不会**被自动编排 —— status 里的
+    orchestration_attempts 不会增加,这也正是本端点把它留成未知的原因。
+    """
     try:
         # D6① 收敛开关接线点(默认 legacy 直接返回,行为与改前等价;loop_v2 档
         # 在触达 hub.emit 之前 fail-fast,错误经本 handler 既有 except 转为
         # {code:500} 信封且消息含 AGENT_LOOP_V2_PILOT_NOT_WIRED)
         guard_loop_v2_pilot("routers/orchestration.emit_event")
+        # get_status() 只做内存算术(读三个 deque/dict 的长度与副本),不发网络
+        # 请求也不碰 Redis,故可安全地在 emit 前后各取一次快照做结论对账。
+        status_before = await orchestration_hub.get_status()
         event_id = await orchestration_hub.emit(
             event_type=body.event_type,
             source_pillar=body.source_pillar,
             payload=body.payload,
             severity=body.severity,
         )
-        return {"code": 0, "message": "success", "data": {"event_id": event_id}}
+        status_after = await orchestration_hub.get_status()
+        outcome, degraded, non_ok_pillars = resolve_emit_outcome(
+            status_before, status_after, body.event_type
+        )
+        # 既有键(event_id)与信封(code/message/data)名称/类型/顺序一字未改,
+        # 新增三键一律追加在 event_id 之后 —— 三条消费端都在读现有形状。
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {
+                "event_id": event_id,
+                "outcome": outcome,
+                "degraded": degraded,
+                "non_ok_pillars": non_ok_pillars,
+            },
+        }
     except Exception as e:
         return {"code": 500, "message": str(e), "data": None}
 
