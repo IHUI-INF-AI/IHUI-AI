@@ -21,7 +21,7 @@ import {
   CHART_BG_DARK,
   CHART_RED,
   BRAND_PRIMARY,
-} from './chart-colors'
+} from './chart-colors.js'
 
 // ─── 明色文档配色 ──────────────────────────────────────────────────
 

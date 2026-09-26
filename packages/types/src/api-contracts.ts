@@ -21,13 +21,13 @@
  */
 
 // ===================== 用户与认证 =====================
-export type { User, UserProfile, AuthToken } from './user'
+export type { User, UserProfile, AuthToken } from './user.js'
 
 // ===================== 通用 API 响应包装 =====================
-export type { ApiResponse, PaginatedResponse, ApiResult } from './api'
+export type { ApiResponse, PaginatedResponse, ApiResult } from './api.js'
 
 // ===================== AI 聊天 =====================
-export type { ChatMessage, ChatRequest, AgentTask } from './ai'
+export type { ChatMessage, ChatRequest, AgentTask } from './ai.js'
 
 // ===================== 通知 / WebSocket =====================
 export type {
@@ -38,8 +38,8 @@ export type {
   UnreadCount,
   CustomerServiceSession,
   CustomerServiceMessage,
-} from './notification'
-export { isAIResponse } from './notification'
+} from './notification.js'
+export { isAIResponse } from './notification.js'
 
 export type {
   NotificationChannel,
@@ -47,11 +47,11 @@ export type {
   DingtalkMessage,
   FeishuMessage,
   WechatWorkMessage,
-} from './notification-channels'
+} from './notification-channels.js'
 
 // ===================== 消息自愈(CLI/API/ai-service 共用) =====================
-export type { RepairableMessage, RepairResult, RepairOptions } from './message-repair'
-export { repairMessages } from './message-repair'
+export type { RepairableMessage, RepairResult, RepairOptions } from './message-repair.js'
+export { repairMessages } from './message-repair.js'
 
 // ===================== 智能体运行时 =====================
 export type {
@@ -81,7 +81,7 @@ export type {
   IsolationMode,
   SkillFrontmatter,
   SkillDefinition,
-} from './agent-runtime'
+} from './agent-runtime.js'
 
 // ===================== 工作区(adjacent tagging wire 协议) =====================
 export type {
@@ -121,6 +121,6 @@ export type {
   PermissionAllowData,
   PermissionDenyData,
   UsageStats,
-} from './workspace'
-export { isWorkspaceRequest, isToolChunk, isWorkspaceEvent } from './workspace'
+} from './workspace.js'
+export { isWorkspaceRequest, isToolChunk, isWorkspaceEvent } from './workspace.js'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

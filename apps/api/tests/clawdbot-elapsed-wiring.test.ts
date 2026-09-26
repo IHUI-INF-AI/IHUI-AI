@@ -177,12 +177,21 @@ describe('格② admin 探测延迟(展示面对 null 显式)', () => {
     expect(json).not.toContain('"latencyMs":0')
   })
 
-  it('③落库兜底 ?? 0 只允许出现在 llm_call_logs 写入处(展示响应不得套 0)', () => {
-    const coercions = src.match(/latencyMs: result\.latencyMs \?\? 0/g) ?? []
-    expect(coercions.length).toBe(1)
+  it('③写库面兜底一律经 persistableLatency,手写 ?? 0 / !== null 归零(展示响应仍透 null)', () => {
+    // 判据方向 2026-09-26 反转,并如实写明理由:原先钉的是"手写 ?? 0 只允许出现在 llm_call_logs
+    // 写入处,恰好 1 处" —— 那等于把**第二份实现**当契约钉住。relay-channels 的写库兜底已收进
+    // utils/latency-persistence.ts 的 persistableLatency()(本仓同一约定的唯一实现),
+    // 所以正确不变量是"手写形态 0 处 + 写库处必须调用出口",比旧判据更严而非更松。
+    // 旧判据的合理内核(展示响应不得套 0)保留在下面第三条断言。
+    const handWrittenZeroFallback = src.match(/latencyMs: result\.latencyMs \?\? 0/g) ?? []
+    const handWrittenFlag = src.match(/latencyTrusted: result\.latencyMs !== null/g) ?? []
+    expect(handWrittenZeroFallback).toEqual([])
+    expect(handWrittenFlag).toEqual([])
+    expect(src).toContain('const latency = persistableLatency(result.elapsedSample)')
+    expect(src).toContain('latencyMs: latency.latencyMs,')
+    expect(src).toContain('latencyTrusted: latency.latencyTrusted,')
+    // 响应面:不可信样本必须透出 null,不得被写库面的兜底污染
     expect(src).toContain('latencyMs: result.latencyMs,')
-    // 不可信标记随行李落库,统计侧可按 metadata.latencyTrusted 过滤
-    expect(src).toContain('latencyTrusted: result.latencyMs !== null')
   })
 })
 
