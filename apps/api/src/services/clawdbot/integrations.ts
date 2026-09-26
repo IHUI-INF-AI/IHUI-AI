@@ -9,6 +9,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
+import { startStopwatch } from '../../utils/elapsed-ms.js'
 
 export interface IntegrationConfig {
   id: string
@@ -36,6 +37,8 @@ export interface IntegrationResponse {
   data: unknown
   headers: Record<string, string>
   duration: number
+  /** 格②(2026-09-26):false = duration 未通过时钟交叉校验,只可观测不可当结论消费 */
+  latencyTrusted?: boolean
 }
 
 export class IntegrationManager extends EventEmitter {
@@ -97,7 +100,7 @@ export class IntegrationManager extends EventEmitter {
 
     this.applyAuth(headers, integration)
 
-    const start = Date.now()
+    const sw = startStopwatch()
     const queryString = request.query ? '?' + new URLSearchParams(request.query).toString() : ''
     const response = await fetch(`${url}${queryString}`, {
       method: request.method,
@@ -111,11 +114,13 @@ export class IntegrationManager extends EventEmitter {
       responseHeaders[key] = value
     })
 
+    const sample = sw.stop()
     const result: IntegrationResponse = {
       status: response.status,
       data,
       headers: responseHeaders,
-      duration: Date.now() - start,
+      duration: sample.elapsedMs ?? sample.perfMs,
+      latencyTrusted: sample.trustworthy,
     }
 
     logger.debug(

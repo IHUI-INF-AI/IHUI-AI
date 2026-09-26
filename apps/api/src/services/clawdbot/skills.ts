@@ -11,6 +11,7 @@ import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { getToolExecutor, type ToolContext } from './tools.js'
 import { evaluateSafeCondition } from './safe-condition.js'
+import { startStopwatch } from '../../utils/elapsed-ms.js'
 
 export interface SkillDefinition {
   name: string
@@ -38,6 +39,8 @@ export interface SkillExecutionResult {
   outputs: Record<string, unknown>
   stepResults: Array<{ stepId: string; success: boolean; output?: unknown; error?: string }>
   duration: number
+  /** 格②(2026-09-26):false = duration 未通过时钟交叉校验,只可观测不可当结论消费 */
+  latencyTrusted?: boolean
 }
 
 export class SkillManager extends EventEmitter {
@@ -77,7 +80,7 @@ export class SkillManager extends EventEmitter {
     if (!skill) throw new Error(`Skill "${name}" not found`)
     if (!skill.enabled) throw new Error(`Skill "${name}" is disabled`)
 
-    const start = Date.now()
+    const sw = startStopwatch()
     const outputs: Record<string, unknown> = { ...initialParams }
     const stepResults: SkillExecutionResult['stepResults'] = []
     const toolExecutor = getToolExecutor()
@@ -97,20 +100,38 @@ export class SkillManager extends EventEmitter {
           error: result.error,
         })
         if (!result.success) {
+          const sample = sw.stop()
           return {
             skillName: name,
             success: false,
             outputs,
             stepResults,
-            duration: Date.now() - start,
+            duration: sample.elapsedMs ?? sample.perfMs,
+            latencyTrusted: sample.trustworthy,
           }
         }
         if (step.outputKey) outputs[step.outputKey] = result.output
       }
     }
 
-    logger.info({ skill: name, duration: Date.now() - start }, '[Skills] Executed')
-    return { skillName: name, success: true, outputs, stepResults, duration: Date.now() - start }
+    // 一次 stop 同时喂日志与返回值(旧写法 Date.now()-start 各算一遍是两把尺子)
+    const sample = sw.stop()
+    logger.info(
+      {
+        skill: name,
+        duration: sample.elapsedMs ?? sample.perfMs,
+        latencyTrusted: sample.trustworthy,
+      },
+      '[Skills] Executed',
+    )
+    return {
+      skillName: name,
+      success: true,
+      outputs,
+      stepResults,
+      duration: sample.elapsedMs ?? sample.perfMs,
+      latencyTrusted: sample.trustworthy,
+    }
   }
 
   private evaluateCondition(condition: string, context: Record<string, unknown>): boolean {
