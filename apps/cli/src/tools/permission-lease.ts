@@ -241,7 +241,8 @@ export function recordApprovedInvocation(
     return { recorded: false, reason: 'workspace-identity-mismatch' };
   }
   const content = input.invocationContent;
-  if (content == null || content.length === 0) return { recorded: false, reason: 'empty-invocation-content' };
+  if (content === null || content === undefined || content.length === 0)
+    return { recorded: false, reason: 'empty-invocation-content' };
 
   const ledger = lease.slotDigests;
   // 有身份、有登记意图,却没有台账 ⇒ 构造侧漏建(不该发生)。判死而不是就地补一张:补就等于把
@@ -331,7 +332,8 @@ export function resolveLeaseRelaxationDetail(
     }
     return { lease, contentDrifted: false };
   }
-  const digest = invocationContent == null ? null : slotDigest(lease.workspaceId ?? '', invocationContent)
+  const digest =
+    invocationContent === null || invocationContent === undefined ? null : slotDigest(lease.workspaceId ?? '', invocationContent)
   const drifted = digest === null || !bound.includes(digest)
   if (drifted) {
     auditLog({
@@ -341,7 +343,10 @@ export function resolveLeaseRelaxationDetail(
         auditRef: lease.auditRef,
         scope: lease.scope,
         capability: toolName,
-        reason: invocationContent == null ? '摘要绑定槽位未提供调用内容(fail-closed)' : '调用内容与授予时声明摘要不符',
+        reason:
+          invocationContent === null || invocationContent === undefined
+            ? '摘要绑定槽位未提供调用内容(fail-closed)'
+            : '调用内容与授予时声明摘要不符',
       },
       success: false,
       error: '内容漂移使旧批准失效,需用户重新审批',
