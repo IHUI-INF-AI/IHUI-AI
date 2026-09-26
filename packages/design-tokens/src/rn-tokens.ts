@@ -85,7 +85,7 @@ export const rnTokens = {
      *  不得用 surface.light 代替(它在两态都是 #FFFFFF → 白底白字)。 */
     foreground: '#FFFFFF',
     dark: '#34D399',
-    cta: '#4A7A96',
+    cta: '#000000',
     ctaForeground: '#FFFFFF',
   },
   surface: {
@@ -190,10 +190,10 @@ export type RnThemeTokens = {
     DEFAULT: string
     foreground: string
     dark: string
-    /* CTA 实底档(2026-09-24):**明暗同值**,刻意不随主题反转。
-     * brand.DEFAULT 在浅色=纯黑、深色=纯白,大色块在两个主题里都是与页面相反的那一极;
-     * 而 --color-primary 在 web 端兼任墨色不能动 ⇒ 单独一档给"品牌实底 + 其上文字"。
-     * 对应 tokens.css @theme --color-cta / --color-cta-foreground(守门 93 已登记映射)。 */
+    /* CTA 实底档(2026-09-26 用户定稿,回翻):亮=纯黑底/纯白字,暗=纯白底/纯黑字,
+     * 与 brand.DEFAULT 同一明暗行为(tokens.css 同步覆盖,.dark 显式翻面)。
+     * 2026-09-24 的"明暗同值 #4A7A96"设计已废。
+     * 对应 tokens.css @theme/.dark --color-cta / --color-cta-foreground(守门 93 已登记映射)。 */
     cta: string
     ctaForeground: string
   }
@@ -251,7 +251,7 @@ export const rnLightTokens: RnThemeTokens = {
     DEFAULT: '#000000',
     foreground: '#FFFFFF',
     dark: '#34D399',
-    cta: '#4A7A96',
+    cta: '#000000',
     ctaForeground: '#FFFFFF',
   },
   surface: {
@@ -329,17 +329,17 @@ export const rnLightTokens: RnThemeTokens = {
  * - surface.muted = #262626(web --color-muted hsl 0 0% 14.9%),卡片/输入框微亮层级。
  * - text/border/error/status DEFAULT 对齐 web 暗色语义色。
  */
-/* CTA 不再有独立档(2026-09-24):主按钮/选中胶囊一律 brand.DEFAULT + brand.foreground,
- * 即 web 的 --color-primary + --color-primary-foreground —— 同一语义只留一个档,
- * 暗色"纯白是否刺眼"要调就调 tokens.css 的 .dark --color-primary,三端一起动。 */
+/* CTA 独立档(2026-09-26 回翻):主按钮/选中胶囊一律 brand.cta + brand.ctaForeground 成对,
+ * 即 web 的 --color-cta + --color-cta-foreground —— 暗色纯白底/黑字,与 brand.DEFAULT 同一明暗行为;
+ * 要调观感就改 tokens.css 的 .dark --color-cta 一处,三端一起动。 */
 export const rnDarkTokens: RnThemeTokens = {
   /* rn-tokens:managed —— 本表凡能由 tokens.css 推出的档,值由 scripts/sync-rn-tokens.mjs 原位写回(勿手改这些值);推不到的档属 RN 专属或源里无同名变量,仍是手抄 */
   brand: {
     DEFAULT: '#FFFFFF',
     foreground: '#000000',
     dark: '#34D399',
-    cta: '#4A7A96',
-    ctaForeground: '#FFFFFF',
+    cta: '#ffffff',
+    ctaForeground: '#000000',
   },
   surface: {
     bg: '#242424',
