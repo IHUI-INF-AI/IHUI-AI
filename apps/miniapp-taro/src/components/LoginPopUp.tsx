@@ -6,6 +6,26 @@ import { useTt } from '@/i18n'
 import { useState } from 'react'
 import Taro from '@tarojs/taro'
 import { View, Text, Image, Input, Button } from '@tarojs/components'
+import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { rpx } from '@/utils/rpx'
+import {
+  LOGIN_POPUP_AVATAR_BOX_PX,
+  LOGIN_POPUP_AVATAR_HINT_GAP_PX,
+  LOGIN_POPUP_CHANGE_HINT_FONT_PX,
+  LOGIN_POPUP_SECTION_GAP_PX,
+  LOGIN_POPUP_ROW_HEIGHT_PX,
+  LOGIN_POPUP_ROW_PADDING_X_PX,
+  LOGIN_POPUP_BODY_FONT_PX,
+  LOGIN_POPUP_PILL_HEIGHT_PX,
+  LOGIN_POPUP_PILL_PADDING_X_PX,
+  LOGIN_POPUP_PILL_FONT_PX,
+  LOGIN_POPUP_BUTTON_HEIGHT_PX,
+  LOGIN_POPUP_BUTTON_FONT_PX,
+  LOGIN_POPUP_CARD_PADDING_X_PX,
+  LOGIN_POPUP_CARD_PADDING_BOTTOM_PX,
+  LOGIN_POPUP_DIALOG_PADDING_TOP_PX,
+  LOGIN_POPUP_DIALOG_MAX_WIDTH_PX,
+} from '@ihui/shared/ui/login-popup-spec'
 
 /**
  * LoginPopUp 登录弹窗 — 对齐原项目 loginPopUp/index.vue
@@ -43,6 +63,9 @@ export interface LoginPopUpProps {
 }
 
 const DEFAULT_AVATAR = '/static/default-avatar.png'
+
+/// 可见几何数字唯一源在 @ihui/shared/ui/login-popup-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
+const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
 
 export default function LoginPopUp({
   visible = false,
@@ -98,12 +121,22 @@ export default function LoginPopUp({
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       {/* 弹窗主体 */}
       <View
-        className="relative bg-card rounded-2xl p-6 w-[85%] max-w-[600rpx]"
+        className="relative bg-card rounded-2xl w-[85%]"
+        style={{
+          paddingTop: toUnit(LOGIN_POPUP_DIALOG_PADDING_TOP_PX),
+          paddingLeft: toUnit(LOGIN_POPUP_CARD_PADDING_X_PX),
+          paddingRight: toUnit(LOGIN_POPUP_CARD_PADDING_X_PX),
+          paddingBottom: toUnit(LOGIN_POPUP_CARD_PADDING_BOTTOM_PX),
+          maxWidth: toUnit(LOGIN_POPUP_DIALOG_MAX_WIDTH_PX),
+        }}
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >
         {/* 头像区:圆形头像(rounded-full 豁免,AGENTS.md §4 头像豁免) */}
-        <View className="flex flex-col items-center mb-4">
+        <View
+          className="flex flex-col items-center"
+          style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}
+        >
           <Button
             openType="chooseAvatar"
             onChooseAvatar={(e: { detail: { avatarUrl?: string } }) => {
@@ -129,40 +162,76 @@ export default function LoginPopUp({
                 })
               }
             }}
-            className="!p-0 !bg-transparent !border-none w-[140rpx] h-[140rpx] rounded-full overflow-hidden"
+            className="!p-0 !bg-transparent !border-none rounded-full overflow-hidden"
+            style={{
+              width: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
+              height: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
+            }}
           >
             <Image
               src={avatar || defaultAvatar}
               mode="aspectFill"
-              className="w-[140rpx] h-[140rpx] rounded-full bg-muted border border-primary/20"
+              className="rounded-full bg-muted border border-primary/20"
+              style={{
+                width: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
+                height: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
+              }}
             />
           </Button>
-          <Text className="text-xs text-muted-foreground mt-2">
+          <Text
+            className="text-muted-foreground"
+            style={{
+              fontSize: toUnit(LOGIN_POPUP_CHANGE_HINT_FONT_PX),
+              marginTop: toUnit(LOGIN_POPUP_AVATAR_HINT_GAP_PX),
+            }}
+          >
             {tt('user.profile.clickToChange', '点击更换头像')}
           </Text>
         </View>
 
         {/* 昵称输入 */}
-        <View className="mb-3">
+        <View style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}>
           <Input
             value={nickname}
             placeholder={tt('user.profile.nicknamePlaceholder', '请输入用户名')}
             maxlength={20}
             onInput={handleNicknameInput}
-            className="w-full px-3 py-2 rounded-md bg-muted text-sm text-foreground"
+            className="w-full rounded-md bg-muted text-foreground"
+            style={{
+              height: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX),
+              paddingLeft: toUnit(LOGIN_POPUP_ROW_PADDING_X_PX),
+              paddingRight: toUnit(LOGIN_POPUP_ROW_PADDING_X_PX),
+              fontSize: toUnit(LOGIN_POPUP_BODY_FONT_PX),
+            }}
           />
         </View>
 
         {/* 角色显示 + 升级按钮 */}
-        <View className="flex items-center justify-between mb-4">
-          <Text className={`text-sm font-medium ${roleClass}`}>{roleText}</Text>
+        <View
+          className="flex items-center justify-between"
+          style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}
+        >
+          <Text
+            className={`font-medium ${roleClass}`}
+            style={{ fontSize: toUnit(LOGIN_POPUP_BODY_FONT_PX) }}
+          >
+            {roleText}
+          </Text>
           {showUpgrade && (
             <View
-              className="bg-warning rounded-md px-4 py-2"
+              className="bg-warning rounded-md flex items-center justify-center"
+              style={{
+                height: toUnit(LOGIN_POPUP_PILL_HEIGHT_PX),
+                paddingLeft: toUnit(LOGIN_POPUP_PILL_PADDING_X_PX),
+                paddingRight: toUnit(LOGIN_POPUP_PILL_PADDING_X_PX),
+              }}
               onClick={onUpgrade}
               hoverClass="opacity-60"
             >
-              <Text className="text-sm text-warning-foreground">
+              <Text
+                className="text-warning-foreground"
+                style={{ fontSize: toUnit(LOGIN_POPUP_PILL_FONT_PX) }}
+              >
                 {tt('vip.upgradeNow', '立即升级')}
               </Text>
             </View>
@@ -198,10 +267,17 @@ export default function LoginPopUp({
                 Taro.showToast({ title: tt('login.loginFailed', '登录失败,请重试'), icon: 'none' })
               }
             }}
-            className="w-full !py-2 !px-4 rounded-md !border-none text-center mb-4"
-            style={{ background: 'var(--color-primary)' }}
+            className="w-full !py-0 !px-4 rounded-md !border-none text-center"
+            style={{
+              height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX),
+              background: 'var(--color-primary)',
+              marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+            }}
           >
-            <Text className="text-sm text-primary-foreground font-medium">
+            <Text
+              className="text-primary-foreground font-medium"
+              style={{ fontSize: toUnit(LOGIN_POPUP_BUTTON_FONT_PX) }}
+            >
               {tt('login.wechatOneClick', '微信一键登录')}
             </Text>
           </Button>
@@ -209,11 +285,17 @@ export default function LoginPopUp({
 
         {/* 关闭按钮 */}
         <View
-          className="w-full py-2 rounded-md bg-muted text-center"
+          className="w-full rounded-md bg-muted flex items-center justify-center"
+          style={{ height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX) }}
           onClick={onClose}
           hoverClass="opacity-60"
         >
-          <Text className="text-sm text-foreground">{tt('common.close', '关闭')}</Text>
+          <Text
+            className="text-foreground"
+            style={{ fontSize: toUnit(LOGIN_POPUP_BUTTON_FONT_PX) }}
+          >
+            {tt('common.close', '关闭')}
+          </Text>
         </View>
       </View>
     </View>
