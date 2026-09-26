@@ -6,7 +6,19 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { CheckCircle2, Pause, Play, Plus, Target, Trash2, X, Zap } from 'lucide-react'
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Pause,
+  Pencil,
+  Play,
+  Plus,
+  Target,
+  Trash2,
+  X,
+  Zap,
+} from 'lucide-react'
 
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
@@ -56,6 +68,10 @@ function formatGoalDuration(ms: number): string {
 export function GoalCard() {
   const t = useTranslations('goalCard')
   const goal = useGoalStore((s) => s.goal)
+  // D64 ⑥:折叠态(持久化于 goal store,对标 Trae isGoalExpanded)+ 编辑目标通道(renameGoal)
+  const expanded = useGoalStore((s) => s.expanded)
+  const setExpanded = useGoalStore((s) => s.setExpanded)
+  const renameGoal = useGoalStore((s) => s.renameGoal)
   const advance = useGoalStore((s) => s.advance)
   const setProgress = useGoalStore((s) => s.setProgress)
   const addBlocker = useGoalStore((s) => s.addBlocker)
@@ -64,6 +80,9 @@ export function GoalCard() {
   const clear = useGoalStore((s) => s.clear)
 
   const [blockerDraft, setBlockerDraft] = React.useState('')
+  // D64 ⑥:编辑目标(内联;E1 对齐 composer.threadGoal.editDialog 的 编辑目标/保存/取消)
+  const [editDraft, setEditDraft] = React.useState('')
+  const [editing, setEditing] = React.useState(false)
 
   if (!goal) {
     return (
@@ -75,6 +94,16 @@ export function GoalCard() {
         <p className="mt-1 text-xs">{t('emptyHint')}</p>
       </div>
     )
+  }
+
+  const startEditing = () => {
+    setEditDraft(goal.text)
+    setEditing(true)
+  }
+
+  const saveEditing = () => {
+    renameGoal(editDraft)
+    setEditing(false)
   }
 
   /** 自动续跑:复用首页 CTA 的 draftAutoSend 通道,由 MessageInput 消费后自动发送 */
@@ -98,10 +127,29 @@ export function GoalCard() {
 
   return (
     <div data-testid="goal-card" className="space-y-3 rounded-lg border p-3 text-sm">
-      {/* 目标文本 + 状态徽章 */}
+      {/* 目标文本 + 状态徽章 + 编辑/折叠(D64 ⑥) */}
       <div className="flex items-start gap-2">
         <Target className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-        <p className="min-w-0 flex-1 break-words font-medium">{goal.text}</p>
+        {editing ? (
+          <input
+            data-testid="goal-edit-input"
+            value={editDraft}
+            onChange={(e) => setEditDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                saveEditing()
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                setEditing(false)
+              }
+            }}
+            aria-label={t('editAriaLabel')}
+            className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
+          />
+        ) : (
+          <p className="min-w-0 flex-1 break-words font-medium">{goal.text}</p>
+        )}
         <span
           data-testid="goal-status-badge"
           className={cn(
@@ -111,168 +159,221 @@ export function GoalCard() {
         >
           {t(STATUS_KEY[goal.status])}
         </span>
-      </div>
-
-      {/* D89 ③:done 态成就耗时条(数据面=createdAt/updatedAt 差值) */}
-      {goal.status === 'done' && (
-        <div
-          data-testid="goal-achieved-time"
-          className="flex items-center gap-1.5 rounded-md bg-cta/5 px-2 py-1 text-xs text-primary"
-        >
-          <CheckCircle2 className="h-3 w-3 shrink-0" />
-          <span>
-            {t('achievedInTime', {
-              totalTime: formatGoalDuration(goal.updatedAt - goal.createdAt),
-            })}
-          </span>
-        </div>
-      )}
-
-      {/* 进度条 + ±10 */}
-      <div className="space-y-1.5" data-testid="goal-progress">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{t('progress')}</span>
-          <span data-testid="goal-progress-value">{goal.progress}%</span>
-        </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-sm bg-muted">
-          <div
-            data-testid="goal-progress-bar"
-            className="h-full rounded-sm bg-cta transition-all"
-            style={{ width: `${goal.progress}%` }}
-          />
-        </div>
-        <div className="flex gap-1.5">
-          <button
-            type="button"
-            data-testid="goal-progress-dec"
-            onClick={() => advance(-10)}
-            className="rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
-          >
-            -10
-          </button>
-          <button
-            type="button"
-            data-testid="goal-progress-inc"
-            onClick={() => advance(10)}
-            className="rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
-          >
-            +10
-          </button>
-          <button
-            type="button"
-            data-testid="goal-progress-set"
-            onClick={() => setProgress(goal.progress >= 100 ? 0 : 100)}
-            className="rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent"
-          >
-            {goal.progress >= 100 ? t('resetProgress') : t('fullProgress')}
-          </button>
-        </div>
-      </div>
-
-      {/* 阻塞原因 */}
-      <div className="space-y-1.5" data-testid="goal-blockers">
-        <p className="text-xs text-muted-foreground">
-          {t('blockers')}
-          {goal.blockers.length === 0 && <span className="ml-1">({t('noBlockers')})</span>}
-        </p>
-        {goal.blockers.map((b, i) => (
-          <div
-            key={`${i}-${b}`}
-            data-testid={`goal-blocker-item-${i}`}
-            className="flex items-center gap-1.5 rounded-md bg-destructive/5 px-2 py-1 text-xs"
-          >
-            <span className="min-w-0 flex-1 break-words text-destructive">{b}</span>
+        {editing ? (
+          <>
             <button
               type="button"
-              data-testid={`goal-blocker-remove-${i}`}
-              aria-label={t('blockerRemove')}
-              onClick={() => removeBlocker(i)}
+              data-testid="goal-edit-save"
+              aria-label={t('editSave')}
+              onClick={saveEditing}
+              className="shrink-0 rounded-md bg-cta px-2 py-1 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+            >
+              {t('editSave')}
+            </button>
+            <button
+              type="button"
+              data-testid="goal-edit-cancel"
+              aria-label={t('editCancel')}
+              onClick={() => setEditing(false)}
+              className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent"
+            >
+              {t('editCancel')}
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              data-testid="goal-edit"
+              aria-label={t('editAriaLabel')}
+              onClick={startEditing}
               className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
-              <X className="h-3 w-3" />
+              <Pencil className="h-3.5 w-3.5" />
             </button>
-          </div>
-        ))}
-        <div className="flex gap-1.5">
-          <input
-            data-testid="goal-blocker-input"
-            value={blockerDraft}
-            onChange={(e) => setBlockerDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                handleAddBlocker()
-              }
-            }}
-            placeholder={t('blockerPlaceholder')}
-            className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
-          />
-          <button
-            type="button"
-            data-testid="goal-blocker-add"
-            onClick={handleAddBlocker}
-            className="flex shrink-0 items-center gap-0.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
-          >
-            <Plus className="h-3 w-3" />
-            {t('blockerAdd')}
-          </button>
-        </div>
+            <button
+              type="button"
+              data-testid="goal-collapse-toggle"
+              aria-label={expanded ? t('collapse') : t('expand')}
+              aria-expanded={expanded}
+              onClick={() => setExpanded(!expanded)}
+              className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {expanded ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </>
+        )}
       </div>
 
-      {/* 操作按钮行 */}
-      <div className="flex flex-wrap gap-1.5 border-t pt-2">
-        <button
-          type="button"
-          data-testid="goal-continue"
-          onClick={handleContinue}
-          className="flex items-center gap-1 rounded-md bg-cta px-2.5 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
-        >
-          <Zap className="h-3 w-3" />
-          {t('continue')}
-        </button>
-        {goal.status === 'paused' ? (
-          <button
-            type="button"
-            data-testid="goal-resume"
-            onClick={() => setStatus('active')}
-            className="flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
-          >
-            <Play className="h-3 w-3" />
-            {t('resume')}
-          </button>
-        ) : (
-          <button
-            type="button"
-            data-testid="goal-pause"
-            onClick={() => setStatus('paused')}
-            className="flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
-          >
-            <Pause className="h-3 w-3" />
-            {t('pause')}
-          </button>
-        )}
-        <button
-          type="button"
-          data-testid="goal-done"
-          onClick={() => setStatus('done')}
-          className="flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
-        >
-          <CheckCircle2 className="h-3 w-3" />
-          {t('done')}
-        </button>
-        <button
-          type="button"
-          data-testid="goal-clear"
-          onClick={() => {
-            clear()
-            toast.success(t('cleared'))
-          }}
-          className="ml-auto flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-        >
-          <Trash2 className="h-3 w-3" />
-          {t('clear')}
-        </button>
-      </div>
+      {/* D64 ⑥:折叠态只保留头部一行(目标文本 + 徽章),与 Trae isGoalExpanded 同件 */}
+      {expanded && (
+        <div data-testid="goal-card-body" className="space-y-3">
+          {/* D89 ③:done 态成就耗时条(数据面=createdAt/updatedAt 差值) */}
+          {goal.status === 'done' && (
+            <div
+              data-testid="goal-achieved-time"
+              className="flex items-center gap-1.5 rounded-md bg-cta/5 px-2 py-1 text-xs text-primary"
+            >
+              <CheckCircle2 className="h-3 w-3 shrink-0" />
+              <span>
+                {t('achievedInTime', {
+                  totalTime: formatGoalDuration(goal.updatedAt - goal.createdAt),
+                })}
+              </span>
+            </div>
+          )}
+
+          {/* 进度条 + ±10 */}
+          <div className="space-y-1.5" data-testid="goal-progress">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{t('progress')}</span>
+              <span data-testid="goal-progress-value">{goal.progress}%</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-sm bg-muted">
+              <div
+                data-testid="goal-progress-bar"
+                className="h-full rounded-sm bg-cta transition-all"
+                style={{ width: `${goal.progress}%` }}
+              />
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                data-testid="goal-progress-dec"
+                onClick={() => advance(-10)}
+                className="rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
+              >
+                -10
+              </button>
+              <button
+                type="button"
+                data-testid="goal-progress-inc"
+                onClick={() => advance(10)}
+                className="rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
+              >
+                +10
+              </button>
+              <button
+                type="button"
+                data-testid="goal-progress-set"
+                onClick={() => setProgress(goal.progress >= 100 ? 0 : 100)}
+                className="rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent"
+              >
+                {goal.progress >= 100 ? t('resetProgress') : t('fullProgress')}
+              </button>
+            </div>
+          </div>
+
+          {/* 阻塞原因 */}
+          <div className="space-y-1.5" data-testid="goal-blockers">
+            <p className="text-xs text-muted-foreground">
+              {t('blockers')}
+              {goal.blockers.length === 0 && <span className="ml-1">({t('noBlockers')})</span>}
+            </p>
+            {goal.blockers.map((b, i) => (
+              <div
+                key={`${i}-${b}`}
+                data-testid={`goal-blocker-item-${i}`}
+                className="flex items-center gap-1.5 rounded-md bg-destructive/5 px-2 py-1 text-xs"
+              >
+                <span className="min-w-0 flex-1 break-words text-destructive">{b}</span>
+                <button
+                  type="button"
+                  data-testid={`goal-blocker-remove-${i}`}
+                  aria-label={t('blockerRemove')}
+                  onClick={() => removeBlocker(i)}
+                  className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            <div className="flex gap-1.5">
+              <input
+                data-testid="goal-blocker-input"
+                value={blockerDraft}
+                onChange={(e) => setBlockerDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddBlocker()
+                  }
+                }}
+                placeholder={t('blockerPlaceholder')}
+                className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+              />
+              <button
+                type="button"
+                data-testid="goal-blocker-add"
+                onClick={handleAddBlocker}
+                className="flex shrink-0 items-center gap-0.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
+              >
+                <Plus className="h-3 w-3" />
+                {t('blockerAdd')}
+              </button>
+            </div>
+          </div>
+
+          {/* 操作按钮行 */}
+          <div className="flex flex-wrap gap-1.5 border-t pt-2">
+            <button
+              type="button"
+              data-testid="goal-continue"
+              onClick={handleContinue}
+              className="flex items-center gap-1 rounded-md bg-cta px-2.5 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+            >
+              <Zap className="h-3 w-3" />
+              {t('continue')}
+            </button>
+            {goal.status === 'paused' ? (
+              <button
+                type="button"
+                data-testid="goal-resume"
+                onClick={() => setStatus('active')}
+                className="flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+              >
+                <Play className="h-3 w-3" />
+                {t('resume')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-testid="goal-pause"
+                onClick={() => setStatus('paused')}
+                className="flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+              >
+                <Pause className="h-3 w-3" />
+                {t('pause')}
+              </button>
+            )}
+            <button
+              type="button"
+              data-testid="goal-done"
+              onClick={() => setStatus('done')}
+              className="flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+            >
+              <CheckCircle2 className="h-3 w-3" />
+              {t('done')}
+            </button>
+            <button
+              type="button"
+              data-testid="goal-clear"
+              onClick={() => {
+                clear()
+                toast.success(t('cleared'))
+              }}
+              className="ml-auto flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-3 w-3" />
+              {t('clear')}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

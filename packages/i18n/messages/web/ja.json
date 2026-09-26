@@ -7231,6 +7231,29 @@
     },
     "pane": {
       "elementPack": {
+        "backgroundTask": {
+          "state": {
+            "pending": "待機中",
+            "running": "実行中",
+            "stopping": "停止中",
+            "stopFailed": "停止失敗",
+            "completed": "完了",
+            "failed": "失敗",
+            "cancelled": "キャンセル済み",
+            "timeout": "タイムアウト"
+          },
+          "hint": {
+            "stopping": "停止リクエストを送信しました。サブタスクの終了を待っています…",
+            "stopFailed": "サブタスクはまだ実行中です。停止リクエストが反映されていません",
+            "timeout": "サブタスクの待機がタイムアウトしました。再試行できます"
+          },
+          "action": {
+            "stop": "停止",
+            "retryStop": "停止を再試行",
+            "retry": "再試行",
+            "ignore": "無視"
+          }
+        },
         "feedbackSurvey": {
           "question": "この回答は問題の解決に役立ちましたか？",
           "answer": {
@@ -9794,6 +9817,11 @@
     "adoptHint": "選択した候補の内容を現在の会話に書き込む"
   },
   "goalCard": {
+    "editAriaLabel": "目標を編集",
+    "editSave": "保存",
+    "editCancel": "キャンセル",
+    "collapse": "折りたたむ",
+    "expand": "展開",
     "achievedInTime": "{totalTime} でゴールを達成しました",
     "empty": "会話ゴールが未設定です",
     "emptyHint": "入力欄に /goal <目標> と入力するか、AI に自動推進させます",
