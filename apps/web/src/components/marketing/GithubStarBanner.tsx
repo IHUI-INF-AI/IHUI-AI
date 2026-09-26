@@ -50,7 +50,7 @@ export function GithubStarBanner(): React.JSX.Element {
         href="https://aizhs.top"
         target="_blank"
         rel="noopener noreferrer"
-        className="group inline-flex items-center justify-center gap-2 rounded-lg border-2 border-primary bg-card px-5 py-2.5 text-sm font-semibold shadow-sm transition-all hover:scale-[1.02] hover:shadow-lg animate-[pulse_2s_ease-in-out_infinite] dark:shadow-primary/20"
+        className="group inline-flex items-center justify-center gap-2 rounded-lg border-2 border-brand-accent-deep bg-card px-5 py-2.5 text-sm font-semibold shadow-sm transition-all hover:scale-[1.02] hover:shadow-lg animate-[pulse_2s_ease-in-out_infinite] dark:shadow-primary/20"
       >
         <Image
           src="/images/logo.png?v=20260719-unify"

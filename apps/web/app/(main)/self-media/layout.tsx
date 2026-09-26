@@ -41,7 +41,7 @@ export default function SelfMediaLayout({ children }: { children: React.ReactNod
               className={cn(
                 'inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors',
                 active
-                  ? 'border-primary text-foreground'
+                  ? 'border-brand-accent-deep text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
             >
