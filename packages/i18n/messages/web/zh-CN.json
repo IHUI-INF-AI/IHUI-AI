@@ -10408,6 +10408,16 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "mentionEngine": {
+      "tabFile": "文件",
+      "tabFolder": "文件夹",
+      "tabSymbol": "符号",
+      "tabDatabase": "数据库",
+      "tabWeb": "网页",
+      "searching": "正在检索…",
+      "loadFailed": "检索失败",
+      "noMatch": "无匹配结果"
+    },
     "modelSwitchStopped": "已切换到 {model},本轮回答已终止",
     "filePreviewEmpty": "文件没有可预览的数据行",
     "filePreviewTypeMismatch": "文件内容与 {ext} 格式不符",
@@ -11473,6 +11483,7 @@
     "voiceHandsFree": "连续"
   },
   "chatHistory": {
+    "selectModeAriaLabel": "切换任务多选模式",
     "backToHistory": "返回任务列表",
     "batchArchive": "批量归档",
     "batchArchiveSuccess": "批量归档成功",
