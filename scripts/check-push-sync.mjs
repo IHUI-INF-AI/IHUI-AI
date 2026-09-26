@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-push-sync.mjs — Push 同步兜底守门(防"commit 后忘记 push"复发)
@@ -61,7 +60,12 @@ const C = {
 
 function run(cmd, opts = {}) {
   try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, ...opts }).trim()
+    return execSync(cmd, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+      ...opts,
+    }).trim()
   } catch (e) {
     if (opts.allowFail) return null
     throw e
@@ -129,7 +133,9 @@ async function resolveRemoteHead() {
 const remoteHead = await resolveRemoteHead()
 if (!remoteHead) {
   // ls-remote 与本地 ref 都取不到(无网络且从未 fetch 过),跳过
-  console.log(`⏭  无法确定 origin/${currentBranch} HEAD(未 fetch 且 ls-remote 不可用),跳过 push 同步检查`)
+  console.log(
+    `⏭  无法确定 origin/${currentBranch} HEAD(未 fetch 且 ls-remote 不可用),跳过 push 同步检查`,
+  )
   process.exit(0)
 }
 
@@ -203,11 +209,32 @@ function pushVerdict(st, { now, localHead }) {
   if (!st || typeof st.ts !== 'number') return { pass: false, why: '无 push-state(或形状不对)' }
   const fresh = now - st.ts < PUSH_STATE_STALE_MS
   const alive = isPidAlive(st.pid)
+  if (st.status === 'failed' && fresh) {
+    // 2026-09-26 就地改判(与此前"failed 一律拦"的口径相反,理由必须是实测的而不是偏好):
+    // 今天把我拦住的那记 failed,来源是 guard 的**死 worker 终态自愈** —— 它写的是那枚死
+    // worker 的 headSha,与本次提交没有因果关系(实测该分支累计落了 353 次;现值可在
+    // .workbuddy/git-push-guard-async.log 用 grep -ac "发现死 worker" 复核)。
+    // 而"真推不出去"也不该由 pre-commit 来治:拦提交既修不好推送,又必然逼人 --no-verify
+    // ⇒ 当天多数提交跳过全部 163 道门(本节上面 done 档那条是同一课)。
+    // 所以新鲜 failed **放行但把话说响**:自动重试由 watchdog 与下一次 guard 负责(§5b ⑤),
+    // 升级到人那一路走 §5e 邮件;只有"过期仍未清"才回到阻塞。
+    return {
+      pass: true,
+      why: `最近一次后台推送判 failed(${ageText(now, st.ts)}前${
+        st.kind ? `,来源 ${st.kind}` : ''
+      })⇒ 本门不拦:拦提交修不好推送,只会逼人跳门;自动重试由 watchdog 负责,持续失败请看 .workbuddy/git-push-guard-async.log 与 .alert-undelivered.json`,
+    }
+  }
   if (st.status === 'failed') {
-    return { pass: false, why: `最近一次后台推送判 failed(${ageText(now, st.ts)}前),本门必须继续拦` }
+    return {
+      pass: false,
+      why: `failed 已 ${ageText(now, st.ts)}未被任何后续推送清掉 ⇒ 先跑 node scripts/git-push-guard.mjs 复现真因再提交`,
+    }
   }
   if (st.status === 'diverged') {
-    const remedy = st.nextCommand ? `出路:${st.nextCommand}` : '出路:node scripts/git-sync-converge.mjs'
+    const remedy = st.nextCommand
+      ? `出路:${st.nextCommand}`
+      : '出路:node scripts/git-sync-converge.mjs'
     if (fresh) {
       return {
         pass: true,
@@ -258,19 +285,20 @@ if (verdict.pass) {
 }
 // 判红时把"读到了什么"一起打出来:这道门判的是**远端态**,与提交内容无关,
 // 没有这一行,每一次红都要有人从头猜一遍(今天就是这样)。
-console.log(`ℹ️  push-state 读数:${pushState ? `status=${pushState.status} headSha=${String(pushState.headSha).slice(0, 7)} pid=${pushState.pid}` : '无文件'} ⇒ ${verdict.why}`)
+console.log(
+  `ℹ️  push-state 读数:${pushState ? `status=${pushState.status} headSha=${String(pushState.headSha).slice(0, 7)} pid=${pushState.pid}` : '无文件'} ⇒ ${verdict.why}`,
+)
 
 const localShort = localHead.substring(0, 7)
 const remoteShort = remoteHead.substring(0, 7)
 
 // 读取未 push 的 commit 列表(最多 5 条)
-const aheadCommits = run(
-  `git log --oneline -5 ${remoteHead}..${localHead}`,
-  { allowFail: true },
-)
+const aheadCommits = run(`git log --oneline -5 ${remoteHead}..${localHead}`, { allowFail: true })
 
 console.error('')
-console.error(`${C.red}❌ Push 同步兜底检查失败:本地有 ${C.bold}${ahead}${C.reset}${C.red} 个未 push 的 commit${C.reset}`)
+console.error(
+  `${C.red}❌ Push 同步兜底检查失败:本地有 ${C.bold}${ahead}${C.reset}${C.red} 个未 push 的 commit${C.reset}`,
+)
 console.error('')
 console.error(`  ${C.dim}本地 HEAD  :${C.reset} ${C.cyan}${localShort}${C.reset}`)
 console.error(`  ${C.dim}远端 HEAD  :${C.reset} ${C.cyan}${remoteShort}${C.reset}`)
@@ -287,15 +315,23 @@ if (ahead > 5) {
 }
 console.error('')
 console.error(`${C.bold}🛡️  这是 push 兜底守门(AGENTS.md §21 第三道防线)${C.reset}`)
-console.error(`${C.dim}post-commit 钩子(git-push-guard.mjs)本应自动 push,但可能因以下原因失败:${C.reset}`)
+console.error(
+  `${C.dim}post-commit 钩子(git-push-guard.mjs)本应自动 push,但可能因以下原因失败:${C.reset}`,
+)
 console.error(`${C.dim}  - HUSKY_SKIP_PUSH=1 跳过 / push 网络失败 / 凭据失效${C.reset}`)
 console.error(`${C.dim}  - agent 用 --no-verify 跳过所有钩子${C.reset}`)
 console.error(`${C.dim}  - pre-push typecheck 阻塞 / RunCommand 工具失联${C.reset}`)
 console.error('')
 console.error(`${C.green}修复方法(任选其一):${C.reset}`)
-console.error(`  ${C.green}① 自动 push:${C.reset} ${C.cyan}node scripts/git-push-guard.mjs${C.reset}`)
-console.error(`  ${C.green}② 手动 push:${C.reset} ${C.cyan}git push origin ${currentBranch}${C.reset}`)
-console.error(`  ${C.green}③ 紧急跳过(不推荐):${C.reset} ${C.cyan}HUSKY_SKIP_PUSH_SYNC=1 git commit ...${C.reset}`)
+console.error(
+  `  ${C.green}① 自动 push:${C.reset} ${C.cyan}node scripts/git-push-guard.mjs${C.reset}`,
+)
+console.error(
+  `  ${C.green}② 手动 push:${C.reset} ${C.cyan}git push origin ${currentBranch}${C.reset}`,
+)
+console.error(
+  `  ${C.green}③ 紧急跳过(不推荐):${C.reset} ${C.cyan}HUSKY_SKIP_PUSH_SYNC=1 git commit ...${C.reset}`,
+)
 console.error('')
 console.error(`${C.red}本次 commit 已阻止。请先 push 未同步的 commit,再重新 commit。${C.reset}`)
 console.error('')
