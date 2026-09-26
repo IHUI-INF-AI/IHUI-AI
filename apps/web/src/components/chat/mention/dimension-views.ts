@@ -2,51 +2,76 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 多维提及的唯一那份状态(V3 第 61 票,2026-09-27 收口)。
+// 提及维度的 **web 侧外观 adapter**(V3 第 61 票)。
 //
-// 61 票之前:这里定义了 addMention / setActiveType,但**全仓零调用方** ——
-// 于是下面 mentions 恒是空数组,`MentionChips` 的「无提及即返回 null」那条早退永远成立,
-// 而 `#` 侧的选择另存在 message-input 的局部 state。即「两个组件各持一份提及状态」。
-// 现在 `@` 与 `#` 的选择都落到这一份 store,元素类型是引擎的 MentionSelection,
-// 增删的合并语义由 packages/shared/src/chat/mention-engine 的纯函数决定(此处不再算第二遍)。
+// 「有哪些维度」由 @ihui/shared/chat/mention-engine 的 MENTION_DIMENSIONS 一张表决定;
+// 本文件只回答「这个维度在 web 上长什么样(图标 + 强调色)」—— 图标一律 lucide-react
+// (AGENTS §4 图标统一),色沿用 # 侧九类既有档位,不新增色值。
+// 禁止在这里再声明一份维度清单:那正是本票要消除的「两个组件各写一遍」。
 
-import { create } from 'zustand'
+import type { LucideIcon } from 'lucide-react'
+import {
+  BookOpen,
+  CircleAlert,
+  Code,
+  Code2,
+  Database,
+  File,
+  FileText,
+  Folder,
+  FolderOpen,
+  Globe,
+  History,
+  ScrollText,
+  Terminal,
+} from 'lucide-react'
 
 import {
-  dimensionsForSigil,
-  withoutSelection,
-  withSelection,
+  findDimension,
+  MENTION_DIMENSIONS,
   type MentionSelection,
 } from '@ihui/shared/chat/mention-engine'
 
-/** 默认激活维度 = 引擎表里 `@` 侧的第一条(顺序即面板分组顺序,不在端内写死 id) */
-const DEFAULT_DIMENSION_ID = dimensionsForSigil('@')[0]?.id ?? ''
-
-interface ContextMentionState {
-  /** 已选提及(`@` 与 `#` 同一份;chips 显示在输入框上方) */
-  mentions: MentionSelection[]
-  /** 当前激活的提及维度 tab(默认 `@` 的文件维度) */
-  activeDimensionId: string
-  /** 添加提及(去重:同 id 不重复添加) */
-  addMention: (mention: MentionSelection) => void
-  /** 移除指定提及 */
-  removeMention: (id: string) => void
-  /** 清空所有提及(发送消息后调用) */
-  clearMentions: () => void
-  /** 切换激活维度 tab */
-  setActiveDimension: (id: string) => void
+export interface MentionDimensionView {
+  icon: LucideIcon
+  /** 图标着色类(仅用于浮层列表与 chip,沿用既有档) */
+  colorClass: string
 }
 
-export const useContextMentionStore = create<ContextMentionState>((set) => ({
-  mentions: [],
-  activeDimensionId: DEFAULT_DIMENSION_ID,
+/** dimensionId → 外观。键集与引擎表逐一对应(由下方自检式常量在开发期兜住)。 */
+const VIEWS: Record<string, MentionDimensionView> = {
+  // @ 五类:检索类沿用与 # 侧同族的语义图标,保持同一维度在两侧同脸
+  'at-file': { icon: File, colorClass: 'text-sky-500' },
+  'at-folder': { icon: Folder, colorClass: 'text-amber-500' },
+  'at-symbol': { icon: Code, colorClass: 'text-violet-500' },
+  'at-database': { icon: Database, colorClass: 'text-emerald-500' },
+  'at-web': { icon: Globe, colorClass: 'text-cyan-500' },
+  // # 九类:沿用搬入引擎表之前的原色值,零观感变更
+  'hash-file': { icon: FileText, colorClass: 'text-sky-500' },
+  'hash-folder': { icon: FolderOpen, colorClass: 'text-amber-500' },
+  'hash-code': { icon: Code2, colorClass: 'text-violet-500' },
+  'hash-problems': { icon: CircleAlert, colorClass: 'text-rose-500' },
+  'hash-terminal': { icon: Terminal, colorClass: 'text-emerald-500' },
+  'hash-web': { icon: Globe, colorClass: 'text-cyan-500' },
+  'hash-doc': { icon: BookOpen, colorClass: 'text-indigo-500' },
+  'hash-pastChats': { icon: History, colorClass: 'text-purple-500' },
+  'hash-rule': { icon: ScrollText, colorClass: 'text-orange-500' },
+}
 
-  addMention: (mention) => set((s) => ({ mentions: withSelection(s.mentions, mention) })),
+const FALLBACK_VIEW: MentionDimensionView = { icon: FileText, colorClass: 'text-muted-foreground' }
 
-  removeMention: (id) => set((s) => ({ mentions: withoutSelection(s.mentions, id) })),
+/** 引擎表里存在而本表缺外观的维度(= 新增维度忘配图标)。为空是常态;非空只报数不崩。 */
+export function dimensionsMissingView(): string[] {
+  return MENTION_DIMENSIONS.filter((d) => !VIEWS[d.id]).map((d) => d.id)
+}
 
-  clearMentions: () => set({ mentions: [] }),
+export function viewOfDimensionId(dimensionId: string): MentionDimensionView {
+  return VIEWS[dimensionId] ?? FALLBACK_VIEW
+}
 
-  setActiveDimension: (id) => set({ activeDimensionId: id }),
-}))
+/** 已选提及的外观:先按维度取,维度已被从表里删掉时回落(不抛错,只掉外观)。 */
+export function viewOfSelection(selection: MentionSelection): MentionDimensionView {
+  const dim = findDimension(selection.dimensionId)
+  return viewOfDimensionId(dim?.id ?? selection.dimensionId)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
