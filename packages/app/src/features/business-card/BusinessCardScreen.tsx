@@ -219,7 +219,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 44,
       borderRadius: rnRadius.xl,
       borderWidth: 1,
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.light,
     },
     customizeBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.DEFAULT },

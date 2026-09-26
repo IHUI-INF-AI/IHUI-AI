@@ -123,7 +123,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     planCardActive: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.light,
     },
     planName: {

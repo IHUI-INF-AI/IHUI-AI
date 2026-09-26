@@ -239,7 +239,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       alignItems: 'center',
     },
-    pkgCardPopular: { borderColor: tk.brand.DEFAULT, backgroundColor: tk.surface.muted },
+    pkgCardPopular: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     popularBadge: {
       paddingHorizontal: 8,
       paddingVertical: 2,

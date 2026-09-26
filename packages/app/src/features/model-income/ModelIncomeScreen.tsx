@@ -390,7 +390,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 18,
       borderRadius: 9, // radius-exempt: 18dp 圆形单选(radio)指示器,取边长一半
       borderWidth: 2,
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brand.cta,
     },
     modalNote: { marginTop: 12, fontSize: 11, color: tk.text.tertiary },
