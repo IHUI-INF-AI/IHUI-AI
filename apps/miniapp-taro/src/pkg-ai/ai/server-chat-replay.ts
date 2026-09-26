@@ -32,7 +32,7 @@ import { backfillSteerNoticesFromMetadata } from './cards/types'
 
 /** 回放结果:成功携带可直接渲染的消息;失败携带原因(调用方必须给出可见反馈) */
 export type ReplayOutcome =
-  | { ok: true; messages: ChatMessage[] }
+  | { ok: true; messages: ChatMessage[]; hasMore: boolean; nextCursor: string | null }
   | { ok: false; reason: 'request-failed' | 'bad-payload' }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -183,18 +183,21 @@ export function mapServerMessage(m: ConversationMessage): ChatMessage | null {
   if (typeof m.content !== 'string') return null
   const created = typeof m.createdAt === 'string' ? Date.parse(m.createdAt) : Number.NaN
   const meta = isRecord(m.metadata) ? m.metadata : undefined
+  // D20 留尾2:服务端消息 id 透传 —— 向前翻页按 id 去重的唯一锚点,也是将来评价/引用
+  // 类"按 id 定位"接口的前置。id 缺失不造(宁缺不造,与文件头③同一口径)。
+  const rowId = str(m.id)
 
   const planSteps = readPlanSteps(meta?.planSteps)
   const toolCalls = readToolCalls(meta?.toolCalls)
   const terminalTasks = readTerminalTasks(meta?.terminalTasks)
   const injections = readInjections(meta?.injections)
   const citations = readCitations(meta?.citations)
-  const hasCards =
-    !!planSteps || !!toolCalls || !!terminalTasks || !!injections || !!citations
+  const hasCards = !!planSteps || !!toolCalls || !!terminalTasks || !!injections || !!citations
 
   const out: ChatMessage = {
     role: m.role,
     content: m.content,
+    ...(rowId ? { id: rowId } : {}),
     ...(typeof m.reasoning === 'string' && m.reasoning ? { reasoning: m.reasoning } : {}),
     ...(m.role === 'assistant' && typeof m.tokens === 'number' ? { tokenCount: m.tokens } : {}),
     ...(Number.isNaN(created) ? {} : { timestamp: created }),
@@ -241,6 +244,63 @@ export async function replayServerConversation(deps: {
   return {
     ok: true,
     messages: backfillSteerNoticesFromMetadata(mapped),
+    // D20 留尾2:首页就带回了分页游标 —— 原样上交,hasMore 才给「加载更早」入口,不猜
+    hasMore: res.data?.hasMore === true,
+    nextCursor: str(res.data?.nextCursor) ?? null,
   }
+}
+
+/** 更早一页解析结果:与回放同一条 fail-closed 判序;成功携带推进游标所需的三件套 */
+export type EarlierPageOutcome =
+  | { ok: true; messages: ChatMessage[]; hasMore: boolean; nextCursor: string | null }
+  | { ok: false; reason: 'request-failed' | 'bad-payload' }
+
+/**
+ * 解析「更早一页」响应(纯函数,可直测)。
+ *
+ * 判序与 replayServerConversation 完全同一条(见文件头②):不抛 ∧ success===true ∧
+ * messages 是数组。失败一律 ok:false —— 调用方必须**保留已回放内容**并给出可重试出口,
+ * 绝不把"取更早失败"渲染成"前面没有消息了"。
+ */
+export function parseEarlierPage(res: ApiResult<GetMessagesResult>): EarlierPageOutcome {
+  if (res.success !== true) return { ok: false, reason: 'request-failed' }
+  const rows = res.data?.messages
+  if (!Array.isArray(rows)) return { ok: false, reason: 'bad-payload' }
+  const mapped = (rows as ConversationMessage[])
+    .map(mapServerMessage)
+    .filter((m): m is ChatMessage => m !== null)
+  return {
+    ok: true,
+    messages: backfillSteerNoticesFromMetadata(mapped),
+    hasMore: res.data?.hasMore === true,
+    nextCursor: str(res.data?.nextCursor) ?? null,
+  }
+}
+
+/** 取「更早一页」:网络层异常与回放同口径收拢为 request-failed,不向调用方冒泡 */
+export async function fetchEarlierPage(deps: {
+  fetchMessages: () => Promise<ApiResult<GetMessagesResult>>
+}): Promise<EarlierPageOutcome> {
+  let res: ApiResult<GetMessagesResult>
+  try {
+    res = await deps.fetchMessages()
+  } catch {
+    return { ok: false, reason: 'request-failed' }
+  }
+  return parseEarlierPage(res)
+}
+
+/**
+ * 前插更早一页(纯函数,可直测):新页整体排在已有消息**之前**,按服务端消息 id 去重。
+ *
+ * 去重只认双方都有的 id:重叠页(cursor 抖动/重复点击)不会长出双胞胎;
+ * 端内流式新产生的消息(无 id)不参与比对 —— 它本来就不在服务端页里,永远保留。
+ */
+export function prependEarlierMessages(prev: ChatMessage[], earlier: ChatMessage[]): ChatMessage[] {
+  const seen = new Set<string>()
+  for (const m of prev) {
+    if (m.id) seen.add(m.id)
+  }
+  return [...earlier.filter((m) => !(m.id && seen.has(m.id))), ...prev]
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
