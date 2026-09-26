@@ -19,7 +19,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -411,6 +411,9 @@ test('.NET 可构建性:本文件不下结论,判据只在 CI 的 nuget-publish 
   } catch (err) {
     detail = `dotnet CLI 不可用:${String(err?.message ?? err).split(/\r?\n/)[0]}`
   }
+  // 「未判定」必须带原因(§5d 同一条纪律):dotnet 只装运行时不装 SDK 时,
+  // --list-sdks 成功返回**空串**,上面那句会把原因印成一片空白 —— 现象与"判据坏了"同形。
+  if (!sdkPresent && detail.trim() === '') detail = "dotnet --list-sdks 返回空(本机为仅运行时安装,未装 SDK)"
   if (sdkPresent) {
     console.error('  · .NET 可构建性:本机有 SDK,但构建/打包判据落在 CI(nuget-publish 的 build+pack 步)')
   } else {
@@ -431,5 +434,157 @@ test('发布链引用的每一条 CI 判据脚本在 HEAD 都在位', () => {
     assert.notEqual(headFile(rel), null, `${rel} 缺失,但发布链引用它`)
   }
   assert.match(workflow, /gate/, 'release-sdk.yml 缺少 gate job(凭据有效性判定层,防"未配凭据也印成 Real release")')
+})
+
+// ───────────── 通道就绪性台账(config/sdk-release-channels.json)结构对账 ─────────────
+// O14:把"四通道 + NuGet 共五通道"的就绪与否从散文(workflow 头注 / PLAN 台账)变成一张
+// 机器可读清单。本测试核**结构三面**;外部 registry 的**实跑**判据在
+// scripts/check-sdk-release-channels.mjs(该文件同时被下方"装车证明"钉住在位)。
+//
+// 为什么这一条读工作树而全文件其余判据读 HEAD:台账是运行态账本(记录当次实测的
+// gh-secret / registry 读数),生命周期天然是"先实测、后翻账、再提交" —— 若按 HEAD 判,
+// 诚实翻账在提交前必不被看见,等于要求每次改账先绕过自己的门。防漂移不靠取材面,
+// 靠下面三面:① 通道集 ↔ HEAD workflow 的 *-publish job 集双向等;② 每条探针坐标
+// 由 HEAD 各语言清单同源推导;③ blocked-* 必带具体解除动作。
+
+const CHANNELS_PATH = resolve(REPO_ROOT, 'config/sdk-release-channels.json')
+const CHANNEL_STATUS_ENUM = ['ready', 'blocked-by-credential', 'blocked-by-external-ownership', 'not-implemented']
+
+/** 从 workflow 文本(剥注释)取全部 `*-publish` job 键。 */
+function publishJobKeys(workflowText) {
+  return [...withoutYamlComments(workflowText).matchAll(/^ {2}([a-z][\w-]+-publish):$/gm)].map((m) => m[1])
+}
+
+/**
+ * 纯函数三面校验 —— 变异对照直接喂构造对象,不碰真文件。
+ * @param {{channels?: Array<Record<string, unknown>>, liveChecker?: unknown}} manifest
+ * @param {{jobs: string[], coordinates: Record<string, string>}} expected
+ * @returns {string[]} 错误清单(空 = 合规)
+ */
+function validateChannelsLedger(manifest, expected) {
+  const errors = []
+  const channels = Array.isArray(manifest.channels) ? manifest.channels : []
+  if (!channels.length) return ['台账 channels 为空 —— 五通道无人看守']
+  const ids = channels.map((c) => String(c.id))
+  const expectedIds = expected.jobs.map((j) => j.replace(/-publish$/, '')).sort()
+  const sortedIds = ids.slice().sort()
+  for (const miss of expectedIds.filter((x) => !sortedIds.includes(x))) errors.push(`台账缺通道 ${miss}(workflow 里有对应 *-publish job)`)
+  for (const extra of sortedIds.filter((x) => !expectedIds.includes(x))) errors.push(`台账多出未知通道 ${extra}(没有任何 job 执行它)`)
+  for (const ch of channels) {
+    const id = String(ch.id)
+    if (!CHANNEL_STATUS_ENUM.includes(String(ch.status))) {
+      errors.push(`${id}: status "${String(ch.status)}" 不在枚举 {${CHANNEL_STATUS_ENUM.join(', ')}}`)
+      continue
+    }
+    if (String(ch.status).startsWith('blocked-')) {
+      for (const need of ['blocker', 'unblockAction']) {
+        const v = ch[need]
+        if (typeof v !== 'string' || v.trim().length < 10) errors.push(`${id}: ${ch.status} 却缺具体的 ${need}(blocked 项不写解除动作 = 与没这条通道等效)`)
+      }
+    }
+    if (typeof ch.verifyCommand !== 'string' || !ch.verifyCommand.trim()) errors.push(`${id}: 缺 verifyCommand`)
+    const probe = /** @type {Record<string, unknown>} */ (ch.probe ?? {})
+    if (!['http-status', 'git-ls-remote', 'none'].includes(String(probe.kind))) errors.push(`${id}: probe.kind 不在枚举`)
+    // 坐标三面里的第二面:探针/命令必须指向 HEAD 清单推导出的**同一个**坐标。
+    const url = String(probe.url ?? '')
+    const cmd = String(ch.verifyCommand ?? '')
+    if (id === 'npm' && (!url.includes(expected.coordinates.npmUrlNeedle) || !cmd.includes(expected.coordinates.npm))) {
+      errors.push(`npm: 探针/回读命令未指向清单坐标 ${expected.coordinates.npm}(url=${url})`)
+    }
+    if (id === 'pypi' && !url.includes(`/pypi/${expected.coordinates.pypi}/`)) {
+      errors.push(`pypi: 探针 URL 未指向 pyproject 坐标 ihui-ai=${expected.coordinates.pypi}(url=${url})`)
+    }
+    if (id === 'maven' && !url.includes(`maven2/${expected.coordinates.mavenGroupPath}/${expected.coordinates.mavenArtifact}/`)) {
+      errors.push(`maven: 探针 URL 未指向 pom 坐标 ${expected.coordinates.mavenGroupPath}/${expected.coordinates.mavenArtifact}(url=${url})`)
+    }
+    if (id === 'nuget' && !url.includes(`v3-flatcontainer/${expected.coordinates.nugetLower}/`)) {
+      errors.push(`nuget: 探针 URL 未指向工程推导 PackageId ${expected.coordinates.nugetLower}(url=${url})`)
+    }
+    if (id === 'go' && !String(probe.pattern ?? '').includes(expected.coordinates.goTagPrefix)) {
+      errors.push(`go: ls-remote pattern 未含子目录模块 tag 前缀 ${expected.coordinates.goTagPrefix}(pattern=${String(probe.pattern)})`)
+    }
+  }
+  return errors
+}
+
+test('通道就绪性台账:通道集↔CI job 集↔清单坐标三面双向对账,且实跑判据已装车', () => {
+  const workflow = headFile(RELEASE_WORKFLOW)
+  assert.notEqual(workflow, null, `${RELEASE_WORKFLOW} 缺失`)
+  const jobs = publishJobKeys(workflow).sort()
+  assert.deepEqual(
+    jobs,
+    ['go-publish', 'maven-publish', 'npm-publish', 'nuget-publish', 'pypi-publish'],
+    'release-sdk.yml 的 *-publish job 集与预期五通道不再一一对应 —— 台账对账前提先破,判据即失明',
+  )
+
+  const npmName = headJson('packages/sdk/package.json').name
+  const pyName = /^\s*name\s*=\s*"([^"]+)"/m.exec(headFile(PY_PYPROJECT) ?? '')?.[1]
+  const pomSelf = (headFile(JAVA_POM) ?? '').replace(/<parent>[\s\S]*?<\/parent>/gi, '')
+  const groupId = /<groupId>\s*([^<\s]+)\s*<\/groupId>/.exec(pomSelf)?.[1]
+  const artifactId = /<artifactId>\s*([^<\s]+)\s*<\/artifactId>/.exec(pomSelf)?.[1]
+  const netProject = headList(DOTNET_DIR).find((p) => NET_PROJECT_RE.test(p))
+  assert.ok(npmName && pyName && groupId && artifactId && netProject, '各语言清单坐标解析不到 —— 无法为台账立三面判据')
+  const coordinates = {
+    npm: String(npmName),
+    npmUrlNeedle: String(npmName).replace('/', '%2F'),
+    pypi: String(pyName),
+    mavenGroupPath: String(groupId).replace(/\./g, '/'),
+    mavenArtifact: String(artifactId),
+    nugetLower: netProject.split('/').pop().replace(NET_PROJECT_RE, '').toLowerCase(),
+    goTagPrefix: 'packages/sdk/go/v',
+  }
+
+  let manifest
+  try {
+    manifest = JSON.parse(readFileSync(CHANNELS_PATH, 'utf8'))
+  } catch (err) {
+    assert.fail(`台账 ${CHANNELS_PATH} 不可读/不可 parse:${String(err?.message ?? err)}`)
+  }
+  const errors = validateChannelsLedger(manifest, { jobs, coordinates })
+  assert.deepEqual(errors, [], `通道台账结构不合:\n  - ${errors.join('\n  - ')}`)
+
+  // 装车证明(守门 70/76/81 同型):台账点名的实跑判据脚本必须真在位 —— 判据只写在 JSON 里
+  // 而没人执行,与"注释里写着 nuget job"是同一族失效。
+  assert.ok(
+    typeof manifest.liveChecker === 'string' && existsSync(resolve(REPO_ROOT, manifest.liveChecker)),
+    `台账 liveChecker(${String(manifest.liveChecker)})不在位 —— 结构面有人核、实跑面无人核`,
+  )
+})
+
+test('通道台账·变异对照:四类假账必须被结构判据点名(判据有牙证明)', () => {
+  const jobs = ['npm-publish', 'pypi-publish', 'maven-publish', 'nuget-publish', 'go-publish']
+  const coordinates = {
+    npm: '@ihui/sdk',
+    npmUrlNeedle: '@ihui%2Fsdk',
+    pypi: 'ihui-ai',
+    mavenGroupPath: 'com/ihui',
+    mavenArtifact: 'ihui-ai-java',
+    nugetLower: 'ihui.ai',
+    goTagPrefix: 'packages/sdk/go/v',
+  }
+  const mk = (over = {}) => ({
+    schemaVersion: 1,
+    channels: [
+      { id: 'npm', status: 'blocked-by-credential', blocker: 'secrets 缺 NPM_TOKEN(gh 实测)', unblockAction: '生成 Automation token 并 gh secret set', verifyCommand: 'npm view @ihui/sdk version', probe: { kind: 'http-status', url: 'https://registry.npmjs.org/@ihui%2Fsdk' }, ...over.npm },
+      { id: 'pypi', status: 'blocked-by-credential', blocker: 'secrets 缺 PYPI_TOKEN(gh 实测)', unblockAction: '注册账号并 gh secret set', verifyCommand: 'curl https://pypi.org/pypi/ihui-ai/json', probe: { kind: 'http-status', url: 'https://pypi.org/pypi/ihui-ai/json' }, ...over.pypi },
+      { id: 'maven', status: 'blocked-by-external-ownership', blocker: 'com.ihui 命名空间未在 Central 验证', unblockAction: '用 aizhs.top DNS 验证命名空间', verifyCommand: 'curl https://repo1.maven.org/maven2/com/ihui/ihui-ai-java/', probe: { kind: 'http-status', url: 'https://repo1.maven.org/maven2/com/ihui/ihui-ai-java/' }, ...over.maven },
+      { id: 'nuget', status: 'blocked-by-credential', blocker: 'secrets 缺 NUGET_API_KEY(gh 实测)', unblockAction: '注册账号生成 key 并 gh secret set', verifyCommand: 'curl https://api.nuget.org/v3-flatcontainer/ihui.ai/index.json', probe: { kind: 'http-status', url: 'https://api.nuget.org/v3-flatcontainer/ihui.ai/index.json' }, ...over.nuget },
+      { id: 'go', status: 'ready', blocker: null, unblockAction: '', requiredSecrets: [], verifyCommand: 'git ls-remote --tags origin "refs/tags/packages/sdk/go/v*"', probe: { kind: 'git-ls-remote', remote: 'origin', pattern: 'refs/tags/packages/sdk/go/v*' }, ...over.go },
+    ],
+    liveChecker: 'scripts/check-sdk-release-channels.mjs',
+  })
+  // 基线自证:夹具本体必须过(否则下面四条红的可能是夹具)。
+  assert.deepEqual(validateChannelsLedger(mk(), { jobs, coordinates }), [], '夹具基线台账自身不合,变异对照失去意义')
+  assert.match(
+    validateChannelsLedger({ ...mk(), channels: mk().channels.filter((c) => c.id !== 'nuget') }, { jobs, coordinates }).join('\n'),
+    /缺通道 nuget/,
+    '摘掉一个通道必须点名',
+  )
+  const badUrl = mk({ npm: { probe: { kind: 'http-status', url: 'https://registry.npmjs.org/@other%2Fpkg' } } })
+  assert.match(validateChannelsLedger(badUrl, { jobs, coordinates }).join('\n'), /npm: 探针\/回读命令未指向清单坐标/, '坐标漂移必须点名')
+  const badStatus = mk({ npm: { status: 'almost-ready' } })
+  assert.match(validateChannelsLedger(badStatus, { jobs, coordinates }).join('\n'), /不在枚举/, 'status 枚举外的值必须点名')
+  const lazyBlocked = mk({ pypi: { unblockAction: '' } })
+  assert.match(validateChannelsLedger(lazyBlocked, { jobs, coordinates }).join('\n'), /pypi:.*unblockAction/, 'blocked 而不写解除动作必须点名')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
