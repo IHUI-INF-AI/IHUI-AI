@@ -136,7 +136,15 @@ let ledger = new Map<string, InjectionRecord>();
 /** 未登记但调了出口的 id:只报数,绝不静默。 */
 let unregisteredIds = new Set<string>();
 
-/** 新一轮装配开始前清空(跨轮不累计,否则"未注入"行会把上一轮的账说成这一轮的)。 */
+/**
+ * 清空台账。**当前生产面零调用点**,这是实测后的结论而不是漏接线:
+ * ① 台账按 id 覆盖(`ledger` 是 Map),跨轮不会把同一段数成两遍;
+ * ② repl 与 `server/agent-core` 的 `setupAgentTools` 一个会话只跑一次并缓存,
+ *    此后服务的 system prompt 就是那一次装配的产物 —— 上一轮记的"无内容"对这一轮**依然为真**;
+ * ③ 所以任何"每轮清一次"的调用点只会把仍然成立的账擦掉(本票实测过放在 `runToolLoop` 开头,
+ *    结果连带擦掉 `context_memory` / `skill_list` 的降级记录),那比不清更糟。
+ * 保留导出的用途:测试隔离 + 将来若引入"每次请求重装配 system prompt"的宿主,由那个装配点调用。
+ */
 export function resetInjectionLedger(): void {
   ledger = new Map();
   unregisteredIds = new Set();
