@@ -166,6 +166,77 @@ export function grantLeaseFromFlag(input: GrantLeaseFromFlagInput): PermissionLe
   }
 }
 
+// ==================== 摘要维度的新增出口(不改上面任何既有解析语义)====================
+
+/**
+ * 工作区路径 → 租约摘要 key 的**唯一**映射出口。
+ *
+ * 身份同源的实测依据(2026-09-26 现读):CLI 侧只有一份工作区键 —— `ToolContext.workspacePath`
+ * (必填 string,`apps/cli/src/tools/index.ts` 的接口即事实源);全仓 `workspaceIdentity` **零命中**
+ * (那个名字只出现在被吸收的第三方仓规约文本里,不是本仓实现)。所以"两处算同一 key 共用一份实现"
+ * 在这一票里的落点就是:授予侧与批准登记侧都只经本函数取键,不得一处直接用 workspacePath、
+ * 另一处自己拼第二份。
+ * 取不到身份时返回空串,由调用方判"无从绑定"并**喊出来** —— 绝不静默拿 cwd/pid 冒充身份:
+ * 那会让同一份工作区在目录切换后所有摘要都判成漂移,即"每次批准都漂移"的死锁形。
+ */
+export function leaseWorkspaceIdOf(workspacePath: string | null | undefined): string {
+  return (workspacePath ?? '').trim();
+}
+
+/** 内容绑定档位的授予入参:在既有入参之上多一个**必填**身份源(空即失败关闭)。 */
+export interface GrantDigestTrackedLeaseInput extends GrantLeaseFromFlagInput {
+  /** CLI 唯一的身份源(`ToolContext.workspacePath`)。 */
+  workspacePath?: string | null;
+}
+
+/**
+ * 授予一份带"内容绑定档位"(bind-on-first-approval)的租约。
+ *
+ * 与 `grantLeaseFromFlag` **共用同一份解析**(工具清单/ttl/轮次仍走上面那三个唯一出口,含封顶),
+ * 只多两件事:① 构造时定死工作区身份;② 打开 `digestTrackOnApproval`,使能力在拿到第一次真人
+ * 批准之前不放宽,而该次批准的内容由 `recordApprovedInvocation()` 落成槽位指纹。
+ *
+ * 为什么要新开一个入口而不是给 `grantLeaseFromFlag` 默认带上:那会让所有既有 `--permission-lease`
+ * 使用者突然在每个能力上被多问一次批准 —— 静默把操作员要的放宽换成另一套语义,正是本文件
+ * 头部第三条约束(判不出来就失败关闭)反对的那一型。
+ */
+export function grantDigestTrackedLeaseFromFlag(
+  input: GrantDigestTrackedLeaseInput,
+): PermissionLeaseFlagOutcome {
+  const workspaceId = leaseWorkspaceIdOf(input.workspacePath);
+  if (workspaceId.length === 0) {
+    return {
+      kind: 'invalid',
+      reason: 'digest-tracked lease requires a workspace identity (workspacePath resolved to empty)',
+    };
+  }
+  const parsed = parseLeaseTools(input.toolsRaw);
+  if (parsed.error) return { kind: 'invalid', reason: parsed.error };
+  if (parsed.tools.length === 0) return { kind: 'none' };
+
+  const ttlMinutes = resolveLeaseTtlMinutes(input.ttlRaw);
+  const turns = resolveLeaseTurns(input.turnsRaw);
+  const scope = `${SCOPE_PREFIX}${input.target.trim() || `pid-${process.pid}`}`;
+
+  try {
+    const lease = grantPermissionLease({
+      scope,
+      capabilities: parsed.tools,
+      grantor: 'cli-flag',
+      ttlMs: ttlMinutes * 60_000,
+      expiresAfterTurns: turns,
+      nowMs: input.nowMs,
+      // 这两行是本入口的全部差别:身份定死 + 档位打开(声明内容仍然一条都不预置)
+      workspaceId,
+      digestTrackOnApproval: true,
+    });
+    return { kind: 'granted', lease, ttlMinutes, turns };
+  } catch (err) {
+    const reason = err instanceof PermissionLeaseError || err instanceof Error ? err.message : String(err);
+    return { kind: 'invalid', reason };
+  }
+}
+
 /**
  * 运行收尾:显式撤销(落 `permission_lease_revoked` 审计行)。
  * 返回 true = 确实撤掉了一份。未授予过 ⇒ false,可安全重放(构造上不抛)。
