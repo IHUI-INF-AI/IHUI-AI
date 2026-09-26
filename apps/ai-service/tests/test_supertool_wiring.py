@@ -175,7 +175,17 @@ async def test_loop_tools_include_external_and_route(
     assert manager.client.calls == [("ext_only", {"x": 1})]
 
     # 内置工具执行 → 路由回 mcp_server.call_tool
-    async def fake_call_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:
+    # V3 #47 第二格(2026-09-26)改此夹具:执行器现在必须把角色透传给 call_tool
+    # (`call_tool(name, args, user_role=…)`)。旧夹具的签名 `(name, args)` 钉的正是
+    # "engine 路径不传角色、恒落 call_tool 形参默认 0"这一被本票判为缺陷的旧行为 ——
+    # 按"新行为才是正确"的方向改夹具,而不是把透传去掉让它变绿。
+    # 这里断言的是 fail-closed 那一半:调用方没给角色 ⇒ 落到 0(普通用户),不是"没限制"。
+    seen_roles: list[int] = []
+
+    async def fake_call_tool(
+        name: str, args: dict[str, Any], *, user_role: int = 0
+    ) -> dict[str, Any]:
+        seen_roles.append(user_role)
         return {"ok": True, "builtin": name}
 
     from app.services import mcp_server
@@ -183,6 +193,7 @@ async def test_loop_tools_include_external_and_route(
     monkeypatch.setattr(mcp_server.mcp_server, "call_tool", fake_call_tool)
     out2 = await by_name["read_file"].executor({"path": "a.py"})
     assert out2 == {"ok": True, "builtin": "read_file"}
+    assert seen_roles == [0]
 
 
 @pytest.mark.asyncio

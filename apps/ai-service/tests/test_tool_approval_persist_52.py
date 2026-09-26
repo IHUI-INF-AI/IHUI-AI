@@ -104,12 +104,20 @@ async def _drive_approval(
 
 
 def _write_loop(executor) -> AgentLoopV2:
-    """构造最小高危工具(write_file)审批循环。"""
+    """构造最小高危工具(write_file)审批循环。
+
+    2026-09-26(V3 #47 第二格)补 `user_role=1`:`write_file` 同在
+    `mcp_server._ADMIN_ONLY_TOOLS`,而角色闸按设计排在审批闸**之前**,role=0 会让本文件
+    的持久授权断言根本到不了审批环节(实测表现为 `approval_persistence.check` 零调用)。
+    改的是前置条件,不是判据 —— 本文件断言的仍是"弹窗一次、同 key 二次免弹、撤销恢复"。
+    角色闸自身的正反例在 tests/test_engine_role_parity.py。
+    """
     return AgentLoopV2(
         None,
         [ToolDefinition(name="write_file", description="写文件", parameters={}, executor=executor)],
         approval_enabled=True,
         approval_timeout=5,
+        user_role=1,
     )
 
 
