@@ -10,10 +10,13 @@
 // 跑法:node --test scripts/tests/check-tool-contract-declared.test.mjs
 import assert from 'node:assert/strict'
 import path from 'node:path'
-import { readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { readFileSync, mkdirSync, writeFileSync, cpSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
+
+// 临时夹具唯一落点(AGENTS §26:**禁止**往 os.tmpdir() 写 —— 活进程的 TEMP 可能仍钉在 C 盘)
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 import { __test__ as gate } from '../check-tool-contract-declared.mjs'
 
@@ -51,6 +54,10 @@ test('T1 §22c 锚点:__test__ 必须真导出核心判据函数(缺一个 = 测
     'violationsOf',
     'flipAuditOf',
     'exceedsAnchor',
+    // 2026-09-26 换锚新增:身份台账的三个出口。缺任何一个,T19 的端到端就无从构造。
+    'toolKey',
+    'declarationLedgerOf',
+    'findDeclarationRemovals',
   ]) {
     assert.equal(typeof gate[key], 'function', `__test__.${key} 缺失`)
   }
@@ -69,11 +76,15 @@ test('T2 三种缺省状态各有正反例:没声明 / 声明但字段缺 / 齐�
   assert.deepEqual(kinds(COMPLETE), [], '契约齐备必须为绿(否则本门恒红)')
 })
 
-test('T3 棘轮锚点四向:只拦"把绕档加回来",存量与新文件各按定义处置', () => {
+test('T3 计数棘轮四向:只拦"把绕档加回来"(摘除那一型不归它管,见 T18/T19 的 TC3)', () => {
   assert.equal(gate.exceedsAnchor(1, 0), true, '新文件(HEAD 锚点 0)出现违规必须红')
   assert.equal(gate.exceedsAnchor(1, 1), false, '与 HEAD 齐平不得红(存量 102 个不许一次改红)')
   assert.equal(gate.exceedsAnchor(0, 1), false, '清理存量必须绿')
-  assert.equal(gate.exceedsAnchor(5, 5), false, '同数不同内容也不红 —— 锚点是计数不是指纹')
+  // ⚠️ 措辞修正(2026-09-26):"同数不同内容也不红"作为**整门的锚点描述**是错的 ——
+  // 那正是 G-207 的洞(摘掉一份字段不全的契约:1 处 TC2 换成 1 处 TC1,计数持平)。
+  // 本断言仍然成立,但它只描述 `exceedsAnchor` **这一个函数**;内容那一半由
+  // findDeclarationRemovals(TC3)承担,端到端证明在 T19。
+  assert.equal(gate.exceedsAnchor(5, 5), false, '本函数按定义只比大小')
 })
 
 test('T4 flip-audit 只计"既无契约又无 dangerLevel"(第二阶段要拦的正是这批)', () => {
@@ -257,9 +268,186 @@ test('T17 真仓全量档复跑:末行三读数仍在且 exit 0(换锚点后存�
   const out = runScript([])
   assert.match(out, /TRD\(触碰即须声明\)当前档位:开但\*\*只作用于 --staged 档\*\*/)
   const last = out.trim().split('\n').pop()
-  const m = /注册工具数 (\d+) \/ 无契约数 (\d+) \/ 棘轮余量 (\d+)/.exec(last)
-  assert.ok(m, `末行缺三项读数:${last}`)
+  const m = /注册工具数 (\d+) \/ 无契约数 (\d+) \/ 棘轮余量 (\d+) \/ 契约摘除 (\d+)/.exec(last)
+  assert.ok(m, `末行缺四项读数:${last}`)
   assert.ok(Number(m[1]) > 0, '抽到 0 个工具 = 判据失明')
   assert.ok(Number(m[2]) > Number(m[3]), '存量无契约数必须仍被报出(只报数,不判红)')
+  assert.equal(Number(m[4]), 0, 'HEAD 面上今天 0 枚声明可摘 ⇒ TC3 必须 0 红(否则就是恒红门)')
 })
+
+// ==================== TC3:声明身份台账(2026-09-26 换锚,治 G-207) ====================
+//
+// 下面所有断言**只驱动源文件的 __test__ 出口**,不复制判据实现(§22c 红线)。
+
+const PARTIAL = COMPLETE.replace(/ effectScope: 'none',/, '')
+const DEMO_REL = 'apps/cli/src/tools/demo.ts'
+const DEMO_KEY = `${DEMO_REL}#demo`
+const HELPER_REL = 'apps/cli/src/tools/command-policy/tokenizer.ts'
+const HELPER = `export const KEYWORDS = ['if', 'then']\nexport function tokenize(s: string) { return s.split(' ') }\n`
+
+test('T18 TC3 纯函数成对:摘除必红 / 新增不红 / 整枚删除不红 / 同名两枚不得互相冒充', () => {
+  const led = (src) => gate.declarationLedgerOf(DEMO_REL, gate.extractToolLiterals(src))
+  const declared = led(COMPLETE)
+  const bare = led(BARE)
+  // 前提:三份夹具是**同一枚工具**的身份 —— 否则"摘除"根本无从谈起
+  assert.equal([...declared.keys()].join(), DEMO_KEY)
+  assert.equal([...bare.keys()].join(), DEMO_KEY)
+  assert.equal(gate.toolKey(DEMO_REL, 'demo'), DEMO_KEY)
+  // ① 摘除 ⇒ 红
+  assert.equal(gate.findDeclarationRemovals({ head: declared, current: bare }).removed.length, 1)
+  // ② 台账没记而面上出现声明 ⇒ 不红(判据不得把自己产出的形态判红)
+  assert.equal(gate.findDeclarationRemovals({ head: bare, current: declared }).removed.length, 0)
+  assert.equal(gate.findDeclarationRemovals({ head: bare, current: bare }).removed.length, 0)
+  assert.equal(
+    gate.findDeclarationRemovals({ head: bare, current: bare }).declaredIdentities,
+    0,
+    '无声明可摘时必须报 0,结论行据此喊"无事可判"',
+  )
+  // ③ 整枚工具被删 ⇒ 不判摘除(删除属守门 99 的地盘,本门不越权)
+  assert.equal(
+    gate.findDeclarationRemovals({ head: declared, current: new Map() }).removed.length,
+    0,
+  )
+  // ④ 同名两枚摘掉一颗:名字集合会漏,身份多重集不会
+  const dup = (a, b) =>
+    gate.declarationLedgerOf(DEMO_REL, [
+      { toolName: 'dup', hasContract: a },
+      { toolName: 'dup', hasContract: b },
+    ])
+  assert.equal(
+    gate.findDeclarationRemovals({ head: dup(true, true), current: dup(true, false) }).removed[0]
+      .missing,
+    1,
+  )
+  assert.equal(
+    gate.findDeclarationRemovals({ head: dup(true, false), current: dup(true, true) }).removed
+      .length,
+    0,
+  )
+})
+
+test('T18b 计数锚点全盲的那一型,正是身份锚点有牙的那一型(两把尺子的分工必须可对账)', () => {
+  const n = (src) => gate.violationsOf(gate.extractToolLiterals(src)).length
+  // HEAD: 挂了契约但缺 effectScope ⇒ 1 处 TC2;摘掉契约 ⇒ 1 处 TC1。计数持平。
+  assert.equal(n(PARTIAL), 1)
+  assert.equal(n(BARE), 1)
+  assert.equal(gate.exceedsAnchor(n(BARE), n(PARTIAL)), false, '计数棘轮按定义放绿')
+  const led = (src) => gate.declarationLedgerOf(DEMO_REL, gate.extractToolLiterals(src))
+  assert.equal(
+    gate.findDeclarationRemovals({ head: led(PARTIAL), current: led(BARE) }).removed.length,
+    1,
+    '同一输入身份台账必须判红 —— 这就是本票换锚的全部理由',
+  )
+})
+
+// ---------- 端到端:临时 git 仓(证明两型修复真在 CLI 路径上生效,不只是纯函数) ----------
+
+function scratchRepo() {
+  const dir = mkScratch('trd-tc3-')
+  mkdirSync(path.join(dir, 'scripts', 'lib'), { recursive: true })
+  mkdirSync(path.join(dir, 'apps', 'cli', 'src', 'tools', 'command-policy'), { recursive: true })
+  cpSync(SCRIPT, path.join(dir, 'scripts', 'check-tool-contract-declared.mjs'))
+  for (const f of ['face-reader.mjs', 'gitdir.mjs'])
+    cpSync(path.join(ROOT, 'scripts', 'lib', f), path.join(dir, 'scripts', 'lib', f))
+  writeFileSync(path.join(dir, HELPER_REL), HELPER, 'utf8')
+  writeFileSync(path.join(dir, DEMO_REL), COMPLETE, 'utf8')
+  for (const a of [
+    ['init', '-b', 'main'],
+    ['add', '-A'],
+    ['commit', '-m', 'base', '--no-verify'],
+  ]) {
+    const r = git(a, dir)
+    if (r.status !== 0) throw new Error(a[0] + ': ' + (r.stderr || r.stdout))
+  }
+  return dir
+}
+
+function git(args, cwd) {
+  // `core.hooksPath` 指向一个不存在的目录:临时仓**结构上不得**跑到任何钩子。
+  // 本机 global/system 实测未设 hooksPath,但 post-commit 的 git-push-guard 一旦被人挂上全局,
+  // 一枚测试就会拿别人的仓去推远端 —— 这类"当下不成立所以不写"的护栏本仓已经付过学费。
+  return spawnSync(
+    'git',
+    [
+      '-c',
+      'safe.directory=*',
+      '-c',
+      'user.email=t@e.co',
+      '-c',
+      'user.name=t',
+      '-c',
+      `core.hooksPath=${path.join(cwd, '.no-hooks-at-all')}`,
+      ...args,
+    ],
+    { cwd, encoding: 'utf8', windowsHide: true },
+  )
+}
+
+function gateIn(dir, args) {
+  const p = spawnSync(
+    process.execPath,
+    [path.join(dir, 'scripts', 'check-tool-contract-declared.mjs'), ...args],
+    { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 32 << 20 },
+  )
+  return { code: p.status, out: String(p.stdout || '') + String(p.stderr || '') }
+}
+
+test('T19 端到端(临时仓三档):不注册工具的文件不得被判红;摘除契约必须判红;正常编辑必须绿', () => {
+  const dir = scratchRepo()
+  try {
+    // --- A 只暂存"本就不注册工具"的文件(helper)---
+    // 旧实现在这里 exit 2「无法判定」= 每一次碰 helper 的提交都被硬拦(§12e 那型)。
+    writeFileSync(path.join(dir, HELPER_REL), HELPER + '// 一行正常编辑\n', 'utf8')
+    assert.equal(git(['add', HELPER_REL], dir).status, 0)
+    const a = gateIn(dir, ['--staged'])
+    assert.equal(a.code, 0, `helper 文件不得被本门拦下,实得 exit ${a.code}:\n${a.out}`)
+    assert.match(a.out, /不适用/, '必须如实打出"契约判据不适用",不得静默算已核')
+
+    // --- B 摘掉一份"字段不全"的契约(计数持平 ⇒ 只有身份锚点看得见)---
+    git(['reset', '-q'], dir)
+    writeFileSync(path.join(dir, HELPER_REL), HELPER, 'utf8')
+    writeFileSync(path.join(dir, DEMO_REL), PARTIAL, 'utf8')
+    assert.equal(git(['add', DEMO_REL], dir).status, 0)
+    const c1 = git(['commit', '-m', 'partial contract', '--no-verify'], dir)
+    assert.equal(c1.status, 0, c1.stderr || c1.stdout)
+    writeFileSync(path.join(dir, DEMO_REL), BARE + '\n', 'utf8')
+    assert.equal(git(['add', DEMO_REL], dir).status, 0)
+    const b = gateIn(dir, ['--staged', gate.TRD_OFF_FLAG])
+    assert.equal(b.code, 1, `摘除契约必须判红,实得 exit ${b.code}:\n${b.out}`)
+    assert.match(b.out, /TC3/, '必须点名判据是 TC3(而非计数棘轮)')
+    assert.match(b.out, /apps\/cli\/src\/tools\/demo\.ts#demo/, '必须点名被摘除的**身份**')
+
+    // --- C 对照:保留声明的正常编辑必须绿(证明 B 的红来自摘除本身)---
+    git(['reset', '-q'], dir)
+    writeFileSync(path.join(dir, DEMO_REL), PARTIAL + '// 一行正常注释\n', 'utf8')
+    assert.equal(git(['add', DEMO_REL], dir).status, 0)
+    const c = gateIn(dir, ['--staged', gate.TRD_OFF_FLAG])
+    assert.equal(c.code, 0, `保留声明的正常编辑必须绿,实得 exit ${c.code}:\n${c.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T20 装车证明:TC3 必须真挂在 main 上并把读数打进输出与末行(判据在而没调用 = 没有)', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  assert.match(src, /findDeclarationRemovals\(\{/, 'main 未调用身份台账 ⇒ TC3 只是死代码')
+  assert.match(src, /declarationLedgerOf\(rel, headTools\)/, '台账必须由 HEAD 现算,不得取手工清单')
+  assert.match(src, /声明身份台账\(TC3\)/, '输出必须打出已声明身份数与摘除数')
+  assert.match(src, /契约摘除 \$\{removedTotal\}/, '结论/末行必须把摘除计数带出来')
+  assert.match(src, /anchorTools,/, 'enumerationBlind 必须拿到 HEAD 侧工具数,否则又会误拦 helper')
+  // 计数棘轮**不得被摘掉**:换锚是"加一把尺子",不是"把旧的扔掉"
+  assert.match(src, /exceedsAnchor\(violations\.length, anchor\)/, '计数棘轮必须仍在')
+  assert.match(src, /reds\.length > 0 \|\| removals\.length > 0/, '失败分支必须同时看两把尺子')
+})
+
+test('T21 runner 注册对账(id/blocking/skipEnv 三者齐备;此前该文件没有这条,新增)', () => {
+  const runner = readFileSync(path.join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const at = runner.indexOf("script: 'check-tool-contract-declared.mjs'")
+  assert.ok(at > 0, '本门不在 runner 里 ⇒ 摘线了(守门 70/76/81 同型)')
+  const block = runner.slice(Math.max(0, at - 400), at + 400)
+  assert.match(block, /id: '111'/, '注册 id 漂了必须让人看见')
+  assert.match(block, /mode: 'blocking'/, '定级被悄悄降成 warn ⇒ 判对了也没人被打断')
+  assert.match(block, /skipEnv: 'HUSKY_SKIP_TOOL_CONTRACT_DECLARED'/, '应急通道声明必须在位')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
