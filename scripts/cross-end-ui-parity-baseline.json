@@ -1,21 +1,19 @@
 {
   "counts": {
     "BottomActionBar": 19,
-    "Carousel": 6,
-    "ColorfulLoader": 2,
+    "Carousel": 5,
     "FloatBox": 6,
     "InputArea": 23,
     "IntelligentAssistant": 14,
     "Loading": 1,
     "LoginPopUp": 17,
     "Menu": 2,
-    "ModelConfigDialog": 11,
+    "ModelConfigDialog": 10,
     "ModelList": 12,
-    "NavBar": 15,
-    "SectionHeader": 2,
+    "NavBar": 13,
+    "SectionHeader": 1,
     "UserInfoCard": 10,
     "VerifyCodeModal": 11,
-    "VideoPlayer": 4,
     "VoiceInput": 12
   },
   "waivers": {}
