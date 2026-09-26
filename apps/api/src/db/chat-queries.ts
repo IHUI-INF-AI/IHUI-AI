@@ -822,6 +822,11 @@ export function parseHistoryProjectionState(raw: unknown): HistoryProjectionStat
  *
  * 单调性:断点只前进不后退,没有新收口轮次时原样返回 prev(调用方据此跳过写入,
  * 不空刷 lastRolledAt);prev 为 null 且无收口轮次时返回 null —— 读侧保持可空语义。
+ * 唯一合法的"后退"发生在 rollHistoryProjection 的 reset 档:那不是把本函数的返回值调小,
+ * 而是换一个 prev(null)重算, ordinal 与字节量仍成对同源。读侧对断点变小不敏感:
+ * projectionState 全程 opaque(chat.ts 透传 + 共享层 HistoryPageWire.projectionState: unknown),
+ * 而客户端时间线合并 mergeHistoryTurnPages 按 turnOrdinal 用 Map 整轮替换(last-write-wins),
+ * 所以"从更小的断点重放"只会重发已见过的轮次并覆盖同轮,不会重复累加。
  */
 export function advanceHistoryProjection(
   prev: HistoryProjectionState | null,
@@ -846,11 +851,24 @@ export function advanceHistoryProjection(
 }
 
 /**
- * 投影器写入:把会话的 rollout 断点推进到"已收口轮次"并落库,返回落库后的状态
- * (null = 无可推进 / 尚未投影,此时**不发 UPDATE**)。
+ * 投影器写入:把会话的 rollout 断点推进到"已收口轮次"并落库,返回落库后的状态。
  *
- * `reset: true` 用于整段历史被重写的写入路径(压缩 replaceMessages):旧的字节累计
- * 对应的行集已不存在,继续累加会得到与产物无关的断点,必须从 0 重算。
+ * `reset: true` 用于**现存行集已不能沿旧断点继续累加**的写入路径(压缩 replaceMessages、
+ * 四条删除类路径)。语义是「以当前现存轮次为唯一依据重算,重算结果(哪怕是 null)即权威值」:
+ * - 为什么只能重算,不能"把断点回退到不超过现存最大轮":投影状态不是单个游标,而是
+ *   { ordinal 断点, 字节累计 } 一对,字节累计的定义就是"断点及之前所有轮次的字节和"
+ *   (见 advanceHistoryProjection 的 `prev.nextRolloutByteOffset + bytes`)。只把 ordinal
+ *   调小、字节量不动,下一次 roll 的取数窗口 `turn_ordinal > 新断点` 会把被删过又仍在表里的
+ *   轮次**再计一遍**;而要把字节量也改对,就必须重读断点之前的全部行 —— 那已经是 reset。
+ *   所以"回退"不是更省的选项,它是 reset 的一半再加一笔错账。
+ * - 删除类路径里最硬的一格是 editMessageAndTruncateAfter:它**原地改**一条已被计入断点的
+ *   用户消息正文,字节累计当场与真实行不符,而 roll 的取数窗口结构上永不回看
+ *   `turn_ordinal <= 断点` 的行 ⇒ 不 reset 就是**永久**错账,不是"滞后到下一次开新轮"。
+ * - reset 的代价:一次按 (turn_ordinal, content) 两列读该会话全部已分轮行。四个调用点都是
+ *   每请求一次的用户动作(chat.ts:895/917/945/1093,无循环调用),与压缩路径已付的同一次扫描同档。
+ * - 与不带 reset 的差别:不带 reset 时"无可推进"是常态(会话第一条消息),返回 null 且
+ *   **不发 UPDATE**;带 reset 时"无可收口轮次"是一个**结论**(历史已清空 / 只剩仍开放的一轮),
+ *   必须把 null 写回去,否则旧断点就永久指着一批已经不存在的轮次 —— 那正是本函数要消灭的形态。
  */
 export async function rollHistoryProjection(
   executor: ChatTx,
@@ -893,7 +911,10 @@ export async function rollHistoryProjection(
   )
 
   const next = advanceHistoryProjection(prev, slices, rolledAt)
-  if (next === prev) return prev
+  // 非 reset 档:next === prev 即"无事发生",不发空刷 lastRolledAt 的 UPDATE。
+  // reset 档:prev 恒为 null(未读),next 为 null 时含义是"现存行集里没有可收口的轮次",
+  // 这是要落库的结论而非可跳过的常态 —— 故照常 UPDATE(把陈旧断点清成 null)。
+  if (next === prev && !opts.reset) return prev
   await executor
     .update(chatConversations)
     .set({ historyProjectionState: next })
@@ -1021,13 +1042,32 @@ export async function updateMessage(
   return updated[0]
 }
 
+/**
+ * 删除单条消息。删除与被删消息所属的会话都必须与投影断点同源:
+ * 事务内先取 conversationId(删除后就问不出来了),再删,再 reset 重算该会话断点。
+ * 为什么删一行也要 reset:被删的行可能落在**已计入断点**的轮次里 —— 那一轮的字节量当场变小,
+ * 而 roll 的取数窗口永不回看断点之前 ⇒ 只有重算能把账对回来。
+ */
 export async function deleteMessage(id: string): Promise<void> {
-  await db.delete(chatMessages).where(eq(chatMessages.id, id))
+  await db.transaction(async (tx) => {
+    const owner = await tx
+      .select({ conversationId: chatMessages.conversationId })
+      .from(chatMessages)
+      .where(eq(chatMessages.id, id))
+      .limit(1)
+    const conversationId = owner[0]?.conversationId
+    await tx.delete(chatMessages).where(eq(chatMessages.id, id))
+    if (typeof conversationId === 'string') {
+      await rollHistoryProjection(tx, conversationId, { reset: true })
+    }
+  })
 }
 
 /**
  * 清空对话所有消息，但保留对话记录本身。
  * 事务化:删除消息 + 同步将 conversation.lastMessageAt 置 null,保证状态一致。
+ * D35 删除段:清空后现存轮次为 0,旧断点指向一批已不存在的行 ⇒ 必须 reset,
+ * 且"无收口轮次"这里是要落库的结论(断点写回 null),不是可以跳过的写入。
  */
 export async function clearMessages(conversationId: string): Promise<void> {
   await db.transaction(async (tx) => {
@@ -1036,6 +1076,7 @@ export async function clearMessages(conversationId: string): Promise<void> {
       .update(chatConversations)
       .set({ lastMessageAt: null, updatedAt: new Date() })
       .where(eq(chatConversations.id, conversationId))
+    await rollHistoryProjection(tx, conversationId, { reset: true })
   })
 }
 
@@ -1081,6 +1122,10 @@ export async function regenerateConversationMessages(
       .update(chatConversations)
       .set({ lastMessageAt, updatedAt: new Date() })
       .where(eq(chatConversations.id, conversationId))
+
+    // D35 删除段:本路径删的是"目标消息及其之后",现存最大轮次必然变小(或整段清空),
+    // 旧断点因此可能已越过现存轮次;按 reset 语义以现存行集重算 —— 见 rollHistoryProjection 注释。
+    await rollHistoryProjection(tx, conversationId, { reset: true })
 
     const remaining = await tx
       .select({ count: sql<number>`COUNT(*)::int` })
@@ -1141,6 +1186,12 @@ export async function editMessageAndTruncateAfter(
       .update(chatConversations)
       .set({ lastMessageAt: last[0]?.createdAt ?? null, updatedAt: new Date() })
       .where(eq(chatConversations.id, conversationId))
+
+    // D35 删除段:本路径同时改了正文与删了后续,是四条里唯一**断点未越过现存最大轮也必须
+    // 重算**的一格 —— 被编辑的那一轮很可能早已计入字节累计(断点 >= 它),改完正文后
+    // 累计值与真实行不符,而 roll 的取数窗口 `turn_ordinal > 断点` 永不回看它 ⇒
+    // 不 reset 就不是"滞后",是永久错账。
+    await rollHistoryProjection(tx, conversationId, { reset: true })
 
     return message
   })

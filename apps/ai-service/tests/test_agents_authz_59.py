@@ -381,6 +381,10 @@ async def test_request_approval_registers_owner_from_run_user_id(
         approval_timeout=10,
         session_id="sess-authz59-owner",
         user_id=USER_A,
+        # 2026-09-26 V3 #47 第二格:write_file ∈ _ADMIN_ONLY_TOOLS,角色闸在审批闸之前。
+        # 本例测的是"审批条目属主 = 路由传入的 user_id"(越权链),前置条件是这人身为
+        # admin 走到了审批那一步;role 闸自身的正反例在 tests/test_engine_role_parity.py。
+        user_role=1,
     )
     tc = ToolCall(id="c1", name="write_file", args={"path": "/tmp/authz59.txt"})
     task = asyncio.create_task(loop._execute_single(tc))
