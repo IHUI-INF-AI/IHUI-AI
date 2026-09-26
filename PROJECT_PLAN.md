@@ -10284,6 +10284,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - [x] ✅(2026-09-26 07:3x) **给 `union-converge` 补第四条出口 `--resolve '<path>=<内容文件>'`,并用它落地一次真合并** —— 触发场景:本侧(我把 safe-commit 的归因层改成"批没跑完就自跑取证")与远端(另一会话给同一模块加了 `blameFromFailedStep` 定责尝试 + 一把形状锁)同时改了 `scripts/tests/safe-commit-gate-attribution.test.mjs`,lib 那侧三方归并干净、测试文件报 1 处冲突。旧工具只能喊"请人工判",而**人工判完没有回灌路径**,只能去做裸 git 手术并绕过它全部断言。
 - [x] ✅(2026-09-26 08:0x) **把"按磁盘判的门"再收口三道:i18n 重复键(`2e-dupns`)、工具功能名可解析(56)、工具活动行双时态(60)** —— 本会话的第四条同型收口,也是当天最值钱的一条,因为它消掉的是**每个人每次提交都吃到的那枚红**。实测:同一份 `2e-dupns` 门代码,按磁盘判 **exit 1(3~4 个语言文件数百处重复键)**,而 `git archive HEAD` 干净检出判 **exit 0** ⇒ 红来自别人在 `packages/i18n/messages/**` 里的半编辑语料,与提交者无关;当天我连吃 4 次跳门,归因里都有它,而一次绕过约等于全部 156 道门对该提交作废(§12e 同型)。
 - [x] ✅(2026-09-26 08:4x) **小程序"到端 CSS 落地"两票的真实现值与机制定位(全部私有目录重测,共享 dist 零写入)**。@HEAD 重跑 weapp 生产构建(`IHUI_MINIAPP_OUTPUT_ROOT=.tmp-cssfix`,exit 0,687 产物全部新于起建时间)后现读:`node scripts/check-miniapp-css-landing.mjs --worktree --dist-dirname .tmp-cssfix` ⇒ **C1 命中 727/774 = 93.93%**(原名直中 266 + 转写可达 451 + 全文目击 3 + 复合首族 3)/ **C4 死规则 31 类** / **C5 转写腿 in** / **C3 主包 2,070,038 B,余量 +27,114 B**。
+- [x] ✅(2026-09-26 09:1x) **"miniapp typecheck 断在 @ihui/types 没有 AgentInstanceState"一案定性为`工作树陈旧基线`,不是 HEAD 债**,并补上这一格的尺子。取证:索引 == HEAD(空 diff),HEAD 面 `packages/types/src/agent-runtime.ts:138/149` 两个导出齐、barrel 第 18 行 `export * from './agent-runtime'` 在位、消费方(shared `agent-actions.ts` / web `agent-actions-card.tsx`)三面一致;而**工作树那份副本的 blob 恰等于祖先提交 `1d0a143f71`(2026-09-23)的版本**(用 `git log --find-object=0f71447b2f` 钉死),内容是一次纯 45 行删除(D103 整块)⇒ 这是并发会话旧基线写回,不是谁在改类型。处置:按 §12d 第 3 层用 `git checkout-index -f -- <该文件>` 把工作树对齐到索引/HEAD(可证无损:盘上那份是**祖先**版本,不含任何独有数据),对齐后 `@ihui/types build/typecheck` 双 0、`AgentInstanceState` 那枚 TS2305 消失。**同批留在册的另一格不是同一型**:`packages/shared/src/chat/prompt-history.ts` 工作树副本丢了 HEAD 有的 5 个导出,但它**不等于任何祖先 blob** ⇒ 判不出是不是他人正在写的现场,按 §12 不代裁、不覆写,归该文件持有者(它眼下是 `@ihui/shared typecheck` 唯一剩下的红源)。
   - **一次"陈旧产物冒充现值"的当场否证(必须留档,因为它差点变成决策)**:上一轮读数报"主包 2,507,854 B ⇒ **超微信 2 MiB 硬上限 410 KB**,utilities 被复制进 147 个页面 wxss"。本会话按同一份 HEAD 重跑三种模式(生产热/生产冷/开发)都得到 **4,322,009 B 总量、`.items-center{` 与 `.bg-muted{` 各只出现在 1 个文件** —— 那个形状**复现不出来**。真因:那份 dist 是 **06:23** 建的,而 `cssEntries` 修复 **06:33** 才入库 ⇒ 读的是**修复前的产物**。教训与 §"读 dist 必须当场量"同一条:**产物没有版本戳,只有 mtime 与来源提交可比;任何"到端落地"的读数都要绑定"哪一次构建、起建时间、产物是否全部新于该时间"。**主包体积的大头也不是 CSS(`js 1,715,621`,其中 common.js 1,115,408)而是 `.wxss 196,915`。
   - **31 条死规则的机制已定位(不是"插件不转写",而是"运行时侧那一半没被改写")**:样例逐名 `!p-0 / !px-4 / !py-2`(important)、`first:mt-0 / last:mb-0`(变体前缀)、`gap-1.5 / h-2.5 / mt-0.5 / py-0.5 / px-1.5 / py-2.5 …`(小数间距档)、`z-[1040] / text-[10px] / w-[24px] / top-1/2`(方括号/分数)。在产物里逐名验:**源名出现在 `common.js` 与若干分包 js 而转写名 0 处** ⇒ 这些类的 CSS 选择器(`.gap-1_d5{`)确实产出了,但挂在运行时的是源名 ⇒ **手机上就是不相干样式**。另有一族(`custom-tab-bar/index.tsx` 的 6 名)`h-[24px] mt-[2px] pb-[2px] pt-[6px] text-[10px] w-[24px]` 更严重:**产物里根本没有 `custom-tab-bar/` 目录** —— 源名与转写名两侧都是 0,那不是一个 CSS 问题,是**该组件从未被这次构建装配**(单独一条,级别比死规则高)。
      **该族的性质已核清(不是待查项)**:`src/app.config.ts:217` 明写 "Taro 4 Vite 编译不输出 custom-tab-bar(GitHub #17978/#18415),暂用原生 tabBar" 且 `custom: false` —— 产物 `app.json` 的 `tabBar.custom` 因此为 false。⇒ `src/custom-tab-bar/index.tsx` 是**一次有意决策留下的孤儿源**(它不装配,它那 6 个类名两侧都不可能出现)。这不是 CSS 缺陷也不是本票要修的东西:删它属 §7(要先回答"承载的功能是什么、有无等价实现"),而这里等价实现就是原生 tabBar 本身。登记在册,归属端持有者裁。
@@ -10522,3 +10523,19 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
     = 造一台恒红门(§12e 同型)。顺序:先按 A/B 收源码,再逐条扩判据,每条扩面同笔带自检正反例。
   - **D. `glyph-arrow-exempt` 全仓 HEAD 0 处使用**(通道在、无人用)——不是缺陷,但说明 GA1/GA2 的合法例外
     实际都走了 `back-label-exempt`;若哪天有人给 GA1 加豁免,先看这条通道为什么空着。
+- [x] ✅(2026-09-26) **续末③ 清单 A 的源码收编落地一半,并把"另一半为什么收不了"写成证据**:
+  `lecturer-detail` / `lecturer-list` / `publish` / `self-media` 四屏的私有 `Header`(自绘 `Pressable + ChevronLeft`)
+  已整体换成唯一实现 `<BackChevron onPress label colorScheme />`,导航语义未动,随之失效的 `headerBackBtn`/`headerIcon`
+  样式键删除。验证读数:`check-glyph-arrow-icon --files` 四文件 6 判据全 0、`tsc --noEmit -p packages/app` rc=0、
+  eslint/prettier 干净、四文件 `ChevronLeft` 残留 0。
+  **两处刻意没做(不是漏做)**:
+  ① `packages/app/src/components/NavBar.tsx` **结构性不可换** —— 它是 DOM 形态(`CSSProperties`/`<div role="button">`/
+     `lucide-react`),头注第 15-16 行明写"不依赖 react-native";而 `BackChevron` 用 `Pressable/StyleSheet` +
+     `lucide-react-native`。**并且我上一格 A 清单里"miniapp 4 页 + RN 28 屏在用它"这句是错的**:
+     逐条复核后那些调用点全部指向**各端自己的同名 NavBar**,从 `@ihui/rn-app` 导入 NavBar 的跨包消费者**实测 0 处**
+     ⇒ 这个文件是**孤儿件**(不是"第二份实现",而是"没人用的第二份")。孤儿件属 §7 删除安全范围,不得顺手删,单列。
+  ② `chat-room/ChatRoomScreen.tsx` **收不了** —— 全文 0 处 `t(`,`ChatRoomScreenProps` 没有 i18n 通道,
+     而 `BackChevron` 的 `label` 是必填 ⇒ 换它就得新增取词通道,那是改别人组件的 API,按同一禁令不做。
+  **顺带纠正派单里两处失效指令**(记下来,免得下次还这么派):`check-theme-prop-wiring`(91)与
+  `check-brand-foreground`(83)**没有 `--worktree`/`--files` 参数**(实测只有 `--staged/--strict/--update-baseline/--self-test/--json`),
+  二者全量判 HEAD blob ⇒ 看不见工作树改动;代理改用"全量同读数比对 + 逐文件 grep 色档"补证,方向正确。

@@ -17,9 +17,10 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react-native'
+import { ChevronRight, Search } from 'lucide-react-native'
 import type { TFunction } from '@ihui/types'
-import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -123,7 +124,13 @@ export function LecturerListScreen({
 
   return (
     <View style={styles.container}>
-      <Header title={t('teacher.list.title')} onBack={onBack} styles={styles} />
+      <Header
+        title={t('teacher.list.title')}
+        onBack={onBack}
+        label={t('common.back')}
+        colorScheme={colorScheme}
+        styles={styles}
+      />
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
@@ -180,22 +187,19 @@ export function LecturerListScreen({
 function Header({
   title,
   onBack,
+  label,
+  colorScheme,
   styles,
 }: {
   title: string
   onBack: () => void
+  label: string
+  colorScheme: AppThemeMode
   styles: ReturnType<typeof createStyles>
 }) {
   return (
     <View style={styles.headerBar}>
-      <Pressable
-        style={styles.headerBackBtn}
-        onPress={onBack}
-        accessibilityRole="button"
-        accessibilityLabel="back"
-      >
-        <ChevronLeft size={22} color={styles.headerIcon.color} />
-      </Pressable>
+      <BackChevron onPress={onBack} label={label} colorScheme={colorScheme} />
       <Text style={styles.headerTitle} numberOfLines={1}>
         {title}
       </Text>
@@ -226,15 +230,6 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       height: 44,
       paddingHorizontal: 10,
-    },
-    headerBackBtn: {
-      width: 32,
-      height: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    headerIcon: {
-      color: tk.brand.DEFAULT,
     },
     headerTitle: {
       flex: 1,
