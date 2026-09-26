@@ -59,6 +59,88 @@ function grant() {
   })
 }
 
+// ==================== 追加(2026-09-26):批准即绑定 —— 执行入口 × 登记出口 的闭环 ====================
+// 上面六例证的是"漂移了要重新问";这一组证的是"问到的那一次,内容真的成了摘要的数据源"。
+// 为什么必须挂在执行入口这一层:单元层绿灯只能证明判据算得对,证明不了有人把真人批准的那份
+// 内容喂进去 —— 而"喂进去"此前正是缺的那一环(授予侧刻意不传 digestDeclarations ⇒ slotDigests 恒空)。
+describe('内容绑定档:第一次批准建立绑定,同内容之后才由租约放宽', () => {
+  it('未绑定 ⇒ 问人 → 批准并登记 → 同内容不再问 → 改了内容又问(四步各钉一条)', async () => {
+    const { recordApprovedInvocation } = await import('../src/tools/permission-lease.js')
+    const { leaseWorkspaceIdOf } = await import('../src/utils/permission-lease-flag.js')
+    const ws = leaseWorkspaceIdOf('G:/IHUI-AI/apps/cli')
+    grantPermissionLease({
+      scope: 'goal:bind-on-approval',
+      capabilities: ['write_file'],
+      grantor: 'goal-mode',
+      ttlMs: 10 * 60_000,
+      maxCalls: 20,
+      workspaceId: ws,
+      digestTrackOnApproval: true,
+    })
+    const tool = makeTool('write')
+    registerTools([tool])
+    const confirm = vi.fn(async () => true)
+    const ctx = { permissions: { ask: ['write_file'] }, confirmDangerous: confirm }
+
+    // ① 尚无绑定 ⇒ 执行入口必须问人(不是静默放宽,也不是静默拒绝)
+    const first = await executeToolCall({ name: 'write_file', arguments: APPROVED }, ctx)
+    expect(first.success).toBe(true)
+    expect(confirm).toHaveBeenCalledTimes(1)
+
+    // ② 真人批准了 ⇒ 那一次的内容落成槽位指纹(口径与执行侧喂进判定的完全同一份 stringify)
+    const rec = recordApprovedInvocation({
+      toolName: 'write_file',
+      invocationContent: JSON.stringify(APPROVED),
+      dangerLevel: 'write',
+      workspaceId: ws,
+    })
+    expect(rec.recorded).toBe(true)
+
+    // ③ 同内容第二次 ⇒ 租约真的放宽(没有再问人);若登记进去的是常量而非本内容,这一步仍会问
+    const second = await executeToolCall({ name: 'write_file', arguments: APPROVED }, ctx)
+    expect(second.success).toBe(true)
+    expect(confirm).toHaveBeenCalledTimes(1)
+
+    // ④ 内容改了 ⇒ 旧批准失效,又问一次(而不是沿用①那次批准)
+    const third = await executeToolCall(
+      { name: 'write_file', arguments: { path: 'src/a.ts', text: '改过的内容' } },
+      ctx,
+    )
+    expect(third.success).toBe(true)
+    expect(confirm).toHaveBeenCalledTimes(2)
+  })
+
+  it('登记出口的身份与租约不同源 ⇒ 绑定建不起来,执行入口一路都要问人(不是放宽)', async () => {
+    const { recordApprovedInvocation } = await import('../src/tools/permission-lease.js')
+    const { leaseWorkspaceIdOf } = await import('../src/utils/permission-lease-flag.js')
+    grantPermissionLease({
+      scope: 'goal:identity-mismatch',
+      capabilities: ['write_file'],
+      grantor: 'goal-mode',
+      ttlMs: 10 * 60_000,
+      maxCalls: 20,
+      workspaceId: leaseWorkspaceIdOf('G:/IHUI-AI/apps/cli'),
+      digestTrackOnApproval: true,
+    })
+    const tool = makeTool('write')
+    registerTools([tool])
+    const confirm = vi.fn(async () => true)
+    const ctx = { permissions: { ask: ['write_file'] }, confirmDangerous: confirm }
+    expect(
+      recordApprovedInvocation({
+        toolName: 'write_file',
+        invocationContent: JSON.stringify(APPROVED),
+        dangerLevel: 'write',
+        workspaceId: leaseWorkspaceIdOf('G:/另一个工作区'),
+      }).recorded,
+    ).toBe(false)
+    await executeToolCall({ name: 'write_file', arguments: APPROVED }, ctx)
+    await executeToolCall({ name: 'write_file', arguments: APPROVED }, ctx)
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(tool.execute).toHaveBeenCalledTimes(2)
+  })
+})
+
 describe('租约摘要漂移 ⇒ 执行入口必须重新要确认', () => {
   it('内容一致时租约照常放宽(handler 被调用)', async () => {
     grant()
