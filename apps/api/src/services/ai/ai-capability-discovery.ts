@@ -15,6 +15,8 @@
 import { eq, and } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { aiCapabilities, type AiCapability } from '@ihui/database'
+// 格②(2026-09-26)：耗时样本唯一出口——单调钟测量 × 墙钟交叉校验
+import { startStopwatch } from '../../utils/elapsed-ms.js'
 
 export interface DiscoveredCapability {
   id: string
@@ -55,16 +57,18 @@ export async function pingProvider(provider: string): Promise<ProviderHealth> {
   if (!endpoint) {
     return { provider, reachable: false, latencyMs: null, checkedAt: new Date() }
   }
-  const start = Date.now()
+  const started = startStopwatch()
   try {
     const res = await fetch(endpoint, {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
     })
+    // 格②：不可信样本(时钟回拨/步进导致的分歧)落 null,不把脏值写进 avgLatencyMs
+    const sample = started.stop()
     return {
       provider,
       reachable: res.ok,
-      latencyMs: Date.now() - start,
+      latencyMs: sample.elapsedMs,
       checkedAt: new Date(),
     }
   } catch {
