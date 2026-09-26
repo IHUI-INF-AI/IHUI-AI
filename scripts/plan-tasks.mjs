@@ -87,10 +87,13 @@ function report(a, face) {
     `  F4 同一件事多条待办: ${c.dupOpenGroups} 组 / 副本 ${c.dupOpenCopies} 行(不进派单口径)`,
   )
   console.log(`  同态重复(done 侧只报数): done ${c.dupDoneGroups} 组`)
-  console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行(= 未勾选 ${c.open} 里不命中下列任何一条的行)`)
+  console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行`)
   console.log(
-    `  排除项计数(**集合可重叠,不得当成减法核账**):已认领 ${c.claimed} / 同题已完成副本 ${c.forkOpenLines}` +
-      ` / 自带作废声明 ${c.voidRows} / 当次算出的同题待办副本 ${c.dupOpenCopies} / 已标副本指针 ${c.dupPointerRows}`,
+    `  分解(逐层互斥,可直接相加):未勾选 ${c.open} = 已认领 ${c.claimed} + 其余排除 ${c.unclaimed - c.claimable} + 真待办 ${c.claimable}`,
+  )
+  console.log(
+    `  其余排除项**明细**(同一行可同时命中多项,故只能当诊断看、不得拿去减法核账):` +
+      `同题已完成副本 ${c.forkOpenLines} / 自带作废声明 ${c.voidRows} / 当次算出的同题待办副本 ${c.dupOpenCopies} / 已标副本指针 ${c.dupPointerRows}`,
   )
 }
 

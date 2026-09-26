@@ -10095,6 +10095,14 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - 主会话独立复跑:cli typecheck 0 错 + 3 套件 21 例;api typecheck 0 错 + 4 套件 33 例(既有 gate/route/integrity 逐字不变)。
 
 
+- **第二十三批（本会话编号，2026-09-26 深夜；竞品吸收线最后一轮四格，全部主会话独立复跑）**：
+  - `9cd8381a4` 生产者侧 16 处裸耗时差值迁 `elapsed-ms`（8 文件；结果接口只增 `latencyTrusted` 字段 ⇒ 路由形状不变；gateway 那处直接喂 `least_latency` 路由决策，不可信样本不入窗口）。票面给的 `services/relay-channels.ts` 与 `relay-key-pool.ts` **路径不存在**，真源在 `relay-health-check-service.ts:135/152/161`，已登记下一票。剩余 5 处 `Date.now()-` 是 uptime 与时间戳阈值算术，语义上就该用墙钟，**刻意不迁**并由逐文件源码断言钉住形态。
+  - `6ae114362` WS 反向缺陷：`acquire`(:526) 与 `close` 监听(:713) 之间三条无人还槽路径按「确定性收尾 + 所有权交接」堵死。不采「提前注册监听」——`joinRoom` 排在 await 之后，那一版会把漏一个槽升级成**永久幽灵成员**，要补得在四处插闩锁。release 语义选「第二次 no-op」，测试断言 `acquires===releases` 且 `minBalance===0`（穿负即双 release 被抓）。`ws-notifications` 的真缺陷不是票面 premise 那一处，而是 `wsConnectionCount--` 写在 `if (conns)` **之外** ⇒ 双扣可穿负（它是两套指标的唯一数据源）。三张「不改」的表把前提钉成形态锁：谁把 `getConnections` 改成复制快照、或在 `removeConnection` 里引入 await，当场翻红并写明「本处判定作废，须走 removeIfDead」。
+  - `3fca94f7c` 两格静默失真：batch 写点名 `missedIds`（纯增字段，既有 code/message/action/affected 逐字不变；`unfavorite` 粒度限制如实登记）。`ws-broadcast` 的真实形态比票面更糟——`ws.send` 在连接已关时把错误交给 **callback**、根本不抛异常，旧写法连 catch 都不命中，故两条路径都接；计数复用全仓**零生产者的死计数器** `ws_disconnects_total`（加专用计数器要改 `metrics.ts`，不在允许面）。代理那轮变异因找不到 vitest CLI 入口未执行、如实登记为「未取证」；**主会话补跑**：`missedIds` 硬编码空数组 ⇒ ①与①b 当场红，从备份还原并 sha1 逐字节相同后 8/8 绿。同型下一步落点登记：`admin-sys/role-routes.ts:166-167`、`:184-185`、`admin-demand-square.ts:192`。
+  - `cdf0bdb99` 部署链定罪错位：`deploy/win/ihui-deploy.ps1` 里 `$LASTEXITCODE` 被 :959/:963 两次原生 `psql` 覆写，而判定在 :966 ⇒ **migrate 失败也照样打「db:migrate 完成(exit 0)」**；且 `$pend` 的 6 条 `return $null` 路径经 `$null -gt 0` 为假同样直落「完成」。改成 `Invoke-MigrateWithBudget` 返回对象 + 纯函数 `Get-MigrateOutcome(migExit, pending, timedOut)`，null 走显式「无法判定」（措辞刻意不含「完成」）；相邻一型 `if (Test-MigrateOrphans)` 把 `$null`（判不了）与 `$false` 合流成静默通过，也补了显式 WARN。migrate 加 180s 硬预算（`IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC` 覆写、生效值在调用**前**打进行业既有日志），机制逐形复用同文件构建段既有的 `Start-Process + WaitForExit + taskkill /T /F`（§26 服务身份 TEMP 教训一并遵守），超时 reason 明写「未判定，无退出码」。`env-backfill` 改成**写后读回逐字节比对**（不一致点名行号与键名、值恒脱敏）并恒打「§5e 改完须重启才生效」。变异/阳性对照双跑：pwsh 里喂假时间线得 `OLD=DONE / CAP=1 / NEW=FAIL`，缺陷可机械复现。全票未运行部署脚本、未跑 migrate、未连库。
+  - **运维口径（必须说）**：`cdf0bdb99` 改的是**入库源**，不重启 `IHUI-DEPLOYLOOP` 线上仍跑旧逻辑（§5e）；重启属运维/用户职权，本票未代做。
+  - **竞品吸收线收口判定**：本轮之后无新增可落地机制。最后一轮取证 6 格中 4 格否证（有界暂存 + `epoch/seq` 我方 `sse-replay-buffer` 已在位；两阶段水位我方无预留态可提交；派生进程覆盖率我方不跑；空投影写入我方无镜像架构；装配层我方 `shutdown-phases` 更细），2 格变成本轮 C/D 两枚提交。后续若还要读竞品，应换未进过视野的子系统（RPC / 鉴权面），而不是继续磨这批文件。
+
 ### 第五十波·续末② —— 守门 102 的 HEAD 存量清到 0,并把"全端已覆盖"这句话换成实测(2026-09-26)
 - [x] ✅(2026-09-26) **终读(HEAD 面,全量审计):S0 0 / GA1 0 / GA2 0 / GA4 0 / GA5 0 / GA6 0**,受管面 5442 个跟踪文件、实读 2560、`back-label-exempt` 放过 54 处。
   此前一格写的"GA1 70/31 存量、GA5 2→1、GA6 31→0"是**过程读数**,现行以本条为准;那道门从"只报数"变成"零存量"。
@@ -11042,6 +11050,44 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 ## O82续三 本会话清账与落地（2026-09-26，三路守门票 + 两波功能票 + F4 新判据）
 - [x] ✅(2026-09-26) **O82续三 落账** 三路守门票全部入库：守门 8 前端调用面从 apps/web 扩到 mobile-rn/miniapp-taro/extension（`1e7ed628e9b`，死调用首现判据；新增 `OPAQUE_MOUNT_PREFIXES` 把 ai-service `mount_to_app` 那两条按守门 127 同一口径计「未判定」，web 侧此前把它们误报成死调用）；auth refresh 单例守门改判受审面（`1b5b10b4c1e`，默认 HEAD blob / `--staged` 索引 blob / 两面旗同给 exit 2，并给 `pre-commit-hook.js` 调用点补 `--staged` —— 门收口到判 HEAD 而钩子不传面旗，等于在审上一提交态）；守门 102 新增 GA7「同屏双返回 · 双层页头」（`3c9e3c7ec09`，H1 按紧邻 return 切段 / H2 跨文件一跳 / H3 `headerShown` 回潮，HEAD 存量 3 处按文件棘轮只报数）。
+- 〔O81 票④ 七族收编 2026-09-26(续末):台账 7 键 95 档 → 4 键 29 档;并登记三条新暴露的判据缺陷〕
+  **七族结果**(门 128 `--staged` 面主会话实测,非代理自陈):InputArea **23→1**、BottomActionBar **19→16**、
+  LoginPopUp **17→0**、ModelConfigDialog **10→0**、IntelligentAssistant **8→0**、ModelList **12→10**、
+  FloatBox **6→2**。出账三族**删键**不保留 0(镜像 T8 有一条「台账挂着已不存在的账=清单腐烂」,
+  本票链上已为同一件事退过两轮键)。新增 `login-popup-spec.ts` / `float-box-spec.ts` 两份,
+  **没改任何配置** —— 这是票② 把 vitest 别名改成按目录派生的直接收益(此前每加一份 spec 就得手补一条别名,
+  漏一条就是一个套件静默收集失败)。
+  **派单方式**:7 路并行,每路白名单只给 1 个 spec + 两端组件,台账/根桶/`vitest.config.ts`/活文档一律禁改由主会话收口
+  —— 七路并行零交叉写入,验证也刻意下放成"只跑快尺子",三端 typecheck 与全量测试由主会话串行跑(防 fork 风暴)。
+  **三条必须由后续票处理的缺陷(都不是"已收口")**:
+  **① 门 128 归零 ≠ 两端同值。** 它读的是两端文件里的**字面量**;数字一旦换成 `import { X } from spec`,
+  该族就从 findings 消失。本轮 ModelConfigDialog 代理自己报:10 档里只有 25/40/12 是真同值,其余是单侧控件
+  (RN 用平台 `<Switch>`、小程序走 `chooseMessageFile` 根本没有录音界面),另有一处**未决**:标签宽 37 vs 卡宽 80
+  —— 取小截断 RN 五字标签,取大把小程序图块放大 2.2 倍,两条出路都坏观感。
+  **修法不是往台账塞 waivers**:`waivers.<组件>` 是**整族**豁免(命中即 `continue`,连带放过全族),
+  用它遮分叉等于关掉判据。正解是给 spec 常量加「单侧档」标记(`platformOnly` + 理由),让门按标记判
+  **undetermined 并点名**;37/80 那条必须有人裁,不得默认保留。
+  **② 门 128 按名字配对,在两族上配的是假对。** 实测:`FloatBox` 小程序侧是右下浮动工具坞
+  (样式全为带引号的 rpx 内联串,门只认 className/StyleSheet 所以语言读成 `none`),RN 侧是顶部 toast;
+  `BottomActionBar` 的图标卡组在 RN 侧对应实现其实是另一枚组件 `AddPanel`。同名不同物之间谈"逐档同值"没有意义,
+  需要一步"同名同物"的前置判定(例如要求两端的公开 props 集合有交集),否则台账会被假对占满。
+  **③ 守门 71 对我这次事故三连全盲**(实测可直接当夹具):喂它自己的判据跑我两枚真事故提交 ——
+  `e062fd305`(真丢 60 行)识别 24 条、标题级 **0**;`7adf519b6`(真丢 92 行)识别 **0 条**。三处叠加:
+  (a) 非登记行丢失 `prose.lostCount` 确实存在,但**只 warn**,而 safe-commit 归因铰链只看"失败的门" ⇒ warn 结构上不可能拦;
+  (b) "高度疑似旧基线整文件提交"阈值写死 **≥100 行**,我那枚吃 92 行正好落在下面;
+  (c) `--heal` 只按编号族回捞,序号项(`- [ ] 47.`)与 `>` 引文块不在恢复面内。
+  **本票结论是先不把 prose 丢失放进自动回捞**,理由不是偷懒:计划文档正文行被正当删改天天发生(归并摘牌、
+  归档搬家、`union-converge` 按设计不传播对侧删除),拿"消失行数"当凭据自动插回 = 给并发会话各装一台**互相对抗的回捞机**。
+  该改的是:阈值从绝对 100 改成**相对量**(丢行数 vs 本枚新增行数),并让归因层认得"批内 0 失败但正文大量减少"
+  这一型去**点名要求人工确认** —— 失效方向必须是"多要一次定向说明",绝不是"多放一次跳门"。
+  候选判据「整节消失」(标题不见 + 其正文 ≥60% 行不见)已回测:40 枚触及计划文档的提交命中 22 处,
+  20 处真事故、2 处需搬家豁免(`338861904` 那处是标题改名连带正文,须靠"正文行是否在别的标题下重现"排除)。
+  **另两条同轮实测事实(登记,不代修)**:④ `apps/miniapp-taro` 的 i18n 深合并断言在 **HEAD 上即红**
+  —— 它要求源码逐字出现含空格的函数调用,prettier 折行补尾逗号后必不匹配;因 tests 不进提交链,这类红是静默的
+  (门 114 只判**收集期**失败,断言级红不在它射程),已单独修掉并配四条变异对照(`7e3e9380c2`,现 43/43 套件 577/577 绿)。
+  ⑤ `pnpm --filter @ihui/shared typecheck` 当前红在 `src/chat/__tests__/prompt-history.test.ts` 引两个不存在的导出,
+  而 `src/chat/prompt-history.ts` 正被并发会话持有(工作树脏)—— 属他人在飞改动,本票未碰。
+
 ## O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）
 - 〔O81 续记 2026-09-26:判据换代 + 票④ 首族,台账两次同笔下调;并登记一次"登记行被并发提交连工作树一起抹掉"的现场〕
   **① 门 128 加"渲染腿前置"**(`7e10922a7f` + 本枚):同名配对必须有从端入口可达的腿才算一对
@@ -11251,3 +11297,8 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] **O82续四·投影消费段①**:`apps/web/src/hooks/use-chat-history-projection.ts` 仍把 `projectionState` 当 opaque 存下来,未用 `nextRolloutOrdinal` / `nextRolloutByteOffset` 决定续读起点 —— 写侧已上线而消费端未接,**不得把本票写成"分页投影整链闭环"**。
 - [ ] **O82续四·turn_ordinal 并发①**:同会话并发插入读到同一个 max 时序号仍是"尽力而为",未加行锁/重试;投影写侧上线后该风险面从"无断点"变成"断点可能错一轮"。要收紧必须先量并发双插的真实发生率,不得凭想象加锁(加错方向的锁比没锁更贵)。
 - [x] ✅(2026-09-26) **O82续四 存量红如实登记(未代裁)**:`apps/api/tests/mail-routes.test.ts` 8 例红在鉴权与限流分支(expected 401 / 429 to be 202),涉及并发会话正持有的 `apps/api/src/utils/logger.ts`(工作树在飞)与两枚未跟踪新文件,与投影链零导入边 —— 按 §12/§16 只登记不代修;`test/messages.test.ts` 那一格(HEAD 自带的队列错位)已由本批单独一枚 `ece3d8435e8` 修掉,断言本体一字未动。
+
+- [ ] P1 **CI 装不上而门 101 报绿：锁只记「条目在不在」，不看它落在哪个依赖段**（2026-09-26 实测，9d1aa0baa3 现读）—— pnpm install --frozen-lockfile 在 packages/api-client 直接拒装：HEAD 的清单里该包 **dependencies 为空**、@ihui/types 在 devDependencies（现读 dependencies = (无) / devDependencies = @ihui/eslint-config, @ihui/types, @tarojs/taro, typescript, rimraf, vitest），而 pnpm-lock.yaml 仍把它记在 importers["packages/api-client"].dependencies 段 ⇒ pnpm 比对「同一字段」不通过。**CI 每个 job 的第一步都是这条 install**，所以红的是 Install dependencies（实测 Knip job 的失败步名就是它，不是棘轮本身），连带 CI / CI (Monorepo) / Smoke New Modules / e2e / Build Docker / Real DB 一整套红成一片；而本地 node scripts/check-lock-manifest-consistency.mjs **exit 0**（26 包 / 514 条声明 / 违规 0）。
+  - 为什么 101 看不见：它的**维度 B** 刻意「peer 不比 specifier，只验条目在任一 section 有条目」（防 pnpm 别名假阳），而这次恰好是**同一条声明从 dependencies 段挪到 devDependencies 段** —— 段位置变了、条目仍「在位」，于是被放过。这是「判据必须覆盖门自己产出的形态」（§4 / 守门 77 / 102 同族）在这道门上的具体形状。
+  - 下一步修法（别再只报数）：101 增加**段位置对账** —— 取 package.json 的 dependencies / devDependencies / peerDependencies 三段真实键集，与 lock 的 importers.<pkg> 对应三段做**逐段键集等值**；值仍按现有维度 A/B 规则比 specifier，但 catalog: 与 workspace:* 要先按 pnpm 的展开形态归一（退回裸字符串比较会造一片假阳）。不一致即点名「该键在清单是 X 段、在锁是 Y 段」。现读全仓只有 api-client 这一处 ⇒ 修完须为空 = 零容忍。
+  - 本次已做的止血（不在脏树生成，不手改锁）：在与 CI 同形的隔离树里（git archive HEAD + 该树自己的 pnpm 安装）跑 pnpm install --offline --no-frozen-lockfile 重生成锁 ⇒ 差量只有 **+3/−4 行**（就是把那一条从 dependencies 段挪进 devDependencies 段），随后同树 pnpm install --offline --frozen-lockfile **exit 0**（Already up to date）自证新锁与 HEAD 清单一致。

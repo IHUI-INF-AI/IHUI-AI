@@ -528,197 +528,44 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
         return
       }
-      // 2026-07-25 IDOR 防护:仅房主或曾经加入成员可访问,Redis 不可用时降级放行
-      try {
-        const idorRedis = getRedis()
-        if (!idorRedis) {
-          server.log.warn({ roomId, userId }, 'ws-chat IDOR 校验降级:Redis 不可用')
-        } else {
-          const allowed = await checkRoomOwnership(idorRedis, roomId, userId)
-          if (!allowed) {
-            socket.close(1008, '无权加入此房间')
-            return
-          }
-        }
-      } catch (err) {
-        server.log.warn({ err, roomId, userId }, 'ws-chat IDOR 校验异常,降级放行')
-      }
       const nickname = query.nickname || userId.slice(0, 8)
+
+      // ── 槽位租约(2026-09-26 反向缺陷收口)────────────────────────────────
+      // 故障型:槽位在上一行 acquire 就拿到了,而 release 只写在文件末尾那个
+      // socket.on('close') 里,中间还夹着一次 await(IDOR 校验)。这一段里任何一条
+      // "没走到 close 监听注册"的退出路径 —— ① IDOR 拒 ② setup 抛错
+      // ③ 连接恰在 await 窗口内断开(close 事件在监听器挂上之前就已发出,不会再补发)
+      // —— 都不会有人 release,于是 limiter 对该用户的计数只增不减,攒到 8 条即把他
+      // 永久锁在 4005 之外(与刚修的那格方向相反:那格是迟到回调多还,这格是没人还)。
+      // 修法取"确定性收尾 + 所有权交接",**不**取"把 close 监听提前到 acquire 之后"。
+      // 为什么提前注册会引入新竞态:把连接挂进 rooms / Redis 的 joinRoom 排在 await **之后**,
+      // 监听器一提前,断线就会跑在 setup 续体**之前**,续体随后仍执行 joinRoom,把成员加进
+      // rooms 与 chatroom:members —— 而 close 已经发过、不会再有第二次清理,幽灵成员就
+      // 永久留在表里。原缺陷只漏一个槽位,那一版漏的是整条成员关系(更糟),要补就得在
+      // joinRoom / publish 前后各插一个"已关闭"闩锁,把一次修 bug 扩成改四处控制流。
+      // member 本身只是本地对象(挂表才有效果),所以在这里建好,收尾逻辑不必判空。
       const member: RoomMember = { socket, userId, nickname, rooms: new Set<string>() }
-
-      // 加入指定房间(辅助函数, 可在中途切换时复用)
-      const joinRoom = (targetRoom: string): void => {
-        if (member.rooms.has(targetRoom)) {
-          // 已在房间: 仅回执
-          send(socket, { type: 'room', event: 'joined', room: targetRoom, you: userId })
-          return
-        }
-        member.rooms.add(targetRoom)
-        if (!rooms.has(targetRoom)) rooms.set(targetRoom, new Set())
-        rooms.get(targetRoom)!.add(member)
-        // 持久化成员关系到 Redis(跨实例共享,支持 HTTP 查询用户房间列表)
-        const r = getRedis()
-        if (r) {
-          // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
-          void r.sadd(`chatroom:members:${targetRoom}`, userId).catch((err) => {
-            server.log.error({ err }, 'ws-chat redis operation failed')
-          })
-          void r.sadd(`chatroom:user_rooms:${userId}`, targetRoom).catch((err) => {
-            server.log.error({ err }, 'ws-chat redis operation failed')
-          })
-          // 2026-09-06 P0:加入时刷新成员集合 TTL,防无界集合堆积
-          void r.expire(`chatroom:members:${targetRoom}`, MEMBER_TTL_SEC).catch((err) => {
-            server.log.error({ err }, 'ws-chat redis operation failed')
-          })
-          void r.expire(`chatroom:user_rooms:${userId}`, MEMBER_TTL_SEC).catch((err) => {
-            server.log.error({ err }, 'ws-chat redis operation failed')
-          })
-        }
-        // 通知房间其他成员有新人加入(跨实例广播,排除自己)
-        publish(
-          targetRoom,
-          { type: 'room', event: 'member_join', user: userId, nickname, ts: Date.now() },
-          socket,
-        )
-        // 回执加入者
-        send(socket, { type: 'room', event: 'joined', room: targetRoom, you: userId })
-      }
-
-      // 离开指定房间(辅助函数)
-      const leaveRoom = (targetRoom: string): void => {
-        if (!member.rooms.has(targetRoom)) {
-          send(socket, { type: 'room', event: 'not_joined', room: targetRoom })
-          return
-        }
-        member.rooms.delete(targetRoom)
-        // 2026-09-26 竞态根治:统一走 removeIfSame(身份判等 + 空集才摘 key),
-        // 与 close 回调共享同一份不变量,不再各处手抄 if(size===0) 判序
-        removeIfSame(rooms, targetRoom, member)
-        // 同步移除 Redis 成员关系
-        const r = getRedis()
-        if (r) {
-          // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
-          void r.srem(`chatroom:members:${targetRoom}`, userId).catch((err) => {
-            server.log.error({ err }, 'ws-chat redis operation failed')
-          })
-          void r.srem(`chatroom:user_rooms:${userId}`, targetRoom).catch((err) => {
-            server.log.error({ err }, 'ws-chat redis operation failed')
-          })
-        }
-        // 通知房间其他成员有人离开
-        publish(targetRoom, {
-          type: 'room',
-          event: 'member_leave',
-          user: userId,
-          nickname,
-          ts: Date.now(),
-        })
-        send(socket, { type: 'room', event: 'left', room: targetRoom })
-      }
-
-      // 初始加入 URL 中的房间
-      joinRoom(roomId)
-
-      // 2026-09-06 P0:服务端心跳注册——记录连接并监听 pong,空闲超时由 heartbeatTimer 兜底 close
-      aliveSockets.set(socket, true)
-      socket.on('pong', () => aliveSockets.set(socket, true))
-
-      socket.on('message', (data: Buffer) => {
-        const raw = data.toString()
-        if (raw === 'ping') {
-          socket.send('pong')
-          return
-        }
-        // 2026-08-02 P1 安全审计:消息速率限制(防 flooding)
-        if (!messageRateLimiter.allow(userId)) {
-          server.log.warn({ userId }, 'ws-chat 拒绝消息:速率超限')
-          socket.close(WS_CLOSE.RATE_LIMITED, '消息发送过快')
-          return
-        }
-        let msg: Record<string, unknown>
-        try {
-          msg = JSON.parse(raw) as Record<string, unknown>
-        } catch {
-          return
-        }
-        // 2026-08-02 P1 安全审计:Zod schema 校验消息结构(防注入/越权/资源耗尽)
-        const parsed = wsChatMessageSchema.safeParse(msg)
-        if (!parsed.success) {
-          send(socket, { type: 'error', message: '消息格式非法' })
-          return
-        }
-        msg = parsed.data as Record<string, unknown>
-        const mtype = (msg.type as string) || 'text'
-
-        // 中途切换房间: {"type":"room","action":"join|leave","room":"..."}
-        if (mtype === 'room' && typeof msg.action === 'string' && typeof msg.room === 'string') {
-          const action = msg.action as string
-          const targetRoom = msg.room as string
-          if (action === 'join') {
-            // 2026-08-02 P1 安全审计:中途切换房间 IDOR 校验
-            // 风险:已加入 room1 的用户可中途切换到他人 room2 窃听消息
-            // 防护:与初始 join 一致,校验目标房间归属
-            if (!ROOM_ID_RE.test(targetRoom)) {
-              send(socket, { type: 'room', event: 'error', message: '无效的 roomId 格式' })
-              return
-            }
-            void (async () => {
-              const idorRedis = getRedis()
-              try {
-                const allowed = await checkRoomOwnership(idorRedis, targetRoom, userId)
-                if (!allowed) {
-                  send(socket, { type: 'room', event: 'error', message: '无权加入此房间' })
-                  return
-                }
-              } catch (err) {
-                server.log.warn(
-                  { err, targetRoom, userId },
-                  'ws-chat 中途切换 IDOR 校验异常,降级放行',
-                )
-              }
-              joinRoom(targetRoom)
-            })()
-          } else if (action === 'leave') {
-            leaveRoom(targetRoom)
-          } else {
-            send(socket, { type: 'room', event: 'error', message: `unknown action: ${action}` })
-          }
-          return
-        }
-
-        // typing 事件:仅广播给他人,不回声自己
-        if (mtype === 'typing') {
-          publish(roomId, { type: 'typing', user: userId, nickname }, socket)
-          return
-        }
-        if (!ALLOWED_MSG_TYPES.has(mtype)) return
-        // 业务消息广播(跨实例)
-        // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成消息 ID
-        // 风险:可预测消息 ID → 攻击者伪造/重放消息
-        const messagePayload = {
-          id: generateCompactId('msg'),
-          type: mtype,
-          from: userId,
-          nickname,
-          text: (msg.text as string | undefined) ?? '',
-          url: msg.url as string | undefined,
-          filename: msg.filename as string | undefined,
-          ts: Date.now(),
-        }
-        publish(roomId, messagePayload)
-        // 持久化到 Redis 供 HTTP 历史查询（system 类型不存）
-        if (mtype !== 'system') persistMessage(roomId, messagePayload)
-      })
-
-      socket.on('close', () => {
+      let teardownDone = false
+      /** close 监听已在位 ⇒ 收尾的所有权归它,finally 不得再动手(否则会把活连接拆了) */
+      let ownedByCloseListener = false
+      /** 幂等收尾:无论由 close 事件还是 finally 触发,最多生效一次(不得双 release) */
+      const teardownOnce = (): void => {
+        if (teardownDone) return
+        teardownDone = true
         // 2026-09-06 P0:从心跳表移除
         aliveSockets.delete(socket)
+        // 未 join 过的路上(IDOR 拒 / await 内断线)member.rooms 是空集 ⇒ 循环天然 no-op
         // 清理该成员所在的所有房间(支持中途加入的多个房间)
         const joinedRooms = Array.from(member.rooms)
         for (const targetRoom of joinedRooms) {
           // 迟到 close:只能按"我这个成员对象"删,不得按房间 key 整删替代品
           removeIfSame(rooms, targetRoom, member)
-          publish(targetRoom, { type: 'room', event: 'member_leave', user: userId, nickname })
+          publish(targetRoom, {
+            type: 'room',
+            event: 'member_leave',
+            user: userId,
+            nickname,
+          })
         }
         member.rooms.clear()
         // 2026-09-06 P0:连接关闭时同步清理 Redis 成员关系(含异常断线),防无界集合累积
@@ -742,7 +589,203 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           rateLimiter: messageRateLimiter,
           userId,
         })
-      })
+      }
+
+      try {
+        // 2026-07-25 IDOR 防护:仅房主或曾经加入成员可访问,Redis 不可用时降级放行
+        try {
+          const idorRedis = getRedis()
+          if (!idorRedis) {
+            server.log.warn({ roomId, userId }, 'ws-chat IDOR 校验降级:Redis 不可用')
+          } else {
+            const allowed = await checkRoomOwnership(idorRedis, roomId, userId)
+            if (!allowed) {
+              socket.close(1008, '无权加入此房间')
+              return
+            }
+          }
+        } catch (err) {
+          server.log.warn({ err, roomId, userId }, 'ws-chat IDOR 校验异常,降级放行')
+        }
+        // await 之后再确认一次连接还活着:此刻 close 监听尚未注册,而下面直到注册那一行
+        // 全是同步代码(无 await),事件循环插不进这一段 —— 所以"这里看到还活着 ⇒
+        // 监听器一定赶得上那一发 close"是成立的。反过来已关的就不能再往下走:否则会先把
+        // 成员加进 rooms / Redis,而 close 已经发过、不会再有第二次清理(幽灵成员)。
+        if (isSocketUnusable(socket)) return
+
+        // 加入指定房间(辅助函数, 可在中途切换时复用)
+        const joinRoom = (targetRoom: string): void => {
+          if (member.rooms.has(targetRoom)) {
+            // 已在房间: 仅回执
+            send(socket, { type: 'room', event: 'joined', room: targetRoom, you: userId })
+            return
+          }
+          member.rooms.add(targetRoom)
+          if (!rooms.has(targetRoom)) rooms.set(targetRoom, new Set())
+          rooms.get(targetRoom)!.add(member)
+          // 持久化成员关系到 Redis(跨实例共享,支持 HTTP 查询用户房间列表)
+          const r = getRedis()
+          if (r) {
+            // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
+            void r.sadd(`chatroom:members:${targetRoom}`, userId).catch((err) => {
+              server.log.error({ err }, 'ws-chat redis operation failed')
+            })
+            void r.sadd(`chatroom:user_rooms:${userId}`, targetRoom).catch((err) => {
+              server.log.error({ err }, 'ws-chat redis operation failed')
+            })
+            // 2026-09-06 P0:加入时刷新成员集合 TTL,防无界集合堆积
+            void r.expire(`chatroom:members:${targetRoom}`, MEMBER_TTL_SEC).catch((err) => {
+              server.log.error({ err }, 'ws-chat redis operation failed')
+            })
+            void r.expire(`chatroom:user_rooms:${userId}`, MEMBER_TTL_SEC).catch((err) => {
+              server.log.error({ err }, 'ws-chat redis operation failed')
+            })
+          }
+          // 通知房间其他成员有新人加入(跨实例广播,排除自己)
+          publish(
+            targetRoom,
+            { type: 'room', event: 'member_join', user: userId, nickname, ts: Date.now() },
+            socket,
+          )
+          // 回执加入者
+          send(socket, { type: 'room', event: 'joined', room: targetRoom, you: userId })
+        }
+
+        // 离开指定房间(辅助函数)
+        const leaveRoom = (targetRoom: string): void => {
+          if (!member.rooms.has(targetRoom)) {
+            send(socket, { type: 'room', event: 'not_joined', room: targetRoom })
+            return
+          }
+          member.rooms.delete(targetRoom)
+          // 2026-09-26 竞态根治:统一走 removeIfSame(身份判等 + 空集才摘 key),
+          // 与 close 回调共享同一份不变量,不再各处手抄 if(size===0) 判序
+          removeIfSame(rooms, targetRoom, member)
+          // 同步移除 Redis 成员关系
+          const r = getRedis()
+          if (r) {
+            // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
+            void r.srem(`chatroom:members:${targetRoom}`, userId).catch((err) => {
+              server.log.error({ err }, 'ws-chat redis operation failed')
+            })
+            void r.srem(`chatroom:user_rooms:${userId}`, targetRoom).catch((err) => {
+              server.log.error({ err }, 'ws-chat redis operation failed')
+            })
+          }
+          // 通知房间其他成员有人离开
+          publish(targetRoom, {
+            type: 'room',
+            event: 'member_leave',
+            user: userId,
+            nickname,
+            ts: Date.now(),
+          })
+          send(socket, { type: 'room', event: 'left', room: targetRoom })
+        }
+
+        // 初始加入 URL 中的房间
+        joinRoom(roomId)
+
+        // 2026-09-06 P0:服务端心跳注册——记录连接并监听 pong,空闲超时由 heartbeatTimer 兜底 close
+        aliveSockets.set(socket, true)
+        socket.on('pong', () => aliveSockets.set(socket, true))
+
+        socket.on('message', (data: Buffer) => {
+          const raw = data.toString()
+          if (raw === 'ping') {
+            socket.send('pong')
+            return
+          }
+          // 2026-08-02 P1 安全审计:消息速率限制(防 flooding)
+          if (!messageRateLimiter.allow(userId)) {
+            server.log.warn({ userId }, 'ws-chat 拒绝消息:速率超限')
+            socket.close(WS_CLOSE.RATE_LIMITED, '消息发送过快')
+            return
+          }
+          let msg: Record<string, unknown>
+          try {
+            msg = JSON.parse(raw) as Record<string, unknown>
+          } catch {
+            return
+          }
+          // 2026-08-02 P1 安全审计:Zod schema 校验消息结构(防注入/越权/资源耗尽)
+          const parsed = wsChatMessageSchema.safeParse(msg)
+          if (!parsed.success) {
+            send(socket, { type: 'error', message: '消息格式非法' })
+            return
+          }
+          msg = parsed.data as Record<string, unknown>
+          const mtype = (msg.type as string) || 'text'
+
+          // 中途切换房间: {"type":"room","action":"join|leave","room":"..."}
+          if (mtype === 'room' && typeof msg.action === 'string' && typeof msg.room === 'string') {
+            const action = msg.action as string
+            const targetRoom = msg.room as string
+            if (action === 'join') {
+              // 2026-08-02 P1 安全审计:中途切换房间 IDOR 校验
+              // 风险:已加入 room1 的用户可中途切换到他人 room2 窃听消息
+              // 防护:与初始 join 一致,校验目标房间归属
+              if (!ROOM_ID_RE.test(targetRoom)) {
+                send(socket, { type: 'room', event: 'error', message: '无效的 roomId 格式' })
+                return
+              }
+              void (async () => {
+                const idorRedis = getRedis()
+                try {
+                  const allowed = await checkRoomOwnership(idorRedis, targetRoom, userId)
+                  if (!allowed) {
+                    send(socket, { type: 'room', event: 'error', message: '无权加入此房间' })
+                    return
+                  }
+                } catch (err) {
+                  server.log.warn(
+                    { err, targetRoom, userId },
+                    'ws-chat 中途切换 IDOR 校验异常,降级放行',
+                  )
+                }
+                joinRoom(targetRoom)
+              })()
+            } else if (action === 'leave') {
+              leaveRoom(targetRoom)
+            } else {
+              send(socket, { type: 'room', event: 'error', message: `unknown action: ${action}` })
+            }
+            return
+          }
+
+          // typing 事件:仅广播给他人,不回声自己
+          if (mtype === 'typing') {
+            publish(roomId, { type: 'typing', user: userId, nickname }, socket)
+            return
+          }
+          if (!ALLOWED_MSG_TYPES.has(mtype)) return
+          // 业务消息广播(跨实例)
+          // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成消息 ID
+          // 风险:可预测消息 ID → 攻击者伪造/重放消息
+          const messagePayload = {
+            id: generateCompactId('msg'),
+            type: mtype,
+            from: userId,
+            nickname,
+            text: (msg.text as string | undefined) ?? '',
+            url: msg.url as string | undefined,
+            filename: msg.filename as string | undefined,
+            ts: Date.now(),
+          }
+          publish(roomId, messagePayload)
+          // 持久化到 Redis 供 HTTP 历史查询（system 类型不存）
+          if (mtype !== 'system') persistMessage(roomId, messagePayload)
+        })
+
+        socket.on('close', () => teardownOnce())
+        // 交接点:close 监听已在位 ⇒ 此后收尾归它,finally 不得再动手。
+        // 这一行与 try 起点之间没有任何 await,所以"注册成功"与"续体跑完"是同一 tick。
+        ownedByCloseListener = true
+      } finally {
+        // 没走到交接点的所有退出(IDOR 拒 / setup 抛错 / await 窗口内已断线)
+        // 都在此把槽位还回去;teardownOnce 幂等 ⇒ 与 close 事件同时发生也只生效一次。
+        if (!ownedByCloseListener) teardownOnce()
+      }
     })()
   })
 

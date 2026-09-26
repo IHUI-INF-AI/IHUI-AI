@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * FloatBox 悬浮消息提示框(mobile-rn 端)
@@ -28,6 +27,18 @@ import {
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { AlertTriangle, Check, Info, X, type LucideIcon } from 'lucide-react-native'
+import {
+  FLOAT_BOX_FONT_SIZE_PX,
+  FLOAT_BOX_ICON_SIZE_PX,
+  FLOAT_BOX_TEXT_LINE_HEIGHT_PX,
+  FLOAT_BOX_TOAST_PADDING_X_PX,
+  FLOAT_BOX_TOAST_PADDING_Y_PX,
+  FLOAT_BOX_TOAST_ROW_GAP_PX,
+  FLOAT_BOX_TOAST_STACK_GAP_PX,
+  FLOAT_BOX_TOAST_TOP_OFFSET_PX,
+} from '@ihui/shared/ui/float-box-spec'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 export type FloatBoxType = 'success' | 'error' | 'warning' | 'info'
 
@@ -39,21 +50,19 @@ export interface FloatBoxProps {
   duration?: number
 }
 
+// 几何档唯一源在 @ihui/shared/ui/float-box-spec(与小程序端 FloatBox 同表)。
+// 两端同名但**不是同一 UI**:本端是顶部覆盖层 toast,小程序端是右下角悬浮按钮组 ——
+// toast 载体专属档(TOP/PADDING/ROW_GAP/STACK_GAP)与两端同语义档(图标墨迹/字号/行高)的
+// 裁决依据逐条写在该 spec 注释里;下面仅保留本端动画时序与无人引用的字形回退样式常量。
 const FADE_IN_DURATION_MS = 250
 const FADE_OUT_DURATION_MS = 250
 const DEFAULT_DURATION_MS = 3000
-const TOP_OFFSET = 80
-const STACK_GAP = 8
 const Z_INDEX = 9999
-const ICON_SIZE = 18
+// styles.icon 是文本字形图标的回退样式(当前无人引用,渲染走 lucide 组件);
+// 删它属逻辑清理、超出本票范围,登记见 float-box-spec 文末第 1)条。
 const ICON_LINE_HEIGHT = 20
 const ICON_FONT_SIZE = 16
-const FONT_SIZE = 14
-const TEXT_LINE_HEIGHT = 20
-const PADDING_H = 16
-const PADDING_V = 10
 const MAX_WIDTH_RATIO = 0.8
-const ROW_GAP = 8
 const TEXT_COLOR = tokens.surface.light
 const BG_COLOR = 'rgba(0,0,0,0.85)'
 
@@ -138,7 +147,7 @@ export function FloatBox({
       accessibilityLabel={message}
     >
       <View style={styles.contentRow}>
-        <Icon size={ICON_SIZE} color={iconColor} />
+        <Icon size={FLOAT_BOX_ICON_SIZE_PX} color={iconColor} />
         <Text style={styles.message} numberOfLines={2} allowFontScaling={false}>
           {message}
         </Text>
@@ -150,36 +159,36 @@ export function FloatBox({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: TOP_OFFSET,
+    top: FLOAT_BOX_TOAST_TOP_OFFSET_PX,
     alignSelf: 'center',
     zIndex: Z_INDEX,
     backgroundColor: BG_COLOR,
-    paddingHorizontal: PADDING_H,
-    paddingVertical: PADDING_V,
+    paddingHorizontal: FLOAT_BOX_TOAST_PADDING_X_PX,
+    paddingVertical: FLOAT_BOX_TOAST_PADDING_Y_PX,
     borderRadius: rnRadius.lg,
   } as ViewStyle,
   contentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ROW_GAP,
+    gap: FLOAT_BOX_TOAST_ROW_GAP_PX,
   } as ViewStyle,
   icon: {
-    width: ICON_SIZE,
+    width: FLOAT_BOX_ICON_SIZE_PX,
     fontSize: ICON_FONT_SIZE,
     lineHeight: ICON_LINE_HEIGHT,
     textAlign: 'center',
   } as TextStyle,
   message: {
     flex: 1,
-    fontSize: FONT_SIZE,
-    lineHeight: TEXT_LINE_HEIGHT,
+    fontSize: FLOAT_BOX_FONT_SIZE_PX,
+    lineHeight: FLOAT_BOX_TEXT_LINE_HEIGHT_PX,
     color: TEXT_COLOR,
   } as TextStyle,
 })
 
 // STACK_GAP 暴露给上层 Toast Portal 使用,便于按 index 累加 topOffset
-export const FLOAT_BOX_STACK_GAP = STACK_GAP
-export const FLOAT_BOX_TOP_OFFSET = TOP_OFFSET
+export const FLOAT_BOX_STACK_GAP = FLOAT_BOX_TOAST_STACK_GAP_PX
+export const FLOAT_BOX_TOP_OFFSET = FLOAT_BOX_TOAST_TOP_OFFSET_PX
 
 export default FloatBox
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
