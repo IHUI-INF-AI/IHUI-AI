@@ -55,6 +55,7 @@
     "check:declared-policy": "node scripts/check-declared-policy-has-consumer.mjs",
     "check:file-write-safety": "node scripts/check-file-write-safety.mjs",
     "check:tool-exec-budget": "node scripts/check-tool-exec-budget.mjs",
+    "check:tool-family": "node scripts/check-tool-family-registered.mjs --strict",
     "check:capabilities": "node scripts/check-capability-catalog.mjs",
     "check:capabilities:staged": "node scripts/check-capability-catalog.mjs --staged",
     "check:pkg-installable": "node scripts/check-pkg-installable.mjs",
