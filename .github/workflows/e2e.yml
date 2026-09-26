@@ -121,13 +121,17 @@ jobs:
         # 解析 src/index.ts → src/client.js 报 ERR_MODULE_NOT_FOUND(2026-09-10)
         run: pnpm --filter @ihui/database run build
 
-      - name: Build api-client package
+      - name: Build workspace deps (topological closure)
         # `@ihui/api-client` 的 main/module/types/exports **全部指向 ./dist/*,没有 source 兜底**,
         # 而 dist 不入库 ⇒ 任何把 packages/shared/src/** 拉进 program 的构建都会 TS2307。
         # 实测受害者:`pnpm --filter @ihui/api run build`(下一步)与 `pnpm --filter @ihui/web run build`
         # —— `--filter` 直跑 pnpm 不做拓扑构建,不会替我把依赖建好(照 ci.yml 的同名步骤补,
         # 那条自 2026-08 起就在那儿,只是没被抄进本文件)。
-        run: pnpm --filter @ihui/api-client build
+        # 2026-09-26 起改用拓扑选择器 `^...`(= 该包的**全部 workspace 依赖**,不含本包):
+        # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
+        # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
+        # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
+        run: pnpm --filter "@ihui/api^..." --filter "@ihui/web^..." run build
 
       - name: Build API
         run: pnpm --filter @ihui/api run build

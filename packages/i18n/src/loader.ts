@@ -4,8 +4,8 @@
 
 // @ihui/i18n loader 工具 — 各端 I18nProvider 共享的翻译查找 + 占位符替换
 
-import type { Locale, Messages } from './types'
-import { formatIcu, hasIcuSyntax } from './icu'
+import type { Locale, Messages } from './types.js'
+import { formatIcu, hasIcuSyntax } from './icu.js'
 
 /** 按点分路径查找原始值(支持 string / 对象 / 数组等任意类型) */
 export function getValueByPath(obj: unknown, path: string): unknown {
