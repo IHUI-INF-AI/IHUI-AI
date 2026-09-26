@@ -249,7 +249,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       borderRadius: rnRadius.xl,
       borderWidth: 1,
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.light,
     },
     codeBtnDisabled: { opacity: 0.5 },
@@ -272,7 +272,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     checkboxChecked: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brand.cta,
     },
     checkboxError: { borderColor: tk.danger.DEFAULT },

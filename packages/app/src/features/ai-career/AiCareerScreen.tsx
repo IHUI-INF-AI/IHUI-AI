@@ -34,7 +34,12 @@ export function AiCareerScreen({
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+      <BackChevron
+        onPress={onBack}
+        label={t('common.back')}
+        colorScheme={colorScheme}
+        style={styles.backBtn}
+      />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>AI生涯指导</Text>
         <Text style={styles.headerSub}>填写孩子学业情况问卷，提交后获取 AI 学业建议</Text>
@@ -153,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     optionItemActive: {
       backgroundColor: tk.brand.cta,
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
     },
     optionText: {
       fontSize: 15,
