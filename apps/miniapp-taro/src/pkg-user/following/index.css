@@ -77,7 +77,7 @@
 }
 .following-sort-btn-active {
   color: var(--color-primary);
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
   font-weight: 600;
 }
 

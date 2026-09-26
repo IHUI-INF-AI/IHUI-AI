@@ -47,7 +47,7 @@
 
 .exam-result-hero.passed {
   background: var(--color-success-light);
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
 }
 
 .exam-result-hero.failed {

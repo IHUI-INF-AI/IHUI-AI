@@ -116,7 +116,7 @@
 .btn-ghost {
   background: transparent;
   color: var(--color-primary);
-  border: 2rpx solid var(--color-primary);
+  border: 2rpx solid var(--color-brand-accent-deep);
 }
 .test-row {
   display: flex;
