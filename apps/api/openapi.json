@@ -161312,6 +161312,15 @@
         }
       }
     },
+    "/api/study/videos": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/study/videos/{id}": {
       "get": {
         "parameters": [
