@@ -48,12 +48,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build api-client package
+      - name: Build workspace deps (topological closure)
         # @ihui/api-client 的 exports 全部映射到 ./dist/*，而 dist/ 不入库(.gitignore:67)。
         # pnpm --filter @ihui/web 不做 workspace 依赖的拓扑构建 ⇒ 缺本步则 webpack 打包期
         # 直接 Module not found: '@ihui/api-client'(2026-09-24 Pages 连红三次的根因;
         # 尾缀 `...` 连同上游依赖拓扑构建，与 ci.yml:70/94/222 既有正解同口径)。
-        run: pnpm --filter "@ihui/api-client..." run build
+        # 2026-09-26 起改用拓扑选择器 `^...`(= 该包的**全部 workspace 依赖**,不含本包):
+        # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
+        # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
+        # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
+        run: pnpm --filter "@ihui/web^..." run build
 
       - name: Build web
         # 2026-08-28:改走 build-static(与 Tauri 同一静态导出入口)。

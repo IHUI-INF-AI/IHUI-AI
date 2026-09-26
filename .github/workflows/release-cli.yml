@@ -45,7 +45,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: pnpm --filter @ihui/cli build
+        # 2026-09-26 起改用拓扑选择器 `^...`(= 该包的**全部 workspace 依赖**,不含本包):
+        # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
+        # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
+        # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
+        run: pnpm --filter "@ihui/cli^..." run build && pnpm --filter @ihui/cli build
 
       - name: Typecheck
         run: pnpm --filter @ihui/cli typecheck
@@ -111,7 +115,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: pnpm --filter @ihui/cli build
+        # 2026-09-26 起改用拓扑选择器 `^...`(= 该包的**全部 workspace 依赖**,不含本包):
+        # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
+        # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
+        # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
+        run: pnpm --filter "@ihui/cli^..." run build && pnpm --filter @ihui/cli build
 
       - name: Create SEA blob config
         shell: bash

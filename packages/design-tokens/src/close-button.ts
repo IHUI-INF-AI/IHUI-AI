@@ -24,7 +24,7 @@
  */
 
 // 尺寸档从 icon-button.ts 复用,避免再开一套尺寸
-import { ICON_BUTTON_SIZE, ICON_BUTTON_ICON_SIZE } from './icon-button'
+import { ICON_BUTTON_SIZE, ICON_BUTTON_ICON_SIZE } from './icon-button.js'
 
 /** 浮层(弹窗/抽屉)右上角定位。非浮层场景(标题栏行内)不加此类 */
 export const CLOSE_BUTTON_POSITION = 'absolute right-3 top-3'
