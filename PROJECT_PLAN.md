@@ -10051,6 +10051,11 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 
 - **公开更正(第十九批,落地即复核)**:上面那格把门侧升 blocking 的那枚提交写成 `3280e388a3` —— 现读 `git log --grep` 真值是 **`3615443588a`**,`3280e388a3` 是同一时段别人的一枚提交,我按记忆拼了个短 sha。同批另把 CLI 注册提交写作 `ea5831d6ac`(经 ls-remote 回读为 ON-ORIGIN,正确)。规矩照旧:**登记的 sha 必须由 `git log` 现读取,短 sha 手抄两次都错过,这条不是提醒是硬动作。**
 
+- **第二十批 前两格(2026-09-26 傍晚,`9db59bf0c7e` + `70c2e1c63e1`):把"能诊断"与"真跨进程"补成机制。**
+  - `9db59bf0c7e` 三条拒绝闸自带结构化答复:gate(permission-rule | dangerous-gate | lease-digest-drift,漂移与 dangerous 同中时报更特异那一支)/ decider(rule-deny | no-confirmation-channel | user-declined)/ args 只带 sha256 短指纹 + 键名(值与凭据绝不进 result JSON 与审计行,假 token 阳性对照钉死)/ guidance 三条 ASCII 出路,逐条明写租约永不放宽此闸、NO environment-variable bypass。判"是否放"的分支一字节未动:allowDangerous=true 而无回调仍拒(影子字段不参与判定),原中文错误串逐字保留。变异:guidance 改空串则 4 枚红。
+  - `70c2e1c63e1` 合并闸升到跨进程:Redis 计数信号量(ACQUIRE 把 purge,ZCARD,判额,ZADD 收进一次 EVAL,靠单线程排除两进程各见 size 小于 limit 而双占;owner token 每次占用唯一,否则同进程两槽并成一名把上限架空;键带环境前缀)+ 不可用即回落进程内闸且首次立即 warn,facts 新增 activeLayer/layerReason/redisFailures。回归 6 例全离线(假 Redis 只演算 ZSET,判额逻辑单一真相留在 Lua 常量里),摘掉跨进程层则峰值当场从 2 变 4。盲区如实登记:生产多实例 Redis 真连冒烟未做(§5 测试隔离铁律禁连库),漂移面只剩脚本与真 Redis 这一维。
+  - 主会话独立复跑:cli typecheck 0 错 + 3 套件 21 例;api typecheck 0 错 + 4 套件 33 例(既有 gate/route/integrity 逐字不变)。
+
 ### 第五十波·续末② —— 守门 102 的 HEAD 存量清到 0,并把"全端已覆盖"这句话换成实测(2026-09-26)
 - [x] ✅(2026-09-26) **终读(HEAD 面,全量审计):S0 0 / GA1 0 / GA2 0 / GA4 0 / GA5 0 / GA6 0**,受管面 5442 个跟踪文件、实读 2560、`back-label-exempt` 放过 54 处。
   此前一格写的"GA1 70/31 存量、GA5 2→1、GA6 31→0"是**过程读数**,现行以本条为准;那道门从"只报数"变成"零存量"。
