@@ -357,12 +357,16 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       const sets: SQL[] = cols
         .filter((c) => body[c] !== undefined)
         .map((c) => sql`${sql.raw(`"${c}"`)} = ${body[c]}`)
-      if (sets.length === 0) return reply.send(success({ id: parsed.data.id, updated: true }))
+      // 改真(守门 134 的"裸 SQL 写链"普查):此前两处都无条件回 `updated: true` ——
+      // ① sets 为空时根本没发写;② UPDATE … RETURNING 的命中集为空(该 id 不存在)时,
+      // 响应仍写 `updated: true`。两种情况与"真改了一行"在响应上完全同形,故按库答复取值:
+      // 没发写 ⇒ false;发了写但 RETURNING 零命中 ⇒ false。键名与状态码一字未改。
+      if (sets.length === 0) return reply.send(success({ id: parsed.data.id, updated: false }))
       const rows = await db.execute(
         sql`UPDATE ${sql.raw('"zhs_ai_model_info"')} SET ${sql.join(sets, sql`, `)} WHERE "id"::text = ${parsed.data.id} RETURNING *`,
       )
       return reply.send(
-        success((rows as Record<string, unknown>[])[0] ?? { id: parsed.data.id, updated: true }),
+        success((rows as Record<string, unknown>[])[0] ?? { id: parsed.data.id, updated: false }),
       )
     } catch (e) {
       req.log.error(e)
