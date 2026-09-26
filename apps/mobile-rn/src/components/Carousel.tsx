@@ -25,6 +25,11 @@ import {
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { useAutoPlay } from '@ihui/shared'
+import {
+  carouselDefaultHeightPx,
+  carouselIndicatorWrapStyle,
+  carouselDotStyle,
+} from '@ihui/shared/ui/carousel-spec'
 import type { CarouselItem } from '@ihui/ui-native'
 
 export interface CarouselProps {
@@ -34,7 +39,11 @@ export interface CarouselProps {
   onItemPress?: (item: CarouselItem, index: number) => void
 }
 
-const DEFAULT_HEIGHT = 160
+/// 指示点几何/默认高度不在本文件取数 —— 唯一源是 @ihui/shared/ui/carousel-spec(与小程序端同档);
+/// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等(同 packages/app 那份共享层写法)。
+const toUnit = (px: number) => px
+
+const DEFAULT_HEIGHT = carouselDefaultHeightPx()
 
 export default function Carousel({
   banner,
@@ -103,16 +112,14 @@ export default function Carousel({
         ))}
       </ScrollView>
 
-      {/* 指示器(用 gap-* 分隔,非圆形,rounded-sm/rounded-md 尺寸梯度) */}
-      <View className="absolute bottom-3 left-0 right-0 flex-row items-center justify-center gap-1.5">
+      {/* 指示器:容器结构与点的宽高一律取 carousel-spec(与小程序端同一份档),
+          本文件只留配色与圆角两个端内落点(圆角归守门 77、配色归 tokens 派生链)。 */}
+      <View style={carouselIndicatorWrapStyle(toUnit)}>
         {banner.map((_, index) => (
           <View
             key={index}
-            className={
-              index === current
-                ? 'w-4 h-1.5 bg-white rounded-md'
-                : 'w-1.5 h-1.5 bg-white/50 rounded-sm'
-            }
+            style={carouselDotStyle(toUnit, index === current)}
+            className={index === current ? 'bg-white rounded-md' : 'bg-white/50 rounded-sm'}
           />
         ))}
       </View>

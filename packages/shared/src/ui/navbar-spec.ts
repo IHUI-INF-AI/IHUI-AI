@@ -71,6 +71,45 @@ export const NAVBAR_SUBTITLE_FONT_PX = 12
 export const NAVBAR_SUBTITLE_MARGIN_TOP_PX = 2
 
 /**
+ * 本族**不立的档**(须登记台账 waivers,不得搬进本表冒充"已同值"):
+ *  - 双标题 tab 间距(小程序 ai-home `gap-[40rpx]` = 20px):RN 端无该元素(标题区是 title + subtitle
+ *    双行,不做 tab 切换)。单端独有档若搬进本表并只被一端正消费,对账门读数会归零而另一端什么都没
+ *    渲染 —— 那正是"制造绿灯",所以档留在端内 + 记 waiver。
+ *  - hitSlop(RN 12 / 8 / 4)与 RN 的"图标 + 文字并排 gap 4":RN 独有命中扩张通道 / RN 独有的
+ *    icon+label 并排形态,见文件末 MECHANISM_WAIVERS 第 3 条。
+ *  - 微信胶囊实测兜底档(小程序 `{ top: 26, height: 32 }` = 13px / 16px)与 notification 区内边距
+ *    (`px-[32rpx]`/`py-[16rpx]`/`ml-[16rpx]` = 16px / 8px):平台量 + 端内独有子元素,
+ *    见 MECHANISM_WAIVERS 第 1 条。
+ */
+
+/**
+ * 标题最大宽 150:同一元素(顶栏标题文字)的截断上限,两端同值。
+ * 两端原值:小程序 ai-home `maxWidth: rpx(300)` = 150px(继承原项目 navigation-bars 定宽档)、
+ * RN 端**无上限**(只靠 flex 可用空间,375 屏约 291px)⇒ 同一条标题两端截断点不同。
+ * ⇒ 规则 1 不适用(web 顶栏是桌面 TagsView 标签条,与移动端 App 栏标题非同一元素,无 px 档可引);
+ * ⇒ 规则 2 取两端较大者在 RN 侧不可量化(无上限),故取唯一确定存在的档 150,
+ *   RN 端标题补同一上限 ⇒ 两端渲染到屏幕上的宽度相同(小程序侧数值一字未改)。
+ */
+export const NAVBAR_TITLE_MAX_WIDTH_PX = 150
+
+/**
+ * 标题区最小宽 80:RN 端 2026-09-23 P1 修复的既定格(容纳 4 个 16px 中文字,防"智汇AI"被压成"智汇…")。
+ * 两端原值:RN `center.minWidth: 80` / 小程序端**没有这条约束**(标题容器只有 flex-1)
+ * ⇒ 规则 1 不适用(web 顶栏标题用 `min-w-0 flex-1`,刻意不给下限,与本档方向相反),
+ * 按规则 2 取"有约束的一端"= 80,小程序端补齐同一档 ⇒ 两端标题区同一下限(不是只改声明)。
+ */
+export const NAVBAR_CENTER_MIN_WIDTH_PX = 80
+
+/**
+ * 侧按钮文字宽度上限 60:RN 端现档(图标 + 调用方文案并排,须给标题留横向空间)。
+ * 两端原值:RN `actionLabel.maxWidth: 60` / 小程序端 `rightText` **无上限**(长文案会挤掉标题)
+ * ⇒ 规则 1 不适用(web 顶栏无同一元素),按规则 2 取已有约束的一端 = 60,小程序 rightText 补同一档。
+ * 刻意**不覆盖 ai-home 的"加入社区群"胶囊按钮**:那是小程序独有的带边框 CTA(5 字 ≈ 70px),
+ * 套 60 会直接截断既有文案 —— 那不是同一枚元素,拉平即制造缺陷。
+ */
+export const NAVBAR_ACTION_LABEL_MAX_WIDTH_PX = 60
+
+/**
  * 侧按钮盒子:最小宽 + 定高 + 行内水平居中(图标与文字并排),居中原语只在这一处。
  * 返回类型由泛型带出单位,禁止退化成 string | number(RN ViewStyle 编译不过,实测 TS1360)。
  */

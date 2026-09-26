@@ -10,9 +10,12 @@ import {
   NAVBAR_ACTION_GLYPH_PX,
   NAVBAR_ACTION_HEIGHT_PX,
   NAVBAR_ACTION_LABEL_FONT_PX,
+  NAVBAR_ACTION_LABEL_MAX_WIDTH_PX,
   NAVBAR_BACK_BOX_PX,
+  NAVBAR_CENTER_MIN_WIDTH_PX,
   NAVBAR_SIDE_PADDING_PX,
   NAVBAR_TITLE_FONT_PX,
+  NAVBAR_TITLE_MAX_WIDTH_PX,
   navbarActionBoxStyle,
 } from '@ihui/shared/ui/navbar-spec'
 import { rpx, px } from '@/utils/rpx'
@@ -24,6 +27,15 @@ const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
 const ACTION_GLYPH_RPX_NUM = NAVBAR_ACTION_GLYPH_PX * TARO_RPX_PER_PX
 const ACTION_BOX_STYLE = navbarActionBoxStyle(toUnit)
 const TITLE_FONT = toUnit(NAVBAR_TITLE_FONT_PX)
+/// 标题区下限 / 标题截断宽:与 RN 的 center.minWidth、title.maxWidth 同档同值(两端都真取它,
+/// 不是把数字搬进声明而另一端仍渲染别的宽度)
+const CENTER_STYLE = { minWidth: toUnit(NAVBAR_CENTER_MIN_WIDTH_PX) } as const
+const TITLE_STYLE = { fontSize: TITLE_FONT, maxWidth: toUnit(NAVBAR_TITLE_MAX_WIDTH_PX) } as const
+/// 侧按钮文字上限:与 RN 的 actionLabel.maxWidth 同档;配 truncate 才等价 RN 的 numberOfLines={1}
+const ACTION_LABEL_STYLE = {
+  fontSize: toUnit(NAVBAR_ACTION_LABEL_FONT_PX),
+  maxWidth: toUnit(NAVBAR_ACTION_LABEL_MAX_WIDTH_PX),
+} as const
 
 export interface NavBarNotification {
   text: string
@@ -151,7 +163,10 @@ export default function NavBar({
           </View>
           {/* 中间:标题切换(每日资讯/排行榜)或普通标题 */}
           {onActiveNav ? (
-            <View className="flex flex-1 items-center justify-center gap-[40rpx]">
+            <View
+              className="flex flex-1 items-center justify-center gap-[40rpx]"
+              style={CENTER_STYLE}
+            >
               <View onClick={() => onActiveNav(0)} hoverClass="opacity-60">
                 <Text
                   style={{
@@ -182,11 +197,10 @@ export default function NavBar({
               </View>
             </View>
           ) : (
-            <View className="flex flex-1 items-center justify-center">
-              <Text
-                className="font-bold truncate"
-                style={{ color: textColor, fontSize: TITLE_FONT, maxWidth: rpx(300) }}
-              >
+            <View className="flex flex-1 items-center justify-center" style={CENTER_STYLE}>
+              {/* 标题截断宽与 RN 端同档(spec `NAVBAR_TITLE_MAX_WIDTH_PX` = 150,即原写法 rpx(300)
+                  的同一数值):两端最终落到屏幕上的宽度相同,不是只把数字搬进声明。 */}
+              <Text className="font-bold truncate" style={{ color: textColor, ...TITLE_STYLE }}>
                 {title}
               </Text>
             </View>
@@ -224,7 +238,9 @@ export default function NavBar({
               <View
                 className="flex flex-shrink-0 items-center justify-center"
                 style={{
-                  height: rpx(48),
+                  // 侧按钮盒档(最小宽 + 定高)与同行图标钮、RN 的 actionBtn 同一份 spec 盒子;
+                  // 原端内自写 height: rpx(48)=24px 是本文件里第二枚按钮盒档,收口到 spec 的 32。
+                  ...ACTION_BOX_STYLE,
                   padding: '0 16rpx',
                   border: '3rpx solid var(--color-brand-accent-deep)',
                   borderRadius: rnRadius.sm,
@@ -306,7 +322,8 @@ export default function NavBar({
           onClick={onRightClick}
           hoverClass="opacity-60"
         >
-          <Text style={{ color: textColor, fontSize: toUnit(NAVBAR_ACTION_LABEL_FONT_PX) }}>
+          {/* 侧按钮文字宽度上限与 RN 的 actionLabel 同一档(spec 60);truncate = RN 的 numberOfLines={1} */}
+          <Text className="truncate" style={{ color: textColor, ...ACTION_LABEL_STYLE }}>
             {rightText}
           </Text>
         </View>
