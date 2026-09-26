@@ -9,7 +9,7 @@
 
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi, fetchRaw } from '../client'
+import { fetchApi, fetchRaw } from '../client.js'
 
 /** 异步任务状态（对应后端 AsyncTask）。 */
 export interface AsyncTask {
