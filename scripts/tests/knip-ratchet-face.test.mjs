@@ -50,4 +50,15 @@ test('K6 反向锁:脏树 + 未放行 与 脏树 + 放行 的文案必须不同�
   assert.notEqual(a, b)
   assert.doesNotMatch(a, /人工放行/)
 })
+
+test('K7 隔离 HEAD 检出(无 .git)判可比并留专门出处 —— 闸门不得挡住唯一正确的记录方式', () => {
+  // 本仓做 HEAD 干净验证用的就是 `git archive` 出去的隔离树;它没有 .git,
+  // 把它判成 undetermined/incomparable 等于让基线永远没法在干净面上重记。
+  const r = classifyFace({ ci: false, dirtyCount: 0, insideRepo: false })
+  assert.equal(r.verdict, 'comparable')
+  assert.match(r.reason, /隔离|archive/)
+  assert.match(provenanceNote({ comparable: true, dirtyCount: 0, forced: false, isolated: true }), /isolated HEAD checkout/)
+  // 反向对照:git 问得到但在 status 上失败 ⇒ 仍是 undetermined,不能借 insideRepo 默认值洗成可比
+  assert.equal(classifyFace({ ci: false, dirtyCount: null, insideRepo: true }).verdict, 'undetermined')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
