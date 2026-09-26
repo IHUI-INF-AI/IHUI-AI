@@ -10418,6 +10418,16 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "mentionEngine": {
+      "tabFile": "File",
+      "tabFolder": "Folder",
+      "tabSymbol": "Symbol",
+      "tabDatabase": "Database",
+      "tabWeb": "Web",
+      "searching": "Searching…",
+      "loadFailed": "Search failed",
+      "noMatch": "No matches"
+    },
     "modelSwitchStopped": "Switched to {model}. This response was stopped.",
     "filePreviewEmpty": "The file has no data rows to preview.",
     "filePreviewTypeMismatch": "File content does not match the {ext} format.",
@@ -11483,6 +11493,7 @@
     "voiceHandsFree": "Hands-free"
   },
   "chatHistory": {
+    "selectModeAriaLabel": "Toggle task multi-select mode",
     "backToHistory": "Back to History",
     "batchArchive": "Archive",
     "batchArchiveSuccess": "Bulk archive successful",
