@@ -74,6 +74,18 @@ page {
    认作主题档,而色值原本只落在普通 :root/.dark 上;现由下面那个 @theme 注册区补上(派生态,
    改档请改 tokens.css 后跑 sync,不得手写)。见 PROJECT_PLAN O62 附⑧补/附⑨。 */
 @import 'tailwindcss/utilities.css';
+/* weapp-tailwindcss 的「JS/WXML 改名腿」用的候选集,由它自己那套 Tailwind v4 design system 校验
+   (dist/context-*.js: collectTailwindV4GeneratorClassSet → resolveValidTailwindV4Candidates)。
+   这份入口此前只写 @tailwind base/components + utilities.css ⇒ 那台校验器看不见默认 theme 的
+   --spacing 档,于是 gap-1.5 / py-0.5 / !p-0 / first:mt-0 这类**间距档**候选被判"无效"而整族
+   进不了改名集合;CSS 腿却照样把它们的选择器转写进 wxss ⇒ 源码类名留在 JS 里,规则谁也挂不上。
+   实测(2026-09-26,DEBUG=weapp-tw 跑真构建):transformRuntimeSet 731 个里 has('top-1/2')=true /
+   has('z-[1040]')=true,但 has('gap-1.5')=false / has('!p-0')=false / has('first:mt-0')=false
+   —— 缺的正是 --spacing 那一族;同一份 app.css 补上 theme.css 后,该集合 670 → 868,
+   上面 19 个名字全部进入集合。
+   ⚠️ 不得把这一行挪到下面那个由 sync 派生的 @theme 块之后:v4 的 @theme 是合并语义,
+   默认 theme 后置导入会覆盖项目色档。*/
+@import 'tailwindcss/theme.css';
 @source "./**/*.{ts,tsx}";
 /* ===== v4 色档注册(自动同步自 tokens.css,勿手动编辑;变更后运行 sync-design-tokens.mjs)===== */
 @theme {
