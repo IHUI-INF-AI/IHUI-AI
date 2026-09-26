@@ -587,4 +587,68 @@ test('通道台账·变异对照:四类假账必须被结构判据点名(判据�
   const lazyBlocked = mk({ pypi: { unblockAction: '' } })
   assert.match(validateChannelsLedger(lazyBlocked, { jobs, coordinates }).join('\n'), /pypi:.*unblockAction/, 'blocked 而不写解除动作必须点名')
 })
+
+/**
+ * 「去 private」是发布动作的唯一保险丝,而 `scripts/check-pkg-installable.mjs` 的头注自己写着
+ * "本脚本正是去 private 之前必须通过的自检" —— 所以它**必须**在 private 被摘掉的那一刻被强制跑,
+ * 否则这句注释只是散文。2026-09-24 的 `69aa86183dc`(标题即"api-client 去 private")就是在
+ * 两条 blocker 仍非零的情况下摘掉它的:实测 `workspace:*` 依赖未解、92 个 dist 文件是无扩展名
+ * 相对 import(纯 Node ESM 消费者必 ERR_MODULE_NOT_FOUND),而 `version` 还是 `0.0.0`。
+ * 本条按"风险发生时才付代价"的形状写:保险丝在位 ⇒ 不跑打包器(npm pack + 解包,不该白付);
+ * 保险丝被摘 ⇒ 三条前置全核。取不到 HEAD 清单 ⇒ 判失败而不是跳过。
+ */
+test('@ihui/api-client 摘掉 private 即必须当场过发布前置(workspace 依赖 / 占位版本 / 可安装性)', async () => {
+  const mod = await import(new URL('../../../scripts/check-sdk-release-channels.mjs', import.meta.url).href)
+  const fail = mod.publishPreconditionFailures
+  assert.equal(
+    typeof fail,
+    'function',
+    '判据必须住在门里而不是抄进测试(§22c:镜像只复读实现就是复读机)',
+  )
+  // 构造面双向证明 —— 不把结论押在仓库瞬时状态上:
+  assert.deepEqual(
+    fail({ private: true, version: '0.0.0', dependencies: { a: 'workspace:*' } }),
+    [],
+    '保险丝在位时不得欠账(否则本条恒红,逼人跳门)',
+  )
+  assert.notEqual(fail(undefined), [], '清单取不到不得记为通过')
+  const both = fail({ version: '0.0.0', dependencies: { '@ihui/types': 'workspace:*' } })
+  assert.equal(both.length, 2, `两条前置都不满足却只点名 ${both.length} 条:${both.join(' | ')}`)
+  assert.match(both.join('\n'), /workspace:/, '必须点名 workspace: 依赖')
+  assert.match(both.join('\n'), /0\.0\.0/, '必须点名占位版本')
+  assert.deepEqual(
+    fail({ version: '1.2.3', dependencies: { '@ihui/types': '^1.2.3' } }),
+    [],
+    '已就绪的清单不该被拦(反恒红对照)',
+  )
+
+  const raw = headFile('packages/api-client/package.json')
+  assert.ok(raw !== null, 'HEAD 里读不到 @ihui/api-client 清单 —— 判不了不是通过')
+  const pkg = JSON.parse(raw)
+  if (pkg.private === true) {
+    console.log('  ℹ️ @ihui/api-client 仍为 private: true,registry 侧拒发 ⇒ 本条不跑打包器;摘掉 private 即触发全量核')
+    return
+  }
+  const cheap = fail(pkg)
+  assert.deepEqual(cheap, [], `非 private 却有廉价前置未满足:\n${cheap.join('\n')}`)
+  let out = ''
+  let rc = 0
+  try {
+    out = execFileSync(process.execPath, ['scripts/check-pkg-installable.mjs', 'packages/api-client'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 900000,
+      windowsHide: true,
+    })
+  } catch (err) {
+    rc = typeof err.status === 'number' ? err.status : -1
+    out = `${String(err.stdout ?? '')}${String(err.stderr ?? '')}`
+  }
+  assert.equal(
+    rc,
+    0,
+    `check-pkg-installable 判失败(rc=${rc}),不得在 blocker 非零时发布:\n${out.split(/\r?\n/).slice(-12).join('\n')}`,
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
