@@ -10,7 +10,7 @@
  * - appendMessage:写消息 + 事务更新会话统计(message_count/total_tokens/cost/last_message_at)
  * - listConversations:分页列用户的会话(按 last_message_at DESC,可按 apiKeyId 筛选)
  * - getConversationMessages:校验归属后分页查消息(按 created_at ASC)
- * - deleteConversation:校验归属后硬删(CASCADE 删 messages)
+ * - deleteConversation:校验归属后硬删(CASCADE 删 messages),返回库确认已删除的行 id 集合
  * - updateConversationTitle:校验归属后改 title
  *
  * 读写分离:写用 db,读用 dbRead(参照现有 service 模式)。
@@ -265,7 +265,17 @@ export async function getConversationMessages(
 // 5. deleteConversation(校验归属后硬删,CASCADE 删 messages)
 // =============================================================================
 
-export async function deleteConversation(conversationId: string, userId: string): Promise<void> {
+/**
+ * 删除会话(校验归属后硬删,CASCADE 删 messages)。
+ *
+ * 归属不存在/不属于该用户 **仍按原契约 throw**(路由据此回 404,客户端契约不变);
+ * throw 之外的另一格真相由返回值给:归属校验与 DELETE 之间那一行仍可能被别人删掉,
+ * 所以返回**库确认已删除的行 id 集合**,让路由的 `deleted` 布尔有库侧依据。
+ */
+export async function deleteConversation(
+  conversationId: string,
+  userId: string,
+): Promise<string[]> {
   // 校验归属
   const [conv] = await dbRead
     .select({ id: relayConversations.id })
@@ -282,7 +292,11 @@ export async function deleteConversation(conversationId: string, userId: string)
     throw new Error('会话不存在或无权访问')
   }
 
-  await db.delete(relayConversations).where(eq(relayConversations.id, conv.id))
+  const rows = await db
+    .delete(relayConversations)
+    .where(eq(relayConversations.id, conv.id))
+    .returning({ id: relayConversations.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================

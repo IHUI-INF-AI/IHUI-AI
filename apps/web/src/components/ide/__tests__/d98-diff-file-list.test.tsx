@@ -64,6 +64,7 @@ vi.mock('@/hooks/use-toast', () => ({
 }))
 
 import { DiffFileList } from '../diff-file-list'
+import { useDiffViewModeStore } from '@/lib/diff-view-mode'
 
 /**
  * D98①②:文件列表 —— 审阅计数/切换/批量 + 筛选 + 右键菜单 + 渲染失败。
@@ -90,6 +91,7 @@ describe('D98 DiffFileList review', () => {
   beforeEach(() => {
     setup()
     localStorage.clear()
+    useDiffViewModeStore.setState({ mode: 'split', threeWayOpen: false })
     vi.clearAllMocks()
   })
   afterEach(() => cleanup())
@@ -148,6 +150,7 @@ describe('D98 DiffFileList filter + menu + renderError', () => {
   beforeEach(() => {
     setup([...FILES, makeFile('f-g', 'dist/bundle.js')])
     localStorage.clear()
+    useDiffViewModeStore.setState({ mode: 'split', threeWayOpen: false })
     vi.clearAllMocks()
   })
   afterEach(() => cleanup())
@@ -181,13 +184,17 @@ describe('D98 DiffFileList filter + menu + renderError', () => {
     expect(toastMock.success).toHaveBeenCalled()
   })
 
-  it('右键菜单:打开方式切换视图模式并选中文件', () => {
+  it('右键菜单「打开方式」写唯一真相源并选中文件(V3 #66:不再只改 IDE 那份)', () => {
     render(<DiffFileList />)
     const row = screen.getByText('b.ts').closest('[role="button"]') as HTMLElement
     fireEvent.contextMenu(row, { clientX: 10, clientY: 10 })
     fireEvent.click(screen.getByTestId('diff-row-open-unified-f-b'))
     expect(mockStore.fns.setActiveDiffFile).toHaveBeenCalledWith('f-b')
-    expect(mockStore.fns.setDiffViewMode).toHaveBeenCalledWith('unified')
+    expect(useDiffViewModeStore.getState().mode).toBe('unified')
+    // 再点 split:同一个真相源被改写,而不是攒出第二份状态
+    fireEvent.contextMenu(row, { clientX: 10, clientY: 10 })
+    fireEvent.click(screen.getByTestId('diff-row-open-split-f-b'))
+    expect(useDiffViewModeStore.getState().mode).toBe('split')
   })
 
   it('渲染失败行:可读错误 + 重试回调', () => {

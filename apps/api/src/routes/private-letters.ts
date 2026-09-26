@@ -107,7 +107,7 @@ const privateLetterRoutes: FastifyPluginAsync = async (server) => {
       )
       .returning()
     if (!deleted) return reply.status(404).send(error(404, '私信不存在或无权删除'))
-    return reply.send(success({ id: deleted.id, deleted: true }))
+    return reply.send(success({ id: deleted.id, deleted: Boolean(deleted) }))
   })
 
   // GET / — 获取私信详情(Java: GET /auth-api/private-letter, query: ?id=)

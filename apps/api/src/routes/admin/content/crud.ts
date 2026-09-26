@@ -132,7 +132,7 @@ export const adminContentCrudRoutes: FastifyPluginAsync = async (server) => {
       const { type, id } = validate(idParamSchema, request.params)
       const deleted = await deleteByType(type, id)
       if (!deleted) return reply.status(404).send(error(404, '内容不存在'))
-      return reply.send(success({ id, deleted: true, type }))
+      return reply.send(success({ id, deleted, type }))
     },
   )
 }

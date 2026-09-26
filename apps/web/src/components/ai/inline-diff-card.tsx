@@ -15,6 +15,8 @@ import {
   Eye,
   EyeOff,
   Copy,
+  Columns2,
+  Rows2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
@@ -23,8 +25,15 @@ import { Tooltip } from '@/components/feedback'
 import { useChatStore } from '@/stores/chat'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useToast } from '@/hooks/use-toast'
-import { buildPartialContent, computeHunkDiff, type DiffRow as HunkDiffRow } from '@/lib/hunk-diff'
+import { buildPartialContent, computeHunkDiff } from '@/lib/hunk-diff'
 import { createStagedSet, stageHunk, stageHunks, unstageAll, unstageHunk } from '@/lib/diff-staging'
+import { useDiffViewModeStore } from '@/lib/diff-view-mode'
+import {
+  SplitDiffBody,
+  UnifiedDiffBody,
+  buildSplitEntries,
+  buildUnifiedEntries,
+} from './inline-diff-viewer'
 import { DiffCommentPanel } from './diff-comment-panel'
 import { HunkHeader, HunkToolbar } from './diff-hunk-controls'
 import { buildFilePatch, buildGitApplyCommand } from './diff-hunk-controls'
@@ -83,8 +92,9 @@ export function persistInlineViewed(filePath: string, contentHash: string, viewe
  * 2026-07-22 立 P3 深度层:聊天面板内直接查看代码 diff + Accept/Reject 应用改动。
  * 2026-09-18 W5:新增 hunk 级接受/拒绝与「应用所选」部分落盘;行级 diff 与 hunk 切分
  * 统一收敛到 `@/lib/hunk-diff`(LCS 同源、纯函数可单测),本文件不再自带内联实现。
+ * 2026-09-26 V3 #66:档位(unified / side-by-side)改读 `@/lib/diff-view-mode` 唯一
+ * 真相源,两栏排版复用 `SplitDiffBody` —— 本文件不再自带 row 渲染器。
  */
-type DiffRow = HunkDiffRow
 
 interface InlineDiffCardProps {
   diffInfo: InlineDiffInfo
@@ -199,6 +209,17 @@ export function InlineDiffCard({
   )
   const rows = diff.rows
   const hunks = diff.hunks
+  // V3 #66:档位与 IDE 面板同一份状态(唯一真相源在 @/lib/diff-view-mode,含持久化)
+  const mode = useDiffViewModeStore((s) => s.mode)
+  const setMode = useDiffViewModeStore((s) => s.setMode)
+  const unifiedEntries = React.useMemo(
+    () => buildUnifiedEntries(diffInfo.old_content, diffInfo.new_content),
+    [diffInfo.old_content, diffInfo.new_content],
+  )
+  const splitEntries = React.useMemo(
+    () => buildSplitEntries(diffInfo.old_content, diffInfo.new_content),
+    [diffInfo.old_content, diffInfo.new_content],
+  )
 
   // 统计 add/remove 行数
   const stats = React.useMemo(() => {
@@ -261,10 +282,42 @@ export function InlineDiffCard({
     setCommentTarget({ line, lineText })
   }, [])
 
-  const badge = STATUS_BADGE[applyStatus] ?? STATUS_BADGE.pending
-  const BadgeIcon = badge.icon
   const isTerminal = applyStatus === 'applied' || applyStatus === 'rejected'
   const isApplying = applyStatus === 'applying'
+
+  /** V3 #66:hunk 小标题注入 —— 两种排版共用同一个 HunkHeader(勾选/暂存语义不分叉) */
+  const renderHunkHeader = React.useCallback(
+    (hunkId: number): React.ReactNode => {
+      const hunk = hunks[hunkId]
+      if (!hunk) return null
+      return (
+        <HunkHeader
+          hunk={hunk}
+          total={hunks.length}
+          accepted={!rejectedHunks.has(hunk.id)}
+          staged={stagedHunks.has(hunk.id)}
+          disabled={isApplying || partialBusy || isTerminal}
+          onToggle={() => toggleHunk(hunk.id)}
+          onStage={() => stageHunkById(hunk.id)}
+          onUnstage={() => unstageHunkById(hunk.id)}
+        />
+      )
+    },
+    [
+      hunks,
+      rejectedHunks,
+      stagedHunks,
+      isApplying,
+      partialBusy,
+      isTerminal,
+      toggleHunk,
+      stageHunkById,
+      unstageHunkById,
+    ],
+  )
+
+  const badge = STATUS_BADGE[applyStatus] ?? STATUS_BADGE.pending
+  const BadgeIcon = badge.icon
 
   return (
     <Card className="overflow-hidden">
@@ -317,6 +370,44 @@ export function InlineDiffCard({
           <span className="shrink-0 rounded-sm bg-red-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-red-600">
             -{stats.removed}
           </span>
+          {/* V3 #66:档位切换 —— 与 IDE 面板读写同一份状态,任一处切了另一处跟着变 */}
+          <div
+            role="group"
+            aria-label={tIde('diffViewer.viewMode')}
+            className="flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/40 p-0.5"
+            data-testid="inline-diff-mode"
+          >
+            <button
+              type="button"
+              onClick={() => setMode('unified')}
+              aria-pressed={mode === 'unified'}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors',
+                mode === 'unified'
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              data-testid="inline-diff-mode-unified"
+            >
+              <Rows2 className="h-3 w-3" aria-hidden />
+              <span>{tIde('diffStats.unified')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('split')}
+              aria-pressed={mode === 'split'}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors',
+                mode === 'split'
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              data-testid="inline-diff-mode-split"
+            >
+              <Columns2 className="h-3 w-3" aria-hidden />
+              <span>{tIde('diffStats.split')}</span>
+            </button>
+          </div>
           {/* D98①:单卡已审阅切换(Tooltip 给已审态文案,不占用行内空间) */}
           <Tooltip
             content={reviewed ? tIde('diffReview.markedAsViewed') : tIde('diffReview.markAsViewed')}
@@ -352,35 +443,25 @@ export function InlineDiffCard({
       </CardHeader>
 
       <CardContent className="p-0">
-        <div className="max-h-80 overflow-auto bg-zinc-950 font-mono text-xs">
-          {rows.map((row, idx) => {
-            const hunkId = diff.hunkIdByRow[idx] ?? null
-            const hunk = hunkId === null ? null : hunks[hunkId]
-            // hunk 首行前插入小标题(上一行不属于同一 hunk 即为首行)
-            const isHunkStart = hunk !== null && diff.hunkIdByRow[idx - 1] !== hunkId
-            return (
-              <React.Fragment key={`row-${idx}`}>
-                {isHunkStart && hunk && (
-                  <HunkHeader
-                    hunk={hunk}
-                    total={hunks.length}
-                    accepted={!rejectedHunks.has(hunk.id)}
-                    staged={stagedHunks.has(hunk.id)}
-                    disabled={isApplying || partialBusy || isTerminal}
-                    onToggle={() => toggleHunk(hunk.id)}
-                    onStage={() => stageHunkById(hunk.id)}
-                    onUnstage={() => unstageHunkById(hunk.id)}
-                  />
-                )}
-                <DiffRow
-                  row={row}
-                  activeLine={commentTarget?.line}
-                  onComment={handleRowComment}
-                  commentLabel={t('diffComment.rowAction')}
-                />
-              </React.Fragment>
-            )
-          })}
+        <div className="max-h-80 overflow-auto bg-background font-mono text-xs">
+          {mode === 'split' ? (
+            <SplitDiffBody
+              entries={splitEntries}
+              renderHunkHeader={renderHunkHeader}
+              onRowComment={handleRowComment}
+              commentLabel={t('diffComment.rowAction')}
+              activeLine={commentTarget?.line}
+              columnLabels={{ left: tIde('diffViewer.oldVersion'), right: tIde('diffViewer.newVersion') }}
+            />
+          ) : (
+            <UnifiedDiffBody
+              entries={unifiedEntries}
+              renderHunkHeader={renderHunkHeader}
+              onRowComment={handleRowComment}
+              commentLabel={t('diffComment.rowAction')}
+              activeLine={commentTarget?.line}
+            />
+          )}
         </div>
       </CardContent>
 
@@ -491,66 +572,6 @@ export function InlineDiffCard({
         )}
       </CardFooter>
     </Card>
-  )
-}
-
-/** 单行 diff 渲染(P3 #30:行号区右侧 hover 显示行级评论入口) */
-function DiffRow({
-  row,
-  activeLine,
-  onComment,
-  commentLabel,
-}: {
-  row: DiffRow
-  activeLine?: number
-  onComment?: (line: number, lineText: string) => void
-  commentLabel?: string
-}) {
-  const isAdd = row.op === 'insert'
-  const isDel = row.op === 'delete'
-  // 行级评论锚定新文件侧行号(返工针对的是新代码);纯删除行无新行号时退回旧行号
-  const lineNo = row.newNum ?? row.oldNum
-  // W5:行内容改为携带行尾符的 DiffLine,渲染只取 text(行尾符仅供重组使用)
-  const lineText = (isAdd ? row.newLine?.text : row.oldLine?.text) ?? ''
-  const isActive = activeLine !== undefined && activeLine === lineNo
-  return (
-    <div
-      className={cn(
-        'group flex',
-        isAdd && 'bg-green-500/15',
-        isDel && 'bg-red-500/15',
-        isActive && 'ring-1 ring-inset ring-primary/60',
-      )}
-    >
-      <span className="w-10 shrink-0 select-none px-2 text-right text-zinc-600">
-        {row.oldNum ?? ''}
-      </span>
-      <span className="w-10 shrink-0 select-none px-2 text-right text-zinc-600">
-        {row.newNum ?? ''}
-      </span>
-      <span
-        className={cn(
-          'w-4 shrink-0 text-center',
-          isAdd && 'text-green-400',
-          isDel && 'text-red-400',
-          !isAdd && !isDel && 'text-zinc-600',
-        )}
-      >
-        {isAdd ? '+' : isDel ? '-' : ''}
-      </span>
-      <span className="whitespace-pre pr-2 text-zinc-300">{lineText}</span>
-      {onComment && lineNo !== undefined && (
-        <button
-          type="button"
-          onClick={() => onComment(lineNo, lineText)}
-          aria-label={commentLabel}
-          className="ml-auto mr-1 shrink-0 self-center rounded-sm p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-white/10 hover:text-zinc-300 group-hover:opacity-100 focus-visible:opacity-100"
-          data-testid={`diff-row-comment-${lineNo}`}
-        >
-          <MessageSquarePlus className="h-3 w-3" />
-        </button>
-      )}
-    </div>
   )
 }
 

@@ -373,10 +373,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      await db.execute(
-        sql`DELETE FROM ${sql.raw('"zhs_ai_model_info"')} WHERE "id"::text = ${parsed.data.id}`,
-      )
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const rows = (await db.execute(
+        sql`DELETE FROM ${sql.raw('"zhs_ai_model_info"')} WHERE "id"::text = ${parsed.data.id} RETURNING id`,
+      )) as Record<string, unknown>[]
+      return reply.send(success({ id: parsed.data.id, deleted: rows.length > 0 }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除模型信息失败'))
@@ -442,7 +442,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const deleted = await configDelete(parsed.data.id)
       if (!deleted) return reply.status(404).send(error(404, '外呼路由不存在'))
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      return reply.send(success({ id: parsed.data.id, deleted }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除外呼路由失败'))
@@ -616,7 +616,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const deleted = await configDelete(parsed.data.id)
       if (!deleted) return reply.status(404).send(error(404, '视频路由不存在'))
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      return reply.send(success({ id: parsed.data.id, deleted }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除视频路由失败'))
@@ -734,7 +734,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const deleted = await configDelete(parsed.data.id)
       if (!deleted) return reply.status(404).send(error(404, '模型测试任务不存在'))
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      return reply.send(success({ id: parsed.data.id, deleted }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除模型测试任务失败'))

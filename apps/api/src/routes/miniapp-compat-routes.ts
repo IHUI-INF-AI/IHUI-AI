@@ -1804,7 +1804,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     if (!deleted.length) {
       return reply.status(404).send(error(404, '对话不存在'))
     }
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    return reply.send(success({ id: parsed.data.id, deleted: deleted.length > 0 }))
   })
 
   // ==========================================================================

@@ -4,147 +4,64 @@
 
 'use client'
 
+/**
+ * 两栏(并排)diff 预览(V3 #66 收敛,2026-09-26)。
+ *
+ * 本组件此前**自带一份 LCS**(`computeLcsDiff`)并两列各 map 一遍 rows ——
+ * 那是仓里第三份行级 diff 实现(另两份在 `@/lib/hunk-diff` 与 chat 卡片),
+ * 且不折叠、不配对、两侧行序无法保证同义。现只剩"容器 + 列头",排版全部
+ * 交给 `@/lib/diff-split-rows` 的唯一投影与 `SplitDiffBody` 的唯一渲染体。
+ *
+ * props 形状保持向后兼容(`checkpoint-rollback-confirm.tsx` 是另一处调用方)。
+ */
+
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { DEFAULT_CONTEXT_LINES } from '@/lib/diff-split-rows'
+import { buildSplitEntries, SplitDiffBody } from './inline-diff-viewer'
 
 interface DiffPreviewProps {
   oldContent: string
   newContent: string
   language?: string
   filename?: string
+  /** 折叠上下文行数;`Infinity` 关闭折叠 */
+  contextLines?: number
+  className?: string
 }
 
-type DiffOp = 'equal' | 'insert' | 'delete'
-
-interface DiffRow {
-  op: DiffOp
-  oldLine?: string
-  newLine?: string
-  oldNum?: number
-  newNum?: number
-}
-
-function computeLcsDiff(oldLines: string[], newLines: string[]): DiffRow[] {
-  const m = oldLines.length
-  const n = newLines.length
-  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0))
-
-  for (let i = m - 1; i >= 0; i--) {
-    const row = dp[i]
-    const nextRow = dp[i + 1]
-    if (!row || !nextRow) continue
-    for (let j = n - 1; j >= 0; j--) {
-      if ((oldLines[i] ?? '') === (newLines[j] ?? '')) {
-        row[j] = (nextRow[j + 1] ?? 0) + 1
-      } else {
-        row[j] = Math.max(nextRow[j] ?? 0, row[j + 1] ?? 0)
-      }
-    }
-  }
-
-  const rows: DiffRow[] = []
-  let i = 0
-  let j = 0
-  let oldNum = 0
-  let newNum = 0
-
-  while (i < m && j < n) {
-    if ((oldLines[i] ?? '') === (newLines[j] ?? '')) {
-      oldNum++
-      newNum++
-      rows.push({ op: 'equal', oldLine: oldLines[i], newLine: newLines[j], oldNum, newNum })
-      i++
-      j++
-    } else if ((dp[i + 1]?.[j] ?? 0) >= (dp[i]?.[j + 1] ?? 0)) {
-      oldNum++
-      rows.push({ op: 'delete', oldLine: oldLines[i], oldNum })
-      i++
-    } else {
-      newNum++
-      rows.push({ op: 'insert', newLine: newLines[j], newNum })
-      j++
-    }
-  }
-
-  while (i < m) {
-    oldNum++
-    rows.push({ op: 'delete', oldLine: oldLines[i], oldNum })
-    i++
-  }
-  while (j < n) {
-    newNum++
-    rows.push({ op: 'insert', newLine: newLines[j], newNum })
-    j++
-  }
-
-  return rows
-}
-
-export function DiffPreview({ oldContent, newContent, language, filename }: DiffPreviewProps) {
-  const rows = React.useMemo(
-    () => computeLcsDiff(oldContent.split('\n'), newContent.split('\n')),
-    [oldContent, newContent],
+export function DiffPreview({
+  oldContent,
+  newContent,
+  language,
+  filename,
+  contextLines = DEFAULT_CONTEXT_LINES,
+  className,
+}: DiffPreviewProps) {
+  const t = useTranslations('ide')
+  const entries = React.useMemo(
+    () => buildSplitEntries(oldContent, newContent, contextLines),
+    [oldContent, newContent, contextLines],
   )
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-zinc-950">
+    <div className={cn('overflow-hidden rounded-md border border-border bg-background', className)}>
       {(filename || language) && (
-        <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2 dark:border-border">
-          {filename && <span className="text-xs font-medium text-zinc-300">{filename}</span>}
+        <div className="flex items-center justify-between gap-2 bg-muted/40 px-3 py-1.5">
+          {filename && <span className="text-xs font-medium text-muted-foreground">{filename}</span>}
           {language && (
-            <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400">
+            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               {language}
             </span>
           )}
         </div>
       )}
-      <div className="grid grid-cols-2 text-xs">
-        <div className="border-zinc-800 dark:border-border">
-          <div className="border-b border-zinc-800 bg-zinc-900 px-3 py-1 text-center text-zinc-500 dark:border-border dark:bg-muted">
-            旧版本
-          </div>
-          <div className="font-mono">
-            {rows.map((row, idx) => (
-              <div
-                key={`old-${idx}`}
-                className={cn(
-                  'flex px-2',
-                  row.op === 'delete' ? 'bg-red-500/15' : row.op === 'equal' ? '' : 'opacity-40',
-                )}
-              >
-                <span className="w-10 shrink-0 select-none text-right text-zinc-600">
-                  {row.oldNum ?? ''}
-                </span>
-                <span className="whitespace-pre px-2 text-zinc-300">
-                  {row.op === 'insert' ? '' : (row.oldLine ?? '')}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div>
-          <div className="border-b border-zinc-800 bg-zinc-900 px-3 py-1 text-center text-zinc-500 dark:border-border dark:bg-muted">
-            新版本
-          </div>
-          <div className="font-mono">
-            {rows.map((row, idx) => (
-              <div
-                key={`new-${idx}`}
-                className={cn(
-                  'flex px-2',
-                  row.op === 'insert' ? 'bg-green-500/15' : row.op === 'equal' ? '' : 'opacity-40',
-                )}
-              >
-                <span className="w-10 shrink-0 select-none text-right text-zinc-600">
-                  {row.newNum ?? ''}
-                </span>
-                <span className="whitespace-pre px-2 text-zinc-300">
-                  {row.op === 'delete' ? '' : (row.newLine ?? '')}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="overflow-x-auto font-mono text-xs">
+        <SplitDiffBody
+          entries={entries}
+          columnLabels={{ left: t('diffViewer.oldVersion'), right: t('diffViewer.newVersion') }}
+        />
       </div>
     </div>
   )
