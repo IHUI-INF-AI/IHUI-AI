@@ -10295,3 +10295,57 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 <!-- 已归档(2026-09-26):O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
 <!-- 已归档(2026-09-26):O71 取材层收口的最后一跳:守门 93 自带的那份 `cat-file --batch` 归一(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
 <!-- 已归档(2026-09-26):小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+  `HANDLER_ATTR_RE` 纳入 `onChange|onSelect`,`AFFORDANCE_TAG_RE` 纳入 `Picker` ⇒ 扩面后全量面精确报出 3 处,
+  而这 3 处正是本轮已改的:`pages/study/publish/index.tsx:116/132`(两个 `<Picker>` 选择行的 `›` → `LineIcon chevron-right`,
+  24rpx 档沿用原 `ml-[16rpx]`)与 `docs/manual/page.tsx:158`。**`pkg-learn/live/calendar.tsx:162/171` 是同型第三例**:
+  它不是"整格字形",而是把字形当 **i18n 兜底实参** —— `tt('live.calendar.prevMonth', '‹')`,
+  词表缺键时直接把 `‹` 渲染出来;已改为 `<View ariaRole="button" ariaLabel={tt(key,'')}>` + `LineIcon chevron-left|right`
+  (可见侧求矢量、无障碍名称脱离上下文成立,与 §4「更多」入口同一条口径)。
+  自检 86/86(扩面未弄红任何既有反向锁,含上一格新加的面包屑锁)、两文件 eslint rc=0、`--files` 复验 0。
+  分页块写在 `ListFooterComponent={ totalPages > 1 ? (<View>…</View>) : null }` ——
+  **属性表达式里嵌 JSX**。外层 `<FlatList …` 的 `parseTagAt` 一路吃到 131 行那个单独成行的 `/>`,
+  把整个表达式(含分页块)吞成一个自闭合标签 ⇒ 遍历从不进入内部。
+  正解是"属性表达式里若含 JSX 就带着祖先栈递归进去",那是 walker 的一项能力,不是一行判据;
+  **现在它由 `backBlind` 探针点名**,所以症状从"静默报 0"变成"喊出这一格没人看守"。同型还可能有:
+  任何把 JSX 写进 prop 的地方(`renderItem=` / `header=` / `ListHeaderComponent=` 等)。
+  上一格说"真正要修的是出栈时机"—— 定位到了,比预想的更基本:
+  `parseTagAt` 第一行就调 `prevAllowsTagStart`,而它拒绝"前一个字符是 `\w$)\"'` 之一"的 `<`
+  (本意是防 `a < b` 比较运算符被当标签)。**闭合标签天然紧跟文本内容**(`A</a>`、`›</span>`),
+  于是 `</…>` 从来没被解析过 ⇒ 栈只进不出 ⇒ ① 祖先跨兄弟泄漏(面包屑 `<a>A</a><span>›</span>` 被判成
+  "祖先 <a> 可点",这正是我上次撤回扩面的那条红),② 真正该看到的格子反被错嵌套的栈漏掉。
+  修法:先认 `</` 是闭合起点,**闭合标签不受该守卫约束**(串内的 `</` 由 strMask 挡)。
+  ⇒ 同一枚提交里 `AFFORDANCE_TAG_RE` 纳 `a|button` 成立:自检 **85 → 86 全绿**(新增两条锁:
+  面包屑反向锁 + 原生 `<a>`/`<button>` 阳性锁),镜像 17/17,全量面 GA1 精确抓到
+  `apps/web/app/(main)/docs/manual/page.tsx:158`(生产 DOM 7 个渲染实例那个),**源码已同笔改掉**
+  (`<span>→</span>` → lucide `ChevronRight`,保留 `group-hover:translate-x-1` 与 `aria-hidden`),
+  该文件 `--files` 复验 0、eslint rc=0。
+  - **"剩下 12 条"里有 6 条根本不是 CSS 问题(这条推翻的是我自己上一轮的登记)**:`mx-0.5 top-1/2 z-[1040] z-[9995] w-[400rpx] w-[420rpx]` 来自 `Toast`/`ConfirmDialog`/`VoiceInput`/`TitleSwitchScrollPicker`/`TitleSwitchOverlap` —— 这几个组件**在本端零 import**(只有 barrel 的 `export`),它们的类名字符串连同 `translate(-50%` 在整个产物里 0 次出现,只有转写形式孤零零留在 CSS 里。同 `custom-tab-bar` 一类:**源码在、组件不装配**。**地板因此是 12 而不是 6。** 剩下两条路都不做,理由是它们都比现状更糟:删组件属 §7(要先回答"承载什么功能、有无等价实现",这里连"该不该有这几个 UI"都不是我能替产品裁的);给门加 `@source not` 排除表则会在**某天真有人 import 它的那天**把这些样式静默丢掉 —— 用一条更窄的判据换来一个假绿地板,是这笔账里最贵的选项。登记归属,不代裁。
+  - 一条**方法论教训**(比这条修复本身更通用):我先前那句"6 条属 custom-tab-bar,是地板"是**只数了已知的一类**就当成了全集 —— 而"地板"这种结论的正确算法是**逐名归因到"为什么这条运行时看不见"**,不是"我认识的那一类有几个"。这次是代理按逐名查 import 图才发现另外 6 条,否则我会带着一个错地板数字继续排期。另:本次 `config/index.ts` 那份实验补丁(`cache:false`)经比对**已在 HEAD**(`f459df544b`),应用它是 no-op ⇒ 已回退未落。门侧取证:css-landing `--self-test` 112 例全绿 + 镜像 45 例全绿;门 36(--worktree 436/436)、门 105、门 93(R6/R7/R8 全 0)、门 77 无新增违规;水印 verify 完好;`typecheck` 剩 2 枚 `onTerminalDelta` 错在 `src/pkg-ai/ai/chat.tsx:636`,该文件盘上 == HEAD blob ⇒ 他人现场,不碰。
+  **现已由守门 C7 变成构建失败而非一个需要人注意的数字**(`spacingFamily`:需求 ≥8 档而改名集合命中 0 ⇒ off 判红,不受 `--min-coverage` 管辖;`but 这一行是并行会话写进工作树的、尚未提交** ⇒ 我这些读数依赖一个不在版本库里的改动;
+  **但这一行仍是并行会话写进工作树的、尚未提交** ⇒ 我这些读数依赖一个不在版本库里的改动;
+  若它被回退,下一枚干净检出的构建会退回 93.90% / 31 条死规则 ——
+  现由守门 **C7** 兜住:spacing 刻度档需求 ≥8 而改名集合命中 0 ⇒ `off` 判红,且**不受 `--min-coverage` 管辖**,
+  所以那条单点依赖一旦被抽走,构建会直接失败,而不是留下一个要人肉眼发现的数字。
+- [ ]**WP-8 上下文占用归因 + 流式工具账本 + 目标完成独立校验轮**。后者是补 〔PROGRESS 2026-09-26(按 HEAD 实测三件分档,票保持未勾):①**流式工具账本**已入库且有消费点(`apps/cli/src/stream-tool-ledger.ts` 在 HEAD,`commands/agent.ts`、`hooks/index.ts`、`hooks/trust.ts` 三处引用,`git grep -l` 实测非 0);②**上下文占用归因**已入库(`packages/shared/src/utils/context-attribution.ts`+ `apps/web/src/components/ai/context-usage-ring.tsx` + 定向测试);③**目标完成独立校验轮**只有契约与 web 呈现位(`packages/api-client/src/endpoints/agent-runtime.ts` 的 goalCriteria/校验结论字段 + web 词包 `goalAchieved`/`goalUnmet` 等键),**执行侧闸门零命中**:`git grep -n "verificationRound|goalVerification|judgeGoal|独立校验" HEAD -- apps/cli/src apps/api/src` = 0 命中 ⇒ 循环自宣完成仍未被强制过校验,§8 那条"禁止模型自评 yes"仍未落到运行时。解阻判据:CLI/api 循环侧接契约字段并出一枚"未过校验不得判 achieved"的用例;该格落点在 `apps/cli/src`(当前 12 个文件他人在飞),故本票不派、不代裁。〕
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次1:考勤管理(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次2:家长端(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次3:成绩管理(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次4:智能排课(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次5:作业管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次6:招生管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次7:财务管理(P3) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次8:现有功能优化 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60 未认领票全量 HEAD 对账(2026-09-25 完成 ✅):53 张票三态判定 + 台账漂移量化 + 三处代,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60c D17 入库 + 同一机制的第二条成因被当场逮到(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):第五十批(2026-09-25,✅ 已闭环,用户指令"我需要所有都做到自动同步 以 web app 为主"),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60d 第二波并行编码落地(2026-09-25 完成 ✅):6 票入库 + 1 票按住 + 两处 HEAD 级恒红当,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60e 收尾三件:收敛器落地闸的"搬家≠吞并"、一批 HEAD 级红的逐条归因、六路报告转正(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60f D19 解锁入库 + 一次"上一票的按住结论会不会过期"的实战(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60g 我自己那张"未开工清单"里有两处过期判定 —— 复测更正,并给出剩下真未开工的门槛(2026-09-25 完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60h 第三波:9 路并行取证与清理的双态行收口、清单更正,以及量出来的 12 条新敞口(2026-09-25 完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60i D94 交接单接进对话流失败位，并自曝一条"装车"判据的漏洞（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O71 取材层收口的最后一跳:守门 93 自带的那份 `cat-file --batch` 归一(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
