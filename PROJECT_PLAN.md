@@ -11935,3 +11935,6 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
     `test_shell_detect_56` 与 `test_patch_safety_56` 各 1 例(**在 Linux runner 上断言 Windows 语义**:
     `'/bin/sh' == 'cmd.exe'`、`'reject' == 'auto_approve'`)—— 最后这两型的正确修法是让用例
     自己 monkeypatch 平台输入而不是按宿主跳,别用 skipif 把覆盖面跳没。
+
+- **真机走查拍到一处新的 RN 缺陷:「设置」页同屏两条页头**(VC45 实拍 `vc45-settings2.png`):上层「< 设置 ☰菜单」之下紧接「< 设置」—— **两个返回箭头、两个标题**。归因线索:`apps/mobile-rn/src/screens/SettingsScreen.tsx:205` 自己渲染 `<NavBar>`,而该屏所在导航容器又给了一层页头(`RootNavigator.tsx:502/602` 有 `headerShown:false`,819 行注册的 stack 归属待查实)。**这一型在小程序端有判据**(守门 102 的 GA6:页内渲染返回键却仍挂原生导航栏 ⇒ 同屏两个箭头 + 双层 chrome),**RN 侧零看守**。处置要先定"哪一层拥有页头",属设计决策,不是顺手删一个 `NavBar` ⇒ 登记为待办,不当干完。
+- **同批如实登记一处"未验到"**:本轮改的 `FloatingActionButton` 只在 `apps/mobile-rn/src/screens/StudyIndexScreen.tsx` 挂载,而该屏从 tabBar 五屏 + 抽屉 + 设置页列表都走不到(设置页列表末项是「关于」,没有「更多功能」入口)⇒ **它只有"门 131 读数 115→113 + typecheck 零错"两把尺子,没有屏幕证据**。不得因为"同一次提交里另一处验过了"就把它也算成已验。
