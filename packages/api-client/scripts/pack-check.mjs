@@ -73,8 +73,13 @@ for (const rel of REQUIRED) {
 }
 
 for (const [dep, range] of Object.entries(pkg.dependencies ?? {})) {
+  // 2026-09-26 由 INFO 升为 FAIL:O14c 落地时这里只打一行提示,写的是"必须用 pnpm publish 发布
+  // (自动重写为 ^version)"。那是把**发布器行为**当成本包的正确性依据 —— 一旦有人用 npm publish
+  // (或 CI 换了发布器)就静默发出去一个装不到的包,而当天 check-pkg-installable 判出的正是这一型。
+  // 现在的口径与 packages/sdk/scripts/prepack.mjs 同形:workspace: 出现在 dependencies 即拒绝,
+  // 内部依赖要么不进运行时(本包现状:@ihui/types 只在 devDependencies),要么先自身可发布。
   if (String(range).startsWith('workspace:')) {
-    info(`依赖 ${dep}@${range} 使用 workspace 协议:必须用 pnpm publish 发布(自动重写为 ^version),npm publish 会原样打包 workspace:* 导致安装失败`)
+    fail(`dependencies 含 workspace 协议包 ${dep}@${range}:外部无法安装(改走 devDependencies + 包内自实现,或先让该包可发布)`)
   }
 }
 for (const [dep, range] of Object.entries(pkg.devDependencies ?? {})) {
