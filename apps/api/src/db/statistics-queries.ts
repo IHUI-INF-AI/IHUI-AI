@@ -242,8 +242,13 @@ export async function createStatisticsSnapshot(
   return row
 }
 
-export async function deleteStatisticsSnapshot(id: string): Promise<void> {
-  await db.delete(statisticsSnapshots).where(eq(statisticsSnapshots.id, id))
+/** 删除统计快照。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteStatisticsSnapshot(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(statisticsSnapshots)
+    .where(eq(statisticsSnapshots.id, id))
+    .returning({ id: statisticsSnapshots.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================

@@ -300,8 +300,17 @@ export async function patchConversationMetadata(
   return updated[0]
 }
 
-export async function deleteConversation(id: string): Promise<void> {
-  await db.delete(chatConversations).where(eq(chatConversations.id, id))
+/**
+ * 删除单条对话,回报**库侧确认删掉的那批 id**。
+ * 2026-09-27 修「deleted:true 是代码常量而非数据库答复」:原来返回 void,调用方
+ * (routes/chat.ts)只能在事后写死 true —— 那一行没删掉也与删掉了同形。
+ */
+export async function deleteConversation(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(chatConversations)
+    .where(eq(chatConversations.id, id))
+    .returning({ id: chatConversations.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================
@@ -1048,18 +1057,24 @@ export async function updateMessage(
  * 为什么删一行也要 reset:被删的行可能落在**已计入断点**的轮次里 —— 那一轮的字节量当场变小,
  * 而 roll 的取数窗口永不回看断点之前 ⇒ 只有重算能把账对回来。
  */
-export async function deleteMessage(id: string): Promise<void> {
-  await db.transaction(async (tx) => {
+export async function deleteMessage(id: string): Promise<string[]> {
+  return db.transaction(async (tx) => {
     const owner = await tx
       .select({ conversationId: chatMessages.conversationId })
       .from(chatMessages)
       .where(eq(chatMessages.id, id))
       .limit(1)
     const conversationId = owner[0]?.conversationId
-    await tx.delete(chatMessages).where(eq(chatMessages.id, id))
+    // 2026-09-27 修「deleted:true 是代码常量而非数据库答复」:删除链必须回报命中集,
+    // 否则调用方(routes/chat.ts)写死的 true 与"这条本就不存在"在响应上同形。
+    const removed = await tx
+      .delete(chatMessages)
+      .where(eq(chatMessages.id, id))
+      .returning({ id: chatMessages.id })
     if (typeof conversationId === 'string') {
       await rollHistoryProjection(tx, conversationId, { reset: true })
     }
+    return removed.map((r) => r.id)
   })
 }
 
