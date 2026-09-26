@@ -37,6 +37,9 @@ import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
+// 格②(2026-09-26):耗时一律走单调钟出口,落库形态经唯一适配器投影
+import { startStopwatch } from '../utils/elapsed-ms.js'
+import { persistableLatency } from '../utils/latency-persistence.js'
 import {
   CURSOR_KIND,
   pageOf,
@@ -1139,6 +1142,9 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
 
       const { model, instructions, metadata } = parsed.data
       const nowMs = Date.now()
+      // 格②(2026-09-26):nowMs 仍是墙钟 epoch(created_at / runRef 在用,语义不得改),
+      // 耗时另起单调钟表测量
+      const sw = startStopwatch()
       const nowSec = Math.floor(nowMs / 1000)
       const runId = `run_${randomUUID()}`
       const effectiveModel = model ?? assistant.model
@@ -1289,6 +1295,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
         await updateRun(redis, completedRun)
 
         // 计费(异步,不阻塞响应)
+        const latency = persistableLatency(sw.stop())
         void recordCall({
           apiKeyId: apiKey.id,
           userId: apiKey.userId,
@@ -1298,12 +1305,18 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           promptTokens,
           completionTokens,
           totalTokens,
-          latencyMs: Date.now() - nowMs,
+          latencyMs: latency.latencyMs,
           status: 'success',
           providerCode: modelToProviderCode(effectiveModel),
           clientIp: request.ip,
           httpStatus: resp.status,
-          metadata: { endpoint: 'assistants.run', threadId, runId, assistantId: assistant.id },
+          metadata: {
+            endpoint: 'assistants.run',
+            threadId,
+            runId,
+            assistantId: assistant.id,
+            latencyTrusted: latency.latencyTrusted,
+          },
         }).catch((e) => {
           console.error('[v1/runs] recordCall FAIL', e?.message || e)
         })
