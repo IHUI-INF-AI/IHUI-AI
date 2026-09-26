@@ -19,7 +19,7 @@ import { test } from 'node:test'
 
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { healStopReasons, buildMerge, __test__ } from '../plan-tasks-merge.mjs'
+import { buildBlockDedupe, healStopReasons, verifyBlockDedupe, buildMerge, __test__ } from '../plan-tasks-merge.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const gitQ = (cwd, args) =>
@@ -160,5 +160,41 @@ test('T6 翻勾必须摘牌:产出行不得同时含 [x] 与（进行中）(守�
   // 有牙证明:若"摘牌"那步被去掉,本条必须红 —— 用变异夹具自证判据不是恒真式
   const leaky = `- [x] ✅(2026-09-26) **[归并]** 注记。 ${'- [ ] （进行中@2026-09-26/x） D99 事'.replace(/^- \[ \]\s*/, '')}`
   if (!leaky.includes('进行中')) throw new Error('变异夹具本身不含标记 ⇒ T6 无牙,须重造')
+})
+
+/**
+ * T7 F6 块级收口的**装车成套性**:函数在、自测过,但 main() 里没有那个开关 ⇒ 提交链与人工
+ * 入口都到不了它 —— 本仓最高频的一型就是"造好没装车"(守门 70/76/81/102 同族)。
+ * 所以这里既判行为,也判"开关真的被解析且真的落到落地函数"。
+ */
+test('T7 块级收口:开关必须真在 CLI 上,且真调落地函数', () => {
+  const src = readFileSync(new URL('../plan-tasks-merge.mjs', import.meta.url), 'utf8')
+  const must = (re, why) => {
+    if (!re.test(src)) throw new Error(`${why}(缺了它就是"函数在而入口不在")`)
+  }
+  must(/has\('--dedupe-blocks'\)/, "CLI 必须解析 --dedupe-blocks")
+  must(/return dedupeAndLand\(\)/, '开关必须真的调用 dedupeAndLand()')
+  must(/export function dedupeAndLand/, '落地函数必须在位')
+  // 与 --heal 的区别必须是**刻意的**:删行不进自动档
+  const seg = src.slice(src.indexOf("has('--dedupe-blocks')"))
+  if (!/if \(!has\('--commit'\)\)/.test(seg)) throw new Error('块级收口未加 --commit 时必须只出报告,不得自动删行')
+})
+
+test('T8 块级收口行为:逐字相同的第 2..N 份删得对,唯一份与漂移副本一份都不许动', () => {
+  const LP = (s) => s + '　'.repeat(Math.max(0, 46 - [...s].length))
+  const BLK = [
+    LP('- 块行一:整块登记被追加两遍,F6 是块级量纲'),
+    LP('- 块行二:第二行,过阈值'),
+    LP('- 块行三:第三行'),
+  ].join('\n')
+  const dup = `## 甲\n${BLK}\n## 乙\n${BLK}\n\n尾行非 bullet`
+  const r = buildBlockDedupe(dup)
+  if (r.deletedCount !== 3) throw new Error(`两份相同应删第 2 份的 3 行,实测 ${r.deletedCount}`)
+  const p = verifyBlockDedupe(dup, r.text, r.deletedCount)
+  if (p.length) throw new Error(`正当收口不得报问题:${JSON.stringify(p)}`)
+  // 幂等:再跑一次必须无事可做(否则归并动作永不收敛,每轮都喊)
+  if (buildBlockDedupe(r.text).deletedCount !== 0) throw new Error('第二次必须判"已收口"')
+  // 反向对照:把幸存份也删掉的输出必须被零损失断言炸掉
+  if (verifyBlockDedupe(dup, '## 甲\n\n空', 3).length === 0) throw new Error('删掉唯一幸存份必须判失败')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
