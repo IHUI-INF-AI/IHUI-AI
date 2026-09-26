@@ -14,7 +14,7 @@
  *
  * 用法:
  *   node scripts/plan-tasks.mjs                  # 人读汇总
- *   node scripts/plan-tasks.mjs --open           # 真·无人认领清单(已剔除作废声明与分叉副本)
+ *   node scripts/plan-tasks.mjs --open           # 真·无人认领清单(已剔除他人已认领、作废声明与分叉副本)
  *   node scripts/plan-tasks.mjs --forks          # F1 同主键两态并存
  *   node scripts/plan-tasks.mjs --void           # F2 带作废声明却未落账
  *   node scripts/plan-tasks.mjs --pointers       # F3 行号指针已腐烂
@@ -84,7 +84,7 @@ function report(a, face) {
   console.log(`  F2 带作废声明未落账: ${c.voidRows} 行`)
   console.log(`  F3 行号指针已腐烂  : ${c.rotatedPointers} 处`)
   console.log(`  重复登记(同主键多行且同态): open ${c.dupOpenGroups} 组 / done ${c.dupDoneGroups} 组`)
-  console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行(= 未勾选 − 分叉副本 − 作废声明)`)
+  console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行(= 未勾选 ${c.open} − 已认领 ${c.claimed} − 分叉副本 − 作废声明)`)
 }
 
 function listRows(rows, face) {
@@ -194,6 +194,7 @@ const FIXTURE = [
   '- [ ] **D98 未做的任务**:这条是真待办,不得被任何判据点名。',
   '- [ ] **D97 作废声明**:〔本行判:已完成,勿照本行派单〕—— 该被 F2 点名。',
   '- [ ] **D96 指针**:本行正题逐字存活于 L1 的同编号登记 —— L1 不是条目行,该被 F3 点名。',
+  '- [ ]（进行中@2026-09-26/someone） **D94 别人已认领**:必须**不进**派单口径(第一版把它算进去了)。',
   '- [x] ✅(2026-09-26) **D95 重复登记已完成**:两行逐字同态。',
   '- [x] ✅(2026-09-26) **D95 重复登记已完成**:两行逐字同态。',
   '',
@@ -212,15 +213,21 @@ function selfTest() {
   }
   const a = auditPlan(FIXTURE)
   const c = a.counts
-  ok(a.rows === 7, `条目行数应为 7,实测 ${a.rows}`)
+  ok(a.rows === 8, `条目行数应为 8,实测 ${a.rows}`)
   ok(c.forks === 1 && a.forks[0].key.startsWith('D99'), `F1 应恰好点到 D99,实测 ${a.forks.map((f) => f.key).join(',')}`)
   ok(a.forks[0].done.length === 1 && a.forks[0].open.length === 1, 'F1 组内应各一态一行')
   ok(a.voidRows.length === 1 && a.voidRows[0].raw.includes('D97'), 'F2 应点到带作废声明的那一行')
   ok(a.rotated.length === 1 && a.rotated[0].target === 1, `F3 应点到腐烂指针 L1,实测 ${JSON.stringify(a.rotated.map((r) => r.target))}`)
   ok(c.dupDoneGroups === 1 && c.dupOpenGroups === 0, `同态重复应只计 done,实测 open=${c.dupOpenGroups} done=${c.dupDoneGroups}`)
-  // 派单口径:未勾选 4 行(D99 副本 / D98 / D97 / D96),扣掉 F1 分叉行与 F2 作废行 ⇒ 剩 D98 与 D96
-  ok(c.open === 4, `夹具应有 4 行未勾选,实测 ${c.open}`)
+  // 派单口径:未勾选 5 行(D99 副本 / D98 / D97 / D96 / D94 已认领),
+  // 扣掉 F1 分叉行、F2 作废行与**带租约的 D94** ⇒ 只剩 D98 与 D96
+  ok(c.open === 5, `夹具应有 5 行未勾选,实测 ${c.open}`)
+  ok(c.claimed === 1 && c.unclaimed === 4, `租约计数应为 1/4,实测 ${c.claimed}/${c.unclaimed}`)
   ok(c.claimable === 2, `派单口径应为 2(D98 + D96),实测 ${c.claimable}`)
+  ok(
+    !a.claimableRows.some((r) => r.raw.includes('D94')),
+    '已带租约的行不得进派单口径 —— 否则 §1 的认领标记形同虚设,别人正在做的事会被再派一遍',
+  )
   // 反向对照:一条什么都没做坏的文档不得产生任何红
   const clean = auditPlan(['- [ ] **D90 干净任务**:无人认领。', '- [x] ✅(2026-09-26) **D91 干净完成**:已落账。'].join('\n'))
   ok(clean.counts.forks === 0 && clean.counts.voidRows === 0 && clean.counts.rotatedPointers === 0, '干净文档必须三条全零')
