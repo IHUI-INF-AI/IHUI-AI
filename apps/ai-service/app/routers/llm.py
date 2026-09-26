@@ -3379,6 +3379,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     # 会话内「总是允许」命中:免弹窗(与 agent_loop_v2 审批缓存同语义)
                                     _approval_needed = False
                             if _approval_needed:
+                                # 类型收窄兜底(与 delegate 分支同一模式):走到本块 ⇒ 上方 grant
+                                # 块必已执行且未置 False,session_id 在那时已被保证非 None,
+                                # 故此判据实际恒不触发;mypy 无法跨两个 if 块关联该收窄,重复
+                                # 一次同款兜底让本块内(含 3387/3428/3436 的字典键取用)恒为 str。
+                                if session_id is None:
+                                    session_id = str(uuid.uuid4())
                                 tool_call_id = tc.get("id", "")
                                 _approval_id = f"appr_{uuid.uuid4().hex[:12]}"
                                 # 参数预览截断 200 字符(与 agent 任务流 tool-approval 口径一致)
