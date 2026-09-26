@@ -10416,6 +10416,37 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
     因为父进程被杀时 `finally` 根本不跑 —— 实测第一版就留下 `config/index.ts` 处于已改状态,靠 `git diff` 才抓到;
     ② 取证构建**不得删共享 `dist`**:它被微信开发者工具持有句柄(`rename` 报 `EBUSY`、`rm` 报 `EPERM`),
     正解是走 config 里已有的 `IHUI_MINIAPP_OUTPUT_ROOT` 改道到 `.tmp-*`(根 .gitignore:239 已忽略该形态)。
+
+### O62 附⑭:`%` 的转写映射取证进表(覆盖率读数因此从 96.36% 变 97.79%)、门补"工作树↔被审面"错位提示,以及 5 类**确证没落地**的档(不解释掉)
+- [x] ✅(2026-09-26)**转写表补上第 11 条:`%` → `_v`。** 此前 C1 把 11 类含 `%` 的档归进"表外标点 ⇒ 判不出是真没落地还是表缺一条"只报数。
+  判"表缺哪一条"**不得只试一种映射**:拿真产物选择器集(本次 2,703 个)喂 6 个候选(`_v/_w/_x/_y/_z` + 不映射),
+  只有 `_v` 命中 **11/12** 种含 `%` 的档,其余全 0。逐字见证:`max-w-[78%]` → `max-w-_b78_v_B`、
+  `w-[calc(50%_-_8rpx)]` → `w-_bcalc_p50_v_-_8rpx_P_B`(同一次构建,取证 `.ihui-agent/tmp/dev-cache/pct-probe.mjs`)。
+  落地效果:C1 `742/770 = 96.36%` → **`753/770 = 97.79%`**,"表外标点缺项"这一格从 11 归零。
+  三条锁同笔进:`--self-test` P48c/P48d(逐字映射)、镜像"表里每条键都得有逐字样本"那把锁必须收到 `%` 的样本才放行,
+  而"未实测标点不得猜进表"的禁则集合从 `* % # @ > ~` 收窄为 `* # @ > ~` —— **收窄的是证据等级,不是判据严格度**。
+  另外把 P48/P51 两条老自用 `%` 当"表外字符"例子的自检改成 `@`:`%` 已有证,继续拿它当"待猜"样本会让两条锁互相矛盾。
+- [x] ✅(2026-09-26)**看产物的门新增"面错位"提示(不计红,但必须打印)**:源码面按 HEAD/索引判,而磁盘产物永远是**工作树的产物**
+  (构建器不看 git 面)⇒ 两侧路径有差异时,"HEAD 用了、工作树已删"的档结构上必然出现在缺项里,那不是端的债。
+  本会话就差点栽在这里:我第一版探针用 `git grep -c -w 'text-[length:28rpx]'` 量出"工作树 0 行",
+  据此想把 4 个 `text-[length:*rpx]` 缺项判成尺子错位 —— **`-w` 遇到 `[` `]` `:` 会把整条判据变成哑弹**,
+  量到的 0 是工具失效不是世界如此(与 §22c"判据失效的表现永远是安静"同型)。
+  现由 `countWorktreeDrift()` 逐路径数(`git status --porcelain` 的清单,不读内容;重命名行取新路径),
+  非 0 就在报告里点名"有 N 个路径两侧不同";自检 P78/P78b/P78c 三条成对钉住前缀、重命名、去重与空输入。
+- [ ] **5 类确证没落地的档,登记为待查而不是解释掉**:`container`、
+  `text-[length:28rpx]`、`text-[length:32rpx]`、`text-[length:36rpx]`、`text-[length:44rpx]`。逐条已排除的假因:
+  ① **不是尺子的形态问题** —— 同族小档 `.text-_blength_c16rpx_B` … `c26rpx_B`、`c30`、`c34`、`c40` **全在产物里**,
+  缺的只有 28/32/36/44(逐个 grep 154 个 wxss 量出来的,不是抽样);
+  ② **不是转写表缺字符** —— `:` `[ ]` 三条早已取证在表内;
+  ③ **不是面错位** —— 用这四处档的文件(`components/AgentListPanel.tsx:151`、`components/LessonListItem.tsx:105/163/232` 等)
+  在工作树里**未被修改**;
+  ④ **不是 v4 不认 `length:` 提示档** —— 直接把 7 个候选喂真 v4 参考层:`text-[length:28rpx]` 产出
+  `{font-size:28rpx}`,而裸 `text-[28rpx]` 产出 `{color:28rpx}`(⇒ 守门 93 R7 规定的写法在 v4 下同样正确,
+  那条"只有 rpx 这一族坏"的结论再次成立)。
+  `container` 同法:v4 参考层确实产出 `{width:100%;max-width:40rem…}`,产物里**一个 `.container{` 都没有**。
+  下一步要问的是"**为什么同族里恰好这几档被丢**":候选要先按"参与构建的模块图"过滤(这几个组件是否真被某个页面 import),
+  再按 v4 的 `@source` 扫描面比对;**注意 `container` 补落地会改变观感**(该处 `<View className="container" style={{padding:0}}>`
+  现状等于满宽,真出规则就会变成 max-width 640px 一档)⇒ 属产品决策,不得当成"顺手补齐"(§24)。
 ### O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅)
 - [x] ✅(2026-09-24) **第 3、4 次同型事故(继守门 64、70 之后)**:用五处权威接线点求差集实测抓到三枚脚本存在却**无人调用**的守门 —— `check-test-paths`(AGENTS §23 写"CI / pre-commit 必跑")、`check-verify-tmp-files`(§25 写"CI")、`check-i18n-messages-exist`(自称 pre-commit 模式)。已按实测档位登记为 **85 blocking / 86 warn / 87 blocking**,装门前逐枚实测真仓全量与 `--staged` 双口径均 exit 0(不误伤任何在途提交)。commit `66d2ae1a26d`。
 - [x] ✅(2026-09-24) **本仓结构性事实(以后所有接线核查必须知道)**:`.husky/pre-commit` 自 2026-09-22 起只是 5 行薄壳(`wscript //nologo scripts/hook-run-hidden.vbs pre-commit scripts/lib/pre-commit-hook.js`),**真实 pre-commit 逻辑在 `scripts/lib/pre-commit-hook.js`**。所以"权威接线点"是**五处**:`guardian-runner.mjs` 的 `script:` 值 ∪ `scripts/lib/pre-commit-hook.js` ∪ `.husky/*` ∪ 根 `package.json` ∪ `.github/workflows/*`(+ `run-8end-consistency-cert.mjs`)。**只查 `.husky/pre-commit` 会得出完全相反的结论** —— 我一开始就据此误判 `check-pwsh-version`/`check-button-height` "没装车",实际它们在 hook.js:517/560 生效,是文档写的调用点名字不对。
