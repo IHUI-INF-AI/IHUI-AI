@@ -672,6 +672,60 @@ if (process.env.HUSKY_SKIP_AGENT_ENGINE_PARITY !== '1') {
   console.log('⏭  Agent Engine 协议 parity 守门(HUSKY_SKIP_AGENT_ENGINE_PARITY=1, 跳过)')
 }
 
+// 🔧 工具注册表完整性守门(2026-09-26 立,blocking;V3 #49)
+// 背景:ai-service 的 fs 类工具有两个相交但不等的**可达面** —— 本地注册面
+//      (mcp_server._TOOL_HANDLERS)与浏览器委托面(apps/web workspace-tool-executor.ts,
+//      仅当请求带 workspace_context 时可用)。`apply_patch` / `create_file` /
+//      `delete_file` / `move_file` 只在后者存在,桌面端/本地工作区下调它们会走到
+//      _mcp.call_tool 拿到模糊的「未知工具」,模型只能原地重试到迭代打满。
+//      切面(_DELEGATE_ONLY_TOOLS / _TOOL_ALIASES / _FS_DEPENDENT_TOOLS)任何一侧
+//      单边改名前 llm.py 与三个事实源必须对得上,否则漂移在提交时即被拦下。
+// 跳过方法(紧急):HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY=1 git commit ...
+if (process.env.HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY !== '1') {
+  if (
+    !run(
+      '🔧 工具注册表完整性守门(工具可达面 ↔ 本地注册表 ↔ 前端委托实现)...',
+      'node scripts/check-tool-registry-integrity.mjs --quiet',
+    )
+  ) {
+    console.error('❌ 工具注册表完整性守门失败,提交已阻止')
+    console.error('   修复:三面对齐 —— llm.py 的 _FS_DEPENDENT_TOOLS / _DELEGATE_ONLY_TOOLS /')
+    console.error(
+      '        _TOOL_ALIASES ↔ mcp_server._TOOL_HANDLERS ↔ workspace-tool-executor.ts 的 case',
+    )
+    console.error('   自检: node scripts/check-tool-registry-integrity.mjs --self-test')
+    console.error('   紧急跳过:HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY=1 git commit ...')
+    process.exit(1)
+  }
+} else {
+  console.log('⏭  工具注册表完整性守门(HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY=1, 跳过)')
+}
+
+// 📋 能力矩阵对账守门(2026-09-26 立,blocking;V3 #57)
+// 背景:ai-service 存在 76 个 feature env(开关/灰度/门控三类),散落各处且多数默认关
+//      ——之前没人能一句话说清「生产上哪些能力是关的」。capability_matrix.py 是台账
+//      单一事实源;本门断言代码库新增的默认关 env 必须登记进台账(漏登即红),
+//      防止「移植完成但线上从不跑」的能力再次无感堆积。
+// 跳过方法(紧急):HUSKY_SKIP_CAPABILITY_MATRIX=1 git commit ...
+if (process.env.HUSKY_SKIP_CAPABILITY_MATRIX !== '1') {
+  if (
+    !run(
+      '📋 能力矩阵对账守门(默认关 env 必须登记台账)...',
+      'node scripts/check-capability-matrix.mjs --quiet',
+    )
+  ) {
+    console.error('❌ 能力矩阵对账守门失败,提交已阻止')
+    console.error(
+      '   修复:在 apps/ai-service/app/core/capability_matrix.py 补登记(含 category/reason),',
+    )
+    console.error('   或该 env 本不该默认关 —— 改默认值前先查有没有灰度体系与钉住它的测试')
+    console.error('   紧急跳过:HUSKY_SKIP_CAPABILITY_MATRIX=1 git commit ...')
+    process.exit(1)
+  }
+} else {
+  console.log('⏭  能力矩阵对账守门(HUSKY_SKIP_CAPABILITY_MATRIX=1, 跳过)')
+}
+
 // 🖥️ 桌面端事件链路接线守门(2026-09-22 立,blocking)
 // 背景:用户反馈"托盘右键菜单『切换主题』/『打开设置』点击没任何反应"。根因是三层事件链
 //      的第 3 层断裂 —— Rust emit → use-desktop.ts 转 CustomEvent → **无任何 addEventListener
