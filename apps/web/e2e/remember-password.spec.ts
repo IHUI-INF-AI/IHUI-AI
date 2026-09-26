@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect, type Page } from '@playwright/test'
+import { ensureLoginDialogOpen } from './open-login-dialog'
 
 /**
  * 记住密码 + 自动登录 + 账号历史 e2e 测试
@@ -38,13 +39,9 @@ async function openLoginDialog(page: Page) {
 
   // 检查登录弹窗是否已自动打开(LoginRedirectListener)
   const loginDialog = page.getByTestId('login-dialog')
-  const isAlreadyOpen = await loginDialog.isVisible({ timeout: 2000 }).catch(() => false)
-
-  if (!isAlreadyOpen) {
-    // 2026-08-26 修复:header 已无登录按钮(登录入口改到侧边栏底部/用户区,快照实测
-    // button "登录" 在 main 区域)。去掉 header 限定器,全局取第一个登录按钮。
-    await page.getByRole('button', { name: /登录/ }).first().click()
-  }
+  // 开弹窗的写法收进唯一出口(未登录态自 2026-09 起是"点行开菜单 → 点菜单项"两步,
+  // 这里原来"全局点第一个登录按钮"只会把菜单打开,弹窗永远等不到)
+  await ensureLoginDialogOpen(page)
 
   await expect(loginDialog).toBeVisible({ timeout: 10000 })
 
