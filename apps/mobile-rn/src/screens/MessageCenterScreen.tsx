@@ -3,10 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { Alert, StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi, listConversations } from '@ihui/api-client'
+import { fetchApi, listConversations, setConversationPinned } from '@ihui/api-client'
+import { togglePinnedItem } from '@ihui/shared/chat/conversation-pin'
 import { MessageCenterScreen as SharedMessageCenterScreen } from '@ihui/rn-app'
 import type { MessageCenterItem, MessageConversationItem, MessageTab } from '@ihui/rn-app'
 import { SearchInput } from '@ihui/rn-app'
@@ -51,6 +52,8 @@ interface ConversationItem {
   updatedAt?: string
   /** 未读数(对齐 Uniapp message 页 chat-item unreadCount;后端返回时透传,shared 据此渲染未读徽章) */
   unread?: number
+  /** 是否置顶(chat_conversations.pinned;列表接口本就按置顶优先排序返回) */
+  pinned?: boolean
 }
 
 /** 时间格式化(对齐 Uniapp formatDateHistory 的 HH:mm 展示,跨天显示日期) */
@@ -114,6 +117,8 @@ export function MessageCenterScreen() {
                 : undefined,
             // 未读数透传(对齐 Uniapp L198 unread-badge:unreadCount>0 显示红点;shared convUnread 渲染 99+ 截断)
             unread: c.unread,
+            // 置顶态透传(D20 G-11):排序出口见 handleTogglePin
+            pinned: c.pinned === true,
           })),
         )
       }
@@ -138,6 +143,30 @@ export function MessageCenterScreen() {
   const onPressItem = (item: MessageCenterItem) => {
     navigation.navigate('MessageDetail', { id: item.id })
   }
+
+  /**
+   * 会话置顶/取消置顶(D20 G-11 端内接线):
+   * 网络出口唯一 = @ihui/api-client setConversationPinned(PATCH /api/chat/conversations/:id,
+   * requireAuth + 属主校验在先);成功 → 复用共享 sortPinnedFirst 的置顶优先稳定重排
+   * (packages/shared/src/chat/conversation-pin,排序实现只有 conversation-org 一份);
+   * 失败 → Alert 显式喊出,不得静默。文案键 messageCenter.pin/unpin/pinFailed/unpinFailed
+   * 待主会话在 packages/i18n/messages/mobile-rn 登记(缺键暂时回显 key,已列入交付报告)。
+   */
+  const handleTogglePin = useCallback(
+    async (conv: MessageConversationItem) => {
+      const next = conv.pinned !== true
+      const outcome = await togglePinnedItem(conversations, conv.id, next, setConversationPinned)
+      if (outcome.ok) {
+        setConversations(outcome.items)
+      } else {
+        Alert.alert(
+          uniappT('messageCenter.title'),
+          t(next ? 'messageCenter.pinFailed' : 'messageCenter.unpinFailed'),
+        )
+      }
+    },
+    [conversations, uniappT, t],
+  )
 
   // 搜索过滤(对齐 Uniapp message 页搜索:按名称/内容包含匹配,过滤当前会话与消息列表)
   const keyword = searchKeyword.trim().toLowerCase()
@@ -185,6 +214,7 @@ export function MessageCenterScreen() {
         onPressConversation={(conv) =>
           navigation.navigate('MessageChat', { peerId: conv.id, name: conv.name })
         }
+        onTogglePin={(conv) => void handleTogglePin(conv)}
         onBack={() => navigation.goBack()}
         colorScheme={resolvedTheme}
       />

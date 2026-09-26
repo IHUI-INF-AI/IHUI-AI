@@ -333,6 +333,8 @@ export interface MessageConversationItem {
   unread?: number
   /** 状态文案(可选,如「在线」) */
   status?: string
+  /** 是否置顶(chat_conversations.pinned;服务端列表接口已按置顶优先排序返回) */
+  pinned?: boolean
 }
 
 /** 消息中心共享�?props */
@@ -353,6 +355,9 @@ export interface MessageCenterScreenProps {
   conversations?: MessageConversationItem[]
   /** 点击会话回调(对齐 Uniapp handleChatClick → 会话聊天页) */
   onPressConversation?: (item: MessageConversationItem) => void
+  /** 置顶/取消置顶会话回调(可选;不传则会话行不渲染置顶按钮)。
+   *  调用方一律经 @ihui/api-client setConversationPinned 发起,失败必须有可见反馈。 */
+  onTogglePin?: (item: MessageConversationItem) => void
   onBack: () => void
   /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
