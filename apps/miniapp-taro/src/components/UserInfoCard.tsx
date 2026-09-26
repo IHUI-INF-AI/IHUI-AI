@@ -5,8 +5,50 @@
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import { cn } from '@ihui/design-tokens'
+import { cn, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import {
+  USER_INFO_CARD_ACTION_PADDING_X_PX,
+  USER_INFO_CARD_ACTION_PADDING_Y_PX,
+  USER_INFO_CARD_AVATAR_PX,
+  USER_INFO_CARD_BADGE_PADDING_X_PX,
+  USER_INFO_CARD_BADGE_PADDING_Y_PX,
+  USER_INFO_CARD_HEADER_GAP_PX,
+  USER_INFO_CARD_LOGIN_FONT_PX,
+  USER_INFO_CARD_NAME_FONT_PX,
+  USER_INFO_CARD_PADDING_PX,
+  USER_INFO_CARD_ROW_MARGIN_TOP_PX,
+  USER_INFO_CARD_SMALL_FONT_PX,
+  USER_INFO_CARD_TOKEN_FONT_PX,
+} from '@ihui/shared/ui/user-info-card-spec'
+import { rpx } from '@/utils/rpx'
 import type { UserInfoCardMinimalProps } from '@ihui/types'
+
+/// 档位数字唯一源在 @ihui/shared/ui/user-info-card-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
+const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
+const PAD_STYLE = { padding: toUnit(USER_INFO_CARD_PADDING_PX) }
+const HEADER_GAP_STYLE = { gap: toUnit(USER_INFO_CARD_HEADER_GAP_PX) }
+const AVATAR_STYLE = {
+  width: toUnit(USER_INFO_CARD_AVATAR_PX),
+  height: toUnit(USER_INFO_CARD_AVATAR_PX),
+}
+const NAME_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_NAME_FONT_PX) }
+const SMALL_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_SMALL_FONT_PX) }
+const TOKEN_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_TOKEN_FONT_PX) }
+const LOGIN_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_LOGIN_FONT_PX) }
+/// CSSProperties(Taro)不认 paddingXxxHorizontal/Vertical 简写,拆成四键喂同一档位(参照 Loading.tsx 口径)
+const BADGE_PAD_STYLE = {
+  paddingLeft: toUnit(USER_INFO_CARD_BADGE_PADDING_X_PX),
+  paddingRight: toUnit(USER_INFO_CARD_BADGE_PADDING_X_PX),
+  paddingTop: toUnit(USER_INFO_CARD_BADGE_PADDING_Y_PX),
+  paddingBottom: toUnit(USER_INFO_CARD_BADGE_PADDING_Y_PX),
+}
+const ACTION_PAD_STYLE = {
+  paddingLeft: toUnit(USER_INFO_CARD_ACTION_PADDING_X_PX),
+  paddingRight: toUnit(USER_INFO_CARD_ACTION_PADDING_X_PX),
+  paddingTop: toUnit(USER_INFO_CARD_ACTION_PADDING_Y_PX),
+  paddingBottom: toUnit(USER_INFO_CARD_ACTION_PADDING_Y_PX),
+}
+const ROW_MARGIN_STYLE = { marginTop: toUnit(USER_INFO_CARD_ROW_MARGIN_TOP_PX) }
 // 本地化远程 CDN 图片:原 aizhs 图库在 H5 模式下加载失败,改为本地 SVG 占位
 import vipActIcon from '@/assets/remote-images/user-vip-act.svg'
 // 图标引用对齐原项目 zhs_app-ZZ/UserInfoCard.vue
@@ -86,7 +128,7 @@ export default function UserInfoCard({
     showGrowthBar && growthMax && growthMax > 0 ? Math.min((growthValue / growthMax) * 100, 100) : 0
 
   return (
-    <View className={cn('rounded-lg bg-card border border-border p-3', className)}>
+    <View className={cn('rounded-lg bg-card border border-border', className)} style={PAD_STYLE}>
       {/* ===== 未登录态:一键登录按钮(对齐原项目 login-btn-new)===== */}
       {!isLogged && onLogin ? (
         <View
@@ -95,24 +137,27 @@ export default function UserInfoCard({
           hoverClass="opacity-85"
           onClick={onLogin}
         >
-          <Text className="text-sm text-primary-foreground font-medium">
+          <Text className="text-primary-foreground font-medium" style={LOGIN_FONT_STYLE}>
             {tt('UserInfoCard.login1', '一键登录')}
           </Text>
         </View>
       ) : (
         <View hoverClass="opacity-85" onClick={onClick}>
-          <View className="flex items-center gap-3">
+          <View className="flex items-center" style={HEADER_GAP_STYLE}>
             {/* 头像:有 avatar 用 avatar,无则用原项目默认头像 daixaodiming.png(可点击编辑) */}
             <Image
               src={avatar || defaultAvatarImg}
               mode="aspectFill"
-              className="w-12 h-12 rounded-md bg-muted"
+              className="rounded-md bg-muted"
+              style={AVATAR_STYLE}
             />
             <View className="flex-1 min-w-0">
               {/* 用户名行:userIcon + 昵称 + VIP 徽标 + 操盘手标识 + 编辑图标 */}
               <View className="flex items-center gap-2">
                 <Image src={userIconImg} mode="aspectFit" className="w-5 h-5 flex-shrink-0" />
-                <Text className="text-sm font-medium text-foreground truncate">{nickname}</Text>
+                <Text className="font-medium text-foreground truncate" style={NAME_FONT_STYLE}>
+                  {nickname}
+                </Text>
                 {/* VIP 徽标:isVip 用 userVip_act.png(远程),非 VIP 用 userVip_nor.png(本地) */}
                 <View className="relative flex-shrink-0">
                   <Image
@@ -122,7 +167,10 @@ export default function UserInfoCard({
                   />
                   {isVip && vipTitle ? (
                     <View className="absolute inset-0 flex items-center justify-center">
-                      <Text className="text-[length:20rpx] text-[var(--color-white-98)] font-medium leading-none">
+                      <Text
+                        className="text-[var(--color-white-98)] font-medium leading-none"
+                        style={SMALL_FONT_STYLE}
+                      >
                         {vipTitle}
                       </Text>
                     </View>
@@ -135,8 +183,8 @@ export default function UserInfoCard({
                     style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text
-                      className="text-[length:20rpx] font-medium"
-                      style={{ color: 'var(--color-warning)' }}
+                      className="font-medium"
+                      style={{ ...SMALL_FONT_STYLE, color: 'var(--color-warning)' }}
                     >
                       {tt('distribution.index.defaultName', '操盘手')}
                     </Text>
@@ -151,10 +199,11 @@ export default function UserInfoCard({
                 ) : null}
               </View>
               {/* 等级 + 智汇值行 */}
-              <View className="flex items-center gap-2 mt-1">
+              <View className="flex items-center gap-2" style={ROW_MARGIN_STYLE}>
                 {displayLevel ? (
                   <View
-                    className="px-1.5 py-0.5 rounded-sm bg-primary/10 flex-shrink-0"
+                    className="rounded-sm bg-primary/10 flex-shrink-0"
+                    style={BADGE_PAD_STYLE}
                     hoverClass="opacity-85"
                     onClick={
                       onOpenLevel
@@ -165,7 +214,9 @@ export default function UserInfoCard({
                         : undefined
                     }
                   >
-                    <Text className="text-[length:20rpx] text-primary font-medium">{displayLevel}</Text>
+                    <Text className="text-primary font-medium" style={SMALL_FONT_STYLE}>
+                      {displayLevel}
+                    </Text>
                   </View>
                 ) : null}
                 {/* 智汇值行:wirelesslogo + tokenDisplay + rechargebtn(对齐原项目 token 显示) */}
@@ -187,7 +238,9 @@ export default function UserInfoCard({
                       mode="aspectFit"
                       className="w-4 h-3 flex-shrink-0"
                     />
-                    <Text className="text-xs text-muted-foreground truncate">{tokenDisplay}</Text>
+                    <Text className="text-muted-foreground truncate" style={TOKEN_FONT_STYLE}>
+                      {tokenDisplay}
+                    </Text>
                     {onWallet ? (
                       <Image
                         src={rechargeBtnImg}
@@ -201,12 +254,12 @@ export default function UserInfoCard({
 
               {/* ===== 成长值进度条(对齐原项目 growth-bar:外层灰底 + 内层渐变填充)===== */}
               {showGrowthBar ? (
-                <View className="mt-2">
+                <View style={ROW_MARGIN_STYLE}>
                   <View className="flex items-center justify-between mb-1">
-                    <Text className="text-[length:20rpx] text-muted-foreground">
+                    <Text className="text-muted-foreground" style={SMALL_FONT_STYLE}>
                       {tt('member.index.growth', '成长值')}
                     </Text>
-                    <Text className="text-[length:20rpx] text-muted-foreground">
+                    <Text className="text-muted-foreground" style={SMALL_FONT_STYLE}>
                       {growthValue} / {growthMax}
                     </Text>
                   </View>
@@ -224,19 +277,19 @@ export default function UserInfoCard({
               ) : null}
 
               {/* ===== 操作按钮行(对齐原项目:开通会员 / 退订 / 充值)===== */}
-              <View className="flex items-center gap-2 mt-2">
+              <View className="flex items-center gap-2" style={ROW_MARGIN_STYLE}>
                 {/* 开通会员按钮(仅非 isVip 显示,对齐原项目 openIntroduce) */}
                 {!isVip && onOpenVip ? (
                   <View
-                    className="px-3 py-1 rounded-sm"
-                    style={{ background: 'var(--color-primary)' }}
+                    className="rounded-sm"
+                    style={{ ...ACTION_PAD_STYLE, background: 'var(--color-primary)' }}
                     onClick={(e) => {
                       e.stopPropagation()
                       onOpenVip()
                     }}
                     hoverClass="opacity-85"
                   >
-                    <Text className="text-[length:22rpx] text-primary-foreground font-medium">
+                    <Text className="text-primary-foreground font-medium" style={SMALL_FONT_STYLE}>
                       {tt('vipTrader.openTitle', '开通会员')}
                     </Text>
                   </View>
@@ -244,14 +297,15 @@ export default function UserInfoCard({
                 {/* 退订按钮(仅 isVip 显示,对齐原项目 unsubscribe) */}
                 {isVip && onUnsubscribe ? (
                   <View
-                    className="px-3 py-1 rounded-sm border border-border"
+                    className="rounded-sm border border-border"
+                    style={ACTION_PAD_STYLE}
                     onClick={(e) => {
                       e.stopPropagation()
                       onUnsubscribe()
                     }}
                     hoverClass="opacity-85"
                   >
-                    <Text className="text-[length:22rpx] text-muted-foreground">
+                    <Text className="text-muted-foreground" style={SMALL_FONT_STYLE}>
                       {tt('UserInfoCard.text2', '退订')}
                     </Text>
                   </View>
@@ -259,14 +313,15 @@ export default function UserInfoCard({
                 {/* 充值按钮(onWallet 且智汇值行未显示时兜底) */}
                 {onWallet && !tokenDisplay ? (
                   <View
-                    className="px-3 py-1 rounded-sm bg-primary"
+                    className="rounded-sm bg-primary"
+                    style={ACTION_PAD_STYLE}
                     onClick={(e) => {
                       e.stopPropagation()
                       onWallet()
                     }}
                     hoverClass="opacity-85"
                   >
-                    <Text className="text-[length:22rpx] text-primary-foreground font-medium">
+                    <Text className="text-primary-foreground font-medium" style={SMALL_FONT_STYLE}>
                       {tt('wallet.recharge.submit', '充值')}
                     </Text>
                   </View>
