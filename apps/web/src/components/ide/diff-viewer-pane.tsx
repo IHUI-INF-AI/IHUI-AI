@@ -24,7 +24,12 @@ import {
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useToast } from '@/hooks/use-toast'
 import { DiffPreview } from '@/components/ai/diff-preview'
-import { InlineDiffViewer } from '@/components/ai/inline-diff-viewer'
+import { InlineDiffViewer, ThreeWayMergeView } from '@/components/ai/inline-diff-viewer'
+import {
+  attachViewModeMirror,
+  useDiffViewModeStore,
+  type ViewModeMirror,
+} from '@/lib/diff-view-mode'
 import { cn } from '@/lib/utils'
 import {
   ChevronDown,
@@ -41,6 +46,7 @@ import {
   Copy,
   TriangleAlert,
   RotateCcw,
+  GitMerge,
 } from 'lucide-react'
 
 type DiffContent = { oldContent: string; newContent: string }
@@ -59,8 +65,11 @@ export interface DiffViewerPaneProps {
 }
 
 export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewerPaneProps = {}) {
-  const { diffFiles, activeDiffFileId, diffViewMode, setActiveDiffFile, workspacePath } =
-    useIDEWorkspace()
+  const { diffFiles, activeDiffFileId, setActiveDiffFile, workspacePath } = useIDEWorkspace()
+  // V3 #66:档位读唯一真相源(`@/lib/diff-view-mode`,含持久化),与 chat 内联 diff 同一份。
+  const diffViewMode = useDiffViewModeStore((s) => s.mode)
+  const threeWayOpen = useDiffViewModeStore((s) => s.threeWayOpen)
+  const setThreeWayOpen = useDiffViewModeStore((s) => s.setThreeWayOpen)
   const t = useTranslations('ide')
   const [showFileList, setShowFileList] = React.useState(true)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
@@ -196,10 +205,91 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
     })
   }, [diffFiles])
 
+  // V3 #66:把 IDE store 里那份遗留档位接成唯一真相源的镜像 ——
+  // `diff-stats-bar.tsx` 的切换按钮仍写 `useIDEWorkspace`(该文件与 store 都不在本票可改范围),
+  // 不接桥就会点一下没反应。方向语义:真相源永远是 lib store,mirror 只负责"显示与点击都成立"。
+  React.useEffect(() => {
+    const mirror: ViewModeMirror = {
+      get: () => useIDEWorkspace.getState().diffViewMode,
+      set: (mode) => useIDEWorkspace.getState().setDiffViewMode(mode),
+      subscribe: (listener) =>
+        useIDEWorkspace.subscribe((state, prev) => {
+          if (state.diffViewMode !== prev.diffViewMode) listener()
+        }),
+    }
+    return attachViewModeMirror(mirror)
+  }, [])
+
+  // V3 #66:三方合并的三份内容 —— 优先取 git 索引的 stage 1/2/3(真正处于冲突态时),
+  // 不在冲突态则退到「共同祖先 = HEAD,当前 = 工作区,传入 = HEAD」(即无传入改动,块全部自动可解)。
+  const [threeWayContents, setThreeWayContents] = React.useState<{
+    base: string
+    ours: string
+    theirs: string
+    conflicted: boolean
+  } | null>(null)
+  const [threeWayBusy, setThreeWayBusy] = React.useState(false)
+  const [threeWayNonce, setThreeWayNonce] = React.useState(0)
+  React.useEffect(() => {
+    if (!threeWayOpen || !activeFilename || !workspacePath) return
+    let cancelled = false
+    setThreeWayBusy(true)
+    const readStage = async (stage: 1 | 2 | 3): Promise<string | null> => {
+      try {
+        const r = await runCommand({
+          command: `git show :${stage}:"${activeFilename}"`,
+          workspacePath,
+          mode: 'read-only',
+        })
+        return r.success ? r.data.stdout : null
+      } catch {
+        return null
+      }
+    }
+    void (async () => {
+      const st1 = await readStage(1)
+      const st2 = await readStage(2)
+      const st3 = await readStage(3)
+      const conflicted = st2 !== null && st3 !== null
+      let base = st1
+      let ours = st2
+      let theirs = st3
+      if (base === null) {
+        try {
+          const r = await runCommand({
+            command: `git show HEAD:"${activeFilename}"`,
+            workspacePath,
+            mode: 'read-only',
+          })
+          base = r.success ? r.data.stdout : ''
+        } catch {
+          base = ''
+        }
+      }
+      if (ours === null) {
+        try {
+          const r = await readFile({ path: `${workspacePath}/${activeFilename}`, workspacePath })
+          ours = r.success ? r.data.content : ''
+        } catch {
+          ours = ''
+        }
+      }
+      // 无 stage 3 ⇒ 没有"传入"这一侧,以祖先充当(全部块自动可解),而不是伪造一份改动
+      if (theirs === null) theirs = base
+      if (cancelled) return
+      setThreeWayContents({ base, ours, theirs, conflicted })
+      setThreeWayBusy(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [threeWayOpen, activeFilename, workspacePath, threeWayNonce])
+
   // D98③:切换文件时重置失败/重试计数
   React.useEffect(() => {
     setLoadErrorFileId(null)
     setRetryCount(0)
+    setThreeWayContents(null)
   }, [activeFileId])
 
   const toggleReviewed = React.useCallback((id: string) => {
@@ -336,6 +426,36 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
           />
           <span>{t('diffReview.hideGenerated')}</span>
         </label>
+        {/* V3 #66:三方合并入口(与 unified/split 档位正交:它换的是"内容来源",不是排版) */}
+        <button
+          type="button"
+          onClick={() => {
+            setThreeWayOpen(!threeWayOpen)
+            setThreeWayNonce((n) => n + 1)
+          }}
+          disabled={!activeDiff}
+          aria-pressed={threeWayOpen}
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+            threeWayOpen
+              ? 'bg-muted text-foreground'
+              : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+          )}
+          data-testid="diff-3way-toggle"
+        >
+          <GitMerge className="h-3 w-3" aria-hidden />
+          <span>{t('diffViewer.threeWayView')}</span>
+        </button>
+        {threeWayOpen && threeWayContents && (
+          <span
+            className="shrink-0 text-[10px] text-muted-foreground"
+            data-testid="diff-3way-source"
+          >
+            {threeWayContents.conflicted
+              ? t('diffViewer.threeWayFromStages')
+              : t('diffViewer.threeWayNoConflictSource')}
+          </span>
+        )}
         {diffFiles.length > 0 && (
           <span
             className="inline-flex shrink-0 items-center gap-1 text-muted-foreground"
@@ -472,7 +592,23 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
                 {t('diffReview.loading')}
               </div>
             )}
-            {!isLoading && effectiveDiff && diffViewMode === 'split' && (
+            {threeWayOpen && effectiveDiff && threeWayBusy && (
+              <div
+                className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground"
+                data-testid="diff-3way-loading"
+              >
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                <span>{t('diffReview.loading')}</span>
+              </div>
+            )}
+            {threeWayOpen && effectiveDiff && !threeWayBusy && threeWayContents && (
+              <ThreeWayMergeView
+                base={threeWayContents.base}
+                ours={threeWayContents.ours}
+                theirs={threeWayContents.theirs}
+              />
+            )}
+            {!threeWayOpen && !isLoading && effectiveDiff && diffViewMode === 'split' && (
               <DiffPreview
                 oldContent={effectiveOld}
                 newContent={effectiveNew}
@@ -480,9 +616,10 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
                 filename={effectiveDiff.filename}
               />
             )}
-            {!isLoading && effectiveDiff && diffViewMode === 'unified' && (
+            {!threeWayOpen && !isLoading && effectiveDiff && diffViewMode === 'unified' && (
               <InlineDiffViewer
-                content={generateUnifiedDiff(effectiveOld, effectiveNew)}
+                oldContent={effectiveOld}
+                newContent={effectiveNew}
                 filename={effectiveDiff.filename}
               />
             )}
@@ -632,22 +769,5 @@ function countChangeBlocks(oldContent: string, newContent: string): number {
     }
   }
   return blocks
-}
-
-function generateUnifiedDiff(oldContent: string, newContent: string): string {
-  const oldLines = oldContent.split('\n')
-  const newLines = newContent.split('\n')
-  const result: string[] = []
-  const maxLen = Math.max(oldLines.length, newLines.length)
-  for (let i = 0; i < maxLen; i++) {
-    const ol = oldLines[i]
-    const nl = newLines[i]
-    if (ol === nl) result.push(nl ?? '')
-    else {
-      if (ol !== undefined) result.push(`-${ol}`)
-      if (nl !== undefined) result.push(`+${nl}`)
-    }
-  }
-  return result.join('\n')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
