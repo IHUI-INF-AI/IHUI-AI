@@ -9,8 +9,10 @@
 //
 // 四条断言各守一侧,少一条就退化成"看起来改了":
 //   ① 空白 body ⇒ 必须走兜底文案(缺陷面)
-//   ② JSON 里 message 是空白 ⇒ 同上(第二份实现也要管 —— 本文件里同一派生有**两份实现**,
-//      且两份已漂:兜底串一处全角括号一处半角、detail 一处 else-if 一处裸 if)
+//   ② JSON 里 message 是空白 ⇒ 同上
+//      (2026-09-27 收口:这一族原先有**两份实现**且已漂 —— 兜底串一处全角一处半角、detail 一处
+//      else-if 一处裸 if。现三条腿共用 `deriveFailureFromBody`,同形性由
+//      `error-body-single-source.test.ts` 的"三条腿同一个答案 + 形状锁"两节看守,本文件只守空白这一面)
 //   ③ 正常 message ⇒ 逐字保留(trim 不得吃掉真文案,阳性对照)
 //   ④ status 必须仍在(守门 135 那一型的前提:身份不能靠文案正则猜)
 import { describe, it, expect, afterEach, vi } from 'vitest'
