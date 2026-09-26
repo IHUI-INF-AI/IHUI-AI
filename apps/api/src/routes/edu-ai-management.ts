@@ -867,8 +867,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(eduTerm.id, parsed.data.id))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '学期不存在'))
-    await db.delete(eduTerm).where(eq(eduTerm.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(eduTerm)
+      .where(eq(eduTerm.id, parsed.data.id))
+      .returning({ id: eduTerm.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -944,8 +947,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(eduClass.id, parsed.data.id))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '班级不存在'))
-    await db.delete(eduClass).where(eq(eduClass.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(eduClass)
+      .where(eq(eduClass.id, parsed.data.id))
+      .returning({ id: eduClass.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -1031,11 +1037,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduCourseSchedule.id, parsed.data.id), isNull(eduCourseSchedule.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '课程不存在'))
-    await db
+    const removed = await db
       .update(eduCourseSchedule)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduCourseSchedule.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduCourseSchedule.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -1235,11 +1242,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduMealRecipe.id, parsed.data.id), isNull(eduMealRecipe.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '菜谱不存在'))
-    await db
+    const removed = await db
       .update(eduMealRecipe)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduMealRecipe.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduMealRecipe.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -1326,8 +1334,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(eduMealWeekTemplate.id, parsed.data.id))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '模板不存在'))
-    await db.delete(eduMealWeekTemplate).where(eq(eduMealWeekTemplate.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(eduMealWeekTemplate)
+      .where(eq(eduMealWeekTemplate.id, parsed.data.id))
+      .returning({ id: eduMealWeekTemplate.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // 应用模板到指定周
@@ -1619,11 +1630,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduStudyPlan.id, parsed.data.id), isNull(eduStudyPlan.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '计划不存在'))
-    await db
+    const removed = await db
       .update(eduStudyPlan)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduStudyPlan.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduStudyPlan.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // 月计划自动拆解为周计划
@@ -1771,11 +1783,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduPlanItem.id, idParsed.data.id), isNull(eduPlanItem.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '条目不存在'))
-    await db
+    const removed = await db
       .update(eduPlanItem)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduPlanItem.id, idParsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduPlanItem.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -2188,11 +2201,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduAttendanceRecord.id, parsed.data.id), isNull(eduAttendanceRecord.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '签到记录不存在'))
-    await db
+    const removed = await db
       .update(eduAttendanceRecord)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduAttendanceRecord.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduAttendanceRecord.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -2308,11 +2322,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduLeaveRequest.id, parsed.data.id), isNull(eduLeaveRequest.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '请假申请不存在'))
-    await db
+    const removed = await db
       .update(eduLeaveRequest)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduLeaveRequest.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduLeaveRequest.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -2440,11 +2455,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(403).send(error(403, '无权操作'))
     }
 
-    await db
+    const removed = await db
       .update(eduParentStudentBinding)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduParentStudentBinding.id, idParsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduParentStudentBinding.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // 获取家长绑定的所有孩子列表（含孩子基本信息）
@@ -2951,11 +2967,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduExamScore.id, idParsed.data.id), isNull(eduExamScore.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '成绩记录不存在'))
-    await db
+    const removed = await db
       .update(eduExamScore)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduExamScore.id, idParsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduExamScore.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // 成绩统计
@@ -3176,8 +3193,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(eduTeacherSchedule.id, parsed.data.id))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '教师时间表不存在'))
-    await db.delete(eduTeacherSchedule).where(eq(eduTeacherSchedule.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(eduTeacherSchedule)
+      .where(eq(eduTeacherSchedule.id, parsed.data.id))
+      .returning({ id: eduTeacherSchedule.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -3251,11 +3271,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduSchedulingRule.id, parsed.data.id), isNull(eduSchedulingRule.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '排课规则不存在'))
-    await db
+    const removed = await db
       .update(eduSchedulingRule)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduSchedulingRule.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduSchedulingRule.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -3741,11 +3762,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduLead.id, parsed.data.id), isNull(eduLead.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '线索不存在'))
-    await db
+    const removed = await db
       .update(eduLead)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduLead.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduLead.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -3900,11 +3922,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduEnrollment.id, parsed.data.id), isNull(eduEnrollment.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '报名记录不存在'))
-    await db
+    const removed = await db
       .update(eduEnrollment)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduEnrollment.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduEnrollment.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -3977,11 +4000,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduTuitionFee.id, parsed.data.id), isNull(eduTuitionFee.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '学费标准不存在'))
-    await db
+    const removed = await db
       .update(eduTuitionFee)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduTuitionFee.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduTuitionFee.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -4085,11 +4109,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduPaymentRecord.id, parsed.data.id), isNull(eduPaymentRecord.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '缴费记录不存在'))
-    await db
+    const removed = await db
       .update(eduPaymentRecord)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduPaymentRecord.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduPaymentRecord.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ===========================================================================
@@ -4361,11 +4386,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduTuitionFee.id, parsed.data.id), isNull(eduTuitionFee.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '学费标准不存在'))
-    await db
+    const removed = await db
       .update(eduTuitionFee)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduTuitionFee.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduTuitionFee.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // --- 退费:前端 /refund ↔ 后端 /refund-record ---
@@ -4514,11 +4540,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (existing.parentId !== userId && existing.studentId !== userId)
       return reply.status(403).send(error(403, '仅绑定双方可解除绑定'))
 
-    await db
+    const removed = await db
       .update(eduParentStudentBinding)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(eduParentStudentBinding.id, idParsed.data.id))
-    return reply.send(success({ deleted: true }))
+      .returning({ id: eduParentStudentBinding.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // 学生确认绑定(前端 PUT /parent-binding/:id/confirm)

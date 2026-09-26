@@ -22,6 +22,7 @@ from app.services.agent_loop_v2 import (
     AgentLoopV2,
 )
 from app.services.engine_tool_bridge import (
+    BRIDGE_MODES,
     ENGINE_TOOL_BRIDGE,
     capability_equivalent,
     dangling,
@@ -41,7 +42,7 @@ def test_bridge_has_no_stale_entries() -> None:
 
 def test_declared_equivalents_actually_exist() -> None:
     """登记为「注册表有同一能力」的名字必须真在 _TOOL_HANDLERS 里(否则回查到空气)。"""
-    for name, (equivalent, _reason) in ENGINE_TOOL_BRIDGE.items():
+    for name, (equivalent, _reason, _mode) in ENGINE_TOOL_BRIDGE.items():
         if equivalent is None:
             continue
         assert equivalent in mcp_server._TOOL_HANDLERS, (
@@ -51,11 +52,26 @@ def test_declared_equivalents_actually_exist() -> None:
 
 def test_local_only_entries_explain_themselves() -> None:
     """无等价物时必须写清理由 —— 否则后人只能猜,而猜会把分裂读成已收口。"""
-    for name, (equivalent, reason) in ENGINE_TOOL_BRIDGE.items():
+    for name, (equivalent, reason, mode) in ENGINE_TOOL_BRIDGE.items():
         if equivalent is None:
             assert reason is not None and len(reason.strip()) >= 8, f"{name} 缺理由"
         else:
             assert reason is None, f"{name} 有等价物却填了理由(语义应为空)"
+        assert mode in BRIDGE_MODES, f"{name} 处置结论 {mode!r} 不在封闭集里"
+
+
+def test_disposition_mode_bijection() -> None:
+    """mode 与「有没有等价物」必须一一对应,否则处置结论可以是随口写的标签。
+
+    - port/map 的含义是「注册表里确实有同一能力」⇒ equivalent 必非空;
+    - local 的含义是「注册表确实没有」⇒ equivalent 必空(且由上一条要求带理由)。
+    任何一侧单边改动(把 local 换成 map 却不填等价物)都会在这里红,而不是只在账面换个词。
+    """
+    for name, (equivalent, _reason, mode) in ENGINE_TOOL_BRIDGE.items():
+        if mode in ("port", "map"):
+            assert equivalent is not None, f"{name} 处置为 {mode} 却没有注册表归口目标"
+        else:
+            assert equivalent is None, f"{name} 处置为 local 却登记了等价物 {equivalent}"
 
 
 @pytest.mark.parametrize(
@@ -105,7 +121,7 @@ def test_only_self_mappings_may_share_a_name_with_the_registry() -> None:
     否则改一行桥表就会改掉注册表侧的判定 —— 那是本票明确不许发生的耦合。
     """
     registry = {tool.name for tool in mcp_server._TOOLS}
-    for name, (equivalent, _reason) in ENGINE_TOOL_BRIDGE.items():
+    for name, (equivalent, _reason, _mode) in ENGINE_TOOL_BRIDGE.items():
         if name in registry:
             assert equivalent == name, f"{name} 与注册表同名却映射到 {equivalent}"
 

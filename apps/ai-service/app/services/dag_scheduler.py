@@ -534,8 +534,21 @@ class ParallelExecutionResult:
 
 
 async def _default_executor(task: KanbanTask) -> dict[str, Any]:
-    """默认 executor:回显任务 id + payload。"""
-    return {"executed": True, "taskId": task.id, "echo": task.payload}
+    """WorkerPool 的默认 executor —— V3 #51 起为**真实分派**,不再是 `{"echo": payload}`。
+
+    旧实现回显 payload 并写死 `executed: True`,于是"任务跑完了"与"什么都没跑"
+    在结果面完全同形(票面条:「`/dag/execute` 与 `WorkerPool._default_executor` 回显」)。
+    现在:
+    - `task.payload.taskType`(或 `task_type`)+ `task.payload.arguments` 决定跑哪一类
+      真实 executor(与 `run_in_background` 共用同一注册表,两条入口不可能分叉);
+    - checkpoint 键 = `payload.idempotencyKey` 或 `dag:<task.id>` ⇒ 同一 DAG 任务重提交
+      从断点续,不从头再来;
+    - 未声明类型 / 未知类型 ⇒ 抛 `TaskExecutionError`,由 worker 记成 `blocked` + 原因,
+      而不是把"没跑"伪装成 done。
+    """
+    from .task_executors import execute_for_kanban
+
+    return await execute_for_kanban(task)
 
 
 class WorkerPool:
