@@ -198,9 +198,7 @@ export function ConversationImportScreen({
   }
 
   const toggleAll = (): void => {
-    setSelected((prev) =>
-      prev.size === rows.length ? new Set() : new Set(rows.map((r) => r.id)),
-    )
+    setSelected((prev) => (prev.size === rows.length ? new Set() : new Set(rows.map((r) => r.id))))
   }
 
   const commit = async (): Promise<void> => {
@@ -422,7 +420,12 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'space-between' },
+    cardHead: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      justifyContent: 'space-between',
+    },
     sourceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     sourceCard: {
       flexGrow: 1,
@@ -434,7 +437,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
     },
-    sourceCardActive: { borderColor: tk.brand.DEFAULT, backgroundColor: tk.surface.muted },
+    sourceCardActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     sourceLabel: { fontSize: 12, fontWeight: '600', color: tk.text.medium },
     sourceLabelActive: { color: tk.text.primary },
     sourceHint: { fontSize: 10, lineHeight: 14, color: tk.text.tertiary },
@@ -456,7 +459,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    rowCardActive: { borderColor: tk.brand.DEFAULT, backgroundColor: tk.surface.muted },
+    rowCardActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     rowTitle: { flex: 1, fontSize: 13, fontWeight: '600', color: tk.text.primary },
     rowMeta: { fontSize: 11, lineHeight: 15, color: tk.text.tertiary },

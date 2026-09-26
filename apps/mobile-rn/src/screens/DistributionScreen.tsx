@@ -502,7 +502,7 @@ const shellStyles = {
     height: 44,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
-    borderColor: tokens.brand.DEFAULT,
+    borderColor: tokens.brandAccent.deep,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'stretch',
