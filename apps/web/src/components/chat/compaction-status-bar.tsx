@@ -74,6 +74,23 @@ export function CompactionStatusBar() {
    *  → chat store `compactionStatus.removedCount`(apps/web/src/hooks/use-chat/send-message.ts:632)。 */
   const omittedCount = compactionStatus.phase === 'done' ? compactionStatus.removedCount : 0
 
+  /** 本轮被**内容级截断**的消息条数(A10B-8,2026-09-26)。三态不可合并:
+   *  `undefined` = 生产者未告知(旧帧)/ `>0` = 确有截断 / `0` = 生产者明说本轮没切内容。
+   *  数据链:`@ihui/context-compaction` 的 `CompressionResult.truncatedCount`
+   *  (截断兜底路径填 1,摘要压缩路径填 0)→ SSE `compaction` 帧 → api-client
+   *  `onCompaction`(不做 `?? 0` 归一)→ chat store `compactionStatus.truncatedCount`。 */
+  const truncatedCount =
+    compactionStatus.phase === 'done' ? compactionStatus.truncatedCount : undefined
+
+  /** 「这一轮确实截断过内容」的证据。生产者报了数就认它的数;旧帧没报数时退回
+   *  `trigger === 'truncated'`(该标志由截断兜底分支置位,分支定义上切过内容)。
+   *  ⚠️ 这**不是**把截断标志重新当唯一判据:标志在这里只回答"截断有没有发生",
+   *  "发生了多少"一律只由 `omittedCount` 回答 —— 早上那版之所以整句沉默,就是因为
+   *  判据把"省略量为 0"错读成"什么都没发生"。 */
+  const hasTruncationEvidence = truncatedCount === undefined ? true : truncatedCount > 0
+  const showTruncatedNotice =
+    !isCompacting && compactionStatus.trigger === 'truncated' && hasTruncationEvidence
+
   return (
     <div
       className={cn(
@@ -134,20 +151,26 @@ export function CompactionStatusBar() {
           </span>
         )}
 
-        {/* truncated 截断降级专属提示(2026-09-01;2026-09-26 A10B-7 补配对判据):
-         *  `trigger === 'truncated'` 只说明"发生过截断降级",它**不蕴含**真有历史被折叠 ——
+        {/* truncated 截断降级专属提示(2026-09-01;A10B-7 补配对判据;A10B-8 补"无量时仍须报事实"):
+         *  `trigger === 'truncated'` 只说明"发生过截断降级",它**不蕴含**真有历史被整条折叠 ——
          *  截断兜底里 removedCount 取的是"除最后一组外被折进摘要的条数"
-         *  (packages/context-compaction/src/index.ts:463 `removedCount: toCompressAll.length`),
-         *  只剩一个配对组时它就是 0。此前这一句只看标志位、紧邻 5 行的归档入口却看计数,
-         *  两个相邻披露口宽严不同形 ⇒ 会念出"已截断…(省略 0 条)"这种自相矛盾的话。
-         *  现两者消费同一个 omittedCount,文案里的数字即该值,为 0 时整句不渲染。 */}
-        {!isCompacting && compactionStatus.trigger === 'truncated' && omittedCount > 0 && (
+         *  (packages/context-compaction/src/index.ts 的 tryTruncateFallback),
+         *  只剩一个配对组时它就是 0。A10B-7 于是把整句在 0 时关掉,结果是从"说谎"退成"沉默":
+         *  内容明明被切了,界面一个字都不说。
+         *  现两问分两个事实回答:"有没有截断"由帧上的 `truncatedCount` 承担(旧帧未带则退回标志),
+         *  "省了几条"仍只由 `omittedCount` 承担 —— 有量报量(`truncatedNotice`),
+         *  无量但确有截断报不带数的那句(`truncatedNoticeNoCount`)。
+         *  禁止把 0 显示成 1,也禁止回到"标志位 = 唯一判据"。 */}
+        {showTruncatedNotice && (
           <span className="text-muted-foreground">
             {/* 数字直接取 omittedCount(不在渲染处再算第二份)。与相邻摘要行 / 归档入口同格式:
              *  实测本运行时(next-intl + zh-CN)裸 `{count}` 插值不加分组,渲染成 1234 而非 1,234;
              *  该格式一致性由 compaction-status-bar.test.tsx 的千分位断言守着,换 locale/版本若开始
              *  分组,那条断言会当场红,而不是悄悄产出"同一块里一个 1,234 一个 1234"。 */}
-            · {t('compaction.truncatedNotice', { count: omittedCount })}
+            ·{' '}
+            {omittedCount > 0
+              ? t('compaction.truncatedNotice', { count: omittedCount })
+              : t('compaction.truncatedNoticeNoCount')}
           </span>
         )}
 
