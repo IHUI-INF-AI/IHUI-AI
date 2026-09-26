@@ -4,6 +4,7 @@
 
 import type { FastifyInstance } from 'fastify'
 import type { Worker } from 'bullmq'
+import { redactSecrets } from '@ihui/shared'
 import { createWorker } from '../plugins/queue.js'
 import {
   SCHEDULER_QUEUE_NAME,
@@ -48,6 +49,104 @@ import { checkBudgetAlerts } from '../services/budget-alert-service.js'
 import { scanAndRemindArrears } from '../services/edu-arrear-remind-service.js'
 // O5(2026-09-21):llm_call_logs 到期原文清除(只清 prompt/response,计费/归因列保留)
 import { purgeAllExpiredLlmCallLogRawText } from '../services/audit-log-service.js'
+
+// ============================================================================
+// 不可信外部文本 → 告警正文(AGENTS.md §5e:邮件是运维到人的**唯一**通道)
+// ============================================================================
+// 为什么必须有一层:本文件里 pushAlert 的 message 会被 alert-notification-service 原样
+// 拼进 renderSystemAlertEmail 的正文,而它拼的是**上游资讯源返回的错误原文**
+// (ai-feed-service 的 `e.message`,可能含上游响应体/URL/解析器转述)与**文件系统读回来的
+// 文件名**。这些都不该未经长度上限约束地进到人收到的邮件里。
+// 与本仓 monitoring/alertbridge/alert-webhook-bridge.cjs 同一条纪律:
+// 「静默变短」比「变短」更糟 —— 截断必须在正文里点名丢了多少。
+
+/**
+ * 单条外部文本进告警正文的字符上限。
+ * 取值理由:与 deploy/win/ihui-deploy.ps1:155 的「诊断串 >300 即截断」**同值**,
+ * 本仓对"给人读的一行外部诊断"既有上限就是 300,不在这里拍第二个数。
+ */
+const ALERT_FIELD_MAX_CHARS = 300
+
+/**
+ * 整条告警 message 的字节上限。
+ * 取值理由:与 alert-webhook-bridge.cjs 的 MAIL_BODY_MAX_BYTES(20,000 字节)**同值** ——
+ * 两侧是同一条到人通道的两个生产者,尺子必须是一把,不得各定一档。
+ */
+const ALERT_MESSAGE_MAX_BYTES = 20_000
+
+/** 截断说明自身占的字节预留:预留后追加说明,总长仍 ≤ 上限,上限才是真上限 */
+const ALERT_MESSAGE_NOTICE_RESERVE_BYTES = 400
+
+/**
+ * 我们自己的错误类型 vs 上游原文。
+ * 命中的是本仓 ai-feed-service 里那批固定前缀(`throw new Error(\`RSSHub ${url} 返回 ${status}\`)`
+ * 那一族)、JS 错误类名、以及显式枚举的 Node 网络错误码;`unknown error` 是下面代码里
+ * 我们自己写的字面量,一并算自有。
+ * ⚠️ 这个区分**只决定标签,不决定处置**:两种都同样折行、剥控制字符、封顶截断。
+ * ⚠️ 默认档是「上游原文」(更严的一侧):判不出来就不猜,宁可把自家诊断标成上游,
+ *    也不把上游原文标成自有 —— 后者会让读信的人以为那段文本经过我们审核。
+ */
+const OWN_ERROR_SHAPE_RE =
+  /^(?:(?:DailyHotApi|RSSHub|GitHub API|RSS XML|ModelScope Community|Toutiao HotBoard|fetch failed|unknown error)\b|[A-Z][A-Za-z0-9]*Error\b|ERR_[A-Z0-9_]+\b|ETIMEDOUT\b|ECONNREFUSED\b|ECONNRESET\b|ENOTFOUND\b|EAI_AGAIN\b|EPROTO\b|EHOSTUNREACH\b|ENETUNREACH\b|CERT_[A-Z_]+\b)/
+
+/**
+ * 外部文本归一化:剥 C0/C1 控制字符与零宽字符(§5c 的水印就靠 U+200B/2060 生存,
+ * 放进正文等于允许外部文本在我们格式里藏不可见内容)→ 换行折成空格(一条外部错误
+ * 只许占一行,不得凭空多造一行冒充另一条告警)→ 超档截断并点名丢弃字符数。
+ */
+const INVISIBLE_TEXT_RE = new RegExp(
+  // 判据以 \uXXXX 的**转义文本**写进源文件,不留任何真实不可见字符:
+  // 源文件里看不见的字符既骗过 code review 也骗过 grep —— 而本仓 §5c 的溯源水印
+  // 正是靠 U+200B/200C/200D/2060 生存,它们是外部文本能用来藏东西的那一类字符。
+  '[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f\\u200b-\\u200d\\u2060\\u2028\\u2029]',
+  'g',
+)
+
+export function flattenUntrustedText(raw: unknown, maxChars: number = ALERT_FIELD_MAX_CHARS): string {
+  const flat = String(raw ?? '')
+    .replace(INVISIBLE_TEXT_RE, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!flat) return ''
+  // 脱敏必须在**截断之前**、且用共享层那一份实现(§3:端内不得再建第二套凭据正则):
+  // 先截断再脱敏,会让落在 300 字符边界的凭据只被切掉一半而剩下可读片段;
+  // 而"给人看的运维邮件"这一层,长度闸门不构成不把密钥寄出去的理由。
+  const safe = redactSecrets(flat)
+  if (safe.length <= maxChars) return safe
+  return `${safe.slice(0, maxChars)}…[截断,已丢弃 ${safe.length - maxChars} 字符]`
+}
+
+/** 上游错误原文 → 带「自有诊断串 / 上游原文」标签的一行(归一化与封顶同上) */
+export function untrustedErrorField(raw: unknown): string {
+  const flat = flattenUntrustedText(raw)
+  if (!flat) return '[上游原文] (无内容)'
+  const kind = OWN_ERROR_SHAPE_RE.test(flat) ? '自有诊断串' : '上游原文'
+  return `[${kind}] ${flat}`
+}
+
+/**
+ * 整条告警正文的字节闸门(纯函数)。按码点累加,不按 UTF-16 索引切 ——
+ * 切在代理对中间会产出坏字符,那等于把人要看的那半句也弄坏。
+ */
+export function capAlertMessage(text: string): string {
+  const bytes = Buffer.byteLength(text, 'utf8')
+  if (bytes <= ALERT_MESSAGE_MAX_BYTES) return text
+  const budget = ALERT_MESSAGE_MAX_BYTES - ALERT_MESSAGE_NOTICE_RESERVE_BYTES
+  let used = 0
+  let cut = 0
+  for (const ch of text) {
+    const b = Buffer.byteLength(ch, 'utf8')
+    if (used + b > budget) break
+    used += b
+    cut += ch.length
+  }
+  return (
+    text.slice(0, cut) +
+    `\n…[正文已达上限 ${ALERT_MESSAGE_MAX_BYTES} 字节,已丢弃 ${bytes - used} 字节;` +
+    '被丢弃的明细不在本邮件内,请到告警面板/日志按 source 查看完整批次]'
+  )
+}
+
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -140,7 +239,14 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                 if (result.backupIssues.length > 0) {
                   await pushAlert({
                     title: '数据库备份监控告警(缺失/空备份/过期)',
-                    message: result.backupIssues.join('\n'),
+                    // backupIssues 里混着**文件系统 readdir 读回来的文件名**与一条
+                    // `检查异常 ${err.message}`(alert-check-service.ts:107)—— 后者是异常原文,
+                    // 与资讯源错误同属不可信外部文本,按同一把尺子逐条折行 + 封顶。
+                    message: capAlertMessage(
+                      result.backupIssues
+                        .map((s) => `- ${flattenUntrustedText(s)}`)
+                        .join('\n'),
+                    ),
                     severity: 'critical',
                     source: 'alert-check-daily',
                     metadata: {
@@ -422,12 +528,17 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               const severity =
                 ratio >= 0.5 || failed.length === result.fetchedSources ? 'critical' : 'warning'
               const failedList = failed
-                .map((d) => `- ${d.sourceCode}: ${d.error ?? 'unknown error'}`)
+                .map(
+                  (d) =>
+                    `- ${flattenUntrustedText(d.sourceCode) || '(未知源)'} → ${untrustedErrorField(d.error ?? 'unknown error')}`,
+                )
                 .join('\n')
               try {
                 await pushAlert({
                   title: `AI 资讯采集失败告警（${failed.length}/${result.fetchedSources} 源失败）`,
-                  message: `本轮采集共 ${result.totalItems} 条，${result.fetchedSources} 源，其中 ${failed.length} 源失败：\n${failedList}`,
+                  message: capAlertMessage(
+                    `本轮采集共 ${result.totalItems} 条，${result.fetchedSources} 源，其中 ${failed.length} 源失败：\n${failedList}`,
+                  ),
                   severity,
                   source: 'ai-feed-collect',
                   metadata: {
