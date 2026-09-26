@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from ..core.jwt_auth import require_request_user_id
+from ..core.jwt_auth import require_request_user_id, resolve_request_role_id
 from ..core.sse_buffer import sse_buffer
 from ..services.agent_deliverables import get_deliverables
 from ..services.agent_events import (
@@ -204,13 +204,18 @@ async def _build_supertool_pool(
 
 
 async def _supertool_invoke(
-    server_name: str, tool_name: str, args: dict[str, Any]
+    server_name: str, tool_name: str, args: dict[str, Any], user_role: int = 0
 ) -> Any:
-    """call_forward 的统一路由:内置工具走 mcp_server,外部工具走 mcp_client。"""
+    """call_forward 的统一路由:内置工具走 mcp_server,外部工具走 mcp_client。
+
+    V3 #47 第二格(2026-09-26):内置源那一支必须把角色透传给 `call_tool`,否则聚合路径
+    与直连路径给出不同的授权答案 —— 默认 0 是 fail-closed(调用方没证明过身份就按
+    普通用户处理),不是"默认放开"。签名带默认值,既有三方调用方(含测试)不破。
+    """
     from ..services.mcp_server import mcp_server
 
     if server_name == _SUPERTOOL_INTERNAL_SOURCE:
-        return await mcp_server.call_tool(tool_name, args)
+        return await mcp_server.call_tool(tool_name, args, user_role=user_role)
     from ..services.mcp_client import get_mcp_client_manager
 
     manager = get_mcp_client_manager()
@@ -223,8 +228,16 @@ async def _supertool_invoke(
 def _supertool_tools_from_pool(
     pool: "SuperToolPool",
     tool_names: list[str] | None,
+    user_role: int = 0,
 ) -> list[Any]:
-    """把超级工具池转换为 AgentLoopV2 的 ToolDefinition 列表(沿用 deferral 逻辑)。"""
+    """把超级工具池转换为 AgentLoopV2 的 ToolDefinition 列表(沿用 deferral 逻辑)。
+
+    V3 #47 第二格:`user_role` 由 `_build_loop_v2_tools` 透传,经下面那个 `_invoke` 闭包
+    固化进每个工具的执行器 —— 角色是**宿主事实**,不能由模型填,也不能在装配链上丢。
+    这里刻意用闭包而不是 functools.partial:`call_forward` 的 invoke_fn 契约是
+    `Callable[[str, str, dict], Awaitable[Any]]`(mcp_tool_aggregator.InvokeFn),
+    闭包与该签名逐字同形,partial 会让类型层要额外解释。
+    """
     from ..services.agent_loop_v2 import ToolDefinition
     from ..services.mcp_tool_aggregator import MCPSuperToolAggregator
 
@@ -232,13 +245,17 @@ def _supertool_tools_from_pool(
     defer = _is_tool_deferral_enabled()
     forced = {"get_tool_schema"} if defer else set()
     tools: list[Any] = []
+
+    async def _invoke(server_name: str, tool_name: str, args: dict[str, Any]) -> Any:
+        return await _supertool_invoke(server_name, tool_name, args, user_role)
+
     for pt in pool.tools:
         key = pt.key
         if tool_names and key not in tool_names and key not in forced:
             continue
 
         async def _exec(args: dict[str, Any], _key: str = key) -> Any:
-            return await agg.call_forward(pool, _key, args, invoke_fn=_supertool_invoke)
+            return await agg.call_forward(pool, _key, args, invoke_fn=_invoke)
 
         if defer and key != "get_tool_schema":
             short = _shorten_description(
@@ -266,11 +283,19 @@ def _supertool_tools_from_pool(
     return tools
 
 
-async def _build_loop_v2_tools(tool_names: list[str] | None) -> list[Any]:
+async def _build_loop_v2_tools(
+    tool_names: list[str] | None, user_role: int = 0
+) -> list[Any]:
     """把 MCP 工具包装为 AgentLoopV2 的 ToolDefinition 列表(白名单过滤)。
 
     工具执行器走 mcp_server.call_tool(与 v1 agent_executor 同源),
     失败抛异常由 AgentLoopV2 的瞬时错误重试/错误分类机制处理。
+
+    V3 #47 第二格(2026-09-26):`user_role` 必须透传到 `call_tool`。此前两条装配支路
+    (内置直连 / 超级工具聚合)都按 `call_tool` 的形参默认值 0 调用,于是**连管理员在
+    引擎线程里也永远拿不到** run_command / write_file —— 反方向的坏:授权判定对
+    三条执行内核给出不同答案。规矩与 `app/services/capability_gate.py` 立的那条同源:
+    "Principal.role 透传给 call_tool(替代硬编码 user_role=0)"。默认 0 保持 fail-closed。
 
     超级工具聚合(AGENT_SUPERTOOL_ENABLED,默认开启):存在已连接外部 MCP server
     时,内置 _TOOLS 与外部工具经 MCPSuperToolAggregator 去重/仲裁后以统一 manifest
@@ -285,7 +310,7 @@ async def _build_loop_v2_tools(tool_names: list[str] | None) -> list[Any]:
     """
     pool = await _build_supertool_pool(tool_names)
     if pool is not None:
-        return _supertool_tools_from_pool(pool, tool_names)
+        return _supertool_tools_from_pool(pool, tool_names, user_role)
 
     # —— 现有路径(无外部 server / 开关关闭 / 聚合异常时逐字节等价) ——
     from ..services.agent_loop_v2 import ToolDefinition
@@ -301,7 +326,8 @@ async def _build_loop_v2_tools(tool_names: list[str] | None) -> list[Any]:
             continue
 
         async def _exec(args: dict[str, Any], _name: str = mt.name) -> Any:
-            return await mcp_server.call_tool(_name, args)
+            # 角色是宿主事实,随工具定义一起固化(与聚合支路 _invoke 同一形态)
+            return await mcp_server.call_tool(_name, args, user_role=user_role)
 
         if defer and mt.name != "get_tool_schema":
             short = _shorten_description(
@@ -1025,9 +1051,15 @@ async def execute_agent_stream(
                 # O19:登记属主,供 tasks/stream 与 /agents/{id}/stream 做事件级属主过滤
                 record_ownership(session_id, current_user)
                 owned_sessions.append(session_id)
+                # V3 #47 第二格(2026-09-26):角色必须过桥。此前本端点从不读
+                # request.state.role_id ⇒ `_build_loop_v2_tools` 与 call_tool 都按默认 0
+                # 走,admin 在主执行链上永远拿不到 `_ADMIN_ONLY_TOOLS` 里的能力;
+                # 而引擎自带工具连矩阵都不经过 —— 两头同时错。取不到角色 = 0 = 普通用户。
+                user_role = resolve_request_role_id(request)
                 loop = AgentLoopV2(
                     _make_loop_v2_llm(req.model),
-                    tools=await _build_loop_v2_tools(req.tools),
+                    tools=await _build_loop_v2_tools(req.tools, user_role=user_role),
+                    user_role=user_role,
                     session_id=session_id,
                     max_iterations=req.max_iterations or 8,
                     enable_checkpoint=True,
@@ -1204,6 +1236,7 @@ async def execute_agent_stream(
 @router.post("/agents/execute/resume")
 async def resume_agent_execute(
     req: AgentResumeRequest,
+    request: Request,
     current_user: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """从 checkpoint 断点续跑 agent(MCP 工具包装 + AgentLoopV2.resume_from_checkpoint)。
@@ -1252,9 +1285,18 @@ async def resume_agent_execute(
     try:
         from app.core.model_context_window import resolve_with_env_priority
 
+        # V3 #47 第二格:角色在此取一次,下面两处(工具装配 + 循环构造)共用同一个值,
+        # 不允许各取各的 —— 两次读取之间若身份被改,就会出现"工具按 A 角色装配、
+        # 执行按 B 角色判定"的分叉。
+        resumed_role = resolve_request_role_id(request)
+
         loop = AgentLoopV2(
             _make_loop_v2_llm(req.model),
-            tools=await _build_loop_v2_tools(req.tools),
+            # V3 #47 第二格(2026-09-26):与 execute/stream 同口径把角色过桥 ——
+            # 断点续跑恢复的是同一调用方的会话,若这里漏传,admin 在 resume 链上
+            # 会被静默降成普通用户(与 stream 修掉的那半是同一个洞的两半)。
+            tools=await _build_loop_v2_tools(req.tools, user_role=resumed_role),
+            user_role=resumed_role,
             max_iterations=req.max_iterations or 8,
             enable_checkpoint=True,
             # O19:principal 贯通(审批属主登记 + 记忆隔离口径与 execute 一致)
