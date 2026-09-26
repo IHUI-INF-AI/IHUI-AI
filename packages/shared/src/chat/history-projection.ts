@@ -350,4 +350,131 @@ export function isHistoryPageExhausted(page: {
 }): boolean {
   return page.turns.length === 0 && (page.nextCursor === null || !page.hasMore)
 }
+
+// ============================================================================
+// 投影断点(projectionState)的读侧消费:解析 + 续读起点推导
+// ============================================================================
+
+/**
+ * 服务端 rollout 断点的读侧形态。字段名与守卫**逐字镜像**写入侧
+ * `apps/api/src/db/chat-queries.ts` 的 `HistoryProjectionState` /
+ * `parseHistoryProjectionState`(立列迁移 20260924100000 注释定义语义:
+ * 「byte_offset 为增量回放的字节断点(流式续读),ordinal 为 turn 级语义断点」)。
+ * 名字与 api 侧刻意不同(与 `*HistoryTurnCursor` 同一方针,防守门 40 误读为端内重实现);
+ * 跨侧等价性由 `__tests__/history-projection.test.ts` 用写入侧真实形态夹具钉住。
+ */
+export interface HistoryRolloutBreakpoint {
+  /**
+   * 已收口轮次正文的 UTF-8 字节累计。**读侧分页不得消费它** —— 它是写入侧
+   * rollout 的量具,`GET /conversations/:id/history` 没有任何按字节续读的参数;
+   * 留在类型里只为守卫完整性(形态不合 ⇒ 整个断点按"尚未投影"处理)。
+   */
+  readonly nextRolloutByteOffset: number
+  /**
+   * 最后一个**已收口**轮次的序号(严格小于当前最大轮 —— 进行中轮不计入;
+   * 轮次序号有缺口时断点不越过缺口)。这是读侧唯一可消费的字段:
+   * `direction='newer'` 的 keyset 起点(服务端取 `> 断点`)恰好覆盖
+   * "进行中轮 + 其后全部新轮",配合整轮替换幂等。
+   */
+  readonly nextRolloutOrdinal: number
+  /** 本次推进时间(ISO 8601)。参与形态守卫,不参与分页判定。 */
+  readonly lastRolledAt: string
+}
+
+/** 守卫与服务端 `parseHistoryProjectionState` 同形:任一项不合 ⇒ null(视为尚未投影)。 */
+export function parseHistoryRolloutBreakpoint(raw: unknown): HistoryRolloutBreakpoint | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
+  const o = raw as Record<string, unknown>
+  if (typeof o.nextRolloutByteOffset !== 'number' || !Number.isFinite(o.nextRolloutByteOffset)) {
+    return null
+  }
+  if (typeof o.nextRolloutOrdinal !== 'number' || !Number.isInteger(o.nextRolloutOrdinal)) {
+    return null
+  }
+  if (typeof o.lastRolledAt !== 'string' || o.lastRolledAt.length === 0) return null
+  return {
+    nextRolloutByteOffset: o.nextRolloutByteOffset,
+    nextRolloutOrdinal: o.nextRolloutOrdinal,
+    lastRolledAt: o.lastRolledAt,
+  }
+}
+
+/** `resolveHistoryRolloutSeed` 的推导结果。 */
+export interface HistoryRolloutSeed {
+  /** 供 direction='newer' 回传的游标;null = 不能(未投影 / 断点倒退)。 */
+  readonly cursor: string | null
+  /** 本次读到的断点序号(null = 尚未投影);调用方应无条件用它覆盖自己存的前值。 */
+  readonly breakpointOrdinal: number | null
+  /**
+   * 断点相对上次采用值**倒退** ⇒ 唯一成因是 `replaceMessages`(自动压缩)整段重写
+   * 历史并按 1 重编号、断点 reset 重算。此时调用方此前合并的时间线与服务端行集
+   * 已无对应关系,任何游标续读都无法修复 ⇒ 必须整体重拉。
+   */
+  readonly rewritten: boolean
+}
+
+/**
+ * 由响应的 projectionState + 上次采用的断点,推导续读(newer 向)起点。
+ *
+ * 不变量:
+ * - 未投影(state 为 null/残缺)⇒ 无起点、不判倒退(没有基准可判)。
+ * - 首次采用(prev 为 null)⇒ 永不判倒退,即便序号是 0(新会话首轮未收口)。
+ * - 倒退 ⇒ `rewritten:true` 且**刻意不产出游标** —— 半真的续读起点比"没有起点"
+ *   危险得多(它会让消费体以为自己在续读,实际漏掉了重编号后的全部旧轮)。
+ */
+export function resolveHistoryRolloutSeed(
+  projectionState: unknown,
+  prevBreakpointOrdinal: number | null,
+): HistoryRolloutSeed {
+  const bp = parseHistoryRolloutBreakpoint(projectionState)
+  if (bp === null) return { cursor: null, breakpointOrdinal: null, rewritten: false }
+  if (prevBreakpointOrdinal !== null && bp.nextRolloutOrdinal < prevBreakpointOrdinal) {
+    return { cursor: null, breakpointOrdinal: bp.nextRolloutOrdinal, rewritten: true }
+  }
+  return {
+    cursor: encodeHistoryTurnCursor({ turnOrdinal: bp.nextRolloutOrdinal }),
+    breakpointOrdinal: bp.nextRolloutOrdinal,
+    rewritten: false,
+  }
+}
+
+/** 两端续读游标(hook 的 cursorsRef 形态)。 */
+export interface HistoryPagingCursors {
+  readonly older: string | null
+  readonly newer: string | null
+}
+
+/**
+ * 分页游标的单一推进口径(三动作共用;各写一遍必然在"断点能不能当 newer 起点"上漂移)。
+ *
+ * - newer 起点优先级:**本页服务端链**(`boundary.newerCursor`,方向续读链的精确落点)
+ *   > **断点种子**(`seed.cursor`,让首屏/上翻之后也能发起增量续读 —— 断点前的轮次
+ *   已收口不变,`>断点` 至多重取"进行中轮",整轮替换幂等)
+ *   > **上一次沿用**(仅当本次响应未投影**且未倒退**时;断点未投影 ⇒ 没有新信息,
+ *   沿用旧链无害;断点倒退 ⇒ 旧链建立在已被重编号取代的序号上,沿用会静默漏读
+ *   压缩后新追加的轮次,必须弃用)。
+ * - `discardFolded` = 断点倒退且本次不是整段重建('newest')⇒ 调用方必须丢弃折叠结果、
+ *   清空时间线与两端游标,只等 `loadLatest`。
+ */
+export function advanceHistoryPagingCursors(input: {
+  direction: HistoryTurnDirection
+  boundary: HistoryBoundary
+  seed: HistoryRolloutSeed
+  previous: HistoryPagingCursors
+}): { cursors: HistoryPagingCursors; discardFolded: boolean } {
+  const discardFolded = input.seed.rewritten && input.direction !== 'newest'
+  if (discardFolded) return { cursors: { older: null, newer: null }, discardFolded: true }
+  // 整段重建('newest')后,右缘就是本页最大轮:此时"上一次的 newer"已无对应物
+  // (rewritten 时序号全变;未 rewritten 时它至多等于本页某轮,断点种子更权威),
+  // 一律不得越过 `seed.cursor` 去沿用 —— 否则一台重建会把死游标复活成续读起点。
+  const carriedNewer =
+    input.seed.rewritten || input.direction === 'newest' ? null : input.previous.newer
+  return {
+    cursors: {
+      older: input.boundary.olderCursor,
+      newer: input.boundary.newerCursor ?? input.seed.cursor ?? carriedNewer,
+    },
+    discardFolded: false,
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
