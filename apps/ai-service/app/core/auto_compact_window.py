@@ -41,7 +41,7 @@ class AutoCompactWindowIds:
     window_id: str
 
     @classmethod
-    def new_initial(cls) -> "AutoCompactWindowIds":
+    def new_initial(cls) -> AutoCompactWindowIds:
         window_id = _uuid_v7_like()
         return cls(first_window_id=window_id, previous_window_id=None, window_id=window_id)
 
@@ -62,7 +62,7 @@ class AutoCompactWindow:
     auto_compact_fallback_delivered: bool = False
 
     @classmethod
-    def new_with_ids(cls, ids: AutoCompactWindowIds) -> "AutoCompactWindow":
+    def new_with_ids(cls, ids: AutoCompactWindowIds) -> AutoCompactWindow:
         return cls(window_number=0, ids=ids)
 
     def clear_prefill(self) -> None:
