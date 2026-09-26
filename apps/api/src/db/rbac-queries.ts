@@ -308,10 +308,17 @@ export async function addUserRoleBatch(userIds: string[], roleId: string): Promi
 }
 
 /**
- * 移除用户的某角色。
+ * 移除用户的某角色,回报**库侧确认删掉的那批 id**。
+ * 2026-09-27 修「deleted:true 是代码常量而非数据库答复」:原来返回 void,调用方
+ * (routes/admin-extended/role-routes.ts)只能事后写死 true —— 而 where 同时带
+ * userId 与 roleId,这一对本就不在 userRoles 里时也是 0 行,与"取消授权成功了"同形。
  */
-export async function removeUserRole(userId: string, roleId: string): Promise<void> {
-  await db.delete(userRoles).where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
+export async function removeUserRole(userId: string, roleId: string): Promise<string[]> {
+  const rows = await db
+    .delete(userRoles)
+    .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
+    .returning({ id: userRoles.id })
+  return rows.map((r) => r.id)
 }
 
 /**

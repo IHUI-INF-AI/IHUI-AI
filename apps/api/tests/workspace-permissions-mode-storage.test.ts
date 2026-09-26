@@ -33,8 +33,9 @@ const {
   appendAuditLog,
   clearUserRules,
   createRulesBulk,
-  findUserPreferences,
-  upsertUserPreference,
+  // 2026-09-27 删掉这两个解构名:它们在本文件从未被引用(用户偏好桩由下面
+  // vi.mock('../src/db/user-preferences-queries.js') 各自新建 vi.fn()),留着会让
+  // @typescript-eslint/no-unused-vars 在任何一次触碰本文件的提交上把 lint-staged 判红。
   storedPrefs,
 } = vi.hoisted(() => ({
   upsertPermission: vi.fn(),
@@ -91,6 +92,9 @@ vi.mock('../src/db/user-preferences-queries.js', () => ({
 }))
 
 import { workspacePermissionRoutes } from '../src/routes/workspace-permissions.js'
+// 第二十六批·续 b 泳道:这两个查询函数现已回报"库侧确认删掉的 id 集合",
+// 桩取到的是 vi.mock 后的同一份导出,用于给出"命中/未命中"两个方向的对照。
+import { deletePermission, deleteRule } from '../src/db/workspace-permission-queries.js'
 
 /** 与 Postgres `.returning()` 同形:写入什么 mode,回读就是什么 mode(不做任何拼写加工)。 */
 function rowFrom(data: {
@@ -325,6 +329,53 @@ describe('⑤ 混合态(遗留 kebab 行 + 新 camel 行)读路径都认、出�
     storedPrefs.value = null
     const unset = await app.inject({ method: 'GET', url: '/api/workspace/permission-default' })
     expect(unset.json().data.mode).toBeNull()
+  })
+})
+
+/**
+ * 第二十六批·续 b:布尔 `deleted` 必须由**库侧 RETURNING 的命中集**派生,不是代码常量。
+ * 这两枚端点的 where 都带 userId 归属过滤,所以"没删到"在旧写法下与"删成了"完全同形 ——
+ * 空集合那一臂就是本票的阳性对照(旧代码在这里必回 true)。
+ * 既有键名 `deleted` 与状态码 200 逐字不变,所以第三条断言把出参键集合也钉住。
+ */
+describe('DELETE 的 deleted 由库侧命中集派生(非代码常量)', () => {
+  it('主记录未命中(权限本就不存在/不是你的) ⇒ deleted:false', async () => {
+    vi.mocked(deletePermission).mockResolvedValueOnce([])
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/workspace/permission?workspacePath=D:/not-mine',
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.deleted).toBe(false)
+  })
+
+  it('主记录命中 ⇒ deleted:true,且出参键集合仍只有 deleted(契约未变)', async () => {
+    vi.mocked(deletePermission).mockResolvedValueOnce(['perm-1'])
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/workspace/permission?workspacePath=D:/demo',
+    })
+    expect(res.statusCode).toBe(200)
+    expect(Object.keys(res.json().data)).toEqual(['deleted'])
+    expect(res.json().data.deleted).toBe(true)
+  })
+
+  it('规则未命中 ⇒ deleted:false;命中 ⇒ true(同一把尺子两侧都判)', async () => {
+    vi.mocked(deleteRule).mockResolvedValueOnce([])
+    const miss = await app.inject({
+      method: 'DELETE',
+      url: '/api/workspace/permissions/rules/rule-not-exist',
+    })
+    expect(miss.statusCode).toBe(200)
+    expect(miss.json().data.deleted).toBe(false)
+
+    vi.mocked(deleteRule).mockResolvedValueOnce(['rule-1'])
+    const hit = await app.inject({
+      method: 'DELETE',
+      url: '/api/workspace/permissions/rules/rule-1',
+    })
+    expect(hit.statusCode).toBe(200)
+    expect(hit.json().data.deleted).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
