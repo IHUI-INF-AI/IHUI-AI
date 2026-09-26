@@ -70,6 +70,9 @@ import { forwardToChannel, pipeChannelStream } from '../services/relay-upstream-
 import type { SelectedChannelKey } from '../services/relay-channel-router.js'
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
+// 格②(2026-09-26):耗时一律走单调钟出口,落库形态经唯一适配器投影
+import { startStopwatch, type ElapsedSample, type Stopwatch } from '../utils/elapsed-ms.js'
+import { persistableLatency } from '../utils/latency-persistence.js'
 // P0 中转站造血能力批次(2026-07-31 立):模型映射解析(Key 级 > 用户级 > 全局)
 import { resolveModelMapping } from '../services/model-mapping-service.js'
 // P0 第二批次(2026-07-31 立):响应缓存(Redis)省钱大法,对非流式 chat completions 启用
@@ -552,11 +555,12 @@ async function streamChatCompletion(
     messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
     temperature?: number
     maxTokens?: number
-    /** P0-5 中转站计费:API Key id + 用户 id + prompt 文本 + 调用起始时间 */
+    /** P0-5 中转站计费:API Key id + 用户 id + prompt 文本 + 调用起始计时表 */
     apiKeyId?: string
     userId?: string
     promptText?: string
-    startTime?: number
+    /** 格②(2026-09-26):由 handler 起表后传入的单调钟(替代原墙钟 epoch startTime) */
+    sw: Stopwatch
     /** 计费模式:'relay'=中转站(默认) | 'byok'=BYOK(平台只收抽成) */
     mode?: 'relay' | 'byok'
     /** P0 模型映射元信息(审计用,记录原始模型 + 映射后模型 + 作用域) */
@@ -601,7 +605,8 @@ async function streamChatCompletion(
   let streamPromptTokens = 0
   let streamCompletionTokens = 0
   /** P0 中转站造血能力批次(2026-08-01):TTFT + 上游 HTTP 状态码 */
-  let firstTokenTime: number | null = null
+  /** 格②(2026-09-26):首 token 处再取一次样本(原为墙钟 epoch firstTokenTime) */
+  let ttftSample: ElapsedSample | null = null
   let upstreamHttpStatus: number | null = null
 
   const writeChunk = (delta: Record<string, unknown>, finishReason: string | null) => {
@@ -668,7 +673,9 @@ async function streamChatCompletion(
         streamCacheCreationTokens = stats.cacheCreationTokens
         streamPromptTokens = stats.promptTokens
         streamCompletionTokens = stats.completionTokens
-        firstTokenTime = stats.ttftMs !== null ? Date.now() - stats.ttftMs : null
+        // 格②(2026-09-26):此行原把 stats.ttftMs 反推成墙钟 epoch 再喂给下方 ttft 差值;
+        // 渠道分支在下方 return 收尾,该赋值对本函数唯一读者不可达,而 ttft 差值已改走单调钟,
+        // 故删除(渠道路径自身的 ttftMs 仍按 stats.ttftMs 原样落库,未改)。
         if (opts.streamUsageEnabled && (streamPromptTokens > 0 || streamCompletionTokens > 0)) {
           raw.write(buildStreamUsageChunk(id, model, streamPromptTokens, streamCompletionTokens))
         }
@@ -679,6 +686,8 @@ async function streamChatCompletion(
         if (opts.apiKeyId && opts.userId) {
           const promptTokens = Math.ceil((opts.promptText ?? '').length / 4)
           const completionTokens = stats.completionTokens
+          // 格②(2026-09-26):耗时改由单调钟样本经唯一适配器投影(不可信 ⇒ 0 + latencyTrusted:false)
+          const latency = persistableLatency(opts.sw.stop())
           void recordCall({
             apiKeyId: opts.apiKeyId,
             userId: opts.userId,
@@ -690,12 +699,13 @@ async function streamChatCompletion(
             totalTokens: promptTokens + completionTokens,
             cacheReadTokens: stats.cacheReadTokens,
             cacheCreationTokens: stats.cacheCreationTokens,
-            latencyMs: Date.now() - (opts.startTime ?? Date.now()),
+            latencyMs: latency.latencyMs,
             status: 'success',
             metadata: {
               stream: true,
               channel: fwd.channel.groupName,
               ...(opts.modelMappingMeta ?? {}),
+              latencyTrusted: latency.latencyTrusted,
             },
             mode: opts.mode ?? 'relay',
             providerCode: fwd.channel.providerCode,
@@ -767,7 +777,8 @@ async function streamChatCompletion(
         const text = extractStreamText(line)
         if (text) {
           // P0 中转站造血能力批次(2026-08-01):记录首 token 时间用于 TTFT
-          if (firstTokenTime === null) firstTokenTime = Date.now()
+          // 格②(2026-09-26):改为在首 token 处 stop 一次,与总耗时各自独立成样本
+          if (ttftSample === null) ttftSample = opts.sw.stop()
           responseText += text
           writeChunk({ content: text }, null)
         }
@@ -824,6 +835,9 @@ async function streamChatCompletion(
       const promptTokens = Math.ceil((opts.promptText ?? '').length / 4)
       const completionTokens = Math.ceil(responseText.length / 4)
       const totalTokens = promptTokens + completionTokens
+      // 格②(2026-09-26):总耗时与 TTFT 各取一次独立样本、各自交叉校验;不可信样本落 0 并随行标真
+      const latency = persistableLatency(opts.sw.stop())
+      const ttft = ttftSample === null ? null : persistableLatency(ttftSample)
       void recordCall({
         apiKeyId: opts.apiKeyId,
         userId: opts.userId,
@@ -835,16 +849,20 @@ async function streamChatCompletion(
         totalTokens,
         cacheReadTokens: streamCacheReadTokens,
         cacheCreationTokens: streamCacheCreationTokens,
-        latencyMs: Date.now() - (opts.startTime ?? Date.now()),
+        latencyMs: latency.latencyMs,
         status: streamError ? 'error' : 'success',
         errorMessage: streamError,
-        metadata: { stream: true, ...(opts.modelMappingMeta ?? {}) },
+        metadata: {
+          stream: true,
+          ...(opts.modelMappingMeta ?? {}),
+          latencyTrusted: latency.latencyTrusted,
+          ...(ttft ? { ttftTrusted: ttft.latencyTrusted } : {}),
+        },
         mode: opts.mode ?? 'relay',
         providerCode: opts.providerCode,
         clientIp: opts.clientIp,
         httpStatus: upstreamHttpStatus ?? undefined,
-        ttftMs:
-          firstTokenTime !== null ? firstTokenTime - (opts.startTime ?? firstTokenTime) : undefined,
+        ttftMs: ttft ? ttft.latencyMs : undefined,
         preDeducted: opts.preDeducted ?? null,
       }).catch(() => {})
     }
@@ -1318,7 +1336,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
 
     // P0-5 中转站计费:调用前检查 API Key 余额
     const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
-    const startTime = Date.now()
+    // 格②(2026-09-26):原 `const startTime = Date.now()` 是墙钟 epoch,换成单调钟表
+    const sw = startStopwatch()
     const promptText = messages.map((m) => `${m.role}: ${m.content}`).join('\n')
 
     // 提示词审计(2026-09-17 立,补强 54):入站提示词风险检测。
@@ -1467,7 +1486,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         apiKeyId: apiKey?.id,
         userId: apiKey?.userId,
         promptText,
-        startTime,
+        sw,
         mode,
         modelMappingMeta,
         providerCode: modelToProviderCode(resolvedModel),
@@ -1510,6 +1529,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             // 缓存命中:成本为 0,记录 cacheHit 标志供统计
             reply.header('X-Cache', 'HIT')
             if (apiKey) {
+              const latency = persistableLatency(sw.stop())
               void recordCall({
                 apiKeyId: apiKey.id,
                 userId: apiKey.userId,
@@ -1519,13 +1539,17 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
                 promptTokens: cached.data.usage?.prompt_tokens ?? 0,
                 completionTokens: cached.data.usage?.completion_tokens ?? 0,
                 totalTokens: cached.data.usage?.total_tokens ?? 0,
-                latencyMs: Date.now() - startTime,
+                latencyMs: latency.latencyMs,
                 status: 'success',
                 mode,
                 providerCode: modelToProviderCode(resolvedModel),
                 clientIp: request.ip,
                 httpStatus: 200,
-                metadata: { cacheHit: true, ...(modelMappingMeta ?? {}) },
+                metadata: {
+                  cacheHit: true,
+                  ...(modelMappingMeta ?? {}),
+                  latencyTrusted: latency.latencyTrusted,
+                },
                 preDeducted: preDeduction,
               }).catch((e) => {
                 console.error('[v1/chat] cache hit recordCall FAIL', e?.message || e)
@@ -1597,17 +1621,18 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
 
       if (!resp.ok) {
         if (apiKey) {
+          const latency = persistableLatency(sw.stop())
           void recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,
             model: resolvedModel,
             prompt: promptText,
-            metadata: modelMappingMeta,
+            metadata: { ...(modelMappingMeta ?? {}), latencyTrusted: latency.latencyTrusted },
             response: null,
             promptTokens: 0,
             completionTokens: 0,
             totalTokens: 0,
-            latencyMs: Date.now() - startTime,
+            latencyMs: latency.latencyMs,
             status: 'error',
             errorMessage: `AI service unavailable (${resp.status})`,
             mode,
@@ -1661,17 +1686,18 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
 
       if (data.error) {
         if (apiKey) {
+          const latency = persistableLatency(sw.stop())
           void recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,
             model: resolvedModel,
             prompt: promptText,
-            metadata: modelMappingMeta,
+            metadata: { ...(modelMappingMeta ?? {}), latencyTrusted: latency.latencyTrusted },
             response: null,
             promptTokens: 0,
             completionTokens: 0,
             totalTokens: 0,
-            latencyMs: Date.now() - startTime,
+            latencyMs: latency.latencyMs,
             status: 'error',
             errorMessage: data.error_message ?? 'AI service error',
             mode,
@@ -1725,6 +1751,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
 
       // P0-5 中转站计费:调用成功,记录流水 + 扣减余额(两段式:结算预扣差额)
       if (apiKey) {
+        const latency = persistableLatency(sw.stop())
         recordCall({
           apiKeyId: apiKey.id,
           userId: apiKey.userId,
@@ -1736,8 +1763,10 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           totalTokens: safeTotal,
           cacheReadTokens: cacheTokens.cacheReadTokens,
           cacheCreationTokens: cacheTokens.cacheCreationTokens,
-          latencyMs: Date.now() - startTime,
+          latencyMs: latency.latencyMs,
           status: 'success',
+          // 本行原本不写 metadata ⇒ 只新增 latencyTrusted 一键,不得顺手带进 modelMappingMeta
+          metadata: { latencyTrusted: latency.latencyTrusted },
           mode,
           providerCode: usedChannel?.providerCode ?? modelToProviderCode(resolvedModel),
           configId: usedChannel?.configId,
@@ -1763,6 +1792,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(result)
     } catch (e) {
       if (apiKey) {
+        const latency = persistableLatency(sw.stop())
         void recordCall({
           apiKeyId: apiKey.id,
           userId: apiKey.userId,
@@ -1772,9 +1802,11 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           promptTokens: 0,
           completionTokens: 0,
           totalTokens: 0,
-          latencyMs: Date.now() - startTime,
+          latencyMs: latency.latencyMs,
           status: 'error',
           errorMessage: (e as Error).message || 'AI service unavailable',
+          // 本行原本不写 metadata ⇒ 只新增 latencyTrusted 一键,不得顺手带进 modelMappingMeta
+          metadata: { latencyTrusted: latency.latencyTrusted },
           mode,
           providerCode: modelToProviderCode(resolvedModel),
           clientIp: request.ip,
