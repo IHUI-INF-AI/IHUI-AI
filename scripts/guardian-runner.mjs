@@ -3515,6 +3515,35 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 🧮 批量写计数诚实性对账(blocking,拦(1 项,blocking)---
+  {
+    id: "134",
+    label:
+      "🧮 批量写计数诚实性对账(blocking,拦『affected/deleted 由请求侧 .length 自算』——改了 0 行与改成功同形,UI 显示已删 N 项而库里一行没动)",
+    script: "check-batch-write-count-honesty.mjs",
+    args: [],
+    mode: 'blocking',
+    skipEnv: "HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY",
+    stagedTriggers: ["apps/api/src/routes/", "apps/api/src/db/"],
+    onFailHint: [
+      '',
+      "  💡 本票一轮人肉找出 8 处同一形状(chat.ts batch、admin-sys role cancelAll/selectAll、",
+      "     demand-square、registerCrud 批量删〔19 处路由复用〕、message 批量删、workspace",
+      "     batch-delete/batch-restore),修法是给它们一个唯一出口",
+      "     apps/api/src/utils/batch-outcome.ts(dedupeIds + batchWriteOutcome),db 层改为",
+      "     .returning({id}) 回报库确认集合。**没有尺子,下一批同类端点照样进 HEAD。**",
+      "     四条放过通道:同链有 .returning( / 计数根 ≤2 跳可追到归属预查询(business-card 那种",
+      "     正确写法不能判红)/ 文件 import 唯一出口 / 行内 batch-count-exempt: 原因(须带原因)。",
+      "     刻意不判的两型:布尔 deleted:true(全仓惯例,改它属全 API 语义决策)与读查询",
+      "     count: rows.length(不是写)。",
+      "     单独问责:node scripts/check-batch-write-count-honesty.mjs [--json|--staged]",
+      "     自检:node scripts/check-batch-write-count-honesty.mjs --self-test(35 条)",
+      "     镜像:node --test scripts/tests/check-batch-write-count-honesty.test.mjs(10 例)",
+      "     紧急跳过(不推荐):HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY=1 git commit ...",
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
