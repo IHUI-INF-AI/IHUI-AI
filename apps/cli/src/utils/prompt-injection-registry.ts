@@ -83,6 +83,37 @@ export const PROMPT_INJECTION_ENTRIES: readonly PromptInjectionEntry[] = [
     consumer: 'apps/cli/src/commands/agent.ts#runToolLoop',
     title: '迭代进度提醒',
   },
+  {
+    // 用户仓库里的 AGENTS.md 与跨会话落盘的 memory 条目都是**第三方内容**
+    // (不是宿主在说话),必须落 reference_data 档,由出口过 neutralizeBoundaries。
+    id: 'context_agents_md',
+    kind: 'reference_data',
+    producer: 'apps/cli/src/commands/agent.ts#setupAgentTools',
+    consumer: 'apps/cli/src/tools/index.ts#buildSystemPrompt',
+    title: '工作区 AGENTS.md 上下文段',
+  },
+  {
+    id: 'context_memory',
+    kind: 'reference_data',
+    producer: 'apps/cli/src/commands/agent.ts#setupAgentTools',
+    consumer: 'apps/cli/src/tools/index.ts#buildSystemPrompt',
+    title: '跨会话记忆段',
+  },
+  {
+    // 与上面两档相反:强制规划段是宿主自己下的指令,不是被转述的事实。
+    id: 'directive_plan_first',
+    kind: 'host_directive',
+    producer: 'apps/cli/src/tools/index.ts#buildSystemPrompt',
+    consumer: 'apps/cli/src/commands/agent.ts#setupAgentTools',
+    title: '强制任务规划指令段',
+  },
+  {
+    id: 'subagent_persona',
+    kind: 'host_directive',
+    producer: 'apps/cli/src/tools/subagent.ts#createSubagentTool',
+    consumer: 'apps/cli/src/tools/subagent.ts#createSubagentTool',
+    title: '子代理角色人格段',
+  },
 ];
 
 const INDEX: ReadonlyMap<string, PromptInjectionEntry> = new Map(

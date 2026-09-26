@@ -25,6 +25,7 @@ import { checkPermission, checkRulesWithLease, type PermissionRules } from './pe
 import { activePermissionLease } from './permission-lease.js';
 import { shadowValidateToolArguments } from './argument-validation-telemetry.js';
 import { noteDangerousApproval } from './danger-gate.js';
+import { injectHostSection } from '../utils/prompt-injection-registry.js';
 import { BROWSER_TOOLS } from './browser.js';
 import { BROWSER_PAGE_TOOLS } from './browser-page.js';
 import {
@@ -434,6 +435,22 @@ export function clearTools(): void {
   registry.clear();
 }
 
+/**
+ * 强制规划段的正文(宿主指令原文)。单独成常量,是为了让下面的 `injectHostSection` 调用
+ * 与 id **落在同一行** —— 守门 128 的 R1 按行配对判"这一行真走了出口"。
+ */
+const PLAN_FIRST_DIRECTIVE = `## 任务规划(必须先规划后执行)
+
+在执行任何工具调用前,你必须先输出一个任务规划块:
+
+\`\`\`plan
+1. <步骤1描述>
+2. <步骤2描述>
+3. <步骤N描述>
+\`\`\`
+
+规划完成后再逐步执行工具调用。每完成一步,简要说明进度并继续下一步。若规划需调整,先输出新的 plan 块再继续。`;
+
 export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirst?: boolean): string {
   const toolDescriptions = tools
     .map((t) => {
@@ -452,19 +469,16 @@ export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirs
     ? `\n\n## 项目上下文\n\n${extraContext}\n`
     : '';
 
-  const planSection = planFirst
-    ? `\n\n## 任务规划(必须先规划后执行)
-
-在执行任何工具调用前,你必须先输出一个任务规划块:
-
-\`\`\`plan
-1. <步骤1描述>
-2. <步骤2描述>
-3. <步骤N描述>
-\`\`\`
-
-规划完成后再逐步执行工具调用。每完成一步,简要说明进度并继续下一步。若规划需调整,先输出新的 plan 块再继续。`
+  // 强制规划段是**宿主自己下的指令**(区别于同函数里被转述的 extraContext),
+  // 但它同样进模型消息 ⇒ 必须走登记出口(host_directive 档 = 过 neutralizeBoundaries)。
+  // planFirst 未开启时**一律不记账**:那是"本轮没到档位"而不是"降级",
+  // 记成 skipped 会让可见行每轮多一行假噪声(上一票刚回退过同一型)。
+  // 出口调用与 id 必须**同一行**:守门 128 的 R1 按行配对判"这一行真走了出口",
+  // 把出口写在上一行、id 孤零零占一行 = 登记了没人生产(字符串内的 `${}` 调用同样不算)。
+  const planFirstDirective = planFirst
+    ? injectHostSection('directive_plan_first', PLAN_FIRST_DIRECTIVE, { kind: 'host_directive' })
     : '';
+  const planSection = planFirstDirective ? `\n\n${planFirstDirective}` : '';
 
   return `你是一个强大的编码助手。你可以使用以下工具来完成任务。
 ${contextSection}${planSection}
