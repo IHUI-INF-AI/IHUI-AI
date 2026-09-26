@@ -68,6 +68,8 @@ import {
 } from './stream-handlers'
 import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 import { estimateLiveUsage } from './live-usage'
+// V3 #69:budget 命名帧的唯一落点(输入框上方 ContextBudgetBar 读它;toast 照旧)
+import { clearBudgetEvent, setBudgetEvent } from './budget-state'
 import {
   tryHandlePlanModeSlash,
   tryHandleChatModeSlash,
@@ -587,6 +589,10 @@ export function createSendMessage(
         useChatStore.getState().clearDiffComments()
       }
 
+      // V3 #69:每轮发起前回收上一轮的额度快照 —— 进度条反映的是"本轮"的窗口占用,
+      // 不接这一格会让切会话/重新生成后继续挂着上一轮的百分比(同上方"消费即清"姿势)。
+      clearBudgetEvent()
+
       await streamChat({
         model: effectiveModel,
         // W25:#Rule 展开后的文本发给 LLM(重新生成模式:用户消息已在 store/历史中,直接作为完整上下文发送,不重复追加)
@@ -946,6 +952,8 @@ export function createSendMessage(
         // level='critical',本条消息照常生成不受影响,仅 toast 提示用量进度;用量≥100% 则
         // 429 硬中断,走 onError 的 BUDGET_EXHAUSTED 分支(见下)。
         onBudget: (evt: BudgetEvent) => {
+          // V3 #69:先把帧落进进度条状态(输入框上方常驻实时条),再按 2026-09-19 原设计提示一次
+          setBudgetEvent(evt)
           // token 数格式化:≥1 万用「X.X 万」缩写,否则原样展示
           const fmtTokens = (n: number | undefined) =>
             n === undefined ? '?' : n >= 10000 ? `${Math.floor(n / 1000) / 10} 万` : `${n}`
@@ -1048,7 +1056,10 @@ export function createSendMessage(
           const displayMessage = isBudgetBlock
             ? budgetBlockMessage
             : (quotaNotice?.message ?? formatted.message)
-          useChatStore.getState().setMessageError(assistantId, displayMessage)
+          // V3 #69:errorCode 一并落进消息 —— 失败卡的 D67 归属分型(fromErrorCode)只认消息上的
+          // 码;不带码则 429 只落通用失败标题,"额度已用尽"分型卡永远进不了屏幕
+          // (与 send-answer.ts 的 D92 同一姿势:`setMessageError(id, error, errorCode)`)。
+          useChatStore.getState().setMessageError(assistantId, displayMessage, ec)
           useChatStore.getState().setError(displayMessage)
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
