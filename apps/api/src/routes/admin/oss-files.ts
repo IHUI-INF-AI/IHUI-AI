@@ -57,7 +57,7 @@ const ossFilesRoutes: FastifyPluginAsync = async (server) => {
         .where(and(eq(systemConfigs.category, 'oss_file'), eq(systemConfigs.id, p.data.id)))
         .returning({ id: systemConfigs.id })
       if (rows.length === 0) return reply.status(404).send(error(404, '文件不存在'))
-      return reply.send(success({ id: p.data.id, deleted: true }))
+      return reply.send(success({ id: p.data.id, deleted: rows.length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除 OSS 文件失败'))
