@@ -150,7 +150,13 @@ describe('O13 迁移 20260927100000:租户面行级策略第一批', () => {
     expect([...whens].sort((a, b) => a - b)).toEqual(whens)
     for (let i = 1; i < whens.length; i += 1) expect(whens[i] > whens[i - 1]).toBe(true)
     expect(entries.every((e, i) => e.idx === i + 1)).toBe(true)
-    expect(entries[entries.length - 1].tag).toBe(MIGRATION_TAG)
+    // **判"已登记",不判"排在最后"**:journal 是只追加台账,任何后来者追加一枚迁移都会把
+    // "我必须末位"这条钉成恒红(2026-09-27 实测:point_transactions 一入库本用例即断言失败)。
+    // 而真正的风险是"未登记 ⇒ drizzle-kit migrate 静默跳过"(见 tenant-rls-policy-check.mjs:238),
+    // 所以这里锁"存在且唯一",位置不是不变量。
+    const mine = entries.filter((e) => e.tag === MIGRATION_TAG)
+    expect(mine.length).toBe(1)
+    expect(Number(mine[0].idx)).toBeGreaterThan(0)
   })
 
   it('本判据不判求值结果:未覆盖方向必须被打印出来(禁止"扫到 0 条"当成通过)', () => {
