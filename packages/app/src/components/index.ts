@@ -11,20 +11,8 @@ export type { MoreLinkProps } from './MoreLink'
 export { BackChevron } from './BackChevron'
 export type { BackChevronProps } from './BackChevron'
 
-export { ColorfulLoader } from './ColorfulLoader'
-export type { ColorfulLoaderProps } from './ColorfulLoader'
-
-export { PayButton } from './PayButton'
-export type { PayButtonProps, PayButtonType } from './PayButton'
-
 export { Selecter } from './Selecter'
 export type { SelecterProps, SelecterType, SelecterOption } from './Selecter'
-
-export { Carousel } from './Carousel'
-export type { CarouselProps } from './Carousel'
-
-export { NavBar } from './NavBar'
-export type { NavBarProps } from './NavBar'
 
 export { TabBar } from './TabBar'
 export type { TabBarProps, TabBarItemConfig, TabBarKey } from './TabBar'
