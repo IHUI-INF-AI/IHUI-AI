@@ -565,7 +565,7 @@ export const get_command_output: Tool = {
 
 export const wait_command: Tool = {
   name: 'wait_command',
-  description: '等待后台任务结束,timeout_ms 毫秒后返回当前状态(不杀进程)。参数:task_id,timeout_ms(默认 30000)。',
+  description: '等待后台任务结束(不杀进程)。返回三态可分辨:观察到终态则报该终态;等待窗口用尽仍未终态则明确报"未等到终态/状态未知",不会把超时当作结论。参数:task_id,timeout_ms(默认 30000;<=0 为一次非阻塞探询)。',
   dangerLevel: 'read',
   parameters: {
     task_id: { type: 'string', description: '后台任务 ID' },
@@ -580,18 +580,36 @@ export const wait_command: Tool = {
     if (!task) return { success: false, output: '', error: `任务 ${taskId} 不存在` };
 
     const result = await waitForTask(taskId, timeoutMs);
-    if (!result) return { success: false, output: '', error: `任务 ${taskId} 已被清理` };
+    // 三态必须逐支处理:`timed-out-unknown` 不是"结束了且还在跑",
+    // 拿它的快照当结论报给模型,就等于把"我没等到"说成"它现在这样"。
+    if (result.state === 'gone' || !result.snapshot) {
+      return { success: false, output: '', error: `任务 ${taskId} 已被清理或不存在,无终态可报` };
+    }
+    const snap = result.snapshot;
 
     const parts: string[] = [
-      `任务 ${result.id}  状态: ${result.status}  exitCode: ${result.exitCode ?? '-'}`,
+      `任务 ${snap.id}  状态: ${snap.status}  exitCode: ${snap.exitCode ?? '-'}`,
     ];
-    if (result.stdoutBuf.trim()) parts.push(`[stdout]\n${result.stdoutBuf.trimEnd().slice(-2000)}`);
-    if (result.stderrBuf.trim()) parts.push(`[stderr]\n${result.stderrBuf.trimEnd().slice(-2000)}`);
-    if (result.timedOut) parts.push('[任务超时]');
+    if (snap.stdoutBuf.trim()) parts.push(`[stdout]\n${snap.stdoutBuf.trimEnd().slice(-2000)}`);
+    if (snap.stderrBuf.trim()) parts.push(`[stderr]\n${snap.stderrBuf.trimEnd().slice(-2000)}`);
+    if (snap.timedOut) parts.push('[任务超时]');
+    if (result.state === 'timed-out-unknown') {
+      // 如实说明"这一份是等待窗口用尽时的观测",而不是结论
+      parts.push(`[未等到终态] 本次等待 ${timeoutMs}ms 已用尽,上面是**该时刻的观测**而非最终结果;请再次调用 wait_command 或改用 get_command_output`);
+      return {
+        success: false,
+        output: parts.join('\n'),
+        error: `等待超时,任务终态未知(此刻状态: ${snap.status})`,
+      };
+    }
+    if (result.state === 'still-running') {
+      parts.push(`[仍在运行] 未做等待(timeoutMs=${timeoutMs})`);
+      return { success: false, output: parts.join('\n'), error: `任务仍在运行(此刻状态: ${snap.status})` };
+    }
     return {
-      success: result.status === 'exited' && result.exitCode === 0,
+      success: snap.status === 'exited' && snap.exitCode === 0,
       output: parts.join('\n'),
-      error: result.status !== 'exited' ? `状态: ${result.status}` : (result.exitCode !== 0 ? `退出码 ${result.exitCode}` : undefined),
+      error: snap.status !== 'exited' ? `状态: ${snap.status}` : (snap.exitCode !== 0 ? `退出码 ${snap.exitCode}` : undefined),
     };
   },
 };
