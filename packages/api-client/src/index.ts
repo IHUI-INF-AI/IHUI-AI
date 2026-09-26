@@ -38,6 +38,11 @@ export {
   // 2026-09-25 补能力:401 处理器注册口 —— 端内改走本包端点函数后仍能拿到"弹登录框"反馈
   setUnauthorizedHandler,
   getUnauthorizedHandler,
+  // 2026-09-26 补:`postToolApprovalResponse` 在 client.ts 已实现、端内已在调用,但入口漏 re-export。
+  // 与上面 2026-08-14 那条同一型 —— 差别是这次**没有编译期红点**:`apps/web/next.config.ts` 的
+  // `typescript.ignoreBuildErrors: true` 让 TS2724 不进构建,而打包器按 `exports → dist/index.js` 解析,
+  // 那里确实没有这个符号 ⇒ 运行时拿到 `undefined`,`tool-approval-dialog.tsx:93` 一点"批准"就抛。
+  postToolApprovalResponse,
 } from './client.js'
 export type {
   TokenProvider,
@@ -53,6 +58,10 @@ export type {
   ToolSummaryEvent,
   FallbackEvent,
   ToolDelegateEvent,
+  // 2026-09-26 补:与上面 D106 那条同一型 —— 类型在 client.ts 已 export,入口漏列 ⇒ 端内
+  // `use-chat/send-message.ts:25` 的 import 在 typecheck 里红,而 web 构建因 ignoreBuildErrors 不拦,
+  // 所以这格只在 `pnpm --filter @ihui/web typecheck` 上看得见(它不在提交链上)。
+  ToolApprovalEvent,
   SubagentSpawnEvent,
   SubagentEndEvent,
   SubagentProgressEvent,
