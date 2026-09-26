@@ -83,6 +83,37 @@ export const PROMPT_INJECTION_ENTRIES: readonly PromptInjectionEntry[] = [
     consumer: 'apps/cli/src/commands/agent.ts#runToolLoop',
     title: '迭代进度提醒',
   },
+  {
+    // 用户仓库里的 AGENTS.md 与跨会话落盘的 memory 条目都是**第三方内容**
+    // (不是宿主在说话),必须落 reference_data 档,由出口过 neutralizeBoundaries。
+    id: 'context_agents_md',
+    kind: 'reference_data',
+    producer: 'apps/cli/src/commands/agent.ts#setupAgentTools',
+    consumer: 'apps/cli/src/tools/index.ts#buildSystemPrompt',
+    title: '工作区 AGENTS.md 上下文段',
+  },
+  {
+    id: 'context_memory',
+    kind: 'reference_data',
+    producer: 'apps/cli/src/commands/agent.ts#setupAgentTools',
+    consumer: 'apps/cli/src/tools/index.ts#buildSystemPrompt',
+    title: '跨会话记忆段',
+  },
+  {
+    // 与上面两档相反:强制规划段是宿主自己下的指令,不是被转述的事实。
+    id: 'directive_plan_first',
+    kind: 'host_directive',
+    producer: 'apps/cli/src/tools/index.ts#buildSystemPrompt',
+    consumer: 'apps/cli/src/commands/agent.ts#setupAgentTools',
+    title: '强制任务规划指令段',
+  },
+  {
+    id: 'subagent_persona',
+    kind: 'host_directive',
+    producer: 'apps/cli/src/tools/subagent.ts#createSubagentTool',
+    consumer: 'apps/cli/src/tools/subagent.ts#createSubagentTool',
+    title: '子代理角色人格段',
+  },
 ];
 
 const INDEX: ReadonlyMap<string, PromptInjectionEntry> = new Map(
@@ -105,7 +136,15 @@ let ledger = new Map<string, InjectionRecord>();
 /** 未登记但调了出口的 id:只报数,绝不静默。 */
 let unregisteredIds = new Set<string>();
 
-/** 新一轮装配开始前清空(跨轮不累计,否则"未注入"行会把上一轮的账说成这一轮的)。 */
+/**
+ * 清空台账。**当前生产面零调用点**,这是实测后的结论而不是漏接线:
+ * ① 台账按 id 覆盖(`ledger` 是 Map),跨轮不会把同一段数成两遍;
+ * ② repl 与 `server/agent-core` 的 `setupAgentTools` 一个会话只跑一次并缓存,
+ *    此后服务的 system prompt 就是那一次装配的产物 —— 上一轮记的"无内容"对这一轮**依然为真**;
+ * ③ 所以任何"每轮清一次"的调用点只会把仍然成立的账擦掉(本票实测过放在 `runToolLoop` 开头,
+ *    结果连带擦掉 `context_memory` / `skill_list` 的降级记录),那比不清更糟。
+ * 保留导出的用途:测试隔离 + 将来若引入"每次请求重装配 system prompt"的宿主,由那个装配点调用。
+ */
 export function resetInjectionLedger(): void {
   ledger = new Map();
   unregisteredIds = new Set();
