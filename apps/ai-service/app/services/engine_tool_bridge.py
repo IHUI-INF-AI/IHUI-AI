@@ -37,8 +37,20 @@ V3 #47 第二格(2026-09-26 收口)加了三件事,都是「映射」从注释�
 3. 本表**不自带注册表名字清单**:"某个名字是否已注册"一律现读 `mcp_server._TOOL_HANDLERS`。
    抄一份清单就是第二份真相,而第二份真相在本仓的失效形态永远是"安静"。
 
+V3 #47 末格(2026-09-27 收口「JSON-RPC 只留协议适配层」)加了**定义出口**:
+1. `port_tool_definition(engine_name, *, parameters, executor)` 是 `port` 档内置工具的
+   **唯一构造出口** —— name/description 现读唯一注册表(`mcp_server._TOOLS` 里那条
+   MCPTool),引擎面不再手抄一份定义(此前 `_web_search_tool` 自带 description 与
+   schema,而同名 `web_search` 在注册表里还有一份 —— 承载层合并时引擎面遮蔽注册表面,
+   注册表那条成了死元数据,即"第二份真相")。
+2. `parameters` 仍由引擎侧给出,这是**协议 wire 形状**(Codex JSON-RPC 面要求 camelCase
+   与协议专有参数,如 maxResults/allowedDomains),属正当适配层,不是第二份能力真相;
+   能力归口与授权判定仍只认本表的等价物。
+3. 出口对非 port / 未登记 / 等价物已从注册表消失的名字一律 **RuntimeError**
+   —— 定义出口不许被拿去给 map/local 洗白;守门 J15 静态判同一件事。
+
 形态约束:表必须是**纯字面量 dict**。守门
-`scripts/check-tool-registry-integrity.mjs` 的 J8/J9/J10/J12/J13/J14 与 Python 侧测试读同一张表;
+`scripts/check-tool-registry-integrity.mjs` 的 J8/J9/J10/J12/J13/J14/J15 与 Python 侧测试读同一张表;
 改成 dataclass / 构造调用会让门的正则读空,而「读空」在门上表现为 0 处违规 = 假绿。
 覆盖关系由门咬住:新增内置名而无桥条目即红;条目声明的等价物必须真在注册表里;
 `resolve_engine_tool` 被摘线(即"造好没装车")同样即红。
@@ -46,7 +58,7 @@ V3 #47 第二格(2026-09-26 收口)加了三件事,都是「映射」从注释�
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Any, Callable, Final
 
 # 处置结论的封闭集(不是工具名清单,所以不构成第二份真相)。
 BRIDGE_MODES: Final[tuple[str, str, str]] = ("port", "map", "local")
@@ -135,6 +147,62 @@ def execution_mode(engine_name: str) -> str | None:
     """该内置名的处置结论(port/map/local);未登记返回 None(门会把它读成缺条目)。"""
     entry = ENGINE_TOOL_BRIDGE.get(engine_name)
     return entry[2] if entry is not None else None
+
+
+def registry_definition(name: str) -> Any | None:
+    """现读唯一注册表(`mcp_server._TOOLS`)里该名字的 MCPTool;没有则 None。
+
+    返回类型标注 Any 是诚实写法:MCPTool 住在 mcp_server,模块级 import 会撞
+    循环导入(mcp_server 导入期即触达服务层),与 `_registered_tool_names` 同一
+    懒加载形态。**不**在本模块抄一份工具定义 —— 那正是本票要消除的第二份真相。
+    """
+    from .mcp_server import _TOOLS
+
+    for tool in _TOOLS:
+        if getattr(tool, "name", None) == name:
+            return tool
+    return None
+
+
+def port_tool_definition(
+    engine_name: str,
+    *,
+    parameters: dict[str, Any],
+    executor: Callable[[dict[str, Any]], Any],
+) -> Any:
+    """`port` 档内置工具定义的**唯一构造出口**(V3 #47 末格)。
+
+    name/description 一律现读唯一注册表 —— 引擎面只提供协议 wire 形状
+    (`parameters`,camelCase 与协议专有参数属适配层)与执行适配器(`executor`,
+    其本体必须是注册表实现,由守门 J14/J15 与 `test_port_disposition_is_not_a_lie`
+    双向咬住)。任何"注册表没有对应条目"或"处置不是 port"的调用一律
+    RuntimeError(fail-fast)—— 出口被拿去给 map/local 洗白,比没有出口更糟。
+    """
+    entry = ENGINE_TOOL_BRIDGE.get(engine_name)
+    if entry is None:
+        raise RuntimeError(
+            f"'{engine_name}' 不在 ENGINE_TOOL_BRIDGE —— 定义出口只服务处置在案的内置名"
+        )
+    if entry[2] != "port":
+        raise RuntimeError(
+            f"'{engine_name}' 处置为 '{entry[2]}',不是 'port' —— "
+            "只有'执行体就是注册表那一份'的名字才允许从注册表取定义"
+        )
+    equivalent = entry[0]
+    registry_tool = registry_definition(str(equivalent)) if equivalent is not None else None
+    if registry_tool is None:
+        raise RuntimeError(
+            f"port '{engine_name}' 的等价物 '{equivalent}' 在 mcp_server._TOOLS 里读不到 "
+            "—— 定义无所从,宁可构造失败也不发一份悬空定义"
+        )
+    from .agent_loop_v2 import ToolDefinition
+
+    return ToolDefinition(
+        name=engine_name,
+        description=str(registry_tool.description),
+        parameters=parameters,
+        executor=executor,
+    )
 
 
 def _registered_tool_names() -> set[str]:
