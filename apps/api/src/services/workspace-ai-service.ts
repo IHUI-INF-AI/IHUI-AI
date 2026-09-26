@@ -2843,8 +2843,11 @@ class FSBridge {
       description: `删除文件: ${params.path}`,
       files: [params.path],
     })
+    // rmSync 的 force:true 对"路径本就不存在"不抛错也不删任何东西 ⇒
+    // deleted 不能写字面量,必须以删前磁盘实况判定(与"库里真少了一行"同语义)
+    const existedBefore = existsSync(full)
     rmSync(full, { recursive: params.recursive ?? false, force: true })
-    return { path: params.path, deleted: true }
+    return { path: params.path, deleted: existedBefore }
   }
 
   grep(params: {

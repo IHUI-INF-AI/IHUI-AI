@@ -631,9 +631,9 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     if (idx < 0) {
       return reply.status(404).send(error(404, 'Skill 不存在'))
     }
-    skills.splice(idx, 1)
+    const removed = skills.splice(idx, 1)
     await writeSkills(server.redis, key, skills)
-    return reply.send(success({ name: parsed.data.name, deleted: true }))
+    return reply.send(success({ name: parsed.data.name, deleted: removed.length > 0 }))
   })
 
   // POST /skills/sync — 跨端同步(push/pull/list),对齐 SkillSyncRequest/SkillSyncResponse 契约

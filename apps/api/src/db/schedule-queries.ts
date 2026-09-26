@@ -120,8 +120,13 @@ export async function updateScheduleTask(
   return rows[0]
 }
 
-export async function deleteScheduleTask(id: string): Promise<void> {
-  await db.delete(scheduleTasks).where(eq(scheduleTasks.id, id))
+/** 删除定时任务。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteScheduleTask(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(scheduleTasks)
+    .where(eq(scheduleTasks.id, id))
+    .returning({ id: scheduleTasks.id })
+  return rows.map((r) => r.id)
 }
 
 /**

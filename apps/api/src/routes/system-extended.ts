@@ -125,9 +125,12 @@ async function rawUpdate(
   return (rows as Record<string, unknown>[])[0] ?? null
 }
 
-async function rawDelete(table: string, id: string) {
+async function rawDelete(table: string, id: string): Promise<number> {
   assertTable(table)
-  await db.execute(sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id}`)
+  const rows = await db.execute(
+    sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id} RETURNING "id"`,
+  )
+  return (rows as Record<string, unknown>[]).length
 }
 
 const categoryDictCols = [
@@ -215,8 +218,8 @@ function registerCategoryDictionaryRoutes(server: FastifyInstance) {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      await rawDelete('zhs_category_dictionary', parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await rawDelete('zhs_category_dictionary', parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed > 0 }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除字典项失败'))
@@ -322,8 +325,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const numId = Number(parsed.data.id)
     if (!Number.isFinite(numId)) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      await db.delete(aibotSites).where(eq(aibotSites.id, numId))
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await db
+        .delete(aibotSites)
+        .where(eq(aibotSites.id, numId))
+        .returning({ id: aibotSites.id })
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除 Bot 站点失败'))

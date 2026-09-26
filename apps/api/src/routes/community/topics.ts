@@ -174,9 +174,12 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     if (!Number.isInteger(tidNum) || tidNum <= 0) {
       return reply.status(400).send(error(400, '无效的话题 ID'))
     }
-    const [deleted] = await db.delete(circleDynamic).where(eq(circleDynamic.id, tidNum)).returning()
-    if (!deleted) return reply.status(404).send(error(404, '话题不存在'))
-    return reply.send(success({ id: tidNum, deleted: true }))
+    const removed = await db
+      .delete(circleDynamic)
+      .where(eq(circleDynamic.id, tidNum))
+      .returning({ id: circleDynamic.id })
+    if (removed.length === 0) return reply.status(404).send(error(404, '话题不存在'))
+    return reply.send(success({ id: tidNum, deleted: removed.length > 0 }))
   })
 
   // ===== 圈子分类关系（历史 circle_category_relation，integer id） =====
@@ -237,12 +240,12 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     if (!Number.isInteger(ridNum) || ridNum <= 0) {
       return reply.status(400).send(error(400, '无效的关系 ID'))
     }
-    const [deleted] = await db
+    const removed = await db
       .delete(circleCategoryRelation)
       .where(eq(circleCategoryRelation.id, ridNum))
-      .returning()
-    if (!deleted) return reply.status(404).send(error(404, '分类关系不存在'))
-    return reply.send(success({ id: ridNum, deleted: true }))
+      .returning({ id: circleCategoryRelation.id })
+    if (removed.length === 0) return reply.status(404).send(error(404, '分类关系不存在'))
+    return reply.send(success({ id: ridNum, deleted: removed.length > 0 }))
   })
 
   // ===== 圈子类目关系（历史 circle_circle_category_relation，integer id） =====
@@ -297,12 +300,12 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     if (!Number.isInteger(ridNum) || ridNum <= 0) {
       return reply.status(400).send(error(400, '无效的关系 ID'))
     }
-    const [deleted] = await db
+    const removed = await db
       .delete(circleCircleCategoryRelation)
       .where(eq(circleCircleCategoryRelation.id, ridNum))
-      .returning()
-    if (!deleted) return reply.status(404).send(error(404, '类目关系不存在'))
-    return reply.send(success({ id: ridNum, deleted: true }))
+      .returning({ id: circleCircleCategoryRelation.id })
+    if (removed.length === 0) return reply.status(404).send(error(404, '类目关系不存在'))
+    return reply.send(success({ id: ridNum, deleted: removed.length > 0 }))
   })
 }
 export default topicsRoutes

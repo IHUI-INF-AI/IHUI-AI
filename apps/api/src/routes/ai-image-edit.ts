@@ -622,7 +622,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       if ((rows as Record<string, unknown>[]).length === 0) {
         return reply.status(404).send(error(404, '编辑历史不存在'))
       }
-      return reply.send(success({ id, deleted: true }))
+      return reply.send(success({ id, deleted: (rows as Record<string, unknown>[]).length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除编辑历史失败'))
@@ -1063,7 +1063,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       if (rows.length === 0) {
         return reply.status(404).send(error(404, '图片记录不存在或无权删除'))
       }
-      return reply.send(success({ id, deleted: true }))
+      return reply.send(success({ id, deleted: rows.length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除图片交互记录失败'))
