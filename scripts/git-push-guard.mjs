@@ -508,9 +508,16 @@ const workerActive =
 
 // 2026-09-18 自愈:死 worker 残留 running 状态(被强杀来不及写终态)→ 启动时顺手改写为
 // failed 终态,消费端(converge/check-push-sync)不再依赖 pid 推断,状态文件保持真实。
+// ⚠️ 这一记 failed 写的是**那枚死 worker 的 headSha**,不是本次本地 HEAD —— 多会话并发下
+// 它每天落 353 次(实测 `grep -ac "发现死 worker" .workbuddy/git-push-guard-async.log`),
+// 于是"现值 ahead + 状态 failed"常常与本次提交毫无因果。必须带 reason 落盘,
+// 让下游能分清"推送真的失败了"与"上一个 worker 没写完终态"(2026-09-26 补,守门 29 假红根因)。
 if (existingState && existingState.status === 'running' && !isPidAlive(existingState.pid)) {
   log('warn', `发现死 worker 残留 running 状态(pid ${existingState.pid}),自愈为 failed`)
-  writePushState('failed', existingState.headSha)
+  writePushState('failed', existingState.headSha, {
+    kind: 'dead-worker-self-heal',
+    reason: `残留 running 的持有者 pid ${existingState.pid} 已死,本进程只负责把它改成终态`,
+  })
 }
 
 if (isWorkerMode) {

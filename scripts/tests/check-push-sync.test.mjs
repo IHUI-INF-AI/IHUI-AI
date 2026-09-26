@@ -179,7 +179,12 @@ test('push-state: running 且新鲜且持有者存活 → exit 0(在途推送不
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     makeLocalCommit(work, 'unpushed while worker running')
-    writePushState(work, { status: 'running', headSha: 'deadbeef', ts: Date.now(), pid: process.pid })
+    writePushState(work, {
+      status: 'running',
+      headSha: 'deadbeef',
+      ts: Date.now(),
+      pid: process.pid,
+    })
     const r = runScript([], { cwd: work })
     assert.equal(r.status, 0, `running 在途应放行,实际 ${r.status}:${stripAnsi(r.stdout)}`)
     assert.match(stripAnsi(r.stdout), /后台推送在途/)
@@ -223,13 +228,47 @@ test('push-state: done 但 headSha 不在 HEAD 祖先线上 → 仍 exit 1(不�
   }
 })
 
-test('push-state: failed → 即使新鲜也必须 exit 1(真推不出去才是本门存在的理由)', () => {
+test('push-state: failed 新鲜 → exit 0 并把话说响(2026-09-26 改判:实测拦我的那记 failed 来自死 worker 终态自愈,与本次提交无因果)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     makeLocalCommit(work, 'unpushed while push failed')
-    writePushState(work, { status: 'failed', headSha: 'deadbeef', ts: Date.now(), pid: process.pid })
+    writePushState(work, {
+      status: 'failed',
+      headSha: 'deadbeef',
+      ts: Date.now(),
+      pid: process.pid,
+      kind: 'dead-worker-self-heal',
+    })
     const r = runScript([], { cwd: work })
-    assert.equal(r.status, 1, `failed 必须拦,实际 ${r.status}`)
+    assert.equal(
+      r.status,
+      0,
+      `新鲜 failed 应放行(拦提交修不好推送,只会逼人跳门),实际 ${r.status}:${stripAnsi(r.stdout)}`,
+    )
+    assert.match(stripAnsi(r.stdout), /拦提交修不好推送/)
+    assert.match(
+      stripAnsi(r.stdout),
+      /dead-worker-self-heal/,
+      '来源要一起打出来,否则下一次又要从头猜',
+    )
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('push-state: failed 已过期 → exit 1(没人再试的分叉/失败才是本门该拦的)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'unpushed with ancient failure')
+    writePushState(work, {
+      status: 'failed',
+      headSha: 'deadbeef',
+      ts: Date.now() - 11 * 60 * 1000,
+      pid: process.pid,
+    })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 1, `过期 failed 必须拦,实际 ${r.status}:${stripAnsi(r.stdout)}`)
     assert.match(stripAnsi(r.stderr), /未 push 的 commit/)
   } finally {
     rmScratch(work)
@@ -268,7 +307,11 @@ test('push-state: diverged 新鲜 → exit 0 并点名收敛器(guard 自己不�
       nextCommand: 'node scripts/git-sync-converge.mjs',
     })
     const r = runScript([], { cwd: work })
-    assert.equal(r.status, 0, `新鲜 diverged 应放行,实际 ${r.status}:${stripAnsi(r.stdout)}${stripAnsi(r.stderr)}`)
+    assert.equal(
+      r.status,
+      0,
+      `新鲜 diverged 应放行,实际 ${r.status}:${stripAnsi(r.stdout)}${stripAnsi(r.stderr)}`,
+    )
     assert.match(stripAnsi(r.stdout), /git-sync-converge/, '放行也必须把唯一出路说出口,不能静默')
   } finally {
     rmScratch(work)
@@ -353,10 +396,11 @@ test('本地无 tracking ref 但 origin 可达 → 按 ls-remote 真值判定(�
     execSync('git remote remove origin', { cwd: work, stdio: 'pipe' })
     execSync(`git remote add origin "${origin.replace(/\\/g, '/')}"`, { cwd: work, stdio: 'pipe' })
     // 前提自证:本地确实没有 tracking ref(否则本用例什么都没测)
-    assert.equal(execSync('git for-each-ref refs/remotes', { cwd: work, encoding: 'utf8' }).trim(), '')
-    assert.throws(() =>
-      execSync('git rev-parse origin/main', { cwd: work, stdio: 'pipe' }),
+    assert.equal(
+      execSync('git for-each-ref refs/remotes', { cwd: work, encoding: 'utf8' }).trim(),
+      '',
     )
+    assert.throws(() => execSync('git rev-parse origin/main', { cwd: work, stdio: 'pipe' }))
     const r = runScript([], { cwd: work })
     assert.equal(r.status, 0, `同步态应 exit 0,实际 ${r.status}\n${r.stdout}`)
     assert.match(r.stdout, /已同步|ls-remote/, `应经 ls-remote 取到真值,实际:${r.stdout}`)
@@ -376,11 +420,7 @@ test('两条通道都取不到(origin 不可达 + 无本地 ref)→ exit 0 并�
     const r = runScript([], { cwd: work })
     assert.equal(r.status, 0, `取不到远端 HEAD 应跳过而非阻塞,实际 ${r.status}\n${r.stdout}`)
     assert.match(r.stdout, /无法确定|未 fetch|跳过/, `应说明跳过原因,实际:${r.stdout}`)
-    assert.doesNotMatch(
-      r.stdout,
-      /已同步/,
-      '绝不允许在什么都没比对到时打印"已同步"(那是假保证)',
-    )
+    assert.doesNotMatch(r.stdout, /已同步/, '绝不允许在什么都没比对到时打印"已同步"(那是假保证)')
   } finally {
     rmScratch(work)
     rmScratch(origin)
