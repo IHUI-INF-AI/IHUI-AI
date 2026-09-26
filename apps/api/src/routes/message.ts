@@ -28,6 +28,8 @@ import {
   countUnreadEduMessages,
 } from '../db/message-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+// 批量写的 affected 一律由库确认集合经唯一出口推出,不得由请求侧自算(2026-09-26 静默失真修复)
+import { batchWriteOutcome } from '../utils/batch-outcome.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { turnOrdinalForRole } from '../services/turn-ordinal.js'
 
@@ -342,10 +344,19 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = z.object({ ids: z.array(z.uuid()).min(1).max(100) }).parse(request.body)
       const userId = request.userId!
-      await db
+      // 2026-09-26 修「改了 0 行与改成功同形」:where 带 memberId 过滤,传别人的 id 一行都没删,
+      // 旧写法仍回 deleted=ids.length(UI 显示"已删除"而库里那条还在)。deleted 现由
+      // DELETE ... RETURNING 回报的命中集经唯一出口 batchWriteOutcome 推出,missedIds 逐条点名。
+      // 既有响应键 deleted 与 status code 不变,只新增 missedIds。
+      const deletedRows = await db
         .delete(eduMessages)
         .where(and(eq(eduMessages.memberId, userId), inArray(eduMessages.id, body.ids)))
-      return reply.send(success({ deleted: body.ids.length }))
+        .returning({ id: eduMessages.id })
+      const { affected, missedIds } = batchWriteOutcome(
+        body.ids,
+        deletedRows.map((r) => r.id),
+      )
+      return reply.send(success({ deleted: affected, missedIds }))
     },
   )
 

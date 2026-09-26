@@ -81,9 +81,18 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
       const noteDropped = (): void => {
         conns.delete(ws)
         // ① 计数一律走既有观测出口 server.metrics(/metrics 与 /health/metrics 都读它),
-        //   不新建第二套 metrics 体系。语义映射:本插件视角"这条连接已死"就是既有
-        //   ws_disconnects_total 那一件事,且一帧丢 = 一次摘线,一一对应不重复计。
-        if (server.metrics) server.metrics.wsDisconnectsTotal += 1
+        //   不新建第二套 metrics 体系。**两个计数器成对递增,各自问的是不同的一件事**:
+        //   - wsDisconnectsTotal = "这条连接从注册表里少了一次"。客户端正常关连接
+        //     (ws-chat / ws-notifications 的 close 路径)也给它 +1,所以它是断开总数的
+        //     上界,运维从它问不出"有没有帧没送到人"。
+        //   - wsBroadcastDroppedFramesTotal = "有一帧没能送出去、并且摘掉了一条挂在
+        //     注册表里的陈旧连接"。这一格才是运维要的那颗信号,故必须单独可查询 ——
+        //     warn 是进程日志、不可查询且被 60s 节流,不能当观测出口用。
+        //   一次丢帧确实同时是"一次断开"与"一次丢帧",两件事都真发生了,所以两条各 +1。
+        if (server.metrics) {
+          server.metrics.wsDisconnectsTotal += 1
+          server.metrics.wsBroadcastDroppedFramesTotal += 1
+        }
         // ② 首次 warn + 节流复读。字段只有计数与 userId,**不含事件名与会话内容**。
         if (sendFailures.record()) {
           server.log.warn(
