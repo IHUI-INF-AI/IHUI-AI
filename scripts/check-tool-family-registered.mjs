@@ -76,7 +76,7 @@ const SELF_EXEMPT_BASENAMES = ['check-tool-family-registered.mjs']
 
 export const SKIP_ENV_NAME = 'HUSKY_SKIP_TOOL_FAMILY_REGISTERED'
 /** 本票申报的编号(撞号即红 —— 仓里记过至少四次同日撞号)。 */
-export const GUARDIAN_ID_EXPECTED = '131'
+export const GUARDIAN_ID_EXPECTED = '132'
 
 // ==================== 词法:遮噪 + 括号配平 ====================
 
