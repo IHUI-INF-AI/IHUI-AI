@@ -18,6 +18,19 @@ import { Image, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 
 import { tokens } from '../theme/active-tokens'
 import { ChevronLeft } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
+import { backChevronBoxStyle, backChevronGlyphPx } from '@ihui/shared/ui/back-chevron-spec'
+import {
+  NAVBAR_ACTION_GLYPH_PX,
+  NAVBAR_ACTION_LABEL_FONT_PX,
+  NAVBAR_ROW_HEIGHT_PX,
+  NAVBAR_ROW_HEIGHT_SUBTITLE_PX,
+  NAVBAR_SIDE_PADDING_PX,
+  NAVBAR_SIDE_PLACEHOLDER_PX,
+  NAVBAR_SUBTITLE_FONT_PX,
+  NAVBAR_SUBTITLE_MARGIN_TOP_PX,
+  NAVBAR_TITLE_FONT_PX,
+  navbarActionBoxStyle,
+} from '@ihui/shared/ui/navbar-spec'
 
 export interface NavBarAction {
   /** emoji 字符 / 图片 URL(http:// / / 开头)/ lucide 图标组件引用(统一图标) */
@@ -40,8 +53,9 @@ export interface NavBarProps {
   sticky?: boolean
 }
 
-const HEIGHT_DEFAULT = 44
-const HEIGHT_WITH_SUBTITLE = 56
+/// 行高/侧占位/按钮盒/字号不在本文件取数 —— 唯一源是 @ihui/shared/ui/navbar-spec(与小程序端同档);
+/// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等。hitSlop 是 RN 独有命中扩张通道(waiver,数值对齐)。
+const BACK_BUTTON_STYLE = backChevronBoxStyle((px: number) => px)
 const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const
 const ACTION_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 } as const
 
@@ -65,7 +79,7 @@ export function NavBar({
   rightAction,
   sticky = false,
 }: NavBarProps) {
-  const contentHeight = subtitle ? HEIGHT_WITH_SUBTITLE : HEIGHT_DEFAULT
+  const contentHeight = subtitle ? NAVBAR_ROW_HEIGHT_SUBTITLE_PX : NAVBAR_ROW_HEIGHT_PX
   const hasLeftContent =
     onBack !== undefined || (leftActions !== undefined && leftActions.length > 0)
   const hasRightContent =
@@ -85,7 +99,7 @@ export function NavBar({
               accessibilityRole="button"
               accessibilityLabel="返回"
             >
-              <ChevronLeft size={24} color={tokens.text.primary} />
+              <ChevronLeft size={backChevronGlyphPx()} color={tokens.text.primary} />
             </TouchableOpacity>
           ) : null}
           {leftActions?.map((action, index) => (
@@ -142,7 +156,7 @@ function NavBarActionButton({ action }: NavBarActionButtonProps) {
       )
     }
     const Icon = action.icon
-    return <Icon size={18} color={tokens.text.secondary} />
+    return <Icon size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.secondary} />
   }
   return (
     <TouchableOpacity
@@ -170,70 +184,61 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    // 对齐 Uniapp navigation-bars 的 padding: 0 20rpx(750rpx 制,20rpx = 10dp)
-    paddingHorizontal: 10,
+    // 档位唯一源 navbar-spec(对齐 Uniapp navigation-bars 的 padding: 0 20rpx,20rpx = 10dp)
+    paddingHorizontal: NAVBAR_SIDE_PADDING_PX,
   },
   leftSection: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  backBtn: BACK_BUTTON_STYLE,
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    // 2026-09-23 修复 P1:18→16,减小标题字宽释放横向空间,配合 center minWidth:80 确保"智汇AI"完整显示
-    fontSize: 16,
+    // 字号唯一源 navbar-spec(2026-09-23 P1 定格 16,防"智汇AI"截断;与小程序端同档)
+    fontSize: NAVBAR_TITLE_FONT_PX,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: NAVBAR_SUBTITLE_FONT_PX,
     color: tokens.text.secondary,
-    marginTop: 2,
+    marginTop: NAVBAR_SUBTITLE_MARGIN_TOP_PX,
   },
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    minWidth: 32,
+    minWidth: NAVBAR_SIDE_PLACEHOLDER_PX,
   },
   legacyRight: {
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
   sidePlaceholder: {
-    width: 32,
+    width: NAVBAR_SIDE_PLACEHOLDER_PX,
   },
   actionBtn: {
-    // 2026-09-23 修复 P1:minWidth 32→28 / paddingHorizontal 8→6,压缩两侧图标占用给标题留空间
-    minWidth: 28,
-    height: 32,
+    // 盒宽/盒高/居中唯一源 navbar-spec;gap 与内边距是"图标+文字"并排的端内布局,不是跨端档
+    ...navbarActionBoxStyle((px: number) => px),
     paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
     gap: 4,
   },
   actionImage: {
-    width: 20,
-    height: 20,
+    width: NAVBAR_ACTION_GLYPH_PX,
+    height: NAVBAR_ACTION_GLYPH_PX,
   },
   actionEmoji: {
-    fontSize: 18,
+    fontSize: NAVBAR_ACTION_GLYPH_PX,
     color: tokens.text.primary,
-    lineHeight: 22,
+    lineHeight: NAVBAR_ACTION_GLYPH_PX + 2,
     includeFontPadding: false,
   },
   actionLabel: {
-    fontSize: 12,
+    fontSize: NAVBAR_ACTION_LABEL_FONT_PX,
     color: tokens.text.primary,
     maxWidth: 60,
   },

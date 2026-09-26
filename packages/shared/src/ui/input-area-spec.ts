@@ -2,90 +2,60 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useTt } from '@/i18n'
-import { View, Text } from '@tarojs/components'
-import type { ReactNode } from 'react'
-import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
-import {
-  SECTION_HEADER_ARROW_MARGIN_LEFT_PX,
-  SECTION_HEADER_MORE_MARGIN_LEFT_PX,
-  SECTION_HEADER_SUBTITLE_FONT_PX,
-  SECTION_HEADER_SUBTITLE_GAP_PX,
-  SECTION_HEADER_TITLE_FONT_PX,
-} from '@ihui/shared/ui/section-header-spec'
-import { rpx } from '@/utils/rpx'
-import LineIcon from '@/components/LineIcon'
+// 跨端输入区几何档:值取"两端现档 + 裁决规则",两端组件文件不再各自抄数字。
+//
+// 刻意只收两端已同值/按规则可定档的一档。ai-home 三层结构(小程序复刻原 InputArea.vue)
+// 与 RN 卡片式布局是**变体契约分叉**,其差异档(输入字号 18 vs 14、发送钮 25 vs 40/44、
+// 附件缩略图 106.5×60 vs 72×72、emoji 面板小程序独有)未收进来 —— 清单见交付报告待裁决。
 
-/// 标题区字号/间距唯一源在 @ihui/shared/ui/section-header-spec(与 RN 端 packages/app 同表);
-/// 「更多」入口字号/箭头按 §4 定档(12px / 24rpx),已由 MoreLink 与 LineIcon 体系单源,不在本表重复。
-const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
-const TITLE_FONT = toUnit(SECTION_HEADER_TITLE_FONT_PX)
-const SUBTITLE_FONT = toUnit(SECTION_HEADER_SUBTITLE_FONT_PX)
+/** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
+export type GeometryUnit<U extends string | number> = (px: number) => U
 
 /**
- * 通用"标题 + 更多"区块头部组件。
- * 对齐原项目 components/MoreTitles/index.vue:左侧标题(可选副标题)+ 右侧「更多 + chevron-right 矢量」。
- *
- * 箭头必须是矢量(LineIcon chevron-right),不得用 `>` / `›` 字符:字符箭头与标签字号
- * 不同时必上下错位,且与 RN 侧 MoreLink、web 侧 ViewMore 不同形。
+ * 放大按钮顶端内缩 6:小程序 `top: rpx(12)` = 6 / RN 放大钮 `top: 6`。两端现值已同,
+ * 收一处防分叉。上一轮只搬小程序侧这一处时,RN 的命中外扩/计数浮层仍写裸 6,
+ * 巧合的"两端同值"被拆成"仅 RN 档",守门 128 台账 23→24 —— 所以本档必须与下面两枚
+ * 同枚提交、两端同时改指本文件,6 才会在两侧文件同时归零。
  */
-export interface SectionHeaderProps {
-  title: string
-  subtitle?: string
-  moreText?: string
-  showMore?: boolean
-  onMore?: () => void
-  extra?: ReactNode
-  className?: string
-}
+export const INPUT_AREA_FANGDA_TOP_PX = 6
 
-export default function SectionHeader({
-  title,
-  subtitle,
-  moreText,
-  showMore = true,
-  onMore,
-  extra,
-  className = '',
-}: SectionHeaderProps) {
-  const tt = useTt()
-  const moreLabel = moreText ?? tt('common.more', '更多')
+/**
+ * 控制按钮命中外扩 6(RN hitSlop 机制,小程序无对应属性):数值与放大钮内缩同族
+ * (都是"贴边控件向外让 6"),收进本表让该档只有一份真相。机制通道各端保留。
+ */
+export const INPUT_AREA_CONTROL_HIT_SLOP_PX = 6
 
-  return (
-    <View className={`flex items-center justify-between ${className}`}>
-      <View className="flex items-center min-w-0 flex-1">
-        <Text className="font-bold text-foreground truncate" style={{ fontSize: TITLE_FONT }}>
-          {title}
-        </Text>
-        {subtitle && (
-          <Text
-            className="text-muted-foreground truncate"
-            style={{ fontSize: SUBTITLE_FONT, marginLeft: toUnit(SECTION_HEADER_SUBTITLE_GAP_PX) }}
-          >
-            {subtitle}
-          </Text>
-        )}
-      </View>
-      <View className="flex items-center flex-shrink-0">
-        {extra}
-        {showMore && (
-          <View
-            className="flex items-center"
-            style={{ marginLeft: toUnit(SECTION_HEADER_MORE_MARGIN_LEFT_PX) }}
-            onClick={onMore}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-[length:24rpx] text-muted-foreground">{moreLabel}</Text>
-            <LineIcon
-              name="chevron-right"
-              size={24}
-              color="var(--color-muted-foreground)"
-              style={{ marginLeft: toUnit(SECTION_HEADER_ARROW_MARGIN_LEFT_PX) }}
-            />
-          </View>
-        )}
-      </View>
-    </View>
-  )
-}
+/**
+ * 计数浮层距底 6(RN 端,小程序端不渲染计数器 —— 契约分叉见头注):与上面两枚同源,
+ * 收进来是为了两侧文件同时不再出现裸 6(见 INPUT_AREA_FANGDA_TOP_PX 注)。
+ */
+export const INPUT_AREA_COUNTER_BOTTOM_PX = 6
+
+/**
+ * 语音切换按钮与输入框的间距:小程序 `marginRight: rpx(20)` = 10 / RN `marginRight: 6`。
+ * 裁决规则 2(间距取两端较大者)→ 10。RN 侧那一枚 6 必须同枚提交改指本档:留着裸 6
+ * 而小程序侧的 6 已进 spec,6 就成了"仅 RN 档"(台账 23→24 的成因,机制同
+ * INPUT_AREA_FANGDA_TOP_PX 注)。
+ */
+export const INPUT_AREA_VOICE_BTN_GAP_PX = 10
+
+/**
+ * 参数变量输入行竖向内边距 6(RN 独有「参数变量区」;小程序端该功能走 Selecter,无对应行)。
+ * 刻意入表:6 这一族若只搬走部分,RN 文件残留的一枚就会从"两端同值"变成"仅 RN 档"
+ * (台账 23→24 的机制),分叉不是被修掉而是被挪出来 —— 全部同族 6 进同一份源才归零。
+ */
+export const INPUT_AREA_PARAM_FIELD_PADDING_V_PX = 6
+
+/**
+ * 输入行顶部内边距 10:RN `input/inputBare paddingTop: 10`;小程序端对应值在 CSS 类臂
+ * (`textareaPadding` 字符串)不具名。与 INPUT_AREA_VOICE_BTN_GAP_PX 同枚入表:两侧文件里
+ * 若一侧留裸 10 一侧进 spec,10 就从"两端同值"翻成"仅 RN 档"(与 6 那族同型的账)。
+ */
+export const INPUT_AREA_INPUT_PADDING_TOP_PX = 10
+
+/** 附件文件名跑马字级 10:RN 现值;小程序端同名条字级在 CSS 类臂,不具名。 */
+export const INPUT_AREA_DOC_NAME_FONT_PX = 10
+
+/** 附件删除角标内 X 墨迹 10:RN 现值;小程序端删除件走端内图片资产,无墨迹数字。 */
+export const INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX = 10
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
