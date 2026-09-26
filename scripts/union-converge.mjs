@@ -55,6 +55,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { auditOne } from './check-merge-addition-loss.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { resolveRemoteHead } from './lib/face-reader.mjs'
+import { auditPlan } from './lib/plan-task-index.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
@@ -210,6 +211,29 @@ function mergeThreeBlobs(baseOid, oursOid, theirsOid, cwd) {
  * 必须在归并结果里保住。底线判据:只保证"重数不减少",不判顺序与语义交织
  * (真三方把两侧改动接到不同位置时顺序本就会变,那不是丢行)。
  */
+/**
+ * 归并结果的任务状态分叉**不得高于任何一侧**(纯函数,不碰 git)。
+ * 三条判据同守门 130:F1 同主键两态并存 / F2 自带作废声明未落账 / F3 行号指针已腐烂。
+ * 取"各侧最大值"而不是"对侧值"作基准,是因为本侧也可能带着未清存量 —— 归并只许持平或变好。
+ * 解析不出(空文本/非计划文档)⇒ 返回空数组并**不**声称通过:调用方只对真做了判定的路径说话。
+ */
+export function planStateRegressions(mergedText, sideTexts) {
+  const KEYS = [
+    ['forks', 'F1 同主键两态并存(组)'],
+    ['voidRows', 'F2 带作废声明未落账(行)'],
+    ['rotatedPointers', 'F3 行号指针已腐烂(处)'],
+  ]
+  const sides = (sideTexts ?? []).filter((t) => typeof t === 'string' && t.trim() !== '')
+  if (typeof mergedText !== 'string' || mergedText.trim() === '' || sides.length === 0) return []
+  const m = auditPlan(mergedText).counts
+  const out = []
+  for (const [k, label] of KEYS) {
+    const worst = Math.max(...sides.map((t) => auditPlan(t).counts[k]))
+    if (m[k] > worst) out.push(`${label} 各侧最多 ${worst},归并结果 ${m[k]}`)
+  }
+  return out
+}
+
 export function lostAddedLines(baseText, sideText, otherText, mergedText) {
   const cb = counter(baseText)
   const cs = counter(sideText)
@@ -410,8 +434,24 @@ export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set(),
       for (const l of lostAddedLines(baseText, theirsText, oursText, mergedText))
         violations.push(`${p} 两侧同改后对侧独有行丢失:${l.slice(0, 60)}`)
     }
+    const tree = run(['write-tree'])
+    // ── 任务状态分叉不得被归并放大(2026-09-26 立,守门 130 的同一条判据长在这里)──────────
+    // 为什么必须在落地闸里判,而不是等提交链:本收敛器用 commit-tree 造合并提交,
+    // **pre-commit 根本不跑**;而"每行重数取 max"的并集策略恰恰就是状态副本的产地
+    // (同一件事被两侧各写一份、一份已勾一份未勾 ⇒ 合并结果两行并存)。
+    // 所以判据放在提交链看不见的这一环上,否则"不再发生"这句话在收敛路径上是空的。
+    for (const p of mergedClean) {
+      if (!p.endsWith('PROJECT_PLAN.md')) continue
+      const mergedOid = run(['rev-parse', `${tree}:${p}`])
+      const sideTexts = [base, ours, theirs]
+        .map((rev) => blobOf(rev, p, cwd))
+        .filter((oid) => oid)
+        .map((oid) => blobText(oid, cwd))
+      for (const msg of planStateRegressions(blobText(mergedOid, cwd), sideTexts))
+        violations.push(`${p} 归并放大任务状态分叉:${msg}`)
+    }
     return {
-      tree: run(['write-tree']),
+      tree,
       tookTheirs,
       mergedClean,
       skippedDeletes,
@@ -826,6 +866,23 @@ function selfTest() {
       '丢行判据:重数下降也算丢失',
       lostAddedLines('a\n', 'a\nn\nn\n', 'a\n', 'a\nn\n').join() === 'n',
     )
+    // 任务状态分叉不得被并集放大(纯函数;这正是"两份真相"的产地)
+    const PS_A = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。\n'
+    const PS_B = '- [ ] **D9 同一件事**:另一侧还挂着未勾。\n'
+    ok(
+      '状态判据:两侧各 0 分叉,并集归并出 1 组必须报(并集策略就是副本产地)',
+      planStateRegressions(PS_A + PS_B, [PS_A, PS_B]).join('').includes('F1'),
+      JSON.stringify(planStateRegressions(PS_A + PS_B, [PS_A, PS_B])),
+    )
+    ok('状态判据:结果与较好一侧持平 ⇒ 不得报', planStateRegressions(PS_A, [PS_A, PS_B]).length === 0)
+    ok(
+      '状态判据:副本被正确翻勾(两侧并集但状态一致)⇒ 不算放大',
+      planStateRegressions(PS_A + PS_B.replace('- [ ]', '- [x] ✅(2026-09-26) '), [PS_A, PS_B]).length === 0,
+    )
+    ok(
+      '状态判据:输入取不到(空文本/无对照侧)⇒ 返回空且不声称已判(调用方只对真做了判定的路径说话)',
+      planStateRegressions('', [PS_A]).length === 0 && planStateRegressions(PS_A, []).length === 0,
+    )
 
     // ── 活文档三方行 union(2026-09-25 实测逼出:旧写法 max(ours,theirs) 会把"本侧就地改写"
     //    之前的旧行复活。行首是状态位的行一旦被复活,刚翻勾的待办就重新变成"无人认领可派"。) ──
@@ -1060,6 +1117,7 @@ export const __test__ = {
   blobOf,
   diffNames,
   lostAddedLines,
+  planStateRegressions,
   mergeThreeBlobs,
   LIVE_DOCS,
 }
