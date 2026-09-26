@@ -527,6 +527,8 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
 // 与 dispatch_subagent(单进程 async executor)互补:需要 OS 级真并行时用 spawn_parallel。
 
 import { spawnParallel as spawnParallelTopology, type Topology } from '../commands/subagent-collab.js';
+// 并发档位单一出口:模型填入值的钳制与默认值都只写在那里
+import { resolveMaxConcurrency, MAX_CONCURRENCY, MIN_CONCURRENCY } from '../subagents/concurrency-budget.js';
 import type { SubagentSpawnRequest, SubagentSpawnResponse } from '@ihui/types';
 
 /**
@@ -541,7 +543,7 @@ import type { SubagentSpawnRequest, SubagentSpawnResponse } from '@ihui/types';
  * 参数:
  *   - requests: SubagentSpawnRequest[](每个含 persona/task/model/isolation/maxIterations/timeoutSeconds)
  *   - topology: 协作拓扑(star/mesh/chain/hierarchical,默认 star)
- *   - maxWorkers: 最大并发(默认 4)
+ *   - maxWorkers: 最大并发(未传按 CPU 推导,传入钳到 [MIN, MAX],见 subagents/concurrency-budget.ts)
  */
 export function createSpawnParallelTool(parentOpts: SubagentParentOptions): Tool {
   return {
@@ -582,7 +584,7 @@ export function createSpawnParallelTool(parentOpts: SubagentParentOptions): Tool
       },
       maxWorkers: {
         type: 'number',
-        description: '最大并发 worker 数(默认 4)',
+        description: `最大并发 worker 数(未传按 CPU 推导;传入会被钳到 ${MIN_CONCURRENCY} 至 ${MAX_CONCURRENCY})`,
       },
     },
     required: ['requests'],
@@ -593,7 +595,10 @@ export function createSpawnParallelTool(parentOpts: SubagentParentOptions): Tool
       }
 
       const topology = (args.topology as Topology) ?? 'star';
-      const maxWorkers = (args.maxWorkers as number) ?? 4;
+      // 模型自填值不信任:钳制在唯一出口里做(旧写法 `(args.maxWorkers as number) ?? 4` 上下限都不管)
+      const maxWorkers = resolveMaxConcurrency(
+        typeof args.maxWorkers === 'number' ? args.maxWorkers : undefined,
+      );
 
       // 注入默认 workspacePath 和 model(子 agent 默认在主 agent 工作区跑,用主 agent 模型)
       const reqsWithWorkspace: SubagentSpawnRequest[] = requests.map((r) => ({

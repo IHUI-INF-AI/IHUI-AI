@@ -19,14 +19,17 @@ const { apiMocks } = vi.hoisted(() => ({
   apiMocks: {
     fetchApi: vi.fn(),
     listConversations: vi.fn(),
+    setConversationPinned: vi.fn(),
     navigate: vi.fn(),
     goBack: vi.fn(),
+    alert: vi.fn(),
   },
 }))
 
 vi.mock('@ihui/api-client', () => ({
   fetchApi: apiMocks.fetchApi,
   listConversations: apiMocks.listConversations,
+  setConversationPinned: apiMocks.setConversationPinned,
 }))
 
 vi.mock('@react-navigation/native', () => ({
@@ -59,10 +62,12 @@ vi.mock('@ihui/rn-app', async () => {
     MessageCenterScreen: ({
       conversations,
       onPressConversation,
+      onTogglePin,
       items,
     }: {
       conversations?: { id: string; name: string; lastMessage?: string; time?: string }[]
       onPressConversation?: (c: { id: string; name: string }) => void
+      onTogglePin?: (c: { id: string; name: string }) => void
       items?: { id: string; title: string }[]
     }) =>
       h('div', { 'data-testid': 'message-center-root' }, [
@@ -74,6 +79,22 @@ vi.mock('@ihui/rn-app', async () => {
               'button',
               { key: c.id, onClick: () => onPressConversation?.(c) },
               c.name + (c.lastMessage ? ':' + c.lastMessage : ''),
+            ),
+          ),
+        ),
+        // 置顶入口替身:替真实共享屏那颗按钮,行为断言打在 wrapper 注入的 onTogglePin 上
+        h(
+          'div',
+          { 'data-testid': 'pin-actions' },
+          (conversations ?? []).map((c) =>
+            h(
+              'button',
+              {
+                key: `pin-${c.id}`,
+                'data-pin-id': c.id,
+                onClick: () => onTogglePin?.(c),
+              },
+              `pin:${c.id}`,
             ),
           ),
         ),
@@ -101,6 +122,8 @@ vi.mock('react-native', async () => {
     ScrollView: mk('div'),
     Image: mk('img'),
     RefreshControl: () => null,
+    // 置顶失败反馈出口:Alert.alert(...) 成员调用(守门 11f 的 (?<!\.) 明确豁免 RN 形态)
+    Alert: { alert: apiMocks.alert },
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
 })
@@ -175,6 +198,69 @@ describe('MessageCenterScreen 消息中心', () => {
         name: 'AI客服',
       })
     })
+  })
+
+  // ── D20 会话置顶(G-11)端内接线:调了哪个方法 / 参数对不对 / 顺序变没变 / 失败喊没喊 ──
+
+  it('点置顶 → setConversationPinned(id,true) 且列表按置顶优先重排', async () => {
+    apiMocks.listConversations.mockResolvedValue({
+      success: true,
+      data: {
+        conversations: [
+          { id: 'c1', title: '第一' },
+          { id: 'c2', title: '第二' },
+        ],
+        total: 2,
+      },
+    })
+    const { container } = render(<MessageCenterScreen />)
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-pin-id="c2"]').length).toBe(1)
+    })
+
+    fireEvent.click(container.querySelector('[data-pin-id="c2"]') as HTMLButtonElement)
+
+    await waitFor(() => {
+      expect(apiMocks.setConversationPinned).toHaveBeenCalledWith('c2', true)
+    })
+    // 重排断言:成功回写后 c2 落到会话区第一位(稳定排序,其余行保持相对顺序)
+    await waitFor(() => {
+      const convButtons = container
+        .querySelector('[data-testid="conversations"]')!
+        .querySelectorAll('button')
+      expect(convButtons[0]?.textContent).toContain('第二')
+      expect(convButtons[1]?.textContent).toContain('第一')
+    })
+  })
+
+  it('置顶失败 → Alert 喊出(不得静默),列表顺序原样', async () => {
+    apiMocks.listConversations.mockResolvedValue({
+      success: true,
+      data: {
+        conversations: [
+          { id: 'c1', title: '第一' },
+          { id: 'c2', title: '第二' },
+        ],
+        total: 2,
+      },
+    })
+    apiMocks.setConversationPinned.mockRejectedValueOnce(new Error('403'))
+    const { container } = render(<MessageCenterScreen />)
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-pin-id="c1"]').length).toBe(1)
+    })
+
+    fireEvent.click(container.querySelector('[data-pin-id="c1"]') as HTMLButtonElement)
+
+    await waitFor(() => {
+      expect(apiMocks.setConversationPinned).toHaveBeenCalledWith('c1', true)
+      expect(apiMocks.alert).toHaveBeenCalled()
+    })
+    const convButtons = container
+      .querySelector('[data-testid="conversations"]')!
+      .querySelectorAll('button')
+    expect(convButtons[0]?.textContent).toContain('第一')
+    expect(convButtons[1]?.textContent).toContain('第二')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
