@@ -2,7 +2,6 @@
   "counts": {
     "BottomActionBar": 16,
     "Carousel": 6,
-    "FloatBox": 4,
     "InputArea": 17,
     "IntelligentAssistant": 8,
     "LoginPopUp": 8,
@@ -12,5 +11,11 @@
     "UserInfoCard": 6,
     "VideoPlayer": 5
   },
-  "waivers": {}
+  "waivers": {},
+  "pairingRejects": {
+    "FloatBox": {
+      "reason": "同名不同物:小程序端是右下角悬浮功能盒(赚米/客服/反馈三按钮,right 20rpx、收起推到 -240rpx),RN 端是顶部悬浮消息提示 toast(TOP_OFFSET 居中、duration 3000ms、4 种 type、多实例由 Toast Portal 堆叠)—— 两端头注逐字读自 HEAD,不是同一个界面元素",
+      "until": "2027-03-27"
+    }
+  }
 }
