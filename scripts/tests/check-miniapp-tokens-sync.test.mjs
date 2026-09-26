@@ -405,16 +405,51 @@ test('T6 门与生成器共用同一张表与同一谓词(第二份实现必须�
 // 进 `packages/design-tokens`(那会让 app.css 与 global.css 两侧各拿一份取源,正是本票要消灭的)。
 // 两条都只有存在性判据拦得住,所以钉在这里。
 test('T14 端内旧脚本已删且取源仍只有一份(搬家不得被回退成两份)', () => {
-  assert.equal(
-    existsSync(join(REPO, 'apps', 'miniapp-taro', 'scripts', 'sync-design-tokens.mjs')),
-    false,
-    '端内旧路径又出现了 ⇒ 现在有两份生成器(行为会分叉),必须先判哪一份是被提交链调用的那一份再删'
-  )
-  assert.equal(
-    existsSync(join(REPO, 'packages', 'design-tokens', 'src', 'token-blocks.js')),
-    false,
-    '包内又长出一份取源 ⇒ 与 scripts/lib/design-token-blocks.mjs 构成两份真相(§4「取源只能有一份实现」)'
-  )
+  /**
+   * 判"仓库里有没有两份生成器",必须问 **git 的面**(索引 ∪ HEAD),不能问磁盘:
+   * 共享工作树里别人未跟踪的临时件会让 `existsSync` 在**任何一次并发写文件**时把这条钉红,
+   * 而那条红不代表仓里真的有两份真相(AGENTS:与改动无关的红只会逼人 `--no-verify`)。
+   * 盘上有、面上没有 ⇒ 如实喊出来(它是"有人在重新造旧路径"的先行指标),但不判失败。
+   */
+  const inGit = (rel) => {
+    try {
+      execFileSync('git', ['-c', 'safe.directory=*', 'ls-files', '--error-unmatch', '--', rel], {
+        cwd: REPO,
+        stdio: 'ignore',
+        windowsHide: true,
+        timeout: 60000,
+      })
+      return true
+    } catch {
+      try {
+        execFileSync('git', ['-c', 'safe.directory=*', 'cat-file', '-e', `HEAD:${rel}`], {
+          cwd: REPO,
+          stdio: 'ignore',
+          windowsHide: true,
+          timeout: 60000,
+        })
+        return true
+      } catch {
+        return false
+      }
+    }
+  }
+  for (const rel of [
+    join('apps', 'miniapp-taro', 'scripts', 'sync-design-tokens.mjs'),
+    join('packages', 'design-tokens', 'src', 'token-blocks.js'),
+  ]) {
+    assert.equal(
+      inGit(rel),
+      false,
+      `${rel} 又回到仓库面(索引或 HEAD)⇒ 现在有两份生成器/两份取源,` +
+        '必须先判哪一份是被提交链调用的那一份再删(§4「取源只能有一份实现」)',
+    )
+    if (existsSync(join(REPO, rel)))
+      console.log(
+        `  ℹ️ ${rel} 只躺在工作树(未跟踪)—— 不是仓里的第二份真相,` +
+          '但它是"有人在重新抄一份旧路径"的先行指标,请该文件持有者自行收口',
+      )
+  }
   // 取源实现必须确实住在工具层,而不是被抄进端内 / 包内的第三处
   const impl = readFileSync(join(SCRIPTS_DIR, 'lib', 'design-token-blocks.mjs'), 'utf8')
   assert.match(impl, /export function collectVars/, '取源实现必须住在 scripts/lib/design-token-blocks.mjs')
