@@ -740,7 +740,7 @@ export default function ChatPage() {
         )}
       </div>
       {notice ? (
-        <div className="bg-cta/10 text-primary px-2.5 py-2 rounded-md border border-primary my-2 text-xs">
+        <div className="bg-cta/10 text-primary px-2.5 py-2 rounded-md border border-brand-accent-deep my-2 text-xs">
           {notice}
         </div>
       ) : null}

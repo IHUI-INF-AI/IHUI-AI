@@ -42,7 +42,7 @@
   border: 1rpx solid var(--color-border);
 }
 .plan.active {
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
   background: var(--color-muted);
 }
 .plan-tag {
@@ -109,7 +109,7 @@
   box-sizing: border-box;
 }
 .pay-method.active {
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
   background: var(--color-muted);
 }
 .pay-method-text {
