@@ -713,7 +713,10 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
     if (!SUPPORTED_PROVIDERS.includes(provider)) {
       return reply.status(400).send(error(400, `不支持的 provider: ${provider}`))
     }
-    const result = await fetchProviderModels(provider, apiKey, server.redis)
+    // 安全修复(2026-09-26):用户可带自己的账号 apiKey 拉清单,结果含该账号可见的私有模型,
+    // 缓存键必须绑定身份 —— userId 取本文件 authenticate preHandler(:382)产出的 request.userId,
+    // 与同文件其余路由同一鉴权出口,不自立新闸。
+    const result = await fetchProviderModels(provider, apiKey, server.redis, request.userId)
     return reply.send(success(result))
   })
 
