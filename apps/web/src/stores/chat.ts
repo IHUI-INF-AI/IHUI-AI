@@ -217,6 +217,10 @@ export type CompactionStatus =
       tokensBefore: number
       tokensAfter: number
       removedCount: number
+      /** A10B-8(2026-09-26):本轮被内容级截断的消息条数,与 removedCount 不同维
+       *  (后者 = 被折进摘要移出上下文的整条消息数)。undefined = 生产者未告知(旧帧),
+       *  与 0(告知过、确实没有截断)是两态,判据不得合并。 */
+      truncatedCount?: number
       trigger?: string
     }
   | null
