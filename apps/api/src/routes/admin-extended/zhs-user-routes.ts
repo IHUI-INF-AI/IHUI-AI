@@ -52,8 +52,11 @@ export const zhsUserRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request, reply) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
-      await db.delete(zhsUserPlatform).where(eq(zhsUserPlatform.id, Number(id)))
-      return reply.send(success({ id, deleted: true }))
+      const removed = await db
+        .delete(zhsUserPlatform)
+        .where(eq(zhsUserPlatform.id, Number(id)))
+        .returning({ id: zhsUserPlatform.id })
+      return reply.send(success({ id, deleted: removed.length > 0 }))
     },
   )
   server.post('/admin/user-agent-audio', { preHandler: requireAdmin }, async (request, reply) => {
