@@ -13,6 +13,23 @@ interface ErrorBoundaryProps {
   children: React.ReactNode
   fallback?: React.ReactNode
   onError?: (error: Error, info: React.ErrorInfo) => void
+  /**
+   * 「这次错误到底属于哪个对象」的一组标识(会话 id / workspace id / 标签页 id / 消息 id 等)。
+   * 任意一项变化 ⇒ 边界自我复位,重新渲染 children。
+   *
+   * 为什么不能只靠 fallback 里那个手动「重试」按钮(2026-09-26,机制吸收 A10B-2):
+   *  ① 按钮长在**旧对象的 fallback 里**。用户切到别的会话/工作区再回来,看到的仍是上一
+   *    个对象的错误卡 —— 点「重试」只是把**已经不该在这里**的那棵子树再渲一遍,
+   *    而新对象的数据其实已经是好的,用户唯一能做的自救动作反而是错的。
+   *  ② 面板级边界嵌在页面深处时,fallback 顶出的大卡片会把「重试」挤出视口
+   *     (本文件 StaticErrorFallback 的 min-h-screen 居中形态就是这种),等于没有出口。
+   *  ③ 归属变化是**宿主已知的事实**,不该要求用户替系统判断"这个错误还作不作数"。
+   *
+   * 缺省(undefined)时行为与加此 prop 之前逐字一致 —— 不传就等于没有,
+   * 不得改成"每次 render 都比较",那会让所有既有调用方变成"任意重渲染即清错",
+   * 把真实错误藏起来。
+   */
+  resetKeys?: readonly unknown[]
 }
 
 interface ErrorBoundaryState {
@@ -62,6 +79,29 @@ function StaticErrorFallback({ onReset }: { onReset?: () => void }) {
   )
 }
 
+/**
+ * 逐项比较两组 resetKeys 是否变化(2026-09-26,A10B-2)。
+ * 三条刻意的口径:
+ *  - **先比引用再逐项 Object.is**:同内容的新数组必须判"没变"(调用方每次 render 新建数组
+ *    是常态,按引用比就等于每次重渲染都清错,见 props.resetKeys 注释);
+ *  - 用 `Object.is` 而不是 `===`:后者对 `NaN !== NaN` 失真(坐标/比例类 id 参与时会产生
+ *    假变化 ⇒ 错误态被反复抹掉);
+ *  - 两侧都缺省时长度都是 0 ⇒ 返回 false ⇒ 不传 resetKeys 的既有调用方行为零改变。
+ */
+function haveResetKeysChanged(
+  prev: readonly unknown[] | undefined,
+  next: readonly unknown[] | undefined,
+): boolean {
+  if (prev === next) return false
+  const a = prev ?? []
+  const b = next ?? []
+  if (a.length !== b.length) return true
+  for (let i = 0; i < a.length; i += 1) {
+    if (!Object.is(a[i], b[i])) return true
+  }
+  return false
+}
+
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
@@ -101,6 +141,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   handleReset = () => {
     this.setState({ hasError: false, error: undefined })
+  }
+
+  /**
+   * 上下文标识变了就自我复位(2026-09-26,A10B-2)。
+   * 判据先要 `this.state.hasError`:无错时复位是空动作,却会触发一次多余的 setState/重渲染。
+   */
+  componentDidUpdate(prevProps: ErrorBoundaryProps): void {
+    if (!this.state.hasError) return
+    if (haveResetKeysChanged(prevProps.resetKeys, this.props.resetKeys)) {
+      this.setState({ hasError: false, error: undefined })
+    }
   }
 
   render(): React.ReactNode {
