@@ -2488,6 +2488,8 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 
 ### P0 立即执行（安全收敛，开放前置）
 
+- [ ]（进行中@2026-09-26/O81票）O81 跨端 UI 单一源:小程序端与 App(RN)端逐档同值 + 改一端另一端自动生效(除登录方式与平台机制)。**第 1 票已落(本枚提交)**:对账尺 `scripts/check-cross-end-ui-parity.mjs`(guardian **128**,blocking,棘轮锚点 `scripts/cross-end-ui-parity-baseline.json`,自检 19 例 + 门禁 11 例),AGENTS §4 新节 + README 点名。**立项实测读数**:同名配对组件 19 对 / 174 处差异档 / RN 侧 210 个组件用 `StyleSheet.create` 而小程序侧 91 个用 `className=`(两种样式语言 = 结构上无法自动同步的根因)。**已量到的最小心智事实**:两份自称"唯一实现"的 `BackChevron` 图标墨迹 20px vs 22px、色一档取 `--color-foreground` 一档取 `tk.text.medium`、RN 带系统字号缩放倍率而小程序不带。**剩余票(顺序固定,不得跳)**:② 建几何档 `packages/design-tokens/src/geometry.js`(照 `radius.js` 的形状:一张 px 表 + `rnSize`/`taroRpx`/CSS 三个投影,**建它必须同枚提交就有消费方**);③ 在 `packages/shared` 落"与平台无关的组件源 + 每端注入 primitive adapter"的第一例(试点 `BackChevron`:7 个小程序调用点 / 134 个 RN 调用点,API 取两端并集,动作语义留调用方),两端各自构建 + 真机/模拟器像素复核后才允许下调台账;④ 按台账读数从大到小逐族收敛(`InputArea` 23 / `BottomActionBar` 19 / `LoginPopUp` 17 / `NavBar` 15 / `IntelligentAssistant` 14 为前 5),每族一票,收完即下调 `counts` 并**在同枚提交里**留下"该组件只剩一份源"的证据;⑤ 确属平台差异的逐条写 `waivers.reason`,由守门 108 管到期。**架构前提(不要再试第二条路)**:单向适配器已失败过一次(2026-09-22 删 4,662 行,"同名 ≠ 同契约"),所以只能"一份源 + 两端注入",不能"一端包另一端";`packages/app` 是 RN 专属(Taro 跑不了),`packages/ui-native` 13 个组件里 11 个零生产消费方,不得当成已交付能力引用。
+
 
 - [ ] O19b 剩余 4 列**故意不并**,各有明确理由:① `users/projects/files.search_vector` 是触发器自管的 tsvector 列(drizzle 0.38 无该类型,且 ORM 绝不该写触发器属主列),并回会让 `drizzle-kit generate` 把它们变成可写列 ⇒ **永久豁免**;② `ai_model_config_models.metadata` 与 TS 里已声明的 `extraMetadata` **语义撞车**(两个 jsonb 自由袋,迁移侧还各带一个 GIN 索引),仓内没有"哪个是权威"的证据 ⇒ 需 owner 拍板,不猜。另:`oauth_apps` 无任何外键引用(实测),而本条排查中发现迁移文件被并行会话改动会让"按 hash 判未应用"误报(须按 journal 序号界定)。
 
@@ -10485,6 +10487,29 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
     下一步要问的:为什么同一份源里两种形态并存(嫌疑 = 两条腿各做一次候选归一化,一边剥 `length:` 一边不剥),
     以及 `.text-_b28rpx_B` 的声明体是 `font-size` 而我拿真 v4 参考层量裸 `text-[28rpx]` 给的是 `color:28rpx`
     —— 这两句不可能同时为真,**必有一侧的判据没覆盖门自己产出的那种形态**(与本仓"判据必须覆盖门自己产出的形态"同型)。
+
+  - **✅ 归因闭合(2026-09-26 同日晚,派只读代理读插件源码 + 我自己量产物/源码面):上面那 4 档不是端缺陷,是"同一次构建里裸形态与提示形态并存"造出来的坍缩。**
+    机制落在 `weapp-tailwindcss/dist/generator-BLpOsd5O.js`:候选先被 `normalizeRpxLengthCandidate`(`:72-76`,
+    由 `BARE_RPX_LENGTH_CANDIDATE_RE` / `…HINT_CANDIDATE_RE` `:69-71`)喂进一个 **Set**,
+    于是 `text-[28rpx]` 与 `text-[length:28rpx]` **归并成同一条候选** ⇒ Tailwind 只出**一条**规则;
+    再由 `restoreRpxLengthCssSelectors`(`:97-106`)把那条规则的**选择器名反写成没有提示的裸形态**,
+    之后才交给 `@weapp-core/escape`(`D:/nm/.pnpm/@weapp-core+escape@8.0.0/.../index.mjs:55-73`,逐字符映射、无碰撞处理)
+    做 `_b/_B/_c` 转写 ⇒ 产物里只有 `.text-_b28rpx_B{font-size:28rpx}`,而运行时挂的是 `text-_blength_c28rpx_B`。
+    **声明体是对的,名字对不上** —— 这就是我量到"28rpx 的 font-size 在、提示形态的选择器不在"的全部原因。
+  - **触发源只有一个脏文件,而且它正是 R7 的靶形。** 全仓裸 `text-[Nrpx]` 实测 10 处,**全部**在
+    `apps/miniapp-taro/src/pages/distribution/plan/index.tsx:57/60/68/71/76/79/88/93/96`,
+    涉及的字号恰好是 28/32/36/44 —— **与坏掉的 4 档一一对应**;26/30/34/38/40 全仓无裸形态,所以它们的名字没被反写。
+    该文件当前是 `M`(工作树把 HEAD 的 `length:` 提示摘掉了)⇒ **HEAD 面上没有裸形态,干净构建不会出这一型**。
+    守卫有效已实测:`node scripts/check-cross-end-tokens.mjs --worktree` 当场抽出这 10 处并 `exit 1`,
+    所以谁提交这个形态都会被 R7 拦下,不需要新门。
+  - **同批把 R7 的理由文案改成实测口径**:它原先写"v3 不认 rpx 单位…根 node_modules 是 v4,**v4 认任意单位**",
+    那半句会把人引向"端上实跑 v4 ⇒ 本判据可放宽"。2026-09-26 拿真 v4.3.3 参考层复测:
+    `text-[28rpx]` 仍产出 `{color:28rpx}`、`border-[2rpx]` 仍产出 `{border-color:2rpx}`,**与 v3.4.19 同形**;
+    判据与那 1,331 处改写都不因换引擎作废。报错行同步改为"v3/v4 实测同形"。门自检 81 例照旧全绿。
+  - **本格剩余唯一未决 = `container` 一档**(其余 4 档已归因,不得再按"5 类缺项"派工):
+    `apps/miniapp-taro/src/pages/index/index.tsx` 用裸 `className="container"`,v4 参考层确实产出
+    `{width:100%;max-width:40rem…}` 而产物里**一个 `.container{` 都没有**;该文件虽也在脏清单里,但**工作树副本仍在用它**
+    ⇒ 不是面错位。补落地会把该处从满宽变成 640px 一档,**属产品决策**(§24),不得当"顺手补齐"。
 ### O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅)
 - [x] ✅(2026-09-24) **第 3、4 次同型事故(继守门 64、70 之后)**:用五处权威接线点求差集实测抓到三枚脚本存在却**无人调用**的守门 —— `check-test-paths`(AGENTS §23 写"CI / pre-commit 必跑")、`check-verify-tmp-files`(§25 写"CI")、`check-i18n-messages-exist`(自称 pre-commit 模式)。已按实测档位登记为 **85 blocking / 86 warn / 87 blocking**,装门前逐枚实测真仓全量与 `--staged` 双口径均 exit 0(不误伤任何在途提交)。commit `66d2ae1a26d`。
 - [x] ✅(2026-09-24) **本仓结构性事实(以后所有接线核查必须知道)**:`.husky/pre-commit` 自 2026-09-22 起只是 5 行薄壳(`wscript //nologo scripts/hook-run-hidden.vbs pre-commit scripts/lib/pre-commit-hook.js`),**真实 pre-commit 逻辑在 `scripts/lib/pre-commit-hook.js`**。所以"权威接线点"是**五处**:`guardian-runner.mjs` 的 `script:` 值 ∪ `scripts/lib/pre-commit-hook.js` ∪ `.husky/*` ∪ 根 `package.json` ∪ `.github/workflows/*`(+ `run-8end-consistency-cert.mjs`)。**只查 `.husky/pre-commit` 会得出完全相反的结论** —— 我一开始就据此误判 `check-pwsh-version`/`check-button-height` "没装车",实际它们在 hook.js:517/560 生效,是文档写的调用点名字不对。
