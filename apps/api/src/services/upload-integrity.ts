@@ -36,6 +36,13 @@ export const PROTOCOL_UPLOAD_LIMITS = {
   maxChunkBytes: 10 * 1024 * 1024,
   /** 分片会话寿命:超时即由 reaper 回收行 + 磁盘目录。 */
   ttlMs: 24 * 60 * 60 * 1000,
+  /** 合并阶段并发上限(2026-09-26 补上登记遗留的最后一格,消费者 = services/upload-merge-gate.ts)。
+   *  为什么是 2:合并 = 读全部 .part + 流式写最终文件 + md5/sha256 实算,全是磁盘 IO 与哈希
+   *  CPU 工作,且与**全部业务请求同在一个 Node 进程**(nssm 单实例)—— 流式拷贝已不占整档
+   *  内存,真正的争抢资源是哈希计算(吃满单核即拖累事件循环)与磁盘队列;2 路并发已能把这两项
+   *  打满,再多合并只增排队不增吞吐。第 3 路起**排队等待,不拒绝**(拒绝 = 把正常用户挡在门外)。
+   *  env 出口 UPLOAD_MERGE_MAX_CONCURRENCY 只调数值,0 = 显式不限(台账必须喊出来),非法值回落本档。 */
+  maxConcurrentUploads: 2,
 } as const
 
 /** 本仓 uploadId 由服务端 randomUUID() 生成;reaper 用它做"只删自己产的目录"的守卫。 */
