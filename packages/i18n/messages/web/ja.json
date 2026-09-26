@@ -24500,9 +24500,6 @@
     "completed": "完了",
     "failed": "失敗"
   },
-  "mentionPopover": {
-    "removeLabel": "メンション解除"
-  },
   "message": {
     "shareLinkCopied": "共有リンクをコピーしました",
     "hideContent": "内容を隠す",

@@ -24489,9 +24489,6 @@
     "completed": "완료",
     "failed": "실패"
   },
-  "mentionPopover": {
-    "removeLabel": "멘션 취소"
-  },
   "message": {
     "shareLinkCopied": "공유 링크가 복사되었습니다",
     "hideContent": "내용 숨기기",
