@@ -27,6 +27,12 @@ import { shadowValidateToolArguments } from './argument-validation-telemetry.js'
 import { noteDangerousApproval } from './danger-gate.js';
 import { recordApprovedInvocation } from './permission-lease.js';
 import { leaseWorkspaceIdOf } from '../utils/permission-lease-flag.js';
+import {
+  auditToolDenial,
+  buildToolDenial,
+  denialErrorSuffix,
+  type ToolCallDenial,
+} from '../utils/tool-denial.js';
 import { injectHostSection } from '../utils/prompt-injection-registry.js';
 import { BROWSER_TOOLS } from './browser.js';
 import { BROWSER_PAGE_TOOLS } from './browser-page.js';
@@ -68,6 +74,13 @@ export interface ToolResult {
   error?: string;
   /** P1-4 错误类型分级,供调用方/LLM 判断是否需要重试 */
   errorType?: string;
+  /**
+   * 「为什么被拒」的结构化答复(可诊断化收口票):**只在拒绝路径携带**。
+   * 三条闸(权限规则 / 危险工具无确认出口 / 租约摘要漂移)在这里可被测试与上层直接断言
+   * (`denial.gate` × `denial.decider`),不依赖任何人读中文短句。参数只落指纹+键名。
+   * 本字段不改变任何判定 —— fail-closed 语义与引入前逐字相同。
+   */
+  denial?: ToolCallDenial;
   /**
    * 该结果不是 handler 自己产出的,而是**执行链边界**在"墙钟到点"或"外层取消"时代为结算的。
    *
@@ -703,11 +716,22 @@ export async function executeToolCall(
         )
       : checkPermission(call.name, ctx.permissions);
     if (!perm.allowed) {
+      // 可诊断化收口:原错误串逐字保留(既有回归以 `toContain` 断言它),其后追加 ASCII 出路行;
+      // 三问(哪道闸/出路/参数摘要)以结构化字段在返回体可断言。判定本身一个字节都没动。
+      const denial = buildToolDenial({
+        gate: 'permission-rule',
+        decider: 'rule-deny',
+        tool: call.name,
+        args: call.arguments,
+      });
+      auditToolDenial(denial);
+      const ruleMsg = perm.reason ?? `工具 ${call.name} 被权限规则拒绝`;
       return {
         success: false,
         output: '',
-        error: perm.reason ?? `工具 ${call.name} 被权限规则拒绝`,
+        error: `${ruleMsg}\n${denialErrorSuffix(denial)}`,
         errorType: 'permission_denied',
+        denial,
       };
     }
     // 执行点必须把内容喂进判定,并且**必须消费漂移结论**:
@@ -737,12 +761,28 @@ export async function executeToolCall(
       });
     }
     if (!allowed) {
+      const denial = buildToolDenial({
+        // 两道闸同时命中时报更特异的一态:漂移是"批准过、内容变了"的单列待再审态,
+        // 不得被读成"从未批准"(文案与 `gate` 字段同形,回归各钉一条)。
+        gate: leaseContentDrifted ? 'lease-digest-drift' : 'dangerous-gate',
+        // 层面边界(如实登记):工具层只看"有没有回调";danger-gate 内部"回调在但无
+        // prompt"(no-prompt 成因)在这一层呈现为 user-declined,归因属调用方另计。
+        decider: ctx.confirmDangerous ? 'user-declined' : 'no-confirmation-channel',
+        tool: call.name,
+        args: call.arguments,
+      });
+      auditToolDenial(denial);
+      // 原中文错误串逐字保留(`lease-drift-executor-wiring` 以 toContain('摘要漂移') 断言),
+      // 其后追加 ASCII 出路行;无确认出口时**仍然必须拒** —— 本票只改怎么说,不改是否放。
       return {
         success: false,
         output: '',
-        error: leaseContentDrifted
-          ? `工具 ${call.name} 的本次参数与租约批准过的内容不符(摘要漂移)，旧批准失效，需重新确认`
-          : `危险操作被拒绝(需用户确认): ${call.name}`,
+        error:
+          (leaseContentDrifted
+            ? `工具 ${call.name} 的本次参数与租约批准过的内容不符(摘要漂移)，旧批准失效，需重新确认`
+            : `危险操作被拒绝(需用户确认): ${call.name}`) + `\n${denialErrorSuffix(denial)}`,
+        errorType: 'permission_denied',
+        denial,
       };
     }
   }
