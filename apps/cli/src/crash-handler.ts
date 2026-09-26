@@ -24,21 +24,22 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import chalk from 'chalk';
+// 唯一出口 serializeError(2026-09-26 立):旧的手写归一只保 name/message/stack,
+// cause 链整条丢失;且非 Error 输入落 'Unknown',与其他接入面的 'NonThrownError'
+// 不一致。出口函数自带深度封顶 + 循环 cause 检测,且在任何输入下不抛 —— 崩溃
+// 恢复路径上二次抛错等于把事故升级成事故×2。
+import { serializeError, type SerializedError } from '@ihui/types';
 
 const CRASH_LOG_DIR = path.join(os.homedir(), '.ihui', 'crash-logs');
 const MAX_CRASH_LOGS = 10;
 
 let installed = false;
 
-interface CrashInfo {
+export interface CrashInfo {
   timestamp: string;
   timestampMs: number;
   kind: 'uncaughtException' | 'unhandledRejection';
-  error: {
-    name: string;
-    message: string;
-    stack?: string;
-  };
+  error: SerializedError;
   runtime: {
     nodeVersion: string;
     platform: string;
@@ -85,7 +86,30 @@ function pruneOldCrashLogs(): void {
   }
 }
 
-/** 写 crash log 到磁盘,返回文件路径(失败返回 null) */
+/**
+ * 把 SerializedError 摊平成 crash 报告 "## Error" 段的行(含 cause 链与截断标注)。
+ * 纯函数,只读我方出口自己产出的闭集结构,不抛。导出供测试直接断言。
+ */
+export function flattenErrorForReport(error: SerializedError): string[] {
+  const lines: string[] = [`Name: ${error.name}`, `Message: ${error.message}`];
+  const truncatedMark = 'Caused by: [truncated: deeper cause omitted]';
+  let node: SerializedError | undefined = error.cause;
+  while (node) {
+    lines.push(`Caused by: ${node.name}: ${node.message}`);
+    if (node.truncated) {
+      lines.push(truncatedMark);
+      break;
+    }
+    node = node.cause;
+  }
+  // 根节点自己带 truncated(循环 cause 指回根,或链在根处即封顶)
+  if (error.truncated && !lines.includes(truncatedMark)) {
+    lines.push(truncatedMark);
+  }
+  return lines;
+}
+
+/** 写 crash log 到磁盘,返回文件路径(失败返回 null;本函数在任何输入下不抛) */
 function writeCrashLog(info: CrashInfo): string | null {
   try {
     if (!fs.existsSync(CRASH_LOG_DIR)) {
@@ -100,8 +124,7 @@ function writeCrashLog(info: CrashInfo): string | null {
       `Version: ${info.version}`,
       ``,
       `## Error`,
-      `Name: ${info.error.name}`,
-      `Message: ${info.error.message}`,
+      ...flattenErrorForReport(info.error),
       `Stack:`,
       info.error.stack ?? '(no stack)',
       ``,
@@ -123,9 +146,7 @@ function writeCrashLog(info: CrashInfo): string | null {
 
 /** 处理一个未捕获错误:打印 + 写 log */
 function handleCrash(kind: 'uncaughtException' | 'unhandledRejection', err: unknown): void {
-  const error = err instanceof Error
-    ? { name: err.name, message: err.message, stack: err.stack }
-    : { name: 'Unknown', message: String(err), stack: undefined };
+  const error = serializeError(err);
 
   const now = Date.now();
   const info: CrashInfo = {

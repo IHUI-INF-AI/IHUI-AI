@@ -3,91 +3,68 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 统一日志工具。
+ * CLI 崩溃日志的 error 序列化接入回归(2026-09-26 立)。
  *
- * 优先使用 Fastify 的 pino 实例（通过 setFastify 注入），
- * 未注入时回退到 console（保持向后兼容）。
- *
- * 用法：
- *   import { logger } from '../utils/logger.js'
- *   logger.info('message', { meta: 'data' })
- *   logger.error('message', { error: err })
+ * handleCrash 的归一改走唯一出口 serializeError 后,crash 报告的 Error 段
+ * 必须带出 cause 链与截断标注(旧手写三元只有一层,cause 整条丢)。
  */
+import { describe, expect, it } from 'vitest';
+import { flattenErrorForReport, type CrashInfo } from '../src/crash-handler.js';
+import { serializeError, type SerializedError } from '@ihui/types';
 
-import { serializeError } from '@ihui/types'
+type Causable = Error & { cause?: unknown };
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error'
-
-interface FastifyLogger {
-  debug: (msg: string, meta?: object) => void
-  info: (msg: string, meta?: object) => void
-  warn: (msg: string, meta?: object) => void
-  error: (msg: string, meta?: object) => void
+function makeInfo(error: SerializedError): CrashInfo {
+  return {
+    timestamp: '2026-09-26T00:00:00.000Z',
+    timestampMs: 1,
+    kind: 'uncaughtException',
+    error,
+    runtime: {
+      nodeVersion: 'v24.0.0',
+      platform: 'win32',
+      arch: 'x64',
+      pid: 1,
+      cwd: 'C:\\',
+      argv: ['node', 'ihui'],
+    },
+    version: '0.0.0-test',
+  };
 }
 
-export interface FastifyLogInstance {
-  log: {
-    debug: (m: object, msg: string) => void
-    info: (m: object, msg: string) => void
-    warn: (m: object, msg: string) => void
-    error: (m: object, msg: string) => void
-  }
-}
+describe('crash 报告 Error 段(经唯一出口)', () => {
+  it('message 可见 + cause 链逐层列出(旧手写归一只有一层,cause 全丢)', () => {
+    const inner = new Error('disk full');
+    inner.name = 'IOError';
+    const outer = new Error('write failed');
+    (outer as Causable).cause = inner;
 
-let fastifyInstance: FastifyLogInstance | null = null
+    const lines = flattenErrorForReport(serializeError(outer));
+    expect(lines).toContain('Name: Error');
+    expect(lines).toContain('Message: write failed');
+    expect(lines).toContain('Caused by: IOError: disk full');
+  });
 
-export function setFastify(fastify: FastifyLogInstance): void {
-  fastifyInstance = fastify
-}
-
-/**
- * meta 里 Error 值的序列化(唯一出口 serializeError,2026-09-26 立)。
- *
- * pino 把 meta 做 JSON 序列化,而 JSON.stringify(Error) === "{}"(name/message/stack
- * 均为非枚举自有属性)—— 本文件头注释推荐的写法 `{ error: err }` 在日志里就是一具
- * 空尸体。例外:`err` 保留键刻意不动 —— pino 对它自带标准错误序列化,覆盖反而会改变
- * 既有日志消费方看到的字段形状。其余键上的 Error 一律换成闭集结构;挂在 Error 上的
- * 未知字段(请求体/凭据一类)不带出。无任何 Error 时返回原对象(零开销、零行为变化)。
- */
-export function serializeErrorFields(meta: object | undefined): object | undefined {
-  if (meta === undefined || meta === null) return meta
-  if (meta instanceof Error) return { error: serializeError(meta) }
-  const source = meta as Record<string, unknown>
-  let changed = false
-  const out: Record<string, unknown> = {}
-  for (const key of Object.keys(source)) {
-    const value = source[key]
-    if (key !== 'err' && value instanceof Error) {
-      out[key] = serializeError(value)
-      changed = true
-    } else {
-      out[key] = value
+  it('深度封顶的链在截断处落标注行,不静默丢', () => {
+    let node = new Error('c0');
+    for (let i = 1; i < 9; i++) {
+      const next = new Error(`c${String(i)}`);
+      (next as Causable).cause = node;
+      node = next;
     }
-  }
-  return changed ? out : meta
-}
+    const lines = flattenErrorForReport(serializeError(node));
+    expect(lines.some((l) => l.includes('[truncated: deeper cause omitted]'))).toBe(true);
+  });
 
-function log(level: LogLevel, msg: string, rawMeta?: object): void {
-  const meta = serializeErrorFields(rawMeta)
-  if (fastifyInstance) {
-    // pino 签名：fastify.log.info(meta, msg)
-    fastifyInstance.log[level](meta ?? {}, msg)
-  } else {
-    // 回退到 console（测试环境/未初始化）
-    const prefix = `[${level.toUpperCase()}]`
-    const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.info
-    if (meta) {
-      fn(`${prefix} ${msg}`, meta)
-    } else {
-      fn(`${prefix} ${msg}`)
-    }
-  }
-}
+  it('非 Error 崩溃输入也留 Name/Message 两行(报告形状稳定)', () => {
+    const lines = flattenErrorForReport(serializeError('string thrown'));
+    expect(lines).toContain('Name: NonThrownError');
+    expect(lines).toContain('Message: string thrown');
+  });
 
-export const logger: FastifyLogger = {
-  debug: (msg, meta) => log('debug', msg, meta),
-  info: (msg, meta) => log('info', msg, meta),
-  warn: (msg, meta) => log('warn', msg, meta),
-  error: (msg, meta) => log('error', msg, meta),
-}
+  it('makeInfo 编译面钉住 CrashInfo.error 已是 SerializedError(带 cause 的闭集)', () => {
+    const info = makeInfo(serializeError(new Error('typed ok')));
+    expect(info.error.message).toBe('typed ok');
+  });
+});
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
