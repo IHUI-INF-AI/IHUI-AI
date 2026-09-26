@@ -74,7 +74,11 @@ jobs:
         # workspace 包 ⇒ dist 不存在 ⇒ ERR_MODULE_NOT_FOUND,与本仓任何一处代码改动无关。
         # 本地永远绿(我的 dist 早在),正是"本地全绿、CI 恒红"那一族(同守门 72/78 取向)。
         # `@ihui/api-client...`(后缀三个点)= 该包**及其 workspace 依赖**,故 @ihui/types 一并构建。
-        run: pnpm --filter "@ihui/api-client..." run build
+        # 2026-09-26 起改用拓扑选择器 `^...`(= 该包的**全部 workspace 依赖**,不含本包):
+        # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
+        # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
+        # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
+        run: pnpm --filter "@ihui/api^..." run build
 
       - name: Assert committed contract has no drift (O8 [E])
         # committed 的 apps/api/openapi.json 是入库产物(见 .gitignore 的 negation)。
