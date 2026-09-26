@@ -226,7 +226,8 @@ describe('reclaim(零模型请求的旧工具结果回收)', () => {
       '源文件: src/foo.ts\n' +
       '完整输出: .ihui-agent/tmp/artifacts/foo-1.txt (共 900000 字符 / 21000 行,上下文预算 4000 字符)\n' +
       `预览(前 ${envelopePreview.length} 字符):\n` +
-      envelopePreview + '\n' +
+      envelopePreview +
+      '\n' +
       `${ENVELOPE_PREVIEW_FOOTER}\n${ENVELOPE_CLOSE_MARKER}\n` +
       '正文未进入上下文。需要更多内容请对上列路径用 read_file 分块读取(带 offset/limit),不要重复执行原工具。'
     expect(isEnvelopeContent(envelope)).toBe(true)
@@ -238,10 +239,7 @@ describe('reclaim(零模型请求的旧工具结果回收)', () => {
       ...toolRound('read_file', 'env1', envelope),
       ...toolRound('read_file', 'env2', filler(50)),
       // IHUI 内嵌形态:同一条 user 消息里,信封分段不动、另一分段回收
-      ...embeddedRound([
-        embeddedChunk('grep', envelope),
-        embeddedChunk('grep', filler(60)),
-      ]),
+      ...embeddedRound([embeddedChunk('grep', envelope), embeddedChunk('grep', filler(60))]),
       { role: 'user', content: '继续' },
     ]
     const out = reclaimStaleToolResults(messages, {
@@ -260,7 +258,12 @@ describe('reclaim(零模型请求的旧工具结果回收)', () => {
   })
 
   it('IHUI 内嵌形态:只替换结果正文,同消息的提醒段原样保留且 ✓/✗ 标记不丢', () => {
-    const warnReminder = '[系统提示] 工具 run_command 已连续失败 2 次。请反思'
+    // 夹具原写 `'[系统提示] 工具 run_command 已连续失败 2 次。请反思'` —— 那正是"以宿主名义的
+    // 裸文本前缀"这一被禁形态(模型侧无法分辨宿主在说话还是第三方在冒充)。本用例要保的是
+    // "提醒段不被牵连回收",与字样无关,所以换成唯一出口 frameSystemReminder 的真实产出形态,
+    // 不再把违规形态钉成契约。回收实现对该字样零依赖(实测 grep src 零命中)。
+    const warnReminder =
+      '<ihui-system-reminder kind="context_budget">工具 run_command 已连续失败 2 次。请反思</ihui-system-reminder>'
     const messages: ChatMessage[] = [
       { role: 'system', content: 'sys' },
       ...embeddedRound([
