@@ -15,7 +15,9 @@
  *  3. gemini 用 key=API_KEY query 参数;anthropic 用 x-api-key + anthropic-version;
  *     其余 OpenAI 兼容端点用 Authorization: Bearer。
  *  4. 超时 10s(AbortController),失败不抛错,降级 FALLBACK_MODELS。
- *  5. Redis 缓存 key=`provider:models:<provider>`,TTL 86400s;Redis 不可用时跳过缓存。
+ *  5. Redis 缓存 key=`provider:models:<provider>:<身份档>`(见 getCacheKey),TTL 86400s;
+ *     Redis 不可用时跳过缓存。缓存内容随调用所用 API key 而不同(用户自有 key 会拉到
+ *     该账号可见的私有模型清单),故 key 必须带身份维度 —— 2026-09-26 修复跨用户数据暴露。
  */
 import type { Redis } from 'ioredis'
 import type { ProviderModelInfo, ProviderModelListResponse } from '@ihui/types'
@@ -267,9 +269,19 @@ const FALLBACK_MODELS: Record<string, ProviderModelInfo[]> = {
 /** 支持的 provider 列表(供调用方校验) */
 export const SUPPORTED_PROVIDERS: string[] = Object.keys(PROVIDER_CONFIG)
 
-/** 计算 Redis 缓存 key */
-export function getCacheKey(provider: string, userId?: string): string {
-  return `provider:models:${provider}${userId ? `:${userId}` : ''}`
+/**
+ * 计算 Redis 缓存 key(必须带身份维度)。
+ *
+ * 缺陷修复(2026-09-26):旧形态 `provider:models:<provider>` 不带身份 —— 用户带自己
+ * 账号 key 拉回的私有模型清单会写进跨用户共享键,同一 provider 的其他用户在 TTL(24h)
+ * 内直接读到别人账号视角的列表,属跨用户数据暴露。
+ * 现规则:有身份 → `:u:<userId>`;无身份/公开档 → 显式独立命名空间 `:public`。
+ * **禁止**把 undefined/空串直接拼进键(那会让"未登录"与"某真实用户"无法区分)。
+ */
+export function getCacheKey(provider: string, userId?: string | null): string {
+  const identity =
+    typeof userId === 'string' && userId.trim() !== '' ? `u:${userId.trim()}` : 'public'
+  return `provider:models:${provider}:${identity}`
 }
 
 interface CachePayload {
@@ -281,15 +293,18 @@ interface CachePayload {
  * 拉取 provider 模型列表(带 Redis 缓存 24h,失败降级 FALLBACK_MODELS)。
  *
  * 流程:
- *  1. 查 Redis 缓存 → 命中返回 { source: 'cache', cached: true }
+ *  1. 查 Redis 缓存(键按身份隔离,见 getCacheKey)→ 命中返回 { source: 'cache', cached: true }
  *  2. 未命中 → 调 GET <apiBase>/models(Authorization: Bearer / x-api-key / key=?)
- *  3. 成功 → 缓存 24h,返回 { source: 'live', cached: false }
+ *  3. 成功 → 缓存 24h(只写进本身份的键),返回 { source: 'live', cached: false }
  *  4. 失败 → 降级 FALLBACK_MODELS,返回 { source: 'fallback', cached: false }
+ *
+ * @param userId 已认证身份(路由层 request.userId);缺失/空 → 落 :public 命名空间
  */
 export async function fetchProviderModels(
   provider: string,
   userApiKey?: string,
   redis?: Redis | null,
+  userId?: string | null,
 ): Promise<ProviderModelListResponse> {
   const fallbackModels = FALLBACK_MODELS[provider] ?? []
   const fallback: ProviderModelListResponse = {
@@ -303,7 +318,7 @@ export async function fetchProviderModels(
   const cfg = PROVIDER_CONFIG[provider]
   if (!cfg) return fallback
 
-  const cacheKey = getCacheKey(provider)
+  const cacheKey = getCacheKey(provider, userId)
 
   // 1. 查 Redis 缓存
   if (redis) {
