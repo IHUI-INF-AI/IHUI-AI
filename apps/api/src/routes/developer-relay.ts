@@ -276,9 +276,11 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     try {
+      // revoked 由 revokeKey 的库侧回报派生(2026-09-27):旧形态拿 okRevoked 只做 404 闸,
+      // 过了闸再回常量 true —— 而写链无 RETURNING 时"UPDATE 命中 0 行"也算过了闸。
       const okRevoked = await revokeKey(p.data.id, userId)
       if (!okRevoked) return reply.status(404).send(error(404, 'API Key 不存在或无权操作'))
-      return reply.send(success({ revoked: true }))
+      return reply.send(success({ revoked: okRevoked }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '吊销 API Key 失败'))

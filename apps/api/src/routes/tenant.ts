@@ -228,10 +228,13 @@ export const tenantRoutes: FastifyPluginAsync = async (server) => {
   // 移除成员
   server.delete('/:id/members/:userId', { preHandler: authenticate }, async (request) => {
     const { id, userId } = memberIdParam.parse(request.params)
-    await db
+    // 第二十八批(布尔 ack 族):where 带 tenantId+userId 双过滤,成员不存在时
+    // 0 行命中与移除成功在响应上原本同形;确认一律由 .returning 的命中集合派生。
+    const removed = await db
       .delete(tenantMembers)
       .where(and(eq(tenantMembers.tenantId, id), eq(tenantMembers.userId, userId)))
-    return success({ removed: true })
+      .returning({ id: tenantMembers.id })
+    return success({ removed: removed.length > 0 })
   })
 
   // ---- 配额管理 ----

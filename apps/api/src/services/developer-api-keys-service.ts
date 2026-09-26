@@ -307,7 +307,9 @@ export async function bulkUpdateKeys(
  * 与 deleteKey(硬删除)的区别:吊销只把 status 置为 'revoked',保留 Key 记录
  * 与全部调用日志(llm_call_logs 关联不丢失),用户可在管理端看到"已吊销"状态。
  * checkQuota 对 status !== 'active' 一律拒绝,吊销立即生效。
- * 幂等:已是 revoked 直接返回 true。
+ * 幂等:已是 revoked 直接返回 true —— 该分支的"已吊销"由 dbRead 现读确认,不是写链回报。
+ * 2026-09-27:真正的 UPDATE 走 .returning({ id }) 回报命中集,"执行 0 行"(读后行被并发删除)
+ * 不再被 try/catch 后 return true 冒充成功。
  */
 export async function revokeKey(id: string, userId: string): Promise<boolean> {
   const [existing] = await dbRead
@@ -321,11 +323,12 @@ export async function revokeKey(id: string, userId: string): Promise<boolean> {
     .limit(1)
   if (!existing || existing.userId !== userId) return false
   if (existing.status === 'revoked') return true
-  await db
+  const rows = await db
     .update(developerApiKeys)
     .set({ status: 'revoked', updatedAt: new Date() })
     .where(eq(developerApiKeys.id, id))
-  return true
+    .returning({ id: developerApiKeys.id })
+  return rows.length > 0
 }
 
 /**
