@@ -511,7 +511,8 @@ export default function VipBenefitsPopup({
                   fontSize: '30rpx',
                   fontWeight: 500,
                   color: 'var(--color-card)',
-                  border: '1rpx solid var(--color-foreground)',
+                  // 实底按钮:描边与 background 同色 ⇒ 那 1rpx 只是残留,拿掉它观感不变
+                  border: '1rpx solid transparent',
                   background: 'var(--color-foreground)',
                   boxShadow: '0 4rpx 10rpx var(--color-black-25)',
                 }}
