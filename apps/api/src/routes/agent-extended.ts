@@ -148,9 +148,12 @@ async function rawUpdate(
   return (rows as Record<string, unknown>[])[0]
 }
 
-async function rawDelete(table: string, id: string) {
+async function rawDelete(table: string, id: string): Promise<Record<string, unknown>[]> {
   assertTable(table)
-  await db.execute(sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id}`)
+  const rows = await db.execute(
+    sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id} RETURNING id`,
+  )
+  return rows as Record<string, unknown>[]
 }
 
 // P1 安全修复(2026-08-02):基于列白名单构建插入 Zod schema,strip 非白名单字段
@@ -355,8 +358,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       if (!isAdmin && existing['user_id'] !== req.userId) {
         return reply.status(403).send(error(403, '无权操作他人记录'))
       }
-      await rawDelete('zhs_agent_need_task', parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await rawDelete('zhs_agent_need_task', parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除需求任务失败'))
@@ -500,10 +503,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         return reply.status(403).send(error(403, '无权操作他人记录'))
       }
       // 软删除：status=0（与旧架构一致）
-      await db.execute(
-        sql`UPDATE ${sql.raw('"agent_upload"')} SET "status" = 0 WHERE "id"::text = ${parsed.data.id}`,
-      )
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = (await db.execute(
+        sql`UPDATE ${sql.raw('"agent_upload"')} SET "status" = 0 WHERE "id"::text = ${parsed.data.id} RETURNING id`,
+      )) as Record<string, unknown>[]
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除上传记录失败'))
@@ -1014,8 +1017,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const existing = await rawById('zhs_agent_buy', parsed.data.id)
       if (!existing) return reply.status(404).send(error(404, '购买记录不存在'))
-      await rawDelete('zhs_agent_buy', parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await rawDelete('zhs_agent_buy', parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除购买记录失败'))
@@ -1181,8 +1184,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      await db.delete(agentRule).where(eq(agentRule.id, parsed.data.id))
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await db
+        .delete(agentRule)
+        .where(eq(agentRule.id, parsed.data.id))
+        .returning({ id: agentRule.id })
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除规则失败'))
@@ -1273,8 +1279,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      await rawDelete('agent_rule_param', parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await rawDelete('agent_rule_param', parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除规则参数失败'))
@@ -1443,8 +1449,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const existing = await rawById('zhs_developer_link', parsed.data.id)
       if (!existing) return reply.status(404).send(error(404, '开发者链接不存在'))
-      await rawDelete('zhs_developer_link', parsed.data.id)
-      return reply.send(success({ deleted: true }))
+      const removed = await rawDelete('zhs_developer_link', parsed.data.id)
+      return reply.send(success({ deleted: removed.length > 0 }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除开发者链接失败'))
