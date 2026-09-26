@@ -24,6 +24,7 @@ import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
+import { missingTokenHint } from './token-manager.js';
 
 const API_PREFIX = '/api/spec';
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -117,7 +118,7 @@ async function resolveAuth(program: Command): Promise<{ baseUrl: string; apiKey:
   const baseUrl = resolveBaseUrl(cliApiUrl);
   const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
   if (!apiKey) {
-    console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+    console.error(chalk.red(missingTokenHint(baseUrl)));
     process.exitCode = 1;
     return null;
   }
