@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 # 语义压缩回捞层(只读检索工具):复用 vector_memory 单例做语义回捞
 from .context_recall import context_recall
+from .engine_tool_bridge import resolve_engine_tool
 from .exec_policy import PolicyDecision, RuleDecision
 from .exec_policy import evaluate as exec_policy_evaluate
 from .merge3 import merge3_for_edit
@@ -9720,6 +9721,21 @@ class MCPServer:
             if normalized != name:
                 handler = _TOOL_HANDLERS.get(normalized)
                 name = normalized
+        if not handler:
+            # V3 #47 第二格(2026-09-26):引擎内核(AgentEngine)自带的内置名此前在主链路
+            # 一律得到「未知工具」—— 同一能力在注册表里另有正式名,于是"C 的工具在 A/B 调不到"
+            # 就是这条分裂本身。现经**唯一解析出口** `resolve_engine_tool` 归到注册表那一份实现:
+            # 先认注册表本身,再经能力桥回查(桥表里登记的等价物必须真注册,否则不解析)。
+            # 关键是解析发生在 `_ADMIN_ONLY_TOOLS` 判定**之前** —— 否则 unified_exec 这类
+            # "起 shell"的名字会在归口后绕过角色矩阵(那是 fail-open)。
+            resolved = resolve_engine_tool(name)
+            if resolved is not None:
+                handler = _TOOL_HANDLERS.get(resolved)
+                if handler:
+                    # 归口是"名字换了、执行的是注册表那一份",留一行可诊断痕迹;
+                    # 静默换名与 §5e「失败必须响」同一条禁令(只是这里是成功路径,故 info)。
+                    logger.info("[mcp] 引擎内置名归口: %s → %s", name, resolved)
+                name = resolved
         if not handler:
             # 可纠错回执(体验优化):工具清单很长,直接铺全会淹没真正有用的信息,
             # 先给最近似的几个候选;匹配不上才回退全量清单。
