@@ -335,8 +335,8 @@ export const adminSettingRoutes: FastifyPluginAsync = async (server) => {
       if (!existing) {
         return reply.status(404).send(error(404, '设置不存在'))
       }
-      await deleteEduSetting(parsedParams.data.id)
-      return reply.send(success({ id: parsedParams.data.id, deleted: true }))
+      const removed = await deleteEduSetting(parsedParams.data.id)
+      return reply.send(success({ id: parsedParams.data.id, deleted: removed !== undefined }))
     },
   )
 

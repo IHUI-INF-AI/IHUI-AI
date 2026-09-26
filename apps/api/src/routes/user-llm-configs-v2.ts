@@ -619,7 +619,7 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
       .where(and(eq(aiModelConfig.id, p.data.id), eq(aiModelConfig.ownerUuid, userId)))
       .returning({ id: aiModelConfig.id })
     if (result.length === 0) return reply.status(404).send(error(404, 'provider 不存在或无权限'))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    return reply.send(success({ id: p.data.id, deleted: result.length > 0 }))
   })
 
   // ---------------------------------------------------------------------------
@@ -930,7 +930,7 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
           ? (res as unknown as Array<{ id: number }>)
           : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
         if (rows.length === 0) return reply.status(404).send(error(404, 'model 不存在'))
-        return reply.send(success({ id: p.data.mid, deleted: true }))
+        return reply.send(success({ id: p.data.mid, deleted: rows.length > 0 }))
       } catch (e) {
         if (isSchemaMissingError(e)) {
           return reply.status(503).send(error(503, SCHEMA_NOT_READY_MSG))
@@ -1128,7 +1128,7 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
         ? (delRes as unknown as Array<{ id: number }>)
         : ((delRes as { rows?: Array<{ id: number }> }).rows ?? [])
       if (delRows.length === 0) return reply.status(404).send(error(404, 'group 不存在或无权限'))
-      return reply.send(success({ id: p.data.id, deleted: true }))
+      return reply.send(success({ id: p.data.id, deleted: delRows.length > 0 }))
     } catch (e) {
       if (isSchemaMissingError(e)) {
         return reply.status(503).send(error(503, SCHEMA_NOT_READY_MSG))

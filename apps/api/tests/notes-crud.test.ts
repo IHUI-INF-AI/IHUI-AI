@@ -287,7 +287,9 @@ describe('notes routes — POST /api/notes + GET /api/notes/public + GET /api/no
 
   it('DELETE 所有者 → 200 + deleted:true', async () => {
     mockAuthed(USER_ID)
-    enqueue([{ id: NOTE_ID, userId: USER_ID }])
+    // 两次取数:① 归属预查询(select)② DELETE ... RETURNING —— 第二条必须给出被删的行,
+    // 否则路由如实报 deleted:false(旧夹具只喂了①,而旧代码不看库侧返回值)。
+    enqueue([{ id: NOTE_ID, userId: USER_ID }], [{ id: NOTE_ID }])
     const res = await server.inject({ method: 'DELETE', url: `${PREFIX}/notes/${NOTE_ID}` })
     expect(res.statusCode).toBe(200)
     const body = res.json()
