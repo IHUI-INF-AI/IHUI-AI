@@ -46,7 +46,7 @@ vi.mock('../../db/oauth-queries.js', () => ({
   listUserBindings: vi.fn().mockResolvedValue([]),
   createBinding: vi.fn().mockResolvedValue({ id: 'binding-1' }),
   removeBinding: vi.fn().mockResolvedValue(undefined),
-  removeBindingByPlatform: vi.fn().mockResolvedValue(undefined),
+  removeBindingByPlatform: vi.fn().mockResolvedValue([]),
   createUserSk: vi.fn().mockResolvedValue({ id: 'sk-1' }),
   listUserSk: vi.fn().mockResolvedValue([]),
   updateUserSk: vi.fn().mockResolvedValue(undefined),
@@ -79,7 +79,7 @@ vi.mock('../../db/queries.js', () => ({
   cancelUserAccount: vi.fn().mockResolvedValue(undefined),
   saveRefreshToken: vi.fn().mockResolvedValue(undefined),
   findRefreshToken: vi.fn().mockResolvedValue(null),
-  revokeRefreshToken: vi.fn().mockResolvedValue(undefined),
+  revokeRefreshToken: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('@ihui/auth', () => ({

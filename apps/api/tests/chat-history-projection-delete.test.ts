@@ -228,6 +228,10 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
     },
     delete: (table) => {
       const kind = tableKind(table)
+      // 第二十八批:与真 drizzle 同形 —— delete().where() 的产物既可 await(非 returning,
+      // 解析值保持旧口径 []),也可再 .returning():那条 await 必须交出**被库删掉的行**
+      // (clearMessages 一族的 ack 派生源就要求它;空集合 = "执行 0 行"的可见证据)。
+      let withReturning = false
       const self: Chain = {
         from: () => self,
         where: () => self,
@@ -237,15 +241,22 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
         groupBy: () => self,
         values: () => self,
         set: () => self,
-        returning: () => self,
+        returning: () => {
+          withReturning = true
+          return self
+        },
         then: (onf, onr) => {
+          let deleted: Row[] = []
           if (kind === 'messages') {
-            state.messages = state.deletePlan
-              ? state.deletePlan(state.messages.map((m) => ({ ...m })))
-              : []
+            const before = state.messages.map((m) => ({ ...m }))
+            state.messages = state.deletePlan ? state.deletePlan(before.map((m) => ({ ...m }))) : []
             state.deletePlan = null
+            const survivors = new Set(state.messages.map((m) => String(m.id)))
+            deleted = before.filter((m) => !survivors.has(String(m.id)))
           }
-          return Promise.resolve([] as Row[]).then(onf, onr)
+          return Promise.resolve(
+            withReturning ? deleted.map((r) => ({ id: r.id })) : ([] as Row[]),
+          ).then(onf, onr)
         },
       }
       return self
@@ -457,10 +468,18 @@ describe('clearMessages:清空后不得留下指向已不存在轮次的断点',
   })
 
   it('整表清空 ⇒ 断点写回 null 且确实发了一次 UPDATE', async () => {
-    await clearMessages(CONV_ID)
+    const removedIds = await clearMessages(CONV_ID)
+    // 返回集合 = 被库删掉的行(布尔 ack 的派生源);旧实现无回报,这一格当时无从断言
+    expect(removedIds).toHaveLength(4)
+    expect([...removedIds].sort()).toEqual(['t1a', 't1u', 't2a', 't2u'])
     expect(fakeState.messages).toHaveLength(0)
     expect(await readStoredState()).toBeNull()
     expect(projectionWrites()).toHaveLength(1)
+  })
+
+  it('会话本无消息 ⇒ 写链命中 0 行,返回空集(路由据此不得报清成功)', async () => {
+    fakeState.messages = []
+    expect(await clearMessages(CONV_ID)).toEqual([])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -204,16 +204,23 @@ async function writeDevice(
   }
 }
 
-/** 删除单个设备(Redis HDEL);Redis 不可用时降级进程内 Map delete。 */
+/**
+ * 删除单个设备(Redis HDEL);Redis 不可用时降级进程内 Map delete。
+ * 2026-09-27 修「删掉 0 个也回成功」:返回值由 void 改为**存储侧真正删掉的 field 数**
+ * —— HDEL 的回复本身就是计数,降级档的 Map#delete() 本身就是真布尔,两者都是唯一状态源的答复。
+ * 回复形态取不到数值时按 0 计(宁可少报,不得把"没有证据"读成"删成功了")。
+ */
 async function removeDevice(
   redis: { hdel: (k: string, ...fields: string[]) => Promise<unknown> },
   key: string,
   deviceId: string,
-): Promise<void> {
+): Promise<number> {
   try {
-    await redis.hdel(key, deviceId)
+    const replied = await redis.hdel(key, deviceId)
+    const n = typeof replied === 'number' ? replied : Number(replied)
+    return Number.isFinite(n) && n > 0 ? n : 0
   } catch {
-    devicesFallback.get(key)?.delete(deviceId)
+    return devicesFallback.get(key)?.delete(deviceId) ? 1 : 0
   }
 }
 
@@ -460,9 +467,11 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
 
       const { deviceId } = request.params
       const key = deviceKey(userId)
-      await removeDevice(server.redis, key, deviceId)
+      // ack 由存储侧答复派生(HDEL 的删除计数 / 降级 Map 的 delete() 真布尔):
+      // 删一个不存在的 deviceId 从此回 removed:false,不再与删成功同形。键名与状态码逐字不变。
+      const removedCount = await removeDevice(server.redis, key, deviceId)
 
-      return reply.send(success({ removed: true }))
+      return reply.send(success({ removed: removedCount > 0 }))
     },
   )
 
