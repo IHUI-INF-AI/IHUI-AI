@@ -69,6 +69,12 @@ function makeRunnerRepo(t, fixture) {
   const dir = mkScratch('gri-')
   t.after(() => rmScratch(dir))
   runGit(dir, ['init', '-q'])
+  // 夹具仓必须自带身份:runGit 的 `-c user.*` 只喂给测试自己的调用,而**被测工具**用
+  // scripts/lib/bypass-git.mjs 的 git() 跑 commit-tree —— 它不带 -c,也不该带(真仓里有 local 身份)。
+  // 没有这条 config,四支端到端用例会以 "Author identity unknown" 全红(本机实测:T5/T6/T9 红,
+  // 而红的形态是"工具坏了"而不是"测试跑不起来",极易被误读成取号器本身不可用)。
+  runGit(dir, ['config', 'user.email', 't@e2e.local'])
+  runGit(dir, ['config', 'user.name', 'e2e'])
   mkdirSync(join(dir, 'scripts'), { recursive: true })
   writeFileSync(join(dir, 'scripts', 'guardian-runner.mjs'), fixture)
   runGit(dir, ['add', '-A'])
@@ -213,3 +219,25 @@ test('T9 label 含单引号不得砸语法:写盘前 node --check 自证生效(�
   assert.equal(__test__.checkSyntax(f).ok, true)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T10 同一道门不得注册两次:script 已在表里 ⇒ exit 1 并点名现有 id,注册表逐字不动', (t) => {
+  const dir = makeRunnerRepo(t, runnerFixture())
+  const before = norm(runGit(dir, ['show', 'HEAD:scripts/guardian-runner.mjs']))
+  const r = runGate(dir, { script: 'demo.mjs', msg: 'feat(gates): 不该落地' })
+  assert.equal(r.status, 1, `重复注册必须被拒,实得 status=${r.status} out=${r.stdout} err=${r.stderr}`)
+  assert.match(r.stderr, /已在注册表/, '拒绝理由要点名"已注册"这一型')
+  assert.match(r.stderr, /demo\.mjs/, '要点名是哪个 script')
+  assert.match(r.stderr, /id: '1'/, '要给出已有条目的 id,便于直接改那一块而不是再插一块')
+  assert.equal(
+    norm(runGit(dir, ['show', 'HEAD:scripts/guardian-runner.mjs'])),
+    before,
+    '拒绝路径不得留下任何注册表改动',
+  )
+  // 阳性对照:判据不是一律拒绝 —— 没注册过的 script 照旧落地(与 T5 同一条链,这里只验没被本判据误伤)
+  const ok = runGate(dir, { script: 'check-brand-new-gate.mjs', msg: 'feat(gates): 新门落地' })
+  assert.equal(ok.status, 0, `未注册过的 script 必须仍能插入:err=${ok.stderr}`)
+  assert.match(
+    norm(runGit(dir, ['show', 'HEAD:scripts/guardian-runner.mjs'])),
+    /script: 'check-brand-new-gate\.mjs',/,
+  )
+})
