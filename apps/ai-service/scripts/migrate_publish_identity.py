@@ -106,12 +106,14 @@ def main() -> int:
     graph_ids = {b.get("account_id") for b in bindings if isinstance(b, dict)}
 
     mapping: dict[str, str] = {}  # 旧键 → 新键
+    new_keys: set[str] = set()  # 现役账号的稳定键(第二遍跑时它们已在位,不得被报成"未归属")
     ambiguous: list[str] = []
     claimed: set[str] = set()
     for r in rows:
         plat = str(r["platform"])
         creds = credentials_crypto.decrypt(str(r["credentials_enc"]))
         new_key = resolve_account_id(plat, creds, int(r["id"]))
+        new_keys.add(new_key)
         hits = {k for k in _legacy_candidates(plat, creds) if k in dirs or k in graph_ids}
         hits = {h for h in hits if h != new_key}
         for h in hits:
@@ -122,8 +124,8 @@ def main() -> int:
             mapping[h] = new_key
         print(f"id={r['id']:>3} {plat:<12} 新键={new_key} 命中旧键={sorted(hits) or '无'}")
 
-    orphan_dirs = sorted(dirs - claimed - {m for m in mapping.values()})
-    orphan_graph = sorted(str(g) for g in graph_ids - claimed)
+    orphan_dirs = sorted(dirs - claimed - new_keys)
+    orphan_graph = sorted(str(g) for g in graph_ids - claimed - new_keys)
     print("\n=== 映射(旧 → 新)===")
     for old, new in sorted(mapping.items()):
         print(f"  {old}  ->  {new}")
@@ -149,15 +151,42 @@ def main() -> int:
             print(f"已备份 {f.name} → {f.name}.pre-identity-migration-{stamp}")
 
     renamed, moved = 0, 0
+    archived_shells = 0
+    swept = TMP_ROOT / f"anti-profiles-shells-{stamp}"
     for old, new in mapping.items():
         src, dst = PROFILE_ROOT / old, PROFILE_ROOT / new
         if src.is_dir():
             if dst.exists():
-                print(f"❌ 目标已存在,拒绝覆盖:{dst}")
-                return 1
-            os.replace(src, dst)
-            renamed += 1
-            print(f"画像目录改名:{old} → {new}")
+                # 目标已存在:只允许"src 是上一轮改名后由旧 profile.json 里的过期路径重新长出来的空壳"
+                # 这一种情形(它没有 profile.json,登录态真身在 dst 里)。其余一律交人工,不猜。
+                if (src / "profile.json").exists():
+                    print(f"❌ 两侧都有 profile.json,归属真冲突,拒绝处理:{old} 与 {new}")
+                    return 1
+                swept.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(src), str(swept / old))
+                archived_shells += 1
+                print(f"空壳归档(无 profile.json,登录态在 {new}):{old} → {swept.name}/{old}")
+            else:
+                os.replace(src, dst)
+                renamed += 1
+                print(f"画像目录改名:{old} → {new}")
+        # profile.json 里记的是**绝对** user_data_dir —— 只改目录名而不改它,下次启动仍会
+        # 顺着旧路径重新长出一个空壳画像(实测本机第一轮迁移就栽在这:verify 照样通过,
+        # 因为适配器每次显式 add_cookies,真实浏览器数据其实没被用上)。
+        pf = dst / "profile.json"
+        if pf.is_file():
+            data = json.loads(pf.read_text(encoding="utf-8"))
+            changed = False
+            if data.get("account_id") != new:
+                data["account_id"] = new
+                changed = True
+            want_dir = str(dst / "browser-data")
+            if str(data.get("user_data_dir", "")) != want_dir:
+                data["user_data_dir"] = want_dir
+                changed = True
+            if changed:
+                pf.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+                print(f"profile.json 已回写:{new}(account_id + user_data_dir 指向本目录)")
     for b in bindings:
         if isinstance(b, dict) and b.get("account_id") in mapping:
             b["account_id"] = mapping[str(b["account_id"])]
@@ -183,7 +212,10 @@ def main() -> int:
                 c["account_id"] = mapping[str(c["account_id"])]
         COOLDOWNS.write_text(json.dumps(cool, indent=2) + "\n", encoding="utf-8")
         print(f"冷却台账跟随改名 {len(items)} 条(未删除任何冷却)")
-    print(f"\n✅ 完成:目录改名 {renamed} 个,绑定改写 {moved} 条,未归属项保持原样。")
+    print(
+        f"\n✅ 完成:目录改名 {renamed} 个,空壳归档 {archived_shells} 个,绑定改写 {moved} 条,"
+        "未归属项保持原样。"
+    )
     return 0
 
 
