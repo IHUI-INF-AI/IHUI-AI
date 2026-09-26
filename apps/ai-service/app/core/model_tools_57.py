@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 MAX_SLEEP_DURATION_MS = 12 * 60 * 60 * 1000
@@ -205,10 +205,10 @@ def build_current_time_result(
 ) -> dict[str, Any]:
     """对齐 codex CurrentTimeOutput:current_time = "YYYY-MM-DD HH:MM:SS UTC"。"""
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
     if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
-    utc_now = now.astimezone(timezone.utc)
+        now = now.replace(tzinfo=UTC)
+    utc_now = now.astimezone(UTC)
     text = utc_now.strftime("%Y-%m-%d %H:%M:%S") + " UTC"
     return {"current_time": text, "timezone": timezone_name or "UTC"}
 

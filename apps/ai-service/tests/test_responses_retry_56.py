@@ -43,15 +43,15 @@ def _new_state() -> ResponsesStreamRetryState:
 
 
 def _unbounded_kwargs(**overrides: object) -> dict[str, object]:
-    base: dict[str, object] = dict(
-        max_retries=5,
-        is_connection_failed=True,
-        unbounded_connection_retries_enabled=True,
-        session_is_internal=False,
-        provider_is_bedrock=False,
-        fallback_transport_available=False,
-        websocket_transport=True,
-    )
+    base: dict[str, object] = {
+        "max_retries": 5,
+        "is_connection_failed": True,
+        "unbounded_connection_retries_enabled": True,
+        "session_is_internal": False,
+        "provider_is_bedrock": False,
+        "fallback_transport_available": False,
+        "websocket_transport": True,
+    }
     base.update(overrides)
     return base
 
