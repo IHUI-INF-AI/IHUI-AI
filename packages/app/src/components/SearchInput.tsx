@@ -172,7 +172,7 @@ export function SearchInput({
       style={[
         styles.container,
         { backgroundColor: tokens.surface.muted, borderColor: tokens.border.light },
-        focused ? { borderColor: tokens.brand.DEFAULT } : null,
+        focused ? { borderColor: tokens.brandAccent.deep } : null,
       ]}
     >
       <Search size={ICON_FONT_SIZE} color={tokens.text.tertiary} />
