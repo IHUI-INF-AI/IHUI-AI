@@ -34,7 +34,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from app.core.llm_gateway import llm_gateway
-from app.services.self_healing import classify_failure
+from app.services.self_healing import classify_failure, extract_error_digest
 
 logger = logging.getLogger(__name__)
 
@@ -563,6 +563,112 @@ class PytestSubprocessRunner:
                 }
             )
         return {"passed": passed, "failures": failures, "coverage_hint": "pytest"}
+
+
+# ---------------------------------------------------------------------------
+# 3b. 非 pytest 类信号的真实验证 runner(V3 #56 信号源扩展,2026-09-26 立)
+# ---------------------------------------------------------------------------
+
+
+class CommandReplayRunner:
+    """重放原始验证命令、按退出码判绿的 runner(类型/构建/lint 类信号用)。
+
+    为什么需要:pytest 路径的"绿"判据是 PytestSubprocessRunner 重跑 pytest +
+    junit 归因;但 mypy / npm run build / ruff check 的"绿"判据是各自命令
+    退出码归零。没有重放 runner,heal 循环对非 pytest 信号既无法验证补丁,
+    也无法判定修复成功。
+
+    契约与 PytestSubprocessRunner 一致(引擎 runner 签名兼容):
+    ``run(cases) -> {"passed": [...], "failures": [{test_id, message,
+    exception_type, category?}], "coverage_hint": "command"}``;cases 参数被
+    忽略(真实信号来自磁盘状态的重放),保留仅为兼容。额外携带
+    ``exit_code`` / ``output_digest`` 供 patch_fn 上下文(_patch_adapter 会把
+    runner 结果 dict 整体注入 ctx)。
+
+    安全性:shell=True 重放的是 agent 此前经 run_command 执行过、已通过
+    MCP 危险命令白名单(禁管道/重定向/危险词)的同一条命令串,不做任何
+    二次拼接,无注入放大面;cwd 恒为工作区根,timeout 硬上限防失控。
+    """
+
+    def __init__(
+        self,
+        command: str,
+        cwd: str,
+        *,
+        timeout: float = 300.0,
+    ) -> None:
+        self.command = str(command)
+        self.cwd = str(cwd)
+        self.timeout = timeout
+
+    def run(self, test_cases: Any = None) -> dict[str, Any]:
+        try:
+            proc = subprocess.run(
+                self.command,
+                shell=True,
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            return {
+                "passed": [],
+                "failures": [
+                    {
+                        "test_id": self.command,
+                        "message": f"verification command timed out after {self.timeout}s",
+                        "exception_type": "TimeoutError",
+                        "category": "timeout",
+                    }
+                ],
+                "coverage_hint": "command",
+                "exit_code": -1,
+                "output_digest": str(exc or "timeout"),
+            }
+        except Exception as exc:  # noqa: BLE001 - 子进程错误降级,不外逃
+            logger.warning(
+                "[self_healing_llm] replay subprocess error: %s", exc
+            )
+            return {
+                "passed": [],
+                "failures": [
+                    {
+                        "test_id": self.command,
+                        "message": f"replay subprocess error: {exc}",
+                        "exception_type": type(exc).__name__,
+                    }
+                ],
+                "coverage_hint": "command",
+                "exit_code": -1,
+                "output_digest": "",
+            }
+        output = f"{proc.stdout or ''}\n{proc.stderr or ''}"
+        if proc.returncode == 0:
+            # 绿:命令退出码归零即验证通过(不再细分 passed 列表,
+            # 引擎只看 failed==0 判定修复成功)
+            return {
+                "passed": ["replay_ok"],
+                "failures": [],
+                "coverage_hint": "command",
+                "exit_code": 0,
+                "output_digest": "",
+            }
+        return {
+            "passed": [],
+            "failures": [
+                {
+                    # test_id 用命令串而非文件路径:patch_fn 的失败归因直接以
+                    # digest 喂 LLM,read_failure_sources 对非测试 id 安全返回 None
+                    "test_id": self.command,
+                    "message": extract_error_digest(output, "build") or f"exit_code={proc.returncode}",
+                    "exception_type": "CommandFailed",
+                }
+            ],
+            "coverage_hint": "command",
+            "exit_code": proc.returncode,
+            "output_digest": extract_error_digest(output, "build"),
+        }
 
 
 # ---------------------------------------------------------------------------

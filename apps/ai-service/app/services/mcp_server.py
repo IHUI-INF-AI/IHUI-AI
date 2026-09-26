@@ -2268,51 +2268,566 @@ def _parse_ddg_lite_html(html: str, max_results: int) -> list[dict[str, str]]:
     return results
 
 
+# ---------------------------------------------------------------------------
+# V3 #50 桩工具转正:静态分析 / 测试生成的私有辅助实现。
+#
+# 背景:原 _tool_analyze_code 只数行数、_tool_generate_test 拼 f-string 输出
+# ``def test_placeholder(): pass`` 且返回 ok:True —— 模型把占位模板当真产物,
+# 属 silently wrong。V3 #50 要求:非真实产物必须 ok:False 或 stub:true,不许
+# 假装成功。转正后:analyze_code 用标准库 ast 做真实静态分析;generate_test
+# 走 llm_gateway 真实生成测试代码并真执行(pytest 子进程),LLM 不可用/执行
+# 环境缺失时如实返回 ok:False 或标注 executed:False,不再产出占位模板。
+#
+# 实现借鉴 self_healing_llm.PytestSubprocessRunner 的「生成→落盘→子进程跑→
+# 解析结果」骨架(只读参考,未改动该模块),此处不直接 import 它:该模块级联
+# 依赖 db_pool/self_healing,handler 需要保持独立轻量。
+# ---------------------------------------------------------------------------
+
+# 圈复杂度 top-N 报告条数与单函数超长阈值(超过行数即计入 long_functions)
+_ANALYZE_COMPLEXITY_TOP_N = 5
+_ANALYZE_LONG_FUNCTION_LINES = 80
+
+
+def _strip_code_fences(text: str) -> str:
+    """去掉 LLM 输出中的 ```/```lang markdown 围栏,返回纯代码。
+
+    独立小实现(self_healing_llm._strip_fences 同思路),避免跨模块依赖。
+    """
+    text = (text or "").strip()
+    if not text.startswith("```"):
+        return text
+    lines = text.splitlines()
+    if lines and lines[0].startswith("```"):
+        lines = lines[1:]
+    if lines and lines[-1].strip().startswith("```"):
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
+def _analyze_python_ast(code: str) -> dict[str, Any]:
+    """Python 源码的真实 AST 静态分析(纯标准库,零第三方依赖)。
+
+    检查项(6 项,均为可落地判定,非行数统计冒充):
+    1. unused_imports      未使用的 import(绑定名与代码标识符引用比对;
+                           尽力而为:不做 __all__/字符串重导出语义分析)
+    2. bare_except         裸 ``except:``(吞掉 KeyboardInterrupt/SystemExit)
+    3. complexity_top      函数圈复杂度 top-N(1 + 分支/循环/boolop/except 计数)
+    4. long_functions      超长函数(> _ANALYZE_LONG_FUNCTION_LINES 行)
+    5. mutable_defaults    可变默认参数(list/dict/set 字面量/推导式作默认值)
+    6. todo_fixme          TODO/FIXME 注释计数
+    """
+    import ast as _ast
+
+    findings: dict[str, Any] = {}
+    tree = _ast.parse(code)
+
+    # --- 1. 未使用 import:先收集绑定名,再收集全部标识符引用 ---
+    imported: dict[str, int] = {}  # 绑定名 -> 首次出现行号
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Import):
+            # import a.b.c 的绑定名是 a(asname 优先)
+            for alias in node.names:
+                name = alias.asname or alias.name.split(".")[0]
+                imported.setdefault(name, node.lineno)
+        elif isinstance(node, _ast.ImportFrom):
+            for alias in node.names:
+                if alias.name == "*":
+                    continue  # star import 无法静态判定使用情况
+                imported.setdefault(alias.asname or alias.name, node.lineno)
+    used_names = {
+        node.id for node in _ast.walk(tree) if isinstance(node, _ast.Name)
+    }
+    findings["unused_imports"] = [
+        {"name": name, "line": line}
+        for name, line in sorted(imported.items(), key=lambda kv: kv[1])
+        if name not in used_names
+    ]
+
+    # --- 2. 裸 except ---
+    bare_excepts = [
+        {"line": node.lineno}
+        for node in _ast.walk(tree)
+        if isinstance(node, _ast.ExceptHandler) and node.type is None
+    ]
+    findings["bare_excepts"] = bare_excepts
+
+    # --- 3/4. 圈复杂度 + 超长函数(每个函数独立统计) ---
+    complexities: list[dict[str, Any]] = []
+    long_functions: list[dict[str, Any]] = []
+    for node in _ast.walk(tree):
+        if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            continue
+        complexity = 1
+        for child in _ast.walk(node):
+            if isinstance(
+                child,
+                (_ast.If, _ast.For, _ast.AsyncFor, _ast.While, _ast.ExceptHandler),
+            ):
+                complexity += 1
+            elif isinstance(child, _ast.BoolOp):
+                # and/or 链:每个额外操作数一个分支
+                complexity += len(child.values) - 1
+            elif isinstance(child, _ast.IfExp):
+                complexity += 1
+            elif isinstance(child, _ast.comprehension):
+                complexity += 1 + len(child.ifs)
+        complexities.append(
+            {
+                "name": node.name,
+                "line": node.lineno,
+                "complexity": complexity,
+            }
+        )
+        end = getattr(node, "end_lineno", None) or node.lineno
+        if end - node.lineno + 1 > _ANALYZE_LONG_FUNCTION_LINES:
+            long_functions.append(
+                {
+                    "name": node.name,
+                    "line": node.lineno,
+                    "lines": end - node.lineno + 1,
+                }
+            )
+    findings["complexity_top"] = sorted(
+        complexities, key=lambda item: -item["complexity"]
+    )[:_ANALYZE_COMPLEXITY_TOP_N]
+    findings["long_functions"] = long_functions
+
+    # --- 5. 可变默认参数(经典陷阱:默认值跨调用共享) ---
+    _MUTABLE_LITERALS = (_ast.List, _ast.Dict, _ast.Set)
+    _MUTABLE_COMPS = (_ast.ListComp, _ast.DictComp, _ast.SetComp)
+    mutable_defaults = []
+    for node in _ast.walk(tree):
+        if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            continue
+        defaults = list(node.args.defaults) + [
+            d for d in node.args.kw_defaults if d is not None
+        ]
+        for default in defaults:
+            bad = isinstance(default, _MUTABLE_LITERALS + _MUTABLE_COMPS) or (
+                isinstance(default, _ast.Call)
+                and isinstance(default.func, _ast.Name)
+                and default.func.id in ("list", "dict", "set")
+            )
+            if bad:
+                mutable_defaults.append({"name": node.name, "line": node.lineno})
+                break  # 每函数只报一次
+    findings["mutable_defaults"] = mutable_defaults
+
+    # --- 6. TODO/FIXME 注释计数(行级正则,含行号) ---
+    todo_pattern = re.compile(r"#\s*(TODO|FIXME)\b", re.IGNORECASE)
+    todos = [
+        {"line": i + 1, "tag": m.group(1).upper()}
+        for i, line in enumerate(code.splitlines())
+        if (m := todo_pattern.search(line))
+    ]
+    findings["todo_fixme"] = {"count": len(todos), "items": todos[:20]}
+
+    return findings
+
+
+def _run_pytest_on_generated_test(
+    source_code: str, test_code: str, timeout: float = 60.0
+) -> dict[str, Any]:
+    """把被测源码与生成的测试落盘临时目录,起 pytest 子进程真执行并解析结果。
+
+    骨架借鉴 self_healing_llm.PytestSubprocessRunner(junit-xml 精确计数 +
+    stdout 兜底解析),但保持独立实现:任何异常都不外逃,以结构化结果返回。
+
+    Returns:
+        {
+          "available": bool,   # pytest 执行条件是否满足
+          "executed": bool,    # 是否真的跑完了 pytest
+          "passed": int, "failed": int, "errors": int,
+          "failures": [...],   # 失败明细(最多 10 条)
+          "output_summary": str,
+          "reason": str,       # available=False 时的原因
+        }
+    """
+    import shutil as _shutil
+    import subprocess as _subprocess
+    import sys as _sys
+    import tempfile as _tempfile
+    import uuid as _uuid
+    import xml.etree.ElementTree as _ET
+
+    result: dict[str, Any] = {
+        "available": True, "executed": False,
+        "passed": 0, "failed": 0, "errors": 0,
+        "failures": [], "output_summary": "", "reason": "",
+    }
+    tmpdir = ""
+    try:
+        # 环境判定:pytest 可执行性交给真实子进程验证(比 in-process import
+        # 更准:handler 进程与子进程解释器一致,但依赖装没装只有跑了才知道)
+        tmpdir = _tempfile.mkdtemp(prefix="gen_test_")
+        src_path = os.path.join(tmpdir, "source.py")
+        test_path = os.path.join(
+            tmpdir, f"test_generated_{_uuid.uuid4().hex[:8]}.py"
+        )
+        with open(src_path, "w", encoding="utf-8") as f:
+            f.write(source_code)
+        with open(test_path, "w", encoding="utf-8") as f:
+            f.write(test_code)
+
+        junit_path = os.path.join(tmpdir, "report.xml")
+        cmd = [
+            _sys.executable, "-m", "pytest", test_path,
+            "--junit-xml", junit_path, "-p", "no:cacheprovider", "-q",
+        ]
+        proc = _subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout, cwd=tmpdir
+        )
+        stdout = proc.stdout or ""
+        result["output_summary"] = "\n".join(
+            line for line in stdout.splitlines() if line.strip()
+        )[-1500:]
+
+        # pytest 未安装:stdout 出现 No module named pytest(exit code 1)
+        if "No module named pytest" in stdout or "No module named pytest" in (
+            proc.stderr or ""
+        ):
+            result["available"] = False
+            result["reason"] = "当前 Python 环境未安装 pytest,无法真实执行"
+            return result
+        result["executed"] = True
+
+        # 优先 junit-xml 精确计数;缺失/解析失败回退 stdout 行解析
+        if os.path.exists(junit_path):
+            try:
+                root = _ET.parse(junit_path).getroot()
+                suites = (
+                    root.iter("testsuite") if root.tag == "testsuites" else [root]
+                )
+                for suite in suites:
+                    result["passed"] += int(suite.get("tests", 0)) - int(
+                        suite.get("failures", 0)
+                    ) - int(suite.get("errors", 0)) - int(
+                        suite.get("skipped", 0)
+                    )
+                    result["failed"] += int(suite.get("failures", 0))
+                    result["errors"] += int(suite.get("errors", 0))
+                    for tc in suite.iter("testcase"):
+                        fail = tc.find("failure")
+                        if fail is None:
+                            fail = tc.find("error")
+                        if fail is not None:
+                            result["failures"].append({
+                                "test_id": (
+                                    (tc.get("classname") or "") + "::"
+                                    + (tc.get("name") or "")
+                                ).strip(":"),
+                                "message": (
+                                    fail.get("message") or fail.text or "failed"
+                                ).strip()[:300],
+                            })
+            except _ET.ParseError:
+                pass  # junit 损坏,走 stdout 兜底
+        result["failures"] = result["failures"][:10]
+        if not result["passed"] and not result["failed"] and not result["errors"]:
+            # stdout 兜底:匹配 pytest 汇总行(如 "3 passed, 1 failed")
+            m = re.search(
+                r"(\d+)\s+passed(?:,\s*(\d+)\s+failed)?(?:,\s*(\d+)\s+error)?",
+                stdout,
+            )
+            if m:
+                result["passed"] = int(m.group(1))
+                result["failed"] = int(m.group(2) or 0)
+                result["errors"] = int(m.group(3) or 0)
+        return result
+    except _subprocess.TimeoutExpired:
+        result["reason"] = f"pytest 执行超时({timeout}s)"
+        return result
+    except Exception as exc:  # noqa: BLE001 - 执行环境缺失/异常如实降级
+        result["available"] = False
+        result["reason"] = f"pytest 子进程执行失败: {exc}"
+        return result
+    finally:
+        if tmpdir:
+            _shutil.rmtree(tmpdir, ignore_errors=True)
+
+
 async def _tool_analyze_code(arguments: dict[str, Any]) -> dict[str, Any]:
-    """analyze_code: 代码分析(基础静态分析)。"""
+    """analyze_code: 代码静态分析(V3 #50 转正)。
+
+    Python:ast 真实静态分析(未使用 import/裸 except/圈复杂度 top-N/超长
+    函数/可变默认参数/TODO-FIXME),返回结构化 findings。
+    其他语言(JS/TS 等):诚实降级为行级统计,analysis_depth 如实标注为
+    "line-stats",不让行数统计冒充深度分析。
+    """
     code = arguments.get("code", "")
-    language = arguments.get("language", "text")
+    language = str(arguments.get("language", "text") or "text").lower()
+    if not code.strip():
+        return {
+            "tool": "analyze_code", "ok": False,
+            "error": "code 不能为空", "language": language,
+        }
+
     lines = code.splitlines()
+    metrics = {
+        "lines": len(lines),
+        "chars": len(code),
+        "blank_lines": sum(1 for l in lines if not l.strip()),
+        "comment_lines": sum(
+            1
+            for l in lines
+            if l.strip().startswith(("#", "//", "--", "/*", "*"))
+        ),
+    }
+
+    lang = "python" if language in ("python", "py", "python3") else language
+    if lang == "python":
+        # 真实 AST 分析;语法错误本身就是分析结论(如实报告,不算工具失败)
+        import ast as _ast
+
+        try:
+            findings = _analyze_python_ast(code)
+        except SyntaxError as e:
+            return {
+                "tool": "analyze_code", "ok": True,
+                "language": language, "analysis_depth": "ast",
+                "metrics": metrics, "findings": {},
+                "syntax_error": {
+                    "line": e.lineno, "offset": e.offset,
+                    "message": e.msg or str(e),
+                },
+                "message": "Python 语法错误,无法继续静态分析(已如实报告)",
+            }
+        return {
+            "tool": "analyze_code", "ok": True,
+            "language": language, "analysis_depth": "ast",
+            "metrics": metrics, "findings": findings,
+            "message": "AST 静态分析完成(未使用 import/裸 except/圈复杂度/"
+                       "超长函数/可变默认参数/TODO-FIXME)",
+        }
+
+    # 非 Python:诚实降级 —— 行级统计 + 明确说明能力边界
     return {
-        "tool": "analyze_code",
-        "ok": True,
-        "language": language,
-        "metrics": {
-            "lines": len(lines),
-            "chars": len(code),
-            "blank_lines": sum(1 for l in lines if not l.strip()),
-            "comment_lines": sum(
-                1
-                for l in lines
-                if l.strip().startswith(("#", "//", "--", "/*", "*"))
-            ),
-        },
-        "message": f"基础静态分析完成(language={language})",
+        "tool": "analyze_code", "ok": True,
+        "language": language, "analysis_depth": "line-stats",
+        "metrics": metrics,
+        "findings": {},
+        "note": (
+            f"{language} 暂无 AST 深度分析实现,已降级为行级统计"
+            "(行数/空行/注释行);Python 代码可获 ast 深度分析"
+        ),
+        "message": f"行级统计完成(language={language},降级模式,非深度分析)",
     }
 
 
 async def _tool_generate_test(arguments: dict[str, Any]) -> dict[str, Any]:
-    """generate_test: 生成测试模板。"""
-    code = arguments.get("code", "")
-    language = arguments.get("language", "python")
-    framework = arguments.get("framework", "pytest")
-    template = f"""# 自动生成的测试模板({framework})
-# 源代码语言: {language}
+    """generate_test: LLM 生成测试并真实执行验证(V3 #50 转正)。
 
-def test_placeholder():
-    \"\"\"测试模板占位:需根据源代码补充具体用例。\"\"\"
-    # 源代码:
-    # {chr(10).join('# ' + l for l in code.splitlines()[:20])}
-    pass
-"""
-    return {
-        "tool": "generate_test",
-        "ok": True,
-        "language": language,
-        "framework": framework,
-        "test_code": template,
-        "message": "测试模板已生成(需结合 LLM 完善用例)",
+    流程:从 arguments 取 code/language/framework → 构造明确 prompt(可执行、
+    含失败路径断言、遵循框架习惯)经 llm_gateway 真实生成 → Python 走 pytest
+    子进程真执行并把通过/失败数放进返回体;JS/TS 有 node 时做语法校验,否则
+    如实标注未执行。LLM 不可用(stub 模式/异常/空输出)返回 ok:False + 原因,
+    不再返回占位模板假装成功。
+    """
+    code = arguments.get("code", "")
+    language = str(arguments.get("language", "python") or "python").lower()
+    framework = str(arguments.get("framework", "") or "").strip()
+    if not code.strip():
+        return {
+            "tool": "generate_test", "ok": False,
+            "error": "code 不能为空,无法生成测试",
+        }
+
+    # 各语言默认框架与约定(prompt 中写明,引导模型产出可执行测试)
+    lang_norm = "python" if language in ("python", "py", "python3") else language
+    if lang_norm == "python":
+        framework = framework or "pytest"
+    elif lang_norm in ("javascript", "js", "typescript", "ts"):
+        framework = framework or "jest"
+
+    from ..core.llm_gateway import llm_gateway
+
+    if lang_norm == "python":
+        import_rules = (
+            "5. 被测源码将保存为同目录 source.py,请通过 `from source import ...` "
+            "引入被测函数;不要自行写文件或依赖其他模块。"
+        )
+    else:
+        import_rules = (
+            "5. 被测源码将以内联方式放入测试文件顶部(同文件),直接使用其中函数;"
+            "不要 import 不存在的外部模块。"
+        )
+    system_prompt = (
+        "You are a senior test engineer. Output ONLY the complete test code, "
+        "no markdown fences, no explanations, no placeholders. The test code "
+        "will be executed verbatim."
+    )
+    user_prompt = (
+        f"Language: {lang_norm}. Test framework: {framework}.\n"
+        "Requirements:\n"
+        "1. 测试必须可直接执行,不依赖网络/数据库/被测源码之外的文件。\n"
+        "2. 覆盖正常路径,且至少包含一个失败路径/边界条件断言。\n"
+        f"3. 严格遵循 {framework} 的命名与组织习惯(如 pytest 的 test_* "
+        "函数 + assert;jest 的 describe/it + expect)。\n"
+        f"{import_rules}\n\n"
+        f"Source code:\n```{lang_norm}\n{code}\n```\n"
+    )
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    # --- LLM 真实生成(失败路径全部诚实返回,不出占位模板) ---
+    try:
+        result = await llm_gateway.complete(messages)
+    except Exception as exc:  # noqa: BLE001 - LLM 通道异常如实降级
+        return {
+            "tool": "generate_test", "ok": False,
+            "language": lang_norm, "framework": framework,
+            "analysis_depth": "llm-generated", "executed": False,
+            "error": f"LLM 调用异常: {exc}",
+        }
+    if result.get("error") or result.get("error_message"):
+        return {
+            "tool": "generate_test", "ok": False,
+            "language": lang_norm, "framework": framework,
+            "analysis_depth": "llm-generated", "executed": False,
+            "error": (
+                result.get("error_message")
+                or result.get("error")
+                or "LLM 返回错误"
+            ),
+        }
+    if result.get("stub"):
+        # stub 模式 = 网关未配置任何真实 API key,拿到的是假响应。
+        # 假响应生成不出真测试,必须 ok:False,不许假装成功(V3 #50)。
+        return {
+            "tool": "generate_test", "ok": False,
+            "language": lang_norm, "framework": framework,
+            "analysis_depth": "llm-generated", "executed": False,
+            "stub": True,
+            "error": (
+                "LLM 网关处于 stub 模式(未配置任何 API key),无法生成真实测试"
+            ),
+        }
+    test_code = _strip_code_fences(str(result.get("content") or ""))
+    if not test_code.strip():
+        return {
+            "tool": "generate_test", "ok": False,
+            "language": lang_norm, "framework": framework,
+            "analysis_depth": "llm-generated", "executed": False,
+            "error": "LLM 返回内容为空,无法生成测试",
+        }
+
+    base: dict[str, Any] = {
+        "tool": "generate_test", "ok": True,
+        "language": lang_norm, "framework": framework,
+        "analysis_depth": "llm-generated",
+        "test_code": test_code,
+        "model": result.get("model", ""),
     }
+
+    # --- 真实执行验证 ---
+    if lang_norm == "python":
+        # pytest 子进程真执行(结果如实放进返回体;测试本身有失败不算工具
+        # 失败 —— ok 表示「生成+执行流程完成」,失败明细交给调用方判断)
+        execution = await asyncio.to_thread(
+            _run_pytest_on_generated_test, code, test_code
+        )
+        if execution.get("available") and execution.get("executed"):
+            base["executed"] = True
+            base["execution"] = {
+                "runner": "pytest",
+                "passed": execution["passed"],
+                "failed": execution["failed"],
+                "errors": execution["errors"],
+                "failures": execution["failures"],
+                "output_summary": execution["output_summary"],
+            }
+            base["message"] = (
+                f"测试已生成并真实执行:"
+                f"{execution['passed']} passed / {execution['failed']} failed"
+                f" / {execution['errors']} errors"
+            )
+        else:
+            # pytest 环境缺失:降级为语法校验,如实标注未真实执行
+            import ast as _ast
+
+            syntax_ok = True
+            syntax_error = ""
+            try:
+                _ast.parse(test_code)
+            except SyntaxError as e:
+                syntax_ok = False
+                syntax_error = f"line {e.lineno}: {e.msg}"
+            base["executed"] = False
+            base["execution"] = {
+                "runner": "syntax-check(compile)",
+                "syntax_ok": syntax_ok,
+                "error": syntax_error,
+            }
+            base["message"] = (
+                f"测试已生成,但 {execution.get('reason') or '执行环境缺失'};"
+                "仅完成语法校验,未真实执行(结果未经验证)"
+            )
+        return base
+
+    # JS/TS:有 node 则语法校验(node --check,仅支持 .js 系);否则如实标注
+    if lang_norm in ("javascript", "js", "typescript", "ts"):
+        import shutil as _shutil
+        import subprocess as _subprocess
+
+        is_ts = lang_norm in ("typescript", "ts")
+        node_path = _shutil.which("node")
+        if node_path and not is_ts:
+            import tempfile as _tempfile
+            import uuid as _uuid
+
+            tmpdir = _tempfile.mkdtemp(prefix="gen_test_js_")
+            js_path = os.path.join(
+                tmpdir, f"gen_{_uuid.uuid4().hex[:8]}.js"
+            )
+            try:
+                with open(js_path, "w", encoding="utf-8") as f:
+                    f.write(test_code)
+                proc = _subprocess.run(
+                    [node_path, "--check", js_path],
+                    capture_output=True, text=True, timeout=30,
+                )
+                base["executed"] = proc.returncode == 0
+                base["execution"] = {
+                    "runner": "node --check",
+                    "syntax_ok": proc.returncode == 0,
+                    "error": (proc.stderr or "").strip()[:500],
+                }
+                base["message"] = (
+                    "测试已生成并通过 node 语法校验(未跑测试运行时,"
+                    "结果未经验证)"
+                    if proc.returncode == 0
+                    else "测试已生成,但 node 语法校验失败(见 execution.error)"
+                )
+            finally:
+                _shutil.rmtree(tmpdir, ignore_errors=True)
+            return base
+        # 无 node 或 TS(node --check 不支持 TS):如实标注未执行
+        base["executed"] = False
+        base["execution"] = {
+            "runner": None,
+            "syntax_ok": None,
+            "error": (
+                "TypeScript 无内置语法校验手段"
+                if is_ts
+                else "当前环境未安装 node,无法校验"
+            ),
+        }
+        base["message"] = (
+            "测试已生成(LLM 真实产物),但当前环境无法执行验证,"
+            "结果未经验证,请人工确认"
+        )
+        return base
+
+    # 其他语言:生成真实产物,但无执行手段,如实标注
+    base["executed"] = False
+    base["execution"] = {
+        "runner": None, "syntax_ok": None,
+        "error": f"{lang_norm} 暂无执行验证通道",
+    }
+    base["message"] = "测试已生成(LLM 真实产物),无执行通道,结果未经验证"
+    return base
 
 
 async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -6913,7 +7428,7 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="analyze_code",
-        description="代码静态分析(行数、注释、空行等)",
+        description="代码静态分析(Python: AST 深度分析——未使用 import、裸 except、圈复杂度 top-N、超长函数、可变默认参数、TODO/FIXME 计数,返回结构化 findings;其他语言: 诚实降级为行级统计并标注 line-stats)",
         input_schema={
             "type": "object",
             "properties": {
@@ -6925,7 +7440,7 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="generate_test",
-        description="为代码生成测试模板",
+        description="LLM 生成真实测试代码并执行验证(Python: pytest 子进程真执行并返回通过/失败数;JS/TS: node 语法校验或如实标注未执行;LLM 不可用时返回 ok:False,不产出占位模板)",
         input_schema={
             "type": "object",
             "properties": {
