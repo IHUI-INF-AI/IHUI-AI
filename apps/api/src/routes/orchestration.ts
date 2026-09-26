@@ -180,7 +180,25 @@ export const orchestrationRoutes: FastifyPluginAsync = async (server) => {
     }
     const data = await emitEvent(req, parsed.data)
     if (!data) return reply.status(503).send(error(503, '事件发射失败'))
-    return reply.send(success(data))
+    // 逐键点名而不是整包 `success(data)`:运行时事实一直在透传,但**没有任何一处代码
+    // 读过它们** —— 那正是"生产面把事实带回、消费面结构上看不见"(同守门 64/70/81/105)。
+    // 这里显式读出三键,契约才落到类型与测试上。
+    //
+    // 三键缺失一律折算成 null 而**不是** false:"没判"写成"判过了"是本仓最高频失效型
+    // (见 ai-service resolve_emit_outcome 的注释)。outcome 为 null 表示上游是加性
+    // 改造前的旧版,调用方须按未知处理。
+    //
+    // ⚠️ 保留 `...data` 透传:若只白名单这四键,上游将来加的第五键就会在这里被静默吞掉
+    // —— 那等于在本票修掉的那一格旁边再挖一格。先展开再归一,两者兼得。
+    return reply.send(
+      success({
+        ...data,
+        event_id: data.event_id,
+        outcome: data.outcome ?? null,
+        degraded: data.degraded ?? null,
+        non_ok_pillars: data.non_ok_pillars ?? null,
+      }),
+    )
   })
 
   server.get('/orchestration/events/stats', { preHandler: authenticate }, async (req, reply) => {

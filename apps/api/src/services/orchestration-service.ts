@@ -30,6 +30,9 @@ import type {
   TelemetryDashboard,
   TraceSpan,
   EmitEventRequest,
+  // 第九轮 B2:emit 的联动结论三键契约落在共享层(@ihui/types),api 只引用不自立
+  // 第二份形状 —— 两端各写一份必然漂移(AGENTS §3 共享层优先 / 守门 98 悬空导入)。
+  EmitEventResult,
 } from '@ihui/types/orchestration'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { logger } from '../utils/logger.js'
@@ -110,10 +113,19 @@ export async function getEventFeed(
   return callOrchestration(request, `/api/orchestration/events?${params}`)
 }
 
+/**
+ * 发射支柱事件。
+ *
+ * 返回形状 2026-09-26 从 `{ event_id }` 扩到 `EmitEventResult`(三键联动结论)。
+ * 上游 `callOrchestration` 一直是**整体 JSON 透传**(`json.data ?? json`,不剥未知键),
+ * 所以 ai-service 新加的 outcome/degraded/non_ok_pillars 早就到了本端,只是被旧返回
+ * 类型在**类型层擦掉**——调用方拿不到、typecheck 也不红。这一格就是"生产面把事实
+ * 带回来了、消费面结构上看不见"(同守门 64/70/81/105 立论)。
+ */
 export async function emitEvent(
   request: FastifyRequest,
   body: EmitEventRequest,
-): Promise<{ event_id: string } | null> {
+): Promise<EmitEventResult | null> {
   return callOrchestration(request, '/api/orchestration/events/emit', {
     method: 'POST',
     body: JSON.stringify(body),
