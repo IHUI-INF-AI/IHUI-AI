@@ -370,7 +370,7 @@ test('守门面必须覆盖**每一个会渲染界面的端**(2026-09-26 扩面:
   }
 })
 
-test('真仓 HEAD 上 S0 必须为 0(机制此刻就在位;谁摘线谁变红,不是门自己恒红)', () => {
+test('真仓 HEAD 上 S0 必须为 0,且遍历盲区必须为 0(机制此刻就在位;失明即红,不得把"没看见"读成"通过")', () => {
   const { result } = gate.scanRepo(ROOT, 'head', null, {
     wiring: new Map(gate.MECHANISMS.map((m) => [m.file, [`${m.symbol} 消费方`]])),
   })
@@ -378,6 +378,82 @@ test('真仓 HEAD 上 S0 必须为 0(机制此刻就在位;谁摘线谁变红,�
     result.violations.s0.map((x) => x.msg),
     [],
     `S0 现状即结论:${result.violations.s0.map((x) => `${x.file}:${x.msg}`).join(' | ')}`,
+  )
+  // backBlind 那一行是"判据自己失明"的出口(不是仓库违规)。它一旦被点名,说明有渲染位
+  // 「返回」被宽松正则看到、而栈遍历一个都没咨询过 —— 那种"GA4=0"是假绿灯。
+  // 2026-09-26 的跨行自闭合盲区(CourseScreen:113)就是靠这条被量出来的;把它钉成回归,
+  // 下次再长出同类形态时先红在测试里,而不是安静地少守一片。
+  assert.deepEqual(
+    result.notes.backBlind,
+    [],
+    `GA4/GA5 遍历盲区:${result.notes.backBlind.map((b) => `${b.file}:${b.line}`).join(' | ')} —— 这些格子没有判据覆盖,不是"通过"`,
+  )
+})
+
+test('跨行自闭合标签的属性区必须真被咨询(HEAD 真文件双向证明,不是夹具复刻实现的形状)', () => {
+  // §22c 的教训:判据的对象是真实文件的形态时,至少一条用例的输入必须逐字取自那个真文件。
+  // 这里用 HEAD 上真实存在的那一处(packages/app/src/features/course-screen/CourseScreen.tsx,
+  // 翻页按钮的 `{t('common.back')}` 摆在 `<FlatList … />` 的 ListFooterComponent prop 体里,
+  // 自闭合的 `/>` 落在另一行 —— 旧遍历把整段 prop 体当成一个 token 跳过了)。
+  const COURSE = 'packages/app/src/features/course-screen/CourseScreen.tsx'
+  const head = execFileSync('git', ['show', `HEAD:${COURSE}`], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: 120000,
+    windowsHide: true,
+  })
+  const stripped = head.replace(/^.*back-label-exempt:[^\n]*\n/m, '')
+  assert.notEqual(stripped, head, '夹具前提变了(HEAD 上那处豁免注释不见了)⇒ 本条需要换受害者,不得删')
+  const asIs = gate.auditFile(COURSE, head)
+  assert.equal(
+    asIs.notes.backBlind.length,
+    0,
+    '格子仍被盲区探针点名 = 属性区下探断了,GA4 在这一型上是瞎的',
+  )
+  assert.equal(
+    asIs.findings.filter((f) => f.rule === 'GA4' || f.rule === 'GA5').length,
+    0,
+    'HEAD 该处带 back-label-exempt 原因 ⇒ 现状不该判红(判红就是与改动无关的恒红)',
+  )
+  assert.ok(
+    asIs.notes.backExempt >= 1,
+    '下探没跑到那一格时 backExempt 不会增加 —— 这条把"绿是因为放过"和"绿是因为没看见"分开',
+  )
+  const unexempted = gate.auditFile(COURSE, stripped)
+  const hit = unexempted.findings.filter((f) => f.rule === 'GA4' || f.rule === 'GA5')
+  assert.equal(
+    hit.length,
+    1,
+    `剥掉豁免后必须判到那一格(判到=判据有牙;判不到=门只是被豁免遮住了):${unexempted.findings.map((f) => `${f.rule}@${f.line}`).join(' | ')}`,
+  )
+  assert.equal(unexempted.notes.backBlind.length, 0, '同一格既判红又点名盲区 = 两套结论互相打脸')
+})
+
+test('属性区下探的三条结构锁:入口走 walkJsxRange、下探的祖先栈从空开始、盲区读数恒打印', () => {
+  // 摘掉下探 = 盲区回来;把外层 prop 宿主算作祖先 = 另一个 prop 里的 onPress 给整棵 prop 子树
+  // 伪造可点证据(假阳回流);盲区行退回"有才打印" = 0 与"没量"重新同形。
+  // 三条都是行为分支,所以钉源码形态而不只靠断言 —— 文本按**去空白**比对
+  // (prettier 一折行就会造出与正确性无关的假红,见项目记忆)。
+  const flat = readFileSync(join(ROOT, 'scripts', SCRIPT), 'utf8').replace(/\s+/g, '')
+  assert.ok(
+    flat.includes('walkAffordanceChildren(text,strMask){') &&
+      flat.includes('walkJsxRange(text,strMask,0,text.length,[],out)'),
+    'walkAffordanceChildren 不再走 walkJsxRange ⇒ 下探被摘线',
+  )
+  assert.ok(
+    flat.includes('walkJsxRange(text,strMask,regionStart,regionEnd,[],out)'),
+    '属性区下探的祖先栈不再是空数组 ⇒ prop 宿主开始给 prop 体伪造可点证据(假阳)',
+  )
+  assert.ok(
+    flat.includes('t.attrs.includes(\'<\')'),
+    '下探触发条件被改 ⇒ 要么整类形态重新隐身,要么每个标签都递归(白烧提交链)',
+  )
+  // 盲区读数那行必须**恒打印**(0 也打印):有才打印的话,读报告的人分不清"量到 0"与"这一层没量"
+  assert.ok(
+    flat.includes('lines.push(notes.backBlind.length?') &&
+      !flat.includes('if(notes.backBlind.length)lines.push('),
+    'GA4/GA5 遍历盲区退回"有才打印" ⇒ 0 与"没量"再次同形(判据失效的表现永远是安静)',
   )
 })
 
