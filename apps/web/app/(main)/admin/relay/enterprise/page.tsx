@@ -17,6 +17,7 @@ import { Button, Input } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
+import { apiFailureToError } from '@ihui/shared/utils'
 
 interface Profile {
   id: string
@@ -138,7 +139,7 @@ export default function EnterprisePage() {
               ? '/api/admin/relay/enterprise/contracts?pageSize=50'
               : '/api/admin/relay/enterprise/corporate-payments?pageSize=50'
       const r = await fetchApi<ListResp<unknown>>(path)
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       return r.data as ListResp<Profile | Invoice | Contract | Voucher>
     },
   })
@@ -151,7 +152,7 @@ export default function EnterprisePage() {
         method: 'POST',
         body: body ? JSON.stringify(body) : undefined,
       })
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       setMsg('操作成功')
       setReason('')
       setInvoiceNo('')

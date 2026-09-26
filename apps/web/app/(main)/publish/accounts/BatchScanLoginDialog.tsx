@@ -63,6 +63,7 @@ import {
   DialogFooter,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { apiFailureToError } from '@ihui/shared/utils'
 
 export interface BatchScanLoginDialogProps {
   open: boolean
@@ -208,7 +209,8 @@ export function BatchScanLoginDialog({
     void (async () => {
       try {
         const r = await listScanLoginPlatforms()
-        if (!r.success || !r.data) throw new Error(r.error || '获取平台列表失败')
+        if (!r.success) throw apiFailureToError(r, '获取平台列表失败')
+        if (!r.data) throw new Error('获取平台列表失败')
         platMapRef.current = new Map(r.data.platforms.map((p) => [p.platform, p]))
         const init: QueueItem[] = queuePlatforms.map((pid) => ({
           platform: pid,
@@ -335,7 +337,8 @@ export function BatchScanLoginDialog({
             markStoppedFrom(i)
             break
           }
-          if (!r.success || !r.data?.session_id) throw new Error(r.error || '创建浏览器会话失败')
+          if (!r.success) throw apiFailureToError(r, '创建浏览器会话失败')
+          if (!r.data?.session_id) throw new Error('创建浏览器会话失败')
           sid = r.data.session_id
           openCdpSession(plat.login_url, sid, plat.name)
         }
