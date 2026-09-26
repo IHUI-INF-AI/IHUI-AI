@@ -2022,15 +2022,17 @@ function report(r, asJson) {
         `C5 转写腿:**未判定**${L.demandKinds === 0 ? '(本轮无可观测转写需求)' : ''}` +
           `${L.reason ? ` —— ${L.reason}` : ''};这一维**不计为通过**,与"腿在"是两回事`,
       )
+    // 2026-09-26 实测:这里少一个闭括号,于是下面 C7 那次 console.log 变成了**本条 log 的第二个参数**
+    // —— 打印顺序倒过来(C7 先出、C6 后出)且尾部拖一个 `undefined`。判据本身没坏,坏的是报告。
     console.log(
       `C6 CSS 腿:${r.cssLeg.verdict} —— ` +
         (r.cssLeg.reason ||
           `含标点档 ${r.cssLeg.arbitraryDemand} 个,产物转写形态类名 ${r.cssLeg.mangledRuleKinds} 个 ⇒ 整条未跑已被排除`),
+    )
     console.log(
       `C7 spacing 刻度族:${r.spacingFamily.verdict} —— ` +
         (r.spacingFamily.reason ||
           `需求 ${r.spacingFamily.demandedSpacing} 档 / 改名集合命中 ${r.spacingFamily.renamedSpacing} 档 ⇒ 整族进不了改名集合已被排除`),
-    )
     )
   }
 
@@ -3211,7 +3213,14 @@ const HELP = `用法:node scripts/check-miniapp-css-landing.mjs [选项]
   --staged            源码判索引 blob(与 --worktree 互斥)
   --worktree          源码判磁盘(人工排查,不作门禁)
   --json              机器可读输出
-  --min-coverage <n>  C1 阈值 0..1,默认 1;传 0 = 只观测不计红
+  --min-coverage <n>  C1 阈值 0..1,默认 1;传 0 = 只观测不计红。
+                      三档现值(2026-09-26 定,勿另起第四档):
+                        0.5 = build 末端自检(pnpm --filter @ihui/miniapp-taro build)
+                        0.9 = 问责档(pnpm check:miniapp-css-landing)
+                        0   = 纯读数/取证档(… :report)
+                      为什么不是 1(默认档):C1 分母含"CSS 有规则但运行时挂不上"的死规则档,
+                      现测上限就是 96.36% —— 拿 100% 当门等于造一台恒红门(§12e 同型)。
+                      为什么不是 0:0 让"整端 utility 不再落地"(实测过 0.79%)从账面消失。
   --skip-reference    不跑 tailwind(C1/C2 结构上判不出,如实计入「无法判定」)
   --reference-engine <auto|v3|v4>
                       参考层引擎。默认 auto = **跟产物同引擎、并与源码判定同面**:
