@@ -17,6 +17,7 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { auditClaimStaleLockSource } from '../lib/stale-lock-claim.mjs'
 import { __test__ as gl } from '../git-lock.mjs'
 
 const DEAD_PID = 999000 // 实测不存在的 pid;下面第 0 条先把它自己验一遍,不靠假设
@@ -182,6 +183,54 @@ test('⑤源码反向锁:acquire/clean 的抢占分支只能走 claimStaleLock,�
     codeOnly.includes('claimStaleLock(dir, null,'),
     'clean 的"无 meta.json 残留锁"一支也必须走改名抢占(旧写法是直接删)',
   )
+})
+
+// ── 6. 防复发锁:抢占实现只允许有一份(scripts/lib/stale-lock-claim.mjs)────────
+// 本票(合并 e0a222de0b1 交付时登记的"两份 claimStaleLock"债)的判据:
+// 两个调用方的代码面里,`function claimStaleLock` 只能是以委托形式存在的 wrapper;
+// 出现改名核心(renameSync)或不委托 lib 的同名函数 = 第二份实现又长回来了。
+test('⑥防复发:git-lock/deploy-lock 都不得再出现第二份 claimStaleLock 实现', () => {
+  for (const rel of ['../git-lock.mjs', '../deploy-lock.mjs']) {
+    const src = readFileSync(new URL(rel, import.meta.url), 'utf8')
+    // 只判代码行(整行注释在描述"为什么不能用/曾经怎样",不是代码)
+    const codeOnly = src
+      .split('\n')
+      .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+      .join('\n')
+    assert.deepEqual(
+      auditClaimStaleLockSource(codeOnly, rel),
+      [],
+      `${rel} 的抢占必须是委托 scripts/lib/stale-lock-claim.mjs 的 wrapper`,
+    )
+    assert.ok(
+      /from ['"]\.\/lib\/stale-lock-claim\.mjs['"]/.test(codeOnly),
+      `${rel} 必须 import 合并后的唯一实现`,
+    )
+  }
+  // 变异对照(负向证明"往任一脚本再塞一份必红"):一份不委托、含改名核心的副本,
+  // 连同"换名字躲判据"的形态(renameSync(dir,… 指纹),必须各被点名。
+  const dup = [
+    'function claimStaleLockOld(dir, judged, why, opts) {',
+    '  renameSync(dir, target)',
+    '  return { ok: true }',
+    '}',
+  ].join('\n')
+  const flagged = auditClaimStaleLockSource(dup, 'mutation-fixture')
+  assert.equal(
+    flagged.length,
+    1,
+    `换名的第二份实现必须判红,实得 ${JSON.stringify(flagged)}`,
+  )
+  assert.ok(flagged[0].includes('renameSync(dir'), '点名的是"对原锁路径的改名回到了调用方"')
+  // 变异对照 2:把 wrapper 就地换回旧实现(同名)⇒ 未委托/体内改名/对原路径改名三条全红。
+  const replaced = [
+    'function claimStaleLock(dir, judged, why, opts) {',
+    '  renameSync(dir, target)',
+    '  return { ok: true }',
+    '}',
+  ].join('\n')
+  const flagged2 = auditClaimStaleLockSource(replaced, 'mutation-fixture-2')
+  assert.equal(flagged2.length, 3, `同名回退必须三条判据各自点名,实得 ${JSON.stringify(flagged2)}`)
 })
 
 // ── 工具 ───────────────────────────────────────────────────────────────────
