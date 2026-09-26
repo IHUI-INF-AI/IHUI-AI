@@ -12,6 +12,7 @@ import { tokens } from '../theme/active-tokens'
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity } from 'react-native'
 import type { MenuItem } from '@ihui/ui-native'
 import {
+  MENU_CONTAINER_PADDING_PX,
   MENU_DEFAULT_COLUMNS,
   MENU_LABEL_FONT_PX,
   menuItemStyle,
@@ -98,7 +99,7 @@ const toUnit = (px: number) => px
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 8, // 仅 RN 侧有这一档(小程序端网格容器无整块留白)——差异已登记,待裁决
+    paddingVertical: MENU_CONTAINER_PADDING_PX, // 两端同档,唯一源在 @ihui/shared/ui/menu-spec
   },
   item: menuItemStyle(toUnit),
   icon: {
