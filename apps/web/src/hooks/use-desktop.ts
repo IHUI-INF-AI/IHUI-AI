@@ -31,6 +31,7 @@ import {
   setTrayStatus,
   type DesktopAppInfo,
 } from '@/lib/tauri-bridge'
+import { logger } from '@/lib/logger'
 
 /**
  * useDesktop — 客户端(Tauri WebView)能力统一 hook(2026-07-25 立)
@@ -347,12 +348,25 @@ export function useDesktopEvents(): void {
   }, [])
 }
 
+/** Rust 侧深链积压的取回命令名 —— 与 lib.rs 的 `DEEP_LINK_TAKE_COMMAND`、
+ *  `invoke_handler!` 注册项逐字同名(三方一致性由 scripts/check-desktop-event-wiring.mjs G 组对账)。 */
+const DEEP_LINK_TAKE_COMMAND = 'take_pending_deep_links'
+
 /**
  * useDesktopDeepLink — 监听 desktop deep-link 事件,自动完成 SSO 登录闭环(2026-08-01 立)。
  *
  * 流程:
  * - Rust on_deeplink 捕获 `ihui://sso?sso_code=xxx` → emit "desktop-deep-link" 事件
  * - 本 hook 监听事件 → 调 handleDesktopDeepLink 解析 code + 换 token + 持久化
+ *
+ * 2026-09-26 A10C-1「未就绪不丢,就绪后补投」(冷启动必丢登录码的根治):
+ * Rust 派发深链的时刻**早于**本 hook 注册监听的时刻(页面加载 + hydration + 动态 chunk),
+ * 旧写法把外部浏览器/IM 回跳的 sso_code 丢在窗口期里(用户表现:点链接回 App 后登录转圈/无反应)。
+ * 现:① 三个动态 chunk 并行拉取(窗口期从两段串行压到一段);② **listen() 注册成功之后立刻**
+ * invoke 取回 Rust 侧积压,喂进与实时事件**同一条**处理链 `deliverDeepLinkUrl`,不另开第二条路径;
+ * ③ "同一 URL 不重复处理"由 Rust 侧「取即清」保证 —— 本 hook 刻意不建去重集,
+ * 那等于把实时链改造成隐形重放链(守门 check-desktop-event-wiring 规则 E1 拦的正是一型)。
+ * 处理链只在真成功后 dispatch `desktop-sso-success`;失败一律留一行 warn(不得静默)。
  *
  * 浏览器端 isTauri()=false,本 hook 不注册监听,无副作用。
  */
@@ -365,21 +379,42 @@ export function useDesktopDeepLink(): void {
     let pendingPromise: Promise<void> | null = null
 
     pendingPromise = (async () => {
-      const { listen } = await import('@tauri-apps/api/event')
+      // 并行 import 而非串行 await:少一段 chunk 往返就少一段"窗口在、监听未生效"的丢码窗口期
+      const [{ listen }, { invoke }, { handleDesktopDeepLink }] = await Promise.all([
+        import('@tauri-apps/api/event'),
+        import('@tauri-apps/api/core'),
+        // 动态 import 避免浏览器端加载 desktop bridge 模块
+        import('@/lib/sso-desktop-bridge'),
+      ])
       if (cancelled) return
 
-      // 动态 import 避免浏览器端加载 desktop bridge 模块
-      const { handleDesktopDeepLink } = await import('@/lib/sso-desktop-bridge')
-      if (cancelled) return
+      unlistenDeepLink = await listen<string>('desktop-deep-link', (event) => {
+        void deliverDeepLinkUrl(event.payload)
+      })
 
-      unlistenDeepLink = await listen<string>('desktop-deep-link', async (event) => {
-        const url = event.payload
+      // 注册成功之后才取积压:在此之前的抵达都被 Rust 侧暂存(不会投给不存在的监听)
+      try {
+        const backlog = await invoke<string[]>(DEEP_LINK_TAKE_COMMAND)
+        for (const url of backlog) {
+          await deliverDeepLinkUrl(url)
+        }
+      } catch (err) {
+        // 取不回积压 = 这一次冷启动的登录码仍然会丢,必须喊出来而不是静默继续
+        logger.warn('[desktop] 取回深链积压失败,本次冷启动的深链未被补投:', err)
+      }
+
+      // 函数声明(整体提升)而非 const:监听回调可能在下面语句执行前就被触发
+      async function deliverDeepLinkUrl(raw: string | undefined): Promise<void> {
+        const url = (raw ?? '').trim()
         if (!url) return
         const ok = await handleDesktopDeepLink(url)
         if (ok) {
           window.dispatchEvent(new CustomEvent('desktop-sso-success'))
+        } else {
+          // 不打 URL 本体:其中 sso_code 是一次性凭据,不该进控制台/日志(§5e 同源要求)
+          logger.warn('[desktop] deep-link 未被处理(无 sso_code 或 exchange 失败),已跳过')
         }
-      })
+      }
     })()
 
     return () => {
