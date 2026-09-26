@@ -77,6 +77,11 @@ console.log(`本地 HEAD: ${localHead.slice(0, 11)} (branch=${branch})`)
 
 // 后台推送状态识别(guard 异步化配套,#58 收尾根治):
 // push-state=running 且 headSha=本地 HEAD → 显示 PUSHING,不算失败(后台 worker 正在推)
+// push-state 的终态集(2026-09-26 起)是 running | done | failed | diverged:
+//   · 本脚本是**只读核验**工具,任何不认识的值都只会被读成"不在途",绝不会被读成"已推成功"
+//     (老状态文件里没有 diverged,行为与今天逐字一致 ⇒ 向后兼容);
+//   · diverged 必须被点名出来:它是"远端拒收 non-fast-forward"的结论,若只打 DIVERGED
+//     而不说 guard 已经判过,读的人还会再去试一趟推送(那正是本次修复要断掉的循环)。
 function readPushState() {
   try {
     return JSON.parse(readFileSync(resolve(process.cwd(), '.workbuddy/push-state.json'), 'utf8'))
@@ -85,6 +90,7 @@ function readPushState() {
   }
 }
 const pushState = readPushState()
+const pushDiverged = pushState && pushState.status === 'diverged'
 // 在途判定 = running + 未过期 + 持有者存活(worker 被强杀时残留 running,死 pid 不算在途)
 function isPushStatePidAlive() {
   if (!pushState?.pid) return false
@@ -204,6 +210,13 @@ for (const remote of remotes) {
   }
   results.push({ remote, status: 'DIVERGED' })
   console.log(`${label} ⚠️  DIVERGED(远端 ${remoteSha.slice(0, 11)} 与本地分叉;先 ff/merge 再收敛)`)
+  if (pushDiverged) {
+    console.log(
+      `${label}    └ guard 上一轮已判 diverged${
+        pushState.reason ? `(${String(pushState.reason).slice(0, 90)})` : ''
+      }⇒ 别再重试推送,唯一入口:node scripts/git-sync-converge.mjs`,
+    )
+  }
   hasFailure = true
 }
 
