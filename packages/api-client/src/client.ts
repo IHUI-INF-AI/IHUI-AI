@@ -19,7 +19,11 @@ import type { DeviceFingerprintCollector } from '@ihui/types'
 // error 序列化唯一出口(2026-09-26 立)。上行 tool-result 帧的 error 字段若被调用方在
 // catch 里把 Error 本体(as 强转即可过 tsc)塞进来,JSON.stringify 会得 "{}" ——
 // ai-service 的 tool loop 唤醒时收到的是空对象事故现场。详见 postToolResult 上方 toWireError。
-import { serializeError } from '@ihui/types'
+// 发布收口(2026-09-26 同批):原为 `import { serializeError } from '@ihui/types'` —— 那是本包
+// dist 里唯一一条对 @ihui/types 的**具名值**运行时导入,而 @ihui/types 不可发布(private、exports
+// 指向 src),判据 9 据此把本包钉成坏包。值出口搬到包内逐字移植(error-serialize.ts,类型仍从
+// @ihui/types 锚定,零重写),同 nullDeviceFingerprintCollector 的既有收口形态。
+import { serializeError } from './error-serialize.js'
 
 /**
  * 默认空采集器(发布物自包含,2026-09-26 立)。
