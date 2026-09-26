@@ -6,6 +6,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
 import { getTokens, tokens as baseTokens, type AppThemeMode } from '../theme/tokens'
 import type { CarouselItem } from '@ihui/types'
+import {
+  carouselDefaultHeightPx,
+  carouselIndicatorWrapStyle,
+  carouselDotStyle,
+} from '@ihui/shared/ui/carousel-spec'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -35,7 +40,11 @@ export interface CarouselProps {
   colorScheme?: AppThemeMode
 }
 
-const DEFAULT_HEIGHT = 160
+/// 指示点几何/默认高度不在本文件取数 —— 唯一源是 @ihui/shared/ui/carousel-spec(与小程序端同档);
+/// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等。
+const toUnit = (px: number) => px
+
+const DEFAULT_HEIGHT = carouselDefaultHeightPx()
 const DEFAULT_VIEWPORT_WIDTH = 375
 
 /** 内联自动播放 hook(等价 @ihui/shared/useAutoPlay,避免新增依赖) */
@@ -97,19 +106,10 @@ const viewStyles = {
     borderRadius: rnRadius.xl,
   }),
   indicatorWrap: (): CSSProperties => ({
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 12,
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    ...carouselIndicatorWrapStyle(toUnit),
   }),
   dot: (active: boolean): CSSProperties => ({
-    width: active ? 16 : 6,
-    height: 6,
+    ...carouselDotStyle(toUnit, active),
     backgroundColor: active ? baseTokens.surface.light : 'rgba(255,255,255,0.5)',
     borderRadius: 6 / 2, // radius-exempt: 轮播指示点(激活态为胶囊),半径=高度一半
     transition: 'all 0.3s ease',
