@@ -14,7 +14,7 @@
 // - plural/selectordinal 的数值参数允许 string 数字("2"按 2 处理),intl-messageformat
 //   要求 number 类型 —— 跨引擎夹具只喂 number,此处宽松是为了兼容端内透传的字符串量
 
-import type { IcuFormatOptions } from './types'
+import type { IcuFormatOptions } from './types.js'
 
 const ICU_ARG_RE = /\{\s*[\w$]+\s*,\s*(?:plural|select|selectordinal|number)\b/u
 
