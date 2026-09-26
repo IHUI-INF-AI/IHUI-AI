@@ -7295,19 +7295,6 @@
           "submit": "Submit",
           "dismiss": "Skip",
           "submitted": "Received — thanks for your feedback"
-        },
-        "imagePreview": {
-          "prev": "Previous",
-          "next": "Next",
-          "zoomIn": "Zoom in",
-          "zoomOut": "Zoom out",
-          "save": "Save image",
-          "copy": "Copy image",
-          "counter": "Image {index} of {total}",
-          "saveSuccess": "Saved",
-          "saveFailed": "Save failed",
-          "copySuccess": "Copied",
-          "copyFailed": "Copy failed"
         }
       },
       "hookSummary": {

@@ -3345,6 +3345,31 @@ const checks = [
       '',
     ]
   },
+  {
+    id: '128',
+    label:
+      '🪞 跨端 UI 差异账对账(blocking,同名配对组件的小程序/RN 可见几何档只减不增 —— 重复实现就是"改一端另一端不跟随"的根因)',
+    script: 'check-cross-end-ui-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_UI_PARITY',
+    stagedTriggers: [
+      'apps/miniapp-taro/src/components/',
+      'packages/app/src/components/',
+      'apps/mobile-rn/src/components/',
+      'scripts/check-cross-end-ui-parity.mjs',
+      'scripts/cross-end-ui-parity-baseline.json',
+    ],
+    onFailHint: [
+      '',
+      '  💡 本门拦的是"两端差异变大",不是"两端有差异"。台账钉着 HEAD 读数,与本次改动无关的存量不会拦你。',
+      '     ① 看差在哪:node scripts/check-cross-end-ui-parity.mjs 逐条点名(仅小程序档 / 仅 RN 档 / 同名常量不同值);',
+      '     ② 唯一正确的收口姿势 = 让两端取**同一份源**(packages/shared 的平台无关组件源 + 每端注入 primitives adapter);',
+      '     ③ 禁止给单端补一个数字去凑平 —— 那只是把第二份真相挪了个位置,下次又漂;',
+      '     ④ 确属平台导致(原生导航栏/输入法/状态栏):在台账 waivers 里写 reason,由守门 108 管到期,不得静默。',
+      '',
+    ]
+  },
   // --- info (1 项) ---
   {
     id: '23',

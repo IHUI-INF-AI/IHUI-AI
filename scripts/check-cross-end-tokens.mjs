@@ -1229,8 +1229,10 @@ export function readAlphaRegistry(face) {
  *   `ring-[6rpx]` → `--tw-ring-color`、`outline-[2rpx]` → `outline-color` —— 全部无效且不报错。
  *   而 `text-[13px]` / `border-t-[1px]` / `ring-[6px]` / `outline-[2px]` 本就正确落
  *   font-size / border-*-width / ring width / outline-width。**决定对错的是单位不是前缀** ——
- *   只有 rpx 这一族坏,因为 v3 的类型推断认得 px/rem/em、不认 rpx(量错的二进制不得引用结论:
- *   端内 node_modules 是 v3.4.19,根 node_modules 是 v4,v4 认任意单位)。
+ *   只有 rpx 这一族坏(类型推断认得 px/rem/em、不认 rpx)。**不要以为"端上实跑 v4 就豁免了"**:
+ *   2026-09-26 拿真 v4.3.3 参考层逐字复测,`text-[28rpx]` 仍产出 `{color:28rpx}`、
+ *   `border-[2rpx]` 仍产出 `{border-color:2rpx}`,与 v3.4.19 完全同形 ⇒ 判据与既有改写
+ *   不因换引擎而作废。(旧版这里写的是"v4 认任意单位",那句是错的,留着会让人去放宽本判据。)
  * 覆盖面按实测划定,两处**刻意不收**(收了就是噪音红,判据不得覆盖本来就对的形态):
  *   ① `divide-x-[Nrpx]` / `divide-y-[Nrpx]`(轴形式)落 border-*-width,正确;
  *   ② `w-/h-/p-/m-/gap-/top-…` 等单类型 length 插件对 rpx 是透传(width: 10rpx),正确。
@@ -1307,8 +1309,8 @@ export async function runR7({ face, quiet }) {
         : `改法:加显式类型前缀 \`${h.fam}-[length:${h.value}]\`。`
     failures.push({
       tag: `R7 裸 rpx 长度 ${h.key}`,
-      detail: `${h.rel}:${h.ln} —— v3 不认 rpx 单位,会把它解析成**颜色属性**` +
-        `(\`${h.key}\` → ${prop}: ${h.value}),整条声明无效。` + fix,
+      detail: `${h.rel}:${h.ln} —— rpx 长度写进 \`<族>-[…]\` 会被解析成**颜色属性**` +
+        `(v3.4.19 与 v4.3.3 实测同形,不是"只有 v3 才坏"):\`${h.key}\` → ${prop}: ${h.value},整条声明无效。` + fix,
     })
   }
   if (fresh.length > 12) failures.push({ tag: 'R7 裸 rpx 长度', detail: `…另有 ${fresh.length - 12} 处` })

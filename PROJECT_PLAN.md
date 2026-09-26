@@ -10977,3 +10977,91 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 **设备侧已还原**:动画缩放三项设回 1(为 dump 曾设 0)、`/sdcard/wd.xml|w2.xml|w3.xml` 已删、主题由深色改回浅色(原值即浅色,截图回读确认)、输入法未动。
 
 **一条操作教训(值得推广)**:快速连点驱动真机 UI 会打到**生产 API 限流** —— 我在 dump 里读到「请求频率过高,需完成人机验证」,而限流态画面长得像正常页面。真机走屏必须**每步停顿 + 读回当前屏**(量 `mCurrentFocus` 或比对 dump 的 package/text),不能"点了就当到了"。
+
+
+
+
+
+
+
+
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+- [ ]（进行中@2026-09-26/O81票）O81 跨端 UI 单一源:小程序端与 App(RN)端逐档同值 + 改一端另一端自动生效(除登录方式与平台机制)。**第 1 票已落(本枚提交)**:对账尺 `scripts/check-cross-end-ui-parity.mjs`(guardian **128**,blocking,棘轮锚点 `scripts/cross-end-ui-parity-baseline.json`,自检 19 例 + 门禁 11 例),AGENTS §4 新节 + README 点名。**立项实测读数**:同名配对组件 19 对 / 174 处差异档 / RN 侧 210 个组件用 `StyleSheet.create` 而小程序侧 91 个用 `className=`(两种样式语言 = 结构上无法自动同步的根因)。**已量到的最小心智事实**:两份自称"唯一实现"的 `BackChevron` 图标墨迹 20px vs 22px、色一档取 `--color-foreground` 一档取 `tk.text.medium`、RN 带系统字号缩放倍率而小程序不带。**剩余票(顺序固定,不得跳)**:② 建几何档 `packages/design-tokens/src/geometry.js`(照 `radius.js` 的形状:一张 px 表 + `rnSize`/`taroRpx`/CSS 三个投影,**建它必须同枚提交就有消费方**);③ 在 `packages/shared` 落"与平台无关的组件源 + 每端注入 primitive adapter"的第一例(试点 `BackChevron`:7 个小程序调用点 / 134 个 RN 调用点,API 取两端并集,动作语义留调用方),两端各自构建 + 真机/模拟器像素复核后才允许下调台账;④ 按台账读数从大到小逐族收敛(`InputArea` 23 / `BottomActionBar` 19 / `LoginPopUp` 17 / `NavBar` 15 / `IntelligentAssistant` 14 为前 5),每族一票,收完即下调 `counts` 并**在同枚提交里**留下"该组件只剩一份源"的证据;⑤ 确属平台差异的逐条写 `waivers.reason`,由守门 108 管到期。**架构前提(不要再试第二条路)**:单向适配器已失败过一次(2026-09-22 删 4,662 行,"同名 ≠ 同契约"),所以只能"一份源 + 两端注入",不能"一端包另一端";`packages/app` 是 RN 专属(Taro 跑不了),`packages/ui-native` 13 个组件里 11 个零生产消费方,不得当成已交付能力引用。
+<!-- 已归档(2026-09-26):批次1:考勤管理(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次2:家长端(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次3:成绩管理(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次4:智能排课(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次5:作业管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次6:招生管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次7:财务管理(P3) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次8:现有功能优化 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60 未认领票全量 HEAD 对账(2026-09-25 完成 ✅):53 张票三态判定 + 台账漂移量化 + 三处代,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60c D17 入库 + 同一机制的第二条成因被当场逮到(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):第五十批(2026-09-25,✅ 已闭环,用户指令"我需要所有都做到自动同步 以 web app 为主"),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60d 第二波并行编码落地(2026-09-25 完成 ✅):6 票入库 + 1 票按住 + 两处 HEAD 级恒红当,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60e 收尾三件:收敛器落地闸的"搬家≠吞并"、一批 HEAD 级红的逐条归因、六路报告转正(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60f D19 解锁入库 + 一次"上一票的按住结论会不会过期"的实战(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60g 我自己那张"未开工清单"里有两处过期判定 —— 复测更正,并给出剩下真未开工的门槛(2026-09-25 完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60h 第三波:9 路并行取证与清理的双态行收口、清单更正,以及量出来的 12 条新敞口(2026-09-25 完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60i D94 交接单接进对话流失败位，并自曝一条"装车"判据的漏洞（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O71 取材层收口的最后一跳:守门 93 自带的那份 `cat-file --batch` 归一(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+- [x] ✅(2026-09-26) `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环 〔2026-09-26 翻勾(HEAD 实测消费方已在,行号现读不入库):`apps/cli/src/goal-verification.ts` 定义 `GOAL_VERIFY_PATH = '/api/agent/goal-verify'` 并在同文件实调该端点,由 WP-8③ 那枚(`a17e137e4a6`,已确认在 HEAD 链上)接进 CLI 执行侧 —— 生产调用方是 `apps/cli/src/commands/agent.ts`(import 该模块并在交账处消费 `goal_status`,非测试面)。判据是"循环自宣完成 ≠ 完成":只认 `treat_as_complete` 一枚章(缺章/章与 status 矛盾/返回体非对象一律 undetermined),服务不可达时**改档不放行**。**仍剩两格(本条只算"消费方已接",不算整票闭环)**:① 端到端真判一次未取证(本机 ai-service 无监听);② CLI 侧无"连续 N 轮未过转 blocked"的续跑语义(TS 侧尚无 `GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES` 镜像)。〕
+- [x] ✅(2026-09-26) **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(独立校验轮已被运行循环调用;端点自身无调用方属对外能力取舍,不由 agent 单方删)),勿照本行派单:`/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环 〔2026-09-26 与正条目同态登记:本行自述即裸副本,指针仍有效。〕
+  - **追加实测(同日):这 4 档不是"整档没生成",是**名字对不上**。** 逐档 grep 154 个 wxss:
+    `font-size:28rpx` **在产物里存在**,但挂在 `.text-_b28rpx_B` 这个**没有 `length:` 提示**的名字上;
+    同族对照 `26rpx` 挂在 `.text-_blength_c26rpx_B`(= 源码写的形态)。⇒ 运行时 className 取的是后者,
+    那 4 处字号在端上**取不到**,而"整档没生成"这句话是错的。**两处探针自身的错也记下来(都是"干净的 0"):**
+    ① `git grep -l` 从 `execFileSync` 拿到的是**字符串**,我按数组 `.map` 用 ⇒ 抛错被 `catch` 吞成"文件数 0";
+    ② `harvestClassNameTokens` 的返回形态没先确认就 `.keys()` ⇒ 首轮每文件整体落地率全报 `0/N`。
+    修正后量到:用 `text-[length:28rpx]` 的 93 个文件里抽 3 个,整体落地率 **42/45、57/78、20/31**
+    —— 同一文件里 26/40rpx 都落地,所以**不是文件级被丢,是这 4 档在改名侧被剥了提示**。
+    下一步要问的:为什么同一份源里两种形态并存(嫌疑 = 两条腿各做一次候选归一化,一边剥 `length:` 一边不剥),
+    以及 `.text-_b28rpx_B` 的声明体是 `font-size` 而我拿真 v4 参考层量裸 `text-[28rpx]` 给的是 `color:28rpx`
+    —— 这两句不可能同时为真,**必有一侧的判据没覆盖门自己产出的那种形态**(与本仓"判据必须覆盖门自己产出的形态"同型)。
+  - **✅ 归因闭合(2026-09-26 同日晚,派只读代理读插件源码 + 我自己量产物/源码面):上面那 4 档不是端缺陷,是"同一次构建里裸形态与提示形态并存"造出来的坍缩。**
+    机制落在 `weapp-tailwindcss/dist/generator-BLpOsd5O.js`:候选先被 `normalizeRpxLengthCandidate`(`:72-76`,
+    由 `BARE_RPX_LENGTH_CANDIDATE_RE` / `…HINT_CANDIDATE_RE` `:69-71`)喂进一个 **Set**,
+    于是 `text-[28rpx]` 与 `text-[length:28rpx]` **归并成同一条候选** ⇒ Tailwind 只出**一条**规则;
+    再由 `restoreRpxLengthCssSelectors`(`:97-106`)把那条规则的**选择器名反写成没有提示的裸形态**,
+    之后才交给 `@weapp-core/escape`(`D:/nm/.pnpm/@weapp-core+escape@8.0.0/.../index.mjs:55-73`,逐字符映射、无碰撞处理)
+    做 `_b/_B/_c` 转写 ⇒ 产物里只有 `.text-_b28rpx_B{font-size:28rpx}`,而运行时挂的是 `text-_blength_c28rpx_B`。
+    **声明体是对的,名字对不上** —— 这就是我量到"28rpx 的 font-size 在、提示形态的选择器不在"的全部原因。
+  - **触发源只有一个脏文件,而且它正是 R7 的靶形。** 全仓裸 `text-[Nrpx]` 实测 10 处,**全部**在
+    `apps/miniapp-taro/src/pages/distribution/plan/index.tsx:57/60/68/71/76/79/88/93/96`,
+    涉及的字号恰好是 28/32/36/44 —— **与坏掉的 4 档一一对应**;26/30/34/38/40 全仓无裸形态,所以它们的名字没被反写。
+    该文件当前是 `M`(工作树把 HEAD 的 `length:` 提示摘掉了)⇒ **HEAD 面上没有裸形态,干净构建不会出这一型**。
+    守卫有效已实测:`node scripts/check-cross-end-tokens.mjs --worktree` 当场抽出这 10 处并 `exit 1`,
+    所以谁提交这个形态都会被 R7 拦下,不需要新门。
+  - **同批把 R7 的理由文案改成实测口径**:它原先写"v3 不认 rpx 单位…根 node_modules 是 v4,**v4 认任意单位**",
+    那半句会把人引向"端上实跑 v4 ⇒ 本判据可放宽"。2026-09-26 拿真 v4.3.3 参考层复测:
+    `text-[28rpx]` 仍产出 `{color:28rpx}`、`border-[2rpx]` 仍产出 `{border-color:2rpx}`,**与 v3.4.19 同形**;
+    判据与那 1,331 处改写都不因换引擎作废。报错行同步改为"v3/v4 实测同形"。门自检 81 例照旧全绿。
+  - **本格剩余唯一未决 = `container` 一档**(其余 4 档已归因,不得再按"5 类缺项"派工):
+    `apps/miniapp-taro/src/pages/index/index.tsx` 用裸 `className="container"`,v4 参考层确实产出
+    `{width:100%;max-width:40rem…}` 而产物里**一个 `.container{` 都没有**;该文件虽也在脏清单里,但**工作树副本仍在用它**
+    ⇒ 不是面错位。补落地会把该处从满宽变成 640px 一档,**属产品决策**(§24),不得当"顺手补齐"。
+### 真机视频页不可达的根因(2026-09-26 补，接上节"未做到的一件事")+ 门 8 的面缺口
+上节把"视频页没验到"记成"该账号无课程数据"。**那个归因是错的，现更正**：不是数据不具备，是**端内调了一个后端从未存在过的接口**。
+- 调用点：`apps/mobile-rn/src/screens/StudyIndexScreen.tsx:76` `const API_PATH = '/api/study/videos'`(列表,无 id)。
+- 后端实注册：`apps/api/src/routes/miniapp-compat-routes.ts:612` 只有 `server.get('/study/videos/:id', …)`,而 `apps/api/src/routes/index.ts:1001` 以 `{ prefix: '/api' }` 挂载 ⇒ 全后端**只有** `GET /api/study/videos/:id`(小节详情),**没有列表路由**。
+- 第三路独立确认(排除"路径写错、别处有等价接口"):`apps/miniapp-taro/src/api/index.ts:1171` 只用 `get('/study/videos/${id}')`,即这套 compat 路由的原始来源端**也从不调列表**;`apps/web` 全仓零命中。
+- 后果:该屏数据恒空 → `VideoPlayer` 的两个入口(`CourseDetailScreen.tsx:79`、`StudyIndexScreen.tsx:328`)在**任何账号、任何数据**下都不可达 → O57 那枚"视频页顶部 34dp 色带"修复**至今没有真机验收**。
+- [ ] P1 **RN 学习页调了不存在的列表接口 `/api/study/videos`**(根因见上)。修法三选一,属 API 面决策(§24 新增路由须确认),不得由守门侧顺手定:(A) 在 `miniapp-compat-routes.ts` 补 `GET /study/videos` 列表(需先定数据源与分页契约,并同步给小程序端复用);(B) 改 `StudyIndexScreen` 的数据源为既有接口;(C) 收掉该入口并把 `VideoPlayer` 的验收改挂到 `CourseDetail` 链路上。**验收判据固定**:真机走到 `VideoPlayer`,量顶部色带根背景 = `tokens.gray.black`(与共享层 video-player 容器同源同值),而非"看起来是黑的"。
+- [ ] P1 **守门 8 `check-api-routes` 只扫 `apps/web`,三端死调用零判据**:`scripts/check-api-routes.mjs:29` `WEB_DIR = join(ROOT,'apps/web')` —— `apps/mobile-rn` / `packages/app` / `apps/miniapp-taro` / `apps/extension` / `apps/cli` 全不在面内。上面那条"RN 调了一个后端没有的接口"正是本门立项要防的那一型,而它**在本端零告警通过**。扩面须同笔入账(AGENTS 明令):先把面加进去跑一次**只报数**,量出各端存量再决定 blocking 起点,否则一次性判红就是逼全队 `--no-verify` 连带废掉全部门(§12e 同型)。
+  - **一条方法论(本轮实测换来的)**:判"路由是否存在"**不能用 HTTP 探测**。本机 api 有在路由匹配之前拦截的前置 —— 对任意路径 **POST 一律回 403**(含已知不存在的 `/api/study/videos`),GET 对不存在路径回 404 且与"方法不匹配"同码。我第一版按 GET 数出"18 条死调用"、第二版加 POST 后变"0 条死 / 12 条其实存在",**两个数都是假的,已作废**;唯一可信的是源码级对账(`server.get/post` + `register(prefix)` 走通)。另:`curl -o /dev/null` 在 MSYS 下 exit 23,会把 `-w` 的状态码和 `|| echo` 拼成 `404000`,使 `[ = "404" ]` 永不命中 —— 这是"判据失效表现为安静"的又一实例。
+  - 〔2026-09-26 11:4x 登记,归 `c50b2ec0d6f` 持有者,本会话不代改〕apps/cli 测试面有一枚 HEAD 级红:`tests/prompt-boundary.test.ts` 的「70% 阈值提醒既是结构块也保留原措辞」`expect(out).toHaveLength(1)` 实得 2 —— 单跑该文件也只有这一条红(并行全量跑出的同文件另 10 条在单跑时全绿,是负载/隔离性伪影)。生产侧改动定位到 11:03 那枚「提示注入段登记表与生产者记账」(`git log -S context_budget -- apps/cli/src` 首命中),它新增了一段注入而没同步这把尺子;本会话今日全部提交的落点与 `prompt-boundary.ts` / `context-guards.ts` **交集为 0**(逐枚 `git show --name-only` 计数已量)。另记一条同源归因:`tests/danger-gate-wiring.test.ts` 在全量跑里撞 15s 超时而单跑 13/13 绿 —— 该判据要逐文件比对 HEAD blob,属并行负载下的时长问题,不是内容问题;要么给它单独 timeout,要么把 HEAD 侧计数缓存起来,别让它替别人喊红。
+- [x] ✅(2026-09-26 复核:同族的详版副本已按 commit 1709bcd14e8 翻勾;本行只有标题、无独有信息) D15 GitHub App(webhook 自动 PR review+@机器人触发)(G-20)
+  - **进度更正(2026-09-26 现测,别照上面那句派单)**:那台校验器**已经装车**了 —— `node scripts/check-tool-arg-validation-wired.mjs` exit 0,输出「生产面调用:✅ 有 | 定义 1 / 生产 3 / 测试面 1 / 自豁免 1 / 文档 3」,调用点是 `apps/cli/src/tools/argument-validation-{replay,telemetry}.ts`。所以本条**保留未勾**的理由不是"还没装",而是三步顺序里的第 ③ 步:**默认 `enforce` 刻意未开**(门 115 判据之一正是"默认档不得是 enforce")—— 那些 `parameters` 描述从未被执行过,直接打开拒绝就是运行时版恒红事故。下一步归属:用影子遥测回灌描述准确度,再谈默认档与逐条 `{字段路径,期望,实得}` 出口。
+- [x] ✅(2026-09-26 复核:同族另有 5 份逐字副本已于 09-24 复核翻勾并附四态用例证据;本行是 union 归并留下的裸副本,按同一事实登记) **D55 机器代批决策条(G-66,P0 首批,低成本反超项)**:我方后端 1-1 已产出 `decision`/`reason` 八类推导(`agent_loop_v2._derive_step_decision` + `_decision_hints`),**对话流里却没有这条徽章**。补「自动审查中 / 已自动批准 / 已拒绝 / 请求用户确认 + 理由：」四态卡,~~数据零新增、只补渲染位~~(第 61 轮实测**作废**:缺 5 层,见下方进度行)。**验收**:四态各一用例 + 与 D34 `injection_applied` 帧不重复计数 + 现有 timeline 测试不回退
+- [x] ✅(2026-09-26 复核:同族另有 5 份逐字副本已于 09-24 复核翻勾并附四态用例证据;本行是 union 归并留下的裸副本,按同一事实登记) **D55 机器代批决策条(G-66,P0 首批,低成本反超项)**:我方后端 1-1 已产出 `decision`/`reason` 八类推导(`agent_loop_v2._derive_step_decision` + `_decision_hints`),**对话流里却没有这条徽章**。补「自动审查中 / 已自动批准 / 已拒绝 / 请求用户确认 + 理由：」四态卡,~~数据零新增、只补渲染位~~(第 61 轮实测**作废**:缺 5 层,见下方进度行)。**验收**:四态各一用例 + 与 D34 `injection_applied` 帧不重复计数 + 现有 timeline 测试不回退 **[O60 判:裸副本]** 本行正题逐字存活于 L2530 的同编号登记(那行已勾,本行没勾) ⇒ 不重复计账、勿照本行派单;该勾选态是否属实以 O60 的 HEAD 复跑结论为准,欠项照 O60 三态清单追。
+- [x] ✅(2026-09-26 复测:`git diff --cached --diff-filter=D --name-only` = 0 条,索引态已清;本行是其**过期裸副本**,与已翻勾的逐字副本同态,故按同一口径登记) **紧急(他人暂存态,非本会话所为,2026-09-24 11:0x 发现)**:**索引里有 16 条"已暂存的删除"**,一次不带 pathspec 的普通 commit 就会把这些**已入库功能从版本树删掉**。清单含三个成体系功能族 + 一道守门:① D62 语音字幕(`packages/shared/src/chat/voice-subtitles.ts` + web 组件 + 测试)、② D91 批注锚点(`annotation-anchors.ts` 同族)、③ D67 额度归属(`quota-ownership.ts` 同族)、④ **并发会话 cb99ef0c 刚提交的 `apps/mobile-rn/src/theme/color-scheme-sync.ts` 及其测试与 NativeWind mock**(删掉即把"App 主题开关驱动 NativeWind"这次修复整体回退)、⑤ `scripts/check-home-junctions.mjs` + 其镜像测试。**判为误删而非迁移的依据**:索引里的桶文件 `packages/shared/src/chat/index.ts` **与 HEAD 一字未改且仍导出这三模块**(二者矛盾 ⇒ 构建必炸,实测 Metro 就在 `export * from './voice-subtitles'` 处失败),且`git ls-files` 全仓**无替代路径**。**本会话处置边界**:只把 13 个文件(2626 行)的内容**恢复到工作区**让构建可用,**索引一字未动** —— 是否撤销这些暂存删除由制造它们的会话自己决定(§5b:他人已暂存的删除只报数、不代裁)。取证:`git diff --cached --diff-filter=D --name-only`;复跑恢复:`node .ihui-agent/tmp/rn-build/restore-worktree.mjs`。**另注**:`heal-worktree-tracked.mjs --check` 此时报"工作区已跟踪文件存续正常"—— 其判据②要求"索引 blob == HEAD blob",而暂存删除使该条件不成立,故**这类"已暂存的删除"不在存续自愈覆盖面上**,是一道无人看的路;要闭环需在守门侧对 `--diff-filter=D` 的暂存删除单独计数并阻断(未擅自新增守门,留单)。
+- [x] ✅(2026-09-26 复测:`git diff --cached --diff-filter=D --name-only` = 0 条,索引态已清;本行是其**过期裸副本**,与已翻勾的逐字副本同态,故按同一口径登记) **紧急(他人暂存态,非本会话所为,2026-09-24 11:0x 发现)**:**索引里有 16 条"已暂存的删除"**,一次不带 pathspec 的普通 commit 就会把这些**已入库功能从版本树删掉**。清单含三个成体系功能族 + 一道守门:① D62 语音字幕(`packages/shared/src/chat/voice-subtitles.ts` + web 组件 + 测试)、② D91 批注锚点(`annotation-anchors.ts` 同族)、③ D67 额度归属(`quota-ownership.ts` 同族)、④ **并发会话 cb99ef0c 刚提交的 `apps/mobile-rn/src/theme/color-scheme-sync.ts` 及其测试与 NativeWind mock**(删掉即把"App 主题开关驱动 NativeWind"这次修复整体回退)、⑤ `scripts/check-home-junctions.mjs` + 其镜像测试。**判为误删而非迁移的依据**:索引里的桶文件 `packages/shared/src/chat/index.ts` **与 HEAD 一字未改且仍导出这三模块**(二者矛盾 ⇒ 构建必炸,实测 Metro 就在 `export * from './voice-subtitles'` 处失败),且`git ls-files` 全仓**无替代路径**。**本会话处置边界**:只把 13 个文件(2626 行)的内容**恢复到工作区**让构建可用,**索引一字未动** —— 是否撤销这些暂存删除由制造它们的会话自己决定(§5b:他人已暂存的删除只报数、不代裁)。取证:`git diff --cached --diff-filter=D --name-only`;复跑恢复:`node .ihui-agent/tmp/rn-build/restore-worktree.mjs`。**另注**:`heal-worktree-tracked.mjs --check` 此时报"工作区已跟踪文件存续正常"—— 其判据②要求"索引 blob == HEAD blob",而暂存删除使该条件不成立,故**这类"已暂存的删除"不在存续自愈覆盖面上**,是一道无人看的路;要闭环需在守门侧对 `--diff-filter=D` 的暂存删除单独计数并阻断(未擅自新增守门,留单)。
+- [x] ✅(2026-09-26) **第十一批(波次 9)—— D17 §17 运行时取证补齐 + 取证过程抓到的真实缺陷已当场修 + O14 发布保险丝归位**:
+  - **D17 运行时取证(§17 四状态 + DOM 数值 + 失败路径)已做**：自起私有 dev 端口(隔离 `IHUI_BUILD_DIST`，与 8801 那份生产构建零共享磁盘)、headless Chromium 采样三页 ×(默认/hover/dark)，14 张截图与 `evidence-dom*.json` 存 `.ihui-agent/tmp/d17-proof/`(gitignored)。要点：**hover 无蓝色发光边框**(`boxShadow=none`/`outlineStyle=none`)、「更多」标签与箭头同一光学尺寸 12px、icon+中文垂直对齐残差 `0.000px`(阈值 0.15)、「无桩对照组」证明失败态没有被伪造成为 0 或空白。收工按**监听 PID** 精确 kill(未用 `taskkill /IM node.exe`)、临时 dist 已删、`next-env.d.ts` 与 `apps/web/AGENTS.md` 逐字节还原并复验干净。
+  - **取证抓到并已修的一处真实缺陷(`43b4d5a6e78`)**：hub 取数失败时**只有分区头徽章**喊"统计暂不可用"，正文那段渲染的是空 `<ul>` —— 用户读到的是"这个市场没有东西"而不是"取不到"。既有单测只核徽章，对这一格全盲。修法复用 `ecosystem.countFailed`(不新立键、不新增第二份口径)，并把单测判据改成**钉在取数分区的尾元素**上：ready 档须是非空 `<ul>`、failed 档须是说出该文案的 `<p>`。牙齿已自证：把两处 `failed` 分支短路成 `false` ⇒ 用例红并点名 `ecosystem-skills 尾部仍是 <ul>`，还原后 16 例全绿且还原与备份逐字节一致。**§17 浏览器复验通过**：两个取数分区尾部实测均为「统计暂不可用」。
+  - **一条如实登记的观感边界**：取数中(`pending`)分区正文仍是空 `<ul>`，实测该窗口可长达 1–2 分钟(无 API 时要等网络超时才翻 `failed`)。加载期留白是常规形态、与"错误期留白冒充空态"不同，所以本票**只收 failed 档**；`pending` 要不要骨架屏属设计取舍，未擅自加。**壳层另一处撞见项**：AI 面板「润色」按钮带原生 `title`(§4 禁原生提示)，不属 D17 三页，按规矩只登记不代修(归属 `apps/web/src/components/chat/**`，且 `grep` 未命中字面量、疑运行时拼接)。
+  - **O14 发布保险丝归位(`67c421c1fde`)**：`@ihui/api-client` 恢复 `"private": true`，并把"去 private 的前置"从散文变成代码 —— `scripts/check-sdk-release-channels.mjs` 新增纯函数 `publishPreconditionFailures()`(占位版本 / `workspace:` 依赖 / 清单取不到三态)，`publish-ready.test.mjs` 用构造夹具双向证明有牙 + 对真实 HEAD 清单执行(在位 ⇒ 不跑打包器；被摘 ⇒ 廉价前置 + `check-pkg-installable` 全核)。立因：`69aa86183dc`(09-24，标题即"api-client 去 private")在两条前置都不成立时摘掉了它 —— **正例证据是实跑**：恢复 private 之前跑该用例，它确实点名「version = "0.0.0" 仍是占位档」与「带 workspace: 依赖 ⇒ @ihui/types、@ihui/eslint-config」。全仓无任何 workflow 发布该包(grep 确认)，所以恢复保险丝零爆炸半径；16 例现全绿。
+  - **O14 剩余的两条 blocker 不在本批宣称范围**：`workspace:*` 依赖需按既有「方案 A」(`da8fb6ba2a5`)收尾，dist 的 92 处无扩展名相对 import 需构建形态改造(5 个 importer 消费，blast radius 大)。已另派一路在途处理，收口判据 = `node scripts/check-pkg-installable.mjs packages/api-client` exit 0 **且** 一次真 `node --input-type=module` import 成功(不接受"测试跑绿"冒充运行时)。
