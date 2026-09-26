@@ -36,6 +36,7 @@ import { success, error } from '../../utils/response.js'
 import { logger } from '../../utils/logger.js'
 import { idParamSchema } from './_shared.js'
 import { decryptJSON, type EncryptedPayload } from '../../utils/crypto.js'
+import { startStopwatch } from '../../utils/elapsed-ms.js'
 import {
   getCircuitState,
   getRecentCalls,
@@ -127,12 +128,17 @@ function decryptApiKey(apiKeyEnc: string): string {
   return typeof plain === 'string' ? plain : String(plain)
 }
 
-/** ping 上游 /models 端点,返回状态 + 延迟。 */
+/**
+ * ping 上游 /models 端点,返回状态 + 延迟。
+ *
+ * 格②接线(2026-09-26):延迟经 utils/elapsed-ms.ts 唯一出口测量(单调钟 + 墙钟交叉校验)。
+ * latencyMs 可为 null = 样本被判不可信;展示面必须显式处理 null,**禁止**回写成 0 冒充"很快"。
+ */
 async function pingUpstreamModels(
   url: string,
   apiKey: string,
-): Promise<{ ok: boolean; latencyMs: number; status: number; errorMessage?: string }> {
-  const startedAt = Date.now()
+): Promise<{ ok: boolean; latencyMs: number | null; status: number; errorMessage?: string }> {
+  const sw = startStopwatch()
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS)
   try {
@@ -141,19 +147,19 @@ async function pingUpstreamModels(
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: controller.signal,
     })
-    const latencyMs = Date.now() - startedAt
-    if (res.status === 200) return { ok: true, latencyMs, status: res.status }
+    const { elapsedMs } = sw.stop()
+    if (res.status === 200) return { ok: true, latencyMs: elapsedMs, status: res.status }
     return {
       ok: false,
-      latencyMs,
+      latencyMs: elapsedMs,
       status: res.status,
       errorMessage: `HTTP ${res.status}`,
     }
   } catch (err) {
-    const latencyMs = Date.now() - startedAt
+    const { elapsedMs } = sw.stop()
     return {
       ok: false,
-      latencyMs,
+      latencyMs: elapsedMs,
       status: 0,
       errorMessage: err instanceof Error ? err.message : String(err),
     }
@@ -171,10 +177,12 @@ async function pingUpstreamModels(
  *  - 失败/超时不抛错,统一返回结构化结果
  *
  * 返回字段对齐前端契约:{ success, latencyMs, response, tokensUsed, error }
+ * (格②接线 2026-09-26:latencyMs 改为 number | null,null = 时钟交叉校验判不可信,
+ *  展示面须显式处理,不得渲染成 0)
  */
 interface ChatTestResult {
   success: boolean
-  latencyMs: number
+  latencyMs: number | null
   response: string | null
   tokensUsed: number
   error: string | null
@@ -187,7 +195,7 @@ async function callUpstreamChat(
   model: string,
   prompt: string,
 ): Promise<ChatTestResult> {
-  const startedAt = Date.now()
+  const sw = startStopwatch()
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS)
   try {
@@ -204,13 +212,13 @@ async function callUpstreamChat(
       }),
       signal: controller.signal,
     })
-    const latencyMs = Date.now() - startedAt
+    const { elapsedMs } = sw.stop()
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '')
       return {
         success: false,
-        latencyMs,
+        latencyMs: elapsedMs,
         response: null,
         tokensUsed: 0,
         error: `HTTP ${res.status}${errText ? `: ${errText.slice(0, 500)}` : ''}`,
@@ -227,18 +235,18 @@ async function callUpstreamChat(
 
     return {
       success: true,
-      latencyMs,
+      latencyMs: elapsedMs,
       response: content,
       tokensUsed,
       error: null,
       httpStatus: res.status,
     }
   } catch (err) {
-    const latencyMs = Date.now() - startedAt
+    const { elapsedMs } = sw.stop()
     const isAbort = err instanceof Error && err.name === 'AbortError'
     return {
       success: false,
-      latencyMs,
+      latencyMs: elapsedMs,
       response: null,
       tokensUsed: 0,
       error: isAbort ? 'timeout' : err instanceof Error ? err.message : String(err),
@@ -764,13 +772,21 @@ const relayChannelsRoutes: FastifyPluginAsync = async (server) => {
             promptTokens: 0,
             completionTokens: 0,
             totalTokens: result.tokensUsed,
-            latencyMs: result.latencyMs,
+            // 格②(2026-09-26):llm_call_logs.latency_ms 列非空,不可信样本(=null)落库记 0
+            // 属"列形态兜底"而非展示兜底;真相随行写入 metadata.latencyTrusted,
+            // 统计/展示要排除这一型时按该标记过滤。响应面(下方)仍原样透出 null。
+            latencyMs: result.latencyMs ?? 0,
             status: result.success ? 'success' : 'error',
             errorMessage: result.error,
             keyPoolId: keyRow.id,
             providerCode: keyRow.providerCode,
             httpStatus: result.httpStatus,
-            metadata: { isTestCall: true, chatUrl, model },
+            metadata: {
+              isTestCall: true,
+              chatUrl,
+              model,
+              latencyTrusted: result.latencyMs !== null,
+            },
           })
         } catch (logErr) {
           // 日志写失败不阻塞测试结果返回
