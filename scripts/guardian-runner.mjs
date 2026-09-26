@@ -3330,6 +3330,28 @@ const checks = [
   },
 
   {
+    id: '128',
+    label: '🧬 提示注入登记对账(blocking,登记了没人生产 / 可见行没装车 / 裸宿主前缀旁路)',
+    script: 'check-prompt-injection-registry.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PROMPT_INJECTION_REGISTRY',
+    stagedTriggers: ['apps/cli/src/'],
+    onFailHint: [
+      '',
+      '  💡 三条判据:**R1** 登记的 producer 必须真的调记账出口(注释里的提及不算 ——',
+      '     "看起来有、其实没装车"是本仓最高频失效型);**R2** `renderInjectionNotice(` 在',
+      '     生产面必须至少一个调用点(测试里调一次不算装车);**R3** 以宿主名义的裸',
+      '     `[系统提醒]` / `[系统提示]` 前缀未走出口 ⇒ 新增即红,**锚点 = 该文件 HEAD 自身',
+      '     违规数**(存量只报数;与改动无关的恒红门只会逼人 --no-verify 连带废掉全部门)。',
+      '     修法:在 `apps/cli/src/utils/prompt-injection-registry.ts` 登记 id/kind/生产者/消费者,',
+      '     并把产出改接 `injectHostSection` / `injectReminderSection`;不得为消红去删登记项',
+      '     或把 producer 改成不存在的文件(那是把判据改成合格证)。',
+      '     单独复验:node scripts/check-prompt-injection-registry.mjs --self-test',
+      '',
+    ]
+  },
+  {
     id: '127',
     label: '🛰️ 跨语言出站路由声明对账(blocking,默认档只报数;--strict 才判红,防恒红门)',
     script: 'check-declared-outbound-routes.mjs',
