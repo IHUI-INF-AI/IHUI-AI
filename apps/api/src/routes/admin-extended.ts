@@ -109,8 +109,10 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/menu/:id', async (request, reply) => {
     const { id } = idParam.parse(request.params)
-    await db.execute(sql`DELETE FROM admin_menus WHERE id = ${id}`)
-    return reply.send(success({ deleted: true }))
+    // 表不在 drizzle schema 内(本文件全部走 raw SQL),故用 RETURNING 拿库确认的删除行
+    const removed = await db.execute(sql`DELETE FROM admin_menus WHERE id = ${id} RETURNING id`)
+    const rows = (removed as Record<string, unknown>[]) ?? []
+    return reply.send(success({ deleted: rows.length > 0 }))
   })
 
   // ===========================================================================
