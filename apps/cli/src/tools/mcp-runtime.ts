@@ -31,6 +31,7 @@ import * as fs from 'node:fs';
 // MCP 协议版本单一真源(packages/shared 镜像 ai-service tunables.py;
 // GAP-PLAN P0-1 收敛:此前此处二次写死旧版 '2024-11-05' 造成跨端漂移)
 import { DEFAULT_PROTOCOL_VERSION } from '@ihui/shared';
+import { assertSafeFetchUrl, formatSsrfRejection, type SelfHostedTrust } from '@ihui/shared/utils/ssrf-guard';
 import { getMcpConfigPath, type McpServer } from '../commands/mcp-config.js';
 import type { Tool, ToolResult, ToolContext, ToolParameter } from './index.js';
 import { getCredential, isExpired, setCredential } from './mcp-credentials.js';
@@ -163,16 +164,47 @@ function sendStdioNotification(
   proc.stdin.write(msg);
 }
 
+/**
+ * D-1 信任声明:只把**用户自己写在 mcpServers 配置里的 server.url** 当基准。
+ *
+ * 反面的一半(为什么 SSE 推来的 endpoint 绝不能复用这份声明):那条 URL 是
+ * **远端服务器**在 SSE `endpoint` 事件里给我们的(`:465` 附近),不是用户配置的。
+ * 一台被攻陷/恶意的 MCP server 只要推一条 `endpoint: http://169.254.169.254/`
+ * 或 `http://127.0.0.1:8803/admin`,就会带着我们的 `Authorization` 头打过去。
+ *
+ * 未闭环登记(D-2,本轮刻意不做):裁决与真正 fetch 之间 DNS 可被改(TOCTOU /
+ * DNS rebinding),本票未钉连接、未改全局 dispatcher。
+ */
+function mcpConfigTrust(server: McpServer): SelfHostedTrust | undefined {
+  const configured = server.url?.trim();
+  if (!configured) return undefined;
+  // ssrf-trust-source: settings 文件里的 mcpServers[].url(用户自己写的 MCP 端点)。
+  // 基准取配置值本身;SSE 流里 server 推来的 endpoint 走不到这里(那里不传信任)。
+  return {
+    source: 'user-settings',
+    settingsKey: 'mcpServers[].url',
+    configuredEndpoint: configured,
+  };
+}
+
+/** 出站前过一次共享 SSRF 守卫;不安全即抛结构化拒绝文本(不含响应体、不含凭据) */
+async function assertMcpUrlOutbound(url: string, trust?: SelfHostedTrust): Promise<void> {
+  const verdict = await assertSafeFetchUrl(url, { selfHosted: trust });
+  if (!verdict.safe) throw new Error(formatSsrfRejection(verdict));
+}
+
 async function sendHttpRpc(
   url: string,
   method: string,
   params: Record<string, unknown> = {},
   headers: Record<string, string> = {},
   timeoutMs = 10_000,
+  trust?: SelfHostedTrust,
 ): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    await assertMcpUrlOutbound(url, trust);
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
@@ -251,14 +283,22 @@ function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> 
  * 内部用 pending Map 关联请求 id 与 Promise;POST 失败或超时则 reject。
  * 采用 fire-and-forget POST(响应不依赖 POST 返回值,而依赖 SSE message 事件)。
  */
-function sendSseRpc(
+async function sendSseRpc(
   conn: McpConnection,
   method: string,
   params: Record<string, unknown>,
   timeoutMs = 10_000,
 ): Promise<unknown> {
-  if (!conn.sseEndpoint) return Promise.reject(new Error('SSE endpoint 未就绪'));
+  if (!conn.sseEndpoint) throw new Error('SSE endpoint 未就绪');
   const endpoint = conn.sseEndpoint;
+  // ⚠️ 这一条**刻意不带** D-1 信任声明(与 sendHttpRpc / SSE GET 不同):
+  // endpoint 是远端 MCP server 在 SSE `endpoint` 事件里推给我们的 URL,不是用户写在
+  // mcpServers 里的配置值。带上信任就等于"远端自己指定回环端点,我们替它放行",
+  // 而那正是本文件要堵的那一格(它会带着 Authorization 头打向内网/元数据地址)。
+  //
+  // 未闭环登记(D-2,本轮刻意不做):裁决与 fetch 之间 DNS 可被改(TOCTOU),
+  // 本票未钉连接、未改全局 dispatcher。
+  await assertMcpUrlOutbound(endpoint);
   const id = conn.sseNextId++;
 
   return new Promise<unknown>((resolve, reject) => {
@@ -340,6 +380,13 @@ export async function resolveMcpAuthHeaders(server: McpServer): Promise<Record<s
       redirectUri: server.oauth.redirectUri,
       scope: server.oauth.scope,
       serverUrl: server.url,
+      // D-1:这份 tokenEndpoint 出自用户自己写的 mcpServers 配置,所以把基准交给
+      // 真正读出它的这一层声明;oauth 元数据/远端下发的端点走不到这里(无声明 ⇒ 默认档)。
+      tokenEndpointTrust: {
+        source: 'user-settings',
+        settingsKey: 'mcpServers[].auth.oauth.tokenEndpoint',
+        configuredEndpoint: server.oauth.tokenEndpoint,
+      },
     };
 
     try {
@@ -437,7 +484,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
         clientInfo: { name: 'ihui-cli', version: '1.0.0' },
         capabilities: {},
-      }, headers);
+      }, headers, 10_000, mcpConfigTrust(server));
     } else if (transport === 'sse') {
       if (!server.url) throw new Error('sse transport 需要 url');
       // 认证 headers 由 resolveMcpAuthHeaders 解析(支持静态 token / OAuth / 无认证三条路径)
@@ -447,6 +494,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       conn.sseAbortController = new AbortController();
 
       // 1. 建立 SSE 长连接(GET,text/event-stream)
+      await assertMcpUrlOutbound(server.url, mcpConfigTrust(server));
       const sseResponse = await fetch(server.url, {
         headers: { Accept: 'text/event-stream', ...headers },
         signal: conn.sseAbortController.signal,
@@ -545,7 +593,14 @@ async function sendRpc(
     return { result };
   } else {
     if (!conn.server.url) throw new Error('URL 未配置');
-    const result = await sendHttpRpc(conn.server.url, method, params, conn.headers ?? {});
+    const result = await sendHttpRpc(
+      conn.server.url,
+      method,
+      params,
+      conn.headers ?? {},
+      10_000,
+      mcpConfigTrust(conn.server),
+    );
     return { result };
   }
 }
@@ -1041,12 +1096,91 @@ export class ManagedMcpClient {
  * P1-6 全局 ManagedMcpClient 注册表(单进程)。
  * feature flag 启用时,由 setupAgentTools 调用 registerManagedClient;
  * ACP x.ai/mcp/* 扩展方法通过此注册表查询 server 状态 / 转发 tool 调用。
+ *
+ * 容量边界(2026-09-26 补):这张表此前**只有两个出口** —— `unregisterManagedClient` 的
+ * delete-on-close 与 `clearManagedClients` 的整体 reset,没有任何上限。而 `markDead()`
+ * 只把条目标死、**不把它摘出表**(死条目照样出现在 `listManagedClients()` 快照里,
+ * 读起来像"这个 server 还在册"),于是长驻进程的实际形态是只增不减。
+ * 下面把收敛做成注册时的固定动作,并且**只回收已终结(dead)的条目**:
+ * 未终结的活跃会话绝不因容量压力被踢 —— 那等于掐掉在跑的 tool 调用,
+ * 宁可让表短暂超额并由 `getManagedClientRegistryStats().overLimit` 如实报出来。
+ * 回收条数经该出口读出,不靠日志(静默丢是禁止的)。
  */
 const managedClients = new Map<string, ManagedMcpClient>();
 
-/** 注册 ManagedMcpClient(按 server.name 索引) */
+/**
+ * 注册表容量上限。**注释与代码同值只此一源** —— 改数值改这一行,
+ * 不要在任何地方(含本文件注释、文档)另抄一个"上限 N"。
+ */
+const MANAGED_CLIENTS_MAX = 32;
+
+/** dead 条目的宽限期:标死后至少留这么久才回收,给 reconnect() 留窗口 */
+const MANAGED_CLIENTS_DEAD_GRACE_MS = 60_000;
+
+/** 累计回收条数(进程内单调递增;`clearManagedClients()` 刻意不重置它) */
+let managedClientsReclaimed = 0;
+
+/**
+ * 一条注册项是否"已终结且超龄"。**dead 是必要条件**,活跃条目一律放过。
+ * 用 `lastPingAt` 作时间戳是本类可用的最新信号:标死后 `ping()` 不再刷新它
+ * (`isAlive()` 同一信号的另一半),所以"dead + lastPingAt 超龄"就是"终结且过了宽限期"。
+ */
+function isAgedDeadClient(client: ManagedMcpClient, now: number): boolean {
+  const status = client.getStatus();
+  if (!status.dead) return false;
+  return now - status.lastPingAt >= MANAGED_CLIENTS_DEAD_GRACE_MS;
+}
+
+/**
+ * 把注册表收敛到 `MANAGED_CLIENTS_MAX` 以内,返回本次回收条数。
+ * 两档判据:① dead 且超宽限期 → 无条件回收;② 仍超容量时,在 **dead 条目**里按
+ * `lastPingAt` 最旧优先补收(不等宽限期)。② 刻意只碰 dead 条目。
+ */
+export function reclaimManagedClients(now: number = Date.now()): number {
+  let reclaimed = 0;
+  for (const [serverName, client] of managedClients) {
+    if (isAgedDeadClient(client, now)) {
+      managedClients.delete(serverName);
+      reclaimed += 1;
+    }
+  }
+  if (managedClients.size > MANAGED_CLIENTS_MAX) {
+    const deadByOldest = Array.from(managedClients)
+      .filter(([, client]) => client.getStatus().dead)
+      .sort((a, b) => a[1].getStatus().lastPingAt - b[1].getStatus().lastPingAt);
+    for (const [serverName] of deadByOldest) {
+      if (managedClients.size <= MANAGED_CLIENTS_MAX) break;
+      managedClients.delete(serverName);
+      reclaimed += 1;
+    }
+  }
+  if (reclaimed > 0) {
+    managedClientsReclaimed += reclaimed;
+    console.warn(`[mcp] 注册表回收 ${reclaimed} 条已终结会话(在用 ${managedClients.size}/上限 ${MANAGED_CLIENTS_MAX})`);
+  }
+  return reclaimed;
+}
+
+/** 注册表读数:在用/上限/累计回收/是否仍超容量。判"有没有被静默削"只看这里。 */
+export function getManagedClientRegistryStats(): {
+  size: number;
+  max: number;
+  reclaimedTotal: number;
+  overLimit: boolean;
+} {
+  const size = managedClients.size;
+  return {
+    size,
+    max: MANAGED_CLIENTS_MAX,
+    reclaimedTotal: managedClientsReclaimed,
+    overLimit: size > MANAGED_CLIENTS_MAX,
+  };
+}
+
+/** 注册 ManagedMcpClient(按 server.name 索引);注册即触发一次容量收敛 */
 export function registerManagedClient(client: ManagedMcpClient): void {
   managedClients.set(client.getStatus().serverName, client);
+  reclaimManagedClients();
 }
 
 /** 注销 ManagedMcpClient */
