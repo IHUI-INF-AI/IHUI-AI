@@ -826,33 +826,71 @@ export function pruneUnreachableLegs(repoRoot, face, scanned) {
   }
   const unreachable = []
   const kept = []
+  const fallbacks = []
+  /**
+   * 首选层是**死副本**时退回下一层,而不是把整对丢掉(2026-09-26 实测:UserInfoCard / NavBar /
+   * Carousel 的 `packages/app` 那份零可达消费者,而 `apps/mobile-rn` 的同名件真在屏幕上)。
+   * 旧行为"锁定首选层 → 不可达 → 剔对" ⇒ 这三对**覆盖率为 0 而账面不喊**,读报告的人会以为已同值。
+   * 候选顺序仍按 SIDES 目录优先级不变,只是把"不可达"从"剔对"降级为"换腿";
+   * 换到的是哪条腿必须留痕(静默换腿等于把判据的输入挪走而没人知道)。
+   */
+  const altsBySide = {}
+  for (const side of Object.keys(SIDES)) {
+    const m = new Map()
+    for (const dir of SIDES[side]) {
+      for (const p of all) {
+        if (!p.startsWith(`${dir}/`) || !/\.(tsx|jsx)$/i.test(fileName(p))) continue
+        const k = normKey(p)
+        if (!m.has(k)) m.set(k, [])
+        if (!m.get(k).includes(p)) m.get(k).push(p)
+      }
+    }
+    altsBySide[side] = m
+  }
   for (const p of scanned.pairs) {
+    const cur = { miniapp: p.miniapp, rn: p.rn }
+    const moved = []
+    for (const side of ['miniapp', 'rn']) {
+      const reach = usedBySide[side]
+      if (reach.has(cur[side]) || missing.has(cur[side])) continue
+      const alt = (altsBySide[side].get(normKey(cur[side])) ?? []).find(
+        (f) => f !== cur[side] && !missing.has(f) && reach.has(f),
+      )
+      if (alt) {
+        moved.push(`${cur[side]} → ${alt}`)
+        cur[side] = alt
+      }
+    }
     // 取不到内容的文件不参与判定(可能是二进制)—— 宁可不剔,也不把"没判"当"不可达"。
-    const bad = [p.miniapp, p.rn].filter(
-      (f, i) => !usedBySide[i === 0 ? 'miniapp' : 'rn'].has(f) && !missing.has(f),
-    )
+    const bad = ['miniapp', 'rn'].filter((s) => !usedBySide[s].has(cur[s]) && !missing.has(cur[s]))
     if (!bad.length) {
-      kept.push(p)
+      if (moved.length) fallbacks.push({ name: p.name, moved })
+      kept.push({ ...p, miniapp: cur.miniapp, rn: cur.rn })
       continue
     }
     unreachable.push({
       name: p.name,
-      side: p.miniapp === bad[0] ? 'miniapp' : 'rn',
-      legs: bad,
-      reason: bad.map((f) => `${f} 从端入口不可达`).join(';'),
+      side: bad[0],
+      legs: bad.map((s) => cur[s]),
+      reason: bad.map((s) => `${cur[s]} 从端入口不可达`).join(';'),
     })
   }
   // 全被剔除不再是"判据失明"(小夹具本就可能只剩一份死副本),但必须喊出来 —— 覆盖面掉了要看得见。
   const note =
     scanned.pairs.length && !kept.length
       ? `全部 ${scanned.pairs.length} 对的两端都不可达:本门这一轮对空气判定,请核种子`
-      : null
+      : fallbacks.length
+        ? `${kept.length} 对中有 ${fallbacks.length} 对换了腿(首选层是不可达的死副本,已退回下一层):${fallbacks
+            .map((f) => f.name)
+            .join(', ')} —— 覆盖面因此比账面大,不是"存量已同值"`
+        : null
   return {
     pairs: { ...scanned, pairs: kept },
     unreachable,
     undetermined: undet,
     reason: null,
     note,
+    fallbacks,
   }
 }
 
@@ -895,6 +933,7 @@ export function collect(repoRoot, face, { pairAll = false } = {}) {
   let unreachable = []
   let undeterminedEdges = []
   let coverageNote = null
+  let fallbacks = []
   if (pairAll) pairs = { ...pairs, pairAll: true }
   else {
     const pruned = pruneUnreachableLegs(repoRoot, face, pairs)
@@ -903,6 +942,7 @@ export function collect(repoRoot, face, { pairAll = false } = {}) {
     unreachable = pruned.unreachable
     undeterminedEdges = pruned.undetermined
     coverageNote = pruned.note ?? null
+    fallbacks = pruned.fallbacks ?? []
   }
   const need = [...new Set(pairs.pairs.flatMap((p) => [p.miniapp, p.rn]))]
   const text = {}
@@ -913,7 +953,7 @@ export function collect(repoRoot, face, { pairAll = false } = {}) {
     if (t === null || t === undefined) throw new Undetermined(`${FACE_TXT[face]}取不到 ${need[i]}`)
     text[need[i]] = t
   }
-  return { pairs, text, unreachableLegs: unreachable, undeterminedEdges, coverageNote }
+  return { pairs, text, unreachableLegs: unreachable, undeterminedEdges, coverageNote, fallbacks }
 }
 
 /** 一处"看得见的差异" = 一个档值(具名常量不同值另计,同一处不双计)。 */

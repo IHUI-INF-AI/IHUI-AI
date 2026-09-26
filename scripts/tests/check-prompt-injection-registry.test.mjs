@@ -159,14 +159,26 @@ test('T11 取材面形状锁:必须走 face-reader 的批量读,不得散写 git
 
 test('T12 装车成套性:runner 注册 + 文档点名必须同时在位(守门 89 R4 的理由)', () => {
   const runner = read('scripts/guardian-runner.mjs')
-  const mine = runner.match(/\{\s*\n\s*id: '128',[\s\S]*?\n  \},/)
-  assert.ok(mine, 'runner 里没有本门的注册块 ⇒ 判据存在而永不调用 = 没有')
-  assert.ok(/script: 'check-prompt-injection-registry\.mjs'/.test(mine[0]))
-  assert.ok(/mode: 'blocking'/.test(mine[0]), '本门必须 blocking')
-  assert.ok(/skipEnv: 'HUSKY_SKIP_PROMPT_INJECTION_REGISTRY'/.test(mine[0]))
-  assert.ok(/stagedTriggers:\s*\[\s*'apps\/cli\/src\/',?\s*\]/.test(mine[0]), 'stagedTriggers 必须收窄到 apps/cli/src/')
-  const ids = [...runner.matchAll(/^    id: '([0-9]+[a-z]*)',$/gm)].map((m) => m[1])
-  assert.equal(ids.filter((x) => x === '128').length, 1, '本门编号在 runner 中必须恰好出现一次')
+  /**
+   * 注册块按 **script 名**定位,不按硬写的编号定位。
+   * 原先这里钉的是 `id: '128'`,而本门落地时 128 已被 `check-cross-end-ui-parity` 占用、
+   * 按"后来者改号"规则顺延到 129 —— 一道**正确改号**的注册被自己的镜像测试判红。
+   * 硬写编号就是把仓库瞬时状态当恒定前提:编号是并发抢占资源(§守门速查记过同日撞号四次),
+   * 真正的不变量只有"这条 script 恰好注册一次,且 mode/skipEnv/触发面成套"。
+   */
+  const blocks = [...runner.matchAll(/\{\s*\n\s*id: '([^']+)',[\s\S]*?\n {2}\},/g)]
+  const mine = blocks.filter((m) => m[0].includes("script: 'check-prompt-injection-registry.mjs'"))
+  assert.equal(mine.length, 1, `本门在 runner 里必须恰好注册一次,实测 ${mine.length} 次`)
+  const block = mine[0][0]
+  const myId = mine[0][1]
+  assert.match(block, /mode:\s*'blocking'/, '本门必须 blocking')
+  assert.ok(block.includes('HUSKY_SKIP_PROMPT_INJECTION_REGISTRY'), '缺应急出口 = 出事时只能改判据')
+  assert.ok(
+    /stagedTriggers:[\s\S]{0,160}'apps\/cli\/src\/'/.test(block),
+    'stagedTriggers 必须覆盖 apps/cli/src/(允许另有其它触发面,不得要求逐字等值)',
+  )
+  const ids = blocks.map((m) => m[1])
+  assert.equal(ids.filter((x) => x === myId).length, 1, `本门编号 ${myId} 在 runner 中必须恰好一次`)
   assert.equal(new Set(ids).size, ids.length, 'runner 存在重复编号(串 skipEnv 与失败归属)')
   for (const doc of ['AGENTS.md', 'README.md']) {
     assert.ok(read(doc).includes('check-prompt-injection-registry'), `${doc} 未点名本门 ⇒ R4 会拦下这枚提交`)
