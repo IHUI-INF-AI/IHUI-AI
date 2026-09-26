@@ -10,19 +10,11 @@
  * - 中间:title + 可选 subtitle(flex 居中)
  * - 右侧:rightActions(搜索/设置/分类等,多按钮)+ rightAction(兼容旧 ReactNode)
  * - sticky 支持(对齐 Uniapp viscosity,position:sticky + top:0 + zIndex)
- * - backgroundColor 自定义(对齐 Uniapp backgroundColor)
+ * - 不自绘背景、不画底边线:顶栏与页面同色,由所在屏的 shell 底色透出
  * - 状态栏:顶距由 App.tsx 的 SafeAreaView 单点注入,本组件不再自加(否则双份)
- * - 向后兼容:title?/onBack?/rightAction?/transparent? 旧 API 全保留
  */
 import { type ReactNode } from 'react'
-import {
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  type ViewStyle,
-} from 'react-native'
+import { Image, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { ChevronLeft } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
@@ -46,10 +38,6 @@ export interface NavBarProps {
   rightAction?: ReactNode
   /** sticky 支持(对齐 Uniapp viscosity) */
   sticky?: boolean
-  /** 自定义背景色(对齐 Uniapp backgroundColor) */
-  backgroundColor?: string
-  /** 兼容旧 API:透明背景 + 无边框 */
-  transparent?: boolean
 }
 
 const HEIGHT_DEFAULT = 44
@@ -76,34 +64,15 @@ export function NavBar({
   rightActions,
   rightAction,
   sticky = false,
-  backgroundColor,
-  transparent = false,
 }: NavBarProps) {
   const contentHeight = subtitle ? HEIGHT_WITH_SUBTITLE : HEIGHT_DEFAULT
-  const hasCustomBg = backgroundColor !== undefined
-  const showBorder = !transparent && !hasCustomBg
-  const resolvedBg = hasCustomBg
-    ? backgroundColor
-    : transparent
-      ? 'transparent'
-      : tokens.surface.card
   const hasLeftContent =
     onBack !== undefined || (leftActions !== undefined && leftActions.length > 0)
   const hasRightContent =
     (rightActions !== undefined && rightActions.length > 0) || rightAction !== undefined
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: resolvedBg,
-          borderBottomWidth: showBorder ? 1 : 0,
-          borderBottomColor: tokens.border.light,
-        },
-        sticky ? STICKY_STYLE : null,
-      ]}
-    >
+    <View style={[styles.container, sticky ? STICKY_STYLE : null]}>
       <View style={[styles.row, { height: contentHeight }]}>
         {/* 左侧:back + leftActions */}
         <View style={styles.leftSection}>
