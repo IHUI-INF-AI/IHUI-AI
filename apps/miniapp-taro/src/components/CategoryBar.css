@@ -41,7 +41,7 @@
 /* 选中态:cta 实底填充 + cta-foreground 文字 + 600 字重(web ITEM_ACTIVE / RN itemActive)
    描边仍走 primary(描边不是"实底 + 其上文字"场景,不随 CTA 档迁移) */
 .category-bar__item--active {
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
   background: var(--color-cta);
 }
 

@@ -115,7 +115,7 @@
   background: var(--color-card);
 }
 .rc-preset--active {
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
 }
 .rc-preset-text {
   display: block;
@@ -148,7 +148,7 @@
   width: 100%;
 }
 .rc-input--active {
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
 }
 /* 充值比例提示 — 对齐 RN rateBox(边框白卡/内距 10/radius 12/gap 4,单行化) */
 .rc-token-tip {
@@ -224,7 +224,7 @@
   margin-bottom: 20rpx;
 }
 .rc-method--active {
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
 }
 .rc-method-icon {
   width: 56rpx;
@@ -263,7 +263,7 @@
   justify-content: center;
 }
 .rc-radio--on {
-  border-color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
   background: var(--color-cta);
 }
 .rc-radio-mark {
