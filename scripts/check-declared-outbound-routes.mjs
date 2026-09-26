@@ -451,6 +451,60 @@ function selfTest() {
     `  ℹ️ 真仓现读:声明 ${real.counts.declared} / 注册 ${real.counts.registered} / 未匹配 ${real.counts.unmatched} / 未判定 ${real.counts.undetermined} / 忽略 ${real.ignoredNonEgress}`,
   )
 
+  // 豁免出口必须是**活的**:本仓最高频的失效型是"文档写了出路,实现读不到"
+  // (实测旧实现把标记扫在 maskComments 之后的面上 ⇒ 标记写在注释里永远命中不了)
+  {
+    const ex = extractDeclarations(
+      new Map([
+        [
+          'app/same.ts',
+          "const API_BASE = 'http://localhost:8802'\nconst u = `${API_BASE}/api/v1/ghostA` // route-declare-exempt: 第三方 host\n",
+        ],
+        [
+          'app/prev.ts',
+          "const API_BASE = 'http://localhost:8802'\n// route-declare-exempt: 上一行带因由\nconst v = `${API_BASE}/api/v1/ghostB`\n",
+        ],
+        ['app/bare.ts', '// route-declare-exempt: 这一行根本没有出站点\nconst t = 1\n'],
+        [
+          'app/noneed.ts',
+          "const API_BASE = 'http://localhost:8802'\nconst w = `${API_BASE}/api/v1/ghostC`\n",
+        ],
+      ]),
+    )
+    eq(
+      'X1 同行注释里的豁免必须被读到(旧实现在这里永远为 0)',
+      ex.exempted.filter((e) => e.file === 'app/same.ts').length,
+      1,
+    )
+    eq(
+      'X2 紧邻上一行的豁免必须被读到,且归属到声明那一行',
+      ex.exempted.some((e) => e.file === 'app/prev.ts' && e.line === 3),
+      true,
+    )
+    eq(
+      'X3 标记所在行没有声明 ⇒ 不得凭空造免(一行救不了别处)',
+      ex.exempted.filter((e) => e.file === 'app/bare.ts').length,
+      0,
+    )
+    eq(
+      'X4 无标记的同类声明必须仍计入(证明 X1/X2 不是"全都免了")',
+      ex.decls.filter((d) => d.file === 'app/noneed.ts').length,
+      1,
+    )
+    eq(
+      'X5 带原因才算豁免(裸标记不得生效)',
+      extractDeclarations(
+        new Map([
+          [
+            'app/x.ts',
+            "const API_BASE = 'http://localhost:8802'\nconst q = `${API_BASE}/api/v1/g` // route-declare-exempt:\n",
+          ],
+        ]),
+      ).exempted.length,
+      0,
+    )
+  }
+
   console.log(fail ? `\n❌ 自检 ${fail}/${ran} 例失败` : `\n全部 ${ran} 例通过(三证据正反 + 两侧前缀拼接正反 + 聚合三态 + 真语料端到端)`)
   process.exit(fail ? 1 : 0)
 }
