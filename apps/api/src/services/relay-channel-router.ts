@@ -262,6 +262,14 @@ function pushRecentCall(keyPoolId: string, record: CallRecord): void {
   recentCallsMap.set(keyPoolId, list)
 }
 
+/** 格②(2026-09-26)：elapsed-ms 交叉校验判为不可信的耗时样本(recordChannelResult 收到 latencyMs=null)。 */
+let untrustedLatencySamples = 0
+
+/** 观测面：未喂进熔断/least-latency 统计的不可信耗时样本计数(计数在案,不静默丢)。 */
+export function getUntrustedLatencySampleCount(): number {
+  return untrustedLatencySamples
+}
+
 /** 计算最近调用的平均延迟(无记录返回 null)。 */
 function getAvgLatency(keyPoolId: string): number | null {
   const list = recentCallsMap.get(keyPoolId)
@@ -311,10 +319,16 @@ export async function getCircuitState(keyPoolId: string): Promise<CircuitState> 
 export async function recordChannelResult(
   keyPoolId: string,
   success: boolean,
-  latencyMs: number,
+  latencyMs: number | null,
 ): Promise<void> {
   // 记录最近调用(用于 least-latency 策略 + 统计;进程本地近似)
-  pushRecentCall(keyPoolId, { success, latencyMs, ts: Date.now() })
+  // 格②：latencyMs=null 是 elapsed-ms 交叉校验判定的不可信样本——成功/失败信号照常计入熔断,
+  // 但脏耗时不进 least-latency/统计窗口;计数留痕,不静默丢。
+  if (latencyMs === null) {
+    untrustedLatencySamples += 1
+  } else {
+    pushRecentCall(keyPoolId, { success, latencyMs, ts: Date.now() })
+  }
 
   // 获取当前状态(Redis 优先)
   const state = await readCircuitState(keyPoolId)

@@ -808,7 +808,8 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           limit,
           hasMore: result.hasMore,
           nextCursor: result.nextCursor ? encodeHistoryCursor(result.nextCursor) : null,
-          // 投影状态透传(可空=尚未投影);投影器写入在后续段落接线
+          // 投影状态透传(可空=尚未投影);写入侧见 chat-queries.rollHistoryProjection,
+          // 由 createMessage / replaceMessages 在同一事务内推进断点后落库。
           projectionState: owned.conversation.historyProjectionState ?? null,
         }),
       )

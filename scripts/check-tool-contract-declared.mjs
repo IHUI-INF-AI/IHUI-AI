@@ -11,15 +11,33 @@
 // (packages/types/src/tool-contract.ts),但翻缺省是行为变更、属第二阶段;在那之前,
 // "新增工具不带契约"这件事必须有一道门拦着,否则第二阶段永远在追存量。
 //
-// ⚠️ 本门**尚未接线**(guardian-runner / CI 由主会话统一登记)。因此本文件头注不写
-// "已接 pre-commit 第 N 项" —— 守门 89 的 R1 正是拦"声称已接线而权威点零命中"。
+// ⚠️ 接线:guardian-runner id 111(blocking,skipEnv HUSKY_SKIP_TOOL_CONTRACT_DECLARED,
+// stagedTriggers=apps/cli/src/tools/)。**注册表由主会话统一维护**,本文件不碰它。
 //
 // 口径(与 77 / 83 / 98 一致):
 //   - 全量档判 **HEAD blob**,`--staged` 判**索引 blob**;`--worktree` 仅人工逃生舱。
-//   - **棘轮锚点 = 该文件 HEAD 自身违规数**。存量 92 个工具字面量全部无契约(实测),
-//     一次不许改红:全量档恒 exit 0 并如实报数,牙齿在 `--staged`(本次改动把绕档加回来才红)。
-//     把锚点写成 0 会让本仓整片报红 ⇒ 逼人 `--no-verify` ⇒ 全部守门作废。
+//   - **锚点由两部分组成**(2026-09-26 换锚,治 G-207 的"摘除全盲"):
+//       ① **计数棘轮**(原样保留)= 该文件 HEAD 自身的违规数,拦"这次把绕档加回来了";
+//       ② **声明身份台账**(新增)= HEAD 上**哪些工具已经写了 contract**,按 `文件#工具名`
+//          的**身份多重集**从 HEAD 现算(照 `scripts/check-task-claims.mjs` 的 CL3 写法:
+//          不留手工 JSON 清单,所以它只会自己收紧)。已声明者在判定面上不再带 contract
+//          ⇒ **TC3 判红并点名**。
+//     为什么光有 ① 不够:摘掉一份**字段不全**的契约时,违规从 1 处 TC2 换成 1 处 TC1,
+//     **计数持平** ⇒ ① 全绿(2026-09-26 临时仓实测 exit 0,取证见镜像测试 T19)。
+//     计数只看得见"变多",看不见"换人" —— 而本门为"防摘除"而生。
+//   - 存量 104 枚工具**全部无契约**(HEAD 实测 declared 身份 0 枚)⇒ ② 今天恒 0 红,
+//     它不是恒红门,只在有人补上契约的那一刻起才有牙齿。把存量 104 处一次判红 = 每次提交
+//     被逼 `--no-verify` = 约 158 道守门同时作废(§12e 那型),故 ② 零基线、① 原样保留。
 //   - 取不到输入 ⇒ **exit 2「无法判定」**,既不冒红也不记绿。
+//
+// **暂存触及"本就不注册工具"的文件不得判红(2026-09-26 修,同一票的第二格)**:
+// stagedTriggers 覆盖 `apps/cli/src/tools/` 整目录,而该目录 58 个 .ts 里实测 **34 个注册
+// 0 枚工具**(helper / barrel / 策略表 / 平台适配)。旧 `enumerationBlind` 只看"这一面抽到
+// 0 枚工具"就判 exit 2,于是改一个 `command-policy/tokenizer.ts` 的提交被本门硬拦(临时仓
+// 实测复现,镜像测试 T19 的正例一侧)。现要求 **HEAD 侧确实注册过工具**才算抽取器失明;
+// 两侧都是 0 ⇒ 契约判据对该文件**不适用**,如实打"不适用"计数并 exit 0 —— 既不冒红,
+// 也不得把它写成"已核"。`anchorTools` 不传给 ⇒ 保守判失明(失效方向只能是"多要一次说明")。
+
 //
 // **TRD(Touch Requires Declaration)判据(2026-09-25 换锚点)**:上面那句棘轮在 `--staged`
 // 档的锚点是"该文件 HEAD 自身违规数",实测后果是**任何人改任何一个存量工具文件,改完仍然
@@ -365,6 +383,72 @@ export function exceedsAnchor(current, anchor) {
   return current > anchor
 }
 
+// ==================== 声明身份台账(TC3,2026-09-26 换锚) ====================
+
+/**
+ * 工具的稳定标识 = `文件#工具名`。
+ *
+ * 为什么必须是**身份多重集**而不是计数:照 `scripts/check-task-claims.mjs` 的 CL3 ——
+ * 那里的实测教训是"按前 N 条切存量"会让新塞进来的一颗顶掉一颗旧残留的名额,两者都得绿。
+ * 本门同型错误长成"摘掉一份旧契约、冒出另一份新契约",计数看不见,只有身份看得见。
+ * 为什么是多重集而不是名字集合:同名两枚(例如两枚都取不到字面量名 ⇒ 同为 `(non-literal)`)
+ * 摘掉其中一颗,名字集合仍是那一颗 —— 名额会互相冒充,所以同名要各记一票。
+ */
+export function toolKey(fileRel, toolName) {
+  return `${fileRel}#${toolName}`
+}
+
+/**
+ * 一份文件的声明台账:`Map<身份, {total, declared}>`。
+ * `total` 用来区分"契约被摘掉"与"整枚工具被删掉" —— 后者不属本判据(删除面是守门 99 的地盘)。
+ */
+export function declarationLedgerOf(fileRel, tools) {
+  const ledger = new Map()
+  for (const t of tools || []) {
+    const key = toolKey(fileRel, t.toolName)
+    const cur = ledger.get(key) ?? { total: 0, declared: 0 }
+    cur.total += 1
+    if (t.hasContract) cur.declared += 1
+    ledger.set(key, cur)
+  }
+  return ledger
+}
+
+/**
+ * TC3 判据本体(纯函数):HEAD 上已声明契约的工具,在判定面上**仍然存在却不再声明** ⇒ 红。
+ *
+ * 三条判序都必要:
+ *  - `allowed = min(head.declared, current.total)`:工具整枚不见(current 无此身份)⇒ 放过,
+ *    本门不越权判删除(AGENTS §16 越权那条)。
+ *  - 台账**恒由 HEAD 现算**,不落地成手工 JSON:手工清单必然腐烂,而"某工具已有契约却未登记"
+ *    必须自己收紧(§4 对 RN_ONLY_BRAND_KEYS 的同一条教训)。
+ *  - 该文件不在 HEAD 上(新文件)⇒ 无声明可摘,调用方传空 Map 即可。
+ * @param {Map<string,{total:number,declared:number}>} head  HEAD 面台账(null ⇒ 取不到,由调用方判"未判定")
+ * @param {Map<string,{total:number,declared:number}>} current 判定面台账
+ * @returns {{removed: Array<{key:string,headDeclared:number,currentDeclared:number,total:number,missing:number}>, declaredIdentities: number}}
+ */
+export function findDeclarationRemovals({ head, current } = {}) {
+  const removed = []
+  let declaredIdentities = 0
+  const cur = current || new Map()
+  for (const [key, h] of head || new Map()) {
+    if (!h || h.declared <= 0) continue
+    declaredIdentities += 1
+    const c = cur.get(key)
+    if (!c) continue // 整枚工具被删:不是"摘除契约"
+    const allowed = Math.min(h.declared, c.total)
+    if (c.declared < allowed)
+      removed.push({
+        key,
+        headDeclared: h.declared,
+        currentDeclared: c.declared,
+        total: c.total,
+        missing: allowed - c.declared,
+      })
+  }
+  return { removed, declaredIdentities }
+}
+
 // ==================== TRD:触碰即须声明(2026-09-25 换锚点) ====================
 
 /** 默认**开** —— 关掉的那台门等于没有门;只有显式 `--no-touch-requires-declaration` 才关。 */
@@ -418,7 +502,6 @@ export function trdAssess({ files, face, enabled = true, state } = {}) {
     out.files += 1
     out.violations += n
     ;(out.enforced ? out.reds : out.notices).push(f)
-
   }
   return out
 }
@@ -428,10 +511,28 @@ export function trdAssess({ files, face, enabled = true, state } = {}) {
  *
  * 只在暂存档生效:抽取器在"这次确实碰了工具面文件"却一枚工具都没抽到时,唯一诚实的结论是
  * **判据失明**,不得记为通过(全量档维持既有"枚举 0 个 .ts 文件才判死"的口径不变)。
+ *
+ * ⚠️ 但"这一面抽到 0 枚"**本身不构成失明证据** —— 本门 stagedTriggers 覆盖
+ * `apps/cli/src/tools/` 整目录,实测 58 个 .ts 里 **34 个注册 0 枚工具**(helper / barrel /
+ * 策略表 / 平台适配)。旧判据不看 HEAD 侧就判 exit 2,于是任何只碰那些文件的提交都被硬拦
+ * (2026-09-26 临时仓实测;一次误拦的代价不是"多等一轮",是全队 `--no-verify` 连带废掉
+ * 约 158 道门,§12e 同型)。现按 `anchorTools`(同一批文件在 HEAD 上注册了几枚)分流:
+ *   - `> 0` 而本面 0 枚 ⇒ 抽取器失明或有人把整文件的工具清空 ⇒ **判死**;
+ *   - `= 0` ⇒ 该文件本就不注册工具 ⇒ **契约判据不适用**,由调用方如实报数后 exit 0;
+ *   - **未传**(undefined)⇒ 不知道基准 ⇒ 保守判死。失效方向只能是"多要一次定向说明",
+ *     绝不能是"多放一次绿灯"(与本仓 findingLines / 归因铰链那几条教训同一条禁令)。
  */
-export function enumerationBlind({ face, enabled = true, judgedCount = 0, totalTools = 0 } = {}) {
+export function enumerationBlind({
+  face,
+  enabled = true,
+  judgedCount = 0,
+  totalTools = 0,
+  anchorTools,
+} = {}) {
   if (!enabled || face !== 'staged') return false
-  return judgedCount > 0 && totalTools === 0
+  if (judgedCount === 0 || totalTools > 0) return false
+  if (anchorTools === undefined) return true
+  return anchorTools > 0
 }
 
 // ==================== 取材 ====================
@@ -505,7 +606,9 @@ function main(argv) {
   const todayFlagIdx = argv.indexOf('--today')
   const todayFlag = todayFlagIdx >= 0 ? argv[todayFlagIdx + 1] : ''
   if (todayFlagIdx >= 0 && !isoDay(todayFlag)) {
-    console.error(`❌ 无法判定:--today 需要一个 ISO 日期(YYYY-MM-DD),收到「${todayFlag || '(空)'}」`)
+    console.error(
+      `❌ 无法判定:--today 需要一个 ISO 日期(YYYY-MM-DD),收到「${todayFlag || '(空)'}」`,
+    )
     return 2
   }
   const state = trdState({ today: todayFlag || isoToday() })
@@ -562,7 +665,11 @@ function main(argv) {
   let totalNoContract = 0
   let totalViolations = 0
   let headroom = 0
+  let anchorTools = 0
+  let declaredIdentities = 0
+  let notApplicableFiles = 0
   const reds = []
+  const removals = []
   const perFile = []
   const flip = []
   let undeterminedFiles = 0
@@ -582,12 +689,24 @@ function main(argv) {
     totalViolations += violations.length
     perFile.push({ rel, toolCount: tools.length, violations })
 
+    // 锚点面:HEAD 里没有该文件 ⇒ 新文件,台账为空(无声明可摘);这与"整面取不到"
+    // (上面 readFace 抛 ⇒ 已 exit 2)是两件事,不得混成同一个 null。
     const headText = anchorTexts.get(rel)
-    const anchor =
-      headText === null || headText === undefined
-        ? 0
-        : violationsOf(extractToolLiterals(headText)).length
+    const headTools =
+      headText === null || headText === undefined ? [] : extractToolLiterals(headText)
+    anchorTools += headTools.length
+    if (tools.length === 0 && headTools.length === 0) notApplicableFiles += 1
+    const anchor = violationsOf(headTools).length
     headroom += Math.max(0, anchor - violations.length)
+
+    // TC3:声明身份台账对账(与计数棘轮**并行**,不替换它 —— 计数仍在管"新增绕档")
+    const rem = findDeclarationRemovals({
+      head: declarationLedgerOf(rel, headTools),
+      current: declarationLedgerOf(rel, tools),
+    })
+    declaredIdentities += rem.declaredIdentities
+    if (rem.removed.length > 0) removals.push({ rel, removed: rem.removed })
+
     if (exceedsAnchor(violations.length, anchor)) {
       reds.push({ rel, violations, anchor, current: violations.length })
     } else if (verbose) {
@@ -604,13 +723,29 @@ function main(argv) {
 
   // TRD:暂存触及的工具文件里**每一枚**注册工具都必须带契约声明(不吃 HEAD 存量锚点)。
   const trd = trdAssess({ files: perFile, face, enabled: trdOn, state })
-  if (enumerationBlind({ face, enabled: trdOn, judgedCount: judged.length, totalTools })) {
-
+  if (
+    enumerationBlind({
+      face,
+      enabled: trdOn,
+      judgedCount: judged.length,
+      totalTools,
+      anchorTools,
+    })
+  ) {
     console.error(
       `❌ 无法判定:暂存触及 ${judged.length} 个 ${SCAN_DIRS.join('/ 或 ')} 下的文件,` +
-        `却枚举到 0 个注册工具 —— 抽取器在这一面上失明,不得记为通过。`,
+        `本面枚举到 0 个注册工具而同一批文件在 HEAD 上注册 ${anchorTools} 个 —— ` +
+        `抽取器在这一面上失明(或有人清空了整文件的工具),不得记为通过。`,
     )
     return 2
+  }
+  if (notApplicableFiles > 0) {
+    // 这一格必须**喊出来**:它不是"判过了、没问题",而是"这些文件本就不注册工具,
+    // 契约判据对它们没有话说"。静默算通过就是把"没判"写成"判过了"(守门 94 同型)。
+    console.log(
+      `ℹ️ 不适用:${notApplicableFiles} 个被判定的文件在 HEAD 与本面均注册 0 枚工具` +
+        `(helper / barrel / 策略表这类)—— 契约判据对它们不适用,本门结论只覆盖其余文件。`,
+    )
   }
   const dayWord = state.daysLeft === null ? '?' : Math.abs(state.daysLeft)
   const trdMode = !trdOn
@@ -621,6 +756,13 @@ function main(argv) {
         ? `开 · **已过期 ⇒ 真拦**(宽限截止 ${state.until || '(不可解析)'},已过 ${dayWord} 天)`
         : `开 · **宽限期内 ⇒ 只报数不判红**(宽限截止 ${state.until},剩 ${dayWord} 天,今天 ${state.today})`
   console.log(`TRD(触碰即须声明)当前档位:${trdMode}`)
+  const removedTotal = removals.reduce((n, r) => n + r.removed.length, 0)
+  console.log(
+    `声明身份台账(TC3):HEAD 上已声明契约的工具身份 ${declaredIdentities} 枚 / 判定面上被摘除 ${removedTotal} 枚` +
+      (declaredIdentities === 0
+        ? ' —— 面上无一份声明可摘,TC3 今日无事可判(不得读成"已核过摘除这一型")'
+        : ''),
+  )
   if (trd.files > 0) {
     const verb = trd.enforced ? '❌ 判红' : '⚠️ 报数(宽限内不判红)'
     console.log(
@@ -632,7 +774,7 @@ function main(argv) {
     }
   }
 
-  if (reds.length > 0 || (trd.enforced && trd.reds.length > 0)) {
+  if (reds.length > 0 || removals.length > 0 || (trd.enforced && trd.reds.length > 0)) {
     if (reds.length > 0) {
       console.error(`❌ 工具契约声明面违规(超出该文件 HEAD 自身基线):`)
       for (const r of reds) {
@@ -640,23 +782,47 @@ function main(argv) {
         for (const v of r.violations) console.error(`    - L${v.line} ${v.toolName}: ${v.kind}`)
       }
     }
+    if (removals.length > 0) {
+      console.error(
+        `❌ TC3 契约声明被摘除(HEAD 上已声明、工具仍在、这一面却不声明了)——` +
+          `计数棘轮对这一型全盲,身份台账才看得见:`,
+      )
+      for (const r of removals) {
+        for (const v of r.removed)
+          console.error(
+            `  ${v.key}: HEAD 已声明 ${v.headDeclared} 枚 / 现在 ${v.currentDeclared} 枚` +
+              `(该身份现存 ${v.total} 枚,少 ${v.missing} 枚声明)`,
+          )
+      }
+      console.error(
+        `  修法:把 contract 声明**加回去**;确要撤下这份契约请连工具字面量一起删(整枚删除` +
+          `属守门 99 的删除面对账,本判据不拦)。`,
+      )
+    }
     if (trd.enforced && trd.reds.length > 0) {
       console.error(
         `❌ TRD(触碰即须声明)判红:宽限期 ${state.until} 已过,被暂存触及的文件必须全员带契约`,
       )
     }
-    console.error(`  修法:给该工具字面量补 contract = { shape, permission, resultBudget }`)
+    if (reds.length > 0)
+      console.error(`  修法:给该工具字面量补 contract = { shape, permission, resultBudget }`)
     console.error(
       `  (packages/types/src/tool-contract.ts);紧急跳过 HUSKY_SKIP_TOOL_CONTRACT_DECLARED=1`,
     )
     console.log(
-      `注册工具数 ${totalTools} / 无契约数 ${totalNoContract} / 棘轮余量 ${headroom} —— 判定面 ${FACE_LABEL[face]}`,
+      `注册工具数 ${totalTools} / 无契约数 ${totalNoContract} / 棘轮余量 ${headroom} / 契约摘除 ${removedTotal} —— 判定面 ${FACE_LABEL[face]}`,
     )
     return 1
   }
 
   console.log(
-    `✅ 无新增绕档:本次判定的 ${judged.length} 个文件均未超出各自 HEAD 锚点(存量违规合计 ${totalViolations} 处,由各文件自身锚点承担;判定面 ${FACE_LABEL[face]};${FACE_NOTE[face]})` +
+    `✅ 无新增绕档:本次判定的 ${judged.length} 个文件均未超出各自 HEAD 计数锚点,且无契约声明被摘除` +
+      `(存量违规合计 ${totalViolations} 处,由各文件自身锚点承担;判定面 ${FACE_LABEL[face]};${FACE_NOTE[face]})` +
+      `;TC3 摘除 ${removedTotal} 处(HEAD 已声明身份 ${declaredIdentities} 枚` +
+      (notApplicableFiles > 0
+        ? `;另有 ${notApplicableFiles} 个文件不注册工具 ⇒ 契约判据不适用,见上`
+        : '') +
+      `)` +
       (face === 'staged' && trd.applied
         ? `;TRD ${trd.enforced ? '已生效' : '宽限内只报数'}:触及文件内无契约合计 ${trd.violations} 处`
         : ''),
@@ -666,7 +832,7 @@ function main(argv) {
     for (const f of flip) console.log(`  - ${f.file}:${f.line} ${f.toolName}`)
   }
   console.log(
-    `注册工具数 ${totalTools} / 无契约数 ${totalNoContract} / 棘轮余量 ${headroom} / flip-audit ${flip.length}`,
+    `注册工具数 ${totalTools} / 无契约数 ${totalNoContract} / 棘轮余量 ${headroom} / 契约摘除 ${removedTotal} / flip-audit ${flip.length}`,
   )
   return 0
 }
@@ -778,7 +944,10 @@ function selfTest() {
     face: 'staged',
     state: trdState({ today: '2026-10-10', until: GF }),
   })
-  ok('ST14 ① 触及文件全员已声明 ⇒ TRD 零红零报数', allDeclared.reds.length === 0 && allDeclared.notices.length === 0)
+  ok(
+    'ST14 ① 触及文件全员已声明 ⇒ TRD 零红零报数',
+    allDeclared.reds.length === 0 && allDeclared.notices.length === 0,
+  )
   // ② 暂存触及且一枚未声明:宽限期内只报数、过期后判红 —— 两档日期各构造一次
   const touchOne = [
     { rel: 'apps/cli/src/tools/builtins.ts', toolCount: 1, violations: bareSrcViolations },
@@ -823,18 +992,124 @@ function selfTest() {
     'ST18 锚点对照:旧棘轮(2 vs HEAD 2)放绿,TRD(碰了就必须补)计 2 处 ⇒ 换的确实是锚点',
     exceedsAnchor(2, 2) === false &&
       trdAssess({
-        files: [{ rel: 'x.ts', toolCount: 2, violations: bareSrcViolations.concat(bareSrcViolations) }],
+        files: [
+          { rel: 'x.ts', toolCount: 2, violations: bareSrcViolations.concat(bareSrcViolations) },
+        ],
         face: 'staged',
         state: trdState({ today: '2026-10-10', until: GF }),
       }).violations === 2,
   )
-  // ④ 枚举到 0 个注册 ⇒ 判死,不得记绿
+  // ④ 枚举到 0 个注册 ⇒ 判死,但**必须先看 HEAD 侧**
   ok(
-    'ST19 ④ 暂存触及 N 个文件而枚举到 0 枚注册 ⇒ 判死;head 面/关档/有工具三种情形均不判死',
+    'ST19 ④ 本面 0 枚注册:HEAD 有工具才判死;HEAD 也 0(不注册工具的 helper)⇒ 不判死',
+    // 未传 anchorTools ⇒ 不知道基准 ⇒ 保守判死(失效方向只能是"多要一次说明")
     enumerationBlind({ face: 'staged', judgedCount: 3, totalTools: 0 }) === true &&
+      enumerationBlind({ face: 'staged', judgedCount: 3, totalTools: 0, anchorTools: 7 }) ===
+        true &&
+      // 这一支就是被修掉的那一型:58 个文件里 34 个注册 0 枚,只碰它们不得拦提交
+      enumerationBlind({ face: 'staged', judgedCount: 3, totalTools: 0, anchorTools: 0 }) ===
+        false &&
       enumerationBlind({ face: 'staged', judgedCount: 3, totalTools: 4 }) === false &&
       enumerationBlind({ face: 'head', judgedCount: 54, totalTools: 0 }) === false &&
       enumerationBlind({ face: 'staged', enabled: false, judgedCount: 3, totalTools: 0 }) === false,
+  )
+  ok(
+    'ST19b anchorTools 为 0 与"未传"必须是两个不同结论(半个判据比没有更危险)',
+    enumerationBlind({ face: 'staged', judgedCount: 1, totalTools: 0, anchorTools: 0 }) === false &&
+      enumerationBlind({
+        face: 'staged',
+        judgedCount: 1,
+        totalTools: 0,
+        anchorTools: undefined,
+      }) === true,
+  )
+
+  // ---------- TC3:声明身份台账(2026-09-26 换锚,本票的存在理由) ----------
+  const F = 'apps/cli/src/tools/demo.ts'
+  // ⚠️ TC3 比的是**身份**,所以上/下两态必须是**同一枚工具** —— 上面那批夹具里 `full` 叫
+  // demo2 而 `bare` 叫 demo,直接拿来配对就是"改了名的两枚工具",门判不出摘除属于**定义如此**
+  // 而不是缺陷。这里把 declared 夹具改成与 bare 同名,才真正在测"同一枚工具的声明没了"。
+  const declaredDemo = full.replace(/demo2/g, 'demo')
+  const PARTIAL = declaredDemo.replace(/ effectScope: 'none',/, '') // 挂了契约但缺字段 ⇒ 1 处 TC2
+  const ledger = (src) => declarationLedgerOf(F, extractToolLiterals(src))
+  const completeLedger = ledger(declaredDemo)
+  const bareLedger = ledger(bare)
+  const partialLedger = ledger(PARTIAL)
+
+  ok(
+    'ST20a 夹具前提:两份夹具必须是**同一枚工具**的身份(否则整组 TC3 用例在测两件不同的事)',
+    completeLedger.size === 1 &&
+      bareLedger.size === 1 &&
+      [...completeLedger.keys()][0] === [...bareLedger.keys()][0] &&
+      [...completeLedger.keys()][0] === `${F}#demo`,
+  )
+  ok(
+    'ST20 ① 摘掉既有工具的契约 ⇒ TC3 必红并点名身份(计数锚点在这一型上全盲)',
+    completeLedger.get(`${F}#demo`).declared === 1 &&
+      bareLedger.get(`${F}#demo`).declared === 0 &&
+      findDeclarationRemovals({ head: completeLedger, current: bareLedger }).removed.length === 1 &&
+      findDeclarationRemovals({ head: completeLedger, current: bareLedger }).removed[0].key ===
+        `${F}#demo`,
+  )
+
+  ok(
+    'ST20b 摘掉"字段不全"的契约也算摘除:计数从 1 处 TC2 换成 1 处 TC1 持平,身份台账仍判红',
+    violationsOf(extractToolLiterals(PARTIAL)).length === 1 &&
+      violationsOf(extractToolLiterals(bare)).length === 1 &&
+      exceedsAnchor(1, 1) === false &&
+      findDeclarationRemovals({ head: partialLedger, current: bareLedger }).removed.length === 1,
+  )
+  ok(
+    'ST21 ② 台账没记而面上出现新的已声明工具 ⇒ 不红(判据不得把自己产出的形态判红)',
+    findDeclarationRemovals({ head: bareLedger, current: completeLedger }).removed.length === 0 &&
+      findDeclarationRemovals({ head: new Map(), current: completeLedger }).removed.length === 0 &&
+      findDeclarationRemovals({ head: completeLedger, current: completeLedger }).removed.length ===
+        0,
+  )
+  ok(
+    'ST22 ③ 存量全部无契约 ⇒ TC3 恒 0 红(否则今天起没人能提交;这是一台零基线门的前提)',
+    ledger(bare).get(toolKey(F, 'demo')).declared === 0 &&
+      findDeclarationRemovals({ head: ledger(bare), current: ledger(bare) }).removed.length === 0 &&
+      findDeclarationRemovals({ head: ledger(bare), current: new Map() }).removed.length === 0 &&
+      findDeclarationRemovals({ head: ledger(bare), current: completeLedger })
+        .declaredIdentities === 0,
+  )
+  ok(
+    'ST23 整枚工具被删 ⇒ 不判摘除(那是守门 99 的删除面,本门不越权;head/current 都空亦不红)',
+    findDeclarationRemovals({ head: completeLedger, current: new Map() }).removed.length === 0 &&
+      findDeclarationRemovals({ head: new Map(), current: new Map() }).removed.length === 0,
+  )
+  ok(
+    'ST24 同名两枚摘掉其中一颗必须还能红(身份多重集,不是名字集合 —— 名额不得互相冒充)',
+    declarationLedgerOf(F, [
+      { toolName: 'dup', hasContract: true },
+      { toolName: 'dup', hasContract: true },
+    ]).get(`${F}#dup`).declared === 2 &&
+      findDeclarationRemovals({
+        head: declarationLedgerOf(F, [
+          { toolName: 'dup', hasContract: true },
+          { toolName: 'dup', hasContract: true },
+        ]),
+        current: declarationLedgerOf(F, [
+          { toolName: 'dup', hasContract: true },
+          { toolName: 'dup', hasContract: false },
+        ]),
+      }).removed[0].missing === 1 &&
+      findDeclarationRemovals({
+        head: declarationLedgerOf(F, [{ toolName: 'dup', hasContract: true }]),
+        current: declarationLedgerOf(F, [
+          { toolName: 'dup', hasContract: true },
+          { toolName: 'dup', hasContract: false },
+        ]),
+      }).removed.length === 0,
+  )
+  ok(
+    'ST25 两面同源 ⇒ 零摘除,但"已声明身份数"仍要照实报出(为 0 时结论行必须喊"无事可判")',
+    findDeclarationRemovals({ head: completeLedger, current: completeLedger }).removed.length ===
+      0 &&
+      findDeclarationRemovals({ head: completeLedger, current: completeLedger })
+        .declaredIdentities === 1 &&
+      findDeclarationRemovals({ head: bareLedger, current: bareLedger }).declaredIdentities === 0,
   )
 
   let pass = 0
@@ -897,6 +1172,9 @@ export const __test__ = {
   violationsOf,
   flipAuditOf,
   exceedsAnchor,
+  toolKey,
+  declarationLedgerOf,
+  findDeclarationRemovals,
   trdEnabled,
   trdState,
   trdAssess,
