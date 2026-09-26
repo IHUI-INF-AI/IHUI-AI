@@ -25,6 +25,7 @@ import { dirname, join } from 'node:path';
 import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
 import type { GoalHardCriterion } from '@ihui/api-client';
 import { cliDeviceFingerprintCollector, CLI_USER_AGENT } from './lib/device-fingerprint.js';
+import { grantLeaseFromFlag, releaseLeaseAfterRun } from './utils/permission-lease-flag.js';
 import { tryParseJson, isRecord } from './util/json.js';
 import { padCell } from './util/text-width.js';
 import {
@@ -137,6 +138,9 @@ program
   .option('--output-format <format>', t('cliEntry.outputFormatDesc'))
   .option('--mcp', t('cliEntry.mcpFlagDesc'))
   .option('--allow-dangerous', t('cliEntry.allowDangerousDesc'))
+  .option('--permission-lease <tools>', t('cliEntry.permissionLeaseDesc'))
+  .option('--permission-lease-ttl <minutes>', t('cliEntry.permissionLeaseTtlDesc'))
+  .option('--permission-lease-turns <n>', t('cliEntry.permissionLeaseTurnsDesc'))
   .option('--plan', t('cliEntry.planDesc'))
   .option('--auto-approve-plan', t('cliEntry.autoApprovePlanDesc'))
   .option('--temperature <num>', t('cliEntry.temperatureDesc'))
@@ -282,6 +286,12 @@ async function runAgentAndExit(
     cliModel: typeof opts.model === 'string' ? opts.model : undefined,
     cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
     cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
+    // 权限租约:只有操作员显式点名才放宽 —— 三个值全缺省即整条链路逐字不变。
+    cliPermissionLease: typeof opts.permissionLease === 'string' ? opts.permissionLease : undefined,
+    cliPermissionLeaseTtl:
+      typeof opts.permissionLeaseTtl === 'string' ? opts.permissionLeaseTtl : undefined,
+    cliPermissionLeaseTurns:
+      typeof opts.permissionLeaseTurns === 'string' ? opts.permissionLeaseTurns : undefined,
     cliPlan: opts.plan === true ? true : undefined,
     cliAutoApprovePlan: opts.autoApprovePlan === true ? true : undefined,
     cliMcp: opts.mcp === true ? true : undefined,
@@ -312,6 +322,34 @@ async function runAgentAndExit(
       sessionId: session.id,
       workspacePath: opts.workspace,
     });
+    // 权限租约(--permission-lease):操作员显式点名工具清单才授予,作用域 = 本次会话这一目标。
+    // 未给 flag ⇒ outcome.kind==='none',`grantPermissionLease()` 一次都不被调用,
+    // `activePermissionLease()` 恒 null ⇒ 所有消费点走的仍是改造前那一份判定实现(逐字不变)。
+    // 判不下来 ⇒ 失败关闭 exit 1:悄悄回落成"没给 flag 继续跑"会把操作员要的放宽模式
+    // 换成另一套语义,而账面一切正常(本仓"失败必须响"同一条禁令)。
+    const leaseOutcome = grantLeaseFromFlag({
+      toolsRaw: cfg.permissionLease,
+      ttlRaw: cfg.permissionLeaseTtl,
+      turnsRaw: cfg.permissionLeaseTurns,
+      target: session.id,
+    });
+    if (leaseOutcome.kind === 'invalid') {
+      console.error(chalk.red(`✗ ${t('cliEntry.permissionLeaseInvalid', { reason: leaseOutcome.reason })}`));
+      process.exitCode = 1;
+      return;
+    }
+    if (leaseOutcome.kind === 'granted' && !jsonMode) {
+      console.info(
+        chalk.yellow(
+          t('cliEntry.permissionLeaseGranted', {
+            tools: leaseOutcome.lease.capabilities.join(', '),
+            ttl: leaseOutcome.ttlMinutes,
+            turns: leaseOutcome.turns,
+            expiresAt: leaseOutcome.lease.expiresAt,
+          }),
+        ),
+      );
+    }
     // H4 云会话写入:CLI agent 运行记录写 ai-service(/api/cloud-runs,session_alias 绑定本会话),
     // 全程静默降级绝不影响主流程;start 与 runAgent 并发,网络等待不叠加到任务耗时。
     const cloudStartPromise = cfg.apiKey
@@ -359,6 +397,12 @@ async function runAgentAndExit(
       cloudOutput = err instanceof Error ? err.message : String(err);
       throw err;
     } finally {
+      // 租约收尾:无论成功/失败/异常都显式撤销并落 `permission_lease_revoked` 审计行。
+      // 刻意放在 finally —— 放宽若在一次崩溃后被遗留在进程里,下一次调用会继续吃到它,
+      // 而那正是本模块立论要排除的"永久放宽"形态(撤销不抛,可安全重放)。
+      if (leaseOutcome.kind === 'granted') {
+        releaseLeaseAfterRun(`agent run finished (target=${leaseOutcome.lease.scope})`);
+      }
       // 云会话收尾:start 成功登记过才补写终态(失败/未登录静默跳过)
       const cloudRunId = await cloudStartPromise;
       if (cloudRunId) {
