@@ -589,6 +589,7 @@
       "pleaseWait": "Please wait"
     },
     "chat": {
+      "replayFailed": "Failed to load this conversation, please try again",
       "agentTipConfirm": "Got it",
       "agentTipHistory": "History",
       "agentTipHistoryDesc": "View conversation history",
@@ -647,6 +648,8 @@
       "title": "Chat History"
     },
     "historyPage": {
+      "loadMoreFailed": "Failed to load more, pull down to refresh",
+      "deleteFailed": "Failed to delete, please try again",
       "clearAll": "Clear all",
       "clearConfirm": "Clear all chat history?",
       "cleared": "Cleared",

@@ -584,6 +584,7 @@
       "pleaseWait": "请稍候"
     },
     "chat": {
+      "replayFailed": "该会话消息加载失败,请重试",
       "agentTipConfirm": "我知道了",
       "agentTipHistory": "历史记录",
       "agentTipHistoryDesc": "可查看历史对话",
@@ -642,6 +643,8 @@
       "title": "历史记录"
     },
     "historyPage": {
+      "loadMoreFailed": "加载更多失败,请下拉刷新重试",
+      "deleteFailed": "删除失败,请重试",
       "clearAll": "清空全部",
       "clearConfirm": "确定要清空全部对话历史吗?",
       "cleared": "已清空",
