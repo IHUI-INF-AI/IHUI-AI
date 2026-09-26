@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect } from '@playwright/test'
+import { ensureLoginDialogOpen } from './open-login-dialog'
 
 /**
  * 登录弹窗 3 步 Enter 键盘交互流回归测试 (2026-07-21 立)
@@ -70,8 +71,7 @@ test.describe('登录弹窗 3 步 Enter 键盘交互流', () => {
 
   test('Enter 1 → 协议通知窗打开(中文翻译生效,无 i18n key 泄漏)', async ({ page }) => {
     // 1. 打开登录弹窗
-    const loginBtn = page.getByRole('button', { name: /登录/ }).first()
-    await loginBtn.click()
+    await ensureLoginDialogOpen(page)
 
     // 等待 dialog 渲染
     const dialog = page.getByTestId('login-dialog')
@@ -108,7 +108,7 @@ test.describe('登录弹窗 3 步 Enter 键盘交互流', () => {
 
   test('Enter 2 → 通知窗内 Enter 触发同意(勾选复选框 + 关闭通知窗)', async ({ page }) => {
     // 打开弹窗 + 切到 email tab
-    await page.getByRole('button', { name: /登录/ }).first().click()
+    await ensureLoginDialogOpen(page)
     await expect(page.getByTestId('login-dialog')).toBeVisible({ timeout: 5000 })
     await page.getByTestId('login-tab-email').click()
 
@@ -158,7 +158,7 @@ test.describe('登录弹窗 3 步 Enter 键盘交互流', () => {
     })
 
     // 打开弹窗 + 切到 email tab
-    await page.getByRole('button', { name: /登录/ }).first().click()
+    await ensureLoginDialogOpen(page)
     await expect(page.getByTestId('login-dialog')).toBeVisible({ timeout: 5000 })
     await page.getByTestId('login-tab-email').click()
 
@@ -187,7 +187,7 @@ test.describe('登录弹窗 3 步 Enter 键盘交互流', () => {
 
   test('通知窗 X 关闭按钮位置正确(在弹窗右上角,不在飘到外面)', async ({ page }) => {
     // 打开弹窗 + 切到 email tab
-    await page.getByRole('button', { name: /登录/ }).first().click()
+    await ensureLoginDialogOpen(page)
     await expect(page.getByTestId('login-dialog')).toBeVisible({ timeout: 5000 })
     await page.getByTestId('login-tab-email').click()
 
