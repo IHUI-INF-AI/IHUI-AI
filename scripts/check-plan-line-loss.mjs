@@ -96,6 +96,12 @@ function titleMarker(rest) {
  * `- [ ] O13b …` 裸编号,加粗正则看不见 —— 本会话 `e8d668ad77` 抹掉的第一条正是它。
  */
 const ID = String.raw`G-\d+[a-z]?|D\d+[a-z]?|O\d+[a-z]*\d*|B\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+|守门\s*\d+[a-z]?`
+/**
+ * 单一真相源出口(2026-09-26):`scripts/lib/plan-task-index.mjs` 按编号收敛任务状态时
+ * 必须用**同一族**编号 —— 两处各写一遍必然漂移,而漂移的形态是"一边判孪生、一边判真丢失"
+ * (AGENTS §12 与守门 118 记过同型)。此处导出,那边只在其上做"是否为主键位置"的收窄。
+ */
+export const TASK_ID_PATTERN = ID
 const ID_RE = new RegExp(`(${ID})`)
 /** 复选框与其后多层状态装饰(`（进行中）` / `✅(日期)`)一起剥掉,露出真正的内容开头 */
 function checkboxBody(line) {
