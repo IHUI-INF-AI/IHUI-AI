@@ -90,8 +90,8 @@ async function fetchCanaryErrorRate(): Promise<number> {
 
   try {
     // 本行目标 host 是 PROMETHEUS_URL(Prometheus 官方查询 API),不是本仓任何自家路由。
+    // route-declare-exempt: 打的是 Prometheus HTTP API(host=PROMETHEUS_URL),非本仓路由 until 2026-12-26
     const res = await fetch(`${prometheusUrl}/api/v1/query?query=${query}`, {
-      // route-declare-exempt: 打的是 Prometheus HTTP API(host=PROMETHEUS_URL),非本仓路由 until 2026-12-26
       signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) {
