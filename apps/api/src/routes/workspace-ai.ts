@@ -1388,7 +1388,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const { id } = idParam.parse(request.params)
     const deleted = personaRegistry.delete(id)
     if (!deleted) return reply.status(404).send(error(404, 'Persona 不存在或为内置'))
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted }))
   })
 
   // ===========================================================================
@@ -1449,7 +1449,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const { id } = idParam.parse(request.params)
     const deleted = routineManager.delete(id)
     if (!deleted) return reply.status(404).send(error(404, '例行程序不存在'))
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted }))
   })
 
   server.post('/routines/:id/trigger', async (request, reply) => {

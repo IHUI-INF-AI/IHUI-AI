@@ -10418,6 +10418,15 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "filePreviewEmpty": "The file has no data rows to preview.",
+    "filePreviewTypeMismatch": "File content does not match the {ext} format.",
+    "filePreviewCorrupt": "The file could not be parsed and may be corrupted.",
+    "budgetBar": {
+      "title": "Today's AI budget",
+      "critical": "nearly exhausted",
+      "tokens": "{used} of {limit} used",
+      "resetAt": "resets at {time}"
+    },
     "voiceNote": {
       "title": "Voice note",
       "phase": {
@@ -15338,6 +15347,32 @@
       "unified": "Unified"
     },
     "diffViewer": {
+      "copyMergedFailed": "Copy failed",
+      "copyMergedToast": "Merged result copied",
+      "copyMerged": "Copy merged result",
+      "mergedResult": "Merge result",
+      "unresolvedConflicts": "{count} blocks still need a source — no merge result yet",
+      "theirsOnlyCount": "{count} incoming-only changes",
+      "oursOnlyCount": "{count} current-only changes",
+      "conflictCount": "{count} conflicts",
+      "sideEmpty": "(no lines on this side)",
+      "conflictTitle": "Source needs your choice",
+      "autoTaken": "Auto:",
+      "useBoth": "Keep both",
+      "useTheirs": "Use incoming",
+      "useOurs": "Use current",
+      "bothSameLabel": "Same on both sides",
+      "theirsLabel": "Incoming",
+      "oursLabel": "Current",
+      "baseLabel": "Common ancestor",
+      "threeWayNoConflictSource": "Not conflicted: ancestor = HEAD, current = working tree, incoming = ancestor",
+      "threeWayFromStages": "From conflict index (stages 1/2/3)",
+      "threeWayView": "Three-way merge",
+      "collapseContext": "Collapse context",
+      "foldedLines": "{count} unchanged lines folded",
+      "viewMode": "View mode",
+      "newVersion": "New version",
+      "oldVersion": "Old version",
       "addPct": "{pct}% added",
       "changeBlocks": "{count} change blocks",
       "selectFile": "Select file",

@@ -324,8 +324,11 @@ export function registerCrud(
     try {
       const p = crudIdParamSchema.safeParse(request.params)
       if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
-      await db.delete(table).where(eq(table.id, p.data.id))
-      return reply.send(success({ id: p.data.id, deleted: true }))
+      const removed = await db
+        .delete(table)
+        .where(eq(table.id, p.data.id))
+        .returning({ id: table.id })
+      return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
     } catch (err) {
       server.log.error({ err }, 'registerCrud operation failed')
       return reply.status(500).send(error(500, '服务器内部错误'))

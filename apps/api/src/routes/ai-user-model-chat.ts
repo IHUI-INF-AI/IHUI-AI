@@ -349,8 +349,11 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '配置不存在'))
     if (existing.userId !== request.userId) return reply.status(403).send(error(403, '无权操作'))
-    await db.delete(zhsAiUserModelChatConfig).where(eq(zhsAiUserModelChatConfig.id, parsed.data.id))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    const removed = await db
+      .delete(zhsAiUserModelChatConfig)
+      .where(eq(zhsAiUserModelChatConfig.id, parsed.data.id))
+      .returning({ id: zhsAiUserModelChatConfig.id })
+    return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
   })
 
   server.post('/chat', async (request, reply) => {
