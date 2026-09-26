@@ -684,6 +684,21 @@ export type {
 /** 批次 29(2026-07-29):AI 主聊天 + 开发者入口(2 屏迁移自 mobile-rn) */
 export { ChatScreen } from './features/chat/ChatScreen'
 export { DeveloperScreen } from './features/developer/DeveloperScreen'
+/**
+ * D78 连接器授权卡(G-107):对话流内渲染件。五态/四动词与
+ * `apps/web/src/components/ai/connector-auth-card.tsx` 逐字同源,
+ * 对账由 `packages/app/tests/connector-auth-card.test.tsx` 钉死,勿单端扩表。
+ */
+export {
+  ConnectorAuthCard,
+  CONNECTOR_AUTH_STATES,
+  isConnectorAuthDecisionState,
+} from './features/chat/ConnectorAuthCard'
+export type {
+  ConnectorAuthCardProps,
+  ConnectorAuthState,
+  ConnectorAuthAction,
+} from './features/chat/ConnectorAuthCard'
 /** 批次 31(2026-08-15):静态信息屏(ICP/权限/规范/学习开发,4 屏迁移自 mobile-rn) */
 export { IcpRecordScreen } from './features/icp-record/IcpRecordScreen'
 export { AppPermissionScreen } from './features/app-permission/AppPermissionScreen'
