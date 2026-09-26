@@ -180,16 +180,24 @@ export function assertDataDirAllowed(candidate, repoRoot = REPO_ROOT) {
   const norm = (s) => String(s).replace(/[\\/]+$/g, '').toLowerCase()
   const lower = norm(p)
   const home = norm(process.env.USERPROFILE || process.env.HOME || '')
+  // **仓库内落点必须先判,再判家目录禁令**:Linux CI 的检出本身就在 $HOME 之下
+  // (/home/runner/work/IHUI-AI/IHUI-AI),先判 home 会把"仓库内 .ihui-agent/tmp/**"这个
+  // 明令允许的落点判成违规 ⇒ 该脚本在 CI 上恒失败,而它在开发机(仓在 D:、家在 C:)永远测不出这一型。
+  const projectTmp = norm(join(repoRoot, '.ihui-agent', 'tmp'))
+  const inProject = lower === projectTmp || lower.startsWith(`${projectTmp}/`) || lower.startsWith(`${projectTmp}\\`)
   if (/^[a-z]:[\\/]$/.test(`${lower}\\`)) throw new Error(`data dir ${p} 落在盘根 —— §15 禁止`)
   if (/^[a-z]:[\\/](temp|tmp)([\\/]|$)/.test(`${lower}\\`)) throw new Error(`data dir ${p} 落在 <盘根>\\temp|tmp —— §15 明令禁止`)
-  if (home && (lower === home || lower.startsWith(`${home}\\`) || lower.startsWith(`${home}/`))) {
+  if (inProject) return p
+  if (home && (lower === home || lower.startsWith(`${home}/`) || lower.startsWith(`${home}\\`))) {
     throw new Error(`data dir ${p} 落在用户家目录 —— §15/§26 禁止`)
   }
-  const projectTmp = norm(join(repoRoot, '.ihui-agent', 'tmp'))
-  const inProject = lower.startsWith(`${projectTmp}\\`) || lower.startsWith(`${projectTmp}/`)
-  const devEnvTemp = norm(`${driveOf(p)}:\\DevEnv\\Temp`)
-  const inDevEnvTemp = lower === devEnvTemp || lower.startsWith(`${devEnvTemp}\\`) || lower.startsWith(`${devEnvTemp}/`)
-  if (!inProject && !inDevEnvTemp) {
+  // DevEnv\Temp 是 Windows 专属落点:POSIX 下推不出盘符不是错误,而是"这一支不适用"⇒
+  // 不再让 driveOf 的抛错冒充"落点非法"(那会把 Linux 上合法的仓库内路径也一起打死)。
+  const drive = /^[a-zA-Z]:/.test(resolve(p)) ? driveOf(p) : ''
+  const devEnvTemp = drive ? norm(`${drive}:\\DevEnv\\Temp`) : ''
+  const inDevEnvTemp =
+    !!devEnvTemp && (lower === devEnvTemp || lower.startsWith(`${devEnvTemp}\\`) || lower.startsWith(`${devEnvTemp}/`))
+  if (!inDevEnvTemp) {
     throw new Error(`data dir ${p} 不在允许的两个落点之内(仓库内 .ihui-agent/tmp/** 或 <盘>:\\DevEnv\\Temp\\**)—— §15b 不新增第五个落点`)
   }
   return p
