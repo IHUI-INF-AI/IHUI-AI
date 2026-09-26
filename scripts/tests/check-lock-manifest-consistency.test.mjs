@@ -472,6 +472,10 @@ test('T20 单一取材出口:三处判据取材全走同一个 readFace,面外�
   assert.ok(end > start, 'makeFaceReader 之后找不到出口边界')
   const readerBlock = src.slice(start, end)
   const outside = src.slice(0, start) + src.slice(end)
+  // 形状锁一律比**空白归一化后**的文本:prettier 在 lint-staged 里会把长调用折行,
+  // 而"这条语句被折成三行"与"这一维判据有没有走层"毫无关系。按原文 match 的结果是
+  // 下一个碰这文件的提交(不是我)被一条与改动无关的形状红钉住 —— 那只会逼人绕钩子。
+  // 刻意不跨语句:归一化只压空白,不重排 token,所以"调用存在"这一判据仍然成立。
   // ①面外不得有任何直接读文件的路径(一半读盘一半读 git = 混面假绿)
   for (const call of ['readFileSync(', 'readdirSync(']) {
     const outBlock = outside.split('\n').filter((l) => l.includes(call) && !/^import /.test(l))
@@ -483,17 +487,18 @@ test('T20 单一取材出口:三处判据取材全走同一个 readFace,面外�
     .split('\n')
     .filter((l) => l.includes('readFileSync(') && !/^import /.test(l))
   assert.deepEqual(anyReadFile, [], '本门仍在自己 readFileSync —— 磁盘面应走层的 readWorktreeFile')
-  assert.match(readerBlock, /readWorktreeFile\(root, rel\)/, 'worktree 面未接层的 readWorktreeFile')
+  const flat = (t) => t.replace(/\s+/g, ' ')
+  assert.match(flat(readerBlock), /readWorktreeFile\(root, rel\)/, 'worktree 面未接层的 readWorktreeFile')
   assert.ok(
     readerBlock.split('\n').some((l) => l.includes('readdirSync(')),
     'readdirSync( 必须由 makeFaceReader 承担(worktree 面的 listDir)',
   )
   // 三个参与比对的文件都必须经 readFace 取,且 runCheck 显式带面参数
-  assert.match(src, /reader\.readFace\('pnpm-workspace\.yaml'\)/)
-  assert.match(src, /reader\.readFace\('pnpm-lock\.yaml'\)/)
-  assert.match(src, /reader\.readFace\(relPath\)/)
-  assert.match(src, /const reader = makeFaceReader\(face, root\)/)
-  assert.match(src, /export function runCheck\(root, face = 'worktree'\)/)
+  assert.match(flat(src), /reader\.readFace\('pnpm-workspace\.yaml'\)/)
+  assert.match(flat(src), /reader\.readFace\('pnpm-lock\.yaml'\)/)
+  assert.match(flat(src), /reader\.readFace\(relPath\)/)
+  assert.match(flat(src), /const reader = makeFaceReader\(face, root\)/)
+  assert.match(flat(src), /export function runCheck\(root, face = 'worktree'\)/)
   // ③git 派生三件套(绝对路径 git + safe.directory + windowsHide + 数字 timeout)只允许存在一份。
   //   收口前这条判据打在**本门**的 catBatch / gitExec 上;现在打在层上,同时反向钉住
   //   "本门一次都没自己派生 git" —— 比改前更严(改前门里有两处 execFileSync)。
@@ -505,28 +510,24 @@ test('T20 单一取材出口:三处判据取材全走同一个 readFace,面外�
   )
   assert.match(src, /from '\.\/lib\/face-reader\.mjs'/, '本门未 import 共用层')
   assert.match(
-    readerBlock,
+    flat(readerBlock),
     /gitRaw\(\['rev-parse', '--show-toplevel'\], root\)/,
     '仓库根未走层的 gitRaw',
   )
+  assert.match(flat(readerBlock), /sameDir\(top, root\)/, '仓库根比较未走层的 sameDir(junction 下会误判错位)')
   assert.match(
-    readerBlock,
-    /sameDir\(top, root\)/,
-    '仓库根比较未走层的 sameDir(junction 下会误判错位)',
-  )
-  assert.match(
-    readerBlock,
-    /catBatch\(root, need\.map/,
+    flat(readerBlock),
+    /catBatch\(\s*root,\s*need\.map/,
     '内容未走层的 cat-file batch(逐文件派生会打满进程)',
   )
   const layer = readFileSync(resolve(HERE, '..', 'lib', 'face-reader.mjs'), 'utf8')
   assert.match(
-    layer,
+    flat(layer),
     /resolveGitBin\(\) \|\| 'git'/,
     '层未用绝对路径 git(§5b:服务账户/GUI 宿主的 PATH 不通)',
   )
   assert.match(
-    layer,
+    flat(layer),
     /\['-c', 'safe\.directory=\*', '-c', 'core\.quotepath=false', '-C', root, \.\.\.args\]/,
   )
   const HAS_TIMEOUT = /timeout:\s*(?:opts\.timeout\s*\?\?\s*)?[A-Z_]+\b/
@@ -698,3 +699,52 @@ test('T24 --root 指到仓库子目录 ⇒ 显式"无法判定",绝不按错位�
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T25 R6 分区漂移:名字与值都对、只有依赖类型不一致 ⇒ 判红并点名两侧段(门 101 的原盲区)', () => {
+  const s = mkScratch('lmci-t25')
+  try {
+    const drift = gate.makeFixture(join(s, 'drift'), {
+      webPkg: { dependencies: { dayjs: '^1.11.0' } },
+      lock: gate.lockFrom({ devDependencies: { dayjs: '^1.11.0' } }),
+    })
+    const rd = gate.runCheck(drift)
+    assert.equal(rd.violations.length, 1)
+    assert.equal(rd.violations[0].kind, 'section-drift')
+    assert.equal(rd.violations[0].section, 'dependencies')
+    assert.equal(rd.violations[0].lockedIn, 'devDependencies')
+
+    const fixed = gate.makeFixture(join(s, 'fixed'), {
+      webPkg: { dependencies: { dayjs: '^1.11.0' } },
+      lock: gate.lockFrom({ dependencies: { dayjs: '^1.11.0' } }),
+    })
+    assert.deepEqual(gate.runCheck(fixed).violations, [])
+
+    // 反向锁:R5 的 peer 豁免不得被 R6 吃回来(pnpm 把 peer 记进 dev 段是文档化行为)
+    const peer = gate.makeFixture(join(s, 'peer'), {
+      webPkg: { peerDependencies: { react: '>=18.0.0' } },
+      lock: gate.lockFrom({ devDependencies: { react: '19.2.8' } }),
+    })
+    const rpeer = gate.runCheck(peer)
+    assert.deepEqual(rpeer.violations, [])
+    assert.equal(rpeer.peerExempted.length, 1)
+
+    // 判据必须真挂在 compareDeclarations 上,且报告面必须能把它说清楚(否则红点无人会修)
+    const src = readFileSync(SCRIPT, 'utf8')
+    assert.match(src, /kind: 'section-drift'/)
+    assert.match(src, /\[分区漂移\]/)
+  } finally {
+    rmScratch(s)
+  }
+})
+
+test('T26 R6 落地前置:真仓 HEAD 面必须 0 条跨段(这条红了就说明有人把分区债带进了仓)', () => {
+  const repoRoot = resolve(HERE, '..', '..')
+  const r = gate.runCheck(repoRoot, 'head')
+  if (r.undetermined) throw new Error(`真仓 HEAD 面判不出:${r.undetermined}`)
+  const drift = r.violations.filter((v) => v.kind === 'section-drift')
+  assert.deepEqual(
+    drift.map((v) => `${v.pkg} ${v.name} ${v.section}→${v.lockedIn}`),
+    [],
+    '分区漂移存量必须为零 ⇒ 本维可零容忍;非零即新债,须先把两侧摆回同一段',
+  )
+})
