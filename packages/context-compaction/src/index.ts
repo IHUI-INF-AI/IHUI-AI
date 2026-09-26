@@ -57,6 +57,105 @@ export const DEFAULT_MAX_TOKENS = 24_000
 /** 70% 阈值提醒(与 88% 强制压缩互补) */
 export const CONTEXT_BUDGET_THRESHOLD = 0.7
 
+// ==================== 压缩分母:共享窗口必须扣掉输出预留(P1)====================
+
+/**
+ * 输出预留的**封顶值**(tokens)。
+ *
+ * 为什么要扣:provider 的 context window 是 **input 与 output 共享的同一个窗口**。
+ * 若分母取窗口原值,阈值算的是"占满整个共享窗口的 88%",而同一窗口里模型**还要生成回复**
+ * ⇒ 故障形态:"压缩判过了还是 400 / context overflow",且越接近上限越容易炸,
+ * 现象极难归因到分母。
+ *
+ * 为什么必须封顶(而不是照抄模型的 maxOutputTokens):共享窗口只能让出**输入侧**,
+ * 各家 maxOutput 从 4K 到 64K 不等 —— 不封顶的话小窗口模型(8K / 32K)的分母会被吃到地板,
+ * 表现为每轮必压缩。8192 覆盖"一轮长回复 + 工具调用参数"的实际用量。
+ */
+export const MAX_OUTPUT_RESERVE_TOKENS = 8_192
+
+/** 调用方没提供 maxOutputTokens 时的保守预留(一轮典型 assistant 回复 + 工具参数) */
+export const DEFAULT_OUTPUT_RESERVE_TOKENS = 2_048
+
+export interface EffectiveContextWindowOptions {
+  /** provider 声明的共享上下文窗口(tokens) */
+  contextWindow: number
+  /** 本轮模型可用输出上限;缺省用 DEFAULT_OUTPUT_RESERVE_TOKENS */
+  maxOutputTokens?: number
+  /** 额外安全余量(估算误差等),默认 0 */
+  buffer?: number
+  /** 显式关闭预留 ⇒ 分母逐字等于 contextWindow(旧行为)。默认开 */
+  enabled?: boolean
+}
+
+/**
+ * 压缩分母的唯一出口:把共享窗口里"模型这一轮要用的输出预留"扣掉,返回可安全
+ * 当作 100% 的那个分母。
+ *
+ * 三条不变式(由 apps/cli 的 compaction 用例与守门共同看守):
+ *   1. **只会 ≤ contextWindow** —— 因此压缩只会**更早**触发,绝不会更晚(fail 向安全侧);
+ *   2. contextWindow <= 0 时原样返回该值(调用方的 `contextLimit > 0` 早退语义不变);
+ *   3. 分母为正时**至少返回 1** —— 预留把窗口吃满是"配置矛盾",不是"不用压缩"的理由;
+ *      返回地板值让判据走向"压",而不是静默变成永不触发。
+ */
+export function effectiveContextWindow(opts: EffectiveContextWindowOptions): number {
+  const contextWindow = opts.contextWindow
+  if (!Number.isFinite(contextWindow) || contextWindow <= 0) return contextWindow
+  if (opts.enabled === false) return contextWindow
+  const requested =
+    typeof opts.maxOutputTokens === 'number' &&
+    Number.isFinite(opts.maxOutputTokens) &&
+    opts.maxOutputTokens > 0
+      ? opts.maxOutputTokens
+      : DEFAULT_OUTPUT_RESERVE_TOKENS
+  const reserve = Math.min(requested, MAX_OUTPUT_RESERVE_TOKENS)
+  const buffer =
+    typeof opts.buffer === 'number' && Number.isFinite(opts.buffer) && opts.buffer > 0
+      ? opts.buffer
+      : 0
+  return Math.max(1, Math.min(contextWindow, Math.floor(contextWindow - reserve - buffer)))
+}
+
+// ==================== 压缩决策的闭集原因(P2)====================
+
+/**
+ * "为什么压 / 为什么没压"的机器可读答案 —— **声明式闭集**,消费方不得自由发挥字符串。
+ *
+ * 为什么立成闭集而不是一道门:判"有没有回答原因"结构上判不准(任何字符串都能占位),
+ * 为它立门只会逼人写一次空调用。所以这里用 TS union 钉死值域,由 `--self-test` /
+ * 单测断言"每条返回路径都落在这个集合里"。
+ *
+ * 语义(每条对应 compressContextV2 / ContextGuards 的一条真实返回路径):
+ *   - `disabled`          压缩链路被显式关闭(V2 feature flag 关 / 调用方 opts 关)
+ *   - `below-threshold`   占用率未达触发线,本轮无需压缩
+ *   - `above-threshold`   占用率已过触发线,本轮**确实**完成了压缩(含零模型请求的回收)
+ *   - `not-enough`        消息条数 / 可压部分体积不足,压不动也没意义
+ *   - `guard-rejected`    reductionGuard 判定摘要收益不达标而拒绝采用
+ *   - `circuit-breaker`   连续快速回填达上限,已熔断 ⇒ **不再发起压缩请求**
+ *   - `sampler-failed`    摘要请求本身失败(瞬态耗尽 / 4xx),含退化摘要
+ *   - `incompressible`    压到地板仍超触发线(system 本身巨大),返回原消息防循环
+ *   - `truncated`         常规摘要压不动,已改走内容截断降级
+ */
+export const COMPACTION_DECISION_REASONS = [
+  'disabled',
+  'below-threshold',
+  'above-threshold',
+  'not-enough',
+  'guard-rejected',
+  'circuit-breaker',
+  'sampler-failed',
+  'incompressible',
+  'truncated',
+] as const
+
+export type CompactionDecisionReason = (typeof COMPACTION_DECISION_REASONS)[number]
+
+/** 值域判定(消费方校验 / 单测用);非闭集取值一律 false */
+export function isCompactionDecisionReason(value: unknown): value is CompactionDecisionReason {
+  return (
+    typeof value === 'string' && (COMPACTION_DECISION_REASONS as readonly string[]).includes(value)
+  )
+}
+
 // 截断降级(truncate-fallback)常量:常规压缩无效时对最后一条消息做内容截断
 /** 截断保留的最小字符数(下限) */
 export const MIN_TRUNCATE_CHARS = 100
@@ -86,6 +185,17 @@ export interface CompressionResult {
   compressedTokens: number
   removedCount: number
   /**
+   * 本轮被**内容级截断**的消息条数(与 `removedCount` 不同维,不可互相代替):
+   *   - `removedCount` = 被折进摘要而移出上下文的**整条**消息数;
+   *   - `truncatedCount` = 原地把内容切短、**仍然存在**的消息数。
+   * 立因(A10B-8,2026-09-26):截断兜底路径在"只剩一个配对组"时 `removedCount` 恒为 0,
+   * 而内容确实被切过 —— 只靠 `trigger === 'truncated'` 判披露会把"已省略 0 条"这种
+   * 自相矛盾的话念出来,把它当唯一判据改成"整句不显示"又是从说谎退成沉默。
+   * 这个字段就是"这一轮到底截断了多少"的独立事实,消费侧据此决定报量还是只报"已截断"。
+   * 可选 ⇒ 旧调用方与旧帧零改动(缺席读作"未知",不读作 0)。
+   */
+  truncatedCount?: number
+  /**
    * 压缩触发方式:
    *   - 'ratio':百分比阈值触发并压缩成功
    *   - 'absolute':绝对值阈值触发并压缩成功
@@ -96,6 +206,12 @@ export interface CompressionResult {
    *     (没花一次摘要调用,见 src/reclaim.ts)
    */
   trigger?: 'ratio' | 'absolute' | 'none' | 'truncated' | 'incompressible' | 'reclaim'
+  /**
+   * 本次决策的闭集原因("为什么压 / 为什么没压")。与 `trigger` 不重叠:
+   * `trigger` 只说触发方式,`reason` 说**决策依据**,未压时也必须能回答。
+   * 值域见 `COMPACTION_DECISION_REASONS`。可选 ⇒ 既有调用方零改动。
+   */
+  reason?: CompactionDecisionReason
   usageRatio?: number
 }
 
@@ -356,6 +472,10 @@ function tryTruncateFallback(
     originalTokens,
     compressedTokens: tokens,
     removedCount: toCompressAll.length,
+    // 本路径**必然**切了最后一条消息的内容(上面 truncatedCopy 就地改写了 keptGroup[truncateIdx]),
+    // 而 removedCount 在"只剩一个配对组"时是 0 ⇒ 披露侧拿它当唯一判据就会整句沉默。
+    // 这一格就是那一轮的真实截断量:1 条被截断(与 toCompressAll 是否为空无关)。
+    truncatedCount: 1,
     trigger: 'truncated',
     usageRatio,
   }
@@ -517,6 +637,8 @@ export function compressContext(
     originalTokens,
     compressedTokens,
     removedCount: toCompress.length,
+    // 摘要压缩路径不切任何人的内容:显式填 0,消费侧因此能把"0"读成事实而非未知
+    truncatedCount: 0,
     trigger: 'absolute',
   }
 }
@@ -607,6 +729,8 @@ export function compressContextIfNeeded(
         originalTokens,
         compressedTokens: candidateTokens,
         removedCount: toCompress.length,
+        // 摘要压缩路径不切任何人的内容:显式填 0,消费侧因此能把"0"读成事实而非未知
+        truncatedCount: 0,
         trigger: 'ratio',
         usageRatio,
       }
@@ -620,6 +744,8 @@ export function compressContextIfNeeded(
         originalTokens,
         compressedTokens: candidateTokens,
         removedCount: toCompress.length,
+        // 摘要压缩路径不切任何人的内容:显式填 0,消费侧因此能把"0"读成事实而非未知
+        truncatedCount: 0,
         trigger: 'ratio',
         usageRatio,
       }
@@ -646,6 +772,8 @@ export function compressContextIfNeeded(
       originalTokens,
       compressedTokens: candidateTokens,
       removedCount: nonSystem.length,
+      // 极端兜底同样是"整条折进摘要",没有内容级截断 ⇒ 0
+      truncatedCount: 0,
       trigger: 'ratio',
       usageRatio,
     }

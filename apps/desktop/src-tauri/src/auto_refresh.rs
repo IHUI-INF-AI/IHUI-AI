@@ -253,6 +253,12 @@ pub fn start(app: tauri::AppHandle) {
                     );
                 });
             } else {
+                // 2026-09-26 补(A10C-1 已知窗口):整页导航前必须复位深链闸门 ——
+                // 重载期间渲染端不存在,未复位则此窗口期抵达的 ihui:// 链接会被直投给
+                // 没有监听者的 webview 而静默消失(冷启动丢码同型)。就绪由新页面注册
+                // 监听后调 take_pending_deep_links 重新点亮;复位调用点的对账判据见
+                // lib.rs 测试「导航发起处无一例外必须先复位闸门」+ 守门 G 组。
+                crate::reset_deep_link_gate_for_navigation("main");
                 let _ = w.eval(&format!("location.href={}", js_string(OFFLINE_URL)));
                 let _ = w.set_title(&format!(
                     "{} · 离线,自动重连中",
@@ -290,6 +296,8 @@ pub fn start(app: tauri::AppHandle) {
                             .ok()
                             .map(|u| u.to_string())
                             .filter(|u| is_resumable_url(u));
+                        // 导航前复位深链闸门(同启动离线处,调用点对账见 lib.rs 测试)
+                        crate::reset_deep_link_gate_for_navigation("main");
                         let _ = w.eval(&format!("location.href={}", js_string(OFFLINE_URL)));
                         let _ = w.set_title(&format!(
                             "{} · 离线,自动重连中",
@@ -317,6 +325,8 @@ pub fn start(app: tauri::AppHandle) {
                         .unwrap_or_else(|| FRONTEND_URL.to_string());
                     log::info!("[auto-refresh] 恢复目标: {target}");
                     if let Some(w) = app.get_webview_window("main") {
+                        // 导航前复位深链闸门(调用点对账见 lib.rs 测试)
+                        crate::reset_deep_link_gate_for_navigation("main");
                         let _ = w.eval(&format!("location.href={}", js_string(&target)));
                         let _ = w.set_title(&crate::localized_app_name());
                     }
@@ -334,6 +344,8 @@ pub fn start(app: tauri::AppHandle) {
                         pending_reload = false;
                         log::info!("[auto-refresh] 窗口已失焦 → 执行挂起的热刷新");
                         if let Some(w) = app.get_webview_window("main") {
+                            // reload 前复位深链闸门(调用点对账见 lib.rs 测试)
+                            crate::reset_deep_link_gate_for_navigation("main");
                             let _ = w.eval("location.reload()");
                         }
                     }
@@ -360,6 +372,8 @@ pub fn start(app: tauri::AppHandle) {
                                 log::info!("[auto-refresh] 窗口聚焦中,热刷新挂起待失焦");
                             } else {
                                 if let Some(w) = app.get_webview_window("main") {
+                                    // reload 前复位深链闸门(调用点对账见 lib.rs 测试)
+                                    crate::reset_deep_link_gate_for_navigation("main");
                                     let _ = w.eval("location.reload()");
                                     notify(
                                         &app,
