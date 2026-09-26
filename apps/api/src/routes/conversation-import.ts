@@ -32,6 +32,7 @@ import { chatConversations, chatMessages, conversationImports } from '@ihui/data
 
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
+import { withTurnOrdinals } from '../services/turn-ordinal.js'
 import { success, error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 
@@ -189,8 +190,13 @@ export const conversationImportRoutes: FastifyPluginAsync = async (server) => {
             .returning({ id: chatConversations.id })
           if (!conversation) throw new Error('会话创建失败')
 
+          // D35(2026-09-26 第二段):导入的会话必须带 turn 序号落库 —— 本路径绕过
+          // chat-queries 直插,不补就是 NULL,而 turn 分片端点对 NULL 行不可见,
+          // 用户侧表现是"导入成功的会话翻不到历史"且全程无报错。
+          // 规则取 services/turn-ordinal 唯一出口(按提交数组顺序,user 开启新轮)。
+          const orderedMessages = withTurnOrdinals(data.messages)
           await tx.insert(chatMessages).values(
-            data.messages.map((m, i) => ({
+            orderedMessages.map((m, i) => ({
               conversationId: conversation.id,
               role: m.role,
               content: m.content,
@@ -198,6 +204,7 @@ export const conversationImportRoutes: FastifyPluginAsync = async (server) => {
               tokens: m.tokens ?? null,
               // 原始时间戳(缺省回退会话创建时间)
               createdAt: messageTimestamps[i]!,
+              turnOrdinal: m.turnOrdinal,
             })),
           )
           return conversation.id
