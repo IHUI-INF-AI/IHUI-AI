@@ -37,6 +37,9 @@
  *   CL1 租约过期(年龄 > 阈值,默认 72h)→ 点名行号+持有者+年龄;
  *   CL2 有 @日期 而无 /持有者(半个租约比没有租约更危险)→ 红;
  *   CL3 同一行**在勾选框位置**同时出现 `[x]` 与租约形态 `（进行中@…）`(清账方向矛盾)→ 红;
+ *     2026-09-26 起套 **HEAD 自身存量**做棘轮锚点(HEAD 里那批残留是归并器修好前种下的
+ *     机械垃圾,逐条带 `**[归并]**` 出处;生产者侧已收口并有变异对照)。不套手工豁免清单 ——
+ *     锚点会随清偿自己收紧。`--worktree` / `--plan` 两条人工与取证面**不套**,仍全量判。
  *     `[x]` 只算勾选框,不算正文叙述 —— 2026-09-26 实测:用 `**[x] 已落**` 叙述子票进度的
  *     在途行曾被判成矛盾,而那行租约归别的会话持有 ⇒ 恒红面由判据自己造出来(详见该函数注释)。
  *   **向后兼容第一位**:旧的裸 `（进行中）` 一律只计数不判红 —— 落地当天把全仓既有
@@ -181,7 +184,8 @@ function findContradictions(content) {
     if (!/^- \[[xX]\]/.test(t)) continue
     const markers = t.match(/（进行中[^）]*）/g) ?? []
     const hasLeaseForm = markers.some((mk) => mk !== '（进行中）')
-    if (hasLeaseForm) out.push({ line: i + 1, text: t.slice(0, 120) })
+    if (hasLeaseForm)
+      out.push({ line: i + 1, text: t.slice(0, 120), key: t })
     else legacyContradictions++
   }
   return { contradictions: out, legacyContradictions }
@@ -204,18 +208,53 @@ function resolveTtlHours(flagValue, envValue) {
 
 /**
  * 汇总租约判据结果。violations 非空即 gate 判红。绝不改动任何文件(只判红只点名)。
+ *
+ * `cl3Stock` 是 CL3 的**棘轮锚点**(= 同一份文档在 HEAD 自身的矛盾行**行文本多重集**),不是豁免清单:
+ * 那批行是归并工具在 2026-09-26 修好之前种进 HEAD 的机械残留(逐条都带 `**[归并]**` 出处标记),
+ * 生产者侧已收口并有变异对照钉住。而 PROJECT_PLAN.md 是本门的 stagedTriggers 文件,
+ * 照字面判红就是**每一次提交计划文档都被拦**,而门又"绝不自动摘除别人的认领" ⇒ 出路只剩跳门,
+ * 一次绕过连带废掉全部守门(§12e 那条本仓最高反面教训)。锚点取 HEAD 自身而不是手工清单,
+ * 是为了让它**只会自己收紧**:谁把残留清进 HEAD,下一次的红线就跟着降。
+ * `cl3Stock === undefined` ⇒ 不套棘轮(人工/取证面),`null` ⇒ 锚点取不到,判"未判定"而非通过。
  */
-function checkLeaseGate(content, { nowMs, ttlHours }) {
+function checkLeaseGate(content, { nowMs, ttlHours, cl3Stock }) {
   const { inProgress } = scanTasks(content)
   const { stale, missingHolder, counts } = analyzeLeases(inProgress, { nowMs, ttlHours })
   const { contradictions, legacyContradictions } = findContradictions(content)
+  const useRatchet = Array.isArray(cl3Stock)
+  const anchorUnknown = cl3Stock === null
+  /**
+   * 存量按**行文本多重集**认领,不按"前 N 条"切。计数式棘轮在这里是错的:新塞进文档前面的
+   * 一颗矛盾会把后面某颗旧残留顶进"存量名额",于是**新增的那颗被洗成存量、谁也不会红** ——
+   * 镜像测试 T17 正是这样抓到第一版实现的。多重集认领让"存量"与"新增"互不替换:
+   * 残留吃掉与自己同文的额度,新文案一律落进 fresh。
+   */
+  const stockLeft = new Map()
+  if (useRatchet) for (const k of cl3Stock) stockLeft.set(k, (stockLeft.get(k) || 0) + 1)
+  const cl3StockRows = []
+  const cl3NewRows = []
+  for (const v of contradictions) {
+    const n = useRatchet ? stockLeft.get(v.key) || 0 : 0
+    if (n > 0) {
+      stockLeft.set(v.key, n - 1)
+      cl3StockRows.push(v)
+    } else cl3NewRows.push(v)
+  }
   const violations = [
     ...stale.map((v) => ({ kind: 'CL1', ...v })),
     ...missingHolder.map((v) => ({ kind: 'CL2', ...v })),
-    ...contradictions.map((v) => ({ kind: 'CL3', ...v })),
+    ...cl3NewRows.map((v) => ({ kind: 'CL3', ...v })),
   ]
   return {
     violations,
+    cl3: {
+      total: contradictions.length,
+      stock: cl3StockRows.length,
+      fresh: cl3NewRows.length,
+      // 锚点取不到 ⇒ 本轮 CL3 **未判定**(既不放行也不判红),由调用方喊出来
+      anchorApplied: useRatchet,
+      anchorUnknown,
+    },
     summary: {
       inProgress: inProgress.length,
       stale: stale.length,
@@ -480,8 +519,8 @@ function claimDisplaySuffix(row) {
   return '  【标记形态不可辨】'
 }
 
-function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel }) {
-  const gate = checkLeaseGate(content, { nowMs, ttlHours })
+function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel, cl3Stock }) {
+  const gate = checkLeaseGate(content, { nowMs, ttlHours, cl3Stock })
   if (flags.has('--json')) {
     console.log(
       JSON.stringify(
@@ -492,6 +531,7 @@ function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel })
           // 判定面必须进 JSON(镜像测试靠它断"读的是哪一面",而人类末行只对文本输出负责)
           face: faceLabel,
           leases: gate.summary,
+          cl3: gate.cl3,
           violations: gate.violations,
         },
         null,
@@ -522,6 +562,22 @@ function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel })
     console.log(
       `  报数(不判红):旧格式 ${gate.summary.legacy} · 形态不可辨 ${gate.summary.unknown} · 有持有者无日期 ${gate.summary.holderNoDate} · 裸标记×[x] 矛盾行 ${gate.summary.legacyContradictions}(存量翻勾未摘牌,归各行持有者清账)`,
     )
+    /**
+     * CL3 的锚点三态必须分开说,不得都写成"通过":
+     *  套了棘轮 ⇒ 报"存量 N 只报数 / 新增 M 判红";没套(人工/取证面)⇒ 报"本轮未套棘轮";
+     *  锚点取不到 ⇒ 报"**未判定**"。把"看不见"写成"没问题"是本仓反复登记过的那一类失效。
+     */
+    if (gate.cl3.anchorUnknown) {
+      console.log(
+        `  ⚠️ CL3 **未判定**:HEAD 版 ${PLAN_REL} 取不到 ⇒ 没有棘轮锚点。矛盾行逐条列出(共 ${gate.cl3.total} 处)但本轮不据此判红,也不记为通过。`,
+      )
+    } else if (gate.cl3.anchorApplied) {
+      console.log(
+        `  CL3 棘轮:锚点 = HEAD 自身的矛盾行(按行文本认领,换个文案就落进新增)⇒ 本轮存量 ${gate.cl3.stock} 处只报数、新增 ${gate.cl3.fresh} 处判红(残留生产者已在 2026-09-26 收口:归并器翻勾前先摘牌)`,
+      )
+    } else {
+      console.log(`  CL3 本轮未套棘轮(人工/取证面,全量判)：矛盾行 ${gate.cl3.total} 处`)
+    }
     console.log(`  判定面:${faceLabel}`)
   }
   process.exitCode = gate.violations.length > 0 ? 1 : 0
@@ -641,6 +697,47 @@ function selfTest(realNow = Date.now()) {
     eq(resolveTtlHours(null, 'abc').ttlHours, DEFAULT_TTL_HOURS)
     eq(resolveTtlHours(null, 'abc').warn, true, '坏 env 必须带警告,不得静默回落')
   })
+  // S14 CL3 棘轮三态:同文存量只报数 / 换文案判红 / 锚点取不到判"未判定"而非通过
+  check('S14 CL3 按 HEAD 存量套棘轮:存量放过、新增判红、锚点取不到不记绿', () => {
+    const two = '- [x]（进行中@2026-09-25/a）甲\n- [x]（进行中@2026-09-25/b）乙\n'
+    const keys = findContradictions(two).contradictions.map((v) => v.key)
+    eq(keys.length, 2, '夹具本身就该含两处矛盾')
+    // 锚点含两处 ⇒ 都算存量,只报数不判红(这正是 HEAD 现在的情形:归并器修好前的机械残留)
+    eq(
+      checkLeaseGate(two, { nowMs: NOW, ttlHours: 72, cl3Stock: keys }).violations.length,
+      0,
+      '存量应放过',
+    )
+    const g3 = checkLeaseGate(two, { nowMs: NOW, ttlHours: 72, cl3Stock: [keys[0]] })
+    eq(g3.violations.length, 1, '换了文案的一处必须判红')
+    eq(g3.violations[0].kind, 'CL3')
+    eq(g3.cl3.stock, 1, '存量计数错位')
+    eq(g3.cl3.fresh, 1, '新增计数错位')
+    // 锚点取不到 ⇒ 不判红**也不得记为通过**:必须显式标 anchorUnknown
+    const u = checkLeaseGate(two, { nowMs: NOW, ttlHours: 72, cl3Stock: null })
+    eq(u.cl3.anchorUnknown, true, '锚点取不到必须标未判定')
+    eq(u.cl3.anchorApplied, false, '未判定不得被读成"套过棘轮"')
+    eq(u.cl3.total, 2, '未判定时仍要把矛盾行数量报出来,不能静默')
+    // 不套棘轮(人工/取证面)⇒ 全量判红
+    eq(checkLeaseGate(two, { nowMs: NOW, ttlHours: 72 }).violations.length, 2, '取证面必须全量判')
+  })
+  // S15 存量必须按行文本认领,不得按"前 N 条"切(镜像测试 T17 抓到过计数式切法的替换漏洞)
+  check('S15 棘轮按同文认领:新增的一颗不能顶掉旧残留的名额', () => {
+    const three =
+      '- [x]（进行中@2026-09-25/a）甲\n- [x]（进行中@2026-09-25/b）乙\n- [x]（进行中@2026-09-25/c）丙\n'
+    const ks = findContradictions(three).contradictions.map((v) => v.key)
+    eq(checkLeaseGate(three, { nowMs: NOW, ttlHours: 72, cl3Stock: [] }).violations.length, 3, '锚点空 ⇒ 全红')
+    eq(
+      checkLeaseGate(three, { nowMs: NOW, ttlHours: 72, cl3Stock: ks }).violations.length,
+      0,
+      '锚点覆盖全部 ⇒ 全存量',
+    )
+    // 关键反例:锚点只有 乙/丙 两颗(数量=2,少于本轮 3 颗)。按"前 N 条"切 ⇒ 判红的是**丙**
+    // (旧残留被算成新增)而新塞进来的甲得绿 —— 方向完全反了。按同文认领 ⇒ 红的必须是甲。
+    const g = checkLeaseGate(three, { nowMs: NOW, ttlHours: 72, cl3Stock: [ks[1], ks[2]] })
+    eq(g.violations.length, 1, '只该新增的那一颗红')
+    eq(g.violations[0].text.includes('甲'), true, '红的必须是锚点里没有的甲,不能是旧残留')
+  })
   // S11 三态向后兼容:旧输出字段一个不少
   check('S11 scanTasks 三态字段向后兼容', () => {
     const s = scanTasks(
@@ -703,6 +800,7 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   const planPath = parsed.plan ? resolve(process.cwd(), parsed.plan) : PLAN_PATH
   let content
   let faceLabel
+  let planFace = null
   if (parsed.plan) {
     // 注入通道:读的就是那个磁盘文件本身(取证夹具的唯一合法形态,见文件头判定面一节)。
     try {
@@ -714,6 +812,7 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
       process.exit(2)
     }
     faceLabel = `${PLAN_FACE_LABEL.plan} ${parsed.plan}`
+    planFace = 'plan'
   } else {
     const picked = pickPlanFace(parsed.flags)
     if (picked.error) {
@@ -727,6 +826,7 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
     }
     content = read.content
     faceLabel = PLAN_FACE_LABEL[picked.face]
+    planFace = picked.face
   }
   const ttl = resolveTtlHours(parsed.ttlHours, process.env[TTL_ENV])
   if (ttl.warn) console.warn(`⚠ ${ttl.source}`)
@@ -734,11 +834,25 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   const { counts: leaseCounts } = analyzeLeases(inProgress, { nowMs, ttlHours: ttl.ttlHours })
 
   if (parsed.flags.has('--check-gate')) {
+    /**
+     * CL3 棘轮锚点。`head` 面**直接用本轮已读到的那份内容**取,而不是另开一次 `HEAD:` 读 ——
+     * 那等于拿被审判的内容当它自己的对照基准:内容里多出几颗矛盾行,锚点会跟着一起涨,
+     * 棘轮当场变成一台"永远追不上"的尺子(镜像测试 T17 抓到的是另一型:按"前 N 条"切存量
+     * 会让新增的那颗顶掉一颗旧残留的名额,两者都得绿)。
+     * `index` 面才需要真读 HEAD;读不到 ⇒ 传 null,门会喊"未判定"而不是冒绿。
+     */
+    let cl3Stock
+    if (planFace === 'head') cl3Stock = findContradictions(content).contradictions.map((v) => v.key)
+    else if (planFace === 'index') {
+      const h = readPlanOnFace('head')
+      cl3Stock = h.error ? null : findContradictions(h.content).contradictions.map((v) => v.key)
+    } else cl3Stock = undefined
     runCheckGate(parsed.flags, content, {
       nowMs,
       ttlHours: ttl.ttlHours,
       ttlSource: ttl.source,
       faceLabel,
+      cl3Stock,
     })
     return
   }
