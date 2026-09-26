@@ -47,17 +47,34 @@
  *         "只从 HEAD 取基线"天然保证。
  *
  * 用法:
- *   node scripts/check-plan-line-loss.mjs --staged   # pre-commit:比对暂存区内容
- *   node scripts/check-plan-line-loss.mjs            # 手动:比对工作区内容
+ *   node scripts/check-plan-line-loss.mjs --staged    # pre-commit:审**索引 blob**(提交链真正带走的那份)
+ *   node scripts/check-plan-line-loss.mjs             # 手动/审计:审 **HEAD blob**(工作树完全不进判据)
+ *   node scripts/check-plan-line-loss.mjs --worktree  # 人工逃生舱:只有带这面旗才按磁盘副本判
  *   node scripts/check-plan-line-loss.mjs --self-test
- * 退出码:0 通过 / 1 检出丢失 / 2 用法或读取失败
+ * 退出码:0 通过 / 1 检出丢失 / 2 用法错(两面旗同给)或被审面取不到(**无法判定**)
  * 紧急跳过:HUSKY_SKIP_PLAN_LINE_LOSS=1 git commit ...(会把丢失写进历史,先确认为何丢)
+ *
+ * ── 全量档为什么不得读工作树(2026-09-26 收口,与守门 77/83/94/98/103/118/36/124 同一口径)──────
+ * 本仓是多会话共享工作区,`PROJECT_PLAN.md` 的工作树副本**常年滞后/分叉于 HEAD**(AGENTS §12 与
+ * 守门 84「一条本门看不见的时间窗」那格都记过同型事实)。旧实现在全量档把"待提交内容"取成磁盘副本,
+ * 于是它回答的是一个没人问过的问题 ——「我的工作树比 HEAD 少了哪几行登记」,后果有两个:
+ *   ① 门在**与任何提交都无关**的状态上报红(缺的是别人那份在飞的副本,HEAD 里那行明明还在);
+ *   ② 它给的出路是"从 HEAD 逐行取回后再提交",照做就是把别人未提交的工作树内容整批覆盖掉(§12 禁止动作)。
+ * 恒红门的唯一实际结局是逼人 `--no-verify`,一次绕过等于全部 150+ 道守门对该提交作废(§12e 同型)。
+ * 现行三面判据:`--staged` = 索引 vs HEAD(语义一字未动) · 缺省 = **HEAD blob** 对**最近历史里出现过的
+ * 登记行**(基线换成 `historyMarkers()`,与 `--heal` 共用同一把尺子 `missingFrom`) · `--worktree` = 人工。
+ * 归档豁免(§1 归档 = 正当移除)**跟着被审面**判,不新开磁盘读法(G-183 那条纪律在新面上继续成立:
+ * 只躺在本机磁盘、从未入库的归档副本不构成删行凭据)。
+ * `--heal` 一层**刻意不收口**:自愈的职责就是看得见工作树,故它继续"工作区与 HEAD 分别判缺失",
+ * 只在输出上把两档结论分开说清。
  */
 import { execFileSync, spawn } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { catBatch, gitRaw } from './lib/face-reader.mjs'
+import { catBatch, FACE_LABEL, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+// 取证夹具唯一落点(§26:既不得往 os.tmpdir() 写,也不得落在仓库树内)
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const GIT_TIMEOUT = 60000
 const GIT = process.env.IHUI_GIT_BIN || 'git'
@@ -386,28 +403,57 @@ function readSpecOrNull(spec) {
 }
 
 /**
- * 纯选择(自检据此**构造**"索引面 ≠ 磁盘面"的现场,不依赖真仓瞬时状态):
- * staged 模式必须取索引 blob —— 那才是这次提交真正带走的一份;缺省取工作区文本(本门既有口径)。
+ * 纯选择(自检据此**构造**"索引面 ≠ HEAD 面 ≠ 磁盘面"的现场,不依赖真仓瞬时状态):
+ *  - `staged`  取索引 blob —— 那才是这次提交真正带走的一份;
+ *  - `head`    取 HEAD blob —— 全量档的**唯一**被审面;
+ *  - `worktree` 取磁盘副本 —— 只作人工排查,绝不默认。
+ *
+ * 为什么全量档不得读磁盘(2026-09-26 收口,与守门 77/83/94/118 同一口径):本仓是多会话
+ * 共享工作区,工作树副本常年滞后/分叉于 HEAD。旧实现在全量档把"待提交内容"取成磁盘副本,
+ * 于是它回答的是"我的工作树比 HEAD 少了哪几行" —— 一道**与任何提交都无关**的红,
+ * 而它给的出路("从 HEAD 逐行取回后再提交")照做就是覆盖别人未提交的在飞内容(§12 禁止动作)。
+ * 实测:HEAD 里 `^- [ ] \*\*守门 128` 计数为 1,该档却 rc=1。恒红门的结局永远是 `--no-verify`。
  */
-export function pickPlanContent({ isStaged, readIndex, readDisk }) {
-  return isStaged ? readIndex(PLAN) : readDisk(PLAN)
+export function pickPlanContent({ face, readIndex, readHead, readDisk }) {
+  if (face === 'staged') return readIndex(PLAN)
+  if (face === 'worktree') return readDisk(PLAN)
+  return readHead(PLAN)
 }
 
-function candidateContent(isStaged) {
+function candidateContent(face) {
   return pickPlanContent({
-    isStaged,
+    face,
     // 暂存区里没有该文件(本次不改计划文档)→ 返回 null,调用方据此无需比对
     readIndex: () => readSpecOrNull(`:${PLAN}`),
-    readDisk: () => readFileSync(path.join(ROOT, PLAN), 'utf8'),
+    readHead: () => readSpecOrNull(`HEAD:${PLAN}`),
+    readDisk: () => (existsSync(path.join(ROOT, PLAN)) ? readFileSync(path.join(ROOT, PLAN), 'utf8') : null),
   })
 }
 
-export function runCheck(isStaged) {
-  const baseline = readSpec(`HEAD:${PLAN}`)
-  const candidate = candidateContent(isStaged)
-  if (candidate === null) return { ok: true, lost: [] }
-  const lost = dropArchivedLost(lostMarkers(baseline, candidate), archiveExemptFor(isStaged))
-  return { ok: lost.length === 0, lost, prose: proseLossReport(baseline, candidate) }
+export function runCheck(isStaged, faceOverride) {
+  const face = isStaged ? 'staged' : faceOverride || 'head'
+  const candidate = candidateContent(face)
+  if (candidate === null) {
+    if (face === 'head') throw new Error(`HEAD 面取不到 ${PLAN}(无提交 / 浅克隆 / git 失败)—— 无法判定`)
+    return { ok: true, lost: [], face }
+  }
+  let lost
+  if (face === 'staged') {
+    const baseline = readSpec(`HEAD:${PLAN}`)
+    // 归档豁免必须绑**当次判定面**(镜像测试里那条反向锁):staged ⇒ 索引,head/worktree ⇒ HEAD 树
+    lost = dropArchivedLost(lostMarkers(baseline, candidate), archiveExemptFor(isStaged))
+  } else {
+    // 全量档问的是本来那个问题:**最近历史里已入库的登记行,在被审面上是否仍在**
+    // (与 --heal 共用同一把尺子 missingFrom,不另写一份判据;豁免面同样是当次面)
+    lost = missingFrom(historyMarkers(), candidate, archiveExemptFor(isStaged))
+  }
+  return {
+    ok: lost.length === 0,
+    lost,
+    face,
+    // 叙述行差值仍拿"磁盘 vs HEAD"量,**只报数**:它是"你工作树滞后"的信号,不是判红依据
+    prose: proseLossReport(readSpec(`HEAD:${PLAN}`), candidateContent('worktree') ?? ''),
+  }
 }
 
 /**
@@ -658,6 +704,25 @@ function selfTest() {
   ].join('\n')
   const cases = []
   const t = (name, fn) => cases.push({ name, pass: !!fn() })
+
+  /**
+   * 取材面判据只能用**纯函数 + 构造面**证明(守门 103 的那条教训:依赖仓库瞬时状态的断言
+   * 会在下一轮变成假账)。这里把 readDisk 写成"一被调用就抛",就是为了把"全量档偷偷读磁盘"
+   * 这一型钉成必然红 —— 旧实现恰好在这一支上恒红(它默认读磁盘)。
+   */
+  const boom = (what) => () => {
+    throw new Error(`不该读${what}`)
+  }
+  t('全量档必须取 HEAD blob,且结构上不许碰磁盘', () => {
+    const got = pickPlanContent({ face: 'head', readIndex: boom('索引'), readHead: () => 'HEAD面', readDisk: boom('磁盘') })
+    return got === 'HEAD面'
+  })
+  t('暂存档必须取索引 blob(提交链真用到的那份)', () =>
+    pickPlanContent({ face: 'staged', readIndex: () => '索引面', readHead: boom('HEAD'), readDisk: boom('磁盘') }) === '索引面')
+  t('只有显式 --worktree 才允许读磁盘副本', () =>
+    pickPlanContent({ face: 'worktree', readIndex: boom('索引'), readHead: boom('HEAD'), readDisk: () => '磁盘面' }) === '磁盘面')
+  t('face 缺失(旧调用形态)不得回落到磁盘 —— 回落等于把"没判"写成"判过了"', () =>
+    pickPlanContent({ readIndex: boom('索引'), readHead: () => 'HEAD面', readDisk: boom('磁盘') }) === 'HEAD面')
 
   t('登记行被删除 → 报两条', () => {
     const cand = base.replace(/ {2}- \*\*G-166[^\n]*\n/, '').replace(/ {2}- \*\*D107b[^\n]*\n/, '')
@@ -1341,8 +1406,25 @@ if (isDirectRun) {
   // 那就是最坏的一种绿 —— 门没跑,却以门的名义宣布通过。
   guardWiring(true)
   const isStaged = args.includes('--staged')
+  const useWorktree = args.includes('--worktree')
+  /**
+   * 两面旗同时给 ⇒ 判死,不猜优先级,也**不回落**到另一个面。
+   * (回落就是把"没判"写成"判过了"—— 守门 124 的 mobile-rn 那条收口记过同一型。)
+   */
+  if (isStaged && useWorktree) {
+    console.error('❌ [plan-line-loss] --staged 与 --worktree 同时给出:两面判据相互矛盾,拒绝判定')
+    process.exit(2)
+  }
+  const face = isStaged ? 'staged' : useWorktree ? 'worktree' : 'head'
+  if (face === 'worktree') {
+    console.warn(
+      '⚠️ [plan-line-loss] 你在审**工作树磁盘副本**:这里报出的红点与任何提交都无关,\n' +
+        '   缺的行多半在 HEAD 里(`git show HEAD:PROJECT_PLAN.md | grep -c ...` 自证)。\n' +
+        '   **不要照下面的 1) 去"从 HEAD 取回再提交"** —— 那会覆盖别人未提交的在飞内容(§12)。',
+    )
+  }
   try {
-    const { ok, lost, prose } = runCheck(isStaged)
+    const { ok, lost, prose } = runCheck(isStaged, face)
     /** 非登记行丢失只报数(理由见 proseLossReport 注释);阈值只影响措辞强度,不改变退出码 */
     const reportProse = () => {
       if (!prose?.lostCount) return
@@ -1359,7 +1441,7 @@ if (isDirectRun) {
     }
     if (ok) {
       console.log(
-        `✅ [plan-line-loss] PROJECT_PLAN.md 无登记行丢失(${isStaged ? '暂存区' : '工作区'})`,
+        `✅ [plan-line-loss] PROJECT_PLAN.md 无登记行丢失(判定面:${face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树磁盘(人工档)' : 'HEAD blob'})`,
       )
       reportProse()
       process.exit(0)
