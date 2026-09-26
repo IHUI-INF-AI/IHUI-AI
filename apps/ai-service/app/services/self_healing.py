@@ -78,6 +78,191 @@ def classify_failure(exception_type: Any = None, message: str = "") -> str:
     return _FALLBACK_CATEGORY
 
 
+# ---------------------------------------------------------------------------
+# V3 #56 工具自愈信号源扩展(2026-09-26 立):run_command 信号分类器。
+#
+# 为什么在 self_healing.py:分类器是纯离线、确定性的"信号 → 结构化"转换,
+# 与本文件既有 classify_failure/heal 同层(纯服务层,不碰 agent_loop_v2 主链路),
+# 便于脱离 agent loop 单测。
+#
+# 为什么默认仍不翻 AGENT_SELF_HEALING_ENABLED(运维放量待办,勿顺手删):
+# 1) 默认 off 被 tests/test_agent_self_heal.py::test_maybe_self_heal_disabled_by_default
+#    显式钉住(delenv 后断言零差异),翻默认值必破钉子测试;
+# 2) 开关与 routers/self_healing.py 同源(app/core/config.py:345 已纳入 .env
+#    同步白名单),擅自翻默认会把 HTTP 侧自愈端点一并放量,影响面超出本票;
+# 3) 自愈暂无 compaction_canary 式灰度体系,没有按会话/租户渐进放量的基建。
+# 放量路径:先补灰度(参照 services/compaction_canary.py),再按会话比例放量,
+# 最后才考虑翻默认值。
+# ---------------------------------------------------------------------------
+
+# 环境性失败特征(不可自愈):命中即 actionable=False。
+# 为什么:网络超时/DNS 失败/权限拒绝不是代码缺陷,LLM 补丁修不了,
+# 触发 heal 只会烧 token 并把用户代码改坏。
+_ENVIRONMENTAL_MARKERS = (
+    "ETIMEDOUT",
+    "ECONNREFUSED",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "ECONNRESET",
+    "npm ERR! network",
+    "network error",
+)
+
+# 四类可自愈信号的命令判据(按先专后泛顺序判定,前三类命中即短路)。
+# test_framework:pytest(含 python -m pytest)/vitest/jest/cargo test/go test/
+#   npm|pnpm|yarn (run) test;
+# type_check:mypy/pyright/pyre/tsc(tsc.js 兼容,词边界防误吃 typescript);
+# lint:ruff/eslint;
+# build:npm|pnpm|yarn (run) build / next build / vite build / webpack /
+#   go build / cargo build。
+# 注意 tsc 优先于 build:"tsc -p ." 常作为构建步,但 TS 错误行(error TSxxxx)
+# 是更精确的自愈信号,归 type_check。
+_SIGNAL_COMMAND_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "test_framework",
+        re.compile(
+            r"(?:^|[\s;(&(])(?:python\s+-m\s+)?pytest\b"
+            r"|\b(?:vitest|jest)\b"
+            r"|\bcargo\s+test\b"
+            r"|\bgo\s+test\b"
+            r"|\b(?:npm|pnpm|yarn)\s+(?:run\s+)?test\b"
+        ),
+    ),
+    (
+        "type_check",
+        re.compile(
+            r"\b(?:mypy|pyright|pyre)\b"
+            r"|\btsc\.js\b|\btsc\b"
+            r"|\bnpx\s+tsc\b"
+        ),
+    ),
+    ("lint", re.compile(r"\bruff\b|\beslint\b")),
+    (
+        "build",
+        re.compile(
+            r"\b(?:npm|pnpm|yarn)\s+(?:run\s+)?build\b"
+            r"|\bnext\s+build\b"
+            r"|\bvite\s+build\b"
+            r"|\bwebpack\b"
+            r"|\bgo\s+build\b"
+            r"|\bcargo\s+build\b"
+        ),
+    ),
+)
+
+# error_digest 按类别的错误行提取判据(自愈质量关键:digest 直接喂 LLM 补丁)。
+_DIGEST_LINE_PATTERNS: dict[str, re.Pattern[str]] = {
+    "type_check": re.compile(r"error TS\d+|\berror:", re.IGNORECASE),
+    "lint": re.compile(
+        r"Found \d+ errors?|✖[^\n]*problem|fixable|\b[EWF]\d{2,3}\b|error\b",
+        re.IGNORECASE,
+    ),
+    "build": re.compile(
+        r"error\b|Module not found|Build failed|ELIFECYCLE", re.IGNORECASE
+    ),
+    "test_framework": re.compile(
+        r"^FAILED\b|^ERROR\b|AssertionError|\berror\b", re.IGNORECASE
+    ),
+}
+
+_DIGEST_MAX_LINES = 8  # digest 行数上限:喂 LLM 的摘要,过长稀释注意力
+_DIGEST_LINE_MAX_CHARS = 200  # 单行截断:超长堆栈行只保留头部
+
+
+@dataclass
+class SelfHealSignal:
+    """分类后的 run_command 自愈信号。
+
+    - category:四类之一(test_framework/type_check/build/lint);
+    - actionable:是否可自愈(环境性失败如网络超时为 False,调用方不得触发 heal);
+    - error_digest:错误行摘要(直接注入 LLM 补丁上下文)。
+    """
+
+    category: str
+    actionable: bool
+    error_digest: str
+    command: str = ""
+    exit_code: int | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "category": self.category,
+            "actionable": self.actionable,
+            "error_digest": self.error_digest,
+            "command": self.command,
+            "exit_code": self.exit_code,
+        }
+
+
+def extract_error_digest(output: str, category: str) -> str:
+    """从命令输出提取按类别的错误行摘要(deterministic,离线)。
+
+    无命中时兜底取输出尾部 3 行(非空时):构建工具的错误行格式千差万别,
+    尾部通常是错误汇总,比丢弃整个摘要更有用。
+    """
+    lines = (output or "").splitlines()
+    pattern = _DIGEST_LINE_PATTERNS.get(category)
+    picked: list[str] = []
+    if pattern is not None:
+        for line in lines:
+            s = line.strip()
+            if s and pattern.search(s):
+                picked.append(s[:_DIGEST_LINE_MAX_CHARS])
+                if len(picked) >= _DIGEST_MAX_LINES:
+                    return "\n".join(picked)
+    if not picked:
+        tail = [ln.strip()[:_DIGEST_LINE_MAX_CHARS] for ln in lines if ln.strip()]
+        picked = tail[-3:]
+    return "\n".join(picked[:_DIGEST_MAX_LINES])
+
+
+def classify_run_command_signal(
+    command: str, result: dict[str, Any]
+) -> SelfHealSignal | None:
+    """把 run_command 的(命令行, 结果)分类为 SelfHealSignal,不匹配返回 None。
+
+    判定顺序:退出码 → 类别命令匹配 → 环境性失败降级(actionable=False)。
+    exit_code==0(绿)或无退出码证据 → None(无信号,与现状零差异)。
+    exit_code 双键名兼容:mcp_server._tool_run_command 实际返回蛇形
+    exit_code,但历史契约存在驼峰 exitCode(见 derive_step_evidence 同类处理)。
+    """
+    if not isinstance(result, dict):
+        return None
+    exit_code = result.get("exit_code", result.get("exitCode"))
+    if not isinstance(exit_code, int) or isinstance(exit_code, bool):
+        return None
+    if exit_code == 0:
+        return None
+    command = str(command or "")
+    category = None
+    for cat, pattern in _SIGNAL_COMMAND_PATTERNS:
+        if pattern.search(command):
+            category = cat
+            break
+    if category is None:
+        # 不在四类信号命令表内的命令不进自愈:保守优先,
+        # 避免 LLM 对任意失败命令(如 git/网络工具)乱补丁。
+        return None
+    output = "\n".join(
+        str(result.get(k) or "")
+        for k in ("stdout", "stderr", "partial_output")
+    )
+    # 环境性失败:mcp_server 用 exit_code=-1 + errorCode=TIMEOUT/partial_output
+    # 表达超时/异常路径;网络类特征词兜底识别。这些修不了,actionable=False。
+    environmental = (
+        exit_code < 0
+        or result.get("errorCode") == "TIMEOUT"
+        or any(marker in output for marker in _ENVIRONMENTAL_MARKERS)
+    )
+    return SelfHealSignal(
+        category=category,
+        actionable=not environmental,
+        error_digest=extract_error_digest(output, category),
+        command=command,
+        exit_code=exit_code,
+    )
+
+
 @dataclass
 class TestCase:
     """A single candidate test case."""
