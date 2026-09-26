@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test as base, expect, type Page } from '@playwright/test'
+import { ensureLoginDialogOpen } from './open-login-dialog'
 
 /**
  * 登录弹窗 Enter 触发 form submit 守门测试 (2026-07-30 立)
@@ -48,44 +49,6 @@ const test = base.extend<{ freshPage: Page }>({
     await context.close()
   },
 })
-
-/**
- * 用 DOM API 点击文本匹配的按钮,绕开 nextjs-portal 拦截。
- */
-async function clickButtonByText(
-  page: Page,
-  text: RegExp | string,
-  timeout = 10000,
-): Promise<void> {
-  // 修复竞态:页面 hydration 前按钮可能尚未渲染,静默点击 null 会导致后续断言误报。
-  // 先 waitForFunction 轮询等待按钮出现,再执行 DOM click。
-  await page.waitForFunction(
-    (t) => {
-      const re = t instanceof RegExp ? t : new RegExp(t)
-      return Array.from(document.querySelectorAll('button')).some((b) => {
-        const label = b.textContent ?? ''
-        const aria = b.getAttribute('aria-label') ?? ''
-        return re.test(label) || re.test(aria)
-      })
-    },
-    text,
-    { timeout },
-  )
-  const handle = await page.evaluateHandle((t) => {
-    const buttons = Array.from(document.querySelectorAll('button'))
-    const re = t instanceof RegExp ? t : new RegExp(t)
-    return (
-      buttons.find((b) => {
-        const label = b.textContent ?? ''
-        const aria = b.getAttribute('aria-label') ?? ''
-        return re.test(label) || re.test(aria)
-      }) ?? null
-    )
-  }, text)
-  await page.evaluate((el) => {
-    if (el instanceof HTMLElement) el.click()
-  }, handle)
-}
 
 /**
  * 在页面上注入 form submit 监听器,捕获 form submit 事件(不依赖后端 API)。
@@ -148,18 +111,11 @@ async function openLoginDialog(
     )
     .catch(() => {}) // 超时不阻断(下方点击重试循环仍兜底)
 
-  // 2026-08-28 根因修复:登录按钮(如 sidebar 底部"登录"入口)由 SSR 首屏渲染,
-  // clickButtonByText 只等按钮存在就 DOM click —— 若 React hydration 尚未完成,
-  // click 落在无 onClick 的静态 DOM 上,login-dialog 永不打开。
-  // 多 worker 负载下 hydration 变慢,此竞态从偶发变为近确定性失败。
-  // 根治:点击后轮询验证 dialog 出现,未出现则重试点击(有界 10 次 × 1s),
-  // 与 hydration 时序彻底解耦。
+  // 开弹窗一律走唯一出口 ./open-login-dialog.ts —— 未登录态的侧栏「登录」自 2026-09 起
+  // 是 DropdownMenu 触发器(点它只开菜单),原先"点一下文字=登录 + 有界重试"考的就是
+  // 一个已经不存在的一步式入口;新出口按「用户行 → 菜单项」两步走,reauth 深链兜底。
   const dialog = page.getByTestId('login-dialog')
-  for (let attempt = 0; attempt < 10; attempt++) {
-    await clickButtonByText(page, /^登录$|^登 录$|^Sign in$|^Login$/i)
-    if (await dialog.isVisible()) break
-    await page.waitForTimeout(1000)
-  }
+  await ensureLoginDialogOpen(page)
   await expect(dialog).toBeVisible({ timeout: 5000 })
 
   await page.getByTestId(tabTestId).click()
