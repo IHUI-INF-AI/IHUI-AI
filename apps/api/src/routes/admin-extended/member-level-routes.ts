@@ -45,8 +45,11 @@ export const memberLevelRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request, reply) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
-      await db.delete(eduMemberLevels).where(eq(eduMemberLevels.id, id))
-      return reply.send(success({ id, deleted: true }))
+      const removed = await db
+        .delete(eduMemberLevels)
+        .where(eq(eduMemberLevels.id, id))
+        .returning({ id: eduMemberLevels.id })
+      return reply.send(success({ id, deleted: removed.length > 0 }))
     },
   )
 }
