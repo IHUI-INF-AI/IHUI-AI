@@ -52,6 +52,7 @@ import { FETCH_TOOLS } from '../tools/fetch-url.js';
 import { WEB_SEARCH_TOOLS } from '../tools/web-search.js';
 import { TEST_TOOLS } from '../tools/run-tests.js';
 import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
+import { DEBUG_TOOLS } from '../tools/debug.js';
 import { CODEGRAPH_TOOLS, enableCodegraphIncremental, persistCodegraphCache } from '../tools/codegraph.js';
 import { createSubagentTool } from '../tools/subagent.js';
 import { createDangerGate } from '../tools/danger-gate.js';
@@ -300,6 +301,8 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   registerTools(WEB_SEARCH_TOOLS);
   registerTools(TEST_TOOLS);
   registerTools(DIAGNOSTIC_TOOLS);
+  // DAP 调试会话族(用户已批准注册给模型,2026-09-27;守门 131 点名的最后一格零注册族)
+  registerTools(DEBUG_TOOLS);
   registerTools(CODEGRAPH_TOOLS);
   // 浏览器自动化工具:注册后由模型按需调用(执行时经 MCP 连 playwright,不可用自动降级)
   registerBrowserTools();
