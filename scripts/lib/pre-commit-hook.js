@@ -346,7 +346,7 @@ if (process.env.HUSKY_SKIP_AUTH_REFRESH !== '1') {
   if (
     !run(
       '🛡️ auth refresh 单例守门(禁绕过单例直发 /auth/refresh,2026-09-04 立)...',
-      'node scripts/check-auth-refresh-singleton.mjs',
+      'node scripts/check-auth-refresh-singleton.mjs --staged',
     )
   ) {
     console.error('❌ auth refresh 单例守门失败,提交已阻止')
