@@ -482,8 +482,6 @@
   "ai": {
     "contextUsage": {
       "title": "Context Usage",
-      "used": "Used",
-      "max": "Max Capacity",
       "segSystem": "System prompt",
       "segToolSchema": "Tool definitions",
       "segSkill": "Skill bodies",
@@ -618,7 +616,6 @@
       "copy": "Copy",
       "digitalHuman": "Digital Human Generation →",
       "downloadFailed": "Download failed",
-      "downloadSuccess": "Saved to album",
       "downloading": "Downloading",
       "edit": "Edit",
       "errorCardTitle": "Request failed",
