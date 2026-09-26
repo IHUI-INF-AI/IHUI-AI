@@ -573,6 +573,54 @@ export function countMangledRuleKinds(landedNames) {
   return n
 }
 
+/**
+ * 哪些 class token 属于 v4 spacing 刻度档 —— 即由 calc(var(--spacing) * N) 派生的那一批
+ * (整数/小数间距、! 前缀的间距、first:/last: 变体间距)。
+ */
+export function isSpacingScaleCandidate(name) {
+  const bare = name.replace(/^!/, '').replace(/^(?:[a-z]+:)+/, '')
+  return /^(?:[pm][xytrbl]?|gap(?:-[xy])?|space-[xy])-(?:\d+(?:\.\d+)?|px)$/.test(bare)
+}
+
+/**
+ * C7 —— spacing 刻度族整族进不了改名集合(2026-09-26 立,根因由实测钉死)。
+ *
+ * 机制:JS/WXML 改名腿的候选集要过一道 design-system 校验(weapp-tailwindcss 的
+ * resolveValidTailwindV4Candidates)。入口 CSS 若只 import utilities.css(它逐字只有
+ * "@tailwind utilities;")而不含默认 theme,那台校验器就看不见 --spacing 刻度,
+ * 于是 gap-1.5 / py-0.5 / !p-0 / first:mt-0 整族被判"无效候选"进不了改名集合,
+ * 而 CSS 腿照样把选择器转写进 wxss —— 单侧改名 = 一族死规则。
+ * 修法:入口 CSS 里 @import 'tailwindcss/theme.css'(且不得放在派生 @theme 块之后)。
+ *
+ * 为什么必须是结构性判据而不是"看死规则总数":残余死规则里掺着合法的死码/未打包档
+ * (组件根本没进 bundle),拿总数当阈值既会恒红也拦不住这一族 —— 它有自己的形状,就该有自己的判据。
+ * 口径:demand 超阈值且改名命中 0 ⇒ off;demand 不足 ⇒ undetermined(空扫不记绿)。
+ */
+export const SPACING_FAMILY_MIN_DEMAND = 8
+export function auditSpacingFamily({ demandedSpacing, renamedSpacing }) {
+  if (typeof demandedSpacing !== 'number' || typeof renamedSpacing !== 'number')
+    return { verdict: 'undetermined', reason: 'spacing 族见证没量到 ⇒ 不判通过' }
+  if (demandedSpacing < SPACING_FAMILY_MIN_DEMAND)
+    return {
+      verdict: 'undetermined',
+      reason: '本轮 spacing 刻度档需求仅 ' + demandedSpacing + ' 个(阈值 ' + SPACING_FAMILY_MIN_DEMAND + ')⇒ 这一维判不出,不记通过',
+      demandedSpacing,
+      renamedSpacing,
+    }
+  if (renamedSpacing === 0)
+    return {
+      verdict: 'off',
+      reason:
+        '源码用了 ' +
+        demandedSpacing +
+        ' 个 spacing 刻度档,改名集合里一个都没有 ⇒ 入口 CSS 看不见默认 theme(--spacing),整族单侧改名 = 整族无样式;' +
+        "修法是 app.css 里 @import 'tailwindcss/theme.css'(不得放在派生 @theme 块之后)",
+      demandedSpacing,
+      renamedSpacing,
+    }
+  return { verdict: 'in', reason: '', demandedSpacing, renamedSpacing }
+}
+
 /** dist 下全部 wxss 的落地选择器并集(恒判磁盘:HEAD/索引里没有产物)。
  *  landed = 裸类形态;compoundLeads = 复合选择器的首族类名(2026-09-25 补第三态的产物侧输入)。 */
 export function collectLandedFromDist(distDir) {
@@ -1718,6 +1766,7 @@ export async function runCheck(opts) {
     sightingKinds: null,
     sampleNames: [],
   }
+  let spacingFamily = { verdict: 'undetermined', reason: 'C1 未判 ⇒ 无从量' }
   let cssLeg = { verdict: 'undetermined', reason: 'C1 未能判定 ⇒ CSS 腿见证无从取' }
   if (reference && landed) {
     // 第四/五参把"该按哪种产出形态验收"交给参考层自己的形状:
@@ -1782,6 +1831,17 @@ export async function runCheck(opts) {
       })
       cssLeg.arbitraryDemand = arbitraryDemand
       if (cssLeg.verdict === 'off') failingC5.push(`C6 ${cssLeg.reason}`)
+    const demandedSpacingSet = new Set(
+      usedTokenList.filter((n) => isSpacingScaleCandidate(n) && reference.names.has(n)),
+    )
+    const renamedSpacing = [...demandedSpacingSet].filter(
+      (n) => runtime && runtime.tokens.has(weappMangleClassName(n)),
+    ).length
+    spacingFamily = auditSpacingFamily({
+      demandedSpacing: demandedSpacingSet.size,
+      renamedSpacing,
+    })
+    if (spacingFamily.verdict === 'off') failingC5.push(`C7 ${spacingFamily.reason}`)
     }
     // missOccurrences 与 computeCoverage 的 miss 集**共用同一份判据**(2026-09-25 收口):
     // 旧写法在这里原地重写第二份谓词,注释自己也警告"两处各写一遍必然漂移" ——
@@ -1848,6 +1908,7 @@ export async function runCheck(opts) {
     coverage,
     mangleLeg,
     cssLeg,
+    spacingFamily,
     missingSamples,
     dual,
     blindSpots,
@@ -1965,6 +2026,11 @@ function report(r, asJson) {
       `C6 CSS 腿:${r.cssLeg.verdict} —— ` +
         (r.cssLeg.reason ||
           `含标点档 ${r.cssLeg.arbitraryDemand} 个,产物转写形态类名 ${r.cssLeg.mangledRuleKinds} 个 ⇒ 整条未跑已被排除`),
+    console.log(
+      `C7 spacing 刻度族:${r.spacingFamily.verdict} —— ` +
+        (r.spacingFamily.reason ||
+          `需求 ${r.spacingFamily.demandedSpacing} 档 / 改名集合命中 ${r.spacingFamily.renamedSpacing} 档 ⇒ 整族进不了改名集合已被排除`),
+    )
     )
   }
 
@@ -3049,6 +3115,20 @@ export function selfTest() {
     [typeof null === 'number', typeof undefined === 'number'],
     [false, false])
 
+  eq('P70a C7 三向:有需求而命中 0 ⇒ off;需求不足阈值 ⇒ 未判定(不记绿);有命中 ⇒ in',
+    [
+      auditSpacingFamily({ demandedSpacing: 20, renamedSpacing: 0 }).verdict,
+      auditSpacingFamily({ demandedSpacing: 3, renamedSpacing: 0 }).verdict,
+      auditSpacingFamily({ demandedSpacing: 20, renamedSpacing: 18 }).verdict,
+    ],
+    ['off', 'undetermined', 'in'])
+  eq('P70b isSpacingScaleCandidate 只认 spacing 刻度档(颜色/字号/任意值不算,否则残余死码会把阈值灌满)',
+    [
+      ['gap-1.5', '!p-0', 'first:mt-0', 'py-0.5', 'space-x-2', 'mx-0.5'].map(isSpacingScaleCandidate),
+      ['bg-muted', 'text-sm', 'w-[100rpx]', 'z-[1040]', 'flex'].map(isSpacingScaleCandidate),
+    ],
+    [[true, true, true, true, true, true], [false, false, false, false, false]])
+
   eq(
     'P71 C6 阳性:源码有含标点档而产物 0 个转写形态 ⇒ 必须判 off(这是 C1/C4/C5 一致报好的那一档)',
     auditCssLeg({ mangledRuleKinds: 0, arbitraryDemand: 550 }).verdict,
@@ -3200,6 +3280,8 @@ export const __test__ = {
   mangledOnlyNames,
   auditCssLeg,
   countMangledRuleKinds,
+  auditSpacingFamily,
+  isSpacingScaleCandidate,
   partitionRuntimeReachability,
   auditMangleLeg,
   measureMainPackage,
