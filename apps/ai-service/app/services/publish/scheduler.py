@@ -423,6 +423,9 @@ class PublishScheduler:
         platform_config = target.get("config", {})
 
         adapter = get_adapter(platform)
+        if adapter is not None:
+            # 反风控身份键的稳定锚点:适配器实例每次新建(非单例),这里赋值不会跨任务串号
+            adapter.db_account_id = account_id
         if adapter is None:
             result = PublishResult(
                 success=False, platform=platform,
@@ -648,9 +651,16 @@ class PublishScheduler:
         if account_id_str:
             try:
                 from .anti_risk import CrossAccountGuard
+                from .anti_risk.account_identity import resolve_account_id
+
+                # 检测键必须与 browser_factory 登记绑定用的键**同源**:此前这里传数据库行 id("12"),
+                # 而登记用的是适配器派生键(csdn_db12 形态)⇒ 两个键空间永不相交,联动检测
+                # 对被检账号永远查不到它自己的绑定,这道防护在正常发布路径上等于没生效。
+                # 行 id 已是稳定锚点,故两侧都经同一出口算键。
+                identity_key = resolve_account_id(platform, {}, account_id)
                 cross_guard = CrossAccountGuard.get_instance()
                 is_linked, linkage_risk, linkage_types = (
-                    await cross_guard.async_check_device_linkage(account_id_str)
+                    await cross_guard.async_check_device_linkage(identity_key)
                 )
                 if is_linked and linkage_risk >= 60:
                     # 高危关联(>=60):自动冷却 1h + 记录风险事件

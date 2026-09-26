@@ -10418,6 +10418,7 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "modelSwitchStopped": "Switched to {model}. This response was stopped.",
     "filePreviewEmpty": "The file has no data rows to preview.",
     "filePreviewTypeMismatch": "File content does not match the {ext} format.",
     "filePreviewCorrupt": "The file could not be parsed and may be corrupted.",
