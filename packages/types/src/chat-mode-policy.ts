@@ -17,7 +17,7 @@
 // 该测试逐字解析本文件的 policy 矩阵与只读清单,与 Python 常量做集合相等断言,
 // 任一侧漂移即测试红。
 
-import type { ChatMode } from './spec'
+import type { ChatMode } from './spec.js'
 
 /**
  * 单个 ChatMode 的工具可用策略。

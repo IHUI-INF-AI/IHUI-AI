@@ -219,7 +219,7 @@ jobs:
         # 而 `pnpm --filter <pkg> run build` 不带 `...` 不做拓扑构建 ⇒ 不先建它就
         # 构建 api/web 必 Module not found(任务书诊断序第 2 条,正解先例
         # openapi-check.yml:77)。
-        run: pnpm --filter @ihui/api-client build
+        run: pnpm --filter @ihui/api-client build && pnpm --filter @ihui/context-compaction build
 
       - name: Build API
         run: pnpm --filter @ihui/api run build
