@@ -48,6 +48,25 @@ const MESSAGES =
 /** 09-25 事故里磁盘副本的形状:合法 JSON,但没有 errorCatalog 子树。 */
 const STALE_MESSAGES = JSON.stringify({ ai: { pane: { retry: '重试' } } }, null, 2) + '\n'
 
+/** 同一张表的另一种**排版**:每条写成多行。2026-09-26 实测一枚只加两个码的提交把整表
+ *  换成了这一形态(成因**不是** prettier —— 实测两种排版 prettier 都原样保留,是写表那一方
+ *  换了排版),于是本门在 HEAD 上报出 106 处"未收录"—— 判据依附在排版上,
+ *  就是把自己交给"下一个人怎么敲回车"。 */
+const CATALOG_EXPANDED = `export const TURN_ERROR_CLASSES = ['TIMEOUT', 'BAD_PARAMS'] as const
+export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = Object.freeze({
+  TIMEOUT: {
+    titleKey: 'TIMEOUT.title',
+    actionKey: 'TIMEOUT.action',
+    category: 'backendTimeout',
+  },
+  BAD_PARAMS: {
+    titleKey: 'BAD_PARAMS.title',
+    actionKey: 'BAD_PARAMS.action',
+    category: 'invalidResponse',
+  },
+})
+`
+
 function git(dir, ...args) {
   return execFileSync(
     GIT,
@@ -72,8 +91,9 @@ function git(dir, ...args) {
   )
 }
 
-/** 把真实门脚本 + 它 import 的 lib 复制进临时 git 仓,造一棵最小码面/词表/词包。 */
-function fixture() {
+/** 把真实门脚本 + 它 import 的 lib 复制进临时 git 仓,造一棵最小码面/词表/词包。
+ *  `catalogText` 可换形状,用来证明"同一张内容、不同排版 ⇒ 同一份结论"。 */
+function fixture(catalogText = CATALOG) {
   const dir = mkScratch('ihui-ecc-')
   try {
     const w = (rel, text) => {
@@ -83,11 +103,17 @@ function fixture() {
     }
     mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
     copyFileSync(new URL(`../${SCRIPT}`, import.meta.url), join(dir, 'scripts', SCRIPT))
-    copyFileSync(new URL('../lib/gitdir.mjs', import.meta.url), join(dir, 'scripts', 'lib', 'gitdir.mjs'))
+    copyFileSync(
+      new URL('../lib/gitdir.mjs', import.meta.url),
+      join(dir, 'scripts', 'lib', 'gitdir.mjs'),
+    )
     // 2026-09-25:本门取材层改为复用 scripts/lib/face-reader.mjs(它自身只依赖 node 内建 + gitdir.mjs),
     // 夹具必须一起复制,否则临时仓里的门脚本 Cannot find module —— e2e 四条会全红。
-    copyFileSync(new URL('../lib/face-reader.mjs', import.meta.url), join(dir, 'scripts', 'lib', 'face-reader.mjs'))
-    w('packages/shared/src/chat/error-catalog.ts', CATALOG)
+    copyFileSync(
+      new URL('../lib/face-reader.mjs', import.meta.url),
+      join(dir, 'scripts', 'lib', 'face-reader.mjs'),
+    )
+    w('packages/shared/src/chat/error-catalog.ts', catalogText)
     w('packages/i18n/messages/web/zh-CN.json', MESSAGES)
     w('packages/api-client/src/client.ts', "const e = { errorCode: 'TIMEOUT' }\n")
     w('apps/ai-service/app/r.py', 'return {"ok": False, "errorCode": "BAD_PARAMS"}\n')
@@ -112,7 +138,9 @@ function run(dir, args = []) {
 
 test('判据单元:扫描器咬住注释位而不吃类型声明;词包缺子树抛 UndeterminedError', () => {
   assert.ok(
-    G.extractCodes('a.ts', "* errorCode 'BUDGET_EXHAUSTED'", 'ts').some((h) => h.code === 'BUDGET_EXHAUSTED'),
+    G.extractCodes('a.ts', "* errorCode 'BUDGET_EXHAUSTED'", 'ts').some(
+      (h) => h.code === 'BUDGET_EXHAUSTED',
+    ),
     '注释位必须咬住(BUDGET_EXHAUSTED 只存在于注释)',
   )
   assert.equal(G.extractCodes('a.ts', 'export interface E { errorCode?: string }', 'ts').length, 0)
@@ -156,7 +184,11 @@ test('e2e 阳性对照:未收录码必须红并点名文件行号(判据不响=�
 test('e2e 崩溃回归(09-25 事故形态):工作树词包滞后 HEAD —— HEAD 面照常判绿,磁盘面显式无法判定', () => {
   const dir = fixture()
   try {
-    writeFileSync(join(dir, 'packages', 'i18n', 'messages', 'web', 'zh-CN.json'), STALE_MESSAGES, 'utf8')
+    writeFileSync(
+      join(dir, 'packages', 'i18n', 'messages', 'web', 'zh-CN.json'),
+      STALE_MESSAGES,
+      'utf8',
+    )
     // ① 磁盘滞后 HEAD,未 staged:默认(HEAD)面必须仍 exit 0 —— 旧版在这里抛裸 Error、
     //    以 exit 1 冒充判据失败,逼出绕过钩子。
     const head = run(dir)
@@ -183,6 +215,44 @@ test('e2e 两枚面旗同给 → exit 2(同一轮不得混读两个判定面)', 
     const r = run(dir, ['--staged', '--worktree'])
     assert.equal(r.status, 2)
     assert.match(r.stderr, /不得同轮混读/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('排版无关(2026-09-26 自伤):条目写成多行 ⇒ 结论必须与单行档同判', () => {
+  const a = fixture()
+  const b = fixture(CATALOG_EXPANDED)
+  try {
+    const ra = run(a)
+    const rb = run(b)
+    assert.equal(ra.status, 0, `单行档基准必须绿:${ra.stdout}${ra.stderr}`)
+    assert.equal(
+      rb.status,
+      0,
+      `展开档被判红 ⇒ 判据还依附在排版上,而排版由"下一个写这张表的人"决定,不受本门控制:${rb.stdout}${rb.stderr}`,
+    )
+    const conc = (r) => (r.stdout.match(/错误码覆盖率通过[^\n]*/) || [''])[0].replace(/[^0-9]/g, '')
+    assert.ok(conc(rb), '展开档必须给出通过结论行,不是"跳过"')
+    assert.equal(conc(ra), conc(rb), '两种排版的计数结论必须一致(不是少读几条)')
+  } finally {
+    rmScratch(a)
+    rmScratch(b)
+  }
+})
+
+test('判据失明不得伪装成"全线违规":定位不到 catalog 表体 → exit 2 且一条"未收录"都不许出现', () => {
+  const dir = fixture('export const SOMETHING_ELSE = Object.freeze({})\n')
+  try {
+    const r = run(dir)
+    const out = `${r.stdout}${r.stderr}`
+    assert.equal(r.status, 2, `应为"无法判定"(exit 2),实际 ${r.status}:${out}`)
+    assert.match(out, /无法判定/)
+    assert.doesNotMatch(
+      out,
+      /未收录/,
+      '表体读不到时把每条错误码判成"未收录",等于把判据故障伪装成 106 处业务违规 ⇒ 逼人跳门',
+    )
   } finally {
     rmScratch(dir)
   }
