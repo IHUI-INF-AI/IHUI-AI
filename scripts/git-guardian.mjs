@@ -1180,6 +1180,145 @@ export function checkConvergeAlignStall(opts = {}) {
   }
 }
 
+/**
+ * 受管 `.env` 的「键值被悄悄清空」巡检 + 到人(2026-09-26 立,PLAN G-223 第三格)。
+ *
+ * 为什么挂在这里(而不是提交链):这一格判的是**机器状态** —— 这台机上的 .env 此刻有没有被
+ * 悄悄清空。挂进 pre-commit blocking 就是一台与任何提交都无关的恒红门,唯一结局是逼人
+ * `--no-verify`、连带废掉全部守门(AGENTS §12e / §4 记过多次同型);挂 warn 又等于没人看。
+ * 本守护每 2 分钟一趟、已是全部自愈告警的唯一派发点(§5e),所以判据住在
+ * `check-env-drift.mjs`,**到人**住在这里。
+ *
+ * 立因不是假想:2026-09-26 03:08 `apps/api/.env` 被一次整体替换清空 55 个键值(根 `./.env`
+ * 那份 09-19 的过期镜像被按时间戳复制过来)。应用没崩(DATABASE_URL/JWT_SECRET 恰好非空),
+ * 而唯一到人通道静默寄不出去 —— 症状只有去翻 deploy-loop.log 的人才看得见。
+ *
+ * 三态分流(与那把尺子的退出码同形,不许互相顶掉):
+ *   exit 1 键值漂移   ⇒ log ❌ + notifyGuardRed(严重:凭据面)
+ *   exit 2 未判定     ⇒ log ❓ + notifyGuardRed(另立 alert 身份,窗口各自去重;
+ *                       "现文件没了 / 从没落过备份"都是这一档 —— 绝不静默,也绝不冒充"漂移")
+ *   exit 0 全部可判且零漂移 ⇒ 不写日志(健康轮次保持安静,与其余 heal* 层同一条约定)
+ * 尺子本身坏了(输出不是 JSON / 派生失败)同样喊出来,并按 §12e 的方向给出手动出口。
+ * run/notify/logger 全部可注入 —— 与 checkConvergeAlignStall 同一套取证形状(§22c:镜像测试
+ * 直接 import 本函数,用假派发器断言"哪种结论发哪种 alert",绝不在测试里真发信)。
+ */
+export function auditEnvDrift(opts = {}) {
+  const { notify = notifyGuardRed, run = runEnvDriftProbe, logger = log } = opts
+  const probe = run()
+  if (probe.missing) {
+    // 判据被摘线的形态必须能被发现:尺子不在位 ≠ 一切正常(守门 70/76/81 同型)。
+    // 两个文件都是被跟踪的,任何检出都该同时在场 ⇒ 这一档不是"机器态",不享受静默未判定。
+    logger('⚠️ .env 漂移巡检没装车:scripts/check-env-drift.mjs 不在这台机上 ⇒ 这一格当前无人看守')
+    notify(
+      '.env 漂移巡检没装车(尺子文件不在这台机上)',
+      'check-env-drift.mjs 不存在或被删 ⇒ 这一格当前无人看守,而账面看起来"什么都没发生"。',
+    )
+    return { state: 'not-installed' }
+  }
+  let parsed = null
+  try {
+    parsed = JSON.parse(probe.stdout)
+  } catch {
+    parsed = null
+  }
+  if (!parsed || !Array.isArray(parsed.verdicts)) {
+    logger(
+      `⚠️ .env 漂移巡检不可判定(exit ${probe.code},输出不是可解析 JSON)⇒ 手动:node scripts/check-env-drift.mjs`,
+    )
+    notify(
+      '.env 漂移巡检不可判定(尺子输出不是 JSON)',
+      `派生 exit ${probe.code} 而 stdout 不可解析 ⇒ 判据本身坏了,不得当作"已通过"。` +
+        `\nstdout 前 400 字符:${String(probe.stdout || '').slice(0, 400)}\n手动:node scripts/check-env-drift.mjs`,
+    )
+    return { state: 'unreadable', code: probe.code }
+  }
+  const c = parsed.counts || {}
+  if (Number(c.drift || 0) > 0) {
+    logger(
+      `❌ 受管 .env 检出键值漂移:${parsed.verdicts
+        .filter((v) => v.state === 'drift')
+        .map((v) => `${v.id}(${v.drift.length} 键)`)
+        .join(', ')}`,
+    )
+    notify('.env 键值漂移(有键从非空变成空/整键缺失)', envDriftDetail(parsed, '漂移'), {
+      severity: 'critical',
+    })
+    return { state: 'drift', counts: c }
+  }
+  if (Number(c.undetermined || 0) > 0) {
+    logger(
+      `❓ 受管 .env 巡检未判定:${parsed.verdicts
+        .filter((v) => v.state === 'undetermined')
+        .map((v) => v.id)
+        .join(', ')}(不记为通过)`,
+    )
+    notify('.env 漂移巡检未判定(现文件缺失或无同目标备份可比)', envDriftDetail(parsed, '未判定'))
+    return { state: 'undetermined', counts: c }
+  }
+  if (Number(probe.code) !== 0) {
+    logger(
+      `⚠️ .env 漂移巡检退出码与结论不符(exit ${probe.code} 却零漂移零未判定)⇒ 尺子坏了,手动:node scripts/check-env-drift.mjs`,
+    )
+    notify('.env 漂移巡检自身异常(退出码与结论不符)', envDriftDetail(parsed, '结论与退出码矛盾'))
+    return { state: 'inconsistent', code: probe.code }
+  }
+  return { state: 'clean', counts: c }
+}
+
+/** 派生那把尺子的唯一出口(可被测试整层替换):只读、带超时、不带控制台窗(§5b / 守门 52·80)。 */
+function runEnvDriftProbe() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-env-drift.mjs')
+  if (!existsSync(script)) return { missing: true, code: 2, stdout: '' }
+  try {
+    const stdout = String(
+      execFileSync(process.execPath, [script, '--check', '--json'], {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+        timeout: 60000, // 守门 80:热路径派生一律带上限,挂死不拖垮整轮巡检
+        maxBuffer: 1 << 22,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }) || '',
+    )
+    return { code: 0, stdout }
+  } catch (e) {
+    return { code: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || '') }
+  }
+}
+
+/**
+ * 告警正文的唯一拼装处。**只写键名与所用对照面的文件名/mtime**,一个值都不写(§5d)。
+ * 数字会被 alertFingerprint 归一为 '#',所以同一次清空在多轮 tick 里同指纹(4h 窗口压住重复),
+ * 而"又漂了一个新键"是指纹变化 ⇒ 立即重报,不会被上一条同因告警挡住。
+ */
+function envDriftDetail(parsed, kindLabel) {
+  const lines = [
+    `判定面:${parsed.face || '磁盘运行态'}`,
+    `备份目录:${parsed.backupDir || '(未知)'}`,
+  ]
+  for (const v of parsed.verdicts || []) {
+    if (v.state === 'drift') {
+      const b = v.backup
+        ? `对照=${v.backup.name}@${new Date(v.backup.mtimeMs).toISOString()}`
+        : '对照=(无)'
+      lines.push(
+        `[漂移] ${v.id}(${b})\n  ${v.drift.map((d) => `${d.key}=${d.kind === 'missing' ? '整键缺失' : '值为空'}`).join('、')}`,
+      )
+    } else if (v.state === 'undetermined') {
+      lines.push(`[未判定] ${v.id} —— ${v.reason};现文件:${v.currentPath}`)
+    } else if (v.state === 'registered-only') {
+      lines.push(`[登记不判] ${v.id} —— ${v.reason}`)
+    }
+  }
+  const c = parsed.counts || {}
+  return (
+    `${kindLabel}:受管 .env 的目标 ${c.targets ?? 0} 个中,漂移 ${c.drift ?? 0} 个(键合计 ${c.driftKeys ?? 0})、` +
+    `未判定 ${c.undetermined ?? 0} 个、登记不判 ${c.registeredOnly ?? 0} 个。\n` +
+    `${lines.join('\n')}\n` +
+    '这是"键从非空变成空/整键消失"的对账(判机器状态,不判提交内容);本信不含任何凭据值,只列键名。\n' +
+    '手动复核:node scripts/check-env-drift.mjs(或 --verbose 追加每个键在备份里的值长度)。'
+  )
+}
 function healRootSeal() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'seal-c-root-stray.mjs')
   if (!existsSync(script)) return
@@ -1708,6 +1847,9 @@ function main() {
     if (!CHECK_ONLY) reportBaselineFreshness()
     // §5b 的"唯一空白层":恢复源刷新原本挂在计划任务上,而那个任务已实测消失 ⇒ 并入 tick。
     if (!CHECK_ONLY) refreshRecoverySource()
+    // 受管 .env 的"键值被悄悄清空"巡检 + 到人(G-223 第三格):判机器状态,所以绝不进提交链;
+    // 挂点与 heal*/refreshRecoverySource 同一分支 —— 挂进 CHECK_ONLY 早退路径等于永不执行。
+    if (!CHECK_ONLY) auditEnvDrift()
     // 收敛器收尾对齐停摆喊人(票 O74):收敛器一次性进程只写状态,派发点在此(与
     // heal*/watchWatchdog 同一真正会执行的分支;挂进 CHECK_ONLY 早退分支等于永不执行)。
     if (!CHECK_ONLY) checkConvergeAlignStall()
@@ -1774,6 +1916,9 @@ function startDaemon() {
         healRootSeal()
         // 以及 §26 家目录改道(改道树被清后 2 分钟内自动补回;占用项 30 分钟冷却)
         healHomeJunctions()
+        // 以及受管 .env 的"键值被悄悄清空"巡检(G-223 第三格;与 main() 单轮路径同一挂点语义,
+        // notifyGuardRed 内部还有一层 CHECK_ONLY/去重保护,双执行体并存不会翻倍发信)
+        auditEnvDrift()
         // 收敛器收尾对齐停摆喊人(票 O74;与 main() 单轮路径同一挂点语义,notify 内部
         // 还有一层 CHECK_ONLY/去重保护,双执行体并存也不会翻倍发信)
         checkConvergeAlignStall()
@@ -1814,6 +1959,8 @@ export const __test__ = {
   shouldAlertAlignStall,
   checkConvergeAlignStall,
   alignStallThresholds,
+  auditEnvDrift,
+  envDriftDetail,
   NOTIFY_DEFAULT_WINDOW_MS,
   NOTIFY_DEFAULT_FAIL_COOLDOWN_MS,
 }
