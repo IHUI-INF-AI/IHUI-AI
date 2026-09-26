@@ -15,7 +15,7 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi, getToken, normalizeUrlPublic } from '../client'
+import { fetchApi, getToken, normalizeUrlPublic } from '../client.js'
 
 export type ReportFormat = 'pdf' | 'excel' | 'json'
 

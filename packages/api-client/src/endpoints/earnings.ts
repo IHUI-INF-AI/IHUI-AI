@@ -4,8 +4,8 @@
 
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
-import { buildQs } from '../utils'
+import { fetchApi } from '../client.js'
+import { buildQs } from '../utils.js'
 
 // 响应类型对齐 apps/api/src/routes/earnings-routes.ts + apps/web/src/hooks/use-earnings.ts
 

@@ -4,7 +4,7 @@
 
 import type { DownloadEventInput, DownloadEventResponse } from '@ihui/types'
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /**
  * 下载量统计端点(2026-08-06 立,跨端共享下载点击上报)

@@ -8,7 +8,7 @@
  * 发现问题主动建会话注入诊断 → 查看/暂停/恢复/立即巡检/删除/巡检历史。
  */
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** 巡检类型:ci=持续集成;dependency=依赖漏洞;log=错误日志;deadlink=死链;workspace=工作区健康;custom=自定义 */
 export type PatrolType = 'ci' | 'dependency' | 'log' | 'deadlink' | 'workspace' | 'custom'

@@ -18,7 +18,10 @@
  *
  * 守门策略:
  *   - 检测 PROJECT_PLAN.md 是否被修改(staged 模式对比 HEAD 与 index,非 staged 对比 HEAD 与 working tree)
- *   - 提取所有"### XXX(已完成 ✅ ...)"标题行,找出被删除的
+ *   - 提取所有"已完成"任务条目标题行(§1 粒度 = ##/### 两级;识别实现与归档器共用
+ *     scripts/lib/plan-task-headings.mjs,2026-09-26 起不再各写一份正则),找出被删除的
+ *   - T3 元判据:从本版内容反推真实存在的已完成形态,若任何一种不被提取式覆盖 ⇒ 判红
+ *     (h4 两个存量形态按台账只报数,见 T3_GRANDFATHERED_SHAPES);bullet 级计数永远如实报
  *   - 若有已完成任务条目被删除,且本次 diff 无"<!-- 已归档"占位注释,则阻塞 commit
  *   - 合规操作:把完整任务条目移动到 .ihui-agent/archive/,并在原位置留归档占位注释
  *
@@ -34,6 +37,15 @@ import { existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+// 「什么算一个已完成条目标题」的单一实现(2026-09-26,与归档器共用一份,不再各写正则)。
+// T3 元判据(surveyCompletionShapes/shapeCoverageVerdict)也从这里来:它从文档实际内容反推
+// 存在哪些已完成形态,逐形态核提取式是否覆盖 —— 不锚具体形态,写法再漂也会被抓到而不是安静。
+import {
+  extractCompletedTaskHeadings,
+  headingTitle,
+  countBulletCompleted,
+  shapeCoverageVerdict,
+} from './lib/plan-task-headings.mjs'
 
 /**
  * ROOT 由脚本自身位置推导(§15);旧写法 `process.cwd()` 让门在任意目录下换基准。
@@ -46,6 +58,16 @@ const ARCHIVE_DIR = '.ihui-agent/archive'
 /** 归档锚点文件的形状:只有 PROJECT_PLAN_*.md 才是"完整内容在 archive"的承诺载体。 */
 const ANCHOR_RE = /^PROJECT_PLAN_.*\.md$/
 
+/**
+ * T3 存量形态台账(只报数,不判红)。2026-09-26 在 HEAD 面实测:
+ *   `#### .*✅` 8 处(如 `#### Phase 1:Skill 推荐引擎(2026-08-09) ✅`)、`#### .*已完成` 无✅ 1 处
+ *   —— h4 是 ## 级任务**内部**的阶段小标题,按 §1 粒度不是条目:不搬、不护,但 T3 必须点名。
+ * 这不是豁免清单:它按"级别|标记"形态计,**任何新出现的形态**(h1/h5/h6 或未来的第四种标记)
+ * 第一枚提交即判红;而这两形态若从文档消失,报数行自然不再出现 —— 无腐烂面。
+ * 若要正式把 h4 纳入条目粒度,改 lib 的 ENTRY_HEADING_RE 并同批删这两行(两侧 import 同一份)。
+ */
+const T3_GRANDFATHERED_SHAPES = ['h4|✅', 'h4|已完成']
+
 const C = {
   red: '\x1b[31m',
   green: '\x1b[32m',
@@ -57,20 +79,15 @@ const C = {
 }
 
 /**
- * 提取 PROJECT_PLAN.md 中所有"已完成"任务条目的标题行。
- * 匹配规则: `### ` 开头 + 含 `(已完成` 或 ` ✅` 标记
- * @param {string} content
- * @returns {string[]} 已完成任务条目标题(完整行)
+ * 「什么算一个已完成条目标题」的唯一实现已收进 scripts/lib/plan-task-headings.mjs
+ * (2026-09-26,与归档器 import 同一份;此处不再本地声明同名函数 —— 与 import 同名在 ESM
+ *  里直接 SyntaxError,而"两份真相"才是这个失效型能活一个月的原因)。
+ * 粒度:§1 条目层 = `##` 与 `###` 两级标题,含 `已完成` 或 `✅` 即算;
+ * CRLF/LF 由 lib 的 split(/\r?\n/) 统一处理(HEAD blob 是 LF、工作树常是 CRLF,
+ * 不剥 \r 会把整批已完成条目误报成被删除 —— 本门第一次自跑咬出来的)。
+ * bullet 级 `- [x]` **不是**条目标题(§1 语义里没有这一层):归档器不搬、本门不护,
+ * 但必须经 countBulletCompleted 如实报数 —— 不得把"看不见"洗成"确信没有"。
  */
-function extractCompletedTaskHeadings(content) {
-  if (!content) return []
-  return content
-    // HEAD blob 是 LF、本机 worktree 是 CRLF(§26/gitattributes 归一化只在写库时发生)。
-    // 不剥 \r 的话同一标题在两侧字符串不等,全量模式会把"21 条已完成"整批误报成被删除。
-    .split(/\r?\n/)
-    .filter((line) => line.startsWith('### '))
-    .filter((line) => line.includes('已完成') || line.includes('✅'))
-}
 
 /**
  * 检查 diff 文本中是否有"已归档"占位注释
@@ -116,7 +133,7 @@ export function planPair(root, face) {
  * **异步**写,exit 会把还没 flush 的消息截掉 —— 实测本门的红在镜像测试里输出**整块为空**。
  * 一道"不知道自己拦了什么"的 blocking 门比没有门更危险。
  */
-function main(face, root = ROOT) {
+function main(face, root = ROOT, grandfatherExtra = []) {
   if (!existsSync(path.join(root, FILE)) && face === 'worktree') {
     console.log(`${C.dim}⏭  PROJECT_PLAN.md 不存在,跳过归档守门${C.reset}`)
     return 0
@@ -152,20 +169,50 @@ function main(face, root = ROOT) {
   const res = resurrectionVerdict(oldContent, newContent)
   const inputs = readAnchorInputs(root, face)
   const anchors = anchorVerdict(inputs)
+  /**
+   * T3 元判据(2026-09-26 立):从本版内容反推"存在哪些已完成标题形态",逐形态核提取式
+   * 是否覆盖。它守的不是某条规则,而是**判据与现实的同形性本身** —— 归档器/保护集曾按
+   * `/^### \[x\]/`、`^### ` 找标题,而文件里那一形命中 0 次 ⇒ 连续多天空转、账面全绿(G-182
+   * 与本票是同一失效型的第二次、第三次复发)。T3 让"提取式看不见现实"这件事本身可判红。
+   * 取材面与 A0 同一份内容(本版 = 被审面),绝不另读磁盘 —— 两个输入源必漂移。
+   * grandfathered 见 T3_GRANDFATHERED_SHAPES:当前面上真实存在、但按 §1 粒度不归条目管的
+   * 形态,只报数 —— 当场判红就是一台与任何提交都无关的恒红门(§12e 同型),恒红门的唯一
+   * 结局是逼人 --no-verify、连带废掉全部守门。
+   */
+  const t3 = shapeCoverageVerdict(newContent, {
+    grandfathered: [...T3_GRANDFATHERED_SHAPES, ...grandfatherExtra],
+    bulletCount: countBulletCompleted(newContent),
+  })
   // A3 取不到正文的归档件 ⇒ 如实报数,绝不静默当成"那一层没问题"(判据失明不是通过)。
   const undet = inputs.archiveUndetermined
     ? `;A3 另有 ${inputs.archiveUndetermined} 份归档件正文取不到,那一层未判定`
     : ''
+  // bullet 级已完成状态永远要喊(它不在归档粒度覆盖内 —— 把"看不见"洗成"确信没有"是禁令)。
+  const bulletNote = `;T3 普查:另有 ${t3.bulletCount} 处已完成状态写在 bullet 级 - [x],不在条目粒度内(只报数)`
 
-  if (del.compliant && res.compliant && anchors.red.length === 0) {
+  if (del.compliant && res.compliant && anchors.red.length === 0 && t3.red.length === 0) {
     console.log(
-      `${C.green}✅ PROJECT_PLAN.md 归档守门通过${C.reset} ${C.dim}(无已完成任务条目被删除;归档锚点齐备${res.preexisting ? `;另有 ${res.preexisting} 条上一版即存在的复活存量只报数` : ''}${anchors.baseline.length ? `;另有 ${anchors.baseline.length} 项已登记的缺失存量只报数` : ''}${undet})${C.reset}`,
+      `${C.green}✅ PROJECT_PLAN.md 归档守门通过${C.reset} ${C.dim}(无已完成任务条目被删除;归档锚点齐备;T3 形态覆盖无失明${res.preexisting ? `;另有 ${res.preexisting} 条上一版即存在的复活存量只报数` : ''}${anchors.baseline.length ? `;另有 ${anchors.baseline.length} 项已登记的缺失存量只报数` : ''}${undet}${bulletNote})${C.reset}`,
     )
     for (const b of anchors.baseline)
       console.log(`${C.dim}   报数(已登记缺失):${b}${C.reset}`)
     for (const r of res.resurrected)
       console.log(`${C.dim}   报数(复活存量,本次未追账):${r}${C.reset}`)
+    for (const g of t3.report) console.log(`${C.dim}   ${g}${C.reset}`)
     return 0
+  }
+
+  if (t3.red.length > 0) {
+    console.error(
+      `${C.red}❌ T3 判据失明${C.reset} ${C.bold}— 文档里真实存在的已完成标题形态被提取式漏掉(${t3.red.length} 种形态)${C.reset}`,
+    )
+    for (const r of t3.red) console.error(`  ${C.red}· ${r}${C.reset}`)
+    console.error(
+      `${C.yellow}出路:${C.reset} 这不是"文档写错了"——是**判据过期了**。改 scripts/lib/plan-task-headings.mjs` +
+        ` 的粒度/词表(归档器与本门 import 同一份,改一处两边同时生效),把该形态纳入或给它一个诚实归宿;` +
+        `禁止用缩小提取式、加豁免清单或改测试来"让它绿"。`,
+    )
+    console.error('')
   }
 
   if (!del.compliant) {
@@ -178,7 +225,7 @@ function main(face, root = ROOT) {
       `${C.yellow}被删除的已完成任务条目(${del.deletedHeadings.length} 个):${C.reset}`,
     )
     del.deletedHeadings.forEach((h) => {
-      console.error(`  ${C.red}- ${h.replace(/^###\s+/, '')}${C.reset}`)
+      console.error(`  ${C.red}- ${headingTitle(h)}${C.reset}`)
     })
     console.error('')
     console.error(`${C.yellow}问题:${C.reset}`)
@@ -238,7 +285,7 @@ function main(face, root = ROOT) {
     console.error('')
   }
 
-  return del.compliant && res.compliant && anchors.red.length === 0 ? 0 : 1
+  return del.compliant && res.compliant && anchors.red.length === 0 && t3.red.length === 0 ? 0 : 1
 }
 
 /**
@@ -261,12 +308,14 @@ function placeholderLines(content) {
 }
 
 /**
- * 归档器写占位时用的那段标题(`archive-completed-tasks.mjs`:`titleText.slice(0, 60)`)。
- * 两处必须同形 —— 这里算得比它宽,A4 就把"已归档"的正常状态误判成复活;算得比它窄,
- * 复活就检不出来。
+ * 归档器写占位时用的那段标题(`archive-completed-tasks.mjs`:标题文本 = lib 的
+ * `headingTitle(title).slice(0, 60)`)。两处必须同形 —— 这里算得比它宽,A4 就把"已归档"的
+ * 正常状态误判成复活;算得比它窄,复活就检不出来。**所以剥前缀那一步必须复用同一个
+ * headingTitle**:本函数原先自带 `/^###\s+/`,粒度扩到 ## 级后它会把 `## X` 读成 `## X`
+ * (前缀没剥净)而归档器写的是 `X` —— 一道门自己造出第二份真相,正是本票要根治的那一型。
  */
 function archivedTitleOf(headingLine) {
-  return headingLine.replace(/^###\s+/, '').trim().slice(0, 60)
+  return headingTitle(headingLine).slice(0, 60)
 }
 
 /**
@@ -641,6 +690,41 @@ export function selfTest() {
     const h = '### X(已完成 ✅ 2026-07-01)'
     return deletionVerdict(`${h}\r\n`, `${h}\n`).deletedHeadings.length === 0
   })
+  // ===== T3「判据失明」元判据 ===== 2026-09-26 立。样本行逐字取自 HEAD 面 PROJECT_PLAN.md
+  // (§22c 红线:判据对象是真实文件的形态时,至少一条输入必须逐字取自真实文件 —— 本仓两次
+  //  空转事故(G-182 与本票)的共同成因就是夹具只复刻了实现的形状)。
+  const HEAD_H2_SAMPLE =
+    '## O60 守门 91 的取材口径改判 HEAD/索引 blob —— 它按磁盘判，产出的正是最坏的那一类错（2026-09-25 立并完成 ✅）'
+  const HEAD_H4_SAMPLE = '#### Phase 1:Skill 推荐引擎(2026-08-09) ✅'
+  t('T3 真实 ## 级形态在现行提取式下必须"被覆盖"(HEAD 逐字样本)', () => {
+    const v = shapeCoverageVerdict(`${HEAD_H2_SAMPLE}\n正文\n`)
+    return v.red.length === 0 && v.report.length === 0 && extractCompletedTaskHeadings(HEAD_H2_SAMPLE).length === 1
+  })
+  t('T3 变异对照(有牙证明):提取式收窄回"只认 ###"(本门 2026-09-26 前的真实形态)⇒ 必红并点名 h2|✅', () => {
+    const narrow = (line) => line.startsWith('### ') && (line.includes('✅') || line.includes('已完成'))
+    const v = shapeCoverageVerdict(`${HEAD_H2_SAMPLE}\n`, { isCovered: narrow })
+    return v.red.length === 1 && v.red[0].includes('h2|✅') && v.red[0].includes('失明')
+  })
+  t('T3 未登记的新形态(h5+✅)⇒ 判红;已在存量台账的 h4 形态 ⇒ 只报数不判红', () => {
+    const doc = `${HEAD_H4_SAMPLE}\n##### 某阶段 ✅\n`
+    const v = shapeCoverageVerdict(doc, { grandfathered: T3_GRANDFATHERED_SHAPES })
+    return (
+      v.red.length === 1 &&
+      v.red[0].includes('h5|✅') &&
+      v.report.length === 1 &&
+      v.report[0].includes('h4|✅')
+    )
+  })
+  t('T3 bullet 级必须如实计数,不得把"不在条目粒度"洗成"没有已完成"(实测 HEAD 面 >1000 处)', () => {
+    const doc = '# t\n\n- [x] 小事一\n  - [x] 缩进的也算\n- [ ] 未完成不算\n'
+    const v = shapeCoverageVerdict(doc)
+    return v.bulletCount === 2
+  })
+  t('粒度扩到 ## 后:A0 对 ## 级条目的删除同样拦(保护集不是只有 ###)', () => {
+    const old = `# plan\n${HEAD_H2_SAMPLE}\n正文\n`
+    const v = deletionVerdict(old, '# plan\n')
+    return v.deletedHeadings.length === 1 && !v.compliant
+  })
   const pad = Math.max(...results.map((r) => r[1].length))
   for (const [m, n, why] of results) console.log(`${m} ${n}${why ? ` —— ${why}` : ''}`.padEnd(pad + 6, ' '))
   const bad = results.filter((r) => r[0] !== '✅').length
@@ -677,7 +761,18 @@ if (isDirectRun) {
         console.error(`❌ 无法判定: ${error}`)
         process.exitCode = 2
       } else {
-        process.exitCode = main(face, argRoot ? path.resolve(argRoot) : ROOT)
+        // `--grandfather <级别|标记>`(可重复)= 人工把某形态降为"只报数"的出口,与 T3_GRANDFATHERED_SHAPES 合并。
+        // 只在夹具/CI 显式使用;生产提交链不带,判据强度与不带时逐字相同。
+        const gfExtra = []
+        for (
+          let gi = argv.indexOf('--grandfather');
+          gi !== -1;
+          gi = argv.indexOf('--grandfather', gi + 1)
+        ) {
+          const val = argv[gi + 1]
+          if (val && !val.startsWith('--')) gfExtra.push(val)
+        }
+        process.exitCode = main(face, argRoot ? path.resolve(argRoot) : ROOT, gfExtra)
       }
     }
   }
@@ -691,5 +786,9 @@ export const __test__ = {
   anchorVerdict,
   planPair,
   LOST_ANCHOR_LEDGER,
+  // T3 与粒度相关的三件:镜像测试据此证"提取式收窄必红"(有牙)与"存量台账只报数"。
+  shapeCoverageVerdict,
+  T3_GRANDFATHERED_SHAPES,
+  headingTitle,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

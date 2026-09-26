@@ -16,7 +16,7 @@
  * - deleteKnowledgeCard   DELETE /:id       删除卡片
  */
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** 卡片类型:experience=任务经验;fact=项目事实;practices=最佳实践;pitfall=踩坑记录 */
 export type KnowledgeCardKind = 'experience' | 'fact' | 'practices' | 'pitfall'

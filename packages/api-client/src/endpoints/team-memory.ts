@@ -13,7 +13,7 @@
  * - deleteTeamMemory   DELETE /:id     删除单条
  */
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** 记忆类型 */
 export type TeamMemoryKind = 'decision' | 'convention' | 'pitfall' | 'fingerprint'
