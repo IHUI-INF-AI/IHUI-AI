@@ -5,9 +5,6 @@
 export { default as NavBar } from './NavBar'
 export type { NavBarProps } from './NavBar'
 
-export { default as Loading } from './Loading'
-export type { LoadingProps } from './Loading'
-
 export { default as ModelList } from './ModelList'
 export type { ModelListProps, ModelItem } from './ModelList'
 
@@ -62,18 +59,9 @@ export type { CommentProps, CommentItem } from './Comment'
 export { default as PayPopup } from './PayPopup'
 export type { PayPopupProps, PayInfo } from './PayPopup'
 
-export { default as VerifyCodeModal } from './VerifyCodeModal'
-export type { VerifyCodeModalProps, VerifyCodeType } from './VerifyCodeModal'
-
-// ============ P0-2 通用 15 组件 ============
-export { default as LoadingSpinner } from './LoadingSpinner'
-export type { LoadingSpinnerProps } from './LoadingSpinner'
-
+// ============ P0-2 通用组件(组内件数不写进标题 —— 摘除死件后任何静态计数都会腐烂) ============
 export { default as SkeletonCard } from './SkeletonCard'
 export type { SkeletonCardProps } from './SkeletonCard'
-
-export { default as PageLoading } from './PageLoading'
-export type { PageLoadingProps } from './PageLoading'
 
 export { default as ErrorView } from './ErrorView'
 export type { ErrorViewProps } from './ErrorView'
@@ -219,12 +207,6 @@ export { default as IntelligentAssistant } from './IntelligentAssistant'
 export type { IntelligentAssistantProps } from './IntelligentAssistant'
 
 // ============ P2 通用扩展组件(2026-07-30) ============
-export { default as SectionHeader } from './SectionHeader'
-export type { SectionHeaderProps } from './SectionHeader'
-
-export { default as ColorfulLoader } from './ColorfulLoader'
-export type { ColorfulLoaderProps } from './ColorfulLoader'
-
 export { default as LoginPopUp } from './LoginPopUp'
 export type { LoginPopUpProps } from './LoginPopUp'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
