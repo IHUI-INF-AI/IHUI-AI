@@ -423,6 +423,9 @@ class PublishScheduler:
         platform_config = target.get("config", {})
 
         adapter = get_adapter(platform)
+        if adapter is not None:
+            # 反风控身份键的稳定锚点:适配器实例每次新建(非单例),这里赋值不会跨任务串号
+            adapter.db_account_id = account_id
         if adapter is None:
             result = PublishResult(
                 success=False, platform=platform,
