@@ -1500,6 +1500,13 @@ class AgentLoopV2:
         trace_id: str | None = None,
         # 2026-09-18 第三批(Goals 对标):线程持久目标;非空时 run 入口注入 system。
         thread_goal: str | None = None,
+        # V3 #47 第二格(2026-09-26 立):调用者角色 id(JWT payload 的 roleId,由**已验证
+        # 身份**的承载层注入,模型不可控)。默认 0 = fail-closed:取不到角色一律按普通用户
+        # 处理。它让"谁有权执行高危能力"在三条执行内核里同一个答案 —— 此前注册表侧
+        # `mcp_server.call_tool` 有 `_ADMIN_ONLY_TOOLS` 角色矩阵,而引擎自带工具不经
+        # call_tool,于是普通用户在 /api/engine/rpc 上可无阻拦地跑 shell/写文件。
+        # 名单唯一真相仍是 `mcp_server._ADMIN_ONLY_TOOLS`,本文件不抄第二份。
+        user_role: int = 0,
     ):
         """
         Args:
@@ -1515,6 +1522,11 @@ class AgentLoopV2:
                         同一 session_id 的 checkpoint 可通过 load_latest_by_session 查询
             checkpoint_manager: 自定义 checkpoint 管理器(不传则用全局单例)
             user_id: 跨会话记忆用户 id(传入后默认启用记忆 load/save 闭环,让 ReAct 主循环不再失忆)
+            user_role: 调用者角色 id(0=普通用户,>=1=admin)。命中
+                `mcp_server._ADMIN_ONLY_TOOLS`(含经 engine_tool_bridge 回查的等价能力)且
+                < 1 时,`_execute_single` 在审批门之前直接拒执行,回执与 call_tool 同形
+                (errorCode=PERMISSION_DENIED / error_type=permission_denied)。默认 0 即
+                fail-closed —— 不传就等于按普通用户处理,没有任何"默认放开"开关。
             conversation_id: 会话 id(用于 session scope 记忆;不传则用 session_id)
             enable_memory: 是否启用记忆闭环(默认 True;传 False 则关闭 load/save,即使 user_id 已给)
             memory_svc: 可注入 MemoryService 实例(测试 mock 用);不传则 lazy import 全局单例
@@ -1760,6 +1772,9 @@ class AgentLoopV2:
 
         # L1-1 记忆闭环配置(对标 Hermes Agent 默认在线记忆)
         self._user_id: str | None = user_id
+        # V3 #47 第二格:角色档(0=普通用户,>=1=admin)。判据只看 "< 1",所以把负数归一到
+        # 最低档不改变任何结论,只让审计读数可读;没有"默认放开"的 env 开关。
+        self._user_role: int = max(0, user_role)
         self._conversation_id: str | None = conversation_id
         # enable_memory 仅在 user_id 存在时才真正生效
         self._enable_memory: bool = bool(enable_memory and user_id)
@@ -4108,6 +4123,37 @@ class AgentLoopV2:
         """实例级高危判定(含 env 追加的自定义集合)。"""
         return self._is_high_risk_tool(name) or name in self._extra_high_risk_tools
 
+    @staticmethod
+    def _admin_only_name(name: str) -> str | None:
+        """该工具名(或其桥接等价能力)是否在 admin 专属名单里;命中则返回名单里的正式名。
+
+        与 `_is_high_risk_tool` 同一套形状:先按名字本身判,再经
+        `engine_tool_bridge.capability_equivalent` 回查"这个引擎内置名在注册表里由哪个
+        工具拥有同一能力",用**同一把尺**再判一次。名单唯一真相是
+        `mcp_server._ADMIN_ONLY_TOOLS` —— 本文件不抄第二份(抄了就会漂移)。
+
+        懒加载 import 与本文件其余 mcp_server 取用点同形态(避免模块级循环导入)。
+        取不到名单(理论上不会发生)一律返回 None 并在调用侧保守放行到 call_tool ——
+        那里的角色矩阵仍是同一份名单,不会因此变成 fail-open。
+        """
+        from .mcp_server import _ADMIN_ONLY_TOOLS
+
+        if name in _ADMIN_ONLY_TOOLS:
+            return name
+        equivalent = _capability_equivalent(name)
+        if equivalent is not None and equivalent in _ADMIN_ONLY_TOOLS:
+            return equivalent
+        return None
+
+    def _role_denied_name(self, name: str) -> str | None:
+        """当前角色是否无权执行该工具:无权时返回被拒的正式名,有权时返回 None。
+
+        fail-closed:`self._user_role` 默认 0 ⇒ 未显式注入角色的任何链路都按普通用户处理。
+        """
+        if self._user_role >= 1:
+            return None
+        return self._admin_only_name(name)
+
     async def _request_approval(self, tc: ToolCall) -> str | None:
         """发起审批请求并等待用户决策(阻塞等待,超时后放弃)。
 
@@ -4742,6 +4788,41 @@ class AgentLoopV2:
                 tool_call_id=tc.id,
                 name=tc.name,
                 result=None,
+                error=msg,
+                duration_ms=0,
+                error_type="permission_denied",
+            )
+
+        # 角色矩阵(2026-09-26 V3 #47 第二格,立在审批门**之前**):
+        # admin 专属能力对普通用户根本不该进审批弹窗 —— 审批是"用户可否批准自己无权
+        # 做的事",而角色是"他有没有资格做这件事",两者是两道闸,顺序不能反。
+        # 立因:注册表侧 `mcp_server.call_tool` 有 `_ADMIN_ONLY_TOOLS` × user_role 判定,
+        # 而引擎自带工具(unified_exec / run_code / apply_patch)不经 call_tool,
+        # 于是在 /api/engine/rpc 上普通登录用户(role 0)可无阻拦地跑 shell、写文件。
+        # 回执与 call_tool 同形(errorCode=PERMISSION_DENIED),便于两侧消费方同一处理。
+        denied_name = self._role_denied_name(tc.name)
+        if denied_name is not None:
+            msg = (
+                f"工具 {tc.name}(能力归口 {denied_name})需要 admin 权限(role >= 1),"
+                f"当前 role={self._user_role}"
+            )
+            logger.info(
+                "角色矩阵拦截工具 %s(能力归口 %s,role=%s), session=%s",
+                tc.name,
+                denied_name,
+                self._user_role,
+                self._session_id or "",
+            )
+            self._report_tool_error(tc, msg, "permission_denied", 0.0)
+            await self._emit_permission_mode_event(tc.name, "role_denied")
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result={
+                    "ok": False,
+                    "error": msg,
+                    "errorCode": "PERMISSION_DENIED",
+                },
                 error=msg,
                 duration_ms=0,
                 error_type="permission_denied",

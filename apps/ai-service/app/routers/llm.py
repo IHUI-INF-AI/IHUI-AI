@@ -72,6 +72,7 @@ from ..services.agent_events import (
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
 from ..services.mcp_server import (
+    _TOOL_ALIASES,
     _tool_dispatch_subagent,
     _tool_vision_analyze,
     get_registered_tool_names,
@@ -258,49 +259,12 @@ _DELEGATE_ONLY_HINTS: dict[str, str] = {
     "move_file": "git_operations 或 run_command(需走命令审批)",
 }
 
-# 2026-08-06 生产修复:LLM(stepfun step_plan 等)返回的工具名可能与系统注册名不一致
-# (模型幻觉/跨平台别名),导致 call_tool 报"未知工具"→ 工具执行失败 → 对话显示失败。
-# 统一映射到实际注册的工具名(execute_command 是 Claude/Codex 风格别名,本项目为 run_command)。
-#
-# 2026-09-26(V3 #49)扩充:原仅 2 条,对抗模型工具名幻觉的覆盖面过窄。扩充原则 ——
-#   ① 值域必须是 mcp_server._TOOLS 里真实注册的名字(守门 check-tool-registry-integrity 校验);
-#   ② 只收**语义等价**的别名:写操作一律不收(如 create_file→write_file 会把「新建」
-#      语义静默变成「覆盖」,宁可让它走到 _DELEGATE_ONLY_HINTS 的明确报错);
-#   ③ 只读与命令类可放心扩,映射错了最坏是行为略偏,不会静默破环。
-_TOOL_ALIASES: dict[str, str] = {
-    # 命令执行(Claude / Codex / 通用 LLM 习惯名)
-    "execute_command": "run_command",
-    "execute_bash": "run_command",
-    "bash": "run_command",
-    "shell": "run_command",
-    "run_shell": "run_command",
-    "terminal": "run_command",
-    # 目录列举
-    "list_directory": "list_files",
-    "list_dir": "list_files",
-    "find_files": "list_files",
-    "glob_files": "list_files",
-    # 文件读取
-    "read": "read_file",
-    "view": "read_file",
-    "view_file": "read_file",
-    "open_file": "read_file",
-    "cat_file": "read_file",
-    # 内容搜索
-    "search_files": "file_search",
-    "search_content": "file_search",
-    "grep": "file_search",
-    "grep_files": "file_search",
-    "search_in_files": "file_search",
-    # 语义/符号检索
-    "code_search": "search_codebase",
-    "search_symbol": "search_codebase",
-    # 网页抓取
-    "fetch": "fetch_url",
-    "browse": "fetch_url",
-    "http_request": "fetch_url",
-    "open_url": "fetch_url",
-}
+# 工具名别名归一表 `_TOOL_ALIASES` 自 2026-09-26(V3 #47 第三格)起**唯一定义在**
+# `app/services/mcp_server.py`(A 内核与 call_tool 归一共用同一对象),此处经顶部
+# `from ..services.mcp_server import ...` 引入。扩充原则(值域必须为已注册工具、
+# 写操作别名一律不收)与逐条表体都写在那一处,不得在本文件再抄第二份 ——
+# 两份独立表曾让同一个别名在 llm tool loop 被归一、在 call_tool 报「未知工具」,
+# 守门 scripts/check-tool-registry-integrity.mjs 的 J11 现对账全仓定义恰好 1 处。
 
 
 # W1(2026-09-12 立)终端类工具集合(即计划文档所指 shell/exec/command 类别)。
