@@ -2,51 +2,97 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 多维提及的唯一那份状态(V3 第 61 票,2026-09-27 收口)。
-//
-// 61 票之前:这里定义了 addMention / setActiveType,但**全仓零调用方** ——
-// 于是下面 mentions 恒是空数组,`MentionChips` 的「无提及即返回 null」那条早退永远成立,
-// 而 `#` 侧的选择另存在 message-input 的局部 state。即「两个组件各持一份提及状态」。
-// 现在 `@` 与 `#` 的选择都落到这一份 store,元素类型是引擎的 MentionSelection,
-// 增删的合并语义由 packages/shared/src/chat/mention-engine 的纯函数决定(此处不再算第二遍)。
+'use client'
 
-import { create } from 'zustand'
+import { useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
+import { SearchInput } from '@ihui/ui-react'
+import type { SearchResult } from '@/hooks/use-chat-search'
 
-import {
-  dimensionsForSigil,
-  withoutSelection,
-  withSelection,
-  type MentionSelection,
-} from '@ihui/shared/chat/mention-engine'
-
-/** 默认激活维度 = 引擎表里 `@` 侧的第一条(顺序即面板分组顺序,不在端内写死 id) */
-const DEFAULT_DIMENSION_ID = dimensionsForSigil('@')[0]?.id ?? ''
-
-interface ContextMentionState {
-  /** 已选提及(`@` 与 `#` 同一份;chips 显示在输入框上方) */
-  mentions: MentionSelection[]
-  /** 当前激活的提及维度 tab(默认 `@` 的文件维度) */
-  activeDimensionId: string
-  /** 添加提及(去重:同 id 不重复添加) */
-  addMention: (mention: MentionSelection) => void
-  /** 移除指定提及 */
-  removeMention: (id: string) => void
-  /** 清空所有提及(发送消息后调用) */
-  clearMentions: () => void
-  /** 切换激活维度 tab */
-  setActiveDimension: (id: string) => void
+interface ChatSearchBarProps {
+  /** 是否显示搜索栏 */
+  show: boolean
+  /** 搜索关键词 */
+  value: string
+  /** 搜索结果列表 */
+  results: SearchResult[]
+  /** 输入回调 */
+  onSearch: (value: string) => void
+  /** 滚动到消息 */
+  onScrollToMessage: (id: string) => void
 }
 
-export const useContextMentionStore = create<ContextMentionState>((set) => ({
-  mentions: [],
-  activeDimensionId: DEFAULT_DIMENSION_ID,
+/** 格式化时间为相对时间 */
+function formatTime(time: string): string {
+  if (!time) return ''
+  const date = new Date(time)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}小时前`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}天前`
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
 
-  addMention: (mention) => set((s) => ({ mentions: withSelection(s.mentions, mention) })),
+/**
+ * AI 聊天对话搜索栏
+ *
+ * 从旧架构 client/src/components/ai/chat-parts/chatsearchbar.vue 迁移至 React TSX。
+ * 提供对话内消息搜索 UI：搜索输入框 + 结果列表，点击结果滚动定位。
+ */
+export function ChatSearchBar({
+  show,
+  value,
+  results,
+  onSearch,
+  onScrollToMessage,
+}: ChatSearchBarProps) {
+  const t = useTranslations('chatSearchBar')
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (show) inputRef.current?.focus()
+  }, [show])
+  if (!show) return null
 
-  removeMention: (id) => set((s) => ({ mentions: withoutSelection(s.mentions, id) })),
-
-  clearMentions: () => set({ mentions: [] }),
-
-  setActiveDimension: (id) => set({ activeDimensionId: id }),
-}))
+  return (
+    <div className="bg-background/95 backdrop-blur">
+      {/* 全项目统一搜索框(共享 SearchInput 圆角输入井) */}
+      <div className="px-3 py-2">
+        <SearchInput
+          ref={inputRef}
+          value={value}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('searchAriaLabel')}
+          size="sm"
+        />
+      </div>
+      {results.length > 0 && (
+        <div className="max-h-48 overflow-y-auto mt-1 p-1">
+          {results.map((result) => (
+            <button
+              key={result.id}
+              onClick={() => onScrollToMessage(result.id)}
+              className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+            >
+              <span className="line-clamp-1 text-xs text-foreground">{result.preview}</span>
+              <span className="whitespace-nowrap tabular-nums text-[10px] text-muted-foreground">
+                {formatTime(result.createTime)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
