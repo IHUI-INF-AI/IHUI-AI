@@ -15,12 +15,16 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { AgentCategoryItem } from '@ihui/api-client'
 import { CategoryInlineBar, type CategoryItem } from '@ihui/rn-app'
 import { useTheme } from '../context/ThemeContext'
 import { tokens } from '../theme/active-tokens'
 
 import { rnRadius } from '@ihui/design-tokens'
+
+/** 面板自身留白(与状态栏避让无关,单列以免和 `insets.top` 混成一个数) */
+const PANEL_PADDING_TOP = 12
 
 export interface FenLeiOverlayProps {
   visible: boolean
@@ -49,6 +53,7 @@ export function FenLeiOverlay({
   // 弹层内临时选中态(对齐 uniapp fenlei_active / agentCategory_active,确定时才提交)
   const [tempTrackId, setTempTrackId] = useState(selectedTrackId)
   const [tempMainId, setTempMainId] = useState(selectedMainId)
+  const insets = useSafeAreaInsets()
 
   // 每次打开时同步外部已生效的选中态(对齐 uniapp 重复打开保留上次选择)
   useEffect(() => {
@@ -88,8 +93,11 @@ export function FenLeiOverlay({
           onPress={onClose}
           accessibilityLabel="关闭分类弹层"
         />
-        {/* 弹层面板:顶部对齐(对齐 uniapp s_t_b 紧贴导航栏下方下拉) */}
-        <View style={styles.panel}>
+        {/* 弹层面板:顶部对齐(对齐 uniapp s_t_b 紧贴导航栏下方下拉)。
+         *  顶距必须自己加 `insets.top`:`statusBarTranslucent` 让本 Modal 的窗口铺满整屏,
+         *  而 Modal 渲染在 App.tsx `<SafeAreaView edges={['top']}>` 那一单点之外(守门 97),
+         *  不自己避让就会把首行选项压进状态栏带(真机实测 68px = 34dp,芯片曾落在 y=10..74)。 */}
+        <View style={[styles.panel, { paddingTop: insets.top + PANEL_PADDING_TOP }]}>
           {/* 顶部标题(对齐 uniapp tag-head:紫色居中加粗) */}
           <Text style={styles.headTitle}>分类</Text>
           {/* 赛道横向单选条(统一分类栏;原 ScrollTitle informationList=agentCategory) */}
@@ -143,7 +151,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     paddingHorizontal: 12,
-    paddingTop: 12,
+    // paddingTop 由组件内联注入 `insets.top + PANEL_PADDING_TOP`(见 Modal 处注释),此处不留常量档
     paddingBottom: 14,
     gap: 10,
   },
