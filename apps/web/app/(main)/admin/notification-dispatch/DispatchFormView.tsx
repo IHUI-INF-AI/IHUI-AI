@@ -87,7 +87,7 @@ export function DispatchFormView({ form, submitting, onChange, onSubmit }: Props
               className={cn(
                 'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
                 form.targetMode === m
-                  ? 'border-primary bg-primary/10 text-primary'
+                  ? 'border-brand-accent-deep bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
               )}
             >

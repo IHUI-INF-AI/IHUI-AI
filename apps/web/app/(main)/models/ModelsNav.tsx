@@ -97,7 +97,7 @@ function ProviderPill({
       className={cn(
         'inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium transition-colors',
         active
-          ? 'border-primary bg-cta text-cta-foreground shadow-sm'
+          ? 'border-brand-accent-deep bg-cta text-cta-foreground shadow-sm'
           : 'border-transparent bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground',
       )}
     >

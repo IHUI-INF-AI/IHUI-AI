@@ -170,7 +170,7 @@ export function NewsletterContent(): React.JSX.Element {
                         className={cn(
                           'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs transition-colors',
                           interests.has(tag)
-                            ? 'border-primary bg-primary/5 text-foreground'
+                            ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                             : 'border-border text-muted-foreground hover:bg-muted/50',
                         )}
                       >

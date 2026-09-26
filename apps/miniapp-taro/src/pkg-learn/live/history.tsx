@@ -124,7 +124,7 @@ export default function LiveHistory() {
         {FILTER_TABS.map((tab) => (
           <Text
             key={tab.key}
-            className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[length:26rpx] text-muted-foreground bg-card border-[length:2rpx] border-[var(--color-border)] rounded-md${filter === tab.key ? ' text-primary border-primary font-semibold' : ''}`}
+            className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[length:26rpx] text-muted-foreground bg-card border-[length:2rpx] border-[var(--color-border)] rounded-md${filter === tab.key ? ' text-primary border-brand-accent-deep font-semibold' : ''}`}
             onClick={() => setFilter(tab.key)}
           >
             {tt(tab.i18nKey, tab.fb)}

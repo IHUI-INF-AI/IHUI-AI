@@ -87,7 +87,7 @@ export default function ApisPage() {
               className={
                 'rounded-md border px-3 py-1 text-sm transition-colors ' +
                 (category === c.value
-                  ? 'border-primary bg-cta text-cta-foreground'
+                  ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                   : 'border-border hover:bg-muted')
               }
             >

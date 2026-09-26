@@ -286,7 +286,7 @@ export default function ModelConfigDialog({
                         key={r}
                         className={`px-3 py-1 text-xs rounded-md border ${
                           config.aspectRatio === r
-                            ? 'border-primary bg-primary/10 text-primary'
+                            ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
                         }`}
                         onClick={() => update({ aspectRatio: r })}
@@ -307,7 +307,7 @@ export default function ModelConfigDialog({
                         key={r}
                         className={`px-3 py-1 text-xs rounded-md border ${
                           config.resolution === r
-                            ? 'border-primary bg-primary/10 text-primary'
+                            ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
                         }`}
                         onClick={() => update({ resolution: r })}
@@ -335,7 +335,7 @@ export default function ModelConfigDialog({
                         key={f}
                         className={`px-3 py-1 text-xs rounded-md border ${
                           config.frameCount === f
-                            ? 'border-primary bg-primary/10 text-primary'
+                            ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
                         }`}
                         onClick={() => update({ frameCount: f })}
@@ -363,7 +363,7 @@ export default function ModelConfigDialog({
                         key={tb.id}
                         className={`px-3 py-1 text-xs rounded-md border ${
                           config.timbre === tb.id
-                            ? 'border-primary bg-primary/10 text-primary'
+                            ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
                         }`}
                         onClick={() => update({ timbre: tb.id })}

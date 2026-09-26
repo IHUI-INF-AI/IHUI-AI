@@ -92,7 +92,7 @@ export function RunStatusPanel({ state, activeId }: RunStatusPanelProps) {
               key={p}
               className={`rounded-md border px-3 py-1 ${
                 active
-                  ? 'border-primary bg-primary/10 text-primary'
+                  ? 'border-brand-accent-deep bg-primary/10 text-primary'
                   : done
                     ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
                     : 'text-muted-foreground'

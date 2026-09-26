@@ -229,7 +229,7 @@ export default function BusinessCardEditPage() {
                       className={cn(
                         'flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors',
                         form.template === tpl.value
-                          ? 'border-primary bg-primary/10 text-primary'
+                          ? 'border-brand-accent-deep bg-primary/10 text-primary'
                           : 'border-input text-muted-foreground hover:bg-accent',
                       )}
                     >
