@@ -12,6 +12,7 @@ import { authenticate } from './auth.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
+import { removeIfSame, removeIfDead } from '../utils/connection-registry.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -54,6 +55,27 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
       server.setWebsocketConnections(wsConnectionCount)
     } catch {
       /* 指标采集失败不影响业务 */
+    }
+  }
+
+  /** ws readyState:2 CLOSING / 3 CLOSED —— 与 ws-auto-recovery 的僵尸判据同值 */
+  const WS_READYSTATE_CLOSING = 2
+  const WS_READYSTATE_CLOSED = 3
+  const isSocketZombie = (s: WebSocket): boolean =>
+    s.readyState === WS_READYSTATE_CLOSING || s.readyState === WS_READYSTATE_CLOSED
+
+  /**
+   * 摘掉一个连接,并**只按实际摘掉的那一个**同步 gauge。
+   * 2026-09-26 反向缺陷收口:gauge 与 connections 表此前各说各话 —— 递减写在 close
+   * 回调里无条件执行(连接若已被僵尸清理口或发送失败路径先带走,这里就是双扣,
+   * 低于真实值并可穿负),而发送失败路径摘了人却不扣(高于真实值)。三条移除路径
+   * 一律走这个出口后,不变量是「+1 只在成功注册时,-1 只在真的从表里摘掉时」。
+   * removeIfSame 的返回值正是那本账:身份不在表里 ⇒ 迟到回调不是我的账 ⇒ 不扣。
+   */
+  const dropConnection = (userId: string, ws: WebSocket): void => {
+    if (removeIfSame(connections, userId, ws)) {
+      wsConnectionCount--
+      updateWsConnectionGauges()
     }
   }
 
@@ -127,7 +149,7 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
             /* 指标采集失败不影响业务 */
           }
         } catch {
-          conns.delete(ws)
+          dropConnection(userId, ws)
         }
       }
     })
@@ -182,7 +204,7 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
             /* 指标采集失败不影响业务 */
           }
         } catch {
-          conns.delete(ws)
+          dropConnection(userId, ws)
         }
       }
     }
@@ -261,14 +283,8 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
 
       // 连接关闭时清理
       socket.on('close', () => {
-        const conns = connections.get(userId)
-        if (conns) {
-          conns.delete(socket)
-          if (conns.size === 0) connections.delete(userId)
-        }
-        // 连接数递减并上报 Gauge
-        wsConnectionCount--
-        updateWsConnectionGauges()
+        // 2026-09-26:递减一律由"真的摘掉了人"驱动(见 dropConnection 的注释)
+        dropConnection(userId, socket)
         // 2026-08-02 P1 安全审计:释放连接槽位
         userConnectionLimiter.release(userId)
       })
@@ -279,10 +295,16 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
   getWsAutoRecoveryManager().registerPlugin('ws-notifications', {
     getConnections: () => connections as unknown as Map<string, WebSocket | Set<WebSocket>>,
     removeConnection: async (userId) => {
-      const conns = connections.get(userId)
-      if (conns) {
-        wsConnectionCount -= conns.size
-        connections.delete(userId)
+      // 2026-09-26 反向缺陷收口:只摘**当下确实死亡**的连接,gauge 按**实际移除量**递减。
+      // 旧写法是 `wsConnectionCount -= conns.size` + `connections.delete(userId)`:
+      // 扣的数取的是"这一刻该键下有几个成员"这个快照计数,而摘的是整键 —— 两个动作
+      // 没有共同依据,只是恰好被调用方(ws-auto-recovery 的 isAllStale 在同一 tick 里
+      // 先确认整组皆僵尸)对齐。这个对齐是脆的:一旦 getConnections 改成返回复制快照
+      // (ws-chat 就是那种形态),活连接会被整键拆掉、gauge 还会多扣。removeIfDead 把
+      // "摘了谁"和"摘了几个"收成同一份返回值,表与 gauge 再也不会各说各话。
+      const removed = removeIfDead(connections, userId, isSocketZombie)
+      if (removed > 0) {
+        wsConnectionCount -= removed
         updateWsConnectionGauges()
       }
     },
