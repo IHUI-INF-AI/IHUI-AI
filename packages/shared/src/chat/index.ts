@@ -73,9 +73,9 @@ export * from './quota-ownership'
 // 走 `from '@ihui/shared'` 根 barrel 的 web 文件因此整片无法构建(部署环卡在 next build)。
 // 模块落地后逐行去掉注释即可恢复出口。
 // D43 会话内快捷笔记(录音 12 phase 状态机逐字对齐 Qoder recordingNote;转写复用既有 voice 栈,归档纯逻辑)
-// export * from './voice-note'
+export * from './voice-note'
 // D36 会话内输入草稿(截断上限/安全读取;分桶 key 由调用方决定,形态对齐 prompt-history)
-// export * from './prompt-drafts'
+export * from './prompt-drafts'
 // D35 长会话分页投影(turn 分片纯函数:keyset cursor 往返一致 + 流追加后旧页稳定=增量回放语义)
 // 2026-09-26 落地并接线(消费点:packages/api-client getConversationHistory +
 // apps/web/src/hooks/use-chat-history-projection.ts);此前这行是注释态而服务端端点已入库,

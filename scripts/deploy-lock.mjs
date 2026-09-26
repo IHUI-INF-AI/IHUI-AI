@@ -55,6 +55,7 @@
 import {
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
   existsSync,
@@ -62,7 +63,7 @@ import {
   readdirSync,
   copyFileSync,
 } from 'node:fs'
-import { join, resolve, dirname } from 'node:path'
+import { join, resolve, dirname, basename } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -198,14 +199,160 @@ function holderPid(meta) {
   return Number(m.ownerPid) > 0 ? Number(m.ownerPid) : Number(m.pid) || 0
 }
 
-/** 删除锁目录 */
+/**
+ * 删除锁目录 —— **只允许持有者自释时调用**。
+ *
+ * ⚠️ 抢占路径一律不得用它(2026-09-26 根治):见 `claimStaleLock()` 的注释。
+ */
 function removeLock(dir) {
   try {
     rmSync(dir, { recursive: true, force: true })
   } catch {
-    /* 忽略:调用方必须回读 existsSync 复核(2026-08-14 的教训) */
+    /* 忽略:仅用于持有者自释;抢占路径根本不该走到这里 */
   }
 }
+
+/** 同一把锁的指纹:判据比对用的四字段 + 判据本身的状态 kind */
+function lockIdentity(state) {
+  if (!state || state.kind !== 'ok' || !state.meta) return `!ok:${state?.kind ?? 'null'}`
+  const m = state.meta
+  return `ok|${m.mode}|${m.pid}|${m.ownerPid}|${m.ts}`
+}
+
+/**
+ * 原子抢占:**先把锁目录改名搬走、只处置自己改到的那一份**(2026-09-26 根治运行期竞态)。
+ *
+ * 旧写法(`acquire` 的抢占分支与 `release` 的代为收口分支都是 `removeLock(dir)`)的故障形态:
+ * 在"我判它已死"与"我删它"之间,别的进程可以已经删掉旧锁并 `mkdir` 拿到**新锁** ——
+ * 我 `rmSync` 掉的就是别人的活锁 ⇒ 两次构建同时写 `.next`(8-09 那次的 502 + 监控报警正是这一型)。
+ * 而 `removeLock` 那句"调用方必须回读 existsSync 复核"只判"删没删掉",
+ * **不判"删的是不是我刚看过的那把"** —— 复核的是结果,不是身份。
+ *
+ * 三步:
+ *   ① `renameSync(dir, 归档出口/.deploy.lock.stale-<pid>-<ts>)`(跨卷时退到同父目录暂存,
+ *      退的是落点、不是"改名"这一步)。抛错 ⇒ **没抢到**,**绝不回退去 rmSync 原路径**。
+ *   ② 回读改名后目录的 meta,与判死时那份指纹比对;不等 ⇒ 我改到的是别人新建的活锁
+ *      ⇒ 原样放回、什么都没删(失效方向是"多等一轮",不是"多删一把")。
+ *   ③ 只有②通过才处置改名后的那份:留在归档出口当现场,落不进归档才递归删除;
+ *      删除失败也不回头碰原路径。
+ *
+ * @param {string} dir
+ * @param {{kind:string,meta?:object,reason?:string}|null} judged 判死时的四态结论(②的比对基准)
+ * @param {string} why 判死理由(进现场与日志)
+ * @param {{suffix?:string, archiveRoot?:string}} [opts]
+ * @returns {{ok:boolean, phase:string, code?:string, stagedPath:string|null, archived:string|null, log:string}}
+ */
+function claimStaleLock(dir, judged, why, { suffix, archiveRoot = sceneArchiveRoot() } = {}) {
+  // 提前一次"锁目录在不在"**只为不去建归档目录**(不为已消失的锁造空现场)。
+  // 它不是抢占的安全凭据 —— 安全凭据始终是①原子改名 + ②身份回读。
+  if (!existsSync(dir)) {
+    return {
+      ok: false,
+      phase: 'rename',
+      code: 'ENOENT',
+      stagedPath: null,
+      archived: null,
+      log: `[deploy-lock] 抢占放弃:锁目录 ${dir} 此刻已不存在 ⇒ 未删除、未创建任何目录`,
+    }
+  }
+  const tag = suffix ?? `.stale-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  const me = lockIdentity(judged)
+  let rawMeta = null
+  try {
+    rawMeta = readFileSync(metaFile(dir), 'utf8')
+  } catch {
+    rawMeta = null
+  }
+  // ① 原子改名
+  let stagedPath = null
+  try {
+    mkdirSync(archiveRoot, { recursive: true })
+    const target = join(archiveRoot, `${basename(dir)}${tag}`)
+    renameSync(dir, target)
+    stagedPath = target
+  } catch (e) {
+    const code = e?.code ?? 'unknown'
+    if (code === 'ENOENT') {
+      return {
+        ok: false,
+        phase: 'rename',
+        code,
+        stagedPath: null,
+        archived: null,
+        log: `[deploy-lock] 抢占放弃:锁目录 ${dir} 此刻已不存在 ⇒ 未删除任何目录,继续等待`,
+      }
+    }
+    // 跨卷 / 归档根不可写 ⇒ 退到同父目录暂存(仍是 rename-first,绝不回退成 rmSync)
+    try {
+      const local = `${dir}${tag}`
+      renameSync(dir, local)
+      stagedPath = local
+    } catch (e2) {
+      return {
+        ok: false,
+        phase: 'rename',
+        code: e2?.code ?? code,
+        stagedPath: null,
+        archived: null,
+        log: `[deploy-lock] 抢占未成功(改名 ${e2?.code ?? e2?.message})⇒ 原路径 ${dir} 未被触碰,继续等待`,
+      }
+    }
+  }
+  // ② 身份回读:改到的必须就是我刚判死的那把
+  const now = readMeta(stagedPath)
+  if (lockIdentity(now) !== me) {
+    let restored = false
+    try {
+      renameSync(stagedPath, dir)
+      restored = true
+    } catch {
+      /* 放不回 ⇒ 现场原地保留并大声喊,仍不删 */
+    }
+    return {
+      ok: false,
+      phase: 'identity-drift',
+      restored,
+      stagedPath: restored ? null : stagedPath,
+      archived: null,
+      log:
+        `[deploy-lock] 抢占放弃:${dir} 在改名瞬间已被替换(判死时 ${me},改到的是 ${lockIdentity(now)})` +
+        ` ⇒ ${restored ? '已原样放回,未删除任何锁' : `⚠️ 放回失败,现场保留在 ${stagedPath}(未删除,请人工处置)`}`,
+    }
+  }
+  // ③ 现场留档 + 只处置改名后的那一份
+  const archived = stagedPath
+  const note = {
+    takenAt: new Date().toISOString(),
+    stolenByPid: process.pid,
+    lockPath: dir,
+    judged: judged?.kind === 'ok' ? judged.meta : null,
+    judgedKind: judged?.kind ?? 'null',
+    reason: why,
+    rawMeta,
+  }
+  try {
+    writeFileSync(join(stagedPath, 'stale-claim-note.json'), JSON.stringify(note, null, 2), 'utf8')
+  } catch (e) {
+    console.error(
+      `[deploy-lock] ❌ 抢占现场说明写入失败(${e?.code ?? e?.message})——原始 meta 逐字如下,不得静默:\n${rawMeta ?? '(不可得)'}`,
+    )
+  }
+  return {
+    ok: true,
+    phase: 'claimed',
+    stagedPath,
+    archived,
+    log: `[deploy-lock] 已抢占悬挂锁:被抢的持有者 = ${summarise(judged)};判死理由:${why};现场=${archived}`,
+  }
+}
+
+/** meta 的一行式身份描述(日志用) */
+function summarise(state) {
+  const m = state?.kind === 'ok' ? state.meta : null
+  if (!m) return `无有效元数据(${state?.kind ?? 'null'})`
+  return `mode=${m.mode} cliPid=${m.pid} ownerPid=${m.ownerPid || '(未声明)'} ts=${m.ts ? new Date(m.ts).toISOString() : '(无)'}`
+}
+
 
 /**
  * 进程是否存活(跨平台)。
@@ -485,18 +632,29 @@ async function acquire({
             '[deploy-lock] ⚠️ 归档失败但持有者已退出,按 2026-08-27 判据继续抢占(现场已逐字打印到 stderr)',
           )
         }
-        removeLock(dir)
-        // 2026-08-14 修复:removeLock 内部 rmSync 失败会被静默吞掉,
-        // 若目录仍在则继续 for(;;) 会无限死循环(build/dev 永远卡住)。
-        // 加一道校验:删除后若锁目录仍存在,直接抛错退出(提示用户手动删除),
-        // 不再 continue 进入下一轮轮询。
+        // 抢占动作:**原子改名,只处置自己改到的那一份**(见 claimStaleLock)。
+        // 旧写法是 `removeLock(dir)`:在"我判它已死"与"我删它"之间,别人可以已删掉旧锁并
+        // mkdir 拿到新锁 ⇒ 删掉的是别人的活锁 ⇒ 两次构建同时写 .next(8-09 的 502 那一型)。
+        // 上面 `archiveScene` 的 existsSync 回读只判"删没删掉",不判"删的是不是刚看过的那把"。
+        const claim = claimStaleLock(dir, again.state, again.why)
+        console.log(claim.log)
+        if (!claim.ok) {
+          // 没抢到(锁已不见 / 改名瞬间被替换 / 改到了别人的活锁)⇒ 什么都没删,继续轮询。
+          // 仍受 deadline 约束:不能因为"这轮没成功"就无限等下去。
+          await new Promise((r) => setTimeout(r, POLL_MS))
+          if (Date.now() > deadline)
+            throw new Error(lockTimeoutMessage({ timeoutMs, decision: again, staleMs, dir, mkdirErr }))
+          continue
+        }
+        // 2026-08-14 那道的替代版:抢占成功后原路径若又出现目录,那是**新持有者**的锁,
+        // 该等就等(绝不再删);旧实现在这里抛错,是把"别人动作快"误报成"我删不掉"。
         if (existsSync(dir)) {
-          throw new Error(
-            `[deploy-lock] 无法删除待抢占的锁 ${dir}(可能被其他进程占用/权限不足)。` +
-              '请手动删除该目录后重试。',
+          console.warn(
+            `[deploy-lock] 抢占成功后 ${dir} 已被重建 ⇒ 那是新持有者的锁,按正常等待处理(本工具不删它)`,
           )
         }
         continue
+
       }
     }
     if (Date.now() > deadline) {
@@ -557,7 +715,19 @@ function release({ mode, dir = lockDir() } = {}) {
       { ...state, ageMs: age.ageMs, ageSource: age.source },
       `代为释放非本进程持有的悬挂锁(pid=${state.meta.pid})`,
     )
+    // 代为收口在语义上就是**抢占** ⇒ 必须原子改名、只处置自己改到的那一份(见 claimStaleLock)。
+    // 旧写法直接 removeLock(dir):二次确认与删除之间别人可已新建锁,那一下删的是别人的活锁。
+    const claim = claimStaleLock(
+      dir,
+      state,
+      `代为收口非本进程持有的悬挂锁(cliPid=${state.meta.pid} ownerPid=${state.meta.ownerPid || '(未声明)'})`,
+    )
+    console.log(claim.log)
+    return claim.ok
+      ? { released: true, why: '悬挂锁代为收口(原子改名,现场已留档)' }
+      : { released: false, why: `抢占未成功:${claim.phase}${claim.ok ? '' : `(${claim.code ?? claim.stagedPath ?? '身份已变'})`}` }
   }
+  // 走到这里 = self(本进程就是持有者,内容凭据已验明这把是我的)⇒ 按原语义直接删
   removeLock(dir)
   console.log(`[deploy-lock] 锁已释放 (pid=${process.pid})`)
   return { released: true, why: self ? '持有者自释' : '悬挂锁代为收口' }
@@ -959,6 +1129,8 @@ export const __test__ = {
   release,
   check,
   sceneArchiveRoot,
+  claimStaleLock,
+  lockIdentity,
   repoRoot,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
