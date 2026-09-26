@@ -36,7 +36,8 @@ import { success, error } from '../../utils/response.js'
 import { logger } from '../../utils/logger.js'
 import { idParamSchema } from './_shared.js'
 import { decryptJSON, type EncryptedPayload } from '../../utils/crypto.js'
-import { startStopwatch } from '../../utils/elapsed-ms.js'
+import { startStopwatch, type ElapsedSample } from '../../utils/elapsed-ms.js'
+import { persistableLatency } from '../../utils/latency-persistence.js'
 import {
   getCircuitState,
   getRecentCalls,
@@ -183,6 +184,11 @@ async function pingUpstreamModels(
 interface ChatTestResult {
   success: boolean
   latencyMs: number | null
+  /**
+   * 原始耗时样本:写库面由唯一适配器 `utils/latency-persistence.ts` 从**样本**投影。
+   * 不得改从 `latencyMs`(样本的投影)反推真伪 —— 两处算同一件事必漂移。
+   */
+  elapsedSample: ElapsedSample
   response: string | null
   tokensUsed: number
   error: string | null
@@ -212,13 +218,15 @@ async function callUpstreamChat(
       }),
       signal: controller.signal,
     })
-    const { elapsedMs } = sw.stop()
+    const elapsedSample = sw.stop()
+    const { elapsedMs } = elapsedSample
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '')
       return {
         success: false,
         latencyMs: elapsedMs,
+        elapsedSample,
         response: null,
         tokensUsed: 0,
         error: `HTTP ${res.status}${errText ? `: ${errText.slice(0, 500)}` : ''}`,
@@ -236,17 +244,20 @@ async function callUpstreamChat(
     return {
       success: true,
       latencyMs: elapsedMs,
+      elapsedSample,
       response: content,
       tokensUsed,
       error: null,
       httpStatus: res.status,
     }
   } catch (err) {
-    const { elapsedMs } = sw.stop()
+    const elapsedSample = sw.stop()
+    const { elapsedMs } = elapsedSample
     const isAbort = err instanceof Error && err.name === 'AbortError'
     return {
       success: false,
       latencyMs: elapsedMs,
+      elapsedSample,
       response: null,
       tokensUsed: 0,
       error: isAbort ? 'timeout' : err instanceof Error ? err.message : String(err),
@@ -764,6 +775,7 @@ const relayChannelsRoutes: FastifyPluginAsync = async (server) => {
       const adminUserId = request.userId
       if (adminUserId) {
         try {
+          const latency = persistableLatency(result.elapsedSample)
           await db.insert(llmCallLogs).values({
             userId: adminUserId,
             model,
@@ -772,10 +784,11 @@ const relayChannelsRoutes: FastifyPluginAsync = async (server) => {
             promptTokens: 0,
             completionTokens: 0,
             totalTokens: result.tokensUsed,
-            // 格②(2026-09-26):llm_call_logs.latency_ms 列非空,不可信样本(=null)落库记 0
+            // 格②(2026-09-26 收口为唯一实现):llm_call_logs.latency_ms 列非空,不可信样本落 0
             // 属"列形态兜底"而非展示兜底;真相随行写入 metadata.latencyTrusted,
-            // 统计/展示要排除这一型时按该标记过滤。响应面(下方)仍原样透出 null。
-            latencyMs: result.latencyMs ?? 0,
+            // 统计/展示要排除这一型时按该标记过滤。两者一律由 utils/latency-persistence.ts 投影,
+            // 不得在本文件再手写 `?? 0` / `!== null`(两处算同一件事必漂移)。
+            latencyMs: latency.latencyMs,
             status: result.success ? 'success' : 'error',
             errorMessage: result.error,
             keyPoolId: keyRow.id,
@@ -785,7 +798,7 @@ const relayChannelsRoutes: FastifyPluginAsync = async (server) => {
               isTestCall: true,
               chatUrl,
               model,
-              latencyTrusted: result.latencyMs !== null,
+              latencyTrusted: latency.latencyTrusted,
             },
           })
         } catch (logErr) {

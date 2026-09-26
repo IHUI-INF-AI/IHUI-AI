@@ -5,7 +5,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { repairMessages } from '@ihui/types'
+import { PERMISSION_MODE_WIRE_VALUES, repairMessages } from '@ihui/types'
 import {
   compressContextIfNeeded,
   estimateMessagesTokens,
@@ -96,8 +96,10 @@ const chatStreamSchema = z.object({
   mode: z.enum(['ask', 'build', 'plan', 'review', 'spec']).optional(),
   /** V3 #58(2026-09-26 立):工作区权限模式档位,透传到 ai-service 审批门
    *  (llm.py permission_mode 字段)。不声明会被 zod strip 静默丢弃 ——
-   *  与 workspaceContext/mode 同型断链,审批门将永远按 default 档拦截高危工具。 */
-  permissionMode: z.enum(['default', 'accept-edits', 'bypass-permissions', 'plan']).optional(),
+   *  与 workspaceContext/mode 同型断链,审批门将永远按 default 档拦截高危工具。
+   *  清单从注册表派生(G-164:路由不得再抄第二份字面量,`packages/types/permission-mode.ts`
+   *  是唯一定义处);本端点只收 wire(kebab)拼写,与 workspace.ts 的 ACP 入参面刻意不同形。 */
+  permissionMode: z.enum(PERMISSION_MODE_WIRE_VALUES).optional(),
   /** 原生 function calling(2026-08-31 立,OpenAI tools 格式弱类型透传):
    *  CLI 直连 ai-service 已支持(tools + tool_choice → tool-call-start SSE 事件),
    *  经网关中转的客户端(Web 等)同样需要透传。元素为 OpenAI tool 定义

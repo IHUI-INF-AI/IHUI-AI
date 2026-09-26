@@ -54,7 +54,7 @@ export interface LoadSessionData {
   sessionId: SessionId
 }
 
-import type { PermissionModeWire } from './permission-mode'
+import type { PermissionModeWire } from './permission-mode.js'
 
 export type PromptMode = 'default' | 'plan' | 'accept-edits' | 'bypass-permissions'
 
