@@ -11095,6 +11095,34 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   ⑤ `pnpm --filter @ihui/shared typecheck` 当前红在 `src/chat/__tests__/prompt-history.test.ts` 引两个不存在的导出,
   而 `src/chat/prompt-history.ts` 正被并发会话持有(工作树脏)—— 属他人在飞改动,本票未碰。
 
+- 〔O81 票⑤ 2026-09-26:图标载体是"两端还是不一样"的真凶,已立判据 + 收两组,余两组在做〕
+  **用户反馈定位**:台账能降到 4 键 29 档而观感仍不同,因为门只量**数字档**;真正没被任何尺子看着的是
+  **图标载体**。新 IC 判据上线即量到 **24 处 CDN 位图当 UI 图标**(InputArea 9 / BottomActionBar 5 /
+  ModelConfigDialog 7 / ModelList 3)—— 小程序端走 `aizhsUrl('remote-images/*.png')`,RN 端走 lucide 矢量。
+  位图不随主题反色、不跟字号缩放、描边粗细与 lucide 不一致,且违反 AGENTS §4「UI 图标一律用矢量图标库」。
+  **择优结论按既有规则定:矢量优先**,字形名一律照 RN 端同槽位的 lucide 名取(同名才可能是同一份路径数据)。
+  **已落**(`2898c6237c` + `95b805bacb` + `3fe58986bf` + `058fe9de2c`):
+  ① `icons.ts` 的生成器补回(头注指向的 `gen-line-icons.mjs` **从来不存在**,而 AGENTS §4 让人用的
+  `gen-taro-lucide-icons.mjs` 把版本写死成未安装的 lucide-react@1.31.0,实测 `plus` 直接抛错 —— 文档给的出路是死的);
+  源钉到 **RN 端 lucide-react-native 的实际版本**(现 1.37.0),目录动态解析不写哈希;三态报告 generated/别名/custom,
+  `heart-fill` 这类填充变体刻意**不**按路径认别名(否则生成器会把填充版悄悄重生成描边版)。
+  ② 门 128 新增 **IC 判据**,与几何判据分开跑(几何同值的族最容易被跳过,而它恰恰可能图标不同形);
+  红条件 = 位图槽数 > 该组件自己在 HEAD 的存量(棘轮),单侧矢量化只报数不判红(RN 用平台 `<Switch>`、
+  小程序走 `chooseMessageFile` 无录音界面这类是真实单侧控件)。豁免 `icon-bitmap-exempt: <原因>` 已进守门 108(365 天)。
+  ③ InputArea + BottomActionBar 的 14 枚位图常量退役、保留 0 枚,尺寸从 spec 取、颜色走 token,
+  `IconButtonItem.icon` 类型由 string 收窄到 `IconName` ⇒ 字形是否存在登记表成编译期保证。
+  **三条必须后续处理的(都不是"已收口")**:
+  A. **两端元素集合本身不一致** —— `selected_model` 那行"已默认自动切换"提示 RN 整条不存在,
+  代理按矢量优先取了同族 `check` 并标注待追认。**换个图标名盖不住这个差异**:要么 RN 补这行、要么小程序撤,属产品裁量,
+  本票不替它选(同样形态的还有 BottomActionBar 的 chevron-down/paperclip/scissors/settings 与 InputArea 的 film/play,
+  IC 现按"单侧控件"只报数)。
+  B. **IC 认不出"变量/模板拼接传名"** —— 已补属性字面量、配置数组 `icon:`、三元 `name={}` 三种写法
+  (㉛ 成对用例先抓到"漏认"、又抓到"把比较操作数 `'voice'` 当字形名"两次自误),但 `name={item.icon}` 这类
+  跨变量解析仍取不到 ⇒ 不计。失效方向刻意是**少报不误报**,判红维不吃它。
+  C. **观感未经设备取证** —— 以上全部是代码级与判据级对账。小程序端 weapp 与 h5 的 CSS 产出形态不同
+  (本仓实测 h5 有命名档 utility、weapp 全无),所以 h5 截图不能当 weapp 的代理;RN 侧真机是 release 包不吃 Metro。
+  **设备像素复核是这一票的收尾条件**,未做之前不得把"两端已一致"当结论。
+
 ## O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）
 - 〔O81 续记 2026-09-26:判据换代 + 票④ 首族,台账两次同笔下调;并登记一次"登记行被并发提交连工作树一起抹掉"的现场〕
   **① 门 128 加"渲染腿前置"**(`7e10922a7f` + 本枚):同名配对必须有从端入口可达的腿才算一对
@@ -11336,8 +11364,3 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 
 - [x] ✅(2026-09-26) **把自己登记里的证据指针从"一次性探针"改成常驻判据(上一行 R6 条目里那句 `.ihui-agent/tmp` 作废)**:`node --test scripts/tests/check-lock-manifest-consistency.test.mjs` 的 **T26** 才是"真仓 HEAD 面 0 条跨段"这条前置的长期载体(它跑 `gate.runCheck(repoRoot,'head')` 并断言 `section-drift` 集合为空),任何检出都能重跑;而探针脚本只活在我这台机的工作树里。**这是 §1「可审计锚点必须受版本控制」那条规矩在我自己身上的第二次命中** —— 第一次是门 107 的 P5(specFile 指到 gitignored 路径 ⇒ 作者机常绿、别的检出每次提交被逼绕钩子)。登记行留在原地不删(前向更正不抹旧行)。**新入库的 `scripts/plan-line-audit.mjs` 已按四道元门自检**:`check-no-visible-spawn` / `check-git-read-timeout` / `check-gate-face-discipline` / `check-gate-wiring` 各 exit 0 且均未点名该文件(它不硬编码盘符、git 走层的绝对路径、派生带 `windowsHide` 与 timeout、不声称任何接线)。
-
-
-- [x] ✅(2026-09-26) **CI 红的归属是量出来的,不是推出来的**:取 `c0028070eae`(= 本会话今晚第一枚 `2162e460ee` 的**父提交**)的 check-runs,当时已红的是 `lint` / `test` / `test-python` / `port-registry-check` / `Knip 死代码检查` / `lint-typecheck-test` / `ai-service-schema-check`,而 `typecheck` 是 cancelled ⇒ **这些红早于本会话任何改动**,不是我带入的;而在最新 head `e3f1b114d74` 上复量是 **红 0**(`build-api` / `build-ai-service` / `python-ai-service` 已 success,其余 in_progress),即本会话那几刀(lock 重生成、knip 基线录在干净面、i18n 死键、门 101 新维)与并发合并一起把它们清掉了。**唯一仍红的是 `deliver-failure-intake`**,annotation 原文:「缺少 `secrets.IHUI_UNATTENDED_INTAKE_WEBHOOK_SECRET`,信源投递无法鉴权,显式失败(不静默跳过)」(`.github/workflows/unattended-fix-intake.yml:71`)。**刻意不动它,两条理由都不是"没时间"**:① 那句"显式失败"是作者写进 `:53` 注释的设计(信源投递这条腿没配好就该响),把它改成 exit 0 = 替别人摘掉一条故意留响的警报(§16 越权);② 补齐需要两半同时到位 —— 仓库侧 secret + 服务端 `GITHUB_WEBHOOK_SECRET` 与 `vars.IHUI_UNATTENDED_INTAKE_API_URL`,后半在生产机(本机实测不可达),而打开它等于允许"CI 失败自动触发 agent 跑",属 §24 需用户显式同意的能力开关。**只登记、不代裁。**
-- [x] ✅(2026-09-26) **新 blocking 维上线后自问了一句"我是不是把别人钉红了",答案是量到的 0**:`origin/main` 与 `0e1e51cba8` 两个 ref 上按 R6 同判据复量分区漂移,均为 **27 包 / 26 importer / 漂移 0 条** ⇒ 门 101 新增这一维不会让任何一次无关提交变红(恒红门等于把全部守门交给 `--no-verify`,§12e 那条在本仓反复成立的教训,新门前必须自问一次)。
-- [x] ✅(2026-09-26) **活文档并集被自己的守卫拒动,这是设计不是失败**:落地 R6 登记后发现索引里那份 `PROJECT_PLAN.md` 是**别人 staged 的真实内容**(独有 5 行 `G-211 更正`,只少我这 1 行),而工作树副本又 ⊉ 那份索引 ⇒ 我的并集脚本三条判据第二条不过,当场停手不覆盖。我的行已在 HEAD,`git-sync-converge` 那一轮打印「HEAD 已含全部登记行,无需建恢复提交」—— 门 71 的 post-commit 自愈层正是为"别人按旧基线整文件提交"准备的第二层。**规矩:凡"帮别人把两份内容合起来"的动作,先证目标 ⊇ 双方,证不成就住手,把合并交还给持有索引的那一方。** 本会话临时件已清;`.ihui-agent/tmp` 其余约 280 项是多次会话累积的 `*.pre-merge.bak` 与在飞探针,归属不可辨,不盲删(§12 禁止删他人文件)。
