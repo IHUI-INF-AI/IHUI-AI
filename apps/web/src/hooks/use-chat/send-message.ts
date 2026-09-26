@@ -21,10 +21,15 @@ import {
   autoTitleConversation,
   branchConversation,
   type ToolDelegateEvent,
+  // V3 #58(2026-09-26 立):主对话流工具审批请求事件(ai-service 高危工具执行前发)
+  type ToolApprovalEvent,
   type WorkspacePermissionMode,
   // Budget 用量分档提醒事件(2026-09-19 立,网关发,流首 toast 提示用量进度)
   type BudgetEvent,
 } from '@ihui/api-client'
+// V3 #58(2026-09-26 立):审批请求桥接到全局 ToolApprovalDialog(channel 标记让
+// 弹窗把决策回传到主聊天流端点,而非 agent 任务流端点 —— 两套注册表互不相通)
+import { dispatchToolApprovalRequest } from '@/components/ai/tool-approval-dialog'
 import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
 import { expandRuleToken } from '@/stores/memory'
 import { expandContextTokens } from '@/lib/context-token-expander'
@@ -610,6 +615,10 @@ export function createSendMessage(
           // 未设置时不传该 key,保持上游默认行为。
           ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
         },
+        // V3 #58(2026-09-26 立):权限模式档位透传 —— ai-service 工具审批门据此
+        // 决定高危工具是否弹审批(bypass-permissions 不拦截;accept-edits 放行
+        // 文件编辑类;缺省按 default 处理)。currentMode 即消息徽章同源的档位快照。
+        permissionMode: currentMode,
         workspacePath,
         workspaceContext,
         // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,API 端调用共享包压缩
@@ -985,6 +994,23 @@ export function createSendMessage(
             execResult.result,
             execResult.error,
           )
+        },
+        // V3 #58(2026-09-26 立):主对话流工具审批 —— ai-service tool loop 在高危
+        // 工具(run_command/delete_file/write_file 等)执行前发 tool-approval 帧,
+        // 桥接到全局 ToolApprovalDialog 弹窗(approve/deny + once/session/always 三档
+        // + 原因输入全部复用既有组件)。channel='chat-stream' 标记让弹窗把决策经
+        // postToolApprovalResponse 回传到主聊天流端点(llm.py _approval_sessions),
+        // 而非 agent 任务流的 /agents/approval-response —— 两套审批注册表互不相通。
+        onToolApproval: (event: ToolApprovalEvent) => {
+          dispatchToolApprovalRequest({
+            approvalId: event.approvalId,
+            toolName: event.toolName,
+            toolCallId: event.toolCallId,
+            argsPreview: event.argsPreview,
+            dangerLevel: event.dangerLevel,
+            sessionId: event.sessionId,
+            channel: 'chat-stream',
+          })
         },
         // 2026-08-29 修复:仅当用户显式启用插件工具时才携带 agentTools。
         // 普通问答不携带 → 后端不命中 tool loop,走流式 astream() 恢复打字机输出(详见 tool-config.ts)
