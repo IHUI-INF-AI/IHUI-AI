@@ -89,6 +89,7 @@ async def collect_metrics(
     platform: str,
     content_id: str,
     credentials: dict[str, Any],
+    db_account_id: int | str | None = None,
 ) -> dict[str, Any]:
     """采集某任务某平台内容的互动指标并写入快照。
 
@@ -113,7 +114,7 @@ async def collect_metrics(
 
     if platform == "zhihu":
         try:
-            await _collect_zhihu(task_id, content_id, credentials, metrics)
+            await _collect_zhihu(task_id, content_id, credentials, metrics, db_account_id)
         except Exception as e:
             logger.exception("[metrics] zhihu collect failed content_id=%s", content_id)
             metrics["source"]["error"] = f"{type(e).__name__}: {e}"
@@ -148,6 +149,7 @@ async def _collect_zhihu(
     content_id: str,
     credentials: dict[str, Any],
     metrics: dict[str, Any],
+    db_account_id: int | str | None = None,
 ) -> None:
     if not _HAS_PLAYWRIGHT:
         metrics["source"]["error"] = "Playwright not installed"
@@ -159,7 +161,7 @@ async def _collect_zhihu(
     xsrf = credentials.get("_xsrf", "").strip()
     async with async_playwright() as p:
         browser, context = await create_stealth_browser_context(
-            account_id=_account_id(credentials),
+            account_id=_account_id(credentials, db_account_id),
             platform="zhihu",
             playwright_instance=p,
             headless=True,

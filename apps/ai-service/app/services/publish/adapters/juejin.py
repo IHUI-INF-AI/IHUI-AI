@@ -14,7 +14,6 @@
 """
 from __future__ import annotations
 
-import hashlib
 from typing import TYPE_CHECKING, Any
 
 from app.core.logging import get_logger
@@ -74,9 +73,8 @@ class JuejinAdapter(BasePlatformAdapter):
         ]
 
     def _account_id(self, credentials: dict[str, Any]) -> str:
-        """从凭证推导账号唯一 ID(用于反风控 profile 持久化,跨会话稳定)。"""
-        first_cred = next((v for v in credentials.values() if v), "default")
-        return f"{self.platform_id}_{hashlib.md5(str(first_cred).encode()).hexdigest()[:8]}"
+        """账号唯一 ID(反风控 profile/指纹的稳定锚点)—— 委托唯一出口,禁止在此另算。"""
+        return self.account_identity(credentials)
 
     async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         if not _HAS_PLAYWRIGHT:
