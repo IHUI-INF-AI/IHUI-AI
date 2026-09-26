@@ -35,7 +35,12 @@ from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..core.jwt_auth import resolve_request_user_id, verify_access_token
-from ..services.agent_engine import INVALID_REQUEST, PARSE_ERROR, AgentEngine
+from ..services.agent_engine import (
+    INVALID_REQUEST,
+    PARSE_ERROR,
+    AgentEngine,
+    _coerce_role_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +64,12 @@ def _make_loop_factory() -> Any:
         from ..services.agent_loop_v2 import AgentLoopV2
         from .agents import _build_loop_v2_tools, _make_loop_v2_llm
 
-        tools = await _build_loop_v2_tools(spec.get("tool_names"))
+        # V3 #47 第二格:角色过桥。spec["role_id"] 由 agent_engine._spec(thread) 给出,
+        # 而 thread.role_id 只可能来自承载层绑定的已验证身份(_bind_principal)。
+        # 这里再过一次 _coerce_role_id 是**刻意的纵深**:工厂是 spec → 循环的唯一装配点,
+        # 任何漏填/畸形值都在这里落成最严的 0,而不是被当成"没限制"传下去。
+        user_role = _coerce_role_id(spec.get("role_id", 0))
+        tools = await _build_loop_v2_tools(spec.get("tool_names"), user_role=user_role)
         # 负向工具过滤(2026-09-18 第二批,对标 Codex per-app omit_tools_from)
         deny = spec.get("deny_tools") or []
         if deny:
@@ -77,6 +87,8 @@ def _make_loop_factory() -> Any:
             enable_checkpoint=True,
             session_id=spec.get("session_id"),
             user_id=spec.get("user_id"),
+            # V3 #47 第二格:引擎线程的角色喂进循环,使自带工具也经同一份角色矩阵
+            user_role=user_role,
             conversation_id=spec.get("conversation_id"),
             permission_mode=spec.get("permission_mode"),
             # 2026-09-18 收尾修复:上一批 per-tool 审批策略只进了 spec,生产工厂
@@ -222,20 +234,38 @@ async def _sse_stream(payload: dict[str, Any]) -> Any:
                 await task
 
 
-def _bind_principal(message: Any, principal: str | None) -> Any:
+def _bind_principal(message: Any, principal: str | None, role: int = 0) -> Any:
     """O19(2026-09-21):把**连接层已验证的身份**写入 params.userId,覆盖客户端自述值。
 
     引擎 `thread.start` 的 userId 原本是客户端自述 ⇒ 谎报他人 id 即可解他人审批
     (approval.respond 以 thread.user_id 为 principal)。绑定后:线程属主只可能是
-    这条连接证明过的身份。principal 为 None(未鉴权/dev 通道)时原样返回,不新增
+    这条连接证明过的身份。principal 为 None(未鉴权/dev 通道)时不写 userId,不新增
     任何权限 —— 那类通道创建的线程 owner 仍为自述值,与其结算通道同一信任级。
+
+    V3 #47 第二格(2026-09-26):同一处还要绑**角色** `params.roleId`,它与属主同性质
+    —— 都是"谁在调用"的一部分,只可能是这条连接证明过的值。一处刻意的不对称:
+    userId 在未鉴权通道上保留客户端自述值(上面那句历史语义不变),而 **roleId 一律
+    被覆盖**,取不到验证角色就是 0。理由是角色属**授权输入** —— 放过自述值等于给任何
+    通道留一条"自称 admin"的旁路,那正是本票要堵的那一格的镜像。
     """
-    if not principal or not isinstance(message, dict):
+    if not isinstance(message, dict):
         return message
     params = message.get("params")
-    if isinstance(params, dict):
+    if not isinstance(params, dict):
+        return message
+    params["roleId"] = _coerce_role_id(role)
+    if principal:
         params["userId"] = principal
     return message
+
+
+def _request_role_id(request: Request) -> int:
+    """取 JWT 中间件注入的 `request.state.role_id`;缺省即 0(fail-closed)。
+
+    归一逻辑与引擎落点共用 `agent_engine._coerce_role_id` 那一份实现(两处算同一件事
+    不得各写一遍 —— 本仓记过多次:各写一遍必然漂移,而漂移表现为"看起来有判据")。
+    """
+    return _coerce_role_id(getattr(request.state, "role_id", 0))
 
 
 @router.post("/rpc")
@@ -246,6 +276,8 @@ async def engine_rpc(request: Request) -> Any:
     批量中不允许出现流式方法 —— JSON-RPC 批量语义无法承载 SSE,返回 -32600)。
     """
     principal = resolve_request_user_id(request)
+    # V3 #47 第二格:与属主同源的角色(取不到即 0,fail-closed)
+    role_id = _request_role_id(request)
     try:
         body = await request.json()
     except Exception as e:  # noqa: BLE001 - 非法 JSON 按标准解析错误返回
@@ -259,9 +291,9 @@ async def engine_rpc(request: Request) -> Any:
 
     # O19:连接层身份绑定覆盖全部三种分支(批量 / 流式 SSE / 单发)
     if isinstance(body, list):
-        body = [_bind_principal(message, principal) for message in body]
+        body = [_bind_principal(message, principal, role_id) for message in body]
     else:
-        body = _bind_principal(body, principal)
+        body = _bind_principal(body, principal, role_id)
 
     if isinstance(body, list):
         results: list[Any] = []
@@ -335,12 +367,17 @@ def _ws_token(ws: WebSocket) -> str:
 
 
 async def _handle_ws_frame(
-    raw: str, emit: Any, tasks: set[asyncio.Task[Any]], principal: str | None
+    raw: str,
+    emit: Any,
+    tasks: set[asyncio.Task[Any]],
+    principal: str | None,
+    role: int = 0,
 ) -> None:
     """处理一帧报文(独立任务:长跑的 prompt 不阻塞 interrupt/approval 帧)。
 
     O19:principal 为**握手时 verify_access_token 已证明的身份**,逐帧写入 params.userId
     覆盖客户端自述值 —— 否则攻击者可在已认证连接上谎报他人 id 解他人审批。
+    V3 #47 第二格:同一帧写 params.roleId(同样只可能来自握手时验过的 token)。
     """
     current = asyncio.current_task()
     if current is not None:
@@ -348,7 +385,7 @@ async def _handle_ws_frame(
     try:
         message: Any = raw
         with contextlib.suppress(ValueError, UnicodeDecodeError):
-            message = _bind_principal(json.loads(raw), principal)
+            message = _bind_principal(json.loads(raw), principal, role)
         response = await ENGINE.handle_message(message, emit)
         if response is not None:
             await emit(response)
@@ -374,15 +411,21 @@ async def engine_ws(ws: WebSocket) -> None:
         async with lock:
             await ws.send_text(json.dumps(message, ensure_ascii=False))
 
-    logger.info("[engine] WS 连接建立 user=%s", payload.get("userId") or payload.get("sub"))
+    logger.info(
+        "[engine] WS 连接建立 user=%s role=%s",
+        payload.get("userId") or payload.get("sub"),
+        _coerce_role_id(payload.get("roleId", 0)),
+    )
     # O19:握手已验证的身份即本连接全部帧的 principal(与上面日志同源字段)
     ws_principal = payload.get("userId") or payload.get("sub")
     principal = ws_principal if isinstance(ws_principal, str) and ws_principal else None
+    # V3 #47 第二格:角色同源 —— 只认握手验过的那份 payload,不认帧内自述值
+    ws_role = _coerce_role_id(payload.get("roleId", 0))
     try:
         while True:
             text = await ws.receive_text()
             task = asyncio.ensure_future(
-                _handle_ws_frame(text, _emit, local_tasks, principal)
+                _handle_ws_frame(text, _emit, local_tasks, principal, ws_role)
             )
             local_tasks.add(task)
     except WebSocketDisconnect:

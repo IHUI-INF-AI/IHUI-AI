@@ -25,6 +25,14 @@
  *   J3 `_TOOL_ALIASES` 的**键**不得命中已注册的真工具名(否则会静默屏蔽真工具的调用)。
  *   J4 `_TOOL_ALIASES` 的键/值都不得是委托专有成员(键命中会窃取委托语义;值命中会让
  *      本地路径去调一个本地不存在的名字)。
+ *      (V3 #47 第三格,2026-09-26:J2/J3/J4 的取材面从 PY_LLM 移到 PY_MCP ——
+ *       别名表已合成全仓唯一一份,住在 mcp_server.py,llm.py 改为 import。)
+ *   J11 `apps/ai-service/app` 内 `_TOOL_ALIASES` 的**模块级定义必须恰好 1 处**
+ *      (行首 `_TOOL_ALIASES` + 可选注解 + `=`;注释经 stripLineComments 剥除,
+ *       `from … import _TOOL_ALIASES` 与缩进的消费行都不算定义)。出现第 2 处即红
+ *       并点名全部路径 —— 本票的产出就是把两份独立真相合成一份,这条防止它再长回去:
+ *       合表前 llm.py(26 条)与 mcp_server.py(2 条)各一份、公共 2 条取值相同纯属巧合,
+ *       同一个别名在 A 内核被归一、经 call_tool 不被归一,「未知工具」随机出现。
  *   J5 `_DELEGATE_ONLY_TOOLS` ⊆ `_FS_DEPENDENT_TOOLS`、⊆ 前端 case、且 ∩ 本地注册表 = ∅
  *      —— 这三条一起定义什么叫「委托专有」,任一破都说明常量已与实际脱节。
  *   J6 前端实现了的工具必须 ∈ `_FS_DEPENDENT_TOOLS` ∪ 本地注册表 —— 否则前端那支实现
@@ -52,13 +60,13 @@
  */
 
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { COLORS as C } from './lib/logger.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const ROOT_DEFAULT = join(fileURLToPath(import.meta.url), '..', '..')
 const args = process.argv.slice(2)
@@ -118,6 +126,8 @@ function readInputs(root, face) {
 const PY_LLM = 'apps/ai-service/app/routers/llm.py'
 const PY_MCP = 'apps/ai-service/app/services/mcp_server.py'
 const TS_EXEC = 'apps/web/src/lib/workspace-tool-executor.ts'
+// J11 的枚举面(V3 #47 第三格):别名表的模块级定义只允许存在于这个包内的一处。
+const APP_PY_DIR = 'apps/ai-service/app'
 // V3 #47(2026-09-26 并入):引擎内核自带的内置名,与「能力归口」声明表。
 // 这张表存在的理由就是本门此前对 C 内核全盲 —— 全文 BUILTIN 0 命中,
 // 于是 unified_exec / run_code / apply_patch 三个「起 shell、跑代码、写文件」
@@ -229,6 +239,86 @@ function frontendCases(texts) {
   return names
 }
 
+/**
+ * J11(V3 #47 第三格,2026-09-26):枚举 `apps/ai-service/app` 内**模块级**
+ * `_TOOL_ALIASES` 定义(`行首标识符 + 可选注解 + =`)出现在哪些文件、各几处。
+ * 判"定义"而非判"提到":
+ *   - `from ..services.mcp_server import _TOOL_ALIASES` 行首是 `from`,不算;
+ *   - 缩进的消费行(`tool_name = _TOOL_ALIASES.get(...)`)不匹配行首锚定,不算;
+ *   - 注释里的 `_TOOL_ALIASES = ...` 先经 stripLineComments 剥除,不算(与本门
+ *     取材铁律同源 —— 裸 grep 会把说明文字读成代码)。
+ * 取材面纪律照本文件既有规矩:全量判 HEAD blob、--staged 判索引 blob、--worktree
+ * 只走磁盘;清单与内容同面同轮,任一处取不到 ⇒ Undetermined(exit 2),不回落。
+ * 枚举到 0 个 .py 判"无法判定"而非"0 处定义"的红 —— 空扫是尺子坏了,不是世界坏了。
+ * @returns {Array<{path: string, count: number}>} 含定义的文件(相对路径,posix 分隔)
+ */
+function listAppPyRels(root, face) {
+  if (face === 'worktree') {
+    const out = []
+    const walk = (dirAbs, relPrefix) => {
+      let entries
+      try {
+        entries = readdirSync(dirAbs, { withFileTypes: true })
+      } catch {
+        throw new Undetermined(`工作树枚举 ${relPrefix} 失败(目录不存在或不可读)`)
+      }
+      for (const e of entries) {
+        const rel = relPrefix + '/' + e.name
+        if (e.isDirectory()) walk(join(dirAbs, e.name), rel)
+        else if (e.isFile() && e.name.endsWith('.py')) out.push(rel)
+      }
+    }
+    walk(join(root, APP_PY_DIR), APP_PY_DIR)
+    if (out.length === 0) throw new Undetermined(`工作树 ${APP_PY_DIR} 枚举到 0 个 .py(空扫不判)`)
+    return out.sort()
+  }
+  const args =
+    face === 'staged'
+      ? ['ls-files', '-z', '--', APP_PY_DIR]
+      : ['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', APP_PY_DIR]
+  const out = gitRaw(args, root)
+  const rels = [...new Set(out.split('\0').filter(Boolean))].filter((p) => p.endsWith('.py'))
+  if (rels.length === 0)
+    throw new Undetermined(
+      `${face === 'staged' ? '索引' : 'HEAD'} 面 ${APP_PY_DIR} 枚举到 0 个 .py(空扫不判)`,
+    )
+  return rels.sort()
+}
+
+const MODULE_ALIAS_DEF_LINE = /^_TOOL_ALIASES[ \t]*(?::[^=\n]*)?[ \t]*=/
+
+function scanAliasDefinitions(root, face) {
+  const rels = listAppPyRels(root, face)
+  const contents = new Map()
+  if (face === 'worktree') {
+    for (const rel of rels) {
+      const text = readWorktreeFile(root, rel)
+      if (text === null || text === undefined) throw new Undetermined(`${rel} 磁盘读取失败(工作树档)`)
+      contents.set(rel, text)
+    }
+  } else {
+    const prefix = face === 'staged' ? ':' : 'HEAD:'
+    const specs = rels.map((rel) => prefix + rel)
+    const got = catBatch(root, specs, { maxBuffer: 1 << 28 })
+    for (let i = 0; i < rels.length; i++) {
+      const text = got.get(specs[i])
+      if (text === null || text === undefined)
+        throw new Undetermined(
+          `${rels[i]} 在 ${face === 'staged' ? '索引' : 'HEAD'} 取不到(清单与内容必须同面读满)`,
+        )
+      contents.set(rels[i], text)
+    }
+  }
+  const defs = []
+  for (const rel of rels) {
+    let count = 0
+    for (const line of stripLineComments(contents.get(rel)).split('\n'))
+      if (MODULE_ALIAS_DEF_LINE.test(line)) count++
+    if (count > 0) defs.push({ path: rel, count })
+  }
+  return defs
+}
+
 /** Python 侧本地注册的工具名:`_TOOL_HANDLERS` 的 key。 */
 function localRegistry(texts) {
   return dictKeySet(PY_MCP, texts[PY_MCP], '_TOOL_HANDLERS')
@@ -281,7 +371,9 @@ function collect(texts) {
     fs: setMembers(take('_FS_DEPENDENT_TOOLS')),
     delegateOnly: setMembers(take('_DELEGATE_ONLY_TOOLS')),
     hints: dictKeySet(PY_LLM, llm, '_DELEGATE_ONLY_HINTS'),
-    aliases: dictMap(PY_LLM, llm, '_TOOL_ALIASES'),
+    // V3 #47 第三格(2026-09-26):别名表已合成全仓唯一一份,住在 mcp_server.py;
+    // J2/J3/J4 的取材面随之从 PY_LLM 改到 PY_MCP(判据本体一字未动)。
+    aliases: dictMap(PY_MCP, texts[PY_MCP], '_TOOL_ALIASES'),
     local: localRegistry(texts),
     frontend: frontendCases(texts),
     builtins: engineBuiltins(texts),
@@ -289,7 +381,7 @@ function collect(texts) {
   }
 }
 
-function check(d) {
+function check(d, aliasDefs) {
   const failures = []
   const sorted = (s) => [...s].sort()
 
@@ -411,6 +503,24 @@ function check(d) {
       )
     }
   }
+
+  // J11 —— 别名表的模块级定义必须恰好 1 处(V3 #47 第三格,2026-09-26)。
+  // 本票的全部意义在于把 llm.py(26 条)与 mcp_server.py(2 条)两份独立真相合成
+  // 一份;这条判据防的是"合成后又长回两份":任何第二处 `^_TOOL_ALIASES … =` 都红,
+  // 且失败文案点名**全部**命中路径(两处都要被指名,不许只报一个)。
+  // 0 处同样是红(表被删了,J2/J3/J4 就在对着空气打分)—— 判据不区分"多"与"无",
+  // 只认"恰好 1"这一个事实。
+  const aliasDefTotal = (aliasDefs ?? []).reduce((s, e) => s + e.count, 0)
+  if (aliasDefTotal !== 1) {
+    const where =
+      aliasDefs && aliasDefs.length > 0
+        ? aliasDefs.map((e) => `${e.path}(×${e.count})`).join(' + ')
+        : '(一处也没有)'
+    failures.push(
+      `J11 ${APP_PY_DIR} 内 _TOOL_ALIASES 的模块级定义必须恰好 1 处,实测 ${aliasDefTotal} 处:${where} ` +
+        '—— 两份表 = 同一个别名在 A 内核(llm tool loop)与 call_tool 两个入口结论不同,「未知工具」随机出现;合成本票的成果不得再被拆回去',
+    )
+  }
   return failures
 }
 
@@ -425,7 +535,11 @@ function buildFixture(files) {
   return dir
 }
 
-const fixPy = (fsBody, doBody, hintBody, aliasBody) => `# -*- coding: utf-8 -*-
+// V3 #47 第三格(2026-09-26):`_TOOL_ALIASES` 的唯一真实落点在 mcp_server.py,
+// 所以夹具把它放进 fixHandlers(PY_MCP)而不是 fixPy(PY_LLM)—— 判据住哪侧,
+// 夹具就必须长哪侧,否则自检测的是已经不存在的旧形态。
+const CLEAN_ALIAS_BODY = '    "execute_command": "run_command",'
+const fixPy = (fsBody, doBody, hintBody) => `# -*- coding: utf-8 -*-
 _FS_DEPENDENT_TOOLS = {
 ${fsBody}
 }
@@ -435,13 +549,13 @@ ${doBody}
 _DELEGATE_ONLY_HINTS = {
 ${hintBody}
 }
-_TOOL_ALIASES = {
-${aliasBody}
-}
 `
-const fixHandlers = (names) => `# -*- coding: utf-8 -*-
+const fixHandlers = (names, aliasBody = CLEAN_ALIAS_BODY) => `# -*- coding: utf-8 -*-
 _TOOL_HANDLERS: dict[str, object] = {
 ${names.map((n) => `    "${n}": _tool_${n},`).join('\n')}
+}
+_TOOL_ALIASES: dict[str, str] = {
+${aliasBody}
 }
 `
 const fixTs = (cases) => `switch (toolName) {
@@ -474,7 +588,6 @@ function runSelfTest() {
       '    "read_file",\n    "apply_patch",',
       '    "apply_patch",',
       '    "apply_patch": "用 file_edit",',
-      '    "execute_command": "run_command",',
     ),
     [PY_MCP]: fixHandlers(['read_file', 'write_file', 'run_command']),
     [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']),
@@ -482,19 +595,14 @@ function runSelfTest() {
     [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE),
   }
 
-  // [用例名, 变更后的文件, 期望命中的失败子串;null = 期望零失败]
+  // [用例名, 变更后的文件, 期望命中的失败子串(或子串数组=同一条失败里都要在);null = 期望零失败]
   const cases = [
     ['基线干净(应零失败)', cleanFiles, null],
     [
       'J1 真幽灵名必红',
       {
         ...cleanFiles,
-        [PY_LLM]: fixPy(
-          '    "ghost_tool",',
-          '    "apply_patch",',
-          '    "apply_patch": "用 file_edit",',
-          '    "execute_command": "run_command",',
-        ),
+        [PY_LLM]: fixPy('    "ghost_tool",', '    "apply_patch",', '    "apply_patch": "用 file_edit",'),
       },
       'J1 真幽灵工具名',
     ],
@@ -502,10 +610,8 @@ function runSelfTest() {
       'J2 别名指向空气必红',
       {
         ...cleanFiles,
-        [PY_LLM]: fixPy(
-          '    "read_file",\n    "apply_patch",',
-          '    "apply_patch",',
-          '    "apply_patch": "用 file_edit",',
+        [PY_MCP]: fixHandlers(
+          ['read_file', 'write_file', 'run_command'],
           '    "execute_command": "no_such_tool",',
         ),
       },
@@ -515,10 +621,8 @@ function runSelfTest() {
       'J3 别名键抢占真工具名必红',
       {
         ...cleanFiles,
-        [PY_LLM]: fixPy(
-          '    "read_file",\n    "apply_patch",',
-          '    "apply_patch",',
-          '    "apply_patch": "用 file_edit",',
+        [PY_MCP]: fixHandlers(
+          ['read_file', 'write_file', 'run_command'],
           '    "read_file": "run_command",',
         ),
       },
@@ -528,10 +632,8 @@ function runSelfTest() {
       'J4 别名值指向委托专有必红',
       {
         ...cleanFiles,
-        [PY_LLM]: fixPy(
-          '    "read_file",\n    "apply_patch",',
-          '    "apply_patch",',
-          '    "apply_patch": "用 file_edit",',
+        [PY_MCP]: fixHandlers(
+          ['read_file', 'write_file', 'run_command'],
           '    "execute_command": "apply_patch",',
         ),
       },
@@ -545,7 +647,6 @@ function runSelfTest() {
           '    "read_file",\n    "apply_patch",',
           '    "read_file",',
           '    "apply_patch": "用 file_edit",',
-          '    "execute_command": "run_command",',
         ),
       },
       'J5',
@@ -571,33 +672,29 @@ function runSelfTest() {
           '    "read_file",\n    "apply_patch",',
           '    "apply_patch",',
           '',
-          '    "execute_command": "run_command",',
         ),
       },
       'J7',
     ],
+    // 变异验证:注释里提到的名字不得被读成集合成员 —— 这是本门取材铁律的执行凭据。
+    // 若 stripLineComments 失效,`ghost_in_comment` 会被算进 _FS_DEPENDENT_TOOLS 并触发 J1。
     [
-      // 变异验证:注释里提到的名字不得被读成集合成员 —— 这是本门取材铁律的执行凭据。
-      // 若 stripLineComments 失效,`ghost_in_comment` 会被算进 _FS_DEPENDENT_TOOLS 并触发 J1。
-      [
-        '注释里的名字不被误吸(应零失败)',
-        {
-          [PY_LLM]:
-            '# 2026-08-06:ghost_in_comment 移出本集合 —— 它曾经在这里,现在别读了\n' +
-            fixPy(
-              '    "read_file",\n    "apply_patch",',
-              '    "apply_patch",',
-              '    "apply_patch": "用 file_edit",',
-              '    "execute_command": "run_command",',
-            ),
-          [PY_MCP]: fixHandlers(['read_file', 'write_file', 'run_command']),
-          [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']),
-          [PY_ENGINE]: fixEngine(['unified_exec', 'view_image', 'update_plan']),
-          [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE),
-        },
-        null,
-      ],
-    ].flat(),
+      '注释里的名字不被误吸(应零失败)',
+      {
+        [PY_LLM]:
+          '# 2026-08-06:ghost_in_comment 移出本集合 —— 它曾经在这里,现在别读了\n' +
+          fixPy(
+            '    "read_file",\n    "apply_patch",',
+            '    "apply_patch",',
+            '    "apply_patch": "用 file_edit",',
+          ),
+        [PY_MCP]: fixHandlers(['read_file', 'write_file', 'run_command']),
+        [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']),
+        [PY_ENGINE]: fixEngine(['unified_exec', 'view_image', 'update_plan']),
+        [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE),
+      },
+      null,
+    ],
     [
       'J8 内置名缺桥条目必红(V3 #47 的立项型:引擎自带名字此前对全部门禁盲视)',
       {
@@ -652,26 +749,63 @@ function runSelfTest() {
       },
       null,
     ],
+    // ── J11(V3 #47 第三格):成对用例 —— 第二处定义必红 / 唯一一处必绿 ──────
+    // 红例复刻本票立项时的真实形态:llm.py 与 mcp_server.py 各留一份模块级定义。
+    // 失败文案必须**同时点名两处路径**(数组期望=同一条失败里全部子串都要在),
+    // 只点一处的报告会把另一半留在暗处。
+    [
+      'J11 出现第二处模块级定义必红(两份真相 = 本票要防的病)',
+      {
+        ...cleanFiles,
+        [PY_LLM]:
+          fixPy(
+            '    "read_file",\n    "apply_patch",',
+            '    "apply_patch",',
+            '    "apply_patch": "用 file_edit",',
+          ) +
+          '_TOOL_ALIASES: dict[str, str] = {\n    "list_directory": "list_files",\n}\n',
+      },
+      ['J11', PY_LLM, PY_MCP],
+    ],
+    [
+      'J11 import 与注释提到表名不算定义,唯一一处在位(应零失败)',
+      {
+        ...cleanFiles,
+        [PY_LLM]:
+          '# 本文件的 _TOOL_ALIASES 唯一定义在 services/mcp_server.py,这里只 import。\n' +
+          'from ..services.mcp_server import _TOOL_ALIASES\n' +
+          fixPy(
+            '    "read_file",\n    "apply_patch",',
+            '    "apply_patch",',
+            '    "apply_patch": "用 file_edit",',
+          ),
+      },
+      null,
+    ],
   ]
 
   let bad = 0
+  const hitExpect = (f, expect) =>
+    Array.isArray(expect) ? expect.every((s) => f.includes(s)) : f.includes(expect)
+  const describeExpect = (expect) => (Array.isArray(expect) ? expect.join(' ∧ ') : expect)
   for (const [name, files, expect] of cases) {
     const dir = buildFixture(files)
     let fails = []
     try {
-      fails = check(collect(readInputs(dir, 'worktree')))
+      const texts = readInputs(dir, 'worktree')
+      fails = check(collect(texts), scanAliasDefinitions(dir, 'worktree'))
     } catch (e) {
       fails = [`抛出: ${e.message}`]
     } finally {
       rmScratch(dir)
     }
-    const ok = expect === null ? fails.length === 0 : fails.some((f) => f.includes(expect))
+    const ok = expect === null ? fails.length === 0 : fails.some((f) => hitExpect(f, expect))
     if (ok) {
       console.log(`  ${C.green}✓${C.reset} ${name}`)
     } else {
       bad++
       console.log(
-        `  ${C.red}✗${C.reset} ${name} — ${expect === null ? `期望零失败,实际: ${fails[0] ?? '(无)'}` : `未命中 ${expect},实际: ${fails[0] ?? '未报错'}`}`,
+        `  ${C.red}✗${C.reset} ${name} — ${expect === null ? `期望零失败,实际: ${fails[0] ?? '(无)'}` : `未命中 ${describeExpect(expect)},实际: ${fails[0] ?? '未报错'}`}`,
       )
     }
   }
@@ -706,7 +840,7 @@ let texts
 let failures
 try {
   texts = readInputs(ROOT, FACE_SEL.face)
-  failures = check(collect(texts))
+  failures = check(collect(texts), scanAliasDefinitions(ROOT, FACE_SEL.face))
 } catch (e) {
   if (e instanceof Undetermined) {
     // "面取不到"与"面里没有那个字面量"是两件事:前者无法判定,后者是判据红。
@@ -733,7 +867,7 @@ console.log(`${C.red}${C.bold}❌ 工具注册表完整性失败 — ${failures.
 for (const f of failures) console.log(`  • ${f}`)
 console.log('')
 console.log(
-  `${C.dim}修复:两面对齐 —— ${PY_LLM} 的 _FS_DEPENDENT_TOOLS / _DELEGATE_ONLY_TOOLS / _TOOL_ALIASES ↔ ${PY_MCP}._TOOL_HANDLERS ↔ ${TS_EXEC} 的 case${C.reset}`,
+  `${C.dim}修复:对齐落点 —— ${PY_MCP} 的 _TOOL_ALIASES(全仓唯一一份模块级定义)/ _TOOL_HANDLERS ↔ ${PY_LLM} 的 _FS_DEPENDENT_TOOLS / _DELEGATE_ONLY_TOOLS / _DELEGATE_ONLY_HINTS ↔ ${TS_EXEC} 的 case;llm.py 只 import,不得再抄第二份${C.reset}`,
 )
 process.exit(1)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
