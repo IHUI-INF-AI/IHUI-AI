@@ -3,61 +3,51 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 浮层层栈(overlay stack) —— Esc 无层栈协议的单一来源实现。
+ * D35 长会话分页投影(2026-09-26 第二段):turn 序号的**唯一语义出口**。
  *
- * 背景:全项目 20+ 处浮层各自在 `document`/`window` 上挂 keydown 消费 Escape,
- * 且都不做互斥。同一事件里每个监听器都会被调用(同 target 上的多个监听器不受
- * stopPropagation 影响),导致"按一次 Esc 把所有层一起关掉"。
+ * 为什么要单独一层:第一段把 turn 规则写进了 `db/chat-queries.ts` 的三个写入点
+ * (createMessage / replaceMessages / branchConversationFrom),而绕过 service 的
+ * 直插路径(patrol-scheduler 告警注入、conversation-import 落库)拿不到这套规则,
+ * 于是它们写出的行 turn_ordinal 为 NULL —— 新分片端点对 NULL 行不可见,
+ * 表现是"导入的会话/巡检告警会话翻不到历史"。
  *
- * 本模块提供最小注册式层栈:浮层 open 时 pushOverlay(id),close/unmount 时
- * popOverlay(id),其 Esc 处理器首行 `if (!isTopOverlay(id)) return` —— 只有栈顶
- * 那一层消费 Esc,其余层保持打开,由用户逐层退出。
- *
- * 落点决策(2026-09-26 立):实现放 ui-react 而非 apps/web —— ui-react 的
- * Dialog/Sheet/Drawer/Select 家族要在一处内建注册(接全部端),而 ui-react
- * 不允许反向依赖 apps/web。apps/web/src/lib/overlay-stack.ts 仅 re-export 本模块,
- * web 侧既有 import 路径不变。
- *
- * 设计约束:
- * - 模块级数组,单浏览器页面内共享(浮层本身就在同一 document 上)。
- * - push 幂等:重复 push 同一 id 只做"移到栈顶",不产生重复项。
- * - pop 无条件安全:未注册 id、重复 pop 均为 noop。
- * - isTopOverlay 对"未注册 id"一律返回 true(fail-open):未接入栈的层
- *   行为完全不变,绝不会因为接入本模块而让 Esc 失灵。
+ * 规矩:凡是要给 chat_messages 行算 turn 序号,**只能**调本模块,
+ * 不得在端内再写一份 `role === 'user' ? ... : ...`(判据见
+ * `apps/api/tests/chat-messages-insert-paths.test.ts`)。
+ * 回填存量行的同一条规则在迁移
+ * `packages/database/drizzle/<ts>_backfill_turn_ordinal.sql` 里以 SQL 形态表达,
+ * 两者由 `apps/api/tests/turn-ordinal-backfill.test.ts` 逐条对账(不同形态、同语义)。
  */
 
-const stack: string[] = []
+/** 开启新轮的 role;其余 role(assistant/system)沿用当前轮。 */
+const TURN_OPENING_ROLE = 'user'
 
-/** 注册一个浮层为当前栈顶(幂等:已存在则移到栈顶)。 */
-export function pushOverlay(id: string): void {
-  const existing = stack.indexOf(id)
-  if (existing !== -1) stack.splice(existing, 1)
-  stack.push(id)
+/** 参与 turn 分组所需的最小行形态。 */
+export interface TurnOrdinableRow {
+  readonly role: string
 }
 
-/** 注销一个浮层(不存在则 noop;可安全重复调用)。 */
-export function popOverlay(id: string): void {
-  let existing = stack.indexOf(id)
-  while (existing !== -1) {
-    stack.splice(existing, 1)
-    existing = stack.indexOf(id)
-  }
+/**
+ * 单条新消息该取哪个 turn(与 `chat-queries.createMessage` 第一段口径逐字同形):
+ * - user:会话内 max + 1(开启新轮)
+ * - 其余:max(max, 1)(沿用当前轮;会话还没有任何轮时归 turn 1,不留 NULL)
+ */
+export function turnOrdinalForRole(maxTurnOrdinal: number, role: string): number {
+  return role === TURN_OPENING_ROLE ? maxTurnOrdinal + 1 : Math.max(maxTurnOrdinal, 1)
 }
 
-/** 该浮层是否应消费 Esc:栈顶、栈为空、或该 id 未接入栈时为 true。 */
-export function isTopOverlay(id: string): boolean {
-  if (stack.length === 0) return true
-  if (stack[stack.length - 1] === id) return true
-  return !stack.includes(id)
-}
-
-/** 只读快照(调试 / 测试用)。 */
-export function getOverlayStack(): readonly string[] {
-  return stack
-}
-
-/** 仅供单元测试重置全局状态。 */
-export function __resetOverlayStack(): void {
-  stack.length = 0
+/**
+ * 一批**按写入顺序**给出的行 → 附带 turnOrdinal 的同一批行(顺序不变、长度不变)。
+ * 与 `chat-queries.replaceMessages` 的重算规则同源:user 递增计数器,其余取当前轮。
+ */
+export function withTurnOrdinals<T extends TurnOrdinableRow>(
+  rows: readonly T[],
+): Array<T & { turnOrdinal: number }> {
+  let currentTurn = 0
+  return rows.map((row) => {
+    const turnOrdinal = turnOrdinalForRole(currentTurn, row.role)
+    if (row.role === TURN_OPENING_ROLE) currentTurn = turnOrdinal
+    return { ...row, turnOrdinal }
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
