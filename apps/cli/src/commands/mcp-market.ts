@@ -34,6 +34,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
+import { missingTokenHint } from './token-manager.js';
 
 const API_PREFIX = '/api/mcp';
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -433,7 +434,7 @@ export function registerMcpMarketCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(missingTokenHint(baseUrl)));
           process.exitCode = 1;
           return;
         }
@@ -462,7 +463,7 @@ export function registerMcpMarketCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(missingTokenHint(baseUrl)));
           process.exitCode = 1;
           return;
         }
@@ -485,7 +486,7 @@ export function registerMcpMarketCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(missingTokenHint(baseUrl)));
           process.exitCode = 1;
           return;
         }
@@ -508,7 +509,7 @@ export function registerMcpMarketCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(missingTokenHint(baseUrl)));
           process.exitCode = 1;
           return;
         }
@@ -531,7 +532,7 @@ export function registerMcpMarketCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(missingTokenHint(baseUrl)));
           process.exitCode = 1;
           return;
         }
