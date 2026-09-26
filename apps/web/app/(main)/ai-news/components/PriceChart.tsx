@@ -33,6 +33,11 @@ export function PriceChart({ entries }: Props) {
         name: e.modelName.length > 15 ? e.modelName.slice(0, 14) + '…' : e.modelName,
         input: parseNumeric(e.inputPrice),
         output: parseNumeric(e.outputPrice),
+        // 后端 model_leaderboard 的价目列可空(LeaderboardEntry.inputPrice: string | null,
+        // 见 src/lib/ai-news-api/types.ts)。parseNumeric 的契约(text-utils.tsx:14):
+        // null/undefined/'' 一律返回 null ⇒ 「柱高 > 0」在业务上必然蕴含「原始串非 null」,
+        // 但 TS 无法跨两个字段推断这一相关性,故下方 tooltip 对原始串做显式非空分支:
+        // 真为 null 时不发提示,绝不拿假值(空串/占位)喂给用户看懂的价格位。
         inputRaw: e.inputPrice,
         outputRaw: e.outputPrice,
       }))
@@ -104,7 +109,9 @@ export function PriceChart({ entries }: Props) {
                 fill={CHART_BLUE}
                 rx={1.5} // radius-exempt: 图表细柱微圆角(1.5px),吸附到档位会破坏观感
               >
-                <title>{t('priceChart.inputPrice', { name: d.name, price: d.inputRaw })}</title>
+                {d.inputRaw !== null ? (
+                  <title>{t('priceChart.inputPrice', { name: d.name, price: d.inputRaw })}</title>
+                ) : null}
               </rect>
             ) : null}
             {outH > 0 ? (
@@ -116,7 +123,9 @@ export function PriceChart({ entries }: Props) {
                 fill={CHART_ORANGE}
                 rx={1.5} // radius-exempt: 图表细柱微圆角(1.5px),吸附到档位会破坏观感
               >
-                <title>{t('priceChart.outputPrice', { name: d.name, price: d.outputRaw })}</title>
+                {d.outputRaw !== null ? (
+                  <title>{t('priceChart.outputPrice', { name: d.name, price: d.outputRaw })}</title>
+                ) : null}
               </rect>
             ) : null}
             <text
