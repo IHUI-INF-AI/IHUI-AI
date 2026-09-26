@@ -9400,7 +9400,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **恢复被删过头的一处功能**:`pkg-ai/developer/income.tsx` 原页内键同时是"提现明细 → 收入概览"的
     **面板内视图回退**唯一入口(原生栏只退整页,退不了局部 state)。批量删除时被一起带走 ⇒ 重建
     `backToIncome` 并在明细视图内放文字回退钮 + `back-label-exempt: … until 2026-12-31`。
-  - **GA5 两处真站点**:`ModelConfigDialog.tsx` 删 `←` 改矢量 `ChevronLeft size=12` + `t('common.back')` + 带原因豁免;
+  - **GA5 两处真站点(落地形态按 HEAD 现读更正,2026-09-26 复验)**:`ModelConfigDialog.tsx` **保留 `←` 并带原因 `back-label-exempt`**(实测 `←`=1 / 豁免=1 / 无 `ChevronLeft`)—— 矢量化要动 `RatioSelector` 的组件签名,而该作用域里没有 `t` 也没有 `tokens`,不得为消红去改别人组件的 API;
     `Selecter.tsx` 实测该文件 i18n 与矢量图标通道**双缺**(grep `useTranslation|const tt|lucide|<svg` 零命中,
     消费方只有 barrel)⇒ 按"不为消红塞新依赖"处置:删 `←` 留文字 + 豁免注明通道缺失原因。
   - **RN/共享层 GA4 存量 8 处**清零:全部换 `<BackChevron onPress label colorScheme/>`(照抄已收口屏的写法),
