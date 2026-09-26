@@ -326,8 +326,8 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
-    await deleteProject(id)
-    return reply.send(success({ deleted: true }))
+    const removed = await deleteProject(id)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // GET /projects/:id/files - 列出项目文件
@@ -679,8 +679,8 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 软删除：仅标记 deletedAt/deletedBy，不删磁盘文件
-      await softDeleteFile(id, userId)
-      return reply.send(success({ deleted: true }))
+      const removed = await softDeleteFile(id, userId)
+      return reply.send(success({ deleted: removed.length > 0 }))
     },
   )
 

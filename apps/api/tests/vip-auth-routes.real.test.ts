@@ -486,6 +486,20 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
     expect(body.data.deleted).toBe(true)
   })
 
+  // 2026-09-27 布尔删除 ack 清账:钉"删 0 行不得报 deleted:true"。
+  // 路由层 deleted 现由 deleteVipLevel 回报的 RETURNING 命中集派生;
+  // 真库删一条不存在的等级 ⇒ 必须如实报 false。
+  it('DELETE /api/admin/vip/levels/:id — 库侧删 0 行(不存在的 id)不得报 deleted:true', async () => {
+    const admin = await createUser('1001', '管理员')
+    setMockUser(admin.id, 1)
+    const res = await server.inject({
+      method: 'DELETE',
+      url: '/api/admin/vip/levels/00000000-0000-4000-8000-000000000099',
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.deleted).toBe(false)
+  })
+
   it('Admin 路由 — 普通用户访问任意 admin 端点返回 403', async () => {
     const user = await createUser('1001', '普通用户')
     setMockUser(user.id, 0)
