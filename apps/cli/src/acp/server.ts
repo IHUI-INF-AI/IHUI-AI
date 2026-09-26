@@ -100,6 +100,50 @@ export async function requestPermissionFromEditor(
   }
 }
 
+/** 审批终态:批准 / 显式拒绝 / 取消(含编辑器不支持、请求异常、用户未应答) */
+export type ApprovalDecision = 'approved' | 'rejected' | 'cancelled';
+
+/**
+ * 审批卡终态收口(格①):审批卡的 tool_call 以 status:'pending' 发出
+ * (见 requestPermissionFromEditor 内 `status: 'pending'`),而 dangerous-* 与
+ * plan-approval-* 两类审批 toolCallId 此前在全仓没有任何 tool_call_update
+ * (普通工具走 onToolResult 的队列配对完成 in_progress→completed/failed 状态流),
+ * 于是用户批/拒之后 IDE 面板上那张卡永远显示"等待中"。
+ *
+ * 本函数在审批得到结果后按**真实决定**落终态:
+ *   - approved → completed
+ *   - rejected / cancelled(未收到回复、编辑器不支持、请求抛错)→ failed
+ * 即刻意不把"没收到回复"写成 completed。通知失败吞掉:与本文件其余 session/update
+ * 发射点同一约定 —— IDE 渲染失败不得中断 agent 执行。
+ */
+export async function emitApprovalTerminalUpdate(
+  cx: acp.AgentContext,
+  sessionId: string,
+  toolCallId: string,
+  decision: ApprovalDecision,
+): Promise<void> {
+  const approved = decision === 'approved';
+  try {
+    await cx.notify(acp.methods.client.session.update, {
+      sessionId,
+      update: {
+        sessionUpdate: 'tool_call_update',
+        toolCallId,
+        status: approved ? ('completed' as const) : ('failed' as const),
+        content: [
+          {
+            type: 'content' as const,
+            content: { type: 'text' as const, text: `Approval ${decision}.` },
+          },
+        ],
+        rawOutput: { approval: decision },
+      },
+    });
+  } catch {
+    // IDE 渲染失败不中断 agent
+  }
+}
+
 export interface AcpServerOptions {
   apiUrl: string;
   apiKey?: string;
@@ -314,8 +358,11 @@ export class IhuiAcpAgent {
           allowDangerous: this.opts.allowDangerous,
           silent: true,
           prompt: async (tool, args) => {
+            // 格①:审批 id 提出为变量,得到结果后必须落 tool_call_update 终态,
+            // 否则面板上那张卡永远"等待中"(此前全仓无人对 dangerous-* 发更新)。
+            const approvalToolCallId = `dangerous-${tool.name}-${Date.now()}`;
             const selected = await requestPermissionFromEditor(cx, params.sessionId, {
-              toolCallId: `dangerous-${tool.name}-${Date.now()}`,
+              toolCallId: approvalToolCallId,
               kind: 'execute',
               title: `危险操作审批:${tool.name}`,
               contentText: JSON.stringify(args).slice(0, 2000),
@@ -324,7 +371,14 @@ export class IhuiAcpAgent {
                 { optionId: 'deny', name: '拒绝', kind: 'reject_once' },
               ],
             });
-            return selected === 'allow';
+            const approved = selected === 'allow';
+            await emitApprovalTerminalUpdate(
+              cx,
+              params.sessionId,
+              approvalToolCallId,
+              selected === null ? 'cancelled' : approved ? 'approved' : 'rejected',
+            );
+            return approved;
           },
         }),
       });
@@ -376,8 +430,10 @@ export class IhuiAcpAgent {
             },
           });
           // D5:审批统一走 requestPermissionFromEditor(plan 与危险工具同一通道)
+          // 格①:plan-approval-* 同样必须落终态(批准→completed;拒绝/取消→failed)。
+          const approvalToolCallId = `plan-approval-${Date.now()}`;
           const selected = await requestPermissionFromEditor(cx, params.sessionId, {
-            toolCallId: `plan-approval-${Date.now()}`,
+            toolCallId: approvalToolCallId,
             kind: 'other',
             title: 'Plan 审批(Plan Mode)',
             contentText: plan.trim(),
@@ -387,6 +443,12 @@ export class IhuiAcpAgent {
             ],
           });
           const approved = selected === 'approve';
+          await emitApprovalTerminalUpdate(
+            cx,
+            params.sessionId,
+            approvalToolCallId,
+            selected === null ? 'cancelled' : approved ? 'approved' : 'rejected',
+          );
           if (selected === null) {
             // 编辑器不支持 request_permission 或请求超时/取消:安全降级为拒绝(不崩溃)
             await cx.notify(acp.methods.client.session.update, {
