@@ -125,7 +125,7 @@ const adminRelayAlertRulesRoutes: FastifyPluginAsync = async (server) => {
     try {
       const okDeleted = await deleteAlertRule(idParsed.data.id)
       if (!okDeleted) return reply.status(404).send(error(404, '规则不存在'))
-      return reply.send(success({ deleted: true }))
+      return reply.send(success({ deleted: okDeleted }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除告警规则失败'))
@@ -200,7 +200,7 @@ const adminRelayAlertRulesRoutes: FastifyPluginAsync = async (server) => {
     try {
       const okDeleted = await deleteAlertSilence(idParsed.data.id)
       if (!okDeleted) return reply.status(404).send(error(404, '静默不存在'))
-      return reply.send(success({ deleted: true }))
+      return reply.send(success({ deleted: okDeleted }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除告警静默失败'))
