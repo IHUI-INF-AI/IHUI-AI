@@ -52,13 +52,13 @@ const Switch = React.forwardRef<React.ElementRef<typeof SwitchPrimitives.Root>, 
       <SwitchPrimitives.Root
         className={cn(
           'peer group inline-flex shrink-0 cursor-pointer items-center rounded-md p-[3px]',
-          'border-[1.5px] border-foreground bg-background',
+          'border-[1.5px] border-foreground bg-background', // border-ink-exempt: Switch 新拟态定稿 —— 框与 3px 硬投影同色才成立体感,2026-09-26 扩判据后暴露的既有定稿而非新增违规 until 2027-09-26
           'shadow-[3px_3px_0_var(--color-foreground)]',
           'transition-[background,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
           'disabled:cursor-not-allowed disabled:opacity-50',
-          // ON: 高级灰蓝背景 + 保持黑边
-          'data-[state=checked]:bg-[var(--color-brand-accent)] data-[state=checked]:border-foreground',
+          // ON: 高级灰蓝背景 + 保持同一框色(与硬投影同色才不出现双层描边)
+          'data-[state=checked]:bg-[var(--color-brand-accent)] data-[state=checked]:border-foreground', // border-ink-exempt: ON 态沿用同一新拟态框色,与 3px 硬投影同色才不出现双层描边;属同一定稿,理由同上行 until 2027-09-26
           // 按下: 阴影收缩 + 2px 位移,实体按键反馈
           'active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--color-foreground)]',
           // 无障碍: prefers-reduced-motion 停用过渡与位移,保留阴影设计
