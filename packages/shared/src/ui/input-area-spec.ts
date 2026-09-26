@@ -314,14 +314,32 @@ export const INPUT_AREA_AI_HOME_EMOJI_PANEL_H_PX = 90
 export const INPUT_AREA_AI_HOME_EMOJI_CELL_PX = 30
 
 /**
- * 【B 单端档·小程序】语音/键盘切换 PNG 的墨迹档:文字态 19×20、语音态 25×15(=38×40 / 50×30rpx)。
- * 素材固有尺寸(裁决规则 6):这两张图是原项目的位图资源,墨迹比例由图片本身决定,
- * 不是可对齐的布局档。RN 端同一处是 lucide `Mic`/`Keyboard` 矢量,取 `size={20}` 一档。
+ * 【A 两端同值·裁决】图标墨迹 20(O81 票⑤ 取代原 4 枚位图墨迹比常数):
+ * 语音/键盘切换钮与"添加附件"加号的墨迹档。依据三处同源:
+ *  - RN `InputArea.tsx` 的 `<Mic size={20}/>` 与 `<Keyboard size={20}/>`(同一切换钮的两态);
+ *  - 小程序 default 变体这一处一直是 Tailwind `w-5 h-5`(= 20);
+ *  - 小程序 ai-home 的 `.search-box1-img` 类臂 38×40rpx,其墨迹高 40rpx = 20。
+ * 被删掉的四枚常数(`..._VOICE_GLYPH_TEXT_W/H`、`..._VOICE_GLYPH_VOICE_W/H`)记的是
+ * **两张 PNG 素材各自的非方形墨迹比**(38×40 / 50×30rpx),矢量图标是正方形盒,
+ * 位图退役后那两对比值不再有载体,故整体并成本枚方形档,不保留死表。
  */
-export const INPUT_AREA_AI_HOME_VOICE_GLYPH_TEXT_W_PX = 19
-export const INPUT_AREA_AI_HOME_VOICE_GLYPH_TEXT_H_PX = 20
-export const INPUT_AREA_AI_HOME_VOICE_GLYPH_VOICE_W_PX = 25
-export const INPUT_AREA_AI_HOME_VOICE_GLYPH_VOICE_H_PX = 15
+export const INPUT_AREA_GLYPH_MD_PX = 20
+
+/**
+ * 【B 单端档·小程序】ai-home 加号(附件钮)墨迹 22(= `.search-box2-img` 的 44rpx)。
+ * 与上面 20 那一档不同形:20 是 RN 与小程序 default 变体共享的档,而 ai-home 这一枚是复刻
+ * 原项目的 44rpx 内联盒(RN 端同一功能走共享 `PlusButton` 实底钮,墨迹 16/26 两档另有形态),
+ * 强行并档会改写首页输入条的观感,故登记为单端档,换算入表以免端内裸数字。
+ */
+export const INPUT_AREA_AI_HOME_ADD_GLYPH_PX = 22
+
+/**
+ * 【B 单端档·小程序】ai-home 放大/缩小钮墨迹 24(= 收编前位图内联 `rpx(48)`)。
+ * RN 端同一处不是矢量图标:输入框里是 `⤢`/`⤡` 字符(`INPUT_AREA_CONTROL_GLYPH_PX` 14),
+ * 底部辅助行才是 lucide `Maximize` 18 —— 三处三种载体,取值不同形,故本档只登记小程序这一枚,
+ * 数值取原位图墨迹盒以免改观感。
+ */
+export const INPUT_AREA_AI_HOME_EXPAND_GLYPH_PX = 24
 
 /**
  * 【B 单端档·小程序】ai-home 语音钮盒宽 25(=50rpx)。高度刻意不收:那一行的 22 这一档
