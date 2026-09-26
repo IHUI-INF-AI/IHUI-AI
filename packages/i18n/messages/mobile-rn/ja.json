@@ -202,6 +202,16 @@
     "runtimeSend": "送信"
   },
   "chat": {
+    "connectorAuth": {
+      "title": "{connectorName} に接続",
+      "connected": "接続済み",
+      "reconnect": "{connectorName} を再接続",
+      "connect": "接続",
+      "connecting": "接続中…",
+      "moreInfo": "詳細情報",
+      "decline": "今はしない",
+      "declined": "{connectorName} への接続を拒否しました。この会話には影響しません"
+    },
     "contextUsage": {
       "title": "コンテキスト使用状況",
       "used": "使用量",
