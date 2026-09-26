@@ -15,6 +15,7 @@ import { Alert, ConfirmDialog, Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { formatLetterTime } from './helpers'
 import type { LetterListData, PrivateLetter } from './types'
+import { apiFailureToError } from '@ihui/shared/utils'
 
 interface ChatWindowProps {
   /** 聊天对象 userId */
@@ -48,7 +49,7 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
         id: '0',
       })
       const r = await fetchApi<LetterListData>(`/api/private-letters/list?${qs.toString()}`)
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       return r.data
     },
   })
@@ -77,7 +78,7 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
         method: 'POST',
         body: JSON.stringify({ receiverId: memberId, content }),
       })
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       setDraft('')
       await queryClient.invalidateQueries({ queryKey: ['private-letters', 'list', memberId] })
       await queryClient.invalidateQueries({ queryKey: ['private-letters', 'members'] })
@@ -97,7 +98,7 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
         method: 'DELETE',
         body: JSON.stringify({ id: target.id }),
       })
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       // 本地移除该条消息，同时刷新会话列表摘要
       queryClient.setQueryData<LetterListData>(queryKey, (old) => {
         if (!old) return old

@@ -29,7 +29,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getCourses, type Course } from '@ihui/api-client'
-import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import type { CarouselItem } from '@ihui/ui-native'
@@ -128,7 +128,7 @@ export function MoreCourseScreen() {
     setError('')
     try {
       const res = await getCourses({ page: 1, pageSize: PAGE_SIZE })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) throw apiFailureToError(res)
       setItems(res.data.list ?? [])
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
