@@ -482,8 +482,6 @@
   "ai": {
     "contextUsage": {
       "title": "コンテキスト使用状況",
-      "used": "使用量",
-      "max": "最大容量",
       "segSystem": "システムプロンプト",
       "segToolSchema": "ツール定義",
       "segSkill": "スキル本文",
@@ -547,7 +545,6 @@
       "digitalHuman": "デジタルヒューマン生成 →",
       "voiceMessage": "音声メッセージ",
       "downloading": "ダウンロード中",
-      "downloadSuccess": "アルバムに保存しました",
       "downloadFailed": "ダウンロード失敗",
       "needAlbumAuth": "画像を保存するにはアルバム権限が必要です。設定で有効にしてください",
       "collapse": "折りたたむ",

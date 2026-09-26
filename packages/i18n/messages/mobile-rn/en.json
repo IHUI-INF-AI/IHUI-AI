@@ -510,7 +510,6 @@
       "message": "Feature under development"
     },
     "aiGenBtn": "AI-generate cover",
-    "back": "Back",
     "confirmBtn": "Confirm",
     "empty": "No covers",
     "loadFailed": "Failed to load",
@@ -524,7 +523,6 @@
       "title": "Published Successfully",
       "message": "Work submitted for review"
     },
-    "back": "Back",
     "errorMaxFiles": "Maximum {max} files allowed",
     "errorNoDescription": "Please enter a description",
     "errorNoFile": "Please select a file",
@@ -561,7 +559,6 @@
       "title": "Join Group",
       "message": "Requested to join \"{name}\""
     },
-    "back": "Back",
     "cardMembers": "Members",
     "detailEnter": "Enter chat",
     "detailMembers": "Members",
