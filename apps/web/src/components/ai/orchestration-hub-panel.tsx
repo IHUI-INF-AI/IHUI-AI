@@ -375,7 +375,7 @@ function EventFeedTab() {
           className={cn(
             'rounded-md border px-2 py-1 text-xs transition-colors',
             pillarFilter === null
-              ? 'border-primary bg-cta text-cta-foreground'
+              ? 'border-brand-accent-deep bg-cta text-cta-foreground'
               : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted',
           )}
         >
@@ -389,7 +389,7 @@ function EventFeedTab() {
             className={cn(
               'rounded-md border px-2 py-1 text-xs transition-colors',
               pillarFilter === p
-                ? 'border-primary bg-cta text-cta-foreground'
+                ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                 : cn('hover:opacity-80', pillarStyle(p)),
             )}
           >

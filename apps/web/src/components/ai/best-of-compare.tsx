@@ -181,7 +181,7 @@ export function BestOfCompare({ onAdopt, runId }: BestOfCompareProps) {
               onClick={() => setSelected(c.candidate_id)}
               className={cn(
                 'flex min-w-0 flex-col rounded-lg border p-2.5 text-left transition-colors',
-                isSelected ? 'border-primary bg-primary/5' : 'hover:bg-accent/40',
+                isSelected ? 'border-brand-accent-deep bg-primary/5' : 'hover:bg-accent/40',
               )}
             >
               <div className="flex items-center gap-1.5">

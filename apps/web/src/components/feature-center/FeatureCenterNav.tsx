@@ -36,7 +36,7 @@ export function FeatureCenterNav() {
             className={cn(
               'flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium transition-colors',
               isActive
-                ? 'border-primary text-primary'
+                ? 'border-brand-accent-deep text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >

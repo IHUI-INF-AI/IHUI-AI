@@ -235,7 +235,9 @@ export default function PricingLandingPage() {
             {plans.map((plan) => (
               <Card
                 key={plan.name}
-                className={plan.highlight ? 'border-primary ring-1 ring-primary' : ''}
+                className={
+                  plan.highlight ? 'border-brand-accent-deep ring-1 ring-brand-accent-deep' : ''
+                }
               >
                 <CardHeader>
                   <div className="flex items-center gap-2">

@@ -2,64 +2,27 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-'use client'
+// 顶栏 NavBar 不得自绘背景色与底边线 —— 与共享层 packages/app/components/NavBar.tsx 同一条口径。
+//
+// 起因(用户实拍 2026-09-26):智能体页顶部栏读起来像"贴在页面上的一条卡片",因为它默认
+// 铺 `tokens.surface.card` 底色 + 1px `borderBottom`。要求去掉,透出所在屏的 shell 底色。
+//
+// 为什么读落到元素上的样式:回归形态正是"往根 View 上再加一段行内 backgroundColor /
+// borderBottomWidth",只读 StyleSheet 对象会漏掉行内覆盖。
+import { describe, it, expect } from 'vitest'
+import { render } from '@testing-library/react'
 
-import { Sparkles } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import NavBar from '../src/components/NavBar'
 
-import { Card, CardContent } from '@ihui/ui-react'
-import { cn } from '@/lib/utils'
-import { GenerationTypeSelector } from '@/components/ai-generation/generation-type-selector'
-import type { GenerationType } from '@/components/ai/types'
-
-import { SUB_TABS } from './helpers'
-
-interface Props {
-  type: GenerationType
-  setType: (v: GenerationType) => void
-  currentMode: string
-  onSubTabClick: (v: string) => void
-}
-
-export function AiGenerationHeader({ type, setType, currentMode, onSubTabClick }: Props) {
-  const t = useTranslations('aiGeneration')
-  const subTabs = SUB_TABS[type] ?? null
-
-  return (
-    <>
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-5 w-5 shrink-0 text-primary" />
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">{t('pageTitle')}</h1>
-          <p className="text-sm text-muted-foreground">{t('pageSubtitle')}</p>
-        </div>
-      </div>
-
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 pt-4">
-          <GenerationTypeSelector value={type} onChange={setType} />
-          {subTabs && (
-            <div className="flex flex-wrap gap-1.5">
-              {subTabs.map((tab) => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => onSubTabClick(tab.value)}
-                  className={cn(
-                    'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                    tab.value === currentMode
-                      ? 'border-brand-accent-deep bg-primary/10 text-primary'
-                      : 'border-border bg-card text-muted-foreground hover:bg-accent',
-                  )}
-                >
-                  {t(tab.labelKey)}
-                </button>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </>
-  )
-}
+describe('NavBar 顶部栏不画自己的 chrome', () => {
+  it('无背景色、无底边线', () => {
+    const { container } = render(<NavBar title="智能体" />)
+    const root = container.firstElementChild as HTMLElement | null
+    if (!root) throw new Error('NavBar 没有渲染出根节点')
+    const bg = root.style.backgroundColor
+    expect(bg === '' || bg === 'transparent').toBe(true)
+    expect(root.style.borderBottomWidth).toBe('')
+    expect(root.style.borderBottom).toBe('')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -69,7 +69,7 @@ export function UploadArea({
       }}
       className={cn(
         'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground transition-colors hover:bg-accent/50',
-        dragging && 'border-primary bg-primary/5 text-primary',
+        dragging && 'border-brand-accent-deep bg-primary/5 text-primary',
       )}
     >
       <Upload className="h-8 w-8" />
