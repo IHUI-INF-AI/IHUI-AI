@@ -4,7 +4,7 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { sql } from 'drizzle-orm'
+import { sql, and, eq, inArray } from 'drizzle-orm'
 import {
   compressContextIfNeeded,
   estimateMessagesTokens,
@@ -12,6 +12,8 @@ import {
 } from '@ihui/context-compaction'
 import { authenticate } from '../plugins/auth.js'
 import { db } from '../db/index.js'
+// 批量操作的"哪些 id 根本没被写"对账需要直接按 (userId, ids) 查一次归属(见 POST /conversations/batch)
+import { chatConversations } from '@ihui/database'
 import {
   createConversation,
   findConversationsByUser,
@@ -598,6 +600,21 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     const { action, ids } = parsed.data
 
     try {
+      // 2026-09-26 修"改了 0 行"与"改成功"同形(现读实测:原第 619 行在 affected=0 时
+      // 仍回 success(),客户端以为改成了而实际一行没动)。
+      // 五个批量写的 where 条件都是 userId + inArray(ids),所以"哪些 id 根本没进这一次写"
+      // 可由一次归属预查询逐条回答(别人的 id / 已删的 id / id 写错),而不是只给一个总数。
+      // 兼容性:响应只**新增** missedIds 字段,既有 action/affected 语义与字段名逐字不变。
+      // 已知粒度限制(如实登记):unfavorite 的 affected 计的是真删掉的收藏行数,
+      // "属于本人但本就没收藏"的 id 不进 missedIds —— 那已是要达到的状态,不是未命中。
+      const uniqueIds = [...new Set(ids)]
+      const ownedRows = await db
+        .select({ id: chatConversations.id })
+        .from(chatConversations)
+        .where(and(eq(chatConversations.userId, userId), inArray(chatConversations.id, uniqueIds)))
+      const ownedIds = new Set(ownedRows.map((r) => r.id))
+      const missedIds = uniqueIds.filter((id) => !ownedIds.has(id))
+
       let affected = 0
       switch (action) {
         case 'delete':
@@ -616,7 +633,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           affected = await setConversationsArchivedBatch(userId, ids, false)
           break
       }
-      return reply.send(success({ action, affected }))
+      return reply.send(success({ action, affected, missedIds }))
     } catch (err) {
       request.log.error({ err }, '批量操作失败')
       const msg = err instanceof Error ? err.message : '批量操作失败'
