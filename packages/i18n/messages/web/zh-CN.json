@@ -27184,5 +27184,39 @@
         "following": "等待发送"
       }
     }
+  },
+  "unifiedSuggestion": {
+    "title": "多源建议",
+    "searchPlaceholder": "搜索建议…",
+    "noMatch": "无匹配建议",
+    "sourceTask": "任务",
+    "sourceSkill": "技能",
+    "sourcePlugin": "插件",
+    "sourceConnector": "连接器",
+    "sourceAgent": "Agent",
+    "sourceFile": "文件",
+    "provBuiltin": "内置",
+    "provUserLocal": "用户配置本地",
+    "provUserRemote": "用户配置远程",
+    "provProject": "项目配置",
+    "provMarket": "市场",
+    "provPluginProvided": "插件提供",
+    "loadingLabel": "加载中",
+    "sourceFailedTag": "暂时无法加载",
+    "retryLabel": "重试",
+    "degradeSingle": "{failed} 暂时无法加载",
+    "degradePartial": "{failed} 暂时无法加载，仍可继续使用 {ok}",
+    "degradeAll": "所有建议来源暂时无法加载，仍可直接输入并发送消息",
+    "referenceCapFull": "引用已达上限（{max}），本次添加被忽略",
+    "referenceCount": "{n}/{max}",
+    "pastePreviewTitle": "粘贴引用有效性预览",
+    "pasteValid": "有效",
+    "pasteUnknown": "未识别",
+    "pastePreviewDismiss": "关闭粘贴引用预览",
+    "authorizationNotice": "引用标签不新增执行授权",
+    "hintSelect": "选择",
+    "hintConfirm": "确认",
+    "hintClose": "关闭",
+    "clearAriaLabel": "清空搜索"
   }
 }

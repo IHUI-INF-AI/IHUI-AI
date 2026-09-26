@@ -27207,5 +27207,39 @@
         "following": "送信待ち"
       }
     }
+  },
+  "unifiedSuggestion": {
+    "title": "複数ソースの候補",
+    "searchPlaceholder": "候補を検索…",
+    "noMatch": "一致する候補はありません",
+    "sourceTask": "タスク",
+    "sourceSkill": "スキル",
+    "sourcePlugin": "プラグイン",
+    "sourceConnector": "コネクタ",
+    "sourceAgent": "エージェント",
+    "sourceFile": "ファイル",
+    "provBuiltin": "組み込み",
+    "provUserLocal": "ユーザー設定（ローカル）",
+    "provUserRemote": "ユーザー設定（リモート）",
+    "provProject": "プロジェクト設定",
+    "provMarket": "マーケット",
+    "provPluginProvided": "プラグイン提供",
+    "loadingLabel": "読み込み中",
+    "sourceFailedTag": "一時利用不可",
+    "retryLabel": "再試行",
+    "degradeSingle": "{failed} は一時利用できません。",
+    "degradePartial": "{failed} は一時利用できません。{ok} は引き続き利用できます。",
+    "degradeAll": "すべての候補ソースは一時利用できません。そのまま入力して送信できます。",
+    "referenceCapFull": "参照が上限（{max}）に達したため、追加は無視されました。",
+    "referenceCount": "{n}/{max}",
+    "pastePreviewTitle": "貼り付けた参照の有効性プレビュー",
+    "pasteValid": "有効",
+    "pasteUnknown": "未認識",
+    "pastePreviewDismiss": "貼り付け参照プレビューを閉じる",
+    "authorizationNotice": "参照タグは実行権限を追加しません。",
+    "hintSelect": "選択",
+    "hintConfirm": "確定",
+    "hintClose": "閉じる",
+    "clearAriaLabel": "検索をクリア"
   }
 }
