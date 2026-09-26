@@ -3515,6 +3515,40 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 批量写计数诚实性对账(1 项,blocking)---
+  {
+    id: '134',
+    label:
+      '🧮 批量写计数诚实性对账(blocking,拦「affected/deleted 由请求侧 .length 自算」这一型静默失真 —— 改了 0 行与改成功同形)',
+    script: 'check-batch-write-count-honesty.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY',
+    stagedTriggers: ['apps/api/src/routes/', 'apps/api/src/db/'],
+    onFailHint: [
+      '',
+      '  💡 本票一轮人肉清出 8 处同一形状(chat.ts batch、admin-sys role cancelAll/selectAll、',
+      '     demand-square、admin/_shared.ts 的 registerCrud 批量删〔19 处路由复用同一个工厂〕、',
+      '     message.ts 批量删、workspace.ts batch-delete/batch-restore)。那一型的病灶是:',
+      '     where 带 eq(roleId)/eq(memberId) 过滤时,传进来的 id 一个都不命中也照样回',
+      '     deleted:3 —— 后台显示"已删除 3 项"而库里一行没动,typecheck/lint/其余各门全绿。',
+      '     唯一出口 apps/api/src/utils/batch-outcome.ts(dedupeIds + batchWriteOutcome),',
+      '     db 层一律 .returning({id}) 回报**库确认集合**,响应新增 missedIds 逐条点名。',
+      '     四条放过通道:① 同链有 .returning( ② 计数根 ≤2 跳可追到归属预查询',
+      '     (business-card-routes.ts 那种"先查 owned 再删"是**正确写法**,不得判红) ',
+      '     ③ 该文件 import 了唯一出口 ④ 行内 batch-count-exempt: <原因>(须带原因,',
+      '     并已挂进守门 108 的 30 天到期档 —— 豁免不得只出生不死亡)。',
+      '     刻意不判的两型:布尔 deleted:true(HEAD 面 257 处全仓惯例,改它属全 API 语义决策、',
+      '     交人定)与读查询 count: rows.length(不是写)。',
+      '     判不了的形状落「未判定」并报数,--strict 下有未判定即 exit 2(拒绝出合格证)。',
+      '     ① 看清单:node scripts/check-batch-write-count-honesty.mjs [--json|--staged]',
+      '     ② 自检:node scripts/check-batch-write-count-honesty.mjs --self-test(35 条)',
+      '     ③ 镜像:node --test scripts/tests/check-batch-write-count-honesty.test.mjs(10 例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
