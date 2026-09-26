@@ -8,7 +8,13 @@ import type { PlanStep } from '@ihui/types'
 // 权限档读侧归一(G-161/G-165):历史行拼写可能是 kebab/camel/别名
 import { permissionModeWire } from '@ihui/types/permission-mode'
 // D33 过程性信息读回(2026-09-23):fallback 交代与 SSE 帧同一类型;memory/usage seed 走真 store
-import { useChatStore, type ChatMessage, type MessageUsage, type SteerNotice } from '@/stores/chat'
+import {
+  useChatStore,
+  type ChatMessage,
+  type MessageUsage,
+  type SideQueueItem,
+  type SteerNotice,
+} from '@/stores/chat'
 
 /**
  * 后端 chat_messages 行的水合输入(结构最小集)。
@@ -225,6 +231,33 @@ function readSteerAppliedFromMetadata(raw: unknown): SteerNotice[] | undefined {
 }
 
 /**
+ * 从 metadata.queueItems 还原"该回答生成时刻仍排队中"的侧问快照(D33/G-39,2026-09-26 立)。
+ *
+ * 落库形状唯一真相源 = apps/ai-service/app/core/queue_items.py 的 QueueItemPayload
+ * (id / text / createdAt,createdAt 为 epoch 毫秒),与 web SideQueueItem 逐字段同形同单位,
+ * 故直接归一为 SideQueueItem[],不做字段改名透传。坏项逐条剔除(id 空/类型错/createdAt 非法),
+ * 全坏或空数组 → undefined —— 与本文件 citations/steerApplied/memoryUpdates 四类先例同一
+ * "空态不挂"口径。api 侧"空数组 = 这轮确实没有排队消息"与"缺键 = 这版后端没送"的区分
+ * 在消息字段形态下对渲染等价(都不渲染),其清残留语义属会话级桶灌回的后续挂载格。
+ */
+function readQueueItemsFromMetadata(raw: unknown): SideQueueItem[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  const out: SideQueueItem[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const rec = item as Record<string, unknown>
+    if (typeof rec.id !== 'string' || !rec.id) continue
+    if (typeof rec.text !== 'string') continue
+    // createdAt 为 epoch 毫秒非负整数;api 侧 strictObject 已拦非整数,这里再守一道
+    // 防 DB 被其他端/历史链路写入的脏形状(与 planSteps 守卫同理由)。
+    if (typeof rec.createdAt !== 'number' || !Number.isInteger(rec.createdAt) || rec.createdAt < 0)
+      continue
+    out.push({ id: rec.id, text: rec.text, createdAt: rec.createdAt })
+  }
+  return out.length > 0 ? out : undefined
+}
+
+/**
  * 历史水合后把"旁路型"过程信息灌回既有渲染位(D33,2026-09-23 立)。
  *
  * usageDetail → store.usageByMessageId(MessageUsageMetrics 既有渲染位)、
@@ -289,6 +322,9 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     // D33:这轮**换过模型**的交代此前只在 live 顶部横幅一闪而过,刷新即丢 ——
     // 落到消息字段,由 MessageItem 交代行按既有 chat.fallbackNotice* 词回放。
     fallback: readFallbackFromMetadata(meta?.fallback),
+    // D33(G-39,2026-09-26 立):排队侧问快照挂消息字段(与 fallback 同形态)——
+    // 经既有 hydrateHistoryMessages 调用点即达生产面,渲染位消费侧待后续格。
+    queueItems: readQueueItemsFromMetadata(meta?.queueItems),
   }
 }
 

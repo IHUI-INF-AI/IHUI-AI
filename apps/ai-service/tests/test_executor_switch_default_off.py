@@ -170,7 +170,11 @@ class TestWiredSurfaceRouters:
         body = r_orch.EmitEventBody(event_type="hook.emitted", source_pillar="hook")
         res = asyncio.run(r_orch.emit_event(body))
         assert res["code"] == 0
-        assert res["data"] == {"event_id": "evt-1"}
+        # 原写法 `res["data"] == {"event_id": "evt-1"}` 把整个 data 形状钉死了。
+        # 第九轮 B2 往 data 面加性接入 outcome/degraded/non_ok_pillars(三态判据在
+        # tests/test_orchestration_emit_outcome.py),本用例判的是"默认档没被开关
+        # 改动 + 真的透传到了 hub.emit",所以钉既有键与调用事实即可,不钉整字典。
+        assert res["data"]["event_id"] == "evt-1"
         emit_spy.assert_awaited_once()
 
     def test_orchestration_emit_enabled_fails_before_hub(
