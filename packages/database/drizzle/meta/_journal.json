@@ -2045,6 +2045,13 @@
       "when": 1790402400000,
       "tag": "20260926140000_backfill_turn_ordinal",
       "breakpoints": true
+    },
+    {
+      "idx": 293,
+      "version": "7",
+      "when": 1790496000000,
+      "tag": "20260927100000_tenant_rls_policies_batch1",
+      "breakpoints": true
     }
   ]
 }
