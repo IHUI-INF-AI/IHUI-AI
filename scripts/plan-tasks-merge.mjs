@@ -153,6 +153,78 @@ export function buildMerge(content, today) {
 }
 
 
+// ── 块级重复的收口出口(F6)────────────────────────────────────────────
+/**
+ * 删掉"逐字相同的第 2..N 份",保留每一份的第一次出现。
+ *
+ * 为什么这一型**可以**机器动而 F4 的漂移副本不行:两份逐字相同 ⇒ 删掉的那一份**不含任何**
+ * 幸存份没有的字节,零损失可按行值直接证明(见 verifyBlockDedupe);而漂移副本两份正文不同,
+ * 自动折一半就是有损,只能交人判哪份作数。
+ *
+ * 为什么行级归并(F1–F4 那套"翻勾 + 注记")对它无效:那一套的动作是**改行内状态、一行不删**,
+ * 而整块重复要消除的恰恰是"多出来的那些行" —— 用改状态的方式永远消不掉块。
+ */
+export function buildBlockDedupe(content) {
+  const { verbatim } = auditPlan(content).dupBlocks
+  const lines = String(content).split('\n')
+  const drop = new Set()
+  const removed = []
+  for (const b of verbatim) {
+    for (const start of b.lines.slice(1)) {
+      for (let k = 0; k < b.len; k++) {
+        const ln = start + k
+        if (drop.has(ln)) {
+          // 两个重复块在行号上重叠 ⇒ 判据算错了(run 扫描结构上不可能,出现即停手交人工)
+          throw new Undetermined(`块级收口判据自相矛盾:L${ln} 同时落在两个待删块里`)
+        }
+        drop.add(ln)
+      }
+      removed.push({ first: b.first, at: start, len: b.len })
+    }
+  }
+  const out = lines.filter((_, i) => !drop.has(i + 1))
+  return { text: out.join('\n'), removed, deletedCount: drop.size }
+}
+
+/** 块级收口的零损失断言 —— 四条同时成立才允许落地,任一不成立即整批停手。 */
+export function verifyBlockDedupe(srcText, outText, deletedCount) {
+  const problems = []
+  const a = String(srcText).split('\n')
+  const b = String(outText).split('\n')
+  if (a.length - b.length !== deletedCount)
+    problems.push(`行数差 ${a.length - b.length} 与待删数 ${deletedCount} 不等`)
+  const countOf = (arr) => {
+    const m = new Map()
+    for (const l of arr) m.set(l, (m.get(l) ?? 0) + 1)
+    return m
+  }
+  const ca = countOf(a)
+  const cb = countOf(b)
+  // 每个被删值都必须在输出里仍有一份逐字相同的幸存行 —— 这是"删的是副本、不是唯一副本"的证明
+  for (const [line, n] of ca) {
+    const m = cb.get(line) ?? 0
+    if (m === 0 && n > 0) problems.push(`值「${line.slice(0, 40)}…」在输出里一份都不剩`)
+    if (m > n) problems.push(`值「${line.slice(0, 40)}…」反而变多 ${n}→${m}`)
+  }
+  const before = auditPlan(srcText).counts
+  const after = auditPlan(outText).counts
+  for (const [k, get] of [
+    ['F1', (c) => c.forks],
+    ['F2', (c) => c.voidRows],
+    ['F3', (c) => c.rotatedPointers],
+    ['F4', (c) => c.dupOpenCopies],
+    ['F6', (c) => c.dupBlocks],
+  ]) {
+    if (get(after) > get(before)) problems.push(`${k} 由 ${get(before)} 涨到 ${get(after)}`)
+  }
+  if (deletedCount > 0 && after.dupBlocks >= before.dupBlocks)
+    problems.push(`删了 ${deletedCount} 行而块数没降(${before.dupBlocks}→${after.dupBlocks})—— 判据或实现有一边是错的`)
+  if (after.mergeNotes < before.mergeNotes)
+    problems.push(`归并落账注记由 ${before.mergeNotes} 掉到 ${after.mergeNotes}(不得随块一起丢)`)
+  return problems
+}
+
+
 // ── 自愈层(挂 post-commit)──────────────────────────────────────────
 /**
  * 对**当时**的 HEAD 重算归并,并落地一枚前向修复提交。
@@ -245,6 +317,99 @@ export function healAndLand() {
   }
 }
 
+/**
+ * 块级重复(F6)的收口落地。与 healAndLand 同一条安全骨架,但**每次 CAS 前重新现读 HEAD
+ * 重新算块** —— 行号在任何一次 append 后都会挪位(§1 规矩 3 的同一条理由),复用旧行号
+ * 就等于按一张过期地图删行。CAS 输了就整轮重算,绝不拿上一轮的行号再试一次。
+ */
+export function dedupeAndLand(maxAttempts = 8) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const head = gitIn(null, ['rev-parse', 'HEAD'])
+    const spec = `HEAD:${PLAN_REL}`
+    const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
+    if (src === null || src === undefined) {
+      console.log('块级收口未判定 —— HEAD 取不到 PROJECT_PLAN.md(不记为已修)')
+      return 2
+    }
+    const b0 = auditPlan(src).counts
+    if (!b0.dupBlocks) {
+      console.log(`✅ 块级收口:HEAD 无逐字重复的整块登记(F6=0),不动任何东西${attempt > 1 ? ` (第 ${attempt} 轮)` : ''}`)
+      return 0
+    }
+    let r
+    try {
+      r = buildBlockDedupe(src)
+    } catch (e) {
+      console.log(`❌ 块级收口停手 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
+      return 1
+    }
+    const problems = verifyBlockDedupe(src, r.text, r.deletedCount)
+    if (problems.length) {
+      console.log(`❌ 块级收口停手(现场保留,交人工):`)
+      for (const p of problems.slice(0, 10)) console.log('   ' + p)
+      return 1
+    }
+    const scratch = mkScratch(`plan-block-dedupe-${Date.now()}`)
+    const tmp = path.join(scratch, 'pp.md')
+    const msgFile = path.join(scratch, 'msg.txt')
+    const idx = path.join(scratch, 'index')
+    writeFileSync(tmp, r.text, 'utf8')
+    writeFileSync(
+      msgFile,
+      [
+        'fix(plan): 收口被整块重复的登记(F6 块级判据的修复出口)',
+        '',
+        `触发时 HEAD 现读:F6 ${b0.dupBlocks} 块 / 共 ${b0.dupBlockCopies} 份 / 漂移 ${b0.dupBlockDrifted} 块。`,
+        `删去第 2..N 份(逐字相同的那几份)共 ${r.deletedCount} 行,保留每一份的首次出现;漂移副本一份未动(自动折半即有损,交人工判)。`,
+        `行数 ${src.split('\n').length} → ${r.text.split('\n').length}。`,
+        '零损失判据:每个被删行值在输出里仍有一份逐字相同的幸存行 ∧ 行多重集只减不增 ∧ F1/F2/F3/F4/F6 无一上涨 ∧ 归并落账注记不降。',
+        '成因:行级判据(F1–F4)量纲是一行,整块被并发 union 追加两遍时每一行都"只是又一个孪生行",一路通过。',
+      ].join('\n'),
+      'utf8',
+    )
+    try {
+      gitIn(idx, ['read-tree', head])
+      const blob = gitIn(idx, ['hash-object', '-w', tmp])
+      gitIn(idx, ['update-index', '--add', '--cacheinfo', `100644,${blob},${PLAN_REL}`])
+      const tree = gitIn(idx, ['write-tree'])
+      const commit = gitIn(idx, ['commit-tree', tree, '-p', head, '-F', msgFile])
+      try {
+        gitIn(null, ['update-ref', 'HEAD', commit, head])
+      } catch {
+        console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),整轮重算块位置再来`)
+        continue
+      }
+      if (gitIn(null, ['rev-parse', 'HEAD']) !== commit) {
+        console.log(`↻ 第 ${attempt} 次 CAS 未胜出,重算再来`)
+        continue
+      }
+      const after = auditPlan(gitIn(null, ['show', `${commit}:${PLAN_REL}`], { encoding: 'utf8' })).counts
+      if (after.dupBlocks >= b0.dupBlocks) {
+        console.log(`❌ 落地后回读块数没降(${b0.dupBlocks}→${after.dupBlocks}),回退`)
+        gitIn(null, ['update-ref', 'HEAD', head, commit])
+        return 1
+      }
+      const t0 = Date.now()
+      while (existsSync(path.join(ROOT, '.git', 'index.lock'))) {
+        if (Date.now() - t0 > 120000) {
+          console.log('❌ 等锁超时:共享索引未对齐,必须复跑(否则下一次普通提交会写回旧版)')
+          return 1
+        }
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400)
+      }
+      gitIn(null, ['update-index', '--add', '--cacheinfo', `100644,${blob},${PLAN_REL}`])
+      console.log(
+        `✅ 块级收口落地 ${commit.slice(0, 11)}:F6 ${b0.dupBlocks}→${after.dupBlocks},删 ${r.deletedCount} 行(逐字相同的第 2..N 份),漂移 ${b0.dupBlockDrifted} 块原样留给人工`,
+      )
+      return 0
+    } finally {
+      rmScratch(scratch)
+    }
+  }
+  console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  return 1
+}
+
 /** 自愈的"该不该停手"判据 —— 抽成纯函数,否则这一层最要紧的安全断言只能在真仓上验一次。 */
 export function healStopReasons(srcText, merged, changed, refusedCount) {
   const a0 = String(srcText).split('\n')
@@ -317,6 +482,34 @@ function selfTest() {
     '什么都不改(分叉仍在)必须停手 —— 否则自愈会变成"跑过一次就算修好"',
   )
   ok(healStopReasons(src, r.text, r.changed, 2).join().includes('拒写'), '有拒写项必须停手')
+  /**
+   * F6 块级收口:四条各钉一个方向。缺任何一条,这一型就会退化成
+   * "要么删不掉,要么把唯一份删掉"—— 后者比前者贵得多(§1 禁止无声删除)。
+   */
+  const LP = (s) => s + '　'.repeat(Math.max(0, 46 - [...s].length))
+  const BLK = [
+    LP('- 块行一:整块登记被并发 union 追加两遍时,行级判据看不见,因为每行只是又一个孪生行'),
+    LP('- 块行二:第二行,长度必须过块级阈值;阈值以下(短行/2 行块)天然成对,纳入只剩噪声'),
+    LP('- 块行三:第三行,三行合成 F6 的量纲 —— 块,而不是行'),
+  ].join('\n')
+  const dupDoc = `## 甲段\n${BLK}\n## 乙段\n${BLK}\n\n尾行不是 bullet,否则会把上一个 run 续成四行`
+  const oneDoc = `## 甲段\n${BLK}\n\n尾行不是 bullet`
+  const bd = buildBlockDedupe(dupDoc)
+  ok(bd.deletedCount === 3, `两份逐字相同的块应删 3 行,实测 ${bd.deletedCount}`)
+  ok(verifyBlockDedupe(dupDoc, bd.text, bd.deletedCount).length === 0, `块级零损失断言应全过:${JSON.stringify(verifyBlockDedupe(dupDoc, bd.text, bd.deletedCount))}`)
+  ok(auditPlan(bd.text).counts.dupBlocks === 0, `收口后 F6 应为 0,实测 ${auditPlan(bd.text).counts.dupBlocks}`)
+  ok(auditPlan(dupDoc).counts.dupBlocks === 1 && auditPlan(oneDoc).counts.dupBlocks === 0, '块级判据本身要能数出这一型')
+  ok(buildBlockDedupe(oneDoc).deletedCount === 0, '只有一份时一行都不许删(幂等 + 不误伤唯一副本)')
+  // 漂移副本(首行同而正文不同)结构性不可自动折半:必须原样留着交人工
+  const driftDoc = `## 甲段\n${BLK}\n## 乙段\n${[BLK.split('\n')[0], LP('- 块行二:被人工改过的第二行,与上面那份不再逐字相等'), BLK.split('\n')[2]].join('\n')}\n\n尾行不是 bullet`
+  ok(auditPlan(driftDoc).counts.dupBlocks === 0, '漂移不该算逐字重复(算了就等于允许机器折半)')
+  ok(auditPlan(driftDoc).counts.dupBlockDrifted === 1, `漂移应单独计 1,实测 ${auditPlan(driftDoc).counts.dupBlockDrifted}`)
+  ok(buildBlockDedupe(driftDoc).deletedCount === 0, '漂移副本一份都不许自动删')
+  // 反向对照:假装"幸存份也没了" —— 断言必须炸,否则它等于没有
+  ok(
+    verifyBlockDedupe(dupDoc, oneDoc, 3).length > 0,
+    '删完却把唯一幸存份也一起删掉的输出必须判失败',
+  )
   // ── F4:同一件事两条待办 ⇒ 只给副本加指针,**绝不允许翻勾**(两件事都没做完) ──
   const f4src = [
     '- [ ] **D92 同一件事**:较长的那条登记,承载了更多上下文说明。',
@@ -346,6 +539,49 @@ function main() {
   if (has('--heal') && has('--commit')) return healAndLand()
   if (has('--heal')) {
     console.log('ℹ️ --heal 需与 --commit 同给才动手(单独的 --heal 只出报告,不写任何内容)')
+  }
+  /**
+   * F6 块级收口。与 --heal 同一条"只判不修就是把手交给下一个人"的理由,但它**不在**
+   * post-commit 自动跑:删行是活文档上最危险的动作,自动档只做改行内状态那一类;
+   * 块级收口必须由显式一次人工触发,并且当场打印零损失断言的四条结论。
+   */
+  if (has('--dedupe-blocks')) {
+    const sel0 = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
+    if (sel0.error) {
+      console.log(`⚠️ 无法判定 —— ${sel0.error}`)
+      return 2
+    }
+    let src0
+    try {
+      src0 = readPlan(ROOT, sel0.face)
+    } catch (e) {
+      console.log(`⚠️ 无法判定 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
+      return 2
+    }
+    const c0 = auditPlan(src0).counts
+    if (!c0.dupBlocks) {
+      console.log(`✅ 无逐字重复的整块登记(F6=0);漂移 ${c0.dupBlockDrifted} 块按设计不自动动`)
+      return 0
+    }
+    const d0 = buildBlockDedupe(src0)
+    const p0 = verifyBlockDedupe(src0, d0.text, d0.deletedCount)
+    console.log(
+      `判定面:${LABEL[sel0.face]}  F6 ${c0.dupBlocks} 块 / ${c0.dupBlockCopies} 份 → 拟删第 2..N 份共 ${d0.deletedCount} 行;漂移 ${c0.dupBlockDrifted} 块不自动动`,
+    )
+    for (const b of d0.removed.slice(0, has('--all') ? 9999 : 10)) {
+      console.log(`  - 删 L${b.at} 起的 ${b.len} 行: ${b.first.slice(0, 60)}`)
+    }
+    if (p0.length) {
+      console.log('❌ 零损失断言未过,拒交付:')
+      for (const x of p0) console.log('   ' + x)
+      return 1
+    }
+    console.log('✅ 零损失断言四条全过(幸存份仍在 / 多重集只减不增 / F1–F4+F6 无一上涨 / 注记不降)')
+    if (!has('--commit')) {
+      console.log('ℹ️ 未加 --commit:只出报告,一行未删。确认后再跑 --dedupe-blocks --commit')
+      return 0
+    }
+    return dedupeAndLand()
   }
   const sel = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
   if (sel.error) {
