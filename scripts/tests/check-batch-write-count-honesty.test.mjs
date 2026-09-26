@@ -17,6 +17,9 @@
  * 钉死了它下次收紧就变成假账),这里刻意不重跑一遍:重跑就是把测试变成实现的复读机。
  * 本轮为两份"惯例存量"计数(booleanAck / readQueryCount)补的是 **M10–M13**:CLI 契约、真仓阳性对照、
  * 以及三条源码级反向锁(计数不得进 decide / 结论行不得少掉它 / 两个计数器不得各写一遍 send 扫描)。
+ * 2026-09-27 为 B1(假删除 ack 判据)补的是 **M14–M16**:CLI 端到端的"存量不红 / 改回字面量必红 /
+ * 四数不受顶动",跨文件锁"新豁免族 delete-ack-exempt 必须进守门 108 的存活期表",以及源码锁
+ * "B1 的豁免判法与落点取材不得另起第二份实现"。
  */
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -372,64 +375,95 @@ test('M11 真仓 HEAD 阳性对照(两把互相独立的尺子,不只量下限)'
   /*
    * 结构计数之外必须有第二把**异形**尺子:只量下限的门,把判据放宽成一锅粥照样绿
    * (变异① 把布尔正则换成 /deleted/ 后,真仓读数从 237 涨到 282,而任何"≥ 某值"的断言都还在通过)。
-   * 上界不是猜的,是可证的:每个被数到的落点都**必须含** `deleted : true` 这段文本,
+   * 上界不是猜的,是可证的:每个被 V1 数到的落点都**必须含** `deleted : true` 这段文本,
    * 所以 结构计数 ≤ 同一覆盖面内该字面量的出现数。字面量计数用 `git grep -o` 独立取,
    * 不复用本门任何判据(否则就是让被判据自己给自己发合格证)。
+   *
+   * **这里刻意不放"≥150 处"那一类存量下限**(上一版就是那样烂掉的):2026-09-27 那批
+   * "布尔删除 ack 改成库确认"的清理正在把这一族从 237 处往下减,门与判据一个字都没改,
+   * 而断言先红了。把**存量数字**写进断言 = 把"修好了"这件事变成一条与任何提交都无关的红,
+   * 唯一结局是逼人 `--no-verify` 连带废掉全部守门(§12e 同型)。
+   * "尺子坏没坏"改由一条**控制测量**判:同一条管道去量一个与这一族无关、结构上不可能为零的
+   * 语法面(`=>`)。控制读到 0 ⇒ 版式/覆盖面漂了,那才是取证失效;控制非零而字面量读到 0
+   * ⇒ 这一族真被清干净了,于是 V1 也必须为 0(下面那两条零位对照)。
+   * "判据对这一型真有眼"的正面证明不住在这里,住在 M10 与 self-test 的临时仓夹具(精确期望数),
+   * 它们不随存量涨跌。
    */
-  const raw = execFileSync(
-    GIT,
-    [
-      '-c',
-      'safe.directory=*',
-      'grep',
-      '-o',
-      '-E',
-      'deleted[[:space:]]*:[[:space:]]*true',
-      'HEAD',
-      '--',
-      'apps/api/src/routes',
-      'apps/api/src/db',
-    ],
-    {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 180_000,
-      maxBuffer: 64 << 20,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
-  )
-  const literal = raw
-    .split('\n')
-    .filter(Boolean)
-    // 注意版式:`git grep -o`(不带 -n)打的是 `HEAD:<path>:<匹配内容>`,**没有行号段** ——
-    // 按 `:行号:` 去解会得到 0 条,而 0 在这把尺子上的表现是"取证失效",不是"存量掉了"。
-    .map((l) => /^HEAD:(.+?):/.exec(l))
-    .filter(Boolean)
-    .map((m) => m[1])
-    .filter((p) => !/(^|\/)(?:tests?|__tests__|e2e)\//.test(p)).length
-  if (literal < 150)
-    throw new Error(`第二把尺子自己只读到 ${literal} ⇒ 取证失效,不能拿它去证 237 那一侧`)
+  const grepFace = (pattern) => {
+    let raw
+    try {
+      raw = execFileSync(
+        GIT,
+        [
+          '-c',
+          'safe.directory=*',
+          'grep',
+          '-o',
+          '-E',
+          pattern,
+          'HEAD',
+          '--',
+          'apps/api/src/routes',
+          'apps/api/src/db',
+        ],
+        {
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 180_000,
+          maxBuffer: 64 << 20,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      )
+    } catch (e) {
+      // `git grep` 在**零命中**时按设计 exit 1(这不是失败);其它退出码才是尺子自己坏了。
+      if (e?.status === 1 && !String(e?.stdout ?? '').trim()) return 0
+      throw new Error(
+        `第二把尺子没能跑完(exit ${e?.status ?? '?'}):${String(e?.stderr ?? e?.message ?? '').slice(0, 200)}`,
+      )
+    }
+    return (
+      raw
+        .split('\n')
+        .filter(Boolean)
+        // 注意版式:`git grep -o`(不带 -n)打的是 `HEAD:<path>:<匹配内容>`,**没有行号段** ——
+        // 按 `:行号:` 去解会得到 0 条,而 0 在这把尺子上的表现是"取证失效",不是"存量掉了"。
+        .map((l) => /^HEAD:(.+?):/.exec(l))
+        .filter(Boolean)
+        .map((m) => m[1])
+        .filter((p) => !/(^|\/)(?:tests?|__tests__|e2e)\//.test(p))
+        .reduce((a) => a + 1, 0)
+    )
+  }
+  const probe = grepFace('=>')
+  const ackLit = grepFace('deleted[[:space:]]*:[[:space:]]*true')
+  const countLit = grepFace('count[[:space:]]*:')
   console.log(
-    `    · 现读:布尔 ack ${j.counts.booleanAckSites} 处 / ${j.counts.booleanAckFiles} 文件;读查询 count ${j.counts.readQueryCountSites} 处 / ${j.counts.readQueryCountFiles} 文件;字面量独立计数 ${literal}`,
+    `    · 现读:布尔 ack ${j.counts.booleanAckSites} 处 / ${j.counts.booleanAckFiles} 文件;读查询 count ${j.counts.readQueryCountSites} 处 / ${j.counts.readQueryCountFiles} 文件;独立尺子:字面量 ${ackLit} / count 键面 ${countLit} / 管道控制 => ${probe}`,
   )
-  if (j.counts.booleanAckSites < 150)
+  if (probe < 1)
     throw new Error(
-      `布尔 ack 现读只有 ${j.counts.booleanAckSites} 处 ⇒ 判据对这一型近乎失明,先查锚点与遮蔽面`,
+      `控制测量(覆盖面内 =>)读到 0 ⇒ 第二把尺子的管道或版式漂了,本轮上界与零位对照全部作废`,
     )
-  if (j.counts.booleanAckSites > literal)
+  if (j.counts.booleanAckSites > ackLit)
     throw new Error(
-      `布尔 ack ${j.counts.booleanAckSites} > 覆盖面内字面量 ${literal} ⇒ 判据被放宽到"含 deleted 就算"那一型(混计)`,
+      `布尔 ack ${j.counts.booleanAckSites} > 覆盖面内字面量 ${ackLit} ⇒ 判据被放宽到"含 deleted 就算"那一型(混计)`,
     )
-  if (j.counts.booleanAckFiles < 50)
+  if (j.counts.readQueryCountSites > countLit)
     throw new Error(
-      `布尔 ack 只落在 ${j.counts.booleanAckFiles} 个文件 ⇒ 与"全 API 惯例"的定性不符,先怀疑判据`,
+      `读查询 count ${j.counts.readQueryCountSites} > 覆盖面内 count 键面 ${countLit} ⇒ V2 数到了"键逐字为 count"之外的形状`,
     )
-  if (j.counts.readQueryCountSites < 1)
+  // 零位对照:字面量真被清干净了,V1/V2 必须跟着归零 —— 还报数就说明它数的是这一族之外的东西。
+  if (ackLit === 0 && j.counts.booleanAckSites !== 0)
     throw new Error(
-      `读查询 count 族现读 ${j.counts.readQueryCountSites} 处:HEAD 面上这一族并非零,数到 0 就是判据空转`,
+      `覆盖面内 deleted:true 字面量已为 0,而 V1 报 ${j.counts.booleanAckSites} ⇒ 两把尺子对不上账`,
     )
-  // 两型必须各计各的:一个都为零而另一个很大,通常是把两族并进了同一个数。
-  if (j.counts.booleanAckSites === j.counts.readQueryCountSites)
+  if (countLit === 0 && j.counts.readQueryCountSites !== 0)
+    throw new Error(
+      `覆盖面内 count 键面已为 0,而 V2 报 ${j.counts.readQueryCountSites} ⇒ 两把尺子对不上账`,
+    )
+  // 两型必须各计各的:两个都非零却完全相同,才是"混计/一族是另一族的复制"的信号
+  // (同为 0 是两处都清完了,不是复制 —— 上一版的等值判据在清零那天会自己判红)。
+  if (j.counts.booleanAckSites > 0 && j.counts.booleanAckSites === j.counts.readQueryCountSites)
     throw new Error(
       `两型读数完全相同(${j.counts.booleanAckSites})⇒ 疑似混计或其中一族恒等于另一族的复制`,
     )
@@ -474,5 +508,83 @@ test('M9 接线成套性:未接线则放过;一旦接入提交链,必须 blockin
     throw new Error(
       `接线不完整: blocking=${block} skipEnv=${skip}(半接线比不接更危险:判据红时没人能正当脱身)`,
     )
+})
+
+/** B1 的两端形状:HEAD 存量假 ack(用户已拍板要改掉的旧语义)与"已改真"的迁移后形状。 */
+const B1BAD = [
+  'server.delete(basePath, async (request, reply) => {',
+  '  await db.delete(table).where(eq(table.id, id))',
+  '  return reply.send(success({ id, deleted: true }))',
+  '})',
+  '',
+].join('\n')
+const B1GOOD = [
+  'server.delete(basePath, async (request, reply) => {',
+  '  const rows = await db.delete(table).where(eq(table.id, id)).returning({ id: table.id })',
+  '  return reply.send(success({ id, deleted: rows.length > 0 }))',
+  '})',
+  '',
+].join('\n')
+
+test('M14 B1 端到面:存量在 HEAD 默认只报数、--strict 问责;提交链把已改真的点写回字面量必红并点名 kind=b1', () => {
+  // ① 存量形态:HEAD 含 1 处假 ack ⇒ 默认档 exit 0(存量不判红 = 防恒红门),--strict exit 1(它是判据)。
+  const d1 = mkScratch('bch-b1debt-')
+  try {
+    writeRepo(d1, { body: B1BAD })
+    const def = parse(run(d1, ['--root', d1, '--json']))
+    if (def.code !== 0)
+      throw new Error(`HEAD 有 B1 存量时默认档必须 0(恒红门唯一结局是逼人 --no-verify),实得 ${def.code}`)
+    if (def.j.counts.b1Violations !== 1)
+      throw new Error(`夹具那份必须被 B1 现读到 1 处,实得 ${def.j.counts.b1Violations}`)
+    for (const k of ['candidates', 'violations', 'undetermined', 'exempt'])
+      if (def.j.counts[k] !== 0)
+        throw new Error(`B1 不得顶动既有四数的 ${k}(应 0,实得 ${def.j.counts[k]})—— 两判据各计各的账`)
+    const strict = run(d1, ['--root', d1, '--strict', '--json'])
+    if (strict.code !== 1)
+      throw new Error(`--strict 下 B1 存量必须判红(它是判据不是惯例数,与 X1 对惯例计数的要求相反),实得 ${strict.code}`)
+  } finally {
+    rmScratch(d1)
+  }
+  // ② 回退形态:HEAD 是"已改真"的那份,索引把它写回 deleted: true ⇒ 差值棘轮(锚点=b1 自己的 0)必红。
+  const d2 = mkScratch('bch-b1reg-')
+  try {
+    writeRepo(d2, { body: B1GOOD })
+    put(d2, REL, B1BAD)
+    gitIn(d2, ['add', REL])
+    const r = parse(run(d2, ['--root', d2, '--staged', '--json']))
+    if (r.code !== 1)
+      throw new Error(`把已改真的点改回字面量 true 必须 exit 1(用户拍板改真实语义后这是净新增),实得 ${r.code}`)
+    const b1 = (r.j.ratcheted || []).filter((x) => x.kind === 'b1')
+    if (b1.length !== 1 || b1[0].anchor !== 0 || b1[0].now !== 1)
+      throw new Error(`必须恰有一条 kind=b1、锚点 0、现值 1:${JSON.stringify(r.j.ratcheted)}`)
+    const rep = run(d2, ['--root', d2, '--staged'])
+    if (!/B1假ack/.test(rep.out))
+      throw new Error(`判红块必须按 kind 点名 B1(不得只说"计数自算"):${rep.out}`)
+  } finally {
+    rmScratch(d2)
+  }
+})
+
+test('M15 跨文件锁:B1 的豁免族必须登记进守门 108 的 FAMILY_LIFETIME_DAYS(30 天,待偿迁移债)', () => {
+  const expiry = readFileSync(join(SCRIPTS_DIR, 'check-exemption-expiry.mjs'), 'utf8')
+  const m = /'delete-ack-exempt':\s*(\d+)/.exec(expiry)
+  if (!m)
+    throw new Error(
+      'delete-ack-exempt 没进存活期表 ⇒ 它会走 90 天默认档:迁移债被登记成半永久豁免,正是"豁免只有出生没有死亡"那一型',
+    )
+  if (m[1] !== '30')
+    throw new Error(`delete-ack-exempt 的存活期必须是 30 天(待偿迁移债,理由写在表旁注释),实得 ${m[1]}`)
+})
+
+test('M16 反向锁:B1 的豁免判法与 ack 落点取材不得各写第二份实现', () => {
+  // ① 豁免通道必须复用 readExemptMarker(只换 token),而不是自己再解一次"须带原因/须在注释里";
+  //    ② ack 落点必须来自 findBooleanAckSends(或其入参注入),BOOL_ACK_RE 的 .exec 全源只许一次。
+  if (!/readExemptMarker\([^)]*DELETE_ACK_EXEMPT_TOKEN/.test(SRC))
+    throw new Error('B1 没有走共享的 readExemptMarker(换 token 不换实现)⇒ 两条豁免通道的宽严会各自漂移')
+  const execs = SRC.match(/BOOL_ACK_RE\.exec/g) || []
+  if (execs.length !== 1)
+    throw new Error(`布尔 ack 的形态正则被执行 ${execs.length} 次(应为 1)⇒ V1 与 B1 各扫一遍必漂移`)
+  if (!/for \(const b of ackSites \|\| findBooleanAckSends\(code\)\)/.test(SRC))
+    throw new Error('findBoolAckB1Sites 必须优先吃调用方传入的落点清单(scanFileText 只扫一遍)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
