@@ -196,6 +196,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 > | OAuth 2.1 / OIDC | `https://api.aizhs.top/.well-known/{openid-configuration,oauth-authorization-server}`、`/oauth/{register,token}` | discovery 200;DCR 对匿名 `client_credentials` 明确拒绝并给可操作替代路径 | 授权码 + PKCE / client_credentials                  |
 >
 > discovery 的 `issuer` 按转发头推导(实测为 `https://api.aizhs.top`,不写死部署配置)。⚠️ **尚未打通**:`aizhs.top`(主域)的 `/.well-known/*` 与 `/oauth/*` 由 Next.js 承接,不转发到 `apps/api`,所以只认主域根路径的标准客户端仍需走 `api.aizhs.top`;`apps/ai-service` 的 A2A 面(含 `/.well-known/agent.json` 与其卡片里的任务 `url`)当前**公网不可达**,详见 PROJECT_PLAN.md O20/O20b。
+> **新增一档(2026-09-26,O20 第一格)**:`apps/ai-service` 的对外能力调用面现在有一条**环境变量控制的边缘命名空间** `https://aizhs.top/ai-service/*` → 反代到 ai-service。存在理由:隧道 ingress 把 `aizhs.top/api/*` 直送 Fastify,Next 里既有的 `/api/mcp/*`、`/api/connectors/*` 等 rewrites 对公网流量结构性不可见,所以"卡片里 advertised 的端点"必须落在不在 `/api` 之下的前缀上。放行表是 `packages/types/src/capability-catalog.ts` 的**派生态**(逐条要求 `host:'ai-service'` ∧ `thirdPartyEligible:true`,含 `*`/`{param}` 的模式不放行),实现与判据见 `apps/web/src/config/ai-service-edge.ts` 与其 20 例测试;`/api/mcp/external/servers` 因同路径 GET 可公开而 POST 不可公开(`connectors:write`)且 Next rewrites 无 method 维度,**整条排除并显式登记**。默认拒绝:`IHUI_AI_SERVICE_EDGE_ENABLED !== 'true'` 或 `IHUI_AI_SERVICE_EDGE_BASE_URL` 非合法绝对 http(s) URL ⇒ 一条 rewrite 都不注册。**⚠️ 本条只说明代码侧已就绪,公网端到端尚未取证**(需隧道侧补一条 Host→8801 规则并设上述两个变量后复测),不得读成 ai-service 已公网可达。
 
 ### 推荐组合(零成本上线)
 
