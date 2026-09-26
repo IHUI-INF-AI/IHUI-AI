@@ -407,8 +407,9 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (!existing) {
         return reply.status(404).send(error(404, '用户不存在'))
       }
-      await deleteUser(parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      // 2026-09-27 布尔删除 ack 清账:deleted 必须由库侧 RETURNING 命中集派生,不得再回常量 true
+      const removed = await deleteUser(parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     },
   )
 
@@ -515,8 +516,10 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      await deleteUserCertificate(parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      // 2026-09-27 布尔删除 ack 清账:此端点 where 仅按证书主键、无归属过滤,
+      // 传不存在的 id 旧代码照样回 deleted:true —— 现由 RETURNING 命中集派生
+      const removed = await deleteUserCertificate(parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     },
   )
 
@@ -673,8 +676,9 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (!existing) {
         return reply.status(404).send(error(404, '部门不存在'))
       }
-      await deleteDepartment(parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      // 2026-09-27 布尔删除 ack 清账:deleted 必须由库侧 RETURNING 命中集派生,不得再回常量 true
+      const removed = await deleteDepartment(parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     },
   )
 
