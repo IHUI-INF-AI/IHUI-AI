@@ -94,7 +94,12 @@ export function EcosystemHub() {
             className="ms-auto"
           />
         </div>
-        {skills.status === 'ready' && skills.items.length === 0 ? (
+        {skills.status === 'failed' ? (
+          // 取数失败时正文区不得完全空白:整段没有一行文字,用户读到的是"这个市场没有东西",
+          // 而不是"取不到"。文案复用本分区头徽章已有的 `countFailed`(=「统计暂不可用」),
+          // 不新增第二份口径,也不新立键(§19 流水线成本与"一处语义一处文案")。
+          <p className="text-xs text-muted-foreground">{t('countFailed')}</p>
+        ) : skills.status === 'ready' && skills.items.length === 0 ? (
           <p className="text-xs text-muted-foreground">{t('emptySkills')}</p>
         ) : (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -130,7 +135,9 @@ export function EcosystemHub() {
           />
         </div>
         <p className="mb-2 text-xs text-muted-foreground">{t('connectorsHint')}</p>
-        {connectors.status === 'ready' && connectors.entries.length === 0 ? (
+        {connectors.status === 'failed' ? (
+          <p className="text-xs text-muted-foreground">{t('countFailed')}</p>
+        ) : connectors.status === 'ready' && connectors.entries.length === 0 ? (
           <p className="text-xs text-muted-foreground">{t('emptyConnectors')}</p>
         ) : (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
