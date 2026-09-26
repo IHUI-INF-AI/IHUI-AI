@@ -11805,3 +11805,28 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   (cdp 308/432/666、web-work-panel 155/196/203)⇒ 那是"正在被编辑"的直接证据。
   按 §12/§16 一律不覆写他人现场,所以本票交的是**我持有的 18 处清零 + 剩下 15 处的归属与行号清单**,
   不是一句"lint 已全绿"。
+
+- **e2e 作业是"慢性红"而不是本批引入 —— 定案并把开口收成一个出口(`0fa533ec99` + `d9b669a9bb`)**:
+  `e2e.yml` 在 GitHub 上连续 250+ 次运行查不到一次成功(分页翻到 2026-09-23T04:51Z 仍全是 failure),
+  最近一次读数 `577 passed / 32 failed / 2 flaky / 71 skipped`,其中 **24 处**集中在四个 spec 的同一句
+  `expect(getByTestId('login-dialog')).toBeVisible()` → `element(s) not found`。
+  **根因是入口语义变了两次而补丁只加在测试层**:未登录态侧栏用户行自 2026-09 起是
+  DropdownMenu 的**触发器**(`SidebarUserRow.tsx` 的 `loginTrigger` 注释原话「整行作为 Dropdown
+  触发器打开同一套工具菜单(菜单末尾含"登录"项)」),真正 `store.getState().open('login')`
+  挂在 `guestMenuItems` 的 `key:'login'` 项上 ⇒ 单点一次只开菜单;而四个 spec 各自维护的开法都是
+  **单点**,其中两处还留着历次"再补一层重试"的注释(2026-08-26 的"入口从 header 搬到侧边栏"、
+  2026-08-28 的"hydration 竞态 ⇒ 有界 10 次 × 1s 重点")。
+  ⇒ **通用教训:同一件事在 4 个文件里各修一遍,产品再变一次就是集体失效**;本票把它收进
+  `apps/web/e2e/open-login-dialog.ts` 一条出口,两条出路按"先真 UI(用户行 → 菜单项)、
+  后生产重定向(`/?reauth=1&next=…` → `LoginRedirectListener`,承继已维护的
+  `desktop-window-controls-dim.spec.ts` 写法)"排,并打印走了哪条;两条都不成才失败,
+  且断言消息点名"试过哪两条" —— 判据失效的表现永远是安静,一条只说 not found 的失败消息等于没有。
+  trigger 与 menuitem 各试 `click()` 与 `dispatchEvent('click')` 两种派发,因为移动视口下该按钮以
+  fixed 定位、普通 click 会被 actionability 判 "outside of the viewport"(这正是它当初改用
+  dispatchEvent 的原因,不能退回去只认一种)。
+  **本机取证边界(不当已验证)**:这台机是开发机,8810/8811 无监听、没有可用 PostgreSQL 实例,
+  e2e 要 api+web+库 ⇒ 端到端结论只能由 CI 给;本机能量到的是 `playwright test --list` exit 0
+  (682 用例 / 97 文件全部可编译可发现)与新出口单独 `tsc --strict` 0 错。
+  **余下 8 处与登录无关,另计一票**:browser-hub-smoke ×2(ai-service 侧 Chromium 起不来 /
+  `/api/browser/sessions` 500)、mode-switch、navigation-full、work-panel、topbar-workarea-align、
+  ihui-download-verify、cli-import 各 1 —— 不冒充"e2e 已全绿"。
