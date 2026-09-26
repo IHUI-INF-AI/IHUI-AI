@@ -766,12 +766,12 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       if (!existing || existing.userId !== apiKey.userId) {
         return reply.status(404).send(error(404, 'Assistant not found'))
       }
-      await redis.del(`assistant:${id}`)
+      const removedKeys = await redis.del(`assistant:${id}`)
       await redis.srem(`assistant:user:${apiKey.userId}`, id)
       return reply.send({
         id,
         object: 'assistant.deleted',
-        deleted: true,
+        deleted: removedKeys > 0,
       })
     },
   )
@@ -930,7 +930,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       if (!existing || existing.userId !== apiKey.userId) {
         return reply.status(404).send(error(404, 'Thread not found'))
       }
-      await redis.del(`thread:${id}`)
+      const removedKeys = await redis.del(`thread:${id}`)
       // 清理线程下的消息 + run 列表(尽力清理,不阻塞)
       const msgIds = await redis.lrange(`thread:${id}:msgs`, 0, -1)
       if (msgIds.length > 0) {
@@ -945,7 +945,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       return reply.send({
         id,
         object: 'thread.deleted',
-        deleted: true,
+        deleted: removedKeys > 0,
       })
     },
   )

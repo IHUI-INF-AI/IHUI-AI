@@ -29,13 +29,17 @@ const {
   mockVerifyAccessToken,
   mockInsertReturning,
   mockUpdateReturning,
-  mockDeleteWhere,
+  mockDeleteReturning,
   mockSelectResult,
 } = vi.hoisted(() => ({
   mockVerifyAccessToken: vi.fn(),
   mockInsertReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
   mockUpdateReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
-  mockDeleteWhere: vi.fn().mockResolvedValue(undefined),
+  // 2026-09-26:删除端点改为 `.returning({id})` 取库确认集合(`deleted` 由命中行数算真值)。
+  // 旧夹具只给 `where: mockDeleteWhere`(await 得 undefined、链上没有 returning)⇒ 新写法
+  // 一律 500,那是**夹具保真度不足**而不是代码写坏。这里让 `where()` 的返回值同时可 await
+  // 且带 `.returning`,两种调用形态(`await …where(…)` 与 `…where(…).returning(…)`)都走得通。
+  mockDeleteReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
   mockSelectResult: vi.fn().mockResolvedValue([]),
 }))
 vi.mock('@ihui/auth', () => ({
@@ -70,7 +74,18 @@ vi.mock('../src/db/index.js', () => ({
     update: vi.fn(() => ({
       set: vi.fn(() => ({ where: vi.fn(() => ({ returning: mockUpdateReturning })) })),
     })),
-    delete: vi.fn(() => ({ where: mockDeleteWhere })),
+    delete: vi.fn(() => ({
+      where: vi.fn(() => {
+        // 同一次 where() 的产物既支持 await(旧写法)也支持 .returning(新写法),
+        // 且共用同一个 mock ⇒ 用例里 mockResolvedValueOnce([]) 依旧能表达"库里没这一行"。
+        const settled = mockDeleteReturning()
+        return {
+          then: (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
+            settled.then(resolve, reject),
+          returning: () => settled,
+        }
+      }),
+    })),
     execute: vi.fn().mockResolvedValue([]),
   },
   dbRead: {},

@@ -106,8 +106,11 @@ const carouselRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/carousel/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(carousels).where(eq(carousels.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(carousels)
+      .where(eq(carousels.id, p.data.id))
+      .returning({ id: carousels.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 }
 

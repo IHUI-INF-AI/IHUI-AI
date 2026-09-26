@@ -428,7 +428,7 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     if (!ok) {
       return reply.status(404).send(error(404, 'Hook 不存在或服务不可用'))
     }
-    return reply.send(success({ deleted: true, id: params.data.id }))
+    return reply.send(success({ deleted: ok, id: params.data.id }))
   })
 
   // 6. POST /hooks/:id/toggle — 启用/禁用

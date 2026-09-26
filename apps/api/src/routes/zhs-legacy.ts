@@ -219,8 +219,11 @@ export const zhsLegacyRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // 删除视频
   fastify.delete('/videos/:video_id', async (request) => {
     const { video_id } = videoIdParam.parse(request.params)
-    await db.delete(zhsCourseVideo).where(eq(zhsCourseVideo.id, Number(video_id)))
-    return { deleted: true }
+    const removed = await db
+      .delete(zhsCourseVideo)
+      .where(eq(zhsCourseVideo.id, Number(video_id)))
+      .returning({ id: zhsCourseVideo.id })
+    return { deleted: removed.length > 0 }
   })
 
   // 移动视频（调整课程归属）
@@ -431,11 +434,12 @@ export const zhsLegacyRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // 删除平台（软删除）
   fastify.delete('/platforms/:platform_id', async (request) => {
     const { platform_id } = platformIdParam.parse(request.params)
-    await db
+    const removed = await db
       .update(zhsEducationPlatform)
       .set({ isDel: 1, updatedAt: new Date() })
       .where(eq(zhsEducationPlatform.id, Number(platform_id)))
-    return { deleted: true }
+      .returning({ id: zhsEducationPlatform.id })
+    return { deleted: removed.length > 0 }
   })
 
   // ========== 课程支付 (8端点) ==========
@@ -518,8 +522,11 @@ export const zhsLegacyRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // 删除支付
   fastify.delete('/pay/:id', async (request) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
-    await db.delete(zhsCoursePay).where(eq(zhsCoursePay.id, id))
-    return { deleted: true }
+    const removed = await db
+      .delete(zhsCoursePay)
+      .where(eq(zhsCoursePay.id, id))
+      .returning({ id: zhsCoursePay.id })
+    return { deleted: removed.length > 0 }
   })
 
   // 支付日志列表
@@ -581,8 +588,11 @@ export const zhsLegacyRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // 删除支付日志
   fastify.delete('/pay-logs/:id', async (request) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
-    await db.delete(zhsCoursePayLog).where(eq(zhsCoursePayLog.id, id))
-    return { deleted: true }
+    const removed = await db
+      .delete(zhsCoursePayLog)
+      .where(eq(zhsCoursePayLog.id, id))
+      .returning({ id: zhsCoursePayLog.id })
+    return { deleted: removed.length > 0 }
   })
 
   // ========== 课程评论 (4端点) ==========
@@ -658,11 +668,12 @@ export const zhsLegacyRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // 删除评论（软删除）
   fastify.delete('/comments/:comment_id', async (request) => {
     const { comment_id } = commentIdParam.parse(request.params)
-    await db
+    const removed = await db
       .update(zhsUserVideoComment)
       .set({ status: 0, updatedAt: new Date() })
       .where(eq(zhsUserVideoComment.id, Number(comment_id)))
-    return { deleted: true }
+      .returning({ id: zhsUserVideoComment.id })
+    return { deleted: removed.length > 0 }
   })
 
   // ========== 视频日志 (2端点) ==========
@@ -790,8 +801,11 @@ export const zhsLegacyRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // 删除平台日志
   fastify.delete('/platform-logs/:id', async (request) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
-    await db.delete(zhsCoursePlatformLog).where(eq(zhsCoursePlatformLog.id, id))
-    return { deleted: true }
+    const removed = await db
+      .delete(zhsCoursePlatformLog)
+      .where(eq(zhsCoursePlatformLog.id, id))
+      .returning({ id: zhsCoursePlatformLog.id })
+    return { deleted: removed.length > 0 }
   })
 
   // ========== 用户平台 (3端点) ==========
