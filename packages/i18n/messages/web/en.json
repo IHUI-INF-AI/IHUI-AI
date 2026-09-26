@@ -9026,7 +9026,9 @@
       "pinned": "Pinned",
       "unpinned": "Unpinned",
       "pinFailed": "Pin operation failed",
-      "orgSaved": "Conversation organization saved"
+      "orgSaved": {
+        "orgSaved": "Conversation organization saved"
+      }
     },
     "today": "Today",
     "openWorkPanel": "Open Work Panel",
@@ -10572,6 +10574,7 @@
     "communityPublishing": "Publishing...",
     "compaction": {
       "truncatedNotice": "The last message was too long and has been truncated to keep the conversation usable ({count} omitted)",
+      "truncatedNoticeNoCount": "The last message was too long and has been truncated to keep the conversation usable",
       "viewArchived": "View {count} original messages before compaction",
       "archiveTitle": "Compaction Archive · Original Messages",
       "archiveEmpty": "No compaction archives yet",

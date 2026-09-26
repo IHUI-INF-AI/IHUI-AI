@@ -215,6 +215,8 @@ export function createSendAnswer(
             tokensBefore: info.tokensBefore,
             tokensAfter: info.tokensAfter,
             removedCount: info.removedCount,
+            // A10B-8:透传截断量(undefined 原样带上 —— 它区分"未告知"与"告知为 0")
+            truncatedCount: info.truncatedCount,
             trigger: info.trigger,
           })
 
@@ -484,16 +486,20 @@ export function createSendAnswer(
         // #13 区分两种超时,用户主动 stop 静默不报错
         if (abortedByTimeout15s) {
           const formatted = formatSSEError(err, t('errorTimeout15s'))
-          useChatStore.getState().setMessageError(assistantId, formatted.message, formatted.errorCode)  // D92:带 errorCode 供分类表取词
+          useChatStore
+            .getState()
+            .setMessageError(assistantId, formatted.message, formatted.errorCode) // D92:带 errorCode 供分类表取词
           useChatStore.getState().setError(formatted.message)
         } else if (abortedByTimeout60s) {
           const formatted = formatSSEError(err, t('errorTimeout60s'))
-          useChatStore.getState().setMessageError(assistantId, formatted.message, formatted.errorCode)  // D92:带 errorCode 供分类表取词
+          useChatStore
+            .getState()
+            .setMessageError(assistantId, formatted.message, formatted.errorCode) // D92:带 errorCode 供分类表取词
           useChatStore.getState().setError(formatted.message)
         }
       } else {
         const formatted = formatSSEError(err)
-        useChatStore.getState().setMessageError(assistantId, formatted.message, formatted.errorCode)  // D92:带 errorCode 供分类表取词
+        useChatStore.getState().setMessageError(assistantId, formatted.message, formatted.errorCode) // D92:带 errorCode 供分类表取词
         useChatStore.getState().setError(formatted.message)
         if (formatted.severity === 'auth') {
           useLoginDialogStore.getState().open('login')
