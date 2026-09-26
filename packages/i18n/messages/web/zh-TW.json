@@ -9016,9 +9016,7 @@
       "pinned": "已置頂",
       "unpinned": "已取消置頂",
       "pinFailed": "置頂操作失敗",
-      "orgSaved": {
-        "orgSaved": "會話組織已儲存"
-      }
+      "orgSaved": "會話組織已儲存"
     },
     "today": "今天",
     "openWorkPanel": "打開工作展示區",
@@ -9026,15 +9024,15 @@
     "toggleWorkPanel": "切換工作展示區",
     "user": "使用者",
     "org": {
-      "title": "대화 정리",
-      "folderLabel": "폴더",
-      "folderPlaceholder": "폴더 입력 또는 선택",
-      "tagsLabel": "태그",
-      "tagPlaceholder": "태그 추가 후 Enter",
-      "removeTagAria": "태그 {tag} 제거",
-      "filterLabel": "폴더별 필터",
-      "filterAll": "전체",
-      "folderNone": "미분류"
+      "title": "整理對話",
+      "folderLabel": "資料夾",
+      "folderPlaceholder": "輸入或選擇資料夾",
+      "tagsLabel": "標籤",
+      "tagPlaceholder": "新增標籤後按 Enter",
+      "removeTagAria": "移除標籤 {tag}",
+      "filterLabel": "依資料夾篩選",
+      "filterAll": "全部",
+      "folderNone": "未分類"
     }
   },
   "aiCost": {
@@ -10675,7 +10673,7 @@
       "roleAssistant": "助理",
       "exportCard": "分享圖片卡",
       "shareCardUser": "使用者",
-      "exportPdf": "PDF 내보내기"
+      "exportPdf": "匯出 PDF"
     },
     "fallbackNotice": "已切換到備用模型 {backup}(原模型 {primary} 暫時不可用)",
     "fallbackNoticeQuota": "本次由 {backup} 作答({primary} 所屬廠商帳號額度已用盡,已自動改道同族可用模型)",
