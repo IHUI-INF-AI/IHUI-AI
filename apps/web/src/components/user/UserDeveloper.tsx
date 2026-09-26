@@ -63,7 +63,7 @@ export default function UserDeveloper({
           <button
             type="button"
             onClick={onRegenerateKey}
-            className="mt-2 w-full rounded-md border border-primary px-3 py-1.5 text-xs text-primary hover:bg-primary/5"
+            className="mt-2 w-full rounded-md border border-brand-accent-deep px-3 py-1.5 text-xs text-primary hover:bg-primary/5"
           >
             重新生成 API Key
           </button>

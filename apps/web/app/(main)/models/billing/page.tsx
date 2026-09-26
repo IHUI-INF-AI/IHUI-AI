@@ -192,7 +192,9 @@ export default async function BillingPage() {
             {packages.map((p) => (
               <Card
                 key={p.name}
-                className={p.highlighted ? 'relative border-primary shadow-md' : 'relative'}
+                className={
+                  p.highlighted ? 'relative border-brand-accent-deep shadow-md' : 'relative'
+                }
               >
                 {p.highlighted && (
                   <span className="absolute -top-2 left-4 inline-flex items-center rounded bg-cta px-2 py-0.5 text-[10px] font-semibold text-cta-foreground">

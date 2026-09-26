@@ -64,7 +64,7 @@ export function Radio({ options, value, onChange, inline = false, className }: R
               onKeyDown={handleKeyDown}
               className={cn(
                 'flex h-4 w-4 items-center justify-center rounded-md border border-input transition-colors',
-                isChecked && 'border-primary',
+                isChecked && 'border-brand-accent-deep',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               )}
             >

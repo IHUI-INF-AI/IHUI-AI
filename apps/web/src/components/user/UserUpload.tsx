@@ -57,7 +57,7 @@ export default function UserUpload({
         }}
         className={cn(
           'flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 text-center transition-colors',
-          drag ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50',
+          drag ? 'border-brand-accent-deep bg-primary/5' : 'border-muted hover:border-primary/50',
         )}
       >
         {uploading ? (

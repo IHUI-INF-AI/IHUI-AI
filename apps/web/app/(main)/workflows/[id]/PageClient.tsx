@@ -428,7 +428,7 @@ export default function WorkflowDetailPage() {
               className={cn(
                 '-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors',
                 tab === k
-                  ? 'border-primary text-primary'
+                  ? 'border-brand-accent-deep text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
             >
