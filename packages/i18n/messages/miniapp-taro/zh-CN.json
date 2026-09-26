@@ -482,8 +482,6 @@
   "ai": {
     "contextUsage": {
       "title": "上下文使用情况",
-      "used": "已使用",
-      "max": "最大容量",
       "segSystem": "系统提示",
       "segToolSchema": "工具定义",
       "segSkill": "技能正文",
@@ -613,7 +611,6 @@
       "copy": "复制",
       "digitalHuman": "数字人",
       "downloadFailed": "下载失败",
-      "downloadSuccess": "下载成功",
       "downloading": "下载中...",
       "edit": "编辑",
       "errorCardTitle": "请求出错",
@@ -660,7 +657,6 @@
       "refreshSuccess": "刷新成功",
       "searchPlaceholder": "搜索对话历史",
       "startNew": "开始新对话",
-      "unpin": "取消置顶",
       "unpinFailed": "取消置顶失败,请重试"
     },
     "image": {
