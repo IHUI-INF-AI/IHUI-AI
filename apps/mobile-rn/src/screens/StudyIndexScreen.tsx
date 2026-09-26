@@ -49,7 +49,7 @@ import {
   type LlmModel,
 } from '@ihui/api-client'
 import { tokens as tk } from '../theme/active-tokens'
-import { formatRelativeTime, toUserFriendlyMessage } from '@ihui/shared'
+import { apiFailureToError, formatRelativeTime, toUserFriendlyMessage } from '@ihui/shared'
 import { NavBar } from '../components/NavBar'
 import FloatingActionButton from '../components/FloatingActionButton'
 import Empty from '../components/common/Empty'
@@ -236,7 +236,7 @@ export function StudyIndexScreen() {
             category: activeCategory !== 'all' ? activeCategory : undefined,
           },
         })
-        if (!res.success) throw new Error(res.error)
+        if (!res.success) throw apiFailureToError(res)
         const list = res.data.list ?? []
         setItems((prev) => (reset ? list : [...prev, ...list]))
         setTotal(res.data.total ?? 0)
