@@ -4,7 +4,15 @@
 
 import { View } from '@tarojs/components'
 import type { CSSProperties } from 'react'
-import { getRnTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { getRnTokens, TARO_RPX_PER_PX, type RnThemeMode } from '@ihui/design-tokens'
+import {
+  COLORFUL_LOADER_DEFAULT_SIZE_PX,
+  COLORFUL_LOADER_DOT_COUNT,
+  COLORFUL_LOADER_SPIN_MS,
+  colorfuleLoaderDotSizePx,
+  colorfuleLoaderDotColor,
+  colorfuleLoaderRadiusPx,
+} from '@ihui/shared/ui/colorful-loader-spec'
 import { useAppTheme } from '@/lib/theme'
 
 /**
@@ -20,6 +28,7 @@ import { useAppTheme } from '@/lib/theme'
  * 不依赖 keyframes 注入,根治原 web 端 `ensureKeyframes()` 在小程序环境的 document 报错。
  */
 export interface ColorfulLoaderProps {
+  /** 直径,rpx 数值(与端内 components/ColorfulLoader.tsx 同一 prop 口径;默认档来自共享源) */
   size?: number
   visible?: boolean
   className?: string
@@ -27,27 +36,27 @@ export interface ColorfulLoaderProps {
   colorScheme?: RnThemeMode
 }
 
-const DOT_COUNT = 72
-const DEFAULT_SIZE = 80
+/// 数字档唯一源在 @ihui/shared/ui/colorful-loader-spec(与 RN 端 Animated 实现同表)。
+const DEFAULT_SIZE_RPX = COLORFUL_LOADER_DEFAULT_SIZE_PX * TARO_RPX_PER_PX
 /** 容器背景色 token key:浅色 = 透明,深色 = 极深透明 */
 const CONTAINER_BG: Record<RnThemeMode, string> = {
   light: 'transparent',
   dark: 'var(--color-black-10)',
 }
 
-/** Taro rpx 单位换算(1px = 2rpx) */
-const toRpx = (px: number): string => `${px * 2}rpx`
+/** Taro rpx 单位换算(1px = TARO_RPX_PER_PX rpx,系数来自共享源) */
+const toRpx = (px: number): string => `${px * TARO_RPX_PER_PX}rpx`
 
-/** 容器样式(独立函数避免 style 联合) */
-const containerStyle = (size: number, colorScheme: RnThemeMode): CSSProperties => ({
+/** 容器样式(独立函数避免 style 联合);size 入参为 rpx 数值 */
+const containerStyle = (sizeRpx: number, colorScheme: RnThemeMode): CSSProperties => ({
   position: 'relative',
-  width: toRpx(size),
-  height: toRpx(size),
+  width: `${sizeRpx}rpx`,
+  height: `${sizeRpx}rpx`,
   backgroundColor: CONTAINER_BG[colorScheme],
   // 微信小程序 view 不支持 CSS animation 属性(行内 style 不解析 @keyframes);
   // 用 Tailwind className 注入 animate-spin 替代,样式来源:tailwind.config.js keyframes.spin
-  // 这里保留 animation 字段作为 SSR/Web 端兼容(支付宝/抖音小程序支持)
-  animation: 'spin 1.2s linear infinite',
+  // 这里保留 animation 字段作为 SSR/Web 端兼容(支付宝/抖音小程序支持);周期与 RN Animated 同档(共享源)
+  animation: `spin ${COLORFUL_LOADER_SPIN_MS / 1000}s linear infinite`,
 })
 
 /** 单点样式:旋转定位 + HSL 着色 */
@@ -70,7 +79,7 @@ const dotStyle = (
 })
 
 export function ColorfulLoader({
-  size = DEFAULT_SIZE,
+  size = DEFAULT_SIZE_RPX,
   visible = true,
   className,
   colorScheme,
@@ -83,18 +92,19 @@ export function ColorfulLoader({
   // 触发主题 token 解析,即使未在 JS 中读取,主题色被打包进入 inline style
   void getRnTokens(effectiveScheme)
 
-  const radius = size / 2
-  const dotSize = Math.max(2, size / 20)
+  // size prop 是 rpx 数值,先折回逻辑 px 再走共享公式(单位换算是平台通道,数值是共享档)
+  const sizePx = size / TARO_RPX_PER_PX
+  const radius = colorfuleLoaderRadiusPx(sizePx)
+  const dotSize = colorfuleLoaderDotSizePx(sizePx)
 
   return (
     <View
       className={`animate-spin ${className ?? ''}`}
       style={containerStyle(size, effectiveScheme)}
     >
-      {Array.from({ length: DOT_COUNT }).map((_, i) => {
-        const angle = (360 / DOT_COUNT) * i
-        const color = `hsl(${i * 5}, 70%, 60%)`
-        return <View key={i} style={dotStyle(dotSize, radius, angle, color)} />
+      {Array.from({ length: COLORFUL_LOADER_DOT_COUNT }).map((_, i) => {
+        const angle = (360 / COLORFUL_LOADER_DOT_COUNT) * i
+        return <View key={i} style={dotStyle(dotSize, radius, angle, colorfuleLoaderDotColor(i))} />
       })}
     </View>
   )
