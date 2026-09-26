@@ -229,6 +229,13 @@ export function analyze(face) {
     const cap = headCounts.get(f) ?? 0
     if (n > cap) red.push({ file: f, n, cap })
   }
+  /**
+   * 空扫不得记绿:`head` 面枚举到 0 个候选文件,只可能是枚举/锚点坏了(仓库根错位、
+   * ls-tree 静默空输出),而不是"这个仓没有 RN 源码"。判"无法判定"并点名,
+   * 与守门 70/78/98"扫到 0 条一律判死"同一条取向。`staged` 面 0 个是正当形态
+   * (本次提交没碰 RN 目录),不在此列。
+   */
+  const emptyScan = face === 'head' && files.length === 0
   return {
     face,
     registrySource,
@@ -241,11 +248,12 @@ export function analyze(face) {
     total: detail.length,
     filesWithHits: counts.size,
     red,
+    emptyScan,
     // 注册表读不到**不影响退出码**:那是机器态(没装依赖 / 干净检出 / CI 未 install),
     // 提交者结构上满足不了 ⇒ 判红就是一台恒红门,唯一结局是逼人绕过钩子连带废掉全部守门
     // (守门 104/110 同一取向)。此时按内置清单判并在报告里点名"注册表未对账"。
-    // 只有"枚举说该文件在、内容却取不到"才是真的无法判定 ⇒ exit 2。
-    exit: unreadable.length ? 2 : red.length || rot.length ? 1 : 0,
+    // 只有"枚举说该文件在、内容却取不到"或"head 面空扫"才是真的无法判定 ⇒ exit 2。
+    exit: unreadable.length || emptyScan ? 2 : red.length || rot.length ? 1 : 0,
   }
 }
 
@@ -365,6 +373,10 @@ function main() {
   if (r.unreadable.length)
     console.log(
       `❌ 无法判定:${r.unreadable.length} 个候选文件在本面取不到内容(不记绿也不冒红),首个:${r.unreadable[0]}`,
+    )
+  if (r.emptyScan)
+    console.log(
+      '❌ 无法判定:head 面枚举到 **0 个**候选文件 —— 只可能是枚举面或仓库根错位,不得读成"这个仓没有 RN 源码"',
     )
   if (r.undetermined.length)
     console.log(`⚠️ 未判定(回溯不到 JSX 开标签)${r.undetermined.length} 处 —— 判据看不见 ≠ 没有`)
