@@ -16,16 +16,40 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as claims } from '../check-task-claims.mjs'
 import { SIM_THRESHOLD } from '../lib/live-doc-similarity.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 const SCRIPT = join(REPO, 'scripts', 'check-task-claims.mjs')
+const GIT_BIN = resolveGitBin() || 'git'
+
+/** 只对**临时索引**做 plumbing(hash-object -w / update-index),refs / 主索引 / 磁盘零触碰 ——
+ *  与守门 90 镜像 ⑩ 同一套"索引≠磁盘"构造法;对象写入与 ⑩ 同性质(GC 自收,不构成 git 写史)。 */
+function gitRun(args, opts = {}) {
+  return execFileSync(
+    GIT_BIN,
+    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', REPO, ...args],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+      env: opts.env ?? process.env,
+      ...(opts.input === undefined ? {} : { input: opts.input }),
+    },
+  )
+}
+
+/** 主索引的真实路径(.git 可能是指针文件,故问 git 自己而不是拼字符串) */
+function resolveGitIndex() {
+  const gitdir = gitRun(['rev-parse', '--absolute-git-dir']).trim()
+  return join(gitdir, 'index')
+}
 
 /**
  * 租约判据(CL1/CL2/CL3, 2026-09-25 A9 扩)的 T8-T16 一律在 **mkScratch 临时夹具**上跑。
@@ -265,7 +289,7 @@ test('T11 全角括号可选性正反例 —— `（进行中）?` 陷阱的装�
   assert.equal(claims.bodyOf({ full: '- [x]（进行中）foo' }), 'foo')
 })
 
-test('T12 四对正反例·第4对 向后兼容:真仓存量裸标记全绿(只计数不判红;条数按当次实测,不钉死)', () => {
+test('T12 四对正反例·第4对 向后兼容:真仓的红只可能来自租约形态;存量裸标记只计数(不钉"现值必绿")', () => {
   // 存量不变量(绝不断"当前几条"——那会随别人翻勾变红):
   // 真仓 --check-gate 的红**只可能**来自租约形态(CL1/CL2/CL3 之租约支),
   // 而 legacy 计数必须原样报出且与 violations 无交集。
@@ -274,12 +298,29 @@ test('T12 四对正反例·第4对 向后兼容:真仓存量裸标记全绿(只�
   const j = JSON.parse(r.out)
   assert.ok(j.leases.legacy >= 0)
   for (const v of j.violations) assert.ok(['CL1', 'CL2', 'CL3'].includes(v.kind))
-  // 当前真仓快照下必须为绿(立项实测:全部进行中都是旧格式;若这行变红,
-  // 说明有人留下了过期/半个租约 —— 那是**真红**,不是本测试的假阳)。
-  assert.equal(r.status, 0, `真仓 --check-gate 现值应为 0:${r.out}`)
+  // —— 2026-09-26 收尾:此行原为 `assert.equal(r.status, 0, '真仓 --check-gate 现值应为 0')`,
+  //    由上一枚派单会话故意收紧后没来得及处理就停摆。判定:**完成收紧方向的反向动作
+  //    (删掉这条"现值必绿"钉)**,理由三条,缺一不可:
+  // ① 与被测判据互相打架:门的**存在理由**就是让"租约形态 × [x]"的红持续可见,直到**持有者
+  //    自己**去清(AGENTS §1"绝不自动摘除认领"+§16 越权禁令)。而 PROJECT_PLAN.md 是多会话
+  //    共写的活文档 —— 任何一枚并发提交都能合法带着一条真实 CL3 进 HEAD(2026-09-26 现读
+  //    实测:HEAD blob 的 O10 条目行上挂着 `（进行中@2026-09-26/O10b票,主会话第九批）` 租约,
+  //    git grep 于 HEAD 面命中 1 处)。把"此刻必须为 0"钉进测试套件,等于让之后**每一次
+  //    `node --test`** 都被别人的在途认领钉红;恒红测试与恒红门同罪 —— 唯一结局是逼人
+  //    跳过测试(--no-verify 的测试面同型,§12e)。
+  // ② 本用例标题自己的规格就写着"条数按当次实测,不钉死",旧末行却钉 status===0,
+  //    是规格与断言自相矛盾,不是仓库欠账 —— 修的是断言,不是判据(判据一个字没改)。
+  // ③ "存量裸标记不判红"这条向后兼容**不靠真仓快照证明**:T10 在临时夹具上给出可复现的绿
+  //    (裸标记矛盾行只计数),T8/T9/T10 给出可复现的红 —— 夹具才是取证面,活文档不是。
+  // 现值必须**如实打印**,免得后来人把"测试绿了"读成"仓库没有红":
+  console.log(
+    r.status === 0
+      ? '  (真仓现值:0 红)'
+      : `  (真仓现值:${j.violations.length} 红,形态:${[...new Set(j.violations.map((v) => v.kind))].join('/')} —— 归各行持有者清账,本测试不代裁)`,
+  )
 })
 
-test('T13 未知 CLI 开关不得静默落进默认分支(白名单 + exit 2)', () => {
+test('T13 未知 CLI 开关不得静默落进默认分支(白名单 + exit 2);面旗必须被接受(接受≠判据绿)', () => {
   // 前例:`sync-lost-commit-tags.mjs` 的 `--push` 拼错掉进 `--check` 还 exit 0。
   for (const bad of [
     ['--nope'],
@@ -291,8 +332,20 @@ test('T13 未知 CLI 开关不得静默落进默认分支(白名单 + exit 2)', 
     const r = runCli(bad)
     assert.equal(r.status, 2, `${bad.join(' ')} 应 exit 2(无法判定),实得 ${r.status}`)
   }
-  // --staged 必须被接受(runner 在 staged 模式对**所有**脚本统一追加;不认它 = 接线当天全红)。
-  assert.equal(runCli(['--check-gate', '--staged']).status, 0, '--staged 竟被判未知')
+  // --staged / --worktree 必须被接受(runner 在 staged 模式对**所有**脚本统一追加 --staged;
+  // 不认它 = 接线当天全红)。2026-09-26 收尾:旧版这两条写成 `assert.equal(..., 0)`,把
+  // "开关被识别"与"真仓此刻无红"混成同一件事 —— 而 --check-gate 读真 HEAD 时,别人一枚在途
+  // 租约就能让它合法地红(见 T12 ①)。"不认它"的失败形态是 **exit 2**,所以断言按失败形态
+  // 分流:只需断"不是 2"。旧措辞"--staged 竟被判未知"本身就是这次归因事故的现场:
+  // 实得 1(真账红)被读成了"白名单不认识",方向整个反了。
+  assert.notEqual(runCli(['--check-gate', '--staged']).status, 2, '--staged 被白名单拒绝了')
+  assert.notEqual(runCli(['--check-gate', '--worktree']).status, 2, '--worktree 被白名单拒绝了')
+  // 两面旗同给必须判死(互斥面,取哪一面都会让另一面成为假绿)。
+  assert.equal(
+    runCli(['--check-gate', '--staged', '--worktree']).status,
+    2,
+    '两面旗同给竟选出了一个面',
+  )
 })
 
 test('T14 租约阈值可调:--ttl-hours 与 IHUI_CLAIM_LEASE_TTL_HOURS 各生效一次', () => {
@@ -373,3 +426,85 @@ test('T16 与守门 71 互不遮蔽:runner 跑完再汇总(说明性断言,防 f
   assert.match(runnerSrc, /id:\s*'71'/, '守门 71 注册块消失属另一类事故,顺手钉住邻门在场')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T17 判定面装车:同一棵仓,索引≠磁盘/HEAD 时必须各按各的面出结论(旧磁盘读法在 A 臂失明)', () => {
+  // 2026-09-26 收口的直接证明:此前 main() 无条件 `readFileSync(PLAN_PATH)` —— --staged 只是
+  // 被 parseArgs 收下的**惰性开关**(accepted but inert),暂存区里放了什么都不影响结论。
+  // 本例用临时 GIT_INDEX_FILE 造"只有索引里有、磁盘与 HEAD 都没有"的探针行,三面三答:
+  //   A --staged(索引含探针) ⇒ 必红并点名探针  —— 旧实现读磁盘,这一臂会判**绿**(假绿);
+  //   B --staged(索引放干净文档) ⇒ 必绿        —— 证明 A 的红来自面,不是"永远红";
+  //   C 默认 head 面(同一枚临时索引在场) ⇒ 绝不许出现探针字样 —— 证明默认面没借索引凑内容;
+  //   D --worktree 磁盘面 ⇒ 同样绝不许出现探针 —— 三面互不串门。
+  const dir = mkScratch('claims-t17')
+  try {
+    const tmpIndex = join(dir, 'probe-index')
+    copyFileSync(resolveGitIndex(), tmpIndex)
+    const env = { ...process.env, GIT_INDEX_FILE: tmpIndex }
+    const probe = `- [x] ✅(2026-09-20) ZQ-FACE-PROBE 只活在临时索引里的探针（进行中@${isoDay(0)}/faceprobe） 探针载荷\n`
+    const clean = '- [ ] 干净任务,无认领无矛盾\n'
+    const putInIndex = (doc) => {
+      const sha = gitRun(['hash-object', '-w', '--stdin'], { input: doc, env }).trim()
+      gitRun(['update-index', '--add', '--cacheinfo', `100644,${sha},PROJECT_PLAN.md`], { env })
+    }
+    const diskBefore = readFileSync(join(REPO, 'PROJECT_PLAN.md'), 'utf8')
+
+    // A 臂
+    putInIndex(probe)
+    const a = runCli(['--check-gate', '--staged', '--json'], { env })
+    assert.equal(a.status, 1, `A 臂(索引含探针)必须判红,实得 ${a.status}:${a.out}`)
+    assert.match(a.out, /faceprobe/, 'A 臂必须点名索引里那条探针(证明读的是索引 blob)')
+    assert.match(a.out, /"face": "索引 blob/, 'A 臂 JSON 必须如实报面')
+
+    // B 臂:同一临时索引换成干净文档 ⇒ 必绿(旧磁盘读法在这一臂与 A 臂同答,两臂就分不出面了)
+    putInIndex(clean)
+    const b = runCli(['--check-gate', '--staged', '--json'], { env })
+    assert.equal(b.status, 0, `B 臂(索引干净)必须判绿,否则 A 的红是"永远红"而不是面:\n${b.out}`)
+    assert.doesNotMatch(b.out, /faceprobe/, 'B 臂不得再残留探针(索引确实被换掉了)')
+
+    // C/D 臂:探针回到索引里,默认 head 面与 --worktree 磁盘面都必须看不见它
+    putInIndex(probe)
+    const c = runCli(['--check-gate', '--json'], { env })
+    assert.doesNotMatch(c.out, /faceprobe/, '默认面竟读到临时索引内容 ⇒ head/index 两面串门')
+    assert.match(c.out, /"face": "HEAD blob/, '默认面必须自称 HEAD blob')
+    const d = runCli(['--check-gate', '--worktree', '--json'], { env })
+    assert.doesNotMatch(d.out, /faceprobe/, '--worktree 竟读到临时索引内容 ⇒ 磁盘面失守')
+    assert.match(d.out, /"face": "工作树/, '--worktree 必须自称工作树档')
+
+    // 全程零副作用:磁盘那份计划文档一个字节都没动
+    assert.equal(
+      readFileSync(join(REPO, 'PROJECT_PLAN.md'), 'utf8'),
+      diskBefore,
+      '本例不得改磁盘计划文档',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T18 形状锁:计划文档必须经 face-reader 按面取,不得再回磁盘直读', () => {
+  // 与守门 118 的 half-wired 档同族:"引了层、内容却仍自己从磁盘取"按文件整体分类看不见,
+  // 只能由本锁在**源码形态**上钉死。判"代码位"先剥整行注释 —— 本文件多处注释在描述
+  // 被推翻的旧写法,不剥就会让门替旧写法背书(守门 57⑤同族)。
+  const src = readFileSync(SCRIPT, 'utf8')
+  const code = src
+    .split('\n')
+    .filter((l) => !/^\s*(\/\/|\/?\*)/.test(l))
+    .join('\n')
+  assert.match(code, /function pickPlanFace\(/, '四态面选择不在位')
+  assert.match(code, /pickPlanFace\(parsed\.flags\)/, 'main 未经 pickPlanFace 选面')
+  assert.match(code, /catBatch\(ROOT, \[spec\]/, 'git 面未经 face-reader 的读取入口取正文')
+  assert.match(code, /readWorktreeFile\(ROOT, PLAN_REL\)/, '--worktree 档未经 readWorktreeFile')
+  assert.match(
+    code,
+    /const spec = `\$\{face === 'index' \? '' : 'HEAD'\}:\$\{PLAN_REL\}`/,
+    '规格组装漂移(冒号必须在三元**外**,index 面才产出 `:path`)',
+  )
+  // 反向锁(旧缺陷本体):内置计划文档不得再被磁盘直读 —— `--plan` 注入通道读的是显式文件,
+  // 形态是 readFileSync(planPath…),与本锁无涉。
+  assert.ok(
+    !/readFileSync\(PLAN_PATH/.test(code),
+    '内置计划文档又回到 readFileSync(磁盘) —— 并发会话未提交行即可改写在飞提交的结论',
+  )
+  // 反向锁:两面旗同给必须判死(不许"顺手挑一个面")。
+  assert.match(code, /if \(picked\.error\)[\s\S]*?process\.exit\(2\)/, '面旗冲突未折成 exit 2')
+})
