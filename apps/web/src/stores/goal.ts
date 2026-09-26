@@ -37,8 +37,17 @@ export interface Goal {
 
 interface GoalState {
   goal: Goal | null
+  /**
+   * D64 ⑥(2026-09-26):卡体折叠态持久化(对标 Trae `isGoalExpanded`,E2 证据;
+   * 我方此前卡恒展开)。默认展开,随本 store 一并入持久化层。
+   */
+  expanded: boolean
   /** 设定 / 更新目标文本(重置为 active,进度保留——迭代同一目标场景) */
   setGoal: (text: string) => void
+  /** D64 ⑥:仅改目标文本(编辑目标),保留 status/progress/createdAt —— 对齐 Trae
+   * 编辑目标语义(E1:composer.threadGoal.editDialog 编辑目标/保存/取消),不重置生命周期 */
+  renameGoal: (text: string) => void
+  setExpanded: (expanded: boolean) => void
   setProgress: (progress: number) => void
   advance: (delta: number) => void
   addBlocker: (text: string) => void
@@ -55,6 +64,7 @@ export const useGoalStore = create<GoalState>()(
   persist(
     (set) => ({
       goal: null,
+      expanded: true,
       setGoal: (text) =>
         set((s) => {
           const now = Date.now()
@@ -75,6 +85,15 @@ export const useGoalStore = create<GoalState>()(
             },
           }
         }),
+      renameGoal: (text) =>
+        set((s) => {
+          if (!s.goal) return s
+          const trimmed = text.trim()
+          // 空文本 / 与现文本逐字相同 ⇒ 不动(不改 updatedAt,避免无意义的"已更新"噪声)
+          if (trimmed === '' || trimmed === s.goal.text) return s
+          return { goal: { ...s.goal, text: trimmed, updatedAt: Date.now() } }
+        }),
+      setExpanded: (expanded) => set({ expanded }),
       setProgress: (progress) =>
         set((s) => {
           if (!s.goal) return s
@@ -119,7 +138,7 @@ export const useGoalStore = create<GoalState>()(
       // D48(G-56)目标文本是用户自撰的会话派生内容 → 桌面端与 chat 同层加密,但走独立 HKDF 域
       // (chat 密文解不开 goal,反之亦然)。浏览器路径原样返回 ssrStorage,行为零变更。
       storage: createGoalPersistStorage(ssrStorage),
-      partialize: (s: GoalState) => ({ goal: s.goal }),
+      partialize: (s: GoalState) => ({ goal: s.goal, expanded: s.expanded }),
     },
   ),
 )
