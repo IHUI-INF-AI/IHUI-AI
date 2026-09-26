@@ -18,7 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { KnowledgePlanetScreen as SharedKnowledgePlanetScreen } from '@ihui/rn-app'
 import { fetchApi } from '@ihui/api-client'
-import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
 import Loading from '../components/common/Loading'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -60,7 +60,7 @@ export function KnowledgePlanetScreen() {
         }[]
         total: number
       }>(API_PATH)
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) throw apiFailureToError(res)
       const rawList = res.data?.list ?? []
       setItems(
         rawList.map((raw) => ({
