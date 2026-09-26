@@ -12,6 +12,9 @@ import {
   // 票⑤(2026-09-26):图标卡与模型提示条图章的墨迹档(位图退役后取数一律经这两枚)
   BOTTOM_ACTION_BAR_ICON_GLYPH_PX,
   BOTTOM_ACTION_BAR_MODEL_BADGE_PX,
+  // 票⑥(2026-09-26):默认变体的附件/发送键 —— 方块与墨迹的唯一档源(与 RN 端同读这两个常量)
+  BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
+  BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX,
 } from '@ihui/shared/ui/bottom-action-bar-spec'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import InputArea, { type InputAreaProps } from './InputArea'
@@ -313,11 +316,18 @@ export default function BottomActionBar(props: BottomActionBarProps) {
     <View className={cn('flex items-center px-3 py-2 bg-card mt-2')}>
       {showAttach && (
         <View
-          className="flex items-center justify-center w-8 h-8 mr-2 rounded-lg bg-muted"
+          className="flex items-center justify-center mr-2 rounded-lg bg-muted"
+          style={{
+            width: toUnit(BOTTOM_ACTION_BAR_CONTROL_BOX_PX),
+            height: toUnit(BOTTOM_ACTION_BAR_CONTROL_BOX_PX),
+          }}
           onClick={onAttach}
           hoverClass="opacity-60"
         >
-          <Text className="text-lg text-muted-foreground">+</Text>
+          {/* 附件入口的载体:此前是把 `+` 这个字符当图标(Text 字形),与 RN 端的 lucide `Plus`
+              同名不同载体 —— 这正是"两端图标不一样"的直接成因(AGENTS §4:UI 图标一律用矢量图标库)。
+              墨迹档与 RN 端同读 BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX(= web `Plus h-3.5` = 14)。 */}
+          <LineIcon name="plus" size={toUnit(BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX)} />
         </View>
       )}
       <Input
@@ -331,13 +341,23 @@ export default function BottomActionBar(props: BottomActionBarProps) {
       {showSend && (
         <View
           className={cn(
-            'flex items-center justify-center w-8 h-8 ml-2 rounded-lg',
-            value ? 'bg-primary' : 'bg-muted',
+            'flex items-center justify-center ml-2 rounded-lg',
+            value ? 'bg-cta text-cta-foreground' : 'bg-muted',
           )}
+          style={{
+            width: toUnit(BOTTOM_ACTION_BAR_CONTROL_BOX_PX),
+            height: toUnit(BOTTOM_ACTION_BAR_CONTROL_BOX_PX),
+          }}
           onClick={() => value && onSend?.()}
           hoverClass="opacity-60"
         >
-          <Text className="text-sm text-primary-foreground">↑</Text>
+          {/* 发送键:此前这一格把 `↑` 当图标,并取旧档配对(AGENTS §4 于 2026-09-24 已改档,
+              旧配对由守门 83 R5 记为退役形态);现与 RN 端同一矢量族、同一实底/前景配对。 */}
+          <LineIcon
+            name="send"
+            size={toUnit(BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX)}
+            color={value ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'}
+          />
         </View>
       )}
     </View>
