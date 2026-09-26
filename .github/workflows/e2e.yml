@@ -92,6 +92,26 @@ jobs:
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium
 
+      # 2026-09-27 移到 seed 之前:aa83eb70198 把 7 个包 exports 从 src 改 dist 后,
+      # seed 的 tsx 链路(scoped-guard.ts → @ihui/types/dist/index.js)必须先有 dist,
+      # 否则 seed 步 ERR_MODULE_NOT_FOUND,e2e 每轮 2 分钟即败(CI 连红根因,实测 8/8 failure)。
+      - name: Build database package
+        # web 产物引用 @ihui/database 的 dist;缺此步 next build 预渲染时
+        # 解析 src/index.ts → src/client.js 报 ERR_MODULE_NOT_FOUND(2026-09-10)
+        run: pnpm --filter @ihui/database run build
+
+      - name: Build workspace deps (topological closure)
+        # `@ihui/api-client` 的 main/module/types/exports **全部指向 ./dist/*,没有 source 兜底**,
+        # 而 dist 不入库 ⇒ 任何把 packages/shared/src/** 拉进 program 的构建都会 TS2307。
+        # 实测受害者:`pnpm --filter @ihui/api run build`(下一步)与 `pnpm --filter @ihui/web run build`
+        # —— `--filter` 直跑 pnpm 不做拓扑构建,不会替我把依赖建好(照 ci.yml 的同名步骤补,
+        # 那条自 2026-08 起就在那儿,只是没被抄进本文件)。
+        # 2026-09-26 起改用拓扑选择器 `^...`(= 该包的**全部 workspace 依赖**,不含本包):
+        # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
+        # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
+        # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
+        run: pnpm --filter "@ihui/api^..." --filter "@ihui/web^..." run build
+
       - name: Run database migrations
         working-directory: packages/database
         env:
@@ -115,23 +135,6 @@ jobs:
           JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
           CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         run: pnpm --filter @ihui/api run seed:e2e-knowledge
-
-      - name: Build database package
-        # web 产物引用 @ihui/database 的 dist;缺此步 next build 预渲染时
-        # 解析 src/index.ts → src/client.js 报 ERR_MODULE_NOT_FOUND(2026-09-10)
-        run: pnpm --filter @ihui/database run build
-
-      - name: Build workspace deps (topological closure)
-        # `@ihui/api-client` 的 main/module/types/exports **全部指向 ./dist/*,没有 source 兜底**,
-        # 而 dist 不入库 ⇒ 任何把 packages/shared/src/** 拉进 program 的构建都会 TS2307。
-        # 实测受害者:`pnpm --filter @ihui/api run build`(下一步)与 `pnpm --filter @ihui/web run build`
-        # —— `--filter` 直跑 pnpm 不做拓扑构建,不会替我把依赖建好(照 ci.yml 的同名步骤补,
-        # 那条自 2026-08 起就在那儿,只是没被抄进本文件)。
-        # 2026-09-26 起改用拓扑选择器 `^...`(= 该包的**全部 workspace 依赖**,不含本包):
-        # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
-        # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
-        # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
-        run: pnpm --filter "@ihui/api^..." --filter "@ihui/web^..." run build
 
       - name: Build API
         run: pnpm --filter @ihui/api run build
