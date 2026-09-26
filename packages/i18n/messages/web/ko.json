@@ -9016,7 +9016,9 @@
       "pinned": "상단 고정됨",
       "unpinned": "상단 고정 해제됨",
       "pinFailed": "상단 고정 실패",
-      "orgSaved": "대화 정리가 저장되었습니다"
+      "orgSaved": {
+        "orgSaved": "대화 정리가 저장되었습니다"
+      }
     },
     "today": "오늘",
     "openWorkPanel": "작업 패널 열기",
@@ -10562,6 +10564,7 @@
     "communityPublishing": "게시 중...",
     "compaction": {
       "truncatedNotice": "마지막 메시지가 너무 길어 대화를 유지할 수 있도록 내용을 잘라냈습니다 (생략 {count}개)",
+      "truncatedNoticeNoCount": "마지막 메시지가 너무 길어 대화를 유지할 수 있도록 내용을 잘라냈습니다",
       "viewArchived": "압축 전 원본 메시지 {count}개 보기",
       "archiveTitle": "압축 아카이브 · 원본 메시지",
       "archiveEmpty": "압축 아카이브가 없습니다",
@@ -10673,7 +10676,7 @@
       "roleAssistant": "어시스턴트",
       "exportCard": "이미지 카드 공유",
       "shareCardUser": "사용자",
-      "exportPdf": "PDF 내보내기"
+      "exportPdf": "PDF をエクスポート"
     },
     "fallbackNotice": "백업 모델 {backup}(으)로 전환됨(원본 모델 {primary} 일시 사용 불가)",
     "fallbackNoticeQuota": "이번 답변은 {backup} 모델이 생성했습니다({primary} 모델의 제공사 계정 한도가 모두 소진되어 동일 계열의 사용 가능한 모델로 자동 전환했습니다).",
