@@ -26,8 +26,8 @@ import type {
   PointRecord,
 } from '@ihui/types'
 
-import { fetchApi } from '../client'
-import { buildQs, type PageData } from '../utils'
+import { fetchApi } from '../client.js'
+import { buildQs, type PageData } from '../utils.js'
 
 // ===================== 类型定义 =====================
 

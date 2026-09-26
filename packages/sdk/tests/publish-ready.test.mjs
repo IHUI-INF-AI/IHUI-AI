@@ -651,4 +651,37 @@ test('@ihui/api-client 摘掉 private 即必须当场过发布前置(workspace �
     `check-pkg-installable 判失败(rc=${rc}),不得在 blocker 非零时发布:\n${out.split(/\r?\n/).slice(-12).join('\n')}`,
   )
 })
+
+/**
+ * 保险丝自己的判据缺陷(2026-09-26 由 api-client 可发布性收口抓到并已修):
+ * 首版 `publishPreconditionFailures` 把 **devDependencies** 一起扫进"workspace: ⇒ 发出去即装不到"。
+ * 那是判据错:发布时 devDependencies 被整个剥掉,workspace 协议写在那里进不了 tarball。
+ * 后果可实测且是一台恒红门 —— 本仓每个包都带 workspace 形态的内部 devDeps,而**已经摘了
+ * private 的 @ihui/sdk** 正是这个形态;不收窄,则"摘 private"这个动作对所有包都必然红,
+ * 唯一出路是把供类型面使用的内部依赖删掉(删了就打不到类型)。
+ * 载体刻意取自真实入库文件(sdk 清单),而不是自造夹具 —— §22c:镜像只复读实现就是复读机。
+ */
+test('廉价前置只看会发布的三个字段:workspace 形态的内部 devDeps 不得判红(真载体 @ihui/sdk)', async () => {
+  const mod = await import(new URL('../../../scripts/check-sdk-release-channels.mjs', import.meta.url).href)
+  const fail = mod.publishPreconditionFailures
+  const raw = headFile('packages/sdk/package.json')
+  assert.ok(raw !== null, 'HEAD 里读不到 @ihui/sdk 清单 —— 判不了不是通过')
+  const sdk = JSON.parse(raw)
+  // 前提自证:这份真实清单确实"非 private + 带 workspace devDeps + 版本已定",
+  // 否则本条就退化成一句空调用(判据的载体没了还报绿,是本仓反复记过的那一型)。
+  assert.notEqual(sdk.private, true, '@ihui/sdk 应已非 private(本条的前提)')
+  assert.match(JSON.stringify(sdk.devDependencies ?? {}), /workspace:/, 'sdk 清单里已无 workspace 形态 devDeps → 换载体再来')
+  assert.deepEqual(fail(sdk), [], `已发布形态的 sdk 被判红,说明 devDeps 仍被误扫:\n${fail(sdk).join('\n')}`)
+
+  // 故意做坏必须红(同一条判据的另一侧):把同一个内部包挪进 dependencies ⇒ 必须点名。
+  const movedIntoDeps = {
+    ...sdk,
+    dependencies: { ...(sdk.dependencies ?? {}), '@ihui/types': 'workspace:*' },
+  }
+  assert.equal(fail(movedIntoDeps).length, 1, 'workspace 出现在 dependencies 必须判红')
+  assert.match(fail(movedIntoDeps)[0], /workspace:/, fail(movedIntoDeps)[0])
+  // optionalDependencies 同视(与 check-pkg-installable 判据 5 的字段口径逐字同一组,两把尺子不得各量一段)
+  const optionalBad = { version: '1.0.0', optionalDependencies: { '@ihui/types': 'workspace:*' } }
+  assert.equal(fail(optionalBad).length, 1, 'optionalDependencies 里的 workspace 也必须判红')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

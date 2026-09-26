@@ -10,7 +10,7 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchAiServiceJson } from '../client'
+import { fetchAiServiceJson } from '../client.js'
 
 // ===================== 类型定义 =====================
 
