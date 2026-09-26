@@ -30,6 +30,7 @@ import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } fr
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
+import { VOICE_INPUT_RECORD_ROW_GAP_PX } from '@ihui/shared/ui/voice-input-spec'
 import { voiceSttFromReactNative } from '@ihui/api-client'
 import { getToken } from '../lib/token'
 import type { VoiceInputMinimalProps } from '@ihui/types'
@@ -400,7 +401,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.danger.DEFAULT,
   } as ViewStyle,
   recordingText: {
-    marginLeft: 8,
+    // 录音行内间距唯一源在 @ihui/shared/ui/voice-input-spec(与小程序端同档)
+    marginLeft: VOICE_INPUT_RECORD_ROW_GAP_PX,
     fontSize: 12,
     color: tokens.danger.DEFAULT,
   } as TextStyle,
