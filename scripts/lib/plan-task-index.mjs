@@ -242,6 +242,56 @@ export function countMergeNotes(content) {
   return n
 }
 
+/** 多行登记块的整体重复(F6)。
+ *
+ * 为什么行级判据(F1–F4)看不见它:那四条的量纲是**一行**。而事故的量纲是"一整块":
+ * 2026-09-26 本仓一次真实自伤 —— 往 PROJECT_PLAN.md 追加探针登记块时先追加后核重,
+ * 同一块以两份**逐字相同**形态入库,之后并发 union 又叠一层(2 份 → 3 份)。
+ * 行级判据一路通过,因为每一行都"只出现两次,而文档里本来就有成百上千对孪生行"。
+ *
+ * 判据的量纲因此必须是"连续 bullet 组成的块":
+ *  - 块 >=3 行且每行 >= MIN_LINE_LEN 字符:短行(`- [x]` 之类)和 2 行块在台账里天然成对,
+ *    纳入只会产出几百条噪声(实测阈值以下候选数暴涨到不可用)。
+ *  - **逐字相同**才算重复:正文一漂移就归到 drifted 一类,它需要人来判哪份作数,
+ *    机器折半必然有损(与 F4 的处置同一条理由)。
+ * 数字一律现读,不得写进文档当恒定事实。 */
+const DUP_BLOCK_MIN_LINES = 3
+const DUP_BLOCK_MIN_LINE_LEN = 40
+/** @returns {{verbatim:Array<{first:string,lines:number[],copies:number}>,drifted:Array<{first:string,variants:number}>}} */
+export function findDupBlocks(content) {
+  const lines = String(content).split('\n')
+  const blocks = new Map()
+  let i = 0
+  while (i < lines.length) {
+    if (!/^- /.test(lines[i])) {
+      i++
+      continue
+    }
+    let j = i
+    while (j < lines.length && /^- /.test(lines[j])) j++
+    const seg = lines.slice(i, j)
+    if (seg.length >= DUP_BLOCK_MIN_LINES && seg.every((l) => l.length >= DUP_BLOCK_MIN_LINE_LEN)) {
+      const key = seg.join('\n')
+      if (!blocks.has(key)) blocks.set(key, [])
+      blocks.get(key).push(i + 1)
+    }
+    i = j
+  }
+  const verbatim = [...blocks.entries()]
+    .filter(([, ls]) => ls.length > 1)
+    .map(([k, ls]) => ({ first: k.split('\n')[0], lines: ls, copies: ls.length, len: k.split('\n').length }))
+    .sort((a, b) => a.lines[0] - b.lines[0])
+  const byFirst = new Map()
+  for (const k of blocks.keys()) {
+    const f = k.split('\n')[0]
+    byFirst.set(f, (byFirst.get(f) ?? 0) + 1)
+  }
+  const drifted = [...byFirst.entries()]
+    .filter(([, n]) => n > 1)
+    .map(([f, n]) => ({ first: f, variants: n }))
+  return { verbatim, drifted }
+}
+
 /** 一把跑完四条统计。数字一律现读,不得写进文档当恒定事实。 */
 export function auditPlan(content) {
   const rows = parseTaskRows(content)
@@ -256,6 +306,7 @@ export function auditPlan(content) {
   // 派单人拿这个数去派,就会把别人正在做的事再派一遍 —— 正是 §1 认领标记要防的那件事。
   const unclaimedRows = openRows.filter((r) => !r.claim)
   const dupCopies = findDupOpenCopies(dupOpen)
+  const dupBlocks = findDupBlocks(content)
   const dupCopyLines = new Set(dupCopies.map((c) => c.row.line))
   // 已写明"重复登记副本、不再单独派单"的行**也不进派单口径** —— 它由同题的幸存者代表。
   // 只把"当次算出来的副本"扣掉是不够的:归并动作跑完那一刻,被标注的行如果还算一条活,
@@ -278,6 +329,7 @@ export function auditPlan(content) {
     voidRows,
     rotated,
     dupCopies,
+    dupBlocks,
     /** 派单口径 = 未勾选 ∧ **未带租约** ∧ 不是"与已完成同题的分叉副本" ∧ 不是"同一件事的第二条待办"(F4)∧ 不自带作废声明。
      *  租约这一维是第一版的漏口:146 条"无人认领"里混着 44 条别人已认领的活,
      *  照那个数派单就是把正在做的事再派一遍(§1 认领标记存在的理由)。
@@ -298,6 +350,10 @@ export function auditPlan(content) {
       dupPointerRows: openRows.filter((r) => DUP_POINTER_RE.test(r.raw)).length,
       // 内容级存续性证据(只许增不许减,方向与四条状态判据相反 ⇒ 单独一把尺子,别塞进同一个 ratchet)
       mergeNotes: countMergeNotes(content),
+      // F6 块级重复:行级判据(F1–F4)量不到"整块被追加两遍",见 findDupBlocks 头注
+      dupBlocks: dupBlocks.verbatim.length,
+      dupBlockCopies: dupBlocks.verbatim.reduce((s, b) => s + b.copies, 0),
+      dupBlockDrifted: dupBlocks.drifted.length,
       dupDoneGroups: dupDone.length,
       claimable: unclaimedRows.filter(isClaimable).length,
     },
