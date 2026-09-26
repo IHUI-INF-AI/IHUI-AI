@@ -45,20 +45,48 @@
  *   规则 F(阻断,2026-09-25 立):Rust 主进程不得持有 task/session 业务状态 ——
  *     进程级状态声明里出现业务名词即红,零容忍不设清单豁免(清单会腐烂),
  *     唯一出口是行内 `rust-state-exempt: <原因>`;扫到 0 处声明先判"扫描器失效"。
+ *   规则 G(阻断,2026-09-26 立 · A10C-1):深链「未就绪不丢,就绪后补投」机制对账 ——
+ *     本门立项两年看不见 `desktop-deep-link` 这一路:层 1 正则只认 payload 为字符串字面量
+ *     或 `()` 的 emit,而深链 payload 是 URL 变量 ⇒ 结构上永不命中(实测 `grep -c desktop-deep-link`
+ *     本门 = 0)。而这条链承载的是 SSO 一次性登录码:冷启动时 Rust 派发早于前端 listen,
+ *     旧实现 `if let Some(window) = …{ emit }`(无 else)+ 只取 `urls().first()` ⇒ 登录码静默蒸发。
+ *     G 组登记的是**机制**而非事件名:G1 投递出口唯一 / G2 未就绪必有"入队"这个去向 /
+ *     G3 队列有上限且丢弃必须计数+喊 / G4 取即清 + 就绪标记 + 按 label 绑定 + 命令已注册 /
+ *     G5 目标窗口销毁清账 / G6 桥接端先 listen 后 take、补投走同一条处理链、只真成功才广播、
+ *     不得在前端自建去重集合(那是把实时链改造成隐形重放链,同规则 E1) / G7 事件名与命令名两边同形。
+ *
+ * 取材面(2026-09-26 收口,与守门 36/93/118/124 同口径):
+ *   默认判 **HEAD blob**,`--staged` 判**索引 blob**(这次提交会带走的那一份 —— 盘上随后改对
+ *   不算修好),`--worktree` 只作人工逃生舱;两个面旗同给 = 自相矛盾 ⇒ 判死。
+ *   **路径清单与正文同面同轮**:HEAD 档用 `git ls-tree -r HEAD -- <dir>`、索引档用
+ *   `git ls-files -- <dir>`,内容一律经 `scripts/lib/face-reader.mjs` 的 `catBatch` 一次批量读满。
+ *   旧形态是 `readFileSync(join(ROOT, …))` 按磁盘判,而共享工作树常年滞后 HEAD ⇒ 同一份 HEAD
+ *   代码会在"恒红 / 假绿"之间来回跳,并把错数写回棘轮基线;那正是守门 118 判红本门的原因。
+ *   任一面取不到(目录列空 / 清单里的路径读不出正文)⇒ **exit 2「无法判定」并点名路径**,
+ *   既不冒红也不记绿,且**不回落**到另一个面 —— 回落就是把"没判"写成"判过了"。
  *
  * 退出码:
  *   0 = 三层接线闭环通过
  *   1 = 发现链路断裂或扫描器失效,阻断
+ *   2 = 无法判定(两面旗同给 / 该面取不到清单或正文)—— 绝不记为通过
  *
  * 用法:
- *   node scripts/check-desktop-event-wiring.mjs
+ *   node scripts/check-desktop-event-wiring.mjs             全量(HEAD blob)
+ *   node scripts/check-desktop-event-wiring.mjs --staged    索引面(本次提交会带走的那一份)
+ *   node scripts/check-desktop-event-wiring.mjs --worktree  人工排查(盘上内容,提交链不走这档)
+ *   node scripts/check-desktop-event-wiring.mjs --self-test E/F/G 判据 + 取材面三态自检
  * 紧急跳过(需 PR 说明):
  *   HUSKY_SKIP_DESKTOP_EVENT_WIRING=1 git commit ...
  */
 
-import { readdirSync, readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs'
+import { readdirSync, writeFileSync, appendFileSync, existsSync, mkdirSync } from 'node:fs'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+// 取材只走这一层:绝对路径 git + safe.directory + quotepath + windowsHide + maxBuffer +
+// "输出被截断 ⇒ 无法判定" —— 这五处易错点各门自己写一遍就会各漏一遍(AGENTS 守门 118)。
+import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -126,7 +154,176 @@ const CONSUMER_WHITELIST = [
 ]
 const CONSUMER_WHITELIST_SET = new Set(CONSUMER_WHITELIST.map((w) => w.name))
 
-const rel = (p) => path.relative(ROOT, p).replace(/\\/g, '/')
+// ============================================================================
+// 取材面(2026-09-26 收口)—— 清单与正文同面同轮,一律经 scripts/lib/face-reader.mjs
+//
+// 为什么必须整道换掉而不是只换新加的 G 组:守门 118 的判据锚在"本次改动动过的门",
+// 而按磁盘判的门在共享工作区里会在"恒红"与"假绿"之间来回跳(工作树常年滞后 HEAD)。
+// 本门读的是**三个目录 + 若干单点文件**(层1 的 .rs、层2/层3 的 web 源码),
+// 只要还有一处 readFileSync(join(ROOT, …)),判定面就仍然部分跟着盘走。
+//
+// 覆盖面(与旧实现逐字同形,只是取材换了面):
+//   目录  apps/desktop/src-tauri/src (.rs) / apps/web/src (.ts,.tsx)
+//   单点  桥接端 + 两条链的消费端 + Rust 主进程 lib.rs(G 组要的那一份)
+//   过滤  SKIP_DIRS 整段目录剔除 + .test/.spec 文件剔除 —— 旧 walk() 的同一条规矩
+// ============================================================================
+
+/** 递归收集时跳过的目录(构建产物 / 测试夹具 / Rust target),按**任一路径段**命中 */
+const SKIP_DIRS = new Set([
+  'node_modules',
+  'dist',
+  '.next',
+  '__tests__',
+  '.turbo',
+  'coverage',
+  'target',
+  'vendor',
+])
+/** 组件层测试文件不参与接线对账(它们随会被移动/改名,且不构成运行时链路) */
+const TEST_FILE_RE = /\.(test|spec)\.[cm]?[jt]sx?$/
+
+/** 目录扫描面 */
+const RUST_SRC_DIR = 'apps/desktop/src-tauri/src'
+const WEB_SRC_DIR = 'apps/web/src'
+/**
+ * 单点必读文件(仓库相对 posix 路径,**唯一一份名字**):桥接端(层2)+ 两条链各自的
+ * 消费端(规则 E2/E3)+ Rust 主进程(规则 G)。下方 REPLAY_FILES / G_DEEP_LINK_* 一律
+ * 引用这几个常量,不再抄第二遍字符串 —— 两处名字各写各的,改一处就会让判据看不见被审文件。
+ */
+const BRIDGE_REL = 'apps/web/src/hooks/use-desktop.ts'
+const WEB_AGENT_CONTROL_REL = 'apps/web/src/hooks/use-agent-control.ts'
+const EXT_AGENT_BRIDGE_REL = 'apps/extension/lib/agent-control-bridge.ts'
+const RUST_LIB_REL = 'apps/desktop/src-tauri/src/lib.rs'
+const SCAN_FILES = [BRIDGE_REL, WEB_AGENT_CONTROL_REL, EXT_AGENT_BRIDGE_REL, RUST_LIB_REL]
+
+const GIT_LS_TIMEOUT = 60000
+
+/**
+ * 纯函数:argv → 判定面(默认 **head**)。导出并单列自检,是为了"默认不再是磁盘"这一格
+ * 能被构造面证明,而不是等人跑一次真仓看结论行 —— 结论行会被人改,函数不会。
+ */
+export function faceFromArgv(argv) {
+  return selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
+}
+
+const FACE_SEL = faceFromArgv(process.argv.slice(2))
+const FACE_TXT = {
+  head: 'HEAD blob(全量审计)',
+  staged: '索引 blob(本次提交会带走的那一份)',
+  worktree: '工作树(人工逃生舱,提交链不走这档)',
+}
+
+/** 磁盘面的递归收集:返回**仓库相对 posix 路径**(与 git 两面的输出同形) */
+function walkRel(dirRel, exts, out = []) {
+  const abs = path.join(ROOT, dirRel)
+  if (!existsSync(abs)) return out
+  for (const entry of readdirSync(abs, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (SKIP_DIRS.has(entry.name)) continue
+      walkRel(`${dirRel}/${entry.name}`, exts, out)
+    } else if (exts.some((e) => entry.name.endsWith(e)) && !TEST_FILE_RE.test(entry.name)) {
+      out.push(`${dirRel}/${entry.name}`)
+    }
+  }
+  return out
+}
+
+/** 某个面上的路径清单(仓库相对 posix 路径)。git 两面与磁盘面同一条过滤,免得三面不同形。 */
+function keepListed(p, exts) {
+  if (TEST_FILE_RE.test(p)) return false
+  const segs = p.split('/')
+  if (segs.some((s) => SKIP_DIRS.has(s))) return false
+  return exts.some((e) => p.endsWith(e))
+}
+
+/**
+ * 单目录清单:HEAD 档 `ls-tree -r HEAD`、索引档 `ls-files`、磁盘档 walkRel。
+ * 三条都只回答"哪些路径在这个面上",正文另一次批量读满 —— 但**同一个面**,
+ * 否则就是"清单来自磁盘 + 内容来自 git"那把自洽却基准错位的尺子(守门 98 记过同型)。
+ */
+export function listFaceDir(repoRoot, face, dir, exts) {
+  if (face === 'worktree') return walkRel(dir, exts).filter((p) => keepListed(p, exts))
+  const rows =
+    face === 'staged'
+      ? gitRaw(['ls-files', '-z', '--', dir], repoRoot, { timeout: GIT_LS_TIMEOUT })
+      : gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', dir], repoRoot, {
+          timeout: GIT_LS_TIMEOUT,
+        })
+  return rows
+    .split('\0')
+    .filter(Boolean)
+    .filter((p) => keepListed(p, exts))
+}
+
+/**
+ * 一批路径的正文,一次 `cat-file --batch` 读满(磁盘面逐文件走 readWorktreeFile)。
+ * 清单里有、正文取不到 ⇒ **抛 Undetermined**(调用方折成 exit 2 并点名路径):
+ * 静默少扫一道文件正是一道假绿,而"少扫"在输出上和"没问题"长得一模一样。
+ */
+export function readFaceBlobs(repoRoot, face, relPaths) {
+  const map = new Map()
+  const paths = [...new Set(relPaths)]
+  if (paths.length === 0) return map
+  const missing = []
+  if (face === 'worktree') {
+    for (const p of paths) {
+      const t = readWorktreeFile(repoRoot, p)
+      if (t === null || t === undefined) missing.push(p)
+      else map.set(p, t)
+    }
+  } else {
+    const rev = face === 'staged' ? ':' : 'HEAD:'
+    const specs = paths.map((p) => rev + p)
+    const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 28 })
+    paths.forEach((p, i) => {
+      const t = got.get(specs[i])
+      if (t === null || t === undefined) missing.push(p)
+      else map.set(p, t)
+    })
+  }
+  if (missing.length) {
+    throw new Undetermined(
+      `${FACE_TXT[face]} 列到了 ${missing.length} 个路径却取不到正文(前 5:${missing.slice(0, 5).join(', ')})`
+    )
+  }
+  return map
+}
+
+/**
+ * 建本轮唯一的取材面(清单 + 正文,**同一面同一轮**):返回
+ * `{ contents:Map<仓库相对路径,文本>, rustFiles:[…], webFiles:[…] }`。
+ * 清单为空(某面一个文件都没列出)⇒ 判死为"无法判定",不冒绿 —— 空扫正是本门要防的形态。
+ * 单点文件**不在清单里**时不算失败:那是"文件被移动/改名"的正当红,旧实现也是这么报的
+ * (errors.push "桥接端被移动/改名"),交给后面的判据去点名,免得把业务结论伪装成取材故障。
+ */
+export function buildFaceContents(repoRoot, face) {
+  const dirSpecs = [
+    { key: 'rust', dir: RUST_SRC_DIR, exts: ['.rs'] },
+    { key: 'web', dir: WEB_SRC_DIR, exts: ['.ts', '.tsx'] },
+  ]
+  const files = {}
+  const listed = []
+  for (const { key, dir, exts } of dirSpecs) {
+    const found = listFaceDir(repoRoot, face, dir, exts)
+    if (found.length === 0)
+      throw new Undetermined(`${FACE_TXT[face]} 在 ${dir} 下列出 0 个受管文件 ⇒ 覆盖面为空,不记为通过`)
+    files[key] = found
+    listed.push(...found)
+  }
+  files.web = files.web.filter((p) => p !== BRIDGE_REL)
+  listed.push(...SCAN_FILES)
+  return { contents: readFaceBlobs(repoRoot, face, listed), rustFiles: files.rust, webFiles: files.web }
+}
+
+/** 内容表 → 取文本;面上没有这个路径 ⇒ ''(交判据按"文件不存在/被改名"报红,与旧行为同形) */
+function textOf(contents, relPath) {
+  return contents.get(relPath) ?? ''
+}
+
 
 // ============================================================================
 // 规则 E/F 的判据(纯函数)—— 两条链的语义分层 + Rust 进程的状态归属
@@ -241,8 +438,264 @@ function countRustStateDecls(source) {
   return n
 }
 
+// ============================================================================
+// 规则 G: 深链「未就绪不丢,就绪后补投」机制对账(2026-09-26 立 · A10C-1)
+//
+// 为什么规则 A–D 看不见这一路:层 1 的正则只认 **payload 为字符串字面量或 `()`** 的 emit,
+// 而深链的 payload 是 URL 变量(`emit(DEEP_LINK_EVENT, &url)`)⇒ 结构上永不命中,
+// 于是 `desktop-deep-link` 这条承载 SSO 登录码的链路在三层对账里是隐形的
+// (实测 `grep -c desktop-deep-link` 本门 = 0)。一条门只管自己立项那一型,就是这一型的洞
+// (与守门 102 立项时"字符集只有右向箭头"同一条教训)。
+//
+// 这里登记的是**机制**而不是事件名:投递出口的唯一性、未就绪必入队、上限与丢弃计数、
+// 取即清的幂等来源、销毁清账、以及"注册监听在前、取回积压在后"的时序。
+// 判据全部是静态源码判据(提交者可满足),不判机器态 ⇒ 可以作为 blocking。
+// ============================================================================
+
+const G_DEEP_LINK_EVENT = 'desktop-deep-link'
+const G_DEEP_LINK_TAKE_COMMAND = 'take_pending_deep_links'
+/** 路径名**只有一处**(上方 SCAN_FILES 的取材面就用它),此处只做别名供文案使用 */
+const G_DEEP_LINK_RUST_FILE = RUST_LIB_REL
+const G_DEEP_LINK_BRIDGE_FILE = BRIDGE_REL
+/** G8 的被审面:整页导航的发起处(热刷新 / 离线切换都从这里走) */
+const G_DEEP_LINK_NAV_FILE = 'apps/desktop/src-tauri/src/auto_refresh.rs'
+
+/** 取 `app.deep_link().on_open_url({ ... })` 那个闭包的整体文本(花括号配平,失败返回 null)。 */
+function extractOnOpenUrlBody(rustText) {
+  const at = rustText.indexOf('.on_open_url(')
+  if (at < 0) return null
+  const braceStart = rustText.indexOf('{', at)
+  if (braceStart < 0) return null
+  let depth = 0
+  for (let i = braceStart; i < rustText.length; i++) {
+    const ch = rustText[i]
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return rustText.slice(braceStart, i + 1)
+    }
+  }
+  return null
+}
+
+/** 取某个 `fn 名字` 的函数体(到下一个顶层 `fn `/`mod ` 之前的粗粒度切片,够本判据用)。 */
+function extractRustFn(rustText, fnName) {
+  const at = rustText.indexOf(`fn ${fnName}(`)
+  if (at < 0) return null
+  const braceStart = rustText.indexOf('{', at)
+  if (braceStart < 0) return null
+  let depth = 0
+  for (let i = braceStart; i < rustText.length; i++) {
+    const ch = rustText[i]
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return rustText.slice(at, i + 1)
+    }
+  }
+  return null
+}
+
+/** 桥接端深链那一段:从它自己的 listen( 起,到下一个 listen( 或文件末 */
+function extractBridgeDeepLinkBlock(bridgeText) {
+  const re = /listen(?:<[^>]*>)?\(\s*'([a-z][a-z0-9-]*)'/g
+  const positions = [...bridgeText.matchAll(re)]
+  const idx = positions.findIndex((m) => m[1] === G_DEEP_LINK_EVENT)
+  if (idx < 0) return null
+  const start = positions[idx].index
+  const end = idx + 1 < positions.length ? positions[idx + 1].index : bridgeText.length
+  return bridgeText.slice(start, end)
+}
+
+/**
+ * 索引保真的"注释抹白":把 // 与 /\* *\// 注释替换成空格(长度不变 ⇒ 下标仍可比)。
+ * 为什么必须先抹再比:**顺序判据拿到的下标如果包含注释,就会被文档里那句
+ * "先 listen 后 take"读成"代码真的先 listen 后 take"**(或反过来)—— 本仓对"字面量尺子
+ * 量到自己的解释文字"已记过多次,这条是同一型。字符串字面量整体保留(判据要看其中的名字)。
+ *
+ * `apostropheIsStringDelimiter`:TS 侧单引号是字符串定界符,必须认;Rust 侧**绝不能认** ——
+ * `MutexGuard<'static, …>` 的撇号会被当成开引号,把后面几百行吞进"字符串"里,判据于是对
+ * 那一大片完全失明(假绿)。Rust 只按双引号划字符串,字符字面量里的 `//` 属可忽略的边角。
+ */
+function blankComments(text, { apostropheIsStringDelimiter = true } = {}) {
+  const stringDelims = apostropheIsStringDelimiter ? new Set(['"', "'", '`']) : new Set(['"', '`'])
+  const out = []
+  const n = text.length
+  let i = 0
+  while (i < n) {
+    const ch = text[i]
+    if (ch === '/' && text[i + 1] === '/') {
+      while (i < n && text[i] !== '\n') {
+        out.push(' ')
+        i++
+      }
+      continue
+    }
+    if (ch === '/' && text[i + 1] === '*') {
+      out.push(' ', ' ')
+      i += 2
+      while (i < n && !(text[i] === '*' && text[i + 1] === '/')) {
+        out.push(text[i] === '\n' ? '\n' : ' ')
+        i++
+      }
+      out.push(' ', ' ')
+      i += 2
+      continue
+    }
+    if (stringDelims.has(ch)) {
+      out.push(ch)
+      i++
+      while (i < n) {
+        if (text[i] === '\\') {
+          out.push(text[i], text[i + 1] ?? ' ')
+          i += 2
+          continue
+        }
+        out.push(text[i])
+        if (text[i] === ch) {
+          i++
+          break
+        }
+        i++
+      }
+      continue
+    }
+    out.push(ch)
+    i++
+  }
+  return out.join('')
+}
+
+/**
+ * 深链机制判据主体(纯函数,`--self-test` 直接喂夹具字符串)。
+ * 返回 violations 字符串数组 —— 空数组 = 机制在位。
+ */
+function auditDeepLinkMechanism(rawRust, rawBridge, rawNav) {
+  const rustText = blankComments(rawRust ?? '', { apostropheIsStringDelimiter: false })
+  const bridgeText = blankComments(rawBridge ?? '', { apostropheIsStringDelimiter: true })
+  const navGiven = typeof rawNav === 'string'
+  const navText = blankComments(rawNav ?? '', { apostropheIsStringDelimiter: false })
+  const violations = []
+  const say = (msg) => violations.push(msg)
+
+  // G1 —— 投递出口唯一:on_open_url 闭包只允许把整批 URL 交给唯一入口,不得自己 emit
+  const body = extractOnOpenUrlBody(rustText)
+  if (body === null) {
+    say(`G1 ${G_DEEP_LINK_RUST_FILE} 里找不到 .on_open_url( 注册点 —— 深链能力被摘线`)
+  } else {
+    if (!/dispatch_deep_links\s*\(/.test(body))
+      say('G1 on_open_url 回调未调用唯一投递入口 dispatch_deep_links( ⇒ 投递逻辑又回到"就地 emit"的老形态')
+    if (/urls\(\)\s*\.\s*first\(\)/.test(body) || /urls\(\)\.first\(\)/.test(body))
+      say('G1 on_open_url 回调里重新出现 urls().first() —— 一批多条时第 2 条起静默丢弃')
+    if (/\.emit\s*\(/.test(body))
+      say('G1 on_open_url 回调体内不得直接 emit:未就绪的判定与暂存必须在唯一入口里发生,否则又是"发了就当送达"')
+  }
+
+  // G2 —— 未就绪 ⇒ 入队(纯函数分支形态);判据即"false 分支产出 Queue"
+  const decide = extractRustFn(rustText, 'decide_deep_link_deliveries')
+  if (decide === null) {
+    say(`G2 找不到 decide_deep_link_deliveries —— 去向判定被内联回调用处,变异对照就再也跑不动了`)
+  } else if (!/DeepLinkDelivery::Queue/.test(decide) || !/DeepLinkDelivery::Emit/.test(decide)) {
+    say('G2 decide_deep_link_deliveries 两个出口不齐(Emit/Queue)—— 少一个出口就意味着某一种状态下 URL 没有去向')
+  }
+  if (!/enum\s+DeepLinkDelivery\b/.test(rustText)) say('G2 DeepLinkDelivery 枚举被摘走')
+
+  // G3 —— 队列有上限、去重、溢出必须计数(静默变短 = 伪造完整性)
+  const push = extractRustFn(rustText, 'push')
+  if (!/const\s+DEEP_LINK_PENDING_CAP\s*:/.test(rustText))
+    say('G3 pending 队列上限常量 DEEP_LINK_PENDING_CAP 不见了 ⇒ 队列退化成无界累积')
+  if (push === null || !/self\.dropped\s*\+=\s*1/.test(push))
+    say('G3 入队函数里没有丢弃计数(self.dropped += 1)—— 溢出丢东西必须能被发现')
+  if (push === null || !/log::warn!/.test(push))
+    say('G3 丢弃路径没有 warn 日志(§5e「失败必须响」同一条禁令)')
+
+  // G4 —— 取即清(幂等的唯一来源)+ 就绪标记 + 按 label 绑定
+  const takeAll = extractRustFn(rustText, 'take_all')
+  if (!takeAll || !/mem::take|drain/.test(takeAll))
+    say('G4 take_all 不再清空队列 —— 取即清是"同一个 sso_code 只换一次 token"的唯一保证')
+  const takeCmd = extractRustFn(rustText, G_DEEP_LINK_TAKE_COMMAND)
+  if (!takeCmd) say(`G4 命令 ${G_DEEP_LINK_TAKE_COMMAND} 不见了(前端就绪后无处可取)`)
+  else {
+    // "置就绪"允许被**提成交给同文件的一个 helper**(实测:导航复位那票把 `target_ready = true`
+    // 与"首次 take"的判定一起收进 `apply_take_ready`)。只认命令体内字面量 ⇒ 门对它自己
+    // 产出的形态失明(§4 圆角门同型教训)。允许一跳,但必须真在命令体里被调用。
+    const setsReady = (body) => /target_ready\s*=\s*true/.test(body)
+    const helperNames = [...takeCmd.matchAll(/\b([a-z][a-z0-9_]*)\s*\(/g)].map((m) => m[1])
+    const readyViaHelper = helperNames.some((n) => setsReady(extractRustFn(rustText, n) ?? ''))
+    if (!setsReady(takeCmd) && !readyViaHelper)
+      say('G4 取回积压时未把闸门置为已就绪(命令体内无 `target_ready = true`,其调用链里也没有) ⇒ 此后每条深链都只会堆进队列,永不直投')
+    if (!/label\(\)/.test(takeCmd))
+      say('G4 取回命令不再按窗口 label 绑定 ⇒ 别的窗口(admin)可以把 main 的登录码取走(串号)')
+  }
+  if (
+    !new RegExp(`generate_handler!\\[[\\s\\S]*?${G_DEEP_LINK_TAKE_COMMAND}`).test(rustText)
+  )
+    say(`G4 ${G_DEEP_LINK_TAKE_COMMAND} 未注册进 invoke_handler —— 命令存在但前端调不到`)
+
+  // G5 —— 销毁清账:不得留跨会话残留
+  const resetFn = extractRustFn(rustText, 'reset_deep_link_gate_on_destroy')
+  if (!resetFn) say('G5 窗口销毁的清账出口被摘走 —— 积压的登录码会活到下一次冷启动')
+  else if ((rustText.match(/reset_deep_link_gate_on_destroy\s*\(/g) ?? []).length < 2)
+    say('G5 清账函数在位但无人调用 —— 判据必须挂在 WindowEvent::Destroyed 分支上')
+
+  // G6 —— 桥接端时序:先注册监听、后取回积压;补投走同一条处理链
+  const block = extractBridgeDeepLinkBlock(bridgeText)
+  if (block === null) {
+    say(`G6 ${G_DEEP_LINK_BRIDGE_FILE} 里没有 listen('${G_DEEP_LINK_EVENT}') —— 深链无人接收`)
+  } else {
+    // 顺序判据比的是**调用点**:桥接端可以把命令名提成常量(声明行必然在文件靠前处),
+    // 拿裸字面量的首个出现当调用点会把"声明"读成"调用",顺序结论整个反掉。
+    const listenAt = bridgeText.search(/listen(?:<[^>]*>)?\(\s*'desktop-deep-link'/)
+    const takeCallRe = new RegExp(
+      `invoke(?:<[^>]*>)?\\(\\s*(?:'${G_DEEP_LINK_TAKE_COMMAND}'|DEEP_LINK_TAKE_COMMAND\\b)`,
+    )
+    const invokeAt = bridgeText.search(takeCallRe)
+    if (invokeAt < 0)
+      say(`G6 桥接端注册完监听后未取回积压(缺 invoke(${G_DEEP_LINK_TAKE_COMMAND}…))—— 冷启动的登录码仍会留在队列里`)
+    else if (invokeAt < listenAt)
+      say('G6 取回积压排在 listen() 之前 —— 先取后订阅等于把补投投给还不存在的监听')
+    if (/new\s+Set[<(]/.test(block))
+      say('G6 桥接端自建去重集合 —— 幂等必须来自 Rust 侧「取即清」,在前端补队列就是把实时链改造成隐形重放链(同规则 E1)')
+    if (!/if\s*\(ok\)\s*\{[\s\S]{0,160}new CustomEvent\(\s*'desktop-sso-success'/.test(block))
+      say("G6 desktop-sso-success 不再受「处理真成功」条件保护(失败也广播成功 = 用户看到已登录而实际未登录)")
+    if (!/deliverDeepLinkUrl\s*\(/.test(block))
+      say('G6 深链块内找不到统一处理链 deliverDeepLinkUrl( ⇒ 实时事件与补投各走各的,幂等与告警只能漏一半')
+  }
+  // G7 —— 事件名/命令名三处同形(字面量对账,改名必须同时改三处)
+  if (!new RegExp(`const\\s+DEEP_LINK_EVENT\\s*:\\s*&str\\s*=\\s*"${G_DEEP_LINK_EVENT}"`).test(rustText))
+    say(`G7 Rust 侧事件名常量不再是 "${G_DEEP_LINK_EVENT}" —— 与桥接端 listen 的名字已分叉`)
+  if (!new RegExp(`const\\s+DEEP_LINK_TAKE_COMMAND\\s*:\\s*&str\\s*=\\s*"${G_DEEP_LINK_TAKE_COMMAND}"`).test(rustText))
+    say(`G7 Rust 侧命令名常量不再是 "${G_DEEP_LINK_TAKE_COMMAND}" —— 与桥接端 invoke 的名字已分叉`)
+  if (!bridgeText.includes(`'${G_DEEP_LINK_TAKE_COMMAND}'`))
+    say(`G7 桥接端不再以字面量出现命令名 "${G_DEEP_LINK_TAKE_COMMAND}" —— 名字只写在 Rust 侧就是两边分叉`)
+
+  // G8 —— 整页导航发起处必须先复位闸门(2026-09-26 A10C-2:重载期间渲染进程不存在,
+  // 而"曾经就绪"若是永久布尔,那条深链会被直投给一个已不存在的 webview 而静默消失)
+  if (navGiven) {
+    const navLines = navText.split(/\r?\n/)
+    let navSites = 0
+    navLines.forEach((l, i) => {
+      if (!/\.eval\(/.test(l) || !/location\.(href\s*=|reload\(\))/.test(l)) return
+      navSites++
+      const win = navLines.slice(Math.max(0, i - 8), i + 1)
+      if (!win.some((w) => w.includes('reset_deep_link_gate_for_navigation')))
+        say(
+          `G8 ${G_DEEP_LINK_NAV_FILE} 第 ${i + 1} 行发起整页导航而未先复位深链闸门 ⇒ 重载期间抵达的链接会被直投丢失: ${l.trim().slice(0, 90)}`,
+        )
+    })
+    if (navSites === 0)
+      say(
+        `G8 在 ${G_DEEP_LINK_NAV_FILE} 里找不到任何整页导航发起点 —— 判据已对该文件失明(不是"没有违规")`,
+      )
+  } else {
+    say(`G8 未取到 ${G_DEEP_LINK_NAV_FILE} 内容 ⇒ 导航期复位这条判据本轮未判定(不记为通过)`)
+  }
+
+  return violations
+}
+
 // ---------------------------------------------------------------------------
-// --self-test:用夹具证明 E/F 四条判据各自有牙(不是恰好绿)
+// --self-test:用夹具证明 E/F/G 三组判据各自有牙(不是恰好绿)
 // ---------------------------------------------------------------------------
 
 function runSelfTest() {
@@ -334,6 +787,334 @@ function runSelfTest() {
         : ['计数失效'],
       true,
     ) && ok
+
+  // ---------------------------------------------------------------------------
+  // G 组夹具:先造一份"机制齐备"的最小 Rust + 桥接端文本,再逐条变异证明每条判据有牙。
+  // 注意:夹具不是规格抄写 —— 它的每个片段都对应 lib.rs / use-desktop.ts 里的真实出口,
+  // 名字一改(如 take_all 不再清空)这里就必须跟着红,否则本组判据就是装饰。
+  // ---------------------------------------------------------------------------
+  const gRust = (mutate = (s) => s) =>
+    mutate(`
+const DEEP_LINK_EVENT: &str = "desktop-deep-link";
+const DEEP_LINK_TAKE_COMMAND: &str = "take_pending_deep_links";
+const DEEP_LINK_PENDING_CAP: usize = 8;
+enum DeepLinkDelivery { Emit(String), Queue(String) }
+fn decide_deep_link_deliveries(target_ready: bool, urls: &[String]) -> Vec<DeepLinkDelivery> {
+    urls.iter().map(|url| if target_ready { DeepLinkDelivery::Emit(url.clone()) } else { DeepLinkDelivery::Queue(url.clone()) }).collect()
+}
+impl DeepLinkPending {
+    fn push(&mut self, url: &str) -> bool {
+        while self.urls.len() > DEEP_LINK_PENDING_CAP { self.dropped += 1; log::warn!("溢出丢弃"); }
+        true
+    }
+    fn take_all(&mut self) -> Vec<String> { std::mem::take(&mut self.urls).into_iter().collect() }
+}
+fn take_pending_deep_links(window: tauri::WebviewWindow) -> Vec<String> {
+    if window.label() != "main" { return Vec::new(); }
+    gate.target_ready = true;
+    gate.pending.take_all()
+}
+fn reset_deep_link_gate_on_destroy(label: &str) { gate.pending.clear(); }
+fn dispatch_deep_links(app: &tauri::AppHandle, urls: &[String]) {
+    match w.emit(DEEP_LINK_EVENT, &url) { Ok(_) => {} Err(e) => { log::warn!("emit 失败: {}", e); } }
+}
+pub fn run() {
+    app.deep_link().on_open_url({
+        let app = app.handle().clone();
+        move |event| { let urls: Vec<String> = event.urls().iter().map(|u| u.as_str().to_string()).collect(); dispatch_deep_links(&app, &urls); }
+    });
+    .invoke_handler(tauri::generate_handler![get_app_info, take_pending_deep_links])
+    reset_deep_link_gate_on_destroy(&label);
+}
+`)
+  const gBridge = (mutate = (s) => s) =>
+    mutate(`
+unlistenDeepLink = await listen<string>('desktop-deep-link', (event) => { void deliverDeepLinkUrl(event.payload) })
+const backlog = await invoke<string[]>('take_pending_deep_links')
+for (const url of backlog) { await deliverDeepLinkUrl(url) }
+async function deliverDeepLinkUrl(raw: string): Promise<void> {
+  const ok = await handleDesktopDeepLink(raw)
+  if (ok) {
+    window.dispatchEvent(new CustomEvent('desktop-sso-success'))
+  }
+}
+`)
+  /** G8 的"齐备"夹具:5 处整页导航,每处上方都有复位调用。
+   *  站点之间必须隔 ≥9 行 —— 判据的窗口是"上方 8 行",不留间隔会让上一个站点的
+   *  复位被当成下一个站点的证据,变异(删掉某一处复位)就测不出红。 */
+  const gNavOk = [
+    'fn a(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.href=u", None); }',
+    'fn b(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.reload()", None); }',
+    'fn c(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.reload()", None); }',
+    'fn d(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.href=u", None); }',
+    'fn e(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.reload()", None); }',
+  ].join('\n\n\n\n\n\n\n\n\n')
+  const gCount = (rust, bridge, nav) =>
+    auditDeepLinkMechanism(rust ?? gRust(), bridge ?? gBridge(), nav === undefined ? gNavOk : nav)
+
+  /** 反向锁:每条变异必须红在**它自己那一组**判据上 —— 只要求"有违规"会被别的判据凑数,
+   *  于是判据失效表现为"绿",而不是"红在错的地方"。 */
+  const checkHas = (label, got, prefix) => {
+    const hit = got.filter((v) => v.startsWith(prefix))
+    const bad = hit.length === 0
+    cases.push(`${bad ? '✗' : '✓'} ${label}${bad ? ` —— 无 ${prefix} 违规,实得: ${got.join(' | ').slice(0, 140)}` : ` → ${hit[0].slice(0, 120)}`}`)
+    return !bad
+  }
+
+  ok =
+    check('G 机制齐备的夹具 ⇒ 0 违规(否则下面所有变异用例都无意义)', gCount(), true) && ok
+  ok =
+    checkHas(
+      'G2 未就绪 ⇒ 丢弃(把 Queue 改成什么都不给)必红',
+      gCount(gRust((s) => s.replace('else { DeepLinkDelivery::Queue(url.clone()) }', 'else { return; }'))),
+      'G2',
+    ) && ok
+  ok =
+    checkHas(
+      'G1 on_open_url 回退回"就地 emit + 只取 first"必红',
+      gCount(
+        gRust((s) =>
+          s.replace(
+            'dispatch_deep_links(&app, &urls); }',
+            'if let Some(first_url) = event.urls().first() { let _ = w.emit("desktop-deep-link", first_url); } }',
+          ),
+        ),
+      ),
+      'G1',
+    ) && ok
+  ok =
+    checkHas(
+      'G3 溢出丢弃不计数(删 dropped)必红',
+      gCount(gRust((s) => s.replace('self.dropped += 1; ', ''))),
+      'G3',
+    ) && ok
+  ok =
+    checkHas(
+      'G4 take_all 改成不清空(只读不取)必红',
+      gCount(
+        gRust((s) =>
+          s.replace('std::mem::take(&mut self.urls).into_iter().collect()', 'self.urls.iter().cloned().collect()'),
+        ),
+      ),
+      'G4',
+    ) && ok
+  ok =
+    checkHas(
+      'G4 取回命令摘出 invoke_handler 必红',
+      gCount(gRust((s) => s.replace('get_app_info, take_pending_deep_links', 'get_app_info'))),
+      'G4',
+    ) && ok
+  ok =
+    checkHas(
+      'G5 清账函数在位但无人调用必红',
+      gCount(gRust((s) => s.replace('\n    reset_deep_link_gate_on_destroy(&label);', ''))),
+      'G5',
+    ) && ok
+  ok =
+    checkHas(
+      'G6 先取回、后注册监听(时序颠倒)必红',
+      gCount(
+        undefined,
+        gBridge((s) =>
+          s.replace(
+            "unlistenDeepLink = await listen<string>('desktop-deep-link', (event) => { void deliverDeepLinkUrl(event.payload) })\nconst backlog = await invoke<string[]>('take_pending_deep_links')",
+            "const backlog = await invoke<string[]>('take_pending_deep_links')\nunlistenDeepLink = await listen<string>('desktop-deep-link', (event) => { void deliverDeepLinkUrl(event.payload) })",
+          ),
+        ),
+      ),
+      'G6',
+    ) && ok
+  ok =
+    checkHas(
+      'G6 桥接端自建去重 Set(把实时链改造成隐形重放链)必红',
+      gCount(undefined, gBridge((s) => s.replace('const backlog', 'const seen = new Set<string>()\nconst backlog'))),
+      'G6',
+    ) && ok
+  ok =
+    checkHas(
+      'G6 无条件 dispatch desktop-sso-success(失败也广播成功)必红',
+      gCount(
+        undefined,
+        gBridge((s) =>
+          s.replace(
+            "if (ok) {\n    window.dispatchEvent(new CustomEvent('desktop-sso-success'))\n  }",
+            "window.dispatchEvent(new CustomEvent('desktop-sso-success'))",
+          ),
+        ),
+      ),
+      'G6',
+    ) && ok
+  ok =
+    checkHas(
+      'G7 事件名两边分叉(Rust 侧常量被改名)必红',
+      gCount(gRust((s) => s.replace('const DEEP_LINK_EVENT: &str = "desktop-deep-link";', 'const DEEP_LINK_EVENT: &str = "desktop-deeplink";'))),
+      'G7',
+    ) && ok
+  ok =
+    checkHas(
+      'G8 导航发起处删掉复位调用必红(重载期直投丢失那一型)',
+      gCount(
+        null,
+        null,
+        gNavOk.replace(
+          'fn c(){ reset_deep_link_gate_for_navigation("main"); let _ = w.eval("location.reload()", None); }',
+          'fn c(){ let _ = w.eval("location.reload()", None); }',
+        ),
+      ),
+      'G8',
+    ) && ok
+  ok =
+    checkHas(
+      'G8 导航面一个发起点都找不到 ⇒ 判"失明"而不是通过',
+      gCount(null, null, 'fn noop(){ /* 没有导航 */ }'),
+      'G8',
+    ) && ok
+  ok =
+    checkHas(
+      'G8 未取到导航文件 ⇒ 计未判定(不得记为通过)',
+      gCount(null, null, null),
+      'G8',
+    ) && ok
+  ok =
+    check(
+      'G4 "置就绪"提成交给同文件 helper ⇒ 不得判红(门必须认自己产出的形态)',
+      gCount(
+        gRust((s) =>
+          s
+            .replace('    gate.target_ready = true;\n', '    apply_take_ready(&mut gate);\n')
+            .replace(
+              'fn reset_deep_link_gate_on_destroy',
+              'fn apply_take_ready(gate: &mut DeepLinkGateState) -> bool { gate.target_ready = true; true }\nfn reset_deep_link_gate_on_destroy',
+            ),
+        ),
+      ),
+      true,
+    ) && ok
+  ok =
+    checkHas(
+      'G4 命令体与 helper 都不置就绪 ⇒ 必红(允许一跳不等于放过)',
+      gCount(
+        gRust((s) => s.replace('    gate.target_ready = true;\n', '    apply_take_ready(&mut gate);\n')),
+      ),
+      'G4',
+    ) && ok
+
+  // ===========================================================================
+  // F 组(取材面):证明"默认档判 HEAD 而不是磁盘"不是文案,而是**读到的字节不一样**。
+  // 做法是在临时 git 仓里让同一文件的 HEAD / 索引 / 磁盘三份内容**互异**,再逐面读它。
+  // 为什么必须造这个现场:本门此前所有判据都只喂字符串夹具,而"读哪个面"这一格
+  // 用夹具证不了 —— 只有真仓的索引≠磁盘才能区分三面(守门 91/118 的 F1–F4 同型)。
+  // ===========================================================================
+  const HEAD_TXT = '面=HEAD 的内容 marker-HEAD\n'
+  const INDEX_TXT = '面=索引 的内容 marker-INDEX\n'
+  const DISK_TXT = '面=磁盘 的内容 marker-DISK\n'
+  let repo = null
+  try {
+    repo = mkScratch('debw-face-')
+    gitRaw(['init', '-q'], repo)
+    gitRaw(['config', 'user.name', 'gate-self-test'], repo)
+    gitRaw(['config', 'user.email', 'gate@example.invalid'], repo)
+    mkdirSync(path.join(repo, 'src'), { recursive: true })
+    writeFileSync(path.join(repo, 'src', 'a.ts'), HEAD_TXT)
+    writeFileSync(path.join(repo, 'extra.ts'), HEAD_TXT)
+    gitRaw(['add', '--', 'src/a.ts', 'extra.ts'], repo)
+    gitRaw(['commit', '-q', '-m', 'face fixture base'], repo)
+    // 索引与磁盘分叉:先按 INDEX 内容暂存,再把磁盘改成 DISK(索引不回写)
+    writeFileSync(path.join(repo, 'src', 'a.ts'), INDEX_TXT)
+    gitRaw(['add', '--', 'src/a.ts'], repo)
+    writeFileSync(path.join(repo, 'src', 'a.ts'), DISK_TXT)
+
+    ok =
+      check(
+        'F1 默认档是 HEAD 而不是磁盘(无旗时必须 face==="head")',
+        faceFromArgv([]).face === 'head' ? [] : [`实得 ${String(faceFromArgv([]).face)}`],
+        true,
+      ) && ok
+    ok =
+      check(
+        'F1b 无旗读到的字节 = HEAD 那份(证明默认面不是盘)',
+        textOf(readFaceBlobs(repo, faceFromArgv([]).face, ['src/a.ts']), 'src/a.ts') === HEAD_TXT
+          ? []
+          : ['默认面读到了非 HEAD 的内容'],
+        true,
+      ) && ok
+    ok =
+      check(
+        'F2 三面三答:HEAD / 索引 / 磁盘各读各的,互不回落',
+        (() => {
+          const h = textOf(readFaceBlobs(repo, 'head', ['src/a.ts']), 'src/a.ts')
+          const s = textOf(readFaceBlobs(repo, 'staged', ['src/a.ts']), 'src/a.ts')
+          const w = textOf(readFaceBlobs(repo, 'worktree', ['src/a.ts']), 'src/a.ts')
+          return h === HEAD_TXT && s === INDEX_TXT && w === DISK_TXT
+            ? []
+            : [`head=${JSON.stringify(h.slice(-12))} staged=${JSON.stringify(s.slice(-13))} worktree=${JSON.stringify(w.slice(-12))}`]
+        })(),
+        true,
+      ) && ok
+    ok =
+      check(
+        'F2b 清单也同面:摘出索引后 staged 档列不到该路径(不借 HEAD 凑数)',
+        (() => {
+          gitRaw(['rm', '--cached', '-q', '--', 'extra.ts'], repo)
+          const listed = listFaceDir(repo, 'staged', '.', ['.ts'])
+          const listedHead = listFaceDir(repo, 'head', 'src', ['.ts'])
+          return !listed.includes('extra.ts') && listed.includes('src/a.ts') && listedHead.includes('src/a.ts')
+            ? []
+            : [`staged 清单=${JSON.stringify(listed)} head 清单=${JSON.stringify(listedHead)}`]
+        })(),
+        true,
+      ) && ok
+    ok =
+      check(
+        'F3 两面旗同给 ⇒ 判死(不自选一个面假装判过)',
+        faceFromArgv(['--staged', '--worktree']).error ? [] : ['两面旗同给却无 error'],
+        true,
+      ) && ok
+    ok =
+      check(
+        'F4 清单里有、正文取不到(未合并路径)⇒ 抛 Undetermined,绝不静默少扫',
+        (() => {
+          const r2 = mkScratch('debw-unmerged-')
+          try {
+            gitRaw(['init', '-q'], r2)
+            gitRaw(['config', 'user.name', 'gate-self-test'], r2)
+            gitRaw(['config', 'user.email', 'gate@example.invalid'], r2)
+            mkdirSync(path.join(r2, 'c'), { recursive: true })
+            writeFileSync(path.join(r2, 'c', 'm.ts'), 'base\n')
+            gitRaw(['add', '--', 'c/m.ts'], r2)
+            gitRaw(['commit', '-q', '-m', 'base'], r2)
+            const trunk = gitRaw(['rev-parse', '--abbrev-ref', 'HEAD'], r2).trim()
+            gitRaw(['checkout', '-q', '-b', 'side'], r2)
+            writeFileSync(path.join(r2, 'c', 'm.ts'), 'side\n')
+            gitRaw(['commit', '-q', '-am', 'side'], r2)
+            gitRaw(['checkout', '-q', trunk], r2)
+            writeFileSync(path.join(r2, 'c', 'm.ts'), 'trunk\n')
+            gitRaw(['commit', '-q', '-am', 'trunk'], r2)
+            try {
+              gitRaw(['merge', '-q', 'side'], r2)
+            } catch {
+              /* 预期:冲突让 merge 非零退出 */
+            }
+            const listed = listFaceDir(r2, 'staged', 'c', ['.ts'])
+            if (!listed.includes('c/m.ts')) return ['夹具未造出未合并态(清单里没有该路径)']
+            try {
+              readFaceBlobs(r2, 'staged', listed)
+              return ['未合并却顺利返回内容 ⇒ 少扫被伪装成扫过']
+            } catch (e) {
+              return e instanceof Undetermined ? [] : [`抛了非 Undetermined:${String(e?.message ?? e).slice(0, 60)}`]
+            }
+          } finally {
+            rmScratch(r2)
+          }
+        })(),
+        true,
+      ) && ok
+  } catch (e) {
+    cases.push(`✗ F 组取材面临时仓建立失败 —— ${String(e?.message ?? e).slice(0, 160)}`)
+    ok = false
+  } finally {
+    if (repo) rmScratch(repo)
+  }
   console.log(`--self-test 共 ${cases.length} 例:`)
   for (const line of cases) console.log('  ' + line)
   console.log(ok ? '✅ 全部通过' : '❌ 存在失效判据')
@@ -342,32 +1123,34 @@ function runSelfTest() {
 
 if (process.argv.includes('--self-test')) runSelfTest()
 
-/** 递归收集指定扩展名文件(跳过构建产物/测试) */
-const SKIP_DIRS = new Set([
-  'node_modules',
-  'dist',
-  '.next',
-  '__tests__',
-  '.turbo',
-  'coverage',
-  'target',
-  'vendor',
-])
-function walk(dir, exts, out = []) {
-  if (!existsSync(dir)) return out
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue
-      walk(path.join(dir, entry.name), exts, out)
-    } else if (
-      exts.some((e) => entry.name.endsWith(e)) &&
-      !/\.(test|spec)\.[cm]?[jt]sx?$/.test(entry.name)
-    ) {
-      out.push(path.join(dir, entry.name))
-    }
-  }
-  return out
+// ============================================================================
+// 取材面落地:两面旗同给 / 该面取不到 ⇒ exit 2「无法判定」,既不冒红也不记绿,
+// 且**不回落**到另一个面。这里先于任何判据发生,因为"读哪个面"不是某个判据的私事。
+// ============================================================================
+
+if (FACE_SEL.error) {
+  console.error(`[check-desktop-event-wiring] ❌ 无法判定:${FACE_SEL.error}`)
+  process.exit(2)
 }
+const FACE = FACE_SEL.face
+console.log(`  ${C.dim}取材面:${FACE_TXT[FACE]}${C.reset}`)
+
+let FACE_INPUT
+try {
+  FACE_INPUT = buildFaceContents(ROOT, FACE)
+} catch (e) {
+  const known = e instanceof Undetermined
+  console.error(
+    `[check-desktop-event-wiring] 取不到输入(${FACE_TXT[FACE]})⇒ 无法判定(不记为通过):${
+      known ? e.message : (e?.stack ?? e)
+    }`
+  )
+  process.exit(2)
+}
+/** 层1 的 .rs 清单与层3 的 web 清单:与正文**同一个面的同一轮**清单,不再各遍历一次 */
+const CONTENTS = FACE_INPUT.contents
+const RUST_FILES = FACE_INPUT.rustFiles
+const WEB_FILES = FACE_INPUT.webFiles
 
 // ============================================================================
 // [1/3] 层 1: Rust 生产端扫描
@@ -388,9 +1171,15 @@ const rustEmits = new Map()
 /** 事件名 → 来源文件集合 */
 const rustSources = new Map()
 let rustEmitHits = 0
+/** 规则 G 复用同一遍取材的 lib.rs 文本(不另开一次读:取材面纪律见守门 118) */
+let rustLibText = ''
+/** G8 的导航发起面:与 lib.rs 同一次 catBatch 取,不另开读、也不按磁盘判 */
+let rustNavText = ''
 
-for (const f of walk(path.join(ROOT, 'apps/desktop/src-tauri/src'), ['.rs'])) {
-  const text = readFileSync(f, 'utf-8')
+for (const f of RUST_FILES) {
+  const text = textOf(CONTENTS, f)
+  if (f === G_DEEP_LINK_RUST_FILE) rustLibText = text
+  if (f === G_DEEP_LINK_NAV_FILE) rustNavText = text
   for (const m of text.matchAll(RUST_EMIT_RE)) {
     const event = m[1]
     // 变量形态 payload(payload 非字符串字面量/unit)不在静态对账范围,正则本就不匹配
@@ -400,7 +1189,7 @@ for (const f of walk(path.join(ROOT, 'apps/desktop/src-tauri/src'), ['.rs'])) {
       rustSources.set(event, new Set())
     }
     rustEmits.get(event).add(action)
-    rustSources.get(event).add(rel(f))
+    rustSources.get(event).add(f)
     rustEmitHits++
   }
 }
@@ -420,11 +1209,11 @@ for (const [event, actions] of [...rustEmits.entries()].sort()) {
 
 console.log(`\n${C.cyan}[2/3] 层2: 桥接端 use-desktop.ts 解析${C.reset}`)
 
-const BRIDGE_FILE = path.join(ROOT, 'apps/web/src/hooks/use-desktop.ts')
-if (!existsSync(BRIDGE_FILE)) {
+const BRIDGE_PRESENT = CONTENTS.has(BRIDGE_REL)
+if (!BRIDGE_PRESENT) {
   errors.push('apps/web/src/hooks/use-desktop.ts 不存在(桥接端被移动/改名,请同步本守门)')
 }
-const bridgeText = existsSync(BRIDGE_FILE) ? readFileSync(BRIDGE_FILE, 'utf-8') : ''
+const bridgeText = textOf(CONTENTS, BRIDGE_REL)
 
 // listen('xxx') 出现位置 → 块 = [当前位置, 下一个 listen 或文件末]
 const LISTEN_RE = /listen(?:<[^>]*>)?\(\s*'([a-z][a-z0-9-]*)'/g
@@ -496,8 +1285,7 @@ function addWebDispatch(name, source) {
 /** 正则命中偏移 → 行号 */
 const lineOf = (text, index) => text.slice(0, index).split('\n').length
 
-const WEB_SRC = path.join(ROOT, 'apps/web/src')
-const webFiles = walk(WEB_SRC, ['.ts', '.tsx']).filter((f) => rel(f) !== rel(BRIDGE_FILE))
+// WEB_SRC_DIR / BRIDGE_REL 等路径常量在上方"取材面"一节统一定义,这里只声明计数
 let literalListenerHits = 0
 let registryKeyHits = 0
 
@@ -509,26 +1297,26 @@ let registryKeyHits = 0
 const REGISTRY_BLOCK_RE =
   /const\s+[A-Z][A-Z0-9_]*_(?:ROUTES|EVENTS)\s*(?::\s*Record<[^>]*>)?\s*=\s*\{([\s\S]*?)\n\}/g
 
-for (const f of webFiles) {
-  const text = readFileSync(f, 'utf-8')
+for (const f of WEB_FILES) {
+  const text = textOf(CONTENTS, f)
   for (const m of text.matchAll(/addEventListener\(\s*'([a-z][a-z0-9:-]*)'/g)) {
-    addConsumer(m[1], `${rel(f)} (addEventListener)`)
+    addConsumer(m[1], `${f} (addEventListener)`)
     literalListenerHits++
   }
   for (const m of text.matchAll(REGISTRY_BLOCK_RE)) {
     for (const k of m[1].matchAll(/'([a-z][a-z0-9:-]*)'/g)) {
-      addConsumer(k[1], `${rel(f)} (事件注册表常量)`)
+      addConsumer(k[1], `${f} (事件注册表常量)`)
       registryKeyHits++
     }
   }
   // 规则 D:同一文件内的派发点(dispatchEvent(new CustomEvent('xxx')))
   for (const m of text.matchAll(/dispatchEvent\(\s*new CustomEvent\(\s*'([a-z][a-z0-9:-]*)'/g)) {
-    addWebDispatch(m[1], `${rel(f)}:${lineOf(text, m.index)}`)
+    addWebDispatch(m[1], `${f}:${lineOf(text, m.index)}`)
   }
 }
 
 console.log(
-  `  扫描 ${webFiles.length} 个文件: 字面量监听 ${literalListenerHits} 处, 注册表常量 ${registryKeyHits} 处`,
+  `  扫描 ${WEB_FILES.length} 个文件: 字面量监听 ${literalListenerHits} 处, 注册表常量 ${registryKeyHits} 处`,
 )
 
 // ============================================================================
@@ -704,13 +1492,17 @@ if (ruleDHits === 0) {
 console.log(`\n${C.cyan}规则 E: 链语义分层对账${C.reset}`)
 
 const REPLAY_FILES = [
-  { file: 'apps/web/src/hooks/use-agent-control.ts', label: '桌面 agent.action 消费端' },
-  { file: 'apps/extension/lib/agent-control-bridge.ts', label: '扩展 agent.action 消费端' },
+  { file: WEB_AGENT_CONTROL_REL, label: '桌面 agent.action 消费端' },
+  { file: EXT_AGENT_BRIDGE_REL, label: '扩展 agent.action 消费端' },
 ]
 
 let ruleEErrors = 0
-const chainRead = (p) => (existsSync(path.join(ROOT, p)) ? readFileSync(path.join(ROOT, p), 'utf-8') : '')
-const bridgeChainText = chainRead('apps/web/src/hooks/use-desktop.ts')
+/**
+ * 规则 E 的取文**只查本轮取材面**(与层1/2/3 同一份 CONTENTS,不再各读一次盘)。
+ * 面上没有这个路径 ⇒ '' ⇒ 下面的判据按"取不到内容"报红,与旧实现同形。
+ */
+const chainRead = (p) => textOf(CONTENTS, p)
+const bridgeChainText = chainRead(BRIDGE_REL)
 
 // E1 —— 实时链不得混入重放语义
 const e1 = findContinuousChainDrift(bridgeChainText)
@@ -753,8 +1545,8 @@ for (const { file, label } of REPLAY_FILES) {
 
 // E3 —— 链名必须写进源码(不写进源码的命名等于不存在)
 for (const { file, chain } of [
-  { file: 'apps/web/src/hooks/use-desktop.ts', chain: CHAIN_CONTINUOUS },
-  { file: 'apps/web/src/hooks/use-agent-control.ts', chain: CHAIN_REPLAYABLE },
+  { file: BRIDGE_REL, chain: CHAIN_CONTINUOUS },
+  { file: WEB_AGENT_CONTROL_REL, chain: CHAIN_REPLAYABLE },
 ]) {
   const src = chainRead(file)
   const problems = src ? findChainNameMarker(src, chain, file) : [`未取到 ${file}`]
@@ -784,13 +1576,14 @@ if (ruleEErrors === 0) {
 
 console.log(`\n${C.cyan}规则 F: Rust 进程状态归属对账${C.reset}`)
 
-const rustFiles = walk(path.join(ROOT, 'apps/desktop/src-tauri/src'), ['.rs'])
+/** 层1 的 .rs 清单只在取材那一遍走一次(旧实现在这里又遍历了一遍目录、又读了一遍盘) */
+const rustFiles = RUST_FILES
 let rustDeclTotal = 0
 let ruleFErrors = 0
 for (const f of rustFiles) {
-  const text = readFileSync(f, 'utf-8')
+  const text = textOf(CONTENTS, f)
   rustDeclTotal += countRustStateDecls(text)
-  for (const v of findRustStateViolations(text, rel(f))) {
+  for (const v of findRustStateViolations(text, f)) {
     errors.push(`状态归属越界(规则 F): ${v}`)
     console.log(`  ${C.red}✗ ${v}${C.reset}`)
     ruleFErrors++
@@ -812,6 +1605,33 @@ if (ruleFErrors === 0) {
 }
 
 // ============================================================================
+// 规则 G: 深链「未就绪不丢,就绪后补投」机制对账(2026-09-26 立 · A10C-1)
+// ============================================================================
+
+console.log(`\n${C.cyan}规则 G: 深链就绪闸门机制对账(desktop-deep-link)${C.reset}`)
+
+if (!rustLibText) {
+  // 取不到被审文件 ≠ 通过 —— 与本门其余判据同一条规矩
+  errors.push(`规则 G 无法判定: ${G_DEEP_LINK_RUST_FILE} 未在本轮 Rust 扫描中取到内容(改名/搬走?)—— 深链机制不再被看守`)
+  console.log(`  ${C.red}✗ G ${G_DEEP_LINK_RUST_FILE} 取不到,计「无法判定」${C.reset}`)
+} else if (!bridgeText) {
+  errors.push(`规则 G 无法判定: ${G_DEEP_LINK_BRIDGE_FILE} 内容为空 —— 深链机制不再被看守`)
+  console.log(`  ${C.red}✗ G 桥接端取不到内容,计「无法判定」${C.reset}`)
+} else {
+  const gViolations = auditDeepLinkMechanism(rustLibText, bridgeText, rustNavText)
+  for (const v of gViolations) {
+    errors.push(`深链机制断裂(规则 G): ${v}`)
+    console.log(`  ${C.red}✗ ${v}${C.reset}`)
+  }
+  if (gViolations.length === 0) {
+    passed.push('规则 G: 深链闸门 7 组判据(唯一出口/未就绪入队/上限计数/取即清/销毁清账/时序/同名)全部在位')
+    console.log(
+      `  ${C.green}✓ G 深链闸门机制在位:${C.dim} 未就绪⇒暂存 / 队列有上限且丢弃计数 / 取即清 / Destroyed 清账 / 先 listen 后 take${C.reset}`,
+    )
+  }
+}
+
+// ============================================================================
 // 汇总
 // ============================================================================
 
@@ -821,6 +1641,9 @@ console.log(`${'='.repeat(60)}`)
 console.log(
   `层1 Rust emit: ${rustEmitHits} 处 / ${rustEmits.size} 事件 | 层2 桥接: ${listenPositions.length} listen | 层3 消费: ${consumers.size} 事件`,
 )
+// 结论行必须点名取材面:同一份"通过/失败"在三个面上可以各自成立,
+// 不带面的读法无法判断它说的是哪一次提交(与守门 36/93/124 同形)。
+console.log(`取材面: ${FACE_TXT[FACE]}`)
 console.log(`${C.green}通过检查: ${passed.length}${C.reset}`)
 console.log(`${C.yellow}白名单豁免(不阻断): ${ruleCWhitelisted + ruleDWhitelisted}${C.reset}`)
 console.log(`${C.red}错误(阻断): ${errors.length}${C.reset}`)

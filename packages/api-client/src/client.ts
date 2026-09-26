@@ -937,6 +937,9 @@ export interface StreamChatOptions {
     tokensBefore: number
     tokensAfter: number
     removedCount: number
+    /** A10B-8(2026-09-26):本轮被**内容级截断**的消息条数(与 removedCount 不同维:
+     *  后者是被折进摘要移出上下文的整条消息数)。可选 ⇒ 旧帧缺席读作"未知",不读作 0。 */
+    truncatedCount?: number
     usageRatio: number
     /** 压缩触发方式:ratio/absolute(常规摘要压缩)/truncated(超长单条消息截断降级)/incompressible */
     trigger?: string
@@ -2193,6 +2196,14 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
               tokensBefore: Number(json.compaction.tokensBefore ?? 0),
               tokensAfter: Number(json.compaction.tokensAfter ?? 0),
               removedCount: Number(json.compaction.removedCount ?? 0),
+              // A10B-8:截断量是披露判据的事实来源。**刻意不写 `?? 0` 归一** ——
+              // 旧帧(生产者尚未带该字段)缺席必须原样传成 undefined,归零等于把
+              // "没被告知"改写成"确实没截断",消费侧就退回"该说不说"的沉默那一型。
+              truncatedCount:
+                typeof json.compaction.truncatedCount === 'number' &&
+                Number.isFinite(json.compaction.truncatedCount)
+                  ? json.compaction.truncatedCount
+                  : undefined,
               usageRatio: Number(json.compaction.usageRatio ?? 0),
               trigger:
                 typeof json.compaction.trigger === 'string' ? json.compaction.trigger : undefined,
@@ -3408,10 +3419,7 @@ export function buildFormResponseEvent(input: {
  * 失败必抛(照 postToolResult 的 2026-08-06 教训):静默吞掉 = 用户点了"批准"而 AI 侧
  * 永远等不到应答,表单卡停在已批准的假象上。调用方据异常把状态改判为 failed。
  */
-export async function postFormResponse(
-  sessionId: string,
-  event: FormResponseEvent,
-): Promise<void> {
+export async function postFormResponse(sessionId: string, event: FormResponseEvent): Promise<void> {
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {

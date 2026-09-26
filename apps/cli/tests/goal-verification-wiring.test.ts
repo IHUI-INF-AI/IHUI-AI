@@ -2,48 +2,48 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-export * from './ai-skill-variables'
-// AI 操控桥的投递定址判定(五桥共用一份实现,端内只注入自身身份)
-export * from './agent-action-addressing'
-export * from './app-control-intent'
-export * from './async'
-export * from './base64'
-// 上下文占用归因分解(按构成来源,而非只报总量)
-export * from './context-attribution'
-// D20 会话组织(文件夹/标签)的归一化、回收与筛选规则唯一实现(端内不得再建第二套)
-export * from './conversation-org'
-export * from './dangerous-command-detector'
-export * from './date-utils'
-export * from './error-messages'
-export * from './file-helpers'
-export * from './form-styles'
-export * from './format'
-export * from './format-ext'
-// 移动端/小程序端通用格式工具(2026-07-30 立)
-export * from './format-mobile'
-// 跨端图片处理工具(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
-export * from './image-helpers'
-// 跨端 compact 数字格式化(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/number-format.ts 下沉)
-export * from './number-format'
-// 跨端存储抽象(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
-export * from './storage'
-export * from './jwt-utils'
-export * from './llm-templates'
-export * from './logger'
-export * from './markdown-mermaid-code'
-export * from './mcp-curated'
-export * from './message-search'
-export * from './object'
-// 脱敏(共享层唯一实现;D94 交接单 / 日志 / 出库边界共用;规则为 ai-service
-// output_cleaning.py + cli/redact.ts 既有正则的并集,端内不得再建第二套)
-export * from './redact'
-export * from './role'
-export * from './search-suggestions'
-export * from './select-class'
-export { parseSSEChunk, type SSEEvent as ParsedSSEEvent } from './sse-parse'
-export * from './status-colors'
-export * from './storage-migration'
-// 跨端 Token 估算工具(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/token-estimate.ts 下沉)
-export * from './token-estimate'
-export * from './vip-utils'
+/**
+ * WP-8③ 装车证明:闸门必须**挂在循环的交账路径上**,不是又一个"造好没人跑"的模块。
+ *
+ * 为什么用源码级断言而不是跑一次完整循环:`runToolLoop` 要真 provider + 真工具栈,
+ * 在单测里起不来(本仓同类判据都走这一型,如守门 115 的"校验器必须有非测试调用方")。
+ * 判据取"调用位"而非"import 位" —— 只 import 不调用正是本仓最高频的失效形态。
+ *
+ * 每条都有对应的反向事实在注释里,免得下一个人把它当装饰删掉。
+ */
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+
+const agentSrc = readFileSync(new URL('../src/commands/agent.ts', import.meta.url), 'utf8');
+const entrySrc = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+
+describe('goal 校验闸门的接线位', () => {
+  it('循环交账前必须真的调用独立校验(不是只 import)', () => {
+    expect(agentSrc).toContain('await runGoalVerification({');
+  });
+
+  it('校验结论必须改写交账的 stopReason', () => {
+    expect(agentSrc).toContain('stopReason = applyGoalVerificationToStopReason(');
+  });
+
+  it('采集面必须在每个工具结果处累积(缺了这一格,机器指标永远采不到证据)', () => {
+    expect(agentSrc).toContain('goalCallRecords.push({');
+  });
+
+  it('两个校验档必须进退出码映射 —— 未过验收不得退 0', () => {
+    expect(agentSrc).toContain("case 'verification_not_achieved':");
+    expect(agentSrc).toContain("case 'verification_undetermined':");
+  });
+
+  it('命令行入口必须给出声明指标的出口', () => {
+    expect(entrySrc).toContain("--goal-criteria <file>");
+    expect(entrySrc).toContain('goalCriteria: resolveGoalCriteria(');
+  });
+
+  it('指标解析不得静默降级:读不到 / 非数组 / 缺字段一律先停', () => {
+    // 反例形态是 "catch { return undefined }" —— 那等于把一次带验收的运行洗成无验收
+    expect(entrySrc).not.toMatch(/function resolveGoalCriteria[\s\S]{0,400}catch[\s\S]{0,60}return undefined/);
+    expect(entrySrc).toContain('process.exit(2)');
+  });
+});
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
