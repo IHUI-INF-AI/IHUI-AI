@@ -100,7 +100,7 @@ const viewStyles = {
     borderRadius: rnRadius.xl,
     marginRight: 10,
     flexShrink: 0,
-    border: `1px solid ${active ? tk.brand.DEFAULT : tk.text.primary}`,
+    border: `1px solid ${active ? tk.brandAccent.deep : tk.border.medium}`,
     backgroundColor: tk.surface.light,
     opacity: disabled ? 0.5 : 1,
     pointerEvents: disabled ? 'none' : 'auto',
@@ -109,7 +109,7 @@ const viewStyles = {
   }),
   ratioIcon: (tk: AppThemeTokens, active: boolean, w: number, h: number): CSSProperties => ({
     marginRight: 8,
-    border: `1px solid ${active ? tk.brand.DEFAULT : tk.text.primary}`,
+    border: `1px solid ${active ? tk.brandAccent.deep : tk.border.medium}`,
     width: w,
     height: h,
     borderRadius: rnRadius.sm,
