@@ -84,6 +84,13 @@ const PUBLIC_PREFIXES = [
   // (O19 事故原文:参数化前缀连带放开静态子路由,游客打到依赖 request.userId 的 handler 直接 500)。
   // 缺 secret 时该路由回 503、签名错回 401,不存在"豁免即放行"。
   '/api/webhooks/github',
+  // D15 GitHub App webhook 入站(2026-09-26 立):GitHub 服务器到服务器的投递,永远不带
+  // CSRF token,防线是 X-Hub-Signature-256 的 HMAC-SHA256 验签(fail-closed:缺
+  // GITHUB_WEBHOOK_SECRET 回 503、签名缺失/不匹配回 401)—— 与浏览器 cookie 会话无关,
+  // CSRF 在此没有防护对象。**刻意写精确整路径而不是 /api/github-app/ 前缀**(纪律同上条):
+  // 生产实测(2026-09-26,公网 https://aizhs.top/api/github-app/webhook)POST 被 403
+  // `CSRF 令牌缺失或无效` 拦在签名层之前,安装事件/PR 回调全进不来。
+  '/api/github-app/webhook',
   // 崩溃上报(2026-08-12 立,匿名可上报,崩溃时未必持有 token;
   // 风险低:仅写 crash_reports 表一条记录,无敏感操作;全局限流防滥用)
   '/api/crash-reports',
