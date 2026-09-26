@@ -705,6 +705,8 @@
       "emptyRecent": "暫無最近使用智慧體"
     },
     "historyPage": {
+      "loadMoreFailed": "載入更多失敗,請下拉重新載入",
+      "deleteFailed": "刪除失敗,請重試",
       "empty": "暫無對話歷史",
       "deleteOne": "刪除該對話",
       "clearAll": "清空全部",
@@ -744,6 +746,7 @@
       "useCount": "{n} 次使用"
     },
     "chat": {
+      "replayFailed": "該會話訊息載入失敗,請重試",
       "agentTipTitle": "智慧體使用說明",
       "agentTipConfirm": "我知道了",
       "agentTipSkill": "選擇技能",
