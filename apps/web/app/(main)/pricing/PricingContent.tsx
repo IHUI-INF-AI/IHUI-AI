@@ -132,7 +132,7 @@ export function PricingContent(): React.JSX.Element {
                 key={level.id}
                 className={cn(
                   'relative flex flex-col',
-                  isPopular && 'border-primary shadow-md min-[1024px]:scale-[1.02]',
+                  isPopular && 'border-brand-accent-deep shadow-md min-[1024px]:scale-[1.02]',
                 )}
               >
                 {isPopular && (

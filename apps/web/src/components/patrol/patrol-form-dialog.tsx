@@ -287,7 +287,7 @@ export function PatrolFormDialog({ open, onOpenChange, editing, onSaved }: Props
                         className={cn(
                           'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
                           active
-                            ? 'border-primary bg-cta text-cta-foreground'
+                            ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                             : 'border-border bg-foreground/5 text-muted-foreground hover:bg-foreground/10',
                         )}
                       >

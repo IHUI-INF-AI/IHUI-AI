@@ -186,7 +186,9 @@ function CheckoutContent() {
                   key={m.id}
                   className={cn(
                     'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors',
-                    payMethod === m.id ? 'border-primary bg-primary/5' : 'hover:bg-accent',
+                    payMethod === m.id
+                      ? 'border-brand-accent-deep bg-primary/5'
+                      : 'hover:bg-accent',
                   )}
                 >
                   <input
