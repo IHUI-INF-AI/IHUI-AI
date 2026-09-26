@@ -108,6 +108,11 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+# 生产环境快照类文件:名字带 .env 又不是 .local,过去**不被任何规则忽略**,
+# 一次 `git add .` 就会把 24 条有值凭据(DATABASE_URL / JWT_SECRET / 支付密钥 …)推上远端。
+# 2026-09-26 本机实测 `apps/api/.env.restore-snapshot` 正处于"未跟踪且未忽略"态。
+**/.env.restore-snapshot
+**/.env.snapshot
 **/.env
 **/.env.local
 **/.env.production
