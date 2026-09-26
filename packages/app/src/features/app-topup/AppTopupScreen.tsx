@@ -245,7 +245,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     amountCardActive: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.light,
     },
     amountText: {
@@ -280,7 +280,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     payItemActive: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
     },
     payLabel: {
       fontSize: 16,

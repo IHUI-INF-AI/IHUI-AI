@@ -1834,7 +1834,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: surface,
     },
     checkboxChecked: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brand.cta,
     },
     checkboxError: {
@@ -2170,7 +2170,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       paddingVertical: 8,
       borderRadius: rnRadius.md,
       borderWidth: 1,
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brand.cta,
     },
     qrOpenWebText: {

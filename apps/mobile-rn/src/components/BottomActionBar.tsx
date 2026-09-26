@@ -56,6 +56,7 @@ import {
 } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX } from '@ihui/shared/ui/bottom-action-bar-spec'
 
 // ── 兼容旧 API:简单按钮列表 ──
 
@@ -156,7 +157,7 @@ const LABEL_LETTER_SPACING = 0.2
 
 const TOGGLE_CHIP_HEIGHT = 32
 const TOGGLE_CHIP_FONT_SIZE = 13
-const TOGGLE_CHIP_GAP = 8
+// chip 行间距不在本文件取数 —— 唯一源是 @ihui/shared/ui/bottom-action-bar-spec(与小程序端同档)
 const TOGGLE_CHIP_LETTER_SPACING = 0.2
 
 const INPUT_MIN_HEIGHT = 44
@@ -845,7 +846,7 @@ const styles = StyleSheet.create({
   toggleRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: TOGGLE_CHIP_GAP,
+    gap: BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
   } as ViewStyle,
   toggleChip: {
     height: TOGGLE_CHIP_HEIGHT,
@@ -859,7 +860,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   toggleChipActive: {
     backgroundColor: tokens.brand.cta,
-    borderColor: tokens.brand.DEFAULT,
+    borderColor: tokens.brandAccent.deep,
   } as ViewStyle,
   toggleChipPressed: {
     opacity: 0.8,
@@ -926,7 +927,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   voiceBtnActive: {
     backgroundColor: tokens.brand.cta,
-    borderColor: tokens.brand.DEFAULT,
+    borderColor: tokens.brandAccent.deep,
   } as ViewStyle,
   voiceEmoji: {
     fontSize: 18,

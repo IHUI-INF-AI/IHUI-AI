@@ -3190,7 +3190,7 @@ const styles = StyleSheet.create({
   modelTypeBtnActive: {
     backgroundColor: tokens.surface.muted,
     borderWidth: 1,
-    borderColor: tokens.brand.DEFAULT,
+    borderColor: tokens.brandAccent.deep,
   },
   modelTypeLabel: {
     fontSize: 12,
