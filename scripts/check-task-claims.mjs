@@ -19,8 +19,17 @@
  *   node scripts/check-task-claims.mjs --twins     # 列已闭环孪生旧行与逐字重复组
  *   node scripts/check-task-claims.mjs --check-gate [--json]  # 租约判据 CL1/CL2/CL3,违规 exit 1
  *   node scripts/check-task-claims.mjs --self-test # 纯函数夹具自检,不碰真 PROJECT_PLAN
- *   node scripts/check-task-claims.mjs --plan <file>   # 只读注入:改判指定文件(取证/多租约场景用)
+ *   node scripts/check-task-claims.mjs --plan <file>   # 只读注入:改判指定文件(取证/多租约场景用,**磁盘直读**)
  *   node scripts/check-task-claims.mjs --ttl-hours <n> # 覆盖租约年龄阈值(默认 72h,亦可 IHUI_CLAIM_LEASE_TTL_HOURS)
+ *
+ * 判定面(2026-09-26 收口,口径同 70/77/83/94/98/101/118):
+ *   默认判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 只作人工/派单扫描的磁盘逃生舱;
+ *   两面旗同给 ⇒ exit 2;被审面取不到 ⇒ **exit 2「无法判定」,绝不回退另一个面**(把"没判"
+ *   写成"判过了"是守门 94 同型假绿)。此前它无条件 `readFileSync(PLAN_PATH)` —— 共享工作树
+ *   常年滞后 HEAD 且含并行会话未提交的在途行,同一份 HEAD 内容会在"恒红/假绿"之间来回跳
+ *   (§12e 那条最高反面教训:与改动无关的红门只会逼人 --no-verify,连带废掉全部守门)。
+ *   `--plan <file>` 是**注入通道**,读的就是那个磁盘文件本身 —— 判据可取证化的必需通道,
+ *   不受面判据管辖(镜像测试 T8-T10/T14 全走它,绝不往真 PROJECT_PLAN 写自测行)。
  *
  * 2026-09-23 立, AGENTS.md §1 任务认领机制配套
  * 2026-09-25 扩租约三要素(MECHANISM-SPEC-3 §2 / A9):认领不再只是文本标记,
@@ -33,7 +42,7 @@
  *   绝不自动摘除标记**(摘别人的认领是越权,AGENTS §16)。全程只读,无任何 git 写操作。
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 相似度尺子**复用** lib 里的唯一实现(纯函数、零副作用)。
@@ -46,6 +55,9 @@ import {
   squash,
   tokenize,
 } from './lib/live-doc-similarity.mjs'
+// 判定面取材的唯一出口(2026-09-26 迁)。计划文档的正文必须由共用层按面读 ——
+// git 绝对路径 / stdio[0]='pipe' / maxBuffer 给足 / 未预取即抛不静默,这四件各门自己写必错。
+import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -204,6 +216,75 @@ function checkLeaseGate(content, { nowMs, ttlHours }) {
   }
 }
 
+// ---------- 判定面(2026-09-26 收口,口径同 70/77/83/94/98/101/118) ----------
+const PLAN_REL = 'PROJECT_PLAN.md'
+const PLAN_FACE_LABEL = {
+  head: 'HEAD blob(git cat-file HEAD:PROJECT_PLAN.md)',
+  index: '索引 blob(暂存区,:PROJECT_PLAN.md)',
+  worktree: '工作树(磁盘,人工/派单扫描逃生舱)',
+  plan: '注入文件 --plan(磁盘直读,取证通道 —— 判据可取证化的必需出口,不受面判据管辖)',
+}
+
+/**
+ * 纯四态面选择:默认 head;`--staged`→index;`--worktree`→worktree;两面旗同给→conflict。
+ * 判"两面同给"必须在这里判(而不是在调用处 if)—— 两个面各读一半就是一把自洽却错位的尺子。
+ */
+function pickPlanFace(flags) {
+  const picked = selectFace({
+    staged: flags.has('--staged'),
+    worktree: flags.has('--worktree'),
+    def: 'head',
+  })
+  if (picked.error) return { face: null, error: picked.error }
+  return { face: picked.face === 'staged' ? 'index' : picked.face, error: null }
+}
+
+/**
+ * 按判定面读计划文档。任何失败都返回 { content:null, error } —— 调用方必须 exit 2,
+ * **绝不回退另一个面凑内容**(回落就是把"没判"写成"判过了",守门 94 同型)。
+ */
+function readPlanOnFace(face) {
+  if (face === 'worktree') {
+    let text
+    try {
+      text = readWorktreeFile(ROOT, PLAN_REL)
+    } catch (e) {
+      return {
+        content: null,
+        error: `读不到 ${PLAN_FACE_LABEL[face]} 版 ${PLAN_REL}:${String(e?.message ?? e).split('\n')[0]}`,
+      }
+    }
+    if (text === null)
+      return {
+        content: null,
+        error: `读不到 ${PLAN_FACE_LABEL[face]} 版 ${PLAN_REL}(磁盘上没有此文件 / 非文本)`,
+      }
+    return { content: text, error: null }
+  }
+  // 冒号在两种面都必须保留(索引规格是 `:path`,不是裸路径):`cat-file --batch` 会把裸
+  // 路径当对象名解析并回 missing —— 照 `${cond ? '' : 'HEAD:'}${rel}` 那种把冒号并进三元的
+  // 写法,暂存区口径会永远"读不到"。形状由镜像测试 T17 的规格字面量锁钉死。
+  const spec = `${face === 'index' ? '' : 'HEAD'}:${PLAN_REL}`
+  let got
+  try {
+    got = catBatch(ROOT, [spec], { maxBuffer: 1 << 29, timeout: 120000 })
+  } catch (e) {
+    return {
+      content: null,
+      error: `读不到 ${PLAN_FACE_LABEL[face]} 版 ${PLAN_REL}:${String(e?.message ?? e).split('\n')[0]}`,
+    }
+  }
+  const text = got.get(spec)
+  if (typeof text !== 'string')
+    return {
+      content: null,
+      error:
+        `读不到 ${PLAN_FACE_LABEL[face]} 版 ${PLAN_REL}(该面没有此对象 —— missing / unmerged / 非 blob)。` +
+        `工作树侧${existsSync(PLAN_PATH) ? '存在该文件' : '也不存在该文件'} —— 不回退磁盘`,
+    }
+  return { content: text, error: null }
+}
+
 // ---------- CLI 参数白名单 ----------
 // 未知开关不得静默落进默认分支(本仓在 sync-lost-commit-tags.mjs 踩过 `--push` 掉进
 // `--check` 还 exit 0)——白名单外一律 exit 2。
@@ -215,6 +296,9 @@ const BOOLEAN_FLAGS = new Set([
   '--check-gate',
   '--self-test',
   '--staged',
+  // 2026-09-26:面纪律要求工作树档必须是**显式**入口,不得继续让未知开关静默落进
+  // head 面 —— 以前 `--worktree` 会被 parseArgs 判死,而"判死"又和"想读磁盘"是两回事。
+  '--worktree',
 ])
 const VALUE_FLAGS = new Set(['--plan', '--ttl-hours'])
 
@@ -249,8 +333,9 @@ function parseArgs(argv) {
 
 const USAGE = [
   '用法: node scripts/check-task-claims.mjs [--json|--unclaimed|--in-progress|--twins|--check-gate|--self-test]',
-  '      [--plan <file>] [--ttl-hours <n>] [--staged]',
+  '      [--plan <file>] [--ttl-hours <n>] [--staged | --worktree]',
   `      租约年龄阈值亦可经 ${TTL_ENV} 覆盖(默认 ${DEFAULT_TTL_HOURS}h)。全程只读。`,
+  '      判定面:默认 HEAD blob;--staged 判索引 blob;--worktree 人工磁盘档;两面旗同给 exit 2。',
 ].join('\n')
 
 /**
@@ -383,7 +468,7 @@ function claimDisplaySuffix(row) {
   return '  【标记形态不可辨】'
 }
 
-function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource }) {
+function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel }) {
   const gate = checkLeaseGate(content, { nowMs, ttlHours })
   if (flags.has('--json')) {
     console.log(
@@ -392,6 +477,8 @@ function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource }) {
           checkGate: true,
           exit: gate.violations.length > 0 ? 1 : 0,
           ttlHours,
+          // 判定面必须进 JSON(镜像测试靠它断"读的是哪一面",而人类末行只对文本输出负责)
+          face: faceLabel,
           leases: gate.summary,
           violations: gate.violations,
         },
@@ -423,6 +510,7 @@ function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource }) {
     console.log(
       `  报数(不判红):旧格式 ${gate.summary.legacy} · 形态不可辨 ${gate.summary.unknown} · 有持有者无日期 ${gate.summary.holderNoDate} · 裸标记×[x] 矛盾行 ${gate.summary.legacyContradictions}(存量翻勾未摘牌,归各行持有者清账)`,
     )
+    console.log(`  判定面:${faceLabel}`)
   }
   process.exitCode = gate.violations.length > 0 ? 1 : 0
 }
@@ -544,6 +632,18 @@ function selfTest(realNow = Date.now()) {
     eq(s.inProgress[1].holder, 'qa')
     eq(s.inProgress[1].text, '丁', '租约标记没被剥进 text')
   })
+  // S12 判定面四态(纯函数,构造面证明,不碰仓库):默认 head;--staged→index;
+  // --worktree→worktree;两面旗同给 ⇒ 判死(不猜哪一面)。
+  check('S12 pickPlanFace 四态:默认/索引/工作树/两面旗同给判死', () => {
+    const f = (...flags) => pickPlanFace(new Set(flags))
+    eq(f().face, 'head', '默认面必须是 HEAD')
+    eq(f('--staged').face, 'index', '--staged 必须落 index 面')
+    eq(f('--worktree').face, 'worktree', '--worktree 必须落磁盘人工档')
+    eq(f('--staged', '--worktree').face, null, '两面旗同给不得选出一个面')
+    eq(typeof f('--staged', '--worktree').error, 'string', '判死必须带原因,不静默')
+    // 注入通道不参与面选择(--plan 由 main 直读磁盘文件,见其注释)。
+    eq(f('--plan').face, 'head', '--plan 不该改变默认面')
+  })
   for (const r of results) console.log(r)
   console.log(`--self-test: ${results.length - failures}/${results.length} 通过`)
   return failures
@@ -561,13 +661,31 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   }
   const planPath = parsed.plan ? resolve(process.cwd(), parsed.plan) : PLAN_PATH
   let content
-  try {
-    content = readFileSync(planPath, 'utf-8')
-  } catch (e) {
-    console.error(
-      `❌ 无法读取计划文档 ${planPath}: ${e.message}(输入取不到 = 无法判定,不冒红也不记绿)`,
-    )
-    process.exit(2)
+  let faceLabel
+  if (parsed.plan) {
+    // 注入通道:读的就是那个磁盘文件本身(取证夹具的唯一合法形态,见文件头判定面一节)。
+    try {
+      content = readFileSync(planPath, 'utf-8')
+    } catch (e) {
+      console.error(
+        `❌ 无法读取注入文档 ${planPath}: ${e.message}(输入取不到 = 无法判定,不冒红也不记绿)`,
+      )
+      process.exit(2)
+    }
+    faceLabel = `${PLAN_FACE_LABEL.plan} ${parsed.plan}`
+  } else {
+    const picked = pickPlanFace(parsed.flags)
+    if (picked.error) {
+      console.error(`❌ ${picked.error}(两个判定面互斥,取哪一面都会让另一面成为假绿)\n${USAGE}`)
+      process.exit(2)
+    }
+    const read = readPlanOnFace(picked.face)
+    if (read.error) {
+      console.error(`❌ ${read.error}(输入取不到 = 无法判定,不冒红也不记绿)`)
+      process.exit(2)
+    }
+    content = read.content
+    faceLabel = PLAN_FACE_LABEL[picked.face]
   }
   const ttl = resolveTtlHours(parsed.ttlHours, process.env[TTL_ENV])
   if (ttl.warn) console.warn(`⚠ ${ttl.source}`)
@@ -575,7 +693,12 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   const { counts: leaseCounts } = analyzeLeases(inProgress, { nowMs, ttlHours: ttl.ttlHours })
 
   if (parsed.flags.has('--check-gate')) {
-    runCheckGate(parsed.flags, content, { nowMs, ttlHours: ttl.ttlHours, ttlSource: ttl.source })
+    runCheckGate(parsed.flags, content, {
+      nowMs,
+      ttlHours: ttl.ttlHours,
+      ttlSource: ttl.source,
+      faceLabel,
+    })
     return
   }
 
@@ -596,6 +719,7 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
       `\n逐字重复的未勾行组 (${dupGroups.length} 组,多出 ${dupExtra} 条) —— 会把一件事数成多件:`,
     )
     for (const g of dupGroups) console.log(`  ${g.map((l) => `L${l}`).join(' = ')}`)
+    console.log(`判定面:${faceLabel}`)
     return
   }
 
@@ -603,6 +727,7 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
     console.log(
       JSON.stringify(
         {
+          face: faceLabel,
           unclaimed,
           inProgress,
           completed,
@@ -630,12 +755,14 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
       `无人认领任务 (${claimable.length};另有 ${unclaimed.length - claimable.length} 条是已闭环行的孪生旧行,见 --twins):`,
     )
     for (const t of claimable) console.log(`  L${t.line}: ${t.text}`)
+    console.log(`判定面:${faceLabel}`)
     return
   }
 
   if (parsed.flags.has('--in-progress')) {
     console.log(`进行中任务 (${inProgress.length}):`)
     for (const t of inProgress) console.log(`  L${t.line}: ${t.text}${claimDisplaySuffix(t)}`)
+    console.log(`判定面:${faceLabel}`)
     return
   }
 
@@ -676,6 +803,7 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
     console.log(`  ... 还有 ${unclaimed.length - 15} 项`)
     console.log()
   }
+  console.log(`判定面:${faceLabel}`)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -697,6 +825,9 @@ export const __test__ = {
   resolveTtlHours,
   isValidIsoDate,
   selfTest,
+  pickPlanFace,
+  readPlanOnFace,
+  PLAN_FACE_LABEL,
   CLAIM_MARKER_RE,
   CLAIM_MARKER_OPTIONAL_RE,
   DEFAULT_TTL_HOURS,
