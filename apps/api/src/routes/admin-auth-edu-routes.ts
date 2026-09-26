@@ -458,6 +458,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     // device 类型分支:从 user_devices 表按 fingerprintHash 查设备详情(最后登录时间/UA/IP/关联用户)
     // identifier 即设备指纹哈希;一个指纹可能被多个用户使用(换号登录),返回 userIds 列表
     if (type === 'device' && list.length > 0) {
+      // digest-name-exempt: 复数名词指"已存指纹哈希的集合"(it.identifier 即 user_devices.fingerprintHash),散列在登记侧早已完成,本行只取列表
       const fingerprints = list.map((it) => it.identifier).filter((v): v is string => Boolean(v))
       const deviceMap = new Map<
         string,

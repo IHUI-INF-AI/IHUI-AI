@@ -99,6 +99,7 @@
     "check:desktop-cache-plaintext": "node scripts/check-desktop-cache-plaintext.mjs",
     "check:prompt-injection": "node scripts/check-prompt-injection-registry.mjs",
     "check:outbound-routes": "node scripts/check-declared-outbound-routes.mjs --strict",
+    "check:digest-name": "node scripts/check-digest-name-reality.mjs --strict",
     "scrub:temp": "node scripts/scrub-temp-fixtures.mjs",
     "alerts:render": "node scripts/render-alertmanager-config.mjs",
     "alerts:check": "node scripts/render-alertmanager-config.mjs --check",

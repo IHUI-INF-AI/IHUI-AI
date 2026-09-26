@@ -23,8 +23,10 @@ IP 地址、UA 字符串、Canvas 哈希等维度关联多个账号,一旦判定
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -40,6 +42,38 @@ _GRAPH_FILE = Path(os.environ.get(
     "ANTI_RISK_DEVICE_GRAPH_FILE",
     ".ihui-agent/tmp/device_graph.json",
 )).resolve()
+
+
+# ---------------------------------------------------------------------------
+# 指纹摘要迁移(存量零损失)
+# ---------------------------------------------------------------------------
+# 历史缺陷:cross_account_guard._fingerprint_hash 名为"哈希"却返回明文拼接串
+# ("ua|WxH|locale|timezone|lat,lng|color_scheme|platform|sec_ch_ua"),于是设备
+# 图谱里落盘的 fingerprint_hash 是明文。现已改为真正的 SHA-256 摘要,存量必须
+# 就地转成 sha256(旧明文字符串) —— 与新代码对同一浏览器指纹算出的摘要**逐字
+# 相等**,跨重启/跨新旧绑定的比较语义(detect_linkage 的等值判定)完全保留。
+#
+# 判据稳定性的依据:摘要恒为 64 位十六进制小写;而明文由 8 段以 "|" 连接,
+# 必然含 7 个竖线,结构上不可能被误认成摘要。空串是"未记录指纹"的哨兵
+# (detect_linkage 以真值判断跳过),必须原样保留 —— 把 "" 也哈希成固定摘要
+# 会让两个"无指纹"账号被误判为同一设备。
+#
+# 这里的 sha256 构造必须与 cross_account_guard._fingerprint_hash 逐字一致。
+# 不 import 它是因为那会形成模块环(它已在本模块之上),该不变量由
+# tests/test_anti_risk_fingerprint_digest.py 的端到端迁移用例钉死。
+_DIGEST_RE = re.compile(r"\A[0-9a-f]{64}\Z")
+
+
+def _migrate_fingerprint_hash(value: str) -> str:
+    """把落盘的 fingerprint_hash 归一为摘要形态(幂等、不抛)。
+
+    - 已是 64 位十六进制小写摘要 ⇒ 原样返回。
+    - 空串(未记录指纹的哨兵)⇒ 原样返回,不得哈希。
+    - 其余(旧明文拼接串)⇒ 返回其 SHA-256 摘要。
+    """
+    if not value or _DIGEST_RE.match(value):
+        return value
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -119,7 +153,12 @@ class DeviceGraphGuard:
         self._loaded = False
 
     async def _ensure_loaded(self) -> None:
-        """惰性加载持久化数据(首次调用时加载)。"""
+        """惰性加载持久化数据(首次调用时加载)。
+
+        读盘后、使用前立即做指纹摘要迁移(见 _migrate_fingerprint_hash):
+        只有真发生转换才回写一次落盘,二次加载零改动、零写入(幂等)。
+        迁移失败一律只 warn,不得影响发布主流程。
+        """
         if self._loaded:
             return
         async with self._lock:
@@ -128,13 +167,26 @@ class DeviceGraphGuard:
             try:
                 if _GRAPH_FILE.exists():
                     raw = json.loads(_GRAPH_FILE.read_text(encoding="utf-8"))
+                    migrated = 0
                     for item in raw.get("bindings", []):
                         binding = AccountBinding.from_dict(item)
+                        digest = _migrate_fingerprint_hash(binding.fingerprint_hash)
+                        if digest != binding.fingerprint_hash:
+                            binding.fingerprint_hash = digest
+                            migrated += 1
                         self._bindings[binding.account_id] = binding
                     logger.debug(
                         "[device_graph] 已加载 %d 条绑定记录", len(self._bindings),
                     )
-            except (json.JSONDecodeError, OSError, KeyError) as e:
+                    if migrated:
+                        # 已在 self._lock 内,_persist 不再取锁(无重入风险)
+                        await self._persist()
+                        logger.info(
+                            "[device_graph] 指纹摘要迁移: %d 条存量明文绑定已转为 "
+                            "SHA-256 摘要并回写(明文不再落盘)",
+                            migrated,
+                        )
+            except (json.JSONDecodeError, OSError, KeyError, TypeError, ValueError) as e:
                 logger.warning("[device_graph] 加载持久化数据失败: %s", e)
             self._loaded = True
 
@@ -168,7 +220,9 @@ class DeviceGraphGuard:
             fingerprint_hash: 浏览器指纹哈希
             proxy_ip: 代理出口 IP
             ua_hash: User-Agent 哈希
-            canvas_hash: Canvas 指纹哈希(可选)
+            canvas_hash: Canvas 指纹摘要;空串表示**该维度未采集**(detect_linkage 显式跳过)。
+                不得用 `fingerprint_seed` 之类的按账号派生值占位 —— 跨账号必不等,
+                会让这一列成为"有值却永不命中"的反向信号。
         """
         await self._ensure_loaded()
         now = time.time()

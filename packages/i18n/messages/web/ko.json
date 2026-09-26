@@ -10408,6 +10408,7 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "modelSwitchStopped": "{model}(으)로 전환하여 이번 응답을 중단했습니다",
     "filePreviewEmpty": "미리 볼 수 있는 데이터 행이 없습니다.",
     "filePreviewTypeMismatch": "파일 내용이 {ext} 형식과 일치하지 않습니다.",
     "filePreviewCorrupt": "파일을 해석할 수 없습니다. 손상되었을 수 있습니다.",

@@ -56,6 +56,7 @@ import {
   mapEndToTimelineUpdate,
 } from '@/lib/subagent-timeline-mapper'
 import { loadBrowserWorkspaceContext } from './workspace'
+import { resolveRoundModel } from './model-switch'
 import { eduToolsFor, fileToolsFor, mergeAgentTools, uiControlToolsFor } from './tool-config'
 import {
   clearCompactionPreview,
@@ -439,9 +440,16 @@ export function createSendMessage(
       }
     }
 
+    // V3 #68(2026-09-27 立):本轮真正使用的模型,必须在**最后一个 await 之后**复核。
+    // 入口取的 `model`(:321)到这里之间隔着建会话 / 成本预检(「成本协商」还会等用户点确认),
+    // 期间用户改了模型档位 —— 若沿用旧值,就是票面禁止的"用旧模型发新一轮"。
+    // 这里取最新档位而不是终止本轮:用户已经按了发送,让他重发一次等于没做这张票;
+    // 且这一轮尚未触达 provider,终止只会留下一条空气泡。
+    const roundModel = resolveRoundModel(model, useChatStore.getState().currentModel)
+
     // 重新生成模式跳过用户消息重复添加(历史已截断到该用户消息之前,store 已包含它)
     if (!isRegenerate) {
-      store.addMessage({ role: 'user', content: text, model })
+      store.addMessage({ role: 'user', content: text, model: roundModel })
     }
     // 记录该消息生成时的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
     // 模式用于消息气泡的徽章展示,让用户事后能识别"这条回答是基于哪种权限模式生成的"
@@ -452,7 +460,7 @@ export function createSendMessage(
     const assistantId = store.addMessage({
       role: 'assistant',
       content: '',
-      model,
+      model: roundModel,
       permissionMode: currentMode,
     })
 
@@ -546,7 +554,11 @@ export function createSendMessage(
     // 原降级会把 Auto 模式绑死 stepfun 一家,违反用户反馈"应该自动切换所有可使用的模型"。
     // 现在把 'auto' 原样透传到 ai-service,由后端 llm_gateway._resolve_auto_model
     // 从 model_availability 全量可用模型池中跨厂商选最优(stepfun/agnes/cloudflare/nvidia_nim/gemini 等)。
-    const effectiveModel = model
+    // V3 #68:发起前**再**复核一次档位 —— `loadBrowserWorkspaceContext()`(:550)也是 await,
+    // 从 :442 到这里仍可能被一次模型切换插进来。判据"绝不能把旧模型送到 provider"要求在
+    // 离 provider 最近的那一处定档;消息徽章取 :442 的值(那之后到这里的窗口是毫秒级读盘,
+    // 不是用户交互),这一格已知不闭合,登记在交付报告。
+    const effectiveModel = resolveRoundModel(roundModel, useChatStore.getState().currentModel)
 
     // 2026-08-07 修复:web 端无活跃工作区 / 无 workspace handle 时,fs 类工具静默失败,
     // 给用户一个一次性 toast 提示(整个 sendMessage 周期内只弹一次,避免刷屏)。
