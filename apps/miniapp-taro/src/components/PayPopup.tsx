@@ -210,7 +210,9 @@ export default function PayPopup({
               </View>
               <View
                 className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
-                  paymentMethod === 'alipay' ? 'border-primary bg-primary/10' : 'border-border'
+                  paymentMethod === 'alipay'
+                    ? 'border-brand-accent-deep bg-primary/10'
+                    : 'border-border'
                 }`}
                 onClick={() => onMethodChange?.('alipay')}
                 hoverClass="opacity-60"

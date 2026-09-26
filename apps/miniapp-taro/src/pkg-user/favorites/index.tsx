@@ -220,7 +220,7 @@ export default function FavoritesPage() {
             }}
           >
             <Text
-              className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[length:24rpx] text-transparent bg-background border-[length:2rpx] border-primary/40 rounded-xs shrink-0 ${allChecked ? 'text-foreground bg-primary border-primary' : ''}`}
+              className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[length:24rpx] text-transparent bg-background border-[length:2rpx] border-primary/40 rounded-xs shrink-0 ${allChecked ? 'text-foreground bg-primary border-brand-accent-deep' : ''}`}
             >
               {allChecked ? '✓' : ''}
             </Text>
@@ -254,7 +254,7 @@ export default function FavoritesPage() {
                 >
                   {manageMode ? (
                     <Text
-                      className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[length:24rpx] text-transparent bg-background border-[length:2rpx] border-primary/40 rounded-xs shrink-0 ${checked ? 'text-foreground bg-primary border-primary' : ''}`}
+                      className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[length:24rpx] text-transparent bg-background border-[length:2rpx] border-primary/40 rounded-xs shrink-0 ${checked ? 'text-foreground bg-primary border-brand-accent-deep' : ''}`}
                     >
                       {checked ? '✓' : ''}
                     </Text>
@@ -267,14 +267,18 @@ export default function FavoritesPage() {
                     />
                   ) : (
                     <View className="w-[128rpx] h-[128rpx] rounded-xl bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
-                      <Text className="text-[length:20rpx] text-muted-foreground">{item.targetType}</Text>
+                      <Text className="text-[length:20rpx] text-muted-foreground">
+                        {item.targetType}
+                      </Text>
                     </View>
                   )}
                   <View className="flex-1 min-w-0 flex flex-col gap-[16rpx]">
                     <Text className="text-[length:32rpx] font-semibold text-foreground truncate">
                       {item.title}
                     </Text>
-                    <Text className="text-[length:22rpx] text-muted-foreground">{item.targetType}</Text>
+                    <Text className="text-[length:22rpx] text-muted-foreground">
+                      {item.targetType}
+                    </Text>
                     <View className="flex items-center justify-between">
                       <Text className="text-[length:22rpx] text-muted-foreground">
                         {tt('favorites.collectedAt', '收藏于')}{' '}
