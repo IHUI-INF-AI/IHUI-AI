@@ -84,8 +84,18 @@ export const FLOAT_BOX_TOAST_STACK_GAP_PX = 8
 
 /**
  * 1) RN 端 `styles.icon` 是文本字形图标的**回退样式,当前无人引用**(渲染走 lucide 组件)。
- *    其中 ICON_FONT_SIZE=16 / ICON_LINE_HEIGHT=20 两个数留在端内 —— 删除死样式属逻辑清理,
- *    超出本票「只动几何」边界;守门 128 现读 FloatBox「仅 RN 档 16/20」即这一处,已知且已定性。
+ *    其行高已于 2026-09-26 改为引用本表的 `FLOAT_BOX_TEXT_LINE_HEIGHT_PX`(同值 20,端内不再留
+ *    第二份数字 —— 小程序端 FloatBox 的 caption 行高取的就是这一档,同锚即同值);剩下的
+ *    ICON_FONT_SIZE=16 在本表**无对应档**:web 端没有同一元素可作依据(实测 `apps/web/src/components/
+ *    ui/float-indicator.tsx` 是滚动圆点轨、`common/Toaster.tsx` 无几何),而它所在样式不被任何渲染
+ *    引用 ⇒ 按"另一端不渲染该元素不硬拉平"处理,须记台账 waiver(或由持有人清理死样式后自然消失);
+ *    **不得**为一个不上屏的数字新增"只喂一端"的共享档。删除整个死样式属逻辑清理,仍超出几何票边界。
+ *    ⚠️ 读数口径提醒(2026-09-26 实测):守门 128 的 `main()` 调 `audit(pairs, text, baseline)` 时
+ *    **没有把 `collect()` 已算好的 `tiers` 传下去**(`audit` 第 4 形参默认 `{}`),于是现网读数看不见
+ *    任何"已收进 spec 的数字"—— FloatBox 现读「仅 RN 档 16/20」正是这一格造成的:那两档来自端内
+ *    裸数字,而两端经 spec 取的 14/18/20 与 toast 载体档 8/10/80 全都不进集合(把 tiers 传进 audit
+ *    后同一份源码实测读数是「仅 RN 档 8/10/16/80」)。后果:**改档时"读数变小"不等于"两端同值"**,
+ *    同值的证据只能取"两端是否引用同一档名"，不得拿这张尺子的绿灯当交付结论。
  * 2) 小程序端按钮组自身载体几何(盒宽 118rpx、minHeight 340rpx、展开 right 20rpx /
  *    收起 right -240rpx、bottom 9%、箭头命中块 40×100rpx 与 left -161/-37rpx、
  *    内容纵 padding 14rpx、按钮间距 margin 5rpx、图字距 6rpx、字距 2rpx):RN 端没有

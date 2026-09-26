@@ -42,6 +42,8 @@ import {
 
 import { rnRadius } from '@ihui/design-tokens'
 import {
+  MODEL_LIST_AGENT_GLYPH_PX,
+  MODEL_LIST_CHECK_GLYPH_PX,
   MODEL_LIST_CONTENT_BOTTOM_PADDING_PX,
   MODEL_LIST_EMPTY_FONT_PX,
   MODEL_LIST_EMPTY_PADDING_Y_PX,
@@ -142,7 +144,9 @@ function EmptyState(): React.ReactElement {
 function Check(): React.ReactElement {
   return (
     <View style={styles.check}>
-      <CheckIcon size={12} color={tokens.brand.ctaForeground} />
+      {/* 勾的墨迹档两端共用(小程序端 LineIcon check 同取该档 × TARO_RPX_PER_PX)——
+          端内不再留第二份 12,改锚即两端跟随 */}
+      <CheckIcon size={MODEL_LIST_CHECK_GLYPH_PX} color={tokens.brand.ctaForeground} />
     </View>
   )
 }
@@ -248,7 +252,11 @@ function AgentModeRow({
       accessibilityLabel="Agent模式"
     >
       <View style={styles.iconWrap}>
-        <Bot size={20} color={tokens.text.secondary} />
+        {/* Agent 行 logo 位的字形墨迹档:两端共用同一档(小程序端 LineIcon bot 同取该档 ×
+            TARO_RPX_PER_PX)—— 端内不再留第二份 20,改锚即两端跟随。
+            注意:普通模型行的 `<item.icon size={20}>` 与 `iconEmoji` 的 20 **不**并入本档,
+            它与该行的 40×44 logo 块同属 spec 头注登记的"行盒/logo 块"设计裁决项。 */}
+        <Bot size={MODEL_LIST_AGENT_GLYPH_PX} color={tokens.text.secondary} />
       </View>
       <View style={styles.body}>
         <Text style={styles.name}>Agent模式</Text>
