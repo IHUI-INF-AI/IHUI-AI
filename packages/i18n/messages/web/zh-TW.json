@@ -27184,5 +27184,39 @@
         "following": "等待傳送"
       }
     }
+  },
+  "unifiedSuggestion": {
+    "title": "多源建議",
+    "searchPlaceholder": "搜尋建議…",
+    "noMatch": "無匹配建議",
+    "sourceTask": "任務",
+    "sourceSkill": "技能",
+    "sourcePlugin": "外掛程式",
+    "sourceConnector": "連線器",
+    "sourceAgent": "Agent",
+    "sourceFile": "檔案",
+    "provBuiltin": "內建",
+    "provUserLocal": "使用者設定本機",
+    "provUserRemote": "使用者設定遠端",
+    "provProject": "專案設定",
+    "provMarket": "市集",
+    "provPluginProvided": "外掛程式提供",
+    "loadingLabel": "載入中",
+    "sourceFailedTag": "暫時無法載入",
+    "retryLabel": "重試",
+    "degradeSingle": "{failed} 暫時無法載入",
+    "degradePartial": "{failed} 暫時無法載入，仍可繼續使用 {ok}",
+    "degradeAll": "所有建議來源暫時無法載入，仍可直接輸入並傳送訊息",
+    "referenceCapFull": "引用已達上限（{max}），本次新增被忽略",
+    "referenceCount": "{n}/{max}",
+    "pastePreviewTitle": "貼上引用有效性預覽",
+    "pasteValid": "有效",
+    "pasteUnknown": "未辨識",
+    "pastePreviewDismiss": "關閉貼上引用預覽",
+    "authorizationNotice": "引用標籤不新增執行授權",
+    "hintSelect": "選擇",
+    "hintConfirm": "確認",
+    "hintClose": "關閉",
+    "clearAriaLabel": "清空搜尋"
   }
 }
