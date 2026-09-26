@@ -1,9 +1,11 @@
 {
   "counts": {
     "BottomActionBar": 16,
+    "Carousel": 2,
     "FloatBox": 2,
     "InputArea": 1,
-    "ModelList": 10
+    "ModelList": 10,
+    "NavBar": 5
   },
   "waivers": {}
 }
