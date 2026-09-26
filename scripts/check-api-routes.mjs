@@ -56,6 +56,17 @@ const FRONTEND_ENDS = [
   { name: 'mobile-rn', dir: 'apps/mobile-rn', ratchet: true },
   { name: 'miniapp-taro', dir: 'apps/miniapp-taro', ratchet: true },
   { name: 'extension', dir: 'apps/extension', ratchet: true },
+  {
+    name: 'api-client',
+    dir: 'packages/api-client',
+    ratchet: true,
+    // 为什么必须把共享包本身纳进来(2026-09-26 实测):§3 规定端内不得裸 fetch,路径字面量的
+    // **住处**就是这里 —— 只扫四个端等于把最该对账的一面留白。实测三条从写下起就没通过的
+    // 调用(/api/user/token-balance、/api/statistics/user-center、/cozeZhsApi/cache/…)
+    // 全部住在这个包里,而"扩面到三端"那次改动碰不到它们。
+    // 与端内不同:这里的 fetchApi 基址由**宿主注入**,`/cozeZhsApi` 是改写前缀 —— 两者都
+    // 按字面路径参与对账,拼不出来的退到「未判定」计数,绝不静默算通过。
+  },
 ]
 /** 容得下各端真实扩展名(RN/extension 有 .js/.jsx 形态) */
 const FRONTEND_EXTS = ['.ts', '.tsx', '.js', '.jsx']
@@ -1362,7 +1373,10 @@ if (UPDATE_BASELINE) {
   const payload = {
     version: 1,
     anchor: '该文件在基线里的死调用存量数(只减不增;新增即判红,存量只报数)',
-    reason: '2026-09-26 把守门 8 的前端调用面从 apps/web 扩到 mobile-rn / miniapp-taro / extension,首次纳入的存量',
+    reason:
+      '2026-09-26 把守门 8 的前端调用面从 apps/web 扩到 mobile-rn / miniapp-taro / extension,再扩到 packages/api-client,首次纳入的存量。' +
+      'api-client 这批不是本次改动引入的调用:那 15 个文件最近的提交 ca93dd962e 只改了 import 的 .js 扩展名,' +
+      '逐文件新增 /api/ 字面量 0 条(实测),所以它们是从写下起就没人对账过的存量。',
     ends: [...RATCHET_ENDS].sort(),
     face: FACE,
     perFileCount: Object.fromEntries([...countsByFile.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))),

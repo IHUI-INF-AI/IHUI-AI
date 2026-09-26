@@ -671,4 +671,49 @@ test('--self-test 端到端 exit 0(含棘轮三例)', () => {
   assert.equal(r.status, 0, `--self-test 必须全绿\nstdout: ${out}\nstderr: ${r.stderr}`)
   assert.match(out, /self-test 通过/)
 })
+
+// ─── 30. 共享包自身必须进射程(§3 规定端内不得裸 fetch,路径字面量的住处就是这里) ──
+// 正向锁:扩面若被回退成"只扫四个端",本例会红 —— 新增一面却没有一条断言喂它,
+// 就等于该面在这门眼里不存在(名单类判据必须有正向证明,守门 120 同型)。
+test('api-client 纳入:共享包里的死调用被扫出并点名该包', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(dir, 'apps/api/src/routes/x.ts', `server.get('/api/nothing', async () => {})`)
+    writeFile(
+      dir,
+      'packages/api-client/src/endpoints/dead.ts',
+      "export const ping = () => fetchApi('/api/shared/never-registered')\n",
+    )
+    writeFile(dir, 'scripts/api-routes-baseline.json', baselineWith({}))
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `共享包调用点必须进射程\nstdout: ${r.out}`)
+    assert.match(r.out, /GET \/api\/shared\/never-registered/)
+    assert.match(r.out, /packages\/api-client\/src\/endpoints\/dead\.ts/)
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── 31. 该走棘轮的就走棘轮:api-client 的存量不得判红(否则与改动无关的提交全被钉住) ──
+test('api-client 棘轮存量:等于基线额度 ⇒ exit 0 且只报数', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(dir, 'apps/api/src/routes/x.ts', `server.get('/api/nothing', async () => {})`)
+    writeFile(
+      dir,
+      'packages/api-client/src/endpoints/dead.ts',
+      "export const ping = () => fetchApi('/api/shared/never-registered')\n",
+    )
+    writeFile(
+      dir,
+      'scripts/api-routes-baseline.json',
+      baselineWith({ 'packages/api-client/src/endpoints/dead.ts': 1 }),
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `存量按棘轮只报数,不得判红\nstdout: ${r.out}`)
+    assert.match(r.out, /api-client.*存量/)
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
