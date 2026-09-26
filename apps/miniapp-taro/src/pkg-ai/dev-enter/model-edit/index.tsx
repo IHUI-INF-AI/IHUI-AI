@@ -9,7 +9,6 @@ import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
-import BackChevron from '@/components/BackChevron'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const CATEGORIES = [
@@ -53,11 +52,11 @@ interface Opt {
 const OPT_BASE =
   'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[length:28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
 // RN chipActive:border brand.DEFAULT + bg surface.muted;chipTextActive:text.primary + 600
-const OPT_ACTIVE = 'border-primary bg-muted text-foreground font-semibold'
+const OPT_ACTIVE = 'border-brand-accent-deep bg-muted text-foreground font-semibold'
 // RN 端种类标签与选项 chip 完全同款(chip/chipText 无区分),统一为 OPT 样式
 const TAG_BASE =
   'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[length:28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
-const TAG_ACTIVE = 'border-primary bg-muted text-foreground font-semibold'
+const TAG_ACTIVE = 'border-brand-accent-deep bg-muted text-foreground font-semibold'
 
 export default function ModelEdit() {
   const { t } = useI18n()
@@ -221,8 +220,7 @@ export default function ModelEdit() {
       <View className="min-h-screen bg-background flex flex-col">
         {/* RN header:row/center/justify-between + px10/py12,无独立背景(透出 surface.bg) */}
         <View className="flex items-center justify-between px-[20rpx] py-[24rpx]">
-          {/* 返回键统一走 BackChevron(矢量 chevron-left + aria 名称),与 web 端顶栏同档 */}
-          <BackChevron onTap={() => Taro.navigateBack()} />
+          {/* 返回键由微信原生导航栏承担,页内不再自渲染 */}
           {/* RN headerTitle:20dp→40rpx、600、text.primary */}
           <Text className="text-[length:40rpx] font-semibold text-foreground">
             {tt('devEnter.modelEdit.title', '编辑模型')}
@@ -295,7 +293,7 @@ export default function ModelEdit() {
               value={deptIndex}
               onChange={(e) => setDeptIndex(Number(e.detail.value))}
             >
-              <View className="flex items-center justify-between h-[72rpx] px-[28rpx] rounded-xl border border-primary bg-muted text-[length:28rpx] font-semibold text-foreground box-border">
+              <View className="flex items-center justify-between h-[72rpx] px-[28rpx] rounded-xl border border-brand-accent-deep bg-muted text-[length:28rpx] font-semibold text-foreground box-border">
                 <Text>{DEPARTMENTS[deptIndex]}</Text>
                 <LineIcon name="chevron-down" size={24} color="var(--color-muted-foreground)" />
               </View>

@@ -220,7 +220,7 @@ export function ConversationImportPanel() {
                   onClick={() => setSource(s.value)}
                   className={`flex flex-col items-start gap-1 rounded-md border px-3 py-2 text-left transition-colors ${
                     active
-                      ? 'border-primary bg-primary/5 text-foreground'
+                      ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                       : 'border-border text-muted-foreground hover:bg-accent'
                   }`}
                 >

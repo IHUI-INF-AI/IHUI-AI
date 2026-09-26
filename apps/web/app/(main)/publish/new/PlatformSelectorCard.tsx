@@ -65,7 +65,7 @@ export function PlatformSelectorCard({
                   className={cn(
                     'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors',
                     checked
-                      ? 'border-primary bg-primary/5 text-foreground'
+                      ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                       : 'border-border text-muted-foreground hover:bg-accent',
                   )}
                 >

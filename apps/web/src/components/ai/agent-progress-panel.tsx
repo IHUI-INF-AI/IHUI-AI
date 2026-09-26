@@ -26,7 +26,7 @@ const STEP_META: Record<
   { icon: React.ComponentType<{ className?: string }>; cls: string; ring: string }
 > = {
   pending: { icon: Circle, cls: 'text-muted-foreground', ring: 'border-muted' },
-  running: { icon: Loader2, cls: 'text-primary', ring: 'border-primary' },
+  running: { icon: Loader2, cls: 'text-primary', ring: 'border-brand-accent-deep' },
   done: { icon: CheckCircle2, cls: 'text-emerald-500', ring: 'border-emerald-500' },
   error: { icon: AlertCircle, cls: 'text-destructive', ring: 'border-destructive' },
 }
