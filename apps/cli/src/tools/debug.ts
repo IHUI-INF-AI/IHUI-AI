@@ -366,7 +366,16 @@ function getSession(sessionId: string): DapClient | null {
   return client;
 }
 
-/** 清理超时 session。 */
+/**
+ * 清理超时/已终止的 session,返回**回收条数**(调用方必须把它摊到用户可见的输出里)。
+ *
+ * 修复依据(2026-09-26):本函数此前是**导出却零调用方**的死出口 —— 守门 121
+ * (`scripts/check-declared-policy-has-consumer.mjs`)现读即点名 `cleanupIdleSessions` 未接线。
+ * 后果:文件头那句"session 30 分钟无活动自动清理"只是注释,真实行为是**除非有人调
+ * debug_list_sessions,一个空闲的 debug adapter 子进程会永久留在 `sessions` 里**
+ * (Map 只增不减 + 子进程不被摘除)。本票把它接到 `sessions` 的全部增长点与列举点,
+ * 使摘除只有一条出口;回收计数一并回传,不得静默变短。
+ */
 export function cleanupIdleSessions(): number {
   let cleaned = 0;
   for (const [sid, client] of sessions) {
@@ -378,6 +387,35 @@ export function cleanupIdleSessions(): number {
   }
   return cleaned;
 }
+
+/**
+ * 跑一次回收并返回**给用户看的提示串**(无回收时为空串)。
+ * 三个增长点/列举点共用这一份,避免"哪里该回收"再被写第二遍。
+ */
+function reapIdleSessionsNote(): string {
+  const cleaned = cleanupIdleSessions();
+  return cleaned > 0 ? `\n(本次回收 ${cleaned} 个空闲/已终止的 debug session)` : '';
+}
+
+/**
+ * 测试通道(生产代码禁止引用):把私有注册表的三个动作暴露给回归测试,用于断言
+ * "空闲/已终止条目被真摘除、且回收有计数"。刻意不暴露 `DapClient` 类型本身 —— 它是本模块实现细节。
+ */
+export const __test__ = {
+  seedSession(sessionId: string, opts: { terminated?: boolean; idle?: boolean }): void {
+    const fake = {
+      sessionId,
+      status: opts.terminated ? 'terminated' : 'running',
+      isIdle: () => opts.idle === true,
+      disconnect: async (): Promise<void> => {},
+    };
+    sessions.set(sessionId, fake as unknown as DapClient);
+  },
+  sessionCount(): number {
+    return sessions.size;
+  },
+  cleanupIdleSessions,
+};
 
 // ==================== 10 个 DAP 工具 ====================
 
@@ -451,10 +489,11 @@ export const debug_launch: Tool = {
     }
 
     sessions.set(client.sessionId, client);
+    const launchReaped = reapIdleSessionsNote();
     runPostToolCall('debug_launch', { sessionId: client.sessionId, type: language });
     return {
       success: true,
-      output: `调试 session 已启动\nsessionId: ${client.sessionId}\nlanguage: ${language}\ncommand: ${command}\nstopOnEntry: ${stopOnEntry}`,
+      output: `调试 session 已启动\nsessionId: ${client.sessionId}\nlanguage: ${language}\ncommand: ${command}\nstopOnEntry: ${stopOnEntry}${launchReaped}`,
     };
   },
 };
@@ -515,10 +554,11 @@ export const debug_attach: Tool = {
     }
 
     sessions.set(client.sessionId, client);
+    const attachReaped = reapIdleSessionsNote();
     runPostToolCall('debug_attach', { sessionId: client.sessionId, type: language, port });
     return {
       success: true,
-      output: `已 attach 到调试目标\nsessionId: ${client.sessionId}\nlanguage: ${language}\nhost: ${host}\nport: ${port}`,
+      output: `已 attach 到调试目标\nsessionId: ${client.sessionId}\nlanguage: ${language}\nhost: ${host}\nport: ${port}${attachReaped}`,
     };
   },
 };
@@ -872,14 +912,15 @@ export const debug_list_sessions: Tool = {
   required: [],
   async execute(): Promise<ToolResult> {
     runPreToolCall('debug_list_sessions', {});
-    // 清理已终止的 session
-    for (const [sid, client] of sessions) {
-      if (client.status === 'terminated') {
-        sessions.delete(sid);
-      }
-    }
+    // 摘除出口只有一处:`cleanupIdleSessions()`。此前这里内联了一份"只清 terminated"的重复循环,
+    // 同一个 Map 于是有两条写入路径且语义不一致 —— 内联那份永远不看 idle,
+    // 而 idle 才是"adapter 子进程还活着却再没人管"的那一半。
+    const listReaped = reapIdleSessionsNote();
     if (sessions.size === 0) {
-      return { success: true, output: '(无活跃 debug session)' };
+      return {
+        success: true,
+        output: listReaped.trim() ? `(无活跃 debug session)${listReaped}` : '(无活跃 debug session)',
+      };
     }
     const lines: string[] = [];
     for (const client of sessions.values()) {
@@ -889,7 +930,7 @@ export const debug_list_sessions: Tool = {
     runPostToolCall('debug_list_sessions', { count: sessions.size });
     return {
       success: true,
-      output: `活跃 debug session(${sessions.size} 个):\n${lines.join('\n')}`,
+      output: `活跃 debug session(${sessions.size} 个):\n${lines.join('\n')}${listReaped}`,
     };
   },
 };

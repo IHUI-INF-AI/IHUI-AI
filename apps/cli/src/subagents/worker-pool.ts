@@ -35,11 +35,13 @@ import type {
   WorkerState,
 } from '@ihui/types';
 
+// 并发档位一律经单一出口解析(见 concurrency-budget.ts 头注:本文件不得再出现并发字面量)
+import { notePoolClosed, notePoolCreated, resolveMaxConcurrency } from './concurrency-budget.js'
+
 // ───────────────────────────── 常量 ─────────────────────────────
 
 const HEARTBEAT_INTERVAL_MS = 5_000;
 const SHUTDOWN_GRACE_MS = 5_000;
-const DEFAULT_MAX_WORKERS = 4;
 const DEFAULT_TASK_TIMEOUT_SECONDS = 300;
 const DEFAULT_MAX_QUEUE_SIZE = 100;
 // P0-3 修复:buffer 上限,防长跑多 subagent OOM 主进程
@@ -119,6 +121,8 @@ export class SubagentWorkerPool {
     this.config = config;
     this.entryPath = resolveWorkerEntryPath();
     this.heartbeatTimeoutMs = (config.heartbeatTimeoutSeconds ?? 60) * 1000;
+    // 可观测:并发总量 = 各池 maxWorkers 之和,池数是那个"2×maxWorkers"放大倍数的来源
+    notePoolCreated();
   }
 
   /** fork 一个子进程跑子 agent,返回 spawn 响应(子进程完成后 resolve) */
@@ -181,6 +185,8 @@ export class SubagentWorkerPool {
 
   /** 优雅关闭:SIGTERM 所有子进程 → 5s → SIGKILL,清理 worktree */
   async shutdown(): Promise<void> {
+    // 只数首次 shutdown(重复调用不得把 activePools 打成负数)
+    if (!this.shutDown) notePoolClosed();
     this.shutDown = true;
     // P0-4 修复:shutdown 时先遍历 queue 调 resolve(failed) 再清空
     // 原实现直接 this.queue.length = 0 → 调用方 await pool.spawn(req) 永远 hang → Promise 泄漏
@@ -611,16 +617,20 @@ function resolveWorkerEntryPath(): string {
 
 /**
  * 默认 WorkerPoolConfig 工厂(用户未传完整 config 时用)。
- * maxWorkers=4,taskTimeoutSeconds=300,maxQueueSize=100。
+ * maxWorkers 由 concurrency-budget 单一出口解析(未传 ⇒ CPU 推导;传了 ⇒ 钳到 [1, 硬上限]),
+ * taskTimeoutSeconds=300,maxQueueSize=100。
+ *
+ * 注意 `maxWorkers` 必须放在 `...overrides` **之后**:否则调用方(含模型自填的 999)
+ * 会在最后一刻把钳制结果覆盖掉,钳制形同不存在。
  */
 export function defaultWorkerPoolConfig(overrides?: Partial<WorkerPoolConfig>): WorkerPoolConfig {
   return {
-    maxWorkers: DEFAULT_MAX_WORKERS,
     taskTimeoutSeconds: DEFAULT_TASK_TIMEOUT_SECONDS,
     maxQueueSize: DEFAULT_MAX_QUEUE_SIZE,
     idleWorkerTtlSeconds: 60,
     preemptive: false,
     ...overrides,
+    maxWorkers: resolveMaxConcurrency(overrides?.maxWorkers),
   };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

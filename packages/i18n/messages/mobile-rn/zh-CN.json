@@ -2050,6 +2050,10 @@
     "title": "直播预告"
   },
   "messageCenter": {
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "pinFailed": "置顶失败,请重试",
+    "unpinFailed": "取消置顶失败,请重试",
     "conversations": "会话",
     "empty": "暂无消息",
     "title": "消息",

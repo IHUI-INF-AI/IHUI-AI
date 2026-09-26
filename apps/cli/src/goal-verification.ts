@@ -22,11 +22,41 @@
 
 import { fetchAiServiceJson } from '@ihui/api-client';
 import type { GoalHardCriterion, GoalVerification } from '@ihui/api-client';
+import { GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES } from '@ihui/shared';
+import { neutralizeBoundaries } from './utils/prompt-boundary.js';
 import { resolveCloudRunBase } from './cloud-run.js';
 
 /** 与 `agent_loop_v2` / `goal_completion_gate.py` 同名单值:done 帧覆盖 stopReason 用 */
 export const STOP_VERIFICATION_NOT_ACHIEVED = 'verification_not_achieved';
 export const STOP_VERIFICATION_UNDETERMINED = 'verification_undetermined';
+/**
+ * AGENTS.md §8 第 4 步"连续 N 轮 no 无进展 → blocked"的收口档。
+ * 与"单次未过"(`STOP_VERIFICATION_*`)是两个档,不得合并 —— 前者还在续跑,
+ * 后者已经放弃续跑,把它们并成一档就等于把"还剩几次机会"这条信息丢掉。
+ */
+export const STOP_GOAL_BLOCKED = 'goal_blocked';
+
+/**
+ * 连续未过的上限:**唯一真源在 ai-service `app/core/tunables.py`,TS 侧只从
+ * `@ihui/shared` 的跨端镜像取**(守门 `check-killer-parity-ends` 拦的就是端内写死数字)。
+ * 原样再导出,是为了让消费方(含测试)引用的是同一个标识符,而不是各自 `import` 两个名字。
+ */
+export { GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES };
+
+/**
+ * 解析本轮生效的连续未过上限。
+ *
+ * 取向与全文件同一条:**缺信息只会更保守,绝不会更宽松**。
+ * 缺失 / 非数字 / 非正数 / NaN / Infinity 一律落回镜像常量 —— 拿 Infinity 当"没配上限"
+ * 是这台机上最常见的一种 fail-open(它等于"永不收口",而 §8 要的恰恰是有界)。
+ */
+export function resolveMaxConsecutiveFailures(
+  raw: number | null | undefined,
+): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES;
+  const n = Math.floor(raw);
+  return n >= 1 ? n : GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES;
+}
 
 /** ai-service 端点(`app/routers/goal_verification.py` 的 @router.post 路径) */
 export const GOAL_VERIFY_PATH = '/api/agent/goal-verify';
@@ -295,5 +325,133 @@ export function applyGoalVerificationToStopReason<R extends string>(
   return verification.status === 'not_achieved'
     ? STOP_VERIFICATION_NOT_ACHIEVED
     : STOP_VERIFICATION_UNDETERMINED;
+}
+
+/**
+ * 续跑判定的四种落点。**四个档彼此不可合并**:
+ * - `pass`：盖章通过，按 `end_turn` 交账；
+ * - `continue`：未过但还有迭代预算 → 把未达标项回灌给循环，让它继续干活（§8 第 4 步的 "no → 续跑"）；
+ * - `blocked`：连续未过到达上限 → 生命周期收口（§8 第 4 步的 "连续 N 轮 no → blocked"）；
+ * - `deliver_unverified`：未过且**没有**预算了 → 既不判达成也不判 blocked，
+ *   按未达标交账。把它写成 `pass` 就是 fail-open；把它并入 `blocked` 就是谎报生命周期档位
+ *   （"没预算"与"干不动了"是两件事，恢复端要分得出来）。
+ */
+export type GoalContinuationAction = 'pass' | 'continue' | 'blocked' | 'deliver_unverified';
+
+export interface GoalContinuationInput {
+  /** 本轮独立校验结论（`runGoalVerification` 的返回值） */
+  verification: GoalVerification;
+  /** 进入本轮之前已累计的连续未过次数 */
+  consecutiveFailures: number;
+  /** 循环还能不能再跑一轮（`maxIterations - iterations`）；<=0 即无预算 */
+  iterationsRemaining: number;
+  /** 上限覆盖：缺省取服务端上报的 `max_consecutive_failures`，再缺省取跨端镜像常量 */
+  maxConsecutiveFailures?: number | null;
+}
+
+export interface GoalContinuationDecision {
+  action: GoalContinuationAction;
+  /** 本轮之后累计的连续未过次数（通过即归零） */
+  consecutiveFailures: number;
+  /**
+   * 交账用的结论。**只在落 blocked 时**才是副本（`goal_status: 'blocked'`）；
+   * 其余情形是原对象引用 —— 绝不原地改写调用方手里的那份。
+   */
+  verification: GoalVerification;
+  /** 回灌给循环的反馈正文（仅 `continue` 档非空） */
+  feedback?: string;
+  /** 本轮生效的上限（供通知/日志如实报出，不让人猜"这次是第几次"） */
+  maxConsecutiveFailures: number;
+}
+
+/**
+ * 组装回灌正文。**刻意全 ASCII**：
+ * ① 它是喂给模型的提示，不是给人看的 UI 文案（人看的版本由命令层经 i18n 出口打印，§19）；
+ * ② 在 `apps/cli/src` 写中文字面量会顶到守门 70 的每文件棘轮。
+ * 服务端来的 reason / unavailable_reason 属"非宿主内容"，进提示前必须过边界中和
+ * （唯一出口 `neutralizeBoundaries`）—— 否则第三方文本里出现 `[GOAL_VERIFICATION_*]`
+ * 这类前缀就能冒充宿主在说话。
+ */
+export function buildGoalFeedbackMessage(
+  verification: GoalVerification,
+  attempt: number,
+  maxAttempts: number,
+): string {
+  const unmet = verification.criteria.filter((c) => c.verdict !== 'met');
+  const lines = [
+    `[GOAL_VERIFICATION_FAILED] attempt ${attempt} of ${maxAttempts}: the independent verification ` +
+      `round did not pass. Do NOT report completion; keep working until every required criterion ` +
+      `is satisfied by real evidence.`,
+  ];
+  if (unmet.length > 0) {
+    lines.push('Unmet criteria:');
+    for (const c of unmet) {
+      lines.push(
+        `- criterion_id=${c.criterion_id} verdict=${c.verdict} basis=${c.basis}` +
+          ` reason=${neutralizeBoundaries(String(c.reason ?? ''))}`,
+      );
+    }
+  } else {
+    lines.push(
+      'No per-criterion breakdown was returned, so treat every declared criterion as unverified.',
+    );
+  }
+  if (verification.unavailable_reason) {
+    lines.push(
+      `unavailable_reason=${neutralizeBoundaries(verification.unavailable_reason)}`,
+    );
+  }
+  if (attempt < maxAttempts) {
+    lines.push(`This goal is marked blocked after ${maxAttempts} consecutive failed checks.`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * §8 第 4 步的判定：**未过 ≠ 交账**。
+ *
+ * 判序（顺序即语义，两处都已由用例钉死）：
+ *   盖章通过 → pass；否则先数次数 —— 到达上限 → blocked（优先于"没预算"，
+ *   因为收口比"这次恰好跑不动"更具体）；还有预算 → continue；没预算 → deliver_unverified。
+ */
+export function decideGoalContinuation(input: GoalContinuationInput): GoalContinuationDecision {
+  const { verification } = input;
+  const maxAttempts = resolveMaxConsecutiveFailures(
+    input.maxConsecutiveFailures ?? verification.max_consecutive_failures,
+  );
+  if (verification.treat_as_complete) {
+    return {
+      action: 'pass',
+      consecutiveFailures: 0,
+      verification,
+      maxConsecutiveFailures: maxAttempts,
+    };
+  }
+  // 未过：not_achieved 与 undetermined 同等计一次（拿"没判成"当免费续跑就是 fail-open）
+  const next = input.consecutiveFailures + 1;
+  if (next >= maxAttempts) {
+    return {
+      action: 'blocked',
+      consecutiveFailures: next,
+      // 收口档写进副本：goal_status 是生命周期字段，而 status 保留服务端原判
+      verification: { ...verification, goal_status: 'blocked' },
+      maxConsecutiveFailures: maxAttempts,
+    };
+  }
+  if (input.iterationsRemaining > 0) {
+    return {
+      action: 'continue',
+      consecutiveFailures: next,
+      verification,
+      feedback: buildGoalFeedbackMessage(verification, next, maxAttempts),
+      maxConsecutiveFailures: maxAttempts,
+    };
+  }
+  return {
+    action: 'deliver_unverified',
+    consecutiveFailures: next,
+    verification,
+    maxConsecutiveFailures: maxAttempts,
+  };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
