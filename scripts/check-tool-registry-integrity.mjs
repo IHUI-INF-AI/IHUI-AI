@@ -45,6 +45,25 @@
  *      进主链路时要审批 —— 授权面随入口而变就是 #47 的病根)。
  *   J9 桥表声明的注册表等价物必须真在 `_TOOL_HANDLERS` 里(回查落到空气上=等价声明没写)。
  *   J10 等价物为 None 的条目必须带理由字符串(否则「注册表确实没有」与「漏登记」在账面同形)。
+ *   J12 内置名单只允许有一处字面量清单(V3 #47 第一格,2026-09-26):
+ *      a) `agent_engine.py` 的代码面(已抹注释与 docstring)出现 `"内置名": self.` ⇒ 红
+ *         —— 那正是被消除的 `builders` dict 形态:名单改一处、构造表改另一处时,
+ *         表现是"某个内置名永远构造不出来",而 J8 读的是名单,看不见这张表;
+ *      b) 除 `BUILTIN_ENGINE_TOOLS` 外任何模块级字面量集合含 ≥3 个内置名 ⇒ 红(第二份清单;
+ *         阈值 3 放过单个名字的巧合性引用,如宿主同名覆盖判定)。
+ *      判结构前必须抹 docstring:本仓的说明文字会照着写出被禁形态,按全文判会把
+ *      "解释自己的散文"判成违规(守门 131/70 同一型假阳)。
+ *   J13 唯一解析出口必须真装车(V3 #47 第二格):桥模块要定义 `resolve_engine_tool`,
+ *      且"名字是否已注册"必须现读 `mcp_server._TOOL_HANDLERS`(不许在桥里再抄一份注册清单);
+ *      A/B 共用的执行入口 `mcp_server` 必须**既 import 又调用**它 —— 只 import 不构成接线。
+ *      没有这条,票面那句"C 的内置名在 A/B 一个都调不到"原样成立而账面多了一张漂亮的表
+ *      (守门 64/70/81 的"造好没装车"同型)。
+ *   J14 处置结论(mode ∈ BRIDGE_MODES,现读自桥模块,不抄第二份)与「有没有注册表等价物」
+ *      必须双向咬合:port/map ⇒ 必有等价物;local ⇒ 必无等价物。否则 mode 就是一列
+ *      可以随时改口的标签 —— 把 local 涂成 map 就等于宣称"已归一"。
+ *
+ * 形态漂移也是判据:桥表的值被改成裸字符串/构造调用时逐条记 malformed 并判红,
+ * 因为"解析器读空"在这套判据里的表现就是 0 处违规 = 假绿。
  *
  * 取材铁律:Python 侧一律经 Python 自身的 `ast.literal_eval` 取集合成员,**不靠整行 grep**。
  *   `_FS_DEPENDENT_TOOLS` 上方有一段注释里写着 `list_files`(2026-08-06 移出说明),
@@ -62,7 +81,7 @@
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve as resolvePath } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { COLORS as C } from './lib/logger.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -168,6 +187,57 @@ function stripLineComments(src) {
     out.push(buf)
   }
   return out.join('\n')
+}
+
+/**
+ * 剥掉 Python 的**三引号 docstring 内容**与行注释,单行字符串**原样保留**。
+ * 只给 J12 用:"内置名被抄成第二份名单"是**代码结构**问题 —— 而代码里的 dict 键正是
+ * 单行字符串,所以不能连单行串一起抹(抹了判据就瞎);要抹的是散文的载体:注释与
+ * docstring。本仓的说明文字里会照着写出被禁形态(agent_engine 的 docstring 就写着
+ * "改前这里是一张 …"),按全文判会把"解释自己的散文"判成违规 —— 守门 131/70 同一型
+ * 假阳,而散文一改判据就漂绿。
+ */
+function stripPyDocstrings(src) {
+  const out = []
+  let i = 0
+  while (i < src.length) {
+    const ch = src[i]
+    if (ch === '#') {
+      while (i < src.length && src[i] !== '\n') i++
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      const triple = src.slice(i, i + 3) === ch.repeat(3)
+      if (triple) {
+        out.push(ch.repeat(3))
+        i += 3
+        while (i < src.length && !src.startsWith(ch.repeat(3), i)) i++
+        i += 3
+        out.push(ch.repeat(3))
+        continue
+      }
+      // 单行字符串 = 代码(键名/取值都在这一层),逐字留下
+      out.push(ch)
+      i++
+      while (i < src.length && src[i] !== ch && src[i] !== '\n') {
+        if (src[i] === '\\') {
+          out.push(src[i], src[i + 1] ?? '')
+          i += 2
+          continue
+        }
+        out.push(src[i])
+        i++
+      }
+      if (i < src.length && src[i] === ch) {
+        out.push(ch)
+        i++
+      }
+      continue
+    }
+    out.push(ch)
+    i++
+  }
+  return out.join('')
 }
 
 /**
@@ -327,10 +397,15 @@ function localRegistry(texts) {
 /**
  * 引擎能力桥表 `ENGINE_TOOL_BRIDGE` 的条目。
  *
- * 每条读两件事:第一个元组元素(注册表里的同一能力拥有者,或 None)、
- * 第二个元素是否存在(理由)。第二个元素的内容刻意不解析 ——
- * 理由里有多段隐式拼接的字符串,把它们当值读只会让判据随格式化漂移;
- * 本门要问的是「有没有交代」,不是「交代了什么」。
+ * 每条读三件事:
+ *  - `equivalent` —— 第一个元组元素(注册表里的同一能力拥有者,或 None);
+ *  - `hasReason`  —— 第二个元素是否给了字符串(理由里有多段隐式拼接,内容刻意不解析:
+ *                    把它们当值读只会让判据随格式化漂移,本门问「有没有交代」);
+ *  - `mode`       —— 第三个元素的处置结论(port/map/local),V3 #47 第二格新增。
+ *
+ * 为什么不再用一条正则:真表里的理由带 ASCII 括号(`scope(sandbox_full_access / …)`)
+ * 且跨多行隐式拼接,任何"到闭合括号为止"的正则都会在那里断掉 —— 而断掉的形态是
+ * **少读几条**,在门上表现为"0 处违规 = 假绿"。改成串/括号感知的逐条扫描。
  */
 function bridgeEntries(texts) {
   const src = texts[PY_BRIDGE]
@@ -339,15 +414,130 @@ function bridgeEntries(texts) {
     throw new Error(`${PY_BRIDGE}: 未找到 ENGINE_TOOL_BRIDGE 的字面量赋值(读空=判据失明,不记绿)`)
   }
   const out = new Map()
-  const re =
-    /"([A-Za-z0-9_]+)"\s*:\s*\(\s*(?:"([A-Za-z0-9_]+)"|None)\s*,\s*("(?:[^"\\]|\\.)*"|None)/g
-  for (const m of lit.matchAll(re)) {
-    out.set(m[1], {
-      equivalent: m[2] ?? null,
-      hasReason: typeof m[3] === 'string' && m[3][0] === '"',
+  for (const { key, body } of scanTupleEntries(lit)) {
+    if (body === null) {
+      // 值不是元组形态(被改成裸字符串 / 构造调用)—— 记一条"读不全"而不是静默跳过:
+      // 静默跳过就是形态漂了而账面全绿(§22c 归档器 11 天扫到 0 条同一型)。
+      out.set(key, { equivalent: null, hasReason: false, mode: null, malformed: true })
+      continue
+    }
+    const elems = splitTupleElements(body)
+    const first = elems[0] ?? 'None'
+    const second = elems[1] ?? 'None'
+    const third = elems[2] ?? 'None'
+    out.set(key, {
+      equivalent: /^"([A-Za-z0-9_]+)"$/.exec(first)?.[1] ?? null,
+      hasReason: second.startsWith('"'),
+      mode: /^"([a-z_]+)"$/.exec(third)?.[1] ?? null,
+      malformed: false,
     })
   }
   return out
+}
+
+/** 在 dict 字面量里逐条扫 `"key": <value>`;value 是元组时返回其内部文本,否则返回 null。 */
+function scanTupleEntries(lit) {
+  const found = []
+  let i = 0
+  while (i < lit.length) {
+    const ch = lit[i]
+    if (ch === '"' || ch === "'") {
+      const key = lit.slice(i + 1, skipString(lit, i) - 1)
+      const after = skipString(lit, i)
+      let j = after
+      while (j < lit.length && /\s/.test(lit[j])) j++
+      if (lit[j] !== ':') {
+        // 不是"键:"位置(例如理由里的拼接片段、集合成员)—— 跳过整段字符串继续
+        i = after
+        continue
+      }
+      let k = j + 1
+      while (k < lit.length && /\s/.test(lit[k])) k++
+      if (lit[k] === '(') {
+        const end = matchBracket(lit, k, '(', ')')
+        if (end < 0) return found
+        found.push({ key, body: lit.slice(k + 1, end) })
+        i = end + 1
+        continue
+      }
+      // 值不是元组(被改成裸字符串 / None / 构造调用):记一条 malformed,
+      // 静默跳过等于"表读空而账面全绿"—— 本仓最高频的判据失效形态。
+      found.push({ key, body: null })
+      let m = k
+      while (m < lit.length && lit[m] !== ',' && lit[m] !== '}') m++
+      i = m
+      continue
+    }
+    i++
+  }
+  return found
+}
+
+/** 跳过一段字符串,返回结束后的下标(未闭合则返回文末)。 */
+function skipString(text, start) {
+  const quote = text[start]
+  const triple = text.slice(start, start + 3) === quote.repeat(3)
+  const delim = triple ? quote.repeat(3) : quote
+  let i = start + delim.length
+  while (i < text.length) {
+    if (text[i] === '\\') {
+      i += 2
+      continue
+    }
+    if (text.startsWith(delim, i)) return i + delim.length
+    if (!triple && text[i] === '\n') return i
+    i++
+  }
+  return text.length
+}
+
+/** 括号配对:返回与 start 处开括号匹配的闭括号下标(找不到返回 -1)。 */
+function matchBracket(text, start, open, close) {
+  let depth = 0
+  let i = start
+  while (i < text.length) {
+    const ch = text[i]
+    if (ch === '"' || ch === "'") {
+      i = skipString(text, i)
+      continue
+    }
+    if (ch === open) depth++
+    else if (ch === close) {
+      depth--
+      if (depth === 0) return i
+    }
+    i++
+  }
+  return -1
+}
+
+/** 按**顶层逗号**切元组元素(括号/字符串内的逗号不算)。 */
+function splitTupleElements(tuple) {
+  const parts = []
+  let depth = 0
+  let buf = ''
+  let i = 0
+  while (i < tuple.length) {
+    const ch = tuple[i]
+    if (ch === '"' || ch === "'") {
+      const end = skipString(tuple, i)
+      buf += tuple.slice(i, end)
+      i = end
+      continue
+    }
+    if (ch === '(' || ch === '[' || ch === '{') depth++
+    else if (ch === ')' || ch === ']' || ch === '}') depth--
+    if (ch === ',' && depth === 0) {
+      parts.push(buf.trim())
+      buf = ''
+      i++
+      continue
+    }
+    buf += ch
+    i++
+  }
+  if (buf.trim() !== '') parts.push(buf.trim())
+  return parts
 }
 
 /** 引擎内核自带的内置名(`BUILTIN_ENGINE_TOOLS` 元组成员)。 */
@@ -360,6 +550,40 @@ function engineBuiltins(texts) {
   return setMembers(lit)
 }
 
+/**
+ * 处置结论的封闭集 —— **现读** `engine_tool_bridge.BRIDGE_MODES`,不在本门里抄第二份
+ * (抄了就会漂移:Python 侧加一档、门不知道,新形态在门上表现为"mode 不合法"或更糟的
+ * "读不到 mode 而放过")。读不到即抛:那正是"对着空气打分"。
+ */
+function bridgeModeSet(texts) {
+  const lit = pyCollection(texts[PY_BRIDGE], 'BRIDGE_MODES')
+  if (lit === null) {
+    throw new Error(
+      `${PY_BRIDGE}: 未找到 BRIDGE_MODES 的字面量赋值 —— 处置结论的封闭集读空时 J14 无判据,不记绿`,
+    )
+  }
+  return setMembers(lit)
+}
+
+/**
+ * J12 的取材:某个模块级字面量集合里出现的内置名(≥3 个才算"另抄的一份名单";
+ * 1-2 个是巧合性引用,比如 host 覆盖判定里的单个名字,把它算成第二份真相就是假阳)。
+ */
+function strayBuiltinLists(texts, builtins) {
+  const src = stripPyDocstrings(texts[PY_ENGINE])
+  const out = []
+  const decl = /^([A-Za-z_][A-Za-z0-9_]*)\s*(?::[^\n=]*)?=\s*([{[(])/gm
+  for (const m of [...src.matchAll(decl)]) {
+    const name = m[1]
+    if (name === 'BUILTIN_ENGINE_TOOLS') continue
+    const lit = pyCollection(src, name)
+    if (lit === null) continue
+    const hit = [...setMembers(lit)].filter((x) => builtins.has(x))
+    if (hit.length >= 3) out.push({ name, hit: hit.sort() })
+  }
+  return out
+}
+
 function collect(texts) {
   const llm = texts[PY_LLM]
   const take = (name) => {
@@ -367,6 +591,7 @@ function collect(texts) {
     if (lit === null) throw new Error(`${PY_LLM}: 未找到 ${name} 的字面量赋值`)
     return lit
   }
+  const builtins = engineBuiltins(texts)
   return {
     fs: setMembers(take('_FS_DEPENDENT_TOOLS')),
     delegateOnly: setMembers(take('_DELEGATE_ONLY_TOOLS')),
@@ -376,8 +601,15 @@ function collect(texts) {
     aliases: dictMap(PY_MCP, texts[PY_MCP], '_TOOL_ALIASES'),
     local: localRegistry(texts),
     frontend: frontendCases(texts),
-    builtins: engineBuiltins(texts),
+    builtins,
     bridge: bridgeEntries(texts),
+    // V3 #47 第二格(2026-09-26):处置结论的封闭集 + J12/J13 的取材面。
+    modes: bridgeModeSet(texts),
+    engineSrc: texts[PY_ENGINE],
+    mcpSrc: texts[PY_MCP],
+    bridgeSrc: texts[PY_BRIDGE],
+    // 「另抄的一份内置名清单」(J12):同一次取材里算,避免两处读不同版本
+    strayLists: strayBuiltinLists(texts, builtins),
   }
 }
 
@@ -504,6 +736,99 @@ function check(d, aliasDefs) {
     }
   }
 
+  // J14 —— 处置结论(mode)的纪律(V3 #47 第二格,2026-09-26)。
+  // 票面要求"逐个点名处置结论:映射 / 移植 / 确属引擎专有",所以每条必须落在
+  // BRIDGE_MODES 那个**现读**的封闭集里,且与"有没有注册表等价物"双向一致:
+  //   port/map ⇒ 必有等价物(否则"归口"归到空气上);local ⇒ 必无等价物(否则该写 map)。
+  // 没有这条,mode 就是一列可以随时改口的注释 —— 把 local 涂成 map 就等于宣称已归一。
+  for (const [name, entry] of [...d.bridge.entries()].sort()) {
+    if (entry.malformed) {
+      failures.push(
+        `J14 引擎内置名 '${name}' 的桥表值不是三元组字面量(${PY_BRIDGE})—— ` +
+          '本表的形态约束是"纯字面量 dict",改成别的形态门就读空,而读空在门上表现为 0 处违规',
+      )
+      continue
+    }
+    if (entry.mode === null) {
+      failures.push(
+        `J14 引擎内置名 '${name}' 没有第三个字段(处置结论)—— 票面要求逐个点名映射/移植/引擎专有,不许留空`,
+      )
+      continue
+    }
+    if (!d.modes.has(entry.mode)) {
+      failures.push(
+        `J14 引擎内置名 '${name}' 的处置结论 '${entry.mode}' 不在 ${PY_BRIDGE}.BRIDGE_MODES ` +
+          `(${[...d.modes].sort().join(' / ')})—— 封闭集外的标签无判据`,
+      )
+      continue
+    }
+    if (entry.mode !== 'local' && entry.equivalent === null) {
+      failures.push(
+        `J14 引擎内置名 '${name}' 处置为 '${entry.mode}' 却没有注册表等价物 —— 「归口」落到了空气上`,
+      )
+    }
+    if (entry.mode === 'local' && entry.equivalent !== null) {
+      failures.push(
+        `J14 引擎内置名 '${name}' 处置为 'local'(注册表无此能力)却登记了等价物 '${entry.equivalent}' —— 两个字段互相推翻`,
+      )
+    }
+  }
+
+  // J12 —— 引擎内置名单只允许有一处字面量清单(V3 #47 第一格,2026-09-26)。
+  // 立因:`agent_engine._builtin_tool_definitions` 里曾有一张把 14 个内置名**又抄一遍**的
+  // builders dict,而 `BUILTIN_ENGINE_TOOLS` 只是"名单"。J8 读的是名单 —— 名单与构造表
+  // 分叉时(加名字只改一处),表现是"某个内置名永远构造不出来"或运行时 KeyError,
+  // 而门一路报绿。两条判据合起来才封住这一型:
+  //   a) 代码面(已抹字符串,散文里写出那个形态不算)出现 `"内置名": self.` ⇒ 又抄了一份;
+  //   b) 除 BUILTIN_ENGINE_TOOLS 外,任何模块级字面量集合含 ≥3 个内置名 ⇒ 第二份清单
+  //      (阈值 3 是为了放过"单个名字的巧合性引用",比如宿主同名覆盖判定)。
+  for (const name of sorted(d.builtins)) {
+    const re = new RegExp(`"${name}"\\s*:\\s*self\\.`)
+    if (re.test(stripPyDocstrings(d.engineSrc ?? ''))) {
+      failures.push(
+        `J12 引擎内置名 '${name}' 在 ${PY_ENGINE} 里又被抄成第二份字面量清单(` +
+          '"内置名": self._x_tool 形态)—— 内置名单的唯一真相是 BUILTIN_ENGINE_TOOLS,构造必须按命名约定由它单向推导',
+      )
+    }
+  }
+  for (const { name, hit } of d.strayLists ?? []) {
+    failures.push(
+      `J12 ${PY_ENGINE} 的模块级字面量 '${name}' 含 ${hit.length} 个引擎内置名(${hit.join(', ')})` +
+        ' —— 这是第二份内置名清单;删掉它,让 BUILTIN_ENGINE_TOOLS 唯一',
+    )
+  }
+
+  // J13 —— 「唯一解析出口」必须真装车(V3 #47 第二格,2026-09-26)。
+  // 桥表写出来不等于 A/B 调得到:`resolve_engine_tool` 若没有任何执行面调用它,
+  // 「C 的内置名在 A/B 一个都调不到」这句话就原样成立,而账面多了一份漂亮的表。
+  // 本仓最高频的失效型就是"造好没装车"(守门 64/70/81 同型),所以这里判的是调用点:
+  //   a) 桥模块必须**定义**它,且"是否已注册"现读 `_TOOL_HANDLERS`(不许在桥里再抄一份注册清单);
+  //   b) 三内核共用的执行入口 `mcp_server` 必须 import 它 **且** 调用它(只 import 不调用 = 没接)。
+  if (!/def resolve_engine_tool\b/.test(d.bridgeSrc ?? '')) {
+    failures.push(
+      `J13 ${PY_BRIDGE} 未定义 resolve_engine_tool —— 唯一解析出口不见了,"映射"退回到只有表没有路`,
+    )
+  }
+  if (!/\bin\s+_TOOL_HANDLERS\b|\bset\(\s*_TOOL_HANDLERS\b/.test(d.bridgeSrc ?? '')) {
+    // 判"是否真拿它做成员检查",而不是判文件里出现过这个名字 —— 只 import 不用同样构成
+    // 第二份真相(名字清单被写死在函数体里),而按"提到过"判会放过那一型。
+    failures.push(
+      `J13 ${PY_BRIDGE} 没有把 mcp_server._TOOL_HANDLERS 当成员判据现读 —— ` +
+        '「名字是否已注册」一旦抄成第二份清单,注册表改了桥就是错的',
+    )
+  }
+  const importsResolver = /from \.engine_tool_bridge import[^#\n]*resolve_engine_tool/.test(
+    d.mcpSrc ?? '',
+  )
+  const callsResolver = /resolve_engine_tool\s*\(/.test(d.mcpSrc ?? '')
+  if (!importsResolver || !callsResolver) {
+    failures.push(
+      `J13 ${PY_MCP} 未接上 resolve_engine_tool(import ${importsResolver ? '在' : '缺'}` +
+        ` / 调用 ${callsResolver ? '在' : '缺'})` +
+        ` —— 桥表与解析出口都在,但 A/B 主链路的 call_tool 不查它,「C 的内置名在 A/B 一个都调不到」原样成立`,
+    )
+  }
+
   // J11 —— 别名表的模块级定义必须恰好 1 处(V3 #47 第三格,2026-09-26)。
   // 本票的全部意义在于把 llm.py(26 条)与 mcp_server.py(2 条)两份独立真相合成
   // 一份;这条判据防的是"合成后又长回两份":任何第二处 `^_TOOL_ALIASES … =` 都红,
@@ -550,8 +875,15 @@ _DELEGATE_ONLY_HINTS = {
 ${hintBody}
 }
 `
-const fixHandlers = (names, aliasBody = CLEAN_ALIAS_BODY) => `# -*- coding: utf-8 -*-
-_TOOL_HANDLERS: dict[str, object] = {
+// V3 #47 第二格(2026-09-26):夹具必须与真仓同形 —— 桥表现在是三元组(带处置结论),
+// 而 call_tool 必须真的 import + 调用 resolve_engine_tool。夹具若是旧二项形态,
+// J13/J14 就只在真仓上判、自检里从未跑过,而"基线干净"那例会假绿。
+const RESOLVER_WIRING =
+  'from .engine_tool_bridge import resolve_engine_tool\n' +
+  '    resolved = resolve_engine_tool(name)\n'
+
+const fixHandlers = (names, aliasBody = CLEAN_ALIAS_BODY, extra = RESOLVER_WIRING) => `# -*- coding: utf-8 -*-
+${extra}_TOOL_HANDLERS: dict[str, object] = {
 ${names.map((n) => `    "${n}": _tool_${n},`).join('\n')}
 }
 _TOOL_ALIASES: dict[str, str] = {
@@ -565,22 +897,37 @@ ${cases.map((n) => `    case '${n}':`).join('\n')}
 }
 `
 
-const fixEngine = (names) => `# -*- coding: utf-8 -*-
+// withBuilders=true 时还原 #47 第一格要消除的那一型:内置名被**再抄一遍**的构造表。
+const fixEngine = (names, withBuilders = false) => `# -*- coding: utf-8 -*-
 BUILTIN_ENGINE_TOOLS: tuple[str, ...] = (
 ${names.map((n) => `    "${n}",`).join('\n')}
 )
+${
+  withBuilders
+    ? `class AgentEngine:\n    def _x(self):\n        return {\n${names
+        .map((n) => `            "${n}": self._${n}_tool,`)
+        .join('\n')}\n        }\n`
+    : ''
+}
 `
 
 const fixBridge = (body) => `# -*- coding: utf-8 -*-
-ENGINE_TOOL_BRIDGE: dict[str, tuple[str | None, str | None]] = {
+BRIDGE_MODES: tuple[str, str, str] = ("port", "map", "local")
+
+def resolve_engine_tool(name: str) -> str | None:
+    from .mcp_server import _TOOL_HANDLERS
+
+    return name if name in _TOOL_HANDLERS else None
+
+ENGINE_TOOL_BRIDGE: dict[str, tuple[str | None, str | None, str]] = {
 ${body}
 }
 `
 
 const CLEAN_BRIDGE =
-  '    "unified_exec": ("run_command", None),\n' +
-  '    "view_image": ("read_file", None),\n' +
-  '    "update_plan": (None, "协议对位件,注册表无 plan 类工具"),\n'
+  '    "unified_exec": ("run_command", None, "map"),\n' +
+  '    "view_image": ("read_file", None, "port"),\n' +
+  '    "update_plan": (None, "协议对位件,注册表无 plan 类工具", "local"),\n'
 
 function runSelfTest() {
   const cleanFiles = {
@@ -707,7 +1054,7 @@ function runSelfTest() {
       'J8 桥表留旧条目必红(清单腐烂)',
       {
         ...cleanFiles,
-        [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE + '    "retired_tool": ("read_file", None),\n'),
+        [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE + '    "retired_tool": ("read_file", None, "map"),\n'),
       },
       'J8 能力桥条目',
     ],
@@ -716,9 +1063,9 @@ function runSelfTest() {
       {
         ...cleanFiles,
         [PY_BRIDGE]: fixBridge(
-          '    "unified_exec": ("no_such_tool", None),\n' +
-            '    "view_image": ("read_file", None),\n' +
-            '    "update_plan": (None, "协议对位件,注册表无 plan 类工具"),\n',
+          '    "unified_exec": ("no_such_tool", None, "map"),\n' +
+            '    "view_image": ("read_file", None, "map"),\n' +
+            '    "update_plan": (None, "协议对位件,注册表无 plan 类工具", "local"),\n',
         ),
       },
       'J9 引擎内置名',
@@ -728,26 +1075,141 @@ function runSelfTest() {
       {
         ...cleanFiles,
         [PY_BRIDGE]: fixBridge(
-          '    "unified_exec": ("run_command", None),\n' +
-            '    "view_image": ("read_file", None),\n' +
-            '    "update_plan": (None, None),\n',
+          '    "unified_exec": ("run_command", None, "map"),\n' +
+            '    "view_image": ("read_file", None, "map"),\n' +
+            '    "update_plan": (None, None, "local"),\n',
         ),
       },
       'J10 引擎内置名',
     ],
     // 正向对照:J10 认隐式拼接的多段字符串(真表里 6 条就是这么写的)。
     // 若判据只认单段字面量,「有理由」会被读成「没理由」⇒ 一道对真实写法恒红的门。
+    // 三元组的第三项也在同一条多行形态里 —— 它同时是"解析器必须跨行读元组"的对照。
     [
       'J10 多段拼接理由必须被认作已带理由(应零失败)',
       {
         ...cleanFiles,
         [PY_BRIDGE]: fixBridge(
-          '    "unified_exec": ("run_command", None),\n' +
-            '    "view_image": ("read_file", None),\n' +
-            '    "update_plan": (\n        None,\n        "协议对位件;"\n        "注册表无 plan 类工具",\n    ),\n',
+          '    "unified_exec": ("run_command", None, "map"),\n' +
+            '    "view_image": ("read_file", None, "map"),\n' +
+            '    "update_plan": (\n        None,\n        "协议对位件;"\n        "注册表无 plan 类工具",\n        "local",\n    ),\n',
         ),
       },
       null,
+    ],
+    // ── J14(V3 #47 第二格):处置结论的纪律 —— 四型各一红一绿 ──────────────
+    [
+      'J14 缺第三个字段(旧二项形态)必红 —— 形态漂了不许读成"没有 mode 就放过"',
+      {
+        ...cleanFiles,
+        [PY_BRIDGE]: fixBridge(
+          '    "unified_exec": ("run_command", None),\n' +
+            '    "view_image": ("read_file", None, "map"),\n' +
+            '    "update_plan": (None, "协议对位件", "local"),\n',
+        ),
+      },
+      'J14 引擎内置名',
+    ],
+    [
+      'J14 封闭集外的处置结论必红(标签不许随口造)',
+      {
+        ...cleanFiles,
+        [PY_BRIDGE]: fixBridge(
+          '    "unified_exec": ("run_command", None, "merged"),\n' +
+            '    "view_image": ("read_file", None, "map"),\n' +
+            '    "update_plan": (None, "协议对位件", "local"),\n',
+        ),
+      },
+      ['J14', 'merged', 'BRIDGE_MODES'],
+    ],
+    [
+      'J14 处置为 map 却没有等价物必红("归口"落到空气上)',
+      {
+        ...cleanFiles,
+        [PY_BRIDGE]: fixBridge(
+          '    "unified_exec": (None, "注册表确实没有对位件", "map"),\n' +
+            '    "view_image": ("read_file", None, "map"),\n' +
+            '    "update_plan": (None, "协议对位件", "local"),\n',
+        ),
+      },
+      "处置为 'map' 却没有注册表等价物",
+    ],
+    [
+      'J14 处置为 local 却有等价物必红(两个字段互相推翻)',
+      {
+        ...cleanFiles,
+        [PY_BRIDGE]: fixBridge(
+          '    "unified_exec": ("run_command", None, "local"),\n' +
+            '    "view_image": ("read_file", None, "map"),\n' +
+            '    "update_plan": (None, "协议对位件", "local"),\n',
+        ),
+      },
+      "却登记了等价物",
+    ],
+    [
+      'J14 桥表值被改成裸字符串(非元组)必红 —— 读空不得表现为零违规',
+      {
+        ...cleanFiles,
+        [PY_BRIDGE]: fixBridge(
+          '    "unified_exec": "run_command",\n' +
+            '    "view_image": ("read_file", None, "map"),\n' +
+            '    "update_plan": (None, "协议对位件", "local"),\n',
+        ),
+      },
+      'J14',
+    ],
+    // ── J12(V3 #47 第一格):内置名单只允许一处 ────────────────────────────
+    [
+      'J12 builders dict 回潮必红(名单与构造表分叉时门必须看得见)',
+      {
+        ...cleanFiles,
+        [PY_ENGINE]: fixEngine(['unified_exec', 'view_image', 'update_plan'], true),
+      },
+      'J12',
+    ],
+    [
+      'J12 散文里写出该形态不算第二份清单(字符串面必须抹掉后再判)',
+      {
+        ...cleanFiles,
+        [PY_ENGINE]:
+          fixEngine(['unified_exec', 'view_image', 'update_plan']) +
+          'def _doc():\n' +
+          '    """改前这里是 {"unified_exec": self._unified_exec_tool} —— 已在 #47 消除。"""\n' +
+          '    return None\n',
+      },
+      null,
+    ],
+    // ── J13(V3 #47 第二格):解析出口必须真装车 ────────────────────────────
+    [
+      'J13 call_tool 不 import 解析出口必红(有表没路 = 造好没装车)',
+      {
+        ...cleanFiles,
+        [PY_MCP]: fixHandlers(['read_file', 'write_file', 'run_command'], undefined, ''),
+      },
+      'J13',
+    ],
+    [
+      'J13 只 import 不调用必红(import 语句不构成接线)',
+      {
+        ...cleanFiles,
+        [PY_MCP]: fixHandlers(
+          ['read_file', 'write_file', 'run_command'],
+          undefined,
+          'from .engine_tool_bridge import resolve_engine_tool\n',
+        ),
+      },
+      'J13',
+    ],
+    [
+      'J13 桥模块不再现读注册表必红(抄一份注册清单就是第二份真相)',
+      {
+        ...cleanFiles,
+        [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE).replace(
+          '    return name if name in _TOOL_HANDLERS else None',
+          '    return name if name in {"run_command", "read_file"} else None',
+        ),
+      },
+      ['J13', '_TOOL_HANDLERS'],
     ],
     // ── J11(V3 #47 第三格):成对用例 —— 第二处定义必红 / 唯一一处必绿 ──────
     // 红例复刻本票立项时的真实形态:llm.py 与 mcp_server.py 各留一份模块级定义。
@@ -817,9 +1279,17 @@ function runSelfTest() {
   process.exit(bad === 0 ? 0 : 1)
 }
 
-if (selfTest) runSelfTest()
+/**
+ * §22d `isDirectRun`:本文件既要被 CLI 直接跑(提交链 spawn 它),也要被镜像测试 import
+ * (§22c —— 镜像测试不得再抄一份判据,而判据全部是本文件的模块级私有函数)。
+ * 没有这层守卫,测试一 import 就会跑完整实跑并 process.exit,把测试进程带走。
+ */
+const isDirectRun = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href
 
-// --- 实跑 -------------------------------------------------------------------
+if (isDirectRun && selfTest) runSelfTest()
+
+// --- 实跑(只在直接执行时) -------------------------------------------------
+if (isDirectRun) {
 const FACE_SEL = pickFace(args)
 if (FACE_SEL.error) {
   console.log(`${C.red}${C.bold}❌ 判定面自相矛盾${C.reset} — ${FACE_SEL.error}`)
@@ -870,4 +1340,33 @@ console.log(
   `${C.dim}修复:对齐落点 —— ${PY_MCP} 的 _TOOL_ALIASES(全仓唯一一份模块级定义)/ _TOOL_HANDLERS ↔ ${PY_LLM} 的 _FS_DEPENDENT_TOOLS / _DELEGATE_ONLY_TOOLS / _DELEGATE_ONLY_HINTS ↔ ${TS_EXEC} 的 case;llm.py 只 import,不得再抄第二份${C.reset}`,
 )
 process.exit(1)
+}
+
+// §22c:暴露判据本体给镜像测试(必须放在 isDirectRun 守卫之后)。
+export const __test__ = {
+  paths: { PY_LLM, PY_MCP, PY_ENGINE, PY_BRIDGE, TS_EXEC, APP_PY_DIR },
+  pickFace,
+  readInputs,
+  inputRels,
+  stripLineComments,
+  stripPyDocstrings,
+  pyCollection,
+  setMembers,
+  dictKeySet,
+  dictMap,
+  frontendCases,
+  scanTupleEntries,
+  splitTupleElements,
+  bridgeEntries,
+  engineBuiltins,
+  bridgeModeSet,
+  strayBuiltinLists,
+  localRegistry,
+  collect,
+  check,
+  scanAliasDefinitions,
+  buildFixture,
+  rmScratch,
+  fixtures: { fixPy, fixHandlers, fixTs, fixEngine, fixBridge, CLEAN_BRIDGE, RESOLVER_WIRING },
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
