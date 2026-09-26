@@ -14,8 +14,6 @@ startup_prewarm / stream_events 在 agent_loop_v2.py 的真实接线点。
 
 import asyncio
 
-import pytest
-
 from app.services.agent_loop_v2 import AgentLoopV2
 
 _ENV_KEYS = (
@@ -250,12 +248,6 @@ def test_stream_events_on_records(monkeypatch):
     loop._record_stream_turn_item({"content": "hello", "id": "x"})
     assert loop._last_stream_turn_item is not None
     assert loop._last_stream_turn_item.get("type") == "agent_message"
-
-
-def test_stream_events_on_empty_content(monkeypatch):
-    loop = _make_loop(monkeypatch, {"AGENT_STREAM_EVENTS_ENABLED": "on"})
-    loop._record_stream_turn_item({"content": None, "id": None})
-    assert loop._last_stream_turn_item is not None
 
 
 def test_stream_events_on_empty_content(monkeypatch):

@@ -36,7 +36,7 @@ import json
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 # ===========================================================================
 # 片段分类标记(content_kind,对标 codex ContentItemKind;仅供引用,不嵌入消息体)
@@ -263,9 +263,9 @@ def build_guardian_node_repl_policy_fragment(policy: str) -> dict[str, Any]:
 # 6) guardian_tool_descriptions.rs -> GuardianToolDescriptions
 # ===========================================================================
 def build_guardian_tool_descriptions_fragment(
-    tool: Optional[str] = None,
-    connector: Optional[str] = None,
-) -> Optional[dict[str, Any]]:
+    tool: str | None = None,
+    connector: str | None = None,
+) -> dict[str, Any] | None:
     """待审查 MCP 动作的有界、不可信描述(user 角色、<guardian_tool_descriptions> 标记)。
 
     当 tool 与 connector 均为空时返回 None(可选片段,不注入)。每个来源先截断到
@@ -303,16 +303,16 @@ class GuardianContextMode(Enum):
     THREAD_OWNED = "thread_owned"
 
     @classmethod
-    def from_history(cls, uses_parent_context_for_review: bool) -> "GuardianContextMode":
+    def from_history(cls, uses_parent_context_for_review: bool) -> GuardianContextMode:
         """从同一快照读取审查策略:使用父上下文则 ThreadOwned,否则 Legacy。"""
         return cls.THREAD_OWNED if uses_parent_context_for_review else cls.LEGACY
 
     @classmethod
-    def from_features(cls, guardian_thread_context_enabled: bool) -> "GuardianContextMode":
+    def from_features(cls, guardian_thread_context_enabled: bool) -> GuardianContextMode:
         """从特性开关选择:启用 GuardianThreadContext 则 ThreadOwned,否则 Legacy。"""
         return cls.THREAD_OWNED if guardian_thread_context_enabled else cls.LEGACY
 
-    def for_checkpoint(self, compatible: bool) -> "GuardianContextMode":
+    def for_checkpoint(self, compatible: bool) -> GuardianContextMode:
         """未知/不兼容检查点回退 Legacy,保留既有审查与用户证据。"""
         return self if compatible else GuardianContextMode.LEGACY
 
@@ -432,7 +432,7 @@ def render_review_evidence_body(
     correlation: Any,
     decision: Any,
     action: str,
-    rationale: Optional[str],
+    rationale: str | None,
 ) -> str:
     """对齐 codex_guardian_context::render_review_evidence 的逐字段有界正文渲染。
 
@@ -481,7 +481,7 @@ class GuardianSenderMessagesState:
         return list(self._messages)
 
     def build_fragment(
-        self, source: Optional[str] = None, delivery: str = ""
+        self, source: str | None = None, delivery: str = ""
     ) -> dict[str, Any]:
         """渲染 reviewer-only 快照(user 角色、>>> SENDER USER MESSAGES 标记)。"""
         resolved_source = source if source is not None else "unavailable"
