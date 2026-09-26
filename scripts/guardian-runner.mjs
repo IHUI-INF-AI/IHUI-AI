@@ -3370,6 +3370,25 @@ const checks = [
       '',
     ]
   },
+  {
+    id: '129',
+    label:
+      '🛡️ 提示注入登记对账(blocking,"以宿主名义进模型提示"的每段必须有登记的 producer 与记账出口;拦 登记没生产 / 生产没消费 / 裸 [系统提醒] 前缀 三型)',
+    script: 'check-prompt-injection-registry.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PROMPT_INJECTION_REGISTRY',
+    stagedTriggers: ['apps/cli/src/', 'scripts/check-prompt-injection-registry.mjs'],
+    onFailHint: [
+      '',
+      '  💡 本门拦的是"提示链断在登记与生产之间",不是"提示里有敏感词"。',
+      '     ① 逐条看:node scripts/check-prompt-injection-registry.mjs(全量档判 HEAD blob);',
+      '     ② 生产者缺失/造好没装车 → 把记账出口接回被登记 producer 的调用点(注释里的提及不算装车);',
+      '     ③ 裸宿主前缀 → 改走 apps/cli/src/utils/prompt-boundary.ts 的 frameSystemReminder,不得再产出 [系统提醒] 字样;',
+      '     ④ 禁止为消红放宽判据或另立豁免清单(该门判据输入全部由被审面自身推导,不留会腐烂的白名单)。',
+      '',
+    ]
+  },
   // --- 任务状态一致性 (1 项, 2026-09-26 立) ---
   {
     id: '130',
