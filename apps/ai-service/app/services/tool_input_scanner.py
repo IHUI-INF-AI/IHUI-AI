@@ -29,7 +29,13 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .network_guard import NetworkEgressPolicy
-from .sandbox import _DANGEROUS_PATTERNS
+
+try:
+    from .sandbox import _DANGEROUS_PATTERNS
+except ImportError:
+    # 过渡态守卫:app/services/sandbox/ 包(D14 在飞)遮蔽同名 sandbox.py 时,
+    # 经 _sandbox_legacy_compat 按文件路径加载旧模块取符号;包收编后可删本回退。
+    from ._sandbox_legacy_compat import _DANGEROUS_PATTERNS
 
 logger = logging.getLogger(__name__)
 
