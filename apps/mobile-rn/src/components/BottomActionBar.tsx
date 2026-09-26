@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   toggleChipActive: {
     backgroundColor: tokens.brand.cta,
-    borderColor: tokens.brand.DEFAULT,
+    borderColor: tokens.brandAccent.deep,
   } as ViewStyle,
   toggleChipPressed: {
     opacity: 0.8,
@@ -926,7 +926,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   voiceBtnActive: {
     backgroundColor: tokens.brand.cta,
-    borderColor: tokens.brand.DEFAULT,
+    borderColor: tokens.brandAccent.deep,
   } as ViewStyle,
   voiceEmoji: {
     fontSize: 18,
