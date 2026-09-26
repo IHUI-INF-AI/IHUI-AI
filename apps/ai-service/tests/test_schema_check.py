@@ -361,4 +361,67 @@ class TestDiffColumns:
         assert missing == {"email"}
         assert extra == {"updated_at", "deleted_at"}
         assert mismatched == {}
+
+class TestScanExcludesSqliteAndCte:
+    """2026-09-26:扫描器把 SQLite 侧的表与 CTE 别名当成本服务的 Postgres 表,CI 因此连红四十多次。
+
+    两条新判据必须同时成立:① 那五个幽灵名全清;② 真 Postgres 覆盖一张不丢;
+    ③ 不许退回"手工文件名清单"(清单腐烂正是本次事故的根因,所以它本身要被反向锁死)。
+    """
+
+    SQLITE_GHOSTS = {"approval_grants", "sso_identities", "cookies", "sqlite_master", "del"}
+
+    def test_real_app_dir_no_longer_yields_sqlite_or_cte_ghosts(self):
+        tables = scan_ai_service_sql_tables(APP_DIR)
+        assert not (tables & self.SQLITE_GHOSTS), f"仍被当成 Postgres 表:{sorted(tables & self.SQLITE_GHOSTS)}"
+
+    def test_positive_control_real_postgres_tables_survive(self):
+        """「全清」若是把门改瞎也能达成 —— 必须同时证明真表还在。"""
+        tables = scan_ai_service_sql_tables(APP_DIR)
+        assert {"rag_chunks", "ai_model_config"} <= tables, f"真 Postgres 表被削掉了:tables={sorted(tables)[:10]}…"
+
+    def test_cte_alias_is_not_a_table(self, tmp_path: Path):
+        (tmp_path / "with_del.py").write_text(
+            "import asyncpg\n\n"
+            "SQL = \"\"\"\n"
+            "WITH del AS (\n"
+            "    DELETE FROM rag_chunks WHERE workspace_id = $1 RETURNING 1\n"
+            ")\n"
+            "SELECT count(*)::int AS n FROM del\n"
+            "\"\"\"\n",
+            encoding="utf-8",
+        )
+        tables = scan_ai_service_sql_tables(tmp_path)
+        assert "rag_chunks" in tables
+        assert "del" not in tables, "CTE 别名被当成了表名"
+
+    def test_sqlite_only_file_skipped_by_driver_not_by_filename(self, tmp_path: Path):
+        """排除靠"引了 sqlite3 且没引 asyncpg"这一事实,而不是靠清单里有没有这个文件名。"""
+        (tmp_path / "brand_new_unlisted_sqlite_thing.py").write_text(
+            "import sqlite3\n\n"
+            "SQL = \"\"\"\n"
+            "SELECT a FROM weird_local_table\n"
+            "\"\"\"\n",
+            encoding="utf-8",
+        )
+        assert "weird_local_table" not in scan_ai_service_sql_tables(tmp_path)
+
+    def test_mixed_driver_file_is_not_skipped(self, tmp_path: Path):
+        """反向锁:同文件既用 sqlite3 又用 asyncpg ⇒ 不得整文件跳过(那会悄悄削掉真 Postgres 覆盖面)。"""
+        (tmp_path / "mixed.py").write_text(
+            "import sqlite3\nimport asyncpg\n\n"
+            "SQL = \"\"\"\n"
+            "SELECT id FROM really_postgres_table\n"
+            "\"\"\"\n",
+            encoding="utf-8",
+        )
+        assert "really_postgres_table" in scan_ai_service_sql_tables(tmp_path)
+
+    def test_manual_sqlite_filename_list_must_not_come_back(self):
+        """锁的是"清单又被人手工加回来"这一型,不是注释里提到它的散文。"""
+        import re
+
+        src = (Path(__file__).resolve().parent.parent / "app" / "core" / "schema_check.py").read_text(encoding="utf-8")
+        assert not re.search(r"^\s*_SQLITE_FILES\s*=\s*[\{\(]", src, re.M), "手工文件名清单回来了 —— 它正是本次事故的根因"
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
