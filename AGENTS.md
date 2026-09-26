@@ -119,6 +119,16 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - 真要新增品牌档:先在 `tokens.css` 落一个 CSS 变量,再到守门 90 的映射表登记依据;确属 RN 专属(如 `brand.dark` 品牌绿)才能进 `RN_ONLY_BRAND_KEYS` 并写明理由 —— 豁免项若已不存在同样算红(防清单腐烂)。
 - 悬空引用由 R3 直接拦(编译不一定红,运行时是 `undefined` 颜色)。并行会话的暂存区里若还残留 `tokens.brand.ctaFill/ctaText`,改法只有一行:`ctaFill` → `DEFAULT`、`ctaText` → `foreground`。
 
+### 描边不得取墨档(强制,2026-09-26 立)
+
+- **规矩**:任何描边 —— RN/共享包的 `borderColor` / `borderBottomColor` / `border: \`1px solid …\``模板串、web 与小程序的`border-primary`/`ring-primary` 类名 —— **一律不得取墨档**。用户原话:「我们项目设计没有这样的纯黑色的描边」。
+- **禁的四档**:`brand.DEFAULT`、`brand.foreground`、`brand.ctaForeground`、`text.primary`(亮=近纯黑,暗=近纯白)。它们兼任墨色与文字色,当描边用就是在容器外圈画一道硬黑线。
+- **合法出路只有两条,都是项目已有档**:中性描边 → `border.light` / `border.medium`(= web 的 `border-border`);强调描边 → `brandAccent.light` / `brandAccent.deep`(= web 的 `border-brand-accent-deep`,亮 `#4a7a96` / 暗 `#a3c4d6`,端内在 R8 之前已有 7 处这么写)。不得在端内自拼 `#000` / `rgba(0,0,0,…)`,也不得为消红去改判据。
+- **`brand.cta` 作描边不由本条判**:它是"主实底"档,与同色填充并用作描边时语义是加厚而非描边,且该形态早已计入守门 83 的 **R3** 计数面(`(backgroundColor|borderColor): *.brand.cta`)。同一笔债两道门各计一次会让两份基线互相顶掉。
+- **染色档不算这一型**:`border-primary/20` 是 20% 染色、`border-primary-foreground` 是另一个键名,都不属"纯黑描边"。判据用尾部字符类同时排除两者,别放宽。
+- **历史成因(值得留着)**:本门自己的修复提示曾写着「`brand.DEFAULT` / `--color-primary` 只保留墨色、**描边**、文字色三义」—— 散文把这一档列为描边的合法语义,判据又只管"前景 vs 容器配对"、从不算描边取哪档,**两边一起漏**,所以这一型活了很久还一路报绿。现该措辞已就地改掉。
+- **守门**:并入 83(见下方速查),新增判据 **R8**,基线键 `inkBorderCounts` 现为**空 = 零容忍**(立门当日 HEAD 实测 148 处:RN style 面 33 + web/小程序类名面 115,已全部并回上述两档)。行内豁免 `border-ink-exempt: <原因>` 必须带原因且**逐行**生效;上一行算豁免的前提是它是纯注释行。
+
 ### 圆角单一源头(强制,2026-09-23 全端收口)
 
 - **唯一真相源**:`packages/design-tokens/src/radius.js` 的 `RADIUS_STEPS` = `xs 2 / sm 4 / md 6 / lg 8 / xl 12 / 2xl 16`(px;`DEFAULT`=8 对齐 web `--radius: 0.5rem`)。改档位只改这一处。`tailwind-preset.js` 必须写 `borderRadius: RADIUS_REM`,`tokens.css` / `app.css` 的 `--radius-*` 必须与之逐档同值。
@@ -2105,8 +2115,8 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **跨语言出站路由声明对账**(guardian id **127**,blocking,紧急跳过 `HUSKY_SKIP_DECLARED_OUTBOUND_ROUTES=1`):`scripts/check-declared-outbound-routes.mjs` 钉"代码里写死了要打的自家路由,而那条路由两侧都不存在" —— 声明面(Python hub 路径表 + TS `egress-call` 字面量)对注册面(Fastify 沿 `register(prefix)` 图走通 + FastAPI `include_router`/`APIRouter(prefix=)` 拼接)按归一路径段集合比对,参数段 `{x}`/`:x`/模板插值同视。**三态是这门的全部价值**:命中 / 未匹配 / **不透明前缀下的未判定**(子树挂载、同文件 const 插件、`app.mount` 一律承认看不见,不得把"看不见"洗成"确信没有")。默认档只报数、`--strict` 才判红 —— 实测 12 条存量(6 条 hub 死支柱 + 6 条 api 自转发)若当场 blocking 就是一台与任何提交都无关的恒红门,唯一结局是逼人 `--no-verify` 连带废掉全部守门(§12e 同型);问责入口 `pnpm check:outbound-routes`。豁免 `route-declare-exempt: <原因>` 只救本行且须带原因,**禁止**用基线文件消红。口径同 70/77/83/98/101/103/126(全量判 HEAD blob、`--staged` 判索引、两面旗同给 exit 2、注册集为 0 判死不记绿)。取证 `--self-test` 51 例 + §22c 镜像 6 例(含 T1"未接线时不得被判定为已装车"的方向性对照、T4"无提交判死"、T6 取材面形状锁)。
   - **D3(2026-09-26 G-196 新增):别名导入解析不到文件必拦**。旧射程只判仓内相对路径,于是 `@/stores/x` 指向一个**从未写下**的模块时本门永远看不见 —— G-195 那处就是这样进了 HEAD、生产构建死、154 道门全绿。判据取 `tsconfig` 的 `compilerOptions.paths`(只认尾随 `*` 的前缀映射;`extends` 与精确键刻意不碰,认它们就要完整 resolver),口径与 D1/D2 同形(全量 HEAD blob / `--staged` 索引 blob / 棘轮锚点=该文件 HEAD 自身)。HEAD 现测那一处进 **`KNOWN_ALIAS_LEDGER` 只报数不判红** —— 存量未清就上 blocking 就是恒红门(§12e),**修好 G-195 必须删台账行**。两条反"假绿"锁由镜像钉住:别名表为空时不得把"0 处"当通过;台账外的任何 D3 一律红。**踩过的两个坑值得抄下**:`stripJsonc` 第一版是**正则**剥块注释,而每个 tsconfig 的 include 里都有 `"**/*.ts"` 这种 glob —— 串里同时含着块注释的开与闭序列,整段 JSON 被吞 ⇒ 别名表静默为空 ⇒ 判据失明而报告一切正常(`node --check` 随后炸在我描述该 bug 的注释里,因为注释把那两个序列原样写了出来 —— **说明性文字也会带执行性字符**);以及 `readHead` 只按"源文件清单"建批量读,拿它读 `tsconfig.json` 恒 null,必须**另开一次只喂 tsconfig 的批量读**。
 
-
 ### 跨端 UI 单一源:小程序端与 App(RN)端必须长成同一张脸(强制,2026-09-26 立,O81)
+
 - **交付标准**:除登录方式与平台机制(原生导航栏/状态栏/输入法)外,`apps/miniapp-taro` 与 `packages/app`+`apps/mobile-rn` 的同一界面元素**必须逐档同值**,且**改一端另一端自动生效**。
 - **自动生效只有一种实现方式**:一份与平台无关的组件源(`packages/shared`)+ 每端注入平台 adapter(§3 工厂/DI 同一条规矩)。**禁止**"两端各写一份再靠对账追平"——本仓 2026-09-22 已试过单向包装并因"同名 ≠ 同契约"删掉 4,662 行适配器。
 - **可见真值仍只有一处**:色档 `packages/design-tokens/src/styles/tokens.css`、圆角 `packages/design-tokens/src/radius.js`。两端的 `global.css` / `app.css` / `rn-tokens.ts` 一律是**派生态**(见本节"端内 CSS/色值副本一律是派生态"条),**禁止手改、禁止在端内抄第二个数字**。几何档(尺寸/字号/间距)尚无单一源文件 —— 那是 O81 第二票要建的 `packages/design-tokens/src/geometry.js`,**建它必须同一枚提交就有消费方**,不得先建表再等人用。

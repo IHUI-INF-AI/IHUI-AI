@@ -49,6 +49,9 @@ import type {
   Live as ApiLive,
   Order as ApiOrder,
 } from '@ihui/api-client'
+// D19:terminal_delta 载荷类型复用 @ihui/api-client(与共享 sse-parse 产出 evt.terminalDelta 同一份契约),
+// 禁止端内再声明第二份同名接口(§3 共享层优先)。
+import type { TerminalDeltaEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 import type { AICardsData } from '@/pkg-ai/ai/cards/types'
@@ -307,6 +310,8 @@ export interface StreamEventCallbacks {
   onPlanUpdate?: (evt: PlanUpdateEvent) => void
   /** 终端任务开始 */
   onTerminalStart?: (evt: TerminalStartEvent) => void
+  /** D19 终端实时输出增量(terminal_delta):载荷类型复用 @ihui/api-client,与共享 sse-parse 的 evt.terminalDelta 同构 */
+  onTerminalDelta?: (evt: TerminalDeltaEvent) => void
   /** 终端任务结束 */
   onTerminalEnd?: (evt: TerminalEndEvent) => void
   /** 主模型失败切换到备用模型 */
@@ -451,6 +456,12 @@ export const chatStream = async (
         break
       case 'terminal_start':
         if (evt.terminalStart) callbacks?.onTerminalStart?.(evt.terminalStart)
+        break
+      // D19:terminal_delta 实时增量。共享 sse-parse(D19-A1)已在兜底抽取链之前认领该帧
+      // (校验不过直接丢弃,绝不回落 chunk),所以"不得混进正文 delta"由解析层保证;
+      // 这里只承接已认领的 evt.terminalDelta —— 与 api-client 的 onTerminalDelta 专用通道同语义。
+      case 'terminal_delta':
+        if (evt.terminalDelta) callbacks?.onTerminalDelta?.(evt.terminalDelta)
         break
       case 'terminal_end':
         if (evt.terminalEnd) callbacks?.onTerminalEnd?.(evt.terminalEnd)

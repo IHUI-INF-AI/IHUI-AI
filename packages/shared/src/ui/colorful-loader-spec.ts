@@ -2,90 +2,55 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useTt } from '@/i18n'
-import { View, Text } from '@tarojs/components'
-import type { ReactNode } from 'react'
-import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
-import {
-  SECTION_HEADER_ARROW_MARGIN_LEFT_PX,
-  SECTION_HEADER_MORE_MARGIN_LEFT_PX,
-  SECTION_HEADER_SUBTITLE_FONT_PX,
-  SECTION_HEADER_SUBTITLE_GAP_PX,
-  SECTION_HEADER_TITLE_FONT_PX,
-} from '@ihui/shared/ui/section-header-spec'
-import { rpx } from '@/utils/rpx'
-import LineIcon from '@/components/LineIcon'
-
-/// 标题区字号/间距唯一源在 @ihui/shared/ui/section-header-spec(与 RN 端 packages/app 同表);
-/// 「更多」入口字号/箭头按 §4 定档(12px / 24rpx),已由 MoreLink 与 LineIcon 体系单源,不在本表重复。
-const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
-const TITLE_FONT = toUnit(SECTION_HEADER_TITLE_FONT_PX)
-const SUBTITLE_FONT = toUnit(SECTION_HEADER_SUBTITLE_FONT_PX)
-
 /**
- * 通用"标题 + 更多"区块头部组件。
- * 对齐原项目 components/MoreTitles/index.vue:左侧标题(可选副标题)+ 右侧「更多 + chevron-right 矢量」。
+ * ColorfulLoader 加载器的结构与几何单一源(小程序端与 RN 端共用),形状照 back-chevron-spec。
  *
- * 箭头必须是矢量(LineIcon chevron-right),不得用 `>` / `›` 字符:字符箭头与标签字号
- * 不同时必上下错位,且与 RN 侧 MoreLink、web 侧 ViewMore 不同形。
+ * 两端真实实现:apps/miniapp-taro/src/components/ColorfulLoader.tsx 与
+ * .../components/adapters/ColorfulLoader.taro.tsx(72 彩点环)↔
+ * apps/mobile-rn/src/components/ColorfulLoader.tsx(单环 spinner)。
+ * (packages/app/src/components/ColorfulLoader.tsx 是 DOM 副本,同样改读本表,不留第三份数字。)
+ *
+ * 消费方式只能是子路径 `@ihui/shared/ui/colorful-loader-spec`(禁挂根桶)。
+ * spec 内只存逻辑 px;小程序端换算 `(px) => rpx(px * TARO_RPX_PER_PX)`,RN 端 1:1。
+ *
+ * 平台机制差异(数值对齐、通道各端保留 —— 台账 waivers 素材):
+ *  - 旋转驱动:小程序端 CSS keyframes(`animate-spin` 类 + 行内 animation-duration),
+ *    RN 端 Animated.loop(useNativeDriver) —— 周期数值统一为 COLORFUL_LOADER_SPIN_MS;
+ *  - 形态:小程序端是 72 点 HSL 环,RN 端是单环边框 spinner —— 点阵参数只有小程序/DOM 腿消费。
  */
-export interface SectionHeaderProps {
-  title: string
-  subtitle?: string
-  moreText?: string
-  showMore?: boolean
-  onMore?: () => void
-  extra?: ReactNode
-  className?: string
+
+/** 默认直径 40:两端现值已同(小程序 80rpx = 40px、RN 默认 40dp;DOM 副本原 80px 是分叉,收口到 40)。 */
+export const COLORFUL_LOADER_DEFAULT_SIZE_PX = 40
+
+/** 单圈周期 1200ms:RN 与 DOM 副本现值;小程序 `animate-spin` 原 1000ms,行内 animation-duration 对齐到本档。 */
+export const COLORFUL_LOADER_SPIN_MS = 1200
+
+/** 彩点数 72:三腿现值已同(对齐原项目 colorful_loader.vue)。 */
+export const COLORFUL_LOADER_DOT_COUNT = 72
+
+/** 彩点色相步进 5(i * 5,70%/60% 循环彩虹):三腿现值已同,收一处。 */
+export const COLORFUL_LOADER_HUE_STEP = 5
+
+/** 轨道半径 = 直径一半(装饰点落在容器边缘)。 */
+export function colorfuleLoaderRadiusPx(sizePx: number): number {
+  return sizePx / 2
 }
 
-export default function SectionHeader({
-  title,
-  subtitle,
-  moreText,
-  showMore = true,
-  onMore,
-  extra,
-  className = '',
-}: SectionHeaderProps) {
-  const tt = useTt()
-  const moreLabel = moreText ?? tt('common.more', '更多')
+/**
+ * 单个装饰点直径:min(4px 可见下限) + size/10。
+ * 取小程序端现公式(RN/DOM 的 size/20 在 40px 档只剩 2px,低于可读下限,规则 2 取大档)。
+ */
+export function colorfuleLoaderDotSizePx(sizePx: number): number {
+  return Math.max(4, sizePx / 10)
+}
 
-  return (
-    <View className={`flex items-center justify-between ${className}`}>
-      <View className="flex items-center min-w-0 flex-1">
-        <Text className="font-bold text-foreground truncate" style={{ fontSize: TITLE_FONT }}>
-          {title}
-        </Text>
-        {subtitle && (
-          <Text
-            className="text-muted-foreground truncate"
-            style={{ fontSize: SUBTITLE_FONT, marginLeft: toUnit(SECTION_HEADER_SUBTITLE_GAP_PX) }}
-          >
-            {subtitle}
-          </Text>
-        )}
-      </View>
-      <View className="flex items-center flex-shrink-0">
-        {extra}
-        {showMore && (
-          <View
-            className="flex items-center"
-            style={{ marginLeft: toUnit(SECTION_HEADER_MORE_MARGIN_LEFT_PX) }}
-            onClick={onMore}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-[length:24rpx] text-muted-foreground">{moreLabel}</Text>
-            <LineIcon
-              name="chevron-right"
-              size={24}
-              color="var(--color-muted-foreground)"
-              style={{ marginLeft: toUnit(SECTION_HEADER_ARROW_MARGIN_LEFT_PX) }}
-            />
-          </View>
-        )}
-      </View>
-    </View>
-  )
+/** RN 端单环 spinner 的边框宽:max(2, size/12),收进共享源免得端内自定档。 */
+export function colorfuleLoaderRingBorderPx(sizePx: number): number {
+  return Math.max(2, sizePx / 12)
+}
+
+/** 第 i 个彩点的颜色(动态计算色无法 token 化,§5c/守门 93 已认可 HSL 循环为装饰色)。 */
+export function colorfuleLoaderDotColor(i: number): string {
+  return `hsl(${i * COLORFUL_LOADER_HUE_STEP}, 70%, 60%)`
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

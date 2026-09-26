@@ -322,7 +322,7 @@ export default function AgentPlanProgressPage() {
                   key={v.version}
                   onClick={() => void selectVersion(v.version)}
                   className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition hover:bg-muted ${
-                    v.version === selectedVersion ? 'border-primary bg-primary/10' : ''
+                    v.version === selectedVersion ? 'border-brand-accent-deep bg-primary/10' : ''
                   }`}
                 >
                   v{v.version}

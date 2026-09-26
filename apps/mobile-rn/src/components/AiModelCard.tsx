@@ -393,7 +393,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: tokens.brand.DEFAULT,
     borderBottomWidth: 1,
-    borderBottomColor: tokens.brand.DEFAULT,
+    // 下划线取墨档(brand.DEFAULT 亮=纯黑)同样属"纯黑描边"这一型(R8 的 border\w* 就是为
+    // 这种非 borderColor 拼法留的口子);链接下划线一律走强调档,文字本身仍是墨色
+    borderBottomColor: tokens.brandAccent.deep,
   },
   payDetailArrow: {
     fontSize: 12,
