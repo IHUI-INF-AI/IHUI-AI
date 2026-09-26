@@ -247,21 +247,32 @@ export async function hardDeleteFile(id: string): Promise<File | undefined> {
 
 /**
  * 批量软删除文件。
+ * 2026-09-26 修「改了 0 行与改成功同形」:返回值由 void 改为库确认命中的 id 集合
+ * (UPDATE ... RETURNING),归属校验与写不发生在同一瞬间,并发删除/已删状态只能由
+ * 这次写自己回报 —— 路由侧不得再用请求侧条数自算,与 utils/batch-outcome.ts 同一出口配对。
  */
-export async function batchSoftDelete(fileIds: string[], userId: string): Promise<void> {
-  if (fileIds.length === 0) return
-  await db
+export async function batchSoftDelete(fileIds: string[], userId: string): Promise<string[]> {
+  if (fileIds.length === 0) return []
+  const rows = await db
     .update(files)
     .set({ deletedAt: new Date(), deletedBy: userId })
     .where(inArray(files.id, fileIds))
+    .returning({ id: files.id })
+  return rows.map((r) => r.id)
 }
 
 /**
  * 批量恢复文件。
+ * 2026-09-26 同 batchSoftDelete:回报 UPDATE ... RETURNING 命中的 id 集合,而非 void。
  */
-export async function batchRestore(fileIds: string[]): Promise<void> {
-  if (fileIds.length === 0) return
-  await db.update(files).set({ deletedAt: null, deletedBy: null }).where(inArray(files.id, fileIds))
+export async function batchRestore(fileIds: string[]): Promise<string[]> {
+  if (fileIds.length === 0) return []
+  const rows = await db
+    .update(files)
+    .set({ deletedAt: null, deletedBy: null })
+    .where(inArray(files.id, fileIds))
+    .returning({ id: files.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================

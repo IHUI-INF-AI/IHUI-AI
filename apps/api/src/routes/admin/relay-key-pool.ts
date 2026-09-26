@@ -299,7 +299,11 @@ const relayKeyPoolRoutes: FastifyPluginAsync = async (server) => {
           healthStatus: result.status,
           healthCheckedAt: new Date(),
           lastErrorMessage: result.errorMessage ?? null,
+          // 格②(2026-09-26)响应面契约,与 relay-channels.ts 的**响应**同一形态(:797-803 原样透出
+          // null,不做 `?? 0` 兜底):0 会被读成"该 key 0ms",而 null 才是"没测出可信值"。
+          // 写库面才用 `?? 0` + metadata.latencyTrusted(列非空,形态不同,不得混用)。
           latencyMs: result.latencyMs,
+          latencyTrusted: result.latencyMs !== null,
         }),
       )
     } catch (e) {
