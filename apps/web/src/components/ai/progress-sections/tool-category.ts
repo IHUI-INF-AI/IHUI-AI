@@ -258,7 +258,7 @@ export interface CategoryRun {
   tools: ToolNameCount[]
 }
 
-function makeRun(categoryKey: CategoryKey, first: ToolNameCount): CategoryRun {
+function makeRun(categoryKey: CategoryKey, tools: ToolNameCount[]): CategoryRun {
   const def = CATEGORY_TABLE_BY_KEY[categoryKey]
   return {
     categoryKey,
@@ -266,8 +266,12 @@ function makeRun(categoryKey: CategoryKey, first: ToolNameCount): CategoryRun {
     order: def.order,
     countable: def.countable,
     expandStrategy: def.expandStrategy,
-    totalCount: first.count,
-    tools: [first],
+    // totalCount 恒等于 run 内全部工具次数之和(两个调用方传入的 tools 均非空:
+    // 构造点即推入元素)。按数组求和而非取首个元素,避免在类型系统里留下
+    // "tools[0] 可能不存在"的空洞(原实现在 summarize 路径上取 tools[0] 且随后
+    // 用整段求和覆盖 totalCount,语义与此处完全一致)。
+    totalCount: tools.reduce((s, t) => s + t.count, 0),
+    tools,
   }
 }
 
@@ -297,7 +301,7 @@ export function aggregateCategoryRuns(ordered: ToolNameCount[]): CategoryRun[] {
       last.tools.push(item)
       last.totalCount += item.count
     } else {
-      runs.push(makeRun(cat, item))
+      runs.push(makeRun(cat, [item]))
     }
   }
   return runs
@@ -318,11 +322,10 @@ export function summarizeCategoriesByTool(toolsByCategory: Record<string, number
   }
   const runs: CategoryRun[] = []
   for (const [cat, tools] of byCat) {
-    const total = tools.reduce((s, t) => s + t.count, 0)
-    const run = makeRun(cat, tools[0])
-    run.totalCount = total
-    run.tools = tools
-    runs.push(run)
+    // byCat 的每个键都是在推入至少一个元素后紧接着 set 的(见上方循环),
+    // 故 tools 恒非空;totalCount / tools 直接由 makeRun 从数组派生,
+    // 不再经数组下标取值(noUncheckedIndexedAccess 下 `tools[0]` 类型为可空)。
+    runs.push(makeRun(cat, tools))
   }
   return sortRuns(runs)
 }
