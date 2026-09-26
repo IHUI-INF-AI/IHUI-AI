@@ -81,6 +81,34 @@ export interface EmitEventRequest {
   severity?: Severity
 }
 
+/**
+ * emit 的联动结论档位 —— 与 ai-service `app/routers/orchestration.py` 的
+ * `resolve_emit_outcome()` 三个返回值同形(2026-09-26 第九轮 B2 加性接入)。
+ *
+ * - `settled`    本次调用当场拿到可关联到该事件的结论
+ * - `accepted`   事件已交给后台消费循环,结论稍后出现在 status
+ * - `unsettled`  同步路径但没拿到可关联的结论(skipped/异常/交错)
+ *
+ * 为什么必须有这一档:`emit` 的语义只是"事件已交给中枢",**不等于联动已发生**。
+ * 只回 `event_id` 时,调用方会把"收下"读成"办完"。
+ */
+export type EmitEventOutcome = 'settled' | 'accepted' | 'unsettled'
+
+/**
+ * `POST /orchestration/events/emit` 响应里的 `data` 形状。
+ *
+ * 三键一律 **可缺失且可为 null**,这是判据不是保守:
+ *  - `degraded` / `non_ok_pillars` 只在 `outcome === 'settled'` 时有值,
+ *    其余档位必须是 `null`(= 未知)。把未知写成 `false` 等于把"没判"写成"判过了"。
+ *  - 三键整体缺失 = 上游是加性改造前的旧版,同样不得被下游折算成"未降级"。
+ */
+export interface EmitEventResult {
+  event_id: string
+  outcome?: EmitEventOutcome
+  degraded?: boolean | null
+  non_ok_pillars?: string[] | null
+}
+
 // ---------------------------------------------------------------------------
 // 联合决策引擎
 // ---------------------------------------------------------------------------

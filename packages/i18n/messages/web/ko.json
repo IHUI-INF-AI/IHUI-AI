@@ -7231,6 +7231,29 @@
     },
     "pane": {
       "elementPack": {
+        "backgroundTask": {
+          "state": {
+            "pending": "대기 중",
+            "running": "실행 중",
+            "stopping": "중지 중",
+            "stopFailed": "중지 실패",
+            "completed": "완료됨",
+            "failed": "실패",
+            "cancelled": "취소됨",
+            "timeout": "시간 초과"
+          },
+          "hint": {
+            "stopping": "중지 요청이 전송되었습니다. 하위 작업 종료를 기다리는 중…",
+            "stopFailed": "하위 작업이 아직 실행 중입니다. 중지 요청이 적용되지 않았습니다",
+            "timeout": "하위 작업 대기 시간이 초과되었습니다. 재시도할 수 있습니다"
+          },
+          "action": {
+            "stop": "중지",
+            "retryStop": "중지 재시도",
+            "retry": "재시도",
+            "ignore": "무시"
+          }
+        },
         "feedbackSurvey": {
           "question": "이 답변이 문제 해결에 도움이 되었나요?",
           "answer": {
@@ -9794,6 +9817,11 @@
     "adoptHint": "선택한 후보 내용을 현재 대화에 기록"
   },
   "goalCard": {
+    "editAriaLabel": "목표 편집",
+    "editSave": "저장",
+    "editCancel": "취소",
+    "collapse": "접기",
+    "expand": "펼치기",
     "achievedInTime": "{totalTime} 만에 목표 달성",
     "empty": "아직 대화 목표가 설정되지 않았습니다",
     "emptyHint": "입력창에 /goal <목표>를 입력하거나 AI가 자동으로 추진합니다",
