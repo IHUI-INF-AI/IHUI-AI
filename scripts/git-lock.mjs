@@ -36,8 +36,22 @@
  *   - scripts/safe-gc.mjs:手动 gc 前必须 acquire(杜绝 gc 与写操作并发)
  */
 import { execSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync } from 'node:fs'
-import { join } from 'node:path'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { basename, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+// 现场归档的唯一落点(AGENTS §15b / §5b「现场归档一律落在 gitArchiveDir(),手工抢修也不得例外」)。
+// 抢占产生的 `.stale-*` 目录**绝不**留在 .git 里,更不落工作区根或盘根。
+import { gitArchiveDir } from './lib/gitdir.mjs'
 
 function run(cmd, allowFail = false) {
   try {
@@ -80,7 +94,13 @@ function writeMeta(dir, unitId) {
   )
 }
 
-/** 删除锁目录(先删 meta,再 rmdir;rmdir 失败(残留)时递归删除) */
+/**
+ * 删除锁目录 —— **只允许持有者自释时调用**。
+ *
+ * ⚠️ 抢占路径不得用它(2026-09-26 根治):`rmSync(dir)` 删的是**此刻挂在 `dir` 上的那把锁**,
+ * 而"我判它已死"与"我删它"之间,别人可以已经删掉旧锁并 mkdir 拿到**新锁** ⇒ 我删掉的是别人的活锁
+ * ⇒ 两个写者同时进临界区(git 侧即 `.git/index.lock` 双写者)。抢占必须走 `claimStaleLock()`。
+ */
 function removeLock(dir) {
   try {
     rmSync(dir, { recursive: true, force: true })
@@ -88,6 +108,181 @@ function removeLock(dir) {
     /* 忽略 */
   }
 }
+
+/** 两把锁是否"同一把":三要素全等(unitId/pid/ts),即"我刚判死的那把"。 */
+function sameLock(a, b) {
+  if (!a && !b) return true
+  if (!a || !b) return false
+  return a.unitId === b.unitId && a.pid === b.pid && a.ts === b.ts
+}
+
+/** 抢占现场的留档:把判死证据(谁、为什么、原始 meta)写进归档出口。失败 ⇒ 返回错误,调用方不得静默。 */
+function writeStaleNote(dirPath, { judged, rawMeta, why, stolenByPid }) {
+  try {
+    writeFileSync(
+      join(dirPath, 'stale-claim-note.txt'),
+      [
+        `抢占时间: ${new Date().toISOString()}`,
+        `执行进程: pid=${stolenByPid} 命令=${process.argv.slice(2).join(' ') || '(in-process)'}`,
+        `被抢的持有者: unit=${judged?.unitId ?? ''} pid=${judged?.pid ?? ''} ts=${judged?.ts ?? ''}`,
+        `原始 meta.json: ${rawMeta ?? '(不可得)'}`,
+        `判死理由: ${why}`,
+      ].join('\n'),
+      'utf8',
+    )
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: `${e?.code ?? ''} ${e?.message ?? e}`.trim() }
+  }
+}
+
+/**
+ * 原子抢占:**先把锁目录改名搬走、只删自己改到的那一份**(2026-09-26 根治运行期竞态)。
+ *
+ * 故障形态(旧实现):判"持有者已死"之后直接 `rmSync(dir)`。在"我判它已死"与"我删它"之间,
+ * 别的进程可以已经删掉旧锁并 `mkdir` 拿到**新锁** —— 我 `rmSync` 掉的就是别人的活锁,
+ * 于是两个写者同时进临界区(git 侧 = `.git/index.lock` 双写者;部署侧 = 两次构建同时写 `.next`)。
+ * `:205` 那句"调用方必须回读 existsSync 复核"只判"删没删掉",**不判"删的是不是我刚看过的那把"**。
+ *
+ * 三步,一步都不能少:
+ *   ① `renameSync(dir, 归档出口/<name>.stale-<pid>-<ts>)` —— 改名是原子的,成功即独占。
+ *      抛错(ENOENT=锁已不见 / EPERM·EBUSY=被占用 / EXDEV=跨卷)一律算**没抢到**,
+ *      **绝不回退去 rmSync 原路径**(那正是本票要根治的那一步)。跨卷时退到同父目录暂存,
+ *      但退的是"落点",不是"改名这一步"(仍是 rename-first)。
+ *   ② 改名成功后回读**改名后目录**里的 meta,与判死时那份三要素比对。不等 ⇒ 我改到的是
+ *      别人新建的活锁 ⇒ 原样放回、什么都没删(失效方向是"多等一轮",不是"多删一把")。
+ *   ③ 只有②通过才处置改名后的那份:留在归档出口当现场,落不进归档才递归删除;
+ *      删除失败也不回头碰原路径。
+ *
+ * @param {string} dir 锁目录
+ * @param {{unitId?:string,pid?:number,ts?:number}|null} judged 判死时读到的 meta(也是②的比对基准)
+ * @param {string} why 判死理由(进归档现场与日志,供事后追责)
+ * @param {{archiveRoot?:string|null, suffix?:string}} [opts]
+ * @returns {{ok:boolean, phase:string, code?:string, stagedPath:string|null, archived:string|null, log:string}}
+ */
+function claimStaleLock(dir, judged, why, { archiveRoot = gitArchiveDir(), suffix } = {}) {
+  // 提前一次"锁目录在不在"只为了不去建归档目录 —— **它不是抢占的安全凭据**:
+  // 安全凭据是①的改名 + ②的身份回读,二者才决定"我能不能处置这一份"。
+  if (!existsSync(dir)) {
+    return {
+      ok: false,
+      phase: 'rename',
+      code: 'ENOENT',
+      stagedPath: null,
+      archived: null,
+      log: `[git-lock] 抢占放弃:锁目录 ${dir} 此刻已不存在 ⇒ 未删除、未创建任何目录`,
+    }
+  }
+  const tag = suffix ?? `.stale-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  let rawMeta = null
+  try {
+    rawMeta = readFileSync(metaFile(dir), 'utf8')
+  } catch {
+    rawMeta = null
+  }
+  // ① 原子改名:优先直接搬进归档出口(§15b 批准落点,不落工作区根/盘根)
+  let stagedPath = null
+  if (archiveRoot) {
+    const target = join(archiveRoot, `${basename(dir)}${tag}`)
+    try {
+      mkdirSync(archiveRoot, { recursive: true })
+      renameSync(dir, target)
+      stagedPath = target
+    } catch (e) {
+      if (e?.code === 'ENOENT') {
+        return {
+          ok: false,
+          phase: 'rename',
+          code: 'ENOENT',
+          stagedPath: null,
+          archived: null,
+          log: `[git-lock] 抢占放弃(锁目录已不见:${dir})——未删除任何目录,继续等待`,
+        }
+      }
+      stagedPath = null // 跨卷/权限等:退到同父目录暂存(仍是 rename-first)
+    }
+  }
+  if (!stagedPath) {
+    const local = `${dir}${tag}`
+    try {
+      renameSync(dir, local)
+      stagedPath = local
+    } catch (e) {
+      return {
+        ok: false,
+        phase: 'rename',
+        code: e?.code ?? 'unknown',
+        stagedPath: null,
+        archived: null,
+        log: `[git-lock] 抢占未成功(改名 ${e?.code ?? e?.message})——原路径 ${dir} 未被触碰,继续等待`,
+      }
+    }
+  }
+  // ② 回读校验:改名后目录里的 meta 必须就是判死时那把
+  const nowMeta = readMeta(stagedPath)
+  if (!sameLock(nowMeta, judged)) {
+    let restored = false
+    try {
+      renameSync(stagedPath, dir)
+      restored = true
+    } catch {
+      /* 放不回(原路径又被占了)⇒ 现场原地保留、绝不删,大声喊出来交人工 */
+    }
+    return {
+      ok: false,
+      phase: 'mismatch',
+      restored,
+      stagedPath: restored ? null : stagedPath,
+      archived: null,
+      log:
+        `[git-lock] 抢占放弃:${dir} 上的锁在改名瞬间已被替换` +
+        `(判死时 ${fmtLock(judged)},改名后 ${fmtLock(nowMeta)})` +
+        ` ⇒ ${restored ? '已原样放回,未删除任何锁' : `⚠️ 放回失败,现场保留在 ${stagedPath}(未删除,请人工处置)`}`,
+    }
+  }
+  // ③ 处置改名后的那一份(且只有这一份)
+  const note = writeStaleNote(stagedPath, { judged, rawMeta, why, stolenByPid: process.pid })
+  const staysInArchive = !!archiveRoot && stagedPath.startsWith(archiveRoot)
+  let archived = staysInArchive ? stagedPath : null
+  if (!staysInArchive) {
+    const dest = archiveRoot ? join(archiveRoot, basename(stagedPath)) : null
+    if (dest) {
+      try {
+        renameSync(stagedPath, dest)
+        archived = dest
+      } catch {
+        /* 搬不动就删,不静默保留在 .git 里 */
+      }
+    }
+    if (!archived) {
+      try {
+        rmSync(stagedPath, { recursive: true, force: true })
+      } catch (e) {
+        console.error(
+          `[git-lock] ⚠️ 删除已改名的悬挂锁失败(${e?.code ?? e?.message})——保留 ${stagedPath},` +
+            `**不回头删 ${dir}**(那已经不是我这把)`,
+        )
+      }
+    }
+  }
+  return {
+    ok: true,
+    phase: 'claimed',
+    stagedPath,
+    archived,
+    log:
+      `[git-lock] 已抢占悬挂锁:被抢的持有者 = ${fmtLock(judged)};判死理由:${why}。` +
+      `现场=${archived ?? '(归档不可得,已就地删除)'}${note.ok ? '' : ` ⚠️ 现场说明写入失败:${note.error}`}`,
+  }
+}
+
+/** meta 的一行式身份描述(日志与测试断言共用,避免两处各拼一遍漂移) */
+function fmtLock(meta) {
+  if (!meta) return '(无 meta.json)'
+  return `unit=${meta.unitId ?? ''} pid=${meta.pid ?? ''} ts=${meta.ts ? new Date(meta.ts).toISOString() : ''}`
+}
+
+
 
 /** 检测进程是否存活(signal 0 探测,跨平台;EPERM 视为存在) */
 function isPidAlive(pid) {
@@ -199,9 +394,17 @@ async function acquire({ unitId, timeoutMs = 120_000, staleMs = 300_000, hardSta
         const holderAlive = isPidAlive(meta.pid)
         // 2026-09-19:死 PID 立即抢占(不等 staleMs);活进程才走 staleMs/hardStaleMs
         if (!holderAlive || age > hardStaleMs || age > staleMs) {
-          // 悬挂锁(持有者已崩溃退出,或超 hardStale 兜底):强制抢占
-          removeLock(dir)
-          continue
+          // 悬挂锁(持有者已崩溃退出,或超 hardStale 兜底):强制抢占。
+          // 2026-09-26:旧写法是 `removeLock(dir)` —— 在"我判它已死"与"我删它"之间,
+          // 别的进程可以已经删掉旧锁并 mkdir 拿到新锁,于是删掉的是**别人的活锁**
+          // (git 侧即 `.git/index.lock` 双写者)。抢占必须原子改名,见 claimStaleLock()。
+          const why = holderAlive
+            ? `锁龄 ${Math.round(age / 1000)}s 已超 staleMs=${Math.round(staleMs / 1000)}s / hardStaleMs=${Math.round(hardStaleMs / 1000)}s,而持有者 pid=${meta.pid} 名义存活 ⇒ pid 极可能已被复用`
+            : `持有者 pid=${meta.pid} 已退出`
+          const claim = claimStaleLock(dir, meta, why)
+          console.log(claim.log)
+          if (claim.ok) continue
+          // 没抢到 ⇒ 什么都不删,落到下面的超时判据 + 轮询等待(不 continue,避免热自旋)
         }
       }
       if (Date.now() > deadline) {
@@ -217,14 +420,39 @@ async function acquire({ unitId, timeoutMs = 120_000, staleMs = 300_000, hardSta
   }
 }
 
-/** 释放锁(仅当锁属于当前 unitId;同 unitId 可重入多次 acquire 需配平 release) */
-function release({ unitId }) {
-  const dir = lockDir()
-  if (!existsSync(dir)) return
+/**
+ * 释放锁(仅当锁属于当前 unitId;同 unitId 可重入多次 acquire 需配平 release)。
+ *
+ * 2026-09-26 收紧:旧写法是"拿不到 meta 也删" + "unitId 为空 ⇒ 无条件删",于是
+ * 一条不带 `--unit` 的 `git-lock.mjs release` 就能删掉**别人正在用的活锁**。
+ * 现在必须拿得出归属凭据:unitId 与 meta 全等,或 meta 记的就是本进程 pid。
+ * 拿不出凭据 ⇒ 拒绝并说明出路(抢占走 acquire / `clean`)。
+ * @param {{unitId?:string, dir?:string}} [opts]
+ */
+function release({ unitId, dir = lockDir() } = {}) {
+  if (!existsSync(dir)) return { released: false, why: '无锁目录' }
   const meta = readMeta(dir)
-  if (meta && unitId && meta.unitId !== unitId) return
+  if (!meta) {
+    console.error(
+      `[git-lock] ❌ 拒绝释放:${dir} 里没有可读的 meta.json ⇒ 无法证明这把锁是谁的,` +
+        `删它可能删掉别人正在用的锁。出路:\`git-lock.mjs clean\`(按判死证据抢占)或人工确认后删除。`,
+    )
+    return { released: false, why: '无法判定归属(无 meta.json)' }
+  }
+  const ownsByToken = !!unitId && meta.unitId === unitId
+  const ownsByPid = Number(meta.pid) === process.pid
+  if (!ownsByToken && !ownsByPid) {
+    console.error(
+      `[git-lock] ❌ 拒绝释放:锁由 unit=${meta.unitId} pid=${meta.pid} 持有,` +
+        `本次调用既无匹配 unitId(--unit ${JSON.stringify(unitId ?? '')})也非本进程 ⇒ 不代删别人的锁。`,
+    )
+    return { released: false, why: '非持有者' }
+  }
+  // 持有者自释:不存在竞态(内容凭据已验明这把就是我的),按原语义直接删
   removeLock(dir)
+  return { released: true, why: ownsByToken ? 'unitId 匹配' : '本进程 pid 匹配' }
 }
+
 
 /** 只读检查 */
 function check() {
@@ -279,8 +507,10 @@ async function main() {
       })
       console.log('locked')
     } else if (cmd === 'release') {
-      release({ unitId: getOpt('--unit') ?? '' })
-      console.log('released')
+      const r = release({ unitId: getOpt('--unit') ?? '' })
+      console.log(r.released ? 'released' : `未释放:${r.why}`)
+      if (!r.released && r.why !== '无锁目录') process.exit(1)
+
     } else if (cmd === 'check') {
       process.exit(check())
     } else if (cmd === 'heartbeat') {
@@ -303,15 +533,28 @@ async function main() {
           const holderAlive = isPidAlive(meta.pid)
           const age = Date.now() - (meta.ts ?? 0)
           if (!holderAlive || age > 1_800_000) {
-            removeLock(dir)
-            removed.push(`ihui-git-write.lock(unit=${meta.unitId} pid=${meta.pid} ${holderAlive ? 'hardStale' : 'dead'})`)
+            // 同样是抢占 ⇒ 走原子改名,不得 rmSync 原路径(见 claimStaleLock 注释)
+            const claim = claimStaleLock(
+              dir,
+              meta,
+              holderAlive
+                ? `clean:锁龄 ${Math.round(age / 1000)}s 超硬上限 1800s 而 pid=${meta.pid} 名义存活 ⇒ pid 复用`
+                : `clean:持有者 pid=${meta.pid} 已退出`,
+            )
+            console.log(claim.log)
+            if (claim.ok)
+              removed.push(
+                `ihui-git-write.lock(unit=${meta.unitId} pid=${meta.pid} ${holderAlive ? 'hardStale' : 'dead'})`,
+              )
           } else {
             console.log(`保留 ihui-git-write.lock(持有者 pid=${meta.pid} 仍存活,age=${Math.round(age / 1000)}s)`)
           }
         } else {
-          // 无 meta.json 的残留锁目录,直接删
-          removeLock(dir)
-          removed.push('ihui-git-write.lock(无 meta.json)')
+          // 无 meta.json 的残留锁目录:判不了归属 ⇒ 只能按"判死=无 meta"这一条改名抢占,
+          // 改名后再回读校验(若此刻别人已建好带 meta 的新锁,mismatch 分支会原样放回)
+          const claim = claimStaleLock(dir, null, 'clean:锁目录内无 meta.json')
+          console.log(claim.log)
+          if (claim.ok) removed.push('ihui-git-write.lock(无 meta.json)')
         }
       }
       // 2. 清理 stale index.lock
@@ -333,5 +576,28 @@ async function main() {
   }
 }
 
-void main()
+// §22d:双形态入口守护 —— 被镜像测试 import 时绝不触发 CLI 副作用
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+// §22c:暴露给镜像测试(scripts/tests/git-lock-stale-steal.test.mjs),
+// 禁止在测试里复制第二份判据实现 —— 实现漂了测试还绿 = 测试在替缺陷背书。
+export const __test__ = {
+  lockDir,
+  metaFile,
+  readMeta,
+  writeMeta,
+  isPidAlive,
+  sameLock,
+  claimStaleLock,
+  removeLock,
+  acquire,
+  release,
+  check,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
