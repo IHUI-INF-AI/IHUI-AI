@@ -94,7 +94,15 @@ export default defineConfig(async (merge) => {
     // (finalInputFileSystem._writeVirtualFile is not a function +
     //  enhanced-resolve options.roots.map is not a function)
     compiler: { type: 'webpack5', prebundle: { enable: false } },
-    cache: { enable: true },
+    // 主包体积硬上限的成因,别开回 true(2026-09-26 实测,取证 .ihui-agent/tmp/mode3/samples.jsonl):
+    // weapp-tailwindcss 每轮编译从 loader 运行态取"本轮 CSS 模块集"来决定 app 级整包注入还是逐页复制;
+    // webpack 的文件系统缓存恢复 CSS 模块时**不重跑 loader 链** ⇒ 采集面为空。
+    // 同一份配置三组对照:cache:true 热构建 12/12 落到"42 个页面 wxss 各复制一份整包"的漂移构型
+    // (主包 +1,033,700 B ⇒ 直接越过微信 2,097,152 B 上限,且 app-origin.wxss 退回未加工副本);
+    // 冷构建 1/1 与 cache:false 5/5 全部落在正常构型。
+    // 注意:**把 app.css/tailwind.config 加进 buildDependencies 不解决问题** —— 漂移发生在
+    // 零文件变更的连续构建之间,任何文件指纹都不会失效(实测否证,勿再试这条路)。
+    cache: { enable: false },
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
     },
