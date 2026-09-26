@@ -13,10 +13,32 @@ import type {
 // #11 Citations 全链路(2026-09-13 立):类型已迁至 @ihui/types(与 PlanUpdateEvent 等一致),
 // 本地不再重复定义,消除 import 与本地声明的 TS2440 冲突。
 export type { CitationsEvent }
-import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker'
-import { getTransport, type TransportInit } from './transport'
+import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker.js'
+import { getTransport, type TransportInit } from './transport.js'
 import type { DeviceFingerprintCollector } from '@ihui/types'
-import { nullDeviceFingerprintCollector } from '@ihui/types'
+
+/**
+ * 默认空采集器(发布物自包含,2026-09-26 立)。
+ *
+ * 原先这里是 @ihui/types 的一个**具名值**导入(nullDeviceFingerprintCollector)—— 那是
+ * `@ihui/api-client` 唯一的运行时跨包依赖,而 `@ihui/types` 仍是 private 且 exports 指向
+ * `./src/*.ts`(实测 `node scripts/check-pkg-installable.mjs packages/types` 有 6 条 blocker),
+ * 所以只要这行在,本包的 `dependencies` 就摘不掉 `workspace:` 协议 —— 发出去即 ERR_MODULE_NOT_FOUND。
+ * 改成包内常量后,`@ihui/types` 降级为纯类型面(devDependency),tsc 把 `import type` 整条抹掉,
+ * dist 里不再有任何 `@ihui/types` 运行时引用;这与 `@ihui/sdk` 的既有形态同形
+ * (实测 `packages/sdk/dist/*.js` 对 `@ihui/types` 零命中,而它是本仓唯一已通过可安装自检的包)。
+ *
+ * 为什么这不构成"第二份真相":契约仍然只有 `DeviceFingerprintCollector` 一个来源(上一行按名导入)。
+ * 共享接口一旦新增必填成员,这个字面量就地 typecheck 失败 —— 漂移会响,不会静默。
+ */
+const nullDeviceFingerprintCollector: DeviceFingerprintCollector = {
+  async get() {
+    return { fingerprint: '', source: {}, collectedAt: 0 }
+  },
+  async refresh() {
+    return { fingerprint: '', source: {}, collectedAt: 0 }
+  },
+}
 
 export interface TokenProvider {
   getToken(): string | null
