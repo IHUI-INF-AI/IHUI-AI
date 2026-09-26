@@ -17,7 +17,7 @@
  * 新增对外端点或工具必须在此登记;未登记由 scripts/check-capability-catalog.mjs
  * 与运行期断言双重拦截(默认拒绝,而非默认放行)。
  */
-import { API_KEY_PERMISSIONS, type ApiKeyPermission } from './api-key'
+import { API_KEY_PERMISSIONS, type ApiKeyPermission } from './api-key.js'
 
 /** 数据访问类别:决定「功能开放」是否连带「数据开放」。 */
 export const CAPABILITY_DATA_CLASSES = [
