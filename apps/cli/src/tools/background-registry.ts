@@ -65,6 +65,78 @@ function cleanupTaskWorktree(task: BackgroundTask): void {
 }
 
 /**
+ * 某一时刻的**任务快照** —— 冻结副本,不是注册表里那个还在被 stdout/stderr 回调
+ * 与 close 事件就地改写的活对象。
+ *
+ * 刻意排除两个字段:
+ *  - `process`:活的 ChildProcess 句柄,快照一旦带上它,"快照"就退化成"活对象的引用",
+ *    调用方顺着就能读到之后才写进来的输出。
+ *  - `worktreePath`:任务结束时会先清理 worktree 再置 undefined,同一条快照里
+ *    "路径还在"与"已经清完"哪个是真的取决于读的时刻 —— 该字段请走 listTasks/getTask。
+ */
+export type BackgroundTaskSnapshot = Readonly<
+  Pick<
+    BackgroundTask,
+    'id' | 'command' | 'startedAt' | 'exitedAt' | 'exitCode' | 'status' | 'stdoutBuf' | 'stderrBuf' | 'truncated' | 'timedOut'
+  >
+>;
+
+function toSnapshot(t: BackgroundTask): BackgroundTaskSnapshot {
+  return Object.freeze({
+    id: t.id,
+    command: t.command,
+    startedAt: t.startedAt,
+    exitedAt: t.exitedAt,
+    exitCode: t.exitCode,
+    status: t.status,
+    stdoutBuf: t.stdoutBuf,
+    stderrBuf: t.stderrBuf,
+    truncated: t.truncated,
+    timedOut: t.timedOut,
+  });
+}
+
+/**
+ * 终态监听器:task.id → 等待者集合。
+ * 回调参数是**该任务那一刻的快照**;null 表示"任务已从注册表消失,无人能给出终态"。
+ */
+type SettleListener = (snapshot: BackgroundTaskSnapshot | null) => void;
+const settleListeners = new Map<string, Set<SettleListener>>();
+
+/**
+ * 挂一个终态监听器,返回撤销函数。
+ *
+ * **必须在读状态之前登记**(调用方 `waitForTask` 里那条判序是载荷性的):
+ * 反过来(先读到 running → 再挂监听)会在"读"与"挂"之间漏掉那次终态,
+ * 于是这个等待者只能等自己的 deadline 到点,把一个**其实早就结束**的任务报成
+ * `timed-out-unknown`。这类漏登记在单线程下也能发生 —— await 就是让出点。
+ */
+function addSettleListener(id: string, fn: SettleListener): () => void {
+  let set = settleListeners.get(id);
+  if (!set) {
+    set = new Set();
+    settleListeners.set(id, set);
+  }
+  set.add(fn);
+  return () => {
+    const current = settleListeners.get(id);
+    if (!current) return;
+    current.delete(fn);
+    // 逐层删空集合:留着空 Set 就是让 Map 只增不减
+    if (current.size === 0) settleListeners.delete(id);
+  };
+}
+
+/** 任务进入终态:算一份快照,所有等待者拿同一份(而不是各读一次活对象)。 */
+function notifySettled(task: BackgroundTask): void {
+  const set = settleListeners.get(task.id);
+  if (!set || set.size === 0) return;
+  settleListeners.delete(task.id);
+  const snapshot = toSnapshot(task);
+  for (const fn of set) fn(snapshot);
+}
+
+/**
  * 注册一个后台任务,返回 task id。
  *
  * @param opts.worktreePath 可选 — 任务关联的 worktree 路径(Worktree 并行隔离层),
@@ -117,6 +189,9 @@ export function registerTask(
       // 任务异常结束,自动清理关联 worktree
       cleanupTaskWorktree(task);
       pruneCompleted();
+      // 终态通知放在状态改写之后:等待者读到的快照必须已经是 'error',
+      // 否则会出现"任务已通知结束而 status 仍是 running"这种自相矛盾的观测。
+      notifySettled(task);
     });
     process.on('close', (code, signal) => {
       task.exitedAt = new Date().toISOString();
@@ -131,6 +206,7 @@ export function registerTask(
       // 任务结束,自动清理关联 worktree
       cleanupTaskWorktree(task);
       pruneCompleted();
+      notifySettled(task);
     });
   }
 
@@ -213,52 +289,115 @@ export function getTaskOutput(id: string, tailLines?: number): TaskOutput | null
   };
 }
 
-/** 等待任务结束,timeoutMs 毫秒后返回当前状态(不杀进程)。 */
-export async function waitForTask(id: string, timeoutMs = 30_000): Promise<BackgroundTask | null> {
-  const t = tasks.get(id);
-  if (!t) return null;
-  if (t.status !== 'running') return t;
+/**
+ * `waitForTask` 的四种结论,必须**互相可分辨**。
+ *
+ * 立论(机制来源:ZCode 第十轮 A10A-2):旧实现到点 `resolve(cur)`,把
+ * "超时读到的中间状态"当成答案交给调用方 —— 而调用方只能靠
+ * `result.status !== 'running'` 这一句去反推"到底是被我等到了,还是我没等到"。
+ * 一旦哪天有人加了个 `if (result)` 就把它当成结束了,超时就被静默升格成结论。
+ * 所以这次把"等待有没有产生结论"做成返回形状的一部分,让调用方**必须**分支。
+ *
+ *  - `settled`            在窗口内观察到终态 ⇒ 快照可作结论
+ *  - `still-running`      非阻塞探询(timeoutMs<=0)时仍未终态 ⇒ 已知"还在跑",不是结论
+ *  - `timed-out-unknown`  窗口用尽仍未终态 ⇒ **未知**;既不得当成功也不得当失败
+ *  - `gone`               任务不在注册表里(不存在或已被裁掉)⇒ 无人能为其负责
+ */
+export type WaitForTaskState = 'settled' | 'still-running' | 'timed-out-unknown' | 'gone';
 
-  return new Promise<BackgroundTask | null>((resolve) => {
-    const start = Date.now();
-    const check = () => {
-      const cur = tasks.get(id);
-      if (!cur) {
-        resolve(null);
-        return;
+export interface WaitForTaskResult {
+  state: WaitForTaskState;
+  /** 与 state 同时刻取得的快照;`gone` 时为 null(没有任何东西可快照)。 */
+  snapshot: BackgroundTaskSnapshot | null;
+}
+
+/**
+ * 等待任务结束。
+ *
+ * timeoutMs <= 0 ⇒ 只做一次非阻塞观测(未终态即 `still-running`,不会挂到 deadline)。
+ *
+ * 三条实现判据(逐条都对应一次真实故障形态,改动前请一并看 addSettleListener 的注释):
+ *  ① 先登记终态监听器、再读状态 —— 顺序反了会漏掉"读与挂之间"完成的那次终态;
+ *  ② 交出的是快照而不是活对象 —— 一个会在背后自己变大的结果比一个保守的结果危险得多;
+ *  ③ 到点是 `timed-out-unknown` 而不是"当前状态" —— **超时不等于静默**。
+ */
+export async function waitForTask(id: string, timeoutMs = 30_000): Promise<WaitForTaskResult> {
+  return new Promise<WaitForTaskResult>((resolve) => {
+    let settled = false;
+    let removeListener: (() => void) | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const cleanup = (): void => {
+      settled = true;
+      if (removeListener) {
+        const r = removeListener;
+        removeListener = null;
+        r();
       }
-      if (cur.status !== 'running') {
-        resolve(cur);
-        return;
+      if (timer) {
+        // 撤闹钟:一个还没响的 setTimeout 会把 CLI 的退出拖到上界
+        clearTimeout(timer);
+        timer = null;
       }
-      if (Date.now() - start >= timeoutMs) {
-        resolve(cur);
-        return;
-      }
-      setTimeout(check, 100);
     };
-    check();
+    const finish = (result: WaitForTaskResult): void => {
+      if (settled) return;
+      cleanup();
+      resolve(result);
+    };
+
+    // ① 登记在读取之前
+    removeListener = addSettleListener(id, (snapshot) => {
+      finish({ state: snapshot ? 'settled' : 'gone', snapshot });
+    });
+
+    const current = tasks.get(id);
+    if (!current) {
+      finish({ state: 'gone', snapshot: null });
+      return;
+    }
+    if (current.status !== 'running') {
+      finish({ state: 'settled', snapshot: toSnapshot(current) });
+      return;
+    }
+    if (timeoutMs <= 0) {
+      // 非阻塞探询:没等过任何东西,所以也谈不上"超时",只是"此刻仍在跑"
+      finish({ state: 'still-running', snapshot: toSnapshot(current) });
+      return;
+    }
+    timer = setTimeout(() => {
+      const atDeadline = tasks.get(id);
+      // ③ 到点:绝不把这一刻的中间状态升格成"已结束",也不压成"失败"
+      finish({
+        state: atDeadline ? 'timed-out-unknown' : 'gone',
+        snapshot: atDeadline ? toSnapshot(atDeadline) : null,
+      });
+    }, timeoutMs);
+    // 等待中的闹钟不该单独把进程钉住(任务本身有自己的句柄)
+    timer.unref?.();
   });
 }
 
 /** 终止任务,signal 默认 SIGTERM,5 秒后未退出强杀 SIGKILL。 */
-export async function killTask(id: string): Promise<{ killed: boolean; reason?: string }> {
+export async function killTask(id: string): Promise<{ killed: boolean; reason?: string; exitConfirmed: boolean }> {
   const t = tasks.get(id);
-  if (!t) return { killed: false, reason: `任务 ${id} 不存在` };
-  if (t.status !== 'running') return { killed: false, reason: `任务已结束(状态: ${t.status})` };
-  if (!t.process) return { killed: false, reason: '无进程引用' };
+  if (!t) return { killed: false, exitConfirmed: false, reason: `任务 ${id} 不存在` };
+  if (t.status !== 'running') return { killed: false, exitConfirmed: true, reason: `任务已结束(状态: ${t.status})` };
+  if (!t.process) return { killed: false, exitConfirmed: false, reason: '无进程引用' };
 
   try {
     t.process.kill('SIGTERM');
   } catch {
-    return { killed: false, reason: 'kill 信号发送失败' };
+    return { killed: false, exitConfirmed: false, reason: 'kill 信号发送失败' };
   }
 
   // 等待 5 秒
-  const exited = await waitForTask(id, 5000);
-  if (exited && exited.status !== 'running') {
-    return { killed: true };
+  const first = await waitForTask(id, 5000);
+  if (first.state === 'settled') {
+    return { killed: true, exitConfirmed: true };
   }
+  // timed-out-unknown / gone / still-running:SIGTERM 没能收敛,继续走强杀。
+  // 这一支就是"超时不等于已结束"必须显式处理的地方 —— 旧写法靠
+  // `exited.status !== 'running'` 反推,读起来像在看结论,其实是在猜。
 
   // 进程组团灭(2026-09-10 CI 根修):runSandboxedAsync 以 detached+shell 派生,
   // SIGTERM 只杀 shell,孙进程(如 sleep)继承 stdio 管道,shell 死后 close 事件
@@ -275,8 +414,21 @@ export async function killTask(id: string): Promise<{ killed: boolean; reason?: 
   try {
     t.process.kill('SIGKILL');
   } catch { /* ignore */ }
-  await waitForTask(id, 2000);
-  return { killed: true };
+  const second = await waitForTask(id, 2000);
+  if (second.state === 'settled') {
+    return { killed: true, exitConfirmed: true };
+  }
+  // 信号已经发出去了(这是事实),但**没有等到终态确认** —— 两件事必须分开说。
+  // 刻意不把 unknown 洗成"终止成功",也不改口成"失败":
+  // 前者会让人以为进程没了(实际可能还挂着管道),后者会诱使调用方再 kill 一次。
+  return {
+    killed: true,
+    exitConfirmed: false,
+    reason:
+      second.state === 'gone'
+        ? 'SIGKILL 已发送,但任务记录在确认前被清理,终态未确认'
+        : 'SIGKILL 已发送,但等待窗口内未观察到终态(未确认退出,不等于已退出)',
+  };
 }
 
 /** 清理已完成任务,保留最近 MAX_COMPLETED_TASKS 个。 */
@@ -285,6 +437,9 @@ function pruneCompleted(): void {
   if (completed.length <= MAX_COMPLETED_TASKS) return;
   const toRemove = completed.slice(MAX_COMPLETED_TASKS);
   for (const t of toRemove) {
+    // 被裁掉的都是非 running 的任务 ⇒ 终态通知早已在 close/error 里发过。
+    // 这里仍要摘监听器集合,否则一个"任务已被删除"的键会把监听器永久留在 Map 里。
+    settleListeners.delete(t.id);
     tasks.delete(t.id);
   }
 }
@@ -295,6 +450,14 @@ export function clearAllTasks(): void {
     if (t.process && t.status === 'running') {
       try { t.process.kill('SIGKILL'); } catch { /* ignore */ }
     }
+  }
+  // 整表清空前逐个结掉等待者:留一个没人回答的等待 = Promise 泄漏
+  // (与本文件 killTask 处 P0-4 修复记的是同一型故障)。
+  for (const id of settleListeners.keys()) {
+    const set = settleListeners.get(id);
+    if (!set) continue;
+    settleListeners.delete(id);
+    for (const fn of set) fn(null);
   }
   tasks.clear();
 }
