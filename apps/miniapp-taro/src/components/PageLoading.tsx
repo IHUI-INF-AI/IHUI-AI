@@ -12,8 +12,7 @@ export interface PageLoadingProps {
 export default function PageLoading({ text = t('tail.8') }: PageLoadingProps) {
   return (
     <View className="flex flex-col items-center justify-center py-16">
-      <View className="w-8 h-8 mb-3 rounded-full border-2 border-border border-t-primary animate-spin" />{' '}
-      {/* border-ink-exempt: 零消费者死件(仅 components/index.ts re-export),待删除票连 tail.8 一并清,不给死代码改档 until 2026-10-26 */}
+      <View className="w-8 h-8 mb-3 rounded-full border-2 border-border border-t-brand-accent-deep animate-spin" />
       <Text className="text-sm text-muted-foreground">{text}</Text>
     </View>
   )
