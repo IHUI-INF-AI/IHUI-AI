@@ -70,8 +70,9 @@
 --     且 ai-service 用自己的 asyncpg 池,从未设过 app.user_id ⇒ 直接归零。
 --
 -- 幂等:CREATE OR REPLACE FUNCTION;每条 CREATE POLICY 前配 DROP POLICY IF EXISTS;
---   ENABLE/FORCE 重复执行等价。整份按仓内多数迁移的写法用
---   `--> statement-breakpoint` 分段,可重复重放。
+--   ENABLE/FORCE 重复执行等价。整份按仓内多数迁移的写法,用 drizzle 的分段注释行切句。
+--   注意:分段标记的字面量不可出现在任何注释里(含反引号示例)—— 迁移器按字面量断句,
+--   会从注释中间切开并把后半段当 SQL 发给 Postgres,报 syntax error at or near "`"。
 -- 回滚:见文件末「回滚」注释块。
 -- ============================================================================
 
