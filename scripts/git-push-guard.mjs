@@ -42,6 +42,7 @@ import {
 } from 'node:fs'
 import { resolve } from 'node:path'
 import { catBatchCheck } from './lib/face-reader.mjs'
+import { triagePushAttempt, describeVerdict, CONVERGE_COMMAND } from './lib/push-attempt-triage.mjs'
 
 const C = {
   red: '\x1b[31m',
@@ -342,8 +343,16 @@ if ((promisorCfg || filterCfg) && !process.env.GUARD_SKIP_PARTIAL_CLONE_CHECK) {
 //      每次 commit 命令拖住 3-4 分钟,多会话收尾全部跟着干等。
 // 方案:主模式检测到 ahead → 写 running 状态 + spawn detached worker 后立即
 //      返回(commit 秒回);worker 在后台执行真正推送(质量门不降级,pre-push
-//      照跑),结束写 done/failed 状态。失败由下一次 guard 调用自动重试。
-// 状态:.workbuddy/push-state.json {status,headSha,ts,pid},converge 脚本读取。
+//      照跑),结束写 done/failed/diverged 状态。失败由下一次 guard 调用自动重试。
+// 状态:.workbuddy/push-state.json {status,headSha,ts,pid[,reason,kind,nextCommand]},converge 脚本读取。
+//   status ∈ running | done | failed | diverged(2026-09-26 新增)。
+//   `diverged` = 远端拒收 non-fast-forward(并发会话已推进远端)⇒ **一次都没推出去**,
+//   出路只有 git-sync-converge;它与 `failed` 的区别不是"更轻",而是"下一步动作不同":
+//   failed 让人去查凭据/网络/门禁,diverged 必须直接指向收敛器。
+//   ⚠️ 新增终态必须同时改三处读取方(否则别人读到不认识的值会怎么判,是这台机的行为,
+//   不是本文件的注释):scripts/check-push-sync.mjs(pushVerdict)、
+//   scripts/git-push-converge.mjs(注释 + DIVERGED 输出)、scripts/git-sync-converge.mjs
+//   (waitForPushState 的终态集合 —— 漏了它会白等 8 分钟才判 timeout)。
 const pushStateFile = resolve(process.cwd(), '.workbuddy/push-state.json')
 const GUARD_ASYNC = process.env.GUARD_ASYNC !== '0' // 默认开;GUARD_ASYNC=0 强制同步
 const PUSH_STATE_STALE_MS = 5 * 60 * 1000
@@ -367,12 +376,26 @@ function isPidAlive(pid) {
   }
 }
 
-function writePushState(status, headSha) {
+/**
+ * 写 push-state。
+ * @param {'running'|'done'|'failed'|'diverged'} status
+ * @param {string} headSha
+ * @param {{reason?:string,kind?:string,nextCommand?:string|null}=} extra
+ *   2026-09-26 增列(全部是**附加键**,老读取方只取 status/headSha/ts/pid,
+ *   对不认识它们的版本零影响;老状态文件里没有这些键也不会崩)。
+ */
+function writePushState(status, headSha, extra) {
   try {
     mkdirSync(resolve(process.cwd(), '.workbuddy'), { recursive: true })
     writeFileSync(
       pushStateFile,
-      JSON.stringify({ status, headSha, ts: Date.now(), pid: process.pid }),
+      JSON.stringify({
+        status,
+        headSha,
+        ts: Date.now(),
+        pid: process.pid,
+        ...(extra && typeof extra === 'object' ? extra : {}),
+      }),
     )
   } catch {
     /* 状态写失败不影响主流程 */
@@ -485,9 +508,16 @@ const workerActive =
 
 // 2026-09-18 自愈:死 worker 残留 running 状态(被强杀来不及写终态)→ 启动时顺手改写为
 // failed 终态,消费端(converge/check-push-sync)不再依赖 pid 推断,状态文件保持真实。
+// ⚠️ 这一记 failed 写的是**那枚死 worker 的 headSha**,不是本次本地 HEAD —— 多会话并发下
+// 它每天落 353 次(实测 `grep -ac "发现死 worker" .workbuddy/git-push-guard-async.log`),
+// 于是"现值 ahead + 状态 failed"常常与本次提交毫无因果。必须带 reason 落盘,
+// 让下游能分清"推送真的失败了"与"上一个 worker 没写完终态"(2026-09-26 补,守门 29 假红根因)。
 if (existingState && existingState.status === 'running' && !isPidAlive(existingState.pid)) {
   log('warn', `发现死 worker 残留 running 状态(pid ${existingState.pid}),自愈为 failed`)
-  writePushState('failed', existingState.headSha)
+  writePushState('failed', existingState.headSha, {
+    kind: 'dead-worker-self-heal',
+    reason: `残留 running 的持有者 pid ${existingState.pid} 已死,本进程只负责把它改成终态`,
+  })
 }
 
 if (isWorkerMode) {
@@ -817,76 +847,127 @@ if (headJsonFiles.length === 0) {
   }
 }
 
-// ─── 4. 执行 push(实时输出,失败立即退出) ──────────────────────
+// ─── 4. 执行 push(失败先分诊,再决定重试形态) ───────────────────
 log('info', `执行 git push origin ${branch} ...`)
 
 // timeout 上限(2026-09-19 根治):push 会跑 pre-push 全量门(实测 ~270s),
 // 900s 足够宽裕;无上限的挂起会配合心跳把 running 状态永远续下去。
 const PUSH_TIMEOUT_MS = 900_000
 
-let lastPushRaw = ''
-let pushResult = spawnSync('git', ['push', 'origin', branch], {
-  stdio: 'inherit',
-  cwd: repoRoot,
-  env: process.env,
-  timeout: PUSH_TIMEOUT_MS,
-  windowsHide: true,
-})
+/**
+ * 跑一趟 push 并把回显取回来。
+ * 为什么不再 `stdio:'inherit'`:那形态下 stdout/stderr 恒为 null ⇒ **分诊没有输入**。
+ * 同一根因在 2026-09-24 已记过一次(--no-verify 那一趟),本处是它的另一半:首趟才是
+ * 决定"要不要跳门"的那一趟,拿不到文本就等于把任何失败都当成钩子失败。
+ * 代价:pre-push 的输出改为进程结束后整段回显;钩子本体只 tail 40 行进 stderr,量可控,
+ * 另给 64MB maxBuffer(守门 123 记的"node 默认 1MB、超限抛错并丢已缓冲输出"那一型)。
+ * @param {boolean} noVerify
+ */
+function pushOnce(noVerify) {
+  const args = noVerify ? ['push', '--no-verify', 'origin', branch] : ['push', 'origin', branch]
+  const r = spawnSync('git', args, {
+    stdio: ['inherit', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    cwd: repoRoot,
+    env: process.env,
+    timeout: PUSH_TIMEOUT_MS,
+    windowsHide: true,
+    maxBuffer: 64 * 1024 * 1024,
+  })
+  const raw = `${r.stdout || ''}${r.stderr || ''}`
+  if (raw.trim()) process.stdout.write(raw.endsWith('\n') ? raw : `${raw}\n`)
+  return r
+}
 
-// 首次 push 失败时分流(2026-09-18 中断分类):
-//   a) push 门被中断(exit 75 标记)→ 先带 hook 重试一次,拿真实类型检查结论;
-//   b) 真实类型检查失败/其他 hook 失败 → 按用户规则"hook 失败因其他 agent 代码 →
-//      --no-verify 跳过"重试一次。
-// 此前不分类,被杀的 typecheck(exit 3221225786,实测 39 次)被当成"他人代码失败"
-// 直接 --no-verify 绕过,真实门禁白跑 2×5 分钟还绕过了结论。
+/** 对一趟 push 的结果做分诊(判据在 lib/push-attempt-triage.mjs,与测试共用一份实现)。 */
+const triageOf = (r) => triagePushAttempt({ status: r.status, stdout: r.stdout, stderr: r.stderr })
+
+let pushResult = pushOnce(false)
+let attempt = triageOf(pushResult)
+
+// ── 4.1 non-fast-forward:绝不跳门(2026-09-26 立的这一刀,是本次修复的核心)──
+// 旧形态把**任何** exit 1 当成"pre-push hook 阻塞",随后按 §12"hook 失败因其他 agent
+// 代码 → --no-verify"再推一趟。而 `(non-fast-forward)` 是远端拒收,与质量门无关:
+// 本机多会话并发、分叉是常态 ⇒ 每次分叉都必然走一次跳门推送,§5b「⚡ 推送异步化」里
+// "pre-push 质量门不降级"这句在这一型下从来没成立。
+// 这里也不自己跑 fetch/merge —— 那会与别的会话竞态;收敛器已内建写锁与索引层合并
+// (§5b「🔄 主动收敛」规定的唯一入口)。
+if (attempt.kind === 'non-fast-forward') {
+  log('err', `git push 被远端拒收 — ${describeVerdict(attempt)}`)
+  log('err', '  绝不使用 --no-verify:跳本地钩子既不改变分叉,又把整条推送质量门关掉')
+  log('err', '  不在本链路里跑 fetch/merge:并发会话下那是竞态源头,收敛器已带锁')
+  const nextCmd = attempt.nextCommand ?? CONVERGE_COMMAND
+  log('info', `  出路(唯一入口):${C.cyan}${nextCmd}${C.reset}`)
+  writePushState('diverged', localHead, {
+    kind: attempt.kind,
+    reason: attempt.why,
+    nextCommand: nextCmd,
+  })
+  process.exit(1)
+}
+
+// ── 4.2 其余失败:仅当真解析到钩子痕迹才走"带 hook 重试 → --no-verify 兜底"链 ──
+// (2026-09-18 中断分类:exit 75 标记 = 门被杀,不是类型检查结论 ⇒ 先带 hook 重试拿真实
+//  结论。这条链一个字不动,§5b ⑤ 依赖它。)
 if (pushResult.status !== 0) {
-  log('warn', `git push 首次失败(exit ${pushResult.status}),可能是 pre-push typecheck 阻塞`)
-
-  const gateMarker = readPushGateMarker()
-  if (gateMarker) {
-    log('info', '检测到 push 门「被中断(exit 75)」标记(非类型检查结论),先带 hook 重试...')
-    pushResult = spawnSync('git', ['push', 'origin', branch], {
-      stdio: 'inherit',
-      cwd: repoRoot,
-      env: process.env,
-      timeout: PUSH_TIMEOUT_MS,
-      windowsHide: true,
-    })
-    if (pushResult.status === 0) {
-      log('ok', 'push 门重试通过(真实类型检查结论),推送成功')
+  log('warn', `git push 首次失败(exit ${pushResult.status})— ${describeVerdict(attempt)}`)
+  if (attempt.kind === 'secret-scan-blocked') {
+    // --no-verify 只跳本地钩子,绕不开服务器侧 push protection ⇒ 重试那一趟必然白跑
+    log('warn', '  不做 --no-verify 重试:那只能关本地门,关不掉远端的规则')
+  } else {
+    if (attempt.allowHookRetry) {
+      const gateMarker = readPushGateMarker()
+      if (gateMarker) {
+        log('info', '检测到 push 门「被中断(exit 75)」标记(非类型检查结论),先带 hook 重试...')
+        pushResult = pushOnce(false)
+        attempt = triageOf(pushResult)
+        if (pushResult.status === 0) {
+          log('ok', 'push 门重试通过(真实类型检查结论),推送成功')
+        }
+      }
     }
-  }
 
-  if (pushResult.status !== 0) {
-    log('info', `按用户规则"hook 失败因其他 agent 代码 → --no-verify 跳过"重试...`)
+    if (pushResult.status !== 0 && attempt.allowNoVerifyRetry) {
+      log('info', `按用户规则"hook 失败因其他 agent 代码 → --no-verify 跳过"重试...`)
 
-    pushResult = spawnSync('git', ['push', '--no-verify', 'origin', branch], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      encoding: 'utf8', // 必须管道+解码:原来 stdio:'inherit' 时 pushResult.stdout/stderr 恒为 null,
-      cwd: repoRoot, //   任何"按远端回显文字分类失败原因"的判据都拿不到文本(2026-09-24 实测空转)。
-      env: process.env,
-      timeout: PUSH_TIMEOUT_MS,
-      windowsHide: true,
-    })
-    lastPushRaw = `${pushResult.stdout || ''}${pushResult.stderr || ''}`
-    if (lastPushRaw.trim())
-      process.stdout.write(lastPushRaw.endsWith('\n') ? lastPushRaw : lastPushRaw + '\n')
+      pushResult = pushOnce(true)
+      attempt = triageOf(pushResult)
 
-    if (pushResult.status === 0) {
-      log('warn', `⚠️  首次 push 因 pre-push hook 失败,已用 --no-verify 重试成功`)
-      log('warn', `   本任务代码已自验通过 typecheck,其他 agent 的代码 hook 失败不阻塞本任务 push`)
+      if (pushResult.status === 0) {
+        if (attempt.pushedNothing) {
+          log('warn', '⚠️  --no-verify 那一趟的回显是「什么都没推」(Everything up-to-date)')
+          log('warn', '   不在此处报成功 —— 终态一律交给下方验证段按 local/remote 实值判定')
+        } else {
+          log('warn', `⚠️  首次 push 因 pre-push hook 失败,已用 --no-verify 重试成功`)
+          log(
+            'warn',
+            `   本任务代码已自验通过 typecheck,其他 agent 的代码 hook 失败不阻塞本任务 push`,
+          )
+        }
+      }
+    } else if (pushResult.status !== 0) {
+      log('err', `分诊判为 ${attempt.kind} ⇒ 本次**不**使用 --no-verify(旧形态在这里会无条件跳门)`)
     }
   }
 }
 
 if (pushResult.status !== 0) {
-  log('err', `git push 最终失败(exit code: ${pushResult.status},即使 --no-verify 也无法推送)`)
-  writePushState('failed', localHead)
-  const pushOut = `${lastPushRaw || ''}${pushResult.stderr ? String(pushResult.stderr) : ''}\n${pushResult.stdout ? String(pushResult.stdout) : ''}`
-  // 分类:GitHub push protection 拦的是"提交内容里出现凭据形状的字符串",与网络/凭据/分支保护
-  // 都无关 —— 旧提示只列那四条,于是每个人都会先去查代理和权限(2026-09-24 实测整条 main 被
-  // 计划正文里引用的占位串卡死,报错原文只有一句 repository rule violations)。
-  if (/repository rule violations|secret-scanning|Secret scanning|push declined/i.test(pushOut)) {
+  log('err', `git push 最终失败(exit code: ${pushResult.status})— ${describeVerdict(attempt)}`)
+  if (attempt.kind === 'non-fast-forward') {
+    // 只有"重试那一趟才暴露出分叉"才会走到这里(首趟已在 4.1 拦下)。同样绝不写 done,
+    // 也绝不把这一型落到下面的"可能原因"里 —— 那正是每个人都去查一遍代理和凭据的成因。
+    writePushState('diverged', localHead, {
+      kind: attempt.kind,
+      reason: attempt.why,
+      nextCommand: attempt.nextCommand ?? CONVERGE_COMMAND,
+    })
+    log('info', `  出路(唯一入口):${C.cyan}${attempt.nextCommand ?? CONVERGE_COMMAND}${C.reset}`)
+    process.exit(1)
+  }
+  writePushState('failed', localHead, { kind: attempt.kind, reason: attempt.why })
+  // 归类口径一律取分诊结果(lib/push-attempt-triage.mjs),此处不再另写一份正则 ——
+  // 两处算同一件事必漂移,本仓记过多次。
+  if (attempt.kind === 'secret-scan-blocked') {
     log(
       'err',
       '  归类:推送保护(push protection)—— 未推送 commit 里有**凭据形状**的字符串(真假不论)',
@@ -909,13 +990,13 @@ if (pushResult.status !== 0) {
   } else {
     log(
       'info',
-      `${C.dim}   可能原因: (a) 远端有更新的 commit,需先同步 —— git fetch origin main && git merge --ff-only FETCH_HEAD(本机禁用 pull --rebase);(b) 分支保护规则需 PR;(c) 凭据失效;(d) 网络问题${C.reset}`,
+      `${C.dim}   可能原因: (a) 分叉(远端已推进)⇒ 唯一入口 ${CONVERGE_COMMAND};(b) 分支保护规则需 PR;(c) 凭据失效;(d) 网络问题 —— 本机禁用 pull --rebase${C.reset}`,
     )
   }
   process.exit(1)
 }
 
-// ─── 5. 再次验证 ────────────────────────────────────────────
+// ─── 5. 再次验证(终态一律由这里落,不在上面替它下结论) ────────
 const newLocalHead = run('git rev-parse HEAD', { allowFail: true })
 const newRemoteLs = run(`git ls-remote origin refs/heads/${branch}`, { allowFail: true })
 const newRemoteHead = run(`git rev-parse origin/${branch}`, { allowFail: true })
@@ -923,14 +1004,37 @@ const newRemoteHead = run(`git rev-parse origin/${branch}`, { allowFail: true })
 const verifiedRemote = newRemoteLs ? newRemoteLs.split('\t')[0].trim() : newRemoteHead
 
 if (!verifiedRemote) {
-  log('err', 'push 后无法验证远端状态(请手动检查)')
-  writePushState('failed', localHead)
+  log('err', 'push 后无法验证远端状态(请手动检查)—— 未判定不等于成功,落 failed')
+  writePushState('failed', localHead, {
+    kind: attempt.kind,
+    reason: '验证段取不到远端 tip(未判定)',
+  })
   process.exit(1)
 }
 
+// 把验证结果回喂分诊:「什么都没推」这一档的终态**只能**由 local==remote 的实测决定,
+// 判据仍住在 lib 里(一份实现,guard 与测试同视它)。
+const finalVerdict = triagePushAttempt({
+  status: pushResult.status,
+  stdout: pushResult.stdout,
+  stderr: pushResult.stderr,
+  remoteEqualsLocal: newLocalHead === verifiedRemote,
+})
+const nextState =
+  finalVerdict.terminalStatus ?? (newLocalHead === verifiedRemote ? 'done' : 'failed')
+
 if (newLocalHead === verifiedRemote) {
-  log('ok', `push 成功 + 验证通过!local HEAD === origin/${branch} HEAD`)
-  writePushState('done', localHead)
+  if (finalVerdict.pushedNothing) {
+    log('ok', '本次未推送任何东西:远端 tip 已包含本地(或已由并发推送落地)')
+    log('warn', '  ↑ 不是"推送成功"—— 一个字节都没上过去,合格证只在验证确实相等时才给')
+  } else {
+    log('ok', `push 成功 + 验证通过!local HEAD === origin/${branch} HEAD`)
+  }
+  writePushState(nextState, localHead, {
+    kind: finalVerdict.kind,
+    reason: finalVerdict.why,
+    pushedNothing: finalVerdict.pushedNothing,
+  })
   log(
     'ok',
     `commit: ${C.green}${newLocalHead.substring(0, 7)}${C.reset} ${C.dim}(local == remote,已落地)${C.reset}`,
@@ -941,7 +1045,11 @@ if (newLocalHead === verifiedRemote) {
     'err',
     `push 报告成功但验证失败:local=${newLocalHead?.substring(0, 7)} vs remote=${verifiedRemote.substring(0, 7)}`,
   )
-  writePushState('failed', localHead)
+  writePushState('failed', localHead, {
+    kind: finalVerdict.kind,
+    reason: `验证 local!=remote(远端 ${verifiedRemote.substring(0, 7)} 非本次推送落地)`,
+    pushedNothing: finalVerdict.pushedNothing,
+  })
   process.exit(1)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
