@@ -83,7 +83,8 @@ function varsToTable(map) {
 
 /**
  * tokens.css → `{light, dark}`。
- * dark = 亮档 ∪ `.dark`,未覆盖的档按 CSS cascade 回退亮值 —— 门的口径,`--color-cta` 这类"明暗同值"档就靠它。
+ * dark = 亮档 ∪ `.dark`,未覆盖的档按 CSS cascade 回退亮值 —— 门的口径。
+ * (`--color-cta` 2026-09-26 起已在 .dark 显式覆盖,不再依赖回退;机制本身保留。)
  */
 export function readTokenTables(tokensCss) {
   const light = varsToTable(collectVars(tokensCss, ['@theme', ':root']))
