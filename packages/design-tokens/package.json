@@ -34,6 +34,7 @@
   "scripts": {
     "build": "rimraf dist && tsc -p tsconfig.json && node scripts/copy-assets.mjs",
     "lint": "eslint src/",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepack": "pnpm run build",
     "clean": "rimraf dist .turbo node_modules"
@@ -46,7 +47,8 @@
     "@ihui/eslint-config": "workspace:*",
     "typescript": "catalog:",
     "rimraf": "catalog:",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "vitest": "catalog:"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "homepage": "https://aizhs.top",
