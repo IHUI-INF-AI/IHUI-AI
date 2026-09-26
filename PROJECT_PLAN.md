@@ -11879,3 +11879,21 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   不去"修"别人的在飞现场,也不把它们的红记进本仓债务清单。
 - 另:门 105 顺带报出 9 组"孤儿/死资源只报数"(tabbar png 等),以及本机全量档的门 70
   因他人在飞中文而红(见本文件门 70 条目的口径更正)—— 都不是本批引入、也都不动判据去消。
+
+- **e2e 开口收口后的**真实增量**(CI 逐轮复量,不把自己的改动当已交付):
+  对照三次运行的失败清单(计数含 2 次重试,已折半读):
+  - `cbed016f64`(改前):`login-enter-submit` 7 例、`login-3step-enter` 3 例、
+    `dialog-position-regression` 2 例、`remember-password` 12 例 ⇒ 登录簇 24 例全红;
+  - `40513b2558` / `f2a7cf2429`(带上唯一出口 + 四条 spec 接线后):
+    **`login-enter-submit` / `login-3step-enter` / `dialog-position-regression` 从失败清单里整批消失(12 例转绿)**,
+    `remember-password` 仍 10-11 例红 —— 但**失败点已经换了**:`expect(getByTestId('login-dialog')).toBeVisible`
+    这一句不再红,改停在更后面的一步 `switchToPasswordTab`(`remember-password.spec.ts:73`)等
+    `#login-form-account` 不可见。⇒ 该 spec 的 tab 切换用的是 `page.mouse` 坐标点击 + 按 id 取元素
+    (同期 `login-enter-submit` 用的是 `getByTestId('login-tab-*')`,所以它绿),
+    这是**同一份漂移的下一层**,不是我把上一条修坏了;之前那一层失败把它挡住了,现在露出来。
+  登记为待办(不冒充 e2e 全绿):`remember-password.spec.ts` 的 `switchToPasswordTab` 应改成像
+  同期 spec 那样按 testid 点 tab、按可见性而不是坐标取账号框;余下 `browser-hub-smoke`(ai-service
+  侧建会话 500)、`navigation-full`、`mode-switch`、`work-panel`、`topbar-workarea-align`、
+  `ihui-download-verify`、`chat-mode-badge`、`footer-regression`、`phase-21-timeline-sse` 各自另有成因,
+  且日志里同时出现 api 侧 `FST_UNDER_PRESSURE`(503)与 `会话清单应为 200(实际 500)` ⇒
+  这一族要先判"是不是 CI 资源压力下的过载",不得当成代码缺陷盲修。
