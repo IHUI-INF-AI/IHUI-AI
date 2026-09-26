@@ -82,6 +82,7 @@ from .agent_checkpoint import (
     get_agent_checkpoint_manager,
 )
 from .agent_deliverables import DeliverablesCollector, save_deliverables
+from .engine_tool_bridge import capability_equivalent as _capability_equivalent
 
 if TYPE_CHECKING:
     from .compaction_canary import CompactionDecision
@@ -222,6 +223,17 @@ _DEFAULT_HIGH_RISK_TOOLS: frozenset[str] = frozenset({
 
 # 前缀高危:computer_* 系列(电脑控制)整体视为高危
 _HIGH_RISK_PREFIXES: tuple[str, ...] = ("computer_",)
+
+
+def _matches_high_risk_name(name: str) -> bool:
+    """按既有高危名单(默认集 + 前缀族)判一个名字。
+
+    单独成函数是为了让"名字本身"与"名字所代表的能力"用**同一把尺**
+    —— 高危名单只有这一份真相,任何一侧要改都只改 `_DEFAULT_HIGH_RISK_TOOLS`。
+    """
+    if name in _DEFAULT_HIGH_RISK_TOOLS:
+        return True
+    return any(name.startswith(prefix) for prefix in _HIGH_RISK_PREFIXES)
 
 # 审批默认超时(秒,可经 env TOOL_APPROVAL_TIMEOUT 覆盖)
 _DEFAULT_APPROVAL_TIMEOUT = 60.0
@@ -4080,10 +4092,17 @@ class AgentLoopV2:
         - 浏览器交互类:browser_click_element / browser_type_text
         - 删除/写库类:git_operations(含 rm 参数) / db_query(写操作) —— 参数细节由用户按预览自决
         其余(read_file / search / 知识查询)默认放行。
+
+        V3 #47(2026-09-26):引擎内核(AgentEngine/Codex 移植)自带的 14 个内置名不在注册表里,
+        于是名字判据对它们全盲 —— 实测改前 `unified_exec`(起 shell)、`run_code`(跑 python 子进程)、
+        `apply_patch`(写工作区文件)三条都判 False,即**永不进审批门**,而同一能力经
+        `run_command` / `file_edit` 进 A/B 内核时要审批。现按桥表回查"该能力的注册表拥有者",
+        用同一把尺再判一次;名单仍只有 `_DEFAULT_HIGH_RISK_TOOLS` 那一份。
         """
-        if name in _DEFAULT_HIGH_RISK_TOOLS:
+        if _matches_high_risk_name(name):
             return True
-        return any(name.startswith(p) for p in _HIGH_RISK_PREFIXES)
+        equivalent = _capability_equivalent(name)
+        return equivalent is not None and _matches_high_risk_name(equivalent)
 
     def _is_high_risk_tool_instance(self, name: str) -> bool:
         """实例级高危判定(含 env 追加的自定义集合)。"""
