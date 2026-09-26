@@ -263,7 +263,7 @@ function SidepanelInner() {
               className={({ isActive }: { isActive: boolean }) =>
                 `flex flex-col items-center gap-0.5 py-2.5 px-1 text-[11px] border-l-2 border-transparent no-underline ${
                   isActive
-                    ? 'text-primary border-l-primary bg-muted'
+                    ? 'text-primary border-l-brand-accent-deep bg-muted'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                 }`
               }
