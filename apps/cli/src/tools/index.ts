@@ -686,10 +686,19 @@ export async function executeToolCall(
   // 权限租约(默认关闭):`activePermissionLease()` 为 null 时走的仍是改造前那一份
   // `checkPermission` 调用,行为逐字不变;有租约时也**只**可能把 rules 里的 'ask'
   // 放宽成放行 —— 'deny'(黑名单/不在白名单)与下方 `dangerous` 确认闸都不受影响。
+  let leaseContentDrifted = false;
   if (ctx.permissions) {
     const lease = activePermissionLease();
+    // `dangerLevel ?? 'write'`:该参数只被用来拒绝"把 dangerous 放宽",undefined 在本函数的
+    // 既有语义里等同非危险(下方确认闸判的是 `=== 'dangerous'`),取 write 档是保守写法。
     const perm = lease
-      ? checkRulesWithLease(call.name, ctx.permissions, tool.dangerLevel, lease)
+      ? checkRulesWithLease(
+          call.name,
+          ctx.permissions,
+          tool.dangerLevel ?? 'write',
+          lease,
+          JSON.stringify(call.arguments ?? null),
+        )
       : checkPermission(call.name, ctx.permissions);
     if (!perm.allowed) {
       return {
@@ -699,13 +708,17 @@ export async function executeToolCall(
         errorType: 'permission_denied',
       };
     }
+    // 执行点必须把内容喂进判定,并且**必须消费漂移结论**:
+    // `checkRulesWithLease` 在摘要不符时返回 `allowed:true + requiresApproval:true`,
+    // 而本函数原先只看 `!perm.allowed` ⇒ 整套槽位指纹在运行时是死代码(造好没装车)。
+    leaseContentDrifted = 'approvalState' in perm && perm.approvalState === 'content-drifted';
   }
   // P1-4 Rate limiting:同一工具 10 秒内最多 5 次,超限返回 error
   const rateLimit = checkRateLimit(call.name);
   if (!rateLimit.allowed) {
     return { success: false, output: '', error: rateLimit.reason, errorType: 'rate_limited' };
   }
-  if (tool.dangerLevel === 'dangerous') {
+  if (tool.dangerLevel === 'dangerous' || leaseContentDrifted) {
     const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
     // 披露面(L7905 收口):只记账不改判定 —— 放行路径(会话级 flag / 回调自批)可追溯
     if (allowed) noteDangerousApproval(ctx.allowDangerous === true, tool.name);
@@ -713,7 +726,9 @@ export async function executeToolCall(
       return {
         success: false,
         output: '',
-        error: `危险操作被拒绝(需用户确认): ${call.name}`,
+        error: leaseContentDrifted
+          ? `工具 ${call.name} 的本次参数与租约批准过的内容不符(摘要漂移)，旧批准失效，需重新确认`
+          : `危险操作被拒绝(需用户确认): ${call.name}`,
       };
     }
   }
