@@ -8,7 +8,7 @@ import { Alert, StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { ChangePhoneScreen as SharedChangePhoneScreen, type NationOption } from '@ihui/rn-app'
 import { InputArea } from '../components/InputArea'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -102,7 +102,7 @@ export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: strin
         method: 'POST',
         body: JSON.stringify({ phone: phoneNumber, type: 2 }),
       })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) throw apiFailureToError(res)
       startCountdown()
       showToast('success', '验证码已发送')
     } catch (e: unknown) {
