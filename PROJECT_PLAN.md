@@ -9967,6 +9967,18 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 
 
 
+- **第十三批 ZCode 吸收线(2026-09-26 午):把"机制在库"与"机制可达"分成两问来量 —— 三票落地 + 两处我自己写错的账公开更正**。
+  - **落地**:
+    1. `257565e8607` **厂商模型清单缓存键纳入身份维度**(跨用户私有模型列表泄露)—— 吸收自"缓存键必须带调用者身份"那一格。`getCacheKey(provider, userId?)` 单点改身份档,无身份请求落**显式** `:public` 命名空间(不是裸拼 `undefined`)。回归 `apps/api/tests/provider-models-cache-key.test.ts` 5 例(A 写 B 读不到 / 同用户二次仍命中 = 防"永远 miss"的假修复 / `:public` 独立 / 变异对照退回旧写法必红 / **结构判据:该文件所有 `getCacheKey(` 调用点必须传身份参数**)。
+    2. `c0e6f14bc81` **批准随命令内容漂移而失效**(租约槽位指纹 `slotDigest`)。
+    3. `ee353308241` **执行点消费漂移结论**(本会话):`executeToolCall` 原先只看 `!perm.allowed`,而 `checkRulesWithLease` 在摘要不符时返回的是 `allowed:true + requiresApproval:true` ⇒ 上一票整套槽位指纹在运行时是**死代码**。现把本次参数喂进判定(`JSON.stringify(call.arguments ?? null)`)并把 `approvalState==='content-drifted'` 接进确认闸,未标注 `dangerLevel` 时按 `'write'` 保守档传参。回归 `apps/cli/tests/lease-drift-executor-wiring.test.ts` 6 例走**生产入口**(内容一致照常放宽 / 改了且无确认出口必须拒 / 改后可重批 / 无租约逐字不变 / 撤销后重授予 / 结构锁),变异(把喂进去的内容换成 `null`)⇒ 3 红,还原后与备份 `cmp` 逐字一致。复跑:`apps/cli` 4 文件 **53 例绿** + `permission-approval-digest` **12 例绿** + `pnpm --filter @ihui/cli typecheck` 0 错。
+  - **两处我自己写错的账,公开更正(不悄悄改掉)**:
+    - ① 我上一格把 `resetInjectionLedger()` 的"生产面零调用点"当成待补的接线票。**实测结论相反:它不该有调用点**。台账是**按 id 覆盖的 Map**(跨轮不会把同一段数成两遍),而 repl(`commands/repl.ts:2263`,仅 `!state.agentReady` 时)与 `server/agent-core.ts:88`(`agentReady` 缓存)的 `setupAgentTools` **一个会话只装配一次** ⇒ 被服务的 system prompt 就是那一次的产物,"上一轮记的无内容"对这一轮**依然为真**。我先把 reset 放进 `runToolLoop` 开头试了一版,结果是**连带擦掉 `context_memory` / `skill_list` 仍然成立的降级账** —— 那比不清更糟,已回退。现行事实写在 `prompt-injection-registry.ts` 的函数注释里(含"将来若引入每请求重装配 system prompt 的宿主,由那个装配点调用"这一出口)。教训同 [[presence-claims-need-entrypoint-proof]]:**"零调用点"有三种成因(漏接 / 不该有 / 被摘线),只有量过才允许选哪一种**。
+    - ② 第十二批那格写"遗留:`agent.ts:1238/1605/1723` 三处尚未消费租约"。**现值不是三处**:HEAD 面 `activePermissionLease` 的读侧只有 `tools/index.ts:691` 一处(已在 `ee353308241` 消费),那三个行号是当时那份**尚未被并发会话推进过**的 `agent.ts` 快照。⇒ 行号派单前必须重新 `grep`,不得沿用台账里的坐标(本节多条"现值以实测为准"就是这个意思)。
+  - **本批最重要的一条新事实(比任何一票都值得留)**:`grantPermissionLease()` 在 `apps/cli/src` **生产面零调用点**(实测 `grep -rn "grantPermissionLease" apps/cli/src --include=*.ts` = 0)。所以"租约 + 槽位指纹"整条机制今天是**默认关闭且不可达** —— 我上面那票把**消费侧**装上了车,但**授予侧仍空**,这不是"已交付"。已派单补 `--permission-lease <工具名,…>`(操作员显式、默认不给即逐字不变,`grantor:'cli-flag'` 走既有构造器,禁止新增第二放宽开关),落地票行随下一格补登记。
+  - **两格判为"不立门"并留下否证**(免得后人重复裁决):① "禁止裸 `getCacheKey(provider)`"**不进门 116** —— 判据已在自然归属处(上述测试⑤),且全仓 `getCacheKey(` 只有 1 个调用点,在门 116 再抄一份就是第二个真相源;② `slotDigest` **不另立"名单正向证明"门** —— 正证已在 `permission-approval-digest.test.ts` B2(内容改动 ⇒ 落 `content-drifted` 单列态)与 B7(同输入同摘要 / 换工作区不同 / 内容 +1 字符即不同),两条方向都有,门只会复制它们。
+
+
 ### 第五十波·续末② —— 守门 102 的 HEAD 存量清到 0,并把"全端已覆盖"这句话换成实测(2026-09-26)
 - [x] ✅(2026-09-26) **终读(HEAD 面,全量审计):S0 0 / GA1 0 / GA2 0 / GA4 0 / GA5 0 / GA6 0**,受管面 5442 个跟踪文件、实读 2560、`back-label-exempt` 放过 54 处。
   此前一格写的"GA1 70/31 存量、GA5 2→1、GA6 31→0"是**过程读数**,现行以本条为准;那道门从"只报数"变成"零存量"。
