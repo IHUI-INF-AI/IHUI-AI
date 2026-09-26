@@ -213,6 +213,23 @@ def resolve_request_user_id(request: Request) -> str | None:
     return cast(str, user_id) if user_id else None
 
 
+def resolve_request_role_id(request: Request) -> int:
+    """读取中间件注入的 role_id(JWT 的 roleId);取不到一律按普通用户 0 处理。
+
+    存在的理由是 V3 #47 第二格:admin 专属能力(`mcp_server._ADMIN_ONLY_TOOLS`)的判定
+    需要调用者角色,而此前各执行链各自 `int(getattr(request.state, "role_id", 0) or 0)`
+    现抄一遍 —— 抄漏一个就把"管理员"降级成"普通用户"且完全不报错
+    (`agents.py` 的两条主执行链当时正是这种情况,admin 经 `/api/agents/*` 永远拿不到
+    `run_command`,而引擎自带工具又绕开整个矩阵,两头都不对)。
+
+    fail-closed 是这里唯一的失败方向:非整数、负数、缺失都归一到 0,绝不"默认放开"。
+    """
+    raw = getattr(request.state, "role_id", None)
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        return 0
+    return raw if raw > 0 else 0
+
+
 async def require_request_user_id(request: Request) -> str:
     """端点级身份依赖:解析当前调用方 user_id,解析不到即 401。
 
