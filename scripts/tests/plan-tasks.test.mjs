@@ -10,22 +10,15 @@
  *
  * §5c 溯源水印：本文件受 `scripts/watermark.mjs` 管理。
  */
-import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
-import { VOID_MARK_RE, auditPlan, findRotatedPointers, parseTaskRows } from '../lib/plan-task-index.mjs'
+import { VOID_MARK_RE, auditPlan, findRotatedPointers } from '../lib/plan-task-index.mjs'
+import { gitRaw } from '../lib/face-reader.mjs'
 import { ratchetViolations } from '../plan-tasks.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-const HEAD_PLAN = () =>
-  execFileSync('git', ['-c', 'safe.directory=*', 'show', 'HEAD:PROJECT_PLAN.md'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    maxBuffer: 1 << 28,
-    windowsHide: true,
-  })
 
 const FIXTURE = [
   '# 计划',
@@ -62,19 +55,37 @@ test('M3 变异对照:把 F1 的判据对象拆开写,分叉必须消失(证明 
   if (a.counts.rotatedPointers !== 1) throw new Error('变异不应波及 F3,实测变了')
 })
 
-test('M4 真实形态正向证明:HEAD 里"判:裸副本"那批行必须被 F2 认得(§22c:不得只用自造夹具)', () => {
-  const real = parseTaskRows(HEAD_PLAN()).filter((r) => r.state === 'open' && /判:裸副本/.test(r.raw))
-  if (real.length === 0) throw new Error('真实文档里已读不到"判:裸副本"的未勾选行 ⇒ 本条失去意义,须改判据或改说明')
-  const a = auditPlan(real.map((r) => r.raw).join('\n'))
-  if (a.voidRows.length !== real.length) throw new Error(`F2 对真实形态漏判:${a.voidRows.length}/${real.length}`)
-  if (!VOID_MARK_RE.test(real[0].raw)) throw new Error('VOID_MARK_RE 不认第一条真实样本')
+/**
+ * 真实形态样本取自**固定的历史 blob**(`0bc0af653df^` = 首次归并的前一版),不取当前 HEAD。
+ *
+ * 为什么不取 HEAD:这两条要证的是"判据认得现实里发生过的形态"。而现实已经**被自己修好了** ——
+ * 清偿之后 HEAD 上就没有"判:裸副本"的未勾选行、也没有腐烂指针了,拿 HEAD 当夹具的断言
+ * 会在成功那一轮变红(第一版正是如此)。钉一个历史版本 = 证明永久可复现;
+ * 读不到该版本时**必须失败**,不许静默跳过(跳过就是把"没判"写成"判过了")。
+ */
+const SAMPLE_REV = '0bc0af653df^'
+function realSample() {
+  const lines = gitRaw(['show', `${SAMPLE_REV}:PROJECT_PLAN.md`], ROOT).split(/\r?\n/)
+  const voidRows = lines.filter((l) => /^\s*- \[ \]/.test(l) && /判:裸副本|勿照本行派单/.test(l))
+  const pointerRows = lines.filter((l) => /存活于\s*L\d{1,6}/.test(l))
+  return { voidRows, pointerRows }
+}
+
+test('M4 真实形态正向证明:历史 HEAD 里"判:裸副本"那批行必须被 F2 认得(§22c)', () => {
+  const { voidRows } = realSample()
+  if (voidRows.length === 0) throw new Error(`${SAMPLE_REV} 里读不到"判:裸副本/勿照本行派单"的未勾选行 —— 样本钉死失效,须换一个历史版本,不得跳过`)
+  const a = auditPlan(voidRows.join('\n'))
+  if (a.voidRows.length !== voidRows.length) throw new Error(`F2 对真实形态漏判:${a.voidRows.length}/${voidRows.length}`)
+  if (!VOID_MARK_RE.test(voidRows[0])) throw new Error('VOID_MARK_RE 不认第一条真实样本')
 })
 
-test('M5 真实文档的行号指针确实已腐烂(F3 守的是发生过的事,不是假想)', () => {
-  const bad = findRotatedPointers(HEAD_PLAN())
-  if (bad.length === 0) throw new Error('F3 在当前 HEAD 面一条都没点到 —— 要么已清偿(须同时下调基线),要么判据失明')
-  const allRot = bad.every((b) => b.reason === '目标行不是条目行' || b.reason === '目标行不存在' || b.reason === '目标行是另一条(复合主键不等)')
-  if (!allRot) throw new Error('出现了未登记的原因分类,须补进判据与报告')
+test('M5 真实文档的行号指针确实会腐烂(F3 守的是发生过的事,不是假想)', () => {
+  const { pointerRows } = realSample()
+  if (pointerRows.length === 0) throw new Error(`${SAMPLE_REV} 里已无 L 号指针样本 —— 换历史版本,不得跳过`)
+  const bad = findRotatedPointers(pointerRows.join('\n'))
+  if (bad.length === 0) throw new Error('F3 对真实形态一条都没点到 ⇒ 判据对该形态失明')
+  const known = ['目标行不存在', '目标行不是条目行', '目标行是另一条(复合主键不等)']
+  for (const b of bad) if (!known.includes(b.reason)) throw new Error(`出现未登记的原因分类:${b.reason}`)
 })
 
 test('M6 棘轮只点名上涨:等值/下降/缺项/坏值都不许判红', () => {
