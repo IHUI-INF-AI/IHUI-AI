@@ -3328,6 +3328,22 @@ const checks = [
     ]
   },
 
+  {
+    id: '127',
+    label: '🛰️ 跨语言出站路由声明对账(blocking,默认档只报数;--strict 才判红,防恒红门)',
+    script: 'check-declared-outbound-routes.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DECLARED_OUTBOUND_ROUTES',
+    onFailHint: [
+      '',
+      '  💡 本门判的是"代码里写死了要打的自家路由,而两侧注册面里根本没有这条"。',
+      '     ① 问责:node scripts/check-declared-outbound-routes.mjs --strict --explain 逐条看证据与匹配结果;',
+      '     ② 处置二选一 —— 在对侧实现该路由,或删除这行硬编码声明;',
+      '     ③ 禁止用基线文件/豁免清单遮红,禁止改阈值让它好看(台账会腐烂而这批是真缺陷)。',
+      '',
+    ]
+  },
   // --- info (1 项) ---
   {
     id: '23',
