@@ -385,7 +385,21 @@ export function iconGlyphs(src) {
   }
   const bitmap = []
   for (const m of code.matchAll(/aizhsUrl\(\s*['"]([^'"]*\.(?:png|jpe?g|gif))['"]/gi)) bitmap.push(m[1])
-  return { vector: [...vector].sort(), bitmap }
+  /**
+   * RN 侧的位图载体此前**结构上看不见**:判据只认小程序的 `aizhsUrl('x.png')` 形态,
+   * 于是"两端都用位图"(谁也没矢量化)与"RN 仍用位图"(账面把它读成小程序单侧问题)两型全隐。
+   * 实测共享层输入区就是靠 `cdnHost` 拼栅格文件名取图(两端一致地错),账面却只喊小程序那一侧。
+   * 口径:一行里同时出现栅格扩展名与图标/图片语境词(icon|image|uri|src|cdn|assets)才算一处载体;
+   * 判据面已剥注释,说明文字里的文件名不会混进来。
+   */
+  const rnBitmap = []
+  for (const line of code.split('\n')) {
+    if (!/\.(png|jpe?g|gif|webp)\b/i.test(line)) continue
+    if (!/(icon|image|uri|src|cdn|assets)/i.test(line)) continue
+    const stem = /([a-z0-9][a-z0-9._-]*)\.(?:png|jpe?g|gif|webp)\b/i.exec(line)?.[1]
+    rnBitmap.push(stem ?? line.trim().slice(0, 40))
+  }
+  return { vector: [...vector].sort(), bitmap, raster: rnBitmap }
 }
 
 const pascalToKebab = (s) => s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
@@ -412,8 +426,13 @@ export function iconAudit(pairs, text) {
     // (自检 ㉙ 第一次跑就抓到这个 —— 判据写了豁免却恒不生效,账面还会一路报绿)。
     const exempted = (a.match(/icon-bitmap-exempt:/g) ?? []).length
     const bitmap = Math.max(0, ga.bitmap.length - exempted)
-    if (!bitmap && !onlyRn.length && !onlyMiniapp.length) continue
-    out.push({ name: p.name, bitmap, onlyRn, onlyMiniapp, exempted })
+    // RN 侧同一条尺子:豁免标记同样按**原始源码**数(它住在注释里)。
+    const rnExempted = (b.match(/icon-bitmap-exempt:/g) ?? []).length
+    const rnBitmap = Math.max(0, gb.raster.length - rnExempted)
+    // 两端拿**同一个字形名**都走位图 = 谁都没矢量化,这一型过去完全隐身。
+    const bothBitmap = gb.raster.filter((n) => ga.bitmap.some((x) => x.includes(n)))
+    if (!bitmap && !rnBitmap && !onlyRn.length && !onlyMiniapp.length) continue
+    out.push({ name: p.name, bitmap, rnBitmap, bothBitmap, onlyRn, onlyMiniapp, exempted })
   }
   return out
 }
@@ -1438,13 +1457,22 @@ export function main(argv, repoRoot = ROOT) {
   if (ic.length) {
     if (face !== 'head') {
       const base = collect(repoRoot, 'head', { pairAll })
-      const baseIc = new Map(iconAudit(base.pairs, base.text).map((x) => [x.name, x.bitmap]))
-      icRed = ic.filter((x) => x.bitmap > (baseIc.get(x.name) ?? 0))
+      const baseIc = new Map(
+        iconAudit(base.pairs, base.text).map((x) => [x.name, { mp: x.bitmap, rn: x.rnBitmap }]),
+      )
+      // 棘轮**逐侧各算一次**:只看小程序会把"把位图从一端搬到两端"判成没变差,
+      // 而那只说明"另一端还没矢量化"这一半信息根本没被读进尺子。
+      icRed = ic.filter((x) => {
+        const b = baseIc.get(x.name) ?? { mp: 0, rn: 0 }
+        return x.bitmap > b.mp || x.rnBitmap > b.rn
+      })
     }
     if (!argv.includes('--json')) {
       for (const x of ic) {
         const bits = []
         if (x.bitmap) bits.push(`小程序仍用 CDN 位图 ${x.bitmap} 处`)
+        if (x.rnBitmap) bits.push(`RN 仍用位图 ${x.rnBitmap} 处`)
+        if (x.bothBitmap.length) bits.push(`两端同字形都走位图 ${x.bothBitmap.length} 枚`)
         if (x.exempted) bits.push(`带理由豁免 ${x.exempted} 处`)
         if (x.onlyRn.length) bits.push(`仅 RN 矢量化 ${x.onlyRn.join('/')}`)
         if (x.onlyMiniapp.length) bits.push(`仅小程序矢量化 ${x.onlyMiniapp.join('/')}`)
@@ -1884,6 +1912,44 @@ function runSelfTest() {
         r: rnSrc,
       })
       return bare.length === 1 && bare[0].bitmap === 1 && withEx.length === 0
+    })(),
+  )
+  t(
+    '㉙b RN 侧位图载体必须同样计数(旧尺子只认小程序的 aizhsUrl 形态 ⇒ "RN 仍用位图"整型隐身)',
+    (() => {
+      const pairs = { pairs: [{ name: 'X', miniapp: 'm', rn: 'r' }] }
+      const mpVec = 'import LineIcon from "@/components/LineIcon"\n<LineIcon name="send" />\n'
+      const rnBmp = iconAudit(pairs, {
+        m: mpVec,
+        r: "const ICON_SEND = `${cdnHost}/icons/send.png`\n<Image source={{ uri: ICON_SEND }} />\n",
+      })
+      const rnEx = iconAudit(pairs, {
+        m: mpVec,
+        r: "const ICON_SEND = `${cdnHost}/icons/send.png` // icon-bitmap-exempt: 多色插画\n",
+      })
+      return rnBmp[0].rnBitmap === 1 && rnEx[0].rnBitmap === 0
+    })(),
+  )
+  t(
+    '㉙c 两端拿同一字形都走位图 ⇒ 必须点名(一致但都没矢量化,过去完全看不见)',
+    (() => {
+      const pairs = { pairs: [{ name: 'X', miniapp: 'm', rn: 'r' }] }
+      const r = iconAudit(pairs, {
+        m: 'const a = aizhsUrl("remote-images/camera.png")\n',
+        r: "const ICON_CAMERA = `${cdnHost}/icons/camera.png`\n",
+      })
+      return r.length === 1 && r[0].bothBitmap.length === 1 && r[0].bothBitmap[0] === 'camera'
+    })(),
+  )
+  t(
+    '㉙d 位图判据面必须已剥注释(说明文字里提一句 png 不得造出一处载体)',
+    (() => {
+      const pairs = { pairs: [{ name: 'X', miniapp: 'm', rn: 'r' }] }
+      const r = iconAudit(pairs, {
+        m: 'import LineIcon from "@/components/LineIcon"\n',
+        r: "// 这里以前是 `${cdnHost}/icons/send.png`,现已换成 lucide Send\nimport { Send } from 'lucide-react-native'\n",
+      })
+      return r[0].rnBitmap === 0
     })(),
   )
   t(
