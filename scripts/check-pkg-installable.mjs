@@ -21,6 +21,12 @@
 //      ./client 不会补成 ./client.js;Bundler 模式下 tsc 不改写扩展名 → 纯 Node 消费者装到即坏)
 //   8. packed manifest 的 name/version 与仓库内 package.json 一致
 //      (捕获"prepack 改版本没改回来"这类静默坏包;仓库版本仍是占位 0.0.0 时跳过比对)
+//   9. dist/*.js 里**运行时** import 的裸包名必须在 dependencies / peerDependencies /
+//      optionalDependencies 里声明过(devDependencies 不发出去,所以不算通过)。
+//      这条是判据 5 的另一半:5 拦"声明了却装不到",9 拦"产物用了却没声明"。
+//      立因是本次收口 api-client 时的真实危险 —— 把 @ihui/types 从 dependencies 挪到
+//      devDependencies 即可让判据 5 归零,而只要产物里还剩一条运行时 import,包就照样坏,
+//      且**门上一路绿灯**。注释里的示例 import 不算(见 stripJsComments 的理由)。
 //
 // `private: true` 单独作为「未放行发布」提示,不计入 blocker —— 本脚本正是
 // "去 private 之前必须通过的自检",所以它应当在 private 仍为 true 时就能跑。
@@ -93,6 +99,130 @@ export function collectEsmBlockers(prefix, jsFiles) {
   return [
     `${offenders.length} 个 ${prefix}/dist/*.js 含无扩展名相对 import(样例:${shown}${offenders.length > 5 ? ' …' : ''})` +
       ' —— 纯 Node ESM 消费者 ERR_MODULE_NOT_FOUND,需改用可被 Node 解析的产物(tsup/NodeNext + .js 后缀)',
+  ]
+}
+
+/**
+ * 剥掉注释、保留字符串内容(状态机,不是正则)。
+ *
+ * 为什么本判据必须剥注释,而判据 7 可以不剥:本判据问的是"**运行时到底会去 resolve 什么**",
+ * 那是行为问题,注释里的示例 import 结构上不可能被执行。不剥的后果实测就在本仓:
+ * `packages/sdk/dist/client.js` 与 `index.js` 的头注里写着文档示例 `import { createClient }
+ * from '@ihui/sdk'` —— 按文本判,一道发布门会在一具已被 `check-pkg-installable` 判过绿灯的
+ * 健康包上恒红(§12e 那条"恒红门的唯一结局是逼人 --no-verify"同型)。
+ * 反过来,判据 7 看的是"文件名有没有扩展名"这一**字符串字面**属性,注释里的同形文本
+ * 同样值得报出来(那多半也是坏写法),两条判据对注释的取舍刻意不同,不是疏漏。
+ */
+export function stripJsComments(text) {
+  const s = String(text)
+  const out = []
+  let i = 0
+  // 状态:none / line / block / sq / dq / tpl(模板字符串里的 ${} 不做嵌套,保守当普通文本)
+  let st = 'none'
+  while (i < s.length) {
+    const c = s[i]
+    const n = s[i + 1]
+    if (st === 'none') {
+      if (c === '/' && n === '/') {
+        st = 'line'
+        out.push('  ')
+        i += 2
+        continue
+      }
+      if (c === '/' && n === '*') {
+        st = 'block'
+        out.push('  ')
+        i += 2
+        continue
+      }
+      if (c === "'") st = 'sq'
+      else if (c === '"') st = 'dq'
+      else if (c === '`') st = 'tpl'
+      out.push(c)
+      i++
+      continue
+    }
+    if (st === 'line') {
+      if (c === '\n') {
+        st = 'none'
+        out.push(c)
+      } else out.push(' ')
+      i++
+      continue
+    }
+    if (st === 'block') {
+      if (c === '*' && n === '/') {
+        st = 'none'
+        out.push('  ')
+        i += 2
+        continue
+      }
+      out.push(c === '\n' ? '\n' : ' ')
+      i++
+      continue
+    }
+    // 字符串态:转义符原样带过,闭合符退出;内容一律保留(判 resolve 目标要看得到字面量)
+    if (c === '\\') {
+      out.push(c, n ?? '')
+      i += 2
+      continue
+    }
+    if ((st === 'sq' && c === "'") || (st === 'dq' && c === '"') || (st === 'tpl' && c === '`')) st = 'none'
+    out.push(c)
+    i++
+  }
+  return out.join('')
+}
+
+/** `@scope/pkg/sub/path` → `@scope/pkg`;`pkg/sub` → `pkg`。Node 的包名解析只看首段。 */
+export function barePackageName(spec) {
+  const parts = String(spec).split('/')
+  return parts[0].startsWith('@') ? parts.slice(0, 2).join('/') : parts[0]
+}
+
+/**
+ * 找出一个产物文件里**真会被 resolve** 的裸包说明符(非相对、非绝对、非 node: 内建)。
+ * 覆盖三种写法:`import … from 'x'` / `export … from 'x'` / 动态 `import('x')` / 副作用 `import 'x'`。
+ */
+export function findBareImportSpecifiers(text) {
+  const code = stripJsComments(text)
+  const found = new Set()
+  const take = (spec) => {
+    if (!spec || spec.startsWith('.') || spec.startsWith('/') || /^node:/.test(spec)) return
+    found.add(barePackageName(spec))
+  }
+  for (const m of code.matchAll(/(?:^|[\s;{}(])(?:import|export)\b[^'"`;]*?\bfrom\s*(['"])([^'"]+)\1/gm)) take(m[2])
+  for (const m of code.matchAll(/\bimport\s*\(\s*(['"])([^'"]+)\1\s*\)/g)) take(m[2])
+  for (const m of code.matchAll(/(?:^|[\s;{}(])import\s*(['"])([^'"]+)\1/gm)) take(m[2])
+  return [...found]
+}
+
+/**
+ * 判据 9:运行时 import 的裸包名必须被"会发出去的那三类依赖字段"覆盖。
+ * 允许自包名(ESM 允许经 exports 自指,`@ihui/sdk` 之类包内的示例与工具都算这种形态)。
+ * node: 内建不参与 —— 它是另一维问题(浏览器/小程序可用性),由守门 126 按可达性判。
+ */
+export function collectBareImportBlockers(prefix, jsFiles, manifest) {
+  const declared = new Set()
+  for (const field of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
+    const deps = manifest?.[field]
+    if (deps && typeof deps === 'object') for (const name of Object.keys(deps)) declared.add(name)
+  }
+  const self = typeof manifest?.name === 'string' ? manifest.name : null
+  const missing = new Map()
+  for (const [relPath, text] of jsFiles) {
+    for (const name of findBareImportSpecifiers(text)) {
+      if (name === self || declared.has(name)) continue
+      if (!missing.has(name)) missing.set(name, relPath)
+    }
+  }
+  if (missing.size === 0) return []
+  const shown = [...missing].slice(0, 5).map(([name, file]) => `${name}(样例 ${prefix}/${file})`)
+  const tail = missing.size > 5 ? ' …' : ''
+  return [
+    `${missing.size} 个外部包被 dist 运行时 import 却未在任何会发布的依赖字段里声明:${shown.join('; ')}${tail}` +
+      ' —— 只在 devDependencies 里不算通过(devDeps 不随包发布),消费者 import 即 ERR_MODULE_NOT_FOUND;' +
+      ' 修法二选一:把该值改成本包实现(类型仍可 import type),或让那个包自身可发布后放回 dependencies',
   ]
 }
 
@@ -212,6 +342,8 @@ async function main() {
       .filter((p) => p.startsWith(`${prefix}/dist/`) && p.endsWith('.js'))
       .map((p) => [p.slice(prefix.length + 1), readFileSync(join(workDir, p), 'utf8')])
     blockers.push(...collectEsmBlockers(prefix, distJs))
+    // 判据 9:产物运行时用到的裸包名,必须在"会发出去"的依赖字段里(见头注)
+    blockers.push(...collectBareImportBlockers(prefix, distJs, packedManifest))
 
     for (const e of entries.slice(0, 40)) console.log(`    ${e}`)
     if (entries.length > 40) console.log(`    … 其余 ${entries.length - 40} 项省略`)
@@ -219,7 +351,7 @@ async function main() {
     console.log('')
     console.log(`结论: ${blockers.length === 0 ? '✅ 可安装自检通过' : '❌ 可安装自检未通过'}`)
     if (blockers.length === 0) {
-      console.log('  ✅ dist 产物齐备 / 无 src 泄漏 / 无密钥形态文件 / 无 workspace: 残留')
+      console.log('  ✅ dist 产物齐备 / 无 src 泄漏 / 无密钥形态文件 / 无 workspace: 残留 / 运行时依赖均已声明')
     } else {
       for (const b of blockers) console.log(`  ❌ ${b}`)
     }
@@ -249,6 +381,10 @@ export const __test__ = {
   collectBlockers,
   findExtensionlessRelativeImports,
   collectEsmBlockers,
+  stripJsComments,
+  barePackageName,
+  findBareImportSpecifiers,
+  collectBareImportBlockers,
   SECRET_PATTERNS,
   JUNK_PATTERNS,
   REQUIRED_ENTRIES,
