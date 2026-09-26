@@ -9016,9 +9016,7 @@
       "pinned": "已置顶",
       "unpinned": "已取消置顶",
       "pinFailed": "置顶操作失败",
-      "orgSaved": {
-        "orgSaved": "会话组织已保存"
-      }
+      "orgSaved": "会话组织已保存"
     },
     "today": "今天",
     "openWorkPanel": "打开工作展示区",
