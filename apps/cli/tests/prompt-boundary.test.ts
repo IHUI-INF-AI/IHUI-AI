@@ -153,12 +153,16 @@ describe('提醒字样不得在唯一出口之外再产出一份', () => {
         const full = join(dir, entry.name);
         if (entry.isDirectory()) walk(full);
         else if (/\.(ts|tsx)$/.test(entry.name) && !entry.name.startsWith('prompt-boundary')) {
-          // 只判产出面:注释行里的 `[系统提醒]` 是在**描述**这个禁令,不是在生产它
+          // 两种宿主样式前缀都要拦:`[系统提醒]` 是禁令原文,`[系统提示]` 是**实际曾出现的形态**
+          // (旧版只匹配前者 ⇒ 锁对它真正要防的那一字全盲,同 §4 圆角门 / 守门 102 左向箭头那一族)。
+          // 注释行里的字样是在**描述**这个禁令,不是在生产它,故先剥注释行。
           const code = readFileSync(full, 'utf8')
             .split('\n')
             .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
             .join('\n');
-          if (code.includes('[系统提醒]')) offenders.push(entry.name);
+          for (const literal of ['[系统提醒]', '[系统提示]']) {
+            if (code.includes(literal)) offenders.push(`${entry.name}(${literal})`);
+          }
         }
       }
     };

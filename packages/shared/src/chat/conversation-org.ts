@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:PLACEHOLDER
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // D20 会话文件夹/标签(G-11)纯逻辑层:会话组织元数据的增删查/分组/筛选/置顶排序。
 // 纯函数、零平台依赖、immutable —— 元数据本身由 web 端 store 持久化(v1 客户端态;
@@ -23,7 +23,10 @@ export const ORG_FOLDER_MAX_LENGTH = 40
 
 /** 标签/文件夹名安全化:去控制字符 + trim + 截断(超上限丢弃该标签由调用方裁决) */
 export function normalizeOrgName(raw: string, maxLength: number): string {
-  return raw.replace(/[\u0000-\u001f]/g, '').trim().slice(0, maxLength)
+  return raw
+    .replace(/[\u0000-\u001f]/g, '')
+    .trim()
+    .slice(0, maxLength)
 }
 
 /** 读取单条元数据(恒返回对象,便于调用方解构) */
@@ -59,7 +62,8 @@ export function withFolderMeta(
   folder: string | null,
 ): ConversationOrgMap {
   const meta = getOrgMeta(map, id)
-  const normalized = folder === null ? null : normalizeOrgName(folder, ORG_FOLDER_MAX_LENGTH) || null
+  const normalized =
+    folder === null ? null : normalizeOrgName(folder, ORG_FOLDER_MAX_LENGTH) || null
   const next: ConversationOrgMeta = { ...meta, folder: normalized }
   if (!next.folder?.length) delete next.folder
   if (!next.tags?.length) delete next.tags
@@ -109,7 +113,11 @@ export function withTagRemoved(
 ): ConversationOrgMap {
   const current = getOrgMeta(map, id).tags ?? []
   if (!current.includes(tag)) return map
-  return withTagsMeta(map, id, current.filter((t) => t !== tag))
+  return withTagsMeta(
+    map,
+    id,
+    current.filter((t) => t !== tag),
+  )
 }
 
 /** 全部文件夹名(去空 + 去重 + 字典序),用于筛选器与对话框联想 */
@@ -153,10 +161,12 @@ export function groupByFolder<T extends OrgItem>(
     }
   }
   return [
-    ...[...named.keys()].sort((a, b) => a.localeCompare(b)).map((folder) => ({
-      folder,
-      items: named.get(folder) ?? [],
-    })),
+    ...[...named.keys()]
+      .sort((a, b) => a.localeCompare(b))
+      .map((folder) => ({
+        folder,
+        items: named.get(folder) ?? [],
+      })),
     ...(ungrouped.length > 0 ? [{ folder: null, items: ungrouped }] : []),
   ]
 }
@@ -175,4 +185,4 @@ export function filterByFolder<T extends OrgItem>(
 export function sortPinnedFirst<T extends { pinned?: boolean }>(items: readonly T[]): T[] {
   return [...items].sort((a, b) => Number(b.pinned === true) - Number(a.pinned === true))
 }
-// [IHUI-AI-PROVENANCE]:PLACEHOLDER
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

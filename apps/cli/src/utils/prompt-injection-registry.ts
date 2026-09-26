@@ -49,6 +49,20 @@ export interface PromptInjectionEntry {
  */
 export const PROMPT_INJECTION_ENTRIES: readonly PromptInjectionEntry[] = [
   {
+    id: 'context_fs_events',
+    kind: 'reference_data',
+    producer: 'apps/cli/src/commands/agent.ts#formatFsEventsForPrompt',
+    consumer: 'apps/cli/src/commands/agent.ts#buildMessages',
+    title: '工作区文件变更段',
+  },
+  {
+    id: 'reminder_tool_failure',
+    kind: 'host_reminder',
+    producer: 'apps/cli/src/commands/agent.ts#runToolLoop',
+    consumer: 'apps/cli/src/commands/agent.ts#runToolLoop',
+    title: '工具连续失败反思提醒',
+  },
+  {
     id: 'skill_list',
     kind: 'reference_data',
     producer: 'apps/cli/src/skills/index.ts#formatSkillsForPrompt',
