@@ -10056,6 +10056,17 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - `70c2e1c63e1` 合并闸升到跨进程:Redis 计数信号量(ACQUIRE 把 purge,ZCARD,判额,ZADD 收进一次 EVAL,靠单线程排除两进程各见 size 小于 limit 而双占;owner token 每次占用唯一,否则同进程两槽并成一名把上限架空;键带环境前缀)+ 不可用即回落进程内闸且首次立即 warn,facts 新增 activeLayer/layerReason/redisFailures。回归 6 例全离线(假 Redis 只演算 ZSET,判额逻辑单一真相留在 Lua 常量里),摘掉跨进程层则峰值当场从 2 变 4。盲区如实登记:生产多实例 Redis 真连冒烟未做(§5 测试隔离铁律禁连库),漂移面只剩脚本与真 Redis 这一维。
   - 主会话独立复跑:cli typecheck 0 错 + 3 套件 21 例;api typecheck 0 错 + 4 套件 33 例(既有 gate/route/integrity 逐字不变)。
 
+- **第二十一批 深挖线首批落地(2026-09-26 傍晚,七枚提交,全部主会话独立复跑后才落)**:
+-   9db59bf0c7e 三条拒绝闸自带结构化答复(gate/decider/参数指纹/唯一出路),判"是否放"一字节未动;假 token 阳性对照钉死值与凭据不进 result JSON 与审计行。
+-   70c2e1c63e1 上传合并闸升到跨进程:Redis 计数信号量(一次 EVAL 内 purge→判额→占位、owner token 每次占用唯一、键带环境前缀)+ 不可用即回落进程内闸且首次必 warn,facts 报出生效层与原因。**盲区留账:生产多实例 Redis 真连冒烟未做**(§5 测试隔离铁律禁连库)。
+-   e0a222de0b1 写锁抢占改为"先原子改名、回读指纹确认是自己看到的那把、才处置":堵住"判死"与"删"之间别人拿到新锁而我删掉活锁的双写者窗口(git 侧 index.lock 双写者 / 部署侧两次构建同写 .next);同型删除点 clean 与 release 代为收口一并收。已知边界留账:claimStaleLock 在两个脚本各一份(票面允许面只含这两文件),下一票合并进 scripts/lib。
+-   217999ae28b serializeError 唯一出口(此前 JSON.stringify(Error) 得到 {} ⇒ 事故现场是空对象),接进 api 日志 / api-client 上行 / CLI 崩溃三面;未知字段不外带。
+-   e7c4fb2d960 ACP 两张审批卡落真实终态(批⇒completed,拒/取消⇒failed),**绝不把"没收到回复"写成 completed**;装车锁 + 摘线必红。
+-   05576e0145a 两格缓存与耗时:loader 返回 null 不再被当事实永久缓存(要缓存须显式空值 TTL 档 + 哨兵,观测面把"空值条目"与"无条目"分开计);耗时样本改走 performance.now 测 + Date.now 交叉校验,**不可信样本不进熔断窗口、不落库、不取分位**。
+-   751269ec550 连接清理按对象身份收尾:否证了"替换拆台"在两张会话表上的原题(两表是 Map<key,Set<conn>>,本就按身份),但抓到同型判据的两处真实例 —— 迟到 close 无条件 messageRateLimiter.reset(userId) 把新连接的防洪窗口整桶抹掉(限流退化成"重连即重置"),以及自动恢复钩子按快照删 roomId。
+- **同批否证三条(取证代理给的落点不成立,按事实交否证而非硬造)**:①"先写 mode 再判忙"—— apps/cli/src/permission-evaluator.ts 全仓不存在,逐一排查 tui/mode-manager、config.setSessionConfig、server/agent-core、http-server/ws-bridge 均无该形态;②"provider 归我而 model 缺即抛"—— subagents/precedence.ts 该处是 overrides/role/persona 四层短路且**文件内没有 provider 概念**,现行为正是"解析不到⇒undefined 交回上层",消费方保留的是父会话实时模型而非快照;③ws 两表的"替换语义"。**规矩重申:竞品机制能不能抄,卡点不在对方有没有,而在我方有没有对应故障面 —— 没有就写否证,别造判据。**
+- **仍开的(有主有判据,不是漏改)**:clawdbot 生产者侧约 12 处与 routes/ 下两把裸 Date.now 差值在禁改面(analytics 一层结构上测不到墙钟-单调分歧,需另票把生产者迁到 elapsed-ms);claimStaleLock 两份实现合并;ws-chat 的槽位泄漏方向(acquire 后、close 监听注册前断线 ⇒ release 永不触发)修法要挪监听顺序,越出上一票判据;四张同类表钩子在禁改面。
+
 ### 第五十波·续末② —— 守门 102 的 HEAD 存量清到 0,并把"全端已覆盖"这句话换成实测(2026-09-26)
 - [x] ✅(2026-09-26) **终读(HEAD 面,全量审计):S0 0 / GA1 0 / GA2 0 / GA4 0 / GA5 0 / GA6 0**,受管面 5442 个跟踪文件、实读 2560、`back-label-exempt` 放过 54 处。
   此前一格写的"GA1 70/31 存量、GA5 2→1、GA6 31→0"是**过程读数**,现行以本条为准;那道门从"只报数"变成"零存量"。

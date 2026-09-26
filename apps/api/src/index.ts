@@ -4,6 +4,7 @@
 
 import 'dotenv/config'
 import type { Worker } from 'bullmq'
+import type { FastifyInstance } from 'fastify'
 import { buildServer } from './server.js'
 import { startWorkers } from './workers/index.js'
 import { startSchedulerWorker } from './workers/scheduler-worker.js'
@@ -45,9 +46,65 @@ import { stopRelayChannelRouterSweep } from './services/relay-channel-router.js'
 import { stopRegistryRateLimitSweep } from './routes/registry-sync.js'
 import { stopPoolTracker, registerPoolTrackerCleanup } from './db/index.js'
 import { logger } from './utils/logger.js'
+import { runShutdownPhases, type ShutdownPhase } from './utils/shutdown-phases.js'
 
 const PORT = Number(process.env.PORT ?? 8802)
 const HOST = process.env.HOST ?? '0.0.0.0'
+
+// ── 关停相位超时档位(取值依据,2026-09-27 有序相可靠性票)──────────────────
+// SYNC_STOP_MS=1s:以下 stop* 全部是 clearInterval / cron.stop 级别的同步收尾,
+//   正常耗时 <1ms;若某相跑满 1s 即已是挂死而非"慢"。
+//   (诚实登记:同步函数真死循环时事件循环被占死,任何 JS 超时都救不了 ——
+//    本档只对"返回 promise / 未来变异步"的 disposer 有牙,取值只为预算有界。)
+// QUEUE_WORKER_MS=5s:BullMQ worker.close() 需与 Redis 往返并等当前 job 结算。
+// SERVER_CLOSE_MS=8s:Fastify close 是最重的一步 —— 所有 onClose 钩子(WS 连接、
+//   DB 连接池、Redis、poolTracker 等)都挂在它身上统一释放,不拆plugins(禁改面)。
+// 总预算 = Σ各相 + 最大单相档(见 defaultShutdownBudgetMs)⇒ 当前组合 ≈ 44s,
+// 只有多相同时挂死才会顶到;正常关停 <3s。
+const SYNC_STOP_MS = 1_000
+const QUEUE_WORKER_MS = 5_000
+const SERVER_CLOSE_MS = 8_000
+
+/**
+ * listen 的上界。必须大于 server.ts 的 pluginTimeout(120s),否则一次正常的
+ * 慢启动会被本守卫误杀。
+ */
+const LISTEN_DEADLINE_MS = Number(process.env.API_STARTUP_LISTEN_DEADLINE_MS ?? 180_000)
+/** listen 失败后留给 shutdown 的时间;到点无条件退出。 */
+const SHUTDOWN_DEADLINE_MS = 10_000
+
+/** listen 成功之后置真:此后任何启动尾部异常都不该杀掉一个正在服务的进程。 */
+let isListening = false
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms).unref()
+  })
+}
+
+/**
+ * 2026-09-26 07:58 线上哑火:路由插件在**注册期**执行的建表 DDL 抛错,之后的 46 分钟里
+ * `sc query` 显示 RUNNING、ws-auto-recovery 照常每分钟写一行日志,8802 却从未 bind,
+ * 而日志里既没有 'Failed to start server'(listen 的 catch 没被命中)也没有
+ * 'Server listening' —— 即 listen() 这条 promise 既不 resolve 也不 reject。
+ * 所以 bind 必须有上界:无论异常是以拒绝形态落进下面的 catch,还是把 avvio 的
+ * ready 队列吊住,到点都要带着原因退出非零,交给服务管理器重启。
+ * 不许有"进程在、端口没有"这一格。
+ */
+async function listenWithinDeadline(server: FastifyInstance): Promise<void> {
+  let timer: NodeJS.Timeout | undefined
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`server.listen() 未在 ${LISTEN_DEADLINE_MS}ms 内完成`)),
+      LISTEN_DEADLINE_MS,
+    )
+  })
+  try {
+    await Promise.race([server.listen({ port: PORT, host: HOST }), deadline])
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 /**
  * 启动期生产环境安全检查:
@@ -98,120 +155,95 @@ async function start() {
   // P1 修复(2026-08-02):加 shuttingDown 守卫,防 SIGTERM/SIGINT 重复触发 shutdown;
   // 配合下方 once 注册,二次信号直接走默认行为(强制退出)。
   let shuttingDown = false
-  const shutdown = async (signal: string, exitCode = 0): Promise<void> => {
+  // 2026-09-27 有序相改造(运行期可靠性票):原"一串 try/catch 平铺 + 无超时 await"改为
+  // 经 runShutdownPhases 唯一出口执行 —— disposer 顺序**逐字保留**(语义不变),
+  // 差别有三:① 每相独立超时,挂死不再阻塞后续相;② 失败/超时/未跑记入清单并由
+  // exitCode 承担(旧路径抛错被吞、信号路径仍 exit 0);③ awaited disposer 的 reject
+  // 不再冒成 unhandledRejection(旧形状 ⇒ 进程存活不 exit 的假死)。
+  const syncStopPhase = (name: string, fn: () => unknown): ShutdownPhase => ({
+    name,
+    timeoutMs: SYNC_STOP_MS,
+    run: fn,
+  })
+  const shutdown = async (signal: string, requestedExitCode = 0): Promise<void> => {
     if (shuttingDown) return
     shuttingDown = true
     server.log.info({ signal }, 'Shutting down...')
-    // P2 修复(2026-08-02):7 个清理函数的空 catch 加 logger.warn,避免静默吞错难诊断
-    try {
-      stopAiWorldSyncScheduler()
-    } catch (e) {
-      logger.warn('stopAiWorldSyncScheduler failed', { err: e })
-    }
-    try {
-      stopRankingScheduler()
-    } catch (e) {
-      logger.warn('stopRankingScheduler failed', { err: e })
-    }
-    try {
-      stopTrendingScheduler()
-    } catch (e) {
-      logger.warn('stopTrendingScheduler failed', { err: e })
-    }
-    try {
-      stopSourceProbeScheduler()
-    } catch (e) {
-      logger.warn('stopSourceProbeScheduler failed', { err: e })
-    }
-    try {
-      stopLiteLLMPriceSyncScheduler()
-    } catch (e) {
-      logger.warn('stopLiteLLMPriceSyncScheduler failed', { err: e })
-    }
-    try {
-      stopHotWordsScheduler()
-    } catch (e) {
-      logger.warn('stopHotWordsScheduler failed', { err: e })
-    }
-    try {
-      stopPiiRetentionScheduler()
-    } catch (e) {
-      logger.warn('stopPiiRetentionScheduler failed', { err: e })
-    }
-    try {
-      stopRelayAlertEvaluationScheduler()
-    } catch (e) {
-      logger.warn('stopRelayAlertEvaluationScheduler failed', { err: e })
-    }
-    try {
-      stopImageTaskWorker()
-    } catch (e) {
-      logger.warn('stopImageTaskWorker failed', { err: e })
-    }
-    try {
-      stopBackupCronScheduler()
-    } catch (e) {
-      logger.warn('stopBackupCronScheduler failed', { err: e })
-    }
-    try {
-      stopAgentAutomationScheduler()
-      stopPatrolScheduler()
-    } catch (e) {
-      logger.warn('stopAgentAutomationScheduler failed', { err: e })
-    }
-    // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
-    try {
-      stopAutoRollbackMonitor()
-    } catch (e) {
-      logger.warn('stopAutoRollbackMonitor failed', { err: e })
-    }
-    try {
-      routineManager.stopScheduler()
-    } catch (e) {
-      logger.warn('routineManager.stopScheduler failed', { err: e })
-    }
-    try {
-      stopScheduledWarmup()
-    } catch (e) {
-      logger.warn('stopScheduledWarmup failed', { err: e })
-    }
-    // P2 修复(2026-07-31):显式停止模块作用域 setInterval,不依赖 unref
-    try {
-      stopRelayChannelRouterSweep()
-    } catch (e) {
-      logger.warn('stopRelayChannelRouterSweep failed', { err: e })
-    }
-    try {
-      stopRegistryRateLimitSweep()
-    } catch (e) {
-      logger.warn('stopRegistryRateLimitSweep failed', { err: e })
-    }
-    try {
-      stopPoolTracker()
-    } catch (e) {
-      logger.warn('stopPoolTracker failed', { err: e })
-    }
+    const phases: ShutdownPhase[] = [
+      syncStopPhase('stopAiWorldSyncScheduler', stopAiWorldSyncScheduler),
+      syncStopPhase('stopRankingScheduler', stopRankingScheduler),
+      syncStopPhase('stopTrendingScheduler', stopTrendingScheduler),
+      syncStopPhase('stopSourceProbeScheduler', stopSourceProbeScheduler),
+      syncStopPhase('stopLiteLLMPriceSyncScheduler', stopLiteLLMPriceSyncScheduler),
+      syncStopPhase('stopHotWordsScheduler', stopHotWordsScheduler),
+      syncStopPhase('stopPiiRetentionScheduler', stopPiiRetentionScheduler),
+      syncStopPhase('stopRelayAlertEvaluationScheduler', stopRelayAlertEvaluationScheduler),
+      syncStopPhase('stopImageTaskWorker', stopImageTaskWorker),
+      syncStopPhase('stopBackupCronScheduler', stopBackupCronScheduler),
+      syncStopPhase('stopAgentAutomationScheduler', stopAgentAutomationScheduler),
+      syncStopPhase('stopPatrolScheduler', stopPatrolScheduler),
+      // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
+      syncStopPhase('stopAutoRollbackMonitor', stopAutoRollbackMonitor),
+      syncStopPhase('routineManager.stopScheduler', () => routineManager.stopScheduler()),
+      syncStopPhase('stopScheduledWarmup', stopScheduledWarmup),
+      // P2 修复(2026-07-31):显式停止模块作用域 setInterval,不依赖 unref
+      syncStopPhase('stopRelayChannelRouterSweep', stopRelayChannelRouterSweep),
+      syncStopPhase('stopRegistryRateLimitSweep', stopRegistryRateLimitSweep),
+      syncStopPhase('stopPoolTracker', stopPoolTracker),
+    ]
     if (workers) {
-      await Promise.allSettled(workers.map((w) => w.close()))
+      phases.push({
+        name: 'bullmq-workers-close',
+        timeoutMs: QUEUE_WORKER_MS,
+        run: () => Promise.allSettled(workers.map((w) => w.close())),
+      })
     }
     if (schedulerWorker) {
-      await schedulerWorker.close()
+      phases.push({
+        name: 'scheduler-worker-close',
+        timeoutMs: QUEUE_WORKER_MS,
+        run: () => schedulerWorker.close(),
+      })
     }
-    await server.close()
+    phases.push({
+      name: 'http-close-pools-release',
+      timeoutMs: SERVER_CLOSE_MS,
+      run: () => server.close(),
+    })
+    let exitCode = requestedExitCode
+    try {
+      const result = await runShutdownPhases({ phases })
+      // listen-failure 路径带 1 进来必须保留;相位清单的非零结论与之取 max
+      exitCode = Math.max(requestedExitCode, result.exitCode)
+    } catch (e) {
+      // 相位执行器设计上不应 reject(所有失败已收进清单);兜底再接一层,
+      // 防 shutdown() 自身冒成 unhandledRejection ⇒ 复刻"存活不 exit"假死。
+      logger.warn('runShutdownPhases unexpected failure', { err: e })
+      if (exitCode === 0) exitCode = 1
+    }
     process.exit(exitCode)
   }
 
   try {
     // 2026-08-02 修复:注册 poolTracker onClose 清理,防进程不退出
     registerPoolTrackerCleanup(server)
-    await server.listen({ port: PORT, host: HOST })
+    await listenWithinDeadline(server)
+    isListening = true
     server.log.info(`🚀 API server listening on http://${HOST}:${PORT}`)
   } catch (err) {
     // P0 修复(2026-07-31):listen 失败时必须清理已启动的 workers / schedulers,
     // 否则 BullMQ worker 持有的 ioredis 连接、scheduler cron 句柄会泄露,
     // tsx watch 重启时会累积(死进程句柄 3791 的事故根因之一)。
     server.log.error({ err }, 'Failed to start server')
-    await shutdown('listen-failure', 1)
+    // 但清理不能挡住退出:worker.close() / server.close() 自己也要用 Redis·DB,
+    // 依赖不可用时它们会挂住,挂住就等于回到"进程在、端口没有"那一格。
+    await Promise.race([
+      shutdown('listen-failure', 1).catch((e: unknown) => {
+        logger.warn('shutdown after listen failure itself failed', { err: e })
+      }),
+      delay(SHUTDOWN_DEADLINE_MS),
+    ])
+    process.exit(1)
   }
 
   // 启动 AI World 数据同步定时任务(每 12 小时一次,默认开启,ENABLE_AI_WORLD_SYNC=false 禁用)
@@ -280,5 +312,20 @@ process.on('uncaughtException', (err) => {
   process.exit(1)
 })
 
-start()
+start().catch((err: unknown) => {
+  // 2026-09-26 线上哑火收口。start() 此前是一个裸 promise:它一 reject 只会命中上面
+  // 那个 "process still alive, investigate" 处理器(只记日志、不退出),于是 listen
+  // 从未被调用而进程照样活着 —— NSSM 报 RUNNING、健康面零响应。
+  // (07:58 那次的日志形态正是这样:只有一行 unhandledRejection,既没有
+  //  'Failed to start server' 也没有 'Server listening' —— 说明异常根本没落到下面
+  //  listen 的 catch,所以光给 listen 加兜底是不够的,start() 自身这条链必须有人收。)
+  // 已经 bind 成功的进程不因尾部异常自杀(那会把可用服务打死);还没 bind 的必须退出
+  // 非零交给服务管理器重启 —— 启动阶段只允许"在监听"与"已退出"两种状态。
+  if (isListening) {
+    logger.error('Startup tail failed after listen (serving continues)', { err })
+    return
+  }
+  logger.error('Startup failed before listen, exiting to let the service manager restart', { err })
+  process.exit(1)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
