@@ -38,6 +38,13 @@
  *      且 specifier 是解析后的范围(真仓实测 3 枚:@tarojs/taro >=4.0.0→4.2.1、
  *      packages/app 的 react / react-native),值天然漂移 ⇒ **不比 specifier,但仍要求
  *      lock 的任一段里有它的条目**(缺条目仍红)。R4 与 R5 同时命中时按 R5 放过值比对。
+ *   R6 分区同形 = 依赖的**类型**也必须两侧一致(2026-09-26 补,立项即零容忍)。R1 只问"条目在不在",
+ *      mismatch 只问"值对不对",于是"名字与值都对、但 lock 把它记在另一段"这一型两侧都不红。
+ *      实测载体是那晚 CI 的 `@ihui/types`:package.json 声明在 devDependencies、lock 记在
+ *      dependencies —— 安装面按 lock 走、打包闭包按 manifest 走,**红只在 CI,不在本机任何判据**。
+ *      唯一豁免是 R5 的 peer(pnpm 把 peer 记进 dev 段是文档化行为);其余跨段一律判红。
+ *      落地前置:真仓 HEAD 面 26 包 / 515 条声明实测 **0 条跨段** ⇒ 不需要棘轮,当场零容忍
+ *      (带基线的分区判据等于把这一型留给下一个撞见它的人)。
  *   R4/R5 放过的每一条(仅统计"值确实不同却被放过"的那些)都进 overrideExempted /
  *   peerExempted,并在结论行报数与 --json 里可审计(含命中的 override key),不静默变绿。
  *
@@ -105,7 +112,8 @@ const GIT_TIMEOUT = 60000
  * 清单、101 要包清单),所以由本门用它给的原语拼出来。
  */
 export function makeFaceReader(face, root) {
-  if (!FACES.includes(face)) throw new Undetermined(`未知判定面 "${face}"(允许: ${FACES.join(' / ')})`)
+  if (!FACES.includes(face))
+    throw new Undetermined(`未知判定面 "${face}"(允许: ${FACES.join(' / ')})`)
   const cache = new Map()
   const label = FACE_LABEL[face]
   if (face === 'worktree') {
@@ -120,7 +128,9 @@ export function makeFaceReader(face, root) {
         const base = dirRel === '.' || dirRel === '' ? root : join(root, dirRel)
         if (!existsSync(base)) return []
         try {
-          return readdirSync(base, { withFileTypes: true }).filter((c) => c.isDirectory()).map((c) => c.name)
+          return readdirSync(base, { withFileTypes: true })
+            .filter((c) => c.isDirectory())
+            .map((c) => c.name)
         } catch (e) {
           throw new Undetermined(`${label} 列目录 ${dirRel} 失败: ${e.message}`)
         }
@@ -151,13 +161,17 @@ export function makeFaceReader(face, root) {
     try {
       top = gitRaw(['rev-parse', '--show-toplevel'], root).trim()
     } catch (e) {
-      throw new Undetermined(`${e.message} —— ${label} 只在 git 仓库根可用,人工排查磁盘状态请用 --worktree`)
+      throw new Undetermined(
+        `${e.message} —— ${label} 只在 git 仓库根可用,人工排查磁盘状态请用 --worktree`,
+      )
     }
     const want = root.replace(/\\/g, '/')
     // 层的 sameDir 先各自 realpath 再比:§26 的 junction 改道让同一目录有两个字面写法,
     // 只比字面路径会把正常仓判成"基准错位"。
     if (!sameDir(top, root)) {
-      throw new Undetermined(`${label} 只能在 git 仓库根判定:--root 给的是 ${want},而该目录的 toplevel 是 ${top}`)
+      throw new Undetermined(
+        `${label} 只能在 git 仓库根判定:--root 给的是 ${want},而该目录的 toplevel 是 ${top}`,
+      )
     }
     // 索引面不需要提交存在(`git add` 过、尚未 commit 的中间态正是要判的对象);
     // HEAD 面则必须显式失败,绝不退化成"扫到 0 个包所以绿"。
@@ -199,7 +213,10 @@ export function makeFaceReader(face, root) {
     prefetch(rels) {
       const need = rels.filter((r) => !cache.has(r))
       if (need.length === 0) return
-      const got = catBatch(root, need.map((r) => prefix + r))
+      const got = catBatch(
+        root,
+        need.map((r) => prefix + r),
+      )
       for (const r of need) cache.set(r, got.get(prefix + r) ?? null)
     },
     readFace(rel) {
@@ -273,7 +290,9 @@ function globToRegExp(pattern) {
 
 function discoverPackages(reader) {
   if (!reader.has('package.json')) {
-    throw new Undetermined(`${reader.label} 的 ${reader.root} 下没有 package.json,不像 workspace 根`)
+    throw new Undetermined(
+      `${reader.label} 的 ${reader.root} 下没有 package.json,不像 workspace 根`,
+    )
   }
   const { includes, excludes } = parseWorkspaceGlobs(reader.readFace('pnpm-workspace.yaml'))
   const relSet = new Set(['.'])
@@ -296,7 +315,8 @@ function discoverPackages(reader) {
 }
 
 /** 只有 manifest 声明里的"非 registry 协议"值不参与 override 严格判(它们本就不由 override 改写) */
-const NON_REGISTRY_PROTOCOL = /^(workspace:|catalog:|link:|file:|git:|git\+:|github:|gitlab:|https?:)/
+const NON_REGISTRY_PROTOCOL =
+  /^(workspace:|catalog:|link:|file:|git:|git\+:|github:|gitlab:|https?:)/
 
 export function isRegistryRange(spec) {
   return typeof spec === 'string' && spec !== '' && !NON_REGISTRY_PROTOCOL.test(spec)
@@ -327,7 +347,6 @@ export function splitOverrideKey(key) {
   return { name: k.slice(0, at), selector: k.slice(at + 1), parentScoped: false }
 }
 
-
 /**
  * 读 pnpm-workspace.yaml 的 overrides 扁平表(维度 A 的输入)。
  * 没有该段 ⇒ 空表(合法,退化为纯 manifest 比对);
@@ -346,7 +365,9 @@ export function parseWorkspaceOverrides(text, sourceLabel = 'pnpm-workspace.yaml
     if (/^\S/.test(line)) break
     const indent = line.length - line.trimStart().length
     if (indent !== 2) {
-      throw new Undetermined(`${sourceLabel} overrides 段第 ${i + 1} 行缩进 ${indent} 不认识(只支持扁平 2 空格表)`)
+      throw new Undetermined(
+        `${sourceLabel} overrides 段第 ${i + 1} 行缩进 ${indent} 不认识(只支持扁平 2 空格表)`,
+      )
     }
     const m = line.match(/^ {2}(.+?):\s*(.*)$/)
     if (!m) throw new Undetermined(`${sourceLabel} overrides 条目行不认识(第 ${i + 1} 行): ${line}`)
@@ -370,7 +391,6 @@ export function matchOverrideTargets(entries, name) {
   }
   return out
 }
-
 
 /**
  * 只解析 importers: 块。lockfile v9 该块是高度规则的 YAML:
@@ -459,7 +479,14 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
         if (e) candidates.push({ in: s, entry: e })
       }
       if (candidates.length === 0) {
-        violations.push({ kind: 'missing', section, name, declared: spec, locked: null, lockedIn: null })
+        violations.push({
+          kind: 'missing',
+          section,
+          name,
+          declared: spec,
+          locked: null,
+          lockedIn: null,
+        })
         continue
       }
       const pick = candidates.find((c) => c.in === section) ?? candidates[0]
@@ -467,8 +494,31 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
       if (section === 'peerDependencies') {
         // 只把"值确实不同却被放过"计入报数,逐字相同的 peer 属于正常绿,不算豁免
         if (pick.entry.specifier !== spec) {
-          peerExempted.push({ section, name, declared: spec, locked: pick.entry.specifier, lockedIn: pick.in })
+          peerExempted.push({
+            section,
+            name,
+            declared: spec,
+            locked: pick.entry.specifier,
+            lockedIn: pick.in,
+          })
         }
+        continue
+      }
+      // R6 分区漂移:条目在、specifier 也可能对,但**不在声明它的那一段**。
+      // 这不是假想形态 —— 2026-09-26 那晚 CI 红的正是它(`@ihui/types` 声明在 devDependencies
+      // 而 lock 记在 dependencies),而 R1(missing)与 mismatch 都看不见它,因为名字与值都对,
+      // 只有"依赖类型"错了:devDependencies 里的包在 `pnpm install --prod` / 打包闭包里没有,
+      // 而 bundler 按 manifest 读到的却是"生产依赖"。维度 B 只豁免 peer —— pnpm 把 peer 记进
+      // 别的段是它文档化的行为,把 runtime 依赖记进 dev 段不是。
+      if (!candidates.some((c) => c.in === section)) {
+        violations.push({
+          kind: 'section-drift',
+          section,
+          name,
+          declared: spec,
+          locked: pick.entry.specifier,
+          lockedIn: pick.in,
+        })
         continue
       }
       const targets = matchOverrideTargets(overrideEntries, name)
@@ -483,7 +533,9 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
             declared: spec,
             locked: byTarget.entry.specifier,
             lockedIn: byTarget.in,
-            overrideKeys: targets.filter((t) => t.value === byTarget.entry.specifier).map((t) => t.key),
+            overrideKeys: targets
+              .filter((t) => t.value === byTarget.entry.specifier)
+              .map((t) => t.key),
           })
         }
         continue
@@ -491,7 +543,8 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
       const asDeclared = candidates.find((c) => c.entry.specifier === spec)
       // 严格侧(防"命中 override 就不判"的阉割):唯一一条**裸名** override 必然被 pnpm 落进 lock,
       // 于是 lock 仍停在 manifest 原值本身就是缺陷(lock 被手改 / 没跑全量 install)。
-      const soleUnscoped = targets.length === 1 && targets[0].selector === null ? targets[0].value : null
+      const soleUnscoped =
+        targets.length === 1 && targets[0].selector === null ? targets[0].value : null
       if (asDeclared && soleUnscoped && isRegistryRange(spec)) {
         violations.push({
           kind: 'override-not-applied',
@@ -526,7 +579,10 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
 
 /** 维度 A 的输入:同一个面读 pnpm-workspace.yaml 的 overrides 段 */
 function loadOverrides(reader) {
-  const entries = parseWorkspaceOverrides(reader.readFace('pnpm-workspace.yaml'), 'pnpm-workspace.yaml')
+  const entries = parseWorkspaceOverrides(
+    reader.readFace('pnpm-workspace.yaml'),
+    'pnpm-workspace.yaml',
+  )
   const parentScoped = entries.filter((e) => splitOverrideKey(e.key).parentScoped).length
   return { entries, parentScoped }
 }
@@ -546,7 +602,10 @@ export function runCheck(root, face = 'worktree') {
     const reader = makeFaceReader(face, root)
     const rels = discoverPackages(reader)
     const { entries: overrideEntries, parentScoped } = loadOverrides(reader)
-    reader.prefetch([...rels.map((r) => (r === '.' ? 'package.json' : `${r}/package.json`)), 'pnpm-lock.yaml'])
+    reader.prefetch([
+      ...rels.map((r) => (r === '.' ? 'package.json' : `${r}/package.json`)),
+      'pnpm-lock.yaml',
+    ])
     const importers = parseLockImporters(reader.readFace('pnpm-lock.yaml'))
     const violations = []
     const orphans = []
@@ -625,6 +684,14 @@ function formatViolation(v) {
   if (v.kind === 'missing') {
     return `[缺记账] ${v.pkg} ${v.section}.${v.name}: 声明 ${v.declared},lock importer 里无此条目`
   }
+  if (v.kind === 'section-drift') {
+    return (
+      `[分区漂移] ${v.pkg} 把 ${v.name} 声明在 ${v.section},而 lock 只记在 ${v.lockedIn}` +
+      `(specifier ${v.locked})。名字与值都对 ⇒ R1/mismatch 全盲,而依赖**类型**已经不一致:` +
+      `安装面按 lock 走、打包闭包按 manifest 走。修法只有把两边摆回同一段 —— 通常是` +
+      `在**干净检出**里跑一次全量 pnpm install(不带 --filter)重导出该 importer,而不是手改 lock`
+    )
+  }
   if (v.kind === 'override-not-applied') {
     return (
       `[override 未落 lock] ${v.pkg} ${v.section}.${v.name}: manifest 声明 ${v.declared} 且 lock 也记 ${v.locked},` +
@@ -644,33 +711,38 @@ function formatViolation(v) {
 function report(result, mode, face) {
   const judged = face ?? result.judgedFace ?? 'worktree'
   console.log(
-    `🔍 lock↔manifest specifier 对账 [${mode}] | 判定面: ${FACE_LABEL[judged]} —— ${FACE_NOTE[judged]}`
+    `🔍 lock↔manifest specifier 对账 [${mode}] | 判定面: ${FACE_LABEL[judged]} —— ${FACE_NOTE[judged]}`,
   )
-  console.log(
-    '   对账恒为全量(某包破损与"本次改了什么"无关),但内容一律取自上述单一面,不混读盘')
+  console.log('   对账恒为全量(某包破损与"本次改了什么"无关),但内容一律取自上述单一面,不混读盘')
   if (result.undetermined) {
-    console.error(`❌ 无法判定: ${result.undetermined} —— 本门拒绝在判据失效时"静默记为通过"(exit 2)`)
+    console.error(
+      `❌ 无法判定: ${result.undetermined} —— 本门拒绝在判据失效时"静默记为通过"(exit 2)`,
+    )
     return 2
   }
   console.log(
-    `扫描包 ${result.packagesScanned} / 声明条目 ${result.declarations} / 违规 ${result.violations.length} / 孤儿记账 ${result.orphans.length}(反向条目不计红,如实报数)`
+    `扫描包 ${result.packagesScanned} / 声明条目 ${result.declarations} / 违规 ${result.violations.length} / 孤儿记账 ${result.orphans.length}(反向条目不计红,如实报数)`,
   )
   console.log(
     `维度 A overrides 表 ${result.overridesLoaded} 条(父作用域 > 形态 ${result.parentScopedOverrides} 条不参与直接声明比对)` +
       ` / 因 override 目标值放过 ${result.overrideExempted.length} 条` +
-      ` / 维度 B peer 只验条目在位(不比 specifier)${result.peerExempted.length} 条`
+      ` / 维度 B peer 只验条目在位(不比 specifier)${result.peerExempted.length} 条`,
   )
   for (const v of result.violations) console.log(formatViolation(v))
   for (const o of result.orphans) {
-    console.log(`[孤儿] ${o.pkg} ${o.section}.${o.name}: lock 仍记 ${o.locked},package.json 已不声明`)
+    console.log(
+      `[孤儿] ${o.pkg} ${o.section}.${o.name}: lock 仍记 ${o.locked},package.json 已不声明`,
+    )
   }
   if (result.violations.length === 0) {
     console.log(
-      `✅ specifier 全部一致(孤儿记账 ${result.orphans.length} 条、override 放过 ${result.overrideExempted.length} 条、peer 放过 ${result.peerExempted.length} 条均不计红)`
+      `✅ specifier 全部一致(孤儿记账 ${result.orphans.length} 条、override 放过 ${result.overrideExempted.length} 条、peer 放过 ${result.peerExempted.length} 条均不计红)`,
     )
     return 0
   }
-  console.log('修复姿势: 改 package.json 后跑一次全量 `pnpm install`(不带 --filter)让 lock 重新记账,两者必须同 commit。')
+  console.log(
+    '修复姿势: 改 package.json 后跑一次全量 `pnpm install`(不带 --filter)让 lock 重新记账,两者必须同 commit。',
+  )
   return 1
 }
 
@@ -706,9 +778,13 @@ export function gitifyFixture(dir, { commit = true } = {}) {
 }
 
 const DEFAULT_WORKSPACE_YAML = "packages:\n  - 'apps/*'\n"
-const DEFAULT_DEV_DEPS_BLOCK = "      typescript:\n        specifier: 'catalog:'\n        version: 5.9.3"
+const DEFAULT_DEV_DEPS_BLOCK =
+  "      typescript:\n        specifier: 'catalog:'\n        version: 5.9.3"
 
-function makeFixture(dir, { webPkg, lock, rootPkg = { name: 'fixture-root' }, workspace = DEFAULT_WORKSPACE_YAML }) {
+function makeFixture(
+  dir,
+  { webPkg, lock, rootPkg = { name: 'fixture-root' }, workspace = DEFAULT_WORKSPACE_YAML },
+) {
   w(join(dir, 'pnpm-workspace.yaml'), workspace)
   w(join(dir, 'package.json'), JSON.stringify(rootPkg, null, 2))
   w(join(dir, 'apps', 'web', 'package.json'), JSON.stringify({ name: 'web', ...webPkg }, null, 2))
@@ -744,7 +820,11 @@ function lockFrom(sections) {
     if (Object.keys(map).length === 0) continue
     lines.push(`    ${section}:`)
     for (const [name, spec] of Object.entries(map)) {
-      lines.push(`      ${JSON.stringify(name)}:`, `        specifier: ${JSON.stringify(spec)}`, '        version: 0.0.0')
+      lines.push(
+        `      ${JSON.stringify(name)}:`,
+        `        specifier: ${JSON.stringify(spec)}`,
+        '        version: 0.0.0',
+      )
     }
   }
   lines.push('', 'packages:', '')
@@ -766,7 +846,6 @@ function wsWithOverrides(overrideLines) {
     '',
   ].join('\n')
 }
-
 
 const ACCIDENT_DEPS_BLOCK = [
   '      xlsx:',
@@ -803,17 +882,31 @@ export function runSelfTest() {
     const rAligned = runCheck(aligned)
     const rBroken = runCheck(broken)
 
-    t('①事故形态:声明 ^0.18.5 vs lock npm:@e965/xlsx@^0.20.3 必判红', rBroken.violations.length === 1 && rBroken.violations[0].kind === 'mismatch' && rBroken.violations[0].name === 'xlsx')
+    t(
+      '①事故形态:声明 ^0.18.5 vs lock npm:@e965/xlsx@^0.20.3 必判红',
+      rBroken.violations.length === 1 &&
+        rBroken.violations[0].kind === 'mismatch' &&
+        rBroken.violations[0].name === 'xlsx',
+    )
     t('①反向对照:改一致后必绿', rAligned.violations.length === 0 && rAligned.undetermined === null)
-    t('⑥workspace:* 一致时绿(参与比对不跳过)', rAligned.violations.every((v) => v.name !== '@ihui/shared'))
-    t('④孤儿(jszip)不判红但报数', rAligned.violations.length === 0 && rAligned.orphans.some((o) => o.name === 'jszip'))
+    t(
+      '⑥workspace:* 一致时绿(参与比对不跳过)',
+      rAligned.violations.every((v) => v.name !== '@ihui/shared'),
+    )
+    t(
+      '④孤儿(jszip)不判红但报数',
+      rAligned.violations.length === 0 && rAligned.orphans.some((o) => o.name === 'jszip'),
+    )
 
     const drift = makeFixture(join(scratch, 'ws-drift'), {
       webPkg: { dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:^' } },
       lock: lockWith(ACCIDENT_DEPS_BLOCK),
     })
     const rDrift = runCheck(drift)
-    t('⑥workspace: 协议 specifier 漂移(* vs ^)必判红', rDrift.violations.length === 1 && rDrift.violations[0].name === '@ihui/shared')
+    t(
+      '⑥workspace: 协议 specifier 漂移(* vs ^)必判红',
+      rDrift.violations.length === 1 && rDrift.violations[0].name === '@ihui/shared',
+    )
 
     const missingPkg = makeFixture(join(scratch, 'missing'), {
       webPkg: {
@@ -826,14 +919,22 @@ export function runSelfTest() {
       lock: lockWith(ACCIDENT_DEPS_BLOCK),
     })
     const rMissing = runCheck(missingPkg)
-    t('③声明了但 lock 无条目(docx-preview)必判红 kind=missing', rMissing.violations.length === 1 && rMissing.violations[0].kind === 'missing' && rMissing.violations[0].name === 'docx-preview')
+    t(
+      '③声明了但 lock 无条目(docx-preview)必判红 kind=missing',
+      rMissing.violations.length === 1 &&
+        rMissing.violations[0].kind === 'missing' &&
+        rMissing.violations[0].name === 'docx-preview',
+    )
 
     const noImporters = makeFixture(join(scratch, 'no-importers'), {
       webPkg: { dependencies: { xlsx: '^0.18.5' } },
       lock: "lockfileVersion: '9.0'\n\npackages:\n\n  foo@1.0.0: {}\n",
     })
     const rNoImp = runCheck(noImporters)
-    t('⑤lock 无 importers 块 → 无法判定(非绿非红)', rNoImp.undetermined !== null && rNoImp.violations.length === 0)
+    t(
+      '⑤lock 无 importers 块 → 无法判定(非绿非红)',
+      rNoImp.undetermined !== null && rNoImp.violations.length === 0,
+    )
 
     const weird = makeFixture(join(scratch, 'weird'), {
       webPkg: { dependencies: { xlsx: '^0.18.5' } },
@@ -847,26 +948,76 @@ export function runSelfTest() {
       lock: "lockfileVersion: '9.0'\n\nimporters:\n\n  .: {}\n\npackages:\n",
     })
     const rAbsent = runCheck(importerAbsent)
-    t('包整个没进 importer(声明>0)→ 判红 kind=missing-importer', rAbsent.violations.length === 1 && rAbsent.violations[0].kind === 'missing-importer')
+    t(
+      '包整个没进 importer(声明>0)→ 判红 kind=missing-importer',
+      rAbsent.violations.length === 1 && rAbsent.violations[0].kind === 'missing-importer',
+    )
 
     const peerMerged = makeFixture(join(scratch, 'peer-merged'), {
-      webPkg: { peerDependencies: { react: '>=18.0.0' }, devDependencies: { typescript: 'catalog:' } },
-      lock: lockWith('      react:\n        specifier: \'>=18.0.0\'\n        version: 19.2.8'),
+      webPkg: {
+        peerDependencies: { react: '>=18.0.0' },
+        devDependencies: { typescript: 'catalog:' },
+      },
+      lock: lockWith("      react:\n        specifier: '>=18.0.0'\n        version: 19.2.8"),
     })
     const rPeer = runCheck(peerMerged)
-    t('peer 被 pnpm 并进 dependencies 段且 specifier 相同 → 绿(不误报 missing)', rPeer.violations.length === 0 && rPeer.orphans.length === 0)
+    t(
+      'peer 被 pnpm 并进 dependencies 段且 specifier 相同 → 绿(不误报 missing)',
+      rPeer.violations.length === 0 && rPeer.orphans.length === 0,
+    )
+
+    /* ---------- R6:分区漂移(名字与值都对,只有"依赖类型"不一致) ---------- */
+    const secDrift = makeFixture(join(scratch, 'section-drift'), {
+      // 声明在 dependencies,lock 只记在 devDependencies ⇒ 这正是 2026-09-26 CI 那晚的形状
+      webPkg: { dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' } },
+      lock: lockFrom({ devDependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' } }),
+    })
+    const rSecDrift = runCheck(secDrift)
+    t(
+      'R6 阳性对照:声明段与 lock 段不同形必判红,并点名两侧段名',
+      rSecDrift.violations.length === 2 &&
+        rSecDrift.violations.every(
+          (v) =>
+            v.kind === 'section-drift' &&
+            v.section === 'dependencies' &&
+            v.lockedIn === 'devDependencies',
+        ),
+    )
+    const driftFixed = makeFixture(join(scratch, 'section-drift-fixed'), {
+      webPkg: { dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' } },
+      lock: lockFrom({ dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' } }),
+    })
+    const rDriftFixed = runCheck(driftFixed)
+    t(
+      'R6 反向对照:把两边摆回同一段即绿(证明上一条不是恒真)',
+      rDriftFixed.violations.length === 0 && rDriftFixed.undetermined === null,
+    )
+    t(
+      'R6 不误伤 peer:peer 声明被记进 dev 段是 pnpm 文档化行为 ⇒ 仍绿(维度 B 的豁免面不能被 R6 吃回来)',
+      rPeer.violations.every((v) => v.kind !== 'section-drift'),
+    )
 
     const quoted = makeFixture(join(scratch, 'quoted'), {
       webPkg: { devDependencies: { typescript: 'catalog:' } },
-      lock: lockWith(ACCIDENT_DEPS_BLOCK.replace("      '@ihui/shared':", "      jszip2:\n        specifier: '^3.10.1'\n        version: 3.10.1\n      '@ihui/shared':")),
+      lock: lockWith(
+        ACCIDENT_DEPS_BLOCK.replace(
+          "      '@ihui/shared':",
+          "      jszip2:\n        specifier: '^3.10.1'\n        version: 3.10.1\n      '@ihui/shared':",
+        ),
+      ),
     })
     const rQuoted = runCheck(quoted)
     t("引号形态 specifier('catalog:')去引号后比对,不误报", rQuoted.violations.length === 0)
 
-    t('零声明包缺 importer 不判红', runCheck(makeFixture(join(scratch, 'zero-dep'), {
-      webPkg: {},
-      lock: "lockfileVersion: '9.0'\n\nimporters:\n\n  .: {}\n\npackages:\n",
-    })).violations.length === 0)
+    t(
+      '零声明包缺 importer 不判红',
+      runCheck(
+        makeFixture(join(scratch, 'zero-dep'), {
+          webPkg: {},
+          lock: "lockfileVersion: '9.0'\n\nimporters:\n\n  .: {}\n\npackages:\n",
+        }),
+      ).violations.length === 0,
+    )
 
     /* ---------- 维度 A:overrides 参与比对(R4) ---------- */
     t(
@@ -885,7 +1036,10 @@ export function runSelfTest() {
         splitOverrideKey('foo@>1.0.0').parentScoped === false &&
         splitOverrideKey('@scope/parent>@scope/child').parentScoped === true,
     )
-    t('无 overrides 段的 workspace 文件 → 空表(合法,不是无法判定)', parseWorkspaceOverrides(DEFAULT_WORKSPACE_YAML).length === 0)
+    t(
+      '无 overrides 段的 workspace 文件 → 空表(合法,不是无法判定)',
+      parseWorkspaceOverrides(DEFAULT_WORKSPACE_YAML).length === 0,
+    )
 
     const wsScoped = wsWithOverrides(["  '@types/react': 19.2.18", '  postcss@<=8.5.22: ^8.5.23'])
     const rOvrPass = runCheck(
@@ -897,7 +1051,9 @@ export function runSelfTest() {
     )
     t(
       '维度 A:裸名 override 与 `名字@选择器` 两种键都命中,lock 等于 override 目标 → 绿且如实报数(真仓 19 枚的形状)',
-      rOvrPass.undetermined === null && rOvrPass.violations.length === 0 && rOvrPass.overrideExempted.length === 2,
+      rOvrPass.undetermined === null &&
+        rOvrPass.violations.length === 0 &&
+        rOvrPass.overrideExempted.length === 2,
     )
 
     const wsStrict = wsWithOverrides(['  lodash-es: 9.9.9', '  webpack: 5.99.0'])
@@ -923,7 +1079,8 @@ export function runSelfTest() {
     )
     t(
       '维度 A 反向对照②(防阉割):lock 被手改回 manifest 原值而裸名 override 未落进 lock → 必红 kind=override-not-applied',
-      rOvrNotApplied.violations.length === 1 && rOvrNotApplied.violations[0].kind === 'override-not-applied',
+      rOvrNotApplied.violations.length === 1 &&
+        rOvrNotApplied.violations[0].kind === 'override-not-applied',
     )
     const rOvrAligned = runCheck(
       makeFixture(join(scratch, 'ovr-aligned'), {
@@ -932,7 +1089,10 @@ export function runSelfTest() {
         workspace: wsStrict,
       }),
     )
-    t('维度 A 反向对照③:manifest 已等于 override 目标且 lock 一致 → 绿', rOvrAligned.violations.length === 0)
+    t(
+      '维度 A 反向对照③:manifest 已等于 override 目标且 lock 一致 → 绿',
+      rOvrAligned.violations.length === 0,
+    )
 
     const rUntouched = runCheck(
       makeFixture(join(scratch, 'ovr-unaffected'), {
@@ -1070,12 +1230,17 @@ export function runSelfTest() {
 
     /* ---------- 判定面(2026-09-24 收口:--staged 判索引、全量判 HEAD,不判滞后的工作树) ---------- */
     const BROKEN_WEB = { dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' } }
-    const OK_WEB = { dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:*' } }
+    const OK_WEB = {
+      dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:*' },
+    }
     const webPkgFile = (dir) => join(dir, 'apps', 'web', 'package.json')
 
     // ① 假绿钉死:索引里那对**不一致**,盘上随后**改对**
     const fakeGreen = gitifyFixture(
-      makeFixture(join(scratch, 'face-fake-green'), { webPkg: BROKEN_WEB, lock: lockWith(ACCIDENT_DEPS_BLOCK) }),
+      makeFixture(join(scratch, 'face-fake-green'), {
+        webPkg: BROKEN_WEB,
+        lock: lockWith(ACCIDENT_DEPS_BLOCK),
+      }),
     )
     w(webPkgFile(fakeGreen), JSON.stringify({ name: 'web', ...OK_WEB }, null, 2))
     const fgStaged = runCheck(fakeGreen, 'staged')
@@ -1091,17 +1256,24 @@ export function runSelfTest() {
 
     // ② 假红钉死:索引里那对**一致**,盘上是**别人半编辑的不一致**
     const fakeRed = gitifyFixture(
-      makeFixture(join(scratch, 'face-fake-red'), { webPkg: OK_WEB, lock: lockWith(ACCIDENT_DEPS_BLOCK) }),
+      makeFixture(join(scratch, 'face-fake-red'), {
+        webPkg: OK_WEB,
+        lock: lockWith(ACCIDENT_DEPS_BLOCK),
+      }),
     )
     w(webPkgFile(fakeRed), JSON.stringify({ name: 'web', ...BROKEN_WEB }, null, 2))
     t(
       '判定面②假红钉死:索引一致而盘上是并行会话的半编辑态 ⇒ staged 面必绿(不产红到逼人 --no-verify)',
-      runCheck(fakeRed, 'staged').violations.length === 0 && runCheck(fakeRed, 'worktree').violations.length === 1,
+      runCheck(fakeRed, 'staged').violations.length === 0 &&
+        runCheck(fakeRed, 'worktree').violations.length === 1,
     )
 
     // ③ 该面取不到 ⇒ 无法判定并点名路径,绝不"跳过该包再报绿"
     const noLock = gitifyFixture(
-      makeFixture(join(scratch, 'face-no-lock'), { webPkg: OK_WEB, lock: lockWith(ACCIDENT_DEPS_BLOCK) }),
+      makeFixture(join(scratch, 'face-no-lock'), {
+        webPkg: OK_WEB,
+        lock: lockWith(ACCIDENT_DEPS_BLOCK),
+      }),
       { commit: false },
     )
     gitInFixture(noLock, ['rm', '-q', '--cached', 'pnpm-lock.yaml'])
@@ -1116,12 +1288,18 @@ export function runSelfTest() {
         rNoHead.undetermined !== null &&
         rNoHead.violations.length === 0,
     )
-    t('未知判定面 ⇒ 显式无法判定,不得静默退回读盘', runCheck(fakeGreen, 'nope').undetermined !== null)
+    t(
+      '未知判定面 ⇒ 显式无法判定,不得静默退回读盘',
+      runCheck(fakeGreen, 'nope').undetermined !== null,
+    )
     t(
       '判定面④同一轮只读一个面:head 面取到自己那份内容(有提交后 0 违规、面标记正确)',
       (() => {
         const committed = gitifyFixture(
-          makeFixture(join(scratch, 'face-head-ok'), { webPkg: OK_WEB, lock: lockWith(ACCIDENT_DEPS_BLOCK) }),
+          makeFixture(join(scratch, 'face-head-ok'), {
+            webPkg: OK_WEB,
+            lock: lockWith(ACCIDENT_DEPS_BLOCK),
+          }),
         )
         w(webPkgFile(committed), JSON.stringify({ name: 'web', ...BROKEN_WEB }, null, 2))
         const rh = runCheck(committed, 'head')

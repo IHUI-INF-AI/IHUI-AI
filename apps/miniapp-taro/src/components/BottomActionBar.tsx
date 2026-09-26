@@ -2,24 +2,23 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, t } from '@/i18n'
-import { View, Text, Input, Image } from '@tarojs/components'
+import { View, Text, Input } from '@tarojs/components'
 import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   BOTTOM_ACTION_BAR_CHIP_FONT_PX,
   BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
   BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX,
+  // 票⑤(2026-09-26):图标卡与模型提示条图章的墨迹档(位图退役后取数一律经这两枚)
+  BOTTOM_ACTION_BAR_ICON_GLYPH_PX,
+  BOTTOM_ACTION_BAR_MODEL_BADGE_PX,
 } from '@ihui/shared/ui/bottom-action-bar-spec'
-import LineIcon from '@/components/LineIcon'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 import InputArea, { type InputAreaProps } from './InputArea'
-// 4 个图标按钮 + 选中勾 PNG:对齐原项目 BottomActionBar.vue line 65-80,统一从 @/assets/remote/ 引入
-// 修复 (2026-08-12):微信文件改用 wenjian.png 区别于本地文件 floder_input.png
-const cammerInputPng = aizhsUrl('remote-images/cammer_input.png')
-const picterInputPng = aizhsUrl('remote-images/picter_input.png')
-const floderInputPng = aizhsUrl('remote-images/floder_input.png')
-const wenjianPng = aizhsUrl('remote-images/wenjian.png')
-const selectedModelPng = aizhsUrl('remote-images/selected_model.png')
+// O81 票⑤(2026-09-26):这 5 个槽位此前指向 aizhs.top 的 CDN 位图。位图不能随主题反色、
+// 不跟字号缩放、描边粗细与 RN 端不一致,且违反 AGENTS §4「UI 图标一律用矢量图标库」,
+// 故按"矢量优先"换成 `<LineIcon name="…">`(CSS mask 渲染 ⇒ 随 token 换色),
+// 字形名与 RN 端 `BottomActionBar.tsx` 的 ICON_GROUP_ITEMS / 模型条所用 lucide 图标同名。
 import { rpx } from '@/utils/rpx'
 
 /**
@@ -45,7 +44,8 @@ export interface ToggleButtonItem {
 export interface IconButtonItem {
   key: string
   label: string
-  icon: string
+  /** 矢量字形名(LineIcon 登记表键 = lucide 原名);类型收窄到 IconName 是"两端同一字形"的编译期保证 */
+  icon: IconName
   onClick?: () => void
 }
 
@@ -100,12 +100,13 @@ const DEFAULT_TOGGLE_BUTTONS: ToggleButtonItem[] = [
 ]
 
 // 4 个图标按钮对齐原项目 BottomActionBar.vue line 65-80:
-// 相机 / 相册 / 本地文件 / 微信文件(微信文件用 wenjian.png 区别于 floder_input.png)
+// 相机 / 相册 / 本地文件 / 微信文件。字形名逐条取自 RN 端 `ICON_GROUP_ITEMS`
+// (Camera / Image / Folder / MessageCircle)—— 同一 key、同一含义、同一字形。
 const DEFAULT_ICON_BUTTONS: IconButtonItem[] = [
-  { key: 'camera', label: t('BottomActionBar.d1'), icon: cammerInputPng },
-  { key: 'album', label: t('BottomActionBar.d2'), icon: picterInputPng },
-  { key: 'file', label: t('BottomActionBar.d3'), icon: floderInputPng },
-  { key: 'wxfile', label: t('BottomActionBar.d4'), icon: wenjianPng },
+  { key: 'camera', label: t('BottomActionBar.d1'), icon: 'camera' },
+  { key: 'album', label: t('BottomActionBar.d2'), icon: 'image' },
+  { key: 'file', label: t('BottomActionBar.d3'), icon: 'folder' },
+  { key: 'wxfile', label: t('BottomActionBar.d4'), icon: 'message-circle' },
 ]
 
 export default function BottomActionBar(props: BottomActionBarProps) {
@@ -208,10 +209,11 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 onClick={() => onIconButtonClick?.(btn)}
                 hoverClass="opacity-60"
               >
-                <Image
-                  src={btn.icon}
-                  style={{ width: rpx(70), height: rpx(70), marginBottom: rpx(12) }}
-                  mode="aspectFit"
+                <LineIcon
+                  name={btn.icon}
+                  size={toUnit(BOTTOM_ACTION_BAR_ICON_GLYPH_PX)}
+                  color="var(--color-muted-foreground)"
+                  style={{ marginBottom: rpx(12) }}
                 />
                 <Text
                   style={{
@@ -238,7 +240,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
             >
               <LineIcon
                 name="mic"
-                size={70}
+                size={toUnit(BOTTOM_ACTION_BAR_ICON_GLYPH_PX)}
                 color={
                   isVoiceInput ? 'var(--color-primary-foreground)' : 'var(--color-muted-foreground)'
                 }
@@ -279,10 +281,16 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 fontSize: toUnit(BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX),
               }}
             >
-              <Image
-                src={selectedModelPng}
-                style={{ width: rpx(24), height: rpx(24), marginRight: rpx(8) }}
-                mode="aspectFit"
+              {/* 提示条前导图章(原 selected_model.png = 选中态标记)。
+                  RN 的模型条在这一格**没有对应字形**:它那两枚 lucide 各自落在
+                  「模型名按钮 + ChevronDown」与「配置钮 Settings」上,本行的"已默认自动切换"
+                  提示在 RN 端整条不存在 ⇒ 无同名可引,按 §4 矢量优先取同一 lucide 家族的
+                  选中态字形 Check,并把它登记为小程序单端档(BOTTOM_ACTION_BAR_MODEL_BADGE_PX)。
+                  这一格是本票唯一没能"与 RN 同名"的槽位,已写进交付报告请主会话追认。 */}
+              <LineIcon
+                name="check"
+                size={toUnit(BOTTOM_ACTION_BAR_MODEL_BADGE_PX)}
+                style={{ marginRight: rpx(8) }}
               />
               <Text>{tt('BottomActionBar.text1', '已默认自动切换深度思考')}</Text>
             </View>
