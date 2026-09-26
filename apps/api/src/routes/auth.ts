@@ -1293,17 +1293,20 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         ?.refresh_token
       const token = bodyToken || cookieToken
 
+      // revoked 由库侧 RETURNING 派生(2026-09-27):旧形态是无条件常量 true ——
+      // 不带 token / token 查无 / UPDATE 命中 0 行,三种"什么都没吊销"也与真吊销同形。
+      let revokedIds: string[] = []
       if (token) {
         const record = await findRefreshToken(token)
         if (record && !record.revokedAt) {
-          await revokeRefreshToken(token)
+          revokedIds = await revokeRefreshToken(token)
         }
       }
 
       // P2-18:登出清除 httpOnly auth cookie(前端 JS 清不掉,必须服务端下发)
       clearAuthCookies(reply)
 
-      return reply.send(success({ revoked: true }))
+      return reply.send(success({ revoked: revokedIds.length > 0 }))
     },
   )
 
