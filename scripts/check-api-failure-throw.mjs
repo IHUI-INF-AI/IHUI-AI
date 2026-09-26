@@ -89,9 +89,82 @@ export function findBareApiThrows(text) {
       exempted.push({ line: i + 1, text: rawLine.trim().slice(0, 120) })
       continue
     }
-    hits.push({ line: i + 1, id, text: rawLine.trim().slice(0, 120) })
+    hits.push({ line: i + 1, id, text: rawLine.trim().slice(0, 120), cls: classifyThrowConsumer(code, i) })
   }
   return { hits, exempted, unreadable: false }
+}
+
+/**
+ * T2:这个裸 throw 抛出去之后,**有没有人读它**。
+ *
+ * 为什么要把这件事做成机器判据:958 这个数原先只告诉你"有多少处",不告诉你"清完有多少可见收益"。
+ * 实测抽样里大量站点落在 `catch { … }`(不绑形参、错误被整块丢弃、toast 写的是固定文案)——
+ * 那类站点改成 `apiFailureToError(res)` **当天零可见变化,只是多一条 import**;而真正会让
+ * "401 冒充『提交的信息有误』"再现的,是 `catch (e)` 后把 e 喂给 toUserFriendlyMessage / showToast 的那些。
+ * 没有这一分型,后续清账只能按文件顺序盲扫,把工数花在零收益的改动上(§"别把验证甩给用户"同族:
+ * 先量对尺子,再决定动哪里)。
+ *
+ * 四态(绝不静默合并):
+ *  - consumed    :最近的 catch 绑了形参且形参在 catch 体内被引用 ⇒ 迁移改变用户看到的话术,优先清偿
+ *  - discarded   :`catch {`(未绑形参)或绑了却从不引用 ⇒ 迁移当天零可见变化
+ *  - escaping    :命中行之后在离开本块之前找不到 catch ⇒ 由上层消费,**本门看不见上层,如实单列不猜**
+ *  - undetermined:catch 体超出括号配平窗口(>400 行)⇒ 判不出,只报数
+ */
+const CATCH_RE = /^\s*\}\s*catch\s*(?:\(\s*([A-Za-z_$][\w$]*)\s*(?::[^)]*)?\)\s*)?\{/
+/** 命中行之后最多看这么多行找 catch;再长就跨函数了 */
+const CATCH_LOOKAHEAD = 60
+/** catch 体括号配平的上限行数 */
+const CATCH_BODY_LIMIT = 400
+
+/** 从 catch 行起做括号配平取函数体;超上限返回 null(= 判不出,不猜)。 */
+function balancedBody(codeLines, catchIdx) {
+  let depth = 0
+  let started = false
+  const out = []
+  for (let j = catchIdx; j < Math.min(codeLines.length, catchIdx + CATCH_BODY_LIMIT); j++) {
+    const l = codeLines[j] ?? ''
+    out.push(l)
+    // catch 行形如 `} catch (e) {`:开头那个 `}` 属**上一层**的收尾,先跳到本层的 `{` 才开始配平。
+    // 首版没跳它,`}` 把 depth 打成 -1、随后的 `{` 又回到 0,于是"体"只含 catch 那一行自身,
+    // consumed 永远判不出来(自检当场抓到 —— 判据失效的表现是安静地全报 discarded)。
+    const from = started ? 0 : l.indexOf('{')
+    if (!started && from < 0) continue
+    for (let k = from; k < l.length; k++) {
+      const ch = l[k]
+      if (ch === '{') {
+        depth++
+        started = true
+      } else if (ch === '}') depth--
+    }
+    if (started && depth <= 0) return out.join('\n')
+  }
+  return null
+}
+
+export function classifyThrowConsumer(codeLines, hitIdx) {
+  const line = codeLines[hitIdx] ?? ''
+  const baseIndent = (line.match(/^[^\S\n]*/) || [''])[0].length
+  let catchIdx = -1
+  let param = null
+  for (let j = hitIdx + 1; j < Math.min(codeLines.length, hitIdx + 1 + CATCH_LOOKAHEAD); j++) {
+    const l = codeLines[j] ?? ''
+    if (!l.trim()) continue
+    const m = CATCH_RE.exec(l)
+    if (m) {
+      catchIdx = j
+      param = m[1] ?? null
+      break
+    }
+    // 已经退到比命中行更浅的缩进、又不是纯收尾符号 ⇒ 离开本 try 所在块了
+    const ind = (l.match(/^[^\S\n]*/) || [''])[0].length
+    if (ind < baseIndent && !/^\s*[})\];,]*$/.test(l)) break
+  }
+  if (catchIdx < 0) return 'escaping'
+  if (!param) return 'discarded'
+  const body = balancedBody(codeLines, catchIdx)
+  if (body === null) return 'undetermined'
+  const useRe = new RegExp(`\\b${param.replace(/[$]/g, '\\$')}\\b`)
+  return useRe.test(body.slice(body.indexOf('{') + 1)) ? 'consumed' : 'discarded'
 }
 
 function listFacePaths(face) {
@@ -150,6 +223,7 @@ export function analyze(face, onlyFiles = null) {
   const unreadable = []
   const red = []
   const exempted = []
+  const classes = { consumed: 0, discarded: 0, escaping: 0, undetermined: 0 }
   let total = 0
   for (const f of files) {
     const text = contents.get(f)
@@ -159,6 +233,7 @@ export function analyze(face, onlyFiles = null) {
     }
     const { hits, exempted: ex } = findBareApiThrows(text)
     total += hits.length
+    for (const h of hits) classes[h.cls] = (classes[h.cls] ?? 0) + 1
     exempted.push(...ex.map((e) => ({ file: f, ...e })))
     if (!hits.length) continue
     if (face === 'staged') {
@@ -183,6 +258,7 @@ export function analyze(face, onlyFiles = null) {
     face,
     scannedFiles: files.length,
     total,
+    classes,
     red,
     exempted,
     unreadable,
@@ -216,6 +292,40 @@ const FIXTURES = {
   exempt: `  if (!res.success) throw new Error(res.error) // api-error-exempt: 本处刻意只取文案,身份已在上一行落日志`,
   // 不放过:裸标记没原因
   bareMarker: `  if (!res.success) throw new Error(res.error) // api-error-exempt:`,
+  // 分型用:catch 绑了形参且真去读它 ⇒ 迁移会改变用户看到的话术
+  consumed: `async function submit() {
+  try {
+    const res = await save()
+    if (!res.success) throw new Error(res.error)
+    return res.data
+  } catch (e: unknown) {
+    showToast('error', toUserFriendlyMessage(e))
+  }
+}`,
+  // 分型用:`catch {` 不绑形参 ⇒ 错误整块丢掉,迁移当天零可见变化
+  discarded: `async function load() {
+  try {
+    const res = await getList()
+    if (!res.success) throw new Error(res.error)
+  } catch {
+    setList([])
+  }
+}`,
+  // 分型用:绑了形参但体内从不引用 ⇒ 同属被丢弃(不能因为"绑了"就当有收益)
+  boundButUnused: `async function load() {
+  try {
+    const res = await getList()
+    if (!res.success) throw new Error(res.error)
+  } catch (e) {
+    setList([])
+  }
+}`,
+  // 分型用:命中行之后到离开本块都没有 catch ⇒ 外抛,上层消费,本门看不见上层
+  escaping: `export async function fetchThing() {
+  const res = await getList()
+  if (!res.success) throw new Error(res.error)
+  return res.data
+}`,
 }
 
 function runSelfTest() {
@@ -234,6 +344,13 @@ function runSelfTest() {
     return r.hits.length === 0 && r.exempted.length === 1
   })())
   ok('裸标记(冒号后无原因)不得放行', findBareApiThrows(FIXTURES.bareMarker).hits.length === 1)
+  const cls = (name) => findBareApiThrows(FIXTURES[name]).hits[0]?.cls
+  ok('T2 分型:catch 绑形参且读它 ⇒ consumed', cls('consumed') === 'consumed')
+  ok('T2 分型:catch 不绑形参 ⇒ discarded(迁移零可见变化,别为它加 import)', cls('discarded') === 'discarded')
+  ok('T2 分型:绑了形参却从不引用 ⇒ 同样 discarded(不能因"绑了"就当有收益)', cls('boundButUnused') === 'discarded')
+  ok('T2 分型:到离开本块都没有 catch ⇒ escaping(上层消费,本门不猜)', cls('escaping') === 'escaping')
+  // 反向对照:discarded 与 consumed 必须**不同判**,否则分型只是把三态压成一态的装饰
+  ok('T2 反向对照:consumed 与 discarded 不得同判', cls('consumed') !== cls('discarded'))
   // 阳性对照:拿真仓 HEAD 喂判据,它必须点名已知存量(看不见存量 = 判据对该形态全盲)
   const head = analyze('head')
   ok(`真仓 HEAD 阳性对照:必须看得见存量(实得 ${head.total} 处 / ${head.red.length ? '有' : '无'}红)`, head.total > 100)
@@ -284,6 +401,12 @@ function main() {
   } else if (r.exit === 0) {
     console.log(`✅ 无新增。存量 ${r.total} 处按"该文件 HEAD 自身存量"棘轮只报数(清偿进度看这一行,别引用文档旧数)`)
   }
+  console.log(
+    `分型(清偿优先级按这一行走,不看文件顺序):被消费 ${r.classes.consumed} / 被丢弃 ${r.classes.discarded} / 外抛(上层消费,本门看不见上层)${r.classes.escaping} / 判不出 ${r.classes.undetermined}`,
+  )
+  console.log(
+    '  ⚠️ 「被丢弃」那一批改成具名出口**当天零可见变化**(catch 不绑形参,toast 是固定文案)—— 别为它加 import;要真收口得先让那类 catch 用上错误身份。',
+  )
   console.log(`提示:本门射程 = apps/ 与 packages/ 的 .ts/.tsx/.js/.jsx,不含测试面`)
   process.exitCode = r.exit
 }
@@ -293,6 +416,7 @@ export const __test__ = {
   detectHelper,
   analyze,
   inScope,
+  classifyThrowConsumer,
   HELPER_FILE,
   HELPER_NAME,
   EXEMPT,
