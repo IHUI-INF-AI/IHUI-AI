@@ -196,6 +196,19 @@ const R2_DIR = 'apps/mobile-rn/src'
  * 与 SCAN_DIRS(RN style 对象面)互不重叠 —— R1..R4 对本范围**零覆盖**,这正是 R5 立项的原因。
  */
 const R5_DIRS = ['apps/web', 'packages/ui-react', 'apps/miniapp-taro']
+/**
+ * R8 的类名/CSS 面**故意不收端名单,直接用整个 UI 跟踪面**(2026-09-26 一天内补两次才找齐):
+ *  ① R5 立项那张表只有 web / ui-react / miniapp-taro,而 `apps/extension` 同样写 Tailwind 类名
+ *     ⇒ R8 上线时继承了同一个洞,HEAD 面上真留着一处 `border border-primary`,门一路报绿;
+ *  ② 更根本的是这条规则**按书写形态被切成三块盲区**:RN style 对象、Tailwind 类名、
+ *     CSS 声明(`border-color: var(--color-primary)` —— 实测 19 处,全在小程序端 .css)各一块。
+ * 端名单会腐烂(§4 对 `RN_ONLY_BRAND_KEYS` 的同一条教训),所以这里改成"整面进射程 + e2e/tests
+ * 排除",不再维护"哪些端算 UI 端"。刻意**不**把 extension/CSS 并进 R5:R5 的零容忍基线是按那三个
+ * 目录立的,扩它等于替别的端宣布"已收口" —— 那是另一笔账,要另立一票。
+ */
+const R8_DIRS = ['apps', 'packages']
+/** 类名/CSS 两种书写都在 R8 面上,扩展名也必须比 R5 宽(js/jsx 是端内真实形态,.css/.scss 是另一面) */
+const R8_EXT = /\.(tsx|jsx|ts|js|css|scss)$/
 const R5_EXT = /\.(tsx|jsx|ts)$/
 /** R5 排除面:测试/e2e 里合法描述退役档,不构成 UI 债务 */
 const R5_SKIP_DIR = /(^|\/)(e2e|tests|__tests__|node_modules)\//
@@ -241,8 +254,16 @@ const R8_INK_TIER = '(?:brand\\.DEFAULT|brand\\.foreground|brand\\.ctaForeground
 const R8_RN_BORDER = new RegExp(`\\bborder\\w*\\s*:\\s*[^\\n]*?${TKS}\\.(${R8_INK_TIER})\\b`)
 /** 类名面:满不透明 border-primary / ring-primary(后面不能是 - / 或单词字符) */
 const R8_CLASS_BORDER = /(^|[^A-Za-z0-9_-])(?:border|ring)-primary(?![-/\w])/g
+/**
+ * CSS 声明面(2026-09-26 补,与类名面同一条判据的第三种书写形态):`border*: … var(--color-primary)`。
+ * 立项时 R8 只认 RN style 对象与 Tailwind 类名两种形态,**整面 CSS 声明不在射程里** ——
+ * 实测 HEAD 面上有 19 处 `border-color: var(--color-primary)` 一路报绿(全在 miniapp-taro 的 .css),
+ * 另 1 处是 TSX 内联字符串形态。同一句话("本项目没有纯黑描边")按书写形态被切成三块盲区,
+ * 是 §22c 记过的那一型:**判据覆盖面不等于规则覆盖面**。
+ */
+const R8_CSS_BORDER = /\bborder[a-z-]*\s*:\s*[^;\n]*var\(\s*--color-primary\s*\)/
 /** 预筛用的 git grep -P 模式:必须是上面判据的超集(不看注释/豁免,只认类名出现) */
-const R8_CLASS_GREP_PATTERN = '(border|ring)-primary(?![-/\\w])'
+const R8_CLASS_GREP_PATTERN = '(border|ring)-primary(?![-/\\w])|border[a-z-]*:[^;]*var\\(\\s*--color-primary\\s*\\)'
 const R8_EXEMPT = /border-ink-exempt:/
 /** R8 注释行不判(与 R5_COMMENT_LINE 同一条理由:零容忍门不得被叙述行钉红) */
 const R8_COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/
@@ -320,6 +341,13 @@ export function findR8ClassHits(lines) {
     // 命中的首字符是"前一个非单词字符"(引号/冒号/空格),报告里剥掉它,否则明细写成
     // `满不透明 'border-primary` 这种带引号的串,读的人以为在点另一个标识符
     if (hits) out.push(`L${i + 1} 满不透明 ${hits.map((h) => h.replace(/^[^\w]+/, '')).join(',')}`)
+    /**
+     * CSS 声明形态与类名形态**同一条判据、同一个计数口**,但两条各记各的:
+     * 同一行同时写了 `border-primary` 与 `var(--color-primary)` 的概率极低,而把它们并成一条
+     * 会让"一行两处债"被记成一处 —— 计数与明细必须同形(见上),这里两条 push 天然同形。
+     */
+    const css = R8_CSS_BORDER.exec(line)
+    if (css) out.push(`L${i + 1} CSS 实底墨档描边 ${css[0].trim()}`)
   }
   return out
 }
@@ -352,6 +380,16 @@ function isR5Scope(rel) {
   return (
     R5_DIRS.some((d) => p.startsWith(`${d}/`)) &&
     R5_EXT.test(p) &&
+    !R5_SKIP_DIR.test(p) &&
+    !R5_SKIP_FILE.test(p)
+  )
+}
+
+function isR8Scope(rel) {
+  const p = rel.replace(/\\/g, '/')
+  return (
+    R8_DIRS.some((d) => p.startsWith(`${d}/`)) &&
+    R8_EXT.test(p) &&
     !R5_SKIP_DIR.test(p) &&
     !R5_SKIP_FILE.test(p)
   )
@@ -464,7 +502,7 @@ function r8Prefilter(fromHead) {
         R8_CLASS_GREP_PATTERN,
         ...revArgs,
         '--',
-        ...R5_DIRS,
+        ...R8_DIRS,
       ],
       { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 30000 },
     )
@@ -482,14 +520,14 @@ function r8Prefilter(fromHead) {
 function listR8WebFiles() {
   const tracked = [
     ...new Set(
-      execFileSync('git', ['ls-files', ...R5_DIRS], {
+      execFileSync('git', ['ls-files', ...R8_DIRS], {
         cwd: ROOT,
         encoding: 'utf8',
         windowsHide: true,
         timeout: 30000,
       })
         .split('\n')
-        .filter((f) => isR5Scope(f)),
+        .filter((f) => isR8Scope(f)),
     ),
   ]
   const trackedSet = new Set(tracked)
@@ -513,7 +551,7 @@ function stagedR8WebFiles() {
     timeout: 30000,
   })
     .split('\n')
-    .filter((f) => isR5Scope(f))
+    .filter((f) => isR8Scope(f))
   return {
     files: out.map((rel) => path.join(ROOT, rel)),
     candidates: out.length,
@@ -2787,6 +2825,11 @@ export const __test__ = {
   findR8ClassHits,
   countInkBorderClasses,
   listR8WebFiles,
+  // 面的形状锁靠这两项:R8 的类名/CSS 面**必须**按整面取(R8_DIRS 就是那张面,不是端名单),
+  // 且枚举/筛选两处都要用它自己的表 —— 本门第一次改这一处时就因为只换了预筛、没换 ls-files
+  // 且门照报绿(靠真仓阳性对照才抓到),所以这里把"两面同表"钉成断言而不是靠人记得。
+  R8_DIRS,
+  isR8Scope,
   r8Prefilter,
   BASELINE_R8_KEY,
   R8_RN_BORDER,
