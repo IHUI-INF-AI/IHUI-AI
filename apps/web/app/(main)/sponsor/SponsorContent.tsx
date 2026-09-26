@@ -100,7 +100,7 @@ export function SponsorContent(): React.JSX.Element {
           {TIERS.map(({ id, icon: Icon, accent }) => (
             <Card
               key={id}
-              className={`flex flex-col p-3 ${accent ? 'border-primary shadow-md' : ''}`}
+              className={`flex flex-col p-3 ${accent ? 'border-brand-accent-deep shadow-md' : ''}`}
             >
               <div className="text-2xl min-[768px]:text-3xl">
                 <Icon className="h-8 w-8" />

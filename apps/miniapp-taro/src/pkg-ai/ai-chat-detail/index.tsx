@@ -440,7 +440,7 @@ export default function AiChatDetail() {
         <View className="px-[20rpx] pt-[10rpx] pb-[20rpx] border-t-[length:2rpx] border-border flex-shrink-0">
           {/* 对齐 RN MessageInput inputRow:胶囊描边容器(radius 2xl=16px,聚焦态 border primary) */}
           <View
-            className={`flex flex-row items-end rounded-2xl border-[length:2rpx] bg-card px-[30rpx] py-[12rpx] gap-[20rpx] ${isInputFocused ? 'border-primary' : 'border-border'}`}
+            className={`flex flex-row items-end rounded-2xl border-[length:2rpx] bg-card px-[30rpx] py-[12rpx] gap-[20rpx] ${isInputFocused ? 'border-brand-accent-deep' : 'border-border'}`}
           >
             <View
               className="w-[48rpx] h-[48rpx] flex items-center justify-center shrink-0"

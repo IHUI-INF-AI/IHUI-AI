@@ -167,7 +167,7 @@ export default async function SkillsPage() {
             type="button"
             className={
               i === 0
-                ? 'h-8 rounded-md border border-primary bg-cta px-3 text-xs font-medium text-cta-foreground'
+                ? 'h-8 rounded-md border border-brand-accent-deep bg-cta px-3 text-xs font-medium text-cta-foreground'
                 : 'h-8 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
             }
           >
