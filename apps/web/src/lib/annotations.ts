@@ -105,10 +105,7 @@ export function getAnnotations(conversationId: string, messageId: string): Annot
 }
 
 /** 新增一条批注;存储异常时返回 null(调用方据此提示失败)。 */
-export function addAnnotation(
-  conversationId: string,
-  input: AnnotationInput,
-): Annotation | null {
+export function addAnnotation(conversationId: string, input: AnnotationInput): Annotation | null {
   try {
     const map = readMap(conversationId)
     const entry: Annotation = {
@@ -154,11 +151,7 @@ export function updateAnnotationComment(
  * 删除一条批注。
  * @returns true = 已删除(或本就不存在,视为成功);false = 存储异常(删除失败,需反馈)。
  */
-export function removeAnnotation(
-  conversationId: string,
-  messageId: string,
-  id: string,
-): boolean {
+export function removeAnnotation(conversationId: string, messageId: string, id: string): boolean {
   try {
     const map = readMap(conversationId)
     const list = map[messageId]
@@ -212,9 +205,34 @@ export function buildAnnotationContext(conversationId: string, messageId: string
 
 /** 视为块级、其边界需在拼接文本中补 \n 的标签。 */
 const BLOCK_TAGS = new Set([
-  'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DETAILS', 'DIV', 'DL', 'FIELDSET',
-  'FIGURE', 'FOOTER', 'FORM', 'HEADER', 'HR', 'LI', 'MAIN', 'NAV', 'OL', 'P',
-  'PRE', 'SECTION', 'TABLE', 'UL', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+  'ADDRESS',
+  'ARTICLE',
+  'ASIDE',
+  'BLOCKQUOTE',
+  'DETAILS',
+  'DIV',
+  'DL',
+  'FIELDSET',
+  'FIGURE',
+  'FOOTER',
+  'FORM',
+  'HEADER',
+  'HR',
+  'LI',
+  'MAIN',
+  'NAV',
+  'OL',
+  'P',
+  'PRE',
+  'SECTION',
+  'TABLE',
+  'UL',
+  'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
 ])
 
 /** 文本节点覆盖范围(拼接文本中的 [start, end) 区间)。 */
@@ -231,7 +249,8 @@ export interface ContainerText {
 }
 
 function isBlockElement(el: HTMLElement | null): boolean {
-  return el != null && BLOCK_TAGS.has(el.tagName)
+  // `el != null` 的严格等价形式:既非 null 也非 undefined(不改变判据)
+  return el !== null && el !== undefined && BLOCK_TAGS.has(el.tagName)
 }
 
 /** 取节点最近的块级祖先(向上爬到 root 为止)。 */
@@ -316,7 +335,10 @@ export function selectionToAnchor(
   const { text, spans } = readContainerText(container)
   const startOff = offsetOf(spans, range.startContainer, range.startOffset)
   const endOff = offsetOf(spans, range.endContainer, range.endOffset)
-  if (startOff == null || endOff == null) return null
+  // `x == null` 的严格等价形式:既非 null 也非 undefined(offsetOf 只会返回 null,
+  // 保留 undefined 一支是为了与本判据改写前的取值域完全同形)
+  if (startOff === null || startOff === undefined || endOff === null || endOff === undefined)
+    return null
 
   const from = Math.min(startOff, endOff)
   const to = Math.max(startOff, endOff)

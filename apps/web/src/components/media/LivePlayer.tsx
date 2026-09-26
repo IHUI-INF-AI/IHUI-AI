@@ -135,7 +135,7 @@ export function LivePlayer({
         }
       }
     },
-    [autoPlay, cleanup],
+    [autoPlay, cleanup, t],
   )
 
   React.useEffect(() => {
