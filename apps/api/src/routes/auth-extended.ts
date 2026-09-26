@@ -1682,8 +1682,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (parsed.data.uuid !== request.userId) {
       return reply.status(403).send(error(403, '无权操作此绑定'))
     }
-    await removeBindingByPlatform(parsed.data.uuid, parsed.data.platform)
-    return reply.send(success({ removed: true }))
+    // removed 由库侧 RETURNING 派生(2026-09-27):旧形态写链返回 void,常量 true 冒充解绑成功。
+    const removed = await removeBindingByPlatform(parsed.data.uuid, parsed.data.platform)
+    return reply.send(success({ removed: removed.length > 0 }))
   })
 
   // 用户 SK
