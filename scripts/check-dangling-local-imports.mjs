@@ -534,10 +534,13 @@ export function auditFile(relPath, readFile, hasPath, aliasIndex) {
  * 把它写成红等于把一台与别人的半成品相关的门钉成恒红(§12e 那一型:唯一结局是各会话
  * 跳门、约 154 道守门同时作废);所以这里**只登记不定免**:它仍被打印、仍被计数,
  * 只是不进退出码。**G-195 修好后必须删掉这一行**,否则它替人做出"还欠着"的判断。
+ *
+ * 现值为空:那一行点名的 `@/stores/conversation-org` 已于 2026-09-26 由 G-203 补齐
+ * (web store 在 `d848dfb92` 进 HEAD,共享层那份规则同日跟上),台账行当场删除。
+ * **再登记任何一行的前提**:它是别人正在推进的半成品、且本票无法正当代裁 —— 登记时必须
+ * 连同 G 编号与"为什么现在不修"一起写在这里;空口登记不成立,修好了不删也不成立。
  */
-export const KNOWN_ALIAS_LEDGER = [
-  'apps/web/src/components/sidebar-chat-history.tsx|@/stores/conversation-org',
-]
+export const KNOWN_ALIAS_LEDGER = []
 
 /** tsconfig / jsconfig 的形状:本门只读它的 `compilerOptions.paths`,不解释 extends。 */
 const TSCONFIG_RE = /(^|\/)(tsconfig[\w.-]*\.json|jsconfig\.json)$/
