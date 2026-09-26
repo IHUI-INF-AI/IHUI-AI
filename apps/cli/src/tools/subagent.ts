@@ -26,6 +26,7 @@ import type { Tool, ToolResult } from './index.js';
 import { createDangerGate } from './danger-gate.js';
 import { listTools, clearTools, registerTools } from './index.js';
 import { runHook } from '../hooks/index.js';
+import { injectHostSection } from '../utils/prompt-injection-registry.js';
 import {
   newSubagentId,
   saveSubagentState,
@@ -413,7 +414,12 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         }
 
         try {
-          const finalSystemPrompt = personaConfig.systemPrompt + '\n\n' + systemPrompt;
+          // 人格段是**以宿主名义进子代理 system prompt** 的段:上一手只把主代理的注入面收了口,
+          // 子代理这侧仍是裸拼 ⇒ 同一型提示两侧不同源(本仓最高频的漂移形态)。
+          const personaSection = injectHostSection('subagent_persona', personaConfig.systemPrompt, {
+            kind: 'host_directive',
+          });
+          const finalSystemPrompt = personaSection + '\n\n' + systemPrompt;
           const effectiveMaxIterations =
             userMaxIterations ?? personaConfig.maxIterations ?? SUBAGENT_MAX_ITERATIONS;
 
