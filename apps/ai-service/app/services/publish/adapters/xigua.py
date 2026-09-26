@@ -36,7 +36,6 @@
 """
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlparse
@@ -139,11 +138,8 @@ class XiguaAdapter(BasePlatformAdapter):
         return cookies
 
     def _account_id(self, credentials: dict[str, Any], primary: str) -> str:
-        """生成反风控账号标识(同账号跨会话稳定,绑定固定指纹/代理)。"""
-        acct = credentials.get("account_id")
-        if acct:
-            return f"{self.platform_id}_{acct}"
-        return f"{self.platform_id}_{hashlib.md5(primary.encode()).hexdigest()[:8]}"
+        """反风控账号标识 —— 委托唯一出口(`primary` 是刷新即变的值,不参与身份键)。"""
+        return self.account_identity(credentials)
 
     async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         """验证西瓜视频凭证:用反风控 context 打开创作中心首页检查登录态。
