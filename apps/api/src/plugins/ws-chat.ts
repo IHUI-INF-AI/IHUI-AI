@@ -346,12 +346,12 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '房间不存在'))
     if (meta.createdBy && meta.createdBy !== userId)
       return reply.status(403).send(error(403, '仅创建者可删除房间'))
-    await redis.del(`chatroom:meta:${roomId}`)
+    const removedMeta = await redis.del(`chatroom:meta:${roomId}`)
     await redis.del(`chatroom:messages:${roomId}`)
     await redis.srem('chatroom:list', roomId)
     // 通知房间内成员房间已关闭
     publish(roomId, { type: 'system', event: 'room_closed', roomId, ts: Date.now() })
-    return reply.send(success({ deleted: true, roomId }))
+    return reply.send(success({ deleted: removedMeta > 0, roomId }))
   })
 
   // GET /chat-room/rooms/:roomId/messages — 房间消息历史
@@ -462,8 +462,8 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     if (foundFrom !== userId && (request.jwtPayload?.roleId ?? 0) < 1) {
       return reply.status(403).send(error(403, '无权删除他人消息'))
     }
-    await redis.lrem(`chatroom:messages:${foundRoomId}`, 0, foundRaw)
-    return reply.send(success({ id, deleted: true }))
+    const removedCount = await redis.lrem(`chatroom:messages:${foundRoomId}`, 0, foundRaw)
+    return reply.send(success({ id, deleted: removedCount > 0 }))
   })
 
   // POST /chat-room/rooms/:roomId/rename — 重命名房间(仅创建者或 admin)
