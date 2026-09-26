@@ -287,8 +287,11 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/shop/products/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(zhsProduct).where(eq(zhsProduct.id, Number(p.data.id)))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(zhsProduct)
+      .where(eq(zhsProduct.id, Number(p.data.id)))
+      .returning({ id: zhsProduct.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   // 4. /shop/withdrawals — withdrawalFlows CRUD + approve/reject
@@ -404,8 +407,11 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/shop/withdrawals/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(withdrawalFlows).where(eq(withdrawalFlows.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(withdrawalFlows)
+      .where(eq(withdrawalFlows.id, p.data.id))
+      .returning({ id: withdrawalFlows.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   server.post(

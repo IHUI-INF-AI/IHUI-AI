@@ -440,13 +440,14 @@ const relayChannelsRoutes: FastifyPluginAsync = async (server) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      const [row] = await db
+      const removed = await db
         .delete(aiRelayChannelGroups)
         .where(eq(aiRelayChannelGroups.id, p.data.id))
         .returning({ id: aiRelayChannelGroups.id })
+      const [row] = removed
       if (!row) return reply.status(404).send(error(404, '渠道组不存在'))
       // members 由 ON DELETE CASCADE 自动删除
-      return reply.send(success({ id: row.id, deleted: true }))
+      return reply.send(success({ id: row.id, deleted: removed.length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除渠道组失败'))
@@ -511,7 +512,7 @@ const relayChannelsRoutes: FastifyPluginAsync = async (server) => {
     const p = idMemberParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      const [row] = await db
+      const removed = await db
         .delete(aiRelayChannelGroupMembers)
         .where(
           and(
@@ -520,8 +521,9 @@ const relayChannelsRoutes: FastifyPluginAsync = async (server) => {
           ),
         )
         .returning({ id: aiRelayChannelGroupMembers.id })
+      const [row] = removed
       if (!row) return reply.status(404).send(error(404, '成员不存在'))
-      return reply.send(success({ id: row.id, deleted: true }))
+      return reply.send(success({ id: row.id, deleted: removed.length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除成员失败'))
