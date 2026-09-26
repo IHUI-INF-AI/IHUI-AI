@@ -55,7 +55,6 @@
 import {
   mkdirSync,
   readFileSync,
-  renameSync,
   rmSync,
   writeFileSync,
   existsSync,
@@ -63,7 +62,9 @@ import {
   readdirSync,
   copyFileSync,
 } from 'node:fs'
-import { join, resolve, dirname, basename } from 'node:path'
+import { join, resolve, dirname } from 'node:path'
+// 抢占算法的唯一实现(2026-09-26 合并:本脚本与 git-lock.mjs 曾各写一份 claimStaleLock)。
+import { claimStaleLockCore } from './lib/stale-lock-claim.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -219,130 +220,99 @@ function lockIdentity(state) {
   return `ok|${m.mode}|${m.pid}|${m.ownerPid}|${m.ts}`
 }
 
+// 抢占动作的唯一实现在 scripts/lib/stale-lock-claim.mjs(2026-09-26 合并,
+// 出处见 git log --grep 锁抢占 —— 本函数与 git-lock.mjs 的同名函数曾各写一份,
+// 算法骨架只留那一份;两侧真实差异(指纹算法、归档落点、现场格式与处置策略)在此注入)。
+
 /**
- * 原子抢占:**先把锁目录改名搬走、只处置自己改到的那一份**(2026-09-26 根治运行期竞态)。
- *
- * 旧写法(`acquire` 的抢占分支与 `release` 的代为收口分支都是 `removeLock(dir)`)的故障形态:
- * 在"我判它已死"与"我删它"之间,别的进程可以已经删掉旧锁并 `mkdir` 拿到**新锁** ——
- * 我 `rmSync` 掉的就是别人的活锁 ⇒ 两次构建同时写 `.next`(8-09 那次的 502 + 监控报警正是这一型)。
- * 而 `removeLock` 那句"调用方必须回读 existsSync 复核"只判"删没删掉",
- * **不判"删的是不是我刚看过的那把"** —— 复核的是结果,不是身份。
- *
- * 三步:
- *   ① `renameSync(dir, 归档出口/.deploy.lock.stale-<pid>-<ts>)`(跨卷时退到同父目录暂存,
- *      退的是落点、不是"改名"这一步)。抛错 ⇒ **没抢到**,**绝不回退去 rmSync 原路径**。
- *   ② 回读改名后目录的 meta,与判死时那份指纹比对;不等 ⇒ 我改到的是别人新建的活锁
- *      ⇒ 原样放回、什么都没删(失效方向是"多等一轮",不是"多删一把")。
- *   ③ 只有②通过才处置改名后的那份:留在归档出口当现场,落不进归档才递归删除;
- *      删除失败也不回头碰原路径。
+ * 抢占部署锁的悬挂锁:委托 lib 的「改名→身份回读→只处置改到的那份」骨架,
+ * 本函数只负责 ① 注入部署侧差异(四态指纹 lockIdentity、现场 json、归档落点
+ *    sceneArchiveRoot()、现场原地保留不搬不删的处置策略),② 把结构化结果逐字渲染回旧日志文案。
+ * 语义与合并前逐字等价,算法不变式(改名优先、失败绝不碰原路径)见 lib 头注。
  *
  * @param {string} dir
  * @param {{kind:string,meta?:object,reason?:string}|null} judged 判死时的四态结论(②的比对基准)
  * @param {string} why 判死理由(进现场与日志)
  * @param {{suffix?:string, archiveRoot?:string}} [opts]
- * @returns {{ok:boolean, phase:string, code?:string, stagedPath:string|null, archived:string|null, log:string}}
+ * @returns {{ok:boolean, phase:string, code?:string, restored?:boolean, stagedPath:string|null, archived:string|null, log:string}}
  */
 function claimStaleLock(dir, judged, why, { suffix, archiveRoot = sceneArchiveRoot() } = {}) {
-  // 提前一次"锁目录在不在"**只为不去建归档目录**(不为已消失的锁造空现场)。
-  // 它不是抢占的安全凭据 —— 安全凭据始终是①原子改名 + ②身份回读。
-  if (!existsSync(dir)) {
-    return {
-      ok: false,
-      phase: 'rename',
-      code: 'ENOENT',
-      stagedPath: null,
-      archived: null,
-      log: `[deploy-lock] 抢占放弃:锁目录 ${dir} 此刻已不存在 ⇒ 未删除、未创建任何目录`,
-    }
-  }
-  const tag = suffix ?? `.stale-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
   const me = lockIdentity(judged)
-  let rawMeta = null
-  try {
-    rawMeta = readFileSync(metaFile(dir), 'utf8')
-  } catch {
-    rawMeta = null
-  }
-  // ① 原子改名
-  let stagedPath = null
-  try {
-    mkdirSync(archiveRoot, { recursive: true })
-    const target = join(archiveRoot, `${basename(dir)}${tag}`)
-    renameSync(dir, target)
-    stagedPath = target
-  } catch (e) {
-    const code = e?.code ?? 'unknown'
-    if (code === 'ENOENT') {
+  const r = claimStaleLockCore(dir, judged, why, {
+    archiveRoot,
+    suffix,
+    readState: readMeta,
+    same: (a, b) => lockIdentity(a) === lockIdentity(b),
+    writeNote: (stagedPath, ctx) => {
+      // 现场随改名后的目录一起留在归档出口 ⇒ 写进那份目录里即可。
+      const note = {
+        takenAt: new Date().toISOString(),
+        stolenByPid: process.pid,
+        lockPath: dir,
+        judged: judged?.kind === 'ok' ? judged.meta : null,
+        judgedKind: judged?.kind ?? 'null',
+        reason: why,
+        rawMeta: ctx.rawMeta,
+      }
+      try {
+        writeFileSync(join(stagedPath, 'stale-claim-note.json'), JSON.stringify(note, null, 2), 'utf8')
+      } catch (e) {
+        console.error(
+          `[deploy-lock] ❌ 抢占现场说明写入失败(${e?.code ?? e?.message})——原始 meta 逐字如下,不得静默:\n${ctx.rawMeta ?? '(不可得)'}`,
+        )
+      }
+    },
+    // 部署侧处置策略(与合并前逐字同形):改名后的目录**就是**现场,原地保留、不搬不删;
+    // git 侧则是"落不进归档就搬运/删除",这一分歧是既有语义,未统一(登记在合并票报告里)。
+    placeScene: ({ stagedPath }) => ({ archived: stagedPath }),
+  })
+  switch (r.cause) {
+    case 'dir-gone-early':
       return {
         ok: false,
         phase: 'rename',
-        code,
+        code: 'ENOENT',
+        stagedPath: null,
+        archived: null,
+        log: `[deploy-lock] 抢占放弃:锁目录 ${dir} 此刻已不存在 ⇒ 未删除、未创建任何目录`,
+      }
+    case 'archive-rename-enoent':
+      return {
+        ok: false,
+        phase: 'rename',
+        code: 'ENOENT',
         stagedPath: null,
         archived: null,
         log: `[deploy-lock] 抢占放弃:锁目录 ${dir} 此刻已不存在 ⇒ 未删除任何目录,继续等待`,
       }
-    }
-    // 跨卷 / 归档根不可写 ⇒ 退到同父目录暂存(仍是 rename-first,绝不回退成 rmSync)
-    try {
-      const local = `${dir}${tag}`
-      renameSync(dir, local)
-      stagedPath = local
-    } catch (e2) {
+    case 'rename-failed':
       return {
         ok: false,
         phase: 'rename',
-        code: e2?.code ?? code,
+        code: r.localErr?.code ?? (r.archiveErr?.code ?? 'unknown'),
         stagedPath: null,
         archived: null,
-        log: `[deploy-lock] 抢占未成功(改名 ${e2?.code ?? e2?.message})⇒ 原路径 ${dir} 未被触碰,继续等待`,
+        log: `[deploy-lock] 抢占未成功(改名 ${r.localErr?.code ?? r.localErr?.message})⇒ 原路径 ${dir} 未被触碰,继续等待`,
       }
-    }
-  }
-  // ② 身份回读:改到的必须就是我刚判死的那把
-  const now = readMeta(stagedPath)
-  if (lockIdentity(now) !== me) {
-    let restored = false
-    try {
-      renameSync(stagedPath, dir)
-      restored = true
-    } catch {
-      /* 放不回 ⇒ 现场原地保留并大声喊,仍不删 */
-    }
-    return {
-      ok: false,
-      phase: 'identity-drift',
-      restored,
-      stagedPath: restored ? null : stagedPath,
-      archived: null,
-      log:
-        `[deploy-lock] 抢占放弃:${dir} 在改名瞬间已被替换(判死时 ${me},改到的是 ${lockIdentity(now)})` +
-        ` ⇒ ${restored ? '已原样放回,未删除任何锁' : `⚠️ 放回失败,现场保留在 ${stagedPath}(未删除,请人工处置)`}`,
-    }
-  }
-  // ③ 现场留档 + 只处置改名后的那一份
-  const archived = stagedPath
-  const note = {
-    takenAt: new Date().toISOString(),
-    stolenByPid: process.pid,
-    lockPath: dir,
-    judged: judged?.kind === 'ok' ? judged.meta : null,
-    judgedKind: judged?.kind ?? 'null',
-    reason: why,
-    rawMeta,
-  }
-  try {
-    writeFileSync(join(stagedPath, 'stale-claim-note.json'), JSON.stringify(note, null, 2), 'utf8')
-  } catch (e) {
-    console.error(
-      `[deploy-lock] ❌ 抢占现场说明写入失败(${e?.code ?? e?.message})——原始 meta 逐字如下,不得静默:\n${rawMeta ?? '(不可得)'}`,
-    )
-  }
-  return {
-    ok: true,
-    phase: 'claimed',
-    stagedPath,
-    archived,
-    log: `[deploy-lock] 已抢占悬挂锁:被抢的持有者 = ${summarise(judged)};判死理由:${why};现场=${archived}`,
+    case 'identity-mismatch':
+      return {
+        ok: false,
+        phase: 'identity-drift',
+        restored: r.restored,
+        stagedPath: r.restored ? null : r.stagedPath,
+        archived: null,
+        log:
+          `[deploy-lock] 抢占放弃:${dir} 在改名瞬间已被替换(判死时 ${me},改到的是 ${lockIdentity(r.nowState)})` +
+          ` ⇒ ${r.restored ? '已原样放回,未删除任何锁' : `⚠️ 放回失败,现场保留在 ${r.stagedPath}(未删除,请人工处置)`}`,
+      }
+    default:
+      return {
+        ok: true,
+        phase: 'claimed',
+        stagedPath: r.stagedPath,
+        archived: r.archived,
+        log: `[deploy-lock] 已抢占悬挂锁:被抢的持有者 = ${summarise(judged)};判死理由:${why};现场=${r.archived}`,
+      }
   }
 }
 
