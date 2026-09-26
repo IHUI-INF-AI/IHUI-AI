@@ -510,7 +510,6 @@
       "message": "機能開発中"
     },
     "aiGenBtn": "AI で表紙を生成",
-    "back": "戻る",
     "confirmBtn": "確定",
     "empty": "表紙がありません",
     "loadFailed": "読み込みに失敗しました",
@@ -524,7 +523,6 @@
       "title": "公開成功",
       "message": "作品は審査に提出されました"
     },
-    "back": "戻る",
     "errorMaxFiles": "最大 {max} ファイルまで",
     "errorNoDescription": "説明を入力してください",
     "errorNoFile": "ファイルを選択してください",
@@ -561,7 +559,6 @@
       "title": "グループに参加",
       "message": "「{name}」への参加を申請しました"
     },
-    "back": "戻る",
     "cardMembers": "メンバー",
     "detailEnter": "チャットに入る",
     "detailMembers": "メンバー",
