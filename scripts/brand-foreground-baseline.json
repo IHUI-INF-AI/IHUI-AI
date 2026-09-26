@@ -265,6 +265,7 @@
     "apps/miniapp-taro/src/pages/distribution/plan/index.tsx": 2
   },
   "nestMismatchCounts": {},
+  "inkBorderCounts": {},
   "r7NestMismatchLedger": {
     "addedBy": "R7 立门 2026-09-25",
     "why": "nestMismatchCounts 是 R7(跨 JSX 嵌套层的品牌底/前景错配)的存量登记:立门当日按 HEAD blob 实测 16 处 / 9 文件,逐条人工目检成立 —— 容器 style key 与文字 style key 既不在同一块(R1 看不见)也不同名兄弟(R4 看不见),只有渲染嵌套能把两者连起来。",

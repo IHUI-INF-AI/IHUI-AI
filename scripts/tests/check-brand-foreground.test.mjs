@@ -762,7 +762,10 @@ test('R7 失败面与基线:红点必须点名两档正配、给复现命令;两
   const measured = Object.values(base[gate.BASELINE_R7_KEY]).reduce((a, b) => a + b, 0)
   assert.ok(Number.isInteger(measured) && measured >= 0, `R7 基线合计非有限非负整数:${measured}`)
   for (const [f, c] of Object.entries(base[gate.BASELINE_R7_KEY])) {
-    assert.ok(Number.isInteger(c) && c >= 1, `基线里 ${f} 的额度是 ${c} —— 0 值条目必须删掉,留着会让"清零"看起来像未登记`)
+    assert.ok(
+      Number.isInteger(c) && c >= 1,
+      `基线里 ${f} 的额度是 ${c} —— 0 值条目必须删掉,留着会让"清零"看起来像未登记`,
+    )
   }
 })
 
@@ -793,7 +796,7 @@ test('装车证明:guardian-runner 里确有本门注册块(blocking + skipEnv),
   assert.deepEqual(dupes, [], `runner 存在重号: ${dupes.join(', ')}`)
 })
 
-test('真仓端到端:全量审计 exit 0,且 R3 存量已回升(盲区态实测 87,扩面后必 ≥200)', () => {
+test('真仓端到端:全量审计 exit 0,且 R3 存量未跌回盲区态(盲区实测 87,正常态下限 150)', () => {
   assert.ok(existsSync(join(REPO, 'scripts', 'brand-foreground-baseline.json')), '基线文件必须在位')
   const out = execFileSync(
     process.execPath,
@@ -824,9 +827,14 @@ test('真仓端到端:全量审计 exit 0,且 R3 存量已回升(盲区态实测
     `全量 R7 实测 ${m7[1]} ≠ 基线合计 ${baseNest} ⇒ 存量被未登记地改动(或基线未随之收紧)`,
   )
   const total = Number(m[1])
+  // 下限只用来区分"盲区态 87"与"正常态",不是仓库健康期望值(AGENTS:别把移动量钉成期望)。
+  // 2026-09-26:R8 立门清掉 30 处 `borderColor: *.brand.DEFAULT` 墨档描边,而 R3_BRAND_FILL
+  // 一直把 `(backgroundColor|borderColor): *.brand.DEFAULT` 一起数 —— 所以正常态读数从 214
+  // 合法降到 184。取 150 为下限:仍远高于盲区态 87(判据被改回只认 DEFAULT 就当场红),
+  // 又不会因下一次合法清理就误红。真正的"实扫 == 基线合计"防漂移在下一条。
   assert.ok(
-    total >= 200,
-    `R3 存量 ${total} < 200 ⇒ cta 填充从判据里消失了(扩面被改回,或基线被误校准)`,
+    total >= 150,
+    `R3 存量 ${total} < 150 ⇒ cta/DEFAULT 填充从判据里消失了(扩面被改回,或基线被误校准)`,
   )
   const base = JSON.parse(
     readFileSync(join(REPO, 'scripts', 'brand-foreground-baseline.json'), 'utf8'),
@@ -846,5 +854,112 @@ test('自检入口可用:--self-test 退出码 0', () => {
     },
   )
   assert.match(out, /self-test 全部通过/)
+})
+
+// ── R8 描边取墨档(2026-09-26 立)──────────────────────────────────────────
+
+test('R8 装车证明:两条清单都必须真被 run() 调用(判据在而 run 不调 = 提交链上一路绿灯)', () => {
+  const src = readFileSync(join(REPO, 'scripts', 'check-brand-foreground.mjs'), 'utf8')
+  const body = src.slice(src.indexOf('function run(options)'))
+  for (const call of ['findR8Violations(lines)', 'countInkBorderClasses(lines)', 'r8Scan']) {
+    assert.ok(body.includes(call), `run() 里没有 ${call} ⇒ R8 只是挂在文件里的死函数`)
+  }
+  // 基线键必须进 updateBaseline 的读写两侧,否则一次 --update-baseline 就把 R8 的额度抹掉
+  const ub = src.slice(src.indexOf('if (options.updateBaseline)'))
+  assert.ok(ub.slice(0, 1400).includes('inkBorderCounts'), 'updateBaseline 未保留 inkBorderCounts')
+})
+
+test('R8 基线键独立:与 R2/R3/R4/R5/R7 五面互不重叠', () => {
+  const others = ['counts', 'ctaCounts', 'r4Counts', gate.BASELINE_R5_KEY, gate.BASELINE_R7_KEY]
+  assert.equal(gate.BASELINE_R8_KEY, 'inkBorderCounts')
+  for (const o of others) assert.notEqual(gate.BASELINE_R8_KEY, o)
+})
+
+test('R8 变异对照:旧判据只认 borderColor: ⇒ borderBottomColor 夹具不命中(现判据的覆盖是真扩面)', () => {
+  const underline =
+    '    payDetailText: { borderBottomWidth: 1, borderBottomColor: tokens.brand.DEFAULT },'
+  const oldOnlyBorderColor = /\bborderColor\s*:\s*[^\n]*?(?:tokens|tk)\.brand\.DEFAULT\b/
+  assert.equal(oldOnlyBorderColor.test(underline), false, '旧正则不该命中(否则本条对照无意义)')
+  assert.match(underline, gate.R8_RN_BORDER)
+  assert.equal(gate.findR8Violations([underline]).length, 1)
+})
+
+test('R8 真仓 A/B:HEAD 现值必 0,把真文件的正配档改回墨档必 >0(证明"0 是判出来的")', () => {
+  const rel = 'apps/mobile-rn/src/components/AiModelCard.tsx'
+  const head = execFileSync('git', ['show', `HEAD:${rel}`], {
+    cwd: REPO,
+    encoding: 'utf8',
+    maxBuffer: 1 << 26,
+    windowsHide: true,
+  })
+  assert.equal(gate.findR8Violations(head.split('\n')).length, 0, 'HEAD 该文件必已清')
+  const reverted = head.replace(
+    /borderBottomColor: tokens\.brandAccent\.deep/,
+    'borderBottomColor: tokens.brand.DEFAULT',
+  )
+  assert.notEqual(reverted, head, '回退替换没生效 ⇒ 本条会是恒绿')
+  assert.ok(gate.findR8Violations(reverted.split('\n')).length > 0, '改回墨档后必须判红')
+})
+
+test('R8 类名面:满不透明判、染色与近名键不判、注释不判、豁免不外溢', () => {
+  assert.equal(
+    gate.countInkBorderClasses(["  return <div className='border-primary bg-cta' />"]),
+    1,
+  )
+  assert.equal(gate.countInkBorderClasses(["  return <div className='ring-primary' />"]), 1)
+  assert.equal(
+    gate.countInkBorderClasses([
+      "  return <div className='border-primary/20 border-primary-foreground' />",
+    ]),
+    0,
+  )
+  assert.equal(gate.countInkBorderClasses(['  // border-primary 已废']), 0)
+  const two = [
+    '    chip: { borderColor: tk.brand.DEFAULT }, // border-ink-exempt: 压在图上',
+    '    chip2: { borderColor: tk.brand.DEFAULT },',
+  ]
+  assert.equal(gate.findR8Violations(two).length, 1, '一行标记只救它自己那一处')
+})
+
+test('R8 预筛完备性:真仓每一条应计行所在文件都必须在预筛结果里(非抽样)', () => {
+  const pre = gate.listR8WebFiles()
+  assert.ok(pre.scopeTotal > 0, '范围为 0 ⇒ ls-files 或范围正则坏了,不得读成"已清"')
+  const set = new Set(pre.files.map((f) => f.replace(/\\/g, '/').slice(REPO.length + 1)))
+  const hits = execFileSync(
+    'git',
+    [
+      'grep',
+      '-l',
+      '-I',
+      '-P',
+      '-e',
+      '(border|ring)-primary(?![-/\\w])',
+      'HEAD',
+      '--',
+      ...gate.R5_DIRS,
+    ],
+    { cwd: REPO, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 60_000 },
+  )
+    .split('\n')
+    .filter(Boolean)
+    .map((s) => s.replace(/^HEAD:/, ''))
+  for (const f of hits) {
+    if (!set.has(f) && gate.isR5Scope(f)) {
+      // 允许:该文件的命中全在注释行(预筛是超集,判据更窄)—— 必须逐行证实,不得直接放过
+      const src = execFileSync('git', ['show', `HEAD:${f}`], {
+        cwd: REPO,
+        encoding: 'utf8',
+        maxBuffer: 1 << 26,
+        windowsHide: true,
+      })
+      assert.equal(
+        gate.countInkBorderClasses(src.split('\n')),
+        0,
+        `预筛漏文件 ${f}:它有应计的满不透明描边 ⇒ 门对该形态全盲`,
+      )
+      continue
+    }
+    assert.ok(set.has(f) || !gate.isR5Scope(f), `预筛漏了 ${f}`)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
