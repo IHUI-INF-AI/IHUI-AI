@@ -6,7 +6,13 @@ import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import {
+  FLOAT_BOX_FONT_SIZE_PX,
+  FLOAT_BOX_ICON_SIZE_PX,
+  FLOAT_BOX_TEXT_LINE_HEIGHT_PX,
+} from '@ihui/shared/ui/float-box-spec'
+import { rpx } from '@/utils/rpx'
 
 /**
  * FloatBox 浮动组件 — 对齐原项目 FloatBox.vue
@@ -22,6 +28,16 @@ export interface FloatBoxProps {
   onService?: () => void
   /** 反馈按钮点击回调（默认跳转 /pages/feedback/index） */
   onFeedback?: () => void
+}
+
+/// 与 RN 端同语义档(图标墨迹 / 正文字号 / 正文行高)的唯一源在 @ihui/shared/ui/float-box-spec;
+/// 本文件只做 rpx 换算 + 挂 Taro 原语。本端按钮组载体几何(盒宽 118rpx、minHeight 340rpx、
+/// 收起位移、箭头命中块等)在 RN 端没有对应元素,原样留在下方内联样式 —— 登记见该 spec 文末第 2)条。
+const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
+const ICON_SIZE = toUnit(FLOAT_BOX_ICON_SIZE_PX)
+const LABEL_TEXT_STYLE = {
+  fontSize: toUnit(FLOAT_BOX_FONT_SIZE_PX),
+  lineHeight: toUnit(FLOAT_BOX_TEXT_LINE_HEIGHT_PX),
 }
 
 export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxProps) {
@@ -109,9 +125,9 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
           hoverClass="opacity-60"
         >
           {isOpen ? (
-            <LineIcon name="chevron-left" size={36} color="var(--color-foreground)" />
+            <LineIcon name="chevron-left" size={ICON_SIZE} color="var(--color-foreground)" />
           ) : (
-            <LineIcon name="chevron-right" size={36} color="var(--color-foreground)" />
+            <LineIcon name="chevron-right" size={ICON_SIZE} color="var(--color-foreground)" />
           )}
         </View>
 
@@ -144,13 +160,13 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
             >
               <LineIcon
                 name="wallet"
-                size={36}
+                size={ICON_SIZE}
                 color="var(--color-destructive)"
                 style={{ marginBottom: '6rpx' }}
               />
               <Text
                 style={{
-                  fontSize: '28rpx',
+                  ...LABEL_TEXT_STYLE,
                   fontWeight: 'bold',
                   color: 'var(--color-destructive)',
                   letterSpacing: '2rpx',
@@ -176,13 +192,13 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
             >
               <LineIcon
                 name="phone"
-                size={36}
+                size={ICON_SIZE}
                 color="var(--color-foreground)"
                 style={{ marginBottom: '6rpx' }}
               />
               <Text
                 style={{
-                  fontSize: '28rpx',
+                  ...LABEL_TEXT_STYLE,
                   fontWeight: 'bold',
                   color: 'var(--color-foreground)',
                   letterSpacing: '2rpx',
@@ -208,13 +224,13 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
             >
               <LineIcon
                 name="mail"
-                size={36}
+                size={ICON_SIZE}
                 color="var(--color-muted-foreground)"
                 style={{ marginBottom: '6rpx' }}
               />
               <Text
                 style={{
-                  fontSize: '28rpx',
+                  ...LABEL_TEXT_STYLE,
                   fontWeight: 'bold',
                   color: 'var(--color-foreground)',
                   letterSpacing: '2rpx',
