@@ -2,6 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+#requires -Version 7
 # =============================================================================
 # IHUI 原生 Windows 部署 + 健康门禁 + 回滚脚本
 # 适用: aizhs.top 生产机(原生 Windows, NSSM 服务, Cloudflare Tunnel)
@@ -54,27 +55,40 @@ foreach ($p in @('D:\DevEnv\runtimes\node','D:\DevEnv\tools\npm-global','C:\wind
     if ((Test-Path $p) -and ($env:PATH -notlike "*$p*")) { $env:PATH = "$p;$env:PATH" }
 }
 
-# ── 并发锁(2026-09-07 加固):手动 -deployLatest 与计划任务 loop 可能同时进入,
-#    两者会互相 Remove-Item/.next 与 .next-staging,导致构建期 ENOENT(实测
-#    _buildManifest.js.tmp.* 被对端删除)。用 PID 锁保证同一时刻仅一个部署实例。
+# ── 并发锁(2026-09-07 加;2026-09-26 判据重写):手动 -deployLatest 与计划任务 loop 可能
+#    同时进入,两者会互相 Remove-Item/.next 与 .next-staging,导致构建期 ENOENT(实测
+#    _buildManifest.js.tmp.* 被对端删除)。
+#    旧判据是"锁里那个 pid 还在 ⇒ 有人在部署",而 pid 会被复用:2026-09-26 早上部署环
+#    锁里写的 pid 8052 在重启后成了 postgres.exe,于是每轮都"有人在部署"、连续 46 分钟
+#    零次部署(同一型缺陷另见 scripts/deploy-lock.mjs G-193、scripts/git-lock.mjs)。
+#    现判据四条同时成立才算持有,实现**只有一份**:`deploy-lock-common.ps1`。
+#    本文件与 ihui-deploy-loop.ps1 都点源同一份,不得在这里再抄一遍 Get-Process。
 $DeployLock = "$Root\deploy\win\.deploy.lock"
+$IhuiLockCommon = Join-Path $PSScriptRoot 'deploy-lock-common.ps1'
+if (-not (Test-Path -LiteralPath $IhuiLockCommon)) {
+    throw "缺少并发锁判据:$IhuiLockCommon(拒绝在无判据的情况下继续 —— 退回旧的 pid 存活判断就是退回那次 46 分钟冻结)"
+}
+. $IhuiLockCommon
 function Get-DeployLock {
-    if (Test-Path $DeployLock) {
-        $pidIn = (Get-Content $DeployLock -Raw -ErrorAction SilentlyContinue).Trim()
-        $alive = $false
-        if ($pidIn -match '^\d+$') { $alive = $null -ne (Get-Process -Id ([int]$pidIn) -ErrorAction SilentlyContinue) }
-        if ($alive) {
-            Write-Host "FAIL  检测到进行中的部署(pid=$pidIn),终止本次部署避免并发冲突"
+    $st = Resolve-IhuiDeployLockState -Path $DeployLock -OwnerKind 'deploy'
+    if ($st.LockExists) {
+        if ($st.ShouldHold) {
+            # held / undetermined 一律终止本次部署:宁可人工看一眼,不可两个构建同时写 .next
+            Write-Host "FAIL  检测到进行中的部署,终止本次部署避免并发冲突 —— $(Format-IhuiDeployLockState -State $st)"
             exit 2
         }
-        Remove-Item $DeployLock -Force -ErrorAction SilentlyContinue   # 悬挂锁清理
+        Clear-IhuiDeployLockStale -Path $DeployLock -State $st -Logger { param($m) Log $m }
     }
-    Set-Content -Path $DeployLock -Value "$PID" -NoNewline
+    if (-not (Write-IhuiDeployLock -Path $DeployLock -OwnerKind 'deploy')) {
+        throw "并发锁写下失败:$DeployLock"
+    }
+}
+function Update-DeployLockHeartbeat {
+    # 长任务里必须真的一直续(判据 C4);函数内部 15s 节流,可安全放在每轮循环里
+    Update-IhuiDeployLockHeartbeat -Path $DeployLock -OwnerKind 'deploy' | Out-Null
 }
 function Release-DeployLock {
-    if ((Test-Path $DeployLock) -and ((Get-Content $DeployLock -Raw).Trim() -eq "$PID")) {
-        Remove-Item $DeployLock -Force -ErrorAction SilentlyContinue
-    }
+    Remove-IhuiDeployLock -Path $DeployLock -OwnerKind 'deploy' | Out-Null
 }
 
 # ── 日志时间戳带时区(2026-09-21 根治,实测):生产机时钟为 UTC,旧格式 'HH:mm:ss'
@@ -374,6 +388,7 @@ function Test-HealthGate {
     [int]$GapSec = 12
     $lastFails = @(); $lastUnknown = @()
     for ($i = 1; $i -le $Tries; $i++) {
+        Update-DeployLockHeartbeat   # 门禁每轮续心跳(8 轮 × 12s + 探测超时,最长约 9.6 分钟)
         Start-Sleep -Seconds $GapSec
         $w = Invoke-Probe -Url $PublicWeb -Contains '<!DOCTYPE html'
         $a = Invoke-Probe -Url $ApiHealth -Contains '"status":"ok"'
@@ -510,6 +525,11 @@ function Clear-BuildCooldown {
 
 function Build-Web {
     param([string]$DistDir = 'staging', [int]$MaxTries = 4)
+    # 心跳(判据 C4 的持有侧):本函数是最长的一段(依赖安装 + 6 个 workspace 包 dist +
+    # 最多 4 次 next build try),不续心跳就会被下一轮轮询或手工部署按"陈旧"抢占 ⇒
+    # 两个构建同时写 .next —— 那正是这把锁存在的理由。上限 45 分钟的推导见
+    # deploy-lock-common.ps1 头注;函数内部 15s 节流,放在循环里代价只有一次时间判断。
+    Update-DeployLockHeartbeat
     Set-Location $WebDir
     if (-not (Test-Path "node_modules\.bin\next.cmd")) {
         Log "web 依赖缺失,先 pnpm install"
@@ -545,6 +565,7 @@ function Build-Web {
     try {
         for ($try = 1; $try -le $MaxTries; $try++) {
             Log "构建尝试 $try/$MaxTries -> .next-$DistDir"
+            Update-DeployLockHeartbeat      # 每次 try 开头续心跳(单次 try 墙钟 30 分钟 < 45 分钟上限)
             Remove-Item "$WebDir\.next-$DistDir" -Recurse -Force -ErrorAction SilentlyContinue
             $env:IHUI_BUILD_DIST = ".next-$DistDir"
             # 2026-09-21 加固(实测):`& pnpm build` 直调出现过「构建进程 2 分钟内静默死亡,
@@ -582,6 +603,7 @@ function Build-Web {
                 Remove-Item -LiteralPath $bldOut, $bldErr -Force -ErrorAction SilentlyContinue
             } catch {}
             $ok = ($exitCode -eq 0) -and (Test-Path "$WebDir\.next-$DistDir\BUILD_ID")
+            Update-DeployLockHeartbeat      # try 结束再续一次:上一行之后还要跑 Tail 读日志与判定
             if ($ok) { Ok "next build 完成 -> .next-$DistDir"; return }
             Log "第 $try 次失败(exit=$exitCode),清缓存重试"
         }
@@ -610,6 +632,7 @@ function Restart-Web {
 # ── 回滚:仅 web(恢复 .rollback 构建 + 重启 web;api/ai 不受部署影响不重启)──
 function Do-Rollback {
     Log "开始回滚:恢复上次 web 构建产物"
+    Update-DeployLockHeartbeat        # 整盘 Copy-Item .rollback → .next 要几分钟,回滚期间同样在持有锁
     $rb = "$WebDir\.rollback"
     if (-not (Test-Path "$rb\BUILD_ID")) { Fail "无可用 .rollback 构建,无法回滚" }
     Stop-Web
@@ -767,15 +790,17 @@ function Invoke-Diagnose {
     } else { DiagLog "  (日志不存在:$loopLog)" }
 
     # ── [7] 并发锁 ──
+    # 这里此前是**第三份** `Get-Process -Id` 判活(与两个读者各写一遍)。三份同一判据
+    # 必然漂移,而漂移的表现是"构建在跑、诊断说没人在跑"。现统一走同一份实现:
+    # diagnose 只读,所以不删锁、只把四条判据的结论与依据打印出来。
     DiagLog "── [7] 并发锁 ──"
     foreach ($lf in @((Join-Path $Root 'deploy\win\.deploy.lock'), (Join-Path $Root 'deploy\win\.deploy-loop.lock'))) {
-        if (Test-Path $lf) {
-            $pidIn = (Get-Content $lf -Raw -ErrorAction SilentlyContinue)
-            if ($pidIn) { $pidIn = $pidIn.Trim() }
-            $alive = $false
-            if ($pidIn -match '^\d+$') { $alive = $null -ne (Get-Process -Id ([int]$pidIn) -ErrorAction SilentlyContinue) }
-            DiagLog ("  {0}: 内容='{1}' 进程存活={2}" -f (Split-Path $lf -Leaf), $pidIn, $alive)
-        } else { DiagLog ("  {0}: 不存在" -f (Split-Path $lf -Leaf)) }
+        try {
+            $lst = Resolve-IhuiDeployLockState -Path $lf -OwnerKind 'diagnose'
+            DiagLog ("  {0}" -f (Format-IhuiDeployLockState -State $lst))
+        } catch {
+            DiagLog ("  {0}: 判定异常:{1}(这是「未判定」,不是「没有锁」)" -f (Split-Path $lf -Leaf), $_.Exception.Message)
+        }
     }
 
     # ── [7b] DB 迁移是否落后(2026-09-21 加:迁移静默失败两天的直接后果就是这个没人看) ──
@@ -954,6 +979,9 @@ function Invoke-DbMigrate {
         }
     } finally { Pop-Location }
 }
+Update-DeployLockHeartbeat   # 心跳(阶段边界):锁的 writtenAt 之后到第一次构建之间还可能
+# 走过 迁移/seed/fetch/merge 这一段,每段都是网络或数据库等待;逐阶段续心跳,
+# 才不会出现"合法持有者静默 45 分钟 ⇒ 被判陈旧 ⇒ 手工部署抢锁并发构建"。
 if (-not $dryrun) { Invoke-DbMigrate }
 
 # ── DB seed(2026-09-13 加):仅跑 13 号中转站定价步骤,幂等可重复 ──
@@ -997,6 +1025,7 @@ $gitNet = @()
 if ($Proxy) { $gitNet = @('-c', "http.proxy=$Proxy", '-c', "https.proxy=$Proxy"); Log "git 网络走代理 $Proxy" }
 else { Log "WARN  未探测到可用代理(候选:$($ProxyCandidates -join ',')),将尝试直连" }
 
+Update-DeployLockHeartbeat   # fetch 走代理时可能很慢(镜像回退链),阶段边界续心跳
 Log "fetch origin main ..."
 $fetchOut = & git @gitNet fetch origin main 2>&1 | Out-String
 $fetchOut.Trim() | Write-Host
@@ -1101,6 +1130,7 @@ if ($behind -gt 0) {
 }
 
 # 1) 备份当前 web 构建 → .rollback(web 保持在线,只读复制)
+Update-DeployLockHeartbeat   # merge/seed 之后、构建之前的阶段边界(见 :980 那条注释)
 Log "备份当前 web 构建 → .rollback"
 $curNext = "$WebDir\.next"
 if (Test-Path "$curNext\BUILD_ID") {
