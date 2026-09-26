@@ -581,8 +581,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     const owned = await ensureOwnedConversation(id, userId, reply)
     if (!owned.conversation) return
 
-    await deleteConversation(id)
-    return reply.send(success({ deleted: true }))
+    // deleted 由库侧 RETURNING 派生,不是代码常量(2026-09-27):上面的归属预查与这次
+    // 删除之间若有并发,行已不在 ⇒ 这里必须如实报 false,而不是照旧回 true。
+    const removed = await deleteConversation(id)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // POST /conversations/batch - 批量操作对话(删除/收藏/取消收藏/归档/取消归档)
@@ -890,8 +892,9 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(403).send(error(403, '无权删除该消息'))
     }
 
-    await deleteMessage(id)
-    return reply.send(success({ deleted: true }))
+    // deleted 由库侧 RETURNING 派生,不是代码常量(2026-09-27)
+    const removed = await deleteMessage(id)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // POST /conversations/:id/regenerate - 重新生成
