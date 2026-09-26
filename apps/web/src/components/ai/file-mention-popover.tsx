@@ -1,11 +1,22 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
+// @ 提及浮层 —— 由统一提及引擎驱动(V3 第 61 票,2026-09-27 收口)。
+//
+// 61 票之前这里只有「工作区文件 + 一层目录 + 三条语义源」四组静态候选,
+// 而多维检索 hook `useSearchMentions`(file/folder/symbol/database/web 五类,后端
+// GET /api/context/mentions)全仓零调用方 —— 引擎写好了没接线。
+// 现在顶部一排维度 tab 由 MENTION_DIMENSIONS(dimensionsForSigil('@')) 推导,
+// 非「文件」tab 的候选一律走 useSearchMentions;选中即产出引擎的 MentionSelection,
+// 交调用方写进唯一那份 store(context-mention),从而让 MentionChips 真的渲染。
+// 本文件不再自己解 trigger、不再自己列维度 —— 那是引擎的事(见守门 W2/W3)。
+
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import type { LucideIcon } from 'lucide-react'
 import { BookOpen, Code2, Folder, Terminal, FileText } from 'lucide-react'
 
 import { SearchInput } from '@ihui/ui-react'
@@ -13,6 +24,16 @@ import { cn } from '@/lib/utils'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { PortalPanel } from '@/components/feedback/portal-panel'
+import { useSearchMentions } from '@/hooks/use-context-mention'
+import { useMentionTranslator } from '@/hooks/use-mention-dimension-label'
+import { viewOfDimensionId } from '@/components/chat/mention/dimension-views'
+import { useContextMentionStore } from '@/stores/context-mention'
+import {
+  dimensionsForSigil,
+  selectionFromSearchMention,
+  type MentionDimension,
+  type MentionSelection,
+} from '@ihui/shared/chat/mention-engine'
 
 interface MentionFile {
   id: string
@@ -20,15 +41,21 @@ interface MentionFile {
   path: string
 }
 
-type MentionKind = 'file' | 'dir' | 'semantic'
+type MentionKind = 'file' | 'dir' | 'semantic' | 'search'
 
-interface MentionItem extends MentionFile {
+interface MentionRow {
+  id: string
+  name: string
+  /** 副位展示(路径 / 摘要) */
+  path: string
   kind: MentionKind
-  icon?: React.ComponentType<{ className?: string }>
+  icon?: LucideIcon
+  /** 图标着色类(检索类按维度取,文件类沿用它自身) */
+  colorClass?: string
   desc?: string
+  /** 选中后进 store 与正文的那份数据 */
+  selection: MentionSelection
 }
-
-// 新增分组 UI 文案(i18n 键 groupDir/groupSemantic/semantic*Desc 已入 packages/i18n 5 语言,组件内 t() 引用)
 
 const SKIP_DIRS = new Set([
   'node_modules',
@@ -38,7 +65,6 @@ const SKIP_DIRS = new Set([
   'build',
   '.turbo',
   '.cache',
-  'coverage',
   '__pycache__',
   'target',
   'out',
@@ -47,11 +73,41 @@ const SKIP_DIRS = new Set([
   'env',
 ])
 
+/**
+ * `@` 侧维度由引擎表推导,本文件不得再写维度 id 或 sigil 字面量(守门 W2/W3 的射程):
+ *  - 工作区文件/语义源这一组属于 `candidateSource === 'workspace-files'` 的维度;
+ *  - 目录这一组属于 `mentionType === 'folder'` 的维度(找不到就并回文件维度,不新造一档)。
+ */
+const AT_DIMENSIONS = dimensionsForSigil('@')
+const WORKSPACE_DIMENSION: MentionDimension = AT_DIMENSIONS.find(
+  (d) => d.candidateSource === 'workspace-files',
+) as MentionDimension
+const FOLDER_DIMENSION: MentionDimension =
+  (AT_DIMENSIONS.find((d) => d.mentionType === 'folder') as MentionDimension | undefined) ??
+  WORKSPACE_DIMENSION
+/** 兜底检索类型:只在维度表未给 mentionType 时用到(静态类目即这一类) */
+const DEFAULT_MENTION_TYPE = WORKSPACE_DIMENSION.mentionType ?? 'file'
+
+/** 把一条文件树/目录条目归一成引用(`` `path` ``),与 61 票之前的插入形态逐字一致 */
+function backtickSelection(
+  dim: MentionDimension,
+  entry: { id: string; path: string },
+): MentionSelection {
+  return {
+    id: `${dim.id}:${entry.id}`,
+    sigil: dim.sigil,
+    dimensionId: dim.id,
+    label: entry.path,
+    insertText: `\`${entry.path}\``,
+  }
+}
+
 interface FileMentionPopoverProps {
   files: MentionFile[]
   open: boolean
   anchorRef: React.RefObject<HTMLElement | null>
-  onSelect: (file: MentionFile) => void
+  /** 选中一条提及:调用方负责写进 store 并把 insertText 落到正文 */
+  onSelect: (selection: MentionSelection) => void
   onClose: () => void
 }
 
@@ -63,12 +119,30 @@ export function FileMentionPopover({
   onClose,
 }: FileMentionPopoverProps) {
   const t = useTranslations('fileMention')
+  const tEngine = useTranslations('chat')
+  // tab 标签的命名空间跟着维度表走,不在组件里假定 ns
+  const tm = useMentionTranslator()
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
-  // 活跃工作区第 1 层目录(异步读取 FileSystemDirectoryHandle)
-  const [dirItems, setDirItems] = React.useState<MentionItem[]>([])
+  const [dirItems, setDirItems] = React.useState<MentionRow[]>([])
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLUListElement>(null)
+
+  // 维度 tab 的激活态存在那份唯一状态里(store.activeDimensionId),不在本组件另起一份
+  const activeDimensionId = useContextMentionStore((s) => s.activeDimensionId)
+  const setActiveDimension = useContextMentionStore((s) => s.setActiveDimension)
+  const atDimensions = AT_DIMENSIONS
+  const activeDim: MentionDimension =
+    atDimensions.find((d) => d.id === activeDimensionId) ?? atDimensions[0]!
+  const isSearchDim = activeDim.candidateSource === 'context-search'
+
+  const workspacePath = useAiPanelStore((s) => s.activeWorkspace?.path)
+  const search = useSearchMentions(
+    query,
+    activeDim.mentionType ?? DEFAULT_MENTION_TYPE,
+    workspacePath,
+    open && isSearchDim,
+  )
 
   React.useEffect(() => {
     if (!open) return
@@ -83,15 +157,20 @@ export function FileMentionPopover({
           const iterable = handle as unknown as {
             values(): AsyncIterableIterator<FileSystemHandle>
           }
-          const items: MentionItem[] = []
+          const items: MentionRow[] = []
           for await (const entry of iterable.values()) {
             if (entry.kind === 'directory' && !SKIP_DIRS.has(entry.name)) {
+              const path = `@目录:${entry.name}`
               items.push({
                 id: `dir:${entry.name}`,
                 name: entry.name,
-                path: `@目录:${entry.name}`,
+                path,
                 kind: 'dir',
                 icon: Folder,
+                selection: backtickSelection(FOLDER_DIMENSION, {
+                  id: `dir:${entry.name}`,
+                  path,
+                }),
               })
             }
           }
@@ -107,7 +186,7 @@ export function FileMentionPopover({
     }
   }, [open])
 
-  const semanticItems = React.useMemo<MentionItem[]>(
+  const semanticItems = React.useMemo<MentionRow[]>(
     () => [
       {
         id: 'sem-codebase',
@@ -116,6 +195,10 @@ export function FileMentionPopover({
         kind: 'semantic',
         icon: Code2,
         desc: t('semanticCodebaseDesc'),
+        selection: backtickSelection(WORKSPACE_DIMENSION, {
+          id: 'sem-codebase',
+          path: '#Codebase',
+        }),
       },
       {
         id: 'sem-terminal',
@@ -124,6 +207,10 @@ export function FileMentionPopover({
         kind: 'semantic',
         icon: Terminal,
         desc: t('semanticTerminalDesc'),
+        selection: backtickSelection(WORKSPACE_DIMENSION, {
+          id: 'sem-terminal',
+          path: '#Terminal',
+        }),
       },
       {
         id: 'sem-docs',
@@ -132,22 +219,47 @@ export function FileMentionPopover({
         kind: 'semantic',
         icon: BookOpen,
         desc: t('semanticDocsDesc'),
+        selection: backtickSelection(WORKSPACE_DIMENSION, { id: 'sem-docs', path: '#Docs' }),
       },
     ],
     [t],
   )
 
-  // 语义源 + 目录 + 文件 统一过滤(对齐现有文件过滤姿势)
-  const allItems = React.useMemo<MentionItem[]>(() => {
+  // 检索维度的候选:后端统一检索的 ContextMention[] 直接映射(引擎负责 id 与 insertText)
+  const searchRows = React.useMemo<MentionRow[]>(() => {
+    if (!isSearchDim) return []
+    const view = viewOfDimensionId(activeDim.id)
+    return (search.data?.mentions ?? []).map((m) => ({
+      id: m.id,
+      name: m.label,
+      path: m.detail ?? m.meta?.path ?? m.label,
+      kind: 'search' as const,
+      icon: view.icon,
+      colorClass: view.colorClass,
+      selection: selectionFromSearchMention(activeDim, m),
+    }))
+  }, [isSearchDim, activeDim, search.data])
+
+  const fileRows = React.useMemo<MentionRow[]>(
+    () =>
+      files.map((f) => ({
+        id: f.id,
+        name: f.name,
+        path: f.path,
+        kind: 'file' as const,
+        selection: backtickSelection(WORKSPACE_DIMENSION, f),
+      })),
+    [files],
+  )
+
+  // 单维度视图:非文件 tab 只看该维度的检索结果;文件 tab 保持 61 票之前的三组同屏
+  const allItems = React.useMemo<MentionRow[]>(() => {
     const q = query.trim().toLowerCase()
-    const match = (item: MentionItem) =>
+    const match = (item: MentionRow) =>
       !q || item.name.toLowerCase().includes(q) || item.path.toLowerCase().includes(q)
-    return [
-      ...semanticItems.filter(match),
-      ...dirItems.filter(match),
-      ...files.map((f) => ({ ...f, kind: 'file' as const })).filter(match),
-    ]
-  }, [query, semanticItems, dirItems, files])
+    if (isSearchDim) return searchRows.filter(match)
+    return [...semanticItems.filter(match), ...dirItems.filter(match), ...fileRows.filter(match)]
+  }, [query, isSearchDim, searchRows, semanticItems, dirItems, fileRows])
 
   React.useEffect(() => {
     if (open) {
@@ -159,7 +271,12 @@ export function FileMentionPopover({
 
   React.useEffect(() => {
     setActiveIndex(0)
-  }, [query])
+  }, [query, activeDimensionId])
+
+  const pick = (row: MentionRow) => {
+    onSelect(row.selection)
+    onClose()
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     const count = allItems.length
@@ -172,10 +289,7 @@ export function FileMentionPopover({
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const current = allItems[activeIndex]
-      if (current) {
-        onSelect(current)
-        onClose()
-      }
+      if (current) pick(current)
     } else if (e.key === 'Escape') {
       e.preventDefault()
       onClose()
@@ -188,6 +302,16 @@ export function FileMentionPopover({
       ?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex])
 
+  const stateLine = !isSearchDim
+    ? null
+    : search.isFetching
+      ? tEngine('mentionEngine.searching')
+      : search.isError
+        ? tEngine('mentionEngine.loadFailed')
+        : allItems.length === 0
+          ? tEngine('mentionEngine.noMatch')
+          : null
+
   return (
     <PortalPanel
       open={open}
@@ -199,6 +323,36 @@ export function FileMentionPopover({
       testId="file-mention-popover"
       className="flex w-72 flex-col overflow-hidden rounded-md border border-border bg-popover shadow-md"
     >
+      <div
+        className="flex flex-wrap gap-1 p-1.5 pb-0"
+        role="tablist"
+        data-testid="mention-dimension-tabs"
+      >
+        {atDimensions.map((dim) => {
+          const View = viewOfDimensionId(dim.id)
+          const DimIcon = View.icon
+          const active = dim.id === activeDim.id
+          return (
+            <button
+              key={dim.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              data-testid={'mention-dimension-tab-' + dim.labelNs + '.' + dim.labelKey}
+              onClick={() => setActiveDimension(dim.id)}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-xs transition-colors',
+                active
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-accent/50',
+              )}
+            >
+              <DimIcon className={cn('h-3.5 w-3.5 shrink-0', View.colorClass)} />
+              <span>{tm(dim.labelNs, dim.labelKey)}</span>
+            </button>
+          )
+        })}
+      </div>
       <SearchInput
         ref={inputRef}
         value={query}
@@ -210,7 +364,14 @@ export function FileMentionPopover({
         wrapperClassName="p-1.5"
       />
       <ul ref={listRef} className="max-h-60 min-h-0 flex-1 overflow-y-auto p-1.5">
-        {allItems.length === 0 ? (
+        {stateLine && allItems.length === 0 ? (
+          <li
+            className="px-2.5 py-6 text-center text-sm text-muted-foreground"
+            data-testid="mention-dimension-state"
+          >
+            {stateLine}
+          </li>
+        ) : allItems.length === 0 ? (
           <li className="flex flex-col items-center gap-1 py-8 text-center text-sm text-muted-foreground">
             {t('noMatch')}
           </li>
@@ -218,14 +379,15 @@ export function FileMentionPopover({
           allItems.map((item, idx) => {
             const prev = allItems[idx - 1]
             const showHeading =
-              idx === 0 ||
-              (prev !== undefined &&
-                item.kind !== prev.kind &&
-                (item.kind === 'semantic' || item.kind === 'dir'))
+              !isSearchDim &&
+              (idx === 0 ||
+                (prev !== undefined &&
+                  item.kind !== prev.kind &&
+                  (item.kind === 'semantic' || item.kind === 'dir')))
             const isActive = idx === activeIndex
             const Icon = item.icon ?? FileText
             return (
-              <React.Fragment key={`wrap-${item.id}`}>
+              <React.Fragment key={`wrap-${item.kind}-${item.id}`}>
                 {showHeading && (
                   <li className="px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     {item.kind === 'semantic' ? t('groupSemantic') : t('groupDir')}
@@ -235,10 +397,8 @@ export function FileMentionPopover({
                   <button
                     type="button"
                     data-idx={idx}
-                    onClick={() => {
-                      onSelect(item)
-                      onClose()
-                    }}
+                    data-testid={`mention-item-${item.selection.id}`}
+                    onClick={() => pick(item)}
                     onMouseEnter={() => setActiveIndex(idx)}
                     className={cn(
                       'relative flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors',
@@ -253,7 +413,12 @@ export function FileMentionPopover({
                         aria-hidden="true"
                       />
                     )}
-                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Icon
+                      className={cn(
+                        'mt-0.5 h-4 w-4 shrink-0',
+                        item.colorClass ?? 'text-muted-foreground',
+                      )}
+                    />
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="truncate text-sm font-medium leading-tight">
                         {item.name}
@@ -299,3 +464,4 @@ export function FileMentionPopover({
 }
 
 export default FileMentionPopover
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
