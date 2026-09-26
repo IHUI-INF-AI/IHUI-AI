@@ -58,14 +58,22 @@ const C = {
 }
 const log = (color, msg) => console.log(`${color}${msg}${C.reset}`)
 
-/** 轮询 push-state.json 至 done/failed(guard 异步推送是后台跑的,须等落定再决策) */
+/** 轮询 push-state.json 至终态(guard 异步推送是后台跑的,须等落定再决策)。
+ *  终态集 2026-09-26 起是 done | failed | diverged —— **diverged 必须算落定**:
+ *  它是 guard 对"远端拒收 non-fast-forward"的结论,不写进来的话本函数会白等满
+ *  8 分钟才返回 timeout,而收敛器每轮都等一次 = 三轮 24 分钟空转(§5b「🔄 主动收敛」
+ *  当初要根治的就是这个)。老状态文件里没有该值 ⇒ 行为与今天一致(向后兼容)。 */
 function waitForPushState(headSha, timeoutMs = 8 * 60 * 1000) {
   const stateFile = resolve(process.cwd(), '.workbuddy/push-state.json')
   const deadline = Date.now() + timeoutMs
   for (;;) {
     try {
       const s = JSON.parse(readFileSync(stateFile, 'utf8'))
-      if (s.headSha === headSha && (s.status === 'done' || s.status === 'failed')) return s.status
+      if (
+        s.headSha === headSha &&
+        (s.status === 'done' || s.status === 'failed' || s.status === 'diverged')
+      )
+        return s.status
       // state 已被更新 HEAD 的其他推送覆盖 → 视为本 HEAD 推送已无意义
       if (s.headSha !== headSha) return 'superseded'
     } catch {
@@ -1025,6 +1033,11 @@ function main() {
     if (result === 'superseded') {
       log(C.yellow, '  推送状态已被更新的 HEAD 覆盖(并发会话推进了本地),继续下一轮')
     }
+    if (result === 'diverged') {
+      // guard 已把这一趟判成"远端拒收",不是门失败、也不是网络失败 ⇒ 回到本轮的合并路径,
+      // 而不是让调用方以为还要再查一遍凭据/门禁。
+      log(C.yellow, '  guard 判 diverged(远端拒收 non-fast-forward)⇒ 本轮重新取远端并合并后再推')
+    }
 
     // 推完的核验只认服务器回读(§20:推没推完不认 dry-run、不认本地 ref)
     const nowR = resolveRemoteHead(branch, { root: repoRoot, fetchedNow: false })
@@ -1049,7 +1062,12 @@ function main() {
       return null
     }
   })()
-  if (lastState?.status === 'failed') {
+  if (lastState?.status === 'diverged') {
+    // 2026-09-26:diverged 是 guard 分诊后的**具名**结论(远端拒收非快进),与下面那条
+    // "failed 多半是远端拒收推送保护"的推断不同 —— 这一型不用猜,也不用查凭据/门禁。
+    log(C.red, '   上一轮推送结论是 diverged ⇒ 就是并发分叉(远端已推进、拒收非快进),非门禁非凭据。')
+    log(C.red, '   复跑本命令(每轮都会重取远端并按索引层合并);反复撞车才需要人工裁。')
+  } else if (lastState?.status === 'failed') {
     // 2026-09-24 实测:这句话原来无论何因都写"并发推力过大",而真实原因是**远端拒收推送**
     // (push protection 拦凭据形状)—— 于是每个人都去查并发/网络,没人去看拒绝原文。
     log(
