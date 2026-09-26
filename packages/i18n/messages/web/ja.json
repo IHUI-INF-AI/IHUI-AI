@@ -7295,6 +7295,19 @@
           "submit": "送信",
           "dismiss": "スキップ",
           "submitted": "受け付けました。ご協力ありがとうございます"
+        },
+        "imagePreview": {
+          "prev": "前へ",
+          "next": "次へ",
+          "zoomIn": "拡大",
+          "zoomOut": "縮小",
+          "save": "画像を保存",
+          "copy": "画像をコピー",
+          "counter": "{total} 枚中 {index} 枚目",
+          "saveSuccess": "保存しました",
+          "saveFailed": "保存に失敗しました",
+          "copySuccess": "コピーしました",
+          "copyFailed": "コピーに失敗しました"
         }
       },
       "hookSummary": {
