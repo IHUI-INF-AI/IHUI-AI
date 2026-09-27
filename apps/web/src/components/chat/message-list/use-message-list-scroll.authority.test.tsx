@@ -306,6 +306,32 @@ describe('滚动权归用户意图(行为变更登记:已解除跟随时,新消�
     expect(h.result().userScrolledUp, '自己产生的位移不构成用户意图').toBe(false)
     expect(h.geometry.scrollTop).toBe(CONTENT_HEIGHT + 600 - VIEWPORT_HEIGHT)
   })
+
+  it('4b. 上滚后立刻点「跳到最新」,其后的动画帧不得被上一条用户凭据反噬(G-252 验收抓到的真缺陷)', () => {
+    // 真实 Chromium 里量出来的失败形态:流式中上滚 → 400ms 内点按钮 → 平滑动画派发的
+    // scroll 事件撞上还没过期的 `awayFromBottom` 凭据,而判序是"用户凭据优先于程序化窗口"
+    // (`scroll-authority.ts` 的 `resolveScrollEventSource`)⇒ 动画第一帧就把 following
+    // 再解除一次,列表停在距底 244–366px 且**永不再跟随**(用户症状:「点了没反应、
+    // 按钮又冒出来」)。间隔 >400ms 点则正常 —— 正是 TTL 的形状。
+    const h = mountHarness(makeMessages(2), { isStreaming: true })
+    // 换掉夹具默认桩:它把动画事件**同步**打在处理器内部,于是处理器末尾那次
+    // `applyAuthority({ following: true })` 会把它们全部吞掉 —— 这一型在 jsdom 里"通过"
+    // 而真浏览器里必挂,因为浏览器的平滑滚动事件是在点击处理器**返回之后**才派发。
+    vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => undefined)
+    h.dispatchScroll()
+    h.wheel(-300)
+    h.geometry.scrollTop = 400
+    h.dispatchScroll()
+    expect(h.result().userScrolledUp, '前置条件:用户上翻应已解除跟随').toBe(true)
+
+    act(() => h.result().scrollToBottom())
+    expect(h.result().userScrolledUp, '点完按钮当下应已把滚动权交回跟随').toBe(false)
+
+    // 动画的第一帧:位移向下、还没到底。上一条凭据若没作废,这一帧就把滚动权夺回去。
+    h.geometry.scrollTop = 500
+    h.dispatchScroll()
+    expect(h.result().userScrolledUp, '动画中间帧不得被上一条上翻凭据读成用户意图').toBe(false)
+  })
 })
 
 describe('测量保留与前插锚点', () => {
@@ -333,6 +359,42 @@ describe('测量保留与前插锚点', () => {
 
   it('7. 触发到提交之间 scrollTop 被改写过,锚点目标不变(中间位移不得重复计入)', () => {
     runPrependCase({ drift: 15 })
+  })
+
+  it('8. 前插在途时用户又滚了一段,补偿必须保住他这段位移(不得弹回触发瞬间)', () => {
+    // G-252 运行时验收的 M3-B:真实浏览器里量到"触发后继续滚到边界,落地把位置弹回触发
+    // 瞬间"(逐帧最大 1340px)。锚点存的是**触发瞬间**的视口偏移,而那份账在用户又动了之后
+    // 就是旧账 —— 补偿于是把用户的新落点当偏差修掉。
+    const messages = makeMessages(2)
+    let loadCalls = 0
+    const h = mountHarness(messages, {
+      initialScrollTop: 20,
+      hasMoreHistory: true,
+      onLoadMoreHistory: () => {
+        loadCalls += 1
+      },
+    })
+    h.rowTop('m0', 20)
+    h.wheel(-300)
+    h.geometry.scrollTop = 20
+    h.dispatchScroll()
+    expect(loadCalls).toBe(1)
+
+    // 在途:用户继续往上翻了 15px(scrollTop 20 → 5,锚点在视口里被推到 35)
+    h.wheel(-150)
+    h.rowTop('m0', 35)
+    h.geometry.scrollTop = 5
+    h.dispatchScroll()
+
+    // 提交:上方插入 30px,锚点在内容中的绝对偏移 = 视口 65 + scrollTop 5 = 70
+    h.geometry.scrollHeight = CONTENT_HEIGHT + 30
+    h.rowTop('m0', 65)
+    h.rerender([makeMessage(-1), ...messages])
+
+    // 按用户落点重定基 ⇒ 目标 scrollTop = 70 − 35 = 35(把他那一跳 15px 保住);
+    // 钉死触发瞬间的 20 会算出 70 − 20 = 50,即把用户刚滚到的位置又弹回去。
+    expect(h.geometry.scrollTop, '补偿必须落在用户自己的阅读位置上').toBe(35)
+    expect(h.stickCalls(), '补偿是程序化位移,不得顺手把用户拽到底部').toBe(0)
   })
 })
 
