@@ -110,7 +110,7 @@ export default function I18nDashboardPage() {
                     <span>已翻译 {lang.translated}</span>
                     <span>缺失 {lang.missing}</span>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
+                  <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted">
                     <div
                       className="h-full rounded-md"
                       style={{

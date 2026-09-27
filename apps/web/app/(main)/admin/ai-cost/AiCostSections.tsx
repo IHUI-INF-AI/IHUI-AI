@@ -85,7 +85,7 @@ function Bar({
         ? 'bg-amber-500 dark:bg-amber-400'
         : 'bg-primary/60'
   return (
-    <div className="h-1.5 overflow-hidden rounded-sm bg-muted">
+    <div className="h-1.5 overflow-hidden rounded-xs bg-muted">
       <div
         className={cn('h-full rounded-sm', cls)}
         style={{ width: `${Math.min(percent, 100)}%` }}

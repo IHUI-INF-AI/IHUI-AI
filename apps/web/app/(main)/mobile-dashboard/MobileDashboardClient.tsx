@@ -182,7 +182,7 @@ export function MobileDashboardClient() {
                           </span>
                           <span className="text-muted-foreground">{d.percent}%</span>
                         </div>
-                        <div className="h-2 w-full overflow-hidden rounded-sm bg-muted">
+                        <div className="h-2 w-full overflow-hidden rounded-xs bg-muted">
                           <div
                             className={`h-full ${DEVICE_COLORS[d.name] ?? 'bg-muted-foreground/40'}`}
                             style={{ width: `${d.percent}%` }}
