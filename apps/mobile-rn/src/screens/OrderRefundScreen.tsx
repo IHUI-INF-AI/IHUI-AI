@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getOrders, refundOrder, type Order } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { OrderRefundScreen as SharedOrderRefundScreen, type OrderRefundItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -47,7 +48,7 @@ export function OrderRefundScreen() {
     if (res.success) {
       setOrders(toRefundItem(res.data.list))
     } else {
-      setError(res.error || t('orderRefund.loadFailed'))
+      setError(apiFailureToText(res, t('orderRefund.loadFailed')))
     }
     setLoading(false)
     setRefreshing(false)
@@ -74,7 +75,7 @@ export function OrderRefundScreen() {
       setSelectedId(null)
       void load(true)
     } else {
-      setSubmitError(res.error || t('orderRefund.submitFailed'))
+      setSubmitError(apiFailureToText(res, t('orderRefund.submitFailed')))
     }
   }
 

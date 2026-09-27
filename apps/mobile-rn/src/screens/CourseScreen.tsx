@@ -23,6 +23,7 @@ import {
   type Course,
   type LearnCourse,
 } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { CourseTabScreen, type CourseTabScreenProps } from '@ihui/rn-app'
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { useI18n } from '../i18n'
@@ -130,7 +131,7 @@ export function CourseScreen() {
           setInitialCourses(coursesRes.data.list)
         }
       } else {
-        setError(coursesRes.error || t('common.loadFailed'))
+        setError(apiFailureToText(coursesRes, t('common.loadFailed')))
       }
       if (statsRes.success && statsRes.data) {
         const d = statsRes.data
