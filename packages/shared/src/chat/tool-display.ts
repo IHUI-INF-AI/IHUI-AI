@@ -42,6 +42,8 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   context_recall: 'toolContextRecall',
   parse_document: 'toolParseDocument',
   generate_chart: 'toolGenerateChart',
+  // #81 的报表工具在 HEAD 的 `_TOOLS`(`mcp_server.py:9869`)与五语言词表里都早已就位
+  // (`taskStatus.toolGenerateReport` / `…Activity`),唯独这张映射漏了一行 ⇒ 界面上它退化成裸码名。
   generate_report: 'toolGenerateReport',
   summarize_artifacts: 'toolSummarizeArtifacts',
   image_generation: 'toolImageGeneration',
@@ -139,6 +141,10 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   debug_disconnect: 'toolDebugDisconnect',
   debug_list_sessions: 'toolDebugListSessions',
   token6688_voice_clone: 'toolVendorVoiceClone',
+  // V3 #63(2026-09-27 立):对话流业务表单请求工具(mcp_server._TOOLS 的
+  // request_business_form)。守门 55 三方比对 `_TOOLS × 本表 × 五语言 taskStatus`,
+  // 少这一行 ⇒ 界面上该工具退化成裸码名 `request_business_form`(界面禁止直显英文码名)。
+  request_business_form: 'toolRequestBusinessForm',
 }
 
 export function toolDisplayKey(toolName: string): string | null {

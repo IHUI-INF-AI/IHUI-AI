@@ -32,6 +32,21 @@ from typing import Any
 
 from ..core.executor_switch import guard_loop_v2_pilot
 from ..core.llm_gateway import llm_gateway
+from ..core.permission_mode import (
+    ModePolicy,
+)
+from ..core.permission_mode import (
+    allowed_tool_names as _allowed_tool_names,
+)
+from ..core.permission_mode import (
+    blocked_tool_message as _blocked_tool_message,
+)
+from ..core.permission_mode import (
+    resolve_mode_policy as _resolve_mode_policy,
+)
+from ..core.permission_mode import (
+    tool_allowed_by_policy as _tool_allowed_by_policy,
+)
 from .mcp_server import mcp_server
 from .memory import memory_store
 from .prompt_registry import prompt_registry
@@ -301,12 +316,20 @@ class AgentOrchestrator:
         session_id: str | None = None,
         model_override: str | None = None,
         progress_callback: Callable[[dict[str, Any]], None] | None = None,
+        chat_mode: str | None = None,
+        permission_mode: str | None = None,
     ) -> AgentStepResult:
         """调用单个 agent 执行任务。
 
         Args:
             progress_callback: 可选进度回调,在 LLM 调用/工具执行/输出生成等关键节点被调用,
                                 回调收到 {"phase": "thinking"|"tool_call"|"tool_result"|"output_ready", ...}。
+            chat_mode / permission_mode: G2 并轨(2026-09-27)—— 三轴中的两轴**输入**。
+                                判定本身不在本文件:见 `_run_agent` 内对
+                                `core/permission_mode` 出口的调用。省略即交给出口
+                                的保守兜底(未知 chat→'build'、未知 perm→'default'
+                                ⇒ 工具档 'all' = 与并轨前逐字节同行为),
+                                **绝不**在本处再猜一个方向。
         """
         start = time.monotonic()
         agent = self._registry.get(agent_name)
@@ -319,7 +342,15 @@ class AgentOrchestrator:
                 duration_ms=round((time.monotonic() - start) * 1000, 2),
                 error=f"Agent 不存在: {agent_name}",
             )
-        return await self._run_agent(agent, user_input, session_id, model_override, progress_callback)
+        return await self._run_agent(
+            agent,
+            user_input,
+            session_id,
+            model_override,
+            progress_callback,
+            chat_mode=chat_mode,
+            permission_mode=permission_mode,
+        )
 
     # =========================================================================
     # Pipeline(串行)
@@ -1451,6 +1482,8 @@ class AgentOrchestrator:
         session_id: str | None,
         model_override: str | None,
         progress_callback: Callable[[dict[str, Any]], None] | None = None,
+        chat_mode: str | None = None,
+        permission_mode: str | None = None,
     ) -> AgentStepResult:
         """执行单个 agent(直接调 LLM + tools,不走 agent_loop 任务管理)。
 
@@ -1459,13 +1492,24 @@ class AgentOrchestrator:
                 - {"phase": "thinking", "iteration": N} — 开始 LLM 调用
                 - {"phase": "tool_call", "tool": name, "iteration": N} — 开始工具调用
                 - {"phase": "tool_result", "tool": name, "ok": bool, "iteration": N} — 工具返回
+                    (被三轴可用性闸拦下时另带 "blocked": True,且工具未被执行)
                 - {"phase": "output_ready", "output_preview": str} — 最终输出就绪
+            chat_mode / permission_mode: G2 权限并轨(2026-09-27)的两轴输入。见 invoke。
         """
         # D6① 收敛开关接线点(默认 legacy,直接返回,行为与改前逐字节等价;
         # 显式设 ORCHESTRATION_CONVERGENCE_EXECUTOR=loop_v2 时 fail-fast 抛
         # LoopV2ConvergencePilotError,不静默回退 —— 见 core/executor_switch.py)
         guard_loop_v2_pilot("agent_orchestrator._run_agent", session_id=session_id)
         start = time.monotonic()
+        # G2(D6 收敛审计 2026-09-27):"模式 × 权限档" 的判定**只住在**
+        # core/permission_mode.py —— 它同时是 V3 #53 跨语言契约的 Python 侧
+        # (TS 镜像 packages/types/src/permission-mode.ts,由
+        # scripts/check-mode-permission-matrix.mjs 逐格对账)。本文件此前自带一份
+        # 注册表硬编码的 `AgentDefinition.tools` 名单且不 import 该模块,于是
+        # plan(严禁副作用)对这条循环结构上无效 —— 同一件事在两处各算一遍必然漂移。
+        # 与 agent_loop_v2 同口径:引擎侧无 chat 轴概念时传 None(= 'build' 语义),
+        # 收窄完全由 permission_mode 轴决定。
+        mode_policy = _resolve_mode_policy(chat_mode, permission_mode)
         # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
         sid = session_id or f"agent-{agent.name}-{int(datetime.now(UTC).replace(tzinfo=None).timestamp())}"
         used_model = model_override or agent.model
@@ -1492,8 +1536,10 @@ class AgentOrchestrator:
                     messages.append({"role": role, "content": content})
             messages.append({"role": "user", "content": user_input})
 
-            # 准备 tools(只暴露 agent.tools 内的)
-            tool_defs = self._filter_tools(agent.tools)
+            # 准备 tools:能力名单(agent.tools)∩ 注册表在 _filter_tools 里映射,
+            # 而「这一档允许哪些工具」只由 core/permission_mode.allowed_tool_names
+            # 一处算(G2 并轨;与 agent_loop_v2 的"schema 收窄 + 执行入口再校验"同构)。
+            tool_defs = self._filter_tools(agent.tools, mode_policy)
 
             output = ""
             for it in range(agent.max_iterations):
@@ -1544,6 +1590,38 @@ class AgentOrchestrator:
                     else:
                         args = raw_args or {}
                     _emit({"phase": "tool_call", "tool": tool_name, "iteration": iterations})
+                    # G2 并轨(2026-09-27):执行前的唯一谓词。判定与文案都不在本文件
+                    # 各写一份 —— 分别走 core/permission_mode.tool_allowed_by_policy
+                    # 与 blocked_tool_message(与 agent_loop_v2._execute_tool_call 同源)。
+                    # 被拦时:不发 call_tool、不进任何审批流程(本循环没有审批腿,
+                    # 注册表侧的 exec_policy 一次性放行表也就不会被写入),只把结构化
+                    # 拒绝回填给模型 —— "改了再抛"与"抛前没改"在账面上必须可分辨。
+                    if not _tool_allowed_by_policy(mode_policy, tool_name):
+                        blocked_msg = _blocked_tool_message(mode_policy, tool_name)
+                        logger.info(
+                            "agent_orchestrator 拦截工具 %s(agent=%s,当前工具档=%s,session=%s)",
+                            tool_name, agent.name, mode_policy["tools"], sid,
+                        )
+                        tool_calls.append({
+                            "tool": tool_name,
+                            "arguments": args,
+                            "ok": False,
+                            "blocked": True,
+                        })
+                        _emit({
+                            "phase": "tool_result",
+                            "tool": tool_name,
+                            "ok": False,
+                            "blocked": True,
+                            "iteration": iterations,
+                        })
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc.get("id", ""),
+                            "name": tool_name,
+                            "content": blocked_msg,
+                        })
+                        continue
                     exec_result = await mcp_server.call_tool(tool_name, args)
                     _tool_ok = bool(exec_result.get("ok"))
                     tool_calls.append({
@@ -1597,14 +1675,26 @@ class AgentOrchestrator:
             )
 
     @staticmethod
-    def _filter_tools(names: list[str]) -> list[dict[str, Any]]:
-        """根据 name 列表返回 OpenAI tools 格式。"""
+    def _filter_tools(
+        names: list[str],
+        mode_policy: ModePolicy | None = None,
+    ) -> list[dict[str, Any]]:
+        """根据 name 列表返回 OpenAI tools 格式(先按当前档的工具出口收窄)。
+
+        G2 并轨(2026-09-27)分工:本函数的 `names ∩ 注册表` 只是**能力映射**
+        (它不判断"哪一档允许什么"),而"这一档允许哪些工具"只问
+        `core/permission_mode.allowed_tool_names` —— 交集只有那一处实现,
+        不在这里第二处求成员(守门 M4 判的正是第二处交集实现)。
+        `mode_policy` 省略时按出口的保守兜底档('all'),即与并轨前逐字节同行为。
+        """
         if not names:
             return []
+        policy = mode_policy if mode_policy is not None else _resolve_mode_policy(None, None)
+        allowed = _allowed_tool_names(policy, names)
         available = {t.name: t for t in mcp_server.list_tools()}
         out: list[dict[str, Any]] = []
         for n in names:
-            if n in available:
+            if n in allowed and n in available:
                 t = available[n]
                 out.append({
                     "type": "function",

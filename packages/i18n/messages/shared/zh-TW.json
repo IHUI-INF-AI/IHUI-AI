@@ -178,6 +178,7 @@
     "toolDebugDisconnect": "中斷調試",
     "toolDebugListSessions": "調試會話列表",
     "toolVendorVoiceClone": "複製聲紋",
+    "toolRequestBusinessForm": "請求填寫業務表單",
     "fileActivity": "{state, select, running {正在處理檔案} completed {已處理檔案} other {處理檔案}}",
     "imageActivity": "{state, select, running {正在處理圖像} completed {已處理圖像} other {處理圖像}}",
     "searchActivity": "{state, select, running {正在檢索} completed {已檢索} other {檢索}}",
@@ -2093,7 +2094,9 @@
       "bypassSkipApproval": "已跳過審批",
       "mcpRequiresApproval": "MCP 標註要求確認",
       "policyRequiresApproval": "策略要求審批",
-      "policySkipsApproval": "策略免審批"
+      "policySkipsApproval": "策略免審批",
+      "guardianReviewSuggested": "複核建議改用更安全路徑",
+      "guardianReviewAlternativeApplied": "已改用複核建議的路徑"
     },
     "perm": {
       "allow": "已放行",
