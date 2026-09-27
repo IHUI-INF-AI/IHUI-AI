@@ -108,16 +108,10 @@ export function extractText(data: unknown): string {
 
 // ===================== 豆包语音 API（doubao voice）=====================
 
-/** 语音对话结果 */
+/** 语音对话结果(后端 /audio/chat 只回文本;音频需另调 fetchTextToSpeechAudio 合成) */
 export interface VoiceChatResult {
   reply: string
   audio?: string
-  audioUrl?: string
-}
-
-/** TTS 结果 */
-export interface TtsResult {
-  audio: string
   audioUrl?: string
 }
 
@@ -128,24 +122,23 @@ export interface VoiceModel {
   desc: string
 }
 
-/** 发送语音消息（语音对话） */
-export async function sendVoiceMessage(
-  audioBase64: string,
-  format = 'mp3',
-): Promise<ApiResult<VoiceChatResult>> {
-  return fetchApi<VoiceChatResult>('/api/ai-audio/voice/chat', {
+/** 发送语音消息(语音对话:后端先 ASR 再对话,只回文本)
+ * 门 8 死调用清账(2026-09-28):上一版 POST /api/ai-audio/voice/chat {audio, format} 从未注册;
+ * 真路由 = POST /api/ai/audio/chat(ai-audio.ts:488,字段 audio_base64),响应 {user_text, ai_text}
+ * 映射进既有 VoiceChatResult.reply,消费方(voiceChatByFile)签名不变。format 参数后端从未接受,摘掉。 */
+export async function sendVoiceMessage(audioBase64: string): Promise<ApiResult<VoiceChatResult>> {
+  const res = await fetchApi<{ user_text: string; ai_text: string }>('/api/ai/audio/chat', {
     method: 'POST',
-    body: JSON.stringify({ audio: audioBase64, format }),
+    body: JSON.stringify({ audio_base64: audioBase64 }),
   })
+  return res.success ? { ...res, data: { reply: res.data.ai_text } } : res
 }
 
-/** 文本转语音 */
-export async function textToSpeech(text: string, voice = 'default'): Promise<ApiResult<TtsResult>> {
-  return fetchApi<TtsResult>('/api/ai-audio/tts', {
-    method: 'POST',
-    body: JSON.stringify({ text, voice }),
-  })
-}
+/** 文本转语音 —— 2026-09-28 门 8 死调用清账:删除。
+ * 上一版 POST /api/ai-audio/tts 从未注册;真 TTS 面(POST /api/ai/audio/speech)**成功时直返
+ * 音频二进制**(ai-audio.ts:284-289),JSON 信封只在异步任务/错误时出现 —— 没有任何后端形状
+ * 能诚实填 TtsResult{audio},而可用的音频通道早已存在(fetchTextToSpeechAudio,走真路由)。
+ * 留一个"看起来能用、拿到的永远是解析失败或 task_id"的函数 = 台账里"把没判写成判过了"的 API 版。 */
 
 /** 获取真实 TTS 音频二进制,供移动端直接播放。 */
 export async function fetchTextToSpeechAudio(text: string, voice = 'longxiaochun'): Promise<Blob> {
@@ -156,19 +149,32 @@ export async function fetchTextToSpeechAudio(text: string, voice = 'longxiaochun
   })
 }
 
-/** 语音转文本 */
-export async function speechToText(
-  audioBase64: string,
-  format = 'mp3',
-): Promise<ApiResult<{ text: string }>> {
-  return fetchApi<{ text: string }>('/api/ai-audio/asr', {
+/** 语音转文本(同步转写走 qwen3-asr 多模态对话端点;paraformer 默认档是异步任务,不适合本同步签名)
+ * 门 8 死调用清账(2026-09-28):上一版 POST /api/ai-audio/asr 从未注册;
+ * 真路由 = POST /api/ai/audio/recognize(ai-audio.ts:315),响应 {transcription} 映射为 {text}。 */
+export async function speechToText(audioBase64: string): Promise<ApiResult<{ text: string }>> {
+  const res = await fetchApi<{ transcription: string }>('/api/ai/audio/recognize', {
     method: 'POST',
-    body: JSON.stringify({ audio: audioBase64, format }),
+    body: JSON.stringify({ audio_base64: audioBase64, model: 'qwen3-asr' }),
   })
+  return res.success ? { ...res, data: { text: res.data.transcription } } : res
 }
 
-/** 获取语音模型列表 */
+/** 获取语音模型列表
+ * 门 8 死调用清账(2026-09-28):上一版 GET /api/ai-audio/models 从未注册;
+ * 真路由 = GET /api/ai/audio/models(ai-audio.ts:880),响应 {models} 映射为 {list},
+ * description → desc 对齐本包既有 VoiceModel 形状。 */
 export async function getVoiceModels(): Promise<ApiResult<{ list: VoiceModel[] }>> {
-  return fetchApi<{ list: VoiceModel[] }>('/api/ai-audio/models')
+  const res = await fetchApi<{ models: Array<{ id: string; name: string; description?: string }> }>(
+    '/api/ai/audio/models',
+  )
+  return res.success
+    ? {
+        ...res,
+        data: {
+          list: res.data.models.map((m) => ({ id: m.id, name: m.name, desc: m.description ?? '' })),
+        },
+      }
+    : res
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
