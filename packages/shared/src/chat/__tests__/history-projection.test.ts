@@ -558,31 +558,44 @@ describe('接线锁:barrel 真导出 + 存在非测试面 importer', () => {
     expect(hookSrc).not.toMatch(/\bfetch\(/)
   })
 
-  it('全仓只有一份投影实现(端内不得各写一份分页算术)', () => {
-    // 用 git grep(C 实现,一次进程扫全部受版本控制文件)判"定义处唯一"。
-    // 前两版教训:① 全文件系统 readdir+readFileSync ~5000 文件,本机 600ms、冷 CI 超 5s
-    //   (run 36340731749 超时红);② git ls-files 后逐文件 readFileSync 仍冷盘超预算
-    //   (run 36343143040 超时红)。git grep 是这类全仓唯一性锁的正确工具。
-    // 判据正则与原 readdir 版逐字同形(该正则不匹配本测试文件自身的括号写法,无自指命中)。
-    let out = ''
-    try {
-      out = execFileSync(
-        'git',
-        ['-C', repoRoot, 'grep', '-E', '-l', 'export function (mergeHistoryTurnPages|projectHistoryPage|deriveHistoryBoundary)\\b'],
-        { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
-      )
-    } catch (e) {
-      const err = e as { status?: number; stdout?: string }
-      if (err.status === 1 && !err.stdout) out = '' // git grep 无命中时 exit 1,属合法结果
-      else throw e
-    }
-    const owners = out
-      .split('\n')
-      .filter((l) => l.trim())
-      .filter((rel) => /\.tsx?$/.test(rel) && !rel.endsWith('.d.ts'))
-      .map((rel) => join(repoRoot, rel))
-    // 唯一允许的定义处 = 本模块自身
-    expect(owners).toEqual([join(__dirname, '..', 'history-projection.ts')])
-  })
+  it(
+    '全仓只有一份投影实现(端内不得各写一份分页算术)',
+    () => {
+      // 用 `git grep <rev>` 判"定义处唯一":带 rev 时 git 直接读对象库,不做工作树 stat 刷新
+      // (无 rev 的工作树搜索在 14k 文件的仓里要逐文件核对 mtime,CI 冷 runner 上三版实现
+      //  ——readdir 游走 / git ls-files 逐读 / 无 rev 的 git grep——全部超 5s testTimeout,
+      //  见 PR#65 runs 36340731749 / 36343143040 / 36344582247,均为超时红而非双实现)。
+      // 判据正则与原 readdir 版逐字同形(该正则不匹配本测试文件自身的括号写法,无自指命中)。
+      let out = ''
+      try {
+        out = execFileSync(
+          'git',
+          [
+            '-C',
+            repoRoot,
+            'grep',
+            '-E',
+            '-l',
+            'export function (mergeHistoryTurnPages|projectHistoryPage|deriveHistoryBoundary)\\b',
+            'HEAD',
+          ],
+          { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
+        )
+      } catch (e) {
+        const err = e as { status?: number; stdout?: string }
+        if (err.status === 1 && !err.stdout) out = '' // git grep 无命中时 exit 1,属合法结果
+        else throw e
+      }
+      const owners = out
+        .split('\n')
+        .map((l) => l.replace(/^HEAD:/, '').trim())
+        .filter((l) => l)
+        .filter((rel) => /\.tsx?$/.test(rel) && !rel.endsWith('.d.ts'))
+        .map((rel) => join(repoRoot, rel))
+      // 唯一允许的定义处 = 本模块自身
+      expect(owners).toEqual([join(__dirname, '..', 'history-projection.ts')])
+    },
+    30_000,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
