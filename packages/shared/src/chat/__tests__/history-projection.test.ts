@@ -23,6 +23,7 @@ import {
   decodeHistoryTurnCursor,
   deriveHistoryBoundary,
   encodeHistoryTurnCursor,
+  isHistoryCursorStale,
   isHistoryPageExhausted,
   isUsableTurnOrdinal,
   mergeHistoryTurnPages,
@@ -379,6 +380,59 @@ describe('游标推进:advanceHistoryPagingCursors(三动作共用口径)', () =
   })
 })
 
+describe('断点存续性:服务端结论的消费(2026-09-27 补)', () => {
+  it('stale + anchor-missing ⇒ 判死;ok / 缺字段 / 坏形状 ⇒ 一律判"未给结论"而不是判死', () => {
+    expect(isHistoryCursorStale({ status: 'stale', reason: 'anchor-missing' })).toBe(true)
+    // 缺 reason 的形状**不得**被读成 stale(那是把没判写成判过了),也不得读成 ok 之外的任何东西
+    for (const raw of [
+      null,
+      undefined,
+      'stale',
+      42,
+      [],
+      { status: 'ok' },
+      { status: 'stale' },
+      { status: 'stale', reason: 'typo' },
+      { status: 'stale', reason: ['anchor-missing'] },
+    ]) {
+      expect(isHistoryCursorStale(raw as unknown)).toBe(false)
+    }
+  })
+
+  it('cursorStale ⇒ 丢弃折叠并清空两端游标,即使断点本身完全健康', () => {
+    const healthySeed = resolveHistoryRolloutSeed(bp(9), null)
+    const boundary = deriveHistoryBoundary(
+      page([turn(9, ['x'])], { hasMore: false, nextCursor: null }),
+      'older',
+    )
+    const r = advanceHistoryPagingCursors({
+      direction: 'older',
+      boundary,
+      seed: healthySeed,
+      previous: { older: 'X', newer: 'Y' },
+      cursorStale: true,
+    })
+    expect(r.discardFolded).toBe(true)
+    expect(r.cursors).toEqual({ older: null, newer: null })
+  })
+
+  it('不传 cursorStale ⇒ 行为与补这一维之前逐字相同(向后兼容第一)', () => {
+    const boundary = deriveHistoryBoundary(
+      page([turn(4, ['x'])], { hasMore: true, nextCursor: 'C' }),
+      'older',
+    )
+    const r = advanceHistoryPagingCursors({
+      direction: 'older',
+      boundary,
+      seed: resolveHistoryRolloutSeed(bp(9), null),
+      previous: { older: null, newer: 'KEEP' },
+    })
+    expect(r.discardFolded).toBe(false)
+    expect(r.cursors.older).toBe('C')
+    expect(r.cursors.newer).not.toBeNull()
+  })
+})
+
 describe('接线锁:barrel 真导出 + 存在非测试面 importer', () => {
   // __dirname = packages/shared/src/chat/__tests__ ⇒ 仓库根要上跳 5 级
   // (5 不是 4:写成 4 会解析到 packages/apps/**,报 ENOENT 而不是报判据错)
@@ -393,6 +447,7 @@ describe('接线锁:barrel 真导出 + 存在非测试面 importer', () => {
       'deriveHistoryBoundary',
       'projectHistoryPage',
       'isHistoryPageExhausted',
+      'isHistoryCursorStale',
     ] as const) {
       expect((sharedChatBarrel as Record<string, unknown>)[name]).toBeTypeOf('function')
     }
@@ -414,6 +469,54 @@ describe('接线锁:barrel 真导出 + 存在非测试面 importer', () => {
       imported = false
     }
     expect(imported).toBe(true)
+  })
+
+  it('CLI 消费体真调用投影判据(2026-09-27 装车;注释式引用不算)', () => {
+    // 上一那条锁能被"一个没有挂载的钩子"满足 —— 那正是"造好没装车"的形态:
+    // 有人 import 了,但没有任何可执行入口会走到它。这条判**调用点**(去注释后的代码面),
+    // 且判的是消费方各自会忘掉的出口:整页投影 / 重叠页折叠 / 断点种子 / 断点存续性 /
+    // 夹取 / 到底判定。
+    const opsPath = join(repoRoot, 'apps', 'cli', 'src', 'commands', 'history-read-ops.ts')
+    const src = readFileSync(opsPath, 'utf8')
+    const codeFace = src
+      .split('\n')
+      .filter((l) => !l.trimStart().startsWith('//') && !l.trimStart().startsWith('*'))
+      .join('\n')
+    expect(codeFace).toMatch(/from '@ihui\/shared\/chat'/)
+    for (const call of [
+      /projectHistoryPage</,
+      // 消费方走的是 foldHistoryPageIntoProjection(它内部才是 merge + derive)。
+      // 按"名字出现在消费方"判 merge/derive,等于要求消费方把 fold 拆成第二份实现 ——
+      // 那既是重复算术,又让 fold 自身没人调用。两条出口各判各的所在位置:
+      // fold 的委派关系由下面那条锁判,不在这里判。
+      /foldHistoryPageIntoProjection</,
+      /resolveHistoryRolloutSeed\(/,
+      /isHistoryCursorStale\(/,
+      /clampHistoryLimit\(/,
+      /isHistoryPageExhausted\(/,
+    ]) {
+      expect(call.test(codeFace)).toBe(true)
+    }
+    // 走 api-client,不裸 fetch 自家后端(守门 73 的本地形式)
+    expect(/getConversationHistory/.test(codeFace)).toBe(true)
+    expect(/\bfetch\(/.test(codeFace)).toBe(false)
+  })
+
+  it('fold 必须真委派给 merge + derive(出口在共享层,不在消费方)', () => {
+    // 上面那条把"重叠页替换"判成 fold 的调用点,于是 merge / derive 这两个出口在这一条
+    // 之前无人看守 —— 把 fold 改成自己数重叠 / 自己拼边界,账面不会有任何一道红。
+    // 判法:取出 foldHistoryPageIntoProjection 的函数体(到下一个顶层 export 为止),
+    // 两个委派点都必须在**去注释后的代码面**上出现。
+    const impl = readFileSync(join(__dirname, '..', 'history-projection.ts'), 'utf8')
+    const start = impl.indexOf('export function foldHistoryPageIntoProjection')
+    expect(start).toBeGreaterThan(-1)
+    const body = impl.slice(start, start + 4000).split('\nexport ')[0] as string
+    const codeFace = body
+      .split('\n')
+      .filter((l) => !l.trimStart().startsWith('//') && !l.trimStart().startsWith('*'))
+      .join('\n')
+    expect(/mergeHistoryTurnPages<M>\(previous\.turns,\s*page\.turns\)/.test(codeFace)).toBe(true)
+    expect(/deriveHistoryBoundary\(page,\s*direction\)/.test(codeFace)).toBe(true)
   })
 
   it('断点消费真接进 web 钩子(O82续四:存而不读回到旧态即红)', () => {

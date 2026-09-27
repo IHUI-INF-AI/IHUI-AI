@@ -36,7 +36,7 @@ import {
   auditPlan,
   compositeKeyOf,
   dispositionOf,
-  nextTaskIdNumber,
+  nextTaskIdLabel,
   parseTaskRows,
   usedIdsOfPrefix,
   LEDGER_TTL_DAYS,
@@ -679,18 +679,21 @@ function selfTest() {
   // (D30① / D30② / D19的"派发前置"),按它判红就是造一台噪声门。所以防线只能摆在登记那一刻。
   const nid =
     '- [ ] **G-1 甲**:说明\n- [ ] **G-7 乙**:说明\n- [ ] **O13b 丙**:说明\n- [ ]75. 章节内裸序号\n'
-  ok(nextTaskIdNumber(nid, 'G') === 8, `G 族下一个空闲号应为 8,实测 ${nextTaskIdNumber(nid, 'G')}`)
+  ok(
+    nextTaskIdLabel(nid, 'G') === 'G-8',
+    `G 族下一个空闲号应为 G-8,实测 ${nextTaskIdLabel(nid, 'G')}`,
+  )
   const gUsed = usedIdsOfPrefix(nid, 'G')
   ok(
     gUsed !== null && gUsed.used === 2 && gUsed.max === 7,
     `G 族应只数到 2 个号、最大 7(行首裸编号不占号段),实测 ${JSON.stringify(gUsed)}`,
   )
   ok(
-    nextTaskIdNumber(nid, 'O') === 14,
-    `O13b 与主号同段 ⇒ O 族下一个应为 14,实测 ${nextTaskIdNumber(nid, 'O')}`,
+    nextTaskIdLabel(nid, 'O') === 'O14',
+    `O13b 与主号同段且本仓 O 族不带连字符 ⇒ 应为 O14,实测 ${nextTaskIdLabel(nid, 'O')}`,
   )
-  ok(nextTaskIdNumber(nid, 'Z') === null, '该族一条都没有 ⇒ 判不出(null),不得给 "Z-1" 这种号')
-  ok(nextTaskIdNumber(nid, '') === null, '空族名必须判不出,而不是退化成全族扫描')
+  ok(nextTaskIdLabel(nid, 'Z') === null, '该族一条都没有 ⇒ 判不出(null),不得给 "Z-1" 这种号')
+  ok(nextTaskIdLabel(nid, '') === null, '空族名必须判不出,而不是退化成全族扫描')
   ok(
     usedIdsOfPrefix('- [ ]75. 只有裸序号\n', 'G') === null,
     '只有章节内裸编号的面 ⇒ G 族仍应报"一条没有",不是"0 号已用"',
@@ -722,8 +725,8 @@ function main() {
       return 2
     }
     const detail = usedIdsOfPrefix(content, o.nextId)
-    const n = nextTaskIdNumber(content, o.nextId)
-    if (!detail || n === null) {
+    const label = nextTaskIdLabel(content, o.nextId)
+    if (!detail || label === null) {
       console.log(
         `❌ 判不出 —— ${LABEL[o.face]} 面上 ${o.nextId} 族一条登记行都没有,` +
           '故不给 "<族>-1" 这种号:空扫与"该族确实还没用过"在账面上同形,而取错号比不取号更贵',
@@ -731,8 +734,9 @@ function main() {
       return 2
     }
     console.log(
-      `下一个空闲编号 = ${o.nextId.toUpperCase()}-${n} ` +
-        `(现读 ${LABEL[o.face]}:该族已用 ${detail.used} 个号、最大 ${detail.max};` +
+      `下一个空闲编号 = ${label} ` +
+        `(现读 ${LABEL[o.face]}:该族已用 ${detail.used} 个号、最大 ${detail.max},` +
+        `形状按该族现读的写法推得(${detail.template.replace('%d', 'N')};本仓 G 族带连字符而 O/D 族不带);` +
         '只认带字母前缀的编号族,行首裸编号是章节内序号、不占号段)',
     )
     return 0

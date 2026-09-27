@@ -20,6 +20,13 @@
 write ⊆ read 不变式)、网络 allow/deny、环境变量白名单、超时、内存/CPU 上限。
 统一入口 ``SandboxHandle(policy).run(cmd) -> ExecResult``。
 
+**谁能决定策略**(2026-09-30 G-258 B 组收口):跨网络信任边界(HTTP 请求体)一律只许
+走档位登记表 ``SANDBOX_POLICY_TIERS`` + ``resolve_policy_tier(tier)`` +
+``build_tier_policy(tier, roots, constraints)``,
+请求方最多在档位内**收窄**。理由:本模型里 ``readable_paths=[]`` 与 ``restrict_token=False``
+两个值的语义就是"关掉这条限制",把它们交给请求方等于把沙箱强度交给调用方的自觉。
+模块内部直构 SandboxPolicy(engine/工具层)不受此限 —— 那些调用方与服务端同侧。
+
 诚实声明:Windows 上文件系统 ACL 为应用层护栏(启动前校验 argv/cwd;内核级
 per-path ACL 需 DACL 改写,代价过重);资源限额与令牌限制为 OS-enforced。
 Linux/macOS 后端在本仓库以纯函数构造正确性测试覆盖(Windows 开发机无法真跑)。
@@ -41,20 +48,28 @@ from dataclasses import dataclass, field
 from typing import Any
 
 __all__ = [
+    "DEFAULT_POLICY_TIER",
+    "POLICY_TIER_READ_ONLY",
+    "POLICY_TIER_WORKSPACE_WRITE",
+    "SANDBOX_POLICY_TIERS",
     "ExecResult",
     "PolicyError",
+    "PolicyTier",
     "SandboxError",
     "SandboxHandle",
     "SandboxPolicy",
+    "TIER_TUNABLE_FIELDS",
     "WinApiError",
     "build_bwrap_argv",
     "build_child_env",
+    "build_tier_policy",
     "create_restricted_token",
     "current_process_privilege_count",
     "get_default_backend",
     "landlock_path_beneath_bytes",
     "landlock_rules_bytes",
     "landlock_ruleset_attr_bytes",
+    "resolve_policy_tier",
     "rlimit_spec",
     "seatbelt_argv",
     "seatbelt_profile",
@@ -264,6 +279,184 @@ class SandboxPolicy:
             restrict_token=bool(data.get("restrict_token", True)),
             base_dir=str(data.get("base_dir", "")),
         )
+
+
+# ============================================================
+# 策略档位登记表:档位只能由服务端定义(G-258 B 组,2026-09-30 立)
+# ============================================================
+#
+# 立项前的事实(docs/runtime-capability-disclosure.md §2.3 已把它写成明文结论):
+# ``POST /api/sandbox/run`` 的整份 ``SandboxPolicy`` 来自请求体,于是"沙箱强度
+# 等于调用方的自觉" —— 而本模块的字段语义里,有两个值天然是**关掉限制**:
+#   - ``readable_paths = []``  ⇒ 不限制读(``SandboxPolicy.can_read`` 的空表分支)
+#   - ``restrict_token = False`` ⇒ 不降权(``SandboxPolicy`` 字段注释 +
+#     ``WinJobBackend.run`` 里 ``create_restricted_token() if policy.restrict_token``)
+# 请求方把这两项一填,拿到的就不是沙箱而是"带日志的裸子进程"。
+#
+# 修法不是"给请求体的字段做校验",而是**把限制项的所有权收回服务端**:
+# 档位 = 服务端登记表里的一个具名条目,请求方最多在档位内**收窄**。
+# 登记表住在本模块(与 SandboxPolicy 同一层),路由只做 HTTP 折算 —— 档位若在
+# 路由里再抄一份 dict,就是本仓反复记录的"同一约束、多份真源"(path_guard.py
+# 头注记的那一型),加固不会传导。
+
+POLICY_TIER_READ_ONLY = "read_only"
+POLICY_TIER_WORKSPACE_WRITE = "workspace_write"
+
+#: 限额类字段的档位上限来源:**逐条取 SandboxPolicy 的既有默认值**
+#: (``allow_network`` / ``timeout_s`` / ``memory_mb`` / ``cpu_seconds`` /
+#: ``max_processes`` / ``restrict_token`` / ``env_whitelist`` 的 dataclass 默认)。
+#: 本节刻意不新增任何数字 —— 本票改的是"谁能决定这些值",不是"值该是多少"。
+_TIER_LIMIT_FIELDS: tuple[str, ...] = (
+    "timeout_s",
+    "memory_mb",
+    "cpu_seconds",
+    "max_processes",
+)
+
+
+@dataclass(frozen=True)
+class PolicyTier:
+    """一个服务端登记的档位 = 该档位下的**最宽允许形态**(上界)。
+
+    请求方可以动的只有 :data:`TIER_TUNABLE_FIELDS` 里那几项,且只能往更严的方向动。
+    ``writable`` 决定 ``writable_paths`` 是否等于服务端给的 roots:False ⇒ 空 ⇒
+    禁止一切写入(``SandboxPolicy`` 字段注释里那条既有语义,不是新语义)。
+    """
+
+    name: str
+    writable: bool
+    allow_network: bool
+    restrict_token: bool
+    env_whitelist: tuple[str, ...]
+    timeout_s: int
+    memory_mb: int
+    cpu_seconds: int
+    max_processes: int
+
+
+#: 档位登记表(唯一真相源)。新增档位必须在这里加一条,并在
+#: ``tests/test_sandbox_policy_not_self_authored.py`` 里给出该档位"关不掉限制"的断言。
+SANDBOX_POLICY_TIERS: dict[str, PolicyTier] = {
+    POLICY_TIER_READ_ONLY: PolicyTier(
+        name=POLICY_TIER_READ_ONLY,
+        writable=False,
+        allow_network=False,
+        restrict_token=True,
+        env_whitelist=(),
+        timeout_s=30,
+        memory_mb=512,
+        cpu_seconds=300,
+        max_processes=64,
+    ),
+    POLICY_TIER_WORKSPACE_WRITE: PolicyTier(
+        name=POLICY_TIER_WORKSPACE_WRITE,
+        writable=True,
+        allow_network=False,
+        restrict_token=True,
+        env_whitelist=(),
+        timeout_s=30,
+        memory_mb=512,
+        cpu_seconds=300,
+        max_processes=64,
+    ),
+}
+
+#: 未点名档位时的缺省档 = 登记表里最严的一档(fail-closed)。
+DEFAULT_POLICY_TIER = POLICY_TIER_READ_ONLY
+
+#: 请求方**唯一**可以提供的字段,且只能收窄(数值更小 / denied 更多)。
+#: 名单里没有"关掉某项限制"的字段 —— readable_paths / writable_paths /
+#: allow_network / restrict_token / env_whitelist / base_dir 一律由档位决定。
+TIER_TUNABLE_FIELDS: frozenset[str] = frozenset({*_TIER_LIMIT_FIELDS, "denied_paths"})
+
+
+def resolve_policy_tier(tier: str | None) -> PolicyTier:
+    """档位名 → 登记表条目(**唯一**的档位取名入口)。
+
+    - ``None`` / 空串 ⇒ :data:`DEFAULT_POLICY_TIER`(最严档,fail-closed);
+    - 登记表里没有这个名字 ⇒ :class:`PolicyError` —— 不猜、不回退到更宽的档,
+      也不静默换成默认档(那会把"点了个不存在的档位"这件事变成"看起来跑了")。
+    """
+    selected_name = tier if tier else DEFAULT_POLICY_TIER
+    selected = SANDBOX_POLICY_TIERS.get(selected_name)
+    if selected is None:
+        raise PolicyError(
+            f"未知策略档位: {selected_name!r};可用档位(服务端登记表): "
+            f"{sorted(SANDBOX_POLICY_TIERS)}"
+        )
+    return selected
+
+
+def build_tier_policy(
+    selected: PolicyTier,
+    roots: Sequence[str],
+    constraints: Mapping[str, Any] | None = None,
+) -> SandboxPolicy:
+    """按"服务端档位 + 服务端工作区根"构造策略;请求方入参只能收窄,不得放宽。
+
+    Args:
+        selected: :func:`resolve_policy_tier` 的返回值(档位只能来自登记表)。
+        roots: 服务端声明的工作区根目录。**唯一来源由调用方给** ——
+            路由层取 ``MCP_WORKSPACE_ROOTS``(见 app/routers/sandbox_exec.py)。
+            空集合 ⇒ :class:`PolicyError`,因为"没有根"在本模块的语义里等于
+            "不限制读",那正是本票要关掉的那一格。
+        constraints: 请求方可收窄的字段;出现 :data:`TIER_TUNABLE_FIELDS`
+            之外的任何键 ⇒ :class:`PolicyError`(明确报错,绝不静默丢弃)。
+
+    Raises:
+        PolicyError: roots 为空 / 请求方试图提供或放宽限制项。
+    """
+    if not roots:
+        raise PolicyError(
+            "服务端未声明任何工作区根目录(档位 roots 为空),拒绝执行 —— "
+            "readable_paths 留空在本模块语义下等于不限制读"
+        )
+
+    provided: dict[str, Any] = dict(constraints or {})
+    illegal = sorted(set(provided) - TIER_TUNABLE_FIELDS)
+    if illegal:
+        raise PolicyError(
+            f"以下限制项只能由服务端档位决定,请求方不得提供或借此关掉限制: {illegal}"
+        )
+
+    ceilings: dict[str, int] = {
+        "timeout_s": selected.timeout_s,
+        "memory_mb": selected.memory_mb,
+        "cpu_seconds": selected.cpu_seconds,
+        "max_processes": selected.max_processes,
+    }
+    limits: dict[str, int] = {}
+    for field_name in _TIER_LIMIT_FIELDS:
+        ceiling = ceilings[field_name]
+        if field_name not in provided:
+            limits[field_name] = ceiling
+            continue
+        raw = provided[field_name]
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            raise PolicyError(f"{field_name} 必须为整数,得到 {raw!r}")
+        if raw <= 0:
+            raise PolicyError(f"{field_name} 必须为正整数,得到 {raw!r}")
+        if raw > ceiling:
+            raise PolicyError(
+                f"{field_name}={raw} 超出档位 {selected.name} 的上限 {ceiling}"
+                "(请求方只能收窄,不得放宽)"
+            )
+        limits[field_name] = raw
+
+    readable = [str(r) for r in roots]
+    return SandboxPolicy(
+        readable_paths=list(readable),
+        writable_paths=list(readable) if selected.writable else [],
+        denied_paths=[str(x) for x in provided.get("denied_paths", [])],
+        allow_network=selected.allow_network,
+        env_whitelist=list(selected.env_whitelist),
+        timeout_s=limits["timeout_s"],
+        memory_mb=limits["memory_mb"],
+        cpu_seconds=limits["cpu_seconds"],
+        max_processes=limits["max_processes"],
+        restrict_token=selected.restrict_token,
+        base_dir="",
+    )
 
 
 #: Windows 子进程必需的系统环境变量(不受白名单裁剪,否则进程无法启动)
