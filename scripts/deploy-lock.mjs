@@ -22,6 +22,16 @@
  *     死循环轮询 600s,已改为持有者死即抢占,消除启动卡死窗口)
  *   - 超时:acquire 等待 timeoutMs(默认 600s)后抛错退出(不覆盖不打断进行中的部署)
  *
+ * 进程身份三元组(2026-09-27 接,机制在 scripts/lib/proc-identity.mjs):
+ *   meta 除 pid/ownerPid/ts 外再记 `host` + `pidStart`(= **判活所问那个 pid** 的启动时刻)。
+ *   三态里**只有 `mismatch` 多给一条抢占授权**(确证 pid 已被复用 ⇒ 不必等 30min 硬上限);
+ *   `unverifiable`(旧 meta 没记 / 量不到启动时间 / 别机持有 / PowerShell 不可达 / 权限不足)
+ *   一律**维持改动前行为** —— 抢错的代价是两次构建同时写 `.next`(8-09 那记 502),
+ *   少抢的代价只是多等一轮。现测只在"原判据要我等"那一格发生、每次 acquire 至多一次;
+ *   `check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者的动作)。
+ *   既有的 30min 硬上限(`--owner-pid` + HARD_CAP_MS)**保留不动**,它现在是第二道兜底
+ *   而不是唯一出路:有身份凭据时确证得更早,没凭据时仍按原兜底逃生。
+ *
  * 锁的状态认识论(2026-09-26 立,第九轮 ZCode 吸收 A9-3):
  *   `readMeta()` 返回**穷尽四态**,因为"读不到"与"确实没有"是两件不同的事,
  *   把它们混成一态(null)会产出本仓最贵的一类故障——**判不出来就当没人持锁**:
@@ -63,8 +73,13 @@ import {
   copyFileSync,
 } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
+import { hostname } from 'node:os'
 // 抢占算法的唯一实现(2026-09-26 合并:本脚本与 git-lock.mjs 曾各写一份 claimStaleLock)。
 import { claimStaleLockCore } from './lib/stale-lock-claim.mjs'
+// 进程身份三元组(pid + pidStart + host)。裸 pid 判活是无效的:
+// 2026-09-25 实测 meta.pid=888 当时被 nssm.exe 占着(StartTime 比锁晚 160s)⇒ "活着"恒真
+// ⇒ 部署环每轮白等 600s,冻结 11h50m(登记 G-193)。
+import { processStartEpoch, verifyHolder } from './lib/proc-identity.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -105,7 +120,7 @@ function metaFile(dir) {
  *
  * @param {string|null|undefined} rawText 文件内容文本;传 null 表示"文件不存在"(absent)
  * @returns {{kind:'absent',reason:string}
- *          | {{kind:'ok'},meta:{mode:string,pid:number,ts:number}}
+ *          | {{kind:'ok'},meta:{mode:string,pid:number,ownerPid:number,ts:number,host:string,pidStart:number}}
  *          | {kind:'invalid'|'unreadable',raw:string|null,reason:string}}
  */
 function classifyMeta(rawText) {
@@ -138,6 +153,13 @@ function classifyMeta(rawText) {
   }
   const ts = Number(parsed.ts)
   const ownerPid = Number(parsed.ownerPid)
+  // 身份两元一并归一(2026-09-27 接线):`pidStart=0` / `host=''` 一律表示"旧 meta 没记",
+  // 判读侧据此落 unverifiable ⇒ **维持改动前行为**,而不是"没有凭据就可以抢"。
+  // 刻意不进 `lockIdentity` 指纹:那一维的作用是"改名瞬间锁有没有被换成另一把",
+  // 把凭据字段塞进去只会让"别人补写了身份字段"被误判成换锁,与抢占原子性无关。
+  const host = typeof parsed.host === 'string' ? parsed.host : ''
+  const pidStartRaw = Number(parsed.pidStart)
+  const pidStart = Number.isFinite(pidStartRaw) && pidStartRaw > 0 ? pidStartRaw : 0
   return {
     kind: 'ok',
     meta: {
@@ -147,6 +169,8 @@ function classifyMeta(rawText) {
       ownerPid: Number.isInteger(ownerPid) && ownerPid > 0 ? ownerPid : 0,
       // ts 缺失/非法不致命:活性判据靠 pid,锁龄可降级用目录 mtime(见 lockAgeMs)
       ts: Number.isFinite(ts) && ts > 0 ? ts : 0,
+      host,
+      pidStart,
     },
   }
 }
@@ -179,9 +203,20 @@ function readMeta(dir) {
  * 要么 pid 被系统复用给别的过程(于是本工具永远等一个"活着"的幽灵;2026-09-25 实测
  * 部署环因此冻结 11h50m,每轮白等 600s)。`ownerPid` 才是这段锁的真正主人:
  * 由调用方(构建脚本自己的 `$PID`)经 `--owner-pid` 或 `IHUI_DEPLOY_LOCK_OWNER_PID` 传入。
+ *
+ * 2026-09-27 接身份三元组:`pidStart` 记的是**判活所问的那个 pid**(有 owner 就是 owner,
+ * 没有才退回 CLI pid)的启动时刻。这里绝不能图省事写成"记自己"——一旦主体错位,
+ * 每一次对账都必然 `mismatch`,于是"确证复用"变成"确证可以抢",活人的构建会被打断,
+ * 比没有身份凭据更糟。量不到就整键不写(undefined 被 JSON.stringify 丢掉)⇒ 与旧 meta
+ * 逐字同形,判读侧走 unverifiable = 维持改动前行为。
  */
 function writeMeta(dir, mode, opts = {}) {
   const ownerPid = Number(opts.ownerPid ?? process.env.IHUI_DEPLOY_LOCK_OWNER_PID) || 0
+  const subjectPid = holderPid({ pid: process.pid, ownerPid })
+  // 刻意不调 lib 的 `identityFields()` —— 它算的是"我自己"的启动时刻,而本锁的判活主体
+  // 可以是 ownerPid(见上)。用错主体的话每次对账都必然 mismatch,那条"确证"就成了
+  // "确证可以抢",比没有身份更糟。这里只借 lib 的两个更小的出口:host 与量的动作。
+  const started = processStartEpoch(subjectPid, opts.run ? { run: opts.run } : {})
   writeFileSync(
     metaFile(dir),
     JSON.stringify({
@@ -189,15 +224,28 @@ function writeMeta(dir, mode, opts = {}) {
       pid: process.pid,
       ownerPid,
       ts: Date.now(),
+      host: hostname(),
+      // 量不到 ⇒ undefined ⇒ JSON.stringify 整键丢掉 ⇒ 与改动前的 meta 形态逐字相同
+      pidStart: started.epoch ?? undefined,
     }),
     'utf8',
   )
 }
 
-/** 判活应当问的那把 pid:有 owner 用 owner,没有就退回 CLI 自己(向后兼容旧 meta)。 */
+/** 判活对象是谁:有 owner 用 owner,没有就退回 CLI 自己(向后兼容旧 meta)。 */
 function holderPid(meta) {
   const m = meta || {}
   return Number(m.ownerPid) > 0 ? Number(m.ownerPid) : Number(m.pid) || 0
+}
+
+/**
+ * 把锁元数据投成 `verifyHolder` 认识的三元组 —— **主体必须是 `holderPid`,不是 `pid`**
+ * (与 writeMeta 同一口径;两处各写一遍必然漂移,所以只留这一份)。
+ * 旧 meta 没有 host/pidStart ⇒ 投出来就是"没有凭据",判读侧落 unverifiable。
+ */
+function holderIdentity(meta) {
+  const m = meta || {}
+  return { host: m.host || undefined, pid: holderPid(m), pidStart: m.pidStart || undefined }
 }
 
 /**
@@ -425,12 +473,19 @@ function archiveScene(dir, state, why) {
 
 /**
  * 一次「这锁能不能拿」的勘验(纯判据,不删不改 —— 便于二次确认时复用同一条判据)。
+ *
+ * 2026-09-27 起多一个**可选**入参 `identity`(调用方现测好再传进来,见 acquire 的 memo):
+ * 它不改变任何既有分支的结论,只多授权一条 —— `mismatch`(锁里记的启动时间与现测不符
+ * ⇒ 这个 pid 已不是持锁过程)允许在"名义存活且未超硬上限"时抢占,即比 30 分钟硬上限
+ * 更早、且**不靠猜**。`match` / `unverifiable` / 不传 ⇒ 与改动前逐字同结论。
+ * 之所以由调用方传而不是在这里现测:本函数每 500ms 轮询一次,派生 PowerShell 不得进这条快路径。
+ *
  * 返回 action:
- *   - `coexist` dev+dev 放宽(旧 check-lock 语义)
- *   - `steal`   可抢占(调用方仍须二次确认 + 归档现场)
- *   - `wait`    继续等
+ *   - `coexist`   dev+dev 放宽(旧 check-lock 语义)
+ *   - `steal`     可抢占(调用方仍须二次确认 + 归档现场)
+ *   - `wait`      继续等
  */
-function decideSteal({ dir, mode, staleMs, hardCapMs = HARD_CAP_MS, now = Date.now() }) {
+function decideSteal({ dir, mode, staleMs, hardCapMs = HARD_CAP_MS, now = Date.now(), identity }) {
   const state = readMeta(dir)
   const age = lockAgeMs(dir, state, now)
   const info = { state, ageMs: age.ageMs, ageSource: age.source }
@@ -461,6 +516,24 @@ function decideSteal({ dir, mode, staleMs, hardCapMs = HARD_CAP_MS, now = Date.n
       }
     }
     /**
+     * 身份三元组**确证**被复用 ⇒ 抢占,不必再等锁龄爬到 30 分钟硬上限。
+     * 这是本函数唯一新增的一条授权路径,排在硬上限之前(有确据时先说确据);
+     * `immediate:false` —— 与硬上限那一档同形:名义存活者不是"已死",所以**先归档现场**再抢,
+     * 不走"持有者已退出"的秒抢通道(误判时现场还在,可复核可回滚)。
+     */
+    if (identity?.kind === 'mismatch') {
+      return {
+        action: 'steal',
+        immediate: false,
+        holderAlive: alive,
+        identityKind: identity.kind,
+        ...info,
+        why:
+          `持有者 ${who} 名义存活,但身份三元组确证该 pid 已被复用:${identity.why}` +
+          `(锁龄 ${age.ageMs}ms / 硬上限 ${hardCapMs}ms ⇒ 不必等年龄兜底,归档现场后抢占)`,
+      }
+    }
+    /**
      * "持有者活着" 与 "锁龄超过硬上限" 同时成立 ⇒ 这个 pid 已经不属于持锁的那个过程了
      * (**pid 复用**),没有第二种解释:一次构建+部署单元不会把锁握到几十分钟以上。
      * 这一格就是 2026-09-25 冻结部署环 11h50m 的那一格 —— 旧代码在这里无条件 `wait`,
@@ -472,17 +545,19 @@ function decideSteal({ dir, mode, staleMs, hardCapMs = HARD_CAP_MS, now = Date.n
         action: 'steal',
         immediate: false,
         holderAlive: alive,
+        identityKind: identity?.kind,
         ...info,
         why:
           `持有者 ${who} 名义存活,但锁龄 ${age.ageMs}ms 已超硬上限 ${hardCapMs}ms ⇒ 这是被复用的 pid,` +
-          `不是持锁过程本身(一次构建+部署不可能握锁这么久)⇒ 归档现场后抢占`,
+          `不是持锁过程本身(一次构建+部署不可能握锁这么久)⇒ 归档现场后抢占${identityNote(identity)}`,
       }
     }
     return {
       action: 'wait',
       holderAlive: alive,
+      identityKind: identity?.kind,
       ...info,
-      why: `持有者 ${who} 仍在运行(锁龄 ${age.ageMs}ms / 硬上限 ${hardCapMs}ms)`,
+      why: `持有者 ${who} 仍在运行(锁龄 ${age.ageMs}ms / 硬上限 ${hardCapMs}ms)${identityNote(identity)}`,
     }
   }
 
@@ -504,6 +579,17 @@ function decideSteal({ dir, mode, staleMs, hardCapMs = HARD_CAP_MS, now = Date.n
   }
 }
 
+/**
+ * 把身份对账的实测结论如实带进结论行(与 `scripts/git-lock.mjs` 的 identityNote 同一条设计)。
+ * "没做对账"与"对过但判不出来"与"对过且相符"必须写成三样,否则读现场的人会把
+ * "没有凭据"当成"已经核过"—— 本仓最高频的失效型。
+ */
+function identityNote(identity) {
+  if (!identity) return ';身份对账=未做(调用方没给结论,这一格只按原判据 —— 不是"已核过身份")'
+  if (identity.kind === 'mismatch') return `;身份对账=mismatch(${identity.why})⇒ 确证 pid 已被复用`
+  return `;身份对账=${identity.kind}(${identity.why ?? '无原因'})⇒ 不构成额外授权,本条仍按原判据`
+}
+
 /** 超时报错:文案必须与该形态的**实际判据**一致(旧文案在这里撒过谎) */
 function lockTimeoutMessage({ timeoutMs, decision, staleMs, dir, mkdirErr }) {
   const { state, ageMs, ageSource, holderAlive } = decision
@@ -516,6 +602,9 @@ function lockTimeoutMessage({ timeoutMs, decision, staleMs, dir, mkdirErr }) {
     route = holderAlive
       ? '持有进程仍在运行,本工具不会打断它;它退出后锁会被立即抢占并归档现场'
       : `持有者已退出即可抢占(锁龄 ${ageMs}ms 来源 ${ageSource})——仍未抢到说明删锁目录失败,请查权限/占用`
+    // 身份对账的实测结论必须跟着超时文案走:"我等了一把活锁"与"我等了一把**没身份凭据**的锁"
+    // 是两句不同的话 —— 后者才是"这一格为什么没出路"的真实答案(判据原文里带身份那一维)。
+    route += `;判据原文:${decision.why}`
   } else {
     route = `元数据不可判定,本工具不会凭猜测删锁;唯一自动出路是锁龄超 stale=${staleMs}ms 后归档并抢占(当前 ${ageMs}ms,来源 ${ageSource})`
   }
@@ -543,13 +632,32 @@ async function acquire({
   hardCapMs = HARD_CAP_MS,
   ownerPid,
   dir = lockDir(),
+  identityRun,
 } = {}) {
   const deadline = Date.now() + timeoutMs
+  const identityOpts = identityRun ? { run: identityRun } : {}
+  // 身份现测**一次**就够:它是关于"这把锁的 pid 还是不是当初那个进程"的一个事实,
+  // 而 acquire 每 500ms 轮询一次 —— 不设这道闸就是把 PowerShell 派生放进等待快路径。
+  // 键 = 锁指纹(pid|ownerPid|ts):持有者换锁或心跳改 ts ⇒ 重问。
+  let asked = null
+  const askIdentity = (meta) => {
+    const key = `${meta?.pid ?? ''}|${meta?.ownerPid ?? ''}|${meta?.ts ?? ''}`
+    if (!asked || asked.key !== key) {
+      asked = { key, verdict: verifyHolder(holderIdentity(meta), identityOpts) }
+      if (asked.verdict.kind === 'unverifiable') {
+        // 判不出来必须喊出来,否则读日志的人把它当成"身份已核过、没问题"
+        console.warn(
+          `[deploy-lock] 身份无法核对(pid=${meta?.pid ?? ''}):${asked.verdict.why} ⇒ 维持改动前判据(存活 + 锁龄),不据此抢占`,
+        )
+      }
+    }
+    return asked.verdict
+  }
   for (;;) {
     let mkdirErr = null
     try {
       mkdirSync(dir, { recursive: false })
-      writeMeta(dir, mode, { ownerPid })
+      writeMeta(dir, mode, { ownerPid, ...identityOpts })
       const owner = Number(ownerPid) > 0 ? `owner pid=${ownerPid}` : 'owner 未声明(退回 CLI pid 判活)'
       console.log(`[deploy-lock] ${mode} 锁已获取 (cli pid=${process.pid};${owner})`)
       return true
@@ -569,14 +677,31 @@ async function acquire({
       mkdirErr = e
     }
     // 锁已存在:判断是否可共存 / 是否可抢占
-    const decision = decideSteal({ dir, mode, staleMs, hardCapMs })
+    let decision = decideSteal({ dir, mode, staleMs, hardCapMs })
+    /**
+     * 只有一格需要现测身份:**原判据要我等**(名义存活、未超硬上限)。
+     * `steal`/`coexist`/不可判定三态本来就有结论,多问一次 PowerShell 只是把派生
+     * 搬到不该在的地方(语义硬要求 2)。传完 identity 后 `decision` 会被重算一遍 ——
+     * 除"身份确证复用"这一条外不会产生新结论(见 decideSteal 头注与镜像测试的反向锁)。
+     */
+    if (decision.action === 'wait' && decision.holderAlive === true && decision.state.kind === 'ok') {
+      decision = decideSteal({ dir, mode, staleMs, hardCapMs, identity: askIdentity(decision.state.meta) })
+    }
     if (decision.action === 'coexist') {
       console.log(`[deploy-lock] dev+dev 共存,继续 (持有者 ${decision.why})`)
       return true
     }
     if (decision.action === 'steal') {
-      // 二次确认:判据必须仍然成立(这一轮与上一轮之间持有者可能已换人/已复活)
-      const again = decideSteal({ dir, mode, staleMs, hardCapMs })
+      // 二次确认:判据必须仍然成立(这一轮与上一轮之间持有者可能已换人/已复活)。
+      // **必须带上同一个 identity**:不带的话"只靠身份确证成立"的那一次抢占会在
+      // 二次确认时被读成"判据不再成立",于是新通道永远只喊不抢 —— 接线接了个寂寞。
+      const again = decideSteal({
+        dir,
+        mode,
+        staleMs,
+        hardCapMs,
+        identity: asked?.key ? asked.verdict : undefined,
+      })
       if (again.action !== 'steal') {
         console.warn(`[deploy-lock] 抢占判据在二次确认时不再成立(${again.why}),继续等待`)
       } else {
@@ -710,11 +835,15 @@ function check({ dir = lockDir(), log = (...a) => console.log(...a) } = {}) {
   const age = lockAgeMs(dir, state)
   if (state.kind === 'ok') {
     const alive = isProcessAlive(holderPid(state.meta))
+    // 身份两元**只如实打印锁里记着什么**,不在这里现测(见头注:check 是只读快路径)。
+    const id = ` host=${state.meta.host || '(未记)'} pidStart=${state.meta.pidStart || '(未记)'}`
     log(
-      `locked: mode=${state.meta.mode} pid=${state.meta.pid}${Number(state.meta.ownerPid) > 0 ? ` ownerPid=${state.meta.ownerPid}` : ''} 判活对象=${holderPid(state.meta)} alive=${alive} ts=${state.meta.ts ? new Date(state.meta.ts).toISOString() : '(无)'} age=${age.ageMs}ms 锁龄来源=${age.source}` +
+      `locked: mode=${state.meta.mode} pid=${state.meta.pid}${Number(state.meta.ownerPid) > 0 ? ` ownerPid=${state.meta.ownerPid}` : ''} 判活对象=${holderPid(state.meta)}${id} alive=${alive} ts=${state.meta.ts ? new Date(state.meta.ts).toISOString() : '(无)'} age=${age.ageMs}ms 锁龄来源=${age.source}` +
         (alive && age.ageMs > HARD_CAP_MS
           ? ` ⇒ ⚠️ 名义存活而锁龄超硬上限 ${HARD_CAP_MS}ms:该 pid 极可能已被复用,acquire 侧会归档并抢占`
-          : ''),
+          : state.meta.pidStart
+            ? '(check 只读:未现测启动时间,身份未对账)'
+            : '(旧 meta 无 pidStart ⇒ 身份无从对账,acquire 侧维持原判据)'),
     )
     return 1
   }
@@ -1018,6 +1147,190 @@ async function runSelfTest() {
     const m38 = JSON.parse(readFileSync(metaFile(d38), 'utf8'))
     t('S38 writeMeta 记录 ownerPid', m38.ownerPid === 4242 && Number(m38.pid) === process.pid, JSON.stringify(m38))
     t('S39 holderPid:有 owner 用 owner,没有退回 CLI pid', holderPid({ pid: 7, ownerPid: 4242 }) === 4242 && holderPid({ pid: 7, ownerPid: 0 }) === 7)
+
+    // —— 40..45) 进程身份三元组的接线(2026-09-27;全部用注入的假 run,绝不为取证真派生 PowerShell)
+    const SELF_START = 1_780_000_000
+    const fakeRun = (offsetSec = 0) => () => String(SELF_START + offsetSec)
+    // 40 写侧:self 主体 ⇒ pidStart 落盘且等于注入值;host 落盘
+    const d40 = freshDir()
+    mkdirSync(d40, { recursive: true })
+    writeMeta(d40, 'build', { run: fakeRun(0) })
+    const m40 = JSON.parse(readFileSync(metaFile(d40), 'utf8'))
+    t(
+      'S40 writeMeta 落身份三元组(host + pidStart),且 pidStart 是"判活主体"的而非随便谁的',
+      m40.pidStart === SELF_START && typeof m40.host === 'string' && m40.host.length > 0,
+      JSON.stringify(m40),
+    )
+    // 41 owner 主体:ownerPid 存在 ⇒ pidStart 必须量 owner(假 run 按 pid 分支,能验出错位)
+    const d41 = freshDir()
+    mkdirSync(d41, { recursive: true })
+    writeMeta(d41, 'build', {
+      ownerPid: 4242,
+      run: (pid) => {
+        if (Number(pid) !== 4242) throw new Error(`量错了主体:${pid}`)
+        return String(SELF_START + 7)
+      },
+    })
+    const m41 = JSON.parse(readFileSync(metaFile(d41), 'utf8'))
+    t(
+      'S41 有 ownerPid 时 pidStart 量的是 owner(量 CLI 自己会让每次对账都假报 mismatch)',
+      m41.pidStart === SELF_START + 7,
+      JSON.stringify(m41),
+    )
+    // 42 读侧:classifyMeta 必须把 host/pidStart 归一带出,否则判据拿不到凭据
+    const m42 = classifyMeta(JSON.stringify({ mode: 'build', pid: 4321, ts: 1, host: 'H', pidStart: 99 }))
+    t(
+      'S42 classifyMeta 带出 host/pidStart(旧 meta 则归零 = 无从对账)',
+      m42.kind === 'ok' && m42.meta.host === 'H' && m42.meta.pidStart === 99,
+      JSON.stringify(m42),
+    )
+    const m42b = classifyMeta('{"mode":"build","pid":4321,"ts":1}')
+    t(
+      'S42b 旧 meta(无身份两元)⇒ host="" pidStart=0 ⇒ 只可能落 unverifiable,不得被读成"已核过"',
+      m42b.meta.host === '' && m42b.meta.pidStart === 0,
+      JSON.stringify(m42b.meta),
+    )
+    // 43 判据侧:mismatch ⇒ steal(且不秒抢,先归档)
+    const d43 = freshDir()
+    putMeta(
+      d43,
+      JSON.stringify({
+        mode: 'build',
+        pid: process.pid,
+        ts: Date.now(),
+        host: hostname(),
+        pidStart: SELF_START - 600,
+      }),
+    )
+    const dec43 = decideSteal({
+      dir: d43,
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      identity: { kind: 'mismatch', why: '夹具注入:记录与现测差 600s' },
+    })
+    t(
+      'S43 名义存活 + 未超硬上限 + 身份确证复用 ⇒ steal(新授权)',
+      dec43.action === 'steal' && /身份三元组确证/.test(dec43.why),
+      `${dec43.action} / ${dec43.why}`,
+    )
+    t('S43b 这一档必须先归档现场(immediate:false),不走"持有者已退出"的秒抢通道', dec43.immediate === false)
+    // 44 反向对照:同一个夹具,把 mismatch 换成 match ⇒ 必须回到 wait(证明红的是身份,不是夹具)
+    const dec44 = decideSteal({
+      dir: d43,
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      identity: { kind: 'match', delta: 0 },
+    })
+    t('S44 同面 identity=match ⇒ wait(身份不得变成秒抢判据)', dec44.action === 'wait', dec44.why)
+    const dec44b = decideSteal({ dir: d43, mode: 'build', staleMs: 600_000, hardCapMs: HARD_CAP_MS })
+    t(
+      'S44b 不传 identity ⇒ 与改动前逐字同结论(wait),新接线不得自己长出授权',
+      dec44b.action === 'wait' && /身份对账=未做/.test(dec44b.why),
+      dec44b.why,
+    )
+    // 45 端到端:acquire 真跑一次"确证复用 ⇒ 抢占并归档",以及"量不到 ⇒ 不抢且喊出原因"
+    const d45 = freshDir()
+    putMeta(
+      d45,
+      JSON.stringify({
+        mode: 'build',
+        pid: process.pid,
+        ts: Date.now(),
+        host: hostname(),
+        pidStart: SELF_START - 900,
+      }),
+    )
+    const r45 = await acquire({
+      mode: 'build',
+      timeoutMs: 5000,
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      ownerPid: process.pid,
+      dir: d45,
+      identityRun: fakeRun(0),
+    })
+    t(
+      'S45 端到端:注入假 run 现测出不同启动时间 ⇒ 立即抢占成功(不必等 30min 硬上限)',
+      r45 === true,
+      String(r45),
+    )
+    t(
+      'S45b 抢占后 meta 是自己的、且现场已归档',
+      readMeta(d45).kind === 'ok' &&
+        readMeta(d45).meta.pid === process.pid &&
+        existsSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR) &&
+        readdirSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR).length >= 1,
+    )
+    const d46 = freshDir()
+    putMeta(
+      d46,
+      JSON.stringify({
+        mode: 'build',
+        pid: process.pid,
+        ts: Date.now(),
+        host: hostname(),
+        pidStart: SELF_START,
+      }),
+    )
+    let err46 = null
+    await acquire({
+      mode: 'build',
+      timeoutMs: 900,
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      dir: d46,
+      identityRun: () => {
+        // 刻意不设 e.code:verifyHolder 拼原因时 `e.code ?? e.message` 会优先取 code,
+        // 那会把"夹具:PowerShell 不可达"这句真实原因换成一个代号 —— 断言就白写了。
+        throw new Error('夹具:PowerShell 不可达')
+      },
+    }).catch((e) => (err46 = e))
+    t(
+      'S46 端到端反向:现测不到启动时间 ⇒ **不**抢占,锁原样在位,且原因进了超时文案',
+      !!err46 && existsSync(metaFile(d46)) && /PowerShell 不可达/.test(err46.message),
+      err46?.message ?? '未抛错',
+    )
+    const d47 = freshDir()
+    putMeta(
+      d47,
+      JSON.stringify({
+        mode: 'build',
+        pid: process.pid,
+        ts: Date.now(),
+        host: '别的机器',
+        pidStart: SELF_START,
+      }),
+    )
+    let err47 = null
+    await acquire({
+      mode: 'build',
+      timeoutMs: 900,
+      staleMs: 600_000,
+      dir: d47,
+      identityRun: fakeRun(5000),
+    }).catch((e) => (err47 = e))
+    t(
+      'S47 别机持有的锁:即使现测值差很远也**不得**据此判复用(unverifiable 而非 mismatch)',
+      !!err47 && existsSync(metaFile(d47)) && /别机持有/.test(err47.message),
+      err47?.message ?? '未抛错',
+    )
+    // 48 check 的快路径不得现测:注入一个会抛的 run,check 必须照样跑完
+    let chk48Threw = false
+    try {
+      check({ dir: d43, log: () => {} })
+    } catch {
+      chk48Threw = true
+    }
+    t('S48 check 不派生身份现测(它是只读快路径)', chk48Threw === false)
+    t(
+      'S49 holderIdentity 的主体是 ownerPid(投影错主体 = 把别人的启动时刻当成持锁者的)',
+      holderIdentity({ pid: 7, ownerPid: 4242, pidStart: 9, host: 'H' }).pid === 4242 &&
+        holderIdentity({ pid: 7, ownerPid: 0, pidStart: 9, host: 'H' }).pid === 7 &&
+        holderIdentity({ pid: 7, ownerPid: 0, pidStart: 0, host: '' }).pidStart === undefined &&
+        holderIdentity({ pid: 7, ownerPid: 0, pidStart: 0, host: '' }).host === undefined,
+    )
   } finally {
     rmScratch(base)
   }
@@ -1102,5 +1415,8 @@ export const __test__ = {
   claimStaleLock,
   lockIdentity,
   repoRoot,
+  // 2026-09-27 身份三元组接线面(镜像测试直接判这三件,不得在测试里抄第二份判据 —— §22c):
+  holderIdentity,
+  identityNote,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
