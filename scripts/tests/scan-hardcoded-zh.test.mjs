@@ -8,7 +8,7 @@
  *   检测 apps/web/app + apps/web/src/components 下 .ts/.tsx 文件中的
  *   硬编码中文字符串(未走 t()/next-intl 的代码行)。
  *
- *   测试用临时 fixture(在 os.tmpdir() 下创建项目结构 + spawnSync cwd 模拟项目根),
+ *   测试用临时 fixture(scratch-dir 落点下创建项目结构 + spawnSync cwd 模拟项目根),
  *   不污染项目,符合 AGENTS.md §23(目录用 tests/)。
  *
  *   覆盖场景:
@@ -31,10 +31,10 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync, existsSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -42,7 +42,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'scan-hardcoded-zh.mjs')
 
 // ─── 辅助:创建临时项目根目录 ─────────────────────────────
 function createTempProject() {
-  return mkdtempSync(join(tmpdir(), 'ihui-scan-zh-'))
+  return mkScratch('ihui-scan-zh-')
 }
 
 // 辅助:在临时项目根下写文件(自动创建父目录)
@@ -83,7 +83,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
       assert.match(r.stdout, /硬编码中文行数: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -109,7 +109,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /你好世界/)
       assert.match(r.stdout, /提交按钮/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -125,7 +125,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/, 'apps/web/src/lib 不在 TARGETS 内,不应被扫描')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -141,7 +141,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -160,7 +160,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -176,7 +176,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -194,7 +194,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -211,7 +211,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/, '含 useTranslations/getTranslations token 的行应被 SKIP_TOKEN_RE 跳过')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -232,7 +232,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       // 其他行无中文 → 0 命中
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -249,7 +249,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 1, `--exit 1 有命中应 exit 1,实际 ${r.status}`)
       assert.match(r.stderr, /--exit 1.*发现硬编码中文|pre-commit 拒绝/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -263,7 +263,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       const r = runScript(['--exit', '1'], { cwd: root })
       assert.equal(r.status, 0, `--exit 1 无命中应 exit 0,实际 ${r.status}`)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -293,7 +293,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       // file 字段为相对路径,跨平台用 regex 匹配
       assert.match(hit.file, /apps[\\\/]web[\\\/]app[\\\/]page\.tsx/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -313,7 +313,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/, '__tests__/ + .test.tsx + admin/ 均应被排除')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -334,7 +334,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /含硬编码中文的文件: 1/)
       assert.match(r.stdout, /硬编码中文行数: 2/, '第 2、3 行含中文,第 4 行英文不计,应 2 处命中')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -366,7 +366,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
         assert.ok(m, `${c.name}: 未解析到命中数\n${r.stdout}\n${r.stderr}`)
         assert.equal(Number(m[1]), c.want, `${c.name} 命中数应为 ${c.want},实际 ${m[1]}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
       } finally {
-        rmSync(root, { recursive: true, force: true })
+        rmScratch(root)
       }
     }
   })
@@ -388,7 +388,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /内容文案豁免/, '必须可见地报出"有文件被豁免",不得静默')
       assert.match(r.stdout, /page\.tsx \(2 处\)/, '必须逐文件给出被放行的命中数')
     } finally {
-      rmSync(r1root, { recursive: true, force: true })
+      rmScratch(r1root)
     }
 
     // ② 反例:空标记 → 不生效(防"写一行注释就白免")
@@ -399,7 +399,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /硬编码中文行数:\s*2/, '无理由的标记不得生效')
       assert.doesNotMatch(r.stdout, /内容文案豁免/, '未生效时不得报成已豁免')
     } finally {
-      rmSync(r2root, { recursive: true, force: true })
+      rmScratch(r2root)
     }
 
     // ③ 反例:声明躲到命中行旁边(第 40 行之后) → 不生效
@@ -411,7 +411,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /硬编码中文行数:\s*1/, '声明必须在文件头;躲在尾部不得生效')
       assert.doesNotMatch(r.stdout, /内容文案豁免/, '同上:未生效就不该出现豁免段')
     } finally {
-      rmSync(r3root, { recursive: true, force: true })
+      rmScratch(r3root)
     }
   })
 
@@ -422,7 +422,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
   //  夹具用**真 git 临时仓**:脚本的 HEAD 维度按 ROOT 取,而 ROOT 可由 --root 指到夹具,
   //  于是能造出"基线文件不存在(额度 0)+ 文件在 HEAD 里本来就有中文"这一精确形态。
   function createGitProject() {
-    const root = mkdtempSync(join(tmpdir(), 'ihui-scan-zh-git-'))
+    const root = mkScratch('ihui-scan-zh-git-')
     const GIT = 'C:/Program Files/Git/cmd/git.exe'
     const git = (args) =>
       spawnSync(GIT, ['-c', `user.name=t`, '-c', 'user.email=t@t', '-c', 'safe.directory=*', ...args], {
@@ -456,7 +456,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       //  若退回只看清单,这里会变成"4 处 > 基线 0 处(新增 4)"—— 把既有债全算成本次新增。
       assert.match(both, /repl\.ts: 4 处 > 基线 3 处\(新增 1\)/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -504,7 +504,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(fullOut, /face-probe\.tsx: 2 处 > 基线 1 处\(新增 1\)/, '全量档的数必须来自**工作树**(2)——与 --staged 的 3 不同面不同数')
       assert.match(fullOut, /判定面\(命中数取的是哪一份\): 工作树磁盘/, '全量档必须点名判定面')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
