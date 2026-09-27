@@ -133,6 +133,7 @@
     "clean:garbage:dry": "node scripts/clean-garbage.mjs --dry-run",
     "clean:garbage:git": "node scripts/clean-garbage.mjs --git",
     "archive": "node scripts/archive-completed-tasks.mjs",
+    "archive:retire": "node scripts/retire-git-archive.mjs",
     "hygiene:parent": "node scripts/check-parent-pollution.mjs",
     "hygiene:parent:clean": "node scripts/check-parent-pollution.mjs --auto-clean",
     "hygiene:workspace": "node scripts/check-workspace-hygiene.mjs",
