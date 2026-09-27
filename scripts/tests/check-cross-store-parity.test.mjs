@@ -21,9 +21,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, copyFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -43,7 +43,7 @@ const SHARED_AUTH_PATH = 'packages/shared/src/stores/auth-store.ts'
 // ─── 辅助:创建临时项目(含 scripts/ 下的脚本副本) ────────
 // 关键:脚本用 import.meta.url 推导 ROOT,复制后 ROOT 变为临时目录
 function createTempProject() {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-parity-'))
+  const root = mkScratch('ihui-parity-')
   mkdirSync(join(root, 'scripts'), { recursive: true })
   copyFileSync(SOURCE_SCRIPT, join(root, 'scripts', 'check-cross-store-parity.mjs'))
   return root
@@ -152,7 +152,7 @@ test('golden path: 4 端 + shared 全部合规 → exit 0', () => {
     assert.match(r.stdout, /一致性校验通过/, '应输出"一致性校验通过"')
     assert.match(r.stdout, /8\/8 项/, '应输出 8/8 项')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -175,7 +175,7 @@ export const createSSRSafeWebTransport = (): PersistTransport => createLocalStor
     const r = runScript(root)
     assert.equal(r.status, 0, `export const 形式应 exit 0,实际 ${r.status}\nstderr: ${r.stderr}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -197,7 +197,7 @@ test('检查 1: web 缺 createLocalStorageTransport → exit 1', () => {
     assert.equal(r.status, 1, `缺必需导出应 exit 1,实际 ${r.status}`)
     assert.match(r.stderr, /\[web\] 缺少必需导出: createLocalStorageTransport/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -218,7 +218,7 @@ test('检查 1: mobile-rn 缺 createAsyncStorageTransport → exit 1', () => {
     assert.equal(r.status, 1, `mobile-rn 缺导出应 exit 1,实际 ${r.status}`)
     assert.match(r.stderr, /\[mobile-rn\] 缺少必需导出: createAsyncStorageTransport/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -243,7 +243,7 @@ test('检查 2: createSyncTransport / createMemoryTransport 三选一引用均�
     assert.ok(!VALID_ADAPTERS['miniapp-taro'].includes('PersistTransport'))
     assert.ok(!VALID_ADAPTERS['extension'].includes('PersistTransport'))
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -268,7 +268,7 @@ export function createSSRSafeWebTransport() {
     assert.equal(r.status, 1, `缺 transport 引用应 exit 1,实际 ${r.status}`)
     assert.match(r.stderr, /\[web\] 未引用 shared PersistTransport \/ transport 工厂/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -290,7 +290,7 @@ test('检查 3: web 缺 getItem 方法 → exit 1', () => {
     assert.equal(r.status, 1, `缺 getItem 应 exit 1,实际 ${r.status}`)
     assert.match(r.stderr, /\[web\] 缺 getItem 方法/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -308,7 +308,7 @@ test('检查 3: mobile-rn 缺 setItem 方法 → exit 1', () => {
     assert.equal(r.status, 1, `缺 setItem 应 exit 1,实际 ${r.status}`)
     assert.match(r.stderr, /\[mobile-rn\] 缺 setItem 方法/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -326,7 +326,7 @@ test('检查 3: mobile-rn 缺 removeItem 方法 → exit 1', () => {
     assert.equal(r.status, 1, `缺 removeItem 应 exit 1,实际 ${r.status}`)
     assert.match(r.stderr, /\[mobile-rn\] 缺 removeItem 方法/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -347,7 +347,7 @@ test('检查 3: async 方法形式(getItem: async ())被正则接受 → exit 0'
     assert.match(VALID_ADAPTERS['mobile-rn'], /setItem:\s*async\s*\(/)
     assert.match(VALID_ADAPTERS['mobile-rn'], /removeItem:\s*async\s*\(/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -369,7 +369,7 @@ test('检查 shared: userPersistKey 默认值错误 → exit 1', () => {
     assert.equal(r.status, 1, `userPersistKey 错误应 exit 1,实际 ${r.status}`)
     assert.match(r.stderr, /\[shared\] auth-store\.ts userPersistKey 默认值不是 'ihui-auth-user'/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -387,7 +387,7 @@ test('检查 shared: 缺 partialize Pick 类型(违反安全契约)→ exit 1', 
     assert.equal(r.status, 1, `缺 partialize Pick 应 exit 1,实际 ${r.status}`)
     assert.match(r.stderr, /\[shared\] auth-store\.ts partialize 包含 token 字段/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -408,7 +408,7 @@ test('边界: web/storage-adapter.ts 不存在 → exit 1(报告无法读取)', 
     assert.equal(r.status, 1, `文件缺失应 exit 1,实际 ${r.status}`)
     assert.match(r.stderr, /\[web\] 无法读取 apps\/web\/src\/stores\/storage-adapter\.ts/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -425,7 +425,7 @@ test('边界: packages/shared/src/stores/auth-store.ts 不存在 → exit 1', ()
     assert.equal(r.status, 1, `shared 文件缺失应 exit 1,实际 ${r.status}`)
     assert.match(r.stderr, /\[shared\] 无法读取 auth-store\.ts/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -461,7 +461,7 @@ export function createSSRSafeWebTransport(): PersistTransport {
     // 应输出问题总数
     assert.match(r.stderr, /❌ 发现 3 处问题/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -483,7 +483,7 @@ test('输出: 列出 4 端端点列表 → exit 0', () => {
     assert.match(r.stdout, /\bminiapp-taro\b/)
     assert.match(r.stdout, /\bextension\b/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

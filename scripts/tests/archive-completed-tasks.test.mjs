@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync, execSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs'
+import { writeFileSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -30,12 +30,12 @@ function dateAgo(days) {
 
 // 创建临时目录(非 git 仓库,用于纯文件操作测试)
 function createTempDir(prefix = 'ihui-archive-') {
-  return mkdtempSync(join(tmpdir(), prefix))
+  return mkScratch(prefix)
 }
 
 // 创建临时 git 仓库(用于 --auto-commit 测试)
 function createTempGitRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-archive-git-'))
+  const dir = mkScratch('ihui-archive-git-')
   const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
   spawnSync('git', ['init', '-q'], opt)
   spawnSync('git', ['config', 'user.email', 'test@ihui.local'], opt)
@@ -78,7 +78,7 @@ test('PROJECT_PLAN.md 不存在 → exit 0 + 跳过消息', () => {
     assert.equal(r.status, 0, `文件不存在应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /跳过|不存在/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -93,7 +93,7 @@ test('无已完成任务(只有未完成 [ ])→ exit 0 + 跳过消息', () => {
     assert.match(r.out, /无可归档|跳过/)
     assert.ok(!existsSync(archiveFilePath(dir)), '不应创建归档文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -109,7 +109,7 @@ test('已完成任务日期 < 7 天(默认阈值)→ 不归档 exit 0', () => {
     assert.match(r.out, /无可归档|跳过/)
     assert.ok(!existsSync(archiveFilePath(dir)), '归档文件不应存在')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -127,7 +127,7 @@ test('已完成任务日期 ≥ 7 天(默认阈值)→ 实际归档 exit 0', () 
     assert.match(plan, /已归档/)
     assert.ok(!plan.includes('内容A'), 'PROJECT_PLAN.md 不应再含原任务正文')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -145,7 +145,7 @@ test('--dry-run: 有可归档任务但不写文件 → exit 0 + dry-run 消息',
     const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
     assert.ok(plan.includes('任务A'), 'dry-run 不应修改 PROJECT_PLAN.md')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -162,7 +162,7 @@ test('--all: 归档所有已完成任务(含近期任务)→ exit 0 + 归档文�
     const archive = readFileSync(archiveFilePath(dir), 'utf8')
     assert.ok(archive.includes('任务A'), '归档文件应含任务A')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -188,7 +188,7 @@ test('--days 3: 任务 2 天前不归档,5 天前归档', () => {
     // 占位保留标题文本,但正文应已移走(用与标题不冲突的正文文本校验)
     assert.ok(!plan.includes('较旧详情'), 'PROJECT_PLAN.md 不应再含较旧任务正文')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -210,7 +210,7 @@ test('无日期的已完成任务: 默认模式不归档,--all 归档', () => {
     const archive = readFileSync(archiveFilePath(dir), 'utf8')
     assert.ok(archive.includes('任务A'), '--all 应归档无日期任务')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -228,7 +228,7 @@ test('标题识别: ### [x] 任务A ✅(DATE) 格式 → 正确提取日期并�
     assert.match(r.out, /已归档/)
     assert.ok(existsSync(archiveFilePath(dir)), '应创建归档文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -253,7 +253,7 @@ test('标题识别:§1 的文档形态 `### XXX(已完成 ✅ 日期)` 必须被
     assert.ok(existsSync(archiveFilePath(dir)), '应真写出归档文件')
     assert.ok(!r.out.includes('无可归档'), '不得再报「无可归档」')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -266,7 +266,7 @@ test('标题识别:无 ✅ 的小节标题(如「### 已完成清单」)不算�
     assert.match(r.out, /无可归档|共 0 个已完成/, '无 ✅ 不该算条目')
     assert.ok(!existsSync(archiveFilePath(dir)), '不应创建归档文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -296,7 +296,7 @@ test('归档产物: 占位注释格式 + 归档文件含 header 与正文', () =
     assert.ok(archive.includes('内容A行1'), '归档文件应含任务正文')
     assert.match(archive, /\n---\n/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -328,7 +328,7 @@ test('批量: 多个已完成任务同时归档,全部替换为占位', () => {
       '归档文件应含全部 3 个任务',
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -360,7 +360,7 @@ test('追加模式: 同日多次运行归档,归档文件追加不覆盖,header 
     assert.ok(archive2.includes('任务B'), '归档文件应含任务B')
     assert.equal((archive2.match(/PROJECT_PLAN 自动归档/g) || []).length, 1, '追加不应再写 header')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -390,7 +390,7 @@ test('--auto-commit: 归档后自动 git commit(验证 commit 创建 + 工作区
     const status = execSync('git status --porcelain', { cwd: dir, encoding: 'utf8' }).trim()
     assert.equal(status, '', '工作区应干净')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -413,7 +413,7 @@ test('边界: 已完成条目由 --- 分隔线终止 → 正确提取,不越界�
     const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
     assert.ok(plan.includes('其他章节'), 'PROJECT_PLAN.md 应保留其他章节')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -466,7 +466,7 @@ test('真实形态「### XXX(YYYY-MM-DD 完成 ✅)」必须被认出并归档;�
     assert.ok(plan.includes('保留内容'), '边界外内容不得被动')
     assert.match(plan, /<!-- 已归档\(/, '原位置必须留 13c 认得的占位注释')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -490,7 +490,7 @@ test('无日期的 ✅ 标题不得被自动档搬走(≥7 天判据要求有日
     assert.equal(r2.status, 0)
     assert.match(r2.out, /发现 1 个可归档/, '--all 才放开无日期的条目')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -519,7 +519,7 @@ test('大批量阀门:自动档一次搬 >25 条必须拒绝且不写盘,人工 
     assert.equal(r2.status, 0)
     assert.ok(existsSync(archiveFilePath(dir)), '显式放行后才真归档')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -557,7 +557,7 @@ test('自动档 commit 必须带 pathspec:共享索引里挂着别人的 staged 
       '索引态断言占位(不同 git 版本输出形态不同,主断言看上面的 commit 文件清单)',
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -599,7 +599,7 @@ test('生产形态的 .gitignore(整目录忽略 .ihui-agent/)下,自动档仍�
     assert.match(plan, /<!-- 已归档\(/, '原位置须留占位注释')
     assert.ok(plan.includes('别的内容'), '条目外内容不得被动')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -657,7 +657,7 @@ test('回滚分支必须真被执行过:git add 失败时计划文档要写回�
       `撤销暂存必须生效,实得 staged=${JSON.stringify(staged)}`,
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -717,7 +717,7 @@ test('## 级条目端到端:父块吞并嵌套 ✅ 子标题一起搬;无 ✅ �
       .replace(/\x1b\[[0-9;]*m/g, '')
     assert.equal(g.status, 0, `归档后 13c 必须通过,实得 ${g.status}:\n${gout.slice(0, 600)}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -741,6 +741,6 @@ test('真实 HEAD 面逐字行作夹具:## O74 完成条目必须被认出(§22c
     const archive = readFileSync(archiveFilePath(dir), 'utf8')
     assert.ok(archive.includes('收敛器不再拿'), '归档件须含真实标题原文')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
