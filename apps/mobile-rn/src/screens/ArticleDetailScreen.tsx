@@ -327,8 +327,8 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   commentSheet: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius['2xl'],
-    borderTopRightRadius: rnRadius['2xl'],
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
     paddingTop: 14,
     minHeight: 360,
     maxHeight: '72%',
