@@ -27389,5 +27389,8 @@
     "hintConfirm": "confirm",
     "hintClose": "close",
     "clearAriaLabel": "Clear search"
+  },
+  "statusPage": {
+    "incidentsUnavailable": "Incident data is temporarily unavailable. An empty list here does not mean there were no incidents."
   }
 }
