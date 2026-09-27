@@ -23,16 +23,14 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { dirname, join, normalize, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -95,7 +93,7 @@ function localImportClosure(entryRel, seen = new Set()) {
 }
 
 function makeDrillRepo() {
-  const tmp = mkdtempSync(join(tmpdir(), 'gk-drift-'))
+  const tmp = mkScratch('gk-drift-')
   mkdirSync(join(tmp, 'scripts'), { recursive: true })
   for (const rel of localImportClosure('heal-worktree-tracked.mjs')) {
     const dst = join(tmp, 'scripts', rel)
@@ -148,7 +146,7 @@ test('CLI 契约:有漂移时 exit 0 且最后一行是 aligned>=1 的 JSON,文�
     assert.equal(readFileSync(join(tmp, 'a.ts'), 'utf8'), 'v2\n', '对齐后内容必须等于 HEAD')
     assert.equal(g(['status', '--porcelain']).trim(), '', '对齐后工作区应干净')
   } finally {
-    rmSync(tmp, { recursive: true, force: true })
+    rmScratch(tmp)
   }
 })
 
@@ -165,7 +163,7 @@ test('CLI 契约:无漂移时同样 exit 0 + 最后一行可解析(守护不得�
     assert.equal(r2.aligned, 0, '独有编辑内容被误判为漂移并覆盖')
     assert.equal(readFileSync(join(tmp, 'a.ts'), 'utf8'), 'mine\n')
   } finally {
-    rmSync(tmp, { recursive: true, force: true })
+    rmScratch(tmp)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
