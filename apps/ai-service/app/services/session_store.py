@@ -814,15 +814,36 @@ class SessionStore:
         limit: int = 50,
         offset: int = 0,
         include_archived: bool = False,
+        owner_user_id: str | None = None,
     ) -> ThreadPage:
-        where = "" if include_archived else " WHERE archived = 0"
+        """线程分页。**owner_user_id 非空时按承载层绑定的属主过滤**。
+
+        threads 表没有 user_id 列(见 _SCHEMA),属主只存在 metadata JSON 里 ——
+        所以过滤必须走 `json_extract(metadata,'$.userId')`,不能事后在响应侧筛:
+        那样 total 说的是全量、threads 说的是筛过的那批,两个数出自两批行
+        ("计数诚实性":回报的数字必须是被审那批的数)。WHERE 里判 ⇒ COUNT(*) 与
+        被分页的天然是同一批。
+
+        owner_user_id=None(调用方拿不到已验证身份:未鉴权/dev 通道)⇒ 不加该条件,
+        全量给 —— 这是"无从对账"时的历史行为,不是"允许看别人的"。
+        带 owner_user_id 时,**没有 userId 的历史行按排除**处理:它们没有可证明的
+        属主,把它算进任何一个人的清单等于凭空给一个身份背书(而引擎侧
+        `_principal_allows` 对 None 属主的放过只适用于"同一连接也拿不到身份"那一格;
+        这里是"连接拿到了身份、行拿不到",方向相反,必须排除)。
+        """
+        conditions: list[str] = [] if include_archived else ["archived = 0"]
+        args: list[Any] = []
+        if owner_user_id is not None:
+            conditions.append("json_extract(metadata, '$.userId') = ?")
+            args.append(owner_user_id)
+        where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
         with self._lock:
             total_row = self._conn.execute(
-                f"SELECT COUNT(*) AS c FROM threads{where}"
+                f"SELECT COUNT(*) AS c FROM threads{where}", args
             ).fetchone()
             rows = self._conn.execute(
                 f"SELECT * FROM threads{where} ORDER BY updated_at DESC LIMIT ? OFFSET ?",
-                [max(0, int(limit)), max(0, int(offset))],
+                [*args, max(0, int(limit)), max(0, int(offset))],
             ).fetchall()
         threads = [_row_to_thread(r) for r in rows]
         total = _row_int(total_row, "c")
