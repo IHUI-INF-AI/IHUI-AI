@@ -34,6 +34,42 @@ export const RADIUS_STEPS = {
   '2xl': 16,
 }
 
+/**
+ * 元素角色 → 档位(**唯一一处**"这个元素该用哪档"的记录)。
+ *
+ * 为什么必须有它:上面的 RADIUS_STEPS 只把**档位值**收成一份,却从没规定**哪类元素取哪一档**,
+ * 于是各端各人按直觉选 —— 实测同一张卡片小程序写 `rounded-lg`(8)、RN 写 `rnRadius.xl`(12),
+ * FloatBox 一端 16 一端 8;而守门 77 只判"有没有绕档位表写死数字",两端都规矩引用 token 所以
+ * 它一路报绿。跨端同名组件对账门(128)原本又以"圆角归 77 管"为由把圆角整族排除 ——
+ * 两台尺子互相指认,这一格此前无人看守。
+ *
+ * 取值按**文档原意**而不是按档名:docs/UI_GUIDELINES.md §3.1 的角色是绑在 px 上的
+ * (极小 2 / 小 4 / 中等 6 / 较大 8 / 大 12 / 特大 16),而 2026-09-23 档位表收口把
+ * sm 从 2px 改成 4px、裸 rounded 从 4px 改成 8px,所以照档名抄文档会得到偏移一档的错值
+ * —— 那两行文档像素现已随本表更正。
+ *
+ * 只登记有真实取用差异的角色,不得为"看起来全"而虚构角色;新角色必须同时有消费方。
+ */
+export const RADIUS_ROLES = {
+  /** 极小元素:标签内角、计数点 */
+  tiny: 'xs',
+  /** 小元素:按钮、输入框 */
+  control: 'sm',
+  /** 中等元素:导航项、chip */
+  chip: 'md',
+  /** 较大元素:卡片、下拉(2026-09-27 用户定档:卡片一律此档,不取 xl) */
+  card: 'lg',
+  /** 大容器:面板、弹窗 */
+  panel: 'xl',
+  /** 特大容器:主卡片 */
+  hero: '2xl',
+}
+
+/** 角色 → px 数值(RN StyleSheet / 内联 style 直接按角色取档) */
+export const rnRadiusFor = Object.fromEntries(
+  Object.entries(RADIUS_ROLES).map(([role, step]) => [role, RADIUS_STEPS[step]]),
+)
+
 /** 档位 → rem 字符串(Tailwind theme.borderRadius 消费;1rem = 16px) */
 export const RADIUS_REM = Object.fromEntries(
   Object.entries(RADIUS_STEPS).map(([step, px]) => [step, `${px / 16}rem`]),
