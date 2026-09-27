@@ -494,3 +494,106 @@ test('T20 方向形态真仓阳性对照 + 窄正则不得回来(漏计一侧 = 
   const gateSrc = readFileSync(SELF, 'utf8').replace(/\s+/g, ' ')
   assert.match(gateSrc, /方向与角形态必须与整格形态同判/, '自检里的方向用例不见了 ⇒ 判据被回退')
 })
+
+/**
+ * T23~T25 配对源扩面(O81 票⑭)的装车锁。
+ * 立票理由不是"多扫一个目录":`packages/app/src/features/**` 此前不在配对源里,而
+ * `packages/app/src/index.ts` 的 `UserInfoCard` 出口指向的正是 `features/cards/` 那一份 ——
+ * 同族三份活实现,改真正被导出的那一份**不移动任何读数**,绿灯建立在另外两份身上。
+ * 所以这三条锁各自钉一个失效型:
+ *   T23 面扩了但判据没扩(SIDES 加一行、scan/prune 不喂出口指向 = 白扩);
+ *   T24 候选点名与"一份族一条腿"(静默选一份 / 同一族记两次账 都在这里翻红);
+ *   T25 两侧都扫 + 选腿比较器只许一份(配对层与换腿各写一套序 = 同一族两处选到不同份)。
+ * 形状锁一律比归一化文本、取实参列表再判"含不含"(T10 同一课:锁死字节形会在一次
+ * 与正确性无关的 prettier 重排上假红)。
+ */
+test('T23 扩面装车锁:features 必须在 rn 配对源里,出口指向必须真接进 scan 与换腿', () => {
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  const sides = /const SIDES = \{[^}]*rn: \[([^\]]*)\]/.exec(txt)
+  assert.ok(sides, '找不到 SIDES 的 rn 配对源清单(整块搬家了要同步改本锁,不得删锁)')
+  for (const d of [
+    'apps/mobile-rn/src/components',
+    'packages/app/src/components',
+    'packages/app/src/features',
+  ])
+    assert.ok(sides[1].includes(`'${d}'`), `rn 配对源缺 ${d} ⇒ 那一整面改名不移动任何读数`)
+  const argsAfter = (label) => {
+    const m = new RegExp(`\\b${label}\\(([^)]*)\\)`).exec(txt)
+    return m ? m[1] : null
+  }
+  assert.ok(
+    /const probe = scan\(/.test(txt),
+    '缺"扩面后先探一遍同侧多候选"⇒ 出口指向算不出来,三序退化成平台后缀 + 目录序',
+  )
+  const scanArgs = argsAfter('let pairs = scan')
+  assert.ok(
+    scanArgs && /exit\.maps/.test(scanArgs),
+    'collect 探到出口指向却不喂给 scan ⇒ 出口链是算了丢掉的第二份真相',
+  )
+  const pruneArgs = argsAfter('const pruned = pruneUnreachableLegs')
+  assert.ok(
+    pruneArgs && /preferMaps/.test(pruneArgs),
+    '可达性换腿没收到 preferMaps ⇒ 换完腿就把"出口指的是哪一份"抹平了',
+  )
+})
+
+test('T24 三份同名:进审候选逐条点名 + 一份族只许一条腿(真仓阳性对照)', () => {
+  const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+  })
+  assert.equal(r.status, 0, `索引面判红:\n${(r.stdout || r.stderr || '').slice(-600)}`)
+  const j = JSON.parse(r.stdout)
+  assert.ok(Array.isArray(j.multiCandidates), '--json 不暴露 multiCandidates ⇒ 人读报告的点名无源可查')
+  const mc = j.multiCandidates
+  assert.ok(mc.length > 0, '同侧多候选在真仓恒空 ⇒ 披露半边没人看过,自检过不等于装车')
+  for (const e of mc) {
+    assert.ok(e.chosen && Array.isArray(e.others) && e.others.length > 0, `多候选腿没点名未选:${e.name}`)
+    assert.ok(!e.others.includes(e.chosen), `${e.name} 选中的那份又出现在未选名单里`)
+    assert.ok(['suffix', 'exit', 'order'].includes(e.by), `${e.name} 的依据不在"后缀 > 出口 > 目录序"里`)
+    assert.ok(['rn', 'miniapp'].includes(e.side), `${e.name} 报不出是哪一侧的多候选`)
+  }
+  const keys = mc.map((e) => `${e.name}@${e.side}`)
+  assert.equal(new Set(keys).size, keys.length, '同一族同一侧被点名两次 ⇒ 候选没有收敛成一个桶')
+  const found = j.findings.map((f) => f.name)
+  assert.equal(new Set(found).size, found.length, '同名族被拆成多条腿 ⇒ 同一族差异记两次账、锚点虚高')
+  const ui = mc.find((e) => e.name === 'UserInfoCard')
+  assert.ok(
+    ui,
+    '真仓不再有三份同名的 UserInfoCard 腿 ⇒ 换成现役的多候选族继续钉,别把锁删掉',
+  )
+  assert.equal(ui.by, 'exit', '三候选的裁决不再是出口指向 ⇒ 出口链或配对源改了形')
+  assert.match(ui.chosen, /packages\/app\/src\/features\/cards\//, '选中的腿不是出口指的那一份')
+  assert.ok(
+    ui.others.includes('packages/app/src/components/UserInfoCard.tsx'),
+    '未选名单漏了 components 那一份 ⇒ 点名只点一半',
+  )
+})
+
+test('T25 同侧多候选不得只查一侧;选腿比较器与出口链只许一份实现', () => {
+  const mini = [
+    'apps/miniapp-taro/src/components/Foo.tsx',
+    'apps/miniapp-taro/src/components/Foo.taro.tsx',
+  ]
+  const rn = ['packages/app/src/features/cards/Foo.tsx']
+  const s = src.scan(mini, rn, {}, {})
+  const m = s.multiCandidates.filter((e) => e.name === 'Foo')
+  assert.equal(m.length, 1, '小程序侧的同名多候选没被点名 ⇒ 披露只覆盖一半侧面')
+  assert.equal(m[0].side, 'miniapp')
+  assert.equal(m[0].by, 'suffix', '平台后缀是第一顺位,不得被出口指向或目录序抢走')
+  assert.match(m[0].chosen, /Foo\.taro\.tsx$/, '构建期实际解析的那一份必须赢')
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(/export function pickCandidate\(/.test(txt), 'pickCandidate 被摘线 ⇒ 选腿退回各写一套')
+  assert.equal(
+    (txt.match(/const pick = pickCandidate\(/g) || []).length,
+    2,
+    '配对层与可达性换腿必须共用这一份比较器:少一处就是又一处各写各的序(同一族两处选到不同份)',
+  )
+  assert.ok(!/cands\.reduce\(/.test(txt), '"取候选里最后一个"还留着 ⇒ 同一族在两处能选到不同份')
+  assert.ok(/EXIT_BARRELS/.test(txt), '出口桶被摘线 ⇒ 第二顺位凭空消失,退化成猜')
+  assert.ok(
+    /k === 're' \|\| k === 'star'/.test(txt),
+    '出口链不再只认再导出 ⇒ 会把"被 import 过"当成出口,反向对照失去意义',
+  )
+})

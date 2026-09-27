@@ -230,12 +230,34 @@ export interface ReclaimResult {
   trigger: ReclaimTrigger
   /** 被改写的结果体个数 */
   reclaimedCount: number
+  /**
+   * **因信封保护而放弃改写**的结果体条数(与 reclaimedCount 是两个数,不是互补)。
+   *
+   * 为什么必须有这一格:isEnvelopeResult 那条 `return null` / `return part` 在账面
+   * 上什么都留不下 —— 而"什么都没留下"正是本仓最高频的失效型(静默跳过等于没跳过)。
+   * 读结果的人据此能分清两件长得一样的事:"历史里没有该回收的东西" vs
+   * "有 N 条达标的正文,是我们**主动**没动它"。
+   *
+   * 计数口径刻意收窄到"白名单命中 **且** 体积达标 **且** 未被前几道保护拦下"那一层,
+   * 否则一条 30 token 的信封也会被记成"放弃了一次改写",那是虚报(与本禁令反方向)。
+   */
+  envelopeSkipped: number
   beforeTokens: number
   afterTokens: number
   /** before - after(未改写时恒 0) */
   savedTokens: number
   /** 占窗口比例(以改写前 token 计) */
   usageRatio: number
+}
+
+/**
+ * 单轮回收内的信封放弃累加器。
+ *
+ * 用可变对象而不是把两个 tryReclaim* 改成返回判别联合:它们"未改写"的返回语义
+ * (null / 原 part)要逐字不变(现有用例按它断言),而计数只需从主入口读一份。
+ */
+interface EnvelopeSkipTally {
+  count: number
 }
 
 /**
@@ -260,6 +282,10 @@ export function reclaimStaleToolResults(
   const minResultTokens = opts.minResultTokens ?? RECLAIM_MIN_RESULT_TOKENS
   const whitelist = new Set<string>(opts.reclaimableTools ?? RECLAIMABLE_TOOL_NAMES)
 
+  // 累加器在触发判定**之前**建:未触发/未扫描的路径按定义是 0,
+  // 但四个返回点必须读同一个对象,否则"没扫"与"扫了没放弃"在账面上同形。
+  const envelopeSkips: EnvelopeSkipTally = { count: 0 }
+
   const beforeTokens = opts.currentTokens ?? estimateMessagesTokens(messages)
   const usageRatio = contextLimit > 0 ? beforeTokens / contextLimit : 0
 
@@ -271,7 +297,7 @@ export function reclaimStaleToolResults(
   if (contextLimit > 0 && usageRatio >= windowRatioTrigger) trigger = 'window-ratio'
   else if (idleMs !== null && idleMs >= idleTriggerMs) trigger = 'idle'
   if (trigger === null) {
-    return notApplied(messages, 'not-triggered', null, beforeTokens, usageRatio)
+    return notApplied(messages, 'not-triggered', null, beforeTokens, usageRatio, envelopeSkips)
   }
 
   const systemMsgs: ChatMessage[] = []
@@ -286,7 +312,14 @@ export function reclaimStaleToolResults(
   const protectedRounds = Math.max(1, Math.min(keepRecentRounds, rounds.length))
   const reclaimableEnd = rounds.length - protectedRounds
   if (reclaimableEnd <= 0) {
-    return notApplied(messages, 'nothing-reclaimable', trigger, beforeTokens, usageRatio)
+    return notApplied(
+      messages,
+      'nothing-reclaimable',
+      trigger,
+      beforeTokens,
+      usageRatio,
+      envelopeSkips,
+    )
   }
 
   const nameIndex = buildToolNameIndex(messages)
@@ -307,13 +340,18 @@ export function reclaimStaleToolResults(
       if (msg.role === 'tool') {
         const name =
           typeof msg.tool_call_id === 'string' ? nameIndex.get(msg.tool_call_id) : undefined
-        const replaced = tryReclaimToolMessage(msg, name, whitelist, minResultTokens)
+        const replaced = tryReclaimToolMessage(msg, name, whitelist, minResultTokens, envelopeSkips)
         if (replaced) rewritten++
         nextNonSystem.push(replaced ?? msg)
         continue
       }
       if (msg.role === 'user' && carriesEmbeddedResults(msg)) {
-        const { message, changed } = tryReclaimEmbedded(msg, whitelist, minResultTokens)
+        const { message, changed } = tryReclaimEmbedded(
+          msg,
+          whitelist,
+          minResultTokens,
+          envelopeSkips,
+        )
         if (changed) rewritten += changed
         nextNonSystem.push(message)
         continue
@@ -323,7 +361,24 @@ export function reclaimStaleToolResults(
   })
 
   if (rewritten === 0) {
-    return notApplied(messages, 'nothing-reclaimable', trigger, beforeTokens, usageRatio)
+    // 诚实性出口:这一格若不喊,账面唯一信号是 reason='nothing-reclaimable' ——
+    // 读起来像"历史里没有该回收的东西",而真实情况可能是"有 N 条达标正文,
+    // 是信封保护让我们**主动**没动它"。两种状态对下游是不同决策
+    // (前者可以放心,后者说明体积拿不回来是设计代价),不得混成一个词。
+    if (envelopeSkips.count > 0) {
+      console.warn(
+        `[Compaction] reclaim-skipped-envelope: ${envelopeSkips.count} 条已达回收体积门槛的` +
+          `工具结果是结果信封,按信封保护整段跳过改写(产物指针不得回收)⇒ 本轮零改写`,
+      )
+    }
+    return notApplied(
+      messages,
+      'nothing-reclaimable',
+      trigger,
+      beforeTokens,
+      usageRatio,
+      envelopeSkips,
+    )
   }
 
   const candidate = [...systemMsgs, ...nextNonSystem]
@@ -338,6 +393,7 @@ export function reclaimStaleToolResults(
       reason: 'below-min-benefit',
       trigger,
       reclaimedCount: 0,
+      envelopeSkipped: envelopeSkips.count,
       beforeTokens,
       afterTokens: beforeTokens,
       savedTokens: 0,
@@ -351,6 +407,7 @@ export function reclaimStaleToolResults(
     reason: 'applied',
     trigger,
     reclaimedCount: rewritten,
+    envelopeSkipped: envelopeSkips.count,
     beforeTokens,
     afterTokens,
     savedTokens,
@@ -364,6 +421,7 @@ function notApplied(
   trigger: ReclaimTrigger,
   beforeTokens: number,
   usageRatio: number,
+  envelopeSkips: EnvelopeSkipTally,
 ): ReclaimResult {
   return {
     messages,
@@ -371,6 +429,7 @@ function notApplied(
     reason,
     trigger,
     reclaimedCount: 0,
+    envelopeSkipped: envelopeSkips.count,
     beforeTokens,
     afterTokens: beforeTokens,
     savedTokens: 0,
@@ -384,11 +443,18 @@ function tryReclaimToolMessage(
   name: string | undefined,
   whitelist: Set<string>,
   minResultTokens: number,
+  envelopeSkips: EnvelopeSkipTally,
 ): ChatMessage | null {
   if (!isReclaimableToolName(name, whitelist)) return null
   if (isReclaimedPlaceholder(msg.content) || hasMultimodalBlock(msg.content)) return null
-  if (isEnvelopeResult(msg.content)) return null
   if (estimateTokens(msg.content) < minResultTokens) return null
+  // 信封判定刻意排在**体积门槛之后**:envelopeSkipped 说的是"这条本来会被改写、
+  // 我们主动放弃",把体积本来就不达标的信封也计进去就是虚报(与本仓"把没判写成
+  // 判过了"是同一个禁令的反方向)。判定本身与顺序无关 —— 四条都是"不改写"。
+  if (isEnvelopeResult(msg.content)) {
+    envelopeSkips.count++
+    return null
+  }
   return { ...msg, content: RECLAIM_PLACEHOLDER }
 }
 
@@ -401,6 +467,7 @@ function tryReclaimEmbedded(
   msg: ChatMessage,
   whitelist: Set<string>,
   minResultTokens: number,
+  envelopeSkips: EnvelopeSkipTally,
 ): { message: ChatMessage; changed: number } {
   const parts = msg.content.split('\n\n')
   let changed = 0
@@ -412,9 +479,13 @@ function tryReclaimEmbedded(
     const body = m[3] ?? ''
     if (!isReclaimableToolName(name, whitelist)) return part
     if (isReclaimedPlaceholder(body)) return part
-    if (isEnvelopeResult(body)) return part
     if (hasMultimodalBlock(body) || hasMultimodalBlock(part)) return part
+    // 同上:信封判定排在体积门槛之后,计数只记"本来会被改写"的那些
     if (estimateTokens(body) < minResultTokens) return part
+    if (isEnvelopeResult(body)) {
+      envelopeSkips.count++
+      return part
+    }
     changed++
     return `[工具结果 ${status}] ${name}\n${RECLAIM_PLACEHOLDER}`
   })
