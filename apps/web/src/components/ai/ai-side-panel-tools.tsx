@@ -45,6 +45,7 @@ import { AgentSwarmMonitor } from '@/components/ai/agent-swarm-monitor'
 import { OrchestrationHubPanel } from '@/components/ai/orchestration-hub-panel'
 import { RoutinesPanel } from '@/components/ai/routines-panel'
 import { AgentTraceViewer } from '@/components/ai/AgentTraceViewer'
+import { StreamInspector } from '@/components/ai/stream-inspector'
 import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
 import { BestOfCompare } from '@/components/ai/best-of-compare'
 // P3 #41(2026-09-16 立):记忆图谱可视化
@@ -115,6 +116,7 @@ export type ToolTabKey =
   | 'wiki'
   | 'integrations'
   | 'workspace'
+  | 'inspector'
 
 const TAB_KEYS: ToolTabKey[] = [
   'goal',
@@ -143,6 +145,7 @@ const TAB_KEYS: ToolTabKey[] = [
   'wiki',
   'integrations',
   'workspace',
+  'inspector',
 ]
 
 /** routines 本地持久化键(无后端 API,localStorage 兜底) */
@@ -716,6 +719,9 @@ export function AiSidePanelTools() {
       // Workspace 文件夹选择面板(2026-09-14 接线孤儿组件,规划 5.5)
       case 'workspace':
         return <WorkspacePanelTab />
+      // D116(2026-09-27):原始 SSE 全帧检查器(开发者 transcript,采集默认关闭)
+      case 'inspector':
+        return <StreamInspector />
       default:
         return emptyHint
     }

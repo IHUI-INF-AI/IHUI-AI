@@ -9777,6 +9777,7 @@
     "restoreFailed": "Failed to restore checkpoint",
     "bestOfAdopted": "Selected candidate added to the conversation",
     "tabs": {
+      "inspector": "Raw frames",
       "goal": "Goal",
       "memory": "Memory",
       "plan": "Plan",
@@ -9807,6 +9808,22 @@
     "applied": "Applied",
     "apply": "Apply",
     "hint": "Available AI tools",
+    "inspector": {
+      "start": "Start capture",
+      "stop": "Stop capture",
+      "clear": "Clear",
+      "export": "Export JSONL",
+      "filter": "Filter by type",
+      "filterAll": "All types",
+      "count": "{total} frames, showing {shown}",
+      "empty": "No frames",
+      "hint": "Click \"Start capture\" and the raw SSE frames of your next AI reply will be recorded here frame by frame (developer debug view)",
+      "waiting": "Waiting for stream frames…",
+      "truncated": "Only the latest 300 frames are rendered (export JSONL for all {total} frames)",
+      "copied": "Copied",
+      "copyFailed": "Copy failed",
+      "copyOne": "Copy this frame"
+    },
     "worldsAdopted": "Branch reply adopted"
   },
   "agentHooks": {
