@@ -233,7 +233,7 @@ export function GoalCard() {
               <span>{t('progress')}</span>
               <span data-testid="goal-progress-value">{goal.progress}%</span>
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-sm bg-muted">
+            <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted">
               <div
                 data-testid="goal-progress-bar"
                 className="h-full rounded-sm bg-cta transition-all"

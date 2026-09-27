@@ -93,15 +93,20 @@ export function ContextBudgetBar() {
         <span
           className={cn(
             'ml-auto inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded px-1 text-[10px] font-semibold leading-none tabular-nums',
-            critical ? 'bg-red-500/20 text-red-700 dark:text-red-300' : 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
+            critical
+              ? 'bg-red-500/20 text-red-700 dark:text-red-300'
+              : 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
           )}
         >
           {percent}%
         </span>
       </div>
-      <div className="mt-1.5 h-1 overflow-hidden rounded bg-muted" aria-hidden="true">
+      <div className="mt-1.5 h-1 overflow-hidden rounded-xs bg-muted" aria-hidden="true">
         <div
-          className={cn('h-full rounded transition-[width] duration-300', critical ? 'bg-red-500' : 'bg-amber-500')}
+          className={cn(
+            'h-full rounded transition-[width] duration-300',
+            critical ? 'bg-red-500' : 'bg-amber-500',
+          )}
           style={{ width: `${percent}%` }}
         />
       </div>
