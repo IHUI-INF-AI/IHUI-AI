@@ -3,16 +3,20 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Skills 平面加载 — 四级目录扫描 + flat *.md → slash command。
+ * Skills 平面加载 — 四级目录扫描 + 两种形态 → slash command。
  *
  * 灵感来源:参考行业 Agent 框架的 skills 加载机制(四级目录兼容 .ihui/.agents/.claude/.cursor)。
  * 简化策略(做减法):
- *   - 只扫描 flat *.md 文件(不递归子目录),文件名(去扩展名)→ slash 命令名
+ *   - 收两种形态:平铺 `<root>/<name>.md`,以及目录包 `<root>/<name>/SKILL.md`(**只下钻一层**)
  *   - 四级目录优先级:CWD > repo root > user home(高→低,前者覆盖后者同名 skill)
  *   - skills 内容注入 system prompt 的"项目上下文"段,让 LLM 按指令执行
  *   - 不实现 skill 嵌套引用/变量替换/条件加载(保持最小化)
  *
- * 目录结构(按优先级从高到低):
+ * 为什么必须有目录包形态(2026-09-27 补):`.agents/skills`、`.claude/skills`、`~/.ihui/skills`
+ * 这三个我们自己声明的根,外部技能包实际就按 `<name>/SKILL.md` 落地;旧实现第一行
+ * `if (!entry.isFile()) continue` 把目录整个跳过,于是"装了技能但列表里 0 个"且没有任何解释。
+ *
+ * 目录结构(按优先级从高到低;每根下「平铺 .md」与「目录包 <名>/SKILL.md」两种形态都收):
  *   <cwd>/.ihui/skills/*.md          — 项目本地(最高优先级)
  *   <cwd>/.agents/skills/*.md        — 通用 agent 社区
  *   <cwd>/.claude/skills/*.md        — Claude Code 兼容
@@ -342,52 +346,103 @@ export function getAllowedTools(fm: SkillFrontmatter | undefined): string[] {
 }
 
 /**
- * 扫描单个目录下的 flat *.md 文件,返回 Skill 数组。
- * 不递归子目录,只处理文件(非目录)。
+ * 读取一份技能文件并归一成 Skill。取不到/解析失败 ⇒ 返回 null,由调用方跳过。
+ * `fallbackName` 是 frontmatter 没有 name 时用的名字(平铺文件用文件名,目录形态用目录名)。
+ */
+function readSkillFile(
+  fullPath: string,
+  fallbackName: string,
+  priority: number,
+): Skill | null {
+  try {
+    const raw = fs.readFileSync(fullPath, 'utf-8');
+    const def = parseSkillDefinition(raw, fullPath);
+    const fm = def.frontmatter;
+    const name = fm.name ?? fallbackName;
+    let description: string;
+    if (fm.description) {
+      description = fm.description;
+    } else if (def.hasFrontmatter) {
+      description = def.content.slice(0, 80);
+    } else {
+      const firstLine = def.content.split('\n').find((l) => l.trim().length > 0) ?? '';
+      description = firstLine.slice(0, 80);
+    }
+    const skill: Skill = {
+      name,
+      source: fullPath,
+      description,
+      body: def.content,
+      priority,
+    };
+    if (def.hasFrontmatter) {
+      skill.frontmatter = fm;
+    }
+    return skill;
+  } catch {
+    // 读取失败跳过
+    return null;
+  }
+}
+
+/** 去重键:技能**文件的真实路径**(不是 name)。 */
+function realKey(file: string): string {
+  try {
+    return fs.realpathSync(file);
+  } catch {
+    // 取不到 realpath(权限/竞态)时退回规范化绝对路径 —— 宁可少去重,也不能把两份不同技能并成一份。
+    return path.resolve(file);
+  }
+}
+
+/**
+ * 扫描单个目录下的技能,返回 Skill 数组。两种形态都收:
+ *   ① 平铺 `<dir>/<name>.md`                      —— 本仓历史形态
+ *   ② 目录包 `<dir>/<name>/SKILL.md`(只下一层) —— 社区/行业 Agent 技能包的实际落地形态
+ *
+ * 病灶(第三十七批):旧实现第一行就是 `if (!entry.isFile()) continue`,于是整个目录被跳过,
+ * 而 `.agents/skills`、`.claude/skills`、`~/.ihui/skills` 这三个我们自己声明的扫描根,
+ * 外部技能包一律按 `<name>/SKILL.md` 落地(本机的第三方技能集就是这个形态)。
+ * 症状是"装了技能但 /skills 里 0 个",且**没有任何一句解释** —— 与本仓最高频的失效型同族:
+ * 判据/功能失效的表现永远是安静,而不是报错。
+ *
+ * 两条刻意的设计:
+ *  - 按**文件真实路径**去重,不按 name:同名两份是两份不同的技能(上游同口径),
+ *    按 name 去重会静默吞掉后来那一份;realpath 同时兜住"目录被软链进来"的重复命中。
+ *  - 只下钻一层、且只认 `SKILL.md` 这一个文件名:再深就是别人的资源目录
+ *    (`references/`、`scripts/`、`assets/`),把它们当技能读会污染提示词。
  */
 function scanDir(dir: string, priority: number): Skill[] {
   if (!fs.existsSync(dir)) return [];
   const skills: Skill[] = [];
+  const seen = new Set<string>();
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch {
     return [];
   }
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.md')) continue;
-    const fileStem = entry.name.slice(0, -3);
-    if (!fileStem || fileStem.startsWith('_')) continue;
-    const fullPath = path.join(dir, entry.name);
-    try {
-      const raw = fs.readFileSync(fullPath, 'utf-8');
-      const def = parseSkillDefinition(raw, fullPath);
-      const fm = def.frontmatter;
-      const name = fm.name ?? fileStem;
-      let description: string;
-      if (fm.description) {
-        description = fm.description;
-      } else if (def.hasFrontmatter) {
-        description = def.content.slice(0, 80);
-      } else {
-        const firstLine = def.content.split('\n').find((l) => l.trim().length > 0) ?? '';
-        description = firstLine.slice(0, 80);
-      }
-      const skill: Skill = {
-        name,
-        source: fullPath,
-        description,
-        body: def.content,
-        priority,
-      };
-      if (def.hasFrontmatter) {
-        skill.frontmatter = fm;
-      }
-      skills.push(skill);
-    } catch {
-      // 读取失败跳过
+  const push = (file: string, fallbackName: string): void => {
+    const key = realKey(file);
+    if (seen.has(key)) return;
+    const skill = readSkillFile(file, fallbackName, priority);
+    if (!skill) return;
+    seen.add(key);
+    skills.push(skill);
+  };
+  // 排序保证同一目录内的遍历顺序稳定(否则 readdirSync 的顺序会让"同一文件被两个形态命中"
+  // 时保留哪一份变成随机的)
+  for (const entry of [...entries].sort((a, b) => (a.name < b.name ? -1 : 1))) {
+    if (entry.isFile()) {
+      if (!entry.name.endsWith('.md')) continue;
+      const fileStem = entry.name.slice(0, -3);
+      if (!fileStem || fileStem.startsWith('_')) continue;
+      push(path.join(dir, entry.name), fileStem);
+      continue;
     }
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith('_')) continue;
+    push(path.join(dir, entry.name, 'SKILL.md'), entry.name);
   }
   return skills;
 }
