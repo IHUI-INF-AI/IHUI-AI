@@ -46,8 +46,8 @@ export function StreamingSkeleton() {
       {/* 短标题条 */}
       <div className="h-4 w-32 rounded-md bg-muted animate-pulse" />
       {/* 两条正文条 */}
-      <div className="h-3 w-full rounded-md bg-muted animate-pulse" />
-      <div className="h-3 w-5/6 rounded-md bg-muted animate-pulse" />
+      <div className="h-3 w-full rounded-xs bg-muted animate-pulse" />
+      <div className="h-3 w-5/6 rounded-xs bg-muted animate-pulse" />
       {/* 代码块条 */}
       <div className="mt-1 h-20 w-full rounded-md bg-muted animate-pulse" />
     </div>

@@ -7,7 +7,7 @@ export default function Loading() {
     <div className="space-y-4 p-3">
       <div className="space-y-2">
         <div className="skeleton h-8 w-40 rounded" />
-        <div className="skeleton h-4 w-64 rounded" />
+        <div className="skeleton h-4 w-64 rounded-xs" />
       </div>
       <div className="flex gap-4">
         <div className="skeleton h-10 flex-1 rounded" />
@@ -17,20 +17,20 @@ export default function Loading() {
       <div className="rounded-xl border">
         <div className="border-b p-3">
           <div className="flex gap-4">
-            <div className="skeleton h-4 w-24 rounded" />
-            <div className="skeleton h-4 w-24 rounded" />
-            <div className="skeleton h-4 w-24 rounded" />
-            <div className="skeleton h-4 w-24 rounded" />
-            <div className="skeleton h-4 w-24 rounded" />
+            <div className="skeleton h-4 w-24 rounded-xs" />
+            <div className="skeleton h-4 w-24 rounded-xs" />
+            <div className="skeleton h-4 w-24 rounded-xs" />
+            <div className="skeleton h-4 w-24 rounded-xs" />
+            <div className="skeleton h-4 w-24 rounded-xs" />
           </div>
         </div>
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="flex items-center gap-4 border-b p-3 last:border-b-0">
             <div className="skeleton h-8 w-8 rounded-lg" />
-            <div className="skeleton h-4 w-32 flex-1 rounded" />
-            <div className="skeleton h-4 w-24 rounded" />
-            <div className="skeleton h-4 w-20 rounded" />
-            <div className="skeleton h-4 w-28 rounded" />
+            <div className="skeleton h-4 w-32 flex-1 rounded-xs" />
+            <div className="skeleton h-4 w-24 rounded-xs" />
+            <div className="skeleton h-4 w-20 rounded-xs" />
+            <div className="skeleton h-4 w-28 rounded-xs" />
           </div>
         ))}
       </div>

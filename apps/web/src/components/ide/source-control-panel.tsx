@@ -385,7 +385,7 @@ export function SourceControlPanel() {
             <span className="text-red-600 dark:text-red-400">-{totalDel}</span>
           </span>
         </div>
-        <div className="flex h-1.5 overflow-hidden rounded bg-muted">
+        <div className="flex h-1.5 overflow-hidden rounded-xs bg-muted">
           <div className="h-full bg-green-500" style={{ width: `${addPct}%` }} />
           <div className="h-full bg-red-500" style={{ width: `${100 - addPct}%` }} />
         </div>

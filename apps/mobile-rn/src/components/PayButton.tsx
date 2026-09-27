@@ -19,6 +19,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  View,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -74,44 +75,64 @@ export function PayButton({
     const meta = TYPE_META[type]
     const typeText = t(meta.textKey)
     return (
+      // 动态按压态/禁用态不得写成函数形态的 style:Pressable 被 cssInterop 注册过,函数声明会被
+      // 展开成空对象而整份内联样式静默消失(守门 131 立项那一型)。外层裸 Pressable 只承接点击与
+      // 无障碍语义,带底色/描边/圆角的按钮盒整体下移到子 View 的数组形态上;盒子留外层会把描边挤到
+      // padding 内圈,所以必须整盒下移,并用撑满档把原来由父级 stretch 给出的宽度还给盒子。
       <Pressable
-        style={({ pressed }) => [
-          styles.typeButton,
-          pressed ? styles.pressed : null,
-          isBlocked ? styles.disabled : null,
-        ]}
         onPress={onPress}
         disabled={isBlocked}
         accessibilityRole="button"
         accessibilityLabel={typeText}
       >
-        <Text style={[styles.typeText, { color: meta.color }]}>{typeText}</Text>
+        {({ pressed }) => (
+          <View
+            style={[
+              styles.face,
+              styles.typeButton,
+              pressed ? styles.pressed : null,
+              isBlocked ? styles.disabled : null,
+            ]}
+          >
+            <Text style={[styles.typeText, { color: meta.color }]}>{typeText}</Text>
+          </View>
+        )}
       </Pressable>
     )
   }
 
   return (
+    // 同上(守门 131 那一型):函数形态的 style 落在 Pressable 上会被整份丢掉,故外层只承接交互,
+    // 按钮盒与其按压/禁用态落到子 View 的数组形态上,宽度由撑满档保持原来的"整行宽"外观。
     <Pressable
-      style={({ pressed }) => [
-        styles.button,
-        pressed ? styles.pressed : null,
-        isBlocked ? styles.disabled : null,
-      ]}
       onPress={onPress}
       disabled={isBlocked}
       accessibilityRole="button"
       accessibilityLabel={buttonText}
     >
-      {loading ? (
-        <ActivityIndicator color={tokens.brand.foreground} />
-      ) : (
-        <Text style={styles.text}>{buttonText}</Text>
+      {({ pressed }) => (
+        <View
+          style={[
+            styles.face,
+            styles.button,
+            pressed ? styles.pressed : null,
+            isBlocked ? styles.disabled : null,
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator color={tokens.brand.foreground} />
+          ) : (
+            <Text style={styles.text}>{buttonText}</Text>
+          )}
+        </View>
       )}
     </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
+  // 下移到子 View 的盒子用这一档取回原来由父级 stretch 给出的整行宽;不是新的尺寸档。
+  face: { width: '100%' } as ViewStyle,
   button: {
     height: 50,
     borderRadius: rnRadius.xl,

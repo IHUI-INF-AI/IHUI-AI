@@ -340,6 +340,17 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
   `python apps/ai-service/scripts/relocate_profile_root.py`，确认清单后再 `--apply`。
   它逐键判定：两边都有真实登录态 ⇒ **拒绝并交人工**（不猜哪份作数）；单边有 ⇒ 另一边按
   `*.shell-<stamp>` / `*.probe-copy-<stamp>` **改名归档**（不删除，可回退）。
+- **另外 5 个反风控状态文件同属这一维**：设备图谱 `device_graph.json`、审计
+  `anti-audit-log.jsonl`、冷却 `anti-cooldowns.json`、风险事件 `anti-risk-events.jsonl`、Cookie
+  健康度 `anti-cookie-health.json` 的路径也一律锚定仓库根，唯一出口 =
+  `anti_risk/state_paths.resolve_state_path()`（画像根委托它）。**行为变更**：环境变量
+  `ANTI_RISK_DEVICE_GRAPH_FILE` / `ANTI_RISK_AUDIT_FILE` / `ANTI_RISK_COOLDOWNS_FILE` /
+  `ANTI_RISK_EVENTS_FILE` / `ANTI_RISK_COOKIE_HEALTH_FILE` 给**相对值**时不再按服务启动目录解析 ——
+  要把状态文件放到仓库外必须写**绝对路径**。同一搬迁器另有并列的单文件趟（待搬清单从
+  `anti_risk/*.py` 现读，不硬写名字表）；两侧都非空时它**拒绝**而不是选一份 —— 例如
+  `device_graph.json` 曾出现"历史 9 条 vs 收口后新长 1 条"，正确处置是按 `account_id` **求并集**
+  （同 id 取 `updated_at` 较新那条），两份原件都改名归档、被弃条目单独留档，**不得**用任一方的
+  整份覆盖另一方：这张表是跨账号关联检测的输入，少一条不报错，只会让下一次的"撞脸"看不见。
 
 ---
 

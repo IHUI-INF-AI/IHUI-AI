@@ -12,6 +12,8 @@ import {
   setRefreshToken,
   setUserInfo,
   tokenStore,
+  refreshAccessToken,
+  onUnrecoverableUnauthorized,
 } from './utils/auth'
 import { exchangeSsoCode } from './utils/sso'
 import { initPrivacyGuard } from './utils/privacy'
@@ -19,7 +21,12 @@ import { initPushSubscription } from './utils/push-init'
 import { isMiniAppEnvironment } from './utils/miniapp-login'
 import { useUserStore } from './stores/user'
 import { KEEP_KEYS_ON_CLEAR, IHUI_KEY_PREFIX } from './constants/storage'
-import { setBaseUrl, setTransport, setDeviceFingerprintProvider } from '@ihui/api-client'
+import {
+  setBaseUrl,
+  setTransport,
+  setDeviceFingerprintProvider,
+  setUnauthorizedHandler,
+} from '@ihui/api-client'
 import { bindTokenStoreToApiClient } from '@ihui/shared/auth'
 import { createTaroTransport } from './utils/api-client-transport'
 import { useUiControlBridge } from './hooks/use-ui-control-bridge'
@@ -33,7 +40,11 @@ import './app.css'
 // 初始化 api-client:注入 Taro transport + token provider + baseUrl
 // 使 @ihui/api-client 共享端点可在小程序运行时使用(替代 native fetch)
 // token provider 通过 bindTokenStoreToApiClient 统一接入跨端 TokenStore 契约
-bindTokenStoreToApiClient(tokenStore)
+// 2026-09-27:补 refreshAccessToken —— 此前小程序没注入,`refreshAccessTokenOnce()` 第一行
+// 就 return null ⇒ access token 一过期直接判死,没有任何续期机会(RN 端 2026-09-22 已补)。
+// 同批注册 401 出口:会话真死了要给用户一条"去登录"的路,而不是每屏各显示一句通用文案。
+bindTokenStoreToApiClient(tokenStore, { refreshAccessToken })
+setUnauthorizedHandler(onUnrecoverableUnauthorized)
 setBaseUrl(BASE_URL.replace(/\/api$/, ''))
 setTransport(createTaroTransport())
 setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
