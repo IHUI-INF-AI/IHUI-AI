@@ -21,6 +21,9 @@ import {
   type SQL,
 } from 'drizzle-orm'
 import { randomBytes } from 'node:crypto'
+// D35:游标存续性的类型与 web / 小程序 / RN 共用同一份定义(投影契约住在共享层)。
+// 用 `import type` 是刻意的 —— 该值在 api 侧只出现在返回值形状里,不需要运行时依赖。
+import type { HistoryCursorState } from '@ihui/shared/chat'
 import { db, dbRead } from './index.js'
 import {
   chatConversations,
@@ -639,6 +642,66 @@ export interface FindHistoryTurnPageResult {
   turns: HistoryTurnGroup[]
   nextCursor: { turnOrdinal: number } | null
   hasMore: boolean
+  /**
+   * 本次游标的断点存续性结论。带游标时由 `historyTurnAnchorExists` 的一次索引探测得出;
+   * 不带游标(含 direction=newest —— 该方向根本不消费游标)恒为 `{status:'ok'}`,
+   * 含义是"本次没有需要存续性判定的断点",不是"断点已被验过"。
+   * `stale` 时本页刻意不给数据(turns=[] / nextCursor=null / hasMore=false):
+   * 从一个已消失的轮次往下切的窗口,其上沿与客户端已知最旧轮不再相邻,拼回去就是
+   * D35 验收第二条要防的"上翻丢帧",所以宁可不给。
+   */
+  cursorState: HistoryCursorState
+}
+
+/**
+ * 纯函数:把 SQL 取回的**候选轮次序列**折成本页窗口。
+ *
+ * 判据集中在 JS 而不是散在 SQL 里,和 `advanceHistoryProjection` 同一方针
+ * (SQL 的 `> / <` 只是取数优化,窗口语义这一层要能脱离数据库被判)。
+ * 入参顺序按方向不同:`newer` 是升序(ASC),`newest` / `older` 是降序(DESC + limit+1),
+ * 与 `findHistoryTurnPage` 里两条 selectDistinct 的 orderBy 同形。
+ */
+export function selectHistoryTurnWindow(
+  candidates: readonly number[],
+  limit: number,
+  direction: FindHistoryTurnPageOpts['direction'],
+): { ordinals: number[]; hasMore: boolean } {
+  const hasMore = candidates.length > limit
+  const taken = hasMore ? candidates.slice(0, limit) : candidates
+  return {
+    // 尾部窗口(降序取 limit 条)要还原成升序输出;增量续读本就是升序,不再反转。
+    ordinals: direction === 'newer' ? [...taken] : [...taken].reverse(),
+    hasMore,
+  }
+}
+
+/**
+ * 纯函数:游标存续性判定。单独成函数是为了让"不带游标 ⇒ 不判"与"带游标而锚点已删 ⇒ stale"
+ * 这两条各有正反用例,而不是被埋在 SQL 分支里。
+ */
+export function evaluateHistoryCursorState(input: {
+  cursorConsumed: boolean
+  anchorExists: boolean
+}): HistoryCursorState {
+  if (!input.cursorConsumed) return { status: 'ok' }
+  return input.anchorExists ? { status: 'ok' } : { status: 'stale', reason: 'anchor-missing' }
+}
+
+/**
+ * 游标锚点探测:该会话里"序号正好等于游标的那一轮"是否还有行。
+ * 走 idx_chat_messages_by_turn(conversation_id, turn_ordinal)的等值前缀,limit 1,
+ * 不数行、不排序 —— 每次带游标的请求多一条常量级查询,换掉"静默丢帧"这一整型故障。
+ */
+export async function historyTurnAnchorExists(
+  conversationId: string,
+  turnOrdinal: number,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: chatMessages.id })
+    .from(chatMessages)
+    .where(and(eq(chatMessages.conversationId, conversationId), eq(chatMessages.turnOrdinal, turnOrdinal)))
+    .limit(1)
+  return rows.length > 0
 }
 
 /**
@@ -648,6 +711,8 @@ export interface FindHistoryTurnPageResult {
  *    —— 两条轻查询,无 N+1;消息行数 = 响应体本身,不拉全量。
  * turn_ordinal 为 NULL 的存量行不可见(回填在第二段);分片语义与共享层
  * projectHistoryPage 同构(@ihui/shared/chat/history-projection)。
+ * 窗口折叠的判据在 `selectHistoryTurnWindow`,断点存续性的判据在
+ * `evaluateHistoryCursorState`(两条都是纯函数),本函数只做取数与编排。
  */
 export async function findHistoryTurnPage(
   conversationId: string,
@@ -656,6 +721,25 @@ export async function findHistoryTurnPage(
   const limit = Math.min(Math.max(Math.trunc(opts.limit) || 1, 1), 100)
   const convEq = eq(chatMessages.conversationId, conversationId)
   const turnNotNull = isNotNull(chatMessages.turnOrdinal)
+
+  // ---- 第零步:带游标时先探锚点是否还在;锚点已消失 ⇒ 不发窗口查询,直接回空页 + stale ----
+  // direction=newest 结构上不消费游标(SQL 无界),故不判:此时传入的 cursor 被忽略,
+  // 把它当"需要存续性判定的断点"会让一次无害的整段重建变成 stale。
+  const cursorConsumed =
+    opts.direction !== 'newest' &&
+    opts.cursorTurnOrdinal !== null &&
+    opts.cursorTurnOrdinal !== undefined
+  if (cursorConsumed) {
+    const anchorExists = await historyTurnAnchorExists(conversationId, opts.cursorTurnOrdinal as number)
+    if (!anchorExists) {
+      return {
+        turns: [],
+        nextCursor: null,
+        hasMore: false,
+        cursorState: evaluateHistoryCursorState({ cursorConsumed: true, anchorExists: false }),
+      }
+    }
+  }
 
   // ---- 第一步:选出本页 turn 集合 ----
   let turnRows: { turnOrdinal: number }[]
@@ -673,10 +757,13 @@ export async function findHistoryTurnPage(
       )
       .orderBy(asc(chatMessages.turnOrdinal))
       .limit(limit + 1)
-    hasMore = ahead.length > limit
-    turnRows = (hasMore ? ahead.slice(0, limit) : ahead).map((r) => ({
-      turnOrdinal: Number(r.turnOrdinal),
-    }))
+    const window = selectHistoryTurnWindow(
+      ahead.map((r) => Number(r.turnOrdinal)),
+      limit,
+      'newer',
+    )
+    hasMore = window.hasMore
+    turnRows = window.ordinals.map((turnOrdinal) => ({ turnOrdinal }))
   } else {
     // newest / older:取尾部窗口(降序取 limit+1,反转成升序)
     const where =
@@ -691,14 +778,17 @@ export async function findHistoryTurnPage(
       .where(where)
       .orderBy(desc(chatMessages.turnOrdinal))
       .limit(limit + 1)
-    hasMore = behind.length > limit
-    turnRows = (hasMore ? behind.slice(0, limit) : behind)
-      .map((r) => ({ turnOrdinal: Number(r.turnOrdinal) }))
-      .reverse()
+    const window = selectHistoryTurnWindow(
+      behind.map((r) => Number(r.turnOrdinal)),
+      limit,
+      opts.direction,
+    )
+    hasMore = window.hasMore
+    turnRows = window.ordinals.map((turnOrdinal) => ({ turnOrdinal }))
   }
 
   if (turnRows.length === 0) {
-    return { turns: [], nextCursor: null, hasMore: false }
+    return { turns: [], nextCursor: null, hasMore: false, cursorState: { status: 'ok' } }
   }
 
   // ---- 第二步:一次取回本页 turn 的全部消息,按 turn 分组 ----
@@ -741,7 +831,14 @@ export async function findHistoryTurnPage(
     }
   }
 
-  return { turns, nextCursor, hasMore }
+  return {
+    turns,
+    nextCursor,
+    hasMore,
+    // 走到这里:要么本次没消费游标,要么锚点探测已经通过 —— 两种都记 ok,
+    // 但含义由上面的 cursorConsumed 决定,不由这里伪造"已验证"。
+    cursorState: evaluateHistoryCursorState({ cursorConsumed, anchorExists: true }),
+  }
 }
 
 /** D35:turn 游标序列化(base64url JSON {turnOrdinal}),与 encodeMessageCursor 同形态 */

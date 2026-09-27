@@ -59,11 +59,29 @@ function opt<K extends string, V>(key: K, value: V | undefined): Partial<Record<
 }
 
 /**
+ * 落库 serverSource 的可信值域。
+ *
+ * 回放的 `metadata.toolCalls` 是 loose JSON(服务端 `persistedToolCallSchema` 只钉
+ * id/toolName,其余透传),所以脏值必须按「没有」处理 —— 把一个任意字符串塞进
+ * `serverSource` 会让 D83 措辞层的 `=== 'mcp'` 判据与卡片角标同时读到假来源。
+ * 值集直接由 `ToolCallView['serverSource']`(= @ihui/types 的 ToolCallSource)约束:
+ * 契约扩档时这里由 tsc 逼着同步,不另立一份名单。
+ */
+function readServerSource(v: unknown): ToolCallView['serverSource'] {
+  return v === 'builtin' || v === 'plugin' || v === 'mcp' ? v : undefined
+}
+
+/**
  * 落库 BaseToolCall → 端内 ToolCallView。
  *
  * 线上契约用 toolName + 状态 success,视图用 name + 状态 done
  * (正向适配住在 cards/types.ts 的 toSharedToolCalls,本函数是它的逆向读数);
  * id / toolName 缺一即整条丢弃 —— 没有名字的卡片渲染出来就是一块空白。
+ *
+ * D83 接线(本票):`serverSource` / `serverName` 必须一起带回。此前回放只挑 6 个字段,
+ * 于是**同一条工具行在直播时显示「正在创建 GitHub 议题」、回放后退回裸码名** ——
+ * 措辞层(`cards/tool-line.ts` 的 toolRowTitle)按 server×tool 查表,拿不到 server 就整级跳过。
+ * `serverName ?? serverId` 的回落口径与 chat.tsx 的 live 分支(SSE 帧可能只带 ID)同形。
  */
 function readToolCalls(raw: unknown): ToolCallView[] | undefined {
   if (!Array.isArray(raw)) return undefined
@@ -74,6 +92,7 @@ function readToolCalls(raw: unknown): ToolCallView[] | undefined {
     const name = str(item.toolName)
     if (!id || !name) continue
     const status = str(item.status)
+    const serverName = text(item.serverName) ?? text(item.serverId)
     out.push({
       id,
       name,
@@ -81,6 +100,8 @@ function readToolCalls(raw: unknown): ToolCallView[] | undefined {
       ...opt('durationMs', num(item.durationMs)),
       ...opt('isError', bool(item.isError)),
       ...opt('args', isRecord(item.args) ? item.args : undefined),
+      ...opt('serverSource', readServerSource(item.serverSource)),
+      ...opt('serverName', serverName),
       // result 原样带回:卡片的结果度量(行数 / ±行数)由既有渲染层从它算,此处不加工
       ...('result' in item ? { result: item.result } : {}),
     })
