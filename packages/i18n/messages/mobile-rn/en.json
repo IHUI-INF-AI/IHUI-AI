@@ -1549,9 +1549,6 @@
     "streak": "Day Streak",
     "courseProgress": "Course Progress"
   },
-  "studyPublish": {
-    "title": "Publish a Course"
-  },
   "studyRecord": {
     "title": "Study Records",
     "subtitle": "{name}'s study records",

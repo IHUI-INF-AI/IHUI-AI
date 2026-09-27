@@ -14,10 +14,19 @@
  * 另配端到端(buildReport + 临时目录 + 注入假 pg_restore)证明报告不是恒绿:
  * 同一套夹具,把其中一天改成解析失败 ⇒ 结论必须从 ok 翻成 broken。
  * 临时夹具一律经 scripts/lib/scratch-dir.mjs(不用 os.tmpdir、不落仓库树内)。
+ *
+ * 2026-09-28 多库(keycloak)接入后另锁三条 —— 它们就是这次修掉的三个缺陷:
+ *  ⑦ 审计的库清单读自 runner 的 $backupDatabases:解析不出 ⇒ **未判定**,绝不静默退回单库;
+ *    判据有牙用真仓 runner 原文当正例(§22c"夹具只复读实现就是复读机"),并用一份 fixture runner
+ *    的 A/B(同一套夹具,唯一差别是有没有那行)证明红来自那一行而不是管道。
+ *  ⑧ 统计**按库分开**:小库(0.2 MB 量级)的档不得被大库的中位数判成"骤缩";缺席判定 likewise 逐库。
+ *  ⑨ 新库不得造出追溯性假红:起判日派生自目录实存,起判之前的日子记 PRE_START
+ *    (既不算缺席、也不算齐),而起判之后缺一天 ⇒ 必须 MISSING。
+ * 外加两条反向锁:FOREIGN 归属它自己那个库(不得替别的库作证)、逐日 rollup 不得让 ok 盖掉 MISSING。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as A } from '../pg-backup-cadence-audit.mjs'
@@ -25,10 +34,10 @@ import { __test__ as A } from '../pg-backup-cadence-audit.mjs'
 const TODAY = '20260927'
 const WINDOW = A.enumerateWindow(TODAY, 7)
 
-/** 构造"文件"记录(纯数据,决策层只吃这些) */
-function f(name, over = {}) {
-  const cls = A.classifyFileName(name)
-  return { name, family: cls.family, ymd: cls.ymd, hms: cls.hms, stamp: (cls.ymd || '') + (cls.hms || ''), size: 90_000_000, verdict: 'complete', reasons: [], ...over }
+/** 构造"文件"记录(纯数据,决策层只吃这些);dbs 只用于分类,不进记录 */
+function f(name, { dbs, ...over } = {}) {
+  const cls = A.classifyFileName(name, dbs)
+  return { name, family: cls.family, db: cls.db, ymd: cls.ymd, hms: cls.hms, stamp: (cls.ymd || '') + (cls.hms || ''), size: 90_000_000, verdict: 'complete', reasons: [], ...over }
 }
 const dumpName = (ymd, hms = '030003') => `ihui_dev_${ymd}_${hms}.dump`
 
@@ -40,6 +49,50 @@ test('家族分类:下划线族=每晚链、连字符族=旁生产者、.sql.gz=
   assert.equal(A.classifyFileName('ihui_dev-20260906-065559.sql.gz').family, 'sqlgz')
   assert.equal(A.classifyFileName('backup.log').family, 'unrelated')
   assert.equal(A.classifyFileName('pg_hba.conf.pre-admin-20260925-031645').family, 'unrelated')
+  // 不传清单 ⇒ 兜底只认 ihui_dev ⇒ keycloak 的档仍是 unrelated(它曾这样静默消失在每一条序列之外)
+  assert.equal(A.classifyFileName('keycloak_20260927_030003.dump').family, 'unrelated')
+})
+
+test('家族分类·清单驱动:keycloak 的三种命名各归各位,且 db 字段指向它自己那个库', () => {
+  const dbs = ['ihui_dev', 'keycloak']
+  const dump = A.classifyFileName('keycloak_20260927_030003.dump', dbs)
+  assert.deepEqual(dump, { family: 'dump', ymd: '20260927', hms: '030003', db: 'keycloak' })
+  assert.equal(A.classifyFileName('keycloak-20260927-030003.dump', dbs).family, 'dump-foreign')
+  assert.equal(A.classifyFileName('keycloak-20260927-030003.dump', dbs).db, 'keycloak')
+  assert.equal(A.classifyFileName('keycloak_20260906_065559.sql.gz', dbs).family, 'sqlgz')
+  // 一个库的旁族档不得被认成另一个库的产出
+  assert.equal(A.classifyFileName('keycloak-20260927-030003.dump', ['ihui_dev']).family, 'unrelated')
+})
+
+test('⑦ 命名族按清单逐库识别:keycloak 的档只在清单含它时才进被审面,且归属自己那个库', () => {
+  // 不传清单 ⇒ 兜底只认 ihui_dev ⇒ keycloak 的档是 unrelated(它曾这样静默消失在每一条序列之外)
+  assert.equal(A.classifyFileName('keycloak_20260927_030003.dump').family, 'unrelated')
+  assert.equal(A.classifyFileName('keycloak_20260927_030003.dump').db, null)
+  const c = A.classifyFileName('keycloak_20260927_030003.dump', ['ihui_dev', 'keycloak'])
+  assert.equal(c.family, 'dump')
+  assert.equal(c.db, 'keycloak')
+  assert.equal(c.ymd, '20260927')
+  // 反向锁:清单里没有 keycloak 时,它的档不得被算成任何库的产出
+  assert.equal(A.classifyFileName('keycloak_20260927_030003.dump', ['ihui_dev']).family, 'unrelated')
+  // dash 族同样逐库:归属它自己那个库,不替别的库作证
+  assert.deepEqual(
+    A.classifyFileName('keycloak-20260924-073532.dump', ['ihui_dev', 'keycloak']),
+    { family: 'dump-foreign', ymd: '20260924', hms: '073532', db: 'keycloak' },
+  )
+  assert.equal(A.classifyFileName('keycloak_20260906_065559.sql.gz', ['keycloak']).family, 'sqlgz')
+})
+
+test('⑦ 模式生成器只有一份实现:对兜底库逐字复现 drill 的 DUMP_NAME_RE', () => {
+  // 泛化不能漂:两条模式的字面 source 必须相同,否则"同一个文件名两边判成不同族"就没人看见了
+  assert.equal(A.dumpNameReFor('ihui_dev').source, A.DUMP_NAME_RE.source)
+  assert.equal(A.DASH_DUMP_RE.source, A.dashDumpReFor('ihui_dev').source)
+  assert.equal(A.SQLGZ_RE.source, A.sqlGzReFor('ihui_dev').source)
+  // 库名里的正则元字符必须被转义(否则 my.db 那点号会当通配)
+  assert.equal(A.classifyFileName('myXdb_20260927_030003.dump', ['my.db']).family, 'unrelated')
+  assert.equal(A.classifyFileName('my.db_20260927_030003.dump', ['my.db']).family, 'dump')
+  assert.equal(A.looksLikeBackupArtifact('whatever.dump'), true)
+  assert.equal(A.looksLikeBackupArtifact('whatever.sql.gz'), true)
+  assert.equal(A.looksLikeBackupArtifact('backup.log'), false)
 })
 
 // ──────────────────────────── ⑤ 缺席定性 ────────────────────────────
@@ -210,6 +263,57 @@ test('保留天数/计划时刻/云目录读自脚本原文,而不是抄进本�
   assert.equal(A.parseCloudDir('$x = 1'), null)
 })
 
+// ──────────────────── ⑦ 审计库清单(读自 runner,不写死) ────────────────────
+
+/** 真仓入库源原文 —— §22c:判据的对象是"某个真实文件的形态",正例的输入必须逐字取自那个文件 */
+const REAL_RUNNER_TEXT = readFileSync(new URL('../../deploy/win/ihui-pg-backup.ps1', import.meta.url), 'utf8')
+
+test('⑦ 正例:真仓 runner 原文解析出 ihui_dev + keycloak($dbName 走同文件兜底行)', () => {
+  const r = A.parseBackupDatabases(REAL_RUNNER_TEXT)
+  assert.equal(r.parsed, true, r.reason)
+  assert.deepEqual(r.databases, ['ihui_dev', 'keycloak'])
+  assert.equal(r.primaryLiteral, 'ihui_dev', '主库字面值必须来自 if (-not $dbName) 那一行,不是抄进本工具')
+})
+
+test('⑦ 反例:四种"读不出清单"一律 parsed=false,绝不给出半个清单冒充完整', () => {
+  assert.equal(A.parseBackupDatabases('$retentionDays = 7').parsed, false, '没有 $backupDatabases 行')
+  assert.equal(A.parseBackupDatabases('$backupDatabases = @()').parsed, false, '空数组不等于"没有库要审"')
+  assert.equal(A.parseBackupDatabases('$backupDatabases = @($other, "x")').parsed, false, '看不懂的项不猜库名')
+  assert.equal(A.parseBackupDatabases('$backupDatabases = @($dbName, "keycloak")').parsed, false, '$dbName 而无兜底行 ⇒ 主库字面值无从解析')
+  assert.match(A.parseBackupDatabases('$backupDatabases = @($other, "x")').reason, /不猜/)
+  // 正例成对:同样带 $dbName,但兜底行在同份文件里 ⇒ 解析成功
+  assert.deepEqual(A.parseBackupDatabases('if (-not $dbName) { $dbName = "ihui_dev" }\n$backupDatabases = @($dbName, "keycloak")').databases, ['ihui_dev', 'keycloak'])
+  // 去重(Select-Object -Unique 的语义):$dbName 恰好就等于 keycloak 时不得审两遍
+  assert.deepEqual(A.parseBackupDatabases('if (-not $dbName) { $dbName = "keycloak" }\n$backupDatabases = @($dbName, \'keycloak\')').databases, ['keycloak'])
+})
+
+// ──────────────────── ⑨ 每库起判日(派生自实存) ────────────────────
+
+test('⑨ 起判日四种形态:新库从第一份档起判、一份都没有则整窗照判', () => {
+  const win = A.enumerateWindow('20260927', 4) // 20260924..27
+  assert.deepEqual(win, ['20260924', '20260925', '20260926', '20260927'])
+  const derived = A.deriveStartYmd(['20260926', '20260927'], win)
+  assert.equal(derived.mode, 'DERIVED')
+  assert.equal(derived.startYmd, '20260926')
+  assert.equal(derived.startIdx, 2)
+  const noFile = A.deriveStartYmd([], win)
+  assert.equal(noFile.mode, 'NO_FILE')
+  assert.equal(noFile.startYmd, '20260924', '一份都没有 ⇒ 从窗口首日起判(缺席即 MISSING),不得当成"还没开始"放过')
+  assert.equal(A.deriveStartYmd(['20260920', '20260924'], win).mode, 'CLAMPED_TO_WINDOW')
+  const future = A.deriveStartYmd(['20261001'], win)
+  assert.equal(future.mode, 'AFTER_WINDOW')
+  assert.equal(future.startIdx, -1, '日期超前 ⇒ 本窗口不判缺席,但不能被读成"这个库齐了"')
+})
+
+test('逐日 rollup:一天两库,ok 不得盖掉另一库的 MISSING', () => {
+  assert.equal(A.worstStatus(['ok', 'MISSING']), 'MISSING')
+  assert.equal(A.worstStatus(['MISSING', 'ok']), 'MISSING', '与遍历顺序无关')
+  assert.equal(A.worstStatus(['ok', 'TRUNCATED']), 'TRUNCATED')
+  assert.equal(A.worstStatus(['PENDING_TODAY', 'ok-with-truncated']), 'ok-with-truncated')
+  assert.equal(A.worstStatus(['ok', 'PRE_START']), 'ok', 'PRE_START 不是坏消息,不得顶掉真实状态')
+  assert.equal(A.worstStatus([]), 'ok')
+})
+
 test('TOC 元信息:TABLE DATA 严格计数(namespace 为 "-" 的不算),并量出源库版本', () => {
   const toc = [
     ';',
@@ -269,33 +373,86 @@ test('CLI 开关:未知开关/坏 --days/位置参数一律判死(不静默掉�
 
 const TOC_OK = [';', '; Archive created at 2026-09-27 03:00:03', ';     TOC Entries: 5325', ';     Dumped from database version: 18.6', '; Selected TOC Entries:', '7; 2200 0 TABLE DATA public users ihui'].join('\n')
 
-function makeFixture({ days = 3, brokenDay = null, skipDay = null, truncateDay = null, cloud = true, cloudSkip = null, sizeShrinkDay = null } = {}) {
+/** 一份可读的 fixture runner 文本;withList:false ⇒ 刻意抹掉 $backupDatabases 行(⑦ 的反例载体) */
+function runnerText({ retention = 3, withList = true } = {}) {
+  const lines = [`$retentionDays = ${retention}`, '$cloudDir = "X:\\not-used-in-test"', 'if (-not $dbName) { $dbName = "ihui_dev" }']
+  if (withList) lines.push("$backupDatabases = @($dbName, 'keycloak') | Select-Object -Unique")
+  return lines.join('\n')
+}
+
+/**
+ * 端到端夹具。
+ *  databases   注入给 buildReport 的审计清单;'omit' ⇒ 不注入(改由 runnerText 解析,用来验 ⑦)
+ *  extraDb     第二个库的名字;extraDbDays 它实存的日子(⑨ 的起判日就派生自这里)
+ *  extraSize   第二个库的档大小 —— 故意远小于主库,用来验"统计必须按库分开"(⑧)
+ *  runnerText  给定时写成一份 fixture runner 并让工具去读它
+ */
+function makeFixture({
+  days = 3,
+  brokenDay = null,
+  skipDay = null,
+  truncateDay = null,
+  cloud = true,
+  cloudSkip = null,
+  sizeShrinkDay = null,
+  databases = ['ihui_dev'],
+  extraDb = null,
+  extraDbDays = null,
+  extraSize = 300,
+  cloudExtraSkip = null,
+  runnerText: runner = null,
+} = {}) {
   const dir = mkScratch('pg-cadence-test')
   const backup = join(dir, 'pg')
   const cloudDir = join(dir, 'cloud')
   mkdirSync(backup, { recursive: true })
   mkdirSync(cloudDir, { recursive: true })
   const window = Array.from({ length: days }, (_, i) => A.shiftYmd(TODAY, -(days - 1 - i)))
+  const mainDb = (Array.isArray(databases) ? databases : ['ihui_dev'])[0] || 'ihui_dev'
+  const write = (db, ymd, size, hms = '030003', magic = 'PGDMP') => {
+    const name = `${db}_${ymd}_${hms}.dump`
+    const buf = Buffer.concat([Buffer.from(magic, 'latin1'), Buffer.alloc(size)])
+    writeFileSync(join(backup, name), buf)
+    if (cloud && ymd !== cloudSkip && !(db === extraDb && ymd === cloudExtraSkip)) writeFileSync(join(cloudDir, name), buf)
+    return name
+  }
   for (const ymd of window) {
     if (ymd === skipDay) continue
-    const size = ymd === sizeShrinkDay ? 400 : 9000
-    const buf = Buffer.concat([Buffer.from(ymd === truncateDay ? 'XXXXX' : 'PGDMP', 'latin1'), Buffer.alloc(size)])
-    writeFileSync(join(backup, dumpName(ymd)), buf)
-    if (ymd === brokenDay) writeFileSync(join(backup, dumpName(ymd, '090000')), Buffer.concat([Buffer.from('PGDMP', 'latin1'), Buffer.alloc(1200)]))
-    if (cloud && ymd !== cloudSkip) writeFileSync(join(cloudDir, dumpName(ymd)), buf)
+    write(mainDb, ymd, ymd === sizeShrinkDay ? 400 : 9000)
+    if (ymd === brokenDay) write(mainDb, ymd, 1200, '090000')
+  }
+  for (const ymd of extraDbDays || []) write(extraDb, ymd, extraSize)
+  let execCandidates
+  if (runner) {
+    const p = join(dir, 'pg-backup.ps1')
+    writeFileSync(p, runner)
+    execCandidates = [p]
   }
   const seen = []
   const run = (argv) => {
     seen.push(argv.at(-1))
     const base = argv.at(-1).split(/[\\/]/).pop()
-    const ymd = /^ihui_dev_(\d{8})_/.exec(base)?.[1]
-    return { rc: ymd === truncateDay ? 1 : 0, stdout: TOC_OK, stderr: ymd === truncateDay ? 'pg_restore: error: could not read TOC' : '' }
+    const ymd = /^.+_(\d{8})_(\d{6})\.dump$/.exec(base)?.[1]
+    const bad = ymd === truncateDay
+    return { rc: bad ? 1 : 0, stdout: bad ? '' : TOC_OK, stderr: bad ? 'pg_restore: error: could not read TOC' : '' }
   }
   return {
     cleanup: () => rmScratch(dir),
-    deps: { backupDir: backup, cloudDir: cloud ? cloudDir : '', scheduleHour: 3, ymd: TODAY, now: new Date('2026-09-27T12:00:00'), binExists: true, bins: { pgRestore: join(dir, 'pg_restore.exe') }, run },
+    deps: {
+      backupDir: backup,
+      cloudDir: cloud ? cloudDir : '',
+      scheduleHour: 3,
+      ymd: TODAY,
+      now: new Date('2026-09-27T12:00:00'),
+      binExists: true,
+      bins: { pgRestore: join(dir, 'pg_restore.exe') },
+      run,
+      ...(databases === 'omit' ? {} : { databases }),
+      ...(execCandidates ? { execCandidates } : {}),
+    },
     window,
     seen,
+    name: (db, ymd, hms = '030003') => `${db}_${ymd}_${hms}.dump`,
   }
 }
 const cli = (extra = {}) => ({ ...A.parseCliArgs([]), ...extra })
@@ -419,5 +576,115 @@ test('反向锁:报告里的 findings 与结论同源,不得一处说没事另�
   assert.notEqual(r.verdict, 'ok')
   assert.equal(r.reasons.length > 0, true)
   t.cleanup()
+})
+
+// ──────────────────── 端到端:⑦⑧⑨ 三个缺陷各自的有牙证明 ────────────────────
+
+test('端到端⑦·反例:fixture runner 里没有 $backupDatabases 行 ⇒ 未判定,绝不静默 ok', () => {
+  const t = makeFixture({ days: 3, databases: 'omit', runnerText: runnerText({ withList: false }) })
+  const r = A.buildReport({ cli: cli({ days: 3 }), deps: t.deps })
+  assert.equal(r.databasesParsed, false)
+  assert.equal(r.verdict, 'undetermined', JSON.stringify(r.findings))
+  assert.ok(r.findings.some((x) => x.code === 'BACKUP_LIST_UNDETERMINED'), '这一句必须进 findings,不只是打印一行提示')
+  assert.equal(r.exitCode, 2)
+  assert.equal(A.buildReport({ cli: cli({ days: 3, strict: true }), deps: t.deps }).exitCode, 1, '--strict 下 undetermined 归 1,但原判读仍写 undetermined')
+  assert.match(r.databasesNote, /未判定:备份清单无从解析/)
+  assert.match(A.renderHuman(r), /未判定:备份清单无从解析/)
+  t.cleanup()
+})
+
+test('端到端⑦·A/B:同一套夹具唯一差别是有没有那一行 ⇒ 另一臂的结论换成"这个库真没档",不再是"清单读不出"', () => {
+  const t = makeFixture({ days: 3, databases: 'omit', runnerText: runnerText({ withList: true }) })
+  const r = A.buildReport({ cli: cli({ days: 3 }), deps: t.deps })
+  assert.equal(r.databasesParsed, true)
+  assert.deepEqual(r.databases, ['ihui_dev', 'keycloak'], '清单必须来自 fixture runner 原文,不是本工具写死')
+  assert.match(r.databasesSource, /pg-backup\.ps1:\$backupDatabases/, '报告要点名读的是哪一份文件')
+  assert.ok(!r.findings.some((x) => x.code === 'BACKUP_LIST_UNDETERMINED'), '清单解析出来了就不该再喊解析不出')
+  // runner 声明要备 keycloak,而目录里一份都没有 ⇒ 这是真缺失(broken),不是"还没开始备"
+  const kc = r.byDatabase.find((d) => d.db === 'keycloak')
+  assert.equal(kc.startMode, 'NO_FILE')
+  assert.equal(r.verdict, 'broken')
+  assert.ok(r.findings.some((x) => x.code === 'MISSING' && x.db === 'keycloak'), JSON.stringify(r.findings))
+  t.cleanup()
+})
+
+test('端到端⑨:keycloak 自其第一份档起判,更早的日子记 PRE_START(既不算缺席也不算齐)', () => {
+  const t = makeFixture({ days: 4, databases: ['ihui_dev', 'keycloak'], extraDb: 'keycloak', extraDbDays: ['20260926', '20260927'] })
+  const r = A.buildReport({ cli: cli({ days: 4 }), deps: t.deps })
+  const kc = r.byDatabase.find((d) => d.db === 'keycloak')
+  assert.equal(kc.startYmd, '20260926')
+  assert.equal(kc.startMode, 'DERIVED')
+  assert.deepEqual(kc.dayRows.map((x) => `${x.ymd}:${x.status}`), ['20260924:PRE_START', '20260925:PRE_START', '20260926:ok', '20260927:ok'])
+  assert.equal(r.verdict, 'ok', '两库各自起判之后都齐 ⇒ 不得因为 keycloak 头两天"还没有它"而报 broken(那正是追溯性假红)')
+  assert.match(A.renderHuman(r), /库 keycloak —— 起判日 20260926/, '起判日必须写进报告,不能留给读的人自己推断')
+  t.cleanup()
+})
+
+test('端到端⑨·有牙:起判日之后缺一天 ⇒ 该库 MISSING,且当天汇总不得被另一库的 ok 盖掉', () => {
+  const t = makeFixture({ days: 4, databases: ['ihui_dev', 'keycloak'], extraDb: 'keycloak', extraDbDays: ['20260925', '20260927'] })
+  const r = A.buildReport({ cli: cli({ days: 4 }), deps: t.deps })
+  const kc = r.byDatabase.find((d) => d.db === 'keycloak')
+  assert.equal(kc.startYmd, '20260925')
+  assert.deepEqual(Object.fromEntries(kc.dayRows.map((x) => [x.ymd, x.status])), { '20260924': 'PRE_START', '20260925': 'ok', '20260926': 'MISSING', '20260927': 'ok' })
+  const ihui = r.byDatabase.find((d) => d.db === 'ihui_dev')
+  assert.equal(ihui.dayRows.every((x) => x.status === 'ok'), true, '对照:大库那一条腿这四天本来就齐')
+  const roll = r.dayRows.find((d) => d.ymd === '20260926')
+  assert.equal(roll.status, 'MISSING')
+  assert.deepEqual(roll.perDatabase.map((x) => `${x.db}=${x.status}`).sort(), ['ihui_dev=ok', 'keycloak=MISSING'], '汇总要能看出是哪一库坏的')
+  assert.equal(r.verdict, 'broken')
+  t.cleanup()
+})
+
+test('端到端⑧:小库(300 B)不得被大库(9 KB)的中位数判成骤缩 —— 统计按库分开', () => {
+  const t = makeFixture({ days: 4, databases: ['ihui_dev', 'keycloak'], extraDb: 'keycloak', extraDbDays: ['20260924', '20260925', '20260926', '20260927'], extraSize: 300 })
+  const r = A.buildReport({ cli: cli({ days: 4 }), deps: t.deps })
+  assert.equal(r.findings.filter((x) => x.code === 'SIZE_SHRINK').length, 0, `按库分开后不该有任何骤缩:${JSON.stringify(r.findings)}`)
+  assert.equal(r.verdict, 'ok', '两库四天天天齐、各自大小稳定 ⇒ 差两个数量级不是故障')
+  // 阳性对照:同样量级的大小差塞进**同一个库**的序列 ⇒ 必须命中,否则上面那条"没红"只是判据没在看
+  const mixed = makeFixture({ days: 4, sizeShrinkDay: '20260926' })
+  const rm = A.buildReport({ cli: cli({ days: 4 }), deps: mixed.deps })
+  assert.ok(rm.findings.some((x) => x.code === 'SIZE_SHRINK'), JSON.stringify(rm.findings))
+  mixed.cleanup()
+  t.cleanup()
+})
+
+test('端到端:云腿也逐库 —— 小库没同步到云盘,不得被大库那一份"有"遮住', () => {
+  const t = makeFixture({ days: 3, databases: ['ihui_dev', 'keycloak'], extraDb: 'keycloak', extraDbDays: ['20260925', '20260926', '20260927'], cloudExtraSkip: '20260926' })
+  const r = A.buildReport({ cli: cli({ days: 3 }), deps: t.deps })
+  const cf = r.findings.filter((x) => x.code === 'CLOUD_COPY_ABSENT')
+  assert.equal(cf.length, 1, JSON.stringify(r.findings))
+  assert.equal(cf[0].db, 'keycloak')
+  assert.equal(cf[0].day, '20260926')
+  assert.equal(r.verdict, 'degraded')
+  const today = r.cloud.perDay.find((p) => p.ymd === '20260927')
+  assert.equal(today.byDatabase.find((b) => b.db === 'keycloak').present, true, '云识别式必须也认小库的命名 —— 否则它每天都"缺",那是假红不是覆盖')
+  t.cleanup()
+})
+
+test('反向锁:旁族(dash)档只替它自己那个库作证', () => {
+  const dir = mkScratch('pg-cadence-foreign')
+  const backup = join(dir, 'pg')
+  const cloud = join(dir, 'cloud')
+  mkdirSync(backup, { recursive: true })
+  mkdirSync(cloud, { recursive: true })
+  const win = ['20260925', '20260926', '20260927']
+  for (const ymd of win) {
+    const n = `ihui_dev_${ymd}_030003.dump`
+    writeFileSync(join(backup, n), Buffer.concat([Buffer.from('PGDMP', 'latin1'), Buffer.alloc(9000)]))
+    writeFileSync(join(cloud, n), Buffer.alloc(9005))
+  }
+  writeFileSync(join(backup, 'keycloak-20260927-073532.dump'), Buffer.alloc(500))
+  const run = () => ({ rc: 0, stdout: TOC_OK, stderr: '' })
+  const r = A.buildReport({
+    cli: cli({ days: 3 }),
+    deps: { backupDir: backup, cloudDir: cloud, databases: ['ihui_dev', 'keycloak'], scheduleHour: 3, ymd: TODAY, now: new Date('2026-09-27T12:00:00'), binExists: true, bins: { pgRestore: join(dir, 'pg_restore.exe') }, run },
+  })
+  const kc = r.byDatabase.find((d) => d.db === 'keycloak')
+  assert.equal(kc.startYmd, '20260927', '起判日派生自"该库有任何实存档",旁族也算它存在过')
+  assert.equal(kc.dayRows.find((x) => x.ymd === '20260927').status, 'FOREIGN_ONLY')
+  const ihui = r.byDatabase.find((d) => d.db === 'ihui_dev')
+  assert.equal(ihui.dayRows.every((x) => x.status === 'ok'), true, 'keycloak 只有旁族命名,不得反过来把 ihui_dev 的日子也搅浑')
+  assert.equal(r.verdict, 'degraded', '数据在、只是不来自每晚那条链 ⇒ 点名,但不是 MISSING')
+  rmScratch(dir)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
