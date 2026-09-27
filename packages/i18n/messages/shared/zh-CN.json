@@ -38,6 +38,7 @@
     "toolKnowledgeLookup": "查询知识库",
     "toolParseDocument": "解析文档",
     "toolGenerateChart": "生成图表",
+    "toolGenerateReport": "生成报表",
     "toolSummarizeArtifacts": "汇总任务产物",
     "activityMcp": "调用 {mcp} MCP",
     "activityPlugin": "调用 {plugin} 插件",
