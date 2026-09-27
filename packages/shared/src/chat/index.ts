@@ -109,3 +109,8 @@ export * from './artifact-turn'
 // @ihui/shared 整体 typecheck 红。文件本体保留 —— conversation-pin.ts 深路径依赖其
 // sortPinnedFirst;消费方一律走 @ihui/shared/chat/conversation-pin(RN 即此用法),
 // org 组织函数的跨端出口统一为 utils 版,严禁两份同名符号同时漏到根 barrel。
+
+// 文件族「意图→工具集」策略**故意不进本 barrel**:它导出的 FILE_*_INTENT_TOOLS 与本 barrel
+// 已有的 FILE_WRITE_TOOLS(task-status.ts 的文件变更识别白名单)是同词不同义的两个东西,
+// `export *` 并置会产出 TS2308 歧义,而消费方按 `.has()` 用时是运行时崩溃。
+// 消费方一律走子路径 @ihui/shared/chat/file-tool-intent。
