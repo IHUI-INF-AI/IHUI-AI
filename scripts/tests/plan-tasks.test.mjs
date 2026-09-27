@@ -22,6 +22,7 @@ import {
   dispositionOf,
   findRotatedPointers,
   keyOfRow,
+  titleIsDegenerate,
   titleOf,
 } from '../lib/plan-task-index.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
@@ -406,6 +407,28 @@ test('M14 行首裸编号族必须进复合主键(F1 曾对整族失明 ⇒ 已�
   const t = titleOf(open75)
   if (!t || t.length < 4 || t === '75')
     throw new Error(`标题前缀必须跳过编号,实测 ${JSON.stringify(t)}`)
+})
+
+test('M16 标题退化(切完只剩主键)不得算复合主键 —— 否则两个不同议题会被并成一条并误翻勾', () => {
+  // 真实事故形态(2026-09-27):`**G-257. 审计日志族…已修**`(已完成)与
+  // `**G-257(新登记)**:check-agent-engine-parity…`(别人的未完成任务)。
+  // 两行的第一个分界符都紧跟在主键后面 ⇒ titleOf 都切出 "G-257" ⇒ 旧判据得到同一个 key
+  // `G-257#G-257` ⇒ F1 认定"同题两态" ⇒ 归并器把**未做完的那条**翻成已完成。
+  const mine = '- [x] ✅(2026-09-27) **G-257. 审计日志族「参数校验失败被掩盖成 500」已修(7 站点/2 文件)**:病灶形态'
+  const theirs = '- [ ] **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的**可跑性依赖 cwd** —— 两个 cwd 下退出码不一致'
+  if (!titleIsDegenerate(mine, titleOf(mine))) throw new Error('第一行标题应判为退化(切完只剩 G-257)')
+  if (!titleIsDegenerate(theirs, titleOf(theirs))) throw new Error('第二行标题应判为退化(切完只剩 G-257)')
+  if (compositeKeyOf(mine) !== null || compositeKeyOf(theirs) !== null)
+    throw new Error(`退化标题不得成键,实测 ${compositeKeyOf(mine)} / ${compositeKeyOf(theirs)}`)
+  const a = auditPlan(['# p', mine, theirs].join('\n'))
+  if (a.counts.forks !== 0)
+    throw new Error(`不同议题同编号不得被 F1 配对(否则 --heal 会误翻勾),实测 ${a.counts.forks}`)
+  if (a.counts.claimable !== 1) throw new Error(`未勾选那条仍须进派单口径,实测 ${a.counts.claimable}`)
+  // 反向:正常带实质标题的同题两态**仍必须**被 F1 看见(不得把判据整个削成恒不配对)。
+  const open = '- [ ] **G-256 有实质标题的议题**:仍未做。'
+  const done = '- [x] ✅(2026-09-27) **G-256 有实质标题的议题**:已完成并附证据。'
+  const b = auditPlan(['# p', done, open].join('\n'))
+  if (b.counts.forks !== 1) throw new Error(`正常同题两态必须仍被点名,实测 ${b.counts.forks}`)
 })
 
 test('M15 带字母后缀的编号必须与标题跳过**同一份**实现(两处各抄一版 ⇒ 判据在自己刚修的族上失明)', () => {
