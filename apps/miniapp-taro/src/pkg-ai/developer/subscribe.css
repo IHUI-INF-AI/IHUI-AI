@@ -133,7 +133,7 @@
   padding: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
 }
 .dev-model-left {
   flex-shrink: 0;
@@ -218,7 +218,7 @@
   padding: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
 }
 .dev-post-title {
   display: block;
@@ -248,7 +248,7 @@
   font-size: 30rpx;
   color: var(--color-cta-foreground);
   background: var(--color-cta);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   border: none;
 }
 .dev-contact-btn::after {

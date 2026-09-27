@@ -165,7 +165,7 @@ export function AtomicRollbackPanel() {
       ) : (
         <div className="flex flex-col gap-2">
           {snapshots.map((s) => (
-            <div key={s.id} className="rounded-md border border-border bg-card p-2.5">
+            <div key={s.id} className="rounded-lg border border-border bg-card p-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="font-mono text-[10px]">
                   {s.id}
@@ -251,7 +251,7 @@ export function AtomicRollbackPanel() {
       )}
 
       {result && (
-        <div className="space-y-1.5 rounded-md border border-border bg-card p-3">
+        <div className="space-y-1.5 rounded-lg border border-border bg-card p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Badge
               className={

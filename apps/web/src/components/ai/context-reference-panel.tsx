@@ -54,7 +54,7 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
   }
 
   return (
-    <div className="rounded-xl border bg-card">
+    <div className="rounded-lg border bg-card">
       <div className="border-b px-4 py-2.5">
         <h3 className="text-sm font-semibold">{t('contextUsage.referenceTitle')}</h3>
       </div>

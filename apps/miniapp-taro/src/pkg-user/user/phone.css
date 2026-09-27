@@ -32,7 +32,7 @@
 }
 .phone-card {
   background: var(--color-card);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 0 32rpx;
   margin-bottom: 24rpx;
 }

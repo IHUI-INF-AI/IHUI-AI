@@ -75,7 +75,7 @@
   height: 32rpx;
   min-width: 32rpx;
   padding: 0 8rpx;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-muted);
 }
 

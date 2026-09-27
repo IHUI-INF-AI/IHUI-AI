@@ -77,7 +77,7 @@ export function NoteDialog({
               value={form.content}
               onChange={(e) => setForm({ ...form, content: e.target.value })}
               rows={5}
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm">

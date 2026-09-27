@@ -274,7 +274,7 @@
   color: var(--color-muted-foreground);
   text-decoration: line-through;
 }
-/* RN purchaseBtn:height 50 → 100rpx,radius 16 → 32rpx,gold 底 + gray.800 深字 */
+/* RN purchaseBtn:height 50 → 100rpx,gold 底 + gray.800 深字;圆角按角色档 control→sm */
 .member-vip-button,
 .member-cta-button {
   width: 100%;
@@ -284,7 +284,7 @@
   line-height: 100rpx;
   font-size: 32rpx; /* RN 16 → 32rpx */
   font-weight: 700;
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-sm);
 }
 .member-cta-outlined {
   background: transparent;

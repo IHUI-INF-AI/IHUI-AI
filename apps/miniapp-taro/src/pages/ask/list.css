@@ -100,7 +100,7 @@
   text-align: center;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   font-size: 48rpx;
   font-weight: 600;
   box-shadow: 0 4rpx 20rpx var(--color-black-20);

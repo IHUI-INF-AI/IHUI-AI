@@ -60,7 +60,7 @@ export default function ExamList() {
     <ThemeRoot>
       <View
         key={e.id}
-        className="bg-card rounded-xl p-[28rpx] mb-[20rpx] border border-solid border-border"
+        className="bg-card rounded-lg p-[28rpx] mb-[20rpx] border border-solid border-border"
         hoverClass="opacity-60"
         onClick={() => goDetail(e.id)}
       >
@@ -100,7 +100,7 @@ export default function ExamList() {
       <ThemeRoot>
         <View
           key={r.id}
-          className="bg-card rounded-xl p-[28rpx] mb-[20rpx] border border-solid border-border"
+          className="bg-card rounded-lg p-[28rpx] mb-[20rpx] border border-solid border-border"
           hoverClass="opacity-60"
           onClick={() => goResult(r.id)}
         >

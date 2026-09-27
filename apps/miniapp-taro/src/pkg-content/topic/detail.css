@@ -58,7 +58,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* 关注按钮(RN followBtn: px32/py12/radius32/brand 底;激活态 muted 底 + secondary 字) */
+/* 关注按钮(RN followBtn: px32/py12/brand 底;激活态 muted 底 + secondary 字;圆角按角色档 control→sm) */
 .topic-detail-follow-btn {
   flex-shrink: 0;
   margin: 0;
@@ -68,7 +68,7 @@
   line-height: 1.4;
   color: var(--color-cta-foreground);
   background: var(--color-cta);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-sm);
   border: none;
 }
 

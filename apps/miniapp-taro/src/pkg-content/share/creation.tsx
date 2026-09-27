@@ -129,7 +129,7 @@ export default function ShareCreationPage() {
       <ScrollView scrollY className="h-screen">
         {/* 会话信息头(小程序端业务展示,保留;卡片规格:底 --color-card、描边 --color-border、
             radius 12dp → 24rpx、padding 12dp → 24rpx,对齐 SquareScreen card 卡片语言) */}
-        <View className="mx-[16rpx] mt-[16rpx] bg-card rounded-xl border-[length:2rpx] border-border p-[24rpx]">
+        <View className="mx-[16rpx] mt-[16rpx] bg-card rounded-lg border-[length:2rpx] border-border p-[24rpx]">
           <View className="flex items-center mb-[24rpx]">
             {content.modelIcon ? (
               <Image
@@ -180,7 +180,7 @@ export default function ShareCreationPage() {
         {/* AI 回答 = AI 内容卡片:对齐 RN 卡片规范(底 --color-card、描边 --color-border、
             radius 24rpx、padding 28/24rpx;底色对齐 ChatScreen msgBubbleAi surface.card) */}
         <View className="mx-[16rpx] mt-[20rpx] flex">
-          <View className="flex-1 bg-card rounded-xl border-[length:2rpx] border-border px-[28rpx] py-[24rpx]">
+          <View className="flex-1 bg-card rounded-lg border-[length:2rpx] border-border px-[28rpx] py-[24rpx]">
             {/* 思考过程:对齐 ChatScreen thinkingBlock(bg surface.muted,radius 8dp → 16rpx) */}
             {answer.thinking ? (
               <View className="mb-[12rpx] rounded-lg bg-[var(--color-muted)] overflow-hidden">
@@ -247,11 +247,7 @@ export default function ShareCreationPage() {
                 {lists.map((item, i) => (
                   <View key={i} className="py-[16rpx]">
                     {item.type === 'image' ? (
-                      <Image
-                        className="w-full rounded-lg"
-                        src={item.content}
-                        mode="widthFix"
-                      />
+                      <Image className="w-full rounded-lg" src={item.content} mode="widthFix" />
                     ) : (
                       <Text className="block text-[length:30rpx] leading-[40rpx] text-foreground whitespace-pre-wrap">
                         {item.content}

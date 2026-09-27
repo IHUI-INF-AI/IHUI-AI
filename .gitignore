@@ -131,6 +131,12 @@ apps/web/public/remote-images/
 deploy/cst-result.txt
 deploy/tools/
 
+# 2026-09-27 运行态数据落点:ai-service 的引擎会话库默认路径是**相对 cwd** 的
+# (app/routers/sessions.py: os.getenv("SESSION_STORE_DB_PATH", "data/sessions.db")),
+# 谁从仓根起服务就会把活的 SQLite(含用户会话行)写进工作树 —— 不忽略等于给一次
+# `git add -A` 提交用户数据开门。忽略只挡住入库,不解决"落点该在仓库外",后者另计一票。
+/data/
+
 # Cloudflared tunnel token 文件(2026-08-05 立:防 token 泄露,显式忽略)
 # 触发背景:旧 token 曾硬编码进 scripts/start-cloudflared-tunnel.ps1 commit cc73503d2d
 # 当前 scripts 已改为从文件读取,但 token 文件本身绝不能进 git
