@@ -179,7 +179,7 @@ export default function CourseDetail() {
         />
 
         {/* 工具行卡片:对齐 RN card(白底 + border.light 描边 + radius12/padding14) */}
-        <View className="flex items-center justify-around mx-3 my-3 bg-card rounded-xl p-[28rpx] border border-border">
+        <View className="flex items-center justify-around mx-3 my-3 bg-card rounded-lg p-[28rpx] border border-border">
           <View className="flex flex-col items-center">
             <ProgressCircle percent={learningProgress} size={60} />
             <Text className="text-xs text-muted-foreground mt-2">

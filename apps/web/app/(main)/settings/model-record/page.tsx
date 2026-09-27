@@ -259,7 +259,7 @@ export default function ModelRecordPage() {
             <select
               value={kind}
               onChange={onKindChange}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none"
+              className="h-9 rounded-sm border border-input bg-background px-3 text-sm outline-none"
               aria-label={t('modelRecordAlgorithmType')}
             >
               <option value="">{t('modelRecordKindAll')}</option>
@@ -269,7 +269,7 @@ export default function ModelRecordPage() {
             <select
               value={batch}
               onChange={onBatchChange}
-              className="h-9 max-w-[200px] rounded-md border border-input bg-background px-3 text-sm outline-none"
+              className="h-9 max-w-[200px] rounded-sm border border-input bg-background px-3 text-sm outline-none"
               aria-label={t('modelRecordBatch')}
             >
               <option value="">{t('modelRecordFilterAllBatch')}</option>

@@ -200,7 +200,7 @@ export default function DocsIndexPage() {
 
       <div className="grid grid-cols-1 gap-6 min-[768px]:grid-cols-2">
         {docSections.map((section) => (
-          <section key={section.title} className="rounded-2xl border bg-card p-3">
+          <section key={section.title} className="rounded-lg border bg-card p-3">
             <div className="flex items-center gap-2">
               <span className="text-2xl">
                 {typeof section.icon === 'string' ? section.icon : <section.icon className="h-6 w-6" />}

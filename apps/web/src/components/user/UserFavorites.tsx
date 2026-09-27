@@ -42,7 +42,7 @@ export default function UserFavorites({
     )
   }
   return (
-    <ul className={cn('space-y-2 rounded-xl border bg-card p-2', className)}>
+    <ul className={cn('space-y-2 rounded-lg border bg-card p-2', className)}>
       {items.map((it) => (
         <li key={it.id} className="flex items-center gap-3 px-4 py-3">
           <button

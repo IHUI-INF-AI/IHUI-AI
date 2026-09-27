@@ -49,7 +49,7 @@ export default function DistributionStats({
   if (variant === 'column') {
     const title = columnTitle ?? tt('distribution.columnTitle', '分销订单')
     return (
-      <View className="bg-card mx-3 my-3 rounded-xl p-4">
+      <View className="bg-card mx-3 my-3 rounded-lg p-4">
         <View className="flex items-center justify-between mb-3">
           <Text className="text-sm font-medium text-foreground">{title}</Text>
         </View>
@@ -74,7 +74,7 @@ export default function DistributionStats({
   const monthlyPercent = monthlyTarget > 0 ? (monthlyEarnings / monthlyTarget) * 100 : 0
 
   return (
-    <View className="bg-card mx-3 my-3 rounded-xl p-4">
+    <View className="bg-card mx-3 my-3 rounded-lg p-4">
       <View className="flex items-center justify-between mb-3">
         <Text className="text-sm font-medium text-foreground">
           {tt('distribution.statsTitle', '收益概览')}
