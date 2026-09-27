@@ -82,9 +82,11 @@ from ..services.agent_events import (
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
 from ..services.mcp_server import (
+    _FORM_REQUEST_TOOL_NAME,
     _TOOL_ALIASES,
     _tool_dispatch_subagent,
     _tool_vision_analyze,
+    build_form_request_frame,
     get_registered_tool_names,
     reset_terminal_stream_context,
     set_terminal_stream_context,
@@ -226,6 +228,37 @@ _approval_sessions: dict[str, dict[str, dict[str, Any]]] = {}
 # key = f"{session_id}::{tool_name}" -> scope('session'|'always')。
 # once 不落缓存;进程重启即失效(session/always 均为内存态,V3 #58 先落地主链路)。
 _tool_approval_grants: dict[str, str] = {}
+
+# =============================================================================
+# V3 #63(2026-09-27 立):主对话流业务表单帧 form_request / 应答端点 form-response
+# =============================================================================
+# 与 V3 #58 的 tool-approval 同族(同一拦截位、同一 keepalive 分段等待、同一注册表
+# 生命周期),但语义不同:审批问的是"允不允许我做",表单问的是"这件事的内容请你填"。
+# 帧契约(供 parity 对账与前端解析):
+#   SSE 帧名:form_request
+#   payload(**camelCase**,与 packages/api-client 的 tryParseFormRequest 逐键同形;
+#            写 snake_case 不报错、整帧被静默丢弃):
+#     {type, requestId, sessionId, kind, fields[], actions:["approve","reject"], messageId?}
+#   决策回传:POST /llm/complete/stream/{session_id}/form-response
+#     {request_id, kind, action:'approve'|'reject', values?, reject_reason?, message_id?}
+#     —— **上行才是 snake_case**(与同通道 tool-result 的 tool_call_id 同族)。
+# 工具本体 request_business_form 在 mcp_server 注册(让模型知道有这件事),
+# 但**不由 mcp_server 执行**:本文件在 call_tool 之前拦下,拿不到通道时才回落兜底 handler。
+_SSE_FORM_REQUEST = "form_request"
+_FORM_WAIT_TIMEOUT = 300  # 秒:填表要读要想要,比审批的 120s 宽;超时按未答处理
+_FORM_KEEPALIVE_INTERVAL = 15  # 秒:同 _APPROVAL_KEEPALIVE_INTERVAL,防前端 30s 读超时掐流
+# session_id -> request_id -> {event, action, values, reject_reason, user_id, kind}
+# 与 _approval_sessions 同生命周期:仅在等待用户应答的窗口内存在,结算/超时后由等待方 pop。
+_form_sessions: dict[str, dict[str, dict[str, Any]]] = {}
+
+
+def _form_pending_entry(session_id: str, request_id: str) -> dict[str, Any] | None:
+    """取一条仍在等待的表单请求;不存在 ⇒ None(调用方按"与不存在同形"回包)。"""
+    entry = _form_sessions.get(session_id, {}).get(request_id)
+    if not isinstance(entry, dict) or not isinstance(entry.get("event"), asyncio.Event):
+        return None
+    return entry
+
 
 # 工具危险级映射(主对话流已知高危/中危工具;未收录工具不拦截 —— 主聊天工具面
 # 由 mcp_server._TOOLS 与浏览器委托面构成,默认全拦会打断日常使用;高危口径与
@@ -3494,6 +3527,198 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 })
                                 continue
 
+                            # ===== V3 #63(2026-09-27 立):主对话流业务表单请求 =====
+                            # 位置语义:与 tool-approval 同一拦截位、且在其**之前** ——
+                            # 本工具不产生副作用(它只是请用户填一张表),再走一遍审批门
+                            # 会让用户先被问"允许吗"再被问"内容是什么",两问一答。
+                            # 结算口径与审批分支同构:成功/拒绝/超时都回填一条 tool 消息,
+                            # 让模型拿到明确结论而不是静默等不到回音。
+                            if tool_name == _FORM_REQUEST_TOOL_NAME:
+                                _form_kind = args.get("kind") if isinstance(args, dict) else None
+                                # 组帧函数是唯一形状权威(见 mcp_server.build_form_request_frame):
+                                # 未知 kind 或字段表为空 ⇒ 返回 None,此时**不发半帧**
+                                # (端上解析层对畸形帧整帧丢弃且不报错,发出去就等于"服务端
+                                # 以为弹了、界面上什么都没有")。
+                                if session_id is None:
+                                    session_id = str(uuid.uuid4())
+                                _request_id = f"frm_{uuid.uuid4().hex[:12]}"
+                                _form_frame = (
+                                    build_form_request_frame(
+                                        request_id=_request_id,
+                                        kind=_form_kind,
+                                        session_id=session_id,
+                                        message_id=message_id,
+                                    )
+                                    if isinstance(_form_kind, str)
+                                    else None
+                                )
+                                if _form_frame is None:
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        "ok": False,
+                                        "error": (
+                                            f"业务表单种类 '{_form_kind}' 不存在。可用种类见工具"
+                                            "描述;都不匹配时不要用本工具,直接向用户提问即可。"
+                                        ),
+                                        "errorCode": "form_invalid",
+                                        "message": "未知的业务表单种类,未发起表单",
+                                    }
+                                    ok = False
+                                    tool_exec_tracker.append(ok)
+                                    _f_src, _f_sid, _f_sname = resolve_tool_source(tool_name)
+                                    yield _sse(
+                                        SSE_TOOL_RESULT,
+                                        {
+                                            "type": "tool-result",
+                                            "toolCallId": tc.get("id", ""),
+                                            "toolName": tool_name,
+                                            "args": args,
+                                            "result": exec_result,
+                                            "isError": True,
+                                            "iteration": _tool_iter + 1,
+                                            "serverSource": _f_src,
+                                            "serverId": _f_sid,
+                                            "serverName": _f_sname,
+                                        },
+                                    )
+                                    yield _format_plan_updated_event(
+                                        tool_calls_history,
+                                        explanation=f"工具 {tool_name} 的表单种类未知,未发起表单",
+                                        message_id=message_id,
+                                    )
+                                    messages.append({
+                                        "role": "tool",
+                                        "tool_call_id": tc.get("id", ""),
+                                        "name": tool_name,
+                                        "content": json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                    })
+                                    continue
+
+                                # 注册待决项。**user_id 存的是令牌主体 owner_uuid,不是模型传的任何字段**
+                                # —— 结算端点靠它判归属;缺这份记录时"别人的 requestId"与
+                                # "不存在的 requestId"就无法区分(端点会变成存在性探针)。
+                                _form_ev = asyncio.Event()
+                                _form_sessions.setdefault(session_id, {})[_request_id] = {
+                                    "event": _form_ev,
+                                    "action": None,
+                                    "values": None,
+                                    "reject_reason": None,
+                                    "user_id": owner_uuid,
+                                    "kind": _form_kind,
+                                }
+                                yield _sse(_SSE_FORM_REQUEST, _form_frame)
+                                # 分段等待 + keepalive 注释行:与审批分支同一理由 ——
+                                # 前端 streamChat 有 30s 读超时,静默超窗会被掐断重连。
+                                _form_action: str | None = None
+                                _form_values: dict[str, Any] | None = None
+                                _form_reason: str | None = None
+                                try:
+                                    _form_waited = 0.0
+                                    while _form_waited < _FORM_WAIT_TIMEOUT:
+                                        _form_remain = _FORM_WAIT_TIMEOUT - _form_waited
+                                        try:
+                                            await asyncio.wait_for(
+                                                _form_ev.wait(),
+                                                timeout=min(_FORM_KEEPALIVE_INTERVAL, _form_remain),
+                                            )
+                                        except TimeoutError:
+                                            _form_waited += _FORM_KEEPALIVE_INTERVAL
+                                            if _form_waited < _FORM_WAIT_TIMEOUT:
+                                                yield ": keep-alive (waiting form response)\n\n"
+                                            continue
+                                        _f_entry = _form_sessions.get(session_id, {}).get(_request_id)
+                                        if _f_entry is not None:
+                                            _form_action = _f_entry.get("action")
+                                            _raw_vals = _f_entry.get("values")
+                                            _form_values = (
+                                                _raw_vals if isinstance(_raw_vals, dict) else None
+                                            )
+                                            _form_reason = _f_entry.get("reject_reason")
+                                        break
+                                finally:
+                                    # 无论结算/超时都不留残条目(与 _approval_sessions 同纪律)
+                                    _form_sessions.get(session_id, {}).pop(_request_id, None)
+
+                                # 预填值合并:**只在这一处**把模型给的 prefill 与用户提交的
+                                # values 归并(用户提交的赢)。为什么本帧里没有 prefill:
+                                # 下行帧的线格式没有承载它的槽位(api-client 解析层只保留
+                                # requestId/kind/fields/actions/sessionId/messageId,多余键
+                                # 不透传),所以预填**不会显示在表单上**,只在回灌给模型时合并。
+                                # 这一格是已知残余,登记在 contract.ts 的 FORM_FRAME_EVENTS ③。
+                                _prefill_raw = (
+                                    args.get("prefill") if isinstance(args, dict) else None
+                                )
+                                # 变量名带 _form_ 前缀不是风格问题:gen() 是个数千行的巨型
+                                # 协程,`_merged` 在第 2770 行的 subagent 提示注入处已是一个 str,
+                                # 复用同名会被 mypy 判成"str 上没有 update"并让本处类型塌掉。
+                                _form_merged: dict[str, Any] = (
+                                    dict(_prefill_raw) if isinstance(_prefill_raw, dict) else {}
+                                )
+                                if isinstance(_form_values, dict):
+                                    _form_merged.update(_form_values)
+
+                                if _form_action == "approve":
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        "ok": True,
+                                        "action": "approve",
+                                        "kind": _form_kind,
+                                        "values": _form_merged,
+                                        "userProvidedValues": _form_values or {},
+                                        "message": "用户已提交表单",
+                                    }
+                                    ok = True
+                                    _form_explanation = f"表单 {str(_form_kind)} 已由用户提交"
+                                else:
+                                    _form_timed_out = _form_action is None
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        "ok": False,
+                                        "action": "reject" if not _form_timed_out else None,
+                                        "kind": _form_kind,
+                                        "error": (
+                                            f"用户等待超时({_FORM_WAIT_TIMEOUT}s),表单未提交"
+                                            if _form_timed_out
+                                            else f"用户拒绝了本次表单:{_form_reason or '(未填理由)'}"
+                                        ),
+                                        "errorCode": "timeout" if _form_timed_out else "rejected",
+                                        "message": "表单未提交,请勿重试该工具",
+                                    }
+                                    ok = False
+                                    _form_explanation = (
+                                        f"表单 {str(_form_kind)} "
+                                        f"{'超时未提交' if _form_timed_out else '被用户拒绝'}"
+                                    )
+                                tool_exec_tracker.append(ok)
+                                _f_src2, _f_sid2, _f_sname2 = resolve_tool_source(tool_name)
+                                yield _sse(
+                                    SSE_TOOL_RESULT,
+                                    {
+                                        "type": "tool-result",
+                                        "toolCallId": tc.get("id", ""),
+                                        "toolName": tool_name,
+                                        "args": args,
+                                        "result": exec_result,
+                                        "isError": not ok,
+                                        "iteration": _tool_iter + 1,
+                                        "serverSource": _f_src2,
+                                        "serverId": _f_sid2,
+                                        "serverName": _f_sname2,
+                                    },
+                                )
+                                yield _format_plan_updated_event(
+                                    tool_calls_history,
+                                    explanation=_form_explanation,
+                                    message_id=message_id,
+                                )
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tc.get("id", ""),
+                                    "name": tool_name,
+                                    "content": json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                })
+                                continue
+
                             # ===== V3 #58(2026-09-26 立):主对话流工具审批门 =====
                             # 位置语义:在重复调用/委托可用性拦截(上方)与浏览器委托、
                             # 本地 _mcp.call_tool 执行(下方)之间 —— 无论工具走哪条执行
@@ -4343,6 +4568,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 阶段 2:清理委托 session(始终执行,先于计量帧)
             if session_id and session_id in _delegate_sessions:
                 del _delegate_sessions[session_id]
+            # V3 #63:清理本流尚未结算的表单待决项。等待处已有逐条 pop 的 finally,
+            # 这一层兜的是"流在等待中被掐断 ⇒ 该 session 的桶整个留下空壳"——
+            # 桶不删,后续同名 session 的端点仍能查到条目却永远等不到被 await 的 Event。
+            if session_id:
+                _form_sessions.pop(session_id, None)
             # Steer(2026-09-19 立):清理引导队列(始终执行;未消费的引导随流结束丢弃,
             # 端点此后对本 session 返回 404)
             if session_id:
@@ -4495,6 +4725,88 @@ async def post_tool_approval_response(session_id: str, body: dict[str, Any] = Bo
     entry["reason"] = str(reason)[:500] if reason else None  # 截断与网关 schema 上限对齐
     entry["event"].set()
     return {"ok": True, "accepted": True, "approvalId": approval_id, "decision": decision}
+
+
+def _form_settle_rejected(request_id: str) -> dict[str, Any]:
+    """表单应答**未能结算**时的统一回包。
+
+    "这条 requestId 不存在"与"这条存在但不是你的"必须**逐字段同形**:端点因此
+    不可能被当成存在性探针(拿 404/403 的差异就能枚举出谁的 requestId 是真的)。
+    形状与 approval-response 的既有失败回包对齐(`ok:False` + 单条 `error` 文本),
+    不新增错误码字段 —— 调用方无法据此分辨两种情形,这正是本函目的。
+    """
+    return {"ok": False, "error": "form request not found or expired", "requestId": request_id}
+
+
+@router.post("/llm/complete/stream/{session_id}/form-response", response_model=None)
+async def post_form_response(
+    request: Request,
+    session_id: str,
+    body: dict[str, Any] = Body(...),
+) -> dict[str, Any]:
+    """V3 #63(2026-09-27 立):对话流业务表单的应答回传端点。
+
+    前端 BusinessFormSection 的提交/拒绝经 `@ihui/api-client` 的 `postFormResponse`
+    打到本端点,唤醒 llm.py 工具循环里等待用户填表的 asyncio.Event;工具循环据此把
+    「用户填了什么 / 用户拒绝了 / 超时未答」回灌成一条 tool 消息。
+
+    线格式是 **snake_case**(`request_id` / `reject_reason` / `message_id`),与同一条
+    会话通道上的 tool-result(`tool_call_id`)同族 —— 注意**下行**的 form_request 帧是
+    camelCase(解析层只认那三个 camel 键),两条通道形状不同不是疏漏。
+
+    越权与不存在**同形回包**(见 `_form_settle_rejected`),且两种情形都**不结算**待决项。
+    """
+    request_id = str(body.get("request_id") or body.get("requestId") or "")
+    if not request_id:
+        return _form_settle_rejected(request_id)
+    entry = _form_pending_entry(session_id, request_id)
+    if entry is None:
+        return _form_settle_rejected(request_id)
+
+    # 归属判定:待决项在发帧时记的是**令牌主体** owner_uuid(见工具循环),
+    # 这里再取一次当前调用方的主体比对。模型从来不能决定这两个值中的任何一个。
+    caller_uid = _resolve_owner_uuid(request)
+    owner_uid = entry.get("user_id")
+    if isinstance(owner_uid, str) and owner_uid:
+        if caller_uid != owner_uid:
+            # 别人持有的 requestId:与"不存在"同形,且**绝不 set()那个 Event** ——
+            # 先改了再抛 403 是本仓越权用例专门要断言排掉的写法。
+            logger.warning(
+                "form-response 越权尝试(session=%s, request=%s)已拒绝:未结算待决项",
+                session_id,
+                request_id,
+            )
+            return _form_settle_rejected(request_id)
+    elif caller_uid is not None:
+        # 待决项发帧时没有主体(未鉴权的开发/进程内路径),而调用方带身份 ——
+        # 这不是"匹配",而是两条不同身份通道的偶然相遇,不予结算。
+        return _form_settle_rejected(request_id)
+    # 落到这里的情形:待决项与本调用方**都**没有主体。这是 jwt_secret 未启用
+    # (开发态 / ASGI in-process 测试)时的**回退路径**,不构成授权结论:
+    # 生产配置下中间件必注入 user_id,`entry["user_id"]` 恒为真实主体,走不到这一格。
+
+    action = str(body.get("action", "")).strip().lower()
+    if action not in ("approve", "reject"):
+        return {"ok": False, "error": "action must be approve/reject"}
+
+    values = body.get("values")
+    reject_reason = body.get("reject_reason") or body.get("rejectReason")
+    if action == "approve":
+        # approve 必须带 values 对象;缺失/非对象 ⇒ 拒绝结算(不给"批准但内容为空"
+        # 留一条静默通路,那会让模型以为用户交了白卷)
+        if not isinstance(values, dict):
+            return {"ok": False, "error": "values required for approve"}
+        entry["values"] = values
+        entry["reject_reason"] = None
+    else:
+        # 拒绝零副作用:整字段丢弃 values,而不是写个空对象(空对象会诱导下游
+        # 建一条空草稿/空日程 —— 与端内 buildFormResponseEvent 的成对判据同一条)
+        entry["values"] = None
+        entry["reject_reason"] = str(reject_reason)[:500] if reject_reason else None
+    entry["action"] = action
+    ev = entry["event"]
+    ev.set()
+    return {"ok": True, "accepted": True, "requestId": request_id, "action": action}
 
 
 @router.post("/llm/complete/stream/{session_id}/steer", response_model=None)
