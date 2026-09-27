@@ -11,9 +11,13 @@
  *  ③ 源码级接线:解析开关 → dispatch 分支 → 端内回调注册 → result 清除 → 投影 → 渲染条件,
  *     任一环节被摘掉即红("造好没装车"是本仓最高频失效型,只测纯函数测不出断链)。
  *
- * 立项前提(用户决策 2026-09-27「开通,扩展也要流中预览」):本端此前**完全不发**文件族工具
- * (`toolsForChatRequest` 只带 UI 操控族),所以 `tool-delta` 帧在生产侧就不可能产生 ——
- * 第 ④ 组把这条能力面也钉住,否则回调接了仍是空转。
+ * 立项与结论(用户决策 2026-09-27「开通,扩展也要流中预览」→ 实测后收回):第 ④ 组原本要钉
+ * "扩展必须真的把文件族带进请求",落地前逐条量了执行面,结论相反 —— 服务端对话链的
+ * `__user_role` 恒为 0,而 `write_file`/`file_edit` 属 `_ADMIN_ONLY_TOOLS`;本端又不送
+ * `workspace_context`,委托分支(`llm.py` 的 `if req.workspace_context and … in _FS_DEPENDENT_TOOLS`)
+ * 结构上不成立 ⇒ 带过去只会出现"先给一条流中 diff、再报权限失败"的承诺落空画面;而只读族会在
+ * **服务端**工作区上执行,那是越权面变更。所以本端不带文件族,第 ④ 组改钉"不带"并锁住理由。
+ * 客户端管线(① ② ③)保留且必须绿:委托面到位之日就是它生效之时,而"帧到本端没人接"才是本仓最贵的一型。
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -118,22 +122,26 @@ describe('D113 端到端:真实帧经共享 parser 解析后可直接喂归并�
   })
 })
 
-describe('D113 能力面:扩展会话必须真的把文件族工具带进请求', () => {
-  it('写类话术 ⇒ 请求里出现 write_file / edit_file(服务端才可能发 tool-delta 帧)', () => {
-    const tools = toolsForChatRequest('帮我修改 src/a.ts 文件的代码逻辑')
-    expect(tools).toContain('write_file')
-    expect(tools).toContain('edit_file')
+describe('D113 能力面:扩展会话刻意不带文件族工具(带过去必然执行失败)', () => {
+  /** prettier 会把长 import 折行 —— 形状锁必须比归一化后的文本(本仓记过多次) */
+  const flat = (s: string) => s.replace(/\s+/g, ' ')
+
+  it('操控+改文件混合话术 ⇒ UI 族照常带,文件族一个不带(不带≠整族关掉)', () => {
+    // 这条刻意用混合句:只测"普通问答不带宽具"会是空集恒真,那等于没判
+    const tools = toolsForChatRequest('打开设置页面,帮我修改 src/a.ts 文件的代码逻辑')
+    const FILE_FAMILY =
+      /(^|_)(read|write|edit|create|delete|move)_?file|file_(search|edit)|search_codebase|analyze_code|list_files/
+    expect(tools.some((n) => n.startsWith('ext_ui_') || n.startsWith('api_'))).toBe(true)
+    expect(tools.filter((n) => FILE_FAMILY.test(n))).toEqual([])
   })
 
-  it('纯问答话术 ⇒ 一个文件族工具都不带(不牺牲首字延迟)', () => {
-    const tools = toolsForChatRequest('今天天气怎么样')
-    expect(tools.filter((n) => n.endsWith('_file') || n.startsWith('file_'))).toEqual([])
-  })
-
-  it('判据只有一份:端内不得再写关键词正则', () => {
+  it('端内不得 import 那份策略,也不得自写第二份正则(补回 import = 塞进两个必败工具)', () => {
     const src = readFileSync(join(END_ROOT, 'lib/ui-control-tools.ts'), 'utf8')
-    expect(src).toContain("import { fileToolsFor } from '@ihui/shared/chat/file-tool-intent'")
+    expect(flat(src)).not.toContain("from '@ihui/shared/chat/file-tool-intent'")
     expect(src).not.toMatch(/FILE_(READ|WRITE)_INTENT_RE\s*=\s*\//)
+    // 而"为什么不带"必须写在文件里 —— 没有理由的排除,下一个人一定会"顺手补回来"
+    expect(flat(src)).toContain('_ADMIN_ONLY_TOOLS')
+    expect(flat(src)).toContain('workspace_context')
   })
 })
 
