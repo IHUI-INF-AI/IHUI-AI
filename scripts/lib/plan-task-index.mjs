@@ -503,6 +503,50 @@ export function findDupBlocks(content) {
   return { verbatim, drifted }
 }
 
+/**
+ * F9:撞号 —— 同一编号挂 >1 个**不同标题前缀**(2026-09-27 G-267 立)。
+ *
+ * 为什么 F1/F4/F4b 看不见它:那三条的分组键是复合主键(编号 + 标题前缀逐字等值)——
+ * F1 抓"同一件事写了两份还两态并存",F4 抓"同一件事的多条待办",F4b 抓无主键的逐字孪生;
+ * 而"两个**不同任务**抢同一个号"的两行复合主键**不相等**,三条判据同时失明。
+ * 后果不是账面难看:派单人按编号找活会找到错的那一行,而 §1"一个编号只能有一行当前状态"
+ * 这条规矩没有任何尺子在执行。
+ * 口径与其余判据同源:编号走 `keyOfRow`、标题走 `titleOf` **同一出口**,禁止另抄正则
+ * (§1"行首裸编号"那条记过"另抄一份窄版⇒在自己刚修的族上失明");
+ * 标题**退化**(`titleIsDegenerate`,切完只剩编号)的行不贡献标题 —— 那正是 M16 钉过的
+ * "两个不同议题同编号被并成一条"的形态,它给不出"编号之外的实质标题",不能算第二个标题;
+ * 归并器 F1 翻勾产出的 `**【归并】**` 前缀行标题被切为空 ⇒ 天然不贡献标题,
+ * F4 副本指针追加在行尾 ⇒ 标题不变,两条修法都不会自己制造新撞号。
+ * 定级(票面明令"先量再定级"):落地当天 HEAD 面现读存量撞号组数为**非零大数**,
+ * 逐条看绝大多数是本仓子项命名惯例(D30①/D30②/O81票㉑ 一族),不是真撞号 ——
+ * 所以本维**只进差值/基线棘轮(只拦新增撞号组),存量只报数、`--strict` 也不判红**;
+ * 当场判红就是与任何提交无关的恒红门(§12e),而为变绿给编号加豁免清单同样禁止(§4)。
+ * @returns {Array<{key:string,titleCount:number,titles:Array<{title:string,lines:number[]}>}>} 按编号首现顺序
+ */
+export function findIdCollisions(content) {
+  const byKey = new Map()
+  for (const r of parseTaskRows(content)) {
+    if (!r.key) continue
+    const title = titleOf(r.raw)
+    if (!title) continue
+    if (titleIsDegenerate(r.raw, title)) continue
+    if (!byKey.has(r.key)) byKey.set(r.key, new Map())
+    const titles = byKey.get(r.key)
+    if (!titles.has(title)) titles.set(title, [])
+    titles.get(title).push(r.line)
+  }
+  const groups = []
+  for (const [key, titles] of byKey) {
+    if (titles.size < 2) continue
+    groups.push({
+      key,
+      titleCount: titles.size,
+      titles: [...titles.entries()].map(([title, lines]) => ({ title, lines })),
+    })
+  }
+  return groups
+}
+
 /** 一把跑完四条统计。数字一律现读,不得写进文档当恒定事实。 */
 /**
  * 取号出口(生产侧防"同编号抢两个不同任务")。
@@ -510,6 +554,8 @@ export function findDupBlocks(content) {
  * 为什么不做成判据:2026-09-27 实测同一份 HEAD 里"同编号、不同标题"有 **57/227** 个编号,
  * 逐条看绝大多数是本仓的子项命名惯例(`D30①` / `D30②` / `D30补强` / `D19的"派发前置"…`),
  * 不是撞号 —— 拿它当判据红就是造一台噪声门(假阳比漏报更贵:它指使人去"修"没坏的东西)。
+ * (同日 G-267 续:**F9 已按棘轮形态落地** —— 它不判这批存量的红,只拦"本次新增的撞号组",
+ * 与本注"按它判红就是造一台噪声门"的实测结论不冲突;取号出口仍保留,防线在登记那一刻。)
  * 而当天真实发生的那一起(两路会话各登记了一个 `G-262`,分别指水印补齐与 git 进程积压)
  * 结构上事后判不了,**只能在登记那一刻把号算出来** —— 所以本函数住在判据层、由
  * `plan-tasks.mjs --next-id` 暴露,不在提交链上。
@@ -570,6 +616,7 @@ export function auditPlan(content) {
   const dupCopies = findDupOpenCopies(dupOpen)
   const verbatimDups = findVerbatimDupOpenRows(content)
   const dupBlocks = findDupBlocks(content)
+  const collisions = findIdCollisions(content)
   const dupCopyLines = new Set([
     ...dupCopies.map((c) => c.row.line),
     ...verbatimDups.copies.map((c) => c.row.line),
@@ -611,6 +658,7 @@ export function auditPlan(content) {
     dupCopies,
     verbatimDups,
     dupBlocks,
+    collisions,
     dispBuckets,
     undisposed,
     staleRows,
@@ -643,6 +691,8 @@ export function auditPlan(content) {
       dupBlockCopies: dupBlocks.verbatim.reduce((s, b) => s + b.copies, 0),
       dupBlockDrifted: dupBlocks.drifted.length,
       dupDoneGroups: dupDone.length,
+      // F9 撞号(见 findIdCollisions 头注定级理由):存量只报数,提交链只拦新增撞号组。
+      collisionGroups: collisions.length,
       claimable: unclaimedRows.filter(isClaimable).length,
       // ── F7 归属分层(未认领口径,与 claimable 同集合基数)──
       // 基数校验:四桶相加必须等于 unclaimed,不等就是分类逻辑漏桶(已由 selfTest 钉住)。
