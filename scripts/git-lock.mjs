@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息 */
 /**
  * git-lock.mjs — git 写操作全局串行化锁(2026-08-06 立,根治多 agent 并发写损坏)。
@@ -16,6 +15,7 @@
  *   node scripts/git-lock.mjs acquire [--unit <id>] [--timeout <ms>] [--stale <ms>]
  *   node scripts/git-lock.mjs release [--unit <id>]
  *   node scripts/git-lock.mjs check              # 只读:是否有锁,exit 0=无锁 1=有锁
+ *   node scripts/git-lock.mjs scan               # 只读:G-262 原生锁三分类读数 + git 进程数 + 等待 P95(账本累积)
  *   node scripts/git-lock.mjs heartbeat --unit <id> [--interval <ms>] [--parent-pid <pid>]
  *
  * 锁语义:
@@ -46,6 +46,7 @@
  */
 import { execSync } from 'node:child_process'
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -56,20 +57,27 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 // 现场归档的唯一落点(AGENTS §15b / §5b「现场归档一律落在 gitArchiveDir(),手工抢修也不得例外」)。
 // 抢占产生的 `.stale-*` 目录**绝不**留在 .git 里,更不落工作区根或盘根。
 import { gitArchiveDir } from './lib/gitdir.mjs'
 // 抢占算法的唯一实现(2026-09-26 合并:本脚本与 deploy-lock.mjs 曾各写一份 claimStaleLock)。
 import { claimStaleLockCore } from './lib/stale-lock-claim.mjs'
+// G-262(2026-09-28):git 原生锁文件的可判检测 —— 枚举/分类只在这一份实现,
+// 本脚本的 clean 与 scan 两个子命令共用,不各写一份扫描(§22c 同纪律)。
+import { scanNativeLocks, countGitProcsFromTasklist } from './lib/git-native-locks.mjs'
 // 进程身份三元组(pid + pidStart + host)。裸 pid 不足以回答"这个 pid 还是当初那个进程吗"
 // —— 2026-09-25 的 G-193 就是 meta.pid=888 被 nssm.exe 复用,判活恒真 ⇒ 部署环冻结 11h50m。
 import { identityFields, verifyHolder } from './lib/proc-identity.mjs'
 
 function run(cmd, allowFail = false) {
   try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }).trim()
+    return execSync(cmd, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
   } catch (e) {
     if (allowFail) return null
     throw e
@@ -107,7 +115,12 @@ function writeMeta(dir, unitId, opts = {}) {
   // ⇒ 与改动前的 meta 形态逐字相同(向后兼容,不写假值)。
   writeFileSync(
     metaFile(dir),
-    JSON.stringify({ unitId: unitId ?? '', pid: process.pid, ts: Date.now(), ...identityFields(opts.run ? { run: opts.run } : {}) }),
+    JSON.stringify({
+      unitId: unitId ?? '',
+      pid: process.pid,
+      ts: Date.now(),
+      ...identityFields(opts.run ? { run: opts.run } : {}),
+    }),
     'utf8',
   )
 }
@@ -176,7 +189,8 @@ function claimStaleLock(dir, judged, why, { archiveRoot = gitArchiveDir(), suffi
     suffix,
     readState: readMeta,
     same: sameLock,
-    writeNote: (stagedPath, ctx) => writeStaleNote(stagedPath, { judged, rawMeta: ctx.rawMeta, why, stolenByPid: process.pid }),
+    writeNote: (stagedPath, ctx) =>
+      writeStaleNote(stagedPath, { judged, rawMeta: ctx.rawMeta, why, stolenByPid: process.pid }),
     placeScene: placeGitScene,
   })
   switch (r.cause) {
@@ -271,8 +285,6 @@ function fmtLock(meta) {
   return `unit=${meta.unitId ?? ''} pid=${meta.pid ?? ''} ts=${meta.ts ? new Date(meta.ts).toISOString() : ''}`
 }
 
-
-
 /** 检测进程是否存活(signal 0 探测,跨平台;EPERM 视为存在) */
 function isPidAlive(pid) {
   if (!pid || Number(pid) === process.pid) return true
@@ -354,9 +366,9 @@ function identityAuthorizesClaim(identity) {
  */
 const INDEX_LOCK_STALE_MS = 60_000
 
-function cleanStaleIndexLocks() {
+function cleanStaleIndexLocks({ gitRoot, alive = isPidAlive, hasGitProcessProbe } = {}) {
   const cleaned = []
-  const base = gitDir()
+  const base = gitRoot ?? gitDir()
   const candidates = [join(base, 'index.lock')]
   // worktrees 的 index.lock
   try {
@@ -375,16 +387,18 @@ function cleanStaleIndexLocks() {
   if (existsSync(maintenanceLock)) candidates.push(maintenanceLock)
   // 是否有 git 进程在运行(粗略判据:tasklist 有 git.exe)
   let hasGitProcess = false
-  try {
-    const out = execSync('tasklist /FI "IMAGENAME eq git.exe" /NH', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+  if (hasGitProcessProbe) hasGitProcess = hasGitProcessProbe()
+  else
+    try {
+      const out = execSync('tasklist /FI "IMAGENAME eq git.exe" /NH', {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
       })
-    hasGitProcess = /git\.exe/i.test(out)
-  } catch {
-    /* tasklist 失败,保守假设无 git 进程(允许清理) */
-  }
+      hasGitProcess = /git\.exe/i.test(out)
+    } catch {
+      /* tasklist 失败,保守假设无 git 进程(允许清理) */
+    }
   for (const lockPath of candidates) {
     try {
       const st = statSync(lockPath)
@@ -398,7 +412,175 @@ function cleanStaleIndexLocks() {
       /* 文件正在被占用(活 git 持有)或已消失,跳过 */
     }
   }
+  // G-262(2026-09-28):名字里嵌 pid 的锁族(next-index-<pid>.lock)—— 归属证据比
+  // index.lock 强:**pid 判死 ⇒ 创建者必已退出 ⇒ 孤儿锁,立即清理**(不等 INDEX_LOCK_STALE_MS,
+  // 也不受"有没有别的 git 进程在跑"影响 —— 别的进程不会持有它)。pid 存活 ⇒ 一律不碰
+  // (复用 pid 会把死锁看成活锁,保守方向 = 少删;这正是"不删别人的锁"的那一格)。
+  // 实测病型:Windows pid 复用 ⇒ 新进程撞上同名旧锁报 `File exists` 且永远等不到释放。
+  try {
+    const scan = scanNativeLocks({ gitRoot: base, isPidAlive: alive })
+    for (const l of scan.locks) {
+      if (l.verdict !== 'dead-confirmed') continue
+      const p = join(base, ...l.rel.split('/'))
+      try {
+        unlinkSync(p)
+        cleaned.push(`${p}(pid=${l.embeddedPid} 已退出,锁龄 ${Math.round(l.ageMs / 1000)}s)`)
+      } catch {
+        /* 竞态:刚被别人清走 ⇒ 下一轮再说 */
+      }
+    }
+  } catch {
+    /* 枚举失败不阻塞主路径(acquire 快路径不得因新族检测而变红) */
+  }
   return cleaned
+}
+
+/** 仓库根(工作树顶层)。 */
+function repoRoot() {
+  const r = run('git rev-parse --show-toplevel', true)
+  if (!r) throw new Error('不在 git 仓库中')
+  return r
+}
+
+/** G-262 计量账本:等待事件与快照都进这一份(不另立文件,避免第二份真相)。 */
+function metricsFilePath() {
+  return join(repoRoot(), '.workbuddy', 'git-lock-metrics.jsonl')
+}
+
+function readMetricsLines(file) {
+  try {
+    return readFileSync(file, 'utf8')
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((l) => {
+        try {
+          return JSON.parse(l)
+        } catch {
+          return null
+        }
+      })
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+function percentile(nums, p) {
+  if (!nums.length) return null
+  const s = [...nums].sort((a, b) => a - b)
+  const idx = Math.min(s.length - 1, Math.max(0, Math.ceil(p * s.length) - 1))
+  return s[idx]
+}
+
+function resolveIfRelative(p) {
+  if (/^[A-Za-z]:[\\/]/.test(p) || p.startsWith('/') || p.startsWith('\\')) return p
+  return join(repoRoot(), p)
+}
+
+/**
+ * `scan` 子命令(G-262 判据的取数口):
+ *   - 枚举 .git(含 common dir)原生锁文件并按证据三分类(只读,绝不删);
+ *   - 现测同时存活 git 进程数(tasklist git.exe);
+ *   - 落一行快照进账本;从账本里已有的**等待事件**算 P50/P95(样本不足如实报不足,不编数)。
+ */
+function scanCommand() {
+  const roots = [gitDir()]
+  try {
+    const common = run('git rev-parse --git-common-dir', true)
+    if (common) {
+      const abs = resolveIfRelative(common)
+      if (!roots.includes(abs)) roots.push(abs)
+    }
+  } catch {
+    /* common dir 问不到就只扫 gitDir,快照里如实 */
+  }
+  const seen = new Set()
+  const allLocks = []
+  let unreadable = false
+  for (const r of roots) {
+    const scan = scanNativeLocks({ gitRoot: r, isPidAlive })
+    unreadable = unreadable || scan.gitRootUnreadable
+    for (const l of scan.locks) {
+      const key = `${r}|${l.rel}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      allLocks.push({ ...l, root: r })
+    }
+  }
+  let gitProcs = null
+  try {
+    gitProcs = countGitProcsFromTasklist(
+      // encoding 必须是 buffer:GBK 码页下 utf8 解码会把"没有运行的任务"读成乱码(见 lib 头注)
+      execSync('tasklist /FI "IMAGENAME eq git.exe" /NH', {
+        encoding: 'buffer',
+        windowsHide: true,
+        timeout: 30_000,
+      }),
+    )
+  } catch {
+    /* tasklist 失败 ⇒ null(不报 0,"没判"与"判过"必须长得不一样) */
+  }
+  const file = metricsFilePath()
+  const snap = {
+    ts: new Date().toISOString(),
+    kind: 'snapshot',
+    gitProcs,
+    locks: allLocks.map((l) => ({
+      rel: l.rel,
+      verdict: l.verdict,
+      ageMs: Math.round(l.ageMs),
+      size: l.size,
+    })),
+  }
+  try {
+    mkdirSync(dirname(file), { recursive: true })
+    appendFileSync(file, `${JSON.stringify(snap)}\n`)
+  } catch (e) {
+    console.error(`⚠️ 快照落账失败(不影响读数):${e?.message ?? e}`)
+  }
+  const waits = readMetricsLines(file).filter((r) => r.kind === 'wait' && r.outcome !== 'timeout')
+  const timeouts = readMetricsLines(file).filter(
+    (r) => r.kind === 'wait' && r.outcome === 'timeout',
+  )
+  const L = []
+  L.push(
+    `[git-lock scan] .git 原生锁读数(只检不删;roots=${roots.length}${unreadable ? ' ⚠ 有根不可读' : ''})`,
+  )
+  L.push(
+    `  同时存活 git.exe 进程数:${gitProcs === null ? '量不到(tasklist 失败,不报 0)' : gitProcs}`,
+  )
+  const dead = allLocks.filter((l) => l.verdict === 'dead-confirmed')
+  const aliveL = allLocks.filter((l) => l.verdict === 'pid-alive')
+  const noEv = allLocks.filter((l) => l.verdict === 'no-owner-evidence')
+  L.push(
+    `  锁文件:${allLocks.length} 枚 ⇒ dead-confirmed ${dead.length} / pid-alive ${aliveL.length} / 无归属证据 ${noEv.length}`,
+  )
+  for (const l of dead)
+    L.push(
+      `    · ${l.rel} pid=${l.embeddedPid} 已退出 龄 ${Math.round(l.ageMs / 1000)}s ⇒ 出路:node scripts/git-lock.mjs clean`,
+    )
+  for (const l of aliveL)
+    L.push(`    · ${l.rel} pid=${l.embeddedPid} 名义存活 ⇒ 不碰(复用 pid 会把它看成活锁,保守方向)`)
+  for (const l of noEv)
+    L.push(
+      `    · ${l.rel} 无归属证据 ⇒ 只报数(龄 ${Math.round(l.ageMs / 1000)}s,${l.size}B),删除授权走 clean 既有判据`,
+    )
+  if (waits.length >= 20) {
+    const p50 = percentile(
+      waits.map((w) => w.waitMs),
+      0.5,
+    )
+    const p95 = percentile(
+      waits.map((w) => w.waitMs),
+      0.95,
+    )
+    L.push(`  锁等待 P50=${p50}ms P95=${p95}ms(样本 ${waits.length};账本 ${file})`)
+  } else {
+    L.push(`  锁等待 P95:样本不足(${waits.length}/20)⇒ 如实不报数;等待事件由 acquire 记账,越跑越准`)
+  }
+  if (timeouts.length)
+    L.push(`  ⚠ 等待超时事件 ${timeouts.length} 次(这些是"被挡到放弃"的右截断,未计入 P95)`)
+  console.log(L.join('\n'))
 }
 
 /**
@@ -438,8 +620,25 @@ async function acquire({
   cleanIndexLocks = true,
   identityRun,
   claimArchiveRoot,
+  metricsFile,
   log = (m) => console.log(m),
 } = {}) {
+  // G-262 判据之一(锁等待 P95)的取数口:只有 CLI 传 metricsFile 才记账 ——
+  // 镜像测试注入 dir/桩时一个字都不落真账本。
+  const t0 = Date.now()
+  let polls = 0
+  const recordWait = (outcome) => {
+    if (!metricsFile || polls === 0) return
+    try {
+      mkdirSync(dirname(metricsFile), { recursive: true })
+      appendFileSync(
+        metricsFile,
+        `${JSON.stringify({ ts: new Date().toISOString(), kind: 'wait', outcome, unitId: unitId ?? '', waitMs: Date.now() - t0, polls })}\n`,
+      )
+    } catch {
+      /* 记账失败不得影响锁语义 */
+    }
+  }
   // 先清理可能存在的 stale index.lock(死 git 进程残留),否则后续 git 操作全卡死
   if (cleanIndexLocks) cleanStaleIndexLocks()
 
@@ -449,12 +648,15 @@ async function acquire({
     try {
       mkdirSync(dir, { recursive: false })
       writeMeta(dir, unitId, identityRun ? { run: identityRun } : {})
+      recordWait('acquired')
       return true
     } catch {
+      polls++
       // 锁已存在:检查可重入 / stale
       const meta = readMeta(dir)
       if (meta && unitId && meta.unitId === unitId) {
         // 同一写操作单元(如 safe-commit → post-commit 链路)可重入
+        recordWait('reentrant')
         return true
       }
       if (meta) {
@@ -487,13 +689,14 @@ async function acquire({
           const why = holderAlive
             ? `锁龄 ${Math.round(age / 1000)}s 已超 staleMs=${Math.round(staleMs / 1000)}s / hardStaleMs=${Math.round(hardStaleMs / 1000)}s,而持有者 pid=${meta.pid} 名义存活 ⇒ pid 极可能已被复用${identityNote(identity)}`
             : `持有者 pid=${meta.pid} 已退出`
-          const claim = claimStaleLock(dir, meta, why)
+          const claim = claimStaleLock(dir, meta, why, { archiveRoot: claimArchiveRoot })
           log(claim.log)
           if (claim.ok) continue
           // 没抢到 ⇒ 什么都不删,落到下面的超时判据 + 轮询等待(不 continue,避免热自旋)
         }
       }
       if (Date.now() > deadline) {
+        recordWait('timeout')
         const alive = meta ? isPidAlive(meta.pid) : false
         throw new Error(
           `git 写锁等待超时(${timeoutMs}ms)。当前持锁: ${meta ? `unit=${meta.unitId} pid=${meta.pid} 于 ${new Date(meta.ts).toLocaleTimeString()}(${alive ? '持有者仍在运行,请耐心等待或稍后重试' : '持有者已退出,等待 stale 抢占'})` : '未知'}。` +
@@ -538,7 +741,6 @@ function release({ unitId, dir = lockDir() } = {}) {
   removeLock(dir)
   return { released: true, why: ownsByToken ? 'unitId 匹配' : '本进程 pid 匹配' }
 }
-
 
 /**
  * 只读检查。**刻意不做身份现测**:check 挂在人手与脚本链上(AGENTS §5b 诊断、
@@ -689,7 +891,8 @@ export function tryAcquireSingleInstance({
       } catch {
         continue
       }
-      if (age > staleMs) stealWhy = `锁目录内无可读 meta.json 且目录龄 ${seconds(age)}s 超 ${seconds(staleMs)}s ⇒ 视为残留回收`
+      if (age > staleMs)
+        stealWhy = `锁目录内无可读 meta.json 且目录龄 ${seconds(age)}s 超 ${seconds(staleMs)}s ⇒ 视为残留回收`
       else
         return no(
           'skipped-held',
@@ -717,7 +920,11 @@ export function tryAcquireSingleInstance({
           log(
             `[git-lock] 单实例守卫:身份无法核对(pid=${meta.pid})⇒ 按"持有者仍持有"跳过,不据此抢占。原因:${identity.why ?? '未给'}`,
           )
-        return no('skipped-held', `已有一个实例在持有该锁(持有者 ${fmtLock(meta)})⇒ 跳过本轮,不排队`, meta)
+        return no(
+          'skipped-held',
+          `已有一个实例在持有该锁(持有者 ${fmtLock(meta)})⇒ 跳过本轮,不排队`,
+          meta,
+        )
       }
     }
 
@@ -748,13 +955,16 @@ async function main() {
         unitId: getOpt('--unit') ?? '',
         timeoutMs: Number(getOpt('--timeout') ?? 120_000),
         staleMs: Number(getOpt('--stale') ?? 300_000),
+        metricsFile: metricsFilePath(),
       })
       console.log('locked')
+    } else if (cmd === 'scan') {
+      // G-262:只检不删的原生锁读数 + git 进程数 + 锁等待 P95(账本累积)
+      scanCommand()
     } else if (cmd === 'release') {
       const r = release({ unitId: getOpt('--unit') ?? '' })
       console.log(r.released ? 'released' : `未释放:${r.why}`)
       if (!r.released && r.why !== '无锁目录') process.exit(1)
-
     } else if (cmd === 'check') {
       process.exit(check())
     } else if (cmd === 'heartbeat') {
@@ -794,7 +1004,11 @@ async function main() {
             if (claim.ok)
               removed.push(
                 `ihui-git-write.lock(unit=${meta.unitId} pid=${meta.pid} ${
-                  identityAuthorizesClaim(identity) ? '身份确证复用' : holderAlive ? 'hardStale' : 'dead'
+                  identityAuthorizesClaim(identity)
+                    ? '身份确证复用'
+                    : holderAlive
+                      ? 'hardStale'
+                      : 'dead'
                 })`,
               )
           } else {
@@ -820,7 +1034,9 @@ async function main() {
         for (const r of removed) console.log(`   - ${r}`)
       }
     } else {
-      console.error('用法: git-lock.mjs acquire|release|check|heartbeat|clean [--unit <id>] [--timeout <ms>] [--stale <ms>] [--parent-pid <pid>]')
+      console.error(
+        '用法: git-lock.mjs acquire|release|check|heartbeat|clean|scan [--unit <id>] [--timeout <ms>] [--stale <ms>] [--parent-pid <pid>]',
+      )
       process.exit(1)
     }
   } catch (e) {
@@ -857,5 +1073,11 @@ export const __test__ = {
   identityNote,
   identityAuthorizesClaim,
   heartbeat,
+  // G-262 计量与检测的接线面(镜像测试注入夹具目录跑端到端,不碰真实 .git/账本):
+  cleanStaleIndexLocks,
+  metricsFilePath,
+  readMetricsLines,
+  percentile,
+  scanCommand,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
