@@ -450,7 +450,7 @@ function HookEditor({
             {/* 条件表达式 */}
             <Field label={t('fieldCondition')} hint={t.raw('conditionHint') as string}>
               <textarea
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={draft.condition}
                 onChange={(e) => onChange({ condition: e.target.value })}
                 placeholder='{"and":[{"==":["tool","write_file"]},{"contains":["args.path",".env"]}]}'
@@ -569,7 +569,7 @@ function HookActionConfigForm({
         </Field>
         <Field label={t('fieldHeaders')}>
           <textarea
-            className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex min-h-[60px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={draft.webhookHeaders}
             onChange={(e) => onChange({ webhookHeaders: e.target.value })}
             spellCheck={false}
@@ -577,7 +577,7 @@ function HookActionConfigForm({
         </Field>
         <Field label={t('fieldBodyTemplate')} hint={t.raw('bodyTemplateHint') as string}>
           <textarea
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={draft.webhookBody}
             onChange={(e) => onChange({ webhookBody: e.target.value })}
             spellCheck={false}
@@ -591,7 +591,7 @@ function HookActionConfigForm({
       <div className="flex flex-col gap-3 rounded-md border border-border p-3">
         <Field label={t('fieldShellCommand')} required hint={t('shellCommandHint')}>
           <textarea
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={draft.scriptCommand}
             onChange={(e) => onChange({ scriptCommand: e.target.value })}
             placeholder={`echo "event=$HOOK_EVENT" >> hooks.log`}
@@ -644,7 +644,7 @@ function HookActionConfigForm({
             </Field>
             <Field label={t('fieldHeaders')}>
               <textarea
-                className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex min-h-[60px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={draft.webhookHeaders}
                 onChange={(e) => onChange({ webhookHeaders: e.target.value })}
                 spellCheck={false}
@@ -794,7 +794,7 @@ function NativeSelect<T extends string>({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as T)}
-      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>

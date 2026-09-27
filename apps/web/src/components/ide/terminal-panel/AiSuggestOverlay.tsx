@@ -29,7 +29,7 @@ export function AiSuggestOverlay({
 }: AiSuggestOverlayProps) {
   const t = useTranslations('ide')
   return (
-    <div className="absolute left-2 top-10 z-20 w-80 overflow-hidden rounded-md border border-border bg-popover shadow-md">
+    <div className="absolute left-2 top-10 z-20 w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-md">
       <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
         <div className="flex items-center gap-1.5">
           <Sparkles className="h-3 w-3 text-muted-foreground" />

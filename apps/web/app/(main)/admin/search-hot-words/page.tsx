@@ -91,7 +91,7 @@ export default function AdminSearchHotWordsPage() {
           value={newWord}
           onChange={(e) => setNewWord(e.target.value)}
           placeholder={t('wordPlaceholder')}
-          className="h-9 flex-1 max-w-xs rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="h-9 flex-1 max-w-xs rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
         <button
           type="submit"

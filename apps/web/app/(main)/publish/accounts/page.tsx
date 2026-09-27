@@ -288,7 +288,7 @@ export default function AccountsPage() {
                 key={s.platformId}
                 type="button"
                 onClick={() => openScanLogin(s.platformId)}
-                className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs hover:bg-accent"
+                className="inline-flex items-center gap-1 rounded-sm border border-input bg-background px-2 py-1 text-xs hover:bg-accent"
               >
                 <span className="font-medium">{s.platformName}</span>
                 <span className="text-muted-foreground">+ 配置</span>
