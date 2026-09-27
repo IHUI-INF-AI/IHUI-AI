@@ -597,6 +597,143 @@ async function heartbeat({ unitId, intervalMs = 5_000, parentPid }) {
   }
 }
 
+/**
+ * G-262 新增(2026-09-27,纯新增导出 —— 本文件上方全部既有判据一字未动):
+ * 「后到者直接跳过并说明原因」形态的**单实例**获取,给那种"每一轮都被再叠一发"的
+ * 周期任务用(立因实测:守护每 2 分钟一轮,一轮全 ref 增量 fetch 跑不完 2 分钟,
+ * 于是每个 tick 再叠一发 —— 当轮量到 26 个互不相同父进程各对同一备份库开 fetch)。
+ *
+ * 为什么不走上方 `acquire()`(语义不合,不是嫌它重):
+ *  - acquire 是"排队等到位"(默认 120s 超时后 throw),那是提交链要的 —— 提交必须做成;
+ *  - 本原语的调用方**做成做不成两可**:少刷一轮不是故障(AGENTS §1 归档大批量阀门 /
+ *    守门 5c 水印 200 缺口阀同一条:自动档少做一件事不是错误,不得把链条弄红),
+ *    叠八轮并发才是故障;所以拿不到就返回,调用方自己决定怎么"说明跳过"(退出码 0);
+ *  - acquire 的 unitId 重入(同 unitId 直接放行)会为单实例**开后门**(两个同 unit 的
+ *    进程本就是要互斥的那对),故这里的重入判据收紧为"同 unitId ∧ 持锁 pid 就是本进程";
+ *  - acquire 先调 cleanStaleIndexLocks()(扫 tasklist + 删文件),对只路过一下的跳过者
+ *    是无必要副作用,本原语不碰 index.lock。
+ *
+ * 三条不许漂的规矩(各有镜像用例,scripts/tests/git-backup-refresh.test.mjs T10–T14):
+ *  ① **持有者活着的锁绝不抢**(哪怕名义年龄超 staleMs)—— acquire 那条"名义活着超龄也抢"
+ *     靠心跳续 ts 兜住,而本原语的调用方没有心跳:照抄会把两个实例直接放进临界区,
+ *     正是本票要根治的病。唯一例外是身份三元组**确证** pid 已被复用(`mismatch`,
+ *     走既有 identityAuthorizesClaim);`unverifiable` / `match` 一律维持"按持有中处理"。
+ *  ② 死 pid 的残留锁不秒删:要求 **pid 已死 ∧ 锁龄超 staleMs(默认 300s,与 git-lock 同档)**
+ *     才回收,且回收仍走 claimStaleLock(改名→身份回读→只处置改到的那份)—— 2026-09-26
+ *     的实测教训:"我判它已死"与"我删它"之间别人可能已拿到新锁,直删删的是别人的活锁。
+ *  ③ 拿不到锁只返回结论,不等待、不抛错、**更不删别人的锁**;release 句柄只在拿到锁时
+ *     给出(acquired=false ⇒ release=null),从结构上排除"跳过者误删持有者的锁"。
+ *
+ * 锁形态与本文件完全同构(目录 + meta.json {unitId,pid,ts,host,pidStart}),落点由调用方
+ * 指定(资源在哪,锁就在哪 —— 备份刷新器的锁放备份 gitdir 内),`git-lock.mjs clean`
+ * 与任何通用巡检工具因此都认得这类锁。
+ *
+ * @param {{dir:string, unitId?:string, staleMs?:number,
+ *   identityRun?:Function, claimArchiveRoot?:string|null, log?:(m:string)=>void}} opts
+ *   `identityRun` / `claimArchiveRoot` / `dir` / `log` 为测试与夹具注入面(镜像测试据此
+ *   在"不派生真 PowerShell、抢占现场不落进 gitArchiveDir()"的前提下跑端到端)。
+ * @returns {{acquired:boolean, kind:string, why:string, holder:string|null,
+ *   release:(()=>{released:boolean,why:string})|null}}
+ */
+export function tryAcquireSingleInstance({
+  dir,
+  unitId = '',
+  staleMs = 300_000,
+  identityRun,
+  claimArchiveRoot,
+  log = (m) => console.log(m),
+} = {}) {
+  const idOpts = identityRun ? { run: identityRun } : {}
+  const seconds = (ms) => Math.round(ms / 1000)
+  // mkdir 成功即持锁;EEXIST 才进入下面的判读,其它错误如实上报(不做"猜无锁"继续)。
+  const mk = () => {
+    try {
+      mkdirSync(dir, { recursive: false })
+    } catch (e) {
+      if (e && e.code === 'EEXIST') return 'exists'
+      return `fail:${e?.code ?? e?.message ?? e}`
+    }
+    writeMeta(dir, unitId, idOpts)
+    return 'ok'
+  }
+  const yes = (kind) => ({
+    acquired: true,
+    kind,
+    why: '',
+    holder: null,
+    release: () => release({ unitId, dir }),
+  })
+  const no = (kind, why, holderMeta) => ({
+    acquired: false,
+    kind,
+    why,
+    holder: holderMeta ? fmtLock(holderMeta) : null,
+    release: null, // ⚠️ 判据:没拿到锁就不给释放句柄 —— 跳过者永远删不动持有者的锁
+  })
+
+  for (let round = 0; round < 3; round++) {
+    const m = mk()
+    if (m === 'ok') return yes('acquired')
+    if (m !== 'exists') return no('error', `创建锁目录失败,不猜 ⇒ 本轮放弃(${m})`, null)
+
+    const meta = readMeta(dir)
+    // 重入:同 unitId **且** meta.pid 就是本进程(acquire 那种"同 unit 即重入"会拆掉单实例)
+    if (meta && meta.unitId === unitId && Number(meta.pid) === process.pid) return yes('reentrant')
+
+    let stealWhy = null
+    if (!meta) {
+      // 锁目录在而 meta 读不到:只能按目录 mtime 估龄;估不动(刚消失/无权限)不猜,交下轮
+      let age = null
+      try {
+        age = Date.now() - statSync(dir).mtimeMs
+      } catch {
+        continue
+      }
+      if (age > staleMs) stealWhy = `锁目录内无可读 meta.json 且目录龄 ${seconds(age)}s 超 ${seconds(staleMs)}s ⇒ 视为残留回收`
+      else
+        return no(
+          'skipped-held',
+          `锁目录内无可读 meta.json,龄 ${seconds(age)}s 未超 ${seconds(staleMs)}s ⇒ 不判死`,
+          null,
+        )
+    } else if (!isPidAlive(meta.pid)) {
+      const age = Date.now() - (meta.ts ?? 0)
+      if (age > staleMs)
+        stealWhy = `持有者 pid=${meta.pid} 已退出,且锁龄 ${seconds(age)}s 超 ${seconds(staleMs)}s ⇒ 回收残留`
+      else
+        return no(
+          'skipped-held',
+          `持有者 pid=${meta.pid} 刚退出(锁龄 ${seconds(age)}s 未超 ${seconds(staleMs)}s)⇒ 暂不回收,下轮再来`,
+          meta,
+        )
+    } else {
+      // 名义存活:唯一能证明"这其实不是持锁者"的是身份三元组确证复用(G-193 那一型)。
+      // match ⇒ 确有人在持有;unverifiable ⇒ 维持改动前判据(活着就不抢),原因当场喊出来。
+      const identity = verifyHolder(meta, idOpts)
+      if (identityAuthorizesClaim(identity)) {
+        stealWhy = `身份三元组确证 pid=${meta.pid} 已不是持锁进程:${identity.why} ⇒ 回收(不依赖锁龄)`
+      } else {
+        if (identity.kind === 'unverifiable')
+          log(
+            `[git-lock] 单实例守卫:身份无法核对(pid=${meta.pid})⇒ 按"持有者仍持有"跳过,不据此抢占。原因:${identity.why ?? '未给'}`,
+          )
+        return no('skipped-held', `已有一个实例在持有该锁(持有者 ${fmtLock(meta)})⇒ 跳过本轮,不排队`, meta)
+      }
+    }
+
+    const claim = claimStaleLock(dir, meta, `[tryAcquireSingleInstance] ${stealWhy}`, {
+      archiveRoot: claimArchiveRoot,
+    })
+    log(claim.log)
+    if (!claim.ok) {
+      // 回收没落地 ⇒ 原路径此刻可能已属别人,什么都别再碰;失效方向 = 跳过而非双实例
+      return no('skipped-held', `残留锁回收未落地 ⇒ 按他人持有对待:${claim.log}`, meta)
+    }
+    // 回收成功 ⇒ 回循环顶重试 mkdir(并发下可能被抢,最多 3 轮,绝不热自旋等待)
+  }
+  return no('skipped-held', '连续多轮未取到锁 ⇒ 本轮放弃(下轮再来)', null)
+}
+
 async function main() {
   const args = process.argv.slice(2)
   const cmd = args[0]
