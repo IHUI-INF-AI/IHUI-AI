@@ -8466,7 +8466,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - [x] ✅(2026-09-28 归正:教训行的动作=把纪律记进台账,已记录在案即完成;续两行为其正文,不动) **本波自己踩到的取证纪律（已在上一批记过，仍复发，所以再记一次）**：`cmd 2>&1 | tail -N` 之后
   `echo $?` 拿的是 `tail` 的码 —— 本轮 `cargo test` 编译失败（E0308 两处）时 `test_rc` 照样显示 0，
   靠回头读日志才发现。长任务一律先 `> file 2>&1` 再取退出码，然后读文件。
-- [ ] **上游第二轮规格派出的票（规格在 `.ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-2.md`，gitignored）**：
+- [x] ✅(2026-09-28 现读归正:本行派出的四格与两项在飞全部落地,续文为其正文不动) **上游第二轮规格派出的票（规格在 `.ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-2.md`，gitignored）**：〔逐格取证(当次 HEAD 实测):§1+§7 豁免到期账+lint 抑制预算已由 `8c442cd8463` 入库(本台账 L8599 已翻勾,36/36+20/20);§2 三轴基线新鲜度自检由 `958c6c94024` 入库(L8584 已翻勾);§6 来源台账=守门 107、豁免到期=108、产物预算=110,三门注册现读在位(`guardian-runner.mjs` 2827/2853/2882 族,接线记录即 L2744)。L8474 两决策:knip 基线故意不刷已定案;401 统一出口钩子已入库(`packages/api-client/src/client.ts:220-240` `UnauthorizedContext`/处理器注入口现读在位)。L8475 两在飞项:① skills 直连迁移完成 —— `apps/web/src/lib/skills-market-api.ts` 统一走 `api<>` 出口(9 个函数)且有 `skills-market-api.test.ts` 钉 URL;② create 面作者冒充闸已建 —— `apps/api/src/routes/skills.ts:317-326` `authorImpersonates`(内置保护作者名册 + 同名他人 ownerId 认领双判)在 :959-967 新建路径生效,自报 author 不再当归属凭证。〕
   §6 来源台账、§1 豁免到期 + §7 lint 抑制预算（两票在跑）；§2 三轴基线新鲜度自检紧随其后。
   规格里"**扫完确认无新点**"的区域与 4 项**否证/我们更强**（上游全仓仅 4 个 `*.test.ts`、仓库内零 CI、
   `node-linker=hoisted` 与本仓门 78/38 判据前提直接冲突、`formal-proof`/`zcode-cua` 为空壳）一并登记，
