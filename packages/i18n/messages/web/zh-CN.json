@@ -23560,9 +23560,6 @@
     "streak": "连续学习",
     "courseProgress": "课程进度"
   },
-  "studyPublish": {
-    "title": "发布课程"
-  },
   "teamDetail": {
     "transactionVolume": "成交额",
     "commission": "获取佣金",
@@ -27359,5 +27356,8 @@
     "hintConfirm": "确认",
     "hintClose": "关闭",
     "clearAriaLabel": "清空搜索"
+  },
+  "statusPage": {
+    "incidentsUnavailable": "事件数据暂不可用,此处的空白不代表没有故障"
   }
 }

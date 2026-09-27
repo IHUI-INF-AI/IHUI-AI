@@ -1549,9 +1549,6 @@
     "streak": "連続学習(日)",
     "courseProgress": "コース進捗"
   },
-  "studyPublish": {
-    "title": "コースを公開"
-  },
   "studyRecord": {
     "title": "学習記録",
     "subtitle": "{name} の学習記録",

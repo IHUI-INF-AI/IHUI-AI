@@ -22,6 +22,7 @@ const SRC_TEXT = readFileSync(SRC, 'utf8')
 const { __test__ } = await import(SRC_URL)
 const {
   scanMailLog,
+  ensureFixedWindows,
   parseAttestation,
   loadRegistry,
   readTextTail,
@@ -96,6 +97,9 @@ test('T1 装车锁:每条判据都被主流程真的调到(函数在而无人调
   for (const fn of ['readTextTail', 'loadRegistry'])
     assert.ok(new RegExp(`\\b${fn}\\(`).test(collectBody), `${fn} 没被 collect 调用 ⇒ 真实跑时根本不去取数`)
   assert.match(bodyOf('windowStats'), /findStorms\(/, 'windowStats 没调 findStorms ⇒ 风暴判据是死代码')
+  // 固定桶装配器必须被**两侧**都调到:只接一侧 = 那一侧诚实、另一侧照旧拿请求窗口冒充 24h。
+  assert.match(bodyOf('scanMailLog'), /ensureFixedWindows\(/, 'scanMailLog 没接固定桶 ⇒ 发信面的 *24h 又在装请求窗口')
+  assert.match(bodyOf('parseAttestation'), /ensureFixedWindows\(/, 'parseAttestation 没接固定桶 ⇒ 跳门面的 *24h 又在装请求窗口')
   assert.match(bodyOf('loadRegistry'), /parseRegistry\(/, 'loadRegistry 没调 parseRegistry ⇒ 反查根本没做')
   // 反向对照:这条锁不是恒真的 —— 一个不存在的方法名必须进不了检查。
   assert.ok(!/__never_called_sentinel\(/.test(build), '取函数体判据失效(整份源码被当成函数体了)')
@@ -188,7 +192,55 @@ test('T9 风暴判据在真数据上也有牙(不只是夹具里绿)', () => {
   // 阳性对照:2026-09-27 那次"凌晨 4 点一小时 16 封"必须被本判据认出来;认不出来就是尺子失效。
   const peak = w.storms[0]
   assert.ok(peak && peak.count >= 8, `真日志里连一小时 8 封的那一簇都没认出来 ⇒ 风暴判据无牙(count=${peak ? peak.count : 'n/a'})`)
-  for (const ln of peak.lines) assert.match(ln.ts, /^\d{4}-\d{2}-\d{2}T/) && assert.equal(ln.keyword, 'MAIL')
+  for (const ln of peak.lines) {
+    assert.match(ln.ts, /^\d{4}-\d{2}-\d{2}T/)
+    assert.equal(ln.keyword, 'MAIL')
+  }
+})
+
+test('T12 固定桶装配器纯函数契约:缺才补、有则复用、不改入参', () => {
+  // 防三件事:① 忘了补 24h/7d(字段 undefined ⇒ 报告要么崩要么伪装成 0);
+  // ② 请求窗口恰是 24h 时又重算一遍并覆盖 —— 两桶读数会因取样瞬间不同而自相矛盾;
+  // ③ 原地改入参(调用方拿着旧 map 继续用,就拿到了被悄悄动过的表)。
+  const build = (label) => ({ bucket: label })
+  const input = { '4h': { bucket: 'req-4h' }, '7d': { bucket: 'req-7d' } }
+  const out = ensureFixedWindows(input, build)
+  assert.deepEqual(out['24h'], { bucket: '24h' }, '24h 桶没补')
+  assert.equal(out['7d'], input['7d'], '请求窗口已是 7d 时必须复用那一份,不得重算覆盖')
+  assert.deepEqual(Object.keys(out).sort(), ['24h', '4h', '7d'])
+  assert.equal(input['24h'], undefined, 'ensureFixedWindows 原地改了入参 ⇒ 调用方手里的旧表被悄悄动过')
+  const full = { '24h': { bucket: 'req-24h' }, '7d': { bucket: 'req-7d' } }
+  assert.equal(ensureFixedWindows(full, build)['24h'], full['24h'], '默认档(--hours 24)不得把请求桶换成另一份读数')
+
+  // 跳门侧必须真被同一把尺子问过(不只读源码形状):请求 4h 而 24h 内还有旧行时,
+  // 两个桶必须给出两个不同的数 —— 拿同一个数当"24h"就是本文件要防的那一型。
+  const rows = [
+    { ts: '2026-09-27T04:00:00.000Z', kind: 'mine', ranFullBatch: true, failedGates: ['44'] },
+    { ts: '2026-09-26T20:00:00.000Z', kind: 'not-ours', ranFullBatch: true, failedGates: ['29'] },
+  ]
+  const a = parseAttestation(rows.map((r) => JSON.stringify(r)).join('\n') + '\n', { nowMs: Date.parse('2026-09-27T05:00:00Z'), hours: 4, days: 7 })
+  assert.equal(a.windows['4h'].skips, 1, '请求窗口 4h 应只认当刻那条')
+  assert.equal(a.windows['24h'].skips, 2, '固定 24h 桶应认两条 —— 又拿请求窗口冒充 24h 了')
+})
+
+test('T13 名字带 24h/7d 的字段必须从固定桶取,且两侧都真接了装配器(源码级反向锁)', () => {
+  // 行为面由自检 S11b 与 T12 管(它们构造"两跨度读数不同"的夹具)。本条防的是另一种失效:
+  // 将来有人重构 summary,把固定桶改回 `windows[hKey]` 而不留用例 —— 那时报告照样数字齐全、
+  // 照样两档同形,只是标签下的数是别的跨度的。这种漂移只有读源码能稳定问出来。
+  const src = SRC_TEXT.replace(/\s+/g, ' ')
+  for (const [field, bucket] of [
+    ['mailTotal24h', "'24h'"],
+    ['mailTotal7d', "'7d'"],
+    ['skipTotal24h', "'24h'"],
+    ['skipTotal7d', "'7d'"],
+    ['stormClusters24h', "'24h'"],
+  ]) {
+    const re = new RegExp(`${field}:\\s*\\w+\\s*\\?\\s*\\w+\\.windows\\[${bucket}\\]`)
+    assert.ok(re.test(src), `${field} 不再从固定桶 ${bucket} 取 ⇒ 字段名又在装请求窗口的数`)
+  }
+  // 定义 1 处 + 发信侧/跳门侧各 1 处调用;少一处就是"只有半个报告诚实"
+  const uses = (src.match(/ensureFixedWindows\(/g) || []).length
+  assert.ok(uses >= 3, `ensureFixedWindows 只出现 ${uses} 次(应 ≥3:定义 + 两侧调用)⇒ 有一侧的固定桶没接上`)
 })
 
 test('T10 未判定的形状:三个源都取不到时 summary 必须是 null 且报满未判定条数', () => {
@@ -205,8 +257,12 @@ test('T10 未判定的形状:三个源都取不到时 summary 必须是 null 且
     dedupeRaw: null,
     registry: { ok: false, reason: '夹具不提供' },
   })
-  assert.equal(rep.summary.mailTotal24h, null)
-  assert.equal(rep.summary.skipTotalAllTime, null)
+  for (const [k, v] of Object.entries(rep.summary)) {
+    // 数量型字段一律必须为 null;描述窗口本身的(windowHours/windowDays)不是结论,允许有值。
+    if (/^(mailTotal|skipTotal|stormClusters|alertSkippedTotal|noBatchTotal)/.test(k))
+      assert.equal(v, null, `源都取不到却报出了 ${k}=${v} ⇒ 新增计数字段漏进了"取不到即为 null"的清单`)
+  }
+  assert.ok(rep.summary.windowHours !== undefined, 'summary 不再声明请求窗口跨度 ⇒ 字段名与跨度的对应关系又没人看守了')
   assert.ok(rep.summary.sourcesUndetermined >= 5, `五个源都没读到却只报 ${rep.summary.sourcesUndetermined} 条未判定`)
   assert.match(renderHuman(rep), /未判定/)
 })

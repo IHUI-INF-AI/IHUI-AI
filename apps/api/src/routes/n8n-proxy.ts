@@ -13,10 +13,10 @@
  *  POST /cozeZhsApi/n8n/addAgent   通过 n8n 创建智能体(真实 INSERT agents + zhs_agent_examine)
  *
  * G-299(2026-09-28)追加 /ai/n8n 面(RN N8nModelScreen 消费,env 驱动 + SSRF 校验):
- *  GET  /ai/n8n/workflows            列表(未配置回 stub notAvailable)
- *  POST /ai/n8n/workflows            创建(未配置 503)
  *  PUT  /ai/n8n/workflows/:id        更新(fetch-merge-put,未配置 503)
  *  POST /ai/n8n/workflows/:id/toggle 启停(activate/deactivate + 回读真值,未配置 503)
+ *  列表/创建(GET、POST /ai/n8n/workflows)由 ai-vendors/proxy-tools.ts 服务,不得在此
+ *  重复注册 —— 同路径重复会让 Fastify 启动即抛(详见下方 G-299②③ 段注释)。
  *
  * R81 真实化:
  *  - workflows: 配置时真实调用 n8n REST API, 否则 stub
@@ -263,9 +263,12 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
 
   // ==========================================================================
   // G-299②③(2026-09-28):/ai/n8n/workflows 面 —— 客户端 n8n 族(api-client misc.ts)
-  // 一直打的是 /api/ai/n8n/*,全仓从未注册这一族:门 8 基线里 PUT :id 与 POST toggle 是
-  // 点名死调用,list/create 因模板串落"未判定"桶而隐身(运行时同样 404)。消费者是
-  // apps/mobile-rn/src/screens/N8nModelScreen.tsx(list/create/update/toggle 四操作)。
+  // 一直打的是 /api/ai/n8n/*。其中 PUT :id 与 POST toggle 全仓从未注册(门 8 点名的死调用),
+  // 由本面补上;而 list/create 并非 404 —— ai-vendors/proxy-tools.ts 早已在同一 /api/ai
+  // 前缀下注册过 GET 与 POST `/n8n/workflows`,只是那两条的路径是普通字符串字面量、
+  // 本面的是模板串,门 8 按字面量比对时两边都不入同一桶,于是"从未注册"这个前提
+  // 被当成事实写了进来(2026-09-27 实测:并存 ⇒ Fastify 启动即抛 ⇒ 整个后端下线)。
+  // 消费者是 apps/mobile-rn/src/screens/N8nModelScreen.tsx(list/create/update/toggle 四操作)。
   // 与 /cozeZhsApi/n8n 代理同一上游、同一 env 纪律(N8N_DOMAIN/N8N_API_KEY):
   //   - list 未配置 ⇒ stub + notAvailable(与 miniapp-compat 的 GET /workflows/n8n 同语义);
   //   - 写操作未配置 ⇒ 503 —— 桩成功会把"没执行"写成"执行过了",绝不。
@@ -306,86 +309,14 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
   const notConfigured = (reply: FastifyReply) =>
     reply.status(503).send(error(503, '未配置 N8N_DOMAIN/N8N_API_KEY,n8n 工作流写操作不可用'))
 
-  // GET /ai/n8n/workflows — 列表(未配置回 stub,不判失败:消费方按 notAvailable 显示空态)
-  server.get(`${AI_PREFIX}/workflows`, async (_request, reply) => {
-    const env = n8nEnv()
-    if (!env) {
-      return reply.send(
-        success({
-          notAvailable: true,
-          reason: '未配置 N8N_DOMAIN/N8N_API_KEY 环境变量,n8n 工作流列表不可用',
-          list: [],
-          total: 0,
-          source: 'unconfigured',
-        }),
-      )
-    }
-    try {
-      const resp = await n8nFetch(env, '/workflows')
-      if (!resp.ok) {
-        return reply.send(
-          success({
-            notAvailable: true,
-            reason: `n8n API 返回 ${resp.status} ${resp.statusText}`,
-            list: [],
-            total: 0,
-            source: 'n8n_api_unreachable',
-          }),
-        )
-      }
-      const raw = (await resp.json()) as { data?: Array<Record<string, unknown>> }
-      const list = (raw.data ?? []).map(n8nWorkflowShape)
-      return reply.send(
-        success({ notAvailable: false, list, total: list.length, source: 'n8n_live_api' }),
-      )
-    } catch (e) {
-      return reply.send(
-        success({
-          notAvailable: true,
-          reason: `调用 n8n API 失败: ${(e as Error).message}`,
-          list: [],
-          total: 0,
-          source: 'n8n_fetch_error',
-        }),
-      )
-    }
-  })
-
-  // POST /ai/n8n/workflows — 创建。n8n 的 workflow 对象没有顶层 description 字段,
-  // 客户端传来的 description 如实丢弃(注释在此,不假装存了)。
-  const createWorkflowSchema = z.object({
-    name: z.string().min(1).max(200),
-    description: z.string().max(2000).optional(),
-    nodes: z.array(z.record(z.string(), z.unknown())).optional(),
-    connections: z.record(z.string(), z.unknown()).optional(),
-  })
-  server.post(`${AI_PREFIX}/workflows`, async (request, reply) => {
-    const env = n8nEnv()
-    if (!env) return notConfigured(reply)
-    const parsed = createWorkflowSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    try {
-      const resp = await n8nFetch(env, '/workflows', {
-        method: 'POST',
-        body: {
-          name: parsed.data.name,
-          nodes: parsed.data.nodes ?? [],
-          connections: parsed.data.connections ?? {},
-        },
-      })
-      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-      if (!resp.ok) {
-        return reply
-          .status(502)
-          .send(error(502, `n8n 创建失败: ${(data.message as string) ?? `HTTP ${resp.status}`}`))
-      }
-      return reply.send(success(n8nWorkflowShape(data)))
-    } catch (e) {
-      return reply.status(502).send(error(502, `调用 n8n API 失败: ${(e as Error).message}`))
-    }
-  })
+  // GET / POST `${AI_PREFIX}/workflows` 刻意不在这里注册:ai-vendors/proxy-tools.ts 已把
+  // GET 与 POST `/n8n/workflows` 挂在同一个 `/api/ai` 前缀下,两处并存会让 Fastify
+  // 启动即抛 FST_ERR_DUPLICATED_ROUTE —— 不是这一族 404,而是整个后端起不来(2026-09-27
+  // 实测 IHUI-API 反复退出、服务被 nssm 挂到 PAUSED、8802 无监听)。
+  // 两侧语义并不等价(这里的 list 未配置回 notAvailable 空态 / create 走服务端 env 凭据;
+  // proxy-tools 的 GET 用 N8N_BASE_URL+N8N_API_KEY 直查、POST 是"凭据从请求体传入"的查询),
+  // 所以换哪一边都是对外契约决策,不由值守修复代做。下面的 PUT :id 与 POST toggle 在
+  // proxy-tools 里确实从未注册,保留注册 —— 那两条才是本票要补的真缺口。
 
   // PUT /ai/n8n/workflows/:id — 更新。n8n 的 PUT 要求**完整 workflow 定义**,
   // 所以先 GET 现件、合并 name、再 PUT 回(fetch-merge-put),不是部分字段 PATCH 语义。

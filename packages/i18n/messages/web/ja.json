@@ -23583,9 +23583,6 @@
     "streak": "連続学習",
     "courseProgress": "コース進捗"
   },
-  "studyPublish": {
-    "title": "コースを公開"
-  },
   "teamDetail": {
     "transactionVolume": "取引額",
     "commission": "報酬",
@@ -27382,5 +27379,8 @@
     "hintConfirm": "確定",
     "hintClose": "閉じる",
     "clearAriaLabel": "検索をクリア"
+  },
+  "statusPage": {
+    "incidentsUnavailable": "インシデントデータは一時的に利用できません。ここが空であることは、障害がなかったことを意味しません。"
   }
 }
