@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { LiveChatScreen as SharedLiveChatScreen, type LiveChatMessage } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -36,7 +37,7 @@ export function LiveChatScreen() {
       )
       if (cancelled) return
       if (res.success) setMessages(res.data ?? [])
-      else setError(res.error || t('liveChat.loadFailed'))
+      else setError(apiFailureToText(res, t('liveChat.loadFailed')))
       setLoading(false)
     })()
     return () => {
@@ -60,7 +61,7 @@ export function LiveChatScreen() {
       setMessages((prev) => [...prev, res.data])
       setInput('')
     } else if (!res.success) {
-      setError(res.error || t('liveChat.sendFailed'))
+      setError(apiFailureToText(res, t('liveChat.sendFailed')))
     }
   }
 

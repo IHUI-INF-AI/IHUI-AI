@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { enrollCourse, getCourses, type Course } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { CourseEnrollScreen as SharedCourseEnrollScreen, type CourseEnrollItem } from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -50,7 +51,7 @@ export function CourseEnrollScreen() {
       if (res.success) {
         setItems((res.data.list ?? []).map(toCourseEnrollItem))
       } else {
-        setError(res.error || t('courseEnroll.loadFailed'))
+        setError(apiFailureToText(res, t('courseEnroll.loadFailed')))
       }
       setLoading(false)
       setRefreshing(false)

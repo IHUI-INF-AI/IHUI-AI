@@ -11,6 +11,7 @@ import {
   type CourseChapterItem,
 } from '@ihui/rn-app'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -37,7 +38,7 @@ export function CourseChapterScreen() {
       )
       if (cancelled) return
       if (res.success) setChapters(res.data ?? [])
-      else setError(res.error || t('courseChapter.loadFailed'))
+      else setError(apiFailureToText(res, t('courseChapter.loadFailed')))
       setLoading(false)
     })()
     return () => {
