@@ -1161,7 +1161,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
             <div>
               <StreamLabel>
                 <span className="animate-pulse text-teal-600 dark:text-teal-400">
-                  {tStatus('streamingPreviewLabel')}
+                  {t('streamingPreviewLabel')}
                 </span>
               </StreamLabel>
               <StreamCode text={partialDiff} testId="tool-call-partial-diff" />
