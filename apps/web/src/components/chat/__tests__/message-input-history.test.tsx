@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import * as React from 'react'
 import { usePromptHistory } from '@/hooks/use-prompt-history'
@@ -21,8 +21,12 @@ function Harness({
 }) {
   const [value, setValue] = React.useState(initialValue)
   const taRef = React.useRef<HTMLTextAreaElement>(null)
+  // 生产接线(message-input.tsx:338)用 useCallback 稳定 getHistoryKey;hook 的会话切换
+  // effect 以该函数身份为依赖,内联箭头函数会让每次 render 重跑 effect 并归零游标。
+  // Harness 必须复刻同一契约,否则测的是"harness 自己制造的抖动",不是 hook 行为。
+  const getHistoryKey = React.useCallback(() => 'test-conv', [])
   const promptHistory = usePromptHistory({
-    getHistoryKey: () => 'test-conv',
+    getHistoryKey,
     getCaretPosition: () => taRef.current?.selectionStart ?? 0,
     applyText: (text: string) => {
       setValue(text)
@@ -66,6 +70,9 @@ beforeEach(() => {
   window.localStorage.clear()
 })
 afterEach(() => {
+  // vitest 配置未开 globals,RTL 自动 cleanup 不注册;不显式卸载会跨用例残留
+  // 多份 Harness,screen.getByTestId('ta') 命中多个元素(仓内各测试文件同此惯例)。
+  cleanup()
   window.localStorage.clear()
 })
 
@@ -143,12 +150,13 @@ describe('D36 会话内输入历史(组件级接线)', () => {
       screen.getByTestId('push1').click()
       screen.getByTestId('push2').click()
     })
-    // 输入多行文本并把光标放到第二行(索引 3 = 'a\n' 之后)
+    // 输入多行文本并把光标放到第二行:'line1\n' 占索引 0-5,索引 8 落在 'line2' 内
+    // (原写"索引 3"是从旧夹具 'a\n…' 抄来的,对 'line1\nline2' 而言 3 仍在首行,判据测不到点上)
     act(() => {
       fireEvent.change(ta, { target: { value: 'line1\nline2' } })
     })
     act(() => {
-      ta.setSelectionRange(3, 3)
+      ta.setSelectionRange(8, 8)
     })
     const before = ta.value
     act(() => fireEvent.keyDown(ta, { key: 'ArrowUp' }))
