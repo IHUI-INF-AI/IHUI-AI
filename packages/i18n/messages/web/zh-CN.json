@@ -6990,6 +6990,13 @@
     "dispatchSubagent": "分发子代理"
   },
   "agentRuntimePanel": {
+    "resumeUnavailable": "无法继续这次运行",
+    "pauseUnavailable": "无法暂停这次运行",
+    "alreadyPausedBody": "这个会话此前已经处于暂停位，本次点击没有改变它。",
+    "pausedBody": "循环已在安全点停住，点「继续」从最近一次暂停点续跑。",
+    "pausedTitle": "已暂停",
+    "resume": "继续",
+    "pause": "暂停",
     "cancelledBody": "已停止当前执行。如需继续，请修改输入后再次执行。",
     "cancelledTitle": "任务已取消",
     "clear": "清空",
@@ -8722,6 +8729,7 @@
       "bottleneck": "瓶颈"
     },
     "toolCall": {
+      "streamingPreviewLabel": "流中预览(执行中,最终以结果为准)",
       "chartGenerated": "图表已生成",
       "chartPreviewFailed": "图表预览加载失败,请复制路径后在本机浏览器打开。",
       "chartPreviewHint": "本地图表文件无法在网页内直接预览,请复制路径后在本机浏览器打开。",

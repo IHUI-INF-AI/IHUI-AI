@@ -23,7 +23,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..core.jwt_auth import require_request_user_id, resolve_request_role_id
-from ..core.sse_buffer import sse_buffer
+from ..core.sse_buffer import REPLAY_HIT, sse_buffer
 from ..services.agent_deliverables import get_deliverables
 from ..services.agent_events import (
     AGENT_SUBSCRIBE_EVENTS,
@@ -1036,8 +1036,11 @@ async def execute_agent_stream(
 
     断线重连机制:
     - 每个事件携带 id 字段,客户端重连时发送 Last-Event-ID header
-    - 服务端通过 sse_buffer 缓冲事件(5 分钟 TTL)
-    - 重连时重放 Last-Event-ID 之后的所有缺失事件,然后继续实时流
+    - 服务端通过 sse_buffer 缓冲事件:每 task 有双上限(500 条 / 1 MiB,溢出丢最旧并计数)
+      与两条到期锚点(空闲 5 分钟 TTL + 首事件起 30 分钟存活上限)
+    - 重连时按三态判定(hit / not_resumable / unknown_task):只有锚点仍在缓冲内才重放其后的
+      事件;锚点不可用时**不重放历史**,结论与丢弃条数一并写进 start 帧的 `resume` 块,
+      客户端改走会话快照 GET /api/agents/sessions/{session_id}/messages 重建界面
     - 所有事件使用 SSE event: 字段(取自 payload type),客户端可 addEventListener 分发
     """
 
@@ -1058,20 +1061,61 @@ async def execute_agent_stream(
         # V3 #65:登记进 run 控制面(agent_run_control)的会话标识,与上面同生命周期
         registered_sessions: list[str] = []
 
-        # 断线重连: 先重放缺失事件
+        # 断线重连: 先按**三态**判定续传(2026-09-27 修;病灶全文见 core/sse_buffer.py 头注)
+        #   hit            ⇒ 锚点在缓冲内,只发其后的事件(与旧行为一致)
+        #   not_resumable  ⇒ 锚点已被缓冲上限丢弃 / 不属于本 task。**一帧历史都不发** ——
+        #                    旧实现在这里"返回全部(保守策略)",于是客户端按 id 追加就
+        #                    出现"会话内容翻倍",而它自己的 docstring 承诺的恰恰是返回空
+        #   unknown_task   ⇒ task 不存在或已到期(与旧行为一致:接着开一次新 run)
+        # 三态结论一律随 start 帧的 `resume` 块回给客户端,不可续传时同时给出重取快照的
+        # 出口 —— 让客户端知道"这次没给你历史是因为给不了",而不是让它以为拿到的是全量。
+        resume: dict[str, Any] | None = None
         if last_event_id:
             # 从 last_event_id 所在的 task 提取(格式 task_id-seq)
             replay_task_id = last_event_id.rsplit("-", 1)[0] if "-" in last_event_id else task_id
-            missed = sse_buffer.replay_after(replay_task_id, last_event_id)
-            for item in missed:
-                yield _format_sse(item["id"], item["event"])
-            # 如果有重放事件且最后一个事件是 done/error,直接结束
-            if missed and missed[-1]["event"].get("type") in (SSE_DONE, SSE_ERROR):
-                return
+            outcome = sse_buffer.replay_outcome(replay_task_id, last_event_id)
+            resume = {
+                "status": outcome.status,
+                "replayed_events": len(outcome.events) if outcome.resumable else 0,
+                # 该 task 至今被上限丢弃的累计条数 —— 少了多少必须说,静默变短等于伪造完整性
+                "dropped_events": outcome.dropped,
+                "reason": outcome.reason,
+                # 回退通道(客户端用法):status 非 hit 时**不要**期待补齐历史,改为
+                # 按 session_id 重取已落库的消息快照(GET /api/agents/sessions/{id}/messages)
+                # 重建界面,再接本条流的实时事件;长 run 的断点续跑走 checkpoint
+                # (POST /api/agents/execute/resume),不是走 SSE 内存缓冲。
+                "snapshot_endpoint": (
+                    f"/api/agents/sessions/{req.session_id}/messages" if req.session_id else None
+                ),
+            }
+            if outcome.status == REPLAY_HIT:
+                for item in outcome.events:
+                    yield _format_sse(item["id"], item["event"])
+                # 如果有重放事件且最后一个事件是 done/error,直接结束
+                if outcome.events and outcome.events[-1]["event"].get("type") in (SSE_DONE, SSE_ERROR):
+                    return
+            else:
+                logger.warning(
+                    "SSE 续传不可用(status=%s): last_event_id=%s task=%s dropped=%d reason=%s",
+                    outcome.status,
+                    last_event_id,
+                    replay_task_id,
+                    outcome.dropped,
+                    outcome.reason,
+                )
+            # 本次新 run 自己若发生溢出,当前读数是 0(还没写),它会在**下一次重连**的
+            # resume.dropped_events 里现形 —— 丢弃数按 task 累计,不靠单条流的生命周期。
 
         try:
-            # 发送开始事件(携带 resume_from 供客户端判断是否为重连)
-            start_event = {"type": SSE_START, "task_id": task_id, "session_id": req.session_id, "resume_from": last_event_id}
+            # 发送开始事件(携带 resume_from 供客户端判断是否为重连;resume 块带三态续传结论)
+            start_event: dict[str, Any] = {
+                "type": SSE_START,
+                "task_id": task_id,
+                "session_id": req.session_id,
+                "resume_from": last_event_id,
+            }
+            if resume is not None:
+                start_event["resume"] = resume
             eid = sse_buffer.append(task_id, start_event)
             yield _format_sse(eid, start_event)
 

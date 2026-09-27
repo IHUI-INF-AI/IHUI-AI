@@ -41,6 +41,7 @@ from ..core.model_naming import to_official_model_name
 # 只读白名单本身仍是 services/plan_mode.py 的 READONLY_TOOLS 一份真相(由该出口内部取)。
 from ..core.permission_mode import (
     CHAT_MODE_TOOL_AXIS,
+    _readonly_tools,
     allowed_tool_names,
     blocked_tool_message,
     resolve_mode_policy,
@@ -167,6 +168,52 @@ _STEER_QUEUE_LIMIT = 8  # 单流引导队列上限,超限 steer 端点返回 429
 # 注意:本帧常量定义在 llm.py 本地(agent_events.py 非本任务领地);
 # sse_contract 契约清单由主会话登记,_sse() 诊断对未登记帧仅告警不阻断。
 _SSE_TOOL_APPROVAL = "tool-approval"
+# D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧(契约已登记 sse_contract.SSE_EVENTS)。
+_SSE_TOOL_DELTA = "tool-delta"
+# 预演范围:服务端流内真实执行的文件写类工具(apply_patch/create_file 走浏览器委托,
+# 由前端 InlineDiffCard 承担流中显示,不在本帧范围)。
+_FILE_EDIT_PREVIEW_TOOLS = frozenset({"write_file", "file_edit", "edit_file"})
+# 预览分帧预算:最多 10 帧 x 40 行,总量 400 行 / 32KB 截断(truncated 标志)。
+_PREVIEW_MAX_FRAMES = 10
+_PREVIEW_LINES_PER_FRAME = 40
+_PREVIEW_MAX_LINES = 400
+_PREVIEW_MAX_CHARS = 32 * 1024
+
+# D120(2026-09-27,G-234):轮次预算弹性续跑 —— 接近 max_iterations 上限时自动
+# 注入"进度交代 + 续期"轮,防止长任务被硬断(对标 GPT-5.3 Codex 长时运行定位)。
+# 续期次数有限(默认 2,env LLM_ITERATION_EXTEND_LIMIT 可调,0 = 关闭),每次
+# 续 +max_iterations 轮;成本守门(预算门/扣费)不因续期绕过。
+_ITERATION_EXTEND_LIMIT = max(0, int(os.getenv("LLM_ITERATION_EXTEND_LIMIT", "2")))
+
+
+def _file_edit_preview_text(tool_name: str, args: dict[str, Any]) -> str | None:
+    """D113:文件写类工具的流中预览文本(纯参数推导,不触碰磁盘、不执行)。"""
+    if tool_name == "write_file":
+        c = args.get("content")
+        return c if isinstance(c, str) else None
+    if tool_name in ("file_edit", "edit_file"):
+        new = args.get("new_string")
+        return new if isinstance(new, str) else None
+    return None
+
+
+def _file_edit_preview_frames(text: str) -> list[tuple[str, bool]]:
+    """把预览文本切成 (partialText, truncated) 帧序列(累积式)。"""
+    lines = text.splitlines()
+    truncated = len(lines) > _PREVIEW_MAX_LINES or len(text) > _PREVIEW_MAX_CHARS
+    kept: list[str] = []
+    used = 0
+    for ln in lines[:_PREVIEW_MAX_LINES]:
+        if used + len(ln) + 1 > _PREVIEW_MAX_CHARS:
+            truncated = True
+            break
+        kept.append(ln)
+        used += len(ln) + 1
+    frames: list[tuple[str, bool]] = []
+    for i in range(0, len(kept), _PREVIEW_LINES_PER_FRAME):
+        is_last_batch = i + _PREVIEW_LINES_PER_FRAME >= len(kept)
+        frames.append(("\n".join(kept[: i + _PREVIEW_LINES_PER_FRAME]), truncated and is_last_batch))
+    return frames[:_PREVIEW_MAX_FRAMES]
 _APPROVAL_TIMEOUT = 120  # 秒:人工决策窗口(人在环延迟高于机器回传,比委托 60s 宽)
 _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端 30s 读超时掐流
 
@@ -1326,8 +1373,12 @@ _CHAT_MODE_PROMPTS: dict[str, str] = {
     ),
     "review": (
         "## Review Mode Active\n"
-        "You are in REVIEW mode. Focus on read-only code review: point out bugs, risks and "
-        "improvements with evidence. DO NOT modify anything."
+        "You are in REVIEW mode. Focus on read-only code review. DO NOT modify anything.\n"
+        "Produce findings in EXACTLY three severity sections, each finding on one bullet:\n"
+        "### P1 Blocking\n### P2 Suggested\n### Nits\n"
+        "Every bullet MUST cite evidence as path:line (or path for whole-file issues),\n"
+        "state the concrete risk, and end with a one-line actionable fix suggestion.\n"
+        "If a section has no findings, write None. End with a one-paragraph overall verdict.",
     ),
     "spec": (
         "## Spec Mode Active\n"
@@ -2705,6 +2756,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 被 max_iterations 截断(前端"排队中"badge 永远等不到"已注入")。
                     _iter_budget = max_iterations
                     _tool_iter = 0
+                    # D120:续期计数(0 = 未续期;上限 _ITERATION_EXTEND_LIMIT)
+                    _iteration_extensions_used = 0
                     while _tool_iter < _iter_budget:
                         # ===== Steer(中途引导)注入点:每轮 LLM 调用前 drain =====
                         # 把流期间用户提交的引导消息注入 messages 尾部(上一轮工具结果之后,
@@ -2737,6 +2790,40 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     }
                                 )
                                 _iter_budget += 1
+                        # ===== D120(2026-09-27,G-234):轮次预算弹性续跑 =====
+                        # 触发条件(全部满足):env 开关启用 / 非首轮 / 下一轮即触及上限 /
+                        # 续期次数未用尽 / 上一轮确实执行了工具(tool_exec_tracker 为上一轮
+                        # 结果 —— while 内 for 前重置,此处读到的是上一轮值)。
+                        # 动作:注入进度交代消息(天然随对话上下文持久化,回放可见) +
+                        # _iter_budget += max_iterations(与 steer 的预算延长同一机制)+
+                        # injection_applied 帧(kind=iteration_extension,开放字符串枚举)。
+                        if (
+                            _ITERATION_EXTEND_LIMIT > 0
+                            and _tool_iter > 0
+                            and _tool_iter + 1 >= _iter_budget
+                            and _iteration_extensions_used < _ITERATION_EXTEND_LIMIT
+                            and tool_exec_tracker
+                        ):
+                            _iteration_extensions_used += 1
+                            _iter_budget += max_iterations
+                            _ext_note = (
+                                f"[系统] 已执行 {_tool_iter} 轮工具调用,接近轮次预算上限({max_iterations})。"
+                                f"任务若尚未完成请继续;系统已追加续期预算"
+                                f"(第 {_iteration_extensions_used}/{_ITERATION_EXTEND_LIMIT} 次)。"
+                            )
+                            messages.append({"role": "user", "content": _ext_note})
+                            _ext_evt: dict[str, Any] = {
+                                "type": SSE_INJECTION_APPLIED,
+                                "kind": "iteration_extension",
+                                "text": _ext_note,
+                                "round": _tool_iter,
+                                "extensionIndex": _iteration_extensions_used,
+                                "extensionLimit": _ITERATION_EXTEND_LIMIT,
+                            }
+                            if message_id:
+                                _ext_evt["messageId"] = message_id
+                            yield _sse(SSE_INJECTION_APPLIED, _ext_evt)
+
                         # ===== 第一轮:流式化(2026-08-29 修复)=====
                         # 根因:tool loop 第一轮此前用非流式 complete(),LLM 无 tool_calls
                         # 直接回复时一次性 yield 整个 content → 前端"内容一下全出"而非打字机。
@@ -3027,6 +3114,62 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "tool_calls": tool_calls_raw,
                             })
 
+                        # ===== D119(2026-09-27,G-233):同批只读工具并行预取 =====
+                        # 只读白名单 = core/permission_mode._readonly_tools()(plan_mode.READONLY_TOOLS
+                        # 单一真源出口);blocked 判定 = _chat_mode_allows_tool(同一函数);
+                        # 审批判定 = _resolve_tool_approval(同一函数)—— 判据零复制。
+                        # 仅对「无阻塞 + 无需审批」的只读工具预取;写类/终端/dispatch 保持顺序。
+                        # SSE 帧序不变(start/result 仍按原循环序回),预取只并行化真实执行
+                        # (call_tool 耗时);结果按 toolCallId 缓存,主循环命中即用。
+                        _readonly_prefetch: dict[str, Any] = {}
+                        if len(tool_calls_raw) > 1:
+                            _prefetch_ids: list[str] = []
+                            _prefetch_coros = []
+                            for _pf_tc in tool_calls_raw:
+                                _pf_fn = _pf_tc.get("function", {})
+                                _pf_name = _TOOL_ALIASES.get(_pf_fn.get("name", ""), _pf_fn.get("name", ""))
+                                if _pf_name not in _readonly_tools():
+                                    continue
+                                _pf_raw = _pf_fn.get("arguments", "") or ""
+                                try:
+                                    _pf_args = json.loads(_pf_raw) if _pf_raw.strip() else {}
+                                except (json.JSONDecodeError, ValueError):
+                                    continue
+                                if not _chat_mode_allows_tool(
+                                    chat_mode, _pf_name, getattr(req, "permission_mode", None)
+                                ):
+                                    continue
+                                if _resolve_tool_approval(
+                                    getattr(req, "permission_mode", None), _pf_name
+                                )[0]:
+                                    continue
+                                _pf_id = _pf_tc.get("id", "")
+                                _prefetch_ids.append(_pf_id)
+                                _prefetch_coros.append(
+                                    _mcp.call_tool(
+                                        _pf_name, _pf_args,
+                                        user_id=owner_uuid,
+                                        user_role=user_role,
+                                        session_id=(
+                                            req.metadata.get("conversationId")
+                                            if isinstance(req.metadata, dict)
+                                            else None
+                                        ),
+                                    )
+                                )
+                            if len(_prefetch_ids) > 1:
+                                _pf_results = await asyncio.gather(*_prefetch_coros, return_exceptions=True)
+                                for _pf_id, _pf_res in zip(_prefetch_ids, _pf_results):
+                                    if isinstance(_pf_res, BaseException):
+                                        # 与主循环 call_tool 的 except 分支同构(失败归一,不让 Exception 流入回灌)
+                                        _readonly_prefetch[_pf_id] = {
+                                            "tool": "prefetch",
+                                            "ok": False,
+                                            "error": str(_pf_res)[:500],
+                                        }
+                                    else:
+                                        _readonly_prefetch[_pf_id] = _pf_res
+
                         # ===== 公共工具执行逻辑(两分支汇合,2026-08-29 修复保持不动)=====
                         tool_exec_tracker: list[bool] = []
                         for tc in tool_calls_raw:
@@ -3135,6 +3278,24 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 })
                                 continue
 
+                            # D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧(执行前纯参数推导)。
+                            # 让用户在审批弹窗与执行期间就看到改动走向;不触碰磁盘、不影响执行
+                            # 语义,tool-result 到达即被前端清除(最终 diff 以 tool-result 为准)。
+                            if tool_name in _FILE_EDIT_PREVIEW_TOOLS:
+                                _preview_text = _file_edit_preview_text(tool_name, args)
+                                if _preview_text:
+                                    for _pv_seq, (_pv_text, _pv_trunc) in enumerate(
+                                        _file_edit_preview_frames(_preview_text), start=1
+                                    ):
+                                        _pv_evt: dict[str, Any] = {
+                                            "type": _SSE_TOOL_DELTA,
+                                            "toolCallId": tc.get("id", ""),
+                                            "seq": _pv_seq,
+                                            "partialText": _pv_text,
+                                        }
+                                        if _pv_trunc:
+                                            _pv_evt["truncated"] = True
+                                        yield _sse(_SSE_TOOL_DELTA, _pv_evt)
                             # W1(2026-09-12 立)终端类工具:执行前发 terminal_start 事件。
                             # 前端 onTerminalStart → chatStore.appendMessageTerminalTask
                             # → MessageItem 的 TerminalSection 实时显示"运行中"命令区块。
@@ -3777,6 +3938,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             exec_result = _call_task.result()
                                         finally:
                                             reset_terminal_stream_context(_term_token)
+                                    elif tc.get("id", "") in _readonly_prefetch:
+                                        # D119:命中并行预取缓存(只读工具,执行已提前完成)
+                                        exec_result = _readonly_prefetch[tc.get("id", "")]
                                     else:
                                         exec_result = await _mcp.call_tool(
                                             tool_name, args,

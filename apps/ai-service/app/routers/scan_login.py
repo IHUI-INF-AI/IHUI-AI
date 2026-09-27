@@ -28,6 +28,7 @@ from ..services.publish.platform_cookie_domains import (
 from ..services.scan_login import (
     PLATFORM_SCAN_CONFIG,
     _cookie_hits,
+    _existing_credentials_present,
     _parse_raw_cookies,
     _save_account_to_db,
     cancel_scan_task,
@@ -35,6 +36,8 @@ from ..services.scan_login import (
     detect_login_from_profile,
     get_qr_image,
     get_task,
+    should_overwrite_existing_credentials,
+    verify_login_candidate,
     start_scan_task,
 )
 
@@ -310,8 +313,36 @@ async def import_cookies(body: ImportCookiesRequest, request: Request) -> dict[s
             },
         )
 
+    # 先验后写(与画像导入同一条裁决点):库里已有凭据时,校验不过的候选集不得覆盖它。
+    # 粘贴口最容易产出"名字齐但值已过期"的集合 —— 而密文被覆盖后无备份、不可回滚。
+    verify_ok, verify_note = await verify_login_candidate(body.platform, filter_result.kept)
+    existing = await _existing_credentials_present(user_id, body.platform)
+    if not should_overwrite_existing_credentials(existing, verify_ok):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    f"粘贴的 {config['name']} Cookie 未通过登录校验"
+                    f"({verify_note or '无可用适配器,无法校验'}),"
+                    "而账号里已有一份凭据 ⇒ 拒绝覆盖,原凭据一字未动。"
+                    "请重新复制该站**当前有效**的 Cookie,或改走扫码登录"
+                ),
+                "data": {
+                    "kept": filter_result.kept_count,
+                    "dropped": filter_result.dropped_count,
+                    "existing_kept": True,
+                },
+            },
+        )
+    if verify_ok:
+        msg_to_store = "粘贴导入并校验通过"
+    elif verify_ok is None:
+        msg_to_store = "粘贴导入:无可用适配器,未校验"
+    else:
+        msg_to_store = f"粘贴导入(首建,校验未过): {verify_note}"
+
     account_id = await _save_account_to_db(
-        user_id, body.platform, filter_result.kept, config["name"]
+        user_id, body.platform, filter_result.kept, config["name"], verify_msg=msg_to_store
     )
     return {
         "code": 0,
@@ -320,6 +351,7 @@ async def import_cookies(body: ImportCookiesRequest, request: Request) -> dict[s
             "account_id": account_id,
             "cookies_count": filter_result.kept_count,
             "matched": hits,
+            "verified": verify_ok,
             # 2026-09-27 新增(只增不改字段):归属过滤计数,供前端如实提示
             "kept": filter_result.kept_count,
             "dropped": filter_result.dropped_count,
