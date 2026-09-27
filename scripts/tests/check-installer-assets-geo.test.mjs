@@ -7,9 +7,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ROOT = join(import.meta.dirname, '..', '..')
 const SCRIPT = join(ROOT, 'scripts/check-installer-assets.mjs')
@@ -21,7 +21,7 @@ const inst = readFileSync(join(W, 'installer.nsi'), 'utf8')
 const gen = readFileSync(GEN, 'utf8')
 
 function withFixtures(files, fn) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-geo-'))
+  const dir = mkScratch('ihui-geo-')
   const env = {
     ...process.env,
     IHUI_NSI_PATH: join(dir, 'ui.nsi'),
@@ -34,7 +34,7 @@ function withFixtures(files, fn) {
       writeFileSync(join(dir, name), content)
     return fn(env)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 }
 

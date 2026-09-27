@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-sanitizer-bypass.mjs')
 
 // ─── 辅助:创建临时 git 仓库 ───────────────────────────────
 function createTempRepo() {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-sanitizer-'))
+  const root = mkScratch('ihui-sanitizer-')
   execSync('git init -b main', { cwd: root, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: root, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: root, stdio: 'pipe' })
@@ -112,7 +112,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,直接走默认全量扫描)'
     )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -132,7 +132,7 @@ test('合法: routes 文件无敏感字段 → 通过', () => {
     const r = runScript(root, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -154,7 +154,7 @@ test('违规: accessToken 在 reply.send 上下文 + 无 skipResponseSanitizatio
     assertFail(r, /token-endpoint\.ts/)
     assert.match(r.stderr, /accessToken/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -177,7 +177,7 @@ test('违规: refreshToken 在 success() 上下文 + 无 bypass → 检测到', 
     assertFail(r, /refresh\.ts/)
     assert.match(r.stderr, /refreshToken/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -199,7 +199,7 @@ test('合法: 含 accessToken + skipResponseSanitization=true → 通过', () =>
     const r = runScript(root, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -220,7 +220,7 @@ test('白名单: auth.ts 含 accessToken + reply.send → 通过(白名单豁免
     const r = runScript(root, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -249,7 +249,7 @@ test('白名单: users.ts / admin.ts 含敏感字段 → 通过', () => {
     const r = runScript(root, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -279,7 +279,7 @@ test('合法: 敏感字段离 reply.send 上下文 > 5 行 → 不算违规', ()
     const r = runScript(root, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -298,7 +298,7 @@ test('跳过: __tests__/ 目录文件不扫描(脚本过滤 __tests__/)', () => 
     const r = runScript(root, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -326,7 +326,7 @@ test('跳过: schema 定义行(clientSecret: { type: "string" })', () => {
     const r = runScript(root, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -347,7 +347,7 @@ test('跳过: const { accessToken } = ... 解构声明行', () => {
     const r = runScript(root, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -369,7 +369,7 @@ test('违规: access_token(snake_case)在 reply.send 上下文 → 检测到', (
     assertFail(r, /snake\.ts/)
     assert.match(r.stderr, /access_token/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -391,7 +391,7 @@ test('违规: clientSecret 在 reply.send 上下文 → 检测到', () => {
     assertFail(r, /client-secret\.ts/)
     assert.match(r.stderr, /clientSecret/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -412,7 +412,7 @@ test('违规: reply.status(200).send(...) 含 accessToken → 检测到', () => 
     const r = runScript(root, ['--staged'])
     assertFail(r, /status-call\.ts/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -433,7 +433,7 @@ test('staged: 暂存违规文件 → 检测到 exit 1', () => {
     const r = runScript(root, ['--staged'])
     assertFail(r, /staged-bad\.ts/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -444,7 +444,7 @@ test('staged: 空暂存区(baseline 之后无 routes staged)→ exit 0', () => {
     const r = runScript(root, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -492,7 +492,7 @@ test('批量: 2 个违规文件 + 1 个白名单 → 报告 2 个违规', () => 
       'auth.ts 白名单不应报告为违规',
     )
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -522,7 +522,7 @@ test('全量模式(烟雾): 无 --staged → 不 crash(Windows 下 git ls-files 
     )
     assert.ok(!r.stderr.includes('Error:'), `不应产生未捕获 Error`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -566,7 +566,7 @@ test('full 模式: admin/ 子目录违规被扫描,__tests__/ 跳过', () => {
       '__tests__/test-bad.ts 不应被报告为违规(脚本过滤 __tests__/)',
     )
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -588,7 +588,7 @@ test('full 模式: test-file.ts 含 skipResponseSanitization 违规 → 检测�
     assertFail(r, /test-file\.ts/)
     assert.match(r.stderr, /accessToken/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
