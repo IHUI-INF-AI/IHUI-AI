@@ -111,7 +111,7 @@ export function WorkspaceFolderSelector({
 }: WorkspaceFolderSelectorProps) {
   const t = useTranslations('workspacePanel')
   return (
-    <div className="rounded-xl border bg-card p-2" data-testid="workspace-folder-tree">
+    <div className="rounded-lg border bg-card p-2" data-testid="workspace-folder-tree">
       {folders.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">{t('noFolders')}</p>
       ) : (

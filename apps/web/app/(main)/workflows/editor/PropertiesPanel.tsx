@@ -194,7 +194,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
               type="checkbox"
               checked={step.continueOnFail ?? false}
               onChange={(e) => update({ continueOnFail: e.target.checked })}
-              className="h-3.5 w-3.5 rounded border-input"
+              className="h-3.5 w-3.5 rounded-sm border-input"
             />
             <Label htmlFor="prop-continue" className="text-xs">
               {t('editor.continueOnFail')}

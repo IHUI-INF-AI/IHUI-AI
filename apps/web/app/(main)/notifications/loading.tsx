@@ -11,10 +11,10 @@ export default function Loading() {
           <div key={i} className="flex items-start gap-3 rounded-xl border p-3">
             <div className="skeleton h-8 w-8 rounded-lg" />
             <div className="flex-1 space-y-2">
-              <div className="skeleton h-4 w-48 rounded" />
-              <div className="skeleton h-3 w-full rounded" />
+              <div className="skeleton h-4 w-48 rounded-xs" />
+              <div className="skeleton h-3 w-full rounded-xs" />
             </div>
-            <div className="skeleton h-3 w-14 rounded" />
+            <div className="skeleton h-3 w-14 rounded-xs" />
           </div>
         ))}
       </div>
