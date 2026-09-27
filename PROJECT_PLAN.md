@@ -11003,6 +11003,32 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - **两格都收口(同一枚提交)**:① **锚点从"每文件违规计数"换成"契约身份集合"(TC3)** —— 计数锚点下"把既有工具上已写好的契约摘掉"只会让计数变小,永远不红,而那正是本门存在的理由;新锚点在运行时按 HEAD 现算成 `文件#工具名 → {total, declared}` 多重集(锚点不是手工清单,谁清账红线自己降),并配**"同一份输入:计数判绿、身份判红"**的对照证明收紧是真的有牙。② **实测到并修掉第二格**:`apps/cli/src/tools/` 下 58 个被判定文件里 **34 个根本不注册工具**,旧实现把"抽取器在这一面看不见任何工具"报成 **exit 2 无法判定** ⇒ 只碰这些 helper 的提交一律被 blocking 门挡下(靠 `--no-verify` 出路,连带废掉全部守门,§12e 那型);现改为"该文件在 HEAD 上锚点为 0 ⇒ **不适用**、只报数不判红",且**没传锚点时保守判红**(失效方向是"多要一次说明",不是"多放一次跳门")。**已知窄面如实登记**:一个全新文件若恰好被抽取器漏掉,与"新 helper"同形 ⇒ 该型的红丢了,兜底只有 TRD 档位。取证:自检 **30 条** / 镜像 **22 例**(含 T21"runner 装车证明"—— 这条**此前根本不存在**),两次连跑读数一致。
   - **本票刻意没做的**:给 104 个已注册工具补契约声明、以及把缺省语义翻成"未声明即不可信" —— 那是 A13 第二阶段(需先按 `--flip-audit` 点名的 16 个逐个回查),且直接翻默认档 = 运行时版恒红事故。TC3 今日 0 红是**设计如此**(零基线,不是藏起来的豁免),第一枚真契约写下去它就开始工作。
 - [ ]（进行中@2026-09-26/O81票）O81 跨端 UI 单一源:小程序端与 App(RN)端逐档同值 + 改一端另一端自动生效(除登录方式与平台机制)。**第 1 票已落(本枚提交)**:对账尺 `scripts/check-cross-end-ui-parity.mjs`(guardian **128**,blocking,棘轮锚点 `scripts/cross-end-ui-parity-baseline.json`,自检 19 例 + 门禁 11 例),AGENTS §4 新节 + README 点名。**立项实测读数**:同名配对组件 19 对 / 174 处差异档 / RN 侧 210 个组件用 `StyleSheet.create` 而小程序侧 91 个用 `className=`(两种样式语言 = 结构上无法自动同步的根因)。**已量到的最小心智事实**:两份自称"唯一实现"的 `BackChevron` 图标墨迹 20px vs 22px、色一档取 `--color-foreground` 一档取 `tk.text.medium`、RN 带系统字号缩放倍率而小程序不带。**剩余票(顺序固定,不得跳)**:② **[x] 2026-09-26 已落**:几何档 `packages/design-tokens/src/geometry.js`(`GEOMETRY_PX` 一张表 + `rnGeometry`/`taroGeometry` 两个投影 + `TARO_RPX_PER_PX`,照 `radius.js` 形状,配 `geometry.d.ts`,由 `src/index.ts` 出口),**同枚提交即有两端消费方**(`apps/miniapp-taro/src/components/BackChevron.tsx` 与 `packages/app/src/components/BackChevron.tsx` 各自删掉本地 `= 40`/`= 22`/`= 36` 改取投影);取值依据含"移动端墨迹为何不取 web 顶栏的 14px(`TOPBAR_BTN_BASE` 的 `[&>svg]:!h-3.5` 是桌面密集工具条档)"写在该文件头注。**效果实测**:门 128 索引面 BackChevron 从"仅小程序 20 | 仅 RN 22"变成不再出现在差异清单(18 → 17 条),台账删该键(留着即清单腐烂),门禁测试 11/11 仍绿;`@ihui/design-tokens`、`@ihui/rn-app` typecheck 均 0 错误。**另登记一条与本票无关的既有债**:`pnpm --filter @ihui/miniapp-taro typecheck` 在**干净的 HEAD 上**即报 2 错(`src/pkg-ai/ai/chat.tsx:636` 传 `onTerminalDelta` 而 `StreamEventCallbacks` 无此键 + 参数隐式 any)—— 该文件工作树与 HEAD 逐字节相同,故非在飞改动;未擅自"顺手修"(§12 越权红线),留待该键的归属会话收口。③ 在 `packages/shared` 落"与平台无关的组件源 + 每端注入 primitive adapter"的第一例(试点 `BackChevron`:7 个小程序调用点 / 134 个 RN 调用点,API 取两端并集,动作语义留调用方),两端各自构建 + 真机/模拟器像素复核后才允许下调台账;④ 按台账读数从大到小逐族收敛(`InputArea` 23 / `BottomActionBar` 19 / `LoginPopUp` 17 / `NavBar` 15 / `IntelligentAssistant` 14 为前 5),每族一票,收完即下调 `counts` 并**在同枚提交里**留下"该组件只剩一份源"的证据;⑤ 确属平台差异的逐条写 `waivers.reason`,由守门 108 管到期。**架构前提(不要再试第二条路)**:单向适配器已失败过一次(2026-09-22 删 4,662 行,"同名 ≠ 同契约"),所以只能"一份源 + 两端注入",不能"一端包另一端";`packages/app` 是 RN 专属(Taro 跑不了),`packages/ui-native` 13 个组件里 11 个零生产消费方,不得当成已交付能力引用。
+- [x] ✅(2026-09-27) O81 票⑨ —— **渲染层复测补齐 + 尺子两处盲区(换算器 / 配对射程)+ 陈旧 dist 前置**。承票⑦ 未收口四条,这轮收掉三条,第四条让位给票⑧ 持有者。
+  **复测(票⑦ 第 1 条)**:微信开发者工具私有产物现读现证 —— 两枚控制方块容器 **64rpx(34.297 CSS px @windowWidth 402)**、
+  墨迹 **28rpx**、发送键 `rgb(0,0,0)` 实底 + `rgb(255,255,255)` 配对前景、载体是 `mask-image` 的 lucide 内联 SVG
+  (`<image>`/裸字符计数各 0)。阳性对照走注入式:同判据把几何表值改成 64 ⇒ 同一链量出 **128rpx ×4 / 64rpx ×0**,
+  证明尺子双向可读而不是只会吐一个数;归属链含产物 mtime 断言与 `b6ad872aa5` 的祖先判定。
+  **盲区一(票⑦ 第 2 条,已修)**:门 128 把 `toUnit(taroGeometry.X)` 解成表值 32 —— 认档名不认外层换算器,
+  而 `taroGeometry` 已折过 2 倍,落屏是 64。现按换算器折算,自检 ㊣/㊥ 三条成对(错写法读 64、正解读 32、
+  端到端必须报成真分叉),并用**修复前的 HEAD^ 真代码**做阳性对照(读到 64;修复后读到 32)。
+  **盲区二(本轮量出来,数很硬)**:本门只比"同名成文件"的元素,射程外从不报数 ——
+  现读 **仅小程序成文件 75 个 / 仅 RN 成文件 50 个** 永不成对(RN 的发送钮内联在 `BottomActionBar` 里)。
+  加一行 ⓘ 报数并明写"零判据",配镜像反向锁 T13 禁止把它接进红聚合:射程边界不是违规,
+  判红就是谁也修不动的恒红门(§12e)。**落地事故如实登记**:这枚提交的标题误复用了上一枚
+  (`7f70c0d029` IC 位图载体)的措辞,正文与 diff 才是配对射程(`0e2e834227`,2 文件)—— 读提交史请以正文为准。
+  **陈旧 dist 前置**(`95b55046b`):全量 typecheck 绕开 turbo ⇒ `dependsOn:["^build"]` 一起被绕开 ⇒
+  类型结论可以来自本机旧产物。本轮实测咬到一个:**"共享层没有 ctaForeground 通道"那个结论是错的**,
+  真因是 `packages/design-tokens/dist` 陈旧(`.gitignore` 忽略、`exports.types` 指 dist),
+  源码 `rn-tokens.ts` 早含 `cta/ctaForeground`;守门 4 比的是顶层 export 名字集合,嵌套键变化看不见。
+  现 `typecheck-full` 起检前比 mtime 重建陈旧包(失败即非零退出,不带着旧产物下结论),
+  应急开关 `IHUI_SKIP_STALE_DIST_PREFLIGHT=1` 跳过时必须打印"结论可能来自旧产物";自检 6 条 + 镜像 4 例。
+  **顺带收掉一处配对错记账**:RN 附件钮激活态前景由 `surface.light` 改配对档 `brand.ctaForeground`
+  (`55cab9d1a`,AGENTS §4 明列该跨档错配;此前不改成是因为上面那个假结论)。
+  **让位一条**:圆角跨端收敛(RD 维 9 对)已由并发会话建判据 + 立 `radiusCounts` 锚点并认领(票⑧,`（进行中）` 标记在位),
+  本会话不碰第二份 —— 同题两个 seam 必然互相顶掉(与 `geometry.js`/`radius.js` 单源同一条道理)。
+  取证:`node scripts/check-cross-end-ui-parity.mjs --self-test` 60/0、镜像 20/0、HEAD 面 exit 0;
+  `node scripts/typecheck-full.mjs --self-test` 6/0、镜像 4/0;全量 typecheck 前置实测重建 6 个包,
+  残余 5 条 TS2305 全在并发会话在飞的 `packages/shared/src/chat/__tests__/prompt-history.test.ts`,与本票无关。
 - [ ]（进行中@2026-09-27/O81票⑧）O81 票⑧ —— **圆角跨端同档:尺子已建完,收敛按台账走**。用户原话「App 端 小程序端 还有那么多的容器圆角没统一用项目要求的圆角 token,不允许出现胶囊型,请彻底根治」。
   **根因(两条,都不是"漏改")**:① 项目只定义过档位**值**(`RADIUS_STEPS`),从没定义过**哪类元素取哪档** —— 各端按直觉选,web 收敛到 `md`(6px)、小程序与 App 收敛到 `xl`(12px);② 两台尺子互相指认留了一道缝:守门 77 判"值同源 + 端内不得绕档写死数字",两端都规矩引用 token 时它**扫 6373 文件 0 违规报绿**;而跨端配对门 128 用一条 `RADIUS_FORM_RE` 把圆角**整族排除**,注释写着"圆角有守门 77 的单一源",并在自检 S17 里把这句错前提钉成了要求 —— 于是"同一元素跨端取不同档"两边都不判。**阳性对照(不是推测)**:用 128 自己的配对器现读 HEAD,19 对同名组件里量得到圆角的 11 对中 **9 对不同档**,含 `UserInfoCard` 小程序 `[4,6,8]` vs App `[2,12]`(卡片 8 对 12)、`ModelList` 8 对 12、`InputArea` 3 档互不重叠;`FloatBox` 16 对 8 **不算**(它早被 `pairingRejects` 拆对 —— 小程序是右下功能盒、RN 是顶部 toast,同名不同物)。
   **已落地(本枚)**:`radius.js` 新增 `RADIUS_ROLES`(`tiny/control/chip/card/panel/hero`;**卡片按用户定档取 `lg`=8px**)及其 `.d.ts` 与包出口;新建守门 77/128 共用判据 `scripts/lib/radius-tokens.mjs`(档位表**按被审面解析**、不 import 磁盘常量;`radius-exempt` 逐行生效语义全仓只有一份);门 128 的 **RD 维**上线 —— 锚点与几何维**分家**(`radiusCounts`),否则"修一处几何、换一处圆角"净零逃逸(守门 134 扩布尔档键同一课);`docs/UI_GUIDELINES.md` §3.1 修两行错像素(`sm` 2→4、`rounded` 4→8)并补 `xs` 档与角色列。取证:128 自检 57→**60 条**(S18 同档两种写法判同值 / S19 带 `radius-exempt` 不得造假分叉**及其反向对照** / S21 两维锚点分家的净零逃逸必须仍判红),镜像 15→**19 例**(T14 表必须走被审面且禁 import 磁盘版 / T15 `radiusCounts` 恒写含 0 且保留他人 `pairingRejects` / T16 豁免判据不得有第二份实现 / T17 表改值判据必须跟着改)。**变异对照证明有牙**:把 `collected.radius` 从 `main` 的调用里摘掉 ⇒ T10 与 T8 同时翻红。
