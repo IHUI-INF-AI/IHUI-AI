@@ -1549,9 +1549,6 @@
     "streak": "連續打卡(天)",
     "courseProgress": "課程進度"
   },
-  "studyPublish": {
-    "title": "發布課程"
-  },
   "studyRecord": {
     "title": "學習記錄",
     "subtitle": "{name} 的學習記錄",

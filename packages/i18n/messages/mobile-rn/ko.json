@@ -1549,9 +1549,6 @@
     "streak": "연속 출석(일)",
     "courseProgress": "강좌 진도"
   },
-  "studyPublish": {
-    "title": "강좌 게시"
-  },
   "studyRecord": {
     "title": "학습 기록",
     "subtitle": "{name}의 학습 기록",
