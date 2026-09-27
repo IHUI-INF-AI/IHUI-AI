@@ -24,7 +24,7 @@ const auditLogsQuerySchema = z.object({
   startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })
-import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas.js'
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const auditLogsExportQuerySchema = z.object({
   userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
@@ -38,6 +38,16 @@ const auditLogsExportQuerySchema = z.object({
 
 // =============================================================================
 // 路由
+//
+// 口径(G-257,与 audit-log.ts 同批收口):querystring 的 JSON Schema 只声明类型,
+// 真实校验一律由上方 Zod 做。此前 `/audit-logs` 展开的 `paginationQuerySchema`
+// 带着 minimum/maximum/default 校验型约束,而本路由声明的 400 响应体走
+// errorResponseSchema(`code: number`)—— 非法参数被 ajv 先拒后,Fastify 默认
+// 错误体的 `code` 是字符串,序列化不匹配 ⇒ 400 被掩盖成 **500**(现读复证:
+// tests/admin-audit-log-validation.test.ts 修复前 `?page=0` 实得 500)。
+// `errorResponseSchema` 与共享片段 `paginationQuerySchema` 本身一字未动 ——
+// 放宽契约不是修法,迁校验才是。querystring 数字参数声明 `type:'string'`:
+// 传输线本就是字符串,ajv 的 integer 强转同属校验行为(`page=abc` 走同一型 500)。
 // =============================================================================
 
 export const auditRoutes: FastifyPluginAsync = async (server) => {
@@ -66,8 +76,14 @@ export const auditRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            ...paginationQuerySchema,
-            userId: { type: 'string', description: '按用户 ID 筛选(可选)' },
+            // 不再展开 paginationQuerySchema(minimum/maximum/default 属校验型约束,
+            // 会触发 G-257 掩盖型;数值上下界由 auditLogsQuerySchema(Zod)执行)
+            page: { type: 'string', description: '页码(整数,默认 1;服务端 Zod 校验)' },
+            pageSize: {
+              type: 'string',
+              description: '每页数量(1-100,默认 20;服务端 Zod 校验)',
+            },
+            userId: { type: 'string', description: '按用户 ID 筛选(可选;Zod 校验 UUID)' },
             action: { type: 'string', description: '按操作类型筛选(可选)' },
             resourceType: { type: 'string', description: '按资源类型筛选(可选)' },
             startDate: { type: 'string', description: '开始时间 YYYY-MM-DD(可选)' },
@@ -109,18 +125,15 @@ export const auditRoutes: FastifyPluginAsync = async (server) => {
             resourceType: { type: 'string', description: '按资源类型筛选(可选)' },
             startDate: { type: 'string', description: '开始时间 YYYY-MM-DD(可选)' },
             endDate: { type: 'string', description: '结束时间 YYYY-MM-DD(可选)' },
+            // G-257:enum/minimum/maximum/default 一律不写在 JSON Schema 里,
+            // 由 auditLogsExportQuerySchema(Zod)执行;此处只声明类型。
             format: {
               type: 'string',
-              enum: ['csv', 'json'],
-              default: 'csv',
-              description: '导出格式',
+              description: '导出格式:csv(默认)/ json',
             },
             limit: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 10000,
-              default: 10000,
-              description: '最大导出条数',
+              type: 'string',
+              description: '最大导出条数(1-10000,默认 10000;服务端 Zod 校验)',
             },
           },
         },
