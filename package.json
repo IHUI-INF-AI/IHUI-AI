@@ -96,6 +96,8 @@
     "check:dep-links": "node scripts/check-workspace-dep-links.mjs",
     "check:dep-links:strict": "node scripts/check-workspace-dep-links.mjs --strict",
     "check:merge-loss": "node scripts/check-merge-addition-loss.mjs",
+    "check:sequence-lag": "node scripts/check-sequence-lag.mjs --strict",
+    "check:sequence-lag:fix": "node scripts/check-sequence-lag.mjs --fix",
     "check:desktop-cache-plaintext": "node scripts/check-desktop-cache-plaintext.mjs",
     "check:prompt-injection": "node scripts/check-prompt-injection-registry.mjs",
     "check:outbound-routes": "node scripts/check-declared-outbound-routes.mjs --strict",

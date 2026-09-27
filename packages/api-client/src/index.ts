@@ -104,6 +104,18 @@ export {
 } from './ws-client.js'
 export type { WebSocketClientOptions, WebSocketClientHandlers, WebSocketLike } from './ws-client.js'
 
+// D116 原始 SSE 全帧采集器(默认关闭;展示端 web stream-inspector 挂工具托盘)
+export {
+  setStreamFrameCapture,
+  isStreamFrameCaptureOn,
+  recordStreamFrame,
+  getStreamFrames,
+  countStreamFrames,
+  clearStreamFrames,
+  exportStreamFramesJsonl,
+} from './stream-frame-log.js'
+export type { RawStreamFrame } from './stream-frame-log.js'
+
 // 通知类型 re-export(各端统一从 @ihui/api-client 导入,无需单独依赖 @ihui/types)
 export type {
   WSNotification,

@@ -161,11 +161,18 @@ export async function listUserSessions(userId: string) {
 /**
  * 删除 OAuth 会话,回报**库侧确认删掉的那批 id**(2026-09-27:原返回 void,
  * 调用方只能事后写死 deleted:true,"0 行变更"与"删成了"同形)。
+ *
+ * 属主绑定同批补上(守门 117 那一族"认证 ≠ 授权"):原先只按 id 删,
+ * 而 `DELETE /auth/oauth/my-authorized/:sessionId` 在 authenticate 之后把请求里
+ * 的任意 sessionId 原样交进来 —— 任何已登录用户填别人的会话 id 就能吊销别人的授权,
+ * 且响应仍然回 deleted:true,调用方无从分辨"删了自己的"与"删了别人的"。
+ * where 里的第二个条件就是这条敞口的唯一收口点,所以它必须出现在 SQL 层而不是
+ * 调用方的 if 里(调用方的 if 只能判"存在",判不了"命中")。
  */
-export async function deleteSession(id: string): Promise<string[]> {
+export async function deleteSession(id: string, userId: string): Promise<string[]> {
   const rows = await db
     .delete(oauthSessions)
-    .where(eq(oauthSessions.id, id))
+    .where(and(eq(oauthSessions.id, id), eq(oauthSessions.userId, userId)))
     .returning({ id: oauthSessions.id })
   return rows.map((r) => r.id)
 }

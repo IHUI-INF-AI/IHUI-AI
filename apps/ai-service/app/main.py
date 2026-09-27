@@ -236,6 +236,36 @@ async def lifespan(app: FastAPI) -> Any:
     # Redis 不可用时降级为 no-op(不阻塞 lifespan)
     await im_bridge_service.initialize()
 
+    # V3 #77(2026-09-27 立):goal 自评估的**跨轮账本**切到 checkpoint 持久档。
+    # 缺省档是 services/goal_completion_gate.py 里的一个进程内 dict,于是 §8 第 4 步
+    # ("连续 N 轮 no 无进展 → blocked")在两种真实形态下从未成立:① 调用方每轮重启
+    # ⇒ 连击永远从 1 起;② 多 worker ⇒ 每个进程各记一份。这里就是那个"装车"动作 ——
+    # 账本机制在 goal_round_state.py,判定机制在 completion_verification.py,
+    # 没有本行的装载,两者都还是"造好没装车"(本仓最高频失效型)。
+    # 持久层复用 agent_checkpoint 的三层存储(不新造第二套状态存储);未配
+    # DATABASE_URL/REDIS_URL 时如实传 durable=False —— 响应里的 ledger_durable
+    # 因此是量出来的,不是名字推出来的。装载失败只降级不阻塞启动。
+    try:
+        import os as _os
+
+        from app.core.tunables import DEFAULT_CHECKPOINT_TTL
+        from app.services.agent_checkpoint import get_agent_checkpoint_manager
+        from app.services.goal_round_state import configure_durable_store
+
+        _ledger_durable = bool(settings.database_url) or bool(_os.environ.get("REDIS_URL"))
+        configure_durable_store(
+            get_agent_checkpoint_manager(),
+            ttl_note=DEFAULT_CHECKPOINT_TTL,
+            durable=_ledger_durable,
+        )
+        if not _ledger_durable:
+            logger.warning(
+                "goal 评估账本已挂 checkpoint 档但底层未配持久层"
+                "(DATABASE_URL/REDIS_URL 均空)⇒ 连击计数仍活不过重启"
+            )
+    except Exception as e:  # noqa: BLE001 - 装载失败不得阻塞启动,但要喊出来
+        logger.warning("goal 评估账本持久档装载失败,退回进程内档: %s", e)
+
     # 配置 FallbackRouter 故障转移
     from app.core.llm_gateway import fallback_router
     # StepFun 主路由故障转移(2026-07-24 立,2026-09-05 修订):

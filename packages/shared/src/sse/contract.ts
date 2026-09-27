@@ -335,4 +335,138 @@ export const SSE_EVENT_NAMES: readonly SSEEventName[] = Object.values(SSE_EVENTS
 export function isSSEEventName(value: string): value is SSEEventName {
   return (SSE_EVENT_NAMES as readonly string[]).includes(value)
 }
+
+// ===========================================================================
+// V3 #63(2026-09-27 立):对话流业务表单帧 —— form_request / form_response
+// ===========================================================================
+//
+// **为什么它是独立一段,而不是 SSE_EVENTS 的第 29 个成员 —— 三条实测证据:**
+//
+//  1. **零生产点**:wire 上的 `form_request` 在后端两侧全量 grep 均为 0 命中
+//     (`apps/api/src` 与 `apps/ai-service/app`)。`SSE_EVENTS` 的既有纪律是
+//     「契约 ⊆ 生产」由 `scripts/check-agent-event-parity.mjs` 的 **对账 0b**
+//     (llm.py 生产事件 ⊆ 契约)与 **对账 0**(两端集合一致)双向看护 ——
+//     把一帧无人生产的名字塞进去,就是把「已生效契约」与「目标形态」重新混回一处,
+//     正是 D34 第 36 轮收回 `settings_applied` / `terminal_output`、V3 #48 收回
+//     `token` 时清算的那一型(空心帧)。
+//  2. **跨语言集合由机器强制**:`SSE_EVENTS` 与 `apps/ai-service/app/core/sse_contract.py`
+//     的 `SSE_EVENTS` frozenset 必须逐名等值(对账 0,**blocking**)。本票写面不含
+//     ai-service,单侧加名 = 把一道与任何提交都无关的恒红门装进提交链(§12e 同型)。
+//     ⇒ **解阻前置**见下方 `FORM_FRAME_EVENTS` 注释第③条。
+//  3. **方向不同**:同一段里的 `form_response` 是**上行**帧(POST 到
+//     `/llm/complete/stream/{sessionId}/form-response`),不是 SSE 下行事件。
+//     把它列进 SSE_EVENTS 会让「前端监听对账」把一次 POST 当成 SSE 监听去要后端
+//     SSE 生产点 —— 判据与语义互咬。
+//
+// **这一段是不是死声明?不是**:它有真实消费方 ——
+// `apps/web/src/hooks/use-chat/form-request-frame.ts`(线帧 → 端内渲染态的唯一投影)
+// 与 `apps/web/src/hooks/use-chat/send-message.ts`(`streamChat` 的 `onFormRequest`)。
+// 类型与 `@ihui/api-client` 的 `FormRequestEvent` 逐字段同形,并由
+// `apps/web/src/components/chat/__tests__/form-request-contract.test.ts` 的**双向
+// 可赋值断言**钉住(漂移即 tsc 红)—— 那是本段唯一能自动化执行的看护。
+// **不得**为让这段"看起来有牙"把它并进 SSE_EVENTS:那只会让 parity 门恒红。
+
+/**
+ * 对话流业务表单两帧的判别名(V3 #63 登记)。
+ *
+ * ① `form_request` = 下行帧:后端请在消息流内渲染一张业务表单(邮件撰写 / 日历
+ *    创建·更新)时发出;解析通道已在 `@ihui/api-client`(`StreamChatOptions.onFormRequest`,
+ *    畸形帧在该层即丢:缺 `requestId` 或 `actions` 不成对)。
+ * ② `form_response` = 上行应答(用户批准/拒绝),不是 SSE 事件(见上方第 3 条)。
+ * ③ **生产侧待补(解阻前置,三条缺一不可,全在 ai-service 面)**:
+ *    (a) 一个会请求用户填写业务表单的工具执行点(llm.py tool loop 内,与
+ *        tool-delegate / tool-approval 同一拦截位)—— 决定"谁在什么条件下发这帧";
+ *    (b) `apps/ai-service/app/api|router` 侧 `form-response` 接收端(现全仓 0 处),
+ *        否则用户按「批准」后应答无处落地 —— 端内已按"发不出去就如实置 failed"实现,
+ *        不会假装已提交;
+ *    (c) `sse_contract.py` 的 `SSE_EVENTS` 同步登记 —— 与 (a) 同批落地,
+ *        之后本段成员并入 `SSE_EVENTS` 并由 parity 门接管。
+ */
+export const FORM_FRAME_EVENTS = {
+  /** 下行:请前端在消息流内渲染一张业务表单 */
+  REQUEST: 'form_request',
+  /** 上行:用户对那张表单的批准/拒绝应答(POST body,非 SSE 帧) */
+  RESPONSE: 'form_response',
+} as const
+
+/** 业务表单帧的判别名联合。 */
+export type FormFrameEventName = (typeof FORM_FRAME_EVENTS)[keyof typeof FORM_FRAME_EVENTS]
+
+/**
+ * form_request 的字段项形状。
+ *
+ * **字段表本身的唯一真相源是 `packages/shared/src/chat/business-forms.ts` 的
+ * `BUSINESS_FORM_FIELDS`**(键集合 / 输入类型 / 必填位全在那一侧);本类型只是
+ * **线格式**(后端可以下发"这次只填其中几项"),因此刻意宽松到 `string`:
+ * 未知 `kind` / 未知 `type` 在端内投影处一律不渲染(不给一张填不了的表单),
+ * 校验规则**不得**在本类型上再写一遍。
+ */
+export interface FormRequestFieldPayload {
+  /** 字段键(同时是 values 的键与 i18n 键片段 `fields.<key>`) */
+  key: string
+  /** 输入类型,取值见判定层 FORM_FIELD_TYPES;未知值端内不渲染 */
+  type: string
+  required: boolean
+  /** 占位文案键(留空则渲染层用 label 兼作占位) */
+  placeholderKey?: string
+}
+
+/**
+ * 下行 `form_request` 帧的**解析后事件**形状(V3 #63 登记)。
+ *
+ * 与 `@ihui/api-client` 的 `FormRequestEvent` **逐字段同形**(该类型未列进 index
+ * 导出面,故本处是它唯一的可导入替身;两侧漂移由
+ * `apps/web/src/components/chat/__tests__/form-request-contract.test.ts` 的
+ * 双向可赋值断言在 tsc 层拦下)。
+ *
+ * ⚠️ 本类型**刻意不含 `type` 字段**:wire 上的 data JSON 确实带
+ * `"type":"form_request"`,但那是解析层的判别依据(该层同时要求 `requestId`
+ * 非空、`fields` 非空、`actions` 含 approve+reject,不满足即整帧丢弃),
+ * 递给消费方的对象里没有它。写成必填会让解析层的产物不满足自己的契约 ——
+ * 契约描述"到达端的东西",不是"线上那一行"。
+ *
+ * `kind` 的合法取值集在判定层 `BUSINESS_FORM_KINDS`,`actions` 恒为成对二元组
+ * (`FORM_ACTION_PAIR`)。
+ */
+export interface FormRequestFramePayload {
+  /** 应答锚点:提交 form_response 时原样带回 */
+  requestId: string
+  /** 上行回传通道会话 ID(与 tool-delegate 的 session_id 同族);缺省时端内不得自造 */
+  sessionId?: string
+  /** 表单种类,合法取值见 BUSINESS_FORM_KINDS */
+  kind: string
+  /** 字段集(形状权威在判定层,本处只是线格式;解析层保证非空) */
+  fields: FormRequestFieldPayload[]
+  /** 成对动作,恒含 'approve' 与 'reject'(解析层已判,缺一条整帧丢弃) */
+  actions: string[]
+  /** 挂载到哪条 assistant 消息;缺省时端内回退到本轮流消息 */
+  messageId?: string
+}
+
+/**
+ * 上行 `form_response` 的 **HTTP body 线格式**(V3 #63 登记)。
+ *
+ * `POST {ai-service}/llm/complete/stream/{session_id}/form-response`。
+ * 字段名 snake_case,与同一条会话通道上的 `tool-result`(`tool_call_id`)同族 ——
+ * **TS 侧的中间对象是 camelCase**(`@ihui/api-client` 的 `FormResponseEvent`,
+ * 由 `buildFormResponseEvent()` 产出、`postFormResponse()` 在发出那一刻转成下面的
+ * snake_case body)。本类型登记的是**跨语言那一面**,即后端接收端必须实现的形状;
+ * 端内不得自拼 body,一律经上述唯一出口。
+ *
+ * 成对判据(由 `buildFormResponseEvent()` 强制):
+ *  · `action='approve'` → 带 `values`,**不写** `reject_reason`;
+ *  · `action='reject'`  → 带 `reject_reason`,**整字段省略 `values`**
+ *    (拒绝零副作用:给空对象会诱导后端建一条空草稿/空日程);
+ *  · 理由为空串时**省略该字段而非写空串**(空串 = 声称"用户说了个空原因")。
+ */
+export interface FormResponseWireBody {
+  request_id: string
+  kind: string
+  action: 'approve' | 'reject'
+  /** 仅 approve 携带 */
+  values?: Record<string, string | readonly string[]>
+  /** 仅 reject 携带;用户没填理由时整字段省略 */
+  reject_reason?: string
+  message_id?: string
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
