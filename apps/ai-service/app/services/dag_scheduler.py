@@ -350,6 +350,33 @@ from typing import Literal
 
 AgentTaskStatus = Literal["triage", "todo", "ready", "in_progress", "blocked", "done"]
 
+# ---------------------------------------------------------------------------
+# 跨语言状态词汇对齐表(D6/G3 收口,2026-09-27 立)
+#
+# 单一真相源 = packages/types/src/agent-runtime.ts 的 `AGENT_TASK_STATUSES`。
+# Python 侧 import 不到 TS,所以这里留一张**显式对齐表**而不是再抄一份散文注释;它是判据
+# 输入,由常驻门 `scripts/check-agent-status-vocabulary-parity.mjs` 按被审面(HEAD/索引 blob)
+# 逐字对账三件事:本表 ≡ 上面的 `AgentTaskStatus` ≡ TS 侧运行时清单。任一侧加减成员、
+# 改拼写(如 in_progress → inProgress)、或把声明换成运行时计算,门即判红/判"无法判定"。
+#
+# ⚠️ 这六个字符串值全部是**对外契约,不得改名/删成员**(三条独立证据):
+#   ① 落库列 packages/database/src/schema/agent-tasks.ts:31 `varchar("status", length=20)`;
+#   ② REST 枚举 apps/api/src/routes/agents-kanban.ts:128,151 两处 `z.enum([...])`;
+#   ③ SSE 载荷 apps/api/src/routes/agents-kanban.ts:386,453,473,524 的 `broadcastSSEEvent`。
+# 立门理由与四份副本的取证见 docs/d6-convergence-audit-2026-09-27.md §2.3(此前沿用
+# "check-background-task-type-parity 只管 executor 接线、check-agent-event-parity 只管
+# SSE 事件名"的口径,这一族成员集合在全仓**零判据**)。
+# ---------------------------------------------------------------------------
+
+KANBAN_TASK_STATUSES: tuple[str, ...] = (
+    "triage",
+    "todo",
+    "ready",
+    "in_progress",
+    "blocked",
+    "done",
+)
+
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
