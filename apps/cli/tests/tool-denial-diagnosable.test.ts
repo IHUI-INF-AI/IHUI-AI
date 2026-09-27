@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 「被拒」的可诊断化回归(本票判据 ①–⑤)。
+ * 「被拒」的可诊断化回归(本票判据 ①–⑤;86E 追加 ⑥ 防回潮锁)。
  *
  * 全部用例驱动生产入口 `executeToolCall`,钉的是:
  *  ① fail-closed 回归锁 —— 无确认出口时**仍然必须拒**(本票只改"怎么说",不改"是否放");
@@ -12,7 +12,10 @@
  *  ④ 错误串与结构化字段**不含**被批准内容明文与凭据(假 token 阳性对照)+ 指纹独立复算;
  *  ⑤ 出路提示摘掉即红 —— guidance 逐闸点名真实出口(--permission-lease / confirmDangerous / --tools)。
  */
+// 86E:此处 createHash 只做两件事 —— ④ 的"独立复算"对照(拿 node:crypto 验共享层纯 JS
+// SHA-256 的字节等值)与 ⑥ 的旧形态正反对照;被审的 src 面已不再自算(见 ⑥ 源码锁)。
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -160,7 +163,7 @@ describe('③ 审计:无头拒绝确有落盘,人拒绝与放行不产该记录'
     expect(input.toolName).toBe('nuke_cache')
     expect(input.gate).toBe('dangerous-gate')
     expect(input.decider).toBe('no-confirmation-channel')
-    expect(String(input.argsFingerprint)).toMatch(/^sha256:[0-9a-f]{12}$/)
+    expect(String(input.argsFingerprint)).toMatch(/^args-sha256-v1-[0-9a-f]{64}$/)
   })
 
   it('规则拒绝也落一条;user-declined 与放行路径都不落', async () => {
@@ -205,9 +208,14 @@ describe('④ 隐私:摘要只落指纹与键名,值与凭据绝不进错误串/
     expect(serialized).not.toContain('note-secret-chinese')
     // 键名允许(结构信息),值绝不允许
     expect(r.denial?.args.keys).toEqual(['command', 'note'])
-    // 独立实现复算(不是"和实现自己比"的恒真式):同内容 → 同指纹,异内容 → 异指纹
-    const expected = createHash('sha256').update(JSON.stringify(SECRET_ARGS), 'utf8').digest('hex').slice(0, 12)
-    expect(r.denial?.args.fingerprint).toBe(`sha256:${expected}`)
+    // 独立实现复算(不是"和实现自己比"的恒真式):本测试自带"键排序后序列化 + node:crypto"。
+    // 共享层纯 JS SHA-256 与 node:crypto 的逐字节等值由 packages/shared 侧专测钉住;
+    // SECRET_ARGS 的扁平对象在此形态下与共享层 canonical 预像逐字节同形。
+    const canonical = JSON.stringify(
+      Object.fromEntries(Object.entries(SECRET_ARGS).sort(([a], [b]) => (a < b ? -1 : 1))),
+    )
+    const expected = `args-sha256-v1-${createHash('sha256').update(canonical, 'utf8').digest('hex')}`
+    expect(r.denial?.args.fingerprint).toBe(expected)
     expect(digestToolArgs({ command: 'different' } as Record<string, unknown>).fingerprint).not.toBe(
       r.denial?.args.fingerprint,
     )
@@ -248,6 +256,84 @@ describe('⑤ 出路提示是有牙的锁:摘掉 guidance(置空)即红;逐闸�
     expect(r.denial?.guidance).toMatch(/--tools/)
     expect(r.denial?.guidance).toMatch(/--disallowed-tools/)
     expect(r.denial?.guidance).toMatch(/never relaxes this gate/)
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * ⑥ 86E 源码级防回潮锁 —— 入参摘要只许走共享唯一出口
+ * ------------------------------------------------------------------ */
+
+/**
+ * 遮噪状态机:`stripComments(text, false)` 剥注释、保留字符串(认 import 说明符要用这面);
+ * `stripComments(text, true)` 连字符串一起抹(认"有没有真调用/自算形态"要用这面 ——
+ * 注释与字符串里的提及不算装车,也反过来不给自己发合格证)。
+ * 已知上限:模板串整段抹除,`${}` 内的标识符同遮;对本锁的两维(说明符 / createHash)不构成误伤。
+ */
+function stripComments(text: string, alsoStripStrings: boolean): string {
+  let out = ''
+  let i = 0
+  while (i < text.length) {
+    const c = text[i]!
+    const n = text[i + 1]
+    if (c === '/' && n === '/') {
+      while (i < text.length && text[i] !== '\n') i++
+      continue
+    }
+    if (c === '/' && n === '*') {
+      i += 2
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++
+      i += 2
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      const start = i
+      const quote = c
+      i++
+      while (i < text.length && text[i] !== quote) {
+        if (text[i] === '\\') i++
+        i++
+      }
+      i++
+      // 保留模式必须原样带走字符串内容(否则 import 说明符被抹成空引号,本锁自己先失明);
+      // 遮罩模式才收成空引号。两向各由上面的装车/反向用例钉住。
+      out += alsoStripStrings ? '""' : text.slice(start, i)
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
+}
+
+describe('⑥ 86E 防回潮锁:入参摘要只能走共享唯一出口,端内不得再自算', () => {
+  const raw = readFileSync(new URL('../src/utils/tool-denial.ts', import.meta.url), 'utf8')
+
+  it('装车证明:说明符指到唯一出口,且代码面真的调用 digestToolArgsStructure', () => {
+    const codeKeepStrings = stripComments(raw, false)
+    expect(codeKeepStrings).toMatch(/from ['"]@ihui\/shared\/utils\/tool-args-digest['"]/)
+    const codeMasked = stripComments(raw, true)
+    expect(codeMasked).toMatch(/\bdigestToolArgsStructure\s*\(/)
+  })
+
+  it('反向锁:createHash / node:crypto 以任何形态回来都判红(旧缺陷正是端内自算摘要)', () => {
+    const codeMasked = stripComments(raw, true)
+    expect(codeMasked).not.toMatch(/\bcreateHash\b/)
+    expect(codeMasked).not.toMatch(/node:crypto/)
+  })
+
+  it('缺陷正反例:键序打乱 ⇒ 旧自算形态换指纹、新出口不变;取值变化 ⇒ 新出口必换指纹', () => {
+    const one = { command: 'ls', cwd: '/tmp' }
+    const shuffled = { cwd: '/tmp', command: 'ls' }
+    // 旧端内形态的逐字复刻(JSON.stringify 不归一键序 + 截 12 位),只作为**对照**存在,
+    // 它不是第二份实现 —— 被测面已经接进共享出口,这里量的是"缺陷确实被消除"。
+    const legacy = (v: Record<string, unknown>): string =>
+      `sha256:${createHash('sha256').update(JSON.stringify(v ?? null), 'utf8').digest('hex').slice(0, 12)}`
+    expect(legacy(one)).not.toBe(legacy(shuffled)) // 旧形态在这对输入上指纹分裂(本票立论)
+    expect(digestToolArgs(one).fingerprint).toBe(digestToolArgs(shuffled).fingerprint) // 新形态归一
+    // 键序归一≠取值归一:改任一取值必须换指纹,否则"同一件事"判据被打穿
+    expect(digestToolArgs({ command: 'rm -rf /', cwd: '/tmp' }).fingerprint).not.toBe(
+      digestToolArgs(one).fingerprint,
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
