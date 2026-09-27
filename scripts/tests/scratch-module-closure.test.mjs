@@ -9,10 +9,10 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 import { relativeImportClosure, copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 
@@ -20,7 +20,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 
 /** 造一个假 scripts/ 树,把三种 import 形态各放一处 */
 function makeFixtureScripts() {
-  const dir = mkdtempSync(join(tmpdir(), 'closure-fix-'))
+  const dir = mkScratch('closure-fix-')
   const w = (rel, text) => {
     const p = join(dir, rel)
     mkdirSync(dirname(p), { recursive: true })
@@ -77,7 +77,7 @@ try {
   })
 
   check('复制后每一跳都真在位,且 expect 缺项必须抛(不得静默给个跑不起来的夹具)', () => {
-    const dst = mkdtempSync(join(tmpdir(), 'closure-dst-'))
+    const dst = mkScratch('closure-dst-')
     try {
       const copied = copyScriptWithClosure(fix, 'entry.mjs', dst, [
         'lib/face-reader.mjs' /* 故意要一个闭包里没有的 */,
@@ -90,12 +90,12 @@ try {
         `抛错原因不对:${e?.message}`,
       )
     } finally {
-      rmSync(dst, { recursive: true, force: true })
+      rmScratch(dst)
     }
   })
 
   check('正向对照:expect 只列闭包内该有的项时必须通过', () => {
-    const dst = mkdtempSync(join(tmpdir(), 'closure-dst2-'))
+    const dst = mkScratch('closure-dst2-')
     try {
       const copied = copyScriptWithClosure(fix, 'entry.mjs', dst, [
         'lib/one.mjs',
@@ -104,7 +104,7 @@ try {
       assert.equal(copied.length, 5)
       assert.ok(existsSync(join(dst, 'lib', 'deep.mjs')), '递归到的第二跳也必须拷')
     } finally {
-      rmSync(dst, { recursive: true, force: true })
+      rmScratch(dst)
     }
   })
 
@@ -118,7 +118,7 @@ try {
     assert.match(testSrc, /scratch-module-closure/, '夹具仍在手抄复制面 ⇒ 本工具没被装上')
   })
 } finally {
-  rmSync(fix, { recursive: true, force: true })
+  rmScratch(fix)
 }
 
 test('scratch-module-closure 自检汇总', () => {
