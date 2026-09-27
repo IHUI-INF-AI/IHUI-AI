@@ -746,6 +746,20 @@ A 路线因此提供两个**名字恒定**的入口工具，让模型"先搜后�
 >   `detectAppControlIntent()` 判信号，`createAppControlToolSelector({ui, api})` 由**各端注入本端族名**
 >   (web / 小程序 / RN 各 3~5 行实例化)。命中才带本端整族，普通问答连字段都不出现；
 >   把 `web_ui_*` 发给小程序只会换来 `TARGET_NOT_CONNECTED` 并白烧一轮上下文。
+> - **文件族同样只有一份判据**(2026-09-27 收口，`packages/shared/src/chat/file-tool-intent.ts`)：
+>   "这一句要不要给 AI 一只**改文件**的手"此前只写在 web 端(`tool-config.ts`)，而扩展会话
+>   **完全不带**文件族 —— 这类分叉不会报错，只会表现成"同一句话在 web 能改文件、在扩展不能"。
+>   现搬到共享层：web 保留 re-export(不打断既有 import 面)、扩展直接 import。两张名单刻意命名成
+>   `FILE_*_INTENT_TOOLS` 且**不进 `./chat` barrel**：barrel 里已有的 `FILE_WRITE_TOOLS`
+>   (`task-status.ts`)是"这次调用算不算改了文件"的**识别**白名单(Set，按 `.has()` 消费)，与
+>   "把哪些工具交给模型"的**能力**清单同词不同义，并置会产出 `export *` 歧义。行为对子与
+>   "端内不得再写第二份正则"由 `packages/shared/src/chat/__tests__/file-tool-intent.test.ts` 钉住。
+>   随该能力开通，**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 扩展 / 小程序 / RN 四端**：
+>   载荷 `partialText` 是**累积文本**，按 `toolCallId` 整帧覆盖(同 seq 重放天然幂等，`seq` 不参与
+>   判断)，仅 `running` 态渲染，`tool-result` 到达即清(最终 ± 行以 result 为准)。四端渲染条件
+>   逐字同形，字段声明收敛进 `@ihui/types` 的 `ToolCall.partialDiff`，端内归并层一律纯函数
+>   (web `createToolDeltaHandler` / 扩展 `lib/tool-call-frames.ts` / 小程序 `cards/types.ts` /
+>   RN `chat-render-model.ts`)，接线由各自的源码级锁 + 真实帧端到端用例钉住。
 > - **服务端自主补全**(2026-09-21 加，`apps/ai-service/app/services/control_autonomy.py`)：
 >   客户端没说中不等于用户没这个意思。服务端再判一次 —— 意图取"强信号正则 ∪ 关键词表"两源并集
 >   (实测 13 条真实措辞：正则命中 2、关键词命中 8、并集 9，两张网几乎不重叠)，并且
