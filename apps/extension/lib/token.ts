@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { setBaseUrl, setDeviceFingerprintProvider } from '@ihui/api-client'
+import { setBaseUrl, setDeviceFingerprintProvider, setUnauthorizedHandler } from '@ihui/api-client'
 import { type TokenPair } from '@ihui/types'
 import {
   bindTokenStoreToApiClient,
@@ -57,6 +57,36 @@ const store = createInMemoryTokenStore({
   },
 })
 
+/**
+ * 会话彻底失效时派发的 DOM 事件名(2026-09-27 立)。
+ * sidepanel 监听它翻回登录页 —— 与 RN 的 `navigateTo('Login')`、web 的登录弹窗同一出口的三个端形态。
+ */
+export const SESSION_EXPIRED_EVENT = 'ihui:session-expired'
+
+/**
+ * 401 且续期仍未拿到 token 时的统一出口。
+ *
+ * 刻意**不在这里判"有没有凭据"**:本端续期失败路径会 `clearAllTokens()`(见 token-utils
+ * 的 doRefresh),等本函数被调用时 token 已经是 null —— 按"游客态不接管"在这里提前返回,
+ * 恰好会把"会话死了"这一型误判成"本来就没登录",而这正是本出口唯一要接管的场景。
+ * 判据搬到监听侧:那里读得到 `authed` 这个事实本身,不需要再造一个"何时复位"的模块级布尔量。
+ * background(Service Worker)上下文没有订阅者,派发即无副作用。
+ */
+function onUnrecoverableUnauthorized(): void {
+  // 派发目标是"本 realm 的 globalThis":sidepanel / popup 里它就是 window,Service Worker 里
+  // 没有订阅者所以派发即无副作用;非 DOM 宿主(如 node 单测)拿不到 dispatchEvent,判不到即返回,
+  // 不抛 —— 两条形态各由一条用例钉住(有派发目标必喊、没有必不抛)。
+  const target = globalThis as unknown as EventTarget
+  if (typeof target.dispatchEvent !== 'function') return
+  target.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
+}
+
+/** token-utils 反向依赖本模块(clearAllTokens 里那条动态 import 是同一条环的先例),故动态取 */
+async function refreshViaExtensionStore(): Promise<string | null> {
+  const { doRefresh } = await import('./token-utils')
+  return (await doRefresh()) ? getToken() : null
+}
+
 export async function initApi(): Promise<void> {
   await initApiBaseUrl()
   setBaseUrl(getApiBaseUrl())
@@ -93,7 +123,10 @@ export async function initApi(): Promise<void> {
     store.setCachedWithoutPersist(updates)
   })
 
-  bindTokenStoreToApiClient(tokenStore)
+  // 此前本端只绑 store、不绑续期出口 ⇒ api-client 的 refreshAccessTokenOnce() 直接返回 null,
+  // 任何 401 都不重试也不通知(与 web/RN 不同)。接回端内既有的 doRefresh(自带 in-flight 去重)。
+  bindTokenStoreToApiClient(tokenStore, { refreshAccessToken: refreshViaExtensionStore })
+  setUnauthorizedHandler(onUnrecoverableUnauthorized)
   setDeviceFingerprintProvider(extensionDeviceFingerprintCollector)
 }
 
