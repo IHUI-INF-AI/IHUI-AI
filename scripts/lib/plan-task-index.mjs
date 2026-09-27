@@ -485,6 +485,50 @@ export function findDupBlocks(content) {
 }
 
 /** 一把跑完四条统计。数字一律现读,不得写进文档当恒定事实。 */
+/**
+ * 取号出口(生产侧防"同编号抢两个不同任务")。
+ *
+ * 为什么不做成判据:2026-09-27 实测同一份 HEAD 里"同编号、不同标题"有 **57/227** 个编号,
+ * 逐条看绝大多数是本仓的子项命名惯例(`D30①` / `D30②` / `D30补强` / `D19的"派发前置"…`),
+ * 不是撞号 —— 拿它当判据红就是造一台噪声门(假阳比漏报更贵:它指使人去"修"没坏的东西)。
+ * 而当天真实发生的那一起(两路会话各登记了一个 `G-262`,分别指水印补齐与 git 进程积压)
+ * 结构上事后判不了,**只能在登记那一刻把号算出来** —— 所以本函数住在判据层、由
+ * `plan-tasks.mjs --next-id` 暴露,不在提交链上。
+ *
+ * 口径:只认**带字母前缀**的编号族(G-262 / D30 / O13b / V3 …);行首裸编号(`- [ ]75.`)是
+ * 章节内序号,不占全局号段,故不计入。字母后缀(O13**b**)与主号同段,取整数字部分。
+ * @returns {{max:number,used:number,ids:string[]}|null} 该族一条都没有 ⇒ null(调用方判"取不到",不得据此给 1)
+ */
+export function usedIdsOfPrefix(content, prefix) {
+  const want = String(prefix)
+    .replace(/[^A-Za-z]/g, '')
+    .toUpperCase()
+  if (!want) return null
+  const re = /^([A-Za-z]+)[-_ ]?(\d+)/
+  const nums = new Set()
+  for (const r of parseTaskRows(content)) {
+    const key = keyOfRow(r.raw)
+    if (!key) continue
+    const m = re.exec(key)
+    if (!m) continue
+    if (m[1].toUpperCase() !== want) continue
+    nums.add(Number(m[2]))
+  }
+  if (nums.size === 0) return null
+  const sorted = [...nums].sort((a, b) => a - b)
+  return {
+    max: sorted[sorted.length - 1],
+    used: sorted.length,
+    ids: sorted.map((n) => `${want}-${n}`),
+  }
+}
+
+/** 下一个空闲编号(纯数字部分)。该族现读为空 ⇒ null,由调用方按"判不出"处置。 */
+export function nextTaskIdNumber(content, prefix) {
+  const u = usedIdsOfPrefix(content, prefix)
+  return u ? u.max + 1 : null
+}
+
 export function auditPlan(content) {
   const rows = parseTaskRows(content)
   const { groups, forks, dupOpen, dupDone } = findForks(content)
@@ -500,7 +544,10 @@ export function auditPlan(content) {
   const dupCopies = findDupOpenCopies(dupOpen)
   const verbatimDups = findVerbatimDupOpenRows(content)
   const dupBlocks = findDupBlocks(content)
-  const dupCopyLines = new Set([...dupCopies.map((c) => c.row.line), ...verbatimDups.copies.map((c) => c.row.line)])
+  const dupCopyLines = new Set([
+    ...dupCopies.map((c) => c.row.line),
+    ...verbatimDups.copies.map((c) => c.row.line),
+  ])
   // F7 分层:每条未勾选行落一个归属桶;F8:交代与到期各一把清单。
   // 都在**同一遍 parseTaskRows 的结果**上算,不得为它们再解析一次文档(两处解析必漂移)。
   const dispBuckets = {
