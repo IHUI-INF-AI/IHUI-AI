@@ -19,7 +19,9 @@
  *   - miniapp-taro 生成物里 5 语言载荷各自必须解析出值(过期即红)。
  *
  * 本门**只判、只报差异**,不改文件。判定内容(键集、合并语义、离线包解码、失败口径)一字未动 ——
- * 2026-09-26 只换了"字节从哪儿来"这一件事。
+ * 2026-09-26 只换了"字节从哪儿来"这一件事;2026-09-27 只换"判红行怎么点名"这一件事
+ * (每条失败行尾追加裸仓根相对路径 `⇒ 违规落点 <rel>`,供跳门归因铰链的"点名 ⇒ 本任务自己的红"
+ * 第一态命中;failures 数组与 --json 输出逐字不变)。
  *
  * 取材面(2026-09-26 收口,与守门 36/124/93/rn-global-css-sync 同口径):默认判 **HEAD blob**,
  * `--staged` 判**索引 blob**(这次提交会带走的那一份 —— 盘上随后改对不算修好),`--worktree` 只作
@@ -290,6 +292,29 @@ export function analyzeInputs(inputs) {
   }
 }
 
+/**
+ * 判红行 → "该改哪个文件"的仓根相对路径(2026-09-27 补点名,**只改报告形态不改判定** ——
+ * `analyzeInputs` 的 failures 数组与 `--json` 输出逐字不变)。跳门归因铰链
+ * (`scripts/lib/commit-gate-attribution.mjs`)的第一态靠"结论行点名本次声明的文件"成立;
+ * 旧判红行的 `shared/ja → taskStatus.toolX` 只有 where 前缀、没有仓根路径,铰链结构上看不见
+ * 文件,于是自引入的红会被裁成"与本次无关"。where 前缀只有三种形态(`shared/<lang>` /
+ * `<end>/<lang>` / `taro-gen/<lang>`),离线包解码缺失行的文本本身以 TARO_BUNDLE_REL 开头;
+ * 解析不出 ⇒ 返回 null,行原样输出(不猜)。纯函数,导出给镜像测试(§22c 禁止在测试里抄第二份)。
+ */
+export function failureTargetRel(line) {
+  const at = line.indexOf(' → ')
+  if (at < 0) return line.startsWith(TARO_BUNDLE_REL) ? TARO_BUNDLE_REL : null
+  const where = line.slice(0, at)
+  const slash = where.indexOf('/')
+  if (slash < 0) return null
+  const head = where.slice(0, slash)
+  const lang = where.slice(slash + 1)
+  if (head === 'shared') return `packages/i18n/messages/shared/${lang}.json`
+  if (head === 'taro-gen') return TARO_BUNDLE_REL
+  if (END_DIRS.includes(head)) return `packages/i18n/messages/${head}/${lang}.json`
+  return null
+}
+
 async function main() {
   const json = process.argv.includes('--json')
   if (FACE_SEL.error) {
@@ -327,7 +352,12 @@ async function main() {
     return 0
   }
   console.error(`[tool-display-resolvable] ❌ ${failures.length} 处取不到值(会回显键名或掉回中文)`)
-  for (const line of failures.slice(0, 25)) console.error(`  - ${line}`)
+  // 逐条点名"该改哪个文件":行内带"违规"字样使这一行**自身**就是归因铰链认得的结论行
+  // (铰链只把结论行及其 ≤3 行缩进续行算作点名面,失败行最多 25 条,靠首行窗口必然漏掉后面的)。
+  for (const line of failures.slice(0, 25)) {
+    const rel = failureTargetRel(line)
+    console.error(`  - ${line}${rel ? ` ⇒ 违规落点 ${rel}` : ''}`)
+  }
   if (failures.length > 25) console.error(`  …另 ${failures.length - 25} 处`)
   console.error(
     '  修法:补 packages/i18n/messages/shared/<lang>.json 的 taskStatus 键(5 语言齐全),' +
