@@ -294,7 +294,7 @@ export function SamplingParamsPanel({
               data-testid="sampling-personality-preset"
               value={activePreset ?? 'custom'}
               onChange={(e) => applyPreset(e.target.value as PersonalityPresetId)}
-              className="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="custom">{t('personalityCustom')}</option>
               {PERSONALITY_PRESETS.map((p) => (

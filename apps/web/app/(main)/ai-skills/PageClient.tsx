@@ -288,7 +288,7 @@ export default function AiSkillsPageClient() {
       )}
 
       {!isLoading && !error && filtered.length === 0 && (
-        <div className="rounded-md border bg-card py-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card py-8 text-center text-sm text-muted-foreground">
           {t('empty')}
         </div>
       )}

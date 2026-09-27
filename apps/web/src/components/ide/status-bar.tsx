@@ -57,6 +57,7 @@ export function StatusBar() {
         <GitBranch className="h-3 w-3" />
         <span>{gitCurrentBranch}</span>
         <Tooltip content={syncTip}>
+          {/* radius-role-exempt: 8×8 状态装饰点,rounded(8px)=size/2 渲成圆点,装饰点豁免族不得改 xs 方档化 until 2026-11-26 */}
           <span className={cn('h-2 w-2 rounded', syncMeta.dot)} aria-label={syncTip} />
         </Tooltip>
       </button>

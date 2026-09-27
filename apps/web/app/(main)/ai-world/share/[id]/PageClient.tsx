@@ -154,7 +154,7 @@ export default function AiWorldSharePage() {
               <input
                 readOnly
                 value={shareUrl}
-                className="flex h-9 flex-1 rounded-md border border-input bg-muted/50 px-3 py-1 text-sm text-muted-foreground"
+                className="flex h-9 flex-1 rounded-sm border border-input bg-muted/50 px-3 py-1 text-sm text-muted-foreground"
               />
               <Button size="sm" onClick={copyLink}>
                 <Copy className="mr-1.5 h-4 w-4" />

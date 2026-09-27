@@ -238,7 +238,7 @@ export function AutomationFormDialog({ open, onOpenChange, editing, onSaved }: P
               placeholder={t('form.promptPlaceholder')}
               rows={4}
               maxLength={8000}
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
 
@@ -287,7 +287,7 @@ export function AutomationFormDialog({ open, onOpenChange, editing, onSaved }: P
                   value={form.frequency}
                   onValueChange={(v) => patch({ frequency: v as Frequency })}
                 >
-                  <SelectTrigger className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                  <SelectTrigger className="h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

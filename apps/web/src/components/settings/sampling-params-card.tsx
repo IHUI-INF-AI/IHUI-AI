@@ -231,7 +231,7 @@ export function SamplingParamsCard() {
             placeholder={t('systemPromptPlaceholder')}
             onChange={(e) => set('systemPrompt')(e.target.value)}
             rows={3}
-            className="w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-2 text-xs leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-2 text-xs leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
           <p className="text-[11px] leading-snug text-muted-foreground">{t('systemPromptHint')}</p>
         </div>

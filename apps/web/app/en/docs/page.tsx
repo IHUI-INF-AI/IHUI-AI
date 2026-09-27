@@ -287,7 +287,7 @@ export default function EnDocsPage() {
         </section>
 
         {/* Code Example */}
-        <section className="mt-16 rounded-2xl border bg-card p-3">
+        <section className="mt-16 rounded-lg border bg-card p-3">
           <div className="flex items-center gap-3">
             <Code className="h-6 w-6 text-primary" />
             <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">

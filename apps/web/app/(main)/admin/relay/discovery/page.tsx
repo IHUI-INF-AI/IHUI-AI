@@ -456,7 +456,7 @@ export default function AdminRelayDiscoveryPage() {
                 placeholder="请填写驳回原因"
                 rows={3}
                 required
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <DialogFooter>
