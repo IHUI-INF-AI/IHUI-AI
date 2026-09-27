@@ -29,6 +29,7 @@
  */
 
 import { existsSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -43,6 +44,8 @@ import {
 } from './lib/bypass-git.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
+// 水印 CLI 与本器同目录:用它而不是拼 cwd 相对路径,理由见 watermarkPreflight 内注释。
+const WATERMARK_CLI = join(HERE, 'watermark.mjs')
 const REPO_ROOT = resolve(HERE, '..')
 const MAX_CAS_ATTEMPTS = 12
 
@@ -68,6 +71,79 @@ export function clobberedPaths(paths, baseMap, headNow, { root }) {
   return paths.filter((p) => headBlobOf(headNow, p, { root }) !== baseMap.get(p))
 }
 
+/**
+ * 溯源水印预检(G-253,2026-09-27 立)。
+ *
+ * 为什么落地点归本器管、而不该由 pre-commit 那道 `check-watermark-coverage` 管:
+ * 旁路落地**不跑钩子** —— read 一次真仓历史就能看到,对象空间提交是"新文件带着无横幅
+ * 内容进 HEAD"的唯一通道,而那道门把未跟踪面判成 blocking 又会变成"与本次提交无关的
+ * 恒红门"(它扫到的是别人在飞的文件)。所以:闸门侧只报数,落地侧**拒发合格证**。
+ *
+ * 判据本体仍是那一份:`watermark.mjs verify`(含第三方台账排除 —— 不给 Apache/MIT 原文
+ * 打我方归属横幅,那是 provenance-ledger P8 的射程)。这里只回答"要不要现在落地"。
+ *
+ * @param {{ root: string, paths: string[], run?: Function, node?: string }} a
+ * @returns {{ ok: true } | { ok: false, why: string }}
+ */
+export function watermarkPreflight({ root, paths, run = defaultRun, node = process.execPath }) {
+  /** 摘出 verify 的"未覆盖"清单 —— 拒绝理由必须点名是哪个文件,不得只说"没通过"。 */
+  const uncoveredOf = (text) =>
+    String(text ?? '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith('- '))
+      .slice(0, 10)
+      .join('\n  ')
+  const hint =
+    '  修法:`node scripts/watermark.mjs inject <file>` 后重跑本落地器;' +
+    '台账登记的第三方内容不需要横幅(由 provenance-ledger P8 审计)。'
+  let res
+  try {
+    // 刻意用**本文件旁边的** watermark.mjs(绝对路径)+ **绝对**目标路径:
+    // 落地器的 `root` 可以是任何仓(镜像测试就在临时仓里跑),按 root 相对拼路径会
+    // 指向一个不存在的脚本,而"脚本不存在"被当成"校验不通过"就是假红、当成通过就是假绿。
+    // 绝对路径让 verify 的 scopeFromArgs 直接命中文件,与 root 是否为被验仓无关。
+    res = run(node, [WATERMARK_CLI, 'verify', ...paths.map((x) => resolve(root, x))], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    if (e && e.code === 'ENOENT') {
+      return { ok: false, why: '取不到 node 执行体 ⇒ 无法判断水印是否完整,拒绝落地(宁停不猜)' }
+    }
+    const uncovered = uncoveredOf(String(e?.stdout ?? '') + String(e?.stderr ?? ''))
+    return {
+      ok: false,
+      why:
+        `水印校验派生失败(${String(e?.message ?? e).split('\n')[0]})。\n` +
+        (uncovered ? `  未覆盖清单(前 10):\n  ${uncovered}\n` : '') +
+        hint,
+    }
+  }
+  const status = res?.status ?? 0
+  if (status !== 0) {
+    // 两条拒绝路径**共用**同一份清单提取:第一版只在抛异常那一支摘 stdout,而真跑 `verify`
+    // 非零退出走的是这一支 —— 于是拒绝理由只说"没通过",不点名是哪个文件。
+    const uncovered = uncoveredOf(String(res?.stdout ?? '') + String(res?.stderr ?? ''))
+    return {
+      ok: false,
+      why:
+        `verify 退出码 ${status},拒绝落地无有效横幅的内容。\n` +
+        (uncovered ? `  未覆盖清单(前 10):\n  ${uncovered}\n` : '') +
+        hint,
+    }
+  }
+  return { ok: true }
+}
+
+function defaultRun(cmd, args, opts) {
+  execFileSync(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] })
+  return { status: 0 }
+}
+
 async function main() {
   const parsed = parseArgs()
   if (parsed.error) {
@@ -75,6 +151,7 @@ async function main() {
     process.exit(2)
   }
   const { root, paths, msg, baseRef } = parsed
+  const skipWatermark = process.env.IHUI_LAND_SKIP_WATERMARK === '1'
 
   const head0 = git(['rev-parse', 'HEAD'], { root })
   const base = new Map(paths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
@@ -89,6 +166,19 @@ async function main() {
 
   let landed = ''
   let parentSha = ''
+  // 水印预检(G-253):旁路提交不跑钩子,这道检查是"无横幅文件进 HEAD"的唯一拦截点。
+  // 放在 CAS **之前** —— 校验不通过时对象库与 ref 都未被动过。
+  if (!skipWatermark) {
+    const preflight = watermarkPreflight({ root, paths })
+    if (!preflight.ok) {
+      console.error(`❌ 水印预检不通过,拒绝落地:${preflight.why}`)
+      console.error('   应急跳过(仅限确属台账第三方内容):IHUI_LAND_SKIP_WATERMARK=1')
+      process.exit(1)
+    }
+    console.log(`✅ 水印预检通过 ${paths.length}/${paths.length} 路径(verify 口径,含第三方台账排除)`)
+  } else {
+    console.log('⚠️ IHUI_LAND_SKIP_WATERMARK=1 ⇒ 本次跳过水印预检(该行输出即留痕)')
+  }
   for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt++) {
     const head = git(['rev-parse', 'HEAD'], { root })
     const clobber = clobberedPaths(paths, base, head, { root })
