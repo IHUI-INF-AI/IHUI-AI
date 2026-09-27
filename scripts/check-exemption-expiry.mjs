@@ -199,7 +199,13 @@ function isStandaloneComment(line, markerStart) {
 /** 取标记之后的到期日与理由。理由 = 冒号后至行尾(剥掉日期片段)。 */
 function parseMarkerTail(line, markerStart, markerLen) {
   const tail = line.slice(markerStart + markerLen)
-  const dm = DATE_RE.exec(tail)
+  // 先认显式 `until <日期>` —— 它才是"这一处实际到什么时候"(本节上方族值/显式 until 的分工)。
+  // 只取"标记后的第一个日期"是有缺陷的口径:理由里常自带事件日期(如"2026-09-26 扩判据后暴露的
+  // 既有定稿 … until 2027-09-26"),于是**理由里的日期被当成到期日**,一条本来还有三年的豁免
+  // 第二天就把整道 blocking 门钉红 —— 而这条门的红不等于任何人的代码有问题,唯一结局是各会话
+  // 跳门、连带全部守门作废(§12e 同型)。没有 until 时仍退回"第一个日期"(存量都是那型)。
+  const explicit = /until\s+(20\d{2}-\d{2}-\d{2})/i.exec(tail)
+  const dm = (explicit ? new RegExp(DATE_RE.source).exec(explicit[1]) : null) || DATE_RE.exec(tail)
   let expiry = null
   if (dm) {
     const mo = Number(dm[2])
@@ -209,6 +215,7 @@ function parseMarkerTail(line, markerStart, markerLen) {
   }
   const reason = tail
     .replace(/\b20\d{2}-\d{2}-\d{2}\b/g, ' ')
+    .replace(/\buntil\s+/i, ' ')
     .replace(/\s+/g, ' ')
     .trim()
   return { expiry, reason }
@@ -603,6 +610,22 @@ function selfTest() {
   ok(
     'P04 prev-line 挂靠的标记也能带到期日',
     e0('// radius-exempt: 正圆 until 2020-05-05\n{ borderRadius: 1 }').expiry === '2020-05-05',
+  )
+  // 实测自伤:一条 `border-ink-exempt: … 2026-09-26 扩判据后暴露的既有定稿 … until 2027-09-26`
+  // 被读成到期日 2026-09-26 ⇒ 次日整道 blocking 门恒红,而它拦的不是任何人的代码问题。
+  ok(
+    'P05 理由里自带事件日期时,显式 until 必须赢过"第一个日期"',
+    e0(
+      '// border-ink-exempt: Switch 定稿,2026-09-26 扩判据后暴露的既有定稿而非新增违规 until 2027-09-26',
+    ).expiry === '2027-09-26',
+  )
+  ok(
+    'P06 反向对照:没有 until 时仍取标记后的第一个日期(存量那一型行为不得变)',
+    e0('// border-ink-exempt: 定稿,2026-09-26 暴露的既有形态').expiry === '2026-09-26',
+  )
+  ok(
+    'P07 until 后面是坏日期 ⇒ 判"没有到期日"(宁让 E1 喊,不许偷偷退回理由里的日期)',
+    e0('// arch-exempt: 事故 2026-01-02 until 2027-13-45').expiry === null,
   )
   ok('D01 昨天的日期判"已过去"', isPast('2020-01-01', TODAY))
   ok(
