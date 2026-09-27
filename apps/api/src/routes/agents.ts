@@ -508,7 +508,11 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /categories/:categoryId - 删除分类
-  server.delete('/categories/:categoryId', async (request, reply) => {
+  // 2026-09-27 属主闸:agent_categories **没有属主列**(平台运营资产),此前任何
+  // 已登录用户都能删任意市场分类 —— "已登录 ≠ 可以动这条数据"(AGENTS §5)。
+  // 闸门取 requireAdmin(roleId >= 1),与 admin 面同一条判据;全仓调用方实测:
+  // 各端 UI 零调用(api-client 的 deleteCategory 只有声明、无消费点),收紧不砸在用链路。
+  server.delete('/categories/:categoryId', { preHandler: requireAdmin }, async (request, reply) => {
     const { categoryId } = categoryIdParam.parse(request.params)
     const category = await deleteCategory(categoryId)
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
@@ -981,9 +985,16 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /examine/:recordId - 删除审核记录
+  // 2026-09-27 属主闸:此前任何已登录用户带别人的 recordId 就能删他人的审核记录。
+  // 归属条件现在落在**被发出的那条 SQL** 上(deleteExamine 的 principal):
+  // 提交人(userId 列)只能删自己的记录,管理员(isSystemAdmin,只认人用 JWT)可删任意;
+  // 属主一律取令牌主体 request.userId(checkAuth 注入),不读请求体/Query 自报值。
   server.delete('/examine/:recordId', async (request, reply) => {
     const { recordId } = recordIdParam.parse(request.params)
-    const record = await deleteExamine(recordId)
+    const principal = isSystemAdmin(request, { includeInternalChannel: false })
+      ? ({ isAdmin: true } as const)
+      : ({ isAdmin: false, userId: request.userId ?? '' } as const)
+    const record = await deleteExamine(recordId, principal)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
     return reply.send(success({ deleted: true }))
   })
