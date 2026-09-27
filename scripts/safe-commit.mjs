@@ -444,21 +444,27 @@ if (hookFailed && commitResult.status !== 0) {
   // 实测(2026-09-25):pre-commit 常把守门汇总**只**写进 .workbuddy/hook-logs/pre-commit.log,
   // stdout 停在半路 —— 没有这第二输入源,归因在真仓里的命中率是 0(每次都说"未归因")。
   // 只喂尾部 256KB:整份日志是多轮追加的,全量读既慢又会把别人的轮子卷进来。
+  // 归档也要读:日志现在由 git-guardian 按保留期回收(`.log` → `.log.1`),上一轮可能正好落在
+  // 归档里 ⇒ 只看活动文件会把"量到的归因"退化成"未归因"。按时间序拼(.1 在前),两份都只取尾部。
   let hookLogTail = ''
-  try {
-    const logPath = join(repoRoot, '.workbuddy', 'hook-logs', 'pre-commit.log')
-    const size = statSync(logPath).size
-    const len = Math.min(size, 256 * 1024)
-    const fd = openSync(logPath, 'r')
+  for (const suffix of ['.1', '']) {
     try {
-      const buf = Buffer.alloc(len)
-      readSync(fd, buf, 0, len, size - len)
-      hookLogTail = buf.toString('utf8')
-    } finally {
-      closeSync(fd)
+      const logPath = join(repoRoot, '.workbuddy', 'hook-logs', `pre-commit.log${suffix}`)
+      const size = statSync(logPath).size
+      const len = Math.min(size, 256 * 1024)
+      const fd = openSync(logPath, 'r')
+      let chunk = ''
+      try {
+        const buf = Buffer.alloc(len)
+        readSync(fd, buf, 0, len, size - len)
+        chunk = buf.toString('utf8')
+      } finally {
+        closeSync(fd)
+      }
+      hookLogTail = chunk + hookLogTail
+    } catch {
+      // 缺哪一份都不算失败(活动文件在、归档不在是常态),但也**不静默说成读到了**。
     }
-  } catch {
-    hookLogTail = ''
   }
   const runGate = (script) => {
     const g = spawnSync(process.execPath, [join(repoRoot, 'scripts', script), '--staged'], {
