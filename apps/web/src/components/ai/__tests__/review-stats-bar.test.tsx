@@ -187,12 +187,16 @@ describe('D85 ReviewStatsBar —— 自动审查统计条', () => {
     expect(numberRenderedInBar('reviewStats.accepted')).toBe(before.accepted)
     expect(numberRenderedInBar('reviewStats.rejected')).toBe(before.rejected)
 
+    // 2026-09-25(207261adc)把 approval_policy_never 从 rejected 改归 approved 后,
+    // 原 5 步夹具的 rejected 计数与 mixedSteps 撞平(2==2),"必须跟着变"前提失效;
+    // 补一步 tool_missing(rejected)拉开差值,继续钉住"换 steps 必重算"的判据。
     const nextSteps: AgentPlanStepEvent[] = [
       step({ stepIndex: 0, decision: 'rejected_by_user', reason: 'user said no' }),
       step({ stepIndex: 1, decision: 'plan_blocked', reason: null }),
       step({ stepIndex: 2, decision: 'exec_policy_approved', reason: 'policy ok' }),
       step({ stepIndex: 3, decision: 'approval_policy_never', reason: 'forbidden' }),
       step({ stepIndex: 4, decision: null, status: 'started' }),
+      step({ stepIndex: 5, decision: 'tool_missing', reason: 'gone' }),
     ]
     rerender(<ReviewStatsBar steps={nextSteps} />)
     const next = classify(nextSteps)
