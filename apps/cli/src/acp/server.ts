@@ -22,7 +22,12 @@
 import { Readable, Writable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import * as acp from '@agentclientprotocol/sdk';
-import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
+import { setBaseUrl, setTokenProvider, type ToolDeltaEvent } from '@ihui/api-client';
+import {
+  createToolDeltaPreviewStore,
+  pickToolDeltaPreviewText,
+  type ToolDeltaPreviewStore,
+} from '../tools/file-edit-preview.js';
 import {
   createSession,
   saveSession,
@@ -137,6 +142,117 @@ export async function emitApprovalTerminalUpdate(
           },
         ],
         rawOutput: { approval: decision },
+      },
+    });
+  } catch {
+    // IDE 渲染失败不中断 agent
+  }
+}
+
+/**
+ * D113(2026-09-27)三面接线之 ACP 面 —— 流中 diff 预览落到 ACP 已有的
+ * `tool_call_update` 形态,**不新增协议方法、不伪造终态**。
+ *
+ * 与 headless / agent-core 两面的三点不同(所以它不走 `createToolDeltaBridge`):
+ *  ① ACP 有**自己的 toolCallId 空间**(`tool_call` 由本端 randomUUID 建卡),
+ *     本地派生帧带的 `cli-preview-*` id 对 IDE 毫无意义 ⇒ 必须**重划**到卡 id 上;
+ *  ② ACP 的终态本来就是 `tool_call_update` 覆盖同一 id(见 onToolResult),
+ *     所以"预览不得与结果同屏"由**协议自己的覆盖语义**保证,不需要额外 clear 帧;
+ *  ③ 帧与卡的配对不能按名(headless 那种),只能按"最近一次 onToolCall 建的那张卡"
+ *     —— runToolLoop 对每个 call 先 onToolCall 再同步发帧,故帧必属于队尾那张卡;
+ *     配不上卡(队列为空 / id 空) ⇒ **不出帧**,不伪造归属。
+ *
+ * 派生算法/取键顺序/截断预算仍只有 `tools/file-edit-preview.ts` 一份(唯一出口),
+ * 本面只搬运,绝不 `JSON.stringify(args)` 凑一段文本当预览。
+ */
+export const ACP_TOOL_DELTA_PREVIEW_MARKER = '[D113 流中预览 · 非终态结果]';
+
+/** 一帧要落到 ACP 卡上的预览(已按卡 id 重划、已读"当前累积值") */
+export interface AcpToolDeltaPreviewPlan {
+  /** 累积预览文本(整帧替换语义,末帧即全量) */
+  text: string;
+  /** 帧序(来自 ToolDeltaEvent,原样带上以便追溯) */
+  seq: number;
+  /** 该批预览被预算截断(400 行 / 32KB / 10 帧) */
+  truncated: boolean;
+  /** 本地派生帧的原始 toolCallId(仅追溯用,与 IDE 卡无对应关系) */
+  sourceToolCallId: string;
+}
+
+/**
+ * 纯判据:把一批本地派生帧落到"这张卡还开着吗"这个闸门上。
+ * 返回 `null` = 本次不发(无卡 id / 0 帧 / 卡已落终态 ⇒ 第三条就是
+ * "终态必须清预览":关闭的卡绝不再被预览覆盖,而 clear 由 store 完成)。
+ * 抽成纯函数是为了让这条规则被行为测试直接问,而不是靠读渲染代码里的字符串。
+ */
+export function planAcpPreviewUpdate(input: {
+  store: ToolDeltaPreviewStore;
+  events: readonly ToolDeltaEvent[];
+  /** 本批帧所属的 ACP 卡 id;空串 = 配不上卡 ⇒ 一律不发 */
+  acpToolCallId: string;
+  /** 该卡是否仍开着(未出队 ⇒ 未落终态) */
+  open: boolean;
+}): AcpToolDeltaPreviewPlan | null {
+  const { store, events, acpToolCallId, open } = input;
+  if (!acpToolCallId || events.length === 0) return null;
+  // 重划到卡 id:同一批的累积帧整帧覆盖(同 seq 重放天然幂等)
+  for (const event of events) {
+    store.apply({ ...event, toolCallId: acpToolCallId });
+  }
+  const last = events[events.length - 1];
+  if (!last) return null;
+  const text = pickToolDeltaPreviewText({
+    running: open,
+    preview: store.get(acpToolCallId),
+  });
+  if (text === null) return null;
+  return {
+    text,
+    seq: last.seq,
+    truncated: last.truncated === true,
+    sourceToolCallId: last.toolCallId,
+  };
+}
+
+/**
+ * 把预览作为**非终态** `tool_call_update` 发给编辑器:
+ * status 恒为 `in_progress`(刻意不写 completed/failed —— 那是伪造终态),
+ * content 前缀带 ACP_TOOL_DELTA_PREVIEW_MARKER 使"这是流中预览"在文本面也辨认得出,
+ * rawOutput.toolDeltaPreview 给机器消费方一条明确的结构字段。
+ * 通知失败吞掉:与本文件其余 session/update 发射点同一约定(IDE 渲染失败不得中断 agent)。
+ */
+export async function emitAcpToolDeltaPreview(
+  cx: acp.AgentContext,
+  sessionId: string,
+  toolCallId: string,
+  plan: AcpToolDeltaPreviewPlan,
+  title?: string,
+): Promise<void> {
+  if (!toolCallId) return;
+  try {
+    await cx.notify(acp.methods.client.session.update, {
+      sessionId,
+      update: {
+        sessionUpdate: 'tool_call_update',
+        toolCallId,
+        ...(title ? { title } : {}),
+        status: 'in_progress' as const,
+        content: [
+          {
+            type: 'content' as const,
+            content: {
+              type: 'text' as const,
+              text: `${ACP_TOOL_DELTA_PREVIEW_MARKER}\n${plan.text}${plan.truncated ? '\n…(预览已超预算截断)' : ''}`,
+            },
+          },
+        ],
+        rawOutput: {
+          toolDeltaPreview: {
+            seq: plan.seq,
+            truncated: plan.truncated,
+            sourceToolCallId: plan.sourceToolCallId,
+          },
+        },
       },
     });
   } catch {
@@ -402,6 +518,13 @@ export class IhuiAcpAgent {
       })),
     ];
 
+    // D113 三面接线之 ACP:预览按**卡 id** 存(与 headless/agent-core 共用同一个 store 出口),
+    // lastAcpCard 记录"最近一次 onToolCall 建的那张卡" —— runToolLoop 对每个 call 先
+    // onToolCall 再同步发帧,故本批帧归属它;这不是位置对齐,而是同一派发内的因果事实。
+    // 声明在 try **之外**:catch 那一轮也要能清账(见该块第一行)。
+    const previewStore = createToolDeltaPreviewStore();
+    let lastAcpCard: { id: string; name: string } = { id: '', name: '' };
+
     try {
       // tool_call ↔ tool_call_update 配对队列:onToolCall 入队、onToolResult 出队(FIFO,
       // 因 runToolLoop 先对全部 tool 调 onToolCall 再对全部结果调 onToolResult,顺序一致)。
@@ -503,6 +626,7 @@ export class IhuiAcpAgent {
           try {
             const toolCallId = randomUUID();
             toolCallIdQueue.push(toolCallId);
+            lastAcpCard = { id: toolCallId, name };
             await cx.notify(acp.methods.client.session.update, {
               sessionId: params.sessionId,
               update: {
@@ -519,12 +643,30 @@ export class IhuiAcpAgent {
             // IDE 渲染失败不中断 agent
           }
         },
+        // D113 三面接线之 ACP:写类工具执行前的流中预览,落到刚建的那张卡上。
+        // 配不上卡(建卡失败 / 队列为空 ⇒ 卡已出队落终态)一律**不发帧**,不伪造归属;
+        // 终态仍由下面 onToolResult 的 tool_call_update 覆盖同 id,预览因此不会与结果同屏。
+        onToolDeltaFrames: async (events) => {
+          const plan = planAcpPreviewUpdate({
+            store: previewStore,
+            events,
+            acpToolCallId: lastAcpCard.id,
+            open: lastAcpCard.id !== '' && toolCallIdQueue.includes(lastAcpCard.id),
+          });
+          if (!plan) return;
+          await emitAcpToolDeltaPreview(cx, params.sessionId, lastAcpCard.id, plan, lastAcpCard.name);
+        },
         // 工具结果:从队列取 toolCallId 配对,发 tool_call_update(completed/failed),
         // 结果文本安全截断(≤8000 字符)。toolCallId 缺失/空串或队列排空时跳过转发。
         onToolResult: async (name, success, output) => {
           try {
             const toolCallId = toolCallIdQueue.shift();
             if (!toolCallId) return;
+            // 终态清预览(与 web/RN/小程序"result 到达即清 partialDiff"同一条纪律):
+            // 上面的 tool_call_update 会用最终 diff 覆盖同一张卡,故这里清的是本端账,
+            // 保证卡落终态后不再被任何后续帧(重放/迟到帧)写回预览。
+            previewStore.clear(toolCallId);
+            if (lastAcpCard.id === toolCallId) lastAcpCard = { id: '', name: lastAcpCard.name };
             const text =
               output.length > 8000 ? `${output.slice(0, 8000)}…(结果已截断)` : output;
             await cx.notify(acp.methods.client.session.update, {
@@ -567,6 +709,12 @@ export class IhuiAcpAgent {
       saveSession(state.session);
       return { stopReason: toAcpStopReason(result.stopReason) };
     } catch (err) {
+      // D113:流中断/报错 ⇒ 本端预览账全部作废。**刻意不发 tool_call_update**:
+      // 这些卡此刻的真实状态未知(可能已执行、可能根本没跑),写 completed/failed 都是
+      // 伪造终态(与本文件"审批终态必须与真实决定一致"同一条禁令)。清的是本端账 ——
+      // 迟到/重放的帧不得再把预览刷回一张已经没人负责收尾的卡上。
+      previewStore.clearAll();
+      lastAcpCard = { id: '', name: lastAcpCard.name };
       if (abort.signal.aborted) {
         const lastAssistant = messages.filter((m) => m.role === 'assistant').pop();
         if (lastAssistant) {

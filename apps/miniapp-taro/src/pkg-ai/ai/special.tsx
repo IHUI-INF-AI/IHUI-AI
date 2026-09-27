@@ -261,7 +261,7 @@ export default function SpecialModelsPage() {
             {featured.map((m) => (
               <View
                 key={`f-${m.key}`}
-                className="inline-flex flex-col items-center w-[200rpx] mr-[16rpx] py-[24rpx] px-[16rpx] bg-card border border-border rounded-xl align-top"
+                className="inline-flex flex-col items-center w-[200rpx] mr-[16rpx] py-[24rpx] px-[16rpx] bg-card border border-border rounded-lg align-top"
                 onClick={() => onEnter(m)}
                 hoverClass="opacity-60"
               >
@@ -292,7 +292,7 @@ export default function SpecialModelsPage() {
       {filtered.length > 0 ? (
         <View className="px-[24rpx] flex flex-col gap-[16rpx]">
           {filtered.map((m) => (
-            <View key={m.key} className="flex p-[28rpx] bg-card border border-border rounded-xl">
+            <View key={m.key} className="flex p-[28rpx] bg-card border border-border rounded-lg">
               <View className="w-[96rpx] h-[96rpx] flex items-center justify-center bg-muted rounded-xl flex-shrink-0">
                 <Image src={m.icon} className="w-[56rpx] h-[56rpx]" mode="aspectFit" />
               </View>

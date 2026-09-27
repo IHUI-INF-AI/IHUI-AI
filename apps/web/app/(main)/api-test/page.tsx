@@ -70,7 +70,7 @@ export default function ApiTestPage() {
               <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value as Method)}
-                className="rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                className="rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
               >
                 {METHODS.map((m) => (
                   <option key={m} value={m}>
@@ -112,7 +112,7 @@ export default function ApiTestPage() {
                 onChange={(e) => setBody(e.target.value)}
                 rows={4}
                 placeholder='{"key":"value"}'
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
 
