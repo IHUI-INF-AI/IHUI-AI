@@ -141,30 +141,51 @@ MIXED_POLLUTION = [
 
 
 def _run_import(platform: str, cookies_raw: str) -> dict[str, Any]:
-    """直调路由协程,替换两个 IO 依赖(鉴权 + 落库),不落任何真实数据。"""
+    """直调路由协程,替换全部 IO 依赖(鉴权 + 校验 + 查存量 + 落库),不落任何真实数据。
+
+    2026-09-27 补两条:路由新增"先验后写"后,**不桩就会真的起浏览器 + 真连生产库**
+    (违反 §5 测试隔离铁律);桩子返回"已证伪"是刻意的 —— 只有"库里没有凭据"这一格
+    会放行落库,正好覆盖本文件要测的归属过滤路径。
+    """
 
     async def _fake_user(_request: Any) -> str:
         return "u-test-0001"
 
+    async def _fake_verify(_platform: str, _creds: Any) -> tuple[bool | None, str]:
+        return False, "stub: 测试环境不联网"
+
+    async def _fake_existing(_user_id: str, _platform: str) -> bool:
+        return False
+
     saved: dict[str, Any] = {}
 
     async def _fake_save(user_id: str, platform_id: str, credentials: dict[str, str],
-                         _name: str) -> int:
+                         _name: str, *, verify_msg: str = "") -> int:
         saved["user_id"] = user_id
         saved["platform"] = platform_id
         saved["credentials"] = dict(credentials)
+        saved["verify_msg"] = verify_msg
         return 987654
 
-    originals = (scan_router.get_current_user_id, scan_router._save_account_to_db)
+    patched = (
+        "get_current_user_id",
+        "_save_account_to_db",
+        "verify_login_candidate",
+        "_existing_credentials_present",
+    )
+    originals = tuple(getattr(scan_router, name) for name in patched)
     scan_router.get_current_user_id = _fake_user  # type: ignore[assignment]
     scan_router._save_account_to_db = _fake_save  # type: ignore[assignment]
+    scan_router.verify_login_candidate = _fake_verify  # type: ignore[assignment]
+    scan_router._existing_credentials_present = _fake_existing  # type: ignore[assignment]
     try:
         body = scan_router.ImportCookiesRequest(platform=platform, cookies_raw=cookies_raw)
         result = asyncio.run(scan_router.import_cookies(body, None))  # type: ignore[arg-type]
         result["__saved__"] = saved
         return result
     finally:
-        scan_router.get_current_user_id, scan_router._save_account_to_db = originals
+        for name, value in zip(patched, originals, strict=True):
+            setattr(scan_router, name, value)
 
 
 # ---------------------------------------------------------------------------
