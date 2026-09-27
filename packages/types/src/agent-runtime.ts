@@ -1193,8 +1193,47 @@ export type GitHubOperation =
  * - in_progress: 执行中(worker 已 pick)
  * - blocked: 阻塞中(依赖未满足 / 工具失败 / 等待人工)
  * - done: 已完成(成功 or 失败,终态)
+ *
+ * **单一真相源 = 下面的 `AGENT_TASK_STATUSES`**(2026-09-27 D6/G3 收口)。
+ * 联合类型由该数组派生,所以"编译期联合"与"运行时清单"不可能分叉 —— 此前它们是两格
+ * (数组端内各抄一份、联合住在 types),而守门 `check-background-task-type-parity` 只管
+ * executor 接线、`check-agent-event-parity` 只管 SSE 事件名,**这一族成员集合全仓零判据**
+ * (取证见 docs/d6-convergence-audit-2026-09-27.md §2.3)。
+ *
+ * ⚠️ **六个字符串值全部是对外契约,不得改名/删成员/改拼写**(三条独立证据):
+ *   ① 落库列:`packages/database/src/schema/agent-tasks.ts:31` `varchar('status', {length:20})`
+ *      (默认值 `'pending'` 是 legacy 档,由 `LEGACY_STATUS_MAP` 读取时归一);
+ *   ② REST 契约:`apps/api/src/routes/agents-kanban.ts:128,151` 两处 `z.enum([...])`
+ *      (查询参数与 transition 请求体);
+ *   ③ SSE 帧载荷:`apps/api/src/routes/agents-kanban.ts:386,453,473,524` 的
+ *      `broadcastSSEEvent({ type: 'task_*' })` 携带 `status` 字段直推前端。
+ * 新增一档的正确顺序 = 改本数组 → 补 `ALLOWED_TRANSITIONS` 边 → 补 `STATUS_VARIANTS` →
+ * 补 Python 对齐表(`apps/ai-service/app/services/dag_scheduler.py`)→ **同枚提交**补齐
+ * `agents.kanban.<status>` 五语言词表(AGENTS §30:状态词汇是一等契约)。
+ * 常驻尺子:`scripts/check-agent-status-vocabulary-parity.mjs`。
  */
-export type AgentTaskStatus = 'triage' | 'todo' | 'ready' | 'in_progress' | 'blocked' | 'done'
+export const AGENT_TASK_STATUSES = ['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done'] as const
+
+export type AgentTaskStatus = (typeof AGENT_TASK_STATUSES)[number]
+
+/**
+ * 第二域:workspace 进程内 agent 任务状态(`/api/workspace/agent/tasks`)。
+ *
+ * **它与上面的 Kanban 六态不是同一件事的两种写法,而是两个域** —— 值集合起来是
+ * `running/completed/failed/canceled` 对 `triage/todo/ready/in_progress/blocked/done`,
+ * 交集为空(本门 SV2 机器判这一条)。审计原文:
+ * docs/d6-convergence-audit-2026-09-27.md §2.3"第四套 … 与 kanban 六态不同域不同名,无映射"。
+ * 所以处置不是"把第四套并进六态"(那会改坏 `/api/workspace/agent/tasks` 的响应值),
+ * 而是**把它也登记成一处、端内只引用**,免得第五份 `STATUS_CLASS` 靠 fallback 顶。
+ *
+ * ⚠️ 这四个值同样是对外契约(生产侧 `apps/api/src/services/workspace-ai-service.ts:335`
+ * 的 `export type AgentTaskStatus = 'running' | 'completed' | 'failed' | 'canceled'` 直接
+ * 落进响应),拼写不得改。注意同文件 :1483 另有 `BgAgentStatus` 写作 **`cancelled`(双 l)** ——
+ * 那是第三个域的第三种拼写,不在本域射程,已按"同词不同义不得并置"登记为已知分叉。
+ */
+export const WORKSPACE_AGENT_TASK_STATUSES = ['running', 'completed', 'failed', 'canceled'] as const
+
+export type WorkspaceAgentTaskStatus = (typeof WORKSPACE_AGENT_TASK_STATUSES)[number]
 
 // ---------------------------------------------------------------------------
 // 状态机运行时常量(2026-09-11 2-2 P1:跨端单一来源)

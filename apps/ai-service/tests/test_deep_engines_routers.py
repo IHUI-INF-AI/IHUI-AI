@@ -34,6 +34,7 @@ from app.core.jwt_auth import get_current_user_id
 from app.routers import patch as patch_router
 from app.routers import sandbox_exec as sandbox_router
 from app.routers import sessions as sessions_router
+from app.services.os_sandbox import DEFAULT_POLICY_TIER
 from app.services.session_store import SessionStore
 
 # =============================================================================
@@ -50,15 +51,34 @@ def _make_app(router: Any) -> FastAPI:
 
 
 @pytest.fixture()
-def patch_client(tmp_path: Path) -> Iterator[tuple[TestClient, Path]]:
-    """patch router 客户端 + 临时 workspace root。"""
+def patch_client(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[tuple[TestClient, Path]]:
+    """patch router 客户端 + 临时 workspace root。
+
+    2026-09-30 夹具翻转(G-258 B 组 / test_patch_root_allowlist.py 同批):
+    router 的 ``_validated_root`` 不再接受"任何绝对且存在的目录",root 必须落在
+    服务端登记的允许集合内(唯一来源 = 配置键 ``MCP_WORKSPACE_ROOTS``)。本 fixture
+    的语义没变(仍然在 tmp_path 里造 workspace),变的只是"tmp_path 之所以合法,
+    是因为它被登记为允许根" —— 与仓内既有同类夹具同一写法
+    (tests/test_path_guard_parity_58.py:137 等也用 monkeypatch.setenv 喂这个键)。
+    """
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(tmp_path))
     client = TestClient(_make_app(patch_router))
     yield client, tmp_path
 
 
 @pytest.fixture()
-def sandbox_client() -> Iterator[TestClient]:
-    """sandbox_exec router 客户端(真实执行走当前平台默认后端)。"""
+def sandbox_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    """sandbox_exec router 客户端(真实执行走当前平台默认后端)。
+
+    2026-09-30 夹具翻转(G-258 B 组):策略档位改为"只能来自服务端登记表",而档位的
+    可读根来自配置键 ``MCP_WORKSPACE_ROOTS``。这里显式登记为**进程工作目录**(即
+    ``sys.executable`` 与默认 cwd 都在授予范围内),使本文件的两条沙箱用例断言的
+    仍是它们原本在乎的事("命令能跑通"/"越出授予根的路径被拒"),而不是被环境的
+    真实 .env 值带偏。
+    """
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(Path.cwd()))
     yield TestClient(_make_app(sandbox_router))
 
 
@@ -209,16 +229,23 @@ def _hello_argv() -> list[str]:
 
 
 def test_sandbox_run_success(sandbox_client: TestClient) -> None:
-    res = sandbox_client.post(
-        "/api/sandbox/run",
-        json={"cmd": _hello_argv(), "policy": {"restrict_token": False}},
-    )
+    """缺省档位(最严档 read_only)下命令仍应跑通 —— 收紧的是"谁能定策略",不是可用性。
+
+    2026-09-30 夹具翻转(G-258 B 组):原先本例带 ``policy: {"restrict_token": False}``,
+    而那正是本票要关掉的洞 —— ``restrict_token=False`` 在本模块语义里是"不收紧令牌",
+    由请求方自带等于给自己签发最宽松档。现改由服务端档位给出 ``restrict_token=True``;
+    Windows 上受限令牌若导致 CreateProcessAsUserW 失败,WinJobBackend 有既有的降级回退
+    (os_sandbox.py ``token_degraded`` 分支),断言面(rc=0 + stdout)因此不变。
+    """
+    res = sandbox_client.post("/api/sandbox/run", json={"cmd": _hello_argv()})
     assert res.status_code == 200
     data = res.json()["data"]
     assert data["returncode"] == 0
     assert data["ok"] is True
     assert "hello-sandbox" in data["stdout"]
     assert data["backend"] in {"win_job", "linux_bwrap", "mac_seatbelt"}
+    # 实际生效档位回显,调用方看得见"我用的是哪一档"
+    assert data["tier"] == DEFAULT_POLICY_TIER
 
 
 def test_sandbox_run_policy_error_400(sandbox_client: TestClient) -> None:
@@ -241,15 +268,18 @@ def test_sandbox_run_unknown_policy_field_400(sandbox_client: TestClient) -> Non
 def test_sandbox_run_path_violation_403(
     sandbox_client: TestClient, tmp_path: Path
 ) -> None:
-    """readable 白名单外的路径 token → 启动前拒绝(403)。"""
-    allowed = (tmp_path / "allowed").as_posix()
+    """**服务端**授予根之外的路径 token → 启动前拒绝(403)。
+
+    2026-09-30 夹具翻转(G-258 B 组):原先本例自带 ``readable_paths: [allowed]`` 来
+    定义"白名单",而 ``readable_paths`` 恰是请求方不得再提供的字段(留空 = 不限制读)。
+    现可读根由 fixture 登记(sandbox_client 里的 MCP_WORKSPACE_ROOTS = 进程工作目录),
+    tmp_path 在它之外 ⇒ 断言的还是同一件事:**越出授予根的路径会被启动前拒掉**,
+    只是"根由谁定"从请求方换成了服务端。
+    """
     secret = (tmp_path / "secret" / "data.txt").as_posix()
     res = sandbox_client.post(
         "/api/sandbox/run",
-        json={
-            "cmd": [sys.executable, "-c", "pass", secret],
-            "policy": {"readable_paths": [allowed], "restrict_token": False},
-        },
+        json={"cmd": [sys.executable, "-c", "pass", secret]},
     )
     assert res.status_code == 403
     assert "越权" in res.json()["detail"]
