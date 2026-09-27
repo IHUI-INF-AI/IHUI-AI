@@ -71,6 +71,10 @@ import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 import { estimateLiveUsage } from './live-usage'
 // V3 #69:budget 命名帧的唯一落点(输入框上方 ContextBudgetBar 读它;toast 照旧)
 import { clearBudgetEvent, setBudgetEvent } from './budget-state'
+// V3 #63(2026-09-27 立):form_request 帧 → 消息流业务表单的对话流消费点。
+// 投影判据(什么帧才配渲染成表单)只在 form-request-frame.ts 一处;此处只接线。
+import { projectFormRequestFrame } from './form-request-frame'
+import { useBusinessFormStore } from '@/stores/business-forms'
 import {
   tryHandlePlanModeSlash,
   tryHandleChatModeSlash,
@@ -80,6 +84,7 @@ import {
   tryHandleGoalSlash,
   tryHandleBtwSlash,
   tryHandleCommitSlash,
+  tryHandleToolSlash,
 } from './slash-commands'
 import { persistMessageSafe, persistQuestionSafe } from './persistence'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
@@ -207,6 +212,14 @@ export function createSendMessage(
     // - AI 生成提交信息并自动 git add + commit,不走 LLM chat 流,不创建会话
     // - commit.before/after 钩子事件在此触发
     if (!isRegenerate && (await tryHandleCommitSlash(text, t))) {
+      sendInFlightRef.current = false
+      return true
+    }
+
+    // D117 工具型斜杠命令拦截(2026-09-27 立,对标 Codex /diff /status /model /mcp /compact):
+    // - 纯前端动作或直调 REST,不走 LLM chat 流,不创建会话
+    // - /status 以 sidechat 消息回显;/diff 打开会话改动总览弹窗
+    if (!isRegenerate && (await tryHandleToolSlash(text, t))) {
       sendInFlightRef.current = false
       return true
     }
@@ -1031,6 +1044,32 @@ export function createSendMessage(
             sessionId: event.sessionId,
             channel: 'chat-stream',
           })
+        },
+        // V3 #63(2026-09-27 立):对话流业务表单 —— 把 form_request 帧挂到本轮
+        // assistant 消息的渲染态上,宿主 BusinessFormSection(components/chat/
+        // message-list/MessageList.tsx 内每条消息之后)据此渲染 BusinessFormCard;
+        // 用户批准/拒绝经 buildFormResponseEvent + postFormResponse 走**同一条会话
+        // 通道**回传(形态与上方 onToolDelegate → postToolResult 完全同族)。
+        //
+        // 帧未带 messageId 时回退到本流 assistantId(与 onCitations/onSteer/onRetryScheduled
+        // 同一姿势 —— 那一帧必然属于当前流)。未知 kind / 动作不成对 / 缺 requestId
+        // 由投影层判 null 后**丢弃**:宁可屏幕上什么都不出现,也不给一张填不了
+        // 或交不出去的表单。
+        //
+        // ⚠️ 生产侧现状(不得读成"这帧已在跑"):apps/api/src 与 apps/ai-service/app
+        //    两侧对 form_request 零生产点 ⇒ 本回调今天不会被调用。契约登记 + 解阻前置
+        //    三条见 @ihui/shared 的 FORM_FRAME_EVENTS 注释③;可注入的验收路径由
+        //    e2e/form-request.spec.ts(拦截 stream 端点、直接回放一帧)与
+        //    chat/__tests__/form-request-frame.test.ts(投影判据)承担。
+        //    形参不写类型名:`FormRequestEvent` 未列进 @ihui/api-client 的 index 导出面
+        //    (只出现在 client.ts 内部),按 TS2305 处理过一轮;改为让 streamChat 的
+        //    options 上下文推断,投影入口用 @ihui/shared 登记的 FormRequestFramePayload
+        //    承接 —— 两者逐字段同形,该等值由 chat/__tests__/form-request-contract.test.ts
+        //    的双向可赋值断言钉住。
+        onFormRequest: (event) => {
+          const entry = projectFormRequestFrame(event, assistantId)
+          if (!entry) return
+          useBusinessFormStore.getState().appendFormRequest(entry)
         },
         // 2026-08-29 修复:仅当用户显式启用插件工具时才携带 agentTools。
         // 普通问答不携带 → 后端不命中 tool loop,走流式 astream() 恢复打字机输出(详见 tool-config.ts)

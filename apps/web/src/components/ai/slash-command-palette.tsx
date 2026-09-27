@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Sparkles, Loader2, Target, Zap, Lock, FileText } from 'lucide-react'
+import { ArrowLeft, Sparkles, Loader2, Target, Zap, Lock, FileText, Wrench } from 'lucide-react'
 import { IconButton, SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -14,8 +14,9 @@ import { Tooltip } from '@/components/feedback'
 import { PortalPanel } from '@/components/feedback/portal-panel'
 
 /** 命令分组(2026-07-29 立,按重要性排序)
- * 2026-07-29 二次深化:新增 skill 分组(AI 技能,从 /api/ai-skills 拉取) */
-export type SlashCommandCategory = 'goal' | 'mode' | 'permission' | 'skill' | 'template'
+ * 2026-07-29 二次深化:新增 skill 分组(AI 技能,从 /api/ai-skills 拉取)
+ * 2026-09-27(D117):新增 tools 分组(工具型命令 /diff /status /model /mcp /compact) */
+export type SlashCommandCategory = 'goal' | 'mode' | 'permission' | 'skill' | 'tools' | 'template'
 
 /** 参数候选项(2026-07-29 立,用于 /goal /loop 等带参数命令的补全) */
 export interface ArgSuggestion {
@@ -91,13 +92,24 @@ const CATEGORY_META: Record<SlashCommandCategory, { labelKey: string; icon: Reac
     labelKey: 'categorySkill',
     icon: <Sparkles className="h-3 w-3" />,
   },
+  tools: {
+    labelKey: 'categoryTools',
+    icon: <Wrench className="h-3 w-3" />,
+  },
   template: {
     labelKey: 'categoryTemplate',
     icon: <FileText className="h-3 w-3" />,
   },
 }
 
-const CATEGORY_ORDER: SlashCommandCategory[] = ['goal', 'mode', 'permission', 'skill', 'template']
+const CATEGORY_ORDER: SlashCommandCategory[] = [
+  'goal',
+  'mode',
+  'permission',
+  'skill',
+  'tools',
+  'template',
+]
 
 /** 分组图标颜色(左侧 icon 着色,提升视觉层次) */
 const CATEGORY_ICON_COLOR: Record<SlashCommandCategory, string> = {
@@ -105,6 +117,7 @@ const CATEGORY_ICON_COLOR: Record<SlashCommandCategory, string> = {
   mode: 'text-blue-500 dark:text-blue-400',
   permission: 'text-amber-500 dark:text-amber-400',
   skill: 'text-violet-500 dark:text-violet-400',
+  tools: 'text-teal-600 dark:text-teal-400',
   template: 'text-muted-foreground',
 }
 

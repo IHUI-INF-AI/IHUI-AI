@@ -101,6 +101,15 @@ if TYPE_CHECKING:
     from .memory_service import MemoryService
 
 from ..core.current_time_reminder import CurrentTimeReminderState as _CurrentTimeReminderState
+
+# V3#54(2026-09-28):工具连续失败反思 / 卡死检测上提到主链路 —— 等价实现与
+# TS 唯一算法源(packages/shared/src/agent/doom-loop-detector.ts)由
+# scripts/check-doom-loop-parity.mjs 钉死;阈值数字一律 import,不在此重抄。
+from ..core.doom_loop import (
+    DOOM_ALERT_ROUNDS_TO_TERMINATE,
+    STUCK_CONSECUTIVE_THRESHOLD,
+    DoomLoopSentinel,
+)
 from ..core.environment_context import EnvironmentStateTracker as _EnvironmentStateTracker
 from ..core.mcp_tool_approval import (
     ToolAnnotations as _McpToolAnnotations,
@@ -115,6 +124,16 @@ from .guarded_tool_pipeline import (
     ERROR_INJECTION_BLOCKED,
     ERROR_SCAN_BLOCKED,
     GuardedToolPipeline,
+)
+
+# V3 #80(2026-09-27 立):用户点 approve 前的独立 guardian 复核 —— 复核走另起一次
+# 独立请求(llm_gateway),不复用本链上下文;失败一律显式 not_reviewed,绝不折叠成
+# "无风险"。开关默认 OFF(GUARDIAN_REVIEW_ENABLED),关闭时出口仍被调用并返回
+# not_reviewed("disabled"),弹窗载荷因此永远带三态。
+from .guardian_review import (
+    GUARDIAN_REVIEW_STATUS_NOT_REVIEWED,
+    request_guardian_review,
+    unavailable_review,
 )
 from .hook_engine import hook_engine
 from .llm_budget_governor import (
@@ -426,6 +445,10 @@ class _ApprovalEntry:
     scope: str | None = None
     # D84:用户随决策附带的原因(拒绝理由为主,可选;仅进审计/决策提示,不参与判定)。
     reason: str | None = None
+    # V3 #80(2026-09-27):用户在弹窗勾选"改用 guardian 复核建议的更安全等价路径"。
+    # 默认 False = 维持原请求(合法出口);True 只有在复核结论存在 applicable 的
+    # 替代参数时才会真的替换 tc.args,否则被忽略(不猜、不放大)。
+    accept_alternative: bool = False
 
 
 # 兼容形态:历史/测试直接写入的二元组 (event, decision)。读取时一次性升级为
@@ -520,6 +543,7 @@ def resolve_approval_for_requester(
     requester_user_id: str | None,
     scope: str | None = None,
     reason: str | None = None,
+    accept_alternative: bool = False,
 ) -> ApprovalOutcome:
     """带属主校验的审批决策回填(三态版,供 HTTP 路由与引擎通道共用)。
 
@@ -531,6 +555,9 @@ def resolve_approval_for_requester(
         scope: D84 作用域("once"|"session"|"always");None=旧客户端未携带。
             合法性由调用方(路由层 zod/pydantic)校验,此处仅透传。
         reason: 用户附带原因(可选,拒绝理由为主)。
+        accept_alternative: V3 #80 —— 用户勾选"改用 guardian 复核建议的更安全
+            等价路径"。缺省 False=维持原请求(合法出口);True 只在复核结论确有
+            applicable 替代时被 _request_approval 消费,否则忽略(不猜、不放大)。
 
     Returns:
         APPLIED   = 属主匹配,决策已写入且协程被唤醒;
@@ -554,6 +581,7 @@ def resolve_approval_for_requester(
     entry.decision = decision
     entry.scope = scope
     entry.reason = reason
+    entry.accept_alternative = bool(accept_alternative)
     with contextlib.suppress(Exception):
         entry.event.set()
     return ApprovalOutcome.APPLIED
@@ -1073,15 +1101,20 @@ class AgentEventStream:
         tool_call_id: str,
         args_preview: str,
         session_id: str,
+        guardian_review: dict[str, Any] | None = None,
     ) -> None:
-        await self.emit("tool.approval", {
+        payload: dict[str, Any] = {
             "approval_id": approval_id,
             "tool_name": tool_name,
             "tool_call_id": tool_call_id,
             "args_preview": args_preview,
             "danger_level": "high",
             "session_id": session_id,
-        })
+        }
+        # V3 #80:guardian 复核三态随弹窗事件下发(status 恒在,缺席≠无风险)。
+        if guardian_review is not None:
+            payload["guardian_review"] = guardian_review
+        await self.emit("tool.approval", payload)
 
     async def permission_mode(
         self, *, mode: str, tool_name: str, decision: str, session_id: str
@@ -1892,6 +1925,8 @@ class AgentLoopV2:
         # 2-3 自愈集成:每次 run 重置 heal 计数与命令去重集合
         self._self_heal_runs = 0
         self._self_heal_commands = set()
+        # V3#54:每次 run 重置 doom-loop/stuck 哨兵(滑动窗口与签名计数不跨 run 残留)
+        self._doom_sentinel = DoomLoopSentinel()
         # D27:每次 run 重置交付清单聚合器(避免跨 run 残留)
         self._deliverables = DeliverablesCollector()
         # 可靠性:每次 run 重置 trace_id(2026-09-18 立)——未显式传入时逐 run 生成
@@ -3759,8 +3794,60 @@ class AgentLoopV2:
                     }
                 )
 
-                # 5. 执行工具
-                tool_results = await self._execute_tools(tool_calls)
+                # 5. 执行工具(V3#54 2026-09-28:先过 doom-loop/stuck 哨兵)
+                #    - terminate_loop:判定卡死(连续相同 tool_call 模式达阈值,或
+                #      滑动窗口报警连续升级)⇒ 中断本轮执行链路并落 failed checkpoint;
+                #    - skip_tool_execution + inject_reflection:报警首轮 ⇒ 不真实执行,
+                #      回灌合成错误结果(保持 assistant.tool_calls ↔ tool 消息协议配对)
+                #      并注入反思提示,要求模型换策略;
+                #    判据数字全部来自 app/core/doom_loop.py(TS 等价共享层同源)。
+                doom_actions, doom_reminders = self._doom_sentinel.observe_calls(
+                    [(tc.name, tc.args) for tc in tool_calls],
+                )
+                if "terminate_loop" in doom_actions:
+                    doom_error = (
+                        "doom loop detected: 工具调用卡死(连续 "
+                        f"{STUCK_CONSECUTIVE_THRESHOLD} 轮相同模式,或滑动窗口报警连续 "
+                        f"{DOOM_ALERT_ROUNDS_TO_TERMINATE} 轮升级)"
+                    )
+                    logger.warning("Agent 循环第 %d 轮:%s", i, doom_error)
+                    iteration.end_time = datetime.now(UTC).isoformat()
+                    iteration.duration_ms = (
+                        (datetime.now(UTC) - iter_start).total_seconds() * 1000
+                    )
+                    iterations.append(iteration)
+                    checkpoint_id = await self._save_checkpoint_safe(
+                        iteration=i, messages=messages, status="failed",
+                        metadata={"error": doom_error, "error_type": "doom_loop"},
+                    )
+                    return AgentLoopResult(
+                        compaction_events=self._compaction_events,
+                        success=False,
+                        final_response="",
+                        iterations=iterations,
+                        total_duration_ms=(
+                            (datetime.now(UTC) - start_time).total_seconds() * 1000
+                        ),
+                        total_tokens_used=total_tokens,
+                        stop_reason="error",
+                        error=doom_error,
+                        checkpoint_id=checkpoint_id,
+                    )
+                if "skip_tool_execution" in doom_actions:
+                    tool_results = [
+                        ToolResult(
+                            tool_call_id=tc.id,
+                            name=tc.name,
+                            result=None,
+                            error=(
+                                "doom loop detected: 相同调用重复,本轮已跳过真实执行,"
+                                "请换一种工具或参数(见上一条反思提示)"
+                            ),
+                        )
+                        for tc in tool_calls
+                    ]
+                else:
+                    tool_results = await self._execute_tools(tool_calls)
                 # Hook 引擎: tool.after(1-5 起经事件流层发射:逐工具明细含
                 # input/diff/test/rollback 可解释性证据,evidence 推导失败跳过整次事件)
                 await self._events.tool_after(
@@ -3785,6 +3872,43 @@ class AgentLoopV2:
                                 ensure_ascii=False,
                             ),
                         }
+                    )
+                # V3#54(2026-09-28):结果侧观测上提主链路 ——
+                #   failure-streak 达阈值 ⇒ 换策略(注入反思提示,当前只有这一种动作,
+                #   不中断;阈值见 core/doom_loop.py FAILURE_STREAK_STRATEGY_THRESHOLD);
+                #   连续相同错误签名/相同 tool_call 模式达 stuck 阈值 ⇒ 中断。
+                # 反思提示放在全部 tool 消息之后,保持 provider 协议配对顺序。
+                if "inject_reflection" in doom_actions:
+                    for _doom_reminder in doom_reminders:
+                        messages.append({"role": "user", "content": _doom_reminder})
+                doom_result_reminders, doom_fatal = self._doom_sentinel.observe_results(
+                    [(tr.name, tr.error is None, tr.error) for tr in tool_results],
+                )
+                for _doom_reminder in doom_result_reminders:
+                    messages.append({"role": "user", "content": _doom_reminder})
+                if doom_fatal is not None:
+                    logger.warning("Agent 循环第 %d 轮:%s", i, doom_fatal)
+                    iteration.end_time = datetime.now(UTC).isoformat()
+                    iteration.duration_ms = (
+                        (datetime.now(UTC) - iter_start).total_seconds() * 1000
+                    )
+                    iterations.append(iteration)
+                    checkpoint_id = await self._save_checkpoint_safe(
+                        iteration=i, messages=messages, status="failed",
+                        metadata={"error": doom_fatal, "error_type": "doom_loop"},
+                    )
+                    return AgentLoopResult(
+                        compaction_events=self._compaction_events,
+                        success=False,
+                        final_response="",
+                        iterations=iterations,
+                        total_duration_ms=(
+                            (datetime.now(UTC) - start_time).total_seconds() * 1000
+                        ),
+                        total_tokens_used=total_tokens,
+                        stop_reason="error",
+                        error=doom_fatal,
+                        checkpoint_id=checkpoint_id,
                     )
                 # 批 42 接线:user_shell_command 片段(对标 context/user_shell_command.rs)——
                 # 用户批准后重执行的 run_command,其结构化结果以 <user_shell_command>
@@ -4221,6 +4345,18 @@ class AgentLoopV2:
                 args_preview = json.dumps(tc.args, ensure_ascii=False)[:200]
             except Exception:
                 args_preview = str(tc.args)[:200]
+            # V3 #80:弹窗前先跑独立 guardian 复核(另起一次请求,零本链上下文)。
+            # 复核不可用/未开启时返回显式 not_reviewed(+原因),绝不折叠成"无风险";
+            # 结论随 tool.approval 事件下发,用户在点 approve 前即可看见"有更安全
+            # 路径:…"并选择改用/维持原请求。
+            try:
+                review = await request_guardian_review(tc.name, tc.args)
+            except Exception as e:  # noqa: BLE001 - 复核出口自身异常不杀审批链,但必须显式未复核
+                logger.warning("guardian 复核出口异常,按未复核处理(弹窗照常): %s", e)
+                review = unavailable_review("gateway_error")
+            if review.status != GUARDIAN_REVIEW_STATUS_NOT_REVIEWED and review.summary:
+                # 复核建议进决策提示(timeline/审计侧可查),即便用户未改用也留痕。
+                self._decision_hints[tc.id] = ("guardian_review_suggested", review.summary)
             # 通过事件流层发 tool.approval 事件(订阅者 = SSE 转发 + 前端弹窗)。
             # emit 内部有 _broadcast 向 SSE 订阅者推送;失败降级不抛(但审批继续等待,
             # 若事件完全无法送达,工具会在超时后以 approval_timeout 返回,安全兜底)。
@@ -4230,6 +4366,7 @@ class AgentLoopV2:
                 tool_call_id=tc.id,
                 args_preview=args_preview,
                 session_id=self._session_id or "",
+                guardian_review=review.to_event_payload(),
             )
             # 等待用户决策(批准/拒绝/超时)
             try:
@@ -4249,6 +4386,19 @@ class AgentLoopV2:
                         _ap.grant(_scope, key, "mcp_tool")
                     except Exception:
                         pass  # grant 失败静默(不阻断已批准的执行);持久层异常不影响返回 None
+                # V3 #80:用户勾选"改用更安全等价路径"且复核建议通过确定性校验
+                # (同工具、静态扫描过关)时,才替换本次执行的参数;否则维持原请求。
+                alt = review.applicable_alternative(tc.name)
+                if (
+                    alt is not None
+                    and settled is not None
+                    and settled.accept_alternative
+                ):
+                    tc.args = alt.args
+                    self._decision_hints[tc.id] = (
+                        "guardian_review_alternative_applied",
+                        review.summary or "已改用复核建议的更安全参数",
+                    )
                 return None
             if decision == "reject":
                 # D84:拒绝原因进决策提示(供 timeline/审计侧消费;缺省不写 key)。
