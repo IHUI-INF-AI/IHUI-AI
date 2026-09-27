@@ -18,42 +18,73 @@
  * INCOMPLETE 并 exit 3 —— **不得**当成通过,也不得当成失败,那是第三种状态。
  *
  * 用法:
- *   node scripts/run-evidence.mjs <证据文件> [--timeout=毫秒] [--label=说明] -- <命令> [参数...]
- *   node scripts/run-evidence.mjs --verify <证据文件>
+ *   node scripts/run-evidence.mjs <证据文件> [--timeout=毫秒] [--label=说明] [--cwd=绝对路径] -- <命令> [参数...]
+ *   node scripts/run-evidence.mjs --verify <证据文件> [--expect-cwd=绝对路径]
  *   node scripts/run-evidence.mjs --self-test
  * 退出码:0 = 被包装命令 RC=0;1 = RC 非 0(业务失败或本工具用法错);
  *        3 = INCOMPLETE(取证被截断/进程被杀 ⇒ 结论无效,必须重跑而不是下判断);
  *        75 = 原样传播(本仓 push guard 的"中断重试"链依赖它,不得收敛成 1)。
  *
+ * --cwd(G-285):旧实现把被包装命令钉死在仓根,用它取"从**别的目录**跑同一判据"那一发时,
+ * 子进程收到的是被改写过的路径(证据里写 Cannot find module G:\scripts\…,根本没进被测进程),
+ * 而 --verify 仍判 complete —— 取证工具自己产出假合格证。现允许透传 spawn cwd 并把它记进
+ * 证据(#EVIDENCE-CWD= 行);读侧 --expect-cwd 与记录不符 ⇒ 一律 truncated(exit 3)。
+ * 不带 --cwd 时行为逐字不变(默认仓根、证据里不写 CWD 行),既有调用方零感知。
+ *
  * ⚠️ 本工具是**取证出口**,不是守门判据:不在提交链里,也不得被写成"已接 pre-commit"。
  */
 import { spawn } from 'node:child_process'
 import { closeSync, existsSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
 const RC_MARK = '#EVIDENCE-RC='
 const KILLED_MARK = '#EVIDENCE-KILLED'
+const CWD_MARK = '#EVIDENCE-CWD='
 const DEFAULT_TIMEOUT_MS = 1_800_000
 
-/** 把一段证据文本判成三态。导出给镜像测试用纯函数 + 构造面证明(不得在测试里再抄一份判据)。 */
-export function judgeEvidence(text) {
+/** 归一路径用于 cwd 比对:resolve 归一分隔符;win32 再折叠大小写(同一目录允许两种写法)。导出给镜像测试。 */
+export function normCwd(p) {
+  if (typeof p !== 'string' || p === '') return null
+  try {
+    const r = resolve(p)
+    return process.platform === 'win32' ? r.toLowerCase() : r
+  } catch {
+    return null
+  }
+}
+
+/** 把一段证据文本判成三态。导出给镜像测试用纯函数 + 构造面证明(不得在测试里再抄一份判据)。
+ *  expectCwd(可选,G-285):调用方声明"这次取证应当发生在哪个目录"。证据里记录的 #EVIDENCE-CWD=
+ *  行与期望不符、或期望给了而证据里没记 ⇒ 一律降为 truncated(exit 3)—— 取证面错了与"没跑到"
+ *  同格处置:结论无效必须重跑,绝不发"目录不对的合格证"。 */
+export function judgeEvidence(text, expectCwd) {
   if (typeof text !== 'string' || text === '') return { kind: 'missing', reason: '空文本' }
   const lines = text.split(/\r?\n/)
+  const cwdLine = lines.filter((l) => l.startsWith(CWD_MARK)).pop()
+  const recordedCwd = cwdLine ? cwdLine.slice(CWD_MARK.length).trim() : null
+  if (expectCwd !== undefined && normCwd(recordedCwd) !== normCwd(expectCwd)) {
+    return {
+      kind: 'truncated',
+      cwd: recordedCwd,
+      reason: `取证 cwd 与期望不符(记录:${recordedCwd ?? '(未记录)'} / 期望:${expectCwd})⇒ 结论无效,请用正确的 --cwd 重跑`,
+    }
+  }
   const rcLine = lines.filter((l) => l.startsWith(RC_MARK)).pop()
   if (rcLine) {
     const raw = rcLine.slice(RC_MARK.length).trim()
     const rc = Number(raw)
-    if (!Number.isInteger(rc)) return { kind: 'malformed', reason: `RC 标记内容不是整数:${raw}` }
-    return { kind: 'complete', rc, reason: `命令跑完并落了 RC=${rc}` }
+    if (!Number.isInteger(rc)) return { kind: 'malformed', cwd: recordedCwd, reason: `RC 标记内容不是整数:${raw}` }
+    return { kind: 'complete', rc, cwd: recordedCwd, reason: `命令跑完并落了 RC=${rc}` }
   }
   if (lines.some((l) => l.startsWith(KILLED_MARK))) {
-    return { kind: 'killed', reason: '被外部信号终止(已留标记)⇒ 这次取证没有结论' }
+    return { kind: 'killed', cwd: recordedCwd, reason: '被外部信号终止(已留标记)⇒ 这次取证没有结论' }
   }
   return {
     kind: 'truncated',
+    cwd: recordedCwd,
     reason: `证据里没有 ${RC_MARK} 行 ⇒ 输出被截断或进程被杀,绝不能读成"跑过了"`,
   }
 }
@@ -122,13 +153,16 @@ export function buildSpawnArgv(cmdArgs) {
   return cmdArgs
 }
 
-function runCapture(outFile, cmdArgs, { timeoutMs, label }) {
+function runCapture(outFile, cmdArgs, { timeoutMs, label, cwd }) {
   if (!cmdArgs.length) throw new Error('-- 之后必须给出要跑的命令')
   const fd = openSync(outFile, 'w')
   const started = new Date().toISOString()
   writeLine(fd, `#EVIDENCE-CMD: ${cmdArgs.join(' ')}`)
   if (label) writeLine(fd, `#EVIDENCE-LABEL: ${label}`)
   writeLine(fd, `#EVIDENCE-START: ${started}`)
+  // G-285:只有显式传了 --cwd= 才落这一行(默认 ROOT 时旧形态逐字不变,既有调用方零感知)。
+  // 位置在头部(RC 行之前):即使进程被杀、RC 行永远不来,取证面也已留档可核对。
+  if (cwd) writeLine(fd, `${CWD_MARK}${cwd}`)
   // `error` 与 `close` 在派生失败(ENOENT)时**都会**触发;句柄只能关一次、RC 行只能写一次。
   // 旧实现没记这一层:`error` 里 closeSync 之后 `close` 又 closeSync ⇒ EBADF 未捕获直接崩掉整个取证
   // (2026-09-27 两路代理各自撞上,现象是"包装器自己崩",而证据里已经写了 RC=127 —— 结论对、进程死)。
@@ -140,7 +174,7 @@ function runCapture(outFile, cmdArgs, { timeoutMs, label }) {
   return new Promise((res) => {
     const spawnArgs = buildSpawnArgv(cmdArgs)
     const child = spawn(spawnArgs[0], spawnArgs.slice(1), {
-      cwd: ROOT,
+      cwd: cwd || ROOT,
       windowsHide: true,
       stdio: ['ignore', fd, fd],
       env: { ...process.env, IHUI_EVIDENCE_CHILD: '1' },
@@ -195,15 +229,16 @@ function runCapture(outFile, cmdArgs, { timeoutMs, label }) {
   })
 }
 
-function verify(outFile) {
+function verify(outFile, expectCwd) {
   if (!existsSync(outFile)) {
     console.log(`❌ INCOMPLETE(missing-file): 证据文件不存在:${outFile}`)
     return { v: { kind: 'missing', reason: '文件不存在' } }
   }
-  const v = judgeEvidence(readFileSync(outFile, 'utf8'))
+  const v = judgeEvidence(readFileSync(outFile, 'utf8'), expectCwd)
   const rcExit = exitCodeForVerdict(v)
   const icon = v.kind === 'complete' ? (v.rc === 0 ? '✅' : '🔴') : '⚠️'
   console.log(`${icon} ${v.kind}: ${v.reason}`)
+  if (v.cwd) console.log(`   取证 cwd:${v.cwd}(${CWD_MARK} 行原样读回)`)
   if (v.kind === 'complete') {
     console.log(`   判定只允许读这一行(${RC_MARK}${v.rc});管道尾部的 $? 不是退出码`)
   } else {
@@ -215,8 +250,10 @@ function verify(outFile) {
 export const __test__ = {
   judgeEvidence,
   exitCodeForVerdict,
+  normCwd,
   RC_MARK,
   KILLED_MARK,
+  CWD_MARK,
   verify,
   runCapture,
   buildSpawnArgv,
@@ -240,17 +277,24 @@ async function main() {
       console.error('❌ --verify 需要一个证据文件参数')
       return 2
     }
-    return verify(resolve(ROOT, f)).rcExit ?? 0
+    const expectCwd = opt('expect-cwd', '')
+    return verify(resolve(ROOT, f), expectCwd || undefined).rcExit ?? 0
   }
   const outArg = head.find((a) => !a.startsWith('--'))
   if (!outArg || !cmd.length) {
-    console.error('❌ 用法:run-evidence.mjs <证据文件> [--timeout=ms] [--label=…] -- <命令 …>')
+    console.error('❌ 用法:run-evidence.mjs <证据文件> [--timeout=ms] [--label=…] [--cwd=绝对路径] -- <命令 …>')
     return 2
   }
   const t = Number(opt('timeout', String(DEFAULT_TIMEOUT_MS)))
+  const cwdOpt = opt('cwd', '')
+  if (cwdOpt && !isAbsolute(cwdOpt)) {
+    console.error(`❌ --cwd 必须是绝对路径(收到:${cwdOpt});相对路径会随调用方所在目录漂移,取证面不可复现`)
+    return 2
+  }
   const r = await runCapture(resolve(ROOT, outArg), cmd, {
     timeoutMs: Number.isFinite(t) && t > 0 ? t : 0,
     label: opt('label', ''),
+    cwd: cwdOpt || '',
   })
   if (r.killed) {
     console.log(`⚠️ 取证不完整:${r.note} ⇒ 读侧会判 INCOMPLETE(exit 3)`)
@@ -383,6 +427,32 @@ async function runSelfTest() {
     if (bare[0] === 'cmd.exe') return bare[3].toLowerCase().endsWith('.cmd')
     return !existsSync(resolve(ROOT, 'pnpm'))
   })())
+  // T17–T20 —— G-285:--cwd 透传与 --expect-cwd 一致性校验(取证面必须可声明、可核对)。
+  // 立因:旧实现把被包装命令钉死在仓根,"从别的目录跑同一判据"那一发里子进程收到被改写过的
+  // 路径,而 --verify 仍判 complete —— 取证工具自己产出假合格证(与本工具立项动机同族)。
+  const aiDir = resolve(ROOT, 'apps', 'ai-service')
+  const cwdDir = existsSync(aiDir) ? aiDir : ROOT
+  const f5 = resolve(dir, 'evidence-selftest-cwd.txt')
+  const c5 = await runCapture(f5, [process.execPath, '-e', 'console.log(process.cwd())'], { timeoutMs: 30_000, cwd: cwdDir })
+  const t5 = readFileSync(f5, 'utf8')
+  ok('T17 带 --cwd 跑真实子进程 ⇒ spawn 的 cwd 真换了且 CWD 行落盘', (() => {
+    if (c5.rc !== 0) return false
+    if (!t5.includes(`${CWD_MARK}${cwdDir}`)) return false
+    return t5.includes(cwdDir) // 子进程 stdout 打出的正是该目录
+  })())
+  ok('T18 --expect-cwd 三臂:同值 ⇒ complete;异值 ⇒ truncated;未记录 ⇒ truncated(都不发假合格证)', (() => {
+    const same = judgeEvidence(t5, cwdDir)
+    const diff = judgeEvidence(t5, resolve(ROOT, 'scripts'))
+    const none = judgeEvidence(`x\n${RC_MARK}0\n`, cwdDir)
+    return same.kind === 'complete' && same.cwd === cwdDir && diff.kind === 'truncated' && none.kind === 'truncated'
+  })())
+  ok('T19 verify() 带 expect:同值 exit 0 / 异值 exit 3(目录不符 ⇒ 结论无效)', (() => {
+    return verify(f5, cwdDir).rcExit === 0 && verify(f5, resolve(ROOT, 'scripts')).rcExit === 3
+  })())
+  ok('T20 回归锁:不带 --cwd ⇒ 证据里没有 CWD 行,旧判定形态逐字不变', (() => {
+    const txt1 = readFileSync(f1, 'utf8')
+    return judgeEvidence(txt1).cwd === null && !txt1.includes(CWD_MARK)
+  })())
   for (const f of [f1, f2]) {
     try {
       const txt = readFileSync(f, 'utf8')
@@ -391,7 +461,7 @@ async function runSelfTest() {
       /* 已在 T11/T12 断言过可读性 */
     }
   }
-  for (const f of [f1, f2]) {
+  for (const f of [f1, f2, f5]) {
     try {
       rmSync(f, { force: true })
     } catch {
