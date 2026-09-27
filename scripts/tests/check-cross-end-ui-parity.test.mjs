@@ -469,3 +469,28 @@ test('T22 圆角按元素归属的解析只许一份实现(遮罩/豁免在别�
     'lib 内的遮罩只能有一份',
   )
 })
+
+/**
+ * T20 方向与角形态(`rounded-t-2xl` / `rounded-tr-sm`)必须在圆角尺子的射程内。
+ * 立票理由不是"多认一种写法":小程序把底部弹层写成方向形态、RN 写成整格形态时,
+ * 旧尺子只在小程序那一侧读不到那一档,于是 RD 产出**凭空造出的跨端分叉** ——
+ * 漏读一侧的表现不是少几个数,而是把同一档报成两端不同值。
+ * 阳性对照刻意取真仓 HEAD 的实际站点而非夹具:夹具只能证明函数会给答案,
+ * 证不了这条判据在真仓上不是恒空。
+ */
+test('T20 方向形态真仓阳性对照 + 窄正则不得回来(漏计一侧 = 造出假分叉)', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  const drawer = git(['show', 'HEAD:apps/miniapp-taro/src/components/DrawerComponent.tsx']).stdout
+  assert.ok(drawer.includes('rounded-t-xl'), '真仓那一处站点搬家了 ⇒ 本对照失效,要换成现役站点而不是删测试')
+  assert.ok(
+    radiusSetOf(drawer, tbl).includes(12),
+    'rounded-t-xl 读不出 12 ⇒ 门会把小程序的 12 报成"仅 RN 有 12",凭空一对分叉',
+  )
+  const libSrc = readFileSync(resolve(ROOT, 'scripts/lib/radius-tokens.mjs'), 'utf8')
+  assert.match(libSrc, /tr\|tl\|br\|bl/, '方向分支被退回窄正则 ⇒ 整族底部弹层再次隐身,而账面只会变好看')
+  assert.deepEqual(radiusSetOf('<View className="rounded-full" />', tbl), [], 'rounded-full 归守门 11,不得被这一维计成档')
+  assert.deepEqual(radiusSetOf('<View className="rounded-none" />', tbl), [], 'rounded-none 是 0,不是"该取哪档"的判断')
+  // 反向回归锁:门自检里那条方向用例被整文件回写抹掉时,本测试必须红(否则下一个人只会看到读数变少、账面变好看)
+  const gateSrc = readFileSync(SELF, 'utf8').replace(/\s+/g, ' ')
+  assert.match(gateSrc, /方向与角形态必须与整格形态同判/, '自检里的方向用例不见了 ⇒ 判据被回退')
+})
