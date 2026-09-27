@@ -24,9 +24,11 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { __test__ as R } from '../re-home-junctions.mjs'
 import { __test__ as GATE96 } from '../check-home-junctions.mjs'
+import { __test__ as GUARD } from '../git-guardian.mjs'
 
 const { audit } = GATE96
 
@@ -191,7 +193,94 @@ test('装车证明:守护每轮真的会触发修复器,且修复器真的会跳
   assert.match(fixer, /action: 'cooldown'/, '被跳过的项必须如实报 cooldown,不得静默')
   // 冷却不得吞掉人工窗口:跳过与"新添冷却"两处都必须被 !noCooldown 门住
   assert.match(fixer, /apply && !noCooldown && cool\[it\.src\] > now/, '--no-cooldown 必须真能绕过冷却判定')
-  assert.match(fixer, /apply && !noCooldown && \(rows\.at\(-1\)\.action === 'rename-failed'/, '--no-cooldown 失败时不得再续冷却,否则下一个人工窗口照样被拦')
+  assert.match(
+    fixer,
+    /apply && !noCooldown && shouldCool\(rows\.at\(-1\)\)/,
+    '--no-cooldown 失败时不得再续冷却,否则下一个人工窗口照样被拦',
+  )
+  // 2026-09-27:旧判据把"哪些 action 算失败"写成两名单,漏掉 copy-failed ⇒ 守护 10 秒一趟
+  // 无限重抄。判据现在是"失败即退避",这条锁防的是有人把它改回枚举具体 action。
+  assert.doesNotMatch(
+    fixer,
+    /rows\.at\(-1\)\.action === '(rename-failed|verify-failed)'/,
+    '冷却条件不得退回"枚举具体失败 action"的名单(名单会漏掉自己出事那一型)',
+  )
+})
+
+test('身份闸:系统账户身份下两处都必须拒绝动作,且不得输出"一切正常"那行汇总', () => {
+  const gate = GATE96.isInteractiveUserHome
+  // 正向:真人登录账户
+  assert.equal(gate('C:\\Users\\Administrator'), true, '真人账户必须被认作在射程内')
+  assert.equal(gate('D:/Users/someone'), true, '斜杠形态与别的盘同样算真人账户')
+  assert.equal(gate('C:\\Users\\Administrator\\'), true, '尾斜杠不得改变结论')
+  // 反向:本次事故的现场形态
+  assert.equal(
+    gate('C:\\Windows\\System32\\config\\systemprofile'),
+    false,
+    'LocalSystem 的 profile 必须判为不在射程内(它就是 2026-09-27 那个恒红+误搬运的源头)',
+  )
+  assert.equal(gate('C:\\Users'), false, '账户根目录本身不是一个用户')
+  assert.equal(gate(''), false, '空值不得被当成合法家目录')
+  assert.equal(gate(undefined), false, '缺参数必须落在"不动作"那一侧')
+  // 装车:三处调用点都必须在
+  const fixer = readFileSync(new URL('../re-home-junctions.mjs', import.meta.url), 'utf8')
+  const guard = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
+  const judge = readFileSync(new URL('../check-home-junctions.mjs', import.meta.url), 'utf8')
+  assert.match(fixer, /if \(!isInteractiveUserHome\(homedir\(\)\)\)/, '修复器必须先过身份闸再 plan()')
+  assert.match(guard, /if \(!isInteractiveUserHome\(homedir\(\)\)\) return/, '守护必须先过身份闸')
+  assert.match(judge, /if \(!isInteractiveUserHome\(homedir\(\)\)\)/, '判定门自身也要认这一身份')
+  // 判据只许有一处实现:修复器与守护都必须 import,不得各自再写一份正则
+  assert.match(fixer, /import \{[^}]*isInteractiveUserHome[^}]*\} from '\.\/check-home-junctions\.mjs'/)
+  assert.match(guard, /import \{ isInteractiveUserHome \} from '\.\/check-home-junctions\.mjs'/)
+  assert.doesNotMatch(guard, /\\\\Users\\\\\[\^/, '守护里不得抄第二份家目录形状正则')
+})
+
+test('墙钟节流:守护的 10 秒 tick 不得把按 2 分钟设计的自愈提频 12 倍', () => {
+  const due = GUARD.homeHealDue
+  const now = 1_800_000_000_000
+  assert.equal(due('', now), true, '没有时间戳 = 首轮必须跑(不得因为读不到就永久静默)')
+  assert.equal(due('not-a-number', now), true, '坏时间戳按未跑过处理,不判成"还在冷却"')
+  assert.equal(due('0', now), true, '0 不是有效时间')
+  assert.equal(due(String(now - 5_000), now, 600_000), false, '5 秒前跑过 ⇒ 未到期')
+  assert.equal(due(String(now - 600_000), now, 600_000), true, '刚好到间隔边界 ⇒ 到期')
+  assert.equal(due(String(now + 10_000), now, 600_000), false, '时钟回拨(时间戳在未来)不得变成永久放行')
+  const guard = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
+  assert.match(guard, /if \(!homeHealDue\(lastRaw, Date\.now\(\)\)\) return/, '挂点必须真在自愈开头')
+})
+
+test('端到端:把 USERPROFILE 换成系统账户家目录再调修复器 ⇒ 必须喊"未判定"、不得打印那行汇总', () => {
+  // 光测纯函数只能证明"函数会给答案",证明不了"有人问它"(本仓同一课记过多次)。
+  // Node 的 os.homedir() 在 Windows 上取 USERPROFILE,所以这一型可以造出来,不必真用 SYSTEM 身份。
+  const script = fileURLToPath(new URL('../re-home-junctions.mjs', import.meta.url))
+  const r = spawnSync(process.execPath, [script, '--apply'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+    env: {
+      ...process.env,
+      USERPROFILE: 'C:\\Windows\\System32\\config\\systemprofile',
+      APPDATA: 'C:\\Windows\\System32\\config\\systemprofile\\AppData\\Roaming',
+      LOCALAPPDATA: 'C:\\Windows\\System32\\config\\systemprofile\\AppData\\Local',
+    },
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  assert.match(out, /未判定/, '系统身份下必须喊未判定')
+  assert.doesNotMatch(out, /\[re-home-junctions\] (APPLY|CHECK ONLY):/, '不得输出那行"登记 16 / 已改道 16"的汇总 —— 它在这一身份下是假话')
+  assert.equal(r.status, 0, '不在射程内不是仓库故障,不该以非零码挡住调用方')
+})
+
+test('失败即退避:四种失败结果都要进冷却,三种正常结果都不许进', () => {
+  for (const action of ['copy-failed', 'rename-failed', 'verify-failed', 'link-moved', 'mklink-failed'])
+    assert.equal(
+      R.shouldCool({ action, ok: false }),
+      true,
+      `${action} 判 ok:false 却不进冷却 ⇒ 下一次就是 10 秒一趟的重抄`,
+    )
+  for (const action of ['link', 'absent', 'moved', 'target-recreated'])
+    assert.equal(R.shouldCool({ action, ok: true }), false, `${action} 是正常态,不得占冷却名额`)
+  // 反向对照:一条 ok 未定义(读不到结果)不得被当成失败而把全部项冻结
+  assert.equal(R.shouldCool({ action: 'x' }), false, '缺 ok 字段不等于失败')
+  assert.equal(R.shouldCool(undefined), false, '空行不得抛,也不得进冷却')
 })
 
 test('改道树被外部删掉(junction 悬空)⇒ 门 96 判红必须被自愈收口', () => {
