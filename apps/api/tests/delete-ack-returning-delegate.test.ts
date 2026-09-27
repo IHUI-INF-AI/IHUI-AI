@@ -84,9 +84,16 @@ describe('deleteAgent / deleteCategory / deleteExamine 的返回值必须来自�
       row: { categoryId: 'c-1' },
     },
     {
-      name: 'deleteExamine',
-      call: () => deleteExamine('e-1'),
+      name: 'deleteExamine(管理员分支:where 只按 id)',
+      call: () => deleteExamine('e-1', { isAdmin: true }),
       row: { id: 'e-1' },
+    },
+    {
+      // 2026-09-27 属主闸(票面「agents category/examine 删除的属主闸」):非管理员分支
+      // 的归属条件同样在被发出的那条 SQL 上,回报仍必须出自 DELETE 链自己的 returning。
+      name: 'deleteExamine(属主分支:提交人删自己的记录)',
+      call: () => deleteExamine('e-1', { isAdmin: false, userId: 'u-1' }),
+      row: { id: 'e-1', userId: 'u-1' },
     },
   ]
 
