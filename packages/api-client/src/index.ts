@@ -55,6 +55,7 @@ export type {
   FormattedSSEError,
   FetchApiOptions,
   ToolCallEvent,
+  ToolDeltaEvent,
   ToolSummaryEvent,
   FallbackEvent,
   ToolDelegateEvent,

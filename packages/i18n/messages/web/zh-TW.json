@@ -6990,6 +6990,13 @@
     "dispatchSubagent": "分發子代理"
   },
   "agentRuntimePanel": {
+    "resumeUnavailable": "無法繼續這次執行",
+    "pauseUnavailable": "無法暫停這次執行",
+    "alreadyPausedBody": "這個會話此前已處於暫停位，本次點擊沒有改變它。",
+    "pausedBody": "迴圈已在安全點停住，點「繼續」從最近一次暫停點續跑。",
+    "pausedTitle": "已暫停",
+    "resume": "繼續",
+    "pause": "暫停",
     "cancelledBody": "已停止當前執行。如需繼續，請修改輸入後再次執行。",
     "cancelledTitle": "任務已取消",
     "clear": "清空",
@@ -8722,6 +8729,7 @@
       "bottleneck": "瓶頸"
     },
     "toolCall": {
+      "streamingPreviewLabel": "串流預覽(執行中,最終以結果為準)",
       "chartGenerated": "圖表已生成",
       "chartPreviewFailed": "圖表預覽載入失敗,請複製路徑後在本機瀏覽器開啟。",
       "chartPreviewHint": "本地圖表檔案無法在網頁內直接預覽,請複製路徑後在本機瀏覽器開啟。",
