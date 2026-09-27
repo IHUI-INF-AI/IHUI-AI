@@ -3,20 +3,23 @@
     "AgentRuntimePanel": 0,
     "BottomActionBar": 16,
     "Carousel": 6,
+    "CategoryBar": 1,
+    "DrawerComponent": 17,
     "InputArea": 16,
-    "IntelligentAssistant": 8,
+    "IntelligentAssistant": 7,
     "LoginPopUp": 8,
     "ModelConfigDialog": 6,
-    "ModelList": 9,
+    "ModelList": 4,
     "NavBar": 7,
-    "UserInfoCard": 5,
+    "UserInfoCard": 4,
     "VideoPlayer": 5
   },
-  "waivers": {},
   "radiusCounts": {
     "AgentRuntimePanel": 1,
     "BottomActionBar": 0,
     "Carousel": 1,
+    "CategoryBar": 2,
+    "DrawerComponent": 2,
     "InputArea": 3,
     "IntelligentAssistant": 2,
     "LoginPopUp": 2,
@@ -26,9 +29,24 @@
     "UserInfoCard": 2,
     "VideoPlayer": 1
   },
+  "waivers": {},
   "pairingRejects": {
     "FloatBox": {
       "reason": "同名不同物:小程序端是右下角悬浮功能盒(赚米/客服/反馈三按钮,right 20rpx、收起推到 -240rpx),RN 端是顶部悬浮消息提示 toast(TOP_OFFSET 居中、duration 3000ms、4 种 type、多实例由 Toast Portal 堆叠)—— 两端头注逐字读自 HEAD,不是同一个界面元素",
+      "until": "2027-03-27"
+    }
+  },
+  "aliases": {
+    "CategoryBar": {
+      "miniapp": "apps/miniapp-taro/src/components/CategoryBar.tsx",
+      "rn": "packages/app/src/components/category/CategoryInlineBar.tsx",
+      "reason": "同一「统一分类条」的两份同形实现:小程序端头注原文写着「统一分类条 —— web @ihui/ui-react CategoryBar 与 RN CategoryInlineBar 的 Taro 同形实现」,两端文件名不同所以任何按名字的配对都看不见它",
+      "until": "2027-03-27"
+    },
+    "DrawerComponent": {
+      "miniapp": "apps/miniapp-taro/src/components/DrawerComponent.tsx",
+      "rn": "apps/mobile-rn/src/components/Drawer.tsx",
+      "reason": "两侧头注各自点名同一份历史源文件:小程序端「对齐原项目 DrawerComponentall.vue」、RN 端「1:1 复刻历史 Uniapp DrawerComponentall.vue(顶部用户区 / 5 主菜单 / 历史对话分组 / 底部操作区)」—— 同一个侧滑抽屉,不同命名",
       "until": "2027-03-27"
     }
   }

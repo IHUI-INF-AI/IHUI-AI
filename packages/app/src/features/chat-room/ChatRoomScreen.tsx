@@ -518,8 +518,6 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       paddingHorizontal: 10, // rpx(20)
       paddingVertical: 10, // rpx(20)
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: tk.border.light, // 历史 #f0f0f0 分隔线
     },
     roomContent: {
       flex: 1,

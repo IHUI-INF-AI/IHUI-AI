@@ -22,6 +22,7 @@ import {
   retryPublishTask,
   type PublishTask,
 } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { PublishScreen as PublishScreenView } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -54,7 +55,7 @@ export function PublishScreen() {
       if (res.success && res.data) {
         setItems(res.data.items ?? [])
       } else {
-        setError(res.error || t('publish.loadFailed'))
+        setError(apiFailureToText(res, t('publish.loadFailed')))
       }
     } catch {
       setError(t('publish.loadFailed'))

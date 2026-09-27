@@ -2,18 +2,24 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { aizhsUrl } from '@/constants/icon-urls'
 import { useState, useMemo } from 'react'
 import { useI18n, useTt, type TtFn } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   MODEL_LIST_AGENT_GLYPH_PX,
+  MODEL_LIST_BADGE_FONT_PX,
+  MODEL_LIST_BADGE_MARGIN_LEFT_PX,
+  MODEL_LIST_BADGE_PADDING_X_PX,
+  MODEL_LIST_BADGE_PADDING_Y_PX,
   MODEL_LIST_CHECK_GLYPH_PX,
   MODEL_LIST_CONTENT_BOTTOM_PADDING_PX,
   MODEL_LIST_EMPTY_FONT_PX,
   MODEL_LIST_EMPTY_PADDING_Y_PX,
   MODEL_LIST_NAME_FONT_PX,
+  MODEL_LIST_PRICE_BADGE_FONT_PX,
+  MODEL_LIST_PRICE_BADGE_PADDING_X_PX,
+  MODEL_LIST_PRICE_BADGE_PADDING_Y_PX,
   MODEL_LIST_SECTION_HEADER_FONT_PX,
 } from '@ihui/shared/ui/model-list-spec'
 import type { ModelUsageCategory } from '@ihui/shared/constants'
@@ -22,12 +28,14 @@ import type { ModelType } from './ModelTypeButton'
 // O81 票⑤续(2026-09-26):本组件 3 处 CDN 位图槽里,"选中态徽标"(selected_model.png)与
 // "Agent 行 logo"(mian_label.png 首位用法)是功能图标,已按矢量优先换成与 RN 端
 // `ModelList.tsx` 同一 lucide 字形(Agent 行 = `Bot`,选中圆点 = `Check`,守门 128 IC 实测
-// RN 字形集 bot/check);行尾"免/排名第一"两枚是原项目的**文字图形徽章**(RN 同一位是
-// TOP1/免费/付费文字徽章、无 lucide 字形可照抄,票规 5 不硬凑),按票规 4 保留位图并就地豁免。
+// RN 字形集 bot/check)。
+// 收口票 2026-09-27:余下"排名第一"(rankone.png)与"免"(mian_label.png 行尾用法)两枚此前以
+// "无字形可照抄"为由留位图 + 就地豁免 —— 这一理由被"择优=矢量优先"(用户已两次打回"一端 CDN
+// 位图当图标")打回并取代:两槽都是**状态徽章**(AGENTS §4:徽章/状态指示属 UI 图标位,禁以位图
+// 充当),而 RN 同一位本就是 TOP1/免费**文字徽章** ⇒ 三处位图槽全部换成与 RN 同形的文字徽章,
+// 几何一律经 @ihui/shared/ui/model-list-spec(MODEL_LIST_BADGE_* / MODEL_LIST_PRICE_BADGE_*),
+// 配色走 tokens 派生链(守门 93),圆角走档位表(守门 77)。本文件 icon-bitmap-exempt 随之退役。
 import LineIcon from '@/components/LineIcon'
-// 原项目 ModelList.vue 静态图标(本地副本 import,对齐 zhs_app-ZZ)
-const mianLabelIcon = aizhsUrl('remote-images/default/mian_label.png') // icon-bitmap-exempt: 行尾"免"文字图形徽章,RN 同一位是文字徽章无字形可照抄,留待产品裁量 until 2027-09-26
-const rankoneIcon = aizhsUrl('remote-images/default/rankone.png') // icon-bitmap-exempt: "排名第一"奖牌图形徽章,RN 同一位是 TOP1 文字徽章无字形可照抄,留待产品裁量 until 2027-09-26
 import { rpx } from '@/utils/rpx'
 import {
   categoryLabel as categoryLabelOf,
@@ -217,12 +225,31 @@ export default function ModelList({
               >
                 {tt('ModelList.text1', 'Agent模式')}
               </Text>
-              {/* chu-power 徽章:对齐原项目 mian_label.png */}
-              <Image
-                src={mianLabelIcon}
-                mode="widthFix"
-                style={{ width: rpx(40), height: rpx(40), marginLeft: rpx(10) }}
-              />
+              {/* "免"位图槽(mian_label.png)已换与 RN freeBadge 同形的文字徽章:
+                  只换载体不重排,几何经 spec、配色走 tokens 链 */}
+              <View
+                className="flex items-center justify-center"
+                style={{
+                  marginLeft: toUnit(MODEL_LIST_BADGE_MARGIN_LEFT_PX),
+                  // Taro 的 style 是标准 CSSProperties,不认 RN 的 padding*Horizontal/Vertical 简写
+                  // —— 拆四边同档同值(守门 128 读 padding* 键,拆法不改变量纲读数)
+                  paddingLeft: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX),
+                  paddingRight: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX),
+                  paddingTop: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
+                  paddingBottom: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
+                  borderRadius: rnRadius.sm,
+                  background: 'var(--color-success-lighter)',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: toUnit(MODEL_LIST_PRICE_BADGE_FONT_PX),
+                    color: 'var(--color-success)',
+                  }}
+                >
+                  {tt('course.free', '免费')}
+                </Text>
+              </View>
             </View>
             {agentActive ? (
               <View
@@ -285,20 +312,56 @@ export default function ModelList({
                 >
                   {model.name}
                 </Text>
-                {/* chu-power 排名第一徽章:对齐原项目 rankone.png(index === 0)*/}
+                {/* 排名第一(rankone.png)已换与 RN rankBadge 同形的 TOP1 文字徽章:
+                    实底金/琥珀 + 近白字走 --color-warning 链(RN 同语义 = #F5B301 复刻档),
+                    几何经 spec 档,圆角同取 rnRadius.xs(与 RN rankBadge 同档) */}
                 {index === 0 ? (
-                  <Image
-                    src={rankoneIcon}
-                    mode="widthFix"
-                    style={{ width: rpx(40), height: rpx(40), marginLeft: rpx(10) }}
-                  />
+                  <View
+                    className="flex items-center justify-center"
+                    style={{
+                      marginLeft: toUnit(MODEL_LIST_BADGE_MARGIN_LEFT_PX),
+                      paddingLeft: toUnit(MODEL_LIST_BADGE_PADDING_X_PX),
+                      paddingRight: toUnit(MODEL_LIST_BADGE_PADDING_X_PX),
+                      paddingTop: toUnit(MODEL_LIST_BADGE_PADDING_Y_PX),
+                      paddingBottom: toUnit(MODEL_LIST_BADGE_PADDING_Y_PX),
+                      borderRadius: rnRadius.xs,
+                      background: 'var(--color-warning)',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: toUnit(MODEL_LIST_BADGE_FONT_PX),
+                        fontWeight: '700',
+                        color: 'var(--color-warning-foreground)',
+                      }}
+                    >
+                      TOP1
+                    </Text>
+                  </View>
                 ) : null}
-                {/* chu-power 徽章:对齐原项目 mian_label.png(始终显示)*/}
-                <Image
-                  src={mianLabelIcon}
-                  mode="widthFix"
-                  style={{ width: rpx(40), height: rpx(40), marginLeft: rpx(10) }}
-                />
+                {/* "免"徽章(原 mian_label.png,始终显示)同换 RN freeBadge 同形文字徽章,
+                    显示条件一字未动 */}
+                <View
+                  className="flex items-center justify-center"
+                  style={{
+                    marginLeft: toUnit(MODEL_LIST_BADGE_MARGIN_LEFT_PX),
+                    paddingLeft: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX),
+                    paddingRight: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX),
+                    paddingTop: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
+                    paddingBottom: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
+                    borderRadius: rnRadius.sm,
+                    background: 'var(--color-success-lighter)',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: toUnit(MODEL_LIST_PRICE_BADGE_FONT_PX),
+                      color: 'var(--color-success)',
+                    }}
+                  >
+                    {tt('course.free', '免费')}
+                  </Text>
+                </View>
               </View>
               {/* 用途分类标注 + 选中态(对齐原项目 .selected-icon 32rpx + selected_model.png) */}
               <View className="flex items-center">

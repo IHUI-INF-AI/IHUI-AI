@@ -111,6 +111,7 @@ import {
   type MyCreationItem,
   type MyCreationType,
 } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
@@ -1835,7 +1836,7 @@ export function ChatScreen() {
           if (res.success) {
             setMaterialDetailData(res.data)
           } else {
-            setMaterialDetailError(res.error ?? '加载详情失败')
+            setMaterialDetailError(apiFailureToText(res, '加载详情失败'))
           }
         })
         .catch(() => setMaterialDetailError('网络异常,加载失败'))
