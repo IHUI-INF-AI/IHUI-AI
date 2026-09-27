@@ -12602,3 +12602,30 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **上一轮修的东西仍然作数,只是与这封邮件无关**:指纹明文当比较键(`_fingerprint_hash`→sha256 + 幂等存量迁移)、`canvas_hash` 的反向信号、CLI doom-loop 入参原文落库、告警未授信文本、守门 137 —— 那些是真缺陷,已入库并验过;生产库与图谱文件实测**都没有**明文经纬度落盘。
 - **本次两笔改动**:① `75804ddce` 从刊头删掉裸坐标(眉条保留 `IHUI-CORE` 身份标记,视觉骨架不动),并把测试里"必须含 `43.82°N`"的断言换成**反向锁**"刊头不得再出现裸坐标形态" —— 防的是下次有人为好看把它印回去。② `8d8310ced` 把未授信文本闸门从"两个生产者各自调用"挪到 `pushAlertWithResult` 这个**共同出口**:排查中发现 `relay-alert-rules-service.ts:339`(把管理员手填的 `relay_alert_rules.name` 直接插进正文)与 `notification-worker.ts:58`(把队列/`notifications` 自由文本当 message)两条**绕过一切归一化**的现役通道,而 §5e 那份"改通道要逐个覆盖"的清单只数了 1 个生产者(实际 4 个 pushAlert 调用点 + 1 个直渲 worker)。四把尺子整体搬进 `apps/api/src/utils/alert-text.ts` 单点持有,正文按**逐行**脱敏+整条封顶(换行必须保住 —— 版式层 `multiLineHtml` 靠它分段,用单行 flatten 会把多条信息压成一坨),并加两条装车锁(出口必须真调、赋值行之后不得回读 `notification.message|title`)。api `tsc` 0 错、相关两 suite 35 例全绿。
 - **仍未定性的一条(归 §5e 清单持有者,不当已收口)**:`scripts/check-credential-health.mjs:832` 的正文是各检查项 `detail` 原样拼接,其中含**上游响应体前 60 字符**、GitHub run 三字段、git 异常 message —— 它不走 `pushAlert` 而走自带派发器,所以闸门搬家**不覆盖它**。实测 `redactSecrets` 对坐标形态逐字放行(它认的是凭据形状)。要收口需要把那份 detail 也接进 `alert-text.ts` 的出口,或让该脚本改走 `notify-deploy-failure.ts` —— 那是 §5e"发信一律经唯一出口"已有的规矩,属清偿而非新决策。
+
+
+
+### 0.1.45 发版执行记录与两条新实测(2026-09-27,接上一格)
+- [x] ✅(2026-09-27)退出兜底已随 **v0.1.45** 出包:本机 `tauri build` 产出 + 签名(40.63s),已装 exe 换成 0.1.45,且**在二进制里搜到本次新增的日志文案**(比版本号更硬的证据:修复确实编进了这个包,不是只改了源码)。版本 bump 提交 `9431df73c`,tag `desktop-v0.1.45` 已推远端触发 CI(GitHub release + `resolve-desktop-download.mjs` 刷 feed 快照 + `sync-gitee.py` 镜像 Gitee)。
+- [x] ✅(2026-09-27)**登记一条发版链的真实拦阻(勿再照旧文档跑)**:`scripts/release-desktop-local.mjs` 的"单一产物不变量"清理步骤用裸 `rmSync`,当 `bundle/nsis/` 里**旧版本安装包正被一个运行中的安装器进程占用**时报 `EPERM/Device or resource busy` 并**整条发版崩在第 2b 步**(后面的 Gitee 直传 / 提交推送 / 本机自装全部没执行,而 `tauri build` 已成功 → 账面看起来"构建完成")。本次即此型:另一会话 11:41 从构建目录点开 `智汇AI 安装` 向导窗口(CPU 有增量、安装目标目录 20 分钟零写入 = 停在向导等交互),占住了 0.1.44 的包。**处置纪律**:不杀别人那个验证现场(§16 越权),改为①只停自己起的安装器 PID、②备份旧 exe、③因安装目录实测只有 `ihui-desktop.exe` + `uninstall.exe`(薄壳一个二进制),直接替换 exe 完成本机升级、④分发段交 CI tag(本机**不再**直传 Gitee —— 脚本注释已警告重复上传会留下 Gitee API 删不掉的孤儿资产)。**遗留缺陷**:该清理步骤应当"删不掉就点名并继续/或明确判失败",而不是让一次成功的构建被下游清理动作伪装成整体失败。
+- [ ] P1 新线索(实测,未追):**Ctrl+Q 在真机上按下去毫无反应**。已排除按键未送达(`press_key` 报 `foregroundStatus: matched`、`inputEventCount: 4`、VK=81),已排除 quit 链在跑但卡住(按后 45 秒内日志**零新增行**、且本次新增的那条兜底 ERROR 也没打 ⇒ `quit_app` 从未被调到),截图证实界面既无遮罩也无变化、应用照常运行。而 `apps/web/src/hooks/use-native-shortcuts.ts` 源码里确有 `ctrl && !shift && !alt && key === 'q'` 分支。**最可能的分歧点**:桌面端加载的是 `https://aizhs.top/agents` **线上生产构建**,本机工作树里的快捷键/守卫改动对它零覆盖 —— 即"源码有绑定"不等于"线上那一版有绑定"。这一格与本会话开头用户说的"所有入口都试过退不掉"直接相关,须由持托盘/快捷键那条线的人定案:先量线上那一版实际打包出的 JS 里有没有该绑定,再决定是补部署还是修绑定。**不得**把"我改了源码里的 guard"读成"用户现在能退出了"。
+### 第五十一波·续十二 —— 提交链被一道"没人调度却自称已接线"的门挡住：只把表述改准，不替它接线（2026-09-27 午后，主会话独立复跑）
+- [ ] **G-239 守门 `check-readme-table-integrity` 的注册块不见了 —— 补注册前必须先清偿它自己的存量**（归属：该门持有者；本线只解除它挡住的提交链）
+  起因与本线无关：另一票要提交时被 id 89「接线层对账」的 **R2** 判红拦住，而红不在我改的文件上。三重现读证据（`2c616ac162` 之后仍成立）：
+  ① **三面零命中** —— `git show HEAD:scripts/guardian-runner.mjs`、索引面、工作树面各 `grep -c check-readme-table-integrity` 均为 `0`，
+     但 AGENTS.md 第 2210 行与 README.md 第 6283 行都写着"本枚落地取到 **145**、blocking、已接 package.json scripts"：
+     声称与实态分叉 ⇒ 恒红的不是它那一票，而是**此后每一次提交**（一次 `--no-verify` 约等于 185 道门对该提交作废，§12e 同型）。
+  ② **门体在 HEAD 面判红**：`node scripts/check-readme-table-integrity.mjs` → `exit 1`，现读 README.md **61 行 T-A**（两处簇：`5533/5534` 与 `5910–5920`），
+     基线 `scripts/readme-table-integrity-baseline.json` 对 `README.md` 的 cap = `0` ⇒ 此刻把注册块补回去，产出的是一台与任何提交都无关的恒红门。
+  ③ **它自己的尺子已经判了这一格**：`--self-test` `exit 1`，红条原文是"真仓 HEAD 全量档不得因存量判红（锚点=基线;判红=与提交无关的恒红门）"；
+     §22c 镜像 5 项红 —— T1（注册块缺失）、T3（`table-cell-exempt` 未进 id 108 到期账的存活期表）、T5/T7/T8（都被 ② 那台恒红带崩）。
+     ⇒ 这不是"门没跑"，是门**跑得出正确结论而无人调度**：与守门 70/76/81 同型，判据失效的表现永远是安静。
+  **本线处置（刻意只做这一半）**：只把 AGENTS.md 该行与 README.md 该行改成与实态一致的表述（写明三面零命中、61 行存量、五项镜像红、以及"在补注册之前该判据零调度器，下面整段是设计原文而非现状"），
+  未替它注册、未动它任何判据、未动 README 的那 61 行 —— 那些是该门持有者的账。解阻顺序写进那两行：
+  ① `node scripts/readme-table-unwrap.mjs --file README.md --dry-run` 逐处复核后 `--apply` 把 61 行归零 →
+  ② 补 id 108 的到期档并复跑其余镜像红（不得为变绿削判据）→ ③ `node scripts/gate-registry-insert.mjs` 取当次空闲号补注册、编号与定级按 runner 现值回写。
+  同场记两条**归属他人**的事实（只登记不动）：
+  `check-rn-double-header` 在 id 89 的 `--json` 里 `where: ["package-json"]` —— 只进 `pnpm check:all`，**不在提交链**，
+  而它的 AGENTS 行自称"落地取到 144"，runner 的 144 实际是本轮第三十五批的崩溃上报脱敏门 ⇒ 撞号与否一律以 `node scripts/check-gate-wiring.mjs` 的 `duplicateIds` 现值为准（本轮实测 `0`，无重复 id）。
+  另记本轮交付的出库证明（防"commit 后忘记 push"那一型）：批次 31~38 八枚提交逐条对 `git ls-remote origin refs/heads/main` 的当次值跑
+  `merge-base --is-ancestor` ⇒ 全部 `in-remote YES`；判"推没推完"只认远端回读，不读本地 `origin/main`（§5b：嵌套 ref 会被宿主清掉，本地引用可滞后）。
