@@ -34,22 +34,42 @@ Prometheus(127.0.0.1:8815)
 
 ## 邮件通道（唯一到人通道）
 
-| 项       | 口径                                                                                                                                                                                             |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 出口     | 只调 `apps/api/scripts/notify-deploy-failure.ts`（`--severity` / `--title` / `--source ihui-alertbridge` / `--message-file`）                                                                    |
-| 版式     | `apps/api/src/services/email-templates.ts` 的 `renderSystemAlertEmail` 单点决定；本目录**不得**出现 SMTP/Resend 传输层或色值                                                                     |
-| 收件人   | 不传 `--to` ⇒ 由派发器回读 `apps/api/.env` 的 `ALERT_EMAIL_TO`（不在端内复制第二份收件人真相）                                                                                                   |
-| 默认状态 | **开**。收件人就是值班运维本人，邮件没有第三方总量配额，关掉等于回到"告警静默"                                                                                                                   |
-| 关闭     | `BRIDGE_MAIL_ENABLED=0`（亦认 `false` / `off` / `no`）——关的是"要不要发"，不是"发几封"                                                                                                           |
-| 去重     | 按告警身份（`alertname`+`instance`）在 `BRIDGE_DEDUP_MIN` 窗口（默认 240=4h）内只寄一封；状态在回响应前**同步落盘**，跨重启延续                                                                  |
-| 封顶     | **无**。不同身份的告警一律照寄；旧实现（第三方推送时代）的每日预算/冷却队列已随该腿一并摘除                                                                                                      |
-| 失败留痕 | 品牌模板失败先 `--plain` 降级；两条都失败 ⇒ 写 `alert-bridge-mail-UNDELIVERED.json`（与 `STATE_FILE` 同目录）+ `[mail][ERROR]` 日志，`/health` 报 `mailUndelivered=true`；下一次成功投递自动清除 |
-| 隔离     | 邮件派发用异步 `spawn`（同步会把 tsx 冷启 + SMTP 握手几十秒钉死事件循环 → Alertmanager 推送超时、后续告警堆积）                                                                                  |
+| 项       | 口径                                                                                                                                                                                                                                                                                                                                                              |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 出口     | 只调 `apps/api/scripts/notify-deploy-failure.ts`（`--severity` / `--title` / `--source ihui-alertbridge` / `--message-file`）                                                                                                                                                                                                                                     |
+| 版式     | `apps/api/src/services/email-templates.ts` 的 `renderSystemAlertEmail` 单点决定；本目录**不得**出现 SMTP/Resend 传输层或色值                                                                                                                                                                                                                                      |
+| 收件人   | 不传 `--to` ⇒ 由派发器回读 `apps/api/.env` 的 `ALERT_EMAIL_TO`（不在端内复制第二份收件人真相）                                                                                                                                                                                                                                                                    |
+| 默认状态 | **开**。收件人就是值班运维本人，邮件没有第三方总量配额，关掉等于回到"告警静默"                                                                                                                                                                                                                                                                                    |
+| 关闭     | `BRIDGE_MAIL_ENABLED=0`（亦认 `false` / `off` / `no`）——关的是"要不要发"，不是"发几封"                                                                                                                                                                                                                                                                            |
+| 去重     | 按告警身份（`alertname`+`instance`）在 `BRIDGE_DEDUP_MIN` 窗口（默认 240=4h）内只寄一封；状态在回响应前**同步落盘**，跨重启延续                                                                                                                                                                                                                                   |
+| 封顶     | **无**。不同身份的告警一律照寄；旧实现（第三方推送时代）的每日预算/冷却队列已随该腿一并摘除                                                                                                                                                                                                                                                                       |
+| 失败留痕 | 品牌模板失败先 `--plain` 降级；两条都失败 ⇒ 写 `alert-bridge-mail-UNDELIVERED.json`（与 `STATE_FILE` 同目录）+ `[mail][ERROR]` 日志，`/health` 报 `mailUndelivered=true`；下一次成功投递自动清除                                                                                                                                                                  |
+| 隔离     | 邮件派发用异步 `spawn`（同步会把 tsx 冷启 + SMTP 握手几十秒钉死事件循环 → Alertmanager 推送超时、后续告警堆积）                                                                                                                                                                                                                                                   |
+| 只读端点 | **两个，读者不同，不可互换**：`GET /health` = `application/json`，给值守巡检班次读；`GET /metrics` = `text/plain; version=0.0.4`，给 Prometheus 抓。Prometheus 3.x 校验抓取的 Content-Type，把 job 指到 `/health` 会让该 target 恒 `down` ⇒ `AlertBridgeDown` 成一条永远在响的假告警（2026-09-27 现量的就是这一型）。`/metrics` 只做观测，不参与任何投递/去重判定 |
+
+### `/metrics` 暴露的事实（前缀 `ihui_alertbridge_`）
+
+| 指标                                                                          | 类型    | 回答哪一句                                                         |
+| ----------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------ |
+| `up` / `uptime_seconds`                                                       | gauge   | 桥进程是否活着（`up` 恒 1，真判据是"抓取本身成不成"）              |
+| `alerts_dedup_suppressed_total`                                               | counter | 按身份**压下了多少**                                               |
+| `alerts_received_total` / `webhooks_received_total`                           | counter | 去重前收到多少条 / 多少次推送                                      |
+| `mail_batches_delivered_total` / `mail_alerts_delivered_total`                | counter | **真寄出多少**（批次 / 条数）                                      |
+| `mail_batches_failed_total` / `mail_batches_skipped_total`                    | counter | 两条路都失败（从未到人）/ 闸门跳过——**跳过不是失败，不并桶**       |
+| `mail_undelivered`                                                            | gauge   | 磁盘上有没有 UNDELIVERED 标记（=1 即"有告警从未到人"）             |
+| `mail_enabled`                                                                | gauge   | `BRIDGE_MAIL_ENABLED` 是否被关（关了等于回到告警静默，必须看得见） |
+| `mail_plain_fallback_total`                                                   | counter | 品牌模板失败、纯文本救回的次数（版式退化，投递没丢）               |
+| `state_persist_failures_total`                                                | counter | 去重态落盘失败次数（不修 ⇒ 重启后重寄，是"重寄"事故的前置信号）    |
+| `undelivered_marks_written_total`                                             | counter | 写下未送达标记的次数                                               |
+| `dedup_keys` / `dedup_window_seconds`                                         | gauge   | 窗口内活跃身份数 / 配置的窗口长度                                  |
+| `mail_last_attempt_timestamp_seconds` / `mail_last_success_timestamp_seconds` | gauge   | 最近一次投递尝试/成功的时刻（0 = 从未发生）                        |
+
+> ⚠ 这一组指标有一个补不掉的极限，见文末"仍无人看守的一格"。
 
 ### 命令行旗标（不带旗标时行为与既有服务一致）
 
 ```bash
-node monitoring/alertbridge/alert-webhook-bridge.cjs --self-test     # 47 例逻辑自检:零网络、零子进程、零投递
+node monitoring/alertbridge/alert-webhook-bridge.cjs --self-test     # 逻辑自检:零网络、零子进程、零投递（例数看末行现读，勿在文档里钉数字）
 node monitoring/alertbridge/alert-webhook-bridge.cjs --mail-dry-run  # 只问派发器"通道是否齐备",不发信、不启服务
 node monitoring/alertbridge/alert-webhook-bridge.cjs --help
 ```
@@ -121,6 +141,9 @@ nssm set ihui-alert-bridge AppEnvironmentExtra "BRIDGE_PORT=9096"
 
 - Prometheus 发现 Alertmanager：`GET http://127.0.0.1:8815/api/v1/alertmanagers` → activeAlertmanagers 含 9093
 - Bridge 健康：`GET http://127.0.0.1:9096/health` → `{"ok":true,...,"mailEnabled":true,"mailUndelivered":false}`
+- Bridge 指标（Prometheus 抓的就是这一条，不是 `/health`）：
+  `curl -s -D- http://127.0.0.1:9096/metrics | grep -i content-type` →
+  `text/plain; version=0.0.4; charset=utf-8`，且 `GET /api/v1/targets` 里 `job="alertbridge"` 为 `up`
 - Alertmanager: `GET http://127.0.0.1:9093/-/healthy` → `OK`
 - 邮件通道：`node monitoring/alertbridge/alert-webhook-bridge.cjs --mail-dry-run` → `ok=true`（零网络请求）
 - 投递对账：日志 `[mail]` 行是投递结论；`[mail][ERROR]` + UNDELIVERED 标记 = 有告警未能到人
@@ -139,5 +162,20 @@ nssm set ihui-alert-bridge AppEnvironmentExtra "BRIDGE_PORT=9096"
   其凭据文件按策略不删（删凭据不是本仓动作），只是不再被任何代码读取。
 - Alertmanager 配置运行副本在 `D:\DevEnv\monitor\alertmanager\alertmanager.yml`，
   与 Prometheus 配置的 `alertmanagers: [localhost:9093]` 对齐。
+
+## 仍无人看守的一格（如实登记，不是已收口）
+
+`AlertBridgeDown` 这一维现在只剩**一条**规则（`up{job="alertbridge"} == 0`），而 `up` 由
+Prometheus 自己算，所以它的极限正好是"桥活着"这一件事：
+
+- **桥活着但从没投递成功过 —— 这条规则不响。** 例如 Alertmanager 的 `webhook_configs` 被改歪
+  （URL 端口对但路径错、渲染器 R4 之外的那种错法）、或每封都在 SMTP 之后失败但成功过一次的
+  旧标记把 `mail_undelivered` 清掉：`up` 恒 1，`AlertBridgeDown` 恒不响。
+  新增的 `ihui_alertbridge_mail_last_success_timestamp_seconds` 是这一格的**数据**，但
+  `alerts.yml` 里**还没有**任何规则消费它 —— 没有现成指标可对账"多久没寄成功过才算异常"
+  （正常系统可以几周都不出事，拍一个 `>7d` 的阈值就是造一条偶尔误响、常常漏响的规则）。
+  要收这一格得先定"多算久"的口径，属告警策略决策，不在本次修复范围。
+- **Prometheus 自己死了**：它算的所有规则一起不响。这一格由 `IHUI-MONITOR`（`deploy/win/ihui-monitor.ps1`）
+  不依赖 Prometheus 的直连巡检兜住，与 `monitoring/prometheus/prometheus.yml` 头注写的是同一条。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
