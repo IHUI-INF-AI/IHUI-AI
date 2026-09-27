@@ -33,7 +33,7 @@ export default function UserDeveloper({
   className,
 }: UserDeveloperProps): React.JSX.Element {
   return (
-    <div className={cn('rounded-xl border bg-card shadow', className)}>
+    <div className={cn('rounded-lg border bg-card shadow', className)}>
       <div className="flex items-center gap-2 px-4 py-3">
         <Code2 className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-medium">开发者信息</h3>
