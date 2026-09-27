@@ -529,9 +529,6 @@
     "rendering": "渲染中...",
     "diagramRendering": "渲染中…",
     "mermaidRenderFailed": "Mermaid 渲染失敗",
-    "mermaidSkipSourceTooLarge": "圖表源碼過長,已改為顯示源碼",
-    "mermaidSkipLineCountTooLarge": "該圖行數過多,已改為顯示源碼",
-    "mermaidSkipComplexityTooLarge": "圖表節點與連線過多,已改為顯示源碼",
     "pdfLoadFailed": "PDF 載入失敗: {message}",
     "renderFailed": "渲染失敗: {message}",
     "unknownError": "未知錯誤",
@@ -8263,6 +8260,10 @@
           "title": "檔案過大",
           "action": "精簡檔案後重試"
         },
+        "FORM_CHANNEL_UNAVAILABLE": {
+          "title": "業務表單請求僅在對話流內可用",
+          "action": "請勿重試該工具;需要這些資訊時,直接在回覆裡向使用者提問"
+        },
         "GENERATION_FAILED": {
           "title": "生成失敗",
           "action": "重試"
@@ -12025,8 +12026,13 @@
       "errorDesc": "更新過程中出現錯誤,請重試",
       "installing": "安裝中",
       "preparing": "正在準備更新...",
+      "quitChecking": "正在檢查更新...",
       "upToDate": "已是最新版本",
       "upToDateDesc": "當前已是最新版本,無需更新",
+      "quitDownloading": "正在下載更新...",
+      "quitQuitting": "正在退出...",
+      "quitRestarting": "更新完成，正在重啟...",
+      "quitSkip": "跳過，直接退出",
       "restart": "重啟應用",
       "restartLater": "稍後重啟",
       "restartNow": "立即重啟",
@@ -24347,12 +24353,15 @@
   "courseFilter": {
     "title": "篩選課程",
     "subtitle": "依條件篩選課程",
+    "category": "分類",
+    "level": "難度",
     "priceRange": "價格區間",
     "reset": "重設",
     "apply": "套用",
     "retry": "重試",
     "empty": "暫無課程",
     "instructor": "講師",
+    "level_label": "難度",
     "free": "免費"
   },
   "courseQAList": {
