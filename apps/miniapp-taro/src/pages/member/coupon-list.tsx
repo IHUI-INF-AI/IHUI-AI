@@ -84,7 +84,7 @@ export default function CouponListPage() {
             {list.map((c) => (
               <View
                 key={c.id}
-                className="flex bg-card border border-[var(--color-border)] rounded-xl overflow-hidden"
+                className="flex bg-card border border-[var(--color-border)] rounded-lg overflow-hidden"
               >
                 <View className="w-[192rpx] bg-[var(--color-success-light)] flex flex-col items-center justify-center py-[32rpx]">
                   <View className="flex items-baseline">

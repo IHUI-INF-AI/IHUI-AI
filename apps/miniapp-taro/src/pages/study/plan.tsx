@@ -99,7 +99,7 @@ export default function StudyPlan() {
         {list.length > 0 && (
           <View className="p-[28rpx] flex flex-col gap-[16rpx]">
             {list.map((p) => (
-              <View key={p.id} className="bg-card rounded-xl border border-border p-[28rpx]">
+              <View key={p.id} className="bg-card rounded-lg border border-border p-[28rpx]">
                 <View className="flex justify-between items-center">
                   <Text className="flex-1 text-[length:36rpx] text-foreground font-bold overflow-hidden">
                     {p.title}
@@ -137,7 +137,9 @@ export default function StudyPlan() {
         )}
         {!loading && list.length === 0 && (
           <View className="flex items-center justify-center py-[96rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">{t('study.planPage.empty')}</Text>
+            <Text className="text-[length:28rpx] text-muted-foreground">
+              {t('study.planPage.empty')}
+            </Text>
           </View>
         )}
         <Button
