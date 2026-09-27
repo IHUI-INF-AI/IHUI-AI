@@ -13792,3 +13792,46 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
     本会话量到的其它事实:CPU 30.5% / 空闲内存 18.6 GB ⇒ 这不是算力问题而是**锁与句柄**问题;`git status` 一类的主仓操作在清理后已能秒级完成,`.git/index.lock` 不再被长期持有。
 - [ ] **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的**可跑性依赖 cwd** —— 在 `apps/ai-service` 下跑 `node ../../scripts/check-agent-engine-parity.mjs` 抛异常退出(rc=1),从仓根跑则 rc=0。与"文档不得写跑不通的出路"同族:要么让它自身定位 repo root,要么在头注写明必须从仓根跑。归属:该门持有人。解阻判据:两个 cwd 下退出码一致。 〔【归并】重复登记副本(2026-09-27):逐字相同的另一条登记在 L13762(本行无编号主键),派单以那条为准,本行不再单独派单。〕
 - [x] ✅(2026-09-27) **G-266. 复合主键的"标题退化"格:编号相同就把不同议题并成一条,归并器因此把别人未完成的行翻成已完成(本会话自伤,已逐行复原并上门)**。起因是我自己给 O87 放宽行首编号判据之后,台账里出现了两条都叫 `G-257` 的**不同议题**(本会话的"审计日志 500 掩盖 400"已完成 / 另一会话的 `check-agent-engine-parity 可跑性依赖 cwd` 仍未做),而 `titleOf` 在**第一个分界符**处截断标题 —— 这两行的分界符(`.` 与 `(`)都紧跟在主键后面 ⇒ 两侧标题都被切成 `G-257` ⇒ 复合主键同为 `G-257#G-257` ⇒ **F1 认定"同题两态"**,`plan-tasks-merge --heal` 遂把那条未完成的活翻成 `[x] ✅` 并写上"归并到已完成登记"。这就是 §1 明令禁止的"把没做的记成做过的",比原来的病更响。**取证与复原**:先 `git show HEAD:PROJECT_PLAN.md` 定位被误翻的行(命中 2 份,并发 union 把同一议题又抄了一遍),用 `scripts/lib/bypass-git.mjs` 的既有出口(临时索引 + commit-tree + CAS,**不重写其余任何一行**)把那两行逐字还原为 `- [ ]`(落地 `cb478002d`,行数 13773→13773,复原后"归并"标记计数 0);**没有**去动别人那行的正文,只撤销我自己工具的改动。**补上的判据**(提交 `fce2f35c7`):`titleIsDegenerate()` + `compositeKeyOf` 在标题等于主键时**返回 null**(宁可退化成"无主键行",由 F4b 的逐字孪生判据兜住,也不能拿一个会误翻勾的键去做事)。**取证**:`node --test scripts/tests/plan-tasks.test.mjs` 末行 `tests 18 / pass 18 / fail 0`(新增 M16 双臂:退化两行不得配对 + **正常同题两态仍必须被点名**,防止把判据削成恒不配对);**变异**:摘掉 `compositeKeyOf` 里那一行守卫 ⇒ M16 当场翻红(`pass 17 / fail 1`),`cmp` 逐字还原后复绿;层自检 `自检:63 通过 / 0 失败`,归并器镜像 10/10,门 130 `--gate --strict` 现读 `六条状态判据全部为零`。**留一条通用规矩**:归并器 `--heal` 的动作是**改勾选状态**,而"同主键"是推断出来的 ⇒ 任何放宽主键的改动都必须同时回答"两个不同议题会不会因此撞上同一个键",并把答案写成一条**双向**镜像断言(该配对的必须配对、不该配对的必须不配对)—— 单向断言只会把误翻勾留在台账里,而台账一旦说谎,下一个派单的人无从发现。
+
+
+
+- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「86D · 保留策略与墓碑」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 **86D. 保留策略与墓碑**:两级制落地 —— 入口挂 `jobs/pii-retention-cleanup.ts` 的既有 cron(`retentionOf('...')` 形态先例 :86/:92/:94)。**前置未决(需拍板,§24)**:链式表配滚动删除必须先定**墓碑策略** —— 直接删行会让 `verifyAuditChainIntegrity` 从"通过"退化成"看不见",那是把没判写成判过了。**判据**:删中间一条⇒必须点名 `tamperedIndex`/墓碑缺口,**不得** `valid=true`。**只碰** `jobs/pii-retention-cleanup.ts` 与链验证侧的测试;`audit-log-service.ts` 的验证函数**只读不改**,需要改判定时另计票。
+- [x] ✅(2026-09-27) **G-256** 一条**环境相关红**,归因未定:`tests/test_vector_memory.py::test_search_threshold_filter` 在工作树红(`assert 5 == 1`)而在 `git archive HEAD` 的干净检出绿 67 例。差异只可能是 gitignored 的 `.env`(干净检出里没有)让 embedding/DB 分支换了路。**没有据此定论**,只登记事实与复现命令。归属:vector_memory 持有人。解阻判据:带 `.env` 与不带 `.env` 各跑一次同一文件,若两侧结论不同即为测试隔离缺陷(§5 测试隔离铁律那一族)。 **已闭环(批 69,枚 `611653456`)**:按上述判据现测 —— 带 `.env` 的工作树 1 failed / 66 passed,不带 `.env` 的 `git archive HEAD` 干净副本 67 passed ⇒ 定性为测试隔离缺陷。真因不是「.env 里某个开关换了个分支」这么温和:`vector_memory.search` / `add_entry` 的**一级路径是 pgvector**(`pgvector_store` 经 `db_pool.get_shared_pool` 连库),配了 DSN 的机器上它读到的是**库里已有的 5 行**,没有 DSN 才落回内存兜底 —— 那 5 条不是本用例写的。**所以这是 §5 测试隔离铁律的违反面,不只是测试红。**修法用模块自己提供的全局关闭档(autouse 夹具设 `IHUI_PGVECTOR_DISABLE=1`,同形先例 `tests/test_vector_memory_user_scope_59.py:42`),并新增一条**绊线扎在 `get_shared_pool` 上**,而不是 `upsert_chunk` / `search_chunks`:开关生效时那两个入口**仍会被调用**(它们在函数首行自己短路),按「有没有被调用」判会稳定误报;同条用例带第二臂阳性对照 —— 摘掉开关后同一份代码必须踩到绊线,否则「零次调用」与「尺子瞎了」在账面上同形。现测:本文件 68/68、vector/pgvector/memory 五文件合跑 183/183(都在带 `.env` 的工作树里,即修复前必红的那一侧)。
+- [x] ✅(2026-09-27)O87 线上桌面端自动更新源切到 0.1.49 —— 根因是发版解析器只读第一页,`e52f0ae3a` + fast-forward `876172246`
+  - **不是"没发版"**:0.1.49 的 tag、GitHub 三端包+签名、Gitee 的 Windows 包+签名全部在位,
+    CI 的 `Sync release to Gitee` 也是 success。线上 feed 停在 0.1.48 的原因是
+    `resolve-desktop-download.mjs` 取 Gitee `/releases` 时写死 `per_page=20` 且**只取第一页**,
+    而那一页不含 `desktop-v0.1.49`。它按 SemVer 排序没错,错在排在一个已被截断的候选集上 ⇒
+    稳定报旧版。**仓库里 release 只增不减,这一格必然恶化**:每发一版老用户都收不到更新提示,
+    而发版链路每一环都绿 —— 症状不是报错,是"安静地不更新"。
+  - **改法两条**:① `fetchReleasesPaged()` 分页取到短页为止,Gitee 与 GitHub 两条源共用这一份实现
+    (GitHub 那条原本 `per_page=30`,同一个假设),并把"扫到多少条"打出来 —— 少扫与扫全不得同色;
+    ② `updaterPlatforms` 键集**变窄即拒写**(空签名不出键 ⇒ 任何一次取签名失败都会静默丢平台),
+    确属故意要收窄必须显式 `ALLOW_NARROWER_FEED=1`。
+  - **两条如实登记(不要当成已完成)**:a) 护栏**当轮未能端到端触发** —— 降级条件没再现,
+    判据只经过代码路径审阅;补法是给脚本一个可注入的 local 快照路径,现在没有。
+    b) 我最初把降级原因写成"没带 GITHUB_TOKEN",随后不带 token 重跑得到**完整 4 键 ⇒ 该归因已否证**,
+    注释里只留量到的现象。c) 解析器**没有镜像测试**可撞(`scripts/tests/resolve-desktop-download.test.mjs` 不存在)。
+  - **推送方式(被他人冲突逼出来的应急路径)**:本地 main 与远端在
+    `packages/shared/src/chat/tool-display.ts` 上真冲突 —— 两边各自补了同一行 `generate_report`
+    显示名(`23521ace6` vs `354c21cf4`),那是那两个会话之间的事,不由我裁。`git-sync-converge`
+    因此停在 needHuman。故只把本票两个文件以 **fast-forward 接到远端 tip 之后**:基线取
+    `ls-remote` 真值(不取本地 `origin/main` —— 实测 5 分钟内远端动了两次,拿过期值当 parent
+    会造出非快进)、变更面自证 = 恰这 2 个路径、逐路径 blob 与来源提交等值、推前复核远端 tip
+    未移动(第一次就是这么拒的)、推后回读 ref。
+  - **线上核验**:`https://aizhs.top/desktop-feed.json` 现报 `version=0.1.49`;Windows 条目
+    签名 420B、URL 指向 Gitee 的 `AI_0.1.49_x64-setup.exe`,`HEAD -L` 实测 302→302→200 且
+    `Content-Length=7573511`(与本机实装包字节一致),再实拉前 2MB 非空。
+  - **仍在线上的一处不一致(非本次引入,未闭环)**:线上响应的 `platforms` **只有 windows 一个键**,
+    而 git 里该文件历史上每个版本都是 4 键(逐提交量过:6 个提交全为 4)。同时
+    `https://aizhs.top/api/desktop-feed` 返回 **Fastify 的 404**(`Route GET:/api/desktop-feed not found`),
+    而该 App Route 在仓库里存在 ⇒ 生产那份构建**早于**"两条路由共用一份拼装器"的改造,
+    其快照模块没有 `updaterPlatforms` 字段,于是走了 `legacyWindowsPlatforms` 的"仅 windows"旧兜底。
+    结论:**mac/linux 用户当前拿不到更新条目**,这一格要从生产机那份 checkout 查,本机只读取不到。
+    Windows 用户不受影响(本次切换的目标已达成)。
+### 第六十八批~第七十批(2026-09-27 深夜 · G-258 B 组四票收口 + G-255 的票面前提被量错)
+- **批 68 patch 的 root 收进服务端允许集合 + 沙箱策略档位收归登记表**(枚 `893157e97`,6 文件):`_validated_root` 判序改为「绝对路径(400)→ 白名单(403)→ 存在性(400)」—— 反过来就把端点变成「服务器上哪些路径存在」的预言机;允许集合唯一取源复用 `mcp_server._get_workspace_roots()`(配置键 `MCP_WORKSPACE_ROOTS`),取不到即 503 fail-closed,不退化成「不限制」;允许根的**祖先**目录一律拒(它比授予范围更宽)。沙箱侧新增 `PolicyTier` / `SANDBOX_POLICY_TIERS` / `resolve_policy_tier` / `build_tier_policy`,**限额逐条取 `SandboxPolicy` 既有默认值、零新增数字**,`from_dict(body.policy)` 那条「请求方自带限制开关」的路从此不再被 router 调用(档位表本体住 `os_sandbox`,由 ast 反向锁钉住 router 不得重建第二份)。尺子命中 4→0。
+- **批 70 computer_use 进程级单例改按用户隔离 + trace 建属主**(枚 `3e3140477`,5 文件):六枚模块级全局收进 `_UserBrowser`,模块级只剩一张按令牌主体键控的会话表;`close` 从「关掉全站唯一浏览器」改成只关本人并**摘表**(不留半死态);`ref` 取值域改为**本人**的最近快照(改前 A 的 `ref=3` 会点在 B 刚快照出的坐标上);`browser_trace` 建记录即盖章,`append`/`delete`/`attach_screenshot`/`get`/`list` 全部按属主过滤 —— 别人的与「不存在」同状态码、同模板、同一取值。归属谓词全仓只有一份(`browser_hub._same_owner`),`browser_trace` 直接 import,`computer_use` 不 import(键即主体,再比一次反而是第二套判据),并有「两文件内不得再出现 `def _same_owner`」的反向锁。尺子命中 13→0、全仓 31→18。
+- **两条被本线推翻的「既有声称」**:① `computer_use` 旧 docstring 写「进程退出由 main.py lifespan 统一收口」—— `grep -rn "_close_page" app/` 本模块外**零命中**,即那是一条从未存在的保护,已就地改成「未收口」而不是顺手新挂调用点(那属另一份归属);② 台账里 G-255 的票面范围。**G-255 的票面把病灶写小了**:它说整写会抹掉「sessionId/model/permissionMode 这几个配置键」,而实测(`thread.start` 后现读两面)内存 `thread.metadata` 是**空 dict**,整块引擎写过的配置(约 20 个键:`modelParams`/`autoCompact`/`toolNames`/`systemPrompt`/`approvalPolicies` …)只住在**库那一行**,而一次 `merge=False` 整写把库里那份**整体替换**成补丁 —— 所以「只守三个名字」既漏了其余十几个键、又会往原本为空的内存 metadata 里**注入**三个键(改变响应体形状)。本线据此先写了一版三键守卫,**5 条既有测试当场炸红**才发现范围错了,已整笔还原(`test_thread_identity_immutable` + `test_engine_harness_query_46` 还原后 29/29 绿),**不留一份"变绿而缺陷不动"的修复**。真正的修法要先定两件事,已按序登记:① 分段口径 = 「引擎在 `_persist_thread_created` 写的那整块键」而不是随手一份三字清单;② 真值取哪一侧 —— 合法写者(`thread.start`/`thread.settings`)走的正是同一个 `update_thread_metadata(merge=False)` 出口,在 store 咽喉点强制「以库那行为准」会把它们刚改的档位回滚成旧值,所以要么让 settings 改走增量写、要么只在 RPC 层守并接一条「settings 之后 metadata 仍随档位走」的正向断言。**这一步需要口径裁决,不由本线猜值**。
+- **三格按住不裁(逐条给依据,不是"待办"二字)**:① 按用户目录落点 —— 本仓没有「每用户工作区根」的配置来源,凭空规定 `<root>/<user_id>` 会打死今天的调用方,故 patch/sandbox 两端点里 `user_id` 只做**归因**(审计行含 actor)不做判定;② 谁能选 `workspace_write` 档 —— 属 RBAC 决策,现任何已登录用户可选到它(仍被服务端 roots 约束,宽不出工作区);③ 每人一只浏览器**没有并发上界** —— 任何具体数字都无取证依据,写一个就是把未取证值当限流(现状:唯一收缩路径是用户自己 `POST /close`)。
+- **B 组至此四票全部落地**(批 65 浏览器会话属主 / 批 66 Hook 触发集与 A-B 归属 / 批 68 patch+sandbox / 批 70 computer_use+trace)。**普查总量程**(落地后现读 `--json`,scanned 1203 / findings **18**):`hooks.py` 13(其中 11 条是「身份经 `_owner_filter` 委托消费」的委托形态,2 条是 `auto_orchestrate` / `list_hook_templates` 这类**无按人归属的资源**,归属是错的轴)、`agents.py` 3、`capability_matrix.py` 1(下划线前缀刻意标注且身份在 role 判定处消费)、`prompt_guard_api.py` 1(纯静态常量表)。也就是说 **G-261 前置③要点名的第二判据还没补,尺子因此仍不得升 blocking**;清单以 `apps/ai-service/scripts/audit_principal_consumed.py --json` 现读为准,**不照本文数字派单**。

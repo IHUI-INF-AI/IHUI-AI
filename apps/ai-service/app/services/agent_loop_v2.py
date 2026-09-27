@@ -54,7 +54,7 @@ import os
 import random
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -5687,4 +5687,163 @@ class AgentLoopV2:
             self._last_stream_turn_item = parse_turn_item(_item)
         except Exception as e:  # noqa: BLE001 - 映射失败隔离,不阻塞回合
             logger.debug("stream_events 回合项映射失败(降级跳过): %s", e)
+
+
+# ---------------------------------------------------------------------------
+# D6① / G1(2026-09-27 立)收敛执行器本体:把旧编排栈的 AgentDefinition 投影到
+# 本循环并**真跑一趟**。这是 ``app/core/executor_switch.py`` 在 loop_v2 档要找的
+# 唯一出口(落点以字符串写在那边,便于核"适配器在不在位")。
+#
+# 为什么住在 agent_loop_v2 而不是 executor_switch:
+#   executor_switch 的红线 2 是"core 层不得模块级 import service",而本函数要
+#   构造 AgentLoopV2 —— 放过去就等于要么破红线、要么在 core 层复制一份循环装配。
+#
+# 为什么装配走 routers/agents 的两个 helper 而不是自己拼:
+#   ``_build_loop_v2_tools`` / ``_make_loop_v2_llm`` 是**全仓唯一**的 v2 工具与
+#   LLM 装配口径(超级工具聚合、deferral 瘦身、user_role 过桥、tool_calls 归一化
+#   都在里面;漏任一项就是 V3#47/#55 记过的"另一条链上被静默降档")。engine 路由的
+#   工厂(``routers/engine.py`` 的 ``_make_loop_v2_factory``)对这两个 helper 做的
+#   就是同一件事:函数体内惰性 import,复用而非复制第二份真相。
+# ---------------------------------------------------------------------------
+
+
+def _project_loop_iterations(result: "AgentLoopResult") -> list[dict[str, Any]]:
+    """把 v2 的逐轮 trace 投影成旧编排栈 ``AgentStepResult.tool_calls`` 的形状。
+
+    旧形状是 ``[{"tool","arguments","ok"}]``(agent_orchestrator 手搓的那份),
+    刻意不新增键 —— 收敛的目标是"同一件事一个形状",不是"新链路更详细所以换契约"。
+    """
+    calls: list[dict[str, Any]] = []
+    for it in result.iterations:
+        results_by_id: dict[str, ToolResult] = {tr.tool_call_id: tr for tr in it.tool_results}
+        for tc in it.tool_calls:
+            tr = results_by_id.get(tc.id)
+            calls.append(
+                {
+                    "tool": tc.name,
+                    "arguments": tc.args,
+                    "ok": tr is not None and tr.error is None,
+                }
+            )
+    return calls
+
+
+def _replay_progress_events(
+    result: "AgentLoopResult",
+    progress_callback: Callable[[dict[str, Any]], Any] | None,
+) -> None:
+    """按真实顺序把逐轮事件回灌给旧编排栈的 progress_callback 词汇表。
+
+    如实登记的保真度缺口:这些事件在**循环结束后**才发出,不是实时的(旧路径的
+    thinking/tool_call/tool_result 是跑一步发一次)。要让它们变实时,得在
+    AgentLoopV2 里开一个 per-iteration 回调位 —— 那是另一格改动,本票不做,
+    也**不拿"事后回灌"冒充"实时进度"**(两者对前端的表现不同)。
+    回调异常一律吞掉:进度是观测,不得把已经跑完的执行判成失败。
+    """
+    if progress_callback is None:
+        return
+    for it in result.iterations:
+        with contextlib.suppress(Exception):
+            progress_callback({"phase": "thinking", "iteration": it.iteration})
+        for tr in it.tool_results:
+            with contextlib.suppress(Exception):
+                progress_callback(
+                    {
+                        "phase": "tool_result",
+                        "tool": tr.name,
+                        "ok": tr.error is None,
+                        "iteration": it.iteration,
+                    }
+                )
+    with contextlib.suppress(Exception):
+        progress_callback(
+            {
+                "phase": "output_ready",
+                "output_preview": (result.final_response or "")[:200],
+            }
+        )
+
+
+async def run_converged_agent(
+    *,
+    agent_name: str,
+    system_prompt: str,
+    user_input: str,
+    tool_names: Sequence[str] | None = None,
+    model: str | None = None,
+    max_iterations: int = 5,
+    session_id: str | None = None,
+    user_id: str | None = None,
+    user_role: int = 0,
+    permission_mode: str | None = None,
+    progress_callback: Callable[[dict[str, Any]], Any] | None = None,
+) -> dict[str, Any]:
+    """把一个 agent 定义交给 AgentLoopV2 执行,返回 executor_switch 约定的形状。
+
+    返回::
+
+        {"step_result": {…AgentStepResult 的 8 个字段,逐字段同形…},
+         "diagnostics": {engine, stop_reason, total_tokens_used, checkpoint_id,
+                         compaction_events}}
+
+    身份口径(AGENTS §5"认证不等于授权"):``user_id`` / ``user_role`` **只能由承载层
+    显式入参**。本函数绝不"从 session_id 反查属主",也不读任何 thread/session 记录
+    —— 一旦那么写,principal 就成了被点名记录里的字段,而那个字段在别处是客户端可
+    整写的(§5 已记过一次该事故)。``user_role`` 默认 0 = fail-closed(与普通用户同档);
+    ``user_id=None`` 是**回退**、不是授权结论:此时 AgentLoopV2 的 session-scope 记忆与
+    审批属主登记不生效,调用方须自行保证在已鉴权的承载层里把真实主体传进来。
+
+    历史装配刻意**不**复制旧编排栈手搓的 ``memory_store.get/add``:AgentLoopV2 自带
+    记忆闭环(conversation_id 缺省即取 session_id),两份实现必然漂移,而收敛的目标
+    就是让"记忆怎么带"只剩一处答案。
+    """
+    from ..routers.agents import _build_loop_v2_tools, _make_loop_v2_llm
+
+    started = time.monotonic()
+    names = list(tool_names) if tool_names is not None else None
+    tools = await _build_loop_v2_tools(names, user_role=user_role)
+    loop = AgentLoopV2(
+        _make_loop_v2_llm(model),
+        tools=list(tools),
+        max_iterations=max(1, int(max_iterations)),
+        enable_checkpoint=True,
+        session_id=session_id,
+        user_id=user_id,
+        user_role=user_role,
+        permission_mode=permission_mode,
+    )
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_input},
+    ]
+    result = await loop.run(messages)
+    _replay_progress_events(result, progress_callback)
+
+    output = result.final_response or ""
+    status = "completed" if result.success else "failed"
+    error = result.error
+    if result.success and not output:
+        # 与旧路径同款防御:LLM 只回空串不能算"成功产出",否则调用方拿到一个
+        # 看起来 completed 的空答案(旧 _run_agent 在这里会重试一轮总结)。
+        status = "failed"
+        error = error or "agent_loop_v2:循环成功结束但最终回复为空"
+    return {
+        "step_result": {
+            "agent_name": agent_name,
+            "input": user_input,
+            "output": output,
+            "status": status,
+            "duration_ms": round((time.monotonic() - started) * 1000, 2),
+            "iterations": len(result.iterations),
+            "tool_calls": _project_loop_iterations(result),
+            "error": error,
+        },
+        "diagnostics": {
+            "engine": "agent_loop_v2",
+            "stop_reason": result.stop_reason,
+            "total_tokens_used": result.total_tokens_used,
+            "checkpoint_id": result.checkpoint_id,
+            "compaction_events": list(result.compaction_events),
+        },
+    }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
