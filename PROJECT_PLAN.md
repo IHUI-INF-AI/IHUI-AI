@@ -13258,3 +13258,29 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **#86 做证据级流水,落库并可导出。** 第一步不是迁移而是**保留方案**(留多久、谁能读、是否含入参指纹 —— 本仓有"不落任何入参值"的既有先例可套)。**该方案属 §24 领地,需你单独确认后才动 journal。**
 - **#81 只做最小一环:**先打通**一种**产物模板的端到端(不是五类并行),判据是"真会话里产出可用文件",不接受"只生成提示词"。
 - **#74 不上全屏 TUI**(技术栈选择不是故障),但 README 声称的 `ihui config` / `ihui remote` 必须补齐或归档 —— 文档承诺超出实现是**已在发生的误导**,不等任何拍板。
+
+- [ ]（进行中@2026-09-27/主会话O86）O86 桌面端托盘「退出」无人接:前端 IPC 注入竞态致监听永不注册 —— 修复已提交 `8bdaae172`,待线上前端发布后复跑托盘取证
+  - **取证链(全部当轮实测,非推断)**:① 装 0.1.46 后点托盘「退出」→ 进程在 **128s** 消失,日志出现
+    `[desktop] app.exit(0) 未在 120s 内终止进程(事件循环未消费退出请求),强制退出` —— 即"永不退出"已收口为
+    "最迟 120s 必退",兜底看门狗有效;② 但点击后 **25s 截图**显示界面上**完全没有退出遮罩**
+    (`.ihui-agent/tmp/q3-d-t25.png`),而 `QuitUpdateOverlay` 的「正在退出...」只在 status=`quitting` 时渲染,
+    该状态仅由 `quitAndUpdateIfNeeded` 在 `await quitApp()` 前一行置位 ⇒ 前端整条链从未启动;
+    ③ 生产 `/agents` 的 43 个 chunk 逐档 grep:`desktop-tray-action` 命中 1 个文件、`plugin:event|listen` 1 个、
+    `desktop-quit-request` 2 个 ⇒ **代码已发货**,不是构建过期;④ `quit_app` 确在
+    `invoke_handler`(:2645)且 `capabilities/default.json` 的 `remote.urls` 已授 `https://aizhs.top/*`
+    ⇒ 排除"命令没注册/远程域没授权"两种猜测。
+  - **根因**:同一个"IPC 何时注入"的问题在本文件里有**两份判据**,只有一份抗得住竞态 ——
+    `useDesktop()` 为 `__TAURI_INTERNALS__` 的异步注入写了 50ms 轮询 + 3s 超时(其原注释 :66-68 就是为此),
+    而 `useDesktopEvents` / `useDesktopDeepLink` / `useSystemTheme` / `useTrayStatus` 各写一句
+    同步 `if (!isTauri()) return`。在注入完成前的那一帧挂载 ⇒ 整个会话不再注册任何桌面监听,
+    **且零日志**(失效表现为安静)。用户侧同型症状不止退出:深链回 App 登录转圈、系统主题不同步。
+  - **修法**:轮询本体提成 `useTauriIpcReady()` 单一实现,`useDesktop` 改判它(取值时机与语义逐字不变),
+    四个 hook 的 effect 改判 `ipcReady` 并入依赖数组。浏览器端恒 false、3s 后停止轮询且不 warn。
+  - **验收(未完成,不得读成已收口)**:本票只改了 web 侧,桌面端加载的是线上前端 ⇒ 必须等部署环把
+    `apps/web` 发布到 aizhs.top 后,**重跑同一条托盘取证**,判据是"点击后数秒内进程消失且日志出现
+    `未在 3s 内终止进程` 或完全没有看门狗行"。当前线上仍是修复前的前端。
+  - **同轮如实登记的两条残余**:① 120s 兜底**刻意不下调** —— 前端在真正下载更新时 Rust 无法感知,
+    缩短会重演 2026-08-16 那次"打断安装"的事故;要再收紧必须先给 Rust 一条"下载中"的信号通道。
+    ② `setup` 里新加的僵尸实例判据用 `get_webview_window("main").is_none()`,而实测
+    `failed to create webview: HRESULT(0x800705B4)` 时窗口对象**仍在**(只是里面没 webview)
+    ⇒ 该型僵尸逃过本判据,仍需换成"页面是否真加载"的信号(如 `on_page_load` 心跳)。
