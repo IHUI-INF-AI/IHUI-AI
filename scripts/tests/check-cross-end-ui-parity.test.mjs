@@ -342,3 +342,120 @@ test('T13 配对射程必须自己报数,且只报数不进退出码', () => {
     '射程报数不得进红聚合',
   )
 })
+
+/* ── RE 维(2026-09-27 补):圆角按**同名元素**配对,而非按文件内档值集合。
+ *    立项依据是一条实测读数:RD 报的 10 对"圆角跨端不同档",按元素名去查一对都不成立 ——
+ *    `NavBar` 的「仅小程序 4」对面那一侧根本没有圆角声明。照那种读数补数字 = 制造视觉回归,
+ *    所以 RE 必须（a）真接进 audit、（b）有自己的锚点、（c）红能单独归因、
+ *    (d)报名而不判红的那一格不得被顺手接进退出码。下面各锁按 flat() 比归一化文本 ——
+ *    prettier 一折行,字节形匹配就会在一次与正确性无关的重排上假红(T9/T10 的旧教训)。 ── */
+
+test('T18 RE 判据必须真接进 audit():函数在、自检过,而 audit 没调 = 提交链上一路绿灯', () => {
+  const raw = readFileSync(SELF, 'utf8')
+  const from = raw.indexOf('export function audit(')
+  const to = raw.indexOf('export function verdictOf(')
+  assert.ok(from >= 0 && to > from, '找不到 audit 函数体(被改名/搬走 ⇒ 本锁失效,必须同步本测试)')
+  // 先切范围(需要换行做锚点)再归一化 —— 顺序反过来等于拿 flat() 之后的文本去找 `\n`,
+  // 那把锁会对任何正确写法恒假(与本门 T9/T10 撞过的字节形假红同一条教训,只是方向相反)。
+  const a = flat(raw.slice(from, to))
+  for (const need of [
+    'radiusEntriesOf(aAll, radiusTable)',
+    'radiusEntriesOf(bAll, radiusTable)',
+    'elementRadiusDiff(erA.entries, erB.entries)',
+  ])
+    assert.ok(a.includes(need), `audit 体内缺 ${need} ⇒ RE 只是自检里的摆设`)
+  // 三态必须各自落地:红走 mismatched,报名走 onlyMiniapp/onlyRn
+  assert.ok(a.includes('elementRadius.mismatched.length'), 'skip 条件未纳入 RE ⇒ RE 永远进不了 findings')
+})
+
+test('T19 RE 锚点必须第三家独立:写得出(含 0)、读得到、且不与 RD/几何 互相顶名额', () => {
+  const out = src.emitBaseline(
+    [
+      {
+        name: 'A',
+        named: [],
+        geometry: { onlyMiniapp: [], onlyRn: [] },
+        radius: { onlyMiniapp: [], onlyRn: [] },
+        elementRadius: { mismatched: [{ name: 'card', miniapp: [8], rn: [12] }] },
+      },
+      {
+        name: 'B',
+        named: [],
+        geometry: { onlyMiniapp: [], onlyRn: [] },
+        radius: { onlyMiniapp: [], onlyRn: [] },
+        elementRadius: { mismatched: [] },
+      },
+    ],
+    { pairingRejects: { FloatBox: { reason: '同名不同物', until: '2099-01-01' } } },
+  )
+  assert.equal(out.elementRadiusCounts.A, 1, 'RE 差异没进台账 ⇒ 下一次提交把它当新增判红')
+  assert.equal(out.elementRadiusCounts.B, 0, '同档也要留 0 键 ⇒ 否则"没配账"与"已同值"同形')
+  assert.equal(out.radiusCounts.A, 0, 'RE 污染了 RD 锚点 ⇒ 两维互相顶掉')
+  assert.equal(out.counts.A, 0, 'RE 污染了几何锚点')
+  assert.ok(out.pairingRejects?.FloatBox, 'emitBaseline 必须原样带走他人的拆对声明')
+  // 三维各自只减不增:RE 上升而另两维下降 ⇒ 必须仍红(净零逃逸是本锚点分家的全部理由)
+  const f = out && {
+    name: 'A',
+    named: [],
+    geometry: { onlyMiniapp: [], onlyRn: [] },
+    radius: { onlyMiniapp: [], onlyRn: [] },
+    elementRadius: { mismatched: [{ name: 'card', miniapp: [8], rn: [12] }] },
+  }
+  const v = src.verdictOf([f], {
+    counts: { A: 5 },
+    radiusCounts: { A: 4 },
+    elementRadiusCounts: { A: 0 },
+  })
+  assert.equal(v.red.length, 1, '另两维下调就把 RE 的新分叉顶掉 ⇒ 锚点没分家')
+  assert.match(v.red[0].over.join(' '), /同名元素圆角 1 > 锚点 0/)
+})
+
+test('T20 重出台账必须先过单调性闸,且拒绝走 stderr(stdout 只能是 JSON)', () => {
+  assert.deepEqual(
+    src.anchorRegression({ counts: { A: 2 } }, { counts: { A: 3 } }).length,
+    1,
+    '锚点上升必须被点名',
+  )
+  assert.equal(src.anchorRegression({ counts: { A: 2 } }, { counts: {} }).length, 1)
+  assert.equal(src.anchorRegression({ counts: { A: 2 } }, { counts: { A: 1 } }).length, 0)
+  const txt = readFileSync(SELF, 'utf8')
+  const m = txt.match(/if \(argv\.includes\('--emit-baseline'\)\)\s*\{([\s\S]*?)\n  \}/)
+  assert.ok(m, '找不到 --emit-baseline 分支')
+  const body = m[1]
+  assert.ok(/anchorRegression\(baseline, next\)/.test(body), '闸没接进重锚出口 ⇒ 只是散文规矩')
+  assert.ok(/console\.error\(/.test(body) && /return 1/.test(body), '拒绝必须走 stderr 并非零退出')
+  assert.equal(
+    (body.match(/console\.log\(/g) ?? []).length,
+    1,
+    'stdout 只能有那一处 JSON(散文进 stdout 会砸碎 `--emit-baseline > 台账`)',
+  )
+})
+
+test('T21 RE 射程边界必须报名且不得进退出码(覆盖面不是违规,判红就是谁也修不动的恒红门)', () => {
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.match(txt, /本维零判据/, '射程边界不出声 ⇒ "RE 报 0" 会被读成"两端圆角全一致"')
+  assert.match(txt, /无元素名可归的取用/, 'must 连"多少取用无处归属"一起报,否则缺口被藏')
+  assert.match(txt, /RE 对 \$\{res\.radiusUnpaired\?\.length \?\? 0\} 族零判据/)
+  // 反向锁:radiusUnpaired 不得被接进红聚合或退出码求和
+  const iPrint = txt.indexOf('本维零判据')
+  const window = txt.slice(Math.max(0, iPrint - 1500), iPrint + 1200)
+  assert.ok(
+    !/red\.push\([^)]*radiusUnpaired|radiusUnpaired[^|]*\+ res\.red\.length/.test(window),
+    '射程报名不得进红聚合(§12e 同型:恒红门的唯一结局是各会话跳门)',
+  )
+})
+
+test('T22 圆角按元素归属的解析只许一份实现(遮罩/豁免在别处再写一遍必然漂移)', () => {
+  const gate = readFileSync(SELF, 'utf8')
+  assert.match(gate, /import \{ radiusEntriesOf, radiusLookup, radiusSetOf \} from '\.\/lib\/radius-tokens\.mjs'/)
+  assert.ok(
+    !/function radiusEntriesOf|function blockOwnerOf|maskComments/.test(gate),
+    '门内不得再有第二份圆角解析或遮罩实现(与守门 77 各写一遍 = 同一处标记一边认一边判红)',
+  )
+  const lib = readFileSync(resolve(ROOT, 'scripts/lib/radius-tokens.mjs'), 'utf8')
+  assert.equal(
+    (lib.match(/function maskComments\(/g) ?? []).length,
+    1,
+    'lib 内的遮罩只能有一份',
+  )
+})

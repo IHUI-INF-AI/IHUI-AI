@@ -941,7 +941,9 @@ const styles = StyleSheet.create({
   fieldShell: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    borderRadius: rnRadius.xl,
+    // 角色档 control(输入框)→ sm(4):此前写 xl(12),与小程序端同槽输入框的 rounded-2xl(16)
+    // 各拧一档 —— 两端都不是 panel/hero,所以正确解是双双收到 control 档而不是取其一。
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1008,7 +1010,7 @@ const styles = StyleSheet.create({
   sendInShell: {
     width: INPUT_AREA_IN_SHELL_BTN_PX,
     height: INPUT_AREA_IN_SHELL_BTN_PX,
-    borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
+    borderRadius: rnRadius.sm, // 角色档 control(按钮)→ sm;原写「R1 吸附至 lg(8)」只是把裸 10 就近落档,未问过角色
     marginLeft: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1039,7 +1041,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: INPUT_AREA_INPUT_PADDING_X_PX,
     paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
     paddingBottom: 24,
-    borderRadius: rnRadius.xl,
+    // 角色档 control(输入框)→ sm(4)。此前写 xl(12),而小程序端同位输入框写 rounded-2xl(16)
+    // ⇒ 两端都越出了 control 档且互不相同;卡片本体在别处,这一格不是 card/panel/hero。
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1049,7 +1053,8 @@ const styles = StyleSheet.create({
   voiceWaveWrap: {
     minHeight: MIN_INPUT_HEIGHT,
     maxHeight: MAX_INPUT_HEIGHT,
-    borderRadius: rnRadius.xl,
+    // 角色档 control(与 input 同一槽位的语音态)→ sm(4)
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1120,7 +1125,8 @@ const styles = StyleSheet.create({
     minHeight: INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX,
     paddingHorizontal: INPUT_AREA_STACK_GAP_PX,
     paddingVertical: INPUT_AREA_PARAM_FIELD_PADDING_V_PX,
-    borderRadius: rnRadius.lg,
+    // 角色档 control(参数输入框)→ sm(4)
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1129,7 +1135,8 @@ const styles = StyleSheet.create({
   },
   paramAddBtn: {
     minHeight: INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX,
-    borderRadius: rnRadius.lg,
+    // 角色档 control(按钮)→ sm(4),与同排 paramInput 输入框同档
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderStyle: 'dashed',
@@ -1145,7 +1152,9 @@ const styles = StyleSheet.create({
   sendButton: {
     width: 44,
     height: 44,
-    borderRadius: rnRadius.xl,
+    // 角色档 control(按钮)→ sm(4)。44dp 边长的半数是 22,所以本档不是正圆;
+    // 小程序端同位发送钮本就是 rounded-lg/rounded-sm 一族,从未取过 12。
+    borderRadius: rnRadius.sm,
     // 同 sendInShell:主 CTA 实底走 brand.cta,不得取端内自造的 gray[900]
     backgroundColor: tokens.brand.cta, // 图标钮,前景在同一元素的 <Send color={tokens.brand.ctaForeground}/>
     marginLeft: INPUT_AREA_STACK_GAP_PX,
@@ -1198,7 +1207,7 @@ const styles = StyleSheet.create({
     right: INPUT_AREA_CONTROL_RIGHT_PX,
     width: 24,
     height: 24,
-    borderRadius: rnRadius.xl,
+    borderRadius: 24 / 2, // radius-exempt: 折叠态「×」钮几何正圆(24dp 直径/2),不得方档化
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
