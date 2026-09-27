@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   actionBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },
   actionText: {

@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   openBtn: {
     height: 44,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

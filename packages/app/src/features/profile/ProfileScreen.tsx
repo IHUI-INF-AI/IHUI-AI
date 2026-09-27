@@ -214,7 +214,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       height: 50,
       paddingHorizontal: 14,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.error.bg,
       alignItems: 'center',
       justifyContent: 'center',
