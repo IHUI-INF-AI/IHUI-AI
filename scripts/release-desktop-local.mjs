@@ -106,19 +106,54 @@ console.log(`\n=== 产物: ${exeName} (${exeSize}MB) + sig ===`);
   // 这里不取首轮 violations:缺包/缺 sig 已由上方 existsSync 拦住,多包就是下面要删的 stale,
   // 真正有判定意义的是**清理后**那一轮。
   const { keep, stale } = planArtifactInvariant(readdirSync(NSIS_DIR), exeName)
+  const undeletable = []
   for (const f of stale) {
-    rmSync(path.join(NSIS_DIR, f), { force: true })
-    console.log(`🧹 清理旧产物: ${f}`)
+    try {
+      rmSync(path.join(NSIS_DIR, f), { force: true })
+      console.log(`🧹 清理旧产物: ${f}`)
+    } catch (e) {
+      undeletable.push(f)
+      console.warn(
+        `⚠️ 旧产物删不掉(通常是它正被一个运行中的安装器占用):${f} —— ${e?.code ?? e?.message ?? e}`,
+      )
+    }
   }
   const after = planArtifactInvariant(readdirSync(NSIS_DIR), exeName)
-  if (after.violations.length > 0) {
+  // 违规分两类,成因与处置相反,不得合在一起判红:
+  //  ① 缺当前包 / 缺当前签名 ⇒ 本次产物根本没产出 ⇒ 必须失败。
+  //  ② 残留多个 setup 包 ⇒ 只是"装哪一个"的歧义风险;而本脚本下游用的是**由版本号拼出的
+  //     显式路径**(见上方 exeName / exePath,刻意不靠 glob 猜包),歧义不会让它上传错版本。
+  //     若残留项恰好就是刚才删不掉的那些(被进程占用),降级为警告并点名 —— 否则"另一个会话
+  //     开着安装器"这种机器态会把一次**已成功**的构建伪装成整条发版失败:2026-09-27 实测
+  //     即此型,裸 rmSync 抛 EPERM 让脚本崩在本步,后面 Gitee 直传 / 版本提交 / 本机自装
+  //     全部没执行,而账面读起来像"发版没成功"。
+  const missing = after.violations.filter((v) => v.startsWith('缺少'))
+  const residue = after.violations.filter((v) => !v.startsWith('缺少'))
+  if (missing.length > 0) {
     console.error(
-      `ERROR: 单一产物不变量被破坏 —— ${after.violations.join(';')}\n` +
+      `ERROR: 单一产物不变量被破坏 —— ${missing.join(';')}\n` +
         `  目录 ${NSIS_DIR} 现存产物: ${after.keep.join(', ') || '(空)'}`,
     )
     process.exit(1)
   }
-  console.log(`✅ 单一产物不变量成立: ${keep.length} 件(${exeName} + .sig),目录内无其他版本残留`)
+  if (residue.length > 0 && undeletable.length === 0) {
+    // 有残留、又不是"删不掉"造成的 ⇒ 清理逻辑本身有问题,不能放过。
+    console.error(
+      `ERROR: 目录里仍有多个版本的包,而本次并没有"删不掉"的项 —— 清理逻辑自身失效:${residue.join(';')}`,
+    )
+    process.exit(1)
+  }
+  if (residue.length > 0) {
+    console.warn(
+      `⚠️ 不变量未完全成立但已放行:残留 ${undeletable.join(', ')} 正被其他进程占用。` +
+        ` 下游按显式路径取 ${exeName},不受歧义影响;关掉那个安装器后请手工清一次目录。`,
+    )
+  }
+  console.log(
+    residue.length > 0
+      ? `✅ 本次产物齐备:${exeName} + .sig(另有 ${undeletable.length} 个旧包因被占用而残留)`
+      : `✅ 单一产物不变量成立: ${keep.length} 件(${exeName} + .sig),目录内无其他版本残留`,
+  )
 }
 
 // ── 3. Gitee 直传(python 实现:undici multipart 对 Gitee 报 401,urllib 实证可行)──
