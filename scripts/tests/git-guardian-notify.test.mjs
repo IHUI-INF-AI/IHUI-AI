@@ -19,6 +19,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as N } from '../git-guardian.mjs'
@@ -283,13 +285,82 @@ test(
     )
     // ② 结论行必须真把原因插进去(只捕获不打印 = 与丢弃等价)
     assert.match(body, /未判定[^`]*\$\{why/, '日志行必须插入 why,不得写死一句定文案')
-    // ③ 派生失败与"输出不是 JSON"要分开归因(否则下次仍要人猜是哪一段坏了)
-    assert.match(body, /探针派生失败/, '要有"派生失败"这一归因分支')
-    assert.match(body, /输出不是 JSON/, '要有"输出不是 JSON"这一归因分支')
+    // ③ 派生失败与"输出不是 JSON"要分开归因(否则下次仍要人猜是哪一段坏了)。
+    //    2026-09-27 起归因搬进 readProbeVerdict(见下方 V 组),本段只锁"调用点确实委托给它"
+    //    与"函数里两型各有一条出口"—— 委托掉不算丢,写死在调用点也不算多。
+    assert.match(body, /readProbeVerdict\(\s*\{\s*status,\s*stdout,\s*stderr\s*\}\s*\)/, '结论判读必须走那把纯函数,不得在调用点各写一遍')
+    assert.doesNotMatch(body, /探针派生失败/, '调用点不得再自带归因文案(有第二份真相 = 必漂移)')
+    //    注意:funcBody() 取的是"名字后第一个 {"，对带解构形参的函数会正好截到形参那对
+    //    花括号(本例第一版就是这么红的)，所以这里改用与 body 同法的行首 `\n}` 切片。
+    const vStart = src.indexOf('export function readProbeVerdict(')
+    assert.ok(vStart > 0, '找不到 readProbeVerdict 段')
+    const vsrc = src.slice(vStart, src.indexOf('\n}\n', vStart) + 1)
+    assert.ok(vsrc.length > 300, `readProbeVerdict 取面过短(${vsrc.length}) ⇒ 切片判据失效,不得当作通过`)
+    assert.match(vsrc, /探针未产出 stdout/, '要有"探针没跑起来"这一归因分支')
+    assert.match(vsrc, /输出不是 JSON/, '要有"输出不是 JSON"这一归因分支')
     // ④ 继承既有的遮噪/护栏,不得在补诊断时顺手丢掉
     assert.match(body, /windowsHide:\s*true/, '漏 windowsHide ⇒ 守护下必弹控制台窗(§5b)')
     assert.match(body, /timeout:\s*240000/, '热路径派生必须封顶(守门 80 同族)')
   },
 )
+
+// ── 探针"退出码 1 但结论在 stdout"必须被采用(2026-09-27 值守补) ──────────
+// 立因:轴①②判红时探针 exit(1),而整份结论在 stdout 的 JSON 里。旧实现只走成功分支 ⇒
+// execFileSync 抛异常 ⇒ stdout 整块丢弃 ⇒ 日志写"账不可用:未判定"。实测现读:便宜档
+// rc=1、stdout 1530 B 合法 JSON、upstream=red/behind=3 —— 守护每逢它报出最响的一条结论
+// 就把那条结论扔掉,而"本地落后主线"恰是值守最该先看的一维。
+const VERDICT_JSON = JSON.stringify({ code: 1, axes: { upstream: { status: 'red', behind: 3 } } })
+
+test('V1b 真判据:同一份 JSON 在 rc=1 下必须解析出 axes', () => {
+  const r = N.readProbeVerdict({ status: 1, stdout: VERDICT_JSON, stderr: '' })
+  assert.ok(r.parsed, 'rc=1 + 合法 JSON 必须采用结论,why 应为空')
+  assert.equal(r.why, null, '采用结论时不得再带"未判定"原因')
+  assert.equal(r.parsed.axes.upstream.behind, 3)
+})
+test('V2 stdout 为空 ⇒ 未判定且点名 rc/stderr(不得静默)', () => {
+  const r = N.readProbeVerdict({ status: 1, stdout: '', stderr: 'boom' })
+  assert.equal(r.parsed, null)
+  assert.match(r.why, /探针未产出 stdout/)
+  assert.match(r.why, /rc=1/)
+  assert.match(r.why, /boom/, 'stderr 必须进原因,否则又是一条无人能答为什么的未判定')
+})
+test('V3 spawn 失败(status 取不到)⇒ 未判定,rc 位置写 ?', () => {
+  const r = N.readProbeVerdict({ status: null, stdout: '', stderr: '' })
+  assert.equal(r.parsed, null)
+  assert.match(r.why, /rc=\?/)
+  assert.match(r.why, /stderr=\(空\)/, '空 stderr 要如实写成(空),不得留白让人以为被截断')
+})
+test('V4 stdout 有内容但不是 JSON ⇒ 归因为"输出不是 JSON",与 V2 分开', () => {
+  const r = N.readProbeVerdict({ status: 0, stdout: 'not json at all', stderr: '' })
+  assert.equal(r.parsed, null)
+  assert.match(r.why, /输出不是 JSON/)
+})
+test('V5 顶层是数组也不算结论(旧实现会把 [..] 当 parsed 用而 axes 全 undefined)', () => {
+  const r = N.readProbeVerdict({ status: 0, stdout: '[1,2,3]', stderr: '' })
+  assert.equal(r.parsed, null)
+  assert.match(r.why, /顶层不是对象/)
+})
+test('V6 真探针端到面:把现读那把 rc=1 的 stdout 喂给判读器,必须拿回"落后 N"', () => {
+  // 阳性对照 —— 判据失效的表现永远是安静,所以这里不吃构造面,直接派生真探针。
+  // 它可能此刻是绿的(落后 0),因此只断言"parsed 非空 + axes 形状齐",不断言 red。
+  const out = spawnSync(
+    process.execPath,
+    [
+      fileURLToPath(new URL('../check-baseline-freshness.mjs', import.meta.url)),
+      '--json',
+      '--no-fetch',
+      '--skip-drift-analysis',
+    ],
+    {
+      encoding: 'utf8',
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      windowsHide: true,
+      timeout: 240000,
+    },
+  )
+  const r = N.readProbeVerdict({ status: out.status, stdout: out.stdout, stderr: out.stderr })
+  assert.ok(r.parsed, `真探针 rc=${out.status} 的结论被丢了:${r.why}`)
+  assert.ok(r.parsed.axes && typeof r.parsed.axes === 'object', 'axes 必须在位')
+})
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
