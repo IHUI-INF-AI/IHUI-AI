@@ -7,6 +7,16 @@
 // detached worker / 计划任务)派生 git、cmd、pnpm 等控制台程序时,Windows 必新分配可见控制台
 // → 用户桌面闪黑窗。本守门把"必须显式写 windowsHide"变成机制,而不是靠人记。
 //
+// 第二条判据 N1(2026-09-27 立,与 windowsHide 正交):`taskkill /IM <裸文件名>` 一律拦。
+//   立因不是风格问题而是真实用户事故:`scripts/desktop-dev-saas.mjs` 曾以
+//   `spawnSync('taskkill', ['/IM', 'ihui-desktop.exe', '/F'], { windowsHide: true })` "先停旧实例",
+//   而 `/IM` 只接受文件名、不接受路径 ⇒ 任何人跑一次桌面端开发脚本,就会把用户**已安装**的
+//   `D:\智汇AI\ihui-desktop.exe`(不同目录、同一镜像名)一起杀掉,用户侧表现即"程序自己崩了"
+//   (实测当天该应用被重启 18 次,Windows 事件日志无任何原生崩溃记录)。
+//   本门此前对这一型**完全失明**:那条调用带着 windowsHide,旧判序在 windowsHide 处就短路了。
+//   所以 N1 判序必须排在短路之前,且各有一条"带 windowsHide 仍被抓"的自检用例钉住。
+//   已知边界:程序名写成变量时判不出,一律放过(宁漏不误报)。
+//
 // 取材口径(2026-09-26 迁到 scripts/lib/face-reader.mjs,与 70/77/83/98/101/113 同形):
 //   缺省(全量)判 **HEAD blob**;`--staged` 判**索引 blob**;`--worktree` 只是人工排查逃生舱;
 //   两面旗同给 ⇒ exit 2;判据取不到输入 ⇒ exit 2「无法判定」(既不冒红也绝不记绿)。
@@ -244,12 +254,49 @@ export function exeCandidates(raw) {
   return out.filter(Boolean)
 }
 
+/** 首参的**命令字面量**本体:引号/反引号包着的串剥引号,`${}` 插值抹成 `x`。
+ *  非字面量(变量、拼接)返回 null —— 判不出就不猜。
+ *  ⚠ 这是「这条调用到底在跑什么程序」的**唯一**取法;下面 `isConsoleTarget` 与
+ *  `callProgramName` 共用它。两处各写一份剥引号规则必然漂移(本仓记过最多次的失效型)。 */
+export function unwrapCommandLiteral(argText) {
+  if (!argText) return null
+  const lit = argText.match(/^(?:(['"])((?:[^\\]|\\.)*?)\1|`([^`]*)`)$/)
+  if (!lit) return null
+  return (lit[2] ?? lit[3] ?? '').replace(/\$\{[^}]*\}/g, 'x').trim()
+}
+
+/** 这条调用实际派生的可执行文件名(小写、去路径去扩展名);取不到返回 ''。 */
+export function callProgramName(argText) {
+  const raw = unwrapCommandLiteral(argText)
+  if (!raw) return ''
+  return exeName(raw.split(/\s+/)[0] ?? '')
+}
+
+/** `/IM` 这个开关本身:前面是行首/空白/引号/方括号,后面紧跟空白/引号/逗号/方括号。
+ *  两侧都收口才计数 —— 否则 `C:/images/x`、`'/IMX'` 这类会被读成命中。 */
+const NAME_KILL_FLAG_RE = /(?:^|[\s,'"[])\/im(?=[\s,'"\]])/i
+
+/** N1 判据:**按镜像名杀进程**(`taskkill /IM xxx.exe`)。参数看整段实参、程序名看首参 ——
+ *  反过来(拿首参串去找 `/IM`)会一条都判不到:`/IM` 永远在**第二个**实参里。
+ *  它与"会不会弹窗"无关,所以必须排在 windowsHide 那条短路**之前**判 ——
+ *  本仓那处真实站点(`scripts/desktop-dev-saas.mjs` 曾写 `spawnSync('taskkill', ['/IM', EXE, '/F'], { windowsHide: true })`)
+ *  恰恰带着 windowsHide,按旧顺序整型隐身。
+ *  为什么这一型必须拦:`/IM` 的参数**只能是裸文件名**,不接受路径,所以它杀的是
+ *  全机同名进程 —— 开发脚本用它会连带杀掉用户已安装的那一份(不同目录、同名),
+ *  用户侧表现即"程序自己崩了"。正确写法是先按 `ExecutablePath` 前缀筛出 pid,再 `/PID <pid>`。
+ *  已知边界(如实登记,不假装覆盖):程序名写成变量(`spawnSync(KILL_BIN, ['/IM', …])`)时判不出,
+ *  一律放过 —— 宁漏不误报,与本门既有取向一致。 */
+export function isNameBasedKillCall(inner) {
+  if (!inner) return false
+  if (!NAME_KILL_FLAG_RE.test(inner)) return false
+  return callProgramName(firstArg(inner)) === 'taskkill'
+}
+
 /** 首参是否明确指向会新分配控制台的程序。 */
 export function isConsoleTarget(argText) {
   if (!argText) return false
-  const lit = argText.match(/^(?:(['"])((?:[^\\]|\\.)*?)\1|`([^`]*)`)$/)
-  if (lit) {
-    const raw = (lit[2] ?? lit[3] ?? '').replace(/\$\{[^}]*\}/g, 'x').trim()
+  const raw = unwrapCommandLiteral(argText)
+  if (raw !== null) {
     if (!raw) return false
     const firstToken = raw.split(/\s+/)[0] ?? ''
     return (
@@ -275,6 +322,26 @@ export function scanSource(src, file) {
     if (inert[m.index]) continue // 字符串/模板字面量文本内的夹具:不是派生点(见 maskInert)
     const end = scanCallEnd(src, openParen)
     const callText = src.slice(m.index, end)
+    const inner = callText.slice(openParen - m.index + 1, -1)
+    const line = src.slice(0, m.index).split('\n').length
+    // N1 按镜像名杀进程 —— 排在 windowsHide 短路之前(理由见 isNameBasedKillCall 注释)。
+    // 同一处调用只报一条:一处 `/IM` 即使同时漏着 windowsHide,修复动作也是"改成按路径筛 pid",
+    // 报两条只会让计数虚高并让人怀疑是不是判据重复。
+    if (isNameBasedKillCall(inner)) {
+      violations.push({
+        file,
+        line,
+        fn: m[1],
+        kind: 'name-kill',
+        snippet: callText.replace(/\s+/g, ' ').slice(0, 100),
+      })
+      if (/\bwindowsHide\b/.test(callText)) {
+        FN_RE.lastIndex = m.index + m[0].length // 已声明隐藏窗口 → 继续扫内层
+        continue
+      }
+      FN_RE.lastIndex = end
+      continue
+    }
     if (/\bwindowsHide\b/.test(callText)) {
       // 外层已声明:不跳过整段,让内层嵌套调用继续被扫描(否则会漏报)
       FN_RE.lastIndex = m.index + m[0].length
@@ -282,12 +349,12 @@ export function scanSource(src, file) {
     }
     // 外层违规:整段按一处上报,避免同一行嵌套重复计数制造噪音
     FN_RE.lastIndex = end
-    const inner = callText.slice(openParen - m.index + 1, -1)
     if (!isConsoleTarget(firstArg(inner))) continue
     violations.push({
       file,
-      line: src.slice(0, m.index).split('\n').length,
+      line,
       fn: m[1],
+      kind: 'visible-spawn',
       snippet: callText.replace(/\s+/g, ' ').slice(0, 100),
     })
   }
@@ -420,6 +487,42 @@ function selfTest() {
     { name: '派生 .bat 脚本(必开控制台)→ 违规', src: `spawnSync('scripts/build.bat', ['-Release'])`, want: 1 },
     { name: '派生 .bat 已带 windowsHide → 通过', src: `spawnSync('scripts/build.bat', ['-Release'], { windowsHide: true })`, want: 0 },
     { name: '.bat 只出现在参数里 → 不误判(宁漏不误报)', src: `spawnSync(helper, ['build.bat'])\nspawnSync('notepad', ['notes.txt'])`, want: 0 },
+    // --- N1(2026-09-27 立):按镜像名杀进程。与 windowsHide 正交 ⇒ 必须"带着 windowsHide 仍被抓"这一条 ---
+    {
+      name: 'N1 taskkill /IM 带 windowsHide → 仍违规(本仓真实站点形态;按旧短路顺序会整型隐身)',
+      src: `spawnSync('taskkill', ['/IM', DESKTOP_EXE, '/F'], { stdio: 'ignore', windowsHide: true })`,
+      want: 1,
+    },
+    {
+      name: 'N1 taskkill /IM 不带 windowsHide → 只报一处(同一调用不重复计两条)',
+      src: `spawnSync('taskkill', ['/IM', 'x.exe', '/F'])`,
+      want: 1,
+    },
+    {
+      name: 'N1 字符串形态 execSync("taskkill /IM node.exe /F") → 违规',
+      src: `execSync('taskkill /IM node.exe /F', { encoding: 'utf8' })`,
+      want: 1,
+    },
+    {
+      name: 'N1 正解对照:按 pid 杀 + windowsHide → 通过(改法本身不得被判红)',
+      src: `spawnSync('taskkill', ['/PID', pid, '/F'], { stdio: 'ignore', windowsHide: true })`,
+      want: 0,
+    },
+    {
+      name: 'N1 反向对照:别的程序带 /im 字样不误判(程序名必须是 taskkill)',
+      src: `spawnSync('git', ['commit', '-m', 'do not use /im here'], { windowsHide: true })`,
+      want: 0,
+    },
+    {
+      name: 'N1 反向对照:路径里的 /im 不误判(两侧收口)',
+      src: `spawnSync('node', ['build', '/images/a.png'], { windowsHide: true })`,
+      want: 0,
+    },
+    {
+      name: 'N1 已知边界:程序名写成变量 ⇒ 判不出,放过(宁漏不误报,已写进函数注释)',
+      src: `spawnSync(KILL_BIN, ['/IM', name, '/F'], { windowsHide: true })`,
+      want: 0,
+    },
     // --- 盲区 2:未跟踪文件纳入扫描(判据在 listCandidates,详见 tests 镜像用例) ---
   ]
   // ihui:selftest-samples:end
@@ -520,11 +623,21 @@ async function main() {
     const found = scanSource(texts.get(f), f)
     if (found.length) (TEST_PATH.test(f) ? test : prod).push(...found)
   }
-  if (prod.length) {
-    console.log(`❌ [check-no-visible-spawn ${mode}] 生产代码 ${prod.length} 处「派生控制台程序但漏 windowsHide」:`)
-    for (const v of prod.slice(0, 40)) console.log(`   ${v.file}:${v.line}  ${v.snippet}`)
-    if (prod.length > 40) console.log(`   ... 其余 ${prod.length - 40} 处`)
-    console.log('   修复:在该调用 options 里加 `windowsHide: true`(无 options 则补 `{ windowsHide: true }`)。')
+  const HINTS = {
+    'visible-spawn': '   修复:在该调用 options 里加 `windowsHide: true`(无 options 则补 `{ windowsHide: true }`)。',
+    'name-kill':
+      '   修复:不要用 `taskkill /IM <名字>`(它只接受裸文件名 ⇒ 杀全机同名进程,含用户已安装的那一份)。\n' +
+      '   正确写法:先用 `Get-CimInstance Win32_Process` 拿 `ExecutablePath`,按**本仓 target 目录前缀**筛出 pid,\n' +
+      '   再 `taskkill /PID <pid> /F`;筛不出 pid 或问不到路径时**一个都不杀**并大声报原因。',
+  }
+  for (const kind of ['visible-spawn', 'name-kill']) {
+    const group = prod.filter((v) => (v.kind ?? 'visible-spawn') === kind)
+    if (!group.length) continue
+    const label = kind === 'name-kill' ? '按镜像名杀进程(taskkill /IM)' : '派生控制台程序但漏 windowsHide'
+    console.log(`❌ [check-no-visible-spawn ${mode}] 生产代码 ${group.length} 处「${label}」:`)
+    for (const v of group.slice(0, 40)) console.log(`   ${v.file}:${v.line}  ${v.snippet}`)
+    if (group.length > 40) console.log(`   ... 其余 ${group.length - 40} 处`)
+    console.log(HINTS[kind])
   }
   if (test.length) {
     console.log(
@@ -551,6 +664,9 @@ export const __test__ = {
   isBatchToken,
   exeCandidates,
   passesFilter,
+  unwrapCommandLiteral,
+  callProgramName,
+  isNameBasedKillCall,
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href
