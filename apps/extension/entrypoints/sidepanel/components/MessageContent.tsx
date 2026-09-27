@@ -274,7 +274,7 @@ const METRIC_UNIT_KEY: Record<ToolMetricKind, string> = {
  * tabular-nums 保证多位数字等宽不抖。
  */
 const BADGE_CLASS =
-  'inline-flex h-4 shrink-0 items-center justify-center rounded px-1 text-[10px] font-semibold leading-none tabular-nums'
+  'inline-flex h-4 shrink-0 items-center justify-center rounded-md px-1 text-[10px] font-semibold leading-none tabular-nums'
 
 /** 工具状态图标:running 转圈 / success 对勾 / error 叉 / 其余(取消、待执行)虚线圆 */
 function toolStatusIcon(block: ToolRenderBlock): ComponentType<{ className?: string }> {
@@ -774,7 +774,9 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
           data-testid="steer-notice"
           className="mt-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground"
         >
-          <div className="font-medium">{t('chat.steerNoticeTitle', { count: message.steerNotices.length })}</div>
+          <div className="font-medium">
+            {t('chat.steerNoticeTitle', { count: message.steerNotices.length })}
+          </div>
           <ul className="mt-0.5 list-disc pl-4">
             {message.steerNotices.map((s, i) => (
               <li key={`${s.timestamp ?? 'steer'}_${i}`} className="truncate">
