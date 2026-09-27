@@ -55,6 +55,13 @@
  *   R6 只报数 :同一 skipEnv 挂两个以上条目(本仓 id 2/2n-web 是刻意共用,故不判红)。
  *   R7 blocking:台账 type=dispatcher 的"依据"文件不存在、或文件里没提被豁免脚本 =
  *              假依据(实测抓到 check-lock.mjs 一条编造的 dispatcher 说明)。
+ *   R9 blocking:注册表点名要跑的 `script:` 文件**不在这张面上** ⇒ runner 去 `node scripts/<它>`
+ *              必 MODULE_NOT_FOUND ⇒ 该门恒红 ⇒ **每一次提交被逼 --no-verify、链上全部守门作废**。
+ *              立因是同一型第二次实录(2026-09-27 门 148:脚本在 HEAD 与远端都在,而索引与磁盘
+ *              都没有 —— 外部清理删文件后被一次 `git add -A` 记成暂存删除)。R1/R2/R4 结构上
+ *              看不见这一格:它们的候选集按"脚本在不在被审面"枚举,脚本不在就连候选都不生成。
+ *              注册面与存在性面**必须同面同轮**(--staged 读索引 ⇒ 存在性也读索引),否则并发
+ *              推进的瞬间会产出一把自洽却基准错位的尺子;注册表解析到 0 条 ⇒ 判"尺子失效"而非通过。
  *   ⚠ 收紧判据只能**更准**,不得为消红整体关掉 R1/R2;每一次收紧必须配「这种提法不得判红」
  *     的负向用例**与**「那种提法必须判红」的阳性用例(双向),见 --self-test P15-P20 与 M7、M8。
  *
@@ -707,6 +714,78 @@ export function findSharedSkipEnvs(runnerText) {
 }
 
 /**
+ * R9:注册表里点名要跑的**门体文件必须真在被审面上存在**(2026-09-27 立,同一型第二次实录)。
+ *
+ * 起因不是假想:2026-09-27 06:4x 这台机上门 148 的 `scripts/check-auth-handler-registration-parity.mjs`
+ * 在 HEAD 与远端都在,而**索引与磁盘都没有**(外部清理层删文件后被一次 `git add -A` 记成暂存删除)。
+ * runner 照样 `node scripts/<它>` ⇒ MODULE_NOT_FOUND ⇒ 该门必红 ⇒ **每一次提交被逼 --no-verify,
+ * 链上全部守门作废**。而本门(R1/R2/R4)看不见这一格:它们的候选集是按"脚本在不在被审面"枚举出来的,
+ * 脚本不在就连候选都不生成 —— 判据的存在理由(找撒谎的)恰好漏掉"注册了却没人能跑"这一型。
+ * AGENTS 里这条已经记过一次(README 表格门当夜踩过),所以它不是"再来一条判据",而是
+ * **同一格第二次靠人记住**才没出事 —— 该由机器说的话不该写在散文里。
+ *
+ * 口径与 R8 严格同面同文(注册表自身就是被审对象:--staged 读索引 ⇒ 存在性也读索引),
+ * 因为"同一枚提交里既补注册块又补脚本"是正确姿势;若注册读索引而存在性读 HEAD,并发会话
+ * 推进的那一瞬间会产出一把自洽却基准错位的尺子。
+ * 值不是字面量(变量/模板串)⇒ 计入「判不出」如实报出,不猜也不静默算通过。
+ */
+export function findAbsentGateScripts(runnerText, hasPath) {
+  const src = String(runnerText || '')
+  // id 两种形态都要认:真仓 runner 全用引号 id,而夹具/旧条目有裸数字 id。只认引号会让
+  // registered 数在合法注册表上算成 0,把"尺子失效"的红泼在正常仓库上(首版就是这么被自检
+  // 的 E2/M3/M9 五组夹具当场抓住的 —— 假阳比漏报更贵:它指使人去"修"没坏的东西)。
+  const starts = [...src.matchAll(/\bid:\s*(?:'([^']+)'|"([^"]+)"|(\d+))/g)]
+  const absent = []
+  const undetermined = []
+  let checked = 0
+  let noScript = 0
+  starts.forEach((m, i) => {
+    const id = m[1] ?? m[2] ?? m[3]
+    const body = src.slice(m.index, i + 1 < starts.length ? starts[i + 1].index : src.length)
+    const lines = body.split('\n')
+    for (let k = 0; k < lines.length; k++) {
+      if (/^\s*(?:\/\/|\*|\/\*)/.test(lines[k])) continue
+      // 第一条行可能 `id` 与 `script` 同行(单行条目形态),但**必须在属性位置** —— 前缀只允许
+      // 行首 / `{` / `,`。写成 `/\bscript:/` 会被 `label: 'a script: 说明'` 这种文案抢走,
+      // 于是真注册行再也扫不到:**判据被文案遮蔽 = 假绿**,比误红更贵。
+      const decl =
+        k === 0
+          ? lines[k].match(/(?:^|[,{])\s*script:\s*(.*)$/)
+          : lines[k].match(/^\s*script:\s*(.*)$/)
+      if (!decl) continue
+      // 值取"开头的一个引号串"(后面可能跟 `,` `}` `),` 等条目标点 —— 单行条目形态必须能读出来)
+      const asStr = decl[1].trim()
+      const q = asStr.match(/^'([^']*)'/) || asStr.match(/^"([^"]*)"/)
+      if (!q) {
+        // 只对"像变量/模板串"的值记一笔判不出;其余(文案、嵌套对象)不当注册行,继续扫本条目
+        if (/^[A-Za-z_$`]/.test(asStr) && !asStr.includes(' ')) undetermined.push({ id, value: asStr.slice(0, 60) })
+        else continue
+        return
+      }
+      const name = q[1]
+      if (!name) {
+        absent.push({ id, script: '(空)', why: 'script 值是空串 ⇒ runner 会去跑裸 `scripts/`' })
+        return
+      }
+      // 只把"看着像脚本文件"的值当门体注册:`label: '…script: 说明…'` 这类文案不该判红,
+      // 而真的门体名一定带扩展名。判不出的宁可落「判不出」报数,也不凭形状猜。
+      if (!/\.(?:mjs|cjs|js|ts)$/.test(name)) {
+        undetermined.push({ id, value: name })
+        return
+      }
+      checked += 1
+      // 与 runner 同一套解析:`node scripts/${check.script}`(实测 guardian-runner.mjs:4150)
+      const rel = `scripts/${name}`
+      if (!hasPath(rel)) absent.push({ id, script: name, why: `${rel} 不在被审面上` })
+      return
+    }
+    // 走到这里 = 该条目没有 script: 行(非门体脚本类条目),不计红也不计入 checked
+    noScript += 1
+  })
+  return { absent, undetermined, checked, registered: starts.length, noScript }
+}
+
+/**
  * 纯函数(R7,判红):台账里 `dispatcher` 类型条目的**依据必须可核验**。
  *
  * 为什么要判红:台账是本门唯一的豁免出口,而"豁免依据"是一句人写的自然语言。依据一旦可以是编的,
@@ -1094,6 +1173,35 @@ async function main(argv = process.argv.slice(2)) {
       })),
     )
   }
+  // R9(同一注册面):点名要跑的门体文件必须真在这张面上。见函数头注的第二次实录。
+  const facePaths =
+    r8Face === '索引'
+      ? new Set(
+          git(['ls-files'], root)
+            .split('\n')
+            .map((l) => l.trim()),
+        )
+      : tracked
+  const r9 = findAbsentGateScripts(r8Text, (p) => facePaths.has(p))
+  // 注册表解析到 0 条 = 尺子失效(面取错/格式漂了),不得把"0 枚缺席"当通过。
+  // 这一条是本仓最高频失效型的通用要求:"扫到 0"必须先怀疑判据。
+  if (r9.registered === 0) {
+    reds.push({
+      script: `(runner ${RUNNER_REL} @${r8Face})`,
+      status: 'red-r9',
+      reason:
+        '注册表里一条 `id:` 都没解析到 ⇒ R9 无对象可判;要么取材面错,要么 runner 注册格式漂了(判据失明不是通过)',
+    })
+  }
+  for (const a of r9.absent) {
+    reds.push({
+      script: `(runner id '${a.id}' → scripts/${a.script})`,
+      status: 'red-r9',
+      reason:
+        a.why ||
+        `注册表点名要跑它,但它不在${r8Face}面上 ⇒ runner 会 MODULE_NOT_FOUND、该门恒红、每次提交被逼 --no-verify(链上全部守门作废)`,
+    })
+  }
   // R4 反向差集:已接线但文档通篇没点名 ⇒ 文档看不见的门会被重复造或被绕过。
   // 文档面口径 = HEAD∪索引(同 R2,见「取材铁律」例外):AGENTS.md 直接复用上面已读的并集文本,
   // 不再单独 HEAD-only 读一次;README.md 同口径。实际用的口径由 docReader.modes() 如实报出。
@@ -1177,6 +1285,12 @@ async function main(argv = process.argv.slice(2)) {
     )
     console.log(
       `   R7(台账 dispatcher 依据不可核验,判红): ${dispatcherProblems.length ? `${dispatcherProblems.length} 条` : '0 条'}`,
+      `   R9(注册点名要跑的门体不在面上,判红;取材=${r8Face}): ${
+        r9.absent.length ? r9.absent.map((a) => `${a.id}=scripts/${a.script}`).join(' / ') : '0 枚'
+      }` +
+        ` —— 核了 ${r9.checked}/${r9.registered} 条注册` +
+        (r9.undetermined.length ? `;判不出 ${r9.undetermined.length} 条(值非字面量,不猜)` : '') +
+        (r9.noScript ? `;无 script 字段 ${r9.noScript} 条(非门体条目)` : ''),
     )
     for (const p of dispatcherProblems) console.log(`     ✗ ${p.script} —— ${p.why}`)
     console.log(
@@ -1219,7 +1333,7 @@ async function main(argv = process.argv.slice(2)) {
   if (reds.length > 0) {
     if (!opts.json) {
       console.error(
-        `\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据 · R8 注册形态非法)—— 禁止为消红塞台账:`,
+        `\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据 · R8 注册形态非法 · R9 注册的门体不在面上)—— 禁止为消红塞台账:`,
       )
       for (const r of reds)
         console.error(
@@ -1240,6 +1354,12 @@ async function main(argv = process.argv.slice(2)) {
       )
       console.error('         R5 → 后来者改用空闲编号。')
       console.error('         R8 → stagedTriggers 必须是字符串数组(裸字符串会中止整批门,空数组则该门恒不跑)。')
+      console.error(
+        '         R9 → 把门体文件补进同一枚提交(`git add scripts/<名>`),或删掉这条注册;两条都是**注册与脚本必须同枚入库**。',
+      )
+      console.error(
+        '              若文件在 HEAD 里而只是索引/磁盘被清掉(旁路孤儿),走 `node scripts/heal-worktree-tracked.mjs --align-drift` 对齐,不得手工从别处抄。',
+      )
       console.error('         紧急跳过 HUSKY_SKIP_GATE_WIRING=1')
     }
     return 1
@@ -1583,6 +1703,55 @@ function runSelfTest() {
       reg('93', '// 不声明 stagedTriggers:R3 判的是"这次提交会带走的悬空引用",可能出现在任何端内文件') +
         reg('100', '// 不设 stagedTriggers:前缀语义表达不出"任意 */package.json",而漏挂等于没有这道门'),
     ) === '',
+  )
+  // ── R9(注册的门体必须真在面上)四例成对 ──
+  const hasA = (p) => p === 'scripts/a.mjs'
+  const regS = (id, scriptLine) => `\n  {\n    id: '${id}',\n    ${scriptLine}`
+  assert(
+    'P35 R9 正向:注册点名 scripts/ghost.mjs 而面上没有 ⇒ 必判红并点名 id 与路径(本仓 2026-09-27 门 148 那一型)',
+    JSON.stringify(findAbsentGateScripts(regS('148', "script: 'ghost.mjs',"), hasA).absent) ===
+      '[{"id":"148","script":"ghost.mjs","why":"scripts/ghost.mjs 不在被审面上"}]',
+  )
+  assert(
+    'P36 R9 负向:面上有 ⇒ 不判红,且 checked 计到这一条(不得把"没解析到"当"都好了")',
+    findAbsentGateScripts(regS('148', "script: 'a.mjs',"), hasA).absent.length === 0 &&
+      findAbsentGateScripts(regS('148', "script: 'a.mjs',"), hasA).checked === 1,
+  )
+  assert(
+    'P37 R9 值不是字面量 ⇒ 计入「判不出」不判红;空串 script ⇒ 判红(runner 会去跑裸 `scripts/`)',
+    findAbsentGateScripts(regS('24', 'script: GATE_FILE,'), hasA).absent.length === 0 &&
+      findAbsentGateScripts(regS('24', 'script: GATE_FILE,'), hasA).undetermined.length === 1 &&
+      findAbsentGateScripts(regS('25', "script: '',"), hasA).absent.length === 1,
+  )
+  assert(
+    'P38 R9 条目边界与形状:注释里的 script: 行不算注册(落 noScript);单行条目(id 与 script 同行)必须认;错配只点本门的名',
+    findAbsentGateScripts(
+      regS('70', "// script: 由本门自行推导,不在此声明") + regS('71', "script: 'a.mjs',"),
+      hasA,
+    ).absent.length === 0 &&
+      findAbsentGateScripts(regS('70', "// script: 由本门自行推导,不在此声明"), hasA).noScript === 1 &&
+      // 真仓 runner 现行形态就是单行 `{ id: 1, script: 'x.mjs' }`(夹具同形)⇒ 必须认得
+      findAbsentGateScripts("\n  { id: 7, script: 'ghost.mjs' },\n", hasA).absent.length === 1 &&
+      JSON.stringify(
+        findAbsentGateScripts(regS('70', "script: 'a.mjs',") + regS('71', "script: 'b.mjs',"), hasA)
+          .absent,
+      ) === '[{"id":"71","script":"b.mjs","why":"scripts/b.mjs 不在被审面上"}]',
+  )
+  assert(
+    'P40 R9 label 里的 "script: 文案" 不得抢走真注册(被文案遮蔽=假绿,比误红贵);非文件名的值落「判不出」不判红',
+    findAbsentGateScripts(regS('77', 'label: \'a script: 说明\',\n    script: \'a.mjs\','), hasA)
+      .absent.length === 0 &&
+      findAbsentGateScripts(regS('77', 'label: \'a script: 说明\',\n    script: \'a.mjs\','), hasA)
+        .checked === 1 &&
+      // 同一个"被文案污染"的条目,把真注册换成不存在的文件必须仍然点名(证明没被静默跳过)
+      findAbsentGateScripts(regS('77', 'label: \'a script: 说明\',\n    script: \'ghost.mjs\','), hasA)
+        .absent.length === 1 &&
+      findAbsentGateScripts(regS('77', "script: 'not-a-file',"), hasA).undetermined.length === 1,
+  )
+  assert(
+    'P39 R9 空注册表 ⇒ registered=0 且 absent=0 —— 由 main 判"尺子失效"而非报绿(本条锁住的是这个读数形状)',
+    findAbsentGateScripts('const GATES = []\n', hasA).registered === 0 &&
+      findAbsentGateScripts('const GATES = []\n', hasA).absent.length === 0,
   )
   assert(
     'P24 R5 负向 + R6 语义:编号唯一不得报红;共用 skipEnv 只计数不判红',
@@ -2086,6 +2255,7 @@ export const __test__ = {
   dispatcherToken,
   // R8:红条件委托给 lib,镜像测试要能直接拿到这三个出口构造正反例(§22c)
   findMalformedTriggers,
+  findAbsentGateScripts,
   parseTriggersLiteral,
   normalizeTriggers,
 }
