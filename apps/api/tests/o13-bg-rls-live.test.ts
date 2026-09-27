@@ -29,7 +29,9 @@
  *    停掉删掉 ⇒ 前一趟报"迁移重放 218 失败"这种假缺陷(单跑 43.8s 通过,台账已定性为
  *    临时簇争用)。修法不是换随机目录(落点白名单是 live-check 焊死的),而是给整个集群
  *    生命周期上锁:起跑前取锁、收尾后放锁;判据复用 scripts/lib/home-heal-lock.mjs 的
- *    唯一实现(死 PID / 超 TTL / 内容坏 ⇒ 接管,锁绝不把测试永久冻死)。
+ *    唯一实现,取向照抄 scripts/git-guardian.mjs 的单实例锁先例:wx 排他创建 ⇒ 读回判定 ——
+ *    死 PID / 超 TTL / 内容坏 ⇒ 接管;新鲜 ∧ 活持有者 ⇒ **本趟 skip(未判定),不等待不失败**;
+ *    锁绝不把测试永久冻死。
  *  - 本机没有 PostgreSQL 二进制 ⇒ 本文件**显式 skip 并喊"未判定"**,绝不冒充跑过。
  */
 import { spawnSync } from 'node:child_process'
@@ -130,14 +132,15 @@ const lockLib: LockLibModule = await (import(
 const LOCK_FILE = join(REPO_ROOT, '.ihui-agent', 'tmp', 'o13-bg.lock')
 /** TTL 必须 > live-check 起跑上限(25min)+ 收尾余量:超 TTL ⇒ 接管,锁不会把测试永久冻死。 */
 const LOCK_TTL_MS = 35 * 60 * 1000
-/** 等上一趟的封顶:到点仍被**活**持有者占着 ⇒ 如实失败点名持锁 PID(不是伪装成重放失败)。 */
-const LOCK_WAIT_MS = 25 * 60 * 1000
-const LOCK_POLL_MS = 3000
-
-/** 取锁:free⇒wx 创建;take(死 PID/超期/内容坏)⇒接管并点名;skip⇒轮询等待到封顶。 */
-async function acquireClusterLock(): Promise<void> {
-  const deadline = Date.now() + LOCK_WAIT_MS
-  for (;;) {
+/**
+ * 取锁(照抄 scripts/git-guardian.mjs 的单实例锁先例:wx 排他创建 ⇒ 读回判定,不等待不失败):
+ * free ⇒ wx 创建;take(死 PID/超 TTL/内容坏)⇒ 删旧接管并点名;
+ * skip(新鲜 ∧ 活持有者)⇒ 返回 false,由调用方把本趟判成 skip —— 并发不互踩,
+ * 也不把"没跑"伪装成"跑挂了"。连败(并发者抢先落锁)同样如实 skip。
+ */
+function tryAcquireClusterLock(): boolean {
+  mkdirSync(dirname(LOCK_FILE), { recursive: true })
+  for (let attempt = 0; attempt < 5; attempt += 1) {
     let raw: string | null = null
     try {
       raw = readFileSync(LOCK_FILE, 'utf8')
@@ -145,31 +148,35 @@ async function acquireClusterLock(): Promise<void> {
       raw = null
     }
     const decision = lockLib.healLockDecision(raw, Date.now(), LOCK_TTL_MS)
-    if (decision === 'free') {
-      try {
-        mkdirSync(dirname(LOCK_FILE), { recursive: true })
-        writeFileSync(LOCK_FILE, lockLib.healLockText(process.pid, Date.now()), { flag: 'wx' })
-        return
-      } catch (e) {
-        if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e
-        continue // 并发者抢先落锁 ⇒ 重判一轮
-      }
+    if (decision === 'skip') {
+      const holder = String(raw ?? '').split('\n')[0]
+      console.warn(
+        `[o13-bg-rls-live] 未判定:串行通道被另一趟活进程(PID ${holder})持有 ⇒ 本趟 skip,` +
+          '不并发起第二个集群(并发互踩正是"迁移重放 218 失败"假缺陷的成因)。' +
+          'skip ≠ 已验证,不得把本行读成"第三格前置已验证"。',
+      )
+      return false
     }
     if (decision === 'take') {
       console.info(
         `[o13-bg-rls-live] 串行通道:接管陈旧锁(原内容=${JSON.stringify((raw ?? '').slice(0, 40))},持有者已死或超 ${LOCK_TTL_MS / 60000}min)`,
       )
-      writeFileSync(LOCK_FILE, lockLib.healLockText(process.pid, Date.now()))
-      return
+      try {
+        unlinkSync(LOCK_FILE)
+      } catch {
+        /* 已被并发者清掉 ⇒ 下一轮重判 */
+      }
     }
-    if (Date.now() >= deadline) {
-      throw new Error(
-        `串行通道等待超时(${LOCK_WAIT_MS / 60000}min):锁仍被 PID ${String(raw).split('\n')[0]} 持有 —— ` +
-          '拒绝并发起跑把别人的集群停掉删掉(那正是"迁移重放 218 失败"假缺陷的成因)',
-      )
+    try {
+      writeFileSync(LOCK_FILE, lockLib.healLockText(process.pid, Date.now()), { flag: 'wx' })
+      return true
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e
+      // 并发者抢先落锁 ⇒ 重判一轮
     }
-    await new Promise((r) => setTimeout(r, LOCK_POLL_MS))
   }
+  console.warn('[o13-bg-rls-live] 未判定:取锁连败(并发者抢先落锁)⇒ 本趟 skip,不并发跑集群')
+  return false
 }
 
 /** 放锁:只删自己那把(锁已易主 ⇒ 别人的不动,判据与 home-heal-lock 同向)。 */
@@ -186,14 +193,17 @@ suite('o13 真库:旁路 GUC 生效与复位(临时集群,复刻 NOBYPASSRLS 属
   it(
     'live-check(--keep)重放到 idx=293 后:①基线 0 行;②runner 内全量可见;③结束后同池 0 行且 current_setting=NULL;④请求上下文拒发;finally 收尾实测',
     { timeout: 1_700_000, retry: 0 },
-    async () => {
+    async (ctx) => {
       if (!pgBin) throw new Error('探针漂移:suite 在非 skip 分支下 pgBin 不应为 null')
       const binDir = pgBin.dir
       const notes: string[] = []
       let port = 0
       let client: ReturnType<typeof postgres> | null = null
-      // 串行通道:取锁必须在"预清理 stop + rmSync"**之前** —— 那两步正是并发时砸别人集群的动作
-      await acquireClusterLock()
+      // 串行通道:取锁必须在"预清理 stop + rmSync"**之前** —— 那两步正是并发时砸别人集群的动作;
+      // 被活持有者占用 ⇒ 本趟 skip(未判定,与 git-guardian 先例同向),绝不等待后并发或失败。
+      if (!tryAcquireClusterLock()) {
+        ctx.skip('串行通道被占:另一趟活 vitest 正持有 o13 临时集群锁(未判定,非失败)')
+      }
       try {
         // 上一轮若有活集群占着目录:先 stop 再删(Windows 句柄延迟的正当出路);删不干净就拒绝起跑
         if (existsSync(DATA_DIR)) {
