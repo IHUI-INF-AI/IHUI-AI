@@ -8,14 +8,18 @@
  * 为什么从 `apps/web/src/hooks/use-chat/tool-config.ts` 搬到共享层:这不是偏好,是安全面。
  * 这张表决定"哪些用户话术会让模型拿到 `write_file` / `edit_file`",而带不带写类工具
  * 直接等于"这个会话能不能改文件"。第二个真相源迟早会漂(一端放宽正则、另一端没跟),
- * 而两端的**服务端防护是同一套** `apps/ai-service/app/services/mcp_server.py` 的
- * `_validate_write_path_in_workspace`(工作区白名单 + 防 symlink 穿越)—— 策略分叉不会体现在
- * 报错上,只会体现在"同样的话在扩展里能写、在 web 里不能写"这类无人察觉的行为差上。
+ * 而漂了不会体现在报错上,只会体现在"同样的话在这个端能改文件、在那个端不能"。
+ *
+ * 一条**实测边界**(2026-09-27,票⑲ 收回扩展端携带时量出来的,写给下一个想扩消费方的人):
+ * 这张表只在"该端有委托面"时才等于能力。web 送 `workspace_context`,所以 fs 类工具由
+ * `llm.py` 的委托分支交回浏览器执行;不送 `workspace_context` 的端会落到服务端
+ * `_mcp.call_tool`,那里 `write_file` / `file_edit` 属 `_ADMIN_ONLY_TOOLS` 而对话链
+ * `__user_role` 恒为 0 ⇒ **必失败**,只读族则会在服务端工作区上执行 ⇒ 越权面变更。
+ * 所以新增消费方之前先确认该端有 `onToolDelegate` + tool-result 回传,否则这张表不该被它 import。
  *
  * 消费方(一律走子路径 `@ihui/shared/chat/file-tool-intent`,**不进 `./chat` barrel**:
  * barrel 里已有 `FILE_WRITE_TOOLS`(识别白名单 Set),同名并置会让 `export *` 产出歧义):
  *  - `apps/web/src/hooks/use-chat/tool-config.ts`(re-export,保持既有 import 面不变)
- *  - `apps/extension/lib/ui-control-tools.ts`(扩展会话此前**完全不带**文件族工具)
  *
  * 口径逐字照搬 web 原实现,搬迁本身不改语义 —— 任何收紧/放宽都另立一票并两端同改。
  */

@@ -11,20 +11,17 @@
  * "同一句话在扩展能改文件、在 web 不能"。所以判据必须落在被审文件上,而不是落在这段注释里。
  *
  * 两组锁:① 行为对子(读意图/写意图/无文件上下文/空串各一对正反);
- *        ② 单一源(两个消费方都指向本子路径、端内不得再写关键词正则、
+ *        ② 单一源(消费方指向本子路径、任何端内不得再写关键词正则、
  *           且本模块**故意不进 `./chat` barrel** —— 与 task-status.ts 的同名词并置会产出
  *           `export *` 歧义,web 按 `.has()` 消费那一份,拿到数组是运行时崩)。
+ *           扩展端此刻不是消费方(它没有委托面),这一格也由第②组钉住:排除要带理由。
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-import {
-  FILE_READ_INTENT_TOOLS,
-  FILE_WRITE_INTENT_TOOLS,
-  fileToolsFor,
-} from '../file-tool-intent'
+import { FILE_READ_INTENT_TOOLS, FILE_WRITE_INTENT_TOOLS, fileToolsFor } from '../file-tool-intent'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** __tests__ → chat → src → shared → packages → 仓库根:少算一层会以 ENOENT 出现而不是判红,
@@ -38,10 +35,7 @@ const webConfig = readFileSync(
   join(REPO_ROOT, 'apps/web/src/hooks/use-chat/tool-config.ts'),
   'utf8',
 )
-const extTools = readFileSync(
-  join(REPO_ROOT, 'apps/extension/lib/ui-control-tools.ts'),
-  'utf8',
-)
+const extTools = readFileSync(join(REPO_ROOT, 'apps/extension/lib/ui-control-tools.ts'), 'utf8')
 const chatBarrel = readFileSync(join(REPO_ROOT, 'packages/shared/src/chat/index.ts'), 'utf8')
 
 describe('fileToolsFor 行为对子', () => {
@@ -74,17 +68,21 @@ describe('fileToolsFor 行为对子', () => {
   })
 })
 
-describe('单一源:两个消费方指回这一处,且没有第二份判据', () => {
+describe('单一源:消费方指回这一处,且没有第二份判据', () => {
   const SUBPATH = '@ihui/shared/chat/file-tool-intent'
   /** prettier 一折行,按原始文本比的锁就红了 —— 形状锁必须比归一化后的文本(本仓记过多次) */
   const flat = (s: string) => s.replace(/\s+/g, ' ')
 
-  it('web 走 re-export(不打断既有 import 面),扩展走直接 import', () => {
+  it('web 走 re-export(不打断既有 import 面)', () => {
     expect(flat(webConfig)).toContain(`from '${SUBPATH}'`)
-    expect(flat(extTools)).toContain(`from '${SUBPATH}'`)
   })
 
-  it('端内不得再写关键词正则(出现第二份 INTENT_RE = 判据即分叉)', () => {
+  it('扩展端此刻**不**是消费方 —— 它没有委托面,带文件族等于塞两个必败工具(理由见端内头注)', () => {
+    expect(flat(extTools)).not.toContain(`from '${SUBPATH}'`)
+    expect(flat(extTools)).toContain('_ADMIN_ONLY_TOOLS') // 排除必须带理由,否则会被"顺手补回来"
+  })
+
+  it('消费方(含扩展)都不得再写第二份关键词正则', () => {
     for (const [name, src] of [
       ['apps/web/tool-config.ts', webConfig],
       ['apps/extension/ui-control-tools.ts', extTools],
