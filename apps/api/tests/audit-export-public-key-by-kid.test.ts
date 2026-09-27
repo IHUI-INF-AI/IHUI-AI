@@ -36,7 +36,7 @@ import { createPublicKey, verify } from 'node:crypto'
 const oldKey = vi.hoisted(() => ({ public: '', private: '', kid: '' }))
 
 vi.mock('../src/services/audit-export-key-registry.js', async (importOriginal) => {
-  const real = (await importOriginal()) as typeof import('../src/services/audit-export-key-registry.js')
+  const real = (await importOriginal()) as typeof AuditExportKeyRegistry
   const { generateKeyPairSync } = await import('node:crypto')
   const kp = generateKeyPairSync('rsa', {
     modulusLength: 2048,
@@ -92,6 +92,7 @@ import {
   auditEvidencePublicKeyRoutes,
 } from '../src/routes/audit-evidence-export.js'
 import type { AuditLogChainRow } from '../src/db/audit-queries.js'
+import type * as AuditExportKeyRegistry from '../src/services/audit-export-key-registry.js'
 
 let currentPrivate = ''
 let currentPublic = ''

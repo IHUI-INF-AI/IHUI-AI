@@ -59,10 +59,20 @@ const mk = (tag: string) =>
       if (typeof ref === 'function') ref(node)
       else if (ref && typeof ref === 'object') (ref as { current: unknown }).current = node
     }
+    /**
+     * RN 的 Pressable/TouchableOpacity 支持 children 渲染函数形态
+     * (`{({pressed}) => <View/>}`)。真身 de7f150ba 起分类组件 3 处按压反馈改走该形态,
+     * 桩若不识别函数 children,React 直接丢弃("Functions are not valid as a React
+     * child")⇒ chip 内容整体不渲染,样式断言拿到空数组。按真实 API 求值(静态 pressed=false)。
+     */
+    const children =
+      typeof props.children === 'function'
+        ? (props.children as (s: { pressed: boolean }) => ReactNode)({ pressed: false })
+        : props.children
     return createElement(
       tag,
       { ...rest, ref: setRef, onClick: onPress, style: flattenStyle(style) },
-      props.children,
+      children,
     )
   }
 
