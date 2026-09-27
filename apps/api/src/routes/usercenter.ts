@@ -534,9 +534,12 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
         tags: ['usercenter'],
         querystring: {
           type: 'object',
+          // G-261(同 G-257 口径):querystring 一律 type:'string'(ajv 的 integer 强转/format 同属
+          // 校验行为,非法值先拒 ⇒ 400 被 400 响应 schema(code:number)的序列化不匹配掩盖成 500);
+          // 真实校验一律 listDeptQuery(Zod:pid uuid,companyId coerce int)
           properties: {
-            pid: { type: 'string', format: 'uuid', description: '父部门ID筛选' },
-            companyId: { type: 'integer', description: '公司ID筛选' },
+            pid: { type: 'string', description: '父部门ID筛选(UUID,服务端 Zod 校验)' },
+            companyId: { type: 'string', description: '公司ID筛选(整数,服务端 Zod 校验)' },
           },
         },
         response: buildResponseSchema(400),
@@ -587,9 +590,10 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
         tags: ['usercenter'],
         body: {
           type: 'object',
+          // G-261:type-only;pid uuid 由 createDeptSchema(Zod)校验(同 GET /usercenter/departments 口径)
           properties: {
             name: { type: 'string', description: '部门名称' },
-            pid: { type: 'string', format: 'uuid', description: '父部门ID' },
+            pid: { type: 'string', description: '父部门ID(UUID,服务端 Zod 校验)' },
             companyId: { type: 'integer', description: '公司ID' },
             sort: { type: 'integer', description: '排序' },
           },
@@ -629,9 +633,10 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
         tags: ['usercenter'],
         body: {
           type: 'object',
+          // G-261:type-only;pid uuid 由 updateDeptSchema(Zod)校验(同 POST 口径)
           properties: {
             name: { type: 'string' },
-            pid: { type: 'string', format: 'uuid' },
+            pid: { type: 'string', description: 'UUID(服务端 Zod 校验)' },
             companyId: { type: 'integer' },
             sort: { type: 'integer' },
           },
