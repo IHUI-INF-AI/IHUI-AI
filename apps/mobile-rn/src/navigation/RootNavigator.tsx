@@ -12,6 +12,7 @@ import { tokens } from '../theme/active-tokens'
 import { useAuth } from '../context/AuthContext'
 import { setUnauthorizedHandler } from '@ihui/api-client'
 import { logoutAuth } from '../stores/auth-store'
+import { navigateTo } from './navigation-ref'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { useUiControlBridge } from '../hooks/use-ui-control-bridge'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
@@ -548,22 +549,34 @@ function RootNavigatorInner() {
   } = useNotificationStore()
 
   /**
-   * 会话彻底失效的出口(2026-09-27 真机定案,VC49/50/51 三轮装机量出来的)。
+   * 会话彻底失效的出口(2026-09-27 真机定案,VC49→VC52 四轮装机量出来的)。
    *
-   * 注册点必须在这里而不是 `lib/token.ts` 的 initApi,两条理由都写在 token.ts 顶部注释里
-   * (`Login` 屏只在未登录分支注册 ⇒ 带 token 时 navigate 是空操作;auth-store 反向 import
-   * token.ts ⇒ 反过来 import 就是模块环)。所以出路不是"跳一页",而是**结束这段本地会话**,
-   * 让下面那个 `token ? 已登录分支 : 未登录分支` 自己翻到挂着 Login 的那一侧。
+   * 注册点必须在这里而不是 `lib/token.ts` 的 initApi:`stores/auth-store.ts` 反向 import
+   * 本模块的 tokenStore,在 token.ts 里 import 它就是模块环(理由另见 token.ts 顶部注释)。
    *
-   * `!token` 时静默返回是幂等而非吞失败:未登录分支本来就挂着,用户已经在登录页上。
-   * 除此之外每条出口都必须出声 —— 与 §5e"失败必须响"同一条禁令。
+   * 两步动作,顺序**不能反**:
+   * 1. **先跳** —— `Login` 现在两个分支都注册着,跳转同步可达,不依赖任何异步成功。
+   * 2. **再尽力结束会话** —— `logoutAuth()` 清 store + 持久化;它失败或被卡住都不该让用户
+   *    回不到登录页,所以它的结果只影响日志,不影响第 1 步。给它一个有界等待:
+   *    超时不报错也不重试,只喊出来(静默的"应该已经清了吧"正是本仓记过最多次的失效形态)。
+   *
+   * `!token` 时静默返回是幂等而非吞失败:未登录分支本来就挂着 Login。
    */
   useEffect(() => {
     setUnauthorizedHandler((ctx) => {
       if (!token) return
-      console.warn(`[rn-auth] 会话失效 → 结束本地会话并回到登录页(来源 ${ctx.method} ${ctx.url})`)
-      void logoutAuth().catch((err) => {
-        console.error('[rn-auth] 结束本地会话失败,用户仍停在原页(不会静默重试):', err)
+      console.warn(`[rn-auth] 会话失效 → 打开登录页(来源 ${ctx.method} ${ctx.url})`)
+      navigateTo('Login')
+      void Promise.race([
+        logoutAuth().then(() => 'done'),
+        new Promise((r) => setTimeout(() => r('timeout'), 8000)),
+      ]).then((outcome) => {
+        if (outcome !== 'done') {
+          console.warn(
+            `[rn-auth] 结束本地会话未在 8s 内完成(${outcome})—— 登录页已打开,不受影响;` +
+              '但"凭据有两个数据源"这一格需要单独修(auth-store 持久化 vs SecureStore 缓存)',
+          )
+        }
       })
     })
     return () => setUnauthorizedHandler(null)
@@ -632,6 +645,11 @@ function RootNavigatorInner() {
         {token ? (
           <>
             <RootStack.Screen name="Main" component={MainNavigator} />
+            {/* 会话失效出口要求 `Login` 在**已登录分支也注册**(2026-09-27 真机定案)。
+                它此前只存在于未登录分支,于是带着 token 时 `navigate('Login')` 是空操作 ——
+                而"结束本地会话再让导航树翻过去"这条路依赖异步清理真的清成功(实测这条会卡),
+                出路不能建在"异步一定成功"上。两边都挂着,跳转就是同步可达的。 */}
+            <RootStack.Screen name="Login" component={LoginScreen} />
             <RootStack.Screen name="Home" component={HomeScreen} />
             <RootStack.Screen name="Chat" component={ChatScreen} />
             <RootStack.Screen name="OrderRefund" component={OrderRefundScreen} />
