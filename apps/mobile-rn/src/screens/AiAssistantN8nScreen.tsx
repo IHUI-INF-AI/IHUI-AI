@@ -152,8 +152,10 @@ import {
   readSteerAppliedFromMetadata,
   applyTerminalStart,
   applyToolCallEvent,
+  applyToolDelta,
   formatDurationMs,
   formatStructured,
+  mcpToolActivityTitle,
   type MessageInjection,
   type MessageCitation,
   type SteerNotice,
@@ -355,7 +357,11 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
           result: item.result,
           status: item.status,
         })
-        const displayName = view.nameKey ? t(`taskStatus.${view.nameKey}`) : item.name
+        // D83 接线:MCP 调用先走共享层 server×tool 定制措辞(四形态各有其词),
+        // 无定制命中即 null ⇒ 沿用下面的既有功能名口径,不吐码名也不吐键名。
+        const displayName =
+          mcpToolActivityTitle(item, t) ??
+          (view.nameKey ? t(`taskStatus.${view.nameKey}`) : item.name)
         const metricLine = formatToolMetricLine(view, t)
         const showSubject = view.subject !== ''
         const statusLabel =
@@ -400,6 +406,14 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
               <StatusBadge kind={toneKind} label={statusLabel} />
               {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
             </Pressable>
+            {/* D113:流中 diff 预览 —— 仅 running 态且非空渲染(对齐 web tool-call-card
+                status==='running' && partialDiff;不新增文案标签,只显示服务端下发内容,
+                复用本端既有等宽样式 monoText) */}
+            {item.status === 'running' && item.partialDiff ? (
+              <View style={bubbleStyles.cardBody} testID="tool-call-partial-diff">
+                <Text style={bubbleStyles.monoText}>{item.partialDiff}</Text>
+              </View>
+            ) : null}
             {open ? (
               <View style={bubbleStyles.cardBody}>
                 {argsText ? (
@@ -1461,6 +1475,22 @@ export default function AiAssistantN8nScreen() {
             return next
           })
           scrollToEnd()
+        },
+        // D113(2026-09-27 对齐 web G-227):文件写类工具流中 diff 预览。
+        // tool-delta 帧载荷为累积文本,按 toolCallId 覆盖写入 partialDiff(重放幂等);
+        // 仅 running 态渲染,tool-result 到达由 applyToolCallEvent 清除(最终 diff 以 result 为准)。
+        onToolDelta: (event) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                toolCalls: applyToolDelta(last.toolCalls, event),
+              }
+            }
+            return next
+          })
         },
         // 计划步骤可视化(W7):plan 为权威快照,整体替换(不可与现有步骤增量合并)
         onPlanUpdate: (event) => {
