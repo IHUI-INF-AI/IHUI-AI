@@ -38,28 +38,24 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
+// 定长名单 mock 已被渲染链两次撞墙(stream-ui 基元、@ihui/ui-react barrel → log-viewer /
+// login-form 等,barrel 每加一枚图标整文件 "No X export is defined" 加载失败)。
+// 改为 Proxy 兜底:任意具名导出统一返回 IconSpan,保持 data-testid="lucide-icon" 断言面不变。
 vi.mock('lucide-react', () => {
   const Icon = IconSpan
-  return {
-    __esModule: true,
-    Bot: Icon,
-    ChevronRight: Icon,
-    Loader2: Icon,
-    Check: Icon,
-    AlertCircle: Icon,
-    Clock: Icon,
-    Wrench: Icon,
-    Hash: Icon,
-    AtSign: Icon,
-    User: Icon,
-    FileText: Icon,
-    // Checklist 内部依赖(防止连锁 mock 失败)
-    Circle: Icon,
-    Minus: Icon,
-    // stream-ui 基元 StreamStatusIcon 用到的状态图标(Checklist 已改走 StreamRow 渲染)
-    CircleDashed: Icon,
-    X: Icon,
-  }
+  const base: Record<PropertyKey, unknown> = { __esModule: true }
+  return new Proxy(base, {
+    get(target, prop) {
+      if (prop in target) return target[prop]
+      // symbol / thenable / default 探测一律返回 undefined,避免模块互操作误判
+      if (typeof prop === 'symbol' || prop === 'then' || prop === 'default') return undefined
+      return Icon
+    },
+    // vitest 以 `name in mock` 校验具名导出是否存在,has 全通过才能让任意图标名放行
+    has() {
+      return true
+    },
+  })
 })
 
 // ─── next-intl mock:Checklist 接入 stream-ui 后经 humanizeToolText + useTranslations('taskStatus')
