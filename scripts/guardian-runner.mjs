@@ -3722,6 +3722,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- LSP 语言表与探测四态对账(拦 binary 名回到写死字面量、能力声明无对应族、探测失败被折叠成无诊断)(1 项,blocking)---
+  {
+    id: '143',
+    label:
+      'LSP 语言表与探测四态对账(拦 binary 名回到写死字面量、能力声明无对应族、探测失败被折叠成无诊断)',
+    script: 'check-lsp-language-table.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LSP_LANGUAGE_TABLE',
+    stagedTriggers: ['apps/cli/src/'],
+    onFailHint: [
+      '',
+      '  T1-T5 五判据:表自洽/扩展名唯一/族清单静态对账/binary 唯一出处/能力投影同形;空枚举判死。',
+      '  现读:node scripts/check-lsp-language-table.mjs ; 自检 --self-test(14 条) ; 紧急跳过 HUSKY_SKIP_LSP_LANGUAGE_TABLE=1',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
