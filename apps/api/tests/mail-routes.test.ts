@@ -119,7 +119,12 @@ describe('POST /api/mail/send — 品牌模板层装车', () => {
     const options = firstSendCall()
     // 机械风刊头横幅唯一标识(email-templates.ts renderDispatchEmail 的眉+题头)
     expect(options.html).toContain('THE&nbsp;MECHANICAL&nbsp;DISPATCH')
-    expect(options.html).toContain('43.82°N')
+    expect(options.html).toContain('IHUI-CORE')
+    // 刊头曾印着一对写死的装饰性经纬度("43.82°N 125.32°E")。它是版式纹样,
+    // 但在**运维告警**里长得像遥测数据 ⇒ 连着两次被当成数据泄漏去排查(2026-09-27 第二次)。
+    // 这条锁防的是"为好看再把裸坐标印回刊头"——要印就得印成读得出身份的标记,不是数值。
+    expect(options.html).not.toMatch(/\d{1,3}\.\d{2,}\s*°\s*[NSEW]/)
+    expect(options.html).not.toMatch(/latitude|longitude|经度|纬度/)
     // 栏目眉来自本端点传入的 tag;旧手搓版式绝无这些结构
     expect(options.html).toContain('SYSTEM // NOTICE')
     expect(options.html).not.toMatch(/<br\/>/)
