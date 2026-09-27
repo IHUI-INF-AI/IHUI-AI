@@ -225,7 +225,7 @@ export function CommentDrawer({ open, commentId, onClose }: DrawerProps) {
               ) : (
                 <div className="max-h-64 space-y-2 overflow-auto">
                   {replies.map((r) => (
-                    <div key={r.id} className="rounded-md border bg-card p-2 text-sm">
+                    <div key={r.id} className="rounded-lg border bg-card p-2 text-sm">
                       <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                         <span>{r.userNickname ?? '-'}</span>
                         <span>{formatTime(r.createdAt)}</span>

@@ -110,7 +110,7 @@ export function NewsArticleDialog(props: Props) {
               value={form.content}
               onChange={(e) => setForm({ ...form, content: e.target.value })}
               placeholder={t('contentPlaceholder')}
-              className="min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              className="min-h-[120px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
             />
           </div>
           <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">

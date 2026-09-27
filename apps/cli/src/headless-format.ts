@@ -22,6 +22,21 @@ export type HeadlessEvent =
   | { type: 'message_delta'; text: string }
   | { type: 'tool_call'; name: string; arguments: Record<string, unknown> }
   | { type: 'tool_result'; name: string; success: boolean; output: string }
+  /**
+   * D113(2026-09-27)流中 diff 预览帧 —— 载荷字段沿用 `@ihui/api-client` 的
+   * `ToolDeltaEvent`(toolCallId / seq / partialText / truncated?),`partialText` 是
+   * **累积**文本(整帧替换渲染,同 seq 重放幂等)。`name` 是本端补的关联线索:
+   * headless 的 `tool_call`/`tool_result` 都没有 toolCallId,机器消费方只有靠工具名
+   * 才能把这一串预览帧归到那一次调用上(派生算法与预算不在这里,见
+   * `src/tools/file-edit-preview.ts` 唯一出口;本面**不得**自拼 JSON.stringify(args))。
+   */
+  | { type: 'tool_delta'; name: string; toolCallId: string; seq: number; partialText: string; truncated?: boolean }
+  /**
+   * 同一 toolCallId 的预览作废(工具落终态或流中断)。**清场靠这一条,而不是再追加一条
+   * 预览**:消费方据此撤下预览,随后才渲染 tool_result —— 否则"将要写入什么"会与
+   * "已经写成什么"同屏(与 web/RN/小程序"result 到达即清 partialDiff"同一条纪律)。
+   */
+  | { type: 'tool_delta_clear'; name: string; toolCallId: string }
   | { type: 'iteration'; count: number; max: number }
   | { type: 'error'; message: string }
   | { type: 'complete'; stopReason: AgentStopReason; iterations: number; usage: TokenUsage }
@@ -93,6 +108,13 @@ export function eventToMarkdown(event: HeadlessEvent): string {
     }
     case 'iteration':
       return `\n<!-- iteration ${event.count}/${event.max} -->\n`
+    // D113:markdown 是**终态报告**,没有"更新同一 id"的撤回通道 —— 预览文本一旦落进
+    // 报告,就在终态之后继续挂在里面,被读成"已经写成这样了"。所以这两条在 markdown
+    // 模式刻意不出现在报告里(机器消费方走 `--output-format json`,逐帧带 toolCallId,
+    // 由 tool_delta_clear 撤下)。不是漏接:发出去却撤不掉的预览比没有预览更坏。
+    case 'tool_delta':
+    case 'tool_delta_clear':
+      return ''
     case 'error':
       return `\n> ❌ **错误**: ${event.message}\n`
     case 'complete': {
