@@ -592,8 +592,21 @@ test('T25 同侧多候选不得只查一侧;选腿比较器与出口链只许一
   )
   assert.ok(!/cands\.reduce\(/.test(txt), '"取候选里最后一个"还留着 ⇒ 同一族在两处能选到不同份')
   assert.ok(/EXIT_BARRELS/.test(txt), '出口桶被摘线 ⇒ 第二顺位凭空消失,退化成猜')
+  // 锁的是**语义**而非某个字面写法:出口链只认"再导出"与"星号导出"两种形态。
+  // 上一版把断言写成 `k === 're' || k === 'star'` 这一具体形状,而实现是两个分支各判一次
+  // —— 于是这条锁在 HEAD 上就恒红(过拟合的锁不但不防回归,还会让下一个改这里的人以为门坏了)。
+  assert.ok(/=== 're'/.test(txt) && /=== 'star'/.test(txt), '出口链的两种形态被削弱 ⇒ "被 import 过"会被当成出口')
+  // 重出台账不得把判断类登记表冲掉:waivers 是"这一族为什么允许不同形"的记录
+  // (AGENTS O81:waivers 恒空本身就是违规),ledgerVersion 是格式版本。
   assert.ok(
-    /k === 're' \|\| k === 'star'/.test(txt),
-    '出口链不再只认再导出 ⇒ 会把"被 import 过"当成出口,反向对照失去意义',
+    /out\.waivers = waivers/.test(txt) && /prior\.waivers/.test(txt),
+    'emitBaseline 又回到 waivers: {} 清零 —— 一次重锚会冲掉全部带理由的豁免登记',
+  )
+  assert.ok(/prior\.ledgerVersion/.test(txt), 'ledgerVersion 未随重出带过 ⇒ 台账不再自述它是哪一版格式')
+  // 属性名必须整体取(允许连字符),不得退回"跳过连字符前缀"那版过头修法:
+  // 那会把 `max-width: 320rpx` 这类合法长度档一起跳掉,凭空造出分叉(实测 CategoryBar 1→4)。
+  assert.ok(
+    txt.includes("[a-z][\\w]*(?:-[a-z0-9]+)*"),
+    '连字符属性不再整体取键 ⇒ line-height 会被读成 height、max-width 会被跳掉(两个方向都错过)',
   )
 })

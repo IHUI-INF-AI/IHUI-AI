@@ -9,7 +9,6 @@ import Taro, { useRouter, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import { DrawerComponent } from '@/components'
-import BackChevron from '@/components/BackChevron'
 import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
 
@@ -150,13 +149,6 @@ export default function RankingDetailPage() {
     [tt],
   )
 
-  /** 返回上一页 */
-  const backPage = useCallback(() => {
-    Taro.navigateBack({ delta: 1 }).catch(() => {
-      Taro.redirectTo({ url: '/pkg-ai/ranking/index' })
-    })
-  }, [])
-
   const openDrawer = useCallback((mode: DrawerMode) => {
     setDrawerMode(mode)
     setDrawerVisible(true)
@@ -183,7 +175,6 @@ export default function RankingDetailPage() {
       <ThemeRoot>
         <View className="detail-page">
           <View className="detail-nav">
-            <BackChevron onTap={backPage} />
             <Text className="detail-nav-title">{tt('ranking.detailTitle', '详情页')}</Text>
           </View>
           <Text className="loading-text">{tt('common.loading', '加载中...')}</Text>
@@ -196,7 +187,6 @@ export default function RankingDetailPage() {
     <View className="detail-page">
       {/* 导航栏(对标原项目:title=detailData.title/name/"详情页", showMenu=true, showFenLei=true) */}
       <View className="detail-nav">
-        <BackChevron onTap={backPage} />
         <Text className="detail-nav-title">{navTitle}</Text>
         <View className="detail-nav-actions">
           <View
