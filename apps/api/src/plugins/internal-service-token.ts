@@ -16,6 +16,7 @@
  * 与 checkAuth 协同:checkAuthOrInternalService 先尝试 JWT,失败降级 internal token。
  */
 import type { FastifyRequest, FastifyReply } from 'fastify'
+import { createHash, timingSafeEqual } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { config } from '../config/index.js'
 import { error } from '../utils/response.js'
@@ -24,6 +25,24 @@ import { users } from '@ihui/database'
 
 const INTERNAL_TOKEN_HEADER = 'x-internal-service-token'
 const USER_ID_HEADER = 'x-user-id'
+
+/**
+ * 常数时间比较两把凭据(2026-09-27 立,第三十八批)。
+ *
+ * 为什么不是直接 `timingSafeEqual(a, b)`:两把长度不等时它会**抛错**,而且即便不抛,
+ * 逐字节比较的耗时仍与"公共前缀长度"相关。先把两边各 SHA-256 成固定 32 字节再比,
+ * 于是既没有长度泄漏、也没有早退 —— 这是 Node 侧比对共享密钥的标准形态。
+ *
+ * 这一格修的是"计时侧信道"而不是"泄露即无害":真正的敞口是这把密钥**常驻、无 TTL、
+ * 可无限重放**(任一次 env dump / 代理访问日志命中即永久可用),那半属于双侧改造
+ * (发票方 `apps/ai-service` 与验票方必须同批改),登记在 PROJECT_PLAN 等 owner 拍顺序;
+ * 本函数只把"比较本身不随前缀长度分叉"这一维钉住,不改任何契约。
+ */
+export function secretsEqual(a: string, b: string): boolean {
+  const ha = createHash('sha256').update(a, 'utf8').digest()
+  const hb = createHash('sha256').update(b, 'utf8').digest()
+  return timingSafeEqual(ha, hb)
+}
 
 /**
  * 校验 internal service token + 注入 userId。
@@ -47,7 +66,9 @@ export async function checkInternalServiceToken(
     return false
   }
 
-  if (!token || token !== config.AI_CALLBACK_SECRET) {
+  // 必须是常数时间比较:明文 `!==` 会在"前缀对多少"上分叉,给离线枚举密钥留计时侧信道。
+  // (旧写法 `token !== config.AI_CALLBACK_SECRET` 不得加回 —— 由镜像测试按源码面钉住。)
+  if (!token || !secretsEqual(token, config.AI_CALLBACK_SECRET)) {
     reply.status(401).send(error(401, 'Invalid internal service token'))
     return false
   }
