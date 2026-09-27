@@ -20,6 +20,20 @@
 // DELETE_BADGE 20 与 AUDIO_MENU_ICON 40(票①②已收)、
 // INLINE_GLYPH 12(两端现值已同:小程序 `LineIcon size={24}` 走 rpx 即 12px,RN `size={12}` 是 dp)。
 //
+// 票⑦(2026-09-27)新收的**同物不同档**(两端都渲染同一元素,按裁决规则取较大的一档,
+// 两端由同一批具名档取数,不再各抄 className 档位):
+//  CHIP_PAD_X 12 / CHIP_PAD_Y 6 / CHIP_GAP 8(选项胶囊:小程序 `px-3 py-1`+容器 `gap-2`
+//  vs RN `px-2.5 py-1.5`+`mr/mb-1.5`)、LABEL_GAP 6(RN `Row` 标签 `mb-1.5` vs 小程序 `mb-1`)、
+//  INPUT_PAD_X 14(RN `px-3.5` vs 小程序 `px-3`)、MENU_PAD 20(小程序卡 `p-4`=16 vs RN 行 `px-5`=20)、
+//  MENU_ROW_PAD_Y 12(克隆音色行:RN `py-3` vs 小程序 `py-2`)。
+//  仍然**不收敛**的三型(逐条取证见交付报告,不得为凑平给单端补数字):
+//  - 单侧元素:RN `selecter` 变体(`mt-0.5`=2 / `py-8`=32)与录音弹窗(`RECORD_*` 64/24)、
+//    RN 底部取消/保存与音色下拉触发块(`py-2.5`/`px-2.5`=10)—— 小程序端同一文件里**不渲染**这些
+//    元素(模型列表走 `adapters/Selecter.taro` 独立组件;克隆音色走 `Taro.chooseMessageFile`),
+//    补档=造新能力,须用户批准;
+//  - 未决结构分叉:上传控件外盒(见上面 UPLOAD_TILE / UPLOAD_CARD_WIDTH 两条);
+//  - 机制差异:自绘开关轨道一族只有小程序存在(RN 用平台 `<Switch>`)。
+//
 // 单位口径:本表只存**逻辑 px**。小程序侧经 `toUnit`(= `rpx(px * TARO_RPX_PER_PX)`)落位,
 // RN 侧 dp 与逻辑 px 1:1。字形类走组件 `size` 属性,其量纲按各端原语约定:
 // RN `lucide-react-native` 收 px,小程序 `LineIcon` 的 number 收 rpx(故调用处乘 `TARO_RPX_PER_PX`)。
@@ -68,6 +82,41 @@ export const MODEL_CONFIG_UPLOAD_CARD_WIDTH_PX = 80
  * 参数输入补本档(40 > 现自然高 ⇒ 只会变高不会截断文字)。
  */
 export const MODEL_CONFIG_INPUT_HEIGHT_PX = 40
+
+/**
+ * 参数输入横向内衬 14:RN `px-3.5`=14 vs 小程序 `px-3`=12,同一元素(数值/文本参数输入框)
+ * 各抄一档。裁决规则「间距取较大者」→ 14。与高度一起由 `modelConfigInputBoxStyle` 出口给,
+ * 这样两端不可能只改一个方向。
+ */
+export const MODEL_CONFIG_INPUT_PAD_X_PX = 14
+
+/**
+ * 选项胶囊(比例 / 分辨率 / 帧数 / 音色)横向内衬 12:小程序 `px-3`=12 vs RN `px-2.5`=10 → 取大。
+ * 两端把类名里的档位摘掉、改挂本档,免得一端改了另一端没改。
+ */
+export const MODEL_CONFIG_CHIP_PAD_X_PX = 12
+
+/** 选项胶囊纵向内衬 6:小程序 `py-1`=4 vs RN `py-1.5`=6 → 取大(RN 档)。 */
+export const MODEL_CONFIG_CHIP_PAD_Y_PX = 6
+
+/**
+ * 选项胶囊之间的间距 8:小程序在容器上 `gap-2`=8,RN 在条目上 `mr-1.5 mb-1.5`=6 ——
+ * **两种机制同一个数**,按"间距取较大者"统一到 8:小程序继续用容器 gap,RN 继续用条目 margin,
+ * 谁也不换机制(换机制会连带影响别的元素,属重构不在本票)。
+ */
+export const MODEL_CONFIG_CHIP_GAP_PX = 8
+
+/** 字段标签与其控件的间距 6:RN `Row` 标签 `mb-1.5`=6 vs 小程序标签 `mb-1`=4 → 取大。 */
+export const MODEL_CONFIG_LABEL_GAP_PX = 6
+
+/**
+ * 音色选择弹窗的内容内衬 20:小程序整卡 `p-4`=16 vs RN 逐行 `px-5`=20 → 取大。
+ * 小程序把四个方向一起挂本档;RN 只挂左右(它的头部纵向 16、行纵向另见 MENU_ROW_PAD_Y)。
+ */
+export const MODEL_CONFIG_MENU_PAD_PX = 20
+
+/** 音色菜单行(选择音色 / 克隆音色)纵向内衬 12:RN `py-3`=12 vs 小程序克隆行 `py-2`=8 → 取大。 */
+export const MODEL_CONFIG_MENU_ROW_PAD_Y_PX = 12
 
 /**
  * 自绘开关轨道宽 44(小程序 88rpx)。**机制差异,非取值分叉** —— RN 侧是平台 `<Switch>`,
@@ -149,13 +198,86 @@ export function modelConfigSquareStyle<U extends string | number>(
 }
 
 /**
- * 参数输入行:只有**高度**是跨端档。左右内衬与圆角不进本表 —— 圆角必须走 `radius.js`
- * 单一源(守门 77),在这里存第三个圆角数字就是第二份真相。
+ * 参数输入行:高度与横向内衬两档一起给(票⑦前只有高度是跨端档,横向两端各抄 className 档位)。
+ * 圆角与上下内衬不进本表 —— 圆角必须走 `radius.js` 单一源(守门 77),在这里存第三个圆角数字
+ * 就是第二份真相。
  */
 export function modelConfigInputBoxStyle<U extends string | number>(
+  padX: number,
   toUnit: GeometryUnit<U>,
-): { height: U } {
-  return { height: toUnit(MODEL_CONFIG_INPUT_HEIGHT_PX) }
+): { height: U; paddingLeft: U; paddingRight: U } {
+  return {
+    height: toUnit(MODEL_CONFIG_INPUT_HEIGHT_PX),
+    paddingLeft: toUnit(padX),
+    paddingRight: toUnit(padX),
+  }
+}
+
+/** 选项胶囊内衬:横纵两档成对给出,免得一端只改一个方向而两端又分叉。 */
+export function modelConfigChipInnerStyle<U extends string | number>(
+  padX: number,
+  padY: number,
+  toUnit: GeometryUnit<U>,
+): { paddingLeft: U; paddingRight: U; paddingTop: U; paddingBottom: U } {
+  return {
+    paddingLeft: toUnit(padX),
+    paddingRight: toUnit(padX),
+    paddingTop: toUnit(padY),
+    paddingBottom: toUnit(padY),
+  }
+}
+
+/** 胶囊间距 · 小程序形态:挂在 `flex-wrap` 容器上的 `gap`。 */
+export function modelConfigChipRowGapStyle<U extends string | number>(
+  gap: number,
+  toUnit: GeometryUnit<U>,
+): { gap: U } {
+  return { gap: toUnit(gap) }
+}
+
+/** 胶囊间距 · RN 形态:挂在条目上的右/下 margin(与上面同档不同机制,见 CHIP_GAP 注释)。 */
+export function modelConfigChipItemMarginStyle<U extends string | number>(
+  gap: number,
+  toUnit: GeometryUnit<U>,
+): { marginRight: U; marginBottom: U } {
+  return { marginRight: toUnit(gap), marginBottom: toUnit(gap) }
+}
+
+/** 字段标签与它下面那行控件的间距(标签块只有这一档是跨端的)。 */
+export function modelConfigLabelGapStyle<U extends string | number>(
+  gap: number,
+  toUnit: GeometryUnit<U>,
+): { marginBottom: U } {
+  return { marginBottom: toUnit(gap) }
+}
+
+/** 音色选择弹窗内容内衬 · 小程序形态:整卡四边同一档。 */
+export function modelConfigMenuCardStyle<U extends string | number>(
+  pad: number,
+  toUnit: GeometryUnit<U>,
+): { paddingLeft: U; paddingRight: U; paddingTop: U; paddingBottom: U } {
+  return {
+    paddingLeft: toUnit(pad),
+    paddingRight: toUnit(pad),
+    paddingTop: toUnit(pad),
+    paddingBottom: toUnit(pad),
+  }
+}
+
+/** 音色选择弹窗内容内衬 · RN 形态:卡本身不挂内衬,逐行挂左右两档(与上面同档)。 */
+export function modelConfigMenuPadXStyle<U extends string | number>(
+  pad: number,
+  toUnit: GeometryUnit<U>,
+): { paddingLeft: U; paddingRight: U } {
+  return { paddingLeft: toUnit(pad), paddingRight: toUnit(pad) }
+}
+
+/** 音色菜单行的纵向内衬(两端同一档;横向另见 MENU_PAD)。 */
+export function modelConfigMenuRowStyle<U extends string | number>(
+  padY: number,
+  toUnit: GeometryUnit<U>,
+): { paddingTop: U; paddingBottom: U } {
+  return { paddingTop: toUnit(padY), paddingBottom: toUnit(padY) }
 }
 
 /** 上传虚线卡(RN 独有形态):只有宽度是档,高度由"标记盒 + 单行标签"撑出。 */

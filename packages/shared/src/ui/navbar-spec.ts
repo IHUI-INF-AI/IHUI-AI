@@ -37,19 +37,18 @@ export const NAVBAR_SIDE_PADDING_PX = 10
 /** 侧占位宽 32:RN 端无内容侧的标题居中补偿;取两端较大者(小程序右钮 h-8 = 32)。 */
 export const NAVBAR_SIDE_PLACEHOLDER_PX = 32
 
-/**
- * 返回命中块 36:直接引用 GEOMETRY_PX.tapBox(web 顶栏 `w-9` = 36px,守门 46 的唯一档)。
- * RN 端此前自写 32×32 —— 规则 1,web 有既有值,收口到 36。
- */
-export const NAVBAR_BACK_BOX_PX = GEOMETRY_PX.tapBox
-
 /** 返回箭头墨迹 20:引用 GEOMETRY_PX.glyphMd;RN 端此前自写 24,小程序 BackChevron 已是 20。 */
 export const NAVBAR_BACK_GLYPH_PX = GEOMETRY_PX.glyphMd
 
 /** 侧按钮最小宽 28:RN 端 2026-09-23 P1 修复的既定格(给标题留横向空间,勿回升);小程序端原 20px 盒收口到 28。 */
 export const NAVBAR_ACTION_MIN_WIDTH_PX = 28
 
-/** 侧按钮高 32:RN 端现档;小程序端 rightText `h-8` = 32px,两端同值收一处。 */
+/**
+ * 侧按钮高 32:RN 端现档;小程序端 rightText `h-8` = 32px,两端同值收一处。
+ * **两端都必须只经 `navbarActionBoxStyle` 消费它**(与下面的最小宽同一条盒子):
+ * 端内点名这枚档 = 端自己重排盒子(小程序端此前写 `height: toUnit(NAVBAR_ACTION_HEIGHT_PX)`
+ * 并用它做垂直居中算术),那既是第二份真相,又让守门 128 的 SL 把它报成"另一条腿没接线"。
+ */
 export const NAVBAR_ACTION_HEIGHT_PX = 32
 
 /** 侧按钮图标墨迹 20:引用 GEOMETRY_PX.glyphMd(小程序 ai-home 菜单钮已是 40rpx=20px,RN 18→20)。 */
@@ -72,6 +71,10 @@ export const NAVBAR_SUBTITLE_MARGIN_TOP_PX = 2
 
 /**
  * 本族**不立的档**(须登记台账 waivers,不得搬进本表冒充"已同值"):
+ *  - 返回命中块 36:它**不是 NavBar 的档**,而是 `GEOMETRY_PX.tapBox` —— 唯一消费点是
+ *    `backChevronBoxStyle`,两条腿的返回键各自经过它拿到同一个 36(小程序端 `<BackChevron>`,
+ *    RN 端 `styles.backBtn`)。NavBar 本体此前又点一次名(拿 36 做垂直居中算术)= 第二个名字,
+ *    已于 2026-09-27 删除:居中改由"行盒高度的 flex 容器"完成,NavBar 不需要知道箭头方块多大。
  *  - 双标题 tab 间距(小程序 ai-home `gap-[40rpx]` = 20px):RN 端无该元素(标题区是 title + subtitle
  *    双行,不做 tab 切换)。单端独有档若搬进本表并只被一端正消费,对账门读数会归零而另一端什么都没
  *    渲染 —— 那正是"制造绿灯",所以档留在端内 + 记 waiver。
@@ -79,7 +82,22 @@ export const NAVBAR_SUBTITLE_MARGIN_TOP_PX = 2
  *    icon+label 并排形态,见文件末 MECHANISM_WAIVERS 第 3 条。
  *  - 微信胶囊实测兜底档(小程序 `{ top: 26, height: 32 }` = 13px / 16px)与 notification 区内边距
  *    (`px-[32rpx]`/`py-[16rpx]`/`ml-[16rpx]` = 16px / 8px):平台量 + 端内独有子元素,
- *    见 MECHANISM_WAIVERS 第 1 条。
+ *    见 MECHANISM_WAIVERS 第 1 条。兜底对象的键名必须保持 `top`/`height` —— 它是
+ *    `getMenuButtonBoundingClientRect()` 返回形状的替身,改名就不是同一个 API 的兜底了。
+ */
+
+/**
+ * 2026-09-27 逐条核过的**单腿档清单**(守门 128 对本族报 SL 的正是这五枚,处置动作各不同,
+ * 不得用"给另一条腿补一个数字"消账):
+ *  - NAVBAR_ROW_HEIGHT_PX(44)/ NAVBAR_ROW_HEIGHT_SUBTITLE_PX(56):小程序端行高是胶囊实测值,
+ *    平台量,两腿不可能同名同数 → 属机制差异(MECHANISM_WAIVERS 第 1 条),建议台账 waivers。
+ *  - NAVBAR_SUBTITLE_FONT_PX(12)/ NAVBAR_SUBTITLE_MARGIN_TOP_PX(2):小程序端 NavBar **根本没有
+ *    subtitle 这个元素**(props 里没有该字段),头注写的"两端现值已同"里的"共享层"是
+ *    `packages/app` 那份 DOM 死副本,不在守门 128 的配对腿上。补齐要么给小程序端加 subtitle
+ *    能力(§24 属新功能,须用户确认),要么把这两枚档改标"RN 腿独有"。
+ *  - NAVBAR_SIDE_PLACEHOLDER_PX(32):RN 用"空侧占位"把标题夹在中间居中;小程序端默认模式是
+ *    `absolute` 悬浮按钮 + 整条 `justify-center`,居中机制不同 → 该 32 在小程序端没有对应元素。
+ *    小程序端侧按钮的 32 高改经 `navbarActionBoxStyle` 取得后,这一档不再是"巧合对齐"。
  */
 
 /**

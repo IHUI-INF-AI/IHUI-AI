@@ -11,13 +11,25 @@ import type { ModelConfigType } from '@ihui/types'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   MODEL_CONFIG_BLOCK_GLYPH_PX,
+  MODEL_CONFIG_CHIP_GAP_PX,
+  MODEL_CONFIG_CHIP_PAD_X_PX,
+  MODEL_CONFIG_CHIP_PAD_Y_PX,
   MODEL_CONFIG_INLINE_GLYPH_PX,
+  MODEL_CONFIG_INPUT_PAD_X_PX,
+  MODEL_CONFIG_LABEL_GAP_PX,
+  MODEL_CONFIG_MENU_PAD_PX,
+  MODEL_CONFIG_MENU_ROW_PAD_Y_PX,
   MODEL_CONFIG_SWITCH_THUMB_PX,
   MODEL_CONFIG_SWITCH_THUMB_TRAVEL_PX,
   MODEL_CONFIG_UPLOAD_TILE_PX,
   modelConfigAudioMenuIconStyle,
+  modelConfigChipInnerStyle,
+  modelConfigChipRowGapStyle,
   modelConfigDeleteBadgeStyle,
   modelConfigInputBoxStyle,
+  modelConfigLabelGapStyle,
+  modelConfigMenuCardStyle,
+  modelConfigMenuRowStyle,
   modelConfigSquareStyle,
   modelConfigSwitchTrackStyle,
 } from '@ihui/shared/ui/model-config-dialog-spec'
@@ -27,9 +39,11 @@ import './ModelConfigDialog.css'
 import LineIcon from '@/components/LineIcon'
 
 /// 本组件所有会显形的几何数字(删除角标 / 音色菜单图标块 / 上传图块 / 自绘开关轨道
-/// 与拇指及其行程 / 参数输入行高 / 行内字形与块内字形)一律不在本文件取数 —— 唯一源是
+/// 与拇指及其行程 / 参数输入行高与横向内衬 / 选项胶囊内衬与间距 / 字段标签间距 /
+/// 音色弹窗内衬与行纵向内衬 / 行内字形与块内字形)一律不在本文件取数 —— 唯一源是
 /// @ihui/shared/ui/model-config-dialog-spec(与 RN 端同档,裁决依据写在该文件);
-/// 本文件只做 rpx 换算与挂自己的布局原语。
+/// 本文件只做 rpx 换算与挂自己的布局原语。胶囊间距两端用同一档但各挂自己的机制
+/// (本端容器 `gap`、RN 条目 margin),换机制属重构不在本票,故只统一数值。
 const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
 
 // O81 票⑤续(2026-09-26):本组件 aigc variant 原先有 7 处把 aizhs.top 的 CDN 位图
@@ -236,49 +250,63 @@ export default function ModelConfigDialog({
           </View>
           <View className="px-4 py-3">
             <View className="mb-3">
-              <Text className="block text-xs text-muted-foreground mb-1">
+              <Text
+                className="block text-xs text-muted-foreground"
+                style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+              >
                 {tt('model.temperature', '温度 (0-2)')}
               </Text>
               <Input
                 type="digit"
-                className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
-                style={modelConfigInputBoxStyle(toUnit)}
+                className="w-full py-2 text-sm bg-muted rounded-lg"
+                style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="0.7"
                 value={config.temperature?.toString() || ''}
                 onInput={(e) => update({ temperature: parseFloat(e.detail.value) || 0 })}
               />
             </View>
             <View className="mb-3">
-              <Text className="block text-xs text-muted-foreground mb-1">
+              <Text
+                className="block text-xs text-muted-foreground"
+                style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+              >
                 {tt('model.maxToken', '最大 Token')}
               </Text>
               <Input
                 type="number"
-                className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
-                style={modelConfigInputBoxStyle(toUnit)}
+                className="w-full py-2 text-sm bg-muted rounded-lg"
+                style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="2048"
                 value={config.maxTokens?.toString() || ''}
                 onInput={(e) => update({ maxTokens: parseInt(e.detail.value) || 0 })}
               />
             </View>
             <View className="mb-3">
-              <Text className="block text-xs text-muted-foreground mb-1">Top P (0-1)</Text>
+              <Text
+                className="block text-xs text-muted-foreground"
+                style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+              >
+                Top P (0-1)
+              </Text>
               <Input
                 type="digit"
-                className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
-                style={modelConfigInputBoxStyle(toUnit)}
+                className="w-full py-2 text-sm bg-muted rounded-lg"
+                style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="0.9"
                 value={config.topP?.toString() || ''}
                 onInput={(e) => update({ topP: parseFloat(e.detail.value) || 0 })}
               />
             </View>
             <View className="mb-3">
-              <Text className="block text-xs text-muted-foreground mb-1">
+              <Text
+                className="block text-xs text-muted-foreground"
+                style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+              >
                 {tt('model.systemPrompt', '系统提示词')}
               </Text>
               <Input
-                className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
-                style={modelConfigInputBoxStyle(toUnit)}
+                className="w-full py-2 text-sm bg-muted rounded-lg"
+                style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="You are a helpful assistant"
                 value={config.systemPrompt || ''}
                 onInput={(e) => update({ systemPrompt: e.detail.value })}
@@ -297,14 +325,25 @@ export default function ModelConfigDialog({
                   {tt('ModelConfigDialog.settings1', '图片设置')}
                 </Text>
                 <View className="mb-3">
-                  <Text className="block text-xs text-muted-foreground mb-1">
+                  <Text
+                    className="block text-xs text-muted-foreground"
+                    style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+                  >
                     {tt('ModelConfigDialog.text2', '比例')}
                   </Text>
-                  <View className="flex flex-wrap gap-2">
+                  <View
+                    className="flex flex-wrap"
+                    style={modelConfigChipRowGapStyle(MODEL_CONFIG_CHIP_GAP_PX, toUnit)}
+                  >
                     {ASPECT_RATIOS.map((r) => (
                       <View
                         key={r}
-                        className={`px-3 py-1 text-xs rounded-md border ${
+                        style={modelConfigChipInnerStyle(
+                          MODEL_CONFIG_CHIP_PAD_X_PX,
+                          MODEL_CONFIG_CHIP_PAD_Y_PX,
+                          toUnit,
+                        )}
+                        className={`text-xs rounded-md border ${
                           config.aspectRatio === r
                             ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
@@ -318,14 +357,25 @@ export default function ModelConfigDialog({
                   </View>
                 </View>
                 <View className="mb-3">
-                  <Text className="block text-xs text-muted-foreground mb-1">
+                  <Text
+                    className="block text-xs text-muted-foreground"
+                    style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+                  >
                     {tt('ModelConfigDialog.text3', '分辨率')}
                   </Text>
-                  <View className="flex flex-wrap gap-2">
+                  <View
+                    className="flex flex-wrap"
+                    style={modelConfigChipRowGapStyle(MODEL_CONFIG_CHIP_GAP_PX, toUnit)}
+                  >
                     {RESOLUTIONS.map((r) => (
                       <View
                         key={r}
-                        className={`px-3 py-1 text-xs rounded-md border ${
+                        style={modelConfigChipInnerStyle(
+                          MODEL_CONFIG_CHIP_PAD_X_PX,
+                          MODEL_CONFIG_CHIP_PAD_Y_PX,
+                          toUnit,
+                        )}
+                        className={`text-xs rounded-md border ${
                           config.resolution === r
                             ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
@@ -346,14 +396,25 @@ export default function ModelConfigDialog({
                   {tt('ModelConfigDialog.settings4', '视频设置')}
                 </Text>
                 <View className="mb-3">
-                  <Text className="block text-xs text-muted-foreground mb-1">
+                  <Text
+                    className="block text-xs text-muted-foreground"
+                    style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+                  >
                     {tt('ModelConfigDialog.text5', '帧数')}
                   </Text>
-                  <View className="flex flex-wrap gap-2">
+                  <View
+                    className="flex flex-wrap"
+                    style={modelConfigChipRowGapStyle(MODEL_CONFIG_CHIP_GAP_PX, toUnit)}
+                  >
                     {FRAME_COUNTS.map((f) => (
                       <View
                         key={f}
-                        className={`px-3 py-1 text-xs rounded-md border ${
+                        style={modelConfigChipInnerStyle(
+                          MODEL_CONFIG_CHIP_PAD_X_PX,
+                          MODEL_CONFIG_CHIP_PAD_Y_PX,
+                          toUnit,
+                        )}
+                        className={`text-xs rounded-md border ${
                           config.frameCount === f
                             ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
@@ -374,14 +435,25 @@ export default function ModelConfigDialog({
                   {tt('ModelConfigDialog.settings6', '音频设置')}
                 </Text>
                 <View className="mb-3">
-                  <Text className="block text-xs text-muted-foreground mb-1">
+                  <Text
+                    className="block text-xs text-muted-foreground"
+                    style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+                  >
                     {tt('ai.voice.timbre', '音色')}
                   </Text>
-                  <View className="flex flex-wrap gap-2">
+                  <View
+                    className="flex flex-wrap"
+                    style={modelConfigChipRowGapStyle(MODEL_CONFIG_CHIP_GAP_PX, toUnit)}
+                  >
                     {TIMBRES.map((tb) => (
                       <View
                         key={tb.id}
-                        className={`px-3 py-1 text-xs rounded-md border ${
+                        style={modelConfigChipInnerStyle(
+                          MODEL_CONFIG_CHIP_PAD_X_PX,
+                          MODEL_CONFIG_CHIP_PAD_Y_PX,
+                          toUnit,
+                        )}
+                        className={`text-xs rounded-md border ${
                           config.timbre === tb.id
                             ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
@@ -580,7 +652,8 @@ export default function ModelConfigDialog({
               onClick={() => setShowAudioMenu(false)}
             >
               <View
-                className="mcd-audio-menu mx-6 w-full max-w-xs p-4"
+                className="mcd-audio-menu mx-6 w-full max-w-xs"
+                style={modelConfigMenuCardStyle(MODEL_CONFIG_MENU_PAD_PX, toUnit)}
                 onClick={(e) => e.stopPropagation()}
                 hoverClass="opacity-60"
               >
@@ -616,7 +689,8 @@ export default function ModelConfigDialog({
                 </View>
                 {/* 克隆音色 - 上传音频文件 */}
                 <View
-                  className="flex items-center py-2 rounded-md border border-border"
+                  className="flex items-center rounded-md border border-border"
+                  style={modelConfigMenuRowStyle(MODEL_CONFIG_MENU_ROW_PAD_Y_PX, toUnit)}
                   onClick={() => {
                     setShowAudioMenu(false)
                     handleUpload('audio')
@@ -692,7 +766,12 @@ export default function ModelConfigDialog({
               const selecterType = isSizeType(item.value) ? 'ratio' : ''
               return (
                 <View key={item.name} className="mb-3">
-                  <Text className="block text-xs text-muted-foreground mb-1">{item.desc}</Text>
+                  <Text
+                    className="block text-xs text-muted-foreground"
+                    style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+                  >
+                    {item.desc}
+                  </Text>
                   <Selecter
                     type={selecterType as 'ratio' | ''}
                     options={
@@ -708,10 +787,15 @@ export default function ModelConfigDialog({
             // 3. 文本输入
             return (
               <View key={item.name} className="mb-3">
-                <Text className="block text-xs text-muted-foreground mb-1">{item.desc}</Text>
+                <Text
+                  className="block text-xs text-muted-foreground"
+                  style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+                >
+                  {item.desc}
+                </Text>
                 <Input
-                  className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
-                  style={modelConfigInputBoxStyle(toUnit)}
+                  className="w-full py-2 text-sm bg-muted rounded-lg"
+                  style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                   placeholder={t('ModelConfigDialog.y2', { p1: item.desc })}
                   value={(configParamsObj[item.name] as string) || ''}
                   onInput={(e) => setConfigValue(item.name, e.detail.value)}
@@ -727,7 +811,10 @@ export default function ModelConfigDialog({
                 {tt('ModelConfigDialog.settings4', '视频设置')}
               </Text>
               <View className="mb-3">
-                <Text className="block text-xs text-muted-foreground mb-1">
+                <Text
+                  className="block text-xs text-muted-foreground"
+                  style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+                >
                   {tt('ModelConfigDialog.text14', '视频比例')}
                 </Text>
                 <Selecter
@@ -737,7 +824,10 @@ export default function ModelConfigDialog({
                 />
               </View>
               <View className="mb-3">
-                <Text className="block text-xs text-muted-foreground mb-1">
+                <Text
+                  className="block text-xs text-muted-foreground"
+                  style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
+                >
                   {tt('ModelConfigDialog.text15', '视频分辨率')}
                 </Text>
                 <Selecter

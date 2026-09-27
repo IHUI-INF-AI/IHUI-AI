@@ -9,10 +9,13 @@ import { cn, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   USER_INFO_CARD_ACTION_PADDING_X_PX,
   USER_INFO_CARD_ACTION_PADDING_Y_PX,
+  USER_INFO_CARD_AVATAR_PX,
   USER_INFO_CARD_BADGE_PADDING_X_PX,
   USER_INFO_CARD_BADGE_PADDING_Y_PX,
+  USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX,
   USER_INFO_CARD_HEADER_GAP_PX,
   USER_INFO_CARD_LOGIN_FONT_PX,
+  USER_INFO_CARD_LOGIN_PADDING_Y_PX,
   USER_INFO_CARD_NAME_FONT_PX,
   USER_INFO_CARD_PADDING_PX,
   USER_INFO_CARD_ROW_MARGIN_TOP_PX,
@@ -24,17 +27,30 @@ import { rpx } from '@/utils/rpx'
 import type { UserInfoCardMinimalProps } from '@ihui/types'
 
 /// 档位数字唯一源在 @ihui/shared/ui/user-info-card-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
-/// 书写形态按 design-tokens/geometry.js 的规矩分两路:**有等值 Tailwind 整档时用类名**(下表注释),
-/// 没有整档可等值时才用 `toUnit()` 内联(如 14px 上下内边距没有 `py-` 整档 ⇒ `py-3.5` 有,故用类名)。
+/// 书写形态:**本族全部档位经 `toUnit(具名档)` 内联**,端内不落第二个数字。
+/// (此前登录钮的上下档与进度条粗细写过等值 Tailwind 类名 `py-3.5` / `h-2` —— 渲染字节相同,但守门 128
+///  的具名档判据只认档名,于是这两档在小程序侧读不出来、被记成"另一端没接线";现收回类名形态,
+///  与同文件其余 11 档同一姿势。徽章族的 `px-2`/`py-0.5` 保留,因为同档已由 BADGE_PAD_STYLE 引过常量。)
 const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
 const PAD_STYLE = { padding: toUnit(USER_INFO_CARD_PADDING_PX) }
 const HEADER_GAP_STYLE = { gap: toUnit(USER_INFO_CARD_HEADER_GAP_PX) }
-/// 头像盒子结构只住在 spec 出口里(方档 + overflow + 居中),端内不得再摆一遍
-const AVATAR_STYLE = userInfoCardAvatarStyle(toUnit)
+/// 头像盒子结构只住在 spec 出口里(方档 + overflow + 居中),端内不得再摆一遍;
+/// 边长档由本端显式喂进常量 —— 与 RN 端同形,两端都读得到同一个数(RN 的 `avatar` 样式同样写它),
+/// 否则 48 藏在 spec 函数体内,守门 128 在本端面上看不见它。
+const AVATAR_STYLE = userInfoCardAvatarStyle(toUnit, USER_INFO_CARD_AVATAR_PX)
 const NAME_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_NAME_FONT_PX) }
 const SMALL_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_SMALL_FONT_PX) }
 const TOKEN_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_TOKEN_FONT_PX) }
 const LOGIN_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_LOGIN_FONT_PX) }
+/// 未登录钮:上下内边距走常量(与 RN 端 `loginBtn.paddingVertical` 同档),全宽条形态是本端机制差异,
+/// 按 spec 文件末差异登记第 1 条保持不动。
+const LOGIN_BTN_STYLE = {
+  paddingTop: toUnit(USER_INFO_CARD_LOGIN_PADDING_Y_PX),
+  paddingBottom: toUnit(USER_INFO_CARD_LOGIN_PADDING_Y_PX),
+  background: 'var(--color-primary)',
+}
+/// 成长值进度条粗细:与 RN 端 `growthBarBg.height` 同档(原写 `h-2` 类名,现收进常量)
+const GROWTH_BAR_STYLE = { height: toUnit(USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX) }
 /// CSSProperties(Taro)不认 paddingXxxHorizontal/Vertical 简写,拆成四键喂同一档位
 /// (原写"参照 Loading.tsx 口径" —— 那份零消费者死副本已于 2026-09-26 摘除,不再是指向)
 const BADGE_PAD_STYLE = {
@@ -131,13 +147,13 @@ export default function UserInfoCard({
   return (
     <View className={cn('rounded-lg bg-card border border-border', className)} style={PAD_STYLE}>
       {/* ===== 未登录态:一键登录按钮(对齐原项目 login-btn-new)=====
-          上下内边距 = spec LOGIN_PADDING_Y(14);`py-3.5` 是它的等值 Tailwind 整档书写形态
-          (此前写 `py-3` = 12,与 RN 端的 14 分叉)。全宽条形态是本端与 RN 胶囊的机制差异,
-          按 spec 文件末差异登记第 1 条保持不动。 */}
+          上下内边距 = spec LOGIN_PADDING_Y(14),经 LOGIN_BTN_STYLE 内联喂常量
+          (此前写 `py-3` = 12 与 RN 分叉,后改等值类名 `py-3.5`,现收进常量)。
+          全宽条形态是本端与 RN 胶囊的机制差异,按 spec 文件末差异登记第 1 条保持不动。 */}
       {!isLogged && onLogin ? (
         <View
-          className="flex items-center justify-center w-full py-3.5 rounded-md"
-          style={{ background: 'var(--color-primary)' }}
+          className="flex items-center justify-center w-full rounded-md"
+          style={LOGIN_BTN_STYLE}
           hoverClass="opacity-85"
           onClick={onLogin}
         >
@@ -268,9 +284,13 @@ export default function UserInfoCard({
                       {growthValue} / {growthMax}
                     </Text>
                   </View>
-                  {/* 进度条粗细 = spec USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX(8);`h-2` 是它的等值
-                      Tailwind 整档书写形态,RN 端原写 4 已收口到同一档,改这里必须同批改 spec。 */}
-                  <View className="w-full h-2 rounded bg-muted overflow-hidden">
+                  {/* 进度条粗细 = spec USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX(8),经 GROWTH_BAR_STYLE
+                      内联喂常量(此前写等值类名 `h-2`,档名读不到 ⇒ 被守门 128 记成"仅 RN 引用");
+                      RN 端原写 4 已收口到同一档,改这里只改 spec 一处。 */}
+                  <View
+                    className="w-full rounded bg-muted overflow-hidden"
+                    style={GROWTH_BAR_STYLE}
+                  >
                     <View
                       className="h-full rounded"
                       style={{
