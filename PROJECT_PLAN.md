@@ -11370,7 +11370,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] 71. chat 多端/多标签实时同步(**V2 #23 未交付,本轮重列**;先定 SSE 与 WS 双通道的「同一消息 patch 幂等」契约)
 - [ ] 72. `apps/desktop` 从薄壳到本地能力端点(本地 workspace 通道 + 增量索引 + 本地 git/diff + 离线降级;**保留前端单一事实源在 web,不复制 UI**)
 - [ ] 73. `apps/miniapp-taro` AI 对话页(移植 `packages/app/src/features/agent-chat`;小程序用分块 `wx.request` 而非 stream)
-- [ ] 74. CLI 全屏 TUI 决策(三选一,建议 **A 真上 ink**:补依赖 + `tsconfig.include` 加 `.tsx`;顺带补或归档 README 声称的 `ihui config` / `ihui remote`)
+- [ ] 74. CLI 全屏 TUI 决策(三选一,建议 **A 真上 ink**:补依赖 + `tsconfig.include` 加 `.tsx`;顺带补或归档 README 声称的 `ihui config` / `ihui remote`) 〔2026-09-27 主会话按"低成本那半先修"定:维持现状不上 ink,但 README 声称的 `ihui config` / `ihui remote` 必须补齐或归档 —— 已在骗人的那半不等拍板〕
 - [ ] 75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯 Python 遍历;懒索引护栏 `_LAZY_INDEX_MAX_FILES=2000` 对 monorepo 复评) 进度(2026-09-27,不翻勾):两条通道已统一到同一份枚举实现 —— `file_search` 与 `mcp__filesystem__search_files` 共用 `apps/ai-service/app/services/rg_fallback_parity.py`(rg 优先、降级并行遍历),并各自回报 `enum_engine` / `enum_degraded`;`normalize_suffixes` 支持 `suffixes=None`(不过滤扩展名),因为 `file_search` 用的是**扩展名黑名单**而枚举层原先取白名单 —— 这是两通道结果集不一致的真因,已按「不改行为、只统一实现」收口,工具级对账 15 passed。**未达标题面**:「10 万文件级」只完成枚举侧,懒索引护栏 `mcp_server.py:634 _LAZY_INDEX_MAX_FILES = 2000` 对 monorepo 未复评(超 2000 即静默不建索引、返回 []),所以本票不翻勾。
 - [ ] 75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯 Python 遍历;懒索引护栏 `_LAZY_INDEX_MAX_FILES=2000` 对 monorepo 复评)
 - [ ] 76. 知识引擎:Knowledge Card 自动蒸馏 + Repo Wiki 自同步(图存储默认 `InMemoryGraphStore` **重启即失** → 落 Drizzle;会话结束异步蒸馏 + card 三维元数据:来源/时效/置信)
@@ -11388,12 +11388,12 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 - [ ] 79. 权限双轴化(`sandbox_mode` × `approval_policy`)+ config profiles(对齐 Codex 2026;起点是已有的 `packages/types/src/permission-mode.ts` 跨语言真源)
 - [ ] 80. Guardian 复核代理(用户点 approve 前由独立 agent 复核是否有更安全等价路径;底座已有 `guarded_tool_pipeline.py` + `tool_budget_governor.py` + `dispatch_subagent`)
-- [ ] 81. MTC 工作面(对标 Trae SOLO MTC:文档/数据表/报表/演示/竞品调研的产物流水线)
+- [ ] 81. MTC 工作面(对标 Trae SOLO MTC:文档/数据表/报表/演示/竞品调研的产物流水线) 〔2026-09-27 用户拍板:**先做最小一环**——一种产物模板打通端到端(不自建五类并行流水线),端到端判据 = 该模板在真会话里产出可用文件而非仅提示〕
 - [ ] 82. Predictive Edit(对标 Trae CUE 的独立编辑意图预测器,现有 FIM 链路上升级)
 - [ ] 83. Spec ↔ Code 双向落差检测 + LSP 扩语言(现仅 TypeScript,硬编码 `LSP_BIN`)
 - [ ] 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + 77)
 - [ ] 85. 离线/边缘优先降级(依赖 72;本地向量索引 + `ollama`/`lmstudio`/`llama_cpp` 三路 provider 已在适配表里)
-- [ ] 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希 + 权限决策 + 操作者身份,导出签名 ledger)
+- [ ] 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希 + 权限决策 + 操作者身份,导出签名 ledger) 〔2026-09-27 用户拍板:**做,落库并可导出**;前置一格是保留策略(谁能动、留多久),该项按 §24 需单独确认,故本票第一步是出表设计与保留方案而非写迁移〕
 
 ### 本轮新增的三条防回潮守门(建议进 scripts/ 与 pre-commit)
 
@@ -12883,7 +12883,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   （过期与重放同一路径），且发票口本身在 `/api/` token 闸内 —— "已认证"才能换"更高一档"，换完只够一次。
   解阻判据：先拍"先发票后验票"还是"双读过渡窗"（改契约的顺序即安全属性，单边实施会把内部通道打断），
   拍完本线可即时实施；**第三十五批的常量时间比较已就位**，两件事不冲突但必须同一序列里排。
-- [ ] **G-243 最低版本闸门不可远程切换**（归属：对外能力决策 ⇒ 需用户确认，§24）
+- [ ] **G-243 最低版本闸门不可远程切换**（归属：对外能力决策 ⇒ 需用户确认，§24） 〔2026-09-27 用户拍板:补,且**默认可远程改** —— 服务端下发最低版本 + CLI 启动时问一次;配置写错挡人的风险由"下发失败即不拦、只喊"这条兜,归入实现票判据〕
   `apps/cli/src/updater.ts:62-211` 的 `minimumVersion` 读**本地** package.json（实测 `engines` 无此键 ⇒ 分支永不触发），
   `notifyUpdates` 只异步 warn；`apps/api/src/routes/app-version.ts` 的 platform 枚举里没有 `cli`，全仓无服务端版本闸
   （`minCliVersion|X-Client-Version` 零命中）。症状是旧 CLI 带新契约继续跑，故障以难归因的运行时错呈现。
@@ -12893,7 +12893,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   ZCode 的两条纪律值得照抄：store 无 journal 能力 ⇒ **整个服务显式禁用 + 结构化日志**，绝不退回内存 journal
   （"run 看起来跑起来了，却在进程退出时把一切静默丢掉"）；回放是"事件按序重铸成与 live 同一种载荷喂同一 reducer"，
   终态一律**从行派生**而非信任旧事件词表。解阻判据：与 G-241 同一张建表决策，别分两票做两次迁移。
-- [ ] **G-245 事故归档无"双上限"回收 —— 与 §5b 的禁删条款正面冲突，必须先由人定代数**（归属：`.git` 存续线）
+- [ ] **G-245 事故归档无"双上限"回收 —— 与 §5b 的禁删条款正面冲突，必须先由人定代数**（归属：`.git` 存续线） 〔2026-09-27 用户拍板:**双上限 + 保留最近 10 代**,每次删除写日志、量不确认即拒跑;§5b 禁删名单(活 gitdir / 恢复源 / `*.broken-*`)**一律不回收**,只回收事故现场归档〕
   实测：`G:/DevEnv/backups/git` 已 1.1GB / 43 项，历史 15+ 次事故，`scripts/git-guardian.mjs` 零 retention。
   ZCode 的归档回收是 `maxFiles=5 + maxTotalBytes=100MB` 双上限 + deleted/failed 留痕 + mtime≥1s 稳定窗。
   **本线刻意没做**：§5b 明文"禁止删除 `D:/IHUI-AI-git-repo`、`IHUI-AI.git-backup-20260912` 及两目录的 `*.broken-*` 归档"
@@ -13250,3 +13250,11 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - **牙只咬新增**(`scripts/plan-tasks.mjs --gate`):提交链跑的是"本次带进来几条无交代登记"的**差值棘轮**,存量 128 行与"超 21 天无进展"这一维**默认档只报数**、`--strict` 才点名判红 —— 与提交内容无关的恒红门只会逼人 `--no-verify` 连带废掉全部守门(§12e)。基线 `F8` 地板为 0(抬高它就是给无交代登记发通行证)。
   - **派单口径新增一格**:`node scripts/plan-tasks.mjs --open --dispatchable` 只留"现在可做 ∧ 无人认领 ∧ 不是副本",问责三档 = `--undisposed` / `--stale` / `pnpm check:plan-age`。**当次现读(2026-09-27,派单前必须重跑勿照抄)**:未勾选 313 / 派单口径 203 / 归属分层 202+9+9+22 / 无交代 128 / 超 21 天 0 / 年龄覆盖 313、量不到 0。
   - **本批未闭环的(如实登记,不是已完成)**:① 存量 128 行无交代**未清偿** —— 它们当中相当一部分是"确实还开着但没写为什么",补交代要逐行读明语义,机器代填等于造假;② 副本行结清这条路**已量过不需要新机制**:按复合主键可翻勾的副本 0 行,"按编号"匹配到的 33 行是判据过宽的假候选(F1 已覆盖,F4 只加指针不动勾选是刻意设计 —— 把没做的记成做过的比原病更响);③ 报告里"其余排除项"的明细计数彼此可重叠,不得拿去减法核账(只有 `未勾选 = 已认领 + 其余排除 + 真待办` 那条分解互斥可加)。取证:plan-tasks 自检 57 条 + 年龄自检 14 条 + 镜像 13 例 + 端到端 5 例(含"漏传基准面 ⇒ 必须点名 F8 而不得当作 0"的控制测量)。
+
+
+### 2026-09-27 产品决策拍板(用户逐项确认,5 项全有结论;活未做完 ⇒ 上面票行仍是 `[ ]`,只加"已拍板"注记)
+- **G-243 补服务端版本闸门,且默认可远程改。** 落实要求:① 下发失败/超时/格式不认识 ⇒ **一律不拦,只喊**(配错挡住全部用户比"旧 CLI 跑新契约"更坏);② 拦下时给的是可读原因 + 升级出口,不是裸 426;③ 平台枚举 `app-version.ts` 必须补 `cli` 档,否则闸门对 CLI 结构上不可达(实测这正是今天"分支永不触发"的成因)。
+- **G-245 事故归档按"双上限 + 最近 10 代"回收。** 边界写死:回收对象**只有** `gitArchiveDir()` 下的事故现场归档;活 gitdir、本地恢复源、两目录的 `*.broken-*` **一律不碰**(§5b 明文禁删,与本案不冲突 —— 冲突的只是"要不要回收现场归档"这一层)。每次删除必须留 deleted/failed 双日志;量不确认(未先跑 dry-run)即拒绝执行。
+- **#86 做证据级流水,落库并可导出。** 第一步不是迁移而是**保留方案**(留多久、谁能读、是否含入参指纹 —— 本仓有"不落任何入参值"的既有先例可套)。**该方案属 §24 领地,需你单独确认后才动 journal。**
+- **#81 只做最小一环:**先打通**一种**产物模板的端到端(不是五类并行),判据是"真会话里产出可用文件",不接受"只生成提示词"。
+- **#74 不上全屏 TUI**(技术栈选择不是故障),但 README 声称的 `ihui config` / `ihui remote` 必须补齐或归档 —— 文档承诺超出实现是**已在发生的误导**,不等任何拍板。
