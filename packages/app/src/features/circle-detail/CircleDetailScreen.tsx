@@ -126,7 +126,7 @@ function createStyles(tk: AppThemeTokens) {
     backBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     backBtnText: { color: tk.surface.light, fontSize: 16 },
@@ -145,7 +145,7 @@ function createStyles(tk: AppThemeTokens) {
     statBadge: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -164,7 +164,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       flex: 1,
       paddingVertical: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       alignItems: 'center',
     },
     actionBtnPrimary: { backgroundColor: tk.brand.cta },

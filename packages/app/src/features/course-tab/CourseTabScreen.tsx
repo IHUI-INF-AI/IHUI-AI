@@ -478,7 +478,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     popularCard: {
       width: '48%',
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
       overflow: 'hidden',
     } as ViewStyle,
@@ -540,7 +540,7 @@ function createStyles(tk: AppThemeTokens) {
     searchInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 12,
       height: 50,
@@ -579,7 +579,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     courseCard: {
       flexDirection: 'row',
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
       backgroundColor: tk.surface.card,
     } as ViewStyle,

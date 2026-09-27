@@ -444,7 +444,7 @@ const createStyles = (tk: RnThemeTokens) =>
       gap: rpx(6),
       paddingHorizontal: rpx(24),
       height: rpx(64),
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     topicHash: {
@@ -608,7 +608,7 @@ const createStyles = (tk: RnThemeTokens) =>
     emptyBtn: {
       paddingHorizontal: rpx(40),
       paddingVertical: rpx(16),
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     emptyBtnText: {

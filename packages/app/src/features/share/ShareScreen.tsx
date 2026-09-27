@@ -117,7 +117,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 12,
       paddingVertical: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -127,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
     createBtn: {
       marginTop: 16,
       paddingVertical: 15,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
@@ -138,7 +138,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       marginTop: 16,
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -147,7 +147,7 @@ function createStyles(tk: AppThemeTokens) {
     shareBtnWrap: { paddingHorizontal: 10, paddingVertical: 12 },
     shareBtn: {
       paddingVertical: 15,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },

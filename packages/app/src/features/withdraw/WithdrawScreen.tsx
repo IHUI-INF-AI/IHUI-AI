@@ -102,7 +102,7 @@ function createStyles(tk: AppThemeTokens) {
     balanceCard: {
       padding: 14,
       marginBottom: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
     balanceLabel: { fontSize: 14, color: tk.text.secondary },
@@ -114,7 +114,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     card: {
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -124,7 +124,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 14,
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -137,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
       // 对齐原项目 withdrawal/index.vue 提交按钮 margin-top: 40rpx(=20px)
       marginTop: 20,
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

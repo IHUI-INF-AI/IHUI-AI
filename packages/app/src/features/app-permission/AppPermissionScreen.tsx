@@ -104,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 14,
       borderWidth: 1,
       borderColor: tk.border.light,
