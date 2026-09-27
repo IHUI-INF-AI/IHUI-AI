@@ -12604,7 +12604,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] P1 新线索(实测,未追):**Ctrl+Q 在真机上按下去毫无反应**。已排除按键未送达(`press_key` 报 `foregroundStatus: matched`、`inputEventCount: 4`、VK=81),已排除 quit 链在跑但卡住(按后 45 秒内日志**零新增行**、且本次新增的那条兜底 ERROR 也没打 ⇒ `quit_app` 从未被调到),截图证实界面既无遮罩也无变化、应用照常运行。而 `apps/web/src/hooks/use-native-shortcuts.ts` 源码里确有 `ctrl && !shift && !alt && key === 'q'` 分支。**最可能的分歧点**:桌面端加载的是 `https://aizhs.top/agents` **线上生产构建**,本机工作树里的快捷键/守卫改动对它零覆盖 —— 即"源码有绑定"不等于"线上那一版有绑定"。这一格与本会话开头用户说的"所有入口都试过退不掉"直接相关,须由持托盘/快捷键那条线的人定案:先量线上那一版实际打包出的 JS 里有没有该绑定,再决定是补部署还是修绑定。**不得**把"我改了源码里的 guard"读成"用户现在能退出了"。
 ### 第五十一波·续十二 —— 提交链被一道"没人调度却自称已接线"的门挡住：只把表述改准，不替它接线（2026-09-27 午后，主会话独立复跑）
 
-- [x] ✅(2026-09-27) **G-239 守门 146 `check-readme-table-integrity` 的两笔欠账:注册块曾被盖掉、README 61 行存量与豁免到期档缺失(批次 41 清偿)**
+- [x] ✅(2026-09-27) **G-239 守门 `check-readme-table-integrity` 的注册块不见了 —— 补注册前必须先清偿它自己的存量**（归属：该门持有者；本线只解除它挡住的提交链）
   事实链(逐条现读,不是推断):① 注册块确实丢过一次 —— `git log --all -S check-readme-table-integrity.mjs -- scripts/guardian-runner.mjs`
   给出 `f2f90a666`(接入)与 `b4905b158`(接回),中间那枚 union 合并把注册整块盖掉而**文档面的声称留在原地**,
   ⇒ 守门 89 的 R2 对每一次碰 README 的提交判红;我一度把它误判成"另一路会话的谎报",并在 AGENTS/README 各写了一条"尚未注册"的更正
