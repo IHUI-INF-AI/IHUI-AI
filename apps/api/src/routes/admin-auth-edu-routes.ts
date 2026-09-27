@@ -13,6 +13,7 @@ import { eq, or, ilike, desc, sql, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { dedupeIds } from '../utils/batch-outcome.js'
 import {
   userAuthInfo,
   userMargins,
@@ -63,6 +64,76 @@ function safeParseBlacklist(value: string): BlacklistPayload {
     return { ...fallback, ...parsed }
   } catch {
     return fallback
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 设备指纹区分度闸                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * 单枚指纹哈希背后允许挂着的**不同账号**上限;超过即不再指代一台物理设备。
+ *
+ * 取值理由(不是拍的):
+ * - 真实设备共享(家庭共用、门店平板、机房/网吧机器)是**个位数**账号量级。取 3 会误伤家庭共用,
+ *   取 100 会把"同型号 Android 门店机"这类同样不具区分度的形态放过去 ⇒ 落在两者之间。
+ * - 已知退化形态超出此数若干个数量级:移动端采集器(apps/mobile-rn/src/lib/device-fingerprint.ts)
+ *   只喂 Platform.OS 一个字段,摘要在 packages/types/src/device.ts 计算 ⇒ 输入集只剩
+ *   { ios, android },整端只有 2 个可能指纹值,同一 OS 的全部真机必然同值。
+ *   那枚指纹命中数千账号是"采集字段不足"的必然结果,不是"这些账号共用一台设备"的证据。
+ * - 本闸只堵 api 侧这一格(不把退化指纹当"同一设备"外发);采集端属移动端持有者决策,本票未动。
+ */
+export const MAX_ACCOUNTS_PER_DISCRIMINATING_FINGERPRINT = 10
+
+/**
+ * 闸门触发后仍给管理员留可核对证据:最多外发这么多个账号 id,其余由 withheldUserCount 点名数量。
+ * 静默变短比变短更糟,所以截断必须自带计数。
+ */
+export const NON_DISCRIMINATING_USER_ID_SAMPLE_SIZE = 5
+
+/** 触发时写进响应的成因说明,不让下一个读响应的人重新猜一遍。 */
+export const NON_DISCRIMINATING_FINGERPRINT_NOTE =
+  '该指纹关联的账号数已超过单台设备的合理上限，不具设备区分度，不得据此判定为同一设备，也不得用于拉黑或跨账号关联。已知成因：移动端采集器只上报 Platform.OS 一个字段，同一操作系统的全部真机会算出同一枚哈希（见 apps/mobile-rn/src/lib/device-fingerprint.ts 与 packages/types/src/device.ts）。'
+
+export interface FingerprintAffiliation {
+  /** false = 命中集合大到这枚指纹不可能指代单台设备,此时 userIds 只是样本。 */
+  readonly discriminating: boolean
+  /** 外发的账号 id:判定具区分度时是全集,否则是前 N 个样本。 */
+  readonly userIds: string[]
+  /** 库里确认的**不同**账号数(不是请求侧数组长度)。 */
+  readonly matchedUserCount: number
+  /** 因上限而未外发的个数;0 = 本次没有截断。 */
+  readonly withheldUserCount: number
+  /** 触发时的成因说明;具区分度时为 null。 */
+  readonly note: string | null
+}
+
+/**
+ * 判定一枚指纹的关联集合是否仍具区分度。
+ * 入参必须是**库确认**的命中账号集合(user_devices 以 (userId, fingerprintHash) 唯一),
+ * 不得由请求侧自算 —— 与 utils/batch-outcome.ts 同一条纪律。
+ */
+export function judgeFingerprintAffiliation(
+  matchedUserIds: readonly string[],
+): FingerprintAffiliation {
+  const distinct = dedupeIds(matchedUserIds)
+  const matchedUserCount = distinct.length
+  if (matchedUserCount <= MAX_ACCOUNTS_PER_DISCRIMINATING_FINGERPRINT) {
+    return {
+      discriminating: true,
+      userIds: distinct,
+      matchedUserCount,
+      withheldUserCount: 0,
+      note: null,
+    }
+  }
+  const userIds = distinct.slice(0, NON_DISCRIMINATING_USER_ID_SAMPLE_SIZE)
+  return {
+    discriminating: false,
+    userIds,
+    matchedUserCount,
+    withheldUserCount: matchedUserCount - userIds.length,
+    note: NON_DISCRIMINATING_FINGERPRINT_NOTE,
   }
 }
 
@@ -456,7 +527,9 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     if (type) list = list.filter((it) => it.type === type)
 
     // device 类型分支:从 user_devices 表按 fingerprintHash 查设备详情(最后登录时间/UA/IP/关联用户)
-    // identifier 即设备指纹哈希;一个指纹可能被多个用户使用(换号登录),返回 userIds 列表
+    // identifier 即设备指纹哈希;一个指纹可能被多个用户使用(换号登录),返回 userIds 列表。
+    // 但"多个"与"整端全部用户"是两件事 —— 关联集合先过 judgeFingerprintAffiliation 的区分度闸,
+    // 不具区分度时不得当"同一设备"外发(退化指纹会把同 OS 的账号连成一片,且与真关联同形)。
     if (type === 'device' && list.length > 0) {
       // digest-name-exempt: 复数名词指"已存指纹哈希的集合"(it.identifier 即 user_devices.fingerprintHash),散列在登记侧早已完成,本行只取列表
       const fingerprints = list.map((it) => it.identifier).filter((v): v is string => Boolean(v))
@@ -496,12 +569,17 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
       }
       const enriched = list.map((it) => {
         const info = deviceMap.get(it.identifier)
+        const affiliation = judgeFingerprintAffiliation(info?.userIds ?? [])
         return {
           ...it,
           lastSeenAt: info?.lastSeenAt ?? null,
           userAgent: info?.userAgent ?? null,
           ip: info?.ip ?? null,
-          userIds: info?.userIds ?? [],
+          userIds: affiliation.userIds,
+          discriminating: affiliation.discriminating,
+          matchedUserCount: affiliation.matchedUserCount,
+          withheldUserCount: affiliation.withheldUserCount,
+          nonDiscriminationNote: affiliation.note,
         }
       })
       return reply.send(success({ list: enriched }))
