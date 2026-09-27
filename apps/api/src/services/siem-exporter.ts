@@ -453,6 +453,42 @@ export function getAuditExportPublicKeyInfo(): {
   }
 }
 
+/**
+ * 按 kid 取公钥(86G-2 的第二半:轮换期外部核验者也拿得到材料)。
+ *
+ * 为什么必须有这一条:86C 把信封的 `kid` 发出去,就是要收件方**自取**对应公钥;
+ * 而 86G-1 的匿名端点只会回"当前那一把"。于是签过旧钥匙的信封,审计方按信封自带的 kid
+ * 去取钥匙,取到的是新钥匙 ⇒ 验不过 —— 表里明明登着旧公钥,公开面却递不出来,
+ * "退而不删"这条能力对**外部**等于不存在。
+ *
+ * 判据同 `verifySignedAuditExportWithKeys`:查不到 ⇒ 显式 `found:false` 并点名 kid,
+ * **绝不回落成"给你当前这把"**(那会把"没登记"伪装成"钥匙不对",而两种处置动作相反)。
+ * 也不按 status 过滤 —— `retired` 的键必须仍可取,这就是本函数的全部用途。
+ * 表里有什么**数量**都不回给匿名侧:密钥标识虽是公开材料,但枚举对核验无收益。
+ */
+export type AuditExportPublicKeyLookup =
+  | {
+      found: true
+      keyId: string
+      algorithm: AuditExportSignatureAlgorithm
+      publicKey: string
+      keyStatus: AuditExportKeyStatus
+    }
+  | { found: false; keyId: string }
+
+export function getAuditExportPublicKeyInfoForKid(kid: string): AuditExportPublicKeyLookup {
+  const { entries } = currentKeyTable()
+  const resolved = resolveAuditExportKeyForKid(kid, entries)
+  if (!resolved.found) return { found: false, keyId: kid }
+  return {
+    found: true,
+    keyId: resolved.entry.kid,
+    algorithm: AUDIT_EXPORT_SIGNATURE_ALGORITHM,
+    publicKey: resolved.entry.publicKey,
+    keyStatus: resolved.entry.status,
+  }
+}
+
 /** 六维过滤条件归一成快照(未设置的落空串,避免 undefined 在 JSON 里"整键消失")。 */
 function snapshotFilters(filters: AuditLogFilters): AuditExportFilterSnapshot {
   return {
@@ -464,9 +500,19 @@ function snapshotFilters(filters: AuditLogFilters): AuditExportFilterSnapshot {
   }
 }
 
-/** 签名字节 = 载荷的确定性序列化。签名与验签两侧必须走同一个函数,否则永远对不上。 */
-function canonicalPayloadBytes(payload: AuditExportPayload): string {
+/**
+ * 签名字节 = 载荷的确定性序列化。签名与验签两侧必须走同一个函数,否则永远对不上。
+ *
+ * `canonicalAuditExportPayload` 是同一份实现的**具名出口**:签名对象规则是对外契约的一部分
+ * (收件方要能自己复算一遍才叫"离线可验"),不是内部细节。导出它不是为了另开一条签名路径 ——
+ * 生产面仍只有 `canonicalPayloadBytes` 这一个调用点,取证的端到端用例用它独立复算验签。
+ */
+export function canonicalAuditExportPayload(payload: AuditExportPayload): string {
   return canonicalStringify(payload)
+}
+
+function canonicalPayloadBytes(payload: AuditExportPayload): string {
+  return canonicalAuditExportPayload(payload)
 }
 
 function rsaSign(canonical: string, privateKeyPem: string): string {
