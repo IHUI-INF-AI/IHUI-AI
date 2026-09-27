@@ -9082,7 +9082,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   （`commands/models.ts:234`、`provider/local.ts:272`）。
   **唯一被构造期快照的是"工具注册表"**，且它在每次 spawn 时 `subagent.ts:381 savedTools = listTools()` →
   `:450-452 finally { clearTools(); registerTools(savedTools) }` 成对还原 ⇒ 形态正确，不是债。
-- [ ] **★ 抓到本仓一处"造好没装车"：`apps/cli/src/tools/argument-validator.ts` 在生产面零调用方 ⇒ CLI 工具入参根本不校验**
+- [x] ✅(2026-09-28 现读归正:第①步早已装车且②③也已落地,本行是被并发并集留下的未翻勾旧账) **★ 抓到本仓一处"造好没装车"：`apps/cli/src/tools/argument-validator.ts` 在生产面零调用方 ⇒ CLI 工具入参根本不校验**〔归正取证(当次实测,非推断):第①步影子档**在生产面有调用方** —— `tools/index.ts:737` 的 `executeToolCall` 调 `shadowValidateToolArguments`,默认档 `off` 由 `argument-validation-shadow` 单测①钉"零副作用",守门 115 现读判"校验器有生产调用方 ∧ 影子档在位 ∧ 默认档不是 enforce";第②步出口即 `bd35f4f54` 的 `pnpm report:tool-arg-rejections`(同主键 G-240 的完成登记在 L13178 已翻勾,本行不重复计账);第③步 enforce 档与修复回喂窗(`TOOL_ARG_REPAIR_MAX_ATTEMPTS=3`)也在位(`argument-validation-enforce.test.ts`)。本行名下唯一真残余=**shadow 真实样本现读 0 条** ⇒ enforce 翻默认被样本挡住,这是 L13178 已明写的解阻条件(要有人在 shadow 档跑真会话并显式设 `IHUI_TOOL_ARG_VALIDATION_LEDGER`),不是本行未闭环。〕
   （这是 A36 那条票的真身，也是 A13 那句"运行时怎么校验与模型被告知怎么填是同一份描述的两个投影"**目前只有后半句成立**）：
   - 证据（主会话自跑）：`grep -rn "validateToolArguments|formatValidationErrors" --include=*.ts apps/cli/src packages/*/src`
     ⇒ **只有该文件自身的定义行**（`:68` 定义、`:351` 定义、`:22/:345` 注释），零个 import 与零个调用点；
@@ -12944,7 +12944,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **处置**:用 `scripts/gate-registry-insert.mjs` 重新取号接回(现值 145 = double-header / 146 = readme-table-integrity),文档编号引用跟到 runner 现值(`.ihui-agent/tmp/rn-preview/sync-gate-ids.mjs`,做法是"按行定位只改这一行的号"—— 全文正则替换会二次挪号)。注册落地后工作树副本再次落成父提交版本,由 `heal-worktree-tracked --align-drift` 对齐(同型第三次撞到,已单独入库记忆)。
 - **同批**:门 145 的镜像 T5 与门体 `--self-test` 各抄了一份"立项那天是哪五处"的硬清单;`SettingsScreen` 被其持有者清偿后 HEAD 现读 5→4,于是**有人修好缺陷反而让取证判红**。改法是删掉清单、留下有牙的两条:`读到 ≥1 处` ∧ `读到的集合 == 台账集合`(台账由 `--update-baseline` 维护,且每个 `rnFile/sharedFile` 必须真在 HEAD 里 —— 指向不存在的文件即"清单腐烂"判红)。判据本体一字未动。现读:门 145 镜像 10 例全绿、门体 `--self-test` 全通过;门 146 镜像 8 例 + 修复器 7 例全绿、全量面 exit 0(T-A run 0,T-B 56 行与孤立 26 行按设计只报数)。
 - **交付状态**:`git fetch` 后 `merge-base --is-ancestor` 逐枚验到远端 —— `32e8534306`(FloatBox 出口守卫)/ `0bfde7ec2`(70 处错误身份迁移)/ `d3a2f5e732`(去冻结清单)/ `91e73c7eb0`(门 146 脚本与点名)/ `82f2437a06`(门 145/146 编号跟值)全部在 `FETCH_HEAD`;远端 runner 里两条注册各在位,AGENTS/README 点名在位。本地 == 远端 = `465999c99ef`。
-- [ ] **G-240 enforce 档的下一步不是翻默认，而是"用台账修描述"**：影子/enforce 计数现在只进快照，
+- [x] ✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「G-240」),出口已由 `bd35f4f54` 落地并在同台账 L13178 翻勾(聚合主键 {工具,字段,期望形态} + top-N + `pnpm report:tool-arg-rejections` 问责入口 + 默认档 off 未动,取证 24 例与门 115 全绿)⇒ 本行是被并发并集留下的未翻勾副本,只落状态、不删行、不重复计账。 **G-240 enforce 档的下一步不是翻默认，而是"用台账修描述"**：影子/enforce 计数现在只进快照，
 ### 第五十一波·续十八 —— 第六轮取证的未做格（2026-09-27 午后登记：每条都带归属与解阻判据）
 四路取证回来 9 格候选，本轮落了 4 格（批次 46/47/48/49 + 44 门 147）。**剩下 5 格不是"以后再说"，逐条写明为什么不归本枚、以及什么条件下才动**：
   还没有一个出口把"哪个工具的哪条字段常被拒"变成可排期的清单（解阻判据：`tool-arg-shadow` 快照能按
