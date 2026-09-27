@@ -126,6 +126,16 @@ def continue_thread(
     new_thread = store.create_thread(
         title=f"继续: {source.title}" if source.title else "继续上次会话",
         parent_thread_id=thread_id,
+        # 接力线程继承来源的属主/角色(批 60 / G-249)。不传就等于每次"继续上次会话"
+        # 都新造一条**无属主**的线程 —— 而按 `_principal_allows` ②,"没有属主"不是
+        # 受限而是"无从对账",任何已登录连接都能接着用它对话。
+        # (这条路由"能不能凭 id 续别人的会话"属只读/销毁面,另记 G-250。)
+        user_id=source.metadata.get("userId")
+        if isinstance(source.metadata.get("userId"), str)
+        else None,
+        role_id=source.metadata.get("roleId")
+        if isinstance(source.metadata.get("roleId"), int)
+        else None,
     )
     store.save_relay_summary(
         new_thread.thread_id,

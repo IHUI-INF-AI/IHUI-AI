@@ -114,7 +114,7 @@ from app.core.turn_metadata import (
 )
 
 from .engine_tool_bridge import capability_equivalent, execution_mode
-from .session_store import ItemBase, SessionStore
+from .session_store import ItemBase, SessionStore, carry_identity_keys
 
 logger = logging.getLogger(__name__)
 
@@ -1748,6 +1748,31 @@ def _thread_belongs(thread: EngineThread, principal: str | None) -> bool:
     return _principal_allows(principal, owner if isinstance(owner, str) else None)
 
 
+def _identity_of(thread: EngineThread) -> dict[str, Any]:
+    """线程当前的身份键(引擎盖章过的那份,不是 metadata 里那份)。
+
+    `role_id` 为 0 / `user_id` 为 None 时**不落键**:与 create_thread 的写法同形,
+    也让"未绑定"在库里保持成"缺席"而不是"值为 null"—— 恢复侧两者都还原成 None,
+    而缺席比 null 更难被下游误读成一个真实身份。
+    """
+    keys: dict[str, Any] = {}
+    if thread.user_id:
+        keys["userId"] = thread.user_id
+    if thread.role_id:
+        keys["roleId"] = thread.role_id
+    return keys
+
+
+def _restamp_identity(metadata: dict[str, Any], thread: EngineThread) -> dict[str, Any]:
+    """客户端 patch 之后把身份键按**线程自身**盖回(内存侧咽喉点)。
+
+    规则只有一份实现:`session_store.carry_identity_keys`。落库侧在
+    `update_thread_metadata` 里再套同一份,是因为"引擎处理器忘了盖"正是本仓反复
+    记过的失效型 —— 两个入口各自不可绕过,而不是靠调用方自觉。
+    """
+    return carry_identity_keys(_identity_of(thread), metadata)
+
+
 @dataclass(frozen=True)
 class _PendingPermissionRequest:
     """`request_permissions` 的待决请求:future + **它属于谁**(哪条线程、哪个用户)。
@@ -2074,10 +2099,11 @@ class AgentEngine:
                     "maxIterations": thread.max_iterations,
                     "toolNames": thread.tool_names,
                     "workspace": thread.workspace,
-                    "userId": thread.user_id,
+                    # 属主与角色不在这里写(批 60 / G-249):它们是**身份**,只能走
+                    # create_thread 的 user_id/role_id 显式入参 —— metadata 是客户端可
+                    # 整写的字段,把身份写在里面就得靠每个写入口记得守规矩。
                     # 角色与属主同字段族落库,使"重启恢复的线程"不静默降回 role 0
                     # (那是权限漂移;仍按 fail-closed 还原 —— 值不合型即 0)
-                    "roleId": thread.role_id,
                     "conversationId": thread.conversation_id,
                     "approvalPolicies": thread.approval_policies or None,
                     "modelParams": thread.model_params or None,
@@ -2098,6 +2124,10 @@ class AgentEngine:
                         else ""
                     ),
                 },
+                # 身份走显式入参:thread.user_id 的来源是承载层绑定的令牌主体
+                # (routers/engine.py::_bind_principal),不是请求体自述值。
+                user_id=thread.user_id,
+                role_id=thread.role_id,
             )
         except Exception as e:
             logger.warning("[engine] thread.created 持久化失败 %s: %s", thread.thread_id, e)
@@ -4272,7 +4302,10 @@ class AgentEngine:
         + thread-store update_thread_metadata / ThreadMetadataPatch)。
 
         patch 值为 None 的键 = 删除该 metadata 键(codex ClearableField 语义);
-        merge=False 整体替换。内存线程与 store 同步;store 未启用时仅改内存。
+        merge=False 整体替换。**两个身份键(userId/roleId)都不受本方法影响** ——
+        内存侧由 `_restamp_identity` 盖回,落库侧由 `SessionStore.update_thread_metadata`
+        盖回,两处共用 `IDENTITY_METADATA_KEYS` 那一份清单。理由与实测见该清单上方那段:
+        可清除的是业务元数据,不是授权凭据。
         发 thread.metadata.updated 事件。
         """
         thread = self._require_thread(params)
@@ -4289,9 +4322,11 @@ class AgentEngine:
                     merged[key] = {**merged[key], **value}
                 else:
                     merged[key] = value
-            thread.metadata = merged
+            thread.metadata = _restamp_identity(merged, thread)
         else:
-            thread.metadata = {k: v for k, v in patch.items() if v is not None}
+            thread.metadata = _restamp_identity(
+                {k: v for k, v in patch.items() if v is not None}, thread
+            )
         thread.touch()
         persisted = False
         store = self._persistence_store()
