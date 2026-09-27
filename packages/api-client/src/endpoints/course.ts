@@ -72,8 +72,13 @@ export async function getCourseById(id: string): Promise<ApiResult<Course>> {
   return fetchApi<Course>(`/api/course/${encodeURIComponent(id)}`)
 }
 
+/** 课程(学习)分类列表
+ * 门 8 死调用清账(2026-09-28):上一版 GET /api/course/categories 从未注册;真路由 =
+ * GET /learn/categories(learn.ts:555,公开,返回 { list })。O87b 实测过该端点回真实分类行。
+ * 解包成数组是为守住本函数既有签名(消费方 category.ts:51 直接把 data 当 CategoryNode[] 用)。 */
 export async function getCategories(): Promise<ApiResult<CourseCategory[]>> {
-  return fetchApi<CourseCategory[]>('/api/course/categories')
+  const res = await fetchApi<{ list: CourseCategory[] }>('/api/learn/categories')
+  return res.success ? { ...res, data: res.data.list } : res
 }
 
 export async function enrollCourse(id: string): Promise<ApiResult<{ enrolled: boolean }>> {

@@ -24,10 +24,16 @@
  *  - 收尾在本用例的 finally:`pg_ctl stop` + 删目录 + TCP 复测端口释放,实测行必须打印;
  *  - retries 必须为 0:失败重试会在**旧集群未停**时重跑(EPERM + 双集群),
  *    第一轮日志里 [3/4][4/4] 那两条 EPERM 就是重试踩出来的,不是判据本身的错;
+ *  - **串行通道(2026-09-27,G-258 登记项"o13 需要自己的串行通道")**:集群根是全会话共享的
+ *    定址目录,两趟 vitest 并发时后起那趟的"预清理 stop + rmSync"会把前一趟正在重放的集群
+ *    停掉删掉 ⇒ 前一趟报"迁移重放 218 失败"这种假缺陷(单跑 43.8s 通过,台账已定性为
+ *    临时簇争用)。修法不是换随机目录(落点白名单是 live-check 焊死的),而是给整个集群
+ *    生命周期上锁:起跑前取锁、收尾后放锁;判据复用 scripts/lib/home-heal-lock.mjs 的
+ *    唯一实现(死 PID / 超 TTL / 内容坏 ⇒ 接管,锁绝不把测试永久冻死)。
  *  - 本机没有 PostgreSQL 二进制 ⇒ 本文件**显式 skip 并喊"未判定"**,绝不冒充跑过。
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -59,8 +65,15 @@ const PROBE_SEED_ROWS = 2
 
 /** live-check 的出口(判据只有一份实现,禁止在本文件复制 resolvePgBin/probe 逻辑)。 */
 interface LiveCheckModule {
-  resolvePgBin: (platform?: NodeJS.Platform, env?: NodeJS.ProcessEnv) => { dir: string; version: string | null } | null
-  probePortBusy: (port: number, host?: string, timeoutMs?: number) => Promise<{ busy: boolean; detail: string }>
+  resolvePgBin: (
+    platform?: NodeJS.Platform,
+    env?: NodeJS.ProcessEnv,
+  ) => { dir: string; version: string | null } | null
+  probePortBusy: (
+    port: number,
+    host?: string,
+    timeoutMs?: number,
+  ) => Promise<{ busy: boolean; detail: string }>
 }
 
 interface LiveCheckReport {
@@ -86,9 +99,9 @@ function runPgCtl(pgBinDir: string, args: string[], timeoutMs: number): string {
 }
 
 // 环境探针放在 describe 之前:没有 PG 二进制 ⇒ 整个文件 skip,并把"未判定"喊出来。
-const liveCheck: LiveCheckModule = await (
-  import(/* @vite-ignore */ pathToFileURL(LIVE_CHECK_PATH).href) as Promise<LiveCheckModule>
-)
+const liveCheck: LiveCheckModule = await (import(
+  /* @vite-ignore */ pathToFileURL(LIVE_CHECK_PATH).href
+) as Promise<LiveCheckModule>)
 const pgBin = liveCheck.resolvePgBin()
 const suite = pgBin ? describe : describe.skip
 if (!pgBin) {
@@ -96,6 +109,77 @@ if (!pgBin) {
     '[o13-bg-rls-live] 未判定:本机找不到 PostgreSQL 二进制(IHUI_RLS_LIVE_PG_BIN 与 C:\\Program Files\\PostgreSQL 都没探到)。' +
       '真库复位判据**没有跑**,不得把本文件的 skip 读成"第三格前置已验证"。',
   )
+}
+
+// ── 串行通道(2026-09-27,G-258 登记项)──
+// 锁判据**不在此重写**:scripts/lib/home-heal-lock.mjs 是本仓单实例锁判定的唯一实现
+// (§22c:两处实现必漂移),这里只引它的纯函数,副作用(读写锁文件)留在本文件。
+interface LockLibModule {
+  healLockDecision: (
+    raw: string | null,
+    now: number,
+    ttlMs?: number,
+    alive?: (pid: number) => boolean,
+  ) => 'free' | 'skip' | 'take'
+  healLockText: (pid: number, now: number) => string
+  pidAlive: (pid: number) => boolean
+}
+const lockLib: LockLibModule = await (import(
+  /* @vite-ignore */ pathToFileURL(join(REPO_ROOT, 'scripts', 'lib', 'home-heal-lock.mjs')).href
+) as Promise<LockLibModule>)
+const LOCK_FILE = join(REPO_ROOT, '.ihui-agent', 'tmp', 'o13-bg.lock')
+/** TTL 必须 > live-check 起跑上限(25min)+ 收尾余量:超 TTL ⇒ 接管,锁不会把测试永久冻死。 */
+const LOCK_TTL_MS = 35 * 60 * 1000
+/** 等上一趟的封顶:到点仍被**活**持有者占着 ⇒ 如实失败点名持锁 PID(不是伪装成重放失败)。 */
+const LOCK_WAIT_MS = 25 * 60 * 1000
+const LOCK_POLL_MS = 3000
+
+/** 取锁:free⇒wx 创建;take(死 PID/超期/内容坏)⇒接管并点名;skip⇒轮询等待到封顶。 */
+async function acquireClusterLock(): Promise<void> {
+  const deadline = Date.now() + LOCK_WAIT_MS
+  for (;;) {
+    let raw: string | null = null
+    try {
+      raw = readFileSync(LOCK_FILE, 'utf8')
+    } catch {
+      raw = null
+    }
+    const decision = lockLib.healLockDecision(raw, Date.now(), LOCK_TTL_MS)
+    if (decision === 'free') {
+      try {
+        mkdirSync(dirname(LOCK_FILE), { recursive: true })
+        writeFileSync(LOCK_FILE, lockLib.healLockText(process.pid, Date.now()), { flag: 'wx' })
+        return
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e
+        continue // 并发者抢先落锁 ⇒ 重判一轮
+      }
+    }
+    if (decision === 'take') {
+      console.info(
+        `[o13-bg-rls-live] 串行通道:接管陈旧锁(原内容=${JSON.stringify((raw ?? '').slice(0, 40))},持有者已死或超 ${LOCK_TTL_MS / 60000}min)`,
+      )
+      writeFileSync(LOCK_FILE, lockLib.healLockText(process.pid, Date.now()))
+      return
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `串行通道等待超时(${LOCK_WAIT_MS / 60000}min):锁仍被 PID ${String(raw).split('\n')[0]} 持有 —— ` +
+          '拒绝并发起跑把别人的集群停掉删掉(那正是"迁移重放 218 失败"假缺陷的成因)',
+      )
+    }
+    await new Promise((r) => setTimeout(r, LOCK_POLL_MS))
+  }
+}
+
+/** 放锁:只删自己那把(锁已易主 ⇒ 别人的不动,判据与 home-heal-lock 同向)。 */
+function releaseClusterLock(): void {
+  try {
+    const raw = readFileSync(LOCK_FILE, 'utf8')
+    if (Number(raw.split('\n')[0]) === process.pid) unlinkSync(LOCK_FILE)
+  } catch {
+    /* 锁已不在(被接管者删/换),不报错也不冒充"我放掉了" */
+  }
 }
 
 suite('o13 真库:旁路 GUC 生效与复位(临时集群,复刻 NOBYPASSRLS 属主形态)', () => {
@@ -108,17 +192,29 @@ suite('o13 真库:旁路 GUC 生效与复位(临时集群,复刻 NOBYPASSRLS 属
       const notes: string[] = []
       let port = 0
       let client: ReturnType<typeof postgres> | null = null
+      // 串行通道:取锁必须在"预清理 stop + rmSync"**之前** —— 那两步正是并发时砸别人集群的动作
+      await acquireClusterLock()
       try {
         // 上一轮若有活集群占着目录:先 stop 再删(Windows 句柄延迟的正当出路);删不干净就拒绝起跑
         if (existsSync(DATA_DIR)) {
-          notes.push(`预清理 pg_ctl stop ⇒ ${runPgCtl(binDir, ['-D', DATA_DIR, '-m', 'fast', 'stop'], 90_000)}`)
+          notes.push(
+            `预清理 pg_ctl stop ⇒ ${runPgCtl(binDir, ['-D', DATA_DIR, '-m', 'fast', 'stop'], 90_000)}`,
+          )
         }
         rmSync(CLUSTER_ROOT, { recursive: true, force: true, maxRetries: 15, retryDelay: 800 })
         expect(existsSync(CLUSTER_ROOT), '陈旧集群目录删不掉,拒绝在脏环境上跑判据').toBe(false)
 
         const boot = spawnSync(
           process.execPath,
-          [LIVE_CHECK_PATH, '--keep', '--json', '--target-idx', String(RLS_TARGET_IDX), '--data-dir', DATA_DIR],
+          [
+            LIVE_CHECK_PATH,
+            '--keep',
+            '--json',
+            '--target-idx',
+            String(RLS_TARGET_IDX),
+            '--data-dir',
+            DATA_DIR,
+          ],
           { encoding: 'utf8', windowsHide: true, timeout: 1_500_000, maxBuffer: 64 * 1024 * 1024 },
         )
         expect(boot.error ?? null, `live-check 派生失败:${boot.error?.message ?? ''}`).toBeNull()
@@ -127,16 +223,26 @@ suite('o13 真库:旁路 GUC 生效与复位(临时集群,复刻 NOBYPASSRLS 属
           const text = String(boot.stdout || '')
           report = JSON.parse(text.slice(text.indexOf('{'))) as LiveCheckReport
         } catch {
-          throw new Error(`live-check --json 输出不可解析(rc=${boot.status}),stderr 首行:${String(boot.stderr).split(/\r?\n/)[0] ?? ''}`)
+          throw new Error(
+            `live-check --json 输出不可解析(rc=${boot.status}),stderr 首行:${String(boot.stderr).split(/\r?\n/)[0] ?? ''}`,
+          )
         }
         const rep = report
         expect(rep, 'live-check 没给出报告').not.toBeNull()
         if (!rep) throw new Error('unreachable:rep 判空已在上一行')
-        expect(rep.replay?.failureCount ?? -1, `迁移重放有失败:${JSON.stringify(rep.replay)}`).toBe(0)
+        expect(rep.replay?.failureCount ?? -1, `迁移重放有失败:${JSON.stringify(rep.replay)}`).toBe(
+          0,
+        )
         expect(rep.seed?.ok, `夹具播种失败:${rep.seed?.error ?? ''}`).toBe(true)
         // 复刻形态的自证:owner 角色必须实测为 非超级用户 ∧ 无 BYPASSRLS(不是"应该是")
-        expect(rep.meta.roles.ihui_rls_owner ?? '', 'owner 角色属性回读缺 rolbypassrls=false').toContain('rolbypassrls=false')
-        expect(rep.meta.roles.ihui_rls_owner ?? '', 'owner 角色属性回读缺 rolsuper=false').toContain('rolsuper=false')
+        expect(
+          rep.meta.roles.ihui_rls_owner ?? '',
+          'owner 角色属性回读缺 rolbypassrls=false',
+        ).toContain('rolbypassrls=false')
+        expect(
+          rep.meta.roles.ihui_rls_owner ?? '',
+          'owner 角色属性回读缺 rolsuper=false',
+        ).toContain('rolsuper=false')
         expect(typeof rep.meta.port).toBe('number')
         port = rep.meta.port as number
         expect(port).toBeGreaterThan(1024)
@@ -154,8 +260,15 @@ suite('o13 真库:旁路 GUC 生效与复位(临时集群,复刻 NOBYPASSRLS 属
 
         const readProbe = async (): Promise<{ visible: number; bypass: string | null }> => {
           // 表名走 SQL 字面量(表名不是值,参数化不了);与 PROBE_TABLE 的一致性由下面那行 expect 锁
-          const rows = (await pool`SELECT (SELECT count(*)::int FROM public.user_memories) AS visible, current_setting('app.bypass_rls', true) AS bypass`) as unknown as Array<{ visible: number; bypass: string | null }>
-          return { visible: Number(rows[0]?.visible ?? -1), bypass: (rows[0]?.bypass ?? null) as string | null }
+          const rows =
+            (await pool`SELECT (SELECT count(*)::int FROM public.user_memories) AS visible, current_setting('app.bypass_rls', true) AS bypass`) as unknown as Array<{
+              visible: number
+              bypass: string | null
+            }>
+          return {
+            visible: Number(rows[0]?.visible ?? -1),
+            bypass: (rows[0]?.bypass ?? null) as string | null,
+          }
         }
         expect(PROBE_TABLE, 'SQL 字面量与本常量必须同表').toBe('user_memories')
 
@@ -180,42 +293,76 @@ suite('o13 真库:旁路 GUC 生效与复位(临时集群,复刻 NOBYPASSRLS 属
         //    **空串**(占位定义留在会话里,值回落到占位默认)。判据按"不再是 'true'"取,
         //    两种"未生效"形态都算复位;行集 2→0 才是行为侧的硬证据。
         const after = await readProbe()
-        expect(after.visible, '作用域结束后 GUC 串到了下一次使用 —— 复位不成立,第三格必须换方案').toBe(0)
-        expect(after.bypass === null || after.bypass === '', `复位后 bypass GUC 应消失(NULL 或 ''),实测=${JSON.stringify(after.bypass)}`).toBe(true)
+        expect(
+          after.visible,
+          '作用域结束后 GUC 串到了下一次使用 —— 复位不成立,第三格必须换方案',
+        ).toBe(0)
+        expect(
+          after.bypass === null || after.bypass === '',
+          `复位后 bypass GUC 应消失(NULL 或 ''),实测=${JSON.stringify(after.bypass)}`,
+        ).toBe(true)
 
         // ④ 守卫在真链路上同样拒发:请求上下文内不得拿到旁路(失败方向=少放行)
-        await runWithRequestScope({ url: '/api/whatever' } as unknown as FastifyRequest, async () => {
-          await expect(runner('background', async () => 'x')).rejects.toThrow(/拒绝发放 RLS 旁路/)
-        })
+        await runWithRequestScope(
+          { url: '/api/whatever' } as unknown as FastifyRequest,
+          async () => {
+            await expect(runner('background', async () => 'x')).rejects.toThrow(/拒绝发放 RLS 旁路/)
+          },
+        )
         // 拒发之后连接仍健康且无残留 GUC(守卫没有半开事务)
         const afterGuard = await readProbe()
         expect(afterGuard.visible).toBe(0)
         expect(afterGuard.bypass === null || afterGuard.bypass === '').toBe(true)
       } finally {
-        if (client) await client.end({ timeout: 5 })
-        if (port > 0 && existsSync(DATA_DIR)) {
-          notes.push(`pg_ctl stop ⇒ ${runPgCtl(binDir, ['-D', DATA_DIR, '-m', 'fast', 'stop'], 90_000)}`)
-          if (existsSync(DATA_DIR)) {
-            notes.push(`回退 -m immediate ⇒ ${runPgCtl(binDir, ['-D', DATA_DIR, '-m', 'immediate', 'stop'], 90_000)}`)
+        try {
+          if (client) await client.end({ timeout: 5 })
+          if (port > 0 && existsSync(DATA_DIR)) {
+            notes.push(
+              `pg_ctl stop ⇒ ${runPgCtl(binDir, ['-D', DATA_DIR, '-m', 'fast', 'stop'], 90_000)}`,
+            )
+            if (existsSync(DATA_DIR)) {
+              notes.push(
+                `回退 -m immediate ⇒ ${runPgCtl(binDir, ['-D', DATA_DIR, '-m', 'immediate', 'stop'], 90_000)}`,
+              )
+            }
           }
-        }
-        if (existsSync(CLUSTER_ROOT)) {
-          try {
-            rmSync(CLUSTER_ROOT, { recursive: true, force: true, maxRetries: 15, retryDelay: 800 })
-            notes.push(`删除 ${CLUSTER_ROOT} ⇒ existsSync=${existsSync(CLUSTER_ROOT)}`)
-          } catch (error) {
-            notes.push(`删除 ${CLUSTER_ROOT} ⇒ 抛错:${String((error as Error)?.message ?? error).slice(0, 160)}`)
+          if (existsSync(CLUSTER_ROOT)) {
+            try {
+              rmSync(CLUSTER_ROOT, {
+                recursive: true,
+                force: true,
+                maxRetries: 15,
+                retryDelay: 800,
+              })
+              notes.push(`删除 ${CLUSTER_ROOT} ⇒ existsSync=${existsSync(CLUSTER_ROOT)}`)
+            } catch (error) {
+              notes.push(
+                `删除 ${CLUSTER_ROOT} ⇒ 抛错:${String((error as Error)?.message ?? error).slice(0, 160)}`,
+              )
+            }
           }
-        }
-        if (port > 0) {
-          const busy = await liveCheck.probePortBusy(port, '127.0.0.1', 800)
-          notes.push(`端口 ${port} 收尾实测 ⇒ ${busy.busy ? `仍在监听(${busy.detail})= 没收干净` : `已释放(${busy.detail})`}`)
-        }
-        for (const line of notes) console.info(`[o13-bg-rls-live] 收尾: ${line}`)
-        // 集群起过 ⇒ "端口已释放 + 目录已删净"两行实测必须在案;没收干净就是红灯,不留静默
-        if (port > 0) {
-          expect(notes.some((l) => l.includes('已释放')), '端口收尾未释放(见上面实测行)').toBe(true)
-          expect(notes.some((l) => l.includes('existsSync=false')), '临时目录未删净(见上面实测行)').toBe(true)
+          if (port > 0) {
+            const busy = await liveCheck.probePortBusy(port, '127.0.0.1', 800)
+            notes.push(
+              `端口 ${port} 收尾实测 ⇒ ${busy.busy ? `仍在监听(${busy.detail})= 没收干净` : `已释放(${busy.detail})`}`,
+            )
+          }
+          for (const line of notes) console.info(`[o13-bg-rls-live] 收尾: ${line}`)
+          // 集群起过 ⇒ "端口已释放 + 目录已删净"两行实测必须在案;没收干净就是红灯,不留静默
+          if (port > 0) {
+            expect(
+              notes.some((l) => l.includes('已释放')),
+              '端口收尾未释放(见上面实测行)',
+            ).toBe(true)
+            expect(
+              notes.some((l) => l.includes('existsSync=false')),
+              '临时目录未删净(见上面实测行)',
+            ).toBe(true)
+          }
+        } finally {
+          // 放锁在集群收尾(停进程/删目录/端口复测)之后;上面任何一步抛错都不得把锁留在
+          // 一个还活着的 vitest 进程名下(那会把下一趟顶成 25min 等待超时)。只删自己那把。
+          releaseClusterLock()
         }
       }
     },
