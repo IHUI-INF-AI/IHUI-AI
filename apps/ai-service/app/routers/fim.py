@@ -26,10 +26,20 @@
 
     POST /api/llm/fim/metrics          # 前端防抖上报指标增量快照
     GET  /api/llm/fim/metrics/summary  # 按模型汇总接受率/延迟分位/告警(管理看板)
+
+    POST /api/llm/fim/edit-intent      # V3 #82 独立编辑意图预测(2026-09-27 立)
+    {"content": "…全文…", "cursor": 12, "language": "python", "budget_ms": 1200}
+    → {"code":0,"message":"ok","data":{"disposition":"suggested",
+       "actions":[{"kind":"replace","start":4,"end":7,"text":"b, c"}],
+       "dropped_actions":[],"document_length":27,"model":"…","latency_ms":310,
+       "budget_ms":1200,"stub":false}}
+    三态:suggested / no_action / undetermined(reason 必可分辨)—— 判定逻辑与
+    区间校验全部住在 `services/edit_intent.py`,本层只做 HTTP 形状与有界 await。
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import math
@@ -39,10 +49,20 @@ import time
 from typing import Any
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
+from ..services.edit_intent import (
+    EDIT_INTENT_SYSTEM_PROMPT,
+    EditDisposition,
+    UndeterminedReason,
+    build_edit_intent_prompt,
+    classify_gateway_result,
+    interpret_model_output,
+    resolve_budget_ms,
+    strip_code_fences,
+)
 from ..services.model_catalog import annotate_models, pick_fim_model
 
 # Redis 可选依赖(缺失时静默降级为纯内存,与 legacy.py 同规则)
@@ -296,22 +316,12 @@ def _percentile(sorted_values: list[float], pct: float) -> int | None:
 def _strip_fences(text: str) -> str:
     """剥离模型偶尔输出的 markdown 代码围栏(补全场景禁止围栏)。
 
-    2026-09-14 加固:推理型模型偶尔先输出思考文本("We need..." / "The user...")
-    再给 ``` 围栏代码块——原实现只在**整体以围栏开头**时剥离,对「思考文本+中段
-    围栏」混排不生效,导致补全里混入自然语言。现升级为:输出中存在任意围栏块时
-    取**最后一个**围栏内代码(补全主体通常在推理结论处);无围栏则原样返回。
+    实现唯一真相源在 `services/edit_intent.strip_code_fences`:FIM 补全与
+    编辑意图预测(V3 #82)对"思考文本 + 中段围栏混排"的处置必须同形,
+    两处各写一遍必然漂移(本仓记过多次"两处算同一件事必漂移")。
+    保留本名是因为既有测试按 `fim._strip_fences` 直调。
     """
-    stripped = text.strip()
-    if "```" in stripped:
-        # 取最后一个围栏块内的代码(忽略语言标识行);围栏成对,开/闭各取其一
-        parts = stripped.split("```")
-        # parts 形如 [前文, 语言行\n代码, 后文, 语言行\n代码, ...] —— 取最后一段
-        block = parts[-1] if len(parts) % 2 == 0 else (parts[-2] if len(parts) >= 2 else stripped)
-        if block is not None:
-            first_nl = block.find("\n")
-            body = block[first_nl + 1 :] if first_nl != -1 else block
-            return body.strip("\n")
-    return stripped.strip("\n")
+    return strip_code_fences(text)
 
 
 def _build_user_prompt(prefix: str, suffix: str, language: str) -> str:
@@ -376,6 +386,146 @@ async def fim_complete(req: FIMRequest) -> dict[str, Any]:
             "message": "fim degraded",
             "data": {"completion": "", "model": "", "latency_ms": int((time.perf_counter() - started) * 1000), "stub": False},
         }
+
+
+# ---------------------------------------------------------------------------
+# 独立编辑意图预测(V3 #82,2026-09-27 立)
+#
+# 与 /llm/fim 的关系:复用同一条低延迟链路(选型 `_resolve_fim_model`、
+# 上下文窗口化、围栏剥离),但**产物形态不同** —— 这里返回结构化编辑动作,
+# 而 /llm/fim 的裸文本契约已被 apps/web 的 CodeEditor 消费,一字未改。
+# 判定逻辑全部住在 `services/edit_intent.py`(纯函数,可脱栈测),
+# 本层只做 HTTP 形状 + 有界 await + 三态装配。
+# ---------------------------------------------------------------------------
+
+
+class PredictiveEditRequest(BaseModel):
+    """编辑意图预测请求:输入必须含光标上下文与文件类型。"""
+
+    content: str = Field(..., description="被审文档全文(编辑动作区间的坐标系);可为空串但必须显式给出")
+    cursor: int = Field(0, ge=0, description="光标绝对字符偏移(0 基)")
+    language: str = Field("text", description="文件类型(ts/python/go/...)")
+    path: str | None = Field(None, description="文件路径,仅作为文件类型线索")
+    model: str | None = Field(None, description="模型;缺省沿用补全专用档位选型")
+    max_tokens: int = Field(192, ge=1, le=_MAX_TOKENS_CAP, description="结构化输出上限 token")
+    budget_ms: int | None = Field(
+        None, ge=1, description="本次调用预算(ms);一律经 resolve_budget_ms 封顶"
+    )
+    owner_uuid: str | None = Field(None, description="用户 UUID(模型私有配置匹配)")
+
+    @model_validator(mode="after")
+    def _cursor_must_be_inside_document(self) -> "PredictiveEditRequest":
+        """光标越界属调用方 bug ⇒ 422,不得静默夹到文档末尾再猜。"""
+        if self.cursor > len(self.content):
+            raise ValueError("cursor 超出文档长度")
+        return self
+
+
+@router.post("/llm/fim/edit-intent", response_model=None)
+async def fim_predict_edit(req: PredictiveEditRequest) -> dict[str, Any]:
+    """独立编辑意图预测:输出结构化编辑动作(insert/replace/delete + 区间)。
+
+    Returns:
+        {code:0, message, data:{disposition, undetermined, reason, actions[],
+        dropped_actions[], document_length, model, latency_ms, budget_ms, stub}}
+
+    三态互斥且不得互相冒充:
+      - `suggested` —— 至少一条通过区间校验的动作;被丢弃的动作逐条列在 dropped_actions
+      - `no_action` —— 模型**明说**没有编辑意图({"actions":[]}),这是判出来的结论
+      - `undetermined` —— 判不出来,`reason` 必为 no_credentials / model_unavailable /
+        model_timeout / parse_failed / all_actions_rejected / insufficient_context 之一
+
+    本端点不抛 5xx:预测失败绝不能打断编辑器(与 /llm/fim 同一条降级约束),
+    但降级**必须显式标未判定**,不得折叠成"没有建议"(本仓最高频失效型)。
+    """
+    started = time.perf_counter()
+    budget_ms = resolve_budget_ms(req.budget_ms)
+    document_length = len(req.content)
+
+    def finish(
+        disposition: EditDisposition,
+        reason: UndeterminedReason | None,
+        *,
+        actions: list[dict[str, Any]] | None = None,
+        dropped: list[dict[str, Any]] | None = None,
+        model: str = "",
+        stub: bool = False,
+    ) -> dict[str, Any]:
+        undetermined = disposition == "undetermined"
+        if undetermined:
+            message = f"predictive edit undetermined: {reason}"
+        elif disposition == "no_action":
+            message = "no edit intent"
+        else:
+            message = "ok"
+        return {
+            "code": 0,
+            "message": message,
+            "data": {
+                "disposition": disposition,
+                "undetermined": undetermined,
+                "reason": reason,
+                "actions": actions or [],
+                "dropped_actions": dropped or [],
+                "document_length": document_length,
+                "model": model,
+                "latency_ms": int((time.perf_counter() - started) * 1000),
+                "budget_ms": budget_ms,
+                "stub": stub,
+            },
+        }
+
+    if not req.content:
+        # 空文档 = 连可判定的上下文都没有,判"未判定"而不是"模型没建议"
+        return finish("undetermined", "insufficient_context")
+
+    model = _resolve_fim_model(req.model)
+    messages = [
+        {"role": "system", "content": EDIT_INTENT_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": build_edit_intent_prompt(
+                content=req.content,
+                cursor=req.cursor,
+                language=req.language,
+                path=req.path,
+            ),
+        },
+    ]
+    try:
+        # 有界 await:预算唯一出口 resolve_budget_ms 已封顶,不存在无界等待
+        result = await asyncio.wait_for(
+            llm_gateway.complete(
+                messages,
+                model,
+                owner_uuid=req.owner_uuid,
+                max_tokens=req.max_tokens,
+                temperature=0.0,
+            ),
+            timeout=budget_ms / 1000.0,
+        )
+    except TimeoutError:
+        logger.warning("edit_intent 超出预算 %dms(model=%s)", budget_ms, model)
+        return finish("undetermined", "model_timeout", model=model)
+    except Exception as e:  # noqa: BLE001 — 网关抛异常时同样只落"未判定",但原因可分辨
+        logger.warning("edit_intent 调用失败: %s: %s", type(e).__name__, str(e)[:200])
+        return finish("undetermined", "model_unavailable", model=model)
+
+    failure = classify_gateway_result(result)
+    used_model = str(result.get("model") or model)
+    stub = bool(result.get("stub", False))
+    if failure is not None:
+        return finish("undetermined", failure, model=used_model, stub=stub)
+
+    outcome = interpret_model_output(str(result.get("content") or ""), document_length=document_length)
+    return finish(
+        outcome.disposition,
+        outcome.reason,
+        actions=[action.model_dump() for action in outcome.actions],
+        dropped=[dropped.model_dump() for dropped in outcome.dropped],
+        model=used_model,
+        stub=stub,
+    )
 
 
 @router.post("/llm/fim/metrics", response_model=None)
