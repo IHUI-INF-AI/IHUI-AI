@@ -337,7 +337,7 @@ const baseName = (f) => {
 const candRank = (f) => (PLATFORM_SUFFIX.test(normKey(f)) ? 0 : 1)
 
 /** 两端清单 → 同名配对 + 计数。纯函数,构造面即可证明后缀与优先级两条判据。 */
-export function scan(listMini, listRn) {
+export function scan(listMini, listRn, aliases = {}) {
   const rnMap = new Map()
   for (const f of listRn) {
     if (!/\.(tsx|jsx)$/i.test(fileName(f))) continue
@@ -361,10 +361,51 @@ export function scan(listMini, listRn) {
         miniapp: f,
         rn: rnMap.get(k),
       })
-  const onlyMiniKeys = [...miniMap.keys()].filter((k) => !rnMap.has(k))
-  const onlyRnKeys = [...rnMap.keys()].filter((k) => !miniMap.has(k))
+  /**
+   * **别名对**:两端把同一个界面元素起了不同名字(`CategoryBar` vs `CategoryInlineBar`、
+   * `DrawerComponent` vs `Drawer`)时,任何按文件名的判据都看不见它们 —— 这一格过去只以
+   * "射程外 N 个"的计数存在,而计数无法被清偿,因为没人知道名单里哪两个是同一个东西。
+   * 台账逐条点名两侧文件,所以配对的**证据**是登记出来的、不是猜出来的。三条硬判据:
+   * ① 声明本身要带 reason + 未到期 until(与拆对声明共用 `rejectProblem` —— 两处实现必漂移);
+   * ② 两侧文件必须在**被审面**上真的找得到(路径写歪 / 文件搬家 ⇒ 判红,不得静默少配一族);
+   * ③ 若这一对已按同名配上了,别名就是多余行 ⇒ 判红"应了结"(台账腐烂的另一半)。
+   */
+  const aliasProblems = []
+  const consumed = new Set()
+  for (const [name, a] of Object.entries(aliases)) {
+    const prob = rejectProblem(a)
+    if (prob) {
+      aliasProblems.push({ name, problem: `别名声明坏了:${prob}` })
+      continue
+    }
+    const m = listMini.find((f) => f === a.miniapp && /\.(tsx|jsx)$/i.test(fileName(f)))
+    const r = listRn.find((f) => f === a.rn && /\.(tsx|jsx)$/i.test(fileName(f)))
+    if (!m || !r) {
+      aliasProblems.push({
+        name,
+        problem: `被审面的两端清单里找不到:${a.miniapp} / ${a.rn}(文件搬家或路径写歪)`,
+      })
+      continue
+    }
+    const mk = pairKey(m)
+    const rk = pairKey(r)
+    if (rnMap.has(mk) && miniMap.has(mk)) {
+      aliasProblems.push({ name, problem: '该对已按同名配对 ⇒ 别名是多余行,应删(台账腐烂)' })
+      continue
+    }
+    if (consumed.has(mk) || consumed.has(rk)) {
+      aliasProblems.push({ name, problem: '同一侧文件被两条别名重复引用 ⇒ 至少一条是错的' })
+      continue
+    }
+    consumed.add(mk)
+    consumed.add(rk)
+    pairs.push({ name, miniapp: m, rn: r, aliased: true })
+  }
+  const onlyMiniKeys = [...miniMap.keys()].filter((k) => !rnMap.has(k) && !consumed.has(k))
+  const onlyRnKeys = [...rnMap.keys()].filter((k) => !miniMap.has(k) && !consumed.has(k))
   const out = {
     pairs: pairs.sort((a, b) => a.name.localeCompare(b.name)),
+    aliasProblems,
     onlyMiniapp: onlyMiniKeys.length,
     onlyRn: onlyRnKeys.length,
     // 名单本身必须报出来:只有计数的话,下一个人无从判断这 75 个名字里哪些是真不同名、
@@ -1203,7 +1244,7 @@ function listFace(repoRoot, face, dir) {
  * 面 → 两端清单 + 同名配对正文。一次 cat-file --batch 同面同轮读完;任一份取不到即 Undetermined。
  * `pairAll` 是人工核对的逃生舱:退回"只要同名就配对",不做可达性剔除(默认档必做)。
  */
-export function collect(repoRoot, face, { pairAll = false, rejected = [] } = {}) {
+export function collect(repoRoot, face, { pairAll = false, rejected = [], aliases = {} } = {}) {
   const rejSet = new Set(rejected)
   const lists = {}
   for (const [side, dirs] of Object.entries(SIDES)) {
@@ -1215,7 +1256,7 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [] } = {})
     }
     lists[side] = acc
   }
-  let pairs = scan(lists.miniapp, lists.rn)
+  let pairs = scan(lists.miniapp, lists.rn, aliases)
   if (pairs.undetermined) throw new Undetermined(`${pairs.reason} ⇒ 判据失明,不得记为通过`)
   /**
    * 拆对声明在**可达性剔除之前**生效:同名不同物的两个组件不该再产生任何一维读数
@@ -1476,6 +1517,9 @@ export function emitBaseline(findings, prior = {}) {
    */
   const out = { counts, radiusCounts, waivers: {} }
   if (prior && prior.pairingRejects) out.pairingRejects = prior.pairingRejects
+  // 别名表与拆对表同理:它是**配对判据的输入**,不是存量数字。重写台账把别人登记的别名冲掉,
+  // 那一族立刻回到"射程外零判据"的状态 —— 而账面看什么都正常(这条族从没在 counts 里出现过)。
+  if (prior && prior.aliases) out.aliases = prior.aliases
   return out
 }
 
@@ -1516,6 +1560,7 @@ export function main(argv, repoRoot = ROOT) {
   let face, collected, baseline
   let rejProblems = []
   let rejNames = []
+  let aliases = {}
   try {
     face = faceFromArgv(argv)
     baseline = loadBaseline(repoRoot, face)
@@ -1526,7 +1571,8 @@ export function main(argv, repoRoot = ROOT) {
     rejProblems = rejNames
       .map((n) => ({ name: n, why: rejectProblem(rej[n]) }))
       .filter((x) => x.why)
-    collected = collect(repoRoot, face, { pairAll, rejected: rejNames })
+    aliases = baseline.aliases ?? {}
+    collected = collect(repoRoot, face, { pairAll, rejected: rejNames, aliases })
   } catch (e) {
     if (e instanceof Undetermined) {
       console.log(`⚠️ 无法判定:${e.message}`)
@@ -1566,6 +1612,10 @@ export function main(argv, repoRoot = ROOT) {
         // 只在人读面打印的话,它又得靠复制粘贴终端输出当数据源 —— 那是会腐烂的取证。
         onlyMiniappNames: collected.pairs?.onlyMiniappNames ?? [],
         onlyRnNames: collected.pairs?.onlyRnNames ?? [],
+        aliasPairs: (collected.pairs?.pairs ?? [])
+          .filter((p) => p.aliased)
+          .map((p) => ({ name: p.name, miniapp: p.miniapp, rn: p.rn })),
+        aliasProblems: collected.pairs?.aliasProblems ?? [],
         red: res.red,
         waived: res.waived.length,
       }),
@@ -1675,7 +1725,7 @@ export function main(argv, repoRoot = ROOT) {
   const ic = iconAudit(collected.pairs, collected.text)
   if (ic.length) {
     if (face !== 'head') {
-      const base = collect(repoRoot, 'head', { pairAll })
+      const base = collect(repoRoot, 'head', { pairAll, aliases })
       const baseIc = new Map(
         iconAudit(base.pairs, base.text).map((x) => [x.name, { mp: x.bitmap, rn: x.rnBitmap }]),
       )
@@ -1720,7 +1770,7 @@ export function main(argv, repoRoot = ROOT) {
   let slRed = []
   if (sl.length) {
     if (face !== 'head') {
-      const base = collect(repoRoot, 'head', { pairAll })
+      const base = collect(repoRoot, 'head', { pairAll, aliases })
       const baseSl = new Map(
         specLegAudit(base.pairs, base.text, base.tiers).map((x) => [
           x.name,
@@ -1775,6 +1825,30 @@ export function main(argv, repoRoot = ROOT) {
   }
   const rejRed = rejInvalid.length + rejStillAnchored.length + rejGhosted.length
   /*
+   * ── ALIAS 别名配对对账 ──────────────────────────────────────────
+   * 两端给同一个界面元素起了不同名字时,任何按文件名的配对都看不见它 —— 这一格过去只剩
+   * "射程外 N 个"的计数,而**计数无法被清偿**,因为没人知道名单里哪两个是同一个东西。
+   * 别名把这件事变成台账里一条带理由、带到期的声明,于是配对有据,且烂了会被发现。
+   * 三条红全在 `scan()` 里判(声明坏 / 被审面找不到文件 / 该对已按同名配上),
+   * 这里只负责打印与折进退出码 —— 判据只住一处,别在 main 再抄一份。
+   */
+  const aliasProblems = collected.pairs?.aliasProblems ?? []
+  const aliasPairs = (collected.pairs?.pairs ?? []).filter((p) => p.aliased)
+  if (!argv.includes('--json')) {
+    for (const p of aliasPairs)
+      console.log(
+        `  ✓ ALIAS ${p.name} —— 跨名配对:${(aliases[p.name] ?? {}).miniapp} ↔ ${(aliases[p.name] ?? {}).rn}` +
+          `(同名判据看不见这一对,现按登记的别名进审)`,
+      )
+    for (const x of aliasProblems) console.log(`  × ALIAS ${x.name}:${x.problem}`)
+    if (Object.keys(aliases).length)
+      console.log(
+        `别名配对 ${aliasPairs.length} 族 / 声明 ${Object.keys(aliases).length} 条 → 判红 ${aliasProblems.length}` +
+          '(别名是配对输入,不是豁免:文件搬走、路径写歪、或已能同名配对,都要当场点名)',
+      )
+  }
+  const aliasRed = aliasProblems.length
+  /*
    * ── G 几何表与其类型声明对账 ────────────────────────────────────
    * 两侧都判:表有档而类型不认 / 类型承认而表里没有。零容忍是安全的:
    * HEAD 现测两份同名(2 档),所以本维不存在"存量当场判红 = 恒红门"的问题(§12e 那一型),
@@ -1794,6 +1868,9 @@ export function main(argv, repoRoot = ROOT) {
       )
   }
   const rotRed = res.rot.length ? 1 : 0
+  // 别名红单独先判(见上方 ALIAS 块)。刻意**不并入**下面那条求和行:它的文本被自检 ㊹/㊽/㊩
+  // 三条装车锁钉着(那三条防的正是"红了却没折进退出码"),挪一次写法 = 三门同时翻红。
+  if (aliasRed) return 1
   return rotRed + res.red.length + icRed.length + slRed.length + rejRed + (geoRed ? 1 : 0) ? 1 : 0
 }
 
@@ -2700,11 +2777,15 @@ function runSelfTest() {
       '带后缀那份优先当选;而真不同名的两个文件不得被并成一对(宁可少配)',
     (() => {
       const r = scan(
-        ['apps/miniapp-taro/src/components/SectionHeader.tsx',
-         'apps/miniapp-taro/src/components/SectionHeader.taro.tsx',
-         'apps/miniapp-taro/src/components/SearchBar.tsx'],
-        ['packages/app/src/features/common/SectionHeader.tsx',
-         'packages/app/src/features/chat/SearchInput.tsx'],
+        [
+          'apps/miniapp-taro/src/components/SectionHeader.tsx',
+          'apps/miniapp-taro/src/components/SectionHeader.taro.tsx',
+          'apps/miniapp-taro/src/components/SearchBar.tsx',
+        ],
+        [
+          'packages/app/src/features/common/SectionHeader.tsx',
+          'packages/app/src/features/chat/SearchInput.tsx',
+        ],
       )
       const names = r.pairs.map((p) => p.name)
       const sec = r.pairs.find((p) => p.name === 'SectionHeader')
@@ -2761,6 +2842,110 @@ function runSelfTest() {
         /\['仅小程序', 'onlyMiniappNames'\]/.test(mainBody) &&
         /\['仅 RN', 'onlyRnNames'\]/.test(mainBody) &&
         /\$\{label\}\(\$\{names\.length\}\):\$\{names\.join\(' '\)\}/.test(mainBody)
+      )
+    })(),
+  )
+  t(
+    '㊮ 别名必须能把"两端不同名的同一元素"拉回射程:' + '配对成立、名单里不再重复点名、且无一条判红',
+    (() => {
+      const r = scan(
+        [
+          'apps/miniapp-taro/src/components/CategoryBar.tsx',
+          'apps/miniapp-taro/src/components/X.tsx',
+        ],
+        ['packages/app/src/components/CategoryInlineBar.tsx'],
+        {
+          CategoryBar: {
+            miniapp: 'apps/miniapp-taro/src/components/CategoryBar.tsx',
+            rn: 'packages/app/src/components/CategoryInlineBar.tsx',
+            reason: '两端头注互点名:同一"统一分类条"的两份同形实现',
+            until: '2027-01-01',
+          },
+        },
+      )
+      const p = r.pairs.find((x) => x.name === 'CategoryBar')
+      return (
+        !!p?.aliased &&
+        p.rn.endsWith('CategoryInlineBar.tsx') &&
+        r.aliasProblems.length === 0 &&
+        r.onlyMiniapp === 1 &&
+        r.onlyMiniappNames.join() === 'apps/miniapp-taro/src/components/X.tsx' &&
+        r.onlyRn === 0 &&
+        r.onlyRnNames.length === 0
+      )
+    })(),
+  )
+  t(
+    '㊯ 别名两侧文件必须在被审面上找得到:路径写歪 / 文件搬家 ⇒ 判红并点名,' +
+      '不得静默退回"这一族没配对上"',
+    (() => {
+      const r = scan(['a/CategoryBar.tsx'], ['b/Gone.tsx'], {
+        CategoryBar: {
+          miniapp: 'a/CategoryBar.tsx',
+          rn: 'b/CategoryInlineBar.tsx',
+          reason: '同一分类条的两份实现,头注互点名',
+          until: '2027-01-01',
+        },
+      })
+      return (
+        r.aliasProblems.length === 1 &&
+        /找不到/.test(r.aliasProblems[0].problem) &&
+        r.pairs.every((p) => !p.aliased)
+      )
+    })(),
+  )
+  t(
+    '㊰ 该对已能按同名配对 ⇒ 别名是多余行,必须判红要求了结' +
+      '(挂着一条不再生效的配对声明,比没有更难查)',
+    (() => {
+      const r = scan(['a/Foo.tsx'], ['b/Foo.tsx'], {
+        Foo: {
+          miniapp: 'a/Foo.tsx',
+          rn: 'b/Foo.tsx',
+          reason: '早年两端不同名,如今已能同名配对',
+          until: '2027-01-01',
+        },
+      })
+      return r.aliasProblems.length === 1 && /多余行/.test(r.aliasProblems[0].problem)
+    })(),
+  )
+  t(
+    '㊱ 别名声明的卫生与拆对同源:无理由 / 理由不足以复核 / 已到期 各判红,而判据只有 rejectProblem 一份',
+    (() => {
+      const mk = (a) =>
+        scan(['a/A.tsx'], ['b/B.tsx'], { A: { miniapp: 'a/A.tsx', rn: 'b/B.tsx', ...a } })
+      return (
+        mk({ reason: '', until: '2027-01-01' }).aliasProblems.length === 1 &&
+        mk({ reason: '短', until: '2027-01-01' }).aliasProblems.length === 1 &&
+        mk({ reason: '同一元素的两种命名,依据两端头注互点名', until: '2020-01-01' }).aliasProblems
+          .length === 1 &&
+        mk({ reason: '同一元素的两种命名,依据两端头注互点名', until: '2027-01-01' }).aliasProblems
+          .length === 0
+      )
+    })(),
+  )
+  t(
+    '㊲ emitBaseline 必须原样带走 aliases(重写台账把已登记别名冲掉 = 那一族静默回到零判据,账面什么都看不见)',
+    (() => {
+      const prior = { aliases: { A: { miniapp: 'a', rn: 'b', reason: 'r', until: '2027-01-01' } } }
+      const out = emitBaseline(
+        [{ name: 'X', named: [], geometry: { onlyMiniapp: [], onlyRn: [] }, waived: false }],
+        prior,
+      )
+      const dropped = emitBaseline([], prior)
+      return out.aliases?.A?.reason === 'r' && dropped.aliases?.A?.reason === 'r'
+    })(),
+  )
+  t(
+    '㊳ 装车锁:别名表必须由 main 喂进 collect,且 HEAD 棘轮那两次基线取样同样要喂' +
+      '(漏喂 ⇒ 本轮多出的配对在基准侧不存在,别人欠的债会被算成新增红)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      return (
+        /collect\(repoRoot, face, \{ pairAll, rejected: rejNames, aliases \}\)/.test(src) &&
+        (src.match(/collect\(repoRoot, 'head', \{ pairAll, aliases \}\)/g) ?? []).length === 2 &&
+        /if \(aliasRed\) return 1/.test(src) &&
+        /aliasPairs: \(collected\.pairs\?\.pairs \?\? \[\]\)/.test(src)
       )
     })(),
   )
