@@ -45,7 +45,9 @@ base64 = "0.23"
 image = { version = "0.24", default-features = false, features = ["png"] }
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "winbase", "handleapi", "winnls"] }
+# 2026-09-27 启动守护(startup_guard)新增:errhandlingapi=GetLastError,
+# tlhelp32=进程枚举,synchapi=CreateMutexW/WaitForSingleObject,winnt=PROCESS_* 常量。
+winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "winbase", "handleapi", "winnls", "errhandlingapi", "tlhelp32", "synchapi", "winnt"] }
 # 2026-09-02:显式固定进程级 AppUserModelID,修复 Windows 通知区托盘图标显隐记忆在
 # dev 重编译/更新后被重置的问题(SetCurrentProcessExplicitAppUserModelID 所在模块)。
 windows-sys = { version = "0.52", features = ["Win32_UI_Shell"] }

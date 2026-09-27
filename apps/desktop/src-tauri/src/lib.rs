@@ -9,6 +9,7 @@ mod auto_refresh;
 mod git_channel_ipc;
 mod git_local_status;
 mod git_status_core;
+mod startup_guard;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -577,8 +578,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                     // **完全无上限**,于是"前端整条链挂死"就成了永久卡死 —— 09-27 真机复现的正是
                     // 这一格:遮罩停在「正在退出...」,而 quit_app 这个 command 从未被执行
                     // (其内部新增的兜底日志计数为 0)。
-                    // 120s 远大于 15s 检查超时与常规下载窗口;emit 失败时前端根本收不到请求,
-                    // 没必要等满,直接用 3s。
+                    // 默认档 5s:前端若真在处理更新,由它调 renew_quit_lease 续租;
+                    // 不续租 = 到点就退(09-27 用户否掉了"默认等 120s"的写法 —— 那是拿兜底当修复)。
+                    // emit 失败时前端根本收不到请求,更没必要等,直接用 3s。
                     arm_forced_exit(
                         app,
                         if emitted {
@@ -2433,6 +2435,11 @@ pub fn run() {
             let _ = SetCurrentProcessExplicitAppUserModelID(wide.as_ptr());
         }
     }
+    // 2026-09-27 立:启动守护——在 Builder 之前探测/清理挂死或僵尸的旧实例,
+    // 根治"双击打不开"(tauri-plugin-single-instance 2.4.3 无超时 SendMessage +
+    // 隐藏窗口缺失时放行两个缺陷的组合,详见 startup_guard.rs 模块头注)。
+    // 必须早于 tauri::Builder:此刻本进程还没建任何窗口,清理旧实例不会误伤自己。
+    startup_guard::preflight();
     // 2026-07-26 立:启动时清理 WebView2 缓存(Windows),彻底杜绝桌面端样式不同步问题
     // - 用户反馈"样式没同步":web dev 已更新,但 Tauri WebView2 缓存了旧 CSS chunk
     // - 2026-09-25 收窄:旧写法是 `remove_dir_all(EBWebView)`,而 `cfg(dev)` **确实会被编译**
@@ -2565,6 +2572,22 @@ pub fn run() {
         .manage(git_channel_ipc::GitChannelState::from_env())
         .setup(|app| {
             // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
+            // 启动守护在 Builder 之前跑,那时日志插件还没初始化,计数在这里补记。
+            let killed_stale = startup_guard::take_killed_stale_count();
+            if killed_stale > 0 {
+                log::warn!(
+                    "[desktop] 启动守护:终止了 {} 个挂死/僵尸的旧实例(隐藏消息窗口缺失或 2s 不应答);\
+                     根因与判据见 startup_guard.rs",
+                    killed_stale
+                );
+            }
+            let lock_wait = startup_guard::take_webview_lock_wait_ms();
+            if lock_wait > 0 {
+                log::warn!(
+                    "[desktop] 启动守护:等旧实例遗留的孤儿 WebView2 释放 EBWebView 数据目录用了 {}ms(这段时间未建窗口属预期等待)",
+                    lock_wait
+                );
+            }
 
             // 2026-09-27 立:main 窗口没建出来,进程就不该继续活着。
             // 实测形态(09-27 桌面端日志):两实例并存时,第二个实例的 WebView2 因用户数据
