@@ -21,7 +21,11 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from ..core.executor_switch import guard_loop_v2_pilot
+from ..core.executor_switch import (
+    LoopV2ConvergencePilotError,
+    guard_loop_v2_pilot,
+    take_loop_v2_handoff,
+)
 from ..services.agent_teams import (
     ResultAggregator,
     TeamContributor,
@@ -79,9 +83,31 @@ class TeamAggregateBody(BaseModel):
 async def run_team_round(body: TeamRoundBody) -> dict[str, Any]:
     """并行 fan-out 多个 subagent 并做结构化聚合,产成回传主循环的 summary_context。"""
     try:
-        # D6① 收敛开关接线点(默认 legacy 直接返回,行为与改前等价;loop_v2 档
-        # 在任何 fan-out 发生前 fail-fast,不触达 team_orchestrator/LLM)
+        # D6①/G1 收敛开关接线点(2026-09-27 由"裸守卫"改为消费 handoff 的形态)。
+        # 为什么本站在 v2 档仍走"缺投影 ⇒ 显式拒绝"而不是真的跑一次单体循环:
+        #   1) 一轮团队 = fan-out N 个 member + 结构化聚合(contributors/aggregate/
+        #      summary_context)。本站手上只有 objective 与 tasks,**没有** agent 定义
+        #      可投影(member 的 AgentDefinition 在 orchestrator 注册表里,按名字查);
+        #   2) 收敛其实**已经发生在叶子** —— team_orchestrator._default_runner →
+        #      agent_orchestrator.invoke_parallel → invoke → _run_agent(surface
+        #      ``agent_orchestrator._run_agent``)逐个 member 走 v2,并各自带回
+        #      iterations/tool_calls。在轮这一层再套一个"整轮单体 agent"会把
+        #      fan-out 换成一次执行,那是对外语义变更(需裁决),不是本票的活。
+        #   3) 用编造出来的 system_prompt 跑一趟、再拿它顶替 contributors 列表,
+        #      正是本仓反复登记的"看起来执行了"那一型,比抛错更坏。
+        # 所以:legacy 档返回 None ⇒ guard 空操作 ⇒ 与改前逐字等价;loop_v2 档由底座
+        # 抛 AGENT_LOOP_V2_PILOT_NOT_WIRED(既有 except 转 {code:500}),且下面这行
+        # 之前不会触达 team_orchestrator —— 零双重执行。
+        handoff = await take_loop_v2_handoff("routers/team_orchestration.run_team_round")
+        if handoff is not None:  # pragma: no cover - 当前装配下不可达,理由见上
+            raise LoopV2ConvergencePilotError(
+                "routers/team_orchestration.run_team_round",
+                handoff.decided_mode,
+                "本站拿到了单次收敛结果,但 TeamRoundResult(contributors/aggregate/"
+                "summary_context)无法由一次单体执行诚实产出 —— 拒绝静默丢弃",
+            )
         guard_loop_v2_pilot("routers/team_orchestration.run_team_round")
+
         result = await team_orchestrator.run_round(
             objective=body.objective,
             tasks=[t.model_dump() for t in body.tasks],
