@@ -12,10 +12,8 @@
 # scripts (they remain in scripts/ for manual use).
 #
 # Usage:
-#   pwsh -ExecutionPolicy Bypass -File G:\IHUI-AI\scripts\uninstall-zombie-guardian.ps1
+#   pwsh -ExecutionPolicy Bypass -File <repo-root>\scripts\uninstall-zombie-guardian.ps1
 # ============================================================================
-
-#Requires -Version 5.0
 
 $ErrorActionPreference = 'Continue'
 
