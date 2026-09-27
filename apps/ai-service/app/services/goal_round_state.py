@@ -527,6 +527,12 @@ class CheckpointSink(Protocol):
         tool_state: dict[str, object],
         status: str = ...,
         metadata: dict[str, object] | None = ...,
+        # 位置也必须是第 7 个:实现体(`agent_checkpoint.py:541`)在 metadata 之后、
+        # owner_user_id 之前插了 file_snapshots。Protocol 只按**位置**匹配参数,漏掉这一格
+        # 会让 `mypy --strict` 判 AgentCheckpointManager 不满足本面 —— 而它正是 main.py 注入
+        # 的那个实现。补齐后本条从"类型不匹配"变成"形状一致",运行期一行都不变
+        # (本模块自己全部用关键字实参调用:见 :602-:604)。
+        file_snapshots: list[dict[str, object]] | None = ...,
         owner_user_id: str | None = ...,
     ) -> str: ...
 
