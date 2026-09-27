@@ -45,11 +45,11 @@
   color: var(--color-foreground);
 }
 
-/* ===== 表单卡片(对齐 RN card:padding 14 + surface.light + 圆角 12) ===== */
+/* ===== 表单卡片(对齐 RN card:padding 14 + surface.light;圆角按角色档 card→lg) ===== */
 .reg-card {
   padding: 28rpx;
   background-color: var(--color-card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
 }
 
 /* ===== 字段标签(对齐 RN label:14/600/text.secondary,mt 12 mb 8) ===== */

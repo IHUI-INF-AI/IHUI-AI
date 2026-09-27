@@ -804,7 +804,7 @@ export function LocalFolderPicker({
             </div>
 
             {/* 列表 */}
-            <div className="overflow-hidden rounded-md border bg-card">
+            <div className="overflow-hidden rounded-lg border bg-card">
               <ul
                 ref={listRef}
                 tabIndex={0}

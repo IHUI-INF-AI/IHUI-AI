@@ -43,7 +43,7 @@ export function SourceList({ sources, onToggle, onBudgetChange, className }: Sou
         return (
           <div
             key={s.type}
-            className="flex items-center gap-3 rounded-md border bg-card p-3 transition-colors hover:bg-accent/40"
+            className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/40"
           >
             <Icon className={cn('h-4 w-4 shrink-0', TYPE_COLOR[s.type])} />
             <div className="min-w-0 flex-1">

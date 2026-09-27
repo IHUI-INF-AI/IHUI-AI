@@ -87,7 +87,7 @@ export function PlanVersionDiff({
             const v = e.target.value
             setFromVersion(v === 'live' ? null : Number(v))
           }}
-          className="h-7 cursor-pointer rounded-md border border-input bg-background px-2.5 text-xs font-medium outline-none"
+          className="h-7 cursor-pointer rounded-sm border border-input bg-background px-2.5 text-xs font-medium outline-none"
           aria-label="Diff source version"
         >
           {versions.map((v) => renderOption(v.version, v.label))}
@@ -100,7 +100,7 @@ export function PlanVersionDiff({
             const v = e.target.value
             setToVersion(v === 'live' ? null : Number(v))
           }}
-          className="h-7 cursor-pointer rounded-md border border-input bg-background px-2.5 text-xs font-medium outline-none"
+          className="h-7 cursor-pointer rounded-sm border border-input bg-background px-2.5 text-xs font-medium outline-none"
           aria-label="Diff target version"
         >
           {versions.map((v) => renderOption(v.version, v.label))}
