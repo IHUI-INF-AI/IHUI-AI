@@ -124,7 +124,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 10,
       marginBottom: 12,
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
       alignItems: 'center',
     },
@@ -146,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       width: '48%',
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -172,7 +172,7 @@ function createStyles(tk: AppThemeTokens) {
     redeemBtn: {
       marginTop: 8,
       paddingVertical: 6,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },

@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     height: BUTTON_HEIGHT,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
   confirmButton: {
     flex: 1,
     height: BUTTON_HEIGHT,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.success.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

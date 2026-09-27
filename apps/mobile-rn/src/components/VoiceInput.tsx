@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   imageToggleBtn: {
     width: 32,
     height: 32,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: tokens.surface.muted,
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   clearBtn: {
     width: 24,
     height: 24,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.xl, // radius-exempt: 24dp 清除按钮正圆(半径=边长一半),不得方档化
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',

@@ -144,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     scrollContent: { padding: 14, gap: 12, paddingBottom: 32 },
     introCard: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 14,
       gap: 12,
       alignItems: 'center',
@@ -162,7 +162,7 @@ function createStyles(tk: AppThemeTokens) {
     statsLabel: { fontSize: 14, color: tk.text.secondary },
     sectionCard: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 14,
       gap: 12,
     },
@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     bottomBtnBox: { marginTop: 8 },
     bottomBtn: {
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

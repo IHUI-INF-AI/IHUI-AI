@@ -345,7 +345,7 @@ const createStyles = (tk: RnThemeTokens) =>
     followBtn: {
       paddingHorizontal: rpx(32),
       paddingVertical: rpx(12),
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     followBtnActive: {

@@ -116,7 +116,7 @@ function createStyles(tk: AppThemeTokens) {
     planCard: {
       flex: 1,
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -144,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     submitBtn: {
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

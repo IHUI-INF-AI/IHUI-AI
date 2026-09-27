@@ -107,7 +107,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
     titleRow: {
@@ -118,7 +118,7 @@ function createStyles(tk: AppThemeTokens) {
     pinnedBadge: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.warning.amberLight,
     },
     pinnedText: { fontSize: 10, color: tk.warning.amberText },
