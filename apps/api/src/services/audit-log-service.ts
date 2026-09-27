@@ -21,6 +21,7 @@
  */
 import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { z } from 'zod'
+import { canonicalStringify } from '@ihui/shared'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import { hmacSHA256, secureRandomBytes } from '../utils/crypto-extra.js'
@@ -111,16 +112,9 @@ function getAuditSecret(): string {
 // =============================================================================
 // Canonical JSON(递归排序 key,保证序列化稳定)
 // =============================================================================
-
-function canonicalStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
-  if (Array.isArray(value)) {
-    return '[' + value.map(canonicalStringify).join(',') + ']'
-  }
-  const obj = value as Record<string, unknown>
-  const keys = Object.keys(obj).sort()
-  return '{' + keys.map((k) => JSON.stringify(k) + ':' + canonicalStringify(obj[k])).join(',') + '}'
-}
+// 86F(2026-09-28):本文件曾有私有 `canonicalStringify`,与 siem-exporter 那份
+// 同义双实现 —— 已合一到 `@ihui/shared` 唯一出口(行为逐字 = 原私有版,链上存量
+// current_hash 的重算输入因此零变化);反向锁见 tests/canonical-single-source.test.ts。
 
 /**
  * 计算单条日志的 current_hash。
