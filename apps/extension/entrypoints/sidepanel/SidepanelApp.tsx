@@ -7,7 +7,14 @@ import { Bell, Bot, BookOpen, MessageCircle, Settings, User } from 'lucide-react
 import { NavLink, Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { getProfile, logout, type AuthUser, type LoginResult } from '@ihui/api-client'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
-import { initApi, getToken, getRefreshToken, setTokenPair, clearAllTokens } from '../../lib/token'
+import {
+  initApi,
+  getToken,
+  getRefreshToken,
+  setTokenPair,
+  clearAllTokens,
+  SESSION_EXPIRED_EVENT,
+} from '../../lib/token'
 import { startAutoRefresh, scheduleRefreshAlarm, doRefresh } from '../../lib/token-utils'
 import { useNotificationWebSocket } from '../../lib/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../../lib/notification-store'
@@ -136,6 +143,22 @@ function SidepanelInner() {
       cancelled = true
     }
   }, [])
+
+  // 会话彻底失效(401 且续期失败)的统一出口:翻回登录页,让用户有下一步可做。
+  // 判据在监听侧读 `authed` 本身 —— 派发侧那一刻 token 可能已被续期失败路径清空,
+  // 按"有没有 token"判会把"会话死了"误读成"本来就没登录"。
+  useEffect(() => {
+    const onSessionExpired = () => {
+      if (!authed) return
+      setTokenState(null)
+      setAuthed(false)
+      setUser(null)
+    }
+    globalThis.addEventListener?.(SESSION_EXPIRED_EVENT, onSessionExpired)
+    return () => {
+      globalThis.removeEventListener?.(SESSION_EXPIRED_EVENT, onSessionExpired)
+    }
+  }, [authed])
 
   // 监听 popup 通过 chrome.storage.session 写入的 pending route
   useEffect(() => {

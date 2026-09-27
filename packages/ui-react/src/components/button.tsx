@@ -14,7 +14,7 @@ import { cn } from '../lib/utils'
 // 图标尺寸档(2026-09-17 用户指令:全项目图标按钮唯一尺寸 32×32,单一来源 @ihui/design-tokens icon-button.ts)
 // icon-xs/icon-sm/icon 三档全部同值,仅保留名称兼容既有调用
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -28,25 +28,25 @@ const buttonVariants = cva(
 
         primary: 'bg-cta text-cta-foreground shadow-sm hover:bg-cta/90',
         'hero-cta':
-          'bg-gradient-to-r from-cta to-cta/70 text-cta-foreground shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all px-8 py-3 text-base font-semibold rounded-lg',
-        login: 'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-11 rounded-md font-medium',
-        send: 'bg-cta text-cta-foreground hover:bg-cta/90 rounded-md px-4 py-2',
+          'bg-gradient-to-r from-cta to-cta/70 text-cta-foreground shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all px-8 py-3 text-base font-semibold rounded-sm',
+        login: 'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-11 rounded-sm font-medium',
+        send: 'bg-cta text-cta-foreground hover:bg-cta/90 rounded-sm px-4 py-2',
         'card-action':
-          'text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-2 py-1',
+          'text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-sm px-2 py-1',
         'mobile-login':
-          'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-12 rounded-lg text-base font-semibold',
+          'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-12 rounded-sm text-base font-semibold',
         'btn-luxe':
-          'bg-gradient-to-r from-vip-gold-start to-vip-gold-end text-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all px-6 py-2.5 rounded-md font-semibold',
+          'bg-gradient-to-r from-vip-gold-start to-vip-gold-end text-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all px-6 py-2.5 rounded-sm font-semibold',
         'agreement-agree':
-          'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-12 rounded-md font-medium',
+          'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-12 rounded-sm font-medium',
         'switch-project':
-          'border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md px-3 py-1.5 text-sm',
+          'border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-sm px-3 py-1.5 text-sm',
       },
       size: {
-        xs: 'h-7 rounded-md px-3 text-xs',
+        xs: 'h-7 rounded-sm px-3 text-xs',
         default: 'h-9 px-4 py-2',
-        sm: 'h-8 rounded-md px-3 text-xs',
-        lg: 'h-10 rounded-md px-8',
+        sm: 'h-8 rounded-sm px-3 text-xs',
+        lg: 'h-10 rounded-sm px-8',
         // 2026-09-21 立档:28px 紧凑图标档(表格行内操作钮 / 密集工具条)。
         // 背景:此前 28px 需求只能靠 className="h-7 w-7" 覆盖既有档位满足 —— 这既违反
         // AGENTS.md §4「禁止 className 覆盖高度」,又因 check-button-height 是全仓扫描,
