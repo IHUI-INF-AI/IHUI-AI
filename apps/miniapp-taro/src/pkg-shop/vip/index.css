@@ -177,7 +177,7 @@
   color: var(--vip-gold);
   background: var(--vip-card-bg);
   border: 1px solid var(--vip-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 
 /* ===== 套餐卡 + 自动续费 + 会员说明(对齐 RN planCard:mt 20rpx / marginH 32rpx / padding 28rpx) ===== */
@@ -297,13 +297,13 @@
   color: var(--color-brand-accent-deep);
 }
 .buy-btn {
-  /* 对齐 RN subscribeButton:高 36dp→72rpx / 圆角 8dp→16rpx / 品牌灰蓝底前景文字 13dp→26rpx 600 */
+  /* 对齐 RN subscribeButton:高 36dp→72rpx / 品牌灰蓝底前景文字 13dp→26rpx 600;圆角按角色档 control→sm */
   flex: 1;
   height: 72rpx;
   line-height: 72rpx;
   padding: 0 48rpx;
   background: var(--color-brand-accent);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   font-size: 26rpx;
   /* accent 底配 foreground 文字(浅灰蓝上白字对比不足) */
   color: var(--color-brand-accent-foreground);
@@ -364,7 +364,7 @@
   color: var(--color-cta-foreground);
   font-size: 32rpx;
   font-weight: 700;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   border: none;
   text-align: center;
   padding: 0;

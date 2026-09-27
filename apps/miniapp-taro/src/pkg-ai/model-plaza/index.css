@@ -158,12 +158,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* RN typeBadge:paddingH 7 paddingV 3 radius 4 marginL 8;文字 12 600,配色走模型类型 token(明暗同值) */
+/* RN typeBadge:paddingH 7 paddingV 3 marginL 8;文字 12 600,配色走模型类型 token(明暗同值);
+   圆角按角色档 chip→md */
 .model-type-tag {
   font-size: 24rpx;
   font-weight: 600;
   padding: 6rpx 14rpx;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   flex-shrink: 0;
   margin-left: 16rpx;
 }

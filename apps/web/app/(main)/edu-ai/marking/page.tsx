@@ -153,7 +153,7 @@ export default function EduAiMarkingPage() {
                 id="mk-subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">{t('subject')}</option>
                 {SUBJECT_OPTIONS.map((s) => (
@@ -184,7 +184,7 @@ export default function EduAiMarkingPage() {
               onChange={(e) => setQuestion(e.target.value)}
               placeholder={t('questionPlaceholder')}
               rows={3}
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
 
@@ -196,7 +196,7 @@ export default function EduAiMarkingPage() {
               onChange={(e) => setStudentAnswer(e.target.value)}
               placeholder={t('studentAnswerPlaceholder')}
               rows={5}
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
 
@@ -208,7 +208,7 @@ export default function EduAiMarkingPage() {
               onChange={(e) => setReferenceAnswer(e.target.value)}
               placeholder={t('referenceAnswer')}
               rows={3}
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
 

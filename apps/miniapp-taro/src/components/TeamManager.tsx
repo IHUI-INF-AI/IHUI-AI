@@ -32,7 +32,7 @@ export default function TeamManager({
 }: TeamManagerProps) {
   const tt = useTt()
   return (
-    <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
+    <View className="bg-card mx-3 my-3 rounded-lg overflow-hidden">
       <View className="flex items-center justify-between px-4 py-3 mb-2">
         <Text className="text-sm font-medium text-foreground">
           {tt('distribution.myTeam', '我的团队')}

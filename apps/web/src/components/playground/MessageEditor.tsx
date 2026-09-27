@@ -147,7 +147,7 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
               disabled={disabled}
               rows={msg.role === 'system' ? 2 : 3}
               placeholder={t('inputRoleContent', { role: msg.role })}
-              className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full resize-y rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
         ))}

@@ -169,7 +169,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
 
   if (status === 'loading') {
     return (
-      <div className="mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center rounded-md border bg-card">
+      <div className="mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center rounded-lg border bg-card">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
@@ -177,7 +177,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
 
   if (status === 'confirmed') {
     return (
-      <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border bg-card">
+      <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-lg border bg-card">
         <CheckCircle2 className="h-12 w-12 text-green-500" />
         <p className="text-sm text-muted-foreground">{t('loginSuccess')}</p>
       </div>
@@ -205,7 +205,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
   // status === 'pending' | 'expired' → 渲染二维码
   const isExpired = status === 'expired'
   return (
-    <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-3 rounded-md border bg-card px-4">
+    <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-3 rounded-lg border bg-card px-4">
       <div
         className={`relative rounded-lg border border-border bg-popover p-3${isExpired ? ' opacity-30' : ''}`}
       >

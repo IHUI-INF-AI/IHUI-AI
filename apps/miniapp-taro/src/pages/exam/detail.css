@@ -92,7 +92,7 @@
 .exam-detail-card {
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 28rpx;
   margin-bottom: 20rpx;
 }
@@ -251,7 +251,7 @@
   line-height: 88rpx;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   font-size: 28rpx;
   font-weight: 600;
   border: none;

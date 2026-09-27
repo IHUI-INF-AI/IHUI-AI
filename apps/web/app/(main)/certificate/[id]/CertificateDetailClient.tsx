@@ -153,7 +153,7 @@ export default function CertificateDetailClient() {
 
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded-md border bg-card px-3 py-2">
+    <div className="flex items-center justify-between rounded-lg border bg-card px-3 py-2">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="font-medium text-foreground">{value}</span>
     </div>

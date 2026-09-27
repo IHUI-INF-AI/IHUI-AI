@@ -133,7 +133,7 @@ export default function ExportPage() {
               <select
                 value={themeId}
                 onChange={(e) => setThemeId(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
               >
                 {themes.map((t) => (
                   <option key={t.id} value={t.id}>
