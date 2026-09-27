@@ -10,7 +10,6 @@ import { ChevronRight } from 'lucide-react-native'
 import { useFontMultiplier } from '../../components/MoreLink'
 
 import { rnRadius } from '@ihui/design-tokens'
-import { BackChevron } from '../../components/BackChevron'
 
 /**
  * ProfileScreen — 跨端共享「个人资料」页。
@@ -18,6 +17,13 @@ import { BackChevron } from '../../components/BackChevron'
  * 平台无关:数据(user/stats/orderCount)、状态(loading/error)、导航(onNavigate/onLogout/onBack)
  * 全部通过 props 注入,组件只负责渲染。web/RN wrapper 各自实现数据获取与导航。
  * 配色:由 colorScheme prop('light' | 'dark',默认 'light')经 getTokens 解析为明/暗 token 集。
+ *
+ * 页头归属(2026-09-27,双层页头收敛,同 SettingsScreen 先例):本组件**不渲染内置页头/返回键**,
+ * 页头(标题 + 返回 + 右侧动作)由宿主提供 —— RN 端生产页(apps/mobile-rn/src/screens/ProfileScreen.tsx)
+ * 渲染 NavBar(标题 + 反馈 + Drawer 菜单入口),demo 页(SharedDemoScreen)有常驻 tab 栏。
+ * 此前组件自带 BackChevron + 标题,在生产页里悬在滚动区中段、与宿主 NavBar 同屏两条返回键
+ * (守门 102 GA7 / 守门 145 DH2 判定型)。onBack 仍留在 ProfileScreenProps 契约中
+ * (packages/types,本轮不可改),运行时不再消费。
  */
 export function ProfileScreen({
   t,
@@ -29,7 +35,6 @@ export function ProfileScreen({
   menuSections = [],
   onNavigate,
   onLogout,
-  onBack,
   colorScheme = 'light',
 }: ProfileScreenProps) {
   const tk = getTokens(colorScheme)
@@ -48,11 +53,6 @@ export function ProfileScreen({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('profile.title')}</Text>
-      </View>
-
       {error ? (
         <View style={styles.errorBar}>
           <Text style={styles.errorText}>{error}</Text>
@@ -137,14 +137,6 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      gap: 12,
-    },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorBar: {
       marginHorizontal: 16,
       marginBottom: 8,
@@ -214,7 +206,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       height: 50,
       paddingHorizontal: 14,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.error.bg,
       alignItems: 'center',
       justifyContent: 'center',

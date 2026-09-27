@@ -19,6 +19,7 @@ import { test } from 'node:test'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
+import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 
 import { __test__ as gate } from '../check-rn-double-header.mjs'
 
@@ -165,7 +166,7 @@ test('T4 取材面形状锁:内容必须经 face-reader 的 catBatch,不得按�
   )
 })
 
-test('T5 真仓 HEAD 阳性对照 + 台账不得腐烂成第二份真相', () => {
+test('T5 真仓 HEAD 对账 + 台账不得腐烂成第二份真相(阳性对照=真文件+内存注入,不要求真仓保持脏)', () => {
   const r = gate.analyze('head')
   assert.equal(
     r.exit,
@@ -174,13 +175,46 @@ test('T5 真仓 HEAD 阳性对照 + 台账不得腐烂成第二份真相', () =>
   )
   assert.equal(r.emptyScan, false, 'head 面被判空扫 ⇒ 枚举面或仓库根错位,本门会恒判无法判定')
   assert.ok(r.scannedFiles > 150, `扫描文件数 ${r.scannedFiles} 异常偏低`)
-  assert.ok(r.total >= 1, `HEAD 面一处都没读到(${r.total})—— 判据或射程被改窄了,这不算通过`)
-  const ledger = JSON.parse(readFileSync(LEDGER, 'utf8'))
-  assert.ok(
-    Array.isArray(ledger.stock) && ledger.stock.length >= 1,
-    '台账不得为空(立项时冻结了真站点)',
+  // 阳性对照的形态(2026-09-27 存量归零后改):刻意**不**要求"HEAD 必须还留着 ≥1 处违规"——
+  // 那等于把"世界是脏的"钉成判据,清完账的门反而红。这里喂**真 HEAD 文件**的 wrapper +
+  // 在内存里给真子屏注入一枚 <BackChevron/>,scan 必须量到 —— 真实形态(别名导入、
+  // onBack 接线、NavBar 绑定)复刻不了,合成夹具会漂;而注入只活在内存,不要求仓库留脏。
+  const WRAP = 'apps/mobile-rn/src/screens/CourseDetailScreen.tsx'
+  const CHILD = 'packages/app/src/features/course-detail/CourseDetailScreen.tsx'
+  const wrapText = gitAt(['show', `HEAD:${WRAP}`])
+  const childClean = gitAt(['show', `HEAD:${CHILD}`])
+  const auditWith = (childText) => {
+    const idx = gate.buildSymbolIndex(new Map([[CHILD, childText]]))
+    return gate.auditRnFile({
+      file: WRAP,
+      rnText: wrapText,
+      rnMasked: maskCommentsAndStrings(wrapText),
+      symbolIndex: idx,
+    })
+  }
+  // 反向锁:真 HEAD 的 wrapper × 真 HEAD 的子屏 ⇒ 0 处(本票清完账后这就是当前真实形态;
+  // 若有人把内置页头加回去,门在提交链判红,这条锁同时翻红点名"世界又脏了但台账没跟上")
+  assert.equal(
+    auditWith(childClean).hits.length,
+    0,
+    '真 HEAD 的 CourseDetail 组合被读成双层 ⇒ 要么有人回退了本票的收敛,要么判据假阳回流',
   )
-  // 刻意**不**再抄一份"应有哪五个文件"的名单:那份硬清单在有人清偿掉一站之后就成了
+  const MARK = '<ScrollView style={styles.container}>'
+  assert.ok(
+    childClean.includes(MARK),
+    `注入锚点 ${MARK} 不在子屏里了 ⇒ 夹具前提漂了,换锚点,别删这条对照`,
+  )
+  const childInjected = childClean.replace(
+    MARK,
+    `${MARK}\n      <BackChevron onPress={onBack} label="返回" />`,
+  )
+  assert.ok(
+    auditWith(childInjected).hits.some((h) => h.file === WRAP),
+    '真文件形态 + 注入一枚内置页头都量不到 ⇒ 判据对"别名导入 × 真 wrapper"这一型失明(§22c 复读机防线)',
+  )
+  const ledger = JSON.parse(readFileSync(LEDGER, 'utf8'))
+  assert.ok(Array.isArray(ledger.stock), '台账 stock 必须是数组')
+  // 刻意**不**再抄一份"应有哪几处文件"的名单:那份硬清单在有人清偿掉一站之后就成了
   // 第二份真相 —— 它判红的对象是"世界没按立项那天的样子留着",而不是任何缺陷。
   // 本仓对这类清单的规矩是"豁免清单必然腐烂";有牙的判据是下面两条:
   //   ① 台账点的每个文件都必须在 HEAD 真存在(台账指向不存在的文件 = 清单腐烂,判红)
