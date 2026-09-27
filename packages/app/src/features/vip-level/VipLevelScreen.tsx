@@ -93,8 +93,6 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingVertical: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: tk.border.light,
     },
     label: { fontSize: 14, color: tk.text.secondary },
     price: { fontSize: 20, fontWeight: '600', color: tk.danger.DEFAULT },
