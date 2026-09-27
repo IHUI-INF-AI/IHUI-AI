@@ -12604,25 +12604,21 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] P1 新线索(实测,未追):**Ctrl+Q 在真机上按下去毫无反应**。已排除按键未送达(`press_key` 报 `foregroundStatus: matched`、`inputEventCount: 4`、VK=81),已排除 quit 链在跑但卡住(按后 45 秒内日志**零新增行**、且本次新增的那条兜底 ERROR 也没打 ⇒ `quit_app` 从未被调到),截图证实界面既无遮罩也无变化、应用照常运行。而 `apps/web/src/hooks/use-native-shortcuts.ts` 源码里确有 `ctrl && !shift && !alt && key === 'q'` 分支。**最可能的分歧点**:桌面端加载的是 `https://aizhs.top/agents` **线上生产构建**,本机工作树里的快捷键/守卫改动对它零覆盖 —— 即"源码有绑定"不等于"线上那一版有绑定"。这一格与本会话开头用户说的"所有入口都试过退不掉"直接相关,须由持托盘/快捷键那条线的人定案:先量线上那一版实际打包出的 JS 里有没有该绑定,再决定是补部署还是修绑定。**不得**把"我改了源码里的 guard"读成"用户现在能退出了"。
 ### 第五十一波·续十二 —— 提交链被一道"没人调度却自称已接线"的门挡住：只把表述改准，不替它接线（2026-09-27 午后，主会话独立复跑）
 
-- [ ] **G-239 守门 `check-readme-table-integrity` 的注册块不见了 —— 补注册前必须先清偿它自己的存量**（归属：该门持有者；本线只解除它挡住的提交链）
-  起因与本线无关：另一票要提交时被 id 89「接线层对账」的 **R2** 判红拦住，而红不在我改的文件上。三重现读证据（`2c616ac162` 之后仍成立）：
-  ① **三面零命中** —— `git show HEAD:scripts/guardian-runner.mjs`、索引面、工作树面各 `grep -c check-readme-table-integrity` 均为 `0`，
-     但 AGENTS.md 第 2210 行与 README.md 第 6283 行都写着"本枚落地取到 **145**、blocking、已接 package.json scripts"：
-     声称与实态分叉 ⇒ 恒红的不是它那一票，而是**此后每一次提交**（一次 `--no-verify` 约等于 185 道门对该提交作废，§12e 同型）。
-  ② **门体在 HEAD 面判红**：`node scripts/check-readme-table-integrity.mjs` → `exit 1`，现读 README.md **61 行 T-A**（两处簇：`5533/5534` 与 `5910–5920`），
-     基线 `scripts/readme-table-integrity-baseline.json` 对 `README.md` 的 cap = `0` ⇒ 此刻把注册块补回去，产出的是一台与任何提交都无关的恒红门。
-  ③ **它自己的尺子已经判了这一格**：`--self-test` `exit 1`，红条原文是"真仓 HEAD 全量档不得因存量判红（锚点=基线;判红=与提交无关的恒红门）"；
-     §22c 镜像 5 项红 —— T1（注册块缺失）、T3（`table-cell-exempt` 未进 id 108 到期账的存活期表）、T5/T7/T8（都被 ② 那台恒红带崩）。
-     ⇒ 这不是"门没跑"，是门**跑得出正确结论而无人调度**：与守门 70/76/81 同型，判据失效的表现永远是安静。
-  **本线处置（刻意只做这一半）**：只把 AGENTS.md 该行与 README.md 该行改成与实态一致的表述（写明三面零命中、61 行存量、五项镜像红、以及"在补注册之前该判据零调度器，下面整段是设计原文而非现状"），
-  未替它注册、未动它任何判据、未动 README 的那 61 行 —— 那些是该门持有者的账。解阻顺序写进那两行：
-  ① `node scripts/readme-table-unwrap.mjs --file README.md --dry-run` 逐处复核后 `--apply` 把 61 行归零 →
-  ② 补 id 108 的到期档并复跑其余镜像红（不得为变绿削判据）→ ③ `node scripts/gate-registry-insert.mjs` 取当次空闲号补注册、编号与定级按 runner 现值回写。
-  同场记两条**归属他人**的事实（只登记不动）：
-  `check-rn-double-header` 在 id 89 的 `--json` 里 `where: ["package-json"]` —— 只进 `pnpm check:all`，**不在提交链**，
-  而它的 AGENTS 行自称"落地取到 144"，runner 的 144 实际是本轮第三十五批的崩溃上报脱敏门 ⇒ 撞号与否一律以 `node scripts/check-gate-wiring.mjs` 的 `duplicateIds` 现值为准（本轮实测 `0`，无重复 id）。
-  另记本轮交付的出库证明（防"commit 后忘记 push"那一型）：批次 31~38 八枚提交逐条对 `git ls-remote origin refs/heads/main` 的当次值跑
-  `merge-base --is-ancestor` ⇒ 全部 `in-remote YES`；判"推没推完"只认远端回读，不读本地 `origin/main`（§5b：嵌套 ref 会被宿主清掉，本地引用可滞后）。
+- [x] ✅(2026-09-27) **G-239 守门 146 `check-readme-table-integrity` 的两笔欠账:注册块曾被盖掉、README 61 行存量与豁免到期档缺失(批次 41 清偿)**
+  事实链(逐条现读,不是推断):① 注册块确实丢过一次 —— `git log --all -S check-readme-table-integrity.mjs -- scripts/guardian-runner.mjs`
+  给出 `f2f90a666`(接入)与 `b4905b158`(接回),中间那枚 union 合并把注册整块盖掉而**文档面的声称留在原地**,
+  ⇒ 守门 89 的 R2 对每一次碰 README 的提交判红;我一度把它误判成"另一路会话的谎报",并在 AGENTS/README 各写了一条"尚未注册"的更正
+  —— 那条更正本身在 40 分钟内变成第二份过期台账(并发已把编号挪到 146),**已由本枚删掉并与现行条目归并**。教训写进这里:
+  登记"某门未接线"与登记"某门已接线"同样是**会腐的机器事实**,只能按当次实测取,不得作为常驻条目留在文档面。
+  ② 门体判红的是**存量**而非缺陷:`node scripts/check-readme-table-integrity.mjs` 现读 README.md 61 行 T-A(6 个 run),
+  棘轮 cap=0 ⇒ 本枚按门自己给的出口清偿:`node scripts/readme-table-unwrap.mjs --file README.md --apply`。
+  独立复量(不采信工具自证):剥竖线与空白后字符多重集 **743252 == 743252**、差异键 **0**,行数 6295 → 6234(恰减 61)。
+  ③ `table-cell-exempt` 从未进守门 108 的存活期表(镜像 T3 红),本枚补 30 天档 —— 它是**待偿的改写债**(长格内容要挪出表格),
+  不是结构性定性;补档后 §22c 镜像与门自身 `--self-test` 的取证见本枚提交信息。
+  否证一条(免得下一个人重新猜):**没有**用"抬高 cap / 改判据"消红 —— 台账 cap 保持 0,`--update-baseline` 未跑。
+  同场两条**归属他人**、本枚刻意不动的事实:`check-rn-double-header` 现值 runner `id: 145`、`check-crash-report-redaction` `id: 144`
+  (撞号与否一律以 `node scripts/check-gate-wiring.mjs` 的 `duplicateIds` 现值为准,本轮实测 `0`);README.md 守门速查表里
+  `| 144 |` 那一格点的是 `check-rn-double-header.mjs` 而 runner 的 144 是崩溃上报门 —— 该行属其持有者,只登记不代改。
 
 ### P0 登记(2026-09-27 实测):Windows 桌面端 CI 发版链已断,后续所有 Windows 用户拿不到更新
 
