@@ -92,6 +92,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
   - 评估是否跨端可用 → 如果是,先提取到 `packages/shared/` 再在端内 import,不得直接在端内写。
   - 如果确认平台特有(依赖 DOM/RN API/Taro API)→ 可在端内实现,但必须在文件头注释说明 `// 平台特有:依赖 [DOM/RN/Taro] API,不适合共享`。
 - **工厂模式优先**:跨端 hook/util 用工厂函数 + 依赖注入(参考 `createUseClipboard` / `createAuthStore`),各端传入平台 adapter。不得用 `if (Platform.OS === 'web')` 条件分支在共享层处理平台差异。
+- **同词不同义的两张名单不得并置在同一个 barrel(强制,2026-09-27 D113 票⑲ 立)**:共享包里"名字像同一件事、语义是两件事"的两个导出合并进同一 `export *` 面时,tsc **只在两份同时被导出时**报 TS2308,而"消费方拿到哪一份"是运行时问题。实测形态:`packages/shared/src/chat/task-status.ts` 的 `FILE_WRITE_TOOLS` 是"这次调用算不算改了文件"的**识别**白名单(`ReadonlySet`,web `tool-call-card.tsx` 按 `.has()` 消费),与新增的"这句话要不要把写类工具交给模型"的**能力**清单同词不同义 —— 后者若同名并进 `chat/index.ts`,出口就变成数组,而类型层不会在调用点红给你看。三条规矩:① 新策略模块**只走子路径**(`@ihui/shared/<dir>/<file>`),② 名单名带语义限定词(`FILE_*_INTENT_TOOLS`),③ 在 barrel 里留一句"为什么它不在这里" —— 否则下一个接手的人会把它当"漏加的出口"补回去。反向锁已入库:`packages/shared/src/chat/__tests__/file-tool-intent.test.ts` 同时判"barrel 里不得出现该 export"与"task-status 那份必须在"(只判一边等于允许整块被摘线)。
 - **守门**:PR review 时检查是否有端内文件重新实现了共享层已有功能。发现重复 → 要求改为 import 共享层。
 
 ---
