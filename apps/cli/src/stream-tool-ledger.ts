@@ -391,4 +391,105 @@ export function formatLedgerSummary(snapshot: LedgerSnapshot): string {
     `endOfStream=${snapshot.endOfStreamAtMs === undefined ? 'no' : 'yes'}`
   )
 }
+
+// ==================== 审计链写入源投影(86A,2026-09-28)====================
+//
+// 账本此前"记了但没人取":快照出口在生产面零消费者(唯一实现方是测试),
+// 工具调用因此从未进入服务端审计链。这一组投影函数把每轮快照变成可落
+// `audit_logs_chain` 的**最小事实集**,由 agent.ts 的
+// `reportToolLedgerSnapshotToAudit` 经 api-client `fetchApi` 上报,服务端唯一
+// 落库出口是 `apps/api/src/services/audit-log-service.ts` 的
+// `recordToolLedgerAuditFacts`(走既有 HMAC 链写入器,0 新表 0 新列)。
+//
+// 三条投影纪律:
+// 1. **不落 args 原文**。跨流辨认同一调用靠 `fingerprint`(轮次+工具名+
+//    规范化参数的 sha1[:16]),入参原文出机既无必要又扩大泄露面。
+//    (第八波 86B 正在建 `packages/shared/src/utils/tool-args-digest.ts`
+//    这一"入参摘要"唯一出口;在它落地前**不得**在本票自造第二份摘要实现 ——
+//    两处算同一件事必漂移,本仓记过多次。届时把 fingerprint 的替换接那出口。)
+// 2. **请求体不携带任何身份字段**。属主由服务端从令牌主体取
+//    (AGENTS §5「已登录不等于可以动这条数据」),所以这里刻意只投
+//    turn/streamId/seq/fingerprint 这类无归因字段。
+// 3. callId 用 `dedupeKey`(fingerprint#本轮第几次出现)而不是 toolCallId:
+//    后者部分 provider 不保证有,而 dedupeKey 恒在且与账本幂等口径同形。
+
+/** 单次工具调用的审计事实(与 apps/api 侧 strict 校验的 wire 契约同形) */
+export interface ToolInvokeAuditFact {
+  /** 稳定调用标识 = 账本 dedupeKey(`fingerprint#occurrence`) */
+  callId: string
+  /** 会话内轮次(冗余自 anchor,便于服务端逐行归轮) */
+  turn: number
+  streamId: string
+  seq: number
+  /** 跨流辨认指纹(入参摘要的现行载体;见上方纪律 1) */
+  fingerprint: string
+  toolName: string
+  state: LedgerState
+  /** 是否走了提前执行路径 */
+  early: boolean
+  /** settled 之后的成败(不含结果体) */
+  ok?: boolean
+  /** 未发起/丢失执行的原因 */
+  skipReason?: string
+  startedAtMs?: number
+  settledAtMs?: number
+}
+
+/** 一轮上报的请求体形状(不带身份,理由见纪律 2) */
+export interface ToolLedgerAuditIngest {
+  version: 1
+  turn: number
+  streamId: string
+  createdAtMs: number
+  endOfStreamAtMs?: number
+  facts: ToolInvokeAuditFact[]
+}
+
+/**
+ * 单轮上报的 facts 上限:防一条异常大的快照把审计链灌成噪声洪水。
+ * 与 api 侧 `TOOL_LEDGER_AUDIT_MAX_FACTS` 同值(改一处必须两处同改,
+ * 由两侧各自的超限用例钉住 —— 上限不一致时发送侧过、接收侧拒,
+ * 上报会**永远失败且静默**,这正是本常量存在的理由)。
+ */
+export const TOOL_LEDGER_AUDIT_MAX_FACTS = 100
+
+/** 把一条登记项投影成审计事实(纯函数;args 在此被刻意丢弃)。 */
+export function projectLedgerEntryToAuditFact(entry: LedgerEntry): ToolInvokeAuditFact {
+  const fact: ToolInvokeAuditFact = {
+    callId: entry.dedupeKey,
+    turn: entry.anchor.turn,
+    streamId: entry.anchor.streamId,
+    seq: entry.anchor.seq,
+    fingerprint: entry.anchor.fingerprint,
+    toolName: entry.toolName,
+    state: entry.state,
+    early: entry.early,
+  }
+  if (entry.ok !== undefined) fact.ok = entry.ok
+  if (entry.skipReason !== undefined) fact.skipReason = entry.skipReason
+  if (entry.startedAtMs !== undefined) fact.startedAtMs = entry.startedAtMs
+  if (entry.settledAtMs !== undefined) fact.settledAtMs = entry.settledAtMs
+  return fact
+}
+
+/**
+ * 快照 → 上报工件。超上限时**截断并回报丢弃数** —— 静默变短等于伪造
+ * 完整性(§宿主提示块那条同一条禁令),调用方必须把 dropped 喊出来。
+ */
+export function buildToolLedgerAuditIngest(
+  snapshot: LedgerSnapshot,
+  maxFacts: number = TOOL_LEDGER_AUDIT_MAX_FACTS,
+): { ingest: ToolLedgerAuditIngest; dropped: number } {
+  const facts = snapshot.entries.map(projectLedgerEntryToAuditFact)
+  const dropped = Math.max(0, facts.length - maxFacts)
+  const ingest: ToolLedgerAuditIngest = {
+    version: 1,
+    turn: snapshot.turn,
+    streamId: snapshot.streamId,
+    createdAtMs: snapshot.createdAtMs,
+    facts: facts.slice(0, maxFacts),
+  }
+  if (snapshot.endOfStreamAtMs !== undefined) ingest.endOfStreamAtMs = snapshot.endOfStreamAtMs
+  return { ingest, dropped }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
