@@ -103,7 +103,17 @@ test('T5 台账必须在索引里且非空(不在被审面上 = 判据退化成�
   )
   const led = JSON.parse(readFileSync(LEDGER, 'utf8'))
   assert.ok(Object.keys(led.counts).length > 0, '台账不得为空表(空表 = 把全部存量判红)')
-  assert.deepEqual(led.waivers, {}, '本票不预先豁免任何组件;要豁免必须逐条写 reason')
+  /**
+   * 原来这条断言的是 `deepEqual(led.waivers, {})` —— 它的含义是"建门那一枚提交不预先豁免任何组件",
+   * 不是"永远不许有豁免"。票⑬ 把 13 族差异逐条登记了带理由的豁免(AGENTS O81:静默不同形算违规),
+   * 于是那条锁从"防滥用"退化成了"禁止合规"。改成判它真正在乎的东西:
+   * **每一条豁免都必须带可读的理由**,空理由/缺理由一律红 —— 比"必须为空"严格更强。
+   */
+  for (const [name, w] of Object.entries(led.waivers ?? {}))
+    assert.ok(
+      typeof w?.reason === 'string' && w.reason.trim().length >= 6,
+      `豁免 ${name} 没有可复核的理由(豁免是登记,不是消红通道)`,
+    )
 })
 
 test('T5b 台账一旦进 HEAD,全量面必须认它(存量锚点永不生效 = 台账白装)', () => {
