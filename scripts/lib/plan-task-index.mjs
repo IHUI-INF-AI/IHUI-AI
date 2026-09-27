@@ -203,6 +203,37 @@ export function findDupOpenCopies(dupOpen) {
   return copies
 }
 
+/**
+ * F4b:**没有主键**的逐字相同未勾选孪生行(F4 的姊妹判据,补它失明的那一格)。
+ *
+ * 为什么 F4 看不见它们:F4 的分组键是复合主键(编号 + 标题前缀),而 `keyOfRow` 要求编号落在
+ * 正文开头 48 字内。台账里存在一整族"叙述式待办" —— `- [ ]（进行中）**真机走查…已修(commit …)**`、
+ * `- [ ] 仍在这台机器上、不由我裁的:…` —— 它们一辈子没有编号,于是**根本不进 F1/F4 的分组面**,
+ * 同一句话被并发 union 复制两遍而账面报 0。2026-09-27 实测:未勾选 313 行里 4 对逐字相同的孪生行
+ * 全部无主键 ⇒ 全部隐身;它们同时被派单口径各算一条,所以"活越做越多"里有这部分水分。
+ *
+ * 判据仍只认**逐字等值**(不认"很像")—— 相似度只能报数,不配判红,与 F4 同一条立项理由。
+ * 幸存者取行号靠后的一条(与 F4 的等长 tie-break 同规则);有主键的行**不在本判据里**,
+ * 免得同一对孪生行被 F4 与 F4b 各计一次债(两把尺子互相顶名额是本仓最贵的一类事故)。
+ */
+export function findVerbatimDupOpenRows(content) {
+  const byText = new Map()
+  for (const r of parseTaskRows(content)) {
+    if (r.state !== 'open') continue
+    if (compositeKeyOf(r.raw)) continue
+    if (DUP_POINTER_RE.test(r.raw)) continue
+    if (!byText.has(r.raw)) byText.set(r.raw, [])
+    byText.get(r.raw).push(r)
+  }
+  const groups = [...byText.values()].filter((g) => g.length > 1)
+  const copies = []
+  for (const g of groups) {
+    const best = g.reduce((a, b) => (b.line > a.line ? b : a))
+    for (const r of g) if (r.line !== best.line) copies.push({ row: r, survivor: best, key: '' })
+  }
+  return { groups, copies }
+}
+
 /** F2:正文自带的"闭合/作废声明"字面。窄集合,宁漏不误伤 —— 见门 120 的"名单要有正向证明"。 */
 export const VOID_MARK_RE =
   /\[[A-Za-z]{1,3}\d+[a-z]*\s*判[:：][^\]]*(?:已完成|已闭环|已收口|已清偿|读数过期|裸副本)|勿照本行派单/
@@ -426,8 +457,9 @@ export function auditPlan(content) {
   // 派单人拿这个数去派,就会把别人正在做的事再派一遍 —— 正是 §1 认领标记要防的那件事。
   const unclaimedRows = openRows.filter((r) => !r.claim)
   const dupCopies = findDupOpenCopies(dupOpen)
+  const verbatimDups = findVerbatimDupOpenRows(content)
   const dupBlocks = findDupBlocks(content)
-  const dupCopyLines = new Set(dupCopies.map((c) => c.row.line))
+  const dupCopyLines = new Set([...dupCopies.map((c) => c.row.line), ...verbatimDups.copies.map((c) => c.row.line)])
   // F7 分层:每条未勾选行落一个归属桶;F8:交代与到期各一把清单。
   // 都在**同一遍 parseTaskRows 的结果**上算,不得为它们再解析一次文档(两处解析必漂移)。
   const dispBuckets = {
@@ -463,6 +495,7 @@ export function auditPlan(content) {
     voidRows,
     rotated,
     dupCopies,
+    verbatimDups,
     dupBlocks,
     dispBuckets,
     undisposed,
@@ -482,6 +515,10 @@ export function auditPlan(content) {
       rotatedPointers: rotated.length,
       dupOpenGroups: dupOpen.length,
       dupOpenCopies: dupCopies.length,
+      // F4b:无主键的逐字孪生行 —— F4 按复合主键分组,而这一族永远没有编号,所以在 F4 里恒为 0、
+      // 在账面上等于"不存在"。见 findVerbatimDupOpenRows 头注(2026-09-27 实测 4 对全部隐身)。
+      verbatimDupGroups: verbatimDups.groups.length,
+      verbatimDupCopies: verbatimDups.copies.length,
       // 已写明"重复登记副本"的未勾选行:它们与 dupOpenCopies 是两件事 —— 副本是**当次**算出来的,
       // 标过指针的是历史上已归并过的。派单口径两条都扣,所以报告里必须分列,否则读者对不上账。
       dupPointerRows: openRows.filter((r) => DUP_POINTER_RE.test(r.raw)).length,
