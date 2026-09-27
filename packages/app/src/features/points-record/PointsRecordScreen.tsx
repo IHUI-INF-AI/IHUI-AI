@@ -142,7 +142,7 @@ function createStyles(tk: AppThemeTokens) {
     balanceCard: {
       marginHorizontal: 10,
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
       alignItems: 'center',
     },
@@ -175,7 +175,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 8 },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,

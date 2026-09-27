@@ -234,7 +234,7 @@ function createStyles(tk: AppThemeTokens) {
     heroBadge: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: 'rgba(255,215,0,0.18)',
     },
     heroBadgeText: { fontSize: 11, fontWeight: '600', color: tk.warning.amber },
@@ -244,7 +244,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 16,
       marginTop: 12,
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       flexDirection: 'row',
@@ -266,7 +266,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       marginHorizontal: 8,
       paddingVertical: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
     },
@@ -327,7 +327,7 @@ function createStyles(tk: AppThemeTokens) {
     buyBtn: {
       paddingHorizontal: 22,
       height: 44,
-      borderRadius: rnRadius['2xl'], // 原 15,R1 吸附至 2xl(16)
+      borderRadius: rnRadius.sm, // 角色档 control→sm(4px);原值 15 非档位
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

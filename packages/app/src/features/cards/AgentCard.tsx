@@ -161,7 +161,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       padding: 14,
       gap: 10,
       borderWidth: 1,
@@ -186,7 +186,7 @@ function createStyles(tk: AppThemeTokens) {
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     tag: {
       backgroundColor: tk.surface.card,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 8,
       paddingVertical: 3,
     },
@@ -198,7 +198,7 @@ function createStyles(tk: AppThemeTokens) {
     price: { fontSize: 16, fontWeight: '700', color: tk.danger.bright },
     freeTag: {
       backgroundColor: FREE_TINT,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },

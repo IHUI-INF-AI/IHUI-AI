@@ -172,7 +172,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       height: 44,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       alignItems: 'center',
@@ -183,7 +183,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 16,
       marginTop: 16,
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       // 对齐 uniapp vip/index.vue .vip-page 深色渐变(#0F1623→#1F2937),用纯色 #1F2937 近似
       backgroundColor: VIP_GOLD_TEXT,
     },
@@ -219,7 +219,7 @@ function createStyles(tk: AppThemeTokens) {
     currentBadge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
       backgroundColor: VIP_GOLD,
     },
     currentBadgeText: { fontSize: 12, fontWeight: '600', color: VIP_GOLD_TEXT },
@@ -235,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
     purchaseBtn: {
       marginTop: 12,
       height: 50,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.sm,
       backgroundColor: VIP_GOLD,
       alignItems: 'center',
       justifyContent: 'center',

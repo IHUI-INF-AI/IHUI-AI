@@ -137,7 +137,7 @@ export function AgentHooksPanel() {
                 onClick={() => toggleHook(h.id)}
                 // @allow-rounded-full 自制 Switch 开关轨道(16x28 胶囊,豁免 2 Switch 语义)
                 className={cn(
-                  'h-4 w-7 shrink-0 rounded-full transition-colors',
+                  'h-4 w-7 shrink-0 rounded-md transition-colors',
                   h.enabled ? 'bg-primary' : 'bg-muted-foreground/40',
                 )}
               >

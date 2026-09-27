@@ -1674,7 +1674,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       height: 40,
       borderWidth: 1,
       borderColor: inputBorder,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 12,
       fontSize: 14,
       color: tk.text.primary,
@@ -1776,7 +1776,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     sendCodeBtn: {
       height: 40,
       paddingHorizontal: 12,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: inputBorder,
       backgroundColor: surface,
@@ -1926,7 +1926,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     // 与其他通用主按钮同语义;文字取主题反色 onBrandText(黑底白字/白底黑字)
     loginBtn: {
       height: 40,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1944,7 +1944,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     wechatLoginBtn: {
       flexDirection: 'row',
       height: 40,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: OAUTH_BRAND_COLORS.wechat,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1966,7 +1966,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     ssoBtn: {
       height: 38,
       marginTop: 22,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: inputBorder,
       alignItems: 'center',
@@ -2085,7 +2085,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     qrRefreshBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: surface,
@@ -2168,7 +2168,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     qrOpenWebBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brand.cta,

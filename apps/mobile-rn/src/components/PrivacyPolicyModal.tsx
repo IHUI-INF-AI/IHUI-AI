@@ -244,14 +244,14 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   disagreeButton: {
     height: BUTTON_HEIGHT,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.card,
   } as ViewStyle,
   agreeButton: {
     height: BUTTON_HEIGHT,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
