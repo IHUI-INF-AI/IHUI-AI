@@ -167,7 +167,7 @@ function createStyles(tk: AppThemeTokens) {
     completedText: { fontSize: 16, color: tk.success.deepText },
     completeBtn: {
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.success.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

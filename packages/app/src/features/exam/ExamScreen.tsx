@@ -182,7 +182,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     retryBtnText: { fontSize: 16, color: tk.surface.light },
@@ -192,7 +192,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 10 },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -207,7 +207,7 @@ function createStyles(tk: AppThemeTokens) {
     statusBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
     statusText: { fontSize: 11 },
@@ -218,7 +218,7 @@ function createStyles(tk: AppThemeTokens) {
     startBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     startBtnDisabled: { backgroundColor: tk.border.light },

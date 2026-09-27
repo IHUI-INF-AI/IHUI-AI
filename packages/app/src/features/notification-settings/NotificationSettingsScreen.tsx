@@ -122,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 12,
       marginBottom: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
     desc: { fontSize: 14, color: tk.text.secondary },
@@ -137,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
     successText: { fontSize: 14, color: tk.success.DEFAULT, marginBottom: 8 },
     saveBtn: {
       marginTop: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       height: 50,
       alignItems: 'center',
       justifyContent: 'center',

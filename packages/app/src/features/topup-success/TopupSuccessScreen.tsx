@@ -115,14 +115,14 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       width: '100%',
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 12,
       gap: 12,
     },
     ...rowStyles,
     actions: { width: '100%', gap: 12, marginTop: 8 },
     secondaryBtn: {
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       height: 44,
       alignItems: 'center',
       justifyContent: 'center',
@@ -130,7 +130,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     secondaryText: { fontSize: 16, color: tk.text.primary },
     primaryBtn: {
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       height: 50,
       alignItems: 'center',
       justifyContent: 'center',

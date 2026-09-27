@@ -229,7 +229,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     retryBtn: {
       marginTop: 12,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 16,
       paddingVertical: 8,
       backgroundColor: tk.surface.muted,

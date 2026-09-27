@@ -314,7 +314,7 @@ function createStyles(tk: AppThemeTokens) {
     titleBadge: {
       paddingHorizontal: 6, // rpx(12)
       paddingVertical: 2, // rpx(4)
-      borderRadius: rnRadius.sm, // rpx(8)
+      borderRadius: rnRadius.md, // rpx(12)
       backgroundColor: tk.surface.muted,
       flexShrink: 1,
     },

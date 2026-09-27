@@ -51,7 +51,7 @@ export const INDICATOR_DOT_SIZE = 'h-2 w-2'
 export const INDICATOR_PILL_SIZE = 'h-4 w-2'
 
 /** 豁免 5:≤8px 装饰指示点 — 圆形默认 shapeCls(指示条节点纯装饰,不承载内容,AGENTS.md 第 4 节豁免项) */
-const DEFAULT_SHAPE_CLS = 'rounded-full'
+const DEFAULT_SHAPE_CLS = 'rounded-2xl'
 
 interface FloatIndicatorDotProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** 是否选中(选中 = 竖向拉伸胶囊) */
@@ -86,7 +86,15 @@ export function FloatIndicatorDot({
     <button
       type="button"
       {...rest}
-      className={`group relative flex items-center justify-center ${shapeCls} transition-all duration-300 ${
+      className={`group relative flex items-center justify-center ${
+        /**
+         * 选中态是 16×8 的**竖向条**,若沿用圆形形状类(半径 ≥ 短边一半),渲染出来就是胶囊
+         * —— 用户 2026-09-27 定档:本项目不允许出现胶囊型,且不保留任何豁免通道。
+         * 因此选中态显式取最小档 rounded-xs(2px),非选中的 8×8 装饰点仍是正圆(方形盒 + 半径
+         * ≥ 半边长 = 圆,不是胶囊)。
+         */
+        active ? 'rounded-xs' : shapeCls
+      } transition-all duration-300 ${
         active
           ? `${INDICATOR_PILL_SIZE} ${colorCls}`
           : `origin-center hover:scale-125 bg-zinc-400 hover:bg-zinc-500 ${INDICATOR_DOT_SIZE}`

@@ -117,6 +117,70 @@ test('态①b:门在我这一侧判 exit 2 ⇒ 落未判定档,既不判 mine �
   assert.equal(v3.kind, 'mine', 'exit 2 不得覆盖"点名本次文件"这一更强的证据')
 })
 
+// ── 态①c:G-268 的**索引面**翻版(2026-09-27 实测) ────────────────────────────────
+// 现场:提交守门 94 那一枚时,safe-commit 连着两次拒绝 --no-verify,理由写着
+// "差分证明这枚提交把跑绿的东西改红了"。红的是守门 71/84,它们判**索引 blob**,而共享索引里
+// 挂着并发会话 staged 的 PROJECT_PLAN.md / README.md(它们的工作树副本滞后 HEAD)。
+// 本枚提交带 pathspec,那些 blob 结构上进不了本次内容 —— 而被定责之后,唯一"修法"是
+// 去改别人 staged 的东西,那是 §12 明令的事故。四臂钉住改法的四个方向。
+test('态①c:结论行点名"他人挂在索引里的路径" ⇒ 不判 mine,但也不得读成"红不存在"', () => {
+  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29 } = __test__
+  const text = SUMMARY + FAIL_29
+  // 本次只声明了一个脚本;PROJECT_PLAN.md 是**别人**挂在共享索引里的(与本票现场同形)
+  const MINE_ONLY = ['scripts/foo.mjs']
+  const FOREIGN = ['PROJECT_PLAN.md', 'README.md']
+  const gateRedOnForeign = {
+    status: 1,
+    output: '❌ 计划登记行防丢:PROJECT_PLAN.md 已入库的 G-152 登记行整行消失(判定面:索引 blob)',
+  }
+  const base = {
+    text,
+    stagedFiles: MINE_ONLY,
+    runGate: () => gateRedOnForeign,
+    runGateBaseline: () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null }),
+  }
+
+  // 臂 1:该路径确实挂在别人索引里 ⇒ 未判定(而非 mine)
+  const v1 = classifyHookFailure({ ...base, foreignStaged: FOREIGN })
+  assert.equal(v1.kind, 'undetermined-red', '他人 staged 的路径不得定责给本枚提交者')
+  assert.equal(v1.delta.foreignFace, 1, '这一态必须可机读计数')
+  const l1 = verdictLine(v1)
+  assert.match(l1, /他人挂在共享索引里/, '措辞要说出真正原因,不得写成笼统的"归属未知"')
+  assert.ok(!/不在本次提交内容里/.test(l1), '它同样没证明"与本次无关" —— 不得顺手给出结论')
+  assert.ok(!/^✅/.test(l1), '未判定档不得用通过色')
+
+  // 臂 2(向后兼容第一):同样输入但**不传** foreignStaged ⇒ 结论必须与改动前逐字相同
+  const v2 = classifyHookFailure(base)
+  assert.equal(v2.kind, 'mine', '缺省不传时必须保持旧行为,新判据不得暗中放宽任何一枚提交')
+
+  // 臂 3(方向锁):被点名的路径**就是本次声明的** ⇒ 仍判 mine,新档不许变成免死牌
+  const v3 = classifyHookFailure({
+    ...base,
+    runGate: () => ({ status: 1, output: '❌ scripts/foo.mjs:12 违规' }),
+    foreignStaged: FOREIGN,
+  })
+  assert.equal(v3.kind, 'mine', '点名本次文件时更强,态①c 不许截走它')
+
+  // 臂 4:别人 staged 的路径只出现在**清单/回显行**(不在结论行) ⇒ 不降档,照旧走差分
+  const v4 = classifyHookFailure({
+    ...base,
+    runGate: () => ({ status: 1, output: '📋 staged 文件清单: PROJECT_PLAN.md\n另一道题的红与路径无关' }),
+    foreignStaged: FOREIGN,
+  })
+  assert.equal(v4.kind, 'mine', '回显行不算点名 —— 这条与既有 findingLines 口径同形,不得单独放宽')
+})
+
+test('态①c 的取材面:未跟踪清单必须排除忽略项,且两路都要扣掉本票声明', () => {
+  // 这一条锁的是"输入怎么来",不是"结论怎么出"(后者由上面四臂锁)。
+  // 不加 --exclude-standard 的话 node_modules / 构建产物会整批进"他人现场",态①c 就从
+  // "别替我背锅"退化成"任何未跟踪文件引发的红都不找我" —— 那是放宽判据,不是修判据。
+  assert.match(safeCommitSource, /ls-files\s+--others\s+--exclude-standard/, '未跟踪清单必须排除被忽略项')
+  assert.match(safeCommitSource, /git diff --cached --name-only --no-renames/, '索引面清单必须现读,不得用流程早期那份快照')
+  const m = safeCommitSource.match(/const foreignStaged = ([^\n]+)/)
+  assert.ok(m, '找不到 foreignStaged 的计算 ⇒ 归因层拿不到这份输入,态①c 就是死档')
+  assert.match(m[1], /!expectedFiles\.includes\(p\)/, '两路清单都必须扣掉本票声明的文件(我自己的在飞文件仍要算我的红)')
+})
+
 test('装车证明:safe-commit 必须真的 import 并调用本判据', () => {
   assert.match(
     safeCommitSource,

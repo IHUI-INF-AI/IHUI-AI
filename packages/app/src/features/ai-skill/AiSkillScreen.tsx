@@ -219,7 +219,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 12, // mb-3
     },
     retryBtn: {
-      borderRadius: rnRadius.md, // rounded-md
+      borderRadius: rnRadius.sm, // rounded-md
       paddingHorizontal: 16, // px-4
       paddingVertical: 8, // py-2
       backgroundColor: tk.surface.muted,
@@ -263,7 +263,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     categoryBadge: {
       marginLeft: 8, // ml-2
-      borderRadius: rnRadius.xs, // rounded-sm
+      borderRadius: rnRadius.md, // rounded-sm
       paddingHorizontal: 6, // px-1.5
       paddingVertical: 2, // py-0.5
       backgroundColor: tk.surface.muted,
@@ -285,7 +285,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6, // gap-1.5
     },
     tagChip: {
-      borderRadius: rnRadius.xs, // rounded-sm
+      borderRadius: rnRadius.md, // rounded-sm
       paddingHorizontal: 6, // px-1.5
       paddingVertical: 2, // py-0.5
       backgroundColor: tk.warning.orangeLight,

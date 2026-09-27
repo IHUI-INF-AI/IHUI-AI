@@ -99,7 +99,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.success.DEFAULT,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
     statusBadge: {
@@ -108,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
     },
     labelTitle: { marginTop: 12, fontSize: 14, fontWeight: '600', color: tk.text.secondary },
     content: { marginTop: 8, fontSize: 16, color: tk.text.medium, lineHeight: 22 },

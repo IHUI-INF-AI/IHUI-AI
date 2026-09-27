@@ -86,7 +86,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.success.DEFAULT,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
     question: { fontSize: 20, fontWeight: '700', color: tk.text.primary },

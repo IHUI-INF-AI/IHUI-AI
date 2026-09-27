@@ -126,7 +126,7 @@ export function CardWithList({ title, items, onItemClick, onMore, moreText }: Ca
 const styles = StyleSheet.create({
   card: {
     backgroundColor: tk.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     padding: CARD_PADDING,
   } as ViewStyle,
   header: {

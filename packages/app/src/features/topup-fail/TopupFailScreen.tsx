@@ -77,13 +77,13 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       width: '100%',
       backgroundColor: tk.danger.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 12,
     },
     reason: { fontSize: 16, color: tk.danger.DEFAULT, textAlign: 'center' },
     actions: { width: '100%', gap: 12, marginTop: 8 },
     primaryBtn: {
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       height: 50,
       alignItems: 'center',
       justifyContent: 'center',
@@ -91,7 +91,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     primaryText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     secondaryBtn: {
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       height: 44,
       alignItems: 'center',
       justifyContent: 'center',
