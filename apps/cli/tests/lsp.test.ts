@@ -65,6 +65,7 @@ import {
   lsp_rename_symbol,
   lsp_code_actions,
   LSP_TOOLS,
+  LspUnavailableError,
 } from '../src/tools/lsp.js';
 import {
   LSP_SERVERS,
@@ -196,6 +197,16 @@ beforeEach(() => {
     }) as any,
   );
   vi.mocked(spawnSync).mockReset();
+  // V3 #83 在 start() 前加了候选探测:不显式覆盖本 mock 的测试,默认应看到
+  // 「语言服务器已安装且版本可测」(where/which 命中 + --version 量到 1.2.3)。
+  // 「未装 / 版本低 / 探测抛」等特殊形态由单个测试自行覆盖。
+  vi.mocked(spawnSync).mockImplementation(((cmd: string, args?: string[]) => {
+    const target = args?.[0] ?? '';
+    if (cmd === 'where' || cmd === 'which') {
+      return { status: 0, stdout: `C:\\fake-lsp-bin\\${target}`, stderr: '', error: undefined, signal: null } as any;
+    }
+    return { status: 0, stdout: '1.2.3', stderr: '', error: undefined, signal: null } as any;
+  }) as any);
 });
 
 afterEach(() => {
@@ -221,29 +232,32 @@ function writeFile(rel: string, content: string): string {
 // ==================== LSP_SERVERS 配置 ====================
 
 describe('LSP_SERVERS 配置', () => {
-  it('内置 7 种语言 server', () => {
-    expect(LSP_SERVERS).toHaveLength(7);
+  it('内置 9 种语言 server(V3 #83 新增 json/yaml)', () => {
+    expect(LSP_SERVERS).toHaveLength(9);
     const langs = LSP_SERVERS.map((s) => s.language).sort();
-    expect(langs).toEqual(['c', 'csharp', 'go', 'java', 'python', 'rust', 'typescript']);
+    expect(langs).toEqual(['c', 'csharp', 'go', 'java', 'json', 'python', 'rust', 'typescript', 'yaml']);
   });
 
-  it('TypeScript 配置 command 含 --stdio', () => {
+  it('TypeScript 首候选 binary/args 由 candidates 数组承载(旧 command 字段已删)', () => {
     const ts = findLspConfigByLanguage('typescript')!;
-    expect(ts.command).toEqual(['typescript-language-server', '--stdio']);
+    expect(ts.candidates[0]!.binary).toBe('typescript-language-server');
+    expect(ts.candidates[0]!.args).toEqual(['--stdio']);
     expect(ts.fileExtensions).toContain('.ts');
     expect(ts.fileExtensions).toContain('.tsx');
   });
 
-  it('Python 配置 command 为 pylsp', () => {
+  it('Python 候选为 pyright 首选(纯类型检查)+ pylsp 兜底(能力全)', () => {
     const py = findLspConfigByLanguage('python')!;
-    expect(py.command).toEqual(['pylsp']);
+    expect(py.candidates.map((c) => c.binary)).toEqual(['pyright', 'pylsp']);
+    expect(py.candidates[0]!.capabilities).not.toContain('rename');
+    expect(py.candidates[1]!.capabilities).toContain('rename');
     expect(py.fileExtensions).toContain('.py');
   });
 
-  it('Rust 配置 requiresWorkspace=true', () => {
+  it('Rust 以 workspaceMarkers 声明工程根标记(取代旧 requiresWorkspace 布尔)', () => {
     const rust = findLspConfigByLanguage('rust')!;
-    expect(rust.command).toEqual(['rust-analyzer']);
-    expect(rust.requiresWorkspace).toBe(true);
+    expect(rust.candidates[0]!.binary).toBe('rust-analyzer');
+    expect(rust.workspaceMarkers).toEqual(['Cargo.toml']);
   });
 });
 
@@ -303,29 +317,27 @@ describe('findLspConfigByLanguage', () => {
 
 // ==================== isLspServerAvailable ====================
 
-describe('isLspServerAvailable', () => {
-  it('spawnSync 退出码 0 → true', async () => {
-    vi.mocked(spawnSync).mockReturnValue({ status: 0 } as any);
+describe('isLspServerAvailable(真探测:在位 × 版本)', () => {
+  it('在位且版本可测 → true', async () => {
     const cfg = LSP_SERVERS[0]!;
     expect(await isLspServerAvailable(cfg)).toBe(true);
   });
 
-  it('spawnSync 退出码非 0 → false', async () => {
-    vi.mocked(spawnSync).mockReturnValue({ status: 1 } as any);
+  it('where/which 查不到 → false', async () => {
+    vi.mocked(spawnSync).mockImplementation((() => ({ status: 1, stdout: '', stderr: '' })) as any);
     const cfg = LSP_SERVERS[0]!;
     expect(await isLspServerAvailable(cfg)).toBe(false);
   });
 
-  it('spawnSync 抛异常 → false', async () => {
+  it('spawnSync 抛异常 → false(探测工具自身崩不得冒抛)', async () => {
     vi.mocked(spawnSync).mockImplementation(() => {
       throw new Error('command not found');
     });
     const cfg = LSP_SERVERS[0]!;
-    expect(await isLspServerAvailable(cfg)).toBe(false);
+    await expect(isLspServerAvailable(cfg)).resolves.toBe(false);
   });
 
   it('Windows 用 where,POSIX 用 which', async () => {
-    vi.mocked(spawnSync).mockReturnValue({ status: 0 } as any);
     const cfg = LSP_SERVERS[0]!;
     await isLspServerAvailable(cfg);
     const cmd = vi.mocked(spawnSync).mock.calls[0]![0];
@@ -340,31 +352,29 @@ describe('isLspServerAvailable', () => {
 // ==================== listAvailableLspServers ====================
 
 describe('listAvailableLspServers', () => {
-  it('只返回已安装的 LSP server', async () => {
-    vi.mocked(spawnSync).mockImplementation(((cmd: string) => {
-      // 模拟只有 typescript-language-server 和 pylsp 已安装
-      if (cmd === 'where' || cmd === 'which') return { status: 0 } as any;
-      return { status: 0 } as any;
-    }) as any);
-    // 全部可用
+  it('全部安装 → 返回全表(9 门)', async () => {
+    // beforeEach 默认 mock 即「全部候选在位且版本可测」
     const all = await listAvailableLspServers();
-    expect(all).toHaveLength(7);
+    expect(all).toHaveLength(9);
   });
 
   it('全部未安装时返回空数组', async () => {
-    vi.mocked(spawnSync).mockReturnValue({ status: 1 } as any);
+    vi.mocked(spawnSync).mockImplementation((() => ({ status: 1, stdout: '', stderr: '' })) as any);
     const all = await listAvailableLspServers();
     expect(all).toEqual([]);
   });
 
-  it('部分安装时返回子集', async () => {
-    vi.mocked(spawnSync).mockImplementation(((cmd: string, args: string[]) => {
-      const binary = args[0];
-      if (binary === 'typescript-language-server' || binary === 'pylsp') {
-        return { status: 0 } as any;
+  it('部分安装时返回子集(并覆盖 Python 候选兜底:pyright 缺位时 pylsp 胜出)', async () => {
+    const INSTALLED = new Set(['typescript-language-server', 'pylsp']);
+    vi.mocked(spawnSync).mockImplementation((((cmd: string, args: string[]) => {
+      if (cmd === 'where' || cmd === 'which') {
+        const binary = args[0] ?? '';
+        return INSTALLED.has(binary)
+          ? { status: 0, stdout: `C:\\fake\\${binary}`, stderr: '' }
+          : { status: 1, stdout: '', stderr: '' };
       }
-      return { status: 1 } as any;
-    }) as any);
+      return { status: 0, stdout: '1.2.3', stderr: '' };
+    }) as any));
     const available = await listAvailableLspServers();
     expect(available).toHaveLength(2);
     expect(available.map((c) => c.language).sort()).toEqual(['python', 'typescript']);
@@ -561,7 +571,23 @@ describe('LspClient 多语言 server 启动', () => {
     expect(spawnArgs[1]).toEqual(['--stdio']);
   });
 
-  it('Python 配置调用 spawn 传 pylsp', async () => {
+  it('Python 配置调用 spawn 传 pyright(首候选胜出)', async () => {
+    const client = getLspClientByLanguage(workspace, 'python')!;
+    await client.ensureStarted();
+    const spawnArgs = vi.mocked(spawn).mock.calls[0]!;
+    expect(spawnArgs[0]).toBe('pyright');
+    expect(spawnArgs[1]).toEqual(['--stdio']);
+  });
+
+  it('Python:pyright 缺位时兜底起 pylsp(候选顺序生效)', async () => {
+    vi.mocked(spawnSync).mockImplementation((((cmd: string, args: string[]) => {
+      if (cmd === 'where' || cmd === 'which') {
+        return args[0] === 'pylsp'
+          ? { status: 0, stdout: 'C:\\fake\\pylsp', stderr: '' }
+          : { status: 1, stdout: '', stderr: '' };
+      }
+      return { status: 0, stdout: '1.2.3', stderr: '' };
+    }) as any));
     const client = getLspClientByLanguage(workspace, 'python')!;
     await client.ensureStarted();
     const spawnArgs = vi.mocked(spawn).mock.calls[0]!;
@@ -629,9 +655,15 @@ describe('getLspClientForFile(按文件扩展名自动选择 LSP server)', () =>
     expect(client.language).toBe('rust');
   });
 
-  it('未知扩展名 → 回退到 typescript client', () => {
-    const client = getLspClientForFile(workspace, path.join(workspace, 'file.unknown'));
-    expect(client.language).toBe('typescript');
+  it('未知扩展名 → 抛 unsupported-extension(V3 #83 取消静默回退 TypeScript)', () => {
+    let caught: unknown;
+    try {
+      getLspClientForFile(workspace, path.join(workspace, 'file.unknown'));
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(LspUnavailableError);
+    expect((caught as LspUnavailableError).kind).toBe('unsupported-extension');
   });
 
   it('相同语言的不同文件返回同一 client', () => {
@@ -658,9 +690,9 @@ describe('lsp_workspace_symbol(workspace/symbol 请求 + query 透传)', () => {
   it('language 参数限定搜索的 LSP server', async () => {
     const r = await lsp_workspace_symbol.execute({ query: 'test', language: 'python' }, ctx);
     expect(r.success).toBe(true);
-    // 验证 spawn 被调用时用的是 pylsp
+    // 验证 spawn 被调用时用的是 python 的首候选 pyright(V3 #83 起 pyright 优先于 pylsp)
     const spawnArgs = vi.mocked(spawn).mock.calls[0]!;
-    expect(spawnArgs[0]).toBe('pylsp');
+    expect(spawnArgs[0]).toBe('pyright');
   });
 
   it('limit 参数限制返回数量', async () => {
@@ -890,8 +922,8 @@ describe('lsp_code_actions(textDocument/codeAction 请求 + range 透传)', () =
 // ==================== LSP_TOOLS 注册 ====================
 
 describe('LSP_TOOLS 注册', () => {
-  it('注册 7 个 LSP 工具', () => {
-    expect(LSP_TOOLS).toHaveLength(7);
+  it('注册 8 个 LSP 工具(V3 #83 新增 lsp_server_status)', () => {
+    expect(LSP_TOOLS).toHaveLength(8);
     expect(LSP_TOOLS.map((t) => t.name).sort()).toEqual([
       'lsp_code_actions',
       'lsp_diagnostics',
@@ -899,6 +931,7 @@ describe('LSP_TOOLS 注册', () => {
       'lsp_goto_definition',
       'lsp_hover',
       'lsp_rename_symbol',
+      'lsp_server_status',
       'lsp_workspace_symbol',
     ]);
   });
@@ -907,7 +940,7 @@ describe('LSP_TOOLS 注册', () => {
 // ==================== 错误处理:LSP server 未安装 ====================
 
 describe('错误处理:LSP server 未安装时降级', () => {
-  it('spawn error 事件 → lsp-unavailable', async () => {
+  it('spawn error 事件 → 分类 lsp-spawn-failed(V3 #83 起 lsp-unavailable 只留 unknown 档)', async () => {
     vi.mocked(spawn).mockImplementation(
       (() => {
         const stdout = new PassThrough();
@@ -929,11 +962,11 @@ describe('错误处理:LSP server 未安装时降级', () => {
 
     const r = await lsp_workspace_symbol.execute({ query: 'test' }, ctx);
     expect(r.success).toBe(false);
-    expect(r.errorType).toBe('lsp-unavailable');
+    expect(r.errorType).toBe('lsp-spawn-failed');
     expect(r.error).toContain('typescript-language-server');
   });
 
-  it('initialize 超时 → lsp-unavailable', async () => {
+  it('initialize 超时 → 分类 lsp-init-timeout', async () => {
     vi.mocked(spawn).mockImplementation(
       (() => {
         const stdout = new PassThrough();
@@ -956,7 +989,7 @@ describe('错误处理:LSP server 未安装时降级', () => {
     // 此测试会等待 LSP_INIT_TIMEOUT_MS(15s)超时
     const r = await lsp_workspace_symbol.execute({ query: 'test' }, ctx);
     expect(r.success).toBe(false);
-    expect(r.errorType).toBe('lsp-unavailable');
+    expect(r.errorType).toBe('lsp-init-timeout');
     expect(r.error).toContain('超时');
   }, 20_000);
 
