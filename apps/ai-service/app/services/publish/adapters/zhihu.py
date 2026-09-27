@@ -40,6 +40,7 @@ from ..anti_risk import (
 )
 from ..anti_risk.browser_factory import close_stealth_context
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
+from ..published_url import content_id_after_segment, public_view_url
 
 logger = get_logger(__name__)
 
@@ -480,9 +481,11 @@ class ZhihuAdapter(BasePlatformAdapter):
                     error_message="publish timeout (no redirect to /p/<id>)",
                 )
 
-            published_url = page.url
-            parts = published_url.rstrip("/").split("/")
-            article_id = parts[-1] if parts else ""
+            raw_url = page.url
+            # 知乎 DOM 流会停在 /p/<id>/edit —— 按末段取 id 会取到字面量 "edit"(实测已发生过),
+            # 而编辑页 URL 也不是能分享出去的公开链接。取 id 与规范化都走同一份出口。
+            article_id = content_id_after_segment(raw_url, "p")
+            published_url = public_view_url(raw_url, segment="p", content_id=article_id)
 
             return PublishResult(
                 success=True, platform=self.platform_id,

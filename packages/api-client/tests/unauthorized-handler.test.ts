@@ -11,7 +11,8 @@
  *
  * 触发时机的定义(与实现一一对应):
  *   收到 401 → 尝试静默续期 → **续期后仍拿不到 token** ⇒ 通知(恰好一次)
- *   收到 401 → 续期拿到 token → 重试 ⇒ 不通知(否则 bootstrap 静默刷新期间会误弹)
+ *   收到 401 → 续期拿到 token → 重试**仍 401** ⇒ 通知(2026-09-27 补:新凭据也被拒 = 不可恢复)
+ *   收到 401 → 续期拿到 token → 重试成功 ⇒ 不通知(否则 bootstrap 静默刷新期间会误弹)
  *   认证端点自身的 401(登录密码错等)⇒ 不通知(那是最终结果,且会递归)
  */
 
@@ -43,6 +44,20 @@ function jsonResponse(status: number, body: unknown): TransportResponse {
 /** 每次都回同一个状态码的传输桩(测触发次数时不需要区分重试前后) */
 function always(status: number, body: unknown): Transport {
   return (async () => jsonResponse(status, body)) as unknown as Transport
+}
+
+/**
+ * 按调用次序返回的传输桩 —— "首次 401、续期后重试 200/仍 401"必须能分开喂,
+ * 否则测不到重试那一格(恒 401 的桩会让两条分支长得一样)。
+ * 超出预设次数后重复最后一个,免得测试因为多一次重试而误红。
+ */
+function sequence(...responses: TransportResponse[]): Transport {
+  let i = 0
+  return (async () => {
+    const r = responses[Math.min(i, responses.length - 1)]
+    i++
+    return r
+  }) as unknown as Transport
 }
 
 interface Harness {
@@ -89,15 +104,34 @@ describe('setUnauthorizedHandler 触发时机', () => {
     })
   })
 
-  it('401 且续期成功 ⇒ 不调用回调(静默续期不得被当成掉线)', async () => {
-    const { contexts, refresh } = harness({ refreshReturns: 'fresh-token' })
+  it('401 → 续期成功 → 重试仍 401 ⇒ 通知恰好一次(2026-09-27 真机逼出的静默格)', async () => {
+    // 旧实现把整块 401 处理挂在 `!authRetried` 上,于是"新 token 也被服务端拒"这一格
+    // 连通知都不发 —— 而它恰恰是最不可恢复的那种 401(实测:能力上报每 60s 重复,永远不进登录页)。
+    const contexts: UnauthorizedContext[] = []
+    const refresh = vi.fn(async () => 'fresh-token')
+    setTransport(sequence(jsonResponse(401, { code: 40101, message: 'gone' }), jsonResponse(401, { code: 40101, message: 'gone' })))
+    setTokenProvider({ getToken: () => 'expired-token', refreshAccessToken: refresh })
+    setUnauthorizedHandler((ctx) => contexts.push(ctx))
+
+    const result = await fetchApi<{ id: string }>('/skills', { method: 'POST' })
+
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(contexts).toEqual([{ url: '/api/skills', method: 'POST' }])
+    expect(result.success).toBe(false)
+  })
+
+  it('401 → 续期成功 → 重试 200 ⇒ 不通知(bootstrap 静默刷新不得被当成掉线)', async () => {
+    const contexts: UnauthorizedContext[] = []
+    const refresh = vi.fn(async () => 'fresh-token')
+    setTransport(sequence(jsonResponse(401, { code: 40101, message: 'gone' }), jsonResponse(200, { id: 'ok' })))
+    setTokenProvider({ getToken: () => 'expired-token', refreshAccessToken: refresh })
+    setUnauthorizedHandler((ctx) => contexts.push(ctx))
 
     const result = await fetchApi<{ id: string }>('/skills', { method: 'POST' })
 
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(contexts).toHaveLength(0)
-    // 续期成功后走的是重试路径 —— 传输桩恒 401,所以最终仍是 401,但那一次不通知
-    expect(result.success).toBe(false)
+    expect(result.success).toBe(true)
   })
 
   it('未注入 refreshAccessToken 的端(拿不到凭据)⇒ 401 也通知一次', async () => {
@@ -156,6 +190,39 @@ describe('setUnauthorizedHandler 触发时机', () => {
     await fetchApi('/things', { method: 'PATCH' })
 
     expect(contexts).toEqual([{ url: '/api/things', method: 'PATCH' }])
+    setCircuitBreaker(null)
+  })
+
+  it('带熔断器 + 续期成功 + 重试仍 401 ⇒ 同样通知一次(两条分支必须同形)', async () => {
+    const contexts: UnauthorizedContext[] = []
+    const breaker = new CircuitBreaker('unauthorized-handler-retry', { failureThreshold: 50 })
+    setCircuitBreaker(breaker)
+    const refresh = vi.fn(async () => 'fresh-token')
+    setTransport(sequence(jsonResponse(401, { code: 40101, message: 'gone' }), jsonResponse(401, { code: 40101, message: 'gone' })))
+    setTokenProvider({ getToken: () => 'expired-token', refreshAccessToken: refresh })
+    setUnauthorizedHandler((ctx) => contexts.push(ctx))
+
+    const result = await fetchApi<{ id: string }>('/things', { method: 'POST' })
+
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(contexts).toEqual([{ url: '/api/things', method: 'POST' }])
+    expect(result.success).toBe(false)
+    setCircuitBreaker(null)
+  })
+
+  it('带熔断器 + 续期成功 + 重试 200 ⇒ 不通知', async () => {
+    const contexts: UnauthorizedContext[] = []
+    const breaker = new CircuitBreaker('unauthorized-handler-ok', { failureThreshold: 50 })
+    setCircuitBreaker(breaker)
+    const refresh = vi.fn(async () => 'fresh-token')
+    setTransport(sequence(jsonResponse(401, { code: 40101, message: 'gone' }), jsonResponse(200, { id: 'ok' })))
+    setTokenProvider({ getToken: () => 'expired-token', refreshAccessToken: refresh })
+    setUnauthorizedHandler((ctx) => contexts.push(ctx))
+
+    const result = await fetchApi<{ id: string }>('/things', { method: 'POST' })
+
+    expect(contexts).toHaveLength(0)
+    expect(result.success).toBe(true)
     setCircuitBreaker(null)
   })
 
@@ -219,11 +286,14 @@ describe('反向对照:client.ts 里不得长出第二套弹窗实现', () => {
     })
   }
 
-  it('通知出口只有一个私有 notifyUnauthorized,且调用点恰好 2 处(无熔断 / 有熔断)', () => {
+  it('通知出口只有一个私有 notifyUnauthorized,调用点恰好 4 处(两条分支 × {续期失败, 重试仍 401})', () => {
     expect(code.match(/function notifyUnauthorized\(/g)).toHaveLength(1)
     // 未 export:端内只能通过 setUnauthorizedHandler 接进来,不存在第二条口子
     expect(code).not.toMatch(/export\s+(const|function)\s+notifyUnauthorized/)
-    expect(code.match(/notifyUnauthorized\(normalizedUrl/g)).toHaveLength(2)
+    // 2026-09-27 从 2 涨到 4:无熔断分支与有熔断分支各补了"续期成功但重试仍 401"那一格。
+    // 计数在这里只是防"整块被删/被复制",真正有牙的是上面四条行为用例
+    // (每条分支各一对:重试仍 401 ⇒ 通知一次 / 重试 200 ⇒ 不通知)。
+    expect(code.match(/notifyUnauthorized\(normalizedUrl/g)).toHaveLength(4)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
