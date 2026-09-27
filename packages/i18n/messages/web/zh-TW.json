@@ -25484,6 +25484,9 @@
     "ratingSuccess": "評分已提交"
   },
   "chatSearchBar": {
+    "messageNotFound": "找不到該訊息，可能已不在目前清單視窗內",
+    "moreResults": "還有 {count} 則結果",
+    "resultListLabel": "對話內搜尋結果",
     "searchPlaceholder": "搜尋對話…",
     "searchAriaLabel": "搜尋對話"
   },

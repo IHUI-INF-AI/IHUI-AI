@@ -25484,6 +25484,9 @@
     "ratingSuccess": "评分已提交"
   },
   "chatSearchBar": {
+    "messageNotFound": "找不到该消息，可能已不在当前列表窗口内",
+    "moreResults": "还有 {count} 条结果",
+    "resultListLabel": "对话内搜索结果",
     "searchPlaceholder": "搜索对话…",
     "searchAriaLabel": "搜索对话"
   },

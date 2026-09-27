@@ -25517,6 +25517,9 @@
     "ratingSuccess": "Rating submitted"
   },
   "chatSearchBar": {
+    "messageNotFound": "Message not found — it may be outside the current list",
+    "moreResults": "{count} more results",
+    "resultListLabel": "Results in this conversation",
     "searchPlaceholder": "Search conversations…",
     "searchAriaLabel": "Search conversations"
   },
