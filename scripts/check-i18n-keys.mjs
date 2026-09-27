@@ -1340,6 +1340,159 @@ if (dynamicPrefixIssues.length > 0) {
   console.log('')
 }
 
+// ---------- KR:语言包相对**其父提交**丢键(2026-09-27 立,实测逼出) ----------
+/**
+ * 五语言**一致地**缩水,本门全部横向判据一条都不响 —— parity 比的是"语言之间",
+ * missing-key 判的是"源码引用有没有键",死键审计判的是"键有没有人用";
+ * 没有一条**纵向**比"这一门语言相对它自己的上一个入库版本少了什么"。
+ * 实测本机此刻的在飞副本:`packages/i18n/messages/cli/zh-CN.json` 工作树只剩 102 / HEAD 422 键,
+ * extension 五语言各丢 23 键,其中 `chat.branchDone` / `chat.steerNoticeTitle` /
+ * `ai.pane.inputNotices.queue.denied.reorder` 都是端上会**直接回显键名**的 UI 文案
+ * (队列条渲染产物里实测到裸串 `ai.pane.inputNotices.queue.denied.reorder`)。
+ *
+ * 判据定义就是跨两面:被审面(索引)vs 该文件的父提交(HEAD)。这与"混面取数"不是一回事 ——
+ * 混面是把两个不该比的来源当成同一个事实,而这里比较的两面正是命题本身。
+ * 因此**只在 `--staged` 档判**:全量档的"父"只能是 HEAD^,那会把历史上每一次正当清理
+ * 天天重判成违规 ⇒ 与任何提交都无关的恒红门,唯一结局是逼人跳门、约 156 道门一起作废(§12e 同型)。
+ *
+ * 出口只有两条,都不许靠削判据:① 把键补回;② 在 `scripts/data/i18n-key-removals.json`
+ * 按文件逐条声明(file + keys + reason + until)—— **到期由本判据自己判**(镜像 KR-3 钉死),
+ * 不经守门 108(它管的是源码里的行内豁免标记,不是 JSON 台账)。删除是允许的,静默删除不行。
+ */
+const KR_LEDGER_REL = 'scripts/data/i18n-key-removals.json'
+const KR_ISO = /^\d{4}-\d{2}-\d{2}$/
+/** 键路径扁平化:嵌套对象取点号路径,数组按"值存在"计一个键(与本门 parity 同口径)。 */
+function flatKeyPaths(obj, pfx = '', out = new Set()) {
+  for (const [k, v] of Object.entries(obj ?? {})) {
+    const key = pfx + k
+    if (v && typeof v === 'object' && !Array.isArray(v)) flatKeyPaths(v, `${key}.`, out)
+    else out.add(key)
+  }
+  return out
+}
+const removalIssues = []
+let krDeclaredHits = 0
+let krWholeFileGone = 0
+let krUndetermined = null
+/** git 问"有没有"用:失败回 null(不当异常抛),区别于内容取不到 */
+function gRaw(args) {
+  try {
+    return gitRaw(args, REPO_ROOT)
+  } catch {
+    return null
+  }
+}
+if (FACE === 'index') {
+ try {
+  // 首次提交(仓库还没有任何 commit)是**可判定的边界**而不是"取不到面":没有父就没有旧键可比。
+  // 不这么分开,每个新仓的第一枚 i18n 提交都会被本判据判成"无法判定 exit 2"。
+  const parentRev = gRaw(['rev-parse', '--verify', 'HEAD'])
+  if (parentRev === null) {
+    console.log(`${C.dim}  ⓘ KR 不适用:该面没有父提交(首次提交)⇒ 没有"旧键集"可比${C.reset}`)
+  } else {
+  const today = new Date().toISOString().slice(0, 10)
+  const relDir = relOf(MESSAGES_DIR)
+  // 父提交侧的文件清单(本档 FACE 是索引,故不能复用 listPackJsonEntries)
+  const headNames = new Set(
+    (gitRaw(['ls-tree', '--name-only', 'HEAD', '--', `${relDir}/`], REPO_ROOT) || '')
+      .split('\n')
+      .map((l) => l.trim().split('/').pop())
+      .filter((n) => n.endsWith('.json')),
+  )
+  const indexNames = new Set(listPackJsonEntries(MESSAGES_DIR))
+  // 台账取材走被审面(索引优先):同一枚提交里"补声明 + 删键"是正当形态,只读 HEAD 会让它自我判红
+  const ledgerText = faceReadText(KR_LEDGER_REL)
+  const declared = new Map()
+  let ledgerProblem = null
+  if (ledgerText === null || ledgerText === undefined) {
+    ledgerProblem = '台账不在被审面 ⇒ 按零声明判'
+  } else {
+    try {
+      const parsed = JSON.parse(ledgerText)
+      for (const e of Array.isArray(parsed?.removals) ? parsed.removals : []) {
+        const f = typeof e?.file === 'string' ? e.file : ''
+        const expired = typeof e?.until !== 'string' || !KR_ISO.test(e.until) || e.until < today
+        const badReason = typeof e?.reason !== 'string' || e.reason.trim().length < 6
+        const keys = Array.isArray(e?.keys) ? e.keys : []
+        if (!f || expired || badReason) {
+          removalIssues.push(
+            `KR 台账声明本身不可用(${f || '(缺 file 字段)'}):${expired ? `until 缺失/非 ISO/已过期(${e?.until})` : 'reason 缺失或过短'} ⇒ 过期声明不得继续放行`,
+          )
+          continue
+        }
+        if (!declared.has(f)) declared.set(f, new Set())
+        for (const k of keys) declared.get(f).add(k)
+      }
+    } catch {
+      ledgerProblem = '台账 JSON 解析失败 ⇒ 按零声明判'
+    }
+  }
+  const specs = [...headNames].map((n) => `HEAD:${relDir}/${n}`)
+  const headTexts = specs.length ? catBatch(REPO_ROOT, specs, { maxBuffer: 1 << 29, timeout: 120000 }) : new Map()
+  for (const name of [...headNames].sort()) {
+    const rel = `${relDir}/${name}`
+    const headText = headTexts.get(`HEAD:${rel}`)
+    const indexText = indexNames.has(name) ? faceReadText(rel) : null
+    if (typeof headText !== 'string') continue // 父提交侧取不到 ⇒ 该文件在 HEAD 没有,无旧键可比
+    if (indexText === null || indexText === undefined) {
+      krWholeFileGone += 1 // 整包删除属守门 99(暂存删除存续性)的地盘,本判据不重复计债、只点名
+      continue
+    }
+    let headKeys, indexKeys
+    try {
+      headKeys = flatKeyPaths(JSON.parse(headText))
+      indexKeys = flatKeyPaths(JSON.parse(indexText))
+    } catch {
+      continue // 解析失败由本门既有的 unreadablePacks 路径判红,这里不重复报
+    }
+    const removed = [...headKeys].filter((k) => !indexKeys.has(k))
+    if (!removed.length) continue
+    const allowed = declared.get(rel) ?? new Set()
+    const undeclared = removed.filter((k) => !allowed.has(k))
+    krDeclaredHits += removed.length - undeclared.length
+    if (undeclared.length)
+      removalIssues.push(
+        `${rel} 相对 HEAD 少了 ${undeclared.length} 个键(已声明放过 ${removed.length - undeclared.length} 个)：${undeclared.slice(0, 8).join(', ')}${undeclared.length > 8 ? ` … 另 ${undeclared.length - 8} 个` : ''}`,
+      )
+  }
+  if (ledgerProblem)
+    console.log(`${C.yellow}  ⓘ KR:${ledgerProblem}(不因此判红,但"没有声明"不等于"没有丢键")${C.reset}`)
+  }
+ } catch (e) {
+  // git 问不到时**不得**以未捕获异常 exit 1 冒充判据红(守门 94 那一型),也不得静默当成"没丢键"。
+  krUndetermined = e && e.message ? String(e.message).slice(0, 160) : String(e)
+ }
+} else {
+  console.log(
+    `${C.dim}  ⓘ KR(语言包相对父提交丢键)在全量档不判:它的定义需要"被审面 vs 其父"两个面,只有 --staged 档成立;` +
+      `全量档若照判,历史上每次正当清理都会天天重判成违规(恒红门)${C.reset}`,
+  )
+}
+if (krUndetermined) {
+  console.log(
+    `${C.red}[i18n 键检查] ❌ KR(语言包相对父提交丢键)**无法判定**:取不到被审面或其父提交 ⇒ 不冒红也不记绿${C.reset}`,
+  )
+  console.log(`${C.dim}   原因:${krUndetermined}${C.reset}`)
+  console.log(`判定面:${FACE_LABEL[FACE]}`)
+  process.exit(2)
+}
+if (removalIssues.length) {
+  console.log(
+    `${C.red}[i18n 键检查] 发现 ${removalIssues.length} 处**语言包相对其父提交丢键**(五语言一致缩水时 parity 完全看不见):${C.reset}`,
+  )
+  for (const line of removalIssues.slice(0, 12)) console.log(`  ${C.yellow}${line}${C.reset}`)
+  if (removalIssues.length > 12) console.log(`  ${C.yellow}… 还有 ${removalIssues.length - 12} 处${C.reset}`)
+  console.log(
+    `${C.yellow}两条出口(不得靠削判据):① 把键补回该语言包;② 确属有意清理 ⇒ 在 ${KR_LEDGER_REL} 按文件逐条声明 file+keys+reason+until${C.reset}`,
+  )
+  if (krWholeFileGone)
+    console.log(
+      `${C.dim}  ⓘ 另有 ${krWholeFileGone} 个语言包整包不在索引(删除由守门 99 判,本判据不重复计债)${C.reset}`,
+    )
+  console.log(`判定面:${FACE_LABEL[FACE]}`)
+  process.exit(1)
+}
+
 const shouldBlock =
   parityIssues.length > 0 ||
   missingKeyIssues.length > 0 ||
@@ -1421,6 +1574,10 @@ if (unreadablePacks.length) {
 console.log(
   `${C.green}[i18n 键检查] ${targetLabel}通过,${parityScope}, ${langNames.length} 语言 parity OK${C.reset}`,
 )
+if (FACE === 'index')
+  console.log(
+    `${C.dim}  ⓘ KR 已核(索引 vs 父提交):0 处未声明丢键,已声明放过 ${krDeclaredHits} 键${C.reset}`,
+  )
 if (sourceUnread > 0)
   console.log(
     `${C.yellow}  ⚠ 另有 ${sourceUnread} 个清单内源文件在 ${FACE_LABEL[FACE]} 取不到正文,已跳过(报数不静默)${C.reset}`,
