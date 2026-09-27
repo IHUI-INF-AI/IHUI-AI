@@ -2,6 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, desc, and } from 'drizzle-orm'
@@ -14,7 +16,9 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const platformSchema = z.enum(['ios', 'android', 'web', 'harmony'])
+// `cli` 档于 2026-09-27 补入(G-243):该端在此之前没有 CLI 档 ⇒ 服务端下发的最低版本
+// 对 CLI 结构上不可达（枚举就是可达面）。列名是 varchar(16),无需迁移即可写入。
+const platformSchema = z.enum(['ios', 'android', 'web', 'harmony', 'cli'])
 
 const listQuerySchema = z.object({
   platform: z.string().optional().transform(emptyToUndefined).pipe(platformSchema.optional()),
@@ -53,6 +57,174 @@ const updateVersionSchema = z.object({
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 // =============================================================================
+// CLI 最低版本闸门（服务端下发，2026-09-27 G-243）
+// =============================================================================
+//
+// 为什么在路由文件里而不是抽一个 service：这一档的真值来源只有「env / 配置文件 / 无」三态，
+// 判据是一个不碰文件系统的纯函数（decideCliMinimumVersion），抽 service 只是把一次读取搬两个文件。
+//
+// 取值优先级（显式且可测）：**环境变量 > 配置文件 > 无配置（= 不拦）**。
+// 三条设计约束（用户 2026-09-27 拍板「默认可远程改」时带来的判据，不是偏好）：
+//   1. 配错一律降级成「不拦」并写明原因 —— 挡住全部用户比旧 CLI 跑新契约更坏；
+//   2. 未配置与配错都返回同一个形状（minimumVersion:null ⇔ source:'none'），消费方不得按形状分支；
+//   3. 结论为什么是这样必须随响应回来 —— 「放行」也要留痕，静默变短等于伪造完整性。
+//
+// 配置文件档的覆盖面如实登记：`deploy/docker/Dockerfile.api` 的最终镜像只 COPY
+// `apps/api/dist` + `package.json` + `packages` + `node_modules`，**不含仓库根 `config/`**，
+// 所以容器内该档恒不可达（⇒ 降级成「不拦」，不炸）。nssm/裸进程那台机器跑的是完整 checkout，
+// 该档可达。要改这个边界请先动 Dockerfile 的 COPY 清单，不要在这里改用绝对路径。
+
+/** 只接受 X.Y.Z 三段数字 —— 与 CLI 侧 `updater.ts#compareVersions` 的解析口径同形。 */
+const MIN_VERSION_RE = /^\d+\.\d+\.\d+$/
+
+/** 环境变量名与配置文件默认候选路径（IHUI_CLI_MIN_VERSION_FILE 可覆盖，见 candidateConfigPaths）。 */
+export const CLI_MIN_VERSION_ENV = 'IHUI_CLI_MIN_VERSION'
+export const CLI_MIN_VERSION_FILE_ENV = 'IHUI_CLI_MIN_VERSION_FILE'
+export const CLI_MIN_VERSION_RELATIVE_PATH = join('config', 'cli-min-version.json')
+
+export type CliMinVersionSource = 'env' | 'file' | 'none'
+
+export interface CliMinVersionDecision {
+  /** null = 服务端没有要求 ⇒ CLI 一律放行。 */
+  minimumVersion: string | null
+  source: CliMinVersionSource
+  /** 真值出处 + 为什么是这个结论（人在终端能直接读）。 */
+  reason: string
+}
+
+export interface CliMinVersionInputs {
+  envValue: string | undefined
+  /** 配置文件正文；null = 文件不存在（不是错误）。 */
+  fileText: string | null
+  /** 读文件本身失败（权限/IO）的说明；成功或不存在时为 null。 */
+  fileError: string | null
+  /** 仅用于把默认路径写进 reason，便于人核对。 */
+  configPath: string
+}
+
+const JSON_PARSE_FAILED = Symbol('json-parse-failed')
+
+function safeParseJson(text: string): unknown | typeof JSON_PARSE_FAILED {
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return JSON_PARSE_FAILED
+  }
+}
+
+/**
+ * 纯判据：三态决策。不碰文件系统，所以优先级与降级路径都能被单测逐条钉住。
+ */
+export function decideCliMinVersion(input: CliMinVersionInputs): CliMinVersionDecision {
+  const envRaw = typeof input.envValue === 'string' ? input.envValue.trim() : ''
+  if (envRaw !== '') {
+    if (MIN_VERSION_RE.test(envRaw)) {
+      return {
+        minimumVersion: envRaw,
+        source: 'env',
+        reason: `环境变量 ${CLI_MIN_VERSION_ENV}=${envRaw}（优先级高于配置文件 ${input.configPath}）`,
+      }
+    }
+    return {
+      minimumVersion: null,
+      source: 'none',
+      reason:
+        `环境变量 ${CLI_MIN_VERSION_ENV}="${envRaw}" 不是 X.Y.Z 形态 ⇒ 按未配置处理（不拦）。` +
+        `配错挡住全部用户比旧 CLI 跑新契约更坏，故此处降级而不报错`,
+    }
+  }
+
+  if (input.fileError !== null) {
+    return {
+      minimumVersion: null,
+      source: 'none',
+      reason: `配置文件 ${input.configPath} 读取失败（${input.fileError}）⇒ 不拦`,
+    }
+  }
+
+  if (input.fileText !== null) {
+    const parsed: unknown = safeParseJson(input.fileText)
+    if (parsed === JSON_PARSE_FAILED) {
+      return {
+        minimumVersion: null,
+        source: 'none',
+        reason: `配置文件 ${input.configPath} 不是合法 JSON ⇒ 不拦`,
+      }
+    }
+    const field =
+      parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>).minimumVersion
+        : undefined
+    if (typeof field !== 'string' || field.trim() === '') {
+      return {
+        minimumVersion: null,
+        source: 'none',
+        reason: `配置文件 ${input.configPath} 缺少字符串字段 minimumVersion ⇒ 不拦`,
+      }
+    }
+    const value = field.trim()
+    if (!MIN_VERSION_RE.test(value)) {
+      return {
+        minimumVersion: null,
+        source: 'none',
+        reason: `配置文件 ${input.configPath} 的 minimumVersion="${value}" 不是 X.Y.Z 形态 ⇒ 不拦`,
+      }
+    }
+    return {
+      minimumVersion: value,
+      source: 'file',
+      reason: `配置文件 ${input.configPath}（未设 ${CLI_MIN_VERSION_ENV}，故按第二优先级取文件）`,
+    }
+  }
+
+  return {
+    minimumVersion: null,
+    source: 'none',
+    reason: `未配置：环境变量 ${CLI_MIN_VERSION_ENV} 未设且 ${input.configPath} 不存在 ⇒ 不拦（默认档）`,
+  }
+}
+
+/**
+ * 配置文件候选路径：显式 env 覆盖 > cwd 相对 > cwd 上两级相对（仓库根）。
+ * 两候选的写法照抄 `feature-center.ts` 的 DOCS_DIR（同一 cwd 假设在 dev/nssm/容器下不同）。
+ */
+export function candidateConfigPaths(cwd: string = process.cwd()): string[] {
+  const override = process.env[CLI_MIN_VERSION_FILE_ENV]?.trim()
+  if (override) return [override]
+  return [
+    join(cwd, CLI_MIN_VERSION_RELATIVE_PATH),
+    join(cwd, '..', '..', CLI_MIN_VERSION_RELATIVE_PATH),
+  ]
+}
+
+/**
+ * 带 IO 的取真值：读文件（不存在不算错）后交给纯判据。
+ * 任何异常都被折进 reason，绝不抛出 —— 抛出会让这个公开接口 500，
+ * 而 CLI 侧对 500 的行为是「放行」，等于把配置事故伪装成「服务端没要求」。
+ */
+export function resolveCliMinVersion(cwd?: string): CliMinVersionDecision {
+  const paths = candidateConfigPaths(cwd)
+  const configPath = paths[0] ?? ''
+  let fileText: string | null = null
+  let fileError: string | null = null
+  for (const p of paths) {
+    if (!existsSync(p)) continue
+    try {
+      fileText = readFileSync(p, 'utf-8')
+    } catch (e) {
+      fileError = e instanceof Error ? e.message : String(e)
+    }
+    break
+  }
+  return decideCliMinVersion({
+    envValue: process.env[CLI_MIN_VERSION_ENV],
+    fileText,
+    fileError,
+    configPath,
+  })
+}
+
+// =============================================================================
 // 路由
 // =============================================================================
 
@@ -74,6 +246,12 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
       .orderBy(desc(appVersions.buildNumber))
       .limit(1)
     return reply.send(success({ latest }))
+  })
+
+  // GET /min-cli-version — CLI 最低版本闸门（公开，无鉴权、无 DB）
+  // 未配置时 minimumVersion=null ⇒ 消费方（CLI）一律放行；结论出处随 reason 回传。
+  server.get('/min-cli-version', async (_request, reply) => {
+    return reply.send(success({ platform: 'cli', ...resolveCliMinVersion() }))
   })
 
   // GET / — 版本列表（admin，分页 + platform 筛选）
