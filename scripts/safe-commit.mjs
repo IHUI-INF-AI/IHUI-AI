@@ -49,6 +49,7 @@ import {
   needsBatchSelfRun,
   verdictLine,
 } from './lib/commit-gate-attribution.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 // 本脚本所在仓的根(AGENTS §15:由自身位置推导,不得写死盘符)
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -477,11 +478,111 @@ if (hookFailed && commitResult.status !== 0) {
     })
     return { status: g.status ?? 1, output: `${g.stdout || ''}${g.stderr || ''}` }
   }
+  /**
+   * **基线面(本次提交之前的 HEAD)**的同一道门读数 —— 差分四态的取证出口(2026-09-27 立)。
+   *
+   * 为什么必须有它:很多门的失败行**只点名符号、不点名文件**(实测门 55 打
+   * `[tool-name-coverage] ❌ 覆盖率 86/87` + `未映射工具名(1):generate_report`),
+   * 于是"因本次改动而红"与"HEAD 上早就红"在归因层手里长得一模一样,而旧措辞写的是
+   * 「红不在本次提交内容里」—— 把"我没看见路径"写成了"它不是我的"。
+   * 留痕 ts=2026-09-27T09:05:40Z 那枚自引入的红就是这样放行的(27 分钟后由 fa9e4e64d 补)。
+   *
+   * 载体取 `git worktree add --detach <scratch>/head <beforeSha>`:
+   * ① 文件内容 = 提交前的 HEAD ⇒ 磁盘型门读到的也是 HEAD(私有索引 GIT_INDEX_FILE 那一路做不到,
+   *    它只改索引面、磁盘仍是我的在途内容,会把"按磁盘判"的门喂成假存量档);
+   * ② 自带 `.git` 与自己的索引 ⇒ `--staged` 档天然等于 HEAD 面;
+   * ③ 全程不 checkout、不动共享工作树与主索引(§12d)。
+   * 代价与边界如实登记:隔离树**没有 node_modules**,故凡 spawn pnpm/tsc/eslint 的门在这里跑不通
+   * —— 那正是第④态(未差分)该管的情形,`baselineUsable()` 会按退出码 2 / Cannot find module /
+   * 超时把它判成"跑不出去",**绝不**伪装成"HEAD 面亦红"。
+   * 惰性创建、整轮至多一次、用完立刻 remove + prune(挂在这台机的 `.git` 存续治理上,不能留)。
+   */
+  let baselineTree = null
+  let baselineWhy = null
+  const disposeBaselineTree = () => {
+    if (!baselineTree) return
+    const { dir, scratch } = baselineTree
+    gitStep(['worktree', 'remove', '--force', dir], 'git worktree remove(基线面)')
+    gitStep(['worktree', 'prune'], 'git worktree prune(基线面)')
+    try {
+      rmScratch(scratch)
+    } catch {
+      /* 残留由 §26 的每日 Temp 体检兜;不因此改判据 */
+    }
+    baselineTree = null
+  }
+  const ensureBaselineTree = () => {
+    if (baselineTree) return baselineTree
+    if (baselineWhy) return null
+    const timeoutMs = Number(process.env.IHUI_SAFE_COMMIT_BASELINE_TIMEOUT_MS || 600000)
+    let scratch = null
+    try {
+      scratch = mkScratch('gate-baseline-')
+    } catch (e) {
+      baselineWhy = `临时落点不可用:${e?.message ?? e}`
+      return null
+    }
+    const dir = join(scratch, 'head')
+    // 三条硬约束:绝对路径 node 不需要(这是 git 写操作)、windowsHide(守门 52)、数字 timeout(守门 80)
+    const a = spawnSync('git', ['worktree', 'add', '--detach', dir, beforeSha], {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: process.env,
+      windowsHide: true,
+      timeout: timeoutMs,
+    })
+    if (a.error || a.status !== 0) {
+      baselineWhy = `建基线工作树失败:${a.error?.code || a.error?.message || (a.stderr || a.stdout || '').slice(0, 200) || `exit ${a.status}`}`
+      try {
+        if (scratch) rmScratch(scratch)
+      } catch {
+        /* 建都建不起来,清理再失败只是噪音 */
+      }
+      return null
+    }
+    baselineTree = { dir, scratch }
+    process.on('exit', disposeBaselineTree)
+    return baselineTree
+  }
+  const runGateBaseline = (script) => {
+    const tree = ensureBaselineTree()
+    if (!tree)
+      return { ran: false, status: null, output: '', why: baselineWhy || '基线面工作树不可用' }
+    const gatePath = join(tree.dir, 'scripts', script)
+    if (!existsSync(gatePath))
+      return { ran: false, status: null, output: '', why: `基线面里没有该门脚本:${script}` }
+    const timeoutMs = Number(process.env.IHUI_SAFE_COMMIT_BASELINE_TIMEOUT_MS || 600000)
+    const g = spawnSync(process.execPath, [gatePath, '--staged'], {
+      encoding: 'utf8',
+      cwd: tree.dir,
+      // 必须剥掉 GIT_INDEX_FILE:§12d 的旁路提交会把它指到临时索引上,继承进子进程就等于
+      // "基线面"读的其实是本票的暂存内容 —— 那会把自引入的红读成"HEAD 也红",差分整个失效。
+      env: (() => {
+        const e = { ...process.env }
+        delete e.GIT_INDEX_FILE
+        return e
+      })(),
+      windowsHide: true,
+      timeout: timeoutMs,
+      maxBuffer: 32 << 20,
+    })
+    if (g.error)
+      return {
+        ran: false,
+        status: null,
+        output: '',
+        why: `基线面派生失败 ${g.error.code || g.error.message}`,
+      }
+    if (g.status === null)
+      return { ran: false, status: null, output: '', why: `基线面被中断或超时(${timeoutMs}ms)` }
+    return { ran: true, status: g.status ?? 1, output: `${g.stdout || ''}${g.stderr || ''}`, why: null }
+  }
   const verdict0 = classifyHookFailure({
     text: hookOutput,
     fallbackText: hookLogTail,
     stagedFiles: expectedFiles,
     runGate,
+    runGateBaseline,
   })
   /**
    * 批没跑完 ⇒ 由本脚本自己把守门批跑一遍取证(2026-09-26 立)。
@@ -533,8 +634,12 @@ if (hookFailed && commitResult.status !== 0) {
     stagedFiles: expectedFiles,
     runBatch: runBatchSelf,
     runGate,
+    runGateBaseline,
     hookText: hookOutput,
   })
+  // 差分取证已经结束 ⇒ 立刻回收隔离工作树(它挂在 `.git/worktrees` 下,这台机的 .git 存续
+  // 治理等不起一个长期挂着的 worktree 登记);mine 分支随后 process.exit 也有 process.on('exit') 兜底。
+  disposeBaselineTree()
   log('warn', `首次 commit 失败(exit ${commitResult.status})—— 开始逐道复跑失败门以计算归因`)
   for (const line of verdict.detail) log('info', `  · ${line}`)
   log(verdict.kind === 'mine' ? 'err' : 'info', verdictLine(verdict))
@@ -562,7 +667,8 @@ if (hookFailed && commitResult.status !== 0) {
   if (verdict.kind === 'mine') {
     log(
       'err',
-      '拒绝 --no-verify:上表已点名本次声明的文件,这是本任务自己的红。修完再提;' +
+      '拒绝 --no-verify:上表已把这道红**定责到本任务** —— 要么是门的结论行点名了本次声明的文件,' +
+        '要么是差分证明"基线面(HEAD)不红、我的面红"。两种都该修完再提;' +
         '确属误判时请改判据或按 AGENTS §16 显式说明后手工提交',
     )
     process.exit(1)
