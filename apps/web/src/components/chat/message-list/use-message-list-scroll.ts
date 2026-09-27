@@ -6,6 +6,25 @@ import * as React from 'react'
 import type { ChatMessage } from '@/stores/chat'
 import { useChatStore } from '@/stores/chat'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+import {
+  BOTTOM_REATTACH_PX,
+  anchorActionForContentChange,
+  followingAtSessionStart,
+  historyPrefetchTriggerPx,
+  prependScrollAdjustment,
+  reconcileAuthority,
+  reconcileAuthorityAtCommit,
+  resolveScrollEventSource,
+  shouldTriggerHistoryLoad,
+  wheelScrollIntent,
+  touchScrollIntent,
+  keyboardScrollIntent,
+  distanceToBottom,
+  type ScrollAuthority,
+  type ScrollEventSource,
+  type ScrollMetrics,
+  type UserScrollIntent,
+} from './scroll-authority'
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
 // - ESTIMATED_ITEM_HEIGHT:消息平均高度估计值,用于初始 padding 计算
@@ -15,7 +34,35 @@ import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 const ESTIMATED_ITEM_HEIGHT = 160
 const VIRTUAL_THRESHOLD = 60
 const BUFFER = 6
-const TOP_LOAD_MORE_THRESHOLD = 60 // scrollTop < 60px 触发加载更多历史
+// 2026-09-27 改:补页触发不再写死 60px —— 见 scroll-authority.historyPrefetchTriggerPx
+// (按视口高推两屏,网络与渲染应在用户抵达窗口边界前完成;60px 那一档用户必然先撞到边界)
+
+/**
+ * 已脱离窗口的测量值保留上限(LRU 淘汰只从"已卸载"的那批里逐)。
+ * 量级依据:一屏 ≈ 视口高 / ESTIMATED_ITEM_HEIGHT(160px) ≈ 5 行,加上下各 BUFFER=6
+ * 即一帧渲染约 17 行;600 条 ≈ 35 个窗口的滚动历史,滚回去那么远仍不会掉档。
+ * 每条 Map 槽 ≈ 一个字符串键 + 一个 number(约 80–120 B)⇒ 上限占 ~50–70 KB,
+ * 而上限存在的理由正是"会话可以无限长":不设上限就是按消息数线性长内存。
+ */
+const MEASURED_HEIGHT_CACHE_MAX = 600
+
+/**
+ * 程序化滚动窗口时长:一次 scrollIntoView({behavior:'smooth'}) 的动画期间派发的
+ * scroll 事件必须归为 programmatic(否则自己产生的位移被读成"用户上翻")。
+ * 取 600ms 覆盖 smooth 动画 + 一帧回读;窗口只在"没有用户输入凭据"时才生效,
+ * 且 scrollTop 一旦回退就立刻判用户(scroll-authority.resolveScrollEventSource),
+ * 所以它的失效方向是"少吞掉一次用户意图",不是"多吞一次"。
+ */
+const PROGRAMMATIC_SCROLL_WINDOW_MS = 600
+
+/**
+ * 事件层意图的有效窗:一次滚轮/触摸会派发多枚 scroll 事件(惯性、smooth 中间帧),
+ * 窗口须覆盖到最后一枚;超出窗口就按"归因不明"处理,不会把布局位移误判成用户。
+ */
+const USER_INTENT_TTL_MS = 400
+
+/** 待补偿的前插锚点最多跨几次 commit(超过即视为已失效,不再拿旧锚点动 scrollTop)。 */
+const PENDING_ANCHOR_MAX_COMMITS = 8
 
 /** 层栈 id(见 @/lib/overlay-stack):消息键盘导航焦点层,挂载即为一层、卸载即出栈 */
 const MESSAGE_LIST_KEYBOARD_NAV_OVERLAY_ID = 'message-list-keyboard-nav'
@@ -35,7 +82,12 @@ export interface MessageListScrollResult {
   visibleRange: { start: number; end: number }
   computeCumulative: () => { offsets: number[]; total: number }
   measureItem: (id: string) => (el: HTMLElement | null) => void
-  handleScroll: () => void
+  /**
+   * 滚动记账入口。DOM 的 scroll 事件按零参调用(来源由事件层的用户输入记账 +
+   * 程序化滚动窗口现场归类);测高/布局引起的重算必须显式传 `'layout'`,
+   * 否则布局位移会被读成用户滚动。
+   */
+  handleScroll: (source?: ScrollEventSource) => void
   scrollToBottom: () => void
   userScrolledUp: boolean
   focusedIndex: number
@@ -58,8 +110,26 @@ export function useMessageListScroll({
   const [visibleRange, setVisibleRange] = React.useState({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
   // heightMap:messageId → 真实高度(px)。ResizeObserver 持续更新,用于精确计算累积 offset
   const heightMapRef = React.useRef<Map<string, number>>(new Map())
-  // 是否在用户手动向上滚动(暂停自动滚动到底部,直到新消息到达或用户滚到底)
-  const userScrolledUpRef = React.useRef(false)
+  // 2026-09-27 改:卸载不再删测量值(删了重挂就回落 ESTIMATED_ITEM_HEIGHT 重测 ⇒ 滚动条逐帧跳),
+  // 改为把该 id 挂进"已脱离窗口"的 LRU 队列;队列按"最近脱离"排序,超上限时从最久的那端淘汰。
+  const detachedIdsRef = React.useRef<Set<string>>(new Set())
+  // 滚动权账目(2026-09-27 立,取代原 `userScrolledUpRef: boolean`)。
+  // following = 用户是否把滚动权交给列表;只有用户输入能改它(判据见 scroll-authority.ts)。
+  const authorityRef = React.useRef<ScrollAuthority>(followingAtSessionStart())
+  // 几何账目:上一次记账读到的 scrollTop。程序化/布局位移照样更新它,但不碰 following。
+  const observedScrollTopRef = React.useRef(0)
+  // 事件层提前记账的用户方向意图(wheel/touch/key),用于补 scroll 事件的"晚一帧"窗口
+  const userIntentRef = React.useRef<{ intent: UserScrollIntent; at: number } | null>(null)
+  // 本 hook 自己发起的滚动落到哪一档为止(用于把随后几枚 scroll 事件判为 programmatic)
+  const programmaticUntilRef = React.useRef(0)
+  // 前插历史的位置锚点:触发瞬间存,commit 时刻用(替代原先的 rAF 轮询 scrollHeight)
+  const pendingAnchorRef = React.useRef<{
+    /** 触发瞬间的首行 key —— 既是"首行 key 是否变小"的比较基准,也是平移量的锚点 */
+    anchorKey: string
+    /** 触发瞬间该锚点相对视口顶部的偏移(px),即要恢复到的绝对位置 */
+    savedOffset: number
+    commitsLeft: number
+  } | null>(null)
   // 2026-07-28 立:userScrolledUp 状态镜像(用于驱动 jump-to-latest 浮动按钮显隐)
   // - ref 用于在 scroll callback 高频更新时避免整个组件重渲染
   // - state 镜像驱动浮动按钮条件渲染(ref 变化不会触发重渲染)
@@ -73,6 +143,51 @@ export function useMessageListScroll({
     () => (typeof setUserScrolledUp === 'function' ? setUserScrolledUp : () => {}),
     [setUserScrolledUp],
   )
+  // ── 滚动权出口(2026-09-27 立)──────────────────────────────────────────
+  // 本 hook 内**唯一**能改滚动权的地方:原先散在 :174 / :367 / :389 三处的
+  // `userScrolledUpRef.current = …` 全部改走这里,判据本身住在 scroll-authority.ts。
+  // store 镜像(userScrolledUp)由同一出口顺带同步,不再由调用点各写一次。
+  const mirroredScrolledUpRef = React.useRef(userScrolledUp)
+  const applyAuthority = React.useCallback(
+    (next: ScrollAuthority) => {
+      authorityRef.current = next
+      const mirrored = !next.following
+      if (mirrored !== mirroredScrolledUpRef.current) {
+        mirroredScrolledUpRef.current = mirrored
+        safeSetUserScrolledUp(mirrored)
+      }
+    },
+    [safeSetUserScrolledUp],
+  )
+  /** 从 DOM 读一份几何量(只在 impure 层做,判据拿到的永远是这个结构的纯数据)。 */
+  const readScrollMetrics = React.useCallback((el: HTMLElement): ScrollMetrics => {
+    return {
+      scrollTop: el.scrollTop,
+      viewportHeight: el.clientHeight,
+      contentHeight: el.scrollHeight,
+    }
+  }, [])
+  /** 事件层记账:滚动真的发生前就把方向记下来(scroll 事件要到下一帧才派发)。 */
+  const recordUserIntent = React.useCallback((intent: UserScrollIntent) => {
+    if (intent === 'none') return
+    userIntentRef.current = { intent, at: Date.now() }
+  }, [])
+  const takeUserIntent = React.useCallback((): UserScrollIntent | null => {
+    const record = userIntentRef.current
+    if (!record) return null
+    if (Date.now() - record.at > USER_INTENT_TTL_MS) {
+      userIntentRef.current = null
+      return null
+    }
+    return record.intent
+  }, [])
+  /**
+   * 标一段程序化滚动:此后 PROGRAMMATIC_SCROLL_WINDOW_MS 内派发的 scroll 事件
+   * 归为 programmatic(只更新几何账目)。落到底部档位即提前收窗。
+   */
+  const markProgrammaticScroll = React.useCallback(() => {
+    programmaticUntilRef.current = Date.now() + PROGRAMMATIC_SCROLL_WINDOW_MS
+  }, [])
   // 2026-07-28 立:键盘导航的 focused message index(-1 = 无聚焦)
   // - ↑/↓ 切换时设置,Enter 展开/折叠 reasoning,Esc 取消聚焦
   // - focused 消息添加 ring 视觉 + data-message-focused 属性
@@ -150,33 +265,50 @@ export function useMessageListScroll({
     return { offsets, total }
   }, [messages])
 
-  const handleScroll = React.useCallback(() => {
+  /**
+   * 滚动记账的唯一入口(2026-09-27 改版)。
+   *
+   * @param source 调用方已知来源时显式传入(测高/布局重算传 `'layout'`);DOM 的 scroll
+   *   事件不传,由 `resolveScrollEventSource` 现场按"事件层用户意图 + 程序化窗口 + 位移方向"
+   *   归类。滚动权(`following`)只能由用户输入改 —— 判据在 scroll-authority.ts,这里不散写。
+   */
+  const handleScroll = React.useCallback((source?: ScrollEventSource) => {
     const el = containerRef.current
     if (!el) return
 
-    // 标记用户是否向上滚动(远离底部)
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    // P0 修复(2026-08-02):hysteresis 滞后 50px,避免边界抖动
-    // - 未显示按钮时:distanceFromBottom > 120(UPPER)才显示(向上滚超过 120px)
-    // - 已显示按钮时:distanceFromBottom > 70(LOWER)才保持显示,否则隐藏(向下滚低于 70px)
-    // - 70~120px 之间保持当前状态,用户在边界附近微小滚动不会触发按钮频繁显隐
-    const UPPER_THRESHOLD = 120
-    const LOWER_THRESHOLD = 70
-    const currentlyScrolledUp = userScrolledUp
-    const scrolledUp = currentlyScrolledUp
-      ? distanceFromBottom > LOWER_THRESHOLD
-      : distanceFromBottom > UPPER_THRESHOLD
-    userScrolledUpRef.current = scrolledUp
-    // 同步到 store(2026-07-28 立),驱动 jump-to-latest 按钮条件渲染
-    // 2026-08-25:统一走 safe 包装(与顶部按钮一致),消除对原始 setter 的依赖
-    // 同时修复 exhaustive-deps 缺失依赖警告(setter 缺失时原代码此处会直接抛错)
-    if (scrolledUp !== userScrolledUp) {
-      safeSetUserScrolledUp(scrolledUp)
+    const metrics = readScrollMetrics(el)
+    const distanceFromBottom = distanceToBottom(metrics)
+    const userIntent = takeUserIntent()
+    const resolvedSource: ScrollEventSource =
+      source ??
+      resolveScrollEventSource({
+        userIntent,
+        programmaticWindowActive: Date.now() <= programmaticUntilRef.current,
+        metrics,
+        lastObservedScrollTop: observedScrollTopRef.current,
+      })
+    // 滞回两档(120 / 70)是 P0 修复(2026-08-02)定下的防抖契约,数值一字未改,
+    // 只是从本文件的 UPPER/LOWER 两个局部量搬进判据层的具名常量。
+    const reconciliation = reconcileAuthority({
+      current: authorityRef.current,
+      event: {
+        source: resolvedSource,
+        metrics,
+        intent: userIntent ?? 'unknown',
+        lastObservedScrollTop: observedScrollTopRef.current,
+      },
+    })
+    applyAuthority(reconciliation.authority)
+    // 几何账目:**任何**来源都更新(含不改 following 的 programmatic / layout)
+    observedScrollTopRef.current = reconciliation.observedScrollTop
+    if (resolvedSource === 'programmatic' && distanceFromBottom <= BOTTOM_REATTACH_PX) {
+      // 自己发起的贴底已经落地 ⇒ 窗口提前收,后续位移不再被自我豁免
+      programmaticUntilRef.current = 0
     }
 
     // D3(2026-09-18 立):跳顶/跳底按钮显隐阈值(距顶/距底 > 800px)。
     // 用 ref 镜像比对,仅在跨阈值时 setState(避免每次 scroll 都重渲染)
-    const farTop = el.scrollTop > FAR_THRESHOLD
+    const farTop = metrics.scrollTop > FAR_THRESHOLD
     const farBottom = distanceFromBottom > FAR_THRESHOLD
     if (farTop !== isFarFromTopRef.current) {
       isFarFromTopRef.current = farTop
@@ -187,33 +319,35 @@ export function useMessageListScroll({
       setIsFarFromBottom(farBottom)
     }
 
-    // #8 滚动到顶部触发加载更多历史
+    // #8 滚到窗口顶部时补页。2026-09-27 改两件事:
+    // ① 触发阈值不再写死 60px,改按视口高推两屏(网络与渲染应在用户抵达窗口边界前完成;
+    //    60px 那一档用户必然先撞到边界,看到的就是"滚到顶卡一下再跳")。
+    // ② 位置恢复改为**确定性锚点**:这里只在触发瞬间存下"首行 key + 它相对视口顶部的偏移",
+    //    真正的平移由下面的 useLayoutEffect 在 commit 时刻算(见 prependScrollAdjustment)。
+    //    删掉的是原先那套 rAF 轮询 scrollHeight 的写法,它有三处结构性缺陷:
+    //    要求高度差 >50px 才补偿(前插不足 50px 永不补偿)、拿触发瞬间的 prevScrollTop 加差值
+    //    (触发到提交之间 scrollTop 被改写就把中间位移重复计入)、还带 5s 超时的定时器要管泄漏。
     if (
-      el.scrollTop < TOP_LOAD_MORE_THRESHOLD &&
-      onLoadMoreHistory &&
-      hasMoreHistory &&
-      !loadingMoreHistory
+      !pendingAnchorRef.current &&
+      shouldTriggerHistoryLoad({
+        scrollTop: metrics.scrollTop,
+        triggerPx: historyPrefetchTriggerPx(el.clientHeight),
+        canLoad: Boolean(onLoadMoreHistory && hasMoreHistory),
+        loading: Boolean(loadingMoreHistory),
+      })
     ) {
-      // 记录当前 scrollHeight,prepend 后恢复相对位置(保持视觉不跳动)
-      const prevScrollHeight = el.scrollHeight
-      const prevScrollTop = el.scrollTop
-      onLoadMoreHistory()
-      // 2026-08-02 修复: Bug 1 — onLoadMoreHistory 是 void(非 Promise),异步加载未完成时
-      // 单次 rAF 调整 scrollTop 无效(scrollHeight 还没变)。改用轮询:持续 rAF 检查 scrollHeight
-      // 显著变化(>50px,跳过 loading 指示器 ~30px 的小幅增长),prepend 完成后立即调整 scrollTop,
-      // 5s 超时防泄漏(网络失败等场景)。
-      const startTime = Date.now()
-      const checkScroll = () => {
-        if (!containerRef.current) return
-        const newScrollHeight = containerRef.current.scrollHeight
-        if (newScrollHeight > prevScrollHeight + 50) {
-          containerRef.current.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight)
-          return
+      const anchorKey = messagesRef.current[0]?.id
+      const anchorEl = anchorKey
+        ? (el.querySelector(`[data-message-id="${anchorKey}"]`) as HTMLElement | null)
+        : null
+      if (anchorKey && anchorEl) {
+        pendingAnchorRef.current = {
+          anchorKey,
+          savedOffset: anchorEl.getBoundingClientRect().top - el.getBoundingClientRect().top,
+          commitsLeft: PENDING_ANCHOR_MAX_COMMITS,
         }
-        if (Date.now() - startTime > 5000) return
-        requestAnimationFrame(checkScroll)
       }
-      requestAnimationFrame(checkScroll)
+      onLoadMoreHistory?.()
     }
 
     // #7 虚拟滚动:计算可见范围
@@ -222,7 +356,7 @@ export function useMessageListScroll({
     if (total === 0) return
 
     // 二分查找找到 startIndex(第一个 offset > scrollTop - buffer*ESTIMATED)
-    const scrollPos = el.scrollTop
+    const scrollPos = metrics.scrollTop
     const viewportBottom = scrollPos + el.clientHeight
     let start = 0
     let lo = 0,
@@ -260,25 +394,45 @@ export function useMessageListScroll({
     onLoadMoreHistory,
     hasMoreHistory,
     loadingMoreHistory,
-    userScrolledUp,
-    safeSetUserScrolledUp,
+    applyAuthority,
+    readScrollMetrics,
+    takeUserIntent,
   ])
 
-  // 自动滚动到底部(流式 token 到达 + 新消息)
-  // - 流式输出时强制滚到底(保持最新内容可见)
-  // - 新消息到达时强制滚到底
-  // - 非流式 + 用户向上滚动时暂停自动滚动(避免打断阅读)
-  // - #9 50ms throttle(2026-07-25 立):leading + trailing,避免每个 token 触发 scrollIntoView
+  // 自动滚动到底部(流式 token 到达 + 新消息)。
+  // 2026-09-27 改版:这里不再读"上一次 scroll 事件留下的布尔",而是先做一次
+  // **commit 时刻的对账**(reconcileAuthorityAtCommit),再决定动不动 ——
+  // scroll 事件在滚动发生后的下一帧才派发,原实现在那一格里拿着过期快照把用户拽回底部。
+  // 判据(anchorActionForContentChange)与行为变更登记都在 scroll-authority.ts:
+  // **已解除跟随时,新消息也不得拉回**(用户可感知的有意变更;在底部时照常跟随)。
+  // #9 50ms throttle(2026-07-25 立)沿用:leading + trailing,避免每个 token 触发 scrollIntoView。
   React.useEffect(() => {
     const newLen = messages.length
     const prevLen = prevMessagesLenRef.current
     const isNewMessage = newLen > prevLen
     prevMessagesLenRef.current = newLen
-    // 2026-08-16 修复:流式输出也尊重用户上翻——此前 isStreaming 恒强制滚底,
-    // 用户在流式生成时翻看历史会被拉回底部(打断阅读)。
-    // 新消息到达仍强制滚底;流式 token 仅在用户未上翻时跟随滚底。
-    const shouldForceScroll = isNewMessage || (!userScrolledUpRef.current && isStreaming)
-    if (!shouldForceScroll && userScrolledUpRef.current) return
+
+    const scroller = containerRef.current
+    if (scroller) {
+      const commitReconciliation = reconcileAuthorityAtCommit({
+        current: authorityRef.current,
+        metrics: readScrollMetrics(scroller),
+        intent: takeUserIntent(),
+        lastObservedScrollTop: observedScrollTopRef.current,
+      })
+      applyAuthority(commitReconciliation.authority)
+      observedScrollTopRef.current = commitReconciliation.observedScrollTop
+    }
+
+    if (
+      anchorActionForContentChange({
+        authority: authorityRef.current,
+        isNewMessage,
+        isStreaming,
+      }) === 'hold'
+    ) {
+      return
+    }
 
     const doScroll = () => {
       const el = bottomRef.current
@@ -286,6 +440,8 @@ export function useMessageListScroll({
       // 批量加载(切换会话/首次加载,prev=0 且 newLen>1):auto 无动画直接跳底
       // 逐条追加/streaming:smooth 平滑跟随新消息
       const behavior = prevLen === 0 && newLen > 1 ? 'auto' : 'smooth'
+      // 来源标记:这一程自己产生的 scroll 事件属于 programmatic,不得被读成"用户上翻"
+      markProgrammaticScroll()
       el.scrollIntoView({ behavior, block: 'end' })
     }
     const st = scrollThrottleRef.current
@@ -307,7 +463,15 @@ export function useMessageListScroll({
         doScroll()
       }, remaining)
     }
-  }, [messages.length, lastContent, isStreaming])
+  }, [
+    messages.length,
+    lastContent,
+    isStreaming,
+    applyAuthority,
+    markProgrammaticScroll,
+    readScrollMetrics,
+    takeUserIntent,
+  ])
 
   // #9 卸载时清理 pending throttle timer(2026-07-25 立)
   React.useEffect(() => {
@@ -328,23 +492,50 @@ export function useMessageListScroll({
     scrollDirtyRef.current = true
     requestAnimationFrame(() => {
       scrollDirtyRef.current = false
-      handleScroll()
+      // 显式带来源:这是测高/布局引起的重算,不是用户滚动 ⇒ 只更新几何账目
+      handleScroll('layout')
     })
   }, [handleScroll])
 
   // #8 加载更多历史时保持滚动位置(handleScroll 内已处理)
   // #7 ResizeObserver 测量真实高度并触发重算可见范围
+  /**
+   * 只在"已脱离窗口"的那批测量里按 LRU 淘汰,绝不逐出正在渲染的行 ——
+   * 逐出会立刻改变 computeCumulative 的偏移(那些行还在 messages 里,只是没渲染),
+   * 所以版本号和一次重算都要跟着走。
+   */
+  const evictDetachedMeasurements = React.useCallback(() => {
+    const map = heightMapRef.current
+    const detached = detachedIdsRef.current
+    if (map.size <= MEASURED_HEIGHT_CACHE_MAX) return
+    let evicted = false
+    for (const id of detached) {
+      if (map.size <= MEASURED_HEIGHT_CACHE_MAX) break
+      detached.delete(id)
+      map.delete(id)
+      evicted = true
+    }
+    if (evicted) heightMapVersionRef.current++
+  }, [])
+
   const measureItem = React.useCallback(
     (id: string) => (el: HTMLElement | null) => {
       const map = heightMapRef.current
+      const detached = detachedIdsRef.current
       if (!el) {
-        // P1-3 修复:删除条目时版本号 +1,强制下次 computeCumulative 重算缓存
+        // 2026-09-27 改:卸载不再 map.delete(id)。窗口化列表里"卸载即弃测量"等于
+        // 把该行打回 ESTIMATED_ITEM_HEIGHT=160 重测,滚回去时累积高度逐帧变 ⇒
+        // 滚动条跳动、可见范围抖动。改为保留测量值 + 挂进脱离队列(按最近脱离排序),
+        // 只有超过 MEASURED_HEIGHT_CACHE_MAX 才淘汰。会话切换的清点位在下面(唯一清口)。
         if (map.has(id)) {
-          map.delete(id)
-          heightMapVersionRef.current++
+          detached.delete(id)
+          detached.add(id)
+          evictDetachedMeasurements()
         }
         return
       }
+      // 重新挂上 ⇒ 它不再是淘汰候选(测量值本身沿用,首帧就能给出正确高度)
+      detached.delete(id)
       const h = el.getBoundingClientRect().height
       const prev = map.get(id)
       if (prev !== h) {
@@ -355,25 +546,151 @@ export function useMessageListScroll({
         scheduleScrollUpdate()
       }
     },
-    [scheduleScrollUpdate],
+    [evictDetachedMeasurements, scheduleScrollUpdate],
   )
 
   // 消息列表重置(切换会话)时清空高度映射 + 重置可见范围
+  // 2026-09-27:这里是**唯一**的清口 —— 测量缓存/脱离队列/前插锚点/几何与滚动权账目
+  // 一并归零,不留"换了会话还拿着上一份账"的第二形态。
   React.useEffect(() => {
     if (messages.length === 0) {
       heightMapRef.current.clear()
-      setVisibleRange({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
-      userScrolledUpRef.current = false
-      safeSetUserScrolledUp(false)
+      detachedIdsRef.current.clear()
+      pendingAnchorRef.current = null
+      programmaticUntilRef.current = 0
+      userIntentRef.current = null
+      observedScrollTopRef.current = 0
+      applyAuthority(followingAtSessionStart())
       isFarFromTopRef.current = false
       isFarFromBottomRef.current = false
       setIsFarFromTop(false)
       setIsFarFromBottom(false)
+      setVisibleRange({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
     } else if (messages.length <= VIRTUAL_THRESHOLD) {
       setVisibleRange({ start: 0, end: messages.length - 1 })
     }
     // setUserScrolledUp 是 zustand store 稳定引用,无需列入依赖
-  }, [messages.length])
+  }, [messages.length, applyAuthority])
+
+  // 前插历史的位置恢复(2026-09-27 立,取代原先的 rAF 轮询 scrollHeight)。
+  // 用 useLayoutEffect:补偿必须发生在这一帧画出来之前,否则用户先看到跳一下。
+  React.useLayoutEffect(() => {
+    const pending = pendingAnchorRef.current
+    if (!pending) return
+    const el = containerRef.current
+    if (!el) {
+      pendingAnchorRef.current = null
+      return
+    }
+    const anchorEl = el.querySelector(
+      `[data-message-id="${pending.anchorKey}"]`,
+    ) as HTMLElement | null
+    const containerTop = el.getBoundingClientRect().top
+    // 锚点在**内容**中的偏移 = 视口偏移 + 实时 scrollTop(两者都是此刻现读,
+    // 所以触发到提交之间 scrollTop 被谁改写过都不会被重复计入 —— 判据只认绝对目标)
+    const anchorOffsetAfter = anchorEl
+      ? anchorEl.getBoundingClientRect().top - containerTop + el.scrollTop
+      : null
+    const outcome = prependScrollAdjustment<string>({
+      firstRowKeyBefore: pending.anchorKey,
+      firstRowKeyAfter: messages[0]?.id ?? null,
+      savedOffset: pending.savedOffset,
+      anchorOffsetAfter,
+      currentScrollTop: el.scrollTop,
+    })
+    if (outcome.kind === 'adjust') {
+      markProgrammaticScroll()
+      el.scrollTop = el.scrollTop + outcome.delta
+      observedScrollTopRef.current = el.scrollTop
+      pendingAnchorRef.current = null
+      return
+    }
+    // 行被清空 / 锚点已不在 DOM(换会话那种整表替换)⇒ 这个锚点永久失效,立刻丢弃;
+    // 其余原因(首行未变 / 非前插 / 读数非有限)只是"这一枚 commit 不是前插",留着等下一次,
+    // 但用 commitsLeft 设上界,不让一枚旧锚点在很久以后的 commit 上突然把页面弹一下。
+    if (outcome.reason === 'no-rows' || outcome.reason === 'anchor-unmeasurable') {
+      pendingAnchorRef.current = null
+      return
+    }
+    pending.commitsLeft -= 1
+    if (pending.commitsLeft <= 0) pendingAnchorRef.current = null
+  }, [messages, markProgrammaticScroll])
+
+  // 用户输入的事件层记账(2026-09-27 立)。
+  // 为什么必须挂在事件层而不是 effect 里:scroll 事件在滚动发生后的**下一帧**才派发,
+  // 而贴底判断发生在 React commit 时刻 —— 中间那格只有事件层留下的方向能证明"用户在滚"。
+  // 三个 listener 全部 passive(只记账,不拦截、不 preventDefault),且刻意挂在 window 上:
+  // 容器节点会随 MessageList 的早退分支挂载/卸载,挂 window + 命中判定比"等节点出现再挂"
+  // 少一套重挂逻辑,也不会漏掉首次挂载的那一屏。
+  React.useEffect(() => {
+    const inContainer = (target: EventTarget | null): boolean => {
+      const el = containerRef.current
+      if (!el || !(target instanceof Node)) return false
+      return el.contains(target)
+    }
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement)) return false
+      const tag = target.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable
+    }
+    /**
+     * 从一枚 touch 事件里取第一指的纵向坐标。
+     * 刻意不写成 `event instanceof TouchEvent`:jsdom/happy-dom 下构造函数可能缺失,
+     * 而这里的调用面只关心"有没有一个 clientY"这一件事(结构化取值,不做 instanceof 猜测)。
+     */
+    const firstTouchClientY = (event: Event): number | null => {
+      if (!('touches' in event)) return null
+      const touches: unknown = event.touches
+      if (typeof touches !== 'object' || touches === null) return null
+      const list = touches as ArrayLike<unknown>
+      if (list.length === 0) return null
+      const first: unknown = list[0]
+      if (typeof first !== 'object' || first === null) return null
+      const clientY: unknown = (first as { clientY?: unknown }).clientY
+      return typeof clientY === 'number' ? clientY : null
+    }
+    let lastTouchClientY: number | null = null
+    const onWheel = (event: Event): void => {
+      if (!inContainer(event.target)) return
+      if (!('deltaY' in event) || typeof event.deltaY !== 'number') return
+      recordUserIntent(wheelScrollIntent(event.deltaY))
+    }
+    const onTouchStart = (event: Event): void => {
+      if (!inContainer(event.target)) return
+      lastTouchClientY = firstTouchClientY(event)
+    }
+    const onTouchMove = (event: Event): void => {
+      if (!inContainer(event.target)) return
+      const clientY = firstTouchClientY(event)
+      if (clientY === null || lastTouchClientY === null) return
+      recordUserIntent(touchScrollIntent(lastTouchClientY, clientY))
+      lastTouchClientY = clientY
+    }
+    const onKeyDown = (event: Event): void => {
+      if (!('key' in event) || typeof event.key !== 'string') return
+      const editableTarget = isEditableTarget(event.target)
+      // 键盘滚动作用在"焦点所在的滚动容器"上;焦点不在本容器就不是本列表的滚动意图。
+      // 输入控件内的按键要交给 keyboardScrollIntent 判成 none(那是打字,不是滚动)。
+      if (!editableTarget && !inContainer(document.activeElement)) return
+      recordUserIntent(
+        keyboardScrollIntent({
+          key: event.key,
+          shiftKey: 'shiftKey' in event ? event.shiftKey === true : false,
+          editableTarget,
+        }),
+      )
+    }
+    window.addEventListener('wheel', onWheel, { passive: true })
+    window.addEventListener('touchstart', onTouchStart, { passive: true })
+    window.addEventListener('touchmove', onTouchMove, { passive: true })
+    window.addEventListener('keydown', onKeyDown, { passive: true })
+    return () => {
+      window.removeEventListener('wheel', onWheel)
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [recordUserIntent])
 
   // 2026-07-28 立:Jump-to-latest 浮动按钮点击处理(深度对标 AI 工作台)
   // - scrollIntoView 到 bottomRef(平滑)
@@ -384,10 +701,12 @@ export function useMessageListScroll({
   // 属"生产了没人消费"的孤儿通道,连同重复执行一并删除。
   const scrollToBottom = React.useCallback(() => {
     const el = bottomRef.current
+    markProgrammaticScroll()
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
-    userScrolledUpRef.current = false
-    safeSetUserScrolledUp(false)
-  }, [safeSetUserScrolledUp])
+    // 点「跳到最新」本身就是一次**用户输入**(方向是"靠近底部"),所以这里把滚动权交还给跟随。
+    // 几何账目不在此处改写:随后派发的 scroll 事件会自己把落点记进去。
+    applyAuthority({ following: true })
+  }, [applyAuthority, markProgrammaticScroll])
 
   // 2026-07-28 立(深度对标 AI 工作台):键盘导航 ↑/↓ 切换消息聚焦
   // - 焦点不在 input/textarea/contenteditable 时生效(避免与输入冲突)
