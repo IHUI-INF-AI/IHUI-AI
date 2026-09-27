@@ -3843,6 +3843,28 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 包入口 barrel 漏 re-export 对账(G-215)(1 项,blocking)---
+  {
+    id: '149',
+    label:
+      '包入口 barrel 漏 re-export 对账:端内从裸包名 import 的名字必须由包入口真的递出',
+    script: 'check-package-barrel-export.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PACKAGE_BARREL_EXPORT',
+    stagedTriggers: ['packages/', 'apps/'],
+    onFailHint: [
+      '',
+      '  修复出口只有一个:把该符号补进包入口的显式清单(或在入口 re-export 它)。不得改判据、不得加豁免、不得去掉 web 的 ignoreBuildErrors 来"顺手收紧构建"。',
+      '  为什么本地一路绿:漏 re-export 既不报类型错(被 next.config.ts 的 typescript.ignoreBuildErrors 吃掉)也不报构建错(打包器只看 exports→dist/index.js),只有运行时 undefined 砸到用户手上 —— 与守门 98 方向相反(98 判 import 了不存在的,本门判存在但没递出来)。',
+      '  ① 现读:node scripts/check-package-barrel-export.mjs [--json|--staged|--worktree]',
+      '  ② 问责(未判定与存量一并拒出合格证):node scripts/check-package-barrel-export.mjs --strict',
+      '  ③ 取证:node scripts/check-package-barrel-export.mjs --self-test;node --test scripts/tests/check-package-barrel-export.test.mjs —— 例数以命令末行现读为准,勿照抄文档',
+      '  紧急跳过(不推荐):HUSKY_SKIP_PACKAGE_BARREL_EXPORT=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
