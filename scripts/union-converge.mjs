@@ -63,8 +63,19 @@ const GIT = 'C:/Program Files/Git/cmd/git.exe'
 export const LIVE_DOCS = ['PROJECT_PLAN.md', 'AGENTS.md', 'README.md']
 const GIT_TIMEOUT = 300000
 
+/**
+ * 提交身份必须随调用一起给,不能依赖"当前用户配过 global config"。
+ * 实测:本收敛器由 IHUI-DEPLOYLOOP 以服务身份(LocalSystem)后台发起,而 user.name/user.email
+ * 只配在交互账户的 %USERPROFILE%\.gitconfig 里 —— SYSTEM 那份读不到,于是 :1091 的 commit-tree
+ * 直接 `fatal: unable to auto-detect email address (got 'SYSTEM@WIN-...')`,收敛**一次都没成功过**。
+ * 更坏的是失败形态:调用方 git-sync-converge 把"非零退出"统一报成"union-converge 亦判需人工",
+ * 部署环据此连寄告警 —— 工具崩溃被读成了内容裁决,而内容从未被归并过。
+ * 取值与 scripts/git-rebuild-local.mjs:113 登记的仓库机器身份同一份,不自立第二档。
+ */
+const GIT_IDENTITY = ['-c', 'user.name=智汇AGI社区', '-c', 'user.email=ok502319984@gmail.com']
+
 function git(args, cwd = ROOT, input) {
-  return execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+  return execFileSync(GIT, ['-c', 'safe.directory=*', ...GIT_IDENTITY, ...args], {
     cwd,
     input,
     encoding: 'utf8',
