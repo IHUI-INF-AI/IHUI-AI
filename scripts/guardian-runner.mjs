@@ -3666,6 +3666,26 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)(1 项,blocking)---
+  {
+    id: '140',
+    label:
+      'V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)',
+    script: 'check-v3-62-conversation-mount.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_V362_CONV_MOUNT',
+    stagedTriggers: ['apps/web/src/components/chat/', 'packages/shared/src/sse/'],
+    onFailHint: [
+      '',
+      '  本门钉三件:BusinessFormSection 必须真被 MessageList 挂载;form_request 契约段与消费点逐字段同形;sse/contract.ts 与 ai-service sse_contract.py 的既有 parity 不得被绕过。',
+      '  现读:node scripts/check-v3-62-conversation-mount.mjs --worktree / --json',
+      '  自检:node scripts/check-v3-62-conversation-mount.mjs --self-test',
+      '  紧急跳过:HUSKY_SKIP_V362_CONV_MOUNT=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
