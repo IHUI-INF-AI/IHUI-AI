@@ -12959,3 +12959,26 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **顺带修正一处事实**:`tauri_plugin_global_shortcut` 在 Rust 层只注册了 `Ctrl+Shift+I` / `Ctrl+Shift+N` / `Ctrl+Shift+S` 三个,**没有 Ctrl+Q** —— 所以"被 Rust 截走"这一支也已排除,不是候选原因。
 - **这条的通用教训(与本仓"一次性量尺的失败表现为 0 处"同族)**:自动化验证工具**回报 succeeded 且 foregroundStatus: matched,只证明消息发到了窗口层,不证明页面 JS 收到了事件**。判"某个 UI 交互不工作"之前,必须先按一个**已知会生效且不受保留键影响的输入**做阳性对照;没有阳性对照的否定式结论一律不成立。本次我差点把工具的空转写成应用的缺陷。
 - **仍未验收的那一项(如实留在账上)**:真机端到端"点托盘『退出』→ 进程在 3 秒内终止"。可行路径只剩**原生托盘点击**(托盘图标是 Shell 的窗口,不经过 WebView2,注入通路不同),本会话未能定位到该图标(按窗口枚举拿不到托盘;裁剪任务栏区域取到全白)。验收判据已备好:若走到本次新增的兜底,`logs/智汇AI.log` 会出现「app.exit(0) 未在 3s 内终止进程(事件循环未消费退出请求),强制退出」这一行 —— 它是现成的、可 grep 的观测点,不需要靠"看起来退出了"下结论。
+
+## 第五十六批(2026-09-27 午后·第六波):两条全局锁的"判活"补上进程身份三元组(ZCode 吸收线批次 50)—— 大白话:以前只能猜"这人是死是活",现在能问出来
+
+- **一句话**:两条互斥锁(git 写锁 / 部署构建锁)过去只认 pid 号码,而 pid 会被系统回收再用 —— 于是"持锁的人还活着"这句话可以永远是真的、而真相是那人早走了。本批把锁里多记两样(哪台机器 + 那个 pid 的启动时刻),每次要判"能不能抢"时拿现测值对账,得出**三态**而不是"活着/死了"两态。**只有确证被复用时才多给一条抢占授权**;对不上账、量不到、旧锁没记、锁是别的机器留下的 —— 四种一律**维持改动前的行为**。这么做只有一个理由:抢错的代价是两个人同时写 `.git`(§5b 那串事故),少抢的代价只是多等一轮。
+- **落地面(4 个文件,全部由本会话当轮实测复跑后才落地)**:新增 `scripts/lib/proc-identity.mjs`(唯一实现:现测启动时间 + 三态判定 + 主机名守卫 + 5s 缓存,派生带 `windowsHide`/`timeout`)、新增镜像测试 `scripts/tests/proc-identity.test.mjs`;`scripts/git-lock.mjs` 与 `scripts/deploy-lock.mjs` 各自接线(写侧记两元、读侧归一、判据侧只认 `mismatch`、`check`/`heartbeat`/`release` 一律不派生)。
+- **主会话独立复跑取证(数字都是当轮现读,不引用代理报告)**:
+  | 入口 | 结果 |
+  | --- | --- |
+  | `node --test scripts/tests/proc-identity.test.mjs` | pass 19 / fail 0,rc 0 |
+  | `node --test scripts/tests/{deploy-lock,deploy-lock-stale-steal,git-lock-stale-steal}.test.mjs`(改动前既有的三条) | pass 50 / fail 0,rc 0 |
+  | `node --test` 其余四条名字含 lock 的镜像(回归面) | pass 64 / fail 0,rc 0 |
+  | `node scripts/deploy-lock.mjs --self-test` | 自检 63 条:pass 63 / fail 0(含 S40–S49 九条新断言) |
+  | `node scripts/git-lock.mjs check` | rc 0(当前无 git 写锁) |
+  | `node scripts/deploy-lock.mjs check` | **rc 1** —— 真仓此刻确有 `.deploy.lock`(`mode=dev pid=41112 alive=false 锁龄 11,913,405ms`),该命令按设计"有锁即 1",不是本批引入的故障;新输出行如实带上 `host=(未记) pidStart=(未记)` 并写明"旧 meta 无凭据 ⇒ 身份无从对账,acquire 侧维持原判据" |
+  | `node scripts/check-no-visible-spawn.mjs`(HEAD 面与工作树面各一次) | 均 rc 0,生产代码 0 违规(新增派生确实带 `windowsHide`) |
+  | `node scripts/check-gate-face-discipline.mjs` | rc 0(经取材层 77 / 散写 68 / 判不了 40 / 不读内容 30 / 取不到 0) |
+  | `eslint` 四文件 | rc 0 |
+  | `node scripts/watermark.mjs verify` 两份新文件 | 均 rc 0(载荷完好) |
+- **真实测量阳性对照(不是夹具)**:现取一个新起进程的启动时刻,与同一时刻的 epoch 相减 **delta=0**;同一 pid 连问两次 ⇒ `match`;问一个不存在的 pid ⇒ `unverifiable` 并带原因;伪造 `host` ⇒ `unverifiable`(别机不判复用);把记录值人为提前 700s ⇒ `mismatch` 并输出"该 pid 已被复用"。单次现测耗时 **211ms**,5s 内命中缓存 **0ms** —— 这是"敢不敢把它放进等待循环"的量级依据。
+- **两条被更正的任务书前提(代理当场指出、我复验成立,记下来防再犯)**:① `scripts/check-gate-verify-injection.mjs` **在仓里不存在**,任务书按记忆点名了它;② `node scripts/deploy-lock.mjs check` 在真仓有锁时 rc=1 是**设计判据**,不得当成"接线没通过"。另:`scripts/git-lock.mjs` 没有 `--self-test` 档,它的判据证据全在镜像测试里。
+- **一处代理报告与我实测不一致,按我的现读登记**:报告称"既有 6 个 lock 测试文件 101 例全绿"。实跑口径是:与本批改动面直接对应的既有 3 个镜像文件 **50 例**、新镜像 **19 例**、另外 4 个文件名含 lock 的同族镜像 **64 例**,合计 **133 例 / rc 0**;"6 个文件 101 例"这个组合我复现不出来。不得把报告数字当账面写进交付。
+- **两处"登记不代改"的分歧(归属=锁的持有人,已在源码与 AGENTS §5b 就地写明)**:① `git-lock.mjs` 头注写"活进程的锁绝不会被抢",而 `acquire` 的真实条件是"名义存活且锁龄超 `staleMs`/`hardStaleMs` 也抢"(活着只用于构造措辞,兜住长流程的是心跳续 `ts`)—— 改严会暴露活人的长流程,改松是关掉既有逃生通道,所以**只加更精确的那一条,不动原判据形状**(镜像 ⑤ 锁着它);② `cleanStaleIndexLocks()` 在 `tasklist` 取不到时按"无 git 进程"处理 ⇒ **不看锁龄直接删**原生 `index.lock`,这一格结构上没有 pid 可对账,身份三元组帮不上。
+- **本批没有做的事(如实登记,别读成收口)**:没有新增守门,也没给提交链加任何调度 —— 它是运行时机制,判的是"锁此刻归谁",不是"这次提交对不对",挂 blocking 就是一台与提交内容无关的门(§12e 同型)。没有把 dev 侧四个 npm 生命周期(`predev`/`dev:clean`/`dev:stable`/`prebuild`)的心跳补上(§12 已登记"没法声明 owner"),所以那四处仍靠"CLI pid 多半已死 ⇒ 秒抢"这条弱机制,新加的身份两元对它们无从对账。没有动 `HARD_CAP_MS`/`--owner-pid` 的既有语义。README 无改动(该文档通篇不描述这两条锁,§21 的"内部优化不改变对外能力"豁免)。
