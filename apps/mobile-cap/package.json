@@ -1,6 +1,7 @@
 {
   "name": "@ihui/mobile-cap",
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "private": true,
   "description": "Capacitor 壳:复用 apps/web 静态导出(out/)打包 Android/iOS App,官方插件提供离线推送/相机/分享/扫码等原生能力",
   "scripts": {
@@ -29,7 +30,5 @@
     "patch-package": "^8.0.1"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
-  "homepage": "https://aizhs.top",
-  "copyright": "© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved.",
-  "x-ihui-provenance": "IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026"
+  "homepage": "https://aizhs.top"
 }
