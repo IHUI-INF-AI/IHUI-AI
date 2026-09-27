@@ -229,7 +229,7 @@ function readRootEnvKey(key) {
 }
 
 /** 凭据:① 服务环境块 ② §5d 权威目录口令文件(key-dir 唯一实现)。返回 {user,password,source}|{null,reason};口令永不打印 */
-function resolveCredential() {
+export function resolveCredential() {
   const envUser = (process.env.IHUI_DB_BACKUP_USER || '').trim()
   const envPw = process.env.IHUI_DB_BACKUP_PASSWORD || ''
   if (envPw.trim()) return { user: envUser || 'beifen', password: envPw, source: 'env IHUI_DB_BACKUP_*' }
@@ -247,7 +247,7 @@ function resolveCredential() {
   return { null: true, reason: '专用角色凭据取不到(env 未设且口令文件不存在)—— 刻意不回落到 .env 应用账号:本工具的最小权限边界' }
 }
 
-function defaultExec(step, { timeoutMs = 30_000, discardStdout = false } = {}) {
+export function defaultExec(step, { timeoutMs = 30_000, discardStdout = false } = {}) {
   const [exe, ...args] = step.argv
   const env = { ...process.env, PGCLIENTENCODING: 'UTF8' }
   if (step.password) env.PGPASSWORD = step.password
