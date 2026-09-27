@@ -9767,6 +9767,7 @@
     "restoreFailed": "チェックポイントの復元に失敗しました",
     "bestOfAdopted": "選択した候補を会話に書き込みました",
     "tabs": {
+      "inspector": "raw フレーム",
       "goal": "目標",
       "memory": "メモリ",
       "plan": "計画",
@@ -9797,6 +9798,22 @@
     "applied": "適用済み",
     "apply": "適用",
     "hint": "利用可能な AI ツール",
+    "inspector": {
+      "start": "収集開始",
+      "stop": "収集停止",
+      "clear": "クリア",
+      "export": "JSONL 出力",
+      "filter": "タイプで絞り込み",
+      "filterAll": "すべてのタイプ",
+      "count": "全 {total} フレーム、表示 {shown}",
+      "empty": "フレームなし",
+      "hint": "「収集開始」を押すと、次の AI 返信の raw SSE フレームをここに逐次記録します(開発者デバッグビュー)",
+      "waiting": "ストリームフレームを待機中…",
+      "truncated": "最新 300 フレームのみ表示(全 {total} フレームは JSONL 出力で取得できます)",
+      "copied": "コピーしました",
+      "copyFailed": "コピー失敗",
+      "copyOne": "このフレームをコピー"
+    },
     "worldsAdopted": "ブランチの返信を採用しました"
   },
   "agentHooks": {
