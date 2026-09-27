@@ -315,77 +315,23 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
-/// `quit_app` 的强制终止宽限期(秒):留给正常事件循环退出的时间,超时即强杀。
+/// 退出的强制终止宽限期(秒):留给正常事件循环走完的时间,到点即强杀。
+/// 托盘「退出」与 `quit_app` 共用这一把表。
 const QUIT_FORCED_EXIT_GRACE_SECS: u64 = 3;
 
-/// 托盘「退出」交给前端之后,Rust 侧**默认**只等多久(秒)。
+/// 装上"到点必然终止进程"的兜底,**只在用户已明确要求退出**时调用。
 ///
-/// 2026-09-27 由 120 改 5 —— 用户原话:「点了退出还得等 128 秒才能退?那退出按钮的意义
-/// 是什么,谁家程序这么设定?」这句是对的:120s 是我拿"兜底"当"修复"留下的口子,
-/// 它保证"最终会退",但没保证"按了就走",而后者才是这个按钮的全部语义。
-///
-/// 现在的模型是**租约**而不是等待:默认 5s 到点就强退;前端若真在跑更新链
-/// (检查/下载/安装,可达数十秒),由它自己调 `renew_quit_lease` 显式续期。
-/// 于是 2026-08-16 那次"2s 定时强退会打断安装"的理由仍然被尊重 —— 只是打断的
-/// 决定权从"Rust 单方面猜"换成了"前端明确说我在装"。前端接不到事件/整条链挂死时,
-/// 表现就是按退出 → 最多 5s → 进程消失。
-const QUIT_FRONTEND_GRACE_SECS: u64 = 5;
-
-/// 续租上限(秒):一次续租最多把强制终止推后这么久,防止前端"续一次就永远不断"。
-const QUIT_LEASE_MAX_SECS: u64 = 600;
-
-/// 退出租约的到期时刻(unix ms)。0 = 无退出请求在途。
-static QUIT_LEASE_DEADLINE_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-/// 看门狗线程是否已在跑(只允许一个,靠它读同一份到期时刻,避免多把表互相顶结论)。
-static QUIT_WATCHDOG_RUNNING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
-}
-
-/// 前端接手退出请求后为它**续租**。
-///
-/// 只有"我此刻正在检查/下载/安装更新"才该调它;不调就默认 5s 内必退。
-/// 续租失败(前端根本没接住事件)不构成故障 —— 那正是让 5s 兜底生效的路径。
-#[tauri::command]
-fn renew_quit_lease(secs: u64) {
-    use std::sync::atomic::Ordering;
-    let capped = secs.min(QUIT_LEASE_MAX_SECS);
-    let want = now_ms() + capped * 1000;
-    let prev = QUIT_LEASE_DEADLINE_MS.fetch_max(want, Ordering::SeqCst);
-    log::info!(
-        "[desktop] 退出租约已续 {capped}s(前端声明正在处理更新链;原到期时刻 {:?})",
-        prev
-    );
-}
-
-/// 装上"租约到期即终止进程"的兜底,**只在用户已明确要求退出**时调用。
-///
-/// 与 2026-08-16 删掉的那条"托盘 emit 后 2s 定时强退"的区别:那条在 Rust 单方面计时
-/// 且无人可续;本函数的到期时刻是一块**可续期**的租约,前端在真正干活时会推后它,
-/// 而它一旦停止续期(挂死/没接住事件/崩了),到点就退。
+/// 2026-09-27 简化:此前是一块**可续期租约**(`renew_quit_lease` + 前端续租),用来给
+/// "托盘退出 → 交给前端查更新/装更新"那条链留时间。那条链同日整条撤掉(见 tray.quit
+/// 分支注释)—— 更新能力并没有丢:启动有静默检查,托盘另有独立「检查更新」项且会报结果。
+/// 留着租约等于给一条不存在的通路留出口,故退回一把固定计时器。
 fn arm_forced_exit(app: &tauri::AppHandle, grace_secs: u64) {
-    use std::sync::atomic::Ordering;
-    let started = now_ms();
-    QUIT_LEASE_DEADLINE_MS.fetch_max(started + grace_secs * 1000, Ordering::SeqCst);
-    // 已有哨兵在跑就只续期,不再派第二个线程 —— 两把表各等各的,先过期的那把会替后者做决定。
-    if QUIT_WATCHDOG_RUNNING.swap(true, Ordering::SeqCst) {
-        return;
-    }
     let handle = app.clone();
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_millis(250));
-        let now = now_ms();
-        let deadline = QUIT_LEASE_DEADLINE_MS.load(Ordering::SeqCst);
-        if now < deadline {
-            continue;
-        }
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(grace_secs));
         log::error!(
-            "[desktop] 退出请求在租约内未被完成(自发起已 {}s,无人续租),强制退出",
-            (now - started) / 1000
+            "[desktop] app.exit(0) 未在 {}s 内终止进程(事件循环未消费退出请求),强制退出",
+            grace_secs
         );
         handle.cleanup_before_exit();
         std::process::exit(0);
@@ -559,40 +505,23 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 }
             }
             "tray.quit" => {
-                // 2026-07-31:退出前先持久化窗口状态,然后 emit 事件给前端。
-                // 前端会检查更新:有更新则下载+安装+重启,无更新则调 quit_app 退出。
-                // 2026-08-16 修订:不做"emit 后定时强退"兜底——此前 2s 强退实现
-                // 有缺陷:get_webview_window 在进程存活期间恒为 Some,前端处理 quit
-                // (检查/安装更新可能数十秒)必然被 2s 强杀,中断更新流程甚至损坏安装。
-                // 正确兜底:仅当 main 窗口对象不存在(异常状态)时直接退出。
+                // 2026-09-27 改:托盘「退出」= **立即退出**,不再把决定权交给前端。
+                //
+                // 原设计(2026-07-31)是"emit 给前端 → 前端查更新/装更新 → 回头调 quit_app"。
+                // 它的代价被真机量出来两次:① 前端那条链可以完全不被接住(监听注册竞态),
+                // 而 Rust 单方面在等 —— 先是无上限地等(用户报「永远退不掉」),改成 120s
+                // 又被驳回「点了退出还得等 128 秒?那这按钮的意义是什么」;② 遮罩写着
+                // 「检查更新」却从不报有没有更新,是一个不给答案的中间步骤。
+                //
+                // 撤掉这条链**不丢更新能力**:启动有静默检查(use-updater 的 silent check),
+                // 托盘另有独立「检查更新」项,那条会明确报 已是最新 / 失败 / 可安装。
+                //
+                // 兜底仍然"先武装、后干活":save_window_state 会访问 store 与窗口几何,
+                // 任一卡住都不该把"退出"这件事一起带走。
+                arm_forced_exit(app, QUIT_FORCED_EXIT_GRACE_SECS);
                 let _ = save_window_state(Some("main".to_string()), app.clone());
                 let _ = save_window_state(Some("admin".to_string()), app.clone());
-                if let Some(window) = app.get_webview_window("main") {
-                    let emitted = window.emit("desktop-tray-action", "quit").is_ok();
-                    if !emitted {
-                        log::warn!("[desktop-event] emit desktop-tray-action(quit) 失败,前端收不到退出请求");
-                    }
-                    // 2026-09-27 立:退出请求交给前端之后,Rust 侧必须留一条"最迟会退"的下限。
-                    // 上面那条注释记录的 08-16 删除动作,删的是"emit 后 2s 定时强退"——2s 会打断
-                    // 前端的检查/下载/安装(可达数十秒),删除理由成立;但删完之后这一格变成
-                    // **完全无上限**,于是"前端整条链挂死"就成了永久卡死 —— 09-27 真机复现的正是
-                    // 这一格:遮罩停在「正在退出...」,而 quit_app 这个 command 从未被执行
-                    // (其内部新增的兜底日志计数为 0)。
-                    // 默认档 5s:前端若真在处理更新,由它调 renew_quit_lease 续租;
-                    // 不续租 = 到点就退(09-27 用户否掉了"默认等 120s"的写法 —— 那是拿兜底当修复)。
-                    // emit 失败时前端根本收不到请求,更没必要等,直接用 3s。
-                    arm_forced_exit(
-                        app,
-                        if emitted {
-                            QUIT_FRONTEND_GRACE_SECS
-                        } else {
-                            QUIT_FORCED_EXIT_GRACE_SECS
-                        },
-                    );
-                } else {
-                    // 主窗口不存在(异常状态),直接退出
-                    app.exit(0);
-                }
+                app.exit(0);
             }
             _ => {}
         })
@@ -2713,7 +2642,6 @@ pub fn run() {
             get_admin_window_info,
             toggle_devtools,
             quit_app,
-            renew_quit_lease,
             restart_app,
             open_admin_window,
             start_resize,
