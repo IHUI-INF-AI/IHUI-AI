@@ -6285,3 +6285,11 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | 140 | guardian-runner.mjs + package.json scripts | `check-rn-double-header.mjs` | ⚠️ RN 屏包装器 NavBar × 共享屏自带页头 ⇒ 同屏两条返回键与两个标题;判据从调用点实参识别抑制通道,禁删任一层(blocking;出口 `double-header-exempt`;细节见 AGENTS.md 同名条) |
 | 144 | guardian-runner.mjs + package.json scripts | `check-rn-double-header.mjs` | ⚠️ RN 屏包装器 NavBar × 共享屏自带页头 ⇒ 同屏两条返回键与两个标题;判据从调用点实参识别抑制通道,禁删任一层(blocking;出口 `double-header-exempt`;细节见 AGENTS.md 同名条) |
 | 145 | guardian-runner.mjs + package.json scripts | `check-readme-table-integrity.mjs` | ⚠️ 长文塞进表格单元格 → prettier 把散文里的竖线当列分隔符重排,表格被打断;TI1 竖排续行判红、T-B 半截行只报数,修复出口 `readme-table-unwrap.mjs`(blocking;出口 `table-cell-exempt`;细节见 AGENTS.md 同名条) |
+
+
+| (空闲号待定) | **尚未注册** —— 原 145 号注册块被并发提交回写,三面零命中 | `check-readme-table-integrity.mjs` | ⚠️ 设计定级 blocking 但**现值零调度器**:判据对 HEAD 面 README 现读 61 行 TI1(棘轮 cap=0),先清偿存量再补注册,否则接进提交链就是一台恒红门;TI1 竖排续行判红、T-B 半截行只报数,修复出口 `readme-table-unwrap.mjs`(出口 `table-cell-exempt`;细节与解阻顺序见 AGENTS.md 同名条) |
+### 发布线本轮收口新增的对外能力与运维入口（2026-09-27）
+- **Web 侧发布监测与扫码导入不再依赖直连 AI 服务**：`apps/api` 补齐 4 条代理路由 —— `GET /api/publish/monitor/overview`、`POST /api/publish/monitor/verify`、`POST /api/publish/monitor/refresh-metrics`、`POST /api/publish/scan-login/import-cookies`。此前 `/publish/monitor/*` 在代理层零路由，Web 打开监测页必 404（只有直连 8803 可用）。防再漏的尺子是 `apps/api/tests/publish-proxy-parity.test.ts`（两侧路由集逐条对账，条数下限防空扫假绿）。
+- **凭据配置文档有了真出口**：`docs/PUBLISH_SETUP.md` 逐平台写明"适配器到底要哪几个字段"（字段名一律取各适配器 `requires_credentials`，不是手抄），并如实写不可绕过的现实障碍（公众号要服务器 IP 白名单、CSDN 扫码 Cookie 只够读不够写、掘金发完先进审核）。注册表里 14 条 `setupHint` 的锚点由 `apps/api/tests/publish-setup-anchor.test.ts` 双向钉住（提示指向的锚点必须存在；写了锚点却没人指也算腐烂）。
+- **反风控身份键改为稳定锚点**：账号身份键不再由"凭证里第一个值的哈希"派生（平台轮换 Cookie ⇒ 每次刷新就换一张脸，是"刷新 token 就风控"的真因），唯一出口 `apps/ai-service/app/services/publish/anti_risk/account_identity.py`，优先用数据库行 id。检测、登记、画像、指纹四处共用这一份。旧画像按 `apps/ai-service/scripts/migrate_publish_identity.py` 迁移，保留登录状态、不要求重新扫码。
+- **整数主键序列落后对账**（手动问责档，不进提交链）：`pnpm check:sequence-lag` 现读全库有序列的表，只报"序列的下一个值 ≤ 表内 max(id)"这一型撞键风险；`pnpm check:sequence-lag:fix` 只向前推平、绝不回拨。配套 `apps/ai-service/app/services/publish/db_write_guard.py` 把发布审计写入的撞主键从 `warning` 改成带修复命令的 `error` —— 此前审计静默丢失而账面看不出来。
