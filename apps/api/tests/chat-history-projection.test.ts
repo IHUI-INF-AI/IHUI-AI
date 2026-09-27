@@ -266,5 +266,58 @@ describe('GET /conversations/:id/history(D35 turn 分片)', () => {
       direction: 'newer',
     })
   })
+
+  // 2026-09-27 补(查询层存续性落到响应面):断点存续性必须由响应带出来,
+  // 且越权路径必须在**翻页查询之前**就停住 —— 只断 403 会放过"先切了窗口再判归属"。
+  it('别人的会话 → 403 且未发出翻页查询', async () => {
+    mockAuthenticate.mockImplementationOnce(async (req: { userId?: string }) => {
+      req.userId = 'user-attacker'
+    })
+    mockFindConversationById.mockResolvedValueOnce({
+      id: CONV_ID,
+      userId: 'user-victim',
+      historyProjectionState: { nextRolloutByteOffset: 1, nextRolloutOrdinal: 1, lastRolledAt: 'x' },
+    })
+    const res = await server.inject({ method: 'GET', url: `/conversations/${CONV_ID}/history` })
+    expect(res.statusCode).toBe(403)
+    expect(mockFindHistoryTurnPage).not.toHaveBeenCalled()
+    // 归属不通过时不得把会话的投影断点漏给非属主(它是"这条会话有多长"的侧信道)
+    expect(res.json().data).toBeUndefined()
+  })
+
+  it('cursorState 由查询层结论原样透传(stale ⇒ 空页也不给半真窗口)', async () => {
+    mockAuthenticate.mockImplementationOnce(async (req: { userId?: string }) => {
+      req.userId = 'user-1'
+    })
+    mockFindConversationById.mockResolvedValueOnce({
+      id: CONV_ID,
+      userId: 'user-1',
+      historyProjectionState: null,
+    })
+    mockFindHistoryTurnPage.mockResolvedValueOnce({
+      turns: [],
+      nextCursor: null,
+      hasMore: false,
+      cursorState: { status: 'stale', reason: 'anchor-missing' },
+    })
+    const cursor = Buffer.from(JSON.stringify({ turnOrdinal: 99 })).toString('base64url')
+    const res = await server.inject({
+      method: 'GET',
+      url: `/conversations/${CONV_ID}/history`,
+      query: { cursor, direction: 'older' },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json().data
+    expect(body.cursorState).toEqual({ status: 'stale', reason: 'anchor-missing' })
+    expect(body.turns).toEqual([])
+    expect(body.hasMore).toBe(false)
+    expect(body.nextCursor).toBeNull()
+    // 游标必须原样交到查询层(它才知道要探哪一轮的锚点)
+    expect(mockFindHistoryTurnPage).toHaveBeenCalledWith(CONV_ID, {
+      limit: 20,
+      cursorTurnOrdinal: 99,
+      direction: 'older',
+    })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
