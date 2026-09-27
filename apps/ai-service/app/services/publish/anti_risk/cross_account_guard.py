@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -432,6 +433,7 @@ class CrossAccountGuard:
     async def async_check_device_linkage(
         self,
         account_id: str,
+        owner_of: Callable[[str], str | None] | None = None,
     ) -> tuple[bool, int, list[str]]:
         """检测账号是否与其他账号共享设备/IP/指纹/UA(跨会话持久化检测)。
 
@@ -439,6 +441,8 @@ class CrossAccountGuard:
 
         Args:
             account_id: 被检测的账号 ID
+            owner_of: 可选归属解析器，透传给图谱判据。给了它，"同一用户的多个平台账号"
+                不再算跨账号关联（详见 `DeviceGraphGuard.detect_linkage` 的说明）。
 
         Returns:
             (is_linked, risk_score, linkage_types)
@@ -449,13 +453,15 @@ class CrossAccountGuard:
         from .device_graph_guard import get_device_graph_guard
 
         guard = get_device_graph_guard()
-        report = await guard.detect_linkage(account_id)
+        report = await guard.detect_linkage(account_id, owner_of=owner_of)
         if report.is_linked:
             logger.warning(
-                "[cross_guard] 账号 %s 检测到跨会话关联:风险=%d 类型=%s 关联账号=%d",
+                "[cross_guard] 账号 %s 检测到跨会话关联:风险=%d 类型=%s 关联账号=%d"
+                "(同主人已跳过 %d)",
                 account_id, report.risk_score,
                 ",".join(report.linkage_types),
                 len(report.linked_accounts),
+                report.same_owner_skipped,
             )
         return report.is_linked, report.risk_score, report.linkage_types
 
