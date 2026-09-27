@@ -61,7 +61,10 @@ const nextConfig: NextConfig = {
   // 权衡:放弃 StrictMode 的 dev-only bug 检测(副作用/不纯渲染暴露),但项目已有
   // 50+ e2e 测试 + 生产稳定运行,检测价值边际递减。
   reactStrictMode: false,
-  typescript: { ignoreBuildErrors: true }, // CI 构建跳过 TS 错误(多 agent 并行开发可能有临时错误)
+  // 2026-09-28 摘除 typescript.ignoreBuildErrors:true —— 该开关曾用于掩盖多 agent 并行的
+  // 临时类型错误,代价是 main 类型门失效两周(CI 恒红期间 lint/test 从未跑到)。
+  // 类型正确性由 `pnpm turbo run typecheck`(CI Typecheck 步)统一把关,
+  // next build 恢复默认:有类型错误即构建失败。
   // Next 16 移除了 NextConfig.eslint 配置项(ESLint 不再在 next build 期间运行,
   // 由独立 `next lint` 或外部 ESLint 流程负责),原 eslint.ignoreDuringBuilds 不再需要。
   productionBrowserSourceMaps: false,
