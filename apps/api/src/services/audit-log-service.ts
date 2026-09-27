@@ -20,6 +20,7 @@
  * 避免 JSONB 读取后 key 顺序变化导致 hash 误报。
  */
 import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
+import { z } from 'zod'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import { hmacSHA256, secureRandomBytes } from '../utils/crypto-extra.js'
@@ -234,6 +235,151 @@ export async function queryAuditLogs(
   return selectAuditLogs(filters, page, pageSize)
 }
 
+// =============================================================================
+// CLI 工具账本 → 审计链(86A「证据流水的写入源投影」,2026-09-28)
+// =============================================================================
+//
+// 要钉的缺口:CLI 的流式工具账本(apps/cli/src/stream-tool-ledger.ts)每轮都
+// 产出快照,但快照出口在生产面**零消费者** —— 工具调用从未进入审计链。
+// 本节是服务端侧的落库出口,复用既有 audit_logs_chain + HMAC 链写入器
+// (recordAuditLog),**0 新表 0 新列**:
+//   - action='tool.invoke' / resourceType='agent_tool_call' / resourceId=callId
+//     (= 账本 dedupeKey,`fingerprint#occurrence`,与 CLI 侧幂等口径同形)
+//   - metadata 只装无归因的对账字段:turn / streamId / seq / fingerprint /
+//     toolName / state / early / ok / skipReason / 两个时刻。**刻意不落 args 原文**
+//     (跨流辨认靠 fingerprint 指纹;入参摘要的唯一出口在 86B 建设,落地前
+//     不得在此自造第二份 —— 两处算同一件事必漂移)。
+//
+// 身份纪律(§5「已登录不等于可以动这条数据」的读法):`userId` 只能由调用它的
+// 路由从**令牌主体**(request.userId)传入,客户端上报体一律不得自带身份 ——
+// 下面的 strictObject 会在 schema 层拒掉任何混入 userId/user_id 的 body,
+// 让"自带身份"成为不可能形态而不是靠自觉。
+
+/** 与 CLI 侧 TOOL_LEDGER_AUDIT_MAX_FACTS 同值;改一处必须两处同改(两侧各有超限用例钉)。 */
+export const TOOL_LEDGER_AUDIT_MAX_FACTS = 100
+
+/** user_id 列是 ::uuid cast,入口先按 uuid 形状把关(错误归位,不外溢成 DB 故障)。 */
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+
+/** 工具账本审计事件在链上的固定形状(action/resourceType),导出供测试与后续导出器对齐。 */
+export const TOOL_INVOKE_AUDIT_ACTION = 'tool.invoke'
+export const TOOL_INVOKE_AUDIT_RESOURCE_TYPE = 'agent_tool_call'
+
+const toolLedgerAuditFactSchema = z.strictObject({
+  callId: z.string().min(1).max(160),
+  turn: z.number().int().min(1),
+  streamId: z.string().min(1).max(128),
+  seq: z.number().int().min(1),
+  fingerprint: z.string().regex(/^[0-9a-f]{16}$/),
+  toolName: z.string().min(1).max(80),
+  state: z.enum(['registered', 'started', 'settled', 'lost']),
+  early: z.boolean(),
+  ok: z.boolean().optional(),
+  skipReason: z.string().max(200).optional(),
+  startedAtMs: z.number().int().nonnegative().optional(),
+  settledAtMs: z.number().int().nonnegative().optional(),
+})
+
+/** 一轮上报的请求体(由 CLI buildToolLedgerAuditIngest 产出)。刻意无 userId 字段。 */
+export const toolLedgerAuditIngestSchema = z.strictObject({
+  version: z.literal(1),
+  turn: z.number().int().min(1),
+  streamId: z.string().min(1).max(128),
+  createdAtMs: z.number().int().nonnegative(),
+  endOfStreamAtMs: z.number().int().nonnegative().optional(),
+  facts: z.array(toolLedgerAuditFactSchema).min(1).max(TOOL_LEDGER_AUDIT_MAX_FACTS),
+})
+
+export type ToolLedgerAuditFact = z.infer<typeof toolLedgerAuditFactSchema>
+export type ToolLedgerAuditIngest = z.infer<typeof toolLedgerAuditIngestSchema>
+
+/** 单条事实的落库结果档(映射为 audit_logs_chain.result)。 */
+export function toolInvokeAuditResult(fact: ToolLedgerAuditFact): string {
+  if (fact.state === 'settled') return fact.ok === false ? 'failure' : 'success'
+  if (fact.state === 'lost') return 'lost'
+  // registered/started:请求已登记/在途但未观测到收尾 ⇒ 副作用状态未知
+  return 'unknown'
+}
+
+/** 摄入结果:写成功条数 + 逐条落库失败(undefined=事务降级)计数。 */
+export interface ToolLedgerAuditIngestResult {
+  recorded: number
+  failed: number
+}
+
+/**
+ * 写入口可注入(仅测试用):默认值就是带 HMAC 链的唯一写入器 recordAuditLog。
+ * 注入不是为了"绕开链"——生产调用方从不传 deps;它让"逐条字段映射 / 失败计数"
+ * 这类判据可以在不触碰 DB 的单测里被逐参数断言(§5 测试隔离铁律)。
+ */
+export interface RecordToolLedgerAuditDeps {
+  write?: (params: RecordAuditLogParams) => Promise<string | undefined>
+}
+
+/**
+ * 把一轮 CLI 工具账本上报落进审计链(每条 fact 一行,沿用带 HMAC 链的
+ * recordAuditLog 唯一写入口 —— 禁止在这里另起 insert 绕链)。
+ *
+ * @param userId **令牌主体**,由调用侧路由传入;本函数不接受任何来自
+ *               请求体的身份字段(schema 为 strict,带了会被拒)。
+ * @param ip / userAgent 透传进链行的对应列(与其它审计入口同形)。
+ * @returns 写入/失败计数;body 不合法时抛 Error(调用侧按 400 处理)。
+ */
+export async function recordToolLedgerAuditIngest(
+  userId: string,
+  body: unknown,
+  meta: { ip?: string; userAgent?: string } = {},
+  deps: RecordToolLedgerAuditDeps = {},
+): Promise<ToolLedgerAuditIngestResult> {
+  // 主体形状先行硬校验:audit_logs_chain.user_id 是 ::uuid cast,坏 uuid 会在
+  // recordAuditLog 内部被吞成"落库失败",把**接线错误**伪装成 DB 故障。
+  if (!UUID_RE.test(userId)) {
+    throw new Error('recordToolLedgerAuditIngest: userId must be a UUID (token principal)')
+  }
+  const parsed = toolLedgerAuditIngestSchema.safeParse(body)
+  if (!parsed.success) {
+    logger.warn('[audit-log-service] recordToolLedgerAuditIngest rejected body', {
+      issues: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
+    })
+    throw new Error(
+      `invalid tool-ledger audit body: ${parsed.error.issues[0]?.message ?? 'schema'}`,
+    )
+  }
+  const ingest = parsed.data
+  const write = deps.write ?? recordAuditLog
+  let recorded = 0
+  let failed = 0
+  for (const fact of ingest.facts) {
+    const id = await write({
+      userId,
+      action: TOOL_INVOKE_AUDIT_ACTION,
+      resourceType: TOOL_INVOKE_AUDIT_RESOURCE_TYPE,
+      resourceId: fact.callId,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+      result: toolInvokeAuditResult(fact),
+      metadata: {
+        turn: ingest.turn,
+        streamId: ingest.streamId,
+        seq: fact.seq,
+        fingerprint: fact.fingerprint,
+        toolName: fact.toolName,
+        state: fact.state,
+        early: fact.early,
+        ok: fact.ok ?? null,
+        skipReason: fact.skipReason ?? null,
+        startedAtMs: fact.startedAtMs ?? null,
+        settledAtMs: fact.settledAtMs ?? null,
+        snapshotCreatedAtMs: ingest.createdAtMs,
+        endOfStreamAtMs: ingest.endOfStreamAtMs ?? null,
+      },
+    })
+    if (id === undefined) failed += 1
+    else recorded += 1
+  }
+  return { recorded, failed }
+}
+
 /**
  * 验证日志链完整性:逐条重算 HMAC,比对 prev_hash 链式关系 + current_hash。
  *
@@ -388,7 +534,9 @@ export function resolveRawRetentionPolicy(
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
   const all = disabled.includes('*')
-  const defaultDays = all ? 0 : parseNonNegativeInt(env.LLM_CALL_LOG_RAW_RETENTION_DAYS, DEFAULT_RAW_RETENTION_DAYS)
+  const defaultDays = all
+    ? 0
+    : parseNonNegativeInt(env.LLM_CALL_LOG_RAW_RETENTION_DAYS, DEFAULT_RAW_RETENTION_DAYS)
   return {
     defaultDays,
     disabledApiKeyIds: all ? [] : disabled,
