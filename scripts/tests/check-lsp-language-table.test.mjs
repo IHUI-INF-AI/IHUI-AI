@@ -17,20 +17,27 @@
  *     T3 **真仓阳性对照**:输入**逐字取自真实语言表与真实客户端**(§22c 红线:判据的
  *        对象是真实文件的形态时,至少一条用例的输入必须来自那个真实文件,不得全用自造夹具),
  *        再逐条"把一侧改掉"证明判据真会红。
- *     T4 **CLI 端到端**:两面旗同给必须 exit 2;`--worktree` 对现仓必须 exit 0。
+ *     T4 **CLI 端到端(真实仓,只锁"跑到判据"不锁结论)**:两面旗同给必须 exit 2;
+ *        真实仓各面必须**判得出**(exit ∈ {0,1},绝不允许 2),但不断言 0 还是 1 ——
+ *        断言"现仓必须零红"会把测试耦合到仓库瞬时状态(2026-09-27 实测:该断言在存量
+ *        15 处时红、在别人清偿存量后绿,红绿都反映的不是判据好坏)。
+ *     T6 **棘轮双向锁(临时迷你仓,构造面)**:已入库的存量违规 ⇒ `--staged` 必须绿且
+ *        照报存量数;在其上加一条新违规 ⇒ `--staged` 必须红并点名新文件;全量档(HEAD)
+ *        对同一存量照旧判红(问责面不套棘轮)。三条各红/绿都是**构造出来的**,不依赖
+ *        真仓此刻有谁在飞什么(守门 103 T12 的教训:证明机制只能用纯构造面)。
  *
- * 为什么真内容走 worktree 面而不是 HEAD:本门与它审的两份源文件此刻**尚未入库**
- * (`git ls-files apps/cli/src/lsp` 为空),HEAD 面必然"取不到 ⇒ exit 2 无法判定"。
- * 这是判据设计在生效,不是故障;入库后本文件仍按 worktree 取(它只要求"现读真实形态",
- * 不要求特定面),而 T4 的第二条会在入库后继续盯 HEAD 档。
+ * 真内容取 HEAD 面:两份被审文件早已入库,worktree 面会撞上并行会话的半编辑态
+ * (AGENTS §12:"别人未提交的重写不得钉红无关测试")。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as GATE, TABLE_REL, CLIENT_REL, readFaceInputs } from '../check-lsp-language-table.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GATE_PATH = join(ROOT, 'scripts/check-lsp-language-table.mjs')
@@ -38,20 +45,26 @@ const GATE_SRC = readFileSync(GATE_PATH, 'utf8')
 const RUNNER_SRC = readFileSync(join(ROOT, 'scripts/guardian-runner.mjs'), 'utf8')
 const SELF_SRC = readFileSync(fileURLToPath(import.meta.url), 'utf8')
 const SKIP_ENV = 'HUSKY_SKIP_LSP_LANGUAGE_TABLE'
+const GIT_BIN = resolveGitBin() || 'git'
 
-/** 真仓内容只读一次(测试之间不可互相污染,但读盘一次足够)。 */
+/** 真仓内容只读一次(测试之间不可互相污染,但读盘一次足够)。取 HEAD 面:并行会话的
+ *  半编辑态不得把镜像测试钉红(T4 mirror 的 worktree 档就是被这条教训改掉的)。 */
 let real = null
 function realInputs() {
-  if (!real) real = readFaceInputs(ROOT, 'worktree')
+  if (!real) real = readFaceInputs(ROOT, 'head')
   return real
 }
 
-function gate(...args) {
-  return spawnSync(process.execPath, [GATE_PATH, ...args], {
-    cwd: ROOT,
+function gate(...argsAndOpts) {
+  const last = argsAndOpts[argsAndOpts.length - 1]
+  const opts = last && typeof last === 'object' ? last : {}
+  const args = opts === last ? argsAndOpts.slice(0, -1) : argsAndOpts
+  return spawnSync(process.execPath, [opts.script ?? GATE_PATH, ...args], {
+    cwd: opts.cwd ?? ROOT,
     encoding: 'utf-8',
     windowsHide: true,
     timeout: 180_000,
+    ...(opts.env ? { env: opts.env } : {}),
   })
 }
 
@@ -109,7 +122,7 @@ test('T2 判据形状锁:取材必须经 face-reader,不得回到磁盘/cwd/exec
   assert.match(GATE_SRC, /def:\s*'head'/, '默认档必须是 HEAD')
 })
 
-test('T3a 真表 + 真客户端 ⇒ 零红(判据对现仓真实形态不误伤)', () => {
+test('T3a 真表(HEAD 面)+ 真客户端 ⇒ 解析不漂、无结构性假阳(T1/T2/T3 不得对真表发红)', () => {
   const files = realInputs()
   const tableText = files[TABLE_REL]
   const clientText = files[CLIENT_REL]
@@ -117,8 +130,15 @@ test('T3a 真表 + 真客户端 ⇒ 零红(判据对现仓真实形态不误伤)
   const otherFiles = Object.fromEntries(Object.entries(files).filter(([rel]) => rel !== TABLE_REL))
   const res = GATE.judgeTable({ tableText, clientText, otherFiles })
   assert.equal(res.fatal, null, `真仓 fatal:${res.fatal}`)
-  assert.deepEqual(res.red, [], `真仓被判红(现仓形态与本判据不匹配):\n${res.red.join('\n')}`)
   assert.ok(res.counts.entries >= 5, `真表项数 ${res.counts.entries} 偏低 ⇒ 解析器可能又漂了`)
+  // T1/T2/T3 是"表自洽"判据:解析器对真实形态漂了(如把 spread 能力读成空)必然以它们的
+  // 假阳现身 —— 这三条对真表恒红就是判据坏,不随仓库债起落。
+  // T4/T5 的条数**刻意不断言**:它们衡量的是仓库在途债务,把"此刻恰好为 0"钉进测试,
+  // 下次存量出现反而会把镜像钉红(2026-09-27 的 T3a/T4 两红正是这条耦合的现世报)。
+  const structural = res.red.filter((r) => /^T[123]\b/.test(r))
+  assert.deepEqual(structural, [], `结构性判据对真表发红(判据与真实形态不匹配):\n${structural.join('\n')}`)
+  // 所有红行必须是 T1–T5 已知族(冒出解不出的前缀 = 输出协议漂了)
+  for (const r of res.red) assert.match(r, /^T[1-5]\b/, `红行不符族形: ${r}`)
 })
 
 test('T3b 阳性对照:抹掉一处 installHint ⇒ T1 必红', () => {
@@ -188,7 +208,7 @@ test('T3f 空枚举必须判死,不得静默记绿', () => {
   assert.ok(res.fatal !== null || res.red.length > 0, '空表既无 fatal 也无红 ⇒ 门瞎了')
 })
 
-test('T4 CLI 端到端:两面旗同给 exit 2;--self-test 与 --worktree 各 exit 0', () => {
+test('T4 CLI 端到端(真实仓):两面旗同给 exit 2;各面必须判得出(0/1),永不 2;--self-test 绿', () => {
   const both = gate('--staged', '--worktree')
   assert.equal(both.status, 2, `两面旗同给却 exit ${both.status}\n${both.stdout}\n${both.stderr}`)
 
@@ -196,8 +216,87 @@ test('T4 CLI 端到端:两面旗同给 exit 2;--self-test 与 --worktree 各 exi
   assert.equal(st.status, 0, `self-test 非零:\n${st.stdout}\n${st.stderr}`)
   assert.doesNotMatch(st.stdout, /❌/, `self-test 输出里有失败断言:\n${st.stdout}`)
 
-  const wt = gate('--worktree')
-  assert.equal(wt.status, 0, `--worktree 对现仓必须 exit 0:\n${wt.stdout}\n${wt.stderr}`)
-  assert.match(wt.stdout, /T1–T5 全通过/)
+  // 真实仓三档只锁"跑到判据并给出结论"(exit ∈ {0,1}),不锁结论本身 —— 结论由仓库债务
+  // 决定(见 T3a 注释与 T6);exit 2 才意味着取材/判据故障。
+  for (const args of [[], ['--staged'], ['--worktree']]) {
+    const r = gate(...args)
+    assert.ok(r.status === 0 || r.status === 1, `${args.join(' ') || '(全量)'} 期望判得出(0/1),实得 ${r.status}:\n${r.stdout}\n${r.stderr}`)
+    assert.match(r.stdout, /T1–T5 全通过|处结构违规|新增 \d+ 处结构违规/, `${args.join(' ') || '(全量)'} 输出里没有可核对的结论行:\n${r.stdout}`)
+  }
+})
+
+test('T6 棘轮双向锁(临时迷你仓):存量 --staged 不判红、新增必判红、全量档照旧判红', () => {
+  // 为什么用临时仓而不是真仓 + 私有索引:真仓 HEAD 此刻存量已归零(2026-09-27 aa9000ac55
+  // 清偿),"有存量 ⇒ 免检"这一臂在真仓上**无法构造**;而机制的正确性恰恰要求它可证。
+  const dir = mkScratch('g-lsp-ratchet')
+  try {
+    // 1) 把门与它的最小依赖面(rep 根由脚本自身位置推导 ⇒ 拷进临时仓即换根)落位
+    mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
+    copyFileSync(GATE_PATH, join(dir, 'scripts', 'check-lsp-language-table.mjs'))
+    copyFileSync(join(ROOT, 'scripts', 'lib', 'face-reader.mjs'), join(dir, 'scripts', 'lib', 'face-reader.mjs'))
+    copyFileSync(join(ROOT, 'scripts', 'lib', 'gitdir.mjs'), join(dir, 'scripts', 'lib', 'gitdir.mjs'))
+    // 2) 夹具:一张自洽语言表 + 完整投影的客户端 + **一条已入库的 T4 存量**
+    const write = (rel, body) => {
+      const abs = join(dir, rel)
+      mkdirSync(dirname(abs), { recursive: true })
+      writeFileSync(abs, body)
+    }
+    write(
+      TABLE_REL,
+      `export const LSP_REQUEST_KINDS = ['definition', 'hover'] as const
+export const LSP_SERVERS = [
+  {
+    language: 'typescript',
+    displayName: 'TypeScript',
+    fileExtensions: ['.ts'],
+    languageIds: { '.ts': 'typescript' },
+    candidates: [
+      { binary: 'typescript-language-server', args: ['--stdio'], versionArgs: ['--version'], installHint: 'pnpm add -g it', capabilities: ['definition', 'hover'] },
+    ],
+  },
+]
+`,
+    )
+    write(
+      CLIENT_REL,
+      `function buildClientCapabilities(kinds: string[]) { const has = (k: string) => kinds.includes(k); if (has('definition')) {} if (has('hover')) {} }\nexport { buildClientCapabilities }\n`,
+    )
+    write('apps/cli/src/tools/legacy-leak.ts', `export const legacyCmd = 'typescript-language-server'\n`)
+    const git = (...args) =>
+      execFileSync(
+        GIT_BIN,
+        ['-c', 'safe.directory=*', '-c', 'user.name=gate-probe', '-c', 'user.email=probe@local', '-C', dir, ...args],
+        { encoding: 'utf8', windowsHide: true, timeout: 60_000 },
+      ).trim()
+    git('init', '-q')
+    git('add', '--', TABLE_REL, CLIENT_REL, 'apps/cli/src/tools/legacy-leak.ts')
+    git('commit', '-q', '-m', 'fixture: 带一条已入库 T4 存量的迷你仓')
+    const scratchGate = join(dir, 'scripts', 'check-lsp-language-table.mjs')
+    const run = (...args) => gate(...args, { script: scratchGate, cwd: dir })
+
+    // A 臂(存量不因 --staged 判红):索引 == HEAD,唯一违规就是已入库的那条存量。
+    const a = run('--staged')
+    assert.equal(a.status, 0, `存量应当不判红,实得 exit ${a.status}:\n${a.stdout}\n${a.stderr}`)
+    assert.match(a.stdout, /存量 1 处/, `--staged 绿的同时必须照报存量数(不得静默):\n${a.stdout}`)
+    assert.doesNotMatch(a.stdout, /新增 \d+ 处结构违规/)
+    // B 臂(全量档不套棘轮):同一份内容跑 HEAD 问责档 ⇒ 照旧判红并点名存量文件。
+    const b = run()
+    assert.equal(b.status, 1, `全量档对存量必须照旧判红(问责面),实得 exit ${b.status}:\n${b.stdout}`)
+    assert.match(b.stdout, /T4 apps\/cli\/src\/tools\/legacy-leak\.ts/, `全量档红行没点名存量文件:\n${b.stdout}`)
+    // C 臂(正向证明:新增一处重复必红,且不吞存量报数)。
+    write('apps/cli/src/tools/new-leak.ts', `export const anotherCmd = 'typescript-language-server'\n`)
+    git('add', '--', 'apps/cli/src/tools/new-leak.ts')
+    const c = run('--staged')
+    assert.equal(c.status, 1, `新增一条 T4 却绿了(棘轮把判据吞了):\n${c.stdout}\n${c.stderr}`)
+    assert.match(c.stdout, /新增 1 处结构违规/, `没按"新增"口径报数:\n${c.stdout}`)
+    assert.match(c.stdout, /apps\/cli\/src\/tools\/new-leak\.ts/, `没点名新增文件:\n${c.stdout}`)
+    assert.match(c.stdout, /存量 1 处/, `存量报数不得因新增而消失:\n${c.stdout}`)
+    // "存量不得被算进新增"只能在**新增清单那一段**里断言 —— 存量锚点行本来就带该路径,
+    // 拿整段 stdout 断言 doesNotMatch 会误伤(这条断言自己先要过阳性对照)。
+    const freshBlock = c.stdout.slice(c.stdout.indexOf('新增 1 处结构违规'), c.stdout.indexOf('⚠️ 存量'))
+    assert.ok(freshBlock.includes('new-leak.ts') && !freshBlock.includes('legacy-leak'), `新增清单切分不对:\n${freshBlock}`)
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
