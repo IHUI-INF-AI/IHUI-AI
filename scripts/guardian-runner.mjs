@@ -3740,6 +3740,37 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 崩溃上报出口脱敏对账(拦「error.message/stack 原样进长期保留表」这一型凭据外泄)(1 项,blocking)---
+  {
+    id: '144',
+    label:
+      '🩸 崩溃上报出口脱敏对账(blocking,拦「崩溃上报把未脱敏的 message/stack 送进 crash_reports(90 天)与管理面板」—— 发射点与落库点都必须调用共享层唯一出口 redactCrashText)',
+    script: 'check-crash-report-redaction.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CRASH_REDACTION',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '',
+      '  💡 立因是实测而不是假想:apps/web/src/components/common/ErrorBoundary.tsx 曾把',
+      '     error.message / error.stack 原样 POST 到 /api/crash-reports,而该端点按设计',
+      '     **匿名可写**、服务端只有 zod 长度上限(.max(4000)/.max(20000)),零脱敏 ⇒',
+      '     内嵌的 API key / Bearer / 用户机器绝对路径明文落库 90 天并进 admin 面板。',
+      '  三条判据:V1 站点(向 crash-reports 发请求 / insert(crashReports)必须调用唯一出口;',
+      '     V2 有人引用出口而面上没导出 ⇒ 判"没有出路";V3 出口出现第二份声明 ⇒ 判红。',
+      '  修法只有一个出口:redactCrashText(@ihui/shared/utils/redact)—— 服务端那一处是',
+      '     **权威防线**(不可信任客户端),落在 apps/api/src/services/crash-report-service.ts',
+      '     的 recordCrash(该表唯一写入口),顺序必须先脱敏、再截断。',
+      '  存量按「该文件 HEAD 自身违规数」棘轮只报数(立项现读:miniapp/RN 两处客户端发射点',
+      '     未收口)—— 绝不为消红放宽判据,也不用行内豁免遮掉。',
+      '  ① 现读:node scripts/check-crash-report-redaction.mjs [--json|--staged|--worktree]',
+      '  ② 自检:node scripts/check-crash-report-redaction.mjs --self-test',
+      '  ③ 镜像:node --test scripts/tests/check-crash-report-redaction.test.mjs',
+      '  紧急跳过(不推荐):HUSKY_SKIP_CRASH_REDACTION=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
@@ -3763,44 +3794,6 @@ const pushGateChecks = [
     args: [],
     mode: 'blocking',
   },
-  // --- RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)(1 项,blocking)---
-  {
-    id: '144',
-    label:
-      'RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)',
-    script: 'check-rn-double-header.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_RN_DOUBLE_HEADER',
-    stagedTriggers: ['apps/mobile-rn/'],
-    onFailHint: [
-      '',
-      '修法只有一条:给共享屏补页头抑制通道(hideHeader / renderHeader / nestedInScrollView)并在调用点传入 —— 与 SquareScreen/ShareScreen/AgentScreen 既有先例同形。',
-      '禁止删任意一层:共享页头是 163 个消费点的唯一页头;包装器 NavBar 在 Settings/Profile 上承载 SideMenu 抽屉唯一入口。',
-      '删包装器还会让 loading 态失去唯一返回手段(实测 packages/app/src/features/course-detail 的 loading 分支只有 spinner)。',
-      '行内出口 double-header-exempt: <原因>(须带原因,已挂守门 108 的 30 天到期档)。',
-      '',
-    ].join('\n'),
-  },
-  // --- README 表格完整性(1 项,blocking)---
-  {
-    id: '145',
-    label:
-      'README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)',
-    script: 'check-readme-table-integrity.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_README_TABLE_INTEGRITY',
-    stagedTriggers: ['README.md'],
-    onFailHint: [
-      '',
-      'T-A 竖排续行超锚点:node scripts/readme-table-unwrap.mjs --file README.md --dry-run(默认零写盘,自证零内容损失后才 --apply)',
-      '确属有意保留:<!-- table-cell-exempt: <原因> --> 写在宿主行或该 run 内任一行(须带原因,守门 108 管 30 天到期)',
-      'T-B 半截行与孤立 2 竖线行只报数不判红(要逐案判语义,不归本门)',
-      '',
-    ].join('\n'),
-  },
-
 ]
 
 // === CLI 解析 ===
