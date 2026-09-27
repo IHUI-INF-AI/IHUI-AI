@@ -230,7 +230,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
   return (
     <section
       aria-label={t('feed.label')}
-      className="overflow-hidden rounded-xl border bg-card shadow-sm"
+      className="overflow-hidden rounded-lg border bg-card shadow-sm"
     >
       {/* 头部 */}
       <div className="space-y-3 p-3 pb-3">

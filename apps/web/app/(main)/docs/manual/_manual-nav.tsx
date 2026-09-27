@@ -21,7 +21,7 @@ export function ManualNav({ prev, next }: ManualNavProps) {
       {prev ? (
         <Link
           href={prev.href}
-          className="group rounded-xl border bg-card p-3 transition-colors hover:bg-accent"
+          className="group rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
         >
           <div className="text-xs font-mono text-muted-foreground">← 第 {prev.num} 章</div>
           <div className="mt-1 text-sm font-medium">{prev.title}</div>
@@ -35,7 +35,7 @@ export function ManualNav({ prev, next }: ManualNavProps) {
       {next ? (
         <Link
           href={next.href}
-          className="group rounded-xl border bg-card p-3 text-right transition-colors hover:bg-accent"
+          className="group rounded-lg border bg-card p-3 text-right transition-colors hover:bg-accent"
         >
           <div className="text-xs font-mono text-muted-foreground">第 {next.num} 章 →</div>
           <div className="mt-1 text-sm font-medium">{next.title}</div>

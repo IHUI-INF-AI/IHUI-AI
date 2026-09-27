@@ -11,7 +11,7 @@ export default function DashboardPage() {
   return (
     <div className="mx-auto w-full max-w-[1240px] space-y-4 px-4 py-4">
       <AnnouncementBar />
-      <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+      <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
         <div className="flex flex-col min-[768px]:flex-row">
           <HomeBanner />
           <MemberCard />

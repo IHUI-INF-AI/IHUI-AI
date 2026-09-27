@@ -262,7 +262,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
 
       {/* 最终回复 */}
       {trace.final_response && (
-        <div className="rounded-xl border bg-card p-3">
+        <div className="rounded-lg border bg-card p-3">
           <p className="mb-1 text-xs font-medium text-muted-foreground">最终回复</p>
           <p className="whitespace-pre-wrap break-words text-sm">{trace.final_response}</p>
         </div>

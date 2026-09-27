@@ -80,7 +80,7 @@ function QuotaBar({
           {used.toLocaleString()} / {total.toLocaleString()} {unit}
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded bg-muted">
+      <div className="h-2 w-full overflow-hidden rounded-xs bg-muted">
         <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
       </div>
     </div>
