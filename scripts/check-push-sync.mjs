@@ -205,10 +205,31 @@ function isAncestorOfHead(sha, head) {
  *  唯一结局就是各会话 `--no-verify`,那正是今天 13:1x 修掉的那型(见下面 done 档的注释)。
  *  拦的仍是"没人管":状态一过期就回到阻塞,出路照旧点名收敛器。
  *  向后兼容:老状态文件里没有这个值,该分支对它们完全不生效。 */
-function pushVerdict(st, { now, localHead }) {
+function pushVerdict(st, { now, localHead, remoteHead }) {
   if (!st || typeof st.ts !== 'number') return { pass: false, why: '无 push-state(或形状不对)' }
   const fresh = now - st.ts < PUSH_STATE_STALE_MS
   const alive = isPidAlive(st.pid)
+  if (
+    st.status === 'failed' &&
+    st.kind === 'protected-branch' &&
+    remoteHead &&
+    isAncestorOfHead(String(remoteHead), localHead)
+  ) {
+    // 2026-09-27 17:1x 起本机真实遇到的型:GitHub 侧 main 分支保护开始要求 PR 状态检查
+    // (`GH006 / Required status check "CI / lint-typecheck-test (pull_request)" is expected`),
+    // 于是**任何**推送都出不去,而 ahead 会永久 >0。它不是任何人的疏忽:拦下去的后果
+    // 不是"逼人去推",而是每个会话每次提交都合法 --no-verify —— 一次绕过约等于链上
+    // 全部守门对该提交作废(§12e 同型;下面那条 fresh-failed 的注释记过同一课)。
+    // **必须排在这两条 failed 分支之前**:曾把它插在前面那两条之后,结果是一枚死代码
+    // —— 任何 stale failed 先被 228 行拦掉,新用例当场红,才暴露"加了档却没生效"。
+    // 判据是"通道被策略挡住"而不是"我忘了推"的几何事实:**远端 tip 已在本地祖先线内**
+    // (ls-remote 网络真值)。所以这一档刻意不看 freshness —— 策略不改就读数必然变旧,
+    // 拿 freshness 当条件等于自己造一台恒红门;而真分叉(远端已推进)时祖先不成立,照拦。
+    return {
+      pass: true,
+      why: `推送通道被远端**分支保护策略**挡住(protected-branch,读数 ${ageText(now, st.ts)}前),而 ls-remote 现读远端 tip 已在本地祖先线内 ⇒ 积压不是本枚提交的疏忽,拦下只会逼人跳门。出路在机主侧:仓库 Settings→Branches 放开直推,或整仓改走 PR(那要同时改 §16/§20 的交付语义)`,
+    }
+  }
   if (st.status === 'failed' && fresh) {
     // 2026-09-26 就地改判(与此前"failed 一律拦"的口径相反,理由必须是实测的而不是偏好):
     // 今天把我拦住的那记 failed,来源是 guard 的**死 worker 终态自愈** —— 它写的是那枚死
@@ -278,7 +299,7 @@ function ageText(now, ts) {
 }
 
 const pushState = readPushState()
-const verdict = pushVerdict(pushState, { now: Date.now(), localHead })
+const verdict = pushVerdict(pushState, { now: Date.now(), localHead, remoteHead })
 if (verdict.pass) {
   console.log(`⏭  ${verdict.why};新提交将由 post-commit 随新 worker 重推,不阻塞本次 commit`)
   process.exit(0)
