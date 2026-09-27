@@ -1,15 +1,29 @@
 {
   "counts": {
+    "AgentRuntimePanel": 0,
     "BottomActionBar": 16,
     "Carousel": 6,
     "InputArea": 16,
     "IntelligentAssistant": 8,
     "LoginPopUp": 8,
-    "ModelConfigDialog": 8,
+    "ModelConfigDialog": 6,
     "ModelList": 9,
     "NavBar": 7,
-    "UserInfoCard": 6,
+    "UserInfoCard": 5,
     "VideoPlayer": 5
+  },
+  "radiusCounts": {
+    "AgentRuntimePanel": 1,
+    "BottomActionBar": 0,
+    "Carousel": 1,
+    "InputArea": 3,
+    "IntelligentAssistant": 2,
+    "LoginPopUp": 2,
+    "ModelConfigDialog": 0,
+    "ModelList": 2,
+    "NavBar": 1,
+    "UserInfoCard": 2,
+    "VideoPlayer": 1
   },
   "waivers": {},
   "pairingRejects": {
