@@ -13513,3 +13513,40 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
 - [x] ✅(2026-09-27) **G-258. 收编上午写完从未提交的 LSP 语言表成品,守门 143 的 HEAD 面红清零**:提交 `aa9000ac5`(6 文件 +569/−283)。取证链:收编前门 143 默认(HEAD)档 **RC=1**,点名 **T4×14**(表外重写 `gopls/pylsp/jdtls/clangd/OmniSharp/typescript-language-server/rust-analyzer`)+ **T5×1**(`lsp.ts` 无 `buildClientCapabilities`);收编后同门 **RC=0** `✅ T1–T5 全通过`;HEAD 面复验 `git show HEAD:apps/cli/src/tools/lsp-languages.ts | grep -c "'pylsp'"` = **0**。归属判定依据(不是猜):三路径 mtime 停在当日 08:35/09:20(远早于本轮任何提交)、工作树副本 `grep "'pylsp'"` 零命中、且**与该路径全部 38 个祖先版本逐一无匹配** ⇒ 是"写完没提交"的成品而非幻影回退,也不是别人正在敲的现场;逐文件通读 diff 判**零夹带**。两处超出纯搬运的动作已交代:① `probe.ts` 补两条 `spawnSync` try/catch(测试暴露的**真回归** —— 旧 `isLspServerAvailable` 契约是"检测失败返回 false 不抛",迁层时丢了这层);② 旧 `lsp.test.ts` 钉的是收口前契约,适配后 **74 passed(74)**(适配前实测 `31 failed | 42 passed`,即这份成品当初没带测试)。**残余如实登记**:新工具 `lsp_server_status` 自身零测试;`lsp.ts` 里 `probe-timeout`/`probe-failed` 分支未覆盖、`unknown` 档错误里 FALLBACK_HINT 重复打印两次(观感缺陷,未动别人成品);cli 全量 vitest 未跑(他人在飞文件会混进红点)。
 - [x] ✅(2026-09-27) **G-259. 跳门铰链「仍红未点名」拆成四态差分(可达性先证成,再动手)**:病灶是 `classifyHookFailure` 用"结论行里有没有本次声明文件的完整路径"判归属,而相当一批门(实测门 55 一族)失败行**只点名符号不点名路径** ⇒ 自引入的红被裁成 `not-ours`,措辞还写"红不在本次提交内容里"。坏状态**证成**在两处:历史台账 ts=`2026-09-27T09:05:40Z` 那条放行了代理甲自引入的门 55 红(27 分钟后 `fa9e4e64d` 才清偿),以及隔离夹具现复现(HEAD 基线绿 / 注入一枚工具名 ⇒ 门红且输出无路径 ⇒ 真 `classifyHookFailure` 判 `not-ours`)。修法:①点名⇒mine(不变)②**基线面(HEAD)不红而我的面红 ⇒ mine**(堵本型)③两面同红 ⇒ not-ours 且措辞改"HEAD 面亦红 ⇒ 存量/机器态,非本次引入"④基线跑不出去 ⇒ 新出口 `undetermined-red`,仍可落地但**禁止**再出现放行式断言(失效方向只增"点名义务",绝不新增放行)。基线面用 `git worktree add --detach` 到 scratch、用完 remove+prune;共用归一出口 `normGatePath`/`lineNamesFile` 补上反斜杠/绝对路径/端内相对三形态(旧复跑支**没有**归一,实测点名 `app\services\x.py` 会漏判)。**取证**:提交 `0a38de87a`(3 文件),主会话自己复跑镜像 **tests 20 / pass 20 / fail 0**,该枚**正常过了钩子**(未用 `--no-verify`);两条变异(M1 摘 ② ⇒ 3 例红、M2 摘 ④ ⇒ 5 例红)各自翻红、还原后逐字一致。**当轮现读的覆盖面边界(不是清单,是上界/下界)**:165 道门脚本里粗筛约 **121** 条会在隔离工作树里跑不出去 ⇒ 落第④态、约 **44** 条纯 node+git 可差分;运行时真值一律由 `baselineUsable()` 现读决定,**没有也不得有门 id 清单**。**未收口三格**:runner 不传面旗 ⇒ 按 `--worktree` 判的门两面同形、差分退化成③(需一次"面旗标×差分兼容性"普查);每次差分要建/删一棵分离工作树(并发高频下 `.git/worktrees` 抖动未量化);"红行不点名文件"的那批门仍靠④拦一次定向说明,**正解是把它们的结论行改成点名文件**——那属各门持有人,不由本票顺手改。
 - [x] ✅(2026-09-27) **G-260. 取证包装器 `run-evidence.mjs` 两处实测缺陷(由两路代理各自撞上,主会话修)**:① 派生失败(ENOENT)时 `error` 与 `close` **都**触发,两边各 `closeSync` 一次 ⇒ 未捕获 `EBADF: close`,**包装器自己崩掉**(现象极具误导:证据里已写 RC=127,调用方只看到一段堆栈,极易读成"被测命令炸了");② Windows 的 `pnpm`/`npx` 是 `.CMD` shim,`spawn('pnpm')` 必 ENOENT ⇒ 该工具此前无法包装任何 pnpm 命令(我今天就在这上面误判过一次"命令跑完并落了 RC=1")。修法:终止状态收敛成**同一个 payload 对象**(按引用共享 ⇒ resolve 之后置的位调用方仍读得到),并把不变量收成"**只返回带批处理后缀的解析结果**"(裸名会命中 Git Bash 那个无后缀 ELF shim,包一层 cmd.exe 就错)。**一条关于断言本身的教训值得留**:第一版把观测位放在"证据文件里 RC 行只有一条",变异实测**摘掉守卫后照样全绿** —— 因为第二次写打在已关闭 fd 上被 `writeLine` 自己吞掉,文件形态与"守卫在位"完全同形;那是一条**永远绿的断言**,比没有断言更糟。现改为 `doubleWrite` 可观测位 + 两层守卫(handler 顶静默返回、写入前标记),变异取证:摘掉 handler 守卫 ⇒ **T15 与 T15aa 双双翻红**(`20/22`),还原逐字一致 ⇒ 自检 `22/22`、镜像 `10/10`。落地 `913cd538d`(2 文件,对象空间,水印预检 2/2 通过)。
+
+## 第六十一批(2026-09-27 傍午·G-250 收口):线程的只读面与销毁面按属主过滤 —— "取了身份又丢掉"等于没鉴权
+
+- **大白话**:一个接口先问"你是谁"、再按对方给的 id 去拿数据,但**从不比对这两件事** —— 那就是只做了登录、没做授权。本批两组入口都是这个形状。
+- **两组面**:① 引擎 JSON-RPC 的 `thread.search` / `items.list` / `turns.list` / `read` / `delete` / `archive` 走的是 store,批 51 那个咽喉点 `_require_thread` **结构上覆盖不到**;② HTTP `app/routers/sessions.py` 13 个端点**全部** `Depends(get_current_user_id)` 而该值**一次都没用过**(本轮 ast 普查现读,不是票面原先写的"只有一条 list 没传 owner")。
+- **三条口径**:非属主与"不存在"**同形**(不给存在性探针留缝);判定**在写之前**(先改了再抛 404 等于陌生人可以关掉/删掉别人的会话 —— 用例因此断言"副作用没发生");`principal=None`(未鉴权/dev 通道)行为逐字不变。
+- **一处判据**:`session_store.owner_scoped_allows` 与 SQL 过滤(`list_threads` / `full_text_search` 的 `owner_user_id`)**同形且只有一份实现**;它与 `_principal_allows` 差的那一格(有身份而记录无属主 ⇒ 不通过)连同理由写在函数上。turn 型端点的归属只经"它所在的线程"这一真相,不给 turn 另存 owner。
+- 取证:`tests/test_thread_owner_scoping.py` 13 例(修复前 12 红,唯一绿的正是"无身份通道不变"那条反向锁);targeted 158 passed;engine 族 1660 passed / 1 枚 G-254 存量红(HEAD 归档同样红)。落地 `6628c363d`。
+
+## 第六十二批(2026-09-27 傍午·G-253 收口):水印分母并上未跟踪面 + 落地器水印预检
+
+- **两把尺子此前各跑一次 `git ls-files`**,于是"盘上已有、还没进索引"的源文件对两把都**不存在** —— 而它恰好是会被带进仓库的那一格:旁路落地(`commit-tree`)不跑钩子,pre-commit 那道自愈闸根本没机会看它。改造后第一次自跑就点到 2 个真实无横幅的未跟踪源文件(`apps/api/tmp-g243-serve.mjs`、`apps/cli/src/commands/history-read-ops.ts`,均属别人在飞现场)。
+- **集合分两层,处置不同**(这是本票的设计而非常规收尾):可阻塞面 = 索引面(pre-commit 退出码语义与改造前**逐字一致**);未跟踪面**只报数不判红、且绝不自动往里注入横幅** —— 判红 = 与本次提交无关的恒红门(各会话只好跳钩子,连带全部守门作废),代写 = 往别人未提交的文件里写字并 `git add` 别人的东西。真正的拦截点放在**落地器** `watermarkPreflight`(CAS 之前用权威入口 `watermark.mjs verify` 逐个判声明路径)。
+- 一条口径教训:预检第一版按 `root` 相对路径拼 CLI,而落地器的 root 可以是任何仓(镜像测试就在临时仓里跑)⇒ 指向一个不存在的脚本,把**别人正常的落地**判成红(3 例现红),改为绝对路径 + 固定 cwd 后才对。"脚本不存在"既不能算通过也不能算校验失败。
+- 取证:`scripts/tests/watermark-scope.test.mjs` 9 例(S1–S4 两层集合与"取不到清单必须报 error"、S5–S7 预检三条路径含 ENOENT、S8 形状锁"消费者不得再留裸 `ls-files`"、S9 端到端"无横幅必拦 + 补横幅必放行"成对);落地器既有 7 例复绿;`check-watermark-coverage --no-fix` 与 `watermark.mjs verify` 全量退出码均 0。落地 `512bc7672`。
+
+## 第六十三批(2026-09-27 傍午·G-258 A 组):容器运行与 Hook 面的归属对账
+
+- 同一形状再收六条(只收"属主字段本来就在"的那些):`/agent-runtime/runs` 列全站运行的 prompt 与输出、`/runs/{id}`、`/runs/{id}/stream`、`DELETE /runs/{id}`(**先杀进程再记日志** = 跨用户 DoS)、`GET /hooks/logs` 全站档、`execution-timeline` / `health-forecast`,以及 `POST /hooks/templates/{id}/instantiate` 造出 `owner_id=None` 的**系统级** Hook(对所有人生效、人人可管)。
+- 过滤一律写在服务侧一处(`list_runs(owner_user_id=…)` / `list_logs(owner_id=…)`),路由不重算;取消/流式的判定在动手之前(用例断言 `cancel()` **没被触碰**)。
+- **夹具按三段法翻正,判据未削**:`tests/test_hooks.py:432` 原本断言 `list_logs(hook_id=None, limit=50)`,那是把"不带归属过滤"钉成规格;`TestExceptionalEndpoints` 两条因夹具默认 `get_hook → None` 被前置闸挡在 500 之前 —— 两处都改成"让闸通过、仍只测它原本要测的那件事",越权被拒那一格由新文件专测。
+- 取证:控制测量 = 同一份测试在修复前 HEAD 归档里 6 红 1 绿(绿的那条正是"管理员通道不变"正向对照);工作树 7 例全绿;受影响族 308 passed;mypy strict 4 文件 0。
+
+### 第五十一波·续廿二 —— G-258 分组账(2026-09-27,普查用 ast 而非正则)
+
+- **普查换了尺子才有账**:第一版按行拼签名的正则普查报出 106 条,里面把 helper 的一跳委托也算成漏洞 —— 那种清单不能当判据。换成 `ast` 遍历后真值 **53 条**,再逐条读体定性(定性由子代理出证据、主会话复核行号)。**"扫到很多"必须先怀疑尺子,再相信世界**(本仓第三次实录)。
+- **A 组(属主字段已在)6 条:第六十三批已收口** —— `agent_runtime.py:483/492/504/528`、`hooks.py:360`、`hooks.py:422/437/452`。
+- [ ]（进行中@2026-09-27/主会话）**G-258 B 组:要先建"属主概念"才谈收口**,逐条已定性质:
+  - `app/routers/browser_hub.py:77/103/115/138/153/167/191/209/221/233` + WS `:280-284` —— `BrowserHub._sessions`(`app/services/browser_hub.py:805`)只按 session_id 键,`BrowserSession` **无 owner 字段**;后果实测:`:167` 吐他人 cookies、`:191` 吐他人页面截图、WS 握手验完 token 丢弃 payload ⇒ 任意有效令牌可 attach 他人会话并 `execute_js`(`:377`)。要建:`BrowserSession` 加 owner + `create_session` 收 user_id + 各端点按 owner 过滤(可借 `run_ownership.record_ownership`)。
+  - `app/routers/computer_use.py:297…:582`(13 条)—— 整个模块是**进程级单例**(`:57-61`),全体用户共用同一个 Page ⇒ "点/键/截屏/关"都是跨用户控制他人设备,`:485` 的 close 关的是全站唯一浏览器(跨用户 DoS),`:582` replay 用他人凭据重放操作。要建:per-user 会话表。
+  - `app/services/browser_trace.py:150` 全文零 user_id(trace 存储)、`hook_engine.py:1535-1545` A/B 测试字典无 owner、`hooks.py:371 emit_event` 的 candidates(`:705-707`)无归属过滤 ⇒ 可触发别人的 webhook/script。
+  - `app/routers/patch.py:48 _validated_root` 只验"绝对路径且存在" ⇒ 跨用户写服务器任意文件(缺的不是 owner 是 root 白名单);`app/routers/sandbox_exec.py:74` 允许请求方自订策略(`os_sandbox.py:255-267` 的 readable 留空 = 不限制读、`restrict_token=False`)。
+  - **B 组解阻判据**:每条先给出"属主落在哪个结构上 + 现有 create 路径能不能拿到令牌主体",再动端点;不得用"响应侧筛"糊过去(计数与集合会分叉)。归属:各服务持有人,由本线逐票推。
+- **C 组(假阳性/非缺陷,只登记不动)**:`capability_matrix.py:838` 的 `_user_id` 下划线刻意标注且身份在依赖与 `:850-853` role 判定处消费;`prompt_guard_api.py:87` 纯静态常量表;`hooks.py:171/259/272/302/315/329/345` 七条经 `_owner_filter(request)` 消费(与 Depends 参数是同一身份的两个通道);`hooks.py:205/246`、`sandbox_exec.py:106` 不落库不读用户数据。
+- [ ] **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的**可跑性依赖 cwd** —— 在 `apps/ai-service` 下跑 `node ../../scripts/check-agent-engine-parity.mjs` 抛异常退出(rc=1),从仓根跑则 rc=0。与"文档不得写跑不通的出路"同族:要么让它自身定位 repo root,要么在头注写明必须从仓根跑。归属:该门持有人。解阻判据:两个 cwd 下退出码一致。
+- **同轮两条自我纠错(都因"尺子错"而非"世界错")**:① 第一版控制探针的 `rpc()` 预先剥掉 `result`,错误分支拿到 `{"code","message"}` ⇒ 下游 `"error" not in x` 恒真,把"已被拒绝"读成"读到了",bob 那一格因此报错结论;② 本文件写批 63 测试时用 Edit 改 `hook_engine.list_logs`,old_string 停在 `if event:` 半行 ⇒ 下一行赋值被吞,`event=` 过滤整型失效,靠**新写的反向对照**(同一份日志按 event 过滤必须仍有结果)当场抓红 —— 正是本仓记过的那条"Edit 用半行会吞尾"的复发,已在测试注释里留名。
+- **G-254 / G-255 / G-256 状态**:三格**均未闭环**,判据与解阻条件照第五十九/六十批登记原文执行(G-254 权限档拼写、G-255 metadata 配置键整写、G-256 vector_memory 环境相关红)。G-252(滚动运行时验收)由并行在跑的取证票处置,结论落回本文件。
