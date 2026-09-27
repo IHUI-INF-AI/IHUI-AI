@@ -10,10 +10,8 @@
 # entries, and a live memory/process snapshot.
 #
 # Usage:
-#   pwsh -ExecutionPolicy Bypass -File G:\IHUI-AI\scripts\zombie-guardian-status.ps1
+#   pwsh -ExecutionPolicy Bypass -File <repo-root>\scripts\zombie-guardian-status.ps1
 # ============================================================================
-
-#Requires -Version 5.0
 
 $ErrorActionPreference = 'Continue'
 
