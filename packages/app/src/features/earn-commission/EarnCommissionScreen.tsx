@@ -85,7 +85,6 @@ export function EarnCommissionScreen({
             </View>
           </View>
         </View>
-
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('earnCommission.rules') || '分佣规则'}</Text>
           {RULES.map((r) => (
@@ -97,7 +96,6 @@ export function EarnCommissionScreen({
             </View>
           ))}
         </View>
-
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('earnCommission.rateTitle') || '分佣比例'}</Text>
           {RATE_TABLE.map((row) => (
@@ -108,16 +106,23 @@ export function EarnCommissionScreen({
             </View>
           ))}
         </View>
-
+        {/* 按压态样式不得写在 Pressable 的 style 上(守门 131 那一型):Pressable 注册过 cssInterop,
+            函数形态声明会被展开成空对象,钮的 height/底色/圆角静默消失。marginTop 留外层(它在滚动列里
+            排下一块的布局档),面档加 height 50 落内层 —— 外层在该 column 里默认横向撑满,
+            所以通栏钮的宽高与间距都不变。 */}
         <Pressable
-          style={({ pressed }) => [styles.bottomBtn, pressed ? styles.pressed : null]}
           onPress={onOpenVip}
           accessibilityRole="button"
           accessibilityLabel={t('earnCommission.openVip') || '开通VIP会员参与分佣计划'}
+          style={styles.bottomBtnBox}
         >
-          <Text style={styles.bottomBtnText}>
-            {t('earnCommission.openVip') || '开通VIP会员 参与分佣计划'}
-          </Text>
+          {({ pressed }) => (
+            <View style={[styles.bottomBtn, pressed ? styles.pressed : null]}>
+              <Text style={styles.bottomBtnText}>
+                {t('earnCommission.openVip') || '开通VIP会员 参与分佣计划'}
+              </Text>
+            </View>
+          )}
         </Pressable>
       </ScrollView>
     </View>
@@ -185,13 +190,15 @@ function createStyles(tk: AppThemeTokens) {
     rateLevel: { flex: 1, fontSize: 14, fontWeight: '500', color: tk.text.primary },
     rateValue: { fontSize: 16, fontWeight: '700', color: tk.brand.DEFAULT, minWidth: 44 },
     rateDesc: { flex: 2, fontSize: 14, color: tk.text.secondary },
+    // 外层 = 排下一块的布局档(守门 131:按压态不得写在 Pressable 的 style 上);
+    // 钮面档在下面的 bottomBtn,由内层 View 承载。数值逐字搬移、未新增。
+    bottomBtnBox: { marginTop: 8 },
     bottomBtn: {
       height: 50,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 8,
     },
     bottomBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     pressed: { opacity: 0.85 },
