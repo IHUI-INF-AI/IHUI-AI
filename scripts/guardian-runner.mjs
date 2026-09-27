@@ -3816,7 +3816,7 @@ const checks = [
     label:
       '模型容量/推理档位跨语言对账',
     script: 'check-model-capacity-parity.mjs',
-    args: [],
+    args: ['--strict'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MODEL_CAPACITY_PARITY',
     stagedTriggers: ['packages/api-client/src/', 'apps/ai-service/app/core/', 'apps/cli/src/subagents/'],
