@@ -717,7 +717,7 @@ export default function InputArea({
                       因为两端的"展开面板"高亮此前一端有一端无)。 */}
                   <View
                     className={cn(
-                      'flex items-center justify-center rounded-lg',
+                      'flex items-center justify-center rounded-sm',
                       isShowIcon ? 'bg-cta text-cta-foreground' : '',
                     )}
                     style={{
@@ -751,7 +751,7 @@ export default function InputArea({
                       实底 cta + 配对前景,墨迹 `controlGlyph`(14)。此前本端是 25 的裸图标 + 品牌绿前景,
                       而 RN/web 是 32 黑底白字方块的同一枚控件,即"两端还是不一样"里最显眼的一格。 */}
                   <View
-                    className="flex items-center justify-center ml-2 rounded-lg bg-cta text-cta-foreground"
+                    className="flex items-center justify-center ml-2 rounded-sm bg-cta text-cta-foreground"
                     style={{
                       width: rpx(taroGeometry.controlBox),
                       height: rpx(taroGeometry.controlBox),
@@ -800,7 +800,7 @@ export default function InputArea({
         <View className="flex items-center mr-2 flex-shrink-0">
           {/* 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈 */}
           <View
-            className={`w-9 h-9 flex items-center justify-center rounded-lg ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
+            className={`w-9 h-9 flex items-center justify-center rounded-sm ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
             onClick={toggleMode}
             hoverClass="opacity-60"
           >
@@ -815,7 +815,7 @@ export default function InputArea({
         </View>
 
         {mode === 'text' ? (
-          <View className="flex-1 min-h-10 bg-muted rounded-2xl px-3 py-2 flex items-center">
+          <View className="flex-1 min-h-10 bg-muted rounded-sm px-3 py-2 flex items-center">
             <Textarea
               className="w-full text-sm text-foreground dark:text-muted-foreground bg-transparent"
               style={{ minHeight: rpx(40), maxHeight: rpx(200), width: '100%' }}
@@ -838,7 +838,7 @@ export default function InputArea({
           </View>
         ) : (
           <View
-            className={`flex-1 min-h-10 mx-2 rounded-2xl flex items-center justify-center text-sm ${recording ? 'bg-[var(--color-danger-light)] text-destructive' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
+            className={`flex-1 min-h-10 mx-2 rounded-sm flex items-center justify-center text-sm ${recording ? 'bg-[var(--color-danger-light)] text-destructive' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
             onTouchStart={handleVoiceStart}
             onTouchEnd={handleVoiceEnd}
             onTouchCancel={handleVoiceCancel}
@@ -852,7 +852,7 @@ export default function InputArea({
         <View className="flex items-center ml-2 flex-shrink-0">
           {mode === 'text' ? (
             <Text
-              className={`w-9 h-9 leading-9 text-center text-xl rounded-lg ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
+              className={`w-9 h-9 leading-9 text-center text-xl rounded-sm ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
               onClick={toggleEmoji}
             >
               😊
@@ -861,7 +861,7 @@ export default function InputArea({
           <View className="flex flex-col items-center ml-1">
             {/* 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈 */}
             <View
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground"
+              className="w-9 h-9 flex items-center justify-center rounded-sm text-muted-foreground"
               onClick={handleUploadToggle}
               hoverClass="opacity-60"
             >
@@ -877,7 +877,7 @@ export default function InputArea({
         {mode === 'text' ? (
           // active:bg-primary 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈
           <View
-            className={`ml-2 px-4 h-9 leading-9 rounded-lg text-sm flex-shrink-0 ${canSend ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'}`}
+            className={`ml-2 px-4 h-9 leading-9 rounded-sm text-sm flex-shrink-0 ${canSend ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'}`}
             onClick={handleSend}
             hoverClass="opacity-60"
           >
