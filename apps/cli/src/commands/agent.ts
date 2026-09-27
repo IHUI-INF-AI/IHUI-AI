@@ -20,7 +20,7 @@
  */
 
 import * as fs from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
@@ -589,14 +589,16 @@ const DOOM_LOOP_PATTERN_MAX_LEN = 256;
  *   定长 SHA-256 hex,2026-09-27 起不再是入参原文 —— 原文含文件路径/正文/命令行,
  *   曾随本 pattern 明文 POST 到服务端长期落库)
  * - success: false
- * - metadata: { source, repeatCount, message, suggestion, workspacePath, sessionId }
+ * - metadata: { source, repeatCount, message, suggestion, workspaceDigest, sessionId }
+ *   （`workspaceDigest` 而非 workspacePath：2026-09-27 起绝对路径不再出机 —— 它含用户名与
+ *   目录结构，而服务端对 `metadata.workspacePath` 零读者，明文本就没有存在的理由）
  *
  * 失败不阻塞(opts.userId 未传 / 网络故障 / 端点 404 等):由调用方 catch 后 stderr 输出。
  *
  * 对标 Hermes Agent 反思沉淀:agent 检测到死循环后,把失败模式写入 procedural memory,
  * 下次调用工具前可 recall 到这条反模式,主动规避相同陷阱。
  */
-async function persistDoomLoopProcedural(
+export async function persistDoomLoopProcedural(
   opts: RunToolLoopOptions,
   alerts: DoomLoopAlert[],
 ): Promise<void> {
@@ -631,7 +633,10 @@ async function persistDoomLoopProcedural(
         repeatCount: alert.repeatCount,
         message: alert.message,
         suggestion: alert.suggestion,
-        workspacePath: opts.ctx.workspacePath,
+        // 绝对路径含用户名与目录结构,而服务端对这一格零读者 ⇒ 只发摘要,不发路径
+        workspaceDigest: createHash('sha256')
+          .update(String(opts.ctx.workspacePath ?? ''))
+          .digest('hex'),
         sessionId: opts.sessionId ?? null,
       },
     };
