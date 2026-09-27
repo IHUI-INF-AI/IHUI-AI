@@ -158,6 +158,33 @@ groups:
           summary: '内存不足'
           description: 'Windows 可用内存占物理内存不足 10%(当前 {{ $value | humanizePercentage }})'
 
+      # RSSHub(IHUI-RSSHUB 服务)宕机 —— "一个服务没了却没有任何到人出口"那一格的尺子(2026-09-27 立)。
+      # 立因实测:该服务自 09-11 后再无一次成功启动(nssm Application 指向的
+      #   `C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-2\node.exe` 已被 workbuddy
+      #   自升级顶掉,目录现仅剩 22.22.2-3 / current;09-24 04:39 与 09-26 07:58 两条系统事件日志原话
+      #   「IHUI-RSSHUB … 服务意外终止 … 系统找不到指定的路径」),而全链对它零覆盖:
+      #   不是抓取目标、alerts.yml 无它的规则、ai-world-sync 的源失败只写 aiWorldSyncLog 表。
+      # 后果实测(2026-09-27):apps/api/.env 未设 RSSHUB_URL ⇒ `rsshub()` 回落 https://rsshub.app,
+      #   现量 curl(直连=000 / 走 SYNC_PROXY_URL=7897 亦 403,公共实例自述"仅测试用途"),
+      #   五个国内源(qbitai/36kr-ai/leiphone-ai/thepaper-ai/huxiu)每 12 小时静默失败一次;
+      #   且 thepaper 路由的上游 bug 只在本地这份 RSSHub 修过(见 ai-world-sync.ts:200)——
+      #   本地实例是该能力唯一可用抓取器,09-05~09-10 其访问日志里这五条路由全部 200 可查。
+      # 抓取契约取证(不是猜的):dist/index.mjs 主 hono 应用注册了 `I.get('/metrics', …)` 路由,
+      #   仅当配置 DEBUG_INFO=false 才摘除,而本安装的服务 env 块没有该项 ⇒ up 能真实代言存活。
+      #   ⚠ 若日后有人给该服务设 DEBUG_INFO=false,本式会在服务正常时假 DOWN —— 届时的正确替换形态是
+      #   `windows_service_state{name="IHUI-RSSHUB", state="running"} == 0`
+      #   (该形态与 up 形态于 2026-09-27 都做过成对自证:该服务现值 0/命中,其余 10 个在跑 IHUI-* 服务全 1/不命中)。
+      #   两形态的兜底边界如实登记:windows_exporter 死了则 service_state 序列消失、式子不评估(数据缺失≠0,
+      #   不假响也不响),那一维由 monitoring-self-alerts 组的 WindowsExporterDown 兜,两道互补不互替。
+      - alert: RsshubServiceDown
+        expr: up{job="rsshub"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'RSSHub 服务未运行(AI World 国内媒体 RSS 的唯一可用抓取源)'
+          description: 'RSSHub(127.0.0.1:12000)抓取失败持续 2 分钟以上。影响:ai-world-sync 五个国内资讯源经 rsshub.app 回落持续 403,静默失败两周+(结果只写库不喊人)。修复动作属机主裁决:① 把 nssm 的 Application 指回在位的 node.exe(`…\.workbuddy\binaries\node\versions\22.22.2-3\node.exe`)并启动服务;② 定夺 apps/api/.env 是否设 RSSHUB_URL=http://127.0.0.1:12000 —— 当前未设,服务起了也没有流量(该端点仅监听 127.0.0.1,LISTEN_INADDR_ANY=false)。核验:`sc query IHUI-RSSHUB`、`curl 127.0.0.1:12000/metrics` 出 Prometheus 文本、本告警转 resolved。'
+
   - name: monitoring-self-alerts
     # 监控链自保:确保"监控自身死亡"能被发现,而不是静默断链。
     # 说明:这些规则依赖 prometheus.yml 中对应的自监控 scrape job
