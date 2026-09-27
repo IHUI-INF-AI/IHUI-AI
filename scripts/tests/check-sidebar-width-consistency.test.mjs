@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync, execSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -40,7 +40,7 @@ const DEFAULT_FILES = {
 
 // ─── 辅助:创建临时项目目录(默认 2 文件,overrides 可覆盖/置 null 删除) ───
 function createTempProject(overrides = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-sidebar-w-'))
+  const dir = mkScratch('ihui-sidebar-w-')
   const files = { ...DEFAULT_FILES }
   for (const [key, value] of Object.entries(overrides)) {
     if (value === null) {
@@ -103,7 +103,7 @@ test('合法: CSS --sidebar-width: 200px === JS SIDEBAR_WIDTH=200 → exit 0', (
     assertPass(r)
     assert.match(r.stdout, /200px === SIDEBAR_WIDTH: 200px/, `stdout 应含一致数值对照\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -117,7 +117,7 @@ test('合法: CSS 130px === JS SIDEBAR_WIDTH=130 → exit 0', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -139,7 +139,7 @@ test('违规: CSS 200px ≠ JS 130(根因案例值)→ exit 1 + 报告宽度跳�
     // 修复建议:把 design-tokens.css 的 --sidebar-width 改为 JS 值
     assert.match(r.stdout, /130px/, `stdout 应含修复建议值 130px\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -154,7 +154,7 @@ test('违规: CSS 130px ≠ JS 200(反向)→ exit 1', () => {
     assert.match(r.stdout, /130px/, `stdout 应含 CSS 值 130px\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /200px/, `stdout 应含 JS 值 200px\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -182,7 +182,7 @@ test('边界: design-tokens.css 缺失 → exit 0(仅警告不阻塞)', () => {
     // 不应有 ✅ 通过标记(因为没有完成一致性对比)
     assert.doesNotMatch(r.stdout, /✅.*一致/, `不应有 ✅ 一致标记\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -195,7 +195,7 @@ test('边界: sidebar.tsx 缺失 → exit 0(仅警告不阻塞)', () => {
     assert.match(r.stdout, /sidebar\.tsx.*未找到|SIDEBAR_WIDTH.*未找到/, `stdout 应含未找到 SIDEBAR_WIDTH 警告\nstdout: ${r.stdout}`)
     assert.doesNotMatch(r.stdout, /✅.*一致/, `不应有 ✅ 一致标记\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -211,7 +211,7 @@ test('边界: 两文件都缺失 → exit 0(优先报 CSS 缺失)', () => {
     // 源脚本先判 cssWidth===null,故优先报 CSS 侧缺失(新串见 :120)
     assert.match(r.stdout, /未找到 design-tokens 源文件/, `stdout 应含 CSS 缺失警告\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -232,7 +232,7 @@ test('边界: CSS 存在但无 --sidebar-width → exit 0(警告)', () => {
     // `--sidebar-width.*未找到` 永远不中。
     assert.match(r.stdout, /中未找到 --sidebar-width 定义/, `stdout 应含未找到警告\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -246,7 +246,7 @@ test('边界: TSX 存在但无 SIDEBAR_WIDTH 常量 → exit 0(警告)', () => {
     assert.equal(r.status, 0, `TSX 无 SIDEBAR_WIDTH 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /sidebar\.tsx.*未找到|SIDEBAR_WIDTH.*未找到/, `stdout 应含未找到警告\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -265,7 +265,7 @@ test('鲁棒: CSS "--sidebar-width: 180px" 与 JS 180 → exit 0', () => {
     assertPass(r)
     assert.match(r.stdout, /180px === SIDEBAR_WIDTH: 180px/, `stdout 应含 180 一致对照\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -279,7 +279,7 @@ test('鲁棒: TSX "const SIDEBAR_WIDTH = 250"(无分号)与 CSS 250px → exit 0
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -298,7 +298,7 @@ test('staged 模式: git 仓库无相关 staged 文件 → 跳过 exit 0', () =>
     assert.equal(r.status, 0, `无相关 staged 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /跳过/, `stdout 应含跳过标记\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -311,7 +311,7 @@ test('staged 模式: staged design-tokens.css → 跑全量检查 exit 0', () =>
     const r = runScript(dir, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -324,7 +324,7 @@ test('staged 模式: staged sidebar.tsx → 跑全量检查 exit 0', () => {
     const r = runScript(dir, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -337,7 +337,7 @@ test('staged 模式: 非 git 环境 → 回退全量检查 exit 0', () => {
     // 非 git 环境 catch 块吞掉异常,继续走全量检查
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
