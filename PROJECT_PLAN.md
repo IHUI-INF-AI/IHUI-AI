@@ -13427,3 +13427,38 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
   **仍未收口(如实)**:CLI 的 ACP / `server/agent-core` / headless 三面没有渲染卡片,未接预览回调;终端不做原地重绘,
   一批帧只落一次输出。扩展端待用户裁定。四端的**像素级到端观感**这次没有真机/真浏览器取证(只有单元与结构判据),
   收尾条件里那一条仍欠一次实机对照。
+
+- [x] ✅(2026-09-27) O81 票⑲ —— **D113 第四端(扩展)接通:先补能力面,再补渲染面**。
+  票⑱把扩展记成"实证不该接"(`missing.extension.onToolDelta = no-tool-delta-ui`),用户当轮决定
+  「开通,扩展也要流中预览」,所以本票把它做完。**关键发现:只接回调是空转** —— 扩展的
+  `toolsForChatRequest` 此前只带 UI 操控族、**完全不带文件族**,而 `tool-delta` 帧只在写类工具真被
+  调用时才产生(发帧面 `llm.py:_FILE_EDIT_PREVIEW_TOOLS`),所以能力面必须先开。判据搬到共享单一源
+  `packages/shared/src/chat/file-tool-intent.ts`(web 原实现逐字搬,行为一字未改),理由是安全面而非
+  整洁:这张表决定"哪些话术让模型拿到 write_file/edit_file",而两端的服务端防护是同一套
+  `_validate_write_path_in_workspace` ⇒ 策略分叉不体现在报错上,只体现在"同一句话在扩展能写、在
+  web 不能写"。
+  **命名撞车是量出来的,不是预先想到的**:共享层已有 `task-status.ts` 的 `FILE_WRITE_TOOLS`
+  (ReadonlySet,文件变更**识别**白名单,与后端 FILE_MODIFY_TOOLS 对齐),与本票的**能力清单**同词不同义。
+  先前把新模块 `export *` 进 `./chat` barrel 时,`pnpm --filter @ihui/shared typecheck` 当场报
+  TS2308 歧义,而 web `tool-call-card.tsx:33` 正按 `.has()` 消费那一份 —— 也就是说"顺手并进 barrel"
+  会产出一台**拿到数组就运行时崩**的暗雷,而它不是类型层能兜住的形态(两边都有同名导出时 tsc 会红,
+  但只在一侧被 re-export 时不会)。处置:新模块导出改名 `FILE_READ_INTENT_TOOLS` /
+  `FILE_WRITE_INTENT_TOOLS`,**不进 barrel**,消费方一律走子路径;理由写在两处(barrel 注释 + 模块头注),
+  否则下一个人会当作"漏加了出口"补回去。web 侧 `tool-config.ts` 只 re-export `fileToolsFor`
+  (全仓 `FILE_READ_TOOLS` 引用现读 0 处 ⇒ 出口收窄无破坏面,已 grep 证)。
+  **四端字段收敛**:`partialDiff` 进 `@ihui/types/chat` 的 `ToolCall` —— 此前 web/RN/小程序各声明一份,
+  是本仓最典型的"两处算同一件事"。投影层 `ToolRenderBlock` 补同名字段并由 `call.partialDiff` 喂入,
+  渲染条件与另三端**逐字同形**(`status === 'running' && partialDiff`),字号/行高取四端同一档
+  (11px / 16px,对齐 RN `monoText` 与小程序 22rpx/32rpx);不新增文案标签(要么多余,要么得补五语言键,
+  而语言包此刻由并行会话持有)。端内归并层 `lib/tool-call-frames.ts` 两条纯函数:
+  `applyToolDelta`(整帧覆盖)+ `applyToolCallStart`(重复 start 帧按 id 原位替换并**保留已有预览** ——
+  旧写法 `...list, 新条目` 会把预览抹空并多出一行,与 RN/小程序同口径)。
+  **取证**:端内新增 20 例(17 例纯逻辑+真实帧端到端+源码级五道接线锁,3 例 react-dom/server 静态渲染
+  的"running 出框 / 无预览不出框 / 终态不残留")。五道源码锁的**牙是量出来的**:去掉归并调用、删 result
+  的 `partialDiff: undefined`、去掉 running 门、删投影行、端内自造正则 —— 五个变异各自翻红。
+  台账随票:删 `missing.extension.onToolDelta`、`baseline.extension` 17⇒18;守门 90 在 HEAD 面
+  仍读旧台账所以现读 17/17 通过,入库后两面同值(该门的取材口径是"台账与命中同面同轮",见其头注)。
+  **归属如实登记(两处红不是本票的)**:`pnpm --filter @ihui/extension typecheck` 现余 1 错
+  (`packages/ui-react/src/index.ts:86` 的 `UploadLabels`)—— 该文件工作树干净,红源是并行会话对
+  `components/Upload.tsx` 的在飞改动(HEAD 该符号 4 处、工作树 0 处);`@ihui/shared` 全量另有 5 条
+  `prompt-history` 测试面错误,同型(HEAD 有导出、工作树副本被删)。本票按 §12/§16 不代修他人文件。
