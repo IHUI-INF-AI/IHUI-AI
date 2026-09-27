@@ -175,10 +175,11 @@ describe('后台任务注册表', () => {
       const start = Date.now();
       const result = await waitForTask(id, 1000);
       expect(Date.now() - start).toBeLessThan(200);
-      expect(result!.status).toBe('exited');
+      expect(result.state).toBe('settled');
+      expect(result.snapshot!.status).toBe('exited');
     });
 
-    it('超时返回当前状态(running)', async () => {
+    it('超时返回 timed-out-unknown(快照仍为 running)', async () => {
       // 启动一个长任务
       const longCmd = isWindows ? 'ping -n 10 127.0.0.1 > nul' : 'sleep 10';
       const handle = runSandboxedAsync(makeCmd(longCmd), { cwd: os.tmpdir(), timeoutMs: 30_000 });
@@ -186,13 +187,17 @@ describe('后台任务注册表', () => {
       const start = Date.now();
       const result = await waitForTask(id, 500);
       expect(Date.now() - start).toBeGreaterThanOrEqual(400);
-      expect(result!.status).toBe('running');
+      // 新契约:到点不把中间状态升格成结论,状态报 timed-out-unknown,快照供参考
+      expect(result.state).toBe('timed-out-unknown');
+      expect(result.snapshot!.status).toBe('running');
       // 清理
       await killTask(id);
     });
 
-    it('不存在返回 null', async () => {
-      expect(await waitForTask('nonexistent', 100)).toBeNull();
+    it('不存在返回 gone 态且快照为 null', async () => {
+      const result = await waitForTask('nonexistent', 100);
+      expect(result.state).toBe('gone');
+      expect(result.snapshot).toBeNull();
     });
   });
 
@@ -209,8 +214,9 @@ describe('后台任务注册表', () => {
       expect(result.killed).toBe(true);
       // CI 上进程树退出/exit 事件传播可能滞后于 killTask 返回(实测 sleep 30
       // 在 ubuntu runner 上 SIGKILL 后仍需数百 ms 才触发 close),轮询等待收敛
-      const finalTask = (await waitForTask(id, 10_000))!;
-      expect(['killed', 'exited']).toContain(finalTask.status);
+      const finalResult = await waitForTask(id, 10_000);
+      expect(finalResult.state).toBe('settled');
+      expect(['killed', 'exited']).toContain(finalResult.snapshot!.status);
     });
 
     it('任务不存在返回失败', async () => {
