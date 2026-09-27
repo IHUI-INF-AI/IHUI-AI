@@ -26,6 +26,16 @@
 //     一起抹,而本判据要找的恰好就是字符串字面量 —— 用它等于自盲。这里只按整行注释形态放行
 //     (行首 `//` / `*` / `/*`),该边界如实写在这里而不是藏起来。
 //
+// 棘轮(2026-09-28 立,**只作用于 `--staged` 这一档**;判据本体 T1–T5 一条未改):
+//   HEAD 面现读同一判据的逐条结果,按「文件 × 判据(T1–T5)」聚成锚点;索引面同一锚点
+//   **超过** HEAD 自身计数的部分才判红,存量只报数不判红(同 77/83/98/102 的取向:锚点是
+//   "该文件 HEAD 自身的违规数"而不是手工清单 —— 谁把存量清进 HEAD,红线自动跟着降)。
+//   立因:HEAD 面现读存量(T4 第二份表 + T5 投影缺失)与本次提交无关,当场 blocking 就是
+//   恒红门,唯一结局是逼人 `--no-verify` 连带废掉全部守门(AGENTS §12f)。
+//   为什么是「文件×判据」而不是整文件计数:只按文件计会让"删一处 T5、同文件加一处 T4"
+//   净零逃逸(守门 134 BK1 同型)。全量档(HEAD)与工作树档不套棘轮 —— 那是问责面不是提交闸。
+//   锚点面取不到 / HEAD 面判据失明 ⇒ exit 2「无法判定」,既不冒红也绝不记绿。
+//
 // 取材口径(同 70/77/83/98/101/103/118):全量判 **HEAD blob**、`--staged` 判**索引 blob**、
 //   `--worktree` 仅人工逃生舱、两面旗同给判死、取不到 ⇒ exit 2 且不回落另一个面。
 //   清单与内容**同面同轮**,内容一律经 scripts/lib/face-reader.mjs 的 catBatch(守门 118 的
@@ -35,8 +45,8 @@
 //    必然互相覆盖注册块,门 93 记过同型事故)。
 //
 // 用法:
-//   node scripts/check-lsp-language-table.mjs                 # 全量(HEAD)
-//   node scripts/check-lsp-language-table.mjs --staged        # 索引面(提交链)
+//   node scripts/check-lsp-language-table.mjs                 # 全量(HEAD,问责面,不套棘轮)
+//   node scripts/check-lsp-language-table.mjs --staged        # 索引面(提交链;棘轮锚=该文件×判据 HEAD 自身)
 //   node scripts/check-lsp-language-table.mjs --worktree      # 人工排查,不作结论
 //   node scripts/check-lsp-language-table.mjs --self-test     # 构造面取证(零副作用)
 //   node scripts/check-lsp-language-table.mjs --json
@@ -257,7 +267,8 @@ export function judgeTable({ tableText, clientText, otherFiles }) {
   }
 
   // T1 —— 候选结构齐备
-  let capUndetermined = 0
+  // (原 `capUndetermined` 计数器是只写不读的死变量,与 amber.length 同值冗余;eslint 在
+  //  HEAD 面上就已判其 unused,本次因文件进暂存区而暴露 —— 删两行死码,判据与返回结构一字未动)
   for (const entry of parsed.entries) {
     for (const c of entry.candidates) {
       const where = `${entry.language}/${c.binary ?? '(无 binary)'}`
@@ -269,7 +280,6 @@ export function judgeTable({ tableText, clientText, otherFiles }) {
         // 字段写了但值读不出来(spread 指向解析不到的常量)⇒ **判不了**。
         // 算成"空能力表"会给一张好表发红牌;算成"通过"则是把没判写成判过了。
         // 所以走 amber:印出来、计数,但不改退出码(与守门 127/103 的未判定同一取向)。
-        capUndetermined += 1
         amber.push(`${where}: capabilities 的值解析不出 ⇒ 本门对这一项没有结论`)
         continue
       }
@@ -357,6 +367,57 @@ export function judgeTable({ tableText, clientText, otherFiles }) {
   return { red, amber, fatal: null, counts }
 }
 
+// ==================== 棘轮(仅 --staged 档;只做归属与切分,不改任何判定) ====================
+
+/**
+ * 把一条红串归到锚点键 `<文件> <判据>`。归属只做字符串解析 —— 判据本体一个字不改,
+ * 本函数只回答"这条债记在哪个文件的哪一维头上"。
+ *  · T4 点名表外文件(`T4 <rel>:<line>: …`);
+ *  · T5 两种形态("找不到 buildClientCapabilities" 点名客户端,"请求种类未投影"不点名)
+ *    都以客户端为落点 —— 投影这件事发生在 CLIENT_REL 那一份里;
+ *  · T1/T2/T3 是表自身的结构 ⇒ 归表文件。
+ */
+export function violationAnchorKey(redLine) {
+  const m = /^(T[1-5])\b/.exec(redLine)
+  const rule = m ? m[1] : 'T?'
+  if (rule === 'T4') {
+    const p = /^T4 (\S+?):\d+:/.exec(redLine)
+    return `${p ? p[1] : TABLE_REL} ${rule}`
+  }
+  return `${rule === 'T5' ? CLIENT_REL : TABLE_REL} ${rule}`
+}
+
+/**
+ * 提交链棘轮:pending(索引面)对 head(HEAD 面)逐锚点对账。
+ * 只拦"本次改动把违规加回到超过该文件×判据在 HEAD 自身的存量",存量不算在本次头上。
+ * 同锚点内按出现顺序切分(与 77/98 的计数式棘轮同一形态);额度没用满 = 存量被清偿,是好消息。
+ * @returns {{fresh:string[], tolerated:number, toleratedBy:Map<string,number>, anchorBy:Record<string,number>}}
+ */
+export function applyHeadRatchet({ redPending, redHead }) {
+  const anchorBy = new Map()
+  for (const r of redHead) {
+    const k = violationAnchorKey(r)
+    anchorBy.set(k, (anchorBy.get(k) ?? 0) + 1)
+  }
+  const used = new Map()
+  const toleratedBy = new Map()
+  const fresh = []
+  let tolerated = 0
+  for (const r of redPending) {
+    const k = violationAnchorKey(r)
+    const u = used.get(k) ?? 0
+    const allow = anchorBy.get(k) ?? 0
+    if (u < allow) {
+      used.set(k, u + 1)
+      toleratedBy.set(k, (toleratedBy.get(k) ?? 0) + 1)
+      tolerated += 1
+    } else {
+      fresh.push(r)
+    }
+  }
+  return { fresh, tolerated, toleratedBy, anchorBy: Object.fromEntries(anchorBy) }
+}
+
 // ==================== 取材 ====================
 
 /** 同一面下列出待扫源文件(排除测试与 .d.ts)。 */
@@ -404,6 +465,16 @@ export function readFaceInputs(repoRoot, face) {
     files[rels[i]] = t
   }
   return files
+}
+
+/** 在一个面上跑一遍"取材 → 判据"。取不到一律抛 Undetermined(由调用方折成 exit 2)。 */
+export function judgeFace(repoRoot, face) {
+  const files = readFaceInputs(repoRoot, face)
+  const tableText = files[TABLE_REL]
+  if (!tableText) throw new Undetermined(`${TABLE_REL} 在 ${face} 面上不存在`)
+  const otherFiles = {}
+  for (const [rel, text] of Object.entries(files)) if (rel !== TABLE_REL) otherFiles[rel] = text
+  return judgeTable({ tableText, clientText: files[CLIENT_REL] ?? '', otherFiles })
 }
 
 // ==================== 取证(构造面,零副作用) ====================
@@ -471,6 +542,50 @@ export const LSP_SERVERS: LspServerConfig[] = [
     faceFromArgv([]).face === 'head' && faceFromArgv(['--staged']).face === 'staged',
   )
 
+  // ---- 棘轮(15–19):判据本体不动,只证"归属 + 切分"的五个方向 ----
+  const HEAD_RED = [
+    'T4 apps/cli/src/tools/leak.ts:3: 表外又写了一遍 \'pylsp\' —— 服务器名的唯一出处是 apps/cli/src/lsp/language-table.ts',
+    'T5 apps/cli/src/tools/lsp.ts 里找不到 buildClientCapabilities —— 能力投影这一格无人看守',
+  ]
+  // 15 pending==head(提交链上 index 与 HEAD 同形)⇒ 零新增、存量计满
+  {
+    const r = applyHeadRatchet({ redPending: HEAD_RED, redHead: [...HEAD_RED] })
+    ok('15 棘轮:pending 与 head 逐条同形 ⇒ fresh=0 且 tolerated=2', r.fresh.length === 0 && r.tolerated === 2)
+  }
+  // 16 正向证明:在全新文件加一条 T4 ⇒ 必判新增并点名该文件(存量不因"有红"而吞掉新增)
+  {
+    const extra = 'T4 apps/cli/src/new-leak.ts:9: 表外又写了一遍 \'gopls\' —— 服务器名的唯一出处是 apps/cli/src/lsp/language-table.ts'
+    const r = applyHeadRatchet({ redPending: [...HEAD_RED, extra], redHead: HEAD_RED })
+    ok('16 棘轮:新文件新增一条 T4 ⇒ fresh 恰为 1 并点名该文件', r.fresh.length === 1 && r.fresh[0] === extra)
+  }
+  // 17 反净零逃逸:删掉 head 的 T5 存量、在同文件换一条 T4 ⇒ 锚点键不同形,T4 必须算新增
+  {
+    const swapped = 'T4 apps/cli/src/tools/lsp.ts:9: 表外又写了一遍 \'gopls\' —— 服务器名的唯一出处是 apps/cli/src/lsp/language-table.ts'
+    const r = applyHeadRatchet({ redPending: [HEAD_RED[0], swapped], redHead: HEAD_RED })
+    ok('17 棘轮:同文件跨判据掉包(删 T5 加 T4)⇒ 不得净零逃逸,fresh=1 且是那条 T4', r.fresh.length === 1 && r.fresh[0] === swapped)
+  }
+  // 18 清偿方向:pending ⊂ head(有人修掉了一条)⇒ fresh=0,红线随 HEAD 存量下降自动收紧
+  {
+    const r = applyHeadRatchet({ redPending: [HEAD_RED[0]], redHead: HEAD_RED })
+    ok('18 棘轮:存量被清偿(pending 少一条)⇒ fresh=0', r.fresh.length === 0 && r.tolerated === 1)
+  }
+  // 19 同文件同判据超出存量:head 计 1、pending 计 2 ⇒ 恰超出的那条判红(按序切分)
+  {
+    const more = 'T4 apps/cli/src/tools/leak.ts:7: 表外又写了一遍 \'rust-analyzer\' —— 服务器名的唯一出处是 apps/cli/src/lsp/language-table.ts'
+    const r = applyHeadRatchet({ redPending: [HEAD_RED[0], more, HEAD_RED[1]], redHead: HEAD_RED })
+    ok('19 棘轮:同文件同判据加一条 ⇒ 超出存量的那条判红,存量那条仍免检', r.fresh.length === 1 && r.fresh[0] === more && r.tolerated === 2)
+  }
+  // 20 归属函数本身:表结构判据(T1/T2/T3)归表文件,T5 种类行归客户端,T4 归点名文件
+  {
+    const kTable = violationAnchorKey('T1 typescript/ts: 没写 installHint —— x')
+    const kT5 = violationAnchorKey("T5 请求种类 'hover' 既没被 buildClientCapabilities 投影、也没被 requireCapability 预检 —— x")
+    const kT4 = violationAnchorKey('T4 apps/cli/src/a.ts:2: 表外又写了一遍 x —— y')
+    ok(
+      '20 归属:T1/T2/T3⇒表文件、T5⇒客户端、T4⇒点名文件',
+      kTable === `${TABLE_REL} T1` && kT5 === `${CLIENT_REL} T5` && kT4 === 'apps/cli/src/a.ts T4',
+    )
+  }
+
   const failed = lines.filter((l) => l.startsWith('❌'))
   for (const l of lines) console.log(l)
   console.log(`--self-test: ${lines.length - failed.length}/${lines.length} 通过`)
@@ -488,9 +603,9 @@ async function main() {
     process.exit(2)
   }
   const face = sel.face
-  let files
+  let verdict
   try {
-    files = readFaceInputs(ROOT, face)
+    verdict = judgeFace(ROOT, face)
   } catch (e) {
     if (e instanceof Undetermined) {
       console.error(`⚠️ 无法判定:${e.message}`)
@@ -498,31 +613,57 @@ async function main() {
     }
     throw e
   }
-  const tableText = files[TABLE_REL]
-  if (!tableText) {
-    console.error(`⚠️ 无法判定:${TABLE_REL} 在该面上不存在`)
-    process.exit(2)
-  }
-  const otherFiles = {}
-  for (const [rel, text] of Object.entries(files)) if (rel !== TABLE_REL) otherFiles[rel] = text
-  const { red, amber, fatal, counts } = judgeTable({
-    tableText,
-    clientText: files[CLIENT_REL] ?? '',
-    otherFiles,
-  })
+  const { red, amber, fatal, counts } = verdict
   const faceTxt = { head: 'HEAD blob(全量审计)', staged: '索引 blob(本次提交会带走的那一份)', worktree: '工作树(人工逃生舱,提交链不走这档)' }[face]
   if (fatal) {
     console.error(`❌ 无法判定(判据失明不是通过):${fatal}`)
     process.exit(2)
   }
+
+  // 棘轮只在提交链那一档生效;全量档(HEAD)与工作树档照旧全量判 —— 问责面不是提交闸。
+  let fresh = red
+  let stock = null
+  if (face === 'staged') {
+    let headVerdict
+    try {
+      headVerdict = judgeFace(ROOT, 'head')
+    } catch (e) {
+      if (e instanceof Undetermined) {
+        console.error(`⚠️ 无法判定(HEAD 锚点取不到 ⇒ 存量与新增分不开,既不冒红也绝不记绿):${e.message}`)
+        process.exit(2)
+      }
+      throw e
+    }
+    if (headVerdict.fatal) {
+      console.error(`❌ 无法判定(HEAD 锚点面判据失明,不是"通过"):${headVerdict.fatal}`)
+      process.exit(2)
+    }
+    const r = applyHeadRatchet({ redPending: red, redHead: headVerdict.red })
+    fresh = r.fresh
+    stock = r
+  }
+
   if (args.includes('--json')) {
-    process.stdout.write(`${JSON.stringify({ face, counts, red, amber }, null, 2)}\n`)
+    process.stdout.write(
+      `${JSON.stringify({ face, counts, red, amber, fresh, toleratedStock: stock ? stock.tolerated : 0 }, null, 2)}\n`,
+    )
   } else {
-    console.log(`语言表结构对账 · 判定面:${faceTxt}`)
+    const ratchetNote = face === 'staged' ? ' · 棘轮锚点=该文件×判据在 HEAD 自身的违规数(存量不记在本次头上)' : ''
+    console.log(`语言表结构对账 · 判定面:${faceTxt}${ratchetNote}`)
     console.log(
       `  项 ${counts.entries} · 候选 ${counts.candidates} · 请求种类 ${counts.kinds} · 扩展名 ${counts.extensions} · 扫表外文件 ${counts.scannedFiles} 个 · 未判定 ${counts.undetermined} 项`,
     )
-    if (red.length === 0) console.log('✅ T1–T5 全通过')
+    if (face === 'staged') {
+      if (fresh.length > 0) {
+        console.log(`❌ 新增 ${fresh.length} 处结构违规(超出该文件×判据在 HEAD 自身的存量 ⇒ 判红):`)
+        for (const r of fresh) console.log(`  - ${r}`)
+      }
+      if (stock.tolerated > 0) {
+        console.log(`⚠️ 存量 ${stock.tolerated} 处按锚点免检(只报数不判红;全量问责:不带 --staged 跑本门):`)
+        for (const [k, n] of stock.toleratedBy) console.log(`  - ${k} ×${n}`)
+      }
+      if (fresh.length === 0 && stock.tolerated === 0) console.log('✅ T1–T5 全通过')
+    } else if (red.length === 0) console.log('✅ T1–T5 全通过')
     else {
       console.log(`❌ ${red.length} 处结构违规:`)
       for (const r of red) console.log(`  - ${r}`)
@@ -532,10 +673,19 @@ async function main() {
       for (const a of amber) console.log(`  - ${a}`)
     }
   }
-  process.exit(red.length > 0 ? 1 : 0)
+  process.exit(fresh.length > 0 ? 1 : 0)
 }
 
-export const __test__ = { parseLanguageTable, judgeTable, extractArrayLiteral, splitTopLevelObjects, faceFromArgv }
+export const __test__ = {
+  parseLanguageTable,
+  judgeTable,
+  judgeFace,
+  applyHeadRatchet,
+  violationAnchorKey,
+  extractArrayLiteral,
+  splitTopLevelObjects,
+  faceFromArgv,
+}
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
