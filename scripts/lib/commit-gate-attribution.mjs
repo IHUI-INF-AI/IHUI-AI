@@ -355,7 +355,7 @@ export function pickLastSummaryRun(logText, mustMention) {
  *          | 'undetermined-red'(仍红且基线面跑不出去 ⇒ 可跳,但不得声称与本次无关,2026-09-27 新增)
  *          | 'unattributed'(批未跑完 / 解析不到 / 复跑不可用 ⇒ 保守可跳,但如实说未归因)
  */
-export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, runGateBaseline }) {
+export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, runGateBaseline, foreignStaged }) {
   let parsed = parseGateSummary(text)
   let source = '钩子标准输出'
   if (parsed.failed.length === 0 && fallbackText) {
@@ -438,6 +438,7 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
   let stock = 0
   let deltaUnknown = 0
   let myFaceUndetermined = 0
+  let foreignFace = 0
   let noBaselineOutlet = false
   for (const g of parsed.failed) {
     let r = null
@@ -478,6 +479,27 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       detail.push(
         `[${g.id}] ${g.label} —— 复跑 exit 2:该门自己判"无法判定",未对本枚提交下任何结论` +
           `(取证行:${lines.slice(0, 2).join(' ⏎ ')})`,
+      )
+      continue
+    }
+    // ── 态①c(2026-09-27,守门 94 那一枚提交的实测):红点名的是**别人挂在共享索引里**的路径 ──
+    // 与 G-268 同型,只是翻了一面:G-268 是"门按工作树判,而基线检出里没有未跟踪文件";
+    // 这一型是"门按**索引**判(71/84 这类),而共享索引里常年挂着别人 staged 的内容 ——
+    // 本枚提交带 pathspec,那个 blob 结构上进不了本次提交,可差分照样喊"基线绿/我的面红"。
+    // 定责到提交者的话,唯一"修法"就是去动别人 staged 的东西 —— 那是 §12 明令的事故。
+    // 所以这里只把结论从"你引入的红"改成"红在他人 staged 的 <path> 上,归属未判定",
+    // **仍然非零、仍然留痕、仍然点名**;绝不改成"通过"。
+    // 刻意放在点名之后:一道既点名我的文件、又提到别人 staged 路径的门,结论仍是我的。
+    const foreignNamed = (Array.isArray(foreignStaged) ? foreignStaged : [])
+      .filter((f) => f && !stagedFiles.includes(f))
+      .filter((f) => lines.some((l) => lineNamesFile(l, f)))
+    if (foreignNamed.length > 0) {
+      foreignFace++
+      deltaUnknown++
+      detail.push(
+        `[${g.id}] ${g.label} —— 复跑仍红,且结论行点名的是**他人挂在共享索引里**的路径 ` +
+          `(${foreignNamed.join(' , ')});本枚提交带 pathspec,这些路径进不了本次内容 ⇒ ` +
+          `不得据此要求提交者修改他人暂存(§12),但也不得读成"这道红不存在"`,
       )
       continue
     }
@@ -562,7 +584,7 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       ranFullBatch: !parsed.earlyAbort,
       failed: parsed.failed,
       detail,
-      delta: { introduced, stock, deltaUnknown, noBaselineOutlet, myFaceUndetermined },
+      delta: { introduced, stock, deltaUnknown, noBaselineOutlet, myFaceUndetermined, foreignFace },
       reason:
         `${deltaUnknown} 道失败门仍红但未点名本次文件,而` +
         (myFaceUndetermined > 0
@@ -571,7 +593,11 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
         (noBaselineOutlet
           ? '无从差分(调用方未注入 runGateBaseline)'
           : '在隔离面跑不通(缺依赖 / 门按磁盘判 / exit 2)') +
-        ` ⇒ 未能差分,归属未知${stock > 0 ? `;另有 ${stock} 道已证 HEAD 面亦红` : ''}`,
+        ` ⇒ 未能差分,归属未知` +
+        (foreignFace > 0
+          ? `;其中 ${foreignFace} 道的结论行点名了**他人挂在共享索引里**的路径(本枚带 pathspec,进不了本次内容)`
+          : '') +
+        (stock > 0 ? `;另有 ${stock} 道已证 HEAD 面亦红` : ''),
     }
   }
   return {
@@ -697,6 +723,7 @@ export function decideWithSelfRunBatch({
   runBatch,
   runGate,
   hookText,
+  foreignStaged,
   runGateBaseline,
 }) {
   const blocker = blockedBeforeBatch(hookText)
@@ -730,7 +757,13 @@ export function decideWithSelfRunBatch({
 
   const provenance = `门级结论取自 safe-commit 自跑的那一轮 guardian-runner --staged(exit ${selfRun.status}),不是钩子内那一轮`
   // 同一把铰链:把自跑的输出当成"另一轮的钩子输出"喂回 classifyHookFailure
-  const hinge = classifyHookFailure({ text: selfRun.output, stagedFiles, runGate, runGateBaseline })
+  const hinge = classifyHookFailure({
+    text: selfRun.output,
+    stagedFiles,
+    runGate,
+    runGateBaseline,
+    foreignStaged,
+  })
   const summary = parseGateSummary(selfRun.output)
 
   if (hinge.kind === 'mine') {
