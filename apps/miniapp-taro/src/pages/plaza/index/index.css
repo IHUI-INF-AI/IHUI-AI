@@ -45,15 +45,15 @@
   gap: 12rpx;
 }
 
-/* 头部按钮对齐 RN chip:px 10dp→20rpx / py 6dp→12rpx / radius 16dp→32rpx /
-   bg surface.muted / border border.light / 字 14dp→28rpx text.secondary */
+/* 头部按钮对齐 RN chip 视觉语言:px 10dp→20rpx / py 6dp→12rpx / bg surface.muted /
+   border border.light / 字 14dp→28rpx text.secondary;圆角按角色档 control→sm(它们是动作按钮,不是选中项) */
 .pza-nav-btn {
   padding: 12rpx 20rpx;
   font-size: 28rpx;
   color: var(--color-muted-foreground);
   background: var(--color-muted);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-sm);
 }
 
 /* 状态 chips 条容器:仅负责页面级留白(chips 本身由统一分类条 CategoryBar 组件负责,
@@ -245,12 +245,12 @@
   text-align: center;
 }
 
-/* 发布按钮对齐 RN emptyBtn:mt 12dp→24rpx / px 24dp→48rpx / py 10dp→20rpx /
-   radius 12dp→24rpx / bg brand.DEFAULT */
+/* 发布按钮对齐 RN emptyBtn:mt 12dp→24rpx / px 24dp→48rpx / py 10dp→20rpx / bg brand.DEFAULT;
+   圆角按角色档 control→sm */
 .pza-empty-btn {
   margin-top: 24rpx;
   padding: 20rpx 48rpx;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   background: var(--color-brand);
 }
 
@@ -320,7 +320,7 @@
   width: 86%;
   max-width: 640rpx;
   background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   overflow: hidden;
 }
 
@@ -356,7 +356,7 @@
   margin-right: 24rpx;
   background: var(--color-muted);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-md);
 }
 
 .pza-chip text {
@@ -447,7 +447,7 @@
   align-items: center;
   justify-content: center;
   height: 80rpx;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--color-brand);
 }
 
@@ -463,7 +463,7 @@
   right: 0;
   bottom: 0;
   background: var(--color-card);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
