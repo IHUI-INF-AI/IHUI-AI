@@ -642,7 +642,12 @@ function run(argv) {
     strict,
   })
   const redBins = strict ? missingBins.length : 0
-  if (skipped) return 0
+  // exit 0 → **exit 2**(2026-09-27,G-268 同批):这一支上面刚打印了"本门无法判定",
+  // 却回 exit 0 —— 文档与代码分歧的方向恰好造出**假归因**:safe-commit 的差分拿基线面(隔离
+  // 检出里没有 node_modules)与本面对照,一面恒绿、一面按磁盘红 ⇒ 判成"这枚提交引入了红"。
+  // 与本仓"取不到判无法判定、不记为通过"的约定对齐(守门 94/103/118 同一条),并让归因层
+  // 看见 exit 2 就走"未判定"档(见 lib/commit-gate-attribution.mjs 态①b)。
+  if (skipped) return 2
   // 反假绿:一条链接都没扫到 = 判据没跑到东西,绝不记绿(与"扫不到包必须红"同族)。
   // 默认档 deepScanned 恒为 0,故本判据与改前逐字等值;strict 档浅/深任一有链接即算扫到。
   if (linksScanned + deepScanned === 0) {
