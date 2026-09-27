@@ -3900,7 +3900,14 @@ const pushGateChecks = [
     stagedTriggers: ['apps/', 'packages/'],
     onFailHint: [
       '',
-      '',
+      '  这道门问的不是"有没有绕档位表写死数字"(那是守门 77),而是"这一类元素取了角色表里的哪一档"。',
+      '  修法只有一个:改成 packages/design-tokens/src/radius.js 的 RADIUS_ROLES 指定的那一档',
+      '  (tiny→xs / control→sm / chip→md / card→lg / panel→xl / hero→2xl)。',
+      '  确属新元素类别 ⇒ 先在 RADIUS_ROLES 加角色并同笔给出消费方,不得为消红放宽判据。',
+      '  行内出口 radius-role-exempt: <原因>(须带原因,只救本行/紧邻上行,不得用它清存量)。',
+      '  自验:node scripts/check-radius-role-conformance.mjs --files <你改的文件>;',
+      '  存量还剩多少:同命令加 --json(数字一律现读,勿照文档抄)。',
+      '  紧急跳过:HUSKY_SKIP_RADIUS_ROLE_CONFORMANCE=1(仅限红确属他人文件时)。',
     ].join('\n'),
   },
 ]
