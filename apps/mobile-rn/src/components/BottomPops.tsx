@@ -19,6 +19,7 @@
  *
  * 平台特有:依赖 RN Modal/Animated/useSafeAreaInsets,不适合共享。
  */
+import { rnRadius } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -53,7 +54,6 @@ const ANIM_DURATION_MS = 300
 const SHEET_HIDDEN_OFFSET = SCREEN_HEIGHT // translateY 隐藏位置(屏幕高度,确保完全滑出)
 const DRAG_CLOSE_THRESHOLD = 80 // 下拉超过此阈值触发关闭
 
-const SHEET_BORDER_RADIUS = 12 // borderTopLeftRadius/borderTopRightRadius(AGENTS §4 rounded-t-xl)
 const HEADER_PADDING_H = 20
 const HEADER_PADDING_V = 15
 const TITLE_FONT_SIZE = 17
@@ -238,8 +238,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: SHEET_BORDER_RADIUS,
-    borderTopRightRadius: SHEET_BORDER_RADIUS,
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
     overflow: 'hidden',
     shadowColor: tokens.gray.black,
     shadowOpacity: 0.1,

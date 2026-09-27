@@ -259,7 +259,7 @@ function createStyles(tk: AppThemeTokens) {
     retryButton: {
       paddingVertical: 8,
       paddingHorizontal: 16,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     } as ViewStyle,
     retryText: {
@@ -279,7 +279,7 @@ function createStyles(tk: AppThemeTokens) {
 
     // 卡片
     card: {
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 12,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
@@ -295,7 +295,7 @@ function createStyles(tk: AppThemeTokens) {
       alignSelf: 'flex-start',
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: tk.border.medium,
@@ -326,7 +326,7 @@ function createStyles(tk: AppThemeTokens) {
     authorBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: tk.border.medium,

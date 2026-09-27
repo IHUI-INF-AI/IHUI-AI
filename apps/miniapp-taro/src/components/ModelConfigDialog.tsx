@@ -627,7 +627,7 @@ export default function ModelConfigDialog({
                   {it.url && (
                     // radius-exempt: 删除角标正圆:绝对定位小圆钮,直径=边长
                     <View
-                      className="absolute -top-1 -right-1 bg-destructive rounded-full flex items-center justify-center"
+                      className="absolute -top-1 -right-1 bg-destructive rounded-2xl flex items-center justify-center"
                       style={modelConfigDeleteBadgeStyle(toUnit)}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -750,7 +750,7 @@ export default function ModelConfigDialog({
                   >
                     {/* radius-exempt: Switch 拇指(§4 明文豁免,方档化会破坏形状) */}
                     <View
-                      className="rounded-full bg-[var(--color-white-98)] transition-transform"
+                      className="rounded-2xl bg-[var(--color-white-98)] transition-transform"
                       style={{
                         ...modelConfigSquareStyle(MODEL_CONFIG_SWITCH_THUMB_PX, toUnit),
                         // 位移由"轨道宽 − 拇指 − 左右内衬"在 spec 里派生,与原文案 translateX(44rpx) 同值
