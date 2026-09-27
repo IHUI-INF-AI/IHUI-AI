@@ -472,6 +472,7 @@
   - **B·彻底删孤儿**:删 `mode-indicator.tsx` 并在 AGENTS.md 登记「CLI 明确不做 React TUI」,杜绝每次摸排误判。
   - **C·维持现状**:保留 readline 手搓(它当前功能已相当完整),但把 README 里 `config`/`remote` 两条未注册命令归档为已知文档漂移。
   - **注**:#62 已定「孤儿件必须要么接要么删」的规矩,本项无论选 A 还是 B 都必须在当次收口,不得继续悬着。
+  - **文档漂移那半已按 C 处置(2026-09-27,逐条现读 CLI `--help` 取证)**:`ihui config` / `ihui remote` / `ihui repl` **均非顶层命令**,四处假声称已改为真实形态 —— `apps/cli/README.md`(命令表 + 快速开始 + 配置节,含 `~/.ihui/config.json` → `~/.ihui/settings.json`、`/config set model` → `defaultModel`)、`docs/CLI.md`(`ihui server` → `serve`、`ihui remote <url>` → `connect <url>`)、`deploy/scoop/ihui.json`(notes 指向不存在命令)、以及**本节上一行**原判为准确的 `ihui mode <plan|act|auto>`(真值 plan/build/review)与 `ihui hooks-auto [enable|disable]`(真值 discover/conflicts/test)。真顶层形态:`ihui settings <init|path>`、`ihui serve`、`ihui connect <url>`、`ihui capabilities remote list --server <url>`;`config` 只存在于 REPL 内 `/config <list|get|set|path|edit|help>`(`commands/config-cmd.ts`,注册方仅 `commands/repl.ts:29`)。**未动的一半**:「9 种安装方式」的**托管 URL 可达性**(`aizhs.top/install.sh`、`ghcr.io/ihui/ai-cli`、Releases 产物)未取证 —— 仓内安装资产齐备(`scripts/install/{install.sh,install.ps1,brew.rb,scoop.json,choco.nuspec,nix.nix,Dockerfile}` + `deploy/{homebrew,scoop,winget,snap,appimage}`),但"资产存在"不等于"公网可装",登记为独立待验项,不得读成已核实。
 
 **#75 · 🟡 P1 · `file_search` 换 ripgrep / 并行遍历 + 10 万文件级能力**
 
