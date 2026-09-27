@@ -1,6 +1,6 @@
 {
   "$comment": "SSE 双解析器归属台账(守门 scripts/check-sse-parser-parity.mjs 读取)。parseCoverageBaseline = packages/shared/src/utils/sse-parse.ts 侧覆盖帧数的下限(ratchet,只挡倒退不挡增长);webOnly = packages/api-client 已解析、sse-parse 未解析的帧,以及「为什么只有该端消费」的理由。每在 sse-parse 补接一帧,就同步删除该登记项并上调 parseCoverageBaseline。",
-  "parseCoverageBaseline": 21,
+  "parseCoverageBaseline": 23,
   "webOnly": [
     {
       "event": "question",
@@ -17,10 +17,6 @@
     {
       "event": "tool-approval",
       "why": "工具批准需要「挂起等待 + 批准/拒绝卡 + 把回执发回服务端续跑」整条闭环,实测消费面只有 web:apps/web/src/components/ai/tool-approval-dialog.tsx(对话框)+ apps/web/src/components/chat/message-list/MessageList.tsx(挂载)+ packages/api-client/src/client.ts 的 onToolApproval 回调;apps/miniapp-taro/src 全面对 tool-approval / toolApproval **零命中**(无批准卡、无回执通道),小程序只解析帧会出现\"弹出了却无处可点\"的状态,比不显示更糟。与 question/form_request 同一判据口径。"
-    },
-    {
-      "event": "tool-delta",
-      "why": "D113(2026-09-27,commit 1753659366)文件写类工具流中 diff 预览帧:api-client 已解析(client.ts 的 onToolDelta 回调 + tryParseToolDelta),消费面实测只有 web —— apps/web/src/stores/chat.ts 接帧累积 partialDiff、apps/web/src/components/ai/tool-call-card.tsx 在 running 态渲染流中预览。miniapp-taro 对 SSE 帧 'tool-delta' 零消费(ai-cards.tsx 的 toolDelta 是**本地算最终 diff 统计的 helper**,与本帧同名不同义,不构成消费位),且端上没有流中编辑预览的承载 UI;只解析帧会让小程序收到帧却无处渲染,与 question/tool-approval 同一判据口径。其余端接入流中预览 UI 时应在 sse-parse.ts 补解析本帧、删本登记并上调 parseCoverageBaseline(门 63 的 stale 判据会督促这一步)。"
     }
   ]
 }
