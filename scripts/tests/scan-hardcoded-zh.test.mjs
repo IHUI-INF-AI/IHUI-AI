@@ -31,7 +31,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync, existsSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -526,6 +526,91 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
     assert.ok(!/['"]cat-file['"]/.test(code), "不得再自己拼 `cat-file`(取材层的存在就是为了不再各写一遍)")
     assert.ok(!/execFileSync\('git'/.test(code), "不得再裸 execFileSync('git')(服务账户 / GUI 宿主 PATH 不通)")
     assert.ok(!/const GIT_BIN = 'C:/.test(code), '不得再写死 Git 安装目录这种盘符绝对路径(AGENTS §15)')
+  })
+
+  // ─── 20/21/22. 一枚"全是删除"的提交不得被退回磁盘判(2026-09-28 立,真仓实测事故)───
+  // 事故形状:`--diff-filter=ACMR` 把只含 D 的索引读成空集 ⇒ 旧写法退磁盘全量判 ⇒
+  // 点名**别人未提交**的文件 ⇒ 归因层正确判"红但未点名本次文件"⇒ 各会话 --no-verify ⇒
+  // 一次绕过约等于链上全部守门对该提交作废。三条用例的方向不同,少一条都退化:
+  //   ⑯ 只暂存删除 ⇒ exit 0 且必须点名"不判"的原因,且**不得**出现那枚在飞文件的名字;
+  //   ⑰ 同夹具改成暂存"新增中文的修改" ⇒ 仍判红(证明这次收紧没有把门做成装饰品);
+  //   ⑱ 索引**真的**空(人工裸跑)而磁盘脏 ⇒ 仍退磁盘判红(保住"空暂存恒绿是假通过"那条既有设计)。
+  test('暂存集只含删除 ⇒ 不判、不退磁盘,且在飞文件不得被点名(反假归因)', () => {
+    const { root, git } = createGitProject()
+    try {
+      const doomed = 'apps/web/app/doomed.tsx'
+      const dirty = 'apps/web/app/in-flight.tsx'
+      mkdirSync(join(root, 'apps/web/app'), { recursive: true })
+      writeFileSync(join(root, doomed), `export const A = '确定'\n`, 'utf8')
+      writeFileSync(join(root, dirty), `export const A = '确定'\n`, 'utf8')
+      git(['add', '-A'])
+      git(['commit', '-q', '-m', 'init'])
+      // ① 索引里只留一条删除
+      rmSync(join(root, doomed), { force: true })
+      git(['add', '-A', '--', doomed])
+      // ② 另一枚文件在**磁盘**上新增中文,但一次都没 add —— 那正是别人的在飞现场
+      writeFileSync(join(root, dirty), `export const A = '确定'\nexport const B = '取消'\nexport const C = '关闭'\n`, 'utf8')
+
+      const r = runScript(['--staged', '--exit', '1'], { cwd: root })
+      const out = `${r.stdout}\n${r.stderr}`
+      assert.equal(r.status, 0, `只含删除的提交不得被磁盘上的在飞文件钉红。实得:\n${out}`)
+      assert.match(out, /没有任何可扫正文/, '必须点名"本次不判"的原因,不许静默绿')
+      assert.match(out, /刻意不退磁盘/, '原因里必须写清"不退磁盘"这条决策,否则下一个人会以为是漏判')
+      assert.ok(!out.includes('in-flight.tsx'), `在飞文件不得被点名(那属于别人的现场):${out}`)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('同一夹具改成暂存"新增中文的修改" ⇒ 仍判红(证明上一条没有把门做成装饰品)', () => {
+    const { root, git } = createGitProject()
+    try {
+      const rel = 'apps/web/app/edited.tsx'
+      mkdirSync(join(root, 'apps/web/app'), { recursive: true })
+      writeFileSync(join(root, rel), `export const A = '确定'\n`, 'utf8')
+      git(['add', '-A'])
+      git(['commit', '-q', '-m', 'init'])
+      writeFileSync(join(root, rel), `export const A = '确定'\nexport const B = '取消'\n`, 'utf8')
+      git(['add', '--', rel])
+      const r = runScript(['--staged', '--exit', '1'], { cwd: root })
+      const out = `${r.stdout}\n${r.stderr}`
+      assert.equal(r.status, 1, `暂存集里有 ACMR 时必须照判红。实得:\n${out}`)
+      assert.match(out, /edited\.tsx: 2 处 > 基线 1 处/, '命中面必须仍取自索引 blob')
+      assert.ok(!/没有任何可扫正文/.test(out), '不得走"不判"那一支')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('索引**真的**空而磁盘脏 ⇒ 仍退磁盘判红(保住"空暂存恒绿是假通过"的既有设计)', () => {
+    const { root, git } = createGitProject()
+    try {
+      const rel = 'apps/web/app/bare.tsx'
+      mkdirSync(join(root, 'apps/web/app'), { recursive: true })
+      writeFileSync(join(root, rel), `export const A = '确定'\n`, 'utf8')
+      git(['add', '-A'])
+      git(['commit', '-q', '-m', 'init'])
+      // 只改磁盘、一次都不 add ⇒ 索引为空(不是"只含删除")
+      writeFileSync(join(root, rel), `export const A = '确定'\nexport const B = '取消'\nexport const C = '关闭'\n`, 'utf8')
+      const r = runScript(['--staged', '--exit', '1'], { cwd: root })
+      const out = `${r.stdout}\n${r.stderr}`
+      assert.equal(r.status, 1, `索引真空时不得免判。实得:\n${out}`)
+      assert.match(out, /索引确实空/, '必须写明退回的是"真空索引"那一支,与"只含删除"区分开')
+      assert.match(out, /bare\.tsx: 3 处/, '退磁盘后仍要量到在飞中文')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('形状锁:删除/重命名的判定必须有两条不同枚举,不得合成一条', () => {
+    const code = readFileSync(SCRIPT_PATH, 'utf8')
+    assert.match(code, /--diff-filter=ACMR/, '可扫集必须仍按 ACMR 筛(删除没有正文)')
+    assert.match(code, /\['diff', '--cached', '--name-only'\]/, '必须另有一条**不筛状态**的枚举来判断"索引到底空不空"')
+    assert.match(
+      code,
+      /const deletionOnlyCommit =[\s\S]{0,160}stagedAny[^\n]*\.size > 0/,
+      '两支的分流必须**以"索引非空"为凭**存在,否则又回到"空集 ⇒ 退磁盘";写成常量 false 也必须在被拦之列(变异实测过)',
+    )
   })
 
 })
