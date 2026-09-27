@@ -132,9 +132,11 @@ export default function RecruitmentIndexPage() {
           <View className="flex flex-col">
             {info.requirements.map((item) => (
               <View key={item.id} className="flex items-start py-[16rpx]">
-                <View className="w-[12rpx] h-[12rpx] [border-radius:6rpx] bg-primary mt-[12rpx] mr-[16rpx] shrink-0" />
+                <View className="w-[12rpx] h-[12rpx] rounded-full bg-primary mt-[12rpx] mr-[16rpx] shrink-0" />
                 <View className="flex-1 flex flex-col">
-                  <Text className="text-[length:28rpx] font-medium text-foreground">{item.title}</Text>
+                  <Text className="text-[length:28rpx] font-medium text-foreground">
+                    {item.title}
+                  </Text>
                   <Text className="mt-[8rpx] text-[length:24rpx] text-muted-foreground leading-[1.5]">
                     {item.desc}
                   </Text>
@@ -182,13 +184,17 @@ export default function RecruitmentIndexPage() {
                     <Text className="text-[length:26rpx] text-muted-foreground">
                       {t('recruitment.monthlyIncome')}
                     </Text>
-                    <Text className="text-[length:28rpx] font-semibold text-warning">{item.monthly}</Text>
+                    <Text className="text-[length:28rpx] font-semibold text-warning">
+                      {item.monthly}
+                    </Text>
                   </View>
                   <View className="flex justify-between items-center py-[8rpx]">
                     <Text className="text-[length:26rpx] text-muted-foreground">
                       {t('recruitment.yearlyIncome')}
                     </Text>
-                    <Text className="text-[length:28rpx] font-semibold text-warning">{item.yearly}</Text>
+                    <Text className="text-[length:28rpx] font-semibold text-warning">
+                      {item.yearly}
+                    </Text>
                   </View>
                 </View>
               </View>
