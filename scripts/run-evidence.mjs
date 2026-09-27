@@ -318,7 +318,8 @@ async function main() {
       console.error(`❌ ${e.message}`)
       return 2
     }
-    return verify(fp, expectCwd || undefined).rcExit ?? 0
+    if (expectCwd) return verify(fp, expectCwd).rcExit ?? 0
+    return verify(fp).rcExit ?? 0
   }
   const outArg = head.find((a) => !a.startsWith('--'))
   if (!outArg || !cmd.length) {
