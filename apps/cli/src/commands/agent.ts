@@ -24,7 +24,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent } from '@ihui/api-client';
+import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, fetchApi, getToken, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent, type ToolDeltaEvent } from '@ihui/api-client';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
 // 2026-09-27:doom_loop pattern 外发前过一次脱敏兜底(防原文字段流入服务端落库)
@@ -49,6 +49,7 @@ import {
 } from '../tools/index.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
 import { createFileEditTools } from '../tools/file-edit.js';
+import { buildFileEditPreviewEvents } from '../tools/file-edit-preview.js';
 import { GIT_TOOLS } from '../tools/git.js';
 import { FETCH_TOOLS } from '../tools/fetch-url.js';
 import { WEB_SEARCH_TOOLS } from '../tools/web-search.js';
@@ -76,6 +77,7 @@ import { envelopeToolResult, ReadStateTracker } from '../tools/result-envelope/i
 import {
   StreamToolLedger,
   formatLedgerSummary,
+  buildToolLedgerAuditIngest,
   type LedgerSnapshot,
 } from '../stream-tool-ledger.js';
 import {
@@ -555,6 +557,19 @@ export interface RunToolLoopOptions {
    */
   onToolLedgerSnapshot?: (snapshot: LedgerSnapshot) => void;
   /**
+   * D113(2026-09-27)文件写类工具的**流中 diff 预览**帧(本端本地派生,一次调用一批)。
+   *
+   * 为什么本端要自己派生:CLI 的工具在进程内执行,服务端 `llm.py` 的 `tool-delta`
+   * 发帧路径对本端**永远不会发生**(本端不携带 `agentTools`)。要让"执行前先看一眼
+   * 将要写入什么"在四端同形,只能把服务端那套派生规则在本地复算一份 ——
+   * 唯一出口 `tools/file-edit-preview.ts`,算法/预算与服务端逐语义对齐,
+   * 并由 `apps/cli/tests/file-edit-preview-parity.test.ts` +
+   * `apps/ai-service/tests/test_file_edit_preview_parity.py` 两把尺子钉住。
+   * 载荷形状与 `@ihui/api-client` 的 `ToolDeltaEvent` 一致,故渲染端与 web/RN/小程序
+   * 共用同一条状态语义(按 toolCallId 整帧覆盖、落终态即清除)。
+   */
+  onToolDeltaFrames?: (events: ToolDeltaEvent[]) => void | Promise<void>;
+  /**
    * 压缩动作注入点(默认走 decideCompaction)。
    * 存在的必要:熔断的价值是"真的不再自动压缩",而按默认路径跑没法从外部观察到
    * "这一轮到底调没调压缩"。留出这个接缝后,该结论可以由测试直接数调用次数钉死。
@@ -580,6 +595,96 @@ export interface RunToolLoopOptions {
 
 /** pattern 外发长度上限:超出即截断并在 stderr 点名(不得静默) */
 const DOOM_LOOP_PATTERN_MAX_LEN = 256;
+
+// ==================== 工具账本 → 服务端审计链(86A 接线,2026-09-28)====================
+//
+// 快照出口 `onToolLedgerSnapshot` 此前生产面零消费者(唯一实现方是测试)= "记了
+// 但没人取",工具调用从未进入审计链。本函数是那个**生产消费者**:每轮快照经
+// stream-tool-ledger.ts 的写入源投影(fingerprint 作入参摘要,不落 args 原文),
+// 走 @ihui/api-client 的 `fetchApi`(自动带 Authorization/X-Requested-With,
+// 续期由 fetchApi 单例负责)POST 到 apps/api 的审计摄入入口。
+//
+// 三条不可漂的口径:
+// 1. **请求体不带任何身份字段** —— 属主由服务端从令牌主体取(request.userId),
+//    服务端摄入函数(zod strict)会直接拒掉带 userId/user_id 的 body;
+// 2. **失败必须可见** —— 非 2xx / 网络错都写 stderr;401/4xx 只回 status 与
+//    errorCode,不回显服务端响应体(凭据面纪律,同守门 67 的取向);
+// 3. **未登录不是失败** —— 审计事件须有主体,无 token 时跳过且不打扰。
+// 404(摄入路由尚未接线)只喊一次并停止本进程重试:每轮都喊等于制造恒常噪声,
+// 而原因已经报过;该等待项登记在交付报告,不由这里静默消化。
+
+/** apps/api 侧审计摄入端点(挂载 routes 接线是 86A 的登记余项,见函数头注释) */
+export const TOOL_LEDGER_AUDIT_INGEST_PATH = '/api/cli/audit/tool-invokes';
+
+let toolLedgerAuditIngestMissing = false;
+let toolLedgerAuditClientMissingWarned = false;
+
+/** 仅测试用:重置"404 停止重试 / 出口缺失只喊一次"的模块级状态。 */
+export function __resetToolLedgerAuditStateForTest(): void {
+  toolLedgerAuditIngestMissing = false;
+  toolLedgerAuditClientMissingWarned = false;
+}
+
+/**
+ * 取 api-client 的上报出口。历史测试套件常整模块 mock @ihui/api-client 且不带
+ * 这两个导出 —— vitest 对缺失导出的**访问本身就会抛错**(不是 undefined),
+ * 所以判"在不在"必须 try/catch 兜住访问,否则 fire-and-forget 变 unhandled
+ * rejection。兜住的跳过仍喊一次:被跳过是真跳过,不是被无声消化。
+ */
+function resolveToolLedgerAuditClient(): { post: typeof fetchApi; hasToken: () => string | null } | null {
+  try {
+    return { post: fetchApi, hasToken: getToken };
+  } catch {
+    if (!toolLedgerAuditClientMissingWarned) {
+      toolLedgerAuditClientMissingWarned = true;
+      process.stderr.write(
+        chalk.yellow('[tool-ledger-audit] api-client fetchApi/getToken unavailable; audit reporting skipped\n'),
+      );
+    }
+    return null;
+  }
+}
+
+/**
+ * 把一轮工具账本快照上报到服务端审计链(fire-and-forget 由调用方决定;
+ * 本函数自身 await,以便测试 await 到落定再断言)。
+ */
+export async function reportToolLedgerSnapshotToAudit(snapshot: LedgerSnapshot): Promise<void> {
+  if (toolLedgerAuditIngestMissing) return;
+  const client = resolveToolLedgerAuditClient();
+  if (!client) return;
+  // 未登录:没有可归属的主体,跳过(这不是上报失败,不产生噪音)。
+  if (!client.hasToken()) return;
+  const { ingest, dropped } = buildToolLedgerAuditIngest(snapshot);
+  if (dropped > 0) {
+    // 截断必须喊出来:静默变短等于伪造完整性。
+    process.stderr.write(
+      chalk.yellow(`[tool-ledger-audit] facts truncated: dropped=${dropped} (turn=${ingest.turn})\n`),
+    );
+  }
+  if (ingest.facts.length === 0) return;
+  const res = await client.post<{ recorded: number; failed: number }>(TOOL_LEDGER_AUDIT_INGEST_PATH, {
+    method: 'POST',
+    body: JSON.stringify(ingest),
+  });
+  if (res.success) return;
+  if (res.status === 404) {
+    toolLedgerAuditIngestMissing = true;
+    process.stderr.write(
+      chalk.yellow(
+        `[tool-ledger-audit] ingest endpoint not mounted (404 ${TOOL_LEDGER_AUDIT_INGEST_PATH}); audit reporting disabled for this process\n`,
+      ),
+    );
+    return;
+  }
+  // 其余失败每轮都报(不静默 catch 后当成功);刻意只回显 status/errorCode,
+  // 不把服务端 error 文本转写进 stderr(响应体可能携带任意上游内容)。
+  process.stderr.write(
+    chalk.yellow(
+      `[tool-ledger-audit] report failed status=${res.status ?? 'network'}${res.errorCode ? ` code=${res.errorCode}` : ''} (turn=${ingest.turn})\n`,
+    ),
+  );
+}
 
 /**
  * L1-4(2026-07-25 立):fire-and-forget 把 doom_loop 失败模式沉淀到 procedural memory。
@@ -1295,7 +1400,14 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       );
     }
     // 空账本不发工件:没有调用的轮次不需要对账,回调不该为它制造噪音
-    if (ledger.size > 0) opts.onToolLedgerSnapshot?.(ledger.snapshot());
+    if (ledger.size > 0) {
+      const snap = ledger.snapshot();
+      // 两条独立出口:外部回调是 REPL/恢复对账接缝(可选);审计上报是
+      // 生产写入源(86A)—— 它不依赖外部回调是否被传入,否则"接线"又会被
+      // 下一个没传 opts 的入口静默旁路。
+      opts.onToolLedgerSnapshot?.(snap);
+      void reportToolLedgerSnapshotToAudit(snap);
+    }
   };
   /** 换一条新流 = 先收尾旧册(已提前发起的执行不得没有记录),再开新册 */
   const installFreshLedger = (): void => {
@@ -1784,6 +1896,19 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       // 单工具时 Promise.all 退化为串行,无额外开销,UI 体验与原串行实现一致
       for (const call of toolCalls) {
         await opts.onToolCall?.(call.name, call.arguments);
+        // D113(2026-09-27):文件写类工具在**执行之前**把"将要写入的内容"按服务端的
+        // tool-delta 帧契约发一遍(派生唯一出口 tools/file-edit-preview.ts,算法与服务端
+        // 同语义、同 400 行/32KB/10 帧预算)。时序与 llm.py 一致:发帧在派发执行之前,
+        // 所以权限确认弹窗打开时用户已经看得见改动走向。
+        // 非写类工具 / 派生不出文本 / 空 id 一律 0 帧(与三端"空 toolCallId 丢弃"同一条纪律)。
+        if (opts.onToolDeltaFrames) {
+          const previewEvents = buildFileEditPreviewEvents(
+            `cli-preview-${randomUUID()}`,
+            call.name,
+            call.arguments,
+          );
+          if (previewEvents.length > 0) await opts.onToolDeltaFrames(previewEvents);
+        }
         if (call.name === 'dispatch_subagent') {
           const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
           const subType = String(call.arguments.persona ?? 'general');

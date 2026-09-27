@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * 语言服务器探测(V3 #83)—— 把「起不来」从一句话拆成可判、可诊断的四态。
  *
@@ -11,7 +15,7 @@
  * 与「判据失效的表现永远是安静」同型的那一条禁令在这里的落点:
  * **不允许任何一条返回路径 reason 为空**。
  */
-import { spawnSync } from 'node:child_process';
+import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -72,17 +76,24 @@ function lookupCommandNames(): { cmd: string } {
  */
 export function resolveBinaryPath(binary: string): string | null {
   const { cmd } = lookupCommandNames();
-  const r = spawnSync(cmd, [binary], {
-    encoding: 'utf-8',
-    windowsHide: true,
-    timeout: LOOKUP_TIMEOUT_MS,
-  });
-  if (r.error || r.status !== 0) return null;
-  const first = (r.stdout ?? '')
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .find((l) => l.length > 0);
-  return first ?? null;
+  try {
+    const r = spawnSync(cmd, [binary], {
+      encoding: 'utf-8',
+      windowsHide: true,
+      timeout: LOOKUP_TIMEOUT_MS,
+    });
+    if (r.error || r.status !== 0) return null;
+    const first = (r.stdout ?? '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => l.length > 0);
+    return first ?? null;
+  } catch {
+    // 「探测工具自己崩了」与「PATH 里查不到」都必须归成同一个 null —— 旧实现(lsp-languages 的
+    // isLspServerAvailable)是包着 try/catch 的,搬到 probe.ts 时丢过这一层:mock/异常环境下
+    // spawnSync 会同步抛而不是回填 r.error,不接住就会把分类诊断整条炸掉。
+    return null;
+  }
 }
 
 /** 从 `--version` 的输出里量第一个点分版本号(1-4 段)。量不到返回 null。 */
@@ -159,12 +170,27 @@ export function probeLspCandidate(
     };
   }
 
-  const r = spawnSync(resolvedPath, candidate.versionArgs, {
-    encoding: 'utf-8',
-    windowsHide: true,
-    timeout: VERSION_TIMEOUT_MS,
-    shell: os.platform() === 'win32',
-  });
+  let r: SpawnSyncReturns<string>;
+  try {
+    r = spawnSync(resolvedPath, candidate.versionArgs, {
+      encoding: 'utf-8',
+      windowsHide: true,
+      timeout: VERSION_TIMEOUT_MS,
+      shell: os.platform() === 'win32',
+    });
+  } catch (e) {
+    // 同 resolveBinaryPath:取版本这一步自己抛也要归档成 probe-failed,不得冒抛(静默炸栈
+    // 等于让调用方丢掉分类,正是本票要消灭的形态)。
+    return {
+      ...shared,
+      status: 'probe-failed',
+      resolvedPath,
+      version: null,
+      versionJudgement: 'skipped-no-min-version',
+      capabilities: null,
+      reason: `${candidate.binary} 取版本时探测进程自身异常:${((e as Error).message ?? String(e)).slice(0, 200)}`,
+    };
+  }
 
   if (r.error) {
     const code = (r.error as NodeJS.ErrnoException).code ?? '';
@@ -323,3 +349,4 @@ export function formatLspProbeOutcome(o: LspProbeOutcome): string {
   const hint = o.status === 'not-installed' || o.status === 'version-too-low' ? ` | 出路: ${o.installHint}` : '';
   return `${head}${version} | ${o.reason}${hint}`;
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
