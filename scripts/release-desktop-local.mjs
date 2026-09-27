@@ -5,9 +5,10 @@
 
 /**
  * 桌面端本机一键发版(2026-09-17 极致化):
- *   node scripts/release-desktop-local.mjs [--no-install] [--no-push] [--minor|--major]
+ *   node scripts/release-desktop-local.mjs [--no-install] [--no-push] [--no-upload] [--minor|--major]
  * 流程:bump 版本 → tauri build(薄壳+签名,~2.5 分钟)→ Gitee release 直传 →
  *       desktop-feed 更新(windows)→ 提交推送 → 本机静默自装。
+ *   --no-upload:跳过 Gitee 直传(本地验证构建必带;--no-push 不挡上传,见下方旗标注)。
  * 仅发 Windows(本机通道);全平台走 CI(tag → release-desktop.yml)。
  * 前置:~/.tauri/ 更新签名密钥;git credential 含 gitee.com token。
  */
@@ -27,6 +28,11 @@ const GITEE_REPO = 'IHUI-AI';
 
 const NO_INSTALL = process.argv.includes('--no-install');
 const NO_PUSH = process.argv.includes('--no-push');
+// ⚠️ NO_PUSH 只挡「版本 bump 提交」,**不挡 Gitee 上传** —— 2026-09-27 实测踩坑:
+//    本地验证构建想"只出包不出网",结果把 智汇AI_0.1.44_x64-setup.exe(+sig) 传上了
+//    Gitee release 成孤儿资产(Gitee API 不暴露 asset id、无法逐删,见
+//    gitee-release-attach.py「asset 列表不返回 id」注释)。本地验证一律带 --no-upload。
+const NO_UPLOAD = process.argv.includes('--no-upload');
 const KEEP_VERSION = process.argv.includes('--keep-version');
 const BUMP = process.argv.includes('--minor') ? 'minor' : process.argv.includes('--major') ? 'major' : 'patch';
 
@@ -116,6 +122,9 @@ console.log(`\n=== 产物: ${exeName} (${exeSize}MB) + sig ===`);
 }
 
 // ── 3. Gitee 直传(python 实现:undici multipart 对 Gitee 报 401,urllib 实证可行)──
+if (NO_UPLOAD) {
+  console.log('\n=== --no-upload:跳过 Gitee 直传,产物仅在本机 ===');
+} else {
 const giteeScript = path.join(ROOT, '.github/scripts/gitee-release-attach.py');
 // 2026-09-17:git credential 里的 gitee 凭证对 API 无效(31 位,实证 401)——
 // 优先用密钥目录的 apikey(32 位,实证有效),回退环境变量
@@ -140,6 +149,7 @@ if (gr.status !== 0) { console.error('ERROR: Gitee 发行阶段失败'); process
 //   ③ Gitee release 附件(安装包直链,供人下载,不在 updater endpoints 里)—— 本机这条真实生效。
 //   曾额外传过一个 DESKTOP_FEED_OUT 环境变量,但 gitee-release-attach.py 全文不读它(死变量,已删)。
 //   不再需要任何 desktop-feed 分支 git 操作(该分支会被仓库单分支守门删除)。
+}
 
 // ── 4. 提交推送版本 bump ──
 if (!NO_PUSH) {
@@ -148,7 +158,11 @@ if (!NO_PUSH) {
 }
 
 console.log(`\n=== ✅ desktop v${version} 本机发版完成(Windows) ===`);
-console.log(`    Gitee 直链: https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/desktop-v${version}/${exeName}`);
+if (NO_UPLOAD) {
+  console.log(`    本地产物(未上传): ${exePath}`);
+} else {
+  console.log(`    Gitee 直链: https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/desktop-v${version}/${exeName}`);
+}
 console.log(`    全平台(macos/linux)如需发布: git tag desktop-v${version} && git push origin desktop-v${version} 触发 CI`);
 
 // ── 5. 本机静默自装 ──
