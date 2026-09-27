@@ -6362,3 +6362,5 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 >   逐字同形，字段声明收敛进 `@ihui/types` 的 `ToolCall.partialDiff`，端内归并层一律纯函数
 >   (web `createToolDeltaHandler` / 扩展 `lib/tool-call-frames.ts` / 小程序 `cards/types.ts` /
 >   RN `chat-render-model.ts`)，接线由各自的源码级锁 + 真实帧端到端用例钉住。
+  - `useUpdater` 状态机(idle → checking → available → downloading → installing → done)+ `quitAndUpdateIfNeeded` 退出更新守卫 + `QuitUpdateOverlay` 全屏遮罩组件
+- **退出拦截更新**:拦截窗口关闭动作,检测更新 → 下载 → 安装 → 重启,如无更新则正常退出;覆盖 QuitUpdateOverlay 全屏遮罩防止用户误操作
