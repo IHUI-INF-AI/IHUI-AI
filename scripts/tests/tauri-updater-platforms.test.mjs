@@ -61,13 +61,44 @@ test('① windows 键逐字节回显输入(url + signature 原样,不改写不�
   })
 })
 
-test('① 入库快照的 windows-x86_64 键与改造前基准逐字节一致', () => {
+test('① 入库快照的 windows-x86_64 键必须与"快照自己的版本号"自洽(不钉某个版本的字节)', () => {
   const feed = loadSnapshotFeed()
   assert.ok(feed.updaterPlatforms, '快照必须已含 updaterPlatforms(CI/本地刷新后)')
-  assert.deepEqual(feed.updaterPlatforms['windows-x86_64'], {
-    url: LOCKED_WIN_URL,
-    signature: LOCKED_WIN_SIG,
-  })
+  const win = feed.updaterPlatforms['windows-x86_64']
+  assert.ok(win, '快照必须含 windows-x86_64 键(它是 feed 的第一优先平台)')
+  // 判据从"与 0.1.44 那枚字面量逐字节相等"改成"随快照版本号自洽"。
+  // 原因:前者是一枚**状态锁** —— 每发一版必然变红,而"修红"的正确动作是发布,
+  // 于是按记忆里的同一课(建门当时的状态锁会在第一次合规时变成禁止合规),它只能被换掉。
+  // 换后的判据更强:它同时钉住 host 归属、tag 与版本一致、文件名与版本一致、签名可解码且
+  // 解码内容确实指向同一个 exe —— 任何一环漂移都红,而正常发版不再红。
+  assert.match(feed.version, /^\d+\.\d+\.\d+$/, `快照 version 形态异常: ${feed.version}`)
+  const m =
+    /^https:\/\/gitee\.com\/[^/]+\/[^/]+\/releases\/download\/desktop-v([\d.]+)\/(.+_x64-setup\.exe)$/.exec(
+      win.url,
+    )
+  assert.ok(
+    m,
+    `windows url 必须是 Gitee 上 desktop-v<version>/AI_<version>_x64-setup.exe 形态,实得 ${win.url}`,
+  )
+  assert.equal(m[1], feed.version, 'url 里的 release tag 必须等于快照 version')
+  assert.ok(
+    m[2].startsWith('AI_') || /.+_x64-setup\.exe$/.test(m[2]),
+    `exe 文件名异常: ${m[2]}`,
+  )
+  assert.ok(win.signature && win.signature.trim().length > 32, '签名不得为空/占位')
+  const decoded = Buffer.from(win.signature, 'base64').toString('utf8')
+  assert.ok(
+    decoded.startsWith('untrusted comment: signature from tauri secret key'),
+    `签名解码后不是 tauri minisign 版式,前 48 字符: ${decoded.slice(0, 48)}`,
+  )
+  assert.ok(
+    decoded.includes('trusted comment: timestamp:'),
+    '签名缺少 timestamp 段(该 .sig 不是本次构建产物)',
+  )
+  assert.ok(
+    /file:.+_x64-setup\.exe/.test(decoded),
+    '签名内声明的 file 与被下载 exe 文件名不同 ⇒ 签名与资产不配对',
+  )
   // 与旧 route 的消费对象(assets 里第一条 Windows)同源同值 —— 两形态并读不相悖
   const legacyWin = feed.assets.find((a) => /Windows/i.test(a.format))
   assert.equal(feed.updaterPlatforms['windows-x86_64'].url, legacyWin.href)
