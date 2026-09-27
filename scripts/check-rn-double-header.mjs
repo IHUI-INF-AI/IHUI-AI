@@ -1039,14 +1039,17 @@ export default function S() {
     decideBlind({ violationCount: 1, honoredChannels: [], undeclaredChannelHits: 0 }),
   )
   ok(
-    '真仓 HEAD 阳性对照:必须点名存量且与台账逐文件等值(看不见存量 = 判据对该形态全盲,不算通过)',
+    '真仓 HEAD 对账:HEAD 现读集合必须与台账逐文件等值(清了账不重跑 --update-baseline = 第二份真相)',
     (() => {
       const r = analyze('head')
       const files = r.stock.map((h) => h.file.split('/').pop()).sort()
       // 刻意不把"立项那天是哪几处"抄进判据 —— 那会变成第二份真相:有人清偿掉一站,
       // 世界就不再长成清单的样子,而这条断言判的红与任何缺陷无关(本仓对硬清单的教训:
-      // "豁免清单必然腐烂")。有牙的部分是"读到 ≥1 处"∧"读到的集合 == 台账集合",
-      // 后者由 --update-baseline 维护,清账的人必须重跑它,否则这里就红。
+      // "豁免清单必然腐烂")。有牙的部分是"读到的集合 == 台账集合",台账由 --update-baseline
+      // 维护,清账的人必须重跑它,否则这里就红。
+      // 2026-09-27 存量归零后,"读到 ≥1"这一维由**合成夹具**接管(本文件 WRAP_BAD 阳性对照
+      // audit()=1 处 + 镜像 T7 私有索引注入必红),不再要求真仓保持脏 —— "世界被修好了"
+      // 不是判据失明的证据;枚举健康由下面 scannedFiles>150 那条兜住。
       const ledgerFiles = (readBaseline().stock || [])
         .map((s) =>
           String(s.rnFile || '')
@@ -1055,11 +1058,7 @@ export default function S() {
         )
         .filter(Boolean)
         .sort()
-      return (
-        r.total >= 1 &&
-        ledgerFiles.length >= 1 &&
-        JSON.stringify(files) === JSON.stringify(ledgerFiles)
-      )
+      return JSON.stringify(files) === JSON.stringify(ledgerFiles)
     })(),
   )
   ok(
