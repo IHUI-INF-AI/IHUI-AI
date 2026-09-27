@@ -224,6 +224,16 @@ class Settings(BaseSettings):
     # 关闭后 episodic→semantic 提炼(consolidate)跳过;管理员仍可经 .env 的
     # AUTO_GRAPH_EXTRACT_ENABLED=false 全局关停。
     auto_graph_extract_enabled: bool = True
+    # V3 #76(2026-09-28 立):会话结束自动蒸馏 Knowledge Card 的总开关。
+    # 与 auto_graph_extract_enabled 分开,因为两者成本不同:图谱走 stub 时零成本,
+    # 卡片蒸馏**必须**调一次真 LLM(要提炼"值得沉淀"的经验),所以它是独立的
+    # token 预算决策,管理员可经 .env 的 AUTO_KNOWLEDGE_CARD_EXTRACT_ENABLED=false
+    # 单独关停,而不必连带关掉图谱抽取。
+    auto_knowledge_card_extract_enabled: bool = True
+    # Knowledge Card 的 repoName 在库侧是 notNull(经验必须绑到某个仓库)。
+    # 运行未显式声明仓库时,允许这一个部署级默认;仍为空则**跳过蒸馏并打日志**,
+    # 绝不去猜(猜错等于把 A 仓的踩坑记录挂到 B 仓的知识库里,比不沉淀更坏)。
+    knowledge_card_default_repo: str = ""
     token_compaction_min_tokens: int = 2000
 
     # Combo 多级 fallback 链(2026-07-30 立,2026-07-30 修复 .env 加载断裂 Bug)
