@@ -17,11 +17,17 @@ headless Chromium(打开页面/交互元素快照/点击/输入/截图/提取文
   页面,于是 click/type 是在别人的浏览器里替别人按键,screenshot 是看别人的登录页面,
   close 关掉的是全站唯一那只浏览器。病灶账在 PROJECT_PLAN 的 G-258。)
 - 关闭:POST /api/computer-use/close **只关调用人自己那只**浏览器并把该条目从会话表
-  摘掉(不留"已关掉但还在表里"的半死态)。⚠️ 进程退出面**没有**统一收口:main.py 的
-  lifespan 从未调用过本模块的关闭函数(实测 grep 零调用点,旧 docstring 那句"亦可复用
-  main.py shutdown 时统一收口"是不成立的声称),改前只漏一只、改后按用户数漏 N 只。
-- 资源上界:**当前没有**(未设并发用户数上限、未设空闲回收),已登记为待决 ——
-  见交付报告;不得凭空写一个未取证的数字当限流。
+  摘掉(不留"已关掉但还在表里"的半死态)。进程退出面由 `close_all_sessions()` 收口
+  —— 它挂在 main.py lifespan 的 shutdown 分支(yield 之后,与 browser_hub/LspClient
+  同一批清理并列),逐只关、**异常隔离**(某一只关不掉继续关其余的并写一行 error 日志,
+  禁止 `except: pass`)。旧 docstring 那句"亦可复用 main.py shutdown 时统一收口"曾经
+  是不成立的声称(grep 零调用点),2026-09-27 由本票把那句话变成现状。
+- 资源上界(数值一律取自本服务既有的同类机制,出处写在常量注释里,**不是拍出来的**):
+  · 空闲回收:超过 `_IDLE_TTL_SECONDS` 未被访问且**当前没在跑操作**的浏览器,在
+    "下一个用户要新建浏览器之前"惰性回收(不起后台定时器 —— 定时器会引入泄漏与关停竞态)。
+  · 并发上界:同时持有的浏览器数不超过 `_MAX_LIVE_BROWSERS`,占满时新建请求回 503
+    而不是把别人的浏览器踢掉(替别人关浏览器 = 上一个票刚修掉的那一型)。
+  · 被淘汰/回收的会话与"用户自己 close"**走同一份实现** `_close_page`,不存在第二套关闭路径。
 
 认证/审计:复用项目 pass-the-request 的 `get_current_user_id` 依赖注入
 (与 routers/research.py / agents.py 一致)。该身份在本模块**既是鉴权也是归属**:
@@ -85,11 +91,13 @@ class _UserBrowser:
     __slots__ = (
         "browser",
         "context",
+        "last_access",
         "last_snapshot",
         "lock",
         "page",
         "playwright",
         "recording_trace_id",
+        "starting",
         "user_id",
     )
 
@@ -97,6 +105,12 @@ class _UserBrowser:
         self.user_id = user_id
         # 每用户一把锁:懒创建时绑定当前事件循环,故不能做成模块级单例
         self.lock: asyncio.Lock = asyncio.Lock()
+        # 最后一次"碰这条会话"的时刻(单调钟,不受系统改时影响)。空闲回收判据用它,
+        # 而不是请求时间戳:一个用户可能几十分钟只点一次截图,那不该被当成在用。
+        self.last_access: float = time.monotonic()
+        # 正在懒启动浏览器(已占住一个并发名额但 page 还没落地)。上界计数与空闲回收
+        # 都必须认它,否则两个首次 open 会一起通过检查、把上界顶穿。
+        self.starting: bool = False
         self.playwright: Any = None
         self.browser: Any = None
         self.context: Any = None
@@ -110,6 +124,30 @@ class _UserBrowser:
 
 
 _sessions: dict[str, _UserBrowser] = {}
+
+# ============ 资源上界(数值全部取自本服务既有同类机制,不得拍脑袋)============
+#
+# 立因:改成按用户隔离之后,"活跃用户数 = Chromium 进程数" —— 表只有一个收缩出口
+# (用户自己 POST /close),既没有并发上界也没有空闲回收,而此前无人计量。
+#
+# 两条判据的出处(照抄本仓既有档位,不新造数字):
+# · _IDLE_TTL_SECONDS = 1800.0
+#     取自 app/routers/agent_runtime.py:86 `_SESSION_TTL_SEC = 1800`(原文注释"30 分钟
+#     未访问的 session 自动淘汰")。选它而不是 agent_engine 的 600/900:那两档的回收判据
+#     是"超时**且进程已退出**才移除"(见 agent_engine.py:6324 `_prune_sessions`),对一只
+#     活着但没人用的 Chromium 结构上不生效 —— 拿它当依据就是写一个永不回收的"回收"。
+#     agent_runtime 那一档判的是"每用户一份、活着的路由层会话",与本模块同型。
+# · _MAX_LIVE_BROWSERS = 8
+#     取自 app/services/agent_engine.py:297 `_MAX_EXEC_SESSIONS = 8`(常驻 shell 会话表
+#     的并发上界;同文件 :322 `_MAX_CODE_SESSIONS = 4`)。这是本服务对"一个功能愿意持有
+#     多少只常驻子进程"给过的最大档位,取它 ⇒ 本模块不会比仓内任何已上线的同类机制更宽松。
+#     刻意不"顺手收紧到 4":更小的数同样没有额外依据,却会更快把用户挡在门外。
+#
+# 两条都写在回归里当判据输入(tests/test_computer_use_resource_bounds.py 的出处对账),
+# 出处常量若被改动/改名,那条测试必须红 ⇒ 逼重新取证,而不是让注释悄悄变成假账。
+_IDLE_TTL_SECONDS: float = 1800.0
+_MAX_LIVE_BROWSERS: int = 8
+
 
 # 只收集这些可交互标签/角色
 _SNAPSHOT_SELECTOR = (
@@ -134,11 +172,15 @@ def _session_for(user_id: str) -> _UserBrowser:
 
     函数体内**没有任何 await**,而本服务跑在单个事件循环上 ⇒ 取或建对协程是原子的,
     不需要额外一把表锁。
+
+    顺手续 `last_access`:这是"这条会话刚被人碰过"的唯一记录点。空闲回收判据读它,
+    所以任何取用路径都不得绕过本函数去手搓 `_UserBrowser(...)`。
     """
     sess = _sessions.get(user_id)
     if sess is None:
         sess = _UserBrowser(user_id)
         _sessions[user_id] = sess
+    sess.last_access = time.monotonic()
     return sess
 
 
@@ -165,7 +207,7 @@ async def _start_browser(sess: _UserBrowser) -> Any:
 
 
 async def _ensure_page(user_id: str) -> Any:
-    """获取**该用户**的 Page;未启动时为其懒加载一只 Chromium。"""
+    """获取**该用户**的 Page;未启动时为其懒加载一只 Chromium(受并发上界与空闲回收管)。"""
     # 3 次是"等锁期间别人替他 close 了"这一极少竞态的重试预算,不是业务重试
     for _ in range(3):
         sess = _session_for(user_id)
@@ -176,7 +218,13 @@ async def _ensure_page(user_id: str) -> Any:
                 continue
             if sess.page is not None and not sess.page.is_closed():
                 return sess.page
-            return await _start_browser(sess)
+            # 上界 + 惰性回收都在这一把**该用户自己的**锁内问闸;占位(starting)在
+            # 真正 launch 之前完成,所以两个用户同时首开不会一起通过计数检查。
+            await _reserve_browser_slot(sess)
+            try:
+                return await _start_browser(sess)
+            finally:
+                sess.starting = False
     raise HTTPException(
         status_code=409, detail="该用户的浏览器会话正在被关闭,请重试"
     )
@@ -190,11 +238,93 @@ def _require_session(user_id: str) -> _UserBrowser:
 
     归属判据就是这一句 `_sessions.get(user_id)` —— 键取自令牌主体,不是客户端入参,
     所以别人的条目在本函数里结构上取不到,无需再比一次 owner。
+
+    每个操作端点都经过这里,所以它同时是"该用户此刻在用"的记录点(续 last_access),
+    空闲回收因此不需要在端点里逐处补一句。
     """
     sess = _sessions.get(user_id)
     if sess is None or sess.page is None or sess.page.is_closed():
         raise HTTPException(status_code=409, detail=_NOT_OPEN_DETAIL)
+    sess.last_access = time.monotonic()
     return sess
+
+
+def _holds_browser(sess: _UserBrowser) -> bool:
+    """这条会话是否**正占着一只浏览器**(含"正在懒启动"那一格)。
+
+    单独一个谓词是因为上界计数和空闲回收必须给同一个问题同一个答案:两处各写一遍
+    判断必然漂移(本仓记过最多次的失效型),而漂移的表现是"上界看着有、实际能超"。
+    """
+    if sess.starting:
+        return True
+    if sess.page is None:
+        return False
+    try:
+        return not sess.page.is_closed()
+    except Exception as e:  # 判不出就当没占(宁可少计一个名额,绝不误挡新用户)
+        logger.warning("[computer_use] is_closed() 判定失败(视为未占用): %s", e)
+        return False
+
+
+def _live_browser_count() -> int:
+    return sum(1 for sess in _sessions.values() if _holds_browser(sess))
+
+
+async def _reclaim_idle_browsers() -> int:
+    """惰性空闲回收:关掉超阈且当前没在跑操作的浏览器,返回**实际关掉**的只数。
+
+    挂点只有一个 —— "下一个用户要新建浏览器之前"(_reserve_browser_slot)。刻意
+    **不起后台定时器**:定时器会在关停期与 close_all_sessions 抢同一批对象,并让
+    "回收"变成一件没人能预测时机的事(本仓对惰性清理的先例同 agent_runtime 的
+    _evict_if_needed)。调用方已持有自己的会话锁,而本函数**跳过所有 lock 被占的会话**,
+    所以不存在"持 A 锁等 B 锁"的交叉等待。
+
+    关闭一律走 _close_page —— 与"用户自己 POST /close"同一份实现,不得有第二套关闭路径。
+    """
+    now = time.monotonic()
+    stale = [
+        user_id
+        for user_id, sess in _sessions.items()
+        # 正在懒启动的那只还没跑起来,收它是净伤害;锁被占 = 有人正在操作它,按定义不空闲
+        if not sess.starting
+        and not sess.lock.locked()
+        and sess.page is not None
+        and now - sess.last_access > _IDLE_TTL_SECONDS
+    ]
+    reclaimed = 0
+    for user_id in stale:
+        try:
+            await _close_page(user_id)
+        except Exception as e:  # pragma: no cover - 回收是旁路,绝不因此挡住本次请求
+            logger.warning("[computer_use] 空闲回收失败(user=%s,继续其余): %s", user_id, e)
+            continue
+        reclaimed += 1
+        logger.info(
+            "[computer_use] 空闲回收:关闭 user=%s 的浏览器(空闲 > %.0fs)",
+            user_id,
+            _IDLE_TTL_SECONDS,
+        )
+    return reclaimed
+
+
+async def _reserve_browser_slot(sess: _UserBrowser) -> None:
+    """新建浏览器之前的两道闸:先惰性回收,再判并发上界,通过即占住名额。
+
+    "查计数 → 置 starting" 之间**没有 await**,单事件循环下这对协程是原子的(与
+    _session_for 同一论证),所以不需要一把表锁就能保证上界不被两个并发首开顶穿。
+    starting 的释放由调用方在 finally 里做,启动失败不留占位。
+    """
+    await _reclaim_idle_browsers()
+    if _live_browser_count() >= _MAX_LIVE_BROWSERS:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"浏览器驾驶舱并发已满(同时最多 {_MAX_LIVE_BROWSERS} 只),"
+                "请稍后重试或先 POST /api/computer-use/close 释放自己的那只"
+            ),
+        )
+    sess.starting = True
+
 
 
 def _require_page(user_id: str) -> Any:
@@ -230,6 +360,41 @@ async def _close_page(user_id: str) -> None:
         # 持锁内摘除:与 _ensure_page 的"表里还是不是我"那条复查配成一对
         if _sessions.get(user_id) is sess:
             _sessions.pop(user_id, None)
+
+
+async def close_all_sessions() -> dict[str, int]:
+    """退出收口:逐个关闭会话表里**所有用户**的浏览器,返回 `{"closed", "failed"}`。
+
+    由 main.py 的 lifespan shutdown 分支调用(yield 之后,与 browser_hub / LspClient
+    那批清理并列)。两条不可动摇的写法:
+    ① **异常隔离** —— 某一只关不掉必须继续关其余的(否则一只挂死的 Playwright 就把
+       全站剩余的 Chromium 全留在进程树里,而这正是本函数存在的理由);
+    ② **不吞异常** —— 失败一律 `logger.error` 点名是哪只、为什么(§5e"失败必须响"),
+       禁止 `except: pass`。返回值把两个计数交给调用方,便于日志与用例断言。
+
+    与"用户自己 close"共用 `_close_page`,所以这里不存在第二套关闭路径,也不会出现
+    "退出时关掉的东西和用户关的东西语义不同"。
+    """
+    closed = 0
+    failed = 0
+    for user_id in list(_sessions.keys()):
+        try:
+            await _close_page(user_id)
+        except Exception as e:
+            failed += 1
+            logger.error(
+                "[computer_use] 退出收口:关闭 user=%s 的浏览器失败(继续关其余 %d 只): %s",
+                user_id,
+                len(_sessions),
+                e,
+            )
+            continue
+        closed += 1
+    if failed:
+        logger.error("[computer_use] 退出收口完成但有 %d 只没关掉(见上方逐条日志)", failed)
+    else:
+        logger.info("[computer_use] 退出收口:已关闭 %d 个用户会话", closed)
+    return {"closed": closed, "failed": failed}
 
 
 async def _take_snapshot_inner(user_id: str) -> list[dict[str, Any]]:

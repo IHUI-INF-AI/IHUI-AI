@@ -249,7 +249,8 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   // `desktop-tray-action` 转成 5 个 CustomEvent,其中 3 个有消费者:
   //   new_chat     → global-shortcut:new-chat → SHORTCUT_ROUTES(本文件)
   //   check_update → desktop-check-update     → use-updater.ts
-  //   quit         → desktop-quit-request     → use-quit-update-guard.ts
+  // (2026-09-27:原 `quit → desktop-quit-request → use-quit-update-guard.ts` 一行随该链一并移除 ——
+  //  托盘退出改由 Rust 侧立即执行,见 5637972f4)
   // 唯独 `desktop-theme-toggle` 与 `desktop-open-settings` 全仓零 addEventListener:
   // dispatch 成功但无副作用 → 用户侧表现为"点击完全没反应"。Rust 侧
   // `let _ = window.emit(...)` 又把错误吞掉,日志也查不到。

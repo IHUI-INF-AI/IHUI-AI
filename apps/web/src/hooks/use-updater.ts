@@ -17,14 +17,7 @@ import {
 
 /** 更新状态机:idle → checking → available → downloading → installing → done / up-to-date / error */
 export type UpdateStatus =
-  | 'idle'
-  | 'checking'
-  | 'available'
-  | 'downloading'
-  | 'installing'
-  | 'done'
-  | 'up-to-date'
-  | 'error'
+  'idle' | 'checking' | 'available' | 'downloading' | 'installing' | 'done' | 'up-to-date' | 'error'
 
 export interface UpdaterState {
   status: UpdateStatus
@@ -117,7 +110,8 @@ function createMockSession(): UpdateSession {
  * 强制自动更新策略(2026-07-31 立,无需用户点击任何按钮):
  * - 打开程序:启动 5s 后静默检查,发现更新自动下载安装,完成后 60 秒倒计时自动重启
  *   (2026-08-16 改:倒计时期间用户可点"稍后重启"重置倒计时,或"立即重启"直接重启)
- * - 关闭程序:由 quitAndUpdateIfNeeded() 拦截退出流程,自动检查+下载+安装+重启(不可跳过)
+ * - 关闭程序:立即退出(2026-09-27 撤掉旧的"退出前检查更新"链;更新由上面启动静默检查与
+ *   托盘/菜单独立的「检查更新」项承担,退出不再 await 任何网络操作)
  * - 使用中:托盘菜单触发或启动检查,自动下载安装,完成后 60 秒倒计时自动重启,弹窗展示进度
  * - 更新失败:自动重试(最多 3 次,间隔 5 秒),超过后显示错误信息
  *
