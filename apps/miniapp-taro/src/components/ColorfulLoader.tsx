@@ -58,6 +58,7 @@ export default function ColorfulLoader({
         // 豁免 0b: 装饰圆点(72 点 HSL 循环色相,典型 rounded-full 装饰元素)
         const color = colorfuleLoaderDotColor(i)
         return (
+          // radius-exempt: 加载动画的装饰圆点,几何正圆(直径=边长),非容器圆角
           <View
             key={i}
             className="absolute rounded-full"
