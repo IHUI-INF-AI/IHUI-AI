@@ -78,7 +78,41 @@ export const GIT_MACHINE_IDENTITY = [
   'user.email=ok502319984@gmail.com',
 ]
 
-/** 纯函数:拼出带身份的 `commit-tree` 参数(判据可被镜像测试直接喂构造面)。 */
+/**
+ * 纯函数:悬空合并提交的备份 ref 名(§29 命名族 `lost-commit/wip-*`)。
+ * 取 sha 前 7 位当后缀 —— 与 `check-commit-loss-guard` 已登记的 4188 枚 `lost-commit/wip-*`
+ * 同族,所以它**天然被那道门的"已备份"判据认账**;换成别的前缀就是替门制造新红。
+ */
+export function orphanBackupRefName(sha) {
+  const s = String(sha || '').trim()
+  if (!/^[0-9a-f]{7,40}$/.test(s)) return null
+  return `lost-commit/wip-conv-${s.slice(0, 7)}`
+}
+
+/** 把一枚 CAS 落空的合并提交按 §29 零损失流程备份成 tag 并固化(pack-refs)。 */
+function backupOrphanMerge(sha, why) {
+  const ref = orphanBackupRefName(sha)
+  if (!ref) {
+    log(C.yellow, `  ⚠️ 悬空合并提交的 SHA 形状不对(${String(sha).slice(0, 12)}),未备份`)
+    return { ok: false, ref: null }
+  }
+  try {
+    if (git(['rev-parse', '--verify', '--quiet', `refs/tags/${ref}`], { allowFail: true }) !== null) {
+      return { ok: true, ref, already: true }
+    }
+    const tagged = git(['tag', ref, sha, '-m', `孤儿合并提交(${why}):CAS 未抢到 HEAD,按 §29 零损失备份`], {
+      allowFail: true,
+    })
+    if (tagged === null) return { ok: false, ref }
+    // 嵌套 tag 不 pack 就会被宿主清理层删掉(§5b),而 tag 消失 = 30a 重新判红
+    git(['pack-refs', '--all', '--prune'], { allowFail: true })
+    log(C.green, `  🛟 已备份孤儿合并提交为 ${ref}(否则守门 30a 会让每次提交跳门)`)
+    return { ok: true, ref }
+  } catch (e) {
+    log(C.yellow, `  ⚠️ 备份孤儿合并提交失败:${e && e.message ? e.message.slice(0, 120) : e}`)
+    return { ok: false, ref }
+  }
+}
 export function mergeCommitArgs({ tree, parents, message }) {
   const ps = (Array.isArray(parents) ? parents : [parents]).flatMap((p) => ['-p', p])
   return [...GIT_MACHINE_IDENTITY, 'commit-tree', tree, ...ps, '-m', message]
@@ -842,6 +876,17 @@ function selfTest() {
           [...GIT_MACHINE_IDENTITY, 'commit-tree', 'T', '-p', 'P1', '-m', 'M'].join('\0'),
       shape.join(' '),
     )
+    // 用例 16 = 孤儿合并提交的备份 ref 必须是守门 30a 认账的那一族(纯函数,正反成对)
+    ok(
+      '用例 16:备份 ref 名 = lost-commit/wip-conv-<sha7>(§29 命名族,30a 才认它是"已备份");' +
+        'SHA 形状不对必须返回 null 而不是造出一个坏 ref',
+      orphanBackupRefName('947ef34a88a2b4c1d2e3f4a5b6c7d8e9f0a1b2c3') === 'lost-commit/wip-conv-947ef34' &&
+        orphanBackupRefName(''.padStart(40, 'a')) === `lost-commit/wip-conv-${'a'.repeat(7)}` &&
+        orphanBackupRefName('') === null &&
+        orphanBackupRefName('zxcvbn') === null &&
+        orphanBackupRefName(undefined) === null,
+      String(orphanBackupRefName('947ef34a88a2')),
+    )
   } catch (e) {
     console.log(`❌ 自检异常:${e?.message ?? e}\n${e?.stack ?? ''}`)
     console.log(`   临时仓库保留在 ${tmp}(供排查,下次自检会清掉)`)
@@ -1095,6 +1140,15 @@ function main() {
       })
       if (cas === null) {
         log(C.yellow, '  本地 HEAD 被并发推进,本轮作废,转下一轮重来')
+        // 这一枚合并提交此刻已成**悬空对象**。守门 30a(check-commit-loss-guard)对
+        // "未备份的悬空 commit"是 blocking,而它**没有 stagedTriggers ⇒ 每一次提交都必跑**
+        // ——于是一轮正常的并发争用会把全链 158 道检查对之后每一次提交都顶成 --no-verify。
+        // 2026-09-27 同日两例:一枚 round3 悬空 merge 让所有会话的提交被挡,最后是人工补 tag
+        // 才消红(见 AGENTS §12f"恒红门优先级")。出路 = §29 既定的零损失流程:tag 指向原对象
+        // (不删、不改写、不碰别人的引用),再固化进 packed-refs —— 嵌套 refs/tags/<ns>/* 属
+        // depth≥2,不 pack 就会被宿主清理层删掉,下次照样红(tag 在 = 红在,等于没修)。
+        // tag 失败只报数:多一枚悬空是 30a 该喊的事,不能因此让收敛器在本轮罢工。
+        backupOrphanMerge(mergeSha, `round${round}`)
         continue
       }
       log(C.dim, `  合并提交 ${mergeSha.slice(0, 11)} 已推进本地 ${branch}`)
@@ -1193,6 +1247,8 @@ function main() {
 } // ← function main() 结束(§22d:以下 export/守卫在 import 时执行,main 体不执行)
 
 export const __test__ = {
+  orphanBackupRefName,
+  backupOrphanMerge,
   parseLsTreeZ,
   verifySingleSided,
   collectTreeEntries,
