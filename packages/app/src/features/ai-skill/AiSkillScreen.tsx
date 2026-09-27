@@ -90,13 +90,19 @@ export function AiSkillScreen({
       {error ? (
         <View style={[styles.center, styles.errorWrap]}>
           <Text style={[styles.hintText, styles.errorText]}>{error}</Text>
+          {/* 守门 131 那一型:函数形态 style 落在 Pressable 上会被 cssInterop 展开成空对象,
+              整份内联样式静默消失。retryBtn 含底色与圆角(有绘制),故整盒下移到子 View 数组形态;
+              外层裸 Pressable 只承接交互。宽度原本由内容决定(父层 alignItems center),故不补百分比宽。 */}
           <Pressable
-            style={({ pressed }) => [styles.retryBtn, pressed ? styles.pressed : null]}
             onPress={onRetry}
             accessibilityRole="button"
             accessibilityLabel={t('aiSkill.retry')}
           >
-            <Text style={styles.retryText}>{t('aiSkill.retry')}</Text>
+            {({ pressed }) => (
+              <View style={[styles.retryBtn, pressed ? styles.pressed : null]}>
+                <Text style={styles.retryText}>{t('aiSkill.retry')}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       ) : (
@@ -117,36 +123,41 @@ export function AiSkillScreen({
             </View>
           }
           renderItem={({ item }) => (
+            // 同上(守门 131 那一型):卡片盒含描边/圆角/底色(有绘制),整盒下移到子 View;
+            // 改前宽度由列表列的父级 stretch 撑出,故内层用 cardFace 把宽度显式还给盒子。
             <Pressable
-              style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
               onPress={() => onOpenSkill(item)}
               accessibilityRole="button"
               accessibilityLabel={item.name}
             >
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <View style={styles.categoryBadge}>
-                  <Text style={styles.categoryText} numberOfLines={1}>
-                    {item.category}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.cardDescription} numberOfLines={2}>
-                {item.description}
-              </Text>
-              {item.tags.length > 0 ? (
-                <View style={styles.tagRow}>
-                  {item.tags.slice(0, 4).map((tag) => (
-                    <View key={tag} style={styles.tagChip}>
-                      <Text style={styles.tagText} numberOfLines={1}>
-                        {tag}
+              {({ pressed }) => (
+                <View style={[styles.cardFace, styles.card, pressed ? styles.pressed : null]}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <View style={styles.categoryBadge}>
+                      <Text style={styles.categoryText} numberOfLines={1}>
+                        {item.category}
                       </Text>
                     </View>
-                  ))}
+                  </View>
+                  <Text style={styles.cardDescription} numberOfLines={2}>
+                    {item.description}
+                  </Text>
+                  {item.tags.length > 0 ? (
+                    <View style={styles.tagRow}>
+                      {item.tags.slice(0, 4).map((tag) => (
+                        <View key={tag} style={styles.tagChip}>
+                          <Text style={styles.tagText} numberOfLines={1}>
+                            {tag}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
-              ) : null}
+              )}
             </Pressable>
           )}
         />
@@ -226,6 +237,11 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 64, // py-16
     },
     /* 技能卡片 */
+    // 守门 131 转换新增:卡片盒下移到子 View 后,宽度由该档显式还给盒子
+    // (改前那一维由列表列的父级 stretch 撑出),未引入任何新数字档。
+    cardFace: {
+      width: '100%',
+    },
     card: {
       marginBottom: 12, // mb-3
       borderRadius: rnRadius.lg, // rounded-lg
