@@ -41,7 +41,7 @@ export default function UserUpload({
   const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx))
 
   return (
-    <div className={cn('rounded-xl border bg-card p-3', className)}>
+    <div className={cn('rounded-lg border bg-card p-3', className)}>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}

@@ -202,14 +202,14 @@ export default function NewsCategoryPageClient() {
           <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
             {page <= 1 ? (
-              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-md border border-input bg-background px-3 text-sm opacity-50">
+              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-sm border border-input bg-background px-3 text-sm opacity-50">
                 <ChevronLeft className="h-4 w-4" />
                 {t('prev')}
               </span>
             ) : (
               <Link
                 href={`/news/category/${id}?page=${page - 1}`}
-                className="inline-flex h-9 items-center gap-1 rounded-md border border-input bg-background px-3 text-sm transition-colors hover:bg-accent"
+                className="inline-flex h-9 items-center gap-1 rounded-sm border border-input bg-background px-3 text-sm transition-colors hover:bg-accent"
               >
                 <ChevronLeft className="h-4 w-4" />
                 {t('prev')}
@@ -219,14 +219,14 @@ export default function NewsCategoryPageClient() {
               {page} / {totalPages}
             </span>
             {page >= totalPages ? (
-              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-md border border-input bg-background px-3 text-sm opacity-50">
+              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-sm border border-input bg-background px-3 text-sm opacity-50">
                 {t('next')}
                 <ChevronRight className="h-4 w-4" />
               </span>
             ) : (
               <Link
                 href={`/news/category/${id}?page=${page + 1}`}
-                className="inline-flex h-9 items-center gap-1 rounded-md border border-input bg-background px-3 text-sm transition-colors hover:bg-accent"
+                className="inline-flex h-9 items-center gap-1 rounded-sm border border-input bg-background px-3 text-sm transition-colors hover:bg-accent"
               >
                 {t('next')}
                 <ChevronRight className="h-4 w-4" />

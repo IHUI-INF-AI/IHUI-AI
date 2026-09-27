@@ -69,7 +69,7 @@ export function Skeleton({ variant = 'default', rows = 1, className, ...props }:
 
   if (variant === 'stat') {
     return (
-      <div className={cn('rounded-xl border bg-card p-3', className)} {...props}>
+      <div className={cn('rounded-lg border bg-card p-3', className)} {...props}>
         <div className="flex items-center justify-between">
           <PulseLine className="h-3 w-20" />
           <PulseLine className="h-8 w-8" />

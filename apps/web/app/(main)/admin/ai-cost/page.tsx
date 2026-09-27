@@ -194,7 +194,7 @@ export default function AiCostPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/admin/ai-metrics"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm hover:bg-muted/50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-input bg-transparent px-3 text-sm shadow-sm hover:bg-muted/50"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>{t('toMetrics')}</span>
@@ -203,7 +203,7 @@ export default function AiCostPage() {
             aria-label={t('rangeLabel')}
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 rounded-sm border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value={1}>{t('range1d')}</option>
             <option value={7}>{t('range7d')}</option>
