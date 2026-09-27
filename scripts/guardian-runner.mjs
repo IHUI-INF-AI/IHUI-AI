@@ -3893,6 +3893,37 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 身份消费对账(1 项,blocking)---
+  {
+    id: '152',
+    label:
+      '🔐 ai-service 身份消费对账(blocking,拦「端点取到已验证身份却一次都没用它」—— 认证不等于授权;判据单一真相在 apps/ai-service/scripts/audit_principal_consumed.py,本门只物化被审面并派生那把尺子)',
+    script: 'check-principal-consumed.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PRINCIPAL_CONSUMED',
+    stagedTriggers: ['apps/ai-service/'],
+    onFailHint: [
+      '',
+      '  💡 本门守的是「取到已验证身份却一次都没用它」这一型(认证≠授权):签名带身份依赖',
+      '     默认值而整个函数体既不读该参数、也不经 request.state.user_id 通道消费、也不把',
+      '     request 一跳委托给"自己读 state.user_id"的仓内 helper ⇒ 判未消费。',
+      '  棘轮锚点 = 该文件在锚点面(HEAD 档比 HEAD^、--staged 档比 HEAD)自身的存量,',
+      '     只拦"本次改动带进来的新账"与"豁免清单腐烂",存量不因无关提交判红。',
+      '  机器态不判红:拿不到 Python/尺子没产出结论 ⇒ 未判定 exit 0(末行如实,不出具',
+      '     "全部已判"合格证);被审面取材不到/枚举 0 个 ⇒ exit 2 判死,不静默。',
+      '  修复出口(二选一,不得为消红削判据):① 端点真的消费身份 —— 属主取令牌主体',
+      '     (app/core/jwt_auth.py 的 require_request_user_id)或归属比对走',
+      '     app/services/session_store.py 的 owner_scoped_allows,或把 request 一跳',
+      '     委托给 _owner_filter 形态的既有 helper;② 确属无归属轴的公共面 ⇒ 在尺子内',
+      '     PRINCIPAL_EXEMPTIONS 逐条登记 file+func+理由(禁止按目录整片放行)。',
+      '  ① 现读:node scripts/check-principal-consumed.mjs [--json|--staged|--worktree]',
+      '  ② 镜像:node --test scripts/tests/check-principal-consumed.test.mjs',
+      '  紧急跳过(不推荐):HUSKY_SKIP_PRINCIPAL_CONSUMED=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
