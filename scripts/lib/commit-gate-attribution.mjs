@@ -437,6 +437,7 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
   let introduced = 0
   let stock = 0
   let deltaUnknown = 0
+  let myFaceUndetermined = 0
   let noBaselineOutlet = false
   for (const g of parsed.failed) {
     let r = null
@@ -463,6 +464,20 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
             .filter((l) => named.some((f) => lineNamesFile(l, f)))
             .slice(0, 2)
             .join(' ⏎ ')})`,
+      )
+      continue
+    }
+    // ── 态①b(2026-09-27,G-268):门在**我自己这一侧**就判了"无法判定" ──
+    // exit 2 在本仓是约定("取不到判无法判定,不冒红也不记绿",守门 94/103/118 同一条),
+    // 它压根没对"这枚提交"下结论 ⇒ 既不能据差分判我引入红,也不能据它说我与红无关。
+    // 为什么不放在点名判据之前:一道既喊"判不出"又**点名了本次文件**的门,按"多要一次定向
+    // 说明"处理(走上面的 mine),绝不因为退出码是 2 就放它过去 —— 归因失效的方向从来不该是"多放一次跳门"。
+    if (r.status === 2) {
+      myFaceUndetermined++
+      deltaUnknown++
+      detail.push(
+        `[${g.id}] ${g.label} —— 复跑 exit 2:该门自己判"无法判定",未对本枚提交下任何结论` +
+          `(取证行:${lines.slice(0, 2).join(' ⏎ ')})`,
       )
       continue
     }
@@ -547,9 +562,12 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       ranFullBatch: !parsed.earlyAbort,
       failed: parsed.failed,
       detail,
-      delta: { introduced, stock, deltaUnknown, noBaselineOutlet },
+      delta: { introduced, stock, deltaUnknown, noBaselineOutlet, myFaceUndetermined },
       reason:
-        `${deltaUnknown} 道失败门仍红但未点名本次文件,而基线面(HEAD)` +
+        `${deltaUnknown} 道失败门仍红但未点名本次文件,而` +
+        (myFaceUndetermined > 0
+          ? `其中 ${myFaceUndetermined} 道**在本枚提交的面上就判"无法判定"(exit 2)**、基线面(HEAD)`
+          : '基线面(HEAD)') +
         (noBaselineOutlet
           ? '无从差分(调用方未注入 runGateBaseline)'
           : '在隔离面跑不通(缺依赖 / 门按磁盘判 / exit 2)') +
