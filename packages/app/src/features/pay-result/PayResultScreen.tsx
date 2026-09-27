@@ -216,14 +216,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     primaryBtn: {
       height: 44, // rpx(88)
-      borderRadius: rnRadius.lg, // rpx(16)
+      borderRadius: rnRadius.sm, // rpx(8)
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
     secondaryBtn: {
       height: 44, // rpx(88)
-      borderRadius: rnRadius.lg, // rpx(16)
+      borderRadius: rnRadius.sm, // rpx(8)
       backgroundColor: tk.surface.card,
       alignItems: 'center',
       justifyContent: 'center',

@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     flex: 1,
     height: ACTION_BUTTON_HEIGHT,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     flex: 1,
     height: ACTION_BUTTON_HEIGHT,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,

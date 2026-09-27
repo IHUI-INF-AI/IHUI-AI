@@ -259,7 +259,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary, // dark:text-neutral-100
     },
     idBadge: {
-      borderRadius: rnRadius.sm, // rounded
+      borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: 6, // px-1.5
       paddingVertical: 2, // py-0.5
       backgroundColor: tk.surface.muted, // bg-gray-100 dark:bg-neutral-800
@@ -280,7 +280,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6, // gap-1.5
     },
     tag: {
-      borderRadius: rnRadius.sm, // rounded
+      borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: 6, // px-1.5
       paddingVertical: 2, // py-0.5
       backgroundColor: tk.brandAccent.light, // bg-orange-50 dark:bg-orange-900/30 → 共享层强调色浅底

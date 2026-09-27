@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     bottom: 24,
     width: 48,
     height: 48,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
     elevation: 3,
     shadowColor: tokens.gray[900],

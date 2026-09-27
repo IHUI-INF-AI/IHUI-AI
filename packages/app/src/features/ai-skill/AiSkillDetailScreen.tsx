@@ -212,7 +212,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     // 面层:绘制档(底色/圆角)与内边距,按压态与它同数组配对
     retryBtn: {
-      borderRadius: rnRadius.md, // rounded-md
+      borderRadius: rnRadius.sm, // rounded-sm
       paddingHorizontal: 16, // px-4
       paddingVertical: 8, // py-2
       backgroundColor: tk.surface.muted,
@@ -234,7 +234,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6, // gap-1.5
     },
     metaChip: {
-      borderRadius: rnRadius.xs, // rounded-sm
+      borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: 8, // px-2
       paddingVertical: 4, // py-1
       backgroundColor: tk.surface.muted,
@@ -244,7 +244,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     tagChip: {
-      borderRadius: rnRadius.xs, // rounded-sm
+      borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: 8, // px-2
       paddingVertical: 4, // py-1
       backgroundColor: tk.warning.orangeLight,
