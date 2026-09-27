@@ -14,10 +14,19 @@
  * 测试隔离铁律(AGENTS §5):全程不连生产 PostgreSQL(8810)/Redis(8811)——
  * `selectAuditLogs` 用 vi.mock 桩掉,路由的 db / auth 依赖面同样按 mock 注入;
  * 密钥是**测试内现生成的临时 RSA 密钥对**,只活在进程内存,不落盘、不入库。
+ *
+ * 86G-1 追加的判据(本文件末组 describe,同一把尺子,不另建第二份):
+ *  ① 正向 —— 匿名 GET 免鉴权公钥端点 ⇒ 200,且用**它返回的那把公钥**验一份本地签好的
+ *     信封必须通过(闭环,不是只看响应形状);
+ *  ② 反向锁 —— 整段响应不含任何私钥材料;
+ *  ③ 显式列举 —— 公开面只放开这一条:同文件相邻的 admin 端点匿名仍 401,同前缀兄弟路径 404,
+ *     且路由表结构锁死"匿名前缀下只有一条路由"(防未来顺手加第二条);
+ *  ④ 限流真实生效 + 未配置密钥 ⇒ 503 可读原因(不回 200 + 空串)。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
-import { generateKeyPairSync } from 'node:crypto'
+import rateLimit from '@fastify/rate-limit'
+import { createHash, generateKeyPairSync } from 'node:crypto'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -56,7 +65,12 @@ import {
   type AuditExportPayload,
   type SignedAuditExport,
 } from '../src/services/siem-exporter.js'
-import { auditEvidenceExportRoutes } from '../src/routes/audit-evidence-export.js'
+import {
+  AUDIT_PUBLIC_KEY_ANON_RATE_LIMIT,
+  auditEvidenceExportRoutes,
+  auditEvidencePublicKeyRoutes,
+} from '../src/routes/audit-evidence-export.js'
+import { requireAdmin } from '../src/plugins/require-permission.js'
 import { hmacSHA256 } from '../src/utils/crypto-extra.js'
 import type { AuditLogChainRow } from '../src/db/audit-queries.js'
 
@@ -404,6 +418,171 @@ describe('86C 路由面:requireAdmin 鉴权 + 只读 + 不泄露私钥', () => {
     const mutated = roundTripped as { payload: AuditExportPayload }
     mutated.payload.lines[0] = `${mutated.payload.lines[0]}!`
     expect(verifySignedAuditExport(roundTripped).ok).toBe(false)
+  })
+})
+
+describe('86G-1 匿名公钥端点:免鉴权 + 显式列举 + 限流 + 无私钥', () => {
+  const server = Fastify({ logger: false })
+  const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
+  const ANON_URL = '/api/audit-evidence/public-key'
+
+  beforeAll(async () => {
+    // 与 server.ts 同形:全局注册 @fastify/rate-limit,逐路由 override 在匿名插件的
+    // config 里 —— 测的就是仓内既有机制,不是测试里自建的计数器。
+    await server.register(rateLimit, { max: 1000, timeWindow: '1 minute' })
+    await server.register(auditEvidencePublicKeyRoutes, { prefix: '/api/audit-evidence' })
+    // admin 面同车注册:反向判据要证明"放开公钥匿名面"没把同文件的 admin 端点顺带放开
+    await server.register(auditEvidenceExportRoutes, { prefix: '/api/admin/audit-evidence' })
+    await server.ready()
+  })
+  afterAll(async () => {
+    await server.close()
+  })
+
+  it('正向:匿名 GET ⇒ 200,只回 publicKey/kid/算法;用它返回的公钥验本地签好的信封(闭环)', async () => {
+    primeEnv()
+    // 先用当前密钥签一份信封(签名侧持私钥),匿名面随后公布的公钥必须恰好能验它。
+    const envelope = await buildSignedAuditExport({}, 'json', 100)
+    const res = await server.inject({ method: 'GET', url: ANON_URL })
+    expect(res.statusCode).toBe(200)
+    const body = res.json() as {
+      code: number
+      message: string
+      data: { keyId: string; algorithm: string; publicKey: string }
+    }
+    expect(body.code).toBe(0)
+    expect(typeof body.message).toBe('string')
+    // "只回公钥与 kid"落成真判据:响应字段集恰好三键,多一个键(将来塞了配置/指纹)即红
+    expect(Object.keys(body.data).sort()).toEqual(['algorithm', 'keyId', 'publicKey'])
+    expect(body.data.algorithm).toBe('RSA-SHA256')
+    expect(body.data.publicKey).toContain('-----BEGIN PUBLIC KEY-----')
+    // kid 可被收件方**自行推导**(sha256(公钥 PEM) 前 16 位):它是标识不是凭据。
+    // 这里用 node:crypto 独立算一遍,不复用被测实现 —— 否则是镜像复读机(§22c)。
+    const derived = `ihui-audit-export-${createHash('sha256')
+      .update(body.data.publicKey, 'utf8')
+      .digest('hex')
+      .slice(0, 16)}`
+    expect(body.data.keyId).toBe(derived)
+    expect(body.data.keyId).toBe(envelope.payload.keyId)
+    // 闭环的最后一跳:摘掉私钥、把环境里的公钥换成"匿名端点返回的那串字节",
+    // 之前签好的信封必须验签通过 —— 证明匿名面交付的材料真能用,而不是形状像。
+    delete process.env[PRIVATE_KEY_INLINE_ENV]
+    delete process.env[PRIVATE_KEY_PATH_ENV]
+    process.env[PUBLIC_KEY_INLINE_ENV] = body.data.publicKey
+    expect(verifySignedAuditExport(envelope)).toEqual({ ok: true })
+    primeEnv()
+  })
+
+  it('反向锁:整段响应不含任何 PRIVATE KEY 形态与私钥原文', async () => {
+    primeEnv()
+    const res = await server.inject({ method: 'GET', url: ANON_URL })
+    expect(res.statusCode).toBe(200)
+    expect(res.body).not.toMatch(/PRIVATE KEY/)
+    expect(res.body).not.toContain(primaryPrivate)
+  })
+
+  it('显式列举:公开面只这一条 —— 相邻 admin 端点匿名 401、同前缀兄弟路径 404、路由表只一条', async () => {
+    // 同文件的 admin 两条面(86C 交付,requireAdmin 在各自封装内)必须仍然要凭据。
+    const anonSigned = await server.inject({
+      method: 'GET',
+      url: '/api/admin/audit-evidence/signed',
+    })
+    expect(anonSigned.statusCode).toBe(401)
+    const anonAdminKey = await server.inject({
+      method: 'GET',
+      url: '/api/admin/audit-evidence/public-key',
+    })
+    expect(anonAdminKey.statusCode).toBe(401)
+    // 401 错误体形状:code 为数字(与统一信封一致,不留 FST 默认体的字符串 code)。
+    const errBody = anonSigned.json() as { code: unknown; message: unknown }
+    expect(typeof errBody.code).toBe('number')
+    expect(typeof errBody.message).toBe('string')
+    // 匿名前缀下没有第二条:`/signed`、`/private-key` 这类"被兜底正则顺带放行"的
+    // 形态在这里必须是 404(路由不存在),而不是 200/500。
+    const bogusSigned = await server.inject({ method: 'GET', url: '/api/audit-evidence/signed' })
+    expect(bogusSigned.statusCode).toBe(404)
+    const bogusPrivate = await server.inject({
+      method: 'GET',
+      url: '/api/audit-evidence/private-key',
+    })
+    expect(bogusPrivate.statusCode).toBe(404)
+    // 结构棘轮:匿名前缀的路由表**只允许一条**。printRoutes 每行是一条完整路径
+    // (`/api/audit-evidence/public-key (GET, HEAD)`),admin 行含 `/api/admin/...`
+    // 不会误匹配这个子串。将来谁往匿名插件里顺手加第二条路由,本条当场翻红 ——
+    // 免鉴权面扩大必须是一次显式的、被测试拦一次的决策,不是路由文件里的顺手一行。
+    const publicFaceLines = server
+      .printRoutes({ commonPrefix: false })
+      .split('\n')
+      .filter((line) => line.includes('/api/audit-evidence/'))
+    expect(publicFaceLines.length).toBe(1)
+    expect(publicFaceLines[0]).toContain('public-key')
+  })
+
+  it('未配置密钥 ⇒ 503 + 点名环境变量(不回 200 + 空串);admin 面同条件下逐字同形', async () => {
+    primeEnv()
+    delete process.env[PUBLIC_KEY_INLINE_ENV]
+    delete process.env[PUBLIC_KEY_PATH_ENV]
+    const anon = await server.inject({ method: 'GET', url: ANON_URL })
+    expect(anon.statusCode).toBe(503)
+    const body = anon.json() as { code: unknown; message: string; data?: unknown }
+    expect(typeof body.code).toBe('number')
+    expect(body.code).toBe(503)
+    expect(body.message).toContain('AUDIT_EXPORT_SIGN_PUBLIC_KEY')
+    expect(body.data).toBeUndefined()
+    // 两面对"没有密钥"的答复共用一份实现(sendPublicKey)——admin 面同码同文案。
+    const admin = await server.inject({
+      method: 'GET',
+      url: '/api/admin/audit-evidence/public-key',
+      headers: AUTH_HEADERS,
+    })
+    expect(admin.statusCode).toBe(503)
+    expect(admin.json()).toEqual(body)
+    primeEnv()
+  })
+
+  it('限流真实生效:打到 per-route max 之后下一次 429,且超限响应不含密钥材料', async () => {
+    // 独立实例:限流计数挂实例,专用 server 避免与本组其它用例互相污染。
+    const rl = Fastify({ logger: false })
+    await rl.register(rateLimit, { max: 1000, timeWindow: '1 minute' })
+    await rl.register(auditEvidencePublicKeyRoutes, { prefix: '/api/audit-evidence' })
+    await rl.ready()
+    try {
+      primeEnv()
+      const { max } = AUDIT_PUBLIC_KEY_ANON_RATE_LIMIT
+      const first = await rl.inject({ method: 'GET', url: ANON_URL })
+      expect(first.statusCode).toBe(200)
+      // 限流头上报的是**本路由**的额度(不是全局 1000)⇒ config 真的落进了插件。
+      expect(String(first.headers['x-ratelimit-limit'])).toBe(String(max))
+      for (let i = 1; i < max; i++) {
+        const ok = await rl.inject({ method: 'GET', url: ANON_URL })
+        expect(ok.statusCode).toBe(200)
+      }
+      const over = await rl.inject({ method: 'GET', url: ANON_URL })
+      expect(over.statusCode).toBe(429)
+      expect(over.body).not.toContain('PUBLIC KEY')
+      expect(over.body).not.toContain(primaryPrivate)
+    } finally {
+      await rl.close()
+    }
+  })
+
+  it('变异对照:把匿名插件挂进带 requireAdmin 的封装 ⇒ 匿名 401(正向 200 对接线敏感,不是恒真)', async () => {
+    // 复现"把公钥端点挪回/并入鉴权闸门作用域"这一型(86G-1 之前的真实状态)。
+    // 若无此对照,正向用例可能绿在"这条路径上根本没人看守"上 —— 而本票要交付的
+    // 恰恰是"这一条被显式放开"。变异必红,才证明 200 是接线接出来的。
+    const mutant = Fastify({ logger: false })
+    await mutant.register(async (scope) => {
+      scope.addHook('preHandler', requireAdmin)
+      await scope.register(auditEvidencePublicKeyRoutes, { prefix: '/api/audit-evidence' })
+    })
+    await mutant.ready()
+    try {
+      primeEnv()
+      const anon = await mutant.inject({ method: 'GET', url: ANON_URL })
+      expect(anon.statusCode).toBe(401)
+    } finally {
+      await mutant.close()
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
