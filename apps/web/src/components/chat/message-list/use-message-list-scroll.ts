@@ -702,9 +702,17 @@ export function useMessageListScroll({
   const scrollToBottom = React.useCallback(() => {
     const el = bottomRef.current
     markProgrammaticScroll()
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
     // 点「跳到最新」本身就是一次**用户输入**(方向是"靠近底部"),所以这里把滚动权交还给跟随。
     // 几何账目不在此处改写:随后派发的 scroll 事件会自己把落点记进去。
+    //
+    // **必须先作废上一条用户凭据**:平滑动画会派发消息中间的 scroll 事件,而
+    // `resolveScrollEventSource` 的判序是"用户凭据优先于程序化窗口"。上一条
+    // `awayFromBottom` 若还在 400ms TTL 里,动画自己的第一帧就会当场把 following 再解除一次
+    // —— 真实 Chromium 实测(G-252):流式中上滚后 150ms 内点按钮,列表永久停在距底
+    // 244–366px 且不再跟随(用户看到的是"点了没反应、按钮又冒出来");>400ms 点则正常。
+    // 方向已经被这次点击改写了,旧凭据不该继续有效,所以清它不是掩盖判据而是修正输入。
+    userIntentRef.current = null
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
     applyAuthority({ following: true })
   }, [applyAuthority, markProgrammaticScroll])
 
