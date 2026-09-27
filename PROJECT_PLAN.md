@@ -7926,7 +7926,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - [x] ✅(2026-09-25) 渐进收口第一块翻正面已由并发会话选定:`config/architecture-policy.yaml` 中
   `packages/api-client` 改 `managed: true`(实测门 103 仍全量 exit 0 —— 该包契约本就干净)。
 ### 第二波未闭环(不写作收口,各自给解阻判据)
-- [ ] **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`),
+- [x] ✅(2026-09-28 现读归正:模块已入库且接线已完成,本行是解阻条件达成后未翻勾的陈旧账) **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`),〔取证:`apps/cli/src/stream-tool-ledger.ts` 在库(`git ls-files` 命中);接线枚 `b153c2d0d`「流式工具账本接入主循环」在链,`commands/agent.ts:83-87/:1446-1480` 现读 import 与构造点在位;解阻判据所等的"他人 D19 terminal_delta 落地"已兑现(`apps/cli/tests/terminal-delta.test.ts` 现已入库,agent.ts 工作树现读干净);另有后续投影枚 `a639a0328`(86A 证据流水写入源投影)与专测 `stream-tool-ledger.test.ts` + `stream-tool-ledger-wiring.test.ts` 两枚在库。〕
   但唯一接线点 `apps/cli/src/commands/agent.ts` **同时含他人未提交的 D19 terminal_delta 工作**,
   整文件提交即混提(§12 红线)。解阻判据:待该文件他人改动落地后,单独提一枚"账本接线"票。
 - [x] ✅(2026-09-25) `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环 〔2026-09-25 孪生旧副本翻勾:同题已勾于 L9385〕
@@ -7992,7 +7992,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   `isCheck` 兜底逻辑让任何未知/缩写开关(我用了文档措辞直觉写的 `--push`)**静默落到 `--check`**、
   exit 0,而我那枚存档 tag 实际没上远端(`ls-remote` 回读为空,显式 push 才落地)。
   改为未知参数 stderr 点名 + `exit 2`,并把 `--push` 收为 `--auto-push` 的显式别名;三态实测复跑。
-- [ ] **`stream-tool-ledger` 接线(唯一真正剩下的技术活)——归属是他人、非本批可 finish**:
+- [x] ✅(2026-09-28 现读归正:本行所述"唯一剩下的技术活"已由 `b153c2d0d` 完成,归属阻塞已解除) **`stream-tool-ledger` 接线(唯一真正剩下的技术活)——归属是他人、非本批可 finish**:〔取证同上条:接线枚在链、agent.ts 构造点在位、其等待的他人未跟踪件(`terminal-delta.test.ts`)已入库、backup 存档枚 `55a0a9dae57` 的使命(防清理层吃掉)已由入库取代。本行与上一条同题(主键 stream-tool-ledger),只落状态、不删行、不重复计账。〕
   唯一接线点 `apps/cli/src/commands/agent.ts` 自 01:2x 起持续含另一会话**未提交**的 D19 `terminal_delta`
   工作(其测试 `apps/cli/tests/terminal-delta.test.ts` 至今未跟踪),整文件提交即混提(§12 红线)。
   为防止"未跟踪文件被本机清理层吃掉"(§5b/§23 有丢过 15 枚未推送提交的先例),已用
