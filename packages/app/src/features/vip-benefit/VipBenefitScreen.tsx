@@ -106,7 +106,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 12,
@@ -117,7 +117,7 @@ function createStyles(tk: AppThemeTokens) {
     levelBadge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     levelText: { fontSize: 10, color: tk.text.primary },

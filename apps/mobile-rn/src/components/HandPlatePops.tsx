@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   purchasePayBtn: {
     height: 44,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',

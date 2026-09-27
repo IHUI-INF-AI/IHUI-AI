@@ -168,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     input: {
       backgroundColor: tk.surface.muted,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 12,
       height: 50,
       fontSize: 16,
@@ -187,7 +187,7 @@ function createStyles(tk: AppThemeTokens) {
     smsBtn: {
       paddingHorizontal: 12,
       height: 44,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -206,7 +206,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       height: 50,
       justifyContent: 'center',
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       marginTop: 8,

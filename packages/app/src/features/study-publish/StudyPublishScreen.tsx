@@ -681,7 +681,7 @@ function createFieldStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       height: 50,
       paddingHorizontal: 12,
       paddingVertical: 10,

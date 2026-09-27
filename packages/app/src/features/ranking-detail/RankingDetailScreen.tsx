@@ -86,7 +86,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     scroll: { flex: 1 },
     scrollContent: { padding: 14 },
-    card: { backgroundColor: tk.surface.light, borderRadius: rnRadius.xl, padding: 14, gap: 12 },
+    card: { backgroundColor: tk.surface.light, borderRadius: rnRadius.lg, padding: 14, gap: 12 },
     row1: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     logo: { width: 64, height: 64, borderRadius: rnRadius.xl, backgroundColor: tk.surface.muted },
     logoFallback: { alignItems: 'center', justifyContent: 'center' },

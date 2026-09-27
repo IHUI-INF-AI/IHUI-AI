@@ -278,7 +278,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     retryBtn: {
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 16,
       paddingVertical: 8,
       backgroundColor: tk.surface.muted,
@@ -324,7 +324,7 @@ function createStyles(tk: AppThemeTokens) {
       position: 'absolute',
       left: 8,
       top: 8,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 6,
       paddingVertical: 2,
       backgroundColor: tk.overlay.modal,

@@ -750,7 +750,7 @@ const styles = StyleSheet.create({
   entryButton: {
     flex: 1,
     paddingVertical: ENTRY_BUTTON_PADDING_V,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   discountTag: {
     backgroundColor: tokens.danger.light,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingHorizontal: TAG_PADDING_H,
     paddingVertical: TAG_PADDING_V,
   } as ViewStyle,
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   trialTag: {
     backgroundColor: tokens.brandAccent.light,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingHorizontal: TAG_PADDING_H,
     paddingVertical: TAG_PADDING_V,
   } as ViewStyle,
@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
   subscribeButton: {
     width: '100%',
     height: '100%',
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: ACCENT_COLOR,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1002,7 +1002,7 @@ const styles = StyleSheet.create({
   qrCloseButton: {
     width: '100%',
     height: '100%',
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: ACCENT_COLOR,
     alignItems: 'center',
     justifyContent: 'center',

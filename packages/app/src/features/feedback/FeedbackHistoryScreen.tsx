@@ -97,7 +97,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 14 },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 12,

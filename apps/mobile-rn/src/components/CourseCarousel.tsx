@@ -181,7 +181,7 @@ const indexStyles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -342,7 +342,7 @@ const uptodateStyles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -592,7 +592,7 @@ const listStyles = StyleSheet.create({
   },
   card: {
     flexDirection: 'row',
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -746,7 +746,7 @@ const swiperStyles = StyleSheet.create({
   dot: {
     width: 8,
     height: 8,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.sm, // radius-exempt: 8dp 轮播指示点,sm 恰为半高胶囊(装饰点族不得方档化)
     backgroundColor: 'rgba(255, 255, 255, 0.5)',
     marginHorizontal: 5,
   },

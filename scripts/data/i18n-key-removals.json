@@ -60,6 +60,12 @@
       ],
       "reason": "同 zh-CN:退出遮罩与「退出前查更新」链已于 2026-09-27 整条移除,该语言的这五条回显同一已不存在的界面,零消费者。",
       "until": "2027-09-27"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-TW.json",
+      "keys": ["courseFilter.category", "courseFilter.level", "courseFilter.level_label"],
+      "reason": "这三条是 2026-09-27 批量补键提交 9e9612e148 只落进 zh-TW 一份的孤儿:五语言里只有 zh-TW 有(基准 zh-CN 与 en/ja/ko 均无,实测逐档量 courseFilter 键集:zh-TW 12 键 vs 其余四档各 9 键),因此守门 2n-web 的 parity 判红 —— 而 parity 是 zh-CN 为基准的横向判据,给 zh-CN/en/ja/ko 补写文案等于为无人渲染的键凭空发明四种语言的界面文字。引用面实测:apps/ 与 packages/ 内没有任何一处引用 web 侧 courseFilter 命名空间(`git grep courseFilter` 的非语言包命中全在 mobile-rn 与 packages/app,读的是 mobile-rn 自己那份,且那边也不含这三个键),所以删掉不丢任何会被渲染的文字。回潮判据:若繁体端真要做课程筛选的分类/难度下拉,应连同其余四语言一起按当次文案重新登记,而不是只补 zh-TW 一份。",
+      "until": "2027-09-27"
     }
   ]
 }

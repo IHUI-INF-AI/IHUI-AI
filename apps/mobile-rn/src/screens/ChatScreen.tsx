@@ -3198,7 +3198,7 @@ const styles = StyleSheet.create({
     gap: rpx(8),
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(12),
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.card,
     height: 30,
     minWidth: 100,
@@ -3234,7 +3234,7 @@ const styles = StyleSheet.create({
   inputIconBtn: {
     width: 36,
     height: 36,
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3248,7 +3248,7 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(16),
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.card,
     fontSize: 14,
     color: tokens.text.primary,
@@ -3336,7 +3336,7 @@ const styles = StyleSheet.create({
   shareBtn: {
     paddingHorizontal: rpx(48),
     paddingVertical: rpx(20),
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },
   shareBtnText: {
@@ -3413,7 +3413,7 @@ const styles = StyleSheet.create({
   detailDialogRetryBtn: {
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(12),
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },
   detailDialogRetryText: {
@@ -3441,7 +3441,7 @@ const styles = StyleSheet.create({
     marginHorizontal: rpx(32),
     marginTop: rpx(16),
     height: 48,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3503,7 +3503,7 @@ const styles = StyleSheet.create({
   },
   fangdaSendBtn: {
     backgroundColor: tokens.brand.cta,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     paddingVertical: rpx(24),
     alignItems: 'center',
   },
@@ -3534,7 +3534,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(28),
     backgroundColor: tokens.surface.muted,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     alignItems: 'center',
   },
   ttsOptionText: {
@@ -3560,7 +3560,7 @@ const styles = StyleSheet.create({
   },
   urlInputConfirmBtn: {
     backgroundColor: tokens.brand.cta,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     paddingVertical: rpx(24),
     alignItems: 'center',
   },
@@ -3600,7 +3600,7 @@ const styles = StyleSheet.create({
   },
   fileUploadConfirmBtn: {
     backgroundColor: tokens.brand.cta,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     paddingVertical: rpx(24),
     alignItems: 'center',
     marginTop: rpx(8),
