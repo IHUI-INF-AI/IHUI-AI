@@ -1484,14 +1484,19 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
      * RD 维:同名元素在两端**取了不同的圆角档**。表取不到时 collect() 已经把整门判死,
      * 这里只会拿到非空表;仍留一层空表短路,是为了让 `audit` 作为纯函数可在构造面上单测
      * (只喂几何夹具的既有用例不该被新维连带打红)。
+     *
+     * 取 `aAll` / `bAll` 而不是 `a` / `b`:票⑫ 实测几何漏跟本地样式表会造出**假分叉**
+     * ("RN 11 档 / 小程序 0 档",而端上一行代码未改)。RD 原先只读组件源文本,中同一型盲区
+     * —— 实测 `CategoryBar` 有 2 处圆角写在同名 `.css` 里而本维一处都读不到。同一条样式表来源
+     * 必须**共用**(两处各算一遍必漂移),所以这里不再另派生一份文本。
      */
     const radius = radiusTable
-      ? diffValues(new Set(radiusSetOf(a, radiusTable)), new Set(radiusSetOf(b, radiusTable)))
+      ? diffValues(new Set(radiusSetOf(aAll, radiusTable)), new Set(radiusSetOf(bAll, radiusTable)))
       : { onlyMiniapp: [], onlyRn: [] }
     const radiusSeen = radiusTable
       ? {
-          miniapp: radiusSetOf(a, radiusTable),
-          rn: radiusSetOf(b, radiusTable),
+          miniapp: radiusSetOf(aAll, radiusTable),
+          rn: radiusSetOf(bAll, radiusTable),
         }
       : null
     if (

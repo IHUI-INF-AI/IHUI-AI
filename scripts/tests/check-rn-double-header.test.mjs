@@ -41,6 +41,16 @@ function gitAt(args, opts = {}) {
   }).trim()
 }
 
+/** 存在性问法:git 报错就是"没有",不当成测试故障(execFileSync 对失败是抛,不是返回码)。 */
+function gitOk(args) {
+  try {
+    gitAt(args)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function runNode(args, opts = {}) {
   return execFileSync(process.execPath, args, {
     cwd: REPO,
@@ -85,7 +95,11 @@ test('T1 装车证明:runner 里真有本门那条注册,且 blocking + skipEnv 
   const e = findOwnEntry(src)
   assert.ok(e, `${SCRIPT} 不在 runner 注册表里 —— 门存在但没人调度 = 没有(§22c 反复记过这一型)`)
   assert.ok(e.id, '取号必须落在带 id 的注册块里')
-  assert.match(e.block, /mode:\s*'blocking'/, '本门必须 blocking(5 处存量已冻进 HEAD 棘轮,不会恒红)')
+  assert.match(
+    e.block,
+    /mode:\s*'blocking'/,
+    '本门必须 blocking(5 处存量已冻进 HEAD 棘轮,不会恒红)',
+  )
   assert.ok(
     /skipEnv:\s*'HUSKY_SKIP_RN_DOUBLE_HEADER'/.test(e.block),
     '缺应急出口 = 出事时只能改判据(本仓记过多次"文档写了跑不通的出路")',
@@ -95,8 +109,15 @@ test('T1 装车证明:runner 里真有本门那条注册,且 blocking + skipEnv 
     '触发面必须是 apps/mobile-rn/(共享侧改页头不会新增双层,发起面只有 RN 屏)',
   )
   // 编号唯一:同一个 id 在整张注册表里只能出现一次(撞号会串 skipEnv 与失败归属,守门 89 的 R5)
-  const occurrences = src.split('\n').filter((l) => /^\s*id:\s*['"]/.test(l)).filter((l) => l.includes(`'${e.id}'`))
-  assert.equal(occurrences.length, 1, `本门编号 ${e.id} 在 runner 里出现 ${occurrences.length} 次(应恰好 1)`)
+  const occurrences = src
+    .split('\n')
+    .filter((l) => /^\s*id:\s*['"]/.test(l))
+    .filter((l) => l.includes(`'${e.id}'`))
+  assert.equal(
+    occurrences.length,
+    1,
+    `本门编号 ${e.id} 在 runner 里出现 ${occurrences.length} 次(应恰好 1)`,
+  )
 })
 
 test('T2 反向对照:摘掉注册块后,不得仍被读成"已装车"', () => {
@@ -105,7 +126,11 @@ test('T2 反向对照:摘掉注册块后,不得仍被读成"已装车"', () => {
   assert.ok(e, '本例依赖 T1 的注册块在位')
   const stripped = src.replace(e.block + '\n', '')
   assert.notEqual(stripped, src, '夹具没能剥掉注册块(配对失效,本例就失去意义)')
-  assert.equal(findOwnEntry(stripped), null, '剥完还找得到 ⇒ 取条方式不是"本门那一条",判据会替别人背书')
+  assert.equal(
+    findOwnEntry(stripped),
+    null,
+    '剥完还找得到 ⇒ 取条方式不是"本门那一条",判据会替别人背书',
+  )
 })
 
 test('T3 遮罩实现只能有一份:必须 import lib/code-mask,不得在门里留第二份状态机', () => {
@@ -121,7 +146,11 @@ test('T3 遮罩实现只能有一份:必须 import lib/code-mask,不得在门里
   // 判据读遮罩面、豁免读原文:接反一侧就是"注释被判定违规"或"豁免通道被自己抹掉"
   assert.match(src, /rnMasked: maskCommentsAndStrings\(/, '必须有遮罩面喂给判据(命中走这一面)')
   assert.match(src, /const rawLines = rnText\.split/, '必须另留一份原文面(豁免标记写在注释里)')
-  assert.match(src, /if \(exemptReason\(l\)\) return true/, '豁免必须拿原文行判 —— 遮罩之后就永远匹配不到,等于自己抹掉出口')
+  assert.match(
+    src,
+    /if \(exemptReason\(l\)\) return true/,
+    '豁免必须拿原文行判 —— 遮罩之后就永远匹配不到,等于自己抹掉出口',
+  )
 })
 
 test('T4 取材面形状锁:内容必须经 face-reader 的 catBatch,不得按磁盘/自派生 git 读', () => {
@@ -130,26 +159,41 @@ test('T4 取材面形状锁:内容必须经 face-reader 的 catBatch,不得按�
   assert.match(src, /catBatch\(ROOT,/, '引了层却不用它读内容 = 半接线(守门 118 提交档判红的那一型)')
   assert.ok(!/process\.cwd\(\)/.test(src), '不得用 cwd 定根(守门 70 的镜像测试 13/14 恒红那一型)')
   assert.ok(!/readFileSync\(\s*join\(\s*ROOT/.test(src), '不得用 ROOT 拼磁盘路径读被审内容')
-  assert.ok(!/gitRaw\(\[['\s,]*'show'/.test(src), '不得散写 git show 取内容(层已统一兜 stdio/maxBuffer)')
+  assert.ok(
+    !/gitRaw\(\[['\s,]*'show'/.test(src),
+    '不得散写 git show 取内容(层已统一兜 stdio/maxBuffer)',
+  )
 })
 
 test('T5 真仓 HEAD 阳性对照 + 台账不得腐烂成第二份真相', () => {
   const r = gate.analyze('head')
-  assert.equal(r.exit, 0, `全量面应绿(锚点=该文件 HEAD 自身存量);实得 ${JSON.stringify(r.red).slice(0, 240)}`)
+  assert.equal(
+    r.exit,
+    0,
+    `全量面应绿(锚点=该文件 HEAD 自身存量);实得 ${JSON.stringify(r.red).slice(0, 240)}`,
+  )
   assert.equal(r.emptyScan, false, 'head 面被判空扫 ⇒ 枚举面或仓库根错位,本门会恒判无法判定')
   assert.ok(r.scannedFiles > 150, `扫描文件数 ${r.scannedFiles} 异常偏低`)
   assert.ok(r.total >= 1, `HEAD 面一处都没读到(${r.total})—— 判据或射程被改窄了,这不算通过`)
   const ledger = JSON.parse(readFileSync(LEDGER, 'utf8'))
-  assert.ok(Array.isArray(ledger.stock) && ledger.stock.length >= 1, '台账不得为空(立项时冻结了 5 处真站点)')
-  const want = [
-    'SettingsScreen.tsx',
-    'ProfileScreen.tsx',
-    'CourseDetailScreen.tsx',
-    'LiveDetailScreen.tsx',
-    'StudyPublishScreen.tsx',
-  ]
+  assert.ok(
+    Array.isArray(ledger.stock) && ledger.stock.length >= 1,
+    '台账不得为空(立项时冻结了真站点)',
+  )
+  // 刻意**不**再抄一份"应有哪五个文件"的名单:那份硬清单在有人清偿掉一站之后就成了
+  // 第二份真相 —— 它判红的对象是"世界没按立项那天的样子留着",而不是任何缺陷。
+  // 本仓对这类清单的规矩是"豁免清单必然腐烂";有牙的判据是下面两条:
+  //   ① 台账点的每个文件都必须在 HEAD 真存在(台账指向不存在的文件 = 清单腐烂,判红)
+  //   ② 台账必须与 HEAD 现读**逐文件等值**(有人清了账没重跑 --update-baseline ⇒ 判红)
+  for (const s of ledger.stock) {
+    for (const p of [s.rnFile, s.sharedFile]) {
+      assert.ok(
+        gitOk(['cat-file', '-e', `HEAD:${p}`]),
+        `台账点名的文件不在 HEAD 里:${p}(台账已腐烂,重跑 --update-baseline 或找回文件)`,
+      )
+    }
+  }
   const ledgerFiles = ledger.stock.map((s) => s.rnFile.split('/').pop()).sort()
-  assert.deepEqual(ledgerFiles, [...want].sort(), '台账点名的真站点与文件不一致(内容锚点,不得写成行号)')
   // 台账与 HEAD 实态必须对得上:对不上就是有人清了账没重跑 --update-baseline(第二份真相)
   const liveFiles = r.stock.map((h) => h.file.split('/').pop()).sort()
   assert.deepEqual(
@@ -185,7 +229,11 @@ test('T7 端到端双向锁(私有索引注入,绝不碰共享索引/工作树):
     if (mode === 'comment')
       return head + '      {/* 早先这里写 ' + NAV + ',后来挪走了 */}\n      ' + src.slice(at)
     const suffix =
-      mode === 'exempt' ? ' // double-header-exempt: 探针登记的待偿,另计票' : mode === 'bare' ? ' // double-header-exempt: ' : ''
+      mode === 'exempt'
+        ? ' // double-header-exempt: 探针登记的待偿,另计票'
+        : mode === 'bare'
+          ? ' // double-header-exempt: '
+          : ''
     return head + '      ' + NAV + suffix + '\n' + src.slice(at)
   }
   const dir = mkScratch('g-rndh-t7')
@@ -247,7 +295,11 @@ test('T7 端到端双向锁(私有索引注入,绝不碰共享索引/工作树):
     gitEnv(['update-index', '--add', '--cacheinfo', `100644,${blobS},${shared}`])
     put(variant('real'))
     const e = runStaged()
-    assert.equal(e.code, 0, `共享侧无页头时不得判红(阴性对照),实得 ${e.code}\n${e.out.slice(0, 300)}`)
+    assert.equal(
+      e.code,
+      0,
+      `共享侧无页头时不得判红(阴性对照),实得 ${e.code}\n${e.out.slice(0, 300)}`,
+    )
   } finally {
     rmScratch(dir)
   }
@@ -260,7 +312,11 @@ test('T8 空暂存档不得判"无法判定"(与守门 135 的兜底同向),且 
     windowsHide: true,
     timeout: 600000,
   })
-  assert.equal(staged.status, 0, `暂存档应绿;实得 ${staged.status}\n${(staged.stdout || '') + (staged.stderr || '')}`)
+  assert.equal(
+    staged.status,
+    0,
+    `暂存档应绿;实得 ${staged.status}\n${(staged.stdout || '') + (staged.stderr || '')}`,
+  )
   const strictRun = spawnSync(process.execPath, [SRC, '--strict'], {
     cwd: REPO,
     encoding: 'utf8',
