@@ -8263,6 +8263,10 @@
           "title": "文件过大",
           "action": "精简文件后重试"
         },
+        "FORM_CHANNEL_UNAVAILABLE": {
+          "title": "业务表单请求仅在对话流内可用",
+          "action": "请勿重试该工具;需要这些信息时,直接在回复里向用户提问"
+        },
         "GENERATION_FAILED": {
           "title": "生成失败",
           "action": "重试"
@@ -12025,8 +12029,13 @@
       "errorDesc": "更新过程中出现错误,请重试",
       "installing": "安装中",
       "preparing": "正在准备更新...",
+      "quitChecking": "正在检查更新...",
       "upToDate": "已是最新版本",
       "upToDateDesc": "当前已是最新版本,无需更新",
+      "quitDownloading": "正在下载更新...",
+      "quitQuitting": "正在退出...",
+      "quitRestarting": "更新完成，正在重启...",
+      "quitSkip": "跳过，直接退出",
       "restart": "重启应用",
       "restartLater": "稍后重启",
       "restartNow": "立即重启",
