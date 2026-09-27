@@ -5,11 +5,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
-import { mkScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -68,7 +67,7 @@ function runStaged(cwd) {
 
 // 辅助:创建临时 git repo(含 baseline commit),用于 staged 模式测试
 function createTempGitRepo(files) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-rounded-git-'))
+  const dir = mkScratch('ihui-rounded-git-')
   spawnSync('git', ['init', '-q'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
   spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
   spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
@@ -123,7 +122,7 @@ test('违规: className 含 rounded-full → stdout 报告违规', () => {
     assertHasViolation(r, /rounded-full/)
     assert.match(r.stdout, /Button\.tsx/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -135,7 +134,7 @@ test('违规: className 含 rounded-pill → stdout 报告违规', () => {
     const r = runScript(dir)
     assertHasViolation(r, /rounded-pill/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -147,7 +146,7 @@ test('违规: 宽扁盒上的 border-radius: 9999px = 胶囊 → 报告违规(�
     const r = runScript(dir)
     assertHasViolation(r, /9999px/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -159,7 +158,7 @@ test('违规: 宽扁盒上的 border-radius: 50% = 胶囊 → 报告违规', () 
     const r = runScript(dir)
     assertHasViolation(r, /50%/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -176,7 +175,7 @@ test('几何正圆: 方形盒(8×8)上的 border-radius:50% 是圆不是胶囊 �
     const r = runScript(dir)
     assert.equal(r.status, 0, `方形盒的正圆应放行\nstdout:${r.stdout}\nstderr:${r.stderr}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -189,7 +188,7 @@ test('标记不再免检: 宽扁盒 + 带原因的 radius-exempt 注释 → 仍�
     const r = runScript(dir)
     assertHasViolation(r, /rounded-full/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -202,7 +201,7 @@ test('违规: border-radius:9999px(无空格、宽扁盒) → 正则匹配', () 
     const r = runScript(dir)
     assertHasViolation(r, /9999px/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -216,7 +215,7 @@ test('合法: rounded-xl → 无违规', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -228,7 +227,7 @@ test('合法: rounded-2xl → 无违规', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -240,7 +239,7 @@ test('合法: rounded-md → 无违规', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -256,7 +255,7 @@ test('豁免: <img className="rounded-full"> 头像图片 → 无违规', () => 
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -268,7 +267,7 @@ test('豁免: <Image className="rounded-full"> next/image → 无违规', () => 
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -280,7 +279,7 @@ test('豁免: 装饰点 rounded-full w-2 h-2 → 无违规', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -292,7 +291,7 @@ test('豁免: 红点 bg-red-500 rounded-full h-4 w-4 → 无违规', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -304,7 +303,7 @@ test('豁免: Switch Thumb block rounded-full bg-background shadow-lg → 无违
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -316,7 +315,7 @@ test('豁免: animate-spin + rounded-full → 无违规', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -330,7 +329,7 @@ test('非豁免: <Button className="rounded-full"> → 违规(容器禁用纯圆
     const r = runScript(dir)
     assertHasViolation(r, /rounded-full/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -342,7 +341,7 @@ test('非豁免: <Card className="rounded-full"> 大容器(flex-1+text-base) →
     const r = runScript(dir)
     assertHasViolation(r, /rounded-full/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -360,7 +359,7 @@ test('非豁免: 宽扁容器 rounded-full + w-[690rpx] h-[220rpx] → 违规(�
     const r = runScript(dir)
     assertHasViolation(r, /rounded-full/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -373,7 +372,7 @@ test('豁免: 方形头像容器 rounded-full + w-[140rpx] h-[140rpx] → 无违
     const r = runScript(dir)
     assert.equal(r.status, 0, `方形头像应放行,实际:\n${r.stdout}\n${r.stderr}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -396,14 +395,14 @@ test('批量: apps/ 含 3 文件(2 违规 + 1 合法) → 报告 2 违规', () =
     const goodInViolation = /Good\.tsx/.test(violationSection.split('修复方法:')[0] || '')
     assert.ok(!goodInViolation, 'Good.tsx 不应出现在违规列表中')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 // ─── CLI 行为 ────────────────────────────────────────────
 
 test('全量模式: 无 git 提交面(隔离目录)⇒ exit 2「无法判定」,绝不记绿', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-rounded-empty-'))
+  const dir = mkScratch('ihui-rounded-empty-')
   try {
     const r = runScript(dir)
     assert.equal(r.status, 2, `无 HEAD 可枚举必须判"无法判定"(exit 2),实际 ${r.status}\n${r.stdout}\n${r.stderr}`)
@@ -411,14 +410,14 @@ test('全量模式: 无 git 提交面(隔离目录)⇒ exit 2「无法判定」,
     assert.ok(!/对账通过|✅/.test(r.stdout), '崩溃或"通过"都不许出现在这一格')
     assert.ok(!r.stderr.includes('at '), '不得把未捕获异常调用栈当结论喷出去')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 test('CLI --help 不崩溃(脚本未实现 --help flag,验证不 crash)', () => {
   // 注:源脚本未实现 --help,传入 --help 会按默认全量模式运行
   // 本测试验证不 crash(exit code 0/1),而非显示帮助文本
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-rounded-help-'))
+  const dir = mkScratch('ihui-rounded-help-')
   try {
     const r = spawnSync('node', [SCRIPT_PATH, '--help'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
     assert.ok(
@@ -428,7 +427,7 @@ test('CLI --help 不崩溃(脚本未实现 --help flag,验证不 crash)', () => 
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生 Error 输出`)
     assert.ok(!/^\s+at /m.test(r.stderr), '不得以未捕获异常调用栈收场(那与"扫过且干净"在账面上同形)')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -440,7 +439,7 @@ test('注释行 // rounded-full → 豁免(纯注释不检测)', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -452,7 +451,7 @@ test('CSS 小装饰点 border-radius:50% + width:8px + height:8px → 豁免', (
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -478,7 +477,7 @@ test('staged 模式(已修复): 暂存含 rounded-full 违规 → 检测到并 e
     assert.match(r.stdout, /rounded-full/, 'stdout 应报告 rounded-full 违规')
     assert.match(r.stdout, /Bad\.tsx/, 'stdout 应列出违规文件 Bad.tsx')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -496,7 +495,7 @@ test('staged 模式(已修复): 暂存合法文件(无违规) → exit 0 通过'
     assert.equal(r.status, 0, 'staged 模式无违规应 exit 0')
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -510,7 +509,7 @@ test('staged 模式(已修复): 空暂存区(无 .ts/.tsx 变更) → exit 0 跳
     assert.equal(r.status, 0, '空暂存区应 exit 0')
     assert.match(r.stdout, /跳过|暂存区无/, '应显示跳过消息')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

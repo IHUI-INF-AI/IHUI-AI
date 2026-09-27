@@ -5,16 +5,16 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 // 从 scripts/tests/ 回到 scripts/check-i18n-namespace-passing.mjs
 const SCRIPT_PATH = join(__dirname, '..', 'check-i18n-namespace-passing.mjs')
-const TMP_DIR = mkdtempSync(join(tmpdir(), 'ihui-i18n-ns-'))
+const TMP_DIR = mkScratch('ihui-i18n-ns-')
 
 // ─── 运行脚本并去除 ANSI 颜色码,便于正则断言 ───
 function runScript(args = []) {
@@ -252,7 +252,7 @@ test('CLI 集成:--help → exit 0 + 输出用法', () => {
 // 清理临时目录(任务完成后)
 test('cleanup: 删除临时目录', () => {
   try {
-    rmSync(TMP_DIR, { recursive: true, force: true })
+    rmScratch(TMP_DIR)
   } catch {
     // 忽略清理失败
   }

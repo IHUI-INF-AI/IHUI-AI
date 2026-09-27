@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-verify-tmp-files.mjs')
 
 // 创建临时扫描目录(模拟项目根)
 function createTempRoot() {
-  return mkdtempSync(join(tmpdir(), 'ihui-verify-'))
+  return mkScratch('ihui-verify-')
 }
 
 // 运行脚本并去除 ANSI 颜色码
@@ -48,7 +48,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () =
     )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生 Error`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -61,7 +61,7 @@ test('CLI: 无参数运行(空 apps/)→ exit 0 + 无 verify-*.*', () => {
     assert.equal(r.status, 0, `空 apps 应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /无 verify-\*\.\* 临时文件/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -78,7 +78,7 @@ test('违规: apps/web/verify-foo.mjs → 默认 warn exit 0, --strict exit 1', 
     const rStrict = runScript(dir, ['--strict'])
     assert.equal(rStrict.status, 1, `--strict 应 exit 1\nstdout: ${rStrict.out}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -92,7 +92,7 @@ test('违规: apps/api/verify-bar.mjs → 默认 warn exit 0, --strict exit 1', 
     const rStrict = runScript(dir, ['--strict'])
     assert.equal(rStrict.status, 1)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -105,7 +105,7 @@ test('违规: apps/web/src/lib/verify-helper.mjs(子目录)→ 检测到', () =>
     assert.match(r.out, /verify-helper\.mjs/)
     assert.match(r.out, /WARN/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -121,7 +121,7 @@ test('豁免: apps/web/tests/verify-helper.mjs(测试目录豁免,§23 配套)�
     assert.equal(r.status, 0, `测试目录豁免应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /无 verify-\*\.\* 临时文件/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -133,7 +133,7 @@ test('豁免: apps/web/__tests__/verify-helper.mjs(__tests__ 目录豁免)→ �
     assert.equal(r.status, 0)
     assert.match(r.out, /无 verify-\*\.\* 临时文件/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -146,7 +146,7 @@ test('豁免: scripts/verify-*.mjs(不在扫描范围,SCAN_ROOTS=["apps"])→ �
     const r = runScript(dir)
     assert.equal(r.status, 0, `scripts/ 不在扫描范围应 exit 0\nstdout: ${r.out}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -163,7 +163,7 @@ test('豁免: *.test.mjs / *.spec.ts(不匹配 verify-* 模式)→ 通过', () =
     assert.equal(r.status, 0, `非 verify 开头应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /无 verify-\*\.\* 临时文件/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -175,7 +175,7 @@ test('豁免: apps/web/utils.mjs(非 verify 开头)→ 通过', () => {
     assert.equal(r.status, 0)
     assert.match(r.out, /无 verify-\*\.\* 临时文件/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -197,7 +197,7 @@ test('批量: apps/ 含 3 个 verify-* 文件(2 违规 + 1 在测试目录豁免
     const rStrict = runScript(dir, ['--strict'])
     assert.equal(rStrict.status, 1, `--strict 2 个警告应 exit 1`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

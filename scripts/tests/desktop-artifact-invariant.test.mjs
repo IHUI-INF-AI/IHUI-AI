@@ -6,10 +6,11 @@
 // 反例(不该被删的东西)与正例同权重 —— 判据只要误删过一次的签名/包,就是发版事故。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs'
+import { writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 import { planArtifactInvariant } from '../lib/desktop-artifact-invariant.mjs'
 
@@ -69,7 +70,7 @@ test('护栏:exeName 传成通配/目录形态时立即抛,不给"glob 猜包"�
 })
 
 test('集成:临时目录里跑完整"删+复算"流程,收尾必须只剩当前一对', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-artifact-inv-'))
+  const dir = mkScratch('ihui-artifact-inv-')
   try {
     const names = [CUR, `${CUR}.sig`, '智汇AI_0.1.45_x64-setup.exe', '智汇AI_0.1.45_x64-setup.exe.sig', 'keep-me.log']
     for (const n of names) writeFileSync(join(dir, n), 'x')
@@ -80,7 +81,7 @@ test('集成:临时目录里跑完整"删+复算"流程,收尾必须只剩当前
     assert.deepEqual(after, [CUR, `${CUR}.sig`, 'keep-me.log'].sort(), '无关文件必须活下来')
     assert.deepEqual(planArtifactInvariant(after, CUR).violations, [])
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -94,7 +95,7 @@ const runHook = (dir, expect) =>
   })
 
 test('钩子正例:多版本共存 → 目录里只剩当前一对,无关文件活下来', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-artifact-hook-'))
+  const dir = mkScratch('ihui-artifact-hook-')
   try {
     for (const n of [CUR, `${CUR}.sig`, '智汇AI_0.1.45_x64-setup.exe', '智汇AI_0.1.45_x64-setup.exe.sig', 'keep-me.log']) {
       writeFileSync(join(dir, n), 'x')
@@ -103,14 +104,14 @@ test('钩子正例:多版本共存 → 目录里只剩当前一对,无关文件�
     assert.ok(out.includes('唯一安装包'), out)
     assert.deepEqual(readdirSync(dir).sort(), [CUR, `${CUR}.sig`, 'keep-me.log'].sort())
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 test('钩子反例:目录里没有"本次应产的包"时**一个文件都不许删**', () => {
   // 这条自缚条款是钩子唯一危险的地方:若它按"缺当前包"就清空目录,
   // 那么 `tauri build --bundles app`(不产 nsis)会把上一次 nsis 构建的包连带签名一起抹掉。
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-artifact-hook2-'))
+  const dir = mkScratch('ihui-artifact-hook2-')
   const others = ['智汇AI_0.1.45_x64-setup.exe', '智汇AI_0.1.45_x64-setup.exe.sig']
   try {
     for (const n of others) writeFileSync(join(dir, n), 'x')
@@ -118,7 +119,7 @@ test('钩子反例:目录里没有"本次应产的包"时**一个文件都不许
     assert.ok(out.includes('按不产 nsis 处理'), out)
     assert.deepEqual(readdirSync(dir).sort(), others.sort(), '不属于自己的目录必须原样保留')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
