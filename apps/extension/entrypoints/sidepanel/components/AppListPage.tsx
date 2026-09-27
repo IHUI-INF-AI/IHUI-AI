@@ -91,7 +91,7 @@ export function AppListPage({ titleKey, items }: AppListPageProps) {
                 </span>
                 <span className="text-sm font-medium flex-1 truncate">{t(item.titleKey)}</span>
                 {item.badge ? (
-                  <span className="min-w-4 h-4 px-1 bg-destructive text-primary-foreground text-[10px] font-semibold rounded inline-flex items-center justify-center leading-none">
+                  <span className="min-w-4 h-4 px-1 bg-destructive text-primary-foreground text-[10px] font-semibold rounded-md inline-flex items-center justify-center leading-none">
                     {item.badge}
                   </span>
                 ) : null}
