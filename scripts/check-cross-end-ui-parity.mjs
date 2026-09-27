@@ -170,6 +170,23 @@ export function readGeometry(src, side, tiers = {}) {
   }
   for (const m of code.matchAll(/\brpx\(\s*(\d+(?:\.\d+)?)\s*\)/g)) push(toPx(m[1], 'rpx', side))
   /**
+   * **内联引号串里的长度**(2026-09-27 三路并行取证各自独立指到同一格):
+   * 小程序端把档写成 `style={{ padding: '0 20rpx 10rpx' }}` 或 `'20rpx'`,而下面的简写循环
+   * 按"分号/花括号收尾"取声明体、再按空白切 token —— 引号会粘在**首尾两个 token** 上
+   * (`'0` 与 `10rpx'`),于是它们既不匹配纯数字也不匹配 `…rpx`,整条静默漏读;
+   * 单值引号串(`'20rpx'`)更是连简写循环都进不去(它只认 ≥2 个 token)。
+   * 后果不是"少读一个数"而是**造出假分叉**:对面写了同一个值,这边读不到 ⇒ 报成"仅 RN 档"。
+   * 口径:引号内按空白切 token,逐 token 去掉引号后只认纯 `<数字><rpx|px>`;
+   * `calc(50% - 26rpx)` 这类混算式**不计**(它不是档,是机制)。
+   */
+  for (const m of code.matchAll(/\b([A-Za-z_$][\w$]*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/g)) {
+    if (!keyed(m[1])) continue
+    for (const raw of m[3].trim().split(/\s+/)) {
+      const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(raw)
+      if (one) push(toPx(one[1], one[2], side))
+    }
+  }
+  /**
    * **简写多值声明**:`padding: 0 24rpx` / `margin: 8rpx 0 16rpx` 这类一行里挂多个长度。
    * 上一条提取式按"数字紧跟键名"匹配,只会取到第一个值(0),于是横向内边距 24rpx=12px
    * **整族隐身** —— 实测 `CategoryBar` 的"仅 RN 档 12"就是这么造出来的假分叉:
@@ -1357,6 +1374,19 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [], aliase
     }
   }
   /**
+   * **盲区点名**:配对腿用到了某个类名,而它的定义不在本组件自己的样式表里 ⇒ 该元素的盒档
+   * 落在全局表(`app.css` / 某页 `*.css`),本门读不到。只点名不归因(理由见 unresolvedClassNames 头注)。
+   */
+  const blindClasses = []
+  for (const p of pairs.pairs) {
+    for (const s of ['miniapp', 'rn']) {
+      const f = p[s]
+      if (text[f] === undefined) continue
+      const miss = unresolvedClassNames(text[f], styles[f] ?? '')
+      if (miss.length) blindClasses.push({ name: p.name, side: s, file: f, classes: miss })
+    }
+  }
+  /**
    * 具名档表与组件正文**同面同轮**取:清单来自被审面,内容也来自被审面。
    * 取不到任何一份 ⇒ Undetermined。空表不等于"没有单源档",那是一台瞎了的尺子 ——
    * 正因如此,枚举到 0 个 spec 文件也判死(不得把"表空"读成"两端都没用单源,所以差异为 0")。
@@ -1497,6 +1527,57 @@ export function resolveRel(fromFile, spec) {
     else segs.push(part)
   }
   return segs.join('/')
+}
+
+/**
+ * 组件"声明会用到哪些类名"—— 只从**字符串字面量**里取(引号与模板串),因为小程序的盒档
+ * 是通过类名落地的(`className="textarea-int"` / `cn('item', active && 'item--on')`)。
+ * 刻意剥掉 Tailwind 形态的类名:那些由 `readGeometry` 的刻度档判据直接读,不需要样式表。
+ */
+export function usedClassNames(src) {
+  const code = stripComments(src)
+  const out = new Set()
+  // 前缀表**必须要求后接连字符或结尾**:少了这道边界,`textarea-int` 会被 `text` 前缀误杀,
+  // 而它正是本门最需要看见的那一类自定义类名(实测 InputArea 的 `.textarea-int{height:80rpx}`)。
+  const TW =
+    /^(?:group|flex|grid|block|inline|hidden|absolute|relative|static|fixed|sticky|overflow|shrink|grow|wrap|nowrap|truncate|italic|font|leading|tracking|whitespace|align|justify|items|content|self|order|basis|col|row|w|h|p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|space|top|right|bottom|left|inset|z|opacity|shadow|rounded|border|bg|from|via|to|ring|outline|cursor|select|pointer|transition|duration|delay|animate|scale|rotate|translate|skew|origin|transform|filter|backdrop|touch|text)(?:-|$)/
+  // 只认 className / cn / clsx / styles[] 语境里的字面量:全表扫字符串会把枚举值
+  // (`react` / `image` / `default` / `active` / `none`)当成类名,而那些词在别处真有同名规则。
+  const ctx = [
+    ...code.matchAll(/className\s*=\s*\{([\s\S]{0,400}?)\}\s*\n/g),
+    ...code.matchAll(/className\s*=\s*"([^"]*)"/g),
+    ...code.matchAll(/(?:cn|clsx|twMerge)\(([\s\S]{0,300}?)\)/g),
+    ...code.matchAll(/([A-Za-z_$][\w$]*[Cc]lass(?:Name)?\s*=\s*['"`][^'"`]*['"`])/g),
+  ]
+  for (const m of ctx) {
+    for (const q of String(m[1] ?? '').matchAll(/['"`]([^'"`\n]{2,200})['"`]/g)) {
+      for (const t of q[1].split(/[\s,]+/)) {
+        if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(t)) continue
+        if (t.length <= 3 || TW.test(t)) continue
+        out.add(t)
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * "用了某个类名,但在本组件自己的样式表里找不到它的定义" —— 这些类的盒档落在**全局样式表**
+ * (`app.css` / 某页的 `*.css`),本门**读不到**。
+ *
+ * 为什么把这件事做成"点名"而不是"接着去读全局表":实测把 69 份表按类名锚定收进来时,
+ * ① 目标没达成(`textarea-int` 藏在三元表达式里,类名不总是字面量出现在 className 语境),
+ * ② 反而把别处的档算到了这个组件头上(类名提取会捞进 `react` / `image` / `active` 这类
+ * 非类名字符串,而它们在全端**确实有同名规则**)。**归因过宽比漏读更贵** ——
+ * 它产出的是一条条自洽的假"同值"。所以这里只把盲区如实报出来,不做无法证实的归因。
+ */
+export function unresolvedClassNames(src, ownCssText) {
+  const used = usedClassNames(src)
+  if (!used.size) return []
+  const defined = new Set()
+  for (const m of String(ownCssText ?? '').matchAll(/\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\s*\{/gi))
+    defined.add(m[1])
+  return [...used].filter((c) => !defined.has(c)).sort()
 }
 
 export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null, styles = {}) {
@@ -1871,6 +1952,21 @@ export function main(argv, repoRoot = ROOT) {
           ? `;未判定边 ${undet.length} 处(路径解析不到 / 动态拼接,不当"不存在"也不当"不可达")`
           : ''),
     )
+    const blind = collected.blindClasses ?? []
+    if (blind.length) {
+      const total = blind.reduce((n, b) => n + b.classes.length, 0)
+      console.log(
+        `  ⓘ 读数不完整:${blind.length} 条配对腿用到 ${total} 个类名,其定义不在本组件样式表里` +
+          `(盒档落在 app.css / 某页 css)⇒ 这些元素的几何本门读不到。` +
+          `没读到不得当成该侧无档,也不得拿去当已核对过的凭据`,
+      )
+      for (const b of blind.slice(0, 6))
+        console.log(
+          `     · ${b.name}[${b.side}] ${b.classes.slice(0, 8).join(' ')}` +
+            (b.classes.length > 8 ? ` …另 ${b.classes.length - 8} 个` : ''),
+        )
+      if (blind.length > 6) console.log(`     · 其余 ${blind.length - 6} 条同上(不静默省略计数)`)
+    }
     for (const o of off) console.log(`  ⊘ ${o.name} —— ${o.reason}`)
     if (collected.coverageNote) console.log(`  ⚠ ${collected.coverageNote}`)
     /**
