@@ -1373,8 +1373,12 @@ _CHAT_MODE_PROMPTS: dict[str, str] = {
     ),
     "review": (
         "## Review Mode Active\n"
-        "You are in REVIEW mode. Focus on read-only code review: point out bugs, risks and "
-        "improvements with evidence. DO NOT modify anything."
+        "You are in REVIEW mode. Focus on read-only code review. DO NOT modify anything.\n"
+        "Produce findings in EXACTLY three severity sections, each finding on one bullet:\n"
+        "### P1 Blocking\n### P2 Suggested\n### Nits\n"
+        "Every bullet MUST cite evidence as path:line (or path for whole-file issues),\n"
+        "state the concrete risk, and end with a one-line actionable fix suggestion.\n"
+        "If a section has no findings, write None. End with a one-paragraph overall verdict.",
     ),
     "spec": (
         "## Spec Mode Active\n"
