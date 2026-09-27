@@ -14053,3 +14053,70 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
 - [x] ✅(2026-09-27) **G-291 还原库与生产**序列位置逐张一致**,顺带当场查出生产有 11 张序列落后并只向前推平** —— 这是"备份能恢复"最后一格没量过的维度:**读得到不等于写得进**。做法是先比 `pg_sequences` 的 `(sequencename, last_value)` 多重集:生产 235 条 / 演练库 235 条,md5 不同 ⇒ 逐张下钻,结果两侧**落后集合逐字相同**(`publish_notifications` 下一=1 而 max=19、`publish_tasks` 1 vs 23、`sys_operlog` 1 vs 3、`zhs_knowledge_doc` 1 vs 7)—— 这同时给出两个结论:① **还原是忠实的**,序列位置照抄,连生产的缺陷一起抄(所以"dump 会不会丢序列"这个担心可以否掉);② **生产今天正带着 11 张落后序列**,而这两张表的写入方按 `db_write_guard` 的既有形态把撞主键降成 warning ⇒ 表现是"任务判 failed 而库里查不到任何审计行",`git status`/typecheck/其余守门全都不响。已跑 `node scripts/check-sequence-lag.mjs --fix`(铁律:**只在落后时向前,领先一档绝不产出回拨目标**),复跑 `--strict` 现读"扫了 228 张有序列表(权威候选 228 张,闭合)/ 正常 16 / 空表跳过 212 / 未判定 0 / **无落后序列**" exit 0。**为什么会复发(这条才是留给人看的)**:落后全部集中在"迁移建表后又按显式 id 回填数据"的那族表 —— 序列从没被用过就停在 1,而 `max(id)` 早就走远了。所以**任何带回填的迁移都会重新制造落后**,一次性修完不等于闭环;判据入口就是这条命令本身,已写进 05:30 备份核验班次的每日清单(只读 `--check`),不在提交链上 —— 它判的是**库的实时状态**,提交者结构上满足不了,挂 blocking 就是每台每次被逼 `--no-verify`(§12e 同型)。
 
 - [x] ✅(2026-09-27) **G-292 G-268 的同一型缺陷在**索引面**当天翻出来,归因补态①c(枚 `8771c797f3`)** —— 上午那枚修的是工作树面(门 44 判 `readdirSync`,基线检出里没有未跟踪文件);下午提交守门 94 那一枚时 `safe-commit` 连着两次拒绝 `--no-verify`,措辞是"差分证明这枚提交把跑绿的东西改红了"。红的是门 71/84 —— 它们判**索引 blob**,而共享索引里挂着并发会话 staged 的 `PROJECT_PLAN.md` / `README.md`(其工作树副本滞后 HEAD)。本枚提交带 pathspec,那几个 blob **结构上进不了本次内容**,而被定责之后唯一"合法的修法"是去改别人 staged 的东西 —— 那是 §12 明令的事故。**后果与恒红门同形**:实测这 12 次拒绝没有一个能被提交者修掉,终态是各会话改走手工 `git commit --no-verify`,连归因台账都不写。改法四臂各钉一条,缺一就是半边:① 新增态①c —— 结论行点名了"他人 staged 且非本次声明"的路径 ⇒ 落 `undetermined-red`,单独计数 `foreignFace` 可机读,措辞点名真正原因,并沿用既有反向锁(不得出现"不在本次提交内容里"、不得用通过色);`foreignStaged` 由 `safe-commit` 现读 `git diff --cached --name-only` 与声明集求差得到,不在归因层里派生 git(保持纯函数可测)。② **向后兼容锁**:不传 `foreignStaged` 时结论必须与改动前**逐字相同** —— 加档位不许暗中放宽任何一枚提交("修红不得顺手削判据"的反方向版本)。③ **方向锁**:同一道门若点名的就是本次声明的文件,仍判 `mine` —— ①c 不是免死金牌。④ 别人路径只出现在清单/回显行 ⇒ 不降档,与既有 `findingLines` 口径同形。取证:铰链镜像 22 例(原 20 + 态①b 四臂 + 本条四臂)、门 44 镜像 9 例仍绿。**同批一并登记**:本票当天三枚跳门落地(not-ours / undetermined-red 各按规则留痕于 `.workbuddy/safe-commit-attestation.jsonl`),没有一枚是本任务自己的红被遮过去。
+
+- [ ]（进行中@2026-09-27/主会话O86）O86 桌面端托盘「退出」无人接:前端 IPC 注入竞态致监听永不注册 —— 修复已提交 `8bdaae172`,待线上前端发布后复跑托盘取证 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记在 L13428,派单以那条为准,本行不再单独派单。〕
+- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-257」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的**可跑性依赖 cwd** —— 在 `apps/ai-service` 下跑 `node ../../scripts/check-agent-engine-parity.mjs` 抛异常退出(rc=1),从仓根跑则 rc=0。与"文档不得写跑不通的出路"同族:要么让它自身定位 repo root,要么在头注写明必须从仓根跑。归属:该门持有人。解阻判据:两个 cwd 下退出码一致。
+- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-257」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的**可跑性依赖 cwd** —— 在 `apps/ai-service` 下跑 `node ../../scripts/check-agent-engine-parity.mjs` 抛异常退出(rc=1),从仓根跑则 rc=0。与"文档不得写跑不通的出路"同族:要么让它自身定位 repo root,要么在头注写明必须从仓根跑。归属:该门持有人。解阻判据:两个 cwd 下退出码一致。 〔【归并】重复登记副本(2026-09-27):逐字相同的另一条登记在 L13762(本行无编号主键),派单以那条为准,本行不再单独派单。〕
+- [x] ✅(2026-09-27) **④长会话滚动四维差异 —— 本波刻意未做,阻塞在"运行时自验"这一格**:四维实测在我方 **已闭环,这条「刻意未做」是过期散文**:四维现读全部落地 —— 行高缓存跨卸载存活(use-message-list-scroll.ts:539「卸载不再 map.delete(id)」)+ **LRU 限界 MEASURED_HEIGHT_CACHE_MAX=600**(:47,只从「已脱离窗口」的那批里淘汰、绝不逐出正在渲染的行,:523-530)+ 前插确定性锚点取代 rAF 轮询(批 51②,scroll-authority.ts 的 prependScrollAdjustment)+ 贴底判定与流式 delta 的滚动权裁决(批 51② 状态机 + G-252 真机验收)。解阻判据里那条「运行时自验」已由 G-252 的真实 Chromium + esbuild 逐字打包验收满足(四条人工判据 3 过 1 带因果条件,并抓到两处真缺陷当场修掉,枚 bd24d86ae/d9563be7a);message-list 全目录 17 文件 132/132 绿(含第 8 例:在途用户位移不得被补偿弹回)。「宿主文件在飞」那一格与渲染位置改动无涉 —— 四维全部在 use-message-list-scroll.ts / scroll-authority.ts 两个自包含文件内,不曾动 MessageList.tsx。
+- [x] ✅(2026-09-27)O86 桌面端托盘「退出」无人接:前端 IPC 注入竞态致监听永不注册 —— 修复已提交 8bdaae172,**并已把决定权收回 Rust 侧**:托盘与 Ctrl+Q 一律立即退出(5637972f4 + b83a085ca),「退出前先查更新」整条链连同全屏遮罩与五语言 5 条文案一起移除;真机实测"点托盘退出 → 进程终止" **0.5s**、无残留主进程(Ctrl+Q 与托盘共用同一出口,见 menu-actions.ts 的 file.quit → quitApp,未单独复跑按键)。取证与三格残余见本节末 O86附⑩。 〔本行原是同主键的**重复登记副本**,与正本一并翻勾(2026-09-27):两条都是没做完的事,把没做的记成做过的比原病更响,所以这里只归并不删除。〕
+- [x] ✅(2026-09-27)O86 桌面端托盘「退出」无人接:前端 IPC 注入竞态致监听永不注册 —— 修复已提交 8bdaae172,**并已把决定权收回 Rust 侧**:托盘与 Ctrl+Q 一律立即退出(5637972f4 + b83a085ca),「退出前先查更新」整条链连同全屏遮罩与五语言 5 条文案一起移除;真机实测"点托盘退出 → 进程终止" **0.5s**、无残留主进程(Ctrl+Q 与托盘共用同一出口,见 menu-actions.ts 的 file.quit → quitApp,未单独复跑按键)。取证与三格残余见本节末 O86附⑩。 〔本行原带"待线上前端发布后复跑托盘取证"未闭环注记,现已按真机实测收口;线上 feed 平台数那一格**未收口**,已单列在 O86附⑩ 残余②。〕
+- [x] ✅(2026-09-27) G-283. **ai-service 引擎会话库的默认落点是相对 cwd 的 ⇒ 从仓根起服务就把活的 SQLite 写进工作树**。实测形态:`apps/ai-service/app/routers/sessions.py:81` `db_path = os.getenv("SESSION_STORE_DB_PATH", "data/sessions.db")`,从仓根起服务即在工作树长出一级目录 `data/sessions.db`(现读 221,184 B,表含 `relay_summaries` 与 `items_fts_*`;**此前既不被 .gitignore 覆盖、也从未出现在历史里**)⇒ 一次不带 pathspec 的 `git add -A` 就会把用户会话数据提交进库,而守门 44(根目录整洁)对它的处置只有"删或移入 tmp/",对一个别人正在读写的库都不成立。**本票只做了挡住入库那一半**:`.gitignore` 补 `/data/`(枚 `43217e8f2`),顺带解掉它对全队提交链的 blocking。**仍开着的那半是落点**:等该线持有人在两条出路里拍板 —— ① 启动侧强制注入绝对路径(nssm/计划任务的 `AppEnvironmentExtra`,按 §5e 的整块事务式读写并逐字节复验余项);② 默认值改成由仓库位置推导的**仓库外**路径并接受一次服务重启。当场改默认 = 让此刻在跑的服务换文件,不属本票裁决。判据缺口一并登记:全仓没有一道门判"服务进程把工作树当 cwd 时会往哪儿写" —— 守门 25/26/45 分别只看项目外路径写入、父目录污染、源码里的 C 盘字面量,相对路径产物正好落在三者盲区。 〔2026-09-27 状态归正,本会话落地〕修法取的是**第三条路**(比原票面①②都窄、零重启):默认值锚定模块位置 —— 提取纯函数 `resolve_session_db_path()`,缺省 = `Path(__file__).resolve().parents[2]/"data"/"sessions.db"`(routers→app→ai-service 根),env `SESSION_STORE_DB_PATH` 覆盖语义逐字不变;**正确启动方式下落点与旧实现一字不变**(apps/ai-service/data/ 本就是既定落点、已被端内 .gitignore:14 覆盖),唯一变化是"cwd≠app 根"这一缺陷场景不再把库甩进工作树别处。同笔更正根 .gitignore 里引用旧代码原话的注释。落地枚 `add98b9bc`(对象空间落地,三文件)。主会话独立复验:新用例 2 passed(cwd 漂移锁 + env 回归锁,零落盘零生产库触碰——只调纯解析函数)/ 既有回归 test_session_store.py 44 passed / 水印 1/1 完好。落地路径说明:safe-commit 链被三红全数挡住且逐条定性为**与本票零交集**(①门35 mypy 两红是引用他人 D14 未跟踪 sandbox 包的 attr-defined,基线临时 worktree 里没有该目录 ⇒ 差分失真;②门13c/30c 是他人此刻暂存的活文档整文件回写——PROJECT_PLAN.md 工作树比 HEAD 少 3 条 O86附⑩ 完成行,MM 态非本会话操作面;③门29 并发推送窗口),整批 182/182 已手动跑满留证于 .workbuddy,本票不含检查脚本改动 ⇒ 符合 G-264 先例的对象空间条件。原票面登记的"判据缺口"(无门判服务进程往工作树写)**仍开着**,归守门层另计。〕
+## O86附⑩ 桌面端「退不掉」这条线到此收口:托盘/Ctrl+Q 立即退出 + 退出遮罩整条移除 + feed 变窄护栏(2026-09-27 立并完成 ✅)
+- **交付的 6 枚提交**(按落地序):`8bdaae172` 前端 IPC 注入竞态(四个 hook 一次性注册抢不过 `__TAURI_INTERNALS__` 注入 ⇒ 整场无监听且零日志)→ `5637972f4` Rust 侧立即退出 → `b83a085ca` 撤掉「退出前先查更新」整条链(guard hook + 全屏遮罩 + 五语言 5 条文案)→ `45cd1c769` feed 收窄护栏与镜像测试 → `bce62bbdb` 重新删掉被 union 合并复活的两个死副本(`241bc4ec6` 取"本侧整棵树"把我刚删的两份顶回来了;判零损失:两份与 `b83a085ca^` 同路径 blob 逐字节同值,且引用面在 HEAD 上为 0)。回归 `apps/web/src/hooks/__tests__/use-desktop-ipc-injection.test.ts` 5 例,牙齿用变异证明(把 `useDesktopEvents` 退回一次性注册 ⇒ 2 例翻红)。 **追加第三枚同类修复 `366f57d09`(2026-09-27 22:1x)**:`git-sync-converge` 与远端收敛时,union-converge 的"取对侧自己动过的路径"又把那两份死副本带回来一次(对侧那条线从 `241bc4ec6` 长出来,其树里仍含它们)。这是一格**结构性拉锯**:只要还有分支的树早于 `b83a085ca`,并集合并就会再带回来一次。两份被重新删掉前都验过与 `b83a085ca^` 逐字节同值(零独有内容)、引用面 0,且复活**不改变任何行为**(没有地方挂它们),改变的只是"死代码回到树里"这一格账。现读出口:`git cat-file -e HEAD:apps/web/src/hooks/use-quit-update-guard.ts` 应当失败;若再次成立,照 `bce62bbdb` / `366f57d09` 两枚提交信息里写的同两条判据重删即可(blob 与 `b83a085ca^` 逐字节同值 ∧ HEAD 引用面为 0)。是否给这一型装一道"已删死链不得复活"的常驻门,属守门层的口径决定(它判的是合并产物而非本次提交内容),本票只如实登记复发次数与出口,不自行扩门。
+- **真机实测(用户自己的登录实例,未伪造环境)**:托盘「退出」→ 进程终止 **0.5s**,无「正在退出...」遮罩,`quit_app` 那条强杀兜底日志计数 0(即正常路径自行终止,不是被兜底打死)。同一格的历史读数:无上限(用户报「一直转圈」)→ 120s 看门狗(实测 128s)→ 5s 租约(实测 5.2s)→ 立即。残留进程面:主进程 0;`--type=crashpad-handler` 是 WebView2 自带崩溃处理子进程,约 1 分钟自行退出(实测两个时间点的进程快照对照)。"强杀后双击打不开"由并发会话的 `startup_guard.rs`(`1ec4c9ea9`)收口:强杀 + 0.3s 内重启 ⇒ 窗口 3s 内出现、1 个进程存活。
+- **为什么把决定权从前端收回 Rust**:这条链的失效方向是"Rust 单方面等前端",而前端那条监听**可以整场不存在**;任何"等前端回话"的兜底都必须有上限,而有上限就变成"点退出还要等 N 秒" —— 用户明确否掉过 128s 与 5.2s 两档。更新能力并未丢失:启动有静默检查,托盘另有独立「检查更新」项,那条会明确回 已是最新 / 失败 / 可安装,而旧遮罩写着「检查更新」却从不报结果(是一个不给答案的中间步骤,这是它被撤的第二条理由)。
+- **更正我自己先前写进台账的两格假账**(逐条按权威入口重测后才改):
+  ① 「`desktop-quit-request` 失去唯一生产者 ⇒ 遮罩不可达」——前半句对(该事件的生产者已随 `tray.quit` 改立即退出而消失),但我当时据此把整条链写成"不可达",漏了 **Ctrl+Q 那条活路径**:`use-native-shortcuts.ts:85` 派 `file.quit` → `menu-actions.ts` 调 `quitAndUpdateIfNeeded`,而 `DesktopSettingsCard.tsx:176/215` 就在设置页上把 Ctrl+Q 作为快捷键告知用户。所以撤链时**必须同时改 `menu-actions`**,只删事件生产者会留一条半死链(这条已随 `b83a085ca` 改完)。
+  ② 「feed 变窄是生产构建早于那次改造」——**这句是错的**,当时的正确证据在对面:变窄发生在**生成侧**。`resolve-desktop-download.mjs` 旧实现只读 release 列表第一页(Gitee 实测 21 条 / GitHub 36 条,单页 30 ⇒ 已截断),而 `fetchSignature` 把 404/限流/断网/超时**全折成同一个空串**,`buildUpdaterPlatforms` 再按空签名过滤 ⇒ 平台静默消失,而 `url→signature` 的键序与生成器序列化函数一致(0/79 枚历史提交出现过 1 键快照)。两条都已随 `45cd1c769` 修掉(分页取全 + 收窄即 exit 1 + 签名两态)。
+- **本线残余三格(每格带现读出口与归属,不是"建议")**:
+  ① `apps/web/src/lib/tauri-bridge.ts` 的 `quitAndUpdateIfNeeded` + `QuitUpdateStatus` 现为**零调用方导出**(现读:`git grep -n quitAndUpdateIfNeeded HEAD` 只剩定义与一处注释;knip 亦点名这两个名字)。**没删的原因**该文件此刻被并发会话持有(+85 行未提交),按 §16 不代改。解阻判据:该路径 `git status` 干净后,连带删 `_updateInstalledPendingRestart` 旗标 + `markUpdateInstalled` + `use-updater.ts:260` 调用点(缺一即 `noUnusedLocals` TS6133 —— 已实测该旗标"只写不读"必报)。
+  ② **线上 feed 此刻仍只回 1 个平台**(现读 `https://aizhs.top/desktop-feed.json` → `version=0.1.49 platforms=windows-x86_64`)。源码侧那份快照已是 4 键,而这条 route 是 `force-static`,平台数随**生产机构建**才翻。本机不产线上包(当轮实测:`Get-Service IHUI*` 计数 0,`Get-NetTCPConnection -State Listen` 对 8801/8802/8803/8810/8811 全部零命中,仅 5432 本地 PG 在听 ⇒ 这台是开发机),不代跑生产构建。验证出口:`curl -s https://aizhs.top/desktop-feed.json | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).platforms && Object.keys(JSON.parse(require('fs').readFileSync(0,'utf8')).platforms).join(',')"`,出现 4 键即收口。
+  ③ CI 的 Knip 棘轮**在本线之前就已连红**(`gh run list --workflow Knip --limit 6` 六枚全 failure,现读 `exports +6 / types +18 / binaries +1` 超基线),非我引入;我这条只贡献其中 +1 导出 +1 类型(即①那一格)。归属:死代码账的持有者,修法要么清偿要么 `--update` 收紧基线(该动作会进 diff 供审)。
+- **顺手否证一条我自己的候选修法**:曾想把 CI 里 `release-desktop.yml:306` / `sync-downloads.yml:58` 未传 `GITHUB_TOKEN` 当"feed 变窄"的成因并补上。实测**不成立**:本机那轮 `ratelimit-remaining=53`(远未耗尽)而 `.sig` 资产直链仍 `fetch failed`(10.6s,连接被重置 —— 与 §5b 记的"国内直连被重置"同一条网络事实)。传 token 治不了资产下载,真正的防护是"变窄即拒写 + 取不到大声报",即 `45cd1c769` 做的事。GitHub Actions 上跑则不受本机直连影响。
+- [x] ✅(2026-09-27) O81 票㉑(技术可行性报告,按用户要求先交报告不动工)—— **扩展端委托面到底能不能建、要花什么、哪一格量不出来**。
+  结论先说:**协议侧已经全部建好,缺的只有扩展端三块 UI/执行肉;唯一量不出来的是"side panel 里 `showDirectoryPicker`
+  能不能用",而这一格决定整票成败,必须先做一次 5 分钟 spike 再决定动不动工。**
+  ① **协议面现成**:`packages/api-client/src/client.ts` 已暴露 `onToolDelegate`(:1049 注释即"前端用
+  FileSystemDirectoryHandle 执行 fs 类工具,通过 postToolResult 回传结果")与回传函数 `postToolResult`
+  (:1559-1560);服务端等待是 `llm.py` 的 `_delegate_sessions` + `_DELEGATE_TIMEOUT = 60s`。委托分支条件
+  `if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS`(`llm.py:3656` 一带)。⇒ 不需要新协议、不改服务端。
+  ② **web 那份就是模板**:`apps/web/src/lib/workspace-tool-executor.ts:53-75` 已实现 **12 个** fs case
+  (read/write/file_edit/file_search/search_codebase/list_files/apply_patch/create/delete/move/analyze_code/generate_test),
+  句柄来自 `components/workspace/local-folder-picker.tsx:112` 的 `showDirectoryPicker({ mode: 'read' })`,
+  存进 `lib/workspace-context-loader.ts:23` 的**内存 Map**(`browserHandles`)——**web 自己也不落 IndexedDB 持久化**,
+  所以扩展端"要复刻的持久化工程"其实不存在,刷新后重选目录即可,与 web 同形。
+  ③ **一条必须写在前面的连带后果**:要让委托分支成立,扩展必须送**非空** `workspaceContext`;而同一字段同时驱动
+  服务端把工作区文件内容注入 system prompt(`build_system_prompt` 优先级 `workspace_context > workspace_path`)。
+  ⇒ 开委托 = 同时开上下文注入,不是两件事。必须复用 web 的装载语义并按 §"宿主级提示块唯一出口"
+  (`apps/cli/src/utils/prompt-boundary.ts` 同族纪律)结构化进提示,不得裸拼字符串。
+  ④ **审批位是同票必做项,不是可选项**:写类工具默认进人工审批门(`_resolve_tool_approval`,超时 120s),
+  台账里 `missing.extension.onToolApproval` 与 `onToolDelegate` 是同一前置的两半 ——
+  只接委托不接审批,表现就是"每次写都等到超时后未执行",与票⑳ 刚收回的那枚缺陷同型。
+  ⑤ **共享层优先**:扩展端**不得**照抄第二份 12-case 执行器。正确做法是把 web 的执行器抽到共享层
+  (句柄由注入提供,形态同 §3 工厂/DI),web 与扩展各注自己的 provider;否则就是"两份 fs 执行语义"必漂移。
+  ⑥ **量不出来的一格(如实,不猜)**:MV3 **side panel** 页面里 `showDirectoryPicker` 是否可用(需 transient user
+  activation;扩展页是安全上下文,但本机构造好的 `chrome-mv3` 无法由我的自动化通道以 unpacked 方式装载,
+  所以我拿不到"点了按钮真的出目录选择框"的证据)。**处置**:动工时第一枚提交只做**能力探测 + 降级**
+  (`typeof window.showDirectoryPicker === 'function'` 才带文件族,形态照 web 的 Tauri/FSA 双路检测
+  `local-folder-picker.tsx:60`),探测不到就保持**今天的状态**(不带文件族、帧不会被静默丢)——
+  这条降级本身就该实现,因为它让"整票失败"退化成"什么都不发生",不会交付假能力。
+  ⑦ 待确认的第二格:`readwrite` 模式从哪来。web 那处 picker 现读只有 `{ mode: 'read' }`,写路径如何取得写权限
+  未取证 ⇒ 动工当票必须先读 `local-folder-picker.tsx` 全文与调用点,把它写成断言而不是补一次猜测。
+  ⑧ 工作量与文件清单(供你拍板用,不是已开工):新增共享 `workspace-tool-executor`(自 web 抽出)+ web 改注 provider +
+  扩展 picker 组件 + 扩展 `onToolDelegate`/`onToolApproval` 接线 + 台账两条 missing 同笔删除并上调 `baseline.extension`
+  (+2)+ 每端各自用例。**安全取向**:委托把执行移回**用户自己的机器与选定目录**,严格优于我否掉的
+  "服务端工作区执行"(那是把服务器文件面暴露给每个登录用户),这也是票⑳ 收回的直接原因。
+- [x] ✅(2026-09-27) 票㉔ 的两条补锁 —— **发帧早于判定"四型"里此前只有一型有测**,现补齐能测的两型并写明第三型测不了。
+  票㉔ 提交信息写了四条路径(去重跳过 / 审批被拒 / 审批超时 / 权限矩阵拒绝)都会"先看到流中 diff、再看到未执行",
+  而落到测试只有权限拒绝一例 —— 散文说四条、尺子量一条,正是本仓最容易自我美化的形状,主会话发现后派单补齐。
+  新增 `test_frames_reach_wire_even_when_dedup_skips_execution` 与
+  `test_frames_reach_wire_even_when_user_rejects_approval`(同文件 +298/−0,生产码一行未动)。
+  顺带量出两条此前无人写下的真实语义,断言直接建在其上:① 去重判据是 `tool_name + json.dumps(args, sort_keys=True)`
+  的**请求级全集**(首次调用在执行前登记,无"最近 N 次"窗口);② **唯一**一个工具被拒会触发"全部失败 ⇒ 直构失败
+  响应、不再回喂模型"的短路(`llm.py:4067`)⇒ `rounds==1`,拒绝交代落在随历史落库的活 messages 里而非下一轮快照。
+  被拒回传走**生产端点** `POST /api/llm/complete/stream/{session_id}/approval-response`(httpx ASGITransport
+  整响应缓冲 ⇒ 由并发任务发现挂起条目后打真实端点,20s 硬上限,前提失效时喊明确原因而不是静默挂死)。
+  **审批超时(120s)刻意不测**并写进 docstring:真等 120s 拖垮套件,改短 `_APPROVAL_TIMEOUT` 又等于动生产码 ——
+  测不了的格子写在这里,不伪造成"四条全绿"。反向自证用临时源码变异插件把发帧行改写成"挪到判定之后",
+  两档各红一次且红的恰是对应那一例,插件跑完即删未入仓。读数:本文件 9 passed,四文件联跑 **45 passed**
+  (主会话独立复跑过),`mypy app --strict` 仍 `no issues found in 571 source files`。
