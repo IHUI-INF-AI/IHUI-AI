@@ -215,7 +215,7 @@ function createStyles(tk: AppThemeTokens) {
     listContent: { paddingHorizontal: 10, paddingBottom: 24, gap: 12 },
     orderCard: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 14,
       gap: 8,
     },
@@ -229,7 +229,7 @@ function createStyles(tk: AppThemeTokens) {
     statusTag: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
     },
     statusText: { fontSize: 11, color: tk.surface.light, fontWeight: '500' },
     buyerText: { fontSize: 14, color: tk.text.secondary },
@@ -243,7 +243,7 @@ function createStyles(tk: AppThemeTokens) {
     rateTag: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     rateText: { fontSize: 11, color: tk.text.secondary },

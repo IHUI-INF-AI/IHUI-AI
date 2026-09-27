@@ -106,7 +106,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
@@ -120,7 +120,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -140,7 +140,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: 6,
       paddingVertical: 4,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       marginLeft: 8,
     },
     badgePassed: { backgroundColor: tk.success.light },

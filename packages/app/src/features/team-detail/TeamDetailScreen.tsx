@@ -175,7 +175,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 14,
       gap: 12,
     },
@@ -211,7 +211,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       width: '100%',
       height: '100%',
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.card,
@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       paddingHorizontal: 20,
       height: 36,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
