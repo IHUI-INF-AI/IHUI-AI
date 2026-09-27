@@ -23,7 +23,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { ReactNode } from 'react'
 
-import { render } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -87,6 +87,11 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  // 本仓 vitest 配置 globals:false ⇒ RTL 自动 cleanup 不注册;不清卸载的挂载树
+  // 会把 React 调度回调留到 jsdom 拆除之后,CI 上表现为 12 枚
+  // "ReferenceError: window is not defined" 未处理异常(PR#65 run 36350697722;
+  // 与 message-input-history.test.tsx 同根因先例)。
+  cleanup()
   vi.clearAllMocks()
   useChatStore.setState({ compactionStatus: null, conversationId: null })
 })
