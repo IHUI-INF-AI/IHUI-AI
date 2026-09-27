@@ -55,6 +55,7 @@ from app.services.publish.anti_risk.fingerprint_isolation import (
     BrowserFingerprint,
     generate_fingerprint,
 )
+from app.services.publish.anti_risk.state_paths import resolve_state_path
 
 _DIGEST_RE = re.compile(r"\A[0-9a-f]{64}\Z")
 
@@ -530,8 +531,12 @@ async def test_record_device_binding_leaves_canvas_uncollected(
 
 
 def test_graph_target_is_not_the_repo_default(graph_file: Path) -> None:
-    """夹具自检:本票用例的图谱落点必须在仓库树之外(AGENTS.md §15)。"""
-    default_path = (Path.cwd() / ".ihui-agent" / "tmp" / "device_graph.json").resolve()
+    """夹具自检:本票用例的图谱落点必须在仓库树之外(AGENTS.md §15)。
+
+    默认档一律按**出口**算,不得用 `Path.cwd()` 手拼 —— 状态文件根已收成与 cwd 无关,
+    按 cwd 拼出来的那个已经不是"仓库默认档"了,这条断言会退化成恒真。
+    """
+    default_path = resolve_state_path(None, ".ihui-agent/tmp/device_graph.json")
     assert graph_file != default_path
     assert graph_file == device_graph_guard._GRAPH_FILE
     assert Path.cwd() not in graph_file.parents
