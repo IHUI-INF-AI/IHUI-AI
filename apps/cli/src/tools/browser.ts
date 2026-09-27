@@ -467,7 +467,7 @@ const browserScreenshot: Tool = {
     full_page: { type: 'boolean', description: '是否截取整页滚动内容,默认 false(仅视口)' },
   },
   required: [],
-  dangerLevel: 'read',
+  dangerLevel: 'write',
   async execute(args, ctx) {
     try {
       const { session } = await getBrowserSession();
