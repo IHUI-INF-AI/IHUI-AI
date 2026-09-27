@@ -50,6 +50,7 @@ from .anti_risk import (
 from .base_adapter import PublishContent, PublishResult, get_adapter
 from .content_parser import enrich_content, enrich_content_for_platform
 from .credentials_crypto import decrypt
+from .db_write_guard import log_db_write_failure
 from .image_uploader import process_external_images
 from .platform_rules import truncate_to_platform, validate_content
 
@@ -1022,7 +1023,10 @@ class PublishScheduler:
                 json.dumps(result.payload or {}, ensure_ascii=False),
             )
         except Exception as e:
-            logger.warning("[publish.scheduler] write history failed: %s: %s", type(e).__name__, e)
+            # 撞主键 = 序列落后,表现是"任务判 failed 而库里一行审计都没有"—— 这类失败必须响
+            log_db_write_failure(
+                logger, e, table="publish_history", prefix="[publish.scheduler]"
+            )
         finally:
             await conn.close()
 
