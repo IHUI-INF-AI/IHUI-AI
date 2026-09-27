@@ -1745,6 +1745,40 @@ function taskActionOk() {
 }
 
 /**
+ * 把"探针跑出了结论"与"探针没跑起来"分成三态,退出码**不参与**前者判定:
+ *  ① stdout 是可解析对象 ⇒ 采用结论,哪怕 rc=1;
+ *  ② stdout 为空 ⇒ 未判定,并点名 rc 与 stderr;
+ *  ③ stdout 有内容但不是 JSON / 顶层不是对象 ⇒ 未判定,同样点名 rc。
+ *
+ * 为什么 rc=1 必须走①:探针轴①②判红时 `process.exit(1)`,而结论整份在 stdout 的 JSON 里。
+ * 旧实现只有成功分支能拿到 stdout(execFileSync 在非零退出时抛异常),于是守护每每逢它说出
+ * 最响的一条结论,就把整块扔掉、并往日志写"账不可用:未判定"。实测(2026-09-27 现读):
+ * 便宜档 rc=1 + stdout 1530 B 合法 JSON,其中 `upstream.status='red'`/`behind=3` ——
+ * "本地落后主线 3 个提交"这条信号被这台守护结构上看不见,而它正是值守最该先看的一维。
+ * 失效方向照旧是"多写一行未判定",绝不是"顺手当它绿了"。
+ */
+export function readProbeVerdict({ status, stdout, stderr } = {}) {
+  const text = String(stdout ?? '')
+  const rc = status ?? '?'
+  if (text.trim() === '') {
+    const errText = String(stderr ?? '')
+      .replace(/\s+/g, ' ')
+      .slice(0, 240)
+    return { parsed: null, why: `探针未产出 stdout(rc=${rc} stderr=${errText || '(空)'})` }
+  }
+  try {
+    const raw = JSON.parse(text)
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return { parsed: raw, why: null }
+    return { parsed: null, why: `stdout 顶层不是对象(rc=${rc})` }
+  } catch (e) {
+    return {
+      parsed: null,
+      why: `输出不是 JSON(rc=${rc}):${String(e?.message ?? e).replace(/\s+/g, ' ').slice(0, 120)}`,
+    }
+  }
+}
+
+/**
  * 开工前基线新鲜度的**只报数**账(机制规格 MECHANISM-SPEC-2 §2 的守护侧挂点)。
  *
  * 三条刻意:
@@ -1773,22 +1807,31 @@ function reportBaselineFreshness() {
   if (!full) args.push('--skip-drift-analysis')
   let parsed = null
   let why = null
-  try {
-    const out = execFileSync(process.execPath, [script, ...args], {
-      cwd: WORKTREE,
-      encoding: 'utf8',
-      windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
-      timeout: 240000, // 守门 80:热路径派生一律带上限
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+  {
+    let status = null
+    let stdout = ''
+    let stderr = ''
     try {
-      parsed = JSON.parse(String(out || ''))
+      stdout = String(
+        execFileSync(process.execPath, [script, ...args], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+          timeout: 240000, // 守门 80:热路径派生一律带上限
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }) ?? '',
+      )
+      status = 0
     } catch (e) {
-      why = `输出不是 JSON(${String(e?.message ?? e).replace(/\s+/g, ' ').slice(0, 120)})`
+      // 非零退出**不是**"探针坏了":判红就 exit 1。把 stdout/stderr/status 全部取回来交给
+      // readProbeVerdict 分三态,不得在此直接判定为未判定(成因见该函数头注与 §5e)。
+      status = typeof e?.status === 'number' ? e.status : null
+      stdout = String(e?.stdout ?? '')
+      stderr = String(e?.stderr ?? '')
     }
-  } catch (e) {
-    const errText = String(e?.stderr ?? e?.message ?? '').replace(/\s+/g, ' ').slice(0, 240)
-    why = `探针派生失败 rc=${e?.status ?? e?.code ?? '?'} stderr=${errText || '(空)'}`
+    const v = readProbeVerdict({ status, stdout, stderr })
+    parsed = v.parsed
+    why = v.why
   }
   if (!parsed) {
     // 判据自己跑不动 ≠ 基线过期;也 ≠ 可以静默。留一行,免得"账没了"和"账绿了"长得一样。
@@ -2058,6 +2101,7 @@ export const __test__ = {
   auditEnvDrift,
   envDriftDetail,
   homeHealDue,
+  readProbeVerdict,
   NOTIFY_DEFAULT_WINDOW_MS,
   NOTIFY_DEFAULT_FAIL_COOLDOWN_MS,
 }
