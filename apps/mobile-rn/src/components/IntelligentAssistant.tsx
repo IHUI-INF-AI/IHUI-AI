@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   rechargeAction: {
-    // 命中块 ≥44 走 minHeight(可见胶囊不放大);小程序侧同一常数以 pad 兑现(通道差异)
+    // 命中块 ≥44 走 minHeight(可见胶囊不放大);小程序端同档同通道(充值外壳 minHeight,2026-09-27 收口)
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
