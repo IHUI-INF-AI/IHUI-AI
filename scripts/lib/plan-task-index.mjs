@@ -523,23 +523,36 @@ export function usedIdsOfPrefix(content, prefix) {
     .replace(/[^A-Za-z]/g, '')
     .toUpperCase()
   if (!want) return null
-  const re = /^([A-Za-z]+)[-_ ]?(\d+)/
+  const re = /^([A-Za-z]+)([-_ ]?)(\d+)/
   const nums = new Set()
+  const sepOf = new Map()
   for (const r of parseTaskRows(content)) {
     const key = keyOfRow(r.raw)
     if (!key) continue
     const m = re.exec(key)
     if (!m) continue
     if (m[1].toUpperCase() !== want) continue
-    nums.add(Number(m[2]))
+    nums.add(Number(m[3]))
+    // 书写形状由**该族自己现读**决定:本仓 `G-265` 带连字符、`O4`/`D35` 不带,而 `O13b` 的字母
+    // 后缀不算号段的一部分。印错形状等于给使用者一个判据认不出来的号(与"族取不到 ⇒ 判不出"同一条理由)。
+    if (!sepOf.has(Number(m[3]))) sepOf.set(Number(m[3]), m[2])
   }
   if (nums.size === 0) return null
   const sorted = [...nums].sort((a, b) => a - b)
+  const max = sorted[sorted.length - 1]
+  const sep = sepOf.get(max) ?? '-'
   return {
-    max: sorted[sorted.length - 1],
+    max,
     used: sorted.length,
-    ids: sorted.map((n) => `${want}-${n}`),
+    ids: sorted.map((n) => `${want}${sepOf.get(n) ?? sep}${n}`),
+    template: `${want}${sep}%d`,
   }
+}
+
+/** 按该族自己的书写形状给出下一个空闲号(该族现读为空 ⇒ null)。 */
+export function nextTaskIdLabel(content, prefix) {
+  const u = usedIdsOfPrefix(content, prefix)
+  return u === null ? null : u.template.replace('%d', String(u.max + 1))
 }
 
 /** 下一个空闲编号(纯数字部分)。该族现读为空 ⇒ null,由调用方按"判不出"处置。 */
