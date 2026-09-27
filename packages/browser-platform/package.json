@@ -1,6 +1,7 @@
 {
   "name": "@ihui/browser-platform",
   "version": "0.0.0",
+  "license": "Apache-2.0",
   "private": true,
   "description": "IHUI-AI 浏览器平台适配层:抽象 chrome.*/window.*/webContents.* 等 API,提供统一接口供 extension/web/desktop/mobile-rn 复用",
   "type": "module",
@@ -27,7 +28,5 @@
     "rimraf": "catalog:"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
-  "homepage": "https://aizhs.top",
-  "copyright": "© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved.",
-  "x-ihui-provenance": "IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026"
+  "homepage": "https://aizhs.top"
 }
