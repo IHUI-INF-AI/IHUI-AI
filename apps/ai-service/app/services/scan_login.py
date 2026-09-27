@@ -32,7 +32,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, NamedTuple, Sequence
 from urllib.parse import urlparse
 
 from ..core.config import settings
@@ -1021,6 +1021,122 @@ def _schedule_account_save(task: ScanTask) -> None:
     threading.Thread(target=_save, daemon=True).start()
 
 
+# ---------------------------------------------------------------------------
+# 覆盖前镜像:把库里那份**旧密文**压进 extra 的有界历史(2026-09-27 立)
+#
+# 分工,与同一天另一条防线不重叠:
+# - `should_overwrite_existing_credentials` 管「这次**该不该**覆盖」;
+# - 本层管「**已经覆盖了以后还能不能恢复**」。两者不同层,都要有 —— 只有前一条时,
+#   一旦裁决放行(verify 通过)或走了首建分支,旧密文依然是**一次性**的。
+# 立因是当轮一次真实破坏:csdn id=12 的 38 字段密文被 11 字段失效集换掉,而**密文没有备份
+# ⇒ 不可回滚**,损失无法弥补。表里已有 `extra jsonb` 可用,所以不新增表、不加迁移。
+# ---------------------------------------------------------------------------
+
+#: 旧凭据在 `publish_accounts.extra` 里的唯一键名;恢复侧只认这一个名字,不得有第二个
+CREDENTIALS_HISTORY_KEY = "credentialsHistory"
+#: 历史条数上限,超出丢最旧。**有界是硬要求**:extra 是共享列,无界增长迟早把别人的键挤出包
+CREDENTIALS_HISTORY_MAX = 3
+#: 「库里这份算不算有内容」—— 与 `_existing_account_row` 的 SQL 判据同形
+#: (`credentials_enc IS NOT NULL AND length(credentials_enc) > 2`),两处必须一起改。
+_MIN_MEANINGFUL_ENC_LEN = 3
+
+
+class CredentialsHistoryPlan(NamedTuple):
+    """`build_credentials_history_extra` 的结论(纯数据,不碰 DB)。
+
+    - `extra is None` ⇒ 本次**不动 extra 列**,走原写入。两种来路由 `degraded` 区分:
+      `False` = 库里没有可留的旧密文(正常,不许往历史里塞垃圾);
+      `True` = 历史准备失败/输入不可信 ⇒ 调用方必须吼(见 `_save_account_to_db`)。
+    - `extra` 非 None ⇒ 用它整体写回该列;别人的键已逐字带在这个对象里,不是"清掉重建"。
+    """
+
+    extra: dict[str, Any] | None
+    degraded: bool
+    note: str
+
+
+def build_credentials_history_extra(
+    raw_extra: object | None,
+    previous_enc: object | None,
+    source_note: str | None,
+    *,
+    at: str,
+    limit: int = CREDENTIALS_HISTORY_MAX,
+) -> CredentialsHistoryPlan:
+    """给定「旧 extra + 旧密文 + 本次来源」⇒ 新 extra 对象,或降级标记。**不依赖 DB**。
+
+    三条判据次序是设计前提,不要重排:
+    1. 旧密文空/过短 ⇒ 直接放过(`extra` 给 None,不降级)。留一条空串进历史等于把"可回滚"
+       写成假账,而且每次覆盖都多一条垃圾。
+    2. 旧 extra 解不出**对象** ⇒ **降级**。这不是"没有别人的键",而是"读不懂别人的键" ——
+       在这种前提下写 extra 有覆盖掉他人数据的风险,所以宁可少一层保险。
+    3. 合法对象 ⇒ 只在原字典上增/换 `credentialsHistory` 这一个键,其余键**逐字不动**。
+
+    `credentialsHistory` 自身若不是列表,按空历史重建:该键是本函数独占的,非列表值本来就
+    不可读,保留它只会让恢复侧读到脏结构;别人的键不受影响。
+    """
+    if not isinstance(previous_enc, str) or len(previous_enc) < _MIN_MEANINGFUL_ENC_LEN:
+        return CredentialsHistoryPlan(None, False, "库里没有可留的旧密文,本次不建历史")
+
+    base: dict[str, Any]
+    if raw_extra is None:
+        base = {}
+    elif isinstance(raw_extra, dict):
+        base = dict(raw_extra)
+    elif isinstance(raw_extra, str):
+        text = raw_extra.strip()
+        if not text:
+            base = {}
+        else:
+            try:
+                parsed = json.loads(text)
+            except Exception as e:  # noqa: BLE001 — 坏 JSON 只是"读不懂别人的键",不是导入失败
+                return CredentialsHistoryPlan(
+                    None, True, f"旧 extra 不是合法 JSON({type(e).__name__})"
+                )
+            if not isinstance(parsed, dict):
+                return CredentialsHistoryPlan(
+                    None, True, f"旧 extra 解出来不是对象而是 {type(parsed).__name__}"
+                )
+            base = parsed
+    else:
+        return CredentialsHistoryPlan(
+            None, True, f"旧 extra 类型不认识({type(raw_extra).__name__})"
+        )
+
+    prior_raw = base.get(CREDENTIALS_HISTORY_KEY)
+    prior = [e for e in prior_raw if isinstance(e, dict)] if isinstance(prior_raw, list) else []
+
+    entry: dict[str, Any] = {
+        "enc": previous_enc,
+        "at": at,
+        "reason": (str(source_note).strip() if source_note else "") or "未知来源",
+    }
+    base[CREDENTIALS_HISTORY_KEY] = ([entry] + prior)[:limit]
+    return CredentialsHistoryPlan(base, False, "")
+
+
+async def _load_overwrite_preimage(conn: Any, account_id: Any) -> tuple[object, object, str]:
+    """读回这一行**当前**的 `credentials_enc` / `extra`(覆盖前的镜像)。
+
+    刻意与"找行"那条 SELECT 分开,并且**自己吞异常返回说明串**:这一层是附加保险,结构上
+    不许把原写入拖下水(列不存在、行落空、连接抖动都只意味着"这次少一层保险")。
+    只报异常**类型名**不打消息 —— 消息里可能带上列内容,而日志不是密文的存放处。
+    """
+    try:
+        prev = await conn.fetchrow(
+            "SELECT credentials_enc, extra FROM publish_accounts WHERE id=$1",
+            account_id,
+        )
+    except Exception as e:  # noqa: BLE001
+        return "", None, f"读取覆盖前镜像失败({type(e).__name__})"
+    if prev is None:
+        return "", None, "读取覆盖前镜像落空(该行已不在)"
+    enc: object = prev["credentials_enc"]
+    extra: object = prev["extra"]
+    return enc, extra, ""
+
+
 async def _save_account_to_db(
     user_id: str,
     platform: str,
@@ -1032,11 +1148,14 @@ async def _save_account_to_db(
     """加密保存账号到 DB,返回 account_id(扫码登录 + CDP 检测复用)。
 
     - 已存在同 user + platform → UPDATE credentials + status=active
+      —— 覆盖前把库里那份旧密文压进 `extra.credentialsHistory`(有界,见上),使这一步
+      **可回滚**;历史准备失败只喊 error 并退回原写入,**不**让整次导入失败。
     - 不存在 → INSERT 新账号
 
     `verify_msg` 由调用方传入**当轮真实结论**:此前两处都硬写 `'扫码登录成功'`,而
     「浏览器画像导入」这条路径根本没有走过扫码(2026-09-27 实测:导入后 verify 立即 FAIL,
-    账面却写着"扫码登录成功")。账面分叉不是措辞问题 —— 下游按 `last_verify_msg` 判可达。
+    账面却写着"扫码登录成功")。账面分叉不是措辞问题 —— 下游按 `last_verify_msg` 判可达,
+    而它同时是历史条目里那条 `reason` 的唯一出处。
     """
     from ..core.db import get_db_conn
     from .publish.credentials_crypto import encrypt
@@ -1051,13 +1170,46 @@ async def _save_account_to_db(
             user_id, platform,
         )
         if row:
-            await conn.execute(
-                """UPDATE publish_accounts
-                   SET credentials_enc=$1, display_name=$2, status='active',
-                       last_verified_at=NOW(), last_verify_msg=$4, updated_at=NOW()
-                   WHERE id=$3""",
-                encrypted, display_name, row["id"], verify_msg,
-            )
+            try:
+                prev_enc, prev_extra, preimage_note = await _load_overwrite_preimage(
+                    conn, row["id"]
+                )
+                plan = (
+                    CredentialsHistoryPlan(None, True, preimage_note)
+                    if preimage_note
+                    else build_credentials_history_extra(
+                        prev_extra, prev_enc, verify_msg,
+                        at=time.strftime("%Y-%m-%d %H:%M:%S"),
+                    )
+                )
+            except Exception as e:  # noqa: BLE001 — 历史这一层的任何异常都不许毁掉原写入
+                plan = CredentialsHistoryPlan(None, True, f"准备覆盖历史时抛异常({type(e).__name__})")
+            if plan.degraded:
+                # 失效方向刻意是「宁可少一层保险,也不弄坏原写入」,但**不得静默**(§5e 失败必须响)
+                logger.error(
+                    f"[scan_login] 账号 {row['id']}({platform}) 本次覆盖**未能建立回滚历史**"
+                    f"({plan.note})⇒ 退回不带历史的原写入,旧密文自此不可恢复,请随后单独排查"
+                )
+            if plan.extra is None:
+                await conn.execute(
+                    """UPDATE publish_accounts
+                       SET credentials_enc=$1, display_name=$2, status='active',
+                           last_verified_at=NOW(), last_verify_msg=$4, updated_at=NOW()
+                       WHERE id=$3""",
+                    encrypted, display_name, row["id"], verify_msg,
+                )
+            else:
+                # 一条语句同时写新密文与新 extra:不得先清 extra 再写(那会给并发读者留一个
+                # "新凭据 + 无历史"的空窗,而且抹掉别人的键)
+                await conn.execute(
+                    """UPDATE publish_accounts
+                       SET credentials_enc=$1, display_name=$2, status='active',
+                           last_verified_at=NOW(), last_verify_msg=$4,
+                           extra=$5::jsonb, updated_at=NOW()
+                       WHERE id=$3""",
+                    encrypted, display_name, row["id"], verify_msg,
+                    json.dumps(plan.extra, ensure_ascii=False),
+                )
             logger.info(f"[scan_login] 更新账号 {row['id']}({platform})")
             return int(row["id"])
         new_id = await conn.fetchval(
@@ -1071,20 +1223,29 @@ async def _save_account_to_db(
         await conn.close()
 
 
-async def _existing_credentials_present(user_id: str, platform: str) -> bool:
-    """该 (user, platform) 是否已有一份**非空**凭据在库里(决定"覆盖"是不是破坏性动作)。"""
+async def _existing_account_row(user_id: str, platform: str) -> dict[str, Any] | None:
+    """该 (user, platform) 里**已有非空凭据**的那一行(取 `id`);没有 ⇒ None。
+
+    同一个出口同时喂两件事,所以只许有一份:
+    ① 「覆盖是不是破坏性动作」—— 有这一行才有可毁掉的东西;
+    ② 「这一趟校验该用哪个身份锚点」—— 适配器拿 `db_account_id` 算键,不拿它就退到
+       「凭证首个值哈希」,而那正是"每次刷新换一张脸"的成因(见 anti_risk/account_identity.py)。
+    两处各查一遍 SQL 必然漂开(本仓反复登记的"两处实现必漂移"),故旧版那个只回 bool 的
+    `_existing_credentials_present` 被降级成它的投影并最终删掉。
+    """
     from ..core.db import get_db_conn
 
     conn = await get_db_conn()
     try:
-        n = await conn.fetchval(
-            """SELECT count(*) FROM publish_accounts
+        row = await conn.fetchrow(
+            """SELECT id FROM publish_accounts
                WHERE user_id=$1 AND platform=$2
-                 AND credentials_enc IS NOT NULL AND length(credentials_enc) > 2""",
+                 AND credentials_enc IS NOT NULL AND length(credentials_enc) > 2
+               ORDER BY id LIMIT 1""",
             user_id,
             platform,
         )
-        return bool(n)
+        return dict(row) if row else None
     finally:
         await conn.close()
 
@@ -1095,9 +1256,10 @@ def should_overwrite_existing_credentials(existing: bool, verified: bool | None)
     判据不是"新值更好"(机器判不了),而是"这次动作有没有破坏性":
     - 库里没有凭据 ⇒ 落不落都是净新增,失败也照落并把真实结论写进 `last_verify_msg`;
     - 库里已有凭据 ⇒ 只有 `verified is True` 才覆盖。`False`(已证伪)与 `None`(判不出)
-      都不授权 —— 密文无备份、不可回滚(2026-09-27 真实代价:csdn id=12 的 38 字段旧集被
-      11 字段失效集覆盖,旧集含 `UserSecret`,新集没有)。
-      **把 `None` 也算作可以覆盖**是错的:那等于"工具坏了就可以毁掉用户的登录态"。
+      都不授权 —— 工具坏了不构成"可以毁掉用户已有登录态"的许可。
+      (2026-09-27 的真实代价:csdn id=12 的 38 字段旧集被 11 字段失效集换掉,旧集含
+      `UserSecret` 而新集没有。当时密文**完全**无备份;同日补了 `extra.credentialsHistory`
+      那层有界余料 —— 但"事后能恢复"不是"事前可以盖"的理由,两道闸各自成立。)
     """
     if not existing:
         return True
@@ -1107,6 +1269,7 @@ def should_overwrite_existing_credentials(existing: bool, verified: bool | None)
 async def verify_login_candidate(
     platform: str,
     credentials: Mapping[str, str],
+    db_account_id: int | str | None = None,
 ) -> tuple[bool | None, str]:
     """按当前适配器校验一份候选凭据 ⇒ `(结论, 说明)`,结论三态。
 
@@ -1121,6 +1284,9 @@ async def verify_login_candidate(
     adapter = get_adapter(platform)
     if adapter is None:
         return None, "无可用适配器,未做校验"
+    # 行 id 是身份锚点:不注入,适配器就会退到「凭证首个值哈希」去起浏览器 ——
+    # 那正是"每次刷新换一张脸"的成因,而校验本身就会起一次浏览器、落一次画像。
+    adapter.db_account_id = db_account_id
     try:
         ok, msg = await adapter.verify_credentials(dict(credentials))
     except Exception as e:  # noqa: BLE001
@@ -1246,9 +1412,12 @@ async def detect_login_from_profile(platform: str, user_id: str) -> dict[str, An
     # 于是用户 Chrome 里那份**已过期**的画像 cookie 集把 csdn id=12 仍可连通(verify=True,
     # 'connected as lichunchuan1')的 38 字段密文换成了 11 字段失效集 —— 密文无备份、不可回滚,
     # 且账面还写着 '扫码登录成功'。"探测到名字齐"不等于"登录态可用",覆盖是破坏性动作。
-    verify_ok, verify_note = await verify_login_candidate(platform, all_relevant)
-    existing = await _existing_credentials_present(user_id, platform)
-    if not should_overwrite_existing_credentials(existing, verify_ok):
+    # 一次读取喂两件事(锚点 + 是否破坏性)—— 查两遍就是在两把尺子之间留竞态窗口。
+    existing_row = await _existing_account_row(user_id, platform)
+    verify_ok, verify_note = await verify_login_candidate(
+        platform, all_relevant, (existing_row or {}).get("id")
+    )
+    if not should_overwrite_existing_credentials(existing_row is not None, verify_ok):
         return {
             "detected": False, "cookies_count": len(cookies_dict), "account_id": None,
             "error": (
