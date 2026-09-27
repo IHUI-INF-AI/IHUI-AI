@@ -12,6 +12,15 @@
  *  - 匿名可上报:客户端崩溃时未必持有有效 token,不能因 401 丢失上报
  *  - 轻量防刷:同 errorMessage 哈希 5 分钟内只记一条(内存 Map,上限 1000 条防膨胀)
  *  - 上报静默失败:recordCrash 内部吞错,崩溃上报永不阻断业务
+ *
+ * 脱敏面(2026-09-27 立,写在这里是为了让"下一个加发射点的人"看得见):
+ *  - 本文件**只做长度/枚举校验**,不在此处脱敏;errorMessage / stack / route 的脱敏
+ *    在唯一落库口 `recordCrash`(services/crash-report-service.ts)施加,共享层唯一出口是
+ *    `@ihui/shared/utils/redact` 的 `redactCrashText`。
+ *  - 为什么必须是服务端而不是"客户端自己遮":本端点匿名可写 ⇒ 客户端那一道只是
+ *    "少把用户原文送出浏览器"的减损措施,**不构成防线**。zod 的 `.max()` 只限长度,
+ *    不看内容里是不是内嵌了 API key 或 `C:\Users\<name>\...`。
+ *  - 去重哈希仍取原文:它只活在进程内存的 Map 键位上(sha256 摘要,非明文),不入库、不出网。
  */
 
 import type { FastifyPluginAsync } from 'fastify'

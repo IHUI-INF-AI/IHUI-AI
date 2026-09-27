@@ -69,6 +69,9 @@ export interface ToolCall extends BaseToolCall {
     artifacts?: Array<{ type: string; path: string; created_at?: string }>
     tool_calls_summary?: { total: number; by_tool: Record<string, number> }
   }
+  /** D113(2026-09-27):文件写类工具流中 diff 预览文本(tool-delta 帧累积写入,
+   * 覆盖式幂等;tool-result 到达即清 undefined)。仅 running 态渲染。 */
+  partialDiff?: string
   /** L5-8 工具瞬时失败自动重试次数(>0 时 ToolCallCard 渲染"重试N次"徽章)。
    * 数据源:后端 tool-call-start/result 事件携带则透传;暂未下发时恒 undefined,徽章不显示。 */
   retryCount?: number
