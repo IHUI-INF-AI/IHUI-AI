@@ -179,6 +179,12 @@ _PREVIEW_LINES_PER_FRAME = 40
 _PREVIEW_MAX_LINES = 400
 _PREVIEW_MAX_CHARS = 32 * 1024
 
+# D120(2026-09-27,G-234):轮次预算弹性续跑 —— 接近 max_iterations 上限时自动
+# 注入"进度交代 + 续期"轮,防止长任务被硬断(对标 GPT-5.3 Codex 长时运行定位)。
+# 续期次数有限(默认 2,env LLM_ITERATION_EXTEND_LIMIT 可调,0 = 关闭),每次
+# 续 +max_iterations 轮;成本守门(预算门/扣费)不因续期绕过。
+_ITERATION_EXTEND_LIMIT = max(0, int(os.getenv("LLM_ITERATION_EXTEND_LIMIT", "2")))
+
 
 def _file_edit_preview_text(tool_name: str, args: dict[str, Any]) -> str | None:
     """D113:文件写类工具的流中预览文本(纯参数推导,不触碰磁盘、不执行)。"""
@@ -2746,6 +2752,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 被 max_iterations 截断(前端"排队中"badge 永远等不到"已注入")。
                     _iter_budget = max_iterations
                     _tool_iter = 0
+                    # D120:续期计数(0 = 未续期;上限 _ITERATION_EXTEND_LIMIT)
+                    _iteration_extensions_used = 0
                     while _tool_iter < _iter_budget:
                         # ===== Steer(中途引导)注入点:每轮 LLM 调用前 drain =====
                         # 把流期间用户提交的引导消息注入 messages 尾部(上一轮工具结果之后,
@@ -2778,6 +2786,40 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     }
                                 )
                                 _iter_budget += 1
+                        # ===== D120(2026-09-27,G-234):轮次预算弹性续跑 =====
+                        # 触发条件(全部满足):env 开关启用 / 非首轮 / 下一轮即触及上限 /
+                        # 续期次数未用尽 / 上一轮确实执行了工具(tool_exec_tracker 为上一轮
+                        # 结果 —— while 内 for 前重置,此处读到的是上一轮值)。
+                        # 动作:注入进度交代消息(天然随对话上下文持久化,回放可见) +
+                        # _iter_budget += max_iterations(与 steer 的预算延长同一机制)+
+                        # injection_applied 帧(kind=iteration_extension,开放字符串枚举)。
+                        if (
+                            _ITERATION_EXTEND_LIMIT > 0
+                            and _tool_iter > 0
+                            and _tool_iter + 1 >= _iter_budget
+                            and _iteration_extensions_used < _ITERATION_EXTEND_LIMIT
+                            and tool_exec_tracker
+                        ):
+                            _iteration_extensions_used += 1
+                            _iter_budget += max_iterations
+                            _ext_note = (
+                                f"[系统] 已执行 {_tool_iter} 轮工具调用,接近轮次预算上限({max_iterations})。"
+                                f"任务若尚未完成请继续;系统已追加续期预算"
+                                f"(第 {_iteration_extensions_used}/{_ITERATION_EXTEND_LIMIT} 次)。"
+                            )
+                            messages.append({"role": "user", "content": _ext_note})
+                            _ext_evt: dict[str, Any] = {
+                                "type": SSE_INJECTION_APPLIED,
+                                "kind": "iteration_extension",
+                                "text": _ext_note,
+                                "round": _tool_iter,
+                                "extensionIndex": _iteration_extensions_used,
+                                "extensionLimit": _ITERATION_EXTEND_LIMIT,
+                            }
+                            if message_id:
+                                _ext_evt["messageId"] = message_id
+                            yield _sse(SSE_INJECTION_APPLIED, _ext_evt)
+
                         # ===== 第一轮:流式化(2026-08-29 修复)=====
                         # 根因:tool loop 第一轮此前用非流式 complete(),LLM 无 tool_calls
                         # 直接回复时一次性 yield 整个 content → 前端"内容一下全出"而非打字机。
