@@ -90,8 +90,28 @@ jobs:
 
       # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
       # 全局装独立 CLI(约 10 秒)并显式指定 tauriScript
+      # 2026-09-27 改钉版本:原先写 `@tauri-apps/cli@^2` ⇒ 每次 CI 都取最新 2.x,而 tauri-cli
+      # 内置的 NSIS 模板(生成 `utils.nsh` 里 `CheckIfAppIsRunning` 宏的那份)随版本变;模板与
+      # runner 上的 NSIS 插件不匹配时 makensis 直接 abort → Windows 包产出 0 个,连带
+      # `Publish Updater JSON` / `Sync release to Gitee` / `Sync Downloads` 三步全 skipped。
+      # 实测形态:本机同源码同 .nsi 打包成功(2.11.4),CI 失败 —— 仓库没变,是 CLI 漂了。
+      # 所以这里必须取**锁文件里的精确版本**,不得回到范围写法。
       - name: Install Tauri CLI
-        run: npm i -g @tauri-apps/cli@^2
+        run: |
+          V=$(sed -ne "/'@tauri-apps\/cli'/,/version:/ s/.*version: *//p" pnpm-lock.yaml | head -1)
+          if [ -z "$V" ]; then
+            V=$(node -pe "const p=require('./apps/desktop/package.json');(p.devDependencies||{})['@tauri-apps/cli']")
+            echo "WARN: 锁文件里没取到 @tauri-apps/cli 精确版本,回退声明范围 $V(仍可能漂移)"
+          fi
+          if [ -z "$V" ]; then echo "ERROR: 既没从锁文件也没从 package.json 取到 @tauri-apps/cli 版本"; exit 1; fi
+          echo "钉住 tauri-cli = $V(与仓库锁文件一致)"
+          npm i -g "@tauri-apps/cli@$V"
+          GOT=$(tauri --version 2>&1 | tail -1)
+          echo "实际安装: $GOT"
+          case "$GOT" in
+            *"$V"*) ;;
+            *) echo "ERROR: 安装出的 tauri-cli ($GOT) 与期望版本 $V 不符,拒绝继续(否则又是一次静默漂移)"; exit 1;;
+          esac
 
       - name: Build & Release
         id: tauri
