@@ -1071,6 +1071,7 @@ const styles = StyleSheet.create({
   },
   voiceBar: {
     width: 3,
+    // radius-exempt: 3dp 宽录音竖条取近半宽只为圆头端点,不是"容器该取哪档";对侧同元素在 miniapp src/app.css 的 .voice-bar-animation .line 已带同形豁免
     borderRadius: rnRadius.xs,
     backgroundColor: tokens.danger.DEFAULT,
   },
