@@ -247,7 +247,10 @@ describe('useFocusArtifactScroll 反向监听(④)', () => {
     const scrollSpy = vi.spyOn(card, 'scrollIntoView').mockImplementation(() => {})
     emitFocusArtifact('tmp/artifacts/report.docx')
     expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
-    expect(card.style.outline).toContain('solid')
+    // 9974db249 起高亮写法为 '2px solid var(--color-primary)';jsdom/cssstyle 无法解析
+    // var() 分量,会把整串原样落到 outline 三个子属性,序列化后不含 "solid"。
+    // 判据跟到 DOM 实际形态:描边已挂上且取的是 --color-primary 令牌本体。
+    expect(card.style.outline).toContain('var(--color-primary)')
     scrollSpy.mockRestore()
   })
 
@@ -445,7 +448,8 @@ describe('tryFocusArtifactFromLink 残余②(有卡接管 / 无卡放行)', () =
     const scrollSpy = vi.spyOn(card, 'scrollIntoView').mockImplementation(() => {})
     expect(tryFocusArtifactFromLink('tmp/artifacts/report.docx')).toBe(true)
     expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
-    expect(card.style.outline).toContain('solid')
+    // 同④:jsdom 下 '2px solid var(--color-primary)' 序列化为三个 var 分量,判据锁令牌本体。
+    expect(card.style.outline).toContain('var(--color-primary)')
     scrollSpy.mockRestore()
   })
 
