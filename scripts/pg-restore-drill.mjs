@@ -285,12 +285,16 @@ function parseToc(stdout) {
     return m ? m[1] : undefined
   }
   let tableDataCount = 0
+  let publicTableDataCount = 0
   const tables = []
   for (const line of stdout.split(/\r?\n/)) {
     const m = /^(\d+); (\d+) (\d+) TABLE DATA (\S+) (\S+) /.exec(line)
     if (m && m[4] !== '-') {
       tableDataCount++
-      if (m[4] === 'public') tables.push(m[5])
+      if (m[4] === 'public') {
+        publicTableDataCount++
+        tables.push(m[5])
+      }
     }
   }
   return {
@@ -298,6 +302,9 @@ function parseToc(stdout) {
     tocEntries: Number(head(/;\s+TOC Entries: (\d+)/) ?? NaN),
     dbVersion: head(/;\s+Dumped from database version: ([\d.]+)/),
     tableDataCount,
+    // 生产侧统计只按 nspname='public' 取(STATS_SQL),所以能与之对账的是这一档而不是上面那个全模式数 ——
+    // 两者曾被印在同一行且都写作 "public",凭空造出"备份比现库多两张"的假差异(实为 drizzle 模式的 2 张)。
+    publicTableDataCount,
     tables,
   }
 }
@@ -379,6 +386,7 @@ function probeConnLayer(ctx, out, cred) {
   const rt = /reltuples=(\d+)/.exec(out.conn.prodStats || '')
   out.rowMagnitude = {
     dumpTableDataTables: out.dump?.toc?.tableDataCount ?? null,
+    dumpPublicTableDataTables: out.dump?.toc?.publicTableDataCount ?? null,
     prodTablesFromStats: (/tables=(\d+)/.exec(out.conn.prodStats || '') || [])[1] || null,
     prodReltuplesEstimate: rt ? Number(rt[1]) : null,
     dumpBytes: out.dump?.size ?? null,
@@ -592,7 +600,12 @@ function renderHuman(o) {
   if (o.rowMagnitude) {
     const rm = o.rowMagnitude
     L.push(`② 表与行数(量级,dump 不存精确行数,如判据注释)`)
-    L.push(`   dump 内 public 表 ${rm.dumpTableDataTables} 张;生产库现有表 ${rm.prodTablesFromStats} 张、reltuples 估计合计 ${rm.prodReltuplesEstimate} 行`)
+    L.push(
+      `   dump 内 public 表 ${rm.dumpPublicTableDataTables} 张;生产库现有 public 表 ${rm.prodTablesFromStats} 张、reltuples 估计合计 ${rm.prodReltuplesEstimate} 行`,
+    )
+    L.push(
+      `   (dump 全模式 TABLE DATA 共 ${rm.dumpTableDataTables} 张 —— 与生产侧同口径的只有上面那个 public 数;生产统计查询只取 nspname='public')`,
+    )
     if (rm.dumpBytes && rm.prodReltuplesEstimate) L.push(`   粗推量级: ${Math.round(rm.dumpBytes / Math.max(rm.prodReltuplesEstimate, 1))} B/行(压缩后,dump大小÷reltuples 估计,仅供交叉核对,不是结论)`)
   }
   const c = o.conn || {}
@@ -693,6 +706,7 @@ export const __test__ = {
   isDrillDbName,
   assertDrillTarget,
   classifyDump,
+  parseToc,
   resolveLatestDump,
   decideOnline,
   parseCliArgs,
