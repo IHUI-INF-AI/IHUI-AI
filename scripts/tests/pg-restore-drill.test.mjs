@@ -270,4 +270,48 @@ test('fingerprint:行序/空白归一后逐字对比;CRLF 与 LF 同判(等号�
   assert.equal(D.fingerprintsEqual(a, D.fingerprint('db_size=3\ntables=2\n')), false)
   assert.equal(D.fingerprint(undefined), null)
 })
+
+// 同一行里的两个数必须同口径 —— 生产统计查询只取 nspname='public',所以 dump 侧也必须按 public 数。
+// 旧实现把"全模式 TABLE DATA 数"印成 "public 表",与真·public 数并排,凭空造出 2 张假差异
+// (真仓实测:722 全模式 / 720 public,差的正是 drizzle 那 2 张;表集合两侧逐张等值)。
+test('parseToc:全模式与 public 两档分开,public 那档才配和生产侧对账', () => {
+  const mixed = [
+    '; TOC Entries: 6',
+    '; Format: CUSTOM',
+    '; Dumped from database version: 18.6',
+    '7; 2200 0 TABLE DATA public users ihui',
+    '8; 2200 0 TABLE DATA public orders ihui',
+    '9; 2200 0 TABLE DATA drizzle __drizzle_migrations ihui',
+    '10; 2200 0 TABLE DATA drizzle __mig_audit_bak ihui',
+    '11; 0 0 TABLE DATA - bogus ihui',
+  ].join('\n')
+  const t = D.parseToc(mixed)
+  assert.equal(t.tableDataCount, 4, '全模式:4 张(排除命名空间为 - 的那条)')
+  assert.equal(t.publicTableDataCount, 2, 'public 档:2 张 —— 与 STATS_SQL 的 nspname=public 同口径')
+  assert.deepEqual(t.tables, ['users', 'orders'], 'tables[] 仍只收 public(其它消费方口径不变)')
+})
+
+test('renderHuman:public 数对 public 数;全模式数必须另立并标明口径', () => {
+  const text = D.renderHuman({
+    mode: '--check',
+    ymd: YMD,
+    dump: { exists: true, verdict: 'complete', name: DUMP_NAME, size: 10, toc: D.parseToc(TOC_TEXT) },
+    rowMagnitude: {
+      dumpTableDataTables: 722,
+      dumpPublicTableDataTables: 720,
+      prodTablesFromStats: 720,
+      prodReltuplesEstimate: 938908,
+      dumpBytes: 112929970,
+    },
+  })
+  const pairLine = String(text)
+    .split(/\r?\n/)
+    .find((l) => l.includes('dump 内 public 表'))
+  assert.ok(pairLine, '必须有 public 口径的对账行')
+  assert.match(pairLine, /dump 内 public 表 720 张/, '对账行左侧取 public 档,不得再印全模式数')
+  assert.match(pairLine, /生产库现有 public 表 720 张/, '右侧点名 public,两侧同口径可读)')
+  const allLine = String(text).split(/\r?\n/).find((l) => l.includes('全模式 TABLE DATA'))
+  assert.ok(allLine && allLine.includes('722'), '全模式数仍在,但单独成行并标明口径')
+  assert.equal(/dump 内 public 表 722/.test(String(text)), false, '反向锁:全模式数不得再被冠以 public')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
