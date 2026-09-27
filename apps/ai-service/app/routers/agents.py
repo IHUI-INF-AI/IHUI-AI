@@ -44,7 +44,17 @@ from ..services.agent_events import (
     SSE_START,
     map_hook_event_to_sse,
 )
+from ..services.agent_checkpoint import AgentLoopCheckpoint
 from ..services.agent_loop import agent_executor
+from ..services.agent_run_control import (
+    PauseOutcome,
+    ResumeOutcome,
+    SessionNotFoundError,
+    detach_run,
+    pause_session,
+    register_run,
+    resume_session,
+)
 from ..services.agent_orchestrator import AgentOrchestrator, agent_orchestrator
 from ..services.goal_completion_gate import (
     GoalCriterionSpec,
@@ -59,6 +69,7 @@ from ..services.vector_memory import vector_memory
 
 if TYPE_CHECKING:
     # 仅类型注解使用(运行时在函数内延迟导入,避免循环依赖)
+    from ..services.agent_loop_v2 import AgentLoopResult
     from ..services.mcp_tool_aggregator import SuperToolPool
 
 logger = logging.getLogger(__name__)
@@ -734,6 +745,9 @@ class AgentExecuteRequest(BaseModel):
     model: str | None = Field(None, description="指定模型,为空使用默认")
     max_iterations: int | None = Field(None, description="最大迭代次数")
     tools: list[str] | None = Field(None, description="允许调用的工具名列表")
+    # V3 #76(2026-09-28 立):知识卡自动蒸馏的归属仓库。**刻意不做**服务端推断 ——
+    # 卡片 repoName 在库侧 notNull,猜错就是把 A 仓的经验写进 B 仓的知识库。
+    # 为空时回落到部署级 settings.knowledge_card_default_repo;仍为空则跳过蒸馏并打日志。
     # G-161(2026-09-22):此字段此前**根本不存在**,apps/api 转发的 permission_mode
     # 被 Pydantic 静默丢弃 —— 客户端以为设了权限档,服务端一直按 default 跑。
     # 现声明并归一到唯一真源(app/core/permission_mode.py)。
@@ -803,6 +817,14 @@ class ApprovalResponseRequest(BaseModel):
         None,
         max_length=500,
         description="用户附带原因(可选,拒绝理由为主);仅进决策提示/审计,不参与判定。",
+    )
+    use_safer_alternative: bool = Field(
+        False,
+        description=(
+            "V3 #80:用户勾选'改用 guardian 复核建议的更安全等价路径'。"
+            "默认 False=维持原请求(合法出口);True 仅在复核结论存在通过确定性校验的"
+            "同工具替代参数时生效(approve 与 reject 共用本字段,拒绝时无意义、被忽略)。"
+        ),
     )
 
 
@@ -896,7 +918,14 @@ async def agent_approval_response(
 
     decision = "approve" if req.decision.lower() in ("approve", "allow", "approved") else "reject"
     outcome = resolve_approval_for_requester(
-        req.approval_id, decision, current_user, scope=req.scope, reason=req.reason
+        req.approval_id,
+        decision,
+        current_user,
+        scope=req.scope,
+        reason=req.reason,
+        # V3 #80:勾选"改用更安全等价路径"随 approve 决策一起写入;True 而复核没有
+        # 可执行的同工具替代时会被 _request_approval 忽略(不猜、不放大)。
+        accept_alternative=bool(req.use_safer_alternative),
     )
     if outcome is ApprovalOutcome.NOT_FOUND:
         raise HTTPException(status_code=404, detail="approval not found or expired")
@@ -1020,6 +1049,8 @@ async def execute_agent_stream(
         task_id = f"task-{asyncio.get_running_loop().time()}"
         # O19:本次 run 登记进 run_ownership 的会话标识,finally 统一释放(防泄漏)
         owned_sessions: list[str] = []
+        # V3 #65:登记进 run 控制面(agent_run_control)的会话标识,与上面同生命周期
+        registered_sessions: list[str] = []
 
         # 断线重连: 先重放缺失事件
         if last_event_id:
@@ -1076,6 +1107,12 @@ async def execute_agent_stream(
                     # 此前缺省 0=永不压缩,放量基建(灰度/指标/回退)齐备但线上从未生效。
                     compaction_context_limit=resolve_with_env_priority(req.model),
                 )
+                # V3 #65(2026-09-28):把这枚在飞循环登记进 run 控制面,`pause()` 从此
+                # 才有人能够得着 —— 此前 loop 实例是生成器的局部变量,HTTP 面无任何
+                # session→loop 索引,所以 loop_v2 里那个 `pause()` 是零调用方的死代码。
+                # owner 取的是令牌主体 current_user,不是 req.session_id 之类的自报值。
+                await register_run(session_id, owner_user_id=current_user, loop=loop)
+                registered_sessions.append(session_id)
                 # 订阅事件 → SSE(统一订阅集合 agent_events.AGENT_SUBSCRIBE_EVENTS,
                 # 补齐 thinking.delta/plan.step/session.end/permission.mode,
                 # 只转发本 session 的 hook 事件)
@@ -1218,6 +1255,11 @@ async def execute_agent_stream(
         finally:
             # G9: 立即清理缓冲区,避免已完成会话的过期事件占内存(TTL 仍兜底重连场景)
             sse_buffer.clear(task_id)
+            # V3 #65:解绑控制面里的 loop 引用。paused 记录**故意保留**
+            # (detach_run 内部判定):流式作用域一退出,run_ownership 就被下面释放,
+            # 若把暂停记录一并删掉,resume 就失去进程内属主依据、只能退回持久层。
+            for sid in registered_sessions:
+                await detach_run(sid, owner_user_id=current_user)
             # O19:run 结束即释放属主登记(与 record_ownership 成对;TTL 只作兜底)
             for sid in owned_sessions:
                 release_ownership(sid)
@@ -1231,6 +1273,69 @@ async def execute_agent_stream(
             "X-Accel-Buffering": "no",  # 禁用 Nginx 缓冲,确保实时流式
         },
     )
+
+
+async def _resume_run_from_checkpoint(
+    checkpoint_id: str,
+    *,
+    model: str | None,
+    max_iterations: int | None,
+    tools: list[str] | None,
+    request: Request,
+    current_user: str,
+) -> "AgentLoopResult":
+    """构造与 execute/stream 同参的 AgentLoopV2 并从 checkpoint 续跑(**全仓唯一实现**)。
+
+    V3 #65(2026-09-28)从 `resume_agent_execute` 体内抽出:新增的"按会话续跑"出口要跑
+    的是同一件事,复制一份构造参数就会长出第二个真相 —— 漏掉其中任一参数就是
+    V3 #47 / V3 #55 那两条"resume 链上被静默降档"的洞的再版本(§3 共享层优先)。
+
+    Raises:
+        ValueError: checkpoint 不存在 / 已过期,由 `resume_from_checkpoint` 抛出;
+            调用方各自映射成自己的响应形态(不在此层决定 HTTP 语义)。
+    """
+    from app.core.model_context_window import resolve_with_env_priority
+
+    from ..services.agent_loop_v2 import AgentLoopV2
+
+    # V3 #47 第二格:角色在此取一次,下面两处(工具装配 + 循环构造)共用同一个值,
+    # 不允许各取各的 —— 两次读取之间若身份被改,就会出现"工具按 A 角色装配、
+    # 执行按 B 角色判定"的分叉。
+    resumed_role = resolve_request_role_id(request)
+
+    loop = AgentLoopV2(
+        _make_loop_v2_llm(model),
+        # V3 #47 第二格(2026-09-26):与 execute/stream 同口径把角色过桥 ——
+        # 断点续跑恢复的是同一调用方的会话,若这里漏传,admin 在 resume 链上
+        # 会被静默降成普通用户(与 stream 修掉的那半是同一个洞的两半)。
+        tools=await _build_loop_v2_tools(tools, user_role=resumed_role),
+        user_role=resumed_role,
+        max_iterations=max_iterations or 8,
+        enable_checkpoint=True,
+        # O19:principal 贯通(审批属主登记 + 记忆隔离口径与 execute 一致)
+        user_id=current_user,
+        # V3 #55(2026-09-26):与 execute/stream 同口径,压缩上限按模型动态解析
+        # (env 显式配置优先;断点续跑恢复的历史消息同样受压缩保护)。
+        compaction_context_limit=resolve_with_env_priority(model),
+    )
+    return await loop.resume_from_checkpoint(checkpoint_id)
+
+
+def _resume_result_payload(
+    result: "AgentLoopResult", requested_checkpoint_id: str
+) -> dict[str, Any]:
+    """续跑结果的响应体(两条 resume 出口共用,免得同一结果长出两种形状)。"""
+    return {
+        "success": result.success,
+        "final_response": getattr(result, "final_response", ""),
+        "stop_reason": result.stop_reason,
+        # 续跑成功后 result.checkpoint_id 为 None(仅 pause/cancel/failed 落盘),
+        # 故回显本次 resume 请求的 checkpoint_id,便于前端对齐续跑来源。
+        "checkpoint_id": result.checkpoint_id or requested_checkpoint_id,
+        "error": result.error,
+        "total_iterations": len(result.iterations),
+        "total_duration_ms": result.total_duration_ms,
+    }
 
 
 @router.post("/agents/execute/resume")
@@ -1260,7 +1365,9 @@ async def resume_agent_execute(
          进程内登记比对;两者都判不出时只剩"必须登录"这一层地板(如实标注,不假装)。
     """
     from ..services.agent_checkpoint import get_agent_checkpoint_manager
-    from ..services.agent_loop_v2 import AgentLoopV2
+
+    # (V3 #65)AgentLoopV2 的构造已随续跑逻辑移入 `_resume_run_from_checkpoint`,
+    # 本函数不再直接引它 —— 留着就是一句 F401,而它会让人误以为这里还有一份参数表。
 
     resumed_session: str | None = None
     try:
@@ -1283,52 +1390,217 @@ async def resume_agent_execute(
             record_ownership(resumed_session, current_user)
 
     try:
-        from app.core.model_context_window import resolve_with_env_priority
-
-        # V3 #47 第二格:角色在此取一次,下面两处(工具装配 + 循环构造)共用同一个值,
-        # 不允许各取各的 —— 两次读取之间若身份被改,就会出现"工具按 A 角色装配、
-        # 执行按 B 角色判定"的分叉。
-        resumed_role = resolve_request_role_id(request)
-
-        loop = AgentLoopV2(
-            _make_loop_v2_llm(req.model),
-            # V3 #47 第二格(2026-09-26):与 execute/stream 同口径把角色过桥 ——
-            # 断点续跑恢复的是同一调用方的会话,若这里漏传,admin 在 resume 链上
-            # 会被静默降成普通用户(与 stream 修掉的那半是同一个洞的两半)。
-            tools=await _build_loop_v2_tools(req.tools, user_role=resumed_role),
-            user_role=resumed_role,
-            max_iterations=req.max_iterations or 8,
-            enable_checkpoint=True,
-            # O19:principal 贯通(审批属主登记 + 记忆隔离口径与 execute 一致)
-            user_id=current_user,
-            # V3 #55(2026-09-26):与 execute/stream 同口径,压缩上限按模型动态解析
-            # (env 显式配置优先;断点续跑恢复的历史消息同样受压缩保护)。
-            compaction_context_limit=resolve_with_env_priority(req.model),
+        # V3 #65:构造 + 续跑已抽到 `_resume_run_from_checkpoint`(全仓唯一实现),
+        # 与新的"按会话续跑"出口共用,不再有两份参数表。
+        result = await _resume_run_from_checkpoint(
+            req.checkpoint_id,
+            model=req.model,
+            max_iterations=req.max_iterations,
+            tools=req.tools,
+            request=request,
+            current_user=current_user,
         )
-        try:
-            result = await loop.resume_from_checkpoint(req.checkpoint_id)
-        except ValueError as e:
-            return {
-                "code": 404,
-                "message": str(e),
-                "data": None,
-            }
+    except ValueError as e:
+        return {
+            "code": 404,
+            "message": str(e),
+            "data": None,
+        }
     finally:
         if resumed_session:
             release_ownership(resumed_session)
     return {
         "code": 0,
         "message": "ok",
+        "data": _resume_result_payload(result, req.checkpoint_id),
+    }
+
+
+# ---------------------------------------------------------------------------
+# V3 #65(2026-09-28):按会话暂停 / 续跑 —— pause 的对外出口
+# ---------------------------------------------------------------------------
+
+
+class AgentSessionPauseRequest(BaseModel):
+    """暂停请求(POST /agents/{session_id}/pause)。
+
+    会话由 **路径** 寻址,身份由 **令牌** 提供 —— 本 body 里刻意没有任何
+    `user_id` / `owner` 字段可填:可填就等于可冒充。
+    """
+
+    reason: str | None = Field(
+        None,
+        max_length=500,
+        description="暂停原因(可选);仅进审计日志,不参与任何判定或鉴权",
+    )
+
+
+class AgentSessionResumeRequest(BaseModel):
+    """续跑请求(POST /agents/{session_id}/resume)。"""
+
+    model: str | None = Field(None, description="指定模型,为空沿用暂停时的默认解析")
+    max_iterations: int | None = Field(
+        None, ge=1, le=200, description="续跑轮次上限(越界拒 422,不做静默钳位)"
+    )
+    tools: list[str] | None = Field(None, description="允许调用的工具名列表")
+
+
+_PAUSE_STATUS_BY_OUTCOME: dict[PauseOutcome, int] = {
+    PauseOutcome.NOT_RUNNING: 409,
+    PauseOutcome.UNKNOWN_SESSION: 404,
+    PauseOutcome.FORBIDDEN: 403,
+    PauseOutcome.CHECKPOINT_UNAVAILABLE: 503,
+}
+
+_RESUME_STATUS_BY_OUTCOME: dict[ResumeOutcome, int] = {
+    ResumeOutcome.FORBIDDEN: 403,
+    ResumeOutcome.NO_CHECKPOINT: 404,
+    ResumeOutcome.NOT_PAUSED: 409,
+    ResumeOutcome.RESUME_FAILED: 503,
+}
+
+
+def _pause_http_error(outcome: PauseOutcome, detail: str | None) -> HTTPException:
+    """把非成功格映射成 HTTP 错误。
+
+    状态码按结论枚举逐格映射,**不做 default→400 的兜底**:新增一格而忘了在这里
+    登记,必须表现为一次 KeyError(测试立即红),而不是被悄悄归进一个通用码 ——
+    那正是"响应分不出是哪一型失败"的成因。
+    """
+    status = _PAUSE_STATUS_BY_OUTCOME[outcome]
+    return HTTPException(
+        status_code=status,
+        detail={"errorCode": f"AGENT_PAUSE_{outcome.name}", "message": detail or outcome.value},
+    )
+
+
+@router.post("/agents/{session_id}/pause")
+async def pause_agent_session(
+    session_id: str,
+    req: AgentSessionPauseRequest | None = None,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """暂停某个会话正在跑的 agent loop(V3 #65 补的那一格 HTTP 出口)。
+
+    `AgentLoopV2.pause()` 自 2026-09-18 起就在 `agent_loop_v2.py:4057`,但全仓零调用方、
+    HTTP 面也没有本路由 —— loop 层的机制在位,外面没有人能够得着它。本端点接的正是
+    这一格(`agent_run_control.register_run` 在流式执行处把在飞循环登记进控制面)。
+
+    属主鉴权:判定发生在 `agent_run_control.pause_session` 里,**先判属主再动 I/O**,
+    属主取令牌主体(`require_request_user_id`)与控制面登记时写入的那份比对;
+    路径里的 `session_id` 只是被寻址的键,不构成任何身份声明。
+
+    响应(每格可分辨,不把"没动"写成"动了"):
+      200 code=0 outcome="paused"            changed=true  + checkpoint_id
+      200 code=0 outcome="already_paused"    changed=false + checkpoint_id(幂等)
+      403 AGENT_PAUSE_FORBIDDEN              会话属于别人(且未发出任何查询)
+      404 AGENT_PAUSE_UNKNOWN_SESSION        本实例不认识该会话
+      409 AGENT_PAUSE_NOT_RUNNING            认识但它现在不在跑
+      503 AGENT_PAUSE_CHECKPOINT_UNAVAILABLE  暂停标志已置位而检查点没落盘
+        —— 这一格刻意不记成功:run 会停下,但**没有恢复点**,后续 resume 必然
+        拿不到东西。"改了 0 却回成功"是守门 134 立项的那一型,不得在这里复活。
+
+    一次暂停会落两个检查点(loop 层既有形状,详见 `agent_run_control.pause_session`
+    的注释):响应带回的是**按下暂停那一刻**的 `checkpoint_stage="eager"` 快照,循环
+    随后在轮次边界还会落一个更完整的暂停点。因此续跑一律**按会话取最新暂停点**
+    (`/agents/{session_id}/resume`),不要拿这里的 id 去 `/agents/execute/resume`,
+    那会重跑一轮工具调用。
+    """
+    verdict = await pause_session(session_id, current_user)
+    if verdict.outcome not in (PauseOutcome.PAUSED, PauseOutcome.ALREADY_PAUSED):
+        raise _pause_http_error(verdict.outcome, verdict.detail)
+    if req is not None and req.reason:
+        # 只进审计日志;不回显到响应,避免把用户输入原样倒回前端(与 §5 凭据面同一取向)
+        logger.info(
+            "agent 暂停原因:user=%s session=%s reason=%s",
+            current_user,
+            session_id,
+            req.reason,
+        )
+    return {
+        "code": 0,
+        "message": "ok",
         "data": {
-            "success": result.success,
-            "final_response": getattr(result, "final_response", ""),
-            "stop_reason": result.stop_reason,
-            # 续跑成功后 result.checkpoint_id 为 None(仅 pause/cancel/failed 落盘),
-            # 故回显本次 resume 请求的 checkpoint_id,便于前端对齐续跑来源。
-            "checkpoint_id": result.checkpoint_id or req.checkpoint_id,
-            "error": result.error,
-            "total_iterations": len(result.iterations),
-            "total_duration_ms": result.total_duration_ms,
+            "session_id": session_id,
+            "outcome": verdict.outcome.value,
+            "changed": verdict.changed,
+            "checkpoint_id": verdict.checkpoint_id,
+            # "eager" = 这是**按下暂停那一刻**存的快照;循环随后在轮次边界还会再存一个
+            # 更完整的暂停点,而"按会话续跑"取的是那一个。前端若要把 id 存下来自己续跑,
+            # 必须知道它可能已被更新一轮的快照取代 —— 不标注就是让调用方拿旧 id 去 resume,
+            # 结果是**重跑一轮工具调用**(带副作用的工具重跑一次就是真实事故)。
+            "checkpoint_stage": (
+                "eager"
+                if verdict.outcome is PauseOutcome.PAUSED
+                else "recorded"
+            ),
+        },
+    }
+
+
+@router.post("/agents/{session_id}/resume")
+async def resume_agent_session(
+    session_id: str,
+    req: AgentSessionResumeRequest,
+    request: Request,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """按**会话**从暂停点续跑(V3 #65)。
+
+    与 `POST /agents/execute/resume` 的分工:那条按 `checkpoint_id` 续跑,要求调用方
+    自己存住暂停时返回的 id;本条只需会话标识 —— 暂停点由控制面/持久层按 session 定位,
+    前端"暂停 → 继续"不必先把 checkpoint_id 落地再传回来。
+    两条共用同一个续跑实现 `_resume_run_from_checkpoint`,不存在第二份参数表。
+
+    属主:进程内暂停记录在位时**零查询**即可拒绝他人;记录随进程重启消失时退回
+    checkpoint 的持久属主(`metadata.owner_user_id`),与 `resume_agent_execute`
+    的两级口径同形。
+
+    响应:
+      200 code=0 outcome="resumed"      + data.result(与 execute/resume 同形状)
+      403 AGENT_RESUME_FORBIDDEN        会话/检查点属于别人
+      404 AGENT_RESUME_NO_CHECKPOINT    没有可续跑的暂停点
+      409 AGENT_RESUME_NOT_PAUSED       它正在跑(或最新检查点已不是 paused 态)
+      503 AGENT_RESUME_RESUME_FAILED    存储/循环不可用(含"查不了"不等于"查不到")
+    """
+
+    async def _runner(
+        checkpoint: AgentLoopCheckpoint, requester: str
+    ) -> dict[str, object]:
+        try:
+            result = await _resume_run_from_checkpoint(
+                checkpoint.checkpoint_id,
+                model=req.model,
+                max_iterations=req.max_iterations,
+                tools=req.tools,
+                request=request,
+                current_user=requester,
+            )
+        except ValueError as exc:
+            # resume_from_checkpoint 的"这个 checkpoint 没了"在这里是**取用前的竞态失效**
+            # (状态判定阶段已经确认它是 paused)。转成 SessionNotFoundError 交回控制面,
+            # 由它判成 404 而不是 503 —— 两格的处置动作不同,不得合并。
+            raise SessionNotFoundError(str(exc)) from exc
+        return dict(_resume_result_payload(result, checkpoint.checkpoint_id))
+
+    verdict = await resume_session(session_id, current_user, runner=_runner)
+    if verdict.outcome is not ResumeOutcome.RESUMED:
+        raise HTTPException(
+            status_code=_RESUME_STATUS_BY_OUTCOME[verdict.outcome],
+            detail={
+                "errorCode": f"AGENT_RESUME_{verdict.outcome.name}",
+                "message": verdict.detail or verdict.outcome.value,
+            },
+        )
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "session_id": session_id,
+            "outcome": verdict.outcome.value,
+            "changed": verdict.changed,
+            "checkpoint_id": verdict.checkpoint_id,
+            "result": verdict.result,
         },
     }
 
