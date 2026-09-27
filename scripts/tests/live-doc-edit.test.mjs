@@ -59,7 +59,7 @@ function runLive(dir, { doc = 'DOC.md', anchorFile, blockFile, replaceFile, msg 
 const DOC_BASE = ['# 标题', '段落一', '@@ANCHOR@@', '段落二', '']
 
 test('T1 §22c 导出面:判据纯函数必须在 __test__ 里', () => {
-  for (const k of ['readInputs', 'locateAnchor', 'assemble', 'applyReplacements'])
+  for (const k of ['readInputs', 'locateAnchor', 'assemble', 'applyReplacements', 'resolveIdTokens'])
     assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
 })
 
@@ -245,4 +245,63 @@ test('T13 追加注记型改写(after 以 before 开头)必须判成功并做完
   const now = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })).split('\n')
   assert.equal(now[1], `${src[1]} 〔更正(2026-09-27):本行应归"等人拍板"。〕`)
   assert.equal(indexBlobOf('DOC.md', { root: dir }), headBlobOf('HEAD', 'DOC.md', { root: dir }))
+})
+
+/**
+ * T14 取号令牌的纯函数面:号由**底稿**算出,不是由调用方给。
+ * 三条各钉一型:① 正常递增 ② 该族一条没有 ⇒ 拒绝(不是给 "<族>-1") ③ 无令牌 ⇒ 原样通过(不改任何行)。
+ */
+test('T14 resolveIdTokens:号来自底稿、取不到即拒绝、无令牌不误伤', () => {
+  const base = '- [ ] **G-1 甲**:x\n- [ ] **G-7 乙**:y\n- [ ]75. 章节内裸序号不占号段\n'
+  const r = __test__.resolveIdTokens(['- [ ]（进行中@2026-09-27/主会话）**{{NEXT_ID:G}} 新条目**:正文'], base)
+  assert.equal(r.ok, true)
+  assert.match(r.lines[0], /\*\*G-8 新条目\*\*/, `实得 ${r.lines[0]}`)
+  assert.equal(r.assigned, 'G-8')
+  const none = __test__.resolveIdTokens(['{{NEXT_ID:Z}} 条目'], base)
+  assert.equal(none.ok, false, '该族一条没有时必须拒绝,而不是发一个 Z-1')
+  assert.match(String(none.reason), /no-such-family:Z/)
+  const plain = __test__.resolveIdTokens(['- [ ] **G-9 无令牌**'], base)
+  assert.equal(plain.assigned, null)
+  assert.deepEqual(plain.lines, ['- [ ] **G-9 无令牌**'], '没有令牌就不该动任何一行')
+})
+
+/**
+ * T15 端到端:落地后的 HEAD 行里**只剩算出来的号**,令牌本身不得入库。
+ * 这一条同时是"令牌真被 CAS 用上"的装车证明 —— 纯函数测过却没人调,就是本仓反复登记的那一型。
+ */
+test('T15 端到端:带令牌的块落地后 HEAD 含算出的号且不含令牌', (t) => {
+  const { dir, inputs } = makeDocRepo(t, '- [ ] **G-3 旧条目**:x\n@@ANCHOR@@\n')
+  const blockFile = join(inputs, 'block.txt')
+  writeFileSync(blockFile, '- [ ]（进行中@2026-09-27/主会话）**{{NEXT_ID:G}} 取号落地**:正文\n', 'utf8')
+  const r = runLive(dir, { blockFile })
+  assert.equal(r.status, 0, `落地应成功,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
+  assert.match(
+    r.stdout,
+    /令牌取号\(由该次 HEAD 底稿现算\)=G-4/,
+    `输出没报名取到的号:\n${r.stdout}`,
+  )
+  const now = norm(runGit(dir, ['show', 'HEAD:DOC.md']))
+  assert.match(now, /\*\*G-4 取号落地\*\*/, `HEAD 里没有算出的号:\n${now}`)
+  assert.doesNotMatch(now, /NEXT_ID/, '令牌本身绝不能留在文档里')
+})
+
+/** T16 改写档也要能吃令牌(让号场景就是它:把别人占了的号挪走)。 */
+test('T16 整行改写档支持令牌:after 里的号由 HEAD 底稿现算', (t) => {
+  const { dir, inputs } = makeDocRepo(t, '- [ ] **G-5 旧标题**:正文一句\n')
+  const repl = join(inputs, 'repl.json')
+  writeFileSync(
+    repl,
+    JSON.stringify([
+      {
+        before: '- [ ] **G-5 旧标题**:正文一句',
+        after: '- [x] ✅(2026-09-27) **{{NEXT_ID:G}} 让号后**:正文一句',
+      },
+    ]),
+    'utf8',
+  )
+  const r = runLive(dir, { replaceFile: repl })
+  assert.equal(r.status, 0, `落地应成功,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
+  const now = norm(runGit(dir, ['show', 'HEAD:DOC.md']))
+  assert.match(now, /\*\*G-6 让号后\*\*/, `改写后的行没拿到算出的号:\n${now}`)
+  assert.doesNotMatch(now, /NEXT_ID|G-5 旧标题/, '令牌与旧形态都必须消失')
 })
