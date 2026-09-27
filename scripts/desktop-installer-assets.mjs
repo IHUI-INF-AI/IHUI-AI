@@ -621,23 +621,23 @@ ${successEmblem(712, 384)}
 `);
 }
 
-// ---- 开屏动画帧(880x600 满幅,16 帧) --------------------------------------
-// 运行期:欢迎页内 ${NSD_CreateTimer} 每 90ms 一拍逐帧播放 splash1..15(帧 0 =
+// ---- 开屏动画帧(880x600 满幅,10 帧) --------------------------------------
+// 运行期:欢迎页内 ${NSD_CreateTimer} 每 150ms 一拍逐帧播放 splash1..9(帧 0 =
 // splash.bmp 是空白起始帧,不入播放序列),播完落回 welcome.bmp —— 见 ihui-ui.nsi
-// IHUIOnSplashTick。90ms × 15 ≈ 1.35s。
-// 时间轴(f = 1..11,分镜全部在 f11 到位):
-//   f1-6   三道星轨细线自右上入场(位移 90→0)+ 星点显影
-//   f3+    logo + 核心辉光定格入场(位置/尺寸/透明度恒定)
-//   f5-10  双环自 logo 盒外扩散消退(两道错拍,招牌动作)
-//   f7-11  字标「智汇AI」字距 24→3 收拢显影;标语/渐变线/域名相继收束
-//   f12-15 收尾卡:**逐字节相同**(f 钳到 11)—— NSIS 固实 LZMA 跨帧去重,
-//          4 帧只付 1 帧的钱(2026-09-27 判决实验:同一 BMP 嵌 9 遍 exe 不变)。
-// ⚠️ 体积纪律:logo/辉光必须定格(每帧换位置/透明度 = 每帧一份新栅格,去重失效);
-//    常驻元素的背景区域不得被逐帧变化的元素穿行(环从 logo 盒外起环、轨道静止)。
+// IHUIOnSplashTick。150ms × 9 ≈ 1.35s(与 15×90 等长,帧数砍 6 帧省 ~1.2MB exe;
+// 2026-09-27 用户拍板"降帧也做",分镜按更少帧数重排,每帧留驻更久)。
+// 时间轴(f = 1..9,分镜全部在 f9 到位):
+//   f1-3   三道星轨细线自右上入场(位移 90→0)+ 星点显影
+//   f2+    logo + 核心辉光定格入场(位置/尺寸/透明度恒定)
+//   f2-6   双环自 logo 盒外扩散消退(两道错拍,招牌动作)
+//   f4-9   字标「智汇AI」字距 24→3 收拢显影;标语/渐变线/域名相继收束
+// ⚠️ 体积纪律(2026-09-27 分量探针实测):logo/辉光每帧换位置或透明度 = 每帧一份
+// 新栅格,solid LZMA 无法跨帧匹配(沙箱 26MB 事故的splash主力)。凡"常驻"元素一律
+// 定格:位置/尺寸/透明度逐帧逐字节一致,固实流里只付一份钱。运动交给细线/环/字距。
 const SPLASH_W = 880;
 const SPLASH_H = 600;
-const SPLASH_FRAMES = 16;
-const SPLASH_HOLD = 11; // 收尾卡起始帧:f >= SPLASH_HOLD 的帧逐字节相同
+const SPLASH_FRAMES = 10; // 帧 0(splash.bmp,空白起始)+ splash1..9(播放序列)
+const SPLASH_HOLD = 9; // 分镜收束帧:f >= SPLASH_HOLD 的帧逐字节相同(防运行期帧数错配的兜底)
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const easeOut = (x) => 1 - (1 - x) ** 3;
@@ -661,41 +661,41 @@ function splashScene(frame, logo) {
 ${GRAD_DEFS}${base}
 </svg>`;
   // 星轨入场:三条不模糊渐变细线 + 星点显影(细线 = 一行内长程同值,LZMA 友好)
-  const shift = +((1 - easeOut(in_(1, 7))) * 90).toFixed(1);
+  const shift = +((1 - easeOut(in_(1, 4))) * 90).toFixed(1);
   const trails = `<g transform="translate(${shift} -${(shift * 0.4).toFixed(1)})">
 <path d="M -60 116 C 220 40, 470 124, 940 52" fill="none" stroke="url(#ihg)" stroke-width="2.5" opacity="0.5"/>
 <path d="M -60 132 C 250 62, 500 140, 940 76" fill="none" stroke="url(#ihg)" stroke-width="1.4" opacity="0.3"/>
 <path d="M -60 104 C 260 34, 520 104, 940 36" fill="none" stroke="${C.accent}" stroke-width="0.8" opacity="0.2"/>
 </g>`;
-  const stars = `<g opacity="${in_(2, 6).toFixed(2)}">${constellation(96, 60, 688, 180, 29, 18)}</g>`;
-  // 核心辉光 + logo:f>=3 定格(见体积纪律),f<3 不出现
-  const core = f < 3 ? '' : glowOrb(CX, CY, 100, C.gradTo, 0.24, 'spCore');
+  const stars = `<g opacity="${in_(1, 4).toFixed(2)}">${constellation(96, 60, 688, 180, 29, 18)}</g>`;
+  // 核心辉光 + logo:f>=2 定格(见体积纪律),f<2 不出现
+  const core = f < 2 ? '' : glowOrb(CX, CY, 100, C.gradTo, 0.24, 'spCore');
   const L = 150;
-  const logoEl = f < 3 ? '' : logoImg(logo, CX, CY, L);
+  const logoEl = f < 2 ? '' : logoImg(logo, CX, CY, L);
   // 双环扩散:r 108 → 172,透明度 (1-p)。起点 108 = logo 盒(±75,对角 106)之外 ——
   // 环若穿行 logo 盒,盒内底像素逐帧变化,固实 LZMA 的跨帧 logo 去重就失效。
   const ring = (p) =>
     p <= 0
       ? ''
       : `<circle cx="${CX}" cy="${CY}" r="${(108 + 64 * p).toFixed(1)}" fill="none" stroke="${C.tintStrong}" stroke-width="${(2 * (1 - p) + 0.5).toFixed(2)}" opacity="${(0.55 * (1 - p)).toFixed(3)}"/>`;
-  // 静止轨道大圆(r150,整圆在 logo 盒外)+ 其上一枚运行卫星点(每帧 +28°,2.6px 的
+  // 静止轨道大圆(r150,整圆在 logo 盒外)+ 其上一枚运行卫星点(每帧 +45°,2.6px 的
   // 点,运动成本近零)。不做穿盒的旋转椭圆 —— 同一个去重理由。
-  const satA = (f * 28 * Math.PI) / 180;
+  const satA = (f * 45 * Math.PI) / 180;
   const orbit =
     `<circle cx="${CX}" cy="${CY}" r="150" fill="none" stroke="${C.accent}" stroke-width="1.1" opacity="0.5"/>` +
     `<circle cx="${(CX + 150 * Math.cos(satA)).toFixed(1)}" cy="${(CY + 150 * Math.sin(satA)).toFixed(1)}" r="2.6" fill="${C.accent}" opacity="0.9"/>`;
-  // 字标收距 + 标语 + 渐变线 + 域名(全部 f11 收束,f12+ 定格成收尾卡)
-  const wordOp = in_(7, 11).toFixed(2);
-  const wordSpacing = +(24 - 21 * easeOut(in_(7, 11))).toFixed(1);
-  const tagOp = in_(9, 11).toFixed(2);
-  const lineW = +(540 * easeOut(in_(8, 11))).toFixed(1);
-  const domOp = in_(10, 11).toFixed(2);
+  // 字标收距 + 标语 + 渐变线 + 域名(全部 f9 收束)
+  const wordOp = in_(4, 8).toFixed(2);
+  const wordSpacing = +(24 - 21 * easeOut(in_(4, 9))).toFixed(1);
+  const tagOp = in_(6, 8).toFixed(2);
+  const lineW = +(540 * easeOut(in_(5, 9))).toFixed(1);
+  const domOp = in_(8, 9).toFixed(2);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SPLASH_W}" height="${SPLASH_H}" viewBox="0 0 ${SPLASH_W} ${SPLASH_H}">
 ${GRAD_DEFS}${base}
 ${trails}
 ${stars}
-${ring(in_(5, 9))}
-${ring(in_(7, 11))}
+${ring(in_(2, 5))}
+${ring(in_(3, 7))}
 ${core}
 ${orbit}
 ${logoEl}
