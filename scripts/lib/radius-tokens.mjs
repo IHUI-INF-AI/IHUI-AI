@@ -111,8 +111,16 @@ export const RPX_PER_PX = 2
 
 /**
  * 一行源码里的圆角**取档** → px 数组。逐行调用,好让豁免规则按行生效。
- * 覆盖六种书写形态:Tailwind 档名类、Tailwind 任意值(带 rpx/px)、CSS 变量、
+ * 覆盖六种书写形态:Tailwind 档名类(含**方向与角形态** `rounded-t-xl` / `rounded-tr-sm`)、
+ * Tailwind 任意值(带 rpx/px)、CSS 变量、
  * `rnRadius.<step>` / `rnRadius['2xl']`、`rnRadiusFor.<role>`、裸 `borderRadius: <数字>`。
+ *
+ * 方向形态必须与整格形态同一遍识别,不是"顺手多认一种写法":小程序把底部弹层写成
+ * `rounded-t-2xl` 而 RN 写成整格 `rnRadius['2xl']` 时,旧判据只在小程序那一侧读不到 16,
+ * 于是产出"仅 RN 16"这种**凭空造出的分叉** —— 尺子漏读一侧的表现不是少几个数,
+ * 而是把同一档报成两端不同档。补认之后实测 RD 只降不升(Carousel / LoginPopUp /
+ * ModelConfigDialog / ModelList 四族归零,InputArea / DrawerComponent / UserInfoCard 各降),
+ * 所以它抬高的是覆盖面,不是债务。
  *
  * `rounded-full` / `rounded-none` 不在此列:前者是"胶囊/正圆"那一型(守门 11 与 77 管),
  * 后者是 0,都不是"这个元素该取哪一档"的判断。
@@ -122,7 +130,7 @@ export function radiusPxInLine(line, table) {
   const push = (v) => {
     if (Number.isFinite(v) && v > 0) out.push(Math.round(v * 100) / 100)
   }
-  for (const m of line.matchAll(/\brounded-(xs|sm|md|lg|xl|2xl)\b/g)) {
+  for (const m of line.matchAll(/\brounded-(?:(?:tr|tl|br|bl|[tblr])-)?(xs|sm|md|lg|xl|2xl)\b/g)) {
     if (table[m[1]] !== undefined) push(table[m[1]])
   }
   for (const m of line.matchAll(/\brounded-\[\s*(\d+(?:\.\d+)?)(rpx|px)?\s*\]/g)) {
