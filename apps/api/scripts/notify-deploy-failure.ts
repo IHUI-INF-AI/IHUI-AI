@@ -676,12 +676,24 @@ async function main(
       )
       return computeExitCode(outcome)
     }
-    for (const r of outcome.reasons) console.error(`[alert-mail] ${r}`)
+    for (const r of outcome.reasons) announceFailure(r)
     return computeExitCode(outcome)
   } catch (e) {
-    console.error(`[alert-mail] 脚本异常: ${errText(e)}`)
+    announceFailure(`脚本异常: ${errText(e)}`)
     return parseCliArgs(argv).strict ? 2 : 0
   }
+}
+
+/**
+ * 失败必须响,但**CI 的退出码语义不能变**(通知失败不该把一次成功的部署判成失败)。
+ * 两头同时成立的做法是 GitHub 注解:`::warning::` 会出现在 job 摘要与日志顶部,
+ * 既不改 exit code,也不会让"没寄出去"这件事只留在滚动的 stderr 里没人看。
+ * 非 GH Actions 环境(本机部署环)只打 stderr —— 那边本来就显式带 `--strict`,失败即非零。
+ */
+function announceFailure(reason: string): void {
+  console.error(`[alert-mail] ${reason}`)
+  if (process.env.GITHUB_ACTIONS !== 'true') return
+  console.log(`::warning file=apps/api/scripts/notify-deploy-failure.ts::告警邮件未送达:${reason}`)
 }
 
 // §22d:CLI 直跑与测试 import 双形态隔离,import 本模块不得触发任何网络/文件副作用
