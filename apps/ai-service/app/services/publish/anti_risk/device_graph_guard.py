@@ -29,19 +29,20 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from app.core.logging import get_logger
 
+from .state_paths import resolve_state_path
+
 logger = get_logger(__name__)
 
 
-# 持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
-_GRAPH_FILE = Path(os.environ.get(
-    "ANTI_RISK_DEVICE_GRAPH_FILE",
+# 持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/;相对档一律锚定**仓库根**、与进程 cwd 无关)
+_GRAPH_FILE = resolve_state_path(
+    os.environ.get("ANTI_RISK_DEVICE_GRAPH_FILE"),
     ".ihui-agent/tmp/device_graph.json",
-)).resolve()
+)
 
 
 # ---------------------------------------------------------------------------
