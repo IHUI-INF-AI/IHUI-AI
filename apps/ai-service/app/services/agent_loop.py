@@ -199,6 +199,7 @@ class AgentExecutor:
         max_iterations: int | None = None,
         tools: list[str] | None = None,
         user_id: str | None = None,
+        repo_name: str | None = None,
     ) -> dict[str, Any]:
         """执行 agent 循环。
 
@@ -212,6 +213,10 @@ class AgentExecutor:
                 按 P1-6 复合 key(`memory:{user_id}:{session_id}`)隔离读写 —— 写入与
                 读取必须同源,否则 GET /agents/sessions* 会看不到本 run 刚写的消息。
                 为空时回退到 _resolve_user_id 的 session 前缀解析(旧行为)。
+            repo_name: V3 #76(2026-09-28)知识卡自动蒸馏的归属仓库。为空时回落到
+                部署级默认 `knowledge_card_default_repo`;仍为空则**跳过蒸馏**并打日志,
+                不从工作区路径或工具入参猜仓库 —— 猜错会把 A 仓的踩坑记录写进 B 仓的
+                知识库,那比不沉淀更坏。
 
         Returns:
             包含 task_id/session_id/status/iterations/steps/result 的字典。
@@ -477,6 +482,25 @@ class AgentExecutor:
                             logger.warning("consolidate 启动失败(降级,不阻塞): %s", e)
                 except Exception as e:
                     logger.warning("auto graph extract 启动失败(降级,不阻塞): %s", e)
+
+            # V3 #76 知识卡自动蒸馏出口(2026-09-28 立):同一处"任务完成"时机,
+            # 但**独立开关**(LLM 真调用有 token 成本,与 stub 下零成本的图谱抽取不同价)。
+            # gating/注册/异常登记全部收在 schedule_distillation_from_conversation 一份实现里,
+            # 这里只负责调用 —— v2 循环走同一个出口,不得各写一遍判序。
+            # 窗口取 messages[-8:],与上方图谱抽取/consolidate 同一批语料,口径可对照。
+            try:
+                from .knowledge_card_extractor import schedule_distillation_from_conversation
+
+                schedule_distillation_from_conversation(
+                    messages[-8:],
+                    repo_name=repo_name,
+                    user_id=user_id,
+                    session_id=sid,
+                    conversation_length=len(messages),
+                    pending_tasks=self._pending_tasks,
+                )
+            except Exception as e:
+                logger.warning("知识卡蒸馏启动失败(降级,不阻塞): %s", e)
 
         # L4 自进化:后置自评 fire-and-forget(成功/失败都触发,不阻塞主链路)
         # canceled 状态不触发(用户主动取消,非真实失败,无可学习信号)
