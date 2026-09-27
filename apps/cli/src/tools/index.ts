@@ -23,7 +23,13 @@ import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
 import { checkPermission, checkRulesWithLease, type PermissionRules } from './permissions.js';
 import { activePermissionLease } from './permission-lease.js';
-import { shadowValidateToolArguments } from './argument-validation-telemetry.js';
+import {
+  enforceValidateToolArguments,
+  noteEnforceRepairRejection,
+  resolveToolArgValidationMode,
+  shadowValidateToolArguments,
+} from './argument-validation-telemetry.js';
+import { formatValidationErrorsLine } from './argument-validator.js';
 import { noteDangerousApproval } from './danger-gate.js';
 import { recordApprovedInvocation } from './permission-lease.js';
 import { leaseWorkspaceIdOf } from '../utils/permission-lease-flag.js';
@@ -692,11 +698,44 @@ export async function executeToolCall(
   if (!tool) {
     return { success: false, output: '', error: `未知工具: ${call.name}`, errorType: 'not_found' };
   }
-  // A31 第①步「影子校验」(默认 off ⇒ 这一行等价于不存在):跑校验、只进遥测计数器,
-  // 不改 call.arguments、不改返回值、不拦调用。刻意放在**批准弹窗之前** —— 弹窗与
-  // "批准 = 执行"的同一引用传递链路(上一票实测出的语义)在此完全不受影响。
-  // 已知覆盖面缺口:hubEnabled 分支在 getTool 之前就 return 了,那里拿不到 Tool 对象,本票不扩面。
-  shadowValidateToolArguments(tool, call.arguments);
+  // A31 第①步「影子校验」/ A36 第③步「enforce」。默认 off ⇒ 整个分支等价于不存在
+  // (行为与改前逐字相同,由 argument-validation-shadow 单测①钉住"默认零副作用")。
+  //   shadow:跑校验、只进遥测计数器,不改 call.arguments、不改返回值、不拦调用;
+  //   enforce:先过 schema-aware 容错解析(原值即过则一次都不 re-parse),违规即拒 ——
+  //     错误里带**单行**违规清单供模型修复;拒绝发生在权限/批准弹窗与限流**之前**
+  //     (一条参数就不合法的调用没有可批准的事,也不该消耗限流配额);
+  //     容错解析通过时**只有**这一档会替换 call.arguments(归一树,原键全保留)。
+  // 与 doom-loop 检测共存:repair 不是执行器内的第二次自动重试 —— 拒绝直接 return
+  // (不经 executeWithRetry;`isRetryableErrorType` 也不认 invalid_arguments*),
+  // 模型是否再投由下一轮决定;而按工具名计的**连续**拒绝窗把回喂封顶在
+  // TOOL_ARG_REPAIR_MAX_ATTEMPTS 次,超限硬失败并保留最后一次违规清单 ⇒ 换写法也顶得出。
+  // 已知覆盖面缺口:hubEnabled 分支在 getTool 之前就 return 了,那里拿不到 Tool 对象,
+  // 影子与 enforce 都不生效,本票不扩面。
+  // 拒绝文案用 ASCII(守门 70 的硬编码中文基线棘轮同样约束本文件,见上方预算标注注记)。
+  const toolArgMode = resolveToolArgValidationMode();
+  if (toolArgMode === 'enforce') {
+    const decision = enforceValidateToolArguments(tool, call.arguments);
+    if (decision.status === 'reject') {
+      const repair = noteEnforceRepairRejection(tool.name);
+      const violations = formatValidationErrorsLine(decision.errors);
+      return {
+        success: false,
+        output: '',
+        error: repair.exhausted
+          ? `arg_validation_exhausted: rejection #${repair.attempt} exceeds the ${repair.max}-attempt repair window; do not re-issue this call without new information. last violations -> ${violations}`
+          : `arg_validation_failed (${repair.attempt}/${repair.max}): fix these fields and retry. violations -> ${violations}`,
+        errorType: repair.exhausted ? 'invalid_arguments_exhausted' : 'invalid_arguments',
+      };
+    }
+    if (decision.status === 'pass-normalized') {
+      call.arguments = decision.args;
+    }
+    // pass / undetermined(校验器抛异常,fail-open 已记 validatorThrew)→ 原路径继续。
+  } else {
+    // 刻意放在**批准弹窗之前** —— 弹窗与"批准 = 执行"的同一引用传递链路(上一票实测出的
+    // 语义)在此完全不受影响。
+    shadowValidateToolArguments(tool, call.arguments);
+  }
   // P0-7 Permission rules:白名单/黑名单拦截(在 rate limit 之前,避免被限流工具仍消耗配额)
   // 权限租约(默认关闭):`activePermissionLease()` 为 null 时走的仍是改造前那一份
   // `checkPermission` 调用,行为逐字不变;有租约时也**只**可能把 rules 里的 'ask'
