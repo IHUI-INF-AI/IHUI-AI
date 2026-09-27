@@ -444,7 +444,7 @@ export function UnifiedTaskDashboard() {
             type="button"
             onClick={() => setSourceFilter(s)}
             className={cn(
-              'rounded-full border px-2 py-0.5 text-[10px] transition-colors',
+              'rounded-md border px-2 py-0.5 text-[10px] transition-colors',
               sourceFilter === s
                 ? 'border-brand-accent-deep bg-primary/10 text-primary'
                 : 'border-border text-muted-foreground hover:bg-muted',
