@@ -6318,3 +6318,17 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 - **会话产物模板最小一环(报表)**:新增 `generate_report` 工具,经会话真入口派发后落 `tmp/artifacts/<时间>_<slug>_<随机>.html` 并写属主 sidecar,产物服务按属主放行、非属主 403;输出全程转义,拒绝路径逃逸。端到端取证产物为可读 HTML 文件而非提示词。工具名五语言功能名与小程序离线包已同步(否则端内会回显 `toolGenerateReport`)。
 - **工具调用证据进审计链(写入源投影)**:CLI 的流式工具账本快照现在有生产调用点,经唯一出口逐条落 `audit_logs_chain`(`action=tool.invoke`),**0 新表 0 新列**,复用既有 HMAC 链与串行化锁;请求体刻意不含身份字段,属主只从令牌主体进。摄入路由的挂载在另一票(86A2),在其落地前 CLI 会点名一次 404 并停止本进程重试(可见,不静默)。
 - **上一行的后续(同日,`86A2` 已落地)**:摄入路由已挂上 —— `POST /api/cli/audit/tool-invokes`(注册行 `routes/index.ts`,import 与 register 各恰好 +1,没顶掉别人的登记),CLI 的 404 降级路径随之退役;判据现读 `git grep -c "tool-invokes" HEAD -- apps/api/src` 由 0 变 5,`pnpm --filter @ihui/api test cli-tool-invoke-audit` 末行 `Tests 8 passed (8)`,其中两条反向用例断言的是**"未发出任何写"**(混入 `userId`/`user_id` ⇒ 400 且写入口零调用;匿名与非 UUID 主体 ⇒ 401 零调用),部分失败回 207 且 `code≠0` 并把 `failed` 如实计数。**仍未跑的一格**:真库端到端(本机 8802/8810 无监听且 §5 禁止连生产库),落库后在审计链查回的验收另计一票。
+> - **文件族同样只有一份判据**(2026-09-27 收口，`packages/shared/src/chat/file-tool-intent.ts`)：
+>   "这一句要不要给 AI 一只**改文件**的手"此前只写在 web 端(`tool-config.ts`)，而扩展会话
+>   **完全不带**文件族 —— 这类分叉不会报错，只会表现成"同一句话在 web 能改文件、在扩展不能"。
+>   现搬到共享层：web 保留 re-export(不打断既有 import 面)、扩展直接 import。两张名单刻意命名成
+>   `FILE_*_INTENT_TOOLS` 且**不进 `./chat` barrel**：barrel 里已有的 `FILE_WRITE_TOOLS`
+>   (`task-status.ts`)是"这次调用算不算改了文件"的**识别**白名单(Set，按 `.has()` 消费)，与
+>   "把哪些工具交给模型"的**能力**清单同词不同义，并置会产出 `export *` 歧义。行为对子与
+>   "端内不得再写第二份正则"由 `packages/shared/src/chat/__tests__/file-tool-intent.test.ts` 钉住。
+>   随该能力开通，**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 扩展 / 小程序 / RN 四端**：
+>   载荷 `partialText` 是**累积文本**，按 `toolCallId` 整帧覆盖(同 seq 重放天然幂等，`seq` 不参与
+>   判断)，仅 `running` 态渲染，`tool-result` 到达即清(最终 ± 行以 result 为准)。四端渲染条件
+>   逐字同形，字段声明收敛进 `@ihui/types` 的 `ToolCall.partialDiff`，端内归并层一律纯函数
+>   (web `createToolDeltaHandler` / 扩展 `lib/tool-call-frames.ts` / 小程序 `cards/types.ts` /
+>   RN `chat-render-model.ts`)，接线由各自的源码级锁 + 真实帧端到端用例钉住。
