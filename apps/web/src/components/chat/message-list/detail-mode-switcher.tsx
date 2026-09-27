@@ -31,7 +31,7 @@ export function DetailModeSwitcher() {
       <div
         role="radiogroup"
         aria-label={t('label')}
-        className="flex items-center gap-0.5 rounded-full bg-muted p-0.5"
+        className="flex items-center gap-0.5 rounded-md bg-muted p-0.5"
       >
         {CONVERSATION_DETAIL_MODES.map((m) => (
           <button
@@ -43,8 +43,8 @@ export function DetailModeSwitcher() {
             onClick={() => setMode(m)}
             className={
               mode === m
-                ? 'rounded-full bg-cta px-2.5 py-0.5 text-xs text-cta-foreground transition-colors'
-                : 'rounded-full px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground'
+                ? 'rounded-lg bg-cta px-2.5 py-0.5 text-xs text-cta-foreground transition-colors'
+                : 'rounded-lg px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground'
             }
           >
             {t(MODE_LABEL_KEYS[m])}
