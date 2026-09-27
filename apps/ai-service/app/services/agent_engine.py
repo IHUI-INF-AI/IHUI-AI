@@ -5654,6 +5654,15 @@ class AgentEngine:
             self._code_sessions.pop(session["id"], None)
 
         async def _exec(args: dict[str, Any]) -> Any:
+            # 第三十三批:函数内 import 而非模块顶部 —— 本票的改动范围只覆盖
+            # 这一处代码会话读取,把共享出口放在这里可以让 diff 与病灶同域。
+            from .command_streamer import (
+                FRAME_READ_LINE,
+                FRAME_READ_TOO_LARGE,
+                PROTOCOL_FRAME_LIMIT_BYTES,
+                read_protocol_frame,
+            )
+
             code = args.get("code")
             if not isinstance(code, str) or not code.strip():
                 return {"error": "run_code 需要非空 code"}
@@ -5696,6 +5705,11 @@ class AgentEngine:
                         stderr=asyncio.subprocess.DEVNULL,
                         cwd=thread.workspace or os.getcwd(),
                         env=_sanitized_child_env(),
+                        # 第三十三批:声明帧预算。bootstrap 的应答是**一行 JSON**
+                        # (toolCall 结果、print 捕获缓冲都在同一行),不传 limit
+                        # 就是 asyncio 默认 65536 —— 一次 print(大对象) 就会
+                        # 让下面的 readline() 抛 LimitOverrunError。
+                        limit=PROTOCOL_FRAME_LIMIT_BYTES,
                     )
                     # OS 级沙箱(2026-09-18 第八批,对标 execpolicy 内核层):
                     # kill-on-close + 内存/进程数上限 + UI 限制;失败降级不阻塞
@@ -5728,6 +5742,7 @@ class AgentEngine:
                     await _kill(session)
                     return {"error": f"代码会话写入失败(进程可能已退出): {e}"}
                 nested = 0
+                dropped_frames = 0
                 while True:
                     remaining = deadline - asyncio.get_running_loop().time()
                     if remaining <= 0:
@@ -5737,8 +5752,8 @@ class AgentEngine:
                             "长任务请拆分多次调用"
                         }
                     try:
-                        raw = await asyncio.wait_for(
-                            proc.stdout.readline(), timeout=remaining
+                        read_result = await asyncio.wait_for(
+                            read_protocol_frame(proc.stdout), timeout=remaining
                         )
                     except TimeoutError:
                         await _kill(session)
@@ -5746,9 +5761,38 @@ class AgentEngine:
                             "error": f"代码执行超时({timeout_s:.0f}s),会话已终止;"
                             "长任务请拆分多次调用"
                         }
-                    if not raw:
+                    if read_result.kind == FRAME_READ_TOO_LARGE:
+                        # 病灶(第三十三批):这条 readline() 原先没有任何超限分支,
+                        # LimitOverrunError 冒到本函数之外 ⇒ 调用方看到的是"工具
+                        # 执行失败",而会话里那条 JSONL 的残余仍卡在缓冲区,下一次
+                        # 调用从半行开始解析。现在按**真因**回报并终止会话:
+                        # 这里确实要终止(丢掉的一帧可能是 toolCall,子进程在等
+                        # 宿主回话,继续等只会变成"超时"这种又一层误归因),
+                        # 但回报里写的是"单帧超预算",不是"进程已退出"。
+                        dropped_frames += 1
+                        logger.warning(
+                            "[run_code] 代码会话单帧超过帧预算 %d 字节(实读 %d 字节,"
+                            "本次调用累计 %d 帧),会话已终止 —— 真因是这一行太大,"
+                            "不是进程崩溃",
+                            PROTOCOL_FRAME_LIMIT_BYTES,
+                            read_result.dropped_bytes,
+                            dropped_frames,
+                        )
+                        await _kill(session)
+                        return {
+                            "error": f"代码会话单帧超过帧预算"
+                                     f"({PROTOCOL_FRAME_LIMIT_BYTES} 字节,"
+                                     f"实读 {read_result.dropped_bytes} 字节,"
+                                     f"本次累计丢弃 {dropped_frames} 帧),会话已终止;"
+                                     f"请分块 print 而不要一次输出整个大对象",
+                            "errorCode": "frame_too_large",
+                            "droppedFrames": dropped_frames,
+                        }
+                    if read_result.kind != FRAME_READ_LINE:
+                        # EOF:进程真的没了(这才是"会话已退出"的唯一正当解释)
                         await _kill(session)
                         return {"error": "代码会话进程已退出(可能是代码杀死了进程)"}
+                    raw = read_result.data
                     try:
                         frame = json.loads(raw.decode("utf-8", errors="replace"))
                     except ValueError:
