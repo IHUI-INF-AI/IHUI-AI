@@ -3686,6 +3686,25 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- README 表格完整性(1 项,blocking)---
+  {
+    id: '141',
+    label:
+      'README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)',
+    script: 'check-readme-table-integrity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_README_TABLE_INTEGRITY',
+    stagedTriggers: ['README.md'],
+    onFailHint: [
+      '',
+      'T-A 竖排续行超锚点:node scripts/readme-table-unwrap.mjs --file README.md --dry-run(默认零写盘,自证零内容损失后才 --apply)',
+      '确属有意保留:<!-- table-cell-exempt: <原因> --> 写在宿主行或该 run 内任一行(须带原因,守门 108 管 30 天到期)',
+      'T-B 半截行与孤立 2 竖线行只报数不判红(要逐案判语义,不归本门)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
