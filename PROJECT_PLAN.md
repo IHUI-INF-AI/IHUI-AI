@@ -3507,7 +3507,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [ ] 60. 真并行多窗格(store 从 `conversationId` 单例改为 `Map<paneId, State>`;独立 SSE/abort;服务端 fork 路由下放)
 - [ ]（进行中@2026-09-27/v3wave3）63. `form_request` SSE 帧 UI(`send-message.ts` 无 `onFormRequest`;`BusinessFormCard` 只在派发事件未在对话流消费) 〔更正票面前提(2026-09-27 现读):`form_request` **全仓后端零生产点** —— `apps/api/src` 与 `apps/ai-service/app` grep 均 0 命中,`packages/shared/src/sse/contract.ts` 亦未登记该成员(旧 client.ts 注释声称"与 contract 逐字段同形"是失实的,已就地更正)。D77/G-106 的对话流宿主以 `onFormRequest` 为装车落点且仍在飞 ⇒ 不删(砸他人承重点)、不补假生产者。真缺口 = 契约登记 + 生产者 + `form_response` 接收端三件,归 D77 后续票。〕
 - [ ] 61. `@` 多维提及接线(`useSearchMentions` 与 `addMention` 当前零调用 → `MentionChips` 恒 null;`@` 与 `#` 统一到一个 mention engine)
-- [ ] 63. 〔重复登记副本〕本行与上一条同主键(裸编号 + 标题逐字相同),是并发并集留下的第二份未勾选副本 ⇒ 按 §1 规矩只加指针、绝不动勾选;当前状态见带 v3wave3 租约的那一条。
+- [ ] 副本指针(编号 63)：本行与上一条同主键、是并发并集留下的第二份未勾选副本 ⇒ 按 §1 只加指针不动勾选;当前状态见带 v3wave3 租约的那条。
 - [ ] 65. 暂停 / 继续生成(后端 `AgentLoopV2._pause_requested` + `execute/resume` 已有,前端只暴露 Stop)
 - [ ] 66. side-by-side diff 切换 + 三方合并视图(现仅 unified 行级 + hunk 勾选)
 - [x] 67.(`TerminalSection` 现直接把 `\x1b[31m` 之类转义序列显示给用户) ✅(2026-09-26)取证:后端只脱敏不剥 ANSI,前端是唯一渲染面;src/lib/ansi.ts 零依赖解析器(SGR 8/16/256/truecolor + 粗斜下删反显;结构化 span 不拼 HTML=XSS 硬防线;不完整 CSI 按文本渲染下帧自愈);terminal-section 输出切换(无 ANSI 走原路径零回归),复制剥离转义;vitest 34/34
