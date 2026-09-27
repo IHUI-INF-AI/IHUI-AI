@@ -212,8 +212,8 @@ function LoadingSkeleton({ t }: { t: ReturnType<typeof useTranslations> }) {
               <div className="h-9 w-9 animate-pulse rounded-lg bg-muted" />
               <div className="mt-3 h-8 w-24 animate-pulse rounded bg-muted" />
               <div className="mt-1.5 flex items-center justify-between">
-                <div className="h-4 w-16 animate-pulse rounded bg-muted" />
-                <div className="h-4 w-12 animate-pulse rounded bg-muted" />
+                <div className="h-4 w-16 animate-pulse rounded-xs bg-muted" />
+                <div className="h-4 w-12 animate-pulse rounded-xs bg-muted" />
               </div>
             </CardContent>
           </Card>
@@ -227,11 +227,11 @@ function LoadingSkeleton({ t }: { t: ReturnType<typeof useTranslations> }) {
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3">
-                <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-                <div className="h-4 w-16 animate-pulse rounded bg-muted" />
-                <div className="h-4 w-16 animate-pulse rounded bg-muted" />
-                <div className="h-4 w-16 animate-pulse rounded bg-muted" />
-                <div className="h-2 flex-1 animate-pulse rounded bg-muted" />
+                <div className="h-4 w-24 animate-pulse rounded-xs bg-muted" />
+                <div className="h-4 w-16 animate-pulse rounded-xs bg-muted" />
+                <div className="h-4 w-16 animate-pulse rounded-xs bg-muted" />
+                <div className="h-4 w-16 animate-pulse rounded-xs bg-muted" />
+                <div className="h-2 flex-1 animate-pulse rounded-xs bg-muted" />
               </div>
             ))}
           </div>
@@ -455,7 +455,7 @@ export default function UsagePage() {
                       <td className="px-4 py-2.5">¥ {m.cost.toFixed(2)}</td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-24 overflow-hidden rounded-sm bg-muted">
+                          <div className="h-1.5 w-24 overflow-hidden rounded-xs bg-muted">
                             <div
                               className="h-full rounded-sm bg-primary"
                               style={{ width: `${Math.min(m.percentage, 100)}%` }}

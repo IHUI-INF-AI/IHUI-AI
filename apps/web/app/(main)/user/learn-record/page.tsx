@@ -100,7 +100,7 @@ export default function LearnRecordPage() {
                   </div>
                   <div className="flex w-28 shrink-0 flex-col items-end gap-1">
                     <span className="text-xs font-medium text-muted-foreground">{progress}%</span>
-                    <div className="h-1.5 w-full overflow-hidden rounded-md bg-muted">
+                    <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted">
                       <div
                         className="h-full rounded-md bg-primary transition-all"
                         style={{ width: `${progress}%` }}

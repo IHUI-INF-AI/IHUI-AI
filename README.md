@@ -4194,11 +4194,6 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **调度器 + 实时通知**:scheduler + WebSocket + content_parser + image_uploader + platform_rules + platform_formatter + platform_dom_selectors + platform_rule_versions(版本化 + 灰度回滚)
 - **AI 写作助手**:ai_assistant(智能改写 + 多风格切换 + 内容模板库 ContentTemplateLibrary)
 - **前端 UI 精装修**:AccountGroupManager / AiWritingAssistant / AnalyticsDashboard / BatchImportDialog / ContentTemplateLibrary / CookieHealthIndicator / PlatformPreview / PublishCalendar / RichTextEditor / AdminFilterBar / AdminPagination(11 新组件 + 6 修改,所有页面 < 250 行)
-- **凭据身份与画像根锚定(2026-09-27 收口)**:身份键唯一出口 `apps/ai-service/app/services/publish/anti_risk/account_identity.resolve_account_id(platform, credentials, db_account_id)` —— 适配器不得再自造 `f"{platform_id}_{credentials['account_id'] or 'default'}"`,那种键会让同平台所有账号在反风控层共用一张脸;画像根与 5 个反风控状态文件(设备图谱/审计/冷却/风险事件/Cookie 健康度)一律**锚定仓库根、与启动目录无关**(`ANTI_RISK_PROFILE_DIR` 仍可覆盖),旧位置由 `apps/ai-service/scripts/relocate_profile_root.py` 搬迁(默认 dry-run,回读 `Cookies` 字节 + mtime 一致才删源)。
-- **登录导入先验后写 + 覆盖可回滚**:扫码与粘贴两条路径共用 `verify_login_candidate()` → `should_overwrite_existing_credentials()` → 才写库(此前**无条件覆盖**,一次失败导入能把可用凭据换成过期集合而账面全绿);每次覆盖把旧密文压进 `extra.credentialsHistory`,写库出口唯一 = `publish/credential_history.apply_credentials_update()`(三处调用点),`last_verify_msg` 存**当轮真实结论**而非硬编码"扫码登录成功"。
-- **表单字段与适配器实读键对账**:前端注册表 10 处漂移(wordpress/medium/bilibili/zhihu/juejin 键名 + 五家泛键 `cookie`)按"权威侧 = 适配器"订正,常驻尺子 = `apps/api/tests/publish-credential-field-parity.test.ts`(P1 逐键等值 / P2 覆盖差如实报数 / P3 空扫判死)。
-- **Cookie 自动保活默认关**:`cookie_refresh_daemon` 启动期无人调用 `ensure_started()`,须显式开启 —— 在用户第三方账号上做未取证的写动作前保持关闭(判据与恢复方式见 `docs/PUBLISH_SETUP.md` §5)。
-- **发布运维文档**:`docs/PUBLISH_SETUP.md` 逐平台写明"要哪些凭据字段 / 怎么拿 / 失败长什么样",14 个平台锚点与 `setupHint` 出口由 `apps/api/tests/publish-setup-anchor.test.ts` 对账。
 - **新增 API 端点**:`/api/publish/analytics`(发布数据分析)+ `/api/publish/calendar`(日历排期)
 
 #### 企业级安全矩阵(RBAC + RLS + SSO + MFA + GDPR)
@@ -6228,7 +6223,6 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | "Invalid or expired token" 落到参数类正则 `/invalid                                            | missing                                                                                             | required/` 上,用户看到 「提交的信息有误,请检查后重试」。立因是真机实测:进 App「广场」tab 一进来就弹这句 —— 它把"去重新登录"引导成"回去改表单",**修复方向被指错**,不是措辞偏好。 唯一出口 `apiFailureToError(res)`(`packages/shared/src/utils/error-messages.ts`); 出口被摘线时本门判"没有出路"并参与退出码。判据面先剥注释与字符串,遮罩唯一实现在 `scripts/lib/code-mask.mjs`(守门 131 同日改引它 —— 两处算同一件事必漂移)。 存量 958 处按**该文件 HEAD 自身计数**套棘轮,行内豁免 `api-error-exempt: <原因>` (须带原因,已挂守门 108 的 30 天到期档)。**刻意不判的第二半**:catch 里只把字符串交给 UI (`showFloat(e.message)`)的,换出口也救不回身份 —— 余量迁移必须逐处读 catch 路径。 取证:`--self-test`(含真仓 HEAD 阳性对照)+ 镜像 8 例(T6 用纯函数+构造面证明 "没 export 的出口等于不存在"、T7 证明遮罩不得有第二份)+ 一次私有索引注入复跑 (加一处新违规 ⇒ `--staged` exit 1 并点名文件)。紧急跳过 `HUSKY_SKIP_API_FAILURE_THROW=1`。 |
 | 145 | guardian-runner.mjs + package.json scripts | `check-rn-double-header.mjs` | ⚠️ RN 屏包装器 NavBar × 共享屏自带页头 ⇒ 同屏两条返回键与两个标题;判据从调用点实参识别抑制通道,禁删任一层(blocking;出口 `double-header-exempt`;细节见 AGENTS.md 同名条) |
 | 146 | guardian-runner.mjs + package.json scripts | `check-readme-table-integrity.mjs` | ⚠️ 长文塞进表格单元格 → prettier 把散文里的竖线当列分隔符重排,表格被打断;TI1 竖排续行判红、T-B 半截行只报数,修复出口 `readme-table-unwrap.mjs`(blocking;出口 `table-cell-exempt`;细节见 AGENTS.md 同名条) |
-| 147 | guardian-runner.mjs + `pnpm check:model-capacity` | `check-model-capacity-parity.mjs` | 模型兜底窗口/低窗口例外/推理档位 TS↔Python 两侧逐项等值(Python 源码自述"暂无自动对账门"是立项凭据);C1/C2/C3 三判据,默认档只报数、`--strict` 问责,无行内豁免(细节见 AGENTS.md 同名条) |
 
 ### 发布线本轮收口新增的对外能力与运维入口（2026-09-27）
 
@@ -6305,3 +6299,9 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | "没 export 的出口等于不存在"、T7 证明遮罩不得有第二份)+ 一次私有索引注入复跑                   |
 | (加一处新违规 ⇒ `--staged` exit 1 并点名文件)。紧急跳过 `HUSKY_SKIP_API_FAILURE_THROW=1`。     |
 | (空闲号待定) | **尚未注册** —— 原 145 号注册块被并发提交回写,三面零命中 | `check-readme-table-integrity.mjs` | ⚠️ 设计定级 blocking 但**现值零调度器**:判据对 HEAD 面 README 现读 61 行 TI1(棘轮 cap=0),先清偿存量再补注册,否则接进提交链就是一台恒红门;TI1 竖排续行判红、T-B 半截行只报数,修复出口 `readme-table-unwrap.mjs`(出口 `table-cell-exempt`;细节与解阻顺序见 AGENTS.md 同名条) |
+- **凭据身份与画像根锚定(2026-09-27 收口)**:身份键唯一出口 `apps/ai-service/app/services/publish/anti_risk/account_identity.resolve_account_id(platform, credentials, db_account_id)` —— 适配器不得再自造 `f"{platform_id}_{credentials['account_id'] or 'default'}"`,那种键会让同平台所有账号在反风控层共用一张脸;画像根与 5 个反风控状态文件(设备图谱/审计/冷却/风险事件/Cookie 健康度)一律**锚定仓库根、与启动目录无关**(`ANTI_RISK_PROFILE_DIR` 仍可覆盖),旧位置由 `apps/ai-service/scripts/relocate_profile_root.py` 搬迁(默认 dry-run,回读 `Cookies` 字节 + mtime 一致才删源)。
+- **登录导入先验后写 + 覆盖可回滚**:扫码与粘贴两条路径共用 `verify_login_candidate()` → `should_overwrite_existing_credentials()` → 才写库(此前**无条件覆盖**,一次失败导入能把可用凭据换成过期集合而账面全绿);每次覆盖把旧密文压进 `extra.credentialsHistory`,写库出口唯一 = `publish/credential_history.apply_credentials_update()`(三处调用点),`last_verify_msg` 存**当轮真实结论**而非硬编码"扫码登录成功"。
+- **表单字段与适配器实读键对账**:前端注册表 10 处漂移(wordpress/medium/bilibili/zhihu/juejin 键名 + 五家泛键 `cookie`)按"权威侧 = 适配器"订正,常驻尺子 = `apps/api/tests/publish-credential-field-parity.test.ts`(P1 逐键等值 / P2 覆盖差如实报数 / P3 空扫判死)。
+- **Cookie 自动保活默认关**:`cookie_refresh_daemon` 启动期无人调用 `ensure_started()`,须显式开启 —— 在用户第三方账号上做未取证的写动作前保持关闭(判据与恢复方式见 `docs/PUBLISH_SETUP.md` §5)。
+- **发布运维文档**:`docs/PUBLISH_SETUP.md` 逐平台写明"要哪些凭据字段 / 怎么拿 / 失败长什么样",14 个平台锚点与 `setupHint` 出口由 `apps/api/tests/publish-setup-anchor.test.ts` 对账。
+| 147 | guardian-runner.mjs + `pnpm check:model-capacity` | `check-model-capacity-parity.mjs` | 模型兜底窗口/低窗口例外/推理档位 TS↔Python 两侧逐项等值(Python 源码自述"暂无自动对账门"是立项凭据);C1/C2/C3 三判据,默认档只报数、`--strict` 问责,无行内豁免(细节见 AGENTS.md 同名条) |

@@ -132,7 +132,7 @@ export default function ContextVisualizationPage() {
                             tokens
                           </p>
                         </div>
-                        <div className="h-1.5 w-24 overflow-hidden rounded-sm bg-muted">
+                        <div className="h-1.5 w-24 overflow-hidden rounded-xs bg-muted">
                           <div
                             className="h-full bg-amber-500"
                             style={{ width: `${Math.min(100, ratio * 100)}%` }}
