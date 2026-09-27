@@ -1647,8 +1647,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth/oauth/my-authorized/:sessionId', async (request, reply) => {
     await authenticate(request)
     const { sessionId } = z.object({ sessionId: z.string() }).parse(request.params)
-    // deleted 由库侧 RETURNING 派生,不是代码常量(2026-09-27)
-    const removed = await deleteSession(sessionId)
+    // deleted 由库侧 RETURNING 派生,不是代码常量(2026-09-27);
+    // 同批把属主一并交给 SQL 层 —— 别人的 sessionId 在这里是"0 命中 ⇒ deleted:false",
+    // 不再是"删掉了别人的授权 ⇒ deleted:true"。
+    const removed = await deleteSession(sessionId, request.userId!)
     return reply.send(success({ deleted: removed.length > 0 }))
   })
 
