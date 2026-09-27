@@ -8,6 +8,7 @@ import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getProfile, updateProfile } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { ProfileEditScreen as SharedProfileEditScreen, type Gender } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
@@ -73,7 +74,7 @@ export function ProfileEditScreen() {
       setGender((res.data.gender ?? 0) as Gender)
       setAvatar(res.data.avatar ?? null)
     } else {
-      setError(res.error || uniappT('profileEdit.loadFailed'))
+      setError(apiFailureToText(res, uniappT('profileEdit.loadFailed')))
     }
   }, [token, uniappT])
 
@@ -105,7 +106,7 @@ export function ProfileEditScreen() {
       Alert.alert(uniappT('profileEdit.saved'))
       navigation.goBack()
     } else {
-      setError(res.error || uniappT('profileEdit.saveFailed'))
+      setError(apiFailureToText(res, uniappT('profileEdit.saveFailed')))
     }
   }
 
