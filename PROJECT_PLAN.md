@@ -12655,7 +12655,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [x] ✅(2026-09-24) **本门首跑即抓到一处从未存在过的符号**:`PermissionTierRow`(`git log --all -S` 全仓零命中,而引用它的注释写着"已抽到 ChatDisclosure")。按 HEAD 三处锚点纯新增 33 行补齐本体(取词与 extension/taro 同源 `permissionTierWordKeys`,`mode===null` 整行不渲染),`tsc --noEmit` mobile-rn 由 1 错转 **0 错**(347f26ab09;此前一次合并把它吞掉,已按同法重新落地并回读 HEAD 复核)。
 - [x] ✅(2026-09-24) **真机 A/B 像素取证完成(code 14 / arm64 / 覆盖安装保数据)**:新包 `topResumedActivity=zh.ai.sq/.MainActivity`、crash buffer 空、广场页正常渲染(旧包同机同路径启动即崩);App 深色 + 系统浅色下「待接单」胶囊 /「好的」CTA / 悬浮「＋」三处**逐处纯白底黑字**,全图 `#a3c4d6`(被删的 RN 自立 ctaFill)**精确匹配 0 像素**,而 A 侧旧包同部位有 742 px。CTA 与 web `.dark --color-primary` 至此同源。
 - **O50 残余(不写作收口)**:① 守门 98 存量 6 处全在测试/e2e 面(`FastifyLogInstance`/`PlatformAdapter`/`ChatMessage`/`ReplState`/`baseTest`/`AssetLike` —— 声明未导出或仅内部 import 的 type),属各端测试自身技术债,本门按 HEAD 锚点容忍、不替其背红;② 底栏 TabBar 在 App 深色 + 系统浅色下仍显浅色,属并行会话已记录的「RN 主题两套真相源」(模块级 StyleSheet 冻结 vs 响应式 useColorScheme),修法三选一属产品语义决定,不在本票范围。
-- [ ] **G-239 守门 `check-readme-table-integrity` 的注册块不见了 —— 补注册前必须先清偿它自己的存量**（归属：该门持有者；本线只解除它挡住的提交链）
+- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-239」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 **G-239 守门 `check-readme-table-integrity` 的注册块不见了 —— 补注册前必须先清偿它自己的存量**（归属：该门持有者；本线只解除它挡住的提交链）
   起因与本线无关：另一票要提交时被 id 89「接线层对账」的 **R2** 判红拦住，而红不在我改的文件上。三重现读证据（`2c616ac162` 之后仍成立）：
   ① **三面零命中** —— `git show HEAD:scripts/guardian-runner.mjs`、索引面、工作树面各 `grep -c check-readme-table-integrity` 均为 `0`，
      但 AGENTS.md 第 2210 行与 README.md 第 6283 行都写着"本枚落地取到 **145**、blocking、已接 package.json scripts"：
