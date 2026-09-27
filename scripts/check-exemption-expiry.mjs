@@ -72,6 +72,14 @@ const DEFAULT_LIFETIME_DAYS = 90
 /** 已知族的建议存活期(天)。改这里就是改策略,不得在各门里各抄一份。 */
 const FAMILY_LIFETIME_DAYS = {
   'radius-exempt': 90,
+  /**
+   * 守门 150(圆角角色档合规对账)的行内出口:某处元素确实不属 RADIUS_ROLES 的六档语义时,
+   * 写 `radius-role-exempt: <原因>` 只救本行/紧邻上行。取 **60 天** —— 它是**待偿的配档债**
+   * (出路只有两条:把该类别补进 RADIUS_ROLES 并同笔给出消费方,或把这一处改回角色表那一档),
+   * 不像 back-label-exempt 那样是"结构性定性"(那种取 365);又因改档同时动两端观感、需跨端回归,
+   * 故比 glyph-arrow-exempt 的 30 天长。短周期只会逼人删标记、删了又被门判红,两道门互咬。
+   */
+  'radius-role-exempt': 60,
   'arch-exempt': 90,
   'ihui-allow-important': 90,
   'brand-mail-exempt': 30,
