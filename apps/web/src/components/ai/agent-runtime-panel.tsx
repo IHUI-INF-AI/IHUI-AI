@@ -15,10 +15,19 @@ import {
   FileText,
   Shield,
   Ban,
+  Pause,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { executeAgentRuntimeStream } from '@ihui/api-client'
+// 暂停/继续一律走按会话的两个出口。**不得**拿 pause 响应里的 checkpoint_id 去调
+// `/agents/execute/resume` —— 一次暂停会落两个检查点(`eager` 是按下暂停那一刻的快照,
+// 循环随后还在轮次边界落一个更完整的暂停点),按前者续跑会**重跑一轮已经执行过的工具调用**
+// (带副作用的工具重跑一次就是真实事故)。详见 api-client `AgentSessionCheckpointStage` 注释。
+import {
+  executeAgentRuntimeStream,
+  pauseAgentSession,
+  resumeAgentSession,
+} from '@ihui/api-client'
 import { permissionDecisionWord } from '@ihui/shared/chat'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 // 2026-09-14 接线 CollapsibleOutput 孤儿组件(规划 5.8 长输出折叠):运行时输出不再裸 pre-wrap 撑爆面板
@@ -30,7 +39,9 @@ interface AgentRuntimePanelProps {
 
 // P2 中期增强:增加 cancelled 状态,停止后给用户明确的"任务已取消"反馈
 // (此前只 setStatus('idle'),用户不知道停止是否生效)
-type AgentStatus = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled'
+// `paused` **只在服务端确认暂停位已落**时才写(见 handlePause),端内不用"我上次点过"猜——
+// 那才是第二套状态机;`idle`/`running` 仍是本地流状态。
+type AgentStatus = 'idle' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled'
 
 interface PermissionEvent {
   mode: string
@@ -50,10 +61,16 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
   const [error, setError] = React.useState<string | null>(null)
   const [permission, setPermission] = React.useState<PermissionEvent | null>(null)
   const abortRef = React.useRef<AbortController | null>(null)
+  // 在途标记只为禁用按钮,不参与"暂停/继续"的判定(那一格只认服务端答复)
+  const [pausePending, setPausePending] = React.useState(false)
+  // 直接存后端的 `changed`:true = 本次真的置了暂停位,false = 本来就在暂停位(幂等重复点)。
+  // 它只用来选文案 —— "是不是暂停中"由 `outcome` 给,端内不得用"我上次点过"推断。
+  const [pauseChanged, setPauseChanged] = React.useState(true)
 
   const handleSend = React.useCallback(async () => {
     const message = input.trim()
-    if (!message || status === 'running') return
+    // paused 时不接受新指令:服务端循环还挂在暂停位上,此时发新消息等于绕过续跑
+    if (!message || status === 'running' || status === 'paused') return
 
     setStatus('running')
     setPlan(null)
@@ -106,6 +123,53 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
     setStatus('cancelled')
   }, [])
 
+  /**
+   * 暂停 = 服务端在安全点把循环停住(与 `handleStop` 的"掐断本地流"是两件事,所以两个
+   * 动作各留各的入口,没有互相替换)。
+   *
+   * 状态只从后端答复写:`outcome` 说它在暂停位上才落 `paused`。失败时**不改** `status` ——
+   * 409(不在跑)/403(不是你的会话)/503(暂停位置了但没有恢复点)各有各的结论格,
+   * 端内把它们一律画成"已暂停"就是把失败洗成成功。
+   */
+  const handlePause = React.useCallback(async () => {
+    if (!sessionId || pausePending) return
+    setPausePending(true)
+    setError(null)
+    try {
+      const res = await pauseAgentSession(sessionId)
+      if (!res.success) {
+        // 保留后端给的定向说明(errorCode 已在 ApiResult 上,界面按消息直出即可分流由后续票做)
+        setError(res.error || t('pauseUnavailable'))
+        return
+      }
+      setStatus('paused')
+      setPauseChanged(res.data.changed === true)
+    } finally {
+      setPausePending(false)
+    }
+  }, [sessionId, pausePending, t])
+
+  /**
+   * 继续 = 按**会话**续跑(服务端自己取最新暂停点),见文件头那条"不得回传 checkpoint_id"。
+   * 409 AGENT_RESUME_NOT_PAUSED / 404 AGENT_RESUME_NO_CHECKPOINT 同样只报不改状态。
+   */
+  const handleResume = React.useCallback(async () => {
+    if (!sessionId || pausePending) return
+    setPausePending(true)
+    setError(null)
+    try {
+      const res = await resumeAgentSession(sessionId)
+      if (!res.success) {
+        setError(res.error || t('resumeUnavailable'))
+        return
+      }
+      // 回到 running:本地 SSE 流在暂停期间从未 abort,服务端续跑后增量照常落到这里
+      setStatus('running')
+    } finally {
+      setPausePending(false)
+    }
+  }, [sessionId, pausePending, t])
+
   const handleClear = React.useCallback(() => {
     setStatus('idle')
     setInput('')
@@ -146,11 +210,14 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           {status === 'cancelled' && (
             <Ban data-testid="status-cancelled" className="h-3.5 w-3.5 text-zinc-500" />
           )}
+          {status === 'paused' && (
+            <Pause data-testid="status-paused" className="h-3.5 w-3.5 text-amber-500" />
+          )}
           <div className="flex-1" />
           <button
             type="button"
             onClick={handleClear}
-            disabled={status === 'running'}
+            disabled={status === 'running' || status === 'paused'}
             className="rounded-md px-2 py-1 text-xs transition-colors hover:bg-accent disabled:opacity-40"
           >
             {t('clear')}
@@ -233,7 +300,24 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
             </section>
           )}
 
-          {!plan && !output && !error && !permission && status !== 'cancelled' && (
+          {/* 暂停态说明:正文按后端 `changed` 选档 —— 本次真置了暂停位 vs 本来就在暂停位。
+              这不是端内自己判的状态,只是把服务端给的那一格如实说出来。 */}
+          {status === 'paused' && (
+            <section
+              data-testid="paused-banner"
+              className="mb-3 rounded-md border border-amber-300 bg-amber-50/60 p-3 dark:border-amber-700 dark:bg-amber-950/30"
+            >
+              <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                <Pause className="h-3 w-3" />
+                {t('pausedTitle')}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {pauseChanged ? t('pausedBody') : t('alreadyPausedBody')}
+              </div>
+            </section>
+          )}
+
+          {!plan && !output && !error && !permission && status !== 'cancelled' && status !== 'paused' && (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               {t('emptyState')}
             </div>
@@ -252,18 +336,49 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 }
               }}
               placeholder={t('placeholder')}
-              disabled={status === 'running'}
+              disabled={status === 'running' || status === 'paused'}
               rows={2}
               className="min-w-0 flex-1 resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
             />
-            {status === 'running' ? (
+            {/* 硬停(掐断本地流)与暂停(服务端在安全点停住循环)是两件事,所以两个动作
+                各留各的入口:运行中额外给一枚紧凑停止钮,主钮则分岔成 暂停 / 继续 / 执行。 */}
+            {status === 'running' && (
               <button
                 type="button"
                 onClick={handleStop}
-                className="inline-flex h-9 items-center gap-1 rounded-md bg-red-500 px-3 text-xs font-medium text-white transition-colors hover:bg-red-600"
+                aria-label={t('stop')}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-red-500 text-white transition-colors hover:bg-red-600"
               >
                 <Square className="h-3.5 w-3.5" />
-                {t('stop')}
+              </button>
+            )}
+            {status === 'running' ? (
+              <button
+                type="button"
+                onClick={handlePause}
+                disabled={pausePending}
+                className="inline-flex h-9 items-center gap-1 rounded-md bg-cta px-3 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
+              >
+                {pausePending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Pause className="h-3.5 w-3.5" />
+                )}
+                <span>{t('pause')}</span>
+              </button>
+            ) : status === 'paused' ? (
+              <button
+                type="button"
+                onClick={handleResume}
+                disabled={pausePending}
+                className="inline-flex h-9 items-center gap-1 rounded-md bg-cta px-3 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
+              >
+                {pausePending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Play className="h-3.5 w-3.5" />
+                )}
+                <span>{t('resume')}</span>
               </button>
             ) : (
               <button
@@ -273,7 +388,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 className="inline-flex h-9 items-center gap-1 rounded-md bg-cta px-3 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
               >
                 <Play className="h-3.5 w-3.5" />
-                {t('execute')}
+                <span>{t('execute')}</span>
               </button>
             )}
           </div>
