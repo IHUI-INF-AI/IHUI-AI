@@ -113,7 +113,7 @@ export function renderDispatchEmail(input: DispatchLayoutInput): string {
 <body style="margin:0;padding:0;background:${t.pageBg};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.pageBg}"><tr><td align="center" style="padding:24px 8px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.cardBg}" style="width:600px;max-width:600px;background:${t.cardBg};">
-  <tr><td style="padding:28px 36px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="font-family:Consolas,'Courier New',monospace;font-size:14px;color:${t.dim};letter-spacing:2px;">43.82°N&nbsp;125.32°E&nbsp;&nbsp;//&nbsp;&nbsp;IHUI-CORE<span style="color:${accent};">&nbsp;&nbsp;//&nbsp;&nbsp;${escapeHtml(input.tag)}</span></td><td width="64" align="right" valign="top"><img src="${origin}${BRAND_LOGO_PATH}" width="56" height="56" alt="IHUI AI" style="display:block;border:1px solid ${t.hairline};"></td></tr></table></td></tr>
+  <tr><td style="padding:28px 36px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="font-family:Consolas,'Courier New',monospace;font-size:14px;color:${t.dim};letter-spacing:2px;">IHUI-CORE<span style="color:${accent};">&nbsp;&nbsp;//&nbsp;&nbsp;${escapeHtml(input.tag)}</span></td><td width="64" align="right" valign="top"><img src="${origin}${BRAND_LOGO_PATH}" width="56" height="56" alt="IHUI AI" style="display:block;border:1px solid ${t.hairline};"></td></tr></table></td></tr>
   <tr><td style="padding:14px 36px 0;font-family:Impact,'Arial Black','Microsoft YaHei',sans-serif;font-size:64px;line-height:70px;font-weight:bold;color:${t.ink};letter-spacing:3px;">IHUI<span style="color:${accent};">.</span></td></tr>
   <tr><td style="padding:10px 36px 0;font-family:Consolas,monospace;font-size:14px;color:${t.dim};letter-spacing:5px;">智汇AI&nbsp;·&nbsp;THE&nbsp;MECHANICAL&nbsp;DISPATCH</td></tr>
   <tr><td style="padding:16px 36px 0;"><div style="height:4px;background:${accent};font-size:0;line-height:0;">&nbsp;</div></td></tr>
@@ -614,12 +614,7 @@ export function renderPaymentReceiptEmail(input: PaymentReceiptEmailInput): Disp
         ]),
         metaRow([
           cell('PAY_TYPE', escapeHtml(input.payType || '—'), t.accent, { right: true }),
-          cell(
-            'STATUS',
-            `<span style="color:${t.accent};">[ 已支付 / PAID ]</span>`,
-            t.accent,
-            {},
-          ),
+          cell('STATUS', `<span style="color:${t.accent};">[ 已支付 / PAID ]</span>`, t.accent, {}),
         ]),
       ],
       t.accent,
@@ -631,7 +626,8 @@ export function renderPaymentReceiptEmail(input: PaymentReceiptEmailInput): Disp
       title: '支付成功',
       bodyHtml: body,
       button: { href: input.subscriptionUrl, label: '查看我的订阅 →' },
-      footNote: '本收据由系统自动派发,可作为支付凭证留存;如遇资产未到账,请通过下方创始人直联联系我们处理。',
+      footNote:
+        '本收据由系统自动派发,可作为支付凭证留存;如遇资产未到账,请通过下方创始人直联联系我们处理。',
     }),
     text: `您的订单已支付成功。订单号 ${input.orderNo};商品 ${input.productTitle}${input.quantity > 1 ? ` ×${input.quantity}` : ''};金额 ¥${input.amountYuan};支付方式 ${input.payType};时间 ${input.paidAt}。查看:${input.subscriptionUrl}`,
   }
@@ -689,12 +685,7 @@ export function renderRefundResultEmail(input: RefundResultEmailInput): Dispatch
       [
         metaRow([
           cell('ORDER_NO', escapeHtml(input.orderNo), accent, { right: true, valueStyle: mono }),
-          cell(
-            'STATUS',
-            `<span style="color:${accent};">[ ${label} ]</span>`,
-            accent,
-            {},
-          ),
+          cell('STATUS', `<span style="color:${accent};">[ ${label} ]</span>`, accent, {}),
         ]),
         metaRow([
           cell('REFUND_AMOUNT', `¥${escapeHtml(input.refundAmountYuan)}`, accent, {
@@ -702,7 +693,10 @@ export function renderRefundResultEmail(input: RefundResultEmailInput): Dispatch
             top: true,
             valueStyle: impact,
           }),
-          cell('FINISHED_AT', escapeHtml(input.finishedAt), accent, { top: true, valueStyle: mono }),
+          cell('FINISHED_AT', escapeHtml(input.finishedAt), accent, {
+            top: true,
+            valueStyle: mono,
+          }),
         ]),
         ...reasonRow,
       ],
@@ -789,9 +783,7 @@ export function renderWithdrawalResultEmail(input: WithdrawalResultEmailInput): 
       accent,
     )}`
   return {
-    subject: ok
-      ? '【智汇AI】提现审核通过,打款处理中'
-      : '【智汇AI】提现申请被驳回,金额已退回余额',
+    subject: ok ? '【智汇AI】提现审核通过,打款处理中' : '【智汇AI】提现申请被驳回,金额已退回余额',
     html: renderDispatchEmail({
       tag: ok ? 'BILLING // WITHDRAWAL_APPROVED' : 'BILLING // WITHDRAWAL_REJECTED',
       title: ok ? '提现审核通过' : '提现申请被驳回',
@@ -839,12 +831,9 @@ export function renderRedeemSuccessEmail(input: RedeemSuccessEmailInput): Dispat
         ]),
         metaRow([
           cell('BALANCE', balanceText, t.accent, { right: true, top: true, valueStyle: mono }),
-          cell(
-            'STATUS',
-            `<span style="color:${t.accent};">[ 兑换成功 / OK ]</span>`,
-            t.accent,
-            { top: true },
-          ),
+          cell('STATUS', `<span style="color:${t.accent};">[ 兑换成功 / OK ]</span>`, t.accent, {
+            top: true,
+          }),
         ]),
       ],
       t.accent,
@@ -877,7 +866,9 @@ export interface VipExpireEmailInput {
 export function renderVipExpireEmail(input: VipExpireEmailInput): DispatchEmail {
   const t = DISPATCH_TOKENS
   const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
-  const vipName = input.vipName ? `<b style="color:${t.ink};">${escapeHtml(input.vipName)}</b>` : 'VIP 会员'
+  const vipName = input.vipName
+    ? `<b style="color:${t.ink};">${escapeHtml(input.vipName)}</b>`
+    : 'VIP 会员'
   const body = `
     ${para(`您的${vipName}已于 <b style="color:${t.danger};">${escapeHtml(input.expiredAt)}</b> 到期失效,会员特权已停止:专属折扣、优先算力、专属客服等权益将按普通用户标准执行。`)}
     ${metaGrid(
@@ -953,12 +944,9 @@ export function renderInvoiceResultEmail(input: InvoiceResultEmailInput): Dispat
     ]),
     metaRow([
       cell('TITLE', escapeHtml(input.title), accent, { right: true, top: true }),
-      cell(
-        'STATUS',
-        `<span style="color:${accent};">[ ${statusText} ]</span>`,
-        accent,
-        { top: true },
-      ),
+      cell('STATUS', `<span style="color:${accent};">[ ${statusText} ]</span>`, accent, {
+        top: true,
+      }),
     ]),
   ]
   if (ok && input.invoiceNo) {
@@ -987,9 +975,14 @@ export function renderInvoiceResultEmail(input: InvoiceResultEmailInput): Dispat
         : '很抱歉,您的开票申请未能通过,可修正后重新提交:',
     )}
     ${metaGrid(rows, accent)}`
-  const button = ok && input.invoiceUrl
-    ? { href: input.invoiceUrl, label: '下载发票 →', kind: 'accent' as const }
-    : { href: input.ordersUrl, label: '查看我的订单 →', kind: (ok ? 'accent' : 'ghost') as 'accent' | 'ghost' }
+  const button =
+    ok && input.invoiceUrl
+      ? { href: input.invoiceUrl, label: '下载发票 →', kind: 'accent' as const }
+      : {
+          href: input.ordersUrl,
+          label: '查看我的订单 →',
+          kind: (ok ? 'accent' : 'ghost') as 'accent' | 'ghost',
+        }
   return {
     subject: ok
       ? `【智汇AI】发票已开具 · ${INVOICE_TYPE_LABEL[input.invoiceType]}`
@@ -1041,12 +1034,7 @@ export function renderWalletRechargeEmail(input: WalletRechargeEmailInput): Disp
             right: true,
             top: true,
           }),
-          cell(
-            'BALANCE',
-            balanceText,
-            t.accent,
-            { top: true, valueStyle: mono },
-          ),
+          cell('BALANCE', balanceText, t.accent, { top: true, valueStyle: mono }),
         ]),
       ],
       t.accent,
