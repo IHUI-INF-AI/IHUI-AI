@@ -652,7 +652,10 @@ class PublishScheduler:
         if account_id_str:
             try:
                 from .anti_risk import CrossAccountGuard
-                from .anti_risk.account_identity import resolve_account_id
+                from .anti_risk.account_identity import (
+                    resolve_account_id,
+                    row_id_from_account_id,
+                )
 
                 # 检测键必须与 browser_factory 登记绑定用的键**同源**:此前这里传数据库行 id("12"),
                 # 而登记用的是适配器派生键(csdn_db12 形态)⇒ 两个键空间永不相交,联动检测
@@ -660,8 +663,18 @@ class PublishScheduler:
                 # 行 id 已是稳定锚点,故两侧都经同一出口算键。
                 identity_key = resolve_account_id(platform, {}, account_id)
                 cross_guard = CrossAccountGuard.get_instance()
+                # 归属作用域：一个人运营十几个平台账号是**本产品的前提**，它们天然同一台机器、
+                # 同一个 UA。不作用域化时每次发布都会自己给自己判一次"跨会话关联"并自动冷却 1h
+                # （2026-09-27 实测：16 个账号在 UA 维度命中 3 组，第二篇推广文就是这样被拦下的）。
+                # 查不到主人的键（字段哈希档 / legacy 档）一律照旧计入 —— 保守方向不能反。
+                owner_by_row = await self._load_account_owners()
+
+                def _owner_of(key: str, _m: dict[str, str] = owner_by_row) -> str | None:
+                    rid = row_id_from_account_id(key)
+                    return _m.get(rid) if rid else None
+
                 is_linked, linkage_risk, linkage_types = (
-                    await cross_guard.async_check_device_linkage(identity_key)
+                    await cross_guard.async_check_device_linkage(identity_key, owner_of=_owner_of)
                 )
                 if is_linked and linkage_risk >= 60:
                     # 高危关联(>=60):自动冷却 1h + 记录风险事件
@@ -993,6 +1006,32 @@ class PublishScheduler:
                 "[publish.scheduler] load credentials failed: %s: %s", type(e).__name__, e
             )
             return None
+        finally:
+            await conn.close()
+
+    async def _load_account_owners(self) -> dict[str, str]:
+        """`publish_accounts` 行 id → user_id 的一次性映射（设备关联检测的归属解析器用）。
+
+        失败方向刻意是**返回空表**而不是抛：空表 ⇒ 所有候选都"查不到主人" ⇒ 判据退回本次改动前
+        的保守行为（照样计入关联、照样冷却）。也就是说这条降级**只会多拦不会少拦**，
+        所以它可以只喊一行 warning 而不阻断发布 —— 反过来的降级方向（查不到就当同主人放行）
+        等于给关联检测开后门，那是不可接受的。
+        """
+        conn = await self._get_conn()
+        if conn is None:
+            # `_get_conn` 自己就把失败咽成 None 了(它另有 12 处调用方按 None 处理)。
+            # 本函数必须显式接住这一格,否则下面 `conn.fetch` 抛 AttributeError 会把整次发布打断。
+            logger.warning("[publish.scheduler] 归属映射取不到连接,设备关联检测按保守口径执行")
+            return {}
+        try:
+            rows = await conn.fetch("SELECT id, user_id FROM publish_accounts")
+            return {str(r["id"]): str(r["user_id"]) for r in rows if r["user_id"] is not None}
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                "[publish.scheduler] 归属映射查询失败,设备关联检测按保守口径执行: %s",
+                type(e).__name__,
+            )
+            return {}
         finally:
             await conn.close()
 
