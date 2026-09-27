@@ -395,7 +395,7 @@ import { registrySyncRoutes } from './registry-sync.js'
 import mfaRoutes from './mfa.js'
 import { auditLogRoutes } from './audit-log.js'
 // 86C:审计证据导出的非对称签名出口(admin 只读 2 端点:signed/public-key)
-import { auditEvidenceExportRoutes } from './audit-evidence-export.js'
+import { auditEvidenceExportRoutes, auditEvidencePublicKeyRoutes } from './audit-evidence-export.js'
 import { securityRoutes } from './security.js'
 
 // P0-4 补建:智能体创作核心接口(迁移自旧项目 aiModels.js,4 类端点:我的创作/收费配置 CRUD/agent 配置查询/工作流搜索)
