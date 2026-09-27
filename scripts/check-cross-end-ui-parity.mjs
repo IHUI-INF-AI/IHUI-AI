@@ -73,9 +73,13 @@ const GEO_KEY =
  * `letter` 是 2026-09-26 补的:`spacing` 一支会命中 `letterSpacing`(字距 0.2 被当尺寸读数),
  * RN 端 BottomActionBar 的头注当时已把这一处如实写成"读数噪音"—— 噪音登记进注释不配当判据,
  * 尺子自己把它喂进集合就是判据错(RN 侧 `LABEL_LETTER_SPACING = 0.2` 即实例)。
+ * `line-height` / `lineHeight` 是 2026-09-27 补的同一格:GEO_KEY 的 `line` 与 `height` 双双命中它,
+ * 而小程序 CSS 里的无单位倍数 `line-height: 1` 会被 `toPx` 当作 rpx 折半成 **0.5**
+ * (实测 `IntelligentAssistant` 的"仅小程序档 0.5"就是这么来的 —— 两端源码里都没有 0.5 这个数)。
+ * 行高是排版量、不是盒档,按属性名排除,不做值域猜测(猜"1 太小"会把真实的 1px 边框一起放过)。
  */
 const NON_GEO_KEY =
-  /(weight|letter|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page)/i
+  /(weight|letter|line-height|lineheight|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page)/i
 const TW_SPACING_PX = (n) => n * 4
 const TW_FONT_PX = { xs: 12, sm: 14, base: 16, lg: 18, xl: 20, '2xl': 24, '3xl': 30 }
 /** 超过此值的"尺寸"不是组件几何(屏宽 / 动画毫秒 / 密度),不判。 */
@@ -182,10 +186,18 @@ export function readGeometry(src, side, tiers = {}) {
     named[m[1]] = px
     push(px)
   }
+  /**
+   * 属性名必须**整体**取,不能靠 `\b` 从连字符串里捞后半截:CSS 的 `line-height: 1` 曾被读成键
+   * `height`、`letter-spacing: 0.2` 被读成 `spacing`,前者把无单位行高折半成 **0.5 幽灵档**
+   * (实测 IntelligentAssistant 即此例)。第一版修法是把"前面是连字符"的一律跳过 —— 那是**过头**:
+   * `max-width: 320rpx` 也是连字符属性,而且是合法长度档,跳掉它就凭空造出"仅 RN 档 160"
+   * (实测 CategoryBar 从 1 档涨到 4 档,复量新旧两口径才定位到这一支)。
+   * 现口径:键名允许带连字符,整体取出后驼峰归一(`max-width`→`maxWidth`),非长度属性由 NON_GEO_KEY 拦。
+   */
   for (const m of code.matchAll(
-    /\b([A-Za-z_$][\w$]*)\s*[:=]\s*(\d+(?:\.\d+)?)(rpx|px)?(?![\w.%])/g,
+    /([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(\d+(?:\.\d+)?)(rpx|px)?(?![\w.%])/gi,
   )) {
-    if (!keyed(m[1])) continue
+    if (!keyed(m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
     push(toPx(m[2], m[3], side))
   }
   for (const m of code.matchAll(/\brpx\(\s*(\d+(?:\.\d+)?)\s*\)/g)) push(toPx(m[1], 'rpx', side))
@@ -199,8 +211,10 @@ export function readGeometry(src, side, tiers = {}) {
    * 口径:引号内按空白切 token,逐 token 去掉引号后只认纯 `<数字><rpx|px>`;
    * `calc(50% - 26rpx)` 这类混算式**不计**(它不是档,是机制)。
    */
-  for (const m of code.matchAll(/\b([A-Za-z_$][\w$]*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/g)) {
-    if (!keyed(m[1])) continue
+  for (const m of code.matchAll(
+    /([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/gi,
+  )) {
+    if (!keyed(m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
     for (const raw of m[3].trim().split(/\s+/)) {
       const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(raw)
       if (one) push(toPx(one[1], one[2], side))
@@ -2055,7 +2069,29 @@ export function emitBaseline(findings, prior = {}) {
    * 立刻回到"被当配对算差异"的状态,台账凭空多出 N 处"差异"(守门 83 的 `--update-baseline`
    * 冲掉他人审计台账,是同一型事故)。
    */
-  const out = { counts, radiusCounts, elementRadiusCounts, waivers: {} }
+  const out = { counts, radiusCounts, elementRadiusCounts }
+  /**
+   * `waivers` 也必须**按族带过去**,不得整图清零:它是"这一族为什么允许不同形"的判断记录
+   * (AGENTS O81:台账 `waivers` 恒空本身就是违规 —— 101 档一处理由都没写过就是上一轮的状态)。
+   * 旧写法在这里写死 `waivers: {}`,一次重锚就把 13 条带现读命令的理由全冲掉,而账面只看得到
+   * "counts 变小了"—— 与上面 pairingRejects 那段是同一型事故,只是这次是自家门自己犯。
+   * 只保留**本轮仍有差异**的族;差异归零的族把理由撤下并**在 stderr 点名**(理由不再需要,
+   * 但"哪一族的账清了"必须看得见,不得静默)。
+   */
+  const priorWaivers = prior && prior.waivers ? prior.waivers : {}
+  const waivers = {}
+  const retired = []
+  for (const [name, w] of Object.entries(priorWaivers)) {
+    if ((counts[name] ?? 0) > 0) waivers[name] = w
+    else retired.push(name)
+  }
+  out.waivers = waivers
+  if (retired.length)
+    console.error(
+      `  ⓘ 本轮差异归零、理由随之撤下的族:${retired.join(', ')}(若它们并非真被修好,而是判据覆盖面变窄,须回查)`,
+    )
+  // 台账里非判据、但必须留存的元数据(版本号一丢,读台账的人就不知道它是哪一版格式)
+  if (prior && prior.ledgerVersion !== undefined) out.ledgerVersion = prior.ledgerVersion
   if (prior && prior.pairingRejects) out.pairingRejects = prior.pairingRejects
   // 别名表与拆对表同理:它是**配对判据的输入**,不是存量数字。重写台账把别人登记的别名冲掉,
   // 那一族立刻回到"射程外零判据"的状态 —— 而账面看什么都正常(这条族从没在 counts 里出现过)。
@@ -4145,6 +4181,20 @@ function runSelfTest() {
         /exitNotes: collected\.exitNotes \?\? \[\]/.test(flat) &&
         /同侧多候选/.test(flat) &&
         /出口链/.test(flat)
+      )
+    })(),
+  )
+  t(
+    'KH line-height 无单位倍数不得进盒档(实测 0.5 幽灵档的成因),但 height/line-height 邻居仍要收',
+    (() => {
+      // 负例:小程序 CSS 的 `line-height: 1` 会被 toPx 当 rpx 折半成 0.5 —— 两端都没有这个数
+      const css = '.ia-row { line-height: 1; height: 22rpx; letter-spacing: 0.2; }\n'
+      const got = readGeometry(css, 'miniapp')
+      return (
+        !got.values.has(0.5) &&
+        !got.values.has(1) &&
+        got.values.has(11) && // height: 22rpx = 11px 必须仍然收(排除不能过宽)
+        !got.values.has(0.2)
       )
     })(),
   )
