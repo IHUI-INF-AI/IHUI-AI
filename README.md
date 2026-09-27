@@ -4027,7 +4027,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **Commit 丢失防护(§22)**:reflog 50 步 reset 检测 + fsck 悬空 commit 检测 + lost-commit/* tag 永久备份(本地+远端双备份)+ sync-lost-commit-tags.mjs 自动 push/fetch/check + post-commit 钩子自动同步
 - **C 盘防护(§26)**:11 个环境变量永久指向 D 盘(pnpm/npm/pip/uv/cargo/rustup/go/playwright)+ 第三方 AI IDE ModularData 4.5GB 符号链接迁移 + 自动维护计划任务(每天 3am)+ G:\ 根目录实时守门(FileSystemWatcher + 白名单 5 层判定)
 - **工作区卫生(§15)**:check-workspace-hygiene.mjs(BLOCKING 项目外路径)+ check-parent-pollution.mjs(BLOCKING 父目录污染)+ cleanup-external-junk.ps1 + g-root-guardian.ps1 v2.0
-- **守门脚本速查**:33+ pre-commit 钩子(i18n 9 项 + 代码质量 10 项 + UI/样式 8 项 + 工程约束 7 项 + Push/工作区 3 项 + 防提交丢失 1 项 + Python 类型 1 项 + 依赖治理 1 项 + 迁移完整性 1 项 + 共享层重复 1 项)
+- **守门脚本速查**:pre-commit 守门条目数与分类**一律现读,文档不钉数字** —— 权威清单 `node scripts/guardian-runner.mjs --help`(或数 `scripts/guardian-runner.mjs` 里的 `id:` 条目),按类别的现行判据说明见 `AGENTS.md`「守门脚本速查」节。**这里曾写着"33+ 钩子 + 一份分类明细",而条目数是并发抢占式增长的(数字会随任何一枚新门提交立刻腐烂),钉进总览就等于替读文档的人做出"守门只有三十几道、分类还是那十项"的判断 —— 本仓同型失效已登记多次(含本轮守门 101 的取证例数假账),故改为只给现读入口。**
 
 #### 27. 多平台发布系统扩展至 38 平台 + 前端 UI 精装修(2026-07-31,跨端 ai-service+api+web)
 
