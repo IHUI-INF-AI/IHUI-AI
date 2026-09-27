@@ -1148,3 +1148,31 @@ test('KR-4 形状锁:判据必须挂在主流程上且只在被审面有父可�
   assert.match(code, /KR\(语言包相对父提交丢键\)\*\*无法判定\*\*/, '取不到面时必须喊无法判定,不得静默')
   assert.match(code, /process\.exit\(2\)\n\}\nif \(removalIssues\.length\)/, '未判定必须 exit 2 且早于判红')
 })
+
+/**
+ * KR-5 跨层形状锁:本门每一条判红结论行,都必须被**提交归因层**认作"结论行"。
+ *
+ * 为什么这道锁不住在门内、而要跨到 scripts/lib/commit-gate-attribution.mjs:
+ * safe-commit 判"这枚红是不是本次提交自己的"靠的是 findingLines() 的 FINDING_LINE_RE
+ * (error|违规|❌|判定|…)。本门原先五条判红写的是「发现 N 处…」,一条都不沾那个字集 ——
+ * 于是**本门自己的红被洗成 not-ours、照样跳门**(2026-09-27 实测:删 i18n 键触发 KR 判红,
+ * 归因层打印"未点名本次任何文件",而那条红 100% 是本次内容)。
+ * 门把结论说得越具体、铰链反而越松,是同一条禁令的反方向(§12 findingLines 续行教训)。
+ * 判据一字未动,动的只是"把结论喊成结论"。
+ */
+test('KR-5 跨层形状锁:每条判红结论行必须被归因层认作结论(否则本门的红会被洗成别人的)', async () => {
+  const { pathToFileURL } = await import('node:url')
+  const { findingLines } = await import(
+    pathToFileURL(join(__dirname, '..', 'lib', 'commit-gate-attribution.mjs')).href
+  )
+  const code = readFileSync(SCRIPT_PATH, 'utf8')
+  const reds = code.split(/\r?\n/).filter((l) => l.includes('${C.red}[i18n 键检查]'))
+  // 空集不得让本锁"通过"——那是判据漂了的第一种表现(守门 70/76/81 同族)
+  assert.ok(reds.length >= 5, `红色结论行只找到 ${reds.length} 条 = 输出形态漂了,本锁失去对象`)
+  const blind = reds.filter((l) => findingLines(l).length === 0)
+  assert.deepEqual(
+    blind.map((l) => l.trim().slice(0, 90)),
+    [],
+    '这些判红结论行归因层看不见 ⇒ 本门自己的红会被判成 not-ours 并放行跳门',
+  )
+})
