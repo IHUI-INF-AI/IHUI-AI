@@ -32,6 +32,27 @@
  * 消费方式只能是子路径 `@ihui/shared/ui/intelligent-assistant-spec`,**禁止挂根桶**(§根桶教训:
  * 会把他人在途 chat/* 拉进消费端编译面)。本表只存逻辑 px;小程序侧换算 `(px)=>rpx(px*TARO_RPX_PER_PX)`,
  * RN 侧 1:1(dp)。
+ *
+ * 票⑤复裁取证(现读核对后**本卡一个数值都没改**):两端共用的 9 枚档(margin 8 / padding 12 /
+ * 字号 19·12·13·12 / 行距 4·11 / 顶偏移 4)全部已引本表且同值,即**不存在"同一元素两端取不同值"**
+ * 可收敛;其余单侧档逐条都是"另一腿不渲染该元素或该通道",按裁决规则既不造它、也不删档凑数、
+ * 更不给单端补裸数字:
+ *  - 装饰图层:小程序走行内矢量(`IA_ROBOT_ICON_INK_PX`),RN 走 absolute 位图(`IA_ROBOT_DECOR_*`),
+ *    而 `robotImage` 这个 prop 在 HEAD 面上**没有任何生产调用方** —— 四处 `<IntelligentAssistant/>`
+ *    调用点(AgentScreen / AiAssistantN8nScreen / ChatScreen / HomeScreen)都没传它,只有
+ *    `apps/mobile-rn/tests/intelligent-assistant.test.tsx` 传。RN 那一层在生产里根本不渲染,
+ *    把它的数对到小程序侧等于凭空新增一个渲染元素(§24 需用户批准)。
+ *  - 充值胶囊(`IA_RECHARGE_CAPSULE_PAD_*`)与值行间距(`IA_RECHARGE_GAP_PX`):小程序的充值是纯文字链、
+ *    值行走 `justify-content: space-between`,这两格在本端不存在。
+ *  - `IA_TEXT_INDENT_PX`:RN 避让的正是上面那层不渲染的装饰;本端文本左缘由行内矢量加
+ *    `IntelligentAssistant.css` 里 `.ia-robot` 的流内间隙撑出 —— 版面结构差异,不是取数分叉。
+ *  - `IA_RECHARGE_HIT_PX`:"命中块 ≥44"这一裁决两端**同源**,本端经派生档 `IA_RECHARGE_TOUCH_PAD_PX`
+ *    兑现、RN 经 `minHeight` 兑现;刻意不给本端补 `minHeight` 把读数凑成对齐 —— 那是守门明令禁止的
+ *    "靠给单端补数字消账"。
+ * 一条覆盖面事实留给判据持有者(不是本票的处置范围):同名配对只吃两端的 `.tsx`,`.css` 因规范化名
+ * 多出 `css` 后缀而永不配对,所以 `.ia-robot` 那类留在 CSS 里的端侧字面量对本门不可见;把它迁进本表
+ * 反而会让本族单侧档读数从 9 涨到 10 而当场判红(构造面实测)—— 修法是该门补 CSS 腿,
+ * 不该由端侧把数字留在暗处换取绿灯。
  */
 
 /** 卡片外边距(四周,逻辑 px)。取值依据:规则 2 间距取较大端 —— max(小程序 8, RN 8/4/4)。 */
