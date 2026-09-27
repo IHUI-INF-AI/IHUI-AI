@@ -114,6 +114,7 @@
     "scrub:temp": "node scripts/scrub-temp-fixtures.mjs",
     "alerts:render": "node scripts/render-alertmanager-config.mjs",
     "alerts:check": "node scripts/render-alertmanager-config.mjs --check",
+    "alert-volume": "node scripts/alert-volume-report.mjs",
     "test:alertmanager-config": "node --test scripts/tests/render-alertmanager-config.test.mjs",
     "check:agent-event-parity": "node scripts/check-agent-event-parity.mjs",
     "check:desktop-event-wiring": "node scripts/check-desktop-event-wiring.mjs",
