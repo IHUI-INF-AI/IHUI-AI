@@ -11241,7 +11241,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 ### 第四梯队 P3:五年领先(79–86,均等 15–78 全绿后单独立项)
 
 - [ ] 79. 权限双轴化(`sandbox_mode` × `approval_policy`)+ config profiles(对齐 Codex 2026;起点是已有的 `packages/types/src/permission-mode.ts` 跨语言真源)
-- [ ] 80. Guardian 复核代理(用户点 approve 前由独立 agent 复核是否有更安全等价路径;底座已有 `guarded_tool_pipeline.py` + `tool_budget_governor.py` + `dispatch_subagent`)
+- [ ]（进行中@2026-09-27/v3wave3）80. Guardian 复核代理(用户点 approve 前由独立 agent 复核是否有更安全等价路径;底座已有 `guarded_tool_pipeline.py` + `tool_budget_governor.py` + `dispatch_subagent`)
 - [ ] 81. MTC 工作面(对标 Trae SOLO MTC:文档/数据表/报表/演示/竞品调研的产物流水线)
 - [ ] 82. Predictive Edit(对标 Trae CUE 的独立编辑意图预测器,现有 FIM 链路上升级)
 - [ ]（进行中@2026-09-27/v3wave3）83. Spec ↔ Code 双向落差检测 + LSP 扩语言(现仅 TypeScript,硬编码 `LSP_BIN`)
