@@ -21,6 +21,7 @@ UA/视口/地理位置/Canvas 种子、以及 device_graph 里的绑定归属。
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -82,5 +83,20 @@ def resolve_account_id(
     return key
 
 
-__all__ = ["STABLE_IDENTITY_FIELDS", "resolve_account_id"]
+_DB_KEY_RE = re.compile(r"_db(\d+)$")
+
+
+def row_id_from_account_id(account_id: str) -> str | None:
+    """从身份键反解 `publish_accounts` 行 id；非 db 档(字段哈希档/legacy 档)返回 None。
+
+    与 `resolve_account_id` 住在同一模块是**必须的**：键格式的唯一知情人就是它，反解逻辑
+    写在别处就是第二份真相 —— 哪天键形态改了，正解会跟着改而反解不会。
+    返回 None 不是错误：那表示"这条绑定的主人查不出来"，调用方必须按保守方向处理
+    （查不到主人 ⇒ 仍计入关联，绝不因为"不知道是谁"就放行）。
+    """
+    m = _DB_KEY_RE.search(account_id or "")
+    return m.group(1) if m else None
+
+
+__all__ = ["STABLE_IDENTITY_FIELDS", "resolve_account_id", "row_id_from_account_id"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
