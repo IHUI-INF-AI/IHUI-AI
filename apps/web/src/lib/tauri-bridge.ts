@@ -487,11 +487,7 @@ export async function quitApp(): Promise<void> {
   await invoke('quit_app')
 }
 
-// ================== 原生通知 ==================
 
-/**
- * 发送系统原生通知(标题 + 正文)。
- * 自动处理权限请求(首次调用时请求,已授权则直接发送)。
  * 非 Tauri 环境或权限被拒时静默忽略。
  */
 export async function sendDesktopNotification(title: string, body: string): Promise<void> {

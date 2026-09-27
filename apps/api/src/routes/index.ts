@@ -394,6 +394,8 @@ import { registrySyncRoutes } from './registry-sync.js'
 // 2026-07-24 国安级安全升级(E2-E5):MFA + 审计链 + 安全挑战
 import mfaRoutes from './mfa.js'
 import { auditLogRoutes } from './audit-log.js'
+// 86C:审计证据导出的非对称签名出口(admin 只读 2 端点:signed/public-key)
+import { auditEvidenceExportRoutes } from './audit-evidence-export.js'
 import { securityRoutes } from './security.js'
 
 // P0-4 补建:智能体创作核心接口(迁移自旧项目 aiModels.js,4 类端点:我的创作/收费配置 CRUD/agent 配置查询/工作流搜索)
@@ -497,6 +499,8 @@ import channelQuotaAdminRoutes from './admin/channel-quota.js'
 import mobileStatsRoutes from './admin/mobile-stats.js'
 // O6 能力开放登记表的运行期入口(根级 preHandler,详见 utils/open-capability-gate.ts)
 import { openCapabilityGateway } from '../utils/open-capability-gate.js'
+// 86A2(2026-09-28 立):CLI 工具证据流水摄入路由 POST /api/cli/audit/tool-invokes
+import { cliToolInvokeAuditRoutes } from './cli-tool-invoke-audit.js'
 
 export function registerRoutes(server: FastifyInstance) {
   // O6(2026-09-21)`/api` 面机器凭据入口闸:仅放行 config/open-capability-registry.ts
@@ -1022,6 +1026,10 @@ export function registerRoutes(server: FastifyInstance) {
 
   // ===== P2-2 补建：公告系统 CLI 专用端点（/api/cli/announcements/*）=====
   server.register(announcementsRoutes, { prefix: '/api' })
+  // 86A2(2026-09-28 立):CLI 工具证据流水摄入。路径必须逐字等于 CLI 侧
+  // TOOL_LEDGER_AUDIT_INGEST_PATH('/api/cli/audit/tool-invokes');测试自 mount 路由,既有教训:
+  // 路由测试绿从不覆盖"注册过"——这一行缺失时 CLI 上报 404、typecheck/lint/单测全绿。
+  server.register(cliToolInvokeAuditRoutes, { prefix: '/api/cli' })
 
   // ===== P3-2 补建：Telemetry 极简上报端点（/api/v1/telemetry/*）=====
   server.register(telemetryRoutes, { prefix: '/api' })
@@ -1140,6 +1148,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(mfaRoutes, { prefix: '/api/mfa' })
   // 审计日志链(admin 4 端点):list/export/verify/stats,HMAC 链式防篡改
   server.register(auditLogRoutes, { prefix: '/api/admin/audit-logs' })
+  // 86C 证据级导出出口(admin 2 端点):signed(已签名信封)/ public-key(验签公钥)
+  // 收件方不持任何对称密钥即可离线验签 —— 链内 HMAC 是对称的,不能拿来签交付物。
+  server.register(auditEvidenceExportRoutes, { prefix: '/api/admin/audit-evidence' })
   // 安全挑战路由(7 端点):challenge/verify-challenge/ip-reputation/block-ip/anomalies/report
   server.register(securityRoutes, { prefix: '/api/security' })
 

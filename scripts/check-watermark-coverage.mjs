@@ -18,8 +18,13 @@
  *   生成器自带注入(如 apps/miniapp-taro/scripts/gen-i18n-compressed.mjs)仍保留, 属"更早一步"的优化,
  *   不再是唯一防线。
  *
- * 判定口径: `watermark.mjs list-uncovered`(载荷损坏 + 残迹 + 未覆盖) ∩ `git ls-files`
- *   - 只看 git 已跟踪(含本次新 `git add`)文件, 与 CI 检出范围一致; 本地未跟踪构建产物不计入。
+ * 判定口径: `watermark.mjs list-uncovered`(载荷损坏 + 残迹 + 未覆盖) ∩ **分母集合**
+ *   分母集合 = 已跟踪 ∪ 未跟踪但未忽略(唯一实现:`scripts/lib/watermark-scope.mjs`)。
+ *   2026-09-27 G-253 并上未跟踪面:此前"只看已跟踪"把两格真实缺口挡在分母之外 ——
+ *   新建还没 `git add` 的文件、以及**整文件重写把已跟踪文件的横幅冲掉后尚未 add** 的那一格。
+ *   两格的失效形态相同:闸门一路绿灯,而盘上真有一个无水印的源文件等着进仓库。
+ *   `.gitignore` 依旧把构建产物与本机临时面挡在分母外(`--exclude-standard`),
+ *   所以"本地未跟踪产物不计入"这句原口径没有被放宽 —— 放宽的只是"注定要提交的那部分"。
  *
  * 用法:
  *   node scripts/check-watermark-coverage.mjs            # 自愈模式(pre-commit 默认)
@@ -33,6 +38,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
+import { coverageFileSet } from './lib/watermark-scope.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = join(ROOT)
@@ -87,12 +93,15 @@ function listUncovered() {
 }
 
 function trackedFiles() {
-  return new Set(
-    run('git', ['ls-files'])
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean),
-  )
+  // G-253:口径与 watermark.mjs 共用 scripts/lib/watermark-scope.mjs 那一份实现。
+  // 返回**两层**集合:indexFiles(可阻塞面)/ untrackedFiles(只报数面)。
+  const scope = coverageFileSet({ root: REPO_ROOT })
+  if (scope.error) {
+    console.error(`[watermark-coverage] ❌ ${scope.error}`)
+    console.error('  取不到清单时**不**按"没有缺口"放行 —— 那等于把"没判"写成"判过了"。')
+    process.exit(1)
+  }
+  return scope
 }
 
 function reportGap(missing, reason) {
@@ -105,13 +114,20 @@ function reportGap(missing, reason) {
   console.error('  紧急跳过: HUSKY_SKIP_WATERMARK_GUARD=1 git commit ...')
 }
 
-const tracked = trackedFiles()
+const scope = trackedFiles()
+const indexSet = new Set(scope.indexFiles)
+const denominator = new Set(scope.files)
 const uncovered = listUncovered()
 // 双保险:排除面已由 watermark.mjs 的 scanCoverage 用同一个谓词移出分母,这里再筛一次 ——
 // 若哪天有人只改了一侧,本门要么把横幅打进第三方内容(自愈侧),要么恒红(判定侧)。
 // 被这里筛掉的即为"两侧谓词不一致"的证据,必须喊出来,不得静默(静默 = 下一次只有一侧在防)。
-const missing = uncovered.filter((f) => tracked.has(f) && !exclusion.isExcluded(f))
-const drift = uncovered.filter((f) => tracked.has(f) && exclusion.isExcluded(f))
+const inDenominator = uncovered.filter((f) => denominator.has(f) && !exclusion.isExcluded(f))
+// 只有**索引里**的那批可以判红/自愈:未跟踪面里挂着别人在飞的源文件,
+// 判红 = 与本次提交无关的恒红门(各会话只好 --no-verify,连带全部守门作废),
+// 自动注入 = 往别人的未提交文件里写字并 git add 别人的东西(污染 + 越权两型)。
+const missing = inDenominator.filter((f) => indexSet.has(f))
+const untrackedGaps = inDenominator.filter((f) => !indexSet.has(f))
+const drift = uncovered.filter((f) => indexSet.has(f) && exclusion.isExcluded(f))
 if (drift.length > 0) {
   console.warn(
     `[watermark-coverage] ⚠️ 排除面两侧不一致:${drift.length} 个已登记第三方文件被 list-uncovered 报成缺口(watermark.mjs 未走同一谓词?),已跳过不注入。示例: ${drift.slice(0, 5).join(', ')}`,
@@ -136,7 +152,7 @@ if (exclusion.unresolvedRoots.length) {
 const CANON_BANNER = /^\/\/ © \d{4} IHUI AI \(智汇AI\) · 版权所有者:/gm
 let dupBanner = 0
 const dupSamples = []
-for (const f of tracked) {
+for (const f of scope.indexFiles) {
   if (!/\.(ts|tsx|js|mjs|cjs|css)$/.test(f)) continue
   // 已登记第三方内容不参与"双横幅"巡检:本项统计的是**我方文件重复打了几个头**,
   // 而"第三方文件上出现了我方横幅"是另一件事,由 provenance-ledger P8 独立判红。
@@ -161,8 +177,23 @@ if (dupBanner > 0) {
   console.log(`   样例: ${dupSamples.join(', ')}`)
 }
 
+if (untrackedGaps.length > 0) {
+  // 只报数、不判红、不代写:那批文件属别人在飞的现场(见文件头 G-253 那段)。
+  // 但必须**喊出来** —— 否则"分母并上了未跟踪面"这件事与没做只差一行日志。
+  console.log(
+    `[watermark-coverage] ℹ️ 未跟踪面上另有 ${untrackedGaps.length} 个缺水印的源文件` +
+      `(**不计入退出码、不自动往别人未提交的文件里写字**):` +
+      untrackedGaps.slice(0, 5).join(', ') +
+      (untrackedGaps.length > 5 ? ` … 其余 ${untrackedGaps.length - 5} 个` : ''),
+  )
+  console.log(
+    '   出口:各自作者在被提交/落地前跑 `node scripts/watermark.mjs inject <file>`;' +
+      '旁路提交由 scripts/object-space-land.mjs 兜(它拒绝落地无有效横幅的声明路径)。',
+  )
+}
+
 if (missing.length === 0) {
-  console.log('[watermark-coverage] ✅ 已跟踪文件水印完整(其余为未跟踪本地产物,不计入)')
+  console.log('[watermark-coverage] ✅ 已跟踪文件水印完整(未跟踪产物不计入,见上)')
   process.exit(0)
 }
 
@@ -192,7 +223,7 @@ for (const f of missing) {
 }
 
 // 回读校验: 注入后必须彻底达标(不信任"命令返回 0"这一层)
-const stillMissing = listUncovered().filter((f) => tracked.has(f) && !exclusion.isExcluded(f))
+const stillMissing = listUncovered().filter((f) => indexSet.has(f) && !exclusion.isExcluded(f))
 if (stillMissing.length > 0) {
   reportGap(stillMissing, '(自愈后仍不达标)')
   console.error('')
