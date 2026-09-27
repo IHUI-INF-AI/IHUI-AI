@@ -147,7 +147,11 @@ def _hash_index(account_id: str, salt: str, modulus: int) -> int:
 def generate_fingerprint(account_id: str) -> BrowserFingerprint:
     """基于账号 ID 生成稳定的浏览器指纹。
 
-    同账号永远生成相同指纹(跨会话稳定),不同账号生成不同指纹(反交叉检测)。
+    同账号永远生成相同指纹(跨会话稳定)。**"不同账号生成不同指纹"这句以前写在这里是错的**：
+    取值由各维度的**有界字典**笛卡尔相乘而来,没有每账号唯一的种子,所以它必然碰撞 ——
+    2026-09-27 实测 400 个账号 id 只产出 **24** 枚互异摘要,最大同值组 **21** 个账号
+    (复现：`generate_fingerprint('acct_%d' % i)` 喂 `cross_account_guard._fingerprint_hash`)。
+    依赖它做"跨账号区分"的调用方必须自己带基数保护,不能把"两账号同指纹"读成"同一设备"。
 
     Args:
         account_id: 账号唯一标识(如平台+用户名组合)

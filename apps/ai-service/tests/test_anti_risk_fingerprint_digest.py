@@ -540,4 +540,66 @@ def test_graph_target_is_not_the_repo_default(graph_file: Path) -> None:
     assert graph_file != default_path
     assert graph_file == device_graph_guard._GRAPH_FILE
     assert Path.cwd() not in graph_file.parents
+
+
+def _raw_graph(graph_file: Path) -> dict:
+    return json.loads(graph_file.read_text(encoding="utf-8"))
+
+
+async def test_migration_is_in_place_and_preserves_rows_the_model_does_not_see(
+    graph_file: Path,
+) -> None:
+    """纯读路径的迁移**不得**顺手用模型整文件重写。
+
+    反例(2026-09-27 独立复核构造出来过):同一 account_id 的两条列表项会塌成一条,
+    行内未知字段与顶层 `schema_version`/`written_by` 一并被抹 —— 那是"为改一个字段
+    而丢失别人的数据"。现在迁移只就地改这两个字段的值,其余一律逐字保留。
+    """
+    a = _binding_payload("acct_dup", "Mozilla/5.0|39.9042,116.4074")
+    b = _binding_payload("acct_dup", "Mozilla/5.0|31.2304,121.4737")
+    a["note_from_another_writer"] = "别写我的字段"
+    _write_graph(graph_file, [a, b])
+    raw = _raw_graph(graph_file)
+    raw["schema_version"] = 3
+    raw["written_by"] = "other-session"
+    graph_file.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    await DeviceGraphGuard().get_all_bindings()
+
+    after = _raw_graph(graph_file)
+    assert len(after["bindings"]) == 2, "同 account_id 的两条不得被折叠成一条"
+    assert after["schema_version"] == 3
+    assert after["written_by"] == "other-session"
+    assert after["bindings"][0]["note_from_another_writer"] == "别写我的字段"
+    for row in after["bindings"]:
+        assert re.fullmatch(r"[0-9a-f]{64}", row["fingerprint_hash"])
+
+
+async def test_second_load_does_not_touch_the_file(graph_file: Path) -> None:
+    """幂等第二义:已归一的盘二次加载必须**零写入**(mtime 逐秒不变)。"""
+    _write_graph(graph_file, [_binding_payload("acct_idem2", "UA|39.9042,116.4074")])
+    await DeviceGraphGuard().get_all_bindings()
+    mtime = graph_file.stat().st_mtime_ns
+    size = graph_file.stat().st_size
+
+    await DeviceGraphGuard().get_all_bindings()
+
+    assert graph_file.stat().st_mtime_ns == mtime
+    assert graph_file.stat().st_size == size
+
+
+async def test_legacy_canvas_seed_is_normalized_to_the_empty_sentinel(graph_file: Path) -> None:
+    """`canvas_hash="seed:<随机>"` 既不是画布指纹也不可跨账号比较,存量归一回空串哨兵。"""
+    payload = _binding_payload("acct_seed_canvas", "c" * 64)
+    payload["canvas_hash"] = "seed:8123"
+    _write_graph(graph_file, [payload])
+
+    await DeviceGraphGuard().get_all_bindings()
+
+    assert _raw_graph(graph_file)["bindings"][0]["canvas_hash"] == ""
+    # 归一后仍不参与比较 ⇒ 不得因为"两枚都空"把两个账号连起来
+    other = _binding_payload("acct_seed_canvas_2", "d" * 64)
+    _write_graph(graph_file, [payload, other])
+    report = await DeviceGraphGuard().detect_linkage("acct_seed_canvas")
+    assert "canvas" not in report.linkage_types
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
