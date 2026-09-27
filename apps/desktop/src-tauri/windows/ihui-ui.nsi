@@ -1793,22 +1793,37 @@ FunctionEnd
   nsDialogs::CreateControl STATIC 0x5400010E 0 ${IHUI_RIND_X} ${IHUI_RIND_Y2} ${IHUI_RIND_SIZE} ${IHUI_RIND_SIZE} ""
   Pop $IHUIRI2
   System::Call "user32::MoveWindow(p $IHUIRI2, i r2, i r3, i r4, i r5, i 1)"
-  ; ---- 9) 整卡点击 overlay(透明底,盖住整卡接收点击;末建 = 卡内最顶层) ----
+  ; ---- 9) 整卡点击 overlay(2026-09-27 改版:卡面色底 + 内缩 4px)----
+  ; ⚠️ "透明底"在本页是伪透明:子窗口 transparent 只透到**父窗口**(242424 平色),
+  ;    透不到兄弟(背景位图/卡片框/文字)—— 旧写法整卡盖 242424 平矩形,烧入的圆角框
+  ;    与文字全被盖死(真机截图实锤)。现:overlay 底 = 卡面色 1A1A1A(与烧入卡内里
+  ;    同色无缝),几何内缩 4px 让烧入圆角描边露出;视觉层(texts/indicators)在
+  ;    步骤 13 提到 overlay 之上;点击回调三层同函数,整卡等价可点。
   !insertmacro IHUI_PX $2 ${IHUI_RCARD_X}
   !insertmacro IHUI_PX $3 ${IHUI_RCARD_Y1}
   !insertmacro IHUI_PX $4 ${IHUI_RCARD_W}
   !insertmacro IHUI_PX $5 ${IHUI_RCARD_H}
+  IntOp $2 $2 + 4
+  IntOp $3 $3 + 4
+  IntOp $4 $4 - 8
+  IntOp $5 $5 - 8
   nsDialogs::CreateControl STATIC 0x54000100 0 ${IHUI_RCARD_X} ${IHUI_RCARD_Y1} ${IHUI_RCARD_W} ${IHUI_RCARD_H} ""
   Pop $IHUIRC1
   System::Call "user32::MoveWindow(p $IHUIRC1, i r2, i r3, i r4, i r5, i 1)"
-  SetCtlColors $IHUIRC1 0xFFFFFF transparent
+  SetCtlColors $IHUIRC1 0xFFFFFF 1A1A1A
   ${NSD_OnClick} $IHUIRC1 PageReinstallCard1Click
   !insertmacro IHUI_PX $3 ${IHUI_RCARD_Y2}
   nsDialogs::CreateControl STATIC 0x54000100 0 ${IHUI_RCARD_X} ${IHUI_RCARD_Y2} ${IHUI_RCARD_W} ${IHUI_RCARD_H} ""
   Pop $IHUIRC2
   System::Call "user32::MoveWindow(p $IHUIRC2, i r2, i r3, i r4, i r5, i 1)"
-  SetCtlColors $IHUIRC2 0xFFFFFF transparent
+  SetCtlColors $IHUIRC2 0xFFFFFF 1A1A1A
   ${NSD_OnClick} $IHUIRC2 PageReinstallCard2Click
+  ; 卡片文字/指示器层同样挂点击(nsDialogs 控件均可路由;它们在 z 序上位于 overlay
+  ; 之上 —— 步骤 13 —— 不挂回调的话点在文字上会被吞)
+  ${NSD_OnClick} $IHUITX1 PageReinstallCard1Click
+  ${NSD_OnClick} $IHUIRI1 PageReinstallCard1Click
+  ${NSD_OnClick} $IHUITX2 PageReinstallCard2Click
+  ${NSD_OnClick} $IHUIRI2 PageReinstallCard2Click
   ; ---- 10) 初始选中态 ----
   ; ⚠️ 这里**不得**读 `$ReinstallPageCheck`:该 Var 声明在 installer.nsi:204,
   ;    而本文件在第 ~51 行就被 include 进来 —— 声明在引用之后,NSIS 只报
@@ -1842,6 +1857,23 @@ FunctionEnd
   !insertmacro IHUI_BTN $IHUICLS btn-close.bmp 820 20 36 36 IHUIOnClose
   !insertmacro IHUI_BTN $IHUIMIN btn-min.bmp 776 20 36 36 IHUIOnMin
   !insertmacro IHUI_DRAG_START
+  ; ---- 13) Z 序重排(2026-09-27 真机实锤必修):nsDialogs::CreateControl 把后建
+  ;      控件插到既有兄弟**之下**(GetTopWindow 探针实测 z 序 == 创建序,先建者在顶)
+  ;      —— 本页背景位图最先创建 = 骑在卡片文字/指示器/CTA/窗口钮之上,整页只剩
+  ;      核心 R1 可见(真机截图 + 窗口树双实锤;卡片文字控件存在且带文案但不显示)。
+  ;      welcome/dir/finish 页由 IHUI_ZORDER 兜底,本页控件多于其 6 句柄上限,逐个
+  ;      重排。顺序(自底向顶):背景位图 → 卡面色 overlay(内缩 4px,圆角框露自位图)
+  ;      → 卡片文字/指示器(视觉最上,保证可读) → CTA/窗口钮。
+  System::Call "user32::SetWindowPos(p $IHUIBG, p 1, i 0, i 0, i 0, i 0, i 0x0003)"
+  System::Call "user32::SetWindowPos(p $IHUIRC1, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  System::Call "user32::SetWindowPos(p $IHUIRC2, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  System::Call "user32::SetWindowPos(p $IHUITX1, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  System::Call "user32::SetWindowPos(p $IHUITX2, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  System::Call "user32::SetWindowPos(p $IHUIRI1, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  System::Call "user32::SetWindowPos(p $IHUIRI2, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  System::Call "user32::SetWindowPos(p $IHUIRCTA, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  System::Call "user32::SetWindowPos(p $IHUICLS, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  System::Call "user32::SetWindowPos(p $IHUIMIN, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   System::Call "user32::UpdateWindow(p $HWNDPARENT)"
   !insertmacro IHUI_LOG "reinstallTheme_exit"
