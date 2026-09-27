@@ -17,14 +17,19 @@
  *    `.ai-chu-row` 定,在本票文件清单外),属设计裁决项而非取值分叉,故不收;
  *  - **行内次要标注**:小程序 popup 的"用途分类"标注 10(20rpx) 对 RN 的"描述"行 12 ——
  *    两端该行装的内容不同(分类标签 vs 描述文本),不构成同一元素;
- *  - **仅一端存在的元素**:小程序 list 变体的骨架屏(4/8/10/12/20/40/80)、popup 行尾的
- *    "免/排名第一"位图徽章(rankone.png / mian_label.png 20×20,票⑤续 2026-09-26 起带
- *    `icon-bitmap-exempt` 就地登记 —— RN 同一位是 TOP1/免费/付费**文字**徽章,媒介不同、
- *    且该位 RN 无 lucide 字形可照抄,按规则 5 不硬凑,留待产品裁量)在 RN 侧没有对应图标实现;
- *    RN 的 `ItemSeparatorComponent`
- *    (高 1、缩进 68)、文字徽章(TOP1/NEW 9、免费/付费 11)、字距 `letterSpacing` 0.5、
- *    描述行距 2 在小程序侧没有对应实现 —— 机制/媒介差异,按守门 128 的口径走台账 waivers,
- *    不是"再收一档"就能消掉的。
+ *  - **仅一端存在的元素**:小程序 list/popup 变体的骨架屏(4/8/10/12/20/40/80)在 RN 侧没有
+ *    对应实现(RN 无 loading prop)。
+ *    ~~行尾"免/排名第一"位图徽章(rankone.png / mian_label.png)与 RN 文字徽章(TOP1/NEW 9、
+ *    免费/付费 11)~~ **已被 2026-09-27 收口票取代**:按"择优=矢量优先"(AGENTS §4 徽章/状态
+ *    指示属 UI 图标位,禁位图;用户已两次打回"一端 CDN 位图当图标"),小程序三处位图槽
+ *    (Agent 行、排名第一、行尾"免")全部换成与 RN 同形的**文字徽章**,几何经下方
+ *    `MODEL_LIST_BADGE_*` / `MODEL_LIST_PRICE_BADGE_*` 档两端同吃 —— 9/11 及徽章内衬不再单侧。
+ *    ~~RN 的 `ItemSeparatorComponent`(高 1、缩进 68)~~ **同样已被取代,但不是"收档"而是撤除**:
+ *    它命中 AGENTS §4「禁止分割线」的禁止清单(列表项之间画一条线),2026-09-27 随本票删除,
+ *    分隔改用行自带 paddingVertical 的间距 + 选中态背景对比(§4 允许的两条出路);1/68 不再是
+ *    任何一端的档。RN 的 `letterSpacing` 0.5(西文大写 tracking,非布局档)、描述行距 2
+ *    (该行本端独有,小程序同行装"用途分类"标签,不构成同一元素)与 iconWrap 块高 44(行盒裁决项)
+ *    仍是单侧,按守门 128 的口径走台账,不是"再收一档"就能消掉的。
  *  - **2026-09-27 O81 逐档判定(读数「仅小程序档 4/10/80 | 仅 RN 档 1/2/9/11/44/68」的落点账,
  *    行号为该次 HEAD 面实测)**:
  *    4 = 小程序 list 变体两处:外层容器 `py-1`(上面 MODEL_LIST_CONTENT_BOTTOM_PADDING_PX 注里
@@ -34,12 +39,14 @@
  *    10 = popup 变体的块内首字母(`fontSize: rpx(20)` 两处)与普通行用途分类标注(`rpx(20)` 两处)
  *    —— 前者属上面行盒/logo 块裁决项,后者 RN 该行渲染的是 description、不渲染分类标注;
  *    80 = popup 骨架条宽(`width: rpx(160)`)—— RN 端无 loading prop、无骨架屏实现,RN 腿不渲染;
- *    1 = RN 文字徽章容器 `paddingVertical: 1`(rank/new)与 separator `height: 1`(单侧机制元素);
- *    2 = RN 徽章容器 `paddingVertical: 2`(免费/付费,小程序同位是位图徽章)与 description
- *    `marginTop: 2`(单侧行,上面已登记);
- *    9 / 11 = RN 文字徽章字号 TOP1/NEW=9、免费/付费=11(同一位在小程序是 rankone.png /
- *    mian_label.png 位图,媒介差异,上面已登记);
- *    44 = RN iconWrap 块高(行盒裁决项);68 = RN separator 缩进(随单侧 ItemSeparatorComponent)。
+ *    ~~1 = RN 文字徽章容器 `paddingVertical: 1`(rank/new)与 separator `height: 1`(单侧机制元素)~~
+ *    → 2026-09-27 收口票:徽章内衬改经 `MODEL_LIST_BADGE_PADDING_Y_PX` 两端同吃;separator 的 1 随
+ *    「禁止分割线」撤除消失;
+ *    2 = RN description `marginTop: 2`(单侧行,上面已登记)—— ~~徽章 paddingVertical: 2~~ 现经
+ *    `MODEL_LIST_PRICE_BADGE_PADDING_Y_PX` 两端同吃(该值随之不再单侧);
+ *    ~~9 / 11 = RN 文字徽章字号(同一位在小程序是位图,媒介差异)~~ → 2026-09-27 收口票:
+ *    小程序位图徽章已换与 RN 同形的文字徽章,9/11 经本表两档两端同吃;
+ *    44 = RN iconWrap 块高(行盒裁决项);~~68 = RN separator 缩进~~ 随分割线撤除消失。
  *    除 `pb-1`→`pb-2` 外,其余全部为「另一腿不渲染该元素」或已登记裁决项 —— 按票规不造元素、
  *    不删档凑数、不给单端补裸数字。
  */
@@ -119,4 +126,30 @@ export const MODEL_LIST_AGENT_GLYPH_PX = 20
  * 消费面补齐(2026-09-26 复核):同上 —— RN 端此前写裸数字 `<CheckIcon size={12}>`,现引用本档。
  */
 export const MODEL_LIST_CHECK_GLYPH_PX = 12
+
+/**
+ * 「排名第一 / NEW」文字徽章容器内衬(横向 5 / 纵向 1,逻辑 px)与左间距 6、字号 9。
+ * 取值依据(2026-09-27 收口票):四档此前全部住在 RN `styles.rankBadge/newBadge*` 里当端内数,
+ * 同一位在小程序是 CDN 位图(rankone.png / mian_label.png)—— 按"择优=矢量优先 + 徽章属 UI
+ * 图标位禁位图"(AGENTS §4),小程序换与 RN 同形的文字徽章后,这四处**两端确有同一元素**,
+ * 于是从端内摘进本表(值 = RN 现值,两端零观感变化;小程序侧只做单位换算)。
+ * 底色/文字色不经本表(配色归 tokens 派生链,守门 93):RN 落 `#F5B301`+surface.light(复刻 rankone
+ * 用,头注有出处),小程序落 `--color-warning`/`--color-warning-foreground`(同一"实底金/琥珀 +
+ * 近白字"语义走各自端的 token 链)。圆角同理留端内(两端同取 `rnRadius.xs`,守门 77 管档)。
+ */
+export const MODEL_LIST_BADGE_PADDING_X_PX = 5
+export const MODEL_LIST_BADGE_PADDING_Y_PX = 1
+export const MODEL_LIST_BADGE_MARGIN_LEFT_PX = 6
+export const MODEL_LIST_BADGE_FONT_PX = 9
+
+/**
+ * 「免费 / 付费」文字徽章容器内衬(横向 8 / 纵向 2)与字号 11。
+ * 取值依据与上组同:RN `freeBadge/paidBadge*` 现值,小程序"免"位图槽换成同形文字徽章后
+ * 两端同吃(徽章间距复用 `MODEL_LIST_BADGE_MARGIN_LEFT_PX`)。配色留端内:RN 走
+ * success.lighter/DEFAULT 与 warning.amberLight/amberText,小程序走
+ * `--color-success-lighter`/`--color-success`(同语义两档,守门 93 问责);圆角两端同取 `rnRadius.sm`。
+ */
+export const MODEL_LIST_PRICE_BADGE_PADDING_X_PX = 8
+export const MODEL_LIST_PRICE_BADGE_PADDING_Y_PX = 2
+export const MODEL_LIST_PRICE_BADGE_FONT_PX = 11
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
