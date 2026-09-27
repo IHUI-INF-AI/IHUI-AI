@@ -188,7 +188,7 @@ export default function RelayBenefitsPage() {
               </div>
               {tier.nextTier && (
                 <div>
-                  <div className="h-2 w-full overflow-hidden rounded-md bg-muted">
+                  <div className="h-2 w-full overflow-hidden rounded-xs bg-muted">
                     <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">

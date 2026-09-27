@@ -321,7 +321,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
                       <div key={star} className="flex items-center gap-2">
                         <span className="w-3 text-xs text-muted-foreground">{star}</span>
                         <Star className="h-3 w-3 fill-muted-foreground text-muted-foreground" />
-                        <div className="h-1.5 flex-1 overflow-hidden rounded bg-muted">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-xs bg-muted">
                           <div
                             className="h-full rounded-md bg-primary"
                             style={{

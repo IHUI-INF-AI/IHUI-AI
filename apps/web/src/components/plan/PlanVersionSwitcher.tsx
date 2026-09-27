@@ -37,7 +37,7 @@ export function PlanVersionSwitcher({
           <History className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium">Versions</span>
           {versions.length > 0 && (
-            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground">
+            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground">
               {versions.length}
             </span>
           )}

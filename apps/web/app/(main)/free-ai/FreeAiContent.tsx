@@ -76,7 +76,7 @@ export function FreeAiContent() {
       {/* 三条路径 */}
       <div className="grid gap-4 md:grid-cols-3">
         {CARDS.map((card) => (
-          <div key={card.titleKey} className="flex flex-col rounded-xl border bg-card p-4">
+          <div key={card.titleKey} className="flex flex-col rounded-lg border bg-card p-4">
             <div className="mb-2 flex items-center gap-2">
               {card.icon === 'cloud' ? (
                 <Cloud className="h-5 w-5 text-primary" />

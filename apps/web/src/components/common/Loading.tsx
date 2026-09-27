@@ -25,9 +25,9 @@ export function Loading({ variant = 'spinner', size = 'md', className, text }: L
   if (variant === 'skeleton') {
     return (
       <div className={cn('w-full space-y-2', className)}>
-        <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
-        <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
-        <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+        <div className="h-4 w-3/4 animate-pulse rounded-xs bg-muted" />
+        <div className="h-4 w-1/2 animate-pulse rounded-xs bg-muted" />
+        <div className="h-4 w-2/3 animate-pulse rounded-xs bg-muted" />
       </div>
     )
   }

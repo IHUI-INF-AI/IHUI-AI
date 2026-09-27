@@ -662,7 +662,7 @@ function ChangeSummary({ file }: { file: DiffFile }) {
           {file.deletions}
         </span>
         <div className="flex items-center gap-1.5">
-          <div className="flex h-1 w-16 overflow-hidden rounded-sm bg-muted">
+          <div className="flex h-1 w-16 overflow-hidden rounded-xs bg-muted">
             <div className="h-full bg-green-500/70" style={{ width: `${pct}%` }} />
             <div className="h-full bg-red-500/70" style={{ width: `${100 - pct}%` }} />
           </div>

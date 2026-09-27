@@ -258,10 +258,10 @@ function LoadingSkeleton({ t }: { t: ReturnType<typeof useTranslations<'models'>
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 animate-pulse rounded-lg bg-muted" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 w-48 animate-pulse rounded bg-muted" />
-                  <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-48 animate-pulse rounded-xs bg-muted" />
+                  <div className="h-3 w-32 animate-pulse rounded-xs bg-muted" />
                 </div>
-                <div className="h-3 w-16 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-16 animate-pulse rounded-xs bg-muted" />
               </div>
             </CardContent>
           </Card>
@@ -416,7 +416,7 @@ export default function TrajectoryPage() {
                           <Card key={i}>
                             <CardContent className="min-[640px]:p-3 p-3">
                               <div className="space-y-2">
-                                <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                                <div className="h-4 w-32 animate-pulse rounded-xs bg-muted" />
                                 <div className="h-16 w-full animate-pulse rounded bg-muted" />
                               </div>
                             </CardContent>

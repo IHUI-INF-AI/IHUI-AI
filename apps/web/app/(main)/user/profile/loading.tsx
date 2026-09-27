@@ -16,7 +16,7 @@ export default function ProfileLoading() {
         <div className="skeleton h-8 w-8 rounded" />
         <div className="space-y-1">
           <div className="skeleton h-6 w-24 rounded" />
-          <div className="skeleton h-3 w-40 rounded" />
+          <div className="skeleton h-3 w-40 rounded-xs" />
         </div>
       </div>
 
@@ -27,7 +27,7 @@ export default function ProfileLoading() {
         <div className="flex flex-1 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="flex flex-1 flex-col gap-2 rounded-lg border border-border p-3">
-              <div className="skeleton h-3 w-16 rounded" />
+              <div className="skeleton h-3 w-16 rounded-xs" />
               <div className="skeleton h-7 w-20 rounded" />
             </div>
           ))}
@@ -39,7 +39,7 @@ export default function ProfileLoading() {
         <div className="space-y-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="space-y-2">
-              <div className="skeleton h-3 w-20 rounded" />
+              <div className="skeleton h-3 w-20 rounded-xs" />
               <div className="skeleton h-9 w-full rounded" />
             </div>
           ))}
