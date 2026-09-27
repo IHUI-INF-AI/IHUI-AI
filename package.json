@@ -172,8 +172,7 @@
     "type": "git",
     "url": "https://aizhs.top"
   },
-  "copyright": "© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved.",
-  "x-ihui-provenance": "IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026",
+  "license": "Apache-2.0",
   "overrides": {
     "swiper": "12.1.2",
     "lodash-es": "4.17.24",
