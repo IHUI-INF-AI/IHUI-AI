@@ -3450,12 +3450,15 @@ export interface CourseDetailScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 课程筛选项 */
+/**
+ * 课程筛选项。
+ * 刻意没有 level —— lessons 表不存在难度列,也没有对应查询参数;
+ * 摆一个渲染不出来的轴等于让用户点一个不会生效的按钮。
+ */
 export interface CourseFilterItem {
   id: string
   title: string
   instructor: string
-  level: 'all' | 'beginner' | 'intermediate' | 'advanced'
   price: number
 }
 
@@ -3466,11 +3469,7 @@ export interface CourseFilterScreenProps {
   loading: boolean
   refreshing: boolean
   error: string
-  category: 'all' | 'tech' | 'design' | 'business' | 'language'
-  level: 'all' | 'beginner' | 'intermediate' | 'advanced'
   priceTab: 'all' | 'free' | 'paid'
-  onCategoryChange: (c: CourseFilterScreenProps['category']) => void
-  onLevelChange: (l: CourseFilterScreenProps['level']) => void
   onPriceTabChange: (p: CourseFilterScreenProps['priceTab']) => void
   onApply: () => void
   onReset: () => void
