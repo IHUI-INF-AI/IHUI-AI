@@ -93,11 +93,23 @@ def test_detection_key_and_registration_key_share_one_source() -> None:
 
 
 def test_scheduler_uses_identity_key_for_linkage_check() -> None:
-    """源码锁:调度器不得再把行 id 字符串直接喂给联动检测(那是上面那条分裂的另一半)。"""
+    """源码锁:调度器不得再把行 id 字符串直接喂给联动检测(那是上面那条分裂的另一半)。
+
+    2026-09-27 改写法时同步改锁(否则就是"改了被审代码没改审它的正则"那一型 —— 锁会恒红，
+    而下一个人只会把锁削掉)：判据从"整串字面量等值"换成"第一个实参必须是 identity_key"，
+    因为调用现在多带了一个 `owner_of=` 归属解析器。两条负向断言一字未松。
+    """
     root = pathlib.Path(__file__).resolve().parents[1] / "app" / "services" / "publish"
     src = (root / "scheduler.py").read_text(encoding="utf-8")
-    assert "async_check_device_linkage(identity_key)" in src
+    assert re.search(r"async_check_device_linkage\(\s*identity_key\b", src), (
+        "联动检测的首个实参必须是同源算出的 identity_key"
+    )
     assert "async_check_device_linkage(account_id_str)" not in src
+    assert "async_check_device_linkage(account_id_str," not in src
+    # 归属作用域是这条链的承重墙：摘掉它，"一个人运营十几个平台账号"会重新每次发布自我冷却 1h
+    assert re.search(r"async_check_device_linkage\(\s*identity_key\s*,\s*owner_of=", src), (
+        "调度器必须把归属解析器传给联动检测"
+    )
 
 
 #: 两类"自己算身份键"的形状。第一类是本次修的 `md5(首个凭证值)`;
