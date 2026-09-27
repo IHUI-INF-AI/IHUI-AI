@@ -12586,3 +12586,11 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   命中一次即永久可冒充任意活跃用户。改它必须**同批**动发票方 `apps/ai-service` 与验票方
   `apps/api/src/plugins/internal-service-token.ts`,顺序错了就是打断内部通道(与 O13/O17 同族经验),
   属双侧发布顺序决策 ⇒ 请该面持有人先定"先发票后验票"还是"双读过渡窗",本线不单边改契约。
+
+### 第五十三波·续(2026-09-27 午,主会话)—— 两道新门在 union 合并里被整文件盖掉,以及"已接线 ≠ 接进提交链"这条判据边界
+
+- **事实**:`git-sync-converge` 的 `union-converge` 归并把 `scripts/guardian-runner.mjs` **整文件取了对侧**,于是 HEAD 里 `check-rn-double-header.mjs` 与 `check-readme-table-integrity.mjs` 两条注册一起消失(grep 计数 0),而门体脚本、台账、镜像测试都还在 HEAD。症状是"脚本在、判据对、无人调度"—— 本仓为这一型立过门 64/70/81/115,但这次的**成因是收敛工具自己**,不是人忘了接线。
+- **守门 89 为什么沉默**:它的"已接线"判据是**五处权威点的并集**,而两门的 `package.json` 入口仍在 ⇒ R1/R2/R4 全部不判。⇒ 记一条边界:**"已接线"不等于"接进了提交链"**;`package.json` 一处就能把"runner 注册被吞"洗成绿灯。补这一维属门 89 持有者职权(判据应是"凡 AGENTS 自称 blocking/接进提交链者,必须在 runner 里有 `script:` 行",与本波实测同形),本票只如实登记,不代改别人的判据。
+- **处置**:用 `scripts/gate-registry-insert.mjs` 重新取号接回(现值 145 = double-header / 146 = readme-table-integrity),文档编号引用跟到 runner 现值(`.ihui-agent/tmp/rn-preview/sync-gate-ids.mjs`,做法是"按行定位只改这一行的号"—— 全文正则替换会二次挪号)。注册落地后工作树副本再次落成父提交版本,由 `heal-worktree-tracked --align-drift` 对齐(同型第三次撞到,已单独入库记忆)。
+- **同批**:门 145 的镜像 T5 与门体 `--self-test` 各抄了一份"立项那天是哪五处"的硬清单;`SettingsScreen` 被其持有者清偿后 HEAD 现读 5→4,于是**有人修好缺陷反而让取证判红**。改法是删掉清单、留下有牙的两条:`读到 ≥1 处` ∧ `读到的集合 == 台账集合`(台账由 `--update-baseline` 维护,且每个 `rnFile/sharedFile` 必须真在 HEAD 里 —— 指向不存在的文件即"清单腐烂"判红)。判据本体一字未动。现读:门 145 镜像 10 例全绿、门体 `--self-test` 全通过;门 146 镜像 8 例 + 修复器 7 例全绿、全量面 exit 0(T-A run 0,T-B 56 行与孤立 26 行按设计只报数)。
+- **交付状态**:`git fetch` 后 `merge-base --is-ancestor` 逐枚验到远端 —— `32e8534306`(FloatBox 出口守卫)/ `0bfde7ec2`(70 处错误身份迁移)/ `d3a2f5e732`(去冻结清单)/ `91e73c7eb0`(门 146 脚本与点名)/ `82f2437a06`(门 145/146 编号跟值)全部在 `FETCH_HEAD`;远端 runner 里两条注册各在位,AGENTS/README 点名在位。本地 == 远端 = `465999c99ef`。
