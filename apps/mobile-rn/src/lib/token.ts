@@ -62,14 +62,41 @@ const memoryStore = createInMemoryTokenStore({
 })
 
 /**
+ * 会话代次 + 凭据写入串行化:让"这轮本地会话已结束"成为唯一凭据存储自身的事实。
+ *
+ * 真机 VC52 实测:401 自动续期在途时,会话失效出口完成了登出;续期响应晚于 clearAll
+ * 落地,把新 token 原样写回唯一存储 —— 每一步 await 都成功,logcat 全程无错,症状却是
+ * "登出后凭据仍然存活、冷重启直接落回已登录分支"。在途请求与登出的相对顺序不受调用方
+ * 控制,所以拒绝权必须握在存储这一侧:
+ * ① 代次 —— 显式登录写入与 clearToken 都推进 sessionEpoch;续期发起时记下代次,
+ *    落笔前(串行锁内)比对,晚到的响应属于已结束的那一轮,一律拒绝写入。
+ * ② 串行 —— 续期写入与登出清除排同一条链,否则"锁外检查通过后、存储写完成前"被
+ *    登出插队,删除仍会被后到的写入盖掉。
+ * 刻意不把修法做成"logout 里再多清一遍其他位点"——那只把同一个竞态推迟到下一次写入。
+ */
+let sessionEpoch = 0
+let writeChain: Promise<unknown> = Promise.resolve()
+
+function serializeCredentialWrite<T>(fn: () => Promise<T>): Promise<T> {
+  const run = writeChain.then(fn, fn)
+  writeChain = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  return run
+}
+
+/**
  * 401 自动续期(2026-09-22 立,对齐 web 端 apps/web/src/lib/api.ts 同名回调):
  * access token 仅 15min 有效,此前 RN 未注入本回调 → 登录 15 分钟后全部鉴权接口失效,
  * agent-control 能力上报每 60s 刷 "Invalid or expired token" 警告。
  * 走 fetchApi 自身(/auth/refresh 属 auth 端点,401 拦截器豁免,不递归续期)。
  * 成功:轮转写入新 token + refreshToken(SecureStore 持久化),返回新 access token;
  * 失败:refreshToken 也已失效 → 返回 null,由 api-client 失败冷却兜底,调用方按登录过期处理。
+ * 响应落地时若本地会话已结束(代次已推进),同样返回 null,由调用方按登录过期处理。
  */
 async function refreshAccessToken(): Promise<string | null> {
+  const epochAtStart = sessionEpoch
   const storedRefresh = memoryStore.getRefreshToken()
   const res = await fetchApi<{ accessToken: string; refreshToken?: string | null }>(
     '/auth/refresh',
@@ -78,12 +105,15 @@ async function refreshAccessToken(): Promise<string | null> {
       body: JSON.stringify(storedRefresh ? { refreshToken: storedRefresh } : {}),
     },
   )
-  if (res.success && res.data?.accessToken) {
-    await memoryStore.setToken(res.data.accessToken)
-    if (res.data.refreshToken) await memoryStore.setRefreshToken(res.data.refreshToken)
-    return res.data.accessToken
-  }
-  return null
+  if (!res.success || !res.data?.accessToken) return null
+  const accessToken = res.data.accessToken
+  const rotatedRefresh = res.data.refreshToken
+  return serializeCredentialWrite(async () => {
+    if (sessionEpoch !== epochAtStart) return null
+    await memoryStore.setToken(accessToken)
+    if (rotatedRefresh) await memoryStore.setRefreshToken(rotatedRefresh)
+    return accessToken
+  })
 }
 
 /**
@@ -124,16 +154,33 @@ export function getRefreshToken(): string | null {
   return memoryStore.getRefreshToken()
 }
 
+/**
+ * 显式写入凭据 = 新一轮会话开始:推进代次,让上一轮在途的续期响应作废,
+ * 再串行落盘(与 refreshAccessToken 的写入同一条链,不与登出清除交叉)。
+ */
 export async function setToken(token: string | null): Promise<void> {
-  await memoryStore.setToken(token)
+  sessionEpoch += 1
+  await serializeCredentialWrite(async () => {
+    await memoryStore.setToken(token)
+  })
 }
 
 export async function setRefreshToken(token: string | null): Promise<void> {
-  await memoryStore.setRefreshToken(token)
+  sessionEpoch += 1
+  await serializeCredentialWrite(async () => {
+    await memoryStore.setRefreshToken(token)
+  })
 }
 
+/**
+ * 结束本地会话:代次**同步**推进(此刻起任何在途续期都不再有权写回),
+ * 再串行清除存储 —— 排队在它之前的写入先完成,删除始终落在最后。
+ */
 export async function clearToken(): Promise<void> {
-  await memoryStore.clearAll()
+  sessionEpoch += 1
+  await serializeCredentialWrite(async () => {
+    await memoryStore.clearAll()
+  })
 }
 
 /**
