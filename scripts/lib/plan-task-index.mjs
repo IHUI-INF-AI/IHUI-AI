@@ -92,6 +92,38 @@ export function leadingNumericId(body) {
 /** 编号前缀(含 markdown 强调记号)的长度 —— titleOf 要从正文里跳过它,否则标题只剩编号本身。 */
 const LEADING_NUMERIC_FULL_RE = /^[*\s`]*(\d{1,3}[A-Z]?)[.、]\s*/
 
+/**
+ * 剥掉"行首就是本行主键 + 分界符"的那一截(`**G-257. 审计日志族…**` 这一族,全仓最常见形态)。
+ *
+ * 不剥会怎样:`titleOf` 后面的 `[.、]` 截断会把标题切成**只剩编号本身** ⇒ `titleIsDegenerate`
+ * 判退化 ⇒ 整族 composite=null ⇒ F1/F4 对这一族**完全失明**。这不是假设:2026-09-27 补
+ * 退化判据(防"同编号不同议题"被误翻勾)时只解决了撞号那一面,却把 `G-NNN. 标题` 这一族
+ * 从对账里整体摘掉了 —— 修判据的那一族上自己失明,本仓已记过同型(见 M15 那条注释)。
+ *
+ * 剥完之后:
+ *  - `**G-257. 审计…**` ⇒ 标题 `审计…`,真实、非退化 ⇒ 恢复对账;
+ *  - `**G-257(新登记)**:…` ⇒ 编号后紧跟括号,不是 `.`/`、` ⇒ 不剥,标题被切成空 ⇒ 仍退化、
+ *    仍 null。**撞号误翻勾那条防线一字不松**(它防的正是"编号之外给不出实质标题")。
+ *
+ * 刻意用**逐字符扫描**而不是拼正则:编号要插进 pattern 里,而 `key` 含 `-`、且我们得先写
+ * `\s`/`\*` 这类元字符 —— 一把"转义整条 pattern"的 helper 会把 `\s` 变成"反斜杠 + s",
+ * 判据静默永不命中而不报任何错(本函数上一版正是这样"写了但没生效")。字符串比较没有这个坑。
+ */
+const KEY_LEAD_NOISE = new Set(['*', '`', ' ', '\t'])
+
+export function stripOwnKey(body, key) {
+  if (!key || typeof body !== 'string') return body
+  let i = 0
+  while (i < body.length && KEY_LEAD_NOISE.has(body[i])) i += 1
+  if (!body.startsWith(key, i)) return body
+  let j = i + key.length
+  while (j < body.length && (body[j] === ' ' || body[j] === '\t')) j += 1
+  if (body[j] !== '.' && body[j] !== '、') return body
+  j += 1
+  while (j < body.length && (body[j] === ' ' || body[j] === '\t')) j += 1
+  return body.slice(j)
+}
+
 /** 剥掉行首编号形态(含其前置强调记号)。只在 `leadingNumericId` 判成立后调用。 */
 export function stripLeadingNumeric(body) {
   return LEADING_NUMERIC_FULL_RE.test(body) ? body.replace(LEADING_NUMERIC_FULL_RE, '') : body
@@ -179,7 +211,7 @@ export function titleOf(line) {
   // ⚠️ 这里**必须**调用 leadingNumericId 的同一个出口(经 stripLeadingNumeric),不得在本行再抄一份
   // 正则:上一版这里抄了一份不含 `**` 与字母后缀的窄版,于是 `- [ ] **86A. …**` 的标题被 cut 在
   // 编号后面那个 `.` 上 ⇒ 标题只剩 "86A"(3 字 <4)⇒ composite=null —— 判据在**自己刚修的这一族**上失明。
-  const body = stripLeadingNumeric(rawBody)
+  const body = stripOwnKey(stripLeadingNumeric(rawBody), keyOfRow(line))
   return body
     .replace(/[*`_\s]/g, '')
     .replace(/[（(【[:：.、,，!！?？].*$/, '')
