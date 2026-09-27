@@ -170,29 +170,34 @@ export function Toolbar({
             const showSeparator = separatorSet.has(item.key)
             return (
               <View key={item.key} style={styles.rowItem}>
+                {/* 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
+                    interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失
+                    (守门 131 那一型)。外框拿盒与布局,面层只拿 pressed。 */}
                 <Pressable
                   onPress={item.onPress}
                   accessibilityRole="button"
                   accessibilityLabel={item.key}
                   accessibilityState={{ selected: isActive }}
                   hitSlop={4}
-                  style={({ pressed }) => [
-                    styles.tool,
-                    isActive ? styles.toolActive : styles.toolInactive,
-                    pressed && !isActive ? styles.toolPressed : null,
-                  ]}
+                  style={[styles.tool, isActive ? styles.toolActive : styles.toolInactive]}
                 >
-                  {isImagePath(item.icon) ? (
-                    <Image
-                      source={{ uri: item.icon }}
-                      style={styles.icon}
-                      resizeMode="contain"
-                      accessibilityIgnoresInvertColors
-                    />
-                  ) : (
-                    <Text style={styles.iconEmoji} allowFontScaling={false}>
-                      {item.icon}
-                    </Text>
+                  {({ pressed }) => (
+                    <View
+                      style={[styles.toolFace, pressed && !isActive ? styles.toolPressed : null]}
+                    >
+                      {isImagePath(item.icon) ? (
+                        <Image
+                          source={{ uri: item.icon }}
+                          style={styles.icon}
+                          resizeMode="contain"
+                          accessibilityIgnoresInvertColors
+                        />
+                      ) : (
+                        <Text style={styles.iconEmoji} allowFontScaling={false}>
+                          {item.icon}
+                        </Text>
+                      )}
+                    </View>
                   )}
                 </Pressable>
                 {showSeparator ? <View style={styles.separator} /> : null}
@@ -210,12 +215,16 @@ export function Toolbar({
             onPress={() => onServicePress?.(service)}
             accessibilityRole="button"
             accessibilityLabel={service.title}
-            style={({ pressed }) => [styles.serviceItem, pressed ? styles.pressed : null]}
+            style={styles.serviceItem}
           >
-            <Text style={styles.serviceTitle} numberOfLines={1}>
-              {service.title}
-            </Text>
-            <service.icon size={24} color={tokens.text.secondary} />
+            {({ pressed }) => (
+              <View style={[styles.serviceItemFace, pressed ? styles.pressed : null]}>
+                <Text style={styles.serviceTitle} numberOfLines={1}>
+                  {service.title}
+                </Text>
+                <service.icon size={24} color={tokens.text.secondary} />
+              </View>
+            )}
           </Pressable>
         ))}
       </View>
@@ -236,15 +245,19 @@ export function Toolbar({
         onPress={onBannerPress}
         accessibilityRole="button"
         accessibilityLabel="独家一键生成运营内容"
-        style={({ pressed }) => [styles.bannerWrap, pressed ? styles.pressed : null]}
+        style={styles.bannerWrap}
       >
-        <Animated.View style={[styles.bannerFloat, { transform: [{ translateY }] }]}>
-          <Bot size={56} color={tokens.brandAccent.DEFAULT} />
-        </Animated.View>
-        <View style={styles.bannerCard}>
-          <Text style={styles.bannerTitle}>独家一键生成运营内容</Text>
-          <Text style={styles.bannerSub}>批量一键生成百条爆款，降本增效90%</Text>
-        </View>
+        {({ pressed }) => (
+          <View style={[styles.bannerFace, pressed ? styles.pressed : null]}>
+            <Animated.View style={[styles.bannerFloat, { transform: [{ translateY }] }]}>
+              <Bot size={56} color={tokens.brandAccent.DEFAULT} />
+            </Animated.View>
+            <View style={styles.bannerCard}>
+              <Text style={styles.bannerTitle}>独家一键生成运营内容</Text>
+              <Text style={styles.bannerSub}>批量一键生成百条爆款，降本增效90%</Text>
+            </View>
+          </View>
+        )}
       </Pressable>
 
       {/* 4. 6 工具格 */}
@@ -255,19 +268,23 @@ export function Toolbar({
             onPress={() => onToolPress?.(tool.key)}
             accessibilityRole="button"
             accessibilityLabel={tool.title}
-            style={({ pressed }) => [styles.toolCell, pressed ? styles.pressed : null]}
+            style={styles.toolCell}
           >
-            <View style={styles.toolIconWrap}>
-              <tool.icon size={20} color={tokens.text.secondary} />
-            </View>
-            <View style={styles.toolTextWrap}>
-              <Text style={styles.toolTitle} numberOfLines={1}>
-                {tool.title}
-              </Text>
-              <Text style={styles.toolDesc} numberOfLines={2}>
-                {tool.description}
-              </Text>
-            </View>
+            {({ pressed }) => (
+              <View style={[styles.rowFace, pressed ? styles.pressed : null]}>
+                <View style={styles.toolIconWrap}>
+                  <tool.icon size={20} color={tokens.text.secondary} />
+                </View>
+                <View style={styles.toolTextWrap}>
+                  <Text style={styles.toolTitle} numberOfLines={1}>
+                    {tool.title}
+                  </Text>
+                  <Text style={styles.toolDesc} numberOfLines={2}>
+                    {tool.description}
+                  </Text>
+                </View>
+              </View>
+            )}
           </Pressable>
         ))}
       </View>
@@ -277,12 +294,16 @@ export function Toolbar({
         onPress={onCustomServicePress}
         accessibilityRole="button"
         accessibilityLabel="AI定制服务"
-        style={({ pressed }) => [styles.customWrap, pressed ? styles.pressed : null]}
+        style={styles.customWrap}
       >
-        <View style={styles.customIconWrap}>
-          <Gift size={26} color={tokens.text.secondary} />
-        </View>
-        <Text style={styles.customText}>AI定制服务，满足您个性化的服务需求</Text>
+        {({ pressed }) => (
+          <View style={[styles.rowFace, pressed ? styles.pressed : null]}>
+            <View style={styles.customIconWrap}>
+              <Gift size={26} color={tokens.text.secondary} />
+            </View>
+            <Text style={styles.customText}>AI定制服务，满足您个性化的服务需求</Text>
+          </View>
+        )}
       </Pressable>
     </View>
   )
@@ -319,6 +340,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // 面层:撑满外框内容盒并承载按压态(见上方守门 131 说明)。圆角与外框同档 —— 按压底色
+  // (toolPressed 是背景色而非透明度)必须画在被圆角裁出来的同一盒上,否则按压会露出方角。
+  toolFace: {
+    width: '100%',
+    height: '100%',
+    borderRadius: rnRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
   toolInactive: {
     backgroundColor: 'transparent',
   },
@@ -366,6 +396,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: tokens.surface.muted,
   },
+  // 面层排布与外框声明同形(竖排 + 两端对齐),按压态只落在这一层。
+  serviceItemFace: {
+    width: '100%',
+    height: '100%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  } as ViewStyle,
   serviceTitle: {
     fontSize: 14,
     fontWeight: '700',
@@ -397,6 +435,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingTop: 10,
   },
+  // 面层撑满外框内容盒;bannerFloat / bannerCard 都是绝对定位,其定位基准随children 一起
+  // 落到这一层 —— 外框没有 paddingTop/paddingLeft,两层原点重合,像素位置逐字不变。
+  bannerFace: {
+    width: '100%',
+    height: '100%',
+  } as ViewStyle,
   bannerFloat: {
     width: 90,
     height: 90,
@@ -487,6 +531,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+  // 横排面层:toolCell 与 customWrap 共用(两者的排布声明同形,按压态只落在这一层)。
+  rowFace: {
+    width: '100%',
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+  } as ViewStyle,
   customIconWrap: {
     width: 45,
     height: 47,

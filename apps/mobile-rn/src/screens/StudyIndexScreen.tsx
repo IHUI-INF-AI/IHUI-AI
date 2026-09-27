@@ -454,45 +454,53 @@ export function StudyIndexScreen() {
     const time = item.createdAt ? formatRelativeTime(item.createdAt) : ''
     const author = item.teacherName || '智汇社区-官方'
     return (
+      // 守门 131 改型:gridCard(flex:1 + margin)本就是纯「行内槽位」档 ⇒ 原样留在外层;
+      // 内容 + pressed 淡出落内层 gridCardBody(flex:1,撑满外层等分槽位)。
       <Pressable
-        style={({ pressed }) => [styles.gridCard, pressed ? styles.gridCardPressed : null]}
+        style={styles.gridCard}
         onPress={() => onVideoClick(item)}
         accessibilityRole="button"
         accessibilityLabel={item.title}
       >
-        <View style={styles.gridCoverWrap}>
-          {item.cover ? (
-            <Image source={{ uri: item.cover }} style={styles.gridCover} resizeMode="cover" />
-          ) : (
-            <View style={styles.gridCoverPlaceholder}>
-              <Play size={24} color={tk.text.tertiary} />
+        {({ pressed }) => (
+          <View style={[styles.gridCardBody, pressed ? styles.gridCardPressed : null]}>
+            <View style={styles.gridCoverWrap}>
+              {item.cover ? (
+                <Image source={{ uri: item.cover }} style={styles.gridCover} resizeMode="cover" />
+              ) : (
+                <View style={styles.gridCoverPlaceholder}>
+                  <Play size={24} color={tk.text.tertiary} />
+                </View>
+              )}
+              {/* 标题 + 日期覆盖在封面上(对齐 Uniapp study_list .video_info absolute) */}
+              <View style={styles.gridCoverInfo}>
+                <Text style={styles.gridCoverTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                {time ? (
+                  <Text style={styles.gridCoverDate} numberOfLines={1}>
+                    {time}
+                  </Text>
+                ) : null}
+              </View>
             </View>
-          )}
-          {/* 标题 + 日期覆盖在封面上(对齐 Uniapp study_list .video_info absolute) */}
-          <View style={styles.gridCoverInfo}>
-            <Text style={styles.gridCoverTitle} numberOfLines={1}>
-              {item.title}
-            </Text>
-            {time ? (
-              <Text style={styles.gridCoverDate} numberOfLines={1}>
-                {time}
+            {/* 下方课程名(对齐 Uniapp study_list .title {{ item.name }}) */}
+            {item.name ? (
+              <Text style={styles.gridTitle} numberOfLines={1}>
+                {item.name}
               </Text>
             ) : null}
+            {/* 作者行(对齐 Uniapp study_list icon_logo + name) */}
+            <View style={styles.gridAuthorRow}>
+              {item.avatar ? (
+                <Image source={{ uri: item.avatar }} style={styles.gridAvatar} />
+              ) : null}
+              <Text style={styles.gridAuthor} numberOfLines={1}>
+                {author}
+              </Text>
+            </View>
           </View>
-        </View>
-        {/* 下方课程名(对齐 Uniapp study_list .title {{ item.name }}) */}
-        {item.name ? (
-          <Text style={styles.gridTitle} numberOfLines={1}>
-            {item.name}
-          </Text>
-        ) : null}
-        {/* 作者行(对齐 Uniapp study_list icon_logo + name) */}
-        <View style={styles.gridAuthorRow}>
-          {item.avatar ? <Image source={{ uri: item.avatar }} style={styles.gridAvatar} /> : null}
-          <Text style={styles.gridAuthor} numberOfLines={1}>
-            {author}
-          </Text>
-        </View>
+        )}
       </Pressable>
     )
   }
@@ -831,6 +839,10 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   gridCardPressed: {
     opacity: 0.8,
+  } as ViewStyle,
+  // 守门 131 改型:外层 gridCard 继续占双列等分槽位,这档作为内层内容盒撑满该槽位。
+  gridCardBody: {
+    flex: 1,
   } as ViewStyle,
   gridCoverWrap: {
     position: 'relative',

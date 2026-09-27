@@ -50,19 +50,33 @@ import type { ModelConfigType } from '@ihui/ui-native'
 import { Check, ChevronLeft, Mic, Music, Plus, Square, X } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import { ChevronRight } from 'lucide-react-native'
-// 本组件所有会显形的几何数字(删除角标 / 音色菜单图标块 / 上传卡宽与标记盒 / 参数输入行高 /
-// 自绘录音按钮 / 三档字形)一律不在本文件取数 —— 唯一源在
+// 本组件所有会显形的几何数字(删除角标 / 音色菜单图标块 / 上传卡宽与标记盒 / 参数输入行高与横向
+// 内衬 / 选项胶囊内衬与间距 / 字段标签间距 / 音色弹窗内衬与行纵向内衬 / 自绘录音按钮 / 三档字形)
+// 一律不在本文件取数 —— 唯一源在
 // @ihui/shared/ui/model-config-dialog-spec(与小程序端同档,裁决依据写在该文件);
-// RN 单位 dp 与逻辑 px 1:1,换算取恒等。
+// RN 单位 dp 与逻辑 px 1:1,换算取恒等。胶囊间距两端用同一档但各挂自己的机制
+// (本端条目 margin、小程序容器 `gap`),换机制属重构不在本票,故只统一数值。
 import {
   MODEL_CONFIG_BLOCK_GLYPH_PX,
+  MODEL_CONFIG_CHIP_GAP_PX,
+  MODEL_CONFIG_CHIP_PAD_X_PX,
+  MODEL_CONFIG_CHIP_PAD_Y_PX,
   MODEL_CONFIG_INLINE_GLYPH_PX,
+  MODEL_CONFIG_INPUT_PAD_X_PX,
+  MODEL_CONFIG_LABEL_GAP_PX,
+  MODEL_CONFIG_MENU_PAD_PX,
+  MODEL_CONFIG_MENU_ROW_PAD_Y_PX,
   MODEL_CONFIG_RECORD_BUTTON_PX,
   MODEL_CONFIG_RECORD_GLYPH_PX,
   MODEL_CONFIG_UPLOAD_MARK_PX,
   modelConfigAudioMenuIconStyle,
+  modelConfigChipInnerStyle,
+  modelConfigChipItemMarginStyle,
   modelConfigDeleteBadgeStyle,
   modelConfigInputBoxStyle,
+  modelConfigLabelGapStyle,
+  modelConfigMenuPadXStyle,
+  modelConfigMenuRowStyle,
   modelConfigSquareStyle,
   modelConfigUploadCardStyle,
 } from '@ihui/shared/ui/model-config-dialog-spec'
@@ -225,8 +239,16 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
   return (
     <Pressable
       onPress={onPress}
-      className="mr-1.5 mb-1.5 rounded-md px-2.5 py-1.5"
-      style={{ backgroundColor: active ? tokens.success.light : tokens.surface.muted }}
+      className="rounded-md"
+      style={{
+        ...modelConfigChipInnerStyle(
+          MODEL_CONFIG_CHIP_PAD_X_PX,
+          MODEL_CONFIG_CHIP_PAD_Y_PX,
+          toUnit,
+        ),
+        ...modelConfigChipItemMarginStyle(MODEL_CONFIG_CHIP_GAP_PX, toUnit),
+        backgroundColor: active ? tokens.success.light : tokens.surface.muted,
+      }}
     >
       <Text
         className="text-xs"
@@ -241,7 +263,13 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <View className="mb-3">
-      <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.tertiary }}>
+      <Text
+        className="text-xs font-medium"
+        style={{
+          ...modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit),
+          color: tokens.text.tertiary,
+        }}
+      >
         {label}
       </Text>
       {children}
@@ -428,9 +456,9 @@ function DynamicVariables({
                 value={String(cur ?? '')}
                 onChangeText={(t) => emit({ [v.name]: t })}
                 placeholder={`请输入${v.desc}`}
-                className="rounded-md px-3.5 text-xs"
+                className="rounded-md text-xs"
                 style={{
-                  ...modelConfigInputBoxStyle(toUnit),
+                  ...modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
                   backgroundColor: tokens.surface.muted,
                   color: tokens.text.primary,
                 }}
@@ -517,9 +545,9 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
             value={String(config.temperature)}
             keyboardType="numeric"
             onChangeText={(v) => update({ temperature: Number(v) || 0 })}
-            className="mr-2 flex-1 rounded-md px-3.5 text-xs"
+            className="mr-2 flex-1 rounded-md text-xs"
             style={{
-              ...modelConfigInputBoxStyle(toUnit),
+              ...modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
               backgroundColor: tokens.surface.muted,
               color: tokens.text.primary,
             }}
@@ -535,9 +563,9 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           value={String(config.maxTokens)}
           keyboardType="numeric"
           onChangeText={(v) => update({ maxTokens: Number(v) || 0 })}
-          className="rounded-md px-3.5 text-xs"
+          className="rounded-md text-xs"
           style={{
-            ...modelConfigInputBoxStyle(toUnit),
+            ...modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
             backgroundColor: tokens.surface.muted,
             color: tokens.text.primary,
           }}
@@ -549,9 +577,9 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           value={String(config.topP)}
           keyboardType="numeric"
           onChangeText={(v) => update({ topP: Number(v) || 0 })}
-          className="rounded-md px-3.5 text-xs"
+          className="rounded-md text-xs"
           style={{
-            ...modelConfigInputBoxStyle(toUnit),
+            ...modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
             backgroundColor: tokens.surface.muted,
             color: tokens.text.primary,
           }}
@@ -967,7 +995,10 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
               onStartShouldSetResponder={() => true}
             >
               {/* 弹窗头部 */}
-              <View className="flex-row items-center justify-between px-5 py-4">
+              <View
+                className="flex-row items-center justify-between py-4"
+                style={modelConfigMenuPadXStyle(MODEL_CONFIG_MENU_PAD_PX, toUnit)}
+              >
                 <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
                   选择音色
                 </Text>
@@ -977,7 +1008,14 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
               </View>
 
               {/* 菜单项 */}
-              <Pressable onPress={handleSelectVoice} className="flex-row items-center px-5 py-3">
+              <Pressable
+                onPress={handleSelectVoice}
+                className="flex-row items-center"
+                style={{
+                  ...modelConfigMenuPadXStyle(MODEL_CONFIG_MENU_PAD_PX, toUnit),
+                  ...modelConfigMenuRowStyle(MODEL_CONFIG_MENU_ROW_PAD_Y_PX, toUnit),
+                }}
+              >
                 <View
                   className="mr-3 items-center justify-center rounded-lg"
                   style={{
@@ -998,7 +1036,14 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 <ChevronRight size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.tertiary} />
               </Pressable>
 
-              <Pressable onPress={handleCloneVoice} className="flex-row items-center px-5 py-3">
+              <Pressable
+                onPress={handleCloneVoice}
+                className="flex-row items-center"
+                style={{
+                  ...modelConfigMenuPadXStyle(MODEL_CONFIG_MENU_PAD_PX, toUnit),
+                  ...modelConfigMenuRowStyle(MODEL_CONFIG_MENU_ROW_PAD_Y_PX, toUnit),
+                }}
+              >
                 <View
                   className="mr-3 items-center justify-center rounded-lg"
                   style={{

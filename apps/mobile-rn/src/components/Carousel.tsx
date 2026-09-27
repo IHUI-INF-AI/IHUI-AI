@@ -77,6 +77,9 @@ export default function Carousel({
   )
 
   if (!banner || banner.length === 0) {
+    // 守门 128:此占位文案(text-xs=12)在小程序侧**没有对照元素** —— 小程序空列表 return null。
+    // 它当前与小程序叠加层的 p-3/text-xs 数值巧合相消,不是两端同值;别把这一行读成已收口档
+    // (映射与裁决依据见 @ihui/shared/ui/carousel-spec 头注,O81)。
     return (
       <View
         className="w-full items-center justify-center rounded-lg"
