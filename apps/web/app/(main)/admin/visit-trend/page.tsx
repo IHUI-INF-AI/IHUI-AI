@@ -187,7 +187,7 @@ export default function VisitTrendPage() {
                       {numFmt.format(s.pv)} PV · {numFmt.format(s.uv)} UV
                     </span>
                   </div>
-                  <div className="relative h-2 overflow-hidden rounded bg-muted/40">
+                  <div className="relative h-2 overflow-hidden rounded-xs bg-muted/40">
                     <div
                       className="h-full rounded-md bg-emerald-500/70"
                       style={{ width: `${(s.pv / totalSrc) * 100}%` }}

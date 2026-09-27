@@ -48,7 +48,7 @@ function HeroCard({ item, tag }: { item: NewsItem; tag: string }) {
   return (
     <Link
       href={`/news/${item.id}`}
-      className="group relative flex h-full min-h-[220px] overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5"
+      className="group relative flex h-full min-h-[220px] overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5"
     >
       <div className="absolute inset-0">
         {item.coverImage ? (

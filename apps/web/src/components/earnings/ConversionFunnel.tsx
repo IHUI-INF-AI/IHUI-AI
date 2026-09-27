@@ -48,7 +48,7 @@ export function ConversionFunnel({ data, loading }: Props) {
           {loading
             ? Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="space-y-1">
-                  <div className="h-3 w-16 animate-pulse rounded bg-muted" />
+                  <div className="h-3 w-16 animate-pulse rounded-xs bg-muted" />
                   <div className="h-7 w-full animate-pulse rounded bg-muted" />
                 </div>
               ))
