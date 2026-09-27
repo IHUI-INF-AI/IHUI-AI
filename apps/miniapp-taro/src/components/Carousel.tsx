@@ -132,6 +132,10 @@ export default function Carousel({
                   <Image src={item.img} mode="aspectFill" className="h-full w-full" lazyLoad />
                 ) : null}
                 {!hasImg && (item.title || item.subtitle) ? (
+                  // 守门 128:整块「无图兜底文案」(p-4/text-xl/mb-2/text-sm 折出 16/20/8/14)是
+                  // 小程序端独有渲染 —— RN 同名文件不渲染逐项兜底,无同一元素可对照。
+                  // 数字刻意留在类名里可见、不入 spec、不改走函数(裁决与禁假绿依据见
+                  // @ihui/shared/ui/carousel-spec 头注;收口前置 = RN 移植该渲染或台账拆对声明)。
                   <View className="absolute inset-0 flex flex-col items-center justify-center p-4">
                     {/* 亮色 fallback(2026-09-03):浅色 token 渐变底 → 文字用深色,与 web 端 bg-muted 兜底同族 */}
                     {item.title ? (
@@ -147,6 +151,10 @@ export default function Carousel({
                   </View>
                 ) : null}
                 {meta ? (
+                  // 守门 128:「course 变体叠加层」(p-3/gap-2/mt-1/px-2/py-0.5/text-sm/text-xs 折出
+                  // 12/8/4/8/2/14/12)同为小程序端独有渲染:variant='course'/courseMeta 只在小程序
+                  // 组件入参存在,RN 侧课程卡是另一枚组件(CourseCarousel),不在本配对面上。
+                  // 处置同上方兜底块 —— 数字留在类名可见,收口前置见 carousel-spec 头注。
                   <View className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--color-black-60)] to-transparent p-3">
                     {meta.title ? (
                       <Text className="block text-sm text-[var(--color-white-98)] line-clamp-1">

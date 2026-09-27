@@ -195,13 +195,19 @@ export function PublishScreen({
       {error ? (
         <View style={styles.errorWrap}>
           <Text style={styles.errorText}>{error}</Text>
+          {/* 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+              cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,按钮底色/圆角/内边距静默消失。
+              errorWrap 是 column + alignItems center ⇒ 外层 hug 内容,整档下移后盒子逐像素不变。 */}
           <Pressable
             onPress={onRetryLoad}
-            style={({ pressed }) => [styles.retryBtn, pressed ? styles.pressed : null]}
             accessibilityRole="button"
             accessibilityLabel={t('publish.retry')}
           >
-            <Text style={styles.retryBtnText}>{t('publish.retry')}</Text>
+            {({ pressed }) => (
+              <View style={[styles.retryBtn, pressed ? styles.pressed : null]}>
+                <Text style={styles.retryBtnText}>{t('publish.retry')}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       ) : (
@@ -261,33 +267,47 @@ export function PublishScreen({
                 {canCancel || canRetry ? (
                   <View style={styles.cardActions}>
                     {canCancel ? (
+                      // 同上(守门 131):cardActions 是 row,两颗钮各自 hug 内容(padding 定义盒子),
+                      // 面档整档下移到内层 ⇒ 钮尺寸、间距与淡出范围不变;busy 判定留在原条件里未改。
                       <Pressable
                         onPress={() => onCancelTask(item)}
                         disabled={busy}
-                        style={({ pressed }) => [
-                          styles.actionBtn,
-                          styles.actionBtnGhost,
-                          pressed && !busy ? styles.pressed : null,
-                        ]}
                         accessibilityRole="button"
                         accessibilityLabel={t('publish.cancelTask')}
                       >
-                        <Text style={styles.actionBtnGhostText}>{t('publish.cancelTask')}</Text>
+                        {({ pressed }) => (
+                          <View
+                            style={[
+                              styles.actionBtn,
+                              styles.actionBtnGhost,
+                              pressed && !busy ? styles.pressed : null,
+                            ]}
+                          >
+                            <Text style={styles.actionBtnGhostText}>{t('publish.cancelTask')}</Text>
+                          </View>
+                        )}
                       </Pressable>
                     ) : null}
                     {canRetry ? (
                       <Pressable
                         onPress={() => onRetryTask(item)}
                         disabled={busy}
-                        style={({ pressed }) => [
-                          styles.actionBtn,
-                          styles.actionBtnPrimary,
-                          pressed && !busy ? styles.pressed : null,
-                        ]}
                         accessibilityRole="button"
                         accessibilityLabel={t('publish.retryTask')}
                       >
-                        <Text style={styles.actionBtnPrimaryText}>{t('publish.retryTask')}</Text>
+                        {({ pressed }) => (
+                          <View
+                            style={[
+                              styles.actionBtn,
+                              styles.actionBtnPrimary,
+                              pressed && !busy ? styles.pressed : null,
+                            ]}
+                          >
+                            <Text style={styles.actionBtnPrimaryText}>
+                              {t('publish.retryTask')}
+                            </Text>
+                          </View>
+                        )}
                       </Pressable>
                     ) : null}
                   </View>

@@ -206,13 +206,20 @@ export function UserMembershipBenefits({
 
         {/* 立即开通(对齐 Uniapp details-button / openIntroduces;后端依赖:开通/跳转逻辑预留 onPressUpgrade) */}
         {onPressUpgrade ? (
+          // 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
+          // interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失(守门 131
+          // 那一型)。外框拿盒与布局(含 marginTop),面层撑满内容盒并只拿 pressed。
           <Pressable
-            style={({ pressed }) => [styles.openBtn, pressed ? styles.pressed : null]}
+            style={styles.openBtn}
             onPress={onPressUpgrade}
             accessibilityRole="button"
             accessibilityLabel="立即开通"
           >
-            <Text style={styles.openBtnText}>立即开通</Text>
+            {({ pressed }) => (
+              <View style={[styles.openBtnFace, pressed ? styles.pressed : null]}>
+                <Text style={styles.openBtnText}>立即开通</Text>
+              </View>
+            )}
           </Pressable>
         ) : null}
       </View>
@@ -363,6 +370,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
+  } as ViewStyle,
+  // 面层:撑满外框内容盒,承载按压态(见上方守门 131 说明)。
+  openBtnFace: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   } as ViewStyle,
   openBtnText: {
     fontSize: 14,

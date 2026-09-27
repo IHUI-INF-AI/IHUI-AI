@@ -423,38 +423,45 @@ export function VipScreen() {
       <View style={styles.entryCard}>
         <Text style={styles.entryTitle}>权益介绍</Text>
         <View style={styles.entryRow}>
+          {/* 守门 131 那一型:`style={({pressed}) => …}` 落在 cssInterop 注册过的 Pressable 上
+              会被整份静默丢掉。改法 = 外层只承槽位(flex:1 决定行内等分),pressed 反馈与
+              可视盒(entryButton:底色/圆角/padding/居中)一并落进内层 View 数组形态。
+              外层无底色,淡出仍覆盖整颗可见按钮 ⇒ 观感逐像素同前。 */}
           <Pressable
-            style={({ pressed }) => [
-              styles.entryButton,
-              pressed ? styles.entryButtonPressed : null,
-            ]}
+            style={styles.entryButtonSlot}
             onPress={() => setIntroIndexVisible(true)}
             accessibilityRole="button"
             accessibilityLabel="会员权益介绍"
           >
-            <Text style={styles.entryButtonText}>会员权益</Text>
+            {({ pressed }) => (
+              <View style={[styles.entryButton, pressed ? styles.entryButtonPressed : null]}>
+                <Text style={styles.entryButtonText}>会员权益</Text>
+              </View>
+            )}
           </Pressable>
           <Pressable
-            style={({ pressed }) => [
-              styles.entryButton,
-              pressed ? styles.entryButtonPressed : null,
-            ]}
+            style={styles.entryButtonSlot}
             onPress={() => setIntroIndexsVisible(true)}
             accessibilityRole="button"
             accessibilityLabel="操盘手权益介绍"
           >
-            <Text style={styles.entryButtonText}>操盘手权益</Text>
+            {({ pressed }) => (
+              <View style={[styles.entryButton, pressed ? styles.entryButtonPressed : null]}>
+                <Text style={styles.entryButtonText}>操盘手权益</Text>
+              </View>
+            )}
           </Pressable>
           <Pressable
-            style={({ pressed }) => [
-              styles.entryButton,
-              pressed ? styles.entryButtonPressed : null,
-            ]}
+            style={styles.entryButtonSlot}
             onPress={() => setPrivateAdvisoryVisible(true)}
             accessibilityRole="button"
             accessibilityLabel="私人顾问介绍"
           >
-            <Text style={styles.entryButtonText}>私人顾问</Text>
+            {({ pressed }) => (
+              <View style={[styles.entryButton, pressed ? styles.entryButtonPressed : null]}>
+                <Text style={styles.entryButtonText}>私人顾问</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>
@@ -510,17 +517,19 @@ export function VipScreen() {
                   ) : null}
                   <Text style={styles.planDuration}>{plan.durationDays} 天</Text>
                 </View>
-                {/* 立即开通按钮(对齐 Uniapp introduce-popup/index.vue 订阅 CTA,显式点击支付) */}
+                {/* 立即开通按钮(对齐 Uniapp introduce-popup/index.vue 订阅 CTA,显式点击支付)
+                    守门 131 改型:外层承槽位(marginTop+高度),可视盒与 pressed 淡出在内层。 */}
                 <Pressable
-                  style={({ pressed }) => [
-                    styles.subscribeButton,
-                    pressed ? styles.planItemPressed : null,
-                  ]}
+                  style={styles.subscribeButtonSlot}
                   onPress={() => pay(plan)}
                   accessibilityRole="button"
                   accessibilityLabel={t('vipScreen.subscribe')}
                 >
-                  <Text style={styles.subscribeButtonText}>{t('vipScreen.subscribe')}</Text>
+                  {({ pressed }) => (
+                    <View style={[styles.subscribeButton, pressed ? styles.planItemPressed : null]}>
+                      <Text style={styles.subscribeButtonText}>{t('vipScreen.subscribe')}</Text>
+                    </View>
+                  )}
                 </Pressable>
               </View>
             )
@@ -531,9 +540,10 @@ export function VipScreen() {
         <Text style={styles.agreementText}>{t('vipScreen.agreement')}</Text>
       </View>
 
-      {/* 等级升级机制装饰区(对齐 Uniapp levelIndex.vue 行 21-29 钻石装饰) */}
+      {/* 等级升级机制装饰区(对齐 Uniapp levelIndex.vue 行 21-29 钻石装饰)
+          守门 131 改型:外承 margin 槽位,行盒 + 底色 + pressed 淡出落内层。 */}
       <Pressable
-        style={({ pressed }) => [styles.levelBanner, pressed ? styles.traderBannerPressed : null]}
+        style={styles.levelBanner}
         onPress={() => {
           // 孤儿路由修复:VipLevel 注册无入口,点击等级横幅进入等级详情
           const firstLevel = levels[0]
@@ -542,18 +552,22 @@ export function VipScreen() {
         accessibilityRole="button"
         accessibilityLabel={t('vipScreen.banner.level')}
       >
-        <Text style={styles.diamondIcon} allowFontScaling={false}>
-          {'\u25C6'}
-        </Text>
-        <View style={styles.levelBannerText}>
-          <Text style={styles.levelBannerTitle}>{t('vipScreen.banner.level')}</Text>
-          <Text style={styles.levelBannerHint}>{t('vipScreen.banner.levelHint')}</Text>
-        </View>
+        {({ pressed }) => (
+          <View style={[styles.levelBannerFace, pressed ? styles.traderBannerPressed : null]}>
+            <Text style={styles.diamondIcon} allowFontScaling={false}>
+              {'\u25C6'}
+            </Text>
+            <View style={styles.levelBannerText}>
+              <Text style={styles.levelBannerTitle}>{t('vipScreen.banner.level')}</Text>
+              <Text style={styles.levelBannerHint}>{t('vipScreen.banner.levelHint')}</Text>
+            </View>
+          </View>
+        )}
       </Pressable>
 
       {/* 操盘手专属权益横幅(品牌色卡片,title + subtitle) */}
       <Pressable
-        style={({ pressed }) => [styles.traderBanner, pressed ? styles.traderBannerPressed : null]}
+        style={styles.traderBanner}
         onPress={() => {
           // 孤儿路由修复:VipTrader 注册无入口,点击操盘手横幅进入开通页
           navigation.navigate('VipTrader')
@@ -561,8 +575,12 @@ export function VipScreen() {
         accessibilityRole="button"
         accessibilityLabel={t('vipScreen.banner.trader')}
       >
-        <Text style={styles.traderBannerTitle}>{t('vipScreen.banner.trader')}</Text>
-        <Text style={styles.traderBannerSubtitle}>{t('vipScreen.banner.traderSubtitle')}</Text>
+        {({ pressed }) => (
+          <View style={[styles.traderBannerFace, pressed ? styles.traderBannerPressed : null]}>
+            <Text style={styles.traderBannerTitle}>{t('vipScreen.banner.trader')}</Text>
+            <Text style={styles.traderBannerSubtitle}>{t('vipScreen.banner.traderSubtitle')}</Text>
+          </View>
+        )}
       </Pressable>
 
       <SharedVipScreen
@@ -644,17 +662,18 @@ export function VipScreen() {
         </View>
         <Text style={styles.qrCodeTitle}>{t('vipScreen.qr.title')}</Text>
         <Text style={styles.qrCodeHint}>{t('vipScreen.qr.hint')}</Text>
-        {/* 二维码弹层关闭按钮 */}
+        {/* 二维码弹层关闭按钮(守门 131 改型:槽位在外,可视盒 + pressed 淡出在内层) */}
         <Pressable
-          style={({ pressed }) => [
-            styles.qrCloseButton,
-            pressed ? styles.qrCloseButtonPressed : null,
-          ]}
+          style={styles.qrCloseButtonSlot}
           onPress={() => setServicePopupVisible(false)}
           accessibilityRole="button"
           accessibilityLabel={t('vipScreen.qr.close')}
         >
-          <Text style={styles.qrCloseText}>{t('vipScreen.qr.close')}</Text>
+          {({ pressed }) => (
+            <View style={[styles.qrCloseButton, pressed ? styles.qrCloseButtonPressed : null]}>
+              <Text style={styles.qrCloseText}>{t('vipScreen.qr.close')}</Text>
+            </View>
+          )}
         </Pressable>
       </BottomPops>
     </View>
@@ -721,6 +740,11 @@ const styles = StyleSheet.create({
   entryRow: {
     flexDirection: 'row',
     gap: rpx(16),
+  } as ViewStyle,
+  // 守门 131 改型:外层只保留父容器槽位属性(flex:1 = entryRow 三等分),
+  // 可视盒 entryButton 整体下移至内层 View,数值一字未动。
+  entryButtonSlot: {
+    flex: 1,
   } as ViewStyle,
   entryButton: {
     flex: 1,
@@ -832,9 +856,15 @@ const styles = StyleSheet.create({
     lineHeight: PLAN_DURATION_FONT_SIZE + 2,
     color: tokens.text.secondary,
   } as TextStyle,
-  subscribeButton: {
+  // 守门 131 改型:槽位(marginTop/高度,决定命中区与父容器占位)留外层,可视盒(底色/圆角/居中)
+  // 挪内层承载 pressed 淡出 —— 数值全数保留,只换载体。
+  subscribeButtonSlot: {
     marginTop: rpx(16),
     height: SUBSCRIBE_BUTTON_HEIGHT,
+  } as ViewStyle,
+  subscribeButton: {
+    width: '100%',
+    height: '100%',
     borderRadius: rnRadius.lg,
     backgroundColor: ACCENT_COLOR,
     alignItems: 'center',
@@ -854,12 +884,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
   // ── 等级升级机制装饰区 ──
+  // 守门 131 改型:margin 留外层槽位,行盒/底色/圆角/padding 移入 face 档(数值原样搬迁)。
   levelBanner: {
+    marginHorizontal: rpx(32),
+    marginTop: rpx(20),
+  } as ViewStyle,
+  levelBannerFace: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(20),
-    marginHorizontal: rpx(32),
-    marginTop: rpx(20),
     paddingHorizontal: rpx(28),
     paddingVertical: rpx(20),
     backgroundColor: tokens.brandAccent.light,
@@ -886,9 +920,13 @@ const styles = StyleSheet.create({
     marginTop: rpx(4),
   } as TextStyle,
   // ── 操盘手专属权益横幅 ──
+  // 守门 131 改型:同上,margin 槽位在外,可视盒在 face。
   traderBanner: {
     marginHorizontal: rpx(32),
     marginTop: rpx(20),
+  } as ViewStyle,
+  traderBannerFace: {
+    width: '100%',
     backgroundColor: ACCENT_COLOR,
     borderRadius: rnRadius.lg,
     paddingHorizontal: rpx(28),
@@ -955,9 +993,14 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
     textAlign: 'center',
   } as TextStyle,
-  qrCloseButton: {
+  // 守门 131 改型:margin/高度槽位在外,底色/圆角/居中的可视盒在 qrCloseButton(值原样)。
+  qrCloseButtonSlot: {
     marginTop: rpx(24),
     height: QR_CLOSE_BUTTON_HEIGHT,
+  } as ViewStyle,
+  qrCloseButton: {
+    width: '100%',
+    height: '100%',
     borderRadius: rnRadius.lg,
     backgroundColor: ACCENT_COLOR,
     alignItems: 'center',
