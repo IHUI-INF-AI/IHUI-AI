@@ -38,7 +38,7 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisco
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from ..core.jwt_auth import get_current_user_id, verify_access_token
+from ..core.jwt_auth import get_current_user_id, principal_from_payload, verify_access_token
 from ..services.browser_hub import hub
 
 logger = logging.getLogger(__name__)
@@ -83,6 +83,7 @@ async def create_session(
         url=body.url,
         viewport={"width": body.viewport_width, "height": body.viewport_height},
         user_agent=body.user_agent,
+        owner_user_id=user_id,
     )
     url = await session.get_current_url()
     title = await session.get_title()
@@ -102,11 +103,13 @@ async def create_session(
 @router.get("/sessions")
 async def list_sessions(user_id: str = Depends(get_current_user_id)) -> dict[str, Any]:
     """列出所有会话。"""
+    # 列表与计数**同一个谓词**(旧写法 list 全量而 count 也是全量,任何人能看到别人的
+        # session_id 并拿去逐个探测)
     return {
         "code": 0,
         "data": {
-            "session_ids": hub.list_sessions(),
-            "count": hub.session_count,
+            "session_ids": hub.list_sessions(user_id),
+            "count": hub.session_count_for(user_id),
         },
     }
 
@@ -117,7 +120,7 @@ async def get_session_info(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """获取会话信息。"""
-    session = hub.get_session(session_id)
+    session = hub.get_session(session_id, user_id)
     if not session:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
     url = await session.get_current_url()
@@ -140,7 +143,7 @@ async def close_session(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """关闭会话。"""
-    ok = await hub.close_session(session_id)
+    ok = await hub.close_session(session_id, user_id)
     if not ok:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
     return {"code": 0, "message": "会话已关闭", "data": {"session_id": session_id}}
@@ -156,7 +159,7 @@ async def navigate(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """导航到指定 URL。"""
-    session = hub.get_session(session_id)
+    session = hub.get_session(session_id, user_id)
     if not session:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
     result = await session.navigate(body.url, wait_until=body.wait_until)
@@ -173,7 +176,7 @@ async def get_cookies(
 
     可选 query 参数 ?urls=https://a.com,https://b.com 过滤特定域名的 cookies。
     """
-    session = hub.get_session(session_id)
+    session = hub.get_session(session_id, user_id)
     if not session:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
     url_list = urls.split(",") if urls else None
@@ -194,7 +197,7 @@ async def screenshot(
     user_id: str = Depends(get_current_user_id),
 ) -> Response:
     """一次性截图(返回 PNG)。"""
-    session = hub.get_session(session_id)
+    session = hub.get_session(session_id, user_id)
     if not session:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
     png_bytes = await session.screenshot(full_page=full_page)
@@ -210,7 +213,7 @@ async def go_back(
     session_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    session = hub.get_session(session_id)
+    session = hub.get_session(session_id, user_id)
     if not session:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
     ok = await session.go_back()
@@ -222,7 +225,7 @@ async def go_forward(
     session_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    session = hub.get_session(session_id)
+    session = hub.get_session(session_id, user_id)
     if not session:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
     ok = await session.go_forward()
@@ -239,12 +242,12 @@ async def reload(
     2026-08-02 fix:抖音/微信等站点在 CDP 会话被风控后,reload 仍停在验证墙,
     此时重建全新 context(新指纹)通常可恢复正常页面。
     """
-    session = hub.get_session(session_id)
+    session = hub.get_session(session_id, user_id)
     if not session:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
     recreated = False
     if await session.reload_with_recovery():
-        new_session = await hub.recreate_session(session_id)
+        new_session = await hub.recreate_session(session_id, user_id)
         if new_session:
             session = new_session
             recreated = True
@@ -282,8 +285,13 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
         await ws.accept()
         await ws.close(code=4401, reason="Not authenticated")
         return
+    # P0(B 组 / G-258):旧实现在这里**只判 payload 非空就把主体丢掉**,于是任意一张
+    # 有效 access token 都能 attach 任何人的会话 —— 拿到画面流只是难看,真正的洞是
+    # 这条通道能 dispatch_mouse / dispatch_key / execute_js,等于远程操作别人的浏览器
+    # 并在别人已登录的页面里执行任意脚本。
+    ws_user_id = principal_from_payload(payload)
 
-    session = hub.get_session(session_id)
+    session = hub.get_session(session_id, ws_user_id)
     if not session:
         await ws.accept()
         await ws.close(code=4004, reason=f"会话不存在: {session_id}")
