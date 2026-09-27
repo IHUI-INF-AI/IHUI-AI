@@ -269,7 +269,7 @@ describe('agents-queries — 真实 DB 集成测试', () => {
       const updated = await updateExamine(e!.id, { status: 'approved', reason: 'ok' })
       expect(updated?.status).toBe('approved')
       expect(updated?.reason).toBe('ok')
-      await deleteExamine(e!.id)
+      await deleteExamine(e!.id, { isAdmin: true })
       expect(await findExamineById(e!.id)).toBeUndefined()
     })
 
