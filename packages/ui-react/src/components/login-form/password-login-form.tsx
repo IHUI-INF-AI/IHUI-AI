@@ -340,7 +340,7 @@ export function PasswordLoginForm({
                 type="button"
                 onClick={() => void refreshCaptcha()}
                 aria-label={t('auth.captchaRefresh')}
-                className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-input bg-background px-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="inline-flex h-10 shrink-0 items-center justify-center rounded-sm border border-input bg-background px-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 tabIndex={-1}
               >
                 <span
