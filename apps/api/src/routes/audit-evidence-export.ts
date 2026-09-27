@@ -84,7 +84,10 @@ export const auditEvidenceExportRoutes: FastifyPluginAsync = async (server) => {
           // 真正的参数校验一律由下方 Zod 做,产出的 `error(400, msg)` 形状与 schema 一致。
           // (既有的 `/api/admin/audit-logs*` 面同时声明了 format 与 400 schema,同一型待清。)
           properties: {
-            userId: { type: 'string', description: '按用户 ID 过滤(UUID,服务端 Zod 校验;仅作查询维度)' },
+            userId: {
+              type: 'string',
+              description: '按用户 ID 过滤(UUID,服务端 Zod 校验;仅作查询维度)',
+            },
             action: { type: 'string', description: '按动作筛选(auth.login/data.read 等)' },
             resourceType: { type: 'string', description: '按资源类型筛选' },
             startDate: { type: 'string', description: '开始时间(ISO)' },
