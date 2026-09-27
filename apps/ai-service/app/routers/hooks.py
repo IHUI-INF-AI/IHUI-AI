@@ -362,8 +362,14 @@ async def list_all_logs(
     limit: int = Query(100, ge=1, le=1000, description="返回日志数"),
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """查询全部 Hook 日志(最新在前)。"""
-    logs = hook_engine.list_logs(hook_id=None, limit=limit)
+    """查询全部 Hook 日志(最新在前)。
+
+    批 63 / G-258:这条是 `list_logs(hook_id=None)` 的**全站档**,过去任何已登录用户
+    都能读到别人 Hook 的 url/command 上下文与失败原因。归属过滤放在引擎侧一处
+    (`hook_engine.list_logs(owner_id=…)`),不在响应侧筛。管理员(`_owner_filter` 返回
+    None)照旧看全站 —— 那是本模块既有的分级,不是本次新开的口子。
+    """
+    logs = hook_engine.list_logs(hook_id=None, limit=limit, owner_id=_owner_filter(request))
     return {"code": 0, "message": "ok", "data": {"logs": logs, "count": len(logs)}}
 
 
@@ -425,9 +431,16 @@ async def instantiate_template(
     body: InstantiateTemplateBody,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """用模板创建 Hook(overrides 覆盖 url/command 等)。"""
+    """用模板创建 Hook(overrides 覆盖 url/command 等)。
+
+    必须把创建者写成 owner:此前 `instantiate_template` 不传 owner ⇒ 造出
+    `owner_id=None` 的**系统级** Hook,对所有用户生效且人人可管(批 63 / G-258)。
+    管理员经此口创建的也归他自己 —— 这里要的是"谁建的谁负责",不是"管理员建=全站生效"。
+    """
     try:
-        data = await hook_engine.instantiate_template(template_id, body.overrides)
+        data = await hook_engine.instantiate_template(
+            template_id, body.overrides, owner_id=getattr(request.state, "user_id", None)
+        )
         return {"code": 0, "message": "success", "data": data}
     except Exception as e:
         return {"code": 500, "message": str(e), "data": None}
@@ -440,7 +453,9 @@ async def execution_timeline(
     since: str | None = Query(None, description="起始时间 ISO8601"),
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """返回 Hook 执行时间线(Gantt 可视化数据)。"""
+    """返回 Hook 执行时间线(Gantt 可视化数据)。只准属主读(与 :352 的 logs 同一条闸)。"""
+    if hook_engine.get_hook(hook_id, owner_id=_owner_filter(request)) is None:
+        raise HTTPException(status_code=404, detail=f"Hook 不存在: {hook_id}")
     try:
         data = await hook_engine.execution_timeline(hook_id, since)
         return {"code": 0, "message": "success", "data": data}
@@ -455,7 +470,13 @@ async def health_forecast(
     days: int = Query(7, ge=1, le=90, description="预测天数"),
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """Hook 健康预测:LLM 分析历史日志趋势,预测未来失败率/延迟。"""
+    """Hook 健康预测:LLM 分析历史日志趋势,预测未来失败率/延迟。
+
+    它读的是**该 Hook 的全部历史日志**,因此与 execution-timeline 同一条归属闸;
+    不加就得改 `_logs` 的语义 —— 拒读比漏判安全。
+    """
+    if hook_engine.get_hook(hook_id, owner_id=_owner_filter(request)) is None:
+        raise HTTPException(status_code=404, detail=f"Hook 不存在: {hook_id}")
     try:
         data = await hook_engine.health_forecast(hook_id, days)
         return {"code": 0, "message": "success", "data": data}
