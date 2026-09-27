@@ -318,26 +318,59 @@ const normKey = (file) =>
     .toLowerCase()
 const nameOf = (file) => fileName(file).replace(/\.[^.]+$/, '')
 
+/**
+ * 配对键:先走 `normKey`,再剥掉**平台解析后缀**。
+ * Taro 构建器按后缀解析同名实现(`SectionHeader.taro.tsx` 才是 weapp 上被打包的那一份),
+ * 而 `normKey` 把 `.taro` 一起吸进键里 ⇒ `SectionHeader` 与 `SectionHeader.taro` 成不了对。
+ * 本轮实测未配对名单里 `Selecter.taro / SectionHeader.taro / ColorfulLoader.taro` 全是这一型 ——
+ * 是键判据太糙,不是"另一端没有这个元素"。只剥这一族明确的平台词,不做模糊匹配:
+ * 宁可少配,也不把两个不同元素并成一对(那会造出假"同值",比漏配更坏)。
+ */
+const PLATFORM_SUFFIX = /(?:taro|weapp|h5|swan|tt|alipay|mp|rn|native)$/i
+const pairKey = (f) => normKey(f).replace(PLATFORM_SUFFIX, '')
+/** 族名 = 去扩展名后的文件名再剥平台后缀。后缀必须先随扩展名一起去掉。 */
+const baseName = (f) => {
+  const n = nameOf(f)
+  return PLATFORM_SUFFIX.test(n) ? n.replace(/\.[^.]*$/, '') : n
+}
+/** 同键多候选时,带平台后缀那份优先(它是该端构建期真被解析进去的那份)。 */
+const candRank = (f) => (PLATFORM_SUFFIX.test(normKey(f)) ? 0 : 1)
+
 /** 两端清单 → 同名配对 + 计数。纯函数,构造面即可证明后缀与优先级两条判据。 */
 export function scan(listMini, listRn) {
   const rnMap = new Map()
   for (const f of listRn) {
     if (!/\.(tsx|jsx)$/i.test(fileName(f))) continue
-    const k = normKey(f)
-    if (!rnMap.has(k)) rnMap.set(k, f) // 排序靠前的层优先(共享层在前)
+    const k = pairKey(f)
+    if (!rnMap.has(k) || candRank(f) < candRank(rnMap.get(k))) rnMap.set(k, f) // 共享层在前
   }
   const miniMap = new Map()
   for (const f of listMini) {
     if (!/\.(tsx|jsx)$/i.test(fileName(f))) continue
-    if (!miniMap.has(normKey(f))) miniMap.set(normKey(f), f)
+    const k = pairKey(f)
+    if (!miniMap.has(k) || candRank(f) < candRank(miniMap.get(k))) miniMap.set(k, f)
   }
   const pairs = []
   for (const [k, f] of miniMap)
-    if (rnMap.has(k)) pairs.push({ name: nameOf(f), miniapp: f, rn: rnMap.get(k) })
+    if (rnMap.has(k))
+      pairs.push({
+        // 被审的**文件**是带平台后缀那份(该端构建期真被解析的那一份),但**族名**必须剥掉后缀:
+        // 名字若随当选候选变化,同一族在台账里就会有 `Foo` / `Foo.taro` 两个键,存量锚点互相顶掉
+        // —— 与守门 134「锚点粒度不够细 ⇒ 换个写法就净零逃逸」是同一型。
+        name: baseName(f),
+        miniapp: f,
+        rn: rnMap.get(k),
+      })
+  const onlyMiniKeys = [...miniMap.keys()].filter((k) => !rnMap.has(k))
+  const onlyRnKeys = [...rnMap.keys()].filter((k) => !miniMap.has(k))
   const out = {
     pairs: pairs.sort((a, b) => a.name.localeCompare(b.name)),
-    onlyMiniapp: [...miniMap.keys()].filter((k) => !rnMap.has(k)).length,
-    onlyRn: [...rnMap.keys()].filter((k) => !miniMap.has(k)).length,
+    onlyMiniapp: onlyMiniKeys.length,
+    onlyRn: onlyRnKeys.length,
+    // 名单本身必须报出来:只有计数的话,下一个人无从判断这 75 个名字里哪些是真不同名、
+    // 哪些是配对判据还没覆盖到的同一元素 —— 而"报数不报名"正是本仓反复记过的失明确形态。
+    onlyMiniappNames: onlyMiniKeys.map((k) => miniMap.get(k)).sort(),
+    onlyRnNames: onlyRnKeys.map((k) => rnMap.get(k)).sort(),
     miniappCount: miniMap.size,
     rnCount: rnMap.size,
   }
@@ -1089,7 +1122,7 @@ export function pruneUnreachableLegs(repoRoot, face, scanned) {
     for (const dir of SIDES[side]) {
       for (const p of all) {
         if (!p.startsWith(`${dir}/`) || !/\.(tsx|jsx)$/i.test(fileName(p))) continue
-        const k = normKey(p)
+        const k = pairKey(p)
         if (!m.has(k)) m.set(k, [])
         if (!m.get(k).includes(p)) m.get(k).push(p)
       }
@@ -1102,9 +1135,13 @@ export function pruneUnreachableLegs(repoRoot, face, scanned) {
     for (const side of ['miniapp', 'rn']) {
       const reach = usedBySide[side]
       if (reach.has(cur[side]) || missing.has(cur[side])) continue
-      const alt = (altsBySide[side].get(normKey(cur[side])) ?? []).find(
+      const cands = (altsBySide[side].get(pairKey(cur[side])) ?? []).filter(
         (f) => f !== cur[side] && !missing.has(f) && reach.has(f),
       )
+      // pairKey 剥掉平台后缀之后,同一个桶里会同时躺着 `Foo.taro.tsx` 与 `Foo.tsx`。
+      // 换腿必须与 scan() 同序 —— 带平台后缀的那份才是该端构建期真被解析进去的那一份;
+      // 并列时保留先入桶者,即 SIDES 目录优先级不变。
+      const alt = cands.length ? cands.reduce((a, b) => (candRank(b) < candRank(a) ? b : a)) : null
       if (alt) {
         moved.push(`${cur[side]} → ${alt}`)
         cur[side] = alt
@@ -1525,6 +1562,10 @@ export function main(argv, repoRoot = ROOT) {
         })),
         unreachable: (collected.unreachableLegs ?? []).map((u) => ({ name: u.name, legs: u.legs })),
         undeterminedEdges: (collected.undeterminedEdges ?? []).length,
+        // 配对射程也要能被机器读:下一票(按语义槽配对)的输入就是这两份名单,
+        // 只在人读面打印的话,它又得靠复制粘贴终端输出当数据源 —— 那是会腐烂的取证。
+        onlyMiniappNames: collected.pairs?.onlyMiniappNames ?? [],
+        onlyRnNames: collected.pairs?.onlyRnNames ?? [],
         red: res.red,
         waived: res.waived.length,
       }),
@@ -1561,6 +1602,20 @@ export function main(argv, repoRoot = ROOT) {
           `  ⓘ 配对射程:仅小程序成文件 ${om} 个 / 仅 RN 成文件 ${or} 个 —— ` +
             `两端不同名的元素不成对,本门对它们零判据(报数,不判红)`,
         )
+      /**
+       * 名单逐名打印。上一版只报"75 / 50"两个数,结果是这格**永远无法被清偿** ——
+       * 拿到数字的人看不出这 125 个文件里哪些真是两端不同名的同一元素、哪些确实只存在一端,
+       * 而这个判断恰是"要不要扩配对判据"的唯一依据。"报数不报名"在本仓反复被记成
+       * 判据失明的表现形态(守门 70/76/81 同族),所以这里把名字全量列出,不做截断:
+       * 截断会把"其余 N 个"变成新的暗面,而列出它们不花任何判据成本。
+       */
+      for (const [label, key] of [
+        ['仅小程序', 'onlyMiniappNames'],
+        ['仅 RN', 'onlyRnNames'],
+      ]) {
+        const names = (collected.pairs?.[key] ?? []).map((p) => nameOf(String(p)))
+        if (names.length) console.log(`     ${label}(${names.length}):${names.join(' ')}`)
+      }
     }
     for (const u of undet.slice(0, 12))
       console.log(`  ? 未判定:${u.from ?? '(清单)'} → ${u.spec}:${u.reason}`)
@@ -2637,6 +2692,75 @@ function runSelfTest() {
         /× 台账腐烂:\$\{res\.rot\.join/.test(src) &&
         /const rotRed = res\.rot\.length \? 1 : 0/.test(src) &&
         /rotRed \+ res\.red\.length \+ icRed\.length/.test(src)
+      )
+    })(),
+  )
+  t(
+    '㊪ 平台后缀必须能配对:`SectionHeader` 与 `SectionHeader.taro` 是同一元素;' +
+      '带后缀那份优先当选;而真不同名的两个文件不得被并成一对(宁可少配)',
+    (() => {
+      const r = scan(
+        ['apps/miniapp-taro/src/components/SectionHeader.tsx',
+         'apps/miniapp-taro/src/components/SectionHeader.taro.tsx',
+         'apps/miniapp-taro/src/components/SearchBar.tsx'],
+        ['packages/app/src/features/common/SectionHeader.tsx',
+         'packages/app/src/features/chat/SearchInput.tsx'],
+      )
+      const names = r.pairs.map((p) => p.name)
+      const sec = r.pairs.find((p) => p.name === 'SectionHeader')
+      return (
+        names.length === 1 &&
+        names[0] === 'SectionHeader' &&
+        sec.miniapp.endsWith('SectionHeader.taro.tsx') &&
+        r.onlyMiniapp === 1 &&
+        r.onlyRn === 1 &&
+        r.onlyMiniappNames.join() === 'apps/miniapp-taro/src/components/SearchBar.tsx' &&
+        r.onlyRnNames.join() === 'packages/app/src/features/chat/SearchInput.tsx'
+      )
+    })(),
+  )
+  t(
+    '㊫ 名单必须是可指认的路径而不是又一个计数:' +
+      '只报"75 / 50"时,下一个人无从判断哪些是同一元素、哪些真只存在一端,那一格永远清不掉',
+    (() => {
+      const r = scan(['apps/miniapp-taro/src/a/Only.tsx'], ['packages/app/src/b/Twin.tsx'])
+      return (
+        r.onlyMiniapp === 1 &&
+        r.onlyMiniappNames.length === 1 &&
+        r.onlyMiniappNames[0].includes('Only.tsx') &&
+        r.onlyRnNames[0].includes('Twin.tsx')
+      )
+    })(),
+  )
+  t(
+    '㊬ 装车锁:换腿桶必须与配对键同形 —— altsBySide 用 pairKey 建桶、按 pairKey 查桶' +
+      '(仍用 normKey 的话,带平台后缀那份与不带那份不在同一桶里,不可达时找不到替代腿)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      return (
+        /altsBySide\[side\] = m/.test(src) &&
+        (src.match(/const k = pairKey\(p\)/g) ?? []).length === 1 &&
+        /altsBySide\[side\]\.get\(pairKey\(cur\[side\]\)\)/.test(src) &&
+        !/altsBySide\[side\]\.get\(normKey\(cur\[side\]\)\)/.test(src)
+      )
+    })(),
+  )
+  t(
+    '㊭ 装车锁:名单必须由 main 真的打出来(人读面 + --json 两面各一处)。' +
+      "自检证明 scan 给得出名字,不等于有人问它要 —— 本仓最高频的失效型就是'函数在、没人调'",
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      const from = src.indexOf('function main(')
+      const to = src.indexOf('function runSelfTest(', from + 1)
+      const mainBody = src.slice(from, to > from ? to : undefined)
+      return (
+        // --json 面(机器可读,下一票的输入源)
+        /onlyMiniappNames: collected\.pairs\?\.onlyMiniappNames \?\? \[\]/.test(mainBody) &&
+        /onlyRnNames: collected\.pairs\?\.onlyRnNames \?\? \[\]/.test(mainBody) &&
+        // 人读面:名单打印的三处缺一不可(标签表、计数前缀、逐名 join)
+        /\['仅小程序', 'onlyMiniappNames'\]/.test(mainBody) &&
+        /\['仅 RN', 'onlyRnNames'\]/.test(mainBody) &&
+        /\$\{label\}\(\$\{names\.length\}\):\$\{names\.join\(' '\)\}/.test(mainBody)
       )
     })(),
   )
