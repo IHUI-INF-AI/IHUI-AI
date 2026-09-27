@@ -51,7 +51,8 @@ import {
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
-import { hostname } from 'node:os'
+import { homedir, hostname } from 'node:os'
+import { isInteractiveUserHome } from './check-home-junctions.mjs'
 import { judgeTaskForm, taskFormAcceptable } from './lib/schtasks-form.mjs'
 // 死值分流必须与 `git-refs-heal.mjs` **共用同一份实现**。本文件原先有一份同名同实现的私有
 // `writeLooseRef`,而 `healRefs()` 直接遍历 broken 无校验地写 —— 于是"修好的那一份"只在人工
@@ -575,12 +576,51 @@ function healWorktreeTracked() {
  *     改为统计修复器自己打的 action 标签,并显式区分 timed-out / copy-failed / EBUSY 类。
  */
 const HOME_HEAL_LOCK = join(WORKTREE, '.workbuddy', 'home-junctions.heal.lock')
+const HOME_HEAL_STAMP = join(WORKTREE, '.workbuddy', 'home-junctions.last-heal.txt')
+/** 两轮自愈之间的最小墙钟间隔。
+ *  为什么必须有:常驻模式(`--daemon`)的 tick 是 `GIT_GUARDIAN_INTERVAL_MS || 10000`,即**10 秒**
+ *  (它兜的是 `.git` 被整体删除那一型,必须快,不该为此调慢)。但家目录自愈是按"每 2 分钟一趟"
+ *  设计的(见上面三条改法的 ①②),挂在 10 秒 tick 上就等于把一轮几百 MB 的 robocopy 提频 12 倍。
+ *  2026-09-27 实测到后果:同一失败项 12 秒刷一条告警、两小时 1.3 万行。
+ *  冷却表(修复器自己写)已能拦住**已知失败项**,这一层拦的是"任何一轮的整体重抄",两者不互替:
+ *  判红原因落在项之外时(例如登记表被过滤空)冷却表是空的,只有墙钟间隔兜得住。 */
+const HOME_HEAL_MIN_INTERVAL_MS = 10 * 60 * 1000
+
+/** 纯函数:本轮该不该叫自愈。时间戳读不到/为 0/为负 ⇒ 视为到期(宁跑一轮,不因为一个坏文件永久静默)。 */
+export function homeHealDue(raw, now, minIntervalMs = HOME_HEAL_MIN_INTERVAL_MS) {
+  const last = Number(String(raw ?? '').trim())
+  if (!Number.isFinite(last) || last <= 0) return true
+  return now - last >= minIntervalMs
+}
 
 function healHomeJunctions() {
   const dir = dirname(fileURLToPath(import.meta.url))
   const judge = join(dir, 'check-home-junctions.mjs')
   const fixer = join(dir, 're-home-junctions.mjs')
   if (!existsSync(judge) || !existsSync(fixer)) return
+  // ── ⓪ 身份闸(2026-09-27,排在节流与锁之前)──
+  // 常驻守护是 NSSM 服务,身份 LocalSystem,它的家目录是 `C:\Windows\System32\config\systemprofile`,
+  // 于是 §26 那 16 项登记路径在**这一身份下解析成另一批路径** —— 而那批路径里实测真有一个
+  // `AppData\Local\pnpm-cache` 实体目录,门因此恒判红,守护遂每 10 秒叫修复器去把**系统账户的目录**
+  // robocopy 进**真人正在用的缓存树**。这不是噪音问题,是"搬运工具拿错了搬运对象"。
+  // 判据住在 check-home-junctions.mjs 的 isInteractiveUserHome,此处只调用 —— 不得抄第二份。
+  // 静默返回是刻意的:这里 skip 的是"一轮调度",不是一个判定;判定结论仍在修复流程的日志里。
+  // 若为 skip 也打日志,就等于用另一种文案把同一条刷屏复制回来。
+  if (!isInteractiveUserHome(homedir())) return
+  // ── ⓪b 墙钟节流 ──
+  let lastRaw = ''
+  try {
+    lastRaw = readFileSync(HOME_HEAL_STAMP, 'utf8')
+  } catch {
+    lastRaw = ''
+  }
+  if (!homeHealDue(lastRaw, Date.now())) return
+  try {
+    mkdirSync(dirname(HOME_HEAL_STAMP), { recursive: true })
+    writeFileSync(HOME_HEAL_STAMP, String(Date.now()), 'utf8')
+  } catch {
+    /* 时间戳写不进去只失去节流这一层的保护,不得因此不跑本轮 */
+  }
   const call = (script, args, timeout) => {
     try {
       const out = execFileSync(process.execPath, [script, ...args], {
@@ -1961,6 +2001,7 @@ export const __test__ = {
   alignStallThresholds,
   auditEnvDrift,
   envDriftDetail,
+  homeHealDue,
   NOTIFY_DEFAULT_WINDOW_MS,
   NOTIFY_DEFAULT_FAIL_COOLDOWN_MS,
 }

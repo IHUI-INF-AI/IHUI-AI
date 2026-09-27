@@ -43,7 +43,7 @@ git tag desktop-v<version> && git push origin desktop-v<version>   # → .github
 `bundle.windows.nsis` 指定 `template: windows/installer.nsi` + `installerHooks: windows/hooks.nsi`（`languages: SimpChinese / English`，`compression: lzma`）。
 
 - `windows/installer.nsi`：Tauri 上游 NSIS 模板的**定制副本**（定制补丁清单见该文件头部注释），非定制段落禁止手改；由 `scripts/desktop-nsis-template.mjs` 维护——`--check` 校验「仓库模板 == 上游 + IHUI 补丁」、`--write` 从当前 Tauri CLI 重新生成、`--emit-patches` 把直接手改导出成侧车补丁。升级 Tauri CLI 后必跑 `--check`；手改过 `installer.nsi` 后必跑 `--emit-patches`。
-- `windows/hooks.nsi` → include `windows/ihui-ui.nsi`：自定义向导 UI，视觉语言「墨光 · Ink Aurora」（2026-09-22 改版）——880×600 无边框深色窗口、左侧 248px 品牌导轨（`#1e2e36` = `.dark --color-brand-accent-light`）、导轨常驻四步进度指示器、安装页百分比大字 + 阶段文案 + 品牌配色进度条；色值全部映射 `packages/design-tokens/src/styles/tokens.css` 暗色块（品牌渐变 `#b8d4e3 → #a3c4d6`）。
+- `windows/hooks.nsi` → include `windows/ihui-ui.nsi`：自定义向导 UI，视觉语言「星澜 · Nebula」（2026-09-27 三版，资产层重设计；前版「墨光 · Ink Aurora」2026-09-22）——880×600 无边框深色窗口、左侧 248px 品牌导轨（`#1e2e36` = `.dark --color-brand-accent-light`）、导轨常驻四步进度指示器、安装页百分比大字 + 阶段文案 + 品牌配色进度条；三版新增：窄幅极光带/星轨细线/确定性星座/辉光核心等氛围基元、导轨纵向渐变与当前步辉光，安装页双环改「开口 aperture 弧段」（根治百分比 STATIC 实色底截环），开屏 16 帧分镜（星轨入场→logo 辉光显影→双环扩散→字标收距→f12 起逐字节定格收尾卡，供固实 LZMA 跨帧去重控体积）；色值全部映射 `packages/design-tokens/src/styles/tokens.css` 暗色块（品牌渐变 `#b8d4e3 → #a3c4d6`）。
 - 位图资产：`windows/installer-assets/assets-{100,125,150,175,200}/`（按 DPI 缩放档位），含开屏多帧动画（`splash.bmp` + `splash1..15.bmp`）、五个向导页满幅背景、位图按钮；由 `scripts/desktop-installer-assets.mjs` 生成（`--previews` 只输出 PNG 预览到 `%TEMP%` 供人工审阅），并写出 `windows/ihui-assets-path.nsh`。
 - 版面几何与 `ihui-ui.nsi` 的运行期控件坐标严格一一对应，改任一处必须同步另一处。
 - 对账：`node scripts/check-installer-assets.mjs` 校验「nsi 引用 ⊆ File 打包清单 ⊆ 五档落盘文件」——漏登记会让运行期控件空白而编译零报错（2026-09-20 最小化按钮事故）。上述两个脚本均需手动执行，未接入 pre-commit / CI。

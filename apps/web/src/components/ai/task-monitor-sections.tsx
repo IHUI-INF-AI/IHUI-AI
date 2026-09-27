@@ -43,7 +43,7 @@ export const TASK_MONITOR_ZONES: Readonly<Record<TaskZone, readonly ToolTabKey[]
     'hooks',
   ],
   results: ['bestof', 'worlds', 'atomicrollback', 'tokens', 'spec', 'wiki'],
-  auxiliary: ['routines', 'integrations', 'workspace'],
+  auxiliary: ['routines', 'integrations', 'workspace', 'inspector'],
 }
 
 const ZONE_ORDER: readonly TaskZone[] = ['progress', 'activity', 'results', 'auxiliary']
@@ -62,7 +62,11 @@ interface TaskMonitorZonesViewProps {
  * 每区一条可折叠分区:区头(区名 + 区内 Tab 数)→ 区内 Tab 子导航(role=tab,复用既有
  * id/testid 约定)→ 若激活 Tab 属于本区,在区内渲染其内容(与平铺模式同一 tabpanel 契约)。
  */
-export function TaskMonitorZonesView({ activeTab, onSelectTab, renderTab }: TaskMonitorZonesViewProps) {
+export function TaskMonitorZonesView({
+  activeTab,
+  onSelectTab,
+  renderTab,
+}: TaskMonitorZonesViewProps) {
   const tZone = useTranslations('taskMonitor')
   const tTab = useTranslations('aiToolsPanel')
   const [collapsed, setCollapsed] = React.useState<ReadonlySet<TaskZone>>(() => new Set())
@@ -105,7 +109,11 @@ export function TaskMonitorZonesView({ activeTab, onSelectTab, renderTab }: Task
             </button>
             {expanded && (
               <>
-                <div role="tablist" aria-label={zoneLabel} className="flex flex-wrap gap-1 px-3 pb-1.5">
+                <div
+                  role="tablist"
+                  aria-label={zoneLabel}
+                  className="flex flex-wrap gap-1 px-3 pb-1.5"
+                >
                   {keys.map((key) => (
                     <button
                       key={key}
