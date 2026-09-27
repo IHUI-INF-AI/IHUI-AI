@@ -111,7 +111,7 @@ export default function CategoryDetailPage() {
             {list.map((agent) => (
               <View
                 key={agent.id}
-                className="flex items-center gap-[24rpx] p-[24rpx] mb-[24rpx] bg-card border border-[var(--color-border)] rounded-md"
+                className="flex items-center gap-[24rpx] p-[24rpx] mb-[24rpx] bg-card border border-[var(--color-border)] rounded-lg"
                 hoverClass="opacity-60"
                 onClick={() => handleSelect(agent)}
               >

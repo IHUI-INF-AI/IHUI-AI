@@ -125,7 +125,7 @@ export default function RecruitmentIndexPage() {
           </View>
         </View>
 
-        <View className="mx-[20rpx] p-[24rpx] bg-card rounded-2xl">
+        <View className="mx-[20rpx] p-[24rpx] bg-card rounded-lg">
           <Text className="text-[length:32rpx] font-semibold text-foreground block mb-[20rpx]">
             {t('recruitment.requirements')}
           </Text>
@@ -146,7 +146,7 @@ export default function RecruitmentIndexPage() {
           </View>
         </View>
 
-        <View className="mx-[20rpx] p-[24rpx] bg-card rounded-2xl">
+        <View className="mx-[20rpx] p-[24rpx] bg-card rounded-lg">
           <Text className="text-[length:32rpx] font-semibold text-foreground block mb-[20rpx]">
             {t('recruitment.privileges')}
           </Text>
@@ -171,7 +171,7 @@ export default function RecruitmentIndexPage() {
           </View>
         </View>
 
-        <View className="mx-[20rpx] p-[24rpx] bg-card rounded-2xl">
+        <View className="mx-[20rpx] p-[24rpx] bg-card rounded-lg">
           <Text className="text-[length:32rpx] font-semibold text-foreground block mb-[20rpx]">
             {t('recruitment.incomeEstimate')}
           </Text>

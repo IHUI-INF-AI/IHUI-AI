@@ -33,7 +33,7 @@ export default function UserMembershipBenefits({
   className,
 }: UserMembershipBenefitsProps): React.JSX.Element {
   return (
-    <div className={cn('overflow-hidden rounded-xl border bg-card shadow', className)}>
+    <div className={cn('overflow-hidden rounded-lg border bg-card shadow', className)}>
       <div className="flex items-center gap-2 bg-gradient-to-r from-amber-500/10 to-amber-500/5 px-4 py-3">
         <Crown className="h-4 w-4 text-amber-500" />
         <h3 className="text-sm font-medium">{level}权益</h3>

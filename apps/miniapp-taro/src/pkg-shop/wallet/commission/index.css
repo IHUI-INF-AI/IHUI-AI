@@ -96,7 +96,7 @@
   right: 32rpx;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   font-size: 32rpx;
   font-weight: 700;
 }
