@@ -16,7 +16,7 @@ export default function SettingsLoading() {
     <div className="mx-auto w-full max-w-4xl space-y-6 p-3">
       <div className="space-y-2">
         <div className="skeleton h-7 w-32 rounded" />
-        <div className="skeleton h-4 w-56 rounded" />
+        <div className="skeleton h-4 w-56 rounded-xs" />
       </div>
 
       {/* Tabs 骨架 */}
@@ -33,7 +33,7 @@ export default function SettingsLoading() {
           <div key={i} className="rounded-lg border border-border p-3">
             <div className="mb-4 space-y-2">
               <div className="skeleton h-5 w-40 rounded" />
-              <div className="skeleton h-3 w-64 rounded" />
+              <div className="skeleton h-3 w-64 rounded-xs" />
             </div>
             <div className="space-y-3">
               <div className="skeleton h-9 w-full rounded" />

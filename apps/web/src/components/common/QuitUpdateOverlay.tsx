@@ -53,7 +53,7 @@ export function QuitUpdateOverlay() {
       aria-live="assertive"
       aria-label={statusText}
     >
-      <div className="animate-update-slide-in w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card shadow-xl">
+      <div className="animate-update-slide-in w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border bg-card shadow-xl">
         <div className="p-3">
           {/* 图标 + 状态文字 */}
           <div className="flex flex-col items-center gap-3">
@@ -84,7 +84,7 @@ export function QuitUpdateOverlay() {
 
           {/* 下载进度条 */}
           {isDownloading && (
-            <div className="mt-4 h-1 w-full overflow-hidden rounded-sm bg-primary/10">
+            <div className="mt-4 h-1 w-full overflow-hidden rounded-xs bg-primary/10">
               <div
                 className="h-full rounded-sm bg-primary transition-[width] duration-300 ease-out"
                 style={{ width: `${Math.max(progress * 100, 2)}%` }}

@@ -12,13 +12,13 @@ export default function Loading() {
             <div className="flex items-center gap-3">
               <div className="skeleton h-10 w-10 rounded-lg" />
               <div className="flex-1 space-y-2">
-                <div className="skeleton h-4 w-28 rounded" />
-                <div className="skeleton h-3 w-20 rounded" />
+                <div className="skeleton h-4 w-28 rounded-xs" />
+                <div className="skeleton h-3 w-20 rounded-xs" />
               </div>
             </div>
             <div className="mt-3 space-y-2">
-              <div className="skeleton h-3 w-full rounded" />
-              <div className="skeleton h-3 w-3/4 rounded" />
+              <div className="skeleton h-3 w-full rounded-xs" />
+              <div className="skeleton h-3 w-3/4 rounded-xs" />
             </div>
           </div>
         ))}

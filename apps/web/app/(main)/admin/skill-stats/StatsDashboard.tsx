@@ -119,9 +119,9 @@ function CategoryDistChart({ data }: { data: CategoryDistribution[] }) {
               <span className="text-muted-foreground">{labelMap[d.category] ?? d.category}</span>
               <span className="tabular-nums text-foreground/70">{d.count}</span>
             </div>
-            <div className="h-2 w-full rounded-sm bg-muted/60">
+            <div className="h-2 w-full rounded-xs bg-muted/60">
               <div
-                className="h-2 rounded-sm bg-primary/70 transition-all"
+                className="h-2 rounded-xs bg-primary/70 transition-all"
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -387,9 +387,9 @@ export default function StatsDashboard() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <div className="h-2 w-full rounded-sm bg-muted/60">
+                    <div className="h-2 w-full rounded-xs bg-muted/60">
                       <div
-                        className="h-2 rounded-sm bg-green-500/70 transition-all"
+                        className="h-2 rounded-xs bg-green-500/70 transition-all"
                         style={{
                           width:
                             totalCount > 0

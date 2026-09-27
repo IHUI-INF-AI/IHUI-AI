@@ -221,7 +221,7 @@ export default function ManualFaqPage() {
             {group.items.map((item, idx) => (
               <details
                 key={idx}
-                className="group rounded-xl border bg-card p-3 transition-colors open:bg-accent/30"
+                className="group rounded-lg border bg-card p-3 transition-colors open:bg-accent/30"
               >
                 <summary className="cursor-pointer list-none text-sm font-medium">
                   <span className="mr-2 text-muted-foreground">Q{idx + 1}.</span>
@@ -241,7 +241,7 @@ export default function ManualFaqPage() {
         <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
           <a
             href="mailto:support@aizhs.top"
-            className="rounded-xl border bg-card p-3 transition-colors hover:bg-accent"
+            className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
           >
             <p className="text-sm font-semibold">📧 邮件支持</p>
             <p className="mt-1 text-xs text-muted-foreground">support@aizhs.top</p>
@@ -249,7 +249,7 @@ export default function ManualFaqPage() {
           </a>
           <a
             href="https://aizhs.top/community"
-            className="rounded-xl border bg-card p-3 transition-colors hover:bg-accent"
+            className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
           >
             <p className="flex items-center text-sm font-semibold">
               <MessageCircle className="mr-1.5 inline h-4 w-4" />
@@ -260,7 +260,7 @@ export default function ManualFaqPage() {
           </a>
           <Link
             href="/"
-            className="rounded-xl border bg-card p-3 transition-colors hover:bg-accent"
+            className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
           >
             <p className="flex items-center text-sm font-semibold">
               <Users className="mr-1.5 inline h-4 w-4" />
@@ -271,7 +271,7 @@ export default function ManualFaqPage() {
           </Link>
           <a
             href="https://status.aizhs.top"
-            className="rounded-xl border bg-card p-3 transition-colors hover:bg-accent"
+            className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
           >
             <p className="flex items-center text-sm font-semibold">
               <BarChart3 className="mr-1.5 inline h-4 w-4" />

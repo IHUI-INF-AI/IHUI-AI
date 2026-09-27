@@ -62,7 +62,7 @@ export function HotRanking({ items, sources }: Props) {
   return (
     <section
       aria-label={t('hotRanking.label')}
-      className="overflow-hidden rounded-xl border bg-card shadow-sm"
+      className="overflow-hidden rounded-lg border bg-card shadow-sm"
     >
       <div className="flex items-center gap-2 bg-orange-500/5 px-5 py-3">
         <Flame className="h-4 w-4 text-orange-500" />

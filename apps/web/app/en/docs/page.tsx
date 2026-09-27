@@ -324,7 +324,7 @@ cd my-ai-app && ihui dev`}</code>
             {architectureModules.map((mod) => (
               <div
                 key={mod.name}
-                className="rounded-xl border bg-card p-3"
+                className="rounded-lg border bg-card p-3"
               >
                 <div className="font-mono text-sm font-semibold text-primary">{mod.name}</div>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{mod.desc}</p>
