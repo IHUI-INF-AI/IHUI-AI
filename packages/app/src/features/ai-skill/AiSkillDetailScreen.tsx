@@ -89,13 +89,22 @@ export function AiSkillDetailScreen({
         {error ? (
           <View style={styles.errorWrap}>
             <Text style={[styles.hintText, styles.errorText]}>{error}</Text>
+            {/* 按压态样式不得写在 Pressable 的 style 上(守门 131 那一型):Pressable 注册过
+                cssInterop,函数形态声明被展开成空对象,整份内联样式静默消失。
+                marginTop 是外层在 errorWrap(column + 居中)里占槽位的布局档,留在外层 ⇒
+                按钮仍水平居中、命中区仍只有按钮本身(移到内层会让上方那段间距也可点)。
+                底色与圆角含绘制,故整盒下移到内层 View 的数组形态。 */}
             <Pressable
-              style={({ pressed }) => [styles.retryBtn, pressed ? styles.pressed : null]}
+              style={styles.retryBtnBox}
               onPress={onRetry}
               accessibilityRole="button"
               accessibilityLabel={t('aiSkillDetail.retry')}
             >
-              <Text style={styles.retryText}>{t('aiSkillDetail.retry')}</Text>
+              {({ pressed }) => (
+                <View style={[styles.retryBtn, pressed ? styles.pressed : null]}>
+                  <Text style={styles.retryText}>{t('aiSkillDetail.retry')}</Text>
+                </View>
+              )}
             </Pressable>
           </View>
         ) : skill ? (
@@ -197,8 +206,12 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       marginBottom: 12, // mt-3 对称间距
     },
-    retryBtn: {
+    // 外框:只承接槽位档(与下方 retryBtn 逐字同一组数值,未新增数字档)
+    retryBtnBox: {
       marginTop: 12, // mt-3
+    },
+    // 面层:绘制档(底色/圆角)与内边距,按压态与它同数组配对
+    retryBtn: {
       borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: 16, // px-4
       paddingVertical: 8, // py-2

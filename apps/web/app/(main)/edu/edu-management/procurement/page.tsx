@@ -371,7 +371,7 @@ function RankList({
                 </span>
               </span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-sm bg-muted">
+            <div className="h-1.5 overflow-hidden rounded-xs bg-muted">
               <div
                 className="h-full rounded-sm bg-primary/70"
                 style={{ width: `${Math.max(pct, 2)}%` }}

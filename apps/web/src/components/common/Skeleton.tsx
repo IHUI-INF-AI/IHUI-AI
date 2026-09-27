@@ -21,10 +21,10 @@ export function Skeleton({ variant = 'text', count = 1, className }: SkeletonPro
       <div className={cn('space-y-3', className)}>
         {items.map((i) => (
           <div key={`skeleton-${i}`} className="rounded-xl border p-3 shadow">
-            <div className="mb-3 h-4 w-1/3 animate-pulse rounded bg-muted" />
+            <div className="mb-3 h-4 w-1/3 animate-pulse rounded-xs bg-muted" />
             <div className="space-y-2">
-              <div className="h-4 w-full animate-pulse rounded bg-muted" />
-              <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-full animate-pulse rounded-xs bg-muted" />
+              <div className="h-4 w-2/3 animate-pulse rounded-xs bg-muted" />
             </div>
             <div className="mt-4 flex gap-2">
               <div className="h-8 w-20 animate-pulse rounded bg-muted" />
@@ -43,8 +43,8 @@ export function Skeleton({ variant = 'text', count = 1, className }: SkeletonPro
           <div key={`skeleton-${i}`} className="flex items-center gap-3">
             <div className="h-10 w-10 shrink-0 animate-pulse rounded-md bg-muted" />
             <div className="flex-1 min-w-0 space-y-2">
-              <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
-              <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-1/3 animate-pulse rounded-xs bg-muted" />
+              <div className="h-3 w-1/2 animate-pulse rounded-xs bg-muted" />
             </div>
           </div>
         ))}
@@ -65,7 +65,7 @@ export function Skeleton({ variant = 'text', count = 1, className }: SkeletonPro
   return (
     <div className={cn('space-y-2', className)}>
       {items.map((i) => (
-        <div key={`skeleton-${i}`} className="h-4 w-full animate-pulse rounded bg-muted" />
+        <div key={`skeleton-${i}`} className="h-4 w-full animate-pulse rounded-xs bg-muted" />
       ))}
     </div>
   )

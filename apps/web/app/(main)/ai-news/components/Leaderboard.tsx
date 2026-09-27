@@ -454,7 +454,7 @@ export function Leaderboard({ entries }: Props) {
   return (
     <section
       aria-label={t('leaderboard.label')}
-      className="overflow-hidden rounded-xl border bg-card shadow-sm"
+      className="overflow-hidden rounded-lg border bg-card shadow-sm"
     >
       {/* 头部 */}
       <div className="flex items-center gap-2 bg-cta/5 px-5 py-3">

@@ -127,7 +127,7 @@ export function TitleDialog(props: TitleDialogProps) {
               type="checkbox"
               checked={form.isDefault}
               onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
-              className="h-4 w-4 rounded border-input"
+              className="h-4 w-4 rounded-sm border-input"
             />
             设为默认抬头
           </label>

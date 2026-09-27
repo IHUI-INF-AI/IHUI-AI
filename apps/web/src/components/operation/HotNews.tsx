@@ -88,7 +88,7 @@ export function HotNews({ limit = 10, className }: HotNewsProps) {
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-center gap-2 px-1.5 py-1.5">
                 <div className="h-5 w-5 shrink-0 animate-pulse rounded bg-muted" />
-                <div className="h-3.5 flex-1 animate-pulse rounded bg-muted" />
+                <div className="h-3.5 flex-1 animate-pulse rounded-xs bg-muted" />
               </div>
             ))}
           </div>
