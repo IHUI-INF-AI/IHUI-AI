@@ -372,7 +372,9 @@ describe('D68 旧三浮层入口不回归(message-input 挂载面静态结构断
   it('三浮层组件仍被 import、仍各自挂载、触发状态位原样在位', () => {
     expect(src).toContain('import { FileMentionPopover }')
     expect(src).toContain('import { SlashCommandPalette }')
-    expect(src).toContain('ContextSelectorPopover,')
+    // V3 #61(b3f060983)后 ContextSelectorPopover 改为独立单名 import(原与他会话合并 import 拆行),
+    // 判据跟到实际形态,仍锁"被 import"这一语义。
+    expect(src).toContain('import { ContextSelectorPopover }')
     expect(src).toContain('<FileMentionPopover')
     expect(src).toContain('<ContextSelectorPopover')
     expect(src).toContain('<SlashCommandPalette')
