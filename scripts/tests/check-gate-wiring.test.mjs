@@ -12,7 +12,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -398,6 +398,34 @@ test('T16 R8 的前提锁:runner 调度循环必须**没有**把归一层包进 
   )
 })
 
+test('T18 R9 的装车证明:main() 必须真的调用判据并把 red-r9 推进 reds(函数在而没人调 = 提交链上一路绿灯)', () => {
+  const src = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'check-gate-wiring.mjs'), 'utf8')
+  assert.match(src, /const r9 = findAbsentGateScripts\(/, 'main() 未调用 R9 判据 ⇒ 该维零调度')
+  // 红必须参与退出码(只打印不改退出码 = 下一次没人看,与本仓"报数不判红"的例外清单互斥)
+  assert.match(src, /status:\s*'red-r9'/, 'R9 未产出 red-r9 条目 ⇒ 不会进 reds、不影响退出码')
+  // 存在性面与注册面必须同源:--staged 读索引注册就必须用索引枚举判存在
+  assert.match(
+    src,
+    /r8Face === '索引'[\s\S]{0,200}git\(\['ls-files'\]/,
+    'R9 的存在性集合必须随注册面切换(读索引注册却按 HEAD 判存在 = 基准错位的尺子)',
+  )
+})
+
+test('T19 真仓注册表 R9 必 0 枚缺席,且 registered 必须 > 0(两条同时成立才算"判据有牙且没瞎")', () => {
+  const root = fileURLToPath(new URL('../..', import.meta.url))
+  const has = (p) => existsSync(join(root, p))
+  const r = G.findAbsentGateScripts(readFileSync(join(root, 'scripts/guardian-runner.mjs'), 'utf8'), has)
+  assert.deepEqual(
+    r.absent,
+    [],
+    `注册表点名要跑而面上没有:${r.absent.map((a) => `${a.id}=scripts/${a.script}`).join(' / ')}`,
+  )
+  assert.ok(r.registered > 100, `只解析到 ${r.registered} 条注册 ⇒ 尺子对真仓格式失明(不得把 0 当通过)`)
+  assert.ok(
+    r.checked > 0,
+    'checked=0 而 absent=0 是"什么都没看"的形状,不是"都好了" —— 这条断言防的就是空扫冒充通过',
+  )
+})
 test('T17 真仓注册表 R8 必 0 枚 bad(升档前置:不得留下一枚恒红)', () => {
   const root = fileURLToPath(new URL('../..', import.meta.url))
   const r = G.findMalformedTriggers(readFileSync(join(root, 'scripts/guardian-runner.mjs'), 'utf8'))
