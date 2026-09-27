@@ -131,10 +131,10 @@ apps/web/public/remote-images/
 deploy/cst-result.txt
 deploy/tools/
 
-# 2026-09-27 运行态数据落点:ai-service 的引擎会话库默认路径是**相对 cwd** 的
-# (app/routers/sessions.py: os.getenv("SESSION_STORE_DB_PATH", "data/sessions.db")),
-# 谁从仓根起服务就会把活的 SQLite(含用户会话行)写进工作树 —— 不忽略等于给一次
-# `git add -A` 提交用户数据开门。忽略只挡住入库,不解决"落点该在仓库外",后者另计一票。
+# 2026-09-27 运行态数据落点:ai-service 的引擎会话库默认路径曾相对 cwd,谁从仓根起服务
+# 就把活的 SQLite(含用户会话行)写进工作树 —— 不忽略等于给一次 `git add -A` 提交用户数据开门。
+# 当日 G-283 已修成因(默认值改为锚定模块位置的绝对路径 <ai-service 根>/data/sessions.db,
+# 正确启动方式下落点一字不变);本条 /data/ 保留作第二道防线(挡任何其他相对 cwd 的写入形态)。
 /data/
 
 # Cloudflared tunnel token 文件(2026-08-05 立:防 token 泄露,显式忽略)
