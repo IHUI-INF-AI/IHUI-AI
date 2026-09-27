@@ -440,28 +440,15 @@ export const uiControlToolsFor = createAppControlToolSelector({
  * 模型永远没有 read_file 可调,任务进度状态条也永远无步骤可显示。
  * 只读族宽松召回(读/看/分析/搜 文件·代码·路径);写族仅明确修改动词才携带。
  */
-const FILE_READ_TOOLS: readonly string[] = [
-  'read_file',
-  'list_files',
-  'file_search',
-  'search_codebase',
-  'analyze_code',
-]
-const FILE_WRITE_TOOLS: readonly string[] = ['write_file', 'edit_file']
-
-const FILE_READ_INTENT_RE =
-  /(读取|读一下|读出|看一下|看看|查看|打开|分析|总结|检查|搜索|找一下|列出)[^。\n]{0,24}(文件|代码|目录|配置|项目|仓库)|(package|src|apps|packages|components|hooks|stores|lib)[\\/][\w./\\-]+\.\w{1,8}|[\w-]+\.(tsx?|jsx?|py|json|md|css|ya?ml)\b|read_file|list_files/i
-
-const FILE_WRITE_INTENT_RE =
-  /(修改|改动|改一下|改掉|编辑|写入|写一个|新增|添加|删除|创建|修复|重构|实现|补齐)[^。\n]{0,24}(文件|代码|逻辑|功能|组件|接口|样式|错误|报错|类型|参数|路径|方法|函数)/i
-
-export function fileToolsFor(content: string): string[] {
-  if (!content) return []
-  if (!FILE_READ_INTENT_RE.test(content)) return []
-  // 文件上下文已成立(路径/扩展名/读文件动词)时,出现修改动词即加写族
-  if (FILE_WRITE_INTENT_RE.test(content)) return [...FILE_READ_TOOLS, ...FILE_WRITE_TOOLS]
-  return [...FILE_READ_TOOLS]
-}
+/**
+ * 文件族工具的意图策略已搬到单一源 @ihui/shared/chat/file-tool-intent(2026-09-27)。
+ * 搬的理由不是整洁,是安全面:这张表决定哪些话术会让模型拿到 write_file/edit_file,
+ * 而第二份真相迟早漂成一端能写、另一端不能写。此处保留 re-export 是为了不打断既有 import 面
+ * (web 内多处从本文件取 fileToolsFor),行为逐字不变。
+ * 只 re-export 函数、不 re-export 两张名单:共享层的名单名与 @ihui/shared/chat 里那张
+ * 「文件变更识别白名单」FILE_WRITE_TOOLS 同词不同义,并列出口会让调用侧拿数组去 `.has()`。
+ */
+export { fileToolsFor } from '@ihui/shared/chat/file-tool-intent'
 
 export function eduToolsFor(content: string): string[] {
   if (!content) return []
