@@ -77,6 +77,48 @@ def _migrate_fingerprint_hash(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _migrate_canvas_hash(value: str) -> str:
+    """把存量 `seed:<每账号随机数>` 形态的 canvas_hash 归一回空串哨兵。
+
+    那一族值既不是画布指纹、也不跨账号可比(每账号一个随机种子),留在列里
+    只会让读侧把它当"已记录的画布指纹"用。新代码已经写空串,存量在这里同批清掉;
+    空串不参与比较(见 `_compare` 侧的真值判断),因此归一**不会**制造新的误关联。
+    """
+    if isinstance(value, str) and value.startswith("seed:"):
+        return ""
+    return value
+
+
+def _migrate_raw(node: object) -> int:
+    """在**原始 JSON 结构**上就地归一指纹相关字段,返回改动次数。
+
+    为什么必须在 raw 上做、而不是构造完 `AccountBinding` 再 `_persist()`:
+    后者等于"为改一个字段而用模型整文件重写",会把模型不认识的东西全部抹掉 ——
+    实测构造过一次:同一 account_id 的两条列表项塌成一条(另一条永久消失)、
+    行内未知字段与顶层 `written_by`/`schema_version` 一并被抹。**纯读路径不得有损。**
+    """
+    changed = 0
+    if isinstance(node, dict):
+        for key in list(node.keys()):
+            value = node[key]
+            if key == "fingerprint_hash" and isinstance(value, str):
+                digest = _migrate_fingerprint_hash(value)
+                if digest != value:
+                    node[key] = digest
+                    changed += 1
+            elif key == "canvas_hash" and isinstance(value, str):
+                normalized = _migrate_canvas_hash(value)
+                if normalized != value:
+                    node[key] = normalized
+                    changed += 1
+            else:
+                changed += _migrate_raw(value)
+    elif isinstance(node, list):
+        for item in node:
+            changed += _migrate_raw(item)
+    return changed
+
+
 @dataclass
 class AccountBinding:
     """账号绑定记录(账号→设备指纹/IP/UA 的映射)。"""
@@ -168,25 +210,28 @@ class DeviceGraphGuard:
             try:
                 if _GRAPH_FILE.exists():
                     raw = json.loads(_GRAPH_FILE.read_text(encoding="utf-8"))
-                    migrated = 0
-                    for item in raw.get("bindings", []):
+                    # 迁移在**原始结构**上做、只回写改动的字段值:见 `_migrate_raw` 的理由。
+                    migrated = _migrate_raw(raw if isinstance(raw, dict) else {})
+                    if migrated:
+                        try:
+                            _GRAPH_FILE.write_text(
+                                json.dumps(raw, ensure_ascii=False, indent=2),
+                                encoding="utf-8",
+                            )
+                            logger.info(
+                                "[device_graph] 指纹字段归一: %d 处存量已转为摘要/空串哨兵并回写"
+                                "(只改这些字段,未重建文件)",
+                                migrated,
+                            )
+                        except OSError as e:
+                            # 回写失败不影响本次使用(内存里已是归一后的值),但必须响
+                            logger.warning("[device_graph] 迁移回写失败,仅本次会话内生效: %s", e)
+                    for item in raw.get("bindings", []) if isinstance(raw, dict) else []:
                         binding = AccountBinding.from_dict(item)
-                        digest = _migrate_fingerprint_hash(binding.fingerprint_hash)
-                        if digest != binding.fingerprint_hash:
-                            binding.fingerprint_hash = digest
-                            migrated += 1
                         self._bindings[binding.account_id] = binding
                     logger.debug(
                         "[device_graph] 已加载 %d 条绑定记录", len(self._bindings),
                     )
-                    if migrated:
-                        # 已在 self._lock 内,_persist 不再取锁(无重入风险)
-                        await self._persist()
-                        logger.info(
-                            "[device_graph] 指纹摘要迁移: %d 条存量明文绑定已转为 "
-                            "SHA-256 摘要并回写(明文不再落盘)",
-                            migrated,
-                        )
             except (json.JSONDecodeError, OSError, KeyError, TypeError, ValueError) as e:
                 logger.warning("[device_graph] 加载持久化数据失败: %s", e)
             self._loaded = True

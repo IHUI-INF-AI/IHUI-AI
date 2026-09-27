@@ -21,7 +21,7 @@
  * 用法见 --help。
  */
 
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import nodemailer from 'nodemailer'
@@ -64,7 +64,10 @@ interface CliArgs {
   messageFile?: string
   message?: string
   envFile?: string
+  alertId?: string
+  dedupeHours?: string
   plain: boolean
+  forceAlert: boolean
   strict: boolean
   dryRun: boolean
   help: boolean
@@ -86,6 +89,12 @@ const HELP_TEXT = [
   '  --plain                    不渲染品牌模板,正文就是纯 message(供调用方的降级通道用);subject 不加 [SEVERITY] 前缀',
   '  --env-file <path>          默认 apps/api/.env;只补齐缺失的进程环境变量,绝不覆盖已有值',
   '  --strict                   任一通道失败或未配置 → exit 1;不带此参数恒 exit 0(CI 语义不能变)',
+  '  --alert-id <稳定标识>      同一标识在窗口内只寄一封(默认窗口 4 小时)。标识必须由生产者自己给、',
+  '                             且与"这件事是不是同一件"同义 —— 禁止把计数/时间戳/被挡文件数拼进去,',
+  '                             那等于每轮换一次身份、去重结构上永不命中(2026-09-27 实测连寄 17 封)。',
+  '                             不传本参数 = 不去重,行为与既有调用逐字相同。',
+  '  --dedupe-hours <n>         配合 --alert-id 用,窗口小时数;0 = 关闭去重。默认 4。',
+  '  --force-alert              即使同标识在窗口内已寄过也照寄(升级/复发确认用),不改窗口状态以外的行为。',
   '  --dry-run                  渲染并打印通道判定/收件人脱敏/subject/html 字节数,不发任何网络请求',
   '  --help                     打印本用法',
 ].join('\n')
@@ -145,6 +154,15 @@ function parseCliArgs(argv: readonly string[]): CliArgs {
         break
       case '--env-file':
         args.envFile = argv[++i] ?? ''
+        break
+      case '--alert-id':
+        args.alertId = argv[++i] ?? ''
+        break
+      case '--dedupe-hours':
+        args.dedupeHours = argv[++i] ?? ''
+        break
+      case '--force-alert':
+        args.forceAlert = true
         break
       default:
         break
@@ -456,6 +474,12 @@ interface RunDeps {
   sendSmtp: SmtpSendFn
   fetchResend: FetchLike
   now: () => string
+  /** 去重窗口判定用的机器时刻;与 now()(邮件正文里的中文时间)分开,测试可各自注入。
+   *  可选:既有调用方(CI 的 runCore 直调、各测试夹具)不传即按 Date.now() —— 本参数不得
+   *  变成"所有旧 caller 都必须改"的破坏性签名。 */
+  nowMs?: () => number
+  /** 只写状态文件;失败不改变发送结论(告警链路不得因记账失败而少寄一封)。同上可选。 */
+  writeStateFile?: (p: string, text: string) => void
 }
 
 interface RunOutcome {
@@ -463,6 +487,9 @@ interface RunOutcome {
   dryRun: boolean
   strict: boolean
   sent: boolean
+  /** 因同标识窗口内已寄而压下:不是失败、不是未配置,退出码恒 0 且必须打印原因 */
+  suppressed: boolean
+  dedupeWhy: string
   channel: 'smtp' | 'resend' | null
   subject: string
   htmlBytes: number
@@ -484,6 +511,123 @@ function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
 }
 
+/* ------------------------------------------------------------------ *
+ * 按「告警标识」去重(2026-09-27 立)
+ *
+ * 为什么在这一层做,而不是各生产者各做一遍:到人通道只有一个出口,而"这件事是否
+ * 同一件"的判据一旦有第二份就必然漂移 —— 本仓同一夜已两次实录:部署环的 PowerShell
+ * 侧把**整条文案**当签名,而文案里嵌了逐轮 +1 的计数,于是 4h 去重结构上永不命中,
+ * 04:29 起每 ~80 秒一封、连续 17 封到人;另一头 cron 巡检会话每次都是新上下文,
+ * 票面那句"同一状态 4 小时内只报一次"没有任何持久载体 ⇒ 同一件事每小时复寄。
+ *
+ * 两条设计约束(不可回退):
+ * - **失效方向只能是"多寄一封",绝不能是"吞掉一封"**。状态文件缺失/损坏/时间戳在
+ *   未来 ⇒ 一律照寄并打印原因。告警静默的代价远大于重复。
+ * - 标识由生产者显式给,且必须与"同一件事"同义。不传 ⇒ 完全不去重 ⇒ 既有调用方
+ *   (CI / 部署环 / 守护)行为逐字不变,本参数不可能替别人关掉告警。
+ * ------------------------------------------------------------------ */
+
+/** 4 小时 —— 与 §5e 拍板的"同一条告警按身份去重、无总量封顶"口径同值 */
+const DEFAULT_DEDUPE_HOURS = 4
+const HOUR_MS = 3_600_000
+
+interface DedupeEntry {
+  /** 只存时刻,**刻意不存标题/正文摘要**:状态文件会留在盘上,而告警文案可能带路径、账号、
+   *  主机名这类不该二次落盘的东西,去重判定只需要 id + 时间。 */
+  ts: number
+}
+type DedupeState = Record<string, DedupeEntry>
+
+interface DedupeProbe {
+  alertId: string | undefined
+  force: boolean
+  windowMs: number
+  nowMs: number
+  prevMs: number | null
+}
+
+interface DedupeDecision {
+  action: 'send' | 'suppress'
+  why: string
+  hoursSince: number | null
+}
+
+/** 纯函数:所有分支都只吃构造好的数,不碰文件也不碰时钟 ⇒ 每一支都能被单测点名 */
+function decideDedupe(p: DedupeProbe): DedupeDecision {
+  const id = (p.alertId ?? '').trim()
+  if (id === '')
+    return { action: 'send', why: '未给 --alert-id,按既有行为不去重', hoursSince: null }
+  if (p.force) return { action: 'send', why: '--force-alert 显式放行', hoursSince: null }
+  if (p.windowMs <= 0)
+    return { action: 'send', why: '去重窗口已关闭(--dedupe-hours 0)', hoursSince: null }
+  if (p.prevMs === null) return { action: 'send', why: `标识 ${id} 首次出现`, hoursSince: null }
+  const elapsed = p.nowMs - p.prevMs
+  if (elapsed < 0) {
+    // 时间戳在本次之后 = 机器时钟回拨过 / 状态文件来自更快的另一台机。宁可重寄。
+    return { action: 'send', why: '状态时间戳晚于本次(时钟回拨?),按未寄处理', hoursSince: null }
+  }
+  const hoursSince = Math.round((elapsed / HOUR_MS) * 10) / 10
+  if (elapsed < p.windowMs) {
+    return {
+      action: 'suppress',
+      why: `标识 ${id} 已在 ${hoursSince}h 前寄出(窗口 ${Math.round(p.windowMs / HOUR_MS)}h),本轮未寄`,
+      hoursSince,
+    }
+  }
+  return { action: 'send', why: `标识 ${id} 距上次已 ${hoursSince}h,超过窗口`, hoursSince }
+}
+
+/** 逐出老条目:窗口 ×2 之外的都不再参与判定,免得状态文件只增不减 */
+function pruneDedupeState(state: DedupeState, nowMs: number, windowMs: number): DedupeState {
+  const keepMs = windowMs * 2
+  const out: DedupeState = {}
+  for (const [k, v] of Object.entries(state)) {
+    if (typeof v?.ts === 'number' && nowMs - v.ts <= keepMs) out[k] = v
+  }
+  return out
+}
+
+/** 状态文件与 .env 同层推导(§15 禁硬编码盘符):apps/api/scripts → 仓库根 .workbuddy/。
+ *  ⚠️ 层级是实测过的:scripts →(1)apps/api →(2)apps →(3)仓库根。少写一层不会报错,
+ *  只会让 readFileSync 恒 ENOENT ⇒ prevMs 恒 null ⇒ **去重静默失效、每轮照寄** ——
+ *  与本仓"造好没装车"那一族同型,故由测试里"路径必须以 <根>\.workbuddy\ 结尾且不在 apps 下"钉住。 */
+function defaultDedupeStatePath(): string {
+  return resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    '..',
+    '.workbuddy',
+    'notify-dedupe-state.json',
+  )
+}
+
+/** 解析不出 = 空状态,但必须把原因带回调用方打印(不得静默当成"没寄过") */
+function parseDedupeState(text: string): { state: DedupeState; problem: string | null } {
+  let raw: unknown
+  try {
+    raw = JSON.parse(text)
+  } catch (e) {
+    return { state: {}, problem: `状态文件不是合法 JSON(${errText(e)}),本轮按未寄出处理(宁可重寄)` }
+  }
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { state: {}, problem: '状态文件顶层不是对象,本轮按未寄出处理(宁可重寄)' }
+  }
+  const state: DedupeState = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const e = v as Partial<DedupeEntry> | null
+    if (e && typeof e.ts === 'number' && Number.isFinite(e.ts)) state[k] = { ts: e.ts }
+  }
+  return { state, problem: null }
+}
+
+function resolveWindowMs(raw: string | undefined): number {
+  if (raw === undefined) return DEFAULT_DEDUPE_HOURS * HOUR_MS
+  const n = Number.parseFloat(raw)
+  if (!Number.isFinite(n) || n < 0) return DEFAULT_DEDUPE_HOURS * HOUR_MS
+  return Math.floor(n * HOUR_MS)
+}
+
 async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Promise<RunOutcome> {
   const args = parseCliArgs(argv)
   const warnings: string[] = []
@@ -493,6 +637,8 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
       dryRun: false,
       strict: args.strict,
       sent: false,
+      suppressed: false,
+      dedupeWhy: '',
       channel: null,
       subject: '',
       htmlBytes: 0,
@@ -573,7 +719,7 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
     },
   }
 
-  const base: Omit<RunOutcome, 'sent' | 'channel' | 'reasons'> = {
+  const base: Omit<RunOutcome, 'sent' | 'channel' | 'reasons' | 'suppressed' | 'dedupeWhy'> = {
     help: false,
     dryRun: args.dryRun,
     strict: args.strict,
@@ -586,19 +732,84 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
     htmlHasDispatchBanner: rendered.html.includes('MECHANICAL'),
   }
 
+  // 判定顺序有意在通道探测之后、真正发信之前:读状态是本地动作,不因 SMTP/Resend
+  // 坏掉而跳过;而压下(压下发信)必须在任何网络请求之前发生。
+  const windowMs = resolveWindowMs(args.dedupeHours)
+  const alertId = (args.alertId ?? '').trim()
+  const nowMs = (deps.nowMs ?? (() => Date.now()))()
+  const writeState = deps.writeStateFile ?? defaultWriteStateFile
+  const statePath = defaultDedupeStatePath()
+  let prevMs: number | null = null
+  let state: DedupeState = {}
+  // 状态**总是**先读(只要给了标识):--force-alert 只允许绕过"要不要发"的判定,
+  // 不允许让这一次写盘把别的标识条目整块抹掉(那等于替别人清零窗口)。
+  if (alertId !== '' && !args.dryRun) {
+    try {
+      const parsed = parseDedupeState(deps.readTextFile(statePath))
+      state = parsed.state
+      if (parsed.problem) warnings.push(parsed.problem)
+      prevMs = state[alertId]?.ts ?? null
+    } catch {
+      // 文件不存在 = 这台机第一次走这条路,正常态,不记警告也不报错
+      state = {}
+      prevMs = null
+    }
+  }
+  const decision = decideDedupe({
+    alertId: args.alertId,
+    force: args.forceAlert,
+    windowMs,
+    nowMs,
+    prevMs,
+  })
+
   if (args.dryRun) {
     const channel: 'smtp' | 'resend' | null = cfg.smtp.available
       ? 'smtp'
       : cfg.resend.available
         ? 'resend'
         : null
-    return { ...base, sent: false, channel, reasons: [] }
+    return {
+      ...base,
+      sent: false,
+      suppressed: false,
+      dedupeWhy: alertId === '' ? '未给 --alert-id' : `标识 ${alertId}(dry-run 不查状态、不写状态)`,
+      channel,
+      reasons: [],
+    }
+  }
+  if (decision.action === 'suppress') {
+    // 不发消息、不写状态(状态保持在那一刻,窗口不因压下而顺延)、退出码 0
+    return {
+      ...base,
+      sent: false,
+      suppressed: true,
+      dedupeWhy: decision.why,
+      channel: null,
+      reasons: [],
+    }
   }
   const result = await dispatchMail(cfg, rendered, {
     sendSmtp: deps.sendSmtp,
     fetchResend: deps.fetchResend,
   })
-  return { ...base, sent: result.ok, channel: result.channel, reasons: result.reasons }
+  if (result.ok && alertId !== '') {
+    // 只在真送达后记账:投递失败必须让下一轮重试,否则一次网络抖动换来 4 小时静默
+    try {
+      const next = pruneDedupeState({ ...state, [alertId]: { ts: nowMs } }, nowMs, windowMs)
+      writeState(statePath, JSON.stringify(next, null, 1))
+    } catch (e) {
+      warnings.push(`去重状态写入失败(不影响本次发送,但下一轮可能重寄): ${errText(e)}`)
+    }
+  }
+  return {
+    ...base,
+    sent: result.ok,
+    suppressed: false,
+    dedupeWhy: decision.why,
+    channel: result.channel,
+    reasons: result.reasons,
+  }
 }
 
 /** --strict 才允许非零退出;dry-run/help 只渲染不发送,恒 0 */
@@ -628,11 +839,19 @@ const defaultSendSmtp: SmtpSendFn = async (opts, mail) => {
   }
 }
 
+/** 状态落盘的默认档:.workbuddy/ 可能整目录不存在(新机 / 被清理),先建目录再写 */
+function defaultWriteStateFile(p: string, text: string): void {
+  mkdirSync(dirname(p), { recursive: true })
+  writeFileSync(p, text, 'utf8')
+}
+
 const defaultRunDeps: RunDeps = {
   readTextFile: (p) => readFileSync(p, 'utf8'),
   sendSmtp: defaultSendSmtp,
   fetchResend: (url, init) => globalThis.fetch(url, init),
   now: () => new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
+  nowMs: () => Date.now(),
+  writeStateFile: defaultWriteStateFile,
 }
 
 async function main(
@@ -670,9 +889,16 @@ async function main(
       )
       return 0
     }
+    if (outcome.suppressed) {
+      // 压下必须喊出来:静默跳过与"发成功了"在日志上长得一样,而前者会让人以为已到人
+      console.log(`[alert-mail] 已按标识去重,本轮未寄 —— ${outcome.dedupeWhy}`)
+      return 0
+    }
     if (outcome.sent) {
       console.log(
-        `[alert-mail] 已通过 ${outcome.channel} 通道发送告警邮件(收件人 ${outcome.toMasked.length} 个)`,
+        `[alert-mail] 已通过 ${outcome.channel} 通道发送告警邮件(收件人 ${outcome.toMasked.length} 个)${
+          outcome.dedupeWhy ? `[${outcome.dedupeWhy}]` : ''
+        }`,
       )
       return computeExitCode(outcome)
     }
@@ -730,6 +956,11 @@ export const __test__ = {
   runCore,
   computeExitCode,
   defaultEnvFilePath,
+  defaultDedupeStatePath,
+  decideDedupe,
+  pruneDedupeState,
+  parseDedupeState,
+  resolveWindowMs,
   stripBom,
   ENV_FILL_KEYS,
   DEFAULT_SOURCE,
