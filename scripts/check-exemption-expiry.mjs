@@ -114,6 +114,14 @@ const FAMILY_LIFETIME_DAYS = {
   // 迁移是排期活,不是结构性定性,所以不取 back-label-exempt 的 365 天)
   'api-error-exempt': 30,
   /**
+   * 双层页头对账(check-rn-double-header,判据 DH1/DH2)的行内出口。取 **30 天** —— 它豁免的是
+   * "这一处确实要两条 chrome,但收口要动共享屏的 props 契约"的**待偿迁移债**(共享侧补抑制通道
+   * 再在调用点传入),不是 `back-label-exempt` 那种结构性定性:给长周期等于把双层页头登记成永久惯例,
+   * 而它的故障形态(同屏两条页头 + 抽屉/返回键被压在下面)正是用户实拍要消灭的那个。
+   * 判据侧要求带原因、只本行与紧邻上一纯注释行生效。
+   */
+  'double-header-exempt': 30,
+  /**
    * `check-batch-write-count-honesty` 的 B1/B2 判据(假删除 ack)的合法例外通道:确属"该 delete/update
    * 由触发器/UPSERT 语义保证必命中一行"时才允许保留字面量 `deleted: true`。取 **30 天**,与
    * `glyph-arrow-exempt` / `statusbar-exempt` / `api-error-exempt` 同档 —— 这一族是**待偿的迁移债**,
