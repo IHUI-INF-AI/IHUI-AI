@@ -258,7 +258,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     } as ViewStyle,
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,
@@ -308,7 +308,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     pathCard: {
       width: 140,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
     } as ViewStyle,
@@ -355,7 +355,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     courseCard: {
       flexDirection: 'row',
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
     } as ViewStyle,
@@ -397,7 +397,7 @@ function createStyles(tk: AppThemeTokens) {
     levelBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     levelText: {
