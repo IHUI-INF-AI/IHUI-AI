@@ -86,6 +86,19 @@ export function validateToolArguments(
   args: unknown,
   schema: ToolSchema,
 ): ValidationResult {
+  return runValidation(args, schema);
+}
+
+/**
+ * 判定本体的**唯一**实现。为什么不是 `validateToolArguments` 本身:
+ * 守门 115 的镜像测试钉"定义文件不贡献 `validateToolArguments(` 调用行"(防头注解释文字骗绿),
+ * 而 `normalizeToolArguments` 与公开入口同住在定义文件里、必须复用同一判据 —— 拆出私有核,
+ * 两个公开出口(`validateToolArguments` / `normalizeToolArguments`)都投影到它,判据仍只有一份。
+ */
+function runValidation(
+  args: unknown,
+  schema: ToolSchema,
+): ValidationResult {
   const errors: ValidationError[] = [];
   const coerced: Record<string, unknown> = {};
   const coercedFields: string[] = [];
@@ -399,4 +412,152 @@ const REASON_TEXT: Record<ValidationError['reason'], string> = {
   array_item_type_mismatch: '数组元素类型不匹配',
   object_missing_required: '对象必填字段缺失',
 };
+
+// ==================== enforce 档:schema-aware 单次容错解析 ====================
+//
+// 为什么 enforce 必须带这一半,而不是只做严格拒绝:真实模型经常把 object/array 型参数
+// **整体 stringify**(该传 {"a":1} 却传了字符串 '{"a":1}')。只做拒绝的症状是
+// "昨天能跑今天全被拒" —— 那是制造事故,不是收紧安全(守门 115 头注同一条理由)。
+// 三条不可动摇的判序(与本仓"参数描述准确度未知"的前提配套):
+//   ① **原值先过校验就绝不 re-parse** —— 合法 string 值与 union 里的 string 分支
+//     (`string | null` 传 "42")必须原样通过,不得被 parse 成别的类型;
+//   ② 只有"原值不过 ∧ 该位置 schema 期望 object/array ∧ 实得是 string"才做**一次**
+//     JSON.parse 复验;parse 结果形状不符(object 档 parse 出数组/标量、array 档 parse 出
+//     对象)视同 parse 失败,不复验;
+//   ③ parse 后**再校验一次**,不过即**维持原判**(报原树的错误,不改原参数)——
+//     容错的出口只有"复验通过"这一条,不存在"parse 出来就放行"。
+// 归一树**保留全部原键**(浅拷贝逐层重建),不得用 `ValidationResult.coerced` 顶替 ——
+// coerced 只含声明过的字段,拿它替换会把 schema 外的在途字段静默丢掉。
+
+/** 复递归下降深度上限:超过即不再下探(描述面再深也不值得无界递归,宁可不修)。 */
+const NORMALIZE_MAX_DEPTH = 16;
+
+/** normalizeToolArguments 的返回。 */
+export interface ArgumentNormalization {
+  /** 判定所依据的参数树:未触发容错 / 复验不过 ⇒ 与入参同一引用(原样) */
+  args: unknown;
+  /** 被成功解开并复验通过的完整路径('payload' / 'payload.filters' / '(root)');空数组 = 未发生容错 */
+  normalizedFields: string[];
+  /** 对返回树生效的校验结果(pass 时为原树或复验通过的结果;reject 时为**原判**) */
+  result: ValidationResult;
+}
+
+/** 该位置的 schema 是否"期望容器而实得字符串"—— 容错解析唯一的准入条件。 */
+function isStringifiedContainer(param: ToolParameter, value: unknown): boolean {
+  return typeof value === 'string' && (param.type === 'object' || param.type === 'array');
+}
+
+/** 一次 JSON.parse;形状不符(或缺失)返回 undefined,绝不二次猜测。 */
+function parseContainer(text: string, want: 'object' | 'array'): unknown | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  if (want === 'array') return Array.isArray(parsed) ? parsed : undefined;
+  return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : undefined;
+}
+
+/** 与校验器同一套路径拼法:对象属性用 `a.b`,数组元素用 `a[0]`(见 checkArray/checkObject)。 */
+function childPath(parent: string, key: string): string {
+  return parent === '' ? key : `${parent}.${key}`;
+}
+
+function repairValue(
+  value: unknown,
+  param: ToolParameter,
+  path: string,
+  touched: string[],
+  depth: number,
+): unknown {
+  let current = value;
+  if (isStringifiedContainer(param, current)) {
+    const parsed = parseContainer(current as string, param.type === 'array' ? 'array' : 'object');
+    if (parsed !== undefined) {
+      touched.push(path === '' ? '(root)' : path);
+      current = parsed;
+    }
+  }
+  if (depth >= NORMALIZE_MAX_DEPTH) return current;
+  if (
+    param.type === 'object' &&
+    param.properties &&
+    current !== null &&
+    typeof current === 'object' &&
+    !Array.isArray(current)
+  ) {
+    const out: Record<string, unknown> = { ...(current as Record<string, unknown>) };
+    for (const [k, sub] of Object.entries(param.properties)) {
+      if (!(k in out) || out[k] === undefined) continue;
+      out[k] = repairValue(out[k], sub, childPath(path, k), touched, depth + 1);
+    }
+    return out;
+  }
+  if (param.type === 'array' && param.items && Array.isArray(current)) {
+    const items = param.items;
+    return current.map((item, i) =>
+      item === undefined ? item : repairValue(item, items, `${path === '' ? '' : path}[${i}]`, touched, depth + 1),
+    );
+  }
+  return current;
+}
+
+/**
+ * schema-aware 单次容错解析 + 复验(enforce 档的唯一判定入口)。
+ *
+ * 与 validateToolArguments 的关系:这是它**外面**的一层,不是第二份校验实现 ——
+ * 判定本体仍是 validateToolArguments,parse 只在原判不过时对容器位发生一次,再喂回同一判据。
+ */
+export function normalizeToolArguments(args: unknown, schema: ToolSchema): ArgumentNormalization {
+  const first = runValidation(args, schema);
+  // 判序①:原值过了就到此为止,一次 parse 都不做。
+  if (first.valid) return { args, normalizedFields: [], result: first };
+  const touched: string[] = [];
+  // 根位置按 object 档处理:`ToolSchema.parameters` 与 `ToolParameter` 只差一个
+  // `description` 字段(根没有描述面),这里就地补空串,**不**新增第二种 schema 形状。
+  const rootParam: ToolParameter = {
+    type: 'object',
+    description: '',
+    properties: schema.parameters.properties,
+    required: schema.parameters.required,
+  };
+  const repaired = repairValue(args, rootParam, '', touched, 0);
+  if (touched.length === 0) return { args, normalizedFields: [], result: first };
+  const second = runValidation(repaired, schema);
+  // 判序③:复验不过 ⇒ 维持原判(错误与参数树都回到原值)。
+  if (!second.valid) return { args, normalizedFields: [], result: first };
+  return { args: repaired, normalizedFields: touched, result: second };
+}
+
+// ==================== 单行违规清单(进 tool_result 的那一形态)====================
+
+/** 单行清单最多展开的违规条数,超出折叠为 `(+N more)` —— 违规行本身不能变成第二个大结果。 */
+export const VALIDATION_LINE_MAX_ERRORS = 12;
+/** 单段(expected/actual/field)的字符上限;actual 在 enum_mismatch 分支装的是模型自报原值,回灌给模型无隐私问题,但必须限界。 */
+export const VALIDATION_LINE_MAX_SEGMENT_CHARS = 80;
+
+/** 把任意描述压成行内安全片段:折行/制表归一为空格,超长截断。保证结果里绝不出现换行。 */
+function toLineSegment(text: string): string {
+  const flat = text.replace(/[\r\n\t]+/g, ' ').trim();
+  if (flat.length <= VALIDATION_LINE_MAX_SEGMENT_CHARS) return flat;
+  return `${flat.slice(0, VALIDATION_LINE_MAX_SEGMENT_CHARS - 3)}...`;
+}
+
+/**
+ * ValidationError[] → **单行** ASCII 清单(tool_result 的 error 字段不能带换行;
+ * 多行版 formatValidationErrors 保留给人读,两者是同一份 errors 的两个投影)。
+ *
+ * 例:`arg_validation_failed: payload=type_mismatch(expected=object; got=string) | todos[0].summary=enum_mismatch(expected=enum(a|b); got=x)`
+ */
+export function formatValidationErrorsLine(errors: readonly ValidationError[]): string {
+  if (errors.length === 0) return 'arg_validation_failed';
+  const shown = errors.slice(0, VALIDATION_LINE_MAX_ERRORS);
+  const parts = shown.map(
+    (e) =>
+      `${toLineSegment(e.field)}=${e.reason}(expected=${toLineSegment(e.expected)}; got=${toLineSegment(String(e.actual))})`,
+  );
+  const tail = errors.length > shown.length ? ` (+${errors.length - shown.length} more)` : '';
+  return `arg_validation_failed: ${parts.join(' | ')}${tail}`;
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
