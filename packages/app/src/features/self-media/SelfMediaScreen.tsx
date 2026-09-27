@@ -132,20 +132,30 @@ export function SelfMediaScreen({
         {(['skills', 'records'] as const).map((key) => {
           const active = tab === key
           return (
+            // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+            // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,选中态底色/圆角/内边距
+            // 静默消失。flex:1 是外层在 tabRow 里占槽位的布局档 ⇒ 留外层;面档与 active/pressed
+            // 一起落内层(外层是 column 且 alignItems 默认 stretch ⇒ 内层横向撑满,tab 宽度不变)。
             <Pressable
               key={key}
               onPress={() => onTabChange(key)}
-              style={({ pressed }) => [
-                styles.tabBtn,
-                { backgroundColor: active ? tk.brand.DEFAULT : tk.surface.muted },
-                pressed ? styles.pressed : null,
-              ]}
+              style={styles.tabBtnBox}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
             >
-              <Text style={[styles.tabBtnText, active ? styles.tabBtnTextActive : null]}>
-                {t(key === 'skills' ? 'selfMedia.tabSkills' : 'selfMedia.tabRecords')}
-              </Text>
+              {({ pressed }) => (
+                <View
+                  style={[
+                    styles.tabBtn,
+                    { backgroundColor: active ? tk.brand.DEFAULT : tk.surface.muted },
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Text style={[styles.tabBtnText, active ? styles.tabBtnTextActive : null]}>
+                    {t(key === 'skills' ? 'selfMedia.tabSkills' : 'selfMedia.tabRecords')}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           )
         })}
@@ -209,20 +219,29 @@ export function SelfMediaScreen({
                           textAlignVertical="top"
                           style={styles.promptInput}
                         />
+                        {/* 同上(守门 131):marginTop 是外层在 skillBody(column)里排下一块的布局档,
+                            故留外层;禁用态与按压淡出随面档一起落内层 —— 原本两层样式就叠在同一
+                            元素上,淡出的像素集合不变。 */}
                         <Pressable
                           onPress={() => onInvoke(skill)}
                           disabled={invokeDisabled}
-                          style={({ pressed }) => [
-                            styles.invokeBtn,
-                            invokeDisabled ? styles.invokeBtnDisabled : null,
-                            pressed && !invokeDisabled ? styles.pressed : null,
-                          ]}
+                          style={styles.invokeBtnBox}
                           accessibilityRole="button"
                           accessibilityLabel={t('selfMedia.invoke')}
                         >
-                          <Text style={styles.invokeBtnText}>
-                            {invoking ? t('selfMedia.invoking') : t('selfMedia.invoke')}
-                          </Text>
+                          {({ pressed }) => (
+                            <View
+                              style={[
+                                styles.invokeBtn,
+                                invokeDisabled ? styles.invokeBtnDisabled : null,
+                                pressed && !invokeDisabled ? styles.pressed : null,
+                              ]}
+                            >
+                              <Text style={styles.invokeBtnText}>
+                                {invoking ? t('selfMedia.invoking') : t('selfMedia.invoke')}
+                              </Text>
+                            </View>
+                          )}
                         </Pressable>
                         {result ? (
                           <View style={styles.resultCard}>
@@ -364,8 +383,12 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8, // gap-2
       marginHorizontal: 16, // mx-4
     },
-    tabBtn: {
+    // 外层只留"在 tabRow 里各占一半"的布局档(守门 131:按压态不得写在 Pressable 的 style 上);
+    // 面档在下面的 tabBtn,由内层 View 承载。数值逐字搬移、未新增。
+    tabBtnBox: {
       flex: 1,
+    },
+    tabBtn: {
       borderRadius: rnRadius.md, // rounded-md
       paddingVertical: 8, // py-2
       alignItems: 'center',
@@ -444,8 +467,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary, // dark:text-neutral-100
       textAlignVertical: 'top',
     } satisfies TextStyle & ViewStyle,
-    invokeBtn: {
+    // 同上:marginTop 留外层(排下一块的布局档),钮面档落内层。
+    invokeBtnBox: {
       marginTop: 8, // mt-2
+    },
+    invokeBtn: {
       alignItems: 'center',
       borderRadius: rnRadius.md, // rounded-md
       paddingVertical: 10, // py-2.5

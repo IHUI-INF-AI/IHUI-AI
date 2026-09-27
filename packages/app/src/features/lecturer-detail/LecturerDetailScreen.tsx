@@ -148,21 +148,29 @@ export function LecturerDetailScreen({
               </Text>
             ) : null}
           </View>
+          {/* 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+              cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,按钮底色/圆角/内边距静默消失。
+              header 是 row + alignItems center ⇒ 外层 hug 内容,整档下移到内层后盒子逐像素不变。 */}
           <Pressable
-            style={({ pressed }) => [
-              styles.followBtn,
-              following ? styles.followBtnActive : null,
-              pressed ? styles.pressed : null,
-            ]}
             onPress={onToggleFollow}
             accessibilityRole="button"
             accessibilityLabel={
               following ? t('teacher.detail.following') : t('teacher.detail.follow')
             }
           >
-            <Text style={following ? styles.followBtnTextActive : styles.followBtnText}>
-              {following ? t('teacher.detail.following') : t('teacher.detail.follow')}
-            </Text>
+            {({ pressed }) => (
+              <View
+                style={[
+                  styles.followBtn,
+                  following ? styles.followBtnActive : null,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={following ? styles.followBtnTextActive : styles.followBtnText}>
+                  {following ? t('teacher.detail.following') : t('teacher.detail.follow')}
+                </Text>
+              </View>
+            )}
           </Pressable>
         </View>
 
@@ -198,33 +206,38 @@ export function LecturerDetailScreen({
             <Text style={styles.emptyText}>{t('teacher.detail.noCourses')}</Text>
           ) : (
             courses.map((c) => (
+              // 同上(守门 131):courseCard 在 section(column,默认 stretch)里撑满宽度,
+              // 外层不带布局档也一样占槽 ⇒ 整档下移到内层,卡片宽度与间距不变。
               <Pressable
                 key={c.id}
-                style={({ pressed }) => [styles.courseCard, pressed ? styles.pressed : null]}
                 onPress={() => onOpenCourse(c.id)}
                 accessibilityRole="button"
                 accessibilityLabel={c.title}
               >
-                {c.coverUrl ? (
-                  <Image source={{ uri: c.coverUrl }} style={styles.courseCover} />
-                ) : (
-                  <View style={[styles.courseCover, styles.courseCoverFallback]} />
-                )}
-                <View style={styles.courseBody}>
-                  <Text style={styles.courseTitle} numberOfLines={2}>
-                    {c.title}
-                  </Text>
-                  <View style={styles.courseMetaRow}>
-                    {typeof c.price === 'number' && c.price > 0 ? (
-                      <Text style={styles.coursePrice}>¥{fenToYuan(c.price)}</Text>
+                {({ pressed }) => (
+                  <View style={[styles.courseCard, pressed ? styles.pressed : null]}>
+                    {c.coverUrl ? (
+                      <Image source={{ uri: c.coverUrl }} style={styles.courseCover} />
                     ) : (
-                      <Text style={styles.courseFree}>{t('common.free')}</Text>
+                      <View style={[styles.courseCover, styles.courseCoverFallback]} />
                     )}
-                    <Text style={styles.courseStudents}>
-                      {formatStudents(c.students)} {t('teacher.detail.learnUnit')}
-                    </Text>
+                    <View style={styles.courseBody}>
+                      <Text style={styles.courseTitle} numberOfLines={2}>
+                        {c.title}
+                      </Text>
+                      <View style={styles.courseMetaRow}>
+                        {typeof c.price === 'number' && c.price > 0 ? (
+                          <Text style={styles.coursePrice}>¥{fenToYuan(c.price)}</Text>
+                        ) : (
+                          <Text style={styles.courseFree}>{t('common.free')}</Text>
+                        )}
+                        <Text style={styles.courseStudents}>
+                          {formatStudents(c.students)} {t('teacher.detail.learnUnit')}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
-                </View>
+                )}
               </Pressable>
             ))
           )}
@@ -275,13 +288,18 @@ export function LecturerDetailScreen({
 
       {/* 底部动作条:联系讲师(私信/电话选项由 wrapper 的 onContact 决定) */}
       <View style={styles.footerBar}>
+        {/* 同上(守门 131):footerBar 是 column(默认 stretch),外层不带布局档也通栏占位,
+            按钮面档(底色/圆角/上下内边距/居中)整档下移到内层 ⇒ 通栏按钮宽度与高度不变。 */}
         <Pressable
-          style={({ pressed }) => [styles.footerBtn, pressed ? styles.pressed : null]}
           onPress={onContact}
           accessibilityRole="button"
           accessibilityLabel={t('teacher.detail.contact')}
         >
-          <Text style={styles.footerBtnText}>{t('teacher.detail.contact')}</Text>
+          {({ pressed }) => (
+            <View style={[styles.footerBtn, pressed ? styles.pressed : null]}>
+              <Text style={styles.footerBtnText}>{t('teacher.detail.contact')}</Text>
+            </View>
+          )}
         </Pressable>
       </View>
     </View>
