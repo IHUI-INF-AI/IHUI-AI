@@ -283,7 +283,9 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /examine/:id — 删除
   server.delete('/examine/:id', async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params)
-    const record = await deleteExamine(id)
+    // 本插件 preHandler 已挂 requireAdmin(roleId >= 1),管理员删任意是显式声明的分支;
+    // 属主闸口径见 db/agents-queries.ts deleteExamine 头注。
+    const record = await deleteExamine(id, { isAdmin: true })
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
     return reply.send(success({ deleted: true }))
   })
