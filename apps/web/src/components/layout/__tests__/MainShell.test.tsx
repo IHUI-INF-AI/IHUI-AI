@@ -38,7 +38,6 @@ vi.mock('@/components/common', async (importOriginal) => {
     PWAUpdatePrompt: () => null,
     NavigationProgress: () => null,
     UpdatePrompt: () => null,
-    QuitUpdateOverlay: () => null,
   }
 })
 vi.mock('@/components/ai/ai-side-panel', () => ({
@@ -78,6 +77,8 @@ vi.mock('next-intl', () => ({
     const translate = (key: string) => msgs[key] ?? key
     return Object.assign(translate, { has: (key: string) => key in msgs }) as typeof translate
   },
+  // GlobalTopBar 的 TopBarEcosystemMenu(2026-09-25 起)调用 useLocale,缺失会让整组测试红
+  useLocale: () => currentLocale.value,
 }))
 
 import { GlobalShell } from '../GlobalShell'
