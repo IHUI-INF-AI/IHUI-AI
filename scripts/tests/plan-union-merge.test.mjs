@@ -29,9 +29,22 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 
 const GIT = 'git'
-const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), '..', 'plan-union-merge.mjs')
+const SCRIPTS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
+const SCRIPT = join(SCRIPTS_DIR, 'plan-union-merge.mjs')
+
+/**
+ * 把工具连同**它的相对 import 闭包**放进演练仓。
+ * 原先的 `writeFileSync(tool, readFileSync(SCRIPT))` 只拷一个文件 —— 工具一旦经共用层
+ * 取道(`lib/scratch-dir.mjs` 等),子进程就以 ERR_MODULE_NOT_FOUND 退 1,症状与"被测行为坏了"
+ * 一模一样(2026-09-25 该库头注记的那两次同型事故,这次是我自己踩的第三回)。
+ */
+const installTool = (root) => {
+  copyScriptWithClosure(SCRIPTS_DIR, 'plan-union-merge.mjs', join(root, 'scripts'))
+  return join(root, 'scripts', 'plan-union-merge.mjs')
+}
 
 const g = (dir, args) =>
   execFileSync(GIT, ['-C', dir, '-c', 'safe.directory=*', '-c', 'core.autocrlf=false', ...args], {
@@ -113,8 +126,7 @@ test('T2 端到端:真冲突下它确实去合并,且要求双方每一行都存
   try {
     const { base, ours, theirs, oursText, theirsText } = makeConflictedRepo(root)
     const 期望并集行数 = unionMultisetCount(oursText, theirsText)
-    const tool = join(root, 'scripts', 'plan-union-merge.mjs')
-    writeFileSync(tool, readFileSync(SCRIPT, 'utf8'), 'utf8')
+    const tool = installTool(root)
     const { rc, out } = runTool(tool, ['--base', base, '--ours', ours, '--theirs', theirs], root)
     assert.doesNotMatch(out, /无法判定仓根|fetch 失败/, `工具没按推导出的根跑:\n${out}`)
     assert.match(out, /C1 冲突路径 = PROJECT_PLAN\.md/, `冲突面没被认成该文件:\n${out}`)
@@ -164,8 +176,7 @@ test('T4 护栏:推导不到该仓时显式"无法判定"(rc=2),绝不回退写�
   const root = mkScratch('pum-t4-')
   try {
     mkdirSync(join(root, 'scripts'), { recursive: true })
-    const tool = join(root, 'scripts', 'plan-union-merge.mjs')
-    writeFileSync(tool, readFileSync(SCRIPT, 'utf8'), 'utf8')
+    const tool = installTool(root)
     const { rc, out } = runTool(tool, ['--base', 'x', '--ours', 'y', '--theirs', 'z'], root)
     assert.equal(rc, 2, `缺 PROJECT_PLAN.md 时应 rc=2 显式无法判定,实得 ${rc}:\n${out}`)
     assert.match(out, /无法判定仓根/, `文案未点名失败原因:\n${out}`)
