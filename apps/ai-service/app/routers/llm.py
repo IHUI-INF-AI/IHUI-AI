@@ -1378,7 +1378,7 @@ _CHAT_MODE_PROMPTS: dict[str, str] = {
         "### P1 Blocking\n### P2 Suggested\n### Nits\n"
         "Every bullet MUST cite evidence as path:line (or path for whole-file issues),\n"
         "state the concrete risk, and end with a one-line actionable fix suggestion.\n"
-        "If a section has no findings, write None. End with a one-paragraph overall verdict.",
+        "If a section has no findings, write None. End with a one-paragraph overall verdict."
     ),
     "spec": (
         "## Spec Mode Active\n"
