@@ -55,11 +55,14 @@ export default function IcpRecord() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx]">
-        <View className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx]">
+        <View className="bg-card rounded-lg border border-border p-[28rpx] mb-[24rpx]">
           <Text className="block text-[length:28rpx] text-[var(--color-text-tertiary)] mb-[16rpx]">
             {tt('about.icpRecord.icpLabel', 'ICP备案/许可证号')}
           </Text>
-          <Text className="block text-[length:36rpx] text-foreground font-medium" onClick={copyIcpNo}>
+          <Text
+            className="block text-[length:36rpx] text-foreground font-medium"
+            onClick={copyIcpNo}
+          >
             {ICP_NO}
           </Text>
           <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[16rpx]">
@@ -67,10 +70,12 @@ export default function IcpRecord() {
           </Text>
         </View>
 
-        <View className="bg-card rounded-xl border border-border px-[28rpx] mb-[24rpx]">
+        <View className="bg-card rounded-lg border border-border px-[28rpx] mb-[24rpx]">
           {info.map((item) => (
             <View key={item.label} className="flex justify-between items-center py-[28rpx]">
-              <Text className="text-[length:28rpx] text-muted-foreground shrink-0">{item.label}</Text>
+              <Text className="text-[length:28rpx] text-muted-foreground shrink-0">
+                {item.label}
+              </Text>
               <Text className="text-[length:28rpx] text-foreground text-right ml-[24rpx] max-w-[60%] break-all">
                 {item.value}
               </Text>

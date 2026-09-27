@@ -91,7 +91,7 @@ export function PatrolRunsDialog({ open, onOpenChange, task }: Props) {
         ) : (
           <div className="flex flex-col gap-2">
             {items.map((run) => (
-              <div key={run.id} className="rounded-md border border-border bg-card p-2.5">
+              <div key={run.id} className="rounded-lg border border-border bg-card p-2.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge className={RUN_STATUS_BADGE_CLASS[run.status]}>
                     {t(RUN_STATUS_KEYS[run.status])}

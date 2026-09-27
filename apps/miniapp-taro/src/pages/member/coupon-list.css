@@ -96,7 +96,7 @@
   font-size: 24rpx;
   color: var(--color-cta-foreground);
   background: var(--color-cta);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-sm);
   padding: 0 28rpx;
   line-height: 56rpx;
 }

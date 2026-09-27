@@ -117,7 +117,7 @@ export default function MemberDetail() {
     <ThemeRoot className="min-h-screen bg-background pb-[64rpx]">
       <View className="p-[28rpx] flex flex-col gap-[24rpx]">
         {/* 对齐 RN TeamDetailScreen statsRow:card 底 + 24rpx 圆角 + 品牌色数值 */}
-        <View className="flex flex-row rounded-xl bg-card p-[28rpx] gap-[16rpx]">
+        <View className="flex flex-row rounded-lg bg-card p-[28rpx] gap-[16rpx]">
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
             <Text className="text-[length:36rpx] font-semibold text-[var(--color-primary)]">
               {stats.teamCount}
@@ -154,7 +154,7 @@ export default function MemberDetail() {
               {list.map((m) => (
                 <View
                   key={m.id}
-                  className="flex flex-row items-center rounded-xl bg-card p-[28rpx] gap-[24rpx]"
+                  className="flex flex-row items-center rounded-lg bg-card p-[28rpx] gap-[24rpx]"
                 >
                   {m.avatar ? (
                     <Image

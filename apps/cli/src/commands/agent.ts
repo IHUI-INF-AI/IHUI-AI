@@ -49,7 +49,12 @@ import {
 } from '../tools/index.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
 import { createFileEditTools } from '../tools/file-edit.js';
-import { buildFileEditPreviewEvents } from '../tools/file-edit-preview.js';
+import {
+  buildFileEditPreviewEvents,
+  createToolDeltaPreviewStore,
+  pickToolDeltaPreviewText,
+} from '../tools/file-edit-preview.js';
+import type { ToolDeltaPreviewStore } from '../tools/file-edit-preview.js';
 import { GIT_TOOLS } from '../tools/git.js';
 import { FETCH_TOOLS } from '../tools/fetch-url.js';
 import { WEB_SEARCH_TOOLS } from '../tools/web-search.js';
@@ -595,6 +600,103 @@ export interface RunToolLoopOptions {
 
 /** pattern 外发长度上限:超出即截断并在 stderr 点名(不得静默) */
 const DOOM_LOOP_PATTERN_MAX_LEN = 256;
+
+// ==================== D113 流中预览的"配对与清场"桥(2026-09-27 三面接线)====================
+//
+// 派生算法/取键顺序/截断预算**只有一份**,住在 `tools/file-edit-preview.ts`(与服务端
+// llm.py 逐语义对齐,由 file-edit-preview-parity.test.ts 钉住)。本桥不重新派生任何文本,
+// 只回答两个"只有跑起来才知道"的问题:
+//   ① 一批帧属于哪一次工具调用(事件流里没有 toolCallId 可对齐,只能按**工具名**配对
+//      第一个仍在场的 —— 与 repl.ts 同一理由:按下标对齐会整体错位一格);
+//   ② 落终态/流中断时,哪些预览必须被清掉(预览不得与结果同屏,也不得被读成结果)。
+//
+// 为什么 headless(agent.ts)与 agent-core **共用这一份**而不是各写十行:
+// 两处算同一件事必漂移是本仓记过最多次的失效型,而这一型 typecheck 完全不红
+// (两边都能编译过,只是行为分了家)。ACP 面刻意**不走本桥** —— 它有自己的一套
+// toolCallId 空间(协议卡 id),终态由 `tool_call_update` 覆盖同 id 完成,
+// 见 acp/server.ts 的 planAcpPreviewUpdate。
+//
+// "running" 判据同样取自唯一出口 `pickToolDeltaPreviewText`(本桥只在卡还开着时出帧,
+// 故 running 恒真;留该出口是为了让"空累积文本不出帧"这一条不出现第二份写法)。
+
+/** 一条已出帧、尚未落终态的预览(结构与 repl.ts 的 openPreviews 同形) */
+export interface OpenToolDeltaPreview {
+  toolCallId: string;
+  toolName: string;
+}
+
+/** 帧事实:哪次工具调用的哪一帧(各面映射成自己的事件形状) */
+export interface ToolDeltaFrameFacts {
+  toolName: string;
+  event: ToolDeltaEvent;
+}
+
+/** 清场事实:该 toolCallId 的预览已作废(终态或中断) */
+export interface ToolDeltaSettleFacts {
+  toolName: string;
+  toolCallId: string;
+}
+
+export interface ToolDeltaBridge {
+  /** 记录最近一次 onToolCall 的工具名 —— 帧与它同一次派发内同步到达,故即本批帧的主人 */
+  noteToolCall(toolName: string): void;
+  /** 一批本地派生帧 → 要逐条发出的帧事实(非写类工具/空 id → 空数组,不发空帧) */
+  onFrames(events: readonly ToolDeltaEvent[]): ToolDeltaFrameFacts[];
+  /** 某工具落终态 → 该清的预览(按名配对;该工具没出过帧则 null,不发幽灵 clear) */
+  settle(toolName: string): ToolDeltaSettleFacts | null;
+  /** 流中断/报错 → 全部作废并点名(留在账上的预览会被读成"已经写成这样了") */
+  abort(): ToolDeltaSettleFacts[];
+  /** 只读探针:当前仍持有预览的 toolCallId(测试用来证明"终态确实清了") */
+  heldIds(): string[];
+  /** 底层 store(唯一状态源;不得在桥外另建一份) */
+  readonly store: ToolDeltaPreviewStore;
+}
+
+export function createToolDeltaBridge(): ToolDeltaBridge {
+  const store = createToolDeltaPreviewStore();
+  const open: OpenToolDeltaPreview[] = [];
+  let lastToolName = '';
+  return {
+    noteToolCall(toolName) {
+      lastToolName = toolName;
+    },
+    onFrames(events) {
+      const facts: ToolDeltaFrameFacts[] = [];
+      for (const event of events) {
+        // 空 toolCallId 丢弃(与 web/RN/小程序"空 id 不入 store"同一条纪律)
+        if (!store.apply(event)) continue;
+        const text = pickToolDeltaPreviewText({
+          running: true,
+          preview: store.get(event.toolCallId),
+        });
+        if (text === null) continue;
+        if (!open.some((p) => p.toolCallId === event.toolCallId)) {
+          open.push({ toolCallId: event.toolCallId, toolName: lastToolName });
+        }
+        facts.push({ toolName: lastToolName, event });
+      }
+      return facts;
+    },
+    settle(toolName) {
+      const idx = open.findIndex((p) => p.toolName === toolName);
+      if (idx === -1) return null;
+      const [settled] = open.splice(idx, 1);
+      if (!settled) return null;
+      store.clear(settled.toolCallId);
+      return { toolName, toolCallId: settled.toolCallId };
+    },
+    abort() {
+      const all = open.map((p) => ({ toolName: p.toolName, toolCallId: p.toolCallId }));
+      store.clearAll();
+      open.length = 0;
+      return all;
+    },
+    heldIds() {
+      return store.ids();
+    },
+    store,
+  };
+}
 
 // ==================== 工具账本 → 服务端审计链(86A 接线,2026-09-28)====================
 //
@@ -2391,6 +2493,10 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     for (const r of mdStream.flush()) console.info(r);
   };
 
+  // D113(2026-09-27)headless 面的流中预览配对/清场(与 agent-core 共用同一份桥,
+  // 派生算法仍在唯一出口 tools/file-edit-preview.ts)。
+  const d113Bridge = createToolDeltaBridge();
+
   try {
     const result = await runToolLoop({
       modelId: opts.modelId,
@@ -2418,15 +2524,42 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
         }
       },
       onToolCall: (name, args) => {
+        d113Bridge.noteToolCall(name);
         if (isStructured) emit({ type: 'tool_call', name, arguments: args });
         else {
           if (spinner?.isSpinning) spinner.stop();
           console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`));
         }
       },
+      // D113 三面接线之 headless:流中预览**只走结构化事件出口**(逐帧一条单行 JSON +
+      // 一条同 id 的 clear),不往 stdout 打人类排版文本 —— json/markdown/yaml 消费方
+      // 都在按行 parse,插一行排版文本就把整条流弄废(本任务口径④)。
+      // 文本模式因此刻意不出预览:它没有"更新同一 id"的撤回通道,发出去的一行排版文本
+      // 会在终态之后继续挂在流里,正是"把预览读成结果"那一型。要看流中预览请用
+      // `--output-format json`(机器面)或 REPL(人读面已按同一出口接好)。
+      onToolDeltaFrames: (events) => {
+        if (!isStructured) return;
+        for (const fact of d113Bridge.onFrames(events)) {
+          emit({
+            type: 'tool_delta',
+            name: fact.toolName,
+            toolCallId: fact.event.toolCallId,
+            seq: fact.event.seq,
+            partialText: fact.event.partialText,
+            ...(fact.event.truncated === true ? { truncated: true } : {}),
+          });
+        }
+      },
       onToolResult: (name, success, output) => {
-        if (isStructured) emit({ type: 'tool_result', name, success, output });
-        else {
+        if (isStructured) {
+          // 终态先清预览再落结果:消费方按 toolCallId 撤下流中预览之后才看到最终 diff,
+          // 顺序反过来会出现"结果与预览同屏"(repl.ts 同一纪律,靠 settle 而不是再追加一条)。
+          const settled = d113Bridge.settle(name);
+          if (settled) {
+            emit({ type: 'tool_delta_clear', name: settled.toolName, toolCallId: settled.toolCallId });
+          }
+          emit({ type: 'tool_result', name, success, output });
+        } else {
           const icon = success ? '✓' : '✗';
           console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
         }
@@ -2438,6 +2571,13 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
         }
       },
       onError: (message) => {
+        // 流中断/工具报错:尚未落终态的预览一并作废并发 clear —— 留在消费方账上的
+        // "将要写入什么"若无对应 result 交代,会被读成"已经写成这样了"(repl.ts 同一条禁令)。
+        for (const stale of d113Bridge.abort()) {
+          if (isStructured) {
+            emit({ type: 'tool_delta_clear', name: stale.toolName, toolCallId: stale.toolCallId });
+          }
+        }
         if (isStructured) emit({ type: 'error', message });
         else {
           if (spinner?.isSpinning) spinner.stop();

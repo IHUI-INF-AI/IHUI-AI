@@ -279,7 +279,7 @@ export function AiWritingAssistant({
         const isStream = STREAM_FNS.has(fn)
         return (
           <Collapsible key={fn} open={isOpen} onOpenChange={(o) => setOpenFn(o ? fn : null)}>
-            <div className="rounded-md border border-border/60 bg-card">
+            <div className="rounded-lg border border-border/60 bg-card">
               <CollapsibleTrigger
                 className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/40"
                 onClick={() => {

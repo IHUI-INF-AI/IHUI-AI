@@ -179,7 +179,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
         </div>
         <div className="space-y-2">
           {steps.map((step, i) => (
-            <div key={i} className="space-y-2 rounded-md border border-border bg-card p-3">
+            <div key={i} className="space-y-2 rounded-lg border border-border bg-card p-3">
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-sm bg-muted px-1.5 text-xs font-medium text-muted-foreground tabular-nums">
                   {i + 1}

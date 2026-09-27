@@ -66,7 +66,7 @@ export function WorldsCompare({ onAdopt, currentModel }: WorldsCompareProps) {
   return (
     <div className="space-y-3" data-testid="worlds-compare">
       {/* 创建表单(进行中禁用) */}
-      <div className="space-y-2 rounded-md border border-border bg-card p-3">
+      <div className="space-y-2 rounded-lg border border-border bg-card p-3">
         <div className="flex items-center gap-1.5">
           <GitFork className="h-4 w-4 text-muted-foreground" aria-hidden />
           <span className="text-sm font-medium">{t('forkTitle')}</span>
@@ -81,7 +81,7 @@ export function WorldsCompare({ onAdopt, currentModel }: WorldsCompareProps) {
             rows={2}
             maxLength={2000}
             disabled={running}
-            className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
         <div className="space-y-1.5">
