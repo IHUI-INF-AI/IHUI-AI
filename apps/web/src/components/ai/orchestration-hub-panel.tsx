@@ -281,7 +281,7 @@ function ProgressBar({
 }) {
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
+    <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted">
       <div
         className={cn('h-full rounded transition-all', className ?? 'bg-primary')}
         style={{ width: `${pct}%` }}
@@ -856,7 +856,7 @@ function BreakdownColumn({ title, entries }: { title: string; entries: Array<[st
                 <span className="truncate text-muted-foreground">{k}</span>
                 <span className="shrink-0 tabular-nums text-foreground">${val.toFixed(4)}</span>
               </div>
-              <div className="h-1 w-full overflow-hidden rounded bg-muted">
+              <div className="h-1 w-full overflow-hidden rounded-xs bg-muted">
                 <div className="h-full rounded bg-cyan-500/60" style={{ width: `${pct}%` }} />
               </div>
             </div>

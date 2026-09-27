@@ -1047,7 +1047,7 @@ export default function AttendancePage() {
                               {count} ({pct}%)
                             </span>
                           </div>
-                          <div className="h-2 w-full overflow-hidden rounded-sm bg-muted">
+                          <div className="h-2 w-full overflow-hidden rounded-xs bg-muted">
                             <div
                               className={cn('h-full rounded-sm transition-all', s.color)}
                               style={{ width: `${pct}%` }}

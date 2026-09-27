@@ -134,7 +134,7 @@ export default function ClawdbotAnalyticsPage() {
                     <span>{item.intent}</span>
                     <span className="text-muted-foreground">{item.count}</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded bg-muted">
+                  <div className="h-2 overflow-hidden rounded-xs bg-muted">
                     <div
                       className="h-full rounded bg-primary"
                       style={{ width: `${(item.count / maxIntentCount) * 100}%` }}
@@ -158,7 +158,7 @@ export default function ClawdbotAnalyticsPage() {
                     <span className="min-w-0 flex-1 truncate">{item.botId}</span>
                     <span className="text-muted-foreground">{item.count}</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded bg-muted">
+                  <div className="h-2 overflow-hidden rounded-xs bg-muted">
                     <div
                       className="h-full rounded bg-emerald-500"
                       style={{ width: `${(item.count / maxBotCount) * 100}%` }}

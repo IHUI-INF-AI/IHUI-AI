@@ -62,7 +62,7 @@ function WindowRow({ w }: { w: SubscriptionWindowStatus }) {
         </span>
       </div>
       {!unlimited && w.limit > 0 && (
-        <div className="h-1.5 w-full overflow-hidden rounded-sm bg-muted">
+        <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted">
           <div className="h-full bg-primary" style={{ width: `${percent}%` }} />
         </div>
       )}

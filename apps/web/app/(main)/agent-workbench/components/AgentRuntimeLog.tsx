@@ -229,7 +229,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
         <div className="flex items-center gap-2 text-sm">
           {connected ? (
             <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-500">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-sm bg-emerald-500" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-xs bg-emerald-500" />
               {t('realtimeConnection')}
             </span>
           ) : usingFallback ? (

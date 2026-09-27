@@ -175,7 +175,7 @@ export default function RevenueStatPage() {
                     {numFmt.format(c.orders)} 单
                   </span>
                 </div>
-                <div className="relative h-2 overflow-hidden rounded bg-muted/40">
+                <div className="relative h-2 overflow-hidden rounded-xs bg-muted/40">
                   <div
                     className="h-full rounded-md bg-primary/70"
                     style={{ width: `${(c.amount / totalChannel) * 100}%` }}

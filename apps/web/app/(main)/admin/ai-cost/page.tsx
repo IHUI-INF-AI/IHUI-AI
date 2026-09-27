@@ -273,7 +273,7 @@ export default function AiCostPage() {
                           </span>
                         </span>
                       </div>
-                      <div className="h-1.5 overflow-hidden rounded-sm bg-muted">
+                      <div className="h-1.5 overflow-hidden rounded-xs bg-muted">
                         <div
                           className="h-full rounded-sm bg-primary/60"
                           style={{ width: `${(Number(m.cost) / maxModelCost) * 100}%` }}
@@ -309,7 +309,7 @@ export default function AiCostPage() {
                           </span>
                         </span>
                       </div>
-                      <div className="h-1.5 overflow-hidden rounded-sm bg-muted">
+                      <div className="h-1.5 overflow-hidden rounded-xs bg-muted">
                         <div
                           className="h-full rounded-sm bg-emerald-500/60 dark:bg-emerald-400/60"
                           style={{ width: `${(Number(row.cost) / maxDayCost) * 100}%` }}
