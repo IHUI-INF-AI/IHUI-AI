@@ -362,19 +362,25 @@ export async function createMemberLevel(
   })
 }
 
-/** 更新会员等级 */
+/** 更新会员等级
+ * 门 8 死调用清账(2026-09-28):后端真形态是 PUT /members/levels 且 **id 在体内**
+ * (member.ts:746 updateLevelSchema 要求 body.id),上一版 PUT /members/levels/${id} 从未注册。 */
 export async function updateMemberLevel(
   id: string,
   input: Partial<MemberLevel>,
 ): Promise<ApiResult<MemberLevel>> {
-  return fetchApi<MemberLevel>(`/api/members/levels/${id}`, {
+  return fetchApi<MemberLevel>('/api/members/levels', {
     method: 'PUT',
-    body: JSON.stringify(input),
+    body: JSON.stringify({ id, ...input }),
   })
 }
 
-/** 删除会员等级 */
+/** 删除会员等级
+ * 门 8 死调用清账(2026-09-28):后端 DELETE /members/levels 的 id 走 **query**
+ * (member.ts:760 byIdQuery=request.query),上一版 DELETE /members/levels/${id} 从未注册。 */
 export async function deleteMemberLevel(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/members/levels/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/members/levels${buildQs({ id })}`, {
+    method: 'DELETE',
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
