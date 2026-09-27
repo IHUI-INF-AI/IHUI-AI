@@ -429,7 +429,10 @@ class TestListAllLogs:
         resp = await hooks_router.list_all_logs(_req(), limit=50, user_id="u1")
         assert resp["code"] == 0
         assert resp["data"]["count"] == 1
-        fake_engine.list_logs.assert_called_once_with(hook_id=None, limit=50)
+        fake_engine.list_logs.assert_called_once_with(hook_id=None, limit=50, owner_id="u1")
+        # 批 63 / G-258:这行原来断言的是 `list_logs(hook_id=None, limit=50)` —— 也就是
+        # 把"全站档不带归属过滤"钉成了规格。归属过滤现在是这条端点的定义的一部分,
+        # 夹具跟着改;为什么该改的是夹具而不是判据,见 tests/test_container_and_hook_owner_scoping.py。
 
 
 class TestEmitEvent:
@@ -480,12 +483,22 @@ class TestExceptionalEndpoints:
         assert len(resp["data"]) == 1
 
         fake_engine.health_forecast = AsyncMock(return_value={"trend": "stable"})
+        # 归属前置闸(批 63):让"这条 Hook 属于 u1"成立,本用例仍然只测成功路径。
+        fake_engine.get_hook.return_value = {"id": "hk-1", "name": "n", "owner_id": "u1"}
         resp = await hooks_router.health_forecast(_req(), "hk-1", days=7, user_id="u1")
         assert resp["code"] == 0
 
     @pytest.mark.parametrize("name", sorted(_EXCEPTION_ENGINES))
     async def test_exception_returns_500(self, fake_engine, name):
-        """engine 抛异常 → 返回 code=500,不向外抛。"""
+        """engine 抛异常 → 返回 code=500,不向外抛。
+
+        批 63 后 `execution-timeline` / `health-forecast` 多了一道**归属前置闸**
+        (`get_hook(hook_id, owner_id=_owner_filter(request))`),而 `_make_engine` 默认把
+        `get_hook` 配成 None(= "这条 Hook 不存在")。本用例要量的仍是"engine 抛异常 → 500",
+        所以让前置闸通过,而不是削闸。越权被拒那一格另有专门用例:
+        `tests/test_container_and_hook_owner_scoping.py::test_timeline_and_forecast_gate_before_reading`。
+        """
+        fake_engine.get_hook.return_value = {"id": "hk-1", "name": "n", "owner_id": "u1"}
         mock_fn, body = _EXCEPTION_ENGINES[name]
         setattr(fake_engine, name, mock_fn)
         if name == "auto_orchestrate":
