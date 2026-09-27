@@ -6,6 +6,7 @@ import { rnRadius } from '@ihui/design-tokens'
 /** 证书详情共享屏 — props 注入式跨端组件 */
 import { useMemo } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
+import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertDetailScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -41,13 +42,13 @@ export function CertDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('certDetail.loadFailed')}</Text>
-        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
         <TouchableOpacity
           style={styles.backBtn}
           onPress={onBack}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={t('common.back')}
         >
-          <Text style={styles.back}>{t('common.back')}</Text>
+          <ChevronLeft size={16} color={tk.text.medium} />
         </TouchableOpacity>
       </View>
     )
@@ -104,7 +105,6 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
     },
     body: { padding: 10 },
-    back: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     card: {
       borderWidth: 2,
