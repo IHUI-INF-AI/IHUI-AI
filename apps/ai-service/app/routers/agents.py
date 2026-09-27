@@ -748,6 +748,11 @@ class AgentExecuteRequest(BaseModel):
     # V3 #76(2026-09-28 立):知识卡自动蒸馏的归属仓库。**刻意不做**服务端推断 ——
     # 卡片 repoName 在库侧 notNull,猜错就是把 A 仓的经验写进 B 仓的知识库。
     # 为空时回落到部署级 settings.knowledge_card_default_repo;仍为空则跳过蒸馏并打日志。
+    repo_name: str | None = Field(
+        None,
+        max_length=200,
+        description="知识卡蒸馏归属仓库名(为空则用部署级默认;默认也未配则跳过蒸馏)",
+    )
     # G-161(2026-09-22):此字段此前**根本不存在**,apps/api 转发的 permission_mode
     # 被 Pydantic 静默丢弃 —— 客户端以为设了权限档,服务端一直按 default 跑。
     # 现声明并归一到唯一真源(app/core/permission_mode.py)。
@@ -994,6 +999,7 @@ async def execute_agent(
             max_iterations=req.max_iterations,
             tools=req.tools,
             user_id=current_user,
+            repo_name=req.repo_name,
         )
         # 未显式传 session_id 时由执行器生成,补登记(此后同进程订阅者可判定属主)
         sid = result.get("session_id")
