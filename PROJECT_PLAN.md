@@ -12129,3 +12129,10 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - 解阻动作(持有该文件的一方执行):人工判好后 `node scripts/union-converge.mjs --theirs <远端 sha> --apply --resolve 'apps/mobile-rn/src/components/Toolbar.tsx=<整份内容文件>'`,它会替判断做两侧丢行断言;冲突收住后再跑 `node scripts/git-sync-converge.mjs` 收敛推送。
 - **本会话已做的减损**:按 §22 既有惯例建了 `backup/wip-unpushed-2026-09-27-5f48340e5f9`(指向当时的 main,把 20 枚未推送提交连同他人工作一起钉住,防 09-23「15 条未推送 commit 对象永久丢失」同型事故);推送该 tag 的第 4 次尝试已连上服务端(打出 git-lfs 锁提示)但**回读未确证**(随后 ls-remote 连回 rc=128)⇒ **这枚 tag 是否在远端仍是未决事实**,通道恢复后先跑 `git ls-remote origin 'refs/tags/backup/*'` 验它,不在就重推。
 - **防误读三条**:① 我的交付**已提交且 HEAD 面逐项验到**(守门 137 在 runner 恰好 1 条 + AGENTS 点名 + `check:digest-name` 入口 + 判据文件在树;五处修复点 `redactSecrets`/`BARE_SECRET_RE`/`sha256` 摘要/`_migrate_fingerprint_hash`/`createHash('sha256')` 各命中 ≥1),未验的只是"到了远端";② 不得为让收敛过去而改 `Toolbar.tsx` 或削判据;③ 本地 HEAD 在被并发会话高频推进,派单/复核一律当次现读,勿照本条数字。
+
+- **上一条这枚
+tag
+是否在远端仍是未决事实已确证:不在**(同一分钟  列出  而对  零命中 —— 能列出一半即尺子有效)。随后两次重推各自撞在:**① pre-push 全量 typecheck 在 240s 内跑不完(rc=124),而它此刻审的是他人 12+ 个在飞  文件(ai-service 整片)对本枚 tag 无判定意义;② 改  后连上服务端但传包中途 。** ⇒ 恢复清单不变(通道健康时  并**按  回读落槌**),另记一条口径:**tag 推送不该被分支推送的质量门当靶子**,若这类应急备份常被卡,该给 pre-push 加仅
+refs/tags
+时跳过
+typecheck的窄判据(那是钩子改动,另计票,不在本线顺手做)。
