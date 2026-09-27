@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from .cloud_run_store import CloudRunStore, cloud_run_store
+from .session_store import owner_scoped_allows
 from .command_streamer import (
     FRAME_READ_EOF,
     FRAME_READ_LINE,
@@ -239,9 +240,17 @@ class ContainerRuntime:
         handle = self._runs.get(run_id)
         return handle.events if handle else None
 
-    def list_runs(self, limit: int = 50) -> list[dict[str, Any]]:
-        """列出本进程内的运行记录快照(新→旧)。"""
+    def list_runs(self, limit: int = 50, owner_user_id: str | None = None) -> list[dict[str, Any]]:
+        """列出运行记录快照(新→旧)。
+
+        `owner_user_id` 非空时只回这位主体的运行(批 63 / G-258 A 组):`/runs` 端点
+        过去取到令牌主体却只用了一次(建运行那侧),列举与查询两向完全不看它 ⇒
+        任何已登录用户能看到全站所有容器运行的 prompt / 文件清单 / 输出。
+        判据与只读面同用 `session_store.owner_scoped_allows` 那一份实现,不在此重写条件。
+        """
         items = [asdict(h.run) for h in self._runs.values()]
+        if owner_user_id is not None:
+            items = [r for r in items if owner_scoped_allows(owner_user_id, r.get("user_id"))]
         items.sort(key=lambda r: r["started_at"], reverse=True)
         return items[: max(1, limit)]
 
