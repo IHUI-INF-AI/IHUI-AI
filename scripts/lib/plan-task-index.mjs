@@ -555,12 +555,6 @@ export function nextTaskIdLabel(content, prefix) {
   return u === null ? null : u.template.replace('%d', String(u.max + 1))
 }
 
-/** 下一个空闲编号(纯数字部分)。该族现读为空 ⇒ null,由调用方按"判不出"处置。 */
-export function nextTaskIdNumber(content, prefix) {
-  const u = usedIdsOfPrefix(content, prefix)
-  return u ? u.max + 1 : null
-}
-
 export function auditPlan(content) {
   const rows = parseTaskRows(content)
   const { groups, forks, dupOpen, dupDone } = findForks(content)
