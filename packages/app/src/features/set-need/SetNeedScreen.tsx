@@ -6,7 +6,6 @@ import { useMemo } from 'react'
 import {
   View,
   Text,
-  TouchableOpacity,
   TextInput,
   Image,
   ScrollView,
@@ -20,6 +19,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryDropdown } from '../../components/category/CategoryDropdown'
 import type { CategoryItem } from '../../components/category/types'
 import type { TFunction } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -80,6 +80,7 @@ const PICKERS = {
 } as const
 
 export function SetNeedScreen({
+  t,
   form,
   submitting,
   onFieldChange,
@@ -97,9 +98,7 @@ export function SetNeedScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>返回</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>设置需求</Text>
       </View>
       <ScrollView
@@ -120,7 +119,6 @@ export function SetNeedScreen({
             maxLength={TITLE_MAX}
           />
         </View>
-
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>
             需求描述<Text style={styles.required}>*</Text>
@@ -136,7 +134,6 @@ export function SetNeedScreen({
             textAlignVertical="top"
           />
         </View>
-
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>
             预算区间(元)<Text style={styles.required}>*</Text>
@@ -161,7 +158,6 @@ export function SetNeedScreen({
             />
           </View>
         </View>
-
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>
             联系方式<Text style={styles.required}>*</Text>
@@ -175,7 +171,6 @@ export function SetNeedScreen({
             autoCapitalize="none"
           />
         </View>
-
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>图片（逗号分隔 URL）</Text>
           <TextInput
@@ -198,7 +193,6 @@ export function SetNeedScreen({
             </ScrollView>
           ) : null}
         </View>
-
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>
             任务截止时间<Text style={styles.required}>*</Text>
@@ -212,7 +206,6 @@ export function SetNeedScreen({
             autoCapitalize="none"
           />
         </View>
-
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>开发周期</Text>
           <View style={styles.priceRow}>
@@ -236,7 +229,6 @@ export function SetNeedScreen({
             />
           </View>
         </View>
-
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>类型与分类</Text>
           <CategoryDropdown
@@ -256,12 +248,16 @@ export function SetNeedScreen({
             panelTitle={PICKERS.categories.title}
           />
         </View>
-
-        <Pressable
-          style={({ pressed }) => [styles.submitBtn, pressed && styles.submitBtnPressed]}
-          onPress={onSubmit}
-        >
-          <Text style={styles.submitBtnText}>{submitting ? '提交中...' : '提交需求'}</Text>
+        {/* 按压态样式不得写在 Pressable 的 style 上(守门 131 那一型):Pressable 注册过 cssInterop,
+            函数形态声明会被展开成空对象,整颗提交钮的底色/圆角/内边距静默消失。marginTop 是外层在
+            scrollContent(column)里占槽位的布局档,故留外层;面档随 pressed 落内层,内层在同一 column
+            里默认 stretch 撑满宽度 ⇒ 按钮仍通栏、间距不变。 */}
+        <Pressable onPress={onSubmit} style={styles.submitBtnBox}>
+          {({ pressed }) => (
+            <View style={[styles.submitBtn, pressed ? styles.submitBtnPressed : null]}>
+              <Text style={styles.submitBtnText}>{submitting ? '提交中...' : '提交需求'}</Text>
+            </View>
+          )}
         </Pressable>
       </ScrollView>
     </View>
@@ -278,7 +274,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium } as TextStyle,
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     scrollContent: { paddingHorizontal: 10, paddingVertical: 12, gap: 8 } as ViewStyle,
     fieldGroup: { gap: 8 } as ViewStyle,
@@ -298,12 +293,15 @@ function createStyles(tk: AppThemeTokens) {
     priceDash: { fontSize: 16, color: tk.text.tertiary } as TextStyle,
     imageRow: { gap: 8, paddingVertical: 4 } as ViewStyle,
     imagePreview: { width: 72, height: 72, borderRadius: rnRadius.lg } as ImageStyle,
+    // 外层 = 在 scrollContent 里排下一块的布局档;面档(底色/圆角/内边距/居中)在 submitBtn,
+    // 由内层 View 承载。拆层是为了把按压态从 Pressable 的 style 上摘下来(守门 131 那一型),
+    // 数值逐字搬移、未新增任何尺寸。
+    submitBtnBox: { marginTop: 16 } as ViewStyle,
     submitBtn: {
       backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.xl,
       paddingVertical: 15,
       alignItems: 'center',
-      marginTop: 16,
     } as ViewStyle,
     submitBtnPressed: { opacity: 0.85 } as ViewStyle,
     submitBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light } as TextStyle,

@@ -246,22 +246,26 @@ export function IntroducePopup({
           {config.buttons.map((btn) => {
             const btnText = btn.primary && confirmText ? confirmText : btn.text
             return (
+              // 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
+              // interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失
+              // (守门 131 那一型)。外框拿盒与布局,面层只拿 pressed。
               <Pressable
                 key={btn.text}
-                style={({ pressed }) => [
-                  btn.primary ? styles.primaryButton : styles.secondaryButton,
-                  pressed ? styles.buttonPressed : null,
-                ]}
+                style={btn.primary ? styles.primaryButton : styles.secondaryButton}
                 onPress={() => handleButton(btn.action)}
                 accessibilityRole="button"
                 accessibilityLabel={btnText}
               >
-                <Text
-                  style={btn.primary ? styles.primaryButtonText : styles.secondaryButtonText}
-                  allowFontScaling={false}
-                >
-                  {btnText}
-                </Text>
+                {({ pressed }) => (
+                  <View style={[styles.buttonFace, pressed ? styles.buttonPressed : null]}>
+                    <Text
+                      style={btn.primary ? styles.primaryButtonText : styles.secondaryButtonText}
+                      allowFontScaling={false}
+                    >
+                      {btnText}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             )
           })}
@@ -512,6 +516,13 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
+  } as ViewStyle,
+  // 面层:撑满外框内容盒,承载按压态(见 renderButtons 上方守门 131 说明)。
+  buttonFace: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   } as ViewStyle,
   primaryButton: {
     flex: 1,
