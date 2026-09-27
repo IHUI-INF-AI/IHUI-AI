@@ -11,6 +11,7 @@ import {
   type StudyProgressData,
 } from '@ihui/rn-app'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -32,7 +33,7 @@ export function StudyProgressScreen() {
       const res = await fetchApi<StudyProgressData>('/api/study/progress')
       if (cancelled) return
       if (res.success) setProgress(res.data)
-      else setError(res.error || t('studyProgress.loadFailed'))
+      else setError(apiFailureToText(res, t('studyProgress.loadFailed')))
       setLoading(false)
     })()
     return () => {

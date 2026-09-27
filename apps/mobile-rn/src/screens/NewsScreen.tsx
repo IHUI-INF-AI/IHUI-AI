@@ -20,7 +20,7 @@ import {
   type ConversationDetail,
   type Knowledge,
 } from '@ihui/api-client'
-import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import Drawer, {
   type DrawerConversationItem,
@@ -329,7 +329,7 @@ export default function NewsScreenWrapper() {
         } else {
           if (!append) {
             setItems([])
-            setError(res.error || '加载失败')
+            setError(apiFailureToText(res, '加载失败'))
           }
         }
       } catch (e: unknown) {

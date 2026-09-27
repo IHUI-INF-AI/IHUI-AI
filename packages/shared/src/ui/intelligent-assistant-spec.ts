@@ -46,9 +46,13 @@
  *    值行走 `justify-content: space-between`,这两格在本端不存在。
  *  - `IA_TEXT_INDENT_PX`:RN 避让的正是上面那层不渲染的装饰;本端文本左缘由行内矢量加
  *    `IntelligentAssistant.css` 里 `.ia-robot` 的流内间隙撑出 —— 版面结构差异,不是取数分叉。
- *  - `IA_RECHARGE_HIT_PX`:"命中块 ≥44"这一裁决两端**同源**,本端经派生档 `IA_RECHARGE_TOUCH_PAD_PX`
- *    兑现、RN 经 `minHeight` 兑现;刻意不给本端补 `minHeight` 把读数凑成对齐 —— 那是守门明令禁止的
- *    "靠给单端补数字消账"。
+ *  - `IA_RECHARGE_HIT_PX`:"命中块 ≥44"这一裁决两端**同源且同通道**(2026-09-27 收口)。此前本端
+ *    以派生档 `IA_RECHARGE_TOUCH_PAD_PX`(=(44−16)/2 的上下内衬)兑现同一裁决 —— 派生式让 SL 尺子
+ *    把它读成"仅 RN 引用"(派生档不具名入档表),而内衬补量与 RN 的 `minHeight` 是同一裁决的两种
+ *    落点。现两端都走可点外壳 `minHeight: IA_RECHARGE_HIT_PX`、可见文字不补量,派生档与其减数
+ *    `IA_RECHARGE_LINE_BOX_PX` 随本次退役(已无消费方)。观感不变:旧"文字行盒 16 + 上下衬 14"
+ *    与新"44 高外壳垂直居行盒 16"落位同像素,故这是几何通道统一,不是单端补数字消账 —— 消账型
+ *    改法(在旧内衬之上再加 minHeight)仍属禁止。
  * 一条覆盖面事实留给判据持有者(不是本票的处置范围):同名配对只吃两端的 `.tsx`,`.css` 因规范化名
  * 多出 `css` 后缀而永不配对,所以 `.ia-robot` 那类留在 CSS 里的端侧字面量对本门不可见;把它迁进本表
  * 反而会让本族单侧档读数从 9 涨到 10 而当场判红(构造面实测)—— 修法是该门补 CSS 腿,
@@ -90,18 +94,12 @@ export const IA_TEXT_GAP_PX = 4
  */
 export const IA_TOKEN_ROW_GAP_PX = 11
 
-/** 充值命中的最小方块(逻辑 px)。规则 2:命中块 ≥44。 */
-export const IA_RECHARGE_HIT_PX = 44
-
-/** 12px 字号 + `line-height:1.34` 的声明行盒(逻辑 px),命中补量的减数;两端同声明值。 */
-export const IA_RECHARGE_LINE_BOX_PX = 16
-
 /**
- * 小程序侧充值文字的内衬补量(上下各这么多,逻辑 px)。派生式 =(命中块 − 行盒)/2:
- * 小程序没有 hitSlop 通道,只能把可见盒撑到 ≥44;RN 侧可见胶囊不放大、命中走
- * `minHeight: IA_RECHARGE_HIT_PX`(见端内注释)—— 数值同源,通道各端保留。
+ * 充值命中的最小方块(逻辑 px)。规则 2:命中块 ≥44。两端同通道兑现 ——
+ * RN 在 `rechargeAction` 的 `minHeight`,小程序在充值外壳 View 的 `minHeight`(2026-09-27 收口,
+ * 见头注 `IA_RECHARGE_HIT_PX` 条);可见文字/胶囊本体都由此派生,不再各端留第二落点。
  */
-export const IA_RECHARGE_TOUCH_PAD_PX = (IA_RECHARGE_HIT_PX - IA_RECHARGE_LINE_BOX_PX) / 2
+export const IA_RECHARGE_HIT_PX = 44
 
 /* ─────────────── 票④收编:端侧剩余字面量一律迁入本表 ───────────────
  * 分两类:A 两端同档(收一处,缺失端按裁决规则 3 补);B 单端档(该落点只在一端存在,
