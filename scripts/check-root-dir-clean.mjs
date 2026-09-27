@@ -23,10 +23,74 @@
  */
 import { readdirSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
-const ROOT = process.cwd()
+/**
+ * 仓库根。生产路径 = 调用方所在目录(与本门历史上完全一致,不改语义);
+ * `--root <dir>` 是**测试通道**,让镜像测试能在临时 git 仓上跑端到端 —— 加它的原因不是
+ * 便利,是"守门 70 的镜像测试 13/14 恒红"那一型:脚本按定义忽略 cwd 时,靠 cwd 定位夹具的
+ * 测试其实全在审真仓,账面绿而结论与夹具无关。
+ */
+function resolveRoot(argv) {
+  const i = argv.indexOf('--root')
+  if (i >= 0) {
+    const p = argv[i + 1]
+    if (!p || p.startsWith('--')) throw new Error('--root 需要一个目录参数')
+    return resolve(p)
+  }
+  return process.cwd()
+}
+
+const ROOT = resolveRoot(process.argv)
 const isStaged = process.argv.includes('--staged')
+
+// ============================================================================
+// 归属面(G-268,2026-09-27 立)—— 本门的结论必须说清"它判的是哪一面"
+//
+// 病灶不是判据太严,是**差值归因拿两个不可比的面互相对照**:safe-commit 的基线面是
+// `git worktree add --detach` 出来的检出,**物理上没有未跟踪文件**;而本门按
+// `readdirSync(ROOT)` 判,我的面上有别人留在根目录的在飞文件 ⇒ 基线绿 / 我的面红
+// ⇒ 归因层正确地按差分判成"这枚提交把跑绿的东西改红了"。那个结论是**错的**,
+// 而差分本身没错 —— 错在把"我的磁盘现场"当成了"我这枚提交的内容"。
+// 实测代价:2026-09-27 10:36~12:08 的 92 分钟里 12 次因此拒绝跳门,而那些红
+// 没有一个是我能合法修的(动别人的文件在本仓算事故),终态只能是脱账的手工提交。
+//
+// 所以 --staged 档改判**索引面**(= 本次提交真正携带的东西;safe-commit 第 1 步
+// `git reset HEAD` 后按声明文件 add,故批内 索引 ≡ 声明集),未跟踪那一份**照判、照点名、
+// 但退成 exit 2(无法判定)**:
+//   · 它没有对本枚提交下结论 ⇒ 归因层不得据差分定责(见 lib/commit-gate-attribution.mjs 态①b);
+//   · 它仍然非零 ⇒ §28 那句"交付前跑 `--staged`,0 违规才算完成"照样拦得住我自己漏在根的垃圾,
+//     也拦得住 runner(runner 对 blocking 门按"非 0 即失败"处理)—— **没有放开任何一条检测**。
+// 全量档(不带 --staged)一字未改:它今天就是报告档(exit 0),本门刻意不动它,
+// 免得顺手"修好"成一个谁碰谁红的档。
+// ============================================================================
+
+/** 索引里出现过的根级条目名(含"目录下有已跟踪文件"的目录名)。git 问不到 ⇒ 空集(退回原拦截行为) */
+function getIndexedRootNames() {
+  try {
+    // 与本文件另外两处 git 调用同形(裸 'git' + windowsHide + timeout)。刻意不 import
+    // scripts/lib/face-reader.mjs 的 gitBinary():守门 118 把"引了取材层却自己散写 git 读"判成
+    // 半接线红,而本函数只做**枚举**(ls-files 列名字,不取任何正文)——为一个二进制名
+    // 把自己推进那一档不划算。绝对路径化属本文件既有欠账(两处老调用同样裸 'git'),另计。
+    const out = execFileSync('git', ['-C', ROOT, 'ls-files', '-z'], {
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
+      timeout: 60_000,
+    })
+    const names = new Set()
+    for (const p of out.split('\0')) {
+      if (!p) continue
+      const first = p.split('/')[0]
+      if (first) names.add(first)
+    }
+    return names
+  } catch {
+    // 区分"索引里真没有"与"问不到":返回 null,由调用方退回全量拦截。
+    // 把它退成空集 = git 一坏,我自己漏在根的垃圾就全被归成"别人的"了 —— 失效方向必须收紧。
+    return null
+  }
+}
 
 // 逃生舱(应急跳过,默认不推荐,与 check-pwsh-version 等守门脚本一致)
 if (process.env.HUSKY_SKIP_ROOT_DIR_GUARD === '1') {
@@ -319,9 +383,37 @@ if (violations.length === 0) {
   process.exit(0)
 }
 
-console.error('❌ 根目录整洁守门失败:一级目录存在白名单外条目')
-for (const v of violations) {
-  console.error(`   - ${v.name}  (${v.kind})`)
+// ── 归属分流(只在 --staged 档生效;全量档保持历史形态,见上方 G-268 注释)──
+let owned = violations
+let untracked = []
+if (isStaged) {
+  const indexed = getIndexedRootNames()
+  if (indexed === null) {
+    console.error(
+      '  ⚠️  索引面问不到(git ls-files 失败)⇒ 无从区分归属,本门**退回全量拦截**:所有违规一律按本次的红计',
+    )
+  } else {
+    owned = violations.filter((v) => indexed.has(v.name))
+    untracked = violations.filter((v) => !indexed.has(v.name))
+  }
+}
+
+if (owned.length > 0) {
+  console.error('❌ 根目录整洁守门失败:一级目录存在白名单外条目')
+  for (const v of owned) {
+    console.error(`   - ${v.name}  (${v.kind})`)
+  }
+}
+if (untracked.length > 0) {
+  // 未跟踪:它不在任何提交里,既不是"我这枚提交带的",也不属于 HEAD —— 归属无从判定。
+  // 照点名(让人能去找物主)、照非零(§28 的交付判据与 runner 都仍拦得住),但判 exit 2,
+  // 使归因层不得把它写成"这枚提交引入了红"。
+  console.error('⚠️ 根目录整洁守门[无法判定]:存在白名单外条目,但它们**未被 git 跟踪**,归属无从判定')
+  for (const v of untracked) {
+    console.error(`   - ${v.name}  (${v.kind},未跟踪 → 不属任何提交)`)
+  }
+  console.error('     处置:这些文件不在本次提交内容里,也不在 HEAD 里 ⇒ 不得据此判定本枚提交引入红')
+  console.error('           但根目录整洁仍要清偿 —— 找物主移进 tmp/ 或 logs/,或按 §28 加白名单。')
 }
 console.error('')
 console.error('  💡 处置(二选一):')
@@ -332,5 +424,7 @@ console.error(
 console.error('')
 console.error('  禁止在一级目录随意生成 .log / .html / cookies / 截图 / ad-hoc 脚本。')
 
-process.exit(isStaged ? 1 : 0)
+if (!isStaged) process.exit(0)
+// exit 1 = 本次提交面(索引)里确有违规;exit 2 = 只剩"未跟踪、归属无从判定"那一档(仍非零,仍拦得住)
+process.exit(owned.length > 0 ? 1 : 2)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
