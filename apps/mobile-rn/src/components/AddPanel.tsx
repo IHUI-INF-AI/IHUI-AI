@@ -59,7 +59,10 @@ export function PlusButton({
       accessibilityState={{ expanded: active, disabled }}
     >
       <View style={{ transform: [{ rotate: active ? '45deg' : '0deg' }] }}>
-        <Plus size={size} color={active ? tokens.surface.light : tokens.text.secondary} />
+        {/* 实底取 brand.cta,前景必须取它的**配对档** ctaForeground —— 此前写的是 surface.light,
+            而 AGENTS §4 明列"底取 brand.cta、字却取 surface.light"为跨档错配(亮档下白压白)。
+            前景与底不同档不是观感偏好问题:守门 83 的 R1/R7 就是把这一型判红的。 */}
+        <Plus size={size} color={active ? tokens.brand.ctaForeground : tokens.text.secondary} />
       </View>
     </Pressable>
   )
