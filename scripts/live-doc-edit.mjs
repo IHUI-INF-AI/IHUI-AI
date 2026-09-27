@@ -23,6 +23,11 @@
  *                    `- [x] ✅(日期) …`并补证据",插入模式做不到,而按 pathspec 交工作树等于
  *                    把别人已入库的行整批写回旧态(§12 一夜三次自伤)。判据与插入档同源:
  *                    `before` 在 HEAD 版必须**恰好命中 1 次**(0 = 文案已漂,>1 = 有歧义,都不猜),
+ *                    除非该项显式带 `all: true` —— 那表示"这份文本在台账里有 N 个逐字相同的孪生副本,
+ *                    每一条都要施加同一个改写"(2026-09-28 立:摘过期认领牌/翻勾归并注记对 16/27 行会因
+ *                    同文副本被拒,而半新半旧比不改更糟)。`all` 只放宽"命中 N 次",**0 次仍拒**;
+ *                    任一 `before` 等于另一项的 `after` 一律拒(顺序替换会把自己刚改出的行再改一遍);
+ *                    命中数在成功行里逐条打印,不留静默。
  *                    且替换后"除这些行以外逐行等值、总行数不变" ⇒ 才准落盘。
  *  LIVE_MSG          必填,提交信息
  *  LIVE_ROOT         测试/换仓通道:仓库根(缺省 = 本脚本所在仓根)
@@ -133,6 +138,8 @@ export function readInputs(env = process.env) {
         return { error: `第 ${i + 1} 项含换行 ⇒ 本档只作**整行**替换(多行请拆成多项)` }
       if (p.before === p.after)
         return { error: `第 ${i + 1} 项 before == after ⇒ 无事可做,剔除后再跑` }
+      if ('all' in p && p.all !== true)
+        return { error: `第 ${i + 1} 项的 all 只允许写 true(缺省=恰好命中 1 次;放宽成任意真值就等于没有这条锁)` }
     }
     if (!resolveHeadRef({ root }))
       return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
@@ -204,34 +211,44 @@ export function assemble(baseLinesIn, block, anchorLines) {
 }
 
 /**
- * 整行改写档:每项 `before` 必须**恰好命中 1 次**,替换后总行数不变、且除被改的那几行以外逐行等值。
- * 两条自证各防一型:命中数防"锚点文案已漂 / 有歧义"(0 与 >1 都不猜);逐位等值防"替换式顺手把
- * 别的行顶掉"(与插入档的结构等值是同一条禁令,不是新发明)。
+ * 整行改写档:默认每项 `before` 必须**恰好命中 1 次**;带 `all: true` 的那项允许命中 N 次并**全部**替换
+ * (0 次仍然拒 —— "文案已漂"与"有歧义"是两件事,只有前者在任何档下都不可猜)。
+ * 为什么需要 `all`(2026-09-28 由活文档清账逼出):台账里有一批**逐字相同的孪生登记行**(同一句话被并发
+ * 并集复制成 2..10 份),要施加的改写对每一份都完全相同(摘掉过期认领牌 / 翻勾归并注记)。此时"改哪一份"
+ * 语义上没有区别,而按"必须命中 1 次"就会 16/27 行落不了地,只能留成半新半旧的两个面孔 —— 那比不改更糟。
+ * 三条护栏:① `all` 必须显式声明,缺省仍是恰好 1 次(旧的"不猜"语义一字未松);② 任一 `before` 不得等于
+ * 另一项的 `after`(逐项顺序替换,否则前一项的产物会被后一项再改一遍,而声明里没这件事);③ 命中数如实
+ * 打印并计入 `hits`,所以"除被改的行以外逐行等值 + 总行数不变"这条结构等值照旧全覆盖。
+ * 两条自证各防一型:命中数防"锚点文案已漂"(0 一律拒);逐位等值防"替换式顺手把别的行顶掉"。
  */
 export function applyReplacements(baseLines, pairs) {
   const next = baseLines.slice()
   const hits = new Set()
   for (const [i, p] of pairs.entries()) {
+    for (const [j, q] of pairs.entries()) {
+      if (i === j) continue
+      if (p.before === q.after) return { ok: false, reason: `chain-hit#${i + 1}<-${j + 1}`, next: null }
+    }
+  }
+  const multi = []
+  for (const [i, p] of pairs.entries()) {
     const idxs = []
     for (let k = 0; k < next.length; k++) if (next[k] === p.before) idxs.push(k)
-    if (idxs.length !== 1)
-      return {
-        ok: false,
-        reason:
-          idxs.length === 0
-            ? `replace-not-found#${i + 1}`
-            : `replace-multi-hit#${i + 1}:${idxs.length}`,
-        next: null,
-      }
-    next[idxs[0]] = p.after
-    hits.add(idxs[0])
+    if (idxs.length === 0) return { ok: false, reason: `replace-not-found#${i + 1}`, next: null }
+    if (idxs.length !== 1 && !p.all)
+      return { ok: false, reason: `replace-multi-hit#${i + 1}:${idxs.length}`, next: null }
+    if (idxs.length > 1) multi.push({ item: i + 1, count: idxs.length })
+    for (const at of idxs) {
+      next[at] = p.after
+      hits.add(at)
+    }
   }
   if (next.length !== baseLines.length)
     return { ok: false, reason: 'line-count-changed', next: null }
   for (let k = 0; k < baseLines.length; k++)
     if (!hits.has(k) && next[k] !== baseLines[k])
       return { ok: false, reason: `untouched-line-drift@${k + 1}`, next: null }
-  return { ok: true, next, hits: [...hits] }
+  return { ok: true, next, hits: [...hits], multi }
 }
 
 async function main() {
@@ -289,8 +306,10 @@ async function main() {
       console.error(
         built.reason === 'not-found'
           ? `❌ HEAD 版里找不到锚点(锚点文案已漂或本块已在位)⇒ 不猜,拒绝写盘`
-          : String(built.reason || '').startsWith('replace-not-found')
-            ? `❌ 第 ${String(built.reason).replace('replace-not-found#', '')} 项的 before 在 HEAD 版里找不到(该行已被别人改写或本来不逐字等值)⇒ 不猜,拒绝写盘`
+          : String(built.reason || '').startsWith('chain-hit')
+            ? `❌ 第 ${String(built.reason).replace('chain-hit#', '').split('<')[0]} 项的 before 等于另一项的 after ⇒ 逐项顺序替换会把前一项刚改出的行再改一遍,而声明里没有这件事,拒绝写盘(${built.reason})`
+            : String(built.reason || '').startsWith('replace-not-found')
+              ? `❌ 第 ${String(built.reason).replace('replace-not-found#', '')} 项的 before 在 HEAD 版里找不到(该行已被别人改写或本来不逐字等值)⇒ 不猜,拒绝写盘`
             : String(built.reason || '').startsWith('replace-multi-hit')
               ? `❌ 第 ${String(built.reason).replace('replace-multi-hit#', '').replace(/:.*/, '')} 项的 before 命中 ${String(built.reason).split(':').pop()} 次 ⇒ 无法确定改哪一行,交人工`
               : String(built.reason || '').startsWith('untouched-line-drift') ||
@@ -318,6 +337,14 @@ async function main() {
         `✅ 第 ${attempt} 次 CAS 成功 HEAD=${commit}(${mode}) ${doc} 行数 ${baseCount} → ${nextCount}` +
           (assigned === null ? '' : ` / 令牌取号(由该次 HEAD 底稿现算)=${assigned}`),
       )
+      // 同文全改必须点名:命中 1 次与命中 9 次在"总行数不变"这条断言上完全同形,不印出来就等于
+      // 让"顺手多改了别人那份"没有证人(与"失效方向必须是多要一次说明"同一条禁令)。
+      if (built.multi && built.multi.length)
+        console.log(
+          `   声明为 all 的项共 ${built.multi.length} 项,逐条命中数:` +
+            built.multi.map((m) => `第${m.item}项×${m.count}`).join(' ') +
+            `(合计改写 ${built.hits.length} 行)`,
+        )
       break
     }
     console.log(`⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重取 HEAD 底稿重试`)
