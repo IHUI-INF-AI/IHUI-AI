@@ -344,7 +344,9 @@ export function resolveObjectKeys(masked, objName) {
   const body = masked.slice(open + 1, close)
   const keys = []
   for (const seg of body.split(/,(?![^{}]*\})/)) {
-    const mm = /^\s*([A-Za-z_$][\w$]*)\s*:?\s*$/.exec(seg.replace(/[[]\s*[A-Za-z_$][\w$]*\s*\]/g, ''))
+    const mm = /^\s*([A-Za-z_$][\w$]*)\s*:?\s*$/.exec(
+      seg.replace(/[[]\s*[A-Za-z_$][\w$]*\s*\]/g, ''),
+    )
     if (mm) keys.push(mm[1])
   }
   return keys
@@ -377,13 +379,7 @@ export function channelDeclared(sharedText, name) {
 export function channelHonored(sharedText, name) {
   const N = name.replace(/[$]/g, '\\$')
   const READ = new RegExp(
-    '(?:if\\s*\\(\\s*!?\\s*' +
-      N +
-      '\\b|!' +
-      N +
-      '\\b|' +
-      N +
-      '\\s*(?:\\?|&&|\\|\\||===|!==|\\())',
+    '(?:if\\s*\\(\\s*!?\\s*' + N + '\\b|!' + N + '\\b|' + N + '\\s*(?:\\?|&&|\\|\\||===|!==|\\())',
   )
   return READ.test(sharedText)
 }
@@ -394,7 +390,9 @@ export function buildSymbolIndex(files) {
   for (const [rel, text] of files) {
     if (!text) continue
     const masked = maskCommentsAndStrings(text)
-    for (const m of masked.matchAll(/export\s+(?:async\s+)?(?:function|const|class)\s+([A-Z][\w$]*)/g)) {
+    for (const m of masked.matchAll(
+      /export\s+(?:async\s+)?(?:function|const|class)\s+([A-Z][\w$]*)/g,
+    )) {
       if (!idx.has(m[1])) idx.set(m[1], [])
       idx.get(m[1]).push({ rel, masked })
     }
@@ -544,7 +542,10 @@ export function auditRnFile({ file, rnText, rnMasked, symbolIndex }) {
       sharedMasked: headed[0].masked,
     })
     for (const n of ev.undetermined)
-      undetermined.push({ file, reason: `${imp.alias} 的通道 ${n} 取值判不出(按已抑制处理,不判红)` })
+      undetermined.push({
+        file,
+        reason: `${imp.alias} 的通道 ${n} 取值判不出(按已抑制处理,不判红)`,
+      })
     for (const n of [...ev.suppressed, ...ev.noop.map((x) => x.name)]) usedChannels.add(n)
     const base = {
       file,
@@ -644,7 +645,13 @@ function sharedPackageRoot(face) {
 function collect(face, onlyRn) {
   const pkgRoot = sharedPackageRoot(face)
   if (!pkgRoot)
-    return { undeterminedAll: [{ reason: `面上找不到 ${SHARED_PKG} 的包清单(名字或位置漂了)` }], hits: [], files: [], unreadable: [], sharedFiles: 0 }
+    return {
+      undeterminedAll: [{ reason: `面上找不到 ${SHARED_PKG} 的包清单(名字或位置漂了)` }],
+      hits: [],
+      files: [],
+      unreadable: [],
+      sharedFiles: 0,
+    }
   const rnAll = listFacePaths(face, RN_ROOT).filter((p) => SRC_EXT.test(p))
   let narrowed = null
   if (face === 'staged' && !onlyRn) {
@@ -769,7 +776,9 @@ export function analyze(face, opts = {}) {
     filesWithHits: byFile(cur).size,
     emptyScan,
     exit:
-      cur.unreadable.length || emptyScan || (cur.undeterminedAll.length && opts.strict && opts.requireDetermined)
+      cur.unreadable.length ||
+      emptyScan ||
+      (cur.undeterminedAll.length && opts.strict && opts.requireDetermined)
         ? 2
         : redCount
           ? 1
@@ -798,8 +807,7 @@ function runSelfTest() {
       console.log(`❌ ${name}`)
     }
   }
-  const idxOf = (sharedRel, sharedText) =>
-    buildSymbolIndex(new Map([[sharedRel, sharedText]]))
+  const idxOf = (sharedRel, sharedText) => buildSymbolIndex(new Map([[sharedRel, sharedText]]))
   const SHARED = `export function SquareScreen({ t, hideHeader, renderHeader, nestedInScrollView }: P) {
   return (
     <View style={styles.header}>
@@ -846,9 +854,18 @@ export default function S() {
     'export default function S() {',
     'export default function S() {\n  const hostProps = { t, hideHeader }',
   )
-  const WRAP_SPREAD_UNKNOWN = WRAP_BAD.replace('<SharedSquare t={t} />', '<SharedSquare {...hostProps} />')
-  const WRAP_FALSE_PROP = WRAP_BAD.replace('<SharedSquare t={t}', '<SharedSquare t={t} hideHeader={false}')
-  const WRAP_UNDECLARED = WRAP_BAD.replace('<SharedSquare t={t}', '<SharedSquare t={t} hideDetailHeader')
+  const WRAP_SPREAD_UNKNOWN = WRAP_BAD.replace(
+    '<SharedSquare t={t} />',
+    '<SharedSquare {...hostProps} />',
+  )
+  const WRAP_FALSE_PROP = WRAP_BAD.replace(
+    '<SharedSquare t={t}',
+    '<SharedSquare t={t} hideHeader={false}',
+  )
+  const WRAP_UNDECLARED = WRAP_BAD.replace(
+    '<SharedSquare t={t}',
+    '<SharedSquare t={t} hideDetailHeader',
+  )
   const WRAP_ONLY_COMMENT = WRAP_BAD.replace(
     '      <NavBar title="t" onBack={go} />\n',
     '      {/* 早先这里写 <NavBar title="t" onBack={go} />,后来挪走了 */}\n',
@@ -873,77 +890,200 @@ export default function S() {
   const audit = (src) => auditWith(idx, src)
 
   ok('DH2 阳性:NavBar + 自带页头的共享屏 + 无通道 ⇒ 违规', audit(WRAP_BAD).hits.length === 1)
-  ok('DH2 放过:调用点带"声明且被读"的 hideHeader ⇒ 不是双层', audit(WRAP_SUPPRESSED).hits.length === 0)
-  ok('DH2 放过:通道经 {...对象} 展开传进来(一跳回溯同文件对象字面量)', audit(WRAP_SPREAD).hits.length === 0)
+  ok(
+    'DH2 放过:调用点带"声明且被读"的 hideHeader ⇒ 不是双层',
+    audit(WRAP_SUPPRESSED).hits.length === 0,
+  )
+  ok(
+    'DH2 放过:通道经 {...对象} 展开传进来(一跳回溯同文件对象字面量)',
+    audit(WRAP_SPREAD).hits.length === 0,
+  )
   ok('DH2 判红:`hideHeader={false}` 等于没抑制(显式关掉)', audit(WRAP_FALSE_PROP).hits.length === 1)
-  ok('DH2 判红:通道名在共享侧根本没声明(传了个没人认的 prop)', audit(WRAP_UNDECLARED).hits.some((h) => h.reason === 'suppress-undeclared'))
-  ok('DH2 判红:通道声明了却从没被读(什么都不会抑制)', idxNoop && auditWith(idxNoop, WRAP_SUPPRESSED).hits.some((h) => h.reason === 'suppress-not-honored'))
-  ok('展开对象解析不到 ⇒ 计"未判定"并点名,绝不静默放行', (() => {
-    const r = audit(WRAP_SPREAD_UNKNOWN)
-    return r.undetermined.some((u) => String(u.reason).includes('hostProps'))
-  })())
-  ok('别名解析:`X as SharedX` 必须被认出来(HEAD 真站点全是这形态)', audit(WRAP_BAD).hits[0].alias === 'SharedSquare')
-  ok('别名解析:NavBar 侧 `import { NavBar as TopBar }` 同样必须被认出来', audit(WRAP_ALIASED_NAV).hits.length === 1)
-  ok('条件渲染不判红,但必须计"未判定"(不得静默放行)', (() => {
-    const r = audit(WRAP_CONDITIONAL)
-    return r.hits.length === 0 && r.undetermined.length >= 1
-  })())
-  ok('注释里写 `<NavBar>` 字样不得判红(判据面先剥注释)', (() => {
-    const r = audit(WRAP_ONLY_COMMENT)
-    return r.hits.length === 0 && r.navRendered === false
-  })())
-  ok('豁免带原因 ⇒ 放行并计数(不得静默)', (() => {
-    const r = audit(WRAP_EXEMPT)
-    return r.hits.length === 0 && r.exempted === 1
-  })())
+  ok(
+    'DH2 判红:通道名在共享侧根本没声明(传了个没人认的 prop)',
+    audit(WRAP_UNDECLARED).hits.some((h) => h.reason === 'suppress-undeclared'),
+  )
+  ok(
+    'DH2 判红:通道声明了却从没被读(什么都不会抑制)',
+    idxNoop &&
+      auditWith(idxNoop, WRAP_SUPPRESSED).hits.some((h) => h.reason === 'suppress-not-honored'),
+  )
+  ok(
+    '展开对象解析不到 ⇒ 计"未判定"并点名,绝不静默放行',
+    (() => {
+      const r = audit(WRAP_SPREAD_UNKNOWN)
+      return r.undetermined.some((u) => String(u.reason).includes('hostProps'))
+    })(),
+  )
+  ok(
+    '别名解析:`X as SharedX` 必须被认出来(HEAD 真站点全是这形态)',
+    audit(WRAP_BAD).hits[0].alias === 'SharedSquare',
+  )
+  ok(
+    '别名解析:NavBar 侧 `import { NavBar as TopBar }` 同样必须被认出来',
+    audit(WRAP_ALIASED_NAV).hits.length === 1,
+  )
+  ok(
+    '条件渲染不判红,但必须计"未判定"(不得静默放行)',
+    (() => {
+      const r = audit(WRAP_CONDITIONAL)
+      return r.hits.length === 0 && r.undetermined.length >= 1
+    })(),
+  )
+  ok(
+    '注释里写 `<NavBar>` 字样不得判红(判据面先剥注释)',
+    (() => {
+      const r = audit(WRAP_ONLY_COMMENT)
+      return r.hits.length === 0 && r.navRendered === false
+    })(),
+  )
+  ok(
+    '豁免带原因 ⇒ 放行并计数(不得静默)',
+    (() => {
+      const r = audit(WRAP_EXEMPT)
+      return r.hits.length === 0 && r.exempted === 1
+    })(),
+  )
   ok('豁免裸标记(冒号后无原因)不得放行', audit(WRAP_EXEMPT_BARE).hits.length === 1)
-  ok('豁免"冒号后只剩空白"同样不得放行(空原因不是原因)', !exemptReason('x // double-header-exempt:   '))
-  ok('豁免只剩注释闭合符不得放行(守门 102 记过的那一型)', !exemptReason('x // double-header-exempt: */'))
-  ok('豁免带真原因必须放行(出口不能是假装有)', exemptReason('x // double-header-exempt: 抽屉入口只在这条上'))
-  ok('反向对照:共享屏自带页头而 RN 侧不加 NavBar ⇒ 合规(本仓 160+ 屏的主体形态)', audit(WRAP_NO_NAVBAR).hits.length === 0)
-  ok('遮罩保行号:命中行的行号与原文一致(否则向前回溯 return 会错位)', (() => {
-    const masked = maskCommentsAndStrings(WRAP_BAD)
-    const pos = masked.indexOf('<NavBar')
-    return lineOf(WRAP_BAD, pos) === lineOf(masked, pos)
-  })())
-  ok('renderGuard:顶层 return 的 JSX ⇒ plain', renderGuard(maskCommentsAndStrings(WRAP_BAD), maskCommentsAndStrings(WRAP_BAD).indexOf('<NavBar')) === 'plain')
-  ok('renderGuard:`{cond && <X/>}` ⇒ guarded', (() => {
-    const t = 'function f(){return (<View>{ready && <NavBar />}?</View>)}'
-    const masked = maskCommentsAndStrings(t)
-    return renderGuard(masked, masked.indexOf('<NavBar')) === 'guarded'
-  })())
-  ok('通道识别:名字含 header 即算(泛化)+ nestedInScrollView 实测例外', isChannelName('renderHeader') && isChannelName('nestedInScrollView') && !isChannelName('onBack'))
-  ok('channelHonored:只声明不读 ⇒ false(声明了却没读等于什么都没抑制)', !channelHonored(maskCommentsAndStrings('export function Q({ hideHeader }: P) { return <View><BackChevron/></View> }'), 'hideHeader'))
-  ok('channelHonored:声明 + 分支读取 ⇒ true', channelHonored(maskCommentsAndStrings(SHARED), 'hideHeader'))
-  ok('selfHeader:渲染 BackChevron 才算自带页头;只有 styles.header 定义不算', selfHeader(maskCommentsAndStrings('export function K(){return <View style={styles.header}><Text>t</Text></View>}')) === false)
-  ok('棘轮四向 A:HEAD 有存量、本轮无新增 ⇒ 不判红(decideRed)', decideRed(new Map([['a.tsx', 1]]), new Map([['a.tsx', 1]])).length === 0)
-  ok('棘轮四向 B:本轮新增一处 ⇒ 判红', decideRed(new Map([['a.tsx', 2]]), new Map([['a.tsx', 1]])).length === 1)
-  ok('棘轮四向 C:HEAD 有而本轮清了 ⇒ 绿(存量下降不该反过来红)', decideRed(new Map(), new Map([['a.tsx', 1]])).length === 0)
-  ok('棘轮四向 D:锚点必须是 HEAD 实态而不是基线数字 —— 全量面红名单恒空', (() => {
-    const r = analyze('head')
-    return r.exit !== 2 && r.red.length === 0 && r.total === r.stock.length
-  })())
-  ok('DH1:族整不可用但本面无候选 ⇒ 不判红(合法的收口不该变成永久红门)', decideBlind({ violationCount: 0, honoredChannels: [], undeclaredChannelHits: 0 }) === false)
-  ok('DH1:族整不可用而有候选 ⇒ 判"失明"(出口被摘线而门照报绿 = 没有门)', decideBlind({ violationCount: 1, honoredChannels: [], undeclaredChannelHits: 0 }))
-  ok('真仓 HEAD 阳性对照:必须点名 5 处存量(看不见存量 = 判据对该形态全盲,不算通过)', (() => {
-    const r = analyze('head')
-    const files = r.stock.map((h) => h.file.split('/').pop()).sort()
-    const want = ['CourseDetailScreen.tsx', 'LiveDetailScreen.tsx', 'ProfileScreen.tsx', 'SettingsScreen.tsx', 'StudyPublishScreen.tsx']
-    return JSON.stringify(files) === JSON.stringify(want) && r.total === 5
-  })())
-  ok('真仓假阳对照:三处已用抑制通道的候选必须判绿(Agent/News/Share)', (() => {
-    const r = analyze('head')
-    const bad = ['AgentScreen', 'NewsScreen', 'ShareScreen']
-    return !r.stock.some((h) => bad.some((b) => h.file.endsWith(`/${b}.tsx`)))
-  })())
-  ok('真仓反向对照:共享屏自带页头而 RN 不加 NavBar 的合规族必须被扫到(>100)', (() => {
-    const r = analyze('head')
-    return r.scannedFiles > 150 && r.sharedFiles > 100 && r.exit === 0
-  })())
-  ok('--json 可 parse 且不含说明性文本', (() => {
-    const r = analyze('head')
-    return JSON.parse(JSON.stringify(r)).face === 'head'
-  })())
+  ok(
+    '豁免"冒号后只剩空白"同样不得放行(空原因不是原因)',
+    !exemptReason('x // double-header-exempt:   '),
+  )
+  ok(
+    '豁免只剩注释闭合符不得放行(守门 102 记过的那一型)',
+    !exemptReason('x // double-header-exempt: */'),
+  )
+  ok(
+    '豁免带真原因必须放行(出口不能是假装有)',
+    exemptReason('x // double-header-exempt: 抽屉入口只在这条上'),
+  )
+  ok(
+    '反向对照:共享屏自带页头而 RN 侧不加 NavBar ⇒ 合规(本仓 160+ 屏的主体形态)',
+    audit(WRAP_NO_NAVBAR).hits.length === 0,
+  )
+  ok(
+    '遮罩保行号:命中行的行号与原文一致(否则向前回溯 return 会错位)',
+    (() => {
+      const masked = maskCommentsAndStrings(WRAP_BAD)
+      const pos = masked.indexOf('<NavBar')
+      return lineOf(WRAP_BAD, pos) === lineOf(masked, pos)
+    })(),
+  )
+  ok(
+    'renderGuard:顶层 return 的 JSX ⇒ plain',
+    renderGuard(
+      maskCommentsAndStrings(WRAP_BAD),
+      maskCommentsAndStrings(WRAP_BAD).indexOf('<NavBar'),
+    ) === 'plain',
+  )
+  ok(
+    'renderGuard:`{cond && <X/>}` ⇒ guarded',
+    (() => {
+      const t = 'function f(){return (<View>{ready && <NavBar />}?</View>)}'
+      const masked = maskCommentsAndStrings(t)
+      return renderGuard(masked, masked.indexOf('<NavBar')) === 'guarded'
+    })(),
+  )
+  ok(
+    '通道识别:名字含 header 即算(泛化)+ nestedInScrollView 实测例外',
+    isChannelName('renderHeader') &&
+      isChannelName('nestedInScrollView') &&
+      !isChannelName('onBack'),
+  )
+  ok(
+    'channelHonored:只声明不读 ⇒ false(声明了却没读等于什么都没抑制)',
+    !channelHonored(
+      maskCommentsAndStrings(
+        'export function Q({ hideHeader }: P) { return <View><BackChevron/></View> }',
+      ),
+      'hideHeader',
+    ),
+  )
+  ok(
+    'channelHonored:声明 + 分支读取 ⇒ true',
+    channelHonored(maskCommentsAndStrings(SHARED), 'hideHeader'),
+  )
+  ok(
+    'selfHeader:渲染 BackChevron 才算自带页头;只有 styles.header 定义不算',
+    selfHeader(
+      maskCommentsAndStrings(
+        'export function K(){return <View style={styles.header}><Text>t</Text></View>}',
+      ),
+    ) === false,
+  )
+  ok(
+    '棘轮四向 A:HEAD 有存量、本轮无新增 ⇒ 不判红(decideRed)',
+    decideRed(new Map([['a.tsx', 1]]), new Map([['a.tsx', 1]])).length === 0,
+  )
+  ok(
+    '棘轮四向 B:本轮新增一处 ⇒ 判红',
+    decideRed(new Map([['a.tsx', 2]]), new Map([['a.tsx', 1]])).length === 1,
+  )
+  ok(
+    '棘轮四向 C:HEAD 有而本轮清了 ⇒ 绿(存量下降不该反过来红)',
+    decideRed(new Map(), new Map([['a.tsx', 1]])).length === 0,
+  )
+  ok(
+    '棘轮四向 D:锚点必须是 HEAD 实态而不是基线数字 —— 全量面红名单恒空',
+    (() => {
+      const r = analyze('head')
+      return r.exit !== 2 && r.red.length === 0 && r.total === r.stock.length
+    })(),
+  )
+  ok(
+    'DH1:族整不可用但本面无候选 ⇒ 不判红(合法的收口不该变成永久红门)',
+    decideBlind({ violationCount: 0, honoredChannels: [], undeclaredChannelHits: 0 }) === false,
+  )
+  ok(
+    'DH1:族整不可用而有候选 ⇒ 判"失明"(出口被摘线而门照报绿 = 没有门)',
+    decideBlind({ violationCount: 1, honoredChannels: [], undeclaredChannelHits: 0 }),
+  )
+  ok(
+    '真仓 HEAD 阳性对照:必须点名存量且与台账逐文件等值(看不见存量 = 判据对该形态全盲,不算通过)',
+    (() => {
+      const r = analyze('head')
+      const files = r.stock.map((h) => h.file.split('/').pop()).sort()
+      // 刻意不把"立项那天是哪几处"抄进判据 —— 那会变成第二份真相:有人清偿掉一站,
+      // 世界就不再长成清单的样子,而这条断言判的红与任何缺陷无关(本仓对硬清单的教训:
+      // "豁免清单必然腐烂")。有牙的部分是"读到 ≥1 处"∧"读到的集合 == 台账集合",
+      // 后者由 --update-baseline 维护,清账的人必须重跑它,否则这里就红。
+      const ledgerFiles = (readBaseline().stock || [])
+        .map((s) =>
+          String(s.rnFile || '')
+            .split('/')
+            .pop(),
+        )
+        .filter(Boolean)
+        .sort()
+      return (
+        r.total >= 1 &&
+        ledgerFiles.length >= 1 &&
+        JSON.stringify(files) === JSON.stringify(ledgerFiles)
+      )
+    })(),
+  )
+  ok(
+    '真仓假阳对照:三处已用抑制通道的候选必须判绿(Agent/News/Share)',
+    (() => {
+      const r = analyze('head')
+      const bad = ['AgentScreen', 'NewsScreen', 'ShareScreen']
+      return !r.stock.some((h) => bad.some((b) => h.file.endsWith(`/${b}.tsx`)))
+    })(),
+  )
+  ok(
+    '真仓反向对照:共享屏自带页头而 RN 不加 NavBar 的合规族必须被扫到(>100)',
+    (() => {
+      const r = analyze('head')
+      return r.scannedFiles > 150 && r.sharedFiles > 100 && r.exit === 0
+    })(),
+  )
+  ok(
+    '--json 可 parse 且不含说明性文本',
+    (() => {
+      const r = analyze('head')
+      return JSON.parse(JSON.stringify(r)).face === 'head'
+    })(),
+  )
   console.log(`--self-test: ${fail === 0 ? '全部通过' : `${fail} 条失败`}`)
   return fail
 }
@@ -969,7 +1109,11 @@ function main() {
   }
   const fi = argv.indexOf('--files')
   const onlyFiles = fi >= 0 ? argv.slice(fi + 1).filter((a) => !a.startsWith('--')) : null
-  const opts = { strict: argv.includes('--strict'), requireDetermined: argv.includes('--require-determined'), files: onlyFiles && onlyFiles.length ? onlyFiles : undefined }
+  const opts = {
+    strict: argv.includes('--strict'),
+    requireDetermined: argv.includes('--require-determined'),
+    files: onlyFiles && onlyFiles.length ? onlyFiles : undefined,
+  }
   const r = analyze(picked.face, opts)
   if (argv.includes('--update-baseline')) {
     const payload = {
@@ -1009,8 +1153,13 @@ function main() {
     `   抑制通道族:声明 ${r.channels.declared.join(',') || '(无)'} / 被读 ${r.channels.honored.join(',') || '(无)'} / 调用点用到 ${r.channels.usedAtSites.join(',') || '(无)'}`,
   )
   if (r.unreadable.length)
-    console.log(`❌ 无法判定:${r.unreadable.length} 个候选在本面取不到内容(不记绿也不冒红),首个:${r.unreadable[0]}`)
-  if (r.emptyScan) console.log('❌ 无法判定:head 面枚举到 0 个 RN 源文件 ⇒ 枚举面或仓库根错位,不得读成"这仓没有 RN 屏"')
+    console.log(
+      `❌ 无法判定:${r.unreadable.length} 个候选在本面取不到内容(不记绿也不冒红),首个:${r.unreadable[0]}`,
+    )
+  if (r.emptyScan)
+    console.log(
+      '❌ 无法判定:head 面枚举到 0 个 RN 源文件 ⇒ 枚举面或仓库根错位,不得读成"这仓没有 RN 屏"',
+    )
   if (r.blind)
     console.log(
       '❌ DH1 失明:共享侧已没有任何"声明且被读"的页头抑制通道,而本面仍存在双层候选 —— 此时 DH2 的"无通道"结论全靠一张不存在的出口',
@@ -1018,7 +1167,8 @@ function main() {
   if (r.undetermined.length) {
     console.log(`⚠️ 未判定 ${r.undetermined.length} 处(判据看不见 ≠ 没有):`)
     for (const u of r.undetermined.slice(0, 12)) console.log(`   ${u.file || '-'}:${u.reason}`)
-    if (r.undetermined.length > 12) console.log(`   …另 ${r.undetermined.length - 12} 处,--json 取全量`)
+    if (r.undetermined.length > 12)
+      console.log(`   …另 ${r.undetermined.length - 12} 处,--json 取全量`)
   }
   if (r.red.length) {
     console.log(`❌ DH2 新增(超出该文件 HEAD 自身存量)${r.red.length} 个文件:`)
@@ -1043,11 +1193,16 @@ function main() {
     console.log(
       `ℹ️ 台账与本轮 HEAD 读数不等(台账 ${ledger.stock.length} / 现读 ${r.stock.length})—— 只报数:或有人已清偿,或格式又漂,以本行为准并跑 --update-baseline`,
     )
-  console.log('提示:本门射程 = apps/mobile-rn/ 的 .tsx/.jsx(共享侧改页头不会新增双层,发起面只有 RN 屏)')
+  console.log(
+    '提示:本门射程 = apps/mobile-rn/ 的 .tsx/.jsx(共享侧改页头不会新增双层,发起面只有 RN 屏)',
+  )
   process.exitCode = r.exit
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file:///${process.argv[1].replace(/\\/g, '/')}`).href)
+if (
+  process.argv[1] &&
+  import.meta.url === new URL(`file:///${process.argv[1].replace(/\\/g, '/')}`).href
+)
   main()
 
 export const __test__ = {

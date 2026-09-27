@@ -27,14 +27,6 @@
       "reason": "double-header"
     },
     {
-      "rnFile": "apps/mobile-rn/src/screens/SettingsScreen.tsx",
-      "navBarImport": "NavBar",
-      "sharedSymbol": "SettingsScreen",
-      "sharedRenderAlias": "SharedSettingsScreen",
-      "sharedFile": "packages/app/src/features/settings/SettingsScreen.tsx",
-      "reason": "double-header"
-    },
-    {
       "rnFile": "apps/mobile-rn/src/screens/StudyPublishScreen.tsx",
       "navBarImport": "NavBar",
       "sharedSymbol": "StudyPublishScreen",
