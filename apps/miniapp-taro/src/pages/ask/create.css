@@ -30,11 +30,11 @@
   box-sizing: border-box;
 }
 
-/* ===== 表单区块(对齐 RN input 块: bg surface.muted / border border.light / radius 12dp) ===== */
+/* ===== 表单区块(对齐 RN input 块: bg surface.muted / border border.light;圆角按角色档 card→lg) ===== */
 .ask-create-card {
   background: var(--color-muted);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 24rpx;
   margin-bottom: 16rpx;
 }
@@ -58,7 +58,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* ===== 输入框(白底浮于 muted 块上;对齐 RN input 字号 16dp→32rpx) ===== */
+/* ===== 输入框(白底浮于 muted 块上;对齐 RN input 字号 16dp→32rpx;圆角按角色档 control→sm) ===== */
 .ask-create-input {
   width: 100%;
   font-size: 32rpx;
@@ -66,7 +66,7 @@
   padding: 16rpx 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   box-sizing: border-box;
 }
 
@@ -76,7 +76,7 @@
   padding: 16rpx 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   font-size: 32rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
