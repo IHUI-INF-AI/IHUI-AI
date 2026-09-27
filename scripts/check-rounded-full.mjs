@@ -28,9 +28,11 @@
  *   node scripts/check-rounded-full.mjs             (全量扫描报告, exit 0)
  */
 import { execSync } from 'node:child_process'
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { isRadiusExemptAt } from './lib/radius-tokens.mjs'
+import { catBatch } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -62,19 +64,57 @@ function isExempt(line, file, allLines, idx) {
   // 同步支持 JSX 块注释 {/* ... */}
   if (/^\s*(\/\/|\/\*|\*|\{)/.test(trimmed)) return true
 
-  // 豁免 0b: 前 N 行有"豁免说明"注释(开发者显式说明这行 rounded-full 是合规的)
-  // 模式: 注释行包含 "豁免 N" 或 "exempt" 或 "decorative" + 具体豁免理由关键词
-  // 上限 5 行前向检查(避免误判远处的注释与本行无关)
-  // 同步支持 JSX 块注释 {/* ... */}
+  // 豁免 0b: 从被点行往上、到**该元素自身的起始行为止**,找带原因的豁免标记。
+  //
+  // 为什么固定 5 行不够(2026-09-27 实测):JSX 的属性区**不能放注释**,所以人唯一能写标记的位置
+  // 是元素起始行之外的那一行 —— 而元素的属性块常常拉得很长。实测 `LoginPopUp.tsx`:`<Button`
+  // 开在 141 行,被点的 `className="… rounded-full …"` 在 165 行(中间是一整段多行
+  // onChooseAvatar 回调),差 24 行。于是"请你补豁免理由"这条出路**在语法上不存在**,
+  // 而报告把这一族算成未清存量 —— 门给出的出路跑不通,是本仓记过多次的那一类(参照
+  // 守门 102 的 `nav-chrome-exempt` 因"错误是页面配置 × 页面渲染的组合、不落在某一行上"
+  // 而开文件级通道,同一族理由)。
+  //
+  // 窗口边界取自**元素起始行**而不是任意常数:再往上的注释与当前元素无关,放了也算豁免就成了
+  // 一个标记救整棵子树。起始行的认法 = 往上第一行缩进严格小于被点行、且开着 JSX 标签;
+  // 找不到就退回 5 行的旧窗口(不放大成无限回溯)。
   if (file && allLines) {
-    for (let back = 1; back <= 5 && idx - back >= 0; back++) {
+    const indentOf = (s) => (s || '').match(/^\s*/)[0].length
+    const myIndent = indentOf(allLines[idx])
+    let bound = 5
+    for (let back = 1; idx - back >= 0 && back <= 30; back++) {
+      const l = allLines[idx - back] || ''
+      if (!l.trim()) continue
+      if (indentOf(l) < myIndent && /<[A-Za-z][\w.]*/.test(l)) {
+        bound = back + 1
+        /**
+         * 起始行**之上**连着写的注释行一并算进窗口:JSX 属性区不能放注释,人唯一能写标记的
+         * 位置就是元素上面那一行(children 位的花括号注释同理)。只认起始行以内的话,这条出路
+         * 在语法上仍然不存在 —— 那等于没有这条豁免。
+         */
+        for (let up = bound; idx - up >= 0 && up <= 30; up++) {
+          const p = (allLines[idx - up] || '').trim()
+          if (!p) continue
+          if (!/^(\/\/|\/\*|\*|\{\/\*)/.test(p)) break
+          bound = up + 1
+        }
+        break
+      }
+    }
+    for (let back = 1; back <= bound && idx - back >= 0; back++) {
       const prev = (allLines[idx - back] || '').trim()
       // 仅看单行注释(//, /*, *, 或 JSX 块注释开头 {)
       if (!/^\s*(\/\/|\/\*|\*|\{)/.test(prev)) continue
-      // 必须同时有"豁免说明标记" + "理由关键词"
-      const hasExemptMarker = /豁免\s*\d+[a-z]?\s*[:：]/.test(prev) || /\bexempt\b/i.test(prev) || /@allow-rounded-full/.test(prev)
-      const hasReasonKw = /装饰|头像|指示器|胶囊|红点|徽章|avatar|decorator|indicator/i.test(prev)
-      if (hasExemptMarker && hasReasonKw) return true
+      // 必须同时有"豁免说明标记" + "理由关键词"。`radius-exempt` 是守门 77 的真圆标记,
+      // 一并认 —— 同一处几何豁免有两套词汇,就会一边认一边判红(两处算同一件事必漂移)。
+      const hasExemptMarker =
+        /豁免\s*\d+[a-z]?\s*[:：]/.test(prev) ||
+        /\bexempt\b/i.test(prev) ||
+        /@allow-rounded-full/.test(prev)
+      // 理由判据 = **冒号后有实际内容**,不是命中一张关键词表:白名单必然腐烂 ——
+      // 写了合规理由而词不在表里,标记就不生效(本次实测就栽在"拇指"没进表),而人会以为是自己的
+      // 写法错了。守门 108 对豁免族的要求同样是"必须带原因",不是"必须用某个词"。
+      const hasReason = /[:：]\s*\S{2,}/.test(prev)
+      if (hasExemptMarker && hasReason) return true
       // 显式标记
       if (/@allow-rounded-full/.test(prev)) return true
     }
@@ -246,25 +286,7 @@ function isCssExempt(lines, idx, file) {
   return false
 }
 
-function collectFiles(dir, result = []) {
-  if (!existsSync(dir)) return result
-  for (const entry of readdirSync(dir)) {
-    if (isExcludedDirName(entry)) continue
-    const full = join(dir, entry)
-    const st = statSync(full)
-    if (st.isDirectory()) {
-      collectFiles(full, result)
-    } else if (SCAN_EXTS.some((e) => entry.endsWith(e))) {
-      result.push(full)
-    }
-  }
-  return result
-}
-
-/**
- * 从 git diff --cached -U0 输出中提取每个文件的新增行(+ 开头)及其行号。
- * 返回 Map<absPath, Set<lineNumber>>
- */
+// collectFiles 已随全量档枚举迁到 git ls-tree HEAD 后失去调用方,故删除(不留 _ 前缀糊 lint)。
 function getStagedAddedLines() {
   const result = new Map()
   let output
@@ -360,17 +382,100 @@ if (isStaged) {
     process.exit(0)
   }
 } else {
-  // 全量:扫 apps/ + packages/
-  for (const sub of ['apps', 'packages']) {
-    files = files.concat(collectFiles(join(ROOT, sub)))
+  /**
+   * 全量:清单也从**被审面**枚举(`git ls-tree HEAD`),不再 `readdirSync` 磁盘。
+   * 实测按磁盘枚举 + 按 HEAD 取内容会撞上 153 个"盘上有、面里没有"的 gitignore 产物
+   * (`apps/web/public/vs/*.js`、`tw-check.config.js` 等)⇒ 整门 exit 2 无法判定。
+   * 清单与内容必须同面同轮 —— 否则产出的不是"少扫几个文件",而是"这一轮什么都没判"。
+   */
+  const listing = execSync('git ls-tree -r --name-only HEAD', {
+    encoding: 'utf8',
+    cwd: ROOT,
+    maxBuffer: 1 << 27,
+    windowsHide: true,
+    timeout: 120000,
+  })
+  files = listing
+    .split('\n')
+    .filter(Boolean)
+    .filter((p) => /^(apps|packages)\//.test(p))
+    .filter((p) => SCAN_EXTS.some((e) => p.endsWith(e)))
+    .filter((p) => !p.split('/').some((seg) => isExcludedDirName(seg)))
+    .map((p) => join(ROOT, p))
+}
+
+/**
+ * 内容一律从**被审面**取(全量 = HEAD blob,`--staged` = 索引 blob),不再 `readFileSync` 磁盘:
+ * 共享工作树常年滞后 HEAD,按磁盘判会在"恒红"与"假绿"之间来回跳(守门 77/83/118 同一条口径);
+ * 更要紧的是 `--staged` 判的是**将要提交的那份内容**,磁盘上别人未提交的半编辑态不该替它背锅。
+ * 清单与内容同面同轮:一次 catBatch 读满,不得"清单来自盘、内容来自 git"。
+ */
+const facePrefix = isStaged ? ':' : 'HEAD:'
+const isWorktree = process.argv.includes('--worktree')
+const safeRead = (p) => {
+  try {
+    return readFileSync(join(ROOT, p), 'utf8')
+  } catch {
+    return null
   }
+}
+/**
+ * `--worktree` 只是**人工逃生舱**(与守门 77 / 83 / 118 同一约定):要证明"刚写下去的标记真被
+ * 读到"而没有别的通道 —— 全量档判 HEAD、暂存档只看新增行,两者都看不见"未提交但对已有行的
+ * 上方新增注释"这一格。它绝不进提交链。
+ */
+const relPaths = files
+  .map((f) => relative(ROOT, f).replace(/\\/g, '/'))
+  .filter((p) => (isStaged || isWorktree ? true : !p.startsWith('apps/web/public/vs/')))
+/**
+ * 测试/规范面排除:`expect(cls).not.toContain('rounded-full')` 是**门在执行自己那条规矩**,
+ * 不是界面有胶囊。实测 33 处"违规"里 11 处(33%)是这一类 —— 一座会把自己立规矩的动作判成
+ * 违规的门,读数没人敢信,也就没人去修真的那批。口径同守门 70 / 102。
+ * 排除必须**如实报数**,静默排除与看不见在账面上同形。
+ */
+const isTestPath = (p) =>
+  /(^|\/)(tests?|__tests__|e2e)(\/|$)/.test(p) || /\.(test|spec)\.[cm]?[jt]sx?$/.test(p)
+const keptRel = []
+let skippedTestFiles = 0
+for (const p of relPaths) {
+  if (isTestPath(p)) {
+    skippedTestFiles++
+    continue
+  }
+  keptRel.push(p)
+}
+const got = isWorktree
+  ? new Map(keptRel.map((p) => [facePrefix + p, safeRead(p)]))
+  : catBatch(
+      ROOT,
+      keptRel.map((p) => facePrefix + p),
+      { maxBuffer: 1 << 28 },
+    )
+const undetermined = []
+const contents = []
+for (const p of keptRel) {
+  const t = got.get(facePrefix + p)
+  if (t === null || t === undefined) {
+    undetermined.push(p)
+    contents.push(null)
+  } else contents.push(t)
+}
+if (isWorktree)
+  console.log(`${C.yellow}⚠ 人工档 --worktree:判的是磁盘副本,不是 HEAD/索引 —— 只用于自验标记是否被读到,不得进提交链${C.reset}`)
+if (undetermined.length) {
+  console.log(
+    `${C.red}❌ ${facePrefix === 'HEAD:' ? 'HEAD' : '索引'}面取不到 ${undetermined.length} 个文件 ⇒ 无法判定(不记绿也不记红):${undetermined.slice(0, 5).join(', ')}${undetermined.length > 5 ? ' …' : ''}${C.reset}`,
+  )
+  process.exit(2)
 }
 
 let totalViolations = 0
 const fileReports = []
 
-for (const file of files) {
-  const src = readFileSync(file, 'utf8')
+for (let fi = 0; fi < keptRel.length; fi++) {
+  const rel = keptRel[fi]
+  const file = files[relPaths.indexOf(rel)]
+  const src = contents[fi]
   const lines = src.split('\n')
   const findings = []
 
@@ -383,6 +488,7 @@ for (const file of files) {
     }
     if (isExempt(line, file, lines, idx)) return
     if (isCssExempt(lines, idx, file)) return
+    if (isRadiusExemptAt(lines, idx)) return
     for (const { re, label } of VIOLATION_PATTERNS) {
       const m = re.exec(line)
       if (m) {
@@ -405,6 +511,10 @@ for (const file of files) {
 console.log(`${C.bold}扫描结果:${C.reset}`)
 console.log(`  扫描文件: ${files.length} 个`)
 console.log(`  违规数:   ${totalViolations} 处`)
+console.log(
+  `${C.dim}  已排除:   测试/规范面 ${skippedTestFiles} 个文件(门在测试里的反向断言不是界面有胶囊)、` +
+    `构建/取证副本目录见 lib/exclude-dirs${C.reset}`,
+)
 console.log('')
 
 if (totalViolations === 0) {
