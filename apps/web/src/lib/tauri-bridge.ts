@@ -487,27 +487,7 @@ export async function quitApp(): Promise<void> {
   await invoke('quit_app')
 }
 
-/**
- * 为"用户已点退出"这件事向 Rust 侧续租(2026-09-27 立,平台独占:仅桌面端)。
- *
- * Rust 侧托盘「退出」的**默认档只有 5s** —— 它不再替前端猜"是不是还在下载更新"
- * (此前是单方面等 120s,用户实测"点了退出还要等两分钟,那这按钮有什么意义")。
- * 接手退出请求的前端必须显式续租,才能在检查/下载/安装期间不被强制终止;
- * 不续租 = 5s 内必退。这条把"要不要等"的决定权放回唯一知道答案的一侧。
- *
- * 续租失败**不是**错误:那意味着 IPC 本来就不通(前端根本没接住事件),
- * 而那种情况下正该让 5s 兜底生效。所以调用方一律 fire-and-forget,不得 await、不得抛。
- */
-export async function renewQuitLease(secs: number): Promise<void> {
-  if (!isTauri()) return
-  await invoke('renew_quit_lease', { secs })
-}
 
-// ================== 原生通知 ==================
-
-/**
- * 发送系统原生通知(标题 + 正文)。
- * 自动处理权限请求(首次调用时请求,已授权则直接发送)。
  * 非 Tauri 环境或权限被拒时静默忽略。
  */
 export async function sendDesktopNotification(title: string, body: string): Promise<void> {
