@@ -235,18 +235,24 @@ class CookieRefreshDaemon:
         # Cookie 回写(2026-09-15 新增):平台在访问时可能轮换 cookie 值(如 z_c0),
         # 只检查不回写会让 stored cookie 与服务端会话逐渐脱节,最终"保活成功但发布
         # 时 cookie 过期"。这里把浏览器最终持有的新值合并回凭证并持久化。
+        # 2026-09-27:这一步恰好就是"刷新"动作本身,过去它**无条件覆盖**旧密文不留余料;
+        # 现在一律走唯一出口 credential_history.apply_credentials_update —— 覆盖前把库里
+        # 那份旧密文压进有界历史,历史准备失败只喊 error 并退回原写入,不阻断保活。
         if alive and updated_cookies:
             changed = {k: v for k, v in updated_cookies.items() if credentials.get(k) != v}
             if changed:
                 try:
+                    from app.services.publish.credential_history import (
+                        apply_credentials_update,
+                    )
                     from app.services.publish.credentials_crypto import decrypt, encrypt
                     conn = await get_db_conn()
                     try:
                         merged = {**credentials, **changed}
                         enc = encrypt(merged)
-                        await conn.execute(
-                            "UPDATE publish_accounts SET credentials_enc=$1, updated_at=now() WHERE id=$2",
-                            enc, account_id,
+                        await apply_credentials_update(
+                            conn, account_id, enc,
+                            source_note="Cookie 保活轮换回写",
                         )
                     finally:
                         await conn.close()

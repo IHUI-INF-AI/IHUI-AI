@@ -59,6 +59,7 @@ from app.services.publish.base_adapter import (
     get_adapter,
     list_all_adapter_classes,
 )
+from app.services.publish.credential_history import apply_credentials_update
 from app.services.publish.credentials_crypto import decrypt, encrypt, generate_key_b64
 from app.services.publish.metrics_collector import (
     collect_metrics,
@@ -528,6 +529,12 @@ async def update_account(account_id: int, body: AccountUpdate, request: Request)
     """更新账号(支持 display_name / credentials / status / extra)。
 
     IDOR 修复:校验账号归属,禁止操作他人账号。
+
+    2026-09-27:传 `credentials` 时这一步过去是**无条件整体覆盖**密文(不传 extra 时该列
+    原样不动,传了就把回滚历史一起抹掉)。现在凭据写入一律走唯一出口
+    `credential_history.apply_credentials_update`:覆盖前把库里旧密文压进有界历史;
+    `extra` 与凭据同时传时由出口把调用方给的新键合进(旧 extra ⊕ 新历史),历史键归出口
+    独占 —— 客户端回传的旧历史不得盖掉本轮刚压进去的那一条。
     """
     user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
     conn = await _get_conn()
@@ -541,6 +548,20 @@ async def update_account(account_id: int, body: AccountUpdate, request: Request)
         if existing["user_id"] != user_id:
             raise HTTPException(status_code=403, detail="无权操作他人账号")
 
+        # 凭据写入先走唯一出口(一条 UPDATE 同时落新密文与新 extra),再构造其余字段的 SET
+        credentials_written = False
+        if body.credentials is not None:
+            try:
+                cipher = encrypt(body.credentials)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"encrypt failed: {e}")
+            await apply_credentials_update(
+                conn, account_id, cipher,
+                source_note="前台编辑凭据",
+                merge_extra=body.extra,
+            )
+            credentials_written = True
+
         # 构造 update 字段
         sets: list[str] = []
         args: list[Any] = []
@@ -549,26 +570,25 @@ async def update_account(account_id: int, body: AccountUpdate, request: Request)
             sets.append(f"display_name=${idx}")
             args.append(body.display_name)
             idx += 1
-        if body.credentials is not None:
-            try:
-                cipher = encrypt(body.credentials)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"encrypt failed: {e}")
-            sets.append(f"credentials_enc=${idx}")
-            args.append(cipher)
-            idx += 1
         if body.status is not None:
             if body.status not in ("active", "disabled"):
                 raise HTTPException(status_code=400, detail="status must be 'active' or 'disabled'")
             sets.append(f"status=${idx}")
             args.append(body.status)
             idx += 1
-        if body.extra is not None:
+        if body.extra is not None and not credentials_written:
+            # 只改 extra(未动凭据)⇒ 库里没有"本轮要被盖掉的旧密文",维持原直写语义。
             sets.append(f"extra=${idx}::jsonb")
             args.append(json.dumps(body.extra, ensure_ascii=False))
             idx += 1
 
         if not sets:
+            if credentials_written:
+                # 本轮只改了凭据:出口已落库,重新取整行作为响应(不再补第二条 UPDATE)。
+                final_row = await conn.fetchrow(
+                    "SELECT * FROM publish_accounts WHERE id=$1", account_id
+                )
+                return _wrap_ok({"ok": True, "account": _serialize_account(final_row)})
             return _wrap_ok({"ok": True, "account": _serialize_account(existing), "note": "no fields to update"})
 
         sets.append("updated_at=NOW()")

@@ -44,12 +44,15 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { rotateAppendLog } from './lib/log-rotation.mjs'
 import { createHash } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
 import { isInteractiveUserHome } from './check-home-junctions.mjs'
@@ -1359,6 +1362,47 @@ function envDriftDetail(parsed, kindLabel) {
     '手动复核:node scripts/check-env-drift.mjs(或 --verbose 追加每个键在备份里的值长度)。'
   )
 }
+/**
+ * 追加型运行日志的保留期回收(机制对标 ZCode desktop 的 logRetention:双上限 + 稳定窗 + 留痕)。
+ *
+ * 实测动因:`.workbuddy/hook-logs/pre-commit.log` 现读 93,344,342 B、`.workbuddy/git-guardian.log`
+ * 13,610,246 B,两处都只有追加没有死亡;全仓此前只有 `deploy/win/ihui-deploy-loop.ps1` 一处轮转
+ * (53MB 事故后加的),即"同类日志各自腐烂"。
+ *
+ * 挂点必须在**健康轮次的早退之前、且带 !CHECK_ONLY** —— 与 healWorktreeTracked / healRootSeal
+ * 同一格(本文件已两次踩过"挂进 CHECK_ONLY 路径等于永不执行")。
+ * 为什么不在钩子内自己滚:钩子日志是 `hook-run-hidden.vbs` 用 `cmd … >> log` 打开句柄后才启动
+ * node 的,node 改名自己正被追加的文件必撞 Windows 共享冲突;巡检撞上了也只是本轮跳过。
+ */
+function rotateRunLogs() {
+  const targets = [LOG, join(WORKTREE, '.workbuddy', 'hook-logs', 'pre-commit.log')]
+  const hookDir = join(WORKTREE, '.workbuddy', 'hook-logs')
+  try {
+    for (const n of readdirSync(hookDir)) {
+      if (!n.endsWith('.log')) continue
+      const p = join(hookDir, n)
+      if (!targets.includes(p)) targets.push(p)
+    }
+  } catch {
+    // 目录不存在 = 还没人写过,不是故障;如实喊一行,免得"没清"和"清完了"长得一样。
+    log('ℹ️ 运行日志回收:未找到 hook-logs 目录,本轮跳过')
+  }
+  let touched = 0
+  for (const p of targets) {
+    const r = rotateAppendLog(p)
+    if (r.rotated) {
+      touched += 1
+      log(`✅ 运行日志回收:已归档 ${basename(p)} → ${basename(String(r.movedTo))}${r.removed.length ? ` / 删最旧 ${r.removed.length} 份` : ''}`)
+    }
+    if (r.failed) {
+      // 失败必须响:静默失败的表现永远是"看起来只是没到量"
+      log(`⚠️ 运行日志回收失败:${r.path} —— ${r.failed}`)
+    }
+  }
+  if (touched === 0) return
+  log(`ℹ️ 运行日志回收本轮动了 ${touched} 个文件(其余按尺寸/稳定窗判定为无需动作)`)
+}
+
 function healRootSeal() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'seal-c-root-stray.mjs')
   if (!existsSync(script)) return
@@ -1887,6 +1931,8 @@ function main() {
     if (!CHECK_ONLY) reportBaselineFreshness()
     // §5b 的"唯一空白层":恢复源刷新原本挂在计划任务上,而那个任务已实测消失 ⇒ 并入 tick。
     if (!CHECK_ONLY) refreshRecoverySource()
+    // 运行日志保留期回收(对标 ZCode logRetention):同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
+    if (!CHECK_ONLY) rotateRunLogs()
     // 受管 .env 的"键值被悄悄清空"巡检 + 到人(G-223 第三格):判机器状态,所以绝不进提交链;
     // 挂点与 heal*/refreshRecoverySource 同一分支 —— 挂进 CHECK_ONLY 早退路径等于永不执行。
     if (!CHECK_ONLY) auditEnvDrift()
