@@ -1026,6 +1026,10 @@ export function registerRoutes(server: FastifyInstance) {
 
   // ===== P2-2 补建：公告系统 CLI 专用端点（/api/cli/announcements/*）=====
   server.register(announcementsRoutes, { prefix: '/api' })
+  // 86A2(2026-09-28 立):CLI 工具证据流水摄入。路径必须逐字等于 CLI 侧
+  // TOOL_LEDGER_AUDIT_INGEST_PATH('/api/cli/audit/tool-invokes');测试自 mount 路由,既有教训:
+  // 路由测试绿从不覆盖"注册过"——这一行缺失时 CLI 上报 404、typecheck/lint/单测全绿。
+  server.register(cliToolInvokeAuditRoutes, { prefix: '/api/cli' })
 
   // ===== P3-2 补建：Telemetry 极简上报端点（/api/v1/telemetry/*）=====
   server.register(telemetryRoutes, { prefix: '/api' })
