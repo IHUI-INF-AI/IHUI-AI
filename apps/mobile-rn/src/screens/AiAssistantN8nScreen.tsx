@@ -155,6 +155,7 @@ import {
   applyToolDelta,
   formatDurationMs,
   formatStructured,
+  mcpToolActivityTitle,
   type MessageInjection,
   type MessageCitation,
   type SteerNotice,
@@ -356,7 +357,11 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
           result: item.result,
           status: item.status,
         })
-        const displayName = view.nameKey ? t(`taskStatus.${view.nameKey}`) : item.name
+        // D83 接线:MCP 调用先走共享层 server×tool 定制措辞(四形态各有其词),
+        // 无定制命中即 null ⇒ 沿用下面的既有功能名口径,不吐码名也不吐键名。
+        const displayName =
+          mcpToolActivityTitle(item, t) ??
+          (view.nameKey ? t(`taskStatus.${view.nameKey}`) : item.name)
         const metricLine = formatToolMetricLine(view, t)
         const showSubject = view.subject !== ''
         const statusLabel =
