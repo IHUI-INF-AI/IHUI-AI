@@ -31,6 +31,8 @@ import { existsSync } from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+// "该停哪个桌面端实例"的判据与它的镜像测试共用这一份实现(纯函数,零副作用)
+import { selectDesktopVictims } from './lib/desktop-victims.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const webDir = path.join(repoRoot, 'apps', 'web')
@@ -125,23 +127,7 @@ function stopRunningDesktop() {
     log(`⚠ 枚举桌面端进程失败(status=${r.status}${why}),本次不杀任何实例;若随后 cargo 报 os error 5,请手工关闭由本仓 target 启动的桌面端`)
     return
   }
-  const norm = (s) => s.toLowerCase().replace(/[\\/]+/g, '/')
-  const prefix = `${norm(DESKTOP_TARGET_DIR)}/`
-  const mine = []
-  const foreign = []
-  for (const row of String(r.stdout || '').split(/\r?\n/)) {
-    const i = row.indexOf('|')
-    if (i < 0) continue
-    const pid = row.slice(0, i).trim()
-    const exe = row.slice(i + 1).trim()
-    if (!/^\d+$/.test(pid)) continue
-    if (!exe) {
-      foreign.push(`${pid}(路径问不到)`)
-      continue
-    }
-    if (norm(exe).startsWith(prefix)) mine.push(pid)
-    else foreign.push(`${pid}(${exe})`)
-  }
+  const { mine, foreign } = selectDesktopVictims(r.stdout || '', DESKTOP_TARGET_DIR)
   if (foreign.length) {
     log(`检测到 ${foreign.length} 个非本仓 target 目录的同名实例,不动它们:${foreign.join(' | ')} —— 那是用户已安装/别处构建的应用`)
   }
