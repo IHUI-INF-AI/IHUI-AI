@@ -83,6 +83,20 @@ const TYPE_ICON_COLORS: Readonly<Record<FloatBoxType, string>> = {
   info: tokens.brand.DEFAULT,
 }
 
+/**
+ * 出口守卫:文案剥掉空白后为空 ⇒ 整枚提示不出图。
+ *
+ * 真机在「我的」tab 拍到一枚**只有橙色警告三角、没有任何文字**的深色方块。生产者不止一处,
+ * 而且分散在不同 tab(根导航器会让已访问过的 tab 保持挂载,它们的 FloatBox 同时在场),
+ * 逐个调用方补兜底文案既修不全、又会造出第二份"默认文案"真相 —— 所以判据只能落在这个唯一渲染点。
+ *
+ * 但**静默吞掉等于把缺陷从屏幕上挪走、日志里也没有**(§5e「失败必须响」同一条禁令),
+ * 故 __DEV__ 下把类型喊出来,让"谁传了空文案"仍可诊断。
+ */
+export function floatBoxShouldShow(visible: boolean, message: string): boolean {
+  return visible && typeof message === 'string' && message.trim() !== ''
+}
+
 export function FloatBox({
   visible,
   type,
@@ -90,13 +104,22 @@ export function FloatBox({
   onHide,
   duration = DEFAULT_DURATION_MS,
 }: FloatBoxProps) {
+  const shown = floatBoxShouldShow(visible, message)
   const opacity = useRef(new Animated.Value(0)).current
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onHideRef = useRef<(() => void) | undefined>(onHide)
   onHideRef.current = onHide
 
   useEffect(() => {
-    if (!visible) {
+    if (visible && !shown && __DEV__) {
+      console.warn(
+        `[FloatBox] 收到空白文案(type=${type})已不出图 —— 请修生产者,不要在本组件补兜底文案`,
+      )
+    }
+  }, [visible, shown, type])
+
+  useEffect(() => {
+    if (!shown) {
       if (hideTimerRef.current) {
         clearTimeout(hideTimerRef.current)
         hideTimerRef.current = null
@@ -135,7 +158,7 @@ export function FloatBox({
       }
       opacity.stopAnimation()
     }
-  }, [visible, duration, opacity])
+  }, [shown, duration, opacity])
 
   const screenWidth = Dimensions.get('window').width
   const maxWidth = Math.round(screenWidth * MAX_WIDTH_RATIO)
@@ -144,7 +167,7 @@ export function FloatBox({
 
   return (
     <Animated.View
-      pointerEvents={visible ? 'auto' : 'none'}
+      pointerEvents={shown ? 'auto' : 'none'}
       style={[styles.container, { maxWidth, opacity }]}
       accessibilityRole="alert"
       accessibilityLabel={message}
