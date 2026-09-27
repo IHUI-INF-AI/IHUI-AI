@@ -77,6 +77,8 @@ interface ToolCallCardProps {
   toolCallId?: string
   /** 工具瞬时失败自动重试次数(L5-8,>0 时显示"重试N次"徽章) */
   retryCount?: number
+  /** D113:文件写类工具流中 diff 预览(tool-delta 帧;仅 running 态渲染) */
+  partialDiff?: string
   /** G-68 回退预判三态(D53 一并实施):本次工具调用回退时的文件影响面。
    *  不传时从 diffInfo 自动推导(新建文件→added,有 diff→modified);删除只能显式传入,
    *  diff 卡天然表达不了"文件将被删"。 */
@@ -939,6 +941,8 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   applyError,
   repeated,
   retryCount,
+  /** D113:文件写类工具流中 diff 预览(tool-delta 帧;仅 running 态渲染) */
+  partialDiff,
   errorType,
   imageUrl,
   gallery,
@@ -1150,6 +1154,18 @@ export const ToolCallCard = React.memo(function ToolCallCard({
               onApplyPartial={onApplyPartial}
               toolCallId={toolCallId}
             />
+          )}
+          {/* D113(2026-09-27):文件写类工具流中 diff 预览——tool-delta 帧累积文本,
+              仅 running 态渲染;tool-result 到达后 partialDiff 被清,由 diffInfo/result 接管 */}
+          {status === 'running' && partialDiff && (
+            <div>
+              <StreamLabel>
+                <span className="animate-pulse text-teal-600 dark:text-teal-400">
+                  {tStatus('streamingPreviewLabel')}
+                </span>
+              </StreamLabel>
+              <StreamCode text={partialDiff} testId="tool-call-partial-diff" />
+            </div>
           )}
           {/* image_generation:渲染生成的图片(优先于 result) */}
           {showImage && imageUrl && (
