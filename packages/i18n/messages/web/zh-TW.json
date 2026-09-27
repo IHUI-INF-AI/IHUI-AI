@@ -8487,7 +8487,7 @@
         },
         "TOOL_MODE_UNAVAILABLE": {
           "title": "該工具在目前執行模式不可用",
-          "action": "改用等價的本機工具"
+          "action": "在網頁端綁定工作區後重試,或改用等價的本機工具"
         },
         "TOOL_NOT_FOUND": {
           "title": "找不到目標資源",
