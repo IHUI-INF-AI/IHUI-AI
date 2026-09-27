@@ -112,6 +112,16 @@ export interface FingerprintAffiliation {
  * 判定一枚指纹的关联集合是否仍具区分度。
  * 入参必须是**库确认**的命中账号集合(user_devices 以 (userId, fingerprintHash) 唯一),
  * 不得由请求侧自算 —— 与 utils/batch-outcome.ts 同一条纪律。
+ *
+ * ⚠️ `discriminating: true` 只说明"这枚哈希的命中数落在单台设备的合理量级",**不等于**"这些账号
+ * 共用一台设备":哈希全程由客户端自报(auth.ts:765-775 取 `x-device-fingerprint` 原样落库,无服务端计算),
+ * 所以谁都能把别人的哈希抄进自己的登录请求,把自己的账号挂到别人的设备记录上。本闸挡的是"采集字段
+ * 退化造成的必然同值",挡不住"有意伪造"—— 后者需要服务端可验证的设备绑定(挑战-应答或与服务端
+ * 计算的信号),属产品决策,已登记于 PROJECT_PLAN。
+ * **刻意不在写入侧加格式校验**:它既堵不住上述伪造(抄来的值形状合法),又会砸掉一条已规划的路 ——
+ * `packages/types/src/device.ts` 的算法条写明现值 32 字符 FNV 摘要要迁向密码学摘要并配双写/宽限期,
+ * 而这段写入包在只 warn 的 try/catch 里:今天钉死"32 位十六进制",明天双写期的新采集器会被静默
+ * 判成垃圾而不再新增设备记录(风控盲区),而 `git status` 与 typecheck 都不会红。
  */
 export function judgeFingerprintAffiliation(
   matchedUserIds: readonly string[],
