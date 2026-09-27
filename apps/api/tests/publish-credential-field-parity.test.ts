@@ -105,18 +105,21 @@ export function diffDeclaredVsRead(
  *  `platform_config.get("open_id")` 这类不属凭据面,算进来就是把别的字典当凭据清单。 */
 const CRED_READ_RE = /\bcredentials\w*\s*(?:\.get\s*\(\s*|\[\s*)['"]([\w-]+)['"]/g
 
-/** 第二条读取通道:`playwright_base.py:150` 读的是 `credentials.get(self.primary_cookie)`,
- *  键名写在子类的类属性里而不是 `credentials.get("…")` 字面量里。**不认它就会造 43 处假阳**
- *  —— 第一版就是这样,把 18 个走基类注入的适配器全读成"声明了却不使用"。判据失效的表现
- *  永远是安静地多报,所以这条与变异对照(见 P4 构造面那例)一起钉死。 */
-const PRIMARY_COOKIE_RE = /^\s{4}primary_cookie\s*[:=]\s*["']([\w-]+)["']/m
+/** 第二、第三条读取通道 —— 只认 `credentials.get("字面量")` 会造**两批**假阳：
+ *  ① `playwright_base.py:150` 读 `credentials.get(self.primary_cookie)`，键名写在子类的
+ *     `primary_cookie = "X"` 类属性里；② 同文件 `_cookies()` 按 `credentials.get(spec.name)`
+ *     逐条注入，键名写在 `cookie_specs = [CookieSpec("X", …)]` 的首个位置参数里。
+ *  第一版两条都不认 ⇒ 18 个走基类注入的适配器整片被读成"声明了却不使用"，报数虚高到 43。
+ *  **假阳比漏报贵**：它指使人去"修"没坏的东西，还把整条轴的可信度赔进去。 */
+const PRIMARY_COOKIE_RE = /^\s{4}primary_cookie\s*[:=]\s*["']([\w-]+)["']/gm
+const COOKIE_SPEC_RE = /CookieSpec\(\s*["']([\w-]+)["']/g
 
-/** 一份适配器源码里"实际被读走的凭据键" = 字面量取用 ∪ 经 `primary_cookie` 的间接取用。 */
+/** 一份适配器源码里"实际被读走的凭据键" = 字面量取用 ∪ 两条间接取用通道。 */
 export function extractReadKeys(src: string): string[] {
   const keys = new Set<string>()
   for (const m of src.matchAll(CRED_READ_RE)) if (m[1]) keys.add(m[1])
-  const primary = src.match(PRIMARY_COOKIE_RE)?.[1]
-  if (primary) keys.add(primary)
+  for (const m of src.matchAll(PRIMARY_COOKIE_RE)) if (m[1]) keys.add(m[1])
+  for (const m of src.matchAll(COOKIE_SPEC_RE)) if (m[1]) keys.add(m[1])
   return [...keys].sort()
 }
 
@@ -312,6 +315,13 @@ describe('凭据字段清单跨语言对账', () => {
     // 第二条通道:走 playwright_base 的适配器把键名写在类属性里，不认它就会把 18 个适配器
     // 整片读成"声明了却不使用"（第一版正是如此，报数从 25 虚高到 43）
     expect(extractReadKeys('class X:\n    primary_cookie = "BDUSS"\n')).toEqual(['BDUSS'])
+    // 第三条通道:cookie_specs 里的 CookieSpec("X", …) 首个位置参数；多条都要认（非全局标志
+    // 只会 match 到第一条 —— 那是本文件落地时真踩过的第二个形态）
+    expect(
+      extractReadKeys(
+        'cookie_specs = [\n        CookieSpec("BDUSS", ".baidu.com", http_only=True),\n        CookieSpec("STOKEN", ".baidu.com"),\n    ]',
+      ),
+    ).toEqual(['BDUSS', 'STOKEN'])
   })
 
   it('判据有牙：构造面正反对照（不依赖仓库此刻真值）', () => {    // 少一个必读键 ⇒ 必须点名 missing；多一个不读的键 ⇒ 必须点名 extra
