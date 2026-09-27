@@ -13392,3 +13392,38 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
     ② `setup` 里新加的僵尸实例判据用 `get_webview_window("main").is_none()`,而实测
     `failed to create webview: HRESULT(0x800705B4)` 时窗口对象**仍在**(只是里面没 webview)
     ⇒ 该型僵尸逃过本判据,仍需换成"页面是否真加载"的信号(如 `on_page_load` 心跳)。
+
+- [x] ✅(2026-09-27) O81 票⑱ —— **D113「工具流中 diff 预览」按用户决定铺到全部四端:三端接通、一端实证不该接**。
+  用户选项是"铺到全部四端(RN/小程序/CLI/扩展)"。派 4 路代理并行,我逐文件复量后才落账(代理报告的差异见下第三条)。
+  **一、小程序端缺的不是接线,是共享解析层**。该端流式走 `@ihui/shared/utils/sse-parse`(不是 api-client 那条链),
+  而 `SSEEvent.type` 联合里没有 `'tool-delta'` 变体、函数里也没有认领分支 ⇒ **帧到设备后在末尾 `return null` 静默丢掉、零报错**
+  (旁证:端内 dist 现读 `terminal_delta` 有、`tool-delta` 无)。因此在端内加 `case` 结构上写不出来(联合类型不认),
+  必须先补共享层认领 —— 分支位置是硬性要求:放在 `terminal_delta` 之后、`choices/content/delta/text` 兜底链**之前**,
+  晚了会被当正文增量喷进气泡。字段收窄口径抄 api-client 的 `tryParseToolDelta`,并额外要求 `toolCallId`/`partialText`
+  必须是 string,不过即整帧丢弃**绝不回落 chunk**;`parseSSEChunk` 的消费者现读只有本端与它自己的测试 ⇒ 纯增安全。
+  守门 63 的 sse-parser-parity 顺带由红转绿(帧覆盖 22→23)。
+  **二、CLI 是"接不到"而不是"没接"**:生产端只对 `{write_file,file_edit,edit_file}` 发帧(`llm.py:175`+`:3284-3298`),
+  而 CLI 不携带 `agentTools`、工具在进程内执行(`agent.ts:1373/1412-1422`)⇒ 该帧对它永不发生,硬接就是一条死接线。
+  按同一 UX 走本地派生:执行前从已有 args 复算预览,唯一出口 `apps/cli/src/tools/file-edit-preview.ts`,
+  算法与预算(400 行 / 32KB / 10 帧、splitlines、码点计数、`truncated`)与服务端逐语义对齐。
+  **跨语言那一格用三向等值钉**(两处算同一件事必漂移,是本仓记过最多次的失败型):① TS 重算 ≡ 台账 fixtures;
+  ② TS 静态解析 HEAD 面 `llm.py` 的预算常量/frozenset/取键表 ≡ TS 常量(服务端改了而 TS 没跟即红);③ Python 重算 ≡ 台账。
+  一处已声明分歧并逐条钉住:CLI 的 `edit_file` 用 `search/replace`,故本地多一个键 `replace`,而 Python 侧对它必须仍返 null。
+  **三、代理报告与实测的两处偏差,我都按实测处理**:① 小程序代理交的端内实现在"重复 start 帧"上与另两端不同形
+  (`filter + append` 会把用户正在看的预览抹空),而 web 的 `addToolCall` 对同 id 条目**直接 return**
+  (`apps/web/src/stores/chat.ts:950`)、RN 显式保留 ⇒ 参照实现是"保留",本端是反例。已抽成纯函数 `applyToolCallStart`
+  并补一组回归;变异复量:把保留改成 `undefined` ⇒ 该例当场翻红,还原后 15/15。
+  ② 代理报"shared typecheck 5 错"经复量全部在**他人在飞**的 `packages/shared/src/chat/prompt-history.ts` /
+  未跟踪的 `mobile-rn/tests/login-error-identity.test.ts`,与本票文件无关 —— 派单前以为是新问题,实测不是。
+  **四、扩展端是实证"不该接",不是漏做**:它携带的 `agentTools` 只有 `ext_ui_*` 七动词 + `api_endpoint*` 两件
+  (`ui-control-tools.ts:24-35,50-54`),服务端自主补全注入面也是这七动词(`control_autonomy.py:52-60`)
+  ⇒ 模型在扩展会话里结构上不可能调用写类工具,发帧判据永不成立。要给它这一 UX 的前置是**给扩展会话开通文件写工具**
+  (新能力 + 安全语义,且写的是服务端文件系统),已作为待决项向用户提出,不由本票代裁。台账里该端理由已从
+  含糊的"无渲染位"换成上面这段实测结构。
+  **五、读数(逐条自己跑)**:miniapp typecheck 0 错 / vitest 15 passed(含新 3 例);mobile-rn 与 rn-app typecheck 均 0 错(本票文件)
+  / vitest 6 passed;cli typecheck 0 错 / vitest 18 passed / 相邻 12 套 116 passed / pytest 22 passed;
+  守门 90 五端 exit 0(帧 30),baseline 三端 22→23 / 19→20 / 14→15 全部取自该门现读并在脚本里加"未超 baseline 即拒绝上调"的反向锁。
+  入库四批:`feat(sse)` 小程序+共享层、`feat(rn)`、`feat(cli)`、`chore(gates)` 台账。
+  **仍未收口(如实)**:CLI 的 ACP / `server/agent-core` / headless 三面没有渲染卡片,未接预览回调;终端不做原地重绘,
+  一批帧只落一次输出。扩展端待用户裁定。四端的**像素级到端观感**这次没有真机/真浏览器取证(只有单元与结构判据),
+  收尾条件里那一条仍欠一次实机对照。
