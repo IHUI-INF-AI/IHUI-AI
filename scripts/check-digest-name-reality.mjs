@@ -29,13 +29,16 @@
 //     因为把这类判红会让人"顺手改成 sha256",从而丢掉冲突时打印原文的能力 ——
 //     那是本票最大的危害方向,故由自检与镜像各一条反例钉死。
 //
-// 五条必须放过(每条都有正反成对用例钉住,AGENTS 守门 120 的"正向证明"同法):
+// 六条必须放过(每条都有正反成对用例钉住,AGENTS 守门 120 的"正向证明"同法):
 //   1 Redis hash **数据结构**的键名(`_hash_key` / `tpmHashKey`):与"摘要"同词不同义。
 //   2 显示档 `mask*`(首尾保留 + `*`)且命名并未承诺不可逆(`maskApiKey`)。
 //   3 JWT 第三段段名 `signature`(它本来就不在关键字表里,故结构上不是候选)。
 //   4 内存内比较键(`hookSignature` / Map 冲突检测):缺 C 出口 ⇒ 放过。
 //   5 因正则恒长而结构上不可达的 `return 原值` 兜底分支(`log-sanitizer.ts` 三条):
 //     脱敏类只看"正常路径是否泄露",兜底 `if (不合形) return 原值` 不算活敞口。
+//   6 ORM 列声明(`passwordHash: text('password_hash')` / `char('prev_hash', {…}).notNull()`):
+//     右值只声明列名与 SQL 类型,结构上不产出任何值 ⇒ 归 pass(真仓 HEAD 实测 14 处,
+//     判不出不得顺手放过 —— 见 ormColumnDeclaration 的窄语法)。
 //
 // 定级与口径(照抄现役门,不要自创):
 //   默认档 = HEAD blob,**只报数不判红**(与改动无关的恒红门只会逼人 `--no-verify`,
@@ -650,6 +653,45 @@ export function isPureHandoff(rhs) {
 }
 
 /**
+ * Drizzle/pg-core 列构造器名(封闭集,只收"调用即声明一列"的那批)。新增须有真仓形态依据,
+ * 不得按"看起来像类型名"随手扩 —— 认错的代价是把真正的取值调用当声明放过。
+ */
+export const COLUMN_TYPE_CALLEES = new Set([
+  'serial', 'bigserial', 'smallserial',
+  'integer', 'smallint', 'bigint', 'decimal', 'numeric', 'real', 'doubleprecision',
+  'char', 'varchar', 'text', 'uuid',
+  'date', 'time', 'timestamp', 'timestamptz',
+  'boolean', 'json', 'jsonb',
+])
+
+/**
+ * 右值整体 = 一次列声明:`callee('列名'[, 选项])` 之后至多跟无参修饰符(notNull/primaryKey)
+ * 与对象成员分隔逗号。选项段有两种真实形态 —— `varchar('x', { length: 64 })` 的完整形态,
+ * 以及 FIELD_RE 取材时在 `{` 处截断的 `varchar('x', `(该正则的字符类不含花括号)。
+ * 出现 `+`、带值调用、`.default(…)` 等参与拼值的形态一律不匹配 ⇒ 保持未判定。
+ */
+const COLUMN_DECL_RE =
+  /^\s*([A-Za-z_$][\w$]*)\s*\(\s*(['"`])((?:\\.|[^'"`\\])*)\2\s*(?:\)|,(?:\s*\{[^{}]*\}\s*\)?)?)\s*(?:\.\s*(?:notNull|primaryKey)\s*\(\s*\)\s*)*,?\s*$/
+
+/**
+ * 右值是否**结构上确定**是 ORM 列声明(列构造器 + 字符串字面量首参=列名)。
+ * 为什么单独立判据,而不是并进 `isPureHandoff` / `CAST_OR_LOOKUP`:那两族判的是"值产自别处、
+ * 兑现发生在生产者一侧",而 `passwordHash: text('password_hash')` **根本不产出一个值** —— 它只是
+ * 把字段名钉到数据库那一列上。留在未判定,`--strict` 就永远拒绝出合格证(真仓 HEAD 实测 14 处);
+ * 并进转传档,又会顺手放过一切"名字后带括号"的未知调用。两条都不能要,所以窄判据正向认。
+ * 名字的小写形态出现在列名字面量里(`passwordHash` ↔ `password_hash`)只是旁证,非必要条件
+ * —— 真仓确有 `createdAt`-style 异名同列的写法,拿它当必要条件会把那批留在未判定。
+ * 取材面沿用 `noComment`(剥注释、**保留字符串**):列名就住在字符串字面量里,连字符串一起抹
+ * 会让本判据失明(本仓在守门 118/批量计数门上各踩过一次)。
+ */
+export function ormColumnDeclaration(name, rhs) {
+  const m = COLUMN_DECL_RE.exec(String(rhs || ''))
+  if (!m) return null
+  if (!COLUMN_TYPE_CALLEES.has(normName(m[1]))) return null
+  return { callee: m[1], column: m[3], corroborated: normName(name) === normName(m[3]) }
+}
+
+/**
  * 名字是否**具体**承诺"我产出了不可逆摘要"。三档:
  *  · crypto —— 含 hash/fingerprint/哈希/指纹/sha/md5:这就是"不可逆"的承诺,判红正当;
  *  · prose  —— 只含 digest/摘要:这两个词在英文与中文里都**同时**指"散文摘要"与"密码学摘要"
@@ -1027,6 +1069,18 @@ export function judgeDelivery(unit, lang, allUnits, depth = 0, external = null) 
   if (looksLikeDataStructKey(unit.name, whole))
     return { state: 'pass', why: '数据结构键命名(与"摘要"同词不同义)' }
 
+  // ORM 列声明归 pass 并写明理由 —— 它不是"已核对实现"(那是 delivered),也不是静默消失:
+  // 结构性不承诺按本门既有约定一律走 pass 档(与"右值是纯字面量 ⇒ 配置常量"同一路)。
+  // 只认**当前单元自己的右值**,同名变量在别处被赋成拼接并落盘,那一格仍由那条单元判红。
+  if (unit.kind === 'field' && lang !== 'py') {
+    const col = ormColumnDeclaration(unit.name, whole)
+    if (col)
+      return {
+        state: 'pass',
+        why: `ORM 列声明(${col.callee}('${col.column}')):只声明列名与 SQL 类型,结构上不产出摘要${col.corroborated ? '(列名与字段名同形,旁证)' : ''}`,
+      }
+  }
+
   const callees = calleeNames(whole)
   // 委托可以写成 `list.map(maskEmail)`(裸引用,不带括号)—— 只按"名字后紧跟左括号"找
   // 被调者会让这一整个委托形态被读成"无本地实现",于是门把正当写法判成撒谎(真仓实测 1 处)。
@@ -1057,9 +1111,9 @@ export function judgeDelivery(unit, lang, allUnits, depth = 0, external = null) 
   // 跨文件一跳:真散列常常住在**被 import 的那个文件**里(实测 `hashPassword` →
   // `apps/api/src/utils/password-crypto.ts` 的 argon2Hash、`hashSecret` → `api-key-hash.ts`
   // 的 createHash、`computePayloadHash` 同型),只看同文件会让这一族永远"判不出"。
-  // 失效方向刻意保守:解析不到 / 被调文件里也没有散列 ⇒ **仍走未判定,绝不新增判红**
-  // —— 普查明确列为"不该做"的一格就是把 `passwordHash: text('password_hash')` 这类
-  //   ORM 列声明当撒谎者定罪(扩 BENIGN 名单会连带产出那种误红)。
+  // 失效方向刻意保守:解析不到 / 被调文件里也没有散列 ⇒ **仍走未判定,绝不新增判红**。
+  // (普查曾把"`passwordHash: text('password_hash')` 被定罪"列为不该做 —— 当年否证的是
+  //  **扩 BENIGN 名单**那条路;现该型由上方 ormColumnDeclaration 正向归 pass,不再依赖这里。)
   if (external && depth < 2 && unknown.length > 0) {
     const cf = external(unit, unknown)
     if (cf && cf.length > 0)
@@ -1832,6 +1886,46 @@ fs.writeFileSync(p, SAMPLE)
     t('35b 裸包名说明符不自行解析(交 node 解析器会与本门漂移)', importCandidates('a/x.ts', '@ihui/shared').length === 0 && importCandidates('a/x.ts', './y.js').includes('a/y.ts'))
   }
 
+  // 36 ORM 列声明(真仓 14 处的三种真实书写形态)⇒ 归 pass 且 why 点名,不判红、
+  //    也不许静默消失;36b 是本型最重要的反向锁:同名变量在**另一处**被赋成拼接并落盘,
+  //    那一格必须仍判红 —— 列声明的豁免不外溢到别的单元(若这条变绿,等于给门发合格证)。
+  {
+    const SCHEMA = `export const users = pgTable('users', {
+  passwordHash: text('password_hash'),
+  prevHash: char('prev_hash', { length: 64 }).notNull(),
+  contentHash: text('content_hash').notNull(),
+})\n`
+    const s36 = scanFile('x/schema.ts', SCHEMA)
+    t(
+      '36 text/char(截断选项)/.notNull() 三形态列声明 ⇒ pass 且逐条带 why,未判定 0',
+      s36.hits.length === 0 &&
+        s36.undetermined.length === 0 &&
+        s36.passes.length === 3 &&
+        s36.passes.every((p) => /ORM 列声明/.test(p.why)) &&
+        s36.passes.some((p) => /旁证/.test(p.why)),
+      JSON.stringify({ h: s36.hits.length, u: s36.undetermined.length, p: s36.passes.map((x) => `${x.name}:${x.why.slice(0, 10)}`) }),
+    )
+    const LYING = `export const users = pgTable('users', {\n  passwordHash: text('password_hash'),\n})\nconst passwordHash = [a, b].join('|')\nfs.writeFileSync(p, passwordHash)\n`
+    const s36b = scanFile('x/lying.ts', LYING)
+    t(
+      '36b 反向锁:同文件另一处把同名变量拼出来并落盘 ⇒ 列声明归 pass 而那一格必判红',
+      s36b.hits.length === 1 &&
+        s36b.hits[0].name === 'passwordHash' &&
+        s36b.passes.length === 1 &&
+        /ORM 列声明/.test(s36b.passes[0].why),
+      JSON.stringify({ h: s36b.hits.map((x) => `${x.name}@${x.line}`), p: s36b.passes.map((x) => `${x.name}@${x.line}`) }),
+    )
+    // 36c 判不出的一律保持未判定:参与拼值的 `+` 形态、Python 面的同名调用都不得吃这条豁免。
+    const s36c1 = scanFile('x/wide.ts', `const contentHash = text('content_hash') + salt\nfetch(u, { body: contentHash })\n`)
+    const s36c2 = scanFile('x/wide.py', `password_hash = text('password_hash')\nwith open(p, "w") as f:\n    f.write(password_hash)\n`)
+    t(
+      '36c 拼值形态与 Python 面不得被列声明放过(仍落未判定,绝不冒判红也不记 pass)',
+      s36c1.hits.length === 0 && s36c1.undetermined.some((x) => x.name === 'contentHash') && s36c1.passes.length === 0 &&
+        s36c2.hits.length === 0 && s36c2.undetermined.some((x) => x.name === 'password_hash'),
+      JSON.stringify({ js: { h: s36c1.hits.length, u: s36c1.undetermined.length, p: s36c1.passes.length }, py: { h: s36c2.hits.length, u: s36c2.undetermined.length } }),
+    )
+  }
+
   const failed = R.filter((r) => !r.pass)
   for (const r of R) console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.note ? ` — ${r.note}` : ''}`)
   console.log(`\n--self-test:${R.length} 条断言,失败 ${failed.length} 条`)
@@ -1872,6 +1966,8 @@ export const __test__ = {
   hasComposition,
   isPureHandoff,
   looksLikeDataStructKey,
+  COLUMN_TYPE_CALLEES,
+  ormColumnDeclaration,
   findUnits,
   reachableSurface,
   jsBody,
