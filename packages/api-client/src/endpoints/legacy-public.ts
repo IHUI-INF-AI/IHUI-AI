@@ -163,13 +163,9 @@ export async function getSearchHistory(
   )
 }
 
-/** 记录搜索历史(需登录) */
-export async function addSearchHistory(keyword: string): Promise<ApiResult<{ ok: boolean }>> {
-  return fetchApi<{ ok: boolean }>('/api/search/history', {
-    method: 'POST',
-    body: JSON.stringify({ keyword }),
-  })
-}
+/** 记录搜索历史 —— 2026-09-28 门 8 死调用清账:删除。
+ * POST /api/search/history 从未注册:后端在 POST /search 内**服务端自己落库**
+ * (search.ts:142 调 db addSearchHistory),不存在"客户端显式上报"通道;本仓零消费方。 */
 
 /** 清空搜索历史(需登录) */
 export async function clearSearchHistory(): Promise<ApiResult<{ ok: boolean }>> {
