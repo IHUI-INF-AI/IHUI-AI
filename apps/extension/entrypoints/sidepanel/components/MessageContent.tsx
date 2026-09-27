@@ -274,7 +274,7 @@ const METRIC_UNIT_KEY: Record<ToolMetricKind, string> = {
  * tabular-nums 保证多位数字等宽不抖。
  */
 const BADGE_CLASS =
-  'inline-flex h-4 shrink-0 items-center justify-center rounded px-1 text-[10px] font-semibold leading-none tabular-nums'
+  'inline-flex h-4 shrink-0 items-center justify-center rounded-md px-1 text-[10px] font-semibold leading-none tabular-nums'
 
 /** 工具状态图标:running 转圈 / success 对勾 / error 叉 / 其余(取消、待执行)虚线圆 */
 function toolStatusIcon(block: ToolRenderBlock): ComponentType<{ className?: string }> {
@@ -474,6 +474,21 @@ function ToolBlockView({
           <span className="shrink-0 tabular-nums text-muted-foreground">{durationText}</span>
         ) : null}
       </div>
+      {/* D113(2026-09-27):文件写类工具的流中 diff 预览。渲染条件与另三端逐字同形
+          —— web tool-call-card.tsx:1160 / RN AiAssistantN8nScreen.tsx:407 /
+          小程序 ai-cards.tsx:184 都是 `status==='running' && partialDiff`,
+          tool-result 到达即被清,最终 ± 行由上面的徽章与 details 里的 result 接管。
+          字号/行高取四端同一档(11px / 16px,对齐 RN monoText 与小程序 22rpx/32rpx),
+          容器沿用本卡内既有等宽块形态(p-1.5 / bg-background/70),限高滚动同 web StreamCode。
+          不新增文案标签:内容由服务端下发,标签要么多余要么得补五语言键。 */}
+      {block.status === 'running' && block.partialDiff ? (
+        <pre
+          data-testid="tool-call-partial-diff"
+          className="m-0 mt-1 max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/70 p-1.5 font-mono text-[11px] leading-4"
+        >
+          {block.partialDiff}
+        </pre>
+      ) : null}
       {argsText || resultText ? (
         <details className="mt-1">
           <summary className="cursor-pointer text-[10px] text-muted-foreground">
@@ -774,7 +789,9 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
           data-testid="steer-notice"
           className="mt-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground"
         >
-          <div className="font-medium">{t('chat.steerNoticeTitle', { count: message.steerNotices.length })}</div>
+          <div className="font-medium">
+            {t('chat.steerNoticeTitle', { count: message.steerNotices.length })}
+          </div>
           <ul className="mt-0.5 list-disc pl-4">
             {message.steerNotices.map((s, i) => (
               <li key={`${s.timestamp ?? 'steer'}_${i}`} className="truncate">

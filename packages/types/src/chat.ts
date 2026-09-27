@@ -49,6 +49,12 @@ export interface ToolCall extends TypesBaseToolCall {
   duration?: number
   /** 工具调用错误信息(端独占,与 BaseToolCall.isError 互补) */
   error?: string
+  /**
+   * D113:工具流中 diff 预览(tool-delta 帧的累积文本,整帧覆盖写入;tool-result 到达即清)。
+   * 与 web ToolCall.partialDiff、RN ToolCallItem.partialDiff、小程序 ToolCallView.partialDiff 同一语义 ——
+   * 四端各自另写过一份字段声明就是本仓最典型的"两处算同一件事",故收敛到这份共享契约。
+   */
+  partialDiff?: string
   /** image_generation 工具返回的图片 URL(data URI 或 https URL) */
   image_url?: string
 }
