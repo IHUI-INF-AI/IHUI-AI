@@ -17,20 +17,30 @@
 - 关系权重:同一 (source, target, type) 边被多次抽取时 weight + 1
 
 存储后端(由环境变量 `KNOWLEDGE_GRAPH_STORE` 决定):
-- `memory` (默认): InMemoryGraphStore,进程内 dict,dev/test 场景
-- `drizzle`:      DrizzleGraphStore,用 asyncpg 直连 PG,生产场景(进程重启不丢)
-- 未知值: 启动时打 warning 强制回退到 memory,避免运行时崩溃
+- `file` (默认):   FileGraphStore,内存工作集 + JSON 快照落盘(进程重启不丢,零外部依赖)
+- `memory`:        InMemoryGraphStore,纯进程内 dict,**重启即失**(仅调试/评测用)
+- `drizzle`:       DrizzleGraphStore,用 asyncpg 直连 PG,多实例共享图谱时用
+- 未知值: 启动时打 warning 强制回退到默认档,避免运行时崩溃
 
 所有后端通过 `GraphStore` Protocol 暴露异步方法,API 路由统一 `await` 调用,
 便于在不同后端之间无缝切换且未来可加新后端(CosmosDB / Neo4j 等)。
+
+持久化失败的处理口径(V3 #76 立,不得放宽):
+落盘失败**永不静默**。任何一次写盘/装载失败都会 (1) 记 `persistence_error` 供
+`GET /api/v1/ai/knowledge-graph/data` 的 `persistence` 字段现读, (2) 打 ERROR 日志并
+原样带上 `内存档告警` 常量里的"当前为内存档、重启即失"。工厂在初始化阶段就无法建目录时
+直接回落到纯 `InMemoryGraphStore`,同样打这句。理由:"数据在内存里读得到"与"数据已落盘"
+是两件事,把前者伪装成后者就是本票要修的那个洞。
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import re
+import time
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Protocol
@@ -41,6 +51,26 @@ from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
+
+# 快照格式版本(结构变更时递增;不认识的版本按"文件损坏"处置,不猜)
+_SNAPSHOT_VERSION = 1
+
+# 回落/失败时必须出现在日志里的原话 —— 单一常量,便于运维按关键字 grep 告警,
+# 也便于测试断言(不得在多处各写一份措辞)。
+MEMORY_DEGRADED_NOTICE = "当前为内存档、重启即失"
+
+# 默认落盘目录:与 `app/services/vector_memory.py` 的 `_PERSIST_DIR` 同根
+# (`apps/ai-service/.data/`,已被 .gitignore:382 忽略)。复用既有惯例,不自立
+# 第二套"运行时数据目录"约定。
+_PERSIST_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    ".data",
+)
+_PERSIST_PATH = os.path.join(_PERSIST_DIR, "knowledge_graph.json")
+
+# 后端合法值:默认 file(持久),memory 为显式非持久档
+_BACKEND_DEFAULT = "file"
+_VALID_BACKENDS = ("file", "memory", "drizzle")
 
 # 实体类型白名单
 _ENTITY_TYPES = (
@@ -272,6 +302,15 @@ class GraphStore(Protocol):
 
     async def clear(self, owner_uuid: str | None = None) -> None: ...
 
+    def persistence_status(self) -> dict[str, Any]:
+        """返回"此刻数据到底落没落盘"的真实状态,不是"配置里写了什么"。
+
+        列入 Protocol 是刻意的:三个后端都必须能回答这一问,上层就不需要
+        `hasattr(store, ...)` 式的猜测 —— 一旦允许猜,漏答的那一档就会表现成
+        "没有 persistence 字段",而读的人会把它当成"持久化正常"。
+        """
+        ...
+
 
 def _entity_to_dict(row: asyncpg.Record) -> dict[str, Any]:
     """把 asyncpg 行(实体表)转成 dict,统一字段命名(snake_case → API 期望的命名)。
@@ -310,7 +349,13 @@ def _relation_to_dict(row: asyncpg.Record) -> dict[str, Any]:
 
 
 class InMemoryGraphStore:
-    """内存版图谱存储,用于 dev/test 场景,生产用 DrizzleGraphStore。
+    """内存版图谱存储:进程内 dict 工作集,**单独使用时重启即失**。
+
+    自 V3 #76 起它同时是 `FileGraphStore` 的基类 —— 持久化档 = 这一层内存工作集
+    + 一层 JSON 快照落盘。所以"落盘档是 InMemoryGraphStore 的子类"是结构事实,
+    既有测试里 `isinstance(graph_store, InMemoryGraphStore)` 因此在换默认后端后
+    仍然成立(它读的是"有没有内存工作集",那一直为真);而"是否真落盘"改由
+    `persistent` 属性与端到端重启恢复测试把守,不再靠类型断言兼职。
 
     所有方法保持 async 接口(虽然内部是同步),与 GraphStore Protocol 一致。
     """
@@ -393,6 +438,304 @@ class InMemoryGraphStore:
             self.relations = {
                 k: v for k, v in self.relations.items() if k[0] != owner_uuid
             }
+
+    def persistence_status(self) -> dict[str, Any]:
+        """本档不落盘:如实报 persistent=False 并带上告警原话。
+
+        必须存在这个方法,而不是让上层用 hasattr 猜 —— 工厂回落正是落在这里,
+        如果这里没有出口,运维在 API 上就看到"一切正常"。
+        """
+        return {
+            "backend": "memory",
+            "path": None,
+            "persistent": False,
+            "pending_unflushed": False,
+            "load_failed": False,
+            "write_failures": 0,
+            "error": None,
+            "notice": MEMORY_DEGRADED_NOTICE,
+        }
+
+
+class GraphPersistenceUnavailableError(RuntimeError):
+    """快照落盘位置根本不可用时抛出(建目录/权限失败等)。
+
+    只在构造阶段抛给工厂,让工厂回落到纯内存档并打 `MEMORY_DEGRADED_NOTICE`。
+    运行期单条写入失败**不**抛本异常(那会把业务请求打成 500),只记录状态。
+    """
+
+
+class FileGraphStore(InMemoryGraphStore):
+    """默认存储后端:内存工作集 + JSON 快照落盘(进程重启不丢,零第三方依赖)。
+
+    继承 `InMemoryGraphStore` 不是权宜之计,而是这一档的真实结构:
+    读路径全部走内存(与旧行为逐字一致,不引入磁盘 IO 抖动),写路径在改完内存后
+    **写穿(write-through)**到快照文件。写穿而不是写后异步刷盘,是因为"重启即失"
+    这一型故障的定义就是"返回给调用方成功、但落盘前进程没了";异步刷盘把这个窗口
+    留在系统里,写穿不留。
+
+    快照格式(`_SNAPSHOT_VERSION` 版本化,不认识的版本按损坏处置):
+        {"version": 1, "next_entity_id": N, "next_relation_id": M,
+         "entities": [...], "relations": [...]}
+
+    失败口径见模块 docstring:任何失败都必须留 `persistence_error` + ERROR 日志,
+    日志原文必须含 `MEMORY_DEGRADED_NOTICE`。
+    """
+
+    def __init__(self, path: str | None = None) -> None:
+        super().__init__()
+        resolved = (path or os.getenv("KNOWLEDGE_GRAPH_PATH", "").strip() or _PERSIST_PATH)
+        self.path: str = os.path.abspath(resolved)
+        # 可诊断状态(三条都进 GET /data 的 persistence 字段,不只在日志里)
+        self.persistent: bool = True
+        self.persistence_error: str | None = None
+        self.load_failed: bool = False
+        self.write_failures: int = 0
+        self._dirty: bool = False
+        self._lock = asyncio.Lock()
+        self._ensure_dir()
+        self._load_existing()
+
+    # ------------------------------------------------------------------
+    # 落盘位置准备与装载
+    # ------------------------------------------------------------------
+
+    def _ensure_dir(self) -> None:
+        """建快照目录;建不出来就判"根本不可用"(抛给工厂回落,不静默)。"""
+        directory = os.path.dirname(self.path) or "."
+        try:
+            os.makedirs(directory, exist_ok=True)
+        except OSError as e:
+            raise GraphPersistenceUnavailableError(
+                f"知识图谱快照目录不可用: {directory} ({e})"
+            ) from e
+
+    def _load_existing(self) -> None:
+        """启动时把已落盘的快照读回工作集(这就是"重启后可恢复"的那一步)。
+
+        文件不存在 = 干净首启,不是错误。文件在但读不动/格式不认识 = 事故,必须
+        留痕并如实置 `load_failed`,**不得**当成"没有数据"蒙过去。
+        """
+        if not os.path.exists(self.path):
+            return
+        try:
+            with open(self.path, encoding="utf-8") as f:
+                raw = json.load(f)
+            self._absorb_snapshot(raw)
+        except (OSError, ValueError, TypeError, KeyError) as e:
+            # json.JSONDecodeError 是 ValueError 的子类;_absorb_snapshot 的结构校验
+            # 抛 KeyError/TypeError/ValueError,四类都是"这份快照没能用"。
+            self.load_failed = True
+            self.persistence_error = f"快照装载失败(数据未恢复): {e}"
+            logger.error(
+                "知识图谱快照装载失败 path=%s: %s —— 快照将被下一次写入覆盖,"
+                "在此之前图数据不完整;若该文件重要请从备份恢复。同时本进程按"
+                "%s运行(%s)。",
+                self.path,
+                e,
+                MEMORY_DEGRADED_NOTICE,
+                self.persistence_error,
+            )
+
+    def _absorb_snapshot(self, raw: Any) -> None:
+        """把快照 dict 装回内存工作集。结构不合即抛,由调用方按损坏处置。"""
+        if not isinstance(raw, dict):
+            raise ValueError("快照根节点不是对象")
+        version = raw.get("version")
+        if version != _SNAPSHOT_VERSION:
+            raise ValueError(f"快照版本不受支持: {version!r} (期望 {_SNAPSHOT_VERSION})")
+        entities = raw.get("entities")
+        relations = raw.get("relations")
+        if not isinstance(entities, list) or not isinstance(relations, list):
+            raise ValueError("快照缺 entities/relations 数组")
+
+        loaded_entities: dict[tuple[str, str, str], dict[str, Any]] = {}
+        max_entity_id = 0
+        for item in entities:
+            if not isinstance(item, dict):
+                raise ValueError("entities 内含非对象条目")
+            entity: dict[str, Any] = {
+                "id": int(item["id"]),
+                "owner_uuid": str(item["owner_uuid"]),
+                "name": str(item["name"]),
+                "type": str(item["type"]),
+                "description": item.get("description"),
+                "frequency": int(item.get("frequency", 1)),
+                "doc_ids": [int(x) for x in (item.get("doc_ids") or [])],
+            }
+            key = (entity["owner_uuid"], entity["name"], entity["type"])
+            if key in loaded_entities:
+                raise ValueError(f"快照内实体主键重复: {key}")
+            loaded_entities[key] = entity
+            max_entity_id = max(max_entity_id, entity["id"])
+
+        loaded_relations: dict[tuple[str, int, int, str], dict[str, Any]] = {}
+        max_relation_id = 0
+        for item in relations:
+            if not isinstance(item, dict):
+                raise ValueError("relations 内含非对象条目")
+            relation: dict[str, Any] = {
+                "id": int(item["id"]),
+                "owner_uuid": str(item["owner_uuid"]),
+                "source_entity_id": int(item["source_entity_id"]),
+                "target_entity_id": int(item["target_entity_id"]),
+                "relation_type": str(item["relation_type"]),
+                "description": item.get("description"),
+                "weight": float(item.get("weight", 1)),
+            }
+            rkey = (
+                relation["owner_uuid"],
+                relation["source_entity_id"],
+                relation["target_entity_id"],
+                relation["relation_type"],
+            )
+            if rkey in loaded_relations:
+                raise ValueError(f"快照内关系主键重复: {rkey}")
+            loaded_relations[rkey] = relation
+            max_relation_id = max(max_relation_id, relation["id"])
+
+        self.entities = loaded_entities
+        self.relations = loaded_relations
+        # 主键续号取 max(快照记录值, 现存 id)+ 1:宁可留空洞,也不复用已删 id,
+        # 否则重启后旧 id 可能指向另一个实体,把关系边接错。
+        recorded_entity_id = raw.get("next_entity_id")
+        recorded_relation_id = raw.get("next_relation_id")
+        self._next_entity_id = max(
+            [max_entity_id + 1]
+            + ([int(recorded_entity_id)] if isinstance(recorded_entity_id, int) else [])
+        )
+        self._next_relation_id = max(
+            [max_relation_id + 1]
+            + ([int(recorded_relation_id)] if isinstance(recorded_relation_id, int) else [])
+        )
+
+    # ------------------------------------------------------------------
+    # 写穿持久化
+    # ------------------------------------------------------------------
+
+    def _snapshot_payload(self) -> dict[str, Any]:
+        """在事件循环线程内做浅拷贝快照(交 executor 序列化前必须已脱离活对象)。"""
+        return {
+            "version": _SNAPSHOT_VERSION,
+            "next_entity_id": self._next_entity_id,
+            "next_relation_id": self._next_relation_id,
+            "entities": [dict(e) for e in self.entities.values()],
+            "relations": [dict(r) for r in self.relations.values()],
+        }
+
+    def _write_snapshot_sync(self, snapshot: dict[str, Any]) -> None:
+        """同步写盘(executor 线程内调用):同目录临时文件 + os.replace 原子替换。
+
+        临时文件必须与目标同目录(跨目录 rename 非原子),且必须带唯一后缀
+        (Windows 上并发 rename 到同名目标会 EPERM);替换失败重试只针对
+        "目标被别的进程短暂占用",不掩盖真正的权限/磁盘错误。
+        """
+        tmp_path = f"{self.path}.{os.getpid()}.tmp"
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(snapshot, f, ensure_ascii=False)
+            for attempt in range(3):
+                try:
+                    os.replace(tmp_path, self.path)
+                    return
+                except OSError as e:
+                    if attempt == 2:
+                        raise
+                    time.sleep(0.05 * (attempt + 1))
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    # 临时件删不掉不影响数据正确性,但不能无声:打 warning。
+                    logger.warning("知识图谱快照临时件清理失败: %s", tmp_path)
+
+    async def _flush_if_dirty(self) -> None:
+        """把当前工作集写穿到磁盘。失败只记状态与日志,绝不向调用方抛。"""
+        if not self._dirty:
+            return
+        async with self._lock:
+            if not self._dirty:
+                return
+            snapshot = self._snapshot_payload()
+            loop = asyncio.get_running_loop()
+            try:
+                await loop.run_in_executor(None, self._write_snapshot_sync, snapshot)
+            except (OSError, TypeError, ValueError) as e:
+                self.write_failures += 1
+                self.persistent = False
+                self._dirty = True  # 仍然脏:下一次写入继续尝试(磁盘满可能只是一时)
+                if self.persistence_error is None:
+                    self.persistence_error = f"快照写盘失败: {e}"
+                # 首次失败 ERROR,后续 WARN:与 §5e"失败必须响"一致,但不刷日志。
+                log = logger.error if self.write_failures == 1 else logger.warning
+                log(
+                    "知识图谱持久化失败(第 %d 次)path=%s: %s —— %s",
+                    self.write_failures,
+                    self.path,
+                    e,
+                    MEMORY_DEGRADED_NOTICE,
+                )
+                return
+            self._dirty = False
+            if not self.persistent:
+                self.persistent = True
+                self.persistence_error = None
+                self.write_failures = 0
+                logger.info("知识图谱持久化已恢复: %s", self.path)
+
+    async def _after_mutation(self) -> None:
+        self._dirty = True
+        await self._flush_if_dirty()
+
+    async def upsert_entity(
+        self,
+        owner_uuid: str,
+        name: str,
+        entity_type: str,
+        description: str | None = None,
+        doc_id: int | None = None,
+    ) -> dict[str, Any]:
+        entity = await super().upsert_entity(
+            owner_uuid, name, entity_type, description, doc_id
+        )
+        await self._after_mutation()
+        return entity
+
+    async def upsert_relation(
+        self,
+        owner_uuid: str,
+        source_entity_id: int,
+        target_entity_id: int,
+        relation_type: str,
+        description: str | None = None,
+    ) -> dict[str, Any]:
+        relation = await super().upsert_relation(
+            owner_uuid, source_entity_id, target_entity_id, relation_type, description
+        )
+        await self._after_mutation()
+        return relation
+
+    async def clear(self, owner_uuid: str | None = None) -> None:
+        await super().clear(owner_uuid)
+        await self._after_mutation()
+
+    def persistence_status(self) -> dict[str, Any]:
+        """当前这一档的真实持久化状态(不是"配置成了什么",而是"现在落没落盘")。"""
+        return {
+            "backend": "file",
+            "path": self.path,
+            "persistent": self.persistent,
+            "pending_unflushed": self._dirty,
+            "load_failed": self.load_failed,
+            "write_failures": self.write_failures,
+            "error": self.persistence_error,
+            "notice": None if self.persistent else MEMORY_DEGRADED_NOTICE,
+        }
+
+    async def close(self) -> None:
+        """进程收尾时刷脏(应用关闭走 main.py 的 graph_store.close())。"""
+        await self._flush_if_dirty()
 
 
 class DrizzleGraphStore:
@@ -690,31 +1033,69 @@ class DrizzleGraphStore:
                     owner_uuid,
                 )
 
+    def persistence_status(self) -> dict[str, Any]:
+        """drizzle 档:持久性由 PG 保证,路径概念不适用。"""
+        return {
+            "backend": "drizzle",
+            "path": None,
+            "persistent": True,
+            "pending_unflushed": False,
+            "load_failed": False,
+            "write_failures": 0,
+            "error": None,
+            "notice": None,
+        }
+
 
 # =============================================================================
 # 全局 graph_store 工厂(根据环境变量选择后端)
 # =============================================================================
 
 
+def _memory_fallback(reason: str) -> InMemoryGraphStore:
+    """回落到纯内存档,并把"这一档重启即失"喊出来(禁止静默伪装成已持久化)。"""
+    logger.error(
+        "知识图谱未能启用持久档,回落到纯内存档:%s —— %s", reason, MEMORY_DEGRADED_NOTICE
+    )
+    return InMemoryGraphStore()
+
+
 def _create_graph_store() -> GraphStore:
-    """根据环境变量 `KNOWLEDGE_GRAPH_STORE` 选择后端。"""
-    backend = os.getenv("KNOWLEDGE_GRAPH_STORE", "memory").lower()
+    """根据环境变量 `KNOWLEDGE_GRAPH_STORE` 选择后端。
+
+    默认 `file`(落盘,重启可恢复)。`memory` 仍可选,但它现在是一个**显式**选择
+    而非默认 —— 原默认正是本票要修的"重启即失"。
+    """
+    raw_backend = os.getenv("KNOWLEDGE_GRAPH_STORE", "").strip()
+    backend = (raw_backend or _BACKEND_DEFAULT).lower()
+    if backend not in _VALID_BACKENDS:
+        logger.warning(
+            "未知的知识图谱存储后端 %r,回落到默认 %r(合法值: %s)",
+            raw_backend,
+            _BACKEND_DEFAULT,
+            " | ".join(_VALID_BACKENDS),
+        )
+        backend = _BACKEND_DEFAULT
     if backend == "drizzle":
         try:
             store: GraphStore = DrizzleGraphStore()
-            logger.info("知识图谱存储后端: DrizzleGraphStore (生产模式,asyncpg 直连 PG)")
+            logger.info("知识图谱存储后端: DrizzleGraphStore (asyncpg 直连 PG)")
             return store
         except Exception as e:
-            logger.warning(
-                f"DrizzleGraphStore 初始化失败,回退到 InMemoryGraphStore: {e}"
-            )
-            return InMemoryGraphStore()
-    if backend != "memory":
+            return _memory_fallback(f"DrizzleGraphStore 初始化失败: {e}")
+    if backend == "memory":
+        store_only_memory = InMemoryGraphStore()
         logger.warning(
-            f"未知的知识图谱存储后端 {backend!r},使用默认内存模式 "
-            f"(合法值: 'memory' | 'drizzle')"
+            "知识图谱存储后端: InMemoryGraphStore (显式 memory 档) —— %s",
+            MEMORY_DEGRADED_NOTICE,
         )
-    return InMemoryGraphStore()
+        return store_only_memory
+    try:
+        file_store = FileGraphStore()
+    except GraphPersistenceUnavailableError as e:
+        return _memory_fallback(str(e))
+    logger.info("知识图谱存储后端: FileGraphStore (落盘 %s)", file_store.path)
+    return file_store
 
 
 # 全局单例(API 路由和 build 流程统一引用)

@@ -17,14 +17,21 @@
 - LLM 失败降级返回空列表,不抛错;写卡失败降级跳过该卡,不阻塞其余卡片
 - 容错 JSON 解析(剥 ```json 围栏 → 数组正则 → 对象 extracted 字段兜底)
 - 字段标准化(kind 白名单 / tags 清洗截断 / confidence 0-1 → 0-100 整数)
+
+V3 #76(2026-09-28)补的那一节:上面这套抽取器此前**生产面零调用方**(函数在、
+没有一条路走到它)。自动蒸馏的入口现在是本文件末尾的
+`schedule_distillation_from_conversation`,v1/v2 执行循环共用同一份 gating ——
+见该函数注释。跳过时必打日志,"安静地什么都没做"就是这一型缺陷原本的样子。
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -36,6 +43,16 @@ _VALID_KINDS = {"experience", "fact", "practices", "pitfall"}
 _MAX_MSG_CHARS = 500
 # 对话整体截断长度
 _MAX_CONVO_CHARS = 4000
+# 少于这么多次交互不值得起一次 LLM 调用(一问一答几乎提炼不出"可复用经验",
+# 却要为每次真实请求付一次 token —— 自动蒸馏必须自带成本闸门,否则每句话都烧一次)
+_MIN_MESSAGES_FOR_DISTILLATION = 4
+
+# 未拿到调用方 pending 集合时,task 的强引用放这里。
+# 不是防御性冗余 —— `asyncio.create_task` 的返回值如果不被任何地方持有,事件循环
+# 只握弱引用,任务可能在跑到一半时被 GC 掉(CPython asyncio 文档明写的陷阱),
+# 表现正是"蒸馏偶尔什么都没发生且无任何报错"。调用方给了集合就用调用方的,
+# 不给就由本模块持有到完成,绝不因为"没人传集合"而让任务裸奔。
+_self_held_tasks: set[asyncio.Task[Any]] = set()
 
 
 class KnowledgeCardExtractor:
@@ -265,8 +282,15 @@ class KnowledgeCardExtractor:
         }
         if user_id:
             payload["userId"] = user_id
-        # 结构化上下文:溯源信息(任务会话 + 来源标注)
-        payload["context"] = {"source": "agent", **({"sessionId": session_id} if session_id else {})}
+        # 结构化上下文:票面要求的"三维元数据"里,来源与置信已各有第一等字段
+        # (api 侧 source='agent' / confidence 0-100),时效没有列可落 ——
+        # knowledge_cards 表无 distilled_at 列,加列属迁移动作(本票禁改 drizzle),
+        # 故按既有自由结构 context 记 ISO 时间戳。**不得**把这里读成"时效已有列"。
+        payload["context"] = {
+            "source": "agent",
+            "distilledAt": datetime.now(UTC).isoformat(),
+            **({"sessionId": session_id} if session_id else {}),
+        }
 
         try:
             client = get_api_client()
@@ -294,4 +318,154 @@ class KnowledgeCardExtractor:
 
 # 模块级单例(与 memory_extractor 等服务同风格)
 knowledge_card_extractor = KnowledgeCardExtractor()
+
+
+# =============================================================================
+# 自动蒸馏入口(V3 #76,2026-09-28 立)
+# =============================================================================
+#
+# 本文件此前的状态是"生成器写完了、生产面零调用方":`extract_and_save` 之外没有任何
+# 一处代码引用过这个模块(取证见交付报告 —— 全仓 grep 只有本文件自身与两条把它当
+# "命名先例"提及的注释)。这正是本仓反复出现的"造好没装车"型:功能在、测试绿、
+# 运行时永不发生。下面这组函数就是那节"装车"接线,并且刻意做成**唯一出口**:
+# v1 / v2 两个执行循环都调用同一个 `schedule_distillation_from_conversation`,
+# 不得在端内各写一遍 gating —— 两份 gating 必然漂移(图谱抽取那处就有过两份同形分支)。
+
+
+def resolve_repo_name(explicit: str | None = None) -> str:
+    """确定卡片归属仓库:运行显式声明 > 部署级默认 > 空(空即跳过,不猜)。
+
+    部署级默认**只有一个来源**:`settings.knowledge_card_default_repo`
+    (pydantic-settings 已把 env 的 `KNOWLEDGE_CARD_DEFAULT_REPO` 映射到它)。
+    这里刻意不再读第二个环境变量名 —— 本仓记过两次"代码自己读 os.environ,
+    于是 .env 那条永远读不到"的同类缺陷(config.py 的 COMBO_CHAINS 注释即其一),
+    一个配置两个入口迟早不同形。
+    """
+    name = (explicit or "").strip()
+    if name:
+        return name[:200]
+    from ..core.config import settings
+
+    return (settings.knowledge_card_default_repo or "").strip()[:200]
+
+
+def should_distill(
+    *,
+    repo_name: str,
+    message_count: int,
+    enabled: bool,
+) -> tuple[bool, str]:
+    """纯判据:该不该为这次会话起一次蒸馏。返回 (是否起, 原因)。
+
+    把判据单列成纯函数而不是埋在调度里,是为了让"为什么没蒸馏"这件事可被测、可读 ——
+    自动功能最坏的失效形态不是报错,而是安静地什么都没做。
+    """
+    if not enabled:
+        return False, "开关已关停(auto_knowledge_card_extract_enabled=false)"
+    if not repo_name:
+        return False, (
+            "无法确定归属仓库:运行未声明 repoName 且部署未配 knowledge_card_default_repo"
+            "(卡片必须绑定仓库,猜测会把经验挂到别的仓库上)"
+        )
+    if message_count < _MIN_MESSAGES_FOR_DISTILLATION:
+        return False, f"消息数 {message_count} < {_MIN_MESSAGES_FOR_DISTILLATION},不值得起一次 LLM"
+    return True, f"仓库 {repo_name} 命中,起一次会话蒸馏"
+
+
+def schedule_distillation_from_conversation(
+    messages: list[dict[str, Any]],
+    *,
+    repo_name: str | None = None,
+    user_id: str | None = None,
+    session_id: str | None = None,
+    conversation_length: int | None = None,
+    pending_tasks: set[asyncio.Task[Any]] | None = None,
+) -> asyncio.Task[Any] | None:
+    """会话结束时的 fire-and-forget 蒸馏出口(v1/v2 执行循环共用这一份)。
+
+    Args:
+        messages: 要喂给 LLM 的那一批消息(调用方决定窗口;本函数不截断)。
+        repo_name: 归属仓库;为空时回落到部署级默认,仍为空即跳过(见 `should_distill`)。
+        user_id: 卡片归属用户;缺省时 api 侧写成全局卡(userId=NULL)。
+        session_id: 会话 ID,记进 card.context 便于溯源。
+        conversation_length: **整场**会话的消息数,只用于"值不值得起一次 LLM"的闸门。
+            传窗口时必须一起传它 —— 否则一场 40 轮的会话只看窗口里的 8 条,
+            闸门判的就不是"这次会话有多长",而是"我截了多短"。缺省取 len(messages)。
+        pending_tasks: 调用方的在飞任务集合(与 agent_loop 里 `_pending_tasks` 同一套
+            登记口径);给就登记,不给就只靠 done_callback 打异常,不各造一份注册表。
+
+    Returns:
+        创建的 Task,或 None(判据不通过 / 无运行中事件循环)。跳过一定打日志,
+        不静默返回。
+    """
+    from ..core.config import settings
+
+    resolved_repo = resolve_repo_name(repo_name)
+    gate_length = (
+        conversation_length if conversation_length is not None else len(messages or [])
+    )
+    ok, reason = should_distill(
+        repo_name=resolved_repo,
+        message_count=gate_length,
+        enabled=bool(settings.auto_knowledge_card_extract_enabled),
+    )
+    if not ok:
+        logger.info(
+            "[knowledge_card_distill] 跳过蒸馏(user=%s session=%s):%s",
+            user_id,
+            session_id,
+            reason,
+        )
+        return None
+
+    try:
+        task = asyncio.create_task(
+            knowledge_card_extractor.extract_and_save(
+                messages,
+                resolved_repo,
+                user_id=user_id,
+                session_id=session_id,
+            )
+        )
+    except RuntimeError as e:
+        # 无运行中事件循环(同步上下文调用)—— 这不是"该跳过",是调用点写错了,
+        # 必须 WARN 而不是静默 None,否则这型缺陷只表现为"功能没生效"。
+        logger.warning("[knowledge_card_distill] 无法起任务(无事件循环?)%s", e)
+        return None
+
+    if pending_tasks is not None:
+        pending_tasks.add(task)
+        task.add_done_callback(pending_tasks.discard)
+    else:
+        # 调用方没有登记集合:本模块替它持有强引用,直到任务完成(见上面注释)
+        _self_held_tasks.add(task)
+        task.add_done_callback(_self_held_tasks.discard)
+
+    def _log_result(finished: asyncio.Task[Any]) -> None:
+        """收尾记账:异常/取消都必须留痕,但绝不在回调里再抛一次。
+
+        done_callback 里抛异常会被 asyncio 打成"Exception in callback"噪声,
+        而且真正的失败原因(下面这两条日志)反而被埋。
+        """
+        if finished.cancelled():
+            logger.warning("[knowledge_card_distill] 蒸馏任务被取消(未落库)")
+            return
+        exc = finished.exception()
+        if exc is not None:
+            logger.warning(
+                "[knowledge_card_distill] 蒸馏任务异常(已降级,不影响主流程): %s", exc
+            )
+            return
+        outcome = finished.result()
+        extracted = outcome.get("extracted") if isinstance(outcome, dict) else None
+        saved = outcome.get("saved") if isinstance(outcome, dict) else None
+        logger.info(
+            "[knowledge_card_distill] 完成 repo=%s 抽取 %d 张 / 落库 %d 张",
+            resolved_repo,
+            len(extracted or []),
+            len(saved or []),
+        )
+
+    task.add_done_callback(_log_result)
+    return task
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

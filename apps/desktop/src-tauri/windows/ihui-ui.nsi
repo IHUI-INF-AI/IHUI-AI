@@ -952,7 +952,7 @@ FunctionEnd
   ${IfNot} ${Silent}
   ${AndIf} $PassiveMode = 0
     InitPluginsDir
-    ; ---- splash 帧(按系统档;16 帧动画,见 IHUI_EXTRACTSPLASH_SET) ----
+    ; ---- splash 帧(按系统档;10 帧资产 / 9 播放帧,见 IHUI_EXTRACTSPLASH_SET) ----
     !insertmacro IHUI_EXTRACTSPLASH $IHUITIER
     ; ---- 页面位图 + 按钮(按窗口档; .onInit 阶段窗口未建,用系统档兜底) ----
     ; GUIInit 会按窗口 DPI 重算 IHUIWTIER; 此处先按系统档解压,
@@ -973,7 +973,7 @@ FunctionEnd
     ;   1. 插件反编译实锤只加载 base 名那一张图(字符串表仅 ".bmp"/".wav"),
     ;      且每进程只能调用一次 —— 结构上做不出多帧动画;
     ;   2. 无头/无人值守会话下 AdvSplash 失败会让进程静默退出(2026-09-19 记录)。
-    ; 16 帧序列由此全部真实使用(不再只有 splash15 一帧在跑)。
+    ; 10 帧序列由此全部真实使用(播放 splash1..9,帧 0 为空白起始不入序列)。
     StrCpy $IHUISPLA 1
     ; 验证 / 无人值守场景保留跳过开关
     ReadEnvStr $0 "IHUI_NOSPLASH"
@@ -984,7 +984,7 @@ FunctionEnd
 !macroend
 
 ; =====================================================================
-; 开屏动画(2026-09-22 定稿:欢迎页内逐帧,16 帧 / 约 1.5s)
+; 开屏动画(2026-09-27 降帧定稿:欢迎页内逐帧,10 帧资产 / 9 播放帧 × 150ms ≈ 1.35s;原 2026-09-22 定稿 16 帧 × 90ms,总时长不变,帧数砍 6 帧省 ~1.2MB exe)
 ; 载体判据(实测探针 .ihui-agent/tmp/installer-redesign/sweep-probe.nsi):
 ;   1. nsDialogs 自定义页里 ${NSD_CreateTimer} 在 nsDialogs::Show 模态循环内正常派发
 ;      (探针落盘 ticks=20 frame=3 → 定时器确实在跑);
@@ -997,8 +997,8 @@ FunctionEnd
 ; 四个控件 ShowWindow 隐藏,播完落回 welcome.bmp 再显出 —— 全程只有一个窗口,
 ; 不再出现"AdvSplash 浮窗 + 主窗先后两跳"的观感割裂。
 ; =====================================================================
-!define IHUI_SPLASH_FRAMES 15
-!define IHUI_SPLASH_TICK 90
+!define IHUI_SPLASH_FRAMES 9
+!define IHUI_SPLASH_TICK 150
 
 Function IHUIOnSplashTick
   ${If} $IHUISPLA = 0
@@ -1064,7 +1064,7 @@ FunctionEnd
   ${EndIf}
 !macroend
 
-; ---- 开屏动画帧解压(16 帧 x 5 档)----
+; ---- 开屏动画帧解压(10 帧 x 5 档)----
 ; File 源路径必须编译期字面量 → 档位以字面量入参,运行期 ${If} 选档。
 ; 首帧名 splash.bmp(帧号 0),故 0 特判。
 !macro IHUI_EXTRACTSPLASH_SET LIT
@@ -1078,12 +1078,6 @@ FunctionEnd
   File "/oname=$PLUGINSDIR\splash7.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\splash7.bmp"
   File "/oname=$PLUGINSDIR\splash8.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\splash8.bmp"
   File "/oname=$PLUGINSDIR\splash9.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\splash9.bmp"
-  File "/oname=$PLUGINSDIR\splash10.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\splash10.bmp"
-  File "/oname=$PLUGINSDIR\splash11.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\splash11.bmp"
-  File "/oname=$PLUGINSDIR\splash12.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\splash12.bmp"
-  File "/oname=$PLUGINSDIR\splash13.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\splash13.bmp"
-  File "/oname=$PLUGINSDIR\splash14.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\splash14.bmp"
-  File "/oname=$PLUGINSDIR\splash15.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\splash15.bmp"
 !macroend
 
 !macro IHUI_EXTRACTSPLASH TIERVAR
