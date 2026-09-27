@@ -381,17 +381,19 @@ async def test_owner_survives_restart_and_foreign_caller_is_rejected(
         tid = await _start_thread(alice, declared_user_id="mallory")
         # 承载层绑定优先:谎报值不得落进 metadata
         assert store.get_thread(tid).metadata["userId"] == "alice"
-        # 已知未收口的一格(本票按"不动别人的批次"纪律**没有**改这条路径):
-        # thread.metadata 走 store.update_thread_metadata(merge=False) 整写,会把
-        # 持久化 metadata 里的 userId/roleId 一起冲掉 ⇒ 此后重启恢复出的线程无属主。
-        # 在本用例里只断言"未经 patch 的正常链路"属主可跨重启存活;该缺陷与修法、
-        # 以及"动它会撞 batch-46 的两条 exact-equality 断言"的取证写在交付报告另见里。
+        # 批 60(G-249)之前这里挂着一格未收口:`thread/metadata` 的 merge=False 整写
+        # 会把持久化 metadata 里的 userId/roleId 一起冲掉 ⇒ 重启恢复出的线程无属主。
+        # 现在身份键在引擎侧与存储侧都盖不穿(同一份 IDENTITY_METADATA_KEYS),所以这里
+        # 顺手做一次整写再重启:属主必须还在,外来调用必须被拒。
+        patched = await _call(alice, "thread.metadata", {"threadId": tid, "patch": {"biz": 1}, "merge": False})
+        assert "error" not in patched, patched
         engine._threads.clear()  # 模拟进程重启:内存线程全丢,只剩库里的 metadata
         denied = await _call(bob, "thread.state", {"threadId": tid})
         assert denied["error"]["code"] == THREAD_NOT_FOUND, denied
         ok = await _call(alice, "thread.state", {"threadId": tid})
         assert "error" not in ok, ok
     assert _thread_of(engine, tid).user_id == "alice"
+    assert store.get_thread(tid).metadata["userId"] == "alice"
 
 
 # ---------------------------------------------------------------------------
