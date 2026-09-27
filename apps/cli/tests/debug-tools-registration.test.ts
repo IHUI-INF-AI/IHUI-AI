@@ -47,7 +47,7 @@ describe('debug 族注册 ↔ 运行时注册表 ↔ 五语言功能名', () => 
       expect(tool.name, '工具字面量必须有 name').toBeTruthy()
       expect(getTool(tool.name), `debug 族 ${tool.name} 未挂进运行时注册表`).toBe(tool)
     }
-  })
+  }, 60_000) // setupAgentTools 单跑实测 4.2s(全量注册工具族),191 文件并行下会越过 15s 默认预算
 
   it('DEBUG_TOOLS 每一枚的五语言功能名解析出非空值(且 ≠ 键名回显)', async () => {
     const { DEBUG_TOOLS } = await import('../src/tools/debug.js')
