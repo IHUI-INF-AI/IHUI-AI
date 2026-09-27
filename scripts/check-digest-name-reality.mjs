@@ -930,7 +930,72 @@ export function reachableSurface(body) {
  *  undelivered 只做字符串拼接/序列化,承诺未兑现
  *  undetermined 形态不认识:纯转传的字段、未知调用、手写散列、委托链里有判不出的一环
  */
-export function judgeDelivery(unit, lang, allUnits, depth = 0) {
+/**
+ * `import x from './a/b.js'` / `require('../c')` / 动态 `import('./d')` 的说明符 →
+ * 仓库内候选路径列表(相对、正斜杠)。刻意只解**相对说明符**:
+ * 裸包名要走 node 解析器,而门自己做一套解析器就会与打包器漂移(本仓记过多次)。
+ * TS 里 `from './x.js'` 实际指 `x.ts`,故剥掉 `.js/.mjs/.cjs/.jsx` 再逐档试。
+ */
+export function importCandidates(fromPath, spec) {
+  if (typeof spec !== 'string' || !spec.startsWith('.')) return []
+  const dir = fromPath.includes('/') ? fromPath.slice(0, fromPath.lastIndexOf('/') + 1) : ''
+  const segs = []
+  for (const s of (dir + spec).split('/')) {
+    if (s === '' || s === '.') continue
+    if (s === '..') {
+      segs.pop()
+      continue
+    }
+    segs.push(s)
+  }
+  const clean = segs.join('/')
+  const stem = clean.replace(/\.(?:js|mjs|cjs|jsx)$/, '')
+  return [...new Set([clean, stem, `${stem}.ts`, `${stem}.tsx`, `${stem}.js`, `${stem}.mjs`, `${stem}/index.ts`, `${stem}/index.js`, `${stem}/index.mjs`])]
+}
+
+const IMPORT_SPEC_RE = /(?:from\s*|import\s*\(\s*|require\s*\(\s*)['"]([^'"\n]{1,200})['"]/g
+
+/**
+ * 造"跨文件一跳"的解析器:被调名若在**同一取材面、同一轮**读到的别的文件里兑现了真散列,
+ * 本单元即判兑现。两侧必须同面同轮(守门 134 B2 同一课)—— 一次读盘一次读 HEAD,
+ * 并行会话推进的瞬间就会产出一把自洽而错位的尺子。
+ */
+export function makeCrossFileResolver(texts) {
+  const cache = new Map()
+  const unitsOf = (p) => {
+    if (cache.has(p)) return cache.get(p)
+    const lang = p.endsWith('.py') ? 'py' : 'ts'
+    const { noComment, noCommentNoString } = maskFaces(texts.get(p) || '', lang)
+    const us = findUnits(noCommentNoString, noComment, texts.get(p) || '', lang)
+    for (const u of us) u.file = p
+    const v = { lang, us }
+    cache.set(p, v)
+    return v
+  }
+  return function external(unit, unknownNames) {
+    const src = texts.get(unit.file)
+    if (!src || !unknownNames || unknownNames.length === 0) return []
+    const files = new Set()
+    for (const m of iterMatches(IMPORT_SPEC_RE, src)) {
+      for (const cand of importCandidates(unit.file, m[1])) if (texts.has(cand)) files.add(cand)
+    }
+    if (files.size === 0) return []
+    const found = []
+    for (const f of files) {
+      if (f === unit.file) continue
+      const { lang: tl, us } = unitsOf(f)
+      for (const name of unknownNames) {
+        const t = us.find((u) => u.name === name)
+        if (!t) continue
+        const d = judgeDelivery(t, tl, us, 2, null)
+        if (d.state === 'delivered') found.push(`${name}@${f}`)
+      }
+    }
+    return [...new Set(found)].slice(0, 4)
+  }
+}
+
+export function judgeDelivery(unit, lang, allUnits, depth = 0, external = null) {
   const surf = reachableSurface(unit.body || '')
   const whole = surf.whole
   const cls = classifyName(unit.name)
@@ -987,6 +1052,18 @@ export function judgeDelivery(unit, lang, allUnits, depth = 0) {
       return { state: 'delivered', why: `一跳内本地实现(${localPromise.join(',')})有真实散列` }
     if (sub.some((s) => s.state === 'undetermined'))
       return { state: 'undetermined', why: `委托给本地助手 ${localPromise.join(',')} 而那一环判不出` }
+  }
+
+  // 跨文件一跳:真散列常常住在**被 import 的那个文件**里(实测 `hashPassword` →
+  // `apps/api/src/utils/password-crypto.ts` 的 argon2Hash、`hashSecret` → `api-key-hash.ts`
+  // 的 createHash、`computePayloadHash` 同型),只看同文件会让这一族永远"判不出"。
+  // 失效方向刻意保守:解析不到 / 被调文件里也没有散列 ⇒ **仍走未判定,绝不新增判红**
+  // —— 普查明确列为"不该做"的一格就是把 `passwordHash: text('password_hash')` 这类
+  //   ORM 列声明当撒谎者定罪(扩 BENIGN 名单会连带产出那种误红)。
+  if (external && depth < 2 && unknown.length > 0) {
+    const cf = external(unit, unknown)
+    if (cf && cf.length > 0)
+      return { state: 'delivered', why: `一跳跨文件实现(${cf.join(', ')})有真实散列` }
   }
 
   if (cls.irreversible && SELF_HASH_RE.test(whole))
@@ -1112,13 +1189,15 @@ function escapeRe(s) {
 
 /* ------------------------------ 单文件判定 ------------------------------ */
 
-export function scanFile(relPath, text) {
+export function scanFile(relPath, text, external = null) {
   const lang = relPath.endsWith('.py') ? 'py' : 'ts'
   const { noComment, noCommentNoString } = maskFaces(text, lang)
   const units = findUnits(noCommentNoString, noComment, text, lang)
+  // 跨文件一跳需要知道"这条声明住在哪个文件",否则解析不出 import 说明符的相对基准
+  for (const u of units) u.file = relPath
   const res = { file: relPath, hits: [], passes: [], undetermined: [], units: units.length }
   for (const u of units) {
-    const d = judgeDelivery(u, lang, units)
+    const d = judgeDelivery(u, lang, units, 0, external)
     if (u.exempt) {
       res.passes.push({ file: relPath, line: u.line, name: u.name, why: `行内 ${EXEMPT_MARK} 已带原因` })
       continue
@@ -1251,7 +1330,10 @@ export function analyze(root, face, opts = {}) {
   const scanned = only ? audited.filter((p) => only.has(p)) : audited
   if (only && scanned.length === 0)
     throw new Undetermined('--files 指定的路径没有一个落在本门覆盖面 ⇒ 判据失效,不计通过')
-  const per = scanned.map((p) => scanFile(p, texts.get(p)))
+  // 跨文件一跳的被调面:**与被审面同一轮读出的那份 texts**(同面同轮),
+  // 否则并行会话推进的瞬间会产出一把自洽而错位的尺子(守门 134 B2 同一课)。
+  const external = makeCrossFileResolver(texts)
+  const per = scanned.map((p) => scanFile(p, texts.get(p), external))
   const hits = per.flatMap((r) => r.hits)
   const undetermined = per.flatMap((r) => r.undetermined)
   const passes = per.reduce((a, r) => a + r.passes.length, 0)
@@ -1725,6 +1807,29 @@ fs.writeFileSync(p, SAMPLE)
       cfg.undetermined.length === 0 && cfg.hits.length === 0 && lying.hits.length === 1,
       `cfg=${cfg.undetermined.length} lying=${lying.hits.length}`,
     )
+  }
+
+  // 35 跨文件一跳:被调文件里真有散列 ⇒ 兑现;被调文件只是 String(v) ⇒ **仍未判定,绝不因此判红**
+  //    (新增判红会把 ORM 列声明等"看不见"的形态定罪,而普查明确否掉了那一刀)。
+  {
+    const XFILE = `import { hashPassword } from './y.js'\nexport function store(pw) {\n  const passwordHash = hashPassword(pw)\n  fs.writeFileSync(p, passwordHash)\n  return passwordHash\n}\n`
+    const good = new Map([
+      ['a/x.ts', XFILE],
+      ['a/y.ts', `import { createHash } from 'node:crypto'\nexport function hashPassword(v) { return createHash('sha256').update(v).digest('hex') }\n`],
+    ])
+    const bad = new Map([
+      ['a/x.ts', XFILE],
+      ['a/y.ts', `export function hashPassword(v) { return String(v) }\n`],
+    ])
+    const rg = scanFile('a/x.ts', XFILE, makeCrossFileResolver(good))
+    const rb = scanFile('a/x.ts', XFILE, makeCrossFileResolver(bad))
+    const rn = scanFile('a/x.ts', XFILE, null)
+    t(
+      '35 一跳跨文件有真散列 ⇒ 兑现;被调只是 String() ⇒ 未判定不判红;没有解析器时也不得判红',
+      rg.hits.length === 0 && rg.passes.some((x) => x.name === 'passwordHash') && rb.hits.length === 0 && rb.undetermined.some((x) => x.name === 'passwordHash') && rn.hits.length === 0,
+      `good=${rg.passes.length} bad=${rb.undetermined.length} none=${rn.undetermined.length}`,
+    )
+    t('35b 裸包名说明符不自行解析(交 node 解析器会与本门漂移)', importCandidates('a/x.ts', '@ihui/shared').length === 0 && importCandidates('a/x.ts', './y.js').includes('a/y.ts'))
   }
 
   const failed = R.filter((r) => !r.pass)
