@@ -12948,3 +12948,47 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   三个文件都不引用本票改过的任何文件,且失败在 HEAD 面即存在 ⇒ **归属他人正在进行的 i18n/队列线**,不代修(§16);
   ② `packages/ui-react/src/index.ts:86` 的 `UploadLabels` TS2614 来自别人**未提交**的 `Upload.tsx` 在飞改动,同上;
   ③ 四端的 `onToolDelta` 渲染位是真实产品缺口(D113 各端落地票),已写明判据但**尚未补** —— 台账只负责让它不再静默。
+
+## 第五十六批(2026-09-27 午后):会话失效出口三端补齐 + 函数形态 style 存量清零 + 一道门"注册先进仓、脚本还在门外"的成套收口
+
+### ① 401 统一出口:RN / 小程序 / extension 三端补齐,并给它配一把常驻尺子(门 148)
+
+- **事实**:`setUnauthorizedHandler(` 在全仓**只有 web 一处注册**,而 RN 与小程序都在消费 `@ihui/api-client` 的 `fetchApi`。后果不是"少一个弹窗":双 token 过期后每一屏各自显示一句从错误体里取的通用文案,**"去登录"这件事既没有入口也没有跳转**(实测 logcat 反复打「上报移动端能力失败:Invalid or expired token」,屏幕上什么都没有)。小程序更糟 —— `bindTokenStoreToApiClient(tokenStore)` 没传 `refreshAccessToken`,`refreshAccessTokenOnce()` 第一行就 `return null`,连"有机会不死"都没有(RN 端 2026-09-22 已补,这一格只是没人跟)。
+- **落地**:`d45d407a8b`(RN `initApi()` 注册 `onUnrecoverableUnauthorized` + 小程序补 refresh 注入与 `reLaunch` 出口)。三条边界写在代码注释里:游客态不接管 / 已在 Login 不重复跳 / **不清 token**(清了会让所有在飞 UI 立刻翻成未登录态,头像余额闪空)。去重直接读"当前路由是不是 Login",不引入需要第二真相来复位的模块级布尔量。与 web 的"非 GET 才弹"**刻意不同**:挂在屏上的恰是 GET,照抄那条 RN 依旧没有出路。
+- **extension 那一端由并发会话补齐**(`HEAD:apps/extension/lib/token.ts` 现读 2 处注册 + `apps/extension/tests/session-expired-exit.test.ts`)—— 那路代理立门时读到的是"仅挂载期出口、注释承诺的反应链不存在",这条判断是对的,只是清偿不是我做的。
+- **尺子**:守门 148 `scripts/check-auth-handler-registration-parity.mjs`(blocking)AP1 消费端必须注册或持带 reason+未过期 reviewBy 的台账豁免 / AP2 台账腐烂判红 / AP3 注册口被摘线判"失明"不记绿 / 空枚举 exit 2。现读:消费端 5 · AP1 红 0 · AP2 红 0 · AP3 在位 · exit 0。
+
+### ② 一条"注册与脚本必须同枚入库"的实录:门 148 曾指向一个不在 HEAD 里的脚本
+
+注册块由 `gate-registry-insert.mjs` 先落(`6160573535`,**只写 `scripts/guardian-runner.mjs` 一个路径**),而门体脚本与镜像测试当时还是未跟踪文件 ⇒ 在任何干净检出上这条 blocking 门会以"脚本找不到"失败并挡住整批守门;而门 89 的 R1/R2/R4 **结构上看不见**这一格(它的候选集按"脚本在不在被审面"枚举,脚本不在就不成候选)。这与守门 146 立项当夜撞到的是同一型,已并入 `91ed54a836` 一次补齐(脚本 + 镜像 + package.json 问责入口 + AGENTS/README 点名行)。
+
+- **顺带纠正一处代理报告的编号**:报告写"取到 id=147",runner 现值是 **148**(147 已被 `check-model-capacity-parity` 占用)。文档面按现值写,不照抄转述。
+- **活文档一律 HEAD 为底**:`package.json` 的磁盘副本比 HEAD **少 4 条别人的 `check:*` 入口**(`check:model-capacity` / `check:package-barrel` / `check:sequence-lag` / `:fix`),按工作树提交就会替那三路会话回退。所以三份文档都走 `assemble()` 的"前缀 ⊕ 本块 ⊕ 后缀"结构等值 + 逐行"HEAD 行零丢失"自证,插完再 `git checkout-index -f` 把磁盘对齐(先证**磁盘独有行为 0** 才动)。
+
+### ③ 函数形态 `style` 存量清零:29 站点 / 16 文件(守门 131 现读 0 处)
+
+`354d5fdedf`。病灶:`react-native-css-interop` 对非数组声明执行 `{ ...declaration }`,而 `{ ...函数 } === {}`,且 `applyStyles` 先把 `state.props` 清成 `{}` 再合并 ⇒ **该元素整份内联 style 静默消失**,退回默认 column + stretch(真机 A/B 定案,实测把「更多」折成两行)。typecheck / lint / 单测对此全绿,只有装机拍图看得见。
+
+- **改法只换书写形态、不引入新数值档**;唯一新增的 `width:'100%'` 与 `flex: 1` 是布局关系(占满父交叉轴),不是圆角/字号那一类档位数字 —— 这条区分写在提交信息里,因为守门 77 的"不得绕档写死数字"会把前者当违规。
+- **每份三条独立复核**(`.ihui-agent/tmp/g131c/verify.mjs`,不复用转换代理的判据):水印首末行与基准同字节 / 剥注释后**数字多重集零变化** / 判据面函数形态命中 0 且"未判定 0"。结果:**16 份 / 不合格 0 份 / 覆盖站点 29**。
+- **落地前逐份比对基准 blob 与当前 HEAD blob** —— 不同基即跳过(那是在替别人回退)。本轮 16/16 同基,零跳过。
+- **`flex: 1` 那一格是两批代理给出相反处置的地方**:一批给 `entryBtnHit` 补 `flex: 1`、另一批拒补(理由:规格把新增取值限定为 `width:'100%`)。按"布局关系不是档位数字"收在补的那一侧,并把判据从"数字多重集"里把 `flex: 1` 单独剥出来报数,而不是悄悄放过。
+
+### ④ 一次值得留底的现场判读:磁盘副本"脏"不等于他人在飞
+
+落完 16 份后 `git status` 显示 16 份全 ` M`,直觉是"别人在写"。逐份量下来是三种不同事实:
+
+- **12 份**:磁盘每一非空行都能在该路径**全历史**某版本里逐字找到 ⇒ 陈旧检出,零独有数据 ⇒ `git checkout-index -f` 对齐(可证无损)。
+- **1 份(NotificationPanel)**:磁盘字节**恰好等于某祖先提交版本** ⇒ 按定义零独有序 ⇒ 对齐(这条判据比上一条更强,`heal-worktree-tracked --align-drift` 用的就是它)。
+- **3 份(PayButton / BottomPops / StudyPublishScreen)**:有 3–57 行在任何历史版本里都找不到 ⇒ **真有本地编辑,不动**。防线不是我去修它们,而是**门 131 / 70 / 83 的"该文件 HEAD 自身存量"棘轮**:谁把旧形态提交回来,谁的那枚提交就红(HEAD 侧锚点已经是 0)。
+- **我自己制造的一格**:`prettier --check` 报 StudyPublishScreen 未格式化,我直接 `--write` 了它 —— 而那份磁盘副本是别人持有的。格式改动无内容损失,但**顺序错了**:该先量归属再动笔。(它同时说明 `--check` 报的是**磁盘**那一份,不是 HEAD 里我落的那一份;HEAD 面同一道判据后来在门 146/89/118/148 四连跑里全绿。)
+
+### ⑤ 隔离检出的同步方式换了一条
+
+`sync-head.sh` 的增量模式要求"上次归档所用的基线 sha",而**猜错基线时差异清单是不完整的** —— 实测一轮就是这么坏的:6 个路径(i18n zh-TW / `sse/contract.ts` / `input-area-spec.ts` / `redact.ts` …)既不在我给的基线里也不在那次清单里,账面"同步完成"而全量面审计判 17 处 DIFF。现加 `BASE=FULL` 档:`git archive | tar` 整面重刷,并**当场自证每个源码目录回填后 find 到 >0 个文件**(否则"rm -rf 成功而 archive 失败"会被读成已同步 —— 第一跑就正好撞上这个:`metro.config.js` 是 setup-arch 给隔离检出补的本地件、**不在 HEAD 里**,列进 archive 名单会让整条失败)。重刷后审计 **AUDIT_DIFF=0 / 1012 文件逐一同哈希**。
+
+### 现读与待验
+
+- 提交链:`cef4ec67e7`(shared 出口放宽 + 7 例回归)→ `d45d407a8b`(401 出口三端)→ `354d5fdedf`(29 站点)→ `91ed54a836`(门 148 成套)。
+- 自检:`pnpm --filter @ihui/rn-app typecheck` 0 错、`@ihui/mobile-rn` 0 错、`@ihui/miniapp-taro` 0 错、`packages/shared` vitest 7/7、21 份文件 eslint 0 错;门 131 全量 **存量 0 处 / 0 文件**;门 148 / 89 / 146 / 118 在 HEAD 面各 exit 0(门 89:已接线 197 / 文档未点名 0)。
+- **待真机复验**(VC49 出包中):① 会话已过期状态下 401 是否真把用户带到登录页;② 29 站点改后按压态视觉是否回来(按压高亮此前是静默失效的);③ 课程详情 / 学习 / 直播详情 / 发布 / 底部弹层 / VIP 卡 / 技能卡 版面是否与改前逐像素同形。
