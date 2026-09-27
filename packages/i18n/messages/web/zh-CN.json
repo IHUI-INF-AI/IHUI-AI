@@ -8722,6 +8722,7 @@
       "bottleneck": "瓶颈"
     },
     "toolCall": {
+      "streamingPreviewLabel": "流中预览(执行中,最终以结果为准)",
       "chartGenerated": "图表已生成",
       "chartPreviewFailed": "图表预览加载失败,请复制路径后在本机浏览器打开。",
       "chartPreviewHint": "本地图表文件无法在网页内直接预览,请复制路径后在本机浏览器打开。",

@@ -8722,6 +8722,7 @@
       "bottleneck": "병목"
     },
     "toolCall": {
+      "streamingPreviewLabel": "스트리밍 미리보기(실행 중, 최종 결과 기준)",
       "chartGenerated": "차트 생성됨",
       "chartPreviewFailed": "차트 미리보기에 실패했습니다. 경로를 복사하여 로컬 브라우저에서 열어주세요.",
       "chartPreviewHint": "로컬 차트 파일은 웹페이지에서 직접 미리볼 수 없습니다. 경로를 복사하여 로컬 브라우저에서 열어주세요.",
