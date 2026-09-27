@@ -124,7 +124,7 @@ export default function LoginPage({ onSuccess }: Props) {
           type="button"
           onClick={handleSsoLogin}
           disabled={ssoLoading}
-          className="login-form-scope w-full flex items-center justify-center gap-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-3"
+          className="login-form-scope w-full flex items-center justify-center gap-2 rounded-sm border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-3"
         >
           {ssoLoading ? (
             <>
