@@ -118,7 +118,9 @@ function stubFetch(plan: FetchPlan): ReturnType<typeof vi.fn> {
         status: head.ok === false ? 404 : 200,
         headers: {
           get: (name: string) =>
-            name.toLowerCase() === 'content-length' && head.size != null ? String(head.size) : null,
+            name.toLowerCase() === 'content-length' && head.size !== null && head.size !== undefined
+              ? String(head.size)
+              : null,
         },
       } as unknown as Response
     }
