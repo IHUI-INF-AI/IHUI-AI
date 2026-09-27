@@ -144,7 +144,7 @@ function FeaturedPlatformButton({
       type="button"
       disabled={disabled}
       onClick={() => !disabled && onLogin(provider.key)}
-      className="flex h-10 w-full items-center justify-center gap-2 rounded-md text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex h-10 w-full items-center justify-center gap-2 rounded-sm text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       style={backgroundColor ? { backgroundColor } : undefined}
       data-testid={`third-party-featured-${provider.key}`}
     >
