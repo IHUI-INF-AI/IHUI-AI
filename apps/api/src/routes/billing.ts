@@ -50,7 +50,10 @@ export const billingRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           required: ['id'],
           properties: {
-            id: { type: 'string', format: 'uuid', description: '方案 ID' },
+            // G-261(同 G-257 口径):type-only,uuid 由 idParamSchema(Zod)校验。
+            // format:'uuid' 让 ajv 先拒 ⇒ 默认错误体 code 为字符串,与 400 响应 schema(code:number)
+            // 序列化不匹配 ⇒ 400 被掩盖成 500(探针已证,见 tests/g261-validation.test.ts)。
+            id: { type: 'string', description: '方案 ID(UUID,服务端 Zod 校验)' },
           },
         },
         response: buildResponseSchema(400, 404),
