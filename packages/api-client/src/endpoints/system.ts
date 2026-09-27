@@ -220,18 +220,9 @@ export async function deleteAppVersion(id: string): Promise<ApiResult<{ success:
 
 // ===================== behavior（行为记录） =====================
 
-/** 记录用户行为 */
-export async function recordBehavior(input: {
-  action: string
-  targetType?: string
-  targetId?: string
-  metadata?: Record<string, unknown>
-}): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>('/api/behavior', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
+/** 记录用户行为 —— 2026-09-28 门 8 死调用清账:删除。
+ * POST /api/behavior 从未注册(behavior 面只有 POST /behavior/likes/counts);
+ * 本仓零消费方(命中的 recordBehavior 是 clawdbot 引擎内部方法,非本函数)。 */
 
 /** 获取行为记录列表 */
 export async function getBehaviors(
@@ -354,10 +345,9 @@ export async function getLoginDevices(): Promise<ApiResult<LoginDevice[]>> {
   return fetchApi<LoginDevice[]>('/api/settings/devices')
 }
 
-/** 移除登录设备 */
-export async function removeLoginDevice(deviceId: string): Promise<ApiResult<void>> {
-  return fetchApi<void>(`/api/settings/devices/${deviceId}`, { method: 'DELETE' })
-}
+/** 移除登录设备 —— 2026-09-28 门 8 死调用清账:删除。
+ * DELETE /api/settings/devices/:id 从未注册(设备面只有 GET /settings/devices;撤会话的真面是
+ * DELETE /settings/authorizations/:id);本仓零消费方。将来接"撤设备"时按真形状重加,不留假可用。 */
 
 /** 获取安全日志 */
 export async function getSecurityLogs(
