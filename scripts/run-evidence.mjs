@@ -37,7 +37,7 @@
    注:该文件此前经**对象空间落地**入库,那条通道不跑 lint-staged,所以这一族 console 警告
    在 HEAD 里安静地存在了一整天 —— 见 AGENTS.md §12「造好没装车」同族的落地侧版本。 */
 import { spawn } from 'node:child_process'
-import { closeSync, existsSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -186,6 +186,9 @@ export function buildSpawnArgv(cmdArgs) {
 
 function runCapture(outFile, cmdArgs, { timeoutMs, label, cwd }) {
   if (!cmdArgs.length) throw new Error('-- 之后必须给出要跑的命令')
+  // 证据落点常在共享临时目录里,会被别的会话或清理层连带删掉;目录缺失时 openSync 抛
+  // ENOENT,这一次取证就成了"包装器自己产出的没跑到"—— 先建父目录再开句柄。
+  mkdirSync(dirname(outFile), { recursive: true })
   const fd = openSync(outFile, 'w')
   const started = new Date().toISOString()
   writeLine(fd, `#EVIDENCE-CMD: ${cmdArgs.join(' ')}`)
@@ -582,6 +585,21 @@ async function runSelfTest() {
       return judgeEvidence(txt1).cwd === null && !txt1.includes(CWD_MARK)
     })(),
   )
+  // T21 —— 证据落点的父目录不存在(共享 tmp 会被别的会话或清理层连带删掉)。
+  // 旧实现在这里 `openSync` 抛 ENOENT:这一次取证压根没开始,而"包装器自己让结论取不到"
+  // 与本工具要防的那一型(把没跑到写成跑过)在账面上长得一样 —— 先建目录再开句柄。
+  const f21 = resolve(dir, 'no-such-dir-nested', 'evidence-selftest-mkdir.txt')
+  const c21 = await runCapture(f21, [process.execPath, '-e', 'console.log(\"mkdir-ok\")'], {
+    timeoutMs: 30_000,
+  })
+  ok(
+    'T21 父目录不存在 ⇒ 自动建目录并完整落 RC(不得以 ENOENT 告终)',
+    (() => {
+      if (c21.rc !== 0) return false
+      const txt = readFileSync(f21, 'utf8')
+      return txt.includes('mkdir-ok') && txt.includes(`${RC_MARK}0`)
+    })(),
+  )
   for (const f of [f1, f2]) {
     try {
       const txt = readFileSync(f, 'utf8')
@@ -590,7 +608,7 @@ async function runSelfTest() {
       /* 已在 T11/T12 断言过可读性 */
     }
   }
-  for (const f of [f1, f2, f5]) {
+  for (const f of [f1, f2, f5, f21]) {
     try {
       rmSync(f, { force: true })
     } catch {
