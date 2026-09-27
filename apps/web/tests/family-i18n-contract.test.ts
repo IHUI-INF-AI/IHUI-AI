@@ -743,19 +743,25 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
     expect(unused, `${fam.name} 孤儿键 ${unused.join(', ')} —— 要么补引用要么删键`).toEqual([])
   })
 
-  it('守门 70 实测:族内命中不超过申报额度(默认必须归零;直接调权威脚本,不复刻判据)', () => {
-    const counts = gate70Counts()
-    const bad = fam.sources
-      .map((f) => {
-        const file = `apps/web/${f}`
-        const cap = fam.capFromLedger ? (ledgerAllowance()!.get(file) ?? 0) : (fam.maxHits ?? 0)
-        return { f, n: counts.get(file) ?? 0, cap }
-      })
-      .filter((r) => r.n > r.cap)
-    expect(bad, `硬编码中文越过额度:${bad.map((b) => `${b.f}=${b.n}>${b.cap}`).join(' ')}`).toEqual(
-      [],
-    )
-  })
+  it(
+    '守门 70 实测:族内命中不超过申报额度(默认必须归零;直接调权威脚本,不复刻判据)',
+    () => {
+      const counts = gate70Counts()
+      const bad = fam.sources
+        .map((f) => {
+          const file = `apps/web/${f}`
+          const cap = fam.capFromLedger ? (ledgerAllowance()!.get(file) ?? 0) : (fam.maxHits ?? 0)
+          return { f, n: counts.get(file) ?? 0, cap }
+        })
+        .filter((r) => r.n > r.cap)
+      expect(bad, `硬编码中文越过额度:${bad.map((b) => `${b.f}=${b.n}>${b.cap}`).join(' ')}`).toEqual(
+        [],
+      )
+    },
+    // 本用例逐族 spawn 权威守门脚本(跨进程 node 冷启动),CI 冷 runner 上单族可超默认 5s
+    // (PR#65 run 36350697722 'rules' 族超时红;本地热盘 0ms)。判据不变,仅预算 30s。
+    30_000,
+  )
 })
 
 describe('跨族卫生', () => {
