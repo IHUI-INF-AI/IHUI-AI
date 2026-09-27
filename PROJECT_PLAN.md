@@ -12584,7 +12584,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   `desktopCrashCapture.ts:421`(render-process-gone → 归档,上限 5 文件/100MB);我方全仓搜
   `watchdog|unresponsive|longtask|PerformanceObserver` 零命中,管理端崩溃率恒为 0 就是这一格的后果。
   按本会话既定范围(移动端/桌面端不代做)只登记不实施;落地需要真机崩溃注入实验,不能只靠测试跑绿。
-- [ ] **④长会话滚动四维差异 —— 本波刻意未做,阻塞在"运行时自验"这一格**:四维实测在我方
+- [x] ✅(2026-09-27) **④长会话滚动四维差异 —— 本波刻意未做,阻塞在"运行时自验"这一格**:四维实测在我方 **已闭环,这条「刻意未做」是过期散文**:四维现读全部落地 —— 行高缓存跨卸载存活(use-message-list-scroll.ts:539「卸载不再 map.delete(id)」)+ **LRU 限界 MEASURED_HEIGHT_CACHE_MAX=600**(:47,只从「已脱离窗口」的那批里淘汰、绝不逐出正在渲染的行,:523-530)+ 前插确定性锚点取代 rAF 轮询(批 51②,scroll-authority.ts 的 prependScrollAdjustment)+ 贴底判定与流式 delta 的滚动权裁决(批 51② 状态机 + G-252 真机验收)。解阻判据里那条「运行时自验」已由 G-252 的真实 Chromium + esbuild 逐字打包验收满足(四条人工判据 3 过 1 带因果条件,并抓到两处真缺陷当场修掉,枚 bd24d86ae/d9563be7a);message-list 全目录 17 文件 132/132 绿(含第 8 例:在途用户位移不得被补偿弹回)。「宿主文件在飞」那一格与渲染位置改动无涉 —— 四维全部在 use-message-list-scroll.ts / scroll-authority.ts 两个自包含文件内,不曾动 MessageList.tsx。
   `apps/web/src/components/chat/message-list/use-message-list-scroll.ts`(517 行,此刻工作树干净):
   `:15` 无缓存时回落 `ESTIMATED_ITEM_HEIGHT=160`、`:343` 条目卸载即 `map.delete(id)`(上翻时对窗口外行
   重新用 160 估 ⇒ 累积漂移、内容在光标下跳动)、`:202-208` prepend 用 rAF 轮询 5s 超时、
