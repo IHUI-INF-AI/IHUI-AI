@@ -306,6 +306,15 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - 游客视图的公开数据由 handler 自证:强制 `status=published` + `sanitizePublicAgent` 脱敏,并且测试要断言"未发布读不到 + 脱敏字段不出现",不得只断言 200。
 - 改动 router 鉴权面前必须做**影响面核查**:全仓 grep 该路径(含 `packages/` 与各端)确认没有未登录调用方;本仓这两个端点的实际调用方为 0。
 - 部署侧 nginx 与蓝绿 nginx 是两份配置:边缘限流(`limit_req_zone` / `limit_req_status 429` / `error_page 429`)改一处必须同步另一处,docker 侧 zone 名须带 `docker_` 前缀以免与 `deploy/nginx/conf.d/*.conf` 重名(Nginx 同 http 上下文重名 zone 会**启动失败**)。静态自检:`apps/api/tests/o5-nginx-edge-ratelimit.test.ts`。
+### 认证不等于授权:身份只能从承载层显式入参进来(强制,2026-09-27 立,批 59/60)
+
+- **规矩**:任何"按 id 读/改/删某条归属型记录"的入口,**令牌主体必须由承载层用显式入参传给被调方**,不得(a)取到手后原地丢弃,也不得(b)从"被操作记录"的字段里反推,更不得(c)接受请求体/参数里自报的同名字段。`app/routers/sessions.py` 的 13 个端点全部 `Depends(get_current_user_id)` 却**一次都没用** —— 那就是"过了认证等于没鉴权"的成批形态。
+- **身份不得住在客户端可整写的字段里**:`threads` 没有 user_id 列,属主与角色只活在 `metadata` JSON 里,而 `thread/metadata`(merge=False)与 `POST /sessions/threads`(body.metadata)都是客户端可写的。实测三条后果(修复前):一次整写把 `userId` 抹掉 ⇒ 重启后线程**无属主** ⇒ 按"无从对账"语义任何登录连接都能继续用它对话;patch 里塞 `userId:"victim"` ⇒ 把会话**认领给别人**;自报身份**赢了**令牌主体。
+- **唯一写法**:清单与规则只有一份 —— `app/services/session_store.py` 的 `IDENTITY_METADATA_KEYS` + `scrub_identity_keys`(创建时剥调用方自带值)+ `carry_identity_keys`(更新时以已落库那份为准)。引擎侧 `_restamp_identity` 与存储侧 `create_thread`/`update_thread_metadata` 都调它,**不得在端点里再抄一份键名判断**。跨线程待决表(`_permission_requests`/`_elicitation_requests`)一律存"带主记录"(future + thread_id + user_id),注册点盖章,结算点判定共用 `_principal_allows`。
+- **可清除的是业务元数据,不是授权凭据**:codex 的 ClearableField(patch 值为 None 即删键)语义对这两个键刻意不适用;要清身份必须走显式的属主变更接口,而不是顺手 patch。
+- **两条同形的拒绝口径**:`elicitationId` 这类"唯一把手"端点,"没这条"与"不是你的"必须**同形回包**(否则端点变成存在性预言机);而 `approval.respond` 那类请求自带 `threadId`,回 `foreign_thread` 不增加信息,可以区分 —— 差别写在处理器注释里,别抄成统一样式。
+- **测试口径**:越权用例必须断言"**副作用没发生**"(future 未 done、待决表未动、`grant_spy == []`、删除返回 `deleted=False` 且 store 未被调用),只断言错误码会放过"先改了再抛 403"。同时必须成对留正向对照(同属主仍能完成、无属主线程行为逐字未变)—— 只留前者,门就可能只是把功能改坏了。
+- 取证入口:`python -m pytest apps/ai-service/tests/test_thread_identity_immutable.py apps/ai-service/tests/test_engine_ownership_from_connection.py`;两相控制探针 `.ihui-agent/tmp/b59/probe_meta2.py`(同一份脚本跑修复前 HEAD 归档报 VULNERABLE、跑工作树报 SAFE)。
 
 ### 测试隔离铁律(强制,2026-09-12 立)
 
