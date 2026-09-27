@@ -112,7 +112,7 @@ class HaokanAdapter(BasePlatformAdapter):
         try:
             async with async_playwright() as p:
                 browser, context = await create_stealth_browser_context(
-                    account_id=f"{self.platform_id}_{credentials.get('account_id', 'default')}",
+                    account_id=self.account_identity(credentials),
                     platform=self.platform_id,
                     playwright_instance=p,
                     headless=True,
@@ -223,7 +223,7 @@ class HaokanAdapter(BasePlatformAdapter):
         try:
             async with async_playwright() as p:
                 browser, context = await create_stealth_browser_context(
-                    account_id=f"{self.platform_id}_{credentials.get('account_id', 'default')}",
+                    account_id=self.account_identity(credentials),
                     platform=self.platform_id,
                     playwright_instance=p,
                     headless=True,
