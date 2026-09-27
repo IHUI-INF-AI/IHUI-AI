@@ -72,12 +72,15 @@ groups:
       # LLM provider 错误突增(402/5xx 等): 15 分钟窗口内出现 provider 错误。
       # `ihui_llm_provider_errors_total` 为按需采样计数(无事件时不出现), 用 `or on() vector(0)` 兜底为 0,
       # 指标一出现即生效。
-      # ⚠ 当前 ai-service 尚未打点该指标(absent), 先置 disabled 避免"误报基线=0"产生误导告警;
-      #   待 ai-service 接入 ihui_llm_provider_errors_total 打点后移除 disabled 启用。
+      # ⚠ 本文件曾在这条与下面 LlmTokenCostSurge 上写 `disabled: true` —— **Prometheus 3.x 没有这个字段**,
+      #   带上它 promtool 直接拒绝整份规则文件(`field disabled not found in type rulefmt.Rule`),
+      #   后果不是"这一条不响"而是**整份 12 条一起不加载**。线上之所以还响着,是因为部署机读的是
+      #   D:\DevEnv\monitor\prometheus\ 下一份去掉了这两条的副本 —— 即"仓库这份从没真跑过"。
+      #   现按作者原意改回可加载形态:两条都带 `or on() vector(0)` 兜底,指标缺席时算式恒为 0 > 0 /
+      #   0 > 100000 = 假,所以"接入打点前不会误报"这一目的由表达式自己保证,不需要关文件的开关。
       - alert: LlmProviderErrorBurst
         expr: (sum(rate(ihui_llm_provider_errors_total{job="ai-service"}[15m])) or on() vector(0)) > 0
         for: 5m
-        disabled: true
         labels:
           severity: warning
         annotations:
@@ -86,11 +89,11 @@ groups:
 
       # LLM token/费用突增: 15 分钟 token 量超阈值(费用代理指标)。
       # `ihui_llm_tokens_total` 同为按需采样计数; 阈值 100k 需按真实基线校准(当前尚无采样, 规则已就位待指标出现即生效)。
-      # ⚠ 当前 ai-service 尚未打点该指标(absent), 先置 disabled; 接入打点+校准阈值后再启用。
+      # ⚠ 当前 ai-service 尚未打点该指标(absent);与上面同一条机制 —— `or on() vector(0)` 已保证缺席时恒不成立,
+      #   故不再写 Prometheus 3.x 不认的 `disabled:` 字段(写了会让整份文件加载失败)。阈值 100k 待真实基线校准。
       - alert: LlmTokenCostSurge
         expr: (sum(rate(ihui_llm_tokens_total{job="ai-service"}[15m])) or on() vector(0)) > 100000
         for: 5m
-        disabled: true
         labels:
           severity: warning
         annotations:
@@ -201,4 +204,53 @@ groups:
         annotations:
           summary: 'Windows 主机指标采集器不可用'
           description: 'windows_exporter 无指标,WindowsDiskSpaceLow 等主机告警会静默失效;检查 windows_exporter 服务'
+      # ── 日志/可视化栈自身(2026-09-27 缺口审计补,job 见 prometheus.yml 同名三条) ──
+      # 告警链的"静默失效"反证:`AlertBridgeDown` 只答"桥进程活着",答不了"桥有没有把信寄出去"。
+      # 实测过这一型:09-27 邮件键被整块清空后,deploy-loop 每轮打"两条通道均未送达",
+      # 而那是**人翻日志**发现的 —— 桥在跑、up==1、没有任何规则会响。
+      # 所以本条要的是三段与门:进程活着 ∧ 收过 webhook(证明确有告警流过来)∧ 却从未成功投递一次
+      # ∧ 已连续跑 >10 天(避开"刚重启、计数归零"这一必然假阳形态 —— 重启会把 last_success 清成 0)。
+      # 阈值 10 天不是拍的:周报是全仓唯一"不管有没有异常都必须寄"的信,节奏 7 天,留 3 天余量。
+      # ⚠ 已知局限(如实登记,别读成"这一维已全盖住"):webhooks_received 是**计数器,重启归零**,
+      #   所以"桥跑满 10 天、这 10 天内一条 webhook 都没收到"的情形本条不响 —— 那种情形确实没丢东西,
+      #   但"AM 到桥那段路断了"也一并被掩盖;那一维只有靠 webhook 侧留痕才能看见,现无判据(另计一票)。
+      - alert: AlertBridgeSilent
+        expr: |
+          (ihui_alertbridge_up == 1)
+          and (time() - ihui_alertbridge_uptime_seconds > 864000)
+          and (ihui_alertbridge_mail_last_success_timestamp_seconds == 0)
+          and (ihui_alertbridge_webhooks_received_total > 0)
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: '告警中转桥长期一次都没投递成功(告警链静默)'
+          description: 'bridge 进程在跑、已启动超 10 天,但 mail_last_success 仍为 0 ⇒ 这段时间里所有该寄到运维邮箱的告警都可能没到人。检查 SMTP/Resend 通道与 apps/api/.env 的 ALERT_EMAIL_TO;注意重启会把该计数归零,本条已用 uptime>10d 避开'
+      # 定级 warning 而非 critical:它们一挂,受影响的是"出事时翻不翻得到日志",不是线上功能。
+      # 刻意不写"loki 停止收流"这类规则:接入前没取证过对应指标名,表达式恒不匹配的规则
+      # 与没有规则等价,却会在台账上读成"这一维已覆盖"。要加先拿真实指标名再来一票。
+      - alert: LokiDown
+        expr: up{job="loki"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '日志存储 loki 不可用'
+          description: 'loki(127.0.0.1:3100)无指标超过 5 分钟,历史日志查不到;检查 ihui-loki 服务'
+      - alert: PromtailDown
+        expr: up{job="promtail"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '日志采集器 promtail 不可用'
+          description: 'promtail(127.0.0.1:9080)无指标超过 5 分钟 ⇒ 从这一刻起的新日志不再入库,而线上表现一切正常'
+      - alert: GrafanaDown
+        expr: up{job="grafana"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: '看板 grafana 不可用'
+          description: 'grafana(127.0.0.1:8816)无指标超过 10 分钟;只影响人工查看,告警链不经它,故窗口放宽'
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
