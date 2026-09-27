@@ -189,19 +189,23 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
             <Text style={styles.title} numberOfLines={1}>
               {title ?? ''}
             </Text>
+            {/* 守门 131 那一型:函数形态 style 落在 Pressable 上会被 cssInterop 展开成空对象,
+                整份内联样式静默消失。closeButton 只有定尺寸与居中(无底色/描边/圆角,即无绘制),
+                故布局档以静态对象形态留在外层,只把按压态 opacity 下移到子 View 数组形态。 */}
             <Pressable
-              style={({ pressed }) => [
-                styles.closeButton,
-                pressed ? styles.closeButtonPressed : null,
-              ]}
+              style={styles.closeButton}
               onPress={handleClose}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="关闭"
             >
-              <Text style={styles.closeIcon} allowFontScaling={false}>
-                {'\u00D7'}
-              </Text>
+              {({ pressed }) => (
+                <View style={pressed ? styles.closeButtonPressed : null}>
+                  <Text style={styles.closeIcon} allowFontScaling={false}>
+                    {'\u00D7'}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
 

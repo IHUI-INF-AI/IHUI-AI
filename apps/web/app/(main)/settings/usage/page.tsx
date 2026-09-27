@@ -174,7 +174,7 @@ export default function UsagePage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{usagePercent.toFixed(1)}%</p>
-            <div className="mt-2 h-2 w-full rounded-sm bg-muted">
+            <div className="mt-2 h-2 w-full rounded-xs bg-muted">
               <div
                 className={cn(
                   'h-full rounded-sm transition-all',
@@ -227,7 +227,7 @@ export default function UsagePage() {
                         {formatTokens(m.total_tokens)} (${m.cost.toFixed(4)})
                       </span>
                     </div>
-                    <div className="mt-1 h-2 w-full rounded-sm bg-muted">
+                    <div className="mt-1 h-2 w-full rounded-xs bg-muted">
                       <div
                         className="h-full rounded-sm bg-primary/70"
                         style={{ width: `${pct}%` }}

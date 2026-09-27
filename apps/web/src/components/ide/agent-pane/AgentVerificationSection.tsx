@@ -123,7 +123,7 @@ export function AgentVerificationSection({ view }: AgentVerificationSectionProps
         {view.totalCount !== null && view.metCount !== null && (
           <span
             data-testid="agent-goal-met-count"
-            className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground"
+            className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground"
           >
             {t('agentPane.goalCriteriaCount', { met: view.metCount, total: view.totalCount })}
           </span>

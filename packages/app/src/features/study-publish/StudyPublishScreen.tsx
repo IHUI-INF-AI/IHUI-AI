@@ -162,13 +162,20 @@ function CoverPicker({
         <Text style={fieldStyles.label}>{label}</Text>
         <View style={coverStyles.previewWrap}>
           <Image source={{ uri }} style={coverStyles.preview} resizeMode="cover" />
+          {/* 封面删除钮是绝对定位的定尺寸小圆盒,且盒上有底色/圆角 —— 属"整盒下移"那一档:
+              外层只承接定位与尺寸这几条纯布局档(命中区与位置一分不动),底色/圆角/居中连盒
+              一起下移到子 View 的数组形态上,并按外层定尺寸撑满,画出来的圆与改前逐像素同位。 */}
           <Pressable
-            style={({ pressed }) => [coverStyles.clearBtn, pressed ? coverStyles.pressed : null]}
+            style={coverStyles.clearHit}
             onPress={onClear}
             accessibilityRole="button"
             accessibilityLabel={`删除${label}`}
           >
-            <Text style={coverStyles.clearText}>×</Text>
+            {({ pressed }) => (
+              <View style={[coverStyles.clearBtn, pressed ? coverStyles.pressed : null]}>
+                <Text style={coverStyles.clearText}>×</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>
@@ -178,14 +185,18 @@ function CoverPicker({
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>{label}</Text>
-      <Pressable
-        style={({ pressed }) => [coverStyles.box, pressed ? coverStyles.pressed : null]}
-        onPress={onPick}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-      >
-        <Text style={coverStyles.icon}>+</Text>
-        <Text style={coverStyles.hint}>点击上传</Text>
+      {/* 上传占位盒带虚线描边与底色 —— 属"整盒下移"那一档:函数形态的 style 落在 Pressable 上会被
+          cssInterop 整份丢掉,盒子留外层又会把描边挤到 padding 内圈,所以外层只承接点击与无障碍语义,
+          盒子(含按压态)下移到子 View 的数组形态上,并用撑满档把父级 stretch 给的整行宽还给盒子。 */}
+      <Pressable onPress={onPick} accessibilityRole="button" accessibilityLabel={label}>
+        {({ pressed }) => (
+          <View
+            style={[coverStyles.boxFace, coverStyles.box, pressed ? coverStyles.pressed : null]}
+          >
+            <Text style={coverStyles.icon}>+</Text>
+            <Text style={coverStyles.hint}>点击上传</Text>
+          </View>
+        )}
       </Pressable>
     </View>
   )
@@ -211,13 +222,18 @@ function VideoPicker({
         <Text style={fieldStyles.label}>视频预览</Text>
         <View style={coverStyles.previewWrap}>
           <View style={coverStyles.preview} />
+          {/* 同上(封面那处关闭钮):定尺寸圆盒整盒下移,外层只留定位与尺寸。 */}
           <Pressable
-            style={({ pressed }) => [coverStyles.clearBtn, pressed ? coverStyles.pressed : null]}
+            style={coverStyles.clearHit}
             onPress={onClear}
             accessibilityRole="button"
             accessibilityLabel="删除视频"
           >
-            <Text style={coverStyles.clearText}>×</Text>
+            {({ pressed }) => (
+              <View style={[coverStyles.clearBtn, pressed ? coverStyles.pressed : null]}>
+                <Text style={coverStyles.clearText}>×</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>
@@ -227,14 +243,16 @@ function VideoPicker({
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>视频</Text>
-      <Pressable
-        style={({ pressed }) => [coverStyles.box, pressed ? coverStyles.pressed : null]}
-        onPress={onPick}
-        accessibilityRole="button"
-        accessibilityLabel="选择视频"
-      >
-        <Text style={coverStyles.icon}>+</Text>
-        <Text style={coverStyles.hint}>点击上传视频</Text>
+      {/* 与封面上传那一处同型:整盒下移 + 撑满档保持整行宽(见封面处的说明)。 */}
+      <Pressable onPress={onPick} accessibilityRole="button" accessibilityLabel="选择视频">
+        {({ pressed }) => (
+          <View
+            style={[coverStyles.boxFace, coverStyles.box, pressed ? coverStyles.pressed : null]}
+          >
+            <Text style={coverStyles.icon}>+</Text>
+            <Text style={coverStyles.hint}>点击上传视频</Text>
+          </View>
+        )}
       </Pressable>
     </View>
   )
@@ -315,17 +333,29 @@ function SubmitButton({
   const tk = getTokens(colorScheme)
   const submitStyles = useMemo(() => createSubmitStyles(tk), [tk])
   return (
+    // 发布按钮是品牌实底盒(底色 + 圆角)—— 属"整盒下移"那一档:函数形态的 style 落在 Pressable 上
+    // 会被 cssInterop 整份丢掉,所以外层只承接点击/禁用与无障碍语义,盒子连按压态一起下移到子 View
+    // 的数组形态上,并用撑满档把父级 stretch 给出的整行宽还给盒子;上边距留在盒内,可见位置不变。
     <Pressable
-      style={({ pressed }) => [submitStyles.submitBtn, pressed ? submitStyles.pressed : null]}
       onPress={onPress}
       disabled={loading}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      {loading ? (
-        <ActivityIndicator color={tk.brand.foreground} />
-      ) : (
-        <Text style={submitStyles.submitText}>{label}</Text>
+      {({ pressed }) => (
+        <View
+          style={[
+            submitStyles.submitFace,
+            submitStyles.submitBtn,
+            pressed ? submitStyles.pressed : null,
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator color={tk.brand.foreground} />
+          ) : (
+            <Text style={submitStyles.submitText}>{label}</Text>
+          )}
+        </View>
       )}
     </Pressable>
   )
@@ -667,6 +697,8 @@ function createFieldStyles(tk: AppThemeTokens) {
 
 function createCoverStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
+    // 上传占位盒下移到子 View 后用这一档取回原来由父级 stretch 给出的整行宽;不是新的尺寸档。
+    boxFace: { width: '100%' },
     box: {
       height: 120,
       borderRadius: rnRadius.xl,
@@ -688,12 +720,12 @@ function createCoverStyles(tk: AppThemeTokens) {
       height: 120,
       borderRadius: rnRadius.xl,
     },
+    // 关闭钮拆两层:外层 clearHit 只有定位与定尺寸(纯布局档,命中区与位置与改前一字不差),
+    clearHit: { position: 'absolute', top: 4, right: 4, width: 24, height: 24 },
+    // 盒子的圆角/底色/居中连按压态一起下移到内层,并按父盒(定尺寸 24×24)撑满 —— 画出来的圆同位同径。
     clearBtn: {
-      position: 'absolute',
-      top: 4,
-      right: 4,
-      width: 24,
-      height: 24,
+      width: '100%',
+      height: '100%',
       borderRadius: rnRadius.xl,
       backgroundColor: tk.overlay.modal,
       alignItems: 'center',
@@ -716,6 +748,8 @@ function createChipStyles(tk: AppThemeTokens) {
 
 function createSubmitStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
+    // 下移到子 View 的发布盒用这一档取回原来由父级 stretch 给出的整行宽;不是新的尺寸档。
+    submitFace: { width: '100%' },
     submitBtn: {
       height: 50,
       borderRadius: rnRadius['2xl'],

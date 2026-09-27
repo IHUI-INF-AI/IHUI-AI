@@ -22,7 +22,10 @@ import {
   skillDetailHref,
   type MarketKey,
 } from '@/components/ecosystem/expert-packs'
-import { useEcosystemOverview, type EcosystemOverview } from '@/components/ecosystem/use-ecosystem-overview'
+import {
+  useEcosystemOverview,
+  type EcosystemOverview,
+} from '@/components/ecosystem/use-ecosystem-overview'
 
 interface SampleLink {
   href: string
@@ -107,11 +110,11 @@ export default function ExpertPackDetailPageClient() {
           return (
             <li
               key={marketKey}
-              className="rounded-xl border border-border bg-card p-3"
+              className="rounded-lg border border-border bg-card p-3"
               data-market={marketKey}
             >
               <div className="flex items-start gap-3">
-                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground">
+                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground">
                   {index + 1}
                 </span>
                 <MarketIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />

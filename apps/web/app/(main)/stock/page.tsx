@@ -198,7 +198,7 @@ export default function StockAnalysePage() {
                 </div>
               </div>
               <div
-                className="h-2 w-full overflow-hidden rounded bg-muted"
+                className="h-2 w-full overflow-hidden rounded-xs bg-muted"
                 role="progressbar"
                 aria-valuenow={Math.round(usedPct)}
                 aria-valuemin={0}

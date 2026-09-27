@@ -159,8 +159,10 @@ export function PushBanner({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={[styles.bannerWrap, { paddingTop: topOffset }]} pointerEvents="box-none">
+        {/* 守门 131 那一型:函数形态 style 落在 Pressable 上会被 cssInterop 展开成空对象,
+            整份内联样式静默消失。卡片盒含底色/圆角/阴影(有绘制),整盒下移到子 View 数组形态;
+            改前宽度由横幅容器的列布局 stretch 撑出,故内层用 cardFace 显式把宽度还给盒子。 */}
         <Pressable
-          style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
           onPress={() => {
             onClick?.()
             onClose?.()
@@ -168,38 +170,42 @@ export function PushBanner({
           accessibilityRole="button"
           accessibilityLabel={title}
         >
-          <View style={styles.header}>
-            <View style={styles.icon}>
-              <Bell size={16} color={tokens.text.secondary} />
-            </View>
-            <View style={styles.info}>
-              <Text style={styles.title} numberOfLines={1}>
-                {title}
-              </Text>
-              {formatPushTime(timestamp) ? (
-                <Text style={styles.time}>{formatPushTime(timestamp)}</Text>
+          {({ pressed }) => (
+            <View style={[styles.cardFace, styles.card, pressed ? styles.pressed : null]}>
+              <View style={styles.header}>
+                <View style={styles.icon}>
+                  <Bell size={16} color={tokens.text.secondary} />
+                </View>
+                <View style={styles.info}>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {title}
+                  </Text>
+                  {formatPushTime(timestamp) ? (
+                    <Text style={styles.time}>{formatPushTime(timestamp)}</Text>
+                  ) : null}
+                </View>
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation()
+                    onClose?.()
+                  }}
+                  hitSlop={8}
+                  style={styles.close}
+                  accessibilityRole="button"
+                  accessibilityLabel="关闭"
+                >
+                  <X size={14} color={tokens.text.tertiary} />
+                </Pressable>
+              </View>
+              {content ? (
+                <View style={styles.body}>
+                  <Text style={styles.message} numberOfLines={2}>
+                    {content}
+                  </Text>
+                </View>
               ) : null}
             </View>
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation()
-                onClose?.()
-              }}
-              hitSlop={8}
-              style={styles.close}
-              accessibilityRole="button"
-              accessibilityLabel="关闭"
-            >
-              <X size={14} color={tokens.text.tertiary} />
-            </Pressable>
-          </View>
-          {content ? (
-            <View style={styles.body}>
-              <Text style={styles.message} numberOfLines={2}>
-                {content}
-              </Text>
-            </View>
-          ) : null}
+          )}
         </Pressable>
       </View>
     </Modal>
@@ -214,6 +220,11 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 10,
     paddingBottom: 10,
+  } as ViewStyle,
+  // 守门 131 转换新增:卡片盒下移到子 View 后,宽度由该档显式还给盒子
+  // (改前那一维由横幅容器的列布局 stretch 撑出),未引入任何新数字档。
+  cardFace: {
+    width: '100%',
   } as ViewStyle,
   card: {
     backgroundColor: tokens.surface.card,

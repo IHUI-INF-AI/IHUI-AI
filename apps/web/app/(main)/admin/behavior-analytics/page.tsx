@@ -227,7 +227,7 @@ export default function BehaviorAnalyticsPage() {
                         {numFmt.format(r.count)} 次 / {numFmt.format(r.uniqueUsers)} 用户
                       </span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded bg-muted">
+                    <div className="h-2 overflow-hidden rounded-xs bg-muted">
                       <div
                         className="h-full rounded bg-primary/70"
                         style={{ width: `${(r.count / maxRank) * 100}%` }}
