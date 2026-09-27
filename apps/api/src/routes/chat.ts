@@ -827,6 +827,9 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           limit,
           hasMore: result.hasMore,
           nextCursor: result.nextCursor ? encodeHistoryCursor(result.nextCursor) : null,
+          // 断点存续性(stale = 游标那一轮已被删除/压缩重编号)。服务端在 stale 时给的是
+          // 空页(见 findHistoryTurnPage),客户端据此重锚而不是把两段不相邻的窗口拼起来。
+          cursorState: result.cursorState,
           // 投影状态透传(可空=尚未投影);写入侧见 chat-queries.rollHistoryProjection,
           // 由 createMessage / replaceMessages 在同一事务内推进断点后落库。
           projectionState: owned.conversation.historyProjectionState ?? null,
