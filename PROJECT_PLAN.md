@@ -6243,7 +6243,7 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   (`git ls-remote` 与 `GET` 双双 404;但 Release 对象与资产都在、CI 每次发版照常更新它 ⇒ **从 CI 绿灯完全看不出来**)。
   已把该 tag **归位到它原本的目标提交**(刻意不前移)并复验:`GET=200`、`version 0.1.44`、四平台齐全。
   **方法论(值得沉淀)**:判"端点是否活着"只能 `git ls-remote` + HTTP 实测双向核,读文档和看 CI 都会骗人。
-- [ ] **剩一条已量化、未修(需产品决策,非纯工程)**:主端点 `aizhs.top/desktop-feed.json` **只写
+- [x] ✅(2026-09-27) **剩一条已量化、未修(需产品决策,非纯工程)**:主端点 `aizhs.top/desktop-feed.json` **只写 〔结清(2026-09-27):本行等的"前提"当天已被同日另一条**已完成登记**回答 —— 用户授权后代拍板"**维持多平台发布**",并实测线上 `desktop-feed.json` **四平台齐**(windows-x86_64 / linux-x86_64 / darwin-x86_64 / darwin-aarch64),GitHub 下载四链接全 200 在案。所以"mac/linux 是否面向用户发布"不再是未知,而 `sync-downloads` 侧的多平台键也已随该票落地。引用方式为内容锚点(本仓 F3 判据禁止行号指针 —— 实测 27 处 `存活于 L<行号>` 复核通过率 0/27)。〕
   `windows-x86_64` 一个平台键**,而 GitHub 那份 latest.json 资产是 4 平台齐全
   (windows / linux-x86_64 / darwin-x86_64 / darwin-aarch64)⇒ macOS 与 Linux 客户端目前只能靠回退端点续命。
   修法是让 `sync-downloads` 生成的站点 feed 也带 mac/linux 键,但前提是先确认这两个平台的包是否真的面向用户发布。
