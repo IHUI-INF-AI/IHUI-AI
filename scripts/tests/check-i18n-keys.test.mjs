@@ -1018,3 +1018,133 @@ test('F7 形状锁:清单/正文/源文件必须全部经 face-reader 按面取,
     '重复键判据的语言包清单又回到磁盘 readdirSync',
   )
 })
+
+// ─── KR:语言包相对其父提交丢键(2026-09-27 立) ──────────────────
+// 本门其余判据全是**横向**比(语言之间)或查引用(键有没有人用),所以"五语言一致缩水"
+// 结构上看不见 —— 而语言包少键的端上表现是**直接回显键名**。这四条锁的是纵向那一维。
+function writeCliMessages(root, msgs) {
+  const dir = join(root, 'packages', 'i18n', 'messages', 'cli')
+  mkdirSync(dir, { recursive: true })
+  for (const [lang, content] of Object.entries(msgs)) {
+    writeFileSync(join(dir, `${lang}.json`), JSON.stringify(content, null, 2) + '\n')
+  }
+}
+function gitAt(root, cmd) {
+  return execSync(`git ${cmd}`, { cwd: root, stdio: 'pipe' })
+}
+function dropLeaf(obj, path) {
+  const segs = path.split('.')
+  const last = segs.pop()
+  let cur = obj
+  for (const s of segs) cur = cur?.[s]
+  if (cur) delete cur[last]
+  return obj
+}
+
+test('KR-1 五语言一致丢同一键 ⇒ parity 全绿而 KR 判红并点名(本判据存在的全部理由)', () => {
+  const root = createTempProject()
+  try {
+    initGitRepo(root)
+    writeCliMessages(root, PARITY_OK)
+    gitAt(root, 'add -A')
+    gitAt(root, '-c user.email=t@t.com -c user.name=t commit -m base --no-verify')
+    const lossy = structuredClone(PARITY_OK)
+    for (const lang of Object.keys(lossy)) dropLeaf(lossy[lang], 'nav.home')
+    writeCliMessages(root, lossy)
+    gitAt(root, 'add -A')
+    const r = runFaceScript(['--staged', '--target=cli'], { cwd: root })
+    assert.equal(r.status, 1, `一致丢键必须判红,实得 ${r.status}:\n${r.stdout}${r.stderr}`)
+    assert.match(r.stdout, /相对 HEAD 少了 1 个键/)
+    assert.match(r.stdout, /nav\.home/)
+    // 关键对照:同一份输入 parity **不红** —— 若哪天 parity 也红了,说明 KR 这条纵向判据可以被删掉
+    assert.doesNotMatch(r.stdout, /parity 问题/, 'parity 不应判红(它比的是语言之间)')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('KR-2 台账逐条声明(reason + 未过期 until)⇒ 同一批键不再计债', () => {
+  const root = createTempProject()
+  try {
+    initGitRepo(root)
+    writeCliMessages(root, PARITY_OK)
+    gitAt(root, 'add -A')
+    gitAt(root, '-c user.email=t@t.com -c user.name=t commit -m base --no-verify')
+    const lossy = structuredClone(PARITY_OK)
+    for (const lang of Object.keys(lossy)) dropLeaf(lossy[lang], 'nav.home')
+    writeCliMessages(root, lossy)
+    const ledgerDir = join(root, 'scripts', 'data')
+    mkdirSync(ledgerDir, { recursive: true })
+    writeFileSync(
+      join(ledgerDir, 'i18n-key-removals.json'),
+      JSON.stringify(
+        {
+          removals: Object.keys(lossy).map((lang) => ({
+            // 声明是**逐文件**的:一次清理动五门语言就要写五条 —— 刻意不做目录级通配,
+            // 那等于让一条理由给五个文件背书,而五个文件的丢键集合本来可以各不相同。
+            file: `packages/i18n/messages/cli/${lang}.json`,
+            keys: ['nav.home'],
+            reason: '该端导航改为图标,不再显示文案(死键清理)',
+            until: '2099-01-01',
+          })),
+        },
+        null,
+        2,
+      ),
+    )
+    gitAt(root, 'add -A')
+    const r = runFaceScript(['--staged', '--target=cli'], { cwd: root })
+    assert.equal(r.status, 0, `已声明的删除应放过,实得 ${r.status}:\n${r.stdout}${r.stderr}`)
+    assert.match(r.stdout, /已声明放过 5 键/, '五门语言各声明一次 ⇒ 计数按文件累加,不是一键一条')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('KR-3 声明已过期 / reason 过短 ⇒ 不得继续放行(豁免不得只出生不死亡)', () => {
+  const root = createTempProject()
+  try {
+    initGitRepo(root)
+    writeCliMessages(root, PARITY_OK)
+    gitAt(root, 'add -A')
+    gitAt(root, '-c user.email=t@t.com -c user.name=t commit -m base --no-verify')
+    const lossy = structuredClone(PARITY_OK)
+    for (const lang of Object.keys(lossy)) dropLeaf(lossy[lang], 'nav.home')
+    writeCliMessages(root, lossy)
+    const ledgerDir = join(root, 'scripts', 'data')
+    mkdirSync(ledgerDir, { recursive: true })
+    writeFileSync(
+      join(ledgerDir, 'i18n-key-removals.json'),
+      JSON.stringify(
+        {
+          removals: [
+            {
+              file: 'packages/i18n/messages/cli/zh-CN.json',
+              keys: ['nav.home'],
+              reason: '去年的清理,到期未复核',
+              until: '2020-01-01',
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    )
+    gitAt(root, 'add -A')
+    const r = runFaceScript(['--staged', '--target=cli'], { cwd: root })
+    assert.equal(r.status, 1, `过期声明必须仍判红,实得 ${r.status}:\n${r.stdout}`)
+    assert.match(r.stdout, /台账声明本身不可用/)
+    assert.match(r.stdout, /已过期\(2020-01-01\)/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('KR-4 形状锁:判据必须挂在主流程上且只在被审面有父可比时判', () => {
+  const code = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(code, /const KR_LEDGER_REL = 'scripts\/data\/i18n-key-removals\.json'/)
+  assert.match(code, /if \(FACE === 'index'\)/, 'KR 必须只在索引档判(全量档的"父"只能是 HEAD^)')
+  assert.match(code, /已核\(索引 vs 父提交\)/, '绿路径必须打印 KR 确实跑过,否则"没判"与"判过"同形')
+  assert.match(code, /KR\(语言包相对父提交丢键\)\*\*无法判定\*\*/, '取不到面时必须喊无法判定,不得静默')
+  assert.match(code, /process\.exit\(2\)\n\}\nif \(removalIssues\.length\)/, '未判定必须 exit 2 且早于判红')
+})
