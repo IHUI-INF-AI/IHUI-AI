@@ -987,6 +987,55 @@ if (pushResult.status !== 0) {
       'info',
       '  防后续同类卡门:测试夹具里的假凭据请**分两段拼装**(前缀与后缀不在同一字面量里连成串),不要写成一行完整的 Slack/AWS/GitHub 形状字符串 —— 扫描器真假不论,连注释与文档里引用的示例串一起拦。',
     )
+  } else if (attempt.kind === 'credentials-unavailable') {
+    log(
+      'err',
+      '  归类:凭据**不可得**(不是"凭据失效")—— 发起本趟 push 的进程身份下,没有任何 credential helper 交出凭据,git 回落交互提示后又没有 tty',
+    )
+    log(
+      'info',
+      '  典型形态:提交/推送由服务身份(LocalSystem,如 IHUI-DEPLOYLOOP 的 AUTO-CONVERGE 派生链)发起 —— 它读不到交互用户的 wincred 库,也读不到用户家目录里的 store 文件',
+    )
+    log('info', '  三条处置出口(按顺序排查):')
+    log(
+      'info',
+      '  ① 用失败发起方那份身份现读 helper 链断在哪一级:GIT_TERMINAL_PROMPT=0 下跑 `git credential fill`(输入 protocol=https / host=github.com),取得到即非本因;',
+    )
+    log(
+      'info',
+      '  ② 仓库级兜底(服务身份也能读):`git config --local --get credential.helper` 应含 `store --file=D:/DevEnv/secrets/git/github.com.git-credentials`(现值以该命令为准);该文件按 §5d 权威源(BaiduSyncdisk 密钥盘 git仓库/github key.txt)生成,NTFS 只留 SYSTEM:(R) + Administrators:(F) —— 丢了/换 token 后按这两条重做,禁止把 token 写进任何会被推走的路径;',
+    )
+    log(
+      'info',
+      '  ③ 凭据有效性与可写性(与"取得到"是两个问题)由巡检负责:node scripts/check-credential-health.mjs',
+    )
+    log(
+      'info',
+      '  ⚠️ 本档不减少也不增加跳门:--no-verify 只关本地钩子,关不上服务端认证 —— 对这一型它必然白跑(首趟与重试趟各失败一次是该型的固定形状)',
+    )
+  } else if (attempt.kind === 'protected-branch') {
+    // 这一档的全部价值是"别再往分叉上引":它既不是并发也不是质量门,而收敛器修不了仓库设置。
+    log(
+      'err',
+      '  归类:远端**分支保护策略**拒收(GH006 / Required status check expected)—— 东西一件没丢,也不是凭据问题',
+    )
+    log(
+      'info',
+      '  现读自证(把这一型与"并发分叉"分开,别再去跑收敛器):`git ls-remote origin refs/heads/main` 取远端 tip,再 `git merge-base --is-ancestor <远端SHA> HEAD` —— 成立即"本地已含远端",而快进推送仍被策略挡下',
+    )
+    log('info', '  两条出路(都在机主侧,agent 不代做、也不该代做):')
+    log(
+      'info',
+      '    ① 仓库 Settings → Branches → main 的保护规则:允许直接推送(本仓 §9b 是单分支直推模型,与"必须 PR + 必需状态检查"天然冲突);',
+    )
+    log(
+      'info',
+      '    ② 或改走 PR 通道 —— 那要把 §16/§20 的"commit 即推送"交付语义整条改掉,属流程决策,不在这里顺手做。',
+    )
+    log(
+      'info',
+      '  ⚠️ 策略放开之前,本机交付状态是"**本地已提交、远端收不下**":`git log origin/main..HEAD` 的枚数就是真实积压,不得读成"已推送"。',
+    )
   } else {
     log(
       'info',
