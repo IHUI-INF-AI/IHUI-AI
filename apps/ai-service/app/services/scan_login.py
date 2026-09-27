@@ -32,11 +32,12 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Mapping, Sequence
 from urllib.parse import urlparse
 
 from ..core.config import settings
 from ..core.logging import get_logger
+from .publish.platform_cookie_domains import filter_platform_cookies
 
 logger = get_logger(__name__)
 
@@ -341,6 +342,50 @@ def _cookie_hits(
         elif target in cookies_dict and len(cookies_dict[target]) > min_len:
             hits.append(target)
     return hits
+
+
+def _cookie_domain_map(raw_cookies: Sequence[Mapping[str, Any]]) -> dict[str, str]:
+    """从 CDP/context 的原始 cookie 条目里取 name → domain(缺 domain 的不进映射)。"""
+    out: dict[str, str] = {}
+    for c in raw_cookies:
+        name = str(c.get("name") or "")
+        dom = str(c.get("domain") or "").strip()
+        if name and dom:
+            out[name] = dom
+    return out
+
+
+def _collect_platform_relevant(
+    platform: str,
+    cookies_dict: dict[str, str],
+    raw_cookies: Sequence[Mapping[str, Any]],
+    config: dict[str, Any],
+) -> dict[str, str]:
+    """落库前的**唯一**归属收口:域名优先、名称兜底、判不出即丢弃。
+
+    旧写法是一份 5 项 cookie 名子串黑名单,而 `BDUSS`、
+    `.CNBlogsCookie`、`APISID` 这些异站 cookie 的名字压根不含这 5 个子串 ——
+    2026-09-27 实测到发布账号里因此落进过 533 字段的整浏览器混包。
+    平台未在归属表登记时**退到"只保留命中的登录 cookie"**(安全最小集),
+    绝不退回旧黑名单:那是把已被证伪的口径再抄一遍。
+    """
+    try:
+        result = filter_platform_cookies(
+            platform=platform,
+            cookies=cookies_dict,
+            domains_by_name=_cookie_domain_map(raw_cookies),
+            login_cookie_patterns=config["success_cookies"],
+        )
+    except ValueError as e:
+        logger.error(f"[scan_login] 平台 {platform} 无 cookie 归属规则,只保留命中的登录 cookie:{e}")
+        only_login = _cookie_hits(config, cookies_dict, min_len=0)
+        return {k: cookies_dict[k] for k in only_login if k in cookies_dict}
+    if result.dropped:
+        logger.info(
+            f"[scan_login] 平台 {platform} 按归属剔除 {len(result.dropped)} 条非本站 cookie"
+            f"(保留 {len(result.kept)})"
+        )
+    return result.kept
 
 
 def _parse_raw_cookies(raw: str) -> dict[str, str]:
@@ -897,11 +942,10 @@ def _run_scan_task(task: ScanTask) -> None:
                 if _matched:
                     logger.info(f"[scan_login] 任务 {task.task_id} 检测到登录 cookie: {_matched[0]}")
                     task.cookies = {k: v for k, v in cookies_dict.items() if k in _matched}
-                    # 收集所有非 tracker 的相关 cookies
-                    task.all_relevant_cookies = {
-                        k: v for k, v in cookies_dict.items()
-                        if not any(s in k.lower() for s in ["google", "baidu", "cnzz", "_ga", "hm.baidu"])
-                    }
+                    # 落库集按平台归属筛(域名优先),不再用 5 项名字黑名单
+                    task.all_relevant_cookies = _collect_platform_relevant(
+                        task.platform, cookies_dict, cookies, config
+                    )
                     task.status = "success"
                     task.message = f"登录成功,获取到 {len(task.all_relevant_cookies)} 个 cookies"
                     task.completed_at = time.time()
@@ -925,10 +969,9 @@ def _run_scan_task(task: ScanTask) -> None:
                     _present = _cookie_hits(config, cookies_dict, min_len=0) if cookies_dict else []
                     if _present:
                         task.cookies = {k: v for k, v in cookies_dict.items() if k in _present}
-                        task.all_relevant_cookies = {
-                            k: v for k, v in cookies_dict.items()
-                            if not any(s in k.lower() for s in ["google", "baidu", "cnzz", "_ga", "hm.baidu"])
-                        }
+                        task.all_relevant_cookies = _collect_platform_relevant(
+                            task.platform, cookies_dict, cookies, config
+                        )
                         task.status = "success"
                         task.message = f"登录成功(URL 跳转),获取到 {len(task.all_relevant_cookies)} 个 cookies"
                         task.completed_at = time.time()
@@ -1104,20 +1147,33 @@ async def detect_login_from_profile(platform: str, user_id: str) -> dict[str, An
             "success_cookies": config["success_cookies"],
         }
 
-    cookies = await hub.read_profile_cookies(browser.user_data)
+    cookies, cookie_domains = await hub.read_profile_cookies_with_domains(browser.user_data)
     cookies_dict = {k: v for k, v in cookies.items() if v}
+    # 按平台归属先筛再判:整浏览器 jar 里"名字像"的 cookie 不等于"这一站的登录态"
+    # (2026-09-27 实测:旧写法只按 5 个名字子串剔统计项,导致 533 字段混包整包落库)。
+    filter_result = filter_platform_cookies(
+        platform=platform,
+        cookies=cookies_dict,
+        domains_by_name=cookie_domains,
+        login_cookie_patterns=config["success_cookies"],
+    )
+    cookies_dict = filter_result.kept
     # 名称级检测已通过,这里的值直接来自真实浏览器 → min_len=1 即可(不要求长度 ≥5)
     hit = _cookie_hits(config, cookies_dict, min_len=1)
     if not hit:
         return {
             "detected": False, "cookies_count": len(cookies_dict), "account_id": None,
-            "error": "读到登录态但关键 Cookie 值为空,请稍后重试", "profile_available": True,
+            "error": (
+                "读到的登录 cookie 不在本平台域名下(可能命中的是别的站同名 cookie),"
+                "请在该站已登录的浏览器里重试或改走扫码登录"
+            ),
+            "profile_available": True,
+            "dropped_by_domain": len(filter_result.dropped),
         }
 
-    all_relevant = {
-        k: v for k, v in cookies_dict.items()
-        if not any(s in k.lower() for s in ["google", "baidu", "cnzz", "_ga", "hm.baidu"])
-    }
+    # cookies_dict 在上面已经按平台归属筛过(filter_platform_cookies 的 kept 集),
+    # 这里不得再套一层"名字黑名单" —— 那是把已被证伪的口径再抄一遍。
+    all_relevant = cookies_dict
     try:
         account_id = await _save_account_to_db(user_id, platform, all_relevant, config["name"])
     except Exception as e:  # noqa: BLE001
@@ -1206,11 +1262,8 @@ async def detect_login_from_cdp_session(
             "success_cookies": config["success_cookies"],
         }
 
-    # 命中 → 收集相关 cookies(剔除统计类)+ 保存
-    all_relevant = {
-        k: v for k, v in cookies_dict.items()
-        if not any(s in k.lower() for s in ["google", "baidu", "cnzz", "_ga", "hm.baidu"])
-    }
+    # 命中 → 按平台归属筛(域名优先、名称兜底)后再落库,不再走"剔除统计类"的名字黑名单
+    all_relevant = _collect_platform_relevant(platform, cookies_dict, cookies, config)
     try:
         account_id = await _save_account_to_db(
             user_id, platform, all_relevant, config["name"]
