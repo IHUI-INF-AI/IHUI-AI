@@ -441,16 +441,36 @@ class FakePage:
 
 
 def _client(monkeypatch, tmp_path: Path) -> tuple[TestClient, BrowserTraceStore]:
-    """构建隔离的 computer-use 路由客户端 + 独立 trace store。"""
+    """构建隔离的 computer-use 路由客户端 + 独立 trace store。
+
+    2026-09-27(G-258 B 组第二票)夹具改动,不是翻转"能读到别人的"这类契约:
+    本模块的会话与录制状态原先住在六枚模块全局上,现在是 `_sessions[user_id]`
+    一张表 —— 旧那行 `monkeypatch.setattr(cu, "_recording_trace_id", None)`
+    指向的属性已不存在(monkeypatch 会直接 AttributeError),等价物是"每次测试
+    换一张空表",所以整张表由 monkeypatch 顶掉并在用例结束后还原。
+    """
     store = BrowserTraceStore(
         file_path=tmp_path / "traces.json", screenshot_dir=tmp_path / "shots"
     )
     monkeypatch.setattr(cu, "browser_trace_store", store)
-    monkeypatch.setattr(cu, "_recording_trace_id", None)
+    monkeypatch.setattr(cu, "_sessions", {})
     app = FastAPI()
     app.include_router(cu.router, prefix="/api")
     app.dependency_overrides[get_current_user_id] = lambda: "test-user"
     return TestClient(app), store
+
+
+def _install_session(user_id: str, page: Any = None) -> Any:
+    """给表里放一条该用户的会话(页面用替身,**不起真 Chromium**)。
+
+    注入 `page` 之后 `_ensure_page(user_id)` 会原样复用替身(它只在 page 缺席时
+    才 launch),所以路由用例既不需要 patch 私有函数,也不会碰到 Playwright。
+    """
+    sess = cu._UserBrowser(user_id)
+    if page is not None:
+        sess.page = page
+    cu._sessions[user_id] = sess
+    return sess
 
 
 def test_trace_start_stop_and_lifecycle(monkeypatch, tmp_path: Path):
@@ -470,8 +490,15 @@ def test_trace_start_stop_and_lifecycle(monkeypatch, tmp_path: Path):
         r = client.post("/api/computer-use/trace/stop")
         assert r.json()["status"] == "idle"
 
-        store.append_step("bt-ep2", {"action": "navigate", "status": "ok"})
-        store.append_step("bt-ep2", {"action": "click", "status": "error"})
+        # 2026-09-27(G-258 B 组第二票)夹具翻转,理由写在这一格:
+        # 旧写法 `store.append_step("bt-ep2", {...})` 建出的记录**没有属主**,而路由
+        # 是以登录身份("test-user")读列表的。收口后"未盖章 ⇒ 对已登录用户不可见"
+        # 是刻意的口径(见 app/services/browser_trace.py 模块 docstring 最后一段),
+        # 所以这里必须补上 owner_user_id 才表达"自己录的自己的看得到"这件原意。
+        # 反向对照(未盖章确实读不到)在新文件
+        # tests/test_computer_use_and_trace_owner_scoping.py 里单独钉一条。
+        store.append_step("bt-ep2", {"action": "navigate", "status": "ok"}, owner_user_id="test-user")
+        store.append_step("bt-ep2", {"action": "click", "status": "error"}, owner_user_id="test-user")
         items = client.get("/api/computer-use/trace").json()["traces"]
         assert any(it["trace_id"] == "bt-ep2" and it["error_count"] == 1 for it in items)
 
@@ -486,12 +513,10 @@ def test_trace_start_stop_and_lifecycle(monkeypatch, tmp_path: Path):
 def test_auto_record_on_open_and_click(monkeypatch, tmp_path: Path):
     client, store = _client(monkeypatch, tmp_path)
     fake_page = FakePage()
-
-    async def fake_ensure_page() -> Any:
-        return fake_page
-
-    monkeypatch.setattr(cu, "_ensure_page", fake_ensure_page)
-    monkeypatch.setattr(cu, "_page", fake_page)
+    # 2026-09-27(G-258 B 组第二票):不再 patch `_ensure_page` / 模块全局 `_page`
+    # (两者都不是本模块的形状了)—— 把替身页面放进该用户的会话条目即可,
+    # `_ensure_page("test-user")` 会直接复用它,不启动 Chromium。
+    _install_session("test-user", fake_page)
 
     with client:
         client.post("/api/computer-use/trace/start", json={"trace_id": "bt-auto"})
@@ -507,7 +532,7 @@ def test_auto_record_on_open_and_click(monkeypatch, tmp_path: Path):
         assert r.json()["step_count"] == 3
         assert r.json()["ok_count"] == 2 and r.json()["error_count"] == 1
 
-    trace = store.get_trace("bt-auto")
+    trace = store.get_trace("bt-auto", owner_user_id="test-user")
     assert trace is not None
     actions = [s["action"] for s in trace["steps"]]
     assert actions == ["navigate", "click", "click"]
@@ -516,16 +541,21 @@ def test_auto_record_on_open_and_click(monkeypatch, tmp_path: Path):
 
 def test_replay_endpoint_with_mock_driver(monkeypatch, tmp_path: Path):
     client, store = _client(monkeypatch, tmp_path)
+    # 2026-09-27(G-258 B 组第二票):回放的入口是"读这条 trace",而读口现在按属主
+    # 过滤 ⇒ 夹具必须按真实链路那样盖章(记录是 test-user 自己录的),否则 404。
     store.append_step(
         "bt-rp",
         {"action": "navigate", "params": {"url": "http://mock.test/"}},
+        owner_user_id="test-user",
     )
     store.append_step(
         "bt-rp",
         {"action": "click", "target": {"selector": "#go"}, "status": "ok"},
+        owner_user_id="test-user",
     )
 
-    async def fake_ensure_page() -> Any:
+    async def fake_ensure_page(user_id: str) -> Any:
+        assert user_id == "test-user"
         return FakePage()
 
     monkeypatch.setattr(cu, "_ensure_page", fake_ensure_page)
@@ -549,6 +579,7 @@ def test_replay_endpoint_with_mock_driver(monkeypatch, tmp_path: Path):
         store.append_step(
             "bt-rp-fail",
             {"action": "click", "target": {"selector": "#gone"}, "status": "ok"},
+            owner_user_id="test-user",
         )
         fail_driver = MockDriver(
             fail_actions={"click": TimeoutError("waiting for selector '#gone'")}
