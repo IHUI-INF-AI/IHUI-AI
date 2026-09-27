@@ -2554,7 +2554,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [x] ✅(2026-09-27) D13 逐消息上下文可解释视图(G-10)。V2 深化口径(2026-09-19 晚):须含 auto_context codebase 命中/RAG chunk/Wiki 片段/记忆卡四类注入明细,对标 Qoder Summary 可点击链接 **进度(2026-09-24)**:主体由 D37 ContextAssemblyBar 装配查看器闭合(注入明细逐 kind 本地化+fullText 可展开+citations/steer/retry 来源分组);剩余=Qoder Summary 式「可点击链接跳转到源」的交互细节,待装配查看器上线后按用户反馈定优先级。 〔更正证据(2026-09-27):本行写的 "ContextAssemblyBar" 在 HEAD 面**解析不到** —— 装配查看器的真实文件是 `apps/web/src/components/ai/injection-bar.tsx`(+ 同名 `.test.tsx`)。剩余项(可点击链接跳转到源)按用户反馈定优先级,本行仍开放,但**证据指针已换成真实文件**,不得照旧名去找不存在的组件。〕 〔结清(2026-09-27 现测):V2 四类注入明细与"可点击链接跳转到源"都已装车 —— 跳转机制的单一源 `apps/web/src/components/ai/scroll-to-source.ts` 现读有 **4 个生产消费点**(`progress-sections/citation-bar.tsx`、`injection-bar.tsx`、`progress-sections/memory-notice-bar.tsx`、`progress-sections/thinking-section.tsx`),而 citation-bar 自身现读 5 处点击/滚动接线;"按用户反馈再定优先级"这个前提已不成立(功能已在面上)。本行到此结清,后续观感调整另计新行,不得引用本行当待办。〕
 
 
-- [ ] D13 逐消息上下文可解释视图(G-10)。V2 深化口径(2026-09-19 晚):须含 auto_context codebase 命中/RAG chunk/Wiki 片段/记忆卡四类注入明细,对标 Qoder Summary 可点击链接 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L2552,派单以那条为准,本行不再单独派单。〕
+- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「D13」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 D13 逐消息上下文可解释视图(G-10)。V2 深化口径(2026-09-19 晚):须含 auto_context codebase 命中/RAG chunk/Wiki 片段/记忆卡四类注入明细,对标 Qoder Summary 可点击链接 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L2552,派单以那条为准,本行不再单独派单。〕
 
 ### P2 广度产品化(3 个月,运行形态+生态)
 
