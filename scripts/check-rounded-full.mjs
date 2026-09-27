@@ -31,7 +31,6 @@ import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
-import { isRadiusExemptAt } from './lib/radius-tokens.mjs'
 import { catBatch } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
@@ -63,6 +62,26 @@ function isExempt(line, file, allLines, idx) {
   // 豁免 0: 纯注释行(// 或 /* 或 * 开头,提到 rounded-full 只是在说明规则)
   // 同步支持 JSX 块注释 {/* ... */}
   if (/^\s*(\/\/|\/\*|\*|\{)/.test(trimmed)) return true
+
+  /**
+   * **几何硬规则优先于任何豁免通道**(用户 2026-09-27 定档:本项目不允许出现胶囊型,
+   * 且不允许有任何豁免)。元素的宽高都能从自身或紧邻上下文量出来、而两者不近似等值 ⇒
+   * 这就是胶囊/横幅,任何标记、任何族豁免都不放行 —— 旧秩序里"写了带原因的标记就能免检"
+   * 意味着一条胶囊可以永久留在码上,而那正是本门要根除的东西。
+   * 量不到宽高时不猜(交给下面各条几何/语义判据),判据失效的方向是"少放一条豁免",
+   * 不是"多放一条形状"。
+   */
+  if (file && allLines) {
+    const hard = boxShape(allLines, idx)
+    /**
+     * 几何是**规则**,不是豁免:`rounded-full` 落在量得出"宽高近似等值"的盒子上,得到的就是正圆
+     * (头像 / 装饰点 / 加载环 / 骨架圆),这属项目允许的形态;落在宽扁盒上就是胶囊,任何标记救不了;
+     * 量不到形状时不猜,继续往下走语义判据(缩略图蒙版、Switch 拇指、Radio、animate-spin 环、
+     * 显式 <=14px 装饰点),都对不上就是违规。
+     */
+    if (hard === 'square') return true
+    if (hard === 'wide') return false
+  }
 
   // 豁免 0b: 从被点行往上、到**该元素自身的起始行为止**,找带原因的豁免标记。
   //
@@ -114,11 +133,95 @@ function isExempt(line, file, allLines, idx) {
       // 写了合规理由而词不在表里,标记就不生效(本次实测就栽在"拇指"没进表),而人会以为是自己的
       // 写法错了。守门 108 对豁免族的要求同样是"必须带原因",不是"必须用某个词"。
       const hasReason = /[:：]\s*\S{2,}/.test(prev)
-      if (hasExemptMarker && hasReason) return true
-      // 显式标记
-      if (/@allow-rounded-full/.test(prev)) return true
+      /**
+       * **标记不再是出路(用户 2026-09-27 定档:本项目不允许出现胶囊型,也不允许有任何豁免)**。
+       * 旧行为是"找到带原因的豁免标记 ⇒ 本行免检",那等于一条胶囊可以靠一行注释永久留在码上,
+       * 而且写标记的人与读代码的人都以为"这里被审过了"。现在标记一律被忽略,继续往下按
+       * **几何与语义**判(方形装饰件/加载环/缩略图蒙版等是真圆,不是豁免;宽高可量而不等值的
+       * 一律是胶囊,上面已直接判死)。
+       */
+      void hasReason
+      void hasExemptMarker
     }
   }
+
+/**
+ * 取**该元素自己的**属性区(不是"上下 5 行"):±5 会bleed 到邻居的尺寸,把 6×6 装饰点
+ * 量成 `h-4 w-7` 的胶囊(实测就产出一枚假阳)。起始行 = 往上第一条缩进严格更小且开着标签的行;
+ * 找不到就只取自身上下各 1 行。
+ */
+function elementWindow(allLines, idx) {
+  const indentOf = (s) => (s || '').match(/^\s*/)[0].length
+  const myIndent = indentOf(allLines[idx])
+  let back = 2
+  for (let up = 1; up <= 30 && idx - up >= 0; up++) {
+    const l = allLines[idx - up] || ''
+    if (!l.trim()) continue
+    if (indentOf(l) < myIndent && /<[A-Za-z][\w.]*/.test(l)) {
+      back = up
+      break
+    }
+  }
+  return allLines
+    .slice(Math.max(0, idx - back), Math.min(allLines.length, idx + 6))
+    .join('\n')
+}
+
+/**
+ * 量元素的盒子形状 —— **只有一份实现**,`hasSquarePair()` 与几何硬规则都从它取值,
+ * 两处各算一遍必然漂移(本仓记过最多次的失败型)。
+ * 返回 'square' / 'wide' / null(量不到 ⇒ 不猜)。宽度取窗口内最大、高度取最大,
+ * 因为一个元素常同时带 `w-full h-10` 与 `min-w-8` 一类多个约束,保守地按"最大者"判形状
+ * 只会把该拦的拦住、不会把方形误判成胶囊。rpx 按 2:1 折成 px,Tailwind 刻度按 4px 折。
+ */
+function boxShape(allLines, idx) {
+  const window = elementWindow(allLines, idx)
+  let w = 0
+  let h = 0
+  for (const m of window.matchAll(/\b([wh])-\[(\d+(?:\.\d+)?)(rpx|px)\]/g)) {
+    const v = Number(m[2]) * (m[3] === 'rpx' ? 0.5 : 1)
+    if (m[1] === 'w') w = Math.max(w, v)
+    else h = Math.max(h, v)
+  }
+  for (const m of window.matchAll(/\b(?:width|height)\s*[:=]\s*(\d+(?:\.\d+)?)/g)) {
+    if (m[0].startsWith('w')) w = Math.max(w, Number(m[1]))
+    else h = Math.max(h, Number(m[1]))
+  }
+  /**
+   * **同表达式即同尺寸**:头像/圆点的边长常常来自变量或 `toUnit(CONST)` 这类换算,
+   * 量不到数字并不代表不是方形 —— 只要 width 与 height 写的是**同一个值**,几何上必然是正方形。
+   * 这不是"看名字猜",是取值相等这条可核验事实;而它替代了标记豁免(用户定档:不允许任何豁免)。
+   */
+  const dims = [...window.matchAll(/\b(width|height)\s*[:=]\s*([^,}\n]+)/g)].map((m) => ({
+    axis: m[1] === 'width' ? 'w' : 'h',
+    v: m[2].trim().replace(/\s+/g, ''),
+  }))
+  const wv = new Set(dims.filter((d) => d.axis === 'w').map((d) => d.v))
+  const hv = dims.filter((d) => d.axis === 'h').map((d) => d.v)
+  const sameExpr = hv.some((v) => wv.has(v))
+  for (const m of window.matchAll(/\b([wh])-(\d+(?:\.\d+)?)(?![\w-])/g)) {
+    const v = Number(m[2]) * 4
+    if (m[1] === 'w') w = Math.max(w, v)
+    else h = Math.max(h, v)
+  }
+  if (!w || !h) {
+    if (sameExpr) return 'square'
+    /**
+     * 只量到一维时的第二把尺:`rounded-full` + **横向内边距明显大于高度**(或带文本的
+     * `px-N` 胶囊钮)在几何上必然是胶囊 —— 内容撑开的宽度只会 ≥ 高度,而半径取到"高度一半"
+     * 就是两端全圆的药丸形。这一型正是用户点名要根除的"胶囊型",不允许以"量不到宽度"逃逸。
+     */
+    if (h) {
+      let pxMax = 0
+      for (const m of window.matchAll(/\bpx-(\d+(?:\.\d+)?)(?![\w-])/g)) pxMax = Math.max(pxMax, Number(m[1]) * 4)
+      for (const m of window.matchAll(/\bpx-\[(\d+(?:\.\d+)?)(rpx|px)\]/g))
+        pxMax = Math.max(pxMax, Number(m[1]) * (m[2] === 'rpx' ? 0.5 : 1) * 2)
+      if (pxMax && pxMax * 2 >= h) return 'wide'
+    }
+    return null
+  }
+  return Math.max(w, h) / Math.min(w, h) <= 1.35 ? 'square' : 'wide'
+}
 
   // 豁免 1: <img> / AvatarImage / next/image 上的 rounded-full(头像图片本身)
   if (/<img\b[^>]*\brounded-full\b/.test(trimmed)) return true
@@ -131,12 +234,16 @@ function isExempt(line, file, allLines, idx) {
 // 检测窗口: 当前行 + 上下 5 行
 if (allLines) {
   const window = allLines.slice(Math.max(0, idx - 5), Math.min(allLines.length, idx + 5)).join('\n')
-  // 检测 <Image> 或 <View> 标签 + rounded-full + 后续 width/height
-  if (/<(?:Image|View)\b[^>]*\brounded-full\b/.test(window) && /\b(?:width|height)\s*:\s*\d{2,3}/.test(window)) return true
-  // Taro rpx: w-[140rpx] h-[140rpx]
-  if (/<(?:Image|View)\b[^>]*\brounded-full\b/.test(window) && /\b(?:w|h)-\[(\d{2,3})rpx\]/.test(window)) return true
-  // Taro className 含 w-[140rpx] h-[140rpx]
-  if (/\b(?:w|h)-\[\d{2,3}rpx\]/.test(window) && /\bh-\[\d{2,3}rpx\]/.test(window)) return true
+  // 头像族三条**共用同一把方形尺**(= boxShape,几何硬规则也用它,判据只有一份):
+  // 旧写法只看"出现 w-[NNrpx] 与 h-[NNrpx]"就放过,于是 690×220 的宽扁容器被当成头像免检。
+  if (boxShape(allLines, idx) === 'square') {
+    // 检测 <Image> 或 <View> 标签 + rounded-full + 后续 width/height
+    if (/<(?:Image|View)\b[^>]*\brounded-full\b/.test(window) && /\b(?:width|height)\s*:\s*\d{2,3}/.test(window)) return true
+    // Taro rpx: w-[140rpx] h-[140rpx]
+    if (/<(?:Image|View)\b[^>]*\brounded-full\b/.test(window) && /\b(?:w|h)-\[(\d{2,3})rpx\]/.test(window)) return true
+    // Taro className 含 w-[140rpx] h-[140rpx]
+    if (/\b(?:w|h)-\[\d{2,3}rpx\]/.test(window) && /\bh-\[\d{2,3}rpx\]/.test(window)) return true
+  }
 }
 
   // 豁免 2: Switch(Radix Switch Root/Thumb 特征)
@@ -388,13 +495,26 @@ if (isStaged) {
    * (`apps/web/public/vs/*.js`、`tw-check.config.js` 等)⇒ 整门 exit 2 无法判定。
    * 清单与内容必须同面同轮 —— 否则产出的不是"少扫几个文件",而是"这一轮什么都没判"。
    */
-  const listing = execSync('git ls-tree -r --name-only HEAD', {
+  let listing
+  try {
+    listing = execSync('git ls-tree -r --name-only HEAD', {
     encoding: 'utf8',
     cwd: ROOT,
     maxBuffer: 1 << 27,
     windowsHide: true,
     timeout: 120000,
   })
+  } catch (e) {
+    /**
+     * git 问不到 ⇒ **"无法判定"**,不是"通过"。旧写法让未捕获异常直接 crash 并把整段
+     * 调用栈喷到 stderr(隔离检出/无 .git 的目录实测如此),而崩溃在账面与"扫过且干净"
+     * 长得很像 —— 调用方只看退出码就会把一次没判当成一次通过。口径同守门 77/94/99/101。
+     */
+    console.error(`⚠️ 无法判定:全量档枚举取不到(本目录不在可判定的 git 提交面内)`)
+    console.error(`   原因:${String(e?.stderr || e?.message || e).split('\n')[0]}`)
+    console.error(`   这不是"通过",也不是"没有胶囊" —— 请在被审面(有 HEAD 的检出)里重跑。`)
+    process.exit(2)
+  }
   files = listing
     .split('\n')
     .filter(Boolean)
@@ -488,7 +608,12 @@ for (let fi = 0; fi < keptRel.length; fi++) {
     }
     if (isExempt(line, file, lines, idx)) return
     if (isCssExempt(lines, idx, file)) return
-    if (isRadiusExemptAt(lines, idx)) return
+    /**
+     * **不再查标记**(用户 2026-09-27:「不允许有任何豁免 本项目就是不允许有胶囊型」)。
+     * 这里曾经是第二条免检通道(与 isExempt 里那条同族),专门放行"radius-exempt: 原因"
+     * 写在同行或上一行的站点 —— 排障实测:同一枚宽扁胶囊,不带注释判红、带注释判绿。
+     * 判据现在只认形状量算:方形盒 = 正圆(允许的形态),宽扁盒 = 胶囊(无出路)。
+     */
     for (const { re, label } of VIOLATION_PATTERNS) {
       const m = re.exec(line)
       if (m) {

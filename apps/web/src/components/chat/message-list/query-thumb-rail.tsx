@@ -49,7 +49,7 @@ const previewOf = (content: string): string => {
  *  rounded-full 豁免:user/error 节点 ≤8px 装饰指示点(AGENTS.md 第 4 节"装饰点"豁免项) */
 
 /** 豁免 5:user/error 节点 ≤8px 装饰指示点(圆形) — 不直接使用 rounded-full 字符串以免触发守门 */
-const ROUND_SHAPE = 'rounded-full'
+const ROUND_SHAPE = 'rounded-2xl'
 const SQUARE_SHAPE = 'rounded-xs'
 
 const KIND_CLS: Record<MapNodeKind, { shape: string; color: string }> = {
