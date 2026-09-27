@@ -90,7 +90,7 @@ export default function DistributionPlan() {
         </Text>
         {rules.map((r, i) => (
           <View key={i} className="flex flex-row items-center gap-[24rpx]">
-            <View className="w-[44rpx] h-[44rpx] rounded-full bg-primary text-primary-foreground text-[28rpx] font-semibold flex items-center justify-center flex-shrink-0">
+            <View className="w-[44rpx] h-[44rpx] rounded-full bg-primary text-primary-foreground text-[length:28rpx] font-semibold flex items-center justify-center flex-shrink-0">
               <Text>{i + 1}</Text>
             </View>
             <Text className="flex-1 text-[length:28rpx] text-foreground leading-[38rpx]">{r}</Text>
@@ -100,7 +100,7 @@ export default function DistributionPlan() {
 
       <View className="fixed left-0 right-0 bottom-0 pt-[24rpx] px-[28rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card">
         <View
-          className="h-[100rpx] leading-[100rpx] text-center bg-cta text-cta-foreground text-[32rpx] font-semibold rounded-xl"
+          className="h-[100rpx] leading-[100rpx] text-center bg-cta text-cta-foreground text-[length:32rpx] font-semibold rounded-xl"
           onClick={onOpenVip}
           hoverClass="opacity-60"
         >
