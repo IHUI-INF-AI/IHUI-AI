@@ -578,21 +578,28 @@ if (hookFailed && commitResult.status !== 0) {
     return { ran: true, status: g.status ?? 1, output: `${g.stdout || ''}${g.stderr || ''}`, why: null }
   }
   /**
-   * 共享索引里"别人挂着的东西"(2026-09-27,G-268 的索引面翻版)。
+   * 共享索引 / 工作树里"别人挂着的东西"(2026-09-27,G-268 的两面翻版)。
    * 判"红是不是本枚引入"时,这一步是必须的:本仓的提交一律带 pathspec(只交 expectedFiles),
-   * 而 71/84 这类门按**索引**判 —— 索引里常年挂着并发会话 staged 的活文档,它们结构上进不了
-   * 本枚提交,却会让"我的面"红、基线面(HEAD 的隔离检出)绿,差分于是把别人的现场定责给提交者。
-   * 唯一"修法"是去改别人的暂存,那是 §12 明令的事故,所以这里把它显式交给归因层判"未判定"。
+   * 而 71/84 这类门按**索引**判、49/85/26 这类门按**工作树**判 —— 索引里常年挂着并发会话 staged
+   * 的活文档,根目录与目录树里也常年躺着别人未跟踪的在飞文件。它们结构上都进不了本枚提交,
+   * 却会让"我的面"红、基线面(HEAD 的隔离检出)绿,差分于是把别人的现场定责给提交者。
+   * 唯一"修法"是去改/删别人的东西,那是 §12 明令的事故,所以这里把它显式交给归因层判"未判定"。
+   * ⚠ 未跟踪清单**必须**排除 .gitignore 命中的项(`--exclude-standard`):否则 node_modules、
+   *   构建产物、别人刻意留在忽略路径里的东西会被当成"现场",把这一档撑成常态 —— 那等于
+   *   给"任何未跟踪文件引发的红"开了免责通道,是与"多放一次跳门"同罪的放宽。
    */
-  const stagedNow = (run('git diff --cached --name-only --no-renames', { allowFail: true }) || '')
-    .split(/[\r\n]+/)
-    .map((l) => l.trim())
-    .filter((l) => l !== '')
-  const foreignStaged = stagedNow.filter((p) => !expectedFiles.includes(p))
+  const splitPaths = (raw) =>
+    (raw || '')
+      .split(/[\r\n]+/)
+      .map((l) => l.trim())
+      .filter((l) => l !== '')
+  const stagedNow = splitPaths(run('git diff --cached --name-only --no-renames', { allowFail: true }))
+  const untrackedNow = splitPaths(run('git ls-files --others --exclude-standard', { allowFail: true }))
+  const foreignStaged = [...stagedNow, ...untrackedNow].filter((p) => !expectedFiles.includes(p))
   if (foreignStaged.length > 0)
     log(
       'info',
-      `索引里另有 ${foreignStaged.length} 个非本票文件(${foreignStaged.slice(0, 6).join(', ')}${foreignStaged.length > 6 ? ' …' : ''}) —— 不随本枚提交走:commit 带 pathspec,只交上面声明的清单,故不中止(第一版在此中止反而自锁:并发会话随时可能 staged 东西,而它本来也进不来)`,
+      `索引/工作树里另有 ${foreignStaged.length} 个非本票项(其中索引 ${stagedNow.filter((p) => !expectedFiles.includes(p)).length}、未跟踪 ${untrackedNow.filter((p) => !expectedFiles.includes(p)).length};例:${foreignStaged.slice(0, 6).join(', ')}${foreignStaged.length > 6 ? ' …' : ''}) —— 不随本枚提交走:commit 带 pathspec,只交上面声明的清单,故不中止(第一版在此中止反而自锁:并发会话随时可能 staged 东西,而它本来也进不来)`,
     )
   const verdict0 = classifyHookFailure({
     text: hookOutput,

@@ -170,6 +170,17 @@ test('态①c:结论行点名"他人挂在索引里的路径" ⇒ 不判 mine,�
   assert.equal(v4.kind, 'mine', '回显行不算点名 —— 这条与既有 findingLines 口径同形,不得单独放宽')
 })
 
+test('态①c 的取材面:未跟踪清单必须排除忽略项,且两路都要扣掉本票声明', () => {
+  // 这一条锁的是"输入怎么来",不是"结论怎么出"(后者由上面四臂锁)。
+  // 不加 --exclude-standard 的话 node_modules / 构建产物会整批进"他人现场",态①c 就从
+  // "别替我背锅"退化成"任何未跟踪文件引发的红都不找我" —— 那是放宽判据,不是修判据。
+  assert.match(safeCommitSource, /ls-files\s+--others\s+--exclude-standard/, '未跟踪清单必须排除被忽略项')
+  assert.match(safeCommitSource, /git diff --cached --name-only --no-renames/, '索引面清单必须现读,不得用流程早期那份快照')
+  const m = safeCommitSource.match(/const foreignStaged = ([^\n]+)/)
+  assert.ok(m, '找不到 foreignStaged 的计算 ⇒ 归因层拿不到这份输入,态①c 就是死档')
+  assert.match(m[1], /!expectedFiles\.includes\(p\)/, '两路清单都必须扣掉本票声明的文件(我自己的在飞文件仍要算我的红)')
+})
+
 test('装车证明:safe-commit 必须真的 import 并调用本判据', () => {
   assert.match(
     safeCommitSource,
