@@ -158,7 +158,7 @@ export default function BackendHealthPage() {
                 <div key={s.name} className="rounded-md border p-3">
                   <div className="text-xs text-muted-foreground">{s.name}</div>
                   <div className="mt-1 text-xl font-bold">{s.latency}ms</div>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-muted">
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-xs bg-muted">
                     <div
                       className={cn(
                         'h-full rounded-md',

@@ -49,7 +49,7 @@ export function ReferralStats({ data, loading }: Props) {
           {loading
             ? Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="space-y-1.5">
-                  <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+                  <div className="h-3 w-20 animate-pulse rounded-xs bg-muted" />
                   <div className="h-6 w-full animate-pulse rounded bg-muted" />
                 </div>
               ))
@@ -72,7 +72,7 @@ export function ReferralStats({ data, loading }: Props) {
                       </span>
                       <span className="font-medium">{c.count}</span>
                     </div>
-                    <div className="h-2 w-full rounded-sm bg-muted/60">
+                    <div className="h-2 w-full rounded-xs bg-muted/60">
                       <div
                         className={`h-full rounded-sm ${meta.cls}`}
                         style={{ width: `${Math.max(3, pct)}%` }}

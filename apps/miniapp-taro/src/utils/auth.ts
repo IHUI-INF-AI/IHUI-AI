@@ -6,8 +6,14 @@
  * 鉴权 Token 管理
  * 基于 Taro.storage 持久化 + createInMemoryTokenStore 内存缓存工厂
  */
-import { getStorageSync, setStorageSync, removeStorageSync, reLaunch } from '@tarojs/taro'
-import type { LoginResult as SharedLoginResult, AuthUser } from '@ihui/api-client'
+import {
+  getStorageSync,
+  setStorageSync,
+  removeStorageSync,
+  reLaunch,
+  getCurrentPages,
+} from '@tarojs/taro'
+import { fetchApi, type LoginResult as SharedLoginResult, type AuthUser } from '@ihui/api-client'
 import {
   TOKEN_STORAGE_KEY as TOKEN_KEY,
   REFRESH_TOKEN_STORAGE_KEY as REFRESH_TOKEN_KEY,
@@ -155,5 +161,54 @@ export const tokenStore: TokenStoreWithUserInfo<UserInfo> = {
   clearAll: clearAuth,
   getUserInfo,
   setUserInfo,
+}
+
+/** 登录页路由(与 app.config.ts 的 pages 串一致;不是 tabBar 页,可用 reLaunch 直达) */
+const LOGIN_PAGE = 'pages/login/login'
+
+/**
+ * 401 静默续期(2026-09-27 立,补齐与 RN/web 的同源能力)
+ *
+ * 此前 `bindTokenStoreToApiClient(tokenStore)` **没有注入 refreshAccessToken**,而
+ * `refreshAccessTokenOnce()` 的第一行就是 `if (!tokenProvider.refreshAccessToken) return null`
+ * ⇒ 小程序侧每一次 access token 过期都直接判死,没有第二次机会。RN 端 2026-09-22 已补同一回调
+ * (注释原文:"登录 15 分钟后全部鉴权接口失效"),小程序一直缺 —— 这是 §9"任何一端改了样式/组件/
+ * 主题必须同步另一端"在认证链上的同一个洞。
+ *
+ * 走 fetchApi 自身:`/auth/refresh` 属认证端点,401 拦截器对它豁免,不会递归续期。
+ * 成功 → 轮转写回 token(+ refreshToken);失败 → 返回 null,由 api-client 的失败冷却兜底。
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  const storedRefresh = getRefreshToken()
+  const res = await fetchApi<{ accessToken: string; refreshToken?: string | null }>(
+    '/auth/refresh',
+    {
+      method: 'POST',
+      body: JSON.stringify(storedRefresh ? { refreshToken: storedRefresh } : {}),
+    },
+  )
+  if (res.success && res.data?.accessToken) {
+    setToken(res.data.accessToken)
+    if (res.data.refreshToken) setRefreshToken(res.data.refreshToken)
+    return res.data.accessToken
+  }
+  return null
+}
+
+/**
+ * 会话彻底失效的统一出口(与 apps/mobile-rn/src/lib/token.ts 同一设计,2026-09-27)
+ *
+ * 三条边界与 RN 逐字同形:
+ * 1. **游客态不接管** —— 手里没有凭据时 401 的含义是"这个接口要登录",不是"你的会话死了";
+ * 2. **不重复跳** —— 直接读当前页栈判定"是不是已经在登录页",不引入需要复位的模块级布尔量;
+ * 3. **不清凭据** —— 清 storage 会让在飞 UI 立刻翻成未登录态(头像/余额闪空),观感比停在原页更差;
+ *    登录成功后 `setToken` 自然覆盖。
+ */
+export function onUnrecoverableUnauthorized(): void {
+  if (!getToken()) return
+  const pages = getCurrentPages()
+  const current = pages.length > 0 ? pages[pages.length - 1]?.route : undefined
+  if (current === LOGIN_PAGE) return
+  void reLaunch({ url: `/${LOGIN_PAGE}` })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

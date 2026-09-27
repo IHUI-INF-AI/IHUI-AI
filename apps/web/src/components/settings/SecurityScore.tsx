@@ -136,7 +136,7 @@ export function SecurityScore() {
                       {item.score}/{item.maxScore}
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded bg-muted">
+                  <div className="h-1.5 overflow-hidden rounded-xs bg-muted">
                     <div
                       className="h-full rounded-md transition-all"
                       style={{
