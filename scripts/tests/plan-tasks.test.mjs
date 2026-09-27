@@ -29,6 +29,7 @@ import {
   countNewUndisposed,
   gate,
   grewViolations,
+  parseArgs,
   probe,
   ratchetViolations,
 } from '../plan-tasks.mjs'
@@ -382,7 +383,9 @@ test('M14 行首裸编号族必须进复合主键(F1 曾对整族失明 ⇒ 已�
   const done75 = '- [x] ✅(2026-09-27)75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯)'
   const a = auditPlan(['# p', done75, open75].join('\n'))
   if (a.counts.forks !== 1 || !a.forks[0].key.startsWith('75#'))
-    throw new Error(`行首裸编号必须成主键并被 F1 点名,实测 ${JSON.stringify(a.forks.map((f) => f.key))}`)
+    throw new Error(
+      `行首裸编号必须成主键并被 F1 点名,实测 ${JSON.stringify(a.forks.map((f) => f.key))}`,
+    )
   // ② 收窄 1:量值开头(`12.3 万`)不得算主键 —— 否则每条普查叙述都成了"第二次登记"。
   const volume = '- [ ] 12.3 万文件级的普查另计一票'
   if (keyOfRow(volume) !== null) throw new Error(`量值开头被判成主键 ${keyOfRow(volume)}`)
@@ -401,7 +404,8 @@ test('M14 行首裸编号族必须进复合主键(F1 曾对整族失明 ⇒ 已�
     throw new Error('裸族 D33 被误伤')
   // ⑤ 变异自证:标题里那个 `.` 若不再被跳过,标题就只剩编号本身(<4 字)⇒ composite 又变 null。
   const t = titleOf(open75)
-  if (!t || t.length < 4 || t === '75') throw new Error(`标题前缀必须跳过编号,实测 ${JSON.stringify(t)}`)
+  if (!t || t.length < 4 || t === '75')
+    throw new Error(`标题前缀必须跳过编号,实测 ${JSON.stringify(t)}`)
 })
 
 test('M15 带字母后缀的编号必须与标题跳过**同一份**实现(两处各抄一版 ⇒ 判据在自己刚修的族上失明)', () => {
@@ -416,10 +420,13 @@ test('M15 带字母后缀的编号必须与标题跳过**同一份**实现(两�
   if (!co || co.length < 6) throw new Error(`复合主键应含标题前缀,实测 ${JSON.stringify(co)}`)
   const a = auditPlan(['# p', open, done].join('\n'))
   if (a.counts.forks !== 1)
-    throw new Error(`同主键两态必须被 F1 点名,实测 ${a.counts.forks}(${JSON.stringify(a.forks.map((f) => f.key))})`)
+    throw new Error(
+      `同主键两态必须被 F1 点名,实测 ${a.counts.forks}(${JSON.stringify(a.forks.map((f) => f.key))})`,
+    )
   // 反向对照 1:两位数字加字母也认(`12B.`),但三个字母以上不算(`ABC.` 是分区名而非编号)。
   if (keyOfRow('- [ ] 12B. 子号带一位字母') !== '12B') throw new Error('12B 未被认成主键')
-  if (keyOfRow('- [ ] ABC. 这是分区名不是编号') !== null) throw new Error('多字母前缀不得算行首编号')
+  if (keyOfRow('- [ ] ABC. 这是分区名不是编号') !== null)
+    throw new Error('多字母前缀不得算行首编号')
   // 反向对照 2:带字母**后缀**才放行;字母后紧跟数字(`12Z3.`)不是本仓任何编号形态,不得算
   // (刻意用 Z —— 用 `B3` 会被裸族 `B\d+` 认成主键,那是既有收窄行为,不是本判据的洞)。
   if (keyOfRow('- [ ] 12Z3. 混排') !== null) throw new Error('编号后接数字不得算行首编号')
@@ -443,7 +450,9 @@ test('M13 F4b 无主键逐字孪生:F4 看不见的那一格必须有判据,且�
   const keyed = '- [ ] **D99 复合主键正例**:说明。'
   const b = auditPlan(['# p', keyed, keyed].join('\n'))
   if (b.counts.dupOpenCopies !== 1 || b.counts.verbatimDupCopies !== 0)
-    throw new Error(`有主键孪生必须只由 F4 计账,实测 F4=${b.counts.dupOpenCopies} F4b=${b.counts.verbatimDupCopies}`)
+    throw new Error(
+      `有主键孪生必须只由 F4 计账,实测 F4=${b.counts.dupOpenCopies} F4b=${b.counts.verbatimDupCopies}`,
+    )
   // 反向 2:差一个字就不算(判据只认逐字等值 —— 相似度只能报数,不配判红,与 F4 同一条立项理由)。
   const c = auditPlan(['# p', twin, `${twin}(另一次措辞)`].join('\n'))
   if (c.counts.verbatimDupCopies !== 0)
@@ -456,4 +465,33 @@ test('M13 F4b 无主键逐字孪生:F4 看不见的那一格必须有判据,且�
   // 成套性:没进 probe 的判据 = 差值棘轮看不见 = 等于没有这道门(守门 70/76/81 同型)。
   if (!probe(a).some(([k, , n]) => k === 'F4b' && n === 1))
     throw new Error(`F4b 未进 probe 维度清单:${JSON.stringify(probe(a).map((x) => x[0]))}`)
+})
+
+/**
+ * M16 取号出口的**接线**证明(不是把 lib 的纯函数再测一遍)。
+ * 立因:`--self-test` 在 main() 第一行就 return,它**永远走不到** `--next-id` 那一支;
+ * 而 lib 里那两个函数就算没被 CLI 接上,自测也照样全绿 —— 这正是本仓"判据在位、调用点漏接"
+ * 那一型(守门 117 的"改了被审写法必须同批改正则"、门 128 的装车锁同族)。
+ * 因此这里两头都钉:开关必须被 parseArgs 认下来,且 main 里必须真有一支去现读面取数。
+ */
+test('M16 --next-id 必须被 parseArgs 认、被 main 分支真调用(否则取号出口等于不存在)', () => {
+  const sp = parseArgs(['--next-id', 'G'])
+  if (!sp.nextIdRequested || sp.nextId !== 'G')
+    throw new Error(`空格式族名应解析为 G,实测 ${JSON.stringify([sp.nextIdRequested, sp.nextId])}`)
+  const eq = parseArgs(['--next-id=O'])
+  if (eq.nextId !== 'O') throw new Error(`等号式应解析为 O,实测 ${eq.nextId}`)
+  // 族名缺失(后面紧跟别的旗标)必须留成空串 ⇒ main 判用法错 exit 2。
+  // 若把它默认成 G 或静默忽略,就是"未知开关掉进默认分支"那一型(本仓登记过两次)。
+  const noFam = parseArgs(['--next-id', '--strict'])
+  if (!noFam.nextIdRequested || noFam.nextId !== '')
+    throw new Error(
+      `族名缺失必须记成"要取号但没给族名",实测 ${JSON.stringify([noFam.nextIdRequested, noFam.nextId])}`,
+    )
+  const cli = readFileSync(path.join(ROOT, 'scripts', 'plan-tasks.mjs'), 'utf8')
+  if (!/if \(o\.nextIdRequested\)/.test(cli))
+    throw new Error(
+      'main 里没有 nextIdRequested 这一支 ⇒ 开关被 parseArgs 收下却无人问,等于没有出口',
+    )
+  if (!/usedIdsOfPrefix\(content/.test(cli) || !/nextTaskIdNumber\(content/.test(cli))
+    throw new Error('分支没有从被审面现读 ⇒ 号可能来自别处(面取错的号比不取号更贵)')
 })
