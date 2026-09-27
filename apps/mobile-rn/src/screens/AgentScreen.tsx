@@ -892,7 +892,7 @@ const styles = StyleSheet.create({
   modelStartBtn: {
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(8),
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },
   modelStartBtnText: { fontSize: 13, color: tokens.brand.ctaForeground, fontWeight: '600' },

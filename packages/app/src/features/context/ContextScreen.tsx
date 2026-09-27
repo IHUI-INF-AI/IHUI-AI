@@ -297,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8,
     },
     eventCard: {
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -326,7 +326,7 @@ function createStyles(tk: AppThemeTokens) {
     /* 提及检索 */
     searchInput: {
       marginTop: 8,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -339,7 +339,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8,
     },
     mentionCard: {
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -351,7 +351,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8,
     },
     typeBadge: {
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 6,
       paddingVertical: 2,
       backgroundColor: tk.warning.light,

@@ -243,6 +243,16 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'FILE_TOO_LARGE.action',
     category: 'resourceLimitExceeded',
   },
+  // 该码由 apps/ai-service/app/services/mcp_server.py 的 request_business_form **占位 handler** 产出:
+  // 表单需要一条前端可渲染的通道(llm.py 发 form_request 帧 + form-response 端点收应答),
+  // 而别的执行路径(agent 任务流 / 后台任务 / 未来的编排器)没有这条通道。它们拿到这个码时必须
+  // "别再重试、改成在回复里直接问用户",而不是拿到"未知工具"后原地重试到 max_iterations。
+  // 分类取 capabilityNotOffered(不是 runtimeException):这是一条**路径能力**的缺席,不是执行失败。
+  FORM_CHANNEL_UNAVAILABLE: {
+    titleKey: 'FORM_CHANNEL_UNAVAILABLE.title',
+    actionKey: 'FORM_CHANNEL_UNAVAILABLE.action',
+    category: 'capabilityNotOffered',
+  },
   GENERATION_FAILED: {
     titleKey: 'GENERATION_FAILED.title',
     actionKey: 'GENERATION_FAILED.action',

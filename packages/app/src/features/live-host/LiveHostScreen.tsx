@@ -215,7 +215,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 8,
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.xl },
+    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.md },
     badgeText: { fontSize: 11, color: tk.surface.light },
     errorWrap: { paddingHorizontal: 10, paddingVertical: 4 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
@@ -243,7 +243,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 12,
       paddingVertical: 14,
       fontSize: 16,
@@ -261,7 +261,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       flex: 1,
       paddingVertical: 15,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       alignItems: 'center',
     },
     btnSuccess: { backgroundColor: tk.brand.cta },
@@ -281,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
     productAddBtn: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },
     productAddText: { fontSize: 14, color: tk.success.DEFAULT },

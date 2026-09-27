@@ -531,7 +531,7 @@ function createStyles(tk: AppThemeTokens) {
     searchInput: {
       height: 36,
       flex: 1,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -721,7 +721,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     retryBtn: {
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 16,
       paddingVertical: 8,
