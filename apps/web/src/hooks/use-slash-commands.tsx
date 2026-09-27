@@ -8,10 +8,15 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import {
   BookOpen,
+  Cpu,
+  FileDiff,
   FileText,
   GitBranch,
   Hammer,
+  Info,
   MessageCircle,
+  Minimize2,
+  Plug,
   Repeat,
   Search,
   Shield,
@@ -205,6 +210,54 @@ export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean
         kind: 'action' as const,
         category: 'permission' as const,
         icon: <ShieldAlert className="h-4 w-4" />,
+      },
+      // 🛠 D117 工具型命令(2026-09-27 立,对标 Codex /diff /status /model /mcp /compact):
+      // 前端 tryHandleToolSlash 拦截,不走 LLM chat 流;id 清单唯一登记处
+      // 是 lib/command-registry.ts 的 CHAT_TOOL_COMMANDS
+      {
+        id: 'diff',
+        label: '/diff',
+        description: t('slashCmd.diff'),
+        usage: '/diff',
+        kind: 'action' as const,
+        category: 'tools' as const,
+        icon: <FileDiff className="h-4 w-4" />,
+      },
+      {
+        id: 'status',
+        label: '/status',
+        description: t('slashCmd.status'),
+        usage: '/status',
+        kind: 'action' as const,
+        category: 'tools' as const,
+        icon: <Info className="h-4 w-4" />,
+      },
+      {
+        id: 'model',
+        label: '/model',
+        description: t('slashCmd.model'),
+        usage: '/model',
+        kind: 'action' as const,
+        category: 'tools' as const,
+        icon: <Cpu className="h-4 w-4" />,
+      },
+      {
+        id: 'mcp',
+        label: '/mcp',
+        description: t('slashCmd.mcp'),
+        usage: '/mcp',
+        kind: 'action' as const,
+        category: 'tools' as const,
+        icon: <Plug className="h-4 w-4" />,
+      },
+      {
+        id: 'compact',
+        label: '/compact',
+        description: t('slashCmd.compact'),
+        usage: '/compact',
+        kind: 'action' as const,
+        category: 'tools' as const,
+        icon: <Minimize2 className="h-4 w-4" />,
       },
       // ✨ AI 技能(2026-07-29 二次深化,从 /api/ai-skills 异步拉取,接入斜杠命令弹窗)
       // 每个 skill 一项,点击后填充 /skill <name> 到 textarea,后端 _skill_handler 处理
