@@ -1304,7 +1304,7 @@ function findDuplicateKeys(text) {
 
 if (dottedKeyIssues.length > 0) {
   console.log(
-    `${C.red}[i18n 键检查] 发现 ${dottedKeyIssues.length} 个含点键 —— next-intl 按 "." 解析路径,这类 key 永不渲染,UI 会回显原始键名${C.reset}`,
+    `${C.red}[i18n 键检查] ❌ 发现 ${dottedKeyIssues.length} 个含点键 —— next-intl 按 "." 解析路径,这类 key 永不渲染,UI 会回显原始键名${C.reset}`,
   )
   for (const line of dottedKeyIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
   if (dottedKeyIssues.length > 20) {
@@ -1316,7 +1316,7 @@ if (dottedKeyIssues.length > 0) {
 
 if (dupKeyIssues.length > 0) {
   console.log(
-    `${C.red}[i18n 键检查] 发现 ${dupKeyIssues.length} 处同层重复 key —— JSON.parse 静默保留最后一个,前面的值被遮蔽(AGENTS.md §18)${C.reset}`,
+    `${C.red}[i18n 键检查] ❌ 发现 ${dupKeyIssues.length} 处同层重复 key —— JSON.parse 静默保留最后一个,前面的值被遮蔽(AGENTS.md §18)${C.reset}`,
   )
   for (const line of dupKeyIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
   if (dupKeyIssues.length > 20) {
@@ -1328,7 +1328,7 @@ if (dupKeyIssues.length > 0) {
 
 if (dynamicPrefixIssues.length > 0) {
   console.log(
-    `${C.red}[i18n 键检查] 发现 ${dynamicPrefixIssues.length} 处动态键的静态前缀不可达 —— t(\`prefix.\${x}\`) 会走 MISSING_MESSAGE,UI 上直接回显键名${C.reset}`,
+    `${C.red}[i18n 键检查] ❌ 发现 ${dynamicPrefixIssues.length} 处动态键的静态前缀不可达 —— t(\`prefix.\${x}\`) 会走 MISSING_MESSAGE,UI 上直接回显键名${C.reset}`,
   )
   for (const line of dynamicPrefixIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
   if (dynamicPrefixIssues.length > 20) {
@@ -1478,7 +1478,7 @@ if (krUndetermined) {
 }
 if (removalIssues.length) {
   console.log(
-    `${C.red}[i18n 键检查] 发现 ${removalIssues.length} 处**语言包相对其父提交丢键**(五语言一致缩水时 parity 完全看不见):${C.reset}`,
+    `${C.red}[i18n 键检查] ❌ 发现 ${removalIssues.length} 处**语言包相对其父提交丢键**(五语言一致缩水时 parity 完全看不见):${C.reset}`,
   )
   for (const line of removalIssues.slice(0, 12)) console.log(`  ${C.yellow}${line}${C.reset}`)
   if (removalIssues.length > 12) console.log(`  ${C.yellow}… 还有 ${removalIssues.length - 12} 处${C.reset}`)
@@ -1520,7 +1520,7 @@ if (shouldBlock) {
     `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
   )
   console.log(
-    `${C.red}[i18n 键检查] 发现 ${
+    `${C.red}[i18n 键检查] ❌ 发现 ${
       parityIssues.length > 0
         ? 'parity 问题'
         : missingKeyIssues.length > 0

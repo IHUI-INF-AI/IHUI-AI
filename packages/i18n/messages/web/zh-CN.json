@@ -24352,15 +24352,12 @@
   "courseFilter": {
     "title": "筛选课程",
     "subtitle": "按条件筛选课程",
-    "category": "分类",
-    "level": "难度",
     "priceRange": "价格区间",
     "reset": "重置",
     "apply": "应用",
     "retry": "重试",
     "empty": "暂无课程",
     "instructor": "讲师",
-    "level_label": "难度",
     "free": "免费"
   },
   "courseQAList": {
