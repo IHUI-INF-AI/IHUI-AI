@@ -40,10 +40,19 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { gitArchiveDir, resolveBackupDir, resolveGitdir, resolveWorktree } from './lib/gitdir.mjs'
+// 单实例守卫的锁语义只有一份实现,住在 git-lock(AGENTS §12「git 写操作全局锁」的地基文件);
+// 本文件**不得**再手写第二把(mkdir/判活/回收的判据抄两遍必漂移)。只加薄薄一层:
+// 「拿不到锁 ⇒ 打印 SKIPPED + exit 0」。
+import { tryAcquireSingleInstance } from './git-lock.mjs'
 
 const GIT = process.env.IHUI_GIT_BIN || 'git'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
+
+// G-262:锁随被保护的资源走 —— 落点在备份 gitdir 顶层(与 refs-manifest.json 同层,
+// 宿主清理层只删 depth≥2 的嵌套目录,顶层文件/目录幸存,§5b 同一机制)。
+const REFRESH_LOCK_UNIT = 'git-backup-refresh'
+const REFRESH_LOCK_SUBPATH = 'ihui-backup-refresh.lock'
 
 const args = process.argv.slice(2)
 const CHECK_ONLY = args.includes('--check')
@@ -548,6 +557,50 @@ async function selfTest() {
 
 async function main() {
   if (SELF_TEST) return selfTest()
+
+  // ── G-262 单实例守卫(只管"会真 fetch"的 apply 路径)──────────────────────────
+  // 实测 2026-09-27:守护每 2 分钟跑一次 `--check`,判落后才 apply;而一次全 ref 的增量
+  // fetch 明显跑不完 2 分钟 ⇒ **每个 tick 再叠一发** —— 当轮量到 26 个互不相同父进程各对
+  // 同一备份库开 fetch(其中一半还带着自己的 pack-objects 子进程)。
+  // 语义是「后到的直接跳过并说明原因」,**不是排队**:少刷一轮不是故障(AGENTS §1 归档
+  // 大批量阀门 / 水印 200 缺口阀同一条 —— 自动档少做一件事不是错误),叠八轮才是故障。
+  // 退出码必须 0:调用链里有 `|| true` 型吞错,但一个恒非零支会连带弄崩别的自愈步骤,
+  // 还会变成"下一轮人人跳门"的噪音源。
+  // 为什么守卫放被调方而不是调用方:调用方 scripts/git-guardian.mjs 此刻由他人持有(在飞),
+  // 不可改;且挂点会变(计划任务/守护 tick/人工手跑)——守卫只有坐在被直接调用的这一层,
+  // 才谁都绕不过去。
+  // --check / --dry-run 不挂:check 的"零副作用"是它每轮早退的前提(镜像 T15 钉死)。
+  let guard = null
+  if (!CHECK_ONLY && !DRY_RUN) {
+    const bk = resolveBackupDir(resolveWorktree())
+    if (bk && existsSync(join(bk, 'HEAD'))) {
+      guard = tryAcquireSingleInstance({
+        dir: join(bk, REFRESH_LOCK_SUBPATH),
+        unitId: REFRESH_LOCK_UNIT,
+        log: say,
+      })
+      if (!guard.acquired) {
+        say(`SKIPPED 本轮不刷新本地恢复源:${guard.why}`)
+        say('SKIPPED 不是故障:下一个 tick 会重新起跑(§5b 恢复源的账不会因跳过而丢,落后判据仍会被下一次 --check 量出来)')
+        return 0
+      }
+    }
+  }
+  try {
+    return await runOnce()
+  } finally {
+    if (guard && guard.release) {
+      try {
+        guard.release()
+      } catch {
+        /* 释放失败不改本轮结论:残留锁按"pid 已死 ∧ 超龄"回收,不秒删 */
+      }
+    }
+  }
+}
+
+/** 原有主体:一次刷新 + 按其结论给退出码(从 main 拆出仅为让守卫能包住它) */
+async function runOnce() {
   const r = refreshBackup()
   const short = (s) => (s ? String(s).slice(0, 9) : '(无)')
   if (r.error) {
