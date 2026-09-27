@@ -58,7 +58,7 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-export const SKIP_ENV_NAME = 'HUSKY_SKIP_V3_62_CONVERSATION_MOUNT'
+export const SKIP_ENV_NAME = 'HUSKY_SKIP_V362_CONV_MOUNT'
 
 /** 证据面:只认端内生产代码里的装载证据(packages/ 里若将来复用同样算,故一起收)。 */
 const EVIDENCE_ROOTS = ['apps/', 'packages/']
@@ -74,22 +74,35 @@ const SELF_EXEMPT_BASENAMES = ['check-v3-62-conversation-mount.mjs']
  * W1 登记出口符号表。`symbol` 是必须被**别处**用上的标识符,`ownFile` 是它的定义文件
  * (定义文件自身出现该名字不算装车)。新增登记须同时新增消费点 —— 否则 W1 当场红,
  * 这正是本门存在的理由。
+ *
+ * `lane` 不是装饰:本门的立论是"web 侧栏的装载点",而镜像测试里那些"拿真实侧栏源码
+ * 逐字判"的用例(T3/T3b/T4)只在 lane='ui' 上成立 —— 服务侧出口的装载证据在 Python 文件里,
+ * 拿侧栏文本去判它会**恒红**。分道之后两条腿各自有真源码可判,不得合并成一条宽松判据。
  */
 export const MOUNT_EXITS = [
   {
+    lane: 'ui',
     symbol: 'filterConversationsByKeyword',
     ownFile: 'apps/web/src/components/sidebar-chat-history.tsx',
     why: 'V3 #62 判据 1:侧栏搜索的过滤出口(标题/文件夹/标签三面匹配)',
   },
   {
+    lane: 'ui',
     symbol: 'useConversationSelection',
     ownFile: 'apps/web/src/components/sidebar/use-conversation-selection.ts',
     why: 'V3 #62 判据 2:批量选择选中集的唯一持有者',
   },
   {
+    lane: 'ui',
     symbol: 'ConversationBatchBar',
     ownFile: 'apps/web/src/components/sidebar/conversation-batch-bar.tsx',
     why: 'V3 #62 判据 2:批量动作条(不持选中集,只读 props)',
+  },
+  {
+    lane: 'service',
+    symbol: 'build_form_request_frame',
+    ownFile: 'apps/ai-service/app/services/mcp_server.py',
+    why: 'V3 #63:下行 form_request 帧的唯一组帧权威。生产点在 llm.py 工具循环的 request_business_form 拦截位 —— 谁把那条生产者摘掉,本条即红(定义行不算装车,Python 的 `def` 支已配正反自检)',
   },
 ]
 
@@ -115,7 +128,7 @@ export const MOUNT_EXITS = [
  * `foo(` —— 自检 A3 就是拿这个形态把第一版判据咬红的(串里写 `filterConversationsByKeyword(`
  * 会被当成调用点)。两层遮罩方向不同、不得混用:W2 找 import 说明符**必须**看得见字符串。
  */
-export function maskNoise(text, { keepStrings = true } = {}) {
+export function maskNoise(text, { keepStrings = true, hashLineComments = false } = {}) {
   const out = []
   let state = 'code' // code | line | block | sq | dq | tpl
   let i = 0
@@ -123,6 +136,14 @@ export function maskNoise(text, { keepStrings = true } = {}) {
     const c = text[i]
     const next = text[i + 1]
     if (state === 'code') {
+      // Python 的行注释是 `#`。少了这一档,把服务侧调用点**注释掉**的变异在遮蔽层上
+      // 完全无效(遮罩照旧看得见那行) ⇒ "生产者被临时停掉"这一格无人喊。
+      if (hashLineComments && c === '#') {
+        state = 'line'
+        out.push(' ') // `#` 只有一个字符,推两格会让遮蔽面与原文列错位(行号仍对齐)
+        i += 1
+        continue
+      }
       if (c === '/' && next === '/') {
         state = 'line'
         out.push(' ', ' ')
@@ -288,6 +309,10 @@ export function isDeclarationLine(line, symbol) {
     return true
   // 再导出行(export { A } from './x' / export default A)是"名字在场",不是"被调用"
   if (new RegExp(`^export\\s+(default\\s+)?\\{[^}]*\\b${esc}\\b`).test(t)) return true
+  // Python 的 def / async def 与 class 同属"定义在场"。本门的证据面含 ai-service 的 .py,
+  // 少了这一支,登记一个 Python 出口会被**它自己的定义行**判成已装车 ⇒ 这条判据恒绿,
+  // 而"生产者被摘掉"恰恰是它唯一要抓的事(2026-09-27 加,随 V3 #63 的组帧出口登记)。
+  if (new RegExp(`^(?:async\\s+)?def\\s+${esc}\\b`).test(t)) return true
   return false
 }
 
@@ -330,8 +355,9 @@ export function collectEvidence(root, face, patterns) {
         `${FACE_LABEL[face] ?? face} 取到候选 ${rel} 的内容失败 —— 清单与内容不同轮 ⇒ 不猜`,
       )
     }
-    loose.set(rel, maskNoise(raw))
-    strict.set(rel, maskNoise(raw, { keepStrings: false }))
+    const py = /\.py$/.test(rel)
+    loose.set(rel, maskNoise(raw, { hashLineComments: py }))
+    strict.set(rel, maskNoise(raw, { keepStrings: false, hashLineComments: py }))
   }
   return { candidates, loose, strict }
 }
@@ -432,6 +458,21 @@ function baseOf(rel) {
 }
 
 /**
+ * 单文件在面存在性(不做扩展名筛)。W0 用它而不是 listFilesUnder —— 后者的 `.tsx?$` 过滤
+ * 是给侧栏枚举用的,拿它问"这个 .py 实现还在不在"会**恒答不在**,于是登记一个服务侧
+ * 出口就等于给本门装一台自伤红门(A1 第一次跑就是这样红的)。
+ */
+function filePresentOnFace(root, face, file) {
+  const args =
+    face === 'head'
+      ? ['ls-tree', '-r', '--name-only', 'HEAD', '--', file]
+      : face === 'staged'
+        ? ['ls-files', '--', file]
+        : ['ls-files', '--', file]
+  return normLines(gitRaw(args, root)).includes(file)
+}
+
+/**
  * W0:登记表自身的时效性 —— 每个登记出口的 `ownFile` 必须在被审面上存在。
  * 这条在**任何面**都有牙(包括默认 HEAD 档):实现被删或被改名而台账还写着它,
  * 是最安静的腐烂 —— W1 会因为"取不到候选内容"判无法判定或直接看不见,只有 W0 能点名。
@@ -439,8 +480,7 @@ function baseOf(rel) {
 export function checkRegistryFreshness(root, face) {
   const missing = []
   for (const exit of MOUNT_EXITS) {
-    const present = listFilesUnder(root, face, exit.ownFile).includes(exit.ownFile)
-    if (!present) missing.push(exit)
+    if (!filePresentOnFace(root, face, exit.ownFile)) missing.push(exit)
   }
   return { violations: missing, checked: MOUNT_EXITS.length }
 }
@@ -571,6 +611,9 @@ const FIX = {
   bar: `export function ConversationBatchBar(){return null}\nexport default ConversationBatchBar\n`,
   hook: `export function useConversationSelection(ids){return {selectionMode:false,selectedIds:new Set(ids)}}\n`,
   host: `import { ConversationBatchBar } from '@/components/sidebar/conversation-batch-bar'\nimport { useConversationSelection } from '@/components/sidebar/use-conversation-selection'\nimport { NAV } from '@/components/sidebar/nav-data'\nexport function filterConversationsByKeyword(items,q){return items.filter(i=>i.title.includes(q))}\nexport function Sidebar(){const s=useConversationSelection(NAV);const f=filterConversationsByKeyword([], '');return ConversationBatchBar()}\n`,
+  // Python 侧:只有 def 行 ⇒ 该符号**没有**装车点(W1 必须红);真装车点必须在别的文件。
+  frameDef: `def build_form_request_frame(*, request_id, kind, session_id, message_id):\n    return None\n`,
+  frameCall: `from app.services.mcp_server import build_form_request_frame\n\nframe = build_form_request_frame(request_id='frm_1', kind='x', session_id='s', message_id=None)\n`,
 }
 
 function writeFiles(root, map) {
@@ -608,6 +651,10 @@ export async function runSelfTest() {
     // 而在它新增的那一面上必须判红(A5)—— 两头都不对就说明棘轮没牙或造了恒红门。
     [SIDEBAR_DIR + 'Orphan.tsx']: `export const O=1\n`,
     'apps/web/src/components/sidebar-chat-history.tsx': FIX.host,
+    // service 车道:定义文件只含 `def`(定义行**不得**被算成装车),调用点在另一个文件。
+    // 这一对是"Python 支有没有牙"的最小结构 —— 少了它,登记服务侧出口会被自己的 def 喂绿。
+    'apps/ai-service/app/services/mcp_server.py': FIX.frameDef,
+    'apps/ai-service/app/routers/llm.py': FIX.frameCall,
   })
   const w1Reds = (r) => r.lines.filter((l) => l.includes('W1'))
   const w2Reds = (r) => r.lines.filter((l) => l.includes('W2'))
@@ -642,6 +689,24 @@ export async function runSelfTest() {
     ok(
       'A2b 反面:符号只剩自己的定义行 ⇒ 同样判红(定义行不得给孤儿发合格证)',
       red2.some((l) => l.includes('filterConversationsByKeyword')),
+    )
+
+    // A6 反面(service 车道):把 llm.py 那条生产者删掉,只留 mcp_server.py 的 `def` ⇒
+    // W1 必须点名组帧出口。**这一条是本次登记的全部理由**:Python 的 def 行若被算成装车点,
+    // 本门对"生产者被摘掉"就是恒绿的(镜像 T3c 另判"def 不是调用点"这条词法事实)。
+    const noProducer = good()
+    delete noProducer['apps/ai-service/app/routers/llm.py']
+    const rsvc = makeFixtureRepo('no-producer', noProducer)
+    dirs.push(rsvc)
+    const redSvc = w1Reds(runCheck({ root: rsvc, face: 'head', strict: false }))
+    ok(
+      'A6 反面:摘掉服务侧生产者调用点 ⇒ W1 点名 build_form_request_frame(而不是被自己的 def 喂绿)',
+      redSvc.some((l) => l.includes('build_form_request_frame')),
+      redSvc.join(' | '),
+    )
+    ok(
+      'A6b 正例:生产者在场时同一条判据必须为绿(证明 A6 红的是缺失,不是判据恒红)',
+      w1Reds(g1).every((l) => !l.includes('build_form_request_frame')),
     )
 
     // A3 纯文本提及(串里)不算调用点 —— 靠"必须跟 ( 或 <"这条形状判据,不靠抹串
