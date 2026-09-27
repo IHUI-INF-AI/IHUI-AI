@@ -611,7 +611,7 @@ export default function RelayUsagePage() {
                         {num.format(e.calls)} · {money.format(e.costCents / 100)}
                       </span>
                     </div>
-                    <div className="mt-1 h-2 w-full overflow-hidden rounded-sm bg-muted">
+                    <div className="mt-1 h-2 w-full overflow-hidden rounded-xs bg-muted">
                       <div
                         className="h-2 bg-primary"
                         style={{ width: `${(e.calls / maxEndpointCalls) * 100}%` }}
