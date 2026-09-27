@@ -306,6 +306,32 @@ describe('滚动权归用户意图(行为变更登记:已解除跟随时,新消�
     expect(h.result().userScrolledUp, '自己产生的位移不构成用户意图').toBe(false)
     expect(h.geometry.scrollTop).toBe(CONTENT_HEIGHT + 600 - VIEWPORT_HEIGHT)
   })
+
+  it('4b. 上滚后立刻点「跳到最新」,其后的动画帧不得被上一条用户凭据反噬(G-252 验收抓到的真缺陷)', () => {
+    // 真实 Chromium 里量出来的失败形态:流式中上滚 → 400ms 内点按钮 → 平滑动画派发的
+    // scroll 事件撞上还没过期的 `awayFromBottom` 凭据,而判序是"用户凭据优先于程序化窗口"
+    // (`scroll-authority.ts` 的 `resolveScrollEventSource`)⇒ 动画第一帧就把 following
+    // 再解除一次,列表停在距底 244–366px 且**永不再跟随**(用户症状:「点了没反应、
+    // 按钮又冒出来」)。间隔 >400ms 点则正常 —— 正是 TTL 的形状。
+    const h = mountHarness(makeMessages(2), { isStreaming: true })
+    // 换掉夹具默认桩:它把动画事件**同步**打在处理器内部,于是处理器末尾那次
+    // `applyAuthority({ following: true })` 会把它们全部吞掉 —— 这一型在 jsdom 里"通过"
+    // 而真浏览器里必挂,因为浏览器的平滑滚动事件是在点击处理器**返回之后**才派发。
+    vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => undefined)
+    h.dispatchScroll()
+    h.wheel(-300)
+    h.geometry.scrollTop = 400
+    h.dispatchScroll()
+    expect(h.result().userScrolledUp, '前置条件:用户上翻应已解除跟随').toBe(true)
+
+    act(() => h.result().scrollToBottom())
+    expect(h.result().userScrolledUp, '点完按钮当下应已把滚动权交回跟随').toBe(false)
+
+    // 动画的第一帧:位移向下、还没到底。上一条凭据若没作废,这一帧就把滚动权夺回去。
+    h.geometry.scrollTop = 500
+    h.dispatchScroll()
+    expect(h.result().userScrolledUp, '动画中间帧不得被上一条上翻凭据读成用户意图').toBe(false)
+  })
 })
 
 describe('测量保留与前插锚点', () => {

@@ -1335,7 +1335,7 @@ async def detect_login_from_cdp_session(
                 "error": f"不支持的平台: {platform}"}
 
     from .browser_hub import hub
-    session = hub.get_session(session_id)
+    session = hub.get_session(session_id, user_id)
     if not session:
         return {"detected": False, "cookies_count": 0, "account_id": None,
                 "error": "浏览器会话不存在或已关闭"}
