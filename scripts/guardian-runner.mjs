@@ -3876,6 +3876,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 状态词汇对账(1 项,blocking)---
+  {
+    id: '151',
+    label:
+      '子智能体/后台任务状态词汇跨语言与端内抄本对账(六档是落库/REST/SSE 三重对外契约)',
+    script: 'check-agent-status-vocabulary-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_STATUS_VOCABULARY_PARITY',
+    stagedTriggers: ['packages/types/src/', 'apps/ai-service/app/services/', 'apps/web/src/components/'],
+    onFailHint: [
+      '',
+      '成员集合的单一真相源 = packages/types/src/agent-runtime.ts 的 AGENT_TASK_STATUSES\\n端内一律 import 它(或由它派生);Python 侧改 KANBAN_TASK_STATUSES + Literal 两处同笔\\n六档值是对外契约:不得改名、不得删成员、不得为变绿放宽判据、不得写豁免清单消账\\n新增一档必须同枚提交补齐 agents.kanban.* 五语言(AGENTS §30)\\n判不出 ⇒ exit 2 报无法判定,不冒红也不记绿',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
