@@ -613,6 +613,7 @@ class HookEngine:
         duration_max: int | None = None,
         since: str | None = None,
         until: str | None = None,
+        owner_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """列出日志(支持多维过滤:event/success/duration/时间范围)。
 
@@ -625,10 +626,21 @@ class HookEngine:
             duration_max: 耗时上限(ms,含)
             since: 起始时间(ISO 字符串比较,含)
             until: 截止时间(ISO 字符串比较,含)
+            owner_id: 归属过滤(None = 管理员/系统级不过滤;非 None 只回该主体名下 Hook
+                的日志)。`GET /hooks/logs` 的全量档必须传它,否则等于把全站执行日志
+                (含 url/command 上下文与失败原因)端给任何已登录用户。
         """
         logs = self._logs
         if hook_id:
             logs = [l for l in logs if l["hookId"] == hook_id]
+        if owner_id is not None:
+            # 归属过滤(批 63 / G-258 A 组):`GET /hooks/logs` 的全量档过去把**全站**Hook
+            # 的执行日志(含 url/command 上下文与失败原因)端给任何已登录用户。约定与本
+            # 模块其它 owner 过滤同形(`list_hooks:528`):None = 管理员/系统级,不过滤。
+            # 副作用如实登记:hook 被删后其日志不再出现在任何人的列表里(那批行已无属主
+            # 可对账)—— 与 get_hook 的 404 同一条口径,宁可少给不可多给。
+            owned = {h["id"] for h in self._hooks.values() if h.get("owner_id") == owner_id}
+            logs = [l for l in logs if l["hookId"] in owned]
         if event:
             logs = [l for l in logs if l.get("event") == event]
         if success is not None:
@@ -1688,9 +1700,13 @@ class HookEngine:
         return result
 
     async def instantiate_template(
-        self, template_id: str, overrides: dict[str, Any]
+        self, template_id: str, overrides: dict[str, Any], owner_id: str | None = None
     ) -> dict[str, Any]:
-        """用模板创建 hook(overrides 覆盖 url/command 等)。"""
+        """用模板创建 hook(overrides 覆盖 url/command 等)。
+
+        `owner_id` 必须传:模板造出来的 hook 与手建的是同一种资源,过去统一落成
+        `owner_id=None`(系统级)⇒ 对所有用户生效且谁都能管(批 63 / G-258)。
+        """
         tmpl = HOOK_TEMPLATES.get(template_id)
         if tmpl is None:
             return {"error": f"模板不存在: {template_id}"}
@@ -1712,7 +1728,7 @@ class HookEngine:
         if "config" in overrides and isinstance(overrides["config"], dict):
             payload.setdefault("action", {}).setdefault("config", {}).update(overrides["config"])
         # 创建 hook
-        return self.create_hook(payload)
+        return self.create_hook(payload, owner_id=owner_id)
 
     # ===== 5. 健康预测 =====
 
