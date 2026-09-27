@@ -1289,6 +1289,46 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [], aliase
     text[need[i]] = t
   }
   /**
+   * 组件**自己 import 的本地样式表**并入同一轮读数。不并的后果是实测到的:
+   * 6 个小程序配对组件把盒档写在同名 `.css` 里,配对源只有 `.tsx` ⇒ 读成
+   * "RN 有 11 档、小程序 0 档"的**测量假象**(与 §4 记过的"CSS 声明形态整面隐身"同一条洞)。
+   * 只跟相对路径 import 的 `.css/.scss/.less`,不做全局 CSS 扫描 —— 把别处的档算到这个组件
+   * 头上比漏读更糟。取不到的 ⇒ 并进未判定点名,不得静默当"这一侧没有档"。
+   */
+  const styles = {}
+  const cssRefs = new Map()
+  for (const f of need) {
+    const refs = [
+      ...text[f].matchAll(/(?:^|\n)\s*import\s+['"](\.[^'"]+\.(?:css|scss|less))['"]/g),
+    ].map((m) => resolveRel(f, m[1]))
+    if (refs.length) cssRefs.set(f, [...new Set(refs)])
+  }
+  if (cssRefs.size) {
+    const all = [...new Set([...cssRefs.values()].flat())]
+    const pre = face === 'staged' ? ':' : 'HEAD:'
+    const got2 = catBatch(
+      repoRoot,
+      all.map((rel) => pre + rel),
+      { maxBuffer: 1 << 28 },
+    )
+    for (const [f, rels] of cssRefs) {
+      const parts = []
+      for (const rel of rels) {
+        const t = got2.get(pre + rel)
+        if (t === null || t === undefined) {
+          undeterminedEdges.push({
+            from: f,
+            spec: rel,
+            reason: `${FACE_TXT[face]}取不到伴生样式表`,
+          })
+          continue
+        }
+        parts.push(t)
+      }
+      if (parts.length) styles[f] = parts.join('\n')
+    }
+  }
+  /**
    * 具名档表与组件正文**同面同轮**取:清单来自被审面,内容也来自被审面。
    * 取不到任何一份 ⇒ Undetermined。空表不等于"没有单源档",那是一台瞎了的尺子 ——
    * 正因如此,枚举到 0 个 spec 文件也判死(不得把"表空"读成"两端都没用单源,所以差异为 0")。
@@ -1355,6 +1395,7 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [], aliase
     rejected: rejectedHits,
     unreachableLegs: unreachable,
     undeterminedEdges,
+    styles,
     coverageNote,
     fallbacks,
   }
@@ -1381,14 +1422,34 @@ export function waiverProblem(w) {
   return null
 }
 
-export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null) {
+/** 相对说明符 → 仓库相对路径(只处理 `./` 与 `../`,不碰别名 —— 样式文件不该走别名)。 */
+export function resolveRel(fromFile, spec) {
+  const segs = fromFile.split('/').slice(0, -1)
+  for (const part of spec.split('/')) {
+    if (part === '.' || part === '') continue
+    if (part === '..') segs.pop()
+    else segs.push(part)
+  }
+  return segs.join('/')
+}
+
+export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null, styles = {}) {
   const findings = []
   for (const p of pairs.pairs) {
     const a = text[p.miniapp]
     const b = text[p.rn]
     if (a === undefined || b === undefined) continue
-    const ga = readGeometry(a, 'miniapp', tiers)
-    const gb = readGeometry(b, 'rn', tiers)
+    /**
+     * 几何与圆角读的是**组件自己 + 它 import 的本地样式表**;IC / SL 仍只读组件源文本。
+     * 不并样式表的后果实测过:小程序端把盒档写在同名 `.css` 里(6 个组件如此),
+     * 配对源只有 `.tsx` ⇒ 读成"RN 有 11 档、小程序 0 档"的**测量假象**,
+     * 与 §4 记过的"CSS 声明形态整面隐身"是同一条洞。分开喂是因为 IC 判的是图标载体,
+     * 把样式表里的 `url(...)` 混进来会改动那条维的既有口径(要扩也得单独一笔)。
+     */
+    const aAll = a + (styles[p.miniapp] ?? '')
+    const bAll = b + (styles[p.rn] ?? '')
+    const ga = readGeometry(aAll, 'miniapp', tiers)
+    const gb = readGeometry(bAll, 'rn', tiers)
     const named = namedConflicts(ga.named, gb.named)
     const geometry = diffValues(ga.values, gb.values)
     /**
@@ -1580,7 +1641,14 @@ export function main(argv, repoRoot = ROOT) {
     }
     throw e
   }
-  const res = audit(collected.pairs, collected.text, baseline, collected.tiers, collected.radius)
+  const res = audit(
+    collected.pairs,
+    collected.text,
+    baseline,
+    collected.tiers,
+    collected.radius,
+    collected.styles ?? {},
+  )
   if (argv.includes('--emit-baseline')) {
     console.log(JSON.stringify(emitBaseline(res.findings, baseline), null, 2))
     /**
@@ -1637,6 +1705,18 @@ export function main(argv, repoRoot = ROOT) {
     )
     for (const o of off) console.log(`  ⊘ ${o.name} —— ${o.reason}`)
     if (collected.coverageNote) console.log(`  ⚠ ${collected.coverageNote}`)
+    /**
+     * 读数口径必须自己报出来:合并了伴生样式表的那一侧,与只读组件源文本的那一侧,
+     * 拿到的档数不在同一口径上。不写这一行,"小程序 0 档 / RN 11 档"就会被读成"小程序没做",
+     * 而它可能只是尺子没跟到 `.css`(2026-09-27 实测:6 个小程序组件把盒档写在同名 CSS 里)。
+     */
+    console.log(
+      `  ⓘ 读数口径:几何 = 组件源文本 + 该文件自己 import 的本地样式表(本轮并入 ` +
+        `${Object.keys(collected.styles ?? {}).length} 份);` +
+        `圆角 / 图标载体 / 单侧档仍只看组件源文本` +
+        `(RD 锚点由另一路会话按该口径钉着,同笔抬它的读数 = 把别人钉的锚顶成新增红)。` +
+        `取不到的样式文件计未判定,不当"该侧无档"`,
+    )
     /**
      * **配对射程必须自己报数**。本门只比"同名成文件"的元素:一端把某个控件写成组件文件、
      * 另一端把它内联在别的组件里(RN 的发送钮就是 `BottomActionBar.tsx` 里的内联 `<Send/>`,
@@ -2946,6 +3026,55 @@ function runSelfTest() {
         (src.match(/collect\(repoRoot, 'head', \{ pairAll, aliases \}\)/g) ?? []).length === 2 &&
         /if \(aliasRed\) return 1/.test(src) &&
         /aliasPairs: \(collected\.pairs\?\.pairs \?\? \[\]\)/.test(src)
+      )
+    })(),
+  )
+  t(
+    '㉅ 伴生样式表必须参与几何/圆角读数:同一对文件,喂 styles 与不喂结论必须不同' +
+      '(不喂 ⇒ "小程序 0 档 / RN 11 档"这种测量假象,与 §4 的 CSS 整面隐身同型)',
+    (() => {
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      const texts = {
+        'a/Foo.tsx': 'export default function Foo(){return null}\n',
+        'b/Foo.tsx': 'width: 32\n',
+      }
+      const blind = audit(p, texts, {})
+      // 128rpx 归一 = 64px,与 RN 侧 32 不同档(64rpx 会正好等于 32,那是同值不是漏读)
+      const withCss = audit(p, texts, {}, {}, null, { 'a/Foo.tsx': '.foo{width: 128rpx}\n' })
+      const gBlind = blind.findings[0].geometry
+      const gCss = withCss.findings[0].geometry
+      return (
+        gBlind.onlyMiniapp.length === 0 &&
+        gBlind.onlyRn.join() === '32' &&
+        gCss.onlyMiniapp.join() === '64' &&
+        gCss.onlyRn.join() === '32'
+      )
+    })(),
+  )
+  t(
+    '㉆ resolveRel 只处理 ./ 与 ../,并按被审面拼仓库相对路径(带别名的说明符不跟 —— 样式文件不该走别名)',
+    (() =>
+      resolveRel('apps/miniapp-taro/src/components/CategoryBar.tsx', './CategoryBar.css') ===
+        'apps/miniapp-taro/src/components/CategoryBar.css' &&
+      resolveRel('packages/app/src/components/a/X.tsx', '../b/Y.scss') ===
+        'packages/app/src/components/b/Y.scss')(),
+  )
+  t(
+    '㉇ 装车锁:collect 必须真的读伴生样式表并 return styles,main 必须把它喂进 audit 且把口径打印出来' +
+      '(样式在、判据没跟 = 整族隐身而账面全绿)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      const mainBody = src.slice(
+        src.indexOf('function main('),
+        src.indexOf('function runSelfTest('),
+      )
+      return (
+        /const styles = \{\}/.test(src) &&
+        /styles\[f\] = parts\.join\('\\n'\)/.test(src) &&
+        /^    styles,$/m.test(src) &&
+        /collected\.styles \?\? \{\}/.test(mainBody) &&
+        /读数口径/.test(mainBody) &&
+        /取不到伴生样式表/.test(src)
       )
     })(),
   )
