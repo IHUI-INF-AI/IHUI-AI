@@ -246,7 +246,7 @@ export function ArtifactTurnBadge({ turn, messageId, className }: ArtifactTurnBa
       aria-label={t('jumpToOrigin')}
       onClick={() => jumpToMessageOrigin(messageId)}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+        'inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
         className,
       )}
     >
@@ -271,7 +271,7 @@ export function ArtifactKindBadge({ nameOrPath, className }: ArtifactKindBadgePr
       data-testid="artifact-kind-badge"
       data-kind={kind}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-full bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground',
+        'inline-flex shrink-0 items-center gap-1 rounded-md bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground',
         className,
       )}
     >
