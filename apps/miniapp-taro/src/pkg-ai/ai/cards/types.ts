@@ -9,7 +9,7 @@
  * 以便 ChatMessage(api/index.ts)以纯类型方式引用,避免反向依赖 ai-cards.tsx 的 React/Taro 运行时。
  */
 import type { ToolCall } from '@ihui/types/chat'
-import type { TerminalDeltaEvent, ToolCallEvent } from '@ihui/api-client'
+import type { TerminalDeltaEvent, ToolCallEvent, ToolDeltaEvent } from '@ihui/api-client'
 import type { PlanStepStatus } from '@ihui/types'
 
 export type { ToolCallEvent } from '@ihui/api-client'
@@ -44,6 +44,12 @@ export interface ToolCallView {
   result?: unknown
   /** 本地计时的起点时间戳(tool-call-start 到达时刻),tool-result 时折算为 durationMs */
   startedAt?: number
+  /**
+   * D113:工具流中 diff 预览(tool-delta 帧的累积文本,整帧覆盖写入)。
+   * 只在 running 态渲染;tool-result 到达即清(最终 diff 以 result 为准)。不入库。
+   * 语义与 web 的 ToolCall.partialDiff、RN 的 ToolCallItem.partialDiff 同形。
+   */
+  partialDiff?: string
 }
 
 /** 端内状态词汇 → 共享层状态词汇(done 即 success),全端同一口径由 @ihui/shared/chat 消费 */
@@ -70,6 +76,59 @@ export function toSharedToolCalls(calls: readonly ToolCallView[]): ToolCall[] {
     isError: call.isError,
     durationMs: call.durationMs,
   }))
+}
+
+/**
+ * D113:tool-call-start 帧归并(纯函数,chat.tsx 消费)。
+ *
+ * 抽成纯函数的唯一理由是**这一条语义此前只有本端是错的**:重复 start 帧必须**保留**已有的
+ * 流中预览。web 的 `addToolCall` 对已存在同 id 的条目直接 `return s`(stores/chat.ts:950),
+ * RN 的 `applyToolCallEvent` 在 start 分支写 `partialDiff: current?.partialDiff`;
+ * 本端此前是 `filter + append`,重放一次就把用户正在看的预览抹成空 —— 三端里唯一的反例。
+ * `serverName` 的 `?? serverId` 回落是 D83 措辞层口径,原样保留在调用方传入的值里。
+ */
+export function applyToolCallStart(
+  calls: readonly ToolCallView[],
+  evt: {
+    toolCallId: string
+    toolName: string
+    serverSource?: ToolCallEvent['serverSource']
+    serverName?: string
+    args?: Record<string, unknown>
+  },
+  startedAt: number,
+): ToolCallView[] {
+  const prev = calls.find((x) => x.id === evt.toolCallId)
+  return [
+    ...calls.filter((x) => x.id !== evt.toolCallId),
+    {
+      id: evt.toolCallId,
+      name: evt.toolName,
+      status: 'running',
+      serverSource: evt.serverSource,
+      serverName: evt.serverName,
+      args: evt.args,
+      partialDiff: prev?.partialDiff,
+      startedAt,
+    },
+  ]
+}
+
+/**
+ * D113(本票):tool-delta 帧归并进工具卡(纯函数,chat.tsx 消费)。
+ *
+ * 载荷 partialText 是**累积文本**,按 toolCallId 覆盖式写入 partialDiff —— 同 seq 重放 /
+ * 乱序天然幂等(seq 不参与判断),与 web createToolDeltaHandler、RN applyToolDelta 同一口径。
+ * - 空 toolCallId → 整帧丢弃,零写入
+ * - 列表里没有该 toolCallId(start 帧未到)→ 不凭空造条目,原样返回
+ */
+export function applyToolDelta(
+  calls: readonly ToolCallView[],
+  evt: Pick<ToolDeltaEvent, 'toolCallId' | 'partialText'>,
+): ToolCallView[] {
+  if (!evt.toolCallId) return [...calls]
+  if (!calls.some((x) => x.id === evt.toolCallId)) return [...calls]
+  return calls.map((x) => (x.id === evt.toolCallId ? { ...x, partialDiff: evt.partialText } : x))
 }
 
 /** 计划步骤卡片数据(由 PlanUpdateEvent.plan 快照映射) */
@@ -113,7 +172,10 @@ export function appendTerminalDelta(
   if (!evt.terminalId || !evt.text) return [...tasks]
   const idx = tasks.findIndex((x) => x.id === evt.terminalId)
   if (idx < 0) {
-    return [...tasks, { id: evt.terminalId, command: evt.command, status: 'running', output: evt.text }]
+    return [
+      ...tasks,
+      { id: evt.terminalId, command: evt.command, status: 'running', output: evt.text },
+    ]
   }
   const task = tasks[idx]
   if (!task || task.status !== 'running') return [...tasks]
