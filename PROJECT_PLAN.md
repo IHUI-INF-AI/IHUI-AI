@@ -12722,5 +12722,32 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   "prop 无生产调用点"接成一条真判据(不是披露),那是独立一票;
   ③ 全局样式表归因**我试了并撤了**:类名锚定实测既没抓到目标(类名藏在三元/变量里),
   又把别处的档算到组件头上,故改为点名"读数不完整"而不是猜归因。
+- [x] ✅(2026-09-27) O81 票⑭ —— **门 128 的"读数不完整"披露:让它真的会响、且只报真类名**。承票⑬"仍未收口②"。
+  要做的事很小(把"组件用了全局样式表里的类名"这件事报出来),但**三个坑全是本仓反复记的那几型**,值得单列:
+  **① 接线断在中段,而装车锁一路绿。**`blindClasses` 的定义处、`main` 的消费处、打印处三处都在,
+  唯独**没进 `collect` 的返回值** ⇒ 它一次都没触发。而第一版装车锁 grep 的是"这些字符串各自出现过没有",
+  于是它证明的是"两端存在"而不是"管子接通"。⇒ **装车锁必须判邻接形状**(现断言返回值里
+  `\n    styles,\n    blindClasses,\n` 这一段真的连着),不是判两个端点各被提过一次。
+  **② 会喊错的披露和没有披露一样没人信。**取属性值用的是定长 1200 字窗口,越过 JSX 属性边界把隔壁的
+  枚举值(`completed` / `read` / `check`)当类名捞走 ⇒ 报出 15 腿 / **140 个"类名"**,大半是假的。
+  现按**花括号配平**取属性值(同时保住跨行三元 `className={cn('a', x && 'textarea-int')}`;
+  早先"整属性到 }\n"的正则因 400 字上限 + 换行要求**一次都没落进**),并把报出的类名与
+  **全局样式表里真定义过的类名全集**求交(只扫小程序端,RN 走 StyleSheet 无这一型)⇒ 15/140 → **6 腿 / 45 名**,
+  逐条复核都是真类名(`ai-drawer-border` / `imgs-list-item-img` / `carousel-fallback` / `textarea-int` …)。
+  残留不精确如实登记:`max-w-md` / `min-w-0` / `line-clamp-1` 这类 utility 因全端确有同名规则也被算进来 ——
+  本维只报数不判红,所以它是噪音不是错误,**不去为让它好看而加白名单**(豁免清单必然腐烂)。
+  **③ 修判据的两处工具性教训**:(a) `usedClassNames` 的 Tailwind 前缀表**必须要求后接连字符或结尾**,
+  否则 `textarea-int` 被 `text` 前缀误杀 —— 而它正是最需要看见的那一类(`.textarea-int{height:80rpx}` 在 app.css:809);
+  (b) 我给这个大门文件打补丁时,`writeFileSync` 就地覆写撞 `errno -4094`(大文件截断写被挡),
+  必须走"临时件 + rename";而**重跑一个不幂等的补丁脚本会造出重复返回键**(`styles,` / `blindClasses,` 各两遍),
+  靠 `node --check` 查不出来(重复键合法),是 `grep -c` 逮到的。
+  **④ 一笔巨大 diff 的如实说明**:本枚提交在 `git show --stat` 里是 +1733/−2138,而功能改动只有几十行 ——
+  原因是上一版该文件被**不带本仓 prettier 配置的调用**格式化成了双引号,我这枚把它带回单引号。
+  内容等价(RE 维计数 10/17/7 与父提交逐项相同,自检 92/0、镜像 26/0、HEAD 面 exit 0 均复验),
+  但**风格翻转的噪音会加大并会碰撞面**,记下来是为了下次有人看到这种行数时先查引号而不是先怀疑丢功能。
+  另:本枚落地时 safe-commit 归因层量到"1 道失败门复跑后全部通过 ⇒ 红不在本次内容里",
+  随后按应急路径跳门 —— 归属证据留在 `.workbuddy/safe-commit-attestation.jsonl`。
+  **仍未收口**:全局样式表的**归因**(把 `.textarea-int{height:80rpx}` 算到 InputArea 头上)依然没做,
+  它的前置是解决"同名类多处定义"的归属判据;在那之前这一格是**已点名的盲区**,不是"已核对过一致"。
 
 - **第三十三批·发布线续 E（反风控那一族还剩的三维：落点接线 / 画像根 / 覆盖余料；另两条代理交付与一处邻居夹具，2026-09-27 午后）**:① **“有唯一出口”不等于“每个落点都接上了”** —— `get_adapter()` 生产面 6 个落点里只有 2 处注入 `db_account_id`，其余在 **`account_groups` 的批量发布与批量验证**（一次把全部 active 账号各换一张脸，比单账号更危险）与两条登录态导入路径的校验里（后者是我上午自己新引入的那格）；画像目录里现存的 `*_legacy-*` 就是这条链产出的。现全部补齐，并把“取到适配器后、消费身份键前必须出现 `db_account_id =`”写成源码面锁 `apps/ai-service/tests/test_adapter_identity_db_id_injected.py`（覆盖面按**出现次数**自证而非文件数；配对对照“注入后必绿 / 退回裸调用必红”）。同批把 `_existing_credentials_present`(只回 bool) 升级为 `_existing_account_row`(回行 id)：同一份 SQL 判据同时供“覆盖是否破坏性”与“该用哪个身份锚点”，**只查一次**（查两遍就是在两把尺子之间留竞态窗口）。`4a031694`。② **画像根本身也在漂**（身份锚点的第二维，`73308c6a`）：`_PROFILE_ROOT = Path(os.environ.get(..., ".ihui-agent/tmp/anti-profiles")).resolve()` 的相对默认值按**进程 cwd** 解析，而 `pnpm --filter @ihui/ai-service dev` 的 cwd 就是 `apps/ai-service` ⇒ 真画像 9 份（**每份都带 Chromium `Cookies`**）一直在 `apps/ai-service/.ihui-agent/tmp/anti-profiles`，仓库根那份是另一天从别处启动时长出来的副本。现解析规则收进纯函数 `resolve_profile_root()`（默认与相对值一律锚定仓库根、绝对值原样、空串归默认、导入期零副作用），配套搬迁器 `apps/ai-service/scripts/relocate_profile_root.py`（默认 dry-run；两边都有真实登录态 ⇒ **拒绝交人工**；单边有 ⇒ 另一边改名归档不删除；搬完回读 Cookies 字节与 mtime 未变且 `user_data_dir` 指向真实目录，不符即回退该项；`--self-test` 5 组构造面）。本轮按该判据实际搬迁 9 个键目录，源根已空；仓库根那枚 `juejin_db13` 探针副本按 `.probe-copy-20260927T1217` 归档留名可回退。**一条判据级教训**：Chromium 新版把 cookie 存在 `Default/Network/Cookies` 而非 `Default/Cookies` —— 我的第一版巡检脚本按后者判“无 Cookies”，把 9 份**带真实登录态**的画像读成空壳，差一步就把它们当垃圾删掉；同一型误判若发生在搬迁器里就是不可逆事故，故两形态都认并把它钉成自检一条。③ **覆盖余料扩到全部三写点**（`72434f50`）：上一枚只接了扫码导入，同型裸 UPDATE 还在 `cookie_refresh_daemon`（把轮换值写回凭证——正是用户症状里那个“刷新 token”动作）与前台 `PUT /publish/accounts/{id}`；现抽成唯一出口 `app/services/publish/credential_history.py`，源码面锁规定 `credentialsHistory` 字面量与 `credentials_enc=$` 写语句只许住在出口里、三个写点必须各有 `await apply_credentials_update(`，两条变异均真翻红。④ **CSDN 的“发布超时”改成可行动归因**（`a7243458`）：纯函数 `classify_publish_timeout(url, markers)`，URL 落在登录域或命中扫码标识 ⇒ 判登录墙并给出“重新扫码，这不是发文章功能坏了”的文案，判不出 ⇒ **逐字**退回原文案（绝不把真故障洗成登录墙）；采集器零新增等待、采集抛异常只停采集不上抛。⑤ **一处我自己造成的红**：代理 F 的掘金一手校准落地后，邻居夹具 `test_publish_adapters_group1.py::TestJuejinAdapter::test_publish_success` 一直红（它断言的还是“等 `/post/<id>` 跳转”这一被实测推翻的旧判据，且通用 mock 不给平铺分类列表的 `inner_text`/选中态 class/可见按钮全集）—— 我落地那一枚只跑了代理自带套件、没跑邻域回归，属我的取证缺口。现按实测契约补夹具并加反向锁“绝不再把 `/post/` 当成功证据”，**判据一字未放宽**；发布线 10 份套件合跑 **161 passed**、适配器全量邻域 205 passed。⑥ 仍不归代码的：CSDN 与小红书要人工重新登录（`12` 现 `active` 而 verify 已 FAIL，账面已按真实结论更正）、掘金探针留下的 3 篇私密草稿（只读枚举进行中，删除动作归用户）、其余 9 个平台缺开放平台凭据。
