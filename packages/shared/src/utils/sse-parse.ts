@@ -17,6 +17,8 @@ import type {
   RetryScheduledEvent,
   /** 终端实时输出增量(api-client 2026-09-18 立,本解析器 D19-A1 才接上) */
   TerminalDeltaEvent,
+  /** 文件写类工具流中 diff 预览(api-client 2026-09-27 立 D113,本解析器同批接上) */
+  ToolDeltaEvent,
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 
@@ -61,6 +63,12 @@ export interface SSEEvent {
     // 在下方兜底抽取链之前无人认领 ⇒ 曾被判成 chunk,把 stdout 混进聊天正文。
     // 本类型**只消污染**:跨端渲染接线属另一票(mobile-rn 注册 + 契约对账)。
     | 'terminal_delta'
+    // ===== D113(2026-09-27 立):文件写类工具流中 diff 预览帧 =====
+    // 后端 tool-delta 载荷是 {toolCallId, seq, partialText, truncated?} —— 既不带 content
+    // 也不带 delta/text,在本兜底抽取链之前无人认领,一路走到函数末尾 `return null`
+    // ⇒ **帧能到设备却被静默丢掉**(api-client 那条链 2026-09-27 已解析,小程序端因此
+    // 与 web/RN 不同源:工具跑完才看得到改了什么)。本变体只补这一格,渲染接线在端内票。
+    | 'tool-delta'
   content?: string
   sessionId?: string
   /** 错误码(对齐 @ihui/api-client SSEErrorInfo 字段) */
@@ -119,6 +127,8 @@ export interface SSEEvent {
   retryScheduled?: RetryScheduledEvent
   /** D19-A1 终端实时输出增量帧(terminal_delta):字段口径与 api-client tryParseTerminalDelta 一致 */
   terminalDelta?: TerminalDeltaEvent
+  /** D113 工具流中 diff 预览帧(tool-delta):字段口径与 api-client tryParseToolDelta 一致 */
+  toolDelta?: ToolDeltaEvent
 }
 
 function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
@@ -335,6 +345,25 @@ function parseLine(line: string): SSEEvent | null {
         ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
       }
       return { type: 'terminal_delta', terminalDelta: delta }
+    }
+    // ===== D113(2026-09-27 立):tool-delta 同样必须在兜底抽取链之前认领 =====
+    // 载荷 partialText 是**累积文本**(整帧替换渲染),若滑到下面的 content/delta/text 泛化
+    // 兜底就会被当成正文增量喷进气泡;而它的 type 又不在任何既有分支里,原状是走到末尾
+    // `return null` ⇒ 静默丢帧。两条失效方向都在这一次改掉:既不污染正文,也不悄悄消失。
+    // 字段收窄口径抄 @ihui/api-client client.ts 的 tryParseToolDelta(seq 非 number 归 0、
+    // truncated 仅 true 才带键),并额外要求 toolCallId / partialText **必须是 string**
+    // —— 校验不过一律**丢弃**,绝不回落 chunk(与 terminal_delta 同一条纪律)。
+    if (json?.type === 'tool-delta') {
+      const toolCallId = json.toolCallId
+      const partialText = json.partialText
+      if (typeof toolCallId !== 'string' || typeof partialText !== 'string') return null
+      const delta: ToolDeltaEvent = {
+        toolCallId,
+        seq: typeof json.seq === 'number' ? json.seq : 0,
+        partialText,
+        ...(json.truncated === true ? { truncated: true } : {}),
+      }
+      return { type: 'tool-delta', toolDelta: delta }
     }
     const choices = json?.choices as Array<Record<string, unknown>> | undefined
     const choice = choices?.[0]
