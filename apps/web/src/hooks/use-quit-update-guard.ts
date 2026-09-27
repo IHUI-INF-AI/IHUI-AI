@@ -9,7 +9,6 @@ import {
   isTauri,
   quitApp,
   quitAndUpdateIfNeeded,
-  renewQuitLease,
   type QuitUpdateStatus,
   type UpdateProgress,
 } from '@/lib/tauri-bridge'
@@ -69,10 +68,6 @@ export function useQuitUpdateGuard() {
         return
       }
       inFlightRef.current = true
-      // 接手了就先续租:Rust 侧默认 5s 到点强退,而"检查更新"最长 15s(见
-      // tauri-bridge 的 CHECK_UPDATE_TIMEOUT_MS)。不 await、不抛 —— 续不到租约
-      // 说明 IPC 本就不通,那种情况正该让 5s 兜底生效。
-      void renewQuitLease(30).catch(() => {})
       setState({ ...INITIAL_STATE, visible: true, status: 'checking' })
 
       void quitAndUpdateIfNeeded(
@@ -86,9 +81,6 @@ export function useQuitUpdateGuard() {
           }))
         },
         (status: QuitUpdateStatus) => {
-          // 进入下载 = 真的会花上几十秒,这一段必须由前端明确保住(上限 600s,
-          // 与 Rust 侧 QUIT_LEASE_MAX_SECS 同值;到点仍没装完就让它退,不无限续)。
-          if (status === 'downloading') void renewQuitLease(600).catch(() => {})
           setState((prev) => ({ ...prev, status }))
         },
       ).catch((e: unknown) => {
