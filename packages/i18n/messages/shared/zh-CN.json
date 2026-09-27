@@ -15,6 +15,7 @@
     "toolKnowledgeLookupActivity": "{state, select, running {正在查询知识库} completed {已查询知识库} other {查询知识库}}",
     "toolFetchUrlActivity": "{state, select, running {正在读取网页内容} completed {已读取网页内容} other {读取网页内容}}",
     "toolGenerateChartActivity": "{state, select, running {正在生成图表} completed {已生成图表} other {生成图表}}",
+    "toolGenerateReportActivity": "{state, select, running {正在生成报表} completed {已生成报表} other {生成报表}}",
     "toolBrowserNavigateActivity": "{state, select, running {正在打开网页} completed {已打开网页} other {打开网页}}",
     "toolBrowserClickElementActivity": "{state, select, running {正在点击网页元素} completed {已点击网页元素} other {点击网页元素}}",
     "toolBrowserTypeTextActivity": "{state, select, running {正在输入网页文本} completed {已输入网页文本} other {输入网页文本}}",
