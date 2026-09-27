@@ -18,7 +18,6 @@ import { CategoryDropdown } from '../../components/category/CategoryDropdown'
 import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
-import { BackChevron } from '../../components/BackChevron'
 
 /** 课程分类(共享层简化类型,对齐 @ihui/types CourseCategory) */
 export interface StudyCategory {
@@ -528,12 +527,19 @@ function VideoForm({
   )
 }
 
+/**
+ * 课程发布共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API)。
+ *
+ * 页头归属(2026-09-27,双层页头收敛,同 SettingsScreen 先例):本组件**不渲染内置页头/返回键**,
+ * 页头(标题 + 返回)由宿主 NavBar 提供 —— RN 端生产页(apps/mobile-rn/src/screens/StudyPublishScreen.tsx)
+ * 渲染 NavBar(标题按 mode 取「发布课程合集/发布视频」,比组件内写死一档更准)。此前组件自带
+ * BackChevron + 标题,与宿主 NavBar 同屏两条返回键两个标题(守门 145 DH2 判定型)。
+ * onBack 仍留在 props 契约中(可选成员),运行时不再消费。
+ */
 export function StudyPublishScreen({
-  t,
   colorScheme = 'light',
   mode,
   onModeChange,
-  onBack,
   groupTitle,
   groupContent,
   groupCategory,
@@ -570,12 +576,6 @@ export function StudyPublishScreen({
 
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
-        {onBack ? (
-          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        ) : null}
-        <Text style={styles.title}>{t('studyPublish.title') || '发布课程'}</Text>
-      </View>
       <View style={styles.tabRow}>
         {(['group', 'video'] as const).map((m) => {
           const active = mode === m
@@ -640,14 +640,6 @@ export function StudyPublishScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: tk.surface.bg },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
-    },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     tabRow: {
       flexDirection: 'row',
       paddingHorizontal: 10,
@@ -681,7 +673,7 @@ function createFieldStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.xl,
       height: 50,
       paddingHorizontal: 12,
       paddingVertical: 10,
