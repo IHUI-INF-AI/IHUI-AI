@@ -1549,9 +1549,6 @@
     "streak": "连续打卡(天)",
     "courseProgress": "课程进度"
   },
-  "studyPublish": {
-    "title": "发布课程"
-  },
   "studyRecord": {
     "title": "学习记录",
     "subtitle": "{name} 的学习记录",
