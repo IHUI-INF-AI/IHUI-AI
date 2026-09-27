@@ -104,7 +104,7 @@ COMMIT;
 -- }
 -- $env:PGPASSWORD = '<刚设的口令>'
 -- & "$pg\pg_dump.exe" -w -Fc -h localhost -p 8810 -U beifen -d ihui_dev `
---     --no-owner --no-privileges -f $scr
+--     --no-owner -f $scr    # 2026-09-27:去掉了 --no-privileges,否则 ACL 不进 dump
 -- Get-TocStat $scr                                                  # 新角色
 -- Get-TocStat (Get-ChildItem 'D:\DevEnv\backups\pg\ihui_dev_*.dump' |
 --     Sort-Object LastWriteTime -Descending | Select-Object -First 1)  # 超管对照
