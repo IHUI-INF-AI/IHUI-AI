@@ -198,3 +198,38 @@ test('T8 块级收口行为:逐字相同的第 2..N 份删得对,唯一份与漂
   if (verifyBlockDedupe(dup, '## 甲\n\n空', 3).length === 0) throw new Error('删掉唯一幸存份必须判失败')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T9 F4b 归并出口:无主键的逐字孪生行只加指针、不动勾选、不删行,措辞不得谎称"同主键"', () => {
+  const twin = '- [ ] **真机走查**:深色顶栏已修(commit 84583fdf6),剩观察期。'
+  const keyed = '- [ ] **D99 复合主键正例**:说明。'
+  const src = ['# 计划', twin, twin, keyed, keyed].join('\n')
+  const m = buildMerge(src, '2026-09-27')
+  const lines = m.text.split('\n')
+  if (lines.length !== 5) throw new Error(`归并不得删行(§1 禁止无声删除),行数 ${lines.length}`)
+  // 两条无主键孪生里必须恰好一条被标注,且保留未勾选状态
+  const marked = lines.filter((l) => /【归并】重复登记副本/.test(l))
+  if (marked.length !== 2) throw new Error(`两族孪生各标一条,实测 ${marked.length}`)
+  for (const l of marked) {
+    if (!/^- \[ \]/.test(l)) throw new Error(`副本行动了勾选状态:${l.slice(0, 40)}`)
+    if (l.includes('同主键的另一条登记在') && !l.includes('D99'))
+      throw new Error(`无主键行被写成"同主键"= 一句无法核验的假话:${l.slice(0, 60)}`)
+  }
+  if (!marked.some((l) => l.includes('逐字相同的另一条登记在')))
+    throw new Error('F4b 的措辞档没生效(说明 hasKey 分档在调用点丢了)')
+  // 幂等:第二次跑不得再加第二句
+  const again = buildMerge(m.text, '2026-09-28')
+  if (again.changed.length > 0)
+    throw new Error(`重复归并不得再加注记,实测改了 ${again.changed.length} 行`)
+})
+
+test('T10 落地调度锁:早退判据必须看见 F4b,结论数字必须回读落地的那枚提交', () => {
+  const src = readFileSync(path.resolve(ROOT, 'scripts', 'plan-tasks-merge.mjs'), 'utf8')
+  // 判据与出口都写好了、而落地档的早退只看 F4 ⇒ 报告"拟改写 15 行"却回一句"无状态分叉"什么都不做
+  // (2026-09-27 实测)。"有牙而无人调度"这一型只有源码锁能防,行为测试只会跟着一起绿。
+  const guard = /if \(!b0\.forks[^\n]*\)\s*\{/.exec(src)
+  if (!guard) throw new Error('找不到 healAndLand 的早退判据那一行(形态变了,本锁需同步)')
+  if (!/verbatimDupCopies/.test(guard[0]))
+    throw new Error(`早退判据没把 F4b 算进去 ⇒ 无主键孪生行永远修不掉:${guard[0].slice(0, 90)}`)
+  if (/F1\/F2\/F3\/F4 = 0\/0\/0\/0/.test(src))
+    throw new Error('落地结论写着死的 0/0/0/0,而不是回读落地那枚提交的现读数字')
+})
