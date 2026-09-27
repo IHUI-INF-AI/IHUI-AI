@@ -33,6 +33,8 @@ test('判据自测:夹具可解析 + A1–A10 十条正反对照(含 mine 必拒
 test('归因不得反向:同一文本在"点名本次文件"与"不点名"两种复跑结果下必须给出不同结论', () => {
   const { classifyHookFailure, SUMMARY, FAIL_29, MY_FILES } = __test__
   const text = SUMMARY + FAIL_29
+  // 存量基线:HEAD 面上这道门本来就红 ⇒ "未点名"才有资格判 not-ours(2026-09-27 差分改造)。
+  const stock = () => ({ ran: true, status: 1, output: 'HEAD 面同样红', why: null })
   const mine = classifyHookFailure({
     text,
     stagedFiles: MY_FILES,
@@ -42,10 +44,20 @@ test('归因不得反向:同一文本在"点名本次文件"与"不点名"两种
     text,
     stagedFiles: MY_FILES,
     runGate: () => ({ status: 1, output: 'y apps/web/src/other.tsx:1 违规' }),
+    runGateBaseline: stock,
   }).kind
   assert.equal(mine, 'mine')
   assert.equal(notMine, 'not-ours')
   assert.notEqual(mine, notMine, '两型必须可分 —— 同判一种就是判据失效')
+  // 第三臂(2026-09-27 新增):同一输入**不给基线面** ⇒ 既不是 mine 也不是 not-ours,
+  // 而是 undetermined-red。这一臂钉的是"未差分不得被写成已证明与本次无关"。
+  const noDelta = classifyHookFailure({
+    text,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: 'y apps/web/src/other.tsx:1 违规' }),
+  }).kind
+  assert.equal(noDelta, 'undetermined-red', '缺基线出口时必须落未差分档,不得默认存量')
+  assert.notEqual(noDelta, 'mine', '未差分也不得反过来把谁都判 mine(那会让人人跳门)')
 })
 
 test('装车证明:safe-commit 必须真的 import 并调用本判据', () => {
@@ -252,15 +264,39 @@ test('三支之二 · 自跑一个都没点名 ⇒ 可跳,但措辞只能说量�
   assert.match(line, /钩子内那一轮从未跑到批量检查/)
   assert.match(line, /不得把这行读成"守门没跑"/)
   // B) 批有红、但复跑未点名本次文件 ⇒ 仍是 not-ours(旧铰链的原样结论 + 来源标注)
+  //    2026-09-27 差分改造后,这一型要多一个"基线面同样红"的证据;缺它就落 undetermined-red。
   const otherRed = decideWithSelfRunBatch({
     verdict: stalledVerdict(),
     stagedFiles: MY_FILES,
     hookText: '❌ 🎨 运行 lint-staged...失败，提交已阻止',
     runBatch: () => ({ ran: true, status: 1, output: SUMMARY + FAIL_29, why: null }),
     runGate: () => ({ status: 1, output: '  ✗ apps/web/src/other.tsx:3 类型错误' }),
+    runGateBaseline: () => ({ ran: true, status: 1, output: 'HEAD 面同样红', why: null }),
   })
   assert.equal(otherRed.kind, 'not-ours')
   assert.match(otherRed.detail.join('\n'), /未点名本次任何文件/, '仍要如实记录"该门复跑仍红"')
+  // C) 自跑那一轮同样能差分:基线绿而我的面红 ⇒ mine(自跑支不得把差分丢掉)
+  const selfRunIntroduced = decideWithSelfRunBatch({
+    verdict: stalledVerdict(),
+    stagedFiles: MY_FILES,
+    hookText: '❌ 🎨 运行 lint-staged...失败，提交已阻止',
+    runBatch: () => ({ ran: true, status: 1, output: SUMMARY + FAIL_29, why: null }),
+    runGate: () => ({ status: 1, output: '[tool-name-coverage] ❌ 覆盖率 86/87\n  未映射工具名(1):probe_x' }),
+    runGateBaseline: () => ({ ran: true, status: 0, output: '✅ 87/87', why: null }),
+  })
+  assert.equal(selfRunIntroduced.kind, 'mine', '自跑支必须把差分结论透传,不得退回"未点名⇒可跳"')
+  assert.match(selfRunIntroduced.reason, /禁止 --no-verify/)
+  // D) 自跑拿到了门级结论但基线跑不出去 ⇒ 保留 undetermined-red(既不是 unattributed 也不是 not-ours)
+  const selfRunNoDelta = decideWithSelfRunBatch({
+    verdict: stalledVerdict(),
+    stagedFiles: MY_FILES,
+    hookText: '❌ 🎨 运行 lint-staged...失败，提交已阻止',
+    runBatch: () => ({ ran: true, status: 1, output: SUMMARY + FAIL_29, why: null }),
+    runGate: () => ({ status: 1, output: '  ✗ 未映射工具名(1):probe_x' }),
+    runGateBaseline: () => ({ ran: true, status: 1, output: "Cannot find module 'typescript'", why: null }),
+  })
+  assert.equal(selfRunNoDelta.kind, 'undetermined-red', '未差分不得被自跑支洗成 unattributed 或 not-ours')
+  assert.equal(selfRunNoDelta.selfRunOk, true, '自跑确实拿到了门级结论,这一格不得谎报为"自跑也未成功"')
 })
 
 test('三支之三 · 自跑本身也没成功 ⇒ 仍按应急路径落地,但 unattributed 必带具体原因', () => {
@@ -430,6 +466,141 @@ test('装车证明(2026-09-26 新增支):批没跑完 ⇒ safe-commit 必须真�
   )
 })
 
+
+/**
+ * 差分四态(2026-09-27 立)的镜像锁。
+ *
+ * 立因(不是假想):`.workbuddy/safe-commit-attestation.jsonl` 里 ts=2026-09-27T09:05:40Z 那条
+ * (declaredFiles 含 `apps/ai-service/app/services/mcp_server.py`、kind=not-ours、failedGates ["35","55"])
+ * 放行了一枚**自引入**的红,27 分钟后由 `fa9e4e64d` 补。成因是门 55 的失败行只点名符号、
+ * 不点名文件(`[tool-name-coverage] ❌ 覆盖率 86/87` + `未映射工具名(1):…`),旧铰链于是把
+ * "我没看见路径"写成了"它不是我的"。
+ *
+ * 这里钉的是**铰链层**判据(selfTest 的 D 族钉四态语义),外加两条只有镜像能钉的东西:
+ *  ① 源码级反向锁(裸 `l.includes(f)` 不得回来、按门 id 的机器态清单不得新建)——
+ *     行为分支用断言钉不住,只有源码锁能防(§22c / 守门 70 那一族);
+ *  ② 装车证明:注入口必须真被 safe-commit 接上 —— 判据在、态②在生产路径上永不触发,
+ *     等于这道差分没有存在过(本仓最高频失效型)。
+ */
+const hingeSource = readFileSync(join(here, '..', 'lib', 'commit-gate-attribution.mjs'), 'utf8')
+
+test('R1 端到端可达性:门不点名 + 基线绿 + 我的面红 ⇒ mine(这就是本次修复的证明)', () => {
+  const { classifyHookFailure, SUMMARY, FAIL_29 } = __test__
+  const v = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: ['apps/ai-service/app/services/mcp_server.py'],
+    runGate: () => ({
+      status: 1,
+      output: '[tool-name-coverage] ❌ 覆盖率 86/87\n  未映射工具名(1):generate_report\n',
+    }),
+    runGateBaseline: () => ({ ran: true, status: 0, output: '✅ 覆盖率 87/87', why: null }),
+  })
+  assert.equal(v.kind, 'mine', '差分这一态没接上 ⇒ 本票的全部理由都不成立')
+  assert.match(v.reason, /禁止 --no-verify/)
+})
+
+test('R5 源码级反向锁:点名判定必须先归一,且不得新建"按门 id 的机器态清单"', () => {
+  // 判**代码面**:剥掉注释后再核 —— 本仓记过两次"说明性文字也带执行性字符"(守门 134 的
+  // stripJsonc 那一坑),把解释自己判据的注释当成违规,只会逼人删掉解释或把锁改宽。
+  const code = hingeSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[^\S\n]*\/\/.*$/gm, '')
+  // ① 裸比较不得回来:它是本票要修的那一型(端内相对 / 反斜杠形态在它面前全部隐身)
+  assert.doesNotMatch(
+    code,
+    /l\.includes\(f\)/,
+    '结论行点名不得再用未归一的裸子串比较 —— 必须先过 lineNamesFile/normGatePath',
+  )
+  assert.doesNotMatch(
+    code,
+    /win\.includes\(f\.replace/,
+    'blameFromFailedStep 不得再自带一份归一逻辑:两处算同一件事必须共用 lineNamesFile',
+  )
+  assert.match(code, /lines\.some\(\(l\) => lineNamesFile\(l, f\)\)/, '结论行判据必须走共用实现')
+  assert.match(code, /some\(\(l\) => lineNamesFile\(l, f\)\)/, 'blame 支必须复用同一份 lineNamesFile')
+  // ② 门 id 清单必然腐烂(AGENTS 明文),可差分区只能现读"基线面这一次跑得出跑不出"
+  assert.doesNotMatch(
+    code,
+    /(MACHINE_STATE_GATES|STOCK_ONLY_GATES|BASELINE_EXEMPT|NON_DIFFERENTIABLE)/,
+    '出现了按门 id 写死的"机器态/可差分"清单 ⇒ 判据退回会腐烂的登记表',
+  )
+  // ③ 未差分那一支的放行措辞必须自带禁令的反面:它不得复述"红不在本次提交内容里"
+  const vd = __test__.verdictLine(
+    __test__.classifyHookFailure({
+      text: __test__.SUMMARY + __test__.FAIL_29,
+      stagedFiles: __test__.MY_FILES,
+      runGate: () => ({ status: 1, output: '❌ 未映射工具名(1):probe_x' }),
+      runGateBaseline: () => ({ ran: false, status: null, output: '', why: '抽取树缺 node_modules' }),
+    }),
+  )
+  assert.doesNotMatch(vd, /不在本次提交内容里/, 'undetermined-red 的措辞不得冒充实证过的"与本次无关"')
+  assert.match(vd, /未经差分证明/)
+})
+
+test('R2/R3 措辞分档:存量档说"HEAD 面亦红",未差分档说"归属未知",两档不得互串', () => {
+  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, MY_FILES } = __test__
+  const mk = (baseline) =>
+    classifyHookFailure({
+      text: SUMMARY + FAIL_29,
+      stagedFiles: MY_FILES,
+      runGate: () => ({ status: 1, output: '❌ 未映射工具名(1):probe_x' }),
+      ...(baseline ? { runGateBaseline: baseline } : {}),
+    })
+  const stock = mk(() => ({ ran: true, status: 1, output: 'HEAD 也红', why: null }))
+  assert.equal(stock.kind, 'not-ours')
+  assert.match(verdictLine(stock), /HEAD 面亦红/, '存量档必须把两面读数说清')
+  assert.doesNotMatch(verdictLine(stock), /不在本次提交内容里/, '存量档改用实测话术,旧措辞不得回来')
+  const unknown = mk()
+  assert.equal(unknown.kind, 'undetermined-red')
+  assert.match(verdictLine(unknown), /未能差分|未经差分证明/)
+})
+
+test('装车证明:基线面注入口必须真被 safe-commit 接上(否则态②在生产路径上永不触发)', () => {
+  assert.match(
+    safeCommitSource,
+    /runGateBaseline/,
+    'safe-commit 未注入基线面出口 ⇒ 差分判据只有自测在跑,提交链上永远落 undetermined-red(等于没修)',
+  )
+  assert.match(
+    safeCommitSource,
+    /classifyHookFailure\(\{[\s\S]{0,400}runGateBaseline/,
+    '首轮归因没接基线出口 ⇒ 首轮的"仍红未点名"全部只能未差分',
+  )
+  assert.match(
+    safeCommitSource,
+    /decideWithSelfRunBatch\(\{[\s\S]{0,600}runGateBaseline/,
+    '自跑支没接基线出口 ⇒ 两条取证路径不同形,铰链就不是"同一把"了(守门 70/76/81/102 同型)',
+  )
+  // 隔离面必须是**当前这枚提交的父版本**(HEAD 在 commit 失败后仍未移动,但显式取 sha 才不依赖这个假设)
+  assert.match(
+    safeCommitSource,
+    /beforeSha/,
+    '基线面必须钉在提交前的那枚 sha 上,不能信"此刻的 HEAD"字样',
+  )
+  // 落点与清理:临时树走 scratch-dir 出口(§26:禁 os.tmpdir、禁落仓库树),且必须被删除
+  assert.match(safeCommitSource, /lib\/scratch-dir\.mjs/, '隔离基线树不得用 os.tmpdir()/裸 mkdtemp(§26)')
+  assert.match(safeCommitSource, /rmScratch|worktree remove/, '隔离面必须有清理出口,不得留残骸')
+})
+
+test('反向锁:差分不得把"点名别人的文件"一律翻成 mine(那会让人人跳门,AGENTS 记过反向自伤)', () => {
+  const { classifyHookFailure, SUMMARY, FAIL_29, MY_FILES } = __test__
+  // 基线同红 + 门点的是别人的文件 ⇒ 仍是 not-ours(R4 的方向)。若实现偷懒"未点名就 mine",这一条必红。
+  const v = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: '❌ apps/web/src/other.tsx:3 error: boom' }),
+    runGateBaseline: () => ({ ran: true, status: 1, output: 'HEAD 也红', why: null }),
+  })
+  assert.equal(v.kind, 'not-ours', `存量红不得被判成 mine(过度定责同样会毁掉守门信任),实得 ${v.kind}`)
+})
+
+test('R6 旧例不得翻向:needsBatchSelfRun 对三个新 kind 的触达条件必须显式成立', () => {
+  const { needsBatchSelfRun } = __test__
+  // 全批已跑完的未差分档:再自跑一遍拿不到新证据(基线跑不出去与"哪一轮的批"无关),不该再花几分钟
+  assert.equal(needsBatchSelfRun({ kind: 'undetermined-red', ranFullBatch: true }), false)
+  // 提前中止 + 未差分:其后各门从未跑过 ⇒ 自跑仍有价值,必须触发
+  assert.equal(needsBatchSelfRun({ kind: 'undetermined-red', ranFullBatch: false }), true)
+  // mine 一律不自跑(原方向不变)
+  assert.equal(needsBatchSelfRun({ kind: 'mine', ranFullBatch: false }), false)
+})
 
 test('反向回归锁:没有汇总块时,必须先试"那一步有没有点名我",再落到未归因', () => {
   // 立因是实测:提交 9bd6748ba 里 lint-staged 报的是**我自己刚写出来的** eslint 错误
