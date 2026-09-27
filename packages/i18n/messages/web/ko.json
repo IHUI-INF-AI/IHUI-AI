@@ -27368,5 +27368,8 @@
     "hintConfirm": "확인",
     "hintClose": "닫기",
     "clearAriaLabel": "검색 지우기"
+  },
+  "statusPage": {
+    "incidentsUnavailable": "장애 이력 데이터를 일시적으로 사용할 수 없습니다. 이곳이 비어 있다고 해서 장애가 없었던 것은 아닙니다."
   }
 }
