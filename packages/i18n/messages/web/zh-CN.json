@@ -9767,6 +9767,7 @@
     "restoreFailed": "恢复检查点失败",
     "bestOfAdopted": "已把选中的候选写入对话",
     "tabs": {
+      "inspector": "原始帧",
       "goal": "目标",
       "memory": "记忆",
       "plan": "计划",
@@ -9797,6 +9798,22 @@
     "applied": "已应用",
     "apply": "应用",
     "hint": "可用 AI 工具",
+    "inspector": {
+      "start": "开始采集",
+      "stop": "停止采集",
+      "clear": "清空",
+      "export": "导出 JSONL",
+      "filter": "按类型过滤",
+      "filterAll": "全部类型",
+      "count": "共 {total} 帧,显示 {shown}",
+      "empty": "暂无帧",
+      "hint": "点击「开始采集」后,下一条 AI 回复的原始 SSE 帧将逐帧记录在此(开发者调试视图)",
+      "waiting": "等待流式帧…",
+      "truncated": "仅渲染最近 300 帧(完整数据可导出 JSONL,共 {total} 帧)",
+      "copied": "已复制",
+      "copyFailed": "复制失败",
+      "copyOne": "复制该帧"
+    },
     "worldsAdopted": "已采纳该分支回复"
   },
   "agentHooks": {
