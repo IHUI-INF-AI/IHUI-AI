@@ -23,8 +23,6 @@
 #   pwsh -ExecutionPolicy Bypass -File zombie-guardian-daemon.ps1
 # ============================================================================
 
-#Requires -Version 5.0
-
 param(
     [int]$CheckIntervalSec = 60,
     [int]$TrimThresholdPct  = 80,
@@ -46,6 +44,15 @@ if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Forc
 $LogFile = Join-Path $LogDir 'zombie-guardian.log'
 $LogFileBak = Join-Path $LogDir 'zombie-guardian.log.bak'
 $CleanupScript = Join-Path $ScriptsDir 'cleanup-zombie-processes.ps1'
+
+# ---- Shared guard library (same single implementation as the cleanup pass) ----
+$GuardLib = Join-Path $ScriptsDir 'lib\zombie-guard-lib.ps1'
+if (-not (Test-Path $GuardLib)) {
+    Write-Error "[zombie-guardian-daemon] guard library not found: $GuardLib - refusing to run unguarded"
+    exit 2
+}
+. $GuardLib
+Set-ZombieGuardTrimMarker -Path (Join-Path $LogDir 'zombie-guard-trimmed.json')
 
 # ---- Dev-tool process names (only these are eligible for kill) ----
 $devToolNames = @(
@@ -129,6 +136,9 @@ function Kill-DevToolZombies {
     Write-Log 'WARN' 'Scanning dev-tool runaway install + high-CPU low-mem zombies'
     $installRegex = '(?i)(\bpip\b|\bpip3\b|\buv\b)\s+install|\bnpm\b\s+install|\bpnpm\b\s+install|\byarn\b\s+install|\bcargo\b\s+install|\bgo\b\s+install'
     $killed = 0
+    # G-266: ancestry walk needs the FULL process list (services.exe has no
+    # command line), so the index is built separately from the filtered list.
+    $procIndex = Get-ZombieGuardProcIndex
     $procs = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.Name -in $devToolNames }
     foreach ($p in $procs) {
         $shouldKill = $false
@@ -153,6 +163,21 @@ function Kill-DevToolZombies {
             }
         }
         if ($shouldKill) {
+            # G-266 structural exemptions: session-0 processes and anything
+            # descended from nssm/services.exe or deploy/prod-bundle/svc are
+            # NEVER killed, even above the emergency memory threshold.
+            $prot = Test-ZombieGuardProtected -ProcessId ([int]$p.ProcessId) -Index $procIndex
+            if ($prot) {
+                Write-Log 'INFO' "KEEP PID $($p.ProcessId) ($($p.Name)) - protected [$prot] (would have matched: $reason)"
+                continue
+            }
+            # P3 decoupling: the daemon's own trim ladder lowers working sets
+            # every 60s; a "mem<10MB" reading shortly after our trim is not
+            # zombie evidence and must not feed Rule 2.
+            if ($reason -like 'high-CPU*' -and (Test-ZombieTrimmedRecently -ProcessId ([int]$p.ProcessId))) {
+                Write-Log 'INFO' "KEEP PID $($p.ProcessId) ($($p.Name)) - recently trimmed by this guardian, R2 memory reading untrustworthy in this window"
+                continue
+            }
             try {
                 Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
                 Write-Log 'KILLED' "PID $($p.ProcessId) ($($p.Name)) - $reason"
@@ -173,6 +198,9 @@ function Trim-AllProcesses {
         $freed = Trim-ProcessWS -Process $_
         if ($freed -gt 5) {
             Write-Log 'TRIMMED' "PID $($_.Id) ($($_.Name)) trimmed ${freed}MB"
+            # G-266 P3: record that WE lowered this working set right now, so
+            # Kill-DevToolZombies Rule 2 cannot use the reading against it.
+            Register-ZombieTrim -ProcessId $_.Id
             $total += $freed
             $count++
         }
