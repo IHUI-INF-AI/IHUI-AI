@@ -260,8 +260,10 @@ export function getUnauthorizedHandler(): UnauthorizedHandler | null {
  * 三条不变量,对应本票的三条要求:
  * 1. **未注册即零副作用** —— 第一行就 return,不产生任何对象/微任务/日志,
  *    保证"没注册钩子时行为与改动前逐字节一致"(有 fetch-api-baseline.test.ts 的逐字对账钉死)。
- * 2. **绝不在"续期成功"路径上被调用** —— 调用点在 `refreshAccessTokenOnce()` 返回 falsy
- *    的分支里;续期拿到 token 后走重试,不进本函数(误弹会打断 bootstrap 静默刷新)。
+ * 2. **不在"续期成功且重试成功"路径上被调用,但必须在"续期成功后重试仍 401"时调用** ——
+ *    前者是 bootstrap 静默刷新的正常形态(误弹会打断它);后者新 token 已被服务端拒绝,
+ *    与"续期拿不到 token"同属**不可恢复**,2026-09-27 真机实测补上(旧判据把整块 401 处理
+ *    挂在 `!authRetried` 上,于是这一格连通知都不发)。
  *    认证端点(isAuthEndpoint)的 401 是它自己的最终结果,同理不通知。
  * 3. **处理器抛错不得影响 fetchApi 的返回,但也不得静默吞** —— try/catch 包住后
  *    走本包既有的 console 约定(该包没有独立 logger,唯一先例是 streamChat 的
@@ -642,20 +644,22 @@ export async function fetchApi<T>(
         try {
           const result = await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
           // 401 自动续期(2026-08-06):access token 过期 → 静默刷新 → 重试一次
-          if (
-            'status' in result &&
-            result.status === 401 &&
-            !authRetried &&
-            !isAuthEndpoint(normalizedUrl)
-          ) {
-            const newToken = await refreshAccessTokenOnce()
-            if (newToken) {
-              headers['Authorization'] = `Bearer ${newToken}`
-              authRetried = true
-              continue
+          if ('status' in result && result.status === 401 && !isAuthEndpoint(normalizedUrl)) {
+            if (authRetried) {
+              // 续期拿到了新 token、重试**仍然 401** ⇒ 新凭据也被服务端拒 = 会话真死了。
+              // 这一格此前是静默的:`!authRetried` 把整个 401 块跳过,连通知都不发 ——
+              // 而它恰恰是最不可恢复的那一种 401(真机实测:能力上报每 60s 重复,永远不进登录页)。
+              notifyUnauthorized(normalizedUrl, restOptions.method)
+            } else {
+              const newToken = await refreshAccessTokenOnce()
+              if (newToken) {
+                headers['Authorization'] = `Bearer ${newToken}`
+                authRetried = true
+                continue
+              }
+              // 401 且续期没拿到 token(未注入续期实现 / 续期失败)→ 通知端内(2026-09-25)
+              notifyUnauthorized(normalizedUrl, restOptions.method)
             }
-            // 401 且续期没拿到 token(未注入续期实现 / 续期失败)→ 通知端内(2026-09-25)
-            notifyUnauthorized(normalizedUrl, restOptions.method)
           }
           return result as ApiResult<T>
         } catch (err) {
@@ -694,6 +698,10 @@ export async function fetchApi<T>(
           result = await circuitBreaker.execute(async () => {
             return await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
           })
+          // 与无熔断分支同一出口:重试仍 401 = 新凭据也被拒,必须通知(2026-09-27)
+          if ('status' in result && result.status === 401) {
+            notifyUnauthorized(normalizedUrl, restOptions.method)
+          }
         } else {
           // 401 且续期没拿到 token → 通知端内(与上方无熔断分支同一出口,2026-09-25)
           notifyUnauthorized(normalizedUrl, restOptions.method)
