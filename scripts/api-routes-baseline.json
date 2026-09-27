@@ -5,14 +5,7 @@
   "ends": ["api-client", "extension", "miniapp-taro", "mobile-rn"],
   "face": "head",
   "perFileCount": {
-    "packages/api-client/src/endpoints/admin-content.ts": 3,
-    "packages/api-client/src/endpoints/admin-system.ts": 1,
-    "packages/api-client/src/endpoints/admin-tenants.ts": 2,
-    "packages/api-client/src/endpoints/ai.ts": 3,
-    "packages/api-client/src/endpoints/legacy-public.ts": 1,
-    "packages/api-client/src/endpoints/misc.ts": 7,
-    "packages/api-client/src/endpoints/notification.ts": 2,
-    "packages/api-client/src/endpoints/subagents.ts": 1,
-    "packages/api-client/src/endpoints/system.ts": 2
+    "packages/api-client/src/endpoints/misc.ts": 2,
+    "packages/api-client/src/endpoints/subagents.ts": 1
   }
 }
