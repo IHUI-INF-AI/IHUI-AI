@@ -73,7 +73,7 @@
   font-weight: 600;
   color: var(--color-foreground);
   background: var(--color-rank-gold);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   flex-shrink: 0;
 }
 
@@ -82,7 +82,7 @@
   color: var(--color-muted-foreground);
 }
 
-/* 关注按钮(RN followBtn: brand 底圆角胶囊;激活态 muted 底) */
+/* 关注按钮(RN followBtn: brand 底;激活态 muted 底;圆角按角色档 control→sm) */
 .tdetail-follow-btn {
   flex-shrink: 0;
   padding: 12rpx 28rpx;
@@ -91,7 +91,7 @@
   color: var(--color-cta-foreground);
   background: var(--color-cta);
   border: none;
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-sm);
 }
 
 .tdetail-follow-btn-active {
