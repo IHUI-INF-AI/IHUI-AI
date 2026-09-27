@@ -14,12 +14,10 @@
 # Uses wscript.exe + VBS launcher for ZERO window popup.
 #
 # Usage:
-#   pwsh -ExecutionPolicy Bypass -File G:\IHUI-AI\scripts\install-zombie-guardian.ps1
+#   pwsh -ExecutionPolicy Bypass -File <repo-root>\scripts\install-zombie-guardian.ps1
 #
 # Idempotent: re-running unregisters the old task and registers a new one.
 # ============================================================================
-
-#Requires -Version 5.0
 
 $ErrorActionPreference = 'Stop'
 
