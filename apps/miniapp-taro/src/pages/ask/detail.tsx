@@ -102,7 +102,7 @@ export default function AskDetailPage() {
             {answers.map((a, i) => (
               <View
                 key={i}
-                className="bg-card border-[length:2rpx] border-border rounded-xl p-[28rpx] mb-[24rpx]"
+                className="bg-card border-[length:2rpx] border-border rounded-lg p-[28rpx] mb-[24rpx]"
               >
                 <View className="flex items-center">
                   <Image

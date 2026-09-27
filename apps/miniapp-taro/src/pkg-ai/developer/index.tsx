@@ -334,7 +334,7 @@ export default function DeveloperIndex() {
             list.map((agent) => (
               <View
                 key={String(agent.agent_id ?? agent.id)}
-                className="flex items-center bg-card border border-[var(--color-border-medium)] rounded-2xl p-[20rpx] mb-[18rpx]"
+                className="flex items-center bg-card border border-[var(--color-border-medium)] rounded-lg p-[20rpx] mb-[18rpx]"
               >
                 {/* RN avatar: rpx(184)/2 dp → 184rpx,radius 8dp=16rpx */}
                 <Image
