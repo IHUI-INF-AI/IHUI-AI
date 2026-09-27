@@ -164,7 +164,12 @@ export const auditEvidenceExportRoutes: FastifyPluginAsync = async (server) => {
       // 而不是等到收件方拿着信封来问"为什么验不过"才发现我们一直在发验不了的东西。
       const selfCheck = verifySignedAuditExport(envelope)
       if (!selfCheck.ok) {
-        request.log.error({ reason: selfCheck.reason }, '审计签名导出自检未通过')
+        // 带上 `status`:出口自证最常见的两种红是 `unknown_key`(配了私钥却把公钥换了/没登记)
+        // 与 `signature_invalid`(序列化口径在两侧漂了)—— 只有一句话的话,下一次排查还得重跑。
+        request.log.error(
+          { reason: selfCheck.reason, status: selfCheck.status },
+          '审计签名导出自检未通过',
+        )
         return reply
           .status(500)
           .send(error(500, `签名导出自检未通过:${selfCheck.reason ?? '未知原因'}`))
