@@ -36,9 +36,9 @@ from __future__ import annotations
 import json
 import logging
 import re
-import threading
+import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Final, Literal, Protocol
 
 from app.core.tunables import (
@@ -54,8 +54,23 @@ from .completion_verification import (
     VerificationRequest,
     verify_goal_completion,
 )
+from .goal_round_state import (
+    GoalRoundState,
+    advance_round_state,
+    clear_session,
+    decide_pause,
+    get_memory_store,
+    get_store,
+    normalize_outcome,
+    peek_streak,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _counter_key(session_id: str | None) -> str:
+    """匿名会话也要有自己的一份账(它不再跨请求共享,但仍要在本进程内自洽)。"""
+    return session_id or "(anonymous-session)"
 
 GoalStatus = Literal[
     "achieved",  # 独立校验判达成 —— 唯一允许宣布完成的一档
@@ -352,6 +367,8 @@ class GoalGateDecision:
     stop_reason: str | None
     payload: Mapping[str, Any] | None = None
     verification: CompletionVerification | None = field(default=None, compare=False)
+    #: 本轮记进跨轮账本之后的账本快照(None = 本轮根本没记账,见"未跑校验"档)
+    round_state: GoalRoundState | None = field(default=None, compare=False)
 
     @property
     def overrides_stop_reason(self) -> bool:
@@ -359,37 +376,72 @@ class GoalGateDecision:
 
 
 # ==================== 连续不通过的计数(§8 第 4 步收口) ====================
-# 进程内按 session 计数,与 routers/agents.py 的 _trace_store / run_ownership 同一形态
-# (刻意不落库:goal 轮次是运行态,§5 测试隔离铁律要求单测不得打生产 PG)。
-_lock = threading.Lock()
-_consecutive_failures: dict[str, int] = {}
+# 2026-09-27(V3 #77):这份账从"本模块的一个进程内 dict"搬到了
+# `services/goal_round_state.py` —— 因为 §8 收口的判据是**跨轮**的,而进程内 dict
+# 在两种真实形态下等于没有收口:① 调用方每轮重启(连击永远从 1 起,走不到 blocked);
+# ② uvicorn 多 worker(每个进程各记一份)。缺省档仍是内存(与搬前语义等值),
+# 跨重启档由 `app/main.py` 的 lifespan 显式装载(唯一生产装载点)。
+# 下面三个同步行 API 保留:它们是既有调用面与单测的入口,且读的写的都是
+# 同一份 L1(持久档也先落 L1),不存在"两条路各记一份数"。
 
 
-def _counter_key(session_id: str | None) -> str:
-    return session_id or "(anonymous-session)"
+def _l1_read(session_id: str | None) -> GoalRoundState | None:
+    return get_memory_store().read_sync(_counter_key(session_id))
+
+
+def _l1_write(state: GoalRoundState) -> None:
+    get_memory_store().write_sync(state)
 
 
 def note_goal_attempt(session_id: str | None, achieved: bool) -> int:
-    """记一轮校验结论,返回**累计**连续未通过轮数(达成即归零)。"""
+    """记一轮校验结论,返回**累计**连续未通过轮数(达成即归零)。
+
+    只记"成/未成"这一位;逐条未达标集合与无进展计数由 `advance_round_state` 那条
+    路负责(它才有集合可比)。两条路写的是同一份 L1,且本函数**不**动 rounds 以外
+    的字段 ⇒ 不会把 stagnation 清零伪装成"有进展"。
+    """
     key = _counter_key(session_id)
-    with _lock:
+    previous = get_memory_store().read_sync(key)
+    streak = 0 if achieved else ((previous.consecutive_failures if previous else 0) + 1)
+    now = time.time()
+    if previous is None:
+        state = GoalRoundState(
+            session_id=key,
+            owner_user_id=None,
+            rounds=1,
+            consecutive_failures=streak,
+            stagnation=0,
+            last_unmet=(),
+            last_status="achieved" if achieved else "not_achieved",
+            blocked=False,
+            blocked_reason="",
+            tokens_spent=None,
+            token_budget=None,
+            updated_at=now,
+        )
+    else:
+        state = replace(
+            previous,
+            rounds=previous.rounds + 1,
+            consecutive_failures=streak,
+            last_status="achieved" if achieved else previous.last_status,
+            updated_at=now,
+        )
+        # 达成必须把"无进展"一起清零:上一轮的未达标集合已不成立,
+        # 留着它会让下一次失败提前一格落进 no_progress 档。
         if achieved:
-            _consecutive_failures.pop(key, None)
-            return 0
-        streak = _consecutive_failures.get(key, 0) + 1
-        _consecutive_failures[key] = streak
-        return streak
+            state = replace(state, stagnation=0, last_unmet=(), blocked=False, blocked_reason="")
+    _l1_write(state)
+    return streak
 
 
 def peek_goal_attempts(session_id: str | None) -> int:
-    with _lock:
-        return _consecutive_failures.get(_counter_key(session_id), 0)
+    return peek_streak(_counter_key(session_id))
 
 
 def reset_goal_attempts(session_id: str | None) -> None:
-    """清计数(目标被清除 / 换目标时调用,避免旧 session 的失败串到新目标)。"""
-    with _lock:
-        _consecutive_failures.pop(_counter_key(session_id), None)
+    """清账(目标被清除 / 换目标时调用,避免旧 session 的失败串到新目标)。"""
+    clear_session(_counter_key(session_id))
 
 
 def _payload_from(
@@ -401,11 +453,18 @@ def _payload_from(
     reason: str | None,
     treat_as_complete: bool,
     ran_request: bool,
+    round_state: GoalRoundState | None = None,
+    ledger_storage: str = "memory",
+    ledger_unreadable: bool = False,
 ) -> dict[str, Any]:
     """done 帧的 `verification` 字段:结论 + 逐条证据归属,原样给用户看。
 
     未跑校验的档位(预算耗尽 / 循环未自宣完成)也回一份同形结构,把 `status` 写成
     `not_run` 并给原因 —— 字段形状稳定,调用端才不至于把"缺字段"当成"校验通过"。
+
+    `rounds` / `stagnation` / `should_pause` / `escalate` 是 §8 第 4 步的**跨轮**位,
+    `ledger_storage` + `ledger_unreadable` 则如实说明这本账落在哪一层、这一次读没读到。
+    缺了后两者,"连续未过"就会被读成一个永远可信的数字 —— 而它在内存档下并不落得住。
     """
     criteria: list[dict[str, Any]] = []
     statement_by_id = {spec.id: spec.statement for spec in specs}
@@ -422,7 +481,8 @@ def _payload_from(
                     "contradicted": verdict.contradicted,
                 }
             )
-    return {
+    pause = decide_pause(round_state, ledger_unreadable=ledger_unreadable)
+    payload: dict[str, Any] = {
         "status": status if verification is not None else "not_run",
         "goal_status": status,
         "treat_as_complete": treat_as_complete,
@@ -435,7 +495,50 @@ def _payload_from(
         "independence_warnings": list(verification.independence_warnings) if verification else [],
         "consecutive_failures": consecutive,
         "max_consecutive_failures": GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES,
+        # —— 跨轮账本(V3 #77)——
+        "rounds": 0 if round_state is None else round_state.rounds,
+        "stagnation": 0 if round_state is None else round_state.stagnation,
+        "blocked_reason": pause.reason,
+        "should_pause": pause.pausing,
+        "escalate": pause.escalate,
+        "ledger_storage": ledger_storage,
+        "ledger_durable": ledger_storage == "checkpoint",
+        "ledger_unreadable": ledger_unreadable,
     }
+    return payload
+
+
+async def _record_round(
+    session_id: str | None,
+    *,
+    status: str,
+    unmet: Sequence[str],
+) -> tuple[GoalRoundState | None, str, bool]:
+    """把本轮结论并进跨轮账本,回 (新账本, 落在哪一层, 上一轮是否读不出)。
+
+    记账本身**从不**改变判定方向:它只回答"这是第几轮、离收口还差几轮"。
+    唯一例外是它能让 `blocked` 提前为真(连击是累计的),这正是要的效果。
+    存储抛错时退化成"这一轮没记上"(state=None)并如实带回 unreadable ——
+    绝不能退化成"连击为 0",那等于每次存储故障都给目标发一张从头再来的凭据。
+    """
+    key = _counter_key(session_id)
+    store = get_store()
+    read = await store.read(key)
+    outcome = normalize_outcome(status=status, unmet=unmet)
+    state = advance_round_state(
+        session_id=key,
+        owner_user_id=None,
+        outcome=outcome,
+        previous=read.state,
+        max_consecutive_failures=GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES,
+    )
+    receipt = await store.write(state)
+    return state, receipt.storage, read.unreadable
+
+
+def _unmet_ids(verification: CompletionVerification) -> tuple[str, ...]:
+    """未达标集合 = verdict 非 met 的指标 id(含 unknown —— "判不了"本身就是没达标)。"""
+    return tuple(sorted(v.criterion_id for v in verification.criteria if v.verdict != "met"))
 
 
 async def gate_goal_completion(
@@ -508,8 +611,14 @@ async def gate_goal_completion(
     except Exception as exc:  # noqa: BLE001 - 校验层任何异常都不得退化为"通过"
         logger.exception("goal 独立校验闸门异常(按未判定处理)")
         reason = f"独立校验闸门异常: {type(exc).__name__}: {exc}"
-        streak = note_goal_attempt(session_id, achieved=False)
-        blocked = streak >= GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES
+        # 异常档同样是"判不了":未达标集合按**全部指标**记 —— 什么都没被证实。
+        state, storage, unreadable = await _record_round(
+            session_id,
+            status="undetermined",
+            unmet=[spec.id for spec in specs],
+        )
+        blocked = bool(state and state.blocked)
+        streak = 0 if state is None else state.consecutive_failures
         status_obj: GoalStatus = "blocked" if blocked else "undetermined"
         return GoalGateDecision(
             allowed_complete=False,
@@ -523,11 +632,21 @@ async def gate_goal_completion(
                 reason=reason,
                 treat_as_complete=False,
                 ran_request=False,
+                round_state=state,
+                ledger_storage=storage,
+                ledger_unreadable=unreadable,
             ),
+            round_state=state,
         )
 
     achieved = verification.status == "achieved"
-    streak = note_goal_attempt(session_id, achieved=achieved)
+    state, storage, unreadable = await _record_round(
+        session_id,
+        status=verification.status,
+        unmet=_unmet_ids(verification),
+    )
+    streak = 0 if state is None else state.consecutive_failures
+    blocked = bool(state and state.blocked)
 
     if achieved:
         return GoalGateDecision(
@@ -543,13 +662,16 @@ async def gate_goal_completion(
                 reason=None,
                 treat_as_complete=True,
                 ran_request=verification.independent_request_made,
+                round_state=state,
+                ledger_storage=storage,
+                ledger_unreadable=unreadable,
             ),
+            round_state=state,
         )
 
     if verification.status == "undetermined":
         # 未判定 ≠ 未达成:两者都拦住完成声明,但只有前者允许下一轮重试,
         # 后者是"证据已经说明没做完"。混为一谈会让人去修根本不存在的缺陷。
-        blocked = streak >= GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES
         status_obj = "blocked" if blocked else "undetermined"
         return GoalGateDecision(
             allowed_complete=False,
@@ -564,10 +686,13 @@ async def gate_goal_completion(
                 reason=None,
                 treat_as_complete=False,
                 ran_request=verification.independent_request_made,
+                round_state=state,
+                ledger_storage=storage,
+                ledger_unreadable=unreadable,
             ),
+            round_state=state,
         )
 
-    blocked = streak >= GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES
     status_obj = "blocked" if blocked else "not_achieved"
     return GoalGateDecision(
         allowed_complete=False,
@@ -582,6 +707,10 @@ async def gate_goal_completion(
             reason=None,
             treat_as_complete=False,
             ran_request=verification.independent_request_made,
+            round_state=state,
+            ledger_storage=storage,
+            ledger_unreadable=unreadable,
         ),
+        round_state=state,
     )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

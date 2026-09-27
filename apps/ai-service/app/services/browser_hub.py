@@ -1101,29 +1101,53 @@ class BrowserHub:
         return session, meta
 
     async def read_profile_cookies(self, user_data: Path | None = None) -> dict[str, str]:
-        """无窗口读取"用户真实浏览器 profile 快照"的 cookie 值(外部模式取值用)。
+        """无窗口读取"用户真实浏览器 profile 快照"的 cookie 值(只要值,不要归属)。
 
-        外部模式的登录发生在**用户自己日常使用的浏览器**里(真实 profile,Google/平台登录态
-        都完整);后端只负责读登录态:
-        - 名称级检测:read_profile_cookie_names(明文名,不解密,可直读在跑的浏览器);
-        - 取值(本函数):复制一份 profile 快照 → 用同一个浏览器可执行文件以 --headless=new
-          启动 → CDP 读出 cookie 值 → 杀进程 + 删快照。headless 是为了不再给用户弹陌生窗口;
-          用同一 exe 启动使 cookie 解密(App-Bound Encryption)照常可用。
-
-        失败返回空字典(调用方按"未检测到"处理)。
+        需要按站点归属筛 cookie 的调用方**必须**改用 `read_profile_cookies_with_domains` ——
+        只返回值会把整浏览器 jar 交给上层,而"是不是这一站的 cookie"这件事在值上判不出来
+        (2026-09-27 实测:发布账号里因此落进过 533 字段整浏览器混包)。
         """
+        values, _domains = await self.read_profile_cookies_with_domains(user_data)
+        return values
+
+    async def read_profile_cookies_with_domains(
+        self, user_data: Path | None = None
+    ) -> tuple[dict[str, str], dict[str, str]]:
+        """同 `read_profile_cookies`,但**同一次启动**里一并返回 name → domain。
+
+        域名来自 CDP 的 cookie 条目本身(不是猜的),供上层按平台域名白名单筛;
+        个别条目缺 domain 时该名字不进 domains 映射(上层据此退到名称兜底)。
+        """
+        raw = await self._read_profile_cookie_entries(user_data)
+        values: dict[str, str] = {}
+        domains: dict[str, str] = {}
+        for c in raw:
+            name = str(c.get("name") or "")
+            value = c.get("value")
+            if not name or not value:
+                continue
+            values[name] = str(value)
+            dom = str(c.get("domain") or "").strip()
+            if dom:
+                domains[name] = dom
+        return values, domains
+
+    async def _read_profile_cookie_entries(
+        self, user_data: Path | None = None
+    ) -> list[dict[str, object]]:
+        """复制 profile 快照 → headless 起同一浏览器 → CDP 读出原始 cookie 条目。"""
         import socket
         import subprocess
 
         browser = _find_external_browser()
         if not browser:
             logger.warning("[browser_hub] 读取登录态失败:未找到可用浏览器")
-            return {}
+            return []
         user_data = user_data or browser.user_data
         if not self._started or not self._playwright:
             await self.start()
         if self._playwright is None:
-            return {}
+            return []
 
         profile_dir = tempfile.mkdtemp(prefix="ihui-chrome-scan-")
         _cleanup_stale_scan_profiles()
@@ -1131,13 +1155,13 @@ class BrowserHub:
         if not info["profile_used"]:
             logger.warning(f"[browser_hub] 读取登录态失败:profile 复制失败({info.get('error')})")
             shutil.rmtree(profile_dir, ignore_errors=True)
-            return {}
+            return []
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("127.0.0.1", 0))
             port = s.getsockname()[1]
 
-        def _sync_read() -> dict[str, str]:
+        def _sync_read() -> list[dict[str, object]]:
             assert self._playwright is not None
             proc = subprocess.Popen([
                 str(browser.exe),
@@ -1167,17 +1191,17 @@ class BrowserHub:
                 cookies = context.cookies()
                 with contextlib.suppress(Exception):
                     ext.close()
-                return {c["name"]: c["value"] for c in cookies if c.get("value")}
+                return [dict(c) for c in cookies if c.get("value")]
             finally:
                 with contextlib.suppress(Exception):
                     proc.terminate()
                 with contextlib.suppress(Exception):
                     proc.wait(timeout=5)
 
-        cookies: dict[str, str] = {}
+        entries: list[dict[str, object]] = []
         try:
-            cookies = await asyncio.get_running_loop().run_in_executor(self._executor, _sync_read)
-            logger.info(f"[browser_hub] 已从用户浏览器读取 {len(cookies)} 条 cookie 值")
+            entries = await asyncio.get_running_loop().run_in_executor(self._executor, _sync_read)
+            logger.info(f"[browser_hub] 已从用户浏览器读取 {len(entries)} 条 cookie 条目(含域名)")
         except Exception as e:  # noqa: BLE001
             logger.warning(f"[browser_hub] 读取登录态失败: {e}")
         finally:
@@ -1186,7 +1210,7 @@ class BrowserHub:
                 if not os.path.exists(profile_dir):
                     break
                 time.sleep(0.4)
-        return cookies
+        return entries
 
     def list_sessions(self) -> list[str]:
         return list(self._sessions.keys())

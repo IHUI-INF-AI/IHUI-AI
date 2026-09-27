@@ -98,7 +98,15 @@ import type { Session } from './session.js';
 import { saveSession } from './session.js';
 import { PluginRegistry, loadPlugins, type PluginHookContext } from '../plugins/index.js';
 import type { PlanMachine } from '../plan/index.js';
-import { DoomLoopDetector, type DoomLoopAlert } from '../doom-loop-detector.js';
+import {
+  DoomLoopDetector,
+  DoomLoopSignatureDetector,
+  createFailureStreakTracker,
+  planDoomAlertResponse,
+  DOOM_ALERT_ROUNDS_TO_TERMINATE,
+  STUCK_CONSECUTIVE_THRESHOLD,
+  type DoomLoopAlert,
+} from '../doom-loop-detector.js';
 import { FsEventSource, type FsEvent } from '../fs-watcher/index.js';
 import { t } from '../i18n/index.js';
 import {
@@ -787,7 +795,8 @@ function estimateIterationCost(modelId: string, promptTokens: number, completion
 // 简化策略(做减法):只对可重试错误(ratelimit/network/server)重试,auth/forbidden 立即失败。
 
 const SAMPLER_MAX_RETRIES = 3;
-const SAMPLER_DOOM_LOOP_THRESHOLD = 3;
+// V3#54(2026-09-28):死循环阈值不再本地抄数字 —— 唯一来源是共享层
+// packages/shared/src/agent/doom-loop-detector.ts(STUCK_CONSECUTIVE_THRESHOLD)。
 const SAMPLER_RETRYABLE_SEVERITIES: ReadonlySet<string> = new Set(['ratelimit', 'network', 'server']);
 
 interface SampleWithRetryOptions {
@@ -889,56 +898,12 @@ type RetryCallback = (
   delayMs: number,
 ) => void;
 
-/** ConsecutiveSignatureDetector:记录连续相同错误/tool_call 签名,超过阈值判定死循环。 */
-class ConsecutiveSignatureDetector {
-  private lastErrorSignature = '';
-  private consecutiveErrorCount = 0;
-  private lastToolCallSignature = '';
-  private consecutiveToolCallCount = 0;
-
-  recordError(errMsg: string): void {
-    const sig = this.signature(errMsg);
-    if (sig === this.lastErrorSignature) {
-      this.consecutiveErrorCount++;
-    } else {
-      this.lastErrorSignature = sig;
-      this.consecutiveErrorCount = 1;
-    }
-  }
-
-  recordToolCalls(toolCalls: Array<{ name: string; arguments: Record<string, unknown> }>): void {
-    const sig = toolCalls
-      .map((tc) => `${tc.name}(${JSON.stringify(tc.arguments)})`)
-      .sort()
-      .join('|');
-    if (sig === this.lastToolCallSignature) {
-      this.consecutiveToolCallCount++;
-    } else {
-      this.lastToolCallSignature = sig;
-      this.consecutiveToolCallCount = 1;
-    }
-  }
-
-  isDoomLoop(): boolean {
-    return (
-      this.consecutiveErrorCount >= SAMPLER_DOOM_LOOP_THRESHOLD ||
-      this.consecutiveToolCallCount >= SAMPLER_DOOM_LOOP_THRESHOLD
-    );
-  }
-
-  /** end_turn 时重置,表示对话正常推进,清空累积签名 */
-  reset(): void {
-    this.lastErrorSignature = '';
-    this.consecutiveErrorCount = 0;
-    this.lastToolCallSignature = '';
-    this.consecutiveToolCallCount = 0;
-  }
-
-  private signature(msg: string): string {
-    // 简化签名:取首行 + 去数字(避免 token 计数差异干扰)
-    return msg.split('\n')[0]?.replace(/\d+/g, 'N').trim().slice(0, 120) ?? '';
-  }
-}
+/**
+ * V3#54(2026-09-28):本地 ConsecutiveSignatureDetector 已上提到共享层
+ * (packages/shared/src/agent/doom-loop-detector.ts),CLI 侧改用薄适配器
+ * DoomLoopSignatureDetector(定义于 src/doom-loop-detector.ts)。
+ * 这里删除本地类,消除"第二份 stuck 判据"。
+ */
 
 /**
  * sampleWithRetry:包装 streamChat,对可重试错误(ratelimit/network/server)按指数退避重试。
@@ -1185,12 +1150,14 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let totalCostUsd = 0;
   let budgetLimited = false;
   let lastErrorMessage = '';
-  const consecutiveFailures = new Map<string, number>();
-  const FAILURE_REFLECTION_THRESHOLD = 2;
+  // V3#54(2026-09-28):工具连续失败反思换策略 —— 判据/阈值上提共享层
+  // (createFailureStreakTracker + FAILURE_STREAK_STRATEGY_THRESHOLD,Python 等价
+  // app/core/doom_loop.py 的 FailureStreakTracker;parity 由守门钉死)。
+  const failureStreak = createFailureStreakTracker();
   // P1-2 Reminders:跨迭代持久化已注入的 reminder 类型(避免重复注入)
   const reminderInjected = new Set<string>();
   // P0-3 SamplerActor:连续签名检测器(连续 N 次相同错误签名 / tool_call 模式判定死循环)
-  const signatureDetector = new ConsecutiveSignatureDetector();
+  const signatureDetector = new DoomLoopSignatureDetector();
   let signatureDoomDetected = false;
   // P0-3 DoomLoopDetector(滑动窗口):检测 LLM 重复调用相同工具相同参数的死循环
   // 灵感来源:参考行业 Agent 框架的 doom_loop 理念,简化为客户端工具调用层滑动窗口检测
@@ -1555,9 +1522,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         if (signatureDetector.isDoomLoop()) {
           signatureDoomDetected = true;
           process.stderr.write(
-            chalk.red(`[doom-loop] 连续 ${SAMPLER_DOOM_LOOP_THRESHOLD} 次相同错误签名,判定陷入死循环,终止\n`),
+            chalk.red(`[doom-loop] 连续 ${STUCK_CONSECUTIVE_THRESHOLD} 次相同错误签名,判定陷入死循环,终止\n`),
           );
-          void opts.onError?.(`Doom loop detected: 连续 ${SAMPLER_DOOM_LOOP_THRESHOLD} 次相同错误`);
+          void opts.onError?.(`Doom loop detected: 连续 ${STUCK_CONSECUTIVE_THRESHOLD} 次相同错误`);
           break;
         }
       }
@@ -1693,9 +1660,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       if (signatureDetector.isDoomLoop()) {
         signatureDoomDetected = true;
         process.stderr.write(
-          chalk.red(`[doom-loop] 连续 ${SAMPLER_DOOM_LOOP_THRESHOLD} 轮相同的 tool_call 模式,判定陷入死循环,终止\n`),
+          chalk.red(`[doom-loop] 连续 ${STUCK_CONSECUTIVE_THRESHOLD} 轮相同的 tool_call 模式,判定陷入死循环,终止\n`),
         );
-        void opts.onError?.(`Doom loop detected: 连续 ${SAMPLER_DOOM_LOOP_THRESHOLD} 轮相同的 tool_call 模式`);
+        void opts.onError?.(`Doom loop detected: 连续 ${STUCK_CONSECUTIVE_THRESHOLD} 轮相同的 tool_call 模式`);
         break;
       }
 
@@ -1769,38 +1736,42 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
       // P0-3 DoomLoopDetector(滑动窗口):每次执行工具前检测重复调用相同工具相同参数
       // 灵感来源:参考行业 Agent 框架的 doom_loop 理念,客户端工具调用层滑动窗口检测
-      // 连续 2 轮触发 alert → 终止循环,返回 stopReason='doom_loop';首轮 alert 注入反思提示
+      // V3#54(2026-09-28):升级决策(报警首轮反思+跳过执行,连续第 N 轮报警终止)
+      // 上提共享层 planDoomAlertResponse —— N 与动作集合的唯一来源在
+      // packages/shared/src/agent/doom-loop-detector.ts,Python 等价实现见
+      // apps/ai-service/app/core/doom_loop.py(parity 守门 scripts/check-doom-loop-parity.mjs)。
       const doomAlerts: DoomLoopAlert[] = [];
       for (const call of toolCalls) {
         const alert = doomLoopDetector.record(call.name, call.arguments);
         if (alert) doomAlerts.push(alert);
       }
+      consecutiveDoomAlerts = doomAlerts.length > 0 ? consecutiveDoomAlerts + 1 : 0;
       if (doomAlerts.length > 0) {
-        consecutiveDoomAlerts++;
         const alertText = doomAlerts
           .map((a) => `[DOOM_LOOP_ALERT] ${a.message}\n${a.suggestion}`)
           .join('\n\n');
-        if (consecutiveDoomAlerts >= 2) {
+        const doomPlan = planDoomAlertResponse(consecutiveDoomAlerts);
+        if (doomPlan.actions.includes('terminate_loop')) {
           slidingWindowDoomDetected = true;
           process.stderr.write(
-            chalk.red(`[doom-loop] 连续 2 轮触发滑动窗口死循环检测,终止\n`),
+            chalk.red(`[doom-loop] 连续 ${DOOM_ALERT_ROUNDS_TO_TERMINATE} 轮触发滑动窗口死循环检测,终止\n`),
           );
-          void opts.onError?.(`Doom loop detected: ${doomAlerts[0]!.message}`);
+          void opts.onError?.(`Doom loop detected: ${doomAlerts[0]?.message ?? 'repeated identical tool calls'}`);
           break;
         }
-        // 首轮 alert:注入反思提示,跳过本轮工具执行,让 LLM 重新考虑
-        opts.messages.push({ role: 'user', content: alertText });
-        void opts.onError?.(alertText);
-        // L1-4(2026-07-25 立):fire-and-forget 沉淀失败模式到 procedural memory
-        // 让 agent 未来调用工具前能 recall 到这条反模式,规避相同陷阱(对标 Hermes Agent 反思沉淀)
-        void persistDoomLoopProcedural(opts, doomAlerts).catch((err) => {
-          process.stderr.write(
-            chalk.yellow(`[doom-loop] procedural 记忆沉淀失败(非阻塞): ${err}\n`),
-          );
-        });
-        continue;
-      } else {
-        consecutiveDoomAlerts = 0;
+        if (doomPlan.actions.includes('inject_reflection')) {
+          // 报警首轮:注入反思提示,跳过本轮工具执行,让 LLM 重新考虑
+          opts.messages.push({ role: 'user', content: alertText });
+          void opts.onError?.(alertText);
+          // L1-4(2026-07-25 立):fire-and-forget 沉淀失败模式到 procedural memory
+          // 让 agent 未来调用工具前能 recall 到这条反模式,规避相同陷阱(对标 Hermes Agent 反思沉淀)
+          void persistDoomLoopProcedural(opts, doomAlerts).catch((err) => {
+            process.stderr.write(
+              chalk.yellow(`[doom-loop] procedural 记忆沉淀失败(非阻塞): ${err}\n`),
+            );
+          });
+        }
+        if (doomPlan.actions.includes('skip_tool_execution')) continue;
       }
 
       const resultParts: string[] = [];
@@ -1895,22 +1866,19 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           durationMs,
         });
         if (result.success) {
-          consecutiveFailures.set(call.name, 0);
+          failureStreak.record(call.name, true);
         } else {
-          const prev = consecutiveFailures.get(call.name) ?? 0;
-          const next = prev + 1;
-          consecutiveFailures.set(call.name, next);
-          if (next >= FAILURE_REFLECTION_THRESHOLD) {
+          const outcome = failureStreak.record(call.name, false);
+          if (outcome.changeStrategy) {
             resultParts.push(
               injectReminderSection(
                 'reminder_tool_failure',
                 frameSystemReminder(
                   'tool_failure_reflection',
-                  `工具 ${call.name} 已连续失败 ${next} 次。请反思:参数是否正确?是否应该换一种工具或方案?当前失败原因:${result.error ?? '未知'}`,
+                  `工具 ${call.name} 已连续失败 ${outcome.streak} 次。请反思:参数是否正确?是否应该换一种工具或方案?当前失败原因:${result.error ?? '未知'}`,
                 ),
               ),
             );
-            consecutiveFailures.set(call.name, 0);
           }
         }
         await opts.onToolResult?.(call.name, result.success, result.output);
