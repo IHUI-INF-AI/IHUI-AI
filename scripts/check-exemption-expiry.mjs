@@ -135,6 +135,12 @@ const FAMILY_LIFETIME_DAYS = {
    * **所以这条注释的作用是:让下一次有人整文件重写这里时,红点能立刻对上"这不是原始版本"。**
    */
   'delete-ack-exempt': 30,
+  /**
+   * 守门 146(README 表格完整性对账)的行内出口:某一格确实要塞长文时,写
+   * `<!-- table-cell-exempt: <原因> -->` 只救本 run。取 **30 天** —— 它是**待偿的改写债**
+   * (内容该挪出表格或拆条目),不是结构性定性;长周期等于把碎表登记成永久惯例。
+   */
+  'table-cell-exempt': 30,
   'rust-state-exempt': 60,
   'i18n-content-exempt-file': 180,
   /**
