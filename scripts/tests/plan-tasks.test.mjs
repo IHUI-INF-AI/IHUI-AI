@@ -18,8 +18,11 @@ import { test } from 'node:test'
 import {
   VOID_MARK_RE,
   auditPlan,
+  compositeKeyOf,
   dispositionOf,
   findRotatedPointers,
+  keyOfRow,
+  titleOf,
 } from '../lib/plan-task-index.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
 import {
@@ -317,6 +320,25 @@ test('M12 归属分层不得把行从默认派单面踢掉(只许 --dispatchable
   // 推不出归属的行必须落 actionable(宁可留在清单里,绝不凭空消失)
   if (dispositionOf('- [ ] **K5 一句正常描述**:补一个适配器。') !== 'actionable')
     throw new Error('推不出归属时默认必须是 actionable —— 让活留在面上,不要静默开除')
+  // 正向证明(守门 120:名单类判据必须拿**名单里的成员**各测一条,否则名单可以是张死表而门一路报绿)。
+  // "需 owner 拍板"这一族 2026-09-27 逐行收尾时实测整族落 actionable ⇒ 等人拍板的事在每个派单
+  // 清单里都冒充"今晚就能干",而派单人照着那个数去派,就会把别人没定的事做一遍。
+  for (const [text, want] of [
+    ['- [ ] O19b ② `metadata` vs `extraMetadata` 需 owner 拍板,不猜。', 'waiting-human'],
+    ['- [ ] D99 该口径需产品拍板后才能定稿。', 'waiting-human'],
+    ['- [ ] 剩一条已量化、未修(需产品决策,非纯工程)。', 'waiting-human'],
+    // 反向锁:含"决策"二字的技术活不得被本档吃掉 —— 通配版 `需.{0,8}决策` 会把
+    // "需要实现一个决策树分类器"读成"等人拍板",那是**把真活从派单清单里开除**,比虚高更糟。
+    ['- [ ] D99 需要实现一个决策树分类器并补测试。', 'actionable'],
+    ['- [ ] D99 待用户确认后再开工。', 'waiting-human'],
+    ['- [ ] D99 这条要真机复测(本机结构性缺模拟器)。', 'waiting-env'],
+    ['- [ ] D99 本线只登记,归属该模块持有者。', 'owned-elsewhere'],
+    ['- [ ] D99 补一个适配器,今天就能做。', 'actionable'],
+  ]) {
+    const got = dispositionOf(text)
+    if (got !== want)
+      throw new Error(`归属判据对名单成员答错:应 ${want},实测 ${got} ← ${text.slice(0, 42)}`)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -350,6 +372,36 @@ test('P-x 跨文件出口锁:probe 必须由 plan-tasks 真导出,且收敛器�
     throw new Error(
       'git-sync-converge.mjs 未从 plan-tasks 引 probe(要么改用别的名字,要么在别处抄了清单)',
     )
+})
+
+test('M14 行首裸编号族必须进复合主键(F1 曾对整族失明 ⇒ 已完成的票被反复派单)', () => {
+  // ① 阳性对照:票面原文形态 —— `- [ ]75.` 无空格、编号即标题开头。
+  //    改前:keyOfRow=null ⇒ composite=null ⇒ F1 结构上看不见这一族,
+  //    于是"实现与常驻尺子都已在 HEAD 且 RC=0"的票仍被 --open 列为待办(2026-09-27 实测 75/51/62 各被再派一次)。
+  const open75 = '- [ ]75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯 Python 遍历)'
+  const done75 = '- [x] ✅(2026-09-27)75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯)'
+  const a = auditPlan(['# p', done75, open75].join('\n'))
+  if (a.counts.forks !== 1 || !a.forks[0].key.startsWith('75#'))
+    throw new Error(`行首裸编号必须成主键并被 F1 点名,实测 ${JSON.stringify(a.forks.map((f) => f.key))}`)
+  // ② 收窄 1:量值开头(`12.3 万`)不得算主键 —— 否则每条普查叙述都成了"第二次登记"。
+  const volume = '- [ ] 12.3 万文件级的普查另计一票'
+  if (keyOfRow(volume) !== null) throw new Error(`量值开头被判成主键 ${keyOfRow(volume)}`)
+  // ③ 收窄 2:行文引用(`见 12. 那条`)与日期开头(`2026-09-27 …`)同样不算(与 M7 同一条禁令)。
+  for (const [line, why] of [
+    ['- [ ] 见 12. 那条的说法', '行文引用'],
+    ['- [ ] 2026-09-27 之后再议.', '四位日期(>3 位)'],
+  ]) {
+    if (keyOfRow(line) !== null) throw new Error(`${why} 不得算主键,实测 ${keyOfRow(line)}`)
+    if (compositeKeyOf(line) !== null) throw new Error(`${why} 的复合主键应为 null`)
+  }
+  // ④ 既有族不受影响:带子号族与裸族仍按原路走。
+  if (keyOfRow('- [ ] P2-F.10 带子号的旧族仍要能被认出') !== 'P2-F.10')
+    throw new Error('P2-F.10 族被收窄判据误伤')
+  if (keyOfRow('- [ ] **D33 过程性信息持久化补全(G-39)**') !== 'D33')
+    throw new Error('裸族 D33 被误伤')
+  // ⑤ 变异自证:标题里那个 `.` 若不再被跳过,标题就只剩编号本身(<4 字)⇒ composite 又变 null。
+  const t = titleOf(open75)
+  if (!t || t.length < 4 || t === '75') throw new Error(`标题前缀必须跳过编号,实测 ${JSON.stringify(t)}`)
 })
 
 test('M13 F4b 无主键逐字孪生:F4 看不见的那一格必须有判据,且两族不得互相顶账', () => {
