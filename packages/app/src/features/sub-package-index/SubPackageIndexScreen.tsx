@@ -36,24 +36,38 @@ export function SubPackageIndexScreen({
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.grid}>
           {entries.map((entry: SubPackageEntry) => (
+            // 按压态样式不得写在 Pressable 的 style 上(守门 131 那一型):Pressable 注册过
+            // cssInterop,函数形态声明被展开成空对象,整份内联样式静默消失。
+            // 网格槽位档(宽度百分比)留在外层,含绘制的卡面档(底色/描边/圆角/padding/gap)
+            // 下移到内层 View 的数组形态,再由面层把宽度显式还给盒子。
             <Pressable
               key={entry.title}
-              style={({ pressed }) => [styles.entryCard, pressed ? styles.entryCardPressed : null]}
+              style={styles.entryCardBox}
               onPress={entry.onPress}
               accessibilityRole="button"
               accessibilityLabel={entry.title}
             >
-              {typeof entry.icon === 'string' ? (
-                <Text style={styles.entryIcon}>{entry.icon}</Text>
-              ) : entry.icon ? (
-                <entry.icon size={32} color={tk.text.primary} />
-              ) : null}
-              <Text style={styles.entryTitle} numberOfLines={1}>
-                {entry.title}
-              </Text>
-              <Text style={styles.entryDesc} numberOfLines={2}>
-                {entry.desc}
-              </Text>
+              {({ pressed }) => (
+                <View
+                  style={[
+                    styles.entryCardFace,
+                    styles.entryCard,
+                    pressed ? styles.entryCardPressed : null,
+                  ]}
+                >
+                  {typeof entry.icon === 'string' ? (
+                    <Text style={styles.entryIcon}>{entry.icon}</Text>
+                  ) : entry.icon ? (
+                    <entry.icon size={32} color={tk.text.primary} />
+                  ) : null}
+                  <Text style={styles.entryTitle} numberOfLines={1}>
+                    {entry.title}
+                  </Text>
+                  <Text style={styles.entryDesc} numberOfLines={2}>
+                    {entry.desc}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           ))}
         </View>
@@ -75,8 +89,15 @@ function createStyles(tk: AppThemeTokens) {
     headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     scrollContent: { paddingHorizontal: 10, paddingVertical: 12 } as ViewStyle,
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 } as ViewStyle,
+    // 外框:两列网格里占槽位的宽度档(逐字取自原 entryCard 的 width,未新增数字档)
+    entryCardBox: { width: '47%' } as ViewStyle,
+    // 面层:把宽度显式还给盒子(按压态下移到内层后,外框按内容收拢会丢整格宽);
+    // flex:1 把高度也还给盒子 —— 外层在 row + 默认 alignItems:stretch 下被拉成同行等高,
+    // 内层若不撑满则底色高度改由内容决定,一行里"一行描述"与"两行描述"两张卡会出现
+    // 可见的底色不齐。这是布局关系档(不是任何 px 数字档),与同批 CourseDetail/Learn/LiveDetail
+    // 三屏 entryBtnHit 的处置同形。
+    entryCardFace: { width: '100%', flex: 1 } as ViewStyle,
     entryCard: {
-      width: '47%',
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.xl,
       borderWidth: 1,

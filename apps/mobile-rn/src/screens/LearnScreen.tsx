@@ -91,21 +91,32 @@ export function LearnScreen() {
     <View style={styles.container}>
       {/* 学习发展 / AI 学业规划入口(孤儿路由修复:LearnDevelop/AiCareer 注册无入口,学习中心补挂) */}
       <View style={styles.entryRow}>
+        {/* 动态按压态不得写成函数形态的 style:Pressable 被 cssInterop 注册过,函数声明会被展开成
+            空对象而整份内联样式静默消失(守门 131 立项那一型)。外层只留纯布局档 flex 承接两个按钮
+            的等分宽度,盒子的底色/圆角/内距下移到子 View 的数组形态上 —— 可见位置与尺寸一字不变。 */}
         <Pressable
-          style={({ pressed }) => [styles.entryBtn, pressed ? styles.entryBtnPressed : null]}
+          style={styles.entryBtnHit}
           onPress={() => navigation.navigate('LearnDevelop')}
           accessibilityRole="button"
           accessibilityLabel="学习发展"
         >
-          <Text style={styles.entryBtnText}>学习发展</Text>
+          {({ pressed }) => (
+            <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
+              <Text style={styles.entryBtnText}>学习发展</Text>
+            </View>
+          )}
         </Pressable>
         <Pressable
-          style={({ pressed }) => [styles.entryBtn, pressed ? styles.entryBtnPressed : null]}
+          style={styles.entryBtnHit}
           onPress={() => navigation.navigate('AiCareer')}
           accessibilityRole="button"
           accessibilityLabel="AI 学业规划"
         >
-          <Text style={styles.entryBtnText}>AI 学业规划</Text>
+          {({ pressed }) => (
+            <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
+              <Text style={styles.entryBtnText}>AI 学业规划</Text>
+            </View>
+          )}
         </Pressable>
       </View>
       <SharedLearnScreen
@@ -146,6 +157,10 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 20,
     paddingVertical: 10,
+  },
+  // 外层裸 Pressable 的命中层:只承接行内等分这一条纯布局档,不画任何底色/描边。
+  entryBtnHit: {
+    flex: 1,
   },
   entryBtn: {
     flex: 1,
