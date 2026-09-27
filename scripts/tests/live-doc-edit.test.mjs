@@ -262,6 +262,39 @@ test('T10 applyReplacements 纯函数:恰好 1 命中才组装;0 / 2 命中与�
   )
 })
 
+test('T10b 同文孪生档(all:true):N 份副本一起改,其余行逐字原位;不带 all 时同文仍拒(旧锁未松)', () => {
+  const twin = '- [x] ✅(2026-09-27)（进行中@2026-09-27/qa）**86A. 证据流水**:说明。'
+  const bare = twin.replace('（进行中@2026-09-27/qa）', '')
+  const lines = ['# 标题', twin, '段落一', twin, '段落二', twin]
+  const r = __test__.applyReplacements(lines, [{ before: twin, after: bare, all: true }])
+  assert.equal(r.ok, true, '同文三份 + all ⇒ 必须落地,否则半新半旧比不改更糟')
+  assert.deepEqual(r.next, ['# 标题', bare, '段落一', bare, '段落二', bare])
+  assert.equal(r.hits.length, 3, '三条命中都要记账,否则 untouched-line-drift 会把它们漏判成"不该动"')
+  assert.equal(r.multi.length, 1, '同文全改必须回报,让成功行里能打印命中数')
+  assert.equal(r.multi[0].count, 3)
+  // 反向锁:放宽只发生在显式声明 all 的项上
+  assert.equal(
+    __test__.applyReplacements(lines, [{ before: twin, after: bare }]).reason,
+    'replace-multi-hit#1:3',
+    '不带 all ⇒ 同文多行仍必须拒 ⇒ "恰好 1 次"这条旧锁不能被顺手放宽',
+  )
+  // 0 命中即使带 all 也拒(放宽的是"哪一份",不是"有没有这一份")
+  assert.equal(
+    __test__.applyReplacements(lines, [{ before: '- [ ] 没有这行', after: 'X', all: true }])
+      .reason,
+    'replace-not-found#1',
+  )
+})
+
+test('T10c 顺序替换的自咬防护:一项 before 等于另一项 after ⇒ chain-hit 拒绝,不静默改两遍', () => {
+  const lines = ['- [ ] A:说明。', '- [x] ✅(2026-09-27) B:说明。']
+  const r = __test__.applyReplacements(lines, [
+    { before: '- [ ] A:说明。', after: '- [x] ✅(2026-09-27) B:说明。' },
+    { before: '- [x] ✅(2026-09-27) B:说明。', after: '- [x] ✅(2026-09-28) B:说明。', all: true },
+  ])
+  assert.equal(r.ok, false, '第二项会把第一项刚产出的行再改一遍,而声明里没有这件事')
+  assert.match(String(r.reason), /^chain-hit#2<-1$/)
+})
 test('T11 端到端·整行改写:落地后旧形态逐条为零、其余行逐字原位、主索引对齐', (t) => {
   const src = ['# 标题', '段落一', '- [ ] **D1 待办**:说明。', '段落二', '']
   const { dir, inputs } = makeDocRepo(t, src.join('\n'))
