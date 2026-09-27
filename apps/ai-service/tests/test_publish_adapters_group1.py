@@ -655,12 +655,34 @@ class TestJuejinAdapter:
         assert "missing content text" in result.error_message
 
     async def test_publish_success(self, monkeypatch):
-        """publish 成功:mock Playwright 全链路,wait_for_url 成功 → published_url。"""
+        """publish 成功:mock Playwright 全链路,成功判据 = `/published` 过渡页。
+
+        2026-09-27 随一手校准改写:旧用例断言的是"等 `**/post/<id>**` 跳转成功"，
+        而那个判据已被实测推翻并删掉(审核期该地址根本不存在 ⇒ 功能成功也永远记账失败)。
+        夹具同步补三件:平铺分类列表的文案/选中态 class、弹层可见按钮文案(含「确定并发布」)、
+        以及成功证据换成 `/published`。判据本身一字未放宽。
+        """
         monkeypatch.setattr("app.services.publish.adapters.juejin._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _, mock_context = _make_playwright_chain(
-            page_url="https://juejin.cn/post/7123456789",
+        mock_pw, mock_page, mock_locator, mock_context = _make_playwright_chain(
+            page_url="https://juejin.cn/published",
             locator_count=1,
+            locator_text="前端",
         )
+        item = MagicMock()
+        item.inner_text = AsyncMock(return_value="前端")
+        item.get_attribute = AsyncMock(return_value="item active")
+        item.click = AsyncMock()
+        mock_locator.nth = MagicMock(return_value=item)
+        # ⑤ 那一步要在"实测可见按钮全集"里挑确认钮;旧夹具的 evaluate 返回 MagicMock，
+        # 挑不到就以 stuck=submit-not-called 失败 —— 那是夹具没跟上契约,不是适配器判据严。
+        # 按第二个实参分流:采集按钮文案那一次返回全集,其余(填标题/取正文)返回真值,
+        # 不做"一律返回同一个值"那种会把别的步骤喂歪的偷懒写法。
+        async def _evaluate(script: object, *args: object) -> object:
+            if args and "button" in str(args[0]):
+                return ["发布", "上传封面", "取消", "确定并发布"]
+            return True
+
+        mock_page.evaluate = AsyncMock(side_effect=_evaluate)
         monkeypatch.setattr("app.services.publish.adapters.juejin.async_playwright", mock_pw, raising=False)
         with _patch_stealth_browser("app.services.publish.adapters.juejin", mock_context):
             adapter = JuejinAdapter()
@@ -669,9 +691,12 @@ class TestJuejinAdapter:
                 content, {"sessionid": "s", "signatureId": "sig"},
                 {"category": "前端", "tags": ["React"]},
             )
-        assert result.success is True
-        assert "7123456789" in result.published_url
-        assert result.platform_content_id == "7123456789"
+        assert result.success is True, result.error_message
+        assert "published" in (result.published_url or "")
+        # 反向锁:绝不再把 `/post/<id>` 当成功证据(审核期该地址不存在)
+        assert "/post/" not in (result.published_url or "")
+        assert result.payload.get("review_status") == "checking"
+        assert result.payload.get("published_landing_seen") is True
 
 
 # =============================================================================
