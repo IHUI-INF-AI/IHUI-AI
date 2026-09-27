@@ -97,9 +97,9 @@ const collectFromPython = (): Set<string> => {
 }
 
 describe('step-decision 词汇表(D55/G-66)', () => {
-  it('16 个字面量,无重复', () => {
-    expect(STEP_DECISIONS).toHaveLength(16)
-    expect(new Set(STEP_DECISIONS).size).toBe(16)
+  it('18 个字面量,无重复', () => {
+    expect(STEP_DECISIONS).toHaveLength(18)
+    expect(new Set(STEP_DECISIONS).size).toBe(18)
   })
 
   it('与后端字面量双向一致(既不缺 also 不多)', () => {
@@ -152,7 +152,7 @@ describe('step-decision 词汇表(D55/G-66)', () => {
     expect([...got].filter((x) => x.includes('helper') || x.includes('RUNTIME'))).toEqual([])
   })
 
-  it('五种语言:16 个决策词 + 4 个态词全部命中,且不等于英文码', () => {
+  it('五种语言:18 个决策词 + 4 个态词全部命中,且不等于英文码', () => {
     for (const lang of LOCALES) {
       const t = realT(lang)
       for (const d of STEP_DECISIONS) {

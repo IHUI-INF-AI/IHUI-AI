@@ -6348,3 +6348,17 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 **两条通用口径**:(1) 端内/部署机那份运行配置一律是**派生态**,禁止手改也禁止"只拦红不回写"(与 design-tokens 同源那条同规矩);(2) **改常驻服务的脚本必须重启才生效,而 PowerShell/node 每轮重新派生的子进程改工作树即刻生效** —— 判据是"它是常驻读进内存,还是每轮重新起",别一律当"要重启"。
 - **审计证据导出的验签公钥(免鉴权只读端点)**:`GET /api/audit-evidence/public-key` 让外部审计方在**不持 admin 账号**的情况下拿到 RSA-SHA256 验签公钥(SPKI PEM)与 `keyId`(公钥 sha256 前 16 位,收件方可自算),实现"拿到签名信封即可自证"的闭环。响应**只有** `algorithm` / `keyId` / `publicKey` 三个字段,绝不含任何私钥材料(测试里有反向锁断言整段响应不匹配 `PRIVATE KEY`);按 IP 限流 30 次/分钟;**签名密钥未配置时返回 503 并点名所缺的环境变量**,不返回 200 + 空值(把"没有"写成"有"是本仓零容忍的一型)。该面刻意**不挂 `/api/admin/*`** —— 现读 `server.ts` 的零信任注入对 admin 前缀强制 `network.allowExternal:false`、`network-segment.ts` 真执行 403,挂上去等于"免了鉴权仍公网不可达"。公开面按 §5 的规矩**显式列举这一条完整路径**,不用 `/api/<前缀>/…` 兜底正则。
 | 151 | guardian-runner.mjs | `check-agent-status-vocabulary-parity.mjs` | 子智能体/后台任务**状态词汇**跨语言与端内抄本对账:SV1 TS 数组 ≡ TS 联合 ≡ Python 对齐表 ≡ Literal 逐字等值、SV2 真相源自洽且两域(六档看板态 / 四档工作空间态)不相交、SV3 端内第二份成员清单走该文件 HEAD 棘轮;六档值是落库列 + REST `z.enum` + SSE 载荷三重对外契约,不得改名删成员;三态不并桶(枚举到 0 判死、解析不到 exit 2 未判定);紧急跳过 `HUSKY_SKIP_STATUS_VOCABULARY_PARITY=1` |
+> - **文件族同样只有一份判据**(2026-09-27 收口，`packages/shared/src/chat/file-tool-intent.ts`)：
+>   "这一句要不要给 AI 一只**改文件**的手"此前只写在 web 端(`tool-config.ts`)，而扩展会话
+>   `FILE_*_INTENT_TOOLS` 且**不进 `./chat` barrel**：barrel 里已有的 `FILE_WRITE_TOOLS`
+>   (`task-status.ts`)是"这次调用算不算改了文件"的**识别**白名单(Set，按 `.has()` 消费)，与
+>   "把哪些工具交给模型"的**能力**清单同词不同义，并置会产出 `export *` 歧义。行为对子与
+>   "端内不得再写第二份正则"由 `packages/shared/src/chat/__tests__/file-tool-intent.test.ts` 钉住。
+>   逐字同形，字段声明收敛进 `@ihui/types` 的 `ToolCall.partialDiff`，端内归并层一律纯函数
+>   (web `createToolDeltaHandler` / 扩展 `lib/tool-call-frames.ts` / 小程序 `cards/types.ts` /
+>   RN `chat-render-model.ts`)，接线由各自的源码级锁 + 真实帧端到端用例钉住。
+>   **完全不带**文件族 —— 这类分叉本身不会报错,只会表现成"同一句话在 web 能改文件、在那个端不能";而**要不要带取决于该端有没有委托面**(见本条末尾),所以"补齐"不等于"照抄 web 的名单"。
+>   现搬到共享层：web 保留 re-export(不打断既有 import 面)。两张名单刻意命名成
+>   **扩展端实测后收回携带**(2026-09-27 同日晚):它不送 `workspace_context`,写类工具会落到服务端 `_mcp.call_tool`,那里 `write_file`/`file_edit` 属 `_ADMIN_ONLY_TOOLS` 而对话链 `__user_role` 恒为 0 ⇒ 每次必失败;只读族则会在服务端工作区上执行 ⇒ 越权面变更。带过去只会先给一条流中 diff、再报权限失败,
+>   所以扩展此刻**不带**文件族(理由四条写进端内 `toolsForChatRequest` 头注并被测试锁住:排除必须带理由,否则下一个人会顺手补回来)。**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 小程序 / RN 三端**:载荷 `partialText` 是**累积文本**
+>   判断)，仅 `running` 态渲染，`tool-result` 到达即清(最终 ± 行以 result 为准)。**收帧与渲染的管线四端都在位**(扩展那一段属"接线已到位、生产者尚未指向它"),而当前真会收到帧的是 web / 小程序 / RN 三端,三端的渲染条件

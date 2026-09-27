@@ -24,15 +24,41 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.core.jwt_auth import require_request_user_id
 from app.routers.sessions import get_session_store
 from app.services.session_relay import (
     RelaySummary,
     build_relay_injection,
     generate_relay_summary,
 )
-from app.services.session_store import SessionStore
+from app.services.session_store import (
+    SessionStore,
+    Thread,
+    owner_scoped_allows,
+    thread_owner,
+)
 
 router = APIRouter(prefix="/relay", tags=["relay"])
+
+
+def _owned_thread(thread: Thread | None, thread_id: str, user_id: str) -> Thread:
+    """校验"这一行存在且属于调用方",并把类型收窄成非 None 交回。
+
+    别人的会话与"不存在"**同形**(404 + 同一句 detail 模板)。
+
+    本模块四个端点此前**一个身份依赖都没挂** —— 既不是"取了身份没用"(那会被
+    `scripts/audit_principal_consumed.py` 那把尺子看见),而是**根本不取**,所以尺子
+    结构上判不到它(G-250 收尾时现读才暴露的尺子盲区,已登记进台账)。后果按端点
+    分别成立:`GET /summary/{thread_id}` 凭 id 读别人的接力摘要(里面是对话内容的
+    目标/已完成步骤/关键决定),`/summaries` 一次列出**全站**摘要(那一格要 store 层
+    的属主参数才能真过滤,响应侧筛会让 `total` 与集合分叉,故另批处置),
+    `POST /continue/{thread_id}` 凭 id 对别人的会话做摘要并派生新线程。
+    判据复用 `owner_scoped_allows` 那一份实现,与 `list_threads(owner_user_id=…)` /
+    引擎只读面同形 —— 两处算同一件事必漂移,是本仓记过最多次的失效型。
+    """
+    if thread is None or not owner_scoped_allows(user_id, thread_owner(thread)):
+        raise HTTPException(status_code=404, detail=f"thread 不存在: {thread_id}")
+    return thread
 
 
 class _CreateSummaryBody(BaseModel):
@@ -43,12 +69,11 @@ class _CreateSummaryBody(BaseModel):
 @router.post("/summary")
 def create_relay_summary(
     body: _CreateSummaryBody,
+    user_id: str = Depends(require_request_user_id),
     store: SessionStore = Depends(get_session_store),
 ) -> dict[str, Any]:
     """为某 thread 生成并持久化接力摘要,返回最新摘要(默认确定性;refine 受 env 门控)。"""
-    thread = store.get_thread(body.thread_id)
-    if thread is None:
-        raise HTTPException(status_code=404, detail=f"thread 不存在: {body.thread_id}")
+    _owned_thread(store.get_thread(body.thread_id), body.thread_id, user_id)
     items = store.list_items(body.thread_id)
     summary = generate_relay_summary(
         items, thread_id=body.thread_id, llm_refine=body.refine
@@ -75,9 +100,11 @@ def create_relay_summary(
 @router.get("/summary/{thread_id}")
 def get_relay_summary(
     thread_id: str,
+    user_id: str = Depends(require_request_user_id),
     store: SessionStore = Depends(get_session_store),
 ) -> dict[str, Any]:
-    """取某 thread 最新接力摘要;无则 404。"""
+    """取某 thread 最新接力摘要;无则 404(别人的同样 404,不做存在性区分)。"""
+    _owned_thread(store.get_thread(thread_id), thread_id, user_id)
     row = store.get_relay_summary(thread_id)
     if row is None:
         raise HTTPException(status_code=404, detail=f"thread 无接力摘要: {thread_id}")
@@ -111,6 +138,7 @@ def list_relay_summaries(
 @router.post("/continue/{thread_id}")
 def continue_thread(
     thread_id: str,
+    user_id: str = Depends(require_request_user_id),
     store: SessionStore = Depends(get_session_store),
 ) -> dict[str, Any]:
     """「继续上次」:从来源 thread 生成摘要,建新 thread 持久化该摘要,并返回注入文本。
@@ -118,9 +146,7 @@ def continue_thread(
     新会话引导层把返回 ``injection`` 作为首条 system 消息前置,即完成接力恢复。
     LLM 精炼默认关闭(env 门控);本路径绝不依赖 LLM。
     """
-    source = store.get_thread(thread_id)
-    if source is None:
-        raise HTTPException(status_code=404, detail=f"thread 不存在: {thread_id}")
+    source = _owned_thread(store.get_thread(thread_id), thread_id, user_id)
     items = store.list_items(thread_id)
     summary = generate_relay_summary(items, thread_id=thread_id, prev_thread_id=thread_id)
     new_thread = store.create_thread(
@@ -129,7 +155,8 @@ def continue_thread(
         # 接力线程继承来源的属主/角色(批 60 / G-249)。不传就等于每次"继续上次会话"
         # 都新造一条**无属主**的线程 —— 而按 `_principal_allows` ②,"没有属主"不是
         # 受限而是"无从对账",任何已登录连接都能接着用它对话。
-        # (这条路由"能不能凭 id 续别人的会话"属只读/销毁面,另记 G-250。)
+        # (本路由此前"凭 id 就能续别人的会话"那一格由 `_owned_thread` 收掉:先验归属
+        #  再派生,继承下来的那份属主必然是调用人自己。)
         user_id=source.metadata.get("userId")
         if isinstance(source.metadata.get("userId"), str)
         else None,

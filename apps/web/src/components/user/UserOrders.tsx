@@ -41,7 +41,7 @@ export default function UserOrders({
     )
   }
   return (
-    <ul className={cn('space-y-2 rounded-xl border bg-card p-2', className)}>
+    <ul className={cn('space-y-2 rounded-lg border bg-card p-2', className)}>
       {orders.map((o) => (
         <li key={o.id}>
           <button

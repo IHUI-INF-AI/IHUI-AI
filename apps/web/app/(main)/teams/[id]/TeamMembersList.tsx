@@ -70,7 +70,7 @@ export function TeamMembersList({
       {members.map((m) => {
         const RoleIcon = ROLE_ICON[m.role]
         return (
-          <div key={m.id} className="flex items-center gap-3 rounded-md border bg-card px-4 py-3">
+          <div key={m.id} className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3">
             <Avatar src={m.avatar} name={m.nickname} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">

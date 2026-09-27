@@ -130,7 +130,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
           return (
             <div
               key={idx}
-              className={cn('rounded-xl border bg-card', hasErrorInIter && 'border-destructive/30')}
+              className={cn('rounded-lg border bg-card', hasErrorInIter && 'border-destructive/30')}
             >
               <button
                 type="button"

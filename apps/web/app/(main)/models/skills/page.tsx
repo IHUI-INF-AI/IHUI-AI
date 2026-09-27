@@ -155,7 +155,7 @@ export default async function SkillsPage() {
         <input
           type="search"
           placeholder={t('skills.searchPlaceholder')}
-          className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline-none focus:ring-2 focus:ring-ring/20 dark:bg-input/30"
+          className="h-10 w-full rounded-sm border border-input bg-background pl-9 pr-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline-none focus:ring-2 focus:ring-ring/20 dark:bg-input/30"
         />
       </div>
 
