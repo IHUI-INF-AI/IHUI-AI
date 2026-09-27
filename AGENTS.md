@@ -639,6 +639,8 @@ pnpm dev                                       # 启动所有服务(web + api + 
   - **手动 git 命令**必须遵守:执行 `git pull` / `git rebase` / `git fetch` / `git checkout` / `git stash` 等写操作前,先 `node scripts/git-lock.mjs check`(exit 0 = 无锁可执行;exit 1 = 有其他写操作进行中,等待后重试)。
   - **禁止手动 `git gc` / `git repack` / `git prune`**:需要时用 `node scripts/safe-gc.mjs`(自动检查无锁后执行)。autoGc 已禁用(`gc.auto=0` + `maintenance.auto=false`),无需也不应手动触发 gc。
   - **锁异常处理(2026-09-18 心跳机制升级)**:持锁方 safe-commit/safe-gc 会 spawn 心跳子进程每 5s 续期 `meta.ts`——**活进程的锁绝不会被抢占**;仅当"锁年龄超 300s **且** 持有者 pid 已死"或超 1800s 硬上限(pid 复用兜底)才强制抢占。锁等待超时(safe-commit 15min / post-commit 3min)报错并提示持有者是否存活;紧急可删 `.git/ihui-git-write.lock`(先确认无 git 写进程)。绕过:`IHUI_GIT_NO_LOCK=1`(仅应急,禁用后自行承担并发风险)。
+  - **上面那句"活进程的锁绝不会被抢占"自 2026-09-27 起要带一个例外读,而且它与代码本来就不一致(已登记,未代改)**:① 例外 = 进程身份三元组确证复用(见下一条);② 既有事实 = `acquire` 的真实条件是"名义存活 且 锁龄超 `staleMs`/`hardStaleMs` 也抢",活着只被用来构造"极可能已被复用"这句措辞,真正兜住长流程的是**心跳续 `ts`** —— 这一处文档与代码的分歧由锁的持有人定夺(改严会把活人的长流程暴露在抢占下),`scripts/git-lock.mjs` 头注与 `acquire` 注释两处都已就地登记,镜像测试 ⑤ 把原判据的形状锁着不让顺手改。
+  - **判活再加一环:进程身份三元组(pid + pidStart + host)。**裸 pid 回答不了"这个 pid 还是当初那个进程吗",所以 `scripts/lib/proc-identity.mjs` 把锁里记的启动时间与现测值对账,结论只有三态:`match`(同一个人,继续等)/ `mismatch`(确证这个 pid 已被系统复用,不是持锁过程 ⇒ 允许立即抢占,不必等 300s/1800s 的年龄阈值)/ `unverifiable`(锁里没记、量不到、别机持的锁、PowerShell 不可达 ⇒ **维持改动前的判据,不据此抢**)。现测只在"原判据要我等"那一格发生、同一把锁至多一次(带 5s 缓存,单次实测 211ms),`heartbeat` 与 `check` 都不派生(它们是快路径,派生进去等于把 PowerShell 放进每 300ms 的轮询)。失效方向刻意是"少抢一把":抢错的代价是并发写坏 `.git`,少抢只是多等一轮。**旧 `meta` 没有身份两元时整键不写 ⇒ 落盘字节与改动前逐字同形**,老锁照常被等待与清理。同一型接线在部署锁见下方 G-193 条,两处共用这一份实现,不得各写一遍。
   - **新环境初始化**:重新 clone 后必须执行一次 `node scripts/git-hygiene-init.mjs`(恢复 gc.auto=0 / maintenance.auto=false 防护配置,这些是 local config,clone 不保留)。
 
 ### .git 整目录消失事故链根治(2026-09-10 立,当日 7 次事故复盘)
