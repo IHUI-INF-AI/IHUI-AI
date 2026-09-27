@@ -42,32 +42,48 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# 发布弹层选择器/文案的单一事实层(2026-09-27 重写;每条带证据等级)
+# 发布弹层选择器/文案的单一事实层(2026-09-27 二次校准)
 #
-# 本次只读探针因画像登录态已在服务端失效(anti-cookie-health 判 13|juejin
-# invalid,editor 路由被重定向到 /login),**没能现场打开弹层**;以下事实的出处:
-# 1. 「弹层最终提交按钮文案 = 确定并发布」—— 历史 publish timeout 事故排查的
-#    线上实测结论(公开 chunk 检索不到该文案,它藏在登录后的懒加载分片里)。
-# 2. 「提交接口 = content_api/v1/article/publish;草稿保存 = article_draft/create,
-#    不是提交动作」—— 掘金自家生产 bundle 的 URL 字符串逐字核到
-#    (取证存档 .ihui-agent/tmp/juejin-probe/endpoints.json)。
-# 3. 「成功后 URL 经 /published 再重定向回首页;审核中文章地址是 /spost/<id>,
-#    /post/<id> 审核通过后才存在」—— 线上实测结论 + 主站 bundle 路径指纹佐证。
-#    ⇒ 旧判据等 URL 跳到 /post/ 那一招在审核期结构上等不到,属成功判据本身错。
-# 4. 「分类下拉 = 小浮层+滚动列表(byte 系 dropdown),hover 触发、需 force click、
-#    分类必选;旧代码假想的「名为 select 且 class 带 category-select 一族」DOM
-#    在掘金根本不存在」—— 线上实测结论 + editor chunk 中 dropdown-content 命中 69 处。
-# (旧代码面上那三条被证伪的字面串由 tests/test_juejin_publish_selectors.py 的
-#  「源码反向锁」看守;本注释描述它们时不得逐字复现判据本体。)
+# 本段所有"实测"= 2026-09-27 三轮 headless 只读探针的**一手 DOM 观察**,凭据注入
+# 与 publish 完全同路径(id=13 解密 → create_stealth_browser_context → add_cookies);
+# 观察产物存档 .ihui-agent/tmp/juejin-calib/observation{,2,3}.json。
+# **全程未点击最终提交按钮,无任何文章被发布。**(上一轮探针因误用未注入凭据的遗留
+# 画像副本被判"登录态失效"—— 本轮以适配器自身路径现读,会话有效,弹层已现场打开。)
+# 1. 弹层容器 = `.publish-popup`(实测 class="publish-popup publish-popup
+#    with-padding active"),**不是 modal**:byte-modal 一族 9 个元素全隐藏、popover
+#    0 个 ⇒ 按旧候选表 wait_for_selector 必超时(当次实测 8s Timeout)。弹层锚在顶栏
+#    exact 文案「发布」按钮(button.xitu-btn)上;「发布文章」只是弹层内标题 div 文本。
+# 2. 最终提交按钮 = 「确定并发布」(实测 class="ui-btn btn primary medium default");
+#    弹层内可见钮全集 = [发布, 上传封面, 取消, 确定并发布];页面不存在「确认发布」。
+# 3. 分类 = 弹层内**平铺可点列表**(实测 .form-item-content.category-list > .item ×8:
+#    后端/前端/Android/iOS/人工智能/开发工具/代码人生/阅读),**无 hover 触发、无滚动
+#    下拉** —— 推翻上一版"小浮层下拉(hover+force click)"推导;点中后 item class 变
+#    "item active"。分类 label 带 required 类(必选属实,旧注释这一点成立)。
+# 4. 标签 = .tag-input 内 input.byte-select__input;placeholder 文案挂在独立的
+#    .byte-select__placeholder div 上,**不是 input 属性** ⇒ 旧
+#    `input[placeholder*="标签"]` 一支实测永不命中。普通 click 实测被 pointer events
+#    拦截、force click 可用;聚焦键入即过滤,选项渲染在 body 级 portal
+#    `.byte-select-dropdown > li.byte-select-option`,点击可选中(实测点选成功)。
+# 5. 提交接口 content_api/v1/article/publish、草稿 article_draft/create|update、
+#    过渡页 /published —— URL 字符串逐字核自当次抓到的编辑器线上 bundle
+#    app.12c77646.js;article_draft/create 并在当次网络面板现行观测到。
+#    旧判据等 /post/<id> 跳转不再回来(上一版结论,本次未复验亦不复用其推导细节)。
+# 6. 「编辑摘要」label 带 required,但弹层初开已自动从正文填充(实测 "37/100")⇒
+#    无需专门填写;若改版后不再自动填,需补摘要输入步骤。
+# (旧代码假想的「名为 select 且 class 带 category-select 一族」DOM 经当次弹层
+#  outerHTML 全量核对确认不存在,反向锁由 tests/test_juejin_publish_selectors.py 看守。
+#  上一版把 `.category-list .item` 一并列入"被证伪的假想 DOM"—— 当次实测证明它恰恰
+#  是现网一手主选择器,反向锁已按实测更正;被证伪的从来是"分类=下拉形态"这一型。)
 # ---------------------------------------------------------------------------
 
 #: 发布弹层「最终提交」按钮的候选文案(有序;首个在页面命中的即用)。
-#: 「确定并发布」= 线上实测现行文案;「确认发布」保留为回退候选 ——
-#: 多候选是为了文案变回去仍能命中,单字面量正是本次缺陷的成因。
+#: 「确定并发布」= 2026-09-27 一手实测弹层现行文案;「确认发布」为防御性回退候选
+#: (当次实测页面**未观测**),保留只为文案变回去仍能命中 —— 单字面量正是历史缺陷成因。
 PUBLISH_CONFIRM_TEXTS: tuple[str, ...] = ("确定并发布", "确认发布")
 
 #: 编辑器顶栏「打开发布弹层」入口按钮候选(与弹层内最终确认按钮不同)。
-PUBLISH_OPEN_TEXTS: tuple[str, ...] = ("完成并发布", "发布文章", "发布")
+#: 「发布」= 2026-09-27 实测顶栏 exact 文案(排首位);后两枚为历史/防御候选。
+PUBLISH_OPEN_TEXTS: tuple[str, ...] = ("发布", "完成并发布", "发布文章")
 
 #: 提交接口 URL 特征(唯一允许当作成功证据的网络响应;草稿保存接口不在列)。
 #: v1 逐字核自掘金线上 bundle;v2 是防御性候选(未见实测,命中才算)。
@@ -82,15 +98,31 @@ PUBLISHED_URL_MARKERS: tuple[str, ...] = ("/published",)
 #: 审核中文章地址前缀(拿到 article_id 后回填 published_url 用)。
 SPOST_URL_PREFIX = "https://juejin.cn/spost/"
 
-#: 发布弹层容器候选(byte 系浮层;保留泛化回退,不赌单一类名)。
+#: 发布弹层容器候选。`publish-popup` = 2026-09-27 实测唯一可见容器;其余为改版回退
+#: (旧版只列后三族,实测面全部 0 可见 ⇒ 弹层检测恒超时、分类/标签步被静默跳过)。
 PUBLISH_MODAL_SELECTORS: tuple[str, ...] = (
+    '[class*="publish-popup"]',
     '[class*="byte-modal"]',
     '[class*="modal"]',
     '[class*="popover"]',
 )
 
-#: 分类/标签下拉浮层的选项容器候选(小浮层+滚动列表)。
+#: 分类候选项选择器(2026-09-27 实测形态:弹层内平铺 `.category-list > .item`,
+#: 无需 hover/展开触发;第二枚是类名漂移的泛化回退)。
+CATEGORY_ITEM_SELECTORS: tuple[str, ...] = (
+    ".category-list .item",
+    '[class*="category-list"] [class*="item"]',
+)
+
+#: 标签输入框候选(实测 = .tag-input 内 input.byte-select__input;placeholder 不是
+#: input 属性,后一支保留作改版回退)。
+TAG_INPUT_SELECTOR: str = '.tag-input input, input[placeholder*="标签"]'
+
+#: 下拉浮层选项候选。首选 = 2026-09-27 实测的标签搜索 portal
+#: (body 级 .byte-select-dropdown 下的 li,pointer 被遮 ⇒ 需 force click);
+#: 其余为改版回退。
 DROPDOWN_OPTION_SELECTORS: tuple[str, ...] = (
+    '[class*="byte-select-dropdown"] li',
     '[class*="dropdown"] li',
     '[class*="popover"] li',
     '[class*="drop"] [class*="item"]',
@@ -191,7 +223,7 @@ def describe_stuck_stage(
     判定顺序即诊断优先级;每档都带上可复核的事实,不写推测。
     """
     if not modal_opened:
-        return "stuck=publish-modal-not-opened (点开发布弹层失败,未见 .byte-modal)"
+        return "stuck=publish-modal-not-opened (点开发布弹层失败,publish-popup/byte-modal 均未现可见容器)"
     if not category_selected:
         return "stuck=category-not-selected (分类为必选项,弹层内未能选中)"
     if not got_article_id:
@@ -247,70 +279,60 @@ class JuejinAdapter(BasePlatformAdapter):
     ) -> tuple[bool, str]:
         """在发布弹层里选中分类(必选项)。
 
-        掘金实测形态:分类是**小浮层下拉 + 滚动列表** —— 需要 hover 触发渲染、
-        选项可能藏在滚动区里、点击需 force(浮层遮罩会拦截 pointer 事件)。
+        2026-09-27 一手实测形态:分类是弹层内**平铺可点列表**
+        (`.category-list > .item` 8 项全部可见),无 hover 触发、无滚动下拉,
+        普通点击即选中,选中态 = 该 item 的 class 追加 "active"。
+        (上一版按"小浮层下拉 + hover + 滚动"实现的分支已被实测推翻,已移除;
+        真正需要 force click 的是标签搜索下拉,见 publish() 第③步。)
         返回 (是否选中, 失败定位详情);详情会并入最终 error_message。
         """
-        trigger_selectors: tuple[str, ...] = (
-            '[class*="category"] [class*="select"]',
-            '[class*="category"] .byte-select',
-            '[class*="category"]',
-        )
-        clicked_trigger = ""
-        for sel in trigger_selectors:
+        for sel in CATEGORY_ITEM_SELECTORS:
             try:
                 loc = page.locator(sel)
-                if await loc.count() == 0:
-                    continue
-                await loc.first.hover()
-                await human_pause(0.3, 0.7)
-                await loc.first.click(force=True)
-                clicked_trigger = sel
-                break
+                n = int(await loc.count())
             except Exception as e:
-                logger.warning("juejin 分类触发器 %s 失败: %s", sel, e)
-        if not clicked_trigger:
-            return False, f"分类触发器未找到(候选={list(trigger_selectors)})"
-
-        # 滚动列表:逐屏抓可见选项文案,最多滚 6 次
-        seen_labels: list[str] = []
-        for _ in range(6):
-            for opt_sel in DROPDOWN_OPTION_SELECTORS:
+                logger.warning("juejin 分类列表抓取 %s 失败: %s", sel, e)
+                continue
+            if n == 0:
+                continue
+            labels: list[str] = []
+            for i in range(n):
                 try:
-                    texts: list[str] = await page.evaluate(
-                        visible_text_collector_js(), opt_sel
-                    )
-                except Exception as e:
-                    logger.warning("juejin 选项抓取 %s 失败: %s", opt_sel, e)
-                    continue
-                for t in texts:
-                    if t not in seen_labels:
-                        seen_labels.append(t)
-                matched = find_option_in_list(texts, category)
-                if matched:
-                    try:
-                        safe = matched.replace("\\", "").replace('"', "")
-                        await page.locator(f'{opt_sel}:has-text("{safe}")').first.click(
-                            force=True
-                        )
-                    except Exception as e:
-                        logger.warning("juejin 分类选项点击失败: %s", e)
-                        continue
-                    # 复核:选中后分类文案应出现在弹层可见文本里
-                    try:
-                        page_text: str = await page.evaluate("() => document.body.innerText")
-                    except Exception:
-                        page_text = ""
-                    if matched in page_text or category in page_text:
-                        return True, ""
-                    return False, f"点击了分类「{matched}」但弹层未显示选中态"
+                    labels.append(((await loc.nth(i).inner_text()) or "").strip())
+                except Exception:
+                    labels.append("")
+            matched = find_option_in_list(labels, category)
+            if not matched:
+                continue
+            target = loc.nth(labels.index(matched))
             try:
-                await page.mouse.wheel(0, 320)
+                # 实测普通 click 可用;force 仅兜底(改版加遮罩时不至于整步崩)
+                await target.click(timeout=5000)
             except Exception as e:
-                logger.warning("juejin 分类列表滚动失败: %s", e)
-                break
+                logger.warning("juejin 分类 %r 常规点击失败,force 兜底: %s", matched, e)
+                try:
+                    await target.click(force=True)
+                except Exception as e2:
+                    logger.warning("juejin 分类选项 force 点击也失败: %s", e2)
+                    continue
+            # 复核优先级:实测选中态 class(最可靠)→ 弹层可见文本(兜底)
+            try:
+                cls_attr = (await target.get_attribute("class")) or ""
+            except Exception:
+                cls_attr = ""
+            if "active" in cls_attr:
+                return True, ""
+            try:
+                page_text: str = await page.evaluate("() => document.body.innerText")
+            except Exception:
+                page_text = ""
+            if matched in page_text or category in page_text:
+                return True, ""
+            return False, f"点击了分类「{matched}」但选中态(class active/文案)未确认"
         return False, (
-            f"分类「{category}」在下拉浮层中未找到;已见选项文案(前 30)={seen_labels[:30]}"
+            f"分类「{category}」未能选中(候选平铺列表选择器={list(CATEGORY_ITEM_SELECTORS)}"
+            " 均未命中或无匹配项)—— 若再现,说明掘金又把分类控件改版回了其它形态,"
+            "需重开弹层实测 DOM 校准"
         )
 
     async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
@@ -464,7 +486,8 @@ class JuejinAdapter(BasePlatformAdapter):
                     await simulate_reading(page, min_s=2.0, max_s=5.0)
                     await human_pause(1.0, 2.0)
 
-                    # ① 打开发布弹层(顶栏「完成并发布/发布」,不是弹层里的最终提交按钮)
+                    # ① 打开发布弹层(顶栏 exact 文案「发布」= 2026-09-27 实测;
+                    #    has-text 为子串匹配,DOM 序上 opener 在弹层提交钮之前,first 即入口)
                     modal_opened = False
                     for open_text in PUBLISH_OPEN_TEXTS:
                         try:
@@ -492,17 +515,44 @@ class JuejinAdapter(BasePlatformAdapter):
                             page, category
                         )
 
-                    # ③ 弹层内:标签(尽力而为,可空)
+                    # ③ 弹层内:标签(实测 label 带 required,但历史提交在少标签时是否被拒未取证,
+                    #    此处仍尽力而为、失败不阻断 —— 不在未实测的提交校验上冒险改语义)
                     if modal_opened and tags:
                         try:
-                            tag_input = 'input[placeholder*="标签"], .tag-input input'
-                            if await page.locator(tag_input).count() > 0:
-                                for tag in tags:
-                                    await human_type(page, str(tag), tag_input)
-                                    await page.keyboard.press("Enter")
-                                    await human_pause(0.4, 0.8)
-                            else:
+                            tag_box = page.locator(TAG_INPUT_SELECTOR).first
+                            if await tag_box.count() == 0:
                                 logger.warning("[juejin] 弹层内未找到标签输入框,跳过标签")
+                            else:
+                                for tag in tags:
+                                    tag_s = str(tag)
+                                    try:
+                                        # 实测:普通 click 被弹层遮罩拦截(pointer events)⇒ force
+                                        try:
+                                            await tag_box.click(timeout=2000)
+                                        except Exception:
+                                            await tag_box.click(force=True)
+                                        # focus() 直接置焦(不依赖 pointer),再键入即触发搜索
+                                        await tag_box.focus()
+                                        await page.keyboard.type(tag_s, delay=60)
+                                        await page.wait_for_timeout(1500)  # 搜索请求 + 下拉渲染
+                                        safe = tag_s.replace("\\", "").replace('"', "")
+                                        # 选项候选的唯一事实层(实测首选 = byte-select-dropdown li)
+                                        opt_sel = DROPDOWN_OPTION_SELECTORS[0]
+                                        opts = page.locator(
+                                            f'{opt_sel}:has-text("{safe}")'
+                                        )
+                                        if await opts.count() > 0:
+                                            # 实测:选项 li 同样需 force click
+                                            await opts.first.click(force=True)
+                                        else:
+                                            # 下拉无精确项时回车(未实测,仅兜底)并如实记日志
+                                            await page.keyboard.press("Enter")
+                                            logger.warning(
+                                                "[juejin] 标签 %r 下拉未命中选项,已回车兜底", tag_s
+                                            )
+                                        await human_pause(0.3, 0.6)
+                                    except Exception as e:
+                                        logger.warning("[juejin] tag %r 添加失败: %s", tag_s, e)
                         except Exception as e:
                             logger.warning("[juejin] tag input failed: %s", e)
 

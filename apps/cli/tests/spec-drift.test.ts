@@ -24,6 +24,7 @@ import {
   extractArgUsage,
   handlerArgsParamName,
   handlerBodyStart,
+  handlerSignature,
   EXCLUDED_FAMILIES,
   type ProjectableToolLike,
 } from '../src/commands/spec-drift.js';
@@ -90,16 +91,161 @@ describe('签名区不得被当成"把 args 整体传走"(修前该判据对 117
     expect(report.findings.filter((f) => f.kind === 'dead-parameter')).toHaveLength(0);
   });
 
-  it('解构签名 ⇒ 两侧均不判,且不产假正的 dead-parameter', () => {
+  it('解构签名:能确定拆出键集就判,拆不出来才留未判定(V3 #83 残余第②型)', () => {
+    // 正例:{ a, b } 结构上就是在读 args.a / args.b ⇒ 声明的 c 才是真落差
     const tool = fakeTool({
       name: 'destructured',
-      parameters: { a: {}, b: {} },
+      parameters: { a: {}, b: {}, c: {} },
       code: `async execute({ a, b }, ctx) { return { ok: Boolean(a) && Boolean(b) && Boolean(ctx) } }`,
     });
+    expect(handlerSignature(String(tool.execute))).toEqual({ kind: 'destructured', name: null, keys: ['a', 'b'] });
+    // handlerArgsParamName 是"命名形参"那一档的降格投影,解构形态仍必须是 null(不得兜底成 args)
     expect(handlerArgsParamName(String(tool.execute))).toBeNull();
     const report = analyze([tool]);
+    expect(report.undetermined).toHaveLength(0);
+    expect(report.countsByKind['dead-parameter']).toBe(1);
+    expect(report.findings.find((f) => f.kind === 'dead-parameter')?.detail).toContain('c');
+
+    // 反例:rest / 嵌套 / 计算键 ⇒ 键集折不出来,两侧一律不判(把"判不出"折进键集就是合格证)
+    for (const [name, code] of [
+      ['with_rest', `async execute({ a, ...rest }, ctx) { return { ok: Boolean(a) && Boolean(rest) && Boolean(ctx) } }`],
+      ['nested', `async execute({ a: { b } }, ctx) { return { ok: Boolean(b) } }`],
+      ['computed', `async execute({ 'x-y': v }, ctx) { return { ok: Boolean(v) } }`],
+      ['positional', `async execute([a, b], ctx) { return { ok: Boolean(a) && Boolean(b) && Boolean(ctx) } }`],
+    ] as const) {
+      const t = fakeTool({ name, parameters: { a: {} }, code });
+      const r = analyze([t]);
+      expect(r.findings, `${name}: 判不出键集时不得产假阳`).toHaveLength(0);
+      expect(r.undetermined[0]?.cause, `${name}: 必须落"解构不可定"这一档`).toBe('destructured');
+      expect(r.undetermined[0]?.reason).toContain('解构模式');
+    }
+  });
+
+  it('零形参 handler 是可判的"一个都没读",不是"看不见"(残余第②型的另一半)', () => {
+    expect(handlerSignature(`async execute() { return { ok: true } }`).kind).toBe('none');
+    // 正例:声明与实现都空 ⇒ 既无落差也不算未判定
+    const clean = fakeTool({ name: 'no_args_clean', parameters: {}, code: `async execute() { return { ok: true } }` });
+    const cleanReport = analyze([clean]);
+    expect(cleanReport.undetermined).toHaveLength(0);
+    expect(cleanReport.findings).toHaveLength(0);
+
+    // 反向锁:零形参却向模型 advertise 了参数 ⇒ 必须是 dead-parameter，
+    // 不得因为"首参识别不了"而把它洗成未判定(那等于给缺陷发通行证)
+    const lying = fakeTool({
+      name: 'no_args_lies',
+      parameters: { query: { type: 'string' } },
+      code: `async execute() { return { ok: true } }`,
+    });
+    const lyingReport = analyze([lying]);
+    expect(lyingReport.undetermined).toHaveLength(0);
+    expect(lyingReport.countsByKind['dead-parameter']).toBe(1);
+    expect(lyingReport.findings[0]?.detail).toContain('query');
+  });
+
+  it('同函数内 `const opts = args` 直接别名:键级取用读得出来就不再是未判定', () => {
+    const tool = fakeTool({
+      name: 'aliased',
+      parameters: { a: {}, b: {} },
+      code: `async execute(args, ctx) { const opts = args; return { ok: Boolean(opts.a) && Boolean(opts.b) && Boolean(ctx) } }`,
+    });
+    const report = analyze([tool]);
+    expect(report.undetermined).toHaveLength(0);
     expect(report.findings).toHaveLength(0);
-    expect(report.undetermined[0]?.reason).toContain('首参不是可识别的标识符');
+
+    // 反向锁:别名被整份交出去 ⇒ 照样未判定(通道开了不等于什么都放过)
+    const leaked = fakeTool({
+      name: 'aliased_leak',
+      parameters: { a: {} },
+      code: `async execute(args) { const opts = args; return handOff(opts) }`,
+    });
+    const leakReport = analyze([leaked]);
+    expect(leakReport.undetermined).toHaveLength(1);
+    expect(leakReport.undetermined[0]?.cause).toBe('cross_function');
+  });
+
+  it('同文件一跳委托:被调体在 toString 里 ⇒ 进去量键(残余第①型的可判那一半)', () => {
+    const tool = fakeTool({
+      name: 'one_hop',
+      parameters: { alpha: {}, beta: {} },
+      code: `async execute(args) {
+        const pick = (input) => { return Boolean(input.alpha) && Boolean(input.beta) };
+        return { ok: pick(args) };
+      }`,
+    });
+    const report = analyze([tool]);
+    expect(report.undetermined, '一跳可解析 ⇒ 不得再落未判定').toHaveLength(0);
+    expect(report.findings).toHaveLength(0);
+  });
+
+  it('反向锁:两跳 / 跨文件的委托仍然未判定(不得偷偷放宽)', () => {
+    // 两跳:execute -> inner -> outer,inner 把它的形参整体交给 outer
+    const twoHop = fakeTool({
+      name: 'two_hop',
+      parameters: { alpha: {} },
+      code: `async execute(args) {
+        const inner = (input) => outer(input);
+        return { ok: inner(args) };
+      }`,
+    });
+    const twoHopReport = analyze([twoHop]);
+    expect(twoHopReport.undetermined).toHaveLength(1);
+    expect(twoHopReport.undetermined[0]?.cause).toBe('cross_function');
+    expect(twoHopReport.undetermined[0]?.reason).toContain('整体交给了别处');
+
+    // 跨文件:`budgetOf(args)` 的真身在模块作用域里,execute.toString() 根本不含它
+    // (真仓 browser_page_snapshot 就是这个形态)⇒ 只能喊"源码不在面里",不许猜
+    const crossFile = fakeTool({
+      name: 'cross_file',
+      parameters: { alpha: {} },
+      code: `async execute(args) { return { ok: Boolean(budgetOf(args)) } }`,
+    });
+    const crossReport = analyze([crossFile]);
+    expect(crossReport.undetermined).toHaveLength(1);
+    expect(crossReport.undetermined[0]?.cause).toBe('cross_function');
+
+    // 非首位实参:`runPreToolCall("codegraph", args)` 的 args 落在第二位,
+    // 与被调方首参不对齐 ⇒ 按票面边界不解析(真仓 codegraph 那一处)
+    const secondActual = fakeTool({
+      name: 'second_actual',
+      parameters: { alpha: {} },
+      code: `async execute(args) { return { ok: Boolean(runPreToolCall("x", args)) } }`,
+    });
+    expect(analyze([secondActual]).undetermined[0]?.cause).toBe('cross_function');
+  });
+
+  it('`args` 只作为对象字面量的键 / 别人的属性名出现时不得算整份传走(真仓 debug_launch 假阳)', () => {
+    const tool = fakeTool({
+      name: 'key_position',
+      parameters: { type: {}, command: {} },
+      code: `async execute(args, ctx) {
+        const launchArgs = { program: args.command, args: args.type, cwd: ctx };
+        return { ok: Boolean(launchArgs) };
+      }`,
+    });
+    const report = analyze([tool]);
+    expect(report.undetermined, '键位 args: 与 cfg.args 都不是"把 args 交出去"').toHaveLength(0);
+    expect(report.findings).toHaveLength(0);
+    // 同一处形态换成真读取,必须仍然判得出(证明遮掉的不是判据本身)
+    const spread = fakeTool({
+      name: 'real_spread',
+      parameters: { type: {} },
+      code: `async execute(args) { return { ok: Boolean({ ...args }) } }`,
+    });
+    expect(analyze([spread]).undetermined[0]?.cause).toBe('other');
+  });
+
+  it('未判定分成因计数三档恒在,且与点名清单同数', () => {
+    const nonFunction = { ...fakeTool({ name: 'not_a_function', parameters: {}, code: `async execute(args) { return args }` }), execute: 42 };
+    const mixed = analyze([
+      fakeTool({ name: 'opaque_call', parameters: { a: {} }, code: `async execute(args) { return go(args) }` }),
+      fakeTool({ name: 'opaque_destructure', parameters: { a: {} }, code: `async execute({ a, ...r }) { return { ok: Boolean(a) && Boolean(r) } }` }),
+      nonFunction,
+    ]);
+    expect(mixed.undeterminedByCause).toEqual({ cross_function: 1, destructured: 1, other: 1 });
+    const sum = Object.values(mixed.undeterminedByCause).reduce((x, y) => x + y, 0);
+    expect(sum).toBe(mixed.undetermined.length);
+    // 三档键必须在(缺档会把"这一档没看"读成"这一档为 0")
+    expect(Object.keys(mixed.undeterminedByCause).sort()).toEqual(['cross_function', 'destructured', 'other']);
   });
 
   it('handlerBodyStart 只在深度 0 认体起点(括号内的 { 与 => 不算)', () => {
