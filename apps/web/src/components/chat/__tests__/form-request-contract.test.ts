@@ -10,17 +10,23 @@
 // 任一侧改字段名/可选性而另一侧没跟上 ⇒ 下面两个编译期断言直接 tsc 红
 // (红在类型层,不需要跑到运行时,正是本仓最贵的那一型:编译不红就一路漂)。
 //
-// 同时钉住一条**设计判断**:form_request 今天刻意不在 SSE_EVENTS 里。
+// 同时钉住一条**设计判断的历史**:form_request 曾刻意单列在 FORM_FRAME_EVENTS 一段里,
 // 判据是 parity 门 `scripts/check-agent-event-parity.mjs` 的对账 0
 // (TS contract.ts 与 apps/ai-service sse_contract.py 的 SSE_EVENTS 必须逐名等值,
-// blocking)与对账 0b(契约 ⊆ llm.py 生产面)—— 后端两侧对 form_request 零生产点,
+// blocking)与对账 0b(契约 ⊆ llm.py 生产面)—— 当时后端两侧对 form_request 零生产点,
 // 单侧塞名字进去就是一台与任何提交都无关的恒红门(§12e 同型)。
-// **本条断言翻红是好消息**:说明解阻前置三条(contract.ts 注释③)已落地,
-// 正确处置是把该帧并入 SSE_EVENTS + sse_contract.py,并删掉本用例。
+// 2026-09-27 V3 #63 落了生产点 ⇒ 该理由消失,帧已按 contract.ts 自己写在注释③(c)
+// 的指令并入 SSE_EVENTS;本文件的判据随之**反向**(见下方用例组的注释)。
+// 仍然成立的那半句:`form_response` 是上行 POST body,**不进** SSE_EVENTS。
 import { describe, expect, it } from 'vitest'
 
 import type { StreamChatOptions } from '@ihui/api-client'
-import { FORM_FRAME_EVENTS, SSE_EVENT_NAMES, type FormRequestFramePayload } from '@ihui/shared'
+import {
+  FORM_FRAME_EVENTS,
+  SSE_EVENTS,
+  SSE_EVENT_NAMES,
+  type FormRequestFramePayload,
+} from '@ihui/shared'
 
 /** 解析通道回调的形参类型(api-client 内部命名 FormRequestEvent,未列进 index 导出面) */
 type WireFormRequestEvent =
@@ -43,16 +49,27 @@ describe('V3 #63 form_request 契约登记 / 漂移锁', () => {
     expect(FORM_FRAME_EVENTS.RESPONSE).toBe('form_response')
   })
 
-  it('form_request 尚未并入跨语言 SSE_EVENTS(生产点未落地;并入即应删本用例)', () => {
-    expect(SSE_EVENT_NAMES as readonly string[]).not.toContain(FORM_FRAME_EVENTS.REQUEST)
+  it('form_request 已并入跨语言 SSE_EVENTS;上行那一条 form_response 仍在射程外', () => {
+    // 本用例原本是 `not.toContain`,其自身注释写明"翻红是好消息 —— 解阻前置三条落地后
+    // 应把该帧并入 SSE_EVENTS + sse_contract.py 并删掉本用例"。2026-09-27 V3 #63 那一票
+    // 落了生产点(llm.py 的 request_business_form 拦截位)与 Python 契约登记,故按当时
+    // 写下的指令把判据**反过来钉**:并回后若有人把它摘出去,这里红。
+    // 反向半句同样必须有:form_response 是 POST body 不是 SSE 事件,列进 SSE_EVENTS
+    // 会让「前端监听对账」把一次上行 POST 当成 SSE 监听去要后端 SSE 生产点。
+    expect(SSE_EVENT_NAMES as readonly string[]).toContain(FORM_FRAME_EVENTS.REQUEST)
+    expect(SSE_EVENT_NAMES as readonly string[]).not.toContain(FORM_FRAME_EVENTS.RESPONSE)
   })
 
-  it('登记段成员不污染既有契约集合(SSE_EVENTS 的 29 个成员一个不多一个不少)', () => {
-    // 本票只"新增一段独立登记",不得改既有成员形状 —— 这一格是那条约束的反向锁:
-    // 若有人图省事把 form_request 塞进 SSE_EVENTS,这里先红(而不是等 parity 门红)。
-    // 注:这个绝对数是粗锁(任何一次合法新增事件都得跟着抬,如 D113 的 tool-delta ⇒ 28→29);
-    // 真正精确的那把锁是上一条 not.toContain(form_request),它不随事件增减漂移。
-    expect(SSE_EVENT_NAMES).toHaveLength(29)
+  it('登记段与 SSE_EVENTS 共用一份字面量(不得留第二处 form_request 字符串)', () => {
+    // 并回之后,REQUEST 必须是 SSE_EVENTS.FORM_REQUEST 的投影而不是又抄一遍字符串 ——
+    // 两处各写一遍就是"同一事实两份真相",漂移时 parity 门与消费方看到不同名。
+    expect(FORM_FRAME_EVENTS.REQUEST).toBe(SSE_EVENTS.FORM_REQUEST)
+  })
+
+  it('跨语言契约集合含 form_request,成员数按现读抬到 30', () => {
+    // 注:这个绝对数是粗锁(任何一次合法新增事件都得跟着抬,D113 的 tool-delta 就抬过一次);
+    // 精确的那把锁是上面两条对成员在/不在的判定,它不随事件增减漂移。
+    expect(SSE_EVENT_NAMES).toHaveLength(30)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

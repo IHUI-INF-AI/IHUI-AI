@@ -6,8 +6,9 @@
  * SSE 事件契约单一事实源测试(#25,2026-09-16 立)
  *
  * 覆盖:
- * 1. SSE_EVENTS 事件名集合完整性(26 个:2026-09-19 补录 fallback/usage/steer/budget、
- *    删 repair/resumed 孤儿事件)与无重复
+ * 1. SSE_EVENTS 事件名集合完整性(现读 30 个:2026-09-19 补录 fallback/usage/steer/budget、
+ *    删 repair/resumed 孤儿事件;V3 #48/#58 补 terminal_delta/start/tool-approval;
+ *    D113 补 tool-delta;V3 #63 补 form_request)与无重复
  * 2. SSE_EVENT_NAMES 派生一致性
  * 3. isSSEEventName 类型守卫
  * 4. 判别联合 SSEEventPayload 与事件名映射的全量对齐(编译期穷尽性 + 运行时抽样)
@@ -19,6 +20,7 @@ import { describe, it, expect } from 'vitest'
 import {
   SSE_EVENTS,
   SSE_EVENT_NAMES,
+  FORM_FRAME_EVENTS,
   isSSEEventName,
   type SSEEventPayload,
   type SSEEventName,
@@ -27,9 +29,21 @@ import {
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 29 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta)', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(29)
-    expect(SSE_EVENT_NAMES).toHaveLength(29)
+  it('包含全部 30 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request)', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(30)
+    expect(SSE_EVENT_NAMES).toHaveLength(30)
+  })
+
+  // V3 #63(2026-09-27 落地生产者):form_request 按 contract.ts 自己写在
+  // FORM_FRAME_EVENTS 注释③(c) 的指令并回 SSE_EVENTS。**form_response 必须仍在射程外**
+  // —— 它是上行 POST 的 body,列进 SSE_EVENTS 会让「前端监听对账」把一次 POST
+  // 当成 SSE 监听去要后端 SSE 生产点(判据与语义互咬),且 Python 侧集合里也没有它。
+  it('form_request 已并入契约;form_response 仍是上行帧、不入 SSE_EVENTS', () => {
+    expect(SSE_EVENTS.FORM_REQUEST).toBe('form_request')
+    expect(SSE_EVENT_NAMES as readonly string[]).toContain('form_request')
+    expect(SSE_EVENT_NAMES as readonly string[]).not.toContain('form_response')
+    // 两处名字必须是同一个字面量(并回后不得留第二份真相)
+    expect(FORM_FRAME_EVENTS.REQUEST).toBe(SSE_EVENTS.FORM_REQUEST)
   })
 
   // D34(2026-09-22,G-40/G-44):运行环境交代两帧。
@@ -124,6 +138,9 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   TOOL_APPROVAL: 'tool-approval',
   // D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧
   TOOL_DELTA: 'tool-delta',
+  // V3 #63(2026-09-27 落地生产者后并回契约):对话流业务表单下行帧。
+  // 上行那一条 form_response **不在这里**(它不是 SSE 事件,见 contract.ts 第 3 条)。
+  FORM_REQUEST: 'form_request',
   DONE: 'done',
   ERROR: 'error',
   COMPACTION: 'compaction',
