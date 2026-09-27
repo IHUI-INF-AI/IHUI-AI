@@ -29,7 +29,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import Fastify from 'fastify'
 import rateLimit from '@fastify/rate-limit'
 import { createPublicKey, verify } from 'node:crypto'
-import type * as auditExportKeyRegistry from '../src/services/audit-export-key-registry.js'
 
 // 注入一把"已轮换的旧钥匙"到登记表:登记表本体刻意保持为空(真实台账不许为不存在的
 // 钥匙写占位行,见 audit-export-key-registry.test.ts:229),所以轮换场景只能在
@@ -37,9 +36,7 @@ import type * as auditExportKeyRegistry from '../src/services/audit-export-key-r
 const oldKey = vi.hoisted(() => ({ public: '', private: '', kid: '' }))
 
 vi.mock('../src/services/audit-export-key-registry.js', async (importOriginal) => {
-  // 2026-09-28 lint 修复:原写法 `typeof import('...')` 撞 @typescript-eslint/consistent-type-imports
-  // (CI 必装 lint 步因此红,拦的是全队 PR 通道)⇒ 改静态 type-only 命名空间导入,行为逐字不变
-  const real = (await importOriginal()) as typeof auditExportKeyRegistry
+  const real = (await importOriginal()) as typeof AuditExportKeyRegistry
   const { generateKeyPairSync } = await import('node:crypto')
   const kp = generateKeyPairSync('rsa', {
     modulusLength: 2048,
@@ -95,6 +92,7 @@ import {
   auditEvidencePublicKeyRoutes,
 } from '../src/routes/audit-evidence-export.js'
 import type { AuditLogChainRow } from '../src/db/audit-queries.js'
+import type * as AuditExportKeyRegistry from '../src/services/audit-export-key-registry.js'
 
 let currentPrivate = ''
 let currentPublic = ''
