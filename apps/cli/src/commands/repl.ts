@@ -79,6 +79,7 @@ import {
 } from '../utils/permission-lease-flag.js';
 import type { PluginRegistry } from '../plugins/index.js';
 import { readTodoList } from '../tools/todo-write.js';
+import { createToolDeltaPreviewStore, pickToolDeltaPreviewText } from '../tools/file-edit-preview.js';
 import { findSkill, type Skill } from '../skills/index.js';
 import {
   getMemoryStore,
@@ -2554,6 +2555,15 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     let currentToolArgs: Record<string, unknown> = {};
     // 当前工具运行中的 spinner(每个工具独立)
     let currentToolSpinner: Spinner | null = null;
+    // D113(2026-09-27)流中 diff 预览:本端工具在进程内执行,服务端 tool-delta 帧
+    // 永不到达 CLI,故预览由 `runToolLoop` 在执行前本地派生(agent.ts 的发帧点紧跟
+    // onToolCall、同一轮次内同步完成)。状态语义与 web/RN/小程序同形:
+    // 按 toolCallId **整帧覆盖**、result 到达即清除、仅"卡片还开着"时输出。
+    const previewStore = createToolDeltaPreviewStore();
+    /** 已出帧、尚未落终态的预览(按 name 精确配对 result,不做位置对齐) */
+    const openPreviews: Array<{ toolCallId: string; toolName: string }> = [];
+    /** 最近一次 onToolCall 的工具名 —— 帧与它同一次派发内同步到达,故即本批帧的主人 */
+    let lastToolCallName = '';
 
     // plan_updated 快照 → 实时任务状态行(agent.ts 已透传,见 RunToolLoopOptions.onPlanUpdate)
     state.statusLine.beginTurn();
@@ -2686,6 +2696,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         // W10 记录完整参数(/tool 回看用)
         currentToolArgsJson = Object.keys(args).length > 0 ? JSON.stringify(args) : '(无参数)';
         currentToolArgs = args;
+        lastToolCallName = name;
         // 活动行语言:功能名 · 对象(单一真相源 describeToolCall,禁直显英文码名)
         const activity = describeToolActivityLine({ toolName: name, args });
         const activityHead = activity.subject
@@ -2699,6 +2710,23 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         // 状态行:记录工具调用(供共享层折叠文件变更)+ "此刻在做什么"(功能名 · 对象)
         state.statusLine.recordToolCall({ toolName: name, args });
         state.statusLine.setCurrentActivity(toolActivityLabel(name, args));
+      },
+      // D113:文件写类工具执行前的流中预览(本端本地派生的帧批)。逐帧覆盖式入 store,
+      // 渲染只读"当前累积值"—— 终端没有原地重绘(见 task-status-line.ts 的选型说明),
+      // 而帧本就是累积文本,末帧即全量,故一批帧只落一次输出。
+      // 长文本沿用本端既有的结果卡片截断(CARD_MAX_LINES + 「/tool 查看」提示),不新造一套。
+      onToolDeltaFrames: (events) => {
+        for (const evt of events) previewStore.apply(evt);
+        const last = events[events.length - 1];
+        if (!last) return;
+        const text = pickToolDeltaPreviewText({
+          running: currentToolSpinner !== null,
+          preview: previewStore.get(last.toolCallId),
+        });
+        if (text === null) return;
+        openPreviews.push({ toolCallId: last.toolCallId, toolName: lastToolCallName });
+        const card = formatToolResultForCard(text);
+        console.info(chalk.cyan(`  │  ${card.text.replace(/\n/g, '\n  │  ')}`));
       },
       onToolResult: (name, success, output) => {
         // 停止工具运行 spinner
@@ -2741,6 +2769,14 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
           // 状态行同步:todo 清单是该端现成的步骤来源
           state.statusLine.setSteps(planStepsFromTodos(todos));
         }
+        // D113:tool-result 到达即清流中预览(最终 diff 以 result 为准,与三端同一条纪律)。
+        // 按工具名找**第一个**仍在场的预览配对,不按位置 —— 一次调用没出帧就不会入队,
+        // 位置对齐会整体错位一格(同 stream-tool-ledger 拒绝按下标对齐的理由)。
+        const previewIdx = openPreviews.findIndex((p) => p.toolName === name);
+        if (previewIdx !== -1) {
+          const [settled] = openPreviews.splice(previewIdx, 1);
+          if (settled) previewStore.clear(settled.toolCallId);
+        }
         // 状态行:回填工具结果(决定 +x/-y 是否可信)并刷新输出
         state.statusLine.recordToolResult(name, success, output);
       },
@@ -2750,6 +2786,10 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
           currentToolSpinner.stop();
           currentToolSpinner = null;
         }
+        // D113:流中断/工具报错时预览一并清 —— 留在屏上的"将要写入什么"若没有对应的
+        // result 交代,会被读成"已经写成这样了",与"失败必须响"是同一条禁令的反面。
+        previewStore.clearAll();
+        openPreviews.length = 0;
         const msg = typeof err === 'string' ? err : String(err);
         const cardLines = renderErrorCard(msg, {
           title: 'Agent 错误',
