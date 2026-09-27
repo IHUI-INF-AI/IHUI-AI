@@ -168,6 +168,8 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 
 ### 4.1 `wordpress` — WordPress
 
+<a id="wordpress"></a>
+
 - **需要哪些字段**:`site_url`、`username`、`application_password`(适配器真相源;前端注册表把第三项写成
   `app_password`,以适配器为准,键名不一致处已在 §0 点名)。支持格式 md/html/docx/pdf。
 - **去哪儿拿**:站点需启用 REST API;后台「用户 → 应用密码(Application Passwords)」生成
@@ -185,12 +187,16 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 
 ### 4.2 `medium` — Medium
 
+<a id="medium"></a>
+
 - **需要哪些字段**:`integration_token`(前端注册表另有 `author_id`,适配器不要求)。支持 md/html。
 - **去哪儿拿**:Medium → Settings → Security → 开发密钥/Integration Token(需 Medium 会员的开放接口资格,详见 Medium 官方文档)。
 - **怎么入库**:`POST /api/publish/accounts`,credentials `{"integration_token":"<令牌>"}`。
 - **怎么自检**:verify 期望 `ok=true`;401 ⇒ token 被吊销或复制截断。
 
 ### 4.3 `youtube` — YouTube
+
+<a id="youtube"></a>
 
 - **需要哪些字段**:`access_token`、`refresh_token`、`client_id`、`client_secret`。仅 video。
 - **去哪儿拿**:Google Cloud Console 建 OAuth 2.0 客户端(已授权重定向 URI 与本项目回调对齐),经 OAuth 授权流
@@ -201,6 +207,8 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 
 ### 4.4 `bilibili` — B站
 
+<a id="bilibili"></a>
+
 - **需要哪些字段**:`sessdata`、`bili_jct`、`dedeuserid`(注意:setupHint 文案写的 `buvid3` 不是适配器必填项)。仅 video。
 - **去哪儿拿**:浏览器登录 bilibili.com 后从 DevTools → Application → Cookies 复制这三枚;
   或用 §2 扫码导入(扫码平台清单里叫 `bilibili`,成功判据 cookie 为 `SESSDATA`、`DedeUserID`)。
@@ -209,6 +217,8 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 - **怎么自检**:verify 期望 `ok=true`;`-101`/需扫码 ⇒ cookie 过期,重新导入。
 
 ### 4.5 `wechat` — 微信公众号(实测重点)
+
+<a id="wechat"></a>
 
 - **需要哪些字段**:`app_id`、`app_secret`。支持 md/html。
 - **去哪儿拿**:微信公众平台(订阅号/服务号的「帐号设置 → 接口权限/开发者配置」)取 AppID 与 AppSecret。
@@ -223,12 +233,16 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 
 ### 4.6 `toutiao` — 头条号(实测重点)
 
+<a id="toutiao"></a>
+
 - **需要哪些字段**:`app_id`、`app_secret`(前端注册表写 `cookie` 是旧口径,适配器走开放平台)。支持 md/html。
 - **去哪儿拿**:字节/头条开放平台注册应用取 AppID/AppSecret。**今天实测结论:本环境缺 `app_id`/`app_secret`,
   属开放平台凭据未申请,不是代码问题** —— 补上凭据即可从"只差凭据"转为可发(待核)。
 - **怎么入库 / 自检**:同 §4.5 的骨架,换 `platform:"toutiao"` 与两字段;verify 缺字段时消息会点名缺哪个。
 
 ### 4.7 `douyin` — 抖音
+
+<a id="douyin"></a>
 
 - **需要哪些字段**:`access_token`、`open_id`、`client_key`、`client_secret`(OAuth 形态,非裸 cookie)。仅 video。
 - **去哪儿拿**:抖音开放平台建应用走授权。扫码通道在 §2 清单内(成功判据 cookie `sessionid`/`uid_tt`/`sid_tt`),
@@ -237,12 +251,16 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 
 ### 4.8 `kuaishou` — 快手
 
+<a id="kuaishou"></a>
+
 - **需要哪些字段**:`access_token`、`app_id`、`app_secret`(前端注册表写 `cookie`,以适配器为准)。仅 video。
 - **去哪儿拿**:快手开放平台建应用。扫码导入同样在 §2 清单内(判据 cookie `userId`/`kuaishou.server.web_st`),
   与 OAuth 字段的对应关系 **待核**。
 - **怎么自检**:verify。
 
 ### 4.9 `weibo` — 微博(实测重点)
+
+<a id="weibo"></a>
 
 - **需要哪些字段**:`access_token`、`uid`(前端注册表写 `cookie`,以适配器为准)。支持 md/html/image/video。
 - **去哪儿拿**:微博开放平台申请应用并走 OAuth 拿 `access_token`,`uid` 为授权账号的数字 ID。
@@ -253,6 +271,8 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 
 ### 4.10 `zhihu` — 知乎
 
+<a id="zhihu"></a>
+
 - **需要哪些字段**:`z_c0`、`_xsrf`(setupHint 的 `d_c0` 是前端注册表口径,适配器实际要 `_xsrf`)。支持 md/html。
   `needs_browser = true` ⇒ 宿主须装好 Playwright 及 Chromium 内核(见 §5 前置)。
 - **去哪儿拿**:登录 zhihu.com 后 DevTools 复制 `z_c0`,并在任一写请求的表单/头里取 `_xsrf`;
@@ -260,6 +280,8 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 - **怎么自检**:verify 期望 `ok=true`;知乎返回 403/需验证 ⇒ 触发平台风控,先查 §6 冷却台账。
 
 ### 4.11 `csdn` — CSDN(实测重点)
+
+<a id="csdn"></a>
 
 - **需要哪些字段**:`UserName`、`UserToken`、`UserSecret`(两侧注册一致)。支持 md/html。`needs_browser = true`。
 - **去哪儿拿**:浏览器登录 CSDN 后 DevTools → Application → Local Storage/Cookies 取这三枚;
@@ -272,6 +294,8 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 
 ### 4.12 `juejin` — 掘金(实测重点,今天唯一全流程可发的一家)
 
+<a id="juejin"></a>
+
 - **需要哪些字段**:`sessionid`、`signatureId`(setupHint 的 `sessionid_ss` 为前端注册表旧口径;`signatureId`
   的取值位置 **待核** —— 今天入库那包按扫码导入自动获得)。支持 md/html。`needs_browser = true`。
 - **去哪儿拿/怎么入库**:登录 juejin.cn 后复制 cookie,或 §2 扫码导入(平台 id `juejin`,在 scan-login 清单内)。
@@ -282,11 +306,15 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 
 ### 4.13 `xiaohongshu` — 小红书
 
+<a id="xiaohongshu"></a>
+
 - **需要哪些字段**:`web_session`(两侧一致)。支持 md/html/image/video。`needs_browser = true`。
 - **去哪儿拿/怎么入库**:§2 扫码导入(判据 cookie 为 `web_session`,2026-09-15 起已剔除游客态 `webId`/`a1` 防误报)。
 - **怎么自检**:verify;导入的 cookie 够不够写(同 CSDN 那一型)**待核** —— 首次配置后先小流量试发一篇。
 
 ### 4.14 `shipinhao` — 微信视频号
+
+<a id="shipinhao"></a>
 
 - **需要哪些字段**:`wechat_channels`(前端注册表写 `cookie`,以适配器为准)。仅 video。`needs_browser = true`。
 - **去哪儿拿/怎么入库**:登录 channels.weixin.qq.com 创作者后台后复制该 cookie,或走 §2 扫码通道
