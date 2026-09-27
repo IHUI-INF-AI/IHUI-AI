@@ -148,7 +148,7 @@ export function ContextAssemblyBar({
           {t('injectionAssemblyBadge', { count: injections.length })}
         </span>
         <span
-          className="shrink-0 rounded-full bg-muted px-1.5 py-px text-[10px] leading-4 text-muted-foreground"
+          className="shrink-0 rounded-md bg-muted px-1.5 py-px text-[10px] leading-4 text-muted-foreground"
           data-testid="context-assembly-count"
         >
           {injections.length}
