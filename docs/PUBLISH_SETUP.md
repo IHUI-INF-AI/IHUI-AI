@@ -296,13 +296,28 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 
 <a id="juejin"></a>
 
-- **需要哪些字段**:`sessionid`、`signatureId`(setupHint 的 `sessionid_ss` 为前端注册表旧口径;`signatureId`
-  的取值位置 **待核** —— 今天入库那包按扫码导入自动获得)。支持 md/html。`needs_browser = true`。
+- **需要哪些字段**:`sessionid`、`signatureId`(setupHint 的 `sessionid_ss` 为前端注册表旧口径,已由
+  `apps/api/tests/publish-credential-field-parity.test.ts` 订正)。**但 `signatureId` 现读是"声明必填、
+  实际可空"的一格**:扫码导入自动入库的那包 cookie 里**没有它**(id=13 键清单实测含 `sessionid`
+  /`sessionid_ss`/`sid_guard`/`sid_tt`/`uid_tt`/`csrf_session_id`/`passport_csrf_token` 等 21 键,无
+  `signatureId`),而 `verify` 只判 `sessionid`(`juejin.py:341-343`)、今天全流程发布也通 —— 适配器在
+  `juejin.py:266` 以空串注入该 cookie。**这一型不属 P4 那条轴**:`signatureId` 有读取点,所以 P4
+  不报它 —— 它缺的是**值**(导入包里没这个键)。两型症状与处置都不同:P4 的"声明却零读取点"要**摘掉
+  声明**,这一型要**在导入侧补取或把键从声明里去掉**,归适配器持有人另票。
+  支持 md/html。`needs_browser = true`。
 - **去哪儿拿/怎么入库**:登录 juejin.cn 后复制 cookie,或 §2 扫码导入(平台 id `juejin`,在 scan-login 清单内)。
 - **怎么自检 —— 正确的成功判据(实测)**:verify 应 `connected`;提交发布后**文章进入"审核中"状态,
   审核期间站内搜索搜不到它**。所以别拿"首页搜到了"当成功判据 —— 正确的判据是任务接口返回
   `success=true` 且拿到 `published_url`/`platform_content_id`(`GET /api/publish/tasks/{task_id}` 的
   `data.results[]`),再回掘金「我的文章」列表看草稿/审核状态。审核完成后才公开可见。
+- **草稿箱清理(校准探针会留草稿,2026-09-27 实测)**:进编辑器即触发自动保存 ⇒ **探针每跑一次就
+  多一篇草稿**(本轮 5 篇,标题带「勿发布」)。入口是
+  `https://juejin.cn/creator/content/article/drafts` —— 旧的 `/writing/dashboard` 已改版、登录态下
+  **跳回首页**,别照它找。行内操作位是 hover 才出现的无文案无 aria 的 `i.more-icon`,点开才出
+  「编辑 / 删除」两项(`.byte-dropdown-menu`);**点标题本身会进编辑器并再存一篇**。删除有二次确认
+  弹窗(文案「删除内容后不可…」),实际接口 = `POST api.juejin.cn/content_api/v1/article_draft/delete`
+  (本轮由页面自身请求观测所得,非推测)。用自动化清时按**整行文案**(标题 + 时刻)定位,不按行号 ——
+  删一行会让下一页的行回流,序号是会话内假象。
 
 ### 4.13 `xiaohongshu` — 小红书
 
@@ -431,11 +446,14 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
    `requires_credentials` 为权威清单、api 侧按工作树面,P1 集合差 / P2 覆盖差(§0.1 的 24 个未登记
    平台属产品现状,**如实报数**不判红;豁免必须带 ≥20 字理由并受自洽三防线约束)/ P3 空扫判死。
    **单一源仍没建**:注册表依旧是手写数组,这把尺子是"漂移即红"不是"自动派生",彻底收敛属另票。
-   **本尺子射程外的一格(2026-09-27 现读实证)**:适配器"**声明清单 vs 实际读取键**"是另一条轴 ——
-   `medium.py:71` 读了未声明的 `publication_id`;`douyin.py` 的 `client_secret` 与 `kuaishou.py` 的
-   `app_secret` 在各自文件内**只出现在头注和 `requires_credentials` 里,没有任何读取点**(逐文件全量
-   grep 穷举,非单形态抽查),而 kuaishou 另读了未声明的 `open_id`。若按"声明=必填"收紧,这两家会永远
-   要求用户填一个代码根本不用的字段。修的是**适配器侧、另计一票**,不得反过来改适配器迁就注册表。
+   **本尺子的第二条判据 P4 = 另一条轴(默认只报数,`IHUI_CRED_READ_STRICT=1` 才判红)**:适配器
+   "**声明清单 vs 实际读取键**"。现读实证两型:① **读了却未声明** 4 处(`medium.publication_id`、
+   `kuaishou.open_id`、`segmentfault.cookie`、`xigua.sid_guard`)—— 用户按表单填不出必需项;
+   ② **声明却零读取点** 25 处(`douyin.client_secret`、`kuaishou.app_secret` 及 23 个次级 cookie)——
+   永远要求用户填一个代码根本不用的字段。判据必须**同时认两条通道**:字面量 `credentials.get("k")`
+   与 `playwright_base.py:150` 那条 `credentials.get(self.primary_cookie)`(键名写在子类类属性里)——
+   第一版只认前者,于是把 18 个走基类注入的适配器整片读成"声明了却不使用",报数从 25 虚高到 43。
+   修的是**适配器侧、另计一票**,不得反过来改适配器迁就注册表。
 8. YouTube/抖音/快手的 **OAuth 授权流如何在站内走完**(回调、token 落库)未在本次核查证据内 —— 待核。
 9. **发布后的数据回收只支持知乎一家**：`app/services/publish/metrics_collector.py:115` 的分支只有
    `platform == "zhihu"`，其它平台走 :122 记一句 `unsupported platform` 后返回空指标 ——
