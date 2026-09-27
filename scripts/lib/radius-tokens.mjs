@@ -145,6 +145,30 @@ export function radiusPxInLine(line, table) {
     /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*(\d+(?:\.\d+)?)(?![\w.])/g,
   ))
     push(Number(m[1]))
+  /**
+   * CSS 声明形态:`border-radius: 8px` / `border-radius: 24rpx` / 四值简写
+   * `border-radius: 8px 8px 0 0`。2026-09-27 补 —— 小程序把盒档写进同名 `.css`,只认 RN 驼峰
+   * 形态等于"CSS 声明整面隐身"(与守门 83 的 R8、门 128 票⑫的几何漏读样式表同型)。
+   * 单位决定换算:`rpx` 是 750 稿半单位要折半,`px` 与无单位按逻辑 px。
+   * 百分号形态(`50%`)刻意**不收** —— 那是真圆/胶囊几何,由守门 11 那条维管,收进来会把
+   * "正圆"当成一个可选档。
+   */
+  for (const m of line.matchAll(
+    /\bborder(?:-top|bottom)?-(?:left|right)?radius\s*:\s*(\d+(?:\.\d+)?)(rpx|px|%)?(?:\s|;|\/|\*|$)/g,
+  )) {
+    if (m[2] === '%') continue
+    if (m[2] === undefined || m[2] === 'px') push(Number(m[1]))
+    else push(Number(m[1]) / RPX_PER_PX)
+  }
+  // 四值/两值简写:每个长度档都要看见(只取第一个数 = 横向档整族隐身,票⑫同一记实测教训)
+  for (const m of line.matchAll(
+    /\bborder(?:-top|-bottom)?-(?:left|right)?radius\s*:\s*((?:\d+(?:\.\d+)?(?:rpx|px)?\s+){1,3}\d+(?:\.\d+)?(?:rpx|px)?)/g,
+  )) {
+    for (const v of m[1].trim().split(/\s+/)) {
+      if (/%$/.test(v)) continue
+      push(/rpx$/.test(v) ? Number(v.replace('rpx', '')) / RPX_PER_PX : Number(v.replace('px', '')))
+    }
+  }
   return out
 }
 
@@ -154,6 +178,15 @@ export function radiusSetOf(src, table) {
   const set = new Set()
   for (let i = 0; i < lines.length; i++) {
     if (isRadiusExemptAt(lines, i)) continue
+    const t = lines[i].trim()
+    /**
+     * 整行注释一律跳过:注释里出现 `rounded-2xl` / `border-radius: 50%` 是在**说明规则或对齐
+     * 意图**,不是取用。实测本仓第一例假阳就是 `ModelConfigDialog.css:16` 那句
+     * "用规范圆角 rounded-2xl 等价" 被读成 16px 档,把一族的锚点顶高了一格。
+     * 刻意只做"整行注释"这一条零风险判断,不上块注释状态机 —— 串内含 `/*` 会让状态机把代码
+     * 当注释吃掉(守门 70 的 `'https://x/*'` 假绿同型),那需要一份字符串感知的遮罩,另票做。
+     */
+    if (/^(\/\/|\/\*|\*|\{\/\*|<!--)/.test(t)) continue
     for (const px of radiusPxInLine(lines[i], table)) set.add(px)
   }
   return [...set].sort((a, b) => a - b)
