@@ -225,7 +225,7 @@ export default function AiTranslationPage() {
         </section>
 
         {/* 문제점 */}
-        <section className="mt-16 rounded-2xl border bg-card p-3">
+        <section className="mt-16 rounded-lg border bg-card p-3">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
             <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -252,7 +252,7 @@ export default function AiTranslationPage() {
           </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
-              <div key={c.title} className="rounded-2xl border bg-card p-3 shadow-sm">
+              <div key={c.title} className="rounded-lg border bg-card p-3 shadow-sm">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cta/10 text-sm font-semibold text-primary">
                   {i + 1}
                 </div>
@@ -270,7 +270,7 @@ export default function AiTranslationPage() {
           </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
-              <div key={i} className="rounded-2xl border bg-card p-3">
+              <div key={i} className="rounded-lg border bg-card p-3">
                 <h3 className="text-base font-semibold">{cs.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{cs.desc}</p>
               </div>
@@ -292,7 +292,7 @@ export default function AiTranslationPage() {
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
-              <div key={i} className="rounded-2xl border bg-card p-3">
+              <div key={i} className="rounded-lg border bg-card p-3">
                 <h3 className="text-sm font-semibold">{t.name}</h3>
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{t.purpose}</p>
               </div>
@@ -301,7 +301,7 @@ export default function AiTranslationPage() {
         </section>
 
         {/* 문의 / CTA */}
-        <section className="mt-16 rounded-2xl border bg-card p-3 text-center">
+        <section className="mt-16 rounded-lg border bg-card p-3 text-center">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
           <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
             AI 다국어 번역 어시스턴트 구축을 시작하세요
@@ -319,7 +319,7 @@ export default function AiTranslationPage() {
             </Link>
             <Link
               href="/use-cases"
-              className="inline-flex h-11 items-center justify-center rounded-md border border-input bg-background px-8 text-sm font-medium hover:bg-accent"
+              className="inline-flex h-11 items-center justify-center rounded-sm border border-input bg-background px-8 text-sm font-medium hover:bg-accent"
             >
               다른 사용 사례 보기 <ArrowRight className="ml-2 h-4 w-4" />
             </Link>

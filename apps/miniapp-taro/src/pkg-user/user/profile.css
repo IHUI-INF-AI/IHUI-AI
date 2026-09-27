@@ -36,7 +36,7 @@
 }
 .pf-tag {
   padding: 6rpx 16rpx;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: 26rpx;
 }
 .pf-tag-vip {

@@ -57,6 +57,15 @@ SSE_EVENTS: frozenset[str] = frozenset(
         # tool-result 到达即清预览(最终 diff 以 tool-result 落库面为准,本帧不入库)。
         # 必须与 packages/shared/src/sse/contract.ts 同步(两份集合由 parity 断言看护)。
         "tool-delta",
+        # V3 #63(2026-09-27 落地生产者):对话流业务表单**下行**帧。
+        # 生产点 app/routers/llm.py 工具循环内的 request_business_form 拦截位,载荷
+        # {type, requestId, sessionId, kind, fields, actions, messageId}
+        # —— 字段名按**线格式 camelCase**(api-client 的 tryParseFormRequest 读的就是
+        # requestId/sessionId/messageId 这三个 camel 键,写成 snake 会被整帧丢弃)。
+        # 同族的 `form_response` 是**上行**应答(POST
+        # /llm/complete/stream/{session_id}/form-response),不是 SSE 事件,故**不进**本集合;
+        # 该判据原文与理由见 contract.ts 的 FORM_FRAME_EVENTS 注释第③条。
+        "form_request",
         "done",
         "error",
         "fallback",
@@ -183,6 +192,17 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract(
         "tool-approval",
         ("approval_id", "tool_name", "tool_call_id", "args_preview", "danger_level", "session_id"),
+    ),
+    # D113(2026-09-27,G-227)入集合时漏登记的契约条目 —— 本清单与 SSE_EVENTS 由
+    # tests/test_sse_contract.py::test_contracts_align_with_events 严格双射,少一条即红
+    # (2026-09-27 由 V3 #63 那票补上:它是**已入库的记账缺口**,不是本票引入的)。
+    SSEEventContract("tool-delta", ("toolCallId", "seq", "partialText", "truncated")),
+    # V3 #63(2026-09-27 立):对话流业务表单下行帧。字段名 camelCase 是**线格式**,
+    # 权威消费方 packages/api-client/src/client.ts 的 tryParseFormRequest(缺 requestId /
+    # fields 空 / actions 不成对 ⇒ 整帧丢弃)。
+    SSEEventContract(
+        "form_request",
+        ("type", "requestId", "sessionId", "kind", "fields", "actions", "messageId"),
     ),
     # 预算档位提醒(2026-09-19 立,网关发):流首按当日用量分档软提醒
     # (80%~95% warning / 95%~100% critical);>=100% 走 HTTP 429

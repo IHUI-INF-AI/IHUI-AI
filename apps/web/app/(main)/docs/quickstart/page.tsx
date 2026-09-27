@@ -286,7 +286,7 @@ export default function QuickstartPage() {
         </h2>
 
         <ol className="space-y-6">
-          <li className="rounded-2xl border bg-card p-3">
+          <li className="rounded-lg border bg-card p-3">
             <div className="flex items-start gap-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cta text-cta-foreground text-lg font-bold">
                 1
@@ -310,7 +310,7 @@ export default function QuickstartPage() {
             </div>
           </li>
 
-          <li className="rounded-2xl border bg-card p-3">
+          <li className="rounded-lg border bg-card p-3">
             <div className="flex items-start gap-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cta text-cta-foreground text-lg font-bold">
                 2
@@ -337,7 +337,7 @@ export default function QuickstartPage() {
             </div>
           </li>
 
-          <li className="rounded-2xl border bg-card p-3">
+          <li className="rounded-lg border bg-card p-3">
             <div className="flex items-start gap-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cta text-cta-foreground text-lg font-bold">
                 3

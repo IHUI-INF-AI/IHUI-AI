@@ -174,7 +174,7 @@ export default function WebToolsPage() {
               if (e.key === 'Enter' && !running) void run()
             }}
             placeholder={t('urlPlaceholder')}
-            className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 flex-1 rounded-sm border border-input bg-background px-3 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
           <Button size="default" disabled={running} onClick={() => void run()}>
             {running ? (
@@ -194,7 +194,7 @@ export default function WebToolsPage() {
                 value={maxChars}
                 onChange={(e) => setMaxChars(e.target.value)}
                 inputMode="numeric"
-                className="h-7 w-20 rounded-md border border-input bg-background px-2 text-xs"
+                className="h-7 w-20 rounded-sm border border-input bg-background px-2 text-xs"
               />
             </label>
           )}
@@ -217,7 +217,7 @@ export default function WebToolsPage() {
                   value={maxLinks}
                   onChange={(e) => setMaxLinks(e.target.value)}
                   inputMode="numeric"
-                  className="h-7 w-20 rounded-md border border-input bg-background px-2 text-xs"
+                  className="h-7 w-20 rounded-sm border border-input bg-background px-2 text-xs"
                 />
               </label>
               <label className="flex items-center gap-1.5">
@@ -241,7 +241,7 @@ export default function WebToolsPage() {
               onChange={(e) => setFieldsText(e.target.value)}
               rows={4}
               placeholder={t('fieldsPlaceholder')}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
             <p className="text-[10px] text-muted-foreground">{t('fieldsHint')}</p>
           </div>

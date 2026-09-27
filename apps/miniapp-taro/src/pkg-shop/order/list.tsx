@@ -268,7 +268,7 @@ export default function OrderList() {
                 {/* 订单卡(对齐 RN card:padding 24rpx / 圆角 24rpx / 2rpx 描边 / 白底 / mb 24rpx;
                     内部对齐 cardBodyRow:商品图 260rpx + 右侧 info[cardHead → metaRow → amountRow]) */}
                 <View
-                  className="bg-card rounded-xl border-[length:2rpx] border-border p-[24rpx] mb-[24rpx]"
+                  className="bg-card rounded-lg border-[length:2rpx] border-border p-[24rpx] mb-[24rpx]"
                   hoverClass="opacity-60"
                   onClick={() => goDetail(o.id)}
                 >
@@ -290,7 +290,7 @@ export default function OrderList() {
                           {productName}
                         </Text>
                         <Text
-                          className={`px-[12rpx] py-[4rpx] rounded-sm text-[length:22rpx] font-medium ${info.badge}`}
+                          className={`px-[12rpx] py-[4rpx] rounded-md text-[length:22rpx] font-medium ${info.badge}`}
                         >
                           {info.textKey ? t(info.textKey) : o.status}
                         </Text>

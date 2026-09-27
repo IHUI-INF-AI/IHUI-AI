@@ -446,7 +446,7 @@ export default function KnowledgeRagPage() {
                 value={ingest.text}
                 onChange={(e) => setIngest({ ...ingest, text: e.target.value })}
                 placeholder="粘贴需要入库的文本内容(500 字符一切片,50 字符重叠)"
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <DialogFooter>
