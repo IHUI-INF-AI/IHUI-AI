@@ -13259,3 +13259,81 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **#86 做证据级流水,落库并可导出。** 第一步不是迁移而是**保留方案**(留多久、谁能读、是否含入参指纹 —— 本仓有"不落任何入参值"的既有先例可套)。**该方案属 §24 领地,需你单独确认后才动 journal。**
 - **#81 只做最小一环:**先打通**一种**产物模板的端到端(不是五类并行),判据是"真会话里产出可用文件",不接受"只生成提示词"。
 - **#74 不上全屏 TUI**(技术栈选择不是故障),但 README 声称的 `ihui config` / `ihui remote` 必须补齐或归档 —— 文档承诺超出实现是**已在发生的误导**,不等任何拍板。
+
+### 第五十六批·续末 —— 我自己那一改造出的可见回归、被真因推翻的上一格诊断、以及两把不再等截图的结构锁
+
+#### ① 守门 131 的转换有副作用:`flex: 1` 换了轴向,把按钮文字压成 0 高(3 文件 / 7 站点)
+
+VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— 放大确认框内一个字形都没有。
+读下来不是配色(`brandAccent` 暗色档是 `#a3c4d6` 底 + `#16262e` 字,对比足够),也不是 children 渲染函数
+(全仓该模式已有 119 处在用),而是:
+
+- 转换把整份样式从 `Pressable` 搬到 children 函数里的**内层 View**;
+- 同一份 `flex: 1` 挂在**横向行的 Pressable** 上意思是"等分宽度",
+  挂到**列方向的子 View** 上就变成 `flexBasis: 0%` 且父高不定 ⇒ 内容高度归零,文字被裁掉。
+
+修法:摘掉内层那份 `flex`(等分宽度已由外层 `entryBtnHit: {flex: 1}` 承担,子 View 靠默认
+`alignItems: stretch` 撑满宽度即可)。涉及 `LearnScreen` / `CourseDetailScreen` / `LiveDetailScreen`。
+
+- **审计尺子**:`.ihui-agent/tmp/rn-preview/audit-flex-axis.mjs` —— 逐处取 children 函数里内层 View
+  引用的样式键,回查该键定义是否含 `flex:`。改前点名 **7 处**,改后 **0 处**;
+  阳性对照 = 同一把尺子读 HEAD 仍报三文件 `entryBtn` 含 flex。
+- **本枚自己踩到的工具教训(值得抄)**:审计第一版把自己写的注释「不得在这里写 `flex:`」读成了违规,
+  于是改完仍报 1 处假阳。⇒ 判据面必须先剥注释再取值 —— 与守门 131/150 那条"说明性文字也会带执行性字符"
+  同型,只是这次咬的是**一次性审计脚本**,不是常驻门。
+- **通用规矩(本仓第 N 次同型)**:把样式从 A 元素搬到 B 元素时,凡含 `flex` / `width` / `height` /
+  `alignSelf` 的键都必须重问一次轴向 —— "可见位置与尺寸一字不变"不能靠注释声明,必须装机拍图或
+  有这把轴向审计兜着。我上一格提交信息里写的就是那句声明,而它是错的。
+
+#### ② 上一格写的"凭据有两个数据源"被真因推翻:是**登出与在途续期的竞态**
+
+第五十六批·续 表 ③ 那一格把 VC52 的症状归给"两个数据源"。逐条探针量下来三种序列里:
+`logout→hydrate` 与 `logout→冷重启` **都绿**,只有 `logout 期间在途的 /auth/refresh 晚到` **红** ——
+晚到的响应把新 token 原样写回唯一凭据存储(内存 + SecureStore/AsyncStorage + persist 快照),
+每一步 `await` 都成功,所以 logcat 全程无错,症状却是"登出后凭据仍存活、冷重启落回已登录分支"。
+
+修法(`apps/mobile-rn/src/lib/token.ts`,拒绝权住在存储侧而非调用方):
+
+- `sessionEpoch` 代次 —— 显式登录写入与 `clearToken` 同步推进;续期发起时记下代次,
+  落笔前(串行锁内)比对,属于已结束那一轮的晚到响应一律拒写;
+- `serializeCredentialWrite` 写入链 —— 续期写入与登出清除排同一条链,否则"锁外检查通过后、
+  存储写完成前"被登出插队,删除仍会被后到的写入盖掉;
+- **刻意不做成"logout 里再多清一遍其他位点"** —— 那只是把同一个竞态推迟到下一次写入。
+
+回归 `apps/mobile-rn/tests/auth-single-credential-source.test.ts`(3 例,改前"晚到续期不得写回"必红:
+`expected 'T2' to be null`)。两条如实登记的遗留:测试替身
+(`tests/__mocks__/ihui-shared-stores.ts` 的 `hydrate` 是 null-跳过,与真实工厂不同形)与
+`credential-storage`(`ihui-remember-credentials` + `ihui-auto-login` 登出后仍存活,LoginScreen 挂载即
+静默账密重登)—— 后者"登出是否应清记住的账密"属产品决策,未代裁。
+
+#### ③ 两把常驻结构锁:把"注册在位≠链路可用"钉成机器判据,不再等下一次真过期来截图
+
+- `apps/mobile-rn/tests/session-expiry-navigation.test.ts`(5 例)—— `Login` 必须在 RootNavigator 的
+  **两个分支都注册**(带 token 时 `navigate('Login')` 否则是空操作)。按 JSX 结构读,不按全文计数;
+  阳性对照喂 `e0efe41cfd^` 必红。
+- `scripts/tests/session-expiry-structure-lock.test.mjs`(7 例)—— api-client 两条 401 分支各须有
+  「重试仍 401 ⇒ 通知」那一格。阳性对照喂 `09e5774e4d^` 两区各红;另附**反计数对照**
+  (往旧版本补几行注释里的调用点,使全文计数与 HEAD 逐字相等而两格仍红)与**失明对照**
+  (`fetchApi` 不在 ⇒ 判失明不记通过)。
+- 两把锁当前是**测试形态常驻**,未接提交链(接门要配取证面,按本仓纪律另计)。
+
+#### ④ 一条被实测**否证**的票面前提,和一条比它更贵的控制面断点
+
+- 我派的票写的是"agent-control 对失效令牌回 403,所以续期链结构性隐形"。**不成立**:403 不来自路由,
+  而来自全局 CSRF 钩子(`plugins/csrf.ts` 的 `isPlausibleBearerCredential` + 非安全方法),
+  决定状态码的是**凭据形态 × HTTP 方法**。真 JWT 过期后仍是三段形态 ⇒ POST 上照样 401、照样进续期链。
+  双向复量:`Bearer garbage` → 403 CSRF;`Bearer aaa.bbb.ccc` → 401 `Invalid or expired token`。
+- 但顺着这条量出**真的控制面断点**:`POST /api/agent-control/execute` 带 ai-service 那把
+  `Bearer <裸共享密钥>`(非三段、非 `ihui_` 前缀)⇒ 在 CSRF 钩子处 403,
+  路由内 `isInternalSecret` 那一格**根本执行不到**。本机两份 `.env` 都没有该键(只量有无、未取值),
+  生产 env 本机不可读 ⇒ **生产是否已断未取证**。修法两条都在共享鉴权面
+  (给该精确路径加 CSRF 豁免 / 把内部密钥改成 `ihui_` 形态),不属可代裁范围,已建单待决。
+
+#### ⑤ 一条没做成的收尾(如实登记,不算已收口)
+
+本批 7 个路径的落地提交是 `7aa67b9eb0`(HEAD 已含全部改动、提交面回读 7/7 在树),
+但**共享主索引对齐未完成** —— `alignSharedIndex` 撞到 `.git/index.lock` 且实测有活 git 进程在持锁
+(17:06:01–17:06:03 四个 git.exe),按纪律**不代删他人的锁**。后果:这 7 个路径留在"索引 == 父提交"
+的 ` M` 形态,一次不带 pathspec 的普通提交会把它们写回旧版。兜底是 `git-guardian` 每 2 分钟一轮的
+`heal-worktree-tracked --align-drift`(判据:索引==HEAD 且工作树==祖先 ⇒ 才动),
+以及提交链上门 84 的"暂存内容等于祖先版本"拦截。
