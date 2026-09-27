@@ -17,6 +17,10 @@ import { useBestOfStore } from '@/stores/best-of'
 import type { SlashCommandData, SlashCommandResult } from './types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import type { ChatMode } from '@ihui/types'
+import { collectSessionFileChanges } from '@ihui/shared/chat/session-file-changes'
+import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
+import { runManualCompact } from './manual-compact'
+import { useSessionDiffStore } from '@/stores/session-diff'
 
 // 斜杠命令 → 自媒体 skill 直调映射(避免走 LLM chat 流,直接调 skill API)
 // /wechat-article <title>  → POST /api/self-media/wechat/generate {title, dryRun:true}
@@ -709,6 +713,143 @@ export async function tryHandleSelfMediaSlash(
   } catch (e: unknown) {
     onResult(`❌ ${matched} 调用失败: ${e instanceof Error ? e.message : String(e)}`)
   }
+  return true
+}
+
+// ============================================================================
+// D117 工具型斜杠命令(G-231,2026-09-27 立,对标 Codex /diff /status /model /mcp /compact)
+// ============================================================================
+
+/** /status 会话状态报告的纯组装(无副作用,可单测)。
+ *  上下文占用口径:最后一条成功 assistant 消息的 provider promptTokens / 模型窗口容量
+ *  —— 与 context-usage-ring 的「总量校准」同源(服务端装配后的真实 prompt 占用),
+ *  不在浏览器端复刻归因分解(那是 ring 弹窗的职责)。 */
+export interface SessionStatusInput {
+  model: string
+  conversationId: string | null
+  permissionMode: string | null
+  contextCapacityTokens: number
+  lastAssistantPromptTokens: number | null
+  sessionCompletionTokens: number
+  sessionCostUsd: number | null
+  messageCount: number
+}
+
+export function buildSessionStatusReport(
+  input: SessionStatusInput,
+  t: (key: string, vars?: Record<string, string>) => string,
+): string {
+  const lines: string[] = [`### ${t('slashCmd.statusReportTitle')}`, '']
+  lines.push(`- ${t('slashCmd.statusModel')}: \`${input.model || '-'}\``)
+  lines.push(`- ${t('slashCmd.statusConversation')}: \`${input.conversationId ?? '-'}\``)
+  if (input.permissionMode) {
+    lines.push(`- ${t('slashCmd.statusPermission')}: ${input.permissionMode}`)
+  }
+  if (input.lastAssistantPromptTokens !== null && input.contextCapacityTokens > 0) {
+    const pct = Math.min(
+      100,
+      Math.round((input.lastAssistantPromptTokens / input.contextCapacityTokens) * 100),
+    )
+    lines.push(
+      `- ${t('slashCmd.statusContext', {
+        used: formatTokenCount(input.lastAssistantPromptTokens),
+        capacity: formatTokenCount(input.contextCapacityTokens),
+        pct: String(pct),
+      })}`,
+    )
+  }
+  if (input.sessionCompletionTokens > 0) {
+    lines.push(
+      `- ${t('slashCmd.statusTokens', { tokens: formatTokenCount(input.sessionCompletionTokens) })}`,
+    )
+  }
+  if (input.sessionCostUsd !== null && input.sessionCostUsd > 0) {
+    lines.push(`- ${t('slashCmd.statusCost', { cost: input.sessionCostUsd.toFixed(4) })}`)
+  }
+  lines.push(`- ${t('slashCmd.statusMessages', { count: String(input.messageCount) })}`)
+  return lines.join('\n')
+}
+
+/** D117 工具型斜杠命令统一入口:/diff /status /model /mcp /compact。
+ *  - 命中任一即返回 true(不发送给 LLM,调用方清空输入框);
+ *  - 均为纯前端动作/直调 REST,不创建会话、不进主线历史(status 经 sidechat 消息回显);
+ *  - id 清单唯一登记处:lib/command-registry.ts 的 CHAT_TOOL_COMMANDS。 */
+export async function tryHandleToolSlash(
+  text: string,
+  t: (key: string, vars?: Record<string, string>) => string,
+): Promise<boolean> {
+  const trimmed = text.trim()
+  const m = /^\/(diff|status|model|mcp|compact)\b\s*$/.exec(trimmed)
+  if (!m) return false
+  const cmd = m[1]!
+  const store = useChatStore.getState()
+
+  if (cmd === 'diff') {
+    const changes = collectSessionFileChanges(store.messages)
+    if (changes.length === 0) {
+      toast.info(t('slashCmd.diffEmpty'))
+      return true
+    }
+    useSessionDiffStore.getState().openWith(changes)
+    return true
+  }
+
+  if (cmd === 'status') {
+    const usageByMessageId = store.usageByMessageId
+    const lastAssistant = [...store.messages]
+      .reverse()
+      .find((msg) => msg.role === 'assistant' && !msg.error && msg.content)
+    const lastUsage = lastAssistant ? usageByMessageId[lastAssistant.id] : undefined
+    let sessionCompletionTokens = 0
+    let sessionCostUsd: number | null = null
+    for (const u of Object.values(usageByMessageId)) {
+      sessionCompletionTokens += u.completionTokens ?? 0
+      if (typeof u.costUsd === 'number') {
+        sessionCostUsd = (sessionCostUsd ?? 0) + u.costUsd
+      }
+    }
+    const panel = useAiPanelStore.getState()
+    const permissionMode = panel.activeWorkspace?.mode ?? panel.pendingPermissionMode
+    const report = buildSessionStatusReport(
+      {
+        model: store.currentModel,
+        conversationId: store.conversationId,
+        permissionMode: permissionMode ?? null,
+        contextCapacityTokens: getModelContextCapacity(store.currentModel),
+        lastAssistantPromptTokens: lastUsage?.promptTokens ?? null,
+        sessionCompletionTokens,
+        sessionCostUsd,
+        messageCount: store.messages.filter(
+          (msg) => !msg.error && (msg.role === 'user' || msg.role === 'assistant') && msg.content,
+        ).length,
+      },
+      t,
+    )
+    store.addMessage({
+      role: 'assistant',
+      content: `> **${t('slashCmd.statusBadge')}**\n\n${report}`,
+      model: store.currentModel,
+      meta: { sidechat: true },
+    })
+    return true
+  }
+
+  if (cmd === 'model') {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ihui:model-selector:open'))
+    }
+    return true
+  }
+
+  if (cmd === 'mcp') {
+    if (typeof window !== 'undefined') {
+      window.location.assign('/mcp-store')
+    }
+    return true
+  }
+
+  // cmd === 'compact'
+  await runManualCompact(store.conversationId, t)
   return true
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

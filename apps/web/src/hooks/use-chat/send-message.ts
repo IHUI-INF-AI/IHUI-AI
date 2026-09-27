@@ -80,6 +80,7 @@ import {
   tryHandleGoalSlash,
   tryHandleBtwSlash,
   tryHandleCommitSlash,
+  tryHandleToolSlash,
 } from './slash-commands'
 import { persistMessageSafe, persistQuestionSafe } from './persistence'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
@@ -207,6 +208,14 @@ export function createSendMessage(
     // - AI 生成提交信息并自动 git add + commit,不走 LLM chat 流,不创建会话
     // - commit.before/after 钩子事件在此触发
     if (!isRegenerate && (await tryHandleCommitSlash(text, t))) {
+      sendInFlightRef.current = false
+      return true
+    }
+
+    // D117 工具型斜杠命令拦截(2026-09-27 立,对标 Codex /diff /status /model /mcp /compact):
+    // - 纯前端动作或直调 REST,不走 LLM chat 流,不创建会话
+    // - /status 以 sidechat 消息回显;/diff 打开会话改动总览弹窗
+    if (!isRegenerate && (await tryHandleToolSlash(text, t))) {
       sendInFlightRef.current = false
       return true
     }
