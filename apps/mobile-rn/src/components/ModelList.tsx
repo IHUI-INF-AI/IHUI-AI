@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     marginLeft: MODEL_LIST_BADGE_MARGIN_LEFT_PX,
     paddingHorizontal: MODEL_LIST_BADGE_PADDING_X_PX,
     paddingVertical: MODEL_LIST_BADGE_PADDING_Y_PX,
-    borderRadius: rnRadius.xs,
+    borderRadius: rnRadius.md,
     backgroundColor: RANK_GOLD_BG,
   },
   rankBadgeText: {
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     marginLeft: MODEL_LIST_BADGE_MARGIN_LEFT_PX,
     paddingHorizontal: MODEL_LIST_BADGE_PADDING_X_PX,
     paddingVertical: MODEL_LIST_BADGE_PADDING_Y_PX,
-    borderRadius: rnRadius.xs,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.danger.DEFAULT,
   },
   newBadgeText: {
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   freeBadge: {
     paddingHorizontal: MODEL_LIST_PRICE_BADGE_PADDING_X_PX,
     paddingVertical: MODEL_LIST_PRICE_BADGE_PADDING_Y_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.success.lighter,
   },
   freeBadgeText: {
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   paidBadge: {
     paddingHorizontal: MODEL_LIST_PRICE_BADGE_PADDING_X_PX,
     paddingVertical: MODEL_LIST_PRICE_BADGE_PADDING_Y_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.warning.amberLight,
   },
   paidBadgeText: {

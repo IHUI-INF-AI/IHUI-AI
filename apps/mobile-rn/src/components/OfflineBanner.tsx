@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     backgroundColor: rnTokens.error.bg,
     borderColor: 'rgba(255, 51, 51, 0.35)',
     borderWidth: 1,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.md,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },

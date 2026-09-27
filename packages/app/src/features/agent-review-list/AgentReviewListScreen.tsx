@@ -91,7 +91,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 48, alignItems: 'center' },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   bannerCard: {
     flex: 1,
     height: 80,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     flexDirection: 'column',
     justifyContent: 'center',
