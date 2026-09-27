@@ -43,11 +43,18 @@ import {
 import { rnRadius } from '@ihui/design-tokens'
 import {
   MODEL_LIST_AGENT_GLYPH_PX,
+  MODEL_LIST_BADGE_FONT_PX,
+  MODEL_LIST_BADGE_MARGIN_LEFT_PX,
+  MODEL_LIST_BADGE_PADDING_X_PX,
+  MODEL_LIST_BADGE_PADDING_Y_PX,
   MODEL_LIST_CHECK_GLYPH_PX,
   MODEL_LIST_CONTENT_BOTTOM_PADDING_PX,
   MODEL_LIST_EMPTY_FONT_PX,
   MODEL_LIST_EMPTY_PADDING_Y_PX,
   MODEL_LIST_NAME_FONT_PX,
+  MODEL_LIST_PRICE_BADGE_FONT_PX,
+  MODEL_LIST_PRICE_BADGE_PADDING_X_PX,
+  MODEL_LIST_PRICE_BADGE_PADDING_Y_PX,
   MODEL_LIST_SECTION_HEADER_FONT_PX,
 } from '@ihui/shared/ui/model-list-spec'
 
@@ -127,10 +134,6 @@ function resolveTitle(group: ModelListGroup): string {
     if (typed) return typed
   }
   return group.vendor ?? '其他'
-}
-
-function Separator(): React.ReactElement {
-  return <View style={styles.separator} />
 }
 
 function EmptyState(): React.ReactElement {
@@ -341,7 +344,10 @@ export default function ModelList({
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
-      ItemSeparatorComponent={Separator}
+      // 2026-09-27 合规复查:原 ItemSeparatorComponent 是 height:1 实色线、画在列表项之间,
+      // 命中 AGENTS §4「禁止分割线」禁止清单(允许出路只有完整描边收口/语义强调左边框/编辑器
+      // chrome,列表项间线不在其中)。分隔改由行自带 paddingVertical 的间距 + 选中态背景对比
+      // (rowSelected surface.card vs listBody surface.bg)承担 —— §4 允许的两条,不新增数值档。
       ListHeaderComponent={renderAgentHeader}
       stickySectionHeadersEnabled
       onEndReached={onEndReached}
@@ -420,51 +426,52 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   rankBadge: {
-    marginLeft: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
+    marginLeft: MODEL_LIST_BADGE_MARGIN_LEFT_PX,
+    paddingHorizontal: MODEL_LIST_BADGE_PADDING_X_PX,
+    paddingVertical: MODEL_LIST_BADGE_PADDING_Y_PX,
     borderRadius: rnRadius.xs,
     backgroundColor: RANK_GOLD_BG,
   },
   rankBadgeText: {
-    // 9 / 11 是"文字徽章"字号:同一位在小程序端是位图徽章(rankone.png / mian_label.png),
-    // 媒介不同、不构成同一元素 ⇒ 机制差异,保留本端取值,不经 spec。
-    fontSize: 9,
+    // 徽章字号/内衬/左距自 2026-09-27 起经 @ihui/shared/ui/model-list-spec 两端同吃:
+    // 小程序同一位原为 rankone.png / mian_label.png 位图,已按"择优=矢量优先 + 徽章禁位图"
+    // (AGENTS §4)换成与本端同形的文字徽章 —— 这不再是单侧媒介差,而是同一元素的同一组档。
+    fontSize: MODEL_LIST_BADGE_FONT_PX,
     fontWeight: '700',
     color: RANK_GOLD_TEXT,
     lineHeight: 12,
   },
   newBadge: {
-    marginLeft: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
+    marginLeft: MODEL_LIST_BADGE_MARGIN_LEFT_PX,
+    paddingHorizontal: MODEL_LIST_BADGE_PADDING_X_PX,
+    paddingVertical: MODEL_LIST_BADGE_PADDING_Y_PX,
     borderRadius: rnRadius.xs,
     backgroundColor: tokens.danger.DEFAULT,
   },
   newBadgeText: {
-    fontSize: 9,
+    fontSize: MODEL_LIST_BADGE_FONT_PX,
     fontWeight: '700',
     color: tokens.surface.light,
     lineHeight: 12,
   },
   freeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: MODEL_LIST_PRICE_BADGE_PADDING_X_PX,
+    paddingVertical: MODEL_LIST_PRICE_BADGE_PADDING_Y_PX,
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.success.lighter,
   },
   freeBadgeText: {
-    fontSize: 11,
+    fontSize: MODEL_LIST_PRICE_BADGE_FONT_PX,
     color: tokens.success.DEFAULT,
   },
   paidBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: MODEL_LIST_PRICE_BADGE_PADDING_X_PX,
+    paddingVertical: MODEL_LIST_PRICE_BADGE_PADDING_Y_PX,
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.warning.amberLight,
   },
   paidBadgeText: {
-    fontSize: 11,
+    fontSize: MODEL_LIST_PRICE_BADGE_FONT_PX,
     color: tokens.warning.amberText,
   },
   check: {
@@ -480,13 +487,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 14,
-  },
-  separator: {
-    // 1 / 68 属 RN 列表机制:SectionList 的 ItemSeparatorComponent(小程序 popup 用行间距与
-    // 背景对比分隔,§4 禁止分割线)—— 机制差异,非取值分叉,不经 spec。
-    height: 1,
-    backgroundColor: tokens.border.light,
-    marginLeft: 68,
   },
   empty: {
     // 空态纵向留白唯一源在 spec(规则 2 取紧凑档:此前本端 48 vs 小程序 20)
