@@ -237,6 +237,8 @@ export default function SettingsScreen() {
         menuItems={menuItems}
         onMenuPress={onMenuPress}
         appVersion={APP_VERSION}
+        // 契约传值(SettingsScreenProps.onBack 必填,packages/types):共享组件已不渲染内置页头
+        // (双层页头收敛 2026-09-27),本页页头 = 上方 NavBar(标题 + 返回 + 菜单)唯一一条。
         onBack={() => navigation.goBack()}
       />
       <SideMenu

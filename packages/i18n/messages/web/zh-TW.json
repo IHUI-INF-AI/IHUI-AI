@@ -8487,7 +8487,7 @@
         },
         "TOOL_MODE_UNAVAILABLE": {
           "title": "該工具在目前執行模式不可用",
-          "action": "改用等價的本機工具"
+          "action": "在網頁端綁定工作區後重試,或改用等價的本機工具"
         },
         "TOOL_NOT_FOUND": {
           "title": "找不到目標資源",
@@ -11172,7 +11172,34 @@
       "title": "Skill 庫",
       "viewAll": "查看全部"
     },
+    "sessionDiff": {
+      "title": "會話變更總覽",
+      "fileCount": "{count} 個檔案",
+      "empty": "本次會話尚無檔案變更",
+      "changedTimes": "{count}{plus} 次",
+      "editedBy": "編輯工具:{tool}",
+      "before": "變更前",
+      "after": "變更後",
+      "applyStatus_pending": "待確認",
+      "applyStatus_applied": "已套用",
+      "applyStatus_rejected": "已拒絕"
+    },
     "slashCmd": {
+      "diff": "檢視本次會話 AI 變更的檔案總覽",
+      "diffEmpty": "本次會話尚無檔案變更",
+      "status": "檢視目前模型、上下文占用與權限模式",
+      "statusBadge": "會話狀態",
+      "statusReportTitle": "會話狀態",
+      "statusModel": "目前模型",
+      "statusConversation": "會話 ID",
+      "statusPermission": "權限模式",
+      "statusContext": "上下文占用:{used} / {capacity}({pct}%)",
+      "statusTokens": "本會話輸出 tokens:{tokens}",
+      "statusCost": "本會話成本:${cost}",
+      "statusMessages": "訊息數:{count}",
+      "model": "開啟模型選擇器",
+      "mcp": "開啟 MCP 市場",
+      "compact": "壓縮目前會話上下文",
       "act": "切換到執行模式(AI 正常執行工具,默認)",
       "build": "切換到構建模式(全工具開放,正常執行)",
       "code": "生成代碼",
@@ -11667,6 +11694,31 @@
       "view": "檢視"
     },
     "commands": {
+      "slashDiff": {
+        "label": "會話變更總覽",
+        "description": "檢視本次會話 AI 變更的檔案",
+        "keywords": ["diff", "變更", "審查"]
+      },
+      "slashStatus": {
+        "label": "會話狀態",
+        "description": "檢視模型、上下文占用、權限模式與用量",
+        "keywords": ["status", "狀態", "上下文"]
+      },
+      "slashModel": {
+        "label": "切換模型",
+        "description": "開啟模型選擇器",
+        "keywords": ["model", "模型", "切換"]
+      },
+      "slashMcp": {
+        "label": "MCP 市場",
+        "description": "開啟 MCP 伺服器市場",
+        "keywords": ["mcp", "插件", "市場"]
+      },
+      "slashCompact": {
+        "label": "壓縮上下文",
+        "description": "壓縮目前會話歷史,釋放上下文視窗",
+        "keywords": ["compact", "壓縮", "上下文"]
+      },
       "steerPrompt": {
         "label": "引導提示",
         "description": "向正在執行的回覆中途插入引導，無需等待當前輪完成",
@@ -21322,6 +21374,7 @@
     "categoryMode": "模式切換",
     "categoryPermission": "權限管理",
     "categorySkill": "AI 技能",
+    "categoryTools": "工具命令",
     "categoryTemplate": "內容模板",
     "noMatchArgs": "無匹配候選",
     "noMatchArgsHint": "嘗試清空搜尋或按 ESC 返回",
@@ -25484,6 +25537,9 @@
     "ratingSuccess": "評分已提交"
   },
   "chatSearchBar": {
+    "messageNotFound": "找不到該訊息，可能已不在目前清單視窗內",
+    "moreResults": "還有 {count} 則結果",
+    "resultListLabel": "對話內搜尋結果",
     "searchPlaceholder": "搜尋對話…",
     "searchAriaLabel": "搜尋對話"
   },

@@ -34,6 +34,15 @@ import { useMessageListScroll } from './use-message-list-scroll'
 import { useMessageListDerivations } from './use-message-list-derivations'
 import { useMessageListSearch } from './use-message-list-search'
 import { useMessageListContextMenu } from './use-message-list-context-menu'
+// V3 #62(2026-09-27 立):既有搜索条的「结果预览列表」投影(输入框/快捷键/上一个
+// 下一个仍唯一归 use-message-list-search,本件只补"看得见命中了什么")。
+import { SearchResultList } from './search-result-list'
+import { useChatSearch } from '@/hooks/use-chat-search'
+// V3 #63(2026-09-27 立):form_request 帧的对话流宿主 —— 卡片本体与应答上行
+// 在 @/components/ai/business-form-*,本处只补那条一直没装车的连线。
+import { BusinessFormSection } from '@/components/ai/business-form-section'
+import { useBusinessFormStore } from '@/stores/business-forms'
+import { toast } from '@/components/common'
 import {
   regenerateMessage,
   branchMessage,
@@ -167,6 +176,46 @@ export function MessageList({
     t,
     onRequestSearch: openSearch,
   })
+
+  // ── V3 #62(2026-09-27 立)搜索结果预览列表 ────────────────────────────
+  // 唯一查询源仍是上面那条搜索条;这里把同一份查询喂给 useChatSearch,只为拿到
+  // 「命中消息的摘要 + 时间」列表并可点选定位。匹配规则两侧共用
+  // @ihui/shared 的 searchMessages,不存在第二套判定。
+  const tSearch = useTranslations('chatSearchBar')
+  const preview = useChatSearch({
+    messages,
+    messagesContainerRef: containerRef,
+    notFoundMessage: tSearch('messageNotFound'),
+    showWarning: (msg) => toast.info(msg),
+  })
+  const { setSearchQuery: setPreviewQuery, debouncedSearch: searchPreview, clearSearch } = preview
+  /** 搜索条每次输入:既有逻辑跳首个匹配 + 预览列表按同一查询重建(200ms 防抖) */
+  const onSearchQuery = React.useCallback(
+    (query: string) => {
+      handleSearch(query)
+      setPreviewQuery(query)
+      searchPreview(query)
+    },
+    [handleSearch, setPreviewQuery, searchPreview],
+  )
+  /** 关闭搜索条:两份态一起收(只收一份会留下一个悬着的命中列表) */
+  const onSearchClose = React.useCallback(() => {
+    handleSearchClose()
+    clearSearch()
+  }, [handleSearchClose, clearSearch])
+
+  // ── V3 #63(2026-09-27 立)切会话回收待应答表单 ────────────────────────
+  // 表单请求按 messageId 键控挂在 store 上,不回收就是一份"看不见但永不出队"的
+  // 内存滞留(上一个会话里没填完的批准/拒绝,在新会话里既无处显示也无从应答)。
+  // 挂在这里而不是各跳转点:MessageList 是所有会话视图的唯一宿主,URL 参数换会话
+  // 那条路径(不在本票写面内)同样被这一格覆盖。
+  const conversationId = useChatStore((s) => s.conversationId)
+  const lastConversationIdRef = React.useRef(conversationId)
+  React.useEffect(() => {
+    if (lastConversationIdRef.current === conversationId) return
+    lastConversationIdRef.current = conversationId
+    useBusinessFormStore.getState().clearForms()
+  }, [conversationId])
 
   // ── Phase 19 集成(2026-07-28 立)────────────────────────────────────
   // ProgressJumpStore:PlanStep ↔ Message 双向跳转 + 联动高亮
@@ -406,6 +455,11 @@ export function MessageList({
                   }}
                   codeCollapseLines={codeCollapseLines}
                 />
+                {/* V3 #63(2026-09-27 立):该条 assistant 消息上的 form_request 宿主。
+                    BusinessFormSection 内部无请求即整段返回 null(不占位),所以这里
+                    对每条 assistant 消息都挂一次即可 —— 用户批准/拒绝经
+                    postFormResponse 走同一条会话通道回传(与 tool-delegate 同族)。 */}
+                {m.role === 'assistant' ? <BusinessFormSection messageId={m.id} /> : null}
                 {/* Phase 19: 最后一个 assistant 消息下挂载 PlanStepsCard + SubAgentTaskTree
                   2026-08-01 Phase 4d:消息级 inline 后,仅当消息级数据为空时显示全局块(降级兼容旧后端)
                   2026-08-02 隐藏:对话流底部不再渲染 PlanStepsCard/SubAgentTaskTree(冗余可视化,与 主流 IDE 简洁风格不一致)
@@ -436,12 +490,20 @@ export function MessageList({
     <div className="flex h-full flex-col">
       <MessageSearchBar
         visible={searchBarVisible}
-        onClose={handleSearchClose}
-        onSearch={handleSearch}
+        onClose={onSearchClose}
+        onSearch={onSearchQuery}
         resultCount={searchResultIds.length}
         currentIndex={searchCurrentIndex}
         onNavigate={handleSearchNavigate}
       />
+      {/* V3 #62:命中摘要列表 —— 只在搜索条可见且有命中时出现,点选即定位那条消息 */}
+      {searchBarVisible ? (
+        <SearchResultList
+          results={preview.searchResults}
+          selectedId={preview.selectedMessageId}
+          onPick={preview.scrollToMessage}
+        />
+      ) : null}
       {/* D45 档位切换胶囊(2026-09-24 立):消息流顶部工具区,紧凑三选一,持久化 */}
       <DetailModeSwitcher />
       {inlinePanelNode}
