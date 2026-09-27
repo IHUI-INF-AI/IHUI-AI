@@ -107,12 +107,13 @@ function writeAt(base, rel, content) {
   return p
 }
 /** 造一个最小可判定的 git 仓夹具:档位表四处齐 + 一个无违规源码文件;withViolation 再加一处 B1 */
-function mkFixtureRepo(base, { withViolation }) {
+function mkFixtureRepo(base, { withViolation, extra = {} }) {
   writeAt(base, 'packages/design-tokens/src/radius.js', "export const RADIUS_STEPS = { xs: 2, sm: 4, DEFAULT: 8, md: 6, lg: 8, xl: 12, '2xl': 16 }\n")
   writeAt(base, 'packages/design-tokens/src/styles/tokens.css', '@theme {\n  --radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-sm: 0.25rem;\n  --radius-md: 0.375rem;\n  --radius-lg: 0.5rem;\n  --radius-xl: 0.75rem;\n  --radius-2xl: 1rem;\n}\n')
   writeAt(base, 'packages/design-tokens/src/tailwind-preset.js', 'const RADIUS_REM = {}\nexport const preset = { theme: { borderRadius: RADIUS_REM } }\n')
   writeAt(base, 'apps/web/src/card.tsx', 'export const card = { a: { borderRadius: 0 } }\n')
   if (withViolation) writeAt(base, 'apps/web/src/bad.tsx', 'export const bad = { a: { borderRadius: 8 } }\n')
+  for (const [rel, content] of Object.entries(extra)) writeAt(base, rel, content)
   git(base, ['init', '-b', 'main'])
   git(base, ['add', '-A'])
   git(base, ['-c', 'user.name=radius-guard-fixture', '-c', 'user.email=guard-fixture@invalid', 'commit', '-m', 'fixture'])
@@ -181,5 +182,60 @@ test('注入一处绕档取用(borderRadius: 8 数字字面量)⇒ exit 1 并点
   } finally {
     rmScratch(base)
   }
+})
+
+/**
+ * 阳性对照 · 多值声明与任意属性形态(2026-09-27 O81 票⑯)。
+ * 病灶不是假想:HEAD 上真实存在 5 处,门 77 一路报绿 —— ① `border-radius: var(--radius-xl) 24rpx 0 0`
+ * 被"值里出现 var( 就整条放行"短路(4 处),② Tailwind 任意属性 `[border-radius:6rpx]` 卡在
+ * 值前导字符类不含 `[`(1 处)。同一型缺陷的门 150 反而看见了(它按逐值读),所以"两道门互相
+ * 指认无人看守"这条教训在本仓是第二次落地。
+ */
+test('夹具注入多值混写与任意属性形态 ⇒ 逐值点名(旧整串短路看不见)', () => {
+  const base = mkScratch('r77-multi')
+  try {
+    copyGuardWithDeps(base)
+    mkFixtureRepo(base, {
+      withViolation: false,
+      extra: {
+        'apps/miniapp-taro/src/pages/multi.css':
+          '.sheet {\n  border-radius: var(--radius-xl) 24rpx 0 0;\n}\n.bar {\n  border-radius: var(--radius-sm) 6rpx 0 0;\n}\n.ok {\n  border-radius: var(--radius-lg) var(--radius-lg) 0 0;\n}\n',
+        'apps/miniapp-taro/src/pages/dot.tsx':
+          'export const V = () => <View className="w-[12rpx] h-[12rpx] [border-radius:6rpx] bg-primary" />\n',
+      },
+    })
+    const r = runGuard(join(base, ...GUARD_REL.split('/')))
+    assert.equal(r.status, 1, `两处混写必须判红,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
+    assert.match(r.stderr, /新增 3 处/, '全 var 的那一条不得被计进来(逐值判不得反过来误伤)')
+    assert.match(r.stderr, /24rpx/, '多值声明的第二个角必须被点名')
+    assert.match(r.stderr, /\[B3-off\][^\n]*6rpx/, '不在档位表上的角必须按偏档点名')
+    assert.match(r.stderr, /dot\.tsx/, '任意属性形态 [border-radius:…] 必须在射程内')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+/**
+ * 反向锁:整串 `var(` 短路不得回来。形状判据用归一化后的源码文本比较(不锚定缩进/换行),
+ * 否则 prettier 一折行就造出与本判据无关的假红。
+ */
+test('反向锁:B3 不得回到"值里出现 var( 就整条放行"的旧形状', () => {
+  const norm = (s) => s.replace(/\s+/g, ' ').trim()
+  const src = norm(readFileSync(GUARD, 'utf8'))
+  //  三条都用"源码里出现这段字面量文本"判,不用正则:regex 字面量里的反斜杠在测试侧再转义
+  //  一次就会静默失配(失配表现为"锁着,其实恒绿")。
+  assert.match(src, /for \(const part of val\.split\(/, '逐值循环必须在位')
+  assert.ok(
+    !src.includes('if (!/var\\(--radius|inherit|none/.test(val))'),
+    '旧写法的整串短路不得回来:它让 4 处多值混写(var 之后的裸字面量)整条隐身',
+  )
+  assert.ok(
+    !src.includes('(^|[;{}\\s])(border'),
+    '值前导字符类必须含左方括号 —— 旧写法把 Tailwind 任意属性形态 [border-radius:…] 整个漏掉',
+  )
+  assert.ok(
+    src.includes("([^;}\\n'\"\\]]+)"),
+    '值字符类必须排除右方括号,否则任意属性形态会把后半串 className 当成一个值读',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
