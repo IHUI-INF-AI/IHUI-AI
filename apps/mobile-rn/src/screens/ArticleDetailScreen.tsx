@@ -31,7 +31,7 @@ import {
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { createComment, fetchApi, getComments, type CommentItem } from '@ihui/api-client'
-import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import {
   ArticleDetailScreen as SharedArticleDetailScreen,
@@ -85,7 +85,7 @@ export function ArticleDetailScreen() {
         setArticle(res.data)
         setLikeCount(res.data.likes ?? 0)
       } else {
-        setError(res.error || t('articleDetail.loadFailed'))
+        setError(apiFailureToText(res, t('articleDetail.loadFailed')))
       }
       setLoading(false)
     })()
@@ -114,7 +114,7 @@ export function ArticleDetailScreen() {
           setComments(res.data.list)
         } else {
           setComments([])
-          setCommentError(res.error || '评论加载失败')
+          setCommentError(apiFailureToText(res, '评论加载失败'))
         }
       })
       .catch(() => {
@@ -136,7 +136,7 @@ export function ArticleDetailScreen() {
         setComments((prev) => [res.data, ...prev])
         setCommentText('')
       } else {
-        setCommentError(res.error || '评论失败')
+        setCommentError(apiFailureToText(res, '评论失败'))
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''

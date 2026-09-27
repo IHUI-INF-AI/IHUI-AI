@@ -32,6 +32,7 @@ import {
   type VipLevelItem2,
   type VipMembershipInfo,
 } from '@ihui/rn-app'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import { BottomPopup } from '../components/BottomPopup'
 import { BottomPops } from '../components/BottomPops'
@@ -205,7 +206,7 @@ export function VipScreen() {
         // 从 VipLevel 动态生成价格档位(对齐 Uniapp getvipPrice 个性化定价)
         setPricePlans(buildPricePlans(levelsRes.data))
       } else {
-        setError(levelsRes.error || t('vip.loadFailed'))
+        setError(apiFailureToText(levelsRes, t('vip.loadFailed')))
       }
       if (membershipRes.success && membershipRes.data)
         setMembership(toVipMembership(membershipRes.data))
