@@ -20,7 +20,8 @@
 //!    - 有其他实例且隐藏窗口 2s 内应答 → 放行,由插件唤醒它的窗口并结束本进程
 //!      (健康路径的既有行为,一字不改);
 //!    - 有其他实例但隐藏窗口缺失或不应答(挂死/僵尸)→ 终止所有**同 exe 路径**的
-//!      其他进程,然后作为唯一实例继续启动——双击必须看见窗口。
+//!      其他进程,然后作为唯一实例继续启动——双击必须看见窗口。(2026-09-27 同日补两条
+//!      前置条件,任一命中都不得杀,见第 5 条)
 //! 3. 完整闭环还差最后一环(2026-09-27 实测):被强杀的旧实例留下的
 //!    `msedgewebview2.exe`(browser 主进程)不会随父进程立即退出(实测父死
 //!    1~3 分钟内仍在),继续占住 `EBWebView` 数据目录;而且它的 DACL 拒绝任何
@@ -32,6 +33,18 @@
 //! 4. 探针 mutex 句柄在返回前必须关闭:否则插件随后 `CreateMutexW` 会看到
 //!    `ERROR_ALREADY_EXISTS`(自己占的)而找不到窗口 → 命中缺陷 b → 每个实例都
 //!    不建隐藏窗口 → 全部级联僵尸。这是本模块存在的意义,不得回退。
+//! 5. 同日两条收口(实测:17:00-17:45 之间被重启 18 次,日志 `failed to create
+//!    webview: 0x800700AA 请求的资源在使用中` ×2 + `0x800705B4 超时` ×1 +
+//!    `启动守护:终止了 1 个挂死/僵尸的旧实例` ×1;而 24h 内 Windows 事件日志**没有
+//!    一条 ihui-desktop.exe 的 1000 应用错误事件** ⇒ 进程是被终止的,不是原生崩溃):
+//!    a) **有可见顶层窗口的实例绝不能杀**。被并发构建 + 上百道守门压满的机器上,一个
+//!       窗口正开着、用户正在用的健康实例,会因为主线程被占住而 2s 内不应答探测,
+//!       于是被按成僵尸杀掉——用户侧表现就是"点哪个页面就崩"。真僵尸按定义是**没有
+//!       窗口**的那个(第 1、2 条描述的"双击毫无反应、静默堆积在任务管理器")。
+//!    b) **跨路径这一对既无人清理也互不移交**(安装版 `D:\智汇AI\ihui-desktop.exe` 与
+//!       开发版 `target\{debug,release}\ihui-desktop.exe`:同 APP_ID、同 `{id}-sim`
+//!       mutex、同 `EBWebView` 数据目录)。正确出口是**本进程移交退出**,不是把清理
+//!       范围扩到跨路径——那等于让开发版去杀用户正在用的安装版,是 a) 的放大。
 
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -41,23 +54,67 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub enum PreflightAction {
     /// 无其他实例:放行,插件照常接管。
     ContinueLaunch,
-    /// 有其他实例且健康:放行,插件唤醒其窗口并结束本进程。
+    /// 有其他实例:**本进程退出**,把界面留给对方。执行者视探测链是否完好二选一——
+    /// 插件唤醒对方并结束本进程(健康路径),或本模块自行 `exit(0)`(链已坏:
+    /// 隐藏窗口缺失时插件会放行继续启动、不应答时插件的无超时 `SendMessageW`
+    /// 会把本进程永久挂住,两条都是模块头注第 1a/1b 条)。
     HandoffToExisting,
-    /// 有其他实例但挂死/僵尸:先清理其他实例,再继续启动。
+    /// 有其他实例但挂死/僵尸且**用户看不见它**:先清理其他实例,再继续启动。
     KillStaleThenContinue,
 }
 
-/// 三态判定:`{id}-sim` mutex 是否存在、`{id}-siw` 窗口是否找到、是否 2s 内应答。
+/// 枚举"其他实例"得到的三态。**与"有没有可见窗口"是两条正交的事实,不得合成一条**:
+/// 前者回答"有没有可清理对象"(决定能不能杀干净),后者回答"对方是不是用户看得见的
+/// 程序"(决定该不该杀)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OtherInstances {
+    /// 一个同名其他进程都没枚举到,而 mutex 却存在 —— 对方正在退出的瞬时状态,或
+    /// mutex 异常残留。这一态**绝不许**让本进程静默退出:那正是本模块要消灭的
+    /// "双击毫无反应"。
+    NoneSeen,
+    /// 有其他实例,但没有一个与本进程同全路径(典型:安装版与开发版并存),也即
+    /// **筛不出可清理对象**。见模块头注第 5b 条。
+    PresentButNothingCleanable,
+    /// 有其他实例,且至少一个与本进程同全路径 ⇒ 存在可清理对象。
+    PresentWithCleanableTarget,
+}
+
+/// 三态判定:`{id}-sim` mutex 是否存在、`{id}-siw` 窗口是否找到、是否 2s 内应答、
+/// 枚举到的其他实例形态、其他实例是否拥有可见顶层窗口。
 ///
-/// mutex 不存在时其余两个参数无意义(无其他实例)。
-pub fn decide(mutex_exists: bool, siw_window_found: bool, siw_responsive: bool) -> PreflightAction {
+/// mutex 不存在时其余参数无意义(无其他实例)。
+///
+/// 判序是这套逻辑的全部安全性所在,改动前先读模块头注第 5 条:
+/// 1. **看得见 = 不可杀**(第 5a 条)——必须排在探测结果之前:健康但主线程被占住的
+///    实例同样会在 2s 内不应答,按探测判僵尸就是误杀用户正在用的窗口。
+/// 2. 探测链完好(隐藏窗口在位且应答)→ 交给插件移交(既有健康路径)。
+/// 3. 只剩"没有窗口的其他实例":同全路径才有对象可清理;跨路径只能移交(第 5b 条);
+///    一个实例都没看到就照旧继续(绝不静默退出)。
+pub fn decide(
+    mutex_exists: bool,
+    siw_window_found: bool,
+    siw_responsive: bool,
+    other: OtherInstances,
+    other_has_visible_window: bool,
+) -> PreflightAction {
     if !mutex_exists {
         return PreflightAction::ContinueLaunch;
+    }
+    // 两条事实矛盾时(看不见任何实例却说有可见窗口)以"有没有实例"为准:
+    // 无人接管却退出 = 双击毫无反应,比误判更糟。
+    if other != OtherInstances::NoneSeen && other_has_visible_window {
+        return PreflightAction::HandoffToExisting;
     }
     if siw_window_found && siw_responsive {
         return PreflightAction::HandoffToExisting;
     }
-    PreflightAction::KillStaleThenContinue
+    match other {
+        OtherInstances::PresentWithCleanableTarget => PreflightAction::KillStaleThenContinue,
+        // 继续往下建 webview 必然撞 `EBWebView` 目录锁(0x800700AA),而撞完的结果是
+        // 本进程变成一个"占着目录和 mutex、既看不见也退不掉"的新僵尸(第 1b 条)。
+        OtherInstances::PresentButNothingCleanable => PreflightAction::HandoffToExisting,
+        OtherInstances::NoneSeen => PreflightAction::ContinueLaunch,
+    }
 }
 
 /// 大小写不敏感的 exe 全路径比较(Windows 文件系统大小写不敏感,进程枚举与
@@ -127,8 +184,9 @@ pub fn preflight() {
     use std::os::windows::ffi::{OsStrExt, OsStringExt};
     use std::ptr;
 
-    use winapi::shared::minwindef::{DWORD, FALSE, TRUE};
+    use winapi::shared::minwindef::{BOOL, DWORD, FALSE, LPARAM, TRUE};
     use winapi::shared::ntdef::HANDLE;
+    use winapi::shared::windef::HWND;
     use winapi::shared::winerror::ERROR_ALREADY_EXISTS;
     use winapi::um::errhandlingapi::GetLastError;
     use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
@@ -143,7 +201,8 @@ pub fn preflight() {
         PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE, SYNCHRONIZE,
     };
     use winapi::um::winuser::{
-        FindWindowW, SendMessageTimeoutW, SMTO_ABORTIFHUNG, SMTO_BLOCK, WM_NULL,
+        EnumWindows, FindWindowW, GetWindowThreadProcessId, IsWindowVisible, SendMessageTimeoutW,
+        SMTO_ABORTIFHUNG, SMTO_BLOCK, WM_NULL,
     };
 
     /// 与 tauri.conf.json `identifier` 一致;改名/改 identifier 必须同步这里,
@@ -179,6 +238,10 @@ pub fn preflight() {
             let hwnd = FindWindowW(class_name.as_ptr(), window_name.as_ptr());
             let found = !hwnd.is_null();
             // 带超时 + SMTO_ABORTIFHUNG 的空消息探测:挂死的主线程不会应答。
+            // ⚠️ "不应答"有两种可能:真挂死,或只是主线程被占住的**健康**实例
+            //    (2026-09-27 实测:并发构建 + 上百道守门把机器压满时 2s 不够)。
+            //    两者在探测上同形,所以判"该不该杀"必须再问一条独立事实 —— 见下面
+            //    `has_visible_window`(模块头注第 5a 条)。
             let responsive = found && {
                 // lpdwResult 是 PDWORD_PTR(= *mut usize),不是 LPDWORD。
                 let mut result: usize = 0;
@@ -193,24 +256,57 @@ pub fn preflight() {
                 ) != 0
             };
 
-            match decide(true, found, responsive) {
-                PreflightAction::HandoffToExisting | PreflightAction::ContinueLaunch => {
-                    // 健康路径:关掉探针句柄交给插件(插件会唤醒已有窗口并结束本进程)。
+            // 枚举**只查不杀**:杀掉谁要等可见窗口那条判据一起进 decide() 才能定。
+            let own_exe = std::env::current_exe().unwrap_or_default();
+            let (candidates, cleanable) =
+                collect_other_instances(GetCurrentProcessId(), &own_exe);
+            let has_visible_window = other_instance_has_visible_window(&candidates);
+            let other = if candidates.is_empty() {
+                OtherInstances::NoneSeen
+            } else if cleanable.is_empty() {
+                OtherInstances::PresentButNothingCleanable
+            } else {
+                OtherInstances::PresentWithCleanableTarget
+            };
+
+            let action = decide(true, found, responsive, other, has_visible_window);
+            if !matches!(action, PreflightAction::KillStaleThenContinue) {
+                // 不杀就把开给别人的句柄全关掉:留在手里没有用处,而"继续启动"这一格
+                // 之后还要跑很久(等 EBWebView 锁,上限 120s)。
+                for h in &cleanable {
+                    CloseHandle(*h);
+                }
+            }
+            match action {
+                PreflightAction::HandoffToExisting => {
+                    // 所有离开的路径都必须关掉探针句柄(见模块头注第 4 条),
+                    // 包括立刻退出的那条 —— 不把"关句柄"变成一条依赖路径的规矩。
                     CloseHandle(hmutex);
+                    if !(found && responsive) {
+                        // 插件的移交链已坏:隐藏窗口缺失时它**放行第二实例继续启动**
+                        // (第 1b 条),不应答时它的无超时 `SendMessageW` 会把本进程永久
+                        // 挂住(第 1a 条)。所以这里自己结束本进程 —— 此刻 Builder 尚未
+                        // 运行,无窗口无资源,终态与插件移交一致(exit 0)。
+                        // ⚠️ 已知可观测性缺口:log 插件在 setup 里才初始化,本进程活不到
+                        //    setup,所以这条路径**不写日志**(不在这里自拼日志文件:那是
+                        //    第二个色值/路径真相源同一条禁令的形态)。
+                        std::process::exit(0);
+                    }
                     return;
                 }
                 PreflightAction::KillStaleThenContinue => {
-                    let killed = kill_other_instances(
-                        GetCurrentProcessId(),
-                        &std::env::current_exe().unwrap_or_default(),
-                    );
+                    let killed = kill_collected_instances(cleanable);
                     if killed > 0 {
                         KILLED_STALE_COUNT.store(killed, Ordering::SeqCst);
                     }
                 }
+                // mutex 在、却一个同名实例都没枚举到(对方正在退出的瞬时状态或异常残留):
+                // 没有任何可移交的对象,**继续启动** —— 绝不允许在这种状态下静默退出,
+                // 那正是本模块要消灭的"双击毫无反应"。
+                PreflightAction::ContinueLaunch => {}
             }
         }
-        // 走到这里 = 本进程将以唯一实例身份继续启动(健康实例已在上面 return 移交)。
+        // 走到这里 = 本进程将以唯一实例身份继续启动(要移交的已在上面 return / exit 离开)。
         // 等孤儿 WebView2 释放 EBWebView 目录锁(判据与上限见 wait_for_webview_lock_release):
         // 不等的话 wry 会在主线程同步等环境创建,窗口不显示、日志一行不写,
         // 与"双击没反应"完全同形——这正是"强制退出兜底"之后下一次双击打不开的最终一环。
@@ -228,21 +324,51 @@ pub fn preflight() {
         CloseHandle(hmutex);
     }
 
-    /// 终止除自身外所有**同全路径**的 ihui-desktop 进程,返回成功终止数。
-    unsafe fn kill_other_instances(own_pid: DWORD, own_exe: &Path) -> usize {
+    /// 终止 `collect_other_instances` 交出的**同全路径**进程(句柄已在手),返回成功终止数。
+    unsafe fn kill_collected_instances(targets: Vec<HANDLE>) -> usize {
+        let mut killed = 0usize;
+        let mut terminated: Vec<HANDLE> = Vec::new();
+        for h in targets {
+            if TerminateProcess(h, 1) != FALSE {
+                killed += 1;
+                terminated.push(h);
+            } else {
+                CloseHandle(h);
+            }
+        }
+        for h in terminated {
+            // 返回值不判:超时也继续,绝不因单个进程退不掉而卡死启动。
+            WaitForSingleObject(h, KILL_WAIT_MS);
+            CloseHandle(h);
+        }
+        killed
+    }
+
+    /// 枚举除自身外的 ihui-desktop 进程,**只查不杀**,返回两份语义不重叠的事实:
+    /// - `candidates`:exe **文件名**相同的其他进程 pid(含全路径不同的、也含句柄/路径
+    ///   核不出来那些)—— 回答"到底还有没有别的实例",并作为可见窗口判据的搜索范围;
+    /// - `cleanable`:其中**全路径与本进程一致**者的进程句柄(已带 PROCESS_TERMINATE)
+    ///   —— 只有这些是可清理对象。跨路径一律不在此列:让开发版去杀用户正在用的安装版,
+    ///   是模块头注第 5a 条那类误杀的放大版(第 5b 条)。
+    ///
+    /// 取不到自身路径时返回两个空集(等价于"没看到其他实例"→ 继续启动),不猜。
+    unsafe fn collect_other_instances(
+        own_pid: DWORD,
+        own_exe: &Path,
+    ) -> (Vec<DWORD>, Vec<HANDLE>) {
         if own_exe.as_os_str().is_empty() {
-            return 0;
+            return (Vec::new(), Vec::new());
         }
         let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         if snapshot == INVALID_HANDLE_VALUE {
-            return 0;
+            return (Vec::new(), Vec::new());
         }
 
         let own_name = own_exe.file_name().map(|n| n.to_string_lossy().into_owned());
         let mut entry: PROCESSENTRY32W = std::mem::zeroed();
         entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as DWORD;
-        let mut killed = 0usize;
-        let mut terminated: Vec<HANDLE> = Vec::new();
+        let mut candidates: Vec<DWORD> = Vec::new();
+        let mut cleanable: Vec<HANDLE> = Vec::new();
 
         if Process32FirstW(snapshot, &mut entry) == TRUE {
             loop {
@@ -254,6 +380,7 @@ pub fn preflight() {
                         .into_owned();
                     let name = name.trim_end_matches('\0').to_string();
                     if own_name.as_deref() == Some(name.as_str()) {
+                        candidates.push(pid);
                         let h = OpenProcess(
                             PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE,
                             FALSE,
@@ -272,11 +399,10 @@ pub fn preflight() {
                                     &Path::new(&OsString::from_wide(&buf[..size as usize])),
                                     own_exe,
                                 );
-                            if full_path_ok && TerminateProcess(h, 1) != FALSE {
-                                killed += 1;
-                                // 句柄统一在下方等待退出后关闭;此处绝不能 continue,
-                                // 否则会跳过 Process32NextW 死循环。
-                                terminated.push(h);
+                            if full_path_ok {
+                                // 句柄留给 kill_collected_instances(它负责终止/等待/关闭);
+                                // 这里绝不能 continue,否则会跳过 Process32NextW 死循环。
+                                cleanable.push(h);
                             } else {
                                 CloseHandle(h);
                             }
@@ -288,15 +414,54 @@ pub fn preflight() {
                 }
             }
         }
-        for h in terminated {
-            // 返回值不判:超时也继续,绝不因单个进程退不掉而卡死启动。
-            WaitForSingleObject(h, KILL_WAIT_MS);
-            CloseHandle(h);
-        }
         CloseHandle(snapshot);
-        killed
+        (candidates, cleanable)
     }
 
+    /// 候选进程里是否有任何一个拥有**可见的顶层窗口**(模块头注第 5a 条的判据)。
+    ///
+    /// 判据刻意取"宽",并且**不排除最小化窗口** —— 理由一句话:最小化的窗口仍是用户
+    /// 自己拥有、随时能还原的窗口,以"此刻看不见"为由杀掉它,用户下次还原时看到的就是
+    /// 一个凭空消失的应用;而本模块要清理的真僵尸按定义是**没有窗口**的那个。
+    ///
+    /// 只问 `IsWindowVisible`,不看 `IsIconic`/owner;`EnumWindows` 天然只枚举顶层窗口,
+    /// 而插件的隐藏消息窗口 `{id}-siw` 不带 `WS_VISIBLE`,所以不会被读成"看得见"。
+    /// 自己的 pid 在本函数内再排除一次(调用方给的是"除自身外"的清单):判据不得依赖
+    /// 调用方的自律,而本进程此刻还没建任何窗口,自排除恒为无害。
+    unsafe fn other_instance_has_visible_window(pids: &[DWORD]) -> bool {
+        if pids.is_empty() {
+            return false;
+        }
+        struct Scan<'a> {
+            pids: &'a [DWORD],
+            own_pid: DWORD,
+            found: bool,
+        }
+        unsafe extern "system" fn on_window(hwnd: HWND, lparam: LPARAM) -> BOOL {
+            // SAFETY: 唯一调用方把一个栈上 `Scan` 的地址交给 EnumWindows,而 EnumWindows
+            // 是同步的 —— 它返回时回调已全部跑完,该地址在整段枚举期间始终有效。
+            let scan = &mut *(lparam as *mut Scan<'_>);
+            let mut pid: DWORD = 0;
+            if GetWindowThreadProcessId(hwnd, &mut pid) != 0
+                && pid != scan.own_pid
+                && scan.pids.contains(&pid)
+                && IsWindowVisible(hwnd) != FALSE
+            {
+                scan.found = true;
+                return FALSE; // 已确认"用户看得见",不必再枚举剩下的窗口
+            }
+            TRUE
+        }
+        let mut scan = Scan {
+            pids,
+            own_pid: GetCurrentProcessId(),
+            found: false,
+        };
+        // 返回值不判:枚举失败(0)时 scan.found 保持 false,即"没证据说有可见窗口",
+        // 与判不到时保守放行同一条方向。
+        let _ = EnumWindows(Some(on_window), &mut scan as *mut Scan<'_> as LPARAM);
+        scan.found
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -305,20 +470,31 @@ pub fn preflight() {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::OtherInstances::*;
     use std::path::PathBuf;
+
+    // ⚠️ 覆盖面如实登记(**不得把没测写成测过**):本模块只测 `decide` 的纯判定与
+    // `same_exe_path`。三个 Win32 函数(`collect_other_instances` /
+    // `kill_collected_instances` / `other_instance_has_visible_window`)住在
+    // `preflight()` 体内、测试不可见;其中"有没有可见窗口"要端到端验证就得真造一个
+    // 顶层窗口(注册窗口类 + 消息循环,且无桌面会话的 CI 上不稳定),故**未做端到端覆盖**
+    // —— 它的判据是刻意做成注入点(纯函数收 `bool`)的,所以"该杀/不该杀"的所有分支
+    // 都由下面的成对用例锁住,只有"窗口可见性怎么量到"这一层没有测试兜着。
 
     #[test]
     fn 无其他实例时放行() {
+        // mutex 不存在 ⇒ 其余参数无意义,取最保守的一档。
         assert_eq!(
-            decide(false, false, false),
+            decide(false, false, false, NoneSeen, false),
             PreflightAction::ContinueLaunch
         );
     }
 
     #[test]
     fn 健康实例存在时移交插件唤醒() {
+        // 探测链完好 ⇒ 即便存在可清理对象也绝不杀(交给插件唤醒 + 结束本进程)。
         assert_eq!(
-            decide(true, true, true),
+            decide(true, true, true, PresentWithCleanableTarget, false),
             PreflightAction::HandoffToExisting
         );
     }
@@ -326,7 +502,7 @@ mod tests {
     #[test]
     fn 挂死实例隐藏窗口不应答时先清理再启动() {
         assert_eq!(
-            decide(true, true, false),
+            decide(true, true, false, PresentWithCleanableTarget, false),
             PreflightAction::KillStaleThenContinue
         );
     }
@@ -334,9 +510,74 @@ mod tests {
     #[test]
     fn 僵尸实例占着锁却没有隐藏窗口时先清理再启动() {
         assert_eq!(
-            decide(true, false, false),
+            decide(true, false, false, PresentWithCleanableTarget, false),
             PreflightAction::KillStaleThenContinue
         );
+    }
+
+    // ---- 2026-09-27 缺陷 1:「有可见窗口 ⇒ 绝不能杀」—— 成对用例 ----
+
+    #[test]
+    fn 可见窗口这一维必须真的改变结论两个方向各测一次() {
+        // 同一组探测结果(隐藏窗口缺失、不应答、有同路径可清理对象),唯一变量是
+        // "对方有没有可见窗口":false ⇒ 允许清理(否则退回"双击打不开"),
+        // true ⇒ 只移交(误杀用户正在用的窗口 = 用户侧的"点哪个页面就崩")。
+        // 只留其中一半,判据就成了"永远不杀"或"永远照杀"。
+        assert_eq!(
+            decide(true, false, false, PresentWithCleanableTarget, false),
+            PreflightAction::KillStaleThenContinue
+        );
+        assert_eq!(
+            decide(true, false, false, PresentWithCleanableTarget, true),
+            PreflightAction::HandoffToExisting
+        );
+    }
+
+    #[test]
+    fn 有可见窗口时隐藏窗口不应答也不得杀() {
+        // 与「挂死实例隐藏窗口不应答时先清理再启动」逐字段对照,只把可见窗口翻成 true。
+        assert_eq!(
+            decide(true, true, false, PresentWithCleanableTarget, true),
+            PreflightAction::HandoffToExisting
+        );
+    }
+
+    // ---- 2026-09-27 缺陷 2:跨路径这一对既无人清理也互不移交 ----
+
+    #[test]
+    fn 跨路径且筛不出可清理对象时移交而非继续启动() {
+        // 安装版与开发版同 APP_ID、同 `{id}-sim` mutex、同 `EBWebView` 目录:继续往下建
+        // webview 必撞目录锁(实测 `0x800700AA 请求的资源在使用中` ×2 + `0x800705B4` ×1)。
+        assert_eq!(
+            decide(true, false, false, PresentButNothingCleanable, false),
+            PreflightAction::HandoffToExisting
+        );
+    }
+
+    #[test]
+    fn 同路径有可清理对象时不得被跨路径那一条放过() {
+        // 反向对照:上面那条把"筛不出对象"换成"筛得出"就必须翻回清理,
+        // 否则第 5a 条之外的正常僵尸再也没人清(即本模块最初的立因)。
+        assert_eq!(
+            decide(true, false, false, PresentWithCleanableTarget, false),
+            PreflightAction::KillStaleThenContinue
+        );
+    }
+
+    #[test]
+    fn 一个同名实例都没看到时绝不静默退出() {
+        // 与「跨路径…移交」唯一差别是有没有枚举到实例:没有可移交对象时必须继续启动。
+        assert_eq!(
+            decide(true, false, false, NoneSeen, false),
+            PreflightAction::ContinueLaunch
+        );
+    }
+
+    #[test]
+    fn 两条事实矛盾时以有没有实例为准不得无人接管就退出() {
+        // 生产面上不可达(可见窗口判据的搜索范围就是枚举到的候选 pid),但纯函数不得
+        // 假设调用方自律:判成移交 = 本进程退出而屏幕上一个窗口都没有。
+        assert_eq!(decide(true, false, false, NoneSeen, true), PreflightAction::ContinueLaunch);
     }
 
     #[test]
