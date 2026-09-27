@@ -109,7 +109,8 @@ describe('W1 棘轮:任何 src 文件的就地旁路数不得多于该文件自�
     // 现值如实喊出来(供交付报告核对):L7905 收口后应只剩 config-cmd.ts 的 settings getter 1 处
     console.info(`[danger-gate-wiring] 就地旁路现值: ${remaining.join(', ') || '(全零)'}`)
     expect(offenders).toEqual([])
-  })
+  }, 180_000) // 逐文件起一次 git show(src 全量数百次进程 spawn),单跑实测 35s,并行下更慢;
+  // 棘轮断言本身一字未动,抬的只是进程型测试的时间预算
 })
 
 describe('W2 装车证明:四个已迁移调用方真的走唯一出口', () => {

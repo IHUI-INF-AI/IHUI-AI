@@ -400,8 +400,10 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
   const title = t('toolSummaryTitle')
   const allChipsHidden = visibleChips.length === 0 && !effectiveSummary.totalDurationMs
 
-  // 全部统计为 0 + 无耗时 → 不渲染卡片
-  if (allChipsHidden) return null
+  // 全部统计为 0 + 无耗时 + 无可渲染类目卡 → 不渲染卡片(避免无意义展示)。
+  // D58 硬判据:thinking/end 等 countable=false 类目不产 chip,但其类目卡标题必须仍渲染
+  // (7652a8847 登记的"旧早返回与 D58 互斥"即此:chip 判据不得吞掉类目聚合层)。
+  if (allChipsHidden && categoryRuns.length === 0) return null
 
   return (
     <FoldableSection

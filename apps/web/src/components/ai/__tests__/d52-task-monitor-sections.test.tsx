@@ -4,17 +4,17 @@
 
 // D52 任务监控分区面板(2026-09-24)
 // 覆盖:① 四区各有渲染断言(每区至少一个代表性 Tab 可达);② 展示方式切换 + persist 持久化;
-// ③ 平铺模式旧 Tab 不回归(单一 tablist 收纳全部 26 个 tab + 点击切换内容区)。
+// ③ 平铺模式旧 Tab 不回归(单一 tablist 收纳全部 27 个 tab + 点击切换内容区)。
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import React from 'react'
 import { render, cleanup, screen, fireEvent, within } from '@testing-library/react'
 
-/** 与 ai-side-panel-tools.tsx TAB_KEYS 顺序一致(26 个平铺 Tab) */
+/** 与 ai-side-panel-tools.tsx TAB_KEYS 顺序一致(27 个平铺 Tab;inspector 由 D116/03c3bdc4b 追加) */
 const ALL_TABS = [
   'goal', 'memory', 'plan', 'tasks', 'progress', 'agents', 'background', 'swarm',
   'orchestration', 'routines', 'trace', 'checkpoints', 'tokens', 'spec', 'runtime',
   'bestof', 'memorygraph', 'atomicrollback', 'worlds', 'agenttasks', 'unified',
-  'kanban', 'hooks', 'wiki', 'integrations', 'workspace',
+  'kanban', 'hooks', 'wiki', 'integrations', 'workspace', 'inspector',
 ]
 
 vi.mock('next-intl', () => ({
@@ -143,9 +143,9 @@ describe('D52 任务监控分区面板', () => {
     fireEvent.click(screen.getByTestId('task-monitor-mode-tabs'))
     expect(useTaskMonitorStore.getState().displayMode).toBe('tabs')
     expect(window.localStorage.getItem('ihui-task-monitor')).toContain('"tabs"')
-    // 平铺模式:分区视图退场,26 个 tab 收纳在平铺导航条里
+    // 平铺模式:分区视图退场,27 个 tab 收纳在平铺导航条里
     expect(screen.queryByTestId('task-monitor-zones')).toBeNull()
-    expect(screen.getAllByRole('tab').length).toBe(26)
+    expect(screen.getAllByRole('tab').length).toBe(27)
     for (const key of ALL_TABS) expect(screen.getByTestId('ai-panel-tab-' + key)).toBeTruthy()
     // 切回分区视图,同样持久化
     fireEvent.click(screen.getByTestId('task-monitor-mode-sections'))
