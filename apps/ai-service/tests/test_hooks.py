@@ -448,7 +448,34 @@ class TestEmitEvent:
         resp = await hooks_router.emit_event(_req(), req, user_id="u1")
         assert resp["code"] == 0
         assert resp["data"]["triggered_count"] == 2
-        fake_engine.emit.assert_called_once_with("tool.before", {"tool": "search"})
+        fake_engine.emit.assert_called_once_with(
+            "tool.before", {"tool": "search"}, owner_id="u1"
+        )
+        # fixture flip(2026-09-27,批 G-258 B 组 / Hook 面):这一行原断言的是
+        # `emit("tool.before", {...})` —— **不带 owner_id**,也就是把"HTTP 触发口不按调用方
+        # 主体收窄"钉成了规格(与批 63 在 list_all_logs 上翻掉的那三处同型)。
+        # 触发别人的 webhook / script 是执行侧越权(副作用与证据都落在别人头上),
+        # 所以该改的是夹具而不是判据。正向对照(admin → owner_id=None)见
+        # `test_admin_channel_passes_none`,行为后果用例见
+        # tests/test_hook_emit_event_and_ab_owner_scoping.py。
+
+    async def test_admin_channel_passes_none(self, fake_engine):
+        """管理员 → `_owner_filter` 返回 None → 引擎不按归属收窄(既有分级,非新开口子)。"""
+        fake_engine.emit.return_value = []
+        await hooks_router.emit_event(
+            _req(user_id="root", role_id=1),
+            EmitRequest(event="tool.before"),
+            user_id="root",
+        )
+        assert fake_engine.emit.call_args.kwargs["owner_id"] is None
+
+    async def test_principal_is_taken_from_token_dependency(self, fake_engine):
+        """主体取**显式入参**而非 request.state(AGENTS §5):两者不一致时以入参为准。"""
+        fake_engine.emit.return_value = []
+        # state 里挂一个别人的 id,依赖返回的是真实调用方 —— 必须传后者
+        req = _req(user_id="victim", role_id=0)
+        await hooks_router.emit_event(req, EmitRequest(event="tool.before"), user_id="caller")
+        assert fake_engine.emit.call_args.kwargs["owner_id"] == "caller"
 
 
 # ---------------------------------------------------------------------------

@@ -6332,3 +6332,18 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 - **会话产物模板最小一环(报表)**:新增 `generate_report` 工具,经会话真入口派发后落 `tmp/artifacts/<时间>_<slug>_<随机>.html` 并写属主 sidecar,产物服务按属主放行、非属主 403;输出全程转义,拒绝路径逃逸。端到端取证产物为可读 HTML 文件而非提示词。工具名五语言功能名与小程序离线包已同步(否则端内会回显 `toolGenerateReport`)。
 - **工具调用证据进审计链(写入源投影)**:CLI 的流式工具账本快照现在有生产调用点,经唯一出口逐条落 `audit_logs_chain`(`action=tool.invoke`),**0 新表 0 新列**,复用既有 HMAC 链与串行化锁;请求体刻意不含身份字段,属主只从令牌主体进。摄入路由的挂载在另一票(86A2),在其落地前 CLI 会点名一次 404 并停止本进程重试(可见,不静默)。
 - **上一行的后续(同日,`86A2` 已落地)**:摄入路由已挂上 —— `POST /api/cli/audit/tool-invokes`(注册行 `routes/index.ts`,import 与 register 各恰好 +1,没顶掉别人的登记),CLI 的 404 降级路径随之退役;判据现读 `git grep -c "tool-invokes" HEAD -- apps/api/src` 由 0 变 5,`pnpm --filter @ihui/api test cli-tool-invoke-audit` 末行 `Tests 8 passed (8)`,其中两条反向用例断言的是**"未发出任何写"**(混入 `userId`/`user_id` ⇒ 400 且写入口零调用;匿名与非 UUID 主体 ⇒ 401 零调用),部分失败回 207 且 `code≠0` 并把 `failed` 如实计数。**仍未跑的一格**:真库端到端(本机 8802/8810 无监听且 §5 禁止连生产库),落库后在审计链查回的验收另计一票。
+
+
+
+
+- **审计证据导出的验签公钥(免鉴权只读端点)**:`GET /api/audit-evidence/public-key` 让外部审计方在**不持 admin 账号**的情况下拿到 RSA-SHA256 验签公钥(SPKI PEM)与 `keyId`(公钥 sha256 前 16 位,收件方可自算),实现"拿到签名信封即可自证"的闭环。响应**只有** `algorithm` / `keyId` / `publicKey` 三个字段,绝不含任何私钥材料(测试里有反向锁断言整段响应不匹配 `PRIVATE KEY`);按 IP 限流 30 次/分钟;**签名密钥未配置时返回 503 并点名所缺的环境变量**,不返回 200 + 空值(把"没有"写成"有"是本仓零容忍的一型)。该面刻意**不挂 `/api/admin/*`** —— 现读 `server.ts` 的零信任注入对 admin 前缀强制 `network.allowExternal:false`、`network-segment.ts` 真执行 403,挂上去等于"免了鉴权仍公网不可达"。公开面按 §5 的规矩**显式列举这一条完整路径**,不用 `/api/<前缀>/…` 兜底正则。
+## 运维与生产监控工具(2026-09-27 起)
+这台机由一支 agent 运维班组常驻值守(5 个班次:每小时巡检 / 每 30 分钟版本核验 / 每日 04:00 自愈 / 每日 05:30 备份核验 / 每周一体检邮件)。下面这几件是它们共用的出口,都不在提交链上,判的是**机器状态**——挂进提交链就会变成与任何提交都无关的恒红门,唯一结局是逼人 `--no-verify` 连带全部检查作废。
+| 工具 | 干什么 | 为什么必须有它 |
+| --- | --- | --- |
+| `scripts/sync-prometheus-live-config.mjs` | 把 `monitoring/prometheus/prometheus.yml` 派生到部署机那份运行副本,并让运行副本的 `rule_files` 直接指回仓库那份 `alerts.yml`;`--check` 零副作用,`--reload` 走热加载(本机 prometheus 已开 `enable-lifecycle`,改监控配置**不需要重启服务**) | 生产 prometheus 过去读仓库外一份手抄副本,只抓 6 个目标 ⇒ `AlertmanagerDown`/`AlertBridgeDown` 依赖的 `up{job=…}` 序列**根本不存在**,`== 0` 恒不成立 —— 邮件链路断了不会有任何告警。而仓库那份 `alerts.yml` 因带两条 Prometheus 3.x 不认的 `disabled:` 字段被 `promtool` **整份拒绝**,两侧各自"能跑"、合起来从没跑过。**规矩:凡 Down 类判据必须配一条"job 集合差"对账,"序列缺失"比"值为 0"更危险。** 派生器另有占位符凭据守卫(它曾把 `password: __REPLACE…` 逐字烘进生产 ⇒ 主机指标采集器恒 401、磁盘/内存告警长期哑) |
+| `scripts/prune-rotated-nssm-logs.mjs` | nssm 轮转副本的保留策略量算;**默认只读**,`--keep N --apply` 才删,超 40 份或 512MB 自动拒绝需 `--allow-mass` | **轮转 ≠ 保留策略**:nssm 只把写满那份改名,一个旧副本都不删(现读 6 组 / 48 份 / 1.19GB)。活文件(名里无时间戳)永不进候选、刚轮转 <1h 跳过、解析后落在 logs 目录外的一律剔除(防 junction 穿透清空) |
+| `scripts/alert-volume-report.mjs` | 只读量算"发信总量 / 风暴簇 / 跳门总量 / 哪道门导致跳门 / 检查整批没跑的次数" | 过去全仓没人统计过这些,"修好三道"可能只是"修好我看到的三道"。跳门的唯一真值来源是 `.workbuddy/safe-commit-attestation.jsonl` |
+| `scripts/pg-restore-drill.mjs` | 备份可恢复性核验:`--check`/`--offline-verify` 不碰库,`--apply` 才做在线还原演练 | 全仓 `pg_restore` 此前只出现在注释里 —— **没验过的备份不算备份**。文件层已证到最强(整份归档解出 363MB SQL 流零报错);在线演练缺一个建库权限,**属机主授权动作,agent 不得自行提权** |
+| `scripts/run-evidence.mjs` | 给任何一次取证落件并写 `#EVIDENCE-RC`,读侧 `--verify` 判"跑完 / 被截断 / 被杀" | 把"跑失败"与"根本没跑到"变成机器可分辨的两件事。管道尾的 `$?` 是 `tail` 的退出码,不是判据的 —— 本仓一天内三次因此得出相反结论 |
+**两条通用口径**:(1) 端内/部署机那份运行配置一律是**派生态**,禁止手改也禁止"只拦红不回写"(与 design-tokens 同源那条同规矩);(2) **改常驻服务的脚本必须重启才生效,而 PowerShell/node 每轮重新派生的子进程改工作树即刻生效** —— 判据是"它是常驻读进内存,还是每轮重新起",别一律当"要重启"。
