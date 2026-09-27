@@ -300,9 +300,9 @@ fn toggle_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
 /// 2026-09-27 立:补"到点必然终止"兜底。`app.exit(0)` 只是向事件循环投递
 /// `Message::RequestExit`,runtime 侧处理它时仅把控制流设成 `ControlFlow::Exit`
 /// (实测 tauri-runtime-wry 2.11.4 `Message::RequestExit` 分支)——事件循环一旦被
-/// 任何主线程工作占住,这条退出请求就永不消费;而前端 quit 链与退出遮罩都没有出口
-/// (QuitUpdateOverlay 四态无按钮/无取消/无超时),用户侧表现就是"正在退出..."永久
-/// 转圈、进程不终止。宽限期在独立线程计时,不与事件循环争资源。
+/// 任何主线程工作占住,这条退出请求就永不消费;而当时前端 quit 链与退出遮罩都没有出口
+/// (QuitUpdateOverlay 四态无按钮/无取消/无超时,该遮罩已于 2026-09-27 随整条链移除),
+/// 用户侧表现就是"正在退出..."永久转圈、进程不终止。宽限期在独立线程计时,不与事件循环争资源。
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     // 兜底必须**先武装、后干活**。2026-09-27 真机复现:遮罩停在「正在退出...」而本函数新增的
