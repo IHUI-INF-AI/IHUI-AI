@@ -34,8 +34,16 @@ import {
   inputRels,
   analyzeInputs,
   faceFromArgv,
+  failureTargetRel as gateFailureTargetRel,
   __test__ as gate,
 } from '../check-tool-display-resolvable.mjs'
+// F5 用**铰链自己的生产出口**做点名断言(§22c:禁止在测试里再抄一份 findingLines/lineNamesFile)。
+import {
+  findingLines as hingeFindingLines,
+  lineNamesFile as hingeLineNamesFile,
+  classifyHookFailure as hingeClassify,
+  __test__ as hingeTestExports,
+} from '../lib/commit-gate-attribution.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS_DIR = join(HERE, '..')
@@ -383,5 +391,84 @@ test('F4 形状锁:门本体不得再按磁盘读仓库内容,取材必须走共
     '取材必须走共用层(绝对路径 git/超时/截断都由层兜)',
   )
   assert.match(src, /catBatch\(/, '内容必须经层的批量读取(一次派生,同面同轮)')
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F5(2026-09-27):判红行必须点名"该改哪个文件"。
+// 跳门归因铰链(scripts/lib/commit-gate-attribution.mjs)第一态 = "结论行点名本次声明的文件 ⇒
+// mine,拒绝 --no-verify"。旧判红行只有 `shared/ja → taskStatus.toolX`(点符号不点文件),
+// 铰链结构上看不见。这里判三样:纯映射 failureTargetRel 的四种 where + 不猜的 null;
+// 端到端(breakIndex 夹具的 --staged 真红)拿**铰链自己的导出判据**证明点名可命中、
+// 别人的文件不被牵连(证明靠点名而非巧合 —— 同一份输出,声明别人 ⇒ 判 not-ours);
+// 以及输出行必须带"违规"字样(铰链的结论行正则)与形状锁。
+// ⚠️ §22c:findingLines / lineNamesFile 一律 import 生产出口,禁止在测试里抄第二份。
+// ─────────────────────────────────────────────────────────────────────────────
+test('F5a failureTargetRel:三种 where 前缀各映射到裸仓根相对路径,认不出 ⇒ null(不猜)', () => {
+  assert.equal(
+    gateFailureTargetRel('shared/ja → taskStatus.toolReadFile'),
+    'packages/i18n/messages/shared/ja.json',
+  )
+  assert.equal(
+    gateFailureTargetRel('mobile-rn/zh-TW → taskStatus.toolReadFile'),
+    'packages/i18n/messages/mobile-rn/zh-TW.json',
+  )
+  assert.equal(
+    gateFailureTargetRel('taro-gen/en → taskStatus.toolReadFile'),
+    gate.TARO_BUNDLE_REL,
+  )
+  assert.equal(
+    gateFailureTargetRel(`${gate.TARO_BUNDLE_REL} 解不出 ja 载荷(生成物过期或格式变更,需 pnpm gen:i18n)`),
+    gate.TARO_BUNDLE_REL,
+    '离线包解码缺失行以 TARO_BUNDLE_REL 开头,须点名该文件',
+  )
+  assert.equal(gateFailureTargetRel('weird-dir/ja → taskStatus.x'), null, '不在端表的 where 必须 null,不得猜一个路径出来')
+  assert.equal(gateFailureTargetRel('没有箭头也没有前缀'), null)
+})
+
+test('F5b 端到端:真红输出经铰链导出判据可点名本枚文件,且不误伤别人(点名而非巧合)', () => {
+  const dir = createRepoEnv({ breakIndex: true })
+  try {
+    const staged = runScript(dir, ['--staged'])
+    assert.equal(staged.status, 1, `夹具本身必须让 --staged 红,否则下面全是空断言\n${staged.stderr}`)
+    const out = staged.stdout + staged.stderr
+    assert.match(
+      out,
+      /⇒ 违规落点 packages\/i18n\/messages\/shared\/ja\.json/,
+      'shared/ja 失败行必须以裸仓根相对路径点名语言包',
+    )
+    const DECL_OURS = 'packages/i18n/messages/shared/ja.json'
+    const DECL_OTHER = 'packages/app/src/features/UnrelatedProbe.tsx'
+    const lines = hingeFindingLines(out)
+    assert.ok(
+      lines.some((l) => hingeLineNamesFile(l, DECL_OURS)),
+      '铰链的"结论行点名"判据必须命中本枚文件 —— 不命中则第一态(mine)永远不成立',
+    )
+    assert.ok(
+      !lines.some((l) => hingeLineNamesFile(l, DECL_OTHER)),
+      '反向:输出没点别人的文件 ⇒ 不得被判 mine(证明靠点名而不是恒真)',
+    )
+    // 铰链级别成对(同一输出、基线同红 ⇒ 归属只由点名决定):mine vs not-ours。
+    const stock = () => ({ ran: true, status: 1, output: 'HEAD 面同样红', why: null })
+    const mk = (stagedFiles) =>
+      hingeClassify({
+        text: hingeTestExports.SUMMARY + hingeTestExports.FAIL_29,
+        stagedFiles,
+        runGate: () => ({ status: 1, output: out }),
+        runGateBaseline: stock,
+      })
+    assert.equal(mk([DECL_OURS]).kind, 'mine', '点名命中 ⇒ 拒绝跳门态必须由第一态给出')
+    assert.equal(mk([DECL_OTHER]).kind, 'not-ours', '点的是别人 ⇒ 同基线下必须仍是 not-ours')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('F5c 形状锁:失败行输出必须带"违规"字样(铰链结论行正则认它)与裸 rel 后缀', () => {
+  const src = readFileSync(join(SCRIPTS_DIR, 'check-tool-display-resolvable.mjs'), 'utf8')
+  assert.match(
+    src,
+    /⇒ 违规落点 \$\{rel\}/,
+    '判红行的点名后缀被删掉了 —— 铰链会退回"看不到文件"的老形态',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
