@@ -355,7 +355,7 @@ export default function AgentPage() {
                 </Text>
                 {badge > 0 && (
                   <Text
-                    className={`ml-[12rpx] text-[length:20rpx] px-[12rpx] py-[2rpx] rounded-full ${active ? 'bg-[var(--color-white-20)] text-[var(--color-surface-light)]' : 'bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]'}`}
+                    className={`ml-[12rpx] text-[length:20rpx] px-[12rpx] py-[2rpx] rounded-md ${active ? 'bg-[var(--color-white-20)] text-[var(--color-surface-light)]' : 'bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]'}`}
                   >
                     {badge}
                   </Text>
