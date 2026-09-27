@@ -12808,3 +12808,25 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 > 补落由本枚完成，落地前主会话自己复跑：`pnpm --filter @ihui/api typecheck` → **0 错误**；
 > `vitest run tests/egress-retry-safety.test.ts` → **20 passed (20)**（代理报告同值，但这条是我实测不是抄它）。
 > 通用规矩：**批次号的"已落地"只能由 `git show --name-only` 的路径清单证明**，消息与台账都算二手材料。
+### 第五十一波·续十七 —— 批次 49：A36 第三步的 enforce 档落地，而**默认档刻意不动**（2026-09-27 午后，主会话独立复跑）
+
+- [x] ✅(2026-09-27) **批次 49 `normalizeToolArguments` + 有界 repair + enforce 分支（对标 ZCode `dynamic-workflow/scheduler-submit`）**
+  没有这一半，enforce 就是"把昨天能跑的调用今天全拒"：真实模型常把 object/array 参数整体 stringify，
+  所以容错解析的判序是①**原值先过校验就绝不 re-parse**（保住合法 string 值与 union 里的 `string` 分支）、
+  ②只有"原判不过 ∧ 该位期望 object/array ∧ 实得 string"才做**一次** `JSON.parse` 复验、
+  ③复验不过即**维持原判**（报原树错误、交回原参数）。回喂有界（`TOOL_ARG_REPAIR_MAX_ATTEMPTS=3`、
+  按工具名计连续窗、通过即清零），与 doom-loop 检测共存；违规在**批准弹窗与限流之前**即拒（不消耗配额）。
+  **`enforce` 不是默认档**：门 115 与影子测试共同钉住"默认 off + shadow 在位"，翻默认的前置是台账证明描述可信。
+  主会话独立复跑：`pnpm --filter @ihui/cli typecheck` **0 错误**、四套 argument-validation **78 passed (78)**、
+  `check-tool-arg-validation-wired` 与 `check-tool-arg-routing-identity` 均 **exit 0**（现读"生产面调用 3 处"）。
+  **代理测反了我任务书的两条前提**（我照它改，不照我写）：① `apps/cli/src/tools/types.ts` **根本不存在**，
+  模式联合住在 telemetry 的 `TOOL_ARG_VALIDATION_MODES` 且 `'enforce'` 字面量早在列 —— 本票是"实现行为"不是"补枚举"；
+  ② 我写的"默认仍是 shadow"与门 115 冲突（门读的是默认值那一行，现值 `off`，既有单测也钉 `off`）。
+  **同枚翻正三处过期措辞**（README 115 行 / runner 门 115 的 onFailHint / AGENTS 该条）——
+  留着"enforce 未实现"就是在教下一个人去重新实现一个已经存在的东西。
+  全量 `vitest run tests/` 有 **5 个文件红**（`a13-projection-equivalence`、`lsp`、`ssrf-outbound-surface`、
+  `browser-page-snapshot.cdp`、`background-registry`），归属为并发会话在飞的 `apps/cli/src/tools/lsp*.ts`
+  与 CDP 环境超时；已用 `git archive HEAD` 独立副本做基线对照（对照结果写在下条），**不按原票面去"修"别人的脏文件**。
+- [ ] **G-240 enforce 档的下一步不是翻默认，而是"用台账修描述"**：影子/enforce 计数现在只进快照，
+  还没有一个出口把"哪个工具的哪条字段常被拒"变成可排期的清单（解阻判据：`tool-arg-shadow` 快照能按
+  `{工具, 字段路径, 期望, 实得}` 聚合出 top-N 并落进一个问责入口；在那之前默认档保持 `off`）。
