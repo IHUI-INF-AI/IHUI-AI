@@ -19,24 +19,6 @@ export interface PageQuery {
   [key: string]: string | number | undefined | null
 }
 
-/** 签到 */
-export interface Checkin {
-  cid: number
-  continuousNum: number
-  memberId?: string
-  createTime?: string | null
-  [key: string]: unknown
-}
-
-/** 签到记录 */
-export interface CheckinRecord {
-  rid: number
-  type: string
-  memberId?: string
-  createTime?: string | null
-  [key: string]: unknown
-}
-
 /** 排行榜条*/
 export interface RankingItem {
   id: string
@@ -168,84 +150,12 @@ export interface ProductIdentity {
   [key: string]: unknown
 }
 
-// ===================== checkin（签到） =====================
-
-/** 签到列表 */
-export async function getCheckinList(
-  query: PageQuery & { memberId?: string } = {},
-): Promise<ApiResult<PageData<Checkin>>> {
-  return fetchApi<PageData<Checkin>>(`/api/checkin/list${buildQs(query)}`)
-}
-
-/** 签到详情 */
-export async function getCheckinDetail(cid: number): Promise<ApiResult<Checkin>> {
-  return fetchApi<Checkin>(`/api/checkin/${cid}`)
-}
-
-/** 创建签到 */
-export async function createCheckin(input: {
-  continuousNum: number
-  memberId?: string
-}): Promise<ApiResult<Checkin>> {
-  return fetchApi<Checkin>('/api/checkin', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
-
-/** 修改签到 */
-export async function updateCheckin(
-  cid: number,
-  input: { continuousNum?: number },
-): Promise<ApiResult<Checkin>> {
-  return fetchApi<Checkin>(`/api/checkin/${cid}`, {
-    method: 'PUT',
-    body: JSON.stringify(input),
-  })
-}
-
-/** 删除签到 */
-export async function deleteCheckin(cid: number): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/checkin/${cid}`, { method: 'DELETE' })
-}
-
-/** 签到记录列表 */
-export async function getCheckinRecords(
-  query: PageQuery & { memberId?: string; type?: string } = {},
-): Promise<ApiResult<PageData<CheckinRecord>>> {
-  return fetchApi<PageData<CheckinRecord>>(`/api/checkin/record/list${buildQs(query)}`)
-}
-
-/** 签到记录详情 */
-export async function getCheckinRecordDetail(rid: number): Promise<ApiResult<CheckinRecord>> {
-  return fetchApi<CheckinRecord>(`/api/checkin/record/${rid}`)
-}
-
-/** 创建签到记录 */
-export async function createCheckinRecord(input: {
-  type: string
-}): Promise<ApiResult<CheckinRecord>> {
-  return fetchApi<CheckinRecord>('/api/checkin/record', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
-
-/** 修改签到记录 */
-export async function updateCheckinRecord(
-  rid: number,
-  input: { type?: string },
-): Promise<ApiResult<CheckinRecord>> {
-  return fetchApi<CheckinRecord>(`/api/checkin/record/${rid}`, {
-    method: 'PUT',
-    body: JSON.stringify(input),
-  })
-}
-
-/** 删除签到记录 */
-export async function deleteCheckinRecord(rid: number): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/checkin/record/${rid}`, { method: 'DELETE' })
-}
+// ===================== checkin(签到)—— 2026-09-28 门 8 死调用清账:整族删除 =====================
+// 旧 RuoYi 架构的 checkin/checkin/record CRUD 九枚函数在本仓**零消费方**(apps/** 现读),
+// 后端从未注册过这一族(/api/checkin* 五处被门 8 判死;真签到面是 POST /api/user/check-in、
+// GET /api/user/check-in/status、GET /api/sign-in/history 与小程序兼容面 POST /study/signin)。
+// 门 8 红行给出的两条正路是"补后端路由或删死调用",为一族无人调用的旧 CRUD 补后端 = 凭空造功能,
+// 故取删。类型 Checkin/CheckinRecord 一并摘(仅本文件自用)。恢复走 git 历史,§7 三问已量。
 
 // ===================== ranking（排行榜=====================
 
