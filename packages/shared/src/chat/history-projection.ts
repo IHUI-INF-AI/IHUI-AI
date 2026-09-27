@@ -49,6 +49,22 @@ export interface HistoryTurnWire<M> {
   readonly messages: readonly M[]
 }
 
+/**
+ * 带游标请求的**断点存续性**结论(服务端判定,客户端只消费,不自行推断)。
+ *
+ * 为什么服务端必须给这个结论而不是让客户端"看起来对得上":回传游标指向的是**某一轮**。
+ * 轮次会被删除、会被自动压缩整段重写并按 1 重编号,于是那一轮可以**消失**。此时
+ * `turn_ordinal < 游标` 仍然返回一批行 —— 但它们的**上沿不再紧邻客户端已知的最旧轮**,
+ * 拼起来就是"上翻丢帧"(D35 验收第二条)。客户端手里只有页数据,结构上判不出这一格;
+ * 服务端一次索引探测(`turn_ordinal = 游标` 是否还有行)就能判。
+ * `stale` 时服务端刻意返回空页 + 空游标:半真的窗口比"没有数据"危险得多。
+ */
+export type HistoryCursorStaleReason = 'anchor-missing'
+
+export type HistoryCursorState =
+  | { readonly status: 'ok' }
+  | { readonly status: 'stale'; readonly reason: HistoryCursorStaleReason }
+
 /** 服务端 `GET /conversations/:id/history` 的 data 形态。 */
 export interface HistoryPageWire<M> {
   readonly turns: readonly HistoryTurnWire<M>[]
@@ -58,6 +74,12 @@ export interface HistoryPageWire<M> {
   readonly nextCursor: string | null
   /** 会话投影状态透传,可空 = 尚未投影。共享层不解释其内容(内容归投影器)。 */
   readonly projectionState: unknown
+  /**
+   * 断点存续性;可选且可为 null = 服务端未给结论(旧服务端 / 本次请求没带游标)。
+   * "没有结论"与"结论是 ok"**不混为一谈**:前者由 `isHistoryCursorStale` 判 false,
+   * 调用方照旧走页数据,但不得据此声称"断点已被服务端验过"。
+   */
+  readonly cursorState?: HistoryCursorState | null
 }
 
 /** 合并后的投影:时间线 + 本轮丢弃计数 + 边界判定。 */
@@ -247,6 +269,19 @@ export function isUsableTurnOrdinal(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value)
 }
 
+/**
+ * 断点是否已被服务端判死。**入参是 `unknown` 而不是 `HistoryCursorState | null | undefined`**:
+ * 该值来自响应体,宿主拿到的运行时形状不受类型系统保护(旧服务端没这个字段、
+ * 中间层可能把它改写成字符串),所以守卫必须自己站得住 —— 形状不合一律按
+ * "未给结论"处理(false),与 `projectionState` 的守卫同一方针,
+ * 反过来把没判读成 ok 或读成 stale 都是伪造结论。
+ */
+export function isHistoryCursorStale(state: unknown): boolean {
+  if (typeof state !== 'object' || state === null || Array.isArray(state)) return false
+  const o = state as Record<string, unknown>
+  return o.status === 'stale' && o.reason === 'anchor-missing'
+}
+
 // ============================================================================
 // 合并去重 + 边界判定
 // ============================================================================
@@ -332,6 +367,42 @@ export function projectHistoryPage<M>(
 ): HistoryProjection<M> {
   const merged = mergeHistoryTurnPages<M>([], page.turns)
   return { ...merged, boundary: deriveHistoryBoundary(page, direction) }
+}
+
+/**
+ * 续页折叠:把一页并进**已累计**的投影,时间线首末轮取自合并结果,分页边(hasOlder /
+ * olderCursor / hasNewer / newerCursor)仍取自本页。
+ *
+ * 为什么不复用 `projectHistoryPage` 那条"页内首末轮"口径:`HistoryBoundary` 的
+ * oldest/newestTurnOrdinal 文档写的是**时间线**首末轮,而单页推出来的是**本页**首末轮。
+ * 上翻时那一页永远比已持有的部分更旧,直接用页内 max 会让"最新轮"倒退到本页最大轮 ——
+ * CLI 500 轮 × 50 轮/页翻到底后 newestTurnOrdinal 停在 50 而不是 500,就是这个错位。
+ * 单页场景(首屏)下两口径同值,故首屏仍走 `projectHistoryPage`。
+ *
+ * 计数是**累计**的(整条读路径一共丢了多少、去重了多少轮),不是每页重报:
+ * 消费方要用它说"这次读取剔了 N 轮重叠",每页重报的那个数一翻页就作废。
+ * `droppedUnordained` 不会重复计:无序号分片在 `mergeHistoryTurnPages` 里就被丢掉,
+ * 永远进不了 `previous.turns`,所以第二轮的 `existing` 侧恒为 0(已钉成共享层用例)。
+ */
+export function foldHistoryPageIntoProjection<M>(
+  previous: HistoryProjection<M>,
+  page: HistoryPageWire<M>,
+  direction: HistoryTurnDirection,
+): HistoryProjection<M> {
+  const merged = mergeHistoryTurnPages<M>(previous.turns, page.turns)
+  const pageBoundary = deriveHistoryBoundary(page, direction)
+  const first = merged.turns[0]
+  const last = merged.turns[merged.turns.length - 1]
+  return {
+    turns: merged.turns,
+    droppedUnordained: previous.droppedUnordained + merged.droppedUnordained,
+    replacedTurns: previous.replacedTurns + merged.replacedTurns,
+    boundary: {
+      ...pageBoundary,
+      oldestTurnOrdinal: first ? first.turnOrdinal : null,
+      newestTurnOrdinal: last ? last.turnOrdinal : null,
+    },
+  }
 }
 
 /**
@@ -453,16 +524,20 @@ export interface HistoryPagingCursors {
  *   > **上一次沿用**(仅当本次响应未投影**且未倒退**时;断点未投影 ⇒ 没有新信息,
  *   沿用旧链无害;断点倒退 ⇒ 旧链建立在已被重编号取代的序号上,沿用会静默漏读
  *   压缩后新追加的轮次,必须弃用)。
- * - `discardFolded` = 断点倒退且本次不是整段重建('newest')⇒ 调用方必须丢弃折叠结果、
- *   清空时间线与两端游标,只等 `loadLatest`。
+ * - `discardFolded` = **断点已死**(服务端判 `cursorState.stale`)或断点倒退且本次不是
+ *   整段重建('newest')⇒ 调用方必须丢弃折叠结果、清空时间线与两端游标,只等 `loadLatest`。
+ *   两者处置同形(都是"服务端行集与客户端序号已对不上"),但**成因不同**,所以调用方
+ *   应当分别留痕(`stale` 由页结论给、`rewritten` 由断点倒退推),不得合并成一个布尔来源。
  */
 export function advanceHistoryPagingCursors(input: {
   direction: HistoryTurnDirection
   boundary: HistoryBoundary
   seed: HistoryRolloutSeed
   previous: HistoryPagingCursors
+  /** 服务端断点结论(`isHistoryCursorStale(page.cursorState)`);缺省 = 未给结论 ⇒ 不拦。 */
+  cursorStale?: boolean
 }): { cursors: HistoryPagingCursors; discardFolded: boolean } {
-  const discardFolded = input.seed.rewritten && input.direction !== 'newest'
+  const discardFolded = input.cursorStale === true || (input.seed.rewritten && input.direction !== 'newest')
   if (discardFolded) return { cursors: { older: null, newer: null }, discardFolded: true }
   // 整段重建('newest')后,右缘就是本页最大轮:此时"上一次的 newer"已无对应物
   // (rewritten 时序号全变;未 rewritten 时它至多等于本页某轮,断点种子更权威),
