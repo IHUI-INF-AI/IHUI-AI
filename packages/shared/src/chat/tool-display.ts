@@ -141,6 +141,10 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   debug_disconnect: 'toolDebugDisconnect',
   debug_list_sessions: 'toolDebugListSessions',
   token6688_voice_clone: 'toolVendorVoiceClone',
+  // V3 #63(2026-09-27 立):对话流业务表单请求工具(mcp_server._TOOLS 的
+  // request_business_form)。守门 55 三方比对 `_TOOLS × 本表 × 五语言 taskStatus`,
+  // 少这一行 ⇒ 界面上该工具退化成裸码名 `request_business_form`(界面禁止直显英文码名)。
+  request_business_form: 'toolRequestBusinessForm',
 }
 
 export function toolDisplayKey(toolName: string): string | null {
