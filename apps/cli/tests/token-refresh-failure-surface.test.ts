@@ -97,10 +97,13 @@ describe('token 续期失败成因到人(成因 → 文案的唯一投影)', () 
       const src = fs.readFileSync(path.join(commandsDir, f), 'utf8');
       // 投影出口的本家(token-manager.ts)当然持有那张表,不参与"调用点"的约束
       if (f === 'token-manager.ts') continue;
-      if (src.includes(LEGACY_TEXT_BEFORE_THIS_TICKET)) offenders.push(`${f}: 仍写死旧文案`);
-      if (/message\.includes\(/.test(src)) offenders.push(`${f}: 用 message 文本猜成因`);
+      // 只扫剥掉注释后的代码面:文档注释里提及符号名(如 history-read-ops 的输出约定说明)
+      // 不构成"调用点使用"。URL 里的 `//` 前面是 `:`,不会被行注释规则误剥。
+      const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/[^\n]*/g, '$1');
+      if (code.includes(LEGACY_TEXT_BEFORE_THIS_TICKET)) offenders.push(`${f}: 仍写死旧文案`);
+      if (/message\.includes\(/.test(code)) offenders.push(`${f}: 用 message 文本猜成因`);
       // 出现了 missingTokenHint 就必须是"未登录"分支唯一的那一处判据来源
-      if (src.includes('missingTokenHint') && !src.includes("from './token-manager.js'")) {
+      if (code.includes('missingTokenHint') && !code.includes("from './token-manager.js'")) {
         offenders.push(`${f}: 用了出口却没从 token-manager 导入(悬空引用)`);
       }
     }

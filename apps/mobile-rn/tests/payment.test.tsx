@@ -55,7 +55,13 @@ vi.mock('react-native', async () => {
       const { style: rawStyle, onPress, ...rest } = props
       const style = typeof rawStyle === 'function' ? rawStyle({ pressed: false }) : rawStyle
       const mergedStyle = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style
-      return createElement(tag, { ...rest, onClick: onPress, style: mergedStyle }, props.children)
+      // 真身按钮已收进「外层承槽位 + 内层承按压态」两层形态(8c2586781):
+      // children 是 ({pressed}) => ReactNode 渲染函数,桩不求值则按钮文本整体不渲染。
+      const children =
+        typeof props.children === 'function'
+          ? (props.children as (s: { pressed: boolean }) => ReactNode)({ pressed: false })
+          : props.children
+      return createElement(tag, { ...rest, onClick: onPress, style: mergedStyle }, children)
     }
   const FlatList = (props: {
     data?: Array<Record<string, unknown>>
