@@ -121,7 +121,7 @@ export function HelpDialog({ open, editing, defaultValues, savePending, onValid,
               {...form.register('content')}
               placeholder={t('contentPlaceholder')}
               rows={6}
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm">

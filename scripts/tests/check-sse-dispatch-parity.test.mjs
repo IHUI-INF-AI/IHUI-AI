@@ -497,3 +497,28 @@ test('⑫ 面旗 CLI 四态:--worktree 真换面、两面旗同给判死、末�
   assert.equal(pickBasis(['--worktree']).basis, 'worktree')
   assert.equal(pickBasis(['--staged', '--worktree']).basis, null)
 })
+
+test('⑬ 代码面复核:注释里的帧名不得算"该端已接"(票⑳ 的现场复现)', () => {
+  const script = join(REPO, 'scripts', 'check-sse-dispatch-parity.mjs')
+  const out = execFileSync(process.execPath, [script, '--json'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 240000,
+    maxBuffer: 64 * 1024 * 1024,
+  })
+  const j = JSON.parse(out.slice(out.indexOf('{')))
+  const ext = j.hit?.extension ?? []
+  // 正控:那两个名字必须真存在于**被审面**(HEAD)。缺这一条,本例可能只是"名字本来就不在"的空证。
+  const git = resolveGitBin()
+  const found = execFileSync(
+    git,
+    ['-C', REPO, 'grep', '-l', '-E', 'onToolDelegate|onToolApproval', 'HEAD', '--', 'apps/extension'],
+    { encoding: 'utf8', windowsHide: true, timeout: 60000 },
+  )
+  assert.match(found, /ui-control-tools/u, '正控失效:HEAD 面上找不到那两个名字')
+  // 判据:复核后它们不得进 extension 命中集(它们是"为什么不接"的散文,不是接线)
+  assert.ok(!ext.includes('onToolDelegate'), '注释提及被当成装车 —— 代码面复核没生效')
+  assert.ok(!ext.includes('onToolApproval'), '同上:onToolApproval 也被散文冒充成了接线')
+  // 反向:真注册点必须仍然算(ChatPage 里的 onToolDelta 是代码,复核不得把它一起剔掉)
+  assert.ok(ext.includes('onToolDelta'), '复核过头:真注册被一起剔掉了')
+})

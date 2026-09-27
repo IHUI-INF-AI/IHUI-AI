@@ -53,7 +53,7 @@
   background: var(--color-card);
   color: var(--color-muted-foreground);
   text-align: center;
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-sm);
   font-size: 28rpx;
 }
 .btn.disabled {
@@ -226,8 +226,8 @@
   color: var(--color-danger);
   font-weight: 700;
 }
-/* 去结算(RN checkoutBtn:success 绿底白字 72rpx 高;
-   圆角守门:RN 36rpx 胶囊,按 AGENTS §4 降为 rounded-xl 档 24rpx) */
+/* 去结算(RN checkoutBtn:success 绿底白字 72rpx 高;圆角按角色档 control→sm,
+   RN 原为 36rpx 胶囊,按 AGENTS §4 不保留胶囊形态) */
 .checkout-btn {
   margin-top: 0;
   height: 72rpx;
@@ -236,7 +236,7 @@
   flex-shrink: 0;
   background: var(--color-success);
   color: var(--color-surface-light);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   font-weight: 600;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

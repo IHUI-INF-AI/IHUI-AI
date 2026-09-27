@@ -108,7 +108,7 @@ function StatCard({
         ? 'text-amber-600 dark:text-amber-400'
         : 'text-foreground'
   return (
-    <div className="rounded-md border bg-card p-3">
+    <div className="rounded-lg border bg-card p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={`mt-1 text-lg font-semibold tabular-nums ${toneCls}`}>{value}</p>
     </div>

@@ -154,7 +154,7 @@
   padding: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
 }
 .favorites-cover {
   width: 120rpx;
@@ -229,7 +229,7 @@
   margin-top: 24rpx;
   padding: 16rpx 40rpx;
   background: var(--color-cta);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 .favorites-empty-btn-text {
   color: var(--color-cta-foreground);

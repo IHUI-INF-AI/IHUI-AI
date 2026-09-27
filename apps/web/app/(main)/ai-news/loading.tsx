@@ -12,7 +12,7 @@
 
 function SkeletonCard({ className = '' }: { className?: string }) {
   return (
-    <div className={`animate-skeleton-pulse rounded-xl border bg-card ${className}`} aria-hidden />
+    <div className={`animate-skeleton-pulse rounded-lg border bg-card ${className}`} aria-hidden />
   )
 }
 

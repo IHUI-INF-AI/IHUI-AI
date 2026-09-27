@@ -195,7 +195,7 @@ export default function AiMetricsPage() {
         </div>
         <Link
           href="/admin/ai-cost"
-          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm hover:bg-muted/50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-input bg-transparent px-3 text-sm shadow-sm hover:bg-muted/50"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>{t('backToCost')}</span>

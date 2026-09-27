@@ -177,7 +177,7 @@ export default function VocabularyPage() {
         </div>
       ) : null}
       {result ? (
-        <Card className="rounded-md border-border shadow-none text-sm leading-normal">
+        <Card className="rounded-lg border-border shadow-none text-sm leading-normal">
           <CardContent className="px-3 py-2.5">
             <div>
               <span className="text-lg font-semibold mr-2">{result.word}</span>
@@ -207,7 +207,7 @@ export default function VocabularyPage() {
           </CardContent>
         </Card>
       ) : null}
-      <Card className="mt-1 rounded-md border-border bg-muted shadow-none text-xs">
+      <Card className="mt-1 rounded-lg border-border bg-muted shadow-none text-xs">
         <CardContent className="px-2.5 py-2">
           <div className="flex items-center justify-between mb-1.5 gap-1.5">
             <span className="text-xs text-muted-foreground">{t('wordbook.title')}</span>

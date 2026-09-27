@@ -60,7 +60,7 @@ export default function CourseCatalog({
     }
     const { id, name, cover, intro, memberCount, joined } = planet
     return (
-      <View className="bg-card rounded-xl overflow-hidden">
+      <View className="bg-card rounded-lg overflow-hidden">
         {cover ? (
           <View className="relative w-full" style={{ height: '160px' }}>
             <Image src={cover} mode="aspectFill" className="w-full h-full" lazyLoad />

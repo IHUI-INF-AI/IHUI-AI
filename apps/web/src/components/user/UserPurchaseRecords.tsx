@@ -35,7 +35,7 @@ export default function UserPurchaseRecords({
   className,
 }: UserPurchaseRecordsProps): React.JSX.Element {
   return (
-    <div className={cn('rounded-xl border bg-card', className)}>
+    <div className={cn('rounded-lg border bg-card', className)}>
       <div className="flex items-center justify-between px-4 py-3 mb-2">
         <div className="flex items-center gap-2">
           <Receipt className="h-4 w-4 text-primary" />

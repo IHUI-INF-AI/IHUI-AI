@@ -134,7 +134,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
             value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
             placeholder={t('groupPlaceholder')}
-            className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-sm border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
             ref={(el) => {
               if (el) el.focus()
             }}
