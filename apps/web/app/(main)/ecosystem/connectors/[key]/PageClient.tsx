@@ -47,7 +47,11 @@ export default function ConnectorAuthDetailPageClient() {
   const entry = entries.find((e) => e.key === connectorKey)
 
   if (status === 'pending') {
-    return <p className="mx-auto w-full max-w-3xl px-4 py-10 text-xs text-muted-foreground">{tc('loading')}</p>
+    return (
+      <p className="mx-auto w-full max-w-3xl px-4 py-10 text-xs text-muted-foreground">
+        {tc('loading')}
+      </p>
+    )
   }
   if (status === 'failed') {
     return (
@@ -81,7 +85,7 @@ export default function ConnectorAuthDetailPageClient() {
       <header className="mb-4">
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-semibold">{entry.name}</h1>
-          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground">
+          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground">
             {typeLabel}
           </span>
           <ViewMoreLink label={more('more')} href={ecosystemHubHref} className="ms-auto" />
@@ -89,7 +93,10 @@ export default function ConnectorAuthDetailPageClient() {
         <p className="mt-1 text-xs text-muted-foreground">{t('connectorAuthReadonlyHint')}</p>
       </header>
 
-      <section aria-labelledby="connector-auth-state" className="rounded-xl border border-border bg-card p-3">
+      <section
+        aria-labelledby="connector-auth-state"
+        className="rounded-lg border border-border bg-card p-3"
+      >
         <h2 id="connector-auth-state" className="mb-1 text-sm font-medium">
           {t('connectorAuthStateTitle')}
         </h2>
@@ -106,7 +113,7 @@ export default function ConnectorAuthDetailPageClient() {
           label={tc('lastSyncAt')}
           value={
             entry.last_sync_at
-              ? (formatShortDateTime(entry.last_sync_at, locale) || entry.last_sync_at)
+              ? formatShortDateTime(entry.last_sync_at, locale) || entry.last_sync_at
               : tc('neverSynced')
           }
         />
@@ -114,7 +121,7 @@ export default function ConnectorAuthDetailPageClient() {
           label={t('installedAt')}
           value={
             entry.installed_at
-              ? (formatShortDateTime(entry.installed_at, locale) || entry.installed_at)
+              ? formatShortDateTime(entry.installed_at, locale) || entry.installed_at
               : '—'
           }
         />
@@ -123,7 +130,7 @@ export default function ConnectorAuthDetailPageClient() {
 
       <section
         aria-labelledby="connector-auth-scope"
-        className="mt-4 rounded-xl border border-border bg-card p-3"
+        className="mt-4 rounded-lg border border-border bg-card p-3"
       >
         <h2 id="connector-auth-scope" className="mb-1 text-sm font-medium">
           {t('connectorAuthScopeTitle')}
@@ -154,13 +161,13 @@ export default function ConnectorAuthDetailPageClient() {
 
       <section
         aria-labelledby="connector-auth-docs"
-        className="mt-4 rounded-xl border border-border bg-card p-3"
+        className="mt-4 rounded-lg border border-border bg-card p-3"
       >
         <div className="mb-1 flex items-center gap-2">
           <h2 id="connector-auth-docs" className="text-sm font-medium">
             {tc('docList')}
           </h2>
-          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground">
+          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground">
             {entry.sync_items.length}
           </span>
         </div>

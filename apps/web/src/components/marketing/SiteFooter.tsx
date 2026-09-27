@@ -430,7 +430,7 @@ export function SiteFooter({ className }: { className?: string }) {
                     <button
                       type="button"
                       onClick={() => handleCopyUrl(repo.url)}
-                      className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded transition-colors hover:bg-muted hover:text-foreground"
+                      className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted hover:text-foreground"
                       aria-label={t('copyRepoUrl')}
                     >
                       <Copy className="h-2.5 w-2.5" />
@@ -441,7 +441,7 @@ export function SiteFooter({ className }: { className?: string }) {
                       href={repo.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded transition-colors hover:bg-muted hover:text-foreground"
+                      className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted hover:text-foreground"
                       aria-label={t(repo.openKey)}
                     >
                       <ExternalLink className="h-2.5 w-2.5" />
