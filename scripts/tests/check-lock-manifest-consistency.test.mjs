@@ -13,7 +13,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -21,6 +21,8 @@ import { __test__ as gate } from '../check-lock-manifest-consistency.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = resolve(HERE, '..', 'check-lock-manifest-consistency.mjs')
+/** 真仓根:只给"读历史 blob / 读 runner 注册表"两类**只读**取证用(判据本体一律跑在临时夹具上) */
+const repoRoot = () => resolve(HERE, '..', '..')
 
 const LOCK = gate.lockWith(gate.ACCIDENT_DEPS_BLOCK)
 /** 今天卡死生产构建的那一对不一致声明(manifest 写 ^0.18.5,lock 记 npm:@e965/xlsx@^0.20.3) */
@@ -488,7 +490,11 @@ test('T20 单一取材出口:三处判据取材全走同一个 readFace,面外�
     .filter((l) => l.includes('readFileSync(') && !/^import /.test(l))
   assert.deepEqual(anyReadFile, [], '本门仍在自己 readFileSync —— 磁盘面应走层的 readWorktreeFile')
   const flat = (t) => t.replace(/\s+/g, ' ')
-  assert.match(flat(readerBlock), /readWorktreeFile\(root, rel\)/, 'worktree 面未接层的 readWorktreeFile')
+  assert.match(
+    flat(readerBlock),
+    /readWorktreeFile\(root, rel\)/,
+    'worktree 面未接层的 readWorktreeFile',
+  )
   assert.ok(
     readerBlock.split('\n').some((l) => l.includes('readdirSync(')),
     'readdirSync( 必须由 makeFaceReader 承担(worktree 面的 listDir)',
@@ -514,7 +520,11 @@ test('T20 单一取材出口:三处判据取材全走同一个 readFace,面外�
     /gitRaw\(\['rev-parse', '--show-toplevel'\], root\)/,
     '仓库根未走层的 gitRaw',
   )
-  assert.match(flat(readerBlock), /sameDir\(top, root\)/, '仓库根比较未走层的 sameDir(junction 下会误判错位)')
+  assert.match(
+    flat(readerBlock),
+    /sameDir\(top, root\)/,
+    '仓库根比较未走层的 sameDir(junction 下会误判错位)',
+  )
   assert.match(
     flat(readerBlock),
     /catBatch\(\s*root,\s*need\.map/,
@@ -746,5 +756,123 @@ test('T26 R6 落地前置:真仓 HEAD 面必须 0 条跨段(这条红了就说�
     drift.map((v) => `${v.pkg} ${v.name} ${v.section}→${v.lockedIn}`),
     [],
     '分区漂移存量必须为零 ⇒ 本维可零容忍;非零即新债,须先把两侧摆回同一段',
+  )
+})
+
+test('T27 阳性对照:把真历史那一对 blob 逐字喂判据 ⇒ 必须点名 @ihui/types 的跨段(§22c:输入取自真实文件)', () => {
+  // 出处:止血提交 a980463fc 的**父版本** —— 那一版 CI 第一步 `pnpm install --frozen-lockfile`
+  // 直接拒装。判据的立论是"这一型真发生过",所以取证不得只用自造夹具(夹具复刻的是实现的形状)。
+  const BUGGY_PARENT = 'a980463fc^'
+  const show = (rel) =>
+    execFileSync(gate.GIT_BIN, ['-c', 'safe.directory=*', 'show', `${BUGGY_PARENT}:${rel}`], {
+      cwd: repoRoot(),
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+      maxBuffer: 64 * 1024 * 1024,
+    })
+  let lockText
+  let apiClientPkg
+  try {
+    lockText = show('pnpm-lock.yaml')
+    apiClientPkg = show('packages/api-client/package.json')
+  } catch (e) {
+    throw new Error(
+      `取不到 ${BUGGY_PARENT} 的历史 blob(历史被重写?本例的立论证据就没了):${e.message}`,
+    )
+  }
+  const s = mkScratch('lmci-t27')
+  try {
+    const dir = join(s, 'repo')
+    mkdirSync(join(dir, 'packages', 'api-client'), { recursive: true })
+    writeFileSync(join(dir, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 't27-root' }, null, 2))
+    writeFileSync(join(dir, 'packages', 'api-client', 'package.json'), apiClientPkg)
+    writeFileSync(join(dir, 'pnpm-lock.yaml'), lockText)
+    const r = gate.runCheck(dir, 'worktree')
+    assert.equal(r.undetermined, null, `历史锁读不出即判据失明:${r.undetermined}`)
+    const drift = r.violations.filter((v) => v.kind === 'section-drift')
+    assert.deepEqual(
+      drift.map((v) => `${v.pkg}|${v.name}|${v.section}->${v.lockedIn}`),
+      ['packages/api-client|@ihui/types|devDependencies->dependencies'],
+      '修复前的真实那一格必须被本维点名(清单 devDependencies、锁 dependencies)',
+    )
+  } finally {
+    rmScratch(s)
+  }
+})
+
+test('T28 报告行必须单独印段位置维度的"核了多少/违规多少"(只混在总违规里 = 读不出这一维跑没跑)', () => {
+  const s = mkScratch('lmci-t28')
+  try {
+    const drift = gate.makeFixture(join(s, 'drift'), {
+      webPkg: { dependencies: { dayjs: '^1.11.0' } },
+      lock: gate.lockFrom({ devDependencies: { dayjs: '^1.11.0' } }),
+    })
+    const red = runCLI(['--all', '--worktree', '--root', drift])
+    assert.equal(red.code, 1)
+    assert.match(red.out, /维度 R6 段位置对账:核 1 条非 peer 声明键/)
+    assert.match(red.out, /段位置违规 1/)
+    assert.match(red.out, /\[分区漂移\].*dayjs/)
+
+    const ok = gate.makeFixture(join(s, 'ok'), {
+      webPkg: { dependencies: { dayjs: '^1.11.0' } },
+      lock: gate.lockFrom({ dependencies: { dayjs: '^1.11.0' } }),
+    })
+    const green = runCLI(['--all', '--worktree', '--root', ok])
+    assert.equal(green.code, 0)
+    assert.match(green.out, /段位置违规 0/)
+    assert.match(green.out, /specifier 全部一致、段位置违规 0/)
+    assert.doesNotMatch(green.out, /一条都没核/)
+  } finally {
+    rmScratch(s)
+  }
+})
+
+test('T29 覆盖面自证:一条都没核时报告必须喊出来,不得让"违规 0"冒充"这一维过了"', () => {
+  const s = mkScratch('lmci-t29')
+  try {
+    // apps/web 整个没进 importers ⇒ 它的声明槽位一条都没被段位置维看过
+    const dir = gate.makeFixture(join(s, 'p'), {
+      webPkg: { dependencies: { xlsx: '^0.18.5' } },
+      lock: "lockfileVersion: '9.0'\n\nimporters:\n\n  .: {}\n\npackages:\n",
+    })
+    const out = runCLI(['--all', '--worktree', '--root', dir])
+    assert.match(out.out, /段位置违规 0/)
+    assert.match(out.out, /核 0 条非 peer 声明键/)
+    assert.match(out.out, /⚠️ 一条都没核,不得把本维读成"已通过"/)
+    assert.equal(out.code, 1, '缺 importer 本身仍判红(覆盖面自证不得把缺记账洗成绿)')
+  } finally {
+    rmScratch(s)
+  }
+})
+
+test('T30 装车证明:本门在 guardian-runner 里必须成套(id 101 唯一 + blocking + skipEnv + 同一枚脚本)', () => {
+  // 判据在、测试绿、无人调度 = 没有这道门(守门 70/76/81/89 同型,本仓最高频失效型)。
+  const runner = readFileSync(join(repoRoot(), 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const hits = [...runner.matchAll(/script:\s*'check-lock-manifest-consistency\.mjs'/g)]
+  assert.equal(hits.length, 1, `runner 里本门的 script 行应恰好 1 处,实得 ${hits.length}`)
+  const at = hits[0].index
+  const open = runner.lastIndexOf('\n  {', at)
+  const close = runner.indexOf('\n  },', at)
+  assert.ok(open > -1 && close > at, '取不出本门的注册块(缩进形态变了?)')
+  const entry = runner.slice(open, close)
+  assert.match(entry, /id:\s*'101'/, '注册块里没有 id 101 ⇒ 这条 script 行不属于本门')
+  assert.match(entry, /mode:\s*'blocking'/, '本门必须是 blocking(warn 等于门判对了也没人被打断)')
+  assert.match(
+    entry,
+    /skipEnv:\s*'HUSKY_SKIP_LOCK_MANIFEST_GUARD'/,
+    '应急出口缺失 ⇒ 出事时无路可走',
+  )
+  // 注册块**上方**的注释本来就在解释"为什么不挂 stagedTriggers",所以只能判"有没有真的写这个属性行",
+  // 判 /stagedTriggers/ 会把自己的解释文字当违规(守门 131 的"门把解释自己的散文判成违规"同型)。
+  assert.doesNotMatch(entry, /^\s+stagedTriggers\s*:/m, '本门刻意不挂 stagedTriggers(见源脚本头注)')
+  // 编号唯一:两道门共用一个 id 会串 skipEnv 与失败归属(守门 89 的 R5 同型)
+  const ids = [...runner.matchAll(/^    id:\s*'([^']+)'/gm)].map((m) => m[1])
+  const dup = ids.filter((v, i) => ids.indexOf(v) !== i)
+  assert.deepEqual(
+    [...new Set(dup)].filter((v) => v === '101'),
+    [],
+    "id '101' 在 runner 里重复登记",
   )
 })
