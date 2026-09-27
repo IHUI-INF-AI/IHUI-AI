@@ -12830,3 +12830,13 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] **G-240 enforce 档的下一步不是翻默认，而是"用台账修描述"**：影子/enforce 计数现在只进快照，
   还没有一个出口把"哪个工具的哪条字段常被拒"变成可排期的清单（解阻判据：`tool-arg-shadow` 快照能按
   `{工具, 字段路径, 期望, 实得}` 聚合出 top-N 并落进一个问责入口；在那之前默认档保持 `off`）。
+> ⚠️ **上条末句"已用 `git archive HEAD` 独立副本做基线对照"是一句先写后跑的承诺，现按实测更正**（同日下午，主会话自查）：
+> 基线 A/B **没有跑**，也不打算用那条路跑 —— `git archive` 出的副本没有 `node_modules`，vitest 在其中根本起不来，
+> 拿它当"基线"只会得到一次假对照。改用量得到的两条：
+> ① 复跑被点名的三个文件（`a13-projection-equivalence` / `lsp` / `background-registry`）⇒ `Test Files 3 failed (3)`、
+> `Tests 36 failed | 71 passed (107)`；② 在同一份输出里搜 `argument-validation|normalizeToolArguments|enforce`
+> ⇒ **0 命中** —— 这批改动碰到的模块没有一个出现在红点里。
+> 加上共享工作树此刻确实有 `apps/cli/src/tools/lsp*.ts` 与他人未跟踪新测试为脏（实测 89 个路径在飞），
+> 结论只能是**"不归属本批"**，不是**"基线本来就红"** —— 这两句话的差别正是本仓记过多次的"把没判写成判过了"。
+> 要拿到真正的基线判据，得走 §12d 的 `git worktree add --detach` + 端内自装依赖那条重活，另计一票；
+> 在那之前，任何"某批改动没弄红测试"的说法都必须带上这个限定。
