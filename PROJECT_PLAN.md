@@ -12914,3 +12914,37 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [x] ✅(2026-09-27,提交 `26f88c49e`)**G-208 留下的第三格:API 启动前置 PostgreSQL 就绪轮询已装(附一条"别在错的机器上验"的边界)**。`deploy/scripts/prod-bundle/svc/run-api.ps1` 此前直接起 node,而重启窗口里 PostgreSQL 常处于"服务已 RUNNING 但仍在崩溃恢复"状态 —— 该窗口 `DependOnService` 防不住(实测 `IHUI-API` 的 DEPENDENCIES 本来就为空,顺序早已满足),API 会在路由注册期碰库而死,进程却"看起来活着"(nssm 只看子进程没退出)。现前置 `pg_isready` 轮询,四条设计点:① **判据用 `pg_isready` 而不是"端口开着"** —— 后者正是这次失效的形态(服务在、端口在、库还在恢复);② **上界 90s 且超时后照常启动**(打一行含秒数与 PG 侧真因的 ⚠)—— 一个"等不到就不启动"的守护会把一次数据库故障换成服务永久不启动,比原缺陷更糟,90s 的推导写在注释里(必须 < `apps/api/src/index.ts` 那道上界,否则两道界叠成监控读成挂死的"启动中");③ host:port **唯一真值取 `apps/api/.env` 的 `DATABASE_URL`**,不读根 `.env` 的 `DB_PORT`(否则探针与应用可能连两处);④ 找不到 `pg_isready.exe` 时打印候选清单后跳过前置 —— **一律不静默**(§5e"失败必须响")。`IHUI_API_PG_WAIT_SECONDS=0` 是显式关闭出口。**只有 run-api 加**:判据是"包装器起的进程能否在注册期碰库从而阻止 bind",`run-web` 只 next build/start 并反代 `/api`、`run-ai` 的启动期建表在 `apps/ai-service/app/main.py` 已被 try/except 包住,恢复窗口内打不死进程,由反向用例钉住"不得长出第二份实现"。**一条必须写死的验证边界:本机不是这三服务的部署机**(`sc query` 对 IHUI-* 零命中、`deploy/prod-bundle/svc/` 运行副本在本机根本不存在 ⇒ 门 104 现读"6 对逐字节等值 + 3 对未判定",那 3 对未判定是**缺运行副本**而非漂移)。所以交付者**没有伪造那份副本** —— 真实部署机上它仍是改前版本,生效需要 `Copy-Item deploy\scripts\prod-bundle\svc\*.ps1 deploy\prod-bundle\svc\` 后重启服务,漂移会由门 104 当场 S3 判红。**运行期未验证**(本机无服务可跑),等价性只有静态语法与行为夹具两层证明。取证:`node --test deploy/tests/svc-pg-readiness.test.mjs` = 5 pass / 1 skipped(那条 skip 正是"副本缺失⇒未判定"的形态本身);`pwsh` 解析 `TOTAL_ERRORS=0`;`check-prod-bundle-shadow` / `check-no-visible-spawn` / 门 89 / 水印 verify 全绿。该测试与 `deploy/tests/**` 同族**未接进 runner**(那一族本来都不在提交链里,接它属另一票的口径统一,不单点破例)。
 
 - **一条自我更正(编号捏造,别照它找票)**:提交 `ba0575f9b` 的标题里写着「G-252 那格实测收口」,而 **G-252 不存在** —— 那张票的原文是台账里「（登记，非本线）relay admin 4 个删除端点零测试覆盖、`o13-bg-rls-live.test.ts` 需要自己的串行通道」这一行,它从来不带 G- 编号。上一行第五波登记里"③ api 删除端点三条真缺陷"指的是同一格,定位请按**标题原文**找,不要按那个误写的编号。已入库的提交信息改不了(§22 禁止 amend 已推提交),所以以本行更正为准;登记编号族的误写正是守门 71 保护的东西被反向污染,记一次以免有人照着建号。
+- 〔O81 票⑮ 2026-09-27:圆角跨端"两把尺子互相指认"那一格封死 —— RD 与 RE 分家、方向形态补认、角色档门装上;跨端圆角台账 16 档降到 6 档〕**立因**(用户原话「App 端 小程序端 还有那么多容器圆角没统一用项目要求的圆角 token,不允许出现胶囊型,请彻底根治」):守门 77 在 HEAD 面扫 6389 文件报 0 违规,守门 128 此前只判几何 —— "同一元素两端取不同档"与"这类元素取了哪一档"两格**无人看守**,两台尺子互相指认。**本轮产出**:① `packages/design-tokens/src/radius.js` 落 `RADIUS_ROLES` 角色档唯一源(档位值早就有源,角色从未有源,这是根因);② 门 128 新增 **RD**(`radiusCounts`)与 **RE**(`elementRadiusCounts`,按元素名配对,恒写含 0、三维锚点各自独立)两维,并修掉 RD 的一处**造出假分叉**的盲区 —— `radiusPxInLine` 原先不认方向与角形态(`rounded-t-xl` / `rounded-tr-sm`),小程序底部弹层写 `rounded-t-2xl` 而 RN 写整格 `rnRadius['2xl']` 时,尺子只在小程序侧读不到 16,于是把同一档报成两端不同值;补认后实测**只降不升**(Carousel / LoginPopUp / ModelConfigDialog / ModelList 四族归零),台账 16→6 档且 `counts` / `elementRadiusCounts` 逐字未动;③ 新守门 **150 `check-radius-role-conformance.mjs`**(取号曾与并发的 barrel 门撞成同一号,合并时按"谁后落地谁挪号"改到 150)(blocking,首锚 538 键 / 842 处存量,`--self-test` 75 条 + 镜像 14 例,含真仓 HEAD 阳性对照)把"这类元素该取哪一档"变成机器判据;④ 端上按角色档收敛:小程序/RN 的 UserInfoCard·InputArea·LoginPopUp·ModelConfigDialog·ModelList·Carousel 逐元素对齐,web 卡片 `rounded-xl→lg`、6px 高进度/骨架条 `rounded|rounded-sm|rounded-2xl→xs`(矮盒上正是被禁止的半高胶囊)、扩展未读徽章 `rounded-lg→md`;⑤ 容器胶囊存量守门 11 在 HEAD 面**违规 0 处 / 扫 8183 文件**(此前 33→17→6→0,且 0 由阳性对照背书,不是尺子瞎)。**仍开的三格(不得读成已收口)**:① 门 128 配对源不含 `packages/app/src/features/**`,而 `index.ts:218` 的 `UserInfoCard` 出口恰指那一份 ⇒ 第三份活实现改像素不动读数(本轮已按角色档对齐它,判据缺口另计一票);② RE 在真仓**没有配对面**(两端元素命名语言不同),要让它有牙必须先统一命名或逐条登记 `aliases`;③ 149 的 842 处存量与 746 处弱证据待逐条裁决。**渲染级取证未做**:设备在位但装的是改动前的 JS 包且已掉登录态,故本轮所有结论都是**源码级 + 尺子级**,不声明目视验收。
+- [x] ✅(2026-09-27) O81 票⑮(同会话续做,但主题已越出 O81)—— **提交链上两道 blocking 门的当场拆弹 + 一枚撞号注册的并集归并**。
+  起因是收敛时发现 HEAD 红:两道 blocking 门的红**与提交内容无关**,而它们的判定面就是 HEAD ——
+  这种红唯一的结局是每一次提交都被逼 `--no-verify`,一次绕过约等于全部 156 道门对该提交作废(§12e 记过多次那一型)。
+  **一、`guardian-runner.mjs` 两侧同号 147 的并集归并**(`df3de6b853`):本侧把 `check-auth-handler-registration-parity`
+  注册成 147,远端同时把 `check-model-capacity-parity` 注册成 147。处置口径:**已发布的号不动,未推送的一侧顺延 148**
+  (published number wins),两条注册项一条都不删 —— 删任一条等于替别人卸闸。
+  落地用 `union-converge --resolve`,合并后 A1 复核 0 丢失、门 89 零红、runner `--help` 解析出 blocking 156 项含 147/148。
+  **一条判据级教训(比这次归并本身更值得留)**:`--resolve` 的"两侧独有行丢行断言"**没抓到**远端把 model-capacity 的
+  `args: []` 改成 `args: ['--strict']` —— 因为 `args: [],` 在文件里本来就有几十处,**重数不减**这条判据对
+  "行被换回旧形态"天然失明。我第一版归并正是从这个旧 `theirs` blob 构建的,会把别人那一行静默写回旧值;
+  是拿 `git rev-parse <remote>:<path>` 复量 blob 哈希时才暴露的。**规矩:手工归并前必须逐路径复量两侧 blob 哈希,
+  归并后做双向结构证明(`diff 对侧 合并 = 只多本侧块` 且 `diff 本侧 合并 = 只多对侧块`),不得只信丢行断言。**
+  **二、会话失效统一出口接上第四端(扩展)**(`105352294d`):守门 AP1 点名 `apps/extension` 未注册
+  `setUnauthorizedHandler`。修法取该门给出的第一条出口(真注册),不是台账豁免:
+  ① `bindTokenStoreToApiClient(tokenStore, { refreshAccessToken })` —— 本端此前只绑 store 不绑续期,
+  于是 `refreshAccessTokenOnce()` 恒返回 null 且**根本不发续期请求**,任何 401 都不重试(与 web/RN 差一整档);
+  ② 注册出口派发 `SESSION_EXPIRED_EVENT`,sidepanel 订阅后翻回登录页。**判"游客态"的位置在监听侧不在派发侧**:
+  本端续期失败路径会先 `clearAllTokens()`,派发那一刻 token 已是 null,按 token 判会把"会话死了"误读成"本来没登录"。
+  四条用例含两道对照(抽掉回调体 / 只换订阅事件名),标识符由**声明处反查**不写死(`session-expired-exit.test.ts`);
+  扩展 typecheck 对本票文件 0 错。同批把别人已写好但**未入库**的 `scripts/auth-handler-registration-exemptions.json`
+  (apps/cli 那条带 file:line 取证)入库 —— 台账不在被审面时该门按"零豁免"判,HEAD 就恒红。
+  **三、SSE 覆盖台账三处按守门自己点名的格子更正**(`15b1056273`):① web 的 `onFormRequest` 已在
+  `send-message.ts:1075` 真注册 ⇒ 从 `missing` 删除(该门原文:"该删的删,登记项不得掩盖真相");
+  ② 四端未接 D113 的 `onToolDelta`(流中 diff 预览,工厂只接进 web;api-client 口径"无回调不解析")⇒ 按该门给出的
+  第二条出口写明理由并新增 `groups.no-tool-delta-ui`,理由里同时写明**各端补齐的判据**(接帧 + 删本项 + 上调 baseline)
+  —— 这是把缺口说清,不是把它洗成一致;③ web `baseline` 28→30(该门注释本身要求"新增接入后同步上调",
+  30 = 28 + onFormRequest + onToolDelta 两枚新落地)。取证:HEAD 面 exit 0(5 端 / 帧 30 个)。
+  **如实登记的三项残余(都不是本会话可自主裁定的收尾)**:
+  ① 扩展端 `apps/extension/tests/{chat-branch,queue-bar-ext,steer-notice}` 现测 **28 枚失败**,全部是 i18n 键缺失
+  (`chat.branchFromHere` / `ai.pane.inputNotices.queue.denied.reorder` / `chat.steerNoticeTitle`),
+  三个文件都不引用本票改过的任何文件,且失败在 HEAD 面即存在 ⇒ **归属他人正在进行的 i18n/队列线**,不代修(§16);
+  ② `packages/ui-react/src/index.ts:86` 的 `UploadLabels` TS2614 来自别人**未提交**的 `Upload.tsx` 在飞改动,同上;
+  ③ 四端的 `onToolDelta` 渲染位是真实产品缺口(D113 各端落地票),已写明判据但**尚未补** —— 台账只负责让它不再静默。

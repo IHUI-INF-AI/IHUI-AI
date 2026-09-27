@@ -56,10 +56,7 @@ const DialogContent = React.forwardRef<
   // 卸载即注销(ref 时序比 Portal 内 effect 可靠);Esc 非栈顶 → preventDefault
   // 拦下 Radix dismiss,保证"一次 Esc 只关最上层"。
   const escStackId = useEscStackId()
-  const escStackRef = React.useCallback(
-    mergeEscStackRef(escStackId, ref),
-    [escStackId, ref],
-  )
+  const escStackRef = React.useCallback(mergeEscStackRef(escStackId, ref), [escStackId, ref])
   if (!inDialog) return null
   return (
     // 强制 container=document.body(2026-07-28 立):
@@ -89,7 +86,7 @@ const DialogContent = React.forwardRef<
           // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
           //   - 默认(移动端):p-3 gap-3,sm(≥375px)及以上:p-3 gap-4
           //   - max-w-lg + w-full 在小屏会撑满视口减去边距,避免内容溢出
-          'fixed left-[50%] top-[50%] z-modal grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-3 shadow-lg duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-lg min-[640px]:gap-4',
+          'fixed left-[50%] top-[50%] z-modal grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-3 shadow-lg duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-xl min-[640px]:gap-4',
           className,
         )}
         {...props}
