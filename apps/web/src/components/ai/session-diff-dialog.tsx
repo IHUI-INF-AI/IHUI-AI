@@ -47,7 +47,7 @@ export function SessionDiffDialog() {
             {changes.map((c) => {
               const isOpen = expanded[c.filePath] === true
               return (
-                <li key={c.filePath} className="rounded-xs border border-border bg-card">
+                <li key={c.filePath} className="rounded-lg border border-border bg-card">
                   <button
                     type="button"
                     className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-accent/50"

@@ -126,7 +126,7 @@ export function CourseDialog({
               id="c-remark"
               value={form.remark}
               onChange={(e) => onFormChange({ remark: e.target.value })}
-              className="min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              className="min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
             />
           </div>
           <div className="space-y-2">

@@ -68,7 +68,7 @@ export default function ReferrerPage() {
           <span>{t('loading')}</span>
         </div>
       ) : q.isError ? (
-        <div className="rounded-md border border-border bg-card p-3 text-center">
+        <div className="rounded-lg border border-border bg-card p-3 text-center">
           <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
           <Button variant="outline" size="sm" onClick={() => void q.refetch()}>
             <RotateCw className="mr-2 h-4 w-4" />

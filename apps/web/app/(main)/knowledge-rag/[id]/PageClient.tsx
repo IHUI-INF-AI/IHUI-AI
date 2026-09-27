@@ -162,7 +162,7 @@ export default function KnowledgeRagDetailPage() {
               <Link
                 key={h.id}
                 href={`/knowledge-rag/${h.docId}`}
-                className="block rounded-md border bg-card p-3 text-sm transition-colors hover:bg-accent/50"
+                className="block rounded-lg border bg-card p-3 text-sm transition-colors hover:bg-accent/50"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">

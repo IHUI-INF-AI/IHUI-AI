@@ -112,7 +112,7 @@ export function AgentTasksPanel() {
       ) : (
         <div className="flex flex-col gap-2">
           {tasks.map((task) => (
-            <div key={task.taskId} className="rounded-md border border-border bg-card p-2.5">
+            <div key={task.taskId} className="rounded-lg border border-border bg-card p-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
                   className={cn(
