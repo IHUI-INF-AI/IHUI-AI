@@ -731,24 +731,32 @@ interface ToggleChipProps {
 
 function ToggleChip({ label, active, onPress }: ToggleChipProps) {
   return (
+    // 按压态不得写成函数形态的 style:Pressable 被 cssInterop 注册过,函数声明会被展开成空对象
+    // 而整份内联样式静默消失(守门 131 立项那一型)。外层裸 Pressable 只承接点击与无障碍语义,
+    // 胶囊的尺寸/描边/底色/按压态全部落到子 View 的数组形态上;胶囊本就按标签收拢,故不需撑满档。
     <Pressable
       onPress={onPress}
       hitSlop={4}
-      style={({ pressed }) => [
-        styles.toggleChip,
-        active ? styles.toggleChipActive : null,
-        pressed ? styles.toggleChipPressed : null,
-      ]}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
     >
-      <Text
-        style={[styles.toggleChipLabel, active ? styles.toggleChipLabelActive : null]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
+      {({ pressed }) => (
+        <View
+          style={[
+            styles.toggleChip,
+            active ? styles.toggleChipActive : null,
+            pressed ? styles.toggleChipPressed : null,
+          ]}
+        >
+          <Text
+            style={[styles.toggleChipLabel, active ? styles.toggleChipLabelActive : null]}
+            numberOfLines={1}
+          >
+            {label}
+          </Text>
+        </View>
+      )}
     </Pressable>
   )
 }
