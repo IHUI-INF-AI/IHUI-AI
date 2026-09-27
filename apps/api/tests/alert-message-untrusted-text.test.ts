@@ -15,8 +15,9 @@ import { describe, expect, it } from 'vitest'
 import {
   capAlertMessage,
   flattenUntrustedText,
+  sanitizeAlertMessage,
   untrustedErrorField,
-} from '../src/workers/scheduler-worker.js'
+} from '../src/utils/alert-text.js'
 
 /** 与 scheduler-worker.ts 里的 ALERT_FIELD_MAX_CHARS / ALERT_MESSAGE_MAX_BYTES 同值 */
 const FIELD_MAX = 300
@@ -70,7 +71,9 @@ describe('untrustedErrorField:自有诊断串 vs 上游原文', () => {
     expect(out.startsWith('[上游原文] 上游回吐: y')).toBe(true)
     expect(/已丢弃 \d+ 字符\]$/.test(out)).toBe(true)
     // 前缀 12 字符 + 正文 ≤ FIELD_MAX
-    expect(out.length).toBeLessThanOrEqual('[上游原文] '.length + FIELD_MAX + '…[截断,已丢弃 1988 字符]'.length + 6)
+    expect(out.length).toBeLessThanOrEqual(
+      '[上游原文] '.length + FIELD_MAX + '…[截断,已丢弃 1988 字符]'.length + 6,
+    )
   })
 })
 
@@ -119,13 +122,21 @@ describe('装车对账:两个 pushAlert 调用点必须真的走这两个出口'
 
   it('两侧字节闸门必须是同一把尺子(bridge 与 api worker 各定一档 = 第二条真相)', () => {
     const bridgeSrc = readFileSync(
-      fileURLToPath(new URL('../../../monitoring/alertbridge/alert-webhook-bridge.cjs', import.meta.url)),
+      fileURLToPath(
+        new URL('../../../monitoring/alertbridge/alert-webhook-bridge.cjs', import.meta.url),
+      ),
       'utf8',
     )
-    const apiCap = /const ALERT_MESSAGE_MAX_BYTES = ([\d_]+)/.exec(src)?.[1]
+    // 常量的家在 `src/utils/alert-text.ts`(闸门住在共同出口后,尺子也搬去了那里);
+    // 仍按 scheduler-worker 找 = 门会因为自己被重构而判红,这正是"改被审写法必须同批改判据"那一课。
+    const gateSrc = readFileSync(
+      fileURLToPath(new URL('../src/utils/alert-text.ts', import.meta.url)),
+      'utf8',
+    )
+    const apiCap = /const ALERT_MESSAGE_MAX_BYTES = ([\d_]+)/.exec(gateSrc)?.[1]
     const bridgeCap = /const MAIL_BODY_MAX_BYTES = ([\d_]+)/.exec(bridgeSrc)?.[1]
     // 取不到常量 = 某一侧把闸门摘了或改了名 ⇒ 判红,绝不当"两边都没有所以不比较"
-    expect(apiCap, 'scheduler-worker 的字节闸门常量不见了').toBeTruthy()
+    expect(apiCap, 'alert-text 的字节闸门常量不见了').toBeTruthy()
     expect(bridgeCap, 'alert-webhook-bridge 的字节闸门常量不见了').toBeTruthy()
     // 源码里写的是 `20_000` 这种带分隔符的形态,Number("20_000") 是 NaN,必须先剥下划线
     const toNum = (s: string) => Number(s.replace(/_/g, ''))
@@ -149,6 +160,49 @@ describe('flattenUntrustedText:截断之前先过共享层脱敏', () => {
     expect(out).not.toContain('a@corp.example.com')
     expect(out).toContain('***')
     expect(out.length).toBeLessThanOrEqual(FIELD_MAX + 40)
+  })
+})
+
+describe('sanitizeAlertMessage:整条正文的逐行闸门(保住换行,不做单行压扁)', () => {
+  it('多条信息仍各占一行 —— 版式层 multiLineHtml 靠换行分段', () => {
+    const out = sanitizeAlertMessage('第一行\n第二行\n第三行')
+    expect(out.split('\n')).toEqual(['第一行', '第二行', '第三行'])
+  })
+
+  it('逐行剥不可见字符并脱敏,幂等(生产者已调过也不会二次改坏)', () => {
+    const once = sanitizeAlertMessage('a\u200bfrom 10.20.30.40\nb')
+    expect(once).toBe('a from [REDACTED_IP]\nb')
+    expect(sanitizeAlertMessage(once)).toBe(once)
+  })
+
+  it('超档按整条封顶并点名丢弃量,行结构在预算内保留', () => {
+    const big = Array.from({ length: 900 }, (_, i) => `line ${i} ${'中'.repeat(8)}`).join('\n')
+    const out = sanitizeAlertMessage(big)
+    expect(Buffer.byteLength(out, 'utf8')).toBeLessThanOrEqual(BODY_MAX_BYTES)
+    expect(out).toContain('已丢弃')
+    expect(out.split('\n').length).toBeGreaterThan(1)
+  })
+})
+
+describe('闸门住在共同出口(不是只住在某几个生产者头上)', () => {
+  const svc = readFileSync(
+    fileURLToPath(new URL('../src/services/alert-notification-service.ts', import.meta.url)),
+    'utf8',
+  )
+
+  it('pushAlertWithResult 必须真的过闸门 —— 函数在而调用点没接上 = 没有', () => {
+    expect(svc).toContain('const message = sanitizeAlertMessage(notification.message)')
+    expect(svc).toContain('const title = flattenUntrustedText(notification.title)')
+  })
+
+  it('出口之后各渠道只能拿到闸门后的变量(不得再回读 notification.message)', () => {
+    // 锚点要落在**赋值行之后**:赋值行本身当然含 notification.title,
+    // 从它起算会把那两行自己的赋值读成"违规回读"预言据恒红。
+    const anchor = svc.indexOf('const message = sanitizeAlertMessage(notification.message)')
+    expect(anchor, '找不到正文赋值行').toBeGreaterThan(-1)
+    const after = svc.slice(svc.indexOf('\n', anchor) + 1)
+    const body = after.slice(0, after.indexOf('\n}\n'))
+    expect(body).not.toMatch(/notification\.message|notification\.title/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
