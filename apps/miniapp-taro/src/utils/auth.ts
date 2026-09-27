@@ -13,7 +13,12 @@ import {
   reLaunch,
   getCurrentPages,
 } from '@tarojs/taro'
-import { fetchApi, type LoginResult as SharedLoginResult, type AuthUser } from '@ihui/api-client'
+import {
+  fetchApi,
+  type LoginResult as SharedLoginResult,
+  type AuthUser,
+  type UnauthorizedContext,
+} from '@ihui/api-client'
 import {
   TOKEN_STORAGE_KEY as TOKEN_KEY,
   REFRESH_TOKEN_STORAGE_KEY as REFRESH_TOKEN_KEY,
@@ -204,11 +209,15 @@ export async function refreshAccessToken(): Promise<string | null> {
  * 3. **不清凭据** —— 清 storage 会让在飞 UI 立刻翻成未登录态(头像/余额闪空),观感比停在原页更差;
  *    登录成功后 `setToken` 自然覆盖。
  */
-export function onUnrecoverableUnauthorized(): void {
-  if (!getToken()) return
+export function onUnrecoverableUnauthorized(ctx: UnauthorizedContext): void {
+  // 与 RN 端同批改:不再以"手里有没有 token"作准入条件(2026-09-27 真机实测)。
+  // 能进到这里的前提已经是"本应用主动发了一次需要身份的请求且它 401 了"。
   const pages = getCurrentPages()
   const current = pages.length > 0 ? pages[pages.length - 1]?.route : undefined
   if (current === LOGIN_PAGE) return
+  if (pages.length === 0) {
+    console.warn(`[mp-auth] 会话失效但读不到当前页面栈,仍跳登录页(来源 ${ctx.method} ${ctx.url})`)
+  }
   void reLaunch({ url: `/${LOGIN_PAGE}` })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
