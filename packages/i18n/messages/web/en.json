@@ -8487,7 +8487,7 @@
         },
         "TOOL_MODE_UNAVAILABLE": {
           "title": "This tool is not available in the current runtime mode",
-          "action": "Use an equivalent local tool"
+          "action": "Bind a workspace on the web app and retry, or use an equivalent local tool"
         },
         "TOOL_NOT_FOUND": {
           "title": "Target resource not found",
@@ -11182,7 +11182,34 @@
       "title": "Skill Library",
       "viewAll": "View all"
     },
+    "sessionDiff": {
+      "title": "Session changes",
+      "fileCount": "{count} files",
+      "empty": "No file changes in this conversation yet",
+      "changedTimes": "{count}{plus}×",
+      "editedBy": "Edited by {tool}",
+      "before": "Before",
+      "after": "After",
+      "applyStatus_pending": "Pending",
+      "applyStatus_applied": "Applied",
+      "applyStatus_rejected": "Rejected"
+    },
     "slashCmd": {
+      "diff": "Review files the AI changed in this conversation",
+      "diffEmpty": "No file changes in this conversation yet",
+      "status": "Show current model, context usage and permission mode",
+      "statusBadge": "Session status",
+      "statusReportTitle": "Session status",
+      "statusModel": "Model",
+      "statusConversation": "Conversation ID",
+      "statusPermission": "Permission mode",
+      "statusContext": "Context: {used} / {capacity} ({pct}%)",
+      "statusTokens": "Output tokens this session: {tokens}",
+      "statusCost": "Session cost: ${cost}",
+      "statusMessages": "Messages: {count}",
+      "model": "Open model selector",
+      "mcp": "Open MCP marketplace",
+      "compact": "Compact this conversation's context",
       "act": "Switch to act mode (AI normally executes tools, default)",
       "build": "Switch to Build mode (all tools enabled, normal execution)",
       "code": "Generate code",
@@ -11677,6 +11704,31 @@
       "view": "View"
     },
     "commands": {
+      "slashDiff": {
+        "label": "Session changes",
+        "description": "Review files the AI changed in this conversation",
+        "keywords": ["diff", "changes", "review"]
+      },
+      "slashStatus": {
+        "label": "Session status",
+        "description": "Show model, context usage, permission mode and spend",
+        "keywords": ["status", "context", "usage"]
+      },
+      "slashModel": {
+        "label": "Switch model",
+        "description": "Open the model selector",
+        "keywords": ["model", "switch"]
+      },
+      "slashMcp": {
+        "label": "MCP marketplace",
+        "description": "Open the MCP server marketplace",
+        "keywords": ["mcp", "marketplace"]
+      },
+      "slashCompact": {
+        "label": "Compact context",
+        "description": "Compact this conversation's history to free context window",
+        "keywords": ["compact", "context"]
+      },
       "steerPrompt": {
         "label": "Steer prompt",
         "description": "Inject the current input as guidance into the running answer",
@@ -21355,6 +21407,7 @@
     "categoryMode": "Mode switching",
     "categoryPermission": "Permission management",
     "categorySkill": "AI skills",
+    "categoryTools": "Tool commands",
     "categoryTemplate": "Content templates",
     "noMatchArgs": "No matching candidates",
     "noMatchArgsHint": "Try clearing the search, or press ESC to go back",
@@ -25517,6 +25570,9 @@
     "ratingSuccess": "Rating submitted"
   },
   "chatSearchBar": {
+    "messageNotFound": "Message not found — it may be outside the current list",
+    "moreResults": "{count} more results",
+    "resultListLabel": "Results in this conversation",
     "searchPlaceholder": "Search conversations…",
     "searchAriaLabel": "Search conversations"
   },
