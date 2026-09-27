@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     overflow: 'hidden',
   },
   thumb: {
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: VIP_BADGE_PADDING * 2,
     paddingVertical: VIP_BADGE_PADDING,
     backgroundColor: tokens.brand.cta,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.md,
   },
   vipBadgeText: {
     fontSize: 10,

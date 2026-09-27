@@ -250,7 +250,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { padding: 10, paddingBottom: 32 },
     summaryCard: {
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
     summaryRow: {
@@ -267,7 +267,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     withdrawBtn: {
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -293,7 +293,7 @@ function createStyles(tk: AppThemeTokens) {
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
     card: {
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -337,7 +337,7 @@ function createStyles(tk: AppThemeTokens) {
     copyBtn: {
       paddingHorizontal: 12,
       paddingVertical: 4,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.light,
