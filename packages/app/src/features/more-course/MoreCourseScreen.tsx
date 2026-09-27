@@ -50,34 +50,39 @@ export function MoreCourseScreen({
   const initialLoading = loading && items.length === 0 && !refreshing
 
   const renderCard = ({ item }: { item: (typeof items)[number] }) => (
-    <Pressable
-      style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
-      onPress={() => onPressItem({ id: String(item.id), title: item.title })}
-    >
-      {item.cover ? (
-        <View style={styles.cover} />
-      ) : (
-        <View style={[styles.cover, styles.coverFallback]}>
-          <BookOpen size={40} color={tk.text.medium} />
+    // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+    // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,卡面底色/圆角/overflow 裁切
+    // 静默消失。这份表里 card 是**纯视觉档**(无 margin/flex),外层在列表 column 里默认撑满宽度
+    // ⇒ 整档下移到内层,盒子宽高与封面圆角裁切范围逐像素不变。
+    <Pressable onPress={() => onPressItem({ id: String(item.id), title: item.title })}>
+      {({ pressed }) => (
+        <View style={[styles.card, pressed ? styles.cardPressed : null]}>
+          {item.cover ? (
+            <View style={styles.cover} />
+          ) : (
+            <View style={[styles.cover, styles.coverFallback]}>
+              <BookOpen size={40} color={tk.text.medium} />
+            </View>
+          )}
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle} numberOfLines={2}>
+              {item.title}
+            </Text>
+            <View style={styles.metaRow}>
+              <Text style={styles.instructor} numberOfLines={1}>
+                {'讲师:' + (item.instructor || '匿名')}
+              </Text>
+              <Text style={styles.lessonCount}>{item.lessonCount ?? 0} 课时</Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={styles.price}>{formatPrice(item.price, item.isFree)}</Text>
+              <Text style={styles.studentCount}>
+                {(item.studentCount ?? 0) > 0 ? `${item.studentCount} 人学过` : ''}
+              </Text>
+            </View>
+          </View>
         </View>
       )}
-      <View style={styles.cardBody}>
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <View style={styles.metaRow}>
-          <Text style={styles.instructor} numberOfLines={1}>
-            {'讲师:' + (item.instructor || '匿名')}
-          </Text>
-          <Text style={styles.lessonCount}>{item.lessonCount ?? 0} 课时</Text>
-        </View>
-        <View style={styles.metaRow}>
-          <Text style={styles.price}>{formatPrice(item.price, item.isFree)}</Text>
-          <Text style={styles.studentCount}>
-            {(item.studentCount ?? 0) > 0 ? `${item.studentCount} 人学过` : ''}
-          </Text>
-        </View>
-      </View>
     </Pressable>
   )
 

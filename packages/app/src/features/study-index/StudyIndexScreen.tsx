@@ -190,41 +190,46 @@ export function StudyIndexScreen({
     const time = item.createdAt ? item.createdAt : ''
     const author = item.teacherName || '智汇社区-官方'
     return (
-      <Pressable
-        style={({ pressed }) => [styles.gridCard, pressed ? styles.gridCardPressed : null]}
-        accessibilityRole="button"
-        accessibilityLabel={item.title}
-      >
-        <View style={styles.gridCoverWrap}>
-          {item.cover ? (
-            <Image source={{ uri: item.cover }} style={styles.gridCover} resizeMode="cover" />
-          ) : (
-            <View style={styles.gridCoverPlaceholder}>
-              <Play size={24} color={tk.text.tertiary} />
+      // gridCard 在这份表里是**纯布局档**(flex:1 占双列槽位 + 边距),留在外层作静态对象;
+      // 按压淡出随内层承载 —— 外层无底色,可见像素全在内层里,淡出的范围与改前逐像素相同
+      // (守门 131 那一型:函数形态 style 落在注册过 cssInterop 的 Pressable 上会整份静默失效)。
+      <Pressable style={styles.gridCard} accessibilityRole="button" accessibilityLabel={item.title}>
+        {({ pressed }) => (
+          <View style={pressed ? styles.gridCardPressed : null}>
+            <View style={styles.gridCoverWrap}>
+              {item.cover ? (
+                <Image source={{ uri: item.cover }} style={styles.gridCover} resizeMode="cover" />
+              ) : (
+                <View style={styles.gridCoverPlaceholder}>
+                  <Play size={24} color={tk.text.tertiary} />
+                </View>
+              )}
+              <View style={styles.gridCoverInfo}>
+                <Text style={styles.gridCoverTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                {time ? (
+                  <Text style={styles.gridCoverDate} numberOfLines={1}>
+                    {time}
+                  </Text>
+                ) : null}
+              </View>
             </View>
-          )}
-          <View style={styles.gridCoverInfo}>
-            <Text style={styles.gridCoverTitle} numberOfLines={1}>
-              {item.title}
-            </Text>
-            {time ? (
-              <Text style={styles.gridCoverDate} numberOfLines={1}>
-                {time}
+            {item.name ? (
+              <Text style={styles.gridTitle} numberOfLines={1}>
+                {item.name}
               </Text>
             ) : null}
+            <View style={styles.gridAuthorRow}>
+              {item.avatar ? (
+                <Image source={{ uri: item.avatar }} style={styles.gridAvatar} />
+              ) : null}
+              <Text style={styles.gridAuthor} numberOfLines={1}>
+                {author}
+              </Text>
+            </View>
           </View>
-        </View>
-        {item.name ? (
-          <Text style={styles.gridTitle} numberOfLines={1}>
-            {item.name}
-          </Text>
-        ) : null}
-        <View style={styles.gridAuthorRow}>
-          {item.avatar ? <Image source={{ uri: item.avatar }} style={styles.gridAvatar} /> : null}
-          <Text style={styles.gridAuthor} numberOfLines={1}>
-            {author}
-          </Text>
-        </View>
+        )}
       </Pressable>
     )
   }
