@@ -7186,7 +7186,7 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   不在本票权限内,已如实留在未闭环面。
 
 ## O57 播放器屏的状态栏带色 —— 端内那条路已真机证伪,修法只剩单点那一处(2026-09-24 立,交 `apps/mobile-rn/App.tsx` 持有人)
-- [ ] **`VideoPlayerScreen` 全屏纯黑 ⇒ 黑页上方横一条 34dp 浅灰带**。这条带由 `App.tsx` 根 View 的 `backgroundColor: tokens.surface.bg` 绘制;屏幕内容在屏幕顶边被裁剪(真机量得带内 y=8..60 = (245,245,245),而把黑底用 `marginTop:-34` 上推后黑色只出现在 y=68 以下)。**即端内任何写法都够不到这条带** —— 完整取证与已回退的尝试见同日登记「实测钉死一条边界:单屏无法把底色铺进状态栏带」。
+- [ ] **`VideoPlayerScreen` 全屏纯黑 ⇒ 黑页上方横一条 34dp 浅灰带**。这条带由 `App.tsx` 根 View 的 `backgroundColor: tokens.surface.bg` 绘制;屏幕内容在屏幕顶边被裁剪(真机量得带内 y=8..60 = (245,245,245),而把黑底用 `marginTop:-34` 上推后黑色只出现在 y=68 以下)。**即端内任何写法都够不到这条带** —— 完整取证与已回退的尝试见同日登记「实测钉死一条边界:单屏无法把底色铺进状态栏带」。 〔2026-09-28 实况(保持未勾,翻勾归持机会话):修法①**已在 HEAD 落地**(枚 `2ef1c2978` —— App.tsx 根 View 底色按聚焦路由取,VideoPlayer⇒`tokens.gray.black`、其余仍 `surface.bg`,复用既有 navigation-ref 出口,未新增色源);装车取证补交(枚 `d5313a13e` —— `tests/app-root-background-focused-route.test.tsx` 渲染真 App 钉三条不变量:VideoPlayer 聚焦根底色实落 rgb(0,0,0)、Home/Profile/Settings/Login/Chat 五路由仍 rgb(245,245,245)、冷启动未就绪回落且 ready/state 订阅驱动底色黑↔灰翻转)4/4 绿;守门 97 `--self-test` 40/40 + 全量 S1-S3 零红。**真机不在场(`adb devices` 空),本票自定验收口径"出包装机量像素"本机不可得 ⇒ 不得以测试读数假称修好,未勾**;持机后按同日登记的 60dp 探针法量带位 y=8..60 应从 (245,245,245) 翻 (0,0,0)。〕
   修法二选一,都在单点:① **根 View 背景按当前聚焦路由取**(VideoPlayer ⇒ `gray.black`,其余仍 `surface.bg`,约 5 行)。改完必须与守门 97 的 S1 判据同时在场(`node scripts/check-statusbar-single-source.mjs --self-test` 40 例含"摘掉单点必红"),且新增的"路由 → 根背景"映射不得成为第二个色源。② 把 `<SafeAreaView edges={["top"]}>` 从 AppInner 下移到 navigator 内、由各屏自垫 —— 等于回到本票当初否决的 180 屏逐处方案,除非顺带解决别的诉求否则不取。
   **验收口径 = 真机出包装机量像素**(方法见上面那条登记:探针要多加 60dp 使"未生效 / 被裁剪 / 未裁剪"三态可分),不是 typecheck、不是截图目测。
 
