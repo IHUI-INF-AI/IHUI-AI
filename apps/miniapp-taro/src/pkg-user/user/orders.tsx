@@ -134,7 +134,7 @@ export default function Orders() {
             {list.map((item) => (
               <View
                 key={item.id}
-                className="mb-[24rpx] rounded-xl border border-[var(--color-border)] bg-card p-[24rpx]"
+                className="mb-[24rpx] rounded-lg border border-[var(--color-border)] bg-card p-[24rpx]"
                 hoverClass="opacity-60"
                 onClick={() => goDetail(item)}
               >
@@ -165,7 +165,9 @@ export default function Orders() {
                     {item.type}
                   </Text>
                   <View className="flex items-center gap-[24rpx]">
-                    <Text className="text-[length:36rpx] font-bold text-foreground">¥{item.amount}</Text>
+                    <Text className="text-[length:36rpx] font-bold text-foreground">
+                      ¥{item.amount}
+                    </Text>
                     {item.status === 'pending' ? (
                       <View
                         className="rounded-xl bg-primary px-[24rpx] py-[12rpx] text-[length:28rpx] text-[var(--color-surface-light)]"

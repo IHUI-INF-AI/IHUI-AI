@@ -178,6 +178,7 @@
     "toolDebugDisconnect": "Detach debugger",
     "toolDebugListSessions": "List debug sessions",
     "toolVendorVoiceClone": "Clone a voice",
+    "toolRequestBusinessForm": "Request a business form",
     "fileActivity": "{state, select, running {Processing file} completed {Processed file} other {Process file}}",
     "imageActivity": "{state, select, running {Processing image} completed {Processed image} other {Process image}}",
     "searchActivity": "{state, select, running {Searching} completed {Searched} other {Search}}",
@@ -2093,7 +2094,9 @@
       "bypassSkipApproval": "Approval skipped",
       "mcpRequiresApproval": "MCP annotations require approval",
       "policyRequiresApproval": "Policy requires approval",
-      "policySkipsApproval": "Policy skips approval"
+      "policySkipsApproval": "Policy skips approval",
+      "guardianReviewSuggested": "Review suggests a safer alternative",
+      "guardianReviewAlternativeApplied": "Safer alternative applied"
     },
     "perm": {
       "allow": "Allowed",

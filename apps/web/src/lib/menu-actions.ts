@@ -5,7 +5,7 @@
 import {
   type MenuActionId,
   openAdminWindow,
-  quitAndUpdateIfNeeded,
+  quitApp,
   toggleAlwaysOnTop,
   toggleDevtools,
   toggleFullscreen,
@@ -43,8 +43,9 @@ export async function dispatchMenuAction(id: MenuActionId): Promise<void> {
       await openAdminWindow()
       return
     case 'file.quit':
-      // 2026-07-31:退出前自动检查并安装更新,有更新则下载+安装+重启,无更新则正常退出
-      await quitAndUpdateIfNeeded()
+      // 退出=立即(2026-09-27 用户明确要求,取代旧"退出前检查更新"链):
+      // 更新能力由启动静默检查与托盘/菜单独立的「检查更新」项承担,此处不再 await 任何网络操作
+      await quitApp()
       return
     case 'view.reload':
       // Tauri WebView 内 Ctrl+R 可能被 webview 拦截,显式 reload 兜底;

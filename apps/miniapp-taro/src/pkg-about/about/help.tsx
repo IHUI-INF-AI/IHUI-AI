@@ -143,12 +143,14 @@ export default function HelpPage() {
             {filtered.map((h) => (
               <View
                 key={h.id}
-                className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx] overflow-hidden"
+                className="bg-card rounded-lg border border-border p-[28rpx] mb-[24rpx] overflow-hidden"
                 onClick={() => toggle(h.id)}
                 hoverClass="opacity-60"
               >
                 <View className="flex justify-between items-center">
-                  <Text className="text-[length:32rpx] font-bold text-foreground flex-1">{h.title}</Text>
+                  <Text className="text-[length:32rpx] font-bold text-foreground flex-1">
+                    {h.title}
+                  </Text>
                   <Text className="text-success text-[length:40rpx] ml-[16rpx]">
                     {opened === h.id ? '−' : '+'}
                   </Text>
@@ -175,7 +177,7 @@ export default function HelpPage() {
           {tt('about.help.feedbackTitle', '意见反馈')}
         </Text>
 
-        <View className="p-[28rpx] bg-card rounded-xl border border-border">
+        <View className="p-[28rpx] bg-card rounded-lg border border-border">
           <View className="mb-[24rpx]">
             <Text className="block text-[length:28rpx] text-foreground mb-[12rpx] font-medium">
               <Text className="text-destructive mr-[4rpx]">*</Text>

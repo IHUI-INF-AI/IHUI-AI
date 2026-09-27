@@ -199,7 +199,7 @@ export default function DistributionOrderList() {
             return (
               <View
                 key={o.id}
-                className="rounded-xl bg-card p-[28rpx] flex flex-col gap-[16rpx]"
+                className="rounded-lg bg-card p-[28rpx] flex flex-col gap-[16rpx]"
                 onClick={() => onItemClick(o.id)}
                 hoverClass="opacity-60"
               >
@@ -213,7 +213,9 @@ export default function DistributionOrderList() {
                     {statusInfo.key ? tt(statusInfo.key, statusInfo.fb) : statusInfo.fb}
                   </Text>
                 </View>
-                <Text className="text-[length:32rpx] font-semibold text-foreground">{o.product}</Text>
+                <Text className="text-[length:32rpx] font-semibold text-foreground">
+                  {o.product}
+                </Text>
                 <View className="flex flex-row justify-between items-center">
                   <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
                     {o.time || '-'}

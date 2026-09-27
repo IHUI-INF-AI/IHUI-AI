@@ -29,7 +29,23 @@ const TOOL = join(HERE, '..', 'live-doc-edit.mjs')
 const GIT = resolveGitBin() || 'git'
 const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20 }
 const runGit = (dir, args) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], runOpts)
+  execFileSync(
+    GIT,
+    [
+      '-c',
+      'safe.directory=*',
+      '-c',
+      'user.email=t@e2e.local',
+      '-c',
+      'user.name=e2e',
+      '-c',
+      'core.autocrlf=false',
+      '-C',
+      dir,
+      ...args,
+    ],
+    runOpts,
+  )
 
 const norm = (s) => s.replace(/\r\n/g, '\n')
 
@@ -45,7 +61,10 @@ function makeDocRepo(t, docText) {
   return { dir, inputs }
 }
 
-function runLive(dir, { doc = 'DOC.md', anchorFile, blockFile, replaceFile, msg = 'docs: e2e register' } = {}) {
+function runLive(
+  dir,
+  { doc = 'DOC.md', anchorFile, blockFile, replaceFile, msg = 'docs: e2e register' } = {},
+) {
   const env = { ...process.env, LIVE_ROOT: dir, LIVE_DOC: doc, LIVE_MSG: msg }
   if (replaceFile) {
     env.LIVE_REPLACE_FILE = replaceFile
@@ -53,13 +72,25 @@ function runLive(dir, { doc = 'DOC.md', anchorFile, blockFile, replaceFile, msg 
   } else env.LIVE_BLOCK_FILE = blockFile
   if (anchorFile) env.LIVE_ANCHOR_FILE = anchorFile
   else delete env.LIVE_ANCHOR_FILE
-  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+  return spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+  })
 }
 
 const DOC_BASE = ['# 标题', '段落一', '@@ANCHOR@@', '段落二', '']
 
 test('T1 §22c 导出面:判据纯函数必须在 __test__ 里', () => {
-  for (const k of ['readInputs', 'locateAnchor', 'assemble', 'applyReplacements'])
+  for (const k of [
+    'readInputs',
+    'locateAnchor',
+    'assemble',
+    'applyReplacements',
+    'resolveIdTokens',
+  ])
     assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
 })
 
@@ -88,13 +119,24 @@ test('T4 端到端·锚点插入 happy:落地后 HEAD == 前缀 ⊕ 本块 ⊕ �
   writeFileSync(join(inputs, 'anchor.txt'), '@@ANCHOR@@\n')
   writeFileSync(join(inputs, 'block.txt'), '- 登记甲\n- 登记乙\n')
   const before = git(['rev-parse', 'HEAD'], { root: dir })
-  const r = runLive(dir, { anchorFile: join(inputs, 'anchor.txt'), blockFile: join(inputs, 'block.txt') })
+  const r = runLive(dir, {
+    anchorFile: join(inputs, 'anchor.txt'),
+    blockFile: join(inputs, 'block.txt'),
+  })
   assert.equal(r.status, 0, `应成功:${r.stdout}|${r.stderr}`)
   assert.match(r.stdout, /回读:本块每一条非空行都在 HEAD 里/)
   assert.match(r.stdout, /主索引已对齐 1\/1/)
   const now = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })).split('\n')
-  assert.deepEqual(now, ['# 标题', '段落一', '@@ANCHOR@@', '- 登记甲', '- 登记乙', '段落二', ''], '除本块插入位外,其余行必须逐字原位')
-  assert.equal(indexBlobOf('DOC.md', { root: dir }), headBlobOf('HEAD', 'DOC.md', { root: dir }), '主索引须对齐到新 blob(否则一次普通提交即写回旧版)')
+  assert.deepEqual(
+    now,
+    ['# 标题', '段落一', '@@ANCHOR@@', '- 登记甲', '- 登记乙', '段落二', ''],
+    '除本块插入位外,其余行必须逐字原位',
+  )
+  assert.equal(
+    indexBlobOf('DOC.md', { root: dir }),
+    headBlobOf('HEAD', 'DOC.md', { root: dir }),
+    '主索引须对齐到新 blob(否则一次普通提交即写回旧版)',
+  )
   assert.notEqual(git(['rev-parse', 'HEAD'], { root: dir }), before, 'HEAD 必须前进')
 })
 
@@ -103,7 +145,10 @@ test('T5 零丢失判据有牙·命中 0 ⇒ 拒绝且不写盘', (t) => {
   writeFileSync(join(inputs, 'anchor.txt'), '@@NO-SUCH-ANCHOR@@\n')
   writeFileSync(join(inputs, 'block.txt'), '- X\n')
   const before = git(['rev-parse', 'HEAD'], { root: dir })
-  const r = runLive(dir, { anchorFile: join(inputs, 'anchor.txt'), blockFile: join(inputs, 'block.txt') })
+  const r = runLive(dir, {
+    anchorFile: join(inputs, 'anchor.txt'),
+    blockFile: join(inputs, 'block.txt'),
+  })
   assert.equal(r.status, 1)
   assert.match(r.stderr, /找不到锚点/)
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before)
@@ -114,7 +159,10 @@ test('T6 零丢失判据有牙·命中 2 ⇒ 拒绝(唯一性是生命线,不猜
   writeFileSync(join(inputs, 'anchor.txt'), '@@MID@@\n')
   writeFileSync(join(inputs, 'block.txt'), '- X\n')
   const before = git(['rev-parse', 'HEAD'], { root: dir })
-  const r = runLive(dir, { anchorFile: join(inputs, 'anchor.txt'), blockFile: join(inputs, 'block.txt') })
+  const r = runLive(dir, {
+    anchorFile: join(inputs, 'anchor.txt'),
+    blockFile: join(inputs, 'block.txt'),
+  })
   assert.equal(r.status, 1)
   assert.match(r.stderr, /命中 2 处/)
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before)
@@ -125,11 +173,17 @@ test('T7 别人已在本块位置改过一行 ⇒ 落地失败而不是覆盖(�
   writeFileSync(join(inputs, 'anchor.txt'), '@@ANCHOR@@\n')
   writeFileSync(join(inputs, 'block.txt'), '- 我的登记\n')
   // 别人先落地:把锚点行本身改写了
-  writeFileSync(join(dir, 'DOC.md'), ['# 标题', '段落一', '@@ANCHOR@@ ⇒ 已被人改写', '段落二', ''].join('\n'))
+  writeFileSync(
+    join(dir, 'DOC.md'),
+    ['# 标题', '段落一', '@@ANCHOR@@ ⇒ 已被人改写', '段落二', ''].join('\n'),
+  )
   runGit(dir, ['add', '--', 'DOC.md'])
   runGit(dir, ['commit', '-q', '-m', 'theirs edit'])
   const theirsHead = git(['rev-parse', 'HEAD'], { root: dir })
-  const r = runLive(dir, { anchorFile: join(inputs, 'anchor.txt'), blockFile: join(inputs, 'block.txt') })
+  const r = runLive(dir, {
+    anchorFile: join(inputs, 'anchor.txt'),
+    blockFile: join(inputs, 'block.txt'),
+  })
   assert.equal(r.status, 1, '锚点不再唯一命中 ⇒ 必须拒绝')
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), theirsHead, '不得覆盖别人的提交')
   const doc = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true }))
@@ -142,7 +196,11 @@ test('T8 EOF 追加模式(不传锚点):文末空行归一后追加,回读全行
   const r = runLive(dir, { blockFile: join(inputs, 'block.txt') })
   assert.equal(r.status, 0, `${r.stdout}|${r.stderr}`)
   const now = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true }))
-  assert.equal(now, ['L1', '', '- 追加一', '- 追加二', ''].join('\n'), '结构须为 HEAD(剥尾空行) ⊕ 空行 ⊕ 本块 ⊕ 换行')
+  assert.equal(
+    now,
+    ['L1', '', '- 追加一', '- 追加二', ''].join('\n'),
+    '结构须为 HEAD(剥尾空行) ⊕ 空行 ⊕ 本块 ⊕ 换行',
+  )
   assert.match(r.stdout, /EOF 追加/)
 })
 
@@ -157,8 +215,18 @@ test('T9 用法错误 ⇒ exit 2 且不写盘:缺 msg / 缺 doc / 空正文块 /
   const r3 = runLive(dir, { blockFile: join(inputs, 'block.txt') })
   assert.equal(r3.status, 0, `正常块应可落地:${r3.stdout}|${r3.stderr}`)
   const r4 = spawnSync(process.execPath, [TOOL], {
-    env: { ...process.env, LIVE_ROOT: dir, LIVE_DOC: 'DOC.md', LIVE_BLOCK_FILE: join(inputs, 'block.txt'), LIVE_ANCHOR_FILE: join(inputs, 'missing-anchor.txt'), LIVE_MSG: 'm' },
-    encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20,
+    env: {
+      ...process.env,
+      LIVE_ROOT: dir,
+      LIVE_DOC: 'DOC.md',
+      LIVE_BLOCK_FILE: join(inputs, 'block.txt'),
+      LIVE_ANCHOR_FILE: join(inputs, 'missing-anchor.txt'),
+      LIVE_MSG: 'm',
+    },
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
   })
   assert.equal(r4.status, 2)
   assert.match(r4.stderr, /LIVE_ANCHOR_FILE/)
@@ -177,12 +245,18 @@ test('T10 writeBlob 阳性对照:EOF 模式落地后的 blob 就是"结构等值
 
 test('T10 applyReplacements 纯函数:恰好 1 命中才组装;0 / 2 命中与越界改动都不给 next', () => {
   const lines = ['# 标题', '- [ ] **D1 待办**:说明。', '段落二']
-  const ok = __test__.applyReplacements(lines, [{ before: '- [ ] **D1 待办**:说明。', after: '- [x] ✅(2026-09-27) **D1 待办**:说明。' }])
+  const ok = __test__.applyReplacements(lines, [
+    { before: '- [ ] **D1 待办**:说明。', after: '- [x] ✅(2026-09-27) **D1 待办**:说明。' },
+  ])
   assert.equal(ok.ok, true)
   assert.deepEqual(ok.next, ['# 标题', '- [x] ✅(2026-09-27) **D1 待办**:说明。', '段落二'])
-  assert.equal(__test__.applyReplacements(lines, [{ before: '- [ ] 没有这行', after: 'X' }]).ok, false)
   assert.equal(
-    __test__.applyReplacements([...lines, ...lines.slice(1)], [{ before: lines[1], after: 'X' }]).reason,
+    __test__.applyReplacements(lines, [{ before: '- [ ] 没有这行', after: 'X' }]).ok,
+    false,
+  )
+  assert.equal(
+    __test__.applyReplacements([...lines, ...lines.slice(1)], [{ before: lines[1], after: 'X' }])
+      .reason,
     'replace-multi-hit#1:2',
     '同文两行 ⇒ 无法确定改哪一行,必须交人工(不猜)',
   )
@@ -192,12 +266,28 @@ test('T11 端到端·整行改写:落地后旧形态逐条为零、其余行逐�
   const src = ['# 标题', '段落一', '- [ ] **D1 待办**:说明。', '段落二', '']
   const { dir, inputs } = makeDocRepo(t, src.join('\n'))
   const rep = join(inputs, 'rep.json')
-  writeFileSync(rep, JSON.stringify([{ before: src[2], after: '- [x] ✅(2026-09-27) **D1 待办**:说明。 〔收口:枚 abc1234〕' }]), 'utf8')
+  writeFileSync(
+    rep,
+    JSON.stringify([
+      { before: src[2], after: '- [x] ✅(2026-09-27) **D1 待办**:说明。 〔收口:枚 abc1234〕' },
+    ]),
+    'utf8',
+  )
   const r = runLive(dir, { replaceFile: rep })
   assert.equal(r.status, 0, `应成功:${r.stdout}|${r.stderr}`)
   assert.match(r.stdout, /旧形态整行归零/)
   const now = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })).split('\n')
-  assert.deepEqual(now, ['# 标题', '段落一', '- [x] ✅(2026-09-27) **D1 待办**:说明。 〔收口:枚 abc1234〕', '段落二', ''], '除声明行外不得有任何位移')
+  assert.deepEqual(
+    now,
+    [
+      '# 标题',
+      '段落一',
+      '- [x] ✅(2026-09-27) **D1 待办**:说明。 〔收口:枚 abc1234〕',
+      '段落二',
+      '',
+    ],
+    '除声明行外不得有任何位移',
+  )
   assert.equal(indexBlobOf('DOC.md', { root: dir }), headBlobOf('HEAD', 'DOC.md', { root: dir }))
 })
 
@@ -206,7 +296,11 @@ test('T12 端到端·整行改写的两型拒绝:锚点已漂 ⇒ 不写盘;插�
   const { dir, inputs } = makeDocRepo(t, src.join('\n'))
   const before = git(['rev-parse', 'HEAD'], { root: dir })
   const rep = join(inputs, 'rep.json')
-  writeFileSync(rep, JSON.stringify([{ before: '- [ ] **D1 待办**:说明。(别人又追加了一句)', after: 'X' }]), 'utf8')
+  writeFileSync(
+    rep,
+    JSON.stringify([{ before: '- [ ] **D1 待办**:说明。(别人又追加了一句)', after: 'X' }]),
+    'utf8',
+  )
   const r = runLive(dir, { replaceFile: rep })
   assert.equal(r.status, 1)
   assert.match(r.stderr, /在 HEAD 版里找不到/)
@@ -238,11 +332,99 @@ test('T13 追加注记型改写(after 以 before 开头)必须判成功并做完
   const src = ['# 计划', '- [ ] D9 某任务:等 owner 定权威。', '尾行']
   const { dir, inputs } = makeDocRepo(t, src.join('\n'))
   const rep = join(inputs, 'rep2.json')
-  writeFileSync(rep, JSON.stringify([{ before: src[1], after: `${src[1]} 〔更正(2026-09-27):本行应归"等人拍板"。〕` }]), 'utf8')
+  writeFileSync(
+    rep,
+    JSON.stringify([
+      { before: src[1], after: `${src[1]} 〔更正(2026-09-27):本行应归"等人拍板"。〕` },
+    ]),
+    'utf8',
+  )
   const r = runLive(dir, { replaceFile: rep })
   assert.equal(r.status, 0, `追加注记型必须判成功:${r.stdout}|${r.stderr}`)
   assert.match(r.stdout, /主索引已对齐 1\/1/)
   const now = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })).split('\n')
   assert.equal(now[1], `${src[1]} 〔更正(2026-09-27):本行应归"等人拍板"。〕`)
   assert.equal(indexBlobOf('DOC.md', { root: dir }), headBlobOf('HEAD', 'DOC.md', { root: dir }))
+})
+
+/**
+ * T14 取号令牌的纯函数面:号由**底稿**算出,不是由调用方给。
+ * 三条各钉一型:① 正常递增 ② 该族一条没有 ⇒ 拒绝(不是给 "<族>-1") ③ 无令牌 ⇒ 原样通过(不改任何行)。
+ */
+test('T14 resolveIdTokens:号来自底稿、取不到即拒绝、无令牌不误伤', () => {
+  const base = '- [ ] **G-1 甲**:x\n- [ ] **G-7 乙**:y\n- [ ]75. 章节内裸序号不占号段\n'
+  const r = __test__.resolveIdTokens(
+    ['- [ ]（进行中@2026-09-27/主会话）**{{NEXT_ID:G}} 新条目**:正文'],
+    base,
+  )
+  assert.equal(r.ok, true)
+  assert.match(r.lines[0], /\*\*G-8 新条目\*\*/, `实得 ${r.lines[0]}`)
+  assert.equal(r.assigned, 'G-8')
+  const none = __test__.resolveIdTokens(['{{NEXT_ID:Z}} 条目'], base)
+  assert.equal(none.ok, false, '该族一条没有时必须拒绝,而不是发一个 Z-1')
+  assert.match(String(none.reason), /no-such-family:Z/)
+  const plain = __test__.resolveIdTokens(['- [ ] **G-9 无令牌**'], base)
+  assert.equal(plain.assigned, null)
+  assert.deepEqual(plain.lines, ['- [ ] **G-9 无令牌**'], '没有令牌就不该动任何一行')
+  // 一块里两个同族令牌必须**递增**,不得都算 max+1 —— 那样本器自己就产出了它要防的那一型。
+  const two = __test__.resolveIdTokens(
+    ['- [ ] **{{NEXT_ID:G}} 甲件**:x', '- [ ] **{{NEXT_ID:G}} 乙件**:y'],
+    base,
+  )
+  assert.equal(two.ok, true)
+  assert.match(two.lines[0], /\*\*G-8 甲件\*\*/, `实得 ${two.lines[0]}`)
+  assert.match(two.lines[1], /\*\*G-9 乙件\*\*/, `实得 ${two.lines[1]}`)
+  assert.equal(two.assigned, 'G-8,G-9', `报名应列出两个号,实得 ${two.assigned}`)
+  // 混族也要各自独立递增(两族共用一张游标会串号),且**按各族自己的书写形状**发号:
+  // 本仓 G 族写 `G-265` 带连字符,O 族写 `O4` 不带 —— 形状印错就是给一个判据认不出来的号。
+  const mixed = __test__.resolveIdTokens(
+    ['{{NEXT_ID:G}} 一号', '{{NEXT_ID:O}} 二号', '{{NEXT_ID:G}} 三号'],
+    `${base}- [ ] **O4 丙**:z\n`,
+  )
+  assert.deepEqual(
+    [mixed.lines[0], mixed.lines[1], mixed.lines[2]],
+    ['G-8 一号', 'O5 二号', 'G-9 三号'],
+    `跨族游标与形状都必须独立,实得 ${JSON.stringify(mixed.lines)}`,
+  )
+})
+
+/**
+ * T15 端到端:落地后的 HEAD 行里**只剩算出来的号**,令牌本身不得入库。
+ * 这一条同时是"令牌真被 CAS 用上"的装车证明 —— 纯函数测过却没人调,就是本仓反复登记的那一型。
+ */
+test('T15 端到端:带令牌的块落地后 HEAD 含算出的号且不含令牌', (t) => {
+  const { dir, inputs } = makeDocRepo(t, '- [ ] **G-3 旧条目**:x\n@@ANCHOR@@\n')
+  const blockFile = join(inputs, 'block.txt')
+  writeFileSync(
+    blockFile,
+    '- [ ]（进行中@2026-09-27/主会话）**{{NEXT_ID:G}} 取号落地**:正文\n',
+    'utf8',
+  )
+  const r = runLive(dir, { blockFile })
+  assert.equal(r.status, 0, `落地应成功,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
+  assert.match(r.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-4/, `输出没报名取到的号:\n${r.stdout}`)
+  const now = norm(runGit(dir, ['show', 'HEAD:DOC.md']))
+  assert.match(now, /\*\*G-4 取号落地\*\*/, `HEAD 里没有算出的号:\n${now}`)
+  assert.doesNotMatch(now, /NEXT_ID/, '令牌本身绝不能留在文档里')
+})
+
+/** T16 改写档也要能吃令牌(让号场景就是它:把别人占了的号挪走)。 */
+test('T16 整行改写档支持令牌:after 里的号由 HEAD 底稿现算', (t) => {
+  const { dir, inputs } = makeDocRepo(t, '- [ ] **G-5 旧标题**:正文一句\n')
+  const repl = join(inputs, 'repl.json')
+  writeFileSync(
+    repl,
+    JSON.stringify([
+      {
+        before: '- [ ] **G-5 旧标题**:正文一句',
+        after: '- [x] ✅(2026-09-27) **{{NEXT_ID:G}} 让号后**:正文一句',
+      },
+    ]),
+    'utf8',
+  )
+  const r = runLive(dir, { replaceFile: repl })
+  assert.equal(r.status, 0, `落地应成功,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
+  const now = norm(runGit(dir, ['show', 'HEAD:DOC.md']))
+  assert.match(now, /\*\*G-6 让号后\*\*/, `改写后的行没拿到算出的号:\n${now}`)
+  assert.doesNotMatch(now, /NEXT_ID|G-5 旧标题/, '令牌与旧形态都必须消失')
 })

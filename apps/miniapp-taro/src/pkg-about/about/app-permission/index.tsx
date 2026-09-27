@@ -118,7 +118,7 @@ export default function AppPermission() {
         </Text>
 
         {permissions.map((p) => (
-          <View key={p.scope} className="bg-card rounded-xl border border-border p-[28rpx]">
+          <View key={p.scope} className="bg-card rounded-lg border border-border p-[28rpx]">
             <View className="flex items-start">
               <View className="flex-1 mr-[16rpx]">
                 <View className="flex items-center flex-wrap gap-[12rpx]">
@@ -152,7 +152,7 @@ export default function AppPermission() {
         ))}
 
         <View
-          className="bg-card rounded-xl border border-border p-[28rpx] flex items-center justify-between"
+          className="bg-card rounded-lg border border-border p-[28rpx] flex items-center justify-between"
           onClick={onOpenSetting}
           hoverClass="opacity-60"
         >
