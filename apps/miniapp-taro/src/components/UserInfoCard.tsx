@@ -24,6 +24,7 @@ import {
   userInfoCardAvatarStyle,
 } from '@ihui/shared/ui/user-info-card-spec'
 import { rpx } from '@/utils/rpx'
+import LineIcon from './LineIcon'
 import type { UserInfoCardMinimalProps } from '@ihui/types'
 
 /// 档位数字唯一源在 @ihui/shared/ui/user-info-card-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
@@ -66,16 +67,19 @@ const ACTION_PAD_STYLE = {
   paddingBottom: toUnit(USER_INFO_CARD_ACTION_PADDING_Y_PX),
 }
 const ROW_MARGIN_STYLE = { marginTop: toUnit(USER_INFO_CARD_ROW_MARGIN_TOP_PX) }
-// 本地化远程 CDN 图片:原 aizhs 图库在 H5 模式下加载失败,改为本地 SVG 占位
-import vipActIcon from '@/assets/remote-images/user-vip-act.svg'
-// 图标引用对齐原项目 zhs_app-ZZ/UserInfoCard.vue
-// 本地有副本(@/assets/remote/,从原项目 src/static/ 复制)→ import 引入
-const defaultAvatarImg = aizhsUrl('remote-images/daixaodiming.png')
-const userIconImg = aizhsUrl('remote-images/userIcon.jpg')
-const editIconImg = aizhsUrl('remote-images/xiugai.jpg')
-const wirelessLogoImg = aizhsUrl('remote-images/wirelesslogo.jpg')
-const rechargeBtnImg = aizhsUrl('remote-images/default/rechargebtn.png')
-const vipNorIcon = aizhsUrl('remote-images/userVip_nor.png')
+/**
+ * 图标载体择优 = 矢量优先(守门 128 的 IC 维点名"小程序仍用 CDN 位图")。
+ * 本卡原有 6 处位图槽,逐张判定后 **4 处已换载体、2 处带理由保留**:
+ *  - userIcon.jpg(20×20 人形线图标)→ `LineIcon name="user"`(同一 lucide 字形,随主题换色)
+ *  - xiugai.jpg(16×16 铅笔线图标)  → `LineIcon name="pencil"`
+ *  - default/rechargebtn.png(24×20,把「充值智汇值」四个汉字烘进金色渐变图里)
+ *    → 文字按钮(与同文件其余操作钮同一档;位图既不随主题反色也不走 i18n)
+ *  - userVip_nor.png / user-vip-act.svg(16×40 VIP 徽标)→ 文字徽章,与 RN 同一位置的文字徽章同形
+ *    (这一换顺带消掉守门 128 几何维上"仅小程序档 40"—— 40 就是那枚徽标的固定宽)
+ * 保留的两处是**真·非线形图**,不是"懒得换":见各自行内 `icon-bitmap-exempt` 的理由。
+ */
+const defaultAvatarImg = aizhsUrl('remote-images/daixaodiming.png') // icon-bitmap-exempt: 多色 3D 吉祥物插画当默认头像(非线形 UI 图标,换 lucide 即改 artwork),RN 同位是 initials 兜底,留待组件源统一票裁 until 2027-09-27
+const wirelessLogoImg = aizhsUrl('remote-images/wirelesslogo.jpg') // icon-bitmap-exempt: 品牌标识(源项目 wirelesslogo 官方位图),按 §品牌图标须官方真实图标不得自造矢量近似 until 2027-09-27
 
 // 共享类型 UserInfoCardMinimalProps 已下沉到 @ihui/types,
 // 本地 Props extends Minimal 并追加 level/levelTitle/className(miniapp-taro 专属字段)
@@ -172,30 +176,29 @@ export default function UserInfoCard({
               style={AVATAR_STYLE}
             />
             <View className="flex-1 min-w-0">
-              {/* 用户名行:userIcon + 昵称 + VIP 徽标 + 操盘手标识 + 编辑图标 */}
+              {/* 用户名行:user 矢量图标 + 昵称 + VIP 文字徽章 + 操盘手标识 + pencil 矢量图标 */}
               <View className="flex items-center gap-2">
-                <Image src={userIconImg} mode="aspectFit" className="w-5 h-5 flex-shrink-0" />
+                <LineIcon name="user" size={40} className="flex-shrink-0" />
                 <Text className="font-medium text-foreground truncate" style={NAME_FONT_STYLE}>
                   {nickname}
                 </Text>
-                {/* VIP 徽标:isVip 用 userVip_act.png(远程),非 VIP 用 userVip_nor.png(本地) */}
-                <View className="relative flex-shrink-0">
-                  <Image
-                    src={isVip ? vipActIcon : vipNorIcon}
-                    mode="aspectFit"
-                    className="h-4 w-10"
-                  />
-                  {isVip && vipTitle ? (
-                    <View className="absolute inset-0 flex items-center justify-center">
-                      <Text
-                        className="text-[var(--color-white-98)] font-medium leading-none"
-                        style={SMALL_FONT_STYLE}
-                      >
-                        {vipTitle}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
+                {/* VIP 徽章:此前是 16×40 位图(非 VIP 档还是 CDN 灰图 + 空板),同一位置 RN 是
+                    文字徽章(roleBadge:warning 底 + warning 字)⇒ 换成同形文字徽章,档位仍取
+                    spec 的 BADGE_PADDING_X/Y + SMALL_FONT(与同排「操盘手」徽章同一写法)。
+                    非 VIP 不再渲染空灰板 —— 它不表意,而 RN 对非 VIP 在该位什么都不渲染。 */}
+                {isVip ? (
+                  <View
+                    className="px-2 py-0.5 rounded-sm flex-shrink-0"
+                    style={{ background: 'var(--color-warning-tint-strong)' }}
+                  >
+                    <Text
+                      className="font-medium"
+                      style={{ ...SMALL_FONT_STYLE, color: 'var(--color-warning)' }}
+                    >
+                      {vipTitle || 'VIP'}
+                    </Text>
+                  </View>
+                ) : null}
                 {/* 操盘手身份标识(对齐原项目 identityType=2,不同身份显示不同徽标)
                     徽章内边距与等级徽章同档:spec BADGE_PADDING_X 8 = `px-2` / Y 2 = `py-0.5` */}
                 {identityType === 2 ? (
@@ -212,11 +215,7 @@ export default function UserInfoCard({
                   </View>
                 ) : null}
                 {onClick ? (
-                  <Image
-                    src={editIconImg}
-                    mode="aspectFit"
-                    className="w-4 h-4 flex-shrink-0 ml-auto"
-                  />
+                  <LineIcon name="pencil" size={32} className="ml-auto flex-shrink-0" />
                 ) : null}
               </View>
               {/* 等级 + 智汇值行 */}
@@ -240,7 +239,8 @@ export default function UserInfoCard({
                     </Text>
                   </View>
                 ) : null}
-                {/* 智汇值行:wirelesslogo + tokenDisplay + rechargebtn(对齐原项目 token 显示) */}
+                {/* 智汇值行:品牌标识位图(保留,理由见声明处)+ tokenDisplay + 文字充值按钮
+                    (对齐原项目 token 显示;充值钮此前是烘了汉字的位图按钮,已矢量化/文字化) */}
                 {tokenDisplay ? (
                   <View
                     className="flex items-center gap-1 flex-1 min-w-0"
@@ -263,11 +263,20 @@ export default function UserInfoCard({
                       {tokenDisplay}
                     </Text>
                     {onWallet ? (
-                      <Image
-                        src={rechargeBtnImg}
-                        mode="aspectFit"
-                        className="w-6 h-5 flex-shrink-0 ml-auto"
-                      />
+                      /* 此前这里是一枚 24×20 的位图按钮(把「充值智汇值」四个汉字烘进金色渐变图):
+                         既不随主题反色、也不走 i18n 与字号缩放。换成与本卡其余操作钮同一档位的
+                         文字按钮(规格档 ACTION_PADDING_X/Y + SMALL_FONT),与 RN 端 rechargeBtn 同形。 */
+                      <View
+                        className="rounded-sm bg-primary flex-shrink-0 ml-auto"
+                        style={ACTION_PAD_STYLE}
+                      >
+                        <Text
+                          className="text-primary-foreground font-medium"
+                          style={SMALL_FONT_STYLE}
+                        >
+                          {tt('wallet.recharge.submit', '充值')}
+                        </Text>
+                      </View>
                     ) : null}
                   </View>
                 ) : null}
