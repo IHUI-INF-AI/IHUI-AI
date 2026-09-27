@@ -8487,7 +8487,7 @@
         },
         "TOOL_MODE_UNAVAILABLE": {
           "title": "This tool is not available in the current runtime mode",
-          "action": "Use an equivalent local tool"
+          "action": "Bind a workspace on the web app and retry, or use an equivalent local tool"
         },
         "TOOL_NOT_FOUND": {
           "title": "Target resource not found",
