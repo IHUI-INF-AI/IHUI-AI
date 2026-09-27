@@ -265,19 +265,19 @@ export const rbacRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           required: ['id'],
           properties: {
-            id: { type: 'string', format: 'uuid', description: '角色 ID' },
+            // G-261(同 G-257 口径):type-only,uuid 由 idParamSchema(Zod)校验;
+            // format:'uuid' 走 ajv 先拒会被 400 响应 schema(code:number)的序列化不匹配掩盖成 500
+            id: { type: 'string', description: '角色 ID(UUID,服务端 Zod 校验)' },
           },
         },
         body: {
           type: 'object',
-          required: ['permissionIds'],
+          // G-261:required/minItems/maxItems/items format:'uuid' 一律交 addRolePermissionsBodySchema(Zod)
           properties: {
             permissionIds: {
               type: 'array',
-              items: { type: 'string', format: 'uuid' },
-              minItems: 1,
-              maxItems: 100,
-              description: '权限 ID 列表',
+              items: { type: 'string', description: 'UUID(服务端 Zod 校验)' },
+              description: '权限 ID 列表(1-100 个,服务端 Zod 校验)',
             },
           },
         },
