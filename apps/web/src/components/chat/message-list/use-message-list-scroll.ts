@@ -301,6 +301,21 @@ export function useMessageListScroll({
     applyAuthority(reconciliation.authority)
     // 几何账目:**任何**来源都更新(含不改 following 的 programmatic / layout)
     observedScrollTopRef.current = reconciliation.observedScrollTop
+    // M3-B(G-252 运行时验收抓到的第二格):前插还在途、用户又自己滚了一段 ⇒ 锚点必须
+    // **按用户的落点重定基**。旧写法把 savedOffset 钉死在触发瞬间,于是补偿会把用户刚滚到
+    // 的位置当"待修正的偏差"弹回去(真实浏览器实测逐帧最大位移 1340px)。锚点的语义是
+    // "别在读者眼下挪内容",读者自己动了基准就该是他动完的那一处。
+    // 只在 `'user'` 来源重定基 —— programmatic/layout 的位移是补偿自己产生的,拿它重定基
+    // 等于让补偿追自己的尾巴。
+    if (resolvedSource === 'user' && pendingAnchorRef.current) {
+      const anchorEl = el.querySelector(
+        `[data-message-id="${pendingAnchorRef.current.anchorKey}"]`,
+      ) as HTMLElement | null
+      if (anchorEl) {
+        pendingAnchorRef.current.savedOffset =
+          anchorEl.getBoundingClientRect().top - el.getBoundingClientRect().top
+      }
+    }
     if (resolvedSource === 'programmatic' && distanceFromBottom <= BOTTOM_REATTACH_PX) {
       // 自己发起的贴底已经落地 ⇒ 窗口提前收,后续位移不再被自我豁免
       programmaticUntilRef.current = 0
