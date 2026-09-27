@@ -36,6 +36,7 @@
  *     快照路径纳入 git status + commit,自动提交回 main。
  *   - sync-downloads.yml(每日 cron):兜底刷新(幂等,无变化不产生提交)。
  */
+import { execFileSync } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
@@ -735,6 +736,20 @@ async function main() {
   }
 
   await writeFile(SNAPSHOT_PATH, serializeSnapshot(online), 'utf-8')
+  // 生成器必须自带注入:本产物由 release-desktop.yml 的 sync-downloads job 与 sync-downloads.yml
+  // 每日 cron 自动提交回 main,那条链不过本地 husky,而 CI 侧 `watermark.mjs verify` 是严格判定。
+  // 2026-09-27 实测:缺这一句时,自动提交把当天补上的水印横幅又盖回无载荷态,CI 恒红一格。
+  try {
+    execFileSync(
+      process.execPath,
+      [join(__dirname, 'watermark.mjs'), 'inject', SNAPSHOT_PATH],
+      { stdio: 'inherit', windowsHide: true },
+    )
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err)
+    log('err', `水印注入失败,拒绝把无横幅快照留在待提交面上: ${why}`)
+    process.exit(1)
+  }
   printSnapshot('已写入快照', online)
   log('ok', `快照已更新 → ${SNAPSHOT_PATH}`)
 }
