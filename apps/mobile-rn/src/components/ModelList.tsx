@@ -396,7 +396,10 @@ const styles = StyleSheet.create({
     // (RN 由 SectionList 自增高、小程序行盒在 pages/index/index.css 的 .ai-chu-row)——
     // 收同一档必然改一端整行高度,属设计裁决项而非取值分叉,登记在 spec 头注,不经 spec。
     height: 44,
-    borderRadius: rnRadius.xl,
+    // 圆角与小程序同一枚 logo 块同档:小程序默认列表位是 `w-10 h-10 rounded-lg bg-muted`
+    // (40 见方 +  muted 底 + 首字母),此前本端写 xl 属跨端不同档,现收 card 档(用户定档:
+    // 卡片一律 lg=8;40 见方的字块不是 panel,panel 档归弹窗/面板容器)。
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
