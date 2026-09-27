@@ -32,7 +32,10 @@ test('T1 __test__ 必须把判定纯函数 export 出来(§22c:镜像不许拿�
   assert.equal(typeof t.RC_MARK, 'string', '__test__ 缺 RC_MARK')
   // 测试文件内不得出现第二份**判定实现**(声明式正则;写函数名字符串会匹配到断言自己那行)
   const self = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-  assert.ok(!/^(?:export\s+)?function\s+judgeEvidence\s*\(/m.test(self), '镜像里出现了第二份 judgeEvidence 实现')
+  assert.ok(
+    !/^(?:export\s+)?function\s+judgeEvidence\s*\(/m.test(self),
+    '镜像里出现了第二份 judgeEvidence 实现',
+  )
 })
 
 test('T2 三态各自成立,且"没跑到"与"跑失败"不可能混为一谈', () => {
@@ -72,11 +75,13 @@ test('T5 该工具刻意不接提交链 —— 注册表里不得出现它(它�
 })
 
 test('T6 端到端装车证明:CLI 真跑 --self-test 必须全绿且 rc=0(例数以末行为准,不钉死防漂移)', () => {
-  const out = execFileSync(
-    process.execPath,
-    [TOOL, '--self-test'],
-    { encoding: 'utf8', cwd: ROOT, windowsHide: true, timeout: 300_000, maxBuffer: 32 << 20 },
-  )
+  const out = execFileSync(process.execPath, [TOOL, '--self-test'], {
+    encoding: 'utf8',
+    cwd: ROOT,
+    windowsHide: true,
+    timeout: 300_000,
+    maxBuffer: 32 << 20,
+  })
   const m = /run-evidence --self-test:(\d+)\/(\d+) 通过/.exec(out)
   assert.ok(m, `自检末行没出现,输出尾部:${out.slice(-160)}`)
   assert.equal(m[1], m[2], '自检有未通过项')
@@ -144,13 +149,17 @@ test('T9 派生失败不得崩掉取证进程(RC 行恰好一条)', () => {
   let status = null
   let stderr = ''
   try {
-    execFileSync(process.execPath, [TOOL, file, '--', resolve(ROOT, '.ihui-agent', 'tmp', 'no-such-binary-xyz.exe')], {
-      cwd: ROOT,
-      windowsHide: true,
-      timeout: 120_000,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    execFileSync(
+      process.execPath,
+      [TOOL, file, '--', resolve(ROOT, '.ihui-agent', 'tmp', 'no-such-binary-xyz.exe')],
+      {
+        cwd: ROOT,
+        windowsHide: true,
+        timeout: 120_000,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
   } catch (e) {
     status = e.status
     stderr = String(e.stderr ?? '')
@@ -167,10 +176,22 @@ test('T9 派生失败不得崩掉取证进程(RC 行恰好一条)', () => {
 })
 
 test('T10 .CMD shim 走 cmd.exe 而裸名/绝对可执行原样交给 spawn(§22c:判据从源文件 import,不许抄第二份)', () => {
-  assert.equal(typeof gate.__test__.buildSpawnArgv, 'function', '__test__ 缺 buildSpawnArgv(镜像拿不到就只会复读实现)')
+  assert.equal(
+    typeof gate.__test__.buildSpawnArgv,
+    'function',
+    '__test__ 缺 buildSpawnArgv(镜像拿不到就只会复读实现)',
+  )
   const b = gate.__test__.buildSpawnArgv
-  assert.deepEqual(b(['zzz-not-a-real-binary']), ['zzz-not-a-real-binary'], '不存在的命令不得被凭空包一层')
-  assert.deepEqual(b([process.execPath, '-e', '0']), [process.execPath, '-e', '0'], '绝对路径的可执行文件必须原样')
+  assert.deepEqual(
+    b(['zzz-not-a-real-binary']),
+    ['zzz-not-a-real-binary'],
+    '不存在的命令不得被凭空包一层',
+  )
+  assert.deepEqual(
+    b([process.execPath, '-e', '0']),
+    [process.execPath, '-e', '0'],
+    '绝对路径的可执行文件必须原样',
+  )
   if (process.platform === 'win32') {
     const withExt = b(['pnpm.cmd', '--version'])
     assert.equal(withExt[0], 'cmd.exe', `带 .cmd 后缀的 shim 必须改走 cmd.exe,实测 ${withExt[0]}`)
@@ -199,8 +220,14 @@ test('T11 --cwd=<绝对路径>:子进程真在该目录跑,且 #EVIDENCE-CWD= �
       { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
     )
     const txt = readFileSync(file, 'utf8')
-    assert.ok(txt.includes(`#EVIDENCE-CWD=${CWD_DIR}`), `CWD 行没落盘,证据头部:${txt.slice(0, 200)}`)
-    assert.ok(txt.includes(CWD_DIR), '子进程 stdout 必须打出该目录(证明 spawn 的 cwd 真的换了,不是只记了一行字)')
+    assert.ok(
+      txt.includes(`#EVIDENCE-CWD=${CWD_DIR}`),
+      `CWD 行没落盘,证据头部:${txt.slice(0, 200)}`,
+    )
+    assert.ok(
+      txt.includes(CWD_DIR),
+      '子进程 stdout 必须打出该目录(证明 spawn 的 cwd 真的换了,不是只记了一行字)',
+    )
   } finally {
     try {
       rmSync(file, { force: true })
@@ -218,14 +245,22 @@ test('T12 --verify --expect-cwd=<同值> ⇒ complete / exit 0,且原样报出 C
       [TOOL, file, `--cwd=${CWD_DIR}`, '--', process.execPath, '-e', 'console.log(process.cwd())'],
       { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
     )
-    const out = execFileSync(process.execPath, [TOOL, '--verify', file, `--expect-cwd=${CWD_DIR}`], {
-      cwd: ROOT,
-      windowsHide: true,
-      timeout: 120_000,
-      encoding: 'utf8',
-    })
+    const out = execFileSync(
+      process.execPath,
+      [TOOL, '--verify', file, `--expect-cwd=${CWD_DIR}`],
+      {
+        cwd: ROOT,
+        windowsHide: true,
+        timeout: 120_000,
+        encoding: 'utf8',
+      },
+    )
     assert.match(out, /complete/)
-    assert.match(out, new RegExp(CWD_DIR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'verify 必须把 CWD 行原样报出')
+    assert.match(
+      out,
+      new RegExp(CWD_DIR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      'verify 必须把 CWD 行原样报出',
+    )
   } finally {
     try {
       rmSync(file, { force: true })
@@ -246,12 +281,16 @@ test('T13 --verify --expect-cwd=<不同值> ⇒ truncated / exit 3(取证面错�
       { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
     )
     try {
-      execFileSync(process.execPath, [TOOL, '--verify', file, `--expect-cwd=${resolve(ROOT, 'scripts')}`], {
-        cwd: ROOT,
-        windowsHide: true,
-        timeout: 120_000,
-        encoding: 'utf8',
-      })
+      execFileSync(
+        process.execPath,
+        [TOOL, '--verify', file, `--expect-cwd=${resolve(ROOT, 'scripts')}`],
+        {
+          cwd: ROOT,
+          windowsHide: true,
+          timeout: 120_000,
+          encoding: 'utf8',
+        },
+      )
     } catch (e) {
       status = e.status
       out = String(e.stdout ?? '')
@@ -307,5 +346,36 @@ test('T15 expect-cwd 判据从源文件 import(§22c:镜像不得抄第二份),�
     const flip = CWD_DIR.toLowerCase() === CWD_DIR ? CWD_DIR.toUpperCase() : CWD_DIR.toLowerCase()
     assert.equal(j(ev, flip).kind, 'complete', 'win32 同一目录的大小写两种写法不得误判')
   }
+})
+
+test('T-新 相对证据路径不得逃逸仓库根(2026-09-27 由一次真实手滑撞出来)', () => {
+  const { resolveEvidencePath } = gate
+  // 放行:仓库内的相对落点就是本工具的正常用法
+  assert.equal(resolveEvidencePath('.ihui-agent/tmp/x.txt'), resolve(ROOT, '.ihui-agent/tmp/x.txt'))
+  assert.equal(resolveEvidencePath('scripts/x.txt'), resolve(ROOT, 'scripts/x.txt'))
+  // 判死:`..` 逃出去 —— 旧实现会把它 resolve 成盘根文件,而那是 §15/§28 明令禁止的落点
+  for (const bad of ['../x.txt', '../../x.txt', '.ihui-agent/../../x.txt']) {
+    assert.throws(() => resolveEvidencePath(bad), /逃出了仓库根/, `必须拒:${bad}`)
+  }
+  // 绝对路径不在这一判据射程(落点由调用方按 §15b/§26 负责),但必须原样传下去
+  const abs = process.platform === 'win32' ? 'D:\\somewhere\\x.txt' : '/tmp/x.txt'
+  assert.equal(resolveEvidencePath(abs), abs)
+})
+
+test('T-新 CLI 层:逃逸路径 exit 2 且**一个字节都不写**(拒绝必须发生在打开句柄之前)', () => {
+  const outside = resolve(ROOT, '..', 'evidence-escape-should-not-exist.txt')
+  rmSync(outside, { force: true })
+  let status = null
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, '../evidence-escape-should-not-exist.txt', '--', process.execPath, '-e', '0'],
+      { encoding: 'utf8', windowsHide: true, timeout: 30_000 },
+    )
+  } catch (e) {
+    status = e.status
+  }
+  assert.equal(status, 2, `逃逸路径必须 exit 2,实得 ${status}`)
+  assert.equal(existsSync(outside), false, '判死之前先把文件建出来 ⇒ 这道拒绝只是装饰')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
