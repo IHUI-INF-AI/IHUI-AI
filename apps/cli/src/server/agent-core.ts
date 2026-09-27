@@ -11,8 +11,9 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
+import { setBaseUrl, setTokenProvider, type ToolDeltaEvent } from '@ihui/api-client';
 import {
+  createToolDeltaBridge,
   setupAgentTools,
   runToolLoop,
   type AgentStopReason,
@@ -44,6 +45,28 @@ export type AgentEvent =
   | { type: 'token'; text: string }
   | { type: 'tool_call'; name: string; args: Record<string, unknown> }
   | { type: 'tool_result'; name: string; success: boolean; output: string }
+  /**
+   * D113(2026-09-27)文件写类工具的**流中 diff 预览**帧。载荷字段沿用
+   * `@ihui/api-client` 的 `ToolDeltaEvent`(toolCallId / seq / partialText / truncated?),
+   * `partialText` 是累积文本(整帧替换渲染)。`name` 是本端补的关联线索 ——
+   * `tool_call`/`tool_result` 都不带 toolCallId,HTTP/WS 消费方只能靠工具名归并。
+   * 派生算法与预算**不在这里**:唯一出口 `src/tools/file-edit-preview.ts`(与服务端
+   * llm.py 同语义),本面只搬运 runToolLoop 本地派生出的帧,不得自拼 JSON.stringify(args)。
+   */
+  | {
+      type: 'tool_delta';
+      name: string;
+      toolCallId: string;
+      seq: number;
+      partialText: string;
+      truncated?: boolean;
+    }
+  /**
+   * 同一 toolCallId 的预览作废(工具落终态 / 流中断)。清场**先于** tool_result 发出,
+   * 消费方撤下预览后才看见最终 diff —— 与 web/RN/小程序"result 到达即清 partialDiff"
+   * 同一条纪律,靠更新同一 id 而不是再追加一条预览。
+   */
+  | { type: 'tool_delta_clear'; name: string; toolCallId: string }
   | { type: 'iteration'; count: number; max: number }
   | { type: 'error'; message: string }
   | {
@@ -166,6 +189,9 @@ export class AgentCore {
     }
 
     try {
+      // D113 三面接线之 agent-core:配对/清场走 commands/agent.ts 的同一份桥
+      // (headless 面用它,REPL 用同构的 openPreviews) —— 两处算同一件事必漂移。
+      const d113Bridge = createToolDeltaBridge();
       const result = await runToolLoop({
         modelId: this.opts.model,
         messages: state.messages,
@@ -177,15 +203,38 @@ export class AgentCore {
           await onEvent({ type: 'token', text: delta });
         },
         onToolCall: async (name, args) => {
+          d113Bridge.noteToolCall(name);
           await onEvent({ type: 'tool_call', name, args });
         },
+        // 本地派生的预览帧逐条转成 AgentEvent(帧序 seq 原样保留,消费方按 toolCallId 覆盖)。
+        onToolDeltaFrames: async (events: ToolDeltaEvent[]) => {
+          for (const fact of d113Bridge.onFrames(events)) {
+            await onEvent({
+              type: 'tool_delta',
+              name: fact.toolName,
+              toolCallId: fact.event.toolCallId,
+              seq: fact.event.seq,
+              partialText: fact.event.partialText,
+              ...(fact.event.truncated === true ? { truncated: true } : {}),
+            });
+          }
+        },
         onToolResult: async (name, success, output) => {
+          // 先清预览再落结果(顺序反过来就是"结果与预览同屏")。
+          const settled = d113Bridge.settle(name);
+          if (settled) {
+            await onEvent({ type: 'tool_delta_clear', name: settled.toolName, toolCallId: settled.toolCallId });
+          }
           await onEvent({ type: 'tool_result', name, success, output });
         },
         onIteration: async (count, max) => {
           await onEvent({ type: 'iteration', count, max });
         },
         onError: async (message) => {
+          // 流中断/报错:尚未落终态的预览全部作废并点名(留在账上的预览会被读成"已写成这样")。
+          for (const stale of d113Bridge.abort()) {
+            await onEvent({ type: 'tool_delta_clear', name: stale.toolName, toolCallId: stale.toolCallId });
+          }
           await onEvent({ type: 'error', message });
         },
       });
