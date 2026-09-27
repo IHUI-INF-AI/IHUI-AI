@@ -19,14 +19,14 @@
   box-sizing: border-box;
 }
 
-/* ===== 用户信息卡(RN headerCard: bg surface.card,radius 12dp=24rpx,padding rpx(28)) ===== */
+/* ===== 用户信息卡(RN headerCard: bg surface.card, padding rpx(28);圆角按角色档 card→lg) ===== */
 .dc-header-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 28rpx;
   background: var(--color-card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   margin-bottom: 20rpx;
 }
 /* RN logo: 64dp=128rpx 正圆(radius 32dp=64rpx);logoBody mb rpx(16) */
@@ -61,12 +61,13 @@
   font-size: 20rpx;
   color: var(--color-muted-foreground);
 }
-/* RN entryBtn: py rpx(10) px rpx(40),radius 8dp=16rpx,bg brand(→primary);
-   文字色 RN surface.light 在暗色 primary(白底)上不可读,按语义修正为 primary-foreground */
+/* RN entryBtn: py rpx(10) px rpx(40), bg brand(→primary);
+   文字色 RN surface.light 在暗色 primary(白底)上不可读,按语义修正为 primary-foreground;
+   圆角按角色档 control→sm */
 .dc-become-btn {
   padding: 10rpx 40rpx;
   background: var(--color-cta);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   color: var(--color-cta-foreground);
   font-size: 28rpx;
   font-weight: 600;
@@ -116,11 +117,11 @@
   text-align: center;
 }
 
-/* ===== 开发者账号信息卡(RN infoCard: bg surface.card,radius 12dp=24rpx,padding rpx(24)) ===== */
+/* ===== 开发者账号信息卡(RN infoCard: bg surface.card, padding rpx(24);圆角按角色档 card→lg) ===== */
 .dc-account-card {
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   margin-bottom: 20rpx;
   display: flex;
   flex-direction: column;
@@ -198,7 +199,7 @@
 .dc-plaza-btn {
   padding: 16rpx 40rpx;
   background: var(--color-cta);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: var(--color-cta-foreground);
   font-size: 28rpx;
   font-weight: 600;
@@ -260,7 +261,7 @@
   align-self: flex-start;
   padding: 8rpx 24rpx;
   background: var(--color-cta);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: var(--color-cta-foreground);
   font-size: 26rpx; /* 13dp */
   font-weight: 500;

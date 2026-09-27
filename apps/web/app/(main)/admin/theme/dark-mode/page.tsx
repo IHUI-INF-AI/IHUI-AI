@@ -55,7 +55,7 @@ function ColorField({
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent"
+          className="h-8 w-10 cursor-pointer rounded-sm border border-input bg-transparent"
         />
         <Input value={value} onChange={(e) => onChange(e.target.value)} className="h-8 text-xs" />
       </div>

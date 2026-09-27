@@ -120,7 +120,7 @@ export default function LearnDevelop() {
           {LEARN_PATHS(tt).map((path) => (
             <View
               key={path.id}
-              className="flex items-center p-[28rpx] bg-card rounded-xl border border-border mb-[16rpx]"
+              className="flex items-center p-[28rpx] bg-card rounded-lg border border-border mb-[16rpx]"
             >
               <View className="w-[88rpx] h-[88rpx] flex items-center justify-center bg-background rounded-md flex-shrink-0 mr-[16rpx]">
                 {isImagePath(path.icon) ? (
@@ -174,7 +174,7 @@ export default function LearnDevelop() {
             courseList.map((item) => (
               <View
                 key={item.id}
-                className="flex bg-card rounded-xl border border-border overflow-hidden mb-[16rpx]"
+                className="flex bg-card rounded-lg border border-border overflow-hidden mb-[16rpx]"
                 hoverClass="opacity-60"
                 onClick={() => onItemClick(item.id)}
               >
@@ -218,7 +218,7 @@ export default function LearnDevelop() {
 
           {/* 学习排行榜入口(RN 无对应区,保留业务;卡片语言同上) */}
           <View
-            className="flex items-center justify-between p-[28rpx] bg-card rounded-xl border border-border mt-[24rpx]"
+            className="flex items-center justify-between p-[28rpx] bg-card rounded-lg border border-border mt-[24rpx]"
             hoverClass="opacity-60"
             onClick={onGoRank}
           >

@@ -49,7 +49,7 @@ export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
       {list.map((item) => (
         <View
           key={item.id}
-          className="flex bg-card rounded-xl p-3 mb-2"
+          className="flex bg-card rounded-lg p-3 mb-2"
           onClick={() => onClick?.(item)}
           hoverClass="opacity-60"
         >

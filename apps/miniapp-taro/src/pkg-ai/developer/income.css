@@ -32,7 +32,7 @@
   background: none;
 }
 .income-card {
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 24rpx;
   background-color: var(--color-muted);
   box-sizing: border-box;
@@ -69,7 +69,7 @@
   color: var(--color-cta-foreground);
   background: var(--color-cta);
   padding: 12rpx 20rpx;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
 }
 
 /* 可提现/已提现行 — 对齐 RN sumRow(marginTop 16)+ sumSubLabel/sumSubAmount */
