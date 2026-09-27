@@ -189,82 +189,95 @@ export function PlazaScreen({
     })()
 
     return (
+      // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+      // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,整张卡的底色/描边/内边距静默消失。
+      // marginBottom 是这张卡在 column 里占槽位的布局档,留在外层;卡面视觉档随 pressed 落内层,
+      // 内层在 column(默认 stretch)里撑满外层宽度 ⇒ 盒子宽高与改前逐像素相同。
       <Pressable
         key={String(item.id)}
-        style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
+        style={styles.cardBox}
         onPress={() => onPressItem(item)}
         accessibilityRole="button"
         accessibilityLabel={item.title}
       >
-        {coverImage ? (
-          <Image source={{ uri: coverImage }} style={styles.cardImage} resizeMode="cover" />
-        ) : null}
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        {desc ? (
-          <Text style={styles.cardDesc} numberOfLines={3}>
-            {desc}
-          </Text>
-        ) : null}
-        <Text style={styles.cardDate} allowFontScaling={false}>
-          {formatDateRange(createdAt, closingTime)}
-        </Text>
-        {cycle ? (
-          <Text style={styles.cardCycle} allowFontScaling={false}>
-            {`周期时间:${cycle}${CYCLE_UNITS[cycleUnit ?? ''] ?? ''}`}
-          </Text>
-        ) : null}
-        <View style={styles.cardMeta}>
-          <View style={styles.avatarWrap}>
-            <View style={styles.avatarFallback}>
-              {author.trim() ? (
-                <Text style={styles.avatarText}>{avatarText(author)}</Text>
-              ) : (
-                <PLACEHOLDER_AVATAR size={14} color={tk.text.medium} />
-              )}
+        {({ pressed }) => (
+          <View style={[styles.card, pressed ? styles.cardPressed : null]}>
+            {coverImage ? (
+              <Image source={{ uri: coverImage }} style={styles.cardImage} resizeMode="cover" />
+            ) : null}
+            <Text style={styles.cardTitle} numberOfLines={2}>
+              {item.title}
+            </Text>
+            {desc ? (
+              <Text style={styles.cardDesc} numberOfLines={3}>
+                {desc}
+              </Text>
+            ) : null}
+            <Text style={styles.cardDate} allowFontScaling={false}>
+              {formatDateRange(createdAt, closingTime)}
+            </Text>
+            {cycle ? (
+              <Text style={styles.cardCycle} allowFontScaling={false}>
+                {`周期时间:${cycle}${CYCLE_UNITS[cycleUnit ?? ''] ?? ''}`}
+              </Text>
+            ) : null}
+            <View style={styles.cardMeta}>
+              <View style={styles.avatarWrap}>
+                <View style={styles.avatarFallback}>
+                  {author.trim() ? (
+                    <Text style={styles.avatarText}>{avatarText(author)}</Text>
+                  ) : (
+                    <PLACEHOLDER_AVATAR size={14} color={tk.text.medium} />
+                  )}
+                </View>
+              </View>
+              <Text style={styles.author} numberOfLines={1}>
+                {author}
+              </Text>
+            </View>
+            <View style={styles.cardFooter}>
+              <Text
+                style={[styles.price, isCompleted ? styles.priceDone : null]}
+                allowFontScaling={false}
+              >
+                <Text style={styles.priceUnit}>￥</Text>
+                {`${formatPrice(lowestPrice)}-${formatPrice(peakPrice)}`}
+              </Text>
+              {isWaiting ? (
+                // 同上(守门 131):chatBtn 的 padding/底色档随 pressed 落内层;外层在 cardFooter
+                // (row + alignItems center)里 hug 内容 ⇒ 按钮尺寸、位置与淡出范围均不变。
+                <Pressable
+                  onPress={() => {
+                    // 独立可点:有 onChatPress 走回调(由 wrapper 决定跳转),否则与整卡一致
+                    if (onChatPress) {
+                      onChatPress(item)
+                    } else {
+                      onPressItem(item)
+                    }
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="聊一聊"
+                >
+                  {({ pressed }) => (
+                    <View style={[styles.chatBtn, pressed ? styles.chatBtnPressed : null]}>
+                      <Text style={styles.chatBtnText} allowFontScaling={false}>
+                        聊一聊
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+              ) : isCompleted ? (
+                <Text style={styles.statusDone} allowFontScaling={false}>
+                  项目已完成
+                </Text>
+              ) : isDeveloping ? (
+                <Text style={styles.statusDev} allowFontScaling={false}>
+                  开发中...
+                </Text>
+              ) : null}
             </View>
           </View>
-          <Text style={styles.author} numberOfLines={1}>
-            {author}
-          </Text>
-        </View>
-        <View style={styles.cardFooter}>
-          <Text
-            style={[styles.price, isCompleted ? styles.priceDone : null]}
-            allowFontScaling={false}
-          >
-            <Text style={styles.priceUnit}>￥</Text>
-            {`${formatPrice(lowestPrice)}-${formatPrice(peakPrice)}`}
-          </Text>
-          {isWaiting ? (
-            <Pressable
-              style={({ pressed }) => [styles.chatBtn, pressed ? styles.chatBtnPressed : null]}
-              onPress={() => {
-                // 独立可点:有 onChatPress 走回调(由 wrapper 决定跳转),否则与整卡一致
-                if (onChatPress) {
-                  onChatPress(item)
-                } else {
-                  onPressItem(item)
-                }
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="聊一聊"
-            >
-              <Text style={styles.chatBtnText} allowFontScaling={false}>
-                聊一聊
-              </Text>
-            </Pressable>
-          ) : isCompleted ? (
-            <Text style={styles.statusDone} allowFontScaling={false}>
-              项目已完成
-            </Text>
-          ) : isDeveloping ? (
-            <Text style={styles.statusDev} allowFontScaling={false}>
-              开发中...
-            </Text>
-          ) : null}
-        </View>
+        )}
       </Pressable>
     )
   }
@@ -342,14 +355,18 @@ export function PlazaScreen({
       {/* 悬浮发布按钮:全宽 wrapper 居中(flex 居中,不用百分比/负 margin,各 Yoga 版本一致) + 内层 50dp 圆;wrapper pointerEvents 透传,触区仅圆钮 */}
       <View style={styles.fabWrap} pointerEvents="box-none">
         <Pressable
-          style={({ pressed }) => [styles.fab, pressed ? styles.fabPressed : null]}
+          style={styles.fab}
           onPress={onPublish}
           accessibilityRole="button"
           accessibilityLabel="发布需求"
         >
-          <View style={styles.fabCircle}>
-            <Text style={styles.fabIcon}>＋</Text>
-          </View>
+          {({ pressed }) => (
+            // 同上(守门 131):fab 是 50×50 的**触达盒**(布局档),留在外层;fabPressed 的淡出
+            // 改由内层承载 —— 内层 fabCircle 与外层同尺寸(50×50)且外层无底色,淡出的像素集合不变。
+            <View style={[styles.fabCircle, pressed ? styles.fabPressed : null]}>
+              <Text style={styles.fabIcon}>＋</Text>
+            </View>
+          )}
         </Pressable>
       </View>
     </View>
@@ -456,8 +473,12 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.brand.ctaForeground,
       fontWeight: '600',
     } as TextStyle,
-    card: {
+    // 外层只留"在 column 里排下一张"的布局档;卡面档(内边距/圆角/底色/描边)在下面的 card,
+    // 由内层 View 承载 —— 拆层是为了把按压态从 Pressable 的 style 上摘下来(守门 131 那一型)。
+    cardBox: {
       marginBottom: 9,
+    } as ViewStyle,
+    card: {
       padding: 12,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,

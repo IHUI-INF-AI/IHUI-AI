@@ -45,40 +45,53 @@ export function LearnDevelopScreen({
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.grid}>
           {entries.map((entry: LearnDevelopEntry) => (
+            // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+            // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,卡面底色/描边/内边距静默消失。
+            // width 47% 是外层在 grid(row + wrap)里"两列一排"的槽位档 ⇒ 留外层;
+            // 面档落内层并撑满外层 —— grid 的 alignItems 默认 stretch,同一排里较矮的卡原本会被
+            // 拉到本排最高者的高度,内层不写 height:100% 就会缩回自身内容高(观感会变),故补满。
             <Pressable
               key={entry.title}
-              style={({ pressed }) => [styles.entryCard, pressed ? styles.entryCardPressed : null]}
+              style={styles.entryCardBox}
               onPress={entry.onPress}
               accessibilityRole="button"
               accessibilityLabel={entry.title}
             >
-              {typeof entry.icon === 'string' ? (
-                <Text style={styles.entryIcon}>{entry.icon}</Text>
-              ) : entry.icon ? (
-                <entry.icon size={32} color={tk.text.primary} />
-              ) : null}
-              <Text style={styles.entryTitle} numberOfLines={1}>
-                {entry.title}
-              </Text>
-              <Text style={styles.entryDesc} numberOfLines={2}>
-                {entry.desc}
-              </Text>
+              {({ pressed }) => (
+                <View style={[styles.entryCard, pressed ? styles.entryCardPressed : null]}>
+                  {typeof entry.icon === 'string' ? (
+                    <Text style={styles.entryIcon}>{entry.icon}</Text>
+                  ) : entry.icon ? (
+                    <entry.icon size={32} color={tk.text.primary} />
+                  ) : null}
+                  <Text style={styles.entryTitle} numberOfLines={1}>
+                    {entry.title}
+                  </Text>
+                  <Text style={styles.entryDesc} numberOfLines={2}>
+                    {entry.desc}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           ))}
         </View>
         {onContact ? (
+          // 同上(守门 131):alignSelf/width/height/marginTop 是外层在滚动列里占槽位的布局档
+          // (width 187 × height 38 定义盒子) ⇒ 留外层;底色/胶囊圆角/投影/居中档 + 淡出落内层,
+          // 内层按 100% 撑满那个固定尺寸盒 ⇒ 钮的尺寸、居中与投影范围逐像素不变。
           <Pressable
-            style={({ pressed }) => [
-              styles.detailsButton,
-              pressed ? styles.detailsButtonPressed : null,
-            ]}
             onPress={onContact}
             accessibilityRole="button"
             accessibilityLabel={t('learnDevelop.contactLabel', { fallback: '直接联系李总' })}
+            style={styles.detailsButtonBox}
           >
-            <Text style={styles.detailsButtonText}>
-              {t('learnDevelop.contactLabel', { fallback: '直接联系李总' })}
-            </Text>
+            {({ pressed }) => (
+              <View style={[styles.detailsButton, pressed ? styles.detailsButtonPressed : null]}>
+                <Text style={styles.detailsButtonText}>
+                  {t('learnDevelop.contactLabel', { fallback: '直接联系李总' })}
+                </Text>
+              </View>
+            )}
           </Pressable>
         ) : null}
       </ScrollView>
@@ -99,8 +112,14 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     scrollContent: { paddingHorizontal: 10, paddingVertical: 12, paddingBottom: 24 } as ViewStyle,
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 } as ViewStyle,
-    entryCard: {
+    // 外层 = "两列一排"的槽位档(守门 131:按压态不得写在 Pressable 的 style 上);
+    // 卡面档在下面的 entryCard,由内层 View 撑满外层(47% 宽 + 本排拉伸高)。数值逐字搬移未新增。
+    entryCardBox: {
       width: '47%',
+    } as ViewStyle,
+    entryCard: {
+      width: '100%',
+      height: '100%',
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.xl,
       borderWidth: 1,
@@ -118,11 +137,17 @@ function createStyles(tk: AppThemeTokens) {
       textAlign: 'center',
       lineHeight: 16,
     } as TextStyle,
-    detailsButton: {
+    // 同上:alignSelf/width/height/marginTop 是外层占槽位的布局档;钮面档在 detailsButton,
+    // 内层按 100% 撑满那个固定尺寸盒 ⇒ 胶囊尺寸、居中与投影范围不变。数值逐字搬移未新增。
+    detailsButtonBox: {
       alignSelf: 'center',
       width: 187,
       height: 38,
       marginTop: 24,
+    } as ViewStyle,
+    detailsButton: {
+      width: '100%',
+      height: '100%',
       borderRadius: 30, // radius-exempt: 高 38 的胶囊按钮,半径≥高度一半,渲染为完整胶囊,吸附方档会破坏形状
       alignItems: 'center',
       justifyContent: 'center',

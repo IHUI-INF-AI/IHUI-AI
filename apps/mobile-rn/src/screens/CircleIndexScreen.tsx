@@ -185,61 +185,66 @@ export function CircleIndexScreen() {
   const renderItem = ({ item }: { item: CirclePost }) => {
     const imgs = item.images ?? []
     return (
+      // 守门 131 改型:card 无边距、内容自定高 ⇒ 外层不设 style(父列默认拉伸,命中盒 =
+      // 原 Pressable 盒),卡片底/圆角/padding + pressed 淡出整体落内层数组形态。
       <Pressable
-        style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
         onPress={() => navigation.navigate('CircleDetail', { id: String(item.id) })}
         accessibilityRole="button"
       >
-        <View style={styles.itemHead}>
-          {item.avatar ? (
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarFallback]} />
-          )}
-          <Text style={styles.author} numberOfLines={1}>
-            {item.author || t('circle.index.anonymous')}
-          </Text>
-          <Text style={styles.time}>{item.createTime}</Text>
-        </View>
-        {item.title ? (
-          <Text style={styles.title} numberOfLines={2}>
-            {item.title}
-          </Text>
-        ) : null}
-        <Text style={styles.content} numberOfLines={3}>
-          {item.content}
-        </Text>
-        {imgs.length ? (
-          <View style={styles.imgRow}>
-            {imgs.slice(0, 3).map((img, i) => (
-              <Pressable
-                key={i}
-                onPress={() => setPreview({ urls: imgs, index: i })}
-                accessibilityRole="imagebutton"
-              >
-                <Image source={{ uri: img }} style={styles.img} />
-              </Pressable>
-            ))}
-            {imgs.length > 3 ? (
-              <Pressable
-                style={[styles.img, styles.imgMore]}
-                onPress={() => setPreview({ urls: imgs, index: 2 })}
-              >
-                <Text style={styles.imgMoreText}>{`+${imgs.length - 3}`}</Text>
-              </Pressable>
+        {({ pressed }) => (
+          <View style={[styles.card, pressed ? styles.cardPressed : null]}>
+            <View style={styles.itemHead}>
+              {item.avatar ? (
+                <Image source={{ uri: item.avatar }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarFallback]} />
+              )}
+              <Text style={styles.author} numberOfLines={1}>
+                {item.author || t('circle.index.anonymous')}
+              </Text>
+              <Text style={styles.time}>{item.createTime}</Text>
+            </View>
+            {item.title ? (
+              <Text style={styles.title} numberOfLines={2}>
+                {item.title}
+              </Text>
             ) : null}
+            <Text style={styles.content} numberOfLines={3}>
+              {item.content}
+            </Text>
+            {imgs.length ? (
+              <View style={styles.imgRow}>
+                {imgs.slice(0, 3).map((img, i) => (
+                  <Pressable
+                    key={i}
+                    onPress={() => setPreview({ urls: imgs, index: i })}
+                    accessibilityRole="imagebutton"
+                  >
+                    <Image source={{ uri: img }} style={styles.img} />
+                  </Pressable>
+                ))}
+                {imgs.length > 3 ? (
+                  <Pressable
+                    style={[styles.img, styles.imgMore]}
+                    onPress={() => setPreview({ urls: imgs, index: 2 })}
+                  >
+                    <Text style={styles.imgMoreText}>{`+${imgs.length - 3}`}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+            <View style={styles.actions}>
+              <View style={styles.stat}>
+                <Heart size={13} color={tk.text.tertiary} />
+                <Text style={styles.statNum}>{item.likes ?? 0}</Text>
+              </View>
+              <View style={styles.stat}>
+                <MessageCircle size={13} color={tk.text.tertiary} />
+                <Text style={styles.statNum}>{item.comments ?? 0}</Text>
+              </View>
+            </View>
           </View>
-        ) : null}
-        <View style={styles.actions}>
-          <View style={styles.stat}>
-            <Heart size={13} color={tk.text.tertiary} />
-            <Text style={styles.statNum}>{item.likes ?? 0}</Text>
-          </View>
-          <View style={styles.stat}>
-            <MessageCircle size={13} color={tk.text.tertiary} />
-            <Text style={styles.statNum}>{item.comments ?? 0}</Text>
-          </View>
-        </View>
+        )}
       </Pressable>
     )
   }
