@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { AskCreateScreen as SharedAskCreateScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -43,7 +44,7 @@ export function AskCreateScreen() {
     })
     setSaving(false)
     if (res.success && res.data) navigation.replace('AskDetail', { id: res.data.id })
-    else if (!res.success) setError(res.error || t('askCreate.saveFailed'))
+    else if (!res.success) setError(apiFailureToText(res, t('askCreate.saveFailed')))
   }
 
   return (

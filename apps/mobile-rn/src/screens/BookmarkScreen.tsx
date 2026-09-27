@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { BookmarkScreen as SharedBookmarkScreen } from '@ihui/rn-app'
 import type { BookmarkItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
@@ -54,7 +55,7 @@ export function BookmarkScreen() {
       method: 'DELETE',
     })
     if (res.success) setItems((prev) => prev.filter((b) => b.id !== item.id))
-    else setError(res.error || t('common.failed'))
+    else setError(apiFailureToText(res, t('common.failed')))
   }
 
   return (

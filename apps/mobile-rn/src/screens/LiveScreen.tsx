@@ -16,6 +16,7 @@ import { StyleSheet, View, type ViewStyle } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getLiveList, type Live } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { LiveScreen as SharedLiveScreen, type LiveScreenItem } from '@ihui/rn-app'
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { useI18n } from '../i18n'
@@ -44,7 +45,7 @@ export function LiveScreen() {
       if (res.success) {
         setLives(res.data.list)
       } else {
-        setError(res.error || t('live.loadFailed'))
+        setError(apiFailureToText(res, t('live.loadFailed')))
       }
     } catch {
       // 接口抛错(网络异常等)不阻塞页面,走错误态提示
