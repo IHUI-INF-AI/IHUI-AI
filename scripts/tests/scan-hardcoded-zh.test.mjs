@@ -31,7 +31,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync, existsSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -558,7 +558,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(out, /刻意不退磁盘/, '原因里必须写清"不退磁盘"这条决策,否则下一个人会以为是漏判')
       assert.ok(!out.includes('in-flight.tsx'), `在飞文件不得被点名(那属于别人的现场):${out}`)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -578,7 +578,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(out, /edited\.tsx: 2 处 > 基线 1 处/, '命中面必须仍取自索引 blob')
       assert.ok(!/没有任何可扫正文/.test(out), '不得走"不判"那一支')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -598,7 +598,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(out, /索引确实空/, '必须写明退回的是"真空索引"那一支,与"只含删除"区分开')
       assert.match(out, /bare\.tsx: 3 处/, '退磁盘后仍要量到在飞中文')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
