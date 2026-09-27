@@ -12657,3 +12657,75 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [x] ✅(2026-09-27) **两条差点埋进去的坑,都来自本仓已有教训**:① 服务身份 `LocalSystem` 的 PATH 里没有 node,取可执行必须走既有 `Resolve-NodeExe`(绝对路径候选已内建),裸 `node` 会**静默失败**成"自动收敛永不生效而账面看不出来";取不到时明确记 WARN 并继续计数,不假装收敛过。② 成功 ff 后必须清零,否则一次抖动永久累加到阈值 —— 这是"计数器不重置"那一型,归零由镜像测试钉住。
 - [x] ✅(2026-09-27) **取证例数以命令末行现读为准,本文不钉数字**:`pwsh` 解析器 0 错误;计数行为 5 例(无状态读 0 / 逐轮 +1 / 首轮起始时间落盘 / 归零 / 坏 JSON 退回 0 不抛) —— 夹具做法是**从真文件按函数名逐字切片**再跑,函数被改名或改结尾时切片失败即红,不留自洽假绿;常驻镜像 `scripts/tests/deploy-diverged-autorecover.test.mjs`(L1 阈值门→`exit 0`→`Fail` 的**顺序**锁、L2 收敛必须被真的调用而非只写进日志文案、L3 必须 `Resolve-NodeExe` 且不得裸 `node`、成功归零锁、未引入强推/硬回退的反向锁)。**生效不需要重启服务**:外壳每轮以子进程调起本脚本,下一轮即读新代码 —— 这一点由 `ihui-deploy-loop.ps1` 头注第 2 条实证,不是推测。
 - **如实登记边界**:本票改动的**报警阈值一侧**尚未在真分叉现场跑过现网读数(落地时 `behind=0`,分支未触发),现有证据只到"解析 + 行为夹具 + 源码顺序锁"三层。第一手现网证据由值守票负责回收:出现 `AUTO-CONVERGE` / `SKIP 本轮不切流` 即为生效,出现 `连续 5 轮…自动收敛无效` 才算真停摆。另记本机会话内的两次自纠(都是"扫到 0 先怀疑尺子"的实录):用整份跨天日志算出"22 封"是**虚高**,用中文关键词去匹配这份 **GBK 日志**得到的"0 封"是**假零**;最终按时间戳前缀 + ASCII 标记才数对。
+- [x] ✅(2026-09-27) **G-239 守门 146 `check-readme-table-integrity` 的两笔欠账:注册块曾被盖掉、README 61 行存量与豁免到期档缺失(批次 41 清偿)**
+- [x] ✅(2026-09-27) **G-239 守门 `check-readme-table-integrity` 的注册块不见了 —— 补注册前必须先清偿它自己的存量**（归属：该门持有者；本线只解除它挡住的提交链）
+  事实链(逐条现读,不是推断):① 注册块确实丢过一次 —— `git log --all -S check-readme-table-integrity.mjs -- scripts/guardian-runner.mjs`
+  给出 `f2f90a666`(接入)与 `b4905b158`(接回),中间那枚 union 合并把注册整块盖掉而**文档面的声称留在原地**,
+  ⇒ 守门 89 的 R2 对每一次碰 README 的提交判红;我一度把它误判成"另一路会话的谎报",并在 AGENTS/README 各写了一条"尚未注册"的更正
+  —— 那条更正本身在 40 分钟内变成第二份过期台账(并发已把编号挪到 146),**已由本枚删掉并与现行条目归并**。教训写进这里:
+  登记"某门未接线"与登记"某门已接线"同样是**会腐的机器事实**,只能按当次实测取,不得作为常驻条目留在文档面。
+  ② 门体判红的是**存量**而非缺陷:`node scripts/check-readme-table-integrity.mjs` 现读 README.md 61 行 T-A(6 个 run),
+  棘轮 cap=0 ⇒ 本枚按门自己给的出口清偿:`node scripts/readme-table-unwrap.mjs --file README.md --apply`。
+  独立复量(不采信工具自证):剥竖线与空白后字符多重集 **743252 == 743252**、差异键 **0**,行数 6295 → 6234(恰减 61)。
+  ③ `table-cell-exempt` 从未进守门 108 的存活期表(镜像 T3 红),本枚补 30 天档 —— 它是**待偿的改写债**(长格内容要挪出表格),
+  不是结构性定性;补档后 §22c 镜像与门自身 `--self-test` 的取证见本枚提交信息。
+  否证一条(免得下一个人重新猜):**没有**用"抬高 cap / 改判据"消红 —— 台账 cap 保持 0,`--update-baseline` 未跑。
+  同场两条**归属他人**、本枚刻意不动的事实:`check-rn-double-header` 现值 runner `id: 145`、`check-crash-report-redaction` `id: 144`
+  (撞号与否一律以 `node scripts/check-gate-wiring.mjs` 的 `duplicateIds` 现值为准,本轮实测 `0`);README.md 守门速查表里
+  `| 144 |` 那一格点的是 `check-rn-double-header.mjs` 而 runner 的 144 是崩溃上报门 —— 该行属其持有者,只登记不代改。
+### P0 登记(2026-09-27 实测):Windows 桌面端 CI 发版链已断,后续所有 Windows 用户拿不到更新
+- **症状**(run 36293577132,tag `desktop-v0.1.45`):`Build Desktop (windows-x64) => failure`,其余三平台 success。失败点不在编译 Rust,而在打包最后一步 makensis:
+  `Error in macro CheckIfAppIsRunning on macroline 11` → `Error in script "…\target\release\nsis\x64\installer.nsi" on line 683 -- aborting creation process` → `failed to bundle project: Failed to bundle app with makensis`。
+  随后的 `Verify bundle produced (fail loudly)` 判出 `产物数量: 0` 并**拒绝静默成功**(这道断言是对的,本次正是它把失败暴露出来,否则又是一个"CI 绿而没包")。
+- **连带后果(这是"影响面"而不是"另案")**:windows job 一红,`Publish Updater JSON`、`Sync release to Gitee (国内发行)`、`Sync Downloads to public/downloads/` **三步全部 skipped** ⇒ ① GitHub release `desktop-v0.1.45` 里**没有 Windows 安装包**(只有 rpm/AppImage/deb/dmg/app.tar.gz);② `apps/web/src/config/desktop-feed.generated.ts` 仍停在 **0.1.44**(现读);③ 线上 `https://aizhs.top/desktop-feed.json` 现读仍是 **0.1.44**。即 updater 的主端点对 Windows 永远回"无更新",**所有 Windows 用户都收不到 0.1.45 及之后的任何版本**,直到这条修好。
+- **判据已排除"是本票改动引入"**:本票只动 `src-tauri/src/lib.rs` 与一个 web hook,未碰任何 `.nsi/.nsh`;且**同一台机、同一份 `.nsi`、同一次 tauri build 的 makensis 成功**产出了 `智汇AI_0.1.45_x64-setup.exe` + `.sig`(40.63s)⇒ 差异在 **CI 端 NSIS 环境(版本 / `nsProcess` 等插件可用性)**,不在仓库内容。`CheckIfAppIsRunning` 宏体住在 Tauri 生成的 `target/release/nsis/x64/utils.nsh`(非入库文件)。
+- **时间窗**:上一枚 tag `desktop-v0.1.44`(2026-09-24)同流程 **success** ⇒ 断点在 09-24→09-27 之间。两个候选未取证:(a) GitHub `windows-latest` runner 镜像升级换了 NSIS/插件(CI 日志同期已在提示 ubuntu-latest 迁移,镜像基线在动);(b) `c29c220ce`(nsDialogs z 序真机修复)确实改过 `src-tauri/windows/`,需逐行看它有没有碰到 `CheckIfAppIsRunning` 的两个插入点(installer.nsi 690/848 行,即卸载段与安装段各一处)。
+- **本票没有顺手修它**,理由不是"不归我":修它必须在 CI 环境里复现 makensis 差异(本机成功、CI 失败 ⇒ 本地跑一万遍也不会红),靠 push 试错会占用整条发版链;而**用户当下这台机已用替换 exe 升到 0.1.45**,不再依赖这条链。接手者请先跑 `gh run view 36293577132 --log` 看 windows job 里 makensis 的版本行与 `!addplugindir`,再决定是钉住 NSIS 版本还是补插件目录 —— 别从改 `.nsi` 开始。
+- **顺带登记一条发版脚本缺陷**(与本票同批实测):`scripts/release-desktop-local.mjs` 的"单一产物不变量"清理用裸 `rmSync`,旧包被运行中的安装器占用时报 `EPERM/Device or resource busy` 并让**整条本机发版在第 2b 步崩掉**(Gitee 直传 / 版本提交 / 自装全没执行),而 `tauri build` 其实已成功 —— 账面读起来像"发版失败"。修法=删不掉时点名并继续(不变量复查仍照判),不得为了让它绿而放宽判据。
+- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-239」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 **G-239 守门 `check-readme-table-integrity` 的注册块不见了 —— 补注册前必须先清偿它自己的存量**（归属：该门持有者；本线只解除它挡住的提交链）
+## O86附⑧ 收口三件（运维邮件唯一出口的闸门 / 门 137 最后一格安全收窄 / 退化指纹的关联闸）+ 两格否证
+- **`c4b366171` 脚本侧唯一发信出口也上闸门**：上一笔只封了进程内的 `pushAlertWithResult`，而 §5e 规定的 ops 唯一出口 `apps/api/scripts/notify-deploy-failure.ts` **不走那条路** —— 凭据巡检把各检查项 `detail`（含自家接口响应体前 60 字符、GitHub run 三字段、git 异常原文）拼成 message 从这条通道寄出。现三条来源（`--message-file` / `--message` / CI 拼装）一律过 `sanitizeAlertMessage`，并加源面装车锁三档。幂等 ⇒ 调用方自己先归一化也不冲突。
+- **`b285eda9d` 门 137 剩余未判定里唯一那一格可安全摘的摘掉了**：Drizzle 的 `passwordHash: text('password_hash')` 这类**列声明**不承诺产出摘要，此前 14 处挂在未判定让 `--strict` 长期拒绝出合格证。判据只认"列构造器 + 字面量列名 + 至多 `notNull/primaryKey` 修饰"、限 field 且非 Python，复用**保字符串**的取材面（列名就住在字面量里，连字符串一起抹 ⇒ 判据失明，本仓反复踩过）。两条反向锁独立跑绿：同文件另一处 `const passwordHash = [a,b].join('|')` 落盘**仍判红**；`text('a') + salt` 与 Python 同名调用**不吃豁免**。现读：命中 0、放过 292、未判定 203、自检 45/45、镜像 10/10。**剩下 203 处按判据现状不再收窄**（跨文件一跳已做完；再往下只剩"扩 BENIGN 名单"那一刀，它会把 ORM 声明与 `json.dumps` 同刀切错 ⇒ 明确判否，不是待办）。
+- **`1f7800e37` 退化指纹不得当跨账号关联键整包外发**：黑名单端点按 device 查"关联用户"时既无上限也不判这枚指纹有没有区分度，而移动端采集器只喂 `Platform.OS`（同 OS 必然同值）⇒ 管理员手填 `type=device` 就能把全网同 OS 账号连成一片，且响应与"真关联到 3 个账号"完全同形。现由 `judgeFingerprintAffiliation` 在出口判（阈值 10，理由在注释：真实共享是个位数、退化形态是数千），超发改发 `discriminating:false` + 5 个样本 + `withheldUserCount` 点名截断量，既有键名与状态码一字未改；**刻意不加 SQL limit**（会让"库确认命中数"失真，反把退化指纹判成正常）。9 例新测试含边界 10/11 与两条变异反向锁（摘调用点 6 红、阈值灌大 3 红）。
+- **两格否证（登记为"已查、不是缺陷"，免得下一个人重查）**：① `apps/ai-service/.../account_profile.py` 往 `anti-profiles/<id>/profile.json` 写明文 `geolocation` —— 那是**我们自造的 8 座城市假坐标**、非用户真实位置、且全仓无任何邮件/告警读者，与"跨账号比较键必须摘要"不是同一型，不改。② `apps/ai-service/.../fingerprint_isolation.py:182-185` 的 `logger.debug` 打印 geo dict —— 生产日志级别未开 debug，且实测生产 430 封已发信里 8 座城市字面量**零命中**。
+- **生产拾取已回读**（`D:\IHUI-AI` 只读）：HEAD 含上述全部提交；`email-templates.ts` 里 `43.82` 现读 **0 命中**、文件 mtime 03:58 **早于** api 进程启动 04:27 ⇒ 跑的是新代码，用户已确认"确实没了"。
+- **本线到此为终点，无遗留待办**：移动端采集器怎么改（补采字段 / 安装期 UUID / 只改判定）仍是**移动端持有者**的产品决定，三条选项与爆炸半径已量成决策就绪的简报存于台账 O86附⑥；本会话不代裁、也不把它当自己的账。
+- [x] ✅(2026-09-27) O81 票⑬ —— **读数补三条 + 真 A 类一枚 + 13 族差异逐条登记理由**。承票⑫ 尾部"仍未收口①/②"。
+  并行派 4 路代理做逐档归因(只读取证),我逐条自己复量后才落账 —— 代理的转述有两次被我推翻,记在下面。
+  **一、尺子又补两格假阳(同一型:覆盖面小于两端的书写形态)。**
+  ① **内联引号串里的长度**:`style={{ padding: '0 20rpx 10rpx' }}` 的简写提取式按"分号/花括号收尾"
+  取声明体、再按空白切 token,引号粘在**首尾两个 token** 上(`'0` / `10rpx`),既不匹配纯数字也不匹配
+  `…rpx` ⇒ 整条静默漏读;单值引号串(`'20rpx'`)更是连简写循环都进不去(它只认 ≥2 个 token)。
+  后果不是少读一个数,而是**造出假分叉** —— 对面写了同一个值、这边读不到 ⇒ 报成"仅 RN 档"。
+  现只认**整值就是一串纯长度**的 `key: '…'`,逐 token 收档;`calc(50% - 26rpx)` 不计(那是机制不是档)。
+  ② **类名提取的前缀表要求后接连字符**:`textarea-int` 曾被 `text` 前缀误杀 —— 而 `.textarea-int{height:80rpx}`
+  正是全局表里最需要被看见的那一类。
+  **二、归因结果改写了这桩活对"97 档"的理解。**逐档三分类(A=同元素不同值 / B=一端多元素 / C=读数噪音)后:
+  **A 只有 1 枚**,其余全是元素集合分叉与噪音。那枚 A 是 RN 框内发送钮 `sendInShell` 40 vs 小程序 32 ——
+  它此前被登记成"B 单端档·RN",理由写着"小程序同位是 `sand_msg.png` 的 25 裸图标,一者实底钮一者裸图标"。
+  **这个前提已经过期**:首页 ai-home 发送钮在票⑨ 已收成 `controlBox`(32)的 cta 实底方块,两端是同一控件,
+  于是它从"变体差异"变成"同一元素各取一档"。改法是接回已有单一源头 `GEOMETRY_PX.controlBox`
+  (其注释引 web `message-input` 的 `h-8 w-8`),不发明新数字;放大钮右偏移本就是它的派生式,自动跟随。
+  **三、13 族差异逐条登记 `waivers`(台账此前 `waivers` 恒空 = 102 档一处理由都没写过,而 O81 明写"静默不同形算违规")。**
+  每条理由都写着我**自己跑过的现读命令**,不是代理转述 —— 代理的转述被现读推翻过两处:
+  ① 代理称 BottomActionBar 的 `actions` 旧模式行"无调用方",实测 `OrderDetailScreen.tsx:245` 真传 `actions` ⇒ 那是活的单侧元素,不能当死码;
+  ② 代理称 Carousel 的 course 叠加层是"变体差异",实测 `variant="course"` 有 1 处真实调用点 ⇒ 真在渲染。
+  反过来,三条"生产不可达"经我复核成立并写进理由:`IntelligentAssistant.robotImage` 调用点**只有测试文件**、
+  `ModelConfigDialog` 的 `variant=aigc|indexa|selecter` 三档传参调用点**各为 0** ⇒ 该族 6 档里 5 档屏幕上根本不渲染。
+  **四、我上午的下调台账把 HEAD 钉红过一次,这笔账必须记在自己名下。**
+  并发会话 `e67d6bce4c` 登记:「台账 11:18 被下调、我侧改动 09:33 在前 —— 不代改别人的台账与几何裁决」。
+  属实:`tighten.mjs` 只允许"下降"并当场通过,但它量的是**我这一侧的树**,别人那笔已推未合的改动会让新锚点当场偏低 ⇒
+  **我对"只降不升"加了一条前置**:任何上调都必须用"中和本次读数改动后的旧口径"证明旧口径 ≤ 锚点,
+  任何"旧口径就已超锚"一律拒绝写入;键集变化、圆角两维被动、判据输入表(aliases/pairingRejects)丢失同样拒绝。
+  本轮据此重锚 4 族上升(AgentRuntimePanel 0→1、BottomActionBar 16→17、DrawerComponent 17→19、ModelList 4→6)
+  + 1 族下降(InputArea 16→15),**圆角两维一字未碰**(那是票⑧/RE 维持有者的锚点),合计 97 → 102 档 ——
+  这 5 档是"门现在看得见而以前看不见"的真值,不是新债。
+  取证:自检 81 → **88 条**(㉮-㉱ 简写四条含"摘掉循环必翻红"的自带牙、㉅-㉇ 样式表三条),镜像 23 例;
+  `--staged` 面 **exit 0 / 超锚点判红 0 / 带理由豁免 13**。
+  **仍未收口(如实登记,不猜)**:① 13 族里 **B 类元素集合分叉是主体**(如 RN 页头 subtitle、底部弹层拖拽条与
+  × 关闭钮、抽屉左滑收藏/删除、用户卡充值/邀请/退订三张按钮卡),把它们"裁齐"要动界面元素本身 ——
+  删是砍功能、加是 §24 新增能力,**不属我可自主裁定的范围**,现每族都已带理由与到期日;
+  ② 死分支(上面第三条那 5+3 档)仍计入读数,门只按文件级判可达性、看不见分支级不可达 —— 要做的是把
+  "prop 无生产调用点"接成一条真判据(不是披露),那是独立一票;
+  ③ 全局样式表归因**我试了并撤了**:类名锚定实测既没抓到目标(类名藏在三元/变量里),
+  又把别处的档算到组件头上,故改为点名"读数不完整"而不是猜归因。

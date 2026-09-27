@@ -195,6 +195,19 @@ describe('闸门住在共同出口(不是只住在某几个生产者头上)', ()
     expect(svc).toContain('const title = flattenUntrustedText(notification.title)')
   })
 
+  it('脚本侧唯一发信出口(notify-deploy-failure)三条 message 来源全部过闸门', () => {
+    // 该脚本是 §5e 规定的 ops 邮件唯一出口,而它**不走 pushAlert** —— 闸门只放在
+    // pushAlertWithResult 上盖不到这条通道(凭据巡检的 detail 里含上游响应体前 60 字符)。
+    const script = readFileSync(
+      fileURLToPath(new URL('../scripts/notify-deploy-failure.ts', import.meta.url)),
+      'utf8',
+    )
+    expect(script).toContain('sanitizeAlertMessage(parts.fileContent)')
+    expect(script).toContain('sanitizeAlertMessage(parts.message)')
+    // 固定串拼装那一支也要过:它拼的是 CI 传进来的 stage/trigger(外部可控)
+    expect(script).toMatch(/return sanitizeAlertMessage\(\s*\[/)
+  })
+
   it('出口之后各渠道只能拿到闸门后的变量(不得再回读 notification.message)', () => {
     // 锚点要落在**赋值行之后**:赋值行本身当然含 notification.title,
     // 从它起算会把那两行自己的赋值读成"违规回读"预言据恒红。
