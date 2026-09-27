@@ -21,6 +21,7 @@ import {
   setDeviceFingerprintProvider,
   setUnauthorizedHandler,
   setUserAgent,
+  type UnauthorizedContext,
 } from '@ihui/api-client'
 import {
   API_BASE_URL,
@@ -102,8 +103,13 @@ async function refreshAccessToken(): Promise<string | null> {
  * 实测 logcat 反复打「上报移动端能力失败:Invalid or expired token」,屏幕上什么都没有。
  *
  * 三条边界,对应 api-client 侧 notifyUnauthorized 的三条不变量:
- * 1. **游客态不接管** —— 手里根本没有凭据时,401 是"这个接口需要登录"而不是"你的会话死了";
- *    把没登录的人拽到登录页会让公开内容浏览变成打断。
+ * 1. **不再以"内存里有没有 token"作准入条件**(2026-09-27 真机实测推翻旧写法)。
+ *    旧守卫写的是 `if (!memoryStore.getToken()) return`,理由是"游客的 401 是该接口要登录,
+ *    不是会话死了"。真机上它恰好把**最需要出路**的那一态判成了游客:App 自认已登录
+ *    (桥接在跑、页面按登录态渲染)而 SecureStore 那份缓存里没有凭据 ⇒ 请求不带 Authorization
+ *    → 401 → 续期也拿不到 token → 通知进来 → 被这条守卫挡回去,用户永远停在原地。
+ *    能走到本函数的前提已经是"本应用主动发了一次需要身份的请求且它 401 了",
+ *    游客浏览公开内容时不会走到这里。
  * 2. **不重复跳** —— 已经在 Login 上就什么都不做。刻意**不引入模块级布尔量**做去重:
  *    布尔量需要一个"何时复位"的第二真相(登录成功后谁负责清?),而"当前路由是不是 Login"
  *    本身就是同一个事实的直接读法,不会与之漂移。
@@ -112,11 +118,24 @@ async function refreshAccessToken(): Promise<string | null> {
  *
  * 与 web 的"非 GET 才弹"口径**刻意不同**:这次挂在屏上的恰恰是 GET(列表/统计),
  * 若照抄该规则,RN 依旧没有任何出路。web 那一条服务于"不打断填表",RN 没有表单弹窗可打断。
+ *
+ * **拒绝接管必须出声**:本函数唯一的静默出口是"已经在 Login 上"(那是成功状态的幂等,
+ * 不是失败)。navigator 未就绪是一真失败,喊一次即可 —— 与 §5e"失败必须响"、
+ * 守门 70/76/81"判据失效的表现永远是安静"同一条禁令。
  */
-function onUnrecoverableUnauthorized(): void {
-  if (!memoryStore.getToken()) return
-  if (!navigationRef.isReady()) return
+let unreadyWarned = false
+function onUnrecoverableUnauthorized(ctx: UnauthorizedContext): void {
+  if (!navigationRef.isReady()) {
+    if (!unreadyWarned) {
+      unreadyWarned = true
+      console.warn(
+        `[rn-auth] 会话失效但跳不了:navigator 尚未就绪(${ctx.method} ${ctx.url}) —— 本进程只喊这一次`,
+      )
+    }
+    return
+  }
   if (navigationRef.getCurrentRoute()?.name === 'Login') return
+  console.warn(`[rn-auth] 会话失效 → 跳转登录页(来源 ${ctx.method} ${ctx.url})`)
   navigateTo('Login')
 }
 
