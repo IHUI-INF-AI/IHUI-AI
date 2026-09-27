@@ -340,7 +340,8 @@ const newStyles = StyleSheet.create({
     // 描边不得取墨档 text.primary(亮 #0A0A0A / 暗 #FAFAFA)——项目设计里没有纯黑描边;
     // 本块填充就是 brand.cta,描边同色即"加厚",两态观感与改前一致且不再出现墨档
     borderColor: tokens.brand.cta,
-    borderRadius: rnRadius.xl,
+    // 角色档 control(按钮)→ sm:此前取 xl(12) 是"端内单独把按钮拧大",与小程序端同一枚登录钮分叉
+    borderRadius: rnRadius.sm,
     // 上下内边距与小程序端同档(原写死 14,小程序 `py-3` 是 12 ⇒ 同一按钮两个数);
     // 左右 32 是本端胶囊形态,按 spec 文件末差异登记保持不动
     paddingVertical: USER_INFO_CARD_LOGIN_PADDING_Y_PX,
@@ -355,7 +356,9 @@ const newStyles = StyleSheet.create({
   card: {
     marginTop: 8,
     padding: USER_INFO_CARD_PADDING_PX,
-    borderRadius: rnRadius.xl,
+    // 角色档 card → lg(8):用户定档"卡片类元素一律 lg,不得在任一端单独取 xl"。
+    // 小程序端同一张卡的根容器本就是 `rounded-lg`(8) ⇒ 此前是 RN 单端把卡片拧到 12。
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -426,7 +429,9 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: USER_INFO_CARD_BADGE_PADDING_X_PX,
     paddingVertical: USER_INFO_CARD_BADGE_PADDING_Y_PX,
     backgroundColor: tokens.surface.muted,
-    borderRadius: rnRadius.xs,
+    // 角色档 chip → md(6):小程序端同排的 VIP / 操盘手 / 等级三枚徽章是同一角色,
+    // 此前两端各写 2 / 4 —— 都在档位表上但都不等于 chip 档,所以是"同角色两个数"。
+    borderRadius: rnRadius.md,
   },
   roleBadgeVip: {
     backgroundColor: tokens.warning.light,
@@ -467,7 +472,8 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: USER_INFO_CARD_ACTION_PADDING_X_PX,
     paddingVertical: USER_INFO_CARD_ACTION_PADDING_Y_PX,
     backgroundColor: tokens.brandAccent.DEFAULT,
-    borderRadius: rnRadius.md,
+    // 角色档 control(按钮)→ sm(4):与小程序端「充值」钮同形,那一端本就是 `rounded-sm`
+    borderRadius: rnRadius.sm,
   },
   rechargeBtnText: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
@@ -569,6 +575,8 @@ const newStyles = StyleSheet.create({
   modalCard: {
     width: '80%',
     backgroundColor: tokens.surface.card,
+    // 保留 xl(12):这一格是**弹窗**(等级说明 Modal),角色档 panel → xl,不是卡片。
+    // 不得为了"卡片一律 8"把它一起收小 —— 那属于按档名误读角色。
     borderRadius: rnRadius.xl,
     padding: 20,
     alignItems: 'center',
@@ -604,7 +612,9 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 8,
     backgroundColor: tokens.brandAccent.DEFAULT,
-    borderRadius: rnRadius.xl,
+    // 角色档 control(按钮)→ sm(4):弹窗本体是 panel(xl),但弹窗里的关闭钮仍是按钮,
+    // 不得随容器继承 xl —— 同文件 tokenRow / growthRow 那几档 md 是行容器,不是按钮。
+    borderRadius: rnRadius.sm,
   },
   modalCloseBtnText: {
     fontSize: 14,
