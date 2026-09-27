@@ -258,7 +258,7 @@ export default function ModelConfigDialog({
               </Text>
               <Input
                 type="digit"
-                className="w-full py-2 text-sm bg-muted rounded-lg"
+                className="w-full py-2 text-sm bg-muted rounded-sm"
                 style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="0.7"
                 value={config.temperature?.toString() || ''}
@@ -274,7 +274,7 @@ export default function ModelConfigDialog({
               </Text>
               <Input
                 type="number"
-                className="w-full py-2 text-sm bg-muted rounded-lg"
+                className="w-full py-2 text-sm bg-muted rounded-sm"
                 style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="2048"
                 value={config.maxTokens?.toString() || ''}
@@ -290,7 +290,7 @@ export default function ModelConfigDialog({
               </Text>
               <Input
                 type="digit"
-                className="w-full py-2 text-sm bg-muted rounded-lg"
+                className="w-full py-2 text-sm bg-muted rounded-sm"
                 style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="0.9"
                 value={config.topP?.toString() || ''}
@@ -305,7 +305,7 @@ export default function ModelConfigDialog({
                 {tt('model.systemPrompt', '系统提示词')}
               </Text>
               <Input
-                className="w-full py-2 text-sm bg-muted rounded-lg"
+                className="w-full py-2 text-sm bg-muted rounded-sm"
                 style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="You are a helpful assistant"
                 value={config.systemPrompt || ''}
@@ -796,7 +796,7 @@ export default function ModelConfigDialog({
                   {item.desc}
                 </Text>
                 <Input
-                  className="w-full py-2 text-sm bg-muted rounded-lg"
+                  className="w-full py-2 text-sm bg-muted rounded-sm"
                   style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                   placeholder={t('ModelConfigDialog.y2', { p1: item.desc })}
                   value={(configParamsObj[item.name] as string) || ''}
