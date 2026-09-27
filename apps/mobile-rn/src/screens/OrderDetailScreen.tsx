@@ -8,6 +8,7 @@ import { Alert, StyleSheet, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { checkPaymentStatus, createWechatAppPayment, fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { OrderDetailScreen as SharedOrderDetailScreen, type OrderDetailItem } from '@ihui/rn-app'
 import { BottomActionBar, type BottomActionBarAction } from '../components/BottomActionBar'
 import { PurchaseNoticePopUp } from '../components/PurchaseNoticePopUp'
@@ -56,7 +57,7 @@ export function OrderDetailScreen() {
         setNoticeVisible(true)
       }
     } else {
-      setError(res.error || t('orderDetail.loadFailed'))
+      setError(apiFailureToText(res, t('orderDetail.loadFailed')))
     }
     setLoading(false)
   }, [id, t])
