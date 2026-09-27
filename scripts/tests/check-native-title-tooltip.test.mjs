@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-native-title-tooltip.mjs')
 
 // ─── 辅助:创建临时扫描目录(含 apps/ 结构,用于全量模式) ─
 function createTempScanDir(files) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-title-'))
+  const dir = mkScratch('ihui-title-')
   for (const [relPath, content] of Object.entries(files)) {
     const fullPath = join(dir, relPath)
     mkdirSync(join(fullPath, '..'), { recursive: true })
@@ -45,7 +45,7 @@ function runStaged(cwd) {
 
 // 辅助:创建临时 git repo(含 baseline commit),用于 staged 模式测试
 function createTempGitRepo(files) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-title-git-'))
+  const dir = mkScratch('ihui-title-git-')
   spawnSync('git', ['init', '-q'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
   spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
   spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
@@ -100,7 +100,7 @@ test('违规: <Button title="编辑"> → stdout 报告 [title], exit 0(warn-onl
     assertHasViolation(r, /\[title\]/)
     assert.match(r.stdout, /BadButton\.tsx/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -112,7 +112,7 @@ test('违规: <button title="...">(原生小写) → 报告 [title]', () => {
     const r = runScript(dir)
     assertHasViolation(r, /\[title\]/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -124,7 +124,7 @@ test('违规: <td title={value}> → 报告 [title]', () => {
     const r = runScript(dir)
     assertHasViolation(r, /\[title\]/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -136,7 +136,7 @@ test('违规: <div title="..."> → 报告 [title]', () => {
     const r = runScript(dir)
     assertHasViolation(r, /\[title\]/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -149,7 +149,7 @@ test('违规: span/a/img 多行各含 title → 报告 3 处违规', () => {
     assert.equal(r.status, 0, '全量模式应 exit 0(warn-only)')
     assert.match(r.stdout, /违规数:\s+3\s+处/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -166,7 +166,7 @@ test('豁免: <Button asChild title="..."> → 无违规(asChild 透传)', () =>
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -178,7 +178,7 @@ test('豁免: <iframe title="..."> → 无违规(a11y 必需,WCAG)', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -190,7 +190,7 @@ test('豁免: <Modal title="..."> / <Dialog title="..."> → 无违规(component
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -202,7 +202,7 @@ test('豁免: <Document title="..."> / <html title="..."> → 无违规(SEO 元�
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -214,7 +214,7 @@ test('豁免: 注释行 // <button title="..."> → 无违规(纯注释不检测
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -229,19 +229,19 @@ test('边界: 空 .tsx 文件 → 无违规', () => {
     assert.equal(r.status, 0)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 test('边界: 无 apps/packages 目录 → 扫描 0 文件 exit 0', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-title-empty-'))
+  const dir = mkScratch('ihui-title-empty-')
   try {
     const r = runScript(dir)
     assert.equal(r.status, 0)
     assert.match(r.stdout, /扫描文件: 0/)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -261,7 +261,7 @@ test('批量: apps/ 含 3 文件(2 违规 + 1 合法)→ 报告 2 违规,合法�
     const goodInViolation = /Good\.tsx/.test(violationSection.split('修复方法:')[0] || '')
     assert.ok(!goodInViolation, 'Good.tsx 不应出现在违规列表中')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -276,7 +276,7 @@ test('staged 模式: 空暂存区(无 .ts/.tsx 变更)→ exit 0 跳过', () => 
     assert.equal(r.status, 0, '空暂存区应 exit 0')
     assert.match(r.stdout, /跳过|暂存区无/, '应显示跳过消息')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -297,7 +297,7 @@ test('staged 模式: 暂存含 Button title 违规 → exit 1 报告 [title]', (
     assert.match(r.stdout, /\[title\]/, 'stdout 应报告 [title] 违规')
     assert.match(r.stdout, /Bad\.tsx/, 'stdout 应列出违规文件 Bad.tsx')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -316,7 +316,7 @@ test('staged 模式: 修改已有合法文件新增 title 违规 → 仅新增�
     assert.equal(r.status, 1, 'staged 模式应检测到新增 title 违规并 exit 1')
     assert.match(r.stdout, /Good\.tsx/, 'stdout 应列出违规文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -331,7 +331,7 @@ test('多行 JSX: <Button ...> 跨多行 + title={...} 单独一行 → 报告 [
     assertHasViolation(r, /\[title\]/)
     assert.match(r.stdout, /MultiBtn\.tsx/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -346,7 +346,7 @@ test('多行 JSX: 箭头函数 onClick={() => x()} 不应误清空 inJsxTag', ()
     assertHasViolation(r, /\[title\]/)
     assert.match(r.stdout, /Arrow\.tsx/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -359,7 +359,7 @@ test('多行 JSX: 自闭合 <Tag /> 单独一行 → 下一行 title 不应误�
     const r = runScript(dir)
     assertHasViolation(r, /\[title\]/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -371,7 +371,7 @@ test('豁免: 多行 component prop <Modal title="..."> → 无违规', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -388,7 +388,7 @@ test('违规: 多行 <button ...> 跨多行 + title=... 单独一行 → 报告 
     assertHasViolation(r, /\[title\]/)
     assert.match(r.stdout, /NativeBtnMulti\.tsx/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -401,7 +401,7 @@ test('违规: 多行 <span ...> 跨多行 + title=... 单独一行 → 报告 [t
     assertHasViolation(r, /\[title\]/)
     assert.match(r.stdout, /SpanMulti\.tsx/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
