@@ -8263,6 +8263,10 @@
           "title": "File is too large",
           "action": "Shrink the file and retry"
         },
+        "FORM_CHANNEL_UNAVAILABLE": {
+          "title": "Business form requests are only available in the main chat flow",
+          "action": "Do not retry this tool; ask the user directly in your reply instead"
+        },
         "GENERATION_FAILED": {
           "title": "Generation failed",
           "action": "Retry"
@@ -12035,8 +12039,13 @@
       "errorDesc": "An error occurred during the update. Please retry.",
       "installing": "Installing",
       "preparing": "Preparing update...",
+      "quitChecking": "Checking for updates...",
       "upToDate": "Up to date",
       "upToDateDesc": "You are on the latest version",
+      "quitDownloading": "Downloading update...",
+      "quitQuitting": "Quitting...",
+      "quitRestarting": "Update complete, restarting...",
+      "quitSkip": "Skip and quit",
       "restart": "Restart App",
       "restartLater": "Restart later",
       "restartNow": "Restart now",
