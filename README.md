@@ -4194,6 +4194,11 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **调度器 + 实时通知**:scheduler + WebSocket + content_parser + image_uploader + platform_rules + platform_formatter + platform_dom_selectors + platform_rule_versions(版本化 + 灰度回滚)
 - **AI 写作助手**:ai_assistant(智能改写 + 多风格切换 + 内容模板库 ContentTemplateLibrary)
 - **前端 UI 精装修**:AccountGroupManager / AiWritingAssistant / AnalyticsDashboard / BatchImportDialog / ContentTemplateLibrary / CookieHealthIndicator / PlatformPreview / PublishCalendar / RichTextEditor / AdminFilterBar / AdminPagination(11 新组件 + 6 修改,所有页面 < 250 行)
+- **凭据身份与画像根锚定(2026-09-27 收口)**:身份键唯一出口 `apps/ai-service/app/services/publish/anti_risk/account_identity.resolve_account_id(platform, credentials, db_account_id)` —— 适配器不得再自造 `f"{platform_id}_{credentials['account_id'] or 'default'}"`,那种键会让同平台所有账号在反风控层共用一张脸;画像根与 5 个反风控状态文件(设备图谱/审计/冷却/风险事件/Cookie 健康度)一律**锚定仓库根、与启动目录无关**(`ANTI_RISK_PROFILE_DIR` 仍可覆盖),旧位置由 `apps/ai-service/scripts/relocate_profile_root.py` 搬迁(默认 dry-run,回读 `Cookies` 字节 + mtime 一致才删源)。
+- **登录导入先验后写 + 覆盖可回滚**:扫码与粘贴两条路径共用 `verify_login_candidate()` → `should_overwrite_existing_credentials()` → 才写库(此前**无条件覆盖**,一次失败导入能把可用凭据换成过期集合而账面全绿);每次覆盖把旧密文压进 `extra.credentialsHistory`,写库出口唯一 = `publish/credential_history.apply_credentials_update()`(三处调用点),`last_verify_msg` 存**当轮真实结论**而非硬编码"扫码登录成功"。
+- **表单字段与适配器实读键对账**:前端注册表 10 处漂移(wordpress/medium/bilibili/zhihu/juejin 键名 + 五家泛键 `cookie`)按"权威侧 = 适配器"订正,常驻尺子 = `apps/api/tests/publish-credential-field-parity.test.ts`(P1 逐键等值 / P2 覆盖差如实报数 / P3 空扫判死)。
+- **Cookie 自动保活默认关**:`cookie_refresh_daemon` 启动期无人调用 `ensure_started()`,须显式开启 —— 在用户第三方账号上做未取证的写动作前保持关闭(判据与恢复方式见 `docs/PUBLISH_SETUP.md` §5)。
+- **发布运维文档**:`docs/PUBLISH_SETUP.md` 逐平台写明"要哪些凭据字段 / 怎么拿 / 失败长什么样",14 个平台锚点与 `setupHint` 出口由 `apps/api/tests/publish-setup-anchor.test.ts` 对账。
 - **新增 API 端点**:`/api/publish/analytics`(发布数据分析)+ `/api/publish/calendar`(日历排期)
 
 #### 企业级安全矩阵(RBAC + RLS + SSO + MFA + GDPR)
