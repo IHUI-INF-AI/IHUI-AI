@@ -213,7 +213,7 @@ export default function PlazaCover() {
 
         {/* 未开发者入口引导(小程序独有区块,RN 无对应;按 featureCard+primaryBtn 视觉语言排布) */}
         {!isDev ? (
-          <View className="bg-card border-[length:2rpx] border-border rounded-xl p-[28rpx] flex flex-col gap-[12rpx]">
+          <View className="bg-card border-[length:2rpx] border-border rounded-lg p-[28rpx] flex flex-col gap-[12rpx]">
             <Text className="block text-[length:32rpx] font-semibold text-foreground">
               {tt('plaza.cover.entryTitle', '成为开发者')}
             </Text>
@@ -251,7 +251,7 @@ export default function PlazaCover() {
           {DEV_ENTRIES(tt).map((e) => (
             <View
               key={e.key}
-              className="w-[47%] bg-card border-[length:2rpx] border-border rounded-xl p-[28rpx] flex flex-col items-center gap-[12rpx]"
+              className="w-[47%] bg-card border-[length:2rpx] border-border rounded-lg p-[28rpx] flex flex-col items-center gap-[12rpx]"
               onClick={() => toEntry(e.target)}
               hoverClass="opacity-60"
             >
@@ -266,7 +266,7 @@ export default function PlazaCover() {
         {/* 开发者信息卡(小程序独有内容;容器对齐 RN featureCard,行文字 14dp→28rpx,
             复制操作色 = RN brand.DEFAULT / 到期行 danger.bright 同源 token) */}
         {isDev ? (
-          <View className="bg-card border-[length:2rpx] border-border rounded-xl p-[28rpx]">
+          <View className="bg-card border-[length:2rpx] border-border rounded-lg p-[28rpx]">
             <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[24rpx]">
               {tt('plaza.cover.devInfoTitle', '开发者账号信息')}
             </Text>
@@ -355,7 +355,7 @@ export default function PlazaCover() {
             {QA_FALLBACK(tt).map((qa, i) => (
               <View
                 key={i}
-                className="bg-card border-[length:2rpx] border-border rounded-xl p-[28rpx]"
+                className="bg-card border-[length:2rpx] border-border rounded-lg p-[28rpx]"
                 onClick={() => toWeb(qa.url)}
                 hoverClass="opacity-60"
               >

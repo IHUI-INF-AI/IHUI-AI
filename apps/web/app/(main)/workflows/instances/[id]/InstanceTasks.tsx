@@ -49,7 +49,7 @@ function TaskRow({ task }: { task: Task }) {
   const t = useTranslations('workflows')
   const [open, setOpen] = React.useState(false)
   return (
-    <div className="rounded-md border bg-card">
+    <div className="rounded-lg border bg-card">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

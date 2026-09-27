@@ -190,7 +190,7 @@ export default function MemberFeedbackPage() {
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as FeedbackType)}
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
                 >
                   {Object.entries(typeLabel).map(([v, l]) => (
                     <option key={v} value={v}>
@@ -216,7 +216,7 @@ export default function MemberFeedbackPage() {
                   placeholder={t('contentPlaceholder')}
                   required
                   rows={4}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                  className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
                 />
               </div>
               <div className="space-y-1">

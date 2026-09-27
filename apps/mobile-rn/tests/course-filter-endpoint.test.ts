@@ -35,19 +35,22 @@ function importMap(src: string, ownDir: string): Map<string, string> {
   const out = new Map<string, string>()
   const re = /\bimport\s+((?:(?!\bfrom\b)[\s\S])*?)\s+from\s*['"](\.[^'"]*)['"]/g
   for (const m of src.matchAll(re)) {
-    const target = normalize(`${ownDir}/${m[2].replace(/\.jsx?$/, '')}`)
-    const named = /\{([^}]*)\}/.exec(m[1])
+    const clause = m[1] ?? ''
+    const spec = m[2] ?? ''
+    if (!spec.startsWith('.')) continue
+    const target = normalize(`${ownDir}/${spec.replace(/\.jsx?$/, '')}`)
+    const named = /\{([^}]*)\}/.exec(clause)
     if (named) {
-      for (const raw of named[1].split(',')) {
+      for (const raw of (named[1] ?? '').split(',')) {
         const parts = raw.trim().split(/\s+as\s+/)
         const local = (parts[1] || parts[0] || '').trim().replace(/^type\s+$/, '')
         if (local) out.set(local, target)
       }
     }
-    const head = m[1].trim().replace(/^type\s+/, '')
+    const head = clause.trim().replace(/^type\s+/, '')
     if (!head.startsWith('{') && !head.startsWith('*')) {
-      const def = /^([A-Za-z_$][\w$]*)/.exec(head)
-      if (def) out.set(def[1], target)
+      const def = /^([A-Za-z_$][\w$]*)/.exec(head)?.[1]
+      if (def) out.set(def, target)
     }
   }
   return out
@@ -96,19 +99,22 @@ function collectRegisteredPaths(entryFiles: string[]): {
     const src = read(rel)
     const dir = dirname(rel)
     const imports = importMap(src, dir)
-    for (const m of src.matchAll(
-      /\.(get|post|put|patch|delete|all)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-    )) {
-      const full = canon(joinPrefix(prefix, m[2]))
+    for (const m of src.matchAll(/\.(get|post|put|patch|delete|all)\s*\(\s*['"`]([^'"`]+)['"`]/g)) {
+      const localPath = m[2]
+      if (typeof localPath !== 'string') continue
+      const full = canon(joinPrefix(prefix, localPath))
       if (hasTemplateSeg(full)) templateMounted.push(full)
       else paths.add(full)
     }
     for (const m of src.matchAll(/\bregister\s*\(\s*([A-Za-z_$][\w$]*)\s*(?:,\s*\{([^)]*)\})?/g)) {
-      const pre = /prefix\s*:\s*['"`]([^'"`]*)['"`]/.exec(m[2] || '')
-      const target = imports.get(m[1])
+      const args = m[2] ?? ''
+      const symbol = m[1]
+      if (!symbol) continue
+      const pre = /prefix\s*:\s*['"`]([^'"`]*)['"`]/.exec(args)?.[1] ?? ''
+      const target = imports.get(symbol)
       if (!target) continue
       const file = [`${target}.ts`, `${target}/index.ts`].find((c) => existsInRepo(c))
-      if (file) queue.push({ rel: file, prefix: joinPrefix(prefix, pre ? pre[1] : ''), depth: depth + 1 })
+      if (file) queue.push({ rel: file, prefix: joinPrefix(prefix, pre), depth: depth + 1 })
     }
   }
   return { paths, templateMounted }
@@ -150,8 +156,11 @@ function hasRegistered(paths: Set<string>, p: string): boolean {
     if (bSegs.length !== fSegs.length) continue
     let ok = true
     for (let i = 0; i < bSegs.length; i++) {
-      if (isParamSeg(bSegs[i]) || bSegs[i] === '*') continue
-      if (bSegs[i] !== fSegs[i]) {
+      const b = bSegs[i]
+      const f = fSegs[i]
+      if (b === undefined || f === undefined) continue
+      if (isParamSeg(b) || b === '*') continue
+      if (b !== f) {
         ok = false
         break
       }
@@ -168,8 +177,10 @@ function endpointPath(): string {
   if (start === -1) throw new Error('api-client 里找不到 getLearnCourses —— 出口被改名或摘线')
   const body = src.slice(start, start + 900)
   const lit = /[`'"]((\/api\/)[^`'"]*)[`'"]/.exec(body)
-  if (!lit) throw new Error('没能从 getLearnCourses 读出 /api/ 开头的路径字面量 —— 形态变了')
-  const p = canon(stripInterp(lit[1]))
+  const raw = lit ? lit[1] : undefined
+  if (typeof raw !== 'string')
+    throw new Error('没能从 getLearnCourses 读出 /api/ 开头的路径字面量 —— 形态变了')
+  const p = canon(stripInterp(raw))
   expect(p, '请求路径必须是完整字面量,否则本测试读不到它').toMatch(/^\/api\/[a-z]/)
   return p
 }
@@ -200,10 +211,37 @@ describe('课程筛选屏取数端点必须真实存在', () => {
     expect(paths.size, '注册集合为空 = 尺子失效,不是没有死调用').toBeGreaterThan(200)
     // 反例 4 —— 读不出实路径的模板挂载必须**报名**,不得静默混进集合冒充"已注册"
     // (它们一旦进集合,"这条路径没注册"的断言永不可能成立 —— 实测 /api/${...} 会配上 /api/courses)
-    expect(templateMounted.length, '本仓确有模板段挂载形态,它属已知盲区而不是"没有"').toBeGreaterThan(
-      0,
-    )
+    expect(
+      templateMounted.length,
+      '本仓确有模板段挂载形态,它属已知盲区而不是"没有"',
+    ).toBeGreaterThan(0)
     expect(paths.has('/api/courses')).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 价格轴的行为判据(真机 VC55 拍到"屏不再报错、只剩这一根轴",但"按钮真的有事做"
+ * 不能靠一张空态截图说话 —— 生产库当前已发布课程 total=0,截图永远只能是空态)。
+ * 所以把这条轴的两半各自量一遍:价格解析(后端 numeric 回传字符串)与档位判定。
+ */
+describe('价格轴必须真的过滤', () => {
+  it('后端 numeric 字符串与缺值都归一到同一档', async () => {
+    const { priceOf } = await import('../src/lib/course-filter-price')
+    const row = (price: unknown) => ({ id: 'x', title: 't', price }) as never
+    expect(priceOf(row('0.00'))).toBe(0)
+    expect(priceOf(row('99.50'))).toBe(99.5)
+    expect(priceOf(row(20))).toBe(20)
+    expect(priceOf(row(null))).toBe(0)
+    expect(priceOf(row(undefined))).toBe(0)
+    expect(priceOf(row('abc'))).toBe(0)
+    expect(priceOf(row(-3))).toBe(0)
+  })
+
+  it('三档判定互斥且完备(免费/付费/全部)', async () => {
+    const { matchesPriceTab } = await import('../src/lib/course-filter-price')
+    expect([matchesPriceTab(0, 'free'), matchesPriceTab(9, 'free')]).toEqual([true, false])
+    expect([matchesPriceTab(0, 'paid'), matchesPriceTab(9, 'paid')]).toEqual([false, true])
+    expect([matchesPriceTab(0, 'all'), matchesPriceTab(9, 'all')]).toEqual([true, true])
+  })
+})

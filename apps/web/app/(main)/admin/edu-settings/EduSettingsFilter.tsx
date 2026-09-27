@@ -49,7 +49,7 @@ export function EduSettingsFilter({
           value={groupInput}
           onChange={(e) => setGroupInput(e.target.value)}
           placeholder={t('addGroupPlaceholder')}
-          className="h-7 w-32 rounded border border-input bg-transparent px-2 text-xs"
+          className="h-7 w-32 rounded-sm border border-input bg-transparent px-2 text-xs"
         />
         <Button size="sm" variant="outline" onClick={onAddGroup}>
           {t('filter')}

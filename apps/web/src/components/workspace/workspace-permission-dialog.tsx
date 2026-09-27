@@ -68,7 +68,6 @@ const MODE_OPTIONS: Array<{
   { value: 'bypass-permissions', icon: Shield, risk: 'high' },
 ]
 
-
 /** i18n 静态映射表 — 用于消除 `t(\`ruleType.${var}\`)` 动态拼接 */
 // G-164:档位名/说明此前也是两张端内键表(MODE_TITLE_KEY / MODE_DESC_KEY),G-166 起
 // 统一走上面的 permissionTierText() 共享词表;本弹窗可选哪几档只由 MODE_OPTIONS 决定。
@@ -218,7 +217,7 @@ export function WorkspacePermissionDialog({
 
         {/* 白名单规则管理入口(仅 accept-edits 模式) */}
         {selectedMode === 'accept-edits' && (
-          <div className="rounded-md border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm">
                 <ShieldCheck className="h-4 w-4 text-emerald-500" />
@@ -359,7 +358,7 @@ function RulesEditor({
         <select
           value={newRuleType}
           onChange={(e) => setNewRuleType(e.target.value as PermissionRuleType)}
-          className="rounded-md border border-input bg-transparent px-2 py-1.5 text-xs transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="rounded-sm border border-input bg-transparent px-2 py-1.5 text-xs transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <option value="path">{t('ruleType.path')}</option>
           <option value="command">{t('ruleType.command')}</option>
@@ -377,7 +376,7 @@ function RulesEditor({
         <select
           value={newDecision}
           onChange={(e) => setNewDecision(e.target.value as PermissionDecision)}
-          className="rounded-md border border-input bg-transparent px-2 py-1.5 text-xs transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="rounded-sm border border-input bg-transparent px-2 py-1.5 text-xs transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <option value="allow">{t('decision.allow')}</option>
           <option value="deny">{t('decision.deny')}</option>

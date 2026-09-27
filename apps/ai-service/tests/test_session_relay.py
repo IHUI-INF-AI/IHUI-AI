@@ -269,8 +269,11 @@ def test_store_list_cross_thread_desc(store: SessionStore) -> None:
 # =============================================================================
 
 
-def _seed_thread_with_items(store: SessionStore) -> str:
-    t = store.create_thread(title="项目A")
+def _seed_thread_with_items(store: SessionStore, owner: str = "alice") -> str:
+    # 2026-09-27(G-250 relay 面收口):直调路由函数时必须显式给身份,线程也要有属主 ——
+    # `/api/relay` 此前**一个身份依赖都没挂**,三条按 id 寻址的路由现在先验归属再动手;
+    # 无属主的行对已登录调用方刻意**不可见**(与只读面 `owner_scoped_allows` 同一条口径)。
+    t = store.create_thread(title="项目A", user_id=owner)
     turn = store.start_turn(t.thread_id)
     store.append_item(
         turn.turn_id,
@@ -294,7 +297,7 @@ def test_api_create_summary_contract(store: SessionStore) -> None:
     from app.routers.relay import _CreateSummaryBody
 
     tid = _seed_thread_with_items(store)
-    resp = create_relay_summary(_CreateSummaryBody(thread_id=tid), store=store)
+    resp = create_relay_summary(_CreateSummaryBody(thread_id=tid), "alice", store=store)
     assert resp["code"] == 0
     assert resp["message"] == "ok"
     data = resp["data"]
@@ -315,7 +318,10 @@ def test_api_list_summaries_contract(store: SessionStore) -> None:
     tid = _seed_thread_with_items(store)
     from app.routers.relay import _CreateSummaryBody
 
-    create_relay_summary(_CreateSummaryBody(thread_id=tid), store=store)
+    create_relay_summary(_CreateSummaryBody(thread_id=tid), "alice", store=store)
+    
+    # `/summaries` 跨线程整表列出这一格**本批刻意未收**:真过滤要 store 层加属主参数
+    # (与 `list_threads(owner_user_id=…)` 同形),响应侧筛会让 total 与集合分叉 —— 台账 G-250 在账。
     resp = api_list_relay_summaries(limit=10, offset=0, store=store)
     assert resp["code"] == 0
     assert resp["data"]["total"] == 1
@@ -324,7 +330,7 @@ def test_api_list_summaries_contract(store: SessionStore) -> None:
 
 def test_api_continue_thread_injects_boundary(store: SessionStore) -> None:
     tid = _seed_thread_with_items(store)
-    resp = continue_thread(tid, store=store)
+    resp = continue_thread(tid, "alice", store=store)
     assert resp["code"] == 0
     data = resp["data"]
     assert data["thread"]["parent_thread_id"] == tid

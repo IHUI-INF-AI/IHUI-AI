@@ -29,10 +29,10 @@
 /* ===== 顶部余额卡片(对齐 RN balanceCard: 品牌色底 + 对比字) ===== */
 .balance-card {
   margin: 20rpx;
-  /* 对齐 RN padding 14 / borderRadius 12 (dp→rpx 1:2) */
+  /* 对齐 RN padding 14 (dp→rpx 1:2);圆角按角色档 card→lg */
   padding: 28rpx;
   background: var(--color-cta);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
 }
 .balance-label {
   display: block;
@@ -59,13 +59,13 @@
   box-sizing: border-box;
 }
 .func-btn {
-  /* 对齐 RN tabItem paddingH 14 / height 30 / borderRadius 12 (dp→rpx 1:2) */
+  /* 对齐 RN tabItem paddingH 14 / height 30 (dp→rpx 1:2);圆角按角色档 control→sm */
   display: flex;
   align-items: center;
   justify-content: center;
   height: 60rpx;
   padding: 0 28rpx;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   box-sizing: border-box;
   background: var(--color-card);
   text-align: center;

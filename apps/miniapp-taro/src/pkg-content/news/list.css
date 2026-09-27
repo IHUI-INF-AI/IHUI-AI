@@ -61,7 +61,7 @@
   padding: 4rpx 12rpx;
   background: var(--color-brand-accent-tint);
   border: 2rpx solid var(--color-brand-accent-tint-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .pinned-tag-text {
   font-size: 20rpx;
@@ -137,6 +137,7 @@
   width: 12rpx;
   height: 12rpx;
   background: var(--color-brand-accent);
+  /* radius-exempt: 6px 未读装饰点,圆点不得方档化(§4 装饰点豁免族) */
   border-radius: var(--radius-sm);
   flex-shrink: 0;
 }

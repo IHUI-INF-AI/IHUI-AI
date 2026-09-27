@@ -62,7 +62,7 @@ export default function PointsMallPage() {
         <div className="w-10" />
       </div>
 
-      <div className="mb-4 flex items-center justify-between rounded-md border border-border bg-card px-4 py-3">
+      <div className="mb-4 flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
         <span className="text-sm text-muted-foreground">{t('balance')}</span>
         <span className="text-base font-medium">
           {balance === undefined ? '—' : `${balance} ${t('pointsUnit')}`}
@@ -75,7 +75,7 @@ export default function PointsMallPage() {
           <span>{t('loading')}</span>
         </div>
       ) : mallQ.isError ? (
-        <div className="rounded-md border border-border bg-card p-3 text-center">
+        <div className="rounded-lg border border-border bg-card p-3 text-center">
           <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
           <Button variant="outline" size="sm" onClick={() => void mallQ.refetch()}>
             <RotateCw className="mr-2 h-4 w-4" />

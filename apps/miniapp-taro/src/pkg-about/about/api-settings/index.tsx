@@ -137,7 +137,7 @@ export default function ApiSettings() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx]">
-        <View className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx] overflow-hidden">
+        <View className="bg-card rounded-lg border border-border p-[28rpx] mb-[24rpx] overflow-hidden">
           <View
             className="flex justify-between items-center py-[16rpx]"
             onClick={() => copy(BASE_URL)}
@@ -176,7 +176,7 @@ export default function ApiSettings() {
           </View>
         </View>
 
-        <View className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx] overflow-hidden">
+        <View className="bg-card rounded-lg border border-border p-[28rpx] mb-[24rpx] overflow-hidden">
           <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[24rpx]">
             {tt('about.apiSettings.cozeTitle', 'Coze API 配置')}
           </Text>
@@ -234,7 +234,7 @@ export default function ApiSettings() {
           </Button>
         </View>
 
-        <View className="bg-card rounded-xl border border-border p-[28rpx] overflow-hidden">
+        <View className="bg-card rounded-lg border border-border p-[28rpx] overflow-hidden">
           <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[24rpx]">
             {tt('about.apiSettings.diagnoseTitle', '网络诊断')}
           </Text>
