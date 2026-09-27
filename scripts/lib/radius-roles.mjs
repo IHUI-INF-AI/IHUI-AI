@@ -67,7 +67,15 @@ export const ROLE_STEMS = {
   },
   hero: {
     stems: ['hero', 'banner', 'spotlight'],
-    evidence: '首页主视觉 / 活动横幅 —— 特大容器档 2xl',
+    /**
+     * **名字不得替元素认领尺寸档**(2026-09-27 实测三条 false claim):`compactionBanner` 是一条
+     * 6dp 高的提示条、`.special-banner` 是普通横幅,都被词干推成 hero ⇒ 要求 16px,
+     * 而把它们真拧到 16px 是可见的观感回归。hero 是全表里唯一**纯尺寸**的主张,
+     * 只有显式取用(`rnRadiusFor.hero` / `RADIUS_ROLES.hero`)才算这个类别被说出来;
+     * 词干命中一律不计(既不计红也不计通过)。其余角色(卡片/控件/芯片)名字本身就是类别。
+     */
+    nameCannotClaim: true,
+    evidence: '首页主视觉 / 活动横幅 —— 特大容器档 2xl(须显式 rnRadiusFor.hero 取用方判)',
   },
   tiny: {
     stems: ['dot', 'indicator', 'marker', 'bullet'],
@@ -113,6 +121,9 @@ export function rolesOfName(name) {
   if (!head) return []
   const hits = []
   for (const [role, spec] of Object.entries(ROLE_STEMS)) {
+    // 纯尺寸档(hero)不接受"名字里带这个词"的认领 —— 见 ROLE_STEMS.hero.nameCannotClaim 的理由;
+    // 显式取用走另一条路(f.role 直接来自形态),不受这里影响,所以这不是放宽,只是不猜。
+    if (spec.nameCannotClaim) continue
     if (spec.stems.includes(head)) hits.push(role)
   }
   return hits

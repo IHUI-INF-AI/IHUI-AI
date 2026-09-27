@@ -18,13 +18,16 @@ import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { radiusLookup } from '../lib/radius-tokens.mjs'
-import { ROLE_STEMS } from '../lib/radius-roles.mjs'
+import { ROLE_STEMS, radiusFormsInLine, rolesOfName } from '../lib/radius-roles.mjs'
 
 const SRC = join(import.meta.dirname, '..', 'check-radius-role-conformance.mjs')
 const LIB = join(import.meta.dirname, '..', 'lib', 'radius-roles.mjs')
 const MASK_LIB = join(import.meta.dirname, '..', 'lib', 'code-mask.mjs')
 const RUNNER = join(import.meta.dirname, '..', 'guardian-runner.mjs')
 const REPO = join(import.meta.dirname, '..', '..')
+/** 形状锁一律比归一化空白后的文本:prettier 折行不得造出与正确性无关的假红。 */
+const norm = (t) => String(t).replace(/s+/g, ' ')
+
 const { __test__: T, main, emitBaseline, runAudit } = await import(pathToFileURL(SRC).href)
 
 const git = (args, cwd) =>
@@ -54,18 +57,37 @@ const capture = async (argv, root) => {
   }
 }
 
-test('T1 本票刻意不接提交链:runner 三面都不得出现本门(自我注册会互相覆盖注册块)', () => {
-  const faces = [['工作树', readFileSync(RUNNER, 'utf8')], ['HEAD', headBlob('scripts/guardian-runner.mjs')]]
-  try {
-    faces.push(['索引', git(['show', ':scripts/guardian-runner.mjs'], REPO)])
-  } catch {
-    /* 索引里还没有这个路径(别人正 rm 它),那就不构成"已注册" */
+/**
+ * T1 装车证明(2026-09-27 由"反向锁"改写而来)。
+ * 原文断言的是**建票当时的状态**("本门刻意未接提交链"),它在我把门接进 `checks` 的那天
+ * 就变成了"禁止合规" —— 与本仓记过的「waivers 必须等于 {}」那条同型。
+ * 现在锁真正在乎的东西:门必须在**被 pre-commit 迭代的那个数组**里、blocking、带 skipEnv;
+ * 只"在文件里出现过"不算(实测它曾被并进 pushGateChecks,全量批 180 道门里没有它)。
+ */
+test('T1 装车证明:本门必须在 checks 数组内(不是 pushGateChecks),且 blocking + skipEnv 齐备', () => {
+  const src = headBlob('scripts/guardian-runner.mjs')
+  const arrText = (name) => {
+    const at = src.indexOf('const ' + name + ' = [')
+    assert.ok(at >= 0, 'runner 里找不到数组 ' + name)
+    let depth = 0
+    let i = src.indexOf('[', at)
+    const from = i
+    for (; i < src.length; i++) {
+      if (src[i] === '[') depth++
+      else if (src[i] === ']') {
+        depth--
+        if (depth === 0) break
+      }
+    }
+    return src.slice(from + 1, i)
   }
-  for (const [face, src] of faces)
-    assert.ok(
-      !src.includes('check-radius-role-conformance.mjs'),
-      `${face} 面的 runner 已含本门注册块 —— 任务书禁止实现票自我注册,须由主会话单写`,
-    )
+  const inChecks = arrText('checks').includes('check-radius-role-conformance.mjs')
+  const inPushOnly = arrText('pushGateChecks').includes('check-radius-role-conformance.mjs')
+  assert.ok(inChecks, '本门不在 checks 区间内 ⇒ pre-commit 与全量审计永不调度它(grep 却查得到)')
+  assert.ok(!inPushOnly, '本门不该同时挂在 pushGateChecks 上 ⇒ 两处注册会互相顶失败归属')
+  const block = src.slice(src.indexOf('check-radius-role-conformance.mjs') - 400, src.indexOf('check-radius-role-conformance.mjs') + 400)
+  assert.match(block, /mode: 'blocking'/, '定级不是 blocking')
+  assert.match(block, /skipEnv: 'HUSKY_SKIP_RADIUS_ROLE_CONFORMANCE'/, '缺应急跳过出口')
 })
 
 test('T2 门头注不得声称"已接入提交链",但必须把接线条目写全', () => {
@@ -307,5 +329,50 @@ test('T14 共享解析读不到的角色不得被当成"已合规"——本门�
   // 反向对照:表齐时不得凭空报问题(否则是一台恒红门的"腐烂告警")
   const full = { ...table, 'role:hero': 16 }
   assert.deepEqual(T.roleTableProblems(full), [], '表里该有的角色都有时还报警 ⇒ 告警本身成了噪声')
+})
+
+/**
+ * T15/T16 角色表**值支**与"名字能否认领尺寸档"两条锁(2026-09-27 由一次自测翻红逼出来)。
+ *
+ * 立因:`objectEntries` 的解析注释早就写着"漏掉数字开头的档名 = 把 16px 这一整档从尺子上抹掉",
+ * 但它只在**键**支补了 `\d[\w$]*`,**值**支仍旧只认"字母开头标识符"或"纯数字" ——
+ * 于是 `hero: '2xl'` 整行不匹配、表里没有 role:hero,门 150 把三个 hero 站点报成
+ * role-not-in-table(读起来像代码写错,其实是解析器丢项),而 hero 档永不可判。
+ * 更值得记的是:门自己的第 17 条自检**把这个缺陷当规格断言**(`rnRadiusFor.hero → null`),
+ * 修好解析器它才翻红 —— 一条把当前行为当规格的断言,会在缺陷被修的那天变成阻力。
+ * 两条都按归一化空白后的文本判,不按字节形状(prettier 一折行就造出与正确性无关的假红)。
+ */
+test('T15 值支必须认数字开头档名(形状锁:窄写法不得回来)', () => {
+  const src = norm(headBlob('scripts/lib/radius-tokens.mjs'))
+  const digitLeadBranch = '\\d[\\w$]*'
+  const n = src.split(digitLeadBranch).length - 1
+  assert.ok(
+    n >= 2,
+    'objectEntries 里"数字开头档名"的分支只剩键支 ⇒ role:hero 静默消失,而账面只是少几个判定',
+  )
+  const narrowValueBranch = "([A-Za-z_$][\\w$]*|\\d+(?:\\.\\d+)?)"
+  assert.ok(
+    !src.includes(narrowValueBranch),
+    '值支退回"字母开头标识符 + 纯数字"两态的旧写法不得回来(它匹配不到 2xl,等于 16px 这一档不可判)',
+  )
+})
+
+test('T16 hero 这类纯尺寸档不得由名字认领,而 card 仍须由名字判(成对)', () => {
+  assert.equal(ROLE_STEMS.hero?.nameCannotClaim, true, '标记被删 ⇒ 名字又开始替元素认领 16px,一条提示条会被顶成主视觉档')
+  assert.ok(!rolesOfName('compactionBanner').includes('hero'), '提示条叫 banner 不是"特大主卡片"')
+  assert.ok(!rolesOfName('heroSection').includes('hero'))
+  assert.ok(rolesOfName('userCard').includes('card'), '把整条名字判据一起关掉不叫收窄,那叫失明')
+})
+
+test('T16b 真仓 radius.js 逐角色可解,显式 rnRadiusFor.hero 必须读得出 16', () => {
+  const table = TABLE()
+  assert.ok(table, '档位表解析不得为空 / null(空表会被下游读成"没有差异")')
+  assert.equal(table['role:hero'], 16)
+  assert.equal(table['role:card'], 8)
+  const forms = radiusFormsInLine('  borderRadius: rnRadiusFor.hero,', table)
+  assert.ok(
+    forms.some((f) => f.px === 16),
+    '显式取用也读不出 16 ⇒ 这一档在尺子上仍然不存在,判红/合规都轮不到它',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
