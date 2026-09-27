@@ -734,7 +734,7 @@ export function AiSidePanelTools() {
             <div
               role="group"
               data-testid="task-monitor-display-mode"
-              className="flex items-center rounded-full bg-muted p-0.5"
+              className="flex items-center rounded-md bg-muted p-0.5"
             >
               {(['sections', 'tabs'] as const).map((mode) => (
                 <button
@@ -744,7 +744,7 @@ export function AiSidePanelTools() {
                   aria-pressed={displayMode === mode}
                   onClick={() => setDisplayMode(mode)}
                   className={cn(
-                    'rounded-full px-2.5 py-0.5 text-[11px] transition-colors',
+                    'rounded-md px-2.5 py-0.5 text-[11px] transition-colors',
                     displayMode === mode
                       ? 'bg-background font-medium text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground',
