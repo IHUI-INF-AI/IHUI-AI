@@ -27379,5 +27379,8 @@
     "hintConfirm": "確定",
     "hintClose": "閉じる",
     "clearAriaLabel": "検索をクリア"
+  },
+  "statusPage": {
+    "incidentsUnavailable": "インシデントデータは一時的に利用できません。ここが空であることは、障害がなかったことを意味しません。"
   }
 }
