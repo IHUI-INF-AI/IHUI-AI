@@ -12,10 +12,11 @@
 // 用法: node scripts/plan-union-merge.mjs --base <sha> --ours <sha> --theirs <sha> [--apply]
 // 不带 --apply 只出报告(零副作用)。
 import { execFileSync } from 'node:child_process'
-import { writeFileSync, readFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const argv = process.argv.slice(2)
 const arg = (k) => argv[argv.indexOf(`--${k}`) + 1]
@@ -108,11 +109,12 @@ if (conflicted.length > 1 || conflicted[0] !== FILE) {
 }
 
 /* ---- 三方内容 + union 合成 ---- */
-const dir = mkdtempSync(join(tmpdir(), 'ihui-planunion-'))
+// 落点 = §26 唯一夹具出口(不得用 os.tmpdir():活进程 TEMP 可能仍钉在 C 盘;也不得落仓库树内)
+const dir = mkScratch('ihui-planunion-')
 // try 块内有三处提前 process.exit(lostReal 放弃 / 预演出口 / CAS 放弃)—— process.exit **不执行 finally**,
 // 这正是历史上每次跑完留一个 ihui-planunion-* 目录的成因(实测累积 18 个)。提前退出必须先自清。
 const exitClean = (code) => {
-  rmSync(dir, { recursive: true, force: true })
+  rmScratch(dir)
   process.exit(code)
 }
 const w = (n, txt) => {
@@ -293,6 +295,6 @@ try {
   }
   console.info('下一步(推送仍走官方通道): node scripts/git-push-guard.mjs')
 } finally {
-  rmSync(dir, { recursive: true, force: true })
+  rmScratch(dir)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

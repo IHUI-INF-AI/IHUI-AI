@@ -150,8 +150,10 @@ const CONSUMER_WHITELIST = [
     name: 'desktop-before-close',
     reason:
       'Rust 侧 emit 本意是"关主窗口前让前端保存草稿",但 main 窗口 CloseRequested 实际是' +
-      'hide 到托盘(webview 存活,React 状态不丢),真正退出走 tray.quit → desktop-quit-request' +
-      '(已有 use-quit-update-guard 消费)。属设计意图已过时的通知事件,非功能断裂',
+      'hide 到托盘(webview 存活,React 状态不丢);真正退出走 tray.quit 的**原生立即退出**' +
+      '(5637972f4:arm_forced_exit + app.exit(0),不再 emit 给前端)。属设计意图已过时的通知事件,' +
+      '非功能断裂 —— 2026-09-27 更正:原文写的"退出走 desktop-quit-request 并由 guard 消费"已不成立,' +
+      '那条链与守卫、遮罩同日一并移除',
   },
   {
     name: 'desktop-updater-pending',
@@ -1662,11 +1664,14 @@ const SANITY_MIN = [
     min: 4,
     hint: 'tray / shortcut / before-close / deep-link',
   },
-  { label: '桥接端 case 分支数', actual: caseHits, min: 7, hint: 'tray 5 + shortcut 2' },
+  // 2026-09-27:托盘「退出」改为 Rust 侧立即退出(5637972f4),桥接端的 `case 'quit'` 与它派发的
+  // desktop-quit-request 随之消失 ⇒ 这两条期望数各减 1。这是"代码真少了一条"后的同步更新,
+  // 不是放宽判据:阈值仍等于**当前真实条数**,再删一条立刻翻红。
+  { label: '桥接端 case 分支数', actual: caseHits, min: 6, hint: 'tray 4 + shortcut 2' },
   {
     label: '桥接端 CustomEvent 派发数',
     actual: dispatchHits,
-    min: 9,
+    min: 8,
     hint: '每个 case 各一处 + deep-link 的 sso-success',
   },
   {
