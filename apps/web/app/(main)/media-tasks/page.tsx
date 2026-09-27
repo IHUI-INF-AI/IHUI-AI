@@ -343,7 +343,7 @@ export default function MediaTasksPage() {
               type="button"
               onClick={() => switchFilter(setKindFilter)(kind)}
               className={cn(
-                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors',
+                'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] transition-colors',
                 kindFilter === kind
                   ? 'border-primary/50 bg-primary/10 text-primary'
                   : 'border-border/50 text-muted-foreground hover:bg-muted/40',
@@ -366,7 +366,7 @@ export default function MediaTasksPage() {
               type="button"
               onClick={() => switchFilter(setStatusFilter)(f.key)}
               className={cn(
-                'rounded-full border px-2.5 py-1 text-xs transition-colors',
+                'rounded-md border px-2.5 py-1 text-xs transition-colors',
                 statusFilter === f.key
                   ? 'border-primary/50 bg-primary/10 text-primary'
                   : 'border-border/50 text-muted-foreground hover:bg-muted/40',
@@ -383,7 +383,7 @@ export default function MediaTasksPage() {
               type="button"
               onClick={() => switchFilter(setKindFilter)(f.key)}
               className={cn(
-                'rounded-full border px-2.5 py-1 text-xs transition-colors',
+                'rounded-md border px-2.5 py-1 text-xs transition-colors',
                 kindFilter === f.key
                   ? 'border-primary/50 bg-primary/10 text-primary'
                   : 'border-border/50 text-muted-foreground hover:bg-muted/40',
