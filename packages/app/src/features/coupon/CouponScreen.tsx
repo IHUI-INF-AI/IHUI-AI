@@ -59,7 +59,12 @@ export function CouponScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('coupon.title')}</Text>
         <Text style={styles.subtitle}>{t('coupon.subtitle')}</Text>
       </View>
@@ -100,7 +105,6 @@ export function CouponScreen({
           data={items}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listBody}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <View style={styles.center}>
@@ -162,8 +166,7 @@ function createStyles(tk: AppThemeTokens) {
     retryText: { fontSize: 14, color: tk.success.DEFAULT },
     center: { alignItems: 'center', paddingVertical: 32 },
     emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
-    listBody: { padding: 10, paddingBottom: 32 },
-    separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
+    listBody: { gap: 10, padding: 10, paddingBottom: 32 },
     card: {
       flexDirection: 'row',
       borderRadius: rnRadius.xl,

@@ -41,7 +41,7 @@ export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps
                 {tab.label}
               </Text>
               {showUnread && (
-                <View className="ml-[8rpx] min-w-[32rpx] h-[32rpx] px-[6rpx] rounded-full bg-destructive flex items-center justify-center">
+                <View className="ml-[8rpx] min-w-[32rpx] h-[32rpx] px-[6rpx] rounded-md bg-destructive flex items-center justify-center">
                   <Text className="text-[length:20rpx] text-destructive-foreground font-bold">
                     {tab.unread! > 99 ? '99+' : tab.unread}
                   </Text>

@@ -8,6 +8,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { CircleDetailScreen as SharedCircleDetailScreen, type CircleDetailItem } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
@@ -44,7 +45,7 @@ export function CircleDetailScreen() {
       if (res.success && res.data) {
         setCircle({ ...res.data, createdAt: res.data.createdAt ?? '' })
       } else {
-        setError(res.error || t('circleDetail.loadFailed'))
+        setError(apiFailureToText(res, t('circleDetail.loadFailed')))
       }
     } catch {
       setError(t('circleDetail.loadFailed'))
@@ -67,7 +68,7 @@ export function CircleDetailScreen() {
     if (res.success) {
       setCircle({ ...circle, isJoined: true, memberCount: circle.memberCount + 1 })
     } else {
-      setError(res.error || t('common.failed'))
+      setError(apiFailureToText(res, t('common.failed')))
     }
   }
 
@@ -81,7 +82,7 @@ export function CircleDetailScreen() {
     if (res.success) {
       setCircle({ ...circle, isJoined: false, memberCount: Math.max(0, circle.memberCount - 1) })
     } else {
-      setError(res.error || t('common.failed'))
+      setError(apiFailureToText(res, t('common.failed')))
     }
   }
 

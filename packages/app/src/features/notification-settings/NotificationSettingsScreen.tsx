@@ -75,8 +75,8 @@ export function NotificationSettingsScreen({
           <Text style={styles.desc}>{t('notificationSettings.desc')}</Text>
         </View>
         <View style={styles.card}>
-          {rows.map((row, idx) => (
-            <View key={row.key} style={[styles.row, idx > 0 && styles.rowDivider]}>
+          {rows.map((row) => (
+            <View key={row.key} style={styles.row}>
               <Text style={styles.label}>{row.label}</Text>
               <Switch
                 value={settings[row.key]}
@@ -132,7 +132,6 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       paddingVertical: 10,
     },
-    rowDivider: { borderTopColor: tk.border.light, borderTopWidth: StyleSheet.hairlineWidth },
     label: { fontSize: 14, color: tk.text.medium },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8 },
     successText: { fontSize: 14, color: tk.success.DEFAULT, marginBottom: 8 },

@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { createAigcTask, uploadFileMultipart, resolveFileUrl } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import {
   AigcPublishScreen as SharedAigcPublishScreen,
   type AigcPublishFile,
@@ -76,7 +77,7 @@ export default function AigcPublishScreen() {
         const url = resolveFileUrl(res.data.path)
         setFiles((prev) => [...prev, { id: res.data!.id, url }])
       } else {
-        setError(res.error || t('aigcPublish.errorUploadFailed'))
+        setError(apiFailureToText(res, t('aigcPublish.errorUploadFailed')))
       }
     } catch {
       setError(t('aigcPublish.errorPickFailed'))
@@ -132,7 +133,7 @@ export default function AigcPublishScreen() {
           { text: t('common.ok'), onPress: () => navigation.goBack() },
         ])
       } else {
-        setError(res.error || t('aigcPublish.errorPublishFailed'))
+        setError(apiFailureToText(res, t('aigcPublish.errorPublishFailed')))
       }
     } catch {
       setError(t('aigcPublish.errorPublishRetry'))

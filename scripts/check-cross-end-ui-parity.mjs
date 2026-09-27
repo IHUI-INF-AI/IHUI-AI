@@ -163,12 +163,40 @@ export function readGeometry(src, side, tiers = {}) {
     push(px)
   }
   for (const m of code.matchAll(
-    /\b([A-Za-z_$][\w$]*)\s*[:=]\s*(\d+(?:\.\d+)?)(rpx|px)?(?![\w.])/g,
+    /\b([A-Za-z_$][\w$]*)\s*[:=]\s*(\d+(?:\.\d+)?)(rpx|px)?(?![\w.%])/g,
   )) {
     if (!keyed(m[1])) continue
     push(toPx(m[2], m[3], side))
   }
   for (const m of code.matchAll(/\brpx\(\s*(\d+(?:\.\d+)?)\s*\)/g)) push(toPx(m[1], 'rpx', side))
+  /**
+   * **简写多值声明**:`padding: 0 24rpx` / `margin: 8rpx 0 16rpx` 这类一行里挂多个长度。
+   * 上一条提取式按"数字紧跟键名"匹配,只会取到第一个值(0),于是横向内边距 24rpx=12px
+   * **整族隐身** —— 实测 `CategoryBar` 的"仅 RN 档 12"就是这么造出来的假分叉:
+   * RN 写 `paddingHorizontal: 12`,小程序在 CSS 里写 `padding: 0 24rpx`,两侧其实是同一档。
+   * 与刚修的"只看 .tsx 不看 .css"是同一型失效(判据覆盖面比判据逻辑更早决定结论)。
+   * 口径:同一条声明内、以空白分隔的长度字面量逐取;`auto` / `calc(...)` / 百分比不计;
+   * 单值形态仍由上一条判据负责(避免双计)。
+   */
+  /**
+   * 简写多值声明**只认布局长度属性**,不能沿用 `keyed()` 的子串筛:
+   * `box-shadow: 0 2rpx 8rpx …` 的键名含 `box`,按子串会命中 GEO_KEY,于是把阴影模糊半径
+   * 当成盒档收了进来(实测 `ModelConfigDialog.css:28` 凭空多出"仅小程序档 1"并把该族顶过锚点)。
+   * 描边宽度(`border: 2px dashed`)、圆角简写(`border-radius: 8px 8px 0 0` = RD 维的地盘)、
+   * `transform` / `filter` / `background` 一律不在几何档语义里。
+   */
+  const SHORTHAND_GEO_PROP =
+    /^(?:padding|margin|gap|grid-gap|row-gap|column-gap|inset|width|height|max-width|min-width|max-height|min-height)(?:-(?:top|right|bottom|left|inline|block|start|end))?$/
+  for (const m of code.matchAll(/(?:^|\n)[\t ]*([a-z][a-z-]*)\s*:\s*([^;{}]+)[;}]/g)) {
+    if (!SHORTHAND_GEO_PROP.test(m[1])) continue
+    const vals = m[2].trim().split(/\s+/)
+    if (vals.length < 2) continue
+    for (const v of vals) {
+      const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(v)
+      if (!one) continue // `auto` / `0` / `100%` / `calc(…)` 一律不计
+      push(toPx(one[1], one[2], side))
+    }
+  }
   for (const m of code.matchAll(
     /(?:^|[\s"'`])(?:size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
   ))
@@ -318,26 +346,100 @@ const normKey = (file) =>
     .toLowerCase()
 const nameOf = (file) => fileName(file).replace(/\.[^.]+$/, '')
 
+/**
+ * 配对键:先走 `normKey`,再剥掉**平台解析后缀**。
+ * Taro 构建器按后缀解析同名实现(`SectionHeader.taro.tsx` 才是 weapp 上被打包的那一份),
+ * 而 `normKey` 把 `.taro` 一起吸进键里 ⇒ `SectionHeader` 与 `SectionHeader.taro` 成不了对。
+ * 本轮实测未配对名单里 `Selecter.taro / SectionHeader.taro / ColorfulLoader.taro` 全是这一型 ——
+ * 是键判据太糙,不是"另一端没有这个元素"。只剥这一族明确的平台词,不做模糊匹配:
+ * 宁可少配,也不把两个不同元素并成一对(那会造出假"同值",比漏配更坏)。
+ */
+const PLATFORM_SUFFIX = /(?:taro|weapp|h5|swan|tt|alipay|mp|rn|native)$/i
+const pairKey = (f) => normKey(f).replace(PLATFORM_SUFFIX, '')
+/** 族名 = 去扩展名后的文件名再剥平台后缀。后缀必须先随扩展名一起去掉。 */
+const baseName = (f) => {
+  const n = nameOf(f)
+  return PLATFORM_SUFFIX.test(n) ? n.replace(/\.[^.]*$/, '') : n
+}
+/** 同键多候选时,带平台后缀那份优先(它是该端构建期真被解析进去的那份)。 */
+const candRank = (f) => (PLATFORM_SUFFIX.test(normKey(f)) ? 0 : 1)
+
 /** 两端清单 → 同名配对 + 计数。纯函数,构造面即可证明后缀与优先级两条判据。 */
-export function scan(listMini, listRn) {
+export function scan(listMini, listRn, aliases = {}) {
   const rnMap = new Map()
   for (const f of listRn) {
     if (!/\.(tsx|jsx)$/i.test(fileName(f))) continue
-    const k = normKey(f)
-    if (!rnMap.has(k)) rnMap.set(k, f) // 排序靠前的层优先(共享层在前)
+    const k = pairKey(f)
+    if (!rnMap.has(k) || candRank(f) < candRank(rnMap.get(k))) rnMap.set(k, f) // 共享层在前
   }
   const miniMap = new Map()
   for (const f of listMini) {
     if (!/\.(tsx|jsx)$/i.test(fileName(f))) continue
-    if (!miniMap.has(normKey(f))) miniMap.set(normKey(f), f)
+    const k = pairKey(f)
+    if (!miniMap.has(k) || candRank(f) < candRank(miniMap.get(k))) miniMap.set(k, f)
   }
   const pairs = []
   for (const [k, f] of miniMap)
-    if (rnMap.has(k)) pairs.push({ name: nameOf(f), miniapp: f, rn: rnMap.get(k) })
+    if (rnMap.has(k))
+      pairs.push({
+        // 被审的**文件**是带平台后缀那份(该端构建期真被解析的那一份),但**族名**必须剥掉后缀:
+        // 名字若随当选候选变化,同一族在台账里就会有 `Foo` / `Foo.taro` 两个键,存量锚点互相顶掉
+        // —— 与守门 134「锚点粒度不够细 ⇒ 换个写法就净零逃逸」是同一型。
+        name: baseName(f),
+        miniapp: f,
+        rn: rnMap.get(k),
+      })
+  /**
+   * **别名对**:两端把同一个界面元素起了不同名字(`CategoryBar` vs `CategoryInlineBar`、
+   * `DrawerComponent` vs `Drawer`)时,任何按文件名的判据都看不见它们 —— 这一格过去只以
+   * "射程外 N 个"的计数存在,而计数无法被清偿,因为没人知道名单里哪两个是同一个东西。
+   * 台账逐条点名两侧文件,所以配对的**证据**是登记出来的、不是猜出来的。三条硬判据:
+   * ① 声明本身要带 reason + 未到期 until(与拆对声明共用 `rejectProblem` —— 两处实现必漂移);
+   * ② 两侧文件必须在**被审面**上真的找得到(路径写歪 / 文件搬家 ⇒ 判红,不得静默少配一族);
+   * ③ 若这一对已按同名配上了,别名就是多余行 ⇒ 判红"应了结"(台账腐烂的另一半)。
+   */
+  const aliasProblems = []
+  const consumed = new Set()
+  for (const [name, a] of Object.entries(aliases)) {
+    const prob = rejectProblem(a)
+    if (prob) {
+      aliasProblems.push({ name, problem: `别名声明坏了:${prob}` })
+      continue
+    }
+    const m = listMini.find((f) => f === a.miniapp && /\.(tsx|jsx)$/i.test(fileName(f)))
+    const r = listRn.find((f) => f === a.rn && /\.(tsx|jsx)$/i.test(fileName(f)))
+    if (!m || !r) {
+      aliasProblems.push({
+        name,
+        problem: `被审面的两端清单里找不到:${a.miniapp} / ${a.rn}(文件搬家或路径写歪)`,
+      })
+      continue
+    }
+    const mk = pairKey(m)
+    const rk = pairKey(r)
+    if (rnMap.has(mk) && miniMap.has(mk)) {
+      aliasProblems.push({ name, problem: '该对已按同名配对 ⇒ 别名是多余行,应删(台账腐烂)' })
+      continue
+    }
+    if (consumed.has(mk) || consumed.has(rk)) {
+      aliasProblems.push({ name, problem: '同一侧文件被两条别名重复引用 ⇒ 至少一条是错的' })
+      continue
+    }
+    consumed.add(mk)
+    consumed.add(rk)
+    pairs.push({ name, miniapp: m, rn: r, aliased: true })
+  }
+  const onlyMiniKeys = [...miniMap.keys()].filter((k) => !rnMap.has(k) && !consumed.has(k))
+  const onlyRnKeys = [...rnMap.keys()].filter((k) => !miniMap.has(k) && !consumed.has(k))
   const out = {
     pairs: pairs.sort((a, b) => a.name.localeCompare(b.name)),
-    onlyMiniapp: [...miniMap.keys()].filter((k) => !rnMap.has(k)).length,
-    onlyRn: [...rnMap.keys()].filter((k) => !miniMap.has(k)).length,
+    aliasProblems,
+    onlyMiniapp: onlyMiniKeys.length,
+    onlyRn: onlyRnKeys.length,
+    // 名单本身必须报出来:只有计数的话,下一个人无从判断这 75 个名字里哪些是真不同名、
+    // 哪些是配对判据还没覆盖到的同一元素 —— 而"报数不报名"正是本仓反复记过的失明确形态。
+    onlyMiniappNames: onlyMiniKeys.map((k) => miniMap.get(k)).sort(),
+    onlyRnNames: onlyRnKeys.map((k) => rnMap.get(k)).sort(),
     miniappCount: miniMap.size,
     rnCount: rnMap.size,
   }
@@ -1089,7 +1191,7 @@ export function pruneUnreachableLegs(repoRoot, face, scanned) {
     for (const dir of SIDES[side]) {
       for (const p of all) {
         if (!p.startsWith(`${dir}/`) || !/\.(tsx|jsx)$/i.test(fileName(p))) continue
-        const k = normKey(p)
+        const k = pairKey(p)
         if (!m.has(k)) m.set(k, [])
         if (!m.get(k).includes(p)) m.get(k).push(p)
       }
@@ -1102,9 +1204,13 @@ export function pruneUnreachableLegs(repoRoot, face, scanned) {
     for (const side of ['miniapp', 'rn']) {
       const reach = usedBySide[side]
       if (reach.has(cur[side]) || missing.has(cur[side])) continue
-      const alt = (altsBySide[side].get(normKey(cur[side])) ?? []).find(
+      const cands = (altsBySide[side].get(pairKey(cur[side])) ?? []).filter(
         (f) => f !== cur[side] && !missing.has(f) && reach.has(f),
       )
+      // pairKey 剥掉平台后缀之后,同一个桶里会同时躺着 `Foo.taro.tsx` 与 `Foo.tsx`。
+      // 换腿必须与 scan() 同序 —— 带平台后缀的那份才是该端构建期真被解析进去的那一份;
+      // 并列时保留先入桶者,即 SIDES 目录优先级不变。
+      const alt = cands.length ? cands.reduce((a, b) => (candRank(b) < candRank(a) ? b : a)) : null
       if (alt) {
         moved.push(`${cur[side]} → ${alt}`)
         cur[side] = alt
@@ -1166,7 +1272,7 @@ function listFace(repoRoot, face, dir) {
  * 面 → 两端清单 + 同名配对正文。一次 cat-file --batch 同面同轮读完;任一份取不到即 Undetermined。
  * `pairAll` 是人工核对的逃生舱:退回"只要同名就配对",不做可达性剔除(默认档必做)。
  */
-export function collect(repoRoot, face, { pairAll = false, rejected = [] } = {}) {
+export function collect(repoRoot, face, { pairAll = false, rejected = [], aliases = {} } = {}) {
   const rejSet = new Set(rejected)
   const lists = {}
   for (const [side, dirs] of Object.entries(SIDES)) {
@@ -1178,7 +1284,7 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [] } = {})
     }
     lists[side] = acc
   }
-  let pairs = scan(lists.miniapp, lists.rn)
+  let pairs = scan(lists.miniapp, lists.rn, aliases)
   if (pairs.undetermined) throw new Undetermined(`${pairs.reason} ⇒ 判据失明,不得记为通过`)
   /**
    * 拆对声明在**可达性剔除之前**生效:同名不同物的两个组件不该再产生任何一维读数
@@ -1209,6 +1315,46 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [] } = {})
     const t = got.get(specs[i])
     if (t === null || t === undefined) throw new Undetermined(`${FACE_TXT[face]}取不到 ${need[i]}`)
     text[need[i]] = t
+  }
+  /**
+   * 组件**自己 import 的本地样式表**并入同一轮读数。不并的后果是实测到的:
+   * 6 个小程序配对组件把盒档写在同名 `.css` 里,配对源只有 `.tsx` ⇒ 读成
+   * "RN 有 11 档、小程序 0 档"的**测量假象**(与 §4 记过的"CSS 声明形态整面隐身"同一条洞)。
+   * 只跟相对路径 import 的 `.css/.scss/.less`,不做全局 CSS 扫描 —— 把别处的档算到这个组件
+   * 头上比漏读更糟。取不到的 ⇒ 并进未判定点名,不得静默当"这一侧没有档"。
+   */
+  const styles = {}
+  const cssRefs = new Map()
+  for (const f of need) {
+    const refs = [
+      ...text[f].matchAll(/(?:^|\n)\s*import\s+['"](\.[^'"]+\.(?:css|scss|less))['"]/g),
+    ].map((m) => resolveRel(f, m[1]))
+    if (refs.length) cssRefs.set(f, [...new Set(refs)])
+  }
+  if (cssRefs.size) {
+    const all = [...new Set([...cssRefs.values()].flat())]
+    const pre = face === 'staged' ? ':' : 'HEAD:'
+    const got2 = catBatch(
+      repoRoot,
+      all.map((rel) => pre + rel),
+      { maxBuffer: 1 << 28 },
+    )
+    for (const [f, rels] of cssRefs) {
+      const parts = []
+      for (const rel of rels) {
+        const t = got2.get(pre + rel)
+        if (t === null || t === undefined) {
+          undeterminedEdges.push({
+            from: f,
+            spec: rel,
+            reason: `${FACE_TXT[face]}取不到伴生样式表`,
+          })
+          continue
+        }
+        parts.push(t)
+      }
+      if (parts.length) styles[f] = parts.join('\n')
+    }
   }
   /**
    * 具名档表与组件正文**同面同轮**取:清单来自被审面,内容也来自被审面。
@@ -1277,6 +1423,7 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [] } = {})
     rejected: rejectedHits,
     unreachableLegs: unreachable,
     undeterminedEdges,
+    styles,
     coverageNote,
     fallbacks,
   }
@@ -1303,14 +1450,34 @@ export function waiverProblem(w) {
   return null
 }
 
-export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null) {
+/** 相对说明符 → 仓库相对路径(只处理 `./` 与 `../`,不碰别名 —— 样式文件不该走别名)。 */
+export function resolveRel(fromFile, spec) {
+  const segs = fromFile.split('/').slice(0, -1)
+  for (const part of spec.split('/')) {
+    if (part === '.' || part === '') continue
+    if (part === '..') segs.pop()
+    else segs.push(part)
+  }
+  return segs.join('/')
+}
+
+export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null, styles = {}) {
   const findings = []
   for (const p of pairs.pairs) {
     const a = text[p.miniapp]
     const b = text[p.rn]
     if (a === undefined || b === undefined) continue
-    const ga = readGeometry(a, 'miniapp', tiers)
-    const gb = readGeometry(b, 'rn', tiers)
+    /**
+     * 几何与圆角读的是**组件自己 + 它 import 的本地样式表**;IC / SL 仍只读组件源文本。
+     * 不并样式表的后果实测过:小程序端把盒档写在同名 `.css` 里(6 个组件如此),
+     * 配对源只有 `.tsx` ⇒ 读成"RN 有 11 档、小程序 0 档"的**测量假象**,
+     * 与 §4 记过的"CSS 声明形态整面隐身"是同一条洞。分开喂是因为 IC 判的是图标载体,
+     * 把样式表里的 `url(...)` 混进来会改动那条维的既有口径(要扩也得单独一笔)。
+     */
+    const aAll = a + (styles[p.miniapp] ?? '')
+    const bAll = b + (styles[p.rn] ?? '')
+    const ga = readGeometry(aAll, 'miniapp', tiers)
+    const gb = readGeometry(bAll, 'rn', tiers)
     const named = namedConflicts(ga.named, gb.named)
     const geometry = diffValues(ga.values, gb.values)
     /**
@@ -1439,6 +1606,9 @@ export function emitBaseline(findings, prior = {}) {
    */
   const out = { counts, radiusCounts, waivers: {} }
   if (prior && prior.pairingRejects) out.pairingRejects = prior.pairingRejects
+  // 别名表与拆对表同理:它是**配对判据的输入**,不是存量数字。重写台账把别人登记的别名冲掉,
+  // 那一族立刻回到"射程外零判据"的状态 —— 而账面看什么都正常(这条族从没在 counts 里出现过)。
+  if (prior && prior.aliases) out.aliases = prior.aliases
   return out
 }
 
@@ -1479,6 +1649,7 @@ export function main(argv, repoRoot = ROOT) {
   let face, collected, baseline
   let rejProblems = []
   let rejNames = []
+  let aliases = {}
   try {
     face = faceFromArgv(argv)
     baseline = loadBaseline(repoRoot, face)
@@ -1489,7 +1660,8 @@ export function main(argv, repoRoot = ROOT) {
     rejProblems = rejNames
       .map((n) => ({ name: n, why: rejectProblem(rej[n]) }))
       .filter((x) => x.why)
-    collected = collect(repoRoot, face, { pairAll, rejected: rejNames })
+    aliases = baseline.aliases ?? {}
+    collected = collect(repoRoot, face, { pairAll, rejected: rejNames, aliases })
   } catch (e) {
     if (e instanceof Undetermined) {
       console.log(`⚠️ 无法判定:${e.message}`)
@@ -1497,7 +1669,14 @@ export function main(argv, repoRoot = ROOT) {
     }
     throw e
   }
-  const res = audit(collected.pairs, collected.text, baseline, collected.tiers, collected.radius)
+  const res = audit(
+    collected.pairs,
+    collected.text,
+    baseline,
+    collected.tiers,
+    collected.radius,
+    collected.styles ?? {},
+  )
   if (argv.includes('--emit-baseline')) {
     console.log(JSON.stringify(emitBaseline(res.findings, baseline), null, 2))
     /**
@@ -1525,6 +1704,14 @@ export function main(argv, repoRoot = ROOT) {
         })),
         unreachable: (collected.unreachableLegs ?? []).map((u) => ({ name: u.name, legs: u.legs })),
         undeterminedEdges: (collected.undeterminedEdges ?? []).length,
+        // 配对射程也要能被机器读:下一票(按语义槽配对)的输入就是这两份名单,
+        // 只在人读面打印的话,它又得靠复制粘贴终端输出当数据源 —— 那是会腐烂的取证。
+        onlyMiniappNames: collected.pairs?.onlyMiniappNames ?? [],
+        onlyRnNames: collected.pairs?.onlyRnNames ?? [],
+        aliasPairs: (collected.pairs?.pairs ?? [])
+          .filter((p) => p.aliased)
+          .map((p) => ({ name: p.name, miniapp: p.miniapp, rn: p.rn })),
+        aliasProblems: collected.pairs?.aliasProblems ?? [],
         red: res.red,
         waived: res.waived.length,
       }),
@@ -1547,6 +1734,18 @@ export function main(argv, repoRoot = ROOT) {
     for (const o of off) console.log(`  ⊘ ${o.name} —— ${o.reason}`)
     if (collected.coverageNote) console.log(`  ⚠ ${collected.coverageNote}`)
     /**
+     * 读数口径必须自己报出来:合并了伴生样式表的那一侧,与只读组件源文本的那一侧,
+     * 拿到的档数不在同一口径上。不写这一行,"小程序 0 档 / RN 11 档"就会被读成"小程序没做",
+     * 而它可能只是尺子没跟到 `.css`(2026-09-27 实测:6 个小程序组件把盒档写在同名 CSS 里)。
+     */
+    console.log(
+      `  ⓘ 读数口径:几何 = 组件源文本 + 该文件自己 import 的本地样式表(本轮并入 ` +
+        `${Object.keys(collected.styles ?? {}).length} 份);` +
+        `圆角 / 图标载体 / 单侧档仍只看组件源文本` +
+        `(RD 锚点由另一路会话按该口径钉着,同笔抬它的读数 = 把别人钉的锚顶成新增红)。` +
+        `取不到的样式文件计未判定,不当"该侧无档"`,
+    )
+    /**
      * **配对射程必须自己报数**。本门只比"同名成文件"的元素:一端把某个控件写成组件文件、
      * 另一端把它内联在别的组件里(RN 的发送钮就是 `BottomActionBar.tsx` 里的内联 `<Send/>`,
      * 而小程序侧同槽另有文件),两侧永不成对 —— 那部分界面**本门零判据**。
@@ -1561,6 +1760,20 @@ export function main(argv, repoRoot = ROOT) {
           `  ⓘ 配对射程:仅小程序成文件 ${om} 个 / 仅 RN 成文件 ${or} 个 —— ` +
             `两端不同名的元素不成对,本门对它们零判据(报数,不判红)`,
         )
+      /**
+       * 名单逐名打印。上一版只报"75 / 50"两个数,结果是这格**永远无法被清偿** ——
+       * 拿到数字的人看不出这 125 个文件里哪些真是两端不同名的同一元素、哪些确实只存在一端,
+       * 而这个判断恰是"要不要扩配对判据"的唯一依据。"报数不报名"在本仓反复被记成
+       * 判据失明的表现形态(守门 70/76/81 同族),所以这里把名字全量列出,不做截断:
+       * 截断会把"其余 N 个"变成新的暗面,而列出它们不花任何判据成本。
+       */
+      for (const [label, key] of [
+        ['仅小程序', 'onlyMiniappNames'],
+        ['仅 RN', 'onlyRnNames'],
+      ]) {
+        const names = (collected.pairs?.[key] ?? []).map((p) => nameOf(String(p)))
+        if (names.length) console.log(`     ${label}(${names.length}):${names.join(' ')}`)
+      }
     }
     for (const u of undet.slice(0, 12))
       console.log(`  ? 未判定:${u.from ?? '(清单)'} → ${u.spec}:${u.reason}`)
@@ -1620,7 +1833,7 @@ export function main(argv, repoRoot = ROOT) {
   const ic = iconAudit(collected.pairs, collected.text)
   if (ic.length) {
     if (face !== 'head') {
-      const base = collect(repoRoot, 'head', { pairAll })
+      const base = collect(repoRoot, 'head', { pairAll, aliases })
       const baseIc = new Map(
         iconAudit(base.pairs, base.text).map((x) => [x.name, { mp: x.bitmap, rn: x.rnBitmap }]),
       )
@@ -1665,7 +1878,7 @@ export function main(argv, repoRoot = ROOT) {
   let slRed = []
   if (sl.length) {
     if (face !== 'head') {
-      const base = collect(repoRoot, 'head', { pairAll })
+      const base = collect(repoRoot, 'head', { pairAll, aliases })
       const baseSl = new Map(
         specLegAudit(base.pairs, base.text, base.tiers).map((x) => [
           x.name,
@@ -1720,6 +1933,30 @@ export function main(argv, repoRoot = ROOT) {
   }
   const rejRed = rejInvalid.length + rejStillAnchored.length + rejGhosted.length
   /*
+   * ── ALIAS 别名配对对账 ──────────────────────────────────────────
+   * 两端给同一个界面元素起了不同名字时,任何按文件名的配对都看不见它 —— 这一格过去只剩
+   * "射程外 N 个"的计数,而**计数无法被清偿**,因为没人知道名单里哪两个是同一个东西。
+   * 别名把这件事变成台账里一条带理由、带到期的声明,于是配对有据,且烂了会被发现。
+   * 三条红全在 `scan()` 里判(声明坏 / 被审面找不到文件 / 该对已按同名配上),
+   * 这里只负责打印与折进退出码 —— 判据只住一处,别在 main 再抄一份。
+   */
+  const aliasProblems = collected.pairs?.aliasProblems ?? []
+  const aliasPairs = (collected.pairs?.pairs ?? []).filter((p) => p.aliased)
+  if (!argv.includes('--json')) {
+    for (const p of aliasPairs)
+      console.log(
+        `  ✓ ALIAS ${p.name} —— 跨名配对:${(aliases[p.name] ?? {}).miniapp} ↔ ${(aliases[p.name] ?? {}).rn}` +
+          `(同名判据看不见这一对,现按登记的别名进审)`,
+      )
+    for (const x of aliasProblems) console.log(`  × ALIAS ${x.name}:${x.problem}`)
+    if (Object.keys(aliases).length)
+      console.log(
+        `别名配对 ${aliasPairs.length} 族 / 声明 ${Object.keys(aliases).length} 条 → 判红 ${aliasProblems.length}` +
+          '(别名是配对输入,不是豁免:文件搬走、路径写歪、或已能同名配对,都要当场点名)',
+      )
+  }
+  const aliasRed = aliasProblems.length
+  /*
    * ── G 几何表与其类型声明对账 ────────────────────────────────────
    * 两侧都判:表有档而类型不认 / 类型承认而表里没有。零容忍是安全的:
    * HEAD 现测两份同名(2 档),所以本维不存在"存量当场判红 = 恒红门"的问题(§12e 那一型),
@@ -1739,6 +1976,9 @@ export function main(argv, repoRoot = ROOT) {
       )
   }
   const rotRed = res.rot.length ? 1 : 0
+  // 别名红单独先判(见上方 ALIAS 块)。刻意**不并入**下面那条求和行:它的文本被自检 ㊹/㊽/㊩
+  // 三条装车锁钉着(那三条防的正是"红了却没折进退出码"),挪一次写法 = 三门同时翻红。
+  if (aliasRed) return 1
   return rotRed + res.red.length + icRed.length + slRed.length + rejRed + (geoRed ? 1 : 0) ? 1 : 0
 }
 
@@ -2638,6 +2878,290 @@ function runSelfTest() {
         /const rotRed = res\.rot\.length \? 1 : 0/.test(src) &&
         /rotRed \+ res\.red\.length \+ icRed\.length/.test(src)
       )
+    })(),
+  )
+  t(
+    '㊪ 平台后缀必须能配对:`SectionHeader` 与 `SectionHeader.taro` 是同一元素;' +
+      '带后缀那份优先当选;而真不同名的两个文件不得被并成一对(宁可少配)',
+    (() => {
+      const r = scan(
+        [
+          'apps/miniapp-taro/src/components/SectionHeader.tsx',
+          'apps/miniapp-taro/src/components/SectionHeader.taro.tsx',
+          'apps/miniapp-taro/src/components/SearchBar.tsx',
+        ],
+        [
+          'packages/app/src/features/common/SectionHeader.tsx',
+          'packages/app/src/features/chat/SearchInput.tsx',
+        ],
+      )
+      const names = r.pairs.map((p) => p.name)
+      const sec = r.pairs.find((p) => p.name === 'SectionHeader')
+      return (
+        names.length === 1 &&
+        names[0] === 'SectionHeader' &&
+        sec.miniapp.endsWith('SectionHeader.taro.tsx') &&
+        r.onlyMiniapp === 1 &&
+        r.onlyRn === 1 &&
+        r.onlyMiniappNames.join() === 'apps/miniapp-taro/src/components/SearchBar.tsx' &&
+        r.onlyRnNames.join() === 'packages/app/src/features/chat/SearchInput.tsx'
+      )
+    })(),
+  )
+  t(
+    '㊫ 名单必须是可指认的路径而不是又一个计数:' +
+      '只报"75 / 50"时,下一个人无从判断哪些是同一元素、哪些真只存在一端,那一格永远清不掉',
+    (() => {
+      const r = scan(['apps/miniapp-taro/src/a/Only.tsx'], ['packages/app/src/b/Twin.tsx'])
+      return (
+        r.onlyMiniapp === 1 &&
+        r.onlyMiniappNames.length === 1 &&
+        r.onlyMiniappNames[0].includes('Only.tsx') &&
+        r.onlyRnNames[0].includes('Twin.tsx')
+      )
+    })(),
+  )
+  t(
+    '㊬ 装车锁:换腿桶必须与配对键同形 —— altsBySide 用 pairKey 建桶、按 pairKey 查桶' +
+      '(仍用 normKey 的话,带平台后缀那份与不带那份不在同一桶里,不可达时找不到替代腿)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      return (
+        /altsBySide\[side\] = m/.test(src) &&
+        (src.match(/const k = pairKey\(p\)/g) ?? []).length === 1 &&
+        /altsBySide\[side\]\.get\(pairKey\(cur\[side\]\)\)/.test(src) &&
+        !/altsBySide\[side\]\.get\(normKey\(cur\[side\]\)\)/.test(src)
+      )
+    })(),
+  )
+  t(
+    '㊭ 装车锁:名单必须由 main 真的打出来(人读面 + --json 两面各一处)。' +
+      "自检证明 scan 给得出名字,不等于有人问它要 —— 本仓最高频的失效型就是'函数在、没人调'",
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      const from = src.indexOf('function main(')
+      const to = src.indexOf('function runSelfTest(', from + 1)
+      const mainBody = src.slice(from, to > from ? to : undefined)
+      return (
+        // --json 面(机器可读,下一票的输入源)
+        /onlyMiniappNames: collected\.pairs\?\.onlyMiniappNames \?\? \[\]/.test(mainBody) &&
+        /onlyRnNames: collected\.pairs\?\.onlyRnNames \?\? \[\]/.test(mainBody) &&
+        // 人读面:名单打印的三处缺一不可(标签表、计数前缀、逐名 join)
+        /\['仅小程序', 'onlyMiniappNames'\]/.test(mainBody) &&
+        /\['仅 RN', 'onlyRnNames'\]/.test(mainBody) &&
+        /\$\{label\}\(\$\{names\.length\}\):\$\{names\.join\(' '\)\}/.test(mainBody)
+      )
+    })(),
+  )
+  t(
+    '㊮ 别名必须能把"两端不同名的同一元素"拉回射程:' + '配对成立、名单里不再重复点名、且无一条判红',
+    (() => {
+      const r = scan(
+        [
+          'apps/miniapp-taro/src/components/CategoryBar.tsx',
+          'apps/miniapp-taro/src/components/X.tsx',
+        ],
+        ['packages/app/src/components/CategoryInlineBar.tsx'],
+        {
+          CategoryBar: {
+            miniapp: 'apps/miniapp-taro/src/components/CategoryBar.tsx',
+            rn: 'packages/app/src/components/CategoryInlineBar.tsx',
+            reason: '两端头注互点名:同一"统一分类条"的两份同形实现',
+            until: '2027-01-01',
+          },
+        },
+      )
+      const p = r.pairs.find((x) => x.name === 'CategoryBar')
+      return (
+        !!p?.aliased &&
+        p.rn.endsWith('CategoryInlineBar.tsx') &&
+        r.aliasProblems.length === 0 &&
+        r.onlyMiniapp === 1 &&
+        r.onlyMiniappNames.join() === 'apps/miniapp-taro/src/components/X.tsx' &&
+        r.onlyRn === 0 &&
+        r.onlyRnNames.length === 0
+      )
+    })(),
+  )
+  t(
+    '㊯ 别名两侧文件必须在被审面上找得到:路径写歪 / 文件搬家 ⇒ 判红并点名,' +
+      '不得静默退回"这一族没配对上"',
+    (() => {
+      const r = scan(['a/CategoryBar.tsx'], ['b/Gone.tsx'], {
+        CategoryBar: {
+          miniapp: 'a/CategoryBar.tsx',
+          rn: 'b/CategoryInlineBar.tsx',
+          reason: '同一分类条的两份实现,头注互点名',
+          until: '2027-01-01',
+        },
+      })
+      return (
+        r.aliasProblems.length === 1 &&
+        /找不到/.test(r.aliasProblems[0].problem) &&
+        r.pairs.every((p) => !p.aliased)
+      )
+    })(),
+  )
+  t(
+    '㊰ 该对已能按同名配对 ⇒ 别名是多余行,必须判红要求了结' +
+      '(挂着一条不再生效的配对声明,比没有更难查)',
+    (() => {
+      const r = scan(['a/Foo.tsx'], ['b/Foo.tsx'], {
+        Foo: {
+          miniapp: 'a/Foo.tsx',
+          rn: 'b/Foo.tsx',
+          reason: '早年两端不同名,如今已能同名配对',
+          until: '2027-01-01',
+        },
+      })
+      return r.aliasProblems.length === 1 && /多余行/.test(r.aliasProblems[0].problem)
+    })(),
+  )
+  t(
+    '㊱ 别名声明的卫生与拆对同源:无理由 / 理由不足以复核 / 已到期 各判红,而判据只有 rejectProblem 一份',
+    (() => {
+      const mk = (a) =>
+        scan(['a/A.tsx'], ['b/B.tsx'], { A: { miniapp: 'a/A.tsx', rn: 'b/B.tsx', ...a } })
+      return (
+        mk({ reason: '', until: '2027-01-01' }).aliasProblems.length === 1 &&
+        mk({ reason: '短', until: '2027-01-01' }).aliasProblems.length === 1 &&
+        mk({ reason: '同一元素的两种命名,依据两端头注互点名', until: '2020-01-01' }).aliasProblems
+          .length === 1 &&
+        mk({ reason: '同一元素的两种命名,依据两端头注互点名', until: '2027-01-01' }).aliasProblems
+          .length === 0
+      )
+    })(),
+  )
+  t(
+    '㊲ emitBaseline 必须原样带走 aliases(重写台账把已登记别名冲掉 = 那一族静默回到零判据,账面什么都看不见)',
+    (() => {
+      const prior = { aliases: { A: { miniapp: 'a', rn: 'b', reason: 'r', until: '2027-01-01' } } }
+      const out = emitBaseline(
+        [{ name: 'X', named: [], geometry: { onlyMiniapp: [], onlyRn: [] }, waived: false }],
+        prior,
+      )
+      const dropped = emitBaseline([], prior)
+      return out.aliases?.A?.reason === 'r' && dropped.aliases?.A?.reason === 'r'
+    })(),
+  )
+  t(
+    '㊳ 装车锁:别名表必须由 main 喂进 collect,且 HEAD 棘轮那两次基线取样同样要喂' +
+      '(漏喂 ⇒ 本轮多出的配对在基准侧不存在,别人欠的债会被算成新增红)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      return (
+        /collect\(repoRoot, face, \{ pairAll, rejected: rejNames, aliases \}\)/.test(src) &&
+        (src.match(/collect\(repoRoot, 'head', \{ pairAll, aliases \}\)/g) ?? []).length === 2 &&
+        /if \(aliasRed\) return 1/.test(src) &&
+        /aliasPairs: \(collected\.pairs\?\.pairs \?\? \[\]\)/.test(src)
+      )
+    })(),
+  )
+  t(
+    '㉅ 伴生样式表必须参与几何/圆角读数:同一对文件,喂 styles 与不喂结论必须不同' +
+      '(不喂 ⇒ "小程序 0 档 / RN 11 档"这种测量假象,与 §4 的 CSS 整面隐身同型)',
+    (() => {
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      const texts = {
+        'a/Foo.tsx': 'export default function Foo(){return null}\n',
+        'b/Foo.tsx': 'width: 32\n',
+      }
+      const blind = audit(p, texts, {})
+      // 128rpx 归一 = 64px,与 RN 侧 32 不同档(64rpx 会正好等于 32,那是同值不是漏读)
+      const withCss = audit(p, texts, {}, {}, null, { 'a/Foo.tsx': '.foo{width: 128rpx}\n' })
+      const gBlind = blind.findings[0].geometry
+      const gCss = withCss.findings[0].geometry
+      return (
+        gBlind.onlyMiniapp.length === 0 &&
+        gBlind.onlyRn.join() === '32' &&
+        gCss.onlyMiniapp.join() === '64' &&
+        gCss.onlyRn.join() === '32'
+      )
+    })(),
+  )
+  t(
+    '㉆ resolveRel 只处理 ./ 与 ../,并按被审面拼仓库相对路径(带别名的说明符不跟 —— 样式文件不该走别名)',
+    (() =>
+      resolveRel('apps/miniapp-taro/src/components/CategoryBar.tsx', './CategoryBar.css') ===
+        'apps/miniapp-taro/src/components/CategoryBar.css' &&
+      resolveRel('packages/app/src/components/a/X.tsx', '../b/Y.scss') ===
+        'packages/app/src/components/b/Y.scss')(),
+  )
+  t(
+    '㉇ 装车锁:collect 必须真的读伴生样式表并 return styles,main 必须把它喂进 audit 且把口径打印出来' +
+      '(样式在、判据没跟 = 整族隐身而账面全绿)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      const mainBody = src.slice(
+        src.indexOf('function main('),
+        src.indexOf('function runSelfTest('),
+      )
+      return (
+        /const styles = \{\}/.test(src) &&
+        /styles\[f\] = parts\.join\('\\n'\)/.test(src) &&
+        /^    styles,$/m.test(src) &&
+        /collected\.styles \?\? \{\}/.test(mainBody) &&
+        /读数口径/.test(mainBody) &&
+        /取不到伴生样式表/.test(src)
+      )
+    })(),
+  )
+  t(
+    '㉮ 简写多值声明必须逐值收档:`padding: 0 24rpx` 的 24rpx 要读成 12px' +
+      '(实测 CategoryBar 的"仅 RN 档 12"就是漏收第二个值造出的假分叉)',
+    (() => {
+      const v = readGeometry('.x{\n  padding: 0 24rpx;\n}\n', 'miniapp').values
+      const w = readGeometry('.x{\n  margin: 8rpx 0 16rpx auto;\n}\n', 'miniapp').values
+      return v.has(12) && w.has(4) && w.has(8)
+    })(),
+  )
+  t(
+    '㉯ 反向对照 + 不该计的都不计:单值形态不得被双计,auto / 百分比 / calc 不当档,' +
+      '非几何键(padding 之外如 color)不入场',
+    (() => {
+      const single = [...readGeometry('.x{\n  width: 40px;\n}\n', 'rn').values]
+      const junk = readGeometry(
+        '.x{\n  padding: 0 auto;\n  width: 100%;\n  height: calc(100% - 8px);\n  color: 3 4px;\n}\n',
+        'rn',
+      ).values
+      return (
+        single.filter((n) => n === 40).length === 1 &&
+        !junk.has(100) &&
+        !junk.has(8) &&
+        !junk.has(3) &&
+        !junk.has(4)
+      )
+    })(),
+  )
+  t(
+    '㉰ 同一元素两端各用一种写法必须判同值(简写 vs 显式方向):' +
+      '这是本条判据的全部目的,否则它只是多收了几个数而没修好任何一笔账',
+    (() => {
+      const mp = readGeometry('.x{\n  padding: 0 24rpx;\n}\n', 'miniapp').values
+      const rn = readGeometry('paddingHorizontal: 12,\n', 'rn').values
+      const d = diffValues(mp, rn)
+      return !d.onlyMiniapp.filter((n) => n !== 0).length && !d.onlyRn.length
+    })(),
+  )
+  t(
+    '㉱ 装车锁:简写提取式必须真在 readGeometry 体内,且这条锁自己要有牙' +
+      '(判据写在别处 = 提交链上永不生效;正则不转义 = 看着断言其实恒假)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      const from = src.indexOf('export function readGeometry')
+      const until = src.indexOf('return { values, named }', from)
+      const body = src.slice(from, until > from ? until : from + 6000)
+      const has = (s) =>
+        /if \(vals\.length < 2\) continue/.test(s) &&
+        /push\(toPx\(one\[1\], one\[2\], side\)\)/.test(s)
+      // 牙:把简写循环整段摘掉后同一条判据必须翻红(否则它就是支恒真断言,比没有更糟)。
+      // 用**索引切片**而不是正则 —— 目标文本里本身嵌着正则字面量,再套一层正则必然引号地狱,
+      // 而"写复杂的变异表达式"正是本仓记过的"断言看着有、其实恒真"那一型。
+      const mk = 'for (const m of code.matchAll(/(?:^|\\n)[\\t ]*([a-z][a-z-]*)'
+      const s = body.indexOf(mk)
+      const e = body.indexOf('\n  }\n', s)
+      const noLoop = s < 0 || e < 0 ? body : body.slice(0, s) + body.slice(e + 5)
+      return from > 0 && has(body) && noLoop !== body && !has(noLoop)
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)

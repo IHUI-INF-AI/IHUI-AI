@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { completeLesson, getProgress, type CourseProgress } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import {
   VideoPlayerScreen as SharedVideoPlayerScreen,
   type VideoPlayerProgress,
@@ -49,7 +50,7 @@ export function VideoPlayerScreen() {
         const current = res.data.lessons.find((l) => l.lessonId === lessonId)
         setCompleted(current?.isCompleted ?? false)
       } else {
-        setError(res.error || t('course.playError'))
+        setError(apiFailureToText(res, t('course.playError')))
       }
       setLoading(false)
     })()
@@ -71,7 +72,7 @@ export function VideoPlayerScreen() {
         })
       }
     } else {
-      setError(res.error || t('common.failed'))
+      setError(apiFailureToText(res, t('common.failed')))
     }
   }, [courseId, lessonId, progress, t])
 

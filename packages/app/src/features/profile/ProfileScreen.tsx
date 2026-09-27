@@ -84,10 +84,10 @@ export function ProfileScreen({
           <View key={section.title} style={styles.menuSection}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
             <View style={styles.menuCard}>
-              {section.items.map((item, idx) => (
+              {section.items.map((item) => (
                 <TouchableOpacity
                   key={item.key}
-                  style={[styles.menuItem, idx > 0 && styles.menuItemGap]}
+                  style={styles.menuItem}
                   onPress={() => onNavigate?.(item.key)}
                 >
                   {typeof item.icon === 'string' ? (
@@ -208,7 +208,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16,
       gap: 10,
     },
-    menuItemGap: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tk.border.light },
     menuIcon: { fontSize: 16 },
     menuLabel: { flex: 1, fontSize: 16, color: tk.text.primary },
     logoutBtn: {

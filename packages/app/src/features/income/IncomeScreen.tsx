@@ -183,7 +183,7 @@ export function IncomeScreen({
           data={filteredList}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={{ gap: 12 }}
           ListEmptyComponent={
             <View style={styles.center}>
               <Text style={styles.muted}>{t('income.empty')}</Text>
@@ -291,7 +291,6 @@ function createStyles(tk: AppThemeTokens) {
     tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
-    separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
       padding: 12,
       borderRadius: rnRadius.xl,
