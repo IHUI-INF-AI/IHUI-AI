@@ -111,8 +111,7 @@ export function OrderRefundScreen({
       <FlatList
         data={orders}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 10, paddingBottom: 32 }}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        contentContainerStyle={{ gap: 10, padding: 10, paddingBottom: 32 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           loading ? (
@@ -216,7 +215,6 @@ function createStyles(tk: AppThemeTokens) {
       alignSelf: 'flex-start',
     },
     outlineBtnText: { fontSize: 14, color: tk.success.DEFAULT },
-    separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
       padding: 12,
       borderRadius: rnRadius.xl,
