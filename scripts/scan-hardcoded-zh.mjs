@@ -189,6 +189,23 @@ function stagedFiles() {
 }
 
 /**
+ * 索引里**任何状态**的暂存路径(含 D/R)。它存在的唯一理由是把两种"暂存集为空"分开:
+ *  - 索引真的是空的(人工裸跑,没 add 过东西)⇒ 退回全量口径按磁盘判(既有设计,恒绿才是假通过);
+ *  - 索引**非空**但一条 ACMR 都没有(一枚全是删除/重命名的提交)⇒ 本门结构上没有正文可判,
+ *    此时退磁盘等于**把别人在飞的文件定责给这枚提交**。
+ * 实测成因(2026-09-28):`b6c8eb586c` 那枚只删两个 .tsx 的提交,因 `--diff-filter=ACMR` 读成空集,
+ * 于是按磁盘判并点名 `apps/web/app/status/page.tsx`(他人未提交的 +1 处)⇒ 归因层正确地判
+ * "红但未点名本次文件"⇒ 各会话合法 `--no-verify`,一次绕过约等于链上 183 道门对该提交全部作废(§12e)。
+ */
+function stagedPathsAnyStatus() {
+  try {
+    return new Set(gitLines(['diff', '--cached', '--name-only']))
+  } catch {
+    return null
+  }
+}
+
+/**
  * 一次 `cat-file --batch` 读一批 blob 正文(逐文件派生 = fork 风暴,§5b 同型;
  * 本门原先的 `headCountOf` 就是每台命中文件一次 `git show`,HEAD 面近 900 次派生)。
  * @param {string} rev '' = 索引;HEAD = 提交树
@@ -235,10 +252,15 @@ for (const t of TARGETS) walk(t, allFiles)
 
 // --staged 且暂存集为空时保持全量口径(手动裸跑的情形),否则"暂存集空 ⇒ 零命中 ⇒ 恒绿"是假通过
 const stagedSet = STAGED ? stagedFiles() : null
+const stagedAny = STAGED ? stagedPathsAnyStatus() : null
+/** 索引非空而 ACMR 集为空 ⇒ 这是一枚"全是删除/重命名"的提交,本门无正文可判(不得退磁盘) */
+const deletionOnlyCommit = stagedSet !== null && stagedSet.size === 0 && stagedAny !== null && stagedAny.size > 0
 const scopeFiles =
   stagedSet && stagedSet.size > 0
     ? allFiles.filter((f) => stagedSet.has(relOf(f)))
-    : allFiles
+    : deletionOnlyCommit
+      ? []
+      : allFiles
 
 /** 判定面(2026-09-26 全部经 scripts/lib/face-reader.mjs,口径与本门自己的判据同形):
  *   · 缺省(全量)⇒ **工作树磁盘**。本门的"新增即拦"要求看得见**尚未 git add** 的在途中文,
@@ -255,8 +277,11 @@ let faceNotice = null
 if (STAGED) {
   if (stagedSet === null)
     faceNotice = '暂存面不可用(git 问不到)⇒ 已退回全量口径按工作树判;这不是"没有暂存改动"'
-  else if (stagedSet.size === 0)
-    faceNotice = '--staged 暂存集为空 ⇒ 已退回全量口径按工作树判(与 scopeFiles 同一条兜底)'
+  else if (deletionOnlyCommit) {
+    face = 'staged'
+    faceNotice = `本次暂存集里**没有任何可扫正文**(全是删除/重命名,共 ${stagedAny.size} 条路径)⇒ 本门不判,且**刻意不退磁盘** —— 退磁盘就会把别人在飞的文件定责给这枚提交,而那次红唯一出路是各会话 --no-verify、连带链上全部守门对该提交作废(§12e)。索引非空这一条由 git diff --cached --name-only(不筛状态)现证,不是猜的`
+  } else if (stagedSet.size === 0)
+    faceNotice = '--staged 暂存集为空(索引确实空,人工裸跑)⇒ 已退回全量口径按工作树判(与 scopeFiles 同一条兜底)'
   else face = 'staged'
 }
 if (faceNotice) console.log(`⚠️  [scan-hardcoded-zh] 判定面退回提示:${faceNotice}`)
