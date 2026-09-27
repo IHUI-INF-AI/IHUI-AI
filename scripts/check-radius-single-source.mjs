@@ -19,6 +19,9 @@
  *  B1 TS/TSX `border(Top|Bottom)?(Left|Right)?Radius: <数字|rpx(N)>` → 必须写 rnRadius.<step>
  *  B2 TS/TSX 本地 `const *RADIUS* = <数字>` → 必须引用档位
  *  B3 CSS/SCSS/HTML `border-radius: <px|rpx|rem 字面量>` → 必须写 var(--radius-*)
+ *     **逐值判**:多值声明(`border-radius: var(--radius-xl) 24rpx 0 0`)里每个角都要自己合规,
+ *     旧写法"值里出现 var( 就整条放行"会让这类混写整条隐身;任意属性形态 `[border-radius:6rpx]`
+ *     (Tailwind/小程序 className)同样在射程内。
  *  B4 `rounded-[...]` 任意值 → 必须换档位类(或 var(--radius-*))
  *     唯一放行:`0` / `none` / `inherit` / 同行或紧邻上行含 `radius-exempt:` 标记(真圆、头像、
  *     装饰点、胶囊等几何圆按 AGENTS §4 豁免清单本就不该方档化,但必须写明原因,不得静默)。
@@ -304,23 +307,31 @@ export function scanText(rel, text, table) {
     if (isCss(rel) || isDocLike || isJsx(rel)) {
       // 不锚定行首:一行里可能有 `width: 16px; border-radius: 50%` 多声明,
       // 且 .ts 里会内嵌生成的 HTML/CSS(cli 分享页),两类都得看见
+      // 两条取材形状都在这里,不锚定行首:一行里可能有 `width: 16px; border-radius: 50%` 多声明,
+      // .ts 里会内嵌生成的 HTML/CSS(cli 分享页),而 **小程序/Tailwind 的任意属性形态**
+      // `[border-radius:6rpx]` 前面是 `[` 不是空白 —— 旧字符类把它整个漏掉,于是 6rpx(=3px,
+      // 根本不在档位表上)长期隐身。值字符类同时排除 `]`,否则整串 className 被当成一个值读。
       if (TABLE_FILES.test(rel)) return
-      const m = /(^|[;{}\s])(border(?:-top|-bottom)?(?:-left|-right)?-radius\s*:\s*)([^;}\n'"]+)/.exec(line)
+      const m = /(^|[;{}[\s])(border(?:-top|-bottom)?(?:-left|-right)?-radius\s*:\s*)([^;}\n'"\]]+)/.exec(line)
       if (m) {
         const val = m[3].trim()
-        if (!/var\(--radius|inherit|none/.test(val)) {
-          if (/50%|9999px/.test(val)) {
-            if (!marked(i)) bad.push({ line: i + 1, rule: 'B3-circle', raw: val, hint: '真圆/胶囊须加 /* radius-exempt: 原因 */' })
-          } else {
-            for (const part of val.split(/\s+/)) {
-              const mm = /^([0-9.]+)(rpx|px|rem|em)$/.exec(part)
-              if (!mm) continue
-              const px = mm[2] === 'rpx' ? Number(mm[1]) / 2 : mm[2] === 'px' ? Number(mm[1]) : Number(mm[1]) * 16
-              if (px === 0) continue
-              if (!marked(i)) {
-                if (steps.includes(px)) bad.push({ line: i + 1, rule: 'B3', raw: part, hint: `应写 var(--radius-*)(${table.stepOf(px) ?? px})` })
-                else bad.push({ line: i + 1, rule: 'B3-off', raw: part, hint: `偏档字面量;就近档位 = ${table.nearest(px)}` })
-              }
+        if (/^(?:inherit|none|0)$/i.test(val)) {
+          // 整值就是关键字/零,没有可判的字面量
+        } else if (/50%|9999px/.test(val)) {
+          if (!marked(i)) bad.push({ line: i + 1, rule: 'B3-circle', raw: val, hint: '真圆/胶囊须加 /* radius-exempt: 原因 */' })
+        } else {
+          // **逐值判,不按整串短路**:旧写法只要值里出现 `var(--radius` 就整条放行,于是
+          // `border-radius: var(--radius-xl) 24rpx 0 0` 这种"第一个角引用档位、其余角写死字面量"
+          // 的多值声明整条隐身(HEAD 实测 4 处)。多值声明的每一个角都必须自己合规。
+          for (const part of val.split(/\s+/)) {
+            if (/^(?:var\(|calc\(|inherit|none|auto$)/i.test(part) || /^0(?:\.[0-9]+)?(?:px|rpx|rem|em|%)?$/i.test(part)) continue
+            const mm = /^([0-9.]+)(rpx|px|rem|em)$/.exec(part)
+            if (!mm) continue
+            const px = mm[2] === 'rpx' ? Number(mm[1]) / 2 : mm[2] === 'px' ? Number(mm[1]) : Number(mm[1]) * 16
+            if (px === 0) continue
+            if (!marked(i)) {
+              if (steps.includes(px)) bad.push({ line: i + 1, rule: 'B3', raw: part, hint: `应写 var(--radius-*)(${table.stepOf(px) ?? px})` })
+              else bad.push({ line: i + 1, rule: 'B3-off', raw: part, hint: `偏档字面量;就近档位 = ${table.nearest(px)}` })
             }
           }
         }
@@ -456,6 +467,30 @@ async function selfTest() {
     { name: 'B2 引用档位放行', f: 'apps/mobile-rn/src/x.tsx', s: "import { rnRadius } from '@ihui/design-tokens'\nconst CARD_RADIUS = rnRadius.xl", red: false },
     { name: 'B3 CSS 字面量必拦', f: 'apps/miniapp-taro/src/a.css', s: '  border-radius: 24rpx;', red: true },
     { name: 'B3 CSS var 放行', f: 'apps/miniapp-taro/src/a.css', s: '  border-radius: var(--radius-xl);', red: false },
+    {
+      name: 'B3 多值声明逐值判 —— var 之后的裸字面量必须看见(旧整串短路漏过 4 处)',
+      f: 'apps/miniapp-taro/src/a.css',
+      s: '  border-radius: var(--radius-xl) 24rpx 0 0;',
+      red: true,
+    },
+    {
+      name: 'B3 多值声明全用 var 必须放行(逐值判不得反过来误伤)',
+      f: 'apps/miniapp-taro/src/a.css',
+      s: '  border-radius: var(--radius-xl) var(--radius-xl) 0 0;',
+      red: false,
+    },
+    {
+      name: 'B3 任意属性形态 [border-radius:6rpx] 必拦(前导 [ 旧字符类漏掉,值 6rpx=3px 还偏档)',
+      f: 'apps/miniapp-taro/src/a.tsx',
+      s: '  <View className="w-[12rpx] h-[12rpx] [border-radius:6rpx] bg-primary" />',
+      red: true,
+    },
+    {
+      name: 'B3 任意属性形态引用档位必须放行(与 B4 的 rounded-[var(--radius-lg)] 同口径)',
+      f: 'apps/miniapp-taro/src/a.tsx',
+      s: '  <View className="w-[12rpx] h-[12rpx] [border-radius:var(--radius-xs)] bg-primary" />',
+      red: false,
+    },
     { name: 'B3 圆形无标记必拦', f: 'apps/web/app/x.css', s: '  border-radius: 50%;', red: true },
     { name: 'B3 圆形带标记放行', f: 'apps/web/app/x.css', s: '  border-radius: 50%; /* radius-exempt: 头像 */', red: false },
     { name: 'B3 注释行放行', f: 'apps/web/app/x.css', s: '  /* border-radius: 24rpx; */', red: false },
