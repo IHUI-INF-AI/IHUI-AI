@@ -24,6 +24,12 @@
 // **本票新增(①② 都缺、D94 明文要求必须盖)**:邮箱、IPv4、24 位以上十六进制串,
 // 集中在 `D94_ADDED_PATTERNS` / `redactEmails` / `redactIps`,来源标注 `D94`。
 //
+// **2026-09-27 追加(崩溃上报链路,守门「崩溃上报出口脱敏对账」的靶心)**:新增
+// `USER_HOME_PATH_RULES` / `redactUserHomePathLiterals` / `redactCrashText`,来源标注
+// `crash-report`。这不是"另起一套",而是给本模块补上**拿不到注入值时也必须盖住用户目录**
+// 的那一档(浏览器与"收到别人机器路径"的服务端都无法注入 home/user)——规则与本文件其余
+// 规则同源同处,出口只有一个 `redactCrashText`。
+//
 // 顺序沿用①的既有链路(`ir.py:230` = `redact_secrets(strip_ansi(x))`):
 //   strip_ansi → URL query → 凭据正则 → 本票新增三类 → 用户路径。
 // (先 strip_ansi 再脱敏:转义序列可能把完整凭据"切断"成一串短片段,先清掉才盖得住。)
@@ -45,7 +51,7 @@ export const REDACT_EMAIL_LOCAL_MASK = '***' as const
 export const REDACT_IP_MARKER = '[REDACTED_IP]' as const
 
 /** 规则来源(便于守门脚本按来源统计、防有人偷偷加自有正则) */
-export type RedactRuleSource = 'output_cleaning.py' | 'cli/redact.ts' | 'D94'
+export type RedactRuleSource = 'output_cleaning.py' | 'cli/redact.ts' | 'D94' | 'crash-report'
 
 export interface RedactRule {
   readonly source: RedactRuleSource
@@ -261,6 +267,47 @@ export function redactUserPaths(input: string, options: RedactOptions = {}): str
 }
 
 /**
+ * 崩溃上报专用:**无需注入**的用户主目录字面量规则(2026-09-27 立)。
+ *
+ * 为什么 `redactUserPaths` 不够:它按 `RedactOptions.home/user` 注入式匹配,而崩溃上报的
+ * 两个现场都拿不到注入值 —— ① 浏览器侧根本不知道用户主目录在哪(也不能知道,那是新的隐私面);
+ * ② 服务端收到的是**别人机器上**的路径,`os.homedir()` 是本机的。所以"用户路径"这一档在崩溃
+ * 链路上必须是**形状匹配**而不是"与本机 home 比对",否则它永远空转。
+ * 本组规则住在同一个 redact 模块、同一个出口函数里 —— **不得在端内再抄一份路径正则**
+ * (两处算同一件事必漂移,是本仓记过最多次的失败型)。
+ *
+ * 保守性(判据必须"命中形状才遮"):
+ *  - 只替换 `<name>` 这一段,路径其余部分原样保留 ⇒ 堆栈仍然可读(能定位到是哪个文件);
+ *  - 尾随断言 `(?=[\\/]|$)` 要求用户名后必须是分隔符或结尾 ⇒ 业务路由
+ *    `/src/pages/home/index.tsx:10:5` 这类"名字后面接的是 `:`(行列号)"不被判成用户目录;
+ *  - 字符类排除 `: * ? " < > | 空白`,Windows 非法文件名字符不可能被误吞进用户名段。
+ * 标记沿用 `redactUserPaths` 已有的 `<user>`,**没有新造第三种标记**。
+ */
+export const USER_HOME_PATH_RULES: readonly RedactRule[] = [
+  // Windows `C:\Users\<name>\` / Git-Bash `/c/Users/<name>/` / macOS `/Users/<name>/`
+  // (大小写不敏感:git-bash 与部分打包器会把它写成 `/users/`)
+  {
+    source: 'crash-report',
+    pattern: /([\\/]Users[\\/])([^\\/:*?"<>|\s]{1,64})(?=[\\/]|$)/gi,
+    replacement: `$1<user>`,
+  },
+  // Linux `/home/<name>/`(刻意**不**加 i:大小写敏感的 POSIX 路径里 `/HOME/` 多半是业务目录名)
+  {
+    source: 'crash-report',
+    pattern: /([\\/]home[\\/])([^\\/:*?"<>|\s]{1,64})(?=[\\/]|$)/g,
+    replacement: `$1<user>`,
+  },
+]
+
+/** 用户主目录字面量脱敏(形状匹配,不需要注入 home/user) */
+export function redactUserHomePathLiterals(text: string): string {
+  if (!text) return text
+  let out = text
+  for (const rule of USER_HOME_PATH_RULES) out = out.replace(rule.pattern, rule.replacement)
+  return out
+}
+
+/**
  * 凭据脱敏主入口:**既有规则并集 + 本票新增三类 + 用户路径**。
  * (不含 strip_ansi —— 需要清转义请用 `sanitizeEvidenceText`。)
  */
@@ -280,5 +327,28 @@ export function redactSecrets(text: string, options: RedactOptions = {}): string
  */
 export function sanitizeEvidenceText(text: string, options: RedactOptions = {}): string {
   return redactSecrets(stripAnsi(text), options)
+}
+
+/**
+ * **崩溃上报文本的唯一脱敏出口**(2026-09-27 立)。
+ *
+ * 病灶:`apps/web/src/components/common/ErrorBoundary.tsx` 把 `error.message` / `error.stack`
+ * 原样 POST 到 `/api/crash-reports`,而接收端只有 zod 长度上限(4000/20000),**零脱敏**,
+ * 且该端点**匿名可写**(见 `apps/api/src/routes/crash-reports.ts` 的设计注释)。
+ * ⇒ 错误消息里内嵌的 API key / Bearer token / 用户机器绝对路径会明文进入 `crash_reports`
+ * (保留 90 天,见 `apps/api/src/jobs/pii-retention-cleanup.ts`)并出现在 admin 面板。
+ *
+ * 组成 = `sanitizeEvidenceText`(strip_ansi → URL query → 凭据并集 → 邮箱/IP → 注入式用户路径)
+ * ⊕ `redactUserHomePathLiterals`(形状匹配的用户主目录)。多这一档的理由见该常量注释:
+ * 崩溃链路两个现场都拿不到注入值,只靠 `redactUserPaths` 那一档**永远空转**。
+ *
+ * 幂等:两趟调用字节相同(凭据侧由 SECRET_RULES 的 `(?![REDACTED` 闸门兜住,
+ * 路径侧 `<user>` 含 `<>` 不在字符类里 ⇒ 第二次匹配不上)。
+ *
+ * **端内不得再写第二份脱敏规则**,也不得拿 `redactSecrets` 之外的自有正则替代本出口 ——
+ * 崩溃上报的发射点与落库点由守门「崩溃上报出口脱敏对账」按本函数名逐处对账。
+ */
+export function redactCrashText(text: string, options: RedactOptions = {}): string {
+  return redactUserHomePathLiterals(sanitizeEvidenceText(text, options))
 }
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
