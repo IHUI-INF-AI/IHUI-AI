@@ -12500,3 +12500,61 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **模拟器复验环境已搭即撤**:AVD ihui_api36 本批启动验证过可正常上线(adb devices 实测 device),因事项改派,已 `adb emu kill` 干净关闭。
 - **并行纪律**:本批零代码改动,纯计划文档行级重放(提交面=HEAD+本批编辑);工作树在飞状态继续以 `.ihui-agent/tmp/plan-worktree-prebypass-20260927.md` 为准。
 
+### 第五十一波·续九 —— 第三十七批~第三十八批 + 三格的归属判定（2026-09-27 午，主会话独立复验）
+
+> 承续八。按"① 技能 ② 模型档位 ③ 桌面看门狗 ④ 长会话滚动 ⑤ 内部令牌"的顺序推。
+> 两条落地、一条否证、三条写明归属——**归属判定和落地同等重要**，
+> 因为把不可达的机制接进来正是本仓最恨的"造好没装车"。
+
+- [x] ✅(2026-09-27) **第三十七批：技能扫描收目录包形态 `<root>/<名>/SKILL.md`**（`05e4a25fd`）。
+  `scanDir` 第一行 `if (!entry.isFile()) continue` 把目录整个跳过,而 `.ihui/skills`、`.agents/skills`、
+  `.claude/skills`、`.cursor/skills`、`~/.ihui/skills` 这五个**我们自己写进头注**的扫描根,
+  外部技能包实际就按 `<name>/SKILL.md` 落地(本机第三方技能集正是这个布局)⇒ 症状是"装了技能但列表 0 个,
+  且没有任何一句解释"。只下钻一层、只认 `SKILL.md`(再深就是包里的 `references/`、`scripts/`、`assets/`,
+  当技能读等于往提示词灌资源文件);`_` 前缀与无 frontmatter `name` 的兜底规则**目录/文件同形**;
+  扫描层按**文件真实路径**去重(`realpathSync`,取不到退回 `path.resolve`)而不是按 name;
+  `readdirSync` 先排序,否则"同一文件被两形态命中时留哪份"随枚举顺序漂。
+  头注"只扫描 flat *.md(不递归子目录)"同步改掉——**散文与实现必须同值**,否则下一个人按头注理解这套机制。
+  回归 9 例新 + 36 例旧 = 45 passed;`--filter @ihui/cli typecheck` 0;
+  **有牙证明**:摘掉目录包分支 ⇒ 6/9 当场翻红,还原后 9/9 绿且与备份逐字节一致。
+  顺手公开两条**代理报告的口径纠正**(我先复验才动手,没照抄):技能段超预算不是静默丢
+  (已有 `empty_body`/`body_truncated`/`total_budget_exhausted` 三类 notice + 尾部计数行);
+  `prerequisites` 不是零消费者(`skills/sync.ts:178` 在做环境前置检查)。真零消费者的是 `getAllowedTools()`
+  (全仓仅定义处一处命中)⇒ 那一格另计票,不在本票里顺手接线(接哪个通道属权限语义决策)。
+- [x] ✅(2026-09-27) **第三十八批：内部服务令牌改常数时间比较,并把"形状"钉成断言**（`f56ac759d`）。
+  明文 `token !== config.AI_CALLBACK_SECRET` 会随"前缀对多少"分叉 ⇒ 给离线枚举密钥留计时侧信道。
+  出口 `secretsEqual` 先把两边各 SHA-256 成固定 32 字节再 `timingSafeEqual`(直接对两把原文比不行:
+  长度不等会**抛错**,且耗时仍与前缀相关)。判定结论一字未变(未配置/错票/对票+活跃/缺 X-User-Id/用户不存在)。
+  两条方法学值得留:① 用真路由 + `app.inject` 驱动——Fastify 5 没有 `app.mockRequest`,
+  而手搓 request/reply 恰好跳过本票要验的那一维(reply 真被 send、statusCode 真落到响应);
+  ② **行为断言抓不到计时这一维,只有源码形状锁抓得到**:变异取证=退回明文比较后
+  `1 failed | 8 passed`,红的正是形状锁(随后按备份逐字节还原)。形状锁自己读文件时先剥注释行,
+  否则会把解释自己的那句注释判成违规;needle 在测试里拼接而成不写字面量,免得测试自己成为被扫描命中的那一行。
+- [x] ✅(2026-09-27) **②模型档位"族规则 + 例外层叠继承"——本波否证,不接**。
+  先证可达再接机制(本仓铁律:加守卫前先证明坏状态可达)。实测:上游 `modelRules` 解决的是
+  **每模型请求参数覆盖**,而我方该位置今天没有站点——能力四布尔已有"显式 `capabilities` 覆盖名字派生"
+  这条例外通道(`model_catalog.py:258` 起)、`max_context` 有 `cap_with_max_context` 的每模型通道、
+  provider 选择是 `app/providers/__init__.py:82-113` 的有序前缀链(不是 caps 表)。
+  也核过 `reasoning_effort_pin.py` 不是"两处算同一件事"——它是会话内**钉扎状态机**(Unset/Compacted/Active),
+  与 caps 表不同维。**触发条件(达即接,别再重新取证)**:当某个 provider 的**新一代模型**需要与其旧世代
+  不同的 `protocol`/`supports_stream_usage`/请求体字段(改名、嵌套、多字段同发)时,
+  即在 `provider_caps.py` 上扩"有序规则 + 字段级 overlay(缺省继承、非 None 才覆盖)",
+  并同步给 `filter_call_kwargs` 加"只能删参、不能改形状"的那一维;不得新建第二张表。
+- [ ] **③桌面 ANR/挂死看门狗 + 崩溃分类学 —— 归属桌面端持有人,本线不代做**:上游实测在
+  `packages/desktop/src/main/desktopStabilityTelemetry.ts:17`(5s ANR/30s 挂死)、`:44`(crashKind 封闭集)、
+  `desktopCrashCapture.ts:421`(render-process-gone → 归档,上限 5 文件/100MB);我方全仓搜
+  `watchdog|unresponsive|longtask|PerformanceObserver` 零命中,管理端崩溃率恒为 0 就是这一格的后果。
+  按本会话既定范围(移动端/桌面端不代做)只登记不实施;落地需要真机崩溃注入实验,不能只靠测试跑绿。
+- [ ] **④长会话滚动四维差异 —— 本波刻意未做,阻塞在"运行时自验"这一格**:四维实测在我方
+  `apps/web/src/components/chat/message-list/use-message-list-scroll.ts`(517 行,此刻工作树干净):
+  `:15` 无缓存时回落 `ESTIMATED_ITEM_HEIGHT=160`、`:343` 条目卸载即 `map.delete(id)`(上翻时对窗口外行
+  重新用 160 估 ⇒ 累积漂移、内容在光标下跳动)、`:202-208` prepend 用 rAF 轮询 5s 超时、
+  贴底判定与流式 delta 同帧时滚动权可被夺。修法方向清楚(**行高缓存跨卸载存活 + LRU 限界 + 底部状态读 DOM 现值**),
+  但它是**用户可见的渲染位置改动**,按 §17 必须浏览器实测 DOM 数值;本机 8801 是生产构建(改 web 源码不生效,
+  判据 `.next/BUILD_ID`),要自验必须另起私有 dev 端口 + `PLAYWRIGHT_BASE_URL` + 按 PID 收,
+  而宿主 `MessageList.tsx` 此刻是他人 ` M` 在飞。**在具备可验环境前不落地,也不交"测试绿但没人看过"的版本**;
+  解阻判据:私有 dev 端口起得来 + 宿主文件不再在飞,两条件齐了再接。
+- [ ] **⑤剩余那一半:内部令牌换一次性短期票**(承第三十八批已修的计时维)——现密钥常驻、无 TTL、可无限重放,
+  命中一次即永久可冒充任意活跃用户。改它必须**同批**动发票方 `apps/ai-service` 与验票方
+  `apps/api/src/plugins/internal-service-token.ts`,顺序错了就是打断内部通道(与 O13/O17 同族经验),
+  属双侧发布顺序决策 ⇒ 请该面持有人先定"先发票后验票"还是"双读过渡窗",本线不单边改契约。
