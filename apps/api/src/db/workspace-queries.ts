@@ -233,12 +233,16 @@ export async function findTrashedFiles(userId: string): Promise<File[]> {
  * 2026-09-27 修「改了 0 行与改成功同形」：返回值由 void 改为 UPDATE ... RETURNING 命中的
  * id 集合 —— 归属校验与写不发生在同一瞬间，并发删除/已在回收站只能由这次写自己回报，
  * 与 batchSoftDelete / utils/batch-outcome.ts 同一口径。
+ * 同批补 `isNull(files.deletedAt)`：**回收站里的行不得被再次"删除"** —— 路由侧
+ * findFileById 的存在性预读与本写之间有时间窗（并发双删/一边删一边恢复），缺这一条
+ * 时第二次 UPDATE 仍命中，会把原始 deletedAt/deletedBy 覆盖成第二次的时间与人，
+ * 并把"已在回收站"报成删除成功（票面原文：softDeleteFile 缺 isNull(deletedAt)）。
  */
 export async function softDeleteFile(id: string, userId: string): Promise<string[]> {
   const rows = await db
     .update(files)
     .set({ deletedAt: new Date(), deletedBy: userId })
-    .where(eq(files.id, id))
+    .where(and(eq(files.id, id), isNull(files.deletedAt)))
     .returning({ id: files.id })
   return rows.map((r) => r.id)
 }
