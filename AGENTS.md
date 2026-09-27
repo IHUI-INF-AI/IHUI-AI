@@ -298,6 +298,15 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **禁止**用兜底正则把 `/api/<前缀>/[^/]+` 这类"参数路由"形态当作公开面 —— 它会连同**静态子路由**一起放行。实测 `agents.ts` 的 `^/api/agents/[^/]+$` 让 `/agents/health` 游客可访问,而 `/agents/need-tasks` 的 handler 依赖 `request.userId`,游客走到它不是 401 而是 **500**:fail-open 直接崩在鉴权层后面,比 401 更难发现。
 - 正确做法:**显式白名单列路径**(如 `/api/agents`、`/api/agents/list`、`/api/categories/list`),详情路由用正则时**必须**配一张静态段排除表(`AGENTS_PROTECTED_STATIC_SEGMENTS`)。**新增 `/agents/<静态段>` 的 GET 路由时必须同步登记该表**,否则会被当成游客详情放行。
 - 游客视图的公开数据由 handler 自证:强制 `status=published` + `sanitizePublicAgent` 脱敏,并且测试要断言"未发布读不到 + 脱敏字段不出现",不得只断言 200。
+- **"已登录"不等于"可以动这条数据"(强制,2026-09-27 立,第三十二批实证)**:凡是 handler 先 `authenticate` / `checkAuth`
+  再按**请求里的 id** 去读或写某条归属型记录(oauth 会话、第三方绑定、文件、卡片、成员关系……),归属条件必须落在
+  **被发出的那条 SQL 上**(`and(eq(<表>.id, id), eq(<表>.userId, request.userId!))`),不得只写在调用方的 `if` 里 ——
+  `if` 判得了"存在",判不了"命中";症状是别人的行被改了而响应照旧回 `deleted/updated: true`,账面一片绿。
+  两条写法纪律:① 属主一律取**令牌主体**,不得取请求体/Query 里自报的 `userId`(那是"可认领他人资产"的入口);
+  ② 回报集合取库侧确认集(`.returning({id})` / 裸 SQL 的 `RETURNING`),与守门 134 的计数诚实性是同一族的另一半。
+  **越权用例必须断言"未发出查询"**,只断言 403/401 会放过"先改了再抛 403"与"授权判定发生在查库之后"两种写法
+  (取证:`capture.whereArgs` 为空 / `whereSeen === 0`)。Python 侧同一层由守门 117 管,TS 侧此前无门 —— 本条是散文规矩,
+  新增同类端点时按上面两条写并配一条"别人持有的行 ⇒ 0 命中"用例即可,不要为消红去削判据。
 - 改动 router 鉴权面前必须做**影响面核查**:全仓 grep 该路径(含 `packages/` 与各端)确认没有未登录调用方;本仓这两个端点的实际调用方为 0。
 - 部署侧 nginx 与蓝绿 nginx 是两份配置:边缘限流(`limit_req_zone` / `limit_req_status 429` / `error_page 429`)改一处必须同步另一处,docker 侧 zone 名须带 `docker_` 前缀以免与 `deploy/nginx/conf.d/*.conf` 重名(Nginx 同 http 上下文重名 zone 会**启动失败**)。静态自检:`apps/api/tests/o5-nginx-edge-ratelimit.test.ts`。
 
