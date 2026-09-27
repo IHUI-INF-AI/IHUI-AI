@@ -12751,3 +12751,50 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   它的前置是解决"同名类多处定义"的归属判据;在那之前这一格是**已点名的盲区**,不是"已核对过一致"。
 
 - **第三十三批·发布线续 E（反风控那一族还剩的三维：落点接线 / 画像根 / 覆盖余料；另两条代理交付与一处邻居夹具，2026-09-27 午后）**:① **“有唯一出口”不等于“每个落点都接上了”** —— `get_adapter()` 生产面 6 个落点里只有 2 处注入 `db_account_id`，其余在 **`account_groups` 的批量发布与批量验证**（一次把全部 active 账号各换一张脸，比单账号更危险）与两条登录态导入路径的校验里（后者是我上午自己新引入的那格）；画像目录里现存的 `*_legacy-*` 就是这条链产出的。现全部补齐，并把“取到适配器后、消费身份键前必须出现 `db_account_id =`”写成源码面锁 `apps/ai-service/tests/test_adapter_identity_db_id_injected.py`（覆盖面按**出现次数**自证而非文件数；配对对照“注入后必绿 / 退回裸调用必红”）。同批把 `_existing_credentials_present`(只回 bool) 升级为 `_existing_account_row`(回行 id)：同一份 SQL 判据同时供“覆盖是否破坏性”与“该用哪个身份锚点”，**只查一次**（查两遍就是在两把尺子之间留竞态窗口）。`4a031694`。② **画像根本身也在漂**（身份锚点的第二维，`73308c6a`）：`_PROFILE_ROOT = Path(os.environ.get(..., ".ihui-agent/tmp/anti-profiles")).resolve()` 的相对默认值按**进程 cwd** 解析，而 `pnpm --filter @ihui/ai-service dev` 的 cwd 就是 `apps/ai-service` ⇒ 真画像 9 份（**每份都带 Chromium `Cookies`**）一直在 `apps/ai-service/.ihui-agent/tmp/anti-profiles`，仓库根那份是另一天从别处启动时长出来的副本。现解析规则收进纯函数 `resolve_profile_root()`（默认与相对值一律锚定仓库根、绝对值原样、空串归默认、导入期零副作用），配套搬迁器 `apps/ai-service/scripts/relocate_profile_root.py`（默认 dry-run；两边都有真实登录态 ⇒ **拒绝交人工**；单边有 ⇒ 另一边改名归档不删除；搬完回读 Cookies 字节与 mtime 未变且 `user_data_dir` 指向真实目录，不符即回退该项；`--self-test` 5 组构造面）。本轮按该判据实际搬迁 9 个键目录，源根已空；仓库根那枚 `juejin_db13` 探针副本按 `.probe-copy-20260927T1217` 归档留名可回退。**一条判据级教训**：Chromium 新版把 cookie 存在 `Default/Network/Cookies` 而非 `Default/Cookies` —— 我的第一版巡检脚本按后者判“无 Cookies”，把 9 份**带真实登录态**的画像读成空壳，差一步就把它们当垃圾删掉；同一型误判若发生在搬迁器里就是不可逆事故，故两形态都认并把它钉成自检一条。③ **覆盖余料扩到全部三写点**（`72434f50`）：上一枚只接了扫码导入，同型裸 UPDATE 还在 `cookie_refresh_daemon`（把轮换值写回凭证——正是用户症状里那个“刷新 token”动作）与前台 `PUT /publish/accounts/{id}`；现抽成唯一出口 `app/services/publish/credential_history.py`，源码面锁规定 `credentialsHistory` 字面量与 `credentials_enc=$` 写语句只许住在出口里、三个写点必须各有 `await apply_credentials_update(`，两条变异均真翻红。④ **CSDN 的“发布超时”改成可行动归因**（`a7243458`）：纯函数 `classify_publish_timeout(url, markers)`，URL 落在登录域或命中扫码标识 ⇒ 判登录墙并给出“重新扫码，这不是发文章功能坏了”的文案，判不出 ⇒ **逐字**退回原文案（绝不把真故障洗成登录墙）；采集器零新增等待、采集抛异常只停采集不上抛。⑤ **一处我自己造成的红**：代理 F 的掘金一手校准落地后，邻居夹具 `test_publish_adapters_group1.py::TestJuejinAdapter::test_publish_success` 一直红（它断言的还是“等 `/post/<id>` 跳转”这一被实测推翻的旧判据，且通用 mock 不给平铺分类列表的 `inner_text`/选中态 class/可见按钮全集）—— 我落地那一枚只跑了代理自带套件、没跑邻域回归，属我的取证缺口。现按实测契约补夹具并加反向锁“绝不再把 `/post/` 当成功证据”，**判据一字未放宽**；发布线 10 份套件合跑 **161 passed**、适配器全量邻域 205 passed。⑥ 仍不归代码的：CSDN 与小红书要人工重新登录（`12` 现 `active` 而 verify 已 FAIL，账面已按真实结论更正）、掘金探针留下的 3 篇私密草稿（只读枚举进行中，删除动作归用户）、其余 9 个平台缺开放平台凭据。
+
+
+
+
+
+
+### 更正二(2026-09-27,推翻本会话「Ctrl+Q 新线索」那条里的定性)
+- ⚠️ **上一格里我写的「最可能的分歧点:桌面端加载的是线上生产构建 …… 即『源码有绑定』不等于『线上那一版有绑定』」这句是错的,勿照它派单。** 它把一次**未取证的推测**写成了结论,而手边就有一件反证:**用户本次报障时亲眼看到遮罩停在「正在退出...」** —— 那个文案只由 `QuitUpdateOverlay` 的 `quitting` 档产出,它挂在线上站点上并被渲染出来,即**线上那一版确实有完整退出链**。所以"线上没这条链路"不成立。
+- **实测到的只有这么窄一句**:我用输入注入向该窗口发了一次 `Control_L+q`(工具回显 `foregroundStatus: matched`、`inputEventCount: 4`、VK=81),此后 45 秒内:界面既无遮罩也无变化、应用照常运行、桌面端日志**零新增行**、且本次新增的那条兜底 ERROR 也没打。⇒ 结论只能是「**那一次按键没有触发退出链**」,不能外推成「该入口未接线」更不能外推成「线上没有链路」。
+- **这一格真正的分歧点(未取证,列成可查项)**:① 焦点/时序 —— 注入的是 Win32 按键,而 `use-native-shortcuts.ts` 的监听挂在 `window` 上,WebView2 是否把该 chord 交给页面未验;② 该 hook 的挂载条件(是否要求 `isTauri()` 之外的前置、是否只在某路由挂载);③ 用户报的"所有入口都试过"里,托盘菜单那一路**本会话没有实测过**(它才是 quit 的主入口)。**接手顺序**:先测托盘菜单退出(它才是用户实际用的入口,且能直接验收本次的 3 秒兜底),再回头判 Ctrl+Q。
+- **通用教训(与本仓既有记录同族)**:否定式取证必须用**被审对象自己的真实形态**去搜。我上一轮拿 `desktop-quit-request` 等标识符去 grep 线上 chunk,只抽了 3 个就得出"搜不到" —— 而打包后的标识符会被改名、且退出链根本不在那 3 个 chunk 里。**"我没搜到"从来不是"它不存在"的证据**;何况这次连"它存在"的第一手证据(用户看到的界面文案)都已经在手上了。
+### 0.1.45 分发链收口(2026-09-27,推翻本会话上一格"Windows 发版链已断"的未修状态)
+- [x] ✅**根因确认并修好**:不是 NSIS 插件缺失,也不是仓库 `.nsi` 内容 —— 是 `release-desktop.yml` 里 `npm i -g @tauri-apps/cli@^2` **每次取最新 2.x**,而 tauri-cli 自带的那份 NSIS 模板(`utils.nsh` 的 `CheckIfAppIsRunning` 宏)随 CLI 版本变,新版模板与 runner 上的 NSIS 不匹配 ⇒ makensis abort ⇒ Windows 包产出 0 个 ⇒ `Publish Updater JSON` / `Sync Downloads` / `Sync release to Gitee` **三步连坐 skipped**。本机同源码同 `.nsi` 打包成功(锁在 2.11.4)正是这个差值的体现。修法:取 `pnpm-lock.yaml` 里的**精确版本**(本地先跑通取值命令:得 2.11.4、该键全锁文件只出现 1 次),装完 `tauri --version` 回读比对,不符即 exit 1 —— 拒绝"又一次静默漂移"。
+- [x] ✅**一枚我自己引入的红,以及它掩盖真问题的方式**(值得单独留形):上一格我只加了 POSIX 语法却没写 `shell: bash`,而 **Windows runner 的默认 shell 是 PowerShell** ⇒ 该步骤 `ParserError: Missing '(' after 'if' in if statement`,job 在 **41 秒**内就红(连构建都没进),linux/macos 因走 bash 而正常。症状从"打包失败"变成"装 CLI 就失败",差点把正确的诊断方向带偏。⇒ **凡在 matrix 跨平台 job 里写多行 `run`,shell 必须显式声明**;而"失败得更快"不是好转,是换了个失败点。
+- [x] ✅**分发实测(逐项回读,不信 CI 的绿)**:run 36295814819 `completed success`(12m7s);GitHub release `desktop-v0.1.45` 资产含 `AI_0.1.45_x64-setup.exe` + `.sig`(上一次失败时这两个不存在);Gitee 国内直链跟随重定向 **HTTP 200、实下载 7,567,866 B**,与本机构建产物体积一致,**并配了负向对照**(同格式的不存在资产 URL 返回 404)—— 没有这条对照,"200"可能只是 Gitee 的登录/兜底页;`origin/main` 上 `apps/web/src/config/desktop-feed.generated.ts` 已由 CI 刷成 **0.1.45**。
+- [ ] **剩最后一环,且它不归本机管**:线上 `https://aizhs.top/desktop-feed.json` 现读仍是 **0.1.44**。原因是那份快照要**随 Web 部署**才生效,而生产部署在另一台机上(本机实测无 IHUI 服务、无端口监听)。⇒ **不得把"快照已刷成 0.1.45"读成"线上更新源已生效"**;部署环按周期自动拉 main,验收动作就是隔一段时间重读该 URL 是否变 0.1.45。
+- [x] ✅**同批另两处修复已入库**:`quit_app` 的 3 秒强制终止兜底 + `setup` 里"main 窗口没建出来就不启动 auto_refresh 常驻循环"(治僵尸实例)+ 发版脚本"旧包被占用删不掉时降级点名"(纯判据 `desktop-artifact-invariant.mjs` 一字未动,其单测 pass 11/fail 0)。验证:cargo check exit 0、node --check 通过、PyYAML 解析 workflow 通过且 `shell` 字段确认为 bash。
+- ⚠️**仍未闭环的一条(不粉饰)**:真机端到端"点托盘退出 → 进程在 3 秒内终止"**没有验收成功**。两次尝试都失败在触发侧:① 注入 `Control_L+q` 未触发(已收窄为"那一次按键没走通",不是"链路不存在"——见上一格的更正二);② 定位系统托盘图标失败(按窗口枚举拿不到托盘,裁剪任务栏区域取到全白)。而前端那两处改动**已确认上线**(在线上打包文件里搜到不被改名的 `quit-guard` 字面量)。⇒ 接手者要验收,直接从托盘菜单点"退出"即可,判据是进程消失且(若走到兜底)日志出现「未在 3s 内终止进程…强制退出」那一行。
+### 第五十一波·续十六 —— 第六轮 ZCode 取证四路并行 + 批次 44/45/46（2026-09-27 午后，主会话独立复跑）
+**先记一条我自己差点签下的假合格证**：给守门 147 做"有牙证明"时，我第一次的 A/B 是**空转**的 ——
+用 `sed '0,/128000/s//120000/'` 去改 `packages/api-client/src/model-context-capacity.ts`，而源文件写的是
+**`128_000`（下划线数字面量）**，那条 `sed` 一个字节都没改，于是"未注入臂 exit 0 / 注入臂 exit 0"
+被我当成了"门没牙"。**如果我不去查输入清单，下一步就是去削那道门的判据**。真实链是：
+① 控制测量（纯函数面 `__test__.decide(真仓 HEAD 五份输入)`）⇒ `drifts=0 undetermined=0`，
+且 `tables` 七格全部非空（`tsExact=57 / tsLowWindow=22 / pyLow=22 / patternRules=31 / 兜底 128000×2 / 档位三处`）
+—— 先证明"尺子量得到"，才允许用 0 当结论；② 真注入命中后 ⇒ `C1 兜底窗口漂移:TS DEFAULT_CONTEXT_CAPACITY=120000 vs Python DEFAULT_CONTEXT_WINDOW=128000`；
+③ 把 `--root` 指向缺输入的临时副本 ⇒ `exit 2「被审面取不到…既不记绿也不冒红」`（这条同时证明 `--root`
+**确实重定向了内容读取**，不是只重定向枚举 —— 守门 70 的镜像测试 13/14 恒红那一型就是这么躲过去的）。
+- [x] ✅(2026-09-27) **批次 44 守门 147 `check-model-capacity-parity`：模型兜底窗口 / 低窗口例外表 / 推理档位三处 TS↔Python 逐项对账**
+  立项凭据是 Python 侧源码**自述**"暂无自动对账门"（`model_context_window.py:25-26`），两侧注释又都写"勿单方面改动"
+  —— 散文约束在本仓的失效形态永远是安静。取证：`--self-test` 20/20、§22c 镜像 8/8（含 T1"测试不得重写解析规则"
+  与 T7"未注册时不得被读成已装车"两条反向锁）、`node scripts/check-gate-wiring.mjs` exit 0（R4/R5 均 0）。
+  **注册与脚本同枚入库**（上一枚只落了 runner 注册块，门体当时还未跟踪 —— 那正是守门 146 头注里单独记过的事故，
+  本枚把它补成同一枚提交，并同步 `pnpm check:model-capacity` 问责入口）。
+- [x] ✅(2026-09-27) **批次 45（部分落地）进程身份三元组库 `scripts/lib/proc-identity.mjs`**：修的是实测冻结生产 11h50m 的
+  那一型（G-193：`acquire` 是一次性 CLI，meta 里 pid 不是持锁者 ⇒ 判活恒真 / 号被复用）。**三态语义定死**：
+  只有 `mismatch` 授权抢占，`unverifiable`（取不到启动时间、别机持有、PowerShell 不可达）一律维持改前行为 ——
+  抢错 = 并发写坏 `.git`（§5b 史），少抢 = 多等一轮。两条锁的接线与取证由并行代理续做，**未落地前本条只算库在位**。
+- [x] ✅(2026-09-27) **批次 46 `apps/api/src/utils/egress-retry-safety.ts`：非幂等出站调用的"请求是否已发出"三态判据**
+  病灶是 `webhooks-trigger.ts` 对下游 POST 起 agent run，30s abort 后按 1s/2s/4s 重试 —— 超时意味着**对方可能已执行**，
+  重试就是重复跑 agent（重复产出、重复计费），而 `controller.abort()` 与 `ECONNREFUSED`（请求根本没出去）塌成同一句话。
+  出口返回 `retry-safe / result-unknown / permanent-fail`，**判不出的一律落 result-unknown（宁可不重试）**；
+  `reason` 只落码/名/状态，**不落原始 message**（Node 的 `connect ECONNREFUSED 127.0.0.1:port`、`getaddrinfo ENOTFOUND <host>` 自带地址，与守门 67 / §5e 同条禁令）。
+  主会话独立复跑：`vitest run tests/egress-retry-safety.test.ts` **20 passed**；`pnpm --filter @ihui/api typecheck` 0 错误；
+  `node scripts/check-egress-facts.mjs` exit 0。代理如实留下的三格**没顺手做**：`eventStore` 仍是进程内存态（重启即丢，
+  跨重启的人工对账未接）、`ENETUNREACH/EHOSTUNREACH/UND_ERR_CONNECT_*` 刻意不进白名单（落"结果未知"）、
+  signal 在 dispatch 前就 abort 时结构上区分不了（不猜）。
