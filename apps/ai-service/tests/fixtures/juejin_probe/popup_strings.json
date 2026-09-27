@@ -1,11 +1,15 @@
 {
-  "_evidence_grade": "mixed-see-provenance",
+  "_evidence_grade": "live-dom-observed-2026-09-27",
   "_provenance": {
-    "submit_api_url / draft_api_url": "逐字取自掘金线上生产 JS bundle 的接口字符串(公开资源,无需登录);取证存档 G:/IHUI-AI/.ihui-agent/tmp/juejin-probe/endpoints.json。注意:submit_api_url_v2 是防御性候选,不是 bundle 实测项(bundle 实测只有 v1)",
-    "popup_visible_button_texts": "掘金编辑器发布弹层的可见按钮文案全集:来源为历史 publish timeout 事故排查的线上实测记录(任务书给定)。本次只读探针因画像登录态已在服务端失效,未能现场复抓 —— 拿到新登录态后必须用实测 DOM 复验并替换本数组",
-    "old_assumption_popup_button_texts": "旧代码假设('确认发布' 单字面量)对应的文案面,用于反向判据测试",
-    "category_option_texts_seen": "弹层分类下拉的可滚动列表文案样例(掘金一级分类);分类数据是服务端内容,本数组仅驱动纯匹配逻辑测试,不代表现场抓取",
-    "submit_response_*": "提交接口响应形态未在 live 会话中抓到,extract_article_id_from_submit 按三种候选键(article_id/articleId/id)防御性解析;对应测试只验函数契约,不声称响应形状已被实测"
+    "总体": "2026-09-27 三轮 headless 只读探针的**一手 DOM 观察**,凭据注入与适配器 publish 完全同路径(publish_accounts.id=13 解密 → create_stealth_browser_context(account_id=juejin_db13) → add_cookies 三件套);观察产物存档 G:/IHUI-AI/.ihui-agent/tmp/juejin-calib/observation.json / observation2.json / observation3.json。**全程未点击最终提交按钮,无文章被发布。**",
+    "submit_api_url / draft_api_url": "URL 字符串逐字在当次抓到的编辑器线上 bundle https://lf-web-assets.juejin.cn/obj/juejin-web/xitu_juejin_web_editor/js/app.12c77646.js 中核到(article/publish、article_draft/create、article_draft/update、/published 四类串);article_draft/create 并在当次网络面板现行观测到。注意:submit_api_url_v2 仍是防御性候选,当次 bundle **未**出现 v2",
+    "popup_visible_button_texts": "发布弹层(.publish-popup)内可见按钮文案全集,当次实测逐字(publish_panel.buttons):[发布(顶栏入口,弹层 wrapper 内), 上传封面, 取消, 确定并发布]。上一版该数组来自历史事故排查的二手记录,本次已被一手观察替换;「确认发布」在实测面**不存在**",
+    "old_assumption_popup_button_texts": "旧代码假设('确认发布' 单字面量)对应的构造文案面,仅供反向判据测试使用,非实测抓取",
+    "category_option_texts_seen": "弹层分类平铺列表(.category-list > .item)实测全集,8 项,当次逐字;选中后该 item class 变 'item active'(见 category_selected_class_after_click)",
+    "category_* 字段": "category_container_class / category_selected_class_after_click 取自 observation2/3.json 实测 class 字符串",
+    "tag_* 字段": "标签输入框 = .tag-input 内 input.byte-select__input,placeholder 文案在独立 .byte-select__placeholder div(非 input 属性);普通 click 实测被 pointer events 拦截、force click 可用;搜索下拉 = body 级 portal .byte-select-dropdown > li.byte-select-option(实测点选成功)",
+    "published_transition_url / under_review_post_url": "/published 串当次在编辑器 bundle 逐字核到(成功跳转行为本身未实测,不重发提交);/spost/<id> 为上一版线上实测结论,本次未复验,仅驱动纯函数契约测试,不得读成当次实测",
+    "submit_response_*": "提交接口响应形态仍**未**在 live 会话中抓到(不得点提交);extract_article_id_from_submit 按三种候选键(article_id/articleId/id)防御性解析,对应测试只验函数契约,不声称响应形状已被实测"
   },
   "submit_api_url": "https://api.juejin.cn/content_api/v1/article/publish?aid=2608",
   "submit_api_url_v2": "https://api.juejin.cn/content_api/v2/article/publish",
@@ -14,17 +18,26 @@
   "published_transition_url": "https://juejin.cn/published",
   "redirected_home_url": "https://juejin.cn/",
   "under_review_post_url": "https://juejin.cn/spost/7555123456789012345",
-  "popup_visible_button_texts": ["取消", "确定并发布"],
+  "popup_visible_button_texts": ["发布", "上传封面", "取消", "确定并发布"],
   "old_assumption_popup_button_texts": ["确认发布"],
   "category_option_texts_seen": [
-    "开发工具",
     "后端",
     "前端",
     "Android",
     "iOS",
     "人工智能",
-    "开发",
+    "开发工具",
     "代码人生",
     "阅读"
-  ]
+  ],
+  "publish_opener_exact_text": "发布",
+  "publish_popup_container_class": "publish-popup publish-popup with-padding active",
+  "category_container_class": "form-item-content category-list",
+  "category_item_class_initial": "item",
+  "category_selected_class_after_click": "item active",
+  "tag_input_selector_measured": ".tag-input .byte-select__input",
+  "tag_dropdown_option_html_head": "<li class=\"byte-select-option byte-select-option--hover\" classname=\"tag-option\" role=\"button\">",
+  "summary_label_class": "label required",
+  "summary_autofilled_counter_text": "37/100",
+  "editor_bundle_evidence_url": "https://lf-web-assets.juejin.cn/obj/juejin-web/xitu_juejin_web_editor/js/app.12c77646.js"
 }

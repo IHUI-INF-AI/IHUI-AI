@@ -4,6 +4,8 @@
 
 import { fetchApi, fetchAiServiceJson, isAbortError } from '../client.js'
 import type {
+  ApiResult,
+  ApiResponse,
   PermissionMode,
   PermissionDecision,
   DangerLevel,
@@ -135,9 +137,100 @@ export interface AgentSessionList {
   count: number
 }
 
+/**
+ * `POST /agents/{session_id}/resume` 的响应体(V3 #65 按会话续跑)。
+ *
+ * 旧形状 `{ session_id, resumed }` 与本仓任何后端路由都不对应(该函数此前打的是
+ * `/agents/sessions/{sid}/resume`,FastAPI 面上不存在 ⇒ 恒 404/405,零调用方所以从未暴露),
+ * 现按 ai-service `resume_agent_session` 的实际载荷逐字段重写。
+ */
 export interface AgentResumeResult {
   session_id: string
-  resumed: boolean
+  /** 成功档只有 `resumed` 一格;其余结论走 HTTP 状态码 + errorCode(见下) */
+  outcome: 'resumed'
+  changed: boolean
+  /** 本次续跑消费的暂停点(由服务端按 session 定位,不是调用方存回来的那个) */
+  checkpoint_id: string | null
+  /** 续跑结果,形状同 `/agents/execute/resume` 的 result;本端只做透传不解释 */
+  result?: unknown
+}
+
+/** `POST /agents/{sid}/pause` 的成功结论格(与 Python `PauseOutcome` 成功侧逐值同形)。 */
+export type AgentSessionPauseOutcome = 'paused' | 'already_paused'
+
+/**
+ * 暂停响应的检查点阶段 —— **这一格决定了调用方绝不能拿 checkpoint_id 去续跑**。
+ *
+ * 一次暂停会落两个检查点:`eager` 是**按下暂停那一刻**的快照,循环随后还会在轮次边界
+ * 落一个更完整的暂停点。拿 eager 那枚去 `POST /agents/execute/resume` 会
+ * **重跑一轮已执行的工具调用**(带副作用的工具重跑一次就是真实事故),因此
+ * 前端的"继续"一律走 `resumeAgentSession(sessionId)`(服务端按 session 取最新暂停点)。
+ * 这里保留该字段只是为了让界面如实说明"暂停点尚未定稿",不是为了传回去。
+ */
+export type AgentSessionCheckpointStage = 'eager' | 'recorded'
+
+export interface AgentSessionPauseResult {
+  session_id: string
+  /**
+   * `paused` = 本次真的置了暂停位;`already_paused` = 幂等重复调用(`changed` 为 false)。
+   * 两态**都必须由后端给出**,端内不得用"我上次点过"自行推断 —— 那是第二套状态机。
+   */
+  outcome: AgentSessionPauseOutcome
+  changed: boolean
+  checkpoint_id: string | null
+  checkpoint_stage: AgentSessionCheckpointStage
+}
+
+/**
+ * `/agents/{sid}/pause` 与 `/agents/{sid}/resume` 把结论装在 `{code,message,data}` 里,
+ * 而 `fetchAiServiceJson` 的约定是"ai-service 直返裸 JSON,整体作为 data"(本文件其余
+ * `/agents/*` 确实如此,如 `/agents/sessions/{id}/messages`)。不在这里剥壳,调用方拿到的
+ * `data` 就是整只信封,而**逐调用点各剥一次**正是本仓记过最多次的漂移型。
+ */
+function unwrapAiServiceEnvelope<T>(
+  res: ApiResult<ApiResponse<T>>,
+  fallbackMessage: string,
+): ApiResult<T> {
+  if (!res.success) return res
+  const envelope = res.data
+  if (envelope && typeof envelope === 'object' && 'code' in envelope) {
+    if (envelope.code !== 0 || envelope.data === undefined) {
+      return {
+        success: false,
+        error: envelope.message?.trim() || fallbackMessage,
+        status: res.status,
+        errorCode: envelope.errorCode,
+      }
+    }
+    return { success: true, data: envelope.data, status: res.status }
+  }
+  // 后端哪天改成裸返回也不能静默错位:把原样 data 交出去,由调用方的字段判据兜住
+  return { success: true, data: envelope as unknown as T, status: res.status }
+}
+
+/**
+ * 暂停某会话正在跑的 agent loop(V3 #65 补的 HTTP 出口)。
+ *
+ * 失败格(由 `ApiResult` 的 `status` + `errorCode` 分辨,**不会**被折成一句"失败"):
+ * `403 AGENT_PAUSE_FORBIDDEN` 会话属于别人 / `404 AGENT_PAUSE_UNKNOWN_SESSION`
+ * / `409 AGENT_PAUSE_NOT_RUNNING` 它现在不在跑
+ * / `503 AGENT_PAUSE_CHECKPOINT_UNAVAILABLE` 暂停位已置但没有恢复点(刻意不记成功)。
+ *
+ * @param sessionId 会话标识(路径寻址;身份由令牌提供,body 里没有可冒充的属主字段)
+ * @param reason    可选,仅进服务端审计日志,不参与判定与鉴权
+ */
+export async function pauseAgentSession(
+  sessionId: string,
+  reason?: string,
+): Promise<ApiResult<AgentSessionPauseResult>> {
+  const res = await fetchAiServiceJson<ApiResponse<AgentSessionPauseResult>>(
+    `/agents/${encodeURIComponent(sessionId)}/pause`,
+    {
+      method: 'POST',
+      body: JSON.stringify(reason ? { reason } : {}),
+    },
+  )
+  return unwrapAiServiceEnvelope(res, '暂停失败')
 }
 
 // ---- SSE 流式事件 ----
@@ -358,13 +451,33 @@ export async function getAgentSession(sessionId: string) {
   )
 }
 
-export async function resumeAgentSession(sessionId: string) {
-  return fetchAiServiceJson<AgentResumeResult>(
-    `/agents/sessions/${encodeURIComponent(sessionId)}/resume`,
+/**
+ * 按**会话**从暂停点续跑(V3 #65)。
+ *
+ * 与 `POST /agents/execute/resume` 的分工:那条要求调用方自己存住 `checkpoint_id`;
+ * 本条只需会话标识 —— 暂停点由服务端按 session 定位。**暂停 → 继续必须走这一条**:
+ * pause 响应带回的是 `checkpoint_stage="eager"` 那一刻的快照,拿它的 id 去 execute/resume
+ * 会重跑一轮已执行的工具调用(见 `AgentSessionCheckpointStage` 注释)。
+ *
+ * 失败格:`403 AGENT_RESUME_FORBIDDEN` / `404 AGENT_RESUME_NO_CHECKPOINT` /
+ * `409 AGENT_RESUME_NOT_PAUSED`(它正在跑)/ `503 AGENT_RESUME_RESUME_FAILED`。
+ *
+ * 路径修正说明:本函数此前打 `/agents/sessions/{sid}/resume`,FastAPI 面上没有该路由
+ * (`/agents/sessions/*` 只有 GET messages / GET deliverables / DELETE),即**恒 404**;
+ * 全仓零调用方所以从未暴露。现指向 `pauseAgentSession` 的对称出口。
+ */
+export async function resumeAgentSession(
+  sessionId: string,
+): Promise<ApiResult<AgentResumeResult>> {
+  const res = await fetchAiServiceJson<ApiResponse<AgentResumeResult>>(
+    `/agents/${encodeURIComponent(sessionId)}/resume`,
     {
       method: 'POST',
+      // 服务端模型 AgentSessionResumeRequest 无默认值 ⇒ 必须带 body(空对象 = 全部沿用)
+      body: JSON.stringify({}),
     },
   )
+  return unwrapAiServiceEnvelope(res, '继续失败')
 }
 
 // ============================================================================
