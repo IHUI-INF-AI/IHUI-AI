@@ -113,6 +113,7 @@ function backupOrphanMerge(sha, why) {
     return { ok: false, ref }
   }
 }
+/** 纯函数:拼出带身份的 `commit-tree` 参数(判据可被镜像测试直接喂构造面)。 */
 export function mergeCommitArgs({ tree, parents, message }) {
   const ps = (Array.isArray(parents) ? parents : [parents]).flatMap((p) => ['-p', p])
   return [...GIT_MACHINE_IDENTITY, 'commit-tree', tree, ...ps, '-m', message]
