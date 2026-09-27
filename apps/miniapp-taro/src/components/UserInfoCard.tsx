@@ -156,7 +156,7 @@ export default function UserInfoCard({
           全宽条形态是本端与 RN 胶囊的机制差异,按 spec 文件末差异登记第 1 条保持不动。 */}
       {!isLogged && onLogin ? (
         <View
-          className="flex items-center justify-center w-full rounded-md"
+          className="flex items-center justify-center w-full rounded-sm"
           style={LOGIN_BTN_STYLE}
           hoverClass="opacity-85"
           onClick={onLogin}
@@ -169,10 +169,12 @@ export default function UserInfoCard({
         <View hoverClass="opacity-85" onClick={onClick}>
           <View className="flex items-center" style={HEADER_GAP_STYLE}>
             {/* 头像:有 avatar 用 avatar,无则用原项目默认头像 daixaodiming.png(可点击编辑) */}
+            {/* 头像块是"方档图块"而非正圆(48dp 盒、圆角取卡片档 lg=8),与 RN 端
+                avatarWrap / avatarFallback 同一档;这里此前写 md(6) ⇒ 同一头像两端各一档 */}
             <Image
               src={avatar || defaultAvatarImg}
               mode="aspectFill"
-              className="rounded-md bg-muted"
+              className="rounded-lg bg-muted"
               style={AVATAR_STYLE}
             />
             <View className="flex-1 min-w-0">
@@ -186,9 +188,11 @@ export default function UserInfoCard({
                     文字徽章(roleBadge:warning 底 + warning 字)⇒ 换成同形文字徽章,档位仍取
                     spec 的 BADGE_PADDING_X/Y + SMALL_FONT(与同排「操盘手」徽章同一写法)。
                     非 VIP 不再渲染空灰板 —— 它不表意,而 RN 对非 VIP 在该位什么都不渲染。 */}
+                {/* 徽章圆角家族 = 角色档 chip → md(6)。本卡三枚徽章(VIP / 操盘手 / 等级)
+                    与 RN 端 roleBadge 是同一角色,此前各写 4 / 2,现统一到 chip 档。 */}
                 {isVip ? (
                   <View
-                    className="px-2 py-0.5 rounded-sm flex-shrink-0"
+                    className="px-2 py-0.5 rounded-md flex-shrink-0"
                     style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text
@@ -203,7 +207,7 @@ export default function UserInfoCard({
                     徽章内边距与等级徽章同档:spec BADGE_PADDING_X 8 = `px-2` / Y 2 = `py-0.5` */}
                 {identityType === 2 ? (
                   <View
-                    className="px-2 py-0.5 rounded-sm flex-shrink-0"
+                    className="px-2 py-0.5 rounded-md flex-shrink-0"
                     style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text
@@ -222,7 +226,7 @@ export default function UserInfoCard({
               <View className="flex items-center gap-2" style={ROW_MARGIN_STYLE}>
                 {displayLevel ? (
                   <View
-                    className="rounded-sm bg-primary/10 flex-shrink-0"
+                    className="rounded-md bg-primary/10 flex-shrink-0"
                     style={BADGE_PAD_STYLE}
                     hoverClass="opacity-85"
                     onClick={
@@ -296,12 +300,15 @@ export default function UserInfoCard({
                   {/* 进度条粗细 = spec USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX(8),经 GROWTH_BAR_STYLE
                       内联喂常量(此前写等值类名 `h-2`,档名读不到 ⇒ 被守门 128 记成"仅 RN 引用");
                       RN 端原写 4 已收口到同一档,改这里只改 spec 一处。 */}
+                  {/* 进度条圆角:两端此前各写 `rounded`(裸档=8,在 8dp 高的条上等于半高胶囊)
+                      与 RN 端的 xs(2)。条高 8 属"极小元素",角色档 tiny → xs,
+                      故本端收小;RN 侧一字未动。 */}
                   <View
-                    className="w-full rounded bg-muted overflow-hidden"
+                    className="w-full rounded-xs bg-muted overflow-hidden"
                     style={GROWTH_BAR_STYLE}
                   >
                     <View
-                      className="h-full rounded"
+                      className="h-full rounded-xs"
                       style={{
                         width: growthPercent + '%',
                         background:

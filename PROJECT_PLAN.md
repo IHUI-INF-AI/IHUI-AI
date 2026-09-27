@@ -12634,3 +12634,27 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **时间窗**:上一枚 tag `desktop-v0.1.44`(2026-09-24)同流程 **success** ⇒ 断点在 09-24→09-27 之间。两个候选未取证:(a) GitHub `windows-latest` runner 镜像升级换了 NSIS/插件(CI 日志同期已在提示 ubuntu-latest 迁移,镜像基线在动);(b) `c29c220ce`(nsDialogs z 序真机修复)确实改过 `src-tauri/windows/`,需逐行看它有没有碰到 `CheckIfAppIsRunning` 的两个插入点(installer.nsi 690/848 行,即卸载段与安装段各一处)。
 - **本票没有顺手修它**,理由不是"不归我":修它必须在 CI 环境里复现 makensis 差异(本机成功、CI 失败 ⇒ 本地跑一万遍也不会红),靠 push 试错会占用整条发版链;而**用户当下这台机已用替换 exe 升到 0.1.45**,不再依赖这条链。接手者请先跑 `gh run view 36293577132 --log` 看 windows job 里 makensis 的版本行与 `!addplugindir`,再决定是钉住 NSIS 版本还是补插件目录 —— 别从改 `.nsi` 开始。
 - **顺带登记一条发版脚本缺陷**(与本票同批实测):`scripts/release-desktop-local.mjs` 的"单一产物不变量"清理用裸 `rmSync`,旧包被运行中的安装器占用时报 `EPERM/Device or resource busy` 并让**整条本机发版在第 2b 步崩掉**(Gitee 直传 / 版本提交 / 自装全没执行),而 `tauri build` 其实已成功 —— 账面读起来像"发版失败"。修法=删不掉时点名并继续(不变量复查仍照判),不得为了让它绿而放宽判据。
+### 第五十三波·续(2026-09-27 午,主会话)—— 两道新门在 union 合并里被整文件盖掉,以及"已接线 ≠ 接进提交链"这条判据边界
+- **事实**:`git-sync-converge` 的 `union-converge` 归并把 `scripts/guardian-runner.mjs` **整文件取了对侧**,于是 HEAD 里 `check-rn-double-header.mjs` 与 `check-readme-table-integrity.mjs` 两条注册一起消失(grep 计数 0),而门体脚本、台账、镜像测试都还在 HEAD。症状是"脚本在、判据对、无人调度"—— 本仓为这一型立过门 64/70/81/115,但这次的**成因是收敛工具自己**,不是人忘了接线。
+- **守门 89 为什么沉默**:它的"已接线"判据是**五处权威点的并集**,而两门的 `package.json` 入口仍在 ⇒ R1/R2/R4 全部不判。⇒ 记一条边界:**"已接线"不等于"接进了提交链"**;`package.json` 一处就能把"runner 注册被吞"洗成绿灯。补这一维属门 89 持有者职权(判据应是"凡 AGENTS 自称 blocking/接进提交链者,必须在 runner 里有 `script:` 行",与本波实测同形),本票只如实登记,不代改别人的判据。
+- **处置**:用 `scripts/gate-registry-insert.mjs` 重新取号接回(现值 145 = double-header / 146 = readme-table-integrity),文档编号引用跟到 runner 现值(`.ihui-agent/tmp/rn-preview/sync-gate-ids.mjs`,做法是"按行定位只改这一行的号"—— 全文正则替换会二次挪号)。注册落地后工作树副本再次落成父提交版本,由 `heal-worktree-tracked --align-drift` 对齐(同型第三次撞到,已单独入库记忆)。
+- **同批**:门 145 的镜像 T5 与门体 `--self-test` 各抄了一份"立项那天是哪五处"的硬清单;`SettingsScreen` 被其持有者清偿后 HEAD 现读 5→4,于是**有人修好缺陷反而让取证判红**。改法是删掉清单、留下有牙的两条:`读到 ≥1 处` ∧ `读到的集合 == 台账集合`(台账由 `--update-baseline` 维护,且每个 `rnFile/sharedFile` 必须真在 HEAD 里 —— 指向不存在的文件即"清单腐烂"判红)。判据本体一字未动。现读:门 145 镜像 10 例全绿、门体 `--self-test` 全通过;门 146 镜像 8 例 + 修复器 7 例全绿、全量面 exit 0(T-A run 0,T-B 56 行与孤立 26 行按设计只报数)。
+- **交付状态**:`git fetch` 后 `merge-base --is-ancestor` 逐枚验到远端 —— `32e8534306`(FloatBox 出口守卫)/ `0bfde7ec2`(70 处错误身份迁移)/ `d3a2f5e732`(去冻结清单)/ `91e73c7eb0`(门 146 脚本与点名)/ `82f2437a06`(门 145/146 编号跟值)全部在 `FETCH_HEAD`;远端 runner 里两条注册各在位,AGENTS/README 点名在位。本地 == 远端 = `465999c99ef`。
+### 第五十三波·续末(2026-09-27 午)—— 登记一处"当前红着的 blocking 门"及其归属证明(不代改)
+- **门 128(跨端 UI 单一源对账)现读判红**:全量面与 `--staged` 面均 **exit 1**;4 对超锚点 ——
+  `AgentRuntimePanel` 1>0、`BottomActionBar` 17>16、`DrawerComponent` 19>17、`ModelList` 6>4。
+  ⇒ 此刻任何触及 `apps/mobile-rn/` `packages/app/` `apps/miniapp-taro/` 的提交都会被它拦下。
+- **归属是量出来的,不是抄来的**:`scripts/cross-end-ui-parity-baseline.json` 最后一次被写是
+  `b7ffba15bd`(2026-09-27 **11:18:58**),而我侧触及这几个组件的最后一枚是 `5b7490a1df`
+  (**09:33:03**)—— 台账是在我的改动**之后**被下调到 16 的。若那第 17 档是我加的,11:18 那次
+  重取读数就会记成 17。⇒ 这一红属该门持有者的在飞现场(今夜连续三枚精度修正
+  `258d482a35` / `66b38301bf` / `b7ffba15bd` 都在改同一处读数口径),不是本波交付造成的。
+- **本波不动它**:改它的台账 = 替别人把红藏起来(AGENTS §4 明文"不得为消红去调台账数字");
+  改那 4 对组件的几何 = 替别人做 O81 的裁决(两端哪一档是真相,只有该票持有者能定)。
+  提交链上遇到它时按 §12 的归因走(safe-commit 已会把"红不在本次内容里"量出来并留痕),
+  不是把门关掉的理由。
+- **顺带记一条判据边界(与本波"门被合并盖掉"同族,值得门 89 持有者看一眼)**:守门 89 的
+  "已接线"是**五处权威点的并集**,所以 `package.json` 一处入口就能把"runner 注册块被 union
+  合并吞掉"洗成绿灯 —— 本波两道门(现号 145/146)正是这样静默失调度而 89 全程 exit 0。
+  补这一维(凡 AGENTS 自称 blocking/接进提交链者,必须在 runner 里有 `script:` 行)属门 89
+  持有者职权,本票只登记实测,不代改别人的判据。
