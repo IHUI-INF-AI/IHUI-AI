@@ -12740,3 +12740,34 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] **剩最后一环,且它不归本机管**:线上 `https://aizhs.top/desktop-feed.json` 现读仍是 **0.1.44**。原因是那份快照要**随 Web 部署**才生效,而生产部署在另一台机上(本机实测无 IHUI 服务、无端口监听)。⇒ **不得把"快照已刷成 0.1.45"读成"线上更新源已生效"**;部署环按周期自动拉 main,验收动作就是隔一段时间重读该 URL 是否变 0.1.45。
 - [x] ✅**同批另两处修复已入库**:`quit_app` 的 3 秒强制终止兜底 + `setup` 里"main 窗口没建出来就不启动 auto_refresh 常驻循环"(治僵尸实例)+ 发版脚本"旧包被占用删不掉时降级点名"(纯判据 `desktop-artifact-invariant.mjs` 一字未动,其单测 pass 11/fail 0)。验证:cargo check exit 0、node --check 通过、PyYAML 解析 workflow 通过且 `shell` 字段确认为 bash。
 - ⚠️**仍未闭环的一条(不粉饰)**:真机端到端"点托盘退出 → 进程在 3 秒内终止"**没有验收成功**。两次尝试都失败在触发侧:① 注入 `Control_L+q` 未触发(已收窄为"那一次按键没走通",不是"链路不存在"——见上一格的更正二);② 定位系统托盘图标失败(按窗口枚举拿不到托盘,裁剪任务栏区域取到全白)。而前端那两处改动**已确认上线**(在线上打包文件里搜到不被改名的 `quit-guard` 字面量)。⇒ 接手者要验收,直接从托盘菜单点"退出"即可,判据是进程消失且(若走到兜底)日志出现「未在 3s 内终止进程…强制退出」那一行。
+### 第五十一波·续十六 —— 第六轮 ZCode 取证四路并行 + 批次 44/45/46（2026-09-27 午后，主会话独立复跑）
+
+**先记一条我自己差点签下的假合格证**：给守门 147 做"有牙证明"时，我第一次的 A/B 是**空转**的 ——
+用 `sed '0,/128000/s//120000/'` 去改 `packages/api-client/src/model-context-capacity.ts`，而源文件写的是
+**`128_000`（下划线数字面量）**，那条 `sed` 一个字节都没改，于是"未注入臂 exit 0 / 注入臂 exit 0"
+被我当成了"门没牙"。**如果我不去查输入清单，下一步就是去削那道门的判据**。真实链是：
+① 控制测量（纯函数面 `__test__.decide(真仓 HEAD 五份输入)`）⇒ `drifts=0 undetermined=0`，
+且 `tables` 七格全部非空（`tsExact=57 / tsLowWindow=22 / pyLow=22 / patternRules=31 / 兜底 128000×2 / 档位三处`）
+—— 先证明"尺子量得到"，才允许用 0 当结论；② 真注入命中后 ⇒ `C1 兜底窗口漂移:TS DEFAULT_CONTEXT_CAPACITY=120000 vs Python DEFAULT_CONTEXT_WINDOW=128000`；
+③ 把 `--root` 指向缺输入的临时副本 ⇒ `exit 2「被审面取不到…既不记绿也不冒红」`（这条同时证明 `--root`
+**确实重定向了内容读取**，不是只重定向枚举 —— 守门 70 的镜像测试 13/14 恒红那一型就是这么躲过去的）。
+
+- [x] ✅(2026-09-27) **批次 44 守门 147 `check-model-capacity-parity`：模型兜底窗口 / 低窗口例外表 / 推理档位三处 TS↔Python 逐项对账**
+  立项凭据是 Python 侧源码**自述**"暂无自动对账门"（`model_context_window.py:25-26`），两侧注释又都写"勿单方面改动"
+  —— 散文约束在本仓的失效形态永远是安静。取证：`--self-test` 20/20、§22c 镜像 8/8（含 T1"测试不得重写解析规则"
+  与 T7"未注册时不得被读成已装车"两条反向锁）、`node scripts/check-gate-wiring.mjs` exit 0（R4/R5 均 0）。
+  **注册与脚本同枚入库**（上一枚只落了 runner 注册块，门体当时还未跟踪 —— 那正是守门 146 头注里单独记过的事故，
+  本枚把它补成同一枚提交，并同步 `pnpm check:model-capacity` 问责入口）。
+- [x] ✅(2026-09-27) **批次 45（部分落地）进程身份三元组库 `scripts/lib/proc-identity.mjs`**：修的是实测冻结生产 11h50m 的
+  那一型（G-193：`acquire` 是一次性 CLI，meta 里 pid 不是持锁者 ⇒ 判活恒真 / 号被复用）。**三态语义定死**：
+  只有 `mismatch` 授权抢占，`unverifiable`（取不到启动时间、别机持有、PowerShell 不可达）一律维持改前行为 ——
+  抢错 = 并发写坏 `.git`（§5b 史），少抢 = 多等一轮。两条锁的接线与取证由并行代理续做，**未落地前本条只算库在位**。
+- [x] ✅(2026-09-27) **批次 46 `apps/api/src/utils/egress-retry-safety.ts`：非幂等出站调用的"请求是否已发出"三态判据**
+  病灶是 `webhooks-trigger.ts` 对下游 POST 起 agent run，30s abort 后按 1s/2s/4s 重试 —— 超时意味着**对方可能已执行**，
+  重试就是重复跑 agent（重复产出、重复计费），而 `controller.abort()` 与 `ECONNREFUSED`（请求根本没出去）塌成同一句话。
+  出口返回 `retry-safe / result-unknown / permanent-fail`，**判不出的一律落 result-unknown（宁可不重试）**；
+  `reason` 只落码/名/状态，**不落原始 message**（Node 的 `connect ECONNREFUSED 127.0.0.1:port`、`getaddrinfo ENOTFOUND <host>` 自带地址，与守门 67 / §5e 同条禁令）。
+  主会话独立复跑：`vitest run tests/egress-retry-safety.test.ts` **20 passed**；`pnpm --filter @ihui/api typecheck` 0 错误；
+  `node scripts/check-egress-facts.mjs` exit 0。代理如实留下的三格**没顺手做**：`eventStore` 仍是进程内存态（重启即丢，
+  跨重启的人工对账未接）、`ENETUNREACH/EHOSTUNREACH/UND_ERR_CONNECT_*` 刻意不进白名单（落"结果未知"）、
+  signal 在 dispatch 前就 abort 时结构上区分不了（不猜）。
