@@ -146,7 +146,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         # 兼容 apps/api 的 JWT payload:apps/api 用 setSubject(userId) 写入 sub 字段,
         # 也可能直接写 userId 字段(由 issueTokenPair 不同实现产生)。
         # 优先读 sub(JWT RFC 7519 标准),其次 userId(老格式)。
-        user_id = payload.get("sub") or payload.get("userId")
+        user_id = principal_from_payload(payload)
         role_id = payload.get("roleId", 0)
         request.state.user_id = user_id
         request.state.role_id = role_id
@@ -247,6 +247,20 @@ async def require_request_user_id(request: Request) -> str:
     if not auth_globally_enforced():
         return DEV_ANONYMOUS_PRINCIPAL
     raise HTTPException(status_code=401, detail="Not authenticated")
+
+
+def principal_from_payload(payload: dict[str, Any] | None) -> str | None:
+    """从已验签的 JWT payload 里取主体 id —— **唯一**一份这个抽取规则。
+
+    存在理由:`sub` 优先、`userId` 兜底这条兼容规则原本只写在 HTTP 中间件里,而
+    WebSocket 握手不走中间件、只能自己验签,于是"身份从哪来"就有两处实现。两处实现在
+    本仓的失效形态永远是安静:WS 那侧漏抽一个字段,表现为"画面流能连上但会话查不到",
+    比直接 401 更难归因。需要它的一侧只有 HTTP 中间件与 browser hub 的 WS 端点。
+    """
+    if not payload:
+        return None
+    subject = payload.get("sub") or payload.get("userId")
+    return str(subject) if subject else None
 
 
 def verify_access_token(token: str) -> dict[str, Any] | None:
