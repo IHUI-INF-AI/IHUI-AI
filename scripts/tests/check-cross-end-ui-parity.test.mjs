@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
 import { __test__ as src } from '../check-cross-end-ui-parity.mjs'
+import { radiusSetOf } from '../lib/radius-tokens.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const RUNNER = resolve(ROOT, 'scripts/guardian-runner.mjs')
@@ -126,22 +127,41 @@ test('T8 真仓跑通:索引面 exit 0,且逐组件实测数与台账锚点逐�
     assert.ok(j.findings.some((f) => f.name === k), `台账挂着一条已不存在的账:${k}(清单腐烂)`)
 })
 
+/**
+ * 形状锁一律**比归一化后的文本**:本仓的提交链跑 prettier,参数列表一长就被折成多行,
+ * 而"字节形匹配"会在一次与正确性完全无关的重排上判红(实测 T9/T10 就是这么红的)。
+ * 正解是让尺子不吃换行,不是把代码缩回一行去喂锁 —— 后者只是把下一次假红推迟到 prettier
+ * 再折一次的时候。
+ */
+const flat = (s) => s.replace(/\s+/g, ' ')
+
 test('T9 主判定不得被摘线(函数在但没人调 = 提交链上一路绿灯)', () => {
-  const txt = readFileSync(SELF, 'utf8')
+  const txt = flat(readFileSync(SELF, 'utf8'))
   assert.ok(/export function collect\(/.test(txt), 'collect 被摘线')
-  assert.ok(/audit\(collected\.pairs/.test(txt), 'main 不再调用主判定 ⇒ 门形同虚设')
+  assert.ok(/audit\(\s*collected\.pairs/.test(txt), 'main 不再调用主判定 ⇒ 门形同虚设')
 })
 
-test('T10 具名档与单侧档两维都必须真接进 main(算出来又丢掉 = 判据没装车)', () => {
-  const txt = readFileSync(SELF, 'utf8')
-  assert.ok(
-    /audit\(\s*collected\.pairs,\s*collected\.text,\s*baseline,\s*collected\.tiers\s*\)/.test(txt),
-    'collect 算了 tiers 而 audit 没收到 ⇒ 具名档解析整维隐身(票⑥㉜/㉝ 的修复从未生效)',
-  )
+test('T10 具名档、单侧档与圆角三维都必须真接进 main(算出来又丢掉 = 判据没装车)', () => {
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  /**
+   * 取实参列表再判"含不含",不写死完整签名:签名会因尾随逗号、折行、加参数而变形,
+   * 而本锁要防的失效型是**少喂一个档表**,不是"签名长得跟某一次提交一样"。
+   * (第一版在这里写了 `specLegAudit\( collected\.` 这种"`(` 后带空格"的形 —— `flat()` 只折叠
+   *  已有空白、不会插入空白,所以真源码 `specLegAudit(collected.pairs` 永不匹配:锁自己假红。)
+   */
+  const argsAfter = (fn) => {
+    const m = new RegExp(`\\b${fn}\\(([^)]*)\\)`).exec(txt)
+    return m ? m[1] : null
+  }
+  const auditArgs = argsAfter('const res = audit')
+  assert.ok(auditArgs, '找不到 main 里的 audit 调用(判据被搬走 ⇒ 本锁失效,必须同步本测试)')
+  for (const need of ['collected.pairs', 'collected.tiers', 'collected.radius'])
+    assert.ok(auditArgs.includes(need), `collect 算了 ${need} 而 audit 没收到 ⇒ 那一整维隐身`)
   assert.ok(/export function specLegAudit\(/.test(txt), 'specLegAudit 被摘线')
+  const slArgs = argsAfter('const sl = specLegAudit')
   assert.ok(
-    /specLegAudit\(collected\.pairs,\s*collected\.text,\s*collected\.tiers\)/.test(txt),
-    'main 没调用 specLegAudit ⇒ SL 只是自检里的摆设',
+    slArgs && slArgs.includes('collected.tiers'),
+    'main 没调用 specLegAudit(或没喂 tiers)⇒ SL 只是自检里的摆设',
   )
   assert.ok(
     /res\.red\.length \+ icRed\.length \+ slRed\.length/.test(txt),
@@ -192,4 +212,59 @@ test('T13 --emit-baseline 的 stdout 只能是 JSON(说明行走 stderr)', () =>
   )
   assert.ok(/console\.log\(JSON\.stringify/.test(body), '唯一的 console.log 必须是打 JSON 那一条')
   assert.ok(/console\.error\(/.test(body), '说明行必须走 console.error(stderr)')
+})
+
+/* ── RD 维(2026-09-27 补):圆角跨端同档。立项时本门用一条正则把圆角整族排除,
+ *    注释称"守门 77 会管",而 77 判的是值的源头、不判同一元素跨端取档 —— 这一型因此
+ *    一路报绿到用户实拍。下面四枚锁钉的是"这一维不可能再被静默摘掉"。 ── */
+
+test('T14 圆角档位表必须从被审面读,不得 import 磁盘版(抄了就是对着旧表打分)', () => {
+  const txt = readFileSync(SELF, 'utf8')
+  assert.ok(
+    /radiusLookup\(specSources\[radiusPath\]\)/.test(txt),
+    '档位表没走 specSources(被审面)⇒ 门会在档位改值后继续用旧数打分',
+  )
+  assert.ok(
+    !/from\s+['"][^'"]*design-tokens[^'"]*radius/.test(txt),
+    '禁止直接 import 磁盘版 radius.js —— 与"清单来自磁盘、内容来自 git 会造出自洽却错位的尺子"同型',
+  )
+  // 取不到表必须喊失明,不得退化成"没有差异"
+  assert.ok(/圆角维判据失明/.test(txt), '缺"圆角维判据失明"的 Undetermined 出口')
+})
+
+test('T15 radiusCounts 必须由 emitBaseline 写出且恒含全部配对(缺键=锚点 0,会把存量判成新增)', () => {
+  const out = src.emitBaseline(
+    [
+      { name: 'A', named: [], geometry: { onlyMiniapp: [], onlyRn: [] }, radius: { onlyMiniapp: [8], onlyRn: [12] } },
+      { name: 'B', named: [], geometry: { onlyMiniapp: [], onlyRn: [] }, radius: { onlyMiniapp: [], onlyRn: [] } },
+    ],
+    { pairingRejects: { FloatBox: { reason: '同名不同物', until: '2099-01-01' } } },
+  )
+  assert.equal(out.radiusCounts.A, 2, 'RD 差异没进台账 ⇒ 下一次提交把它当新增判红')
+  assert.equal(out.radiusCounts.B, 0, '同档的组件也必须留 0 键 ⇒ 否则"没配账"与"已同值"在账面上同形')
+  assert.ok(out.pairingRejects?.FloatBox, '重写台账冲掉了别人的拆对声明(守门 83 同型)')
+  assert.equal(out.counts.A, 0, '几何锚点被圆角污染 ⇒ 两维互相顶掉')
+})
+
+test('T16 豁免判据不得有第二份实现(radius-exempt 语义必须走共享 lib)', () => {
+  const txt = readFileSync(SELF, 'utf8')
+  assert.ok(
+    /from '\.\/lib\/radius-tokens\.mjs'/.test(txt),
+    '没引共享 lib ⇒ 与守门 77 各写一遍豁免,同一处标记会一边认一边判红',
+  )
+  assert.ok(
+    !/\/radius-exempt\//.test(txt),
+    '本门里又写了一份 radius-exempt 正则 ⇒ 两处算同一件事必漂移',
+  )
+})
+
+test('T17 RD 判据端到端有牙:同一对文件,表里改一档必须让结论翻红', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  const mini = 'className="rounded-lg"\n'
+  const rnSame = 'borderRadius: rnRadius.lg,\n'
+  const rnOff = 'borderRadius: rnRadius.xl,\n'
+  assert.deepEqual(radiusSetOf(mini, tbl), radiusSetOf(rnSame, tbl), '同档两种写法被判不同 ⇒ 假红')
+  assert.notDeepEqual(radiusSetOf(mini, tbl), radiusSetOf(rnOff, tbl), '差一档被判相同 ⇒ 判据无牙')
+  // 反第二真相锁:表改值,读数必须跟着改(证明表是输入而不是抄死的数字)
+  assert.deepEqual(radiusSetOf(mini, { ...tbl, lg: 10 }), [10], '档位表改了而判据不跟 ⇒ 对着旧表打分')
 })

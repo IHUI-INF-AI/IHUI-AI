@@ -1,17 +1,31 @@
 {
   "counts": {
+    "AgentRuntimePanel": 0,
     "BottomActionBar": 16,
     "Carousel": 6,
     "InputArea": 16,
     "IntelligentAssistant": 8,
     "LoginPopUp": 8,
-    "ModelConfigDialog": 8,
+    "ModelConfigDialog": 6,
     "ModelList": 9,
     "NavBar": 7,
-    "UserInfoCard": 6,
+    "UserInfoCard": 5,
     "VideoPlayer": 5
   },
   "waivers": {},
+  "radiusCounts": {
+    "AgentRuntimePanel": 1,
+    "BottomActionBar": 0,
+    "Carousel": 1,
+    "InputArea": 3,
+    "IntelligentAssistant": 2,
+    "LoginPopUp": 2,
+    "ModelConfigDialog": 0,
+    "ModelList": 2,
+    "NavBar": 1,
+    "UserInfoCard": 2,
+    "VideoPlayer": 1
+  },
   "pairingRejects": {
     "FloatBox": {
       "reason": "同名不同物:小程序端是右下角悬浮功能盒(赚米/客服/反馈三按钮,right 20rpx、收起推到 -240rpx),RN 端是顶部悬浮消息提示 toast(TOP_OFFSET 居中、duration 3000ms、4 种 type、多实例由 Toast Portal 堆叠)—— 两端头注逐字读自 HEAD,不是同一个界面元素",

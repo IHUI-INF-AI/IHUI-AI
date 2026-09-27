@@ -151,14 +151,17 @@ export {
 // CSS 端(tokens.css / app.css)写 var(--radius-*),其值由 check-radius-single-source.mjs 与本表对账。
 export {
   RADIUS_STEPS,
+  RADIUS_ROLES,
   RADIUS_REM,
   RADIUS_CSS_PX,
   RADIUS_CSS_VAR,
   RADIUS_SCALE_PX,
   rnRadius,
+  rnRadiusFor,
   rpxToStep,
   pxToStep,
   type RadiusStep,
+  type RadiusRole,
 } from './radius.js'
 // 界面几何档唯一真相源(全端共用):RN 取 rnGeometry(dp 数值),小程序取 taroGeometry(已折 rpx)。
 // 立因与取值依据写在 geometry.js 头注;跨端差异由守门 128 check-cross-end-ui-parity.mjs 复核。
