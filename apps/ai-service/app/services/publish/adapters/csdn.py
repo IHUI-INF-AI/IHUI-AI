@@ -37,6 +37,7 @@ from ..anti_risk import (
     simulate_reading,
 )
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
+from ..published_url import content_id_after_segment, public_view_url
 
 logger = get_logger(__name__)
 
@@ -427,9 +428,10 @@ class CsdnAdapter(BasePlatformAdapter):
                             error_message=verdict.error_message,
                         )
 
-                    published_url = page.url
-                    parts = published_url.rstrip("/").split("/")
-                    article_id = parts[-1] if parts else ""
+                    raw_url = page.url
+                    # 与知乎同形:按末段取 id 在 `?spm=…`/`#comment` 出现时会把尾巴带进 id。
+                    article_id = content_id_after_segment(raw_url, "details")
+                    published_url = public_view_url(raw_url, segment="details", content_id=article_id)
 
                     return PublishResult(
                         success=True, platform=self.platform_id,
