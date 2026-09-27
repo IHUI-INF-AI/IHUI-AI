@@ -97,6 +97,11 @@ jobs:
       # 实测形态:本机同源码同 .nsi 打包成功(2.11.4),CI 失败 —— 仓库没变,是 CLI 漂了。
       # 所以这里必须取**锁文件里的精确版本**,不得回到范围写法。
       - name: Install Tauri CLI
+        # 必须显式 bash:Windows runner 的默认 shell 是 PowerShell,而下面是 POSIX 语法。
+        # 实测教训(2026-09-27 本步自造):不写 shell 时 linux/macos 过、windows 报
+        # `ParserError: Missing '(' after 'if' in if statement` ⇒ 钉版从未在 Windows 上生效,
+        # 反而把 job 提前 41 秒弄红(连构建都没进),掩盖了真正要查的 makensis 问题。
+        shell: bash
         run: |
           V=$(sed -ne "/'@tauri-apps\/cli'/,/version:/ s/.*version: *//p" pnpm-lock.yaml | head -1)
           if [ -z "$V" ]; then
