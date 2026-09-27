@@ -25,6 +25,10 @@ import type { FastifyPluginAsync } from 'fastify'
 import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
+import {
+  classifyEgressRetryOutcome,
+  type EgressRetryVerdict,
+} from '../utils/egress-retry-safety.js'
 import { config as appConfig } from '../config/index.js'
 import type {
   WebhookTriggerConfig,
@@ -175,21 +179,38 @@ function recordAuditLog(entry: Omit<WebhookTriggerAuditLog, 'id'>): void {
 // =============================================================================
 
 /**
+ * 下游 `POST /api/agents/:id/run` 一次调用起一次 agent run ⇒ **非幂等**:重放 = 重复跑。
+ * 因此本链的重试闸门只认「请求肯定没发出去」(见 `utils/egress-retry-safety.ts`),
+ * 超时/取消一律按**结果未知**处理,不再自动重放。
+ */
+const DOWNSTREAM_RUN_IS_IDEMPOTENT = false
+
+/**
  * 异步触发 agent 执行。
  * 真实集成:调用 ai-service 的 POST /api/agents/:id/run 接口。
  * 此处用 setTimeout 模拟异步(生产环境用 BullMQ / 专门的队列)。
  *
- * 重试策略:指数退避 1s / 2s / 4s,最多 maxRetries 次。
+ * 重试策略:指数退避 1s / 2s / 4s,最多 maxRetries 次,**且仅当**判据出口给出
+ * `retry-safe`(请求字节必未发出)时才进入下一次退避;`result-unknown`(超时/取消/
+ * 写出后的复位)与 `permanent-fail`(URL 不合法、4xx 明确拒绝)都直接落 `failed`,
+ * 判定原因写进 `lastError` 交人工对账 —— 自动重放非幂等 POST 等于重复跑 agent。
  */
 async function executeAgentAsync(event: WebhookTriggerEvent): Promise<void> {
   // 标记为执行中
   event.status = 'executing'
   event.executedAt = new Date().toISOString()
 
+  // 「能不能重试」的判据只住在出口里,本文件不再写第二份 instanceof / 错误码清单。
+  // responseReceived 是给「拿到响应之后再断流」(如日后在 try 里读 body)留的判据输入 ——
+  // 今天本链不读响应体,故它只在 fetch 成功之后才可能为 true。
+  let responseReceived = false
+  let verdict: EgressRetryVerdict | null = null
+
   try {
     // ⚠️ 守门 127 B组判定(2026-09-26):`/api/agents/<agentId>/run` 在 ai-service 侧
     // **从未注册过**(`git log --all -S '/api/agents/{agent_id}/run' -- apps/ai-service` 零命中);
-    // 运行时真发请求 ⇒ 404 ⇒ 本函数按 !resp.ok 抛错、指数退避重试 3 次后事件标 failed,不静默。
+    // 运行时真发请求 ⇒ 404 ⇒ 本函数按 !resp.ok 抛错;404 属"对侧明确拒绝、重试同样失败"
+    // ⇒ 判据出口给 `permanent-fail`,事件直接标 failed(不再像改造前那样退避重试 3 次),不静默。
     // 对侧现役执行入口只有 POST /api/agents/execute(AgentExecuteRequest.goal 驱动、**不接收 agentId**、
     // 需登录属主),webhook 场景没有用户身份 ⇒ 直接改路径过去是猜契约。
     // 正确修法需要决策:为 webhook 定义"以谁的身份跑哪个 agent"的契约(属安全/产品票范围),本票按任务书停手登记。
@@ -203,16 +224,25 @@ async function executeAgentAsync(event: WebhookTriggerEvent): Promise<void> {
         body: JSON.stringify({ payload: event.payload, triggeredBy: 'webhook' }),
         signal: controller.signal,
       })
+      responseReceived = true
     } catch (e) {
-      // 超时(controller.abort)或网络错误:抛带原因的 Error
+      // 超时(controller.abort)或网络错误:抛带原因的 Error。
+      // 原始异常留在 cause 上带出去 —— 判据出口沿 cause 找错误码/错误名,这里不自己判类型。
       if (controller.signal.aborted) {
-        throw new Error('ai-service 超时(30s)')
+        throw new Error('ai-service 超时(30s)', { cause: e })
       }
       throw e
     } finally {
       clearTimeout(timer)
     }
-    if (!resp.ok) throw new Error(`ai-service 返回 ${resp.status}`)
+    if (!resp.ok) {
+      verdict = classifyEgressRetryOutcome({
+        kind: 'http-response',
+        status: resp.status,
+        idempotent: DOWNSTREAM_RUN_IS_IDEMPOTENT,
+      })
+      throw new Error(`ai-service 返回 ${resp.status}`)
+    }
 
     // 成功
     event.status = 'success'
@@ -220,9 +250,12 @@ async function executeAgentAsync(event: WebhookTriggerEvent): Promise<void> {
     event.lastError = null
   } catch (e) {
     const errMsg = (e as Error).message || '执行失败'
-    event.lastError = errMsg
+    const outcome =
+      verdict ??
+      classifyEgressRetryOutcome({ kind: 'transport-failure', error: e, responseReceived })
+    event.lastError = `${errMsg}(重试判定:${outcome.decision} — ${outcome.reason})`
 
-    if (event.attempts < event.maxRetries) {
+    if (outcome.decision === 'retry-safe' && event.attempts < event.maxRetries) {
       // 进入重试
       event.status = 'retrying'
       event.attempts += 1
@@ -232,7 +265,7 @@ async function executeAgentAsync(event: WebhookTriggerEvent): Promise<void> {
         void executeAgentAsync(event)
       }, delayMs)
     } else {
-      // 重试耗尽,标记最终失败
+      // 重试耗尽或判据不允许重放,标记最终失败
       event.status = 'failed'
       event.completedAt = new Date().toISOString()
     }
