@@ -11,8 +11,12 @@
 - DELETE /data    清除某 owner 的图谱
 
 存储后端由 `KNOWLEDGE_GRAPH_STORE` 环境变量控制:
-- `memory` (默认):进程内 dict,dev/test 场景
-- `drizzle`:asyncpg 直连 PG,生产场景(进程重启不丢)
+- `file` (默认):内存工作集 + JSON 快照落盘,进程重启不丢
+- `memory`:     纯进程内 dict,**重启即失**(仅调试/评测显式选择)
+- `drizzle`:    asyncpg 直连 PG,多实例共享图谱时用
+
+GET /data 的 `data.persistence` 字段如实回报当前这一档**是否真的在落盘**
+(初始化失败回落 / 写盘失败都会把 `persistent` 置 false 并带告警原话)。
 """
 
 from __future__ import annotations
@@ -135,6 +139,9 @@ async def get_graph_data(
                 "entity_count": len(graph["entities"]),
                 "relation_count": len(graph["relations"]),
             },
+            # V3 #76:把"数据到底落没落盘"随查询一起回给调用方。
+            # 只有日志行的话,运维/UI 看不见 —— 而"读得到"与"已持久化"是两件事。
+            "persistence": graph_store.persistence_status(),
         },
     }
 
