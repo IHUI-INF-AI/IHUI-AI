@@ -25507,6 +25507,9 @@
     "ratingSuccess": "評価を送信しました"
   },
   "chatSearchBar": {
+    "messageNotFound": "メッセージが見つかりません。現在の表示範囲外の可能性があります",
+    "moreResults": "他 {count} 件の結果",
+    "resultListLabel": "この会話内の検索結果",
     "searchPlaceholder": "会話を検索…",
     "searchAriaLabel": "会話を検索"
   },
