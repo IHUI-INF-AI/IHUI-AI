@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { CircleMemberScreen as SharedCircleMemberScreen, type CircleMemberItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -50,7 +51,7 @@ export function CircleMemberScreen() {
           })),
         )
       } else {
-        setError(res.error || t('circleMember.loadFailed'))
+        setError(apiFailureToText(res, t('circleMember.loadFailed')))
       }
     } catch {
       setError(t('circleMember.loadFailed'))
