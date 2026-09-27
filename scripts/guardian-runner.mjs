@@ -3686,6 +3686,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- doom-loop parity 对账(共享层/CLI/agent.ts/Python 等价/主链路五面成套,策略数字不得有第二份)(1 项,blocking)---
+  {
+    id: '141',
+    label:
+      'doom-loop parity 对账(共享层/CLI/agent.ts/Python 等价/主链路五面成套,策略数字不得有第二份)',
+    script: 'check-doom-loop-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DOOM_LOOP_PARITY',
+    stagedTriggers: ['apps/cli/src/', 'apps/ai-service/app/', 'packages/shared/src/'],
+    onFailHint: [
+      '',
+      '  P1 逐项常量等值 / P2 装车性(注释里的提及不算) / P3 三动作各有消费分支。',
+      '  现读:node scripts/check-doom-loop-parity.mjs ; 自检 --self-test(14 条) ; 紧急跳过 HUSKY_SKIP_DOOM_LOOP_PARITY=1',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
