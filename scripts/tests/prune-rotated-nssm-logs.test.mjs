@@ -68,4 +68,33 @@ test('M6 keep 非正整数在命令行被拒,在纯函数里可表达(边界校�
   assert.equal(planPrune([mk(rot('a', 'err', '20260901T010000'))], { keep: 0, nowMs: NOW }).candidate.length, 1, 'keep=0 必须可表达,否则年龄分支无从证明')
   assert.equal(planPrune([mk(rot('a', 'err', '20260901T010000'))], { keep: -3, nowMs: NOW }).kept.length, 1, '非法值退回默认 10 而不是"留 0 份"')
 })
+
+// M7 —— 2026-09-27 实测的整族失明:nssm 在 stdout/stderr 合写一份文件时,轮转名里**没有流段**
+// (`svc-api-nssm-20260913T180028.620.log`)。旧判据只认带 `-err-`/`-out-` 的那一种,于是真仓
+// 164 份 / 1,004MB 不进射程,而工具照样打印"可回收候选 20 份 / 0.1 MB" 并 exit 0。
+// 这条测试的用处不是"多覆盖一种形态",而是**让"少算"变成可判红的东西**。
+test('M7 无流段的轮转形态必须在射程内,且其活文件同样永不进候选', () => {
+  const rotNo = (svc, ts) => `svc-${svc}-nssm-${ts}.log`
+  const many = []
+  for (let i = 1; i <= 5; i++) many.push(mk(rotNo('api', `202609${String(i).padStart(2, '0')}T010000.620`)))
+  const r = planPrune(many, { keep: 2, nowMs: NOW })
+  assert.equal(r.groups, 1, '合写型要成一组')
+  assert.equal(r.kept.length, 2, 'keep=2 时合写型也要按同一政策留 2 份')
+  assert.equal(r.candidate.length, 3, '旧判据在这一族上整族失明(命中 0 份)')
+
+  const live = 'svc-api-nssm.log' // 没有时间戳 = 正在写的那一份
+  const r2 = planPrune([mk(live), mk(rotNo('api', '20260901T010000.620'))], { keep: 0, nowMs: NOW })
+  assert.ok(!r2.candidate.some((c) => c.name === live), '放宽形态不得把无流段的活文件一起放进来')
+  assert.equal(r2.notRotatedCount, 1)
+})
+
+test('M8 合写组不得顶掉同服务 err/out 组的保留名额(分组键的两个维度都要成立)', () => {
+  const rotNo = (svc, ts) => `svc-${svc}-nssm-${ts}.log`
+  const input = []
+  for (let i = 1; i <= 6; i++) input.push(mk(rotNo('api', `202609${String(i).padStart(2, '0')}T010000.620`)))
+  input.push(mk(rot('api', 'err', '20260901T010000')))
+  const r = planPrune(input, { keep: 1, nowMs: NOW })
+  assert.equal(r.groups, 2, 'api|log 与 api|err 必须是两组')
+  assert.ok(r.kept.some((k) => k.name.includes('-err-')), '唯一的 err 份不得被合写型挤出保留集')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
