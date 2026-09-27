@@ -41,6 +41,7 @@ from ..core.model_naming import to_official_model_name
 # 只读白名单本身仍是 services/plan_mode.py 的 READONLY_TOOLS 一份真相(由该出口内部取)。
 from ..core.permission_mode import (
     CHAT_MODE_TOOL_AXIS,
+    _readonly_tools,
     allowed_tool_names,
     blocked_tool_message,
     resolve_mode_policy,
@@ -205,8 +206,7 @@ def _file_edit_preview_frames(text: str) -> list[tuple[str, bool]]:
     frames: list[tuple[str, bool]] = []
     for i in range(0, len(kept), _PREVIEW_LINES_PER_FRAME):
         is_last_batch = i + _PREVIEW_LINES_PER_FRAME >= len(kept)
-        frames.append(("
-".join(kept[: i + _PREVIEW_LINES_PER_FRAME]), truncated and is_last_batch))
+        frames.append(("\n".join(kept[: i + _PREVIEW_LINES_PER_FRAME]), truncated and is_last_batch))
     return frames[:_PREVIEW_MAX_FRAMES]
 _APPROVAL_TIMEOUT = 120  # 秒:人工决策窗口(人在环延迟高于机器回传,比委托 60s 宽)
 _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端 30s 读超时掐流
@@ -3068,6 +3068,62 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "tool_calls": tool_calls_raw,
                             })
 
+                        # ===== D119(2026-09-27,G-233):同批只读工具并行预取 =====
+                        # 只读白名单 = core/permission_mode._readonly_tools()(plan_mode.READONLY_TOOLS
+                        # 单一真源出口);blocked 判定 = _chat_mode_allows_tool(同一函数);
+                        # 审批判定 = _resolve_tool_approval(同一函数)—— 判据零复制。
+                        # 仅对「无阻塞 + 无需审批」的只读工具预取;写类/终端/dispatch 保持顺序。
+                        # SSE 帧序不变(start/result 仍按原循环序回),预取只并行化真实执行
+                        # (call_tool 耗时);结果按 toolCallId 缓存,主循环命中即用。
+                        _readonly_prefetch: dict[str, Any] = {}
+                        if len(tool_calls_raw) > 1:
+                            _prefetch_ids: list[str] = []
+                            _prefetch_coros = []
+                            for _pf_tc in tool_calls_raw:
+                                _pf_fn = _pf_tc.get("function", {})
+                                _pf_name = _TOOL_ALIASES.get(_pf_fn.get("name", ""), _pf_fn.get("name", ""))
+                                if _pf_name not in _readonly_tools():
+                                    continue
+                                _pf_raw = _pf_fn.get("arguments", "") or ""
+                                try:
+                                    _pf_args = json.loads(_pf_raw) if _pf_raw.strip() else {}
+                                except (json.JSONDecodeError, ValueError):
+                                    continue
+                                if not _chat_mode_allows_tool(
+                                    chat_mode, _pf_name, getattr(req, "permission_mode", None)
+                                ):
+                                    continue
+                                if _resolve_tool_approval(
+                                    getattr(req, "permission_mode", None), _pf_name
+                                )[0]:
+                                    continue
+                                _pf_id = _pf_tc.get("id", "")
+                                _prefetch_ids.append(_pf_id)
+                                _prefetch_coros.append(
+                                    _mcp.call_tool(
+                                        _pf_name, _pf_args,
+                                        user_id=owner_uuid,
+                                        user_role=user_role,
+                                        session_id=(
+                                            req.metadata.get("conversationId")
+                                            if isinstance(req.metadata, dict)
+                                            else None
+                                        ),
+                                    )
+                                )
+                            if len(_prefetch_ids) > 1:
+                                _pf_results = await asyncio.gather(*_prefetch_coros, return_exceptions=True)
+                                for _pf_id, _pf_res in zip(_prefetch_ids, _pf_results):
+                                    if isinstance(_pf_res, BaseException):
+                                        # 与主循环 call_tool 的 except 分支同构(失败归一,不让 Exception 流入回灌)
+                                        _readonly_prefetch[_pf_id] = {
+                                            "tool": "prefetch",
+                                            "ok": False,
+                                            "error": str(_pf_res)[:500],
+                                        }
+                                    else:
+                                        _readonly_prefetch[_pf_id] = _pf_res
+
                         # ===== 公共工具执行逻辑(两分支汇合,2026-08-29 修复保持不动)=====
                         tool_exec_tracker: list[bool] = []
                         for tc in tool_calls_raw:
@@ -3836,6 +3892,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             exec_result = _call_task.result()
                                         finally:
                                             reset_terminal_stream_context(_term_token)
+                                    elif tc.get("id", "") in _readonly_prefetch:
+                                        # D119:命中并行预取缓存(只读工具,执行已提前完成)
+                                        exec_result = _readonly_prefetch[tc.get("id", "")]
                                     else:
                                         exec_result = await _mcp.call_tool(
                                             tool_name, args,
