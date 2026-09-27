@@ -176,11 +176,19 @@ def create_thread(
     user_id: str = Depends(get_current_user_id),
     store: SessionStore = Depends(get_session_store),
 ) -> dict[str, Any]:
-    """创建新 thread。"""
+    """创建新 thread。
+
+    `user_id` 来自令牌主体(`get_current_user_id`),**必须**传给 store:批 60 之前这里
+    把已验证身份取到手又原地丢弃,只把 `body.metadata` 原样落库 ⇒ 任何人建线程时
+    自报 `metadata.userId="<victim>"` 就能把这条会话认领到别人名下(它会出现在
+    受害者的 thread.list 里,且只有受害者能续跑)。现在身份只能从显式入参进来,
+    metadata 里自带的那两个键由 `SessionStore.create_thread` 剥掉。
+    """
     thread = store.create_thread(
         title=body.title,
         metadata=body.metadata,
         thread_id=body.thread_id,
+        user_id=user_id,
     )
     return {"code": 0, "message": "ok", "data": thread.model_dump(mode="json")}
 
