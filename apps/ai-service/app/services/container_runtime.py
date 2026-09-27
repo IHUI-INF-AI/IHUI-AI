@@ -41,6 +41,13 @@ from pathlib import Path
 from typing import Any
 
 from .cloud_run_store import CloudRunStore, cloud_run_store
+from .command_streamer import (
+    FRAME_READ_EOF,
+    FRAME_READ_LINE,
+    FRAME_READ_TOO_LARGE,
+    PROTOCOL_FRAME_LIMIT_BYTES,
+    read_protocol_frame,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +93,9 @@ class _RunHandle:
     cancel_requested: bool = False
     done_event: asyncio.Event = field(default_factory=asyncio.Event)
     task: asyncio.Task[None] | None = None  # _execute 后台任务句柄(shutdown 用)
+    # 第三十三批:被帧预算挡下并丢弃的输出行数(非协议流,但仍须可观察)
+    dropped_lines: int = 0
+    dropped_line_bytes: int = 0
 
 
 class ContainerRuntime:
@@ -292,18 +302,63 @@ class ContainerRuntime:
         return ["sh", "-c", cmd], "sh"
 
     async def _pump_stream(self, handle: _RunHandle, stream: Any, kind: str) -> None:
-        """流式读取子进程 stdout/stderr:逐行推事件 + 累积到 run.output。"""
+        """流式读取子进程 stdout/stderr:逐行推事件 + 累积到 run.output。
+
+        第三十三批:原来 `await stream.readline()` 一行裸调用 —— 容器里跑的命令
+        吐一条超长单行(base64 / 一行 JSON 日志)就抛 LimitOverrunError,而调用方
+        是 `asyncio.gather(*pumps, return_exceptions=True)`,异常被吞成"这一路的
+        输出到此为止",既不喊也不标注,表现为 run.output 莫名变短。现在超限只
+        标注截断 + 计数并继续读下一行。
+        """
         run = handle.run
+        # 本路(stdout 或 stderr)自己的计数:两路共用一个汇总器的话会各报一次
+        # 对方的账,所以这里只在本地累加,句柄字段只用于跨路可观察的总量。
+        local_dropped = 0
+        local_dropped_bytes = 0
         while True:
-            line = await stream.readline()
-            if not line:
-                break
-            text = line.decode("utf-8", "replace").rstrip("\r\n")
-            if not text:
+            frame = await read_protocol_frame(stream)
+            if frame.kind == FRAME_READ_LINE:
+                text = frame.data.decode("utf-8", "replace").rstrip("\r\n")
+                if not text:
+                    continue
+                if len(run.output) < OUTPUT_LIMIT:
+                    run.output = (run.output + text + "\n")[:OUTPUT_LIMIT]
+                handle.events.put_nowait({"event": kind, "data": text})
                 continue
-            if len(run.output) < OUTPUT_LIMIT:
-                run.output = (run.output + text + "\n")[:OUTPUT_LIMIT]
-            handle.events.put_nowait({"event": kind, "data": text})
+            if frame.kind == FRAME_READ_TOO_LARGE:
+                local_dropped += 1
+                local_dropped_bytes += frame.dropped_bytes
+                handle.dropped_lines += 1
+                handle.dropped_line_bytes += frame.dropped_bytes
+                note = (
+                    f"[truncated:{kind} 单行超过 {PROTOCOL_FRAME_LIMIT_BYTES} 字节"
+                    f"帧预算,已丢弃 {frame.dropped_bytes} 字节]"
+                )
+                logger.warning("[container_runtime] run=%s %s", run.run_id, note)
+                handle.events.put_nowait({"event": kind, "data": note, "truncated": True})
+                if not frame.resynced:
+                    # 残余没能对齐行尾 ⇒ 后面的字节都不可信,停止采集并如实留话,
+                    # 不得让人以为"命令就是这么点输出"。
+                    tail_note = (
+                        f"[stream-halted:{kind} 超限帧残余未能对齐行尾,"
+                        f"已停止采集剩余输出]"
+                    )
+                    logger.warning("[container_runtime] run=%s %s", run.run_id, tail_note)
+                    handle.events.put_nowait(
+                        {"event": kind, "data": tail_note, "truncated": True}
+                    )
+                    break
+                continue
+            if frame.kind == FRAME_READ_EOF:
+                break  # 对端真的关了,这才是结束
+            break  # 未预期的 kind:按结束保守处理
+        if local_dropped:
+            handle.events.put_nowait({
+                "event": "output_truncated",
+                "stream": kind,
+                "dropped_lines": local_dropped,
+                "dropped_bytes": local_dropped_bytes,
+            })
 
     @staticmethod
     async def _write_stdin(proc: asyncio.subprocess.Process, data: bytes) -> None:
@@ -363,6 +418,10 @@ class ContainerRuntime:
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     cwd=cwd,
+                    # 第三十三批:_pump_stream 是按行读的,不声明 limit 就是
+                    # asyncio 默认 65536 ⇒ 容器/沙箱里一条超长单行直接把该路
+                    # 采集打断。依据见 command_streamer 顶部注释。
+                    limit=PROTOCOL_FRAME_LIMIT_BYTES,
                 )
             )
             try:

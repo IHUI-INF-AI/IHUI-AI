@@ -32,6 +32,12 @@ import httpx
 
 from app.core.tunables import DEFAULT_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS
 from app.services import mcp_quality
+from app.services.command_streamer import (
+    FRAME_READ_LINE,
+    FRAME_READ_TOO_LARGE,
+    PROTOCOL_FRAME_LIMIT_BYTES,
+    read_protocol_frame,
+)
 from app.services.mcp_oauth import MCPOAuthClient, MCPOAuthConfig
 
 logger = logging.getLogger(__name__)
@@ -107,6 +113,9 @@ class MCPClient:
         self._reconnect_attempts = 0
         self._sse_buffer = b""
         self._session_id = ""
+        # 超限帧计数(第三十三批):丢弃必须留计数,不得静默变短。
+        self._dropped_frames = 0
+        self._dropped_frame_bytes = 0
         # streamable-http 状态
         self._http_headers: dict[str, str] = {}
         self._http_mode = "post"
@@ -125,6 +134,14 @@ class MCPClient:
 
     def is_connected(self) -> bool:
         return self._connected
+
+    def dropped_frames(self) -> int:
+        """因**单帧超过帧预算**而被丢弃的帧数(第三十三批新增)。
+
+        这是"这个 MCP 连不上"与"这个 MCP 结果太大"的分界线:超限帧不重连,
+        只计数 + 写日志。排查时先看这里,而不是只看 is_connected()。
+        """
+        return self._dropped_frames
 
     def negotiated_protocol(self) -> str:
         """connect 后与服务器协商确定的 MCP 协议版本(未连接为空串)。"""
@@ -354,6 +371,13 @@ class MCPClient:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=proc_env,
+                # 第三十三批(病灶):此处不声明 limit 时,stdout/stderr 的
+                # StreamReader 用 asyncio 默认 65536。MCP 的 tools/call 结果是
+                # **一行 JSON**,内含 base64 图档时单帧可达数 MB,于是
+                # _stdio_read_loop 的 readline() 必抛 LimitOverrunError ——
+                # 而它被 `except Exception` 兜住后走 finally 触发重连,表现成
+                # "这个 MCP 永远连不上"。预算依据见 command_streamer 顶部。
+                limit=PROTOCOL_FRAME_LIMIT_BYTES,
             )
             # 类型安全: create_subprocess_exec 返回 Process,stdout 是 StreamReader
             self._reader = self._process.stdout
@@ -371,19 +395,54 @@ class MCPClient:
             return False
 
     async def _stdio_read_loop(self) -> None:
+        """读 stdout 的 JSONL 帧并分发。
+
+        第三十三批改写:原先的 `await reader.readline()` 把三类结局压成两类 ——
+        正常行 / 其余一切走 `except Exception`(含帧超限),而 except 之后必然
+        落到 finally 里的"断线 + 重连"。于是对端只要**恒定**吐一条超预算的行,
+        本进程就无限重连,现象写成"这个 MCP 永远连不上",真因(结果太大)
+        在任何一行日志里都读不到。现在三类显式分开:
+          - FRAME_READ_LINE      → 交 _handle_message(原行为)
+          - FRAME_READ_TOO_LARGE → 计数 + warning,**不**断开、**不**重连,
+                                   残余已读到行尾 ⇒ 下一帧照常解析
+          - FRAME_READ_EOF       → 才是对端真的关了,走原有 reconnect 语义
+        """
         reader = self._reader
         if reader is None:
             return
         try:
             while self._connected:
-                line = await asyncio.wait_for(
-                    reader.readline(), timeout=self._config.timeout * 2,
+                frame = await asyncio.wait_for(
+                    read_protocol_frame(reader),
+                    timeout=self._config.timeout * 2,
                 )
-                if not line:
-                    break
-                raw = line.decode("utf-8", errors="replace").strip()
-                if raw:
-                    self._handle_message(raw)
+                if frame.kind == FRAME_READ_LINE:
+                    raw = frame.data.decode("utf-8", errors="replace").strip()
+                    if raw:
+                        self._handle_message(raw)
+                    continue
+                if frame.kind == FRAME_READ_TOO_LARGE:
+                    self._dropped_frames += 1
+                    self._dropped_frame_bytes += frame.dropped_bytes
+                    logger.warning(
+                        "MCP %s 单帧超过帧预算 %d 字节(实读 %d 字节,累计丢弃 %d 帧),"
+                        "该帧已丢弃、连接保持 —— 这不是断线,不要按重连排查",
+                        self._config.name,
+                        PROTOCOL_FRAME_LIMIT_BYTES,
+                        frame.dropped_bytes,
+                        self._dropped_frames,
+                    )
+                    if not frame.resynced:
+                        # 残余没能对齐行尾:再读下去只会拿到半行。如实按失步
+                        # 断开,但原因写清是"超限失步",不是"对端关闭"。
+                        logger.warning(
+                            "MCP %s 超限帧残余未能对齐行尾,主动断开以防帧粘连",
+                            self._config.name,
+                        )
+                        break
+                    continue
+                # FRAME_READ_EOF(或未预期的 kind)才是"连接结束"
+                break
         except TimeoutError:
             logger.warning("stdio 读取超时(%s)", self._config.name)
         except asyncio.CancelledError:
@@ -398,17 +457,31 @@ class MCPClient:
 
     @staticmethod
     async def _stderr_reader(stderr: asyncio.StreamReader) -> None:
-        """读取子进程 stderr 并以 debug 级别记录。"""
+        """读取子进程 stderr 并以 debug 级别记录。
+
+        非协议流:这里**不需要**区分三类结局,但同样不能因为一条超长行就炸掉
+        采集循环(原实现 `except Exception: pass` 会静默停止整个 stderr 采集,
+        之后该子进程的所有诊断输出都消失得无声无息)。超限 ⇒ 标注截断、继续读。
+        """
         try:
             while True:
-                line = await stderr.readline()
-                if not line:
-                    break
-                text = line.decode("utf-8", errors="replace").strip()
-                if text:
-                    logger.debug("MCP subprocess stderr: %s", text)
-        except Exception:
-            pass
+                frame = await read_protocol_frame(stderr)
+                if frame.kind == FRAME_READ_LINE:
+                    text = frame.data.decode("utf-8", errors="replace").strip()
+                    if text:
+                        logger.debug("MCP subprocess stderr: %s", text)
+                    continue
+                if frame.kind == FRAME_READ_TOO_LARGE:
+                    logger.warning(
+                        "MCP subprocess stderr 单行超 %d 字节已截断(丢弃 %d 字节)",
+                        PROTOCOL_FRAME_LIMIT_BYTES, frame.dropped_bytes,
+                    )
+                    if not frame.resynced:
+                        break
+                    continue
+                break
+        except Exception as e:  # 不静默:采集停止是可观察事件
+            logger.debug("MCP subprocess stderr 采集结束: %s", e)
 
     # =========================================================================
     # SSE 传输
