@@ -23,6 +23,7 @@ import type {
   TerminalEndEvent,
   TerminalStartEvent,
   ToolCallEvent,
+  ToolDeltaEvent,
 } from '@ihui/api-client'
 import type { PlanStepStatus, TerminalTaskStatus } from '@ihui/types'
 
@@ -57,6 +58,9 @@ export interface ToolCallItem {
   videoUrl?: string
   /** 异步任务 ID */
   taskId?: string
+  /** D113 流中 diff 预览(tool-delta 帧累积文本,整帧覆盖写入;tool-result 到达即清除,
+   *  最终 diff 以 result 为准。对齐 web ToolCall.partialDiff 语义) */
+  partialDiff?: string
 }
 
 /** Plan 步骤可渲染项 */
@@ -109,8 +113,9 @@ function toEpochMs(iso: string | undefined): number | undefined {
 
 /**
  * 折叠单个工具调用事件到消息级列表(纯函数)。
- * - tool-call-start:新增或原地更新为 running,记录 startedAtMs
- * - tool-result:按 toolCallId 找到并更新为 success/error,计算 durationMs,写入媒体产物
+ * - tool-call-start:新增或原地更新为 running,记录 startedAtMs;重放时保留已有流中预览
+ * - tool-result:按 toolCallId 找到并更新为 success/error,计算 durationMs,写入媒体产物;
+ *   D113:partialDiff 整帧清除(最终 diff 以 result 的 diffInfo 为准,对齐 web updates.partialDiff=undefined)
  */
 export function applyToolCallEvent(
   list: readonly ToolCallItem[] | undefined,
@@ -131,6 +136,7 @@ export function applyToolCallEvent(
           serverSource: event.serverSource ?? current?.serverSource,
           serverName: event.serverName ?? current?.serverName,
           startedAtMs: current?.startedAtMs ?? nowMs,
+          partialDiff: current?.partialDiff,
         }
       : {
           id: event.toolCallId,
@@ -149,11 +155,32 @@ export function applyToolCallEvent(
           audioUrl: event.audio_url,
           videoUrl: event.video_url,
           taskId: event.task_id,
+          // D113:tool-result 到达即清流中预览,不继承 current.partialDiff
+          partialDiff: undefined,
         }
 
   if (idx >= 0) prev[idx] = next
   else prev.push(next)
   return prev
+}
+
+/**
+ * D113 tool-delta 帧折叠(纯函数):文件写类工具流中 diff 预览。
+ * 载荷 partialText 为累积文本,按 toolCallId **覆盖式**写入 partialDiff
+ * (同 seq 重放/乱序天然幂等,seq 不参与判断,对齐 web createToolDeltaHandler)。
+ * - 空 toolCallId → 整帧丢弃,零写入
+ * - 列表中无该 toolCallId(start 帧未到)→ 不凭空造条目,原样返回
+ */
+export function applyToolDelta(
+  list: readonly ToolCallItem[] | undefined,
+  event: Pick<ToolDeltaEvent, 'toolCallId' | 'partialText'>,
+): ToolCallItem[] {
+  const prev = list ? [...list] : []
+  if (!event.toolCallId) return prev
+  if (!prev.some((item) => item.id === event.toolCallId)) return prev
+  return prev.map((item) =>
+    item.id === event.toolCallId ? { ...item, partialDiff: event.partialText } : item,
+  )
 }
 
 /**
