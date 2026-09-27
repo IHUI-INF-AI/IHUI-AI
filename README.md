@@ -937,7 +937,7 @@ route A 以 `x-internal-service-token` + `x-user-id` 代调，而 `apps/api` 只
   - **打开程序**:启动 5s 后静默检查,发现更新自动下载安装(下拉窗显示进度),完成后提示重启
   - **关闭程序**:退出时(Ctrl+Q / 托盘退出)自动拦截,检查+下载+安装+重启,全屏进度遮罩 + "跳过"选项
   - **使用中手动检查**:托盘菜单"检查更新"触发,显示弹窗 + "立即更新"按钮,用户自主选择
-  - `useUpdater` 状态机(idle → checking → available → downloading → installing → done)+ `quitAndUpdateIfNeeded` 退出更新守卫 + `QuitUpdateOverlay` 全屏遮罩组件
+  - `useUpdater` 状态机(idle → checking → available → downloading → installing → done);**退出路径不查更新**(2026-09-27 起:托盘「退出」与 Ctrl+Q 由 Rust 侧立即终止),更新入口只剩两处会报结果的:启动静默检查、托盘独立「检查更新」
 - 更新 feed 平台覆盖(2026-09-24 收口):站点主端点 `https://aizhs.top/desktop-feed.json` 与 GitHub 回退端点
   **四平台键齐全**(`windows-x86_64` / `linux-x86_64` / `darwin-x86_64` / `darwin-aarch64`),两处共用同一份判据
   `scripts/lib/tauri-updater-platforms.mjs`(空签名不出键、macOS 用 `.app.tar.gz` 而非 `.dmg`、mac/linux 直链只认 GitHub)。
@@ -3968,7 +3968,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 - **启动阶段静默更新**:桌面应用启动后 5 秒自动检查更新,如有新版本则后台静默下载 + 安装,完成后弹出重启提示组件(紫色进度条 + Sparkles 图标 + shimmer 流光按钮)
 - **使用中更新提示**:使用过程中检测到新版本,从顶栏滑入 UpdatePrompt 下拉组件(cubic-bezier(0.22,1,0.36,1) 缓动 + SVG 进度环 + 下载百分比 + 检查勾动画),用户可点击"立即更新"
-- **退出拦截更新**:拦截窗口关闭动作,检测更新 → 下载 → 安装 → 重启,如无更新则正常退出;覆盖 QuitUpdateOverlay 全屏遮罩防止用户误操作
+- **退出不拦截(2026-09-27 改,commit `b83a085ca`)**:托盘「退出」与 Ctrl+Q 一律立即退出(真机实测 0.5s 终止、无残留进程)。此前那条"拦截关闭 → 先查更新 → 下载/安装/重启 → 全屏 QuitUpdateOverlay 遮罩"的链已整条移除,原因不是观感而是两条实测:① 前端那个监听在异步 IPC 注入之前一次性注册,抢不过注入就整场没有监听且零日志,而 Rust 侧自 2026-08-16 起无上限地等 ⇒ "正在退出..."永久转圈;② 遮罩写着「检查更新」却从不回报有没有更新,是一个不给答案的中间步骤。更新能力没有丢:启动有静默检查,托盘另有独立「检查更新」项,那条明确回 已是最新 / 失败 / 可安装
 - **技术实现**:Tauri 2 Updater + GitHub Releases 公钥签名 + `use-updater.ts` 状态机 hook + `tauri-bridge.ts` 更新接口 + Rust `restart_app` 命令 + 4 keyframe 动画(slide-in / shimmer / progress-ring / checkmark-stroke)
 - **验证**:DOM getComputedStyle 验证(maskImage=none 无渐变遮罩违规 + ::before 有 ihui-update-card-glow 动画 + 按钮 ihui-update-orbit-btn 动画)+ 5 语言 i18n 55 key parity + git-push-guard exit 0
 
