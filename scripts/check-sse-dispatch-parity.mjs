@@ -66,6 +66,7 @@ import { resolveGitBin } from './lib/gitdir.mjs'
 // readData() 一直是裸 readFileSync(磁盘),而并发会话改这个台账不需要碰任何被审代码。
 // 2026-09-26 由 readLedger() 收口,台账现与帧清单同面同轮取。
 import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const API_CLIENT_PATH = ['packages', 'api-client', 'src', 'client.ts'].join('/')
@@ -187,10 +188,13 @@ export function evaluateDispatchParity({ hit, callbacks, known, data }) {
  * @param {string[]} callbacks 帧清单
  * @param {'head'|'index'} basis 与帧清单**同一修订**(head = HEAD 提交树,index = 暂存区)
  */
-export function collectHitMap(data, callbacks, basis = 'head') {
+/**
+ * 命中集合(端 → 已接帧名)。**必须走代码面复核**,见 `filterHitsToCodeFace` 头注。
+ */
+export function collectHitMap(data, callbacks, basis = 'head', readBody = null) {
   const hit = {}
   for (const ep of Object.keys(data.endpoints ?? {})) hit[ep] = new Set()
-  for (const { name, ep } of grepFrameHits(data, callbacks, basis)) hit[ep].add(name)
+  for (const { name, ep } of confirmedFrameHits(data, callbacks, basis, readBody)) hit[ep].add(name)
   return hit
 }
 
@@ -200,14 +204,102 @@ export function collectHitMap(data, callbacks, basis = 'head') {
  * `budget` 只在 N8n 助手屏注册过、主聊天屏仍一帧不接,矩阵上却与"全端已接"同形。
  * 判据不变(不计红),只把归因摊开给人看。
  */
-export function collectSurfaceMap(data, callbacks, basis = 'head') {
+export function collectSurfaceMap(data, callbacks, basis = 'head', readBody = null) {
   const surfaces = {}
   for (const ep of Object.keys(data.endpoints ?? {})) surfaces[ep] = new Map()
-  for (const { file, name, ep } of grepFrameHits(data, callbacks, basis)) {
+  for (const { file, name, ep } of confirmedFrameHits(data, callbacks, basis, readBody)) {
     if (!surfaces[ep].has(file)) surfaces[ep].set(file, new Set())
     surfaces[ep].get(file).add(name)
   }
   return surfaces
+}
+
+/**
+ * 一次 grep + 一次批量读正文,两张图共用同一份复核结果 —— 分别复核会因读取时刻不同而分歧。
+ * @param readBody 注入点(自检用):file → 正文。缺省时按 basis 从被审面批量读。
+ */
+function confirmedFrameHits(data, callbacks, basis, readBody = null) {
+  const raw = [...grepFrameHits(data, callbacks, basis)]
+  if (raw.length === 0) return raw
+  return filterHitsToCodeFace(raw, readBody ?? buildBodyReader(raw, basis))
+}
+
+/**
+ * 把 `git grep` 的候选枚举收成**代码面**命中。
+ *
+ * 立因(2026-09-27 实测,由主会话自己的一枚提交抓到):票⑳ 把 `onToolDelegate` /
+ * `onToolApproval` 写进一段"为什么本端**不该**接"的注释里,本门于是把两个未接帧读成已接 ——
+ * extension 命中从 18 跳到 20、台账里那两条 missing 被判"该删的删,登记项不得掩盖真相"。
+ * 也就是**一段解释缺口的散文,把缺口本身洗成了通过**。这是本仓记过最多次的那一型
+ * (守门 89/115/121/131/135 全部"注释里的提及不算装车"),差别在后果:那一侧是漏拦,这一侧是**造假绿**。
+ * 判据只收窄一步:名字必须仍在剥掉注释与字符串的面上出现。文件读不到 ⇒ 保留该命中并如实计数,
+ * 不静默丢弃(把"读不到"写成"没命中"等于用一次 IO 失败冒充结论)。
+ *
+ * @param hits  grepFrameHits 的产出({file,name,ep})
+ * @param readBody file → 正文(string|null;null=读不到)
+ * @returns 复核后的命中;`undetermined` 计数挂在返回数组的 .undetermined 上
+ */
+export function filterHitsToCodeFace(hits, readBody) {
+  const masked = new Map()
+  const undetermined = []
+  const out = []
+  for (const h of hits) {
+    if (!masked.has(h.file)) {
+      const body = readBody(h.file)
+      if (typeof body !== 'string') {
+        undetermined.push(h.file)
+        masked.set(h.file, null)
+      } else masked.set(h.file, maskCommentsAndStrings(body))
+    }
+    const face = masked.get(h.file)
+    if (face === null) {
+      out.push(h) // 读不到就维持 grep 的结论,但点名(见 .undetermined)
+      continue
+    }
+    if (face.includes(h.name)) out.push(h)
+  }
+  out.undetermined = [...new Set(undetermined)]
+  if (out.undetermined.length > 0) {
+    // 如实报数:把"读不到"混进"没命中"等于用一次 IO 失败冒充结论(本仓最高频失效型的反向)
+    console.error(
+      `⚠️ 代码面复核有 ${out.undetermined.length} 个文件读不到正文,其 grep 命中按原样保留并点名:` +
+        ` ${out.undetermined.slice(0, 6).join(', ')}${out.undetermined.length > 6 ? ' …' : ''}`,
+    )
+  }
+  return out
+}
+
+/** 按被审面**一次性**批量读正文:候选清单由 grep 给出,禁止逐文件 spawn(守门 83 的耗时教训)。 */
+function buildBodyReader(hits, basis) {
+  const files = [...new Set(hits.map((h) => h.file))]
+  const bodies = new Map()
+  if (files.length === 0) return (file) => bodies.get(file) ?? null
+  if (basis === 'worktree') {
+    for (const f of files) {
+      let text = null
+      try {
+        text = readWorktreeFile(ROOT, f)
+      } catch {
+        text = null
+      }
+      bodies.set(f, typeof text === 'string' ? text : null)
+    }
+    return (file) => bodies.get(file) ?? null
+  }
+  const specs = files.map((f) => `${basis === 'index' ? '' : 'HEAD'}:${f}`)
+  let got
+  try {
+    got = catBatch(ROOT, specs, { maxBuffer: 1 << 30, timeout: 180000 })
+  } catch {
+    // 整批读失败 ⇒ 不猜:全部按"读不到"处理,由 filterHitsToCodeFace 点名 undetermined
+    for (const f of files) bodies.set(f, null)
+    return (file) => bodies.get(file) ?? null
+  }
+  files.forEach((f, i) => {
+    const t = got.get(specs[i])
+    bodies.set(f, typeof t === 'string' ? t : null)
+  })
+  return (file) => bodies.get(file) ?? null
 }
 
 /** 共享同一次 grep 与同一套失败口径 —— 两张图不允许各自跑一遍再出现分歧 */
@@ -566,6 +658,45 @@ function selfTest() {
         throw new Error('worktree 档竟派生了 batch')
       })
       return r.error === null && typeof r.source === 'string' && r.source.length > 0
+    })(),
+  ])
+
+  /** 代码面复核(2026-09-27 立):注释里的帧名不得被读成"该端已接"。 */
+  const cfHits = [
+    { file: 'a.ts', name: 'onToolDelegate', ep: 'web' },
+    { file: 'b.ts', name: 'onToolDelta', ep: 'web' },
+    { file: 'c.ts', name: 'onBudget', ep: 'cli' },
+  ]
+  const cfBodies = {
+    // 只在注释里提过一次 ⇒ 必须被剔掉(票⑳ 的真实现场:解释缺口的散文把缺口洗成通过)
+    'a.ts': '// 本端不接 onToolDelegate,理由是委托面缺失\nexport const x = 1\n',
+    // 真注册点 ⇒ 必须保留
+    'b.ts': 'export const opts = { onToolDelta: (e) => store.push(e) }\n',
+    // 字符串字面量里出现 ⇒ 同样不算装车
+    'c.ts': 'console.log("onBudget 还没接")\n',
+  }
+  cases.push([
+    '正例:代码面复核保留真注册、剔掉纯注释提及与字符串提及(三条各归位)',
+    (() => {
+      const kept = filterHitsToCodeFace(cfHits, (f) => cfBodies[f])
+      return (
+        kept.length === 1 && kept[0].name === 'onToolDelta' && (kept.undetermined?.length ?? 0) === 0
+      )
+    })(),
+  ])
+  cases.push([
+    '反例(有牙):把注释那条改成真代码 ⇒ 该条必须回到命中里(证明剔除不是因为判据失明)',
+    (() => {
+      const fixed = { ...cfBodies, 'a.ts': 'const h = { onToolDelegate: noop }\n' }
+      const kept = filterHitsToCodeFace(cfHits, (f) => fixed[f])
+      return kept.length === 2 && kept.some((h) => h.name === 'onToolDelegate')
+    })(),
+  ])
+  cases.push([
+    '读不到正文 ⇒ 维持 grep 原结论并点名 undetermined,绝不静默当"没命中"',
+    (() => {
+      const kept = filterHitsToCodeFace(cfHits, () => null)
+      return kept.length === cfHits.length && kept.undetermined.length === 3
     })(),
   ])
 
