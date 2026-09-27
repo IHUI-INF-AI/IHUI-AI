@@ -244,12 +244,17 @@ async function main() {
     process.exit(1)
   }
   if (replacements) {
-    const leftover = replacements.filter((p) => now.includes(p.before))
-    if (leftover.length > 0) {
-      console.error(`❌ 回读仍有 ${leftover.length} 行的旧形态在位 ⇒ 改写没有真生效,不记为成功`)
+    // 旧形态必须按**整行等值**归零,而不是按子串归零:改写档有两种形态 —— 翻勾(前缀变了)和
+    // 追加注记(原行文字成为新行的前缀)。用 `doc.includes(before)` 判第二种会**误报"没生效"**,
+    // 而误报的代价不只是难看:本函数在这句之后才做主索引对齐,判错的 exit 1 会把对齐整段跳过,
+    // 于是共享索引停在父提交 blob ⇒ 别人一次不带 pathspec 的普通提交就把这次交付写回旧版(§12d 第三层)。
+    const nowLines = now.split('\n')
+    const stale = replacements.filter((p) => nowLines.includes(p.before))
+    if (stale.length > 0) {
+      console.error(`❌ 回读仍有 ${stale.length} 行的旧形态整行在位 ⇒ 改写没有真生效,不记为成功`)
       process.exit(1)
     }
-    console.log(`✅ 回读:${replacements.length} 行已改成新形态,旧形态在 HEAD 版里逐条为零`)
+    console.log(`✅ 回读:${replacements.length} 行已改成新形态(旧形态整行归零;追加注记型的原文字成为新行前缀,属正当)`)
   } else console.log('✅ 回读:本块每一条非空行都在 HEAD 里')
 
   const align = alignSharedIndex({ root, paths: [doc], parentRef: parentSha })
