@@ -34,6 +34,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -283,7 +284,10 @@ export function judgeLoginRegistration(src: string): NavJudgement {
 // ─────────────────────────────────── 用例
 
 const HEAD_SRC = gitShow('HEAD', NAV_REL)
-const PARENT_SRC = gitShow(`${FIX_SHA}^`, NAV_REL)
+// 阳性对照取材改为仓内夹具:`e0efe41cfd^` 的历史 blob 已在 CI 浅克隆(fetch-depth=1)里不存在
+// (PR#65 run 36347067341 红于 "fatal: invalid object name 'e0efe41cfd^'")。
+// 夹具 = 该 blob 逐字节副本(sha 08d65c91f0bbd9965aa8ada3054797848dd7cbdf),判据解析行为不变。
+const PARENT_SRC = readFileSync(path.join(HERE, '__fixtures__', 'rootnavigator-parent-e0efe41cfd.txt'), 'utf8')
 
 describe('锁 A:Login 在 RootNavigator 两个分支都注册(判 HEAD blob)', () => {
   it('HEAD:两分支各恰好一次,且判据真的解析出了结构(不是"没看见所以通过")', () => {
