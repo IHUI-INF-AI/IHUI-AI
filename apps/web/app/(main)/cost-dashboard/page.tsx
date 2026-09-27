@@ -232,14 +232,14 @@ export default function CostDashboardPage() {
                     </Tooltip>
                     <div className="flex items-center gap-1.5">
                       <div
-                        className="h-3 rounded bg-primary/70"
+                        className="h-3 rounded-xs bg-primary/70"
                         style={{ width: `${pct(b.cost, maxCost)}%` }}
                       />
                       <span className="shrink-0 text-muted-foreground">{fmtUsd(b.cost)}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div
-                        className="h-3 rounded bg-emerald-500/70"
+                        className="h-3 rounded-xs bg-emerald-500/70"
                         style={{ width: `${pct(b.tokens, maxTokens)}%` }}
                       />
                       <span className="shrink-0 text-muted-foreground">

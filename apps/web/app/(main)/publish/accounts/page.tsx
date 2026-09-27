@@ -274,7 +274,7 @@ export default function AccountsPage() {
             >
               <QrCode className="h-3.5 w-3.5" />
               <span>{t('accounts.batchScanBtn')}</span>
-              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-white/20 px-1 text-[10px] font-semibold leading-none tabular-nums">
+              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-white/20 px-1 text-[10px] font-semibold leading-none tabular-nums">
                 {pendingPlatforms.length}
               </span>
             </button>

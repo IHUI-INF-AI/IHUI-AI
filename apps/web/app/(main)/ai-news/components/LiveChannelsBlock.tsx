@@ -53,7 +53,7 @@ export function LiveChannelsBlock({ channels }: Props) {
     return (
       <section
         aria-label={t('live.label')}
-        className="overflow-hidden rounded-xl border bg-card shadow-sm"
+        className="overflow-hidden rounded-lg border bg-card shadow-sm"
       >
         <div className="p-3 text-center text-sm text-muted-foreground">{t('live.empty')}</div>
       </section>
@@ -63,7 +63,7 @@ export function LiveChannelsBlock({ channels }: Props) {
   return (
     <section
       aria-label={t('live.label')}
-      className="overflow-hidden rounded-xl border bg-card shadow-sm"
+      className="overflow-hidden rounded-lg border bg-card shadow-sm"
     >
       <div className="flex flex-row items-center justify-between gap-3 p-3 pb-3">
         <div className="space-y-1">
