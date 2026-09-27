@@ -286,33 +286,48 @@ export function ConfirmPurchasePopUp({
           ) : null}
 
           <View style={styles.buttonRow}>
+            {/* 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
+                interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失
+                (守门 131 那一型)。外框拿盒与布局,面层只拿 pressed。
+                这一处的按压态是背景色,所以圆角必须与外框同档,否则按压底色会露出方角。 */}
             <Pressable
-              style={({ pressed }) => [
-                styles.cancelButton,
-                pressed && !loading ? styles.cancelButtonPressed : null,
-              ]}
+              style={styles.cancelButton}
               onPress={onCancel}
               disabled={loading}
               accessibilityRole="button"
               accessibilityLabel={cancelText}
             >
-              <Text style={styles.cancelButtonText}>{cancelText}</Text>
+              {({ pressed }) => (
+                <View
+                  style={[
+                    styles.buttonFace,
+                    pressed && !loading ? styles.cancelButtonPressed : null,
+                  ]}
+                >
+                  <Text style={styles.cancelButtonText}>{cancelText}</Text>
+                </View>
+              )}
             </Pressable>
             <Pressable
-              style={({ pressed }) => [
-                styles.confirmButton,
-                pressed && !payDisabled ? styles.confirmButtonPressed : null,
-                payDisabled ? styles.confirmButtonDisabled : null,
-              ]}
+              style={[styles.confirmButton, payDisabled ? styles.confirmButtonDisabled : null]}
               onPress={handlePay}
               disabled={payDisabled}
               accessibilityRole="button"
               accessibilityLabel={payButtonLabel}
             >
-              {loading ? (
-                <ActivityIndicator size="small" color={tokens.surface.light} />
-              ) : (
-                <Text style={styles.confirmButtonText}>{payButtonLabel}</Text>
+              {({ pressed }) => (
+                <View
+                  style={[
+                    styles.buttonFace,
+                    pressed && !payDisabled ? styles.confirmButtonPressed : null,
+                  ]}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color={tokens.surface.light} />
+                  ) : (
+                    <Text style={styles.confirmButtonText}>{payButtonLabel}</Text>
+                  )}
+                </View>
               )}
             </Pressable>
           </View>
@@ -558,6 +573,14 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 20,
     gap: 12,
+  } as ViewStyle,
+  // 面层:撑满外框内容盒 + 与两枚按钮同档的圆角(按压态是背景色,必须画在被圆角裁出的盒上)。
+  buttonFace: {
+    width: '100%',
+    height: '100%',
+    borderRadius: rnRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   } as ViewStyle,
   cancelButton: {
     flex: 1,
