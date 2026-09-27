@@ -6,11 +6,21 @@
 
 四条判据各自的落点:
  1. 枚举更快 —— `test_real_repo_enumeration_is_faster_than_serial_walk`(真仓前/后读数)
- 2. 10 万文件级 —— 同上(断言枚举到的文件数 ≥100,000,现测 24.4 万)
+ 2. 10 万文件级 —— 同一用例的**与规模无关的不变量**(枚举没被内部上限截断 + 被 git
+    跟踪的代码文件一个都不漏)。原先断言的是"枚举到 ≥100,000 个文件",2026-09-27
+    复评时换掉了:那个数量的是**当时那台共享工作区**的在飞文件量(同一命令当日读到
+    43,551,而 `git ls-files` 只有 13,092 条跟踪路径)—— 锚在机器状态上的判据,
+    换台机就恒不可能成立。受控构造的规模读数(2k/10k/50k/100k)由
+    `scripts/measure_lazy_index_guardrail.py` 承载,可重跑。
  3. 降级路径与 rg 路径**同一结果集** —— `test_two_channels_agree_*` /
     `test_content_channel_parity_*` / `test_forced_degradation_is_recorded_*`
  4. 护栏复评 —— `test_lazy_index_guardrail_sees_same_denominator`(护栏读的是枚举分母,
-    换通道不得改变它看到的数字;阈值本身的复评依据写在 codebase_indexer 的注释里)
+    换通道不得改变它看到的数字)。**阈值本身**已于 2026-09-27 复评:改成"三条成本轴
+    取最小值"的派生阈值 —— 判据在 `tests/test_lazy_index_guardrail_v75.py`,依据与常量
+    在 `mcp_server.py` 的懒索引护栏段,取证脚本 `scripts/measure_lazy_index_guardrail.py`。
+    旧文本说"依据写在 codebase_indexer 的注释里",那句已过期:该处注释仍在描述已被删除
+    的 `_LAZY_INDEX_MAX_FILES = 2000`,而 codebase_indexer.py 在本票的禁改清单内,
+    所以只在这里登记,不替它改(主会话可一并把那段注释指过来)。
 
 三条写法纪律(本仓踩过,故立此):
  - 测试**不得内联一份判据副本**,一律调 `app.services.rg_fallback_parity` 的生产出口(§22c)。
@@ -284,15 +294,50 @@ def _repo_root() -> Path | None:
     return None
 
 
+def _tracked_code_files(root: Path) -> set[str]:
+    """被 git **跟踪**、且命中本索引白名单、且不在忽略目录里的路径集合。
+
+    为什么需要它:下面那条真仓用例原先断言"枚举到 ≥100,000 个文件",而那个数
+    量的是**当时那台共享工作区**(node_modules/.venv/构建产物全在盘上 = 244,765)。
+    2026-09-27 复评时同一命令在本机工作树读到 43,551、`git ls-files` 只有 13,092
+    (其中命中扩展名白名单 10,649)⇒ 那条断言在干净检出上**永远不可能成立**,
+    它锚的是机器状态而不是代码性质(AGENTS:"判据不得锚定仓库瞬时状态")。
+    换成"跟踪的代码文件一个都不许漏"这条与规模无关的不变量,严格更强。
+    """
+    import subprocess
+
+    out = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=str(root),
+        capture_output=True,
+        check=False,
+    )
+    if out.returncode != 0:
+        return set()
+    paths = {p.decode("utf-8", errors="replace").replace("\\", "/") for p in out.stdout.split(b"\0") if p}
+    kept: set[str] = set()
+    for rel in paths:
+        parts = rel.split("/")
+        if any(seg in _IGNORED_DIRS for seg in parts[:-1]):
+            continue
+        if rgp._suffix_of(parts[-1]) in _EXT_TO_LANG:
+            kept.add(rel)
+    return kept
+
+
 def test_real_repo_enumeration_is_faster_than_serial_walk() -> None:
     """在真 monorepo 上给出前(串行 os.walk)/后(ripgrep)两组读数并断言更快。
 
-    两条口径如实交代:
+    三条口径如实交代:
     - 差集只允许落在 `.ihui-agent/**`(并行代理的在飞临时物)与**符号链接文件**
       (rg 默认不收链接文件,而 os.walk 会列它;`--follow` 会带来 §26 的递归穿透风险,
       刻意不加)。任何落在此之外的分叉都算两通道不一致。
     - 耗时是共享机器上的量测,有其他代理在飞写入会抖;断言用"rg 严格快于串行",
       不钉绝对秒数 —— 绝对数写进交付报告,不写进判据(否则下次机器一慢就恒红)。
+    - **规模断言与仓库状态解耦**:断的是"跟踪的代码文件全覆盖 + 没被内部上限截断",
+      而不是"这台机器的工作区今天有几个文件"。"10 万文件级"由
+      `scripts/measure_lazy_index_guardrail.py` 在**受控构造**的 2k/10k/50k/100k 树上量,
+      那是可重跑的载体;工作区实际文件数是报告里的一个数,不是判据。
     """
     root = _repo_root()
     if root is None:
@@ -305,17 +350,26 @@ def test_real_repo_enumeration_is_faster_than_serial_walk() -> None:
     serial_elapsed = time.perf_counter() - t0
 
     assert rprov.degraded_reason is None, f"真仓上 rg 通道降级了:{rprov.degraded_reason}"
-    assert len(rg_paths) >= 100_000, f"10 万文件级未达成,实测枚举 {len(rg_paths)} 个"
     assert rg_elapsed < serial_elapsed, (
         f"未变快:ripgrep {rg_elapsed:.2f}s vs 串行 os.walk {serial_elapsed:.2f}s"
     )
+    # (1) 规模不变量一:**没有内部截断**。索引面的 MAX_FILES_PER_INDEX=5000 曾把
+    #     护栏的分母做成饱和值(V3 #75 后半修的就是这一格),枚举面不得再犯同一个错。
+    assert len(rg_paths) > 5_000, f"枚举数被截断了?只拿到 {len(rg_paths)} 个"
+    # (2) 规模不变量二:被跟踪的代码文件一个都不许漏(与机器上有多少在飞文件无关)。
+    tracked = _tracked_code_files(root)
+    assert tracked, "拿不到 git 跟踪清单 —— 这条判据不得对着空集自证通过"
+    missing = tracked - rg_paths
+    for p in sorted(missing):
+        # 唯一放过的情形:该路径确实已不在盘上(别人刚删、尚未提交)或是链接
+        assert not (root / p).exists() or (root / p).is_symlink(), f"跟踪的代码文件被枚举漏了: {p}"
     divergent = (rg_paths - legacy) | (legacy - rg_paths)
     for p in divergent:
         in_agent_tmp = p.startswith(".ihui-agent/")
         is_link = os.path.islink(os.path.join(str(root), p.replace("/", os.sep)))
         assert in_agent_tmp or is_link, f"两通道在非在飞/非链接路径上分叉: {p}"
     print(
-        f"[V75] files={len(rg_paths)} (legacy {len(legacy)}) "
+        f"[V75] files={len(rg_paths)} (legacy {len(legacy)}; tracked-code {len(tracked)}) "
         f"ripgrep={rg_elapsed:.3f}s serial={serial_elapsed:.3f}s "
         f"speedup={serial_elapsed / max(rg_elapsed, 1e-9):.1f}x divergent={len(divergent)}"
     )

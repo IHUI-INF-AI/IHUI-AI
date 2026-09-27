@@ -25,6 +25,10 @@ import {
   Boxes,
   ListPlus,
   Navigation,
+  Cpu,
+  FileDiff,
+  Info,
+  Minimize2,
 } from 'lucide-react'
 import type { ChatMode, IDETabType } from '@ihui/types'
 
@@ -248,11 +252,46 @@ export const CHAT_QUEUE_COMMANDS: ChatQueueCommandDef[] = [
 ]
 
 // ============================================================================
+// D117 工具型斜杠命令(G-231,2026-09-27 立,对标 Codex /diff /status /model /mcp /compact)
+// ============================================================================
+
+/**
+ * 工具型斜杠命令 id 清单(单一登记处)。
+ *
+ * 与 CHAT_QUEUE_COMMANDS 同一形态(不进 BUILTIN_COMMANDS —— CommandAction 闭联合约
+ * 由 ui-action-registry 穷尽消费,扩档成本见上方注释);本清单是斜杠命令体系
+ * (use-slash-commands.tsx 展示 + slash-commands.ts tryHandleToolSlash 执行)共用的
+ * id 唯一来源,id 带 slash 前缀避开 BUILTIN 已有的 'mcp'(IDE tab 导航)。
+ * i18n:label/description/keywords 键随 ALL_IDS 生成(commandPalette.commands.*)。
+ */
+export type ChatToolCommandId =
+  'slashDiff' | 'slashStatus' | 'slashModel' | 'slashMcp' | 'slashCompact'
+
+export interface ChatToolCommandDef {
+  id: ChatToolCommandId
+  icon: LucideIcon
+  /** 输入框里敲的斜杠字面量(执行分发用,tryHandleToolSlash 的正则与其一一对应) */
+  slash: string
+}
+
+export const CHAT_TOOL_COMMANDS: ChatToolCommandDef[] = [
+  { id: 'slashDiff', icon: FileDiff, slash: '/diff' },
+  { id: 'slashStatus', icon: Info, slash: '/status' },
+  { id: 'slashModel', icon: Cpu, slash: '/model' },
+  { id: 'slashMcp', icon: Plug, slash: '/mcp' },
+  { id: 'slashCompact', icon: Minimize2, slash: '/compact' },
+]
+
+// ============================================================================
 // i18n 静态映射(消除动态 key 拼接,next-intl 约束)
 // D89 ②:排队语义命令一并纳入映射(词表键已五语言落地)
 // ============================================================================
 
-const ALL_IDS = [...BUILTIN_COMMANDS.map((c) => c.id), ...CHAT_QUEUE_COMMANDS.map((c) => c.id)]
+const ALL_IDS = [
+  ...BUILTIN_COMMANDS.map((c) => c.id),
+  ...CHAT_QUEUE_COMMANDS.map((c) => c.id),
+  ...CHAT_TOOL_COMMANDS.map((c) => c.id),
+]
 
 export const COMMAND_LABEL_KEY: Record<string, string> = Object.fromEntries(
   ALL_IDS.map((id) => [id, `commands.${id}.label`]),

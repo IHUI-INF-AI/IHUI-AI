@@ -3666,6 +3666,80 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)(1 项,blocking)---
+  {
+    id: '140',
+    label:
+      'V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)',
+    script: 'check-v3-62-conversation-mount.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_V362_CONV_MOUNT',
+    stagedTriggers: ['apps/web/src/components/chat/', 'packages/shared/src/sse/'],
+    onFailHint: [
+      '',
+      '  本门钉三件:BusinessFormSection 必须真被 MessageList 挂载;form_request 契约段与消费点逐字段同形;sse/contract.ts 与 ai-service sse_contract.py 的既有 parity 不得被绕过。',
+      '  现读:node scripts/check-v3-62-conversation-mount.mjs --worktree / --json',
+      '  自检:node scripts/check-v3-62-conversation-mount.mjs --self-test',
+      '  紧急跳过:HUSKY_SKIP_V362_CONV_MOUNT=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- doom-loop parity 对账(共享层/CLI/agent.ts/Python 等价/主链路五面成套,策略数字不得有第二份)(1 项,blocking)---
+  {
+    id: '141',
+    label:
+      'doom-loop parity 对账(共享层/CLI/agent.ts/Python 等价/主链路五面成套,策略数字不得有第二份)',
+    script: 'check-doom-loop-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DOOM_LOOP_PARITY',
+    stagedTriggers: ['apps/cli/src/', 'apps/ai-service/app/', 'packages/shared/src/'],
+    onFailHint: [
+      '',
+      '  P1 逐项常量等值 / P2 装车性(注释里的提及不算) / P3 三动作各有消费分支。',
+      '  现读:node scripts/check-doom-loop-parity.mjs ; 自检 --self-test(14 条) ; 紧急跳过 HUSKY_SKIP_DOOM_LOOP_PARITY=1',
+      '',
+    ].join('\n'),
+  },
+
+  // --- Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)(1 项,blocking)---
+  {
+    id: '142',
+    label:
+      'Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)',
+    script: 'check-guardian-review-wired.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GUARDIAN_REVIEW_WIRED',
+    stagedTriggers: ['apps/ai-service/app/'],
+    onFailHint: [
+      '',
+      '  复核必须在生产面被调用;判不了/超时/无凭据必须显式未复核,禁止记为通过。',
+      '  现读:node scripts/check-guardian-review-wired.mjs ; 紧急跳过 HUSKY_SKIP_GUARDIAN_REVIEW_WIRED=1',
+      '',
+    ].join('\n'),
+  },
+
+  // --- LSP 语言表与探测四态对账(拦 binary 名回到写死字面量、能力声明无对应族、探测失败被折叠成无诊断)(1 项,blocking)---
+  {
+    id: '143',
+    label:
+      'LSP 语言表与探测四态对账(拦 binary 名回到写死字面量、能力声明无对应族、探测失败被折叠成无诊断)',
+    script: 'check-lsp-language-table.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LSP_LANGUAGE_TABLE',
+    stagedTriggers: ['apps/cli/src/'],
+    onFailHint: [
+      '',
+      '  T1-T5 五判据:表自洽/扩展名唯一/族清单静态对账/binary 唯一出处/能力投影同形;空枚举判死。',
+      '  现读:node scripts/check-lsp-language-table.mjs ; 自检 --self-test(14 条) ; 紧急跳过 HUSKY_SKIP_LSP_LANGUAGE_TABLE=1',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
