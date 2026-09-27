@@ -6990,6 +6990,13 @@
     "dispatchSubagent": "배포 하위 에이전트"
   },
   "agentRuntimePanel": {
+    "resumeUnavailable": "이 실행을 재개할 수 없습니다",
+    "pauseUnavailable": "이 실행을 일시정지할 수 없습니다",
+    "alreadyPausedBody": "이 세션은 이미 중지된 상태였으며 이번 조작으로 바뀌지 않았습니다.",
+    "pausedBody": "루프가 안전한 지점에서 중지되었습니다. '재개'를 누르면 최신 중지 지점에서 계속됩니다。",
+    "pausedTitle": "일시정지됨",
+    "resume": "재개",
+    "pause": "일시정지",
     "cancelledBody": "현재 실행이 중지되었습니다. 계속하려면 입력을 수정한 후 다시 실행하세요.",
     "cancelledTitle": "작업이 취소되었습니다",
     "clear": "비우기",

@@ -6990,6 +6990,13 @@
     "dispatchSubagent": "分發子代理"
   },
   "agentRuntimePanel": {
+    "resumeUnavailable": "無法繼續這次執行",
+    "pauseUnavailable": "無法暫停這次執行",
+    "alreadyPausedBody": "這個會話此前已處於暫停位，本次點擊沒有改變它。",
+    "pausedBody": "迴圈已在安全點停住，點「繼續」從最近一次暫停點續跑。",
+    "pausedTitle": "已暫停",
+    "resume": "繼續",
+    "pause": "暫停",
     "cancelledBody": "已停止當前執行。如需繼續，請修改輸入後再次執行。",
     "cancelledTitle": "任務已取消",
     "clear": "清空",
