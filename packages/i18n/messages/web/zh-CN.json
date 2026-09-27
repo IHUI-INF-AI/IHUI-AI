@@ -8487,7 +8487,7 @@
         },
         "TOOL_MODE_UNAVAILABLE": {
           "title": "该工具在当前运行模式不可用",
-          "action": "改用等价的本地工具"
+          "action": "在网页端绑定工作区后重试,或改用等价的本地工具"
         },
         "TOOL_NOT_FOUND": {
           "title": "未找到目标资源",
@@ -9767,6 +9767,7 @@
     "restoreFailed": "恢复检查点失败",
     "bestOfAdopted": "已把选中的候选写入对话",
     "tabs": {
+      "inspector": "原始帧",
       "goal": "目标",
       "memory": "记忆",
       "plan": "计划",
@@ -9797,6 +9798,22 @@
     "applied": "已应用",
     "apply": "应用",
     "hint": "可用 AI 工具",
+    "inspector": {
+      "start": "开始采集",
+      "stop": "停止采集",
+      "clear": "清空",
+      "export": "导出 JSONL",
+      "filter": "按类型过滤",
+      "filterAll": "全部类型",
+      "count": "共 {total} 帧,显示 {shown}",
+      "empty": "暂无帧",
+      "hint": "点击「开始采集」后,下一条 AI 回复的原始 SSE 帧将逐帧记录在此(开发者调试视图)",
+      "waiting": "等待流式帧…",
+      "truncated": "仅渲染最近 300 帧(完整数据可导出 JSONL,共 {total} 帧)",
+      "copied": "已复制",
+      "copyFailed": "复制失败",
+      "copyOne": "复制该帧"
+    },
     "worldsAdopted": "已采纳该分支回复"
   },
   "agentHooks": {
@@ -11172,7 +11189,34 @@
       "title": "Skill 库",
       "viewAll": "查看全部"
     },
+    "sessionDiff": {
+      "title": "会话改动总览",
+      "fileCount": "{count} 个文件",
+      "empty": "本次会话暂无文件改动",
+      "changedTimes": "{count}{plus} 次",
+      "editedBy": "编辑工具:{tool}",
+      "before": "变更前",
+      "after": "变更后",
+      "applyStatus_pending": "待确认",
+      "applyStatus_applied": "已应用",
+      "applyStatus_rejected": "已拒绝"
+    },
     "slashCmd": {
+      "diff": "查看本次会话 AI 改动的文件总览",
+      "diffEmpty": "本次会话暂无文件改动",
+      "status": "查看当前模型、上下文占用与权限模式",
+      "statusBadge": "会话状态",
+      "statusReportTitle": "会话状态",
+      "statusModel": "当前模型",
+      "statusConversation": "会话 ID",
+      "statusPermission": "权限模式",
+      "statusContext": "上下文占用:{used} / {capacity}({pct}%)",
+      "statusTokens": "本会话输出 tokens:{tokens}",
+      "statusCost": "本会话成本:${cost}",
+      "statusMessages": "消息数:{count}",
+      "model": "打开模型选择器",
+      "mcp": "打开 MCP 市场",
+      "compact": "压缩当前会话上下文",
       "act": "切换到执行模式(AI 正常执行工具,默认)",
       "build": "切换到构建模式(全工具开放,正常执行)",
       "code": "生成代码",
@@ -11667,6 +11711,31 @@
       "view": "视图"
     },
     "commands": {
+      "slashDiff": {
+        "label": "会话改动总览",
+        "description": "查看本次会话 AI 改动的文件(diff 总览)",
+        "keywords": ["diff", "改动", "审查"]
+      },
+      "slashStatus": {
+        "label": "会话状态",
+        "description": "查看当前模型、上下文占用、权限模式与用量",
+        "keywords": ["status", "状态", "上下文"]
+      },
+      "slashModel": {
+        "label": "切换模型",
+        "description": "打开模型选择器",
+        "keywords": ["model", "模型", "切换"]
+      },
+      "slashMcp": {
+        "label": "MCP 市场",
+        "description": "打开 MCP 服务器市场",
+        "keywords": ["mcp", "插件", "市场"]
+      },
+      "slashCompact": {
+        "label": "压缩上下文",
+        "description": "压缩当前会话历史,释放上下文窗口",
+        "keywords": ["compact", "压缩", "上下文"]
+      },
       "steerPrompt": {
         "label": "引导提示",
         "description": "向正在运行的回复中途插入引导，无需等待当前轮完成",
@@ -21322,6 +21391,7 @@
     "categoryMode": "模式切换",
     "categoryPermission": "权限管理",
     "categorySkill": "AI 技能",
+    "categoryTools": "工具命令",
     "categoryTemplate": "内容模板",
     "noMatchArgs": "无匹配候选",
     "noMatchArgsHint": "尝试清空搜索或按 ESC 返回",
@@ -25484,6 +25554,9 @@
     "ratingSuccess": "评分已提交"
   },
   "chatSearchBar": {
+    "messageNotFound": "找不到该消息，可能已不在当前列表窗口内",
+    "moreResults": "还有 {count} 条结果",
+    "resultListLabel": "对话内搜索结果",
     "searchPlaceholder": "搜索对话…",
     "searchAriaLabel": "搜索对话"
   },

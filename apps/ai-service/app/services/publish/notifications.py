@@ -25,6 +25,8 @@ import asyncpg
 from app.core.config import settings
 from app.core.logging import get_logger
 
+from .db_write_guard import log_db_write_failure
+
 logger = get_logger(__name__)
 
 
@@ -89,8 +91,10 @@ async def _write_to_db(
         )
         return True
     except Exception as e:
-        logger.warning(
-            "[publish.notifications] db write failed: %s: %s", type(e).__name__, e
+        # 与 _write_history 同一条禁令(§5e 失败必须响):撞主键=序列落后,
+        # 降成 warning 就等于把"通知台账静默消失"写成"一切正常"
+        log_db_write_failure(
+            logger, e, table="publish_notifications", prefix="[publish.notifications]"
         )
         return False
     finally:

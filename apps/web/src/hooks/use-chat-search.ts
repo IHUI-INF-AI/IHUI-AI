@@ -6,51 +6,79 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect, type RefObject } from 'react'
 
-/** 搜索结果项 */
+import { searchMessages } from '@/lib/message-search'
+
+/** 搜索结果项(带摘要预览与时间 —— 这是本 hook 相对既有搜索的唯一增项) */
 export interface SearchResult {
   id: string
   preview: string
   createTime: string
 }
 
-/** 消息类型（最小约束，兼容各种 ChatMessage 结构） */
+/**
+ * 消息类型(最小约束):id + content 两个字段就是匹配面,时间字段两种书写都收
+ * (`createdAt` 毫秒数 = web 端 ChatMessage 的真实字段;`createTime` 是旧架构遗留)。
+ */
 interface SearchableMessage {
   id: string
   content: string
+  createdAt?: string | number | Date
   createTime?: string | number | Date
 }
 
 /** useChatSearch 依赖的外部上下文 */
 interface UseChatSearchOptions<T extends SearchableMessage> {
-  /** 消息列表（用于搜索过滤） */
+  /** 消息列表(用于搜索过滤) */
   messages: T[]
-  /** 消息元素引用 Map（用于滚动定位） */
-  messageRefs: RefObject<Map<string, HTMLElement>>
-  /** 消息容器引用（用于判断可见性） */
+  /** 消息容器引用:既用于判定可见,也用于按 `[data-message-id]` 定位目标消息 */
   messagesContainerRef: RefObject<HTMLElement | null>
+  /** 「找不到该消息」的本地化文案(由调用方经 useTranslations 取;**不得**在此硬编码中文) */
+  notFoundMessage?: string
   /** 警告提示函数 */
   showWarning?: (msg: string) => void
 }
 
+/** 预览摘要截断长度(与原实现同值,不借本票改观感口径) */
+const PREVIEW_MAX = 100
+
 /**
- * 聊天搜索逻辑 hook
+ * 可安全拼进 `[data-message-id="…"]` 选择器的 id 字符集。
+ * 消息 id 一律是 UUID / 后端雪花串;含引号或方括号的"id"要么是脏数据要么是
+ * 选择器注入 —— querySelector 遇非法选择器会抛 SyntaxError(点击即崩),
+ * 所以这里宁可直接判"定位不到"走提示分支,也不把外来串拼进选择器。
+ */
+const SAFE_MESSAGE_ID_RE = /^[A-Za-z0-9_-]+$/
+
+/** 把 ChatMessage 的 createdAt(毫秒)或旧字段 createTime 归一成正文时间字符串 */
+function toTimeText(value: string | number | Date | undefined): string {
+  if (value === undefined || value === null || value === '') return ''
+  return String(value)
+}
+
+/**
+ * 聊天搜索逻辑 hook —— **结果预览列表**的状态机。
  *
- * 从旧架构 client/src/components/ai/composables/useChatSearch.ts 迁移至 React hook。
- * - showSearchBar: 搜索栏显示/隐藏
- * - searchQuery: 搜索关键词
- * - searchResults: 搜索结果列表
- * - selectedMessageId: 当前选中的消息 ID（滚动定位高亮）
- * - toggleSearch: 切换搜索栏显示
- * - handleSearch: 执行搜索
- * - scrollToMessage: 滚动到指定消息
+ * 分工(2026-09-27 V3 #62 接线时定,勿再扩):
+ *  · 输入框、Ctrl+F/Cmd+F 打开、Esc 关闭、上一个/下一个导航、消息内高亮
+ *    —— 全部归 `components/chat/message-list/use-message-list-search.ts`(唯一入口);
+ *  · 本 hook 只做「把当前查询投影成可点选的摘要列表 + 点选后滚动定位」这一件事。
+ *  两者**共用同一条匹配规则**:都走 `@ihui/shared` 的 `searchMessages`
+ *  (大小写不敏感 + 正则元字符转义)。本文件此前自带一份 `toLowerCase().includes()`
+ *  的第二实现 —— 那正是"两处算同一件事必然漂移"的形状,已改为委托。
+ *
+ * 为什么不再自带 `showSearchBar`/`toggleSearch`:搜索条可见态由既有入口拥有,
+ * 这里再留一份就是第二个开关(两个真相源),故 2026-09-27 接线时删除。
+ * 滚动定位原依赖 `messageRefs: RefObject<Map<string, HTMLElement>>`,而全仓没有任何
+ * 组件维护这样一张 Map(该契约结构上无法满足)—— 现按消息流统一口径
+ * `[data-message-id="<id>"]` 在容器内取节点(与 use-message-list-search /
+ * query-thumb-rail / pendingJump 三处同一机制)。
  */
 export function useChatSearch<T extends SearchableMessage>({
   messages,
-  messageRefs,
   messagesContainerRef,
+  notFoundMessage,
   showWarning,
 }: UseChatSearchOptions<T>) {
-  const [showSearchBar, setShowSearchBar] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
@@ -60,19 +88,7 @@ export function useChatSearch<T extends SearchableMessage>({
   // 且 useMemo 重建时旧 timer 仍运行会用过期的 messages 调用 handleSearch。
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  /** 切换搜索栏显示状态：关闭时清空关键词与结果 */
-  const toggleSearch = useCallback(() => {
-    setShowSearchBar((prev) => {
-      const next = !prev
-      if (!next) {
-        setSearchQuery('')
-        setSearchResults([])
-      }
-      return next
-    })
-  }, [])
-
-  /** 执行搜索：按关键词过滤消息内容，生成预览（前 100 字符） */
+  /** 执行搜索：按共享匹配规则过滤消息内容，生成预览（前 100 字符） */
   const handleSearch = useCallback(
     (query?: string) => {
       const q = (query ?? searchQuery).trim()
@@ -80,13 +96,15 @@ export function useChatSearch<T extends SearchableMessage>({
         setSearchResults([])
         return
       }
-      const lower = q.toLowerCase()
+      // 命中集合来自**唯一**匹配出口(大小写不敏感 + 正则转义都在那侧),
+      // 本处只做"命中 id → 摘要预览"的投影,不再判一次匹配。
+      const hitIds = new Set(searchMessages(messages, q))
       const results = messages
-        .filter((msg) => msg.content?.toLowerCase().includes(lower))
+        .filter((msg) => hitIds.has(msg.id))
         .map((msg) => ({
           id: msg.id,
-          preview: msg.content.substring(0, 100),
-          createTime: String(msg.createTime ?? ''),
+          preview: (msg.content ?? '').substring(0, PREVIEW_MAX),
+          createTime: toTimeText(msg.createdAt ?? msg.createTime),
         }))
       setSearchResults(results)
     },
@@ -115,28 +133,42 @@ export function useChatSearch<T extends SearchableMessage>({
   const scrollToMessage = useCallback(
     (messageId: string) => {
       if (!messageId) return
-      const element = messageRefs.current?.get(messageId)
-      if (element && messagesContainerRef.current) {
+      const container = messagesContainerRef.current
+      // 消息流统一以 [data-message-id] 暴露可定位节点(高亮/跳转/缩略条同一机制),
+      // 本处不再要求调用方另维护一张 id→element 的 Map(全仓无人维护那样的 Map)。
+      const element =
+        container && SAFE_MESSAGE_ID_RE.test(messageId)
+          ? container.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`)
+          : null
+      if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' })
         setSelectedMessageId(messageId)
         if (highlightTimer.current) clearTimeout(highlightTimer.current)
         highlightTimer.current = setTimeout(() => setSelectedMessageId(null), 2000)
-      } else {
-        showWarning?.('消息未找到')
+      } else if (notFoundMessage) {
+        showWarning?.(notFoundMessage)
       }
     },
-    [messageRefs, messagesContainerRef, showWarning],
+    [messagesContainerRef, notFoundMessage, showWarning],
   )
 
+  /** 清空搜索态(搜索条关闭时调用,否则隐藏的列表会留着上一次的命中) */
+  const clearSearch = useCallback(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    setSearchQuery('')
+    setSearchResults([])
+    setSelectedMessageId(null)
+  }, [])
+
   return {
-    showSearchBar,
     searchQuery,
+    setSearchQuery,
     searchResults,
     selectedMessageId,
-    toggleSearch,
+    handleSearch,
     debouncedSearch,
     scrollToMessage,
-    setSearchQuery,
+    clearSearch,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
