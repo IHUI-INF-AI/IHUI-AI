@@ -13,10 +13,12 @@ import { existsSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..')
+const SCRIPTS_DIR = resolve(HERE, '..')
 
 test('mkScratch 建的目录不在仓库树内(否则"非 git"夹具会逃逸到真仓库)', () => {
   const dir = mkScratch('abspath-')
@@ -80,6 +82,77 @@ test('IHUI_SCRATCH_DIR 可覆盖落点(换机/CI 无 D:\\DevEnv 时的逃生舱)
     else process.env.IHUI_SCRATCH_DIR = prev
     const left = existsSync(override) ? readdirSync(override) : []
     assert.deepEqual(left, [], `覆盖目录留下了残留: ${left.join(', ')}`)
+  }
+})
+
+/* ── G-286(2026-09-27):scratch 根必须与"脚本被拷进夹具仓"解耦 ────────────────────
+ * 成因:scratch-module-closure 会把整条 import 闭包拷进演练仓,而旧 scratchRoot 按
+ * 「脚本自身位置向上两级」取盘根 —— 拷进一层深夹具 ⇒ `G:/DevEnv/Temp/DevEnv/Temp/
+ * ihui-scratch`,两层深 ⇒ `<scratch 根>/DevEnv/Temp/ihui-scratch`(二阶嵌套,实测在盘)。
+ * 两条用例分别锁"拷进夹具后仍落同一个盘根级 scratch 根"与"嵌套守卫会抛"。 ── */
+
+/** 在子进程里跑**被拷进夹具的那份** scratch-dir,把它的落点报回来。 */
+function runCopiedModule(copiedLibUrl) {
+  const r = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `import { mkScratch, rmScratch } from ${JSON.stringify(copiedLibUrl)};\n` +
+        `const d = mkScratch('g286-copied-');\n` +
+        `process.stdout.write(d);\n` +
+        `rmScratch(d);\n`,
+    ],
+    { encoding: 'utf8', windowsHide: true, timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] },
+  )
+  return { status: r.status, dir: (r.stdout || '').trim(), err: `${r.stdout || ''}${r.stderr || ''}` }
+}
+
+test('G-286:被闭包拷进夹具仓(一层与两层深)后,落点仍是同一个盘根级 scratch 根', () => {
+  const fix = mkScratch('g286-copy-')
+  try {
+    // 两种夹具深度都要锁:一层深(<fix>/scripts/lib)旧推导落 G:/DevEnv/Temp/DevEnv/…,
+    // 两层深(<fix>/wt/scripts/lib,即 git-backup-refresh.test.mjs makeFixture 的 wt 深度)
+    // 旧推导落 <scratch 根>/DevEnv/Temp/ihui-scratch —— 正是本票在盘上量到的那两份嵌套物。
+    for (const layout of [['scripts'], ['wt', 'scripts']]) {
+      const sdst = join(fix, ...layout)
+      copyScriptWithClosure(SCRIPTS_DIR, 'lib/scratch-dir.mjs', sdst, ['lib/scratch-dir.mjs'])
+      const copiedUrl = pathToFileURL(join(sdst, 'lib', 'scratch-dir.mjs')).href
+      const r = runCopiedModule(copiedUrl)
+      assert.equal(r.status, 0, `夹具深度 [${layout.join('/')}] 的子进程失败: ${r.err}`)
+      const expected = scratchRoot()
+      assert.ok(
+        r.dir.toLowerCase().startsWith(expected.toLowerCase()),
+        `被拷进夹具([${layout.join('/')}])后落点漂移:${r.dir} 不在真实 scratch 根 ${expected} 之下`,
+      )
+      const segs = r.dir.split(/[\\/]+/).filter(Boolean)
+      assert.equal(
+        segs.filter((s) => s.toLowerCase() === 'ihui-scratch').length,
+        1,
+        `落点出现二阶嵌套(路径里有两层 ihui-scratch 段):${r.dir}`,
+      )
+    }
+  } finally {
+    rmScratch(fix)
+  }
+})
+
+test('G-286:嵌套守卫 —— 落点含第二层 ihui-scratch 段 ⇒ 抛错点名,不静默换路径', () => {
+  const prev = process.env.IHUI_SCRATCH_DIR
+  // 用逃生舱构造出"嵌套形态"的落点(守卫对任何来源的根一视同仁:推导歪了或 override 指歪都拦)
+  process.env.IHUI_SCRATCH_DIR = join(scratchRoot(), 'DevEnv', 'Temp', 'ihui-scratch')
+  try {
+    assert.throws(
+      () => mkScratch('nested-'),
+      /二阶嵌套|ihui-scratch/,
+      '嵌套落点必须抛错点名,而不是静默换路径或照建',
+    )
+  } finally {
+    if (prev === undefined) delete process.env.IHUI_SCRATCH_DIR
+    else process.env.IHUI_SCRATCH_DIR = prev
+    // 守卫抛错之后正常落点必须照常可用(守卫不是把 mkScratch 整个废掉)
+    const dir = mkScratch('g286-after-guard-')
+    rmScratch(dir)
   }
 })
 
