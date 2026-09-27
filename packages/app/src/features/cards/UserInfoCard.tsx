@@ -104,16 +104,22 @@ export function UserInfoCard({
         </View>
         <View style={styles.statSpacer} />
         {onFollowPress ? (
-          <Pressable
-            style={({ pressed }) => [
-              isFollowing ? styles.followBtnOutline : styles.followBtn,
-              pressed && styles.pressed,
-            ]}
-            onPress={onFollowPress}
-          >
-            <Text style={isFollowing ? styles.followBtnOutlineText : styles.followBtnText}>
-              {isFollowing ? '已关注' : '+ 关注'}
-            </Text>
+          // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+          // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,整份内联样式静默消失。
+          // 外层在 statsRow(row + alignItems center)里只 hug 内容,盒子尺寸由内层决定 ⇒ 同尺寸。
+          <Pressable onPress={onFollowPress}>
+            {({ pressed }) => (
+              <View
+                style={[
+                  isFollowing ? styles.followBtnOutline : styles.followBtn,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={isFollowing ? styles.followBtnOutlineText : styles.followBtnText}>
+                  {isFollowing ? '已关注' : '+ 关注'}
+                </Text>
+              </View>
+            )}
           </Pressable>
         ) : null}
       </View>
@@ -124,11 +130,13 @@ export function UserInfoCard({
 
   if (onPress) {
     return (
-      <Pressable
-        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-        onPress={onPress}
-      >
-        {inner}
+      // 同上:卡面档(底色/描边/圆角/padding/gap)落到内层 View 的数组形态。
+      // gap 仍作用在同一批子元素上(内层 View 就是这些子元素的父),外层是 Pressable 时
+      // 与下面那条纯 View 分支渲染出逐字节相同的盒子 —— 两条分支本来就同用 styles.card。
+      <Pressable onPress={onPress}>
+        {({ pressed }) => (
+          <View style={[styles.card, pressed ? styles.pressed : null]}>{inner}</View>
+        )}
       </Pressable>
     )
   }
