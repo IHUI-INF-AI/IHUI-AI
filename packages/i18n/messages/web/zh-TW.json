@@ -529,6 +529,9 @@
     "rendering": "渲染中...",
     "diagramRendering": "渲染中…",
     "mermaidRenderFailed": "Mermaid 渲染失敗",
+    "mermaidSkipSourceTooLarge": "圖表源碼過長，已改為顯示源碼",
+    "mermaidSkipLineCountTooLarge": "圖表的行數過多，已改為顯示源碼",
+    "mermaidSkipComplexityTooLarge": "圖表節點與連線過多，已改為顯示源碼",
     "pdfLoadFailed": "PDF 載入失敗: {message}",
     "renderFailed": "渲染失敗: {message}",
     "unknownError": "未知錯誤",
@@ -24353,15 +24356,12 @@
   "courseFilter": {
     "title": "篩選課程",
     "subtitle": "依條件篩選課程",
-    "category": "分類",
-    "level": "難度",
     "priceRange": "價格區間",
     "reset": "重設",
     "apply": "套用",
     "retry": "重試",
     "empty": "暫無課程",
     "instructor": "講師",
-    "level_label": "難度",
     "free": "免費"
   },
   "courseQAList": {
