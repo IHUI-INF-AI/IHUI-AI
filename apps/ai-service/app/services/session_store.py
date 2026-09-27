@@ -299,6 +299,35 @@ def carry_identity_keys(current: dict[str, Any], proposed: dict[str, Any]) -> di
         else:
             result.pop(key, None)
     return result
+
+
+def owner_scoped_allows(principal: str | None, owner: str | None) -> bool:
+    """**只读/销毁面**的严格属主判据:带身份时要求逐字相等(批 61 / G-250)。
+
+    与 `agent_engine._principal_allows` 只差一格:`principal` 有值而 `owner` 没有 ——
+    这里判**不通过**,那边判"无从对账"。差这一格是有意的,不是漂移:
+
+      · `_principal_allows` 守的是"已经建在内存里的线程归谁",那条线程是同一台引擎在
+        无人可证明身份时创建的(dev 通道),放宽它才不会把既有 dev/未鉴权链路改坏;
+      · 只读/销毁面拿到的是一个**任意 threadId**。无属主的那批行(未鉴权通道建的、
+        批 60 之前被整写抹掉身份的、fork/relay 派生的)一旦被认作"谁都能读",
+        就是"第一个带身份的调用者可以读走所有人没绑身份的会话"。
+
+    所以本判据与 `list_threads(owner_user_id=…)` / `full_text_search(owner_user_id=…)`
+    的 SQL 过滤**同形**:两处算同一件事必须一份实现,否则"列表里看不到但能直接读"这种
+    自相矛盾会长期存在。`principal` 为 None(未鉴权/dev 通道)时仍然全放。
+    """
+    if principal is None:
+        return True
+    return isinstance(owner, str) and owner == principal
+
+
+def thread_owner(thread: Thread | None) -> str | None:
+    """从库里那一行取属主(行不存在 / 键缺席 / 值不合型 ⇒ None)。"""
+    if thread is None:
+        return None
+    owner = thread.metadata.get("userId")
+    return owner if isinstance(owner, str) and owner else None
 TurnStatus = Literal["running", "completed", "interrupted", "failed"]
 
 # 合法状态迁移表
@@ -1416,23 +1445,45 @@ class SessionStore:
         *,
         thread_id: str | None = None,
         limit: int = 20,
+        owner_user_id: str | None = None,
     ) -> list[SearchHit]:
+        """全文检索。`owner_user_id` 非空时**过滤写在 SQL 里**。
+
+        与 `list_threads` 的属主过滤同一条理由:事后在响应侧筛会让"命中集合"与
+        "被筛掉的那批"来自两次读取,而且漏一处调用点就等于没过滤。判据口径与
+        `_owner_scoped_allows` 一致(带身份 ⇒ 无属主的行同样排除,那批行属 dev/未绑定通道)。
+        """
         if not query.strip():
             return []
         if self._fts_enabled:
-            hits = self._search_fts(query, thread_id, limit)
+            hits = self._search_fts(query, thread_id, limit, owner_user_id)
             if hits is not None:
                 return hits
-        return self._search_like(query, thread_id, limit)
+        return self._search_like(query, thread_id, limit, owner_user_id)
+
+    def _scope_sql(self, thread_id: str | None, owner_user_id: str | None) -> tuple[str, list[Any]]:
+        """两条检索路径**共用**的过滤片段(两份实现必漂移,本仓记过太多次)。"""
+        sql = ""
+        args: list[Any] = []
+        if thread_id:
+            sql += " AND thread_id = ?"
+            args.append(thread_id)
+        if owner_user_id:
+            sql += (
+                " AND thread_id IN (SELECT thread_id FROM threads"
+                " WHERE json_extract(metadata,'$.userId') = ?)"
+            )
+            args.append(owner_user_id)
+        return sql, args
 
     def _search_fts(
-        self, query: str, thread_id: str | None, limit: int
+        self,
+        query: str,
+        thread_id: str | None,
+        limit: int,
+        owner_user_id: str | None = None,
     ) -> list[SearchHit] | None:
-        scope_sql = ""
-        scope_args: list[Any] = []
-        if thread_id:
-            scope_sql = " AND thread_id = ?"
-            scope_args = [thread_id]
+        scope_sql, scope_args = self._scope_sql(thread_id, owner_user_id)
         sql = (
             "SELECT seq, thread_id, item_type,"
             " snippet(items_fts, 0, '', '', ' … ', 24) AS snip,"
@@ -1459,15 +1510,15 @@ class SessionStore:
         ]
 
     def _search_like(
-        self, query: str, thread_id: str | None, limit: int
+        self,
+        query: str,
+        thread_id: str | None,
+        limit: int,
+        owner_user_id: str | None = None,
     ) -> list[SearchHit]:
         term = query.strip()
         pattern = "%" + _escape_like(term) + "%"
-        scope_sql = ""
-        scope_args: list[Any] = []
-        if thread_id:
-            scope_sql = " AND thread_id = ?"
-            scope_args = [thread_id]
+        scope_sql, scope_args = self._scope_sql(thread_id, owner_user_id)
         sql = (
             "SELECT seq, thread_id, item_type, search_text FROM items"
             " WHERE search_text LIKE ? ESCAPE '\\'"
