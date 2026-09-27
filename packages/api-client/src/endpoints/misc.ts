@@ -186,15 +186,9 @@ export async function getOpenclawResourceDetail(id: string): Promise<ApiResult<O
   return fetchApi<OpenclawResource>(`/api/openclaw/${id}`)
 }
 
-/** 创建 OpenClaw 资源 */
-export async function createOpenclawResource(
-  input: Partial<OpenclawResource>,
-): Promise<ApiResult<OpenclawResource>> {
-  return fetchApi<OpenclawResource>('/api/openclaw', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
+/** 创建 OpenClaw 资源 —— 2026-09-28 门 8 死调用清账:删除。
+ * 裸 POST /api/openclaw 从未注册(真面是 /openclaw/memory、/openclaw/skills 等带子段的注册,
+ * 见 openclaw-routes.ts);本仓零消费方。 */
 
 /** 更新 OpenClaw 资源 */
 export async function updateOpenclawResource(
@@ -221,10 +215,8 @@ export async function getN8nWorkflows(
   return fetchApi<PageData<N8nWorkflow>>(`/api/ai/n8n/workflows${buildQs(query)}`)
 }
 
-/** 获取 N8n 工作流详*/
-export async function getN8nWorkflowDetail(id: string): Promise<ApiResult<N8nWorkflow>> {
-  return fetchApi<N8nWorkflow>(`/api/ai/n8n/workflows/${id}`)
-}
+/** 获取 N8n 工作流详情 —— 2026-09-28 门 8 死调用清账:删除
+ * (GET /api/ai/n8n/workflows/:id 从未注册 —— 后端 n8n 面只有列表透传与创建转发;零消费方)。 */
 
 /** 创建 N8n 工作*/
 export async function createN8nWorkflow(
@@ -247,10 +239,7 @@ export async function updateN8nWorkflow(
   })
 }
 
-/** 删除 N8n 工作*/
-export async function deleteN8nWorkflow(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/ai/n8n/workflows/${id}`, { method: 'DELETE' })
-}
+/** 删除 N8n 工作 —— 2026-09-28 门 8 死调用清账:删除(DELETE /api/ai/n8n/workflows/:id 从未注册;零消费方)。 */
 
 /** 激停用 N8n 工作*/
 export async function toggleN8nWorkflow(
@@ -263,16 +252,7 @@ export async function toggleN8nWorkflow(
   })
 }
 
-/** 执行 N8n 工作*/
-export async function executeN8nWorkflow(
-  id: string,
-  input?: Record<string, unknown>,
-): Promise<ApiResult<{ executionId: string }>> {
-  return fetchApi<{ executionId: string }>(`/api/ai/n8n/workflows/${id}/execute`, {
-    method: 'POST',
-    body: JSON.stringify(input || {}),
-  })
-}
+/** 执行 N8n 工作 —— 2026-09-28 门 8 死调用清账:删除(POST /api/ai/n8n/workflows/:id/execute 从未注册;零消费方)。 */
 
 /** 获取 N8n 执行记录列表 */
 export async function getN8nExecutions(
@@ -281,10 +261,7 @@ export async function getN8nExecutions(
   return fetchApi<PageData<N8nExecution>>(`/api/ai/n8n/executions${buildQs(query)}`)
 }
 
-/** 获取 N8n 执行记录详情 */
-export async function getN8nExecutionDetail(id: string): Promise<ApiResult<N8nExecution>> {
-  return fetchApi<N8nExecution>(`/api/ai/n8n/executions/${id}`)
-}
+/** 获取 N8n 执行记录详情 —— 2026-09-28 门 8 死调用清账:删除(GET /api/ai/n8n/executions/:id 从未注册;零消费方)。 */
 
 // ===================== tbox =====================
 
