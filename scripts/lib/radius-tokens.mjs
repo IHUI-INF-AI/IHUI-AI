@@ -178,6 +178,15 @@ export function radiusSetOf(src, table) {
   const set = new Set()
   for (let i = 0; i < lines.length; i++) {
     if (isRadiusExemptAt(lines, i)) continue
+    const t = lines[i].trim()
+    /**
+     * 整行注释一律跳过:注释里出现 `rounded-2xl` / `border-radius: 50%` 是在**说明规则或对齐
+     * 意图**,不是取用。实测本仓第一例假阳就是 `ModelConfigDialog.css:16` 那句
+     * "用规范圆角 rounded-2xl 等价" 被读成 16px 档,把一族的锚点顶高了一格。
+     * 刻意只做"整行注释"这一条零风险判断,不上块注释状态机 —— 串内含 `/*` 会让状态机把代码
+     * 当注释吃掉(守门 70 的 `'https://x/*'` 假绿同型),那需要一份字符串感知的遮罩,另票做。
+     */
+    if (/^(\/\/|\/\*|\*|\{\/\*|<!--)/.test(t)) continue
     for (const px of radiusPxInLine(lines[i], table)) set.add(px)
   }
   return [...set].sort((a, b) => a - b)
