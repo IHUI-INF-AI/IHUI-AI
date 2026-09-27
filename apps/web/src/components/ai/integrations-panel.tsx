@@ -158,7 +158,7 @@ export function IntegrationsPanel() {
             aria-pressed={cfg.enabled}
             // @allow-rounded-full 通道开关胶囊(aria-pressed toggle,豁免 2 Switch 语义)
             className={cn(
-              'ml-auto rounded-full border px-2 py-0.5 transition-colors',
+              'ml-auto rounded-md border px-2 py-0.5 transition-colors',
               cfg.enabled
                 ? 'bg-accent font-medium text-accent-foreground'
                 : 'text-muted-foreground hover:bg-accent/50',

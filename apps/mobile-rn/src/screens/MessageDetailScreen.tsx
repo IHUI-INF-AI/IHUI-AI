@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { MessageDetailScreen as SharedMessageDetailScreen } from '@ihui/rn-app'
 import type { MessageDetailData } from '@ihui/types'
 import { useI18n } from '../i18n'
@@ -31,7 +32,7 @@ export function MessageDetailScreen() {
     try {
       const res = await fetchApi<MessageDetailData>(`/api/messages/${encodeURIComponent(id)}`)
       if (!res.success) {
-        setError(res.error || t('messageDetail.loadFailed'))
+        setError(apiFailureToText(res, t('messageDetail.loadFailed')))
       } else {
         setMessage(res.data ?? null)
       }

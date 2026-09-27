@@ -9,6 +9,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Hash } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { PostCreateScreen as SharedPostCreateScreen } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
@@ -63,7 +64,7 @@ export function PostCreateScreen() {
     })
     setSaving(false)
     if (res.success && res.data) navigation.replace('PostDetail', { id: res.data.id })
-    else if (!res.success) setError(res.error || t('postCreate.saveFailed'))
+    else if (!res.success) setError(apiFailureToText(res, t('postCreate.saveFailed')))
   }, [title, content, tags, circleId, t, navigation])
 
   return (

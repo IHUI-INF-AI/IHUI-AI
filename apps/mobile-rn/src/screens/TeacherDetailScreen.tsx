@@ -17,6 +17,7 @@ import { Alert } from 'react-native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import { fetchApi, type Teacher, type TeacherCourse, type TeacherReview } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { LecturerDetailScreen, type LecturerDetailInfo } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -83,7 +84,7 @@ export function TeacherDetailScreen() {
       if (teacherRes.success) {
         setTeacher(teacherRes.data ?? null)
       } else {
-        setError(teacherRes.error || t('teacher.detail.notFound'))
+        setError(apiFailureToText(teacherRes, t('teacher.detail.notFound')))
       }
       if (coursesRes.success) setCourses(normalizeList(coursesRes.data))
       if (reviewsRes.success) setReviews(normalizeList(reviewsRes.data))

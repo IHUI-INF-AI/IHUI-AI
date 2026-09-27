@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { Alert } from 'react-native'
 import { getGroups } from '@ihui/api-client'
 import type { Group as ApiGroup } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import {
   AiGroupScreen as SharedAiGroupScreen,
   type AiGroupItem,
@@ -68,7 +69,7 @@ export default function AiGroupScreen() {
       if (res.success) {
         setItems(res.data.list.map(mapGroup))
       } else {
-        setError(res.error || t('aiGroup.loadFailed'))
+        setError(apiFailureToText(res, t('aiGroup.loadFailed')))
       }
     } catch {
       setError(t('aiGroup.loadFailed'))
