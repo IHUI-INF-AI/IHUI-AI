@@ -29,7 +29,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { X509Certificate, createPrivateKey, createSign, createVerify, randomBytes } from 'node:crypto'
+import { X509Certificate, createPrivateKey, createPublicKey, createSign, createVerify, randomBytes } from 'node:crypto'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -72,6 +72,7 @@ const results = {
   ok: 0,
   warning: 0,
   error: 0,
+  unrecognized: 0,
   items: [],
 }
 
@@ -80,6 +81,83 @@ function recordItem(item) {
   if (item.severity === 'ok') results.ok++
   else if (item.severity === 'warning') results.warning++
   else if (item.severity === 'error') results.error++
+}
+
+/**
+ * **按内容**判一个 .pem 是什么(看 PEM 的 MARKER 行),不按文件名。
+ *
+ * 立因(2026-09-27 实测):旧分类写的是 `f.includes('key')` ⇒ `cert/pub_key.pem`
+ * (微信支付**公钥模式**签发的 `-----BEGIN PUBLIC KEY-----`)被投进"私钥"那一路去跑
+ * `createPrivateKey`,必然 `error:1E08010C:DECODER routines::unsupported` —— 于是这份周报
+ * **永远挂着一条 error**。一条永远红的项与一道永远红的门是同一种病:读的人学会跳过它,
+ * 真过期那天也一起被跳过。文件名里的 `pub_key`/`apiclient_key` 谁也没规定含义,
+ * 而 PEM 自己写了它是什么 —— 判据该信内容。
+ * @returns {{kind:'cert'|'public-key'|'private-key'|'other'|'unknown', marker:string|null}}
+ */
+export function classifyPemKind(text) {
+  const m = /-----BEGIN ([A-Z0-9 ]+?)-----/.exec(String(text || ''))
+  if (!m) return { kind: 'unknown', marker: null }
+  const marker = m[1].trim()
+  if (marker === 'CERTIFICATE') return { kind: 'cert', marker }
+  if (marker === 'PUBLIC KEY' || marker === 'RSA PUBLIC KEY' || marker === 'EC PUBLIC KEY' || marker === 'DSA PUBLIC KEY')
+    return { kind: 'public-key', marker }
+  if (marker.endsWith('PRIVATE KEY')) return { kind: 'private-key', marker }
+  return { kind: 'other', marker }
+}
+
+/**
+ * 公钥(含微信支付"公钥模式"的 `pub_key.pem`):**没有到期概念**,所以不判过期、也不算错误。
+ * 但"读得动"要判:解析不了就是真坏了(签名验证会静默失败 ⇒ 回调验签不通过)。
+ * 刻意不冒充成"已确认证书有效"——它压根没有效期可确认。
+ */
+function checkPublicKeyPem(filePath, marker) {
+  try {
+    const key = createPublicKey(readFileSync(filePath, 'utf-8'))
+    const detail = key.asymmetricKeyDetails || {}
+    recordItem({
+      file: filePath,
+      type: 'public-key',
+      severity: 'ok',
+      algorithm: `${key.asymmetricKeyType}${detail.modulusLength ? `-${detail.modulusLength}` : ''}`,
+      note: '公钥无到期概念(未判有效期)',
+    })
+    log(`${colors.green('✓')} ${colors.gray(filePath.replace(PROJECT_ROOT, '.'))}`)
+    log(`    类型: ${marker} · 算法 ${key.asymmetricKeyType.toUpperCase()}${detail.modulusLength ? `-${detail.modulusLength}` : ''} · 公钥没有有效期,本项**不判到期**`)
+  } catch (e) {
+    recordItem({ file: filePath, type: 'public-key', severity: 'error', message: `公钥解析失败: ${e.message}` })
+    err(`${colors.red('✗')} ${filePath}`)
+    err(`${colors.red(`    公钥解析失败: ${e.message}`)}`)
+  }
+}
+
+/** 既不是证书也不是任何一把密钥(RSA PRIVATE KEY 之外的怪形态等):判"未判定",不记绿也不冒红 */
+function checkUnrecognizedPem(filePath, marker) {
+  results.unrecognized++
+  recordItem({ file: filePath, type: 'unknown', severity: 'unjudged', message: `未识别的 PEM 类型: ${marker || '(无 MARKER 行)'}` })
+  log(`${colors.yellow('◽')} ${filePath} —— 未识别的 PEM 类型(${marker || '无 MARKER 行'}),不计通过也不计失败`)
+}
+
+/**
+ * 按内容分流一个目录下的所有 .pem。**桶的键名 = classifyPemKind 返回的 kind**,
+ * 刻意不再另起一套名字(第一版就是翻在这里:分类器给 `private-key`,桶却叫 `key`,
+ * 于是 `seen[kind]` 取不到 ⇒ 两把密钥全掉进"未识别",而报告读起来像"没问题")。
+ */
+function checkAllPemIn(dir) {
+  const buckets = { cert: [], 'private-key': [], 'public-key': [], other: [], unknown: [] }
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.pem'))) {
+    const p = join(dir, f)
+    if (!statSync(p).isFile()) continue
+    const { kind, marker } = classifyPemKind(readFileSync(p, 'utf-8'))
+    buckets[kind].push({ path: p, marker })
+  }
+  log(colors.bold('\n证书 (X.509):'))
+  for (const e of buckets.cert) checkCertPem(e.path)
+  log(colors.bold('\n私钥 (PEM):'))
+  for (const e of buckets['private-key']) checkKeyPem(e.path)
+  log(colors.bold('\n公钥 (无有效期,只验可解析):'))
+  for (const e of buckets['public-key']) checkPublicKeyPem(e.path, e.marker)
+  for (const e of [...buckets.other, ...buckets.unknown]) checkUnrecognizedPem(e.path, e.marker)
+  return buckets
 }
 
 // ── 检查 PEM 证书 ─────────────────────────────────────────────────
@@ -242,26 +320,9 @@ if (files.length === 0) {
   process.exit(3)
 }
 
-log(colors.bold('证书 (PEM):'))
-for (const f of files) {
-  if (f.endsWith('.pem') && !f.includes('key') && !f.includes('platform')) {
-    checkCertPem(join(certDir, f))
-  }
-}
-
-log(colors.bold('\n平台证书 (PEM):'))
-for (const f of files) {
-  if (f.includes('platform') && f.endsWith('.pem')) {
-    checkCertPem(join(certDir, f))
-  }
-}
-
-log(colors.bold('\n私钥 (PEM):'))
-for (const f of files) {
-  if (f.includes('key') && f.endsWith('.pem')) {
-    checkKeyPem(join(certDir, f))
-  }
-}
+// 分流一律按**内容**(见 classifyPemKind),不再按文件名 —— 旧写法把 pub_key.pem 当私钥去解析,
+// 每周报告因此永远挂一条假 error。
+checkAllPemIn(certDir)
 
 // 证书 ↔ 私钥 匹配性
 const merchantCert = files.find((f) => f.includes('apiclient_cert.pem') && !f.includes('platform'))
