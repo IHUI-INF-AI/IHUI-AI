@@ -2,18 +2,20 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// A31 第①步「影子校验」单测:只记账、不拦截 —— 钉四件事 + 一条 enforce 现状。
+// A31 第①步「影子校验」+ A36 第③步「enforce」单测:影子只记账不拦截;enforce 须显式开启。
 //
 // ① 默认 off ⇒ 校验器一次都不被调用(用计数器恒为 0 证明,而不是用"看起来没红"证明);
 // ② shadow 档 ⇒ 校验器被调用,但返回值与"根本没有这段代码"时逐字相同,且 args 引用未被改写;
 // ③ 校验器自身抛异常(坏描述)⇒ 绝不影响工具执行,只多一条可数的账;
 // ④ 遥测里不含任何入参值(把敏感串放进 args,snapshot 序列化后必须查不到它);
-// ⑤ enforce 未实现:按 shadow 记账后原样执行,既不拒绝也不改参(第②③步才谈拦截)。
+// ⑤ enforce 已实现,但对**合法参数**逐字放行:结果与 off 完全一致,只播报一行生效通告。
+//    违规/拒绝/repair 窗的正反例在 argument-validation-enforce.test.ts(与本文件的"影子
+//    只记账"用例互补:这里钉"合法路径没被 enforce 改动波及",那里钉"违规路径必须被拦")。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   DEFAULT_TOOL_ARG_VALIDATION_MODE,
-  ENFORCE_NOT_IMPLEMENTED_NOTICE,
+  ENFORCE_MODE_ACTIVE_NOTICE,
   TOOL_ARG_VALIDATION_ENV,
   TOOL_ARG_VALIDATION_MODES,
   resolveToolArgValidationMode,
@@ -192,8 +194,8 @@ describe('④遥测不含任何入参值', () => {
   });
 });
 
-describe('⑤enforce:未实现,只报一行,不拒绝不改参', () => {
-  it('enforce 档下执行结果与 off 完全一致', async () => {
+describe('⑤enforce:合法参数逐字放行(违规拒绝见 enforce 单测)', () => {
+  it('enforce 档下合法调用的结果与 off 完全一致,只播报一行生效通告', async () => {
     process.env[TOOL_ARG_VALIDATION_ENV] = 'off';
     const baseline = await executeToolCall(call({ path: 'e.txt' }), ctx);
 
@@ -204,10 +206,14 @@ describe('⑤enforce:未实现,只报一行,不拒绝不改参', () => {
     const enforceResult = await executeToolCall({ name: 'shadow_demo', arguments: args }, ctx);
 
     expect(enforceResult).toEqual(baseline);
-    expect(totalToolArgShadowRuns()).toBe(0); // 影子计数器也不动:enforce 的账要单独立
+    expect(totalToolArgShadowRuns()).toBe(0); // 影子计数器不动:enforce 的账单独立
     expect(snapshotToolArgShadow().enforceRequested).toBe(1);
+    expect(snapshotToolArgShadow().enforce.runs).toBe(1);
+    expect(snapshotToolArgShadow().enforce.passedPlain).toBe(1);
+    expect(snapshotToolArgShadow().enforce.passedNormalized).toBe(0);
+    expect(snapshotToolArgShadow().enforce.rejected).toBe(0);
     expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(String(warnSpy.mock.calls[0]?.[0])).toContain(ENFORCE_NOT_IMPLEMENTED_NOTICE.slice(0, 24));
+    expect(String(warnSpy.mock.calls[0]?.[0])).toContain(ENFORCE_MODE_ACTIVE_NOTICE);
     expect(args).toEqual({ path: 'e.txt' });
   });
 });
