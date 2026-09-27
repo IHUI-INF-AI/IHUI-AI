@@ -427,6 +427,10 @@ async def publish_to_group(group_id: str, body: GroupPublish, request: Request) 
                 if adapter is None:
                     results.append({"account_id": aid, "platform": row["platform"], "success": False, "error": "未找到适配器"})
                     continue
+                # 行 id 必须注入:否则身份键退到"凭证首个值哈希"，每次保活/轮换就换一张脸
+                # （反风控联动的真因，唯一出口见 anti_risk/account_identity.py；2026-09-27 实测
+                # 画像目录里还在长 `*_legacy-*`，就是这类没注入的路径产生的）。
+                adapter.db_account_id = aid
                 result = await adapter.publish(content, credentials, body.platform_config)
                 if result.success:
                     success_count += 1
@@ -566,6 +570,9 @@ async def batch_verify(request: Request) -> dict[str, Any]:
                     invalid += 1
                     results.append({"account_id": r["id"], "platform": r["platform"], "valid": False, "message": "未找到适配器"})
                     continue
+                # 同 batch_publish:不注入行 id 的话，"批量验证"每次都拿一张新脸去访问平台，
+                # 这本身就是风控行为（本函数的循环会把所有 active 账号连着验一遍）。
+                adapter.db_account_id = r["id"]
                 ok, msg = await adapter.verify_credentials(credentials)
                 # 更新 last_verified_at
                 await conn.execute(
