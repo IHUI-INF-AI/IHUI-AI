@@ -330,30 +330,34 @@ export function ShareScreen() {
               {imageUri ? (
                 <View style={styles.previewWrap}>
                   <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
+                  {/* 守门 131 改型:absolute 定位盒(position/top/right/24×24)是外层槽位,
+                      底色圆角等可视档进满尺寸内层 face,pressed 淡出仍覆盖整颗圆钮。 */}
                   <Pressable
-                    style={({ pressed }) => [
-                      styles.clearBtn,
-                      pressed ? styles.clearBtnPressed : null,
-                    ]}
+                    style={styles.clearBtn}
                     onPress={() => setImageUri('')}
                     accessibilityRole="button"
                     accessibilityLabel="删除图片"
                   >
-                    <Text style={styles.clearText}>×</Text>
+                    {({ pressed }) => (
+                      <View style={[styles.clearBtnFace, pressed ? styles.clearBtnPressed : null]}>
+                        <Text style={styles.clearText}>×</Text>
+                      </View>
+                    )}
                   </Pressable>
                 </View>
               ) : (
+                // 守门 131 改型:pickerBox 定高无边距 ⇒ 外层不设 style,虚线盒 + pressed 落内层。
                 <Pressable
-                  style={({ pressed }) => [
-                    styles.pickerBox,
-                    pressed ? styles.pickerBoxPressed : null,
-                  ]}
                   onPress={pickImage}
                   accessibilityRole="button"
                   accessibilityLabel="选择图片"
                 >
-                  <Text style={styles.pickerIcon}>+</Text>
-                  <Text style={styles.pickerHint}>点击选择图片</Text>
+                  {({ pressed }) => (
+                    <View style={[styles.pickerBox, pressed ? styles.pickerBoxPressed : null]}>
+                      <Text style={styles.pickerIcon}>+</Text>
+                      <Text style={styles.pickerHint}>点击选择图片</Text>
+                    </View>
+                  )}
                 </Pressable>
               )}
             </View>
@@ -361,17 +365,22 @@ export function ShareScreen() {
         )}
         renderFooter={() => (
           <View style={styles.bottomBar}>
+            {/* 守门 131 改型:shareBtn 定高无边距 ⇒ 外层不设 style(父 bottomBar 默认拉伸,
+                命中盒与原 Pressable 全等),品牌底 + pressed 淡出落内层。 */}
             <Pressable
-              style={({ pressed }) => [styles.shareBtn, pressed ? styles.shareBtnPressed : null]}
               onPress={handleShare}
               disabled={sharing}
               accessibilityRole="button"
               accessibilityLabel={t('share.submit')}
             >
-              {sharing ? (
-                <ActivityIndicator color={tk.brand.ctaForeground} />
-              ) : (
-                <Text style={styles.shareBtnText}>{t('share.submit')}</Text>
+              {({ pressed }) => (
+                <View style={[styles.shareBtn, pressed ? styles.shareBtnPressed : null]}>
+                  {sharing ? (
+                    <ActivityIndicator color={tk.brand.ctaForeground} />
+                  ) : (
+                    <Text style={styles.shareBtnText}>{t('share.submit')}</Text>
+                  )}
+                </View>
               )}
             </Pressable>
           </View>
@@ -491,12 +500,18 @@ function createStyles(tk: RnThemeTokens) {
       height: 160,
       borderRadius: rnRadius.lg,
     } as ImageStyle,
+    // 守门 131 改型:定位/尺寸(外层槽位,决定命中区与绝对位)与可视盒拆开;
+    // 底色/圆角/居中数值原样移入 clearBtnFace,由满尺寸内层承载 pressed 淡出。
     clearBtn: {
       position: 'absolute',
       top: 4,
       right: 4,
       width: 24,
       height: 24,
+    } as ViewStyle,
+    clearBtnFace: {
+      width: '100%',
+      height: '100%',
       borderRadius: rnRadius.lg,
       backgroundColor: tk.overlay.modal,
       alignItems: 'center',

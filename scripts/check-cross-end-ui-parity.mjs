@@ -27,6 +27,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { radiusLookup, radiusSetOf } from './lib/radius-tokens.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -128,7 +129,16 @@ export function toPx(raw, unit, side) {
   return px > MAX_GEO_PX ? null : px
 }
 
-/** 这些档**不归本门判**:圆角有守门 77 的单一源,在此重复问责会造出两台尺子互相指认。 */
+/**
+ * 圆角**不进几何档集合**:它有自己的一维(`readRadius` / RD),混进几何集会让同一处被计两次、
+ * 两份基线互相顶掉。
+ *
+ * ⚠️ 这里原本写的是"圆角不归本门判,守门 77 有单一源"—— **那句前提是错的**,而它正是
+ * 2026-09-27 用户报"为什么还有那么多地方没按统一圆角"的根因:77 判的是「档位值同源 + 端内不得
+ * 绕档写死数字」,两端各自规矩引用 token 时它一路报绿(实测 6373 文件 0 违规);而"同一个界面
+ * 元素在小程序取 `rounded-lg`(8) 、在 App 取 `rnRadius.xl`(12)"这一型两边都不判 ——
+ * 两台尺子互相指认,这一格此前无人看守。现由本门独占判(见 RD),77 仍管值的源头。
+ */
 const RADIUS_FORM_RE = /rounded|radius|cornerradius|border-radius/i
 
 /**
@@ -163,9 +173,7 @@ export function readGeometry(src, side, tiers = {}) {
     /(?:^|[\s"'`])(?:size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
   ))
     push(toPx(m[1], m[2], side))
-  for (const m of code.matchAll(
-    /(?:^|[\s"'`:](?:[a-z-]+:)?)size-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g,
-  ))
+  for (const m of code.matchAll(/(?:^|[\s"'`:](?:[a-z-]+:)?)size-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g))
     push(round(TW_SPACING_PX(Number(m[1]))))
   // 内联盒/留白的**刻度档**(非任意值形态):`px-3`/`py-2`/`gap-4`/`mt-2` … 一律 ×4 折 px。
   // 不收这一档,同一族的两侧就不在同一口径上读数 —— RN 写 `paddingHorizontal: 12` 记进集合,
@@ -212,13 +220,29 @@ export function readGeometry(src, side, tiers = {}) {
         (m) => m[1],
       ),
     )
+    /** 被"再乘一次 2"的换算器包住的那些几何档名(见下方 eff 的注释)。 */
+    const doubleWrapped = new Set(
+      [
+        ...code.matchAll(
+          /\b(?:toUnit|toRpx|px2rpx|rp)\(\s*(?:taroGeometry|GEOMETRY_PX)\.([A-Za-z_$][\w$]*)/g,
+        ),
+      ].map((m) => m[1]),
+    )
     for (const [name, px] of Object.entries(tiers)) {
-      const hit = name.startsWith('geometry.')
-        ? geoMember.has(name.slice(9))
-        : ids.has(name)
-      if (!hit || !(px > 0) || px > MAX_GEO_PX) continue
-      push(px)
-      if (named[name] === undefined) named[name] = px
+      const key = name.startsWith('geometry.') ? name.slice(9) : null
+      const hit = key ? geoMember.has(key) : ids.has(name)
+      if (!hit || !(px > 0)) continue
+      /**
+       * **投影入口选错 = 尺寸差一倍,而只认档名会把它读成同值。**
+       * `taroGeometry.X` 已经是折好 2 倍的 rpx 数值(geometry.js 注释:"直接喂 rpx()"),
+       * 再喂进 `toUnit()`(= rpx(px*2))就是双重换算 ⇒ 落在屏上差一倍。
+       * 这一型是渲染层量出来的(微信工具实测容器 128rpx,应为 64rpx),而本门当时报"两端同档"绿灯:
+       * 具名档解析认了档名、没认外层换算器 —— 等于给最坏的一种单位错发合格证。
+       */
+      const eff = key && doubleWrapped.has(key) ? px * 2 : px
+      if (eff > MAX_GEO_PX) continue
+      push(eff)
+      if (named[name] === undefined) named[name] = eff
     }
     for (const [name, px] of Object.entries(alias)) {
       push(px)
@@ -357,10 +381,14 @@ export function iconGlyphs(src) {
   const vector = new Set()
   for (const m of code.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"][^'"]*lucide[^'"]*['"]/gi))
     for (const raw of m[1].split(',')) {
-      const n = raw.trim().split(/\s+as\s+/)[0]?.trim()
+      const n = raw
+        .trim()
+        .split(/\s+as\s+/)[0]
+        ?.trim()
       if (n && /^[A-Z]/.test(n)) vector.add(pascalToKebab(n))
     }
-  for (const m of code.matchAll(/<LineIcon\b[^>]*?\bname\s*=\s*["']([a-z0-9-]+)["']/g)) vector.add(m[1])
+  for (const m of code.matchAll(/<LineIcon\b[^>]*?\bname\s*=\s*["']([a-z0-9-]+)["']/g))
+    vector.add(m[1])
   /**
    * 字形名也常**当数据传**(配置数组 `{ key, label, icon: 'camera' }` + `<LineIcon name={item.icon}/>`)。
    * 只看 `<LineIcon name="…">` 字面量会把这些槽位判成"小程序未矢量化" —— 判据看不见自己产出的形态,
@@ -384,8 +412,23 @@ export function iconGlyphs(src) {
     for (const s of expr[1].slice(q).matchAll(/['"]([a-z0-9-]+)['"]/g)) vector.add(s[1])
   }
   const bitmap = []
-  for (const m of code.matchAll(/aizhsUrl\(\s*['"]([^'"]*\.(?:png|jpe?g|gif))['"]/gi)) bitmap.push(m[1])
-  return { vector: [...vector].sort(), bitmap }
+  for (const m of code.matchAll(/aizhsUrl\(\s*['"]([^'"]*\.(?:png|jpe?g|gif))['"]/gi))
+    bitmap.push(m[1])
+  /**
+   * RN 侧的位图载体此前**结构上看不见**:判据只认小程序的 `aizhsUrl('x.png')` 形态,
+   * 于是"两端都用位图"(谁也没矢量化)与"RN 仍用位图"(账面把它读成小程序单侧问题)两型全隐。
+   * 实测共享层输入区就是靠 `cdnHost` 拼栅格文件名取图(两端一致地错),账面却只喊小程序那一侧。
+   * 口径:一行里同时出现栅格扩展名与图标/图片语境词(icon|image|uri|src|cdn|assets)才算一处载体;
+   * 判据面已剥注释,说明文字里的文件名不会混进来。
+   */
+  const rnBitmap = []
+  for (const line of code.split('\n')) {
+    if (!/\.(png|jpe?g|gif|webp)\b/i.test(line)) continue
+    if (!/(icon|image|uri|src|cdn|assets)/i.test(line)) continue
+    const stem = /([a-z0-9][a-z0-9._-]*)\.(?:png|jpe?g|gif|webp)\b/i.exec(line)?.[1]
+    rnBitmap.push(stem ?? line.trim().slice(0, 40))
+  }
+  return { vector: [...vector].sort(), bitmap, raster: rnBitmap }
 }
 
 const pascalToKebab = (s) => s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
@@ -412,8 +455,13 @@ export function iconAudit(pairs, text) {
     // (自检 ㉙ 第一次跑就抓到这个 —— 判据写了豁免却恒不生效,账面还会一路报绿)。
     const exempted = (a.match(/icon-bitmap-exempt:/g) ?? []).length
     const bitmap = Math.max(0, ga.bitmap.length - exempted)
-    if (!bitmap && !onlyRn.length && !onlyMiniapp.length) continue
-    out.push({ name: p.name, bitmap, onlyRn, onlyMiniapp, exempted })
+    // RN 侧同一条尺子:豁免标记同样按**原始源码**数(它住在注释里)。
+    const rnExempted = (b.match(/icon-bitmap-exempt:/g) ?? []).length
+    const rnBitmap = Math.max(0, gb.raster.length - rnExempted)
+    // 两端拿**同一个字形名**都走位图 = 谁都没矢量化,这一型过去完全隐身。
+    const bothBitmap = gb.raster.filter((n) => ga.bitmap.some((x) => x.includes(n)))
+    if (!bitmap && !rnBitmap && !onlyRn.length && !onlyMiniapp.length) continue
+    out.push({ name: p.name, bitmap, rnBitmap, bothBitmap, onlyRn, onlyMiniapp, exempted })
   }
   return out
 }
@@ -1187,9 +1235,13 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [] } = {})
   const hasGeoDts = geoList === null ? false : geoList.includes(geoDtsPath)
   if (hasGeo && !hasGeoDts)
     throw new Undetermined(`${FACE_TXT[face]}有 ${geoPath} 而无 ${geoDtsPath} ⇒ 几何表无从对账`)
+  const radiusPath = 'packages/design-tokens/src/radius.js'
+  const hasRadius = geoList === null ? false : geoList.includes(radiusPath)
+  // 几何表与圆角表共用 tierPaths ⇒ 同面同轮一次读满,不另起一次 git 派生。
   const tierPaths = [
     ...specFiles,
     ...(hasGeo ? [geoPath, geoDtsPath] : []),
+    ...(hasRadius ? [radiusPath] : []),
   ]
   const tierSpecs = tierPaths.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
   const tierGot = catBatch(repoRoot, tierSpecs, { maxBuffer: 1 << 26 })
@@ -1202,6 +1254,16 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [] } = {})
   }
   if (!hasGeo && need.some((rel) => /\b(?:rnGeometry|taroGeometry|GEOMETRY_PX)\./.test(text[rel])))
     throw new Undetermined(`${FACE_TXT[face]}取不到 ${geoPath},而配对组件在引用几何表 ⇒ 判据失明`)
+  /**
+   * 圆角档表同一条失明判据:表取不到而配对组件在用圆角形态 ⇒ 那一维看不见,不得把"看不见"
+   * 记成"两端一致"。空表(解析失败)与缺文件同罪。
+   */
+  const radiusTable = hasRadius ? radiusLookup(specSources[radiusPath]) : null
+  const usesRadius = (rel) => /\brounded-|rnRadius|var\(--radius|borderRadius/i.test(text[rel])
+  if (!radiusTable && need.some(usesRadius))
+    throw new Undetermined(
+      `${FACE_TXT[face]}取不到 ${radiusPath} 或档位表解析为空,而配对组件在用圆角 ⇒ 圆角维判据失明`,
+    )
   const tiers = specTiers(specSources)
   const geoDecl = hasGeo
     ? geometryDeclCheck(specSources[geoPath], specSources[geoDtsPath])
@@ -1210,6 +1272,7 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [] } = {})
     pairs,
     text,
     tiers,
+    radius: radiusTable,
     geoDecl,
     rejected: rejectedHits,
     unreachableLegs: unreachable,
@@ -1224,6 +1287,14 @@ export function diffCount(f) {
   return f.named.length + f.geometry.onlyMiniapp.length + f.geometry.onlyRn.length
 }
 
+/**
+ * 圆角单独立账,**不并入 `diffCount`**:锚点若把两维合成一个数,"修掉一处几何档 + 加回一处圆角档"
+ * 会净零逃逸(守门 134 扩布尔档键时新造的那条通道,同一型)。分家后各维各自只减不增。
+ */
+export function radiusCount(f) {
+  return (f.radius?.onlyMiniapp.length ?? 0) + (f.radius?.onlyRn.length ?? 0)
+}
+
 /** 豁免必须是带理由的声明,不是消红通道;到期由守门 108 单独问责。 */
 export function waiverProblem(w) {
   if (!w) return null
@@ -1232,7 +1303,7 @@ export function waiverProblem(w) {
   return null
 }
 
-export function audit(pairs, text, baseline = {}, tiers = {}) {
+export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null) {
   const findings = []
   for (const p of pairs.pairs) {
     const a = text[p.miniapp]
@@ -1242,12 +1313,35 @@ export function audit(pairs, text, baseline = {}, tiers = {}) {
     const gb = readGeometry(b, 'rn', tiers)
     const named = namedConflicts(ga.named, gb.named)
     const geometry = diffValues(ga.values, gb.values)
-    if (!named.length && !geometry.onlyMiniapp.length && !geometry.onlyRn.length) continue
+    /**
+     * RD 维:同名元素在两端**取了不同的圆角档**。表取不到时 collect() 已经把整门判死,
+     * 这里只会拿到非空表;仍留一层空表短路,是为了让 `audit` 作为纯函数可在构造面上单测
+     * (只喂几何夹具的既有用例不该被新维连带打红)。
+     */
+    const radius = radiusTable
+      ? diffValues(new Set(radiusSetOf(a, radiusTable)), new Set(radiusSetOf(b, radiusTable)))
+      : { onlyMiniapp: [], onlyRn: [] }
+    const radiusSeen = radiusTable
+      ? {
+          miniapp: radiusSetOf(a, radiusTable),
+          rn: radiusSetOf(b, radiusTable),
+        }
+      : null
+    if (
+      !named.length &&
+      !geometry.onlyMiniapp.length &&
+      !geometry.onlyRn.length &&
+      !radius.onlyMiniapp.length &&
+      !radius.onlyRn.length
+    )
+      continue
     const w = (baseline.waivers ?? {})[p.name]
     findings.push({
       name: p.name,
       named,
       geometry,
+      radius,
+      radiusSeen,
       lang: { miniapp: styleLanguage(a), rn: styleLanguage(b) },
       icons: { miniapp: iconCarriers(a), rn: iconCarriers(b) },
       invalidWaiver: waiverProblem(w) ?? undefined,
@@ -1263,37 +1357,68 @@ export function audit(pairs, text, baseline = {}, tiers = {}) {
  */
 export function verdictOf(findings, baseline) {
   const counts = baseline.counts ?? {}
+  const radiusCounts = baseline.radiusCounts ?? {}
   const waivers = baseline.waivers ?? {}
   const red = []
   const shrunk = []
   const waived = []
   for (const f of findings) {
     const n = diffCount(f)
+    const rn = radiusCount(f)
     // 豁免判定只在这一处生效(规则本身在 waiverProblem,audit 里的字段只是同一规则的展示视图)。
     // 若两处各判一次,台账改一条就会一边认豁免、一边仍判红 —— 两处算同一件事必漂移,本仓记过多次。
     const w = waivers[f.name]
     if (w && !waiverProblem(w)) {
-      waived.push({ name: f.name, diffCount: n })
+      waived.push({ name: f.name, diffCount: n, radiusCount: rn })
       continue
     }
     const anchor = counts[f.name] ?? 0
-    if (n > anchor)
-      red.push({ name: f.name, diffCount: n, anchor, named: f.named, geometry: f.geometry })
-    else if (n < anchor) shrunk.push({ name: f.name, diffCount: n, anchor })
+    const rAnchor = radiusCounts[f.name] ?? 0
+    const over = []
+    if (n > anchor) over.push(`几何/具名 ${n} > 锚点 ${anchor}`)
+    if (rn > rAnchor) over.push(`圆角 ${rn} > 锚点 ${rAnchor}`)
+    if (over.length)
+      red.push({
+        name: f.name,
+        diffCount: n,
+        anchor,
+        radiusCount: rn,
+        radiusAnchor: rAnchor,
+        over,
+        named: f.named,
+        geometry: f.geometry,
+        radius: f.radius,
+      })
+    else if (n < anchor || rn < rAnchor)
+      shrunk.push({
+        name: f.name,
+        diffCount: n,
+        anchor,
+        radiusCount: rn,
+        radiusAnchor: rAnchor,
+      })
   }
   return { red, shrunk, waived }
 }
 
 export function emitBaseline(findings, prior = {}) {
   const counts = {}
-  for (const f of findings) counts[f.name] = diffCount(f)
+  const radiusCounts = {}
+  for (const f of findings) {
+    counts[f.name] = diffCount(f)
+    /**
+     * 圆角锚点**恒写入(含 0)**:缺键与 0 在 verdictOf 里同为锚点 0,但把 0 显式记下来
+     * 才能让人看出"这一维扫过了、确实同档" —— 只记非零项会让新收口的组件读成"没配账"。
+     */
+    radiusCounts[f.name] = radiusCount(f)
+  }
   /**
    * `pairingRejects` 必须**原样带走**:它是判据输入(哪些同名族不是同一个元素),不是存量数字。
    * 旧写法整对象重写会把别人的拆对声明冲掉 —— 冲掉的后果不是"少一行 JSON",而是那一族
    * 立刻回到"被当配对算差异"的状态,台账凭空多出 N 处"差异"(守门 83 的 `--update-baseline`
    * 冲掉他人审计台账,是同一型事故)。
    */
-  const out = { counts, waivers: {} }
+  const out = { counts, radiusCounts, waivers: {} }
   if (prior && prior.pairingRejects) out.pairingRejects = prior.pairingRejects
   return out
 }
@@ -1353,10 +1478,15 @@ export function main(argv, repoRoot = ROOT) {
     }
     throw e
   }
-  const res = audit(collected.pairs, collected.text, baseline, collected.tiers)
+  const res = audit(collected.pairs, collected.text, baseline, collected.tiers, collected.radius)
   if (argv.includes('--emit-baseline')) {
     console.log(JSON.stringify(emitBaseline(res.findings, baseline), null, 2))
-    console.log(
+    /**
+     * 说明行一律走 stderr:这条模板的既定用法就是 `--emit-baseline > <台账文件>`,
+     * 把它打进 stdout 等于把一句散文追加进 JSON 文件 —— 实测砸出来的
+     * `SyntaxError: Unexpected token 模` 会让 lint-staged 在提交当场崩掉(而 JSON 看起来"像"是门产的合法物)。
+     */
+    console.error(
       `模板按 ${FACE_TXT[face]} 面生成;逐条核过再放进 ${BASELINE_REL}(它是存量锚点,不是合格证)`,
     )
     return 0
@@ -1370,6 +1500,8 @@ export function main(argv, repoRoot = ROOT) {
         findings: res.findings.map((f) => ({
           name: f.name,
           diffCount: diffCount(f),
+          radiusCount: radiusCount(f),
+          radius: f.radius,
           lang: f.lang,
         })),
         unreachable: (collected.unreachableLegs ?? []).map((u) => ({ name: u.name, legs: u.legs })),
@@ -1395,6 +1527,22 @@ export function main(argv, repoRoot = ROOT) {
     )
     for (const o of off) console.log(`  ⊘ ${o.name} —— ${o.reason}`)
     if (collected.coverageNote) console.log(`  ⚠ ${collected.coverageNote}`)
+    /**
+     * **配对射程必须自己报数**。本门只比"同名成文件"的元素:一端把某个控件写成组件文件、
+     * 另一端把它内联在别的组件里(RN 的发送钮就是 `BottomActionBar.tsx` 里的内联 `<Send/>`,
+     * 而小程序侧同槽另有文件),两侧永不成对 —— 那部分界面**本门零判据**。
+     * 不写出来,"N 对全绿"就会被读成"两端界面全一致",而这正是本仓反复记过的失效型:
+     * 判据的射程边界不吭声,读者就替它把边界里面当成全部。只报数不判红(它是边界不是违规)。
+     */
+    {
+      const om = collected.pairs?.onlyMiniapp ?? 0
+      const or = collected.pairs?.onlyRn ?? 0
+      if (om || or)
+        console.log(
+          `  ⓘ 配对射程:仅小程序成文件 ${om} 个 / 仅 RN 成文件 ${or} 个 —— ` +
+            `两端不同名的元素不成对,本门对它们零判据(报数,不判红)`,
+        )
+    }
     for (const u of undet.slice(0, 12))
       console.log(`  ? 未判定:${u.from ?? '(清单)'} → ${u.spec}:${u.reason}`)
     if (undet.length > 12) console.log(`  ? 其余 ${undet.length - 12} 处未判定同上(不静默省略计数)`)
@@ -1403,12 +1551,27 @@ export function main(argv, repoRoot = ROOT) {
       if (f.named.length) bits.push(`同名常量不同值 ${f.named.join(', ')}`)
       if (f.geometry.onlyMiniapp.length) bits.push(`仅小程序档 ${f.geometry.onlyMiniapp.join('/')}`)
       if (f.geometry.onlyRn.length) bits.push(`仅 RN 档 ${f.geometry.onlyRn.join('/')}`)
+      /**
+       * 圆角**单独前缀成 `RD`**,不得与几何档混在一行读数里:混了之后"UserInfoCard 差 1 档"
+       * 到底是圆角差还是盒档差,看报告的人分不出来,而这两型的处置动作不同(圆角按 RADIUS_ROLES
+       * 的角色定档,几何按 spec 收口)。两维各自也有各自的台账锚点(见 radiusCount)。
+       */
+      if (f.radius?.onlyMiniapp.length)
+        bits.push(
+          `RD 仅小程序 ${f.radius.onlyMiniapp.join('/')}(端上实取 ${f.radiusSeen?.miniapp.join('/')})`,
+        )
+      if (f.radius?.onlyRn.length)
+        bits.push(`RD 仅 RN ${f.radius.onlyRn.join('/')}(端上实取 ${f.radiusSeen?.rn.join('/')})`)
       const mark = f.waived ? '○' : res.red.some((r) => r.name === f.name) ? '×' : '·'
       console.log(`  ${mark} ${f.name} [${f.lang.miniapp}|${f.lang.rn}] ${bits.join(' | ')}`)
     }
+    const rdFindings = res.findings.filter(
+      (f) => (f.radius?.onlyMiniapp.length ?? 0) + (f.radius?.onlyRn.length ?? 0) > 0,
+    )
     console.log(
       `可见几何差异 ${res.findings.length} 处 → 超锚点判红 ${res.red.length} / 带理由豁免 ${res.waived.length}` +
-        (res.shrunk.length ? ` / 已变好可下调台账 ${res.shrunk.length}` : ''),
+        (res.shrunk.length ? ` / 已变好可下调台账 ${res.shrunk.length}` : '') +
+        `;其中圆角跨端不同档 ${rdFindings.length} 对(RD 维,锚点单立见 radiusCounts)`,
     )
     if (res.shrunk.length)
       console.log(
@@ -1433,13 +1596,22 @@ export function main(argv, repoRoot = ROOT) {
   if (ic.length) {
     if (face !== 'head') {
       const base = collect(repoRoot, 'head', { pairAll })
-      const baseIc = new Map(iconAudit(base.pairs, base.text).map((x) => [x.name, x.bitmap]))
-      icRed = ic.filter((x) => x.bitmap > (baseIc.get(x.name) ?? 0))
+      const baseIc = new Map(
+        iconAudit(base.pairs, base.text).map((x) => [x.name, { mp: x.bitmap, rn: x.rnBitmap }]),
+      )
+      // 棘轮**逐侧各算一次**:只看小程序会把"把位图从一端搬到两端"判成没变差,
+      // 而那只说明"另一端还没矢量化"这一半信息根本没被读进尺子。
+      icRed = ic.filter((x) => {
+        const b = baseIc.get(x.name) ?? { mp: 0, rn: 0 }
+        return x.bitmap > b.mp || x.rnBitmap > b.rn
+      })
     }
     if (!argv.includes('--json')) {
       for (const x of ic) {
         const bits = []
         if (x.bitmap) bits.push(`小程序仍用 CDN 位图 ${x.bitmap} 处`)
+        if (x.rnBitmap) bits.push(`RN 仍用位图 ${x.rnBitmap} 处`)
+        if (x.bothBitmap.length) bits.push(`两端同字形都走位图 ${x.bothBitmap.length} 枚`)
         if (x.exempted) bits.push(`带理由豁免 ${x.exempted} 处`)
         if (x.onlyRn.length) bits.push(`仅 RN 矢量化 ${x.onlyRn.join('/')}`)
         if (x.onlyMiniapp.length) bits.push(`仅小程序矢量化 ${x.onlyMiniapp.join('/')}`)
@@ -1475,9 +1647,7 @@ export function main(argv, repoRoot = ROOT) {
           x.onlyMiniapp.length + x.onlyRn.length,
         ]),
       )
-      slRed = sl.filter(
-        (x) => x.onlyMiniapp.length + x.onlyRn.length > (baseSl.get(x.name) ?? 0),
-      )
+      slRed = sl.filter((x) => x.onlyMiniapp.length + x.onlyRn.length > (baseSl.get(x.name) ?? 0))
     }
     if (!argv.includes('--json')) {
       for (const x of sl) {
@@ -1515,7 +1685,9 @@ export function main(argv, repoRoot = ROOT) {
       console.log(`  ⊘ PAIR ${x.name} —— 同名不同物,已按声明拆对:${rejAll[x.name].reason}`)
     for (const m of rejInvalid) console.log(`  × PAIR 拆对声明无效:${m}`)
     for (const n of rejStillAnchored)
-      console.log(`  × PAIR ${n} 已声明拆对,台账仍挂它的锚点/豁免 ⇒ 双记账,删 ` + 'counts' + ' 那条')
+      console.log(
+        `  × PAIR ${n} 已声明拆对,台账仍挂它的锚点/豁免 ⇒ 双记账,删 ` + 'counts' + ' 那条',
+      )
     for (const n of rejGhosted)
       console.log(
         `  × PAIR ${n} 声明拆对,而配对面上找不到这一对 ⇒ 文件已搬走或只剩一端,该了结这条声明`,
@@ -1717,8 +1889,103 @@ function runSelfTest() {
     })(),
   )
   t(
-    'S17 圆角档不参与本门(守门 77 单一源,不得两台尺子互相指认)',
+    'S17 圆角不进几何档集合(它有独立的 RD 维与独立锚点,混计会让同一处双计)',
     readGeometry('rounded-[99px]\nborderRadius: 99\n', 'rn').values.size === 0,
+  )
+  /**
+   * S18–S20 是 RD 维的**成对正反例**。它们存在的理由:本门立项时圆角被整族排除,而注释把
+   * 这一 exclusion 说成"守门 77 会管"—— 前提不成立(77 判值的源头,不判同一元素跨端取档),
+   * 于是这一型缺陷一路报绿直到用户实拍。只加判据不加"判据有牙"的正反例,下次换个写法它照样瞎。
+   */
+  t(
+    'S18 RD 维:同一档两种写法(类名 vs rnRadius 标识符)必须判同值,不得造出假分叉',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      const same = audit(p, { 'a/Foo.tsx': 'className="rounded-lg"\n' }, {}, {}, tbl)
+      const same2 = audit(
+        { pairs: p.pairs },
+        {
+          'a/Foo.tsx': 'className="rounded-lg"\n',
+          'b/Foo.tsx': 'borderRadius: rnRadius.lg,\n',
+        },
+        {},
+        {},
+        tbl,
+      )
+      const off = audit(
+        { pairs: p.pairs },
+        {
+          'a/Foo.tsx': 'className="rounded-lg"\n',
+          'b/Foo.tsx': 'borderRadius: rnRadius.xl,\n',
+        },
+        {},
+        {},
+        tbl,
+      )
+      return (
+        radiusCount(off.findings[0]) === 2 &&
+        off.red.length === 1 &&
+        off.red[0].over.join('').includes('圆角') &&
+        same2.findings.length === 0 &&
+        (same.findings.length === 0 || radiusCount(same.findings[0]) === 0)
+      )
+    })(),
+  )
+  t(
+    'S19 RD 维:带 radius-exempt 的真圆/胶囊不得造出分叉(豁免语义与守门 77 同形)',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      const bothExempt = audit(
+        p,
+        {
+          'a/Foo.tsx': 'borderRadius: 8, // radius-exempt: 选中圆点\n',
+          'b/Foo.tsx': 'borderRadius: 20, // radius-exempt: 头像正圆\n',
+        },
+        {},
+        {},
+        tbl,
+      )
+      // 反向对照:把标记去掉,同一对必须判红 —— 否则"豁免生效"与"判据失明"长得一模一样
+      const noMark = audit(
+        p,
+        {
+          'a/Foo.tsx': 'borderRadius: 8,\n',
+          'b/Foo.tsx': 'borderRadius: 20,\n',
+        },
+        {},
+        {},
+        tbl,
+      )
+      return bothExempt.findings.length === 0 && noMark.red.length === 1
+    })(),
+  )
+  t(
+    'S20 RD 维:档位表解析不出来 ⇒ radiusLookup 返回 null(collect 据此判失明,不得当成"两端同档")',
+    radiusLookup !== undefined && radiusLookup('export const NOTHING = {}') === null,
+  )
+  /**
+   * S21 锚点分家的**全部价值**就在这条:合成一个数时,"改坏一处圆角 + 修好一处几何"净零 ⇒ 逃逸。
+   * 分家后同一笔改动必须仍被圆角维钉红。正反两例成对给,否则这条断言只是在对实现复述。
+   */
+  t(
+    'S21 RD 锚点独立:几何下调不得替圆角上升顶掉名额(净零逃逸必须仍判红)',
+    (() => {
+      const f = {
+        name: 'Foo',
+        named: [],
+        geometry: { onlyMiniapp: [], onlyRn: [] },
+        radius: { onlyMiniapp: [8], onlyRn: [12] },
+      }
+      // 台账钉:几何 5(现降到 0)、圆角 0(现升到 2)—— 总数 2 < 5,合成一维就绿了
+      const v = verdictOf([f], { counts: { Foo: 5 }, radiusCounts: { Foo: 0 } })
+      const okRed = v.red.length === 1 && v.red[0].over.join('').includes('圆角')
+      // 反向对照:圆角存量本来就钉在 2 时不得判红(存量不是新账)
+      const okStock =
+        verdictOf([f], { counts: { Foo: 5 }, radiusCounts: { Foo: 2 } }).red.length === 0
+      return okRed && okStock
+    })(),
   )
   t(
     'S18 RN 同名多命中 ⇒ 取排序靠前的层(共享层优先)',
@@ -1882,12 +2149,53 @@ function runSelfTest() {
     })(),
   )
   t(
+    '㉙b RN 侧位图载体必须同样计数(旧尺子只认小程序的 aizhsUrl 形态 ⇒ "RN 仍用位图"整型隐身)',
+    (() => {
+      const pairs = { pairs: [{ name: 'X', miniapp: 'm', rn: 'r' }] }
+      const mpVec = 'import LineIcon from "@/components/LineIcon"\n<LineIcon name="send" />\n'
+      const rnBmp = iconAudit(pairs, {
+        m: mpVec,
+        r: 'const ICON_SEND = `${cdnHost}/icons/send.png`\n<Image source={{ uri: ICON_SEND }} />\n',
+      })
+      const rnEx = iconAudit(pairs, {
+        m: mpVec,
+        r: 'const ICON_SEND = `${cdnHost}/icons/send.png` // icon-bitmap-exempt: 多色插画\n',
+      })
+      return rnBmp[0].rnBitmap === 1 && rnEx[0].rnBitmap === 0
+    })(),
+  )
+  t(
+    '㉙c 两端拿同一字形都走位图 ⇒ 必须点名(一致但都没矢量化,过去完全看不见)',
+    (() => {
+      const pairs = { pairs: [{ name: 'X', miniapp: 'm', rn: 'r' }] }
+      const r = iconAudit(pairs, {
+        m: 'const a = aizhsUrl("remote-images/camera.png")\n',
+        r: 'const ICON_CAMERA = `${cdnHost}/icons/camera.png`\n',
+      })
+      return r.length === 1 && r[0].bothBitmap.length === 1 && r[0].bothBitmap[0] === 'camera'
+    })(),
+  )
+  t(
+    '㉙d 位图判据面必须已剥注释(说明文字里提一句 png 不得造出一处载体)',
+    (() => {
+      const pairs = { pairs: [{ name: 'X', miniapp: 'm', rn: 'r' }] }
+      const r = iconAudit(pairs, {
+        m: 'import LineIcon from "@/components/LineIcon"\n',
+        r: "// 这里以前是 `${cdnHost}/icons/send.png`,现已换成 lucide Send\nimport { Send } from 'lucide-react-native'\n",
+      })
+      return r[0].rnBitmap === 0
+    })(),
+  )
+  t(
     '㉚ IC 与几何判据分开跑:几何已同值而字形集合不同形的族,必须仍被 IC 看见',
     (() => {
-      const r = iconAudit({ pairs: [{ name: 'Y', miniapp: 'm', rn: 'r' }] }, {
-        m: '<LineIcon name="plus" />',
-        r: "import { Plus, Camera } from 'lucide-react-native'\n",
-      })
+      const r = iconAudit(
+        { pairs: [{ name: 'Y', miniapp: 'm', rn: 'r' }] },
+        {
+          m: '<LineIcon name="plus" />',
+          r: "import { Plus, Camera } from 'lucide-react-native'\n",
+        },
+      )
       return r.length === 1 && r[0].bitmap === 0 && r[0].onlyRn.join(',') === 'camera'
     })(),
   )
@@ -1931,7 +2239,9 @@ function runSelfTest() {
       const g = readGeometry('className="px-3 gap-4"\n', 'miniapp')
       const r = readGeometry('paddingHorizontal: 12\ngap: 16\n', 'rn')
       return (
-        g.values.has(12) && g.values.has(16) && !diffValues(g.values, r.values).onlyRn.length &&
+        g.values.has(12) &&
+        g.values.has(16) &&
+        !diffValues(g.values, r.values).onlyRn.length &&
         !diffValues(g.values, r.values).onlyMiniapp.length
       )
     })(),
@@ -1970,7 +2280,11 @@ function runSelfTest() {
       }
       const tiers = specTiers(src)
       const g = readGeometry('const VOICE = rnGeometry.tapBox\nheight: VOICE\n', 'rn', tiers)
-      return tiers['geometry.tapBox'] === 36 && tiers['TARO_RPX_PER_PX'] === undefined && g.values.has(36)
+      return (
+        tiers['geometry.tapBox'] === 36 &&
+        tiers['TARO_RPX_PER_PX'] === undefined &&
+        g.values.has(36)
+      )
     })(),
   )
   t(
@@ -2014,7 +2328,8 @@ function runSelfTest() {
     '㊲ 投影源在表里取不到(改名 / 删档)⇒ 该具名档不入表,不得凭名字造一个数',
     (() => {
       const tiers = specTiers({
-        'packages/design-tokens/src/geometry.js': 'export const GEOMETRY_PX = {\n  tapBox: 36,\n}\n',
+        'packages/design-tokens/src/geometry.js':
+          'export const GEOMETRY_PX = {\n  tapBox: 36,\n}\n',
         'packages/shared/src/ui/y-spec.ts':
           'export const Y_GONE_PX = GEOMETRY_PX.renamedAway\nexport const Y_REAL_PX = 20\n',
       })
@@ -2065,11 +2380,20 @@ function runSelfTest() {
     })(),
   )
   t(
-    '㊵ 装车锁:`main` 必须把 `collected.tiers` 喂进 `audit` —— 算出档表又丢掉,等于判据没接线',
+    '㊵ 装车锁:`main` 必须把 `collected.tiers` 与 `collected.radius` 都喂进 `audit` —— 算出档表又丢掉,等于判据没接线',
     (() => {
       const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-      return /audit\(\s*collected\.pairs,\s*collected\.text,\s*baseline,\s*collected\.tiers\s*\)/.test(
-        src,
+      /**
+       * 按**实参集合**判,不按整条调用的字节形判:本文件被 prettier 折过行以后,
+       * 锚定 `...collected.tiers\s*\)` 这种"闭合括号紧跟最后一个参数"的写法会在一次无关的
+       * 重排里假红(实测把 audit 调用改成多行参数后本条即红,而接线本身完好)。
+       * 现在两维都必须出现 —— 圆角维单独被摘线(只喂 tiers)同样判这条红,
+       * 那正是 2026-09-27 之前 RD 维在提交链上生效 0 次的那一型。
+       */
+      const calls = [...src.matchAll(/\baudit\(([^)]*)\)/g)].map((m) => m[1])
+      return calls.some(
+        (a) =>
+          /collected\.pairs/.test(a) && /collected\.tiers/.test(a) && /collected\.radius/.test(a),
       )
     })(),
   )
@@ -2124,17 +2448,30 @@ function runSelfTest() {
   )
   t(
     '㊺ 拆对声明三条判据:无理由 / 日期形态错 / 已到期 各自判红,合法声明返回 null',
-      (() => {
+    (() => {
       const future = new Date(Date.now() + 86400000 * 30).toISOString().slice(0, 10)
-      const ok = rejectProblem({ reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast', until: future })
+      const ok = rejectProblem({
+        reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast',
+        until: future,
+      })
       const noReason = rejectProblem({ reason: '', until: future })
       const shortReason = rejectProblem({ reason: '不一样', until: future })
-      const expired = rejectProblem({ reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast', until: '2020-01-01' })
-      const badDate = rejectProblem({ reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast', until: '2027-13-99x' })
+      const expired = rejectProblem({
+        reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast',
+        until: '2020-01-01',
+      })
+      const badDate = rejectProblem({
+        reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast',
+        until: '2027-13-99x',
+      })
       const notObj = rejectProblem('FloatBox')
       return (
         ok === null &&
-        !!noReason && !!shortReason && !!expired && !!badDate && !!notObj &&
+        !!noReason &&
+        !!shortReason &&
+        !!expired &&
+        !!badDate &&
+        !!notObj &&
         /到期/.test(expired)
       )
     })(),
@@ -2166,9 +2503,19 @@ function runSelfTest() {
   t(
     '㊼ emitBaseline 必须原样带走 pairingRejects(重写台账把别人的拆对声明冲掉 = 该族凭空多出一堆"差异")',
     (() => {
-      const prior = { counts: { A: 1 }, waivers: {}, pairingRejects: { F: { reason: 'x', until: '2027-01-01' } } }
-      const out = emitBaseline([{ name: 'A', named: [], geometry: { onlyMiniapp: [], onlyRn: [] } }], prior)
-      const dropped = emitBaseline([{ name: 'A', named: [], geometry: { onlyMiniapp: [], onlyRn: [] } }], {})
+      const prior = {
+        counts: { A: 1 },
+        waivers: {},
+        pairingRejects: { F: { reason: 'x', until: '2027-01-01' } },
+      }
+      const out = emitBaseline(
+        [{ name: 'A', named: [], geometry: { onlyMiniapp: [], onlyRn: [] } }],
+        prior,
+      )
+      const dropped = emitBaseline(
+        [{ name: 'A', named: [], geometry: { onlyMiniapp: [], onlyRn: [] } }],
+        {},
+      )
       return (
         !!out.pairingRejects &&
         out.pairingRejects.F.reason === 'x' &&
@@ -2182,6 +2529,41 @@ function runSelfTest() {
     (() => {
       const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
       return /\+ slRed\.length \+ rejRed \+ \(geoRed \? 1 : 0\)/.test(src)
+    })(),
+  )
+  t(
+    '㊣ 换算器必须参与读数:`toUnit(taroGeometry.X)` = 双重换算,读出来是表值的 2 倍(实测事故形态)',
+    (() => {
+      const tiers = { 'geometry.controlBox': 32 }
+      const bad = readGeometry('width: toUnit(taroGeometry.controlBox)\n', 'miniapp', tiers)
+      return bad.values.has(64) && !bad.values.has(32)
+    })(),
+  )
+  t(
+    '㊤ 正解写法不得被判成差一倍:`rpx(taroGeometry.X)` 读表值本身(上一条的成对对照)',
+    (() => {
+      const tiers = { 'geometry.controlBox': 32 }
+      const good = readGeometry('width: rpx(taroGeometry.controlBox)\n', 'miniapp', tiers)
+      return good.values.has(32) && !good.values.has(64)
+    })(),
+  )
+  t(
+    '㊥ 端到端:一端走对投影、另一端走错投影 ⇒ 必须报成真分叉(旧尺子在这里报"两端同档")',
+    (() => {
+      const tiers = { 'geometry.controlBox': 32 }
+      const a = readGeometry('width: rpx(taroGeometry.controlBox)\n', 'miniapp', tiers)
+      const b = readGeometry('width: BOTTOM_ACTION_BAR_CONTROL_BOX_PX\n', 'rn', {
+        ...tiers,
+        BOTTOM_ACTION_BAR_CONTROL_BOX_PX: 32,
+      })
+      const d = diffValues(a.values, b.values)
+      const sameNoConverter = diffValues(
+        readGeometry('width: toUnit(taroGeometry.controlBox)\n', 'miniapp', tiers).values,
+        b.values,
+      )
+      return (
+        !d.onlyMiniapp.length && !d.onlyRn.length && sameNoConverter.onlyMiniapp.join() === '64'
+      )
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
@@ -2209,6 +2591,7 @@ export const __test__ = {
   stripComments,
   toPx,
   readGeometry,
+  radiusCount,
   namedConflicts,
   diffValues,
   diffCount,

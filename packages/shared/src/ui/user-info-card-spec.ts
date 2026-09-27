@@ -24,12 +24,16 @@ export type GeometryUnit<U extends string | number> = (px: number) => U
 /*
  * ── 关于下面每条"取值依据"里出现的类名 ─────────────────────────────
  * 那些反引号类名(`px-3` / `text-xs` / `mt-2` / `gap-3` / `w-12` …)记的是**该档位的等值
- * Tailwind 整档形态与其历史来源**,不等于小程序端今天就是这么写的。现书写形态只有一种例外规则
- * (见 geometry.js「尺寸走 Tailwind 档位」条):**有等值整档就用类名,没有才用 `toUnit()` 内联**。
- * 小程序端当前实际用类名表达的只有四处:进度条 `h-2`(= GROWTH_BAR_HEIGHT 8)、
- * 登录钮 `py-3.5`(= LOGIN_PADDING_Y 14)、操盘手徽章 `px-2` + `py-0.5`(= BADGE 档 8/2);
- * 其余档位一律经本表常量走内联 —— 所以**改本表就是改两端**,不存在"某端还留着一份类名没跟随"。
+ * Tailwind 整档形态与其历史来源**,不等于小程序端今天就是这么写的。
+ * 小程序端当前用类名表达的只剩徽章一族 `px-2` + `py-0.5`(= BADGE 档 8/2);其余档位一律经本表
+ * 常量走内联 —— 所以**改本表就是改两端**,不存在"某端还留着一份类名没跟随"。
  * RN 端则全部走常量 / spec 出口,除文件内点名登记的单侧结构档(见文件末差异登记)。
+ *
+ * ⚠️ 为什么此前"有等值整档就用类名"这一条例外在 `py-3.5`(登录钮上下 14)/ `h-2`(进度条 8)上
+ * 被收回:守门 128 的 SL 维判的是**档名有没有在两条腿的源码面上各出现一次**,类名形态读不出来,
+ * 于是这两档长期被记成"仅 RN 引用"= "另一端没接线"。把它们改成 `toUnit(CONST)` 内联,渲染字节
+ * 不变(14 逻辑 px 在本端本来就是 `rpx(28)`),但数字从此只住在表里一处 —— 这是收紧,不是凑平。
+ * 反过来,**不得**为了消 SL 给不渲染该元素的那条腿补一个档名引用:那才是把数字从门眼前挪开。
  */
 
 /** 卡片内边距 12:web 端 UserInfoCard 就是 `p-3` = 12,规则 1 取 web;
@@ -40,10 +44,12 @@ export const USER_INFO_CARD_PADDING_PX = 12
 export const USER_INFO_CARD_HEADER_GAP_PX = 12
 
 /**
- * 头像边长 48:小程序 `w-12` = 48 是 Tailwind 整档且 ≥44 命中块下限;
+ * 头像边长 48:小程序 48 是 Tailwind 整档(`w-12`)且 ≥44 命中块下限;
  * RN 端原 `rpx(163)` ≈ 81.5 是从 Uniapp 旧稿换算来的非整档(注释自认"对齐旧项目"),规则 2 收口到 48。
  * **同一枚头像槽位在 RN 旧变体里还单独写着 64**(width/height 各两处),现一并引用本常量 ——
  * 判据是"同一元素同一属性",不因变体而异;旧变体当前在全仓无调用方,收口它不影响任何在跑画面。
+ * 现书写形态:两端都把它显式喂进 `userInfoCardAvatarStyle(toUnit, USER_INFO_CARD_AVATAR_PX)`
+ * (小程序端此前只调函数、不喂档名 ⇒ 48 在它的读面上不存在,门读到的是"仅 RN 档 48")。
  */
 export const USER_INFO_CARD_AVATAR_PX = 48
 
@@ -91,8 +97,10 @@ export const USER_INFO_CARD_LOGIN_FONT_PX = 16
  * 未登录按钮上下内边距 14:规则 1 无候选 —— web 端 `apps/web/src/components/user/UserInfoCard.tsx`
  * 通篇没有登录按钮(它是 title + `grid` 字段表),故落规则 2「取触控更稳的一档」。
  * 两端原值:小程序 `py-3` = 12 / RN `loginBtn.paddingVertical` = 14(RN 旧变体另写 12,是第三个数)。
- * 现值:小程序侧书写形态 = `py-3.5`(Tailwind 整档,1 档 = 4px ⇒ 14px,见 geometry.js
- * 「尺寸走 Tailwind 档位」条),RN 侧引用本常量。按钮**宽度**仍按文件末平台差异登记不强行对齐。
+ * 现值:小程序侧经本常量走内联 `paddingTop/paddingBottom: toUnit(USER_INFO_CARD_LOGIN_PADDING_Y_PX)`
+ * (此前写 `py-3.5` —— 同一数字的类名形态,守门 128 的档名判据读不到,于是本档长期被记成
+ * "仅小程序没接线";改内联不改变渲染字节,14 逻辑 px 在本端就是 `rpx(28)`),RN 侧引用本常量。
+ * 按钮**宽度**仍按文件末平台差异登记不强行对齐。
  */
 export const USER_INFO_CARD_LOGIN_PADDING_Y_PX = 14
 
@@ -100,13 +108,23 @@ export const USER_INFO_CARD_LOGIN_PADDING_Y_PX = 14
  * 成长值进度条粗细 8:规则 1 无候选(web 端该组件无进度条),落规则 2「间距/几何取两端较大者」。
  * 两端原值:小程序 `h-2` = 8 / RN `growthBarBg.height` = 4 —— 4 在触屏上几乎不可见,
  * 且 8 已是小程序侧的 Tailwind 整档(`h-2`),不必为对齐去把整档换成内联数字。
- * 现值:小程序侧仍写 `h-2`(= 本档,同一数字的合法类名形态),RN 侧引用本常量。
+ * 现书写形态:小程序侧改为本常量走内联 `height: toUnit(USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX)`
+ * (8 逻辑 px 在本端即 `rpx(16)`,与原 `h-2` 同一渲染字节)。此前留类名形态时,守门 128 的档名
+ * 判据在小程序侧读不到这一档 ⇒ 被记成"仅 RN 引用";RN 侧引用本常量。
  */
 export const USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX = 8
 
-/** 头像盒子(方档 + overflow hidden 兜底裁切),居中结构只在这一处。 */
+/**
+ * 头像盒子(方档 + overflow hidden 兜底裁切),居中结构只在这一处。
+ *
+ * **边长由调用方显式喂 `USER_INFO_CARD_AVATAR_PX`,本函数不设默认值**:默认值会把这一档从两条腿的
+ * 源码面上一起抹掉,守门 128 的具名档判据(读的是文件里出现的档名)就把它当成"另一端没接线"——
+ * 小程序端此前只调本函数,于是 48 在它的读面上不存在,读出的"仅 RN 档 48"就是这么来的。
+ * 数字仍然只有一份真相(常量在本表),调用方引用的是同一个名字,不是第二个数。
+ */
 export function userInfoCardAvatarStyle<U extends string | number>(
   toUnit: GeometryUnit<U>,
+  sidePx: number,
 ): {
   width: U
   height: U
@@ -116,7 +134,7 @@ export function userInfoCardAvatarStyle<U extends string | number>(
   justifyContent: 'center'
   flexShrink: 0
 } {
-  const side = toUnit(USER_INFO_CARD_AVATAR_PX)
+  const side = toUnit(sidePx)
   return {
     width: side,
     height: side,

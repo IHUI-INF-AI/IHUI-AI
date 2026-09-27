@@ -10,7 +10,7 @@
  * 平台特有:依赖 react-native Modal + Animated,不适合共享层。
  */
 import { useEffect, useRef } from 'react'
-import { Animated, Modal, Pressable, StyleSheet, Text } from 'react-native'
+import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { tokens as tk } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
@@ -79,24 +79,31 @@ export default function SideMenu({
           {items.map((item) => {
             const isActive = item.key === activeKey
             return (
+              // 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
+              // interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失(守门 131
+              // 那一型)。外框拿盒与排布声明,面层只拿 pressed;横排与 gap 逐字搬到面层。
               <Pressable
                 key={item.key}
                 accessibilityRole="button"
                 accessibilityLabel={item.label}
                 onPress={() => handleSelect(item.key)}
-                style={({ pressed }) => [styles.item, pressed ? { opacity: 0.6 } : null]}
+                style={styles.item}
               >
-                {typeof item.icon === 'string' ? (
-                  <Text style={styles.icon}>{item.icon}</Text>
-                ) : item.icon ? (
-                  <item.icon size={18} color={tk.text.primary} />
-                ) : null}
-                <Text
-                  style={[styles.label, isActive ? styles.labelActive : styles.labelInactive]}
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
+                {({ pressed }) => (
+                  <View style={[styles.itemFace, pressed ? { opacity: 0.6 } : null]}>
+                    {typeof item.icon === 'string' ? (
+                      <Text style={styles.icon}>{item.icon}</Text>
+                    ) : item.icon ? (
+                      <item.icon size={18} color={tk.text.primary} />
+                    ) : null}
+                    <Text
+                      style={[styles.label, isActive ? styles.labelActive : styles.labelInactive]}
+                      numberOfLines={1}
+                    >
+                      {item.label}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             )
           })}
@@ -134,6 +141,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 12,
+    gap: 12,
+  },
+  // 面层:撑满外框内容盒,横排与间距逐字承接 item 的声明,按压态只落在这一层。
+  itemFace: {
+    width: '100%',
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
   icon: {
