@@ -295,7 +295,11 @@ describe('86C 路由面:requireAdmin 鉴权 + 只读 + 不泄露私钥', () => {
 
   it('GET /signed 返回的信封在公钥侧可验通过(出口自证不是装饰品)', async () => {
     primeEnv()
-    const res = await server.inject({ method: 'GET', url: '/api/admin/audit-evidence/signed', headers: AUTH_HEADERS })
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/admin/audit-evidence/signed',
+      headers: AUTH_HEADERS,
+    })
     expect(res.statusCode).toBe(200)
     const body = res.json() as { code: number; message: string; data: SignedAuditExport }
     expect(body.code).toBe(0)
@@ -325,7 +329,11 @@ describe('86C 路由面:requireAdmin 鉴权 + 只读 + 不泄露私钥', () => {
   it('私钥不可用 ⇒ 503 且响应体里没有数据体(不返回未签名导出)', async () => {
     primeEnv()
     delete process.env[PRIVATE_KEY_INLINE_ENV]
-    const res = await server.inject({ method: 'GET', url: '/api/admin/audit-evidence/signed', headers: AUTH_HEADERS })
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/admin/audit-evidence/signed',
+      headers: AUTH_HEADERS,
+    })
     expect(res.statusCode).toBe(503)
     const body = res.json() as { code: number; message: string; data?: unknown }
     expect(body.code).toBe(503)
