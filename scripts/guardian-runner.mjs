@@ -3666,41 +3666,76 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)(1 项,blocking)---
+  // --- V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)(1 项,blocking)---
   {
     id: '140',
     label:
-      'RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)',
-    script: 'check-rn-double-header.mjs',
+      'V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)',
+    script: 'check-v3-62-conversation-mount.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_RN_DOUBLE_HEADER',
-    stagedTriggers: ['apps/mobile-rn/'],
+    skipEnv: 'HUSKY_SKIP_V362_CONV_MOUNT',
+    stagedTriggers: ['apps/web/src/components/chat/', 'packages/shared/src/sse/'],
     onFailHint: [
       '',
-      '修法只有一条:给共享屏补页头抑制通道(hideHeader / renderHeader / nestedInScrollView)并在调用点传入 —— 与 SquareScreen/ShareScreen/AgentScreen 既有先例同形。',
-      '禁止删任意一层:共享页头是 163 个消费点的唯一页头;包装器 NavBar 在 Settings/Profile 上承载 SideMenu 抽屉唯一入口。',
-      '删包装器还会让 loading 态失去唯一返回手段(实测 packages/app/src/features/course-detail 的 loading 分支只有 spinner)。',
-      '行内出口 double-header-exempt: <原因>(须带原因,已挂守门 108 的 30 天到期档)。',
+      '  本门钉三件:BusinessFormSection 必须真被 MessageList 挂载;form_request 契约段与消费点逐字段同形;sse/contract.ts 与 ai-service sse_contract.py 的既有 parity 不得被绕过。',
+      '  现读:node scripts/check-v3-62-conversation-mount.mjs --worktree / --json',
+      '  自检:node scripts/check-v3-62-conversation-mount.mjs --self-test',
+      '  紧急跳过:HUSKY_SKIP_V362_CONV_MOUNT=1 git commit ...',
       '',
     ].join('\n'),
   },
 
-  // --- README 表格完整性(1 项,blocking)---
+  // --- doom-loop parity 对账(共享层/CLI/agent.ts/Python 等价/主链路五面成套,策略数字不得有第二份)(1 项,blocking)---
   {
     id: '141',
     label:
-      'README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)',
-    script: 'check-readme-table-integrity.mjs',
+      'doom-loop parity 对账(共享层/CLI/agent.ts/Python 等价/主链路五面成套,策略数字不得有第二份)',
+    script: 'check-doom-loop-parity.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_README_TABLE_INTEGRITY',
-    stagedTriggers: ['README.md'],
+    skipEnv: 'HUSKY_SKIP_DOOM_LOOP_PARITY',
+    stagedTriggers: ['apps/cli/src/', 'apps/ai-service/app/', 'packages/shared/src/'],
     onFailHint: [
       '',
-      'T-A 竖排续行超锚点:node scripts/readme-table-unwrap.mjs --file README.md --dry-run(默认零写盘,自证零内容损失后才 --apply)',
-      '确属有意保留:<!-- table-cell-exempt: <原因> --> 写在宿主行或该 run 内任一行(须带原因,守门 108 管 30 天到期)',
-      'T-B 半截行与孤立 2 竖线行只报数不判红(要逐案判语义,不归本门)',
+      '  P1 逐项常量等值 / P2 装车性(注释里的提及不算) / P3 三动作各有消费分支。',
+      '  现读:node scripts/check-doom-loop-parity.mjs ; 自检 --self-test(14 条) ; 紧急跳过 HUSKY_SKIP_DOOM_LOOP_PARITY=1',
+      '',
+    ].join('\n'),
+  },
+
+  // --- Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)(1 项,blocking)---
+  {
+    id: '142',
+    label:
+      'Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)',
+    script: 'check-guardian-review-wired.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GUARDIAN_REVIEW_WIRED',
+    stagedTriggers: ['apps/ai-service/app/'],
+    onFailHint: [
+      '',
+      '  复核必须在生产面被调用;判不了/超时/无凭据必须显式未复核,禁止记为通过。',
+      '  现读:node scripts/check-guardian-review-wired.mjs ; 紧急跳过 HUSKY_SKIP_GUARDIAN_REVIEW_WIRED=1',
+      '',
+    ].join('\n'),
+  },
+
+  // --- LSP 语言表与探测四态对账(拦 binary 名回到写死字面量、能力声明无对应族、探测失败被折叠成无诊断)(1 项,blocking)---
+  {
+    id: '143',
+    label:
+      'LSP 语言表与探测四态对账(拦 binary 名回到写死字面量、能力声明无对应族、探测失败被折叠成无诊断)',
+    script: 'check-lsp-language-table.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LSP_LANGUAGE_TABLE',
+    stagedTriggers: ['apps/cli/src/'],
+    onFailHint: [
+      '',
+      '  T1-T5 五判据:表自洽/扩展名唯一/族清单静态对账/binary 唯一出处/能力投影同形;空枚举判死。',
+      '  现读:node scripts/check-lsp-language-table.mjs ; 自检 --self-test(14 条) ; 紧急跳过 HUSKY_SKIP_LSP_LANGUAGE_TABLE=1',
       '',
     ].join('\n'),
   },
@@ -3728,6 +3763,44 @@ const pushGateChecks = [
     args: [],
     mode: 'blocking',
   },
+  // --- RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)(1 项,blocking)---
+  {
+    id: '144',
+    label:
+      'RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)',
+    script: 'check-rn-double-header.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RN_DOUBLE_HEADER',
+    stagedTriggers: ['apps/mobile-rn/'],
+    onFailHint: [
+      '',
+      '修法只有一条:给共享屏补页头抑制通道(hideHeader / renderHeader / nestedInScrollView)并在调用点传入 —— 与 SquareScreen/ShareScreen/AgentScreen 既有先例同形。',
+      '禁止删任意一层:共享页头是 163 个消费点的唯一页头;包装器 NavBar 在 Settings/Profile 上承载 SideMenu 抽屉唯一入口。',
+      '删包装器还会让 loading 态失去唯一返回手段(实测 packages/app/src/features/course-detail 的 loading 分支只有 spinner)。',
+      '行内出口 double-header-exempt: <原因>(须带原因,已挂守门 108 的 30 天到期档)。',
+      '',
+    ].join('\n'),
+  },
+  // --- README 表格完整性(1 项,blocking)---
+  {
+    id: '145',
+    label:
+      'README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)',
+    script: 'check-readme-table-integrity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_README_TABLE_INTEGRITY',
+    stagedTriggers: ['README.md'],
+    onFailHint: [
+      '',
+      'T-A 竖排续行超锚点:node scripts/readme-table-unwrap.mjs --file README.md --dry-run(默认零写盘,自证零内容损失后才 --apply)',
+      '确属有意保留:<!-- table-cell-exempt: <原因> --> 写在宿主行或该 run 内任一行(须带原因,守门 108 管 30 天到期)',
+      'T-B 半截行与孤立 2 竖线行只报数不判红(要逐案判语义,不归本门)',
+      '',
+    ].join('\n'),
+  },
+
 ]
 
 // === CLI 解析 ===
