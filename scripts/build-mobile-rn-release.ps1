@@ -25,7 +25,12 @@
     pwsh -File scripts/build-mobile-rn-release.ps1 -Abi x86_64      # 单 ABI(模拟器/快速验证)
     pwsh -File scripts/build-mobile-rn-release.ps1 -FullAbi         # 含 x86(32位, 一般不必要)
 .PARAMETER VersionCode
-  Android versionCode(上架递增), 默认 1
+  Android versionCode(上架递增)。缺省 0 = **自动**:有机身时取"机上已装版本 + 1",无机身/取不到时回落 1 并大声说明。
+  为什么默认不能是 1:装机取证时 `adb install -r` 遇 versionCode 低于机上值会直接
+  `INSTALL_FAILED_VERSION_DOWNGRADE` —— 装不上又不报错到底,于是那一轮"实测"量的仍是旧包,
+  而账面看起来"构建成功"(2026-09-27 实测撞在这一步)。
+.PARAMETER ShowVersionCode
+  只解析并打印本次会用的 versionCode 与依据,不构建(给取证脚本与人工先确认落点用)
 .PARAMETER Abi
   目标 ABI(逗号分隔, 如 arm64-v8a,armeabi-v7a); 缺省为 arm64-v8a,armeabi-v7a,x86_64(不含 32 位 x86)
 .PARAMETER FullAbi
@@ -34,16 +39,50 @@
   跳过 apksigner 验签
 #>
 param(
-  [int]$VersionCode = 1,
+  [int]$VersionCode = 0,
   [string]$Abi = '',
   [switch]$FullAbi,
-  [switch]$SkipVerify
+  [switch]$SkipVerify,
+  [switch]$ShowVersionCode
 )
 
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $AndroidDir = Join-Path $RepoRoot 'apps/mobile-rn/android'
 $Gradle = Join-Path $AndroidDir 'gradlew.bat'
+
+# 包名从 app.json 现读,不抄第二份(appId 改了这里会跟着走)
+$RnPackage = (Get-Content -Raw -LiteralPath (Join-Path $RepoRoot 'apps/mobile-rn/app.json') |
+  ConvertFrom-Json).android.package
+
+function Resolve-AutoVersionCode {
+  <#
+    返回 @{ Value = <int>; Source = <string> }。
+    三条失败路径一律回落 1 但**必须喊出原因** —— 静默用 1 等于把"装不上"重新藏回构建成功里。
+  #>
+  param([string]$Package)
+  $adb = Get-Command adb.exe -ErrorAction SilentlyContinue
+  if (-not $adb) { return @{ Value = 1; Source = 'PATH 里没有 adb.exe ⇒ 无法问机上版本,回落 1' } }
+  $dev = & $adb.Source devices 2>$null | Out-String
+  if ($dev -notmatch "`tdevice") { return @{ Value = 1; Source = '没有已授权设备在线 ⇒ 无法问机上版本,回落 1' } }
+  $dump = ''
+  try { $dump = (& $adb.Source shell "dumpsys package $Package" 2>$null) -join "`n" } catch { }
+  $m = [regex]::Match($dump, 'versionCode=(\d+)')
+  if (-not $m.Success) { return @{ Value = 1; Source = "机上查不到 $Package 的 versionCode(未装或 dumpsys 形态变) ⇒ 回落 1" } }
+  $installed = [int]$m.Groups[1].Value
+  return @{ Value = $installed + 1; Source = "机上 $Package 现装 versionCode=$installed ⇒ 取 +1" }
+}
+
+if ($VersionCode -le 0) {
+  $auto = Resolve-AutoVersionCode -Package $RnPackage
+  $VersionCode = $auto.Value
+  Write-Host "  versionCode 自动定档:$VersionCode —— $($auto.Source)" -ForegroundColor Cyan
+}
+
+if ($ShowVersionCode) {
+  Write-Host "本次将使用的 versionCode = $VersionCode(未构建)" -ForegroundColor Green
+  return
+}
 
 Write-Host "`n===== [1/4] 幂等注入 release 签名配置 =====" -ForegroundColor Cyan
 Push-Location $RepoRoot
