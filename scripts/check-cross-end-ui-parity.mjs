@@ -13,6 +13,18 @@
 // 旧的"被自己以外引用一次"太弱 —— 桶文件顺手再导出就算引用,于是门会对一份根本不在 RN 屏幕上
 // 渲染的 DOM 副本判"一致性"。人工核对想退回"同名即配对"用 `--pair-all`(默认档必做可达性剔除)。
 //
+// 同侧多候选的选腿(2026-09-27 O81 票⑭,配对源纳入 packages/app/src/features/** 后立):
+// 一个族名可能同时躺在 components/ 与 features/** —— 三份活实现里 `packages/app/src/index.ts`
+// 的 re-export 指向的那一份才是包公开出口的那张脸(UserInfoCard 即此型:components 那份零深导入,
+// 出口在 features/cards)。选腿序 = **平台后缀 > 出口指向(re-export 链按名解到的那份,判据不是
+// 猜测)> 目录序**;任何一支多候选都在人读面与 --json 逐条点名 chosen/others/by —— "静默选一份"
+// 等于绿灯可能建立在死副本上(与票⑩ 配对键、票⑪ 换腿桶同一条洞的第三处)。
+// 落地补记:本票第一次落地曾被并发会话整块回写(工作树副本被 `heal-worktree-tracked` 对齐成
+// 旧版、旁路提交不在 HEAD 链上),同一内容第二次落地 —— 写面一律取 HEAD blob ⊕ 本票改动,
+// 不复用任何工作树副本。runner 128 的 `stagedTriggers` 现值只含 `packages/app/src/components/`
+// 不含 `packages/app/src/features/`(注册表归主会话单写,本票未动)⇒ 只改 features 组件的提交
+// 不触发本门,由全量档与 CI 问责 —— 现读 `git log --oneline -1 -- scripts/guardian-runner.mjs`。
+//
 // 判定面与守门 77/83/93/98/103 同形:全量判 HEAD blob、--staged 判索引 blob、两面旗同给判死、
 // 清单与正文**同面同轮**取;任一面取不到 ⇒ exit 2「无法判定」,不回落另一个面(回落就是把"没判"
 // 写成"判过了")。刻意不开 --worktree 档:共享工作树常年滞后 HEAD,按磁盘判会在恒红与假绿之间来回跳,
@@ -32,13 +44,21 @@ import { radiusEntriesOf, radiusLookup, radiusSetOf } from './lib/radius-tokens.
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 /**
- * 两端的组件面。RN 侧**两层都扫**:`packages/app`(共享屏层)+ `apps/mobile-rn/src/components`
- * (端内自绘层)。只扫一层会漏判 —— 小程序组件若只与端内层同名,只扫共享层就把它算成"仅小程序",
- * 而那正应当被收进"两端同源"的目标形态。同名多命中时取排序靠前的层(共享层优先)。
+ * 两端的组件面。RN 侧**三层都扫**(2026-09-27 票⑭ 起):`packages/app/src/components`(共享组件层)
+ * + `packages/app/src/features/**`(共享屏层 —— @ihui/rn-app 的桶从 2026-09 起从这里再导出
+ * UserInfoCard 等三份同名实现的出口份,不在配对源里就等于给"改了它任何读数都不动"发绿灯)
+ * + `apps/mobile-rn/src/components`(端内自绘层)。只扫一层会漏判 —— 小程序组件若只与端内层同名,
+ * 只扫共享层就把它算成"仅小程序",而那正应当被收进"两端同源"的目标形态。
+ * 同名多命中**不再静默取先者**:选腿走 pickCandidate(平台后缀 > 出口指向 > 目录序),
+ * 候选逐条点名(见 scan 的 multiCandidates)。
  */
 const SIDES = {
   miniapp: ['apps/miniapp-taro/src/components'],
-  rn: ['packages/app/src/components', 'apps/mobile-rn/src/components'],
+  rn: [
+    'packages/app/src/components',
+    'packages/app/src/features',
+    'apps/mobile-rn/src/components',
+  ],
 }
 /** 一个逻辑 px 折成该端单位要乘多少:小程序 750 设计宽 / 375pt ⇒ 2;RN 1:1。反向即除。 */
 const TO_PX = { miniapp: 2, rn: 1 }
@@ -381,31 +401,100 @@ const baseName = (f) => {
 /** 同键多候选时,带平台后缀那份优先(它是该端构建期真被解析进去的那份)。 */
 const candRank = (f) => (PLATFORM_SUFFIX.test(normKey(f)) ? 0 : 1)
 
-/** 两端清单 → 同名配对 + 计数。纯函数,构造面即可证明后缀与优先级两条判据。 */
-export function scan(listMini, listRn, aliases = {}) {
-  const rnMap = new Map()
-  for (const f of listRn) {
-    if (!/\.(tsx|jsx)$/i.test(fileName(f))) continue
-    const k = pairKey(f)
-    if (!rnMap.has(k) || candRank(f) < candRank(rnMap.get(k))) rnMap.set(k, f) // 共享层在前
+/**
+ * 同侧多候选的唯一选腿比较器 —— scan() 与 pruneUnreachableLegs() 的换腿**共用它**
+ * (两处各写一份选法必然漂移,与票⑪"换腿桶必须与配对键同键同序"是同一条禁令)。
+ * 三序取小者胜(lex):
+ *   1) candRank:平台后缀那份先 —— Taro 构建期解析的是 `Foo.taro.tsx`,出口链不懂平台解析,
+ *      若出口反指 plain 那份,按出口选反而造出一条不渲染的假腿;
+ *   2) 出口指向:`preferFile` 是该族 re-export 链解到的那份(判据,不是猜测);
+ *   3) 先入桶序:即 SIDES 目录优先级不变(共享层在前)—— 没有出口证据时的兜底。
+ * 返回 {chosen, others, by};by = 击败次名的那一序('suffix'|'exit'|'order'),供报告点名
+ * "为什么选这份" —— 只报 chosen 不报依据,与静默选一份只差一层措辞。
+ */
+export function pickCandidate(cands, preferFile = null) {
+  const score = (f, i) => [candRank(f), f === preferFile ? 0 : 1, i]
+  const cmp = (a, b) => {
+    for (let j = 0; j < 3; j++) if (a[j] !== b[j]) return a[j] - b[j]
+    return 0
   }
-  const miniMap = new Map()
-  for (const f of listMini) {
-    if (!/\.(tsx|jsx)$/i.test(fileName(f))) continue
-    const k = pairKey(f)
-    if (!miniMap.has(k) || candRank(f) < candRank(miniMap.get(k))) miniMap.set(k, f)
+  const order = cands.map((_, i) => i).sort((x, y) => cmp(score(cands[x], x), score(cands[y], y)))
+  const w = order[0]
+  let by = 'order'
+  if (order.length > 1) {
+    const a = score(cands[w], w)
+    const b = score(cands[order[1]], order[1])
+    for (let j = 0; j < 3; j++)
+      if (a[j] !== b[j]) {
+        by = ['suffix', 'exit', 'order'][j]
+        break
+      }
   }
+  return { chosen: cands[w], others: cands.filter((_, i) => i !== w), by }
+}
+
+/** 两端清单 → 同名配对 + 计数。纯函数,构造面即可证明后缀、出口指向、目录优先级三条选腿判据。
+ *  `preferMaps` = { miniapp?: Map<pairKey, 出口指向文件>, rn?: ... } —— 只作 pickCandidate 的第二序;
+ *  不传时行为与票⑭ 之前逐字一致(后缀 > 目录序),既有两侧的直接调用与镜像用例不受影响。 */
+export function scan(listMini, listRn, aliases = {}, preferMaps = {}) {
+  const bucketize = (list) => {
+    const m = new Map()
+    for (const f of list) {
+      if (!/\.(tsx|jsx)$/i.test(fileName(f))) continue
+      const k = pairKey(f)
+      if (!m.has(k)) m.set(k, [])
+      if (!m.get(k).includes(f)) m.get(k).push(f)
+    }
+    return m
+  }
+  const resolveSide = (list, prefer) => {
+    const winner = new Map()
+    const multi = new Map()
+    for (const [k, cands] of bucketize(list)) {
+      const pick = pickCandidate(cands, prefer?.get(k) ?? null)
+      winner.set(k, pick.chosen)
+      if (cands.length > 1) multi.set(k, pick)
+    }
+    return { winner, multi }
+  }
+  const rnSide = resolveSide(listRn, preferMaps.rn)
+  const miniSide = resolveSide(listMini, preferMaps.miniapp)
+  const rnMap = rnSide.winner
+  const miniMap = miniSide.winner
   const pairs = []
   for (const [k, f] of miniMap)
     if (rnMap.has(k))
       pairs.push({
-        // 被审的**文件**是带平台后缀那份(该端构建期真被解析的那一份),但**族名**必须剥掉后缀:
+        // 被审的**文件**是选腿判据挑出的那一份(平台后缀 > 出口指向 > 目录序),但**族名**必须剥掉后缀:
         // 名字若随当选候选变化,同一族在台账里就会有 `Foo` / `Foo.taro` 两个键,存量锚点互相顶掉
         // —— 与守门 134「锚点粒度不够细 ⇒ 换个写法就净零逃逸」是同一型。
         name: baseName(f),
         miniapp: f,
         rn: rnMap.get(k),
       })
+  /**
+   * 同侧多候选**逐条点名**(进 --json 与人读面)。这是"不得把两份实现读成两份真相"的最后一格:
+   * 族在 components/ 与 features/** 同时存在时,静默选一份 = 改另一份任何读数都不动,而读者
+   * 以为那一族在被审。只点名不判红 —— 多候选本身是结构事实,不是违规;违规的是**无声**。
+   */
+  const multiCandidates = []
+  for (const p of pairs) {
+    for (const [side, multi] of [
+      ['miniapp', miniSide.multi],
+      ['rn', rnSide.multi],
+    ]) {
+      const hit = multi.get(pairKey(p[side]))
+      if (hit)
+        multiCandidates.push({
+          name: p.name,
+          key: pairKey(p[side]),
+          side,
+          chosen: hit.chosen,
+          others: hit.others,
+          by: hit.by,
+        })
+    }
+  }
   /**
    * **别名对**:两端把同一个界面元素起了不同名字(`CategoryBar` vs `CategoryInlineBar`、
    * `DrawerComponent` vs `Drawer`)时,任何按文件名的判据都看不见它们 —— 这一格过去只以
@@ -451,6 +540,7 @@ export function scan(listMini, listRn, aliases = {}) {
   const out = {
     pairs: pairs.sort((a, b) => a.name.localeCompare(b.name)),
     aliasProblems,
+    multiCandidates,
     onlyMiniapp: onlyMiniKeys.length,
     onlyRn: onlyRnKeys.length,
     // 名单本身必须报出来:只有计数的话,下一个人无从判断这 75 个名字里哪些是真不同名、
@@ -894,6 +984,126 @@ function resolveSpecifier(spec, fromFile, ctx) {
   return { file: hit }
 }
 
+/** 各端"组件出口":rn 侧走包清单入口(@ihui/rn-app 的 main/exports),miniapp 侧只有这一份显式 barrel。 */
+const EXIT_BARRELS = { miniapp: 'apps/miniapp-taro/src/components/index.ts', rn: '@ihui/rn-app' }
+
+/**
+ * 从一枚 package.json 文本取 @ihui 包的目录与入口。可达性层(pruneUnreachableLegs)
+ * 与出口指向层(exitPreferMaps)**共用这一份读法** —— 两处各解析一遍 exports/main 必漂移,
+ * 而漂移的产物是一条腿被判"可达"、另一处判"出口不指它"的自洽假账。
+ * 坏 JSON 静默跳过:该包的 import 随后会落进"未判定",不在这一步猜。
+ */
+function readManifestInto(rel, raw, pkgDir, pkgEntry) {
+  let j
+  try {
+    j = JSON.parse(raw)
+  } catch {
+    return
+  }
+  if (typeof j.name !== 'string' || !j.name.startsWith('@ihui/')) return
+  const dir = rel.split('/').slice(0, -1).join('/')
+  pkgDir.set(j.name, dir)
+  const x = j.exports
+  const dot = typeof x === 'string' ? x : x && typeof x === 'object' ? x['.'] : null
+  let e = null
+  if (typeof dot === 'string') e = dot
+  else if (dot && typeof dot === 'object')
+    e = dot.import || dot.default || Object.values(dot).find((v) => typeof v === 'string') || null
+  if (!e && typeof j.main === 'string') e = j.main
+  if (e) pkgEntry.set(j.name, relJoin(dir, e))
+}
+
+/**
+ * 沿 **re-export 边**(带名)求 `name` 的定义文件集合:'re' 按 exported→original 往下传,
+ * 'star' 原样传名,'use' 边**不跟** —— 有人 import 过不等于包对外出口指向它。
+ * 本地定义(`export const` / 无 from 的 `export {}`)算定义处。断环靠 seen;
+ * 取不到某跳文件 ⇒ notes 点名且该链不产出 —— "判不出"与"没有出口"是两件事,不得互写。
+ */
+function exitDefsOf(name, file, ctx, readText, notes, seen) {
+  const out = new Set()
+  const key = `${file}#${name}`
+  if (seen.has(key)) return out
+  seen.add(key)
+  const src = readText(file)
+  if (src === null) {
+    notes.push(`出口链取不到 ${file} ⇒ 沿途名字不判优先(不当"没有出口")`)
+    return out
+  }
+  const { edges, localExports } = parseModuleEdges(src)
+  if (localExports.has(name)) out.add(file)
+  for (const e of edges) {
+    if (e.kind === 're' && e.map && e.map.has(name)) {
+      const r = resolveSpecifier(e.spec, file, ctx)
+      if (r.file)
+        for (const f of exitDefsOf(e.map.get(name), r.file, ctx, readText, notes, seen)) out.add(f)
+      else if (r.unresolved) notes.push(`出口链解析不到:${file} → ${e.spec}(不猜目标)`)
+    } else if (e.kind === 'star') {
+      const r = resolveSpecifier(e.spec, file, ctx)
+      if (r.file) for (const f of exitDefsOf(name, r.file, ctx, readText, notes, seen)) out.add(f)
+    }
+  }
+  return out
+}
+
+/**
+ * 同侧多候选族的"出口指向"prefer 表:Map<pairKey, 文件>,只在链条**唯一**解到一份时收录;
+ * 多解 / 零解 / 断链 ⇒ 不判优先并逐条 notes 点名(判不出不冒充成"没有出口",也不冒充成证据)。
+ * 输入来自 scan() 的 multiCandidates —— 没有多候选就一次 git 派生都不做(真实仓今天只有
+ * UserInfoCard 一族,读链 hop 个位数,不是全 corpus 扫描)。
+ */
+export function exitPreferMaps(repoRoot, face, multiCandidates) {
+  const maps = { miniapp: new Map(), rn: new Map() }
+  const notes = []
+  if (!multiCandidates.length) return { maps, notes }
+  const all = listAllFace(repoRoot, face)
+  if (!all || !all.length) {
+    notes.push('整面清单取不到 ⇒ 出口指向判据本轮不生效(选腿退回 后缀>目录序,候选仍逐条点名)')
+    return { maps, notes }
+  }
+  const files = new Set(all)
+  const pre = face === 'staged' ? ':' : 'HEAD:'
+  const manifests = all.filter((p) => /^(?:apps|packages)\/[^/]+\/package\.json$/.test(p))
+  const gotM = catBatch(repoRoot, manifests.map((r) => pre + r), { maxBuffer: 1 << 26 })
+  const pkgDir = new Map()
+  const pkgEntry = new Map()
+  for (const rel of manifests) {
+    const raw = gotM.get(pre + rel)
+    if (raw !== undefined && raw !== null) readManifestInto(rel, raw, pkgDir, pkgEntry)
+  }
+  const ctx = { face, files, pkgDir, pkgEntry }
+  const entries = {
+    rn: pkgEntry.get(EXIT_BARRELS.rn) ?? null,
+    miniapp: files.has(EXIT_BARRELS.miniapp) ? EXIT_BARRELS.miniapp : null,
+  }
+  const textCache = new Map()
+  const readText = (f) => {
+    if (!textCache.has(f)) {
+      const g = catBatch(repoRoot, [pre + f], { maxBuffer: 1 << 24 })
+      const t = g.get(pre + f)
+      textCache.set(f, t === undefined || t === null ? null : t)
+    }
+    return textCache.get(f)
+  }
+  const namesBySide = { miniapp: new Map(), rn: new Map() } // pairKey → 族名
+  for (const c of multiCandidates) namesBySide[c.side].set(c.key, c.name)
+  for (const side of ['miniapp', 'rn']) {
+    if (!namesBySide[side].size) continue
+    const entry = entries[side]
+    if (!entry) {
+      notes.push(`${side} 侧出口入口取不到 ⇒ 该侧无出口优先(不猜)`)
+      continue
+    }
+    for (const [k, name] of namesBySide[side]) {
+      const defs = [...exitDefsOf(name, entry, ctx, readText, notes, new Set())]
+      if (defs.length === 1) maps[side].set(k, defs[0])
+      else if (defs.length > 1)
+        notes.push(`出口链对「${name}」解到 ${defs.length} 份定义 ⇒ 不判优先(${defs.join(' / ')})`)
+      else notes.push(`出口链没解到「${name}」的定义文件 ⇒ 不判优先(不当"没有出口")`)
+    }
+  }
+  return { maps, notes }
+}
+
 /**
  * Taro 路由表:`app.config.ts` 的 `pages` / `subPackages[].pages`(数据,不是 import)。
  * `root` 与紧随其后的 `pages` 配对;顶层 `pages` 出现在任何 root 之前,故初值为 ''。
@@ -1044,7 +1254,7 @@ function listAllFace(repoRoot, face) {
  * 三态都不静默:剔除逐条点名并带"从端入口不可达";解析不到的边计"未判定"并给总数;
  * 种子 / 路由表 / 清单取不到 ⇒ 整判据"无法判定";全部配对都被剔除 ⇒ 判据失明,同样不记通过。
  */
-export function pruneUnreachableLegs(repoRoot, face, scanned) {
+export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
   const all = listAllFace(repoRoot, face)
   if (!all || !all.length)
     return {
@@ -1071,26 +1281,10 @@ export function pruneUnreachableLegs(repoRoot, face, scanned) {
   }
   const pkgDir = new Map()
   const pkgEntry = new Map()
+  // 包清单读法与出口指向层共用 readManifestInto —— 见该函数头注"两处各解析一遍必漂移"。
   for (const rel of manifests) {
     const raw = texts.get(rel)
-    if (raw === undefined) continue
-    let j
-    try {
-      j = JSON.parse(raw)
-    } catch {
-      continue // 坏清单:该包按"解析不到"处理(它的 import 会落进未判定),不猜
-    }
-    if (typeof j.name !== 'string' || !j.name.startsWith('@ihui/')) continue
-    const dir = rel.split('/').slice(0, -1).join('/')
-    pkgDir.set(j.name, dir)
-    const x = j.exports
-    const dot = typeof x === 'string' ? x : x && typeof x === 'object' ? x['.'] : null
-    let e = null
-    if (typeof dot === 'string') e = dot
-    else if (dot && typeof dot === 'object')
-      e = dot.import || dot.default || Object.values(dot).find((v) => typeof v === 'string') || null
-    if (!e && typeof j.main === 'string') e = j.main
-    if (e) pkgEntry.set(j.name, relJoin(dir, e))
+    if (raw !== undefined) readManifestInto(rel, raw, pkgDir, pkgEntry)
   }
   const extraUndet = []
   /**
@@ -1196,10 +1390,13 @@ export function pruneUnreachableLegs(repoRoot, face, scanned) {
   const kept = []
   const fallbacks = []
   /**
-   * 首选层是**死副本**时退回下一层,而不是把整对丢掉(2026-09-26 实测:UserInfoCard / NavBar /
-   * Carousel 的 `packages/app` 那份零可达消费者,而 `apps/mobile-rn` 的同名件真在屏幕上)。
-   * 旧行为"锁定首选层 → 不可达 → 剔对" ⇒ 这三对**覆盖率为 0 而账面不喊**,读报告的人会以为已同值。
-   * 候选顺序仍按 SIDES 目录优先级不变,只是把"不可达"从"剔对"降级为"换腿";
+   * 换腿规则(2026-09-27 票⑭ 起统一):可达候选里用**同一个** pickCandidate 重选,与 scan() 同判据
+   * (后缀 > 出口指向 > 目录序)。两种触发各有实测出处:
+   *   ① 首选层是死副本(2026-09-26:UserInfoCard / NavBar / Carousel 的 `packages/app` 那份零可达
+   *      消费者,而 `apps/mobile-rn` 的同名件真在屏幕上)—— 旧行为"锁定首选层 → 不可达 → 剔对"
+   *      会让这三对覆盖率为 0 而账面不喊;
+   *   ② 首选层可达,但出口指向是另一份(票⑭:配对源纳入 features/** 后,components 与 features
+   *      两份可能都活着,静默按目录序 = 绿灯建立在"未必是包出口那张脸"的份上)。
    * 换到的是哪条腿必须留痕(静默换腿等于把判据的输入挪走而没人知道)。
    */
   const altsBySide = {}
@@ -1215,22 +1412,23 @@ export function pruneUnreachableLegs(repoRoot, face, scanned) {
     }
     altsBySide[side] = m
   }
+  const preferMaps = opts.preferMaps ?? {}
   for (const p of scanned.pairs) {
     const cur = { miniapp: p.miniapp, rn: p.rn }
     const moved = []
     for (const side of ['miniapp', 'rn']) {
       const reach = usedBySide[side]
-      if (reach.has(cur[side]) || missing.has(cur[side])) continue
-      const cands = (altsBySide[side].get(pairKey(cur[side])) ?? []).filter(
-        (f) => f !== cur[side] && !missing.has(f) && reach.has(f),
-      )
-      // pairKey 剥掉平台后缀之后,同一个桶里会同时躺着 `Foo.taro.tsx` 与 `Foo.tsx`。
-      // 换腿必须与 scan() 同序 —— 带平台后缀的那份才是该端构建期真被解析进去的那一份;
-      // 并列时保留先入桶者,即 SIDES 目录优先级不变。
-      const alt = cands.length ? cands.reduce((a, b) => (candRank(b) < candRank(a) ? b : a)) : null
-      if (alt) {
-        moved.push(`${cur[side]} → ${alt}`)
-        cur[side] = alt
+      // 取不到内容的当前腿不换(旧护栏:可能只是二进制/坏 blob,不当"不可达"也不动它)。
+      if (missing.has(cur[side])) continue
+      const bucket = altsBySide[side].get(pairKey(cur[side])) ?? []
+      const usable = bucket.filter((f) => !missing.has(f) && reach.has(f))
+      if (!usable.length) continue // 整桶都不可达 ⇒ 维持原位,交给下面的 bad 判定剔对(旧行为)
+      // pairKey 剥掉平台后缀之后,同一个桶里会同时躺着 `Foo.taro.tsx` 与 `Foo.tsx` —— 选腿与 scan()
+      // 共用 pickCandidate,三序同判据;并列时保留先入桶者,即 SIDES 目录优先级不变。
+      const pick = pickCandidate(usable, preferMaps[side]?.get(pairKey(cur[side])) ?? null)
+      if (pick.chosen !== cur[side]) {
+        moved.push(`${cur[side]} → ${pick.chosen}`)
+        cur[side] = pick.chosen
       }
     }
     // 取不到内容的文件不参与判定(可能是二进制)—— 宁可不剔,也不把"没判"当"不可达"。
@@ -1252,7 +1450,7 @@ export function pruneUnreachableLegs(repoRoot, face, scanned) {
     scanned.pairs.length && !kept.length
       ? `全部 ${scanned.pairs.length} 对的两端都不可达:本门这一轮对空气判定,请核种子`
       : fallbacks.length
-        ? `${kept.length} 对中有 ${fallbacks.length} 对换了腿(首选层是不可达的死副本,已退回下一层):${fallbacks
+        ? `${kept.length} 对中有 ${fallbacks.length} 对换了腿(首选层从端入口不可达,或可达候选里出口指向另一份):${fallbacks
             .map((f) => f.name)
             .join(', ')} —— 覆盖面因此比账面大,不是"存量已同值"`
         : null
@@ -1301,7 +1499,14 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [], aliase
     }
     lists[side] = acc
   }
-  let pairs = scan(lists.miniapp, lists.rn, aliases)
+  /**
+   * 两遍 scan:第一遍无出口信息,只为拿到"同侧多候选"名单 —— 出口链只需为这些族按名走
+   * re-export(无多候选 ⇒ 零额外 git 派生);第二遍带 prefer 重配对,选腿判据 =
+   * 平台后缀 > 出口指向 > 目录序。两遍都是纯函数,构造面可证(镜像 T16 钉两处必须共用)。
+   */
+  const probe = scan(lists.miniapp, lists.rn, aliases)
+  const exit = exitPreferMaps(repoRoot, face, probe.multiCandidates ?? [])
+  let pairs = scan(lists.miniapp, lists.rn, aliases, exit.maps)
   if (pairs.undetermined) throw new Undetermined(`${pairs.reason} ⇒ 判据失明,不得记为通过`)
   /**
    * 拆对声明在**可达性剔除之前**生效:同名不同物的两个组件不该再产生任何一维读数
@@ -1316,7 +1521,7 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [], aliase
   let fallbacks = []
   if (pairAll) pairs = { ...pairs, pairAll: true }
   else {
-    const pruned = pruneUnreachableLegs(repoRoot, face, pairs)
+    const pruned = pruneUnreachableLegs(repoRoot, face, pairs, { preferMaps: exit.maps })
     if (pruned.reason) throw new Undetermined(`端入口可达性判据无法成立:${pruned.reason}`)
     pairs = pruned.pairs
     unreachable = pruned.unreachable
@@ -1484,6 +1689,7 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [], aliase
     undeterminedEdges,
     coverageNote,
     fallbacks,
+    exitNotes: exit.notes,
   }
 }
 
@@ -1978,6 +2184,9 @@ export function main(argv, repoRoot = ROOT) {
           .filter((p) => p.aliased)
           .map((p) => ({ name: p.name, miniapp: p.miniapp, rn: p.rn })),
         aliasProblems: collected.pairs?.aliasProblems ?? [],
+        // 同侧多候选与出口链的判定材料也要能被机器读 —— 只印人读面,下一票就得抄终端输出当数据源。
+        multiCandidates: collected.pairs?.multiCandidates ?? [],
+        exitNotes: collected.exitNotes ?? [],
         red: res.red,
         waived: res.waived.length,
       }),
@@ -2026,6 +2235,31 @@ export function main(argv, repoRoot = ROOT) {
         `RE 比两侧**同名元素**各取了哪一档 —— 前者的一条"分叉"可以同时意味着"对面这个文件压根没写圆角"。` +
         `取不到的样式文件计未判定,不当"该侧无档"`,
     )
+    /**
+     * **同侧多候选逐条点名**(票⑭)。这是"不得把两份实现读成两份真相"的落点:一份族在
+     * components/ 与 features/** 同时活着时,被审的究竟是哪一份、依据哪一序选出来,必须写出来 ——
+     * 静默选一份时,改另一份任何读数都不动,而账面读起来像"这一族在被看守"。不判红:多候选是
+     * 结构事实不是违规(可达性、出口、后缀三序都真在选),无声才是。
+     */
+    const mc = collected.pairs?.multiCandidates ?? []
+    if (mc.length) {
+      const why = {
+        suffix: '平台后缀(该端构建期真解析的那份)',
+        exit: '出口指向(@ihui/rn-app / 组件桶的 re-export 链)',
+        order: '目录序(本族没有出口证据)',
+      }
+      console.log(
+        `  ⓘ 同侧多候选 ${mc.length} 条腿 —— 选腿三序:平台后缀 > 出口指向 > 目录序;` +
+          `候选逐条点名(不得静默选一份):`,
+      )
+      for (const c of mc)
+        console.log(
+          `     · ${c.name}[${c.side}] 选 ${c.chosen}(依据:${why[c.by] ?? c.by})` +
+            ` | 未选 ${c.others.join(' / ')}`,
+        )
+    }
+    for (const n of collected.exitNotes ?? [])
+      console.log(`  ⓘ 出口链:${n} —— "判不出"不冒充"没有出口",也不冒充证据`)
     /**
      * **配对射程必须自己报数**。本门只比"同名成文件"的元素:一端把某个控件写成组件文件、
      * 另一端把它内联在别的组件里(RN 的发送钮就是 `BottomActionBar.tsx` 里的内联 `<Send/>`,
@@ -3769,6 +4003,151 @@ function runSelfTest() {
       )
     })(),
   )
+  t(
+    '㉲ 选腿三序之二:出口指向必须压过目录序,而出口没指到任何一份时不得冒充依据(成对)',
+    (() => {
+      const a = 'packages/app/src/components/Foo.tsx'
+      const b = 'packages/app/src/features/cards/Foo.tsx'
+      const fwd = pickCandidate([a, b], b)
+      const rev = pickCandidate([b, a], b)
+      const none = pickCandidate([a, b], null)
+      return (
+        fwd.chosen === b &&
+        fwd.by === 'exit' &&
+        fwd.others.join() === a &&
+        rev.chosen === b &&
+        rev.by === 'exit' &&
+        none.chosen === a &&
+        none.by === 'order'
+      )
+    })(),
+  )
+  t(
+    '㉳ 选腿三序之首:平台后缀必须压过出口指向(票⑩ 那一条"构建期真解析 .taro"不得被新加的这支掀翻)',
+    (() => {
+      const plain = 'apps/miniapp-taro/src/components/Foo.tsx'
+      const suffixed = 'apps/miniapp-taro/src/components/Foo.taro.tsx'
+      const a = pickCandidate([plain, suffixed], plain)
+      const b = pickCandidate([suffixed, plain], plain)
+      return a.chosen === suffixed && a.by === 'suffix' && b.chosen === suffixed && b.by === 'suffix'
+    })(),
+  )
+  t(
+    '㉴ 三份同名:扩面前后进审的候选逐条点名,且两份实现不得被并成一条假同值腿',
+    (() => {
+      const mini = ['apps/miniapp-taro/src/components/UserInfoCard.tsx']
+      const before = [
+        'packages/app/src/components/UserInfoCard.tsx',
+        'apps/mobile-rn/src/components/UserInfoCard.tsx',
+      ]
+      const feat = 'packages/app/src/features/cards/UserInfoCard.tsx'
+      const b = scan(mini, before, {})
+      const a = scan(mini, [...before, feat], {}, { rn: new Map([['userinfocard', feat]]) })
+      const bb = b.multiCandidates.find((e) => e.name === 'UserInfoCard' && e.side === 'rn')
+      const aa = a.multiCandidates.find((e) => e.name === 'UserInfoCard' && e.side === 'rn')
+      return (
+        b.pairs.length === 1 &&
+        a.pairs.length === 1 &&
+        !!bb &&
+        bb.chosen === before[0] &&
+        bb.others.join() === before[1] &&
+        bb.by === 'order' &&
+        !!aa &&
+        aa.chosen === feat &&
+        aa.by === 'exit' &&
+        aa.others.slice().sort().join() === before.slice().sort().join() &&
+        a.pairs[0].rn === feat &&
+        a.pairs[0].name === 'UserInfoCard'
+      )
+    })(),
+  )
+  t(
+    '㊾ 端到端(真临时 git 仓):包入口再导出指向 features 那一份 ⇒ 腿必须是那一份,' +
+      '另两份点名在未选里,且不得被记成"换腿"(出口指向不是可达性)',
+    (() => {
+      const fx = FIXTURE_BASE({
+        rn:
+          "import { Bar, Foo } from '@ihui/rn-app'\n" +
+          "import '../../../../packages/app/src/components/Foo'\n" +
+          'export function RootNavigator() { return null }\n',
+      })
+      fx['packages/app/src/index.ts'] =
+        "export { Bar } from './components'\nexport { Foo } from './features/cards'\n"
+      fx['packages/app/src/features/cards/index.ts'] = "export { Foo } from './Foo'\n"
+      fx['packages/app/src/features/cards/Foo.tsx'] =
+        'export function Foo() { return <div style={{ width: 40 }} /> }\n'
+      const dir = makeFixtureRepo(fx)
+      try {
+        const r = collect(dir, 'head')
+        const p = r.pairs.pairs.find((x) => x.name === 'Foo')
+        const mc = (r.pairs.multiCandidates ?? []).find((e) => e.name === 'Foo' && e.side === 'rn')
+        return (
+          !!p &&
+          p.rn === 'packages/app/src/features/cards/Foo.tsx' &&
+          !!mc &&
+          mc.by === 'exit' &&
+          mc.others.includes('packages/app/src/components/Foo.tsx') &&
+          (r.fallbacks ?? []).every((f) => f.name !== 'Foo')
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+    '出口链在真 git 仓面上没跑通 ⇒ 单元层的 pickCandidate 过不等于装车过',
+  )
+  t(
+    '㊿ 反向对照:同一份夹具把出口改指 components 那一份 ⇒ 腿跟着换回去(features 不得因"新加的目录"永远优先)',
+    (() => {
+      const fx = FIXTURE_BASE({
+        rn:
+          "import { Bar, Foo } from '@ihui/rn-app'\n" +
+          "import '../../../../packages/app/src/features/cards/Foo'\n" +
+          'export function RootNavigator() { return null }\n',
+      })
+      fx['packages/app/src/index.ts'] =
+        "export { Bar } from './components'\nexport { Foo } from './components'\n"
+      fx['packages/app/src/features/cards/Foo.tsx'] =
+        'export function Foo() { return <div style={{ width: 40 }} /> }\n'
+      const dir = makeFixtureRepo(fx)
+      try {
+        const r = collect(dir, 'head')
+        const p = r.pairs.pairs.find((x) => x.name === 'Foo')
+        const mc = (r.pairs.multiCandidates ?? []).find((e) => e.name === 'Foo' && e.side === 'rn')
+        return (
+          !!p &&
+          p.rn === 'packages/app/src/components/Foo.tsx' &&
+          !!mc &&
+          mc.chosen === 'packages/app/src/components/Foo.tsx' &&
+          mc.by === 'exit' &&
+          mc.others.includes('packages/app/src/features/cards/Foo.tsx')
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+  )
+  t(
+    '㊀ 装车锁(归一化文本):配对源、出口喂入、双面上报缺任何一个都红 —— 面扩了判据没扩 = 白扩',
+    (() => {
+      const flat = readFileSync(fileURLToPath(import.meta.url), 'utf8').replace(/\s+/g, ' ')
+      return (
+        /'packages\/app\/src\/components', 'packages\/app\/src\/features', 'apps\/mobile-rn\/src\/components'/.test(
+          flat,
+        ) &&
+        /exitPreferMaps\(repoRoot, face, probe\.multiCandidates \?\? \[\]\)/.test(flat) &&
+        /scan\(lists\.miniapp, lists\.rn, aliases, exit\.maps\)/.test(flat) &&
+        /\{ preferMaps: exit\.maps \}/.test(flat) &&
+        /multiCandidates: collected\.pairs\?\.multiCandidates \?\? \[\]/.test(flat) &&
+        /exitNotes: collected\.exitNotes \?\? \[\]/.test(flat) &&
+        /同侧多候选/.test(flat) &&
+        /出口链/.test(flat)
+      )
+    })(),
+  )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
@@ -3799,6 +4178,8 @@ export const __test__ = {
   diffValues,
   diffCount,
   scan,
+  pickCandidate,
+  exitPreferMaps,
   styleLanguage,
   iconCarriers,
   clauseDemand,
