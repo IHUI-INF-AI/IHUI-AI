@@ -204,22 +204,29 @@ export default function PopularCourses({
       {/* 双 Tab(对齐原项目 popular-courses-tab-box) */}
       <View style={styles.tabBox}>
         {COURSE_TABS.map((tab, idx) => (
+          // 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
+          // interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失(守门 131
+          // 那一型)。外框拿 padding 槽位,面层撑满内容盒并只拿 pressed。
           <Pressable
             key={tab}
-            style={({ pressed }) => [styles.tabItem, pressed ? styles.tabItemPressed : null]}
+            style={styles.tabItem}
             onPress={() => handleTabPress(idx)}
             accessibilityRole="button"
             accessibilityState={{ selected: selectedTab === idx }}
             accessibilityLabel={tab}
           >
-            <Text
-              style={[
-                styles.tabText,
-                selectedTab === idx ? styles.tabTextActive : styles.tabTextNormal,
-              ]}
-            >
-              {tab}
-            </Text>
+            {({ pressed }) => (
+              <View style={[styles.tabFace, pressed ? styles.tabItemPressed : null]}>
+                <Text
+                  style={[
+                    styles.tabText,
+                    selectedTab === idx ? styles.tabTextActive : styles.tabTextNormal,
+                  ]}
+                >
+                  {tab}
+                </Text>
+              </View>
+            )}
           </Pressable>
         ))}
       </View>
@@ -280,6 +287,11 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   tabItem: {
     paddingVertical: 4,
+  } as ViewStyle,
+  // 面层:撑满外框内容盒(外框的 paddingVertical 逐字未动),只承载按压态。
+  tabFace: {
+    width: '100%',
+    height: '100%',
   } as ViewStyle,
   tabItemPressed: {
     opacity: 0.7,
