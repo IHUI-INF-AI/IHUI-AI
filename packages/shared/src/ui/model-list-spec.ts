@@ -25,6 +25,23 @@
  *    (高 1、缩进 68)、文字徽章(TOP1/NEW 9、免费/付费 11)、字距 `letterSpacing` 0.5、
  *    描述行距 2 在小程序侧没有对应实现 —— 机制/媒介差异,按守门 128 的口径走台账 waivers,
  *    不是"再收一档"就能消掉的。
+ *  - **2026-09-27 O81 逐档判定(读数「仅小程序档 4/10/80 | 仅 RN 档 1/2/9/11/44/68」的落点账,
+ *    行号为该次 HEAD 面实测)**:
+ *    4 = 小程序 list 变体两处:外层容器 `py-1`(上面 MODEL_LIST_CONTENT_BOTTOM_PADDING_PX 注里
+ *    已登记「另计一票」的布局裁决项,本票不动)与折叠区分组头行 `pb-1` —— 后者判为**同元素不同档**
+ *    (RN sectionHeader paddingVertical 8,且与本行自身 pt-2 也分叉),已收敛为 `pb-2`(间距取较大);
+ *    故 4 在集合读数中仍由前者供给,这是量纲(集差)判据的如实上限,不是漏改。
+ *    10 = popup 变体的块内首字母(`fontSize: rpx(20)` 两处)与普通行用途分类标注(`rpx(20)` 两处)
+ *    —— 前者属上面行盒/logo 块裁决项,后者 RN 该行渲染的是 description、不渲染分类标注;
+ *    80 = popup 骨架条宽(`width: rpx(160)`)—— RN 端无 loading prop、无骨架屏实现,RN 腿不渲染;
+ *    1 = RN 文字徽章容器 `paddingVertical: 1`(rank/new)与 separator `height: 1`(单侧机制元素);
+ *    2 = RN 徽章容器 `paddingVertical: 2`(免费/付费,小程序同位是位图徽章)与 description
+ *    `marginTop: 2`(单侧行,上面已登记);
+ *    9 / 11 = RN 文字徽章字号 TOP1/NEW=9、免费/付费=11(同一位在小程序是 rankone.png /
+ *    mian_label.png 位图,媒介差异,上面已登记);
+ *    44 = RN iconWrap 块高(行盒裁决项);68 = RN separator 缩进(随单侧 ItemSeparatorComponent)。
+ *    除 `pb-1`→`pb-2` 外,其余全部为「另一腿不渲染该元素」或已登记裁决项 —— 按票规不造元素、
+ *    不删档凑数、不给单端补裸数字。
  */
 
 /**
