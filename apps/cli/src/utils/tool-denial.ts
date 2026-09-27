@@ -20,7 +20,7 @@
  * 回灌模型/打印终端的错误里,消费方既有操作员也有模型,英文零信息损失(同款理由见
  * `tools/index.ts` 的 execBudgetResult 注释)。
  */
-import { createHash } from 'node:crypto'
+import { digestToolArgsStructure } from '@ihui/shared/utils/tool-args-digest'
 
 import { auditLog } from '../audit.js'
 
@@ -30,7 +30,10 @@ export type ToolDenialGate = 'permission-rule' | 'dangerous-gate' | 'lease-diges
 /** 是谁说的"不":静态规则 / 无确认出口(无头) / 真人当面拒绝。 */
 export type ToolDenialDecider = 'rule-deny' | 'no-confirmation-channel' | 'user-declined'
 
-/** 本次调用参数的可公开摘要:sha256 短指纹 + 键名列表,**不含任何值**。 */
+/**
+ * 本次调用参数的可公开摘要:结构指纹(`args-sha256-v1-<64hex>`,由共享层唯一出口产出的
+ * 键序归一摘要)+ 键名列表,**不含任何值**。
+ */
 export interface ToolArgsDigest {
   readonly fingerprint: string
   readonly keys: readonly string[]
@@ -53,14 +56,20 @@ export interface BuildToolDenialInput {
 }
 
 /**
- * 参数摘要的唯一实现。指纹的输入序列化与租约摘要维度同一口径(`JSON.stringify(args ?? null)`),
- * 两处各拼一遍必然漂移(本仓"同一 key 共用一份实现"同族教训)。
+ * 参数摘要不再端内自算 —— 唯一出口是 `@ihui/shared/utils/tool-args-digest` 的档1 结构摘要
+ * `digestToolArgsStructure`(`sha256:<12hex>` → `args-sha256-v1-<64hex>`,键序归一)。
+ * 立因(86E):旧形态直接序列化入参、不归一键序,同一次逻辑调用在两次重试里只要模型换了
+ * 参数对象的键序,审计指纹就变 —— 而审计指纹的存在意义正是「这两次是不是同一件事」。
+ * 输出形状 `{fingerprint, keys}` 保持不变,消费方(审计行/错误串)无需改动。
+ * 如实登记的两格:① 本出口只落审计行与错误串,不在租约/权限相等性路径上(那条另有实现);
+ * ② 只取档1,未带 `summarizeToolArgs` 的 lossy/形态两维 —— lossy 命中时两条不同调用可能
+ * 同指纹,要当「证据级等值结论」须改走组合出口(86A 头注同一口径)。
  */
 export function digestToolArgs(args: Record<string, unknown> | undefined): ToolArgsDigest {
-  const serialized = JSON.stringify(args ?? null)
-  const hash = createHash('sha256').update(serialized, 'utf8').digest('hex').slice(0, 12)
-  const keys = Object.keys(args ?? {}).sort()
-  return { fingerprint: `sha256:${hash}`, keys }
+  return {
+    fingerprint: digestToolArgsStructure(args ?? null),
+    keys: Object.keys(args ?? {}).sort(),
+  }
 }
 
 const GUIDANCE_PERMISSION_RULE_DENY =
