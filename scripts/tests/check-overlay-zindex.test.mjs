@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -21,7 +21,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-overlay-zindex.mjs')
 
 // ─── 辅助:创建临时扫描目录(含 apps/web 结构)────────────
 function createTempScanDir(files) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-overlay-z-'))
+  const dir = mkScratch('ihui-overlay-z-')
   for (const [relPath, content] of Object.entries(files)) {
     const fullPath = join(dir, relPath)
     mkdirSync(join(fullPath, '..'), { recursive: true })
@@ -60,7 +60,7 @@ function assertPass(r) {
 
 // ─── 1. CLI --help 不崩溃(脚本未实现 --help,按默认模式运行) ─
 test('CLI: --help 不崩溃(空目录 → exit 0)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-overlay-help-'))
+  const dir = mkScratch('ihui-overlay-help-')
   try {
     const r = spawnSync('node', [SCRIPT_PATH, '--help'], {
       cwd: dir,
@@ -70,7 +70,7 @@ test('CLI: --help 不崩溃(空目录 → exit 0)', () => {
     assert.ok(r.status === 0 || r.status === 1, `--help 不应 crash,实际 exit ${r.status}\nstderr: ${r.stderr}`)
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -84,7 +84,7 @@ test('违规: fixed inset-0 bg-black/50 z-50 → exit 1', () => {
     assertHasViolation(r)
     assert.match(r.stderr, /z-50/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -98,7 +98,7 @@ test('违规: fixed inset-0 bg-black/50 z-10 → exit 1', () => {
     assertHasViolation(r)
     assert.match(r.stderr, /z-10/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -111,7 +111,7 @@ test('合法: fixed inset-0 bg-black/50 z-modal → exit 0', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -124,7 +124,7 @@ test('合法: fixed inset-0 bg-black/50(无 z 类)→ exit 0', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -138,7 +138,7 @@ test('合法: fixed inset-0 z-50(无视觉遮罩背景)→ exit 0(透明点击�
     // 无 bg-black 等视觉遮罩背景 → 不在守门范围(透明点击捕获层)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -151,7 +151,7 @@ test('合法: inset-0 bg-black/50 z-50(无 fixed)→ exit 0', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -164,7 +164,7 @@ test('合法: fixed bg-black/50 z-50(无 inset-0)→ exit 0', () => {
     const r = runScript(dir)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -178,7 +178,7 @@ test('违规: fixed inset-0 bg-slate-900/80 z-40 → exit 1(slate 遮罩)', () =
     assertHasViolation(r)
     assert.match(r.stderr, /z-40/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -192,7 +192,7 @@ test('违规: fixed inset-0 bg-background/90 z-30 → exit 1(background 遮罩)'
     assertHasViolation(r)
     assert.match(r.stderr, /z-30/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -210,7 +210,7 @@ test('批量: apps/web 含 3 文件(2 违规 + 1 合法)→ 报告 2 违规', ()
     const cleanStderr = r.stderr.replace(/\x1B\[[0-9;]*m/g, '')
     assert.match(cleanStderr, /发现 2 处违规|2 处违规/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -224,7 +224,7 @@ test('违规: fixed inset-0 bg-black/50 z-0 → exit 1(z-0 禁止)', () => {
     assertHasViolation(r)
     assert.match(r.stderr, /z-0/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -239,7 +239,7 @@ test('合法: fixed inset-0 bg-black/50 z-100 → exit 0(z-100 不在禁止列�
     // 也不匹配 \bz-100\b(不在 FORBIDDEN_Z_CLASSES)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -252,7 +252,7 @@ test('路径: packages/ui-react/src 下的文件也被扫描', () => {
     const r = runScript(dir)
     assertHasViolation(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -266,19 +266,19 @@ test('违规: fixed inset-0 bg-zinc-900/80 z-20 → exit 1(zinc 遮罩)', () => 
     assertHasViolation(r)
     assert.match(r.stderr, /z-20/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 // ─── 16. 空目录(无 apps/web)→ 扫描 0 文件 exit 0 ──────
 test('空目录: 无 apps/web → 扫描 0 文件 exit 0', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-overlay-empty-'))
+  const dir = mkScratch('ihui-overlay-empty-')
   try {
     const r = runScript(dir)
     assert.equal(r.status, 0, `空目录应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /扫描 0 文件|扫描.*文件/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -293,7 +293,7 @@ test('注: .css 文件 z-index: 9999 不被检测(源脚本只检测 className z
     // 注:这是源脚本的已知行为(只覆盖 Tailwind z 类,不覆盖原生 CSS)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

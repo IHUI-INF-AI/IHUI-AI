@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -18,7 +18,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-safe-parse.mjs')
 // check-safe-parse.mjs 用 process.cwd() 推导 apps/api/src/routes,
 // 不调用 git,所以无需 git init,只需目录结构匹配。
 function createTempRoot({ withRoutesDir = true } = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-safe-parse-'))
+  const dir = mkScratch('ihui-safe-parse-')
   if (withRoutesDir) {
     mkdirSync(join(dir, 'apps', 'api', 'src', 'routes'), { recursive: true })
   }
@@ -55,7 +55,7 @@ test('目录不存在: apps/api/src/routes 缺失 → exit 1 + 报告目录不�
     assert.equal(r.status, 1, `目录不存在应 exit 1\nstdout: ${r.out}\nstderr: ${r.stderr}`)
     assert.match(r.out, /目录不存在|❌/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -68,7 +68,7 @@ test('空目录: routes 存在但无 .ts 文件 → exit 0 + 0 处 silent-ignore
     assert.match(r.out, /0 处 silent-ignore/)
     assert.match(r.out, /✅/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -95,7 +95,7 @@ test('安全: const x = schema.safeParse() + if (!x.success) → exit 0', () => 
     assert.equal(r.status, 0, `检查 .success 应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /0 处 silent-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -118,7 +118,7 @@ test('安全: const { success, data } = schema.safeParse() → exit 0', () => {
     assert.equal(r.status, 0, `解构 success 应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /0 处 silent-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -141,7 +141,7 @@ test('安全: 用 if (!result) 否定检查 → exit 0', () => {
     assert.equal(r.status, 0, `!result 检查应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /0 处 silent-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -164,7 +164,7 @@ test('安全: 用 if (result === false) 检查 → exit 0', () => {
     assert.equal(r.status, 0, `=== false 检查应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /0 处 silent-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -187,7 +187,7 @@ test('安全: .success 检查在 lookAhead 第 8 行(边界)→ exit 0', () => {
     assert.equal(r.status, 0, `第 8 行边界检查应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /0 处 silent-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -216,7 +216,7 @@ test('违规: silent-ignore(无 .success 检查)→ 报告 + exit 0(警告模式
     assert.match(r.out, /unsafe\.ts/)
     assert.match(r.out, /silent-ignore 风险/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -240,7 +240,7 @@ test('违规: .success 检查超过 lookAhead 8 行(第 9 行)→ 报告 silent-
     assert.match(r.out, /1 处 silent-ignore/)
     assert.match(r.out, /too-late\.ts/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -268,7 +268,7 @@ test('多行赋值: const x =\\n  schema.safeParse() + if (!x.success) → exit 
     assert.equal(r.status, 0, `多行赋值+检查应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /0 处 silent-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -311,7 +311,7 @@ test('批量: 2 文件(1 安全 + 1 违规)→ 仅报告违规文件', () => {
       `安全文件不应出现在违规列表中\nstdout: ${r.out}`,
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -338,7 +338,7 @@ test('过滤: .js 文件不被扫描(仅 .ts)→ 0 处 silent-ignore', () => {
     assert.equal(r.status, 0, `.js 不被扫描应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /0 处 silent-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -371,7 +371,7 @@ test('统计: 输出路由数 + safeParse 数 + silent-ignore 数', () => {
     assert.match(r.out, /safeParse 调用:\s+2/)
     assert.match(r.out, /silent-ignore 风险:\s+1/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -399,7 +399,7 @@ test('多 safeParse: 同文件 2 处均违规 → 报告 2 处 silent-ignore', (
     assert.match(r.out, /2 处 silent-ignore/)
     assert.match(r.out, /multi\.ts/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

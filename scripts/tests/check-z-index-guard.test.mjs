@@ -5,10 +5,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync, execSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -111,7 +111,7 @@ const DEFAULT_FILES = {
 
 // ─── 辅助:创建临时项目目录(默认 5 文件,overrides 可覆盖/置 null 删除) ───
 function createTempProject(overrides = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-zguard-'))
+  const dir = mkScratch('ihui-zguard-')
   const files = { ...DEFAULT_FILES }
   for (const [key, value] of Object.entries(overrides)) {
     if (value === null) {
@@ -169,7 +169,7 @@ test('合法: 5 文件全部合规(含第 5 项两组契约)→ exit 0', () => {
     // 第 5 项必须真的判绿,而不是"没跑到"(缺文件只 warn)
     assert.match(r.stdout, /两组契约齐全/, `stdout 应含第 5 项判绿\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -181,7 +181,7 @@ test('违规: GlobalTopBar.tsx 缺失 → exit 1(第 5 项契约文件缺失是 
     assertFail(r)
     assert.match(r.stdout, /契约文件缺失/, `stdout 应点名契约文件缺失\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -195,7 +195,7 @@ test('违规: 压暗覆盖层标记被删(只剩裸 data-window-controls)→ exi
     assertFail(r)
     assert.match(r.stdout, /data-window-controls-dim/, `stdout 应点名缺失标记\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -208,7 +208,7 @@ test('违规: tokens.css --z-base 含 !important → exit 1', () => {
     assertFail(r)
     assert.match(r.stdout, /!important/, `stdout 应含 !important 标记\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -221,7 +221,7 @@ test('违规: tokens.css 缺少 --z-modal → exit 1', () => {
     assertFail(r)
     assert.match(r.stdout, /--z-modal.*未找到|未找到.*--z-modal/, `stdout 应含 --z-modal 未找到\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -234,7 +234,7 @@ test('违规: tokens.css --z-sticky 值错误 → exit 1', () => {
     assertFail(r)
     assert.match(r.stdout, /--z-sticky.*未找到|未找到.*--z-sticky/, `stdout 应含 --z-sticky 未找到\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -254,7 +254,7 @@ test('违规: globals.css .z-modal 含 !important → exit 1', () => {
     assertFail(r)
     assert.match(r.stdout, /\.z-modal.*!important|!important.*\.z-modal/, `stdout 应含 .z-modal !important\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -274,7 +274,7 @@ test('违规: layout.tsx 缺少 setProperty(--z-modal) → exit 1', () => {
     assertFail(r)
     assert.match(r.stdout, /setProperty\('--z-modal'/, `stdout 应含 setProperty('--z-modal' 缺失\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -294,7 +294,7 @@ test('违规: dialog.tsx 含 data-[state=open]:animate-in + fade-in-0 → exit 1
     assertFail(r)
     assert.match(r.stdout, /fade-in|animate-in/, `stdout 应含 fade-in/animate-in 标记\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -310,7 +310,7 @@ test('违规: dialog.tsx 仅含 data-[state=open]:fade-in-0 → exit 1', () => {
     assertFail(r)
     assert.match(r.stdout, /fade-in/, `stdout 应含 fade-in 标记\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -326,7 +326,7 @@ test('违规: tokens.css 文件缺失 → exit 1', () => {
     assertFail(r)
     assert.match(r.stdout, /tokens\.css 不存在/, `stdout 应含 tokens.css 不存在\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -338,7 +338,7 @@ test('违规: globals.css 文件缺失 → exit 1', () => {
     assertFail(r)
     assert.match(r.stdout, /globals\.css 不存在/, `stdout 应含 globals.css 不存在\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -350,7 +350,7 @@ test('违规: layout.tsx 文件缺失 → exit 1', () => {
     assertFail(r)
     assert.match(r.stdout, /layout\.tsx 不存在/, `stdout 应含 layout.tsx 不存在\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -362,7 +362,7 @@ test('违规: dialog.tsx 文件缺失 → exit 1', () => {
     assertFail(r)
     assert.match(r.stdout, /dialog\.tsx 不存在/, `stdout 应含 dialog.tsx 不存在\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -382,7 +382,7 @@ test('边界: dialog.tsx 无 DialogPrimitive.Overlay → exit 0(仅警告不阻�
     assertPass(r)
     assert.match(r.stdout, /未找到 DialogPrimitive\.Overlay/, `stdout 应含未找到 Overlay 警告\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -401,7 +401,7 @@ test('staged 模式: git 仓库无相关 staged 文件 → 跳过 exit 0', () =>
     assert.equal(r.status, 0, `无相关 staged 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
     assert.match(r.stdout, /跳过/, `stdout 应含跳过标记\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -414,7 +414,7 @@ test('staged 模式: git 仓库有相关 staged 文件(globals.css)→ 跑全量
     const r = runScript(dir, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
