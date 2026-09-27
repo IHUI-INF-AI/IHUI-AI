@@ -12121,3 +12121,11 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **学习页「更多」折行**:让出给 StudyBar 在飞会话(同文件族),本批零触碰,已在原条目下注让出说明。
 - **并行纪律**:本批提交与并发会话的「第二波认领」(54/62/63/75/83/80)零文件交集;全程 pathspec 提交 + PLAN 行级重放(提交面=HEAD+本批编辑,工作树在飞状态备份于 `.ihui-agent/tmp/plan-worktree-prebypass-20260927.md` 并在每批提交后原样恢复),未代收任何在飞内容。
 
+## O86附③ 推送收敛被两件事卡住(如实登记,不是已完成)
+
+- **量到的分叉**(2026-09-27 09:0x,远端权威值 `git ls-remote` 实读 `55cab9d1aa4`):本机 main **领先 20 枚 / 落后 19 枚**。本会话那 9 枚(含 `1f2de9045ae` O86附②、`3ef251a2007` 第三轮对标立项)**仍在本地**,判据是 `git merge-base --is-ancestor <我的 sha> 55cab9d1aa4` 返回假 —— 不是"已推完在等回读"。
+- **卡点一 = 通道**:`ssh.github.com:443` 与"本机代理 7897 桥接 ssh"两条路**同时间歇不通**(实测同一分钟里 fetch 成功而 ls-remote 回 `Connection reset`/`kex_exchange_identification`)。`git-sync-converge.mjs` 的处置是对的:合并前复核远端取不到 ⇒ **不合并、不推送、绝不拿跟踪 ref 残值落槌**,连跑 4 轮 ×3 子轮全部止步于此。`push-state.json` 终态 `failed / kind=other / 退出码 128 且无可辨认特征`。
+- **卡点二 = 真冲突,归属主判,不由我代裁**:`node scripts/union-converge.mjs --theirs 55cab9d1aa4` 报 **需人工 1 处** —— `apps/mobile-rn/src/components/Toolbar.tsx` 两侧相对共同基底 `5934bebde9f` **各自独立改动**(本侧 `d12125f071c` 09-27 08:36 作者 AI智汇社 21+/19−;对侧 `8c258678185` 09-27 08:08 作者 智汇AGI社区 91+/40−),merge-file 冲突区 2 处。按 §7/§16「不代裁」与「移动端不归本会话」,这不是我该拍板的内容。
+  - 解阻动作(持有该文件的一方执行):人工判好后 `node scripts/union-converge.mjs --theirs <远端 sha> --apply --resolve 'apps/mobile-rn/src/components/Toolbar.tsx=<整份内容文件>'`,它会替判断做两侧丢行断言;冲突收住后再跑 `node scripts/git-sync-converge.mjs` 收敛推送。
+- **本会话已做的减损**:按 §22 既有惯例建了 `backup/wip-unpushed-2026-09-27-5f48340e5f9`(指向当时的 main,把 20 枚未推送提交连同他人工作一起钉住,防 09-23「15 条未推送 commit 对象永久丢失」同型事故);推送该 tag 的第 4 次尝试已连上服务端(打出 git-lfs 锁提示)但**回读未确证**(随后 ls-remote 连回 rc=128)⇒ **这枚 tag 是否在远端仍是未决事实**,通道恢复后先跑 `git ls-remote origin 'refs/tags/backup/*'` 验它,不在就重推。
+- **防误读三条**:① 我的交付**已提交且 HEAD 面逐项验到**(守门 137 在 runner 恰好 1 条 + AGENTS 点名 + `check:digest-name` 入口 + 判据文件在树;五处修复点 `redactSecrets`/`BARE_SECRET_RE`/`sha256` 摘要/`_migrate_fingerprint_hash`/`createHash('sha256')` 各命中 ≥1),未验的只是"到了远端";② 不得为让收敛过去而改 `Toolbar.tsx` 或削判据;③ 本地 HEAD 在被并发会话高频推进,派单/复核一律当次现读,勿照本条数字。
