@@ -13773,3 +13773,95 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
 - [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-257」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的**可跑性依赖 cwd** —— 在 `apps/ai-service` 下跑 `node ../../scripts/check-agent-engine-parity.mjs` 抛异常退出(rc=1),从仓根跑则 rc=0。与"文档不得写跑不通的出路"同族:要么让它自身定位 repo root,要么在头注写明必须从仓根跑。归属:该门持有人。解阻判据:两个 cwd 下退出码一致。
 - [x] ✅(2026-09-27) **86G-1. 免鉴权验签公钥端点已落地(86G 的第一半;用户拍板"开免鉴权公钥端点")**:`GET /api/audit-evidence/public-key` 匿名 200、响应键集**恰为** `algorithm/keyId/publicKey`(多一键即红)、整段不匹配 `PRIVATE KEY`、按 IP 限流 30/min、未配置密钥 ⇒ **503 并点名所缺环境变量**(不把"没有"写成"有")。**票面原设想被现读推翻**:原计划"挂在该路由文件既有 admin 前缀下就不动注册表" —— `server.ts` 的零信任注入对 `/api/admin/*` 强制 `network.allowExternal:false`、`network-segment.ts` 真实执行 403 ⇒ 挂 admin 前缀等于"免了鉴权仍公网不可达",故改挂非 admin 的 `/api/audit-evidence`;`routes/index.ts` 两枚对象空间登记(import 整行替换 + `server.register(` 计数 **382→383**、`register(auditEvidenceExportRoutes` 仍为 1 ⇒ 没顶掉别人)。主会话自己复跑 `pnpm --filter @ihui/api test audit-evidence-export` → **Tests 24 passed (24)**(原 18 + 新 6,含"摘掉私钥、把环境公钥换成端点返回的字节后验签仍通过"的**闭环**);三枚提交 `64d894c58`/`e0f7d13f4`/`d365bc6d4` 均在 HEAD 且已在远端。**一处票面判据不可构造如实登记**:"把公开清单扩成前缀正则 ⇒ 反向2 翻红"在本仓做不到 —— 本仓鉴权由**封装作用域**决定而非 URL 清单,正则放行触不到 admin 路由;等价棘轮换成两条:路由表里匿名前缀**恰 1 行**(新增第二条匿名路由即红)+ 把匿名插件挪进带 `requireAdmin` 的作用域 ⇒ 匿名必 401(证明正向 200 对接线敏感、非恒真)。§21 的 README 同步已由主会话落地(同枚对象空间提交)。
 - [ ] **86G-2. 密钥轮换与 kid→多公钥表(86G 的第二半,仍在账)**:现在只认"当前配置的那一把"公钥,`verifySignedAuditExport` 对 `kid` 不匹配判**拒绝**而不是去查 `kid → 公钥` 表 ⇒ **轮换期内旧信封永久验不过**,而旧信封恰恰是最需要能验的(证据的时间跨度天然长于密钥寿命)。要做:① 一张受版本控制的多公钥登记表(按 kid 索引,带 `notBefore/notAfter` 与"为何保留"的理由);② 验签按信封里的 kid 查表,查不到 ⇒ 明确的"未知密钥"三态(不得与"验不过"同形 —— 那是把没判写成判过了);③ 与 86D 的保留期(结构行 180 天)对齐:**公钥保留期必须 ≥ 信封保留期**,否则等于自造"永远验不了的那一段"。**判据**:换钥后旧信封仍验通过 ∧ 未知 kid ⇒ 三态可分辨 ∧ 表里指向已删密钥的行按腐烂判红(参照守门 108/107 的台账防腐烂做法)。**前置**:密钥先真配上(现读 `grep -c AUDIT_EXPORT_SIGN apps/api/.env` = 0 ⇒ 今天匿名面上线即 503,属设计内)。
+
+- [x] ✅(2026-09-27) O81 票⑳ —— **扩展端 D113 的收回与前置:委托面缺失时"开通"只会产出承诺落空的画面**(承票⑲)
+  用户为票⑲ 选了「开通,扩展也要流中预览」,并授权做真实端到端验证。开工先量执行面,量出三条,方向相反:
+  ① 扩展请求既不送 `workspacePath` 也不送 `workspaceContext`,而 `apps/ai-service/app/routers/llm.py`
+  的浏览器委托分支条件是 `if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS` —— 条件不成立,
+  fs 类工具不会像 web 那样交回浏览器执行,而是落到服务端 `_mcp.call_tool`。
+  ② 服务端那侧 `write_file` / `file_edit` 属 `mcp_server.py:416` 的 `_ADMIN_ONLY_TOOLS`,而对话链传下去的
+  `__user_role` 恒为 0(现读 `grep -n "__user_role" app/routers/llm.py` 零命中;`mcp_server.py` 自己的注释
+  原文即「对话链 user_role=0,入名单即断链」)⇒ **每次必失败**;而发帧点(`:3285`)在权限判定之前,
+  所以用户会先看到一条流中 diff、再看到一条权限错误 —— 界面在承诺一件不会发生的事。
+  ③ `edit_file` 在服务端注册表里不存在(注册名是 `file_edit`),它只在 web 的委托面成立;而只读族
+  `read_file` **不在** admin 名单里,于是在服务端工作区(`MCP_WORKSPACE_ROOTS`,缺省 `os.getcwd()`)上执行
+  —— 那是把"每个扩展用户可读服务器文件"打开,属**越权面变更**,不是能力补齐(AGENTS §5「已登录不等于可以动这条数据」)。
+  **处置**:扩展端只带 UI 操控族,四条理由写进 `apps/extension/lib/ui-control-tools.ts` 的
+  `toolsForChatRequest` 头注;测试同时钉"不带"与"理由在位"(`_ADMIN_ONLY_TOOLS` / `workspace_context`
+  两个标识符必须仍在那个文件里)—— **排除必须带理由,否则下一个人一定顺手补回来**(本仓对"死注册"与
+  "静默排除"是同一条禁令)。共享模块 `file-tool-intent.ts` 头注补一条通用边界:**这张表只在"该端有委托面"
+  时等于能力**,新增消费方先确认 `onToolDelegate` + `POST /llm/complete/stream/{session_id}/tool-result` 存在。
+  **保留不动的一格(刻意)**:端内 `tool-delta` 客户端管线全留 —— 归并层 `lib/tool-call-frames.ts`、
+  `onToolDelta` 注册、result 清预览、`ToolRenderBlock.partialDiff` 投影、渲染位与 `@ihui/types`
+  的 `ToolCall.partialDiff` 字段收敛。理由:委托面一到位即生效,而"帧到本端却没人接"是本仓最贵的一型
+  (守门 64/70/81/115/138 同族);台账 `scripts/data/sse-dispatch-coverage.json` 的 `baseline.extension`
+  维持 18(该端确实已接该帧),而 `missing.extension.onToolDelegate` / `onToolApproval` 两条仍在,
+  它们现在升级为**这条能力的硬前置**。
+  **待用户批准的新功能(不是本票能顺手做的)**:给扩展建委托面 —— 工作区句柄选择 + `onToolDelegate`
+  执行器 + tool-result 回传 + 审批位。它同时会解掉 `onToolApproval` 那一格,爆炸半径是"扩展用户可以在
+  自己选定的目录里让模型改文件",因此按 §24 须显式批准,不得按"通道收口"顺手摘或顺手装。
+  **取证**:端内 16 例(混合话术那条带非空断言,防"空集恒真"式假绿)+ 共享 9 例;
+  两条形状锁的反向读数由探针量过(把 import 补回 / 把理由注释删掉,各自翻红)。
+  现仓剩余 typecheck 红全部归属并行会话在飞改动(`ui-react` 的 `UploadLabels`、`chat/tool-display.ts:46`
+  的 TS1117 重名属性、`prompt-history` 测试面 5 条),本票不代修他人文件。
+
+- [ ] O81 票㉑ —— 给扩展建**委托面**,才是"扩展也要流中预览"的真正前置(§24:属新功能,须用户批准)
+  范围四件:① sidepanel 内的工作区句柄选择(File System Access API 在扩展页是否可用**必须先实测**,
+  不可假定与 web 同 —— web 那条走 `getBrowserWorkspaceHandle()`,扩展没有对应宿主);
+  ② `onToolDelegate` 执行器 + `POST /llm/complete/stream/{session_id}/tool-result` 结果回传;
+  ③ 审批位 `onToolApproval`(与 ② 同前置,台账那两条 missing 一起清,不得只解一条);
+  ④ 三条到位后把 `toolsForChatRequest` 改为消费 `@ihui/shared/chat/file-tool-intent`,并**删除票⑳ 写在端内
+  的四条"不带理由"**、同笔更新 `baseline.extension` 与 `missing.*`(理由留在原地而能力已开通,是一道会替
+  将来做错的决定背书的假账)。
+  验收必须含一次真浏览器取证,且判据是"预览出现**且该工具最终执行成功**"—— 票⑳ 的教训正是这两格
+  在界面上看起来都有反应,而只测前者会交付一台承诺落空的界面。
+
+
+- [x] ✅(2026-09-27) O81 票㉒ —— **CLI 其余三面接上流中预览(ACP / server agent-core / headless)**,按用户「三面都铺」执行。
+  三面形态不同,所以"接上"是三件事:ACP 不新增协议方法,复用 `tool_call_update` + `status:'in_progress'`
+  并把原帧 id 留在 `rawOutput` 供追溯;agent-core 的 `AgentEvent` 加 `tool_delta` / `tool_delta_clear`;
+  headless 的 `HeadlessEvent` 加同名两型,且 **`text`/`markdown` 两档刻意零输出**(那两种消费形态没有
+  "更新同一 id"的撤回通道,发出去等于把预览读成结果)。三面共用一枚 `createToolDeltaBridge()` 做配对与
+  清场,派生仍在唯一出口 `tools/file-edit-preview.ts`。取证 28 + 相邻 79 例全绿,含一条**无牙锁的自纠**:
+  原站点判据用 `includes("type: 'tool_delta_clear'")`,删掉终态那一处后中断那一处仍在场 ⇒ 判据形同虚设。
+  已知残余如实登记:ACP 异常轮不发终态 update(不发比伪造终态诚实)、建卡失败时 id 已入队(该端既有形态,
+  未顺手改别人错误路径)、帧归属靠"最近一次 onToolCall"/工具名配对(本地 id 与三面事件流 id 不同名),
+  以及 `hubEnabled && hubResolver` 那条提前派发路径未取证。commit message 逐条落明。
+
+- [x] ✅(2026-09-27) O81 票㉓ —— **小程序模型行的价格徽章改二分支**:此前"免费"徽章是恒真的
+  (旧注释原文「显示条件一字未动」),即付费模型在小程序上被标成免费 —— 不是少一枚徽章,是一句假陈述。
+  判据同时收成一份(`@ihui/shared/ui/model-badge-facts` 的 `modelIsFree`):RN 自己本来就有两套实测判据
+  (`AgentScreen.tsx:126` 读价格 / `AiAssistantN8nScreen.tsx:1113` 读 id 前缀),小程序再写第三套就是三端三答案。
+  顺带把四枚徽章圆角对齐到 RN 实值 `md`,并把一句**替错误取值背书的注释**("与 RN rankBadge 同档"写作 xs)改对。
+  `course.paid` 补进五语言包,取值逐字取自本包已有的 `devEnter.modelEdit.saleTypePaid`(不另翻一套译法),
+  离线包 `gen:i18n` 重生成(源包 diff 严格只增、删 0 行)。NEW 徽章**按证据不复制**:RN 那一支没有任何调用方
+  传 `isNew`,复制过去就是无数据源的死分支。读数:共享 8 / 端内 11 / miniapp typecheck 0 错 / 守门 128、77、105 与
+  i18n 五门全绿。**一条量不到的格子如实登记**:守门 128 对本票的圆角对齐改前改后读数一字不变
+  (该族 diffCount 6→6,RD/RE 均 0)—— RE 维只比同名元素,而小程序徽章圆角写在 inline style 里没有元素名可归
+  (门自报的 `mp=15/rn=0` 就是这一格),所以"RE 配对能力扩到 inline 具名样式"是本票留下的一票,不是已收口项。
+
+- [x] ✅(2026-09-27) O81 票㉔ —— **服务端"帧真上线"补证 + 一条量出来的设计事实**。新增
+  `apps/ai-service/tests/test_tool_delta_frame_reaches_the_wire.py`(7 例,进程内 ASGI 跑真实路由,
+  生产码一行未动):此前服务端只有**函数级**证明,没有一条用例把流式 tool loop 真跑一遍 —— 而票⑳ 的
+  病灶形状正是"函数都对、帧也发、这条端上根本不该发"。反向锁(`read_file` ⇒ 零帧)带三条共存断言
+  (`tool-call-start` 在场 + 桩被调用 + 轮数=2),否则"零"可能只是因为链路根本没跑;该锁的牙用双向变异量过
+  (只把名字塞进发帧名单**不够**红,还得让它真产出预览文本 —— 于是"名字在集合里"与"会发帧"被区分开了)。
+  **量出来的事实(交持有人判,本票未改生产码)**:发帧点 `llm.py:3284-3298` 早于去重(:3359)、审批门
+  (:3504)、浏览器委托(:3659)与执行器(:3911/:3945),因此"被去重跳过 / 被审批拒绝 / 审批超时 /
+  权限矩阵拒绝(用例里读出 `errorCode=PERMISSION_DENIED` 而帧照发)"四条路径下用户都会先看到一条流中
+  diff、再看到一条"未执行"。这与票⑳ 在扩展端量到的是同一形状,只是发生在服务端;把发帧挪到审批之后会
+  丢掉"边写边看"的价值,属产品取舍 ⇒ 已作为待裁决项交用户,不自行改序也不削判据。
+  读数:7 passed / 相邻三套 40 passed / `mypy app --strict` 571 文件 0 issue。
+  环境口径记一条:本机 `python` 是 Microsoft Store 占位符(`Python was not found`,exit 49),
+  必须用仓库自带 `.venv/Scripts/python.exe`,不得把"python 不可用"读成"环境没搭好"。
+
+- [x] ✅(2026-09-27) 守门 90(现读编号以 runner 为准)的一处**假绿自纠** —— 命中侧从裸 `git grep`
+  改为"grep 枚举候选 + 剥注释与字符串后复核代码面"。起因是主会话自己上一枚提交(票⑳ 10dbf3af08)把
+  `onToolDelegate` / `onToolApproval` 写进一段"为什么本端不该接"的注释里,本门随即把两个未接帧读成已接:
+  extension 命中 18→20、台账两条真实缺口被判"该删的删"。**一段解释缺口的散文把缺口本身洗成了通过**,
+  而该门存在的意义正是拦"帧到该端没人接"。同族先例 89/115/121/131/135 全部"注释里的提及不算装车",
+  本门是这一族里最后一个还按裸 grep 判的。遮罩实现只有一份(`scripts/lib/code-mask.mjs`),读不到正文的文件
+  维持原结论并点名 `undetermined`(不把 IO 失败冒充"没命中")。取证:门自检 23/23(含"把注释改成真代码 ⇒
+  该条必须回到命中里"的有牙反例)+ 镜像 15/15(新增 ⑬ 为真仓正控:先证 HEAD 面上确有那两个名字,
+  再断言它们不在命中集,反向再证 `onToolDelta` 真注册仍在)。台账同笔删掉一个引用 0 次的孤儿分组
+  (`no-tool-delta-ui`)—— 它在票⑲ 删条目后就成了墓志铭,而本门自己的卫生判据不容登记项变墓志铭。
