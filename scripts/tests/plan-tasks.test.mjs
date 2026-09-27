@@ -414,18 +414,23 @@ test('M14 行首裸编号族必须进复合主键(F1 曾对整族失明 ⇒ 已�
 test('M16 标题退化(切完只剩主键)不得算复合主键 —— 否则两个不同议题会被并成一条并误翻勾', () => {
   // 真实事故形态(2026-09-27):`**G-257. 审计日志族…已修**`(已完成)与
   // `**G-257(新登记)**:check-agent-engine-parity…`(别人的未完成任务)。
-  // 两行的第一个分界符都紧跟在主键后面 ⇒ titleOf 都切出 "G-257" ⇒ 旧判据得到同一个 key
-  // `G-257#G-257` ⇒ F1 认定"同题两态" ⇒ 归并器把**未做完的那条**翻成已完成。
+  // 旧判据下两行的第一个分界符都紧跟主键 ⇒ 都切出 "G-257" ⇒ 同一个 key `G-257#G-257`
+  // ⇒ F1 认定"同题两态" ⇒ 归并器把**未做完的那条**翻成已完成。
+  //
+  // ⚠️ 修法分了两层,这一条只测"不得并成一条"那一层:
+  //  · `(新登记)` 这种**编号之外给不出实质标题**的形态 ⇒ 判退化 ⇒ 不成键(本条测它);
+  //  · `. 标题` 这种全仓最常见形态**不该**被判退化 —— 编号是本行主键,剥掉它剩下才是题面。
+  //    把它一并判退化等于把整个 `G-NNN. 标题` 族从对账里摘掉(那正是 M17 钉的那格失明)。
   const mine =
     '- [x] ✅(2026-09-27) **G-257. 审计日志族「参数校验失败被掩盖成 500」已修(7 站点/2 文件)**:病灶形态'
   const theirs =
     '- [ ] **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的**可跑性依赖 cwd** —— 两个 cwd 下退出码不一致'
-  if (!titleIsDegenerate(mine, titleOf(mine)))
-    throw new Error('第一行标题应判为退化(切完只剩 G-257)')
+  if (titleIsDegenerate(mine, titleOf(mine)))
+    throw new Error(`"编号. 实质标题"形态不得判退化,实测标题 ${JSON.stringify(titleOf(mine))}`)
   if (!titleIsDegenerate(theirs, titleOf(theirs)))
-    throw new Error('第二行标题应判为退化(切完只剩 G-257)')
-  if (compositeKeyOf(mine) !== null || compositeKeyOf(theirs) !== null)
-    throw new Error(`退化标题不得成键,实测 ${compositeKeyOf(mine)} / ${compositeKeyOf(theirs)}`)
+    throw new Error('第二行(编号后紧跟括号)仍须判退化 —— 撞号防线不许松')
+  if (compositeKeyOf(theirs) !== null)
+    throw new Error(`退化标题不得成键,实测 ${compositeKeyOf(theirs)}`)
   const a = auditPlan(['# p', mine, theirs].join('\n'))
   if (a.counts.forks !== 0)
     throw new Error(`不同议题同编号不得被 F1 配对(否则 --heal 会误翻勾),实测 ${a.counts.forks}`)
@@ -436,6 +441,25 @@ test('M16 标题退化(切完只剩主键)不得算复合主键 —— 否则两
   const done = '- [x] ✅(2026-09-27) **G-256 有实质标题的议题**:已完成并附证据。'
   const b = auditPlan(['# p', done, open].join('\n'))
   if (b.counts.forks !== 1) throw new Error(`正常同题两态必须仍被点名,实测 ${b.counts.forks}`)
+})
+
+test('M18 全仓最常见的 `**G-NNN. 标题**` 形态必须成键并被 F1 看见(补退化判据时曾把整族摘掉)', () => {
+  // 2026-09-28 现读:HEAD 里 G-265 / G-283 两组的"已完成副本"与"未勾原件"标题逐字相同,
+  // 却因为 titleOf 把编号本身留在标题里而两边都 null ⇒ F1=0 报"无分叉",而台账里其实躺着
+  // 两份状态相互矛盾的登记(派单人按 --open 拿走的就是那份已完成票的未勾原件)。
+  const open = '- [ ] **G-265. 守门 `check-stale-dist.mjs` 对 `@ihui/types` 的跳过口径正是幻影缺陷的成因**:它打印 skip'
+  const done =
+    '- [x] ✅(2026-09-27) **G-265. 守门 `check-stale-dist.mjs` 对 `@ihui/types` 的跳过口径正是幻影缺陷的成因**:它打印 skip'
+  const key = compositeKeyOf(open)
+  if (!key) throw new Error('该形态必须给出复合主键,实测 null ⇒ 整族仍在失明')
+  if (key !== compositeKeyOf(done)) throw new Error('同题两态必须同键,实测两侧不同')
+  if (key.startsWith('G-265#G-265')) throw new Error('标题里不得还留着主键本身(那正是退化形态)')
+  const a = auditPlan(['# p', done, open].join('\n'))
+  if (a.counts.forks !== 1) throw new Error(`同题两态必须被 F1 点名,实测 ${a.counts.forks}`)
+  // 变异对照(写在断言里,防止只测"函数会给答案"而不测"有人问它"):
+  // 把 titleOf 里的 stripOwnKey 摘掉 ⇒ 本条与 M16 的第一断言应同时翻红。
+  if (!/stripOwnKey\(stripLeadingNumeric\(rawBody\)/.test(readFileSync(path.resolve(ROOT, 'scripts', 'lib', 'plan-task-index.mjs'), 'utf8')))
+    throw new Error('titleOf 必须经 stripOwnKey 剥本行主键 —— 摘掉它就回到整族失明')
 })
 
 test('M15 带字母后缀的编号必须与标题跳过**同一份**实现(两处各抄一版 ⇒ 判据在自己刚修的族上失明)', () => {
