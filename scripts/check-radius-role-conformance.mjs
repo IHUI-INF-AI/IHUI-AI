@@ -43,7 +43,10 @@
 //      script: 'scripts/check-radius-role-conformance.mjs',
 //      stagedTriggers: ['apps/', 'packages/'],   // 圆角取用可发生在任意 UI 路径,收窄会放过整类
 //    接线前置:① 首次入锚(--emit-baseline 的产物进 scripts/radius-role-conformance-baseline.json,
-//    与门体**同枚**提交 —— 注册指向不存在的台账/脚本是 README 门那晚的事故);② HEAD 面默认档 exit 0。
+//    与门体**同枚**提交 —— 注册指向不存在的脚本/台账是 README 门那晚的事故);② HEAD 面默认档 exit 0。
+//    接线后必须复验**落在哪个数组**:runner 的迭代入口是 `pushGate ? pushGateChecks : checks`,
+//    实测本门第一次被并进的是 pushGateChecks —— grep 注册表查得到、全量批 180 道门里没有它,
+//    这种"装在另一条链上"的形态比没装更难发现(镜像 T1 现在钉的就是这一条)。
 //
 // 用法:
 //   node scripts/check-radius-role-conformance.mjs                # 全量(HEAD blob),存量不判红
@@ -652,7 +655,17 @@ export async function selfTest(repoRoot = ROOT) {
   t('14 rnRadiusFor.panel → 自带角色 panel', one('r: rnRadiusFor.panel')?.role === 'panel')
   t('15 radiusFor[\'chip\'] 括号形态 → 角色 chip', one(`r: radiusFor['chip']`)?.role === 'chip')
   t('16 RADIUS_ROLES.card 同条声明 → 角色 card', one('x: RADIUS_ROLES.card')?.role === 'card')
-  t('17 rnRadiusFor.hero 表里无此档 → null(共享解析读不到时不得当作合规)', one('r: rnRadiusFor.hero')?.px === null)
+  /**
+   * 17 的原文是「`rnRadiusFor.hero` 表里无此档 → null」—— 它把**解析器丢项**当成了规格写进断言。
+   * 角色表的值支以数字开头(`hero: '2xl'`)不被识别,role:hero 因此不存在,于是这条断言恒真,
+   * 而真正该判的东西(hero 这一档)永不可判。修好解析器时它当场翻红,正是这条红把缺陷指出来的:
+   * 断言不能只对"当前行为"负责,要对它**声称的那件事**负责。
+   * 现拆成一对:表里真没有的角色必须 null(判据的原意),表里有的 hero 必须解出 16(不得再退回 null)。
+   */
+  t(
+    '17 表里没有的角色 → null;表里有的 hero → 必须解出 16(成对,禁止把解析丢项当规格)',
+    one('r: rnRadiusFor.notARoleAtAll')?.px === null && one('r: rnRadiusFor.hero')?.px === 16,
+  )
   t('18 RN 数值属性 borderRadius: 12', one('borderRadius: 12,')?.px === 12)
   t('19 RN 方向属性 borderTopLeftRadius: 8', one('borderTopLeftRadius: 8,')?.px === 8 && one('borderTopLeftRadius: 8,')?.dir === 'TopLeft')
   t('20 **字符串形态** borderRadius: \'8px\'', one(`borderRadius: '8px',`)?.px === 8)
@@ -795,6 +808,46 @@ export async function selfTest(repoRoot = ROOT) {
   }
   t(`69 真仓 HEAD 阳性对照:${PROBE} 的 rounded-t-xl 必须被点名`, !!hit, hit ? `角色 ${hit.role} / 实际 ${hit.actualStep} / 应为 ${hit.expectedStep}` : '未命中 = 判据失明')
   t('70 同一形态只写进注释 ⇒ 必不命中(否则遮罩关掉的是判据)', !!probeSrc && blind)
+  /**
+   * 71–73:角色表**值支**必须认得数字开头的档名(`hero: '2xl'`)。
+   * 立因:解析器原先只认"字母开头标识符"或"纯数字"两种值 ⇒ `hero:'2xl'` 整行不匹配,
+   * 表里没有 role:hero,于是三个 hero 站点被报成 role-not-in-table(读起来像代码写错,
+   * 其实是尺子丢项),而 hero 这一档从此**永不可判**。这是同一条"漏读一侧不表现为少几个数"
+   * 的缺陷第三次出现(前两次:档位键 '2xl'、Tailwind 方向形态)。
+   */
+  t(
+    '71 角色表值支认数字开头档名 ⇒ role:hero 必须解出 16',
+    (() => {
+      const tbl = table
+      if (!tbl) return false
+      const hero = roleSpec(tbl, 'hero')
+      return !!hero && hero.px === 16 && hero.step === '2xl' && rolesInTable(tbl).includes('hero')
+    })(),
+  )
+  t(
+    '72 名字不得替元素认领纯尺寸档(hero/banner),但普通类别仍由名字判(成对)',
+    (() => {
+      const banner = rolesOfName('compactionBanner')
+      const heroName = rolesOfName('heroSection')
+      const card = rolesOfName('userCard')
+      return (
+        !banner.includes('hero') &&
+        !heroName.includes('hero') &&
+        ROLE_STEMS.hero?.nameCannotClaim === true &&
+        card.includes('card')
+      )
+    })(),
+  )
+  t(
+    '73 显式取用仍是唯一可判 hero 的路(收窄推理不等于放宽判据)',
+    (() => {
+      const tbl = table
+      if (!tbl) return false
+      const spec = roleSpec(tbl, 'hero')
+      // 显式声明走 f.role 直取,不经 rolesOfName ⇒ 一定拿得到档;拿不到就是两处路径都断了
+      return !!spec && spec.px === tbl['2xl'] && tbl['2xl'] === 16
+    })(),
+  )
   const bad = results.filter((r) => !r.ok)
   for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.name}${r.extra ? ` —— ${r.extra}` : ''}`)
   console.log(`--self-test: ${results.length} 条,失败 ${bad.length} 条`)
