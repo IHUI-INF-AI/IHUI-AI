@@ -438,7 +438,7 @@ export function SidebarChatHistory({
       <div
         role="region"
         aria-label={t('title')}
-        className="mb-1 w-full rounded-md border border-border bg-card p-1.5"
+        className="mb-1 w-full rounded-lg border border-border bg-card p-1.5"
       >
         <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span>{tc('history')}</span>
@@ -936,7 +936,7 @@ export function SidebarChatHistory({
       <div
         role="region"
         aria-label={t('title')}
-        className="mb-1 w-full rounded-md border border-border bg-card p-1.5"
+        className="mb-1 w-full rounded-lg border border-border bg-card p-1.5"
       >
         <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span className="min-w-0 truncate">{tc('history')}</span>

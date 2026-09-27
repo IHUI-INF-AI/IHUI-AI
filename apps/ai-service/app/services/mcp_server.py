@@ -7610,6 +7610,121 @@ async def _tool_context_recall(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"ok": False, "error": str(e)}
 
 
+# =============================================================================
+# V3 #63(2026-09-27 立):对话流业务表单请求工具 request_business_form
+# =============================================================================
+#
+# 这是什么:模型**请用户在对话流里填一张业务表单**(邮件撰写 / 日历事件)的能力。
+# 它不由本模块执行 —— 真正干活的是主对话流的工具循环
+# (`app/routers/llm.py` 的 form_request 拦截位):在那里发一帧 `form_request`,
+# 等用户提交/拒绝,再把结果回灌成 tool 消息。本模块只负责两件事:
+#   ① 把工具**告知模型**(注册进 _TOOLS ⇒ schema 与 list_tools 自动带上);
+#   ② 持有这张能力唯一的**线格式真值表**(下面的字段表 + 组帧函数),
+#      使 llm 侧与 i18n/渲染侧不必各抄一份字段清单。
+#
+# 为什么这里还要一个 handler(而不是"反正会被拦截,不注册"):
+# `tests/test_mcp_server.py::test_tools_count_matches_registry` 断言
+# `len(_TOOLS) == len(_TOOL_HANDLERS)`,只登记定义不登记处理函数会当场红;
+# 更重要的是 —— 别的执行路径(agent 任务流、后台任务、将来接入的编排器)没有
+# form 通道,它们若真调到这个名字,**必须拿到一句明确的可自愈提示**
+# (errorCode=FORM_CHANNEL_UNAVAILABLE),而不是"未知工具"后原地重试到 max_iterations。
+# 这与 V3 #49 对 _DELEGATE_ONLY_TOOLS 的处理是同一条纪律。
+
+_FORM_REQUEST_TOOL_NAME: Final[str] = "request_business_form"
+
+# 业务表单种类 → 字段档(键, 输入类型, 必填)。
+# **权威表在 TS 侧** `packages/shared/src/chat/business-forms.ts` 的
+# `BUSINESS_FORM_FIELDS`(渲染层按 kind 派发到那张表,不读本表);本表只承担一件事:
+# 组一帧 `fields` 给解析层 —— `packages/api-client/src/client.ts` 的
+# `tryParseFormRequest` 要求 `fields` 是**非空数组**且每项有非空 `key`,
+# 否则整帧被静默丢弃(帧发出去而端上什么都没有,就是这一格)。
+# 两侧一致性由 `tests/test_form_request_frame.py` 逐键对账钉住(它直接读那份 TS 源,
+# 不在本文件里另写一份"谁对谁错"的判断)。
+# `placeholderKey` 一律省略:判定层留空时渲染层用 label 兼作占位(见上引 TS 注释),
+# 在这里填反而会让两侧对不上。
+_BUSINESS_FORM_FIELDS: Final[dict[str, tuple[tuple[str, str, bool], ...]]] = {
+    "email": (
+        ("to", "email", True),
+        ("cc", "email", False),
+        ("bcc", "email", False),
+        ("subject", "text", True),
+        ("replyTo", "email", False),
+        ("body", "multiline", True),
+    ),
+    "calendarEvent": (
+        ("start", "datetime", True),
+        ("end", "datetime", True),
+        ("attendees", "attendees", True),
+    ),
+}
+
+# 种类集合由字段表推导 ⇒ 不可能出现"有 kind 没有字段"的空洞表单
+BUSINESS_FORM_KINDS: Final[frozenset[str]] = frozenset(_BUSINESS_FORM_FIELDS)
+
+
+def business_form_wire_fields(kind: str) -> list[dict[str, object]]:
+    """某类表单的线格式字段数组;未知 kind ⇒ 空列表(调用方据此**不发帧**)。"""
+    return [
+        {"key": key, "type": ftype, "required": required}
+        for key, ftype, required in _BUSINESS_FORM_FIELDS.get(kind, ())
+    ]
+
+
+def build_form_request_frame(
+    *,
+    request_id: str,
+    kind: str,
+    session_id: str,
+    message_id: str | None,
+) -> dict[str, object] | None:
+    """组一帧下行 `form_request`;**不具备发送条件时返回 None,不发半帧**。
+
+    返回 None 的两种情形(都不该把畸形帧推给前端):
+      · 未知 kind —— 端上 `projectFormRequestFrame` 对未知 kind 返回 null,发出去就是
+        "服务端以为弹了、界面上什么都没有";不如让工具当场回一句可自愈的失败。
+      · fields 为空 —— 解析层 `tryParseFormRequest` 对空 fields 整帧丢弃,同上。
+
+    字段名是 **camelCase**(requestId / sessionId / messageId),与同通道上
+    tool-approval 的 snake_case 不同族。这不是随手写的:那个解析层读的就是 camel 键,
+    写成 snake_case **不报错、只是整帧被丢**。上行的 form_response 才用 snake_case
+    (见 llm.py 的接收端),两条通道各自的形状权威都在
+    `packages/shared/src/sse/contract.ts`。
+    """
+    fields = business_form_wire_fields(kind)
+    if not fields:
+        return None
+    frame: dict[str, object] = {
+        "type": "form_request",
+        "requestId": request_id,
+        "sessionId": session_id,
+        "kind": kind,
+        "fields": fields,
+        # 成对判据:批准与拒绝必须在。只给 approve 等于替用户做完决定,
+        # 违反端内硬约束"拒绝路径零副作用"(见 business-forms.ts 的 FORM_ACTION_PAIR)。
+        "actions": ["approve", "reject"],
+    }
+    if message_id:
+        frame["messageId"] = message_id
+    return frame
+
+
+async def _tool_request_business_form(args: dict[str, Any]) -> dict[str, object]:
+    """非对话流通道调用本工具时的兜底答复(见上:这条路径没有承载表单的会话通道)。"""
+    return {
+        "tool": _FORM_REQUEST_TOOL_NAME,
+        "ok": False,
+        "error": (
+            f"工具 '{_FORM_REQUEST_TOOL_NAME}' 只能在主对话流的工具循环里使用:"
+            "它需要一条前端可渲染的业务表单通道(llm.py 发 form_request 帧、"
+            "form-response 端点收应答)。当前执行路径没有这条通道,表单无法呈现,"
+            "用户也就无从批准或拒绝。请勿重试该工具;需要这些信息时,直接在回复里"
+            "向用户提问并等待其在下一轮给出。"
+        ),
+        "errorCode": "FORM_CHANNEL_UNAVAILABLE",
+        "message": "业务表单请求仅在对话流内可用",
+    }
+
+
 _TOOLS: list[MCPTool] = [
     MCPTool(
         name="search_codebase",
@@ -7669,6 +7784,54 @@ _TOOLS: list[MCPTool] = [
                 "top_k": {"type": "integer", "description": "返回条数上限,默认 8", "default": 8, "minimum": 1, "maximum": 50},
             },
             "required": ["query"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # V3 #63(2026-09-27 立):请用户在对话流里填一张业务表单。
+        # **入参刻意只有 kind + 可选 prefill** —— 路由身份(sessionId / user_id /
+        # conversationId)一律由宿主在拦截位与 closure 里绑定,绝不交给模型填写:
+        # 模型能自报身份就等于能把表单挂到别人的会话上。同一纪律见
+        # packages/types/src/tool-contract.ts 的 ROUTING_IDENTITY_KEYS 与守门 113
+        # (Python 面不在该门扫描射程,口径照抄)。
+        #
+        # ⚠️ 这里的 name 必须是**字符串字面量**,不能写成 name=_FORM_REQUEST_TOOL_NAME:
+        # 守门 55(check-tool-name-display-coverage)提取注册名用的是 /name=["']([a-z0-9_]+)["']/,
+        # 常量形态在它眼里等于这个工具不存在 ⇒ "新工具必须补五语言功能名"这条约束静默失效
+        # (AGENTS §4 记过同型:"门让你怎么写,门就看不见怎么写")。
+        # 两者的一致性由 tests/test_form_request_frame.py 的对账用例钉住。
+        name="request_business_form",
+        description=(
+            "请用户在对话流内填写一张业务表单并等待其提交。用于**必须**由用户确认的"
+            "结构化信息(邮件撰写 email / 日历事件 calendarEvent):你不知道收件人、"
+            "主题、时间或出席人时调本工具,而不是编造一个值,也不是用纯文本追问"
+            "(文本追问拿不到结构化字段,后续工具无法直接使用)。"
+            "返回:用户提交的内容(action=approve 时含逐字段 values),"
+            "或明确的失败码(rejected=用户拒绝、timeout=超时未答、"
+            "form_invalid=请求的表单种类不存在)。用户拒绝时不要重试本工具,按已知的"
+            "信息直接回复用户。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": sorted(BUSINESS_FORM_KINDS),
+                    "description": (
+                        "表单种类。只能取列出的枚举值;其他种类尚未定义,"
+                        "拿不准就改用文本提问。"
+                    ),
+                },
+                "prefill": {
+                    "type": "object",
+                    "description": (
+                        "可选预填值,键必须取自该 kind 的字段集(如 email 的 to/subject/body)。"
+                        "只填你已经确切知道的字段,**不要替用户编造**收件人、时间等事实。"
+                    ),
+                    "additionalProperties": {"type": "string"},
+                },
+            },
+            "required": ["kind"],
             "additionalProperties": False,
         },
     ),
@@ -9795,6 +9958,10 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "index_codebase": _tool_index_codebase,
     "knowledge_lookup": _tool_knowledge_lookup,
     "context_recall": _tool_context_recall,
+    # V3 #63:对话流业务表单请求。主对话流由 llm.py 的拦截位处理(不进 call_tool);
+    # 这里注册的是**其它执行路径**的兜底答复,同时满足
+    # test_tools_count_matches_registry 的"定义 ↔ 处理函数"双射。
+    "request_business_form": _tool_request_business_form,
     "read_file": _tool_read_file,
     "list_files": _tool_list_files,
     "write_file": _tool_write_file,
