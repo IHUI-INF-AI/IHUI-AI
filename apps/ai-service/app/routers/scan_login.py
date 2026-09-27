@@ -28,7 +28,7 @@ from ..services.publish.platform_cookie_domains import (
 from ..services.scan_login import (
     PLATFORM_SCAN_CONFIG,
     _cookie_hits,
-    _existing_credentials_present,
+    _existing_account_row,
     _parse_raw_cookies,
     _save_account_to_db,
     cancel_scan_task,
@@ -37,8 +37,8 @@ from ..services.scan_login import (
     get_qr_image,
     get_task,
     should_overwrite_existing_credentials,
-    verify_login_candidate,
     start_scan_task,
+    verify_login_candidate,
 )
 
 router = APIRouter(prefix="/publish/scan-login", tags=["publish-scan-login"])
@@ -314,10 +314,13 @@ async def import_cookies(body: ImportCookiesRequest, request: Request) -> dict[s
         )
 
     # 先验后写(与画像导入同一条裁决点):库里已有凭据时,校验不过的候选集不得覆盖它。
-    # 粘贴口最容易产出"名字齐但值已过期"的集合 —— 而密文被覆盖后无备份、不可回滚。
-    verify_ok, verify_note = await verify_login_candidate(body.platform, filter_result.kept)
-    existing = await _existing_credentials_present(user_id, body.platform)
-    if not should_overwrite_existing_credentials(existing, verify_ok):
+    # 粘贴口最容易产出"名字齐但值已过期"的集合 —— 而覆盖一旦落地,当时那份密文就没了。
+    # 行 id 一次取回喂两件事:既是"是否破坏性"的判据,也是这趟校验该用哪个身份锚点。
+    existing_row = await _existing_account_row(user_id, body.platform)
+    verify_ok, verify_note = await verify_login_candidate(
+        body.platform, filter_result.kept, (existing_row or {}).get("id")
+    )
+    if not should_overwrite_existing_credentials(existing_row is not None, verify_ok):
         raise HTTPException(
             status_code=409,
             detail={
