@@ -114,7 +114,13 @@ from app.core.turn_metadata import (
 )
 
 from .engine_tool_bridge import capability_equivalent, execution_mode
-from .session_store import ItemBase, SessionStore, carry_identity_keys
+from .session_store import (
+    ItemBase,
+    SessionStore,
+    carry_identity_keys,
+    owner_scoped_allows,
+    thread_owner,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1735,6 +1741,16 @@ def _principal_allows(principal: str | None, owner: str | None) -> bool:
     return principal == owner
 
 
+def _owner_scoped_allows(principal: str | None, owner: str | None) -> bool:
+    """只读/销毁面的严格判据 —— 实现住在 `session_store.owner_scoped_allows`。
+
+    这里只留一个同名的模块内引用,是为了让本文件的调用点读起来与 `_principal_allows`
+    成对(两兄弟判据一眼可辨),而**规则本身不允许有第二份**(两处算同一件事必漂移,
+    本仓记过太多次)。它与 `_principal_allows` 差在哪一格、为什么差,写在那份实现上。
+    """
+    return owner_scoped_allows(principal, owner)
+
+
 def _thread_belongs(thread: EngineThread, principal: str | None) -> bool:
     """这条线程是否归这位调用者。判据只有 `_principal_allows` 一份实现。
 
@@ -1771,6 +1787,27 @@ def _restamp_identity(metadata: dict[str, Any], thread: EngineThread) -> dict[st
     记过的失效型 —— 两个入口各自不可绕过,而不是靠调用方自觉。
     """
     return carry_identity_keys(_identity_of(thread), metadata)
+
+
+def _store_row_owner(store: SessionStore | None, thread_id: str) -> str | None:
+    """库里那一行写的属主(取不到 ⇒ None)。只读/销毁面的定位入口。"""
+    if store is None:
+        return None
+    return thread_owner(store.get_thread(thread_id))
+
+
+def _runtime_or_row_owner(
+    store: SessionStore | None, thread_id: str, runtime: EngineThread | None
+) -> str | None:
+    """销毁面问的"这条归谁"以**被操作对象自身**为准:内存态优先,退回库里那行。
+
+    顺序不影响结论(批 60 之后两处同源:都只能由承载层盖章),但影响可达性 ——
+    未启用持久化时只有内存态,库里没有行。
+    """
+    if runtime is not None:
+        owner = runtime.user_id
+        return owner if isinstance(owner, str) and owner else None
+    return _store_row_owner(store, thread_id)
 
 
 @dataclass(frozen=True)
@@ -4033,15 +4070,24 @@ class AgentEngine:
         忙时拒绝更安全);store 级联删除(items→turns→threads + fork 子线程);
         内存线程摘除(停 watcher/取消 pending);发 thread.deleted 事件。
         线程不存在也发 deleted 事件并返回 deleted=False(幂等,对标
-        delete_threads 对 ThreadNotFound 静默)。
+        delete_threads 对 ThreadNotFound 静默)。**不是你的线程走同一条路径**
+        (批 61 / G-250):把 runtime 与 store 一起当"没有",于是既不删库、不摘内存线程、
+        不停 watcher,返回值与事件也与"根本没这条"逐字相同 —— 而不是新造一种"被拒"形态,
+        那会变成存在性探针。判定刻意放在 THREAD_BUSY **之前**:先判忙再拒,等于告诉对方
+        "这条存在且正在执行"。
         """
         thread_id = params.get("threadId")
         if not isinstance(thread_id, str) or not thread_id:
             raise JsonRpcError(INVALID_PARAMS, "缺少 threadId")
+        store = self._persistence_store()
         runtime = self._threads.get(thread_id)
+        if not _owner_scoped_allows(
+            _connection_principal(params), _runtime_or_row_owner(store, thread_id, runtime)
+        ):
+            runtime = None
+            store = None
         if runtime is not None and runtime.status == "running":
             raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread_id}")
-        store = self._persistence_store()
         deleted = False
         if store is not None:
             deleted = store.delete_thread(thread_id) > 0
@@ -4166,6 +4212,9 @@ class AgentEngine:
 
         params: query(必填非空) / threadId(可选过滤) / limit(默认20)。
         未启用持久化 → INVALID_PARAMS("搜索需要持久化存储")。
+        批 61 / G-250:属主过滤**写在 SQL 里**(与 `list_threads` 同一条口径)——
+        这条面过去会把所有人会话里的命中片段(带原文 snippet)端给任何一个持令牌者,
+        事后在响应侧筛既漏 `total`/`limit` 的一致性,也挡不住"点名别人 threadId"那一格。
         """
         query = params.get("query")
         if not isinstance(query, str) or not query.strip():
@@ -4179,7 +4228,13 @@ class AgentEngine:
         limit = params.get("limit", 20)
         if not isinstance(limit, int) or limit <= 0:
             limit = 20
-        hits = store.full_text_search(query, thread_id=thread_id or None, limit=limit)
+        principal = _connection_principal(params)
+        hits = store.full_text_search(
+            query,
+            thread_id=thread_id or None,
+            limit=limit,
+            owner_user_id=principal,
+        )
         return {
             "query": query,
             "hits": [
@@ -4202,6 +4257,8 @@ class AgentEngine:
         params: threadId(必填) / afterSeq(可选,游标) / limit(默认100)。
         序列化与 thread.export 一致:body_payload() 展开 + type/seq +
         信封字段(全量 model_dump 的精简版);store 无此线程 → 空列表。
+        **不是你的线程也返回空列表**(与"没这条线程"同形,批 61 / G-250:这条面过去
+        任何人给个 threadId 就能读走别人的整段对话)。
         未启用持久化 → INVALID_PARAMS。
         """
         thread_id = params.get("threadId")
@@ -4210,6 +4267,10 @@ class AgentEngine:
         store = self._persistence_store()
         if store is None:
             raise JsonRpcError(INVALID_PARAMS, "items.list 需要持久化存储")
+        if not _owner_scoped_allows(
+            _connection_principal(params), _store_row_owner(store, thread_id)
+        ):
+            return {"threadId": thread_id, "items": []}
         after_seq = params.get("afterSeq")
         if after_seq is not None and not isinstance(after_seq, int):
             raise JsonRpcError(INVALID_PARAMS, "afterSeq 须为整数")
@@ -4230,6 +4291,7 @@ class AgentEngine:
         """列出线程 turns(对标 codex thread/turns/list)。
 
         params: threadId(必填)。store 无此线程 → 空列表。
+        **不是你的线程同样返回空列表**(与 items.list 同一条口径,批 61 / G-250)。
         未启用持久化 → INVALID_PARAMS。
         """
         thread_id = params.get("threadId")
@@ -4238,6 +4300,10 @@ class AgentEngine:
         store = self._persistence_store()
         if store is None:
             raise JsonRpcError(INVALID_PARAMS, "turns.list 需要持久化存储")
+        if not _owner_scoped_allows(
+            _connection_principal(params), _store_row_owner(store, thread_id)
+        ):
+            return {"threadId": thread_id, "turns": []}
         turns = store.list_turns(thread_id)
         return {
             "threadId": thread_id,
@@ -4263,6 +4329,8 @@ class AgentEngine:
 
         params: threadId(必填)。返回 thread 元数据 camelCase 摘要 +
         首条 user 消息 preview;线程不存在 → THREAD_NOT_FOUND。
+        **别人的线程同样 THREAD_NOT_FOUND**(与"不存在"同码同形,批 61 / G-250 ——
+        这条面过去会把别人的会话摘要与首句原文端给任意一个持令牌者)。
         未启用持久化 → INVALID_PARAMS。
         """
         thread_id = params.get("threadId")
@@ -4271,6 +4339,10 @@ class AgentEngine:
         store = self._persistence_store()
         if store is None:
             raise JsonRpcError(INVALID_PARAMS, "read 需要持久化存储")
+        if not _owner_scoped_allows(
+            _connection_principal(params), _store_row_owner(store, thread_id)
+        ):
+            raise JsonRpcError(THREAD_NOT_FOUND, f"线程不存在: {thread_id}")
         thread = store.get_thread(thread_id)
         if thread is None:
             raise JsonRpcError(THREAD_NOT_FOUND, f"线程不存在: {thread_id}")
@@ -4781,7 +4853,12 @@ class AgentEngine:
     async def _handle_thread_archive(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """归档/恢复线程(对标 Codex thread/archive):store 标记 + 内存摘除。"""
+        """归档/恢复线程(对标 Codex thread/archive):store 标记 + 内存摘除。
+
+        批 61 / G-250:归档过去在**任何**判定之前就把别人的线程标掉了。现在先过属主闸,
+        且非属主走与"没这条线程"完全相同的那条路径(同样的 THREAD_NOT_FOUND 报文,
+        且不发写、不 pop 内存线程)。
+        """
         thread_id = params.get("threadId")
         if not isinstance(thread_id, str) or not thread_id:
             raise JsonRpcError(INVALID_PARAMS, "缺少 threadId")
@@ -4791,9 +4868,14 @@ class AgentEngine:
             raise JsonRpcError(
                 INVALID_PARAMS, "归档需要持久化存储(当前引擎未启用 SessionStore)"
             )
+        runtime = self._threads.get(thread_id)
+        if not _owner_scoped_allows(
+            _connection_principal(params), _runtime_or_row_owner(store, thread_id, runtime)
+        ):
+            raise JsonRpcError(THREAD_NOT_FOUND, f"线程不存在: {thread_id}")
         updated = store.set_thread_archived(thread_id, archived)
-        runtime = self._threads.pop(thread_id, None)
         if runtime is not None:
+            self._threads.pop(thread_id, None)
             self._stop_workspace_watcher(thread_id)
             if archived:
                 self._drop_shell_snapshot(runtime.session_id)
