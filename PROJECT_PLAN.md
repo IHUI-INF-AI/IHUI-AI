@@ -7931,7 +7931,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   整文件提交即混提(§12 红线)。解阻判据:待该文件他人改动落地后,单独提一枚"账本接线"票。
 - [x] ✅(2026-09-25) `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环 〔2026-09-25 孪生旧副本翻勾:同题已勾于 L9385〕
   还没调它)—— 属"生产者已备、消费面未接",另票接 CLI/服务端 goal 循环调用点。
-- [ ] `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.ts:1757`、`server/agent-core.ts:101`),
+- [x] ✅(2026-09-28 现读归正:旁路已收口到唯一闸门,本行是收口前登记未翻勾的陈旧账) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.ts:1757`、`server/agent-core.ts:101`),〔取证(当次 HEAD 实测):票面点名的两处调用方现值均已走 `createDangerGate` —— `commands/agent.ts:2365` 与 `server/agent-core.ts:127` 的 `confirmDangerous` 由闸门构造(flag 优先/approved/denied 三路互斥、无 prompt 无 flag 即 fail-closed),`acp/server.ts` 同型(3 处命中);"调用方不得就地决定放行"由 `apps/cli/tests/danger-gate-wiring.test.ts` 棘轮钉死(两文件均在库,`git ls-files` 命中)。"工具层结构上看不见"的另一半由 L7905 收口补齐:`ToolContext.allowDangerous` 影子披露字段随 ctx 下发,`executeToolCall` 获准后调 `noteDangerousApproval` 按工具记账(sessionFlagApproved / callbackApproved 两桶),覆盖面边界(二次确认与 permission-mode ask 分支不在计数内)在 `danger-gate.ts:121-123` 如实登记。票面行号 1757/101 系登记时旧位,现值已漂移且形态已换。〕
   工具层结构上看不见;收口需改确认回调契约,本批按现状入库并在披露文档写明边界。
 - [x] ✅(2026-09-25) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与 〔2026-09-25 孪生旧副本翻勾:同题已勾于 L9387〕
   capability 目录(`scripts/check-capability-catalog.mjs` 覆盖面)尚未收;扩展真机加载 MV3、
