@@ -212,7 +212,9 @@ export function Toolbar({
             accessibilityLabel={service.title}
             style={({ pressed }) => [styles.serviceItem, pressed ? styles.pressed : null]}
           >
-            <Text style={styles.serviceTitle}>{service.title}</Text>
+            <Text style={styles.serviceTitle} numberOfLines={1}>
+              {service.title}
+            </Text>
             <service.icon size={24} color={tokens.text.secondary} />
           </Pressable>
         ))}
@@ -259,8 +261,12 @@ export function Toolbar({
               <tool.icon size={20} color={tokens.text.secondary} />
             </View>
             <View style={styles.toolTextWrap}>
-              <Text style={styles.toolTitle}>{tool.title}</Text>
-              <Text style={styles.toolDesc}>{tool.description}</Text>
+              <Text style={styles.toolTitle} numberOfLines={1}>
+                {tool.title}
+              </Text>
+              <Text style={styles.toolDesc} numberOfLines={2}>
+                {tool.description}
+              </Text>
             </View>
           </Pressable>
         ))}
@@ -385,20 +391,16 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
 
-  // ── 3. 营销 banner ──
+  // ── 3. 营销 banner(正常流布局;机器人列随浮动动画上浮,paddingTop 10 为浮动基线余量,上浮 -10 不出容器) ──
   bannerWrap: {
-    position: 'relative',
-    height: 100,
-    paddingBottom: 10,
-    marginTop: -6,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingTop: 10,
   },
   bannerFloat: {
-    position: 'absolute',
-    left: 16,
-    top: 0,
     width: 90,
     height: 90,
-    zIndex: 777,
+    marginLeft: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -407,16 +409,13 @@ const styles = StyleSheet.create({
     lineHeight: 80,
   },
   bannerCard: {
-    position: 'absolute',
-    left: 0,
-    top: 20,
+    flex: 1,
     height: 80,
-    width: '100%',
     borderRadius: rnRadius['2xl'],
     backgroundColor: tokens.surface.card,
     flexDirection: 'column',
     justifyContent: 'center',
-    paddingLeft: 115,
+    paddingLeft: 12,
     paddingRight: 16,
   },
   bannerTitle: {
@@ -439,8 +438,8 @@ const styles = StyleSheet.create({
   },
   toolCell: {
     width: '48.5%',
-    height: 53,
-    borderRadius: 27, // radius-exempt: 工具格胶囊端=cell 高度 53 的一半
+    minHeight: 53, // 描述两行时按内容放开,不裁字;常规文案下单行保持 53
+    borderRadius: 27, // radius-exempt: 工具格胶囊端≈cell 高度一半(53 基准,minHeight 按内容可放开)
     marginBottom: 10,
     backgroundColor: tokens.surface.card,
     flexDirection: 'row',
@@ -461,6 +460,9 @@ const styles = StyleSheet.create({
   },
   toolTextWrap: {
     marginLeft: 12,
+    paddingRight: 12,
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'column',
     justifyContent: 'center',
   },
