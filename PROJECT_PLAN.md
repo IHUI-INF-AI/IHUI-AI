@@ -12674,3 +12674,12 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   而它的 AGENTS 行自称"落地取到 144"，runner 的 144 实际是本轮第三十五批的崩溃上报脱敏门 ⇒ 撞号与否一律以 `node scripts/check-gate-wiring.mjs` 的 `duplicateIds` 现值为准（本轮实测 `0`，无重复 id）。
   另记本轮交付的出库证明（防"commit 后忘记 push"那一型）：批次 31~38 八枚提交逐条对 `git ls-remote origin refs/heads/main` 的当次值跑
   `merge-base --is-ancestor` ⇒ 全部 `in-remote YES`；判"推没推完"只认远端回读，不读本地 `origin/main`（§5b：嵌套 ref 会被宿主清掉，本地引用可滞后）。
+
+## O86附⑧ 收口三件（运维邮件唯一出口的闸门 / 门 137 最后一格安全收窄 / 退化指纹的关联闸）+ 两格否证
+
+- **`c4b366171` 脚本侧唯一发信出口也上闸门**：上一笔只封了进程内的 `pushAlertWithResult`，而 §5e 规定的 ops 唯一出口 `apps/api/scripts/notify-deploy-failure.ts` **不走那条路** —— 凭据巡检把各检查项 `detail`（含自家接口响应体前 60 字符、GitHub run 三字段、git 异常原文）拼成 message 从这条通道寄出。现三条来源（`--message-file` / `--message` / CI 拼装）一律过 `sanitizeAlertMessage`，并加源面装车锁三档。幂等 ⇒ 调用方自己先归一化也不冲突。
+- **`b285eda9d` 门 137 剩余未判定里唯一那一格可安全摘的摘掉了**：Drizzle 的 `passwordHash: text('password_hash')` 这类**列声明**不承诺产出摘要，此前 14 处挂在未判定让 `--strict` 长期拒绝出合格证。判据只认"列构造器 + 字面量列名 + 至多 `notNull/primaryKey` 修饰"、限 field 且非 Python，复用**保字符串**的取材面（列名就住在字面量里，连字符串一起抹 ⇒ 判据失明，本仓反复踩过）。两条反向锁独立跑绿：同文件另一处 `const passwordHash = [a,b].join('|')` 落盘**仍判红**；`text('a') + salt` 与 Python 同名调用**不吃豁免**。现读：命中 0、放过 292、未判定 203、自检 45/45、镜像 10/10。**剩下 203 处按判据现状不再收窄**（跨文件一跳已做完；再往下只剩"扩 BENIGN 名单"那一刀，它会把 ORM 声明与 `json.dumps` 同刀切错 ⇒ 明确判否，不是待办）。
+- **`1f7800e37` 退化指纹不得当跨账号关联键整包外发**：黑名单端点按 device 查"关联用户"时既无上限也不判这枚指纹有没有区分度，而移动端采集器只喂 `Platform.OS`（同 OS 必然同值）⇒ 管理员手填 `type=device` 就能把全网同 OS 账号连成一片，且响应与"真关联到 3 个账号"完全同形。现由 `judgeFingerprintAffiliation` 在出口判（阈值 10，理由在注释：真实共享是个位数、退化形态是数千），超发改发 `discriminating:false` + 5 个样本 + `withheldUserCount` 点名截断量，既有键名与状态码一字未改；**刻意不加 SQL limit**（会让"库确认命中数"失真，反把退化指纹判成正常）。9 例新测试含边界 10/11 与两条变异反向锁（摘调用点 6 红、阈值灌大 3 红）。
+- **两格否证（登记为"已查、不是缺陷"，免得下一个人重查）**：① `apps/ai-service/.../account_profile.py` 往 `anti-profiles/<id>/profile.json` 写明文 `geolocation` —— 那是**我们自造的 8 座城市假坐标**、非用户真实位置、且全仓无任何邮件/告警读者，与"跨账号比较键必须摘要"不是同一型，不改。② `apps/ai-service/.../fingerprint_isolation.py:182-185` 的 `logger.debug` 打印 geo dict —— 生产日志级别未开 debug，且实测生产 430 封已发信里 8 座城市字面量**零命中**。
+- **生产拾取已回读**（`D:\IHUI-AI` 只读）：HEAD 含上述全部提交；`email-templates.ts` 里 `43.82` 现读 **0 命中**、文件 mtime 03:58 **早于** api 进程启动 04:27 ⇒ 跑的是新代码，用户已确认"确实没了"。
+- **本线到此为终点，无遗留待办**：移动端采集器怎么改（补采字段 / 安装期 UUID / 只改判定）仍是**移动端持有者**的产品决定，三条选项与爆炸半径已量成决策就绪的简报存于台账 O86附⑥；本会话不代裁、也不把它当自己的账。
