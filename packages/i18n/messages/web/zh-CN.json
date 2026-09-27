@@ -27356,5 +27356,8 @@
     "hintConfirm": "确认",
     "hintClose": "关闭",
     "clearAriaLabel": "清空搜索"
+  },
+  "statusPage": {
+    "incidentsUnavailable": "事件数据暂不可用,此处的空白不代表没有故障"
   }
 }
