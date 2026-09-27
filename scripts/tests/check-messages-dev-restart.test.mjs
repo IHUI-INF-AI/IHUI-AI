@@ -5,10 +5,10 @@
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -48,7 +48,7 @@ before(async () => {
 
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-msg-restart-'))
+  const dir = mkScratch('ihui-msg-restart-')
   const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
   spawnSync('git', ['init', '-b', 'main'], opt)
   spawnSync('git', ['config', 'user.email', 'test@ihui.local'], opt)
@@ -91,7 +91,7 @@ function runScript(opts = {}) {
 
 // ─── 1. 非 git: 非 git 仓库 + messages 目录不存在 → exit 0(目录不存在,跳过) ──
 test('非 git: 非 git 仓库 + messages 目录不存在 → exit 0(目录不存在,跳过)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-nongit-'))
+  const dir = mkScratch('ihui-nongit-')
   try {
     const r = runScript({ cwd: dir })
     assert.equal(r.status, 0, `应 exit 0,实际 ${r.status}`)
@@ -99,14 +99,14 @@ test('非 git: 非 git 仓库 + messages 目录不存在 → exit 0(目录不存
     assert.match(r.stdout, /跳过/)
     assert.ok(!r.stdout.includes('检测到'), '目录不存在时不应检测 staged')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 // ─── 2. 非 git: 非 git 仓库 + messages 目录存在 → exit 0(无 messages 改动,跳过) ──
 // getStagedMessagesFiles 在非 git 目录执行 git diff 抛错 → catch 返回 []
 test('非 git: 非 git 仓库 + messages 目录存在 → exit 0(无 messages 改动,跳过)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-nongit-'))
+  const dir = mkScratch('ihui-nongit-')
   try {
     ensureMessagesDir(dir)
     const r = runScript({ cwd: dir })
@@ -114,7 +114,7 @@ test('非 git: 非 git 仓库 + messages 目录存在 → exit 0(无 messages �
     assert.match(r.stdout, /无 messages JSON 改动/)
     assert.match(r.stdout, /跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -127,7 +127,7 @@ test('git: git 仓库无 messages 目录 → exit 0(目录不存在,跳过)', ()
     assert.match(r.stdout, /目录不存在/)
     assert.match(r.stdout, /跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -146,7 +146,7 @@ test('git: git 仓库有 messages 目录,无 staged 文件 → exit 0(无改动,
     assert.match(r.stdout, /跳过/)
     assert.ok(!r.stdout.includes('检测到'), '无 staged 不应触发检测')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -161,7 +161,7 @@ test('git: staged 非 messages 文件(apps/web/src/foo.ts)→ exit 0(无 message
     assert.match(r.stdout, /无 messages JSON 改动/)
     assert.ok(!r.stdout.includes('检测到'), '非 messages 文件不应触发检测')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -180,7 +180,7 @@ test('边界: staged apps/web/other.json(不在 messages 目录)→ exit 0(无 m
     assert.match(r.stdout, /无 messages JSON 改动/)
     assert.ok(!r.stdout.includes('检测到'), '非 messages 目录的 .json 不应触发')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -195,7 +195,7 @@ test('边界: staged apps/web/messages/zh-CN.ts(非 .json)→ exit 0(无 message
     assert.match(r.stdout, /无 messages JSON 改动/)
     assert.ok(!r.stdout.includes('检测到'), '非 .json 文件不应触发')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -211,7 +211,7 @@ test('边界: staged apps/web/messages-other/foo.json(前缀不匹配)→ exit 0
     assert.match(r.stdout, /无 messages JSON 改动/)
     assert.ok(!r.stdout.includes('检测到'), 'messages-other 不应匹配 messages/')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -231,7 +231,7 @@ test('边界: staged apps/web/messages/sub/foo.json(子目录,startsWith 匹配)
     // 子目录文件也被检测到(startsWith 行为)
     assert.match(r.stdout, /dev server 未在跑|需要重启加载新翻译/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -255,7 +255,7 @@ test('git: staged 1 个 messages JSON(dev server 未跑)→ exit 0 + 检测到 1
     assert.match(r.stdout, /无需重启/)
     assert.ok(!r.stdout.includes('需要重启加载新翻译'), 'dev server 未跑不应输出重启警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -279,7 +279,7 @@ test('git: staged 3 个 messages JSON(dev server 未跑)→ exit 0 + 检测到 3
     assert.match(r.stdout, /apps\/web\/messages\/ja\.json/)
     assert.match(r.stdout, /dev server 未在跑/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -304,7 +304,7 @@ test('dev server 在跑: 绑定 8801 + staged messages JSON → exit 0 + 重启�
     assert.match(r.stdout, /需要重启加载新翻译/)
     assert.ok(!r.stdout.includes('dev server 未在跑'), 'dev server 在跑时不应输出"未在跑"')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
     await closeServer(srv)
   }
 })
@@ -330,7 +330,7 @@ test('dev server 警告内容: 绑定 8801 + staged messages JSON → 验证警�
     assert.match(out, /HMR 不会重新编译/, '应解释根因')
     assert.match(out, /不阻塞 commit/, '应声明不阻塞 commit')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
     await closeServer(srv)
   }
 })

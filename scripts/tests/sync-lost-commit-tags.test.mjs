@@ -5,10 +5,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'sync-lost-commit-tags.mjs')
 
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-tag-sync-'))
+  const dir = mkScratch('ihui-tag-sync-')
   execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
@@ -29,7 +29,7 @@ function createTempRepo() {
 
 // 辅助:创建临时 bare 仓库(作为 origin)
 function createTempBareOrigin() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-tag-origin-'))
+  const dir = mkScratch('ihui-tag-origin-')
   execSync('git init --bare -b main', { cwd: dir, stdio: 'pipe' })
   return dir
 }
@@ -87,7 +87,7 @@ test('CLI: --help → exit 0 + 打印帮助文本', () => {
     assert.match(r.stdout, /--fetch/, 'stdout 应含 --fetch 说明')
     assert.match(r.stdout, /--auto-push/, 'stdout 应含 --auto-push 说明')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -97,7 +97,7 @@ test('CLI: 无参数(默认 check)在干净无 tag 仓库 → exit 0', () => {
     const r = runScript([], { cwd: dir })
     assert.equal(r.status, 0, `干净仓库应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -108,7 +108,7 @@ test('CLI: --check 在干净仓库 → exit 0', () => {
     assert.equal(r.status, 0, `--check 干净仓库应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /一致性校验|tag/, 'stdout 应含校验相关文本')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -123,7 +123,7 @@ test('CLI: --check --json 在干净仓库 → exit 0 + JSON status=ok', () => {
     assert.ok(Array.isArray(result.local.backup), 'local.backup 应为数组')
     assert.equal(result.summary.total, 0, '干净仓库 summary.total 应为 0')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -139,7 +139,7 @@ test('反例:无 origin 但本地**有** lost-commit tag ⇒ 不得走"跳过"�
     )
     assert.doesNotMatch(r.stdout, /无可比对象/, '有可比对象时不得打印跳过结论')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -154,8 +154,8 @@ test('CLI: --check --json 有仅本地 lost-commit tag → exit 1 + JSON status=
     assert.ok(result.local.lostCommit.includes('lost-commit/test-local'), 'JSON 应含本地 tag')
     assert.ok(result.diff.lostCommit.onlyLocal.includes('lost-commit/test-local'), 'diff.onlyLocal 应含 tag')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -168,8 +168,8 @@ test('CLI: --auto-push 无 tag → 跳过 push exit 0', () => {
     assert.equal(r.status, 0, `无 tag --auto-push 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /跳过 push|无.*tag/, '应显示跳过信息')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -186,8 +186,8 @@ test('CLI: --auto-push --dry-run 有 tag → dry-run,远端无 tag', () => {
     assert.ok(!remoteHasTag(work, 'lost-commit/dry-run-test'), '远端不应有 dry-run lost-commit tag')
     assert.ok(!remoteHasTag(work, 'backup/dry-run-snap'), '远端不应有 dry-run backup tag')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -203,8 +203,8 @@ test('CLI: HUSKY_SKIP_TAG_SYNC=1 + --auto-push → 跳过 exit 0', () => {
     assert.ok(!remoteHasTag(work, 'lost-commit/skip-test'), 'SKIP 后远端不应有 lost-commit tag')
     assert.ok(!remoteHasTag(work, 'backup/skip-snap'), 'SKIP 后远端不应有 backup tag')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -223,8 +223,8 @@ test('CLI: HUSKY_SKIP_TAG_SYNC=1 + --fetch → 不跳过(执行 fetch + 拉回 t
     // 验证 tag 已拉回本地
     assert.ok(localHasTag(work, 'lost-commit/skip-fetch'), 'fetch 后本地应有 tag')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -239,8 +239,8 @@ test('检测: 本地 lost-commit/* tag + 已 push 到 origin → check exit 0', 
     assert.equal(r.status, 0, `本地+远端一致应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /lost-commit\/synced/, 'stdout 应列出该 tag')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -253,8 +253,8 @@ test('检测: 本地 lost-commit/* tag 未 push → check exit 1(仅本地)', ()
     assert.match(r.stdout, /仅本地|未 push/, '应报告仅本地/未 push')
     assert.match(r.stdout, /lost-commit\/only-local/, 'stdout 应列出该 tag')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -269,8 +269,8 @@ test('检测: origin 有 lost-commit/* tag 本地缺失 → check exit 1(仅远�
     assert.match(r.stdout, /仅远端|本地缺失/, '应报告仅远端/本地缺失')
     assert.match(r.stdout, /lost-commit\/only-remote/, 'stdout 应列出该 tag')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -283,8 +283,8 @@ test('检测: 本地有 backup/* tag + 已 push → check exit 0', () => {
     assert.equal(r.status, 0, `backup tag 已 push 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /backup\/snapshot-1/, 'stdout 应列出该 tag')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -303,8 +303,8 @@ test('auto-push: 本地有 tag → push 到 origin + 验证远端有 tag', () =>
     assert.ok(remoteHasTag(work, 'lost-commit/push-test'), 'auto-push 后远端应有 lost-commit tag')
     assert.ok(remoteHasTag(work, 'backup/push-snap'), 'auto-push 后远端应有 backup tag')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -321,8 +321,8 @@ test('fetch: origin 有 tag 本地缺失 → fetch 后本地有 tag + exit 0', (
     assert.equal(r.status, 0, `fetch 后应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.ok(localHasTag(work, 'lost-commit/fetch-test'), 'fetch 后本地应有 tag')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
