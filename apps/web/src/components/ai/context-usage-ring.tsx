@@ -5,7 +5,14 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronDown, ChevronRight, Loader2, Minimize2, CheckCircle2, AlertCircle } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Minimize2,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
@@ -618,7 +625,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
               {/* 构成条:只画本端可观测且确有占用的档;不可观测档另列说明,不得凭空填色 */}
               <div
-                className="flex h-2 w-full overflow-hidden rounded-sm bg-muted"
+                className="flex h-2 w-full overflow-hidden rounded-xs bg-muted"
                 data-testid="context-usage-attribution-bar"
               >
                 {attribution.segments
@@ -763,7 +770,10 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
                     </p>
                   </>
                 ) : (
-                  <p className="text-muted-foreground" data-testid="context-usage-cache-unavailable">
+                  <p
+                    className="text-muted-foreground"
+                    data-testid="context-usage-cache-unavailable"
+                  >
                     {t('cacheUnavailable')}
                   </p>
                 )}

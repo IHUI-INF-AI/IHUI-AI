@@ -3,30 +3,38 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 工具入参「影子校验」遥测(A31 第①步:只记账,不拦截)。
+ * 工具入参校验的「影子档 + enforce 档」接线层(A31 第①步 / A36 第③步)。
  *
  * 为什么需要这一层(而不是直接把校验接上):
  *   `argument-validator.ts` 的 `validateToolArguments()` 自落地起**生产面零调用方** —— 参数描述
  *   从未被执行过,准确度从未被检验过。直接打开拦截的表现就是"昨天能跑今天全被拒"的运行时事故。
- *   所以这里只加一个默认关掉的影子档:跑校验、把结果累进进程内计数器,但
- *   **不改 args、不改返回值、不拦任何一次调用**(第②③步才谈拦截)。
+ *   所以落地顺序是三步:① 默认关掉的影子档(只记账)→ ② 用影子/离线台账修描述 →
+ *   ③ enforce 档(本文件,须显式设 env 才生效)。
  *
- * env `IHUI_TOOL_ARG_VALIDATION` 三档(本票实现前两档):
- *   off      默认。校验器一次都不被调用,计数器恒为 0 —— 由单测①钉住"默认零副作用"。
- *   shadow   调用校验器,只累加计数。返回值与不加这段代码时逐字相同(单测②)。
- *   enforce  **未实现**(第②③步的活,见 PROJECT_PLAN 第八波登记)。这里只如实报一行,
- *            然后按原路径继续执行:绝不返回拒绝、绝不改写参数。半途实现的 enforce 比没有
- *            enforce 更危险 —— 它会让人以为已经收紧了。
+ * env `IHUI_TOOL_ARG_VALIDATION` 三档:
+ *   off      默认。校验器一次都不被调用,两条计数器恒为 0 —— 由单测钉住"默认零副作用"。
+ *   shadow   调用校验器,只累加计数。返回值与不加这段代码时逐字相同。
+ *   enforce  schema-aware 容错解析(`normalizeToolArguments`)后判定:
+ *            违规调用被拒,错误里带回**单行**违规清单供模型修复;修复回喂按工具名计
+ *            连续窗、上限 `TOOL_ARG_REPAIR_MAX_ATTEMPTS` 次,超限即硬失败并保留最后一次
+ *            违规清单 —— repair 不得变成无限自投(与 doom-loop 检测共存的那一半)。
+ *            校验器自身抛异常(坏描述)⇒ fail-open 放行并计数,绝不因描述有毒而砖化执行。
  *
- * 隐私口径(强制,不是洁癖):计数器**只记字段名与计数**,绝不写入参的值。
+ * 隐私口径(强制,不是洁癖):两条计数器都**只记字段名与计数**,绝不写入参的值。
  *   `ValidationError.actual` 在 `enum_mismatch` 那一支装的就是用户传进来的原值
  *   (见 `argument-validator.ts` 的 `checkEnum`: `actual: value`),记下来等于把用户数据
  *   塞进遥测出口。`expected` 同理(枚举值表虽来自 schema,但不值得赌)。
  *   本模块只持久化:工具名 / 错误类别 / 首个字段名 / 各类计数。
+ *   (enforce 的**拒绝文案**里确实带 actual,但那是回灌给发起这轮调用的模型自己,
+ *    属对话面而非遥测面,与计数器是两条通道,互不借道。)
  */
 
 import type { Tool, ToolParameter, ToolSchema } from './index.js';
-import { validateToolArguments, type ValidationError } from './argument-validator.js';
+import {
+  normalizeToolArguments,
+  validateToolArguments,
+  type ValidationError,
+} from './argument-validator.js';
 
 // ==================== 档位 ====================
 
@@ -38,20 +46,37 @@ export type ToolArgValidationMode = (typeof TOOL_ARG_VALIDATION_MODES)[number];
 
 /**
  * 默认档位。守门 `check-tool-arg-validation-wired.mjs` 直接读**这一行**判"默认不是 enforce" ——
- * 改默认值等于改行为契约,必须与第②③步的票一起走,不得顺手翻。
+ * 改默认值等于改行为契约:那些 `parameters` 描述至今只有影子/离线台账的读数背书,
+ * 翻默认档会让所有调用方一夜之间开始收到拒绝,与"运行时版恒红"是同一种事故。不得顺手翻。
  */
 export const DEFAULT_TOOL_ARG_VALIDATION_MODE: ToolArgValidationMode = 'off';
 
-export const ENFORCE_NOT_IMPLEMENTED_NOTICE =
-  `[IHUI CLI] ${TOOL_ARG_VALIDATION_ENV}=enforce 尚未实现(影子校验的第②③步),本次调用按 shadow 记账后原样执行`;
+/**
+ * enforce 档修复回喂的连续上限(按工具名的连续拒绝窗,出现一次判定通过即清零)。
+ * 3 次的依据:doom-loop 侧对"连续相同错误签名"的阈值同为个位数量
+ * (`packages/shared/src/agent/doom-loop-detector.ts` 的 STUCK_CONSECUTIVE_THRESHOLD),
+ * 本窗兜的是"模型每轮换着写法继续填错"那一型 —— 签名不同也照样封顶,否则换写法就是逃逸口。
+ */
+export const TOOL_ARG_REPAIR_MAX_ATTEMPTS = 3;
+
+/** enforce 档生效的每进程一次性播报(ASCII:播报走 console,判据/基线不掺中文)。 */
+export const ENFORCE_MODE_ACTIVE_NOTICE =
+  `[IHUI CLI] ${TOOL_ARG_VALIDATION_ENV}=enforce active: invalid tool arguments are rejected after schema-aware normalization; ` +
+  `repair feedback is capped at ${TOOL_ARG_REPAIR_MAX_ATTEMPTS} consecutive rejections per tool, then the call hard-fails with the last violation list`;
 
 function isToolArgValidationMode(v: string): v is ToolArgValidationMode {
   return (TOOL_ARG_VALIDATION_MODES as readonly string[]).includes(v);
 }
 
-/** 一个进程内只喊一次的记号(未知档位 / enforce 请求),免得高频工具调用把终端刷满。 */
+/** 只喊一次的记号(未知档位 / enforce 请求),免得高频工具调用把终端刷满。 */
 let announcedUnknownMode = false;
 let announcedEnforce = false;
+
+function announceEnforceOnce(): void {
+  if (announcedEnforce) return;
+  announcedEnforce = true;
+  console.warn(`${ENFORCE_MODE_ACTIVE_NOTICE}(每进程只报一次)`);
+}
 
 /** 解析当前档位。取值非法时不静默吞掉:报一行,再退回默认档(未知开关静默落默认分支是本仓踩过的坑)。 */
 export function resolveToolArgValidationMode(
@@ -99,8 +124,10 @@ export interface ToolArgShadowSnapshot {
   mode: ToolArgValidationMode;
   totalShadowRuns: number;
   totalToolsWithErrors: number;
-  /** 请求过 enforce 的次数(本票不实现拒绝,只数它被要求过) */
+  /** enforce 判定被跑过的次数(enforce 档生效以来逐次累加;与 shadowRuns 互斥不串账) */
   enforceRequested: number;
+  /** enforce 档自己的账(结构上与影子计数器分家) */
+  enforce: ToolArgEnforceStats;
   /** 出现过的非法档位取值(不记 env 全文,只记 trim 后的值) */
   unknownModeValues: string[];
   tools: ToolArgShadowStats[];
@@ -143,11 +170,10 @@ export function shadowValidateToolArguments(
   if (mode === 'off') return;
   if (mode === 'enforce') {
     enforceRequested += 1;
-    if (!announcedEnforce) {
-      announcedEnforce = true;
-      console.warn(`${ENFORCE_NOT_IMPLEMENTED_NOTICE}(每进程只报一次)`);
-    }
-    // 刻意不 return 一个拒绝结果,也不落进下面的记账:enforce 的账要在第②③步单独立。
+    announceEnforceOnce();
+    // 刻意不落进下面的影子记账:enforce 的账在 `enforceValidateToolArguments` 单独立。
+    // executor 边界在 enforce 档根本不会调到这里(它走 enforce 出口);这一支只兜
+    // 直接调用本函数的旧路径,行为与"影子档缺席"一致:不拒、不改、只报一行。
     return;
   }
 
@@ -199,6 +225,115 @@ function buildShadowSchema(tool: Tool): ToolSchema {
   };
 }
 
+// ==================== enforce 档(A36 第③步:容错复验 → 拒绝 → 有界 repair)====================
+
+/** enforce 档进程内计数(与影子账分家;同样**不落任何入参值**)。 */
+export interface ToolArgEnforceStats {
+  /** enforce 判定实际跑了多少次 */
+  runs: number;
+  /** 原值即过(一次 parse 都没做) */
+  passedPlain: number;
+  /** 靠容错解析复验通过 */
+  passedNormalized: number;
+  /** 判违规(交给 repair 窗决定回喂还是硬失败) */
+  rejected: number;
+  /** 校验器自身抛异常 ⇒ fail-open 放行并计数(坏描述不能砖化执行,影子档③同一条规矩) */
+  validatorThrew: number;
+  /** 工具描述缺 required(非数组)的次数 —— 这些样本不得当作准确度证据 */
+  undeterminedRequired: number;
+  /** 被 repair 窗记下的连续拒绝次数总和 */
+  repairRejections: number;
+  /** 其中超出回喂上限、以硬失败收场的次数 */
+  repairExhausted: number;
+}
+
+const enforceStats: ToolArgEnforceStats = {
+  runs: 0,
+  passedPlain: 0,
+  passedNormalized: 0,
+  rejected: 0,
+  validatorThrew: 0,
+  undeterminedRequired: 0,
+  repairRejections: 0,
+  repairExhausted: 0,
+};
+
+/**
+ * 按工具名的**连续**拒绝窗:判定通过即清零(见 enforceValidateToolArguments 的两条 pass 支)。
+ * 刻意按"连续"而非"累计" —— 模型中途把别的工具做对了、或本工具修好了,都不该背着旧账。
+ */
+const repairStreaks = new Map<string, number>();
+
+export interface ToolArgEnforceDecision {
+  /**
+   * pass             原值即过 ⇒ 参数与返回值逐字不动;
+   * pass-normalized  容错解析复验通过 ⇒ 调用方**必须**用 `args`(归一树,原键全保留);
+   * reject           违规 ⇒ 由 executor 交 repair 窗定夺(回喂或硬失败),不得执行;
+   * undetermined     校验器抛异常 ⇒ fail-open 放行(只记账)。
+   */
+  status: 'pass' | 'pass-normalized' | 'reject' | 'undetermined';
+  args: Record<string, unknown>;
+  errors: ValidationError[];
+  normalizedFields: string[];
+}
+
+/**
+ * enforce 判定唯一入口。**必须在任何可能执行/批准的分支之前**被调用。
+ *
+ * 与"批准 = 执行"链路的关系:拒绝路径根本不进权限/批准弹窗(一条参数就不合法的调用
+ * 没有可批准的事);通过路径与影子档一样,绝不触碰 `call.arguments` 的引用,
+ * 只有 pass-normalized 才把归一树交回调用方替换。
+ */
+export function enforceValidateToolArguments(
+  tool: Tool,
+  args: Record<string, unknown>,
+): ToolArgEnforceDecision {
+  enforceStats.runs += 1;
+  enforceRequested += 1;
+  announceEnforceOnce();
+  try {
+    const schema = buildShadowSchema(tool);
+    if (!Array.isArray(tool.required)) enforceStats.undeterminedRequired += 1;
+    const norm = normalizeToolArguments(args, schema);
+    if (norm.result.valid) {
+      repairStreaks.delete(tool.name);
+      if (norm.normalizedFields.length > 0) {
+        enforceStats.passedNormalized += 1;
+        return {
+          status: 'pass-normalized',
+          args: norm.args as Record<string, unknown>,
+          errors: [],
+          normalizedFields: norm.normalizedFields,
+        };
+      }
+      enforceStats.passedPlain += 1;
+      return { status: 'pass', args, errors: [], normalizedFields: [] };
+    }
+    enforceStats.rejected += 1;
+    return { status: 'reject', args, errors: norm.result.errors, normalizedFields: [] };
+  } catch {
+    enforceStats.validatorThrew += 1;
+    return { status: 'undetermined', args, errors: [], normalizedFields: [] };
+  }
+}
+
+/** repair 窗记账:每次拒绝 +1;超过上限即"硬失败"档(第 max+1 次连续违规起)。 */
+export function noteEnforceRepairRejection(
+  toolName: string,
+): { attempt: number; max: number; exhausted: boolean } {
+  const next = (repairStreaks.get(toolName) ?? 0) + 1;
+  repairStreaks.set(toolName, next);
+  enforceStats.repairRejections += 1;
+  const exhausted = next > TOOL_ARG_REPAIR_MAX_ATTEMPTS;
+  if (exhausted) enforceStats.repairExhausted += 1;
+  return { attempt: next, max: TOOL_ARG_REPAIR_MAX_ATTEMPTS, exhausted };
+}
+
+/** 读出某工具当前连续拒绝数(报表/测试用,不改状态)。 */
+export function enforceRepairStreak(toolName: string): number {
+  return repairStreaks.get(toolName) ?? 0;
+}
+
 // ==================== 读出接口(供守护/报表) ====================
 
 /** 进程内快照:深拷贝,调用方改动不会污染计数器。 */
@@ -223,6 +358,7 @@ export function snapshotToolArgShadow(
     totalShadowRuns,
     totalToolsWithErrors,
     enforceRequested,
+    enforce: { ...enforceStats },
     unknownModeValues: [...unknownModeValues].sort(),
     tools,
   };
@@ -235,11 +371,15 @@ export function totalToolArgShadowRuns(): number {
   return n;
 }
 
-/** 测试/巡检用:清零并允许重新播报一次性提示。 */
+/** 测试/巡检用:清零两条计数器与 repair 窗,并允许重新播报一次性提示。 */
 export function resetToolArgShadowTelemetry(): void {
   buckets.clear();
   unknownModeValues.clear();
   enforceRequested = 0;
+  for (const key of Object.keys(enforceStats)) {
+    enforceStats[key as keyof ToolArgEnforceStats] = 0;
+  }
+  repairStreaks.clear();
   announcedUnknownMode = false;
   announcedEnforce = false;
 }

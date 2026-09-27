@@ -66,7 +66,7 @@ export const ResourceBudget = React.memo(function ResourceBudget({
         </div>
         {/* Phase 22: hover tooltip 显示 used / total (pct%),group/budget 触发 */}
         <div className="group/budget relative">
-          <div className="h-1 overflow-hidden rounded-sm bg-muted/40" aria-hidden>
+          <div className="h-1 overflow-hidden rounded-xs bg-muted/40" aria-hidden>
             <div
               className={cn('h-full transition-all duration-300', fillCls)}
               style={{ width: `${pct}%` }}
