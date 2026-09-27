@@ -121,7 +121,7 @@ const viewStyles = {
     paddingLeft: toRpx(8),
     paddingRight: toRpx(8),
     height: toRpx(25),
-    borderRadius: 'var(--radius-md)',
+    borderRadius: 'var(--radius-sm)',
     marginRight: toRpx(10),
     flexShrink: 0,
     border: '1px solid',
