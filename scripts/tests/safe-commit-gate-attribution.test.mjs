@@ -60,6 +60,63 @@ test('归因不得反向:同一文本在"点名本次文件"与"不点名"两种
   assert.notEqual(noDelta, 'mine', '未差分也不得反过来把谁都判 mine(那会让人人跳门)')
 })
 
+// ── 态①b:G-268(2026-09-27)—— 门在**我的面**上就判了"无法判定"(exit 2) ──────────────
+// 现场:守门 44 判 `readdirSync(根目录)`,而 safe-commit 的基线面是 `git worktree add --detach`
+// 出来的检出 —— 那里**物理上没有未跟踪文件**。于是"别人留在根的在飞文件"让我的面红、
+// 基线面绿,差分就把结论写成"这枚提交把跑绿的东西改红了"。实测 2026-09-27 10:36~12:08
+// 因此累计 12 次拒绝跳门,而那些红没有一个是我能合法修的(动别人文件在本仓算事故)。
+// 修法两半:门自己按面分流(--staged 只把**索引里有的**违规判 exit 1,未跟踪判 exit 2),
+// 归因层把 exit 2 认作"该门未对本枚提交下结论"。本测试钉的是后一半的**四个方向**。
+test('态①b:门在我这一侧判 exit 2 ⇒ 落未判定档,既不判 mine 也不判"与本次无关"', () => {
+  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, MY_FILES } = __test__
+  const text = SUMMARY + FAIL_29
+  const undeterminable = {
+    status: 2,
+    output: '⚠️ 根目录整洁守门[无法判定]:存在白名单外条目,但它们**未被 git 跟踪**,归属无从判定\n   - stray.ps1  (文件,未跟踪 → 不属任何提交)',
+  }
+
+  // 臂 1:只有我这个面 exit 2,基线绿不绿都不该改变结论 —— 关键是**不得判 mine**
+  const v1 = classifyHookFailure({
+    text,
+    stagedFiles: MY_FILES,
+    runGate: () => undeterminable,
+    runGateBaseline: () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null }),
+  })
+  assert.equal(v1.kind, 'undetermined-red', '基线绿而我的面喊"判不出"时,差分的前提不成立,不得判 mine')
+  assert.equal(
+    v1.delta?.myFaceUndetermined,
+    1,
+    '这一档必须单独计数并可机读 —— 混进"基线面跑不通"里就会让人以为原因还是那一种',
+  )
+  const line1 = verdictLine(v1)
+  assert.match(line1, /exit 2|无法判定/, '措辞要点名"是门自己判不出",不是笼统的归属未知')
+  assert.ok(
+    !/不在本次提交内容里/.test(line1),
+    '反向锁:未判定档绝不得声称"与本次无关"—— 它没证明这件事',
+  )
+
+  // 臂 2(有牙证明):把退出码换回 1 且基线绿 ⇒ 必须翻成 mine。
+  // 这一臂防的是"把 exit 2 当成万能免死金牌":同一份输出,只要门真的下了结论(exit 1),
+  // 差分结论就必须照旧成立。少了它,臂 1 可以是恒真式。
+  const v2 = classifyHookFailure({
+    text,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ ...undeterminable, status: 1 }),
+    runGateBaseline: () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null }),
+  })
+  assert.equal(v2.kind, 'mine', 'exit 1 + 基线绿 ⇒ 差分仍判引入红;新档不得吃掉旧结论')
+
+  // 臂 3(方向锁):一道既喊"判不出"**又点名本次文件**的门,按"多要一次定向说明"处理。
+  // 归因失效的方向从来不该是"多放一次跳门" —— 这条与守门 12/§12f 同一条禁令。
+  const v3 = classifyHookFailure({
+    text,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 2, output: '无法判定,但顺手点名了 scripts/foo.mjs' }),
+    runGateBaseline: () => ({ ran: true, status: 0, output: '', why: null }),
+  })
+  assert.equal(v3.kind, 'mine', 'exit 2 不得覆盖"点名本次文件"这一更强的证据')
+})
+
 test('装车证明:safe-commit 必须真的 import 并调用本判据', () => {
   assert.match(
     safeCommitSource,
