@@ -52,9 +52,30 @@ export interface RecordAuditLogParams {
 }
 
 /** 链完整性验证结果。 */
+/**
+ * 链验证的两种输入形态(判据的隐含前提必须写成显式档位,否则子集输入会被当成区间输入判)。
+ *
+ * - `span`:传入的是链上**连续的一段**(时间范围查询就是这一档,它以首行自身的
+ *   `prev_hash` 起算,所以区间内每一行都参与邻接判定)。
+ * - `subset`:传入的是链的**子序列**(按用户查就是这一档 —— 见 `verifyUserChain`)。
+ */
+export type AuditChainVerificationMode = 'span' | 'subset'
+
 export interface IntegrityVerificationResult {
   valid: boolean
   totalChecked: number
+  /**
+   * 本次输入按哪种形态判的(缺省 `span`)。写进结论而不是只留在参数里,是因为
+   * `valid:true` 在两种档下**含义不同**,而响应体的读者拿不到调用栈。
+   */
+  mode?: AuditChainVerificationMode
+  /**
+   * 区间连续性是否被证明。`false` **不是**篡改信号,它只说明"输入是子序列,
+   * 链上还有没被带进来的行" —— 把它读成告警会让人去查一个不存在的攻击者。
+   */
+  continuityProven?: boolean
+  /** 邻接不成立的次数(仅 `subset` 档会 >0 而不判红)。 */
+  adjacencyBreaks?: number
   /** 首个篡改位置(0-based),valid=true 时为 undefined。 */
   tamperedIndex?: number
   /** 失败原因。 */
@@ -384,13 +405,23 @@ export async function recordToolLedgerAuditIngest(
  * 任一不匹配 → 返回篡改位置 + 原因。
  *
  * @param logs 按时间升序排列的日志链
+ * @param mode 输入形态(缺省 `span`,即"这是一段连续的链")。**判链之前必须先问这一维**:
+ *   链是全局的(`recordAuditLog` 取链尾用 `ORDER BY timestamp DESC LIMIT 1` 全表),
+ *   而按用户查回来的只是子序列 —— 把子序列当区间判,任何与别人行交错的用户都会
+ *   被报"prev_hash 链断裂",而那个"断裂"根本不是篡改(数据是好的,只是没全带进来)。
+ *   `subset` 档因此照常重算每条 HMAC(内容自洽照判),但邻接不成立**只计数不判红**,
+ *   并把 `continuityProven:false` 写进结论,让读响应的人知道哪些事没被证明。
  */
-export function verifyAuditLogIntegrity(logs: AuditLogChainRow[]): IntegrityVerificationResult {
+export function verifyAuditLogIntegrity(
+  logs: AuditLogChainRow[],
+  mode: AuditChainVerificationMode = 'span',
+): IntegrityVerificationResult {
   if (logs.length === 0) {
-    return { valid: true, totalChecked: 0 }
+    return { valid: true, totalChecked: 0, mode, continuityProven: true }
   }
 
   let expectedPrev = logs[0]?.prevHash ?? GENESIS_HASH
+  let adjacencyBreaks = 0
 
   for (let i = 0; i < logs.length; i++) {
     const log = logs[i]
@@ -398,13 +429,20 @@ export function verifyAuditLogIntegrity(logs: AuditLogChainRow[]): IntegrityVeri
 
     // 检查 1:prev_hash 链式关系
     if (log.prevHash !== expectedPrev) {
-      return {
-        valid: false,
-        totalChecked: i,
-        tamperedIndex: i,
-        tamperedId: log.id,
-        reason: `prev_hash 链断裂:期望 ${expectedPrev.slice(0, 16)}…,实际 ${log.prevHash.slice(0, 16)}…`,
+      if (mode === 'span') {
+        return {
+          valid: false,
+          totalChecked: i,
+          mode,
+          continuityProven: false,
+          adjacencyBreaks,
+          tamperedIndex: i,
+          tamperedId: log.id,
+          reason: `prev_hash 链断裂:期望 ${expectedPrev.slice(0, 16)}…,实际 ${log.prevHash.slice(0, 16)}…`,
+        }
       }
+      // subset 档:邻接不成立只说明链上有没带进来的行,继续按本行自身 prev_hash 重算
+      adjacencyBreaks += 1
     }
 
     // 检查 2:current_hash 重算
@@ -421,6 +459,9 @@ export function verifyAuditLogIntegrity(logs: AuditLogChainRow[]): IntegrityVeri
       return {
         valid: false,
         totalChecked: i + 1,
+        mode,
+        continuityProven: adjacencyBreaks === 0,
+        adjacencyBreaks,
         tamperedIndex: i,
         tamperedId: log.id,
         reason: `current_hash 不匹配:期望 ${recomputed.slice(0, 16)}…,实际 ${log.currentHash.slice(0, 16)}…`,
@@ -430,16 +471,33 @@ export function verifyAuditLogIntegrity(logs: AuditLogChainRow[]): IntegrityVeri
     expectedPrev = log.currentHash
   }
 
-  return { valid: true, totalChecked: logs.length }
+  return {
+    valid: true,
+    totalChecked: logs.length,
+    mode,
+    continuityProven: adjacencyBreaks === 0,
+    adjacencyBreaks,
+    ...(mode === 'subset' && adjacencyBreaks > 0
+      ? {
+          reason: `本次输入是子序列(${String(adjacencyBreaks)} 处邻接不成立 = 链上有未纳入的行),内容自洽已证、区间连续性未证 —— 这不是篡改告警`,
+        }
+      : {}),
+  }
 }
 
-/** 验证某用户最近 N 条日志链(委托查询 + 验证)。 */
+/**
+ * 验证某用户最近 N 条日志链(委托查询 + 验证)。
+ *
+ * 刻意走 `subset` 档:`selectAuditLogChain` 的 SQL 带 `WHERE user_id = ?`,回的是全局链的
+ * 子序列,按区间判必然假报断裂(见 `verifyAuditLogIntegrity` 的 @param mode)。
+ * 要证区间连续性,请用 `verifyRangeChain`(时间范围 = 连续区间)。
+ */
 export async function verifyUserChain(
   userId: string,
   limit = 1000,
 ): Promise<IntegrityVerificationResult> {
   const logs = await selectAuditLogChain(userId, limit)
-  return verifyAuditLogIntegrity(logs)
+  return verifyAuditLogIntegrity(logs, 'subset')
 }
 
 /** 验证时间范围内的日志链。 */
