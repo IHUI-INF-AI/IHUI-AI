@@ -15,6 +15,7 @@
  *   ihui spec load --workspace <path> [--scope-type <t>] [--scope-path <p>] [--version <v>] [--json]
  *   ihui spec diff --workspace <path> [--scope-type <t>] [--scope-path <p>] [--json]
  *   ihui spec variables --workspace <path> [--json]
+ *   ihui spec drift [--json] [--strict]        # 本地 Spec↔Code 双向落差,不需登录(V3 #83)
  */
 
 import type { Command } from 'commander';
@@ -360,6 +361,12 @@ interface VariablesOptions {
   json?: boolean;
 }
 
+/** `ihui spec drift` 的选项:本地判据,不需要 workspace(它判的是本仓工具面)。 */
+interface DriftOptions {
+  json?: boolean;
+  strict?: boolean;
+}
+
 async function listVariables(
   baseUrl: string,
   opts: VariablesOptions,
@@ -508,6 +515,31 @@ export function registerSpecCommand(program: Command): void {
         await listVariables(auth.baseUrl, opts, Boolean(opts.json), auth.apiKey);
       } catch (err) {
         handleError('spec variables', err);
+      }
+    });
+
+  // —— V3 #83:Spec ↔ Code 双向落差检测。与上面五个子命令**不同源**:那五个打远程 /api/spec/*,
+  //    这一条判的是本仓工具面的"声明 vs 实现",纯本地静态面 ⇒ 不取 token、不联网。
+  //    模块延迟 import:drift 判据要拉起全部工具族,不该为 `ihui spec --help` 付这份开销。
+  specCmd
+    .command('drift')
+    .description('检测规格与实现的双向落差(代码有而规格未声明 / 规格声明而代码没有实现;本地判定,不需登录)')
+    .option('--json', '以 JSON 格式输出')
+    .option('--strict', '发现落差即以退出码 1 结束(问责档;缺省只报不判)')
+    .action(async (opts: DriftOptions, cmd: { optsWithGlobals?: () => DriftOptions }) => {
+      try {
+        // 根程序在 index.ts 上也声明了 `--json`(全局档),而 commander 默认把全局选项
+        // 在子命令位置一并认走 ⇒ `opts.json` 恒为 undefined,`ihui spec drift --json`
+        // 实测仍然打印人读报告(判据本身没问题:`runSpecDrift({json:true})` 直接调用出 JSON)。
+        // 用 optsWithGlobals 把两侧合并,而不是去掉根上的档(那是替别人改 API)。
+        const merged = cmd.optsWithGlobals?.() ?? opts;
+        const { runSpecDrift } = await import('./spec-drift.js');
+        process.exitCode = await runSpecDrift({
+          json: Boolean(merged.json),
+          strict: Boolean(merged.strict),
+        });
+      } catch (err) {
+        handleError('spec drift', err);
       }
     });
 }
