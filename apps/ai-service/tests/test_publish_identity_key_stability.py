@@ -100,18 +100,62 @@ def test_scheduler_uses_identity_key_for_linkage_check() -> None:
     assert "async_check_device_linkage(account_id_str)" not in src
 
 
+#: 两类"自己算身份键"的形状。第一类是本次修的 `md5(首个凭证值)`;
+#: 第二类是 2026-09-27 复扫时新抓到的 `account_id=f"{self.platform_id}_{credentials.get(...)}"`
+#: —— 旧锁只写了第一类的字面量,所以第二型(haokan 两处)一路绿灯进来,
+#: 且它的 `'default'` 兜底会让**所有没填 account_id 的该号共用同一张脸**(跨号联动)。
+SECOND_SOURCE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "首个凭证值哈希",
+        re.compile(r"md5\(str\(first"),
+    ),
+    (
+        "把平台 id 与凭证值内联拼成键",
+        re.compile("""account_id\\s*=\\s*f["'][^"']*\\{[^}]*platform_id"""),
+    ),
+)
+
+
+def test_second_source_patterns_have_positive_proof() -> None:
+    """每条模式必须命中自己那一型的真实旧文本 —— 否则模式可以是张死表而本锁一路报绿。
+
+    这是本仓反复登记的失效型:名单驱动的反残留锁只做反向证明(拦到坏值才红),
+    从没证明名单里某一条真能命中。
+    """
+    samples = {
+        "首个凭证值哈希": '        return f"{self.platform_id}_{hashlib.md5(str(first).encode()).hexdigest()[:16]}"',
+        "把平台 id 与凭证值内联拼成键": '                    account_id=f"{self.platform_id}_{credentials.get(\'account_id\', \'default\')}",',
+    }
+    for name, pattern in SECOND_SOURCE_PATTERNS:
+        assert pattern.search(samples[name]), f"模式「{name}」命中不了它自己那一型 = 死表"
+    # 合法形态不得被误伤(否则守门会把"委托唯一出口"也判成违规,逼人删锁)
+    for legit in (
+        "                    account_id=self.account_identity(credentials),",
+        "                account_id=account_id,",
+    ):
+        for name, pattern in SECOND_SOURCE_PATTERNS:
+            assert not pattern.search(legit), f"模式「{name}」误伤了合法形态: {legit}"
+    # 只拼平台 id(不拼凭证)同样必须被拦:那会让**同一平台所有账号共用一张脸**,
+    # 与 haokan 那个 `'default'` 兜底是同一个失效面,不是"至少不含凭证"的豁免理由。
+    assert SECOND_SOURCE_PATTERNS[1][1].search('account_id=f"{self.platform_id}",'), (
+        "整平台共用一键的形态不得放过"
+    )
+
+
 def test_no_second_implementation_left_in_publish_package() -> None:
-    """禁止第二份真相:发布包内不得再出现"首个凭证值哈希"这种键算法。
+    """禁止第二份真相:发布包内不得再出现自己算身份键的实现(两类形状同锁)。
 
     判源码文本而非行为,因为这类漂移的表现是"某平台的键又开始轮换",
     而那时没有任何行为断言会红(与本仓守门 70/76/81 同型教训)。
     """
     root = pathlib.Path(__file__).resolve().parents[1] / "app" / "services" / "publish"
-    bad = re.compile(r"md5\(str\(first")
+    scanned = [py for py in root.rglob("*.py") if py.name != "account_identity.py"]
+    assert scanned, "一个 .py 都没扫到 = 判据失明,不是通过"
     offenders = [
-        py.name
-        for py in root.rglob("*.py")
-        if py.name != "account_identity.py" and bad.search(py.read_text(encoding="utf-8"))
+        f"{py.name}: {name}"
+        for py in scanned
+        for name, pattern in SECOND_SOURCE_PATTERNS
+        if pattern.search(py.read_text(encoding="utf-8"))
     ]
     assert not offenders, f"这些文件又自己算身份键了: {offenders}"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
