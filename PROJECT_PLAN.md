@@ -12508,3 +12508,81 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [x] ✅(2026-09-27)**由该日志取得决定性实证,上一格「残余③」里"两实例并存"从"未追的线索"升为已定性的独立缺陷**:`[2026-09-27][02:39:49][tauri_runtime_wry][ERROR] failed to create webview: WebView2 error: HRESULT(0x800700AA) "请求的资源在使用中。"` —— 第二个实例(晚主实例 14 分钟)创建 WebView2 失败(用户数据目录被第一个实例占住),但它**既不退出也不提示**,日志随后照常打出「启动探活成功 → 显示线上前端」「指纹基线建立」⇒ 变成一个**只有 `com.ihui.desktop-siw` 隐藏消息窗口、没有任何界面的僵尸进程**(与我实测"按 PID 杀掉主实例后还剩一个进程"完全对上)。两条后果:① 它自带托盘图标 ⇒ 用户看到两个图标、点到的可能不是有界面的那个;② single-instance 通道当时未把第二实例拦下(未取证为何失效)。**本会话未动这一格代码** —— 处置属行为改动(webview 创建失败后该退、该提示、还是降级重试,以及是否放行单实例目录争用),需持有人定方向,不替人裁。
 - [ ] P1 新登记(接上条,解阻前置已明确):僵尸实例修复。可选方向三条,按仓库既有取向排序 ——(a) WebView2 创建失败即记录 ERROR + 提示并 `process::exit`,**不得**继续启动 `auto_refresh` 常驻循环;(b) 失败时回退到离线兜底页(`lib.rs` 已注册 `offline` 协议,`auto_refresh` 有断网切页机制)而非静默半启动;(c) 查清 single-instance 为何未拦住第二实例。选哪条前必须先复现:同日两次启动的时间差是 14 分钟,尚未取证"主实例处于隐藏态时 siw 窗口是否仍在"。
 - **环境事实登记(不归本线、不代裁,2026-09-27)**:某一**并发会话**正在本地整篇重写 `PROJECT_PLAN.md` —— 同一瞬间测得 HEAD 12,497 行、工作树副本 11,320 行，**工作树缺 HEAD 的 1,190 行、自有 13 行**；`heal-worktree-tracked --align-drift` 因此**不判它可对齐**(那 13 行不是任何祖先版本的内容，机器无法证明零独有数据)，这是判据正确保守，不是自愈漏做。**风险点**：谁对该副本执行一次 `git add PROJECT_PLAN.md` + 不带 pathspec 的普通提交，就会把那 1,190 行(含他人本批登记)整批写回旧态；防线只有门 71(`check-plan-line-loss`，按 G/D/P/W/守门 NN **编号族**点名，纯散文登记行结构上不在其射程)与门 84(判**索引** blob 是否等于祖先，而此刻索引==HEAD)。**出路**：持有那份副本的一方提交前跑 `node scripts/merge-live-doc.mjs --file PROJECT_PLAN.md`(需要归并再 `--apply`)，或改用 `scripts/live-doc-edit.mjs` 的只追加通道；不得由本会话代对齐。
+
+
+
+
+
+
+
+
+
+
+
+
+- [ ] B15 本目标下**仍未闭环**的一件事(② 已于 2026-09-26 实测收口,见下):① 移动两端运行时端到端实证 —— 本机结构性缺环境(`adb` 不存在、iOS 模拟器需 macOS、微信开发者工具不在位),解阻 = 三选一环境到位后复跑;② 已完成:协议第五族 `ext_ui` 在 HEAD 有实现(`agent-control.ts:138`/`:231`)且被 `agent-control-ui.test.ts` 的 ㉑㉔ 正反两条钉住(含"每个 category 恰好一个择端"的反向锁)。 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记在 L2448,派单以那条为准,本行不再单独派单。〕
+- [ ] **G-206 同一个缺口今天被补了两遍 —— 共享包内现在有两份 conversation-org,而 barrel 只把一份给出去,另一份的关键函数在包外根本不存在**(**刻意不认领**:上限取值要设计侧拍板,挂个租约只会变成一台等人来摘的红门)
+- [ ] **G-207 守门 111 对 `apps/cli/src/tools/` 下"本来就不注册工具"的文件是恒红的 —— 而这道红每次都合法地被跳掉,所以它既拦不住人、又一直在污染归因**
+- [ ] **O82续三·D35后续①**：`projectionState` 的**写入**方仍无人接 —— 服务端注释自称"投影器写入在后续段落接线"，本票只做了读侧；读侧投影已可用，不得读成整票闭环。 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记在 L11639,派单以那条为准,本行不再单独派单。〕
+- [ ] **O82续三·D35后续②**：`packages/shared/src/chat/index.ts` 的 barrel 里 `voice-note` 与 `prompt-drafts` 两行仍是**注释态**，而这两个文件都已存在于 HEAD（实测 `git cat-file -e HEAD:packages/shared/src/chat/voice-note.ts` 通过）⇒ 共享层"造好没装车"的又一格；解开注释属实现票，须先跑 `pnpm --filter @ihui/shared typecheck` 与各端构建再定。 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记在 L11640,派单以那条为准,本行不再单独派单。〕
+- [ ] **O82续三·D41后续①**：11 条新文案只在组件内联兜底（清单在 `.ihui-agent/tmp/i18n-d41.json`，键名 `previewView*` / `previewSource*`），**未入语言包** ⇒ 五种语言实际都不走取词通道；补录要按 §19 流水线（`i18n-diff` → 翻译 → `i18n-apply` → parity 复验），不得手改单个语言文件。 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记在 L11641,派单以那条为准,本行不再单独派单。〕
+- [ ] **O82续三·守门8后续①**：三端首纳入的死调用存量已冻进 `scripts/api-routes-baseline.json`（现值以 `node scripts/check-api-routes.mjs` 末行现读为准），清理另计；同票登记的 `GET /api/study/videos @ apps/mobile-rn/src/screens/StudyIndexScreen.tsx` 是"后端从未注册的列表接口"，与视频页那条归并处理，不得两处各修一遍。 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记在 L11642,派单以那条为准,本行不再单独派单。〕
+- [ ] **O82续三·GA7后续①**：RN 双层页头 HEAD 存量 3 处（`SettingsScreen.tsx`、`CourseDetailScreen.tsx`、`LiveDetailScreen.tsx`）只报数未清理；属移动端实现票，判据本体一字未改。 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记在 L11643,派单以那条为准,本行不再单独派单。〕
+- [ ] **G-222 `TOOL_MODE_UNAVAILABLE` 的用户可见指引文案待产品定稿(工程侧按可验证事实落了,不是收口)**: 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记在 L8199,派单以那条为准,本行不再单独派单。〕
+  - **⑨ 真机首跑揪出 09-24 潜伏渲染缺陷并修复(2026-09-27 用户实机报告「第二页两个空框、按钮没了」)**:重装确认页的全部运行期控件(卡片文字/选中指示器/CTA/窗口钮)**存在但不可见** —— 根因 = nsDialogs::CreateControl 把后建控件插到既有兄弟**之下**(GetTopWindow 探针实测 z 序 == 创建序,先建者在顶),本页背景位图最先创建 = 骑在全部后建控件之上;唯一可见的描述行是核心自建控件(被核心自己提顶)。该页自 09-24 卡片化改版起即坏 —— 交互式升级极少被人工走到(/UPDATE 与 passive 都跳页),自动链路从未暴露。**双重修复**:① 步骤 13 Z 序重排(背景压底 → 卡面色 overlay → 文字/指示器 → CTA/窗口钮;welcome/dir/finish 早有 IHUI_ZORDER 兜底,本页控件 10 个超出其句柄上限,逐个重排);② overlay 伪透明根治 —— 子窗口 transparent 只透到**父窗口**(242424 平色),透不到兄弟位图,旧写法 = 整卡盖 242424 平矩形;改为卡面色 1A1A1A + 几何内缩 4px(烧入圆角描边自位图露出)+ 文字/指示器层挂同函数点击回调(它们在 overlay 之上,不挂则点文字被吞)。取证链(全部当次实锤):tauri 暂存的真实 installer.nsi 直接 -DIHUI_TRACE=1 编译 → 程序化点击导航(GetDlgItem+BM_CLICK)→ PrintWindow 截图(**教训:PrintWindow 对 WM_CTLCOLORSTATIC 控件不可靠,文字层会缺画,必须 SetForegroundWindow + CopyFromScreen 抓真屏**)→ 像素采样(卡框 82,82,82 / 卡里 26,26,26 与位图逐点一致)+ 窗口树(控件存在带文案)+ z 序探针三重实锤;修复后同链复验全绿。守门:installer-assets 八条不变量 PASS。
+### 第五十一波·续九 —— 第三十七批~第三十八批 + 三格的归属判定（2026-09-27 午，主会话独立复验）
+> 承续八。按"① 技能 ② 模型档位 ③ 桌面看门狗 ④ 长会话滚动 ⑤ 内部令牌"的顺序推。
+> 两条落地、一条否证、三条写明归属——**归属判定和落地同等重要**，
+> 因为把不可达的机制接进来正是本仓最恨的"造好没装车"。
+- [x] ✅(2026-09-27) **第三十七批：技能扫描收目录包形态 `<root>/<名>/SKILL.md`**（`05e4a25fd`）。
+  `scanDir` 第一行 `if (!entry.isFile()) continue` 把目录整个跳过,而 `.ihui/skills`、`.agents/skills`、
+  `.claude/skills`、`.cursor/skills`、`~/.ihui/skills` 这五个**我们自己写进头注**的扫描根,
+  外部技能包实际就按 `<name>/SKILL.md` 落地(本机第三方技能集正是这个布局)⇒ 症状是"装了技能但列表 0 个,
+  且没有任何一句解释"。只下钻一层、只认 `SKILL.md`(再深就是包里的 `references/`、`scripts/`、`assets/`,
+  当技能读等于往提示词灌资源文件);`_` 前缀与无 frontmatter `name` 的兜底规则**目录/文件同形**;
+  扫描层按**文件真实路径**去重(`realpathSync`,取不到退回 `path.resolve`)而不是按 name;
+  `readdirSync` 先排序,否则"同一文件被两形态命中时留哪份"随枚举顺序漂。
+  头注"只扫描 flat *.md(不递归子目录)"同步改掉——**散文与实现必须同值**,否则下一个人按头注理解这套机制。
+  回归 9 例新 + 36 例旧 = 45 passed;`--filter @ihui/cli typecheck` 0;
+  **有牙证明**:摘掉目录包分支 ⇒ 6/9 当场翻红,还原后 9/9 绿且与备份逐字节一致。
+  顺手公开两条**代理报告的口径纠正**(我先复验才动手,没照抄):技能段超预算不是静默丢
+  (已有 `empty_body`/`body_truncated`/`total_budget_exhausted` 三类 notice + 尾部计数行);
+  `prerequisites` 不是零消费者(`skills/sync.ts:178` 在做环境前置检查)。真零消费者的是 `getAllowedTools()`
+  (全仓仅定义处一处命中)⇒ 那一格另计票,不在本票里顺手接线(接哪个通道属权限语义决策)。
+- [x] ✅(2026-09-27) **第三十八批：内部服务令牌改常数时间比较,并把"形状"钉成断言**（`f56ac759d`）。
+  明文 `token !== config.AI_CALLBACK_SECRET` 会随"前缀对多少"分叉 ⇒ 给离线枚举密钥留计时侧信道。
+  出口 `secretsEqual` 先把两边各 SHA-256 成固定 32 字节再 `timingSafeEqual`(直接对两把原文比不行:
+  长度不等会**抛错**,且耗时仍与前缀相关)。判定结论一字未变(未配置/错票/对票+活跃/缺 X-User-Id/用户不存在)。
+  两条方法学值得留:① 用真路由 + `app.inject` 驱动——Fastify 5 没有 `app.mockRequest`,
+  而手搓 request/reply 恰好跳过本票要验的那一维(reply 真被 send、statusCode 真落到响应);
+  ② **行为断言抓不到计时这一维,只有源码形状锁抓得到**:变异取证=退回明文比较后
+  `1 failed | 8 passed`,红的正是形状锁(随后按备份逐字节还原)。形状锁自己读文件时先剥注释行,
+  否则会把解释自己的那句注释判成违规;needle 在测试里拼接而成不写字面量,免得测试自己成为被扫描命中的那一行。
+- [x] ✅(2026-09-27) **②模型档位"族规则 + 例外层叠继承"——本波否证,不接**。
+  先证可达再接机制(本仓铁律:加守卫前先证明坏状态可达)。实测:上游 `modelRules` 解决的是
+  **每模型请求参数覆盖**,而我方该位置今天没有站点——能力四布尔已有"显式 `capabilities` 覆盖名字派生"
+  这条例外通道(`model_catalog.py:258` 起)、`max_context` 有 `cap_with_max_context` 的每模型通道、
+  provider 选择是 `app/providers/__init__.py:82-113` 的有序前缀链(不是 caps 表)。
+  也核过 `reasoning_effort_pin.py` 不是"两处算同一件事"——它是会话内**钉扎状态机**(Unset/Compacted/Active),
+  与 caps 表不同维。**触发条件(达即接,别再重新取证)**:当某个 provider 的**新一代模型**需要与其旧世代
+  不同的 `protocol`/`supports_stream_usage`/请求体字段(改名、嵌套、多字段同发)时,
+  即在 `provider_caps.py` 上扩"有序规则 + 字段级 overlay(缺省继承、非 None 才覆盖)",
+  并同步给 `filter_call_kwargs` 加"只能删参、不能改形状"的那一维;不得新建第二张表。
+- [ ] **③桌面 ANR/挂死看门狗 + 崩溃分类学 —— 归属桌面端持有人,本线不代做**:上游实测在
+  `packages/desktop/src/main/desktopStabilityTelemetry.ts:17`(5s ANR/30s 挂死)、`:44`(crashKind 封闭集)、
+  `desktopCrashCapture.ts:421`(render-process-gone → 归档,上限 5 文件/100MB);我方全仓搜
+  `watchdog|unresponsive|longtask|PerformanceObserver` 零命中,管理端崩溃率恒为 0 就是这一格的后果。
+  按本会话既定范围(移动端/桌面端不代做)只登记不实施;落地需要真机崩溃注入实验,不能只靠测试跑绿。
+- [ ] **④长会话滚动四维差异 —— 本波刻意未做,阻塞在"运行时自验"这一格**:四维实测在我方
+  `apps/web/src/components/chat/message-list/use-message-list-scroll.ts`(517 行,此刻工作树干净):
+  `:15` 无缓存时回落 `ESTIMATED_ITEM_HEIGHT=160`、`:343` 条目卸载即 `map.delete(id)`(上翻时对窗口外行
+  重新用 160 估 ⇒ 累积漂移、内容在光标下跳动)、`:202-208` prepend 用 rAF 轮询 5s 超时、
+  贴底判定与流式 delta 同帧时滚动权可被夺。修法方向清楚(**行高缓存跨卸载存活 + LRU 限界 + 底部状态读 DOM 现值**),
+  但它是**用户可见的渲染位置改动**,按 §17 必须浏览器实测 DOM 数值;本机 8801 是生产构建(改 web 源码不生效,
+  判据 `.next/BUILD_ID`),要自验必须另起私有 dev 端口 + `PLAYWRIGHT_BASE_URL` + 按 PID 收,
+  而宿主 `MessageList.tsx` 此刻是他人 ` M` 在飞。**在具备可验环境前不落地,也不交"测试绿但没人看过"的版本**;
+  解阻判据:私有 dev 端口起得来 + 宿主文件不再在飞,两条件齐了再接。
+- [ ] **⑤剩余那一半:内部令牌换一次性短期票**(承第三十八批已修的计时维)——现密钥常驻、无 TTL、可无限重放,
+  命中一次即永久可冒充任意活跃用户。改它必须**同批**动发票方 `apps/ai-service` 与验票方
+  `apps/api/src/plugins/internal-service-token.ts`,顺序错了就是打断内部通道(与 O13/O17 同族经验),
+  属双侧发布顺序决策 ⇒ 请该面持有人先定"先发票后验票"还是"双读过渡窗",本线不单边改契约。
