@@ -16,11 +16,11 @@ export default function Loading() {
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="rounded-xl border p-3 space-y-2">
             <div className="skeleton h-5 w-3/4 rounded" />
-            <div className="skeleton h-4 w-full rounded" />
-            <div className="skeleton h-4 w-2/3 rounded" />
+            <div className="skeleton h-4 w-full rounded-xs" />
+            <div className="skeleton h-4 w-2/3 rounded-xs" />
             <div className="flex gap-3">
-              <div className="skeleton h-4 w-20 rounded" />
-              <div className="skeleton h-4 w-24 rounded" />
+              <div className="skeleton h-4 w-20 rounded-xs" />
+              <div className="skeleton h-4 w-24 rounded-xs" />
             </div>
           </div>
         ))}

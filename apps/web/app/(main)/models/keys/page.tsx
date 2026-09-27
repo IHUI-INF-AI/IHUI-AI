@@ -109,7 +109,7 @@ export default async function KeysPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-20 overflow-hidden rounded-sm bg-muted">
+                          <div className="h-1.5 w-20 overflow-hidden rounded-xs bg-muted">
                             <div
                               className={
                                 isExpired

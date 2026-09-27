@@ -306,9 +306,9 @@ export default function AdminChannelQuotaPage() {
                               {fmt(c.dailyUsedTokens)} tok
                               {c.dailyTokenLimit !== null ? ' / ' + fmt(c.dailyTokenLimit) : ''}
                             </div>
-                            <div className="h-2 w-20 rounded-sm bg-primary/20">
+                            <div className="h-2 w-20 rounded-xs bg-primary/20">
                               <div
-                                className="h-2 rounded-sm bg-primary"
+                                className="h-2 rounded-xs bg-primary"
                                 style={{ width: dayCallRate + '%' }}
                               />
                             </div>
@@ -324,9 +324,9 @@ export default function AdminChannelQuotaPage() {
                               {fmt(c.monthlyUsedTokens)} tok
                               {c.monthlyTokenLimit !== null ? ' / ' + fmt(c.monthlyTokenLimit) : ''}
                             </div>
-                            <div className="h-2 w-20 rounded-sm bg-primary/20">
+                            <div className="h-2 w-20 rounded-xs bg-primary/20">
                               <div
-                                className="h-2 rounded-sm bg-primary"
+                                className="h-2 rounded-xs bg-primary"
                                 style={{ width: monCallRate + '%' }}
                               />
                             </div>

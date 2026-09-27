@@ -143,7 +143,7 @@ export default function ThreatDashboardPage() {
                           <td className="px-3 py-2 font-mono text-xs">{it.ip}</td>
                           <td className="px-3 py-2 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <div className="h-1.5 w-12 overflow-hidden rounded bg-muted/40">
+                              <div className="h-1.5 w-12 overflow-hidden rounded-xs bg-muted/40">
                                 <div
                                   className={cn('h-full rounded', scoreBgClass(it.score))}
                                   style={{ width: `${Math.min(100, it.score)}%` }}
@@ -208,7 +208,7 @@ export default function ThreatDashboardPage() {
                           <td className="px-3 py-2 font-mono text-xs">{it.ip}</td>
                           <td className="px-3 py-2 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <div className="h-1.5 w-12 overflow-hidden rounded bg-muted/40">
+                              <div className="h-1.5 w-12 overflow-hidden rounded-xs bg-muted/40">
                                 <div
                                   className={cn('h-full rounded', scoreBgClass(it.score))}
                                   style={{ width: `${Math.min(100, it.score)}%` }}

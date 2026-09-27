@@ -54,7 +54,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
         </div>
 
         {/* AI 回答 */}
-        <div className="mt-5 w-full rounded-3xl border border-border bg-muted p-3">
+        <div className="mt-5 w-full rounded-lg border border-border bg-muted p-3">
           <AnswerArea answer={answer} />
 
           {/* P3 #39 阶段2(2026-09-16 立):执行轨迹回放(快照含 toolCalls 且 >=2 步时渲染)。

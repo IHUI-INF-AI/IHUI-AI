@@ -121,7 +121,7 @@ export default function PointsTasksPage() {
                   </div>
 
                   <div className="mt-3 flex items-center gap-3">
-                    <div className="h-2 flex-1 overflow-hidden rounded-sm bg-secondary">
+                    <div className="h-2 flex-1 overflow-hidden rounded-xs bg-secondary">
                       <div
                         className={cn(
                           'h-full rounded-sm transition-all',
