@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   card: {
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     padding: CARD_PADDING,
   } as ViewStyle,
   cardPressed: {
