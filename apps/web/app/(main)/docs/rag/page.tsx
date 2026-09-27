@@ -85,7 +85,7 @@ export default function RagDocsPage() {
       {/* 什么是 RAG */}
       <section id="what-is-rag" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">什么是 RAG?</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-3">
+        <div className="rounded-lg border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             <strong>RAG(Retrieval-Augmented Generation,检索增强生成)</strong>是大模型与外部知识结合的核心技术:
             用户提问 → 先从知识库检索相关片段 → 把片段塞入 Prompt → LLM 基于片段生成答案。
@@ -102,7 +102,7 @@ export default function RagDocsPage() {
       {/* 完整流程 */}
       <section id="pipeline" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">智汇 AI RAG 全流程</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-4">
+        <div className="rounded-lg border bg-card p-3 space-y-4">
           <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
             <code>{`┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
 │ 1.上传   │ → │ 2.解析   │ → │ 3.切块   │ → │ 4.向量化 │ → │ 5.入库   │
@@ -133,7 +133,7 @@ export default function RagDocsPage() {
       {/* 创建知识库 */}
       <section id="create-kb" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">创建第一个知识库</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-4">
+        <div className="rounded-lg border bg-card p-3 space-y-4">
           <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
             <li>访问 <a href="https://aizhs.top/knowledge-base" className="text-primary underline">知识库页面</a>,点击"新建知识库"</li>
             <li>填写名称、描述,选择嵌入模型(默认 bge-m3)</li>
@@ -168,7 +168,7 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
       {/* 混合检索 */}
       <section id="hybrid-search" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">三路混合检索(核心优势)</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-4">
+        <div className="rounded-lg border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             纯向量检索对"专有名词 / 代码 / 型号"等关键词不敏感,纯 BM25 对"语义相似但措辞不同"的问题失效。
             智汇 AI 采用三路并发 + RRF 融合,兼顾语义与关键词:
@@ -267,7 +267,7 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
       {/* 引用溯源 */}
       <section id="citation" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">引用溯源(防幻觉关键)</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-3">
+        <div className="rounded-lg border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             智汇 AI 的每个 RAG 回答都附引用编号 [1] [2] [3],点击跳转到原文位置并高亮:
           </p>

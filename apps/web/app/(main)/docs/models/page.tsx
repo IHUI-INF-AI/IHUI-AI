@@ -85,7 +85,7 @@ export default function ModelsDocsPage() {
       <section id="supported-models" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">支持的模型(100+)</h2>
         <div className="space-y-4">
-          <div className="rounded-2xl border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <p className="text-sm font-semibold">🌍 国际厂商</p>
             <div className="mt-3 space-y-2">
               {[

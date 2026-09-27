@@ -133,7 +133,7 @@ export default function AiWorldCreatePage() {
                 id="aw-cat"
                 value={form.categoryId}
                 onChange={(e) => update('categoryId', e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">{t('noCategory')}</option>
                 {categories.map((c) => (
