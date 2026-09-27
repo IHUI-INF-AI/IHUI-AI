@@ -27,6 +27,11 @@
  * 断点**倒退**唯一对应写入侧 `replaceMessages` 的 reset(自动压缩整段重写 + 重编号),
  * 此时投影与服务端行集失配 ⇒ 清空并要求 `loadLatest`(needsReload)。
  * `nextRolloutByteOffset` 不消费:它是写入侧 rollout 量具,读侧端点无按字节续读参数。
+ *
+ * 游标存续性的消费(2026-09-27):服务端每页还带 `cursorState`,带游标的请求若那一轮
+ * 已被删除/重编号就回 `stale` + 空页。此时**不能**把本页并进时间线 —— 从一个已经不
+ * 存在的序号往下切的窗口,其上沿与本地最旧轮不相邻,拼起来就是"上翻丢帧"。处置与
+ * 断点倒退同形:清空 + `needsReload`,由调用方整段重拉。
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react'
@@ -35,12 +40,17 @@ import type { ConversationMessage } from '@ihui/api-client'
 import {
   advanceHistoryPagingCursors,
   decodeHistoryTurnCursor,
-  deriveHistoryBoundary,
-  mergeHistoryTurnPages,
+  foldHistoryPageIntoProjection,
+  isHistoryCursorStale,
   projectHistoryPage,
   resolveHistoryRolloutSeed,
 } from '@ihui/shared/chat'
-import type { HistoryBoundary, HistoryPageWire, HistoryTurnWire } from '@ihui/shared/chat'
+import type {
+  HistoryBoundary,
+  HistoryPageWire,
+  HistoryProjection,
+  HistoryTurnWire,
+} from '@ihui/shared/chat'
 
 /** 服务端一页在本钩子里的形态(与 api-client 的 ConversationHistoryResult 同构)。 */
 type HistoryPage = HistoryPageWire<ConversationMessage>
@@ -71,10 +81,14 @@ const EMPTY_BOUNDARY: HistoryBoundary = {
 export type ChatHistoryErrorCode = 'cursor-invalid' | 'load-failed'
 
 export interface ChatHistoryProjectionSummary {
-  /** 被丢弃的序数缺失分片数(必须可见,绝不静默)。 */
+  /** 被丢弃的序数缺失分片数(必须可见,绝不静默)。累计口径,不随翻页重置。 */
   droppedUnordained: number
-  /** 最近一次合并里被整轮替换的重叠轮数。 */
-  lastReplacedTurns: number
+  /**
+   * 被整轮替换掉的重叠轮数**累计**(重叠页去重的可观测证据)。
+   * 曾经叫 lastReplacedTurns 报"最近一页"的量 —— 那个数每翻一页就被覆盖,
+   * 整条读路径到底时谁也说不清一共剔了多少轮。
+   */
+  replacedTurns: number
 }
 
 export interface UseChatHistoryProjectionResult {
@@ -102,33 +116,46 @@ export interface UseChatHistoryProjectionResult {
 }
 
 interface FoldedPage {
+  /** 折叠后的完整投影:下一页的折叠起点(计数与时间线都从它继续)。 */
+  projection: HistoryProjection<ConversationMessage>
   turns: MutableTurn[]
   boundary: HistoryBoundary
   droppedUnordained: number
   replacedTurns: number
 }
 
-/** 三个动作共用的折叠口径。各写一遍必然在"hasMore 归哪一端"上漂移。 */
+/** 空投影(整段重建 / 尚未加载时的折叠起点;唯一构造点)。 */
+const EMPTY_PROJECTION: HistoryProjection<ConversationMessage> = {
+  turns: [],
+  droppedUnordained: 0,
+  replacedTurns: 0,
+  boundary: EMPTY_BOUNDARY,
+}
+
+/**
+ * 三个动作共用的折叠口径。各写一遍必然在"hasMore 归哪一端"上漂移。
+ *
+ * 续页一律走共享层 `foldHistoryPageIntoProjection`(时间线首末轮来自合并结果、
+ * 分页边来自本页、计数累计)。此前这里是 `deriveHistoryBoundary(page, …)` 直接取
+ * **页内**首末轮当时间线首末轮 —— 上翻时那一页永远比已持有的部分更旧,
+ * `boundary.newestTurnOrdinal` 于是倒退到本页最大轮,而该字段的文档口径是"时间线"
+ * 首末轮(渲染位用它判"是否已到头")。CLI 侧的 500 轮翻页用例把这一格钉成了回归。
+ */
 function foldPage(
   page: HistoryPage,
   direction: 'newest' | 'older' | 'newer',
-  existing: readonly HistoryTurnWire<ConversationMessage>[],
+  previous: HistoryProjection<ConversationMessage>,
 ): FoldedPage {
-  if (direction === 'newest') {
-    const projection = projectHistoryPage(page, 'newest')
-    return {
-      turns: toMutableTurns(projection.turns),
-      boundary: projection.boundary,
-      droppedUnordained: projection.droppedUnordained,
-      replacedTurns: projection.replacedTurns,
-    }
-  }
-  const merged = mergeHistoryTurnPages<ConversationMessage>(existing, page.turns)
+  const projection =
+    direction === 'newest'
+      ? projectHistoryPage(page, 'newest')
+      : foldHistoryPageIntoProjection(previous, page, direction)
   return {
-    turns: toMutableTurns(merged.turns),
-    boundary: deriveHistoryBoundary(page, direction),
-    droppedUnordained: merged.droppedUnordained,
-    replacedTurns: merged.replacedTurns,
+    projection,
+    turns: toMutableTurns(projection.turns),
+    boundary: projection.boundary,
+    droppedUnordained: projection.droppedUnordained,
+    replacedTurns: projection.replacedTurns,
   }
 }
 
@@ -215,6 +242,10 @@ export function useChatHistoryProjection(
         boundary: folded.boundary,
         seed,
         previous: cursorsRef.current,
+        // 服务端断点结论(stale = 游标那一轮已被删/重编号)。它与"断点倒退"处置同形
+        // (都只能整段重锚),但成因不同:倒退是本地比对推出来的,这一条只有服务端能看见
+        // ——我手里的序号在库里已经没有行了。
+        cursorStale: isHistoryCursorStale(page.cursorState),
       })
       cursorsRef.current = cursors
       setProjectionState(page.projectionState)
