@@ -1763,6 +1763,22 @@ class _PendingPermissionRequest:
     future: asyncio.Future[Any]
 
 
+@dataclass(frozen=True)
+class _PendingElicitationRequest:
+    """`request_user_input` 的待决提问:future + **它属于谁**(G-251,2026-09-27)。
+
+    与 `_PendingPermissionRequest` 同一条理由:旧形态在全局 dict 里存**裸 future**,于是
+    "谁能回答这个问题"在数据结构上表示不出来 —— 任何读到 elicitationId 的连接都能把它
+    结算掉,而结算成功的后果是**别人的模型回合里出现了攻击者提供的输入**(实测见
+    `.ihui-agent/tmp/b59/probe-before.txt`:修复前 bob 应答 applied=True 且 alice 的工具
+    直接拿到 "STOLEN")。带主注册后,判定与审批/线程面共用 `_principal_allows` 那一份实现。
+    """
+
+    thread_id: str
+    user_id: str | None
+    future: asyncio.Future[Any]
+
+
 def _spec(thread: EngineThread) -> dict[str, Any]:
     """把线程配置转成主循环工厂的 spec(承载层据此构造 AgentLoopV2)。
 
@@ -1865,8 +1881,9 @@ class AgentEngine:
         # request_permissions 工具的待决请求(requestId → 带主记录;approval.respond 结算
         # 前必须先过属主 —— 见 _PendingPermissionRequest)
         self._permission_requests: dict[str, _PendingPermissionRequest] = {}
-        # elicitation 中轮提问的待决请求(2026-09-18 第四批,对标 Codex elicitation)
-        self._elicitation_requests: dict[str, asyncio.Future[Any]] = {}
+        # elicitation 中轮提问的待决请求(2026-09-18 第四批,对标 Codex elicitation;
+        # G-251 起存带主记录 —— 结算前必须过属主,见 _PendingElicitationRequest)
+        self._elicitation_requests: dict[str, _PendingElicitationRequest] = {}
         # unified_exec 持久 shell 会话(2026-09-18 第四批,对标 Codex unified_exec)
         self._exec_sessions: dict[str, dict[str, Any]] = {}
         # shell 环境快照缓存(2026-09-20 批 55 接线,对标 Codex
@@ -6676,7 +6693,11 @@ class AgentEngine:
             timeout_ms = max(1000, min(timeout_ms, 120_000))
             elicitation_id = f"eli_{uuid.uuid4().hex[:12]}"
             future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
-            self._elicitation_requests[elicitation_id] = future
+            # 带主注册:属主与线程同源(注册点就在 thread 闭包里),所以"谁能回答这条"
+            # 在创建时就是事实,不是结算时去猜的。
+            self._elicitation_requests[elicitation_id] = _PendingElicitationRequest(
+                thread_id=thread.thread_id, user_id=thread.user_id, future=future
+            )
             try:
                 await (thread.emit or _noop_emitter)(
                     {
@@ -6941,16 +6962,42 @@ class AgentEngine:
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
         """elicitation 决策回填(2026-09-18 第四批,对标 Codex elicitation):
-        唤醒等待中的 request_user_input 工具执行。"""
+        唤醒等待中的 request_user_input 工具执行。
+
+        G-251(2026-09-27)补上属主闸 —— 修复前这里**只看 elicitationId**,任何读到
+        该 id 的连接都能替别人作答,而后果是别人的模型回合里被塞进攻击者提供的输入。
+        principal 只可能来自承载层绑定的令牌主体(`_connection_principal`),判定共用
+        `_principal_allows` 那一份实现。
+
+        **两条拒绝路径同形**:id 不存在 / id 存在但不归你 ⇒ 都回 `reason:"unknown"`。
+        这里与 `approval.respond` 刻意不同:那边的请求自带 `threadId`(调用者本来就点名
+        了那条线程,再说一次不增加信息),而 elicitationId 是**唯一的把手** —— 分出
+        "没这条"与"有但不是你的"就把本端点变成存在性预言机(与 `_require_thread`
+        "不给可枚举信号"同一条口径)。点名他人线程仍回 `foreign_thread`:那格的信号
+        由调用者自己提供的 threadId 换回,不是新泄露。
+        """
         elicitation_id = params.get("elicitationId") or params.get("requestId")
         if not isinstance(elicitation_id, str) or not elicitation_id:
             raise JsonRpcError(INVALID_PARAMS, "缺少 elicitationId")
-        future = self._elicitation_requests.get(elicitation_id)
-        if future is None:
+        principal = _connection_principal(params)
+        thread_id = params.get("threadId")
+        if isinstance(thread_id, str) and thread_id:
+            named = self._threads.get(thread_id)
+            if named is not None and not _thread_belongs(named, principal):
+                # 点名了不属于自己的线程 ⇒ 不碰任何待决表、不结算任何 future。
+                return {
+                    "elicitationId": elicitation_id,
+                    "applied": False,
+                    "reason": "foreign_thread",
+                }
+        record = self._elicitation_requests.get(elicitation_id)
+        if record is None:
             return {"elicitationId": elicitation_id, "applied": False, "reason": "unknown"}
-        if future.done():
+        if not _principal_allows(principal, record.user_id):
+            return {"elicitationId": elicitation_id, "applied": False, "reason": "unknown"}
+        if record.future.done():
             return {"elicitationId": elicitation_id, "applied": False, "reason": "already_settled"}
-        future.set_result(params.get("value"))
+        record.future.set_result(params.get("value"))
         return {"elicitationId": elicitation_id, "applied": True}
 
     def _build_host_tool_definitions(self, thread: EngineThread) -> list[Any]:
