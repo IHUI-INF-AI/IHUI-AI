@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-shrinkable-text-button.mjs')
 
 // ─── 辅助:创建临时扫描目录(含 apps/web 结构)─────────────
 function createTempScanDir(files) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-shrinkbtn-'))
+  const dir = mkScratch('ihui-shrinkbtn-')
   for (const [relPath, content] of Object.entries(files)) {
     const fullPath = join(dir, relPath)
     mkdirSync(join(fullPath, '..'), { recursive: true })
@@ -65,7 +65,7 @@ test('违规: <button> h-5 + text-[10px] + 中文 span + 缺 shrink-0/whitespace
     assert.match(r.stderr, /shrink-0/)
     assert.match(r.stderr, /whitespace-nowrap/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -78,7 +78,7 @@ test('违规: 多行 className 表达式 cn(...) 内含 h-7 + text-xs + 中文 �
     assert.equal(r.status, 0)
     assert.match(r.stderr, /生成/, '应识别中文 label')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -92,7 +92,7 @@ test('违规: <button> 含 h-6 + text-xs + 含 truncate(白名单)→ 跳过', (
     // 应输出"通过"消息
     assert.match(r.stdout, /通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -105,7 +105,7 @@ test('合法: <button> h-5 + text-[10px] + 中文 + 已含 shrink-0 和 whitespa
     assert.equal(r.status, 0)
     assert.match(r.stdout, /通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -118,7 +118,7 @@ test('合法: <button> h-5 + text-[10px] + icon-only(无中文 span)→ 跳过',
     assert.equal(r.status, 0)
     assert.match(r.stdout, /通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -131,7 +131,7 @@ test('合法: <button> h-9 + text-sm(非极小字号)→ 跳过', () => {
     assert.equal(r.status, 0)
     assert.match(r.stdout, /通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -144,7 +144,7 @@ test('合法: <button> h-10 + text-xs(高度不在 h-4~h-8 范围)→ 跳过', (
     assert.equal(r.status, 0)
     assert.match(r.stdout, /通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -157,7 +157,7 @@ test('合法: <button> h-5 + text-xs 但 span 含纯英文(非中文 label)→ �
     assert.equal(r.status, 0)
     assert.match(r.stdout, /通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -170,7 +170,7 @@ test('合法: <button> h-5 + text-xs 含 1 个中文字(需 ≥2)→ 跳过', ()
     assert.equal(r.status, 0)
     assert.match(r.stdout, /通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -191,7 +191,7 @@ test('--scan --output 写 JSON 文件', () => {
     assert.deepEqual(out.hits[0].missing, ['shrink-0', 'whitespace-nowrap'])
     assert.match(out.hits[0].label, /对话流/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -206,7 +206,7 @@ test('--scan 无 --output → stdout 输出 JSON', () => {
     assert.ok(out.hits.length >= 1, '应至少 1 个命中')
     assert.ok(out.summary, '应包含 summary')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -221,7 +221,7 @@ test('--strict: 命中即 exit 1', () => {
     assert.equal(r.status, 1, '有命中且 --strict 应 exit 1')
     assert.match(r.stderr, /发现 1 处/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -237,7 +237,7 @@ test('--quiet: 只输出统计行', () => {
     // 不应包含违规详情
     assert.doesNotMatch(r.stdout, /className:/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -254,7 +254,7 @@ test('--path 限制只扫指定路径', () => {
     // 应只扫 apps/web,files=1
     assert.match(r.stdout, /files=1/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -271,20 +271,20 @@ test('嵌套 button: 外层 button 缺规则,内层 button 命中 → 独立判�
     assert.match(r.stderr, /内层中文/)
     assert.doesNotMatch(r.stderr, /"外层"/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 // ─── 空目录 / 不存在路径 ────────────────────────────────
 
 test('空目录: 无 apps/packages 目录 → 扫描 0 文件 exit 0', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-shrinkbtn-empty-'))
+  const dir = mkScratch('ihui-shrinkbtn-empty-')
   try {
     const r = runScript(dir, ['--dry-run'])
     assert.equal(r.status, 0)
     assert.match(r.stdout, /通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -314,7 +314,7 @@ test('回归: 含 shrink-0 + whitespace-nowrap 的 "对话流" 按钮 → 通过
     assert.equal(r.status, 0)
     assert.match(r.stdout, /通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
