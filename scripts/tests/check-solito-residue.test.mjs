@@ -5,15 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import {
-  mkdtempSync,
-  writeFileSync,
-  mkdirSync,
-  rmSync,
-  copyFileSync,
-} from 'node:fs'
+import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -42,7 +36,7 @@ const SOURCE_SCRIPT = join(__dirname, '..', 'check-solito-residue.mjs')
 // check-solito-residue.mjs 用 import.meta.dirname 推导 ROOT(path.resolve(dirname, '..')),
 // 需将脚本复制到临时仓库的 scripts/ 子目录,使 ROOT 指向临时仓库根目录。
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-solito-'))
+  const dir = mkScratch('ihui-solito-')
   execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
@@ -83,7 +77,7 @@ test('CLI: --help → exit 0 + 用法', () => {
     assert.match(r.cleanStdout, /用法/)
     assert.match(r.cleanStdout, /solito/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -95,7 +89,7 @@ test('全量扫描: 无 solito 残留 → exit 0', () => {
     assert.equal(r.status, 0, `无 solito 应 exit 0\ncleanStdout: ${r.cleanStdout}`)
     assert.match(r.cleanStdout, /无 solito 残留/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -107,7 +101,7 @@ test('--staged: 无目标文件 → exit 0 + "跳过"', () => {
     assert.equal(r.status, 0, `无目标文件应 exit 0`)
     assert.match(r.cleanStdout, /跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -119,7 +113,7 @@ test('--staged: 有 package.json staged → 执行扫描(不跳过)', () => {
     assert.equal(r.status, 0, `无 solito 应 exit 0`)
     assert.ok(!r.cleanStdout.includes('跳过'), `有目标文件不应跳过\ncleanStdout: ${r.cleanStdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -136,7 +130,7 @@ test('违规: package.json dependencies.solito → exit 1', () => {
     assert.equal(r.status, 1, `检测到 solito 应 exit 1\ncleanStdout: ${r.cleanStdout}`)
     assert.match(r.cleanStdout, /solito/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -151,7 +145,7 @@ test('违规: package.json devDependencies.solito → exit 1', () => {
     assert.equal(r.status, 1)
     assert.match(r.cleanStdout, /solito/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -166,7 +160,7 @@ test('违规: package.json peerDependencies.solito → exit 1', () => {
     assert.equal(r.status, 1)
     assert.match(r.cleanStdout, /solito/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -181,7 +175,7 @@ test('违规: package.json optionalDependencies.solito → exit 1', () => {
     assert.equal(r.status, 1)
     assert.match(r.cleanStdout, /solito/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -202,7 +196,7 @@ test('违规: 根 package.json pnpm.patchedDependencies.solito → exit 1', () =
     assert.equal(r.status, 1)
     assert.match(r.cleanStdout, /solito/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -221,7 +215,7 @@ test('违规: pnpm-workspace.yaml publicHoistPattern 含 *solito* → exit 1', (
     )
     assert.match(r.cleanStdout, /solito/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -234,7 +228,7 @@ test('违规: patches/solito@1.0.0.patch 文件 → exit 1', () => {
     assert.equal(r.status, 1, `应检测到 patch 文件\ncleanStdout: ${r.cleanStdout}`)
     assert.match(r.cleanStdout, /solito/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -250,7 +244,7 @@ test('违规: packages/app/src/foo.tsx 含 from "solito/link" → exit 1', () =>
     assert.equal(r.status, 1, `应检测到 solito import\ncleanStdout: ${r.cleanStdout}`)
     assert.match(r.cleanStdout, /solito/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -270,7 +264,7 @@ test('非违规: packages/app/src/foo.tsx 含 from "solito-router"(非 solito)�
     const r = runScript(dir)
     assert.equal(r.status, 0, `solito-router 不应匹配\ncleanStdout: ${r.cleanStdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -287,7 +281,7 @@ test('非违规: packages/app/src/foo.tsx 注释行 // from "solito/..." 被跳�
     const r = runScript(dir)
     assert.equal(r.status, 0, `注释行不应被检测\ncleanStdout: ${r.cleanStdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -304,7 +298,7 @@ test('非违规: package.json 描述字段含 solito 字样(非依赖名)→ exi
     const r = runScript(dir)
     assert.equal(r.status, 0, `非依赖名的 solito 不应被检测\ncleanStdout: ${r.cleanStdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
