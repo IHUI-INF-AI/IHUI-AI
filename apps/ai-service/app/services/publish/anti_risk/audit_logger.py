@@ -28,19 +28,20 @@ import threading
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from app.core.logging import get_logger
 
+from .state_paths import resolve_state_path
+
 logger = get_logger(__name__)
 
 
-# 审计日志持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
-_AUDIT_FILE = Path(os.environ.get(
-    "ANTI_RISK_AUDIT_FILE",
+# 审计日志持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/;相对档锚定**仓库根**、与进程 cwd 无关)
+_AUDIT_FILE = resolve_state_path(
+    os.environ.get("ANTI_RISK_AUDIT_FILE"),
     ".ihui-agent/tmp/anti-audit-log.jsonl",
-)).resolve()
+)
 
 # 自动 rotate 阈值
 _MAX_EVENTS = 10000
