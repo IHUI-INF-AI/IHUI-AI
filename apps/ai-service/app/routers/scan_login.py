@@ -207,15 +207,19 @@ async def external_start(body: ExternalStartRequest, request: Request) -> dict[s
     已登录的平台直接命中自动保存账号(与内置 CDP 扫码同一条闭环链路),未登录的在该窗口里
     正常扫码即可。响应同时带上 browser / profile_used,供前端如实提示用的是哪个浏览器。
     """
-    # 鉴权(登录用户才能发起);user_id 本身不用于本端点
-    await get_current_user_id(request)
+    # 鉴权(登录用户才能发起)。user_id 现在**要**用于本端点:外部浏览器会话带的是
+    # 用户自己的真实 profile 副本(含他已登录的站点),过去创建时不盖章 ⇒ 该会话对
+    # 全站任何持有效令牌的人可见可控。
+    caller_user_id = await get_current_user_id(request)
     config = PLATFORM_SCAN_CONFIG.get(body.platform)
     if not config:
         raise HTTPException(status_code=400, detail=f"不支持的平台: {body.platform}")
 
     from ..services.browser_hub import hub
     try:
-        session, meta = await hub.launch_external_chrome(config["login_url"])
+        session, meta = await hub.launch_external_chrome(
+            config["login_url"], owner_user_id=caller_user_id
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
     except Exception as e:
