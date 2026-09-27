@@ -574,6 +574,15 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     await proxyToAiService(request, reply, '/scan-login/external-start')
   })
 
+  // 手动粘贴导入 cookies(2026-09-27 补):ai-service scan_login.py 已实现
+  // /publish/scan-login/import-cookies(默认浏览器登录闭环最后一步,加密入库凭据),
+  // api 代理层此前缺失 → 前端导入 cookie 必 404。补透传。
+  // 鉴权与 scan-login/start 完全同等:插件级 authenticate preHandler(用户态)+
+  // 全局 CSRF onRequest 钩子(见 plugins/csrf.ts,写请求自动生效),无额外豁免。
+  server.post('/publish/scan-login/import-cookies', async (request, reply) => {
+    await proxyToAiService(request, reply, '/scan-login/import-cookies')
+  })
+
   // ===== 账号分组管理(2026-08-01 新增)=====
 
   server.get('/publish/groups', async (request, reply) => {
@@ -699,6 +708,25 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/publish/ai/analyze-all', async (request, reply) => {
     await proxyToAiService(request, reply, '/ai/analyze-all')
+  })
+
+  // ===== 发布监测(2026-09-27 补,代理 ai-service publish.py /monitor/*)=====
+  // ai-service 已实现核验(R2)与指标采集(R3)端点,api 代理层此前整块缺失
+  // → Web 端打开监测页必 404。overview 带 limit 查询参数,GET 透传 query
+  // 写法与 /publish/tasks、/publish/history 同类读接口一致;
+  // 鉴权同为插件级 authenticate preHandler(用户态),与 history/stats/running 同等。
+
+  server.get('/publish/monitor/overview', async (request, reply) => {
+    const qs = request.url.split('?')[1] ?? ''
+    await proxyToAiService(request, reply, qs ? `/monitor/overview?${qs}` : '/monitor/overview')
+  })
+
+  server.post('/publish/monitor/verify', async (request, reply) => {
+    await proxyToAiService(request, reply, '/monitor/verify')
+  })
+
+  server.post('/publish/monitor/refresh-metrics', async (request, reply) => {
+    await proxyToAiService(request, reply, '/monitor/refresh-metrics')
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
