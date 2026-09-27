@@ -188,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 14,
       marginBottom: 12,
       borderWidth: 1,
@@ -209,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       paddingHorizontal: 12,
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -221,7 +221,7 @@ function createStyles(tk: AppThemeTokens) {
     eyeBtn: {
       paddingHorizontal: 12,
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -235,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       height: 50,
       justifyContent: 'center',
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       alignItems: 'center',
     },
     btnPrimary: { backgroundColor: tk.brand.cta },
@@ -256,7 +256,7 @@ function createStyles(tk: AppThemeTokens) {
     testBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     testBtnRunning: { opacity: 0.6 },

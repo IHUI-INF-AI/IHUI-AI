@@ -306,7 +306,7 @@ function createStyles(tk: AppThemeTokens) {
     compareBtn: {
       paddingHorizontal: 12,
       height: 44,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
       alignItems: 'center',
@@ -409,7 +409,7 @@ function createStyles(tk: AppThemeTokens) {
     typeBadge: {
       paddingHorizontal: 7,
       paddingVertical: 3,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       marginLeft: 8,
     },
     typeBadgeText: { fontSize: 12, fontWeight: '600' },
@@ -429,7 +429,7 @@ function createStyles(tk: AppThemeTokens) {
     cardTag: {
       paddingHorizontal: 6,
       paddingVertical: 3,
-      borderRadius: rnRadius.xs, // 原 3,R1 吸附至 xs(2)
+      borderRadius: rnRadius.md, // 原 3,R1 吸附至 xs(2)
       backgroundColor: tk.surface.muted,
     },
     cardTagText: { fontSize: 12, color: tk.text.secondary },

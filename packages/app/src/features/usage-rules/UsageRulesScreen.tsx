@@ -356,7 +356,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { padding: 14, paddingBottom: 32, gap: 12 },
     introCard: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 14,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -374,7 +374,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     sectionCard: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 14,
       borderWidth: 1,
       borderColor: tk.border.light,

@@ -262,14 +262,14 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
     summaryCard: {
       marginHorizontal: 10,
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
     },
     sumTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -278,7 +278,7 @@ function createStyles(tk: AppThemeTokens) {
     withdrawBtn: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     withdrawBtnText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
@@ -329,7 +329,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -397,7 +397,7 @@ function createStyles(tk: AppThemeTokens) {
     modalBtn: {
       marginTop: 20,
       height: 44,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   modalInput: {
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(12),
     fontSize: 14,
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
   modalBtn: {
     flex: 1,
     height: rpx(88),
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },

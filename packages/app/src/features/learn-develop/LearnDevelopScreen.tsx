@@ -121,7 +121,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
       height: '100%',
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: 14,

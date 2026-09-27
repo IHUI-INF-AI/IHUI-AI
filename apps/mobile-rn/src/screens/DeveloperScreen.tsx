@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   headerCard: {
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     padding: rpx(28),
     alignItems: 'center',
     marginBottom: rpx(20),
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   entryBtn: {
     paddingHorizontal: rpx(40),
     paddingVertical: rpx(10),
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   } as ViewStyle,
   entryBtnText: {
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   // ── 开发者信息区 ──
   infoCard: {
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     padding: rpx(24),
     marginBottom: rpx(20),
   } as ViewStyle,
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   problemCard: {
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     padding: rpx(24),
   } as ViewStyle,
   problemTitle: {
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(8),
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   } as ViewStyle,
   problemBtnText: {
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   bigBtn: {
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
     padding: rpx(24),
     alignItems: 'center',
   } as ViewStyle,

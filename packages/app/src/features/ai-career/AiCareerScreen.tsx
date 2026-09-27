@@ -132,7 +132,7 @@ function createStyles(tk: AppThemeTokens) {
     headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary, lineHeight: 20 },
     questionCard: {
       padding: 16,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -196,7 +196,7 @@ function createStyles(tk: AppThemeTokens) {
     textareaInput: {
       minHeight: 120,
       padding: 12,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -212,7 +212,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       width: '100%',
       height: 48,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
