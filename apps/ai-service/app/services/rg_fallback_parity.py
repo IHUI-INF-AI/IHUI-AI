@@ -451,6 +451,61 @@ def enumerate_code_files(
     return sorted(paths), prov
 
 
+@dataclass(frozen=True)
+class SizeProbe:
+    """一次**有界**规模探测的结论 —— 精确值与下界在类型上分开,不得混成一个整数。
+
+    `is_lower_bound=True` 的含义是"数到 `limit` 就收手了,真实规模未知且不小于此"。
+    护栏据此把"仓库大到索引不完"与"这次不该顺手做"分成两条不同的轴:把下界当精确值
+    用,就会把 874 文件的小仓报成"巨仓"(第一版即此错,已由测试钉住)。
+    """
+
+    count: int
+    is_lower_bound: bool
+    limit: int
+    duration_s: float
+    engine: str
+    degraded_reason: str | None = None
+
+    def describe(self) -> str:
+        """给人和模型看的一句话规模 —— 下界必须带"至少",否则读不出可信度。"""
+        n = f"至少 {self.count}" if self.is_lower_bound else str(self.count)
+        return f"{n} 个代码文件"
+
+
+def probe_code_file_count(
+    root: Path,
+    *,
+    ignored_dirs: frozenset[str] | set[str],
+    suffixes: tuple[str, ...] | list[str] | frozenset[str] | None,
+    limit: int,
+) -> SizeProbe:
+    """数"这棵树有多大",但**最多数到 `limit` 就停**,并如实报是精确值还是下界。
+
+    走的是 `enumerate_code_files` 这同一条枚举出口(先 rg、降级留痕),所以探测读到
+    的规模与实际索引读到的**必然同形** —— 另写一份遍历就是第二个真相,两条通道对
+    "有多少文件"答不同值时护栏结论会随通道跳变。
+
+    探测本身有界(`max_files` 一到即返回),所以"问一句多大"不会变成走一遍全树。
+    """
+    if limit < 1:
+        raise ValueError(
+            f"limit 必须 ≥ 1,收到 {limit}:limit=0 会让任何目录都被判成下界 ⇒ 护栏恒判超限"
+        )
+    paths, prov = enumerate_code_files(
+        root, ignored_dirs=ignored_dirs, suffixes=suffixes, max_files=limit
+    )
+    counted = len(paths)
+    return SizeProbe(
+        count=counted,
+        is_lower_bound=counted >= limit,
+        limit=limit,
+        duration_s=prov.duration_s,
+        engine=prov.engine,
+        degraded_reason=prov.degraded_reason,
+    )
+
+
 # ---------------------------------------------------------------------------
 # 对账:判据 3 的唯一实现(测试与运行时共用)
 # ---------------------------------------------------------------------------
@@ -728,12 +783,14 @@ __all__ = [
     "EnumerationDiff",
     "EnumerationProvenance",
     "RgBinary",
+    "SizeProbe",
     "build_rg_file_args",
     "compare_enumerations",
     "normalize_suffixes",
     "enumerate_code_files",
     "enumerate_with_walk",
     "enumerate_with_rg",
+    "probe_code_file_count",
     "resolve_rg_binary",
     "search_file_contents",
 ]

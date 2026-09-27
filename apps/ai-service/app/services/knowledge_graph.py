@@ -1060,11 +1060,98 @@ def _memory_fallback(reason: str) -> InMemoryGraphStore:
     return InMemoryGraphStore()
 
 
+# =============================================================================
+# 多 worker × file 档 = 图数据静默丢失:启动期硬断言(2026-09-27 立)
+# =============================================================================
+
+#: 本断言**唯一**承认的 worker 数信号。选它的理由是"它与被审的那个决定是同一份输入":
+#: uvicorn 自己就是这么定 worker 数的(`.venv/Lib/site-packages/uvicorn/config.py:352-353`,
+#: `if workers is None and "WEB_CONCURRENCY" in os.environ: self.workers = int(...)`)。
+#: 环境变量由 supervisor 继承给每一个 spawn 出来的 worker 子进程 ⇒ 它是"本进程是 N 分之一"
+#: 的**因果上游**,不是对命令行的事后字符串模仿。
+#:
+#: TODO(worker 观测盲区,如实登记而非当作已解决):CLI 形态 `uvicorn --workers N`
+#: **在 worker 进程内观测不到** —— supervisor 进程的 argv 里有它,但子进程 argv 是
+#: `python -c "from multiprocessing.spawn import spawn_main; ..."` 桩,Windows 上又没有
+#: `/proc/<ppid>/cmdline` 可退(本仓部署形态含 `deploy/win/*.ps1` + nssm 服务,Windows 是
+#: 一等目标)。⇒ 那一格**本断言结构上看不见**,不得读成"多 worker 已全面受保"。
+#: 补法二选一(都落在启动器侧,不在进程内):① 部署改用 `WEB_CONCURRENCY=N`(与本文件
+#: 同一份输入);② 由启动器显式导出一个声明档(如 `IHUI_AI_SERVICE_WORKERS=N`)并让本函数
+#: 同时认它 —— 那要同批改 `Dockerfile` CMD / `render.yaml` / `scripts/start-ihui-stack.ps1`
+#: 三处启动器,属另一票,不得在这里顺手加第二个真相源。
+_WORKER_COUNT_ENV = "WEB_CONCURRENCY"
+
+
+def _observable_worker_count() -> int | None:
+    """量"本进程是几个 uvicorn worker 之一";量不到一律返回 None(不猜、不默认 1)。
+
+    None 的三种来路都要区分对待,否则就把"没判"写成"判过了":
+      * 变量缺席 / 空串:本仓现有全部启动链路(`app/main.py` 的 `uvicorn.run` 不传
+        `workers`、`Dockerfile` CMD、`render.yaml` startCommand、`scripts/start-ihui-stack.ps1`)
+        都不带 worker 数 ⇒ 这是常态。按"未观测到多 worker"放过,否则开发机每次启动即红
+        (与改动无关的恒红门,唯一结局是逼人绕过启动检查)。
+      * 值不可 parse:喊一行 warning 后仍返回 None。此处判红没有意义 —— uvicorn 在自己的
+        `Config.__init__` 里对同一个值做 `int()`,坏值在它那一层就会炸,轮不到本函数定罪。
+    """
+    raw = os.environ.get(_WORKER_COUNT_ENV)
+    if raw is None:
+        return None
+    text = raw.strip()
+    if not text:
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        logger.warning(
+            "%s=%r 不是整数 ⇒ 无法判定 worker 数,本启动期断言对这一格不成立(既不冒红也不记绿)",
+            _WORKER_COUNT_ENV,
+            raw,
+        )
+        return None
+
+
+def _file_store_multi_worker_error(workers: int) -> str:
+    """拒绝启动的措辞:点名病灶 + 给出可复制的修复命令 + 写清自己的盲区。"""
+    return (
+        "知识图谱拒绝启动:多 worker 部署 + file 档 = 图数据静默丢失。\n"
+        f"  观测到的 worker 数:{_WORKER_COUNT_ENV}={workers}"
+        "(与 uvicorn 判定 worker 数读的是同一个变量)\n"
+        "  病灶:FileGraphStore 是「整表 JSON 快照 + 写穿 + 最后写者赢」,每个 worker 进程"
+        "各持一份内存工作集,彼此用各自的快照互相覆盖 ⇒ 图数据静默丢失且不报任何错。\n"
+        "  修复(二选一,可直接复制):\n"
+        "    KNOWLEDGE_GRAPH_STORE=drizzle uvicorn app.main:app --host 0.0.0.0 --port 8803\n"
+        f"    {_WORKER_COUNT_ENV}=1 uvicorn app.main:app --host 0.0.0.0 --port 8803\n"
+        "  已知盲区:CLI 形态 `uvicorn --workers N` 在 worker 进程内观测不到(见 "
+        "`_WORKER_COUNT_ENV` 上方的 TODO),那一格不受本断言保护。"
+    )
+
+
+def _assert_file_store_worker_safe(backend: str) -> None:
+    """`file` 档 + 观测到多 worker ⇒ 显式失败,拒绝启动。
+
+    只判 `file` 一种:那是"默认档"(`_BACKEND_DEFAULT`),所以"没人配过"也落在这一格,
+    正是爆炸半径最大的一处。`memory` 档在多 worker 下同样不共享,但它已经是**显式**选择
+    且自带降级告示,不在本断言射程内(判据扩面要先清账,不得顺手)。
+    """
+    if backend != "file":
+        return
+    workers = _observable_worker_count()
+    if workers is not None and workers > 1:
+        message = _file_store_multi_worker_error(workers)
+        logger.error(message)
+        raise RuntimeError(message)
+
+
 def _create_graph_store() -> GraphStore:
     """根据环境变量 `KNOWLEDGE_GRAPH_STORE` 选择后端。
 
     默认 `file`(落盘,重启可恢复)。`memory` 仍可选,但它现在是一个**显式**选择
     而非默认 —— 原默认正是本票要修的"重启即失"。
+
+    本函数在 `graph_store = _create_graph_store()`(模块底部)执行,而那条语句在
+    `app.main` 的导入链上(`app/api/v1/router.py` → `app/api/v1/knowledge_graph.py`),
+    所以这里抛错 = uvicorn 在加载 ASGI app 阶段就退出非零 = **拒绝启动**,
+    而不是"起来之后再悄悄丢数据"。
     """
     raw_backend = os.getenv("KNOWLEDGE_GRAPH_STORE", "").strip()
     backend = (raw_backend or _BACKEND_DEFAULT).lower()
@@ -1076,6 +1163,10 @@ def _create_graph_store() -> GraphStore:
             " | ".join(_VALID_BACKENDS),
         )
         backend = _BACKEND_DEFAULT
+    # 2026-09-27 立:多 worker 与 file 档互斥(必须在构造任何 store 之前判,
+    # 否则等于先落盘一次再拒绝启动)。回落成 file 的那一支也要过这里 ⇒ 传的是
+    # **解析后**的 backend,不是原始环境变量。
+    _assert_file_store_worker_safe(backend)
     if backend == "drizzle":
         try:
             store: GraphStore = DrizzleGraphStore()

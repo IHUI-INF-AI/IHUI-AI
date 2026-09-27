@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # -*- coding: utf-8 -*-
-"""掘金发布弹层选择器判据回归(2026-09-27 缺陷修复配套)。
+"""掘金发布弹层选择器判据回归(2026-09-27 缺陷修复配套;同日凌晨二次校准)。
 
 背景:publish_history 曾出现 ``publish timeout (no redirect to /post/<id>)``。
 根因三处:① 确认按钮按单字面量「确认发布」找,而弹层实测文案是「确定并发布」;
@@ -12,12 +12,15 @@
 ``/spost/<id>``,``/post/`` 审核通过后才出现,该等待结构上不可能成立。
 
 夹具纪律(AGENTS §22c):判据对象是真实页面形态时,夹具输入必须逐字取自真实产物。
-本文件的真实出处组件:
-- ``tests/fixtures/juejin_probe/popup_strings.json`` 的接口 URL 串逐字取自掘金线上
-  生产 JS bundle(公开资源;存档 .ihui-agent/tmp/juejin-probe/endpoints.json);
-- 弹层按钮文案全集取自历史事故排查的**线上实测记录**(任务书给定)。本次探针因
-  画像登录态在服务端失效**未能现场复抓弹层 DOM**,该事实已写进夹具 provenance,
-  拿到新登录态后必须复验替换 —— 不得把本文件的通过读成"弹层 DOM 已实测"。
+**本夹具已于 2026-09-27 用三轮 headless 只读探针的一手 DOM 观察整体替换** ——
+凭据注入与适配器 publish 完全同路径(id=13 解密 → create_stealth_browser_context
+→ add_cookies),弹层已现场打开并逐字记录(存档 .ihui-agent/tmp/juejin-calib/
+observation*.json);全程未点击最终提交按钮,无文章被发布。
+当次实测同时**推翻**了上一版的两处推导:分类不是"小浮层下拉+hover 触发",而是弹层内
+平铺 ``.category-list > .item``(选中态 class 追加 active);弹层容器不是任何
+modal/popover 类,而是 ``.publish-popup``。上一版反向锁把 ``.category-list .item``
+列为"假想 DOM"—— 实测证明它恰是主选择器,锁已按实测更正;被证伪的一直是
+"分类=下拉形态"与 ``select.category-select`` 一族。
 """
 from __future__ import annotations
 
@@ -28,10 +31,13 @@ from typing import Any
 import pytest
 
 from app.services.publish.adapters.juejin import (
+    CATEGORY_ITEM_SELECTORS,
     DROPDOWN_OPTION_SELECTORS,
     PUBLISH_CONFIRM_TEXTS,
     PUBLISH_MODAL_SELECTORS,
+    PUBLISH_OPEN_TEXTS,
     SPOST_URL_PREFIX,
+    TAG_INPUT_SELECTOR,
     describe_stuck_stage,
     extract_article_id_from_submit,
     find_option_in_list,
@@ -146,12 +152,15 @@ class TestSuccessEvidence:
         assert 'wait_for_url("**/post/**"' not in src
         assert "publish timeout (no redirect to /post/<id>)" not in src
 
-    def test_source_has_no_fabricated_category_dom_selectors(self) -> None:
-        """反向锁:被证伪的 `select.category-select` / `.category-list .item`
-        假想 DOM 不得回流。"""
+    def test_source_has_no_fabricated_category_dropdown_selectors(self) -> None:
+        """反向锁:被证伪的 `select.category-select`(下拉假想形态的一族 DOM)不得回流。
+        2026-09-27 一手实测:弹层 outerHTML 全量核对无任何 name=select 的分类控件。
+
+        注:上一版把 `.category-list .item` 一并锁死 —— 当次实测证明它恰恰是现网
+        **主选择器**(平铺列表),该断言已按实测移除;被证伪的是"分类=下拉"这一型,
+        不是这个类名本身。锁的更新必须跟着实测走,不是跟着旧结论走。"""
         src = _adapter_src()
         assert "select.category-select" not in src
-        assert ".category-list .item" not in src
 
 
 # ---------------------------------------------------------------------------
@@ -225,12 +234,78 @@ class TestCategorySelection:
 
 
 class TestSelectorTables:
-    def test_modal_and_dropdown_tables_nonempty(self) -> None:
-        assert PUBLISH_MODAL_SELECTORS and all("modal" in s or "popover" in s for s in PUBLISH_MODAL_SELECTORS)
-        assert DROPDOWN_OPTION_SELECTORS
+    def test_modal_table_leads_with_live_observed_container(self, fx: dict[str, Any]) -> None:
+        """弹层容器候选表必须把**当次实测唯一可见类**排在首位。
+        旧表只列 modal/popover 三族 —— 当次实测 byte-modal 9 元素全隐藏、popover 0 个,
+        wait_for_selector 恒超时 ⇒ 分类/标签步被静默跳过(链路上第二个真缺陷)。"""
+        container_cls: str = fx["publish_popup_container_class"]
+        first = PUBLISH_MODAL_SELECTORS[0]
+        assert first == '[class*="publish-popup"]'
+        token = first.partition('="')[2].rstrip('"]')
+        assert token in container_cls
+        # 回退族保留(改版韧性),但不得再占据首位
+        assert any("modal" in s for s in PUBLISH_MODAL_SELECTORS[1:])
+
+    def test_dropdown_table_leads_with_live_observed_tag_portal(self, fx: dict[str, Any]) -> None:
+        """标签下拉选项候选首位 = 实测 portal 类(.byte-select-dropdown 下的 li)。"""
+        assert DROPDOWN_OPTION_SELECTORS[0] == '[class*="byte-select-dropdown"] li'
+        marker: str = fx["tag_dropdown_option_html_head"]
+        assert "byte-select-option" in marker
 
     def test_confirm_texts_is_tuple_not_single_string(self) -> None:
         assert isinstance(PUBLISH_CONFIRM_TEXTS, tuple) and len(PUBLISH_CONFIRM_TEXTS) >= 2
+
+
+# ---------------------------------------------------------------------------
+# ⑤ 2026-09-27 一手实测形态:分类平铺列表 / 顶栏入口 exact 文案 / 标签输入框
+# ---------------------------------------------------------------------------
+
+
+class TestLiveDomShapes:
+    def test_category_is_flat_item_list_not_dropdown(self, fx: dict[str, Any]) -> None:
+        """分类实测 = 弹层内平铺 .category-list > .item(无 hover/无下拉)。
+        主选择器必须排在候选首位,且能在实测 class 串上匹配。"""
+        assert CATEGORY_ITEM_SELECTORS[0] == ".category-list .item"
+        container_cls: str = fx["category_container_class"]
+        assert "category-list" in container_cls
+        assert fx["category_item_class_initial"] == "item"
+        # 选中态:当次实测 class 追加 active(_select_category_in_modal 的第一复核依据)
+        assert "active" in fx["category_selected_class_after_click"]
+
+    def test_category_source_uses_flat_list_and_active_check(self) -> None:
+        """源码正向锁:分类步必须走 CATEGORY_ITEM_SELECTORS 并以 active 类复核。
+        (与反向锁配对 —— 反向锁拦"下拉假想"回流,正向锁保证"实测形态"真在码上。)"""
+        src = _adapter_src()
+        assert "CATEGORY_ITEM_SELECTORS" in src
+        assert 'get_attribute("class")' in src
+        assert '"active" in cls_attr' in src
+
+    def test_opener_exact_text_leads(self, fx: dict[str, Any]) -> None:
+        """顶栏入口实测 exact 文案 =「发布」,必须排候选首位
+        (历史候选「完成并发布/发布文章」当次均未观测为按钮;「发布文章」是弹层标题文本)。"""
+        assert PUBLISH_OPEN_TEXTS[0] == fx["publish_opener_exact_text"] == "发布"
+
+    def test_tag_input_selector_matches_observed_dom(self, fx: dict[str, Any]) -> None:
+        """标签输入框实测形态:.tag-input 内 input.byte-select__input;
+        placeholder 不是 input 属性 ⇒ `.tag-input input` 一支必须保留且排前。"""
+        assert TAG_INPUT_SELECTOR.startswith(".tag-input input")
+        measured: str = fx["tag_input_selector_measured"]
+        assert measured == ".tag-input .byte-select__input"
+        assert measured.endswith("byte-select__input")
+
+    def test_editor_bundle_evidence_is_v1_only(self, fx: dict[str, Any]) -> None:
+        """bundle 取证串在案:提交接口当次仅核到 v1;v2 是防御候选,不是实测项。"""
+        assert fx["editor_bundle_evidence_url"].endswith("app.12c77646.js")
+        prov: dict[str, Any] = fx["_provenance"]
+        assert "未**出现 v2" in prov["submit_api_url / draft_api_url"] or "v2" in prov[
+            "submit_api_url / draft_api_url"
+        ]
+
+    def test_live_fixture_provenance_marks_first_hand_observation(self, fx: dict[str, Any]) -> None:
+        """夹具诚实性锁:证据等级必须是一手实测(不得回退成二手记录措辞)。"""
+        assert fx["_evidence_grade"] == "live-dom-observed-2026-09-27"
+        popup_prov: str = fx["_provenance"]["popup_visible_button_texts"]
+        assert "一手" in popup_prov or "当次实测" in popup_prov
 
 
 if __name__ == "__main__":
