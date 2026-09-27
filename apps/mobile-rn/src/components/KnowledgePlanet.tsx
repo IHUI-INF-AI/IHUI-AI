@@ -150,58 +150,64 @@ export function KnowledgePlanet({
       item.likes !== undefined ||
       item.forwards !== undefined
     return (
+      // 按压态不得写成函数形态的 style:Pressable 被 cssInterop 注册过,函数声明会被展开成
+      // 空对象而整份内联样式静默消失(守门 131 立项那一型)。改为外层裸 Pressable 只承接点击,
+      // 卡片的视觉盒落到子 View 的数组形态上,并用撑满档保持原来"整行宽"的卡片外观。
       <Pressable
-        style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
         onPress={() => onItemClick(item.id)}
         accessibilityRole="button"
         accessibilityLabel={item.title}
       >
-        <View style={styles.cardTop}>
-          {item.cover ? (
-            <Image source={{ uri: item.cover }} style={styles.cover} resizeMode="cover" />
-          ) : null}
-          <View style={[styles.content, item.cover ? styles.contentGap : null]}>
-            <Text style={styles.title} numberOfLines={2}>
-              {item.title}
-            </Text>
-            <View style={styles.metaRow}>
-              <View style={styles.authorBadge}>
-                <Text style={styles.authorText} numberOfLines={1} allowFontScaling={false}>
-                  {author}
+        {({ pressed }) => (
+          <View style={[styles.cardFace, styles.card, pressed ? styles.cardPressed : null]}>
+            <View style={styles.cardTop}>
+              {item.cover ? (
+                <Image source={{ uri: item.cover }} style={styles.cover} resizeMode="cover" />
+              ) : null}
+              <View style={[styles.content, item.cover ? styles.contentGap : null]}>
+                <Text style={styles.title} numberOfLines={2}>
+                  {item.title}
                 </Text>
-              </View>
-              <Text style={styles.timeText} allowFontScaling={false}>
-                {formatRelativeTime(item.createdAt)}
-              </Text>
-            </View>
-            {item.summary ? (
-              <Text style={styles.summary} numberOfLines={2}>
-                {item.summary}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-
-        {/* 社交计数行(对齐原项目 line-box:分类 + 浏览 | 评论 / 点赞 / 转发) */}
-        {hasSocial ? (
-          <View style={styles.socialRow}>
-            <View style={styles.socialLeft}>
-              {item.category ? (
-                <View style={styles.categoryBadge}>
-                  <Text style={styles.categoryText} numberOfLines={1} allowFontScaling={false}>
-                    {item.category}
+                <View style={styles.metaRow}>
+                  <View style={styles.authorBadge}>
+                    <Text style={styles.authorText} numberOfLines={1} allowFontScaling={false}>
+                      {author}
+                    </Text>
+                  </View>
+                  <Text style={styles.timeText} allowFontScaling={false}>
+                    {formatRelativeTime(item.createdAt)}
                   </Text>
                 </View>
-              ) : null}
-              <Stat icon={Eye} value={item.views} />
+                {item.summary ? (
+                  <Text style={styles.summary} numberOfLines={2}>
+                    {item.summary}
+                  </Text>
+                ) : null}
+              </View>
             </View>
-            <View style={styles.socialRight}>
-              <Stat icon={MessageCircle} value={item.comments} />
-              <Stat icon={ThumbsUp} value={item.likes} />
-              <Stat icon={Share2} value={item.forwards} />
-            </View>
+
+            {/* 社交计数行(对齐原项目 line-box:分类 + 浏览 | 评论 / 点赞 / 转发) */}
+            {hasSocial ? (
+              <View style={styles.socialRow}>
+                <View style={styles.socialLeft}>
+                  {item.category ? (
+                    <View style={styles.categoryBadge}>
+                      <Text style={styles.categoryText} numberOfLines={1} allowFontScaling={false}>
+                        {item.category}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Stat icon={Eye} value={item.views} />
+                </View>
+                <View style={styles.socialRight}>
+                  <Stat icon={MessageCircle} value={item.comments} />
+                  <Stat icon={ThumbsUp} value={item.likes} />
+                  <Stat icon={Share2} value={item.forwards} />
+                </View>
+              </View>
+            ) : null}
           </View>
-        ) : null}
+        )}
       </Pressable>
     )
   }
@@ -222,20 +228,25 @@ export function KnowledgePlanet({
         {PLANET_TABS.map((tab, idx) => (
           <Pressable
             key={tab}
-            style={({ pressed }) => [styles.tabItem, pressed ? styles.tabItemPressed : null]}
+            style={styles.tabItem}
             onPress={() => handleTabPress(idx)}
             accessibilityRole="button"
             accessibilityState={{ selected: selectedTab === idx }}
             accessibilityLabel={tab}
           >
-            <Text
-              style={[
-                styles.tabText,
-                selectedTab === idx ? styles.tabTextActive : styles.tabTextNormal,
-              ]}
-            >
-              {tab}
-            </Text>
+            {/* 同上(守门 131 那一型):按压态落到子 View 的数组形态,外层只留占槽位的布局档 */}
+            {({ pressed }) => (
+              <View style={pressed ? styles.tabItemPressed : null}>
+                <Text
+                  style={[
+                    styles.tabText,
+                    selectedTab === idx ? styles.tabTextActive : styles.tabTextNormal,
+                  ]}
+                >
+                  {tab}
+                </Text>
+              </View>
+            )}
           </Pressable>
         ))}
       </View>
@@ -319,6 +330,11 @@ const styles = StyleSheet.create({
   } as TextStyle,
   listContent: {
     padding: LIST_PADDING,
+  } as ViewStyle,
+  // 卡片原本挂在 Pressable 自身盒上,而该盒由父容器拉伸得到整行宽;按压态下移到子 View 后,
+  // 外层退化为按内容收拢,故在这一层显式撑满父槽位,取的是百分比而非新数值。
+  cardFace: {
+    width: '100%',
   } as ViewStyle,
   card: {
     backgroundColor: tokens.surface.card,
