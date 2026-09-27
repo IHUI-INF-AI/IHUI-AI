@@ -13,6 +13,7 @@ import contextvars
 import difflib
 import functools
 import json
+import math
 import os
 import re
 import shlex
@@ -20,7 +21,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Final, Literal, cast
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 if TYPE_CHECKING:
@@ -39,6 +40,9 @@ from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
 # 批58(三十):敏感目录黑名单收敛为单一权威源(与 file_editor 共用同一常量与匹配函数)。
 # 此前本模块的路径校验完全不做敏感目录判定,导致三个写工具可写 .git/hooks/。
 from .path_guard import find_sensitive_segment, sensitive_error_message
+# V3 #75 后半:懒索引护栏用**枚举层同一份**有界探测出口(该模块只依赖标准库,
+# 无重依赖、无回环,所以可以在顶层 import;函数内再 import 一次只会造成两个出处)。
+from .rg_fallback_parity import SizeProbe, probe_code_file_count
 from .security_config import get_security_config
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
@@ -630,10 +634,281 @@ class MCPPrompt:
 # ---------------------------------------------------------------------------
 
 
-# 懒索引护栏(2026-09-07 立):语义搜索空结果时自动触发增量索引的上限与冷却
-_LAZY_INDEX_MAX_FILES = 2000
+# ---------------------------------------------------------------------------
+# 懒索引护栏(V3 #75 后半:2026-09-27 按实测成本重定档)
+# ---------------------------------------------------------------------------
+#
+# 旧形态有两处毛病,都是量出来的而不是审美观:
+#
+#  1. `_LAZY_INDEX_MAX_FILES = 2000` 自 2026-09-07 起就是个**无依据字面量**,而它读的
+#     分母 `len(indexer._collect_code_files(root))` 被 `MAX_FILES_PER_INDEX=5000`
+#     **先截断再计数** —— 实测本机工作树该值恒等于 5000(真实代码文件 31,672;
+#     同一份代码在另一次检出上是 244,765)。于是"1,500 文件的小仓"与"24 万文件的
+#     monorepo"在护栏眼里同形:一个会饱和的分母既定不了阈值,也解释不了超限。
+#  2. 非目录 / 冷却 / 超限 / 索引失败**四种不同的事全部 `return []`**,调用方与模型
+#     只能读成"语义搜索没找到东西",而真相往往是"这个仓库从没被索引"。
+#     护栏的失效方向因此改成:**宁可显式回一个降级标记,不可静默冒充"没找到"**
+#     (§5e"失败必须响"与本模块 `enum_degraded` 是同一条禁令)。
+#
+# ---- 实测依据(2026-09-27,G:\IHUI-AI 真仓 + 同盘受控合成树)----
+# 取证脚本:`apps/ai-service/scripts/measure_lazy_index_guardrail.py`(只读仓库、
+# 零网络、零生产库,`--json` 出机器可读读数,可重跑)。关键读数:
+#
+#   轴 A 枚举(护栏探测自己要不付得起的钱)
+#     真仓 31,672 个代码文件:ripgrep 0.302s / python-walk 1.442s,两通道结果集
+#     逐字相等(对称差 0);受控合成树 2k/10k/50k 档 → rg 0.029/0.043/0.078s、
+#     walk 0.031/0.139/0.649s。劣通道(python-walk)按真仓摊薄 = **0.0455 ms/file**。
+#     枚举结果集 Python 侧峰值 ≈100 B/file(50,000 文件 → 4.77 MB)。
+#     ⇒ **枚举从来不是这条护栏的理由**,即便 10 万文件级也只值 1.5s 与 10 MB 量级。
+#
+#   轴 B 每文件下游成本(`index_repository` 里**本地可测**那段:读 + sha256 + 切片,
+#     真仓 1,200 个真实文件等距抽样)= **0.541 ms/file**,产出 **6.86 切片/file**
+#     ⇒ 每文件 6.86 / EMBEDDING_BATCH_SIZE 次上游 embedding 批量。
+#     比轴 A 贵 12 倍 —— 这才是护栏该守的东西,与 codebase_indexer 对自己那个
+#     `MAX_FILES_PER_INDEX` 的复评结论同向("本常量不动,它守的是下游每文件成本")。
+#
+#   未实测(如实登记,不伪装成测量):embedding **单批墙钟延迟**与写库延迟 ——
+#     取证不许打真实 LLM API、更不许写生产库(§5 测试隔离铁律)。因此第三条轴按
+#     **调用次数**封顶(`_LAZY_INDEX_EMBED_BATCH_BUDGET`),不按秒数。
+#     本机 venv 未装 tree-sitter,量到的是降级切片路径的成本;而生产用的就是同一条
+#     路径(`_tree_sitter_available=False`),所以这一格不是"另一条路的数"。
+#
+# 三条轴各自换算的文件数上限由 `lazy_index_file_limits()` **现算**,不写字面量。
+# 实测结论:binding 的是 embedding 批量轴(约 870 文件),本地墙钟轴约 5.1 万文件、
+# 索引硬上限轴 5,000 文件都不 binding ⇒ 新阈值比旧的 2000 **更小**。这不是收紧给人
+# 添麻烦:2,000 文件 ≈ 686 个 embedding 批量,而 `_generate_embeddings_batch` 是
+# **逐批串行**的,任何一批 ≥100ms 的上游延迟都会把这次懒索引拖过 `MCP_GLOBAL_TIMEOUT`
+# —— 旧值从来就不是一个能守住的预算,只是没人量过。超限时的行为从"静默空表"变成
+# "带数字的显式降级标记",这才是本票的后半交付。
 _LAZY_INDEX_COOLDOWN_SECONDS = 600.0
 _LAZY_INDEX_LAST_RUN: dict[str, float] = {}
+
+#: 每文件本地成本(读 + sha256 + 切片),ms。实测 2026-09-27,真仓 1,200 文件样本。
+_LAZY_INDEX_LOCAL_MS_PER_FILE: Final[float] = 0.541
+#: 枚举的每文件成本,取**劣通道** python-walk(部署机解析不到 rg 时走的就是它),ms。
+#: 实测 2026-09-27:真仓 1.442s / 31,672 file = 0.0455;合成树边际 0.01289。取上界。
+_LAZY_INDEX_ENUM_WORST_MS_PER_FILE: Final[float] = 0.0455
+#: 每文件切片数(→ embedding 批量数)。实测 2026-09-27:8,232 切片 / 1,200 文件。
+_LAZY_INDEX_CHUNKS_PER_FILE: Final[float] = 6.86
+#: 一次懒索引允许占掉的 handler 墙钟份额。依据:本工具的总闸是 `MCP_GLOBAL_TIMEOUT`
+#: (见文件上方,120s),而懒索引只是 search_codebase 的**补救支路** —— 主路正则检索
+#: 与索引后的重搜还得在同一次调用里跑完 ⇒ 取 1/4 = 30s。
+#: 这是**策略档**不是测量结果,写清楚而不是伪装成实测。
+_LAZY_INDEX_HANDLER_BUDGET_SHARE: Final[float] = 0.25
+_LAZY_INDEX_LOCAL_BUDGET_SECONDS: Final[float] = MCP_GLOBAL_TIMEOUT * _LAZY_INDEX_HANDLER_BUDGET_SHARE
+#: 一次懒索引允许的上游 embedding 批量调用数。**policy,非实测** —— 单批延迟本机量不到
+#: (取证不许打真实 LLM API),所以这一轴按次数封顶。取 300 的依据:按实测
+#: 0.343 batch/file 折算 ≈ 874 个代码文件,与 `_LAZY_INDEX_LOCAL_BUDGET_SECONDS`
+#: 在"每批哪怕只有 100ms"的下界下同量级。**改这个数必须同时改本句依据。**
+_LAZY_INDEX_EMBED_BATCH_BUDGET: Final[int] = 300
+
+
+@dataclass(frozen=True)
+class LazyIndexLimits:
+    """三条成本轴各自换算出的文件数上限,以及哪一条 binding。
+
+    三个数都**留在结构里**而不是折成一个裸常量:把阈值写成单个整数,正是本票要修
+    的那个形状 —— 下一个人只看见 874,看不见它是三条轴取最小值。
+
+    两个预算(``local_budget_seconds`` / ``embed_batch_budget``)也**随对象传进判定函数**:
+    判定若去读模块级常量,那它就是"看着纯、实际带隐藏输入"的函数 —— 测试改档只能
+    monkeypatch 全局,而 monkeypatch 漏一处就测了个假分支(本票第一版就中过这一枪:
+    `_limits_with(batch_budget=20)` 造出来的便宜档被判定函数里的模块常量盖掉,
+    "超限必拒"那条用例于是允许了索引)。
+    """
+
+    by_local_wall: int
+    by_embedding_batches: int
+    by_index_hard_cap: int
+    #: 换算系数一并带出,超限时原样交给调用方展示
+    per_file_ms: float
+    embedding_batches_per_file: float
+    local_budget_seconds: float
+    embed_batch_budget: int
+    #: 判定用的**探测上限**依据:三条轴的最小值(下面 max_files)
+    handler_budget_share: float = _LAZY_INDEX_HANDLER_BUDGET_SHARE
+
+    @property
+    def max_files(self) -> int:
+        return max(0, min(self.by_local_wall, self.by_embedding_batches, self.by_index_hard_cap))
+
+    @property
+    def binding_axis(self) -> str:
+        if self.by_index_hard_cap <= min(self.by_local_wall, self.by_embedding_batches):
+            return "index_hard_cap(MAX_FILES_PER_INDEX)"
+        if self.by_embedding_batches <= min(self.by_local_wall, self.by_local_wall):
+            return "embedding_batch_budget"
+        return "local_wall_budget"
+
+    def describe(self) -> str:
+        return (
+            f"懒索引文件数上限 {self.max_files}(binding={self.binding_axis}):"
+            f" 本地墙钟轴 {self.by_local_wall}@{self.per_file_ms:.3f}ms/file"
+            f"(预算 {self.local_budget_seconds:.0f}s)、"
+            f" embedding 批量轴 {self.by_embedding_batches}"
+            f"@{self.embedding_batches_per_file:.3f}batch/file"
+            f"(预算 {self.embed_batch_budget} 次)、"
+            f" 索引硬上限轴 {self.by_index_hard_cap}"
+        )
+
+
+def lazy_index_file_limits(*, index_hard_cap: int, embedding_batch_size: int) -> LazyIndexLimits:
+    """把实测/策略系数换算成三条轴的文件数上限(纯函数:两个入参现传,不读全局)。
+
+    `index_hard_cap` 与 `embedding_batch_size` 由调用方从 `codebase_indexer` 取。
+    刻意**不在模块顶层 import** 那两个常量:mcp_server 与 codebase_indexer 之间是
+    函数级延迟导入的既有约定;更根本的理由是 —— 懒索引的上限必须跟着索引上限一起动,
+    在这儿抄一份字面量就会漂移(本仓记过最多次的失效型)。
+    """
+    if index_hard_cap < 1 or embedding_batch_size < 1:
+        raise ValueError(
+            f"index_hard_cap / embedding_batch_size 必须 ≥ 1,实得 {index_hard_cap}/{embedding_batch_size}"
+        )
+    per_file_ms = _LAZY_INDEX_LOCAL_MS_PER_FILE + _LAZY_INDEX_ENUM_WORST_MS_PER_FILE
+    batches_per_file = _LAZY_INDEX_CHUNKS_PER_FILE / embedding_batch_size
+    return LazyIndexLimits(
+        by_local_wall=int(_LAZY_INDEX_LOCAL_BUDGET_SECONDS * 1000.0 // per_file_ms),
+        by_embedding_batches=int(_LAZY_INDEX_EMBED_BATCH_BUDGET // batches_per_file),
+        by_index_hard_cap=index_hard_cap,
+        per_file_ms=per_file_ms,
+        embedding_batches_per_file=batches_per_file,
+        local_budget_seconds=_LAZY_INDEX_LOCAL_BUDGET_SECONDS,
+        embed_batch_budget=_LAZY_INDEX_EMBED_BATCH_BUDGET,
+        handler_budget_share=_LAZY_INDEX_HANDLER_BUDGET_SHARE,
+    )
+
+
+#: 护栏结论的状态。**"确实没有语义命中"只有一种状态**,其余每一格都必须带 reason ——
+#: 旧契约把它们全部塌缩成 `[]`,于是"这个仓库没被索引"读起来和"仓库里没有答案"同形。
+LazyIndexStatus = Literal[
+    "searched",                # 建了索引并重搜,拿到结果
+    "empty-after-index",       # 真·没有语义命中(唯一允许空结果不带理由的一格)
+    "skipped-not-a-dir",
+    "skipped-cooldown",
+    "skipped-no-code-files",
+    "skipped-over-limit",
+    "failed",
+]
+
+
+@dataclass(frozen=True)
+class LazyIndexGuard:
+    """超限判定的结论 + 全部中间量(不得只回一个布尔)。"""
+
+    allow: bool
+    status: LazyIndexStatus
+    reason: str | None
+    files: int
+    files_is_lower_bound: bool
+    predicted_local_seconds: float
+    predicted_embedding_batches: int
+    limits: LazyIndexLimits
+
+    def describe_scale(self) -> str:
+        n = f"≥{self.files}" if self.files_is_lower_bound else str(self.files)
+        return f"{n} 个代码文件,预计本地 {self.predicted_local_seconds:.1f}s / embedding 批量 {self.predicted_embedding_batches} 次"
+
+
+def evaluate_lazy_index_guard(probe: SizeProbe, limits: LazyIndexLimits) -> LazyIndexGuard:
+    """有界探测 + 实测成本 → 这个目录要不要为它建索引(纯函数:零 I/O、零网络、零 DB)。
+
+    三条判定顺序有意为之:
+
+    1. **撞到索引硬上限即拒**(`is_lower_bound`):探测上限取 `硬上限 + 1`,所以这一格
+       的含义是"文件数**严格超过** `MAX_FILES_PER_INDEX`"⇒ 真实规模未知且必然超,
+       即使动手索引也只会得到一个**静默不完整**的全仓索引(索引面按该上限截断)。
+       "看起来索引好了、其实只有一半"比不索引更坏,所以这一格先于成本轴判,
+       而且**只有这一格**配得上"仓库太大"这句话 —— 成本轴超限说的是"这次不该顺手做",
+       两者混成一格就会把 874 文件的小仓也报成"巨仓"(第一版就是这么错的)。
+    2. 空树:确实没有任何可索引的代码文件 —— 这是真·没有,不是护栏拦截,理由照样写。
+    3. 成本轴:预计本地墙钟 / embedding 批量数超预算即拒,**理由里带实测数字**;
+       走到这一格时 `probe.count` 一定是精确值(未被硬上限截断)。
+
+    任何 `allow=False` 都必须有 `reason` —— 这条由 `verdict()` 内部直接判死,
+    不靠约定:没有原因的拒绝就是旧契约那个静默 `[]` 换了个皮。
+    """
+    predicted_local = probe.count * limits.per_file_ms / 1000.0
+    predicted_batches = math.ceil(probe.count * limits.embedding_batches_per_file)
+
+    def verdict(allow: bool, status: LazyIndexStatus, reason: str | None) -> LazyIndexGuard:
+        if not allow and not reason:
+            raise AssertionError(f"护栏拒绝({status})必须带 reason,否则又退化成静默失败")
+        return LazyIndexGuard(
+            allow=allow,
+            status=status,
+            reason=reason,
+            files=probe.count,
+            files_is_lower_bound=probe.is_lower_bound,
+            predicted_local_seconds=round(predicted_local, 3),
+            predicted_embedding_batches=predicted_batches,
+            limits=limits,
+        )
+
+    if probe.is_lower_bound:
+        return verdict(
+            False,
+            "skipped-over-limit",
+            f"代码文件数超过索引硬上限(至少 {probe.count} 个 > 上限 "
+            f"{limits.by_index_hard_cap};{probe.describe()})。真实规模未测(探测按上限截断),"
+            f"懒索引即便执行也只会覆盖其中一个静默子集,故不触发。"
+            f"要全仓语义检索请对子目录显式调用 index_codebase,"
+            f"或用 file_search / search_codebase 的正则通道。",
+        )
+    if probe.count == 0:
+        return verdict(
+            False,
+            "skipped-no-code-files",
+            f"目录内没有任何可索引的代码文件({probe.describe()}),无需建索引 —— "
+            f"这一格是真·空,不是被护栏拦下。",
+        )
+    if predicted_batches > limits.embed_batch_budget:
+        return verdict(
+            False,
+            "skipped-over-limit",
+            f"预计 embedding 批量 {predicted_batches} 次 > 预算 {limits.embed_batch_budget} 次;"
+            f"{limits.describe()};{probe.describe()}。懒索引不触发,"
+            f"本次检索回落到正则通道。",
+        )
+    if predicted_local > limits.local_budget_seconds:
+        return verdict(
+            False,
+            "skipped-over-limit",
+            f"预计本地索引墙钟 {predicted_local:.1f}s > 预算 {limits.local_budget_seconds:.0f}s"
+            f"(= MCP_GLOBAL_TIMEOUT × {limits.handler_budget_share});"
+            f"{limits.describe()};{probe.describe()}。懒索引不触发。",
+        )
+    return verdict(True, "searched", None)
+
+
+@dataclass(frozen=True)
+class LazyIndexOutcome:
+    """一次懒索引尝试的完整结论。
+
+    旧契约返回裸 `list[dict]`,而"没找到""没建""建坏了""在冷却"四件事都是空表;
+    本类型把状态与理由一起交出去,调用方**必须**把它投影进响应体
+    (见 `_tool_search_codebase` 返回的 `semantic_index` 字段)。
+    """
+
+    results: list[dict[str, Any]]
+    status: LazyIndexStatus
+    reason: str | None
+    #: 规模读数(None = 没走到探测那一步,例如非目录 / 冷却中)
+    guard: LazyIndexGuard | None = None
+
+    def as_response_field(self) -> dict[str, Any]:
+        """投影成工具响应里那一格(可 JSON 化,不含任何仓库内容)。"""
+        out: dict[str, Any] = {"status": self.status, "reason": self.reason}
+        if self.guard is not None:
+            out |= {
+                "code_files": self.guard.files,
+                "code_files_is_lower_bound": self.guard.files_is_lower_bound,
+                "predicted_local_seconds": self.guard.predicted_local_seconds,
+                "predicted_embedding_batches": self.guard.predicted_embedding_batches,
+                "max_files_allowed": self.guard.limits.max_files,
+                "binding_axis": self.guard.limits.binding_axis,
+            }
+        return out
+
 
 async def _lazy_index_and_research(
     indexer: Any,
@@ -641,35 +916,87 @@ async def _lazy_index_and_research(
     path: str,
     max_results: int,
     internal_user_id: str | None = None,
-) -> list[dict[str, Any]]:
+) -> LazyIndexOutcome:
     """懒索引:语义通道空结果且 path 为本地目录时,尽力做一次 Merkle 增量索引后重搜。
 
-    护栏:文件数 ≤ _LAZY_INDEX_MAX_FILES;同路径冷却期内不重复触发;全失败静默返回 []。
+    护栏见上方 `evaluate_lazy_index_guard`(2026-09-27 按实测成本重定档)。
     背景:此前 index_repository 无任何调用方,codebase_chunks 表永远是空的,
     语义/混合检索在生产运行时形同虚设(2026-09-07 审计发现并根治)。
+
+    返回 `LazyIndexOutcome` 而不是裸 list:**任何**"这轮没有语义结果"都说得出为什么。
+    `indexer` 保持 `Any` 是既有的鸭子类型约定(测试用 SimpleNamespace 替身注入),
+    只用到 `index_repository` / `search` 两个方法。
     """
-    import time as _time
+    # 触达 codebase_indexer 的**同一份**过滤表与上限,而不是在这里抄第二份:
+    # 这两个下划线名是私有的,但复制它们的后果更严重 —— 护栏的分母与索引面一旦不是
+    # 同一批文件,阈值就只是在量一个不存在的东西(本票修的正是这一型)。
+    from .codebase_indexer import (
+        EMBEDDING_BATCH_SIZE,
+        MAX_FILES_PER_INDEX,
+        _EXT_TO_LANG,
+        _IGNORED_DIRS,
+    )
+
     try:
-        from pathlib import Path as _Path
-        root = _Path(path).resolve()
+        root = Path(path).resolve()
         if not root.exists() or not root.is_dir():
-            return []
-        now = _time.monotonic()
+            return LazyIndexOutcome(
+                results=[],
+                status="skipped-not-a-dir",
+                reason=f"传入的 path 不是可读目录({path}),未尝试建索引",
+            )
+        now = time.monotonic()
         # 2026-09-10 修复:缺省哨兵不得用 0.0 —— monotonic() 从进程/系统启动起计,
         # 新启动机器上可能小于冷却窗口,0.0 哨兵会误判为"冷却中"而跳过索引。
         # 改为显式区分"从未运行"(None)与"运行过"(时间戳)。
         last = _LAZY_INDEX_LAST_RUN.get(str(root))
         if last is not None and now - last < _LAZY_INDEX_COOLDOWN_SECONDS:
-            return []
-        files = indexer._collect_code_files(root)
-        if len(files) == 0 or len(files) > _LAZY_INDEX_MAX_FILES:
-            _LAZY_INDEX_LAST_RUN[str(root)] = now  # 超限路径也记录,避免反复扫描
-            return []
-        _LAZY_INDEX_LAST_RUN[str(root)] = now
+            return LazyIndexOutcome(
+                results=[],
+                status="skipped-cooldown",
+                reason=(
+                    f"该目录 {_LAZY_INDEX_COOLDOWN_SECONDS:.0f}s 内已尝试过懒索引,本轮跳过"
+                    f"(再过 {_LAZY_INDEX_COOLDOWN_SECONDS - (now - last):.0f}s 才会重试)"
+                ),
+            )
+        limits = lazy_index_file_limits(
+            index_hard_cap=MAX_FILES_PER_INDEX, embedding_batch_size=EMBEDDING_BATCH_SIZE
+        )
+        # 探测上限 = 索引硬上限 + 1:这一维只回答"有没有超过能完整索引的规模",
+        # 成本轴另算。取 +1 是为了把"正好等于上限"(可以完整索引)与"超过"(只能
+        # 得到静默子集)分开 —— 用 max_files 当探测上限会把前者误判成后者。
+        # 探测本身有界(实测真仓 0.26s),所以"问一句多大"不会变成走一遍全树。
+        probe = probe_code_file_count(
+            root,
+            ignored_dirs=_IGNORED_DIRS,
+            suffixes=tuple(_EXT_TO_LANG),
+            limit=limits.by_index_hard_cap + 1,
+        )
+        guard = evaluate_lazy_index_guard(probe, limits)
+        _LAZY_INDEX_LAST_RUN[str(root)] = now  # 拒绝路径也记冷却,避免每轮重付探测成本
+        if not guard.allow:
+            return LazyIndexOutcome(results=[], status=guard.status, reason=guard.reason, guard=guard)
         await indexer.index_repository(str(root), incremental=True, internal_user_id=internal_user_id)
-        return cast(list[dict[str, Any]], await indexer.search(query, top_k=max_results))
-    except Exception:
-        return []
+        results = cast(list[dict[str, Any]], await indexer.search(query, top_k=max_results))
+        if results:
+            return LazyIndexOutcome(results=results, status="searched", reason=None, guard=guard)
+        # 建完索引仍然零命中:这是唯一"空但没有理由"合法的一格 —— 仍然给一句
+        # 可读的话,因为它与"护栏拦下了"必须在响应面上分得开。
+        return LazyIndexOutcome(
+            results=[],
+            status="empty-after-index",
+            reason=f"已为 {probe.count} 个代码文件建/更新索引,语义通道仍无命中",
+            guard=guard,
+        )
+    except Exception as e:  # noqa: BLE001 - 故意兜住:懒索引不得把主搜索打挂
+        # 但"兜住"不等于"咽下"。旧实现 `except Exception: return []` 把建索引失败
+        # 也伪装成"没有结果";现在原因进 reason,并打 warning。
+        logger.warning("懒索引失败(本次回落到正则通道): %s: %s", type(e).__name__, e)
+        return LazyIndexOutcome(
+            results=[],
+            status="failed",
+            reason=f"懒索引执行失败:{type(e).__name__}: {str(e)[:200]}",
+        )
 
 
 async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -733,6 +1060,9 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     symbol_type = arguments.get("symbol_type", "").strip().lower()
     # 2026-07-22 新增:语义搜索开关(默认 True,失败/无结果时 fallback 到 regex)
     use_semantic = arguments.get("use_semantic", True)
+    # V3 #75 后半:语义通道这一轮**为什么**没给结果,必须随响应回去。
+    # None = 没走到懒索引那一步;非 None 时 status/reason 一定可读。
+    semantic_index_field: dict[str, Any] | None = None
 
     # 默认代码文件扩展名(若未指定 pattern)
     _CODE_EXTS = {
@@ -779,13 +1109,15 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             # 2026-09-07 立:懒索引——空结果且 path 为本地目录时,增量索引后重搜一次
             # (根治:此前 index_repository 无调用方,语义/混合检索在生产运行时永远空表)
             if not semantic_results:
-                semantic_results = await _lazy_index_and_research(
+                lazy = await _lazy_index_and_research(
                     codebase_indexer,
                     query,
                     path,
                     max_results,
                     internal_user_id=arguments.get("__user_id") or None,
                 )
+                semantic_results = lazy.results
+                semantic_index_field = lazy.as_response_field()
             if semantic_results:
                 semantic_matches: list[dict[str, Any]] = []
                 for r in semantic_results[:max_results]:
@@ -810,6 +1142,7 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                     "matches": semantic_matches,
                     "total": len(semantic_matches),
                     "truncated": False,
+                    "semantic_index": semantic_index_field,
                     "message": f"语义搜索找到 {len(semantic_matches)} 个匹配(pgvector ANN)",
                     "ok": True,
                 }
@@ -943,6 +1276,11 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "matches": matches,
             "total": len(matches),
             "truncated": count >= max_results,
+            # V3 #75 后半:走到正则通道时,语义通道那一步的结论必须一起回去。
+            # 没有这一格,模型读到的就是"正则找到 N 个匹配",而看不见
+            # "语义索引压根没为这个目录建过(以及为什么没建)" —— 那正是旧契约
+            # 用 `return []` 冒充"没有结果"的形状。
+            "semantic_index": semantic_index_field,
             "message": f"在 {path} 下找到 {len(matches)} 个匹配"
                        + ("(已截断)" if count >= max_results else ""),
             "ok": True,
