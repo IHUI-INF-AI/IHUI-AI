@@ -13,7 +13,7 @@
  * 与 monitoring/alertbridge/alert-webhook-bridge.cjs 同一条纪律:
  * 「静默变短」比「变短」更糟 —— 截断必须在正文里点名丢了多少。
  */
-import { redactSecrets } from '@ihui/shared'
+import { redactSecrets, redactUserHomePathLiterals } from '@ihui/shared'
 
 /**
  * 单条外部文本进告警正文的字符上限。
@@ -52,6 +52,9 @@ const INVISIBLE_TEXT_RE = new RegExp(
   'g',
 )
 
+/** 本函数自己写上的截断告示 —— 认得它,才敢在二次调用时原样交出(见 `flattenUntrustedText`) */
+const TRUNCATION_NOTICE_RE = /…\[截断,已丢弃 \d+ 字符\]$/
+
 /** 一行外部文本:剥不可见字符 → 折成单行 → 先脱敏后截断,并点名丢弃量 */
 export function flattenUntrustedText(
   raw: unknown,
@@ -62,9 +65,20 @@ export function flattenUntrustedText(
     .replace(/\s+/g, ' ')
     .trim()
   if (!flat) return ''
+  /**
+   * 已经由本函数截过并标了丢弃量的输出 ⇒ 原样交回。
+   * 不这么做会产出一件很坏的事:第二次截断把「已丢弃 100 字符」改写成「已丢弃 16 字符」——
+   * 那个数字是上一轮**如实报出来**的,改写它等于用一条新的谎覆盖旧的真话
+   * (§5e「静默变短比变短更糟」与 §5c「绝不静默成看起来全绿」同一条禁令)。
+   * 2026-09-27 独立复核实测到这一格后补上:此前注释与提交信息都写着"尺子是幂等的",
+   * 而对被截断过的输入并不成立 —— **声称与实态分叉比缺口本身更糟**。
+   */
+  if (TRUNCATION_NOTICE_RE.test(flat)) return flat
   // 脱敏必须在**截断之前**、且用共享层那一份实现(§3:端内不得再建第二套凭据正则):
   // 先截断再脱敏,会让落在边界上的凭据只被切掉一半而剩下可读片段。
-  const safe = redactSecrets(flat)
+  // 用户主目录另有一档:`redactSecrets` 的路径规则是**注入式**的(不传 home/user 就空转),
+  // 而告警文本里的堆栈常来自别人的机器 ⇒ 必须用形状匹配那一档才盖得住。
+  const safe = redactSecrets(redactUserHomePathLiterals(flat))
   if (safe.length <= maxChars) return safe
   return `${safe.slice(0, maxChars)}…[截断,已丢弃 ${safe.length - maxChars} 字符]`
 }
@@ -109,7 +123,7 @@ export function capAlertMessage(text: string): string {
 export function sanitizeAlertMessage(text: string): string {
   const perLine = String(text ?? '')
     .split('\n')
-    .map((line) => redactSecrets(line.replace(INVISIBLE_TEXT_RE, ' ')))
+    .map((line) => redactSecrets(redactUserHomePathLiterals(line.replace(INVISIBLE_TEXT_RE, ' '))))
     .join('\n')
   return capAlertMessage(perLine)
 }
