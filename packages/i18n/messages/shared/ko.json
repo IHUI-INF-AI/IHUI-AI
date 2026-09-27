@@ -178,6 +178,7 @@
     "toolDebugDisconnect": "디버거 연결 해제",
     "toolDebugListSessions": "디버그 세션 목록",
     "toolVendorVoiceClone": "음성 복제",
+    "toolRequestBusinessForm": "양식 작성 요청",
     "fileActivity": "{state, select, running {파일 처리 중} completed {파일 처리 완료} other {파일 처리}}",
     "imageActivity": "{state, select, running {이미지 처리 중} completed {이미지 처리 완료} other {이미지 처리}}",
     "searchActivity": "{state, select, running {검색 중} completed {검색 완료} other {검색}}",
@@ -2093,7 +2094,9 @@
       "bypassSkipApproval": "심사 건너뜀",
       "mcpRequiresApproval": "MCP 주석이 승인 필요",
       "policyRequiresApproval": "정책상 승인 필요",
-      "policySkipsApproval": "정책상 승인 생략"
+      "policySkipsApproval": "정책상 승인 생략",
+      "guardianReviewSuggested": "검토가 더 안전한 경로를 제안",
+      "guardianReviewAlternativeApplied": "검토 제안 경로 적용됨"
     },
     "perm": {
       "allow": "허용함",
