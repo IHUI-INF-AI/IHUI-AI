@@ -18,10 +18,8 @@
 # wscript.exe + VBS launcher for zero window popup.
 #
 # Usage:
-#   pwsh -ExecutionPolicy Bypass -File G:\IHUI-AI\scripts\install-zombie-guardian-daemon.ps1
+#   pwsh -ExecutionPolicy Bypass -File <repo-root>\scripts\install-zombie-guardian-daemon.ps1
 # ============================================================================
-
-#Requires -Version 5.0
 
 $ErrorActionPreference = 'Stop'
 
@@ -47,12 +45,22 @@ Write-Host "  VbsLauncher:  $VbsLauncher"
 Write-Host "  TaskName:     $TaskName"
 Write-Host "  Mode:         real-time daemon (60s interval, threshold ladder)"
 
-# ---- 2. Stop & remove existing task (v1.0 periodic or any prior install) ----
+# ---- 2. Refuse to hijack an existing registration (G-266 conflict fix) ----
+# Both installers used to claim the SAME task name and each one's step 2 was
+# "unregister whatever is there" - running either silently un-installs the
+# other. The approved recovery is the v1.0 PERIODIC 30-minute task
+# (install-zombie-guardian.ps1), so THIS installer is now explicitly the
+# second writer: if the task already exists it must be removed first via
+# uninstall-zombie-guardian.ps1. No silent unregister here.
 $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 if ($existing) {
-    Write-Host "[install-daemon] Stopping and removing existing task (v1.0 -> v2.0 upgrade)..." -ForegroundColor Yellow
-    Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    Write-Error @"
+[install-daemon] Task '$TaskName' is ALREADY registered (state: $($existing.State)).
+This installer will NOT unregister another installer's task. If you really want
+the v2.0 daemon here, run first:
+  pwsh -ExecutionPolicy Bypass -File `"$ScriptsDir\uninstall-zombie-guardian.ps1`"
+"@
+    exit 1
 }
 
 # Also kill any lingering daemon PowerShell processes from prior install
