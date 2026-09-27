@@ -6344,6 +6344,9 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | `scripts/alert-volume-report.mjs` | 只读量算"发信总量 / 风暴簇 / 跳门总量 / 哪道门导致跳门 / 检查整批没跑的次数" | 过去全仓没人统计过这些,"修好三道"可能只是"修好我看到的三道"。跳门的唯一真值来源是 `.workbuddy/safe-commit-attestation.jsonl` |
 | `scripts/pg-restore-drill.mjs` | 备份可恢复性核验:`--check`/`--offline-verify` 不碰库,`--apply` 才做在线还原演练 | 全仓 `pg_restore` 此前只出现在注释里 —— **没验过的备份不算备份**。文件层已证到最强(整份归档解出 363MB SQL 流零报错);在线演练缺一个建库权限,**属机主授权动作,agent 不得自行提权** |
 | `scripts/run-evidence.mjs` | 给任何一次取证落件并写 `#EVIDENCE-RC`,读侧 `--verify` 判"跑完 / 被截断 / 被杀" | 把"跑失败"与"根本没跑到"变成机器可分辨的两件事。管道尾的 `$?` 是 `tail` 的退出码,不是判据的 —— 本仓一天内三次因此得出相反结论 |
+| `scripts/pg-backup-cadence-audit.mjs` | 只读审计每日备份的**节拍与完整性**:逐日在位、每份 `complete/truncated/undetermined` 三态、0 字节与体积塌陷、异地腿缺口 | 自定义格式的 TOC 在文件**尾部**,`pg_dump` 中途死掉留下的文件大小看着完全正常 —— 只看大小与 `ls` 判不出"这份根本恢复不了" |
+| `scripts/pg-restore-app-reads.mjs` | 把 60 条**应用自己发的只读查询**同时打到生产库与还原出来的演练库,五态不并桶地报 pass / 还原库报错 / 列形分叉 / 行数漂移 / 未判定 | "表数行数全等"只证明**元数据**到了;缺手写迁移的 `search_vector`、自定义 enum、RLS 会话变量、序列落后这些形态没有一个会移动那两把尺子,而应用一查就废 |
+| `deploy/win/ihui-pg-restore-prereq.sql` | 灾难恢复第 0 步:在干净集群上先建 `ihui` / `ihui_app` 两个角色再还原 | 单库 dump **结构上不含**角色与成员关系(实测 0 条 CREATE ROLE),而归档有 958 条 `OWNER TO ihui` —— 不先建角色,属主全部落空。口令是占位符,文件本身无机密 |
 
 **两条通用口径**:(1) 端内/部署机那份运行配置一律是**派生态**,禁止手改也禁止"只拦红不回写"(与 design-tokens 同源那条同规矩);(2) **改常驻服务的脚本必须重启才生效,而 PowerShell/node 每轮重新派生的子进程改工作树即刻生效** —— 判据是"它是常驻读进内存,还是每轮重新起",别一律当"要重启"。
 - **审计证据导出的验签公钥(免鉴权只读端点)**:`GET /api/audit-evidence/public-key` 让外部审计方在**不持 admin 账号**的情况下拿到 RSA-SHA256 验签公钥(SPKI PEM)与 `keyId`(公钥 sha256 前 16 位,收件方可自算),实现"拿到签名信封即可自证"的闭环。响应**只有** `algorithm` / `keyId` / `publicKey` 三个字段,绝不含任何私钥材料(测试里有反向锁断言整段响应不匹配 `PRIVATE KEY`);按 IP 限流 30 次/分钟;**签名密钥未配置时返回 503 并点名所缺的环境变量**,不返回 200 + 空值(把"没有"写成"有"是本仓零容忍的一型)。该面刻意**不挂 `/api/admin/*`** —— 现读 `server.ts` 的零信任注入对 admin 前缀强制 `network.allowExternal:false`、`network-segment.ts` 真执行 403,挂上去等于"免了鉴权仍公网不可达"。公开面按 §5 的规矩**显式列举这一条完整路径**,不用 `/api/<前缀>/…` 兜底正则。
