@@ -360,7 +360,7 @@ export default function AgentDetailPage() {
       {tab === 'info' && (
         <View>
           {agent && (
-            <View className="mx-[20rpx] my-[24rpx] bg-card rounded-xl border border-border p-[28rpx]">
+            <View className="mx-[20rpx] my-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
               <View className="flex items-center">
                 <Image
                   className="w-[160rpx] h-[160rpx] rounded-xl bg-muted"
@@ -369,7 +369,9 @@ export default function AgentDetailPage() {
                 />
                 <View className="ml-[24rpx] flex-1">
                   <View className="flex items-center">
-                    <Text className="text-[length:48rpx] text-foreground font-bold">{agent.name}</Text>
+                    <Text className="text-[length:48rpx] text-foreground font-bold">
+                      {agent.name}
+                    </Text>
                     {agent.isVipExclusive && (
                       <Text className="ml-[16rpx] text-[length:20rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)] text-[var(--color-surface-light)] font-semibold">
                         {t('ai.agentDetail.vipExclusive')}
@@ -450,16 +452,18 @@ export default function AgentDetailPage() {
             </View>
           )}
           {agent?.prologue && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-xl border border-border p-[28rpx]">
+            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
               <Text className="text-[length:22rpx] text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.prologue')}
               </Text>
-              <Text className="text-[length:32rpx] text-foreground leading-[44rpx]">{agent.prologue}</Text>
+              <Text className="text-[length:32rpx] text-foreground leading-[44rpx]">
+                {agent.prologue}
+              </Text>
             </View>
           )}
           {/* 使用教程 / 示例对话(对标原项目 exampleDialog) */}
           {exampleDialogs.length > 0 && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-xl border border-border p-[28rpx]">
+            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
               <Text className="text-[length:22rpx] text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.exampleDialog')}
               </Text>
@@ -488,7 +492,7 @@ export default function AgentDetailPage() {
             </View>
           )}
           {agent?.systemPrompt && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-xl border border-border p-[28rpx]">
+            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
               <Text className="text-[length:22rpx] text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.promptLabel')}
               </Text>
@@ -499,7 +503,7 @@ export default function AgentDetailPage() {
           )}
           {/* 评价区(对标原项目 RateController 评分系统) */}
           {useCount !== undefined && useCount > 0 && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-xl border border-border p-[28rpx]">
+            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
               <View className="flex items-center justify-between mb-[20rpx]">
                 <Text className="text-[length:32rpx] text-foreground font-semibold">
                   {t('ai.agentDetail.reviews')}
@@ -576,7 +580,7 @@ export default function AgentDetailPage() {
                 {related.map((r) => (
                   <View
                     key={r.id}
-                    className="inline-block w-[200rpx] bg-card rounded-xl border border-border p-[28rpx] mr-[24rpx] align-top"
+                    className="inline-block w-[200rpx] bg-card rounded-lg border border-border p-[28rpx] mr-[24rpx] align-top"
                     onClick={() => onRelatedClick(r.id)}
                     hoverClass="opacity-60"
                   >
