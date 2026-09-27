@@ -28,6 +28,13 @@ if TYPE_CHECKING:
     from .agent_orchestrator import AgentOrchestrator
 
 # 语义压缩回捞层(只读检索工具):复用 vector_memory 单例做语义回捞
+from .command_streamer import (
+    FRAME_READ_EOF,
+    FRAME_READ_LINE,
+    FRAME_READ_TOO_LARGE,
+    PROTOCOL_FRAME_LIMIT_BYTES,
+    read_protocol_frame,
+)
 from .context_recall import context_recall
 from .engine_tool_bridge import resolve_engine_tool
 from .exec_policy import PolicyDecision, RuleDecision
@@ -1823,10 +1830,18 @@ async def _drain_stream(
     _tool_run_command 末尾截断到 max_output → 截断前 OOM 已发生。
     现在实时累计 total_size,超过 2 * max_output 硬上限立即停止读取,
     避免大输出全量加载到内存(截断点放宽到 2 倍是为了保留少量尾部上下文)。
+
+    第三十三批(同族的另一半):上面的护栏管的是"总量",而**单行**长度无人管 ——
+    `await stream.readline()` 在一行超过 asyncio 默认 65536 时抛
+    LimitOverrunError,该异常沿调用方 `asyncio.gather(...)` 冒出去后被
+    `contextlib.suppress(Exception)` 吞掉,表现为"这条命令的输出突然就这么多",
+    既不喊"截断"也不说明原因。现在超限按**标注截断 + 计数 + 继续读下一行**处理。
     """
     total_size = 0
     size_limit = max_output * 2  # 2 倍 max_output 作为硬上限
     pending: list[str] = []
+    dropped_lines = 0
+    dropped_bytes = 0
 
     def _flush_pending() -> None:
         if pending and on_line is not None:
@@ -1834,10 +1849,28 @@ async def _drain_stream(
         pending.clear()
 
     while True:
-        line_bytes = await stream.readline()
-        if not line_bytes:
+        frame = await read_protocol_frame(stream)
+        if frame.kind == FRAME_READ_LINE:
+            decoded = frame.data.decode("utf-8", errors="replace").rstrip("\r\n")
+        elif frame.kind == FRAME_READ_TOO_LARGE:
+            dropped_lines += 1
+            dropped_bytes += frame.dropped_bytes
+            note = (
+                f"...(单行超过 {PROTOCOL_FRAME_LIMIT_BYTES} 字节帧预算,"
+                f"已丢弃 {frame.dropped_bytes} 字节)"
+            )
+            logger.warning("[mcp_server] run_command %s", note)
+            lines_list.append(note)
+            _flush_pending()
+            if not frame.resynced:
+                # 残余没能对齐行尾 ⇒ 后面读到的都不是完整行,停读并如实说明。
+                lines_list.append("...(超限帧残余未能对齐行尾,已停止读取该流)")
+                break
+            continue
+        elif frame.kind == FRAME_READ_EOF:
             break
-        decoded = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
+        else:
+            break  # 未预期的 kind(共享出口若新增结局,这里按结束保守处理)
         lines_list.append(decoded)
         total_size += len(decoded)
         if on_line is not None:
@@ -1847,6 +1880,11 @@ async def _drain_stream(
         if total_size > size_limit:
             lines_list.append(f"\n...(输出超过 {size_limit} 字符,已截断)")
             break
+    if dropped_lines:
+        lines_list.append(
+            f"...(本次共 {dropped_lines} 行因单行超帧预算被丢弃,"
+            f"合计 {dropped_bytes} 字节)"
+        )
     _flush_pending()  # 尾部残余帧
 
 
@@ -2355,6 +2393,9 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                 cwd=cwd, env=env_for_proc,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                # 第三十三批:_drain_stream 按行读,不声明 limit 就是默认 65536,
+                # 一条超长单行(压缩后的 JSON/base64 很常见)会抛 LimitOverrunError。
+                limit=PROTOCOL_FRAME_LIMIT_BYTES,
             )
         else:
             proc = await asyncio.create_subprocess_exec(
@@ -2362,6 +2403,7 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                 cwd=cwd, env=env_for_proc,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                limit=PROTOCOL_FRAME_LIMIT_BYTES,  # 同上,见 _drain_stream 注释
             )
 
         # 流式逐行读取 stdout/stderr(并发 drain,防长输出阻塞)
