@@ -44,11 +44,22 @@ def _is_admin(request: Request) -> bool:
     return int(role_id) >= 1
 
 
-def _owner_filter(request: Request) -> str | None:
-    """非管理员 → 只能访问自己创建的 hook(owner_id == user_id)。"""
+def _owner_filter(request: Request, principal: str | None = None) -> str | None:
+    """归属分档:非管理员 → 只能访问自己的资源(owner_id == 主体);管理员 → None(全站)。
+
+    `principal` 是端点从身份依赖(`Depends(get_current_user_id)`)拿到的**令牌主体**。
+    新登记的调用一律显式传它(AGENTS §5"身份只能从承载层显式入参进来");不传时回落到
+    `request.state.user_id` —— 那是本模块既有 11 处调用的形态,而回落分支之所以不构成
+    fail-open,靠的是同一条链:`get_current_user_id` 在 `request.state.user_id` 为假值时
+    直接抛 401(`app/core/jwt_auth.py:180-185`),所以端点体内跑到这里时它必为真值。
+    这句话是**承重**的:哪天某个用 `_owner_filter` 的端点不挂身份依赖,"缺身份"就会被
+    读成"管理员"(返回 None ⇒ 不过滤)。改判据的人请先看 tests/test_hooks.py::TestOwnerFilter。
+
+    这里是路由侧唯一的归属分档实现,不要在端点里再写 `None if _is_admin(...) else ...`。
+    """
     if _is_admin(request):
         return None
-    return getattr(request.state, "user_id", None)
+    return principal if principal is not None else getattr(request.state, "user_id", None)
 
 
 # ---------------------------------------------------------------------------
@@ -221,9 +232,13 @@ async def create_ab_test(
     body: CreateAbTestBody,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """创建 A/B 测试。"""
+    """创建 A/B 测试。
+
+    属主**必须**盖成创建者(传 `user_id`,不是 `_owner_filter`):管理员建的实验归管理员
+    自己,而不是落成 None(系统级、人人可管)—— 与 `instantiate_template` 同一条理由。
+    """
     try:
-        data = await hook_engine.create_ab_test(body.model_dump())
+        data = await hook_engine.create_ab_test(body.model_dump(), owner_id=user_id)
         return {"code": 0, "message": "success", "data": data}
     except Exception as e:
         return {"code": 500, "message": str(e), "data": None}
@@ -234,9 +249,13 @@ async def list_ab_tests(
     request: Request,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """列出所有 A/B 测试。"""
+    """列出 A/B 测试(非管理员只列自己的;G-258 B 组)。
+
+    过滤写在引擎一处(`hook_engine.list_ab_tests(owner_id=…)`),不在响应侧筛 ——
+    响应侧筛等于把"全量取回再藏起来"当成隔离,读日志/抓包的人仍然看得见全部。
+    """
     try:
-        data = await hook_engine.list_ab_tests()
+        data = await hook_engine.list_ab_tests(owner_id=_owner_filter(request, user_id))
         return {"code": 0, "message": "success", "data": data}
     except Exception as e:
         return {"code": 500, "message": str(e), "data": None}
@@ -384,11 +403,20 @@ async def emit_event(
     body: {event: HookEvent, context: dict}
     返回: {triggered_count: int, logs: [HookLog]}
 
-    P0-5:要求登录(agent_loop 调用带用户 JWT);如需无用户内部调用,
-    服务端配置 AGENT_CONTROL_INTERNAL_SECRET 后携带 X-Internal-Secret 头。
+    P0-5:要求登录(agent_loop 调用带用户 JWT;无用户内部调用走进程内
+    `hook_engine.emit`,不经这个 HTTP 口)。
+
+    G-258 B 组:**触发集合按调用方主体收窄**。旧实现挑出 candidates 后逐个点火,而
+    candidates 没有归属过滤 ⇒ 任何已登录用户 POST 一个事件名,就能触发别人的
+    webhook(带着别人的地址与凭据往外发)或别人的 script(在别人机器上跑命令),
+    而副作用与执行证据全记在受害者名下、响应还回 code=0。归属过滤住在引擎一处
+    (`hook_engine.emit(owner_id=…)`),判据与 list_hooks/get_hook 同一份(`_owned_by`)。
+    管理员(`_owner_filter` → None)仍可全量点火 —— 那是本模块既有分级,不是新开的口子。
     """
     _validate_event(req.event)
-    logs = await hook_engine.emit(req.event, req.context)
+    logs = await hook_engine.emit(
+        req.event, req.context, owner_id=_owner_filter(request, user_id)
+    )
     return {
         "code": 0,
         "message": "ok",
@@ -402,9 +430,13 @@ async def get_ab_test(
     test_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """A/B 测试详情(含 A/B 各自 stats 对比)。"""
+    """A/B 测试详情(含 A/B 各自 stats 对比)。
+
+    别人的实验与"不存在"同形:引擎两种情况都返回 None,这里也就同样回 data=None ——
+    分成 403/404 两种答案,这个端点就成了"别人有没有在做实验"的存在性预言机。
+    """
     try:
-        data = await hook_engine.get_ab_test(test_id)
+        data = await hook_engine.get_ab_test(test_id, owner_id=_owner_filter(request, user_id))
         return {"code": 0, "message": "success", "data": data}
     except Exception as e:
         return {"code": 500, "message": str(e), "data": None}
@@ -416,9 +448,14 @@ async def stop_ab_test(
     test_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """停止 A/B 测试,设 status=stopped。"""
+    """停止 A/B 测试,设 status=stopped(只准属主;G-258 B 组)。
+
+    同一条闸、同一个同形口径:非属主的停止动作与"这条不存在"得到**逐字相同**的响应
+    (data=None),并且引擎在归属判定通过之前不会写 status、不会落盘(见
+    `hook_engine.stop_ab_test` → `get_ab_test(owner_id=…)` 的取数顺序)。
+    """
     try:
-        data = await hook_engine.stop_ab_test(test_id)
+        data = await hook_engine.stop_ab_test(test_id, owner_id=_owner_filter(request, user_id))
         return {"code": 0, "message": "success", "data": data}
     except Exception as e:
         return {"code": 500, "message": str(e), "data": None}
