@@ -28,6 +28,14 @@
 //     并写 [mail][ERROR] 日志;/health 暴露 mailUndelivered=true。标记在下一次成功投递时
 //     清除(参照 scripts/check-credential-health.mjs 的 UNDELIVERED 机制)。
 //
+// 自监控端点(2026-09-27 起,两个端点各服务一个读者,**不可互换**):
+//   GET /health   → application/json,给人和「生产值守巡检」班次读(契约一字未改)
+//   GET /metrics  → text/plain; version=0.0.4,Prometheus 抓取专用(指标见 METRIC_SPECS)
+//   为什么必须有两个:Prometheus 3.x 校验抓取的 Content-Type,把 job 指到 /health 会让该
+//   target 恒 down ⇒ up{job="alertbridge"}==0 恒成立 ⇒ AlertBridgeDown 是一条**永远在响的
+//   假告警**,而它是"运维邮件链路断了没人知道"这一维唯一的自动判据 —— 恒响会把真故障一起
+//   淹掉。指标只做观测,不参与任何投递/去重判定。
+//
 // 配置(环境变量,均可省略):
 //   BRIDGE_PORT          监听端口(默认 9096)
 //   BRIDGE_DEDUP_MIN     同一告警(alertname+instance)去重窗口分钟数(默认 240=4h)
@@ -94,7 +102,7 @@ const MAIL_SOURCE = 'ihui-alertbridge'
 
 function writeLog(msg) {
   const line = `${new Date().toISOString()} ${msg}\n`
-  try { fs.appendFileSync(LOG_FILE, line) } catch (e) { /* 日志写不进不能拖垮接收面;console 仍留一份 */ }
+  try { fs.appendFileSync(LOG_FILE, line) } catch { /* 日志写不进不能拖垮接收面;console 仍留一份 */ }
   console.log(line.trimEnd())
 }
 
@@ -167,7 +175,91 @@ function loadDedupState(file, store, nowMs = Date.now(), windowMs = MAX_DEDUP_AG
       if (Number.isFinite(ts) && now - ts < windowMs) { store.set(k, ts); n += 1 }
     }
     return n
-  } catch (e) { return null }
+  } catch { return null }
+}
+
+// ── 自监控指标(GET /metrics,标准 Prometheus 文本格式)───────────────────────────
+// 为什么必须有 /metrics 而不是把 prometheus 指到 /health:Prometheus 3.x 抓取时**强制校验
+// Content-Type**,而 /health 返回 application/json ⇒ 该 target 恒 down ⇒
+// `up{job="alertbridge"} == 0` 恒成立 ⇒ alerts.yml 的 AlertBridgeDown 是一条**永远在响的假告警**。
+// 而它是"运维邮件链路断了没人知道"这一维唯一的自动判据,恒响的告警会把真故障一起淹掉
+// (告警疲劳的标准成因;与 AGENTS §12e"恒红门唯一结局是逼人绕过"是同一条物理)。
+//
+// 纪律(改动边界):这一段**只做观测**。所有计数器都由既有链路顺手 +1,不参与任何投递、
+// 去重、闸门判定;一个数的读法都不会改变 mailGate / partitionAlerts / deliverMail 的结论。
+// /health 的 JSON 契约**一字不改**(值守巡检班次直连它并读 mailUndelivered,见本目录 README)。
+// 零依赖:本服务是常驻 .cjs,不引 prom-client(与它 import 不了 TS 包是同一条结构约束)。
+const PROC_START_MS = Date.now()
+
+/** 单调递增的累计量(进程生命周期内)。重启归零是 counter 的正常语义,下游一律用 rate() 读。 */
+const counters = {
+  webhooksReceived: 0,       // 收到的 webhook 请求数(含空批次)
+  alertsReceived: 0,         // 收到的告警条数(去重**前**)
+  dedupSuppressed: 0,        // 按 alertname+instance 身份压下的条数 —— "压下了多少"
+  batchesDelivered: 0,       // 投递成功的批次 —— 与 alertsDelivered 一起回答"真寄出多少"
+  batchesFailed: 0,          // 品牌 + --plain 两条路都失败(告警从未到人)
+  batchesSkipped: 0,         // 闸门跳过(空批 / BRIDGE_MAIL_ENABLED=0):跳过不是失败,不得混计
+  alertsDelivered: 0,        // 真正随邮件寄出的告警条数
+  plainFallbacks: 0,         // 品牌模板失败但纯文本救回:版式退化了,投递没丢 —— 必须可见
+  statePersistFailures: 0,   // 去重态落盘失败 ⇒ 重启后去重重置(本文件注释里那个"重寄"洞的前置信号)
+  undeliveredMarks: 0,       // 写下 UNDELIVERED 标记的次数
+}
+/** 最近一次投递尝试/成功的墙上时刻(秒)。up==1 而它长期不推进 = 链路活着但从未投递过任何东西。 */
+let lastMailAttemptTs = 0
+let lastMailSuccessTs = 0
+
+/** /metrics 的 Content-Type —— Prometheus 靠 `version=0.0.4` 这一参数认 scrape_protocol */
+const METRICS_CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8'
+
+/** 抓取时刻的快照(纯数据,renderMetrics 的唯一输入 ⇒ 渲染可被 --self-test 直接钉,不必真起服务) */
+function metricsSnapshot(nowMs = Date.now()) {
+  return {
+    uptimeSeconds: Math.max(0, Math.floor((nowMs - PROC_START_MS) / 1000)),
+    mailEnabled: MAIL_ENABLED,
+    mailUndelivered: fs.existsSync(UNDEL_FILE),
+    dedupKeys: dedup.size,
+    dedupWindowSeconds: Math.floor(MAX_DEDUP_AGE_MS / 1000),
+    lastMailAttemptTs,
+    lastMailSuccessTs,
+    counters: { ...counters },
+  }
+}
+
+/**
+ * 渲染成标准 Prometheus 文本格式(# HELP / # TYPE + 样本行,以 \n 收尾)。
+ * 纯函数 + 显式表驱动:新增一个指标只许在 METRIC_SPECS 里加一行,
+ * 这样"有没有漏写 TYPE""名字前缀对不对"这类格式错是**结构上**发生不了的。
+ * 非有限值一律落成 0 而不是 NaN —— 一条 NaN 会让 Prometheus **整次抓取**失败,
+ * 那等于把"多一个指标"变成"链路又瞎了",宁可把一个数写钝也绝不再造一次失明。
+ */
+const METRIC_SPECS = [
+  ['ihui_alertbridge_up', 'gauge', 'Always 1 while the bridge process serves requests (scrape success is the real liveness signal).', () => 1],
+  ['ihui_alertbridge_uptime_seconds', 'gauge', 'Seconds since this bridge process started.', (s) => s.uptimeSeconds],
+  ['ihui_alertbridge_mail_enabled', 'gauge', 'BRIDGE_MAIL_ENABLED: 1 = mail channel on, 0 = explicitly off (alerts are then dropped, not queued).', (s) => (s.mailEnabled ? 1 : 0)],
+  ['ihui_alertbridge_mail_undelivered', 'gauge', '1 = an UNDELIVERED marker is on disk: some alert never reached anyone and nobody has succeeded since.', (s) => (s.mailUndelivered ? 1 : 0)],
+  ['ihui_alertbridge_dedup_keys', 'gauge', 'Distinct alert identities currently inside the dedup window.', (s) => s.dedupKeys],
+  ['ihui_alertbridge_dedup_window_seconds', 'gauge', 'Configured dedup window (BRIDGE_DEDUP_MIN) in seconds.', (s) => s.dedupWindowSeconds],
+  ['ihui_alertbridge_webhooks_received_total', 'counter', 'Alertmanager webhook requests handled (including empty batches).', (s) => s.counters.webhooksReceived],
+  ['ihui_alertbridge_alerts_received_total', 'counter', 'Alerts received before dedup.', (s) => s.counters.alertsReceived],
+  ['ihui_alertbridge_alerts_dedup_suppressed_total', 'counter', 'Alerts suppressed by identity (alertname+instance) inside the dedup window.', (s) => s.counters.dedupSuppressed],
+  ['ihui_alertbridge_mail_batches_delivered_total', 'counter', 'Mail batches delivered on either the branded or the plain-text path.', (s) => s.counters.batchesDelivered],
+  ['ihui_alertbridge_mail_batches_failed_total', 'counter', 'Mail batches where BOTH the branded and the plain-text path failed (alerts never reached a human).', (s) => s.counters.batchesFailed],
+  ['ihui_alertbridge_mail_batches_skipped_total', 'counter', 'Mail batches skipped by the gate (empty batch / BRIDGE_MAIL_ENABLED=0). Skipped is not failed.', (s) => s.counters.batchesSkipped],
+  ['ihui_alertbridge_mail_alerts_delivered_total', 'counter', 'Alerts actually carried out to a human inside delivered batches.', (s) => s.counters.alertsDelivered],
+  ['ihui_alertbridge_mail_plain_fallback_total', 'counter', 'Deliveries rescued by the --plain downgrade because the branded template failed (layout degraded, delivery kept).', (s) => s.counters.plainFallbacks],
+  ['ihui_alertbridge_state_persist_failures_total', 'counter', 'Times dedup state failed to persist; after a restart dedup then silently resets and alerts get re-mailed.', (s) => s.counters.statePersistFailures],
+  ['ihui_alertbridge_undelivered_marks_written_total', 'counter', 'UNDELIVERED markers written (each one means an alert batch went out blind).', (s) => s.counters.undeliveredMarks],
+  ['ihui_alertbridge_mail_last_attempt_timestamp_seconds', 'gauge', 'Wall clock of the last mail delivery attempt, 0 = never attempted since start.', (s) => s.lastMailAttemptTs],
+  ['ihui_alertbridge_mail_last_success_timestamp_seconds', 'gauge', 'Wall clock of the last successful delivery, 0 = never succeeded since start.', (s) => s.lastMailSuccessTs],
+]
+
+function renderMetrics(s, specs = METRIC_SPECS) {
+  const lines = []
+  for (const [name, type, help, read] of specs) {
+    const raw = Number(read(s))
+    lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} ${type}`, `${name} ${Number.isFinite(raw) ? raw : 0}`)
+  }
+  return lines.join('\n') + '\n'
 }
 
 // ── 脱敏 + 长度上限(任何诊断文本落盘/进邮件正文前一律过这一层:子进程可能把 .env 片段
@@ -381,7 +473,7 @@ function runDispatcher(argv) {
     child.stdout.on('data', (d) => { out = cap(out + d) })
     child.stderr.on('data', (d) => { err = cap(err + d) })
     const timer = setTimeout(() => {
-      try { child.kill('SIGKILL') } catch (e) { /* 已退出 */ }
+      try { child.kill('SIGKILL') } catch { /* 已退出 */ }
       done({ ok: false, why: `派发器超时(${MAIL_TIMEOUT_MS}ms),已强制结束` })
     }, MAIL_TIMEOUT_MS)
     child.on('error', (e) => { clearTimeout(timer); done({ ok: false, why: `派发器进程异常(${e.code || e.name}): ${redact(e.message)}` }) })
@@ -411,7 +503,7 @@ async function dispatchBrandMail({ title, message, severity, plain = false, dryR
   } catch (e) {
     return { ok: false, why: `派发器调用异常: ${redact(e && e.message ? e.message : e)}` }
   } finally {
-    if (msgFile) { try { fs.rmSync(msgFile, { force: true }) } catch (e) { /* 临时文件残留由 .gitignore 兜住 */ } }
+    if (msgFile) { try { fs.rmSync(msgFile, { force: true }) } catch { /* 临时文件残留由 .gitignore 兜住 */ } }
   }
 }
 
@@ -421,7 +513,7 @@ function markMailUndelivered(file, payload) {
   fs.writeFileSync(file, JSON.stringify(payload, null, 2), 'utf8')
 }
 function clearMailUndelivered(file) {
-  try { fs.rmSync(file, { force: true }) } catch (e) { /* 文件本就不在 = 已清除 */ }
+  try { fs.rmSync(file, { force: true }) } catch { /* 文件本就不在 = 已清除 */ }
 }
 
 /**
@@ -444,7 +536,7 @@ async function deliverMail(alerts, { dispatch, log, undelFile }) {
   const branded = await dispatch(payload)
   if (branded.ok) { clearMailUndelivered(undelFile); return branded }
   const plain = await dispatch({ ...payload, plain: true })
-  if (plain.ok) { clearMailUndelivered(undelFile); return { ok: true, why: `品牌模板失败(${branded.why})→ 降级纯文本已送达` } }
+  if (plain.ok) { clearMailUndelivered(undelFile); counters.plainFallbacks += 1; return { ok: true, why: `品牌模板失败(${branded.why})→ 降级纯文本已送达` } }
   const why = `品牌模板失败(${branded.why});降级纯文本同样失败(${plain.why})`
   // 唯一到人通道寄不出去 = 故障从未被人看见。日志 + 标记双留痕,标记再写不出去就是双盲,单独吼出来。
   log(`[mail][ERROR] 未送达(告警从未到人): ${redact(why)}`)
@@ -454,6 +546,7 @@ async function deliverMail(alerts, { dispatch, log, undelFile }) {
       alerts: (alerts || []).map((a) => (a.labels || {}).alertname || 'unnamed'),
       why: redact(why),
     })
+    counters.undeliveredMarks += 1
     log(`[mail][ERROR] 已写未送达标记 ${undelFile}(下一次成功投递自动清除;/health 可见 mailUndelivered=true)`)
   } catch (e) {
     log(`[mail][CRITICAL] 连未送达标记都写不出去(${redact(e.message)})—— 告警面双盲,请立即人工核查本批告警: ${redact(why)}`)
@@ -470,6 +563,7 @@ function sendMailLeg(toPush, { dispatch = dispatchBrandMail, log = writeLog, und
 
 // ── webhook 处理 ───────────────────────────────────────────────────────────────
 async function handleAlert(reqBody) {
+  counters.webhooksReceived += 1 // 纯观测:以下判定链路一字未改
   const alerts = (reqBody && Array.isArray(reqBody.alerts)) ? reqBody.alerts : []
   if (!alerts.length) {
     writeLog('[alert] 空 alert 列表,忽略')
@@ -479,8 +573,10 @@ async function handleAlert(reqBody) {
   const now = Date.now()
   // 去重: 只保留"该去重窗口内未推过"的告警。
   const { toPush, dedupedCount } = partitionAlerts(alerts, dedup, now, MAX_DEDUP_AGE_MS)
+  counters.alertsReceived += alerts.length
+  counters.dedupSuppressed += dedupedCount
   // 回响应前同步落盘(含 decideDedup 刚刷新过的时间戳)⇒ 跨重启延续,杜绝重启后重寄。
-  persistState(STATE_FILE, dedup, now, writeLog)
+  if (!persistState(STATE_FILE, dedup, now, writeLog)) counters.statePersistFailures += 1
 
   if (!toPush.length) {
     writeLog(`[alert] 全部命中去重窗口(${alerts.length}条/${alerts.length}条),跳过投递`)
@@ -488,8 +584,14 @@ async function handleAlert(reqBody) {
   }
 
   // 每批待投递告警直接寄一封(不同身份一律照寄,无任何计数闸/队列丢弃)
+  lastMailAttemptTs = Math.floor(now / 1000)
   void sendMailLeg(toPush)
     .then((m) => {
+      // 结论分类:成功 / 跳过 / 失败三态**不得并桶** —— 跳过(空批、显式关通道)写成失败
+      // 就是在污染对账,与本文件 mailGate 的注释同一条理由。
+      if (m.ok) { counters.batchesDelivered += 1; counters.alertsDelivered += toPush.length; lastMailSuccessTs = Math.floor(Date.now() / 1000) }
+      else if (m.skipped) counters.batchesSkipped += 1
+      else counters.batchesFailed += 1
       const tag = m.ok ? '已送达' : m.skipped ? '跳过' : '失败'
       writeLog(`[mail] ${tag}: ${redact(m.why || '')}(本批 ${toPush.length} 条,身份去重窗口 ${DEDUP_WINDOW_MIN} 分钟)`)
     })
@@ -521,10 +623,18 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({ ok: true, service: 'alert-webhook-bridge', mailEnabled: MAIL_ENABLED, mailUndelivered: fs.existsSync(UNDEL_FILE) }))
   }
 
+  // Prometheus 抓取端点(标准文本格式)。/health 是**给人/巡检班次读的 JSON 契约**,两者不互换:
+  // 把 scrape 指到 /health 会让该 target 恒 down(Prometheus 3.x 校验 Content-Type),
+  // 于是 AlertBridgeDown 恒响 —— 本端点存在的唯一理由就是让"桥活着"与"指标抓得动"同义。
+  if (req.method === 'GET' && req.url.split('?')[0] === '/metrics') {
+    res.writeHead(200, { 'Content-Type': METRICS_CONTENT_TYPE })
+    return res.end(renderMetrics(metricsSnapshot()))
+  }
+
   // 仅接受 Alertmanager webhook(v2 API 用 POST /alert 或任意 POST)
   if (req.method === 'POST') {
     let body
-    try { body = await parseBody(req) } catch (e) {
+    try { body = await parseBody(req) } catch {
       res.writeHead(400, { 'Content-Type': 'application/json' })
       return res.end(JSON.stringify({ ok: false, error: 'bad json' }))
     }
@@ -563,6 +673,7 @@ function usageText() {
     '',
     '环境变量: BRIDGE_PORT / BRIDGE_DEDUP_MIN / LOG_FILE / STATE_FILE',
     '          / BRIDGE_MAIL_ENABLED(缺省=开) / BRIDGE_MAIL_TO / BRIDGE_MAIL_TIMEOUT_MS',
+    '两个只读端点: GET /health(JSON,值守巡检读) / GET /metrics(Prometheus 抓取专用,只观测)',
     '邮件出口唯一实现: apps/api/scripts/notify-deploy-failure.ts(版式= renderSystemAlertEmail);',
     '本文件不得出现 SMTP/Resend 传输层或模板字符串(守门 81「品牌邮件通道对账」)。',
     '只按告警身份去重、无每日总量封顶;寄不出去会留 UNDELIVERED 标记并在 /health 可见。',
@@ -716,12 +827,67 @@ async function runSelfTest() {
   eq('反向锁:task-12345678 这类正常 job 名不得被 sk- 误伤', redact('job task-12345678 done'), 'job task-12345678 done')
   eq('反向锁:无凭据形态的告警行逐字不变(脱敏不得顺手改写正常文本)', redact('CPU 使用率 95% 持续 5 分钟'), 'CPU 使用率 95% 持续 5 分钟')
 
+  // ⑧ /metrics 渲染面(判据必须覆盖门自己产出的形态 —— 把 prometheus 指过来这件事,
+  //    如果产出不被 Prometheus 接受的文本,就会重演"恒响的假告警"那一型)。
+  const undelBeforeSelfTest = fs.existsSync(UNDEL_FILE) // 只记录,不删:真标记是线上状态,自检无权清除
+  const sample = metricsSnapshot(PROC_START_MS + 12_345_000)
+  const text = renderMetrics(sample)
+  eq('/metrics 的 Content-Type 必须是带 version=0.0.4 的 text/plain(Prometheus 3.x 靠它认 scrape_protocol)', METRICS_CONTENT_TYPE, 'text/plain; version=0.0.4; charset=utf-8')
+  eq('文本以换行收尾(末行缺 \\n 会被读成截断)', text.endsWith('\n'), true)
+  eq('所有指标名共用 ihui_alertbridge_ 前缀且形态合法', METRIC_SPECS.every(([n]) => /^ihui_alertbridge_[a-z][a-z0-9_]*$/.test(n)), true)
+  eq('累计量一律 _total + counter,gauge 一律不带 _total(混了就别想用 rate() 读)', METRIC_SPECS.every(([n, t]) => (n.endsWith('_total') ? t === 'counter' : t === 'gauge')), true)
+  // 每条样本行前必须有同名 # TYPE,# TYPE 前必须有 # HELP —— 缺一 Prometheus 直接判抓取失败
+  const allLines = text.split('\n').filter((l) => l !== '')
+  const typeNames = allLines.filter((l) => l.startsWith('# TYPE ')).map((l) => l.split(' ')[2])
+  const helpNames = allLines.filter((l) => l.startsWith('# HELP ')).map((l) => l.split(' ')[2])
+  const sampleLines = allLines.filter((l) => !l.startsWith('#'))
+  const sampleNames = sampleLines.map((l) => l.split(' ')[0])
+  eq('每个样本名都有且只有一条同名 # TYPE(按名字集合比,不靠行序)', sampleNames.slice().sort(), typeNames.slice().sort())
+  eq('每个样本名都有同名 # HELP', sampleNames.slice().sort(), helpNames.slice().sort())
+  eq('名字与类型均不重复(重复 TYPE 行会让整次抓取失败)', [new Set(sampleNames).size, new Set(typeNames).size], [sampleNames.length, typeNames.length])
+  eq('样本行形态 = 名 + 单个十进制数值(无标签、无 NaN/Inf、无引号)', sampleLines.every((l) => /^[a-z_]+ -?[0-9]+(\.[0-9]+)?$/.test(l)), true)
+  eq('HELP 文本单行(HELP 里带换行会把后续样本吞进注释)', allLines.filter((l) => l.startsWith('# HELP ')).every((l) => l.length > 9), true)
+  // 正向证明:判据输入取自 METRIC_SPECS 名单本身 —— 每个计数器都要"数得出来",
+  // 否则名单可以是张死表而渲染一路报绿(§120 名单类判据必须有正向证明)。
+  for (const [k, name, type] of [['dedupSuppressed', 'ihui_alertbridge_alerts_dedup_suppressed_total', 7], ['alertsDelivered', 'ihui_alertbridge_mail_alerts_delivered_total', 3], ['webhooksReceived', 'ihui_alertbridge_webhooks_received_total', 5], ['statePersistFailures', 'ihui_alertbridge_state_persist_failures_total', 2], ['undeliveredMarks', 'ihui_alertbridge_undelivered_marks_written_total', 1], ['plainFallbacks', 'ihui_alertbridge_mail_plain_fallback_total', 4], ['batchesFailed', 'ihui_alertbridge_mail_batches_failed_total', 6]]) {
+    const c = {}
+    for (const key of Object.keys(counters)) c[key] = 0
+    c[k] = type
+    eq(`名单项 ${k} 的数值真出现在样本行上`, new RegExp(`^${name} ${type}$`, 'm').test(renderMetrics({ ...sample, counters: c })), true)
+  }
+  const zeroed = {}
+  for (const key of Object.keys(counters)) zeroed[key] = 0
+  eq('未涉及的计数器落成 0 而不是消失(缺样本 = 下游 rate() 断线)', /^ihui_alertbridge_mail_batches_failed_total 0$/m.test(renderMetrics({ ...sample, counters: zeroed })), true)
+  // 三态必须分得开
+  eq('mail_undelivered:标记在=1 / 不在=0(两个方向都要判)', [renderMetrics({ ...sample, mailUndelivered: true }).includes('\nihui_alertbridge_mail_undelivered 1\n'), renderMetrics({ ...sample, mailUndelivered: false }).includes('\nihui_alertbridge_mail_undelivered 0\n')], [true, true])
+  eq('mail_enabled:通道关=0(关掉通道必须从指标上看得见,而不是只写在日志里)', renderMetrics({ ...sample, mailEnabled: false }).includes('\nihui_alertbridge_mail_enabled 0\n'), true)
+  eq('up 恒为 1(它判的是"进程答了这一次抓取",不是自报健康)', /^ihui_alertbridge_up 1$/m.test(text), true)
+  eq('从未投递过 ⇒ 两个 last_*_timestamp 都是 0(不得把"没发生过"写成"一切正常")', [renderMetrics({ ...sample, lastMailAttemptTs: 0, lastMailSuccessTs: 0 }).includes('\nihui_alertbridge_mail_last_attempt_timestamp_seconds 0\n'), renderMetrics({ ...sample, lastMailAttemptTs: 0, lastMailSuccessTs: 0 }).includes('\nihui_alertbridge_mail_last_success_timestamp_seconds 0\n')], [true, true])
+  // 一个坏数不得拖垮整次抓取:NaN 不是合法样本值,Prometheus 遇之判**整次**失败
+  eq('非有限值落 0 而不是产出 NaN/Infinity 字样', renderMetrics(sample, [['ihui_alertbridge_broken', 'gauge', 'probe', () => Number(undefined)], ['ihui_alertbridge_broken2', 'gauge', 'probe', () => 'abc']]).includes('NaN'), false)
+  eq('坏值那一行仍然在场(不得静默丢样本行)', renderMetrics(sample, [['ihui_alertbridge_broken', 'gauge', 'probe', () => undefined]]), '# HELP ihui_alertbridge_broken probe\n# TYPE ihui_alertbridge_broken gauge\nihui_alertbridge_broken 0\n')
+  // 观测不得反过来参与判定 + 计数不得并桶(用增量比较:自检与线上共用同一份 counters)
+  const probeStore = new Map()
+  eq('反向锁:统计接入后去重判定一字未改(首批 2 / 二次全压)', [partitionAlerts(alerts, probeStore, 1000, HOUR).toPush.length, partitionAlerts(alerts, probeStore, 1500, HOUR).toPush.length], [2, 0])
+  const cBefore = { ...counters }
+  /** 探针标记路径:登记进 cleanup,失败用例写出的标记文件不得留在自检之后 */
+  const probeUndel = ['m1', 'm2', 'm3'].map((t) => { const p = tmpProbe(t); cleanup.push(p); return p })
+  await deliverMail(alerts, { dispatch: failDispatch, log: () => {}, undelFile: probeUndel[0] })
+  eq('两条路都失败 ⇒ undelivered_marks +1、plain_fallback 不加', [counters.undeliveredMarks - cBefore.undeliveredMarks, counters.plainFallbacks - cBefore.plainFallbacks], [1, 0])
+  const cAfterFail = { ...counters }
+  await deliverMail(alerts, { dispatch: plainRescue, log: () => {}, undelFile: probeUndel[1] })
+  eq('品牌失败但纯文本救回 ⇒ plain_fallback +1 且不再记未送达', [counters.plainFallbacks - cAfterFail.plainFallbacks, counters.undeliveredMarks - cAfterFail.undeliveredMarks], [1, 0])
+  const cAfterPlain = { ...counters }
+  await deliverMail(alerts, { dispatch: okDispatch, log: () => {}, undelFile: probeUndel[2] })
+  eq('直接成功 ⇒ 两个退化计数都不动(成功不得被记成退化)', [counters.plainFallbacks - cAfterPlain.plainFallbacks, counters.undeliveredMarks - cAfterPlain.undeliveredMarks], [0, 0])
+  eq('自检不得改动线上 UNDELIVERED 标记(它是真故障的凭据,自检无权清除)', fs.existsSync(UNDEL_FILE), undelBeforeSelfTest)
+
   let bad = 0
   for (const [label, pass, why] of cases) {
     if (!pass) bad++
     console.log(`${pass ? '✓' : '✗'} ${label}${pass ? '' : `  ${why}`}`)
   }
-  for (const f of cleanup) { try { fs.rmSync(f, { force: true }) } catch (e) { /* 自检临时文件清不掉不影响结论 */ } }
+  for (const f of cleanup) { try { fs.rmSync(f, { force: true }) } catch { /* 自检临时文件清不掉不影响结论 */ } }
   console.log(`自检 ${cases.length - bad}/${cases.length} 通过`)
   process.exit(bad ? 1 : 0)
 }

@@ -3,12 +3,25 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 审计证据导出 — 非对称签名的出口层(86C,只读 admin 面)。
+ * 审计证据导出 — 非对称签名的出口层(86C 签名/验签 + 86G-1 匿名公钥面)。
  *
- * 端点(均走既有 `requireAdmin` preHandler,即 authenticate + roleId >= 1,
- * 且**只认人用 JWT** —— internal service token 链路开不了本面):
- * - GET /signed      生成并返回"已签名"的导出信封(数据体 + 签名 + 验签元信息)
- * - GET /public-key  发布验签所需公钥与 kid(**绝不返回私钥**)
+ * 端点:
+ * - GET /api/admin/audit-evidence/signed      生成并返回"已签名"的导出信封(数据体 + 签名 + 验签元信息)
+ * - GET /api/admin/audit-evidence/public-key  发布验签所需公钥与 kid(**绝不返回私钥**)
+ *   ↑ 这两条走既有 `requireAdmin` preHandler,即 authenticate + roleId >= 1,
+ *     且**只认人用 JWT** —— internal service token 链路开不了本面。
+ * - GET /api/audit-evidence/public-key        (86G-1)同上一份公钥发布出口的**免鉴权、限流**形态。
+ *
+ * 为什么公钥必须有匿名面:外部审计方没有 admin 账号 —— 只把 `/public-key` 摆在
+ * `requireAdmin` 之后,他们拿到签名信封也无法自证,导出的"非对称可验证"承诺在最
+ * 后一步断了。
+ *
+ * 为什么它**不能**挂在 `/api/admin/*` 前缀下(这条决定注册表怎么改,值得写死在注释里):
+ * `server.ts` 的 onRoute 网络分段对 `/api/admin/*` 强制注入 `network.allowExternal:false`,
+ * 而 `plugins/network-segment.ts` 的 preHandler 真的会把外网 IP 判 403 ——
+ * 挂在 admin 前缀下是"免了鉴权、仍到不了人",等于没开。故公钥面单立一个封装作用域,
+ * 挂在 `/api/audit-evidence` 前缀下,**且该作用域里只显式列举这一条完整路径**
+ * (§5 鉴权面公开化铁律:禁止 `/api/<前缀>/[^/]+` 式兜底正则,agents.ts 事故同型)。
  *
  * 为什么要这一层:链内的 HMAC 是**对称**的 —— 能验证的人就能伪造。收件方(审计方 /
  * 监管方)必须**不持任何对称密钥**也能确认"这份导出没被改过、且确实出自我们",
@@ -16,11 +29,12 @@
  * `services/siem-exporter.ts`(唯一实现),本文件只做鉴权、参数校验与错误归因。
  *
  * 身份口径(§5 硬规矩:"已登录"不等于"可以动这条数据"):
- * 本面**不接受**任何来自请求体/Query 的身份作为权限依据 —— `userId` 只是
+ * admin 面**不接受**任何来自请求体/Query 的身份作为权限依据 —— `userId` 只是
  * 审计链的**过滤维度**(与既有 `/api/admin/audit-logs/export` 同口径,审计链本身
  * 是全量管理面数据),能不能读由 `requireAdmin` 从 JWT payload 的 roleId 单独判定。
+ * 匿名面则连过滤维度都不接受:它**无参数**,响应里只有公钥 PEM、kid 与算法标识。
  */
-import type { FastifyPluginAsync, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -58,6 +72,29 @@ const signedExportQuerySchema = z.object({
  */
 function signatureUnavailable(reply: FastifyReply, e: AuditExportSignatureError): FastifyReply {
   return reply.status(503).send(error(503, e.message))
+}
+
+/**
+ * 公钥响应的**唯一实现**(86C 的 admin 面与 86G-1 的匿名面共用)。
+ *
+ * 两处各写一遍,响应形状与错误归因必然漂移(本仓记过最多次的失败型)—— 两个面对
+ * "有没有配置密钥"的答复必须逐字同形,差别只允许存在于"挂在哪个封装作用域(要不要
+ * 过 requireAdmin)"这一层,而那一层不住在 handler 里。
+ *
+ * 未配置公钥 ⇒ 503 + 点名该配哪个环境变量,刻意不回 200 + 空字符串:
+ * 把"没有"写成"有",收件方会把空公钥当材料去验签,故障点被推到别人系统里。
+ */
+async function sendPublicKey(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+  try {
+    return reply.send(success(getAuditExportPublicKeyInfo()))
+  } catch (e) {
+    if (e instanceof AuditExportSignatureError) {
+      request.log.error({ reason: e.reason }, '审计导出公钥不可用')
+      return signatureUnavailable(reply, e)
+    }
+    request.log.error({ err: e }, '审计导出公钥读取失败')
+    return reply.status(500).send(error(500, '公钥读取失败'))
+  }
 }
 
 // =============================================================================
@@ -147,18 +184,56 @@ export const auditEvidenceExportRoutes: FastifyPluginAsync = async (server) => {
         response: buildResponseSchema(401, 403, 500, 503),
       },
     },
-    async (request, reply) => {
-      try {
-        return reply.send(success(getAuditExportPublicKeyInfo()))
-      } catch (e) {
-        if (e instanceof AuditExportSignatureError) {
-          request.log.error({ reason: e.reason }, '审计导出公钥不可用')
-          return signatureUnavailable(reply, e)
-        }
-        request.log.error({ err: e }, '审计导出公钥读取失败')
-        return reply.status(500).send(error(500, '公钥读取失败'))
-      }
+    sendPublicKey,
+  )
+}
+
+// =============================================================================
+// 86G-1:免鉴权的验签公钥端点
+// =============================================================================
+
+/**
+ * 匿名面的逐路由限流档 —— 复用仓内既有机制 `@fastify/rate-limit`(全局注册见
+ * `server.ts`,逐路由 override 的既有形态见 `routes/auth-carrier.ts` /
+ * `routes/auth-extended.ts`),**不自写内存计数器**。
+ *
+ * 30/min/IP 的依据:验签公钥是给外部审计方在交付核验时取用的,不是热路径轮询对象;
+ * 全局档(生产 100/min/IP)对一个匿名只读端点仍然偏宽。导出这个常量是为了测试能
+ * 按它真实打满阈值,而不是在测试里另抄一个数字(两处数字必漂移)。
+ */
+export const AUDIT_PUBLIC_KEY_ANON_RATE_LIMIT = { max: 30, timeWindow: '1 minute' } as const
+
+/**
+ * 免鉴权、只读、限流的公钥发布面。
+ *
+ * 公开面 = **这一个封装作用域里的这一条完整路由**,不是任何 URL 正则:
+ * 本作用域刻意**不加** authenticate / requireAdmin preHandler,而 admin 面在另一个
+ * 作用域里自带闸门 —— 鉴权由"注册在哪个作用域"决定,不由路径匹配决定,所以
+ * "把公开清单扩成前缀正则"这一型(§5 鉴权面公开化铁律,agents.ts `/agents/health`
+ * 游客可达且 handler 依赖 `request.userId` ⇒ 500 的同型事故)在本文件结构上不成立。
+ *
+ * 响应只含三样:`publicKey`(SPKI PEM)、`keyId`(公钥 sha256 前 16 位,收件方可自算,
+ * 是标识不是凭据)、`algorithm`(固定 'RSA-SHA256')。私钥在本函数可达域内不可达 ——
+ * 出口 `getAuditExportPublicKeyInfo()` 只读公钥 env,`sendPublicKey` 不接触任何签名路径。
+ *
+ * 前缀结论(现读口径):必须挂在 `/api/audit-evidence` 而非既有 admin 前缀下,理由
+ * 写在本文件头注(network-segment 对 /api/admin/* 强制 allowExternal:false ⇒ 公网 403)。
+ */
+export const auditEvidencePublicKeyRoutes: FastifyPluginAsync = async (server) => {
+  server.get(
+    '/public-key',
+    {
+      config: { rateLimit: { ...AUDIT_PUBLIC_KEY_ANON_RATE_LIMIT } },
+      schema: {
+        summary: '获取审计导出验签公钥与 kid(免鉴权 + IP 限流;仅公钥/kid/算法,绝不含私钥材料)',
+        tags: ['audit-evidence-export'],
+        // 刻意不声明 429:@fastify/rate-limit 的超限响应体是它自己的
+        // {statusCode,error,message} 形状(仓内既有形态),套上 errorResponseSchema
+        // 反而会把它的 message 之外的键裁掉,给出一个两边都不像的半截体。
+        response: buildResponseSchema(500, 503),
+      },
     },
+    sendPublicKey,
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
