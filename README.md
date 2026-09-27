@@ -749,13 +749,13 @@ A 路线因此提供两个**名字恒定**的入口工具，让模型"先搜后�
 > - **文件族同样只有一份判据**(2026-09-27 收口，`packages/shared/src/chat/file-tool-intent.ts`)：
 >   "这一句要不要给 AI 一只**改文件**的手"此前只写在 web 端(`tool-config.ts`)，而扩展会话
 >   **完全不带**文件族 —— 这类分叉不会报错，只会表现成"同一句话在 web 能改文件、在扩展不能"。
->   现搬到共享层：web 保留 re-export(不打断既有 import 面)、扩展直接 import。两张名单刻意命名成
+>   现搬到共享层：web 保留 re-export(不打断既有 import 面)。两张名单刻意命名成
 >   `FILE_*_INTENT_TOOLS` 且**不进 `./chat` barrel**：barrel 里已有的 `FILE_WRITE_TOOLS`
 >   (`task-status.ts`)是"这次调用算不算改了文件"的**识别**白名单(Set，按 `.has()` 消费)，与
 >   "把哪些工具交给模型"的**能力**清单同词不同义，并置会产出 `export *` 歧义。行为对子与
 >   "端内不得再写第二份正则"由 `packages/shared/src/chat/__tests__/file-tool-intent.test.ts` 钉住。
->   随该能力开通，**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 扩展 / 小程序 / RN 四端**：
->   载荷 `partialText` 是**累积文本**，按 `toolCallId` 整帧覆盖(同 seq 重放天然幂等，`seq` 不参与
+>   **扩展端实测后收回携带**(2026-09-27 同日晚):它不送 `workspace_context`,写类工具会落到服务端 `_mcp.call_tool`,那里 `write_file`/`file_edit` 属 `_ADMIN_ONLY_TOOLS` 而对话链 `__user_role` 恒为 0 ⇒ 每次必失败;只读族则会在服务端工作区上执行 ⇒ 越权面变更。带过去只会先给一条流中 diff、再报权限失败,
+>   所以扩展此刻**不带**文件族(理由四条写进端内 `toolsForChatRequest` 头注并被测试锁住:排除必须带理由,否则下一个人会顺手补回来)。**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 小程序 / RN 三端**:载荷 `partialText` 是**累积文本**
 >   判断)，仅 `running` 态渲染，`tool-result` 到达即清(最终 ± 行以 result 为准)。四端渲染条件
 >   逐字同形，字段声明收敛进 `@ihui/types` 的 `ToolCall.partialDiff`，端内归并层一律纯函数
 >   (web `createToolDeltaHandler` / 扩展 `lib/tool-call-frames.ts` / 小程序 `cards/types.ts` /
