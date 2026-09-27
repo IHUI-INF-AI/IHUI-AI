@@ -1279,7 +1279,12 @@ if ($behind -gt 0) {
                 try { Release-DeployLock } catch {}
                 exit 0
             }
-            Fail "git merge --ff-only FETCH_HEAD 连续 $streak 轮分叉且自动收敛无效:需人工收敛后才能切流(未强推、未动任何在途改动)"
+            # 签名里不得出现 $streak:告警按整条文案去重(:230 `$sig = 文案本身`),而这个数字
+            # 每轮 +1 ⇒ 每轮都是"新故障" ⇒ 4h 去重结构上永不命中。实测 09-27 04:29 起每 ~80 秒
+            # 寄一封,连续 17 封到人(状态文件 repeatNo 恒 0 即证据)。轮数是运维要看的信息,
+            # 已经写在上面那条 BLOCKED-DIVERGED 日志行里,不需要也不应该进签名。
+            # (第二半同理:换阈值/换措辞都会造出一个新签名,所以文案保持与计数无关。)
+            Fail "git merge --ff-only FETCH_HEAD 分叉且自动收敛无效:需人工收敛后才能切流(未强推、未动任何在途改动)"
         }
         $dirtyPaths = @($stillDirty | ForEach-Object { $_.Substring([Math]::Min(3, $_.Length)).Trim() })
         $mustTouch = @(& git -C $Root diff --name-only HEAD FETCH_HEAD 2>&1 | Out-String) -split "`r?`n" |
@@ -1287,7 +1292,10 @@ if ($behind -gt 0) {
         $blockers = @($dirtyPaths | Where-Object { $mustTouch -contains $_ })
         if ($blockers.Count -gt 0) {
             Report-BlockedWip -Entries (@($blockers | ForEach-Object { " M $_" }))
-            Fail "git merge --ff-only FETCH_HEAD 失败:上面 $($blockers.Count) 个未提交文件与本次要更新的路径重叠,挡住 ff(不代提交不删除),已停止,未切流"
+            # 同上一条:挡路的文件数随其他会话在飞的改动逐轮漂移,把它写进签名等于每轮换一次
+            # 身份 ⇒ 去重失效。数量与清单由 Report-BlockedWip 逐轮写进日志(BLOCKED-WIP 行),
+            # 证据不丢,只是不再参与"这是不是同一件事"的判定。
+            Fail "git merge --ff-only FETCH_HEAD 失败:有未提交文件与本次要更新的路径重叠,挡住 ff(不代提交不删除),已停止,未切流"
         }
         if ($stillDirty.Count -gt 0) {
             # 走到这里 = git 既没说分叉、脏文件也不与本次更新重叠 ⇒ 未判定,如实报出原文
