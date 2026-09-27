@@ -32,6 +32,7 @@ import { basename, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
+import { coverageFileSet } from './lib/watermark-scope.mjs'
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
 
@@ -471,31 +472,26 @@ function findMarks(text) {
 }
 
 /**
- * 水印判定口径的文件集合 = `git ls-files`(与 check-watermark-coverage.mjs 同一份集合)。
+ * 水印判定口径的文件集合 = `scripts/lib/watermark-scope.mjs` 的那一份实现
+ * (已跟踪 ∪ 未跟踪但未忽略)。
  *
  * verify 此前走 walk(ROOT) 全树遍历, 只按 SKIP_DIRS 猜、不认 .gitignore, 于是把
  * `.ihui-agent/**` 等本机未跟踪产物一并计入 → 本机恒报 2000+ 缺口而 CI 恒绿,
  * 把每个本地核验的 agent 引向"仓库有几千个水印问题"的错觉(AGENTS §5c 口径是"只统计 git 跟踪文件")。
- * 用 `-z`: 默认输出会按 core.quotePath 把非 ASCII 文件名转义成八进制串, 那种路径永远对不上真实文件。
+ * 后来又发现分母窄了一格(G-253):**还没进索引的新文件**与"整文件重写后尚未 add"的文件
+ * 在盘上真实存在、会被下一次提交带进仓库,却对两把尺子都不存在 —— 于是"漏盖横幅"这件事
+ * 恰好发生在最需要的时刻。现在两处共用同一份集合并都并上未跟踪面(`--exclude-standard`
+ * 继续让 .gitignore 挡产物)。用 `-z`: 默认输出会按 core.quotePath 把非 ASCII 文件名
+ * 转义成八进制串, 那种路径永远对不上真实文件。
  */
 function gitTrackedFiles() {
-  let out
-  try {
-    out = execFileSync('git', ['-c', 'safe.directory=*', 'ls-files', '-z'], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      windowsHide: true,
-    })
-  } catch (e) {
-    console.error(`[watermark] 取不到 git 跟踪清单: ${String(e?.message ?? e).split('\n')[0]}`)
-    console.error('  水印口径以 `git ls-files` 为准; 清单缺失时绝不按"已覆盖"放行。')
+  const { files, error } = coverageFileSet({ root: ROOT })
+  if (error) {
+    console.error(`[watermark] ${error}`)
+    console.error('  水印口径以 git 清单为准; 清单缺失时绝不按"已覆盖"放行。')
     process.exit(1)
   }
-  return out
-    .split('\0')
-    .map((s) => s.trim())
-    .filter(Boolean)
+  return files
 }
 
 // walk() 是按目录名剪枝的, 跟踪清单必须同样排除: 已跟踪的第三方目录
