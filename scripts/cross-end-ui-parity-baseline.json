@@ -1,15 +1,15 @@
 {
   "counts": {
-    "AgentRuntimePanel": 0,
-    "BottomActionBar": 16,
+    "AgentRuntimePanel": 1,
+    "BottomActionBar": 17,
     "Carousel": 6,
     "CategoryBar": 1,
-    "DrawerComponent": 17,
-    "InputArea": 16,
+    "DrawerComponent": 19,
+    "InputArea": 15,
     "IntelligentAssistant": 7,
     "LoginPopUp": 8,
     "ModelConfigDialog": 6,
-    "ModelList": 4,
+    "ModelList": 6,
     "NavBar": 7,
     "UserInfoCard": 4,
     "VideoPlayer": 5
@@ -44,7 +44,60 @@
     "UserInfoCard": 0,
     "VideoPlayer": 0
   },
-  "waivers": {},
+  "waivers": {
+    "BottomActionBar": {
+      "reason": "两端不是同一套子元素:小程序把功能卡内联在条内(rpx(150)×rpx(160) 卡盒 + 35 墨迹),RN 走 AddPanel 滑出面板;RN 另有 actions 旧模式行(44,OrderDetailScreen:245 真传 actions)与图片预览角标(2/16/48,该元素在小程序侧属 InputArea 文件)。派生 lineHeight 20/22 与生长/截断上限 100/200 不是元素档。现读:git grep \"actions=\" apps/mobile-rn/src 命中 OrderDetailScreen:245。",
+      "until": "2027-03-27"
+    },
+    "NavBar": {
+      "reason": "RN 页头有 subtitle 一支(实测 git grep -c subtitle 于 RN NavBar = 9、小程序 = 0,该端 props 根本没有这一行)→ 2/12/56 随它而来;行高 44 是 RN 自测量、小程序走微信胶囊 menuButton.height+8(实测小程序侧 px() 通道,门读不到);32 是 RN 空侧占位块,小程序用 absolute 悬浮钮居中,无占位元素;4 是 hitSlop 命中扩张通道。",
+      "until": "2027-03-27"
+    },
+    "Carousel": {
+      "reason": "小程序独有兜底文案块 + course 叠加层(实测 variant=\"course\" 有 1 处真实调用点,非死分支),RN 侧不渲染这两层 → 2/4/8/14/16/20 全属\"一端多元素\",不是同元素取不同值。",
+      "until": "2027-03-27"
+    },
+    "CategoryBar": {
+      "reason": "RN itemText 另有 maxWidth 120 文字截断帽(实测 CategoryInlineBar.tsx:213),小程序靠容器 max-width 320rpx(=160)承担截断、同值已在几何维抵掉。截断上限不是元素盒档,取齐两端要改的是截断策略而非补数字。",
+      "until": "2027-03-27"
+    },
+    "InputArea": {
+      "reason": "ai-home 三层结构(小程序复刻原 InputArea.vue)与 RN 卡片式布局是变体契约分叉:表情面板 30/90/192、放大浮层 60/146、语音钮 25、缩略图 106.5×60 均小程序独有;RN 侧 72 方缩略图与 26 折叠 FAB 实测无生产调用方传 images / collapsible(其 26 所在分支在 HomeScreen.tsx:1774 记\"用户明令不传\")。生长上限 250 vs 120 是机制量,非档。",
+      "until": "2027-03-27"
+    },
+    "IntelligentAssistant": {
+      "reason": "32 是小程序行内矢量机器人(单侧载体);9/107/110 属 RN 的 robotImage 位图装饰分支 —— 实测该 prop 的调用点只有 apps/mobile-rn/tests/intelligent-assistant.test.tsx 两处,生产四个调用方(AgentScreen/AiAssistantN8n/ChatScreen/HomeScreen)都不传 ⇒ 屏幕上不渲染;16 是避让该装饰的文本缩进;3 是充值胶囊内衬。0.5 是 line-height:1 被折半的读数噪音。",
+      "until": "2027-03-27"
+    },
+    "LoginPopUp": {
+      "reason": "RN 是底部弹层:有拖拽条(实测 git grep -c dragbar RN = 2、小程序 = 0)与右上 × 关闭钮(32/18/22/4/8/36 随这两件元素而来),小程序是居中弹窗、关闭走底部文字 + 300 宽上限。差异全在\"一端多元素\",无同元素双值分叉。",
+      "until": "2027-03-27"
+    },
+    "ModelConfigDialog": {
+      "reason": "本族 6 档里 5 档实测来自生产不可达分支:variant=aigc / indexa / selecter 三档的传参调用点各为 0(git grep 变体字面量,除组件自身外零命中),RN 另有 AdvancedModelConfigDialog / ModelSelecterDialog 两支同样无调用方 ⇒ 屏幕不渲染;10 是音色下拉触发块内边距,小程序同文件该处是胶囊行,形态不同。",
+      "until": "2027-03-27"
+    },
+    "ModelList": {
+      "reason": "RN 有免费/新品/付费/排名徽标与图标圈层(实测 git grep -c Badge:RN 16、小程序 4),其唯一非徽标档 44 是 logo 块高,peer 提交 1294fab218 的登记原文写明\"块高 44 属设计裁决项\";小程序侧 2.5/7.5 是 margin/padding 简写串的真实值(实测 \"5rpx 0\" / \"0 15rpx\"),对应 RN 无同名留白元素。",
+      "until": "2027-03-27"
+    },
+    "UserInfoCard": {
+      "reason": "RN 弹层里多出充值/邀请/退订三张按钮卡与模态壳(实测 git grep -c \"modalCard|rechargeBtn\":RN 6、小程序 1),6/18/24/32 随这些元素而来;小程序的登录态卡没有这一层。属元素集合分叉,收敛前提是先在两端裁出同一个结构。",
+      "until": "2027-03-27"
+    },
+    "VideoPlayer": {
+      "reason": "小程序用原生 <Video controls>(实测控件相关引用 3 处),RN 自绘浮层控制条 ⇒ 4/6/8/12/16 全属 RN 自绘 chrome 的档,小程序根本没有这些节点。",
+      "until": "2027-03-27"
+    },
+    "AgentRuntimePanel": {
+      "reason": "小程序列表容器 minHeight 120px(style={{ minHeight: '120px' }} 实测 :61;另 :126 卡片是 min-h-[120rpx]=60,两处不同元素),RN 无 minHeight(git grep -c minHeight RN = 0)。是单侧滚动约束,不是同元素双值。",
+      "until": "2027-03-27"
+    },
+    "DrawerComponent": {
+      "reason": "两端抽屉内容集合不同:RN 有左滑收藏/删除(实测 git grep -c \"DELETE_WIDTH|FAVORITE_WIDTH\" RN 8、小程序 0)、扩展菜单 26/9/10、chat.nav 快捷导航 7 行 13、头像区 60/16;小程序有顶部品牌 logo 33、底部弹层把手 36(实测小程序 grep \"extMenu|扩展|快捷\" = 0)。250/256 是抽屉宽的比例封顶,非档。",
+      "until": "2027-03-27"
+    }
+  },
   "pairingRejects": {
     "FloatBox": {
       "reason": "同名不同物:小程序端是右下角悬浮功能盒(赚米/客服/反馈三按钮,right 20rpx、收起推到 -240rpx),RN 端是顶部悬浮消息提示 toast(TOP_OFFSET 居中、duration 3000ms、4 种 type、多实例由 Toast Portal 堆叠)—— 两端头注逐字读自 HEAD,不是同一个界面元素",
