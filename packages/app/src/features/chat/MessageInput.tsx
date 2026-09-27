@@ -90,14 +90,13 @@ export function MessageInput({
       {/* 全屏模式 header(返回按钮 + 提示) */}
       {isFullscreen ? (
         <View style={styles.fullscreenHeader}>
-          {/* back-label-exempt: 全屏输入态的退出按钮,「返回」是按钮文案且箭头已矢量化(ChevronLeft 在同一按钮内) until 2026-12-31 */}
           <TouchableOpacity
             onPress={onFullscreenToggle}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.fullscreenBackBtn}
+            accessibilityLabel={t('messageInput.fullscreenBack')}
           >
             <ChevronLeft size={16} color={tk.text.secondary} />
-            <Text style={styles.fullscreenBackText}>{t('messageInput.fullscreenBack')}</Text>
           </TouchableOpacity>
           <Text style={styles.fullscreenHint}>{t('messageInput.fullscreenHint')}</Text>
         </View>
@@ -327,7 +326,6 @@ function createStyles(tk: AppThemeTokens) {
       borderBottomColor: tk.border.light,
     },
     fullscreenBackBtn: { flexDirection: 'row', alignItems: 'center' },
-    fullscreenBackText: { fontSize: 16, color: tk.text.secondary, marginRight: 12 },
     fullscreenHint: { fontSize: 12, color: tk.text.tertiary },
     agentVarsContainer: {
       paddingVertical: 8,

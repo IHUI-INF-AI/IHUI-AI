@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FinanceSummary, FinanceScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -49,9 +50,12 @@ export function FinanceScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
-        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
-        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Text style={styles.link}>{t('common.back')}</Text>
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.backBtn}
+          accessibilityLabel={t('common.back')}
+        >
+          <ChevronLeft size={16} color={tk.success.DEFAULT} />
         </TouchableOpacity>
       </View>
     )
@@ -115,7 +119,6 @@ function createStyles(tk: AppThemeTokens) {
     valuePrimary: { color: tk.success.DEFAULT },
     muted: { fontSize: 14, color: tk.text.secondary },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8 },
-    link: { fontSize: 14, color: tk.success.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
