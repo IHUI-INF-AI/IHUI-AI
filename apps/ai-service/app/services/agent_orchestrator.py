@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from ..core.executor_switch import guard_loop_v2_pilot
+from ..core.executor_switch import guard_loop_v2_pilot, take_loop_v2_handoff
 from ..core.llm_gateway import llm_gateway
 from ..core.permission_mode import (
     ModePolicy,
@@ -1496,11 +1496,43 @@ class AgentOrchestrator:
                 - {"phase": "output_ready", "output_preview": str} — 最终输出就绪
             chat_mode / permission_mode: G2 权限并轨(2026-09-27)的两轴输入。见 invoke。
         """
-        # D6① 收敛开关接线点(默认 legacy,直接返回,行为与改前逐字节等价;
-        # 显式设 ORCHESTRATION_CONVERGENCE_EXECUTOR=loop_v2 时 fail-fast 抛
-        # LoopV2ConvergencePilotError,不静默回退 —— 见 core/executor_switch.py)
+        # D6①/G1 收敛开关接线点(2026-09-27 由"裸守卫"改为"消费 handoff"):
+        #   默认档(ORCHESTRATION_CONVERGENCE_EXECUTOR 未设 = legacy)⇒
+        #     take_loop_v2_handoff 第一行就 return None,紧接着的 guard 也是空操作,
+        #     本站整条路径与改前逐字节等价(未新增任何 await/DB/LLM 动作)。
+        #   loop_v2 档 ⇒ 用本站**真有**的 AgentDefinition 投影去跑收敛执行器,
+        #     拿到结果**立即 return**;旧循环一行都不会再跑(双重执行 = 两次 LLM +
+        #     两遍工具副作用,比占位错误更坏,所以这里必须先判 handoff)。
+        #     投影入参不完整(如 system_prompt 为空)时底座显式抛错而不是跑个空循环。
+        # chat_mode 刻意不往下传:收敛执行器没有 chat 轴概念,底座与下面
+        # _resolve_mode_policy 用的是同一口径(缺省即 'build' 语义),权限档
+        # permission_mode 已透传,收窄只住在 core/permission_mode 一处。
+        handoff = await take_loop_v2_handoff(
+            "agent_orchestrator._run_agent",
+            agent_name=agent.name,
+            system_prompt=agent.system_prompt,
+            user_input=user_input,
+            tool_names=list(agent.tools),
+            model=model_override or agent.model,
+            max_iterations=agent.max_iterations,
+            session_id=session_id,
+            permission_mode=permission_mode,
+            progress_callback=progress_callback,
+        )
+        if handoff is not None:
+            # 身份缺口如实登记(不是本票漏改):本服务层全文件没有任何 principal 入参
+            # (grep user_id / user_role 于 agent_orchestrator.py = 0 处),所以这里
+            # **传不了** user_id —— 底座按 AGENTS §5 把 None 判为**回退**而非"已授权",
+            # user_role 落最严的 0。记忆隔离与审批属主登记因此在 v2 档不生效;
+            # 要收口得由承载层(routers)显式下传,那是另一票、不在此代拍。
+            # progress_callback 的时序也已降级(循环结束后按真实顺序回灌,非实时),
+            # 详见 core/executor_switch.take_loop_v2_handoff 的 docstring。
+            return AgentStepResult(**handoff.step_result)
+        # 只在 legacy 档可达(上一行在 v2 档要么 return 要么抛)。保留它是为了
+        # "日后有人把该 surface 从登记表摘掉而不改源码"时仍然 fail-fast。
         guard_loop_v2_pilot("agent_orchestrator._run_agent", session_id=session_id)
         start = time.monotonic()
+
         # G2(D6 收敛审计 2026-09-27):"模式 × 权限档" 的判定**只住在**
         # core/permission_mode.py —— 它同时是 V3 #53 跨语言契约的 Python 侧
         # (TS 镜像 packages/types/src/permission-mode.ts,由
