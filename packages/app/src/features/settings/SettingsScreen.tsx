@@ -9,7 +9,6 @@ import { View, Text, Switch, TextInput, TouchableOpacity, Modal, StyleSheet, Scr
 import { ChevronRight } from 'lucide-react-native'
 import type { SettingsScreenProps, SharedNotificationToggles } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { BackChevron } from '../../components/BackChevron'
 
 type NotifKey = keyof SharedNotificationToggles
 
@@ -19,6 +18,12 @@ type NotifKey = keyof SharedNotificationToggles
  * 平台无关:语言/主题切换、通知开关、密码修改、Alert/Confirm 弹窗全部通过 props 回调注入。
  * 密码修改 Modal 内置 UI(3 个输入框 + 校验),提交调用 onChangePassword,平台注入实际 API 调用。
  * 配色:由 colorScheme prop('light' | 'dark',默认 'light')经 getTokens 解析为明/暗 token 集。
+ *
+ * 页头归属(2026-09-27,双层页头收敛):本组件**不渲染内置页头/返回键**,页头(标题 + 返回 + 右侧动作)
+ * 由宿主提供 —— RN 端生产页(apps/mobile-rn/src/screens/SettingsScreen.tsx)渲染 NavBar(含 Drawer 菜单入口),
+ * demo 页(SharedDemoScreen)有常驻 tab 栏。此前组件内自带 BackChevron + 标题页头,与宿主 NavBar 同屏
+ * 出现两条「设置」标题、两个返回 affordance(真机走查登记,守门 102 GA7 同型)。
+ * onBack 仍留在 SettingsScreenProps 契约中(packages/types,本轮不可改),运行时不再消费。
  */
 export function SettingsScreen({
   t,
@@ -39,7 +44,6 @@ export function SettingsScreen({
   menuItems,
   onMenuPress,
   appVersion,
-  onBack,
   colorScheme = 'light',
 }: SettingsScreenProps) {
   const [pwdModalVisible, setPwdModalVisible] = useState(false)
@@ -94,11 +98,6 @@ export function SettingsScreen({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('settings.title')}</Text>
-      </View>
-
       {/* 必须可滚动:整页有 语言/主题/通知/账号 四个分区 + 退出登录 + 版本号,
           此前是裸 View,在手机上"账号"分区及其下全部内容被裁掉且滚不到(实测滚动手势零响应)。 */}
       <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.body}>
@@ -306,14 +305,6 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
   const sectionTitleColor = tk.text.secondary
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: pageBg },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      gap: 12,
-    },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     bodyScroll: { flex: 1 },
     body: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 24, gap: 16 },
     userCard: {
