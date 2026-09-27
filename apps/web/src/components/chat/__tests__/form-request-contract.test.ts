@@ -23,11 +23,8 @@ import type { StreamChatOptions } from '@ihui/api-client'
 import { FORM_FRAME_EVENTS, SSE_EVENT_NAMES, type FormRequestFramePayload } from '@ihui/shared'
 
 /** 解析通道回调的形参类型(api-client 内部命名 FormRequestEvent,未列进 index 导出面) */
-type WireFormRequestEvent = NonNullable<StreamChatOptions['onFormRequest']> extends (
-  event: infer E,
-) => void
-  ? E
-  : never
+type WireFormRequestEvent =
+  NonNullable<StreamChatOptions['onFormRequest']> extends (event: infer E) => void ? E : never
 
 // —— 编译期双向可赋值(值必须是 true,写不出 true 就是 tsc 红)——
 const CONTRACT_MATCHES_WIRE: FormRequestFramePayload extends WireFormRequestEvent ? true : false =
@@ -50,10 +47,12 @@ describe('V3 #63 form_request 契约登记 / 漂移锁', () => {
     expect(SSE_EVENT_NAMES as readonly string[]).not.toContain(FORM_FRAME_EVENTS.REQUEST)
   })
 
-  it('登记段成员不污染既有契约集合(SSE_EVENTS 的 28 个成员一个不多一个不少)', () => {
+  it('登记段成员不污染既有契约集合(SSE_EVENTS 的 29 个成员一个不多一个不少)', () => {
     // 本票只"新增一段独立登记",不得改既有成员形状 —— 这一格是那条约束的反向锁:
     // 若有人图省事把 form_request 塞进 SSE_EVENTS,这里先红(而不是等 parity 门红)。
-    expect(SSE_EVENT_NAMES).toHaveLength(28)
+    // 注:这个绝对数是粗锁(任何一次合法新增事件都得跟着抬,如 D113 的 tool-delta ⇒ 28→29);
+    // 真正精确的那把锁是上一条 not.toContain(form_request),它不随事件增减漂移。
+    expect(SSE_EVENT_NAMES).toHaveLength(29)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
