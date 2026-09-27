@@ -201,7 +201,7 @@
 .trader-chart-bar {
   width: 32rpx;
   background: var(--color-warning);
-  border-radius: var(--radius-sm) 6rpx 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 .trader-chart-label {
   margin-top: 8rpx;
