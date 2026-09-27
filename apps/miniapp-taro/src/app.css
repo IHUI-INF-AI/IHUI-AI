@@ -717,7 +717,7 @@ iframe#webpack-dev-server-client-overlay {
   padding: 0;
   margin: 0;
   background: var(--color-cta);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1074,7 +1074,7 @@ iframe#webpack-dev-server-client-overlay {
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   font-size: 28rpx;
   transition: all 0.2s;
   position: relative;

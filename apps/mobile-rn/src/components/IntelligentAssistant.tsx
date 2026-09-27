@@ -120,8 +120,8 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   welcomeCard: {
-    // 圆角走 radius.js 的 2xl 档(与小程序 `--radius-2xl` 同档;裁决依据见 spec 头注)
-    borderRadius: rnRadius['2xl'],
+    // 卡片按 2026-09-27 角色表收 card 档 lg(8)(旧裁决取 2xl 与小程序同档,卡片类已由用户定档统一为 lg)
+    borderRadius: rnRadius.lg,
     padding: IA_PADDING_PX,
     backgroundColor: tokens.surface.card,
     overflow: 'hidden',
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     // 胶囊可见内衬:小程序是纯文字链、无胶囊本体,单端档(依据见 IA_RECHARGE_CAPSULE_PAD_*)
     paddingHorizontal: IA_RECHARGE_CAPSULE_PAD_X_PX,
     paddingVertical: IA_RECHARGE_CAPSULE_PAD_Y_PX,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
   },
   tokenButtonText: {
     fontSize: IA_RECHARGE_FONT_PX,

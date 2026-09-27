@@ -311,7 +311,7 @@ export default function McpStorePageClient() {
           )}
         </div>
         {registeredServers.length === 0 ? (
-          <div className="rounded-md border bg-card py-6 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border bg-card py-6 text-center text-sm text-muted-foreground">
             {t('registeredEmpty')}
           </div>
         ) : (
@@ -319,7 +319,7 @@ export default function McpStorePageClient() {
             {registeredServers.map((srv) => (
               <div
                 key={srv.name}
-                className="flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-2.5"
+                className="flex items-center justify-between gap-3 rounded-lg border bg-card px-3 py-2.5"
               >
                 <div className="flex min-w-0 items-center gap-2">
                   <Plug className="h-4 w-4 shrink-0 text-primary" />

@@ -95,7 +95,7 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
   // React cleanup 试图 removeChild 时节点已不存在 → "Failed to execute 'removeChild' on 'Node'"
   // 修复:SDK 挂载点(sdkContainerRef)与 React 子节点(Loader2)分层渲染,互不干扰
   return (
-    <div className="relative mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-md border bg-card">
+    <div className="relative mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-lg border bg-card">
       <div
         ref={containerRef}
         id={containerId}

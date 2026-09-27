@@ -21,7 +21,7 @@
   display: flex;
   margin: 20rpx;
   background: var(--color-card);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 24rpx 0;
 }
 .summary-item {

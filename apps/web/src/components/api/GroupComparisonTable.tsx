@@ -55,7 +55,7 @@ export default function GroupComparisonTable({
   className,
 }: GroupComparisonTableProps): React.JSX.Element {
   return (
-    <div className={cn('overflow-x-auto rounded-xl border bg-card', className)}>
+    <div className={cn('overflow-x-auto rounded-lg border bg-card', className)}>
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-muted/30">

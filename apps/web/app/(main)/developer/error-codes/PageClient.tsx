@@ -30,7 +30,7 @@ export default function ErrorCodesPageClient() {
           <div className="space-y-2">
             <Link
               href="/developer/api-docs"
-              className="group flex items-center justify-between gap-2 rounded-md border bg-card p-3 transition-colors hover:bg-accent"
+              className="group flex items-center justify-between gap-2 rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
             >
               <span className="flex min-w-0 items-center gap-2">
                 <BookOpen className="h-4 w-4 shrink-0 text-primary" aria-hidden />
@@ -43,7 +43,7 @@ export default function ErrorCodesPageClient() {
             </Link>
             <Link
               href="/developer/relay/keys"
-              className="group flex items-center justify-between gap-2 rounded-md border bg-card p-3 transition-colors hover:bg-accent"
+              className="group flex items-center justify-between gap-2 rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
             >
               <span className="flex min-w-0 items-center gap-2">
                 <KeyRound className="h-4 w-4 shrink-0 text-primary" aria-hidden />

@@ -33,7 +33,7 @@ export default function TeacherCard({
 }: TeacherCardProps) {
   const tt = useTt()
   return (
-    <View className="bg-card mx-3 my-3 rounded-xl p-4" onClick={onClick} hoverClass="opacity-85">
+    <View className="bg-card mx-3 my-3 rounded-lg p-4" onClick={onClick} hoverClass="opacity-85">
       <View className="flex items-center">
         {avatar ? (
           <Image className="w-12 h-12 mr-3 rounded-xl bg-muted" src={avatar} mode="aspectFill" />

@@ -149,7 +149,7 @@ export default function ContextOverviewPage() {
             <Link
               key={p.href}
               href={p.href}
-              className="group flex flex-col gap-1 rounded-md border bg-card p-3 transition-colors hover:bg-accent"
+              className="group flex flex-col gap-1 rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
             >
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">{p.title}</p>

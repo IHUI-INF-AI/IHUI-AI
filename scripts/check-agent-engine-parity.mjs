@@ -21,23 +21,93 @@
  *   D. 应用错误码(THREAD_* / TOOL_* / HOST_TOOL_FAILED …)两端取值与引擎常量一致
  *
  * 用法:
- *   node scripts/check-agent-engine-parity.mjs            (报告模式, 漂移则 exit 1)
+ *   node scripts/check-agent-engine-parity.mjs            (全量档,判定面 = HEAD blob)
  *   node scripts/check-agent-engine-parity.mjs --quiet    (无漂移时静默,供 pre-commit)
+ *   node scripts/check-agent-engine-parity.mjs --staged   (判定面 = 索引 blob;提交链走这档)
+ *   node scripts/check-agent-engine-parity.mjs --worktree (仅人工排查的逃生舱)
+ * 取不到被审文件 ⇒ **exit 2「无法判定」**,既不冒红也不记绿,且不回落到另一个面。
  *   跳过: HUSKY_SKIP_AGENT_ENGINE_PARITY=1
  */
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { COLORS as C } from './lib/logger.mjs'
+import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
-const ROOT = process.cwd()
+// ROOT 由脚本自身位置推导,不由"调用者站在哪个目录"决定(AGENTS §15:路径推导用 import.meta.url)。
+// 旧写法 `const ROOT = process.cwd()` 的后果:在仓根跑返回 0,在 apps/ai-service 下跑
+// `node ../../scripts/check-agent-engine-parity.mjs` 直接把仓库相对路径拼到 cwd 上
+// (apps/ai-service/apps/ai-service/app/…)⇒ ENOENT 抛异常退 1,同一份代码两个答案。
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ENGINE_PY = 'apps/ai-service/app/services/agent_engine.py'
 const TS_SRC = 'packages/sdk/src/agent-engine.ts'
 const PY_SRC = 'packages/sdk/python/ihui_ai/agent_engine.py'
 
-const quiet = process.argv.includes('--quiet')
+const ARGS = process.argv.slice(2)
+const quiet = ARGS.includes('--quiet')
+const TAG = 'check-agent-engine-parity'
 
-function read(rel) {
-  return readFileSync(resolve(ROOT, rel), 'utf8')
+// 判定面口径与守门 36/70/77/83/98/103/118 同形:默认判 HEAD blob,`--staged` 判索引,
+// `--worktree` 只是人工排查。此前它按磁盘读 —— 而共享工作树常年滞后 HEAD,同一份代码
+// 会在"恒红"与"假绿"之间来回跳(守门 118 为这一型而立)。
+const FACE_SEL = selectFace({
+  staged: ARGS.includes('--staged'),
+  worktree: ARGS.includes('--worktree'),
+  def: 'head',
+})
+const FACE_TXT = {
+  head: 'HEAD blob(全量审计)',
+  staged: '索引 blob(本次提交会带走的那一份)',
+  worktree: '工作树(人工逃生舱,提交链不走这档)',
+}
+
+/**
+ * 三份被审文件必须**同面同轮**取满(一次 `cat-file --batch`)。
+ * 混面会在并发会话推进的瞬间产出自洽却错位的尺子;取不到一律抛 `Undetermined`,
+ * 由调用方折成 exit 2 —— **不回落**到另一个面,回落就是把"没判"写成"判过了"。
+ */
+function readInputs(face) {
+  const rels = [ENGINE_PY, TS_SRC, PY_SRC]
+  if (face === 'worktree') {
+    const out = {}
+    for (const rel of rels) {
+      const t = readWorktreeFile(ROOT, rel)
+      if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${rel}`)
+      out[rel] = t
+    }
+    return out
+  }
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const specs = rels.map((rel) => prefix + rel)
+  const got = catBatch(ROOT, specs, { maxBuffer: 1 << 28 })
+  const out = {}
+  for (let i = 0; i < rels.length; i++) {
+    const t = got.get(specs[i])
+    if (t === null || t === undefined)
+      throw new Undetermined(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${rels[i]}`)
+    out[rels[i]] = t
+  }
+  return out
+}
+
+if (FACE_SEL.error) {
+  console.error(`[${TAG}] ❌ 无法判定:${FACE_SEL.error}`)
+  process.exit(2)
+}
+const FACE = FACE_SEL.face
+
+let inputs
+try {
+  inputs = readInputs(FACE)
+} catch (e) {
+  // 「无法判定」是预期结论,一句话足够;**其他异常**必须带栈落地 —— 匿名 exit 2 = 不可诊断
+  // (一个编码/权限错误不得伪装成"该文件不存在"的业务结论,守门 36/93 同型教训)。
+  const known = e instanceof Undetermined
+  console.error(
+    `[${TAG}] 取不到输入(${FACE_TXT[FACE]})⇒ 无法判定(不记为通过):${
+      known ? e.message : (e?.stack ?? e)
+    }`,
+  )
+  process.exit(2)
 }
 
 /** 从 Python 的元组/列表常量里抽字符串项(ENGINE_METHODS 等)。 */
@@ -72,9 +142,9 @@ function tsObjectInts(source, name) {
   return out
 }
 
-const engine = read(ENGINE_PY)
-const ts = read(TS_SRC)
-const py = read(PY_SRC)
+const engine = inputs[ENGINE_PY]
+const ts = inputs[TS_SRC]
+const py = inputs[PY_SRC]
 
 const failures = []
 
@@ -203,13 +273,15 @@ for (const [label, codes] of [
 if (failures.length === 0) {
   if (!quiet) {
     console.log(
-      `${C.green}✅ Agent Engine 协议 parity 通过${C.reset} — 方法 ${engineMethods.length} 个 / 通知 ${(engineNotifications ?? []).length} 个 / 错误码 ${Object.keys(pyEngineCodes).length} 个三方一致`,
+      `${C.green}✅ Agent Engine 协议 parity 通过${C.reset} — 方法 ${engineMethods.length} 个 / 通知 ${(engineNotifications ?? []).length} 个 / 错误码 ${Object.keys(pyEngineCodes).length} 个三方一致 (面=${FACE_TXT[FACE]})`,
     )
   }
   process.exit(0)
 }
 
-console.log(`${C.red}${C.bold}❌ Agent Engine 协议 parity 失败 — ${failures.length} 项漂移${C.reset}`)
+console.log(
+  `${C.red}${C.bold}❌ Agent Engine 协议 parity 失败 — ${failures.length} 项漂移${C.reset} (面=${FACE_TXT[FACE]})`,
+)
 for (const f of failures) console.log(`  • ${f}`)
 console.log('')
 console.log(`${C.dim}修复:三方同步改动 —— ${ENGINE_PY} / ${TS_SRC} / ${PY_SRC}${C.reset}`)
