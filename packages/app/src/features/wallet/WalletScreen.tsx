@@ -113,7 +113,7 @@ function createStyles(tk: AppThemeTokens) {
     muted: { fontSize: 14, color: tk.text.secondary },
     card: {
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -135,7 +135,7 @@ function createStyles(tk: AppThemeTokens) {
     rechargeBtn: {
       flex: 1,
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -144,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     withdrawBtn: {
       flex: 1,
       height: 44,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

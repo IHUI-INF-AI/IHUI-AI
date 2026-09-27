@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: tk.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     padding: CARD_PADDING,
   } as ViewStyle,
   gridCard: {

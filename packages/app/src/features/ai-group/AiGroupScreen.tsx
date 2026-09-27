@@ -16,6 +16,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiGroupItem, AiGroupScreenProps, AiGroupTab } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -71,9 +72,7 @@ export function AiGroupScreen({
     return (
       <View style={styles.container}>
         <View style={styles.detailHead}>
-          <TouchableOpacity onPress={onBackToList} hitSlop={8}>
-            <Text style={styles.backText}>{t('aiGroup.back')}</Text>
-          </TouchableOpacity>
+          <BackChevron onPress={onBackToList} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.detailTitle} numberOfLines={1}>
             {selectedItem.name}
           </Text>
@@ -250,7 +249,7 @@ function createStyles(tk: AppThemeTokens) {
     searchRow: { marginHorizontal: 16, marginTop: 10 },
     searchInput: {
       height: 40,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -272,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -294,7 +293,7 @@ function createStyles(tk: AppThemeTokens) {
     tagBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     tagText: { fontSize: 11, color: tk.text.primary },
@@ -318,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: 'auto',
       paddingHorizontal: 12,
       height: 28,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -329,10 +328,10 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       paddingHorizontal: 10,
       paddingVertical: 12,
+      gap: 12,
       borderBottomColor: tk.border.light,
       borderBottomWidth: 1,
     },
-    backText: { fontSize: 16, color: tk.text.primary, marginRight: 12 },
     detailTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
     detailBody: { flex: 1 },
     detailDesc: { fontSize: 14, color: tk.gray[600], lineHeight: 20 },
@@ -370,7 +369,7 @@ function createStyles(tk: AppThemeTokens) {
     roleBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     roleBadgeText: { fontSize: 11, color: tk.text.primary },
@@ -394,7 +393,7 @@ function createStyles(tk: AppThemeTokens) {
     enterBtn: {
       marginTop: 16,
       height: 44,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

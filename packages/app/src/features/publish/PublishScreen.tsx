@@ -431,7 +431,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary, // text-gray-500
     },
     retryBtn: {
-      borderRadius: rnRadius.md, // rounded-md
+      borderRadius: rnRadius.sm, // rounded-sm
       paddingHorizontal: 16, // px-4
       paddingVertical: 8, // py-2
       backgroundColor: tk.gray[200], // bg-gray-200
@@ -508,7 +508,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8, // gap-2
     },
     actionBtn: {
-      borderRadius: rnRadius.md, // rounded-md
+      borderRadius: rnRadius.sm, // rounded-sm
       paddingHorizontal: 10, // px-2.5
       paddingVertical: 4, // py-1
     },

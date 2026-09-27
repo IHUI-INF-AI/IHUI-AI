@@ -468,7 +468,7 @@ const shellStyles = {
   shareBtnWrap: { paddingHorizontal: rpx(32), paddingBottom: rpx(8) } as const,
   shareBtn: {
     height: 44,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
@@ -510,7 +510,7 @@ const shellStyles = {
   } as const,
   saveBtn: {
     height: 44,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
@@ -526,7 +526,7 @@ const shellStyles = {
   } as const,
   copyBtn: {
     height: 44,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.brandAccent.deep,
     alignItems: 'center',

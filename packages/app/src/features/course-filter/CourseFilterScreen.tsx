@@ -22,24 +22,7 @@ import { BackChevron } from '../../components/BackChevron'
 
 export type { CourseFilterScreenProps }
 
-const CATEGORIES = ['all', 'tech', 'design', 'business', 'language'] as const
-const LEVELS = ['all', 'beginner', 'intermediate', 'advanced'] as const
 const PRICE_TABS = ['all', 'free', 'paid'] as const
-
-const COURSE_CAT_KEYS: Record<(typeof CATEGORIES)[number], string> = {
-  all: 'courseFilter.cat_all',
-  tech: 'courseFilter.cat_tech',
-  design: 'courseFilter.cat_design',
-  business: 'courseFilter.cat_business',
-  language: 'courseFilter.cat_language',
-}
-
-const COURSE_LEVEL_KEYS: Record<(typeof LEVELS)[number], string> = {
-  all: 'courseFilter.level_all',
-  beginner: 'courseFilter.level_beginner',
-  intermediate: 'courseFilter.level_intermediate',
-  advanced: 'courseFilter.level_advanced',
-}
 
 const COURSE_PRICE_KEYS: Record<(typeof PRICE_TABS)[number], string> = {
   all: 'courseFilter.price_all',
@@ -53,11 +36,7 @@ export function CourseFilterScreen({
   loading,
   refreshing,
   error,
-  category,
-  level,
   priceTab,
-  onCategoryChange,
-  onLevelChange,
   onPriceTabChange,
   onApply,
   onReset,
@@ -77,36 +56,6 @@ export function CourseFilterScreen({
       </View>
 
       <View style={styles.filterSection}>
-        <Text style={styles.filterLabel}>{t('courseFilter.category')}</Text>
-        <View style={styles.chipRow}>
-          {CATEGORIES.map((c) => (
-            <TouchableOpacity
-              key={c}
-              onPress={() => onCategoryChange(c)}
-              style={[styles.chip, category === c && styles.chipActive]}
-            >
-              <Text style={[styles.chipText, category === c && styles.chipTextActive]}>
-                {t(COURSE_CAT_KEYS[c])}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={styles.filterLabel}>{t('courseFilter.level')}</Text>
-        <View style={styles.chipRow}>
-          {LEVELS.map((l) => (
-            <TouchableOpacity
-              key={l}
-              onPress={() => onLevelChange(l)}
-              style={[styles.chip, level === l && styles.chipActive]}
-            >
-              <Text style={[styles.chipText, level === l && styles.chipTextActive]}>
-                {t(COURSE_LEVEL_KEYS[l])}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         <Text style={styles.filterLabel}>{t('courseFilter.priceRange')}</Text>
         <View style={styles.chipRow}>
           {PRICE_TABS.map((p) => (
@@ -167,9 +116,6 @@ export function CourseFilterScreen({
                 {t('courseFilter.instructor')}：{item.instructor}
               </Text>
               <View style={styles.cardMetaRow}>
-                <Text style={styles.cardMetaText}>
-                  {t('courseFilter.level_label')}：{t(COURSE_LEVEL_KEYS[item.level])}
-                </Text>
                 <Text style={styles.priceText}>
                   {item.price === 0 ? t('courseFilter.free') : `¥${item.price}`}
                 </Text>
@@ -205,14 +151,14 @@ function createStyles(tk: AppThemeTokens) {
     chip: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     chipActive: { backgroundColor: tk.brand.cta },
     chipText: { fontSize: 12, color: tk.text.secondary },
     chipTextActive: { color: tk.surface.light },
     actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-    actionBtn: { flex: 1, paddingVertical: 8, borderRadius: rnRadius.xl, alignItems: 'center' },
+    actionBtn: { flex: 1, paddingVertical: 8, borderRadius: rnRadius.sm, alignItems: 'center' },
     resetBtn: { backgroundColor: tk.surface.card },
     applyBtn: { backgroundColor: tk.brand.cta },
     resetText: { fontSize: 14, color: tk.text.secondary },
@@ -230,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -238,7 +184,6 @@ function createStyles(tk: AppThemeTokens) {
     cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     cardMeta: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-    cardMetaText: { fontSize: 14, color: tk.text.secondary },
     priceText: { fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT },
   })
 }
