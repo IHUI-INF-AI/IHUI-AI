@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertCircle, RefreshCw } from 'lucide-react'
+import { redactCrashText } from '@ihui/shared/utils/redact'
 import { useNavigationStore } from '@/stores/navigation'
 
 interface ErrorBoundaryProps {
@@ -121,6 +122,13 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     // 静默失败:上报失败 / 环境异常绝不影响 UI 渲染。
     // 2026-09-09 0-5-f 豁免确认:崩溃场景下运行时可能已处于异常态,
     // 用最小依赖的裸 fetch 上报,不引入 fetchApi 的解析/重试逻辑。
+    //
+    // 2026-09-27 补脱敏(病灶,实测):errorMessage/stack 里内嵌的 API key、Bearer/JWT、
+    // 用户机器绝对路径(如 `C:\Users\<name>\...` / `/c/Users/<name>/AppData/...`)此前**原样**
+    // 出浏览器并明文落 `crash_reports`(保留 90 天、进 admin 面板)。裸 fetch 这个选择可以保留
+    // (崩溃场景不引 fetchApi 是对的),但"少把用户原文送出去浏览器"与它不冲突:
+    // 发射前一律过共享层唯一出口 `redactCrashText`。服务端 `recordCrash` 还会再兜一道 ——
+    // **该端点匿名可写,客户端脱敏从来不能作为唯一防线**(权威防线在服务端)。
     if (typeof window !== 'undefined') {
       try {
         void fetch('/api/crash-reports', {
@@ -128,9 +136,13 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             platform: 'web',
-            errorMessage: error?.message ?? 'unknown error',
-            stack: error?.stack,
-            route: window.location.pathname,
+            // 兜底放在**脱敏之后**:`new Error()` 的 message 是空串(不是 nullish),`??` 兜不住它,
+            // 而服务端 zod 是 `errorMessage.min(1)` ⇒ 空消息会被 400 静默拒收、这条崩溃永远进不了
+            // 统计。`||` 同时 cover 这两种情况(原文为空 / 极端下被遮成空),不改变非空消息的取值。
+            errorMessage: redactCrashText(error?.message ?? 'unknown error') || 'unknown error',
+            // 保持与改前同形:无 stack 时该键整体缺席(undefined 被 JSON.stringify 丢掉)
+            stack: typeof error?.stack === 'string' ? redactCrashText(error.stack) : undefined,
+            route: redactCrashText(window.location.pathname),
           }),
         }).catch(() => {})
       } catch {
