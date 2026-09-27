@@ -88,14 +88,28 @@ scrape_configs:
           layer: 'infra'
 
   # Windows 宿主机 exporter（原生 9182：磁盘/CPU/内存等主机指标）
+  # ⚠ 口令一律走 password_file 指仓库外那份 secret,**禁止**回到 `password: <占位符>`。
+  #   立因(2026-09-27 现量):本文件由 scripts/sync-prometheus-live-config.mjs **逐字派生**成
+  #   线上运行副本,而派生器只改写 rule_files 那一处 —— 于是旧写法把字面量
+  #   `password: __REPLACE_WITH_DEPLOY_SECRET__` 原样烘进了线上配置:抓取永远带着一个占位符当
+  #   口令去访问一个启用 basic_auth(bcrypt)的 exporter ⇒ 恒 401。注释写着"部署副本用真实值",
+  #   而那正是这台机上从未成立过的一句话:**任何"占位符 + 全量派生"的组合都是静默失效**
+  #   (与 AGENTS §5d"读不到被下游报成失效"同型)。
+  #   password_file 里放的是**路径**不是凭据,可安全入库,且换口令只改 secret 文件、不动仓库。
+  #   注意:该文件缺失时 Prometheus 会拒绝**整份**配置(不是只拒这一个 job)—— 这是吵的失败,
+  #   比今天这种"配置加载成功、只有一个数悄悄是 0"好;但把本配置派生到没有该 secret 的机器前,
+  #   必须先确认文件在位。
   - job_name: 'windows'
     metrics_path: '/metrics'
     scheme: 'http'
     basic_auth:
-      # 明文口令不写入 git(部署副本 D:\DevEnv\monitor\prometheus\prometheus.yml 用真实值)。
-      # username=prometheus,password 仅存于部署机本地 secret(D:\DevEnv\secrets\windows-exporter-auth.txt)。
       username: prometheus
-      password: __REPLACE_WITH_DEPLOY_SECRET__
+      # 仓库外唯一落点(§15b:凭据不入仓);本机实测该文件在位。
+      # ⚠ 2026-09-27 另有一格未修:这份 secret 的内容与 D:\DevEnv\monitor\bin\web-config.yml
+      #   里的 bcrypt 哈希**不匹配**(用 bcryptjs 对账:四种取值变体 compareSync 全 false,
+      #   带不带凭据 curl 一律 401),所以本行改动不会让 WindowsExporterDown 当场翻绿。
+      #   修它要重生成 exporter 侧哈希并重启该服务 —— 那属 exporter 改动,归持有人裁决,本仓不改。
+      password_file: 'D:/DevEnv/secrets/windows-exporter-auth.txt'
     static_configs:
       - targets: ['localhost:9182']
         labels:
@@ -112,15 +126,57 @@ scrape_configs:
           service: 'alertmanager'
           layer: 'infra'
 
-  # 告警中转 bridge 自监控(原生 9096,/health 返回 JSON;Prometheus 只看 HTTP 200 → up metric,
-  # 配合 alerts.yml 的 AlertBridgeDown 及时发现运维邮件链路断裂)
+  # 告警中转 bridge 自监控(原生 9096)。
+  # ⚠ 这里必须指 /metrics,**不得**指 /health —— 后者返回 application/json,而 Prometheus 3.x
+  #   抓取时强制校验 Content-Type(现量报错:received unsupported Content-Type "application/json"
+  #   and no fallback_scrape_protocol specified),于是该 target 恒 down、
+  #   alerts.yml 的 AlertBridgeDown(up==0)是一条**永远在响的假告警**。它本是"运维邮件链路断了
+  #   没人知道"这一维唯一的自动判据,恒响等于把真故障一起淹掉(告警疲劳的标准成因,与 §12e
+  #   "恒红门唯一结局是逼人绕过"同一条物理)。桥进程一直是活的、HTTP 200 —— 假告警误报的是
+  #   抓取契约,不是服务。
+  #   /health 保留不动(值守巡检班次直连它读 mailUndelivered,契约一字未改),/metrics 是给
+  #   Prometheus 的那一份:见 monitoring/alertbridge/alert-webhook-bridge.cjs 的 METRIC_SPECS。
   - job_name: 'alertbridge'
-    metrics_path: '/health'
+    metrics_path: '/metrics'
     scheme: 'http'
     static_configs:
       - targets: ['localhost:9096']
         labels:
           service: 'alertbridge'
+          layer: 'infra'
+
+  # 日志与可视化栈自身(loki 3100 / promtail 9080 / grafana 8816,均为本机非默认端口)。
+  # 立因(2026-09-27 运维覆盖缺口审计):这三个服务此前既不是抓取目标、alerts.yml 里也一条规则没有,
+  # 于是"真出故障要翻日志时才发现日志链路早停了"。三个端点接入前逐一实测 HTTP 200 且能出指标
+  # (loki 1653 行 / promtail 783 行 / grafana 1799 行)—— 探不到就把 job 加进来,等于造一条永远响的告警。
+  # ⚠ 本层有一个补不掉的极限:prometheus 自己死了,它算的所有规则一起不响。
+  #   那一格不由本文件覆盖,由「生产值守巡检」班次直连 alertbridge /health + 读 UNDELIVERED 标记兜住
+  #   (那条路不依赖 prometheus,才是真正的死手开关)。
+  - job_name: 'loki'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['localhost:3100']
+        labels:
+          service: 'loki'
+          layer: 'infra'
+
+  - job_name: 'promtail'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['localhost:9080']
+        labels:
+          service: 'promtail'
+          layer: 'infra'
+
+  - job_name: 'grafana'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['localhost:8816']
+        labels:
+          service: 'grafana'
           layer: 'infra'
 
   # Node Exporter（主机指标，可选）— 原生环境暂未安装，需启用时注释放开并将 target 改为 localhost:9100
