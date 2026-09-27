@@ -44,7 +44,7 @@ export function TeamInvitationsList({ isLoading, invitations, onCancel, cancelPe
   return (
     <div className="space-y-2">
       {invitations.map((inv) => (
-        <div key={inv.id} className="flex items-center gap-3 rounded-md border bg-card px-4 py-3">
+        <div key={inv.id} className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
             <Mail className="h-4 w-4 text-muted-foreground" />
           </div>

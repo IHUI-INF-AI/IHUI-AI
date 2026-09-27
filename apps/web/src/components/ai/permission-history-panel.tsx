@@ -87,7 +87,6 @@ const MODE_ICON: Record<WorkspacePermissionMode, React.ComponentType<{ className
   'bypass-permissions': ShieldAlert,
 }
 
-
 /** i18n 静态映射表 — 用于消除 `t(`historySource.${sourceKey}`)` 单变量动态拼接 */
 type HistorySourceKey = 'popover' | 'shift-tab' | 'slash' | 'confirm-dialog' | 'auto-revert'
 const HISTORY_SOURCE_KEY: Record<HistorySourceKey, string> = {
@@ -359,7 +358,7 @@ export function PermissionHistoryPanel() {
         gap={8}
         testId="permission-history-panel"
         panelRef={panelRef}
-        className="w-[min(320px,calc(100vw-2rem))] rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
+        className="w-[min(320px,calc(100vw-2rem))] rounded-xl border bg-popover p-3 text-popover-foreground shadow-md"
       >
         {/* dialog 语义保留在内容层(PortalPanel 不透传 aria 属性与 tabIndex) */}
         <div

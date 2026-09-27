@@ -644,14 +644,14 @@ function CreateDatasetDialog({ open, onOpenChange, onSuccess }: CreateDatasetDia
                     value={item.input}
                     onChange={(e) => updateItem(i, 'input', e.target.value)}
                     placeholder={t('eval.datasets.form.inputPlaceholder')}
-                    className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-xs outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+                    className="w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-xs outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
                     rows={2}
                   />
                   <textarea
                     value={item.expectedOutput}
                     onChange={(e) => updateItem(i, 'expectedOutput', e.target.value)}
                     placeholder={t('eval.datasets.form.expectedOutputPlaceholder')}
-                    className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-xs outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+                    className="w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-xs outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
                     rows={2}
                   />
                 </div>

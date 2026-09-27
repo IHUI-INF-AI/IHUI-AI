@@ -358,7 +358,7 @@ export default function CompareIndexPage() {
             <Link
               key={slug}
               href={`/compare/${slug}`}
-              className="group rounded-2xl border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+              className="group rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold">IHUI AI vs {competitor}</h2>
