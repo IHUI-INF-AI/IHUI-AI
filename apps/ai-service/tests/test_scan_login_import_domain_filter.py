@@ -151,11 +151,15 @@ def _run_import(platform: str, cookies_raw: str) -> dict[str, Any]:
     async def _fake_user(_request: Any) -> str:
         return "u-test-0001"
 
-    async def _fake_verify(_platform: str, _creds: Any) -> tuple[bool | None, str]:
+    async def _fake_verify(
+        _platform: str, _creds: Any, _db_account_id: Any = None,
+    ) -> tuple[bool | None, str]:
         return False, "stub: 测试环境不联网"
 
-    async def _fake_existing(_user_id: str, _platform: str) -> bool:
-        return False
+    async def _fake_existing(_user_id: str, _platform: str) -> dict[str, int] | None:
+        # 返回 None 而不是 False:裁决判的是 `existing_row is not None`,
+        # 把 False 当"没有行"传进去会被读成"有一行",整组用例的语义就反了。
+        return None
 
     saved: dict[str, Any] = {}
 
@@ -171,13 +175,13 @@ def _run_import(platform: str, cookies_raw: str) -> dict[str, Any]:
         "get_current_user_id",
         "_save_account_to_db",
         "verify_login_candidate",
-        "_existing_credentials_present",
+        "_existing_account_row",
     )
     originals = tuple(getattr(scan_router, name) for name in patched)
     scan_router.get_current_user_id = _fake_user  # type: ignore[assignment]
     scan_router._save_account_to_db = _fake_save  # type: ignore[assignment]
     scan_router.verify_login_candidate = _fake_verify  # type: ignore[assignment]
-    scan_router._existing_credentials_present = _fake_existing  # type: ignore[assignment]
+    scan_router._existing_account_row = _fake_existing  # type: ignore[assignment]
     try:
         body = scan_router.ImportCookiesRequest(platform=platform, cookies_raw=cookies_raw)
         result = asyncio.run(scan_router.import_cookies(body, None))  # type: ignore[arg-type]

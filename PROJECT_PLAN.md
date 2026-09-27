@@ -12649,3 +12649,28 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   合并吞掉"洗成绿灯 —— 本波两道门(现号 145/146)正是这样静默失调度而 89 全程 exit 0。
   补这一维(凡 AGENTS 自称 blocking/接进提交链者,必须在 runner 里有 `script:` 行)属门 89
   持有者职权,本票只登记实测,不代改别人的判据。
+- [x] ✅(2026-09-27) **G-239 守门 146 `check-readme-table-integrity` 的两笔欠账:注册块曾被盖掉、README 61 行存量与豁免到期档缺失(批次 41 清偿)**
+- [x] ✅(2026-09-27) **G-239 守门 `check-readme-table-integrity` 的注册块不见了 —— 补注册前必须先清偿它自己的存量**（归属：该门持有者；本线只解除它挡住的提交链）
+  事实链(逐条现读,不是推断):① 注册块确实丢过一次 —— `git log --all -S check-readme-table-integrity.mjs -- scripts/guardian-runner.mjs`
+  给出 `f2f90a666`(接入)与 `b4905b158`(接回),中间那枚 union 合并把注册整块盖掉而**文档面的声称留在原地**,
+  ⇒ 守门 89 的 R2 对每一次碰 README 的提交判红;我一度把它误判成"另一路会话的谎报",并在 AGENTS/README 各写了一条"尚未注册"的更正
+  —— 那条更正本身在 40 分钟内变成第二份过期台账(并发已把编号挪到 146),**已由本枚删掉并与现行条目归并**。教训写进这里:
+  登记"某门未接线"与登记"某门已接线"同样是**会腐的机器事实**,只能按当次实测取,不得作为常驻条目留在文档面。
+  ② 门体判红的是**存量**而非缺陷:`node scripts/check-readme-table-integrity.mjs` 现读 README.md 61 行 T-A(6 个 run),
+  棘轮 cap=0 ⇒ 本枚按门自己给的出口清偿:`node scripts/readme-table-unwrap.mjs --file README.md --apply`。
+  独立复量(不采信工具自证):剥竖线与空白后字符多重集 **743252 == 743252**、差异键 **0**,行数 6295 → 6234(恰减 61)。
+  ③ `table-cell-exempt` 从未进守门 108 的存活期表(镜像 T3 红),本枚补 30 天档 —— 它是**待偿的改写债**(长格内容要挪出表格),
+  不是结构性定性;补档后 §22c 镜像与门自身 `--self-test` 的取证见本枚提交信息。
+  否证一条(免得下一个人重新猜):**没有**用"抬高 cap / 改判据"消红 —— 台账 cap 保持 0,`--update-baseline` 未跑。
+  同场两条**归属他人**、本枚刻意不动的事实:`check-rn-double-header` 现值 runner `id: 145`、`check-crash-report-redaction` `id: 144`
+  (撞号与否一律以 `node scripts/check-gate-wiring.mjs` 的 `duplicateIds` 现值为准,本轮实测 `0`);README.md 守门速查表里
+  `| 144 |` 那一格点的是 `check-rn-double-header.mjs` 而 runner 的 144 是崩溃上报门 —— 该行属其持有者,只登记不代改。
+### P0 登记(2026-09-27 实测):Windows 桌面端 CI 发版链已断,后续所有 Windows 用户拿不到更新
+- **症状**(run 36293577132,tag `desktop-v0.1.45`):`Build Desktop (windows-x64) => failure`,其余三平台 success。失败点不在编译 Rust,而在打包最后一步 makensis:
+  `Error in macro CheckIfAppIsRunning on macroline 11` → `Error in script "…\target\release\nsis\x64\installer.nsi" on line 683 -- aborting creation process` → `failed to bundle project: Failed to bundle app with makensis`。
+  随后的 `Verify bundle produced (fail loudly)` 判出 `产物数量: 0` 并**拒绝静默成功**(这道断言是对的,本次正是它把失败暴露出来,否则又是一个"CI 绿而没包")。
+- **连带后果(这是"影响面"而不是"另案")**:windows job 一红,`Publish Updater JSON`、`Sync release to Gitee (国内发行)`、`Sync Downloads to public/downloads/` **三步全部 skipped** ⇒ ① GitHub release `desktop-v0.1.45` 里**没有 Windows 安装包**(只有 rpm/AppImage/deb/dmg/app.tar.gz);② `apps/web/src/config/desktop-feed.generated.ts` 仍停在 **0.1.44**(现读);③ 线上 `https://aizhs.top/desktop-feed.json` 现读仍是 **0.1.44**。即 updater 的主端点对 Windows 永远回"无更新",**所有 Windows 用户都收不到 0.1.45 及之后的任何版本**,直到这条修好。
+- **判据已排除"是本票改动引入"**:本票只动 `src-tauri/src/lib.rs` 与一个 web hook,未碰任何 `.nsi/.nsh`;且**同一台机、同一份 `.nsi`、同一次 tauri build 的 makensis 成功**产出了 `智汇AI_0.1.45_x64-setup.exe` + `.sig`(40.63s)⇒ 差异在 **CI 端 NSIS 环境(版本 / `nsProcess` 等插件可用性)**,不在仓库内容。`CheckIfAppIsRunning` 宏体住在 Tauri 生成的 `target/release/nsis/x64/utils.nsh`(非入库文件)。
+- **时间窗**:上一枚 tag `desktop-v0.1.44`(2026-09-24)同流程 **success** ⇒ 断点在 09-24→09-27 之间。两个候选未取证:(a) GitHub `windows-latest` runner 镜像升级换了 NSIS/插件(CI 日志同期已在提示 ubuntu-latest 迁移,镜像基线在动);(b) `c29c220ce`(nsDialogs z 序真机修复)确实改过 `src-tauri/windows/`,需逐行看它有没有碰到 `CheckIfAppIsRunning` 的两个插入点(installer.nsi 690/848 行,即卸载段与安装段各一处)。
+- **本票没有顺手修它**,理由不是"不归我":修它必须在 CI 环境里复现 makensis 差异(本机成功、CI 失败 ⇒ 本地跑一万遍也不会红),靠 push 试错会占用整条发版链;而**用户当下这台机已用替换 exe 升到 0.1.45**,不再依赖这条链。接手者请先跑 `gh run view 36293577132 --log` 看 windows job 里 makensis 的版本行与 `!addplugindir`,再决定是钉住 NSIS 版本还是补插件目录 —— 别从改 `.nsi` 开始。
+- **顺带登记一条发版脚本缺陷**(与本票同批实测):`scripts/release-desktop-local.mjs` 的"单一产物不变量"清理用裸 `rmSync`,旧包被运行中的安装器占用时报 `EPERM/Device or resource busy` 并让**整条本机发版在第 2b 步崩掉**(Gitee 直传 / 版本提交 / 自装全没执行),而 `tauri build` 其实已成功 —— 账面读起来像"发版失败"。修法=删不掉时点名并继续(不变量复查仍照判),不得为了让它绿而放宽判据。
