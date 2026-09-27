@@ -14059,3 +14059,52 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
   ② **线上 feed 此刻仍只回 1 个平台**(现读 `https://aizhs.top/desktop-feed.json` → `version=0.1.49 platforms=windows-x86_64`)。源码侧那份快照已是 4 键,而这条 route 是 `force-static`,平台数随**生产机构建**才翻。本机不产线上包(当轮实测:`Get-Service IHUI*` 计数 0,`Get-NetTCPConnection -State Listen` 对 8801/8802/8803/8810/8811 全部零命中,仅 5432 本地 PG 在听 ⇒ 这台是开发机),不代跑生产构建。验证出口:`curl -s https://aizhs.top/desktop-feed.json | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).platforms && Object.keys(JSON.parse(require('fs').readFileSync(0,'utf8')).platforms).join(',')"`,出现 4 键即收口。
   ③ CI 的 Knip 棘轮**在本线之前就已连红**(`gh run list --workflow Knip --limit 6` 六枚全 failure,现读 `exports +6 / types +18 / binaries +1` 超基线),非我引入;我这条只贡献其中 +1 导出 +1 类型(即①那一格)。归属:死代码账的持有者,修法要么清偿要么 `--update` 收紧基线(该动作会进 diff 供审)。
 - **顺手否证一条我自己的候选修法**:曾想把 CI 里 `release-desktop.yml:306` / `sync-downloads.yml:58` 未传 `GITHUB_TOKEN` 当"feed 变窄"的成因并补上。实测**不成立**:本机那轮 `ratelimit-remaining=53`(远未耗尽)而 `.sig` 资产直链仍 `fetch failed`(10.6s,连接被重置 —— 与 §5b 记的"国内直连被重置"同一条网络事实)。传 token 治不了资产下载,真正的防护是"变窄即拒写 + 取不到大声报",即 `45cd1c769` 做的事。GitHub Actions 上跑则不受本机直连影响。
+
+- [x] ✅(2026-09-27) O81 票㉑(技术可行性报告,按用户要求先交报告不动工)—— **扩展端委托面到底能不能建、要花什么、哪一格量不出来**。
+  结论先说:**协议侧已经全部建好,缺的只有扩展端三块 UI/执行肉;唯一量不出来的是"side panel 里 `showDirectoryPicker`
+  能不能用",而这一格决定整票成败,必须先做一次 5 分钟 spike 再决定动不动工。**
+  ① **协议面现成**:`packages/api-client/src/client.ts` 已暴露 `onToolDelegate`(:1049 注释即"前端用
+  FileSystemDirectoryHandle 执行 fs 类工具,通过 postToolResult 回传结果")与回传函数 `postToolResult`
+  (:1559-1560);服务端等待是 `llm.py` 的 `_delegate_sessions` + `_DELEGATE_TIMEOUT = 60s`。委托分支条件
+  `if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS`(`llm.py:3656` 一带)。⇒ 不需要新协议、不改服务端。
+  ② **web 那份就是模板**:`apps/web/src/lib/workspace-tool-executor.ts:53-75` 已实现 **12 个** fs case
+  (read/write/file_edit/file_search/search_codebase/list_files/apply_patch/create/delete/move/analyze_code/generate_test),
+  句柄来自 `components/workspace/local-folder-picker.tsx:112` 的 `showDirectoryPicker({ mode: 'read' })`,
+  存进 `lib/workspace-context-loader.ts:23` 的**内存 Map**(`browserHandles`)——**web 自己也不落 IndexedDB 持久化**,
+  所以扩展端"要复刻的持久化工程"其实不存在,刷新后重选目录即可,与 web 同形。
+  ③ **一条必须写在前面的连带后果**:要让委托分支成立,扩展必须送**非空** `workspaceContext`;而同一字段同时驱动
+  服务端把工作区文件内容注入 system prompt(`build_system_prompt` 优先级 `workspace_context > workspace_path`)。
+  ⇒ 开委托 = 同时开上下文注入,不是两件事。必须复用 web 的装载语义并按 §"宿主级提示块唯一出口"
+  (`apps/cli/src/utils/prompt-boundary.ts` 同族纪律)结构化进提示,不得裸拼字符串。
+  ④ **审批位是同票必做项,不是可选项**:写类工具默认进人工审批门(`_resolve_tool_approval`,超时 120s),
+  台账里 `missing.extension.onToolApproval` 与 `onToolDelegate` 是同一前置的两半 ——
+  只接委托不接审批,表现就是"每次写都等到超时后未执行",与票⑳ 刚收回的那枚缺陷同型。
+  ⑤ **共享层优先**:扩展端**不得**照抄第二份 12-case 执行器。正确做法是把 web 的执行器抽到共享层
+  (句柄由注入提供,形态同 §3 工厂/DI),web 与扩展各注自己的 provider;否则就是"两份 fs 执行语义"必漂移。
+  ⑥ **量不出来的一格(如实,不猜)**:MV3 **side panel** 页面里 `showDirectoryPicker` 是否可用(需 transient user
+  activation;扩展页是安全上下文,但本机构造好的 `chrome-mv3` 无法由我的自动化通道以 unpacked 方式装载,
+  所以我拿不到"点了按钮真的出目录选择框"的证据)。**处置**:动工时第一枚提交只做**能力探测 + 降级**
+  (`typeof window.showDirectoryPicker === 'function'` 才带文件族,形态照 web 的 Tauri/FSA 双路检测
+  `local-folder-picker.tsx:60`),探测不到就保持**今天的状态**(不带文件族、帧不会被静默丢)——
+  这条降级本身就该实现,因为它让"整票失败"退化成"什么都不发生",不会交付假能力。
+  ⑦ 待确认的第二格:`readwrite` 模式从哪来。web 那处 picker 现读只有 `{ mode: 'read' }`,写路径如何取得写权限
+  未取证 ⇒ 动工当票必须先读 `local-folder-picker.tsx` 全文与调用点,把它写成断言而不是补一次猜测。
+  ⑧ 工作量与文件清单(供你拍板用,不是已开工):新增共享 `workspace-tool-executor`(自 web 抽出)+ web 改注 provider +
+  扩展 picker 组件 + 扩展 `onToolDelegate`/`onToolApproval` 接线 + 台账两条 missing 同笔删除并上调 `baseline.extension`
+  (+2)+ 每端各自用例。**安全取向**:委托把执行移回**用户自己的机器与选定目录**,严格优于我否掉的
+  "服务端工作区执行"(那是把服务器文件面暴露给每个登录用户),这也是票⑳ 收回的直接原因。
+
+- [x] ✅(2026-09-27) 票㉔ 的两条补锁 —— **发帧早于判定"四型"里此前只有一型有测**,现补齐能测的两型并写明第三型测不了。
+  票㉔ 提交信息写了四条路径(去重跳过 / 审批被拒 / 审批超时 / 权限矩阵拒绝)都会"先看到流中 diff、再看到未执行",
+  而落到测试只有权限拒绝一例 —— 散文说四条、尺子量一条,正是本仓最容易自我美化的形状,主会话发现后派单补齐。
+  新增 `test_frames_reach_wire_even_when_dedup_skips_execution` 与
+  `test_frames_reach_wire_even_when_user_rejects_approval`(同文件 +298/−0,生产码一行未动)。
+  顺带量出两条此前无人写下的真实语义,断言直接建在其上:① 去重判据是 `tool_name + json.dumps(args, sort_keys=True)`
+  的**请求级全集**(首次调用在执行前登记,无"最近 N 次"窗口);② **唯一**一个工具被拒会触发"全部失败 ⇒ 直构失败
+  响应、不再回喂模型"的短路(`llm.py:4067`)⇒ `rounds==1`,拒绝交代落在随历史落库的活 messages 里而非下一轮快照。
+  被拒回传走**生产端点** `POST /api/llm/complete/stream/{session_id}/approval-response`(httpx ASGITransport
+  整响应缓冲 ⇒ 由并发任务发现挂起条目后打真实端点,20s 硬上限,前提失效时喊明确原因而不是静默挂死)。
+  **审批超时(120s)刻意不测**并写进 docstring:真等 120s 拖垮套件,改短 `_APPROVAL_TIMEOUT` 又等于动生产码 ——
+  测不了的格子写在这里,不伪造成"四条全绿"。反向自证用临时源码变异插件把发帧行改写成"挪到判定之后",
+  两档各红一次且红的恰是对应那一例,插件跑完即删未入仓。读数:本文件 9 passed,四文件联跑 **45 passed**
+  (主会话独立复跑过),`mypy app --strict` 仍 `no issues found in 571 source files`。
