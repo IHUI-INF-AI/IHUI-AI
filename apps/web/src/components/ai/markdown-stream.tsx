@@ -306,8 +306,13 @@ const CodeBlockImpl = function CodeBlock({
     void runCodeBlock({ language: lang, code })
   }, [runResult, runCodeBlock, lang, code])
 
-  // mermaid 块交给 MermaidDiagram 客户端渲染
-  if (language === 'mermaid') {
+  // mermaid 块交给 MermaidDiagram 客户端渲染。
+  // 判据取已小写的 `lang` 而非原始 `language`:此前这里是 `language === 'mermaid'`,
+  // 于是 ```Mermaid(首字母大写,模型很常这么写)匹配不到、整块掉进 Prism 高亮分支,
+  // 既不走图表也不受 MermaidDiagram 内的渲染预算管 —— 唯一出口上开了一个 bypass。
+  // 预算只在 MermaidDiagram 一处判(它是 web 端唯一的 mermaid 渲染点),这里负责
+  // 保证"该进那道闸的都进得去"。
+  if (lang === 'mermaid') {
     return <MermaidDiagram code={debouncedCode} />
   }
 
