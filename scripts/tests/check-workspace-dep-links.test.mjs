@@ -14,13 +14,11 @@ import { execFileSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -114,7 +112,7 @@ test('第四型(2026-09-24 全机停摆的直接指纹)**双向**:包体在而 s
   // 这台尺子必须在"故障现场"报红:`node_modules/eslint` 内容完好、能直接 node 跑出 v10.8.1,
   // 但 `node_modules/.bin/eslint(.CMD)` 没了 ⇒ lint-staged 按 PATH 找 eslint 报
   // 「不是内部或外部命令」。若把"`node_modules/<cmd>` 目录存在"当作通过,这条红就永远测不出来。
-  const root = mkdtempSync(join(tmpdir(), 'ihui-hookcmd-test-'))
+  const root = mkScratch('ihui-hookcmd-test-')
   try {
     mkdirSync(join(root, 'node_modules', 'eslint', 'node_modules'), { recursive: true })
     writeFileSync(
@@ -145,14 +143,14 @@ test('第四型(2026-09-24 全机停摆的直接指纹)**双向**:包体在而 s
       `命令名提取不对: ${cmds.join(',')}`,
     )
   } finally {
-    rmSync(root, { recursive: true, force: true, maxRetries: 5 })
+    rmScratch(root)
   }
 })
 
 test('链接完整性判据(掏空/悬空)夹具**双向**:空目标必红、完好目标必绿', () => {
   // 2026-09-24 全机门禁停摆的第二型:链接在、目标被掏空。existsSync 对这一型返回 true,
   // 所以旧判据(findMissingLinks)恒绿 —— 本用例钉住"新判据真的在看内容"。
-  const root = mkdtempSync(join(tmpdir(), 'ihui-gutted-test-'))
+  const root = mkScratch('ihui-gutted-test-')
   try {
     mkdirSync(join(root, 'store', 'good', 'node_modules', 'good'), { recursive: true })
     writeFileSync(
@@ -189,7 +187,7 @@ test('链接完整性判据(掏空/悬空)夹具**双向**:空目标必红、完
     rmSync(join(root, 'node_modules', '@sc', 'hollow'), { force: true })
     assert.deepEqual(gate.findGuttedLinks(root, []).gutted, [], '补齐后仍报红 = 判据不成立')
   } finally {
-    rmSync(root, { recursive: true, force: true, maxRetries: 5 })
+    rmScratch(root)
   }
 })
 
@@ -219,7 +217,7 @@ test('真仓不变量:所有 workspace:* 声明均已链接', () => {
 })
 
 test('夹具反向对照:声明未链接必红,补上链接必绿', () => {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-deplink-test-'))
+  const root = mkScratch('ihui-deplink-test-')
   try {
     mkdirSync(join(root, 'packages', 'aa'), { recursive: true })
     mkdirSync(join(root, 'apps', 'bb'), { recursive: true })
@@ -244,18 +242,18 @@ test('夹具反向对照:声明未链接必红,补上链接必绿', () => {
     mkdirSync(join(root, 'apps', 'bb', 'node_modules', '@ihui', 'aa'), { recursive: true })
     assert.deepEqual(gate.findMissingLinks(root, dirs), [], '补上链接后应归零')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 test('夹具:根 node_modules 缺失时返回 null(未安装 ≠ 装歪,不得混作绿灯结论)', () => {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-deplink-none-'))
+  const root = mkScratch('ihui-deplink-none-')
   try {
     mkdirSync(join(root, 'apps', 'bb'), { recursive: true })
     writeFileSync(join(root, 'apps', 'bb', 'package.json'), JSON.stringify({ name: '@ihui/bb' }))
     assert.equal(gate.findMissingLinks(root, gate.expandPatterns(root, ['apps/*'])), null)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
