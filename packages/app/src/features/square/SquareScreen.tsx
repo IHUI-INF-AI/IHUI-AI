@@ -3,7 +3,18 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View, type NativeSyntheticEvent, type NativeScrollEvent, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { TFunction } from '../../types'
@@ -87,47 +98,54 @@ export function SquareScreen({
     const sourceText = source && source !== 'Not_Support' ? `来源:${source}` : '来源:网络'
 
     return (
+      // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+      // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,整张卡的圆角/内边距/底色/描边
+      // 静默消失。card 在这份表里是**纯视觉档**(无 margin/flex),故外层不需要留布局档:
+      // 它在列表 column(默认 alignItems stretch)里撑满宽度,内层同样 stretch ⇒ 盒子逐像素不变。
       <Pressable
-        style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
         onPress={() => onItemClick(item.id)}
         accessibilityRole="button"
         accessibilityLabel={item.title}
       >
-        <View style={styles.content}>
-          {item.category ? (
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryText} numberOfLines={1} allowFontScaling={false}>
-                {item.category}
+        {({ pressed }) => (
+          <View style={[styles.card, pressed ? styles.cardPressed : null]}>
+            <View style={styles.content}>
+              {item.category ? (
+                <View style={styles.categoryBadge}>
+                  <Text style={styles.categoryText} numberOfLines={1} allowFontScaling={false}>
+                    {item.category}
+                  </Text>
+                </View>
+              ) : null}
+              <Text style={styles.title} numberOfLines={2}>
+                {item.title}
+              </Text>
+              {item.summary ? (
+                <Text style={styles.summary} numberOfLines={2}>
+                  {item.summary}
+                </Text>
+              ) : null}
+              <View style={styles.metaRow}>
+                <View style={styles.authorBadge}>
+                  <Text style={styles.authorText} numberOfLines={1} allowFontScaling={false}>
+                    {author}
+                  </Text>
+                </View>
+                {time ? (
+                  <Text style={styles.metaText} allowFontScaling={false}>
+                    {time}
+                  </Text>
+                ) : null}
+                <Text style={styles.metaText} allowFontScaling={false}>
+                  {`${views} 阅读`}
+                </Text>
+              </View>
+              <Text style={styles.sourceText} allowFontScaling={false}>
+                {sourceText}
               </Text>
             </View>
-          ) : null}
-          <Text style={styles.title} numberOfLines={2}>
-            {item.title}
-          </Text>
-          {item.summary ? (
-            <Text style={styles.summary} numberOfLines={2}>
-              {item.summary}
-            </Text>
-          ) : null}
-          <View style={styles.metaRow}>
-            <View style={styles.authorBadge}>
-              <Text style={styles.authorText} numberOfLines={1} allowFontScaling={false}>
-                {author}
-              </Text>
-            </View>
-            {time ? (
-              <Text style={styles.metaText} allowFontScaling={false}>
-                {time}
-              </Text>
-            ) : null}
-            <Text style={styles.metaText} allowFontScaling={false}>
-              {`${views} 阅读`}
-            </Text>
           </View>
-          <Text style={styles.sourceText} allowFontScaling={false}>
-            {sourceText}
-          </Text>
-        </View>
+        )}
       </Pressable>
     )
   }
