@@ -17,9 +17,11 @@ import { type ComponentType, useMemo, type ReactNode } from 'react'
 import { Check, CircleDashed, Loader2, Terminal, X } from 'lucide-react'
 import {
   buildRenderModel,
+  describeMcpToolActivity,
   describeToolCall,
   humanizeToolText,
   permissionTierWordKeys,
+  toolActivityState,
   toolDisplayKey,
   type ChatMessage,
   type ReasoningRenderBlock,
@@ -252,6 +254,52 @@ export function toolDisplayName(toolName: string | undefined, tTool: Translate):
   return key ? tTool(key) : toolName
 }
 
+/** `mcpToolActivityTitle` 只读这几字段,签名收窄便于调用方与测试都只喂必要项 */
+export type McpToolRowInput = Pick<
+  ToolRenderBlock,
+  'toolName' | 'status' | 'serverSource' | 'serverName' | 'serverId'
+>
+
+/**
+ * MCP 工具行的定制措辞(D83 接线,extension 端渲染点入口;与 mobile-rn 的
+ * `chat-render-model.mcpToolActivityTitle` 同名同语义,跨端 grep 找得到同一个概念)。
+ *
+ * 措辞层不在端内:`@ihui/shared/chat` 的 `describeMcpToolActivity` 才是唯一数据源
+ * (server×tool → server → tool → 功能名 → 码名 五级回落 + 双时态 + 带上下文档)。
+ * web(`tool-call-card.tsx` / `task-status-bar.tsx`)与小程序(`cards/tool-line.ts`)、
+ * RN 早已各自接上,本端此前只有 `serverName` 当徽章摆在行尾、行首标题仍是裸码名
+ * (`create_issue`),即"造好没装车"那一型:链在共享层、端上没人调,屏幕就永远不涨。
+ *
+ * 返回 `null` = "本端这一行没有可渲染的 MCP 措辞",调用方必须沿用既有功能名口径:
+ * - 非 MCP(serverSource ≠ 'mcp')—— 内置/插件工具不归本层管,免得顺手改掉全站工具行文案;
+ * - error / cancelled —— 对失败或被撤回的调用声称"已完成 X"是假陈述(用共享的
+ *   `toolActivityState` 判,不在端内重抄一份状态白名单);
+ * - 整条链走到链尾只剩原始码名 —— 界面禁止直显 `create_issue`。
+ *
+ * 取词边界的回显归一(与 RN 同一处坑):共享层 `usableRenderedText` 拿**未加前缀**的键比结果,
+ * 而本端 `tTool`(= `makeToolTranslate(t)`,已补 `taskStatus.`)缺键时回显的是点号全路径,
+ * 两者不等 ⇒ 那道守卫在本端形状上判不出回显。键的拼法只有本端知道,所以在这里归一,
+ * 不去改共享层判据(改了要同时复核 web / 小程序 / RN 三个消费端,属另一票)。
+ */
+export function mcpToolActivityTitle(block: McpToolRowInput, tTool: Translate): string | null {
+  if (block.serverSource !== 'mcp') return null
+  const state = toolActivityState(block.status)
+  if (state === null) return null
+  const line = describeMcpToolActivity({
+    // serverId 回落与 web 同一口径(MCP 帧可能只带 ID 不带显示名)
+    serverName: block.serverName ?? block.serverId ?? null,
+    toolName: block.toolName,
+    state,
+    translate: (key, params) => {
+      const text = tTool(key, params)
+      // 回显键名 ⇒ 交空串:共享层认空串为"本级未命中",会继续走链,最终落回原始码名,
+      // 再由下面的 `line === block.toolName` 折成 null —— 语言包漏译不会把键名印到界面。
+      return text === `taskStatus.${key}` ? '' : text
+    },
+  })
+  return line === block.toolName ? null : line
+}
+
 /** 对象类字形特征:路径 / URL / 命令用等宽字体,检索词与实体名按正文 */
 const MONO_SUBJECT_KINDS: ReadonlySet<ToolSubjectKind> = new Set<ToolSubjectKind>([
   'path',
@@ -406,7 +454,10 @@ function ToolBlockView({
     status: block.status,
   })
   const Icon = toolStatusIcon(block)
-  const title = view.nameKey ? tTool(view.nameKey) : view.codeName
+  // D83:MCP 行先取共享层 server×tool 定制措辞(「正在创建 GitHub 议题」),
+  // 未命中即交回下方既有链 —— 内置/插件工具的标题一个字节都不动。
+  const title =
+    mcpToolActivityTitle(block, tTool) ?? (view.nameKey ? tTool(view.nameKey) : view.codeName)
   const metricText =
     view.metricKind === 'none' || view.metricValue === null || view.metricValue < 0
       ? ''
