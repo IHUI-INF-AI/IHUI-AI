@@ -53,10 +53,29 @@ def test_profile_import_verifies_before_writing() -> None:
 def test_paste_import_verifies_before_writing() -> None:
     """源码锁:粘贴口同型(它最容易产出"名字齐但值已过期"的集合)。"""
     src = (PUBLISH_DIR / "routers/scan_login.py").read_text(encoding="utf-8")
-    i_verify = src.index("verify_login_candidate(body.platform, filter_result.kept)")
-    i_decide = src.index("should_overwrite_existing_credentials(existing,")
+    i_verify = src.index("verify_login_candidate(\n        body.platform")
+    i_decide = src.index("should_overwrite_existing_credentials(")
     i_save = src.index("_save_account_to_db(\n        user_id, body.platform")
     assert i_verify < i_decide < i_save
+
+
+def test_row_id_is_passed_into_the_verification_call() -> None:
+    """校验必须拿到**行 id**当身份锚点 —— 不拿就退到「凭证首个值哈希」，
+    而那正是"每次刷新换一张脸"的成因(见 anti_risk/account_identity.py)。
+
+    两条路径各断一次:只在一处注入的修法会留下另一半(本仓最高频失效型)。
+    """
+    svc = (PUBLISH_DIR / "services/scan_login.py").read_text(encoding="utf-8")
+    router = (PUBLISH_DIR / "routers/scan_login.py").read_text(encoding="utf-8")
+    for label, src in (("画像导入", svc[svc.index("async def detect_login_from_profile") :]), ("粘贴导入", router)):
+        at = src.index("verify_login_candidate(")
+        # 取"调用起点之后一段"而不是"到第一个 ) 为止" —— 实参里就有 .get("id")，
+        # 按第一个右括号切会把判据要看的字面量 itself 切掉(本仓踩过:判据切在自己的括号上)。
+        call = src[at : at + 220]
+        assert '.get("id")' in call, f"{label}的校验调用没把行 id 传进去:{call[:160]}"
+        assert "existing_row" in src[:at], (
+            f"{label}必须先取行、再喂校验:查两遍就是在两把尺子之间留竞态窗口"
+        )
 
 
 def test_both_paths_share_one_verify_implementation() -> None:
