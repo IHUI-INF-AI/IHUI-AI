@@ -178,6 +178,14 @@ export function ToolCallCard({ calls }: { calls: ToolCallView[] }) {
                   ) : null}
                   {elapsed ? <Text className="ai-card-tool-duration">{elapsed}</Text> : null}
                 </View>
+                {/* D113:工具流中 diff 预览(tool-delta 累积文本)。仅 running 态且非空才渲染
+                    —— tool-result 到达时 partialDiff 已被清,最终 diff 由 result 的 ± 行接管;
+                    与 web tool-call-card / RN AiAssistantN8nScreen 同一条件,不新增文案标签。 */}
+                {c.status === 'running' && c.partialDiff ? (
+                  <View className="ai-card-tool-partial-diff">
+                    <Text className="ai-card-tool-partial-diff-text">{c.partialDiff}</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
           )
