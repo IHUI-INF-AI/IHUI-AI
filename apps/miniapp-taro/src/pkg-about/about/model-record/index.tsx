@@ -72,7 +72,7 @@ export default function ModelRecord() {
           {tt('about.modelRecord.tableTitle', '大模型备案信息')}
         </Text>
 
-        <View className="bg-card rounded-xl overflow-hidden mb-[24rpx]">
+        <View className="bg-card rounded-lg overflow-hidden mb-[24rpx]">
           {info.map((item, idx) => (
             <View
               key={item.label}
@@ -81,12 +81,14 @@ export default function ModelRecord() {
               <Text className="text-[length:28rpx] text-muted-foreground flex-shrink-0 w-[160rpx]">
                 {item.label}
               </Text>
-              <Text className="flex-1 text-[length:28rpx] text-foreground break-all">{item.value}</Text>
+              <Text className="flex-1 text-[length:28rpx] text-foreground break-all">
+                {item.value}
+              </Text>
             </View>
           ))}
         </View>
 
-        <View className="bg-card rounded-xl overflow-hidden p-[24rpx] box-border mb-[24rpx]">
+        <View className="bg-card rounded-lg overflow-hidden p-[24rpx] box-border mb-[24rpx]">
           {IMAGE_LIST.map((img, index) =>
             errorSet.has(index) ? null : (
               <Image
@@ -108,7 +110,7 @@ export default function ModelRecord() {
           ) : null}
         </View>
 
-        <View className="bg-card rounded-xl overflow-hidden p-[28rpx] mb-[24rpx]">
+        <View className="bg-card rounded-lg overflow-hidden p-[28rpx] mb-[24rpx]">
           <Text className="block text-[length:28rpx] text-foreground font-medium mb-[16rpx]">
             {tt('about.modelRecord.noticeTitle', '模型信息公示')}
           </Text>

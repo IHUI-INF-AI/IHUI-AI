@@ -49,7 +49,7 @@ export default function BusinessLicense() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-muted px-[24rpx] pt-[24rpx] pb-[48rpx]">
-        <View className="bg-card rounded-xl overflow-hidden p-[24rpx] box-border mb-[24rpx]">
+        <View className="bg-card rounded-lg overflow-hidden p-[24rpx] box-border mb-[24rpx]">
           {!imgError ? (
             <Image
               className="w-full block rounded-sm"
@@ -71,13 +71,15 @@ export default function BusinessLicense() {
           )}
         </View>
 
-        <View className="bg-card rounded-xl overflow-hidden mb-[24rpx]">
+        <View className="bg-card rounded-lg overflow-hidden mb-[24rpx]">
           {info.map((item, idx) => (
             <View
               key={item.label}
               className={`flex justify-between items-center p-[32rpx]${idx === 0 ? '' : ' mt-[16rpx]'}`}
             >
-              <Text className="text-[length:28rpx] text-muted-foreground flex-shrink-0">{item.label}</Text>
+              <Text className="text-[length:28rpx] text-muted-foreground flex-shrink-0">
+                {item.label}
+              </Text>
               <Text className="text-[length:28rpx] text-foreground text-right ml-[24rpx] break-all">
                 {item.value}
               </Text>
@@ -85,7 +87,7 @@ export default function BusinessLicense() {
           ))}
         </View>
 
-        <View className="bg-card rounded-xl overflow-hidden p-[28rpx] mb-[24rpx]">
+        <View className="bg-card rounded-lg overflow-hidden p-[28rpx] mb-[24rpx]">
           <Text className="block text-[length:28rpx] text-foreground font-medium mb-[16rpx]">
             {tt('about.businessLicense.scopeTitle', '经营范围')}
           </Text>

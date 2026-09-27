@@ -159,7 +159,7 @@
   height: 80rpx;
   padding: 0 24rpx;
   background: var(--color-background);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   font-size: 28rpx;
 }
 .send-btn {
@@ -169,7 +169,7 @@
   line-height: 80rpx;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   font-size: 28rpx;
 }
 .send-btn.disabled {
@@ -466,7 +466,7 @@
   padding: 8rpx 16rpx;
   background: var(--color-link-bg);
   color: var(--color-info);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   font-size: 24rpx;
   display: inline-flex;
   align-items: center;
@@ -1013,7 +1013,7 @@
   font-size: 26rpx;
   font-weight: bold;
   color: var(--color-foreground);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   border: 2rpx solid var(--color-border);
   background: var(--color-card);
   box-shadow: 0 1rpx 3rpx var(--color-black-6);
@@ -1299,7 +1299,7 @@
 .ctx-usage-panel {
   margin-top: 8rpx;
   padding: 16rpx;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   background: var(--color-muted);
 }
 .ctx-usage-title {
