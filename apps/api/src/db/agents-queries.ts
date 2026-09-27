@@ -512,8 +512,29 @@ export async function updateExamine(
   return rows[0]
 }
 
-export async function deleteExamine(id: string): Promise<AgentExamine | undefined> {
-  const rows = await db.delete(agentExamines).where(eq(agentExamines.id, id)).returning()
+/**
+ * 删除审核记录的**属主口径**(2026-09-27 补「agents category/examine 删除的属主闸」):
+ * 属主一律取**令牌主体**(agent_examines.user_id 是提交人),管理员分支显式声明且
+ * 结构上不需要 userId —— 禁止调用方把"已登录"当"可以动这条数据"。
+ * 归属条件必须落在**被发出的那条 SQL** 上(不得只在路由 `if` 里判):`if` 判得了"存在",
+ * 判不了"命中",别人持有的行被删了响应还回 deleted:true。
+ */
+export type ExamineDeletePrincipal = { isAdmin: true } | { isAdmin: false; userId: string }
+
+/**
+ * 删除审核记录(提交人删自己的记录;管理员删任意)。
+ * 与同文件 deleteAgent 同一口径:归属过滤写在 where,回报由 DELETE 链自己的
+ * RETURNING 给出 —— 删 0 行(不是本人 / 已被并发删除)返回 undefined。
+ */
+export async function deleteExamine(
+  id: string,
+  principal: ExamineDeletePrincipal,
+): Promise<AgentExamine | undefined> {
+  const where = principal.isAdmin
+    ? eq(agentExamines.id, id)
+    : and(eq(agentExamines.id, id), eq(agentExamines.userId, principal.userId))
+  if (!where) return undefined
+  const rows = await db.delete(agentExamines).where(where).returning()
   return rows[0]
 }
 
