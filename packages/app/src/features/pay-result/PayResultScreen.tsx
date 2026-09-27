@@ -109,31 +109,44 @@ export function PayResultScreen({
       <View style={styles.actions}>
         {status !== 'pending' ? (
           <>
+            {/* 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+                cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,按钮高度/底色/圆角静默消失。
+                actions 是 column(默认 alignItems stretch)⇒ 外层通栏占位、内层同宽撑满并自带 height 44,
+                两颗按钮的宽高与间距逐像素不变。 */}
             <Pressable
-              style={({ pressed }) => [styles.primaryBtn, pressed ? styles.btnPressed : null]}
               onPress={onBackHome}
               accessibilityRole="button"
               accessibilityLabel={t('payResult.backHome')}
             >
-              <Text style={styles.primaryText}>{t('payResult.backHome')}</Text>
+              {({ pressed }) => (
+                <View style={[styles.primaryBtn, pressed ? styles.btnPressed : null]}>
+                  <Text style={styles.primaryText}>{t('payResult.backHome')}</Text>
+                </View>
+              )}
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.secondaryBtn, pressed ? styles.btnPressed : null]}
               onPress={onViewOrders}
               accessibilityRole="button"
               accessibilityLabel={t('payResult.viewOrders')}
             >
-              <Text style={styles.secondaryText}>{t('payResult.viewOrders')}</Text>
+              {({ pressed }) => (
+                <View style={[styles.secondaryBtn, pressed ? styles.btnPressed : null]}>
+                  <Text style={styles.secondaryText}>{t('payResult.viewOrders')}</Text>
+                </View>
+              )}
             </Pressable>
           </>
         ) : (
           <Pressable
-            style={({ pressed }) => [styles.primaryBtn, pressed ? styles.btnPressed : null]}
             onPress={onRefresh}
             accessibilityRole="button"
             accessibilityLabel={t('payResult.refresh')}
           >
-            <Text style={styles.primaryText}>{t('payResult.refresh')}</Text>
+            {({ pressed }) => (
+              <View style={[styles.primaryBtn, pressed ? styles.btnPressed : null]}>
+                <Text style={styles.primaryText}>{t('payResult.refresh')}</Text>
+              </View>
+            )}
           </Pressable>
         )}
       </View>

@@ -91,14 +91,19 @@ export function FeedbackScreen() {
         onPickImages={handlePickImages}
         colorScheme={resolvedTheme}
       />
-      {/* 反馈记录入口(孤儿路由修复:FeedbackHistory 注册无入口,由反馈页补挂) */}
+      {/* 反馈记录入口(孤儿路由修复:FeedbackHistory 注册无入口,由反馈页补挂)
+          守门 131 改型:historyBtn 无边距、内容自定高 ⇒ 外层不设 style(通栏宽/命中盒不变),
+          行盒 + pressed 淡出落内层数组形态。 */}
       <Pressable
-        style={({ pressed }) => [styles.historyBtn, pressed ? styles.historyBtnPressed : null]}
         onPress={() => navigation.navigate('FeedbackHistory')}
         accessibilityRole="button"
         accessibilityLabel="查看反馈记录"
       >
-        <Text style={styles.historyBtnText}>查看反馈记录 ›</Text>
+        {({ pressed }) => (
+          <View style={[styles.historyBtn, pressed ? styles.historyBtnPressed : null]}>
+            <Text style={styles.historyBtnText}>查看反馈记录 ›</Text>
+          </View>
+        )}
       </Pressable>
     </View>
   )

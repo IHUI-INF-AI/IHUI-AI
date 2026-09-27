@@ -8,10 +8,8 @@ import Taro from '@tarojs/taro'
 import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   NAVBAR_ACTION_GLYPH_PX,
-  NAVBAR_ACTION_HEIGHT_PX,
   NAVBAR_ACTION_LABEL_FONT_PX,
   NAVBAR_ACTION_LABEL_MAX_WIDTH_PX,
-  NAVBAR_BACK_BOX_PX,
   NAVBAR_CENTER_MIN_WIDTH_PX,
   NAVBAR_SIDE_PADDING_PX,
   NAVBAR_TITLE_FONT_PX,
@@ -92,7 +90,10 @@ export interface NavBarProps {
 
 /// 平台机制差异(waiver):状态栏占位与行高在小程序端由微信胶囊实测推导
 /// (menuButton.top / menuButton.height + 8),RN 端走 SafeAreaView + navbar-spec 行高档;
-/// 通道各端保留,可共享的几何档(行高 44/56、命中块、字号、间距)已全部收进 navbar-spec。
+/// 通道各端保留,可共享的几何档(字号、内边距、标题上下限、侧按钮盒子)已全部收进 navbar-spec。
+/// 返回命中块 36 **不在本文件取数** —— 它由 `<BackChevron>` 经 `backChevronBoxStyle`(唯一源
+/// `GEOMETRY_PX.tapBox`)自持,本组件只负责把它放进一个行高的 flex 容器里居中;此前本文件用 36 做
+/// `(navBarHeight - 36) / 2` 的算术 = 同一尺寸的第二个名字(守门 128 的 SL 正是这样报出来的)。
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
 
 export default function NavBar({
@@ -131,6 +132,12 @@ export default function NavBar({
       })
     }
   }
+
+  /// 行盒锚点:绝对悬浮的返回键 / 侧按钮都以"状态栏以下的这一行"为容器,由 flex 完成垂直居中。
+  /// 此前这里做的是 `(navBarHeight - 盒子档) / 2` 的算术 —— 那要求本文件知道箭头方块与按钮盒多大,
+  /// 而那两个尺寸的单一源在 backChevronBoxStyle / navbarActionBoxStyle 里(两条腿各自的返回键与
+  /// 侧按钮都经同一份盒子出口取数)。算术删掉后两端渲染的位置不变,尺寸却只剩一处真相。
+  const rowBoxStyle = { top: px(statusBarHeight), height: px(navBarHeight) } as const
 
   if (variant === 'ai-home') {
     // ===== ai-home 模式:对齐原项目 navigation-bars/index.vue(粘性 + 标题居中 + 左菜单 + 右加入按钮)=====
@@ -298,13 +305,9 @@ export default function NavBar({
       }}
     >
       {showBack && (
-        <BackChevron
-          onTap={handleBack}
-          color={textColor}
-          className="absolute left-2"
-          // 垂直居中用共享命中块档(36),不写端内字面量
-          style={{ top: px(statusBarHeight + (navBarHeight - NAVBAR_BACK_BOX_PX) / 2) }}
-        />
+        <View className="absolute left-2 flex items-center" style={rowBoxStyle}>
+          <BackChevron onTap={handleBack} color={textColor} />
+        </View>
       )}
       <Text
         className="font-medium truncate max-w-[60%]"
@@ -313,19 +316,20 @@ export default function NavBar({
         {title}
       </Text>
       {rightText && (
-        <View
-          className={cn('absolute right-3 flex items-center justify-center px-2')}
-          style={{
-            top: px(statusBarHeight + (navBarHeight - NAVBAR_ACTION_HEIGHT_PX) / 2),
-            height: toUnit(NAVBAR_ACTION_HEIGHT_PX),
-          }}
-          onClick={onRightClick}
-          hoverClass="opacity-60"
-        >
-          {/* 侧按钮文字宽度上限与 RN 的 actionLabel 同一档(spec 60);truncate = RN 的 numberOfLines={1} */}
-          <Text className="truncate" style={{ color: textColor, ...ACTION_LABEL_STYLE }}>
-            {rightText}
-          </Text>
+        <View className="absolute right-3 flex items-center" style={rowBoxStyle}>
+          {/* 侧按钮盒子 = navbarActionBoxStyle(最小宽 28 + 定高 32 + 行内居中),与 RN 的 actionBtn
+              同一条出口、同一份尺寸;端内只加自己的水平留白 px-2。 */}
+          <View
+            className="px-2"
+            style={ACTION_BOX_STYLE}
+            onClick={onRightClick}
+            hoverClass="opacity-60"
+          >
+            {/* 侧按钮文字宽度上限与 RN 的 actionLabel 同一档(spec 60);truncate = RN 的 numberOfLines={1} */}
+            <Text className="truncate" style={{ color: textColor, ...ACTION_LABEL_STYLE }}>
+              {rightText}
+            </Text>
+          </View>
         </View>
       )}
       {notification && (

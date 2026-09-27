@@ -22,6 +22,21 @@ from app.services.agent_engine import AgentEngine
 # ---------------------------------------------------------------------------
 
 
+_LOOP: asyncio.AbstractEventLoop | None = None
+
+
+def _run(coro: Any) -> Any:
+    # 全量跑 order-dependent 的根因(与 test_mainwire_wiring_58.py 同一条):同套件内任一
+    # pytest-asyncio 用例 teardown 会 asyncio.set_event_loop(None),此后同步用例再调
+    # 已废弃的 asyncio.get_event_loop() 即抛 "There is no current event loop in thread
+    # 'MainThread'"。自建并**复用同一个**循环:部分用例在同一函数内三次驱动同一
+    # AgentEngine/thread 状态,逐次新建循环(asyncio.run)会把它们拆到不同循环上。
+    global _LOOP
+    if _LOOP is None or _LOOP.is_closed():
+        _LOOP = asyncio.new_event_loop()
+    return _LOOP.run_until_complete(coro)
+
+
 class _FakeResult:
     def __init__(self, iterations: list[dict[str, Any]] | None = None) -> None:
         self.success = True
@@ -122,7 +137,7 @@ def _start(engine: AgentEngine, workspace: str | None = None) -> str:
     params: dict[str, Any] = {"permissionMode": "default"}
     if workspace is not None:
         params["workspace"] = workspace
-    resp = asyncio.get_event_loop().run_until_complete(
+    resp = _run(
         _rpc(engine, "thread.start", params)
     )
     return resp["result"]["threadId"]
@@ -295,7 +310,7 @@ def test_token_usage_off_no_events(monkeypatch):
     engine, loops, emit_cap = _make_engine()
     loops.append(_FakeLoop(_result_with_usage(["gpt-x"])))
     thread_id = _start(engine)
-    asyncio.get_event_loop().run_until_complete(
+    _run(
         _rpc(engine, "thread.prompt", {"threadId": thread_id, "input": "hi"}, emit=emit_cap)
     )
     assert not emit_cap.of("turn_token_usage")
@@ -306,7 +321,7 @@ def test_token_usage_on_six_buckets(monkeypatch):
     monkeypatch.setenv("IHUI_TURN_TOKEN_USAGE_ENABLED", "1")
     engine, loops, emit_cap = _make_engine(_result_with_usage(["gpt-x"]))
     thread_id = _start(engine)
-    asyncio.get_event_loop().run_until_complete(
+    _run(
         _rpc(engine, "thread.prompt", {"threadId": thread_id, "input": "hi"}, emit=emit_cap)
     )
     events = emit_cap.of("turn_token_usage")
@@ -331,7 +346,7 @@ def test_token_usage_on_cross_model_buckets(monkeypatch):
     monkeypatch.setenv("IHUI_TURN_TOKEN_USAGE_ENABLED", "1")
     engine, loops, emit_cap = _make_engine(_result_with_usage(["model-a", "model-b"]))
     thread_id = _start(engine)
-    asyncio.get_event_loop().run_until_complete(
+    _run(
         _rpc(engine, "thread.prompt", {"threadId": thread_id, "input": "hi"}, emit=emit_cap)
     )
     events = emit_cap.of("turn_token_usage")
@@ -352,7 +367,7 @@ def test_token_usage_on_no_usage_fallback_zero_sample(monkeypatch):
     result.total_tokens_used = 7
     engine, loops, emit_cap = _make_engine(result)
     thread_id = _start(engine)
-    asyncio.get_event_loop().run_until_complete(
+    _run(
         _rpc(engine, "thread.prompt", {"threadId": thread_id, "input": "hi"}, emit=emit_cap)
     )
     events = emit_cap.of("turn_token_usage")
@@ -367,7 +382,7 @@ def test_token_usage_invalid_env_is_off(monkeypatch):
     monkeypatch.setenv("IHUI_TURN_TOKEN_USAGE_ENABLED", "maybe")
     engine, loops, emit_cap = _make_engine(_result_with_usage(["m"]))
     thread_id = _start(engine)
-    asyncio.get_event_loop().run_until_complete(
+    _run(
         _rpc(engine, "thread.prompt", {"threadId": thread_id, "input": "hi"}, emit=emit_cap)
     )
     assert not emit_cap.of("turn_token_usage")
@@ -384,7 +399,7 @@ def test_token_usage_emit_failure_isolated(monkeypatch):
         raise RuntimeError("emit boom")
 
     engine._emit_engine_event = _boom  # type: ignore[method-assign]
-    resp = asyncio.get_event_loop().run_until_complete(
+    resp = _run(
         _rpc(engine, "thread.prompt", {"threadId": thread_id, "input": "hi"})
     )
     assert resp["result"]["success"] is True

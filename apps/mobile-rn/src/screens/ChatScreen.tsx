@@ -2467,17 +2467,20 @@ export function ChatScreen() {
             ) : (
               <View style={styles.ttsOptions}>
                 {TTS_VOICE_OPTIONS.map((opt) => (
+                  // 守门 131 改型:marginHorizontal 槽位留外层,可视盒(ttsOptionBtn)+pressed
+                  // 淡出落内层数组形态(ttsOptionBtn 的边距已搬到 slot 档,数值原样)。
                   <Pressable
                     key={opt}
                     onPress={() => handleTtsSelect(opt)}
-                    style={({ pressed }) => [
-                      styles.ttsOptionBtn,
-                      pressed && styles.panelItemPressed,
-                    ]}
+                    style={styles.ttsOptionBtnSlot}
                     accessibilityRole="button"
                     accessibilityLabel={opt}
                   >
-                    <Text style={styles.ttsOptionText}>{opt}</Text>
+                    {({ pressed }) => (
+                      <View style={[styles.ttsOptionBtn, pressed && styles.panelItemPressed]}>
+                        <Text style={styles.ttsOptionText}>{opt}</Text>
+                      </View>
+                    )}
                   </Pressable>
                 ))}
               </View>
@@ -2662,48 +2665,60 @@ export function ChatScreen() {
       {/* 功能面板(对齐 Uniapp function-handle 子组件,底部上滑 6 项 AI 功能) */}
       <BottomPops visible={functionPanelVisible} onClose={closeFunctionPanel} title="功能">
         {functionPanelItems.map((item) => (
+          // 守门 131 改型:panelItem 无边距、有定高 ⇒ 外层不设 style(父列默认拉伸+内容定高,
+          // 命中盒与原 Pressable 全等),可视行盒 + pressed 淡出落内层。
           <Pressable
             key={item.key}
             onPress={item.onPress}
-            style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
             accessibilityRole="button"
             accessibilityLabel={item.label}
           >
-            <item.Icon size={22} color={tokens.text.primary} />
-            <Text style={styles.panelItemText}>{item.label}</Text>
+            {({ pressed }) => (
+              <View style={[styles.panelItem, pressed && styles.panelItemPressed]}>
+                <item.Icon size={22} color={tokens.text.primary} />
+                <Text style={styles.panelItemText}>{item.label}</Text>
+              </View>
+            )}
           </Pressable>
         ))}
         <Pressable
           onPress={closeFunctionPanel}
-          style={({ pressed }) => [styles.panelCancelBtn, pressed && styles.panelItemPressed]}
+          style={styles.panelCancelBtnSlot}
           accessibilityRole="button"
           accessibilityLabel="取消"
         >
-          <Text style={styles.panelCancelText}>取消</Text>
+          {({ pressed }) => (
+            <View style={[styles.panelCancelBtnFace, pressed && styles.panelItemPressed]}>
+              <Text style={styles.panelCancelText}>取消</Text>
+            </View>
+          )}
         </Pressable>
       </BottomPops>
 
       {/* 来源面板(对齐 Uniapp source-handle 子组件,底部上滑 4 项知识来源) */}
       <BottomPops visible={sourcePanelVisible} onClose={closeSourcePanel} title="知识来源">
         {sourcePanelItems.map((item) => (
+          // 守门 131 改型:同功能面板 —— 外层不设 style,可视行盒 + pressed 落内层。
           <Pressable
             key={item.key}
             onPress={item.onPress}
-            style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
             accessibilityRole="button"
             accessibilityLabel={item.label}
           >
-            <item.Icon size={22} color={tokens.text.primary} />
-            <Text style={styles.panelItemText}>{item.label}</Text>
+            {({ pressed }) => (
+              <View style={[styles.panelItem, pressed && styles.panelItemPressed]}>
+                <item.Icon size={22} color={tokens.text.primary} />
+                <Text style={styles.panelItemText}>{item.label}</Text>
+              </View>
+            )}
           </Pressable>
         ))}
-        <Pressable
-          onPress={closeSourcePanel}
-          style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
-          accessibilityRole="button"
-          accessibilityLabel="取消"
-        >
-          <Text style={styles.panelCancelText}>取消</Text>
+        <Pressable onPress={closeSourcePanel} accessibilityRole="button" accessibilityLabel="取消">
+          {({ pressed }) => (
+            <View style={[styles.panelItem, pressed && styles.panelItemPressed]}>
+              <Text style={styles.panelCancelText}>取消</Text>
+            </View>
+          )}
         </Pressable>
       </BottomPops>
 
@@ -3430,6 +3445,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // 守门 131 改型专用:功能面板取消钮拆「外槽位 + 内可视盒」。panelCancelBtn 另有静态消费点
+  // (TTS 弹窗取消钮 [panelCancelBtn, ttsCancelBtn]),原档一字不动;这两档取同值常量。
+  panelCancelBtnSlot: {
+    marginHorizontal: rpx(32),
+    marginTop: rpx(16),
+    height: 48,
+  },
+  panelCancelBtnFace: {
+    width: '100%',
+    height: '100%',
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   panelCancelText: {
     fontSize: 16,
     fontWeight: '500',
@@ -3495,11 +3525,14 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(16),
     gap: rpx(8),
   },
+  // 守门 131 改型:ttsOptionBtn 的 marginHorizontal 搬到外层槽位档,可视盒原样留内层。
+  ttsOptionBtnSlot: {
+    marginHorizontal: rpx(32),
+  },
   ttsOptionBtn: {
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(28),
     backgroundColor: tokens.surface.muted,
-    marginHorizontal: rpx(32),
     borderRadius: rnRadius.lg,
     alignItems: 'center',
   },

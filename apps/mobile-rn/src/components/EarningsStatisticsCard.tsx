@@ -117,20 +117,25 @@ export default function EarningsStatisticsCard({
       <View style={styles.tabSwitcher}>
         {TABS.map((tab, idx) => (
           <View key={tab.key} style={styles.tabItemWrap}>
+            {/* 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
+                interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失(守门 131
+                那一型)。外框拿盒/圆角/选中底色,面层撑满内容盒并只拿 pressed。 */}
             <Pressable
-              style={({ pressed }) => [
-                styles.tabItem,
-                currentTab === tab.key ? styles.tabItemActive : null,
-                pressed ? styles.tabItemPressed : null,
-              ]}
+              style={[styles.tabItem, currentTab === tab.key ? styles.tabItemActive : null]}
               onPress={() => switchTab(tab.key)}
               accessibilityRole="button"
               accessibilityState={{ selected: currentTab === tab.key }}
               accessibilityLabel={tab.label}
             >
-              <Text style={[styles.tabText, currentTab === tab.key ? styles.tabTextActive : null]}>
-                {tab.label}
-              </Text>
+              {({ pressed }) => (
+                <View style={[styles.tabFace, pressed ? styles.tabItemPressed : null]}>
+                  <Text
+                    style={[styles.tabText, currentTab === tab.key ? styles.tabTextActive : null]}
+                  >
+                    {tab.label}
+                  </Text>
+                </View>
+              )}
             </Pressable>
             {idx < TABS.length - 1 ? <View style={styles.tabDivider} /> : null}
           </View>
@@ -238,6 +243,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: rnRadius.lg,
+  } as ViewStyle,
+  // 面层:撑满外框内容盒(外框的 padding/圆角/选中底色逐字未动),只承载按压态。
+  tabFace: {
+    width: '100%',
+    height: '100%',
   } as ViewStyle,
   tabItemActive: {
     backgroundColor: tokens.brand.cta,

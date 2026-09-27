@@ -426,8 +426,25 @@ for (const { file, findings } of fileReports) {
   console.log('')
 }
 console.log(`${C.dim}修复方法:${C.reset}`)
+/**
+ * 档位数字**从 radius.js 现读**,不得写死在这里:本行曾长期写着 `rounded-sm(2px) / rounded(4px)`,
+ * 而 2026-09-23 档位表收口把 sm 改成 4px、裸 rounded 改成 8px —— 门自己的修复提示在教一套已作废的
+ * 数字,照它改就偏一档。头注写对了、提示没跟着改,正是 AGENTS §4 记过的"散文与判据两边一起漏"那一型。
+ */
+let tierHint = 'rounded-xs / sm / md / lg / xl / 2xl(取值见 packages/design-tokens/src/radius.js)'
+try {
+  const { radiusLookup } = await import('./lib/radius-tokens.mjs')
+  const t = radiusLookup(readFileSync(join(ROOT, 'packages/design-tokens/src/radius.js'), 'utf8'))
+  if (t)
+    tierHint = ['xs', 'sm', 'md', 'lg', 'xl', '2xl']
+      .map((s) => `rounded-${s}(${t[s]}px)`)
+      .join(' / ')
+} catch {
+  /* 取不到表就用档名列(不改判据,只改提示;静默降级不得影响退出码) */
+}
+console.log(`  1. 容器改用规范圆角: ${tierHint}`)
 console.log(
-  `  1. 容器改用规范圆角: rounded-sm(2px) / rounded(4px) / rounded-md(6px) / rounded-lg(8px) / rounded-xl(12px) / rounded-2xl(16px)`,
+  `     哪类元素取哪档见 radius.js 的 RADIUS_ROLES(卡片 = lg);胶囊/正圆容器一律不得用 rounded-full 表达`,
 )
 console.log(
   `  2. 确认是否属于豁免(img/Switch Thumb/<=8px 装饰点/红点底/animate-spin),若是请保留 rounded-full`,

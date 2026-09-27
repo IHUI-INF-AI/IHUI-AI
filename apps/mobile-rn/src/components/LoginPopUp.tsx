@@ -231,23 +231,22 @@ export function LoginPopUp({
             <>
               <Text style={styles.title}>{title}</Text>
               <Text style={styles.description}>{description}</Text>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  pressed && styles.primaryButtonPressed,
-                ]}
-                onPress={onPrimary}
-              >
-                <Text style={styles.primaryButtonLabel}>{primaryLabel}</Text>
+              {/* 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
+                  interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失
+                  (守门 131 那一型)。拆成「外框承载声明好的盒/布局 + 面层承载 pressed」。 */}
+              <Pressable style={styles.primaryButton} onPress={onPrimary}>
+                {({ pressed }) => (
+                  <View style={[styles.face, pressed ? styles.primaryButtonPressed : null]}>
+                    <Text style={styles.primaryButtonLabel}>{primaryLabel}</Text>
+                  </View>
+                )}
               </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  pressed && styles.secondaryButtonPressed,
-                ]}
-                onPress={onSecondary}
-              >
-                <Text style={styles.secondaryButtonLabel}>{secondaryLabel}</Text>
+              <Pressable style={styles.secondaryButton} onPress={onSecondary}>
+                {({ pressed }) => (
+                  <View style={[styles.face, pressed ? styles.secondaryButtonPressed : null]}>
+                    <Text style={styles.secondaryButtonLabel}>{secondaryLabel}</Text>
+                  </View>
+                )}
               </Pressable>
               {showAgreementRow ? (
                 <Pressable style={styles.agreementRow} onPress={handleAgreeToggle}>
@@ -373,15 +372,15 @@ function ProfileForm({
     <View>
       {/* 头像 */}
       <View style={styles.avatarWrap}>
-        <Pressable
-          style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}
-          onPress={onChooseAvatar}
-          accessibilityLabel="更换头像"
-        >
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-          ) : (
-            <Text style={styles.avatarPlaceholder}>{nickname ? nickname[0] : '?'}</Text>
+        <Pressable style={styles.avatar} onPress={onChooseAvatar} accessibilityLabel="更换头像">
+          {({ pressed }) => (
+            <View style={[styles.face, pressed ? styles.avatarPressed : null]}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarPlaceholder}>{nickname ? nickname[0] : '?'}</Text>
+              )}
+            </View>
           )}
         </Pressable>
         <Text style={styles.changeAvatar}>更换头像</Text>
@@ -415,11 +414,15 @@ function ProfileForm({
         <Text style={[styles.roleText, { color: roleColor }]}>{roleLabel(role)}</Text>
         {showUpgrade ? (
           <Pressable
-            style={({ pressed }) => [styles.upgradeButton, pressed && styles.upgradeButtonPressed]}
+            style={styles.upgradeButton}
             onPress={role === 'normal' ? onUpgrade : onUpgradeTrader}
             accessibilityLabel="立即升级"
           >
-            <Text style={styles.upgradeLabel}>立即升级</Text>
+            {({ pressed }) => (
+              <View style={[styles.face, pressed ? styles.upgradeButtonPressed : null]}>
+                <Text style={styles.upgradeLabel}>立即升级</Text>
+              </View>
+            )}
           </Pressable>
         ) : null}
       </View>
@@ -441,15 +444,19 @@ function ProfileForm({
         />
         {onBindPhone ? (
           <Pressable
-            style={({ pressed }) => [styles.bindButton, pressed && styles.bindButtonPressed]}
+            style={styles.bindButton}
             onPress={() => void handleBindPhone()}
             disabled={bindPhoneLoading}
             accessibilityLabel="绑定手机号"
           >
-            {bindPhoneLoading ? (
-              <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
-            ) : (
-              <Text style={styles.bindLabel}>{phone ? '重绑' : '绑定'}</Text>
+            {({ pressed }) => (
+              <View style={[styles.face, pressed ? styles.bindButtonPressed : null]}>
+                {bindPhoneLoading ? (
+                  <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+                ) : (
+                  <Text style={styles.bindLabel}>{phone ? '重绑' : '绑定'}</Text>
+                )}
+              </View>
             )}
           </Pressable>
         ) : null}
@@ -459,25 +466,25 @@ function ProfileForm({
       {/* 保存 / 登出 */}
       <View style={styles.footer}>
         {onSave ? (
-          <Pressable
-            style={({ pressed }) => [styles.footerButton, pressed && styles.footerButtonPressed]}
-            onPress={handleSave}
-            accessibilityLabel="保存信息"
-          >
-            <Text style={styles.footerLabel}>保存信息</Text>
+          <Pressable style={styles.footerButton} onPress={handleSave} accessibilityLabel="保存信息">
+            {({ pressed }) => (
+              <View style={[styles.face, pressed ? styles.footerButtonPressed : null]}>
+                <Text style={styles.footerLabel}>保存信息</Text>
+              </View>
+            )}
           </Pressable>
         ) : null}
         {onLogout ? (
           <Pressable
-            style={({ pressed }) => [
-              styles.footerButton,
-              styles.footerButtonLogout,
-              pressed && styles.footerButtonPressed,
-            ]}
+            style={[styles.footerButton, styles.footerButtonLogout]}
             onPress={onLogout}
             accessibilityLabel="登出"
           >
-            <Text style={[styles.footerLabel, styles.footerLabelLogout]}>登出</Text>
+            {({ pressed }) => (
+              <View style={[styles.face, pressed ? styles.footerButtonPressed : null]}>
+                <Text style={[styles.footerLabel, styles.footerLabelLogout]}>登出</Text>
+              </View>
+            )}
           </Pressable>
         ) : null}
       </View>
@@ -541,6 +548,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: LOGIN_POPUP_DESC_MARGIN_BOTTOM_PX,
   },
+  /**
+   * 面层:撑满外框的内容盒,承载 pressed 反馈与子元素排布。
+   * 外框(`primaryButton`/`secondaryButton`/`avatar`/`upgradeButton`/`bindButton`/`footerButton`)
+   * 的声明逐字未动,只是把「按压态」与「居中」挪到这一层 —— Pressable 上的函数形态 style 会被
+   * cssInterop 整份丢掉(守门 131),两层都只能用对象/数组形态。
+   */
+  face: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
   primaryButton: {
     height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
     borderRadius: rnRadius.lg,

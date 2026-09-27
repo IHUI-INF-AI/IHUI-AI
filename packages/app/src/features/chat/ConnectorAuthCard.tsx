@@ -117,13 +117,20 @@ export function ConnectorAuthCard({
       {onAction && needsDecision ? (
         <View style={styles.actionRow}>
           {state === 'disconnected' ? (
+            // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+            // cssInterop,函数形态声明会被 `{ ...declaration }` 清成 `{}`,整份内联样式静默消失。
+            // 样式落内层 View 的数组形态,pressed 由 children 渲染函数供;外层无布局档(该行
+            // alignItems 居中 + 主轴线 hug),故盒子尺寸与改前逐像素相同。
             <Pressable
               accessibilityRole="button"
               testID={`${testID}-action-connect`}
               onPress={() => onAction('connect')}
-              style={({ pressed }) => [styles.chip, pressed ? styles.chipPressed : null]}
             >
-              <Text style={styles.chipText}>{t('chat.connectorAuth.connect')}</Text>
+              {({ pressed }) => (
+                <View style={[styles.chip, pressed ? styles.chipPressed : null]}>
+                  <Text style={styles.chipText}>{t('chat.connectorAuth.connect')}</Text>
+                </View>
+              )}
             </Pressable>
           ) : null}
           {state === 'reconnect' ? (
@@ -131,11 +138,14 @@ export function ConnectorAuthCard({
               accessibilityRole="button"
               testID={`${testID}-action-reconnect`}
               onPress={() => onAction('reconnect')}
-              style={({ pressed }) => [styles.chip, pressed ? styles.chipPressed : null]}
             >
-              <Text style={styles.chipText}>
-                {t('chat.connectorAuth.reconnect', { connectorName })}
-              </Text>
+              {({ pressed }) => (
+                <View style={[styles.chip, pressed ? styles.chipPressed : null]}>
+                  <Text style={styles.chipText}>
+                    {t('chat.connectorAuth.reconnect', { connectorName })}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           ) : null}
           {/* 负向出口:三态恒在,拒绝只影响该连接器动作,不阻断本轮对话 */}
@@ -143,9 +153,12 @@ export function ConnectorAuthCard({
             accessibilityRole="button"
             testID={`${testID}-action-decline`}
             onPress={() => onAction('decline')}
-            style={({ pressed }) => [styles.flatChip, pressed ? styles.flatChipPressed : null]}
           >
-            <Text style={styles.declineText}>{t('chat.connectorAuth.decline')}</Text>
+            {({ pressed }) => (
+              <View style={[styles.flatChip, pressed ? styles.flatChipPressed : null]}>
+                <Text style={styles.declineText}>{t('chat.connectorAuth.decline')}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       ) : null}
@@ -156,9 +169,15 @@ export function ConnectorAuthCard({
           accessibilityRole="button"
           testID={`${testID}-action-moreInfo`}
           onPress={() => onAction('moreInfo')}
-          style={({ pressed }) => [styles.moreInfo, pressed ? styles.flatChipPressed : null]}
+          // alignSelf 是外层在父容器(column,默认 stretch)里占槽位的**布局档**,必须留在
+          // 真正承担布局的那一层;留它是为了命中区仍与文字同宽(移到内层会让整行可点)。
+          style={styles.moreInfoBox}
         >
-          <Text style={styles.moreInfoText}>{t('chat.connectorAuth.moreInfo')}</Text>
+          {({ pressed }) => (
+            <View style={[styles.moreInfo, pressed ? styles.flatChipPressed : null]}>
+              <Text style={styles.moreInfoText}>{t('chat.connectorAuth.moreInfo')}</Text>
+            </View>
+          )}
         </Pressable>
       ) : null}
     </View>
@@ -237,8 +256,10 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
       fontSize: 11,
       color: tk.text.tertiary,
     },
-    moreInfo: {
+    moreInfoBox: {
       alignSelf: 'flex-start',
+    },
+    moreInfo: {
       borderRadius: rnRadius.sm,
       paddingHorizontal: 6,
       paddingVertical: 2,
