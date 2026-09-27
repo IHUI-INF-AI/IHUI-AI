@@ -1772,18 +1772,28 @@ function reportBaselineFreshness() {
   const args = ['--json', '--no-fetch']
   if (!full) args.push('--skip-drift-analysis')
   let parsed = null
+  let why = null
   try {
     const out = execFileSync(process.execPath, [script, ...args], {
       cwd: WORKTREE,
       encoding: 'utf8',
       windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
       timeout: 240000, // 守门 80:热路径派生一律带上限
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
-    parsed = JSON.parse(String(out || ''))
-  } catch {
+    try {
+      parsed = JSON.parse(String(out || ''))
+    } catch (e) {
+      why = `输出不是 JSON(${String(e?.message ?? e).replace(/\s+/g, ' ').slice(0, 120)})`
+    }
+  } catch (e) {
+    const errText = String(e?.stderr ?? e?.message ?? '').replace(/\s+/g, ' ').slice(0, 240)
+    why = `探针派生失败 rc=${e?.status ?? e?.code ?? '?'} stderr=${errText || '(空)'}`
+  }
+  if (!parsed) {
     // 判据自己跑不动 ≠ 基线过期;也 ≠ 可以静默。留一行,免得"账没了"和"账绿了"长得一样。
-    log('⚠️ 基线新鲜度账不可用:未判定,不影响自愈与退出码')
+    // 原因必须上账:stderr 曾被 stdio 第三项 'ignore' 整条丢掉,这条"未判定"连续两天无人能答为什么。
+    log(`⚠️ 基线新鲜度账不可用:未判定 —— ${why ?? '原因未取到'},不影响自愈与退出码`)
     return
   }
   if (full) {
