@@ -40,7 +40,11 @@ from typing import Any
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from ..core.executor_switch import guard_loop_v2_pilot
+from ..core.executor_switch import (
+    LoopV2ConvergencePilotError,
+    guard_loop_v2_pilot,
+    take_loop_v2_handoff,
+)
 from ..services.llm_budget_governor import llm_budget_governor
 from ..services.orchestration_hub import orchestration_hub
 from ..services.telemetry_service import telemetry_service
@@ -257,10 +261,29 @@ async def emit_event(body: EmitEventBody) -> dict[str, Any]:
     orchestration_attempts 不会增加,这也正是本端点把它留成未知的原因。
     """
     try:
-        # D6① 收敛开关接线点(默认 legacy 直接返回,行为与改前等价;loop_v2 档
-        # 在触达 hub.emit 之前 fail-fast,错误经本 handler 既有 except 转为
-        # {code:500} 信封且消息含 AGENT_LOOP_V2_PILOT_NOT_WIRED)
+        # D6①/G1 收敛开关接线点(2026-09-27 由"裸守卫"改为消费 handoff 的形态)。
+        # 本站**没有 agent 可投影**:emit 的语义是"把事件交给中枢"(入队 + 由消费
+        # 循环/同步编排决定联动),它本身不是一次 agent 执行。所以:
+        #   legacy 档(缺省)⇒ 上面一句返回 None、guard 空操作 ⇒ 行为与改前逐字等价;
+        #   loop_v2 档 ⇒ take_loop_v2_handoff 走它既有的"缺投影入参"分支显式抛错,
+        #     经本 handler 既有 except 转成 {code:500} 信封且消息含
+        #     AGENT_LOOP_V2_PILOT_NOT_WIRED —— 与改前同形(改前是"未登记"那一档,
+        #     marker/surface/code 一字未变,只有 reason 文案更准)。
+        # 下面那个 `handoff is not None` 分支在**当前装配下不可达**(没传投影入参)。
+        # 它存在只为一件事:若日后有人给本站补了投影却没顺手处理返回形状,必须**大声
+        # 失败**,而不是把已经跑完的 v2 结果静默丢掉、再让旧路径 emit 一遍 ——
+        # 那既是双重执行,又是"把没做成写成做过了"。真正的 v2 语义(emit 要不要返回
+        # 一次 agent 结论、event_id/outcome 从哪来)属对外契约变更,需持有人裁决。
+        handoff = await take_loop_v2_handoff("routers/orchestration.emit_event")
+        if handoff is not None:  # pragma: no cover - 见上一条注释
+            raise LoopV2ConvergencePilotError(
+                "routers/orchestration.emit_event",
+                handoff.decided_mode,
+                "本站拿到了收敛结果,但 emit 的响应形状(event_id/outcome/degraded/"
+                "non_ok_pillars)没有一项能由一次 agent 执行诚实产出 —— 拒绝静默丢弃",
+            )
         guard_loop_v2_pilot("routers/orchestration.emit_event")
+
         # get_status() 只做内存算术(读三个 deque/dict 的长度与副本),不发网络
         # 请求也不碰 Redis,故可安全地在 emit 前后各取一次快照做结论对账。
         status_before = await orchestration_hub.get_status()

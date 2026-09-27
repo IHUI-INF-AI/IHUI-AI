@@ -660,7 +660,7 @@ if (process.env.HUSKY_SKIP_AGENT_ENGINE_PARITY !== '1') {
   if (
     !run(
       '🔌 Agent Engine 协议 parity 守门(引擎 handler 表 ↔ TS ↔ Python)...',
-      'node scripts/check-agent-engine-parity.mjs --quiet',
+      'node scripts/check-agent-engine-parity.mjs --quiet --staged',
     )
   ) {
     console.error('❌ Agent Engine 协议 parity 守门失败,提交已阻止')
