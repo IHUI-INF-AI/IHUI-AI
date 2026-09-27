@@ -24542,15 +24542,12 @@
   "courseFilter": {
     "title": "コースを絞り込み",
     "subtitle": "条件に応じてコースを絞り込み",
-    "category": "カテゴリ",
-    "level": "難易度",
     "priceRange": "価格帯",
     "reset": "リセット",
     "apply": "適用",
     "retry": "再試行",
     "empty": "コースはありません",
     "instructor": "講師",
-    "level_label": "難易度",
     "free": "無料"
   },
   "courseQAList": {

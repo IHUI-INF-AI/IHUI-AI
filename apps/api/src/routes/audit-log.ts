@@ -84,6 +84,22 @@ const auditLogStatsSchema = z.object({
 // 路由
 // =============================================================================
 
+// =============================================================================
+// 口径(G-257):querystring/body 的 JSON Schema **只声明类型**,真实校验一律由上方
+// Zod 做。立因:一旦在 schema 里声明 `format:'uuid'` / `minimum` / `maximum` / `enum`
+// 这类校验型约束,非法参数会被 ajv **先**拒(FST_ERR_VALIDATION,statusCode 400),
+// 而 Fastify 默认错误体的 `code` 是**字符串**;本族路由声明的 400 响应体走
+// `utils/api-schemas.ts` 的 `errorResponseSchema`(`code: number`)⇒ 序列化抛错,
+// 客户端错误被掩盖成 **500**(回归锁:tests/admin-audit-log-validation.test.ts;
+// 参照实现:routes/audit-evidence-export.ts)。
+// querystring 数字参数刻意声明 `type:'string'`:传输线形态本就是字符串,ajv 的
+// integer 强转同属校验行为(`page=abc` 也走 FST_ERR_VALIDATION ⇒ 同一型 500),
+// 真正的数值校验在 Zod(`z.coerce.number()`)。
+// 落点(G-257):本族已无 format:'uuid'/minimum/maximum/enum 声明 —— 任何把它们写回
+// 这些 schema 的改动都会让 400 重新被掩盖成 500,回归判据在
+// apps/api/tests/admin-audit-log-validation.test.ts(不装 setErrorHandler,生产形态)。
+// =============================================================================
+
 export const auditLogRoutes: FastifyPluginAsync = async (server) => {
   // 统一 admin 鉴权:authenticate + roleId 检查,一次注册应用于全部 audit-log 路由
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -110,9 +126,15 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1 },
-            pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
-            userId: { type: 'string', format: 'uuid', description: '按用户 ID 筛选' },
+            page: { type: 'string', description: '页码(整数,默认 1;服务端 Zod 校验)' },
+            pageSize: {
+              type: 'string',
+              description: '每页条数(1-100,默认 20;服务端 Zod 校验)',
+            },
+            userId: {
+              type: 'string',
+              description: '按用户 ID 筛选(UUID,服务端 Zod 校验;仅作查询维度)',
+            },
             action: { type: 'string', description: '按动作筛选(auth.login/data.read 等)' },
             resourceType: { type: 'string', description: '按资源类型筛选' },
             startDate: { type: 'string', description: '开始时间(ISO)' },
@@ -147,13 +169,16 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            userId: { type: 'string', format: 'uuid' },
+            userId: { type: 'string', description: 'UUID(服务端 Zod 校验)' },
             action: { type: 'string' },
             resourceType: { type: 'string' },
             startDate: { type: 'string' },
             endDate: { type: 'string' },
-            format: { type: 'string', enum: ['json', 'cef', 'leef'], default: 'json' },
-            limit: { type: 'integer', minimum: 1, maximum: 50000, default: 10000 },
+            format: {
+              type: 'string',
+              description: '导出格式:json(默认)/ cef / leef(服务端 Zod 校验)',
+            },
+            limit: { type: 'string', description: '导出行数上限(1-50000,默认 10000;Zod 校验)' },
           },
         },
       },
@@ -223,10 +248,13 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
         body: {
           type: 'object',
           properties: {
-            userId: { type: 'string', format: 'uuid', description: '验证指定用户的链(可选)' },
+            userId: {
+              type: 'string',
+              description: '验证指定用户的链(可选;UUID,服务端 Zod 校验)',
+            },
             startDate: { type: 'string', description: '验证时间范围起始(可选)' },
             endDate: { type: 'string', description: '验证时间范围结束(可选)' },
-            limit: { type: 'integer', minimum: 1, maximum: 50000, default: 10000 },
+            limit: { type: 'integer', description: '验证行数上限(1-50000,默认 10000;Zod 校验)' },
           },
         },
         response: buildResponseSchema(400, 401, 403),
@@ -258,7 +286,7 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            userId: { type: 'string', format: 'uuid' },
+            userId: { type: 'string', description: 'UUID(服务端 Zod 校验)' },
             action: { type: 'string' },
             resourceType: { type: 'string' },
             startDate: { type: 'string' },
