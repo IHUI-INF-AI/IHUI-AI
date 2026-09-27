@@ -137,6 +137,7 @@ export default function LoginPopUp({
           className="flex flex-col items-center"
           style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}
         >
+          {/* radius-exempt: 圆形头像盒:chooseAvatar 按钮承载头像,直径=边长 */}
           <Button
             openType="chooseAvatar"
             onChooseAvatar={(e: { detail: { avatarUrl?: string } }) => {
@@ -168,6 +169,7 @@ export default function LoginPopUp({
               height: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
             }}
           >
+            {/* radius-exempt: 头像图片本身,几何正圆(§4 头像豁免) */}
             <Image
               src={avatar || defaultAvatar}
               mode="aspectFill"
