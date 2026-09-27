@@ -30,7 +30,7 @@ export default function LearningStreak({
   const { t } = useI18n()
   const tt = useTt()
   return (
-    <View className="bg-card rounded-xl px-4 py-4">
+    <View className="bg-card rounded-lg px-4 py-4">
       <View className="flex items-center justify-between mb-3">
         <View className="flex items-center">
           <Text className="text-base font-semibold text-foreground">

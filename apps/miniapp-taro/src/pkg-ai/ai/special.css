@@ -90,7 +90,7 @@
   padding: 24rpx 16rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   vertical-align: top;
 }
 .special-featured-icon {
@@ -167,7 +167,7 @@
   padding: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
 }
 .special-card-icon {
   width: 96rpx;

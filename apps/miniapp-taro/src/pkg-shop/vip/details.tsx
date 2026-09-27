@@ -136,7 +136,7 @@ export default function VipDetailsPage() {
           {BENEFIT_DETAILS.map((b) => (
             <View
               key={b.title}
-              className="flex items-start bg-card border-[length:2rpx] border-border rounded-xl p-[28rpx]"
+              className="flex items-start bg-card border-[length:2rpx] border-border rounded-lg p-[28rpx]"
             >
               <View className="w-[64rpx] h-[64rpx] rounded-lg bg-[var(--color-gold-muted)] flex items-center justify-center mr-[24rpx] shrink-0">
                 <LineIcon name={b.icon as IconName} size={36} color="var(--color-warning)" />

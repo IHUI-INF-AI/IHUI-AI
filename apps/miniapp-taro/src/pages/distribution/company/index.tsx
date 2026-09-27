@@ -182,7 +182,7 @@ export default function CompanyPage() {
       </View>
 
       {/* 菜单卡 — 小程序特有导航入口(无 RN 对应),按 RN 卡片语言:白卡 + 描边 + 24rpx 圆角 */}
-      <View className="mx-[20rpx] mt-[24rpx] rounded-xl border border-border bg-card p-[28rpx]">
+      <View className="mx-[20rpx] mt-[24rpx] rounded-lg border border-border bg-card p-[28rpx]">
         <View className="flex flex-row gap-[16rpx]">
           <View
             className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-xl bg-[var(--color-muted)]"
