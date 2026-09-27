@@ -10,6 +10,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { type NavigatorScreenParams } from '@react-navigation/native'
 import { tokens } from '../theme/active-tokens'
 import { useAuth } from '../context/AuthContext'
+import { setUnauthorizedHandler } from '@ihui/api-client'
+import { logoutAuth } from '../stores/auth-store'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { useUiControlBridge } from '../hooks/use-ui-control-bridge'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
@@ -544,6 +546,28 @@ function RootNavigatorInner() {
     visible: panelVisible,
     setVisible,
   } = useNotificationStore()
+
+  /**
+   * 会话彻底失效的出口(2026-09-27 真机定案,VC49/50/51 三轮装机量出来的)。
+   *
+   * 注册点必须在这里而不是 `lib/token.ts` 的 initApi,两条理由都写在 token.ts 顶部注释里
+   * (`Login` 屏只在未登录分支注册 ⇒ 带 token 时 navigate 是空操作;auth-store 反向 import
+   * token.ts ⇒ 反过来 import 就是模块环)。所以出路不是"跳一页",而是**结束这段本地会话**,
+   * 让下面那个 `token ? 已登录分支 : 未登录分支` 自己翻到挂着 Login 的那一侧。
+   *
+   * `!token` 时静默返回是幂等而非吞失败:未登录分支本来就挂着,用户已经在登录页上。
+   * 除此之外每条出口都必须出声 —— 与 §5e"失败必须响"同一条禁令。
+   */
+  useEffect(() => {
+    setUnauthorizedHandler((ctx) => {
+      if (!token) return
+      console.warn(`[rn-auth] 会话失效 → 结束本地会话并回到登录页(来源 ${ctx.method} ${ctx.url})`)
+      void logoutAuth().catch((err) => {
+        console.error('[rn-auth] 结束本地会话失败,用户仍停在原页(不会静默重试):', err)
+      })
+    })
+    return () => setUnauthorizedHandler(null)
+  }, [token])
 
   useEffect(() => {
     setConnected(ws.connected)
