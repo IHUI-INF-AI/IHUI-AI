@@ -15,6 +15,7 @@
     "toolKnowledgeLookupActivity": "{state, select, running {지식 베이스 조회 중} completed {지식 베이스를 조회했습니다} other {지식 베이스 조회}}",
     "toolFetchUrlActivity": "{state, select, running {웹 페이지 가져오기 중} completed {웹 페이지를 가져왔습니다} other {웹 페이지 가져오기}}",
     "toolGenerateChartActivity": "{state, select, running {차트 생성 중} completed {차트를 생성했습니다} other {차트 생성}}",
+    "toolGenerateReportActivity": "{state, select, running {보고서 생성 중} completed {보고서를 생성했습니다} other {보고서 생성}}",
     "toolBrowserNavigateActivity": "{state, select, running {웹 페이지 열기 중} completed {웹 페이지를 열었습니다} other {웹 페이지 열기}}",
     "toolBrowserClickElementActivity": "{state, select, running {페이지 요소 클릭 중} completed {페이지 요소를 클릭했습니다} other {페이지 요소 클릭}}",
     "toolBrowserTypeTextActivity": "{state, select, running {페이지 입력 중} completed {페이지에 입력했습니다} other {페이지에 입력}}",

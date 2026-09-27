@@ -27,6 +27,7 @@ from app.services.agent_graph import AgentState, get_agent_graph
 
 # 真实云端 Agent 容器运行时(对标 Cursor Cloud Agents / Codex CI sandbox,2026-09-05 立)
 from app.services.container_runtime import container_runtime
+from app.services.session_store import owner_scoped_allows
 from app.services.memory import unified_memory_client
 
 from ..core.jwt_auth import get_current_user_id
@@ -484,8 +485,25 @@ async def list_container_runs(
     user_id: str = Depends(get_current_user_id),
     limit: int = 50,
 ) -> dict[str, Any]:
-    """列出本进程内容器运行记录快照(新→旧)。"""
-    return {"code": 0, "message": "ok", "data": container_runtime.list_runs(limit=limit)}
+    """列出**本人**内容器运行记录快照(新→旧)。
+
+    批 63 / G-258 A 组:`start_run` 那侧一直在把令牌主体写进 `run.user_id`,而列举与
+    查询两向完全不看它 ⇒ 任何已登录用户能读到全站运行的 prompt、文件清单与输出。
+    过滤放在服务侧一处(`container_runtime.list_runs`),不在响应侧筛。
+    """
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": container_runtime.list_runs(limit=limit, owner_user_id=user_id),
+    }
+
+
+def _run_or_404(run_id: str, user_id: str) -> dict[str, Any]:
+    """按 id 取运行快照,非属主与"没这条运行"**同码同形**(不给存在性探针留缝)。"""
+    snap = container_runtime.snapshot(run_id)
+    if snap is None or not owner_scoped_allows(user_id, snap.get("user_id")):
+        raise HTTPException(status_code=404, detail=f"运行记录不存在: {run_id}")
+    return snap
 
 
 @router.get("/runs/{run_id}")
@@ -493,11 +511,8 @@ async def get_container_run(
     run_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """查询单次容器运行状态/输出快照。"""
-    snap = container_runtime.snapshot(run_id)
-    if snap is None:
-        raise HTTPException(status_code=404, detail=f"运行记录不存在: {run_id}")
-    return {"code": 0, "message": "ok", "data": snap}
+    """查询单次容器运行状态/输出快照(只准属主读)。"""
+    return {"code": 0, "message": "ok", "data": _run_or_404(run_id, user_id)}
 
 
 @router.get("/runs/{run_id}/stream")
@@ -505,7 +520,11 @@ async def stream_container_run(
     run_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> StreamingResponse:
-    """SSE 流式输出运行 stdout/stderr/exit 事件(连接后可回放缓冲事件)。"""
+    """SSE 流式输出运行 stdout/stderr/exit 事件(连接后可回放缓冲事件)。
+
+    归属判定**在取事件队列之前**:先拿到 queue 再拒,等于已经建立了别人的事件订阅。
+    """
+    _run_or_404(run_id, user_id)
     queue = container_runtime.events_queue(run_id)
     if queue is None:
         raise HTTPException(status_code=404, detail=f"运行记录不存在: {run_id}")
@@ -530,7 +549,12 @@ async def cancel_container_run(
     run_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """终止运行:强杀子进程,状态置 cancelled;幂等。"""
+    """终止运行:强杀子进程,状态置 cancelled;幂等。
+
+    批 63 前这里只在**成功之后**把 user_id 打进日志 ⇒ 任何已登录用户都能杀掉别人的
+    进程(跨用户 DoS)。归属判定必须在 `cancel()` 之前。
+    """
+    _run_or_404(run_id, user_id)
     snap = container_runtime.cancel(run_id)
     if snap is None:
         raise HTTPException(status_code=404, detail=f"运行记录不存在: {run_id}")
