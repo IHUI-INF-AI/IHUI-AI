@@ -95,13 +95,15 @@ function rewritePointer(line, key) {
 }
 
 /**
- * F4 副本行的改写:**不动勾选状态**(两件事都还没做完),只在行尾追加一句出处说明。
+ * F4 / F4b 副本行的改写:**不动勾选状态**(两件事都还没做完),只在行尾追加一句出处说明。
  * 说明里的固定字面必须能被 `DUP_POINTER_RE` 认得 ⇒ 派单口径当场不再把它算一条活;
  * 且重复跑归并不会再加第二句(幂等)。**删行是禁的**:§1「禁止无声删除」+ 门 71 防丢面。
+ * 措辞按有没有主键分两档:F4b 的孪生行**本来就没有编号**,写"同主键"就是一句核验不了的假话。
  */
-function rewriteDup(line, survivorLine, today) {
+function rewriteDup(line, survivorLine, today, hasKey = true) {
   if (DUP_POINTER_RE.test(line)) return line
-  return `${line} 〔【归并】重复登记副本(${today}):同主键的另一条登记在 L${survivorLine},派单以那条为准,本行不再单独派单。〕`
+  const ref = hasKey ? `同主键的另一条登记在 L${survivorLine}` : `逐字相同的另一条登记在 L${survivorLine}(本行无编号主键)`
+  return `${line} 〔【归并】重复登记副本(${today}):${ref},派单以那条为准,本行不再单独派单。〕`
 }
 
 /**
@@ -123,7 +125,12 @@ export function buildMerge(content, today) {
   for (const p of a.rotated) note(p.line, 'F3', compositeKeyOf(lines[p.line - 1] ?? '') ?? '')
   // F4:同主键的多条未勾选 —— 幸存者由索引层判定,其余各加一句副本指针(不动勾选、不删行)
   for (const c of a.dupCopies) note(c.row.line, 'F4', c.key)
-  const survivorOf = new Map(a.dupCopies.map((c) => [c.row.line, c.survivor.line]))
+  // F4b:逐字相同但**没有编号**的孪生行 —— 同一条出口(只加指针、不动勾选、不删行),
+  // 措辞按有无主键分档,因为对没有主键的行说"同主键"是一句无法核验的假话。
+  for (const c of a.verbatimDups.copies) note(c.row.line, 'F4', c.key)
+  const survivorOf = new Map(
+    [...a.dupCopies, ...a.verbatimDups.copies].map((c) => [c.row.line, c.survivor.line]),
+  )
   const changed = []
   const refused = []
   for (const [ln, v] of [...plan.entries()].sort((x, y) => x[0] - y[0])) {
@@ -141,7 +148,7 @@ export function buildMerge(content, today) {
     if (v.kinds.includes('F3')) after = rewritePointer(after, v.key)
     if ((v.kinds.includes('F1') || v.kinds.includes('F2')) && /^- \[ \]/.test(after)) after = rewriteFork(after, v.key, today)
     // F4 放最后:一行只可能被标一次;F4 与 F1 结构上互斥(dupCopies 只收"全未勾选"的组)
-    if (v.kinds.includes('F4') && /^- \[ \]/.test(after)) after = rewriteDup(after, survivorOf.get(ln), today)
+    if (v.kinds.includes('F4') && /^- \[ \]/.test(after)) after = rewriteDup(after, survivorOf.get(ln), today, !!v.key)
     if (after === before) {
       refused.push(`L${ln} 无可施加的改写(${v.kinds.join('+')})`)
       continue
@@ -260,8 +267,10 @@ export function healAndLand() {
     return 2
   }
   const b0 = auditPlan(src).counts
-  // F4 与 F1/F2/F3 平级:副本行也是"状态与正文不符"的一种,早退判据漏看它 = 修复出口永不触发
-  if (!b0.forks && !b0.voidRows && !b0.rotatedPointers && !b0.dupOpenCopies) {
+  // F4 / F4b 与 F1/F2/F3 平级:副本行也是"状态与正文不符"的一种,早退判据漏看它 = 修复出口永不触发。
+  // (2026-09-27 实测这一格:F4b 判据与归并出口都写好了,而早退只看 F4 ⇒ 报告"拟改写 15 行"、
+  //  落地档回一句"无状态分叉"就什么都不做 —— 判据有牙而无人调度,正是本仓最高频的失效型。)
+  if (!b0.forks && !b0.voidRows && !b0.rotatedPointers && !b0.dupOpenCopies && !b0.verbatimDupCopies) {
     console.log('✅ 自愈:HEAD 无状态分叉,不动任何东西')
     return 0
   }
@@ -310,7 +319,16 @@ export function healAndLand() {
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400)
     }
     gitIn(null, ['update-index', '--add', '--cacheinfo', `100644,${blob},${PLAN_REL}`])
-    console.log(`✅ 自愈落地 ${commit.slice(0, 11)}:归并 ${r.changed.length} 行 → F1/F2/F3/F4 = 0/0/0/0`)
+    // 结论文句里的数字必须**回读落地的那枚提交**再说,不得写死 "0/0/0/0":
+    // 那是一句"我修好了"的承诺,而承诺的兑现与否结构上不在这个调用面上(本仓最贵的失效型)。
+    const after = auditPlan(gitIn(null, ['show', `${commit}:${PLAN_REL}`], { encoding: 'utf8' })).counts
+    console.log(
+      `✅ 自愈落地 ${commit.slice(0, 11)}:归并 ${r.changed.length} 行 → 落地面现读 F1 ${after.forks} / F2 ${after.voidRows} / F3 ${after.rotatedPointers} / F4 ${after.dupOpenCopies} / F4b ${after.verbatimDupCopies}(副本指针行合计 ${after.dupPointerRows})`,
+    )
+    if (after.forks + after.voidRows + after.rotatedPointers + after.dupOpenCopies + after.verbatimDupCopies > 0) {
+      console.log('   ⚠️ 落地面仍有未归并项 —— 上面就是现读数字,不得当"已清零"引用。')
+      return 1
+    }
     return 0
   } finally {
     rmScratch(scratch)

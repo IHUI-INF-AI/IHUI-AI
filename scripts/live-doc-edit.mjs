@@ -16,8 +16,14 @@
  *
  * CLI 契约(env 驱动):
  *  LIVE_DOC          必填,仓库相对路径(须在 HEAD 里存在)
- *  LIVE_BLOCK_FILE   必填,正文块内容文件的绝对路径
+ *  LIVE_BLOCK_FILE   插入模式必填,正文块内容文件的绝对路径
  *  LIVE_ANCHOR_FILE  可选,锚点行(可多行)所在文件的绝对路径;缺省 = EOF 追加(对齐 append-eof 的行为)
+ *  LIVE_REPLACE_FILE 改写模式(与上面三者互斥):JSON 数组 `[{before, after}]`,每项是一条**整行**
+ *                    逐字替换。为什么需要这一档:台账结清的动作是"把某一行从 `- [ ]` 改成
+ *                    `- [x] ✅(日期) …`并补证据",插入模式做不到,而按 pathspec 交工作树等于
+ *                    把别人已入库的行整批写回旧态(§12 一夜三次自伤)。判据与插入档同源:
+ *                    `before` 在 HEAD 版必须**恰好命中 1 次**(0 = 文案已漂,>1 = 有歧义,都不猜),
+ *                    且替换后"除这些行以外逐行等值、总行数不变" ⇒ 才准落盘。
  *  LIVE_MSG          必填,提交信息
  *  LIVE_ROOT         测试/换仓通道:仓库根(缺省 = 本脚本所在仓根)
  * 退出码:0 = 已落地且回读证明本块每一条非空行都在 HEAD 里(索引对齐未尽只点名不判红);
@@ -54,9 +60,32 @@ export function readInputs(env = process.env) {
   const doc = env.LIVE_DOC ?? ''
   const blockFile = env.LIVE_BLOCK_FILE ?? ''
   const anchorFile = env.LIVE_ANCHOR_FILE ?? ''
+  const replaceFile = env.LIVE_REPLACE_FILE ?? ''
   const msg = env.LIVE_MSG ?? ''
   const root = env.LIVE_ROOT ? resolve(env.LIVE_ROOT) : REPO_ROOT
-  if (!doc || !blockFile || !msg) return { error: '缺 LIVE_DOC / LIVE_BLOCK_FILE / LIVE_MSG ⇒ 拒绝执行' }
+  if (!doc || !msg) return { error: '缺 LIVE_DOC / LIVE_MSG ⇒ 拒绝执行' }
+  if (replaceFile !== '' && (blockFile !== '' || anchorFile !== ''))
+    return { error: '改写档(LIVE_REPLACE_FILE)与插入档(LIVE_BLOCK_FILE / LIVE_ANCHOR_FILE)互斥 ⇒ 一次只做一件事' }
+  if (replaceFile !== '') {
+    let pairs
+    try {
+      pairs = JSON.parse(readFileSync(replaceFile, 'utf8'))
+    } catch (e) {
+      return { error: `读不到/解析不了 LIVE_REPLACE_FILE(${replaceFile}):${e?.message ?? e}` }
+    }
+    if (!Array.isArray(pairs) || pairs.length === 0)
+      return { error: 'LIVE_REPLACE_FILE 必须是非空数组 [{before, after}]' }
+    for (const [i, p] of pairs.entries()) {
+      if (typeof p?.before !== 'string' || typeof p?.after !== 'string')
+        return { error: `第 ${i + 1} 项缺 before/after 或不是字符串 ⇒ 拒绝执行` }
+      if (p.before.includes('\n') || p.after.includes('\n'))
+        return { error: `第 ${i + 1} 项含换行 ⇒ 本档只作**整行**替换(多行请拆成多项)` }
+      if (p.before === p.after) return { error: `第 ${i + 1} 项 before == after ⇒ 无事可做,剔除后再跑` }
+    }
+    if (!resolveHeadRef({ root })) return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
+    return { root, doc, msg, block: null, anchorLines: null, replacements: pairs }
+  }
+  if (!blockFile) return { error: '缺 LIVE_BLOCK_FILE(或改用 LIVE_REPLACE_FILE 走整行改写档)' }
   let block
   try {
     block = norm(readFileSync(blockFile, 'utf8'))
@@ -118,14 +147,41 @@ export function assemble(baseLinesIn, block, anchorLines) {
   return { ok: headOk, next, insertAt: baseLines.length, blockLen: block.length }
 }
 
+/**
+ * 整行改写档:每项 `before` 必须**恰好命中 1 次**,替换后总行数不变、且除被改的那几行以外逐行等值。
+ * 两条自证各防一型:命中数防"锚点文案已漂 / 有歧义"(0 与 >1 都不猜);逐位等值防"替换式顺手把
+ * 别的行顶掉"(与插入档的结构等值是同一条禁令,不是新发明)。
+ */
+export function applyReplacements(baseLines, pairs) {
+  const next = baseLines.slice()
+  const hits = new Set()
+  for (const [i, p] of pairs.entries()) {
+    const idxs = []
+    for (let k = 0; k < next.length; k++) if (next[k] === p.before) idxs.push(k)
+    if (idxs.length !== 1)
+      return {
+        ok: false,
+        reason: idxs.length === 0 ? `replace-not-found#${i + 1}` : `replace-multi-hit#${i + 1}:${idxs.length}`,
+        next: null,
+      }
+    next[idxs[0]] = p.after
+    hits.add(idxs[0])
+  }
+  if (next.length !== baseLines.length) return { ok: false, reason: 'line-count-changed', next: null }
+  for (let k = 0; k < baseLines.length; k++)
+    if (!hits.has(k) && next[k] !== baseLines[k])
+      return { ok: false, reason: `untouched-line-drift@${k + 1}`, next: null }
+  return { ok: true, next, hits: [...hits] }
+}
+
 async function main() {
   const inputs = readInputs()
   if (inputs.error) {
     console.error(`❌ ${inputs.error}`)
     process.exit(2)
   }
-  const { root, doc, msg, block, anchorLines } = inputs
-  const mode = anchorLines ? '锚点插入' : 'EOF 追加'
+  const { root, doc, msg, block, anchorLines, replacements } = inputs
+  const mode = replacements ? '整行改写' : anchorLines ? '锚点插入' : 'EOF 追加'
 
   let landed = ''
   let parentSha = ''
@@ -140,16 +196,24 @@ async function main() {
     }
     const baseLines = norm(git(['show', `${head}:${doc}`], { root, raw: true })).split('\n')
     baseCount = baseLines.length
-    const built = assemble(baseLines, block, anchorLines)
+    const built = replacements
+      ? applyReplacements(baseLines, replacements)
+      : assemble(baseLines, block, anchorLines)
     if (!built.ok) {
       rejectReason = built.reason || '结构等值不成立'
       // not-found / multi-hit 与"内容已漂移后重试"无关的形态也会随 HEAD 移动而变;一律当场拒绝,不重试猜测
       console.error(
         built.reason === 'not-found'
           ? `❌ HEAD 版里找不到锚点(锚点文案已漂或本块已在位)⇒ 不猜,拒绝写盘`
-          : built.reason && String(built.reason).startsWith('multi-hit')
-            ? `❌ 锚点在 HEAD 版里命中 ${String(built.reason).slice(10)} 处 ⇒ 不猜,拒绝写盘`
-            : `❌ 新内容不等于"HEAD ⊕ 本块插入/追加"⇒ 拒绝写盘`,
+          : String(built.reason || '').startsWith('replace-not-found')
+            ? `❌ 第 ${String(built.reason).replace('replace-not-found#', '')} 项的 before 在 HEAD 版里找不到(该行已被别人改写或本来不逐字等值)⇒ 不猜,拒绝写盘`
+            : String(built.reason || '').startsWith('replace-multi-hit')
+              ? `❌ 第 ${String(built.reason).replace('replace-multi-hit#', '').replace(/:.*/, '')} 项的 before 命中 ${String(built.reason).split(':').pop()} 次 ⇒ 无法确定改哪一行,交人工`
+              : String(built.reason || '').startsWith('untouched-line-drift') || built.reason === 'line-count-changed'
+                ? `❌ 改写动了声明之外的行(或改变了总行数)⇒ 这不是"整行替换",拒绝写盘`
+                : String(built.reason || '').startsWith('multi-hit')
+                  ? `❌ 锚点在 HEAD 版里命中 ${String(built.reason).slice(10)} 处 ⇒ 不猜,拒绝写盘`
+                  : `❌ 新内容不等于"HEAD ⊕ 本块插入/追加"⇒ 拒绝写盘`,
       )
       process.exit(1)
     }
@@ -169,14 +233,24 @@ async function main() {
     process.exit(1)
   }
 
-  // 回读证明:本块每一条非空行都必须逐字出现在 HEAD 版里
+  // 回读证明:插入档要求"本块每一条非空行都在 HEAD 里";改写档要求"每一条 after 都在、
+  // 且每一条 before 都不在了"—— 后半句才是"改成了"的证据,只查前半句等于什么都没判。
   const now = norm(git(['show', `${landed}:${doc}`], { root, raw: true }))
-  const missing = block.filter((l) => l.trim() !== '' && !now.includes(l))
+  const missing = replacements
+    ? replacements.filter((p) => !now.includes(p.after)).map((p) => p.after)
+    : block.filter((l) => l.trim() !== '' && !now.includes(l))
   if (missing.length > 0) {
     console.error(`❌ 回读有 ${missing.length} 行不在 HEAD 里:\n  ${missing.slice(0, 4).join('\n  ')}`)
     process.exit(1)
   }
-  console.log('✅ 回读:本块每一条非空行都在 HEAD 里')
+  if (replacements) {
+    const leftover = replacements.filter((p) => now.includes(p.before))
+    if (leftover.length > 0) {
+      console.error(`❌ 回读仍有 ${leftover.length} 行的旧形态在位 ⇒ 改写没有真生效,不记为成功`)
+      process.exit(1)
+    }
+    console.log(`✅ 回读:${replacements.length} 行已改成新形态,旧形态在 HEAD 版里逐条为零`)
+  } else console.log('✅ 回读:本块每一条非空行都在 HEAD 里')
 
   const align = alignSharedIndex({ root, paths: [doc], parentRef: parentSha })
   if (align.lockAbandoned) {
@@ -201,5 +275,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { readInputs, locateAnchor, assemble }
+export const __test__ = { readInputs, locateAnchor, assemble, applyReplacements }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
