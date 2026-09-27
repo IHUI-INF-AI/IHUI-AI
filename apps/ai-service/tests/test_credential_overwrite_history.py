@@ -30,14 +30,15 @@ import pathlib
 from typing import Any
 
 import app.core.db as core_db
+import app.services.publish.credential_history as ch
 import app.services.publish.credentials_crypto as crypto
 import app.services.scan_login as svc
-from app.services.scan_login import (
+from app.services.publish.credential_history import (
     _MIN_MEANINGFUL_ENC_LEN,
     CREDENTIALS_HISTORY_KEY,
     CREDENTIALS_HISTORY_MAX,
 )
-from app.services.scan_login import (
+from app.services.publish.credential_history import (
     build_credentials_history_extra as build,
 )
 
@@ -147,7 +148,7 @@ def test_min_length_agrees_with_the_existing_credentials_predicate() -> None:
     """
     src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "services" / "scan_login.py")
     body = src.read_text(encoding="utf-8")
-    anchor = "async def _existing_credentials_present"
+    anchor = "async def _existing_account_row"
     tail = body[body.index(anchor) + len(anchor):]
     predicate = tail[: tail.index("async def ")]
     assert "credentials_enc IS NOT NULL" in predicate
@@ -254,17 +255,17 @@ def _run_save(
         assert creds == {"z_c0": "leakcheck-new-value"}, "加密出口入参不符,测试桩失效"
         return "ENC-NEW"
 
-    originals = (core_db.get_db_conn, crypto.encrypt, svc.logger)
+    originals = (core_db.get_db_conn, crypto.encrypt, ch.logger)
     core_db.get_db_conn = _fake_get_db_conn  # type: ignore[assignment]
     crypto.encrypt = _fake_encrypt  # type: ignore[assignment]
-    svc.logger = recorder  # type: ignore[assignment]
+    ch.logger = recorder  # type: ignore[assignment]
     try:
         account_id = asyncio.run(svc._save_account_to_db(
             "u-test-0001", "zhihu", {"z_c0": "leakcheck-new-value"}, "知乎",
             verify_msg="画像导入并校验通过",
         ))
     finally:
-        core_db.get_db_conn, crypto.encrypt, svc.logger = originals
+        core_db.get_db_conn, crypto.encrypt, ch.logger = originals
     return {
         "account_id": account_id,
         "conn": conn,
