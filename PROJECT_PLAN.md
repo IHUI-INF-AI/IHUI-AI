@@ -11986,3 +11986,59 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [x] ✅(2026-09-27) **在生产机上跑，而不是在报告里"待跑"**：经 `ssh.aizhs.top` 登生产机 `D:\IHUI-AI`，先把 O86 交付的清理器 `--dry-run` 跑通（它自报"当前 DSN 指向库名 = ihui_dev、总行数 0"），但**一个 DSN 的 0 行不构成"生产已清干净"** —— 于是另做一把逐库普查（连 `postgres` 库枚举 `pg_database`，对每个可连库 `to_regclass` 确认表在不在、再取 `count(*)`，全程只 SELECT）：服务器共 5 个可连库（`ihui_dev` / `ihui_ci_test` / `ihui_e2e` / `keycloak` / `postgres`），`agent_memory_procedural` **只在前三库存在且行数全为 0**。⇒ 服务端从未真收下过明文 pattern 行，"改写历史行"这一格是**空操作**，工具与跑法保留在 O86 那条里备用；本会话先前把"本机 5432 那个空库的 0 行"如实标成"不得当生产读数"是对的，现在有了生产侧的同型证据。
 - [x] ✅(2026-09-27) **登记一条会骗人的命名事实**：生产机 ai-service 的 `DATABASE_URL` 库名是 **`ihui_dev`**（不是 `ihui`/`ihui_prod`）。按 §5b/§15b 那条"凡盘符/库名/远端 URL/代理四类每次按当次实测取值"的规矩，不得从名字推断它连的是开发环境；反过来也**不得**只凭默认 DSN 的一次读数对某个表下"生产有没有数据"的结论。
 - [x] ✅(2026-09-27) **顺带清掉两处"等 owner"的悬项**：① 守门 89 一度因 `id: '136'` 被并发注册成**两份同一道门**而判红（blocking，挡住全队每一次提交）；主会话写了个"两块逐字相同才去重、否则拒绝代裁"的一次性判定器，它在两块 `stagedTriggers`/label 不一致时**主动退出且未写盘**（工作树保持干净），随后该门持有者会话自行收敛 —— 现读 `grep -c "id: '136'"` = 1、门 89 exit 0。② 门 81 的 R3b 一度把门 137 自己的**判据关键字字面量** `sendMail` 读成"本文件在邮件语境"⇒ 判红；修法是把**自己**挪出对方字面量射程（改写成 `send[Mm]ail`，匹配语义不变），**没有**去放宽门 81、也没有给自己开豁免。
+
+### 第五十一波·续七 —— 第三十一批 + 第三十二批：一路做下来的两处残账就地清偿（2026-09-27 早，主会话独立复跑）
+
+> 承续六。这一波不立新判据，只把上一批交付报告里点名"我可以直接接"的两格做完，
+> 并把剩下两格按"需要谁定方向"如实归位。**登记口径：数字一律现读，勿照抄本文。**
+
+- [x] ✅(2026-09-27) **第三十一批：mail 路由测试从"公开无鉴权"改成挂真鉴权链，并补匿名 401 正锁**。
+  `073de24a525` 给 `/api/mail/send` 与 `/send/html` 挂了 `checkAuthOrInternalService`，而测试仍按旧口径建裸 app
+  ⇒ `8 failed | 1 passed`（全是 202→401）。**这一型红只存在于本机**：提交链里约 185 道门没有一道跑测试
+  （`check-staged-typecheck` 走 tsc，结构上看不见运行期断言失败），所以账面什么都看不出来。
+  改法不是把期望改成 401，而是让原有四件装车断言在真鉴权链上继续成立：注册真 `authPlugin`、
+  token 用 `signAccessToken` 真签 / `verifyAccessToken` 真验，**只** mock 掉 `authenticate` 里 P2-14 加的那一次
+  `getUserStatus`。新增鉴权面 5 臂（匿名 ×2 / 坏 token / refresh 当 access / 真签 access ⇒ 202），
+  五臂同 app 同路由、只有凭据不同 ⇒ "鉴权在场"成为被测对象而不是装配前提；每条 401 臂都断言
+  `sendEmail` **未被调用**（只看状态码会放过"先发了再返 401"那种写法）。
+  另加一条结构性锁：路由注册对象捕获里断言 `preHandler` 集合含 `checkAuthOrInternalService` 本身。
+  **有牙证明**：把期望临时换成同模块另一个真实导出 `checkAuth` ⇒ 当场翻红
+  （`expected [ …(1) ] to include [AsyncFunction checkAuth]`），还原后与变异前备份 `diff` 逐字一致。
+  现测 `tests/mail-routes.test.ts` **14 passed**（落地后复跑，非落地前）。
+- [x] ✅(2026-09-27) **第三十二批：OAuth 会话撤销补属主绑定（"认证 ≠ 授权"的 TS 侧这一格）**。
+  `DELETE /api/auth/oauth/my-authorized/:sessionId` 在 `authenticate` 之后把**请求里的任意 sessionId**
+  原样交给 `deleteSession(id)`，而那条 DELETE 的 where 只有 `id = ?` ⇒ 任何已登录用户填别人的会话 id
+  就能吊销别人的授权，且响应照旧回 `deleted: true`，调用方无从分辨"撤了自己的"与"撤了别人的"。
+  修法：`deleteSession(id, userId)`，where 改 `and(eq(id), eq(userId))`，回报仍是库侧 `RETURNING` 命中集
+  ——**属主条件必须在 SQL 层而不是调用方的 if 里**（if 只能判"存在"，判不了"命中"）。
+  响应键名与状态码一字未改。影响面核查：生产调用点全仓 1 处（本处），另两处是测试替身；
+  列表侧 `listUserSessions` 本就按 `userId` 取，web 端只删列表里属于自己的行 ⇒ 无"正常调用方被判成越权"的破坏面。
+  回归 `tests/oauth-session-ownership.test.ts`（6 例）：替身摆在 `db` 那一层而**不是** `oauth-queries`
+  ——否则"路由层"与"DB 层"会要求同一模块既是真实现又是替身（一个模块只能有一种 mock），两条判据互相抵消；
+  判据只看最终发出去的那条 SQL（用 drizzle 自己的 `PgDialect.sqlToQuery` 渲染，比扒 `queryChunks` 内部结构稳）：
+  ①含 `"id"` 与 `"user_id"` 两条件、参数两个；②URL 挂 `?userId=<别人>` 时参数里只有令牌主体；
+  ③库侧空集 ⇒ `deleted:false` **且**那条查询确实带属主（否则"0 命中"可能来自一条漏了 where 的裸删）；
+  ④匿名 ⇒ 401 **且 `capture.whereArgs` 为空**（越权用例断言"未发出查询"，不是断言状态码）；
+  ⑤换一个人调用 SQL 参数就得是那个人（证明属主取自入参而非写死）。
+  **有牙证明**：把实现短暂退回 `.where(eq(oauthSessions.id, id))` 的旧形状 ⇒ 该文件当场判失败，
+  随后按备份逐字节还原（`RESTORED` 校验 + 锚点计数复验）。落地后 5 个相关文件复跑 **101 passed**。
+- [x] ✅(2026-09-27) **提交链两处实测坑（同批登记，因为它们改变了本波的落地形态）**：
+  ① `safe-commit` 首次失败后重暂存时撞他人 `git 索引锁`（1551705 字节 / 5 个 git.exe 在跑）⇒ 10 次重试全失败、
+  那枚提交**没有发生**；处置不是删别人的锁，而是改走常驻落地器（临时索引 + commit-tree + CAS），
+  它不碰主索引，因此不受那把锁约束。② 落地器那一轮的索引对齐被同一把锁挡下并**如实点名**（exit 0 但喊出来），
+  留下 `MM` 形态：`git diff HEAD` 为空而索引仍挂旧中间 blob —— 这正是 §12d 第三层描述的"此后一次不带 pathspec
+  的普通提交就把交付写回旧版"。修法是**先证 `hash-object(工作树) == HEAD blob` 再** `update-index`（顺序不能反：
+  `checkout-index` 会反过来用旧内容覆盖工作树）。锁清后复跑对齐 3/3 + 手工刷新 1/1，四路径 `git status` 归净。
+
+**本波之后仍开着的账（按"谁定方向"归位，不是遗漏）**：
+
+- [ ] **real 测试面的归属待定（需人定方向，未认领）**：`apps/api/vitest.config.ts` 把 `**/*.real.test.ts`
+  排除在默认收集面外 ⇒ 一批"真连库"断言既不进提交链也不进 CI。三条出路（换独立 project / 挂夜间巡检 /
+  明确作废并删件）取决于"要不要在 CI 里 provision 一个临时库",这不是代码判断而是基建取舍,**不代为拍板**。
+- [ ] **守门 134 的两格条件性扩面（各自写了可判触发条件,未达即不做,未认领）**：① B2 那一跳接裸 SQL 维 ——
+  HEAD 面"具名裸 SQL writer × ack 落点"组合实测 0 条,无存量可验就补属投机（加守卫前须先证明坏状态可达）；
+  ② `updated` / `created` 进 `BOOL_ACK_KEYS` —— 属全 API 语义决策,且拍板后必须同时把 RETURNING 证据从
+  "体内任一处"收窄到"该条调用",否则"UPDATE 带 RETURNING 但零命中走 `?? {updated:true}` 兜底"那一型仍然隐身。
+- [ ]（登记，非本线）relay admin 4 个删除端点零测试覆盖、`o13-bg-rls-live.test.ts` 需要自己的串行通道
+  （并发跑时 218 枚迁移重放里它红、单跑 43.8s 通过 ⇒ 是临时簇争用不是判据错）、agents category/examine 删除的
+  属主闸、`softDeleteFile` 缺 `isNull(deletedAt)`。这些归属各自票面，本波只保证不把它们读成"已收口"。
