@@ -281,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
     required: { fontSize: 16, color: tk.danger.DEFAULT } as TextStyle,
     input: {
       backgroundColor: tk.surface.muted,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 12,
       paddingVertical: 14,
       fontSize: 16,
@@ -299,7 +299,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtnBox: { marginTop: 16 } as ViewStyle,
     submitBtn: {
       backgroundColor: tk.brand.cta,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       paddingVertical: 15,
       alignItems: 'center',
     } as ViewStyle,

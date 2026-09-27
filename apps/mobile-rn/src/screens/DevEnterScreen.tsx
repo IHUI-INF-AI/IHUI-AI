@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
   searchBtn: {
     height: 38,
     paddingHorizontal: rpx(20),
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.gray[300],
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadius.lg,
     marginTop: rpx(18),
     backgroundColor: tokens.surface.card,
     padding: rpx(20),
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
   setBtn: {
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(6),
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   } as ViewStyle,
   setBtnText: {
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   promptDialog: {
     width: rpx(431) / 2,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.muted,
     paddingVertical: rpx(36),
     paddingHorizontal: rpx(24),
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
   promptBtn: {
     width: rpx(143) / 2,
     height: rpx(54) / 2,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,

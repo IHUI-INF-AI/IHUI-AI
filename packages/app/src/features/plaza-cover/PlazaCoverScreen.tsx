@@ -119,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
     featureCard: {
       width: '47%',
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: 14,
@@ -132,13 +132,13 @@ function createStyles(tk: AppThemeTokens) {
     actions: { gap: 10 } as ViewStyle,
     primaryBtn: {
       backgroundColor: tk.brand.cta,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       paddingVertical: 15,
       alignItems: 'center',
     } as ViewStyle,
     primaryBtnText: { fontSize: 16, fontWeight: '600', color: tk.brand.ctaForeground } as TextStyle,
     secondaryBtn: {
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       paddingVertical: 12,
       alignItems: 'center',
       backgroundColor: tk.surface.card,

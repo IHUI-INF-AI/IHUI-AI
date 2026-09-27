@@ -207,7 +207,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     jobCard: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -227,14 +227,14 @@ function createStyles(tk: AppThemeTokens) {
     miniTag: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     miniTagText: { fontSize: 10, color: tk.text.secondary },
     appliedBadge: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.success.light,
     },
     appliedText: { fontSize: 10, color: tk.brand.DEFAULT },
@@ -270,7 +270,7 @@ function createStyles(tk: AppThemeTokens) {
     applyBtn: {
       marginTop: 20,
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

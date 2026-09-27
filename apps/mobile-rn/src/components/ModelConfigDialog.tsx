@@ -1200,7 +1200,7 @@ function UploadButton({
             onDelete()
           }}
           hitSlop={4}
-          className="absolute -top-2 -right-2 items-center justify-center rounded-full"
+          className="absolute -top-2 -right-2 items-center justify-center rounded-2xl"
           style={{ ...modelConfigDeleteBadgeStyle(toUnit), backgroundColor: tokens.surface.card }}
         >
           <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
