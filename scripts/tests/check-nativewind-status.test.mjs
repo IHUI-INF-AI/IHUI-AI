@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs'
+import { writeFileSync, chmodSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -26,7 +26,7 @@ const IS_WIN = process.platform === 'win32'
 //   - mode='success'(默认):stdout 输出 NPM_FAKE_RESPONSE,exit 0
 //   - mode='error':stderr 输出错误信息,exit 1(模拟网络不可用)
 function createFakeNpmDir() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-nativewind-'))
+  const dir = mkScratch('ihui-nativewind-')
   // fake npm 核心逻辑(CommonJS,通过 env 变量控制输出)
   const fakeCjs = [
     "const mode = process.env.NPM_FAKE_MODE || 'success'",
@@ -93,7 +93,7 @@ test('latest = "4.1.0" → exit 0 + 提示"仍是 4.x"', () => {
     assert.match(r.stdout, /仍是 4\.x/)
     assert.match(r.stdout, /尚未发布/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -109,7 +109,7 @@ test('latest = "4.0.0" 无 preview tag → exit 0,不输出 preview 行', () => 
     assert.match(r.stdout, /仍是 4\.x/)
     assert.doesNotMatch(r.stdout, /preview tag/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -125,7 +125,7 @@ test('latest = "5.0.0" → exit 1 + "5.0 stable 已发布"', () => {
     assert.match(r.stdout, /5\.0 stable 已发布/)
     assert.match(r.stdout, /移除 apps\/mobile-rn\/metro\.config\.js/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -140,7 +140,7 @@ test('latest = "5.1.2" → exit 1(任意 5.x.y 纯数字均视为 stable)', () =
     assert.equal(r.status, 1, `5.1.2 应 exit 1\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /5\.0 stable 已发布/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -155,7 +155,7 @@ test('latest = "5.0.0-preview.1" → exit 0 + "仍为 5.x preview,非 stable"', 
     assert.equal(r.status, 0, `5.x preview 应 exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /仍为 5\.x preview,非 stable/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -170,7 +170,7 @@ test('latest = "5.1.0-preview.0" → exit 0(5.x preview 任意版本)', () => {
     assert.equal(r.status, 0, `5.x preview 应 exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /仍为 5\.x preview,非 stable/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -186,7 +186,7 @@ test('latest = "5.0.0" 且有 preview tag → exit 1,preview tag 行也输出', 
     assert.match(r.stdout, /5\.0 stable 已发布/)
     assert.match(r.stdout, /preview tag: 5\.1\.0-preview\.0/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -201,7 +201,7 @@ test('dist-tags 缺少 latest 字段 → exit 2 + 警告"缺少 latest 字段"',
     assert.equal(r.status, 2, `缺 latest 应 exit 2\nstderr: ${r.stderr}`)
     assert.match(r.stderr, /缺少 latest 字段/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -213,7 +213,7 @@ test('npm 命令失败(模拟网络错误)→ exit 2 + "查询失败"', () => {
     assert.equal(r.status, 2, `网络错误应 exit 2\nstderr: ${r.stderr}`)
     assert.match(r.stderr, /查询失败/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -225,7 +225,7 @@ test('npm 返回非法 JSON → exit 2(JSON.parse 抛错被 try/catch 捕获)', 
     assert.equal(r.status, 2, `非法 JSON 应 exit 2\nstderr: ${r.stderr}`)
     assert.match(r.stderr, /查询失败/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -240,7 +240,7 @@ test('latest = "6.0.0" → exit 0 + "非 5.0 stable"(兜底分支)', () => {
     assert.equal(r.status, 0, `6.x 应 exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /非 5\.0 stable/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -255,7 +255,7 @@ test('latest = "5.0.0-beta" → exit 0 + "非 5.0 stable"(非 preview 后缀走�
     assert.equal(r.status, 0, `5.0.0-beta 应 exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /非 5\.0 stable/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -270,7 +270,7 @@ test('latest = "3.5.0" → exit 0 + "非 5.0 stable"(更老版本走兜底)', ()
     assert.equal(r.status, 0, `3.x 应 exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /非 5\.0 stable/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -288,7 +288,7 @@ test('stable 5 输出含完整升级步骤(升级/移除 monkey-patch/删除依�
     assert.match(r.stdout, /删除 apps\/mobile-rn 本地 tailwindcss@3 依赖/)
     assert.match(r.stdout, /className 全链路冒烟测试/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 
@@ -305,7 +305,7 @@ test('4.x 输出含 latest tag 行且无 "5.0 stable" 标记', () => {
     // 不应出现 5.0 stable 标记
     assert.doesNotMatch(r.stdout, /← 5\.0 stable!/)
   } finally {
-    rmSync(npmDir, { recursive: true, force: true })
+    rmScratch(npmDir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

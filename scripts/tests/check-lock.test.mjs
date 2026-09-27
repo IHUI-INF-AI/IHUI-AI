@@ -5,16 +5,9 @@
 import { describe, test, before, after, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import {
-  existsSync,
-  readFileSync,
-  writeFileSync,
-  unlinkSync,
-  mkdtempSync,
-  rmSync,
-} from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -78,7 +71,7 @@ let hadOriginalLock = false
 before(() => {
   hadOriginalLock = existsSync(LOCK_FILE)
   if (hadOriginalLock) {
-    backupDir = mkdtempSync(join(tmpdir(), 'ihui-lock-bak-'))
+    backupDir = mkScratch('ihui-lock-bak-')
     writeFileSync(join(backupDir, '.dev.lock'), readFileSync(LOCK_FILE))
     removeLock()
   }
@@ -89,7 +82,7 @@ after(() => {
   removeLock()
   if (hadOriginalLock && backupDir) {
     writeFileSync(LOCK_FILE, readFileSync(join(backupDir, '.dev.lock')))
-    rmSync(backupDir, { recursive: true, force: true })
+    rmScratch(backupDir)
   }
 })
 
