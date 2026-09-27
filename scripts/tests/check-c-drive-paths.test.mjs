@@ -14,7 +14,7 @@
  *   - --quiet 模式成功时无 stdout (除非失败)
  *   - --help 输出帮助文本
  *
- *   测试用临时 fixture (在 tmpdir() 下创建项目结构 + git init + spawnSync cwd 模拟
+ *   测试用临时 fixture (在 scratch 落点下创建项目结构 + git init + spawnSync cwd 模拟
  *   项目根),不污染项目,符合 AGENTS.md §23 (目录用 tests/)。
  *   用 Node.js 内置 test runner,无第三方依赖。路径推导用 import.meta.url
  *   (AGENTS.md §15)。
@@ -22,9 +22,9 @@
 import { test, describe } from 'node:test'
 import assert_ from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导 (AGENTS.md §15: 用 import.meta.url, 不硬编码) ───
@@ -33,7 +33,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-c-drive-paths.mjs')
 
 // ─── 辅助: 创建临时项目根 ─────────────────────────────
 function createTempProject() {
-  return mkdtempSync(join(tmpdir(), 'ihui-check-c-drive-'))
+  return mkScratch('ihui-check-c-drive-')
 }
 
 // 辅助: 初始化 git 仓库 (用于 --staged 测试)
@@ -73,7 +73,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       const r = runScript([], { cwd: root })
       assert_.equal(r.status, 0, `默认调用应 exit 0, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -87,7 +87,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       assert_.equal(r.status, 1, `含 C:\\temp\\ 应 exit 1, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
       assert_.match(r.stdout + r.stderr, /C:\\temp\\|c-temp|硬编码/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -102,7 +102,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       // 应命中 c-users 或 appdata-local-temp 任一
       assert_.match(r.stdout + r.stderr, /C:\\Users|AppData\\Local\\Temp|c-users|appdata-local-temp/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -116,7 +116,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       assert_.equal(r.status, 1, `含 c:/temp/ 应 exit 1, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
       assert_.match(r.stdout + r.stderr, /c:\/temp|c-temp-forward/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -131,7 +131,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       assert_.equal(r.status, 1, `含 AppData\\Local\\Temp\\ 应 exit 1, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
       assert_.match(r.stdout + r.stderr, /AppData\\Local\\Temp|appdata-local-temp/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -154,7 +154,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       assert_.equal(r.status, 0, `.md 提及 C:\\temp 应被排除 exit 0, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
       assert_.match(r.stdout, /通过|不在检测范围/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -169,7 +169,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       const r = runScript(['--staged'], { cwd: root })
       assert_.equal(r.status, 0, `Tauri 内部应排除 exit 0, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -187,7 +187,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       assert_.equal(report.violations.length, 0, 'JSON.violations 应为空')
       assert_.equal(typeof report.filesScanned, 'number', 'JSON.filesScanned 应为数字')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -206,7 +206,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       assert_.ok(typeof report.violations[0].line === 'number')
       assert_.match(report.violations[0].pattern, /c-temp/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -224,7 +224,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
         `--quiet 成功应无 stdout, 实际: ${JSON.stringify(r.stdout)}`,
       )
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -238,7 +238,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       assert_.equal(r.status, 1, `--quiet 含违规应 exit 1, 实际 ${r.status}`)
       // --quiet 不抑制 stderr (修复指南仍可见)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -273,7 +273,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       assert_.equal(r.status, 0, `自身正则字面量应被排除 exit 0, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
       assert_.match(r.stdout, /通过|不在检测范围/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -293,7 +293,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       // 只扫了 .ts (1 个),.json 被扩展名排除
       assert_.equal(report.filesScanned, 1, `filesScanned 应为 1 (仅 .ts), 实际 ${report.filesScanned}`)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 

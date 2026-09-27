@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-db-schema-drift.mjs')
 
 // ─── 辅助:在临时目录搭建 packages/database 结构 ──────────
 function createTempProject() {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-drift-'))
+  const root = mkScratch('ihui-drift-')
   mkdirSync(join(root, 'packages', 'database', 'src', 'schema'), { recursive: true })
   mkdirSync(join(root, 'packages', 'database', 'drizzle'), { recursive: true })
   return root
@@ -89,7 +89,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,直接走默认全量扫描)'
     )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -103,7 +103,7 @@ test('CLI: 无参数运行(默认行为,空 schema + 空 migrations → exit 0)'
     assert.match(r.stdout, /TS schema tables:\s+0/)
     assert.match(r.stdout, /migration tables:\s+0/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -121,7 +121,7 @@ test('一致: TS schema 有 users / migration 有 users → exit 0', () => {
     assertPass(r)
     assert.match(r.stdout, /missing migrations:\s+0/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -135,7 +135,7 @@ test('drift: TS schema 有 users 但 migration 缺失 → exit 1', () => {
     assertFail(r, /migration 缺失/)
     assert.match(r.stdout, /users/, 'stdout 应列出缺失的表名 users')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -159,7 +159,7 @@ test('drift: migration 有 orders 但 TS schema 无 → dead migration warn(exit
     assert.match(r.stdout, /dead migrations:\s+1/, '应报告 1 个 dead migration')
     assert.match(r.stdout, /orders/, '应列出 dead migration 表名 orders')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -182,7 +182,7 @@ test('migration: DROP TABLE orders 后未 CREATE → 表从最终集合移除(�
     assertPass(r)
     assert.match(r.stdout, /dead migrations:\s+0/, 'DROP 后不应算 dead migration')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -198,7 +198,7 @@ test('migration: 跨文件 0000 CREATE + 0001 DROP + 0002 CREATE → 表存在',
     assertPass(r)
     assert.match(r.stdout, /missing migrations:\s+0/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -220,7 +220,7 @@ test('migration: 同文件 CREATE + DROP → 表不存在(按 SQL 出现顺序�
     assertFail(r, /migration 缺失/)
     assert.match(r.stdout, /users/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -242,7 +242,7 @@ test('migration: 同文件 DROP TABLE X + CREATE TABLE X(drop-and-recreate)→ f
     assert.match(r.stdout, /missing migrations:\s+0/)
     assert.match(r.stdout, /dead migrations:\s+0/, '不应误报 dead migration')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -263,7 +263,7 @@ test('migration: 同文件 CREATE TABLE X + DROP TABLE X → finalTables 不含 
     assertFail(r, /migration 缺失/)
     assert.match(r.stdout, /users/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -285,7 +285,7 @@ test('migration: 同文件 DROP TABLE X + CREATE TABLE Y → finalTables 含 Y(�
     assert.match(r.stdout, /missing migrations:\s+0/)
     assert.match(r.stdout, /dead migrations:\s+0/, '不应误报 dead migration(orders 在 TS schema 中存在)')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -304,7 +304,7 @@ test('migration: RENAME TO → 旧名移除,新名添加到 finalTables', () => 
     assertPass(r)
     assert.match(r.stdout, /missing migrations:\s+0/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -321,7 +321,7 @@ test('migration: CREATE TABLE IF NOT EXISTS 修饰 → 正常匹配表名', () =
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -340,7 +340,7 @@ test('扫描: 多个 schema 文件 → 合并表名(全部检测)', () => {
     assertPass(r)
     assert.match(r.stdout, /TS schema tables:\s+2/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -353,7 +353,7 @@ test('扫描: pgTable("Users") + CREATE TABLE "users" → 一致(大小写不敏
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -366,13 +366,13 @@ test('环境变量: SKIP_SCHEMA_DRIFT=1 → 脚本不支持,仍正常扫描(miss
     const r = runScript(root, [], { SKIP_SCHEMA_DRIFT: '1' })
     assertFail(r, /migration 缺失/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 13. schema 目录不存在 → 0 表,不 crash ──────────────
 test('鲁棒性: schema 目录不存在 → 0 表,不 crash', () => {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-drift-nodir-'))
+  const root = mkScratch('ihui-drift-nodir-')
   try {
     // 不创建 packages/database/src/schema 目录
     mkdirSync(join(root, 'packages', 'database', 'drizzle'), { recursive: true })
@@ -380,13 +380,13 @@ test('鲁棒性: schema 目录不存在 → 0 表,不 crash', () => {
     assertPass(r)
     assert.match(r.stdout, /TS schema tables:\s+0/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 14. migrations 目录不存在 → 0 migration 表,不 crash ──
 test('鲁棒性: migrations 目录不存在 → 0 migration 表,TS 有表 → exit 1', () => {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-drift-nomig-'))
+  const root = mkScratch('ihui-drift-nomig-')
   try {
     mkdirSync(join(root, 'packages', 'database', 'src', 'schema'), { recursive: true })
     writeSchema(root, 'users.ts', [['users', 'users']])
@@ -394,7 +394,7 @@ test('鲁棒性: migrations 目录不存在 → 0 migration 表,TS 有表 → ex
     const r = runScript(root)
     assertFail(r, /migration 缺失/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -421,7 +421,7 @@ test('扫描: pgTable("users") 双引号 / pgTable(`users`) 反引号 → 正则
     assertPass(r)
     assert.match(r.stdout, /TS schema tables:\s+2/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -439,7 +439,7 @@ test('CLI: --staged flag 被脚本忽略(脚本注释明确"schema drift 是全�
     // --staged 应与无参数行为一致
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
