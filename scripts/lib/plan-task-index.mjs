@@ -73,10 +73,13 @@ export function bodyOfRow(line) {
  *  同一件事被重复派单、白烧轮次(2026-09-27 本轮:75/51/62 三票的实现与常驻尺子都已在
  *  HEAD 且判据 RC=0,台账仍报未勾选,于是又被派了一次)。
  *  收窄三则,缺一即会把行文引用误当第二次登记(与 M7 那条反向锁同一条禁令):
- *  ① 必须落在**正文开头**(剥掉复选框与状态装饰之后),② 编号 ≤3 位(排除 `2026-09-27` 这类日期),
+ *  ① 必须落在**正文开头**(剥掉复选框与状态装饰之后;允许前置的 markdown 强调记号,因为登记行
+ *     写成 `- [ ] **86A. …**` 是本仓默认形态 —— 不认它,带字母后缀的编号就永远进不了主键,
+ *     而"同主键两态并存"判据看不见 ⇒ 归并器永不翻勾,恰好复刻本函数要防的那一型),
+ *  ② 编号 ≤3 位、可带**单个大写字母后缀**(`86A`;排除 `2026-09-27` 这类日期与多字母噪声),
  *  ③ 编号后必须紧跟 `.` 或 `、`,且其后第一个非空字符**不得是数字**(排除 `12.3 万` 这类
  *     量值开头;真正带子号的编号另有 `P2-F.10` 一族,由裸族负责)。 */
-const LEADING_NUMERIC_RE = /^(\d{1,3})[.、]\s*[^\s\d]/
+const LEADING_NUMERIC_RE = /^[*\s`]*(\d{1,3}[A-Z]?)[.、]\s*[^\s\d]/
 
 /** 返回行首裸编号(不是这一形则 null)。keyOfRow 与 titleOf **共用**本出口 —— 两处各写一份
  *  必然漂开:只改 keyOfRow 会让标题仍为 "75"(仍 <4 仍 null),只改 titleOf 会造出"有标题无编号"的半主键。 */
@@ -84,6 +87,14 @@ export function leadingNumericId(body) {
   if (body === null || body === undefined) return null
   const m = LEADING_NUMERIC_RE.exec(body)
   return m ? m[1] : null
+}
+
+/** 编号前缀(含 markdown 强调记号)的长度 —— titleOf 要从正文里跳过它,否则标题只剩编号本身。 */
+const LEADING_NUMERIC_FULL_RE = /^[*\s`]*(\d{1,3}[A-Z]?)[.、]\s*/
+
+/** 剥掉行首编号形态(含其前置强调记号)。只在 `leadingNumericId` 判成立后调用。 */
+export function stripLeadingNumeric(body) {
+  return LEADING_NUMERIC_FULL_RE.test(body) ? body.replace(LEADING_NUMERIC_FULL_RE, '') : body
 }
 
 /** 取一行的主键编号(没有则 null)。只取**第一个**命中,且必须在主键位置窗口内。 */
@@ -164,8 +175,11 @@ export const TITLE_PREFIX = 24
 export function titleOf(line) {
   const rawBody = bodyOfRow(line)
   if (rawBody === null) return null
-  // 行首裸编号形态:编号不算标题的一部分(否则 `.` 截断后标题只剩编号本身,长度 <4 ⇒ composite=null)
-  const body = leadingNumericId(rawBody) !== null ? rawBody.replace(/^\d{1,3}[.、]\s*/, '') : rawBody
+  // 行首裸编号形态:编号不算标题的一部分(否则 `.` 截断后标题只剩编号本身,长度 <4 ⇒ composite=null)。
+  // ⚠️ 这里**必须**调用 leadingNumericId 的同一个出口(经 stripLeadingNumeric),不得在本行再抄一份
+  // 正则:上一版这里抄了一份不含 `**` 与字母后缀的窄版,于是 `- [ ] **86A. …**` 的标题被 cut 在
+  // 编号后面那个 `.` 上 ⇒ 标题只剩 "86A"(3 字 <4)⇒ composite=null —— 判据在**自己刚修的这一族**上失明。
+  const body = stripLeadingNumeric(rawBody)
   return body
     .replace(/[*`_\s]/g, '')
     .replace(/[（(【[:：.、,，!！?？].*$/, '')

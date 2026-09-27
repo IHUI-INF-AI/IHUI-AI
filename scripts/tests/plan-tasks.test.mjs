@@ -404,6 +404,30 @@ test('M14 行首裸编号族必须进复合主键(F1 曾对整族失明 ⇒ 已�
   if (!t || t.length < 4 || t === '75') throw new Error(`标题前缀必须跳过编号,实测 ${JSON.stringify(t)}`)
 })
 
+test('M15 带字母后缀的编号必须与标题跳过**同一份**实现(两处各抄一版 ⇒ 判据在自己刚修的族上失明)', () => {
+  // 阳性对照:`- [ ] **86A. …**` 是本仓登记行的默认形态(强调记号 + 字母后缀 + 编号后紧跟 `.`)。
+  // 窄版只修 keyOfRow 时 title 仍被 cut 在编号后的 `.` 上 ⇒ 只剩 "86A"(3 字 <4)⇒ composite=null,
+  // 于是同一件事的"未勾 + 已完成"两态并存无人翻勾 —— 正是 O87 要防的那一型,而这次的盲区是 O87 自己留下的。
+  const open = '- [ ]（进行中@2026-09-27/主会话）**86A. 证据流水的写入源投影**:把账本快照接到生产面'
+  const done = '- [x] ✅(2026-09-27)**86A. 证据流水的写入源投影**:已完成,附当轮实测读数'
+  if (keyOfRow(open) !== '86A' || keyOfRow(done) !== '86A')
+    throw new Error(`字母后缀编号必须算主键,实测 open=${keyOfRow(open)} done=${keyOfRow(done)}`)
+  const co = compositeKeyOf(open)
+  if (!co || co.length < 6) throw new Error(`复合主键应含标题前缀,实测 ${JSON.stringify(co)}`)
+  const a = auditPlan(['# p', open, done].join('\n'))
+  if (a.counts.forks !== 1)
+    throw new Error(`同主键两态必须被 F1 点名,实测 ${a.counts.forks}(${JSON.stringify(a.forks.map((f) => f.key))})`)
+  // 反向对照 1:两位数字加字母也认(`12B.`),但三个字母以上不算(`ABC.` 是分区名而非编号)。
+  if (keyOfRow('- [ ] 12B. 子号带一位字母') !== '12B') throw new Error('12B 未被认成主键')
+  if (keyOfRow('- [ ] ABC. 这是分区名不是编号') !== null) throw new Error('多字母前缀不得算行首编号')
+  // 反向对照 2:带字母**后缀**才放行;字母后紧跟数字(`12Z3.`)不是本仓任何编号形态,不得算
+  // (刻意用 Z —— 用 `B3` 会被裸族 `B\d+` 认成主键,那是既有收窄行为,不是本判据的洞)。
+  if (keyOfRow('- [ ] 12Z3. 混排') !== null) throw new Error('编号后接数字不得算行首编号')
+  // 反向对照 3:强调记号**后面**的量值仍被挡(`**12.3 万**`),放宽到强调记号不能把这条防线一起放宽。
+  if (keyOfRow('- [ ] **12.3 万**文件级的普查另计一票') !== null)
+    throw new Error('剥掉强调记号后,量值开头仍不得算主键')
+})
+
 test('M13 F4b 无主键逐字孪生:F4 看不见的那一格必须有判据,且两族不得互相顶账', () => {
   // 阳性对照:两句**一模一样**的叙述式待办(整族没有编号)⇒ F4 恒 0,而账面确实是"一人两句"。
   const twin = '- [ ] **真机走查**:深色顶栏已修(commit 84583fdf6),剩观察期。'
