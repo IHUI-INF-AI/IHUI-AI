@@ -12,7 +12,8 @@
  * 用来钉"共享层解码器与服务端解码器认同一批串" —— 镜像测试只复读实现就是复读机
  * (AGENTS §22c),所以这里判的是对方产物的真实字节,不是自造串。
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -560,29 +561,18 @@ describe('接线锁:barrel 真导出 + 存在非测试面 importer', () => {
   it('全仓只有一份投影实现(端内不得各写一份分页算术)', () => {
     const projectionSymbols =
       /export function (mergeHistoryTurnPages|projectHistoryPage|deriveHistoryBoundary)\b/
-    const owners: string[] = []
-    const walk = (dir: string, depth: number) => {
-      if (depth > 6) return
-      for (const entry of readdirSync(dir)) {
-        if (entry === 'node_modules' || entry === '.next' || entry.startsWith('.')) continue
-        const p = join(dir, entry)
-        const st = statSync(p)
-        if (st.isDirectory()) walk(p, depth + 1)
-        else if (
-          /\.tsx?$/.test(entry) &&
-          !entry.endsWith('.d.ts') &&
-          projectionSymbols.test(readFileSync(p, 'utf8'))
-        )
-          owners.push(p)
-      }
-    }
-    for (const root of [join(repoRoot, 'apps'), join(repoRoot, 'packages')]) {
-      try {
-        walk(root, 0)
-      } catch {
-        /* 根不存在 ⇒ 不判(环境缺失不等于重复实现) */
-      }
-    }
+    // 枚举面用 `git ls-files`(权威清单:构建产物/node_modules 天然不在列),
+    // 取代此前的全文件系统 readdir 游走 —— 那种走法本机 600ms、CI 冷盘直接超 5s testTimeout
+    // (2026-09-27 PR#65 实红于超时,不是双实现)。
+    const listed = execFileSync('git', ['-C', repoRoot, 'ls-files', '-z', '--', 'apps', 'packages'], {
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    const owners = listed
+      .split('\0')
+      .filter((rel) => /\.tsx?$/.test(rel) && !rel.endsWith('.d.ts'))
+      .filter((rel) => projectionSymbols.test(readFileSync(join(repoRoot, rel), 'utf8')))
+      .map((rel) => join(repoRoot, rel))
     // 唯一允许的定义处 = 本模块自身
     expect(owners).toEqual([join(__dirname, '..', 'history-projection.ts')])
   })
