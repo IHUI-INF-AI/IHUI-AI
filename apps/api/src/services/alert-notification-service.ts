@@ -26,6 +26,7 @@
 import { createHmac } from 'node:crypto'
 import nodemailer from 'nodemailer'
 import { pino, type Logger } from 'pino'
+import { flattenUntrustedText, sanitizeAlertMessage } from '../utils/alert-text.js'
 import { renderSystemAlertEmail } from './email-templates.js'
 
 const logger: Logger = pino({
@@ -512,7 +513,16 @@ export async function pushAlertWithResult(
   notification: AlertNotification,
 ): Promise<AlertPushResult> {
   const cfg = loadConfig()
-  const { title, message, severity, source, metadata } = notification
+  const { severity, source, metadata } = notification
+  /**
+   * 闸门放在**这个共同出口**而不是各生产者头上:此前只有 scheduler-worker 的两个调用点
+   * 自己调了归一化,而 `relay-alert-rules-service`(邮件正文里插管理员手填的 `rule.name`)
+   * 与 `notification-worker`(插队列/`notifications` 表的自由文本)绕过它把原文直接寄出。
+   * 尺子是幂等的(已净文本二次处理逐字不变),所以生产者自己先调过也不会被改坏。
+   * 标题按单行处理;正文保住换行(版式层 `multiLineHtml` 靠它分段),只做逐行脱敏 + 整条封顶。
+   */
+  const title = flattenUntrustedText(notification.title)
+  const message = sanitizeAlertMessage(notification.message)
 
   const tasks: Array<[ChannelKey, Promise<boolean>]> = []
 
