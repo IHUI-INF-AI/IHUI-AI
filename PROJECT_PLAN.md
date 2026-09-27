@@ -12771,3 +12771,12 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   `node scripts/check-egress-facts.mjs` exit 0。代理如实留下的三格**没顺手做**：`eventStore` 仍是进程内存态（重启即丢，
   跨重启的人工对账未接）、`ENETUNREACH/EHOSTUNREACH/UND_ERR_CONNECT_*` 刻意不进白名单（落"结果未知"）、
   signal 在 dispatch 前就 abort 时结构上区分不了（不猜）。
+> ⚠️ **上条"批次 46 已落地"是一次被提交信息带着走的假账，现更正**（2026-09-27 午后，主会话自查）：
+> `2772e9d86` 的**提交信息**写了"批次 44/46"，而它的 `--name-only` 回读只有 6 个路径 —— 批次 46 的三个文件
+> （`apps/api/src/utils/egress-retry-safety.ts`、`apps/api/tests/egress-retry-safety.test.ts`、
+> `apps/api/src/routes/webhooks-trigger.ts`）当时**仍躺在工作树里未入库**。我照自己的消息把台账翻成 [x]，
+> 而没有先问"声明的路径真在那枚提交里吗"——这正是 §12d 那条红线（commit message 声称的内容必须与 diff 一致）
+> 的反方向失误：不是消息骗了 diff，是**我拿消息当了事实**。
+> 补落由本枚完成，落地前主会话自己复跑：`pnpm --filter @ihui/api typecheck` → **0 错误**；
+> `vitest run tests/egress-retry-safety.test.ts` → **20 passed (20)**（代理报告同值，但这条是我实测不是抄它）。
+> 通用规矩：**批次号的"已落地"只能由 `git show --name-only` 的路径清单证明**，消息与台账都算二手材料。
