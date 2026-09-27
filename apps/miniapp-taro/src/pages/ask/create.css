@@ -245,7 +245,7 @@
 .ask-create-sheet {
   width: 100%;
   background: var(--color-card);
-  border-radius: var(--radius-xl) 24rpx 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
