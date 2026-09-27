@@ -15,13 +15,7 @@
  * 调用方:`setToken` / `setRefreshToken` / `clearToken` / `getToken` / `getRefreshToken`。
  * `getToken` / `getRefreshToken` 返回同步缓存值(避免每次 HTTP 都 await SecureStore)。
  */
-import {
-  fetchApi,
-  setBaseUrl,
-  setDeviceFingerprintProvider,
-  setUnauthorizedHandler,
-  setUserAgent,
-} from '@ihui/api-client'
+import { fetchApi, setBaseUrl, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client'
 import {
   API_BASE_URL,
   APP_USER_AGENT,
@@ -30,7 +24,6 @@ import {
 } from './config'
 import { mobileRnDeviceFingerprintCollector } from './device-fingerprint'
 import { deleteSecureItem, getSecureItem, setSecureItem } from './auth/secure-store'
-import { navigationRef, navigateTo } from '../navigation/navigation-ref'
 import {
   bindTokenStoreToApiClient,
   createInMemoryTokenStore,
@@ -94,31 +87,18 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 /**
- * 会话彻底失效的统一出口(2026-09-27 立,真机实测逼出)
+ * 会话彻底失效的出口注册在 **`RootNavigator.tsx`**,不在本文件(2026-09-27 真机定案)。
  *
- * `setUnauthorizedHandler` 此前**只有 web 注册**(全仓唯一调用点 `apps/web/src/lib/api.ts:110`)。
- * RN 的后果不是"少一个弹窗",而是**用户没有任何出路**:access token 与 refresh token 双双过期后,
- * 每一屏各自显示一句从错误体里取来的通用文案,而"去登录"这件事既没有入口也没有跳转 ——
- * 实测 logcat 反复打「上报移动端能力失败:Invalid or expired token」,屏幕上什么都没有。
+ * 两条理由,都值得留在这里,因为下一个接手者第一反应就是"注册口在 initApi 里,出口也该在这":
+ * 1. `Login` 屏**只在未登录分支注册**(RootNavigator 的 `token ? … : …`)。带着 token 时
+ *    `navigate('Login')` 结构上是空操作 —— 出路只能是**结束本地会话**让导航树自己翻过去。
+ *    (实测:VC50 出口被调用、logcat 点名了来源请求,画面纹丝不动,就是这个原因。)
+ * 2. `stores/auth-store.ts` 反向 import 本模块的 `tokenStore`,在这里 import 它就是模块环
+ *    (auth-store 的 `createAuthStore(...)` 在模块求值期读 tokenStore,环一旦成立就是 TDZ)。
  *
- * 三条边界,对应 api-client 侧 notifyUnauthorized 的三条不变量:
- * 1. **游客态不接管** —— 手里根本没有凭据时,401 是"这个接口需要登录"而不是"你的会话死了";
- *    把没登录的人拽到登录页会让公开内容浏览变成打断。
- * 2. **不重复跳** —— 已经在 Login 上就什么都不做。刻意**不引入模块级布尔量**做去重:
- *    布尔量需要一个"何时复位"的第二真相(登录成功后谁负责清?),而"当前路由是不是 Login"
- *    本身就是同一个事实的直接读法,不会与之漂移。
- * 3. **不清 token** —— 清 token 会让所有在飞的 UI 立刻翻成未登录态(头像/昵称/余额闪空),
- *    那是比"停在原页"更差的观感;登录成功后 `setToken` 自然覆盖,失效凭据不参与任何判据。
- *
- * 与 web 的"非 GET 才弹"口径**刻意不同**:这次挂在屏上的恰恰是 GET(列表/统计),
- * 若照抄该规则,RN 依旧没有任何出路。web 那一条服务于"不打断填表",RN 没有表单弹窗可打断。
+ * 本文件只负责把处理器接进 api-client 所需的凭据面;`setUnauthorizedHandler` 的调用点
+ * 由守门 148(check-auth-handler-registration-parity)按**代码面**判,注释不算。
  */
-function onUnrecoverableUnauthorized(): void {
-  if (!memoryStore.getToken()) return
-  if (!navigationRef.isReady()) return
-  if (navigationRef.getCurrentRoute()?.name === 'Login') return
-  navigateTo('Login')
-}
 
 export async function initApi(): Promise<void> {
   setBaseUrl(API_BASE_URL)
@@ -133,7 +113,6 @@ export async function initApi(): Promise<void> {
     refreshToken: typeof storedRefresh === 'string' ? storedRefresh : null,
   })
   bindTokenStoreToApiClient(tokenStore, { refreshAccessToken })
-  setUnauthorizedHandler(onUnrecoverableUnauthorized)
   setDeviceFingerprintProvider(mobileRnDeviceFingerprintCollector)
 }
 
