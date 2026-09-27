@@ -6,31 +6,21 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getLearnCourses, type LearnCourse } from '@ihui/api-client'
+import { getLearnCourses } from '@ihui/api-client'
 import { CourseFilterScreen as SharedCourseFilterScreen, type CourseFilterItem } from '@ihui/rn-app'
+import {
+  matchesPriceTab,
+  priceOf,
+  type CoursePriceTab,
+  type LessonPriceRow,
+} from '../lib/course-filter-price'
 import { useI18n } from '../i18n'
 import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-type PriceTab = 'all' | 'free' | 'paid'
-
-/**
- * 后端 GET /api/learn/lessons 的真实行:findPublishedLessons 选整张 lessons 表,
- * adaptLesson 再追加 instructor/description/students/cover。
- * 没有 level —— 该表不存在难度列。
- */
-interface LessonRow extends LearnCourse {
-  instructor?: string
-  price?: string | number
-}
-
-/** lessons.price 是 numeric(10,2),Drizzle 回传字符串;非数一律按免费看。 */
-function priceOf(row: LessonRow): number {
-  const n = typeof row.price === 'string' ? Number(row.price) : row.price
-  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : 0
-}
+type PriceTab = CoursePriceTab
 
 const PAGE_SIZE = 20
 
@@ -44,11 +34,11 @@ export function CourseFilterScreen() {
   const fetcher = useCallback(async () => {
     const res = await getLearnCourses({ page: 1, pageSize: PAGE_SIZE })
     if (!res.success) return { success: false as const, error: t('courseFilter.loadFailed') }
-    const list = (res.data?.list ?? []) as LessonRow[]
+    const list = (res.data?.list ?? []) as LessonPriceRow[]
     return { success: true as const, data: { list, total: res.data?.total ?? list.length } }
   }, [t])
 
-  const { items, loading, refreshing, error, refresh } = usePaginatedList<LessonRow>(
+  const { items, loading, refreshing, error, refresh } = usePaginatedList<LessonPriceRow>(
     fetcher,
     PAGE_SIZE,
   )
@@ -65,9 +55,7 @@ export function CourseFilterScreen() {
   const filterItems: CourseFilterItem[] = useMemo(
     () =>
       items
-        .filter((c) =>
-          appliedTab === 'all' ? true : appliedTab === 'free' ? priceOf(c) === 0 : priceOf(c) > 0,
-        )
+        .filter((c) => matchesPriceTab(priceOf(c), appliedTab))
         .map((c) => ({
           id: c.id,
           title: c.title,
