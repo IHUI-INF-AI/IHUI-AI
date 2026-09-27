@@ -32,6 +32,8 @@ export const STEP_DECISIONS = [
   'mcp_annotations_require_approval',
   'approval_policy_always',
   'approval_policy_never',
+  'guardian_review_suggested',
+  'guardian_review_alternative_applied',
 ] as const
 
 export type StepDecision = (typeof STEP_DECISIONS)[number]
@@ -58,6 +60,8 @@ const DECISION_WORD_KEY: Record<StepDecision, string> = {
   mcp_annotations_require_approval: 'decision.mcpRequiresApproval',
   approval_policy_always: 'decision.policyRequiresApproval',
   approval_policy_never: 'decision.policySkipsApproval',
+  guardian_review_suggested: 'decision.guardianReviewSuggested',
+  guardian_review_alternative_applied: 'decision.guardianReviewAlternativeApplied',
 }
 
 const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
@@ -80,6 +84,10 @@ const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
   // 不是"永不允许"。曾按字面把它归进 rejected + 「策略禁止执行」,于是界面在工具真的
   // 跑完之后告诉用户"被拒绝了" —— 改回来之前先读那两行。
   approval_policy_never: 'approved',
+  // 建议是在弹窗**之前**落账的留痕,此刻用户尚未表态 ⇒ needsUser;
+  // 而 alternative_applied 只在用户勾选"改用更安全等价路径"且参数真被替换后置位 ⇒ approved。
+  guardian_review_suggested: 'needsUser',
+  guardian_review_alternative_applied: 'approved',
 }
 
 export function isStepDecision(value: unknown): value is StepDecision {

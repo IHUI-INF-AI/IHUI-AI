@@ -14,8 +14,13 @@
     `GET /hooks/{id}/logs` 同一条闸)
   · `POST /hooks/templates/{id}/instantiate`(此前不传 owner ⇒ 造出系统级 Hook,人人可管)
 
-未收口的同型面(browser_hub / computer_use / A-B 测试 / patch root 白名单 / sandbox 策略)
-属"要先建属主概念",另记一票,清单与判据在 PROJECT_PLAN 的 G-258 B 组。
+当时按住未收口的同型面(browser_hub / computer_use / browser_trace / A-B 测试 / hooks emit /
+patch root 白名单 / sandbox 策略)**已全部收口**,逐票与判据在 PROJECT_PLAN 的 G-258 B 组:
+批 65(browser_hub 会话属主 + WS 主体)、批 66(Hook 触发集与 A/B 归属)、批 68(patch 允许集合
++ 沙箱档位收归服务端登记表)、批 70(computer_use 按用户隔离 + trace 属主)。
+仍留在账上、**不由这几票裁**的三格:按用户落点缺配置来源(身份只做归因)、可选档位的授予源
+属 RBAC 决策、每人一只浏览器没有并发上界(旧 docstring 那句"由 lifespan 统一收口"经 grep
+证伪,已就地推翻为"未收口")。
 
 隔离:全部进程内对象 + monkeypatch,不派生子进程、不碰生产 PG(8810)/Redis(8811)、
 不建真容器、不读 data/ 下的任何持久化文件。
