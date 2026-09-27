@@ -1,6 +1,7 @@
 {
   "name": "@ihui/miniapp-taro",
   "version": "0.0.0",
+  "license": "Apache-2.0",
   "private": true,
   "description": "IHUI-AI 小程序端 (Taro 4 + React + TypeScript + Tailwind)",
   "scripts": {
@@ -78,7 +79,5 @@
     "weapp-tailwindcss": "5.2.9"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
-  "homepage": "https://aizhs.top",
-  "copyright": "© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved.",
-  "x-ihui-provenance": "IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026"
+  "homepage": "https://aizhs.top"
 }
