@@ -20,20 +20,40 @@ import { Badge, Button, Input } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { WORKSPACE_AGENT_TASK_STATUSES, type WorkspaceAgentTaskStatus } from '@ihui/types'
 
 interface AgentTaskItem {
   taskId: string
   goal: string
+  /**
+   * 值域 = `@ihui/types` 的 `WORKSPACE_AGENT_TASK_STATUSES`(**第二域**:workspace 进程内
+   * agent 任务,生产侧 apps/api/src/services/workspace-ai-service.ts:335),与 Kanban 六态
+   * **无交集** —— 它是"第四套词汇表"(docs/d6-convergence-audit-2026-09-27.md §2.3),
+   * 正确的收口是"登记为两个域 + 端内引用同一份",不是并进六态(那会改坏本端点的响应值)。
+   *
+   * 本字段刻意仍写 `string` 而不是那个联合:值来自 JSON,服务端将来加一档时写联合等于
+   * 让编译期替运行时撒谎。取样式一律经 `statusClass()`,未知值落兜底档(与改动前逐字同行为)。
+   */
   status: string
   iterations: number
   startedAt?: string
 }
 
-const STATUS_CLASS: Record<string, string> = {
+/** 按第二域登记表逐项建表 ⇒ 共享类型加一档时这里编译期就要求表态(原先是 Record<string,string>,漏一档静默走 fallback) */
+const STATUS_CLASS: Record<WorkspaceAgentTaskStatus, string> = {
   running: 'border-transparent bg-amber-500/15 text-amber-600 hover:bg-amber-500/15',
   completed: 'border-transparent bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/15',
   failed: 'border-transparent bg-destructive/15 text-destructive hover:bg-destructive/15',
   canceled: 'border-transparent bg-muted text-muted-foreground hover:bg-muted',
+}
+
+/** 线上出现登记表之外的值时的兜底档(与改动前的 `?? STATUS_CLASS.canceled` 是同一个值) */
+const UNKNOWN_STATUS_CLASS = STATUS_CLASS.canceled
+
+function statusClass(status: string): string {
+  return (WORKSPACE_AGENT_TASK_STATUSES as readonly string[]).includes(status)
+    ? STATUS_CLASS[status as WorkspaceAgentTaskStatus]
+    : UNKNOWN_STATUS_CLASS
 }
 
 export function AgentTasksPanel() {
@@ -115,10 +135,7 @@ export function AgentTasksPanel() {
             <div key={task.taskId} className="rounded-lg border border-border bg-card p-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
-                  className={cn(
-                    'border-transparent',
-                    STATUS_CLASS[task.status] ?? STATUS_CLASS.canceled,
-                  )}
+                  className={cn('border-transparent', statusClass(task.status))}
                 >
                   {task.status}
                 </Badge>
