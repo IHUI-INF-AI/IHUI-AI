@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getStudyRecords, getStudyStatistics, type LearnRecord } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { StudyRecordScreen as SharedStudyRecordScreen } from '@ihui/rn-app'
 import type { StudyRecordItem, StudyRecordStats } from '@ihui/types'
 import { useAuth } from '../context/AuthContext'
@@ -51,7 +52,7 @@ export function StudyRecordScreen() {
         if (recordsRes.success) {
           setRecords((recordsRes.data.list ?? []).map(mapRecord))
         } else {
-          setError(recordsRes.error || t('studyRecord.loadFailed'))
+          setError(apiFailureToText(recordsRes, t('studyRecord.loadFailed')))
         }
         if (statsRes.success) {
           setStats(statsRes.data as StudyRecordStats)

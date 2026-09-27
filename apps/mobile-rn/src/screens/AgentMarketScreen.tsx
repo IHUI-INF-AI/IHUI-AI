@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { AgentMarketScreen as SharedAgentMarketScreen, type AgentMarketItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -28,7 +29,7 @@ export function AgentMarketScreen() {
     const url = kw ? `/api/agents?keyword=${encodeURIComponent(kw)}` : '/api/agents'
     const res = await fetchApi<AgentMarketItem[]>(url)
     if (res.success) setAgents(res.data ?? [])
-    else setError(res.error || t('agentMarket.loadFailed'))
+    else setError(apiFailureToText(res, t('agentMarket.loadFailed')))
     setLoading(false)
   }
 

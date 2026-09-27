@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getLiveList, type Live } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import {
   LivePlaybackScreen as SharedLivePlaybackScreen,
   type LivePlaybackScreenItem,
@@ -71,7 +72,7 @@ export function LivePlaybackScreen() {
         })
         setLives(ended)
       } else {
-        setError(res.error || t('livePlayback.loadFailed'))
+        setError(apiFailureToText(res, t('livePlayback.loadFailed')))
       }
       setLoading(false)
       setRefreshing(false)

@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { NoteScreen as SharedNoteScreen, type NoteItem } from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -43,7 +44,7 @@ export function NoteScreen() {
       if (res.success) {
         setNotes((res.data ?? []).map(mapNote))
       } else {
-        setError(res.error || t('note.loadFailed'))
+        setError(apiFailureToText(res, t('note.loadFailed')))
       }
       setLoading(false)
       setRefreshing(false)

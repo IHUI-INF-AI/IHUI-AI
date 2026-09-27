@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { AgentCreateScreen as SharedAgentCreateScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -46,7 +47,7 @@ export function AgentCreateScreen() {
     if (res.success && res.data) {
       navigation.replace('AgentDetail', { id: res.data.id })
     } else if (!res.success) {
-      setError(res.error || t('agentCreate.saveFailed'))
+      setError(apiFailureToText(res, t('agentCreate.saveFailed')))
     }
   }
 

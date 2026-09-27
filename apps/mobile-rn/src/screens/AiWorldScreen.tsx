@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import {
   AiWorldScreen as SharedAiWorldScreen,
   type AiWorldEntry,
@@ -175,7 +176,7 @@ export function AiWorldScreen() {
     try {
       const res = await fetchApi<AiWorldFeed>('/api/ai-world')
       if (res.success) setFeed(res.data)
-      else setError(res.error || t('aiWorld.loadFailed'))
+      else setError(apiFailureToText(res, t('aiWorld.loadFailed')))
     } catch {
       setError(t('aiWorld.loadFailed'))
     } finally {

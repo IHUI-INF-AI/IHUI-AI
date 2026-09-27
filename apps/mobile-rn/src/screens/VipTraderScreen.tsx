@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getTraderDetail, getOverview, getInviteInfo } from '@ihui/api-client'
 import type { CommissionOverview, InviteInfo } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { VipTraderScreen as SharedVipTraderScreen, type VipTraderStat } from '@ihui/rn-app'
 import { ConfirmPurchasePopUp } from '../components/ConfirmPurchasePopUp'
 import { useWechatPayment } from '../hooks/useWechatPayment'
@@ -104,7 +105,7 @@ export default function VipTraderScreen() {
             : [],
         )
         if (overviewRes.status === 'fulfilled' && !overviewRes.value.success) {
-          setError(overviewRes.value.error || t('vipTrader.loadFailed'))
+          setError(apiFailureToText(overviewRes.value, t('vipTrader.loadFailed')))
         }
       }
       // trader 详情(followers/level)已获取,统计已由 overview+invite 覆盖
