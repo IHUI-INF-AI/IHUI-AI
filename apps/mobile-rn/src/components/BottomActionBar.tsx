@@ -54,6 +54,8 @@ import {
   Scissors,
   Send,
   Settings,
+  SquareFunction,
+  X,
 } from 'lucide-react-native'
 
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
@@ -551,7 +553,7 @@ function ChatInputBar(props: BottomActionBarProps) {
                   accessibilityRole="button"
                   accessibilityLabel="删除图片"
                 >
-                  <Text style={styles.imageRemoveIcon}>{'×'}</Text>
+                  <X size={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX} color={tokens.brand.ctaForeground} />
                 </Pressable>
               ) : null}
             </View>
@@ -649,9 +651,10 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityRole="button"
               accessibilityLabel="功能"
             >
-              <Text style={styles.secondaryEmoji} allowFontScaling={false}>
-                {'ƒ'}
-              </Text>
+              <SquareFunction
+                size={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX}
+                color={tokens.text.secondary}
+              />
             </Pressable>
           ) : null}
           {onSourceHandle !== undefined ? (

@@ -68,13 +68,16 @@ export function PostCreateScreen() {
 
   return (
     <View style={styles.pickWrap}>
-      <Pressable
-        style={({ pressed }) => [styles.pickBtn, pressed ? styles.pickBtnPressed : null]}
-        onPress={pickTopic}
-        accessibilityRole="button"
-      >
-        <Hash size={14} color={tokens.brand.DEFAULT} />
-        <Text style={styles.pickBtnText}>{t('postCreate.pickTopic')}</Text>
+      {/* 守门 131 改型:pickBtn 的「父槽位」属性(alignSelf:flex-start + margin,决定它不占满
+          整行、且命中区止于 margin 外沿)留在外层 pickBtnSlot;胶囊可视盒(边框/底色/圆角/
+          padding)原样进内层,pressed 淡出覆盖整颗胶囊 —— 与旧函数形态同形同感。 */}
+      <Pressable style={styles.pickBtnSlot} onPress={pickTopic} accessibilityRole="button">
+        {({ pressed }) => (
+          <View style={[styles.pickBtn, pressed ? styles.pickBtnPressed : null]}>
+            <Hash size={14} color={tokens.brand.DEFAULT} />
+            <Text style={styles.pickBtnText}>{t('postCreate.pickTopic')}</Text>
+          </View>
+        )}
       </Pressable>
       <SharedPostCreateScreen
         t={t}
@@ -99,13 +102,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.surface.bg,
   },
+  // 守门 131 改型:槽位档(数值逐字从 pickBtn 搬来,未新增未改动任何数字)。
+  pickBtnSlot: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    marginHorizontal: 12,
+  },
   pickBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     gap: 6,
-    marginTop: 8,
-    marginHorizontal: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: rnRadius['2xl'],

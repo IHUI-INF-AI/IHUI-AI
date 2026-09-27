@@ -12120,4 +12120,105 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **e2e 观察期现读**:两层根因(seed 前移 + extension 闭包)修复后,CI 已从「2 分钟基建死」进入「26-28 分钟全量测试」阶段(seed/build 步全绿);近两枚红为其他会话内容层失败,归各推送会话;连续 3 次绿收官的观察继续。
 - **学习页「更多」折行**:让出给 StudyBar 在飞会话(同文件族),本批零触碰,已在原条目下注让出说明。
 - **并行纪律**:本批提交与并发会话的「第二波认领」(54/62/63/75/83/80)零文件交集;全程 pathspec 提交 + PLAN 行级重放(提交面=HEAD+本批编辑,工作树在飞状态备份于 `.ihui-agent/tmp/plan-worktree-prebypass-20260927.md` 并在每批提交后原样恢复),未代收任何在飞内容。
-
+- [x] ✅(2026-09-24) **顺带查出一场全机规模的门禁停摆(比本票原任务更严重)**:排查 eslint 为何没给我的提交做修复时实测 —— 根 `node_modules` 里 `typescript` / `eslint` 等 **7 枚链接指向 .pnpm 里的空目录**,`node_modules/.bin` 只剩 16 项且 **没有 eslint / tsc / tsserver / vitest / next**,而 09:32 的 hook 日志里 eslint 还 `✔`、10:31 的日志已变成 `✖ eslint --fix` + `✖ prettier --write` + 「`eslint` 不是内部或外部命令」并 `❌ 运行 lint-staged 失败,提交已阻止`。也就是说**从那一刻起每一次提交都只能 --no-verify,约 110 道守门对全队同时失效**,而 `git status`、typecheck 结论、守门报告里都看不出这件事(门 78 只看 workspace: 链接,且 existsSync 对"指向空目录的链接"仍返回 true ⇒ 结构上看不见这一类破损)。修复动作按 §12e 只有一个:全量 `pnpm install`(不带 --filter)。本机当场恢复实测 —— tsc:`Version 5.9.3`;eslint:`失败(node:internal/modules/cjs/loader:1520)`;安装日志尾:`[ERR_PNPM_EPERM] [importPackage G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc] EPERM: operation not permitted, rename 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc_tmp_8736_18' -> 'G:\IHUI-AI\node_modules\.pnpm\@next+swc-win32-x64-msvc@16.3.4\node_modules\@next\swc-win32-x64-msvc'`。**注意:本机就是生产机且当时有 91 个 node 进程在跑,重链接有打断在途构建的风险,这一步属于高影响动作,已择机执行并逐值复验;若任何包解析异常,第一现场看 `.ihui-agent/tmp/pnpm-install-20260924.log`。**
+- [x] ✅(2026-09-27) O81 票⑨ —— **渲染层复测补齐 + 尺子两处盲区(换算器 / 配对射程)+ 陈旧 dist 前置**。承票⑦ 未收口四条,这轮收掉三条,第四条让位给票⑧ 持有者。
+  **复测(票⑦ 第 1 条)**:微信开发者工具私有产物现读现证 —— 两枚控制方块容器 **64rpx(34.297 CSS px @windowWidth 402)**、
+  墨迹 **28rpx**、发送键 `rgb(0,0,0)` 实底 + `rgb(255,255,255)` 配对前景、载体是 `mask-image` 的 lucide 内联 SVG
+  (`<image>`/裸字符计数各 0)。阳性对照走注入式:同判据把几何表值改成 64 ⇒ 同一链量出 **128rpx ×4 / 64rpx ×0**,
+  证明尺子双向可读而不是只会吐一个数;归属链含产物 mtime 断言与 `b6ad872aa5` 的祖先判定。
+  **盲区一(票⑦ 第 2 条,已修)**:门 128 把 `toUnit(taroGeometry.X)` 解成表值 32 —— 认档名不认外层换算器,
+  而 `taroGeometry` 已折过 2 倍,落屏是 64。现按换算器折算,自检 ㊣/㊥ 三条成对(错写法读 64、正解读 32、
+  端到端必须报成真分叉),并用**修复前的 HEAD^ 真代码**做阳性对照(读到 64;修复后读到 32)。
+  **盲区二(本轮量出来,数很硬)**:本门只比"同名成文件"的元素,射程外从不报数 ——
+  现读 **仅小程序成文件 75 个 / 仅 RN 成文件 50 个** 永不成对(RN 的发送钮内联在 `BottomActionBar` 里)。
+  加一行 ⓘ 报数并明写"零判据",配镜像反向锁 T13 禁止把它接进红聚合:射程边界不是违规,
+  判红就是谁也修不动的恒红门(§12e)。**落地事故如实登记**:这枚提交的标题误复用了上一枚
+  (`7f70c0d029` IC 位图载体)的措辞,正文与 diff 才是配对射程(`0e2e834227`,2 文件)—— 读提交史请以正文为准。
+  **陈旧 dist 前置**(`95b55046b`):全量 typecheck 绕开 turbo ⇒ `dependsOn:["^build"]` 一起被绕开 ⇒
+  类型结论可以来自本机旧产物。本轮实测咬到一个:**"共享层没有 ctaForeground 通道"那个结论是错的**,
+  真因是 `packages/design-tokens/dist` 陈旧(`.gitignore` 忽略、`exports.types` 指 dist),
+  源码 `rn-tokens.ts` 早含 `cta/ctaForeground`;守门 4 比的是顶层 export 名字集合,嵌套键变化看不见。
+  现 `typecheck-full` 起检前比 mtime 重建陈旧包(失败即非零退出,不带着旧产物下结论),
+  应急开关 `IHUI_SKIP_STALE_DIST_PREFLIGHT=1` 跳过时必须打印"结论可能来自旧产物";自检 6 条 + 镜像 4 例。
+  **顺带收掉一处配对错记账**:RN 附件钮激活态前景由 `surface.light` 改配对档 `brand.ctaForeground`
+  (`55cab9d1a`,AGENTS §4 明列该跨档错配;此前不改成是因为上面那个假结论)。
+  **让位一条**:圆角跨端收敛(RD 维 9 对)已由并发会话建判据 + 立 `radiusCounts` 锚点并认领(票⑧,`（进行中）` 标记在位),
+  本会话不碰第二份 —— 同题两个 seam 必然互相顶掉(与 `geometry.js`/`radius.js` 单源同一条道理)。
+  取证:`node scripts/check-cross-end-ui-parity.mjs --self-test` 60/0、镜像 20/0、HEAD 面 exit 0;
+  `node scripts/typecheck-full.mjs --self-test` 6/0、镜像 4/0;全量 typecheck 前置实测重建 6 个包,
+  残余 5 条 TS2305 全在并发会话在飞的 `packages/shared/src/chat/__tests__/prompt-history.test.ts`,与本票无关。
+- [ ]（进行中@2026-09-27/O81票⑧）O81 票⑧ —— **圆角跨端同档:尺子已建完,收敛按台账走**。用户原话「App 端 小程序端 还有那么多的容器圆角没统一用项目要求的圆角 token,不允许出现胶囊型,请彻底根治」。
+  **根因(两条,都不是"漏改")**:① 项目只定义过档位**值**(`RADIUS_STEPS`),从没定义过**哪类元素取哪档** —— 各端按直觉选,web 收敛到 `md`(6px)、小程序与 App 收敛到 `xl`(12px);② 两台尺子互相指认留了一道缝:守门 77 判"值同源 + 端内不得绕档写死数字",两端都规矩引用 token 时它**扫 6373 文件 0 违规报绿**;而跨端配对门 128 用一条 `RADIUS_FORM_RE` 把圆角**整族排除**,注释写着"圆角有守门 77 的单一源",并在自检 S17 里把这句错前提钉成了要求 —— 于是"同一元素跨端取不同档"两边都不判。**阳性对照(不是推测)**:用 128 自己的配对器现读 HEAD,19 对同名组件里量得到圆角的 11 对中 **9 对不同档**,含 `UserInfoCard` 小程序 `[4,6,8]` vs App `[2,12]`(卡片 8 对 12)、`ModelList` 8 对 12、`InputArea` 3 档互不重叠;`FloatBox` 16 对 8 **不算**(它早被 `pairingRejects` 拆对 —— 小程序是右下功能盒、RN 是顶部 toast,同名不同物)。
+  **已落地(本枚)**:`radius.js` 新增 `RADIUS_ROLES`(`tiny/control/chip/card/panel/hero`;**卡片按用户定档取 `lg`=8px**)及其 `.d.ts` 与包出口;新建守门 77/128 共用判据 `scripts/lib/radius-tokens.mjs`(档位表**按被审面解析**、不 import 磁盘常量;`radius-exempt` 逐行生效语义全仓只有一份);门 128 的 **RD 维**上线 —— 锚点与几何维**分家**(`radiusCounts`),否则"修一处几何、换一处圆角"净零逃逸(守门 134 扩布尔档键同一课);`docs/UI_GUIDELINES.md` §3.1 修两行错像素(`sm` 2→4、`rounded` 4→8)并补 `xs` 档与角色列。取证:128 自检 57→**60 条**(S18 同档两种写法判同值 / S19 带 `radius-exempt` 不得造假分叉**及其反向对照** / S21 两维锚点分家的净零逃逸必须仍判红),镜像 15→**19 例**(T14 表必须走被审面且禁 import 磁盘版 / T15 `radiusCounts` 恒写含 0 且保留他人 `pairingRejects` / T16 豁免判据不得有第二份实现 / T17 表改值判据必须跟着改)。**变异对照证明有牙**:把 `collected.radius` 从 `main` 的调用里摘掉 ⇒ T10 与 T8 同时翻红。
+  **顺带抓到的两条(均已修)**:① 胶囊守门(`check-rounded-full.mjs`)的**修复提示自己写着 `rounded-sm(2px) / rounded(4px)`** —— 正是 §4 已判作废的旧值,照它改就偏一档;现改为从 `radius.js` 现读拼接(它头注早就写对,提示没跟着改 = "散文与判据两边一起漏"同型)。② 该门 48 处"违规"里 **15 处来自一份残留构建副本 `apps/miniapp-taro/.tmp-wx-evidence-dist/`**,真信号被淹;已在**共享**的 `scripts/lib/exclude-dirs.mjs` 补 `.tmp-*` 族(不是在该门里单写一份),复测违规 48 → **33**。
+  **剩余工单(顺序固定)**:① 按 `radiusCounts` 从大到小收敛那 9 对(`InputArea` 3 / `Carousel` `IntelligentAssistant` `LoginPopUp` `ModelList` `UserInfoCard` 各 2 …),每族一票,**逐元素**判角色再定档 —— 现 RD 判的是**文件级档集合**(与几何维同口径),它保证"不再加大分叉",不等于"逐元素证明同值",像素级复核仍须两端真机/真构建;② 胶囊存量 33 处逐条判"容器 vs 合法豁免(头像/≤14px 装饰点/Switch 拇指/spin)",容器型改档、豁免型补 `radius-exempt: <原因>`(现全为裸标记即由守门 108 问责);③ `RADIUS_ROLES` 目前是**登记表**，除 `card` 外尚无组件侧消费方 —— 收敛时必须以"改一处就引用一次"的方式落地，不得让表空转（`geometry.js` 同一条规矩）。
+  **验证口径**:全量面 exit 0，点名 9 对存量而不拦（存量入档、新增才红，§12e 取向）；`pnpm check:all` 与 128 的 `--staged` 为问责入口。
+- [ ] 47. 三套执行内核工具集归一(A/B/C → 唯一工具注册表 `mcp_server._TOOLS`;AgentEngine 15 个工具映射或移植;JSON-RPC 只留协议适配层;CI parity 断言 `BUILTIN_ENGINE_TOOLS` ⊆ `_TOOLS` 映射完整) 〔PROGRESS 2026-09-27(五路并行第一波,ab4fed16d 前一枚):已落 J11/J14 两面 + 引擎内置名经 `resolve_engine_tool` 归口(归口在 `_ADMIN_ONLY_TOOLS` 判定之前,否则 unified_exec 这类名字会绕过角色矩阵)。实测 `BUILTIN_ENGINE_TOOLS` 是 **14 枚不是票面的 15**。**未闭环**:第三格「JSON-RPC 只留协议适配层」未做 —— agent_engine 的 RPC 面仍自带工具定义。票保持未勾。〕
+- [ ] 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 6 类 executor:长跑命令/测试套/代码索引/批量 LLM/网页批处理/patrol;带幂等键与断点续跑) 〔PROGRESS 2026-09-27:执行器框架 + 幂等键 + 断点续跑 + DAG 节点自证已落(60 passed / mypy 零错),新门 `check-background-task-type-parity` 已接 runner(id 135)。**未闭环**:门自己现读就是「六类 executor 仅 2 类接线、6 类在账未接线」,按存量报数不判红 —— 所以本票不是收口而是开了个头。〕
+- 〔O81 票⑦ 2026-09-27:首页活体 ai-home 两支键到端同档 + IC 补 RN 侧载体〕
+  `geometry.js` 新增 `controlBox: 32` / `controlGlyph: 14`(依据 = web 活体 `h-8 w-8` + 三枚 `h-3.5`),
+  两张 ui spec 的同名档改为对该表**投影**,门 128 的 `specTiers` 同枚支持投影链(否则"改成投影"就又隐身);
+  `geometry.d.ts` 的 `GeometryStep` 联合同步两档(只加表不改类型 ⇒ 消费方 TS2339,由 `geometryDeclCheck` 看守)。
+  两端读数:小程序 weapp 渲染实测 附件钮 32.3 / 加号墨迹 14.3(DevTools `element.size()`),
+  RN 侧 HEAD 装机包是 40 / 20、本票落库后代码为 32 / 14(**未重新装机,真机复测仍未做**)。
+  IC 维度补上 RN 侧栅格扫描并逐侧棘轮;同枚把 `--emit-baseline` 的说明行改走 stderr ——
+  它此前把一句散文追加进台账 JSON,后果是 lint-staged 下一次提交当场崩 + 本门 exit 2 无法判定(镜像 T13 钉死)。
+  仍未收口:两端**圆角档不同**(RN 8 / 小程序 16,圆角归守门 77 射程,128 刻意不双计);
+  RN `AddPanel` 激活态前景仍是 `surface.light` 压 cta 实底的跨档配对(该文件的 token 通道无 cta 档,需独立接线票);
+  RN 底栏 `ƒ` 字形无对端可比 ⇒ IC 按单侧控件只报数。
+- **真机走查拍到一处新的 RN 缺陷:「设置」页同屏两条页头**(VC45 实拍 `vc45-settings2.png`):上层「< 设置 ☰菜单」之下紧接「< 设置」—— **两个返回箭头、两个标题**。归因线索:`apps/mobile-rn/src/screens/SettingsScreen.tsx:205` 自己渲染 `<NavBar>`,而该屏所在导航容器又给了一层页头(`RootNavigator.tsx:502/602` 有 `headerShown:false`,819 行注册的 stack 归属待查实)。**这一型在小程序端有判据**(守门 102 的 GA6:页内渲染返回键却仍挂原生导航栏 ⇒ 同屏两个箭头 + 双层 chrome),**RN 侧零看守**。处置要先定"哪一层拥有页头",属设计决策,不是顺手删一个 `NavBar` ⇒ 登记为待办,不当干完。
+- **同批如实登记一处"未验到"**:本轮改的 `FloatingActionButton` 只在 `apps/mobile-rn/src/screens/StudyIndexScreen.tsx` 挂载,而该屏从 tabBar 五屏 + 抽屉 + 设置页列表都走不到(设置页列表末项是「关于」,没有「更多功能」入口)⇒ **它只有"门 131 读数 115→113 + typecheck 零错"两把尺子,没有屏幕证据**。不得因为"同一次提交里另一处验过了"就把它也算成已验。
+- **`test-python` 的 52 例红做了逐簇归因(Mypy 先红把它整批遮住了,修完 Mypy 才露出来)**——
+  读数取自 `40513b2558` 那次运行的 step 级日志(`= 52 failed, 14612 passed, 18 skipped =`):
+  - **22 例是我的两个 58 号接线套件**(`test_engine_context_wiring_58` 15 + `test_tool_trace_wiring_58` 7):
+    `asyncio.get_event_loop()` 在 3.12 的"无当前循环"语义下抛 `There is no current event loop`,
+    而**只要全量跑里有别的 pytest-asyncio 用例先 teardown 就会触发** ⇒ 单跑绿、全量红;
+    已改接仓内既有的模块级共享循环出口(`test_mainwire_wiring_58.py:50-60` 早就为同一件事写好了),
+    **没有另造第三份**;
+  - **5 例 `test_usage.py`** 是我自己那刀鉴权收紧的欠账(旧用例把"自报 user_id 优先 / 缺身份 400"当契约),
+    已改按收紧后断言(401 / dev 降级单一身份 / 非管理员代查 403 / 管理员仍可代查),
+    `30 passed` 与 `test_usage_authz.py` 同跑;
+  - **7 例 `test_file_search_ripgrep_v75`**:CI runner 里没有 `rg`,而这些用例**刻意拒绝在降级时出合格证**
+    ("ripgrep 不可用(解析结果 source=none),本结果不可用于对账")。已在 `ci-monorepo.yml` 的
+    `test-python` 里 Pytest 之前装 ripgrep + `rg --version` 留证;本机装有 rg 时同一套是
+    `12 passed / 3 failed`,那 3 条(`collect_code_files_with_provenance`、`traversal_engine` 两个
+    AttributeError + 真仓耗时对账)是装完 rg 之后**仍要单独归因的存量**,不在本票冒充已修;
+  - 余下 **18 例是别的服务/工具的代码↔测试漂移,逐条带错误原文登记为待办,不盲修**:
+    `test_parallel_tool_abort_54` 4 例(`'AgentLoopV2' object has no attribute '_mode_policy' /
+    '_executed_tool_calls'` —— 测试按一版未落地的重构属性写)、
+    `test_permission_modes` 4 例(3 例 "mock awaited 0 times" + 1 例
+    `assert 'role_denied' == 'bypass_skip_approval'`,后者是**角色矩阵在 bypass 档之前就把工具拒了**,
+    属产品语义待定,不是测试写错)、
+    `test_mcp_server` 3 例(`KeyError: 'metrics' / 'test_code'` —— 工具输出结构变了)、
+    `test_model_tools_wiring_58` 1 例(`builder missing for update_plan`)、
+    `test_sse_contract` 1 例(`assert 28 == 26`,事件数与契约清单对不上)、
+    `test_complete_stream_question` 1 例(`assert [] == ['run_command']`)、
+    `test_llm_tool_persistence` 1 例(`'str' object has no attribute 'get'`)、
+    `test_engine_harness_settings_48` 1 例(拒 `permission_mode: 'always'`,归一表不认这个别名)、
+    `test_shell_detect_56` 与 `test_patch_safety_56` 各 1 例(**在 Linux runner 上断言 Windows 语义**:
+    `'/bin/sh' == 'cmd.exe'`、`'reject' == 'auto_approve'`)—— 最后这两型的正确修法是让用例
+    自己 monkeypatch 平台输入而不是按宿主跳,别用 skipif 把覆盖面跳没。
+- **e2e 开口收口后的**真实增量**(CI 逐轮复量,不把自己的改动当已交付):
+  对照三次运行的失败清单(计数含 2 次重试,已折半读):
+  - `cbed016f64`(改前):`login-enter-submit` 7 例、`login-3step-enter` 3 例、
+    `dialog-position-regression` 2 例、`remember-password` 12 例 ⇒ 登录簇 24 例全红;
+  - `40513b2558` / `f2a7cf2429`(带上唯一出口 + 四条 spec 接线后):
+    **`login-enter-submit` / `login-3step-enter` / `dialog-position-regression` 从失败清单里整批消失(12 例转绿)**,
+    `remember-password` 仍 10-11 例红 —— 但**失败点已经换了**:`expect(getByTestId('login-dialog')).toBeVisible`
+    这一句不再红,改停在更后面的一步 `switchToPasswordTab`(`remember-password.spec.ts:73`)等
+    `#login-form-account` 不可见。⇒ 该 spec 的 tab 切换用的是 `page.mouse` 坐标点击 + 按 id 取元素
+    (同期 `login-enter-submit` 用的是 `getByTestId('login-tab-*')`,所以它绿),
+    这是**同一份漂移的下一层**,不是我把上一条修坏了;之前那一层失败把它挡住了,现在露出来。
+  登记为待办(不冒充 e2e 全绿):`remember-password.spec.ts` 的 `switchToPasswordTab` 应改成像
+  同期 spec 那样按 testid 点 tab、按可见性而不是坐标取账号框;余下 `browser-hub-smoke`(ai-service
+  侧建会话 500)、`navigation-full`、`mode-switch`、`work-panel`、`topbar-workarea-align`、
+  `ihui-download-verify`、`chat-mode-badge`、`footer-regression`、`phase-21-timeline-sse` 各自另有成因,
+  且日志里同时出现 api 侧 `FST_UNDER_PRESSURE`(503)与 `会话清单应为 200(实际 500)` ⇒
+  这一族要先判"是不是 CI 资源压力下的过载",不得当成代码缺陷盲修。
+- **函数形态 style 批量清偿:113 → 32(36 文件 / 81 处,提交 `8c25867818`)**:三路并行代理各管一份**互不相交**的名册,范式照抄本轮已定案的 BackChevron / FloatingActionButton(外层承真正占父容器槽位的布局档,按压态落子 View 的数组形态,需要撑满处补 100%,不新造任何数值)。三条纪律独立核过:① 新增 `interop-style-exempt` 标记 **0 处**;② 判据与其镜像测试未被碰(`git status` 对三者为空);③ 打包/提交名单**由门自己的判据生成**(`make-list` 要求「该文件工作树副本命中=0」且「diff 确实删过 style 函数形态」两条同时成立),因此并发会话改过的 16 个文件被正确排除 —— 不按 mtime 猜归属。
+- **本批的屏幕证据(VC46 实拍,底稿 = HEAD `b6ad872aa5` ⊕ 本批 36 文件,逐字节校验后起 gradle)**:`智汇AI` tab 底部工具栏一排(技能/对话/图片/视频/音乐,`Toolbar.tsx` 本批转换)渲染为等宽圆角胶囊、图标与文字同行不塌;`我的` tab 用户卡与四张入口卡(`UserInfoCard` / `EarningsStatisticsCard` 本批转换)盒状布局正常。**仍未验到的**:`FloatingActionButton` 只在 `StudyIndexScreen` 挂载,从 tabBar 五屏 + 抽屉 + 设置页列表都走不到(设置页末项是「关于」),它只有"读数下降 + typecheck 零错"两把尺子。
+- **守门 108 的一处真缺陷已修(`568def088c`)**:`parseMarkerTail` 取"标记后的第一个日期",于是 `border-ink-exempt: … 2026-09-26 扩判据后暴露的既有定稿 … until 2027-09-26` 被读成到期日 2026-09-26,今天 E2 判红 —— **一条 blocking 门因尺子读错日期而恒红,后果是每次提交被逼跳门、约 150 道门作废**,而这条红不等于任何人的代码有问题。现优先认显式 `until`(P05),无 until 时行为一字不变(P06 反向对照),`until` 后是坏日期则判"没有到期日"让 E1 去喊(P07,绝不偷偷退回理由里的日期)。真仓由 rc=1 → **rc=0**,自检三条新例绿,镜像 22/22。
+- **守门 128(跨端 UI 差异账)现红 9 对,归因已证死不是本批**:用门自己的 `readGeometry` 对**本批 36 个文件**逐一比较 `8c25867818^` 与 `8c25867818` 两个 blob ⇒ **档集合全部不变**(含被点名的 LoginPopUp / UserInfoCard)。9 对红的 RN 侧文件最近一次提交分别是 `d8673d8e46 / b55b1d1d72 / b6ad872aa5 / ca20df85c3 / ffd9aa32d4 / c96d8840d0 / 154f407499`(并发会话的几何档工作)。**没有为消红去动台账数字或判据** —— 台账归零不等于两端一致,把差异调平属几何档票持有者的设计决策(哪一端赢),已登记不代裁。
+- **根目录一处 §28 违例已收**:`.pytest-rg.txt`(09-27 06:59 由并发会话的 pytest 产出、未被 gitignore)让守门 44 判红。处置是**移入** `.ihui-agent/tmp/pytest-rg-2026-09-27.txt` 而不是删除 —— 归属他人的在飞产物,删除权不在本会话(§12)。门 44 由红转 rc=0。
+- **`escaping` 那 909 处的量算(一次性探针,尺子复用门 135 的枚举)**:绑得到函数名的 537 处里,全仓找不到调用点 423、调用方读走错误对象 60、有的读有的丢 41、调用方丢弃 13;另有 372 处连函数名都绑不到(判不出)。**这 60/41 是上界不是结论** —— 按**名字**跨文件匹配会被 `invalidate` 这类通用名放大(样例里多条就是 `fn=invalidate` 撞名),所以它只能回答"值得再投一票",不能当作已证的敞口数。要坐实得让尺子按 import 边解析而不是按名字 —— 那是另一把尺子,不在本轮。
+- **同批新拍到一处未定机制的缺陷**:「我的」tab 有一个**只有橙色警告三角、没有任何文字**的深色 toast(`crop-toast.png`)。已排除两种解释(该屏 `t('error.network')` 实测返回「网络错误,请稍后重试」;两条腿都走已修的非空白出口)。剩两条候选:FloatBox 的 `TEXT_COLOR = tokens.surface.light` 压 `rgba(0,0,0,0.85)` 在暗档解析下深字压深底(守门 91 那一型),或这枚 toast 根本不是该屏发的。**登记为待办,不照猜测改代码**。

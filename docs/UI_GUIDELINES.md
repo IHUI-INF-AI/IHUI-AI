@@ -86,14 +86,20 @@ function getInitials(name: string): string {
 
 ### 3.1 规范圆角档位
 
-| Tailwind 类 | 像素值 | 用途 |
-|-------------|--------|------|
-| `rounded-sm` | 2px | 极小元素(标签内角) |
-| `rounded` | 4px | 小元素(按钮、输入框) |
-| `rounded-md` | 6px | 中等元素(导航项、chip) |
-| `rounded-lg` | 8px | 较大元素(卡片、下拉) |
-| `rounded-xl` | 12px | 大容器(面板、弹窗) |
-| `rounded-2xl` | 16px | 特大容器(主卡片) |
+**档位值的唯一真相源是 `packages/design-tokens/src/radius.js` 的 `RADIUS_STEPS`，"哪类元素用哪档"的唯一记录是同文件的 `RADIUS_ROLES`。** 本表是它两节的展开，改档位只改 JS 表、再回头同步本表，不得在本表另立数字。
+
+| Tailwind 类 | 像素值 | 角色键 | 用途 |
+|-------------|--------|--------|------|
+| `rounded-xs` | 2px | `tiny` | 极小元素（标签内角、计数点） |
+| `rounded-sm` | 4px | `control` | 小元素（按钮、输入框） |
+| `rounded-md` | 6px | `chip` | 中等元素（导航项、chip） |
+| `rounded-lg` | 8px | `card` | **卡片、下拉、列表项容器** |
+| `rounded-xl` | 12px | `panel` | 大容器（面板、弹窗） |
+| `rounded-2xl` | 16px | `hero` | 特大容器（主卡片） |
+
+> 本表前有两处历史漂移已随 `RADIUS_ROLES` 一并更正（2026-09-27）：`rounded-sm` 曾写 2px（现 4px，2px 由 `rounded-xs` 承载）、`rounded` 曾写 4px（现 8px，与 `rounded-lg` 同值）。这两行与档位表不符期间，照文档写就偏一档 —— 角色当初是绑在 px 上的，档位收口时没跟着搬。
+
+> **卡片取 `lg`（8px）是 2026-09-27 的定档**，不得在某一端单独改取 `xl`：实测同一张 `UserInfoCard` 小程序 8px、App(RN) 12px 长期并存，而两端都规矩引用 token，圆角单一源守门（77）看不见这一型。跨端同名组件的圆角对账现由守门 128 负责（见其 `RADIUS_FORM_RE` 一条）。
 
 ### 3.2 禁止模式
 

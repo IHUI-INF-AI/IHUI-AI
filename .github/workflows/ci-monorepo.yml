@@ -199,6 +199,14 @@ jobs:
       - name: Mypy
         working-directory: apps/ai-service
         run: mypy app/
+      - name: Install ripgrep（rg↔python 双通道对账测试的前置工具）
+        # 缺 rg 时 `tests/test_file_search_ripgrep_v75.py` 刻意判"本结果不可用于对账"而不是
+        # 静默通过(`shutil.which("rg")` 解析不到即降级并拒绝出合格证)。所以 CI 要么装它,
+        # 要么永远看着一批"环境红"把真信号埋掉 —— 与 §"判据失效的表现永远是安静"同一条。
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ripgrep
+          rg --version | head -1
       - name: Pytest（离线单测子集，排除真网/端到端集成测试，避免依赖外部服务）
         working-directory: apps/ai-service
         run: |
