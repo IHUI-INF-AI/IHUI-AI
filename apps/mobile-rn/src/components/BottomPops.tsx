@@ -19,6 +19,7 @@
  *
  * 平台特有:依赖 RN Modal/Animated/useSafeAreaInsets,不适合共享。
  */
+import { rnRadius } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { useEffect, useRef, useState } from 'react'
 import {
