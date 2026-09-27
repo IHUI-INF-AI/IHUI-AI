@@ -138,7 +138,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 12,
       paddingVertical: 8,
       fontSize: 16,
@@ -162,7 +162,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       marginTop: 20,
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

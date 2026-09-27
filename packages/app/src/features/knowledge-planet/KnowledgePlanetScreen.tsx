@@ -140,7 +140,7 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     } as ViewStyle,
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,
@@ -151,7 +151,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     itemCard: {
       flexDirection: 'row',
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
       gap: 12,

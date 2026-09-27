@@ -298,7 +298,7 @@ function createStyles(tk: AppThemeTokens) {
     chip: {
       paddingHorizontal: 14,
       height: 36,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -311,7 +311,7 @@ function createStyles(tk: AppThemeTokens) {
     paidCard: {
       marginTop: 12,
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
     },
     priceRow: {
@@ -328,7 +328,7 @@ function createStyles(tk: AppThemeTokens) {
     btn: {
       marginTop: 28,
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

@@ -109,7 +109,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
@@ -122,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     scoreCard: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       alignItems: 'center',
       marginBottom: 12,
@@ -136,7 +136,7 @@ function createStyles(tk: AppThemeTokens) {
     metaPill: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     metaPillText: { fontSize: 14, color: tk.text.primary },
@@ -149,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

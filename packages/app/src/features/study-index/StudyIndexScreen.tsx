@@ -424,7 +424,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     searchInput: {
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -506,7 +506,7 @@ function createStyles(tk: AppThemeTokens) {
     previewBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     } as ViewStyle,
     previewBadgeFree: {
       backgroundColor: tk.success.lighter,
@@ -704,7 +704,7 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     } as ViewStyle,
     retryText: {

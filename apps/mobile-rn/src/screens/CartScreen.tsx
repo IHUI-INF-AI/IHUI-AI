@@ -495,7 +495,7 @@ const createStyles = (tk: RnThemeTokens) =>
     retryBtn: {
       paddingHorizontal: rpx(40),
       paddingVertical: rpx(14),
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },
     retryText: {

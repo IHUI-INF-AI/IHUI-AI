@@ -169,7 +169,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { gap: 10, padding: 10, paddingBottom: 32 },
     card: {
       flexDirection: 'row',
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       overflow: 'hidden',
@@ -192,7 +192,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
     },
     statusText: { fontSize: 11, color: tk.surface.light },
   })

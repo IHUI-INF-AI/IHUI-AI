@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   buyBtn: {
     width: 125,
     height: 42,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.danger.bright,
     alignItems: 'center',
     justifyContent: 'center',

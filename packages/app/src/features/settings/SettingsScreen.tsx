@@ -358,7 +358,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     logoutBtn: {
       marginTop: 8,
       height: 50,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       backgroundColor: cardBg,
       alignItems: 'center',
       justifyContent: 'center',
@@ -376,7 +376,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     pwdInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 12,
       height: 50,
       fontSize: 16,
@@ -386,7 +386,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     modalBtn: {
       flex: 1,
       height: 50,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       alignItems: 'center',
       justifyContent: 'center',
     },

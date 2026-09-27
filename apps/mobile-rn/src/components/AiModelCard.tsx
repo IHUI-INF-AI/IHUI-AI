@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     padding: 12,
     marginBottom: 8,
   },
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xs,
+    borderRadius: rnRadius.md,
   },
   tagText: {
     fontSize: 11,
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     backgroundColor: tokens.warning.light,
-    borderRadius: rnRadius.xs,
+    borderRadius: rnRadius.md,
   },
   badgeText: {
     fontSize: 11,
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     backgroundColor: tokens.brand.cta,
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
   },
   buyBtnText: {
     fontSize: 12,
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
   },
   settingBtnText: {
     fontSize: 14,
