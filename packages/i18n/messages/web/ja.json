@@ -8722,6 +8722,7 @@
       "bottleneck": "ボトルネック"
     },
     "toolCall": {
+      "streamingPreviewLabel": "ストリーミングプレビュー(実行中、最終結果が優先)",
       "chartGenerated": "グラフ生成済み",
       "chartPreviewFailed": "グラフのプレビューに失敗しました。パスをコピーしてローカルブラウザで開いてください。",
       "chartPreviewHint": "ローカルのグラフファイルはウェブページ内で直接プレビューできません。パスをコピーしてローカルブラウザで開いてください。",
