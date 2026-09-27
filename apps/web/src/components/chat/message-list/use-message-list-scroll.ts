@@ -301,6 +301,21 @@ export function useMessageListScroll({
     applyAuthority(reconciliation.authority)
     // 几何账目:**任何**来源都更新(含不改 following 的 programmatic / layout)
     observedScrollTopRef.current = reconciliation.observedScrollTop
+    // M3-B(G-252 运行时验收抓到的第二格):前插还在途、用户又自己滚了一段 ⇒ 锚点必须
+    // **按用户的落点重定基**。旧写法把 savedOffset 钉死在触发瞬间,于是补偿会把用户刚滚到
+    // 的位置当"待修正的偏差"弹回去(真实浏览器实测逐帧最大位移 1340px)。锚点的语义是
+    // "别在读者眼下挪内容",读者自己动了基准就该是他动完的那一处。
+    // 只在 `'user'` 来源重定基 —— programmatic/layout 的位移是补偿自己产生的,拿它重定基
+    // 等于让补偿追自己的尾巴。
+    if (resolvedSource === 'user' && pendingAnchorRef.current) {
+      const anchorEl = el.querySelector(
+        `[data-message-id="${pendingAnchorRef.current.anchorKey}"]`,
+      ) as HTMLElement | null
+      if (anchorEl) {
+        pendingAnchorRef.current.savedOffset =
+          anchorEl.getBoundingClientRect().top - el.getBoundingClientRect().top
+      }
+    }
     if (resolvedSource === 'programmatic' && distanceFromBottom <= BOTTOM_REATTACH_PX) {
       // 自己发起的贴底已经落地 ⇒ 窗口提前收,后续位移不再被自我豁免
       programmaticUntilRef.current = 0
@@ -702,9 +717,17 @@ export function useMessageListScroll({
   const scrollToBottom = React.useCallback(() => {
     const el = bottomRef.current
     markProgrammaticScroll()
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
     // 点「跳到最新」本身就是一次**用户输入**(方向是"靠近底部"),所以这里把滚动权交还给跟随。
     // 几何账目不在此处改写:随后派发的 scroll 事件会自己把落点记进去。
+    //
+    // **必须先作废上一条用户凭据**:平滑动画会派发消息中间的 scroll 事件,而
+    // `resolveScrollEventSource` 的判序是"用户凭据优先于程序化窗口"。上一条
+    // `awayFromBottom` 若还在 400ms TTL 里,动画自己的第一帧就会当场把 following 再解除一次
+    // —— 真实 Chromium 实测(G-252):流式中上滚后 150ms 内点按钮,列表永久停在距底
+    // 244–366px 且不再跟随(用户看到的是"点了没反应、按钮又冒出来");>400ms 点则正常。
+    // 方向已经被这次点击改写了,旧凭据不该继续有效,所以清它不是掩盖判据而是修正输入。
+    userIntentRef.current = null
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
     applyAuthority({ following: true })
   }, [applyAuthority, markProgrammaticScroll])
 

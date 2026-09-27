@@ -111,6 +111,38 @@ def _action_allowed(action_type: str) -> bool:
     allowed = {a.strip() for a in settings.hook_allowed_actions.split(",") if a.strip()}
     return action_type in allowed
 
+
+def _owned_by(entity: dict[str, Any], owner_id: str) -> bool:
+    """归属判据的**唯一实现**:这条资源(Hook 或 A/B 测试)是否属于 `owner_id`。
+
+    住在模块级而不是每个方法里各抄一遍 `x.get("owner_id") == owner_id` —— 两处算同一件
+    事必漂移(本仓记过多次)。`owner_id` 为 None 的条目按既有约定是**系统级**,它与任何
+    真实主体都不匹配,所以"管理员 = 不过滤"那一档留在调用方判(`if owner_id is not None`),
+    本函数只在主体已确定时调用 —— 分档不是判据,判据只有这一份。
+
+    G-258 B 组:新增 `emit()` 的触发集合过滤与 A/B 测试的读/停过滤都走这里,不开第二种写法。
+    """
+    return entity.get("owner_id") == owner_id
+
+
+# Redis 持久化用 `str(v)` 把整条记录转成字符串,故"无属主"在 hash 里长成 `""` 或 `"None"`。
+_ABTEST_NO_OWNER_TOKENS = frozenset({"", "None"})
+
+
+def _abtest_owner_from_raw(raw: dict[str, str]) -> str | None:
+    """把 Redis hash 里的 owner_id 字段还原成 `str | None`(与内存降级面同形)。
+
+    不归一有两个后果:① 同一个 A/B 测试在"Redis 可用"与"Redis 降级"两条路上返回的
+    `owner_id` 不同形(None vs 字符串 "None"),响应体随基础设施状态而变;② 系统级条目
+    在数据面上被伪装成"一个叫 None 的用户"。判定本身不会因此放宽("None" 同样匹配不上
+    任何真实主体),坏的是可读性与可审计性 —— 而属主字段正是用来审计的。
+    """
+    value = raw.get("owner_id")
+    if value is None or value in _ABTEST_NO_OWNER_TOKENS:
+        return None
+    return value
+
+
 MAX_LOGS = 1000
 WEBHOOK_TIMEOUT = 5.0
 SCRIPT_TIMEOUT = 10.0
@@ -238,6 +270,8 @@ class AbTestConfig:
     - traffic_split:0.0-1.0,A 占比
     - user_bucketing:hash(默认)/ random / sticky
     - status:running / stopped / completed
+    - owner_id:创建者(G-258 B 组)。None = 系统级,仅管理员可见/可停;
+      与 Hook 本体的归属约定同形,读/停两端按它过滤。
     """
 
     hook_a_id: str
@@ -247,6 +281,7 @@ class AbTestConfig:
     started_at: str = ""
     ended_at: str = ""
     status: str = "running"
+    owner_id: str | None = None
 
 
 # ====================== 条件匹配(JSONLogic 简化版) ======================
@@ -527,7 +562,7 @@ class HookEngine:
             hooks = [h for h in hooks if h["event"] == event]
         if owner_id is not None:
             # 归属过滤:无 owner_id 字段的历史 Hook 视为系统级,仅管理员可见
-            hooks = [h for h in hooks if h.get("owner_id") == owner_id]
+            hooks = [h for h in hooks if _owned_by(h, owner_id)]
         # 按创建时间倒序
         hooks.sort(key=lambda h: h["createdAt"], reverse=True)
         return hooks
@@ -536,7 +571,7 @@ class HookEngine:
         hook = self._hooks.get(hook_id)
         if hook is None:
             return None
-        if owner_id is not None and hook.get("owner_id") != owner_id:
+        if owner_id is not None and not _owned_by(hook, owner_id):
             return None
         return hook
 
@@ -568,7 +603,7 @@ class HookEngine:
         hook = self._hooks.get(hook_id)
         if hook is None:
             return None
-        if owner_id is not None and hook.get("owner_id") != owner_id:
+        if owner_id is not None and not _owned_by(hook, owner_id):
             return None
         for k in ("name", "description", "event", "condition", "action", "enabled"):
             if k in patch:
@@ -581,7 +616,7 @@ class HookEngine:
         hook = self._hooks.get(hook_id)
         if hook is None:
             return False
-        if owner_id is not None and hook.get("owner_id") != owner_id:
+        if owner_id is not None and not _owned_by(hook, owner_id):
             return False
         ok = self._hooks.pop(hook_id, None) is not None
         if ok:
@@ -594,7 +629,7 @@ class HookEngine:
         hook = self._hooks.get(hook_id)
         if hook is None:
             return None
-        if owner_id is not None and hook.get("owner_id") != owner_id:
+        if owner_id is not None and not _owned_by(hook, owner_id):
             return None
         hook["enabled"] = enabled
         hook["updatedAt"] = datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z"
@@ -639,7 +674,7 @@ class HookEngine:
             # 模块其它 owner 过滤同形(`list_hooks:528`):None = 管理员/系统级,不过滤。
             # 副作用如实登记:hook 被删后其日志不再出现在任何人的列表里(那批行已无属主
             # 可对账)—— 与 get_hook 的 404 同一条口径,宁可少给不可多给。
-            owned = {h["id"] for h in self._hooks.values() if h.get("owner_id") == owner_id}
+            owned = {h["id"] for h in self._hooks.values() if _owned_by(h, owner_id)}
             logs = [l for l in logs if l["hookId"] in owned]
         if event:
             logs = [l for l in logs if l.get("event") == event]
@@ -690,11 +725,20 @@ class HookEngine:
 
     # ---------- 事件总线 ----------
 
-    async def emit(self, event: str, context: dict[str, Any]) -> list[dict[str, Any]]:
+    async def emit(
+        self, event: str, context: dict[str, Any], owner_id: str | None = None
+    ) -> list[dict[str, Any]]:
         """事件总线:触发所有匹配该事件的 Hook。
 
         - event: HookEvent 字符串(如 'tool.before')
         - context: 上下文字典(tool/args/result/sessionId/userId 等)
+        - owner_id: **调用方主体**(G-258 B 组 / 本票)。非 None 时只触发该主体名下的
+          Hook。不传(None)= 不按归属收窄,与改动前逐字同行为 —— 进程内调用方
+          (`agent_loop_v2` / `agent_engine` / `llm_gateway` / `mcp_server`)因此完全不受影响;
+          它们本来就以"系统总线"的身份代发事件,手里也没有一个可传给这里的用户主体。
+          **HTTP 面 `POST /hooks/emit` 必须传**(由 router 用令牌主体传),否则等于
+          "任何已登录用户都能点火别人的 webhook 或脚本" —— 别人的脚本里带着别人的
+          凭据与外部地址,触发的副作用与执行证据都记在别人头上(账面还回 200)。
 
         返回本次触发产生的日志列表(条件不匹配的 Hook 不触发,不记日志)。
         所有动作异步执行,失败仅记录 error 日志,不抛错。
@@ -713,9 +757,17 @@ class HookEngine:
             logger.debug("[hook_engine] broadcast 失败(降级,不阻塞): event=%s", event)
 
         triggered_logs: list[dict[str, Any]] = []
-        # 取所有 enabled 且 event 匹配的 Hook(快照,避免执行过程中被修改)
+        # 取所有 enabled 且 event 匹配的 Hook(快照,避免执行过程中被修改),
+        # 并按调用方主体收窄(G-258 B 组)。归属判据走 `_owned_by` 那一份实现,与
+        # list_hooks/get_hook 同形:`owner_id=None` 的条目(历史遗留/系统级)对任何真实
+        # 主体都不匹配 —— 所以经 HTTP 口触发的普通用户**不再点火系统级 Hook**。
+        # 这是有意的行为收紧,如实登记:系统级 Hook 现在只能由进程内总线或管理员点火。
         candidates = [
-            h for h in self._hooks.values() if h["enabled"] and h["event"] == event
+            h
+            for h in self._hooks.values()
+            if h["enabled"]
+            and h["event"] == event
+            and (owner_id is None or _owned_by(h, owner_id))
         ]
         for hook in candidates:
             try:
@@ -1538,10 +1590,21 @@ class HookEngine:
             "started_at": raw.get("started_at", ""),
             "ended_at": raw.get("ended_at", ""),
             "status": raw.get("status", "running"),
+            # G-258 B 组:属主字段。经 `_abtest_owner_from_raw` 归一,使 Redis 面与内存
+            # 降级面对同一条记录给出同形的 owner_id(否则 "None" 字符串会被下游当成一个用户)。
+            "owner_id": _abtest_owner_from_raw(raw),
         }
 
-    async def create_ab_test(self, config: dict[str, Any]) -> dict[str, Any]:
-        """创建 A/B 测试,存 Redis hash 'hooks:abtest:{id}'。"""
+    async def create_ab_test(
+        self, config: dict[str, Any], owner_id: str | None = None
+    ) -> dict[str, Any]:
+        """创建 A/B 测试,存 Redis hash 'hooks:abtest:{id}'。
+
+        `owner_id` 必须盖章:这张字典过去没有任何属主概念,于是 `list/get/stop` 三向
+        对任何已登录主体都全量开放 —— 别人实验的分组、样本量、失败率一律可读可停
+        (批 63 / G-258 在 Hook 本体与日志面已收口过的同一型)。约定与本模块一致:
+        None = 系统级(仅管理员可见/可停),故调用方**必须**显式传创建者。
+        """
         test_id = f"ab-{uuid.uuid4().hex[:12]}"
         now = datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z"
         ab_test: dict[str, Any] = {
@@ -1553,17 +1616,21 @@ class HookEngine:
             "started_at": now,
             "ended_at": "",
             "status": "running",
+            "owner_id": owner_id,
         }
         await self._persist_ab_test(ab_test)
         logger.info(
-            "[hook_engine] 创建 A/B 测试: id=%s a=%s b=%s split=%.2f",
+            "[hook_engine] 创建 A/B 测试: id=%s a=%s b=%s split=%.2f owner=%s",
             test_id, ab_test["hook_a_id"], ab_test["hook_b_id"], ab_test["traffic_split"],
+            owner_id,
         )
         return ab_test
 
-    async def stop_ab_test(self, test_id: str) -> dict[str, Any] | None:
-        """停止 A/B 测试,设 status=stopped。"""
-        ab_test = await self.get_ab_test(test_id)
+    async def stop_ab_test(
+        self, test_id: str, owner_id: str | None = None
+    ) -> dict[str, Any] | None:
+        """停止 A/B 测试,设 status=stopped。非属主与"不存在"**同形**(都返回 None)。"""
+        ab_test = await self.get_ab_test(test_id, owner_id=owner_id)
         if ab_test is None:
             return None
         ab_test["status"] = "stopped"
@@ -1572,8 +1639,8 @@ class HookEngine:
         logger.info("[hook_engine] 停止 A/B 测试: id=%s", test_id)
         return ab_test
 
-    async def list_ab_tests(self) -> list[dict[str, Any]]:
-        """列出所有 A/B 测试。"""
+    async def list_ab_tests(self, owner_id: str | None = None) -> list[dict[str, Any]]:
+        """列出 A/B 测试(None = 管理员/系统级不过滤;非 None 只回该主体名下的实验)。"""
         redis = await self._ensure_redis()
         if redis is not None:
             try:
@@ -1583,15 +1650,30 @@ class HookEngine:
                     key = f"{REDIS_ABTEST_KEY_PREFIX}{tid}"
                     raw = await redis.hgetall(key)
                     if raw:
-                        result.append(self._parse_ab_test(raw))
+                        parsed = self._parse_ab_test(raw)
+                        # 归属判据只在**取到内容之后**筛一次(与 list_logs 同形);
+                        # 提前按 id 猜不做 —— id 里没有属主信息。
+                        if owner_id is None or _owned_by(parsed, owner_id):
+                            result.append(parsed)
                 return result
             except Exception as e:
                 logger.warning("[hook_engine] A/B 测试列表读取 Redis 失败,降级内存: %s", e)
         # 内存降级
-        return list(self._ab_tests_store().values())
+        tests = list(self._ab_tests_store().values())
+        if owner_id is not None:
+            tests = [t for t in tests if _owned_by(t, owner_id)]
+        return tests
 
-    async def get_ab_test(self, test_id: str) -> dict[str, Any] | None:
-        """A/B 测试详情(含 A/B 各自 stats 对比)。"""
+    async def get_ab_test(
+        self, test_id: str, owner_id: str | None = None
+    ) -> dict[str, Any] | None:
+        """A/B 测试详情(含 A/B 各自 stats 对比)。
+
+        非属主一律返回 None,与"这条不存在"**同形**(同一返回类型、同一取值路径):
+        分成两种答案,这个端点就成了"别人有没有在做实验"的存在性预言机。
+        归属判定排在 stats 取数**之前** —— 先取后判等于把别人的样本量与失败率读出来了
+        再决定给不给(与守门 134/批 63"判定必须早于副作用"同一条)。
+        """
         ab_test: dict[str, Any] | None = None
         redis = await self._ensure_redis()
         if redis is not None:
@@ -1606,6 +1688,8 @@ class HookEngine:
             ab_test = self._ab_tests_store().get(test_id)
         if ab_test is None:
             return None
+        if owner_id is not None and not _owned_by(ab_test, owner_id):
+            return None
         # 附加 A/B 各自 stats 对比
         ab_test["stats_a"] = self.get_stats(ab_test["hook_a_id"])
         ab_test["stats_b"] = self.get_stats(ab_test["hook_b_id"])
@@ -1618,6 +1702,10 @@ class HookEngine:
 
         返回选中的 hook 配置 dict,或 None(无 ab_test 或 Hook 不存在)。
         此方法供 emit() 集成调用(当前 emit 未集成,需主 agent 后续接入)。
+
+        G-258 B 组留话:这里取的是**总线全量**实验(list_ab_tests() 不传主体),因为它
+        现在只服务进程内链路。将来把它接进 `emit()` 时,必须把同一个 `owner_id` 传下去
+        并按它过滤 —— 否则"用别人的实验分组决定自己这次触发哪一个 hook"会随接线一起出现。
         """
         ab_tests = await self.list_ab_tests()
         running_tests = [t for t in ab_tests if t.get("status") == "running"]
