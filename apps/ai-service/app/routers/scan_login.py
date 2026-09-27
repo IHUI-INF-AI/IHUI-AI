@@ -21,6 +21,10 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from ..core.jwt_auth import get_current_user_id
+from ..services.publish.platform_cookie_domains import (
+    extract_cookie_domains,
+    filter_platform_cookies,
+)
 from ..services.scan_login import (
     PLATFORM_SCAN_CONFIG,
     _cookie_hits,
@@ -240,7 +244,15 @@ async def import_cookies(body: ImportCookiesRequest, request: Request) -> dict[s
 
     流程:前端用系统默认浏览器(Tauri shell|open)打开登录页 → 用户在日常浏览器
     的已登录状态里完成登录 → 从 DevTools 复制 cookies 粘贴回弹窗 → 本端点
-    解析 → 校验平台关键字段 → 过滤统计类 cookie → 加密入库(与扫码登录同一张表)。
+    解析 → **按平台归属逐条过滤**(cookie 域名白名单优先,无域名信息才允许按
+    cookie 名兜底;唯一归属表在 `app/services/publish/platform_cookie_domains.py`)
+    → 过滤后仍不含该平台主登录 cookie ⇒ 400(点名缺失项 + kept/dropped 计数,
+    绝不回显任何 cookie 值)→ 加密入库(与扫码登录同一张表)。
+
+    根因修复(2026-09-27):旧实现的"过滤"只是对 cookie **名**做 5 项第三方统计类
+    子串黑名单(名字既不说话、也不分平台),整浏览器混包(实测 533/537 字段,含
+    .CNBlogsCookie/BDUSS/APISID 等跨站登录 cookie)只要有目标平台一枚登录 cookie
+    就整包入库(库中 id=5/7/23 即此型事故)。现按归属表丢弃一切判不出平台的 cookie。
 
     背景:用户日常浏览器的登录态受默认 profile / App-Bound Encryption 保护,
     后端无法自动读取(Chrome 136+ 禁止默认 profile 开调试端口),只能手动导入。
@@ -257,33 +269,60 @@ async def import_cookies(body: ImportCookiesRequest, request: Request) -> dict[s
             detail='未能从输入中解析出任何 Cookie,请确认格式:{"k":"v"} / k=v; k2=v2 / cookies.txt',
         )
 
-    # 校验登录关键字段:一个都没命中说明用户还没登录成功/复制错了域名
-    hits = _cookie_hits(config, cookies)
+    # 按平台归属过滤:有 domain 的按域名白名单判,无 domain 的才允许按 cookie 名兜底;
+    # 判不出归属 ⇒ 丢弃并计数(宁缺勿滥),不回显任何 cookie 值。
+    domains_by_name = extract_cookie_domains(body.cookies_raw)
+    filter_result = filter_platform_cookies(
+        platform=body.platform,
+        cookies=cookies,
+        domains_by_name=domains_by_name,
+        login_cookie_patterns=config["success_cookies"],
+    )
+
+    # 主登录 cookie 必须在**过滤后的保留集**里命中(旧版在整包上判,混包因此过闸)。
+    hits = _cookie_hits(config, filter_result.kept)
     if not hits:
+        missing = [
+            pattern for pattern in config["success_cookies"]
+            if not any(
+                h == pattern or (pattern.endswith("*") and h.startswith(pattern[:-1]))
+                for h in hits
+            )
+        ]
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"未检测到 {config['name']} 的登录 Cookie"
-                f"(应包含: {', '.join(config['success_cookies'])}),"
-                "请确认已在默认浏览器中登录成功后重新复制"
-            ),
+            detail={
+                "message": (
+                    f"未检测到 {config['name']} 的登录 Cookie"
+                    f"(缺少: {', '.join(missing) or ', '.join(config['success_cookies'])})。"
+                    f"粘贴内容中属于 {config['name']} 的 Cookie 已被过滤"
+                    f"(共丢弃 {filter_result.dropped_count} 枚非本平台 Cookie)。"
+                    f"请只复制 {config['name']} 域名下的 Cookie 重新导入,"
+                    "或改走扫码登录入口重新登录:"
+                    "POST /publish/scan-login/start(站内扫码)"
+                    " / POST /publish/scan-login/external-start(系统浏览器)"
+                ),
+                "data": {
+                    "kept": filter_result.kept_count,
+                    "dropped": filter_result.dropped_count,
+                    "missing_login_cookies": missing,
+                },
+            },
         )
 
-    # 与扫码登录一致:剔除统计类 cookie,并确保关键字段必含
-    relevant = {
-        k: v for k, v in cookies.items()
-        if not any(s in k.lower() for s in ["google", "baidu", "cnzz", "_ga", "hm.baidu"])
-    }
-    relevant.update({k: cookies[k] for k in hits})
-
-    account_id = await _save_account_to_db(user_id, body.platform, relevant, config["name"])
+    account_id = await _save_account_to_db(
+        user_id, body.platform, filter_result.kept, config["name"]
+    )
     return {
         "code": 0,
         "message": "ok",
         "data": {
             "account_id": account_id,
-            "cookies_count": len(relevant),
+            "cookies_count": filter_result.kept_count,
             "matched": hits,
+            # 2026-09-27 新增(只增不改字段):归属过滤计数,供前端如实提示
+            "kept": filter_result.kept_count,
+            "dropped": filter_result.dropped_count,
         },
     }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
