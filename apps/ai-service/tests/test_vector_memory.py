@@ -51,7 +51,15 @@ def _isolate_cache_and_redis(monkeypatch: pytest.MonkeyPatch) -> Any:
 
     设置 _redis_checked=True + _redis_client=None,使 _get_redis 直接返回 None,
     避免每个测试都尝试连接真实 Redis 导致超时。
+
+    `IHUI_PGVECTOR_DISABLE=1` 是**本文件补上的第二道隔离**(G-256):`search()`/`add_entry()`
+    的第一优先路径是 pgvector(§5 测试隔离铁律的射程内),而该开关是模块自己提供的全局关闭档
+    (`pgvector_store._is_disabled` 第一判据),不是为测试新造的旁路。缺它时的现象极具误导性:
+    带 `.env`(配了 PG DSN)的机器上 `test_search_threshold_filter` 报 `assert 5 == 1` ——
+    那 5 条不是本用例写进去的,是**库里已有的行**;不带 `.env` 的干净检出里同一文件 67 例全绿。
+    同形先例:`tests/test_vector_memory_user_scope_59.py:42` 早就设了这个开关。
     """
+    monkeypatch.setenv("IHUI_PGVECTOR_DISABLE", "1")
     vm_mod._embedding_cache._data.clear()
     monkeypatch.setattr(vm_mod, "_redis_checked", True)
     monkeypatch.setattr(vm_mod, "_redis_client", None)
@@ -884,3 +892,52 @@ def test_redis_cache_key_deterministic():
     k2 = vm_mod._redis_cache_key("hello")
     assert k1 == k2
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+# =============================================================================
+# 测试隔离本身的判据(G-256):pgvector 一级路径必须一根线都碰不到
+# =============================================================================
+
+
+async def test_store_writes_and_reads_never_reach_pgvector(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """把 pgvector 唯一的取池入口换成绊线,跑一遍增删改查后断言**一次都没被调到**。
+
+    为什么单独立一条:`_isolate_cache_and_redis` 里那道开关一旦被摘掉,其余 66 条用例
+    **照样全绿** —— 它们只是悄悄改读真库(在配了 DSN 的机器上返回 5 条别人写的行才偶然
+    暴露)。判据失效的表现永远是安静,所以隔离要有自己的正锁。
+
+    绊线扎在 `get_shared_pool` 而不是 `upsert_chunk`/`search_chunks`:后者即使开关生效也
+    **仍会被调用**(它们在函数第一行自己 short-circuit),按"有没有被调用"判会稳定误报;
+    而铁律判的是"有没有连库"。第二臂(开关摘掉 ⇒ 绊线必须响)是这条断言的阳性对照 ——
+    没有它,一条恒真的"没连库"和一把瞎了的尺子在账面上长得一模一样。
+    """
+    from app.core import db_pool as pool_mod
+    from app.services import pgvector_store as pg_mod
+
+    hits: list[str] = []
+
+    async def _tripwire() -> Any:
+        hits.append("get_shared_pool")
+        raise AssertionError("测试不得连真实 PostgreSQL(§5 测试隔离铁律)")
+
+    monkeypatch.setattr(pool_mod, "get_shared_pool", _tripwire)
+
+    store = VectorMemoryStore(persist_path=str(tmp_path / "isolation.json"))
+    await store.add_entry("e1", {"content": "a"}, [1.0, 0.0])
+    await store.add_entry("e2", {"content": "b"}, [0.0, 1.0])
+    hits_after_ops = await store.search([1.0, 0.0], top_k=5, threshold=0.9)
+    await store.update_embedding("e1", [1.0, 0.0])
+    await store.delete("e2")
+    await store.clear()
+
+    assert [h[0] for h in hits_after_ops] == ["e1"], "内存兜底路径必须仍然给出正确答案"
+    assert hits == [], f"开关在位时仍连了库: {len(hits)} 次"
+
+    # 阳性对照:摘掉开关 ⇒ 同一份代码必须踩到绊线(否则上面的"零次"什么都证明不了)
+    monkeypatch.delenv("IHUI_PGVECTOR_DISABLE", raising=False)
+    monkeypatch.setattr(pg_mod, "_disabled", False)
+    pg_mod._reset_circuit()
+    await store.add_entry("e3", {"content": "c"}, [1.0, 1.0])
+    assert hits, "开关摘掉后仍然零调用 ⇒ 本判据已瞎(取池入口不是真路径,或被更早的短路挡住)"
