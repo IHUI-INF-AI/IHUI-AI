@@ -133,7 +133,7 @@ export default function ImageGenPage() {
         </div>
       ) : null}
       {current && currentUrls.length > 0 ? (
-        <Card className="rounded-md border-border shadow-none">
+        <Card className="rounded-lg border-border shadow-none">
           <CardContent className="p-3 flex flex-col gap-2 min-[640px]:p-3">
             <div className="text-[11px] text-muted-foreground">
               {current.status} · {current.taskId.slice(0, 8)}
@@ -163,7 +163,7 @@ export default function ImageGenPage() {
             return (
               <div
                 key={h.taskId}
-                className="flex items-center gap-2 p-1.5 rounded-md border border-border bg-card"
+                className="flex items-center gap-2 p-1.5 rounded-lg border border-border bg-card"
               >
                 {cover ? (
                   <img
