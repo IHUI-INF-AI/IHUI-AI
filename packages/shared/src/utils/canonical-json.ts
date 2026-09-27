@@ -2,52 +2,40 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-export * from './ai-skill-variables'
-// AI 操控桥的投递定址判定(五桥共用一份实现,端内只注入自身身份)
-export * from './agent-action-addressing'
-export * from './app-control-intent'
-export * from './async'
-export * from './base64'
-// 上下文占用归因分解(按构成来源,而非只报总量)
-export * from './context-attribution'
-// canonical JSON 序列化唯一出口(86F:审计链哈希与导出签名共用,生产面禁止第二份)
-export * from './canonical-json'
-// D20 会话组织(文件夹/标签)的归一化、回收与筛选规则唯一实现(端内不得再建第二套)
-export * from './conversation-org'
-export * from './dangerous-command-detector'
-export * from './date-utils'
-export * from './error-messages'
-export * from './file-helpers'
-export * from './form-styles'
-export * from './format'
-export * from './format-ext'
-// 移动端/小程序端通用格式工具(2026-07-30 立)
-export * from './format-mobile'
-// 跨端图片处理工具(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
-export * from './image-helpers'
-// 跨端 compact 数字格式化(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/number-format.ts 下沉)
-export * from './number-format'
-// 跨端存储抽象(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
-export * from './storage'
-export * from './jwt-utils'
-export * from './llm-templates'
-export * from './logger'
-export * from './markdown-mermaid-code'
-export * from './mcp-curated'
-export * from './message-search'
-export * from './object'
-// 脱敏(共享层唯一实现;D94 交接单 / 日志 / 出库边界共用;规则为 ai-service
-// output_cleaning.py + cli/redact.ts 既有正则的并集,端内不得再建第二套)
-export * from './redact'
-export * from './role'
-export * from './search-suggestions'
-export * from './select-class'
-export { parseSSEChunk, type SSEEvent as ParsedSSEEvent } from './sse-parse'
-export * from './status-colors'
-export * from './storage-migration'
-// 跨端 Token 估算工具(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/token-estimate.ts 下沉)
-export * from './token-estimate'
-// 工具入参的两档摘要(结构指纹 + 形态类)唯一出口,86 审计链的输入格式层;不含任何原值
-export * from './tool-args-digest'
-export * from './vip-utils'
+/**
+ * canonical JSON 序列化的**唯一实现**(86F 第②半,2026-09-28 立)。
+ *
+ * 立因:此前 `apps/api/src/services/audit-log-service.ts`(HMAC 链哈希输入)与
+ * `apps/api/src/services/siem-exporter.ts`(导出签名载荷)各藏一份私有
+ * `canonicalStringify`,行为在 JSON 值域上逐字节等价、仅在 JSON 域外分支
+ * (`undefined` 输入)分叉 —— 两处实现必漂移是本仓记过最多次的失败型,86F 票面
+ * 判据点名"生产面声明处 ≤1"。本层收口成一份,两处改 import;反向锁由
+ * `apps/api/tests/canonical-single-source.test.ts` 钉死。
+ *
+ * **行为 = 原 audit-log-service 私有版逐字,不是"更正确"的版本**:
+ * 链上存量行的 current_hash 全部由那一版算出,合一若顺手"修"任何分支
+ * (如把 `undefined` 归成 `'null'`),重算哈希即与存量断裂 —— 那是行为变更,
+ * 与"两处并一处"是两件事,后者需要独立的迁移判据,不在本票。
+ * `undefined` 分支返回 `JSON.stringify(undefined)`(JS undefined 而非字符串)
+ * 是原版的既有形态:实际两消费面(链哈希 8 字段数组、导出信封)的输入都来自
+ * PG/JSONB 读出值,JSON 域内不存在 `undefined`,该分支不可达 —— 如实保留,
+ * 不静默修正,也不据"不可达"把它当已修。
+ */
+
+/**
+ * 递归排序对象 key 的 JSON 序列化,保证同一逻辑值在任意 key 顺序下得到同一串。
+ *
+ * - 非对象(null / number / boolean / string)⇒ `JSON.stringify`;
+ * - 数组 ⇒ 保序逐项递归;
+ * - 对象 ⇒ key 升序、逐项递归(嵌套对象同样排序)。
+ */
+export function canonicalStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) {
+    return '[' + value.map(canonicalStringify).join(',') + ']'
+  }
+  const obj = value as Record<string, unknown>
+  const keys = Object.keys(obj).sort()
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + canonicalStringify(obj[k])).join(',') + '}'
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

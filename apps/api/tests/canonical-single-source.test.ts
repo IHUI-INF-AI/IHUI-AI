@@ -2,52 +2,65 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-export * from './ai-skill-variables'
-// AI 操控桥的投递定址判定(五桥共用一份实现,端内只注入自身身份)
-export * from './agent-action-addressing'
-export * from './app-control-intent'
-export * from './async'
-export * from './base64'
-// 上下文占用归因分解(按构成来源,而非只报总量)
-export * from './context-attribution'
-// canonical JSON 序列化唯一出口(86F:审计链哈希与导出签名共用,生产面禁止第二份)
-export * from './canonical-json'
-// D20 会话组织(文件夹/标签)的归一化、回收与筛选规则唯一实现(端内不得再建第二套)
-export * from './conversation-org'
-export * from './dangerous-command-detector'
-export * from './date-utils'
-export * from './error-messages'
-export * from './file-helpers'
-export * from './form-styles'
-export * from './format'
-export * from './format-ext'
-// 移动端/小程序端通用格式工具(2026-07-30 立)
-export * from './format-mobile'
-// 跨端图片处理工具(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
-export * from './image-helpers'
-// 跨端 compact 数字格式化(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/number-format.ts 下沉)
-export * from './number-format'
-// 跨端存储抽象(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
-export * from './storage'
-export * from './jwt-utils'
-export * from './llm-templates'
-export * from './logger'
-export * from './markdown-mermaid-code'
-export * from './mcp-curated'
-export * from './message-search'
-export * from './object'
-// 脱敏(共享层唯一实现;D94 交接单 / 日志 / 出库边界共用;规则为 ai-service
-// output_cleaning.py + cli/redact.ts 既有正则的并集,端内不得再建第二套)
-export * from './redact'
-export * from './role'
-export * from './search-suggestions'
-export * from './select-class'
-export { parseSSEChunk, type SSEEvent as ParsedSSEEvent } from './sse-parse'
-export * from './status-colors'
-export * from './storage-migration'
-// 跨端 Token 估算工具(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/token-estimate.ts 下沉)
-export * from './token-estimate'
-// 工具入参的两档摘要(结构指纹 + 形态类)唯一出口,86 审计链的输入格式层;不含任何原值
-export * from './tool-args-digest'
-export * from './vip-utils'
+/**
+ * 86F 反向锁:canonical JSON 序列化在生产面只许有一份实现。
+ *
+ * 立因:audit-log-service(HMAC 链哈希输入)与 siem-exporter(导出签名载荷)
+ * 曾各藏一份私有 canonicalStringify,同义双实现 —— 两处必漂移是本仓记过最多次
+ * 的失败型,86F 票面判据点名"生产面声明处 ≤1"。
+ * 量面=工作树源码(与 clawdbot-elapsed-wiring / provider-models-cache-key /
+ * turn-ordinal-backfill 三处源码形状锁同一先例);CI 量的是检出面,同源同判。
+ */
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+const REPO = resolve(__dirname, '../../..')
+
+/** 递归收集某目录下的 .ts 生产文件(跳过测试面)。 */
+function collectTs(dir: string): string[] {
+  const out: string[] = []
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name)
+    const st = statSync(p)
+    if (st.isDirectory()) {
+      if (name === '__tests__' || name === 'node_modules') continue
+      out.push(...collectTs(p))
+    } else if (name.endsWith('.ts') && !name.includes('.test.')) {
+      out.push(p)
+    }
+  }
+  return out
+}
+
+describe('86F canonicalStringify 唯一实现(生产面)', () => {
+  it('生产源码里 `function canonicalStringify` 声明处 =1(唯一真源在 packages/shared)', () => {
+    const files = [
+      ...collectTs(join(REPO, 'apps/api/src')),
+      ...collectTs(join(REPO, 'packages/shared/src')),
+    ]
+    const decls = files
+      .filter((f) => readFileSync(f, 'utf8').includes('function canonicalStringify'))
+      .map((f) => f.slice(REPO.length + 1).replace(/\\/g, '/'))
+    expect(decls).toEqual(['packages/shared/src/utils/canonical-json.ts'])
+  })
+
+  it('两个消费面都从 @ihui/shared import,不再自带实现(源码形状锁)', () => {
+    for (const rel of [
+      'apps/api/src/services/audit-log-service.ts',
+      'apps/api/src/services/siem-exporter.ts',
+    ]) {
+      const src = readFileSync(join(REPO, rel), 'utf8')
+      expect(src, rel).toContain("import { canonicalStringify } from '@ihui/shared'")
+      expect(src, rel).not.toMatch(/function canonicalStringify/)
+    }
+  })
+
+  it('shared 出口在 barrel 可达链上(防"实现在但没递出"的 86F 自伤型)', () => {
+    const utilsIdx = readFileSync(join(REPO, 'packages/shared/src/utils/index.ts'), 'utf8')
+    expect(utilsIdx).toContain("export * from './canonical-json'")
+    const mainIdx = readFileSync(join(REPO, 'packages/shared/src/index.ts'), 'utf8')
+    expect(mainIdx).toMatch(/export \* from '\.\/utils'/)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
