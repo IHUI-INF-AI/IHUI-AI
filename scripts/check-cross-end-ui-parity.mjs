@@ -163,12 +163,40 @@ export function readGeometry(src, side, tiers = {}) {
     push(px)
   }
   for (const m of code.matchAll(
-    /\b([A-Za-z_$][\w$]*)\s*[:=]\s*(\d+(?:\.\d+)?)(rpx|px)?(?![\w.])/g,
+    /\b([A-Za-z_$][\w$]*)\s*[:=]\s*(\d+(?:\.\d+)?)(rpx|px)?(?![\w.%])/g,
   )) {
     if (!keyed(m[1])) continue
     push(toPx(m[2], m[3], side))
   }
   for (const m of code.matchAll(/\brpx\(\s*(\d+(?:\.\d+)?)\s*\)/g)) push(toPx(m[1], 'rpx', side))
+  /**
+   * **简写多值声明**:`padding: 0 24rpx` / `margin: 8rpx 0 16rpx` 这类一行里挂多个长度。
+   * 上一条提取式按"数字紧跟键名"匹配,只会取到第一个值(0),于是横向内边距 24rpx=12px
+   * **整族隐身** —— 实测 `CategoryBar` 的"仅 RN 档 12"就是这么造出来的假分叉:
+   * RN 写 `paddingHorizontal: 12`,小程序在 CSS 里写 `padding: 0 24rpx`,两侧其实是同一档。
+   * 与刚修的"只看 .tsx 不看 .css"是同一型失效(判据覆盖面比判据逻辑更早决定结论)。
+   * 口径:同一条声明内、以空白分隔的长度字面量逐取;`auto` / `calc(...)` / 百分比不计;
+   * 单值形态仍由上一条判据负责(避免双计)。
+   */
+  /**
+   * 简写多值声明**只认布局长度属性**,不能沿用 `keyed()` 的子串筛:
+   * `box-shadow: 0 2rpx 8rpx …` 的键名含 `box`,按子串会命中 GEO_KEY,于是把阴影模糊半径
+   * 当成盒档收了进来(实测 `ModelConfigDialog.css:28` 凭空多出"仅小程序档 1"并把该族顶过锚点)。
+   * 描边宽度(`border: 2px dashed`)、圆角简写(`border-radius: 8px 8px 0 0` = RD 维的地盘)、
+   * `transform` / `filter` / `background` 一律不在几何档语义里。
+   */
+  const SHORTHAND_GEO_PROP =
+    /^(?:padding|margin|gap|grid-gap|row-gap|column-gap|inset|width|height|max-width|min-width|max-height|min-height)(?:-(?:top|right|bottom|left|inline|block|start|end))?$/
+  for (const m of code.matchAll(/(?:^|\n)[\t ]*([a-z][a-z-]*)\s*:\s*([^;{}]+)[;}]/g)) {
+    if (!SHORTHAND_GEO_PROP.test(m[1])) continue
+    const vals = m[2].trim().split(/\s+/)
+    if (vals.length < 2) continue
+    for (const v of vals) {
+      const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(v)
+      if (!one) continue // `auto` / `0` / `100%` / `calc(…)` 一律不计
+      push(toPx(one[1], one[2], side))
+    }
+  }
   for (const m of code.matchAll(
     /(?:^|[\s"'`])(?:size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
   ))
@@ -3076,6 +3104,64 @@ function runSelfTest() {
         /读数口径/.test(mainBody) &&
         /取不到伴生样式表/.test(src)
       )
+    })(),
+  )
+  t(
+    '㉮ 简写多值声明必须逐值收档:`padding: 0 24rpx` 的 24rpx 要读成 12px' +
+      '(实测 CategoryBar 的"仅 RN 档 12"就是漏收第二个值造出的假分叉)',
+    (() => {
+      const v = readGeometry('.x{\n  padding: 0 24rpx;\n}\n', 'miniapp').values
+      const w = readGeometry('.x{\n  margin: 8rpx 0 16rpx auto;\n}\n', 'miniapp').values
+      return v.has(12) && w.has(4) && w.has(8)
+    })(),
+  )
+  t(
+    '㉯ 反向对照 + 不该计的都不计:单值形态不得被双计,auto / 百分比 / calc 不当档,' +
+      '非几何键(padding 之外如 color)不入场',
+    (() => {
+      const single = [...readGeometry('.x{\n  width: 40px;\n}\n', 'rn').values]
+      const junk = readGeometry(
+        '.x{\n  padding: 0 auto;\n  width: 100%;\n  height: calc(100% - 8px);\n  color: 3 4px;\n}\n',
+        'rn',
+      ).values
+      return (
+        single.filter((n) => n === 40).length === 1 &&
+        !junk.has(100) &&
+        !junk.has(8) &&
+        !junk.has(3) &&
+        !junk.has(4)
+      )
+    })(),
+  )
+  t(
+    '㉰ 同一元素两端各用一种写法必须判同值(简写 vs 显式方向):' +
+      '这是本条判据的全部目的,否则它只是多收了几个数而没修好任何一笔账',
+    (() => {
+      const mp = readGeometry('.x{\n  padding: 0 24rpx;\n}\n', 'miniapp').values
+      const rn = readGeometry('paddingHorizontal: 12,\n', 'rn').values
+      const d = diffValues(mp, rn)
+      return !d.onlyMiniapp.filter((n) => n !== 0).length && !d.onlyRn.length
+    })(),
+  )
+  t(
+    '㉱ 装车锁:简写提取式必须真在 readGeometry 体内,且这条锁自己要有牙' +
+      '(判据写在别处 = 提交链上永不生效;正则不转义 = 看着断言其实恒假)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      const from = src.indexOf('export function readGeometry')
+      const until = src.indexOf('return { values, named }', from)
+      const body = src.slice(from, until > from ? until : from + 6000)
+      const has = (s) =>
+        /if \(vals\.length < 2\) continue/.test(s) &&
+        /push\(toPx\(one\[1\], one\[2\], side\)\)/.test(s)
+      // 牙:把简写循环整段摘掉后同一条判据必须翻红(否则它就是支恒真断言,比没有更糟)。
+      // 用**索引切片**而不是正则 —— 目标文本里本身嵌着正则字面量,再套一层正则必然引号地狱,
+      // 而"写复杂的变异表达式"正是本仓记过的"断言看着有、其实恒真"那一型。
+      const mk = 'for (const m of code.matchAll(/(?:^|\\n)[\\t ]*([a-z][a-z-]*)'
+      const s = body.indexOf(mk)
+      const e = body.indexOf('\n  }\n', s)
+      const noLoop = s < 0 || e < 0 ? body : body.slice(0, s) + body.slice(e + 5)
+      return from > 0 && has(body) && noLoop !== body && !has(noLoop)
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
