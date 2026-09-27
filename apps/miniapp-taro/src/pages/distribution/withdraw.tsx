@@ -67,7 +67,7 @@ export default function DistributionWithdraw() {
   return (
     <ThemeRoot className="min-h-screen bg-background">
       {/* 对齐 RN WithdrawScreen balanceCard:白卡 + 28rpx 标签 + 56rpx 加粗余额 */}
-      <View className="mx-[20rpx] mt-[20rpx] bg-card rounded-xl p-[28rpx]">
+      <View className="mx-[20rpx] mt-[20rpx] bg-card rounded-lg p-[28rpx]">
         <Text className="text-[length:28rpx] text-muted-foreground">
           {t('distribution.withdraw.available')}
         </Text>
@@ -76,7 +76,7 @@ export default function DistributionWithdraw() {
         </Text>
       </View>
       {/* 对齐 RN card:白卡 + 描边 + 输入框(muted 底 + 描边圆角) */}
-      <View className="mx-[20rpx] mt-[24rpx] bg-card border border-border rounded-xl p-[24rpx]">
+      <View className="mx-[20rpx] mt-[24rpx] bg-card border border-border rounded-lg p-[24rpx]">
         <View className="flex items-center h-[100rpx] px-[28rpx] rounded-xl border border-border bg-[var(--color-muted)]">
           <Text className="text-[length:32rpx] font-semibold text-foreground">¥</Text>
           <Input

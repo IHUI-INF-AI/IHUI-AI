@@ -88,19 +88,19 @@ export default function StudyIndex() {
       <View className="min-h-screen bg-background px-[20rpx] pt-[96rpx] pb-[64rpx]">
         {/* 统计卡网格对齐 RN statGrid/statCard:gap 8dp→16rpx,卡片 p 14dp→28rpx / 圆角 12dp→24rpx / 边框 border.light / 数值 22dp→44rpx/700 success */}
         <View className="flex flex-wrap gap-[16rpx] mb-[32rpx]">
-          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-xl border border-border bg-card">
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
             <Text className="text-[length:44rpx] font-bold text-success">{info.todayMinutes}</Text>
             <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
               {t('study.todayMinutes')}
             </Text>
           </View>
-          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-xl border border-border bg-card">
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
             <Text className="text-[length:44rpx] font-bold text-success">{info.totalMinutes}</Text>
             <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
               {t('study.totalMinutes')}
             </Text>
           </View>
-          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-xl border border-border bg-card">
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
             <Text className="text-[length:44rpx] font-bold text-success">
               {info.continuousDays}
             </Text>
@@ -108,7 +108,7 @@ export default function StudyIndex() {
               {t('study.continuousDays')}
             </Text>
           </View>
-          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-xl border border-border bg-card">
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
             <Text className="text-[length:44rpx] font-bold text-success">{info.courses}</Text>
             <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
               {t('study.courses')}
@@ -117,7 +117,7 @@ export default function StudyIndex() {
         </View>
 
         {/* 学习记录入口(RN 无对应区,保留业务;卡片视觉统一为 RN card 语言:圆角 24rpx + 边框) */}
-        <View className="mb-[24rpx] bg-card rounded-xl border border-border p-[16rpx] flex flex-col gap-[8rpx]">
+        <View className="mb-[24rpx] bg-card rounded-lg border border-border p-[16rpx] flex flex-col gap-[8rpx]">
           {entries.map((e) => (
             <View
               key={e.url}
@@ -151,7 +151,7 @@ export default function StudyIndex() {
             {recent.map((r) => (
               <View
                 key={r.id}
-                className="p-[28rpx] rounded-xl border border-border bg-card"
+                className="p-[28rpx] rounded-lg border border-border bg-card"
                 hoverClass="opacity-60"
                 onClick={() => goVideo(r)}
               >

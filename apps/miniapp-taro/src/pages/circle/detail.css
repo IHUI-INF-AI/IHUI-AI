@@ -121,7 +121,7 @@
   padding: 20rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   gap: 20rpx;
 }
 .cd-aigc-cover {
@@ -292,7 +292,7 @@
   padding: 0 24rpx;
   background: var(--color-muted);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   font-size: 28rpx;
   color: var(--color-foreground);
 }

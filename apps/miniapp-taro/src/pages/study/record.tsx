@@ -175,7 +175,7 @@ export default function StudyRecord() {
     // 对齐 RN StudyRecordScreen(共享屏):容器 bg surface.bg,listBody p14dp→28rpx/pb32dp→64rpx
     <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx] box-border">
       {/* 学习统计卡对齐 RN statsCard:p14dp→28rpx / radius 12dp→24rpx / border light / bg card;数值 20dp→40rpx/700 text.primary,标签 11dp→22rpx secondary */}
-      <View className="flex bg-card border border-border rounded-xl p-[28rpx] gap-[12rpx] mb-[24rpx]">
+      <View className="flex bg-card border border-border rounded-lg p-[28rpx] gap-[12rpx] mb-[24rpx]">
         {stats.map((s) => (
           <View key={s.key} className="flex-1 flex flex-col items-center">
             <View className="flex items-baseline justify-center">
@@ -217,7 +217,7 @@ export default function StudyRecord() {
             return (
               <ThemeRoot key={r.id}>
                 <View
-                  className="flex bg-card border border-border rounded-xl p-[28rpx]"
+                  className="flex bg-card border border-border rounded-lg p-[28rpx]"
                   hoverClass="opacity-60"
                   onClick={() => goCourse(r.courseId)}
                 >

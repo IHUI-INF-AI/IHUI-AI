@@ -20,7 +20,7 @@
   margin-bottom: 24rpx;
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
 }
 .nick-row {
   display: flex;
@@ -55,7 +55,7 @@
   padding: 0 24rpx;
   background: var(--color-muted);
   border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   font-size: 32rpx;
   color: var(--color-foreground);
   box-sizing: border-box;

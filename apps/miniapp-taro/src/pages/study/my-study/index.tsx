@@ -165,7 +165,7 @@ export default function MyStudy() {
               displayList.map((item) => (
                 <View
                   key={item.id}
-                  className="flex p-[28rpx] rounded-xl border border-border bg-card"
+                  className="flex p-[28rpx] rounded-lg border border-border bg-card"
                 >
                   <View className="w-[160rpx] h-[100rpx] rounded-lg flex-shrink-0 bg-muted flex items-center justify-center">
                     <LineIcon name="book-open" size={40} color="var(--color-muted-foreground)" />
