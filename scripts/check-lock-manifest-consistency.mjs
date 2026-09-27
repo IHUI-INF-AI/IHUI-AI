@@ -34,10 +34,18 @@
  *      它只往"可接受的期望值"集合里加值,不会拿走 manifest 等值这条绿路,因此只会少判
  *      不会误红。父作用域键 `foo>bar`(真仓 0 条;`>=` 里的 > 不是分隔符,见 splitOverrideKey)
  *      只作用于传递依赖,不参与直接声明比对,如实计数。
- *   R5 维度 B = peerDependencies 的记账形态。pnpm 把 peer 记进 lock 的 **devDependencies 段**
- *      且 specifier 是解析后的范围(真仓实测 3 枚:@tarojs/taro >=4.0.0→4.2.1、
- *      packages/app 的 react / react-native),值天然漂移 ⇒ **不比 specifier,但仍要求
- *      lock 的任一段里有它的条目**(缺条目仍红)。R4 与 R5 同时命中时按 R5 放过值比对。
+ *   R5 维度 B = peerDependencies 的记账形态。**2026-09-27 真仓 HEAD 面逐条实测**(26 包 / 10 条 peer 声明):
+ *      lock 的 importers 段集里**根本没有 peerDependencies 段**(该段出现 0 次),这 10 条实际落在
+ *      dependencies(6 条:packages/eslint-config 的 eslint、packages/shared 与 ui-native 与 ui-react 的
+ *      react 等)与 devDependencies(4 条:api-client 的 @tarojs/taro、packages/app 的 react /
+ *      react-native、ui-react 的 react-dom),且 specifier 常被写成解析后的单值(实测 3 条与声明不等,
+ *      即 @tarojs/taro >=4.0.0→4.2.1、packages/app 的 react / react-native)⇒ 值天然漂移。
+ *      ⇒ **不比 specifier,但仍要求 lock 的任一段里有它的条目**(缺条目仍红)。
+ *      R4 与 R5 同时命中时按 R5 放过值比对。
+ *      ⚠️ 本维**刻意不参与 R6 的段位置对账**,理由不是"peer 记进 dev 段"这一条旧措辞(那句不准确,
+ *      已按上面的实测就地改掉),而是**结构性的**:importers 没有 peer 段,于是"清单的 peer 段 ↔ 锁的
+ *      peer 段"这个等式没有可比对象;若强行按"逐段键集等值"判,真仓 HEAD 会亮 14 条,而 14 条
+ *      **全部是 peer 声明**(非 peer 侧 0 条)⇒ 那 14 条是尺子错,不是仓库债。
  *   R6 分区同形 = 依赖的**类型**也必须两侧一致(2026-09-26 补,立项即零容忍)。R1 只问"条目在不在",
  *      mismatch 只问"值对不对",于是"名字与值都对、但 lock 把它记在另一段"这一型两侧都不红。
  *      实测载体是那晚 CI 的 `@ihui/types`:package.json 声明在 devDependencies、lock 记在
@@ -47,6 +55,10 @@
  *      (带基线的分区判据等于把这一型留给下一个撞见它的人)。
  *   R4/R5 放过的每一条(仅统计"值确实不同却被放过"的那些)都进 overrideExempted /
  *   peerExempted,并在结论行报数与 --json 里可审计(含命中的 override key),不静默变绿。
+ *   R6 的**覆盖面自证**(2026-09-27 补):结论行单独印
+ *   `维度 R6 段位置对账:核 N 条非 peer 声明键 / 段位置违规 M / peer 声明 K 条不参与(实测 importer 段集 …)`。
+ *   这一维若只混在"违规 N"里,读报告的人就分不开"判过且干净"与"一条都没核"—— 而后者正是本仓
+ *   记过最多次的失效型("把没判写成判过了")。N 为 0 时该行显式追加"⚠️ 一条都没核,不得读成已通过"。
  *
  * 模式与**判定面**(2026-09-24 收口到本仓对"读内容作判据"的既立口径,同守门 70/77/83/98):
  *   缺省(全量审计) 判 **HEAD blob**(`git show HEAD:<path>`)
@@ -601,6 +613,10 @@ export function runCheck(root, face = 'worktree') {
   try {
     const reader = makeFaceReader(face, root)
     const rels = discoverPackages(reader)
+    // 枚举到 0 个包 ⇒ 判死,不得记绿(本仓口径:"扫到 0" 先怀疑尺子)。discoverPackages 恒含
+    // 根包 '.',所以这一格正常仓永不触发;真触发只可能是 glob 解析或面取材出了岔口。
+    if (rels.length === 0)
+      throw new Undetermined(`${reader.label} 上枚举到 0 个 workspace 包,无法判定`)
     const { entries: overrideEntries, parentScoped } = loadOverrides(reader)
     reader.prefetch([
       ...rels.map((r) => (r === '.' ? 'package.json' : `${r}/package.json`)),
@@ -612,6 +628,9 @@ export function runCheck(root, face = 'worktree') {
     const overrideExempted = []
     const peerExempted = []
     let declarations = 0
+    let sectionChecked = 0
+    let peerSectionSkipped = 0
+    const lockSectionNames = new Map()
     for (const rel of rels) {
       const pkg = readPkgJson(reader, rel)
       const declaredBySection = {}
@@ -636,6 +655,15 @@ export function runCheck(root, face = 'worktree') {
         }
         continue
       }
+      for (const s of lockSections.keys())
+        lockSectionNames.set(s, (lockSectionNames.get(s) ?? 0) + 1)
+      // **段位置维度的覆盖面自证**:R6 逐段核的是"非 peer 的声明键"(peer 由维度 B 接管,且实测
+      // lock 的 importer 里没有 peerDependencies 段可比)。不报这个数,"违规 0" 就与"这一维一条
+      // 都没看"在账面上长得一模一样 —— 本仓把"把没判写成判过了"记为最高频失效型。
+      for (const s of DEP_SECTIONS) {
+        if (s === 'peerDependencies') peerSectionSkipped += Object.keys(declaredBySection[s]).length
+        else sectionChecked += Object.keys(declaredBySection[s]).length
+      }
       const r = compareDeclarations(declaredBySection, lockSections, overrideEntries)
       for (const v of r.violations) v.pkg = rel
       for (const o of r.orphans) o.pkg = rel
@@ -657,6 +685,10 @@ export function runCheck(root, face = 'worktree') {
       peerExempted,
       overridesLoaded: overrideEntries.length,
       parentScopedOverrides: parentScoped,
+      sectionDrift: violations.filter((v) => v.kind === 'section-drift'),
+      sectionChecked,
+      peerSectionSkipped,
+      lockSectionNames: [...lockSectionNames.entries()].sort(),
     }
   } catch (e) {
     if (e instanceof Undetermined) {
@@ -671,6 +703,10 @@ export function runCheck(root, face = 'worktree') {
         peerExempted: [],
         overridesLoaded: 0,
         parentScopedOverrides: 0,
+        sectionDrift: [],
+        sectionChecked: 0,
+        peerSectionSkipped: 0,
+        lockSectionNames: [],
       }
     }
     throw e
@@ -728,6 +764,16 @@ function report(result, mode, face) {
       ` / 因 override 目标值放过 ${result.overrideExempted.length} 条` +
       ` / 维度 B peer 只验条目在位(不比 specifier)${result.peerExempted.length} 条`,
   )
+  // R6 必须单独报一行"核了多少 / 违规多少":它若只混在"违规 N"里,读报告的人无法区分
+  // "这一维判过且干净"与"这一维根本没跑到"(例如整仓 peer 豁免写宽了、或 importer 段集变了)。
+  console.log(
+    `维度 R6 段位置对账:核 ${result.sectionChecked} 条非 peer 声明键(逐段比清单段↔锁段)` +
+      ` / 段位置违规 ${result.sectionDrift.length}` +
+      ` / peer 声明 ${result.peerSectionSkipped} 条不参与本维` +
+      `(实测 lock 的 importer 段集 = [${result.lockSectionNames.map(([s, n]) => `${s}×${n}`).join(', ') || '空'}],` +
+      `无 peerDependencies 段可比)` +
+      (result.sectionChecked === 0 ? ' —— ⚠️ 一条都没核,不得把本维读成"已通过"' : ''),
+  )
   for (const v of result.violations) console.log(formatViolation(v))
   for (const o of result.orphans) {
     console.log(
@@ -736,7 +782,7 @@ function report(result, mode, face) {
   }
   if (result.violations.length === 0) {
     console.log(
-      `✅ specifier 全部一致(孤儿记账 ${result.orphans.length} 条、override 放过 ${result.overrideExempted.length} 条、peer 放过 ${result.peerExempted.length} 条均不计红)`,
+      `✅ specifier 全部一致、段位置违规 ${result.sectionDrift.length}(孤儿记账 ${result.orphans.length} 条、override 放过 ${result.overrideExempted.length} 条、peer 放过 ${result.peerExempted.length} 条均不计红)`,
     )
     return 0
   }
@@ -993,8 +1039,116 @@ export function runSelfTest() {
       rDriftFixed.violations.length === 0 && rDriftFixed.undetermined === null,
     )
     t(
-      'R6 不误伤 peer:peer 声明被记进 dev 段是 pnpm 文档化行为 ⇒ 仍绿(维度 B 的豁免面不能被 R6 吃回来)',
+      'R6 不误伤 peer:lock 的 importer 里没有 peerDependencies 段可比 ⇒ 维度 B 的豁免面不能被 R6 吃回来',
       rPeer.violations.every((v) => v.kind !== 'section-drift'),
+    )
+
+    /* ---------- R6 的第二格方向:真事故那一条是 dev 声明 → lock 记 deps,不是只有 deps → dev ---------- */
+    const secDriftToDeps = makeFixture(join(scratch, 'section-drift-to-deps'), {
+      // 2026-09-26 那晚 CI 红的正是这个方向:清单把 @ihui/types 放 devDependencies,
+      // 锁却记在 dependencies 段(`git show a980463fc^:pnpm-lock.yaml` 现读)。
+      webPkg: { devDependencies: { '@ihui/types': 'workspace:*' } },
+      lock: lockFrom({ dependencies: { '@ihui/types': 'workspace:*' } }),
+    })
+    const rDriftToDeps = runCheck(secDriftToDeps)
+    t(
+      'R6 反方向(声明 dev、锁记 deps)同样判红并点名两侧段 ⇒ 判据不依赖方向',
+      rDriftToDeps.violations.length === 1 &&
+        rDriftToDeps.violations[0].kind === 'section-drift' &&
+        rDriftToDeps.violations[0].section === 'devDependencies' &&
+        rDriftToDeps.violations[0].lockedIn === 'dependencies',
+    )
+    const driftToDepsFixed = makeFixture(join(scratch, 'section-drift-to-deps-fixed'), {
+      webPkg: { devDependencies: { '@ihui/types': 'workspace:*' } },
+      lock: lockFrom({ devDependencies: { '@ihui/types': 'workspace:*' } }),
+    })
+    t(
+      'R6 反方向反向对照:摆回 dev 段即绿(证明上一条不是恒真)',
+      runCheck(driftToDepsFixed).violations.length === 0,
+    )
+
+    /* ---------- R6 的豁免必须是"peer 一律不判段位置",不得写成"只认 dev 段" ---------- */
+    const peerIntoDeps = makeFixture(join(scratch, 'peer-into-deps'), {
+      // 真仓 HEAD 主导形态:纯 peer 声明被 pnpm 记进 **dependencies** 段
+      // (实测 10 条 peer 声明里 6 条落 dependencies、4 条落 devDependencies,而 importer
+      // 段集里根本没有 peerDependencies)。若把豁免收窄成"peer 只允许记 dev 段",
+      // 这 6 条会在提交链上恒红 —— 那就是替自己的豁免面造假阳。
+      webPkg: { peerDependencies: { react: '^18.0.0 || ^19.0.0' } },
+      lock: lockFrom({ dependencies: { react: '^19.2.8' } }),
+    })
+    const rPeerIntoDeps = runCheck(peerIntoDeps)
+    t(
+      'R6 纯 peer 记进 dependencies 段必须放过(真仓 6/10 的主导形态),且仍计入 peerExempted',
+      rPeerIntoDeps.violations.length === 0 && rPeerIntoDeps.peerExempted.length === 1,
+    )
+    const peerNotAtAll = makeFixture(join(scratch, 'peer-not-at-all'), {
+      webPkg: { peerDependencies: { ghost: '^1.0.0' } },
+      lock: lockFrom({ dependencies: { unrelated: '^1.0.0' } }),
+    })
+    t(
+      'peer 在锁里彻底没有条目 ⇒ 仍判红 missing(豁免只救"落在哪一段",不救"没记账")',
+      runCheck(peerNotAtAll).violations.some((v) => v.name === 'ghost' && v.kind === 'missing'),
+    )
+
+    /* ---------- R6 覆盖面:optionalDependencies 也是被审段,不得只认 deps/devDeps 两段 ---------- */
+    const optDrift = makeFixture(join(scratch, 'optional-drift'), {
+      webPkg: { optionalDependencies: { fsevents: '^2.3.0' } },
+      lock: lockFrom({ dependencies: { fsevents: '^2.3.0' } }),
+    })
+    const rOptDrift = runCheck(optDrift)
+    t(
+      'R6 optionalDependencies 跨段必判红(真仓 importer 段集实测含 optionalDependencies×1,不能只判两段)',
+      rOptDrift.violations.length === 1 &&
+        rOptDrift.violations[0].kind === 'section-drift' &&
+        rOptDrift.violations[0].section === 'optionalDependencies' &&
+        rOptDrift.violations[0].lockedIn === 'dependencies',
+    )
+    const optOk = makeFixture(join(scratch, 'optional-ok'), {
+      webPkg: { optionalDependencies: { fsevents: '^2.3.0' } },
+      lock: lockFrom({ optionalDependencies: { fsevents: '^2.3.0' } }),
+    })
+    t(
+      'R6 optionalDependencies 同段必绿(证明上一条是判据不是逢段即红)',
+      runCheck(optOk).violations.length === 0,
+    )
+
+    /* ---------- R6 的覆盖面自证数字:报出来的"核了 N 条"必须真等于被审的声明槽位 ---------- */
+    const counted = makeFixture(join(scratch, 'section-counted'), {
+      webPkg: {
+        dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:*' },
+        devDependencies: { typescript: 'catalog:' },
+        peerDependencies: { react: '^19.0.0' },
+      },
+      lock: lockFrom({
+        dependencies: {
+          xlsx: 'npm:@e965/xlsx@^0.20.3',
+          '@ihui/shared': 'workspace:*',
+          react: '^19.2.8',
+        },
+        devDependencies: { typescript: 'catalog:' },
+      }),
+    })
+    const rCounted = runCheck(counted)
+    t(
+      'R6 覆盖面计数:sectionChecked = 非 peer 声明槽位数(peer 走 skipped)，不得把没核的算进核过的',
+      rCounted.violations.length === 0 &&
+        rCounted.sectionChecked === 3 &&
+        rCounted.peerSectionSkipped === 1 &&
+        rCounted.sectionDrift.length === 0,
+    )
+    const rDriftCount = runCheck(secDrift)
+    t(
+      'R6 的 sectionDrift 必须与实际 kind 逐条等值(报告行与判据不得各数各的)',
+      rDriftCount.sectionDrift.length === 2 &&
+        rDriftCount.sectionDrift.length ===
+          rDriftCount.violations.filter((v) => v.kind === 'section-drift').length &&
+        rDriftCount.lockSectionNames.some(([s]) => s === 'devDependencies'),
+    )
+    const rEmptyImporter = runCheck(importerAbsent)
+    t(
+      '包整个没进 importer 时"核 0 条"必须如实为 0(不得把缺记账的槽位算成已核过 ⇒ 覆盖面虚报)',
+      rEmptyImporter.sectionChecked === 0 &&
+        rEmptyImporter.violations[0].kind === 'missing-importer',
     )
 
     const quoted = makeFixture(join(scratch, 'quoted'), {
