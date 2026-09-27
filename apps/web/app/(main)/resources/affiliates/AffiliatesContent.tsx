@@ -84,7 +84,7 @@ export function AffiliatesContent(): React.JSX.Element {
       </section>
 
       {/* Disclosure */}
-      <section className="mt-12 rounded-xl border bg-card p-3 text-center">
+      <section className="mt-12 rounded-lg border bg-card p-3 text-center">
         <p className="mx-auto max-w-3xl text-xs leading-relaxed text-muted-foreground min-[768px]:text-sm">
           {t('disclosure')}
         </p>

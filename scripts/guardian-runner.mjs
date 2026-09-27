@@ -3051,7 +3051,7 @@ const checks = [
       '     有 104 种表现,而 A13 那句"运行时怎么校验与模型被告知怎么填同源"只有后半句成立。',
       '     只判两条:① `validateToolArguments(` 必须有非测试调用方(**注释里的提及不算** —— 那正是',
       '     "看起来有、其实没装车"这一型);② 模式开关必须在位、默认必须是 off、且 shadow 档存在',
-      '     (**enforce 未实现前默认绝不能是 enforce**:没被执行过的描述一旦变成拒绝,就是运行时版恒红事故)。',
+      '     (**enforce 档已实现,但默认档必须是 off**:未被执行过的描述一旦变成默认拒绝,就是运行时版恒红事故)。',
       '     接线顺序登记在 PROJECT_PLAN 第八波:① 影子模式(本门钉住的这层)→ ② 用影子数据把描述修对',
       '     → ③ 才允许 enforce 默认开,并把 {字段路径, 期望, 实得} 逐条回灌模型。',
       '     覆盖面缺口(如实登记,不得读成"全链已覆盖"):hubEnabled 分支在拿到 Tool 对象之前就 return,',
@@ -3822,6 +3822,45 @@ const checks = [
     stagedTriggers: ['packages/api-client/src/', 'apps/ai-service/app/core/', 'apps/cli/src/subagents/'],
     onFailHint: [
       '',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 会话失效出口对账(1 项,blocking)---
+  {
+    id: '148',
+    label:
+      '会话失效统一出口注册对账:凡消费 @ihui/api-client fetchApi 的端必须注册 setUnauthorizedHandler 或持带 reason+未过期 reviewBy 的台账豁免(AP1);台账端已注册/指向不存在端/重复登记判红(AP2 反腐烂);注册口 export 或 notifyUnauthorized 调用点被摘线判失明不记绿(AP3);枚举 0 个消费端 exit 2 不记绿',
+    script: 'check-auth-handler-registration-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_AUTH_HANDLER_PARITY',
+    stagedTriggers: ['apps/', 'packages/api-client/', 'scripts/'],
+    onFailHint: [
+      '',
+      '修复出口二选一:该端注册 setUnauthorizedHandler(共享层已有注册口),或在 scripts/auth-handler-registration-exemptions.json 补带 reason+reviewBy 的条目;不得放宽判据消红',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 包入口 barrel 漏 re-export 对账(G-215)(1 项,blocking)---
+  {
+    id: '149',
+    label:
+      '包入口 barrel 漏 re-export 对账:端内从裸包名 import 的名字必须由包入口真的递出',
+    script: 'check-package-barrel-export.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PACKAGE_BARREL_EXPORT',
+    stagedTriggers: ['packages/', 'apps/'],
+    onFailHint: [
+      '',
+      '  修复出口只有一个:把该符号补进包入口的显式清单(或在入口 re-export 它)。不得改判据、不得加豁免、不得去掉 web 的 ignoreBuildErrors 来"顺手收紧构建"。',
+      '  为什么本地一路绿:漏 re-export 既不报类型错(被 next.config.ts 的 typescript.ignoreBuildErrors 吃掉)也不报构建错(打包器只看 exports→dist/index.js),只有运行时 undefined 砸到用户手上 —— 与守门 98 方向相反(98 判 import 了不存在的,本门判存在但没递出来)。',
+      '  ① 现读:node scripts/check-package-barrel-export.mjs [--json|--staged|--worktree]',
+      '  ② 问责(未判定与存量一并拒出合格证):node scripts/check-package-barrel-export.mjs --strict',
+      '  ③ 取证:node scripts/check-package-barrel-export.mjs --self-test;node --test scripts/tests/check-package-barrel-export.test.mjs —— 例数以命令末行现读为准,勿照抄文档',
+      '  紧急跳过(不推荐):HUSKY_SKIP_PACKAGE_BARREL_EXPORT=1 git commit ...',
       '',
     ].join('\n'),
   },

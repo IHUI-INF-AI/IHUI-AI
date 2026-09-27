@@ -100,7 +100,7 @@ export default function RedisMonitorPage() {
           </span>
           <span className="font-semibold">{mp.toFixed(1)}%</span>
         </div>
-        <div className="relative mt-2 h-3 overflow-hidden rounded bg-muted/40">
+        <div className="relative mt-2 h-3 overflow-hidden rounded-xs bg-muted/40">
           <div className={cn('h-full rounded-md', bc)} style={{ width: `${Math.min(100, mp)}%` }} />
         </div>
       </section>
@@ -118,7 +118,7 @@ export default function RedisMonitorPage() {
                     {nf.format(x.count)} 键 · {nf.format(x.size)} KB
                   </span>
                 </div>
-                <div className="mt-1 h-2 overflow-hidden rounded bg-muted/40">
+                <div className="mt-1 h-2 overflow-hidden rounded-xs bg-muted/40">
                   <div
                     className="h-full rounded-md bg-primary/70"
                     style={{ width: `${(x.count / tp) * 100}%` }}

@@ -139,13 +139,20 @@ export function PersonalInformationCard({
           <Text style={styles.withdrawLabel}>可提现金额:</Text>
           <Text style={styles.withdrawValue}>{formatPrice(currentAmount)}</Text>
         </View>
+        {/* 守门 131 那一型:函数形态 style 落在 Pressable 上会被 cssInterop 展开成空对象,
+            整份内联样式静默消失。withdrawBtn 只有定尺寸与居中(无底色/描边/圆角,即无绘制),
+            故布局档以静态对象形态留在外层,只把按压态 opacity 下移到子 View。 */}
         <Pressable
           onPress={onWithdraw}
           accessibilityRole="button"
           accessibilityLabel="提现"
-          style={({ pressed }) => [styles.withdrawBtn, pressed ? styles.pressed : null]}
+          style={styles.withdrawBtn}
         >
-          <Image source={WITHDRAW_IMAGE} style={styles.withdrawBtnImg} resizeMode="stretch" />
+          {({ pressed }) => (
+            <View style={pressed ? styles.pressed : null}>
+              <Image source={WITHDRAW_IMAGE} style={styles.withdrawBtnImg} resizeMode="stretch" />
+            </View>
+          )}
         </Pressable>
       </View>
 

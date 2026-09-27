@@ -40,11 +40,15 @@ from app.services.publish.anti_risk.account_identity import (  # noqa: E402
     STABLE_IDENTITY_FIELDS,
     resolve_account_id,
 )
+from app.services.publish.anti_risk.state_paths import resolve_state_path  # noqa: E402
 
-TMP_ROOT = Path(__file__).resolve().parents[1] / ".ihui-agent" / "tmp"
-PROFILE_ROOT = TMP_ROOT / "anti-profiles"
-GRAPH = TMP_ROOT / "device_graph.json"
-COOLDOWNS = TMP_ROOT / "anti-cooldowns.json"
+# 与运行期共用**同一份**出口:锚仓库根、与启动目录无关。此前这里按 `__file__` 手拼
+# `<ai-service>/.ihui-agent/tmp`,那是画像搬迁前的旧位置 —— 状态文件现已全部锚在仓库根,
+# 留第二份锚点等于本器读不到在用的那一份(两处算同一件事必须共用一份实现)。
+TMP_ROOT = resolve_state_path(None, ".ihui-agent/tmp")
+PROFILE_ROOT = resolve_state_path(None, ".ihui-agent/tmp/anti-profiles")
+GRAPH = resolve_state_path(None, ".ihui-agent/tmp/device_graph.json")
+COOLDOWNS = resolve_state_path(None, ".ihui-agent/tmp/anti-cooldowns.json")
 
 
 def _legacy_candidates(platform: str, creds: dict[str, Any]) -> set[str]:
