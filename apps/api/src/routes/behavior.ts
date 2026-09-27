@@ -244,9 +244,11 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
         tags: ['behavior'],
         querystring: {
           type: 'object',
+          // G-261(同 G-257 口径):type-only,uuid 由 deleteWatchQuery(Zod)校验;
+          // format:'uuid' 走 ajv 先拒会被 400 响应 schema(code:number)掩盖成 500
           properties: {
-            id: { type: 'string', format: 'uuid', description: '浏览记录 ID' },
-            userId: { type: 'string', format: 'uuid', description: '会员 ID(传入则校验归属)' },
+            id: { type: 'string', description: '浏览记录 ID(UUID,服务端 Zod 校验)' },
+            userId: { type: 'string', description: '会员 ID(UUID,传入则校验归属;服务端 Zod 校验)' },
           },
         },
         response: {
@@ -282,7 +284,8 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
         tags: ['behavior'],
         querystring: {
           type: 'object',
-          properties: { userId: { type: 'string', format: 'uuid', description: '会员 ID' } },
+          // G-261:type-only,uuid 由 clearWatchQuery(Zod)校验(同 DELETE /behavior/watch)
+          properties: { userId: { type: 'string', description: '会员 ID(UUID,服务端 Zod 校验)' } },
         },
         response: {
           200: dataObjSchema,

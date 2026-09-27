@@ -15,17 +15,17 @@
  *   - --readme 模式: 扫描 README.<locale>.md,跳过代码块/HTML 注释/图片/链接 URL/ICP 备案号
  *   - --staged 模式: 仅当 locale 文件在 git 暂存区时检查
  *
- *   测试用临时 fixture(在 os.tmpdir() 下创建项目结构 + spawnSync cwd 模拟项目根),
+ *   测试用临时 fixture(scratch-dir 落点下创建项目结构 + spawnSync cwd 模拟项目根),
  *   不污染项目,符合 AGENTS.md §23(目录用 tests/)。
  *   用 Node.js 内置 test runner,无第三方依赖。路径推导用 import.meta.url(AGENTS.md §15)。
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -33,7 +33,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'scan-i18n-zh-residue.mjs')
 
 // ─── 辅助:创建临时项目根目录 ─────────────────────────────
 function createTempProject() {
-  return mkdtempSync(join(tmpdir(), 'ihui-scan-zh-residue-'))
+  return mkScratch('ihui-scan-zh-residue-')
 }
 
 // 辅助:写入 web 端 locale JSON(默认 target=web 路径)
@@ -82,7 +82,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 2, `无 locale 应 exit 2,实际 ${r.status}\nstderr: ${r.stderr}`)
       assert.match(r.stderr, /用法|<locale>/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -94,7 +94,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 1, `文件不存在应 exit 1,实际 ${r.status}`)
       assert.match(r.stderr, /文件不存在/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -107,7 +107,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 0, `纯韩文应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
       assert.match(r.stdout, /✅.*无中文残留/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -121,7 +121,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.match(r.stderr, /纯中文残留/)
       assert.match(r.stderr, /save/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -134,7 +134,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 0, `半翻译应 exit 0 (warn-only),实际 ${r.status}`)
       assert.match(r.stderr, /半翻译|warn/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -147,7 +147,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 0, `全繁体应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
       assert.match(r.stdout, /✅.*无中文残留/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -162,7 +162,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.match(r.stderr, /简体字残留/)
       assert.match(r.stderr, /time/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -178,7 +178,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 0, `登録 二字均在常用汉字表内,应 exit 0,实际 ${r.status}\n${r.stderr}`)
       assert.doesNotMatch(`${r.stderr}${r.stdout}`, /汉字残留|warn-only/, '表内字种不得再进噪音输出')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -191,7 +191,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 1, `未配置 locale 含汉字应 exit 1,实际 ${r.status}`)
       assert.match(r.stderr, /纯中文残留/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -210,7 +210,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 0, `语言本名应跳过 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
       assert.match(r.stdout, /✅.*无中文残留/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -227,7 +227,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.match(r.stderr, /纯中文残留/)
       assert.match(r.stderr, /extension\/ko\.json/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -248,7 +248,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 0, `代码块内中文应跳过 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
       assert.match(r.stdout, /✅.*无中文残留/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -268,7 +268,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 0, `ICP 备案号应跳过 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
       assert.match(r.stdout, /✅.*无中文残留/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -282,7 +282,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 0, `--staged 无 git 应跳过 exit 0,实际 ${r.status}`)
       assert.match(r.stdout, /跳过|未在暂存区/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -297,7 +297,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.equal(r.status, 1, `staged ko.json 含违规应 exit 1,实际 ${r.status}`)
       assert.match(r.stderr, /纯中文残留/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -321,7 +321,7 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
           assert.equal(r.status, c.want, `期望 exit ${c.want},实际 ${r.status}\n${r.stderr || r.stdout}`)
           if (c.re) assert.match(`${r.stderr}${r.stdout}`, c.re)
         } finally {
-          rmSync(root, { recursive: true, force: true })
+          rmScratch(root)
         }
       })
     }
