@@ -25,6 +25,8 @@
  * 环境变量:
  *   GITHUB_REPOSITORY — owner/repo(默认 IHUI-INF-AI/IHUI-AI)
  *   GITHUB_TOKEN      — GitHub API token(可选,公开 repo 限流 60 req/h 足够)
+ *   ALLOW_NARROWER_FEED  — 人工放行「updaterPlatforms 比本地快照变窄」的拒写(确属故意收窄才带)
+ *   IHUI_FEED_SNAPSHOT     — 覆盖本地快照落点(测试/取证通道;读写同一路径,不影响仓库内快照)
  *
  * 退出码:
  *   0 — 解析完成且(写模式:快照无变化 / check 模式:一致 / dry-run / offline)
@@ -40,7 +42,7 @@ import { execFileSync } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 // 平台映射判据唯一真相源(与 scripts/generate-latest-json.mjs 共用,勿在此二次实现)
 import {
   inferPlatformForPackage,
@@ -58,6 +60,10 @@ const TAURI_CONF_PATH = join(PROJECT_ROOT, 'apps/desktop/src-tauri/tauri.conf.js
 const DEFAULT_REPO = 'IHUI-INF-AI/IHUI-AI'
 const RELEASE_PREFIX = 'desktop-v'
 const RELEASES_PAGE = 'https://github.com/IHUI-INF-AI/IHUI-AI/releases'
+
+// 收窄护栏的两个出口:一个是人工放行,一个是把本地快照落点改到别处(测试/取证通道)。
+const ALLOW_NARROWER_ENV = 'ALLOW_NARROWER_FEED'
+const IHUI_FEED_SNAPSHOT_ENV = 'IHUI_FEED_SNAPSHOT'
 
 // ─── 控制台颜色 + 日志 ──────────────────────────────────────
 const C = {
@@ -150,20 +156,31 @@ function mapAsset(asset, version) {
 }
 
 /**
- * 抓取 .sig 签名内容。
- * 2026-09-18:统一封装 —— 缺失/请求失败一律返回空串,保证快照字段形状恒定
- * (此前「有签名才写字段」会让 assets 形状随数据漂移,下游 TS 访问 .signature 直接报错)。
+ * 抓取 .sig 签名内容,**把"取不到"和"没有"分开**。
+ * 2026-09-18:统一封装 —— 快照字段形状恒定(此前「有签名才写字段」会让 assets 形状
+ * 随数据漂移,下游 TS 访问 .signature 直接报错)。
+ * 2026-09-27 改:旧写法把 404 / 限流 / 断网 / 超时**全折成同一个空串**,于是"feed 从
+ * 4 档缩到 1 档"在账面上与"这一版真的只有 Windows"完全同形 —— 而实测前者才是常态
+ * (未带 GITHUB_TOKEN 时被限流)。现在失败会重试,仍失败则 `failed:true` 上报,
+ * 由调用方大声点名;判红权在护栏(decidePlatformNarrowing),不在这里。
  * @param {string | undefined} url
- * @returns {Promise<string>}
+ * @param {{retries?: number, timeoutMs?: number}} [opts]
+ * @returns {Promise<{sig: string, failed: boolean}>}
  */
-async function fetchSignature(url) {
-  if (!url) return ''
-  try {
-    const res = await fetch(url, { redirect: 'follow' })
-    return res.ok ? (await res.text()).trim() : ''
-  } catch {
-    return ''
+async function fetchSignature(url, { retries = 2, timeoutMs = 15000 } = {}) {
+  if (!url) return { sig: '', failed: false }
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(timeoutMs) })
+      if (res.ok) return { sig: (await res.text()).trim(), failed: false }
+      // 404 = 该 release 确实没挂这个资产(不是故障);403/429/5xx = 取不到,可重试
+      if (res.status === 404) return { sig: '', failed: false }
+    } catch {
+      /* 断网/超时按"取不到"处理,进入重试 */
+    }
+    if (attempt < retries) await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
   }
+  return { sig: '', failed: true }
 }
 
 /** 读取 tauri.conf.json version(校验 release 与源码版本一致性) */
@@ -177,22 +194,61 @@ function readTauriVersion() {
 }
 
 /** 读取本地快照(不存在返回 null) */
-async function readLocalSnapshot() {
-  if (!existsSync(SNAPSHOT_PATH)) return null
+async function readLocalSnapshot(snapshotPath = SNAPSHOT_PATH) {
+  if (!existsSync(snapshotPath)) return null
   try {
-    const src = await readFile(SNAPSHOT_PATH, 'utf-8')
-    // 2026-09-24 修既有缺陷:快照实际导出形态是带类型标注的
-    // `export const DESKTOP_FEED: DesktopFeed = {`,旧 marker 找的是无标注形态,
-    // 永远 indexOf === -1 → 本地快照恒读成 null → --check 恒判"有差异"、
-    // snapshotEqual 恒 false(每次 CI 都重写快照)。改为容忍类型标注的正则。
-    const markerMatch = src.match(/export const DESKTOP_FEED(?:\s*:\s*[\w.<>\s|]+)?\s*=\s*/)
-    if (!markerMatch || markerMatch.index === undefined) return null
-    // 自产格式:marker 之后即对象字面量(尾随注释不影响 eval),整体 eval 解析
-    const body = src.slice(markerMatch.index + markerMatch[0].length)
-    return Function(`"use strict"; return (${body})`)()
+    return parseSnapshot(await readFile(snapshotPath, 'utf-8'))
   } catch {
     return null
   }
+}
+
+/**
+ * 从快照源码解出 DESKTOP_FEED 对象(读不出即 null)。与读盘分离,使"能不能解出键集"
+ * 这件事可以被真实文件内容喂进纯函数证明 —— 否则测试只能证明"函数会给答案"。
+ */
+function parseSnapshot(src) {
+  // 2026-09-24 修既有缺陷:快照实际导出形态是带类型标注的
+  // `export const DESKTOP_FEED: DesktopFeed = {`,旧 marker 找的是无标注形态,
+  // 永远 indexOf === -1 → 本地快照恒读成 null → --check 恒判"有差异"、
+  // snapshotEqual 恒 false(每次 CI 都重写快照)。改为容忍类型标注的正则。
+  const markerMatch = src.match(/export const DESKTOP_FEED(?:\s*:\s*[\w.<>\s|]+)?\s*=\s*/)
+  if (!markerMatch || markerMatch.index === undefined) return null
+  // 自产格式:marker 之后即对象字面量(尾随注释不影响 eval),整体 eval 解析
+  const body = src.slice(markerMatch.index + markerMatch[0].length)
+  return Function(`"use strict"; return (${body})`)()
+}
+
+/**
+ * 测试通道:把本地快照的落点从仓库内改到别处(读与写都走它)。
+ * 只此一条通道 —— 同时给 `--snapshot` 旗就会有两套口径可被误用。
+ */
+function snapshotPathFor(env = process.env) {
+  const override = env[IHUI_FEED_SNAPSHOT_ENV]
+  return override ? resolve(override) : SNAPSHOT_PATH
+}
+
+/**
+ * 收窄护栏的纯判据。基线三态必须分开,否则"读不到基线"会被写成"没有变窄":
+ * 旧实现只拿 local 的键集做差,local 为 null(文件在而解不出)时差集恒空 ⇒ 护栏永不触发。
+ * @param {{baselineExists: boolean, baseline: {updaterPlatforms?: Record<string, unknown>} | null, online: {updaterPlatforms?: Record<string, unknown>} | null, allowNarrower?: boolean}} p
+ * @returns {{verdict: 'allow'|'blocked'|'blind', reason: string, lost: string[], before: string[], after: string[]}}
+ */
+function decidePlatformNarrowing({ baselineExists, baseline, online, allowNarrower = false }) {
+  const after = Object.keys((online && online.updaterPlatforms) || {})
+  if (allowNarrower)
+    return { verdict: 'allow', reason: 'explicit-allow', lost: [], before: [], after }
+  // 快照文件本来就不在(首次生成) ⇒ 无基线可比,如实喊出"这一格没判",不冒绿也不冒红
+  if (!baselineExists)
+    return { verdict: 'blind', reason: 'no-baseline', lost: [], before: [], after }
+  // 文件在而读不出 ⇒ 无法判断是否变窄,一律拒写(把"没判"写成"判过了"是本仓最高频失效型)
+  if (!baseline)
+    return { verdict: 'blocked', reason: 'baseline-unreadable', lost: [], before: [], after }
+  const before = Object.keys(baseline.updaterPlatforms || {})
+  const lost = before.filter((k) => !after.includes(k))
+  return lost.length > 0
+    ? { verdict: 'blocked', reason: 'narrowed', lost, before, after }
+    : { verdict: 'allow', reason: 'not-narrowed', lost, before, after }
 }
 
 /**
@@ -215,13 +271,17 @@ async function fetchReleasesPaged(baseUrl, headers, label, { perPage = 100, maxP
       const res = await fetch(`${baseUrl}${sep}per_page=${perPage}&page=${page}`, { headers })
       if (!res.ok) {
         if (page === 1) return null
-        console.warn(`[resolve] ${label} 第 ${page} 页 ${res.status},按已拿到的 ${out.length} 条继续`)
+        console.warn(
+          `[resolve] ${label} 第 ${page} 页 ${res.status},按已拿到的 ${out.length} 条继续`,
+        )
         break
       }
       batch = await res.json()
     } catch (e) {
       if (page === 1) return null
-      console.warn(`[resolve] ${label} 第 ${page} 页取失败(${String(e).slice(0, 60)}),按已拿到的 ${out.length} 条继续`)
+      console.warn(
+        `[resolve] ${label} 第 ${page} 页取失败(${String(e).slice(0, 60)}),按已拿到的 ${out.length} 条继续`,
+      )
       break
     }
     if (!Array.isArray(batch)) {
@@ -265,6 +325,8 @@ async function resolveFromGitee() {
   const version = release.tag_name.replace(RELEASE_PREFIX, '')
   const releaseDate = (release.created_at || release.published_at || '').slice(0, 10)
   const assets = []
+  /** 签名"取不到"(限流/断网/超时)的资产名 —— 与"该 release 没挂 sig"必须分开报 */
+  const sigFetchFailures = []
   for (const asset of release.assets || []) {
     const href = `https://gitee.com/${owner}/${repo}/releases/download/${release.tag_name}/${encodeURIComponent(asset.name)}`
     // Gitee 列表 API 不返回 size → HEAD 取 content-length(302 后为真实文件大小)
@@ -296,7 +358,9 @@ async function resolveFromGitee() {
       // Gitee 不单独产 updater 条目:windows 键必须与下载页 assets 取同一合并结果
       // (Gitee 同名平台可能有多个历史资产,assets 的 format|arch 归一已定序);
       // mac/linux 的 Gitee 直链实测 404,由 GitHub 源补齐。
-      mapped.signature = await fetchSignature(`${href}.sig`)
+      const fetched = await fetchSignature(`${href}.sig`)
+      mapped.signature = fetched.sig
+      if (fetched.failed) sigFetchFailures.push(`${asset.name}.sig`)
       assets.push(mapped)
     }
   }
@@ -316,7 +380,18 @@ async function resolveFromGitee() {
       `[resolve] Gitee ${release.tag_name} 资产不完整(${assets.length} 个:${[...families].join('/')}),交由合并逻辑用 GitHub 补齐`,
     )
   }
-  return { version, releaseDate, giteeReleasesUrl: `https://gitee.com/${owner}/${repo}/releases`, resolvedFromTag: release.tag_name, assets }
+  if (sigFetchFailures.length) {
+    console.warn(
+      `[resolve] Gitee ${release.tag_name} 有 ${sigFetchFailures.length} 个 .sig **取不到**(重试后仍失败,不是该 release 没挂):${sigFetchFailures.join(', ')} —— 这些平台不会进 updater feed`,
+    )
+  }
+  return {
+    version,
+    releaseDate,
+    giteeReleasesUrl: `https://gitee.com/${owner}/${repo}/releases`,
+    resolvedFromTag: release.tag_name,
+    assets,
+  }
 }
 
 /**
@@ -329,7 +404,11 @@ async function resolveFromGithub() {
   const token = process.env.GITHUB_TOKEN
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const releases = await fetchReleasesPaged(`https://api.github.com/repos/${repo}/releases`, headers, 'GitHub')
+  const releases = await fetchReleasesPaged(
+    `https://api.github.com/repos/${repo}/releases`,
+    headers,
+    'GitHub',
+  )
   // 首页就取不到 ⇒ 保持原有的"硬失败"语义(调用方据此不落快照),不得静默当成"没有 release"
   if (releases === null) {
     throw new Error('GitHub Releases API failed: 首页不可达或非数组响应')
@@ -366,11 +445,15 @@ async function resolveFromGithub() {
   )
   // 同一 .sig 可能被下载页资产与 updater 条目各取一次 → 会话内缓存去重
   const sigCache = new Map()
+  /** 签名"取不到"(限流/断网/超时)的资产名 —— 与"该 release 没挂 sig"必须分开报 */
+  const sigFetchFailures = []
   /** @param {string | undefined} url @returns {Promise<string>} */
   const getSignature = async (url) => {
     if (!url) return ''
     if (!sigCache.has(url)) sigCache.set(url, await fetchSignature(url))
-    return sigCache.get(url)
+    const r = sigCache.get(url)
+    if (r.failed && !sigFetchFailures.includes(url)) sigFetchFailures.push(url.split('/').pop())
+    return r.sig
   }
   const assets = []
   // updater 候选(2026-09-24):含下载页不展示的 `.app.tar.gz`(macOS 唯一可更新产物);
@@ -380,7 +463,8 @@ async function resolveFromGithub() {
     const mapped = mapAsset(asset, version)
     // `.sig` 资产名同样能被 inferPlatformForPackage 命中(.app.tar.gz.sig 等),
     // 但其 URL 是签名文件本体,绝不能作为安装包条目 → 显式排除。
-    const isUpdaterPkg = !asset.name.endsWith('.sig') && Boolean(inferPlatformForPackage(asset.name))
+    const isUpdaterPkg =
+      !asset.name.endsWith('.sig') && Boolean(inferPlatformForPackage(asset.name))
     if (!mapped && !isUpdaterPkg) continue
     const signature = await getSignature(sigUrlByName.get(`${asset.name}.sig`))
     if (mapped) {
@@ -393,6 +477,11 @@ async function resolveFromGithub() {
   }
   if (assets.length === 0) {
     throw new Error(`No install assets found in release ${release.tag_name} for version ${version}`)
+  }
+  if (sigFetchFailures.length) {
+    console.warn(
+      `[resolve] GitHub ${release.tag_name} 有 ${sigFetchFailures.length} 个 .sig **取不到**(重试后仍失败,通常是未带 GITHUB_TOKEN 被限流,不是该 release 没挂):${sigFetchFailures.join(', ')} —— 这些平台不会进 updater feed`,
+    )
   }
 
   return {
@@ -486,16 +575,16 @@ async function resolveOnline() {
     )
     // GitHub 不可达时 darwin/linux 无可靠直链(Gitee 侧实测 404),updaterPlatforms
     // 只会剩 windows 键 —— 空签名/被拒 host 不出键,行为与旧版站点 feed 等价。
-    return withUpdaterPlatforms(
-      {
-        ...fromGitee,
-        resolvedAt: new Date().toISOString(),
-        githubReleasesUrl: fromGitee.giteeReleasesUrl,
-      },
-    )
+    return withUpdaterPlatforms({
+      ...fromGitee,
+      resolvedAt: new Date().toISOString(),
+      githubReleasesUrl: fromGitee.giteeReleasesUrl,
+    })
   }
   if (!fromGitee) {
-    console.log(`[resolve] Gitee 源未命中,使用 GitHub 源: ${fromGithub.resolvedFromTag}(${fromGithub.assets.length} 个资产)`)
+    console.log(
+      `[resolve] Gitee 源未命中,使用 GitHub 源: ${fromGithub.resolvedFromTag}(${fromGithub.assets.length} 个资产)`,
+    )
     return withUpdaterPlatforms(fromGithub)
   }
   if (fromGitee.version !== fromGithub.version) {
@@ -504,7 +593,9 @@ async function resolveOnline() {
     )
   }
 
-  console.log(`[resolve] Gitee 源命中: ${fromGitee.resolvedFromTag}(${fromGitee.assets.length} 个资产),与 GitHub 源按平台合并`)
+  console.log(
+    `[resolve] Gitee 源命中: ${fromGitee.resolvedFromTag}(${fromGitee.assets.length} 个资产),与 GitHub 源按平台合并`,
+  )
   const keyOf = (a) => `${a.format}|${a.arch || ''}`
   const giteeMap = new Map(fromGitee.assets.map((a) => [keyOf(a), a]))
   const merged = fromGithub.assets.map((a) => {
@@ -582,10 +673,14 @@ export const DESKTOP_FEED: DesktopFeed = {
   resolvedAt: '${data.resolvedAt}',
   assets: [
 ${assetLines}
-  ],${platformLines ? `
+  ],${
+    platformLines
+      ? `
   updaterPlatforms: {
 ${platformLines}
-  },` : ''}
+  },`
+      : ''
+  }
 }
 `
 }
@@ -597,7 +692,9 @@ function updaterPlatformsEqual(a, b) {
   const ka = Object.keys(pa).sort()
   const kb = Object.keys(pb).sort()
   if (ka.join('|') !== kb.join('|')) return false
-  return ka.every((k) => pa[k].url === pb[k].url && (pa[k].signature || '') === (pb[k].signature || ''))
+  return ka.every(
+    (k) => pa[k].url === pb[k].url && (pa[k].signature || '') === (pb[k].signature || ''),
+  )
 }
 
 /** 深度比较两份快照(忽略 resolvedAt) */
@@ -637,10 +734,8 @@ function printSnapshot(label, data) {
   }
 }
 
-// ─── 参数解析 ────────────────────────────────────────────────
-const args = process.argv.slice(2)
-if (args.includes('--help') || args.includes('-h')) {
-  console.log(`
+// ─── CLI ─────────────────────────────────────────────────────
+const HELP_TEXT = `
 resolve-desktop-download.mjs — 动态解析桌面端下载产物(零手动维护)
 
 用法:
@@ -653,33 +748,47 @@ resolve-desktop-download.mjs — 动态解析桌面端下载产物(零手动维�
 环境变量:
   GITHUB_REPOSITORY  owner/repo(默认 ${DEFAULT_REPO})
   GITHUB_TOKEN       GitHub API token(可选)
-`)
-  process.exit(0)
-}
+  ${ALLOW_NARROWER_ENV}  人工放行「updaterPlatforms 变窄」的拒写
+  ${IHUI_FEED_SNAPSHOT_ENV}    覆盖本地快照落点(测试/取证通道,读写同一路径)
+`
 
-const checkMode = args.includes('--check')
-const dryRun = args.includes('--dry-run')
-const offline = args.includes('--offline')
+/**
+ * CLI 主体。**返回退出码**而不是就地 process.exit —— 否则"少一键 ⇒ 1 且没改写快照"
+ * 这半边证据只能在子进程外面看,拿不到"文件字节未变"与"退出码"的同一次观测。
+ * @param {string[]} argv
+ * @param {Record<string, string | undefined>} [env]
+ * @param {{ resolveOnlineImpl?: () => Promise<object> }} [deps] resolveOnlineImpl 是线上数据的注入口(测试喂构造结果,不碰网络)
+ * @returns {Promise<number>} 退出码
+ */
+async function runCli(argv, env = process.env, deps = {}) {
+  const resolveOnlineImpl = deps.resolveOnlineImpl || resolveOnline
+  if (argv.includes('--help') || argv.includes('-h')) {
+    console.log(HELP_TEXT)
+    return 0
+  }
+  const checkMode = argv.includes('--check')
+  const dryRun = argv.includes('--dry-run')
+  const offline = argv.includes('--offline')
+  const snapshotPath = snapshotPathFor(env)
 
-async function main() {
   // ── offline:只读本地快照 ──
   if (offline) {
-    const local = await readLocalSnapshot()
+    const local = await readLocalSnapshot(snapshotPath)
     if (!local) {
-      log('err', `本地快照不存在: ${SNAPSHOT_PATH} — 请先联网运行一次`)
-      process.exit(1)
+      log('err', `本地快照不存在: ${snapshotPath} — 请先联网运行一次`)
+      return 1
     }
     printSnapshot('本地快照', local)
-    return
+    return 0
   }
 
   // ── 在线解析 ──
   let online
   try {
-    online = await resolveOnline()
+    online = await resolveOnlineImpl()
   } catch (err) {
     log('err', `解析线上数据失败: ${err instanceof Error ? err.message : String(err)}`)
-    process.exit(1)
+    return 1
   }
 
   // 版本一致性校验(源码 tauri.conf.json vs 最新 release,仅告警不阻塞)
@@ -691,7 +800,8 @@ async function main() {
     )
   }
 
-  const local = await readLocalSnapshot()
+  const baselineExists = existsSync(snapshotPath)
+  const local = baselineExists ? await readLocalSnapshot(snapshotPath) : null
   const changed = !snapshotEqual(local, online)
 
   // 平台集合变窄 ⇒ 拒写。判"变窄"而不是"看条数",因为 updater 键是**空签名不出键**导出的,
@@ -700,16 +810,33 @@ async function main() {
   // darwin…`,另一跑只剩 `windows-x86_64`(降级那份当时已写进工作树快照)。**具体成因未复现**
   // —— 我一度归因于"没带 GITHUB_TOKEN",随后不带 token 重跑得到的是完整 4 键,该归因已否证。
   // 正因为成因不明,这一格不能靠"下次记得看输出"兜:收窄一律拒写,确属故意再显式放行。
-  // ⚠ 如实登记:本护栏加上的当轮**未能端到端触发**(降级条件没再现),它的判据只经过
-  // 代码路径审阅,没有跑过"少一键 ⇒ exit 1"的实证。补法:给脚本一个可注入的 local 快照路径。
-  const beforeKeys = Object.keys((local && local.updaterPlatforms) || {})
-  const afterKeys = Object.keys(online.updaterPlatforms || {})
-  const lostPlatforms = beforeKeys.filter((k) => !afterKeys.includes(k))
-  if (lostPlatforms.length > 0 && !process.env.ALLOW_NARROWER_FEED) {
+  // 判据住在 decidePlatformNarrowing(纯函数),实证入口 scripts/tests/resolve-desktop-download.test.mjs。
+  const narrowing = decidePlatformNarrowing({
+    baselineExists,
+    baseline: local,
+    online,
+    allowNarrower: Boolean(env[ALLOW_NARROWER_ENV]),
+  })
+  if (narrowing.verdict === 'blocked') {
     printSnapshot('线上数据', online)
-    log('err', `updaterPlatforms 比现有快照少 ${lostPlatforms.join(', ')}(现 ${beforeKeys.length} → 新 ${afterKeys.length})`)
-    log('err', '最常见原因是签名资产取不到(未带 GITHUB_TOKEN / 被限流),而不是这一版真没有这些平台;确属故意收窄请带 ALLOW_NARROWER_FEED=1 重跑')
-    process.exit(1)
+    if (narrowing.reason === 'baseline-unreadable') {
+      log('err', `本地快照在位却解不出 DESKTOP_FEED(${snapshotPath})⇒ 无从判断会不会写窄,拒写`)
+      log('err', `确要按线上数据重建快照:带 ${ALLOW_NARROWER_ENV}=1 重跑(它会连带放行真变窄那一格)`)
+    } else {
+      log(
+        'err',
+        `updaterPlatforms 比现有快照少 ${narrowing.lost.join(', ')}(现 ${narrowing.before.length} → 新 ${narrowing.after.length})`,
+      )
+      log(
+        'err',
+        `最常见原因是签名资产取不到(未带 GITHUB_TOKEN / 被限流),而不是这一版真没有这些平台;确属故意收窄请带 ${ALLOW_NARROWER_ENV}=1 重跑`,
+      )
+    }
+    return 1
+  }
+  if (narrowing.verdict === 'blind') {
+    // 无基线不是"通过":它必须是喊出来的一句"这一格没判",否则首次生成之后没人知道护栏没生效
+    log('warn', `本地快照不存在(${snapshotPath})⇒ 收窄护栏无基线可比,本次不判(首次生成属正常)`)
   }
 
   if (checkMode) {
@@ -717,46 +844,68 @@ async function main() {
     if (local) printSnapshot('本地快照', local)
     if (changed) {
       log('err', `快照与线上不一致(check 模式)→ 期望退出码 1`)
-      process.exit(1)
+      return 1
     }
     log('ok', '快照与线上一致,无需刷新')
-    return
+    return 0
   }
 
   if (dryRun) {
     printSnapshot('线上数据(将写入快照)', online)
     log('info', changed ? '快照有差异,将写入(当前为 --dry-run,未落盘)' : '快照无差异,无需写入')
-    return
+    return 0
   }
 
   if (!changed) {
     printSnapshot('线上数据', online)
-    log('ok', `快照已是最新(${SNAPSHOT_PATH} 无需更新)`)
-    return
+    log('ok', `快照已是最新(${snapshotPath} 无需更新)`)
+    return 0
   }
 
-  await writeFile(SNAPSHOT_PATH, serializeSnapshot(online), 'utf-8')
+  await writeFile(snapshotPath, serializeSnapshot(online), 'utf-8')
   // 生成器必须自带注入:本产物由 release-desktop.yml 的 sync-downloads job 与 sync-downloads.yml
   // 每日 cron 自动提交回 main,那条链不过本地 husky,而 CI 侧 `watermark.mjs verify` 是严格判定。
   // 2026-09-27 实测:缺这一句时,自动提交把当天补上的水印横幅又盖回无载荷态,CI 恒红一格。
   try {
-    execFileSync(
-      process.execPath,
-      [join(__dirname, 'watermark.mjs'), 'inject', SNAPSHOT_PATH],
-      { stdio: 'inherit', windowsHide: true },
-    )
+    execFileSync(process.execPath, [join(__dirname, 'watermark.mjs'), 'inject', snapshotPath], {
+      stdio: 'inherit',
+      windowsHide: true,
+    })
   } catch (err) {
     const why = err instanceof Error ? err.message : String(err)
     log('err', `水印注入失败,拒绝把无横幅快照留在待提交面上: ${why}`)
-    process.exit(1)
+    return 1
   }
   printSnapshot('已写入快照', online)
-  log('ok', `快照已更新 → ${SNAPSHOT_PATH}`)
+  log('ok', `快照已更新 → ${snapshotPath}`)
+  return 0
 }
 
-main().catch((err) => {
-  log('err', `致命错误: ${err instanceof Error ? err.message : String(err)}`)
-  if (err instanceof Error && err.stack) console.error(C.dim + err.stack + C.reset)
-  process.exit(1)
-})
+async function main() {
+  const code = await runCli(process.argv.slice(2), process.env)
+  if (code !== 0) process.exit(code)
+}
+
+// §22d:本文件既是 CLI 又被测试 import —— 无守卫时 import 就会真跑一次解析并写盘。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((err) => {
+    log('err', `致命错误: ${err instanceof Error ? err.message : String(err)}`)
+    if (err instanceof Error && err.stack) console.error(C.dim + err.stack + C.reset)
+    process.exit(1)
+  })
+}
+
+export const __test__ = {
+  decidePlatformNarrowing,
+  fetchSignature,
+  parseSnapshot,
+  readLocalSnapshot,
+  runCli,
+  serializeSnapshot,
+  snapshotPathFor,
+  ALLOW_NARROWER_ENV,
+  IHUI_FEED_SNAPSHOT_ENV,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
