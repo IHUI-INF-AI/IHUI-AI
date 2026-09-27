@@ -173,9 +173,7 @@ export function readGeometry(src, side, tiers = {}) {
     /(?:^|[\s"'`])(?:size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
   ))
     push(toPx(m[1], m[2], side))
-  for (const m of code.matchAll(
-    /(?:^|[\s"'`:](?:[a-z-]+:)?)size-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g,
-  ))
+  for (const m of code.matchAll(/(?:^|[\s"'`:](?:[a-z-]+:)?)size-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g))
     push(round(TW_SPACING_PX(Number(m[1]))))
   // 内联盒/留白的**刻度档**(非任意值形态):`px-3`/`py-2`/`gap-4`/`mt-2` … 一律 ×4 折 px。
   // 不收这一档,同一族的两侧就不在同一口径上读数 —— RN 写 `paddingHorizontal: 12` 记进集合,
@@ -383,10 +381,14 @@ export function iconGlyphs(src) {
   const vector = new Set()
   for (const m of code.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"][^'"]*lucide[^'"]*['"]/gi))
     for (const raw of m[1].split(',')) {
-      const n = raw.trim().split(/\s+as\s+/)[0]?.trim()
+      const n = raw
+        .trim()
+        .split(/\s+as\s+/)[0]
+        ?.trim()
       if (n && /^[A-Z]/.test(n)) vector.add(pascalToKebab(n))
     }
-  for (const m of code.matchAll(/<LineIcon\b[^>]*?\bname\s*=\s*["']([a-z0-9-]+)["']/g)) vector.add(m[1])
+  for (const m of code.matchAll(/<LineIcon\b[^>]*?\bname\s*=\s*["']([a-z0-9-]+)["']/g))
+    vector.add(m[1])
   /**
    * 字形名也常**当数据传**(配置数组 `{ key, label, icon: 'camera' }` + `<LineIcon name={item.icon}/>`)。
    * 只看 `<LineIcon name="…">` 字面量会把这些槽位判成"小程序未矢量化" —— 判据看不见自己产出的形态,
@@ -410,7 +412,8 @@ export function iconGlyphs(src) {
     for (const s of expr[1].slice(q).matchAll(/['"]([a-z0-9-]+)['"]/g)) vector.add(s[1])
   }
   const bitmap = []
-  for (const m of code.matchAll(/aizhsUrl\(\s*['"]([^'"]*\.(?:png|jpe?g|gif))['"]/gi)) bitmap.push(m[1])
+  for (const m of code.matchAll(/aizhsUrl\(\s*['"]([^'"]*\.(?:png|jpe?g|gif))['"]/gi))
+    bitmap.push(m[1])
   /**
    * RN 侧的位图载体此前**结构上看不见**:判据只认小程序的 `aizhsUrl('x.png')` 形态,
    * 于是"两端都用位图"(谁也没矢量化)与"RN 仍用位图"(账面把它读成小程序单侧问题)两型全隐。
@@ -1316,10 +1319,7 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
      * (只喂几何夹具的既有用例不该被新维连带打红)。
      */
     const radius = radiusTable
-      ? diffValues(
-          new Set(radiusSetOf(a, radiusTable)),
-          new Set(radiusSetOf(b, radiusTable)),
-        )
+      ? diffValues(new Set(radiusSetOf(a, radiusTable)), new Set(radiusSetOf(b, radiusTable)))
       : { onlyMiniapp: [], onlyRn: [] }
     const radiusSeen = radiusTable
       ? {
@@ -1478,13 +1478,7 @@ export function main(argv, repoRoot = ROOT) {
     }
     throw e
   }
-  const res = audit(
-    collected.pairs,
-    collected.text,
-    baseline,
-    collected.tiers,
-    collected.radius,
-  )
+  const res = audit(collected.pairs, collected.text, baseline, collected.tiers, collected.radius)
   if (argv.includes('--emit-baseline')) {
     console.log(JSON.stringify(emitBaseline(res.findings, baseline), null, 2))
     /**
@@ -1533,6 +1527,22 @@ export function main(argv, repoRoot = ROOT) {
     )
     for (const o of off) console.log(`  ⊘ ${o.name} —— ${o.reason}`)
     if (collected.coverageNote) console.log(`  ⚠ ${collected.coverageNote}`)
+    /**
+     * **配对射程必须自己报数**。本门只比"同名成文件"的元素:一端把某个控件写成组件文件、
+     * 另一端把它内联在别的组件里(RN 的发送钮就是 `BottomActionBar.tsx` 里的内联 `<Send/>`,
+     * 而小程序侧同槽另有文件),两侧永不成对 —— 那部分界面**本门零判据**。
+     * 不写出来,"N 对全绿"就会被读成"两端界面全一致",而这正是本仓反复记过的失效型:
+     * 判据的射程边界不吭声,读者就替它把边界里面当成全部。只报数不判红(它是边界不是违规)。
+     */
+    {
+      const om = collected.pairs?.onlyMiniapp ?? 0
+      const or = collected.pairs?.onlyRn ?? 0
+      if (om || or)
+        console.log(
+          `  ⓘ 配对射程:仅小程序成文件 ${om} 个 / 仅 RN 成文件 ${or} 个 —— ` +
+            `两端不同名的元素不成对,本门对它们零判据(报数,不判红)`,
+        )
+    }
     for (const u of undet.slice(0, 12))
       console.log(`  ? 未判定:${u.from ?? '(清单)'} → ${u.spec}:${u.reason}`)
     if (undet.length > 12) console.log(`  ? 其余 ${undet.length - 12} 处未判定同上(不静默省略计数)`)
@@ -1547,7 +1557,9 @@ export function main(argv, repoRoot = ROOT) {
        * 的角色定档,几何按 spec 收口)。两维各自也有各自的台账锚点(见 radiusCount)。
        */
       if (f.radius?.onlyMiniapp.length)
-        bits.push(`RD 仅小程序 ${f.radius.onlyMiniapp.join('/')}(端上实取 ${f.radiusSeen?.miniapp.join('/')})`)
+        bits.push(
+          `RD 仅小程序 ${f.radius.onlyMiniapp.join('/')}(端上实取 ${f.radiusSeen?.miniapp.join('/')})`,
+        )
       if (f.radius?.onlyRn.length)
         bits.push(`RD 仅 RN ${f.radius.onlyRn.join('/')}(端上实取 ${f.radiusSeen?.rn.join('/')})`)
       const mark = f.waived ? '○' : res.red.some((r) => r.name === f.name) ? '×' : '·'
@@ -1635,9 +1647,7 @@ export function main(argv, repoRoot = ROOT) {
           x.onlyMiniapp.length + x.onlyRn.length,
         ]),
       )
-      slRed = sl.filter(
-        (x) => x.onlyMiniapp.length + x.onlyRn.length > (baseSl.get(x.name) ?? 0),
-      )
+      slRed = sl.filter((x) => x.onlyMiniapp.length + x.onlyRn.length > (baseSl.get(x.name) ?? 0))
     }
     if (!argv.includes('--json')) {
       for (const x of sl) {
@@ -1675,7 +1685,9 @@ export function main(argv, repoRoot = ROOT) {
       console.log(`  ⊘ PAIR ${x.name} —— 同名不同物,已按声明拆对:${rejAll[x.name].reason}`)
     for (const m of rejInvalid) console.log(`  × PAIR 拆对声明无效:${m}`)
     for (const n of rejStillAnchored)
-      console.log(`  × PAIR ${n} 已声明拆对,台账仍挂它的锚点/豁免 ⇒ 双记账,删 ` + 'counts' + ' 那条')
+      console.log(
+        `  × PAIR ${n} 已声明拆对,台账仍挂它的锚点/豁免 ⇒ 双记账,删 ` + 'counts' + ' 那条',
+      )
     for (const n of rejGhosted)
       console.log(
         `  × PAIR ${n} 声明拆对,而配对面上找不到这一对 ⇒ 文件已搬走或只剩一端,该了结这条声明`,
@@ -1970,7 +1982,8 @@ function runSelfTest() {
       const v = verdictOf([f], { counts: { Foo: 5 }, radiusCounts: { Foo: 0 } })
       const okRed = v.red.length === 1 && v.red[0].over.join('').includes('圆角')
       // 反向对照:圆角存量本来就钉在 2 时不得判红(存量不是新账)
-      const okStock = verdictOf([f], { counts: { Foo: 5 }, radiusCounts: { Foo: 2 } }).red.length === 0
+      const okStock =
+        verdictOf([f], { counts: { Foo: 5 }, radiusCounts: { Foo: 2 } }).red.length === 0
       return okRed && okStock
     })(),
   )
@@ -2142,11 +2155,11 @@ function runSelfTest() {
       const mpVec = 'import LineIcon from "@/components/LineIcon"\n<LineIcon name="send" />\n'
       const rnBmp = iconAudit(pairs, {
         m: mpVec,
-        r: "const ICON_SEND = `${cdnHost}/icons/send.png`\n<Image source={{ uri: ICON_SEND }} />\n",
+        r: 'const ICON_SEND = `${cdnHost}/icons/send.png`\n<Image source={{ uri: ICON_SEND }} />\n',
       })
       const rnEx = iconAudit(pairs, {
         m: mpVec,
-        r: "const ICON_SEND = `${cdnHost}/icons/send.png` // icon-bitmap-exempt: 多色插画\n",
+        r: 'const ICON_SEND = `${cdnHost}/icons/send.png` // icon-bitmap-exempt: 多色插画\n',
       })
       return rnBmp[0].rnBitmap === 1 && rnEx[0].rnBitmap === 0
     })(),
@@ -2157,7 +2170,7 @@ function runSelfTest() {
       const pairs = { pairs: [{ name: 'X', miniapp: 'm', rn: 'r' }] }
       const r = iconAudit(pairs, {
         m: 'const a = aizhsUrl("remote-images/camera.png")\n',
-        r: "const ICON_CAMERA = `${cdnHost}/icons/camera.png`\n",
+        r: 'const ICON_CAMERA = `${cdnHost}/icons/camera.png`\n',
       })
       return r.length === 1 && r[0].bothBitmap.length === 1 && r[0].bothBitmap[0] === 'camera'
     })(),
@@ -2176,10 +2189,13 @@ function runSelfTest() {
   t(
     '㉚ IC 与几何判据分开跑:几何已同值而字形集合不同形的族,必须仍被 IC 看见',
     (() => {
-      const r = iconAudit({ pairs: [{ name: 'Y', miniapp: 'm', rn: 'r' }] }, {
-        m: '<LineIcon name="plus" />',
-        r: "import { Plus, Camera } from 'lucide-react-native'\n",
-      })
+      const r = iconAudit(
+        { pairs: [{ name: 'Y', miniapp: 'm', rn: 'r' }] },
+        {
+          m: '<LineIcon name="plus" />',
+          r: "import { Plus, Camera } from 'lucide-react-native'\n",
+        },
+      )
       return r.length === 1 && r[0].bitmap === 0 && r[0].onlyRn.join(',') === 'camera'
     })(),
   )
@@ -2223,7 +2239,9 @@ function runSelfTest() {
       const g = readGeometry('className="px-3 gap-4"\n', 'miniapp')
       const r = readGeometry('paddingHorizontal: 12\ngap: 16\n', 'rn')
       return (
-        g.values.has(12) && g.values.has(16) && !diffValues(g.values, r.values).onlyRn.length &&
+        g.values.has(12) &&
+        g.values.has(16) &&
+        !diffValues(g.values, r.values).onlyRn.length &&
         !diffValues(g.values, r.values).onlyMiniapp.length
       )
     })(),
@@ -2262,7 +2280,11 @@ function runSelfTest() {
       }
       const tiers = specTiers(src)
       const g = readGeometry('const VOICE = rnGeometry.tapBox\nheight: VOICE\n', 'rn', tiers)
-      return tiers['geometry.tapBox'] === 36 && tiers['TARO_RPX_PER_PX'] === undefined && g.values.has(36)
+      return (
+        tiers['geometry.tapBox'] === 36 &&
+        tiers['TARO_RPX_PER_PX'] === undefined &&
+        g.values.has(36)
+      )
     })(),
   )
   t(
@@ -2306,7 +2328,8 @@ function runSelfTest() {
     '㊲ 投影源在表里取不到(改名 / 删档)⇒ 该具名档不入表,不得凭名字造一个数',
     (() => {
       const tiers = specTiers({
-        'packages/design-tokens/src/geometry.js': 'export const GEOMETRY_PX = {\n  tapBox: 36,\n}\n',
+        'packages/design-tokens/src/geometry.js':
+          'export const GEOMETRY_PX = {\n  tapBox: 36,\n}\n',
         'packages/shared/src/ui/y-spec.ts':
           'export const Y_GONE_PX = GEOMETRY_PX.renamedAway\nexport const Y_REAL_PX = 20\n',
       })
@@ -2425,17 +2448,30 @@ function runSelfTest() {
   )
   t(
     '㊺ 拆对声明三条判据:无理由 / 日期形态错 / 已到期 各自判红,合法声明返回 null',
-      (() => {
+    (() => {
       const future = new Date(Date.now() + 86400000 * 30).toISOString().slice(0, 10)
-      const ok = rejectProblem({ reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast', until: future })
+      const ok = rejectProblem({
+        reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast',
+        until: future,
+      })
       const noReason = rejectProblem({ reason: '', until: future })
       const shortReason = rejectProblem({ reason: '不一样', until: future })
-      const expired = rejectProblem({ reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast', until: '2020-01-01' })
-      const badDate = rejectProblem({ reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast', until: '2027-13-99x' })
+      const expired = rejectProblem({
+        reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast',
+        until: '2020-01-01',
+      })
+      const badDate = rejectProblem({
+        reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast',
+        until: '2027-13-99x',
+      })
       const notObj = rejectProblem('FloatBox')
       return (
         ok === null &&
-        !!noReason && !!shortReason && !!expired && !!badDate && !!notObj &&
+        !!noReason &&
+        !!shortReason &&
+        !!expired &&
+        !!badDate &&
+        !!notObj &&
         /到期/.test(expired)
       )
     })(),
@@ -2467,9 +2503,19 @@ function runSelfTest() {
   t(
     '㊼ emitBaseline 必须原样带走 pairingRejects(重写台账把别人的拆对声明冲掉 = 该族凭空多出一堆"差异")',
     (() => {
-      const prior = { counts: { A: 1 }, waivers: {}, pairingRejects: { F: { reason: 'x', until: '2027-01-01' } } }
-      const out = emitBaseline([{ name: 'A', named: [], geometry: { onlyMiniapp: [], onlyRn: [] } }], prior)
-      const dropped = emitBaseline([{ name: 'A', named: [], geometry: { onlyMiniapp: [], onlyRn: [] } }], {})
+      const prior = {
+        counts: { A: 1 },
+        waivers: {},
+        pairingRejects: { F: { reason: 'x', until: '2027-01-01' } },
+      }
+      const out = emitBaseline(
+        [{ name: 'A', named: [], geometry: { onlyMiniapp: [], onlyRn: [] } }],
+        prior,
+      )
+      const dropped = emitBaseline(
+        [{ name: 'A', named: [], geometry: { onlyMiniapp: [], onlyRn: [] } }],
+        {},
+      )
       return (
         !!out.pairingRejects &&
         out.pairingRejects.F.reason === 'x' &&
@@ -2516,9 +2562,7 @@ function runSelfTest() {
         b.values,
       )
       return (
-        !d.onlyMiniapp.length &&
-        !d.onlyRn.length &&
-        sameNoConverter.onlyMiniapp.join() === '64'
+        !d.onlyMiniapp.length && !d.onlyRn.length && sameNoConverter.onlyMiniapp.join() === '64'
       )
     })(),
   )
