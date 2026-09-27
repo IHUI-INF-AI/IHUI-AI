@@ -68,7 +68,7 @@ export function NotificationBell({ initialCount = 0, onOpen }: NotificationBellP
     >
       <Bell size={16} className="shrink-0" aria-hidden />
       {count > 0 ? (
-        <span className="absolute -top-0.5 -right-1 min-w-4 h-4 px-1 bg-destructive text-white text-xs font-semibold rounded-lg inline-flex items-center justify-center leading-none">
+        <span className="absolute -top-0.5 -right-1 min-w-4 h-4 px-1 bg-destructive text-white text-xs font-semibold rounded-md inline-flex items-center justify-center leading-none">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
