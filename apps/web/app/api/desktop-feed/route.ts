@@ -16,8 +16,14 @@
  * /desktop-feed.json 同源,两 route 不再各自按 /Windows/i 挑单条);
  * platforms 四键映射来自快照 updaterPlatforms(生成侧已做空签名/dmg/宿主白名单过滤)。
  *
- * 端点:https://aizhs.top/api/desktop-feed
- * Tauri 更新器配置见 apps/desktop/src-tauri/tauri.conf.json plugins.updater.endpoints 第一项。
+ * 端点可达性(2026-09-28 实测,取代本段此前那句错误声称):本站点 nginx 把 `location /api/` 整段
+ * `proxy_pass http://blue_api`(见 deploy/nginx/nginx-blue-green.conf),所以这条 Next App Route
+ * **经公网域名到不了** —— `https://aizhs.top/api/desktop-feed` 现读 404(由后端 Fastify 给出),
+ * 只有 Next 自身端口(`http://localhost:8801/api/desktop-feed`)可达。
+ * Tauri 更新器真正用的端点是 `/desktop-feed.json`:`apps/desktop/src-tauri/tauri.conf.json` 的
+ * `plugins.updater.endpoints` 第一项现读为 `https://aizhs.top/desktop-feed.json`(2026-09-28 现读 200、
+ * 四档 windows-x86_64 / linux-x86_64 / darwin-x86_64 / darwin-aarch64、version 0.1.49)。
+ * 本文件是该 feed 的同源别名,全仓无运行期调用方(只有注释互引)—— 不得把它当更新器出口来"修"。
  */
 import { DESKTOP_FEED } from '@/config/desktop-feed.generated'
 import { buildDesktopFeedPayload } from '@/config/desktop-feed-payload'

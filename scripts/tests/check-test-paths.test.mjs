@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-test-paths.mjs')
 
 // ─── 辅助:创建临时 git repo(check-test-paths.mjs 调用 git check-ignore,需 git 环境) ─
 function createTempGitRepo(gitignoreContent = '') {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-test-paths-'))
+  const dir = mkScratch('ihui-test-paths-')
   const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
   spawnSync('git', ['init', '-q'], opt)
   spawnSync('git', ['config', 'user.email', 'test@ihui.local'], opt)
@@ -60,7 +60,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () =
     )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生 Error 输出`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -71,7 +71,7 @@ test('CLI: 无参数运行(空目录)→ exit 0 + 未发现 __tests__/', () => {
     assert.equal(r.status, 0, `空目录应 exit 0\nstdout: ${r.out}\nstderr: ${r.stderr}`)
     assert.match(r.out, /未发现 __tests__\/ 目录/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -86,7 +86,7 @@ test('__tests__/ 有 .gitkeep 且被 __* 规则命中 → 通过(exit 0)', () =>
     assert.equal(r.status, 0, `有 .gitkeep 应通过\nstdout: ${r.out}`)
     assert.match(r.out, /__tests__/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -100,7 +100,7 @@ test('__tests__/ 无 .gitkeep 且被 __* 规则吞掉 → exit 1 (block,AGENTS.m
     assert.match(r.out, /BLOCK/)
     assert.match(r.out, /__tests__/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -113,7 +113,7 @@ test('__tests__/ 无 .gitkeep 但未被 gitignore → 通过(exit 0,未命中 ig
     assert.equal(r.status, 0, `未被 ignore 应通过\nstdout: ${r.out}`)
     assert.match(r.out, /未命中 ignore 规则/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -127,7 +127,7 @@ test('tests/ 目录(推荐命名)→ 通过(exit 0,不触发 __tests__ 检测)',
     assert.equal(r.status, 0, `tests/ 应通过\nstdout: ${r.out}`)
     assert.match(r.out, /未发现 __tests__\/ 目录/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -138,7 +138,7 @@ test('spec/ 目录 → 通过(exit 0)', () => {
     const r = runScript(dir)
     assert.equal(r.status, 0, `spec/ 应通过\nstdout: ${r.out}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -155,7 +155,7 @@ test('*.tmp 目录 → 默认 warn exit 0, --strict exit 1', () => {
     assert.equal(rStrict.status, 1, `--strict 模式应 exit 1\nstdout: ${rStrict.out}`)
     assert.match(rStrict.out, /--strict/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -169,7 +169,7 @@ test('*.bak 目录 → 默认 warn exit 0, --strict exit 1', () => {
     const rStrict = runScript(dir, ['--strict'])
     assert.equal(rStrict.status, 1)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -186,7 +186,7 @@ test('非白名单隐藏目录(.unknown/) → 默认 warn exit 0, --strict exit 
     const rStrict = runScript(dir, ['--strict'])
     assert.equal(rStrict.status, 1)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -202,7 +202,7 @@ test('git check-ignore 调用:被 ignore 的 __tests__/ 会被检测到并报告
     // 源脚本输出 "git rule: <规则来源>"
     assert.match(r.out, /git rule|__\*/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -225,7 +225,7 @@ test('批量扫描: 多个 __tests__/ (block) + 多个 *.tmp (warn) → exit 1 +
     assert.match(r.out, /阻断项: 2/)
     assert.match(r.out, /警告项: 2/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -243,7 +243,7 @@ test('反忽略到位(`!` 放开目录 + 放开内容)不得判成被忽略 —�
     assert.equal(r.status, 0, `反忽略到位后不应 block\nstdout: ${r.out}`)
     assert.match(r.out, /未命中 ignore 规则/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -258,7 +258,7 @@ test('半个反忽略(只放开内容、没放开目录)→ 仍必须 BLOCK', ()
     assert.equal(r.status, 1, `父目录仍被排除时应 block\nstdout: ${r.out}`)
     assert.match(r.out, /BLOCK/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -273,7 +273,7 @@ test('目录未命中但里面的 .spec.ts 被规则吞掉 → 必须 BLOCK 并�
     assert.match(r.out, /BLOCK/)
     assert.match(r.out, /a\.spec\.ts/, '必须点名到具体不会被跟踪的文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 

@@ -351,6 +351,17 @@ function serializeMessage(m: {
 
 export const chatRoutes: FastifyPluginAsync = async (server) => {
   const idParam = z.object({ id: z.string() })
+  // G-261(2026-09-27):/messages 与 /history 两路把 uuid 校验从 ajv(format:'uuid')迁到本 schema。
+  // 迁出后非法 uuid 不再被 ajv 先拒(那会因 400 响应 schema 的 code:number 序列化不匹配而掩盖成 500),
+  // 改由 safeParse 产统一错误信封。刻意不复用 idParam(z.string()):那会把非法 uuid 放进 DB 查询。
+  // 正则逐字取 ajv-formats 的 uuid 形态(松散十六进制形状,不校验 version/variant 位)——
+  // 用 z.uuid() 会比原 ajv 更严(zod v4 校 variant),把既有合法调用方(如测试里的 1111-…-1111)
+  // 从 404/200 改成 400,违反本票"合法参数响应逐字不变"判据。
+  const conversationIdParam = z.object({
+    id: z
+      .string()
+      .regex(/^(?:urn:uuid:)?[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i, '无效的对话 ID'),
+  })
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       await authenticate(request)
@@ -615,7 +626,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         .select({ id: chatConversations.id })
         .from(chatConversations)
         .where(and(eq(chatConversations.userId, userId), inArray(chatConversations.id, uniqueIds)))
-      const { missedIds } = batchWriteOutcome(uniqueIds, ownedRows.map((r) => r.id))
+      const { missedIds } = batchWriteOutcome(
+        uniqueIds,
+        ownedRows.map((r) => r.id),
+      )
 
       let affected = 0
       switch (action) {
@@ -655,19 +669,29 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           required: ['id'],
           properties: {
-            id: { type: 'string', format: 'uuid', description: '对话 ID' },
+            // G-261:type-only,uuid 由 conversationIdParam(Zod)校验;format:'uuid' 走 ajv 先拒会被掩盖成 500
+            id: { type: 'string', description: '对话 ID(UUID,服务端 Zod 校验)' },
           },
         },
         querystring: {
           type: 'object',
           properties: {
-            ...paginationQuerySchema,
+            // G-261:querystring 一律 type:'string'(传输线本就是字符串,ajv 的 integer 强转/minimum/
+            // maximum/default/enum/format 同属校验行为,非法值走 ajv 先拒 ⇒ 500);
+            // 真实校验一律 messageListSchema(Zod:page≥1 默认1,pageSize 1-100 默认20,before/after uuid,direction enum)。
+            page: { type: 'string', description: '页码(整数,默认 1;服务端 Zod 校验)' },
+            pageSize: {
+              type: 'string',
+              description: '每页条数(1-100,默认 20;服务端 Zod 校验)',
+            },
             before: {
               type: 'string',
-              format: 'uuid',
-              description: '游标:返回该消息 ID 之前的记录',
+              description: '游标:返回该消息 ID 之前的记录(UUID,服务端 Zod 校验)',
             },
-            after: { type: 'string', format: 'uuid', description: '游标:返回该消息 ID 之后的记录' },
+            after: {
+              type: 'string',
+              description: '游标:返回该消息 ID 之后的记录(UUID,服务端 Zod 校验)',
+            },
             // 2026-09-16 P1 #24:keyset 复合游标(与旧 before/after 互斥但可并存,路由优先用 cursor)
             cursor: {
               type: 'string',
@@ -675,8 +699,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
             },
             direction: {
               type: 'string',
-              enum: ['initial', 'older'],
-              description: 'initial=取最新 N 条;older=在 cursor 之前取更早的消息',
+              description: 'initial=取最新 N 条;older=在 cursor 之前取更早的消息(服务端 Zod 校验)',
             },
           },
         },
@@ -688,7 +711,11 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       if (!request.userId) return
       const userId = request.userId
 
-      const { id } = idParam.parse(request.params)
+      const parsedId = conversationIdParam.safeParse(request.params)
+      if (!parsedId.success) {
+        return reply.status(400).send(error(400, parsedId.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { id } = parsedId.data
       const owned = await ensureOwnedConversation(id, userId, reply)
       if (!owned.conversation) return
 
@@ -761,18 +788,18 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           required: ['id'],
           properties: {
-            id: { type: 'string', format: 'uuid', description: '对话 ID' },
+            // G-261:type-only,uuid 由 conversationIdParam(Zod)校验(同 /messages)
+            id: { type: 'string', description: '对话 ID(UUID,服务端 Zod 校验)' },
           },
         },
         querystring: {
           type: 'object',
           properties: {
+            // G-261:querystring 一律 type:'string',真实校验一律 historyListSchema
+            // (Zod:limit 1-100 默认 20,direction enum newest/older/newer)。
             limit: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              description: '每页 turn 数(非消息数)',
-              default: 20,
+              type: 'string',
+              description: '每页 turn 数(1-100,默认 20;非消息数,服务端 Zod 校验)',
             },
             cursor: {
               type: 'string',
@@ -780,8 +807,8 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
             },
             direction: {
               type: 'string',
-              enum: ['newest', 'older', 'newer'],
-              description: 'newest=取最新 N turn;older=断点之前;newer=断点之后(增量续读)',
+              description:
+                'newest=取最新 N turn;older=断点之前;newer=断点之后(增量续读;服务端 Zod 校验)',
             },
           },
         },
@@ -793,7 +820,11 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       if (!request.userId) return
       const userId = request.userId
 
-      const { id } = idParam.parse(request.params)
+      const parsedId = conversationIdParam.safeParse(request.params)
+      if (!parsedId.success) {
+        return reply.status(400).send(error(400, parsedId.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { id } = parsedId.data
       const owned = await ensureOwnedConversation(id, userId, reply)
       if (!owned.conversation) return
 

@@ -5,16 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import {
-  mkdtempSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  copyFileSync,
-  rmSync,
-} from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -52,7 +45,7 @@ const SOURCE_SCRIPT = join(__dirname, '..', 'check-design-tokens-sync.mjs')
  * @returns {string} 临时目录路径
  */
 function createTempEnv(targetCss, tokensCss, target) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-design-tokens-sync-'))
+  const dir = mkScratch('ihui-design-tokens-sync-')
   // 复制源脚本到 tempDir/scripts/
   mkdirSync(join(dir, 'scripts'), { recursive: true })
   copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-design-tokens-sync.mjs'))
@@ -118,7 +111,7 @@ function assertMismatch(r) {
 
 // ─── 1. CLI: --help 显示帮助并 exit 0 ───
 test('CLI: --help 显示帮助并 exit 0', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-help-'))
+  const dir = mkScratch('ihui-help-')
   mkdirSync(join(dir, 'scripts'), { recursive: true })
   copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-design-tokens-sync.mjs'))
   try {
@@ -129,7 +122,7 @@ test('CLI: --help 显示帮助并 exit 0', () => {
     assert.match(r.stdout, /mobile-rn/, `stdout 应含 "mobile-rn"`)
     assert.match(r.stdout, /web/, `stdout 应含 "web"`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -139,7 +132,7 @@ test('CLI: --help 显示帮助并 exit 0', () => {
 
 // ─── 2. CLI: 缺少 --target → exit 2 + 错误消息 ───
 test('CLI: 缺少 --target → exit 2 + 错误消息', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-no-target-'))
+  const dir = mkScratch('ihui-no-target-')
   mkdirSync(join(dir, 'scripts'), { recursive: true })
   copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-design-tokens-sync.mjs'))
   try {
@@ -147,7 +140,7 @@ test('CLI: 缺少 --target → exit 2 + 错误消息', () => {
     assert.equal(r.status, 2, `缺少 --target 应 exit 2\nstderr: ${r.stderr}`)
     assert.match(r.stderr, /--target/, `stderr 应提示 --target`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -157,7 +150,7 @@ test('CLI: 缺少 --target → exit 2 + 错误消息', () => {
 
 // ─── 3. CLI: 未知 target → exit 2 + 可选值列表 ───
 test('CLI: 未知 target → exit 2 + 可选值列表', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-bad-target-'))
+  const dir = mkScratch('ihui-bad-target-')
   mkdirSync(join(dir, 'scripts'), { recursive: true })
   copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-design-tokens-sync.mjs'))
   try {
@@ -165,7 +158,7 @@ test('CLI: 未知 target → exit 2 + 可选值列表', () => {
     assert.equal(r.status, 2, `未知 target 应 exit 2\nstderr: ${r.stderr}`)
     assert.match(r.stderr, /miniapp-taro/, `stderr 应列可选值`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -185,7 +178,7 @@ test('CLI: --quiet 同步时抑制 stdout 通过消息(值比对模式)', () => 
     assert.equal(r.status, 0, `--quiet 同步应 exit 0\nstdout: ${r.stdout}`)
     assert.equal(r.stdout, '', `--quiet 应抑制 stdout,实际: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -204,7 +197,7 @@ test('CLI: --staged 被接受(无操作)→ exit 0', () => {
     const r = runScript(dir, ['--target=miniapp-taro', '--staged'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -223,7 +216,7 @@ test('CLI: --check 被接受(无操作,向后兼容)→ exit 0', () => {
     const r = runScript(dir, ['--target=mobile-rn', '--check'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -241,7 +234,7 @@ test('核心: :root + .dark 全部同步 → exit 0 + 计数消息', () => {
     assertPass(r)
     assert.match(r.stdout, /4 variables are in sync/, `stdout 应含 "4 variables"\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -262,7 +255,7 @@ test('核心: :root 值不一致 → exit 1 + 报告 :root diff', () => {
     assert.match(r.stderr, /#fff/, `stderr 应含目标值 #fff`)
     assert.match(r.stderr, /#f5f5f5/, `stderr 应含 tokens 值 #f5f5f5`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -282,7 +275,7 @@ test('核心: .dark 值不一致 → exit 1 + 报告 .dark diff', () => {
     assert.match(r.stderr, /#aaa/, `stderr 应含目标值 #aaa`)
     assert.match(r.stderr, /#bbb/, `stderr 应含 tokens 值 #bbb`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -301,7 +294,7 @@ test('核心: :root 变量在 tokens 中缺失 → exit 1 + "<missing>"', () => 
     assert.match(r.stderr, /<missing>/, `stderr 应含 "<missing>"`)
     assert.match(r.stderr, /--color-accent/, `stderr 应含 "--color-accent"`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -319,7 +312,7 @@ test('核心: tokens 有额外变量(目标未复制)→ exit 0(子集检查)', 
     assertPass(r)
     assert.match(r.stdout, /1 variables are in sync/, `stdout 应含 "1 variables"`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -337,7 +330,7 @@ test('P1-C: --radius + --radius-sm 同步 → exit 0(扩展覆盖)', () => {
     assertPass(r)
     assert.match(r.stdout, /2 variables/, `应检测到 2 个 radius 变量`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -351,7 +344,7 @@ test('P1-C: --radius 值不一致 → exit 1(扩展覆盖)', () => {
     assertMismatch(r)
     assert.match(r.stderr, /--radius:/, `stderr 应含 "--radius:"`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -368,7 +361,7 @@ test('P1-C: --chart-1 同步 → exit 0(扩展覆盖)', () => {
     const r = runScript(dir, ['--target=miniapp-taro'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -382,7 +375,7 @@ test('P1-C: --chart-1 值不一致 → exit 1(扩展覆盖)', () => {
     assertMismatch(r)
     assert.match(r.stderr, /--chart-1/, `stderr 应含 "--chart-1"`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -400,7 +393,7 @@ test('P1-C: --font-sans / --animate-ripple / --z-modal / --shadow-premium 全同
     assertPass(r)
     assert.match(r.stdout, /4 variables/, `应检测到 4 个扩展类型变量`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -414,7 +407,7 @@ test('P1-C: --z-modal 值不一致 → exit 1(扩展覆盖)', () => {
     assertMismatch(r)
     assert.match(r.stderr, /--z-modal/, `stderr 应含 "--z-modal"`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -433,7 +426,7 @@ test('注释剥离: tokens.css 注释内 --chart-text:描述 不被误匹配 →
     assertPass(r)
     assert.match(r.stdout, /2 variables/, `应正确检测到 2 个变量(非被注释吞掉)`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -450,7 +443,7 @@ test('语法: tokens.css 使用 @theme {} 语法 → 正确解析,exit 0', () =>
     const r = runScript(dir, ['--target=miniapp-taro'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -467,7 +460,7 @@ test('语法: tokens.css @theme + :root 合并(后者覆盖)→ exit 0', () => {
     const r = runScript(dir, ['--target=miniapp-taro'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -488,7 +481,7 @@ test('首个块: 目标第二个 :root 块(本地扩展变量)不干扰 → exit
     // 只检测首个 :root 块的 1 个变量,不含本地扩展
     assert.match(r.stdout, /1 variables/, `应只检测首个块的 1 个变量`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -506,7 +499,7 @@ test('web: globals.css 含 @import tokens.css → exit 0', () => {
     assert.equal(r.status, 0, `web @import OK 应 exit 0\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
     assert.match(r.stdout, /@import tokens.css OK/, `stdout 应含 "@import tokens.css OK"`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -525,7 +518,7 @@ test('web: globals.css 缺少 @import tokens.css → exit 1(回归)', () => {
     assert.match(r.stderr, /REGRESSION/, `stderr 应含 "REGRESSION"`)
     assert.match(r.stderr, /@import/, `stderr 应提示 @import`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -544,7 +537,7 @@ test('web: 顶层 :root 手抄 @theme 变量(--radius-sm)→ exit 1(回归)', ()
     assert.match(r.stderr, /REGRESSION/, `stderr 应含 "REGRESSION"`)
     assert.match(r.stderr, /--radius-sm/, `stderr 应含被手抄的变量名`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -561,7 +554,7 @@ test('web: @media 内 :root 不算顶层(允许)→ exit 0', () => {
     const r = runScript(dir, ['--target=web'])
     assert.equal(r.status, 0, `@media 内 :root 不应触发回归\nstderr: ${r.stderr}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -586,7 +579,7 @@ test('BOM: 目标文件含 UTF-8 BOM 仍正确解析 → exit 0', () => {
     const r = runScript(dir, ['--target=miniapp-taro'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -605,7 +598,7 @@ test('边界: 两文件均无 design-tokens 变量 → exit 0(0 in sync)', () =>
     assert.equal(r.status, 0, `无 design-tokens 变量应 exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /0 variables are in sync/, `stdout 应含 "0 variables"`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -624,7 +617,7 @@ test('输出: --quiet 不一致时 stderr 仍输出错误(exit 1)', () => {
     assert.equal(r.stdout, '', `--quiet 应抑制 stdout`)
     assert.match(r.stderr, /mismatch/, `stderr 应含 "mismatch"`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -642,7 +635,7 @@ test('边界: --font-sans 多行值正确提取 → exit 0', () => {
     const r = runScript(dir, ['--target=miniapp-taro'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
