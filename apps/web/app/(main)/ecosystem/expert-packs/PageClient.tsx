@@ -40,7 +40,7 @@ export default function ExpertPacksPageClient() {
             <Link
               key={pack.slug}
               href={expertPackDetailHref(pack.slug)}
-              className="flex items-start gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent"
+              className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent"
             >
               <Icon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
               <span className="min-w-0 flex-1">
