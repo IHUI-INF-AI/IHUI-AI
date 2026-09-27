@@ -17,12 +17,23 @@
 $ErrorActionPreference = "Stop"
 # 本部署包专用于本机 D:\IHUI-AI,使用绝对路径(嵌套调用时 MyInvocation 不可靠)
 $ProjectRoot = "D:\IHUI-AI"
-$psql = "D:\DevEnv\runtimes\pgsql\bin\psql.exe"
-$pgDump = "D:\DevEnv\runtimes\pgsql\bin\pg_dump.exe"
-$backupDir = "D:\DevEnv\backups\pg"
+# G-298(2026-09-28)落点解析:DevEnv 族不再把盘符字面当唯一真相 —— 环境变量
+# IHUI_DEVENV_ROOT 优先,否则按 $ProjectRoot 所在盘符派生(<drive>:\DevEnv),
+# 与 scripts/seal-c-root-stray.mjs 的 devEnvRoot() 同一条纪律(覆盖 + 派生,两档)。
+# 本机两档算出的结果与收口前的字面值逐字符相同(D:\DevEnv),行为零漂移;
+# 换卷/挪盘时改一处机器级 env 即可,不必再动本脚本与影子副本两处。
+$DevEnvRoot = if ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT } else { (Split-Path -Qualifier $ProjectRoot) + '\DevEnv' }
+$psql = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\psql.exe'
+$pgDump = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\pg_dump.exe'
+$backupDir = Join-Path $DevEnvRoot 'backups\pg'
 $retentionDays = 7
 # 云备份同步(2026-08-05 加):复制到百度网盘同步盘 = 异地容灾(同步盘自动云同步)
+# 字面默认值保持"首行直赋"形态:pg-backup-cadence-audit.mjs 的 parseCloudDir 对本 runner
+# 文本做正则首匹配取该赋值(§5b:配置读被执行的那份)—— 改形态要先改解析器,注释里也
+# 不得复刻该形态(首匹配会先命中说明文字,把配置读成假值)。
 $cloudDir = "D:\BaiduSyncdisk\IHUI-PG-BACKUP"
+# G-298:网盘挂载点换址时的覆盖口(与 DevEnv 同一取向:不设 env 则逐字节维持现状)
+if ($env:IHUI_BACKUP_CLOUD_DIR) { $cloudDir = $env:IHUI_BACKUP_CLOUD_DIR }
 
 function Resolve-NodeExe {
     # 本脚本由 nssm 服务 IHUI-PG-BACKUP 以 LocalSystem 身份跑,而**机器级 PATH 里那串 node 目录是死的**
