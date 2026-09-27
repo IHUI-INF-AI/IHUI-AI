@@ -23,6 +23,7 @@
  */
 
 import type { ToolParameter, ToolSchema } from './index.js';
+import { appendArgRejectionLedger } from './argument-validation-report.js';
 
 // ==================== 类型定义 ====================
 
@@ -86,7 +87,11 @@ export function validateToolArguments(
   args: unknown,
   schema: ToolSchema,
 ): ValidationResult {
-  return runValidation(args, schema);
+  const result = runValidation(args, schema);
+  // 台账出口(G-240 第②步的数据源):env `IHUI_TOOL_ARG_VALIDATION_LEDGER` 未设 ⇒ **一次都不写盘**,
+  // 内部吞掉所有 IO 失败 ⇒ 判定结果与引入前逐字相同。影子档默认关,所以这条在默认配置下不执行。
+  appendArgRejectionLedger(schema, args, result);
+  return result;
 }
 
 /**
@@ -513,6 +518,10 @@ export function normalizeToolArguments(args: unknown, schema: ToolSchema): Argum
   const first = runValidation(args, schema);
   // 判序①:原值过了就到此为止,一次 parse 都不做。
   if (first.valid) return { args, normalizedFields: [], result: first };
+  // enforce 路径的台账记录点(与 validateToolArguments 同一个出口,不另写一份拼装逻辑)。
+  // 记的是**原判不通过**的样本 —— 包括后来被容错解析救回的那些:"模型发的形状需要救"
+  // 本身就是第②步要的描述线索;硬拒次数另有 telemetry 的 enforce.rejected 单独记账,两条不串。
+  appendArgRejectionLedger(schema, args, first);
   const touched: string[] = [];
   // 根位置按 object 档处理:`ToolSchema.parameters` 与 `ToolParameter` 只差一个
   // `description` 字段(根没有描述面),这里就地补空串,**不**新增第二种 schema 形状。
