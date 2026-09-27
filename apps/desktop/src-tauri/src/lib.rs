@@ -2397,9 +2397,20 @@ pub fn run() {
     tauri::Builder::default()
         // 结构化日志(写文件 $APPDATA/com.ihui.ai/logs/ + 控制台)
         // 2026-07-29: 替代裸 println!/eprintln!,线上问题可追溯 + 设置项可一键导出
+        // 12546(2026-09-28):上一版只有 .level(Info) 而**没声明任何 target** —— 本行注释
+        // 说的"写文件"从未成立(实测本机无任何 desktop 日志文件),"卡死但不退出"这类事后
+        // 只能靠读 runtime 源码定性(台账 12546 的立因)。现把注释兑现:显式双 target,
+        // Webview(开发控制台,原默认形态)+ LogDir(tauri 应用日志根 = 与崩溃现场
+        // crash-*.log 同根,见下方 crash handler 的 com.ihui.ai/logs —— 不新造第五个落点)。
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
+                .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("ihui-desktop".into()),
+                    }),
+                ])
                 .build(),
         )
         // 2026-09-17 薄壳化配套:离线兜底页协议。断网时 auto_refresh 模块将 main 窗口
