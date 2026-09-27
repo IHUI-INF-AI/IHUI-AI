@@ -147,7 +147,10 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius['2xl'],
+      // 角色档 card → lg(8)。用户定档"卡片类一律 lg,不得在任一端单独取 xl/2xl"。
+      // 同名元素在 apps/mobile-rn 那一份里本就是 lg(8)、小程序端根容器是 rounded-lg(8),
+      // 这一份写 2xl(16) 会让同一个 UserInfoCard 在两个屏上长成两张脸。
+      borderRadius: rnRadius.lg,
       padding: 14,
       gap: 12,
       borderWidth: 1,
@@ -180,7 +183,8 @@ function createStyles(tk: AppThemeTokens) {
     statSpacer: { flex: 1 },
     followBtn: {
       backgroundColor: tk.brand.cta,
-      borderRadius: rnRadius.xl,
+      // 角色档 control(按钮)→ sm(4),与 apps/mobile-rn 那一份的登录/充值钮同档
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 14,
       paddingVertical: 6,
     },
@@ -188,7 +192,8 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: tk.border.medium,
-      borderRadius: rnRadius.xl,
+      // 角色档 control(按钮)→ sm(4),与实底态 followBtn 同档(两态必须同形)
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 14,
       paddingVertical: 6,
     },
