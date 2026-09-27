@@ -56,7 +56,7 @@ export function RecordingDrawer({ recordings, onRefresh, onPlay, onDelete }: Rec
         </button>
       </Tooltip>
       {recordings.length > 0 && (
-        <span className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded bg-accent px-0.5 text-[9px] font-medium text-accent-foreground">
+        <span className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded-sm bg-accent px-0.5 text-[9px] font-medium text-accent-foreground">
           {recordings.length > 99 ? '99+' : recordings.length}
         </span>
       )}
@@ -75,7 +75,7 @@ export function RecordingDrawer({ recordings, onRefresh, onPlay, onDelete }: Rec
           </span>
           <button
             type="button"
-            className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             onClick={() => setOpen(false)}
             aria-label={t('terminalPanel.close')}
           >

@@ -3826,6 +3826,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 会话失效出口对账(1 项,blocking)---
+  {
+    id: '148',
+    label:
+      '会话失效统一出口注册对账:凡消费 @ihui/api-client fetchApi 的端必须注册 setUnauthorizedHandler 或持带 reason+未过期 reviewBy 的台账豁免(AP1);台账端已注册/指向不存在端/重复登记判红(AP2 反腐烂);注册口 export 或 notifyUnauthorized 调用点被摘线判失明不记绿(AP3);枚举 0 个消费端 exit 2 不记绿',
+    script: 'check-auth-handler-registration-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_AUTH_HANDLER_PARITY',
+    stagedTriggers: ['apps/', 'packages/api-client/', 'scripts/'],
+    onFailHint: [
+      '',
+      '修复出口二选一:该端注册 setUnauthorizedHandler(共享层已有注册口),或在 scripts/auth-handler-registration-exemptions.json 补带 reason+reviewBy 的条目;不得放宽判据消红',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

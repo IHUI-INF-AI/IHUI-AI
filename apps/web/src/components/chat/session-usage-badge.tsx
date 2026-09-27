@@ -256,7 +256,7 @@ export function SessionUsageBadge({
               {/* #26:月配额余量进度条 + 使用率百分比(仅当月配额有效) */}
               {quotaUsedRatio !== null && (
                 <div className="mt-1 w-44">
-                  <div className="h-1.5 w-full overflow-hidden rounded-sm bg-muted-foreground/20">
+                  <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted-foreground/20">
                     <div
                       className={cn('h-full rounded-sm transition-all', quotaBarClass)}
                       style={{
@@ -338,7 +338,7 @@ export function SessionUsageBadge({
                     </span>
                     {ratio !== null && percent !== null && (
                       <span className="flex items-center gap-1">
-                        <span className="h-1.5 w-full overflow-hidden rounded-sm bg-muted-foreground/20">
+                        <span className="h-1.5 w-full overflow-hidden rounded-xs bg-muted-foreground/20">
                           <span
                             className="block h-full rounded-sm bg-primary transition-all"
                             style={{ width: `${Math.max(2, percent)}%` }}
@@ -346,7 +346,7 @@ export function SessionUsageBadge({
                         </span>
                         <span
                           data-testid={`session-usage-enterprise-percent-${slice.key}`}
-                          className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-1 text-[10px] font-semibold leading-none tabular-nums text-foreground"
+                          className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-primary/10 px-1 text-[10px] font-semibold leading-none tabular-nums text-foreground"
                         >
                           <span>{percent}%</span>
                         </span>
@@ -394,7 +394,7 @@ export function SessionUsageBadge({
         {isExpressLane && (
           <span
             data-testid="session-usage-express"
-            className="inline-flex h-4 min-w-4 items-center justify-center gap-0.5 rounded bg-amber-500/15 px-1 text-[10px] font-semibold leading-none tabular-nums text-amber-600 dark:text-amber-400"
+            className="inline-flex h-4 min-w-4 items-center justify-center gap-0.5 rounded-md bg-amber-500/15 px-1 text-[10px] font-semibold leading-none tabular-nums text-amber-600 dark:text-amber-400"
           >
             <Zap className="h-3 w-3 shrink-0" aria-hidden="true" />
             <span>{expressLabel}</span>
@@ -404,7 +404,7 @@ export function SessionUsageBadge({
         {billingMode !== undefined && (
           <span
             data-testid="session-usage-billing-mode"
-            className="inline-flex h-4 min-w-4 items-center justify-center gap-0.5 rounded bg-background px-1 text-[10px] font-medium leading-none tabular-nums text-muted-foreground"
+            className="inline-flex h-4 min-w-4 items-center justify-center gap-0.5 rounded-md bg-background px-1 text-[10px] font-medium leading-none tabular-nums text-muted-foreground"
           >
             <Receipt className="h-3 w-3 shrink-0" aria-hidden="true" />
             <span>
@@ -421,7 +421,7 @@ export function SessionUsageBadge({
         {enterpriseSlices.length > 0 && (
           <span
             data-testid="session-usage-enterprise-summary"
-            className="inline-flex h-4 min-w-4 items-center justify-center gap-0.5 rounded bg-background px-1 text-[10px] font-medium leading-none tabular-nums text-muted-foreground"
+            className="inline-flex h-4 min-w-4 items-center justify-center gap-0.5 rounded-md bg-background px-1 text-[10px] font-medium leading-none tabular-nums text-muted-foreground"
           >
             <Building2 className="h-3 w-3 shrink-0" aria-hidden="true" />
             <span>{enterpriseTitle}</span>

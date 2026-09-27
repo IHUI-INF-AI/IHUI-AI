@@ -26,7 +26,7 @@ export function CountBadge({ count }: { count: MarketCount }) {
   }
   return (
     <span
-      className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground"
+      className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground"
       data-testid="ecosystem-count"
     >
       {count.count ?? 0}

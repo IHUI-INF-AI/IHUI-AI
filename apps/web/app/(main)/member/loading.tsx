@@ -9,7 +9,7 @@ export default function Loading() {
       <div className="grid gap-4 md:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="rounded-xl border p-3">
-            <div className="skeleton h-3 w-20 rounded" />
+            <div className="skeleton h-3 w-20 rounded-xs" />
             <div className="skeleton mt-2 h-7 w-24 rounded" />
           </div>
         ))}
@@ -19,8 +19,8 @@ export default function Loading() {
           <div key={i} className="flex items-center gap-3 rounded-xl border p-3">
             <div className="skeleton h-9 w-9 rounded-lg" />
             <div className="flex-1 space-y-2">
-              <div className="skeleton h-4 w-40 rounded" />
-              <div className="skeleton h-3 w-24 rounded" />
+              <div className="skeleton h-4 w-40 rounded-xs" />
+              <div className="skeleton h-3 w-24 rounded-xs" />
             </div>
             <div className="skeleton h-6 w-16 rounded" />
           </div>

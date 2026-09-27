@@ -79,16 +79,26 @@ export function PurchaseNoticePopUp({
                 ))}
               </View>
             ) : null}
+            {/* 守门 131 那一型:函数形态 style 落在 Pressable 上会被 cssInterop 展开成空对象,
+                整份内联样式静默消失。按钮盒含底色/圆角(有绘制),整盒下移到子 View 数组形态;
+                外边距是纯布局档,以静态对象留在外层槽位,宽度由 primaryButtonFace 显式还给盒子。 */}
             <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed ? styles.primaryButtonPressed : null,
-              ]}
+              style={styles.primaryButtonSlot}
               onPress={onPrimary}
               accessibilityRole="button"
               accessibilityLabel={primaryLabel}
             >
-              <Text style={styles.primaryLabel}>{primaryLabel}</Text>
+              {({ pressed }) => (
+                <View
+                  style={[
+                    styles.primaryButtonFace,
+                    styles.primaryButton,
+                    pressed ? styles.primaryButtonPressed : null,
+                  ]}
+                >
+                  <Text style={styles.primaryLabel}>{primaryLabel}</Text>
+                </View>
+              )}
             </Pressable>
           </View>
         </View>
@@ -159,14 +169,22 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
     lineHeight: BULLET_TEXT_FONT_SIZE + 6,
   } as ViewStyle,
+  // 守门 131 转换新增:外层槽位只承接外边距(数值逐字沿用原 primaryButton 内同一声明)。
+  primaryButtonSlot: {
+    marginTop: PRIMARY_BUTTON_MARGIN_TOP,
+    marginHorizontal: CONTENT_PADDING,
+  } as ViewStyle,
+  // 守门 131 转换新增:盒子的宽度改由该档显式给出(改前那一维由内容列的父级 stretch 撑出),
+  // 未引入任何新数字档。
+  primaryButtonFace: {
+    width: '100%',
+  } as ViewStyle,
   primaryButton: {
     height: PRIMARY_HEIGHT,
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: PRIMARY_BUTTON_MARGIN_TOP,
-    marginHorizontal: CONTENT_PADDING,
   } as ViewStyle,
   primaryButtonPressed: {
     opacity: 0.85,
