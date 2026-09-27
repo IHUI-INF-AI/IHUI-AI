@@ -287,7 +287,7 @@ export function ProvidersHealthTab() {
                   {syncStatus.total_providers} {tm('providers')}
                 </span>
               </div>
-              <div className="h-1 w-full overflow-hidden rounded bg-muted">
+              <div className="h-1 w-full overflow-hidden rounded-xs bg-muted">
                 <div className="h-full w-full animate-pulse bg-primary" />
               </div>
             </div>

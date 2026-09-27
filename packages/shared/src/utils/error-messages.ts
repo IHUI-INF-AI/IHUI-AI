@@ -233,7 +233,9 @@ export function toUserFriendlyMessage(error: unknown): string {
  */
 export function apiFailureToError(
   res: {
-    error: string
+    /** 收 `string | undefined`:见 {@link apiFailureToText} 参数上那段"else 不被收窄"的说明 ——
+     *  两出口必须同形,否则调用点换个出口就得改控制流。运行时按空处理并取兜底。 */
+    error?: string
     status?: number
     errorCode?: string
     retryAfter?: number
@@ -271,7 +273,15 @@ export function apiFailureToError(
  */
 export function apiFailureToText(
   res: {
-    error: string
+    /**
+     * 刻意收 `string | undefined`:调用点有一族守卫写成 `if (res.success && res.data) {…} else {…}`,
+     * 那个 else **不被 TS 收窄**到 ApiResult 的失败分支(它还覆盖"success 为真但 data 假"这一格),
+     * 于是在 else 里 `res.error` 的类型是 `string | undefined` —— 参数写成必填 `string` 会让
+     * 这些正当调用点整片 TS2345(实测 6 处:NewsScreen / PublishScreen / CircleDetailScreen /
+     * AigcPublishScreen / LoginScreen×2),而修它们要么重排守卫(改控制流)要么放宽判据。
+     * 运行时语义不变:下面 `typeof res.error === 'string' && res.error` 本就把非串按空处理并取兜底。
+     */
+    error?: string
     status?: number
     errorCode?: string
     retryAfter?: number

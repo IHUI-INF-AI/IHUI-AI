@@ -156,7 +156,7 @@ export default function EduDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{data?.avgProgress ?? 0}%</div>
-                <div className="mt-2 h-2 overflow-hidden rounded bg-muted">
+                <div className="mt-2 h-2 overflow-hidden rounded-xs bg-muted">
                   <div
                     className="h-full rounded-md bg-primary transition-all"
                     style={{ width: `${data?.avgProgress ?? 0}%` }}
@@ -189,7 +189,7 @@ export default function EduDashboardPage() {
                     <Card className="transition-colors hover:bg-accent">
                       <CardContent className="min-[640px]:p-3 p-3">
                         <p className="line-clamp-1 font-medium">{c.title}</p>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded bg-muted">
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-xs bg-muted">
                           <div
                             className="h-full rounded-md bg-primary"
                             style={{ width: `${c.progress}%` }}

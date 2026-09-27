@@ -223,7 +223,7 @@ function BarRow({
         </span>
         <span className="font-mono tabular-nums">{value}</span>
       </div>
-      <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-muted">
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-xs bg-muted">
         <div
           className="h-full rounded bg-primary/60"
           style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}

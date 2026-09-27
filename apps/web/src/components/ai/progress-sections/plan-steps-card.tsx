@@ -206,7 +206,7 @@ function SegmentedProgressBar({
       data-testid={`${rootTestId}-segmented-progress`}
     >
       <div
-        className="flex h-1 flex-1 gap-0.5 overflow-hidden rounded-sm bg-muted/40"
+        className="flex h-1 flex-1 gap-0.5 overflow-hidden rounded-xs bg-muted/40"
         role="img"
         aria-hidden
       >
