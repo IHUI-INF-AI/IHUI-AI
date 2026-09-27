@@ -721,8 +721,8 @@ export default function InputArea({
                       isShowIcon ? 'bg-cta text-cta-foreground' : '',
                     )}
                     style={{
-                      width: toUnit(taroGeometry.controlBox),
-                      height: toUnit(taroGeometry.controlBox),
+                      width: rpx(taroGeometry.controlBox),
+                      height: rpx(taroGeometry.controlBox),
                     }}
                   >
                     <LineIcon
@@ -753,8 +753,8 @@ export default function InputArea({
                   <View
                     className="flex items-center justify-center ml-2 rounded-lg bg-cta text-cta-foreground"
                     style={{
-                      width: toUnit(taroGeometry.controlBox),
-                      height: toUnit(taroGeometry.controlBox),
+                      width: rpx(taroGeometry.controlBox),
+                      height: rpx(taroGeometry.controlBox),
                     }}
                     hoverClass="opacity-60"
                     onClick={handleSend}
