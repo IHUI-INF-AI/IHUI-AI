@@ -150,14 +150,33 @@ export function VoiceStreamSpeaker() {
   })
   const wasStreamingRef = React.useRef(false)
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
+  /**
+   * 与 audioRef 同生命周期的 object URL 句柄。
+   *
+   * 立因:本文件此前是全仓 39 个 `createObjectURL` 落点里**唯一**一个有 create 无
+   * revoke 的(`git grep -l` 两面差集实测),而 TTS 播报是"每轮回答播一次"的高频
+   * 动作 —— 每次合成都往进程的 blob 表里永久压一条 URL 和它引用的整个音频 Blob,
+   * 长会话即持续涨内存。这里用一个 ref 而不是从 `audioRef.current.src` 反解:
+   * revoke 必须发生在 pause 之后,而那时 src 字符串未必还指向有效对象。
+   */
+  const objectUrlRef = React.useRef<string | null>(null)
+
+  const releaseObjectUrl = React.useCallback((): void => {
+    if (objectUrlRef.current !== null) {
+      URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = null
+    }
+  }, [])
 
   // 卸载/关闭开关时停止播放
-  const stopPlayback = React.useCallback(() => {
+  const stopPlayback = React.useCallback((): void => {
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current = null
     }
-  }, [])
+    // 停播即释放:提前 return、关掉开关、组件卸载三条路都收敛到这里
+    releaseObjectUrl()
+  }, [releaseObjectUrl])
 
   React.useEffect(() => {
     if (!readEnabled()) {
@@ -183,7 +202,12 @@ export function VoiceStreamSpeaker() {
     if (!speech) return
 
     let cancelled = false
-    const speak = async () => {
+    const speak = async (): Promise<void> => {
+      // 本趟自己创建的 URL。handedOff 标记"句柄已交给 <audio>,释放权归
+      // ended / error / stopPlayback";未交接成功前(含 new Audio 抛错)由下面的
+      // finally 就地释放 —— 这就是"异常路径也成对"的那一半。
+      let objectUrl: string | null = null
+      let handedOff = false
       try {
         const res = await fetch(getTtsEndpoint(), {
           method: 'POST',
@@ -197,13 +221,30 @@ export function VoiceStreamSpeaker() {
         const blob = await res.blob()
         if (cancelled) return
         stopPlayback()
-        const audio = new Audio(URL.createObjectURL(blob))
+        objectUrl = URL.createObjectURL(blob)
+        if (cancelled) return
+        const audio = new Audio(objectUrl)
+        handedOff = true
+        objectUrlRef.current = objectUrl
         audioRef.current = audio
+        // 播完 / 解码失败即释放:此刻 src 已不再被读,继续留着就是纯泄漏
+        const release = (): void => {
+          if (objectUrlRef.current === objectUrl) releaseObjectUrl()
+        }
+        audio.addEventListener('ended', release)
+        audio.addEventListener('error', release)
         await audio.play().catch(() => {
           /* 自动播放被浏览器策略拦截时静默放弃(用户未交互过的标签页) */
         })
+        // play 期间组件被卸载:卸载那次 stopPlayback 早于本行,句柄会留在这里,补一次
+        if (cancelled) stopPlayback()
       } catch {
         /* 朗读失败静默:辅助通道不干扰主流程 */
+      } finally {
+        if (!handedOff && objectUrl !== null) {
+          URL.revokeObjectURL(objectUrl)
+          if (objectUrlRef.current === objectUrl) objectUrlRef.current = null
+        }
       }
     }
     void speak()
