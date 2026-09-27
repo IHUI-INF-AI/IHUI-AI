@@ -402,7 +402,7 @@ export function MessageList({
   const inlinePanelNode = (
     <div
       ref={containerRef}
-      onScroll={handleScroll}
+      onScroll={() => handleScroll()}
       id="message-list-panel-inline"
       role="tabpanel"
       className="hover-scroll min-h-0 h-full flex-1 overflow-y-auto"
