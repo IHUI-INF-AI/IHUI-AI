@@ -12629,3 +12629,23 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   而它的 AGENTS 行自称"落地取到 144"，runner 的 144 实际是本轮第三十五批的崩溃上报脱敏门 ⇒ 撞号与否一律以 `node scripts/check-gate-wiring.mjs` 的 `duplicateIds` 现值为准（本轮实测 `0`，无重复 id）。
   另记本轮交付的出库证明（防"commit 后忘记 push"那一型）：批次 31~38 八枚提交逐条对 `git ls-remote origin refs/heads/main` 的当次值跑
   `merge-base --is-ancestor` ⇒ 全部 `in-remote YES`；判"推没推完"只认远端回读，不读本地 `origin/main`（§5b：嵌套 ref 会被宿主清掉，本地引用可滞后）。
+
+### 第五十三波·续末(2026-09-27 午)—— 登记一处"当前红着的 blocking 门"及其归属证明(不代改)
+
+- **门 128(跨端 UI 单一源对账)现读判红**:全量面与 `--staged` 面均 **exit 1**;4 对超锚点 ——
+  `AgentRuntimePanel` 1>0、`BottomActionBar` 17>16、`DrawerComponent` 19>17、`ModelList` 6>4。
+  ⇒ 此刻任何触及 `apps/mobile-rn/` `packages/app/` `apps/miniapp-taro/` 的提交都会被它拦下。
+- **归属是量出来的,不是抄来的**:`scripts/cross-end-ui-parity-baseline.json` 最后一次被写是
+  `b7ffba15bd`(2026-09-27 **11:18:58**),而我侧触及这几个组件的最后一枚是 `5b7490a1df`
+  (**09:33:03**)—— 台账是在我的改动**之后**被下调到 16 的。若那第 17 档是我加的,11:18 那次
+  重取读数就会记成 17。⇒ 这一红属该门持有者的在飞现场(今夜连续三枚精度修正
+  `258d482a35` / `66b38301bf` / `b7ffba15bd` 都在改同一处读数口径),不是本波交付造成的。
+- **本波不动它**:改它的台账 = 替别人把红藏起来(AGENTS §4 明文"不得为消红去调台账数字");
+  改那 4 对组件的几何 = 替别人做 O81 的裁决(两端哪一档是真相,只有该票持有者能定)。
+  提交链上遇到它时按 §12 的归因走(safe-commit 已会把"红不在本次内容里"量出来并留痕),
+  不是把门关掉的理由。
+- **顺带记一条判据边界(与本波"门被合并盖掉"同族,值得门 89 持有者看一眼)**:守门 89 的
+  "已接线"是**五处权威点的并集**,所以 `package.json` 一处入口就能把"runner 注册块被 union
+  合并吞掉"洗成绿灯 —— 本波两道门(现号 145/146)正是这样静默失调度而 89 全程 exit 0。
+  补这一维(凡 AGENTS 自称 blocking/接进提交链者,必须在 runner 里有 `script:` 行)属门 89
+  持有者职权,本票只登记实测,不代改别人的判据。
