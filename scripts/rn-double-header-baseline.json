@@ -1,38 +1,5 @@
 {
   "$schemaNote": "本文件只是台账(现读的锚点恒为该文件在 HEAD 自身的违规数,见 decideRed)。行号一律不写 —— 任何一次 append 都会挪位,AGENTS §1 已实测\"按行号给的证据复核通过率 0/27\"。",
   "face": "HEAD",
-  "stock": [
-    {
-      "rnFile": "apps/mobile-rn/src/screens/CourseDetailScreen.tsx",
-      "navBarImport": "NavBar",
-      "sharedSymbol": "CourseDetailScreen",
-      "sharedRenderAlias": "SharedCourseDetailScreen",
-      "sharedFile": "packages/app/src/features/course-detail/CourseDetailScreen.tsx",
-      "reason": "double-header"
-    },
-    {
-      "rnFile": "apps/mobile-rn/src/screens/LiveDetailScreen.tsx",
-      "navBarImport": "NavBar",
-      "sharedSymbol": "LiveDetailScreen",
-      "sharedRenderAlias": "SharedLiveDetailScreen",
-      "sharedFile": "packages/app/src/features/live-detail/LiveDetailScreen.tsx",
-      "reason": "double-header"
-    },
-    {
-      "rnFile": "apps/mobile-rn/src/screens/ProfileScreen.tsx",
-      "navBarImport": "NavBar",
-      "sharedSymbol": "ProfileScreen",
-      "sharedRenderAlias": "SharedProfileScreen",
-      "sharedFile": "packages/app/src/features/profile/ProfileScreen.tsx",
-      "reason": "double-header"
-    },
-    {
-      "rnFile": "apps/mobile-rn/src/screens/StudyPublishScreen.tsx",
-      "navBarImport": "NavBar",
-      "sharedSymbol": "StudyPublishScreen",
-      "sharedRenderAlias": "SharedStudyPublishScreen",
-      "sharedFile": "packages/app/src/features/study-publish/StudyPublishScreen.tsx",
-      "reason": "double-header-via-spread"
-    }
-  ]
+  "stock": []
 }
