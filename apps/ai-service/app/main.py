@@ -604,6 +604,16 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[browser_hub] 关闭失败(忽略): %s", e)
 
+    # 关闭 Computer Use 的按用户浏览器会话表(2026-09-27 立,G-258 后续票)。
+    # 该表按调用方懒启动 Chromium,唯一收缩口本来是"用户自己 POST /close",于是
+    # 进程退出时按活跃用户数整批漏浏览器。close_all_sessions 内部逐只关且异常隔离
+    # (某一只关不掉继续关其余的),所以这里的外层 try 只兜"导入/调用本身炸了"。
+    try:
+        from app.routers.computer_use import close_all_sessions
+        await close_all_sessions()
+    except Exception as e:
+        logger.warning("[computer_use] 退出收口失败(忽略): %s", e)
+
     # P1 修复:关闭所有 LSP 子进程(_instances 全局 dict 持有 LspClient 单例,
     # 不主动 shutdown 会导致 typescript-language-server 子进程 + reader_task 泄漏)
     try:
