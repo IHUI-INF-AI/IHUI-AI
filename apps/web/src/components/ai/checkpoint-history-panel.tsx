@@ -50,7 +50,7 @@ export function CheckpointHistoryPanel({
   }
 
   return (
-    <div className="rounded-xl border bg-card">
+    <div className="rounded-lg border bg-card">
       <div className="flex items-center gap-2 px-4 py-2.5">
         <History className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold">{t('title')}</h3>
@@ -101,6 +101,7 @@ export function CheckpointHistoryPanel({
                   {!isLast && (
                     <span className="absolute left-[7px] top-7 h-[calc(100%-0.5rem)] w-px bg-border" />
                   )}
+                  {/* radius-role-exempt: 时间轴 14x14 方形节点标记(h-3.5 w-3.5 + border-2),不是卡片容器 until 2026-11-26 */}
                   <span className="z-10 mt-0.5 h-3.5 w-3.5 shrink-0 rounded-md border-2 border-brand-accent-deep bg-card" />
                   <div className="min-w-0 flex-1 pb-2">
                     <div className="flex items-center justify-between gap-2">

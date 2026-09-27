@@ -67,7 +67,7 @@ const viewStyles: Record<string, CSSProperties> = {
     gap: '16rpx',
     marginBottom: '24rpx',
   },
-  // RN searchBtn:paddingH 14 + paddingV 8 + 圆角 12 + brand 底
+  // RN searchBtn:paddingH 14 + paddingV 8 + brand 底;圆角按角色档 control→sm
   searchBtn: {
     display: 'flex',
     alignItems: 'center',
@@ -76,7 +76,7 @@ const viewStyles: Record<string, CSSProperties> = {
     paddingRight: '28rpx',
     paddingTop: '16rpx',
     paddingBottom: '16rpx',
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
     backgroundColor: 'var(--color-primary)',
     flexShrink: 0,
   },
@@ -104,7 +104,7 @@ const viewStyles: Record<string, CSSProperties> = {
     paddingRight: '24rpx',
     paddingTop: '24rpx',
     paddingBottom: '24rpx',
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     border: '1rpx solid var(--color-border)',
   },
   // RN cardHead:marginBottom 8
@@ -113,14 +113,14 @@ const viewStyles: Record<string, CSSProperties> = {
     flexDirection: 'row',
     marginBottom: '16rpx',
   },
-  // RN typeBadge:paddingH 6 + paddingV 2 + 圆角 4 + success.light 底
+  // RN typeBadge:paddingH 6 + paddingV 2 + success.light 底;圆角按角色档 chip→md
   typeBadge: {
     alignSelf: 'flex-start',
     paddingLeft: '12rpx',
     paddingRight: '12rpx',
     paddingTop: '4rpx',
     paddingBottom: '4rpx',
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: 'var(--color-success-light)',
     overflow: 'hidden',
     flexShrink: 0,

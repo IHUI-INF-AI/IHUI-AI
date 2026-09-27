@@ -35,7 +35,7 @@
   font-weight: 600;
   color: var(--color-foreground); /* RN text.primary */
 }
-/* RN createBtn: px 14dp=28rpx,py 6dp=12rpx,radius 12dp=24rpx(方圆角档),bg brand.DEFAULT */
+/* RN createBtn: px 14dp=28rpx, py 6dp=12rpx, bg brand.DEFAULT;圆角按角色档 control→sm */
 .nm-create-btn {
   font-size: 28rpx; /* RN createText 14dp */
   font-weight: 600;
@@ -43,7 +43,7 @@
   color: var(--color-cta-foreground);
   padding: 12rpx 28rpx;
   background: var(--color-cta);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
 }
 .nm-create-btn:active {
   opacity: 0.8; /* RN activeOpacity 0.8 */
@@ -130,7 +130,7 @@
   min-height: 88rpx;
   padding: 12rpx 16rpx;
   background: var(--color-muted);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   font-size: 28rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -143,21 +143,21 @@
   min-height: 88rpx;
   padding: 12rpx 16rpx;
   background: var(--color-muted);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   font-size: 28rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
   border: 1px solid var(--color-border);
   margin-bottom: 16rpx;
 }
-/* n8n 文件上传(RN 无对应;按 RN 输入语言推导: muted 底 + border light,radius 8dp=16rpx) */
+/* n8n 文件上传(RN 无对应;按 RN 输入语言推导: muted 底 + border light;圆角按角色档 control→sm) */
 .nm-file-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24rpx; /* RN card padding 12dp */
   background: var(--color-muted);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
 }
 .nm-file-btn:active {
@@ -235,7 +235,7 @@
   min-height: 72rpx;
   padding: 12rpx 16rpx;
   background: var(--color-muted);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   font-size: 26rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -246,7 +246,7 @@
   min-height: 120rpx;
   padding: 12rpx 16rpx;
   background: var(--color-muted);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   font-size: 26rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
