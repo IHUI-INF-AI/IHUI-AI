@@ -1027,6 +1027,11 @@ process.on('uncaughtException', (e) => {
 
 const WARN_ONLY = process.argv.includes('--warn-only')
 const UPDATE_BASELINE = process.argv.includes('--update-baseline')
+// 1510 行的提示语早就指向 --dump-missing,但该旗从未实现(2026-09-28 现读:全文件只有
+// 提示语这一处提到它)⇒ 提示是个死指针,"逐条见 X"而 X 不存在 = 把人往不存在的出口引。
+// 现把它装上:逐条打印**所有**面上量到的死调用(web 零容忍 + 棘轮存量/新增/无锚点),
+// 判据/退出码/豁免一字不动 —— 这是清账工具的取数口,不是第二台尺子。
+const DUMP_MISSING = process.argv.includes('--dump-missing')
 
 /**
  * 判定面(2026-09-26 收口):默认 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 只作
@@ -1434,7 +1439,7 @@ for (const [file, n] of countsByFile) {
   }
   const allowed = Number(baselineCounts[file]) || 0
   if (n > allowed) ratchetNew.push({ file, count: n, allowed, calls })
-  else if (n > 0) ratchetStock.push({ file, count: n, allowed })
+  else if (n > 0) ratchetStock.push({ file, count: n, allowed, calls })
 }
 const staleLedger = Object.keys(baselineCounts).filter((f) => !countsByFile.has(f))
 
@@ -1514,6 +1519,16 @@ if (staleLedger.length > 0) {
   console.log(
     `${C.yellow}  (登记)基线里有 ${staleLedger.length} 个文件已不再命中(清单该收紧了):${C.reset} ${staleLedger.slice(0, 5).join(', ')}`,
   )
+}
+
+if (DUMP_MISSING) {
+  const dump = []
+  for (const v of webViolations) dump.push(`${v.method} ${v.path} @ ${v.file}:${v.line} [web 零容忍]`)
+  for (const s of [...ratchetStock, ...ratchetNew, ...ratchetNoAnchor])
+    for (const c of s.calls || [])
+      dump.push(`${c.method} ${c.path} @ ${c.file}:${c.line} [棘轮${s.allowed !== undefined ? `存量/允许 ${s.count}/${s.allowed}` : '无锚点'}]`)
+  console.log(`[API 路由比对] --dump-missing 逐条死调用(${dump.length} 处):`)
+  for (const d of dump) console.log(`    ${d}`)
 }
 
 if (webViolations.length === 0 && ratchetNew.length === 0) {
