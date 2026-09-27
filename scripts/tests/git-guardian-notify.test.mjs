@@ -266,4 +266,30 @@ test('装车证明:派生带 windowsHide+timeout;main 里有 --notify-test/--not
   assert.match(funcBody(src, 'main'), /'--notify-dry-run'/)
   assert.match(funcBody(src, 'status'), /notify:\s*notifySummary\(\)/, '--status 必须如实显示通知层状态')
 })
+
+// ── 基线新鲜度探针:失败必须带原因(2026-09-27 值守补) ─────────────────────
+test(
+  '形状锁:基线新鲜度探针失败时要把 stderr/退出码写进日志,不得再退回"未判定"一句空话',
+  () => {
+    const src = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
+    const start = src.indexOf('function reportBaselineFreshness')
+    const body = src.slice(start, src.indexOf('\nfunction ', start + 10))
+    assert.ok(start > 0 && body.length > 400, '找不到 reportBaselineFreshness 段')
+    // ① stderr 必须被接管:第三项若是 'ignore',这条"未判定"就永远答不出为什么(实测静默了 517 条)
+    assert.match(
+      body,
+      /stdio:\s*\[\s*'ignore',\s*'pipe',\s*'pipe'\s*\]/,
+      '探针的 stderr 又被丢回 ignore ⇒ 未判定重新变成无原因',
+    )
+    // ② 结论行必须真把原因插进去(只捕获不打印 = 与丢弃等价)
+    assert.match(body, /未判定[^`]*\$\{why/, '日志行必须插入 why,不得写死一句定文案')
+    // ③ 派生失败与"输出不是 JSON"要分开归因(否则下次仍要人猜是哪一段坏了)
+    assert.match(body, /探针派生失败/, '要有"派生失败"这一归因分支')
+    assert.match(body, /输出不是 JSON/, '要有"输出不是 JSON"这一归因分支')
+    // ④ 继承既有的遮噪/护栏,不得在补诊断时顺手丢掉
+    assert.match(body, /windowsHide:\s*true/, '漏 windowsHide ⇒ 守护下必弹控制台窗(§5b)')
+    assert.match(body, /timeout:\s*240000/, '热路径派生必须封顶(守门 80 同族)')
+  },
+)
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
