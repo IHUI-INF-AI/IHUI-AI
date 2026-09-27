@@ -24,7 +24,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent } from '@ihui/api-client';
+import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent, type ToolDeltaEvent } from '@ihui/api-client';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
 // 2026-09-27:doom_loop pattern 外发前过一次脱敏兜底(防原文字段流入服务端落库)
@@ -49,6 +49,7 @@ import {
 } from '../tools/index.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
 import { createFileEditTools } from '../tools/file-edit.js';
+import { buildFileEditPreviewEvents } from '../tools/file-edit-preview.js';
 import { GIT_TOOLS } from '../tools/git.js';
 import { FETCH_TOOLS } from '../tools/fetch-url.js';
 import { WEB_SEARCH_TOOLS } from '../tools/web-search.js';
@@ -554,6 +555,19 @@ export interface RunToolLoopOptions {
    * 恢复路径据此判断"上一轮哪些工具确实发出去了",避免断流后重放造成重复副作用。
    */
   onToolLedgerSnapshot?: (snapshot: LedgerSnapshot) => void;
+  /**
+   * D113(2026-09-27)文件写类工具的**流中 diff 预览**帧(本端本地派生,一次调用一批)。
+   *
+   * 为什么本端要自己派生:CLI 的工具在进程内执行,服务端 `llm.py` 的 `tool-delta`
+   * 发帧路径对本端**永远不会发生**(本端不携带 `agentTools`)。要让"执行前先看一眼
+   * 将要写入什么"在四端同形,只能把服务端那套派生规则在本地复算一份 ——
+   * 唯一出口 `tools/file-edit-preview.ts`,算法/预算与服务端逐语义对齐,
+   * 并由 `apps/cli/tests/file-edit-preview-parity.test.ts` +
+   * `apps/ai-service/tests/test_file_edit_preview_parity.py` 两把尺子钉住。
+   * 载荷形状与 `@ihui/api-client` 的 `ToolDeltaEvent` 一致,故渲染端与 web/RN/小程序
+   * 共用同一条状态语义(按 toolCallId 整帧覆盖、落终态即清除)。
+   */
+  onToolDeltaFrames?: (events: ToolDeltaEvent[]) => void | Promise<void>;
   /**
    * 压缩动作注入点(默认走 decideCompaction)。
    * 存在的必要:熔断的价值是"真的不再自动压缩",而按默认路径跑没法从外部观察到
@@ -1784,6 +1798,19 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       // 单工具时 Promise.all 退化为串行,无额外开销,UI 体验与原串行实现一致
       for (const call of toolCalls) {
         await opts.onToolCall?.(call.name, call.arguments);
+        // D113(2026-09-27):文件写类工具在**执行之前**把"将要写入的内容"按服务端的
+        // tool-delta 帧契约发一遍(派生唯一出口 tools/file-edit-preview.ts,算法与服务端
+        // 同语义、同 400 行/32KB/10 帧预算)。时序与 llm.py 一致:发帧在派发执行之前,
+        // 所以权限确认弹窗打开时用户已经看得见改动走向。
+        // 非写类工具 / 派生不出文本 / 空 id 一律 0 帧(与三端"空 toolCallId 丢弃"同一条纪律)。
+        if (opts.onToolDeltaFrames) {
+          const previewEvents = buildFileEditPreviewEvents(
+            `cli-preview-${randomUUID()}`,
+            call.name,
+            call.arguments,
+          );
+          if (previewEvents.length > 0) await opts.onToolDeltaFrames(previewEvents);
+        }
         if (call.name === 'dispatch_subagent') {
           const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
           const subType = String(call.arguments.persona ?? 'general');
