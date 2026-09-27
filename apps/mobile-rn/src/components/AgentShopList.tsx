@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   },
   card: {
     flexDirection: 'row',
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: tokens.text.secondary,
     backgroundColor: tokens.surface.muted,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingHorizontal: 6,
     paddingVertical: 2,
     overflow: 'hidden',
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   reactionBtn: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
   reactionText: {

@@ -792,7 +792,7 @@ const styles = StyleSheet.create({
   previewBadge: {
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(4),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   } as ViewStyle,
   previewBadgeFree: {
     backgroundColor: tk.success.lighter,
@@ -998,7 +998,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(16),
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tk.brand.cta,
   } as ViewStyle,
   retryText: {

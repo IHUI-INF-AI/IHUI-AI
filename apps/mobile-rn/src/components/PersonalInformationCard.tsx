@@ -177,7 +177,7 @@ export function PersonalInformationCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     padding: CARD_PADDING,
     overflow: 'hidden',
   } as ViewStyle,

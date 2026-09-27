@@ -153,7 +153,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       padding: 14,
       gap: 12,
       borderWidth: 1,
@@ -164,7 +164,7 @@ function createStyles(tk: AppThemeTokens) {
     titleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     vipBadge: {
       backgroundColor: tk.warning.DEFAULT,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
@@ -176,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
     benefitsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     benefitTag: {
       backgroundColor: tk.surface.card,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 8,
       paddingVertical: 3,
     },
@@ -185,7 +185,7 @@ function createStyles(tk: AppThemeTokens) {
     purchaseBtn: {
       alignSelf: 'flex-start',
       backgroundColor: tk.warning.DEFAULT,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 10,
       paddingVertical: 8,
     },
