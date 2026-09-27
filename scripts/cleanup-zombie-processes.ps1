@@ -25,8 +25,6 @@
 #   - Next.js dev server :8801 left running 818MB while not developing.
 # ============================================================================
 
-#Requires -Version 5.0
-
 param(
     [switch]$DryRun,
     [switch]$AutoClean,
@@ -53,6 +51,18 @@ if (-not (Test-Path $LogDir)) {
 }
 $LogFile = Join-Path $LogDir 'zombie-guardian.log'
 $LogFileBak = Join-Path $LogDir 'zombie-guardian.log.bak'
+
+# ---- Shared guard library (single implementation with the daemon) ----
+# The kill rules below MUST NOT run without the structural exemptions in this
+# lib (session-0 / nssm-ancestry / trim-marker decoupling, G-266). If the lib
+# is missing we abort instead of running an unguarded killer.
+$GuardLib = Join-Path $ScriptsDir 'lib\zombie-guard-lib.ps1'
+if (-not (Test-Path $GuardLib)) {
+    Write-Error "[cleanup-zombie-processes] guard library not found: $GuardLib - refusing to run unguarded"
+    exit 2
+}
+. $GuardLib
+Set-ZombieGuardTrimMarker -Path (Join-Path $LogDir 'zombie-guard-trimmed.json')
 
 # ---- Log rotation (1MB -> .bak) ----
 function Rotate-Log {
@@ -128,6 +138,9 @@ function Get-ProcessAgeMins {
 }
 
 # ---- Helper: safe kill ----
+# Kill-Process is the ONLY kill outlet of this script. In dry-run it records
+# the intent (wouldKill++) and never touches the process, so the preview count
+# K and the real count share one code path.
 function Kill-Process {
     param([int]$Id, [string]$Reason)
     try {
@@ -135,6 +148,8 @@ function Kill-Process {
         if (-not $p) { return $false }
         if ($DryRun) {
             Write-Log 'DRYRUN' "Would kill PID $Id ($Reason) - dry-run, skipped"
+            $script:wouldKillCount++
+            $script:wouldKillList += "PID $Id ($Reason)"
             return $false
         }
         Stop-Process -Id $Id -Force -ErrorAction Stop
@@ -162,15 +177,24 @@ if (-not $Quiet) {
     Write-Host "  Install threshold: ${ThresholdInstallMins} min"
     Write-Host "  HighCPU threshold: ${ThresholdHighCpuSecs}s AND mem < ${ThresholdLowMemMB}MB"
     Write-Host "  Orphan dev threshold: ${ThresholdOrphanDevMins} min"
+    Write-Host "  Guard lib:           $GuardLib"
     Write-Host ""
 }
 
 $cleanupPerformed = $false
 $killedCount = 0
+$wouldKillCount = 0
+$wouldKillList = @()
+$protectedHits = 0
+$trimSkips = 0
 $trimmedTotal = 0
 
 # ---- Snapshot all processes with command line ----
 $allProcs = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine }
+# Full PID->process index for ancestry walks (includes processes WITHOUT a
+# command line, e.g. services.exe - filtering first would blind the P2 guard).
+$procIndex = Get-ZombieGuardProcIndex
+$scannedTotal = @($allProcs).Count
 
 # ---- Dev-tool process names: ONLY these are eligible for install/zombie kill.
 # IDE processes (Code, explorer) and user
@@ -180,6 +204,10 @@ $devToolNames = @(
     'node.exe','npm.exe','npx.exe','pnpm.exe','pnpx.exe','yarn.exe',
     'cargo.exe','go.exe','rustc.exe','tsc.exe','tsx.exe'
 )
+# How many enumerated processes even carry a kill-eligible name. Computed
+# AFTER the name table exists (this counter is the "scan really ran" witness
+# demanded by G-266; a K=0 claim without it is worthless).
+$devToolNameHits = @($allProcs | Where-Object { $_.Name -in $devToolNames }).Count
 
 # ============================================================================
 # Rule 1: Runaway install processes (pip/npm/pnpm/yarn/cargo/go/uv install)
@@ -195,6 +223,9 @@ foreach ($p in $allProcs) {
         if ($startTime) { $ageMins = [math]::Round(((Get-Date) - $startTime).TotalMinutes, 1) }
     } catch {}
     if ($ageMins -gt $ThresholdInstallMins) {
+        # G-266 structural exemptions (P1 session-0 / P2 nssm-svc ancestry)
+        $prot = Test-ZombieGuardProtected -ProcessId ([int]$p.ProcessId) -Index $procIndex
+        if ($prot) { $protectedHits++; Write-Log 'INFO' "R1 KEEP PID $($p.ProcessId) ($($p.Name)) age=${ageMins}min - protected [$prot]"; continue }
         $cmdShort = if ($p.CommandLine.Length -gt 80) { $p.CommandLine.Substring(0,80) + '...' } else { $p.CommandLine }
         Write-Log 'WARN' "Runaway install: PID $($p.ProcessId) $($p.Name) age=${ageMins}min cmd=$cmdShort"
         if (Kill-Process -Id $p.ProcessId -Reason "runaway install ${ageMins}min: $cmdShort") {
@@ -215,6 +246,16 @@ foreach ($p in $allProcs) {
     $memMB = [math]::Round($proc.WorkingSet64 / 1MB, 0)
     $cpuSec = if ($proc.CPU) { [math]::Round($proc.CPU, 0) } else { 0 }
     if ($cpuSec -gt $ThresholdHighCpuSecs -and $memMB -lt $ThresholdLowMemMB) {
+        # G-266: P1/P2 structural exemptions first ...
+        $prot = Test-ZombieGuardProtected -ProcessId ([int]$p.ProcessId) -Index $procIndex
+        if ($prot) { $protectedHits++; Write-Log 'INFO' "R2 KEEP PID $($p.ProcessId) ($($p.Name)) - protected [$prot]"; continue }
+        # ... then the trim decoupling (P3): our own EmptyWorkingSet can drive
+        # WorkingSet64 under 10MB, which is NOT evidence of a busy-loop zombie.
+        if (Test-ZombieTrimmedRecently -ProcessId ([int]$p.ProcessId)) {
+            $trimSkips++
+            Write-Log 'INFO' "R2 KEEP PID $($p.ProcessId) ($($p.Name)) cpu=${cpuSec}s mem=${memMB}MB - recently trimmed by guardian itself, memory reading is not trustworthy this window; skipping (will re-evaluate next pass)"
+            continue
+        }
         $cmdShort = if ($p.CommandLine.Length -gt 80) { $p.CommandLine.Substring(0,80) + '...' } else { $p.CommandLine }
         Write-Log 'WARN' "Zombie busy-loop: PID $($p.ProcessId) $($p.Name) cpu=${cpuSec}s mem=${memMB}MB cmd=$cmdShort"
         if (Kill-Process -Id $p.ProcessId -Reason "high-CPU low-mem zombie $($p.Name) cpu=${cpuSec}s mem=${memMB}MB") {
@@ -253,6 +294,9 @@ if ($AutoClean) {
         $freed = Trim-WorkingSet -Process $proc
         if ($freed -gt 5) {
             Write-Log 'TRIMMED' "PID $($proc.Id) ($($proc.Name)) trimmed ${freed}MB"
+            # P3 decoupling: remember that WE lowered this working set, so a
+            # later R2 pass cannot read it as "zombie has <10MB memory".
+            Register-ZombieTrim -ProcessId $proc.Id
             $trimmedTotal += $freed
             $cleanupPerformed = $true
         }
@@ -300,6 +344,11 @@ foreach ($tsx in $tsxWatchProcs) {
         $ageMin = Get-ProcessAgeMins -Process $tsxProc
         # 仅 kill 启动超过 2 分钟的孤儿 tsx watch(给正常重启留时间)
         if ($ageMin -gt 2) {
+            # G-266: an IHUI service whose wrapper is later switched back to
+            # `tsx watch` (see docs) must NOT be killed for having no child at
+            # the sampling instant - session-0 / nssm / prod-bundle-svc guard.
+            $prot = Test-ZombieGuardProtected -ProcessId ([int]$tsx.ProcessId) -Index $procIndex
+            if ($prot) { $protectedHits++; Write-Log 'INFO' "R6 KEEP tsx-watch PID $($tsx.ProcessId) - protected [$prot]"; continue }
             $handles = $tsxProc.HandleCount
             $killed = Kill-Process -Id $tsx.ProcessId -Reason "orphaned tsx watch (no living child, age=${ageMin}min, handles=${handles})"
             if ($killed) { $killedCount++; $cleanupPerformed = $true }
@@ -316,8 +365,9 @@ $freeGB = [math]::Round($os.FreePhysicalMemory / 1MB, 1)
 $usedGB = [math]::Round($totalGB - $freeGB, 1)
 $pct = [math]::Round($usedGB / $totalGB * 100, 1)
 
-$summary = "Killed=$killedCount / Trimmed=${trimmedTotal}MB / Mem=${usedGB}GB ($pct%) / Free=${freeGB}GB"
+$summary = "Killed=$killedCount / WouldKill=$wouldKillCount / Enumerated=$scannedTotal / NameHits=$devToolNameHits / ProtectedSkipped=$protectedHits / TrimSkips=$trimSkips / Trimmed=${trimmedTotal}MB / Mem=${usedGB}GB ($pct%) / Free=${freeGB}GB"
 Write-Log 'INFO' "==== Run complete | $summary ===="
+foreach ($wk in $wouldKillList) { Write-Log 'INFO' "would-kill candidate: $wk" }
 
 if (-not $Quiet) {
     Write-Host ""
