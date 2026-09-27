@@ -186,14 +186,15 @@ export default function Carousel({
       </ScrollView>
       {total > 1 && (
         <View style={carouselIndicatorWrapStyle(toUnit)}>
+          {/* 指示点两态的档与 RN 同一份落点:活跃 16×6 取 md、非活跃 6×6 取 sm(此前两端声明不同档) */}
           {items.map((_, index) => (
             <View
               key={index}
               onClick={() => goTo(index)}
               style={carouselDotStyle(toUnit, current === index)}
               className={cn(
-                'rounded-sm transition-all',
-                current === index ? 'bg-foreground/80' : 'bg-foreground/30',
+                'transition-all',
+                current === index ? 'rounded-md bg-foreground/80' : 'rounded-sm bg-foreground/30',
               )}
             />
           ))}
