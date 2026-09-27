@@ -34,6 +34,15 @@ import pytest
 
 from app.services.agent_loop_v2 import AgentLoopV2, ToolCall, ToolDefinition
 
+# V3 #47 第二格(2026-09-26 立,本文件 2026-09-27 随 G-254 补齐前置条件):
+# `_execute_single` 在审批门**之前**先过角色矩阵(`mcp_server._ADMIN_ONLY_TOOLS`),
+# 而本文件的高危样本恰是 `run_command`(在 admin 名单里)。默认 `user_role=0` 会让它
+# 在进审批门前就被 role_denied 拦掉,"批准→执行 / 超时→error / bypass 留痕"这些断言
+# 全部拿不到审批路径。角色档给成 1 = 让本文件测的仍是它声称测的那道审批闸,
+# 而不是把角色判据削掉;角色门自身的正反例在 `tests/test_engine_role_parity.py`,
+# 两道闸各自生效、互不遮蔽(同 `test_tool_approval.py` 的 `_ADMIN_ROLE` 先例)。
+_ADMIN_ROLE = 1
+
 # =============================================================================
 # 辅助:工具定义
 # =============================================================================
@@ -105,7 +114,9 @@ async def test_default_high_risk_approval_approve_executes():
             }
         return {"content": "执行完毕", "tool_calls": None}
 
-    loop = AgentLoopV2(mock_llm, [_write_tool("run_command")], max_iterations=5)
+    loop = AgentLoopV2(
+        mock_llm, [_write_tool("run_command")], max_iterations=5, user_role=_ADMIN_ROLE
+    )
     # mock 决策:approve(返回 None)
     loop._request_approval = AsyncMock(return_value=None)
 
@@ -136,7 +147,9 @@ async def test_default_high_risk_approval_timeout_errors():
             }
         return {"content": "放弃", "tool_calls": None}
 
-    loop = AgentLoopV2(mock_llm, [_write_tool("run_command")], max_iterations=5)
+    loop = AgentLoopV2(
+        mock_llm, [_write_tool("run_command")], max_iterations=5, user_role=_ADMIN_ROLE
+    )
     # mock 决策:timeout
     loop._request_approval = AsyncMock(return_value="approval_timeout")
 
@@ -229,6 +242,7 @@ async def test_auto_readonly_skips_approval_write_still_approves():
         [_readonly_tool(), _write_tool("run_command")],
         max_iterations=5,
         permission_mode="auto",
+        user_role=_ADMIN_ROLE,
     )
     loop._request_approval = AsyncMock(return_value=None)  # 决策 approve
 
@@ -483,6 +497,7 @@ async def test_bypass_permissions_skips_approval_and_leaves_audit_event():
             [_write_tool("run_command")],
             max_iterations=5,
             permission_mode="bypassPermissions",
+            user_role=_ADMIN_ROLE,
         )
         loop._request_approval = AsyncMock(return_value=None)
 
