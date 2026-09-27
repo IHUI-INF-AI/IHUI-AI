@@ -22,18 +22,32 @@ services/agent_loop_v2.py 是收敛候选。**本模块只做"判定",不做"切
    ``test_default_mode_never_imports_adapter`` 钉死);
 3. 开新档(loop_v2)时的收敛执行器本体在 ``LOOP_V2_ADAPTER_MODULE`` 的
    ``LOOP_V2_ADAPTER_FUNC``(G1,2026-09-27 落地:真构造并真跑 AgentLoopV2)。
-   但**接线点尚未改成消费 handoff 之前**,``guard_loop_v2_pilot`` 仍**显式抛错**
-   而不是静默返回 —— 因为四个现存调用点都是"裸语句 + 依赖抛错中断旧路径"的形状
-   (surface 名 ``agent_orchestrator._run_agent`` /
-   ``orchestration_hub._call_pillar_action[subagent]`` /
-   ``routers/orchestration.emit_event`` / ``routers/team_orchestration.run_team_round``),
-   守卫一旦不抛,旧循环紧接着又跑一遍 =
-   **双重执行**,比占位错误更坏。开关必须"有牙":设成 loop_v2 却什么都感知不到,
-   等于造一台恒假的摆设(反向对照用例钉死这一点)。
+   **四个现存接线点已全部改成"消费 handoff"的形态并登记进
+   ``HANDOFF_CONSUMER_SURFACES``**(2026-09-27 本票),所以它们不再依赖"裸守卫抛错"
+   来中断旧路径:命中 v2 时 ``handoff is not None`` 那一支**立即 return**,
+   旧循环一行也不会再跑。``guard_loop_v2_pilot`` 在每站仍保留一次调用,**只在
+   legacy 档可达**(v2 档下 ``take_loop_v2_handoff`` 要么返回 handoff 要么抛错,
+   永不返回 None),作用是"若日后有人把该 surface 从登记表里摘掉而不改源码,
+   这里仍然 fail-fast 而不是静默回退旧路径"。
+   开关必须"有牙":设成 loop_v2 却什么都感知不到,等于造一台恒假的摆设
+   (反向对照用例钉死这一点)。
    一个接线点从"抛错"变成"真执行"的**唯一合法姿势**:把它的 surface 名加进
    ``HANDOFF_CONSUMER_SURFACES``,并在该点改调 ``await take_loop_v2_handoff(...)``
    消费返回值(两件事必须同一枚提交,只做一半要么双重执行要么永不执行 —— 由
-   ``test_registry_and_source_agree`` 双向对账钉住,登记表腐烂与消费者漏登记都红)。
+   ``tests/test_executor_switch_v2_wired.py::TestRegistryMatchesRealSource``
+   双向对账钉住,登记表腐烂与消费者漏登记都红)。
+   ⚠️ **"登记为消费者"不等于"该站真能投影出一次可信执行"**:
+   ``agent_orchestrator._run_agent`` 手上有完整 ``AgentDefinition``,所以 v2 档真的
+   跑收敛循环;``orchestration_hub._call_pillar_action[subagent]`` 只在该 playbook
+   action 的 ``params`` 自带 ``agent_name`` + ``system_prompt`` 时才投影(现存五条
+   playbook 一条都没有 ⇒ 生产行为与改前同形);``routers/orchestration.emit_event``
+   与 ``routers/team_orchestration.run_team_round`` **没有** agent 可投影(前者是
+   事件入队、后者的成员派发已在叶子 ``_run_agent`` 逐个体收敛),这两处在 v2 档仍由
+   ``take_loop_v2_handoff`` 的"缺投影入参"分支显式抛错。这是刻意的:拿一个编出来的
+   提示词去跑一个"看起来执行了"的循环,并把假的 ``event_id`` / ``contributors``
+   填进原有响应形状,比抛错坏得多(AGENTS §30「没有终态就写已完成」同一条禁令)。
+   把这两站真正并到 v2 属**对外语义变更**(要不要让 emit 返回 agent 结论、
+   要不要让 round 端点跑单体而非 fan-out),需持有人裁决,不由本票代拍。
 
 灰度语义(后续批次按会话/按租户放量用,本票不启用):
 - ``ORCHESTRATION_CONVERGENCE_EXECUTOR``:全局档,``legacy``(默认)/``loop_v2``;
@@ -46,11 +60,15 @@ services/agent_loop_v2.py 是收敛候选。**本模块只做"判定",不做"切
 
 from __future__ import annotations
 
+import contextlib
+import logging
 import os
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from importlib import import_module
 from typing import Any, Final, Literal, cast
+
+logger = logging.getLogger(__name__)
 
 ConvergenceMode = Literal["legacy", "loop_v2"]
 
@@ -76,12 +94,122 @@ LOOP_V2_ADAPTER_FUNC: Final[str] = "run_converged_agent"
 #: 适配器在 handoff 上打的引擎标签(下游按它区分"真 v2"与"旧编排栈")。
 LOOP_V2_ENGINE_TAG: Final[str] = "agent_loop_v2"
 
-#: 已改成"消费 handoff"的接线点清单。**空 = 一个都没有**,于是 loop_v2 档在
-#: 四个现存 surface 上仍然抛 ``PILOT_ERROR_MARKER``(防双重执行)。
+#: 已改成"消费 handoff"的接线点清单。**四条 = 四个现存 surface 全部**,
+#: 2026-09-27 本票登记(见模块 docstring 红线 3 的"逐站可投影性"说明 ——
+#: 登记 = 该站已改成消费返回值的形态,**不**等于该站在 v2 档一定能投影出可信执行)。
 #: 加一条的**同时**必须把那个调用点改成 ``await take_loop_v2_handoff(...)``;
 #: 只做一半 = 要么双重执行、要么永不执行,两种都由
 #: tests/test_executor_switch_v2_wired.py 的登记↔源码双向对账判红。
-HANDOFF_CONSUMER_SURFACES: Final[frozenset[str]] = frozenset()
+HANDOFF_CONSUMER_SURFACES: Final[frozenset[str]] = frozenset(
+    {
+        "agent_orchestrator._run_agent",
+        "orchestration_hub._call_pillar_action[subagent]",
+        "routers/orchestration.emit_event",
+        "routers/team_orchestration.run_team_round",
+    }
+)
+
+# ---------------------------------------------------------------------------
+# L4 后置自评:在 v2 交接窗口内关掉(2026-09-27 实测逼出,不是假想)
+# ---------------------------------------------------------------------------
+
+#: 环境变量:**只在 loop_v2 档被命中时**起作用(legacy 档一行代码都不会执行)。
+#: 缺省 = ``suppress``。要恢复那次自评(接受"每次编排多一次计费调用 + 一次落库")
+#: 就显式设 ``ORCHESTRATION_CONVERGENCE_META_EVAL=keep``。
+META_EVAL_ENV: Final[str] = "ORCHESTRATION_CONVERGENCE_META_EVAL"
+META_EVAL_SUPPRESS: Final[str] = "suppress"
+META_EVAL_KEEP: Final[str] = "keep"
+
+#: 被罩住的那个方法名 —— 走**变量**而不是字面量有两个理由:
+#: ① ruff B010 明确禁止 `setattr(obj, "常量名", …)`(那不比直接属性访问更安全);
+#: ② 这个名字是本出口与 `AgentLoopV2.run()` 收尾之间唯一的耦合点,写成一处置顶
+#:    比在三处各抄一遍字符串更不容易漂(本仓"两处算同一件事必漂移"记过多次)。
+META_EVAL_METHOD: Final[str] = "evaluate_and_record"
+
+#: 本模块唯一出口(测试与运维都从这里判,不得在别处再抄一份判定)。
+def meta_eval_suppression_wanted(env: Mapping[str, str] | None = None) -> tuple[bool, str]:
+    """纯函数:这一趟 v2 交接要不要抑制后置自评 —— 返回 ``(抑制?, 原因)``。
+
+    三态不并桶:未设 → 抑制(本票默认,行为写死在此处);``keep`` 系 → 不抑制;
+    **未识别值 → 抑制且把"没读懂"点名出来**。后者不能静默按默认走:一个拼错的
+    开关值让人以为"计费调用已经放回来了",而实际仍被抑制,是典型的"账面与事实
+    分叉"(本仓最高频失效型)。
+    """
+    source = os.environ if env is None else env
+    raw = source.get(META_EVAL_ENV)
+    if raw is None or not raw.strip():
+        return True, f"{META_EVAL_ENV} 未设 ⇒ 默认 {META_EVAL_SUPPRESS}"
+    val = raw.strip().lower()
+    if val in (META_EVAL_SUPPRESS, "1", "true", "on"):
+        return True, f"{META_EVAL_ENV}={raw!r} ⇒ 抑制"
+    if val in (META_EVAL_KEEP, "0", "false", "off"):
+        return False, f"{META_EVAL_ENV}={raw!r} ⇒ 保留(会多一次计费调用 + 一次落库)"
+    return (
+        True,
+        f"{META_EVAL_ENV}={raw!r} 未识别 ⇒ 按默认 {META_EVAL_SUPPRESS} 处理(拼错的开关值不得被读成 keep)",
+    )
+
+
+@dataclass
+class MetaEvalSuppression:
+    """一次 v2 交接的自评抑制台账(挂在 ``LoopV2Handoff`` 上,让下游可判)。
+
+    - ``active``:本窗口**是否真的装上了**抑制出口(装了才谈得上"关掉了");
+    - ``swallowed``:窗口内被本出口吃掉的自评调用次数;
+    - ``note``:三态原因,永远非空 —— "没判"与"判过了"必须在同一行可读。
+    """
+
+    active: bool = False
+    swallowed: int = 0
+    note: str = ""
+
+
+@contextlib.contextmanager
+def _meta_eval_gate(state: MetaEvalSuppression) -> Iterator[MetaEvalSuppression]:
+    """把 ``meta_learner.evaluate_and_record`` 在本窗口内换成空操作(用完必还原)。
+
+    为什么必须在这一层做而不是改 ``AgentLoopV2.run()``:那次自评是 v2 主链
+    (routers/agents.py 的 execute/stream)**本来就有的**行为,改它的触发条件属
+    另一票、且会波及默认档。收敛链只能在自己的交接窗口内把它罩住。
+
+    ⚠️ 一处如实登记的副作用面:这是对**进程级单例**的临时替换,窗口 = 一次
+    ``await adapter(...)``。若同一时刻主聊天引擎也在收尾,它的那次自评会被本窗口
+    一起吃掉(表现为少一条 lesson,不影响执行结果)。要根除只能给
+    ``AgentLoopV2`` 加一个构造期开关(agent_loop_v2.py:2678 那一档 if),
+    那属该文件持有者的裁决 —— 本票按纪律不动它,并在此点名。
+    """
+    try:
+        from app.services.meta_learner import meta_learner  # 函数级 import:红线 2
+    except ImportError as e:  # pragma: no cover - 只在落点被搬走时触发
+        state.note = f"自评出口取不到模块,未装上抑制:{e}"
+        yield state
+        return
+    original = getattr(meta_learner, META_EVAL_METHOD, None)
+    if not callable(original):
+        state.note = f"meta_learner.{META_EVAL_METHOD} 不在位,无需抑制"
+        yield state
+        return
+
+    async def _swallow(*_a: Any, **_k: Any) -> None:
+        state.swallowed += 1
+        logger.warning(
+            "%s:已抑制 AgentLoopV2 的 L4 后置自评(第 %d 次)—— 少一次计费调用与一次落库;"
+            "恢复请设 %s=%s",
+            PILOT_ERROR_MARKER,
+            state.swallowed,
+            META_EVAL_ENV,
+            META_EVAL_KEEP,
+        )
+
+    setattr(meta_learner, META_EVAL_METHOD, _swallow)
+    state.active = True
+    if not state.note:
+        state.note = "抑制出口在位"
+    try:
+        yield state
+    finally:
+        setattr(meta_learner, META_EVAL_METHOD, original)
+
 
 
 class LoopV2ConvergencePilotError(RuntimeError):
@@ -207,6 +335,11 @@ class LoopV2Handoff:
     total_tokens_used: int | None = None
     checkpoint_id: str | None = None
     compaction_events: list[dict[str, Any]] = field(default_factory=list)
+    #: L4 后置自评在这一趟里被怎么处理了(见 ``MetaEvalSuppression``)。
+    #: 挂在 handoff 上而不是只写日志,是为了让"少花了一次计费调用"这件事
+    #: 对下游可判 —— 否则它又是一条只有散文没有读面的说明。
+    meta_eval: MetaEvalSuppression = field(default_factory=MetaEvalSuppression)
+
 
 
 #: 适配器签名(只为 mypy --strict 而声明;运行期由 getattr 取到的函数满足即可)。
@@ -267,6 +400,12 @@ async def take_loop_v2_handoff(
         不是"已授权"的结论 —— 记忆隔离与审批属主登记会因此不生效,调用方须自行保证
         在已鉴权的承载层里传真实主体。
 
+    ``progress_callback`` 的保真度(接线方与前端都得知道这一维降级了):适配器是
+    **循环结束后**按真实顺序回灌事件(``agent_loop_v2._replay_progress_events``),
+    不是旧路径那种"跑一步发一次"的实时进度。接线点若把回调直接传进来,拿到的仍是
+    旧词汇表(phase=thinking/tool_result/output_ready)但**时序不同** —— 不得把它
+    冒充成实时;要变实时得在 AgentLoopV2 里开 per-iteration 回调位(另一票)。
+
     抛错而不是静默的三档见 ``LoopV2ConvergencePilotError`` 文档。
     """
     mode = get_convergence_mode(session_id=session_id, tenant_id=tenant_id)
@@ -287,19 +426,30 @@ async def take_loop_v2_handoff(
             "空提示词跑出来的结果不可信,拒绝执行",
         )
     adapter = _resolve_loop_v2_adapter()
-    projected = await adapter(
-        agent_name=agent_name,
-        system_prompt=system_prompt,
-        user_input=user_input,
-        tool_names=list(tool_names) if tool_names is not None else None,
-        model=model,
-        max_iterations=max_iterations,
-        session_id=session_id,
-        user_id=user_id,
-        user_role=user_role,
-        permission_mode=permission_mode,
-        progress_callback=progress_callback,
-    )
+    # v2 交接窗口内的那次 L4 后置自评:AgentLoopV2.run() **无条件** fire-and-forget
+    # 一趟 meta_learner.evaluate_and_record,它用真实 llm_gateway 再发一次 LLM 请求,
+    # 并经 KeyPoolSelector → get_shared_pool 落一次生产 PG(同一份代码两次跑出
+    # 0 次/3 次连接池触碰,非确定性 —— 实测)。所以"收敛档一旦真接上,每次编排都
+    # 多一次计费调用 + 一次落库"是量出来的事实,不是假想。
+    # **默认档(legacy)完全不受影响**:下面这段只在 mode==loop_v2 且该 surface 已
+    # 登记、且已拿到 handoff 时才执行(函数开头两道判定已早退)。
+    want_suppress, suppress_reason = meta_eval_suppression_wanted()
+    gate = MetaEvalSuppression(note=suppress_reason)
+    with _meta_eval_gate(gate) if want_suppress else contextlib.nullcontext(gate):
+        projected = await adapter(
+            agent_name=agent_name,
+            system_prompt=system_prompt,
+            user_input=user_input,
+            tool_names=list(tool_names) if tool_names is not None else None,
+            model=model,
+            max_iterations=max_iterations,
+            session_id=session_id,
+            user_id=user_id,
+            user_role=user_role,
+            permission_mode=permission_mode,
+            progress_callback=progress_callback,
+        )
+
     step_result = projected.get("step_result")
     diagnostics = projected.get("diagnostics") or {}
     if not isinstance(step_result, dict):
@@ -319,5 +469,7 @@ async def take_loop_v2_handoff(
         total_tokens_used=diagnostics.get("total_tokens_used"),
         checkpoint_id=diagnostics.get("checkpoint_id"),
         compaction_events=list(diagnostics.get("compaction_events") or []),
+        meta_eval=gate,
     )
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
