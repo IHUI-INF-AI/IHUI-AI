@@ -3484,9 +3484,9 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [ ] 79. 权限双轴化(`sandbox_mode` × `approval_policy`)+ config profiles(对齐 Codex 2026;起点是已有的 `packages/types/src/permission-mode.ts` 跨语言真源)
 - [x] ✅(2026-09-27) 80. Guardian 复核代理(用户点 approve 前由独立 agent 复核是否有更安全等价路径;底座已有 `guarded_tool_pipeline.py` + `tool_budget_governor.py` + `dispatch_subagent`) 完成(2026-09-27,代理 F 交付、主会话独立复验):`app/services/guardian_review.py` 在用户点 approve 前由独立复核判「有无更安全等价路径」,不可用时显式落未复核三态(禁止折叠成通过);主会话现测 `pytest tests/test_guardian_review.py` **26 passed**、新门 `--self-test` **12/12**、HEAD 面结论「✅ 复核出口已装车且三态不可折叠(W1 生产调用点 1 处=agent_loop_v2.py)」。常驻守门现号 142。残余:代理自身在 150 轮上限处截断,其报告未交齐,以上结论一律以主会话现测为准;复核提示的措辞与用户侧展示档位未做产品化。
 - [ ] 81. MTC 工作面(对标 Trae SOLO MTC:文档/数据表/报表/演示/竞品调研的产物流水线)
-- [ ] 82. Predictive Edit(对标 Trae CUE 的独立编辑意图预测器,现有 FIM 链路上升级)
+- [ ]（进行中@2026-09-27/v3wave4）82. Predictive Edit(对标 Trae CUE 的独立编辑意图预测器,现有 FIM 链路上升级)
 - [x] ✅(2026-09-27) 83. Spec ↔ Code 双向落差检测 + LSP 扩语言(现仅 TypeScript,硬编码 `LSP_BIN`) 完成(2026-09-27,D 死于轮限留下 1643 行半成品、N 接手收尾):LSP 语言表 `apps/cli/src/lsp/{language-table,probe}.ts` 取代写死 `LSP_BIN`(HEAD 与工作树两侧 `grep LSP_BIN apps/cli` 均空),探测四态可分辨(not-installed / probe-timeout / version-too-low / probe-failed)且「量不到版本」不得写成「已核」;`ihui spec drift` 双向落差引擎真跑通,接手时修掉三处失明(声明位从不被遮 ⇒ 117/121 落未判定、`declaresReadOnly` 把字段缺席当反证 ⇒ 恒 false、全局 `--json` 吞子命令档)。真仓实测:工具 121 枚/15 族,**code→spec 落差 1 处**(真阳性 `browser_screenshot` 声明 read 而 handler 有 writeFileSync/mkdirSync)、spec→code 0 处但 0 是「判过的 0」(注入 phantomKey 立刻产出 dead-parameter)。新门现号 143,`--self-test` 14/14、镜像 10 例、`pnpm --filter @ihui/cli typecheck` rc=0。残余:12 枚未判定属结构性(7 枚整体转传 args、5 枚解构签名),需跨函数别名解析另计一票;`browser_screenshot` 权限档属产品决策未动;README 同步待补。
-- [ ] 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + 77)
+- [ ]（进行中@2026-09-27/v3wave4）84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + 77)
 - [ ] 85. 离线/边缘优先降级(依赖 72;本地向量索引 + `ollama`/`lmstudio`/`llama_cpp` 三路 provider 已在适配表里)
 - [ ] 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希 + 权限决策 + 操作者身份,导出签名 ledger)
 
