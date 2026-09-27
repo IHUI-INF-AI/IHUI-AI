@@ -34,6 +34,7 @@ from app.core.logging import get_logger
 
 from .fingerprint_isolation import BrowserFingerprint, generate_fingerprint
 from .proxy_pool import ProxyConfig, get_proxy_pool
+from .state_paths import resolve_state_path
 
 logger = get_logger(__name__)
 
@@ -55,17 +56,12 @@ def resolve_profile_root(raw: str | None) -> Path:
 
     本函数**不创建任何目录**:mkdir 仍发生在画像首次使用时
     (_ProfileManager._create_new),模块导入期保持零副作用。
+
+    2026-09-27 收口:三态规则的**实现**住在 `state_paths.resolve_state_path()` ——
+    仓库根推导在 anti_risk/ 里只许有一处(同族缺陷第三维的源码面锁),本文件不再自己
+    数层数。对外语义与环境变量名 `ANTI_RISK_PROFILE_DIR` 一字未动。
     """
-    # 仓库根:本文件在 <root>/apps/ai-service/app/services/publish/anti_risk/ 下,上溯 6 层。
-    # (apps/ai-service/app/** 现无已导出的"仓库根"解析出口 —— 既有各处都是模块内私有的
-    # parents[4] 计数;层数一旦随模块搬家过期,回归测试会当场点名它,不会静默漂开。)
-    root = Path(__file__).resolve().parents[6]
-    if raw is None or not raw.strip():
-        return (root / ".ihui-agent/tmp/anti-profiles").resolve()
-    candidate = Path(raw)
-    if candidate.is_absolute():
-        return candidate.resolve()
-    return (root / candidate).resolve()
+    return resolve_state_path(raw, ".ihui-agent/tmp/anti-profiles")
 
 
 # Profile 根目录 —— 解析规则全部住在上方唯一出口 resolve_profile_root(),与 cwd 无关。
