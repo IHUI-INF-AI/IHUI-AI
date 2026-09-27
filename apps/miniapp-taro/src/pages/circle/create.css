@@ -24,11 +24,11 @@
   box-sizing: border-box;
 }
 
-/* ===== 表单区块(对齐 RN input 块: bg surface.muted / border border.light / radius 12dp) ===== */
+/* ===== 表单区块(对齐 RN input 块: bg surface.muted / border border.light;圆角按角色档 card→lg) ===== */
 .cc-card {
   background: var(--color-muted);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 24rpx;
   margin-bottom: 16rpx;
 }
@@ -125,8 +125,8 @@
   color: var(--color-muted-foreground);
 }
 
-/* ===== 话题 chip(对齐 PostCreateScreen pickBtn: radius 16dp→32rpx / border.medium /
-   bg surface.card / 字 brand 色 / 字号 12dp→24rpx) ===== */
+/* ===== 话题 chip(对齐 PostCreateScreen pickBtn 语言: border.medium / bg surface.card / 字 brand 色 /
+   字号 12dp→24rpx;圆角按角色档 chip→md) ===== */
 .cc-topic-chip {
   display: inline-flex;
   align-items: center;
@@ -135,7 +135,7 @@
   margin-right: 16rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-md);
   font-size: 24rpx;
   color: var(--color-brand);
   flex-shrink: 0;
@@ -297,7 +297,7 @@
   padding: 0 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-md);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
@@ -312,8 +312,8 @@
   font-size: 24rpx;
 }
 
-/* ===== 底部发布按钮(对齐 RN submitBtn: radius 12dp→24rpx / bg brand.DEFAULT /
-   字 16dp→32rpx 600 surface.light→primary-foreground) ===== */
+/* ===== 底部发布按钮(对齐 RN submitBtn: bg brand.DEFAULT / 字 16dp→32rpx 600
+   surface.light→primary-foreground;圆角按角色档 control→sm) ===== */
 .cc-footer {
   position: fixed;
   left: 0;
@@ -331,7 +331,7 @@
   line-height: 92rpx;
   background: var(--color-brand);
   color: var(--color-primary-foreground);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   font-size: 32rpx;
   font-weight: 600;
 }

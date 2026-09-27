@@ -48,7 +48,7 @@
 .category-chip {
   flex: none;
   padding: 12rpx 28rpx;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-md);
   background: var(--color-card);
 }
 .category-chip.active {
@@ -80,10 +80,10 @@
   padding: 0 24rpx;
 }
 
-/* ===== 媒体卡片(RN mediaCard:flex1 radius12 border surface.light;cover 3:4)===== */
+/* ===== 媒体卡片(RN mediaCard:flex1 border surface.light;cover 3:4;圆角按角色档 card→lg)===== */
 .media-card {
   width: calc((100% - 24rpx) / 2);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
@@ -116,13 +116,13 @@
   align-items: center;
   justify-content: center;
 }
-/* 视频徽章(RN videoBadge:top/left 8 padding 8/4 radius 12 rgba(0,0,0,0.55)) */
+/* 视频徽章(RN videoBadge:top/left 8 padding 8/4 rgba(0,0,0,0.55);圆角按角色档 chip→md) */
 .video-badge {
   position: absolute;
   top: 16rpx;
   left: 16rpx;
   padding: 8rpx 16rpx;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-md);
   background: var(--color-scrim);
   z-index: 2;
 }
@@ -163,7 +163,7 @@
 .aigc-text-card {
   width: 100%;
   padding: 28rpx;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
   box-sizing: border-box;
@@ -202,14 +202,14 @@
   word-break: break-all;
 }
 
-/* ===== 音频卡片(RN audioCard:flex2 横向 padding 14;cover 64x64 radius12)===== */
+/* ===== 音频卡片(RN audioCard:flex2 横向 padding 14;cover 64x64;圆角按角色档 card→lg)===== */
 .audio-card {
   width: 100%;
   display: flex;
   flex-direction: row;
   align-items: center;
   padding: 28rpx;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
   box-sizing: border-box;
@@ -245,7 +245,7 @@
   font-size: 22rpx;
   color: var(--color-text-tertiary);
 }
-/* 播放按钮(RN audioPlayBtn:marginTop 8 padding 10/4 radius 12 bg success.light;文字 brand 600) */
+/* 播放按钮(RN audioPlayBtn:marginTop 8 padding 10/4 bg success.light;文字 brand 600;圆角按角色档 control→sm) */
 .audio-play-btn {
   margin-top: 16rpx;
   align-self: flex-start;
@@ -253,7 +253,7 @@
   align-items: center;
   justify-content: center;
   padding: 8rpx 20rpx;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   background: var(--color-success-light);
 }
 .audio-play-icon {

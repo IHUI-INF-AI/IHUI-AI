@@ -244,7 +244,7 @@
   box-shadow: 0 0 10rpx var(--color-black-10);
 }
 
-/* 关闭按钮(AGENTS §4 圆角守门豁免:close 按钮) */
+/* 关闭按钮(按角色档 control→sm,不再需要 §4 圆角豁免) */
 .ai-close-btn {
   position: absolute;
   top: 10rpx;
@@ -253,7 +253,7 @@
   height: 50rpx;
   z-index: 1000;
   background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
