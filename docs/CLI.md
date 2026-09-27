@@ -133,8 +133,8 @@ ihui --version
 | `ihui skills list/show` | 查看 / 列出已加载 skills | `skills/index.ts` |
 | `ihui settings init/path` | 管理 `~/.ihui/settings.json` | `commands/settings.ts` |
 | `ihui acp` | 启动 ACP server,供编辑器嵌入 | `acp/server.ts` |
-| `ihui server` | 启动 Agent 内核 HTTP/WS server | `server/index.ts` |
-| `ihui remote <url>` | 作为 TUI client 连接远程 Agent server | `client/index.ts` |
+| `ihui serve` | 启动 Agent 内核 HTTP/WS server(端口 8841),支持远程驱动 | `commands/serve.ts` + `server/index.ts` |
+| `ihui connect <url>` | 作为 TUI client 连接远程 Agent server 的 WebSocket | `commands/connect.ts` + `client/index.ts` |
 | `ihui undo [steps]` / `ihui redo [steps]` | 多步回滚 / 重做文件改动 | `commands/undo-redo.ts` |
 
 ---
