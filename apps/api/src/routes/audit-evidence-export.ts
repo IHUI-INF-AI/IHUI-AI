@@ -43,6 +43,7 @@ import {
   AuditExportSignatureError,
   buildSignedAuditExport,
   getAuditExportPublicKeyInfo,
+  getAuditExportPublicKeyInfoForKid,
   verifySignedAuditExport,
 } from '../services/siem-exporter.js'
 
@@ -84,9 +85,45 @@ function signatureUnavailable(reply: FastifyReply, e: AuditExportSignatureError)
  * 未配置公钥 ⇒ 503 + 点名该配哪个环境变量,刻意不回 200 + 空字符串:
  * 把"没有"写成"有",收件方会把空公钥当材料去验签,故障点被推到别人系统里。
  */
+/**
+ * 从 query 里取 `kid` —— 只认"字符串且去空白后非空",其余一律当**没带**。
+ *
+ * 刻意不写进 ajv 的 `format`/`minLength`:同文件 `/signed` 那段注释记过实读结论 ——
+ * ajv 先拒时 Fastify 的默认错误体把 `code` 写成字符串,与 `errorResponseSchema` 的
+ * `code: number` 不匹配 ⇒ 客户端的 400 被掩盖成 500。参数判据留在这里,由我们自己
+ * 产出形状一致的 `error(400, …)`。
+ */
+function readKidQuery(query: unknown): { present: false } | { present: true; kid: string } {
+  if (typeof query !== 'object' || query === null) return { present: false }
+  const raw = (query as Record<string, unknown>).kid
+  if (raw === undefined) return { present: false }
+  if (typeof raw !== 'string' || raw.trim() === '') return { present: true, kid: '' }
+  return { present: true, kid: raw.trim() }
+}
+
 async function sendPublicKey(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+  const wanted = readKidQuery(request.query)
+  if (wanted.present && wanted.kid === '') {
+    return reply.status(400).send(error(400, 'kid 参数为空:要么不带(取当前签名公钥),要么带信封里记的那个 kid'))
+  }
   try {
-    return reply.send(success(getAuditExportPublicKeyInfo()))
+    if (!wanted.present) return reply.send(success(getAuditExportPublicKeyInfo()))
+    const hit = getAuditExportPublicKeyInfoForKid(wanted.kid)
+    if (!hit.found) {
+      // 查不到就点名"这把没登记",**绝不回落成把当前公钥递出去** —— 那等于让审计方
+      // 拿错材料去验,然后把"验不过"当成"证据被改过"(处置动作完全相反)。
+      return reply
+        .status(404)
+        .send(error(404, `未登记的密钥 kid=${hit.keyId}:请把它作为 retired 登记进 services/audit-export-key-registry.ts,旧信封才能验`))
+    }
+    return reply.send(
+      success({
+        keyId: hit.keyId,
+        algorithm: hit.algorithm,
+        publicKey: hit.publicKey,
+        keyStatus: hit.keyStatus,
+      }),
+    )
   } catch (e) {
     if (e instanceof AuditExportSignatureError) {
       request.log.error({ reason: e.reason }, '审计导出公钥不可用')
@@ -184,9 +221,20 @@ export const auditEvidenceExportRoutes: FastifyPluginAsync = async (server) => {
     '/public-key',
     {
       schema: {
-        summary: '获取审计导出验签公钥与 kid',
+        summary: '获取审计导出验签公钥与 kid(不带 kid = 当前签名公钥;带 kid = 按登记表取那把)',
         tags: ['audit-evidence-export'],
-        response: buildResponseSchema(401, 403, 500, 503),
+        querystring: {
+          type: 'object',
+          // 只声明类型、不声明 format/minLength —— 理由同本文件 `/signed` 那段注释
+          // (ajv 先拒会把客户端 400 掩盖成 500),空值判断在 sendPublicKey 里自己做。
+          properties: {
+            kid: {
+              type: 'string',
+              description: '信封 payload.keyId 记的那个 kid;省略则返回当前签名公钥',
+            },
+          },
+        },
+        response: buildResponseSchema(400, 401, 403, 404, 500, 503),
       },
     },
     sendPublicKey,
@@ -217,9 +265,12 @@ export const AUDIT_PUBLIC_KEY_ANON_RATE_LIMIT = { max: 30, timeWindow: '1 minute
  * "把公开清单扩成前缀正则"这一型(§5 鉴权面公开化铁律,agents.ts `/agents/health`
  * 游客可达且 handler 依赖 `request.userId` ⇒ 500 的同型事故)在本文件结构上不成立。
  *
- * 响应只含三样:`publicKey`(SPKI PEM)、`keyId`(公钥 sha256 前 16 位,收件方可自算,
- * 是标识不是凭据)、`algorithm`(固定 'RSA-SHA256')。私钥在本函数可达域内不可达 ——
- * 出口 `getAuditExportPublicKeyInfo()` 只读公钥 env,`sendPublicKey` 不接触任何签名路径。
+ * 响应不带 `kid` 时只含三样:`publicKey`(SPKI PEM)、`keyId`(公钥 sha256 前 16 位,收件方可自算,
+ * 是标识不是凭据)、`algorithm`(固定 'RSA-SHA256')。带 `?kid=`(86G-2 第二半)时多一个
+ * `keyStatus`(`active`/`retired`/`bootstrap`)—— 审计方需要知道它拿到的是不是一把已轮换的旧钥匙。
+ * 私钥在本函数可达域内不可达 ——
+ * 出口 `getAuditExportPublicKeyInfo()` / `getAuditExportPublicKeyInfoForKid()` 只读公钥材料,
+ * `sendPublicKey` 不接触任何签名路径。
  *
  * 前缀结论(现读口径):必须挂在 `/api/audit-evidence` 而非既有 admin 前缀下,理由
  * 写在本文件头注(network-segment 对 /api/admin/* 强制 allowExternal:false ⇒ 公网 403)。
@@ -235,7 +286,20 @@ export const auditEvidencePublicKeyRoutes: FastifyPluginAsync = async (server) =
         // 刻意不声明 429:@fastify/rate-limit 的超限响应体是它自己的
         // {statusCode,error,message} 形状(仓内既有形态),套上 errorResponseSchema
         // 反而会把它的 message 之外的键裁掉,给出一个两边都不像的半截体。
-        response: buildResponseSchema(500, 503),
+        //
+        // 404 是本票(86G-2 第二半)新增的一种**答复**,不是鉴权差异:带 `?kid=` 而表里
+        // 没登记 ⇒ 点名"这把没登记"。它必须与 200 分得开 —— 把未登记的 kid 回落成
+        // "给你当前这把",外部审计方会拿错材料验签,再把"验不过"误读成"证据被改过"。
+        querystring: {
+          type: 'object',
+          properties: {
+            kid: {
+              type: 'string',
+              description: '信封 payload.keyId;省略则返回当前签名公钥(与 86G-1 逐字同形)',
+            },
+          },
+        },
+        response: buildResponseSchema(400, 404, 500, 503),
       },
     },
     sendPublicKey,
