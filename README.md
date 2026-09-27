@@ -6371,3 +6371,4 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 > - 本仓库采用 **Apache-2.0** 开源许可：允许商用、修改与再分发（须保留版权声明与 NOTICE，并标注修改）。
 > - 版权与归属声明详见 **根目录 [NOTICE](NOTICE)**（Apache-2.0 要求随每一副本保留本声明与 NOTICE）。
 > - 源文件头部保留一行可见版权署名（Apache-2.0 第 4 条归属声明）。
+| `deploy/win/ihui-pg-backup.ps1`(生产实际执行的是 `deploy/prod-bundle/pg-backup.ps1`,两侧逐字节等值由守门 104 钉) | 每晚 03:00 逐库导出 `ihui_dev` + `keycloak`(自定义压缩格式,保留 ACL 只重映射属主),本地与云盘同步目录**同窗轮转 7 天** | `keycloak` 是这台机唯一"丢了就建不回来、而此前完全没被备份"的库(SSO realm 只活在库里,全仓无 realm-export / compose / kc.sh 可重建),而它只有 0.2MB。另一半成因:旧清理写死只匹配 `ihui_dev_*.dump`,于是 dash 命名的档与 `.sql.gz` 共 153.8MB 永久清不掉,云盘目录更是**一行清理代码都没有** —— 网盘配额撞顶的失败形态不是报错,而是同步客户端静默停传,和"从没配过异地"长一模一样 |
