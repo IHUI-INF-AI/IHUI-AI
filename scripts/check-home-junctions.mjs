@@ -95,6 +95,25 @@ export function staleStashes(registry = registryOf()) {
 }
 
 /**
+ * 这张登记表管的是**真人登录账户**下的路径,所以它必须先问"执行身份有没有一个真人家目录"。
+ * 判据只看形状:`<盘>:\Users\<某一个名字>`。刻意不维护"哪些账户算系统账户"的名单 ——
+ * 豁免清单必然腐烂(§4 对 RN_ONLY_BRAND_KEYS 的同一条教训)。
+ *
+ * 立判据的实测成因(2026-09-27):常驻守护 NSSM `IHUI-GIT-GUARD` 跑在 LocalSystem 下,
+ * 它的 homedir()/LOCALAPPDATA 解析到 `C:\Windows\System32\config\systemprofile`,而那里
+ * **真有一个 `AppData\Local\pnpm-cache` 实体目录** ⇒ 本门在系统身份下判到 REAL-DIR 恒红,
+ * 守护遂每 10 秒叫修复器去把**系统账户的目录**robocopy 进**真人正在用的缓存树**
+ * (实测那一轮报 1×copy-failed,没造成后果纯属运气:该次复制恰好失败)。
+ * 同一份判据换身份就换结论 ⇒ 唯一的诚实出口是"未判定",不是"照旧判"。
+ */
+export function isInteractiveUserHome(home) {
+  const h = String(home || '')
+    .replace(/\//g, '\\')
+    .replace(/\\+$/, '')
+  return /^([A-Za-z]:)\\Users\\[^\\]+$/.test(h)
+}
+
+/**
  * §26 登记表:家目录里**必须以指针形式存在**的工具态。
  * 只收本仓工具链产生或本仓产品自己的路径。第三方 IDE 自管态(`.workbuddy` 含被
  * `scripts/lib/gitdir.mjs` 当 git 二进制首选的 PortableGit、`.qoder-cn` 是本会话宿主的
@@ -395,6 +414,33 @@ function selfTest() {
 
 function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
+  if (!isInteractiveUserHome(homedir())) {
+    // 身份不在射程内 ⇒ 三态里的"未判定":既不冒绿(下面那句"全部有效"在这一身份下是假话),
+    // 也不判红(红会把无关的提交逼成 --no-verify,§12e)。守护侧有同一道闸,所以这一出口
+    // 主要防的是"人以 SYSTEM 身份手动跑门 / 别的调度器跑门"时拿到一个自洽但错位的结论。
+    const reason = `执行身份的家目录 ${homedir()} 不是交互用户配置目录(<盘>:\\Users\\<名>)⇒ §26 登记表在这一身份下解析到的是另一批路径`
+    if (argv.includes('--json')) {
+      console.log(
+        JSON.stringify(
+          {
+            violations: [],
+            ok: [],
+            absent: [],
+            stashes: [],
+            bytesOnC: 0,
+            checked: 0,
+            undetermined: true,
+            reason,
+          },
+          null,
+          2,
+        ),
+      )
+    } else {
+      console.log(`未判定:${reason} —— 本门对这一身份无结论(不记通过,也不判红)`)
+    }
+    return 0
+  }
   const r = audit()
   if (argv.includes('--check-stash')) {
     // 给守护用的独立信号:stash 残留**不进本门的 blocking 退出码**(它是机器态、不是提交者
@@ -461,6 +507,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 export const __test__ = {
   audit,
   registryOf,
+  isInteractiveUserHome,
   sizeOf,
   isLink,
   findStashes,

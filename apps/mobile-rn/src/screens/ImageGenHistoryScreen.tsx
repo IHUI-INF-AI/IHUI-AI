@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getAigcTasks, resolveFileUrl, type AigcTask } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { ImageGenHistoryScreen as SharedImageGenHistoryScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -122,7 +123,7 @@ export function ImageGenHistoryScreen() {
           setHistoryItems(res.data.list.map((task) => toGridHistoryItem(task, timeFormatter)))
           setHasMore(res.data.list.length >= PAGE_SIZE)
         } else {
-          setError(res.error || t('imageGen.loadFailed'))
+          setError(apiFailureToText(res, t('imageGen.loadFailed')))
         }
       } else {
         const res = await fetchApi<FavoritesData>('/api/image-gen/favorites', {
@@ -132,7 +133,7 @@ export function ImageGenHistoryScreen() {
           setFavItems(res.data.list.map((item) => toGridFavoriteItem(item, timeFormatter)))
           setHasMore(res.data.list.length >= PAGE_SIZE)
         } else {
-          setError(res.error || t('imageGen.loadFailed'))
+          setError(apiFailureToText(res, t('imageGen.loadFailed')))
         }
       }
       setPage(1)

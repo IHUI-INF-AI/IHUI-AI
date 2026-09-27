@@ -144,11 +144,8 @@ export default function PrivacySettingPage() {
             {t('settingPrivacy.systemPermissions')}
           </Text>
           <View className="rounded-xl border-[length:1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
-            {PERMISSIONS.map((item, idx) => (
-              <View
-                key={item.key}
-                className={`flex items-center justify-between py-[20rpx]${idx > 0 ? ' border-t-[length:1rpx] border-solid border-[color:var(--color-border)]' : ''}`}
-              >
+            {PERMISSIONS.map((item) => (
+              <View key={item.key} className="flex items-center justify-between py-[20rpx]">
                 <View className="mr-[16rpx] min-w-0 flex-1">
                   {/* label 对齐 RN: 14dp→28rpx + text.medium 语义映射 muted-foreground */}
                   <Text className="text-[length:28rpx] text-muted-foreground">
@@ -189,11 +186,8 @@ export default function PrivacySettingPage() {
             {t('settingPrivacy.privacySettings')}
           </Text>
           <View className="rounded-xl border-[length:1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
-            {switchItems.map((item, idx) => (
-              <View
-                key={item.key}
-                className={`flex items-center justify-between py-[20rpx]${idx > 0 ? ' border-t-[length:1rpx] border-solid border-[color:var(--color-border)]' : ''}`}
-              >
+            {switchItems.map((item) => (
+              <View key={item.key} className="flex items-center justify-between py-[20rpx]">
                 <View className="mr-[16rpx] min-w-0 flex-1">
                   <Text className="text-[length:28rpx] text-muted-foreground">{item.label}</Text>
                   <Text className="mt-[4rpx] block text-[length:24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">

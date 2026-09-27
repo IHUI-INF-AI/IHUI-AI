@@ -13,7 +13,7 @@ import {
   IA_MARGIN_PX,
   IA_PADDING_PX,
   IA_RECHARGE_FONT_PX,
-  IA_RECHARGE_TOUCH_PAD_PX,
+  IA_RECHARGE_HIT_PX,
   IA_ROBOT_ICON_INK_PX,
   IA_SUBTITLE_FONT_PX,
   IA_TEXT_GAP_PX,
@@ -51,12 +51,17 @@ const TOKEN_TEXT_STYLE: CSSProperties = {
   fontSize: toUnit(IA_TOKEN_FONT_PX),
   fontWeight: IA_HEADING_FONT_WEIGHT,
 }
-// 充值是本页最小可点块:上下内衬按 spec 派生式补到命中块 ≥44(小程序无 hitSlop 通道)。
-const RECHARGE_STYLE: CSSProperties = {
+// 充值是本页最小可点块:可点外壳撑到命中块 ≥44、可见文字不补量 —— 与 RN 同一档名、同一通道
+// (小程序无 hitSlop 通道,靠盒高兑现;裁决与落位同像素的依据见 spec 的 IA_RECHARGE_HIT_PX 条)。
+const RECHARGE_HIT_STYLE: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: toUnit(IA_RECHARGE_HIT_PX),
+}
+const RECHARGE_LABEL_STYLE: CSSProperties = {
   fontSize: toUnit(IA_RECHARGE_FONT_PX),
   fontWeight: IA_HEADING_FONT_WEIGHT,
-  paddingTop: toUnit(IA_RECHARGE_TOUCH_PAD_PX),
-  paddingBottom: toUnit(IA_RECHARGE_TOUCH_PAD_PX),
 }
 
 export interface IntelligentAssistantProps {
@@ -103,9 +108,11 @@ export default function IntelligentAssistant({
               : t('ai.intelligentAssistant.loginRequired')}
           </Text>
           {isLoggedIn && (
-            <Text className="ia-recharge-btn" style={RECHARGE_STYLE} onClick={onRecharge}>
-              {t('ai.intelligentAssistant.recharge')}
-            </Text>
+            <View style={RECHARGE_HIT_STYLE} onClick={onRecharge}>
+              <Text className="ia-recharge-btn" style={RECHARGE_LABEL_STYLE}>
+                {t('ai.intelligentAssistant.recharge')}
+              </Text>
+            </View>
           )}
         </View>
       </View>

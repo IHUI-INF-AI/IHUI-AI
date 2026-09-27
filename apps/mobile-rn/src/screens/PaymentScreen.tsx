@@ -14,6 +14,7 @@ import {
   syncPaymentStatus,
   type PaymentOrder,
 } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { PaymentScreen as SharedPaymentScreen, type PaymentOrderItem } from '@ihui/rn-app'
 import { openWeChatPayment } from '../lib/wechat-pay'
 import {
@@ -63,7 +64,7 @@ export function PaymentScreen() {
     if (res.success) {
       setOrders(toPaymentItem(res.data.list))
     } else {
-      setError(res.error || t('payment.loadFailed'))
+      setError(apiFailureToText(res, t('payment.loadFailed')))
     }
     setLoading(false)
     setRefreshing(false)

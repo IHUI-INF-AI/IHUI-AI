@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getExams, type Exam } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { ExamScreen as SharedExamScreen, type ExamItem, type ExamStatus } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -54,7 +55,7 @@ export function ExamScreen() {
       setError('')
       const res = await getExams({ pageSize: 20 })
       if (res.success) setExams((res.data.list ?? []).map(toExamItem))
-      else setError(res.error || t('exam.loadFailed'))
+      else setError(apiFailureToText(res, t('exam.loadFailed')))
       setLoading(false)
       setRefreshing(false)
     },
