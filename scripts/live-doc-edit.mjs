@@ -26,6 +26,11 @@
  *                    且替换后"除这些行以外逐行等值、总行数不变" ⇒ 才准落盘。
  *  LIVE_MSG          必填,提交信息
  *  LIVE_ROOT         测试/换仓通道:仓库根(缺省 = 本脚本所在仓根)
+ *  取号令牌(两种模式都可用,只在正文里出现):`{{NEXT_ID:G}}` 会在**每次 CAS 尝试**里由当下
+ *  HEAD 底稿现算成 `G-<下一个空闲号>`(判据住在 lib/plan-task-index.mjs 的 nextTaskIdNumber,
+ *  本器不另写一份)。为什么必须在这里算而不是由人先查:2026-09-27 一天内两次同号事故,
+ *  "提交前查一次占用"挡不住别人事后取同一个号(与守门编号撞号同族)。该族一条登记行都没有
+ *  ⇒ exit 2 拒绝落地,绝不给 "<族>-1"。
  * 退出码:0 = 已落地且回读证明本块每一条非空行都在 HEAD 里(索引对齐未尽只点名不判红);
  *        1 = 业务拒绝(锚点命中 0 或 >1 / 结构等值不成立 / 文档不在 HEAD / CAS 12 次未抢到 / 回读缺行 / 索引锁龄超上限);
  *        2 = 用法或环境错(缺必填 env / 锚点或正文块为空 / 根不可当仓库问)。
@@ -48,6 +53,37 @@ import {
   sameLines,
   writeBlob,
 } from './lib/bypass-git.mjs'
+import { nextTaskIdNumber } from './lib/plan-task-index.mjs'
+
+/**
+ * 令牌 `{{NEXT_ID:G}}` ⇒ 落成 `G-<下一个空闲号>`。
+ *
+ * 为什么住在落盘那一刻而不是由人来查:2026-09-27 一天内撞了**两次**同号 ——
+ * 一次是我与另一路各登记了一个 `G-262`,另一次是我刚将 `G-266` 落库,同一时刻别人也在按
+ * "我查到的空闲号"登记。"提交前查一次占用"在高并发仓里构不成证据(守门 93/103 的编号事故同一课),
+ * 唯一可靠的是**把取号放进 CAS 循环里**:每次尝试都从当下 HEAD 重算,撞了就重取底稿再来。
+ * 该族一条登记行都没有 ⇒ 判不出(返回 error),不给 "<族>-1" —— 空扫与"真没用过"同形(见 lib 同条注释)。
+ */
+const ID_TOKEN_RE = /\{\{NEXT_ID:([A-Za-z]+)\}\}/g
+
+export function resolveIdTokens(lines, baseContent) {
+  const families = new Set()
+  for (const l of lines) for (const m of String(l).matchAll(ID_TOKEN_RE)) families.add(m[1].toUpperCase())
+  if (families.size === 0) return { ok: true, lines, assigned: null }
+  const map = new Map()
+  for (const f of families) {
+    const n = nextTaskIdNumber(baseContent, f)
+    if (n === null) return { ok: false, reason: `no-such-family:${f}` }
+    map.set(f, n)
+  }
+  return {
+    ok: true,
+    lines: lines.map((l) =>
+      String(l).replace(ID_TOKEN_RE, (_, raw) => `${raw.toUpperCase()}-${map.get(raw.toUpperCase())}`),
+    ),
+    assigned: [...map.entries()].map(([f, n]) => `${f}-${n}`).join(','),
+  }
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -188,6 +224,10 @@ async function main() {
   let rejectReason = ''
   let baseCount = 0
   let nextCount = 0
+  // 每次尝试都可能重算令牌 ⇒ 生效版本必须活到循环外给回读用
+  let effBlock = block
+  let effReplacements = replacements
+  let assigned = null
   for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt++) {
     const head = git(['rev-parse', 'HEAD'], { root })
     if (headBlobOf(head, doc, { root }) === ABSENT) {
@@ -196,9 +236,26 @@ async function main() {
     }
     const baseLines = norm(git(['show', `${head}:${doc}`], { root, raw: true })).split('\n')
     baseCount = baseLines.length
-    const built = replacements
-      ? applyReplacements(baseLines, replacements)
-      : assemble(baseLines, block, anchorLines)
+    // 令牌**在每次尝试里重算**:别人先推进了 HEAD,下一轮算出的空闲号自然跟着变 ——
+    // 这正是把取号放进 CAS 的意义(提交前"查一次占用"在高并发仓里不构成证据)。
+    const baseContent = baseLines.join('\n')
+    const tok = resolveIdTokens(replacements ? replacements.map((p) => p.after) : block, baseContent)
+    if (!tok.ok) {
+      console.error(
+        `❌ 令牌取号判不出(${tok.reason})⇒ 拒绝落地:该族在这份 HEAD 底稿里一条登记行都没有,` +
+          `给 "<族>-1" 就是把"没查到"写成"这是空闲号"`,
+      )
+      process.exit(2)
+    }
+    if (tok.assigned) assigned = tok.assigned
+    effBlock = tok.assigned && !replacements ? tok.lines : block
+    effReplacements =
+      tok.assigned && replacements
+        ? replacements.map((p, i) => ({ ...p, after: tok.lines[i] }))
+        : replacements
+    const built = effReplacements
+      ? applyReplacements(baseLines, effReplacements)
+      : assemble(baseLines, effBlock, anchorLines)
     if (!built.ok) {
       rejectReason = built.reason || '结构等值不成立'
       // not-found / multi-hit 与"内容已漂移后重试"无关的形态也会随 HEAD 移动而变;一律当场拒绝,不重试猜测
@@ -223,7 +280,10 @@ async function main() {
     if (casUpdateRef(commit, head, { root })) {
       landed = commit
       parentSha = head
-      console.log(`✅ 第 ${attempt} 次 CAS 成功 HEAD=${commit}(${mode}) ${doc} 行数 ${baseCount} → ${nextCount}`)
+    console.log(
+      `✅ 第 ${attempt} 次 CAS 成功 HEAD=${commit}(${mode}) ${doc} 行数 ${baseCount} → ${nextCount}` +
+        (assigned === null ? '' : ` / 令牌取号(由该次 HEAD 底稿现算)=${assigned}`),
+    )
       break
     }
     console.log(`⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重取 HEAD 底稿重试`)
@@ -236,9 +296,9 @@ async function main() {
   // 回读证明:插入档要求"本块每一条非空行都在 HEAD 里";改写档要求"每一条 after 都在、
   // 且每一条 before 都不在了"—— 后半句才是"改成了"的证据,只查前半句等于什么都没判。
   const now = norm(git(['show', `${landed}:${doc}`], { root, raw: true }))
-  const missing = replacements
-    ? replacements.filter((p) => !now.includes(p.after)).map((p) => p.after)
-    : block.filter((l) => l.trim() !== '' && !now.includes(l))
+  const missing = effReplacements
+    ? effReplacements.filter((p) => !now.includes(p.after)).map((p) => p.after)
+    : effBlock.filter((l) => l.trim() !== '' && !now.includes(l))
   if (missing.length > 0) {
     console.error(`❌ 回读有 ${missing.length} 行不在 HEAD 里:\n  ${missing.slice(0, 4).join('\n  ')}`)
     process.exit(1)
@@ -280,5 +340,11 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { readInputs, locateAnchor, assemble, applyReplacements }
+export const __test__ = {
+  readInputs,
+  locateAnchor,
+  assemble,
+  applyReplacements,
+  resolveIdTokens,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
