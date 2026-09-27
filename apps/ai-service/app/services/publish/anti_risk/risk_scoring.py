@@ -38,19 +38,20 @@ import os
 import threading
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from app.core.logging import get_logger
 
+from .state_paths import resolve_state_path
+
 logger = get_logger(__name__)
 
 
-# 风险事件持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
-_EVENTS_FILE = Path(os.environ.get(
-    "ANTI_RISK_EVENTS_FILE",
+# 风险事件持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/;相对档锚定**仓库根**、与进程 cwd 无关)
+_EVENTS_FILE = resolve_state_path(
+    os.environ.get("ANTI_RISK_EVENTS_FILE"),
     ".ihui-agent/tmp/anti-risk-events.jsonl",
-)).resolve()
+)
 
 # 评分阈值
 _SCORE_SAFE = 20       # <= 20: safe
