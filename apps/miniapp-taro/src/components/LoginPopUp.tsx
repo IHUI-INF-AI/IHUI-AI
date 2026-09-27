@@ -198,7 +198,7 @@ export default function LoginPopUp({
             placeholder={tt('user.profile.nicknamePlaceholder', '请输入用户名')}
             maxlength={20}
             onInput={handleNicknameInput}
-            className="w-full rounded-md bg-muted text-foreground"
+            className="w-full rounded-sm bg-muted text-foreground"
             style={{
               height: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX),
               paddingLeft: toUnit(LOGIN_POPUP_ROW_PADDING_X_PX),
@@ -269,7 +269,7 @@ export default function LoginPopUp({
                 Taro.showToast({ title: tt('login.loginFailed', '登录失败,请重试'), icon: 'none' })
               }
             }}
-            className="w-full !py-0 !px-4 rounded-md !border-none text-center"
+            className="w-full !py-0 !px-4 rounded-sm !border-none text-center"
             style={{
               height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX),
               background: 'var(--color-primary)',
@@ -287,7 +287,7 @@ export default function LoginPopUp({
 
         {/* 关闭按钮 */}
         <View
-          className="w-full rounded-md bg-muted flex items-center justify-center"
+          className="w-full rounded-sm bg-muted flex items-center justify-center"
           style={{ height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX) }}
           onClick={onClose}
           hoverClass="opacity-60"
