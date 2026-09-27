@@ -261,6 +261,73 @@ ITEM_ADAPTER: TypeAdapter[Any] = TypeAdapter(
 )
 
 ForkMode = Literal["shared", "copy"]
+
+# ---------------------------------------------------------------------------
+# 身份键:只能由**承载层绑定的已验证主体**写入,任何客户端可写通道都改不动它
+# (2026-09-27 批 60 / G-249)
+# ---------------------------------------------------------------------------
+#
+# 为什么要有这份清单:threads 表没有 user_id 列(见 `_SCHEMA_V1`),属主与角色只存在
+# metadata JSON 里,而 metadata 是**客户端可整写**的字段(`thread/metadata` 的
+# merge=False、`POST /sessions/threads` 的 body.metadata)。实测两条敞口:
+#   · alice 的一次 merge=False 整写就把 `userId`/`roleId` 一起冲掉 ⇒ 重启恢复出的
+#     线程无属主 ⇒ 按 `_principal_allows` ② 的"无从对账"语义,**任何**已登录连接都能
+#     操作它(探针 .ihui-agent/tmp/b59/probe-meta-before.txt 记为 VULNERABLE);
+#   · 反过来,body.metadata 里塞 `userId:"<victim>"` 就能把线程**认领成别人的** ——
+#     它会出现在受害者的 thread.list 里,且只有受害者能续跑它。
+# 所以判序只有一处定义:创建时由显式入参盖章(调用方传进来的 metadata 一律先剥),
+# 之后任何 patch 都从**已落库的那份**带回来。这里刻意不写"哪些端点算客户端"的清单 ——
+# 清单必然腐烂(§4 对 RN_ONLY_BRAND_KEYS 的教训);不变量落在最下面的写入口上。
+IDENTITY_METADATA_KEYS: tuple[str, ...] = ("userId", "roleId")
+
+
+def scrub_identity_keys(metadata: dict[str, Any]) -> dict[str, Any]:
+    """剥掉调用方自带的身份键(返回新 dict,不改入参)。"""
+    return {k: v for k, v in metadata.items() if k not in IDENTITY_METADATA_KEYS}
+
+
+def carry_identity_keys(current: dict[str, Any], proposed: dict[str, Any]) -> dict[str, Any]:
+    """让身份键以 `current`(已落库的那份)为准盖回 `proposed`。
+
+    `current` 里没有该键 ⇒ 从 `proposed` 里**删掉**,而不是留下调用方写的新值:
+    "没有属主"与"属主是攻击者选的那个人"必须区分开,后者是伪造,前者只是未绑定。
+    """
+    result = dict(proposed)
+    for key in IDENTITY_METADATA_KEYS:
+        if key in current:
+            result[key] = current[key]
+        else:
+            result.pop(key, None)
+    return result
+
+
+def owner_scoped_allows(principal: str | None, owner: str | None) -> bool:
+    """**只读/销毁面**的严格属主判据:带身份时要求逐字相等(批 61 / G-250)。
+
+    与 `agent_engine._principal_allows` 只差一格:`principal` 有值而 `owner` 没有 ——
+    这里判**不通过**,那边判"无从对账"。差这一格是有意的,不是漂移:
+
+      · `_principal_allows` 守的是"已经建在内存里的线程归谁",那条线程是同一台引擎在
+        无人可证明身份时创建的(dev 通道),放宽它才不会把既有 dev/未鉴权链路改坏;
+      · 只读/销毁面拿到的是一个**任意 threadId**。无属主的那批行(未鉴权通道建的、
+        批 60 之前被整写抹掉身份的、fork/relay 派生的)一旦被认作"谁都能读",
+        就是"第一个带身份的调用者可以读走所有人没绑身份的会话"。
+
+    所以本判据与 `list_threads(owner_user_id=…)` / `full_text_search(owner_user_id=…)`
+    的 SQL 过滤**同形**:两处算同一件事必须一份实现,否则"列表里看不到但能直接读"这种
+    自相矛盾会长期存在。`principal` 为 None(未鉴权/dev 通道)时仍然全放。
+    """
+    if principal is None:
+        return True
+    return isinstance(owner, str) and owner == principal
+
+
+def thread_owner(thread: Thread | None) -> str | None:
+    """从库里那一行取属主(行不存在 / 键缺席 / 值不合型 ⇒ None)。"""
+    if thread is None:
+        return None
+    owner = thread.metadata.get("userId")
+    return owner if isinstance(owner, str) and owner else None
 TurnStatus = Literal["running", "completed", "interrupted", "failed"]
 
 # 合法状态迁移表
@@ -664,11 +731,24 @@ class SessionStore:
         parent_thread_id: str | None = None,
         fork_point_seq: int | None = None,
         fork_mode: ForkMode | None = None,
+        user_id: str | None = None,
+        role_id: int | None = None,
     ) -> Thread:
+        """新建线程。**身份只能从 user_id/role_id 这两个显式入参进来**。
+
+        调用方在 metadata 里自带的 userId/roleId 一律先剥掉(见 IDENTITY_METADATA_KEYS
+        上方那段实测)—— 否则 `POST /sessions/threads` 等于把"认领别人的会话"开放给
+        任何已登录用户。显式入参由承载层传(令牌主体),不是由请求体传。
+        """
         import uuid
 
         tid = thread_id or uuid.uuid4().hex
         now = _now()
+        stored = scrub_identity_keys(dict(metadata or {}))
+        if user_id:
+            stored["userId"] = user_id
+        if role_id:
+            stored["roleId"] = role_id
         with self._tx() as conn:
             conn.execute(
                 "INSERT INTO threads (thread_id, title, created_at, updated_at, metadata,"
@@ -679,7 +759,7 @@ class SessionStore:
                     title,
                     now,
                     now,
-                    json.dumps(metadata or {}, ensure_ascii=False),
+                    json.dumps(stored, ensure_ascii=False),
                     parent_thread_id,
                     fork_point_seq,
                     fork_mode,
@@ -690,7 +770,7 @@ class SessionStore:
             title=title,
             created_at=now,
             updated_at=now,
-            metadata=dict(metadata or {}),
+            metadata=dict(stored),
             parent_thread_id=parent_thread_id,
             fork_point_seq=fork_point_seq,
             fork_mode=fork_mode,
@@ -757,6 +837,13 @@ class SessionStore:
         语义);merge=False:整体替换为 patch。顺带更新 threads.updated_at。
         线程不存在返回 None。
 
+        两种 merge 模式下**身份键都不受 patch 影响**(`carry_identity_keys`):
+        这个方法是 metadata 的落库咽喉点,而 metadata 是客户端可整写的字段 ——
+        不在这里挡住,`thread/metadata` 的一次 merge=False 就会把属主抹成"无从对账",
+        或把线程认领成别人(实测见 IDENTITY_METADATA_KEYS 上方那段)。
+        codex 的 ClearableField 语义因此对这两个键刻意不适用:可清除的是业务元数据,
+        不是授权凭据。
+
         Returns:
             更新后的完整 metadata dict;线程不存在返回 None。
         """
@@ -767,9 +854,10 @@ class SessionStore:
             if row is None:
                 return None
             current = _json_dict(_row_str(row, "metadata"))
-            new_meta = (
+            merged = (
                 self._deep_merge_metadata(current, patch) if merge else dict(patch)
             )
+            new_meta = carry_identity_keys(current, merged)
             conn.execute(
                 "UPDATE threads SET metadata = ?, updated_at = ? WHERE thread_id = ?",
                 (json.dumps(new_meta, ensure_ascii=False), _now(), thread_id),
@@ -1179,6 +1267,15 @@ class SessionStore:
             parent_thread_id=thread_id,
             fork_point_seq=at_response_id,
             fork_mode="copy",
+            # 派生线程继承来源的属主/角色:它们是**引擎盖章过**的值(不是调用方可写的),
+            # 不继承就会造出一批"无属主"线程 —— 按 _principal_allows ② 那是"无从对账",
+            # 等于每次 fork 都把这条会话开放给所有已登录连接。
+            user_id=source.metadata.get("userId")
+            if isinstance(source.metadata.get("userId"), str)
+            else None,
+            role_id=source.metadata.get("roleId")
+            if isinstance(source.metadata.get("roleId"), int)
+            else None,
         )
         # 复制前缀 items(<=at_response_id)到新 thread
         with self._tx() as conn:
@@ -1348,23 +1445,45 @@ class SessionStore:
         *,
         thread_id: str | None = None,
         limit: int = 20,
+        owner_user_id: str | None = None,
     ) -> list[SearchHit]:
+        """全文检索。`owner_user_id` 非空时**过滤写在 SQL 里**。
+
+        与 `list_threads` 的属主过滤同一条理由:事后在响应侧筛会让"命中集合"与
+        "被筛掉的那批"来自两次读取,而且漏一处调用点就等于没过滤。判据口径与
+        `_owner_scoped_allows` 一致(带身份 ⇒ 无属主的行同样排除,那批行属 dev/未绑定通道)。
+        """
         if not query.strip():
             return []
         if self._fts_enabled:
-            hits = self._search_fts(query, thread_id, limit)
+            hits = self._search_fts(query, thread_id, limit, owner_user_id)
             if hits is not None:
                 return hits
-        return self._search_like(query, thread_id, limit)
+        return self._search_like(query, thread_id, limit, owner_user_id)
+
+    def _scope_sql(self, thread_id: str | None, owner_user_id: str | None) -> tuple[str, list[Any]]:
+        """两条检索路径**共用**的过滤片段(两份实现必漂移,本仓记过太多次)。"""
+        sql = ""
+        args: list[Any] = []
+        if thread_id:
+            sql += " AND thread_id = ?"
+            args.append(thread_id)
+        if owner_user_id:
+            sql += (
+                " AND thread_id IN (SELECT thread_id FROM threads"
+                " WHERE json_extract(metadata,'$.userId') = ?)"
+            )
+            args.append(owner_user_id)
+        return sql, args
 
     def _search_fts(
-        self, query: str, thread_id: str | None, limit: int
+        self,
+        query: str,
+        thread_id: str | None,
+        limit: int,
+        owner_user_id: str | None = None,
     ) -> list[SearchHit] | None:
-        scope_sql = ""
-        scope_args: list[Any] = []
-        if thread_id:
-            scope_sql = " AND thread_id = ?"
-            scope_args = [thread_id]
+        scope_sql, scope_args = self._scope_sql(thread_id, owner_user_id)
         sql = (
             "SELECT seq, thread_id, item_type,"
             " snippet(items_fts, 0, '', '', ' … ', 24) AS snip,"
@@ -1391,15 +1510,15 @@ class SessionStore:
         ]
 
     def _search_like(
-        self, query: str, thread_id: str | None, limit: int
+        self,
+        query: str,
+        thread_id: str | None,
+        limit: int,
+        owner_user_id: str | None = None,
     ) -> list[SearchHit]:
         term = query.strip()
         pattern = "%" + _escape_like(term) + "%"
-        scope_sql = ""
-        scope_args: list[Any] = []
-        if thread_id:
-            scope_sql = " AND thread_id = ?"
-            scope_args = [thread_id]
+        scope_sql, scope_args = self._scope_sql(thread_id, owner_user_id)
         sql = (
             "SELECT seq, thread_id, item_type, search_text FROM items"
             " WHERE search_text LIKE ? ESCAPE '\\'"

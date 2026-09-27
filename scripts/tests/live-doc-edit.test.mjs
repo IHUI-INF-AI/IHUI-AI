@@ -195,7 +195,7 @@ test('T11 端到端·整行改写:落地后旧形态逐条为零、其余行逐�
   writeFileSync(rep, JSON.stringify([{ before: src[2], after: '- [x] ✅(2026-09-27) **D1 待办**:说明。 〔收口:枚 abc1234〕' }]), 'utf8')
   const r = runLive(dir, { replaceFile: rep })
   assert.equal(r.status, 0, `应成功:${r.stdout}|${r.stderr}`)
-  assert.match(r.stdout, /旧形态在 HEAD 版里逐条为零/)
+  assert.match(r.stdout, /旧形态整行归零/)
   const now = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })).split('\n')
   assert.deepEqual(now, ['# 标题', '段落一', '- [x] ✅(2026-09-27) **D1 待办**:说明。 〔收口:枚 abc1234〕', '段落二', ''], '除声明行外不得有任何位移')
   assert.equal(indexBlobOf('DOC.md', { root: dir }), headBlobOf('HEAD', 'DOC.md', { root: dir }))
@@ -230,3 +230,19 @@ test('T12 端到端·整行改写的两型拒绝:锚点已漂 ⇒ 不写盘;插�
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '互斥拒绝时 HEAD 也必须原地不动')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T13 追加注记型改写(after 以 before 开头)必须判成功并做完索引对齐 —— 子串判据会误报"没生效"', (t) => {
+  // 台账更正绝大多数是"原行不动、行尾追加一句〔更正(日期)…〕",此时 before 天然是 after 的前缀。
+  // 旧回读用 `doc.includes(before)` ⇒ 判"旧形态仍在"而 exit 1,而主索引对齐在 exit 之后 ⇒
+  // 提交已落地、索引却停在父提交 blob,别人一次不带 pathspec 的普通提交就把这次交付写回旧版。
+  const src = ['# 计划', '- [ ] D9 某任务:等 owner 定权威。', '尾行']
+  const { dir, inputs } = makeDocRepo(t, src.join('\n'))
+  const rep = join(inputs, 'rep2.json')
+  writeFileSync(rep, JSON.stringify([{ before: src[1], after: `${src[1]} 〔更正(2026-09-27):本行应归"等人拍板"。〕` }]), 'utf8')
+  const r = runLive(dir, { replaceFile: rep })
+  assert.equal(r.status, 0, `追加注记型必须判成功:${r.stdout}|${r.stderr}`)
+  assert.match(r.stdout, /主索引已对齐 1\/1/)
+  const now = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })).split('\n')
+  assert.equal(now[1], `${src[1]} 〔更正(2026-09-27):本行应归"等人拍板"。〕`)
+  assert.equal(indexBlobOf('DOC.md', { root: dir }), headBlobOf('HEAD', 'DOC.md', { root: dir }))
+})

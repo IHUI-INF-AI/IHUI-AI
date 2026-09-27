@@ -6,7 +6,8 @@
  * LSP workspace 级工具(Wave 9,2026-07-22 立)
  *
  * 对标 OpenCode:补齐 workspace/symbol 全局符号搜索 + textDocument/rename + textDocument/codeAction。
- * 复用 lsp.ts 的 LspClient 单例管理(per workspace+language),支持 7 种语言。
+ * 复用 lsp.ts 的 LspClient 单例管理(per workspace+language)。语言集合只在
+ * `apps/cli/src/lsp/language-table.ts` 一处声明(本文件不抄清单)。
  *
  * 3 个工具:
  *   - lsp_workspace_symbol:全局符号搜索(用于 "找 AuthService 在哪定义")
@@ -18,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import type { TextEdit, WorkspaceEdit, CodeAction, SymbolInformation } from 'vscode-languageserver-protocol';
 import type { Tool, ToolResult } from './index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+import { LSP_SERVERS } from '../lsp/language-table.js';
 import {
   getLspClientByLanguage,
   getLspClientForFile,
@@ -25,6 +27,7 @@ import {
   toRelPath,
   resolveAndCheckFile,
   lspUnavailableResult,
+  type LspClient,
 } from './lsp.js';
 
 // ==================== Edit application helpers ====================
@@ -184,7 +187,9 @@ export const lsp_workspace_symbol: Tool = {
     if (!client) {
       return {
         success: true,
-        output: `不支持的语言: ${language}。支持的语言:typescript/rust/go/python/java/c/csharp`,
+        // 支持集由语言表现算,不得再抄一份字面量(改前这里是写死的
+        // "typescript/rust/go/python/java/c/csharp",加一门语言它就悄悄说谎)
+        output: `不支持的语言: ${language}。语言表当前登记:${LSP_SERVERS.map((c) => c.language).join('/')}`,
       };
     }
 
@@ -269,8 +274,10 @@ export const lsp_rename_symbol: Tool = {
     const fileCheck = resolveAndCheckFile(file, ctx.workspacePath);
     if (!fileCheck.ok) return { success: false, output: '', error: fileCheck.error };
 
-    const client = getLspClientForFile(ctx.workspacePath, fileCheck.filePath);
+    // 取 client 本身可能抛"这门语言没登记"(V3 #83 取消了静默回退),故一并放进 try
+    let client: LspClient;
     try {
+      client = getLspClientForFile(ctx.workspacePath, fileCheck.filePath);
       await client.ensureStarted();
     } catch (err) {
       return lspUnavailableResult(err);
@@ -350,8 +357,9 @@ export const lsp_code_actions: Tool = {
     const fileCheck = resolveAndCheckFile(file, ctx.workspacePath);
     if (!fileCheck.ok) return { success: false, output: '', error: fileCheck.error };
 
-    const client = getLspClientForFile(ctx.workspacePath, fileCheck.filePath);
+    let client: LspClient;
     try {
+      client = getLspClientForFile(ctx.workspacePath, fileCheck.filePath);
       await client.ensureStarted();
     } catch (err) {
       return lspUnavailableResult(err);
