@@ -331,6 +331,15 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
 - 端口:web `8801`、apps/api `8802`、ai-service `8803`(`docs/port-management.md`)。
 - 凭证加密:`apps/ai-service/app/services/publish/credentials_crypto.py`(AES-256-GCM);
   换密钥/新机首配可 `GET /api/publish/credentials-key/generate`。
+- **画像根只有一个，且与启动目录无关**：反风控画像目录由
+  `anti_risk/account_profile.resolve_profile_root()` 决定 —— 默认与相对值一律锚定**仓库根**
+  下的 `.ihui-agent/tmp/anti-profiles`，环境变量 `ANTI_RISK_PROFILE_DIR` 给绝对路径时原样采用。
+  历史上它是"相对值按进程 cwd 解析"，而 `pnpm --filter @ihui/ai-service dev` 的 cwd 是
+  `apps/ai-service` ⇒ 同一账号在两个物理根各有一份画像，换一次启动姿势等于**换一张脸**
+  （与 §7 的身份键是同一族的第二维）。换机/改根后先跑搬迁器（默认只报告，不动盘）：
+  `python apps/ai-service/scripts/relocate_profile_root.py`，确认清单后再 `--apply`。
+  它逐键判定：两边都有真实登录态 ⇒ **拒绝并交人工**（不猜哪份作数）；单边有 ⇒ 另一边按
+  `*.shell-<stamp>` / `*.probe-copy-<stamp>` **改名归档**（不删除，可回退）。
 
 ---
 
@@ -370,19 +379,56 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
   `--apply` 才动盘)。它是**改名迁移**(画像目录 `os.replace`、device_graph 绑定与冷却台账跟着换主),
   不是重建 —— 保留已扫码登录的画像;只处理能唯一归属的旧键,归属不明一律点名交人工;动盘前先把两个 JSON
   各复制一份 `.pre-identity-migration-<ts>` 备份。
+- **"有唯一出口"不等于"每个落点都接上了"**：任何 `get_adapter(...)` 之后要调
+  `publish()` / `verify_credentials()` 的落点，**必须**先 `adapter.db_account_id = <行 id>`。
+  今天实测到 6 个生产落点里只有 2 处注入，其余在**批量发布 / 批量验证**（一次把全部 active
+  账号各换一张脸，比单账号更危险）与两条登录态导入路径的校验里。判据是源码面的：
+  `apps/ai-service/tests/test_adapter_identity_db_id_injected.py`（取适配器后、消费身份键前
+  必须出现 `db_account_id =`；覆盖面按**出现次数**自证，不是按文件数）。
+- **导入路径先验后写**：库里已有凭据时，只有当轮 `verify` 真通过才允许覆盖；
+  `False`(已证伪)与 `None`(判不出：无适配器 / Playwright 未装 / 校验自身抛异常)都**不授权**
+  —— 工具坏了不构成"可以毁掉用户已有登录态"的许可。出口
+  `should_overwrite_existing_credentials` + `verify_login_candidate(platform, creds, 行 id)`。
+- **覆盖必须留余料**：写新密文前把旧密文压进 `publish_accounts.extra.credentialsHistory`
+  （有界 3 条、新的在前；`extra` 里别人的键逐字保住；历史准备失败只喊 error 并退回原写入）。
+  恢复侧读 `extra` 里那枚 `enc` 用同一把 `credentials_crypto.decrypt` 解即可。
+- 画像根只有一个且与启动目录无关：见 §5 最后一条（含搬迁器）。
 
 ---
 
 ## 8. 已知未收口项(如实登记,不是"已全部可用")
 
 1. **真正连通发布的只有 2 家**:掘金、CSDN(verify 实测 `connected`)。其中 CSDN 只到"验证通过",
-   发布链路仍撞登录墙(§4.11)——严格说全流程可发的目前只有掘金。
+   发布链路仍撞登录墙(§4.11)——严格说全流程可发的目前只有掘金。**2026-09-27 实测补充**:
+   掘金那篇已**公开可访问**(零 Cookie 上下文能读到正文,创作者面板「已发布」计数 +1,
+   审核通过前站内搜索 0 命中属平台侧行为,不是没发出去);CSDN 侧现在会回**可行动文案**
+   而不是 `publish timeout (no redirect)` —— 见 §4.11 与 `classify_publish_timeout`。
 2. **微博**缺 `access_token`、**头条**缺 `app_id`/`app_secret` ⇒ 开放平台凭据缺失,需人去申请,不是代码问题(§4.6、§4.9)。
 3. **微信公众号**verify 报 `errcode=40164 invalid ip <本机公网IP>` ⇒ 等平台侧 IP 白名单动作(§4.5)。
 4. **掘金发布后处于"审核中"**,站内搜索审核期间搜不到 —— 成功判据按 §4.12,别误判成发布失败。
+   同一节的选择器/形态已按当次一手 DOM 重校(平铺分类列表、`.publish-popup`、标签走 body 级 portal),
+   「提交响应 JSON 形状」与「`/published` 之后是否真跳」三项**未实测**(实测需真点一次提交,
+   本仓不在用户账号上做未取证的动作),夹具里按未实测如实标注。
 5. CSDN 扫码导入的 cookie **够读不够写**,首次配置必须人工在浏览器重新扫码登录一次(§4.11)。
 6. §0.1 的 24 个适配器均未实测;`setupHint` 未覆盖它们的字段语义(尤其 `access_token` 是平台 token 还是 cookie)多处标了**待核**。
-7. 前端注册表与适配器的键名差异(§0 对照表)未收敛为单一源 —— 表单按前端注册表键名存、适配器按自己清单读时,
-   差异键会表现为"填了等于没填";统一属另票。
+7. **注册表与适配器的凭据字段名对账:2026-09-27 已按"权威侧 = 适配器"改齐 api 侧** ——
+   10 处漂移(wordpress `app_password`→`application_password`、medium 多写 `author_id` 已删、bilibili
+   `buvid3`→`dedeuserid`、zhihu `d_c0`→`_xsrf`、juejin `sessionid_ss`→`signatureId`,以及
+   toutiao/douyin/kuaishou/weibo/shipinhao 五家泛键 `cookie` 换成各适配器实读键)全部订正,
+   两侧重叠的 14 平台现**逐键一致**(§0 差异表是修复前快照)。常驻尺子 =
+   `apps/api/tests/publish-credential-field-parity.test.ts`:适配器侧按 git HEAD 面的
+   `requires_credentials` 为权威清单、api 侧按工作树面,P1 集合差 / P2 覆盖差(§0.1 的 24 个未登记
+   平台属产品现状,**如实报数**不判红;豁免必须带 ≥20 字理由并受自洽三防线约束)/ P3 空扫判死。
+   **单一源仍没建**:注册表依旧是手写数组,这把尺子是"漂移即红"不是"自动派生",彻底收敛属另票。
+   **本尺子射程外的一格(2026-09-27 现读实证)**:适配器"**声明清单 vs 实际读取键**"是另一条轴 ——
+   `medium.py:71` 读了未声明的 `publication_id`;`douyin.py` 的 `client_secret` 与 `kuaishou.py` 的
+   `app_secret` 在各自文件内**只出现在头注和 `requires_credentials` 里,没有任何读取点**(逐文件全量
+   grep 穷举,非单形态抽查),而 kuaishou 另读了未声明的 `open_id`。若按"声明=必填"收紧,这两家会永远
+   要求用户填一个代码根本不用的字段。修的是**适配器侧、另计一票**,不得反过来改适配器迁就注册表。
 8. YouTube/抖音/快手的 **OAuth 授权流如何在站内走完**(回调、token 落库)未在本次核查证据内 —— 待核。
+9. **发布后的数据回收只支持知乎一家**：`app/services/publish/metrics_collector.py:115` 的分支只有
+   `platform == "zhihu"`，其它平台走 :122 记一句 `unsupported platform` 后返回空指标 ——
+   所以 `publish_metrics` 表实测**零行**，「刷新指标 / 数据看板」对掘金等平台是**空转，不是坏了**。
+   注册表里也没有任何字段声明这一点（现读 `grep -c supportsMetrics` = 0），因此前端无从区分
+   "没数据" 与 "采不了"。补采集器（逐平台按创作者后台接口）属另票，不在本票范围。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
