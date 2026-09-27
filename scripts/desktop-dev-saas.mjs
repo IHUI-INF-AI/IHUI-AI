@@ -27,6 +27,7 @@
  *   node scripts/desktop-dev-saas.mjs --keep-dev-server          # 保留 8801 现有 dev server
  */
 import { spawn, spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -88,16 +89,70 @@ function freePort(port) {
   }
 }
 
-/** 停止残留的桌面端实例(否则 cargo 链接阶段删不掉 exe → os error 5) */
+/** 本仓桌面端构建产物目录 —— 只有落在这个目录里的实例,才是"本脚本随后要覆盖掉的 exe"。 */
+const DESKTOP_TARGET_DIR = path.join(repoRoot, 'apps', 'desktop', 'src-tauri', 'target')
+
+/** PowerShell 入口:System32 那份在 5.1/7.x 机器上都在,且两版都有 Get-CimInstance。 */
+const PS_BIN = existsSync('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe')
+  ? 'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
+  : 'powershell'
+
+/**
+ * 停止**本仓构建产物**的残留桌面端实例(否则 cargo 链接阶段删不掉 exe → os error 5)。
+ *
+ * ⚠ 只按可执行文件**路径**筛,绝不按镜像名筛。旧写法是
+ * `spawnSync('taskkill', ['/IM', 'ihui-desktop.exe', '/F'])` —— 而 `/IM` 只接受裸文件名、
+ * 不接受路径,于是它杀的是全机同名进程,包括用户**已安装**的那一份
+ * (`D:\智汇AI\ihui-desktop.exe`,与开发构建同文件名、不同目录)。后果实测:任何人跑一次
+ * `pnpm dev:desktop:saas`,用户正在用的桌面端就被静默杀掉 —— 2026-09-27 当天该应用被重启 18 次,
+ * 而 Windows 事件日志没有任何原生崩溃记录(即"被终止"不是"自己崩"),用户侧表现即"程序崩溃/页面崩溃"。
+ *
+ * 失效方向刻意是"少杀":问不到路径(权限/别的用户起的/`ExecutablePath` 为 null)就**不杀**,
+ * 最多让本次 cargo 链接报 os error 5 —— 那是一条可诊断的失败,而误杀是用户事故。
+ */
 function stopRunningDesktop() {
   if (process.platform !== 'win32') return
-  const r = spawnSync('tasklist', ['/FI', `IMAGENAME eq ${DESKTOP_EXE}`], { encoding: 'utf8', windowsHide: true })
-  if (!r.stdout || !r.stdout.includes(DESKTOP_EXE)) {
-    log('无残留桌面端实例')
+  const script =
+    `Get-CimInstance Win32_Process -Filter "Name='${DESKTOP_EXE}'" | ` +
+    `ForEach-Object { '{0}|{1}' -f $_.ProcessId, $_.ExecutablePath }`
+  const r = spawnSync(PS_BIN, ['-NoProfile', '-NonInteractive', '-Command', script], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 40_000,
+  })
+  if (r.status !== 0) {
+    const why = r.stderr ? `:${String(r.stderr).trim().slice(0, 80)}` : ''
+    log(`⚠ 枚举桌面端进程失败(status=${r.status}${why}),本次不杀任何实例;若随后 cargo 报 os error 5,请手工关闭由本仓 target 启动的桌面端`)
     return
   }
-  log(`检测到运行中的 ${DESKTOP_EXE},先停止(避免 cargo 链接失败)...`)
-  spawnSync('taskkill', ['/IM', DESKTOP_EXE, '/F'], { stdio: 'ignore', windowsHide: true })
+  const norm = (s) => s.toLowerCase().replace(/[\\/]+/g, '/')
+  const prefix = `${norm(DESKTOP_TARGET_DIR)}/`
+  const mine = []
+  const foreign = []
+  for (const row of String(r.stdout || '').split(/\r?\n/)) {
+    const i = row.indexOf('|')
+    if (i < 0) continue
+    const pid = row.slice(0, i).trim()
+    const exe = row.slice(i + 1).trim()
+    if (!/^\d+$/.test(pid)) continue
+    if (!exe) {
+      foreign.push(`${pid}(路径问不到)`)
+      continue
+    }
+    if (norm(exe).startsWith(prefix)) mine.push(pid)
+    else foreign.push(`${pid}(${exe})`)
+  }
+  if (foreign.length) {
+    log(`检测到 ${foreign.length} 个非本仓 target 目录的同名实例,不动它们:${foreign.join(' | ')} —— 那是用户已安装/别处构建的应用`)
+  }
+  if (!mine.length) {
+    log('无本仓构建的残留桌面端实例')
+    return
+  }
+  log(`停止本仓构建的桌面端实例 ${mine.length} 个(pid=${mine.join(',')}),避免 cargo 链接失败...`)
+  for (const pid of mine) {
+    spawnSync('taskkill', ['/PID', pid, '/F'], { stdio: 'ignore', windowsHide: true })
+  }
 }
 
 /** 轮询等待端口可连接 */
