@@ -18,11 +18,13 @@
  * 说明:所有 reducer 均为纯函数(除默认参数 Date.now() 外无副作用),
  * 便于在无 React 环境(vitest)中直接断言。
  */
+import { describeMcpToolActivity } from '@ihui/shared/chat'
 import type {
   PlanUpdateEvent,
   TerminalEndEvent,
   TerminalStartEvent,
   ToolCallEvent,
+  ToolDeltaEvent,
 } from '@ihui/api-client'
 import type { PlanStepStatus, TerminalTaskStatus } from '@ihui/types'
 
@@ -57,6 +59,9 @@ export interface ToolCallItem {
   videoUrl?: string
   /** 异步任务 ID */
   taskId?: string
+  /** D113 流中 diff 预览(tool-delta 帧累积文本,整帧覆盖写入;tool-result 到达即清除,
+   *  最终 diff 以 result 为准。对齐 web ToolCall.partialDiff 语义) */
+  partialDiff?: string
 }
 
 /** Plan 步骤可渲染项 */
@@ -109,8 +114,9 @@ function toEpochMs(iso: string | undefined): number | undefined {
 
 /**
  * 折叠单个工具调用事件到消息级列表(纯函数)。
- * - tool-call-start:新增或原地更新为 running,记录 startedAtMs
- * - tool-result:按 toolCallId 找到并更新为 success/error,计算 durationMs,写入媒体产物
+ * - tool-call-start:新增或原地更新为 running,记录 startedAtMs;重放时保留已有流中预览
+ * - tool-result:按 toolCallId 找到并更新为 success/error,计算 durationMs,写入媒体产物;
+ *   D113:partialDiff 整帧清除(最终 diff 以 result 的 diffInfo 为准,对齐 web updates.partialDiff=undefined)
  */
 export function applyToolCallEvent(
   list: readonly ToolCallItem[] | undefined,
@@ -131,6 +137,7 @@ export function applyToolCallEvent(
           serverSource: event.serverSource ?? current?.serverSource,
           serverName: event.serverName ?? current?.serverName,
           startedAtMs: current?.startedAtMs ?? nowMs,
+          partialDiff: current?.partialDiff,
         }
       : {
           id: event.toolCallId,
@@ -149,11 +156,32 @@ export function applyToolCallEvent(
           audioUrl: event.audio_url,
           videoUrl: event.video_url,
           taskId: event.task_id,
+          // D113:tool-result 到达即清流中预览,不继承 current.partialDiff
+          partialDiff: undefined,
         }
 
   if (idx >= 0) prev[idx] = next
   else prev.push(next)
   return prev
+}
+
+/**
+ * D113 tool-delta 帧折叠(纯函数):文件写类工具流中 diff 预览。
+ * 载荷 partialText 为累积文本,按 toolCallId **覆盖式**写入 partialDiff
+ * (同 seq 重放/乱序天然幂等,seq 不参与判断,对齐 web createToolDeltaHandler)。
+ * - 空 toolCallId → 整帧丢弃,零写入
+ * - 列表中无该 toolCallId(start 帧未到)→ 不凭空造条目,原样返回
+ */
+export function applyToolDelta(
+  list: readonly ToolCallItem[] | undefined,
+  event: Pick<ToolDeltaEvent, 'toolCallId' | 'partialText'>,
+): ToolCallItem[] {
+  const prev = list ? [...list] : []
+  if (!event.toolCallId) return prev
+  if (!prev.some((item) => item.id === event.toolCallId)) return prev
+  return prev.map((item) =>
+    item.id === event.toolCallId ? { ...item, partialDiff: event.partialText } : item,
+  )
 }
 
 /**
@@ -365,5 +393,52 @@ export function formatStructured(value: unknown): string {
     // 循环引用等序列化失败场景降级为 String(不抛错,避免渲染崩溃)
     return String(value)
   }
+}
+
+/** 端内取词函数(与本端 `useI18n().t` 同一契约;第二参是 ICU 变量) */
+export type ToolRowTranslateFn = (key: string, params?: Record<string, string | number>) => string
+
+/** `mcpToolActivityTitle` 只读这四字段,签名收窄便于调用方与测试都只喂必要项 */
+export type McpToolRowInput = Pick<ToolCallItem, 'name' | 'status' | 'serverSource' | 'serverName'>
+
+/**
+ * MCP 工具行的定制措辞(D83 接线,mobile-rn 端的渲染点入口)。
+ *
+ * 措辞层本身不在端内:`@ihui/shared/chat` 的 `describeMcpToolActivity` 才是唯一数据源
+ * (server×tool → server → tool → 功能名 → 码名 五级回落 + 双时态 + 带上下文档),
+ * web(`task-status-bar.tsx` / `tool-call-card.tsx`)与小程序(`cards/tool-line.ts`)
+ * 已各自接上;本函数把同一份链接到本端的工具卡片行标题上,键一律在
+ * `taskStatus` 命名空间下取(与本端 `t('taskStatus.xxx')` 的既有点号全路径一致)。
+ *
+ * 返回 `null` 表示"这一行没有可渲染的定制/通用措辞",调用方必须沿用既有功能名口径:
+ * - 非 MCP(`serverSource !== 'mcp'`)—— 内置工具走 `describeToolCall` 的功能名,不归本层管;
+ * - error 态 —— 对失败的调用声称"已 X"是假陈述(与 web / 小程序同一口径);
+ * - 整条链走到链尾只剩原始码名 —— 界面禁止直显 `create_issue` 这类码名;
+ * - 语言包取不到而回显键名 —— 见下面 translate 闭包里那条"端内回显折成空串"的判据。
+ *
+ * 关于最后一条:共享层的 `usableRenderedText` 是拿**未加命名空间前缀**的键比渲染结果,
+ * 而本端 `t` 缺键时回显的是**点号全路径**(`taskStatus.toolMcpXxxActivity`),两者不等 ⇒
+ * 那道守卫在本端形状上判不出回显。本端键的拼法只有本端知道,故在取词边界上归一,
+ * 不去改共享层判据(改了要同时复核 web / 小程序两个消费端,属另一票)。
+ */
+export function mcpToolActivityTitle(
+  item: McpToolRowInput,
+  translate: ToolRowTranslateFn,
+): string | null {
+  if (item.serverSource !== 'mcp' || item.status === 'error') return null
+  const line = describeMcpToolActivity({
+    serverName: item.serverName ?? null,
+    toolName: item.name,
+    // 本端三态 → 共享层双时态:success 即"已完成"档,running 即"进行中"档
+    state: item.status === 'running' ? 'running' : 'completed',
+    translate: (key, params) => {
+      const namespacedKey = `taskStatus.${key}`
+      const text = translate(namespacedKey, params)
+      // 回显键名 → 交空串:共享层的可用性判据认空串为"本级未命中",会继续走链,
+      // 最终落回原始码名,由上面的 `line === item.name` 折成 null。
+      return text === namespacedKey ? '' : text
+    },
+  })
+  return line === item.name ? null : line
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
