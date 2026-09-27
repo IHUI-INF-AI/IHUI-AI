@@ -97,7 +97,7 @@ export default function ChildGradesPage() {
                       <TrendingDown className="h-4 w-4 text-red-500" />
                     )}
                   </div>
-                  <div className="h-2 overflow-hidden rounded bg-muted">
+                  <div className="h-2 overflow-hidden rounded-xs bg-muted">
                     <div
                       className={`h-full rounded-md transition-all ${
                         s.percentage >= 80

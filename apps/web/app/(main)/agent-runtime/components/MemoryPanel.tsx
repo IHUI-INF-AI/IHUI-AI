@@ -78,7 +78,7 @@ function LayerCard({ data }: { data: LayerData }) {
           <div key={e.id} className="space-y-1">
             <p className="text-xs leading-relaxed">{truncate(e.content)}</p>
             <div className="flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded bg-muted">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-xs bg-muted">
                 <div
                   className={`h-full ${importanceColor(e.importance)}`}
                   style={{ width: `${e.importance}%` }}

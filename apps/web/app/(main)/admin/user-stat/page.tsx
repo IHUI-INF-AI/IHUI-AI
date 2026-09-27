@@ -169,7 +169,7 @@ export default function UserStatPage() {
                 return (
                   <div key={r.role} className="flex items-center gap-2 text-sm">
                     <span className="w-20 shrink-0 truncate text-muted-foreground">{r.role}</span>
-                    <div className="relative h-4 flex-1 overflow-hidden rounded bg-muted/40">
+                    <div className="relative h-4 flex-1 overflow-hidden rounded-xs bg-muted/40">
                       <div
                         className="h-full rounded-md bg-primary/70"
                         style={{ width: `${(r.count / total) * 100}%` }}
@@ -199,7 +199,7 @@ export default function UserStatPage() {
               {stats.byRegion.slice(0, 8).map((r) => (
                 <div key={r.region} className="flex items-center gap-2 text-sm">
                   <span className="w-24 shrink-0 truncate text-muted-foreground">{r.region}</span>
-                  <div className="relative h-4 flex-1 overflow-hidden rounded bg-muted/40">
+                  <div className="relative h-4 flex-1 overflow-hidden rounded-xs bg-muted/40">
                     <div
                       className="h-full rounded-md bg-amber-500/70"
                       style={{ width: `${(r.count / totalRegion) * 100}%` }}

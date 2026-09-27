@@ -174,7 +174,7 @@ export default function ApiUsagePage() {
                         <td className="px-3 py-2 text-muted-foreground">{d.date}</td>
                         <td className="px-3 py-2 font-medium">{formatNumber(d.calls)}</td>
                         <td className="px-3 py-2">
-                          <div className="h-2 w-40 overflow-hidden rounded-2xl bg-muted">
+                          <div className="h-2 w-40 overflow-hidden rounded-xs bg-muted">
                             <div
                               className="h-full rounded-md bg-primary"
                               style={{ width: `${(d.calls / maxCalls) * 100}%` }}
