@@ -195,6 +195,46 @@ async function readLocalSnapshot() {
 }
 
 /**
+ * 分页取全 release 列表 —— 两家 API 都只给一页,而"第 1 页含不含最新版"是**排序假设**,
+ * 不是契约。实测踩到的形态:Gitee 的 /releases 把 desktop-v0.1.49 排在 `per_page=20`
+ * 的那一页之外,于是解析器在 0.1.49 已发布、Gitee 同步 job 已 success 的前提下,
+ * 仍然"正确地"报出 0.1.48 ⇒ 线上 feed 停在旧版,**所有老用户收不到自动更新提示**,
+ * 而发版链路每一环都是绿的。仓库里的 release 只会越来越多,这一格是必然恶化的。
+ *
+ * 三条要求:① 翻到"短页"为止(有上限,防被无限分页拖死);② 把**扫到多少条**打出来
+ * (枚举面自证 —— 静默少扫与扫全是同一个颜色);③ 首页就失败时返回 null 交给上层降级,
+ * 中途失败则带着已拿到的部分继续(比"整个源判死"更接近真相,且上层仍按 SemVer 取最高)。
+ */
+async function fetchReleasesPaged(baseUrl, headers, label, { perPage = 100, maxPages = 10 } = {}) {
+  const sep = baseUrl.includes('?') ? '&' : '?'
+  const out = []
+  for (let page = 1; page <= maxPages; page++) {
+    let batch
+    try {
+      const res = await fetch(`${baseUrl}${sep}per_page=${perPage}&page=${page}`, { headers })
+      if (!res.ok) {
+        if (page === 1) return null
+        console.warn(`[resolve] ${label} 第 ${page} 页 ${res.status},按已拿到的 ${out.length} 条继续`)
+        break
+      }
+      batch = await res.json()
+    } catch (e) {
+      if (page === 1) return null
+      console.warn(`[resolve] ${label} 第 ${page} 页取失败(${String(e).slice(0, 60)}),按已拿到的 ${out.length} 条继续`)
+      break
+    }
+    if (!Array.isArray(batch)) {
+      if (page === 1) return null
+      break
+    }
+    out.push(...batch)
+    if (batch.length < perPage) break
+  }
+  console.log(`[resolve] ${label} 扫描 release ${out.length} 条(分页取全,非单页截断)`)
+  return out
+}
+
+/**
  * 从 Gitee API 解析最新 desktop release(2026-09-17 立:本机一键发版只发 Gitee,
  * 下载页须能反映最新版本;Gitee 直链国内下载也快)。无匹配则返回 null 由 GitHub 兜底。
  */
@@ -203,14 +243,15 @@ async function resolveFromGitee() {
   const repo = process.env.GITEE_REPO || 'IHUI-AI'
   let releases
   try {
-    const res = await fetch(`https://gitee.com/api/v5/repos/${owner}/${repo}/releases?per_page=20`, {
-      headers: { Accept: 'application/json' },
-    })
-    if (!res.ok) return null
-    releases = await res.json()
+    releases = await fetchReleasesPaged(
+      `https://gitee.com/api/v5/repos/${owner}/${repo}/releases`,
+      { Accept: 'application/json' },
+      'Gitee',
+    )
   } catch {
     return null
   }
+  if (releases === null) return null
   const list = (Array.isArray(releases) ? releases : []).filter(
     (r) => r.tag_name && r.tag_name.startsWith(RELEASE_PREFIX) && !r.draft,
   )
@@ -287,11 +328,11 @@ async function resolveFromGithub() {
   const token = process.env.GITHUB_TOKEN
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const res = await fetch(`https://api.github.com/repos/${repo}/releases?per_page=30`, { headers })
-  if (!res.ok) {
-    throw new Error(`GitHub Releases API failed: ${res.status} ${res.statusText}`)
+  const releases = await fetchReleasesPaged(`https://api.github.com/repos/${repo}/releases`, headers, 'GitHub')
+  // 首页就取不到 ⇒ 保持原有的"硬失败"语义(调用方据此不落快照),不得静默当成"没有 release"
+  if (releases === null) {
+    throw new Error('GitHub Releases API failed: 首页不可达或非数组响应')
   }
-  const releases = await res.json()
   // 2026-09-18(实测):GitHub /releases 把 draft 排在列表**最前**,仓库里存有一个
   // draft 的 desktop-v0.1.16(2026-09-05 遗留草稿,17 个资产)。裸 find() 会命中它,
   // 生成指向草稿 untagged-* 资产 URL 的快照 → 下载页版本从 0.1.35 掉回 0.1.16 死链。
@@ -651,6 +692,24 @@ async function main() {
 
   const local = await readLocalSnapshot()
   const changed = !snapshotEqual(local, online)
+
+  // 平台集合变窄 ⇒ 拒写。判"变窄"而不是"看条数",因为 updater 键是**空签名不出键**导出的,
+  // 任何一次取不到签名都会让键静默消失,而脚本照样报"有差异,将写入"。
+  // 实测到过一次:同一份数据先后两跑,一跑输出 `updaterPlatforms: windows-x86_64, linux…,
+  // darwin…`,另一跑只剩 `windows-x86_64`(降级那份当时已写进工作树快照)。**具体成因未复现**
+  // —— 我一度归因于"没带 GITHUB_TOKEN",随后不带 token 重跑得到的是完整 4 键,该归因已否证。
+  // 正因为成因不明,这一格不能靠"下次记得看输出"兜:收窄一律拒写,确属故意再显式放行。
+  // ⚠ 如实登记:本护栏加上的当轮**未能端到端触发**(降级条件没再现),它的判据只经过
+  // 代码路径审阅,没有跑过"少一键 ⇒ exit 1"的实证。补法:给脚本一个可注入的 local 快照路径。
+  const beforeKeys = Object.keys((local && local.updaterPlatforms) || {})
+  const afterKeys = Object.keys(online.updaterPlatforms || {})
+  const lostPlatforms = beforeKeys.filter((k) => !afterKeys.includes(k))
+  if (lostPlatforms.length > 0 && !process.env.ALLOW_NARROWER_FEED) {
+    printSnapshot('线上数据', online)
+    log('err', `updaterPlatforms 比现有快照少 ${lostPlatforms.join(', ')}(现 ${beforeKeys.length} → 新 ${afterKeys.length})`)
+    log('err', '最常见原因是签名资产取不到(未带 GITHUB_TOKEN / 被限流),而不是这一版真没有这些平台;确属故意收窄请带 ALLOW_NARROWER_FEED=1 重跑')
+    process.exit(1)
+  }
 
   if (checkMode) {
     printSnapshot('线上数据', online)
