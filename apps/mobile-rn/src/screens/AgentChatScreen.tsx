@@ -8,6 +8,7 @@ import { StyleSheet, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { AgentChatScreen as SharedAgentChatScreen, type AgentChatMessage } from '@ihui/rn-app'
 import { VoiceInput } from '../components/VoiceInput'
 import { useI18n } from '../i18n'
@@ -39,7 +40,7 @@ export function AgentChatScreen() {
       )
       if (cancelled) return
       if (res.success) setMessages(res.data ?? [])
-      else setError(res.error || t('agentChat.loadFailed'))
+      else setError(apiFailureToText(res, t('agentChat.loadFailed')))
       setLoading(false)
     })()
     return () => {
@@ -67,7 +68,7 @@ export function AgentChatScreen() {
       ])
       setInput('')
     } else if (!res.success) {
-      setError(res.error || t('agentChat.sendFailed'))
+      setError(apiFailureToText(res, t('agentChat.sendFailed')))
     }
   }
 

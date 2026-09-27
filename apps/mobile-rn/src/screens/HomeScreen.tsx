@@ -97,7 +97,7 @@ import {
 } from '@ihui/rn-app'
 import type { CarouselItem } from '@ihui/ui-native'
 import type { AiModelData, ApiResult, AppIcon } from '@ihui/types'
-import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToError, apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import Carousel from '../components/Carousel'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
@@ -941,7 +941,7 @@ export function HomeScreen() {
           if (res.success) {
             setMaterialDetailData(res.data)
           } else {
-            setMaterialDetailError(res.error ?? '加载详情失败')
+            setMaterialDetailError(apiFailureToText(res, '加载详情失败'))
           }
         })
         .catch(() => setMaterialDetailError('网络异常,加载失败'))

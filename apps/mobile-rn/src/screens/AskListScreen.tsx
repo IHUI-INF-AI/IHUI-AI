@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { AskListScreen as SharedAskListScreen, type AskListItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -28,7 +29,7 @@ export function AskListScreen() {
     setError('')
     const res = await fetchApi<AskListItem[]>('/api/asks')
     if (res.success) setAsks(res.data ?? [])
-    else setError(res.error || t('askList.loadFailed'))
+    else setError(apiFailureToText(res, t('askList.loadFailed')))
     setLoading(false)
     setRefreshing(false)
   }
