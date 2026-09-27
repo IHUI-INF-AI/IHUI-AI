@@ -47,6 +47,48 @@ import { logger } from '@/lib/logger'
  * 浏览器环境下 isDesktop=false,所有操作为 no-op,appInfo=null。
  * 组件可根据 isDesktop 决定是否渲染客户端独占 UI。
  */
+/** IPC 注入探测的时序参数(与下方 useDesktop 原实现逐字同值,只是搬进共用出口)。 */
+const IPC_POLL_INTERVAL_MS = 50
+const IPC_POLL_TIMEOUT_MS = 3000
+
+/**
+ * useTauriIpcReady — `window.__TAURI_INTERNALS__` 是否已注入。
+ *
+ * 为什么必须轮询而不是同步判一次:`__TAURI_INTERNALS__` 由 webview 在页面加载后异步注入
+ * (本文件 useDesktop 的原注释记的正是这个时机:Windows 上通常 100-500ms)。
+ * 同步判定撞上未注入的那一刻,结论就是"这不是桌面端",而且**整个会话再没有第二次机会**。
+ *
+ * 2026-09-27 立因(真机取证):useDesktopEvents / useDesktopDeepLink / useSystemTheme /
+ * useTrayStatus 四个 hook 各自写着 `if (!isTauri()) return`,而 useDesktop 早就为同一个
+ * 时机写了 50ms 轮询 —— 两份判据、只有一份抗得住竞态。托盘「退出」点下去 Rust 侧
+ * emit 成功而页面无人接收(截图实证:点击后 25s 界面上没有任何退出遮罩),
+ * 只能靠 Rust 侧新加的兜底看门狗在 120s 后强退;深链与系统主题同一型静默失效。
+ *
+ * 浏览器端永远探测不到 ⇒ 恒 false,调用方不注册任何监听,无副作用。
+ */
+export function useTauriIpcReady(): boolean {
+  const [ready, setReady] = React.useState(false)
+  React.useEffect(() => {
+    let cancelled = false
+    const start = Date.now()
+    const check = () => {
+      if (cancelled) return
+      if (isTauri()) {
+        setReady(true)
+        return
+      }
+      // 超时后保持 false:浏览器端属正常路径,不得 warn(每个页面都会走到这里)
+      if (Date.now() - start > IPC_POLL_TIMEOUT_MS) return
+      setTimeout(check, IPC_POLL_INTERVAL_MS)
+    }
+    check()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  return ready
+}
+
 export function useDesktop() {
   // 2026-07-26 用户反馈(第六次):useState(() => isTauri()) 在静态导出 + Tauri 2.x 异步注入时机下
   //   第一次 render 时 window.__TAURI_INTERNALS__ 尚未注入,isDesktop 始终为 false,
@@ -55,40 +97,13 @@ export function useDesktop() {
   // 浏览器端 useEffect 永远检测不到,稳定返回 false,不影响 SSR/CSR 一致性。
   // 2026-07-29:withGlobalTauri 关闭后,__TAURI__ 不再注入,isTauri() 只检查
   //   __TAURI_INTERNALS__,轮询逻辑不变(本就依赖此标识的注入时机)。
-  const [isDesktop, setIsDesktop] = React.useState(false)
+  // 2026-09-27:轮询本体搬进 useTauriIpcReady(见其注释),此处语义与取值时机逐字不变。
+  const isDesktop = useTauriIpcReady()
   const [appInfo, setAppInfo] = React.useState<DesktopAppInfo | null>(null)
   const [isMaximized, setIsMaximized] = React.useState(false)
   const [autostartEnabled, setAutostartEnabled] = React.useState(false)
   const [trayAlwaysVisible, setTrayAlwaysVisibleState] = React.useState(true)
   const [loading, setLoading] = React.useState(true)
-
-  // 初始化:挂载后探测 Tauri(避免 hydration mismatch)
-  // 2026-07-28 优化:原 10 秒超时太长,首启桌面端 UI(窗口控制按钮/resize/拖拽)10 秒内不显示
-  //   - Tauri 2.x 在 Windows 上注入 __TAURI_INTERNALS__ 通常 100-500ms 内完成
-  //   - 缩短到 3 秒超时,50ms 间隔轮询,正常情况 100-500ms 内检测到
-  //   - 浏览器端永远检测不到,稳定 false
-  React.useEffect(() => {
-    let cancelled = false
-    const start = Date.now()
-    const TIMEOUT_MS = 3000
-    const INTERVAL_MS = 50
-    const check = () => {
-      if (cancelled) return
-      if (isTauri()) {
-        setIsDesktop(true)
-        return
-      }
-      if (Date.now() - start > TIMEOUT_MS) {
-        // 浏览器端或 Tauri 注入失败,保持 false
-        return
-      }
-      setTimeout(check, INTERVAL_MS)
-    }
-    check()
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   // 初始化:加载 appInfo + 窗口状态 + 自启状态
   React.useEffect(() => {
@@ -216,9 +231,10 @@ export function useDesktop() {
  */
 export function useSystemTheme(): 'light' | 'dark' | null {
   const [systemTheme, setSystemTheme] = React.useState<'light' | 'dark' | null>(null)
+  const ipcReady = useTauriIpcReady()
 
   React.useEffect(() => {
-    if (!isTauri()) return
+    if (!ipcReady) return
     let cancelled = false
 
     // 挂载时一次性获取当前系统主题
@@ -238,7 +254,7 @@ export function useSystemTheme(): 'light' | 'dark' | null {
       cancelled = true
       unlisten()
     }
-  }, [])
+  }, [ipcReady])
 
   return systemTheme
 }
@@ -268,8 +284,11 @@ export function useSystemTheme(): 'light' | 'dark' | null {
  * 浏览器端 isTauri()=false,此 hook 不注册监听,无副作用。
  */
 export function useDesktopEvents(): void {
+  // 2026-09-27:改判 useTauriIpcReady 而非同步 isTauri() —— 原写法在 IPC 尚未注入的
+  // 那一帧挂载时,整个会话都不会注册托盘监听(真机表现:托盘「退出」无人接)。
+  const ipcReady = useTauriIpcReady()
   React.useEffect(() => {
-    if (!isTauri()) return
+    if (!ipcReady) return
     // 动态 import 避免浏览器端加载 Tauri event API
     let unlistenTray: (() => void) | undefined
     let unlistenShortcut: (() => void) | undefined
@@ -345,7 +364,7 @@ export function useDesktopEvents(): void {
         unlistenBeforeClose?.()
       })
     }
-  }, [])
+  }, [ipcReady])
 }
 
 /** Rust 侧深链积压的取回命令名 —— 与 lib.rs 的 `DEEP_LINK_TAKE_COMMAND`、
@@ -371,8 +390,9 @@ const DEEP_LINK_TAKE_COMMAND = 'take_pending_deep_links'
  * 浏览器端 isTauri()=false,本 hook 不注册监听,无副作用。
  */
 export function useDesktopDeepLink(): void {
+  const ipcReady = useTauriIpcReady()
   React.useEffect(() => {
-    if (!isTauri()) return
+    if (!ipcReady) return
     let unlistenDeepLink: (() => void) | undefined
     let cancelled = false
     // 2026-08-02 修复: 异步监听器泄漏 - listen() 异步, cleanup 时可能未完成, unlisten 未赋值导致泄漏
@@ -425,7 +445,7 @@ export function useDesktopDeepLink(): void {
         unlistenDeepLink?.()
       })
     }
-  }, [])
+  }, [ipcReady])
 }
 
 /**
@@ -440,8 +460,9 @@ export function useDesktopDeepLink(): void {
  * 浏览器端 isTauri()=false,setTrayStatus 为 no-op,无副作用。
  */
 export function useTrayStatus(isStreaming: boolean, unreadCount: number): void {
+  const ipcReady = useTauriIpcReady()
   React.useEffect(() => {
-    if (!isTauri()) return
+    if (!ipcReady) return
     if (isStreaming) {
       void setTrayStatus('thinking')
     } else if (unreadCount > 0) {
@@ -449,6 +470,6 @@ export function useTrayStatus(isStreaming: boolean, unreadCount: number): void {
     } else {
       void setTrayStatus('idle')
     }
-  }, [isStreaming, unreadCount])
+  }, [ipcReady, isStreaming, unreadCount])
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
