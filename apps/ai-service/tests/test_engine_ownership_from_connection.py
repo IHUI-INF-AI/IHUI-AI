@@ -19,6 +19,9 @@ sandbox_full_access 权限升级),那两处旧代码完全不做属主判定。
   · 结算侧统一走同一个咽喉点:点名他人线程 ⇒ applied=False + **零副作用**;
   · `_permission_requests` 存带主记录(thread_id/user_id/future),"谁能结哪条"由构造决定;
   · `thread.list` 两分支都按属主过滤,`total`/`hasMore` 与被过滤的那批一致。
+  · G-251 补第三张待决表:`_elicitation_requests` 同样存带主记录,陌生连接替别人
+    回答 elicitation(= 往别人的模型回合里塞输入)被拒,且"没这条"与"不是你的"
+    **同形回包**(elicitationId 是唯一把手,分出两态即成存在性预言机)。
 
 控制测量(判据不是空转的证据):在实现之前,下面这几条越权用例的行为是
 `applied=True` + alice 的审批/future 被结算 —— 当时由
@@ -49,6 +52,7 @@ from app.services.agent_engine import (
     THREAD_NOT_FOUND,
     AgentEngine,
     EngineThread,
+    _PendingElicitationRequest,
     _PendingPermissionRequest,
 )
 from app.services.session_store import SessionStore
@@ -481,4 +485,171 @@ async def test_permission_request_registration_stamps_owner(engine_ref) -> None:
         assert body["result"]["applied"] is True
         granted = await task
     assert granted["granted"] is True and granted["decision"] == "approve"
+
+
+# ---------------------------------------------------------------------------
+# 9. G-251:elicitation 待决提问(第三张跨线程全局 dict)必须带主
+# ---------------------------------------------------------------------------
+
+
+async def _ask_user_input(
+    engine: AgentEngine, thread: EngineThread
+) -> tuple[str, asyncio.Task[Any]]:
+    """真走**注册点**发起一次 elicitation(不手搓待决表条目)。
+
+    刻意不用 `engine._elicitation_requests[x] = ...` 造现场:那样即使注册点退回裸
+    future,本组用例仍然全绿 —— 而"带主注册"正是本票要钉住的那一半。
+    """
+    requests: list[dict[str, Any]] = []
+
+    async def _emit(message: dict[str, Any]) -> None:
+        if message.get("method") == "elicitation/request":
+            requests.append(message["params"])
+
+    thread.emit = _emit
+    tool = _find_builtin(engine, thread, "request_user_input")
+    task: asyncio.Task[Any] = asyncio.create_task(
+        tool.executor({"question": "选择部署区域?"})
+    )
+    for _ in range(200):
+        if engine._elicitation_requests:
+            break
+        await asyncio.sleep(0.01)
+    assert engine._elicitation_requests, "request_user_input 未登记待决提问"
+    assert len(requests) == 1, requests
+    return str(requests[0]["elicitationId"]), task
+
+
+async def test_elicitation_registration_stamps_owner(engine_ref) -> None:
+    """属主由注册点盖章:记录里的 thread_id/user_id 与线程同源(装车证明)。"""
+    engine = engine_ref()
+    alice = _client_for("alice", engine)
+    async with alice:
+        tid = await _start_thread(alice)
+        elicitation_id, task = await _ask_user_input(engine, _thread_of(engine, tid))
+        record = engine._elicitation_requests[elicitation_id]
+        assert isinstance(record, _PendingElicitationRequest)
+        assert record.thread_id == tid and record.user_id == "alice"
+        assert not record.future.done()
+        body = await _call(
+            alice,
+            "elicitation.respond",
+            {"elicitationId": elicitation_id, "value": {"region": "cn-north"}},
+        )
+        assert body["result"]["applied"] is True, body["result"]
+        outcome = await task
+    assert outcome == {"responded": True, "value": {"region": "cn-north"}}
+    # 结算后注册点自己清账(finally pop),不得留下跨连接可读的残留把手
+    assert engine._elicitation_requests == {}
+
+
+async def test_foreign_connection_cannot_answer_elicitation(engine_ref) -> None:
+    """bob 猜中 elicitationId ⇒ 被拒且**零副作用**;alice 仍能正常答(正向对照)。
+
+    修复前的行为由 `.ihui-agent/tmp/b59/probe-before.txt` 记录:同一请求
+    `applied=True` 且 alice 的工具直接拿到 bob 塞进去的值 —— 后果是
+    **别人的模型回合里出现攻击者提供的输入**,比读到别人的数据更重。
+    """
+    engine = engine_ref()
+    alice = _client_for("alice", engine)
+    bob = _client_for("bob", engine)
+    async with alice, bob:
+        tid = await _start_thread(alice)
+        elicitation_id, task = await _ask_user_input(engine, _thread_of(engine, tid))
+        stolen = await _call(
+            bob,
+            "elicitation.respond",
+            {"elicitationId": elicitation_id, "value": "STOLEN"},
+        )
+        assert stolen["result"]["applied"] is False, stolen["result"]
+        await asyncio.sleep(0)
+        assert not task.done(), "陌生连接唤醒了 alice 名下的待决提问"
+        answered = await _call(
+            alice,
+            "elicitation.respond",
+            {"elicitationId": elicitation_id, "value": {"region": "cn"}},
+        )
+        assert answered["result"]["applied"] is True
+        outcome = await task
+    assert outcome == {"responded": True, "value": {"region": "cn"}}
+
+
+async def test_elicitation_rejection_is_not_an_existence_oracle(engine_ref) -> None:
+    """"这条不是你的"与"根本没有这条"必须**同形回包**。
+
+    elicitationId 是该端点唯一的把手,分出两态就把它变成存在性预言机(与
+    `_require_thread` 的"不给可枚举信号"同一条口径;`approval.respond` 那侧刻意不同,
+    因为那里的请求本身就点名了 threadId,再说一次不增加信息)。
+    """
+    engine = engine_ref()
+    alice = _client_for("alice", engine)
+    bob = _client_for("bob", engine)
+    async with alice, bob:
+        tid = await _start_thread(alice)
+        elicitation_id, task = await _ask_user_input(engine, _thread_of(engine, tid))
+        foreign = await _call(
+            bob, "elicitation.respond", {"elicitationId": elicitation_id, "value": 1}
+        )
+        missing = await _call(
+            bob,
+            "elicitation.respond",
+            {"elicitationId": "eli_nope_000000", "value": 1},
+        )
+        assert {k: v for k, v in foreign["result"].items() if k != "elicitationId"} == {
+            k: v for k, v in missing["result"].items() if k != "elicitationId"
+        }, (foreign["result"], missing["result"])
+        assert not task.done()
+        await _call(
+            alice,
+            "elicitation.respond",
+            {"elicitationId": elicitation_id, "value": None},
+        )
+        await task
+
+
+async def test_elicitation_named_foreign_thread_yields_no_side_effects(
+    engine_ref,
+) -> None:
+    """bob 点名 alice 的线程去答她的提问 ⇒ reason=foreign_thread 且待决表未被触碰。"""
+    engine = engine_ref()
+    alice = _client_for("alice", engine)
+    bob = _client_for("bob", engine)
+    async with alice, bob:
+        alice_tid = await _start_thread(alice)
+        elicitation_id, task = await _ask_user_input(engine, _thread_of(engine, alice_tid))
+        before = dict(engine._elicitation_requests)
+        body = await _call(
+            bob,
+            "elicitation.respond",
+            {"threadId": alice_tid, "elicitationId": elicitation_id, "value": "STOLEN"},
+        )
+        assert body["result"]["applied"] is False
+        assert body["result"]["reason"] == "foreign_thread", body["result"]
+        assert dict(engine._elicitation_requests) == before, "越权尝试动过别人的待决表"
+        await asyncio.sleep(0)
+        assert not task.done()
+        await _call(
+            alice,
+            "elicitation.respond",
+            {"elicitationId": elicitation_id, "value": "ok"},
+        )
+        assert await task == {"responded": True, "value": "ok"}
+
+
+async def test_elicitation_unauthenticated_channel_is_unchanged(engine_ref) -> None:
+    """principal=None(未鉴权/dev 通道)⇒ 与改动前逐字相同,直接结算。
+
+    这一条是**反向锁**:本票只收紧"带身份的调用",不得把 harness 既有链路
+    (tests/test_engine_harness_fourth.py 里不带 userId 的用法)改坏。
+    """
+    engine = engine_ref()
+    anon = _client_for(None, engine)
+    async with anon:
+        tid = await _start_thread(anon, declared_user_id="declared-y")
+        elicitation_id, task = await _ask_user_input(engine, _thread_of(engine, tid))
+        body = await _call(
+            anon, "elicitation.respond", {"elicitationId": elicitation_id, "value": 42}
+        )
+        assert body["result"] == {"elicitationId": elicitation_id, "applied": True}
+        assert await task == {"responded": True, "value": 42}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -225,6 +225,7 @@ test('M11 F8 成套性:进 probe / 基线地板为 0 / 涨判红降判绿(缺一
       voidRows: 0,
       rotatedPointers: 0,
       dupOpenCopies: 0,
+      verbatimDupCopies: 0,
       dupBlocks: 0,
       newUndisposed: 3,
       mergeNotes: 99,
@@ -262,6 +263,7 @@ test('M11 F8 成套性:进 probe / 基线地板为 0 / 涨判红降判绿(缺一
       voidRows: 0,
       rotatedPointers: 0,
       dupOpenCopies: 0,
+      verbatimDupCopies: 0,
       dupBlocks: 0,
       newUndisposed: n,
       mergeNotes: 99,
@@ -329,6 +331,7 @@ test('P-x 跨文件出口锁:probe 必须由 plan-tasks 真导出,且收敛器�
       voidRows: 0,
       rotatedPointers: 0,
       dupOpenCopies: 0,
+      verbatimDupCopies: 0,
       dupBlocks: 0,
       mergeNotes: 0,
     },
@@ -336,7 +339,9 @@ test('P-x 跨文件出口锁:probe 必须由 plan-tasks 真导出,且收敛器�
   if (dims.length < 4)
     throw new Error(`probe 读数维度少于 4 条:${JSON.stringify(dims.map((d) => d[0]))}`)
   for (const [k, label, n] of dims) {
-    if (!/^F\d$/.test(k) || typeof label !== 'string' || typeof n !== 'number')
+    // `F4b` 这类**姊妹维**必须被形态判据放行:它不是新造命名法,而是"同一族病里 F4 看不见的那一格"。
+    // 把维度名锁成 `F\d` 会让加维的第一反应变成"改测试",而正确的动作是改判据命名一致性。
+    if (!/^F\d+[a-z]?$/.test(k) || typeof label !== 'string' || typeof n !== 'number')
       throw new Error(`维度元组形态不符 [F?, label, number]:${JSON.stringify([k, label, n])}`)
   }
   // ② 消费者侧:收敛器必须真的引这个名字(它自己抄一份维度清单就是第二把尺子,必漂)。
@@ -345,4 +350,34 @@ test('P-x 跨文件出口锁:probe 必须由 plan-tasks 真导出,且收敛器�
     throw new Error(
       'git-sync-converge.mjs 未从 plan-tasks 引 probe(要么改用别的名字,要么在别处抄了清单)',
     )
+})
+
+test('M13 F4b 无主键逐字孪生:F4 看不见的那一格必须有判据,且两族不得互相顶账', () => {
+  // 阳性对照:两句**一模一样**的叙述式待办(整族没有编号)⇒ F4 恒 0,而账面确实是"一人两句"。
+  const twin = '- [ ] **真机走查**:深色顶栏已修(commit 84583fdf6),剩观察期。'
+  const a = auditPlan(['# p', twin, twin].join('\n'))
+  if (a.counts.dupOpenCopies !== 0)
+    throw new Error(`无主键行不该被 F4 计账,实测 ${a.counts.dupOpenCopies}`)
+  if (a.counts.verbatimDupCopies !== 1)
+    throw new Error(`两句逐字相同的无主键待办必须计 1 条副本,实测 ${a.counts.verbatimDupCopies}`)
+  if (a.counts.claimable !== 1)
+    throw new Error(`副本行必须扣出派单口径(未认领 2 − 副本 1 = 1),实测 ${a.counts.claimable}`)
+  // 反向 1:有编号的孪生归 F4 管,F4b 不得再计一次 —— 同一对债在两个锚点各计一次,
+  // 两边就会互相顶掉(守门 134 把锚点粒度下沉到"文件×判据×键"时同一课)。
+  const keyed = '- [ ] **D99 复合主键正例**:说明。'
+  const b = auditPlan(['# p', keyed, keyed].join('\n'))
+  if (b.counts.dupOpenCopies !== 1 || b.counts.verbatimDupCopies !== 0)
+    throw new Error(`有主键孪生必须只由 F4 计账,实测 F4=${b.counts.dupOpenCopies} F4b=${b.counts.verbatimDupCopies}`)
+  // 反向 2:差一个字就不算(判据只认逐字等值 —— 相似度只能报数,不配判红,与 F4 同一条立项理由)。
+  const c = auditPlan(['# p', twin, `${twin}(另一次措辞)`].join('\n'))
+  if (c.counts.verbatimDupCopies !== 0)
+    throw new Error(`正文漂移的候选必须落人工,不得由机器折半,实测 ${c.counts.verbatimDupCopies}`)
+  // 反向 3:已完成侧的逐字孪生不进本判据(状态分叉另有 F1;重复 done 只报数 dupDoneGroups)。
+  const done = `- [x] ✅(2026-09-27) ${twin.slice(6)}`
+  const d = auditPlan(['# p', done, done].join('\n'))
+  if (d.counts.verbatimDupCopies !== 0)
+    throw new Error(`done 侧孪生不该由 F4b 计债,实测 ${d.counts.verbatimDupCopies}`)
+  // 成套性:没进 probe 的判据 = 差值棘轮看不见 = 等于没有这道门(守门 70/76/81 同型)。
+  if (!probe(a).some(([k, , n]) => k === 'F4b' && n === 1))
+    throw new Error(`F4b 未进 probe 维度清单:${JSON.stringify(probe(a).map((x) => x[0]))}`)
 })
