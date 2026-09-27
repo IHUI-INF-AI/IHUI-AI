@@ -8,7 +8,7 @@
 - append 分配递增 event_id
 - replay_after 重放缺失事件(断线重连核心)
 - replay_after None 时从头重放
-- replay_after 未找到 last_event_id 时返回全部
+- replay_after 未找到 last_event_id 时返回空(2026-09-27 更正,旧行为"返回全部"已移除)
 - get_all 获取全部事件
 - clear 清除 task 缓冲区
 - TTL 过期清理(通过短 TTL 验证)
@@ -105,14 +105,21 @@ def test_replay_after_last_event_returns_empty():
     assert missed == []
 
 
-def test_replay_after_unknown_event_id_returns_all():
-    """replay_after 传入不存在的 event_id 时返回全部(保守策略)。"""
+def test_replay_after_unknown_event_id_returns_nothing():
+    """replay_after 传入不可用的 event_id 时返回**空列表**(2026-09-27 语义更正)。
+
+    旧实现在这里"返回全部(保守策略)",而它自己的 docstring 承诺的是"若 task 不存在或
+    已过期,返回空列表" —— 两句矛盾且错的那句在跑:客户端带一个已被清理/已被丢弃的陈旧
+    Last-Event-ID 重连时整段事件史被重放,前端按 id 追加即出现"会话内容翻倍"。
+    三态判定请改用 ``replay_outcome``(命中 / 不可续传 / 任务不存在),用例见
+    ``tests/test_sse_buffer_bounds.py``。
+    """
     buf = SSEEventBuffer()
     buf.append("task-1", {"type": "start"})
     buf.append("task-1", {"type": "done"})
 
     missed = buf.replay_after("task-1", "task-1-999")
-    assert len(missed) == 2
+    assert missed == []
 
 
 def test_replay_after_unknown_task_returns_empty():
