@@ -70,10 +70,7 @@ const SheetContent = React.forwardRef<
   // 2026-09-26 Esc 层栈接入(同 dialog.tsx):Content ref callback 同步注册/注销,
   // Esc 非栈顶 → preventDefault 拦下 Radix dismiss。
   const escStackId = useEscStackId()
-  const escStackRef = React.useCallback(
-    mergeEscStackRef(escStackId, ref),
-    [escStackId, ref],
-  )
+  const escStackRef = React.useCallback(mergeEscStackRef(escStackId, ref), [escStackId, ref])
   if (!inDialog) return null
   return (
     <DialogPrimitive.Portal>
@@ -81,7 +78,7 @@ const SheetContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={escStackRef}
         onEscapeKeyDown={guardEscKeyDown(escStackId, onEscapeKeyDown)}
-        className={cn(sheetSideVariants({ side }), 'rounded-lg', className)}
+        className={cn(sheetSideVariants({ side }), 'rounded-xl', className)}
         {...props}
       >
         {children}
