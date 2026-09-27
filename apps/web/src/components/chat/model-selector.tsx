@@ -805,8 +805,19 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     : isConfiguredVendor(current?.vendor, configuredTemplateCodes)
   const showConfigBadge = cfgData !== undefined
 
+  // D117 /model 斜杠命令(2026-09-27):程序化打开选择器。
+  // Radix DropdownMenu 受控 open,trigger 常驻 DOM ⇒ 程序化置 true 时
+  // content 仍以 trigger 为锚定位,无需额外坐标。
+  const [menuOpen, setMenuOpen] = React.useState(false)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onOpen = () => setMenuOpen(true)
+    window.addEventListener('ihui:model-selector:open', onOpen)
+    return () => window.removeEventListener('ihui:model-selector:open', onOpen)
+  }, [])
+
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
