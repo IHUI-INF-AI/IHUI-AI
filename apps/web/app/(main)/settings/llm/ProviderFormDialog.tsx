@@ -164,7 +164,7 @@ export function ProviderFormDialog({
               // 模板未就绪:显示加载/错误状态,而不是空下拉(避免用户看到"黑不溜秋一条"无内容下拉)
               <div
                 id="providerCode"
-                className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-sm text-muted-foreground"
+                className="flex h-9 w-full items-center rounded-sm border border-input bg-muted/30 px-3 text-sm text-muted-foreground"
               >
                 {templatesError ? (
                   <Tooltip content={templatesError}>
@@ -351,7 +351,7 @@ export function ProviderFormDialog({
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder={t('descriptionPlaceholder')}
               rows={2}
-              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-sm border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 

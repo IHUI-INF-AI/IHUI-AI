@@ -82,7 +82,7 @@ export function ArticleDialog(props: ArticleDialogProps) {
               value={form.content}
               onChange={(e) => setForm({ ...form, content: e.target.value })}
               placeholder="文章正文"
-              className="min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              className="min-h-[120px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
             />
           </div>
           <div className="flex items-center gap-2">

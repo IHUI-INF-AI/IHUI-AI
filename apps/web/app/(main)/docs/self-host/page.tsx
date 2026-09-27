@@ -86,7 +86,7 @@ export default function SelfHostPage() {
         <h2 className="text-2xl font-bold tracking-tight">
           方式一:Docker Compose 单机版(5 分钟)
         </h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-4">
+        <div className="rounded-lg border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             适合个人开发者、小团队、PoC 验证。一台服务器即可运行全部服务。
           </p>
@@ -144,7 +144,7 @@ open http://localhost:8801
         <h2 className="text-2xl font-bold tracking-tight">
           方式二:Kubernetes Helm Chart(高可用)
         </h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-4">
+        <div className="rounded-lg border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             适合企业生产环境,支持水平扩展、滚动升级、自动备份、监控告警。
           </p>
@@ -249,7 +249,7 @@ kubectl get ingress -n ihui`}</code>
       <section id="ops" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">运维与监控</h2>
         <div className="grid gap-4 min-[768px]:grid-cols-2">
-          <div className="rounded-2xl border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <h3 className="flex items-center text-lg font-semibold">
               <BarChart3 className="mr-1.5 inline h-5 w-5" />
               监控
@@ -261,7 +261,7 @@ kubectl get ingress -n ihui`}</code>
               <li>日志:JSON 格式,对接 ELK / Loki</li>
             </ul>
           </div>
-          <div className="rounded-2xl border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <h3 className="flex items-center text-lg font-semibold">
               <Save className="mr-1.5 inline h-5 w-5" />
               备份

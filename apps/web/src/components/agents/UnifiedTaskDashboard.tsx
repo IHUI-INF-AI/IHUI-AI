@@ -487,7 +487,7 @@ export function UnifiedTaskDashboard() {
           {filtered.map((row) => (
             <li
               key={row.key}
-              className="rounded-md border border-border bg-card p-2.5"
+              className="rounded-lg border border-border bg-card p-2.5"
               data-testid={`unified-task-${row.source}`}
             >
               {editingKey === row.key ? (

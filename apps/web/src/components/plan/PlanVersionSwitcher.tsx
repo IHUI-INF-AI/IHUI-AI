@@ -69,7 +69,7 @@ export function PlanVersionSwitcher({
               const v = e.target.value
               onSelect(v === 'latest' ? null : Number(v))
             }}
-            className="h-7 cursor-pointer rounded-md border border-input bg-background px-2.5 text-xs font-medium outline-none"
+            className="h-7 cursor-pointer rounded-sm border border-input bg-background px-2.5 text-xs font-medium outline-none"
             aria-label="Select version"
           >
             <option value="latest">Latest</option>
