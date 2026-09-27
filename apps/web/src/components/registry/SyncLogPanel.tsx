@@ -44,7 +44,7 @@ export function SyncLogPanel({ logs, loading }: SyncLogPanelProps) {
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="w-auto rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground">
+      <CollapsibleTrigger className="w-auto rounded-sm border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground">
         {open ? '收起日志' : '查看同步日志'}
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-3">

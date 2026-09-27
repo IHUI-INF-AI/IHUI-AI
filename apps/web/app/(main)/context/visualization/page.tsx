@@ -59,7 +59,7 @@ export default function ContextVisualizationPage() {
               value={conversationId}
               onChange={(e) => setConversationId(e.target.value)}
               placeholder="输入 conversationId(留空查全部)"
-              className="h-8 flex-1 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-8 flex-1 rounded-sm border border-input bg-transparent px-2.5 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
         </CardContent>
@@ -113,7 +113,7 @@ export default function ContextVisualizationPage() {
                     return (
                       <li
                         key={`${e.timestamp}-${i}`}
-                        className="flex items-center gap-3 rounded-md border bg-card p-2.5"
+                        className="flex items-center gap-3 rounded-lg border bg-card p-2.5"
                       >
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-amber-100 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                           {(ratio * 100).toFixed(0)}%

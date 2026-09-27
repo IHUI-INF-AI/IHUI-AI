@@ -86,7 +86,7 @@ export function AboutContent(): React.JSX.Element {
       </section>
 
       {/* 我们的故事 */}
-      <section className="mt-8 min-[768px]:mt-16 rounded-2xl border bg-card p-3">
+      <section className="mt-8 min-[768px]:mt-16 rounded-lg border bg-card p-3">
         <div className="mb-4 inline-flex items-center gap-2 rounded bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
           <BookOpen className="h-3.5 w-3.5" />
           {t('storyBadge')}
@@ -105,7 +105,7 @@ export function AboutContent(): React.JSX.Element {
           return (
             <div
               key={titleKey}
-              className="rounded-2xl border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+              className="rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -130,7 +130,7 @@ export function AboutContent(): React.JSX.Element {
             return (
               <div
                 key={titleKey}
-                className="rounded-2xl border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                className="rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                   <Icon className="h-5 w-5 text-primary" />
@@ -163,7 +163,7 @@ export function AboutContent(): React.JSX.Element {
       </section>
 
       {/* CTA */}
-      <section className="mt-8 min-[768px]:mt-16 rounded-2xl border bg-card p-3 text-center">
+      <section className="mt-8 min-[768px]:mt-16 rounded-lg border bg-card p-3 text-center">
         <Rocket className="mx-auto h-10 w-10 text-primary" />
         <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {t('ctaTitle')}

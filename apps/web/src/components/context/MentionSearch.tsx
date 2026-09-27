@@ -100,7 +100,7 @@ export function MentionSearch({
         <span>共 {total ?? results.length} 条结果</span>
       </div>
 
-      <div className="max-h-[420px] space-y-1 overflow-y-auto rounded-md border bg-card p-1.5">
+      <div className="max-h-[420px] space-y-1 overflow-y-auto rounded-lg border bg-card p-1.5">
         {results.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
             {isLoading ? '检索中…' : '暂无结果,请输入关键词'}
