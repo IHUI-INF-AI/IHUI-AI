@@ -337,3 +337,52 @@ test('真实源文件必须恰好含 1 组成对 self-test 标记(缺失即豁�
   assert.equal(src.scanSource(self, 'scripts/check-no-visible-spawn.mjs').length, 0, '自我扫描必须 0 违规(全量恒红回归的直接判据)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// --- N1(2026-09-27 立):按镜像名杀进程 taskkill /IM ---
+test('isNameBasedKillCall: 命中与放过成对(含"带 windowsHide 仍命中"与三条反向对照)', () => {
+  const hit = [
+    `'taskkill', ['/IM', DESKTOP_EXE, '/F'], { stdio: 'ignore', windowsHide: true }`,
+    `'taskkill', ['/IM', 'x.exe', '/F']`,
+    `'taskkill /IM node.exe /F'`,
+    `'taskkill', '/im', 'x'`,
+  ]
+  for (const inner of hit) assert.ok(src.isNameBasedKillCall(inner), `应命中: ${inner}`)
+  const miss = [
+    `'taskkill', ['/PID', pid, '/F'], { windowsHide: true }`,
+    `'git', ['commit', '-m', 'do not use /im here'], { windowsHide: true }`,
+    `'node', ['build', '/images/a.png'], { windowsHide: true }`,
+    `KILL_BIN, ['/IM', name, '/F'], { windowsHide: true }`,
+    ``,
+  ]
+  for (const inner of miss) assert.ok(!src.isNameBasedKillCall(inner), `不应命中: ${inner || '(空)'}`)
+})
+
+test('N1 判序必须有牙:带 windowsHide 的 taskkill /IM 经 scanSource 仍须报 1 处 name-kill', () => {
+  // 这条取代了"按源码文本位置比先后"的写法:位置锁会因为 N1 分支自己也要读 windowsHide
+  // 而误判(实测如此),而**行为**判据不受文本挪动影响 ——
+  // 若有人把 N1 挪回短路之后,这里实得 0,而本仓那处真实站点正是"带 windowsHide"的形状。
+  const v = src.scanSource(
+    `spawnSync('taskkill', ['/IM', DESKTOP_EXE, '/F'], { stdio: 'ignore', windowsHide: true })`,
+    'probe.mjs',
+  )
+  assert.equal(v.length, 1, '带 windowsHide 不得让 N1 失明(旧判序会整型隐身)')
+  assert.equal(v[0].kind, 'name-kill', '必须是 N1 那一型,而不是"漏 windowsHide"')
+  assert.equal(
+    src.scanSource(`spawnSync('taskkill', ['/IM', 'a.exe', '/F'])`, 'probe.mjs').length,
+    1,
+    '同一调用即使同时漏着 windowsHide 也只报一处(不重复计债)',
+  )
+})
+
+test('剥引号只许一份实现:isConsoleTarget 与 callProgramName 必须共用 unwrapCommandLiteral', () => {
+  const self = readFileSync(new URL('../check-no-visible-spawn.mjs', import.meta.url), 'utf8')
+  const fnBody = (name) => {
+    const i = self.indexOf(`export function ${name}(`)
+    assert.ok(i > 0, `缺少 ${name}`)
+    return self.slice(i, self.indexOf('\n}', i))
+  }
+  for (const name of ['isConsoleTarget', 'callProgramName']) {
+    assert.ok(fnBody(name).includes('unwrapCommandLiteral('), `${name} 必须走共用取法`)
+    assert.ok(!/\.match\(\/\^\(\?:/.test(fnBody(name)), `${name} 不得再自己写一份剥引号正则(两处必漂移)`)
+  }
+})
