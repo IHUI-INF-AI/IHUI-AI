@@ -546,7 +546,11 @@ export default function ModelList({
       {showArchived
         ? split.archived.map((group) => (
             <View key={`archived-${group.category}`} className="mb-2">
-              <View className="px-3 pt-2 pb-1">
+              {/* O81 逐档复核(2026-09-27):分组头行底衬 4→8 —— 与 RN 同一元素 sectionHeader 的
+                  paddingVertical 8、及本行自己的 pt-2 同档(同元素两端不同档 ⇒ 收敛,间距取较大)。
+                  守门 128 读数「仅小程序档 4」的另一半是 list 变体外层容器 py-1,该层内衬已由
+                  model-list-spec 头注登记为「另计一票」布局裁决项,本票不动,故 4 仍会在读数出现。 */}
+              <View className="px-3 pt-2 pb-2">
                 <Text className="text-xs text-muted-foreground">
                   {`${categoryLabel(group.category)} · ${group.items.length}`}
                 </Text>

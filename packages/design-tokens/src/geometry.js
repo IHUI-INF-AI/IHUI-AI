@@ -36,6 +36,16 @@ export const GEOMETRY_PX = {
   tapBox: 36,
   /** 中等图标墨迹:页头返回键、行内操作图标 */
   glyphMd: 20,
+  /**
+   * 聊天输入区的"实底控件方块"32:取 web 活体实现 —— `apps/web/src/components/chat/message-input.tsx:1148`
+   * 发送钮 `inline-flex h-8 w-8`、`add-menu-popover.tsx:226` 附件触发钮 `h-8`。
+   * 为什么不复用 `tapBox`(36):36 是"命中区"档,而这一格两端此前各写各的(小程序 ai-home 25 / RN
+   * PlusButton 40 / RN 发送 56×44 / 小程序默认变体 32),四处都不是表里的档 ——
+   * 表里没有对应档就是端内继续写裸数字的理由,故把 web 的实测值立成档,而不是就近吸附到 36。
+   */
+  controlBox: 32,
+  /** 上述方块里的图标墨迹 14:web 同一处三枚字形(`Send` / `Plus` / `CheckCircle2`)全取 `h-3.5 w-3.5` */
+  controlGlyph: 14,
 }
 
 /** RN / 共享包侧消费入口:StyleSheet 与内联 style 里写 `width: rnGeometry.tapBox` */

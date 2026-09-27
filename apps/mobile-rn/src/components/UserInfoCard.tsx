@@ -49,8 +49,10 @@ import { rnRadius } from '@ihui/design-tokens'
  * 头像盒子结构只在 spec 出口里摆一次(方档 + overflow + 居中),端内三个头像位
  * (可点外框 / 图片 / initials 兜底)各自 spread 它,不再逐处重摆 width/height。
  * RN 侧 1 逻辑 px = 1 dp,故投影就是恒等函数。
+ * 边长档由本端显式喂 `USER_INFO_CARD_AVATAR_PX`(spec 的函数不设默认值)—— 与小程序端同形,
+ * 两端面上都读得到这一档,守门 128 才不会把它记成"单侧具名档"。
  */
-const AVATAR_BOX = userInfoCardAvatarStyle<number>((px) => px)
+const AVATAR_BOX = userInfoCardAvatarStyle<number>((px) => px, USER_INFO_CARD_AVATAR_PX)
 
 // 共享类型 UserInfo 已下沉到 @ihui/types,本地 re-export 保持调用方兼容
 export type { UserInfo }
