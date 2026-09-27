@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,12 +16,12 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-delivery-report-consistency.mjs
 
 // ─── 辅助:创建临时项目根(无 PROJECT_PLAN.md,非 staged 模式扫描 0 文件) ──
 function createTempProject() {
-  return mkdtempSync(join(tmpdir(), 'ihui-report-'))
+  return mkScratch('ihui-report-')
 }
 
 // 辅助:创建临时 git 仓库(--staged 模式需要)
 function createTempRepo() {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-report-repo-'))
+  const root = mkScratch('ihui-report-repo-')
   execSync('git init -b main', { cwd: root, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: root, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: root, stdio: 'pipe' })
@@ -95,7 +95,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,直接走默认全量扫描)'
     )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -107,7 +107,7 @@ test('CLI: 非 staged 模式无 PROJECT_PLAN.md → 0 文件,exit 0', () => {
     assertPass(r)
     assert.match(r.stdout, /扫描文件:\s+0/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -119,7 +119,7 @@ test('合法: 空报告(只有 H2 标题)→ 通过', () => {
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -137,7 +137,7 @@ test('合法: 章节只含"完整收尾"(避开"无后续建议"子串 bug)→ �
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -157,7 +157,7 @@ test('修复后: 含"无后续建议"不被误判含"后续建议" → 通过', 
     // 不应误报含"后续建议"
     assert.doesNotMatch(r.stdout, /后续工作类条目:.*后续建议/, '不应误报含"后续建议"')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -176,7 +176,7 @@ test('违规: 含"无后续建议" + "TODO" → 检测到矛盾(后续建议不�
     assert.match(r.stdout, /TODO/, '后续工作类应含 TODO')
     assert.doesNotMatch(r.stdout, /后续工作类条目:.*后续建议/, '不应误报含"后续建议"')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -192,7 +192,7 @@ test('合法: 章节只含"后续建议:P1 修复"无完整收尾类 → 通过'
     // "后续建议:" 前面无否定前缀 → 算后续工作类;但无完整收尾类 → 不算矛盾
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -209,7 +209,7 @@ test('违规: 含"无后续建议" + "后续可改进" → 检测到矛盾(真�
     assertFail(r, /无后续建议|后续可改进/)
     assert.match(r.stdout, /后续可改进/, '后续工作类应含"后续可改进"')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -224,7 +224,7 @@ test('合法: 章节只含"P1-P5 优化项"无完整收尾类 → 通过', () =>
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -240,7 +240,7 @@ test('违规: 同一章节含"无后续建议" + "P1-P5" → 检测到矛盾', (
     assertFail(r, /无后续建议/)
     assert.match(r.stdout, /P1-P5/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -256,7 +256,7 @@ test('违规: 同一章节含"完整收尾" + "TODO" → 检测到矛盾', () =>
     assertFail(r, /完整收尾/)
     assert.match(r.stdout, /TODO/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -272,7 +272,7 @@ test('违规: 同一章节含"可以关闭对话" + "后续建议" → 检测到
     assertFail(r, /可以关闭对话/)
     assert.match(r.stdout, /后续建议/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -294,7 +294,7 @@ test('违规: 同一章节含多个完整收尾类 + 多个后续工作类 → �
     // 后续工作类条目行应含 TODO / P1-P5 / 优化项
     assert.match(r.stdout, /后续工作类条目:[\s\S]*?TODO[\s\S]*?P1-P5[\s\S]*?优化项/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -309,7 +309,7 @@ test('合法: 章节只含"已完成"无后续工作类 → 通过', () => {
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -324,7 +324,7 @@ test('合法: 章节只含"P2"无完整收尾类 → 通过', () => {
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -339,7 +339,7 @@ test('豁免: 章节含"AGENTS.md 第 11 节" → 不算违规(规则说明章�
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -354,7 +354,7 @@ test('豁免: 章节含"还有 3 项后续工作" → 通过(措辞模板豁免)
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -369,7 +369,7 @@ test('豁免: 章节日期 2026-07-17(规则刚立)→ 通过(历史章节不回
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -384,7 +384,7 @@ test('豁免: 章节日期 2026-07-10(规则未立)→ 通过', () => {
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -402,7 +402,7 @@ test('合法: 不同章节分别含完整收尾类 / 后续工作类 → 通过(
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -420,7 +420,7 @@ test('豁免: H3 子章节继承 H2 祖先日期 ≤ 2026-07-17 → 通过', () 
     // H3 子任务 继承 H2 阶段一 日期 2026-07-15 ≤ 2026-07-17 → 豁免
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -437,7 +437,7 @@ test('staged: 暂存 .md 文件含矛盾 → 检测到 exit 1', () => {
     assertFail(r, /无后续建议/)
     assert.match(r.stdout, /P1-P5/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -454,7 +454,7 @@ test('staged: 暂存 .md 文件无矛盾 → 通过', () => {
     const r = runScript(root, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -466,7 +466,7 @@ test('staged: 空暂存区(无 .md staged)→ 跳过 exit 0', () => {
     assert.equal(r.status, 0, `空暂存区应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /暂存区无 \.md 变更|跳过/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -492,7 +492,7 @@ test('staged: 历史违规章节(无新增行)不检查,只检查 staged 新增�
     // 旧章节(违规)无新增行 → 不检查 → 通过
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -506,7 +506,7 @@ test('staged: 暂存 .ts 文件(非 .md)→ 跳过 exit 0', () => {
     assert.equal(r.status, 0, `非 .md staged 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /暂存区无 \.md 变更|跳过/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -522,7 +522,7 @@ test('违规: 同一章节含"可以关闭" + "TODO" → 检测到矛盾', () =>
     assertFail(r, /可以关闭/)
     assert.match(r.stdout, /TODO/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -538,7 +538,7 @@ test('违规: 同一章节含"已闭环" + "待跟进" → 检测到矛盾', () 
     assertFail(r, /已闭环/)
     assert.match(r.stdout, /待跟进/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -554,7 +554,7 @@ test('违规: 同一章节含"100% 完成" + "未实现" → 检测到矛盾', (
     assertFail(r, /100% 完成/)
     assert.match(r.stdout, /未实现/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -571,7 +571,7 @@ test('全量模式: 扫描 PROJECT_PLAN.md 单文件(脚本仅 visit 该文件)'
     // 应报告扫描 1 个文件
     assert.match(r.stdout, /扫描文件:\s+1/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

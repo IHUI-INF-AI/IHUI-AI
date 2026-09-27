@@ -14,19 +14,29 @@
  * 2. 任何文件含已知 key 前缀(sk-irJTb1 / 5iFfF0dl 等)
  * 3. memory 文件含真实 key 值
  *
- * 用法:node scripts/check-api-key-leak.mjs [--staged]
- *   --staged: 只检查 git 暂存区文件(pre-commit 用)
- *   无参数:检查所有 .example + memory 文件(手动验证用)
+ * 用法:node scripts/check-api-key-leak.mjs [--staged|--worktree]
+ *   --staged: 判**索引 blob**(提交链用;盘上随后改对不算修好)
+ *   无参数:判 **HEAD blob** 的 .example 文件(手动验证用,与守门 70/77/83/98/118 同口径)
+ *   --worktree: 判磁盘(人工逃生舱,不得作为提交门禁)
+ * 取材走 face-reader 统一层(守门 118:引了层却自己读盘 = 半接线);取不到输入 ⇒ exit 2 无法判定。
  */
 import { execSync } from 'node:child_process'
-import { readFileSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
 import { createLogger } from './lib/logger.mjs'
+import {
+  Undetermined,
+  assertRepoRoot,
+  catBatch,
+  readWorktreeFile,
+  selectFace,
+} from './lib/face-reader.mjs'
 
 const log = createLogger()
 
 const ROOT = process.cwd()
-const isStaged = process.argv.includes('--staged')
+const { face, error: faceError } = selectFace({
+  staged: process.argv.includes('--staged'),
+  worktree: process.argv.includes('--worktree'),
+})
 
 // 已知 key 前缀(真实 key 的前 8 字符,用于检测泄露)
 const KNOWN_KEY_PREFIXES = [
@@ -53,11 +63,19 @@ const PLACEHOLDER_PATTERNS = [
   /^.*_API_KEY=$/m, // 空值
 ]
 
-/** 收集需检查的文件列表 */
+/** 收集需检查的**相对路径**清单(枚举是 git 事实,内容一律另走 face-reader) */
 function collectFiles() {
-  // 跳过本检测脚本自身(包含 key 前缀用于检测,非泄露)
-  const SELF = join(ROOT, 'scripts', 'check-api-key-leak.mjs')
-  if (isStaged) {
+  // 跳过本检测脚本自身与其镜像测试(两者都内嵌 key 前缀作为检测子/断言夹具,非泄露)。
+  // 镜像测试豁免是 2026-09-27 补的:该测试文件一旦进暂存区(G-284 迁移当天实测),
+  // --staged 档会把夹具里的已知前缀当真泄露判红,导致这道门自己的测试永远提不进去。
+  // 豁免按精确路径点名,不给 scripts/tests/ 开目录口子(反向对照见镜像测试 T24)。
+  // 注意:git 输出的路径分隔符恒为 `/`,这里必须用正斜杠字面量 —— 用 join 在 Windows 上
+  // 会生成反斜杠,豁免集合与枚举清单对不上,门就会把自己的源文件判成泄露(2026-09-27 实测)。
+  const SELF_FILES = new Set([
+    'scripts/check-api-key-leak.mjs',
+    'scripts/tests/check-api-key-leak.test.mjs',
+  ])
+  if (face === 'staged') {
     try {
       const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
         encoding: 'utf8',
@@ -67,25 +85,19 @@ function collectFiles() {
       })
       return output
         .split('\n')
-        .filter((f) => f && existsSync(join(ROOT, f)))
-        .map((f) => join(ROOT, f))
-        .filter((f) => f !== SELF)
+        .map((f) => f.replace(/\r$/, ''))
+        .filter((f) => f && !SELF_FILES.has(f))
     } catch {
       return []
     }
   }
-  // 非暂存模式:检查所有 .example 文件 + memory
-  const files = []
-  const checkPaths = [
+  // head/worktree 面:检查所有 .example 文件 + memory
+  return [
     '.env.production.example',
     '.env.example',
     'apps/ai-service/.env.example',
     'apps/api/.env.example',
   ]
-  for (const p of checkPaths) {
-    if (existsSync(join(ROOT, p))) files.push(join(ROOT, p))
-  }
-  return files
 }
 
 /** 检查单行是否含真实 key(非占位符) */
@@ -111,22 +123,41 @@ function isRealKey(line) {
   return false
 }
 
+if (faceError) {
+  log.error(`❌ ${faceError}`)
+  process.exit(2)
+}
+
 const files = collectFiles()
 const violations = []
 
-for (const file of files) {
-  let content
-  try {
-    content = readFileSync(file, 'utf8')
-  } catch {
-    continue
-  }
-  const lines = content.split('\n')
-  lines.forEach((line, idx) => {
-    if (isRealKey(line)) {
-      violations.push(`${file}:${idx + 1}: ${line.trim().substring(0, 80)}...`)
+try {
+  assertRepoRoot(ROOT, 'API key 泄露检查')
+  // 清单与内容同面同轮:一次 catBatch 读满,不在读取时偷偷补派生(守门 118/98 同一纪律)。
+  const specs = files.map((p) => (face === 'staged' ? `:${p}` : `HEAD:${p}`))
+  const map = face === 'worktree' ? null : catBatch(ROOT, specs)
+  files.forEach((rel, i) => {
+    let content
+    if (face === 'worktree') {
+      content = readWorktreeFile(ROOT, rel)
+      if (content === null) return // 盘上不存在 = 少扫一个,不是取不到
+    } else {
+      content = map.get(specs[i])
+      // 该面无此文件(未跟踪/缺席)= 少扫一个,不是取不到;catBatch 对 missing 给 null、对未预给规格留 undefined
+      if (content === undefined || content === null) return
     }
+    content.split('\n').forEach((line, idx) => {
+      if (isRealKey(line)) {
+        violations.push(`${rel}:${idx + 1}: ${line.trim().substring(0, 80)}...`)
+      }
+    })
   })
+} catch (e) {
+  if (e instanceof Undetermined) {
+    log.error(`⚠️ [API Key 泄露检查] 无法判定(取材面不可用): ${e.message}`)
+    process.exit(2)
+  }
+  throw e
 }
 
 if (violations.length > 0) {
