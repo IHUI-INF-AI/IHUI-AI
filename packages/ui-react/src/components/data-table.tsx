@@ -248,7 +248,7 @@ function DataTable<TData>({
                 value={currentPageSize}
                 onChange={(e) => handlePageSizeChange(Number(e.target.value))}
                 aria-label={labels.perPageCountAriaLabel}
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="h-8 rounded-sm border border-input bg-transparent px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {pageSizeOptions.map((s) => (
                   <option key={s} value={s}>
@@ -447,7 +447,7 @@ function DataTable<TData>({
               onClick={() => handlePageChange(Math.max(0, currentPageIndex - 1))}
               disabled={currentPageIndex <= 0}
               aria-label={labels.prevPageAriaLabel}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -464,7 +464,7 @@ function DataTable<TData>({
                   aria-current={p === currentPageIndex ? 'page' : undefined}
                   aria-label={fillTemplate(labels.pageAriaLabel, { page: p + 1 })}
                   className={cn(
-                    'inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-xs transition-colors',
+                    'inline-flex h-8 min-w-8 items-center justify-center rounded-sm border px-2 text-xs transition-colors',
                     p === currentPageIndex
                       ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                       : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -479,7 +479,7 @@ function DataTable<TData>({
               onClick={() => handlePageChange(Math.min(currentPageCount - 1, currentPageIndex + 1))}
               disabled={currentPageIndex >= currentPageCount - 1}
               aria-label={labels.nextPageAriaLabel}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

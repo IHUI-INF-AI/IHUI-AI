@@ -38,12 +38,12 @@ const drawerSideVariants = cva(
   {
     variants: {
       side: {
-        top: 'inset-x-0 top-0 w-full border-b rounded-b-lg data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
+        top: 'inset-x-0 top-0 w-full border-b rounded-b-xl data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
         bottom:
-          'inset-x-0 bottom-0 w-full border-t rounded-t-lg data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
-        left: 'inset-y-0 left-0 h-full w-[90vw] border-r rounded-r-lg data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left min-[640px]:w-3/4 min-[640px]:max-w-sm',
+          'inset-x-0 bottom-0 w-full border-t rounded-t-xl data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+        left: 'inset-y-0 left-0 h-full w-[90vw] border-r rounded-r-xl data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left min-[640px]:w-3/4 min-[640px]:max-w-sm',
         right:
-          'inset-y-0 right-0 h-full w-[90vw] border-l rounded-l-lg data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right min-[640px]:w-3/4 min-[640px]:max-w-sm',
+          'inset-y-0 right-0 h-full w-[90vw] border-l rounded-l-xl data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right min-[640px]:w-3/4 min-[640px]:max-w-sm',
       },
     },
     defaultVariants: {
@@ -66,10 +66,7 @@ const DrawerContent = React.forwardRef<
   // 2026-09-26 Esc 层栈接入(同 dialog.tsx):Content ref callback 同步注册/注销,
   // Esc 非栈顶 → preventDefault 拦下 Radix dismiss。
   const escStackId = useEscStackId()
-  const escStackRef = React.useCallback(
-    mergeEscStackRef(escStackId, ref),
-    [escStackId, ref],
-  )
+  const escStackRef = React.useCallback(mergeEscStackRef(escStackId, ref), [escStackId, ref])
   if (!inDialog) return null
   return (
     <DialogPrimitive.Portal>
