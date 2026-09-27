@@ -97,6 +97,7 @@
     "check:dep-links": "node scripts/check-workspace-dep-links.mjs",
     "check:dep-links:strict": "node scripts/check-workspace-dep-links.mjs --strict",
     "check:package-barrel": "node scripts/check-package-barrel-export.mjs --strict",
+    "check:plan-sha": "node scripts/check-plan-sha-resolvable.mjs --strict",
     "check:merge-loss": "node scripts/check-merge-addition-loss.mjs",
     "check:sequence-lag": "node scripts/check-sequence-lag.mjs --strict",
     "check:sequence-lag:fix": "node scripts/check-sequence-lag.mjs --fix",
