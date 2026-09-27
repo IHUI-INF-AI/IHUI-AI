@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadius.sm,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.card,

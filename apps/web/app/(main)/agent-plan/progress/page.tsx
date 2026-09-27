@@ -259,7 +259,7 @@ export default function AgentPlanProgressPage() {
             </span>
             <div className="h-2 flex-1 overflow-hidden rounded-md bg-muted">
               <div
-                className="h-full rounded-md bg-primary transition-all"
+                className="h-full rounded-md bg-cta transition-all"
                 style={{ width: `${pct}%` }}
               />
             </div>

@@ -132,7 +132,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 12 },
     card: {
       padding: 14,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -143,7 +143,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8,
     },
     cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: rnRadius.xl },
+    badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: rnRadius.md },
     badgeText: { fontSize: 12, color: tk.surface.light },
     lecturer: { marginTop: 6, fontSize: 14, color: tk.text.medium },
     metaRow: {

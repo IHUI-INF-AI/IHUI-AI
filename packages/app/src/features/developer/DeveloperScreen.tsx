@@ -144,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     scrollContent: { padding: 14, paddingBottom: 32 },
     heroCard: {
       backgroundColor: primaryLight,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 14,
       marginBottom: 20,
     },
@@ -177,7 +177,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       padding: 14,
       backgroundColor: tk.surface.light,
     },
@@ -197,7 +197,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       marginTop: 24,
       height: 50,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.sm,
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',

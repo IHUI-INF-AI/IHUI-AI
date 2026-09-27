@@ -249,7 +249,7 @@ function createStyles(tk: AppThemeTokens) {
     searchRow: { marginHorizontal: 16, marginTop: 10 },
     searchInput: {
       height: 40,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -271,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -293,7 +293,7 @@ function createStyles(tk: AppThemeTokens) {
     tagBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     tagText: { fontSize: 11, color: tk.text.primary },
@@ -317,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: 'auto',
       paddingHorizontal: 12,
       height: 28,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -369,7 +369,7 @@ function createStyles(tk: AppThemeTokens) {
     roleBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     roleBadgeText: { fontSize: 11, color: tk.text.primary },
@@ -393,7 +393,7 @@ function createStyles(tk: AppThemeTokens) {
     enterBtn: {
       marginTop: 16,
       height: 44,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

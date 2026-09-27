@@ -2082,7 +2082,7 @@ const styles = StyleSheet.create({
     gap: rpx(4),
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(6),
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
   modelConfigBtnText: {
@@ -2112,7 +2112,7 @@ const styles = StyleSheet.create({
   quickChip: {
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(12),
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -2259,7 +2259,7 @@ const bubbleStyles = StyleSheet.create({
   },
   // 卡片(工具调用 / 终端任务共用外壳)
   card: {
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.muted,
@@ -2316,7 +2316,7 @@ const bubbleStyles = StyleSheet.create({
   badge: {
     paddingHorizontal: rpx(8),
     paddingVertical: rpx(2),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   badgeText: { fontSize: 10, fontWeight: '600' },
   badgePending: { backgroundColor: tokens.gray[200] },
@@ -2337,8 +2337,8 @@ const pickerStyles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius['2xl'],
-    borderTopRightRadius: rnRadius['2xl'],
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
     maxHeight: '70%',
     minHeight: '40%',
   },

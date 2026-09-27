@@ -154,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
     listContent: { paddingHorizontal: 10, paddingVertical: 12, gap: 12 } as ViewStyle,
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
     } as ViewStyle,
     cardPressed: { backgroundColor: tk.surface.muted } as ViewStyle,
@@ -192,7 +192,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     } as ViewStyle,
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,

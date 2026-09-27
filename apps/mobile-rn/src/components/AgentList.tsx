@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: tokens.surface.light,
     backgroundColor: tokens.danger.DEFAULT,
-    borderRadius: rnRadius.xs,
+    borderRadius: rnRadius.md,
     paddingHorizontal: 4,
     paddingVertical: 1,
     marginLeft: 6,
