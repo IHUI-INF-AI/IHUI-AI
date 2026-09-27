@@ -12,6 +12,12 @@
  *  POST /cozeZhsApi/n8n/workflows  透传 n8n workflows 列表(配置 n8n_domain+api_key 时真实 fetch)
  *  POST /cozeZhsApi/n8n/addAgent   通过 n8n 创建智能体(真实 INSERT agents + zhs_agent_examine)
  *
+ * G-299(2026-09-28)追加 /ai/n8n 面(RN N8nModelScreen 消费,env 驱动 + SSRF 校验):
+ *  GET  /ai/n8n/workflows            列表(未配置回 stub notAvailable)
+ *  POST /ai/n8n/workflows            创建(未配置 503)
+ *  PUT  /ai/n8n/workflows/:id        更新(fetch-merge-put,未配置 503)
+ *  POST /ai/n8n/workflows/:id/toggle 启停(activate/deactivate + 回读真值,未配置 503)
+ *
  * R81 真实化:
  *  - workflows: 配置时真实调用 n8n REST API, 否则 stub
  *  - addAgent: 真实写入 agents + zhs_agent_examine, 返回 agent_id + examine_id
@@ -252,6 +258,205 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
       )
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  // ==========================================================================
+  // G-299②③(2026-09-28):/ai/n8n/workflows 面 —— 客户端 n8n 族(api-client misc.ts)
+  // 一直打的是 /api/ai/n8n/*,全仓从未注册这一族:门 8 基线里 PUT :id 与 POST toggle 是
+  // 点名死调用,list/create 因模板串落"未判定"桶而隐身(运行时同样 404)。消费者是
+  // apps/mobile-rn/src/screens/N8nModelScreen.tsx(list/create/update/toggle 四操作)。
+  // 与 /cozeZhsApi/n8n 代理同一上游、同一 env 纪律(N8N_DOMAIN/N8N_API_KEY):
+  //   - list 未配置 ⇒ stub + notAvailable(与 miniapp-compat 的 GET /workflows/n8n 同语义);
+  //   - 写操作未配置 ⇒ 503 —— 桩成功会把"没执行"写成"执行过了",绝不。
+  // SSRF:域名来自 env(非用户可控),仍照既有纪律过 ensureSafeFetchUrl(防御 env 被污染)。
+  // ==========================================================================
+  const AI_PREFIX = '/ai/n8n'
+  const n8nEnv = (): { domain: string; key: string } | null => {
+    const domain = process.env.N8N_DOMAIN
+    const key = process.env.N8N_API_KEY
+    return domain && key ? { domain: domain.replace(/^https?:\/\//, ''), key } : null
+  }
+  const n8nFetch = async (
+    env: { domain: string; key: string },
+    path: string,
+    init?: { method?: string; body?: unknown },
+  ) => {
+    const url = `https://${env.domain}/api/v1${path}`
+    await ensureSafeFetchUrl(url)
+    return fetch(url, {
+      method: init?.method ?? 'GET',
+      headers: {
+        'X-N8N-API-KEY': env.key,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      ...(init?.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
+      signal: AbortSignal.timeout(10_000),
+    })
+  }
+  const n8nWorkflowShape = (w: Record<string, unknown>) => ({
+    id: w.id,
+    name: w.name,
+    active: w.active,
+    createdAt: formatTimestamp(w.createdAt as string),
+    updatedAt: formatTimestamp(w.updatedAt as string),
+    tags: w.tags ?? [],
+  })
+  const notConfigured = (reply: FastifyReply) =>
+    reply.status(503).send(error(503, '未配置 N8N_DOMAIN/N8N_API_KEY,n8n 工作流写操作不可用'))
+
+  // GET /ai/n8n/workflows — 列表(未配置回 stub,不判失败:消费方按 notAvailable 显示空态)
+  server.get(`${AI_PREFIX}/workflows`, async (_request, reply) => {
+    const env = n8nEnv()
+    if (!env) {
+      return reply.send(
+        success({
+          notAvailable: true,
+          reason: '未配置 N8N_DOMAIN/N8N_API_KEY 环境变量,n8n 工作流列表不可用',
+          list: [],
+          total: 0,
+          source: 'unconfigured',
+        }),
+      )
+    }
+    try {
+      const resp = await n8nFetch(env, '/workflows')
+      if (!resp.ok) {
+        return reply.send(
+          success({
+            notAvailable: true,
+            reason: `n8n API 返回 ${resp.status} ${resp.statusText}`,
+            list: [],
+            total: 0,
+            source: 'n8n_api_unreachable',
+          }),
+        )
+      }
+      const raw = (await resp.json()) as { data?: Array<Record<string, unknown>> }
+      const list = (raw.data ?? []).map(n8nWorkflowShape)
+      return reply.send(
+        success({ notAvailable: false, list, total: list.length, source: 'n8n_live_api' }),
+      )
+    } catch (e) {
+      return reply.send(
+        success({
+          notAvailable: true,
+          reason: `调用 n8n API 失败: ${(e as Error).message}`,
+          list: [],
+          total: 0,
+          source: 'n8n_fetch_error',
+        }),
+      )
+    }
+  })
+
+  // POST /ai/n8n/workflows — 创建。n8n 的 workflow 对象没有顶层 description 字段,
+  // 客户端传来的 description 如实丢弃(注释在此,不假装存了)。
+  const createWorkflowSchema = z.object({
+    name: z.string().min(1).max(200),
+    description: z.string().max(2000).optional(),
+    nodes: z.array(z.record(z.string(), z.unknown())).optional(),
+    connections: z.record(z.string(), z.unknown()).optional(),
+  })
+  server.post(`${AI_PREFIX}/workflows`, async (request, reply) => {
+    const env = n8nEnv()
+    if (!env) return notConfigured(reply)
+    const parsed = createWorkflowSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const resp = await n8nFetch(env, '/workflows', {
+        method: 'POST',
+        body: {
+          name: parsed.data.name,
+          nodes: parsed.data.nodes ?? [],
+          connections: parsed.data.connections ?? {},
+        },
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) {
+        return reply
+          .status(502)
+          .send(error(502, `n8n 创建失败: ${(data.message as string) ?? `HTTP ${resp.status}`}`))
+      }
+      return reply.send(success(n8nWorkflowShape(data)))
+    } catch (e) {
+      return reply.status(502).send(error(502, `调用 n8n API 失败: ${(e as Error).message}`))
+    }
+  })
+
+  // PUT /ai/n8n/workflows/:id — 更新。n8n 的 PUT 要求**完整 workflow 定义**,
+  // 所以先 GET 现件、合并 name、再 PUT 回(fetch-merge-put),不是部分字段 PATCH 语义。
+  const updateWorkflowSchema = z.object({
+    name: z.string().min(1).max(200).optional(),
+    description: z.string().max(2000).optional(),
+    active: z.boolean().optional(),
+  })
+  server.put(`${AI_PREFIX}/workflows/:id`, async (request, reply) => {
+    const env = n8nEnv()
+    if (!env) return notConfigured(reply)
+    const { id } = request.params as { id: string }
+    const parsed = updateWorkflowSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const cur = await n8nFetch(env, `/workflows/${encodeURIComponent(id)}`)
+      if (!cur.ok) {
+        return reply
+          .status(cur.status === 404 ? 404 : 502)
+          .send(
+            error(cur.status === 404 ? 404 : 502, `n8n 工作流不存在或不可读(HTTP ${cur.status})`),
+          )
+      }
+      const wf = (await cur.json()) as Record<string, unknown>
+      const merged = { ...wf, name: parsed.data.name ?? (wf.name as string) }
+      const resp = await n8nFetch(env, `/workflows/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: merged,
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) {
+        return reply
+          .status(502)
+          .send(error(502, `n8n 更新失败: ${(data.message as string) ?? `HTTP ${resp.status}`}`))
+      }
+      return reply.send(success(n8nWorkflowShape(data)))
+    } catch (e) {
+      return reply.status(502).send(error(502, `调用 n8n API 失败: ${(e as Error).message}`))
+    }
+  })
+
+  // POST /ai/n8n/workflows/:id/toggle — 启停。n8n 用 activate/deactivate 两个端点,
+  // 成功后回读一次取真实 active 状态(不拿"请求值"当"结果值"背书)。
+  const toggleSchema = z.object({ active: z.boolean() })
+  server.post(`${AI_PREFIX}/workflows/:id/toggle`, async (request, reply) => {
+    const env = n8nEnv()
+    if (!env) return notConfigured(reply)
+    const { id } = request.params as { id: string }
+    const parsed = toggleSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const resp = await n8nFetch(
+        env,
+        `/workflows/${encodeURIComponent(id)}/${parsed.data.active ? 'activate' : 'deactivate'}`,
+        { method: 'POST' },
+      )
+      if (!resp.ok) {
+        const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+        return reply
+          .status(502)
+          .send(error(502, `n8n 启停失败: ${(data.message as string) ?? `HTTP ${resp.status}`}`))
+      }
+      const check = await n8nFetch(env, `/workflows/${encodeURIComponent(id)}`)
+      const wf = check.ok ? ((await check.json()) as Record<string, unknown>) : {}
+      return reply.send(success({ success: true, active: wf.active ?? parsed.data.active }))
+    } catch (e) {
+      return reply.status(502).send(error(502, `调用 n8n API 失败: ${(e as Error).message}`))
     }
   })
 }
