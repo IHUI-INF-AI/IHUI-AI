@@ -105,11 +105,17 @@ scrape_configs:
     basic_auth:
       username: prometheus
       # 仓库外唯一落点(§15b:凭据不入仓);本机实测该文件在位。
-      # ⚠ 2026-09-27 另有一格未修:这份 secret 的内容与 D:\DevEnv\monitor\bin\web-config.yml
-      #   里的 bcrypt 哈希**不匹配**(用 bcryptjs 对账:四种取值变体 compareSync 全 false,
-      #   带不带凭据 curl 一律 401),所以本行改动不会让 WindowsExporterDown 当场翻绿。
-      #   修它要重生成 exporter 侧哈希并重启该服务 —— 那属 exporter 改动,归持有人裁决,本仓不改。
-      password_file: 'D:/DevEnv/secrets/windows-exporter-auth.txt'
+      # ⚠ 2026-09-27 把这一格的真因纠正过来(先前登记为"口令与 bcrypt 哈希不配对",**那是错的**):
+      #   原 `windows-exporter-auth.txt` 的内容不是裸口令,而是一行 `键=值`
+      #   (`windows_exporter_basic_auth_password=…`),而 Prometheus 的 `password_file` 语义是
+      #   "文件内容即口令" ⇒ 它拿**整行**当口令去认证。决定性实测(同一进程、同一哈希):
+      #   带裸口令 `curl -u prometheus:<裸值>` = **200**,带整行 = **401**。
+      #   ⇒ 凭据与哈希从来是配对的,坏的是**文件形状**。修法只加一份格式正确的文件
+      #   (`windows-exporter-password.txt`,由该文件剥掉 `键=` 前缀派生,不含任何入仓内容),
+      #   原文件一字未动 —— 它的键名形状可能被别处当 env 用,不改别人的东西。
+      #   通用规矩:`password_file` 类"文件内容即秘密"的接口,落盘时必须逐字量文件字节
+      #   (`od -c` 一眼就能看出是不是键值形态),不能凭"文件在位 + 哈希看起来对"下结论。
+      password_file: 'D:/DevEnv/secrets/windows-exporter-password.txt'
     static_configs:
       - targets: ['localhost:9182']
         labels:
