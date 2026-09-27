@@ -499,6 +499,8 @@ import channelQuotaAdminRoutes from './admin/channel-quota.js'
 import mobileStatsRoutes from './admin/mobile-stats.js'
 // O6 能力开放登记表的运行期入口(根级 preHandler,详见 utils/open-capability-gate.ts)
 import { openCapabilityGateway } from '../utils/open-capability-gate.js'
+// 86A2(2026-09-28 立):CLI 工具证据流水摄入路由 POST /api/cli/audit/tool-invokes
+import { cliToolInvokeAuditRoutes } from './cli-tool-invoke-audit.js'
 
 export function registerRoutes(server: FastifyInstance) {
   // O6(2026-09-21)`/api` 面机器凭据入口闸:仅放行 config/open-capability-registry.ts
