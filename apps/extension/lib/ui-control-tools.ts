@@ -7,6 +7,8 @@ import {
   createAppControlToolSelector,
   lastUserContent,
 } from '@ihui/shared/utils/app-control-intent'
+// 文件族工具的意图判据与关键词表同样只在共享层有一份(见该文件头注的安全面理由)
+import { fileToolsFor } from '@ihui/shared/chat/file-tool-intent'
 
 /**
  * 扩展自有界面的 UI 操控工具族(2026-09-21 立,第五族 `ext_ui`)。
@@ -46,10 +48,23 @@ export const uiControlToolsFor = createAppControlToolSelector({
   api: API_CONTROL_TOOLS,
 })
 
-/** 聊天请求组装处调用:命中操控意图才带工具(普通问答保持流式首字延迟) */
+/**
+ * 聊天请求组装处调用:命中意图才带工具(普通问答保持流式首字延迟)。
+ *
+ * 两族并集,判据各在共享层有一份:
+ *  - UI 操控族(`ext_ui_*` / `api_*`):本端注入族名,因为执行面在扩展自己的 DOM 上;
+ *  - 文件族(`read_file` / `edit_file` …):服务端执行,**与端无关**,所以口径必须与 web 逐字同值
+ *    —— 这张表决定"哪些话术会让模型拿到写类工具",分叉不会报错,只会表现成
+ *    "同一句话在扩展里能改文件、在 web 里不能"(判据见 @ihui/shared/chat/file-tool-intent 头注)。
+ * 此前扩展**完全不带**文件族,即"在扩展里让模型改文件"这条能力整条缺失(D113 的流中预览
+ * 因此也无从触发 —— 发帧面 `_FILE_EDIT_PREVIEW_TOOLS` 只在工具真被调用时才产出帧)。
+ */
 export function toolsForChatRequest(content: string): string[] {
   // 2026-09-21 修复:typecheck 阻塞 —— lastUserContent 的入参是消息数组(见 miniapp-taro 同名文件),
   // 此处误传字符串;包装为单条 user 消息,语义不变(只看当前这一句)
-  return uiControlToolsFor(lastUserContent([{ role: 'user', content }]))
+  const ui = uiControlToolsFor(lastUserContent([{ role: 'user', content }]))
+  const files = fileToolsFor(content)
+  if (files.length === 0) return ui
+  return [...new Set([...ui, ...files])]
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
