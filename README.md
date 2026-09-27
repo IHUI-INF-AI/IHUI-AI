@@ -6364,3 +6364,6 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 >   RN `chat-render-model.ts`)，接线由各自的源码级锁 + 真实帧端到端用例钉住。
   - `useUpdater` 状态机(idle → checking → available → downloading → installing → done)+ `quitAndUpdateIfNeeded` 退出更新守卫 + `QuitUpdateOverlay` 全屏遮罩组件
 - **退出拦截更新**:拦截窗口关闭动作,检测更新 → 下载 → 安装 → 重启,如无更新则正常退出;覆盖 QuitUpdateOverlay 全屏遮罩防止用户误操作
+| `scripts/pg-backup-cadence-audit.mjs` | 只读审计每日备份的**节拍与完整性**:逐日在位、每份 `complete/truncated/undetermined` 三态、0 字节与体积塌陷、异地腿缺口 | 自定义格式的 TOC 在文件**尾部**,`pg_dump` 中途死掉留下的文件大小看着完全正常 —— 只看大小与 `ls` 判不出"这份根本恢复不了" |
+| `scripts/pg-restore-app-reads.mjs` | 把 60 条**应用自己发的只读查询**同时打到生产库与还原出来的演练库,五态不并桶地报 pass / 还原库报错 / 列形分叉 / 行数漂移 / 未判定 | "表数行数全等"只证明**元数据**到了;缺手写迁移的 `search_vector`、自定义 enum、RLS 会话变量、序列落后这些形态没有一个会移动那两把尺子,而应用一查就废 |
+| `deploy/win/ihui-pg-restore-prereq.sql` | 灾难恢复第 0 步:在干净集群上先建 `ihui` / `ihui_app` 两个角色再还原 | 单库 dump **结构上不含**角色与成员关系(实测 0 条 CREATE ROLE),而归档有 958 条 `OWNER TO ihui` —— 不先建角色,属主全部落空。口令是占位符,文件本身无机密 |

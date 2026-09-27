@@ -90,7 +90,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { padding: 14 },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       alignItems: 'center',
       backgroundColor: tk.surface.light,
       borderWidth: 1,
@@ -124,7 +124,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 16,
       paddingHorizontal: 20,
       paddingVertical: 10,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     shareText: { fontSize: 14, color: tk.surface.light, fontWeight: '600' },

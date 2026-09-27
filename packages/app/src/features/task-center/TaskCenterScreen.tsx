@@ -184,7 +184,7 @@ function createStyles(tk: AppThemeTokens) {
     list: { padding: 14, paddingBottom: 32 },
     card: {
       padding: 14,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 12,
@@ -205,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
     rewardBadge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.success.light,
     },
     rewardText: {
@@ -235,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       marginTop: 10,
       height: 44,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

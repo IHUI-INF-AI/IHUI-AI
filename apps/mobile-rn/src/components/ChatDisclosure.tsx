@@ -170,7 +170,6 @@ export function SteerNoticeList({
   )
 }
 
-
 /**
  * 权限档交代行(D111/G-165①):档名 + 该档会导致什么。
  *
@@ -208,7 +207,7 @@ const disclosureStyles = StyleSheet.create({
     gap: rpx(4),
   },
   card: {
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.muted,

@@ -2163,7 +2163,7 @@ const shellStyles = {
     marginTop: rpx(0),
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(8),
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brandAccent.light,
   } as const,
   selectedChipText: {
@@ -2188,7 +2188,7 @@ const shellStyles = {
   configBtn: {
     marginLeft: rpx(16),
     padding: rpx(12),
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   } as const,
   // ── creationEntry 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮) ──
@@ -2244,8 +2244,8 @@ const shellStyles = {
     width: '100%',
     height: '80%',
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius['2xl'],
-    borderTopRightRadius: rnRadius['2xl'],
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
   } as const,
   materialSheetBar: {
     flexDirection: 'row',
@@ -2336,7 +2336,7 @@ const shellStyles = {
   detailDialogRetryBtn: {
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(12),
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   } as const,
   detailDialogRetryText: {
@@ -2354,8 +2354,8 @@ const shellStyles = {
     width: '100%',
     maxHeight: '70%',
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius['2xl'],
-    borderTopRightRadius: rnRadius['2xl'],
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
     paddingTop: rpx(32),
     paddingBottom: rpx(16),
   } as const,
@@ -2467,7 +2467,7 @@ const shellStyles = {
   shareBtn: {
     paddingHorizontal: rpx(48),
     paddingVertical: rpx(20),
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
     minWidth: '70%',
     alignItems: 'center',

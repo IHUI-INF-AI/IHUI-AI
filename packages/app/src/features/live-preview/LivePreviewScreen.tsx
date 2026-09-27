@@ -110,7 +110,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 20,
       backgroundColor: tk.brand.cta,
       paddingVertical: 15,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },

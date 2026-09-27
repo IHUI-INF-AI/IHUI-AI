@@ -108,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { gap: 10, padding: 10, paddingBottom: 32 },
     card: {
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
     titleRow: {
@@ -127,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
       minWidth: 18,
       paddingHorizontal: 5,
       paddingVertical: 2,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   upgradeButton: {
     height: LOGIN_POPUP_PILL_HEIGHT_PX,
     paddingHorizontal: LOGIN_POPUP_PILL_PADDING_X_PX,
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.warning.amber,
     alignItems: 'center',
     justifyContent: 'center',
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
   bindButton: {
     height: LOGIN_POPUP_PILL_HEIGHT_PX,
     paddingHorizontal: LOGIN_POPUP_PILL_PADDING_X_PX,
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',

@@ -156,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       padding: 14,
       gap: 12,
       borderWidth: 1,
@@ -199,7 +199,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     contactBtn: {
       backgroundColor: tk.brand.cta,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 10,
       paddingVertical: 8,
     },
