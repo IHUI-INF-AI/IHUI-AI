@@ -26,7 +26,7 @@ export default function InvitePoster({
 }: InvitePosterProps) {
   const tt = useTt()
   return (
-    <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
+    <View className="bg-card mx-3 my-3 rounded-lg overflow-hidden">
       <View
         className="px-6 py-6 text-center text-accent-foreground"
         style={{ background: 'var(--color-accent)' }}
