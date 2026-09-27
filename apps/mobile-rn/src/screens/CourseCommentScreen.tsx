@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import {
   CourseCommentScreen as SharedCourseCommentScreen,
   type CourseCommentItem,
@@ -37,7 +38,7 @@ export function CourseCommentScreen() {
       )
       if (cancelled) return
       if (res.success) setComments(res.data ?? [])
-      else setError(res.error || t('courseComment.loadFailed'))
+      else setError(apiFailureToText(res, t('courseComment.loadFailed')))
       setLoading(false)
     })()
     return () => {

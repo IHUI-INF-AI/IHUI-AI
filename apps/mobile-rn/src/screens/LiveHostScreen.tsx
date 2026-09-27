@@ -15,7 +15,7 @@ import {
   type LiveHostStreamData,
 } from '@ihui/rn-app'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { formatDuration, formatFileSize } from '@ihui/shared/utils'
+import { apiFailureToText, formatDuration, formatFileSize } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
@@ -83,7 +83,7 @@ export function LiveHostScreen() {
             .filter((p): p is LiveHostProduct => p !== null)
           setProducts(mapped)
         } else {
-          setProductsError(res.error || t('liveHost.productLoadFailed'))
+          setProductsError(apiFailureToText(res, t('liveHost.productLoadFailed')))
         }
       })
       .catch((e) => {
