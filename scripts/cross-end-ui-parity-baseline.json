@@ -20,7 +20,7 @@
     "Carousel": 0,
     "CategoryBar": 0,
     "DrawerComponent": 1,
-    "InputArea": 1,
+    "InputArea": 0,
     "IntelligentAssistant": 1,
     "LoginPopUp": 0,
     "ModelConfigDialog": 0,
