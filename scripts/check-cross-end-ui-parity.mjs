@@ -1398,7 +1398,26 @@ export function verdictOf(findings, baseline) {
         radiusAnchor: rAnchor,
       })
   }
-  return { red, shrunk, waived }
+  /**
+   * **台账腐烂判据**:台账里有某个组件名,而本轮实测**根本没产出这一族的差异记录** ⇒ 这个键
+   * 是一个永远不可能被问责的存量额度。它的危害不是"多几行 JSON":下一次这一族重新被配对
+   * (可达性回落、拆对声明被撤、组件复活)时,它自带一份免费额度,于是新分叉被静默吞掉。
+   * `emitBaseline` 只按 findings 建键 ⇒ 谁哪次重生成台账都会顺手把它删掉,但**没人会知道曾经有过**;
+   * 本判据把"删掉了"变成"当场红"。豁免过的族仍算有记录(它被 waived 记账,不是没扫到)。
+   */
+  const seen = new Set([
+    ...findings.map((f) => f.name),
+    ...findings
+      .filter((f) => waivers[f.name] && !waiverProblem(waivers[f.name]))
+      .map((f) => f.name),
+  ])
+  const rot = [
+    ...new Set([
+      ...Object.keys(counts).filter((k) => !seen.has(k)),
+      ...Object.keys(radiusCounts).filter((k) => !seen.has(k)),
+    ]),
+  ].sort()
+  return { red, shrunk, waived, rot }
 }
 
 export function emitBaseline(findings, prior = {}) {
@@ -1577,6 +1596,12 @@ export function main(argv, repoRoot = ROOT) {
       console.log(
         `  下调:${res.shrunk.map((s) => `${s.name} ${s.anchor}→${s.diffCount}`).join(', ')}`,
       )
+    if (res.rot.length)
+      console.log(
+        `  × 台账腐烂:${res.rot.join('/')} —— 台账钉着这些名字而本轮实测**无该族记录**:` +
+          '它们是一个永远不可能被问责的免费额度,下一次这一族重新被配对(回落/拆对被撤/组件复活)时自带存量,' +
+          '新分叉会被静默吞掉。处置 = 删掉这些键,或让它重新有读数;不得"先放着"。',
+      )
     if (res.red.length)
       console.log(
         '  收口姿势 = 一份与平台无关的组件源 + 两端各自注入 primitive adapter;**不得给单端补数字凑平**' +
@@ -1713,7 +1738,8 @@ export function main(argv, repoRoot = ROOT) {
         `  · G 几何表 ${g.steps.length} 档与 GeometryStep ${g.declared.length} 档同名(表↔类型一致)`,
       )
   }
-  return res.red.length + icRed.length + slRed.length + rejRed + (geoRed ? 1 : 0) ? 1 : 0
+  const rotRed = res.rot.length ? 1 : 0
+  return rotRed + res.red.length + icRed.length + slRed.length + rejRed + (geoRed ? 1 : 0) ? 1 : 0
 }
 
 /**
@@ -2563,6 +2589,54 @@ function runSelfTest() {
       )
       return (
         !d.onlyMiniapp.length && !d.onlyRn.length && sameNoConverter.onlyMiniapp.join() === '64'
+      )
+    })(),
+  )
+  t(
+    '㊦ 台账腐烂:台账钉着某族而本轮实测无该族记录 ⇒ 必须点名并进退出码',
+    (() => {
+      const v = verdictOf([], { counts: { Ghost: 3 }, radiusCounts: {} })
+      return v.rot.join() === 'Ghost'
+    })(),
+  )
+  t(
+    '㊧ 反向对照:同一族本轮有读数(哪怕差异为 0 档以外)⇒ 不得判腐烂',
+    (() => {
+      const f = {
+        name: 'X',
+        named: [],
+        geometry: { onlyMiniapp: [44], onlyRn: [32] },
+        radius: { onlyMiniapp: [], onlyRn: [] },
+      }
+      const v = verdictOf([f], { counts: { X: 2 }, radiusCounts: { X: 0 } })
+      return v.rot.length === 0
+    })(),
+  )
+  t(
+    '㊨ 带理由豁免的族仍算"扫过了",不得被读成腐烂(否则没人敢登记豁免)',
+    (() => {
+      const f = {
+        name: 'Y',
+        named: [],
+        geometry: { onlyMiniapp: [], onlyRn: [] },
+        radius: { onlyMiniapp: [], onlyRn: [] },
+      }
+      const v = verdictOf([f], {
+        counts: { Y: 5 },
+        radiusCounts: {},
+        waivers: { Y: { reason: '原生 chrome 与键盘避让机制不同,两端不可同形' } },
+      })
+      return v.rot.length === 0 && v.waived.length === 1
+    })(),
+  )
+  t(
+    '㊩ 腐烂维装车锁:main 必须既打印 res.rot 又把它折进退出码(只打印 = 下一次没人看)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      return (
+        /× 台账腐烂:\$\{res\.rot\.join/.test(src) &&
+        /const rotRed = res\.rot\.length \? 1 : 0/.test(src) &&
+        /rotRed \+ res\.red\.length \+ icRed\.length/.test(src)
       )
     })(),
   )
