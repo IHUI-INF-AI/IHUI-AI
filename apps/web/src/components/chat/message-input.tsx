@@ -47,6 +47,9 @@ import { ModeSwitcher } from '@/components/chat/mode-switcher'
 import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
+// D117(2026-09-27):/diff 会话改动总览弹窗(全局单实例,useSessionDiffStore 驱动)
+import { SessionDiffDialog } from '@/components/ai/session-diff-dialog'
+import { runManualCompact } from '@/hooks/use-chat/manual-compact'
 // P3 #30(2026-09-16 立):待发送 diff 评审意见提示条(输入框上方常驻提示 + 一键清空)
 import { DiffCommentsBar } from '@/components/chat/diff-comments-bar'
 // 任务进度常驻状态条:输入框上方动态显示"在做什么 / 第几步 / 改了多少文件",plan_updated 驱动
@@ -80,7 +83,7 @@ import { ContextBudgetBar } from '@/components/chat/context-budget-bar'
 import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { compactConversation, getMessages } from '@ihui/api-client'
+import { getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
 import { AiSkillInvokeDialog, AiSkillResultDialog } from '@/components/chat/skill-library'
 import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoints/ai-skills'
@@ -824,52 +827,15 @@ export function MessageInput({
   }, [isStreaming, value, handleScreenshot])
 
   // 手动压缩上下文(2026-09-02 立):点击触发 POST /api/chat/compact
-  // - 请求进行中 loading + 禁用;compressed=true → 成功 toast + 重新拉取当前会话消息列表
-  //   (刷新跟随 use-chat/send-message.ts 压缩兜底的 getMessages 机制,仅仍在原会话时写回 store)
-  // - reason=too_few_messages / incompressible → info toast
-  // - 404/其他错误 → 统一错误 toast(Toaster 自动中文化)
+  // D117(2026-09-27):实现抽到 use-chat/manual-compact.ts 的 runManualCompact 单一实现,
+  // /compact 斜杠命令复用同一函数;此处只保留按钮 loading 态与流式守卫。
   const [compacting, setCompacting] = React.useState(false)
   const handleCompact = React.useCallback(async () => {
     const id = useChatStore.getState().conversationId
     if (!id || compacting || isStreaming) return
     setCompacting(true)
     try {
-      const res = await compactConversation(id)
-      if (res.success && res.data) {
-        if (res.data.compressed) {
-          toast.success(
-            t('compaction.compactSuccess', {
-              before: res.data.originalTokens,
-              after: res.data.compressedTokens,
-              saved: Math.max(0, res.data.originalTokens - res.data.compressedTokens),
-            }),
-          )
-          const result = await getMessages(id, { direction: 'initial', pageSize: 100 })
-          if (result.success && result.data && useChatStore.getState().conversationId === id) {
-            useChatStore.getState().setMessages(
-              result.data.messages.map((m) => ({
-                id: m.id,
-                role: m.role,
-                content: m.content,
-                createdAt: new Date(m.createdAt).getTime(),
-                model: '',
-                reasoning: m.reasoning,
-              })),
-            )
-          }
-        } else if (res.data.reason === 'too_few_messages') {
-          toast.info(t('compaction.compactTooFew'))
-        } else {
-          toast.info(t('compaction.compactIncompressible'))
-        }
-      } else {
-        toast.error(t('compaction.compactFailed'), {
-          description: res.success ? undefined : res.error,
-        })
-      }
-    } catch (e) {
-      const msg = (e as Error).message || t('compaction.compactFailed')
-      toast.error(t('compaction.compactFailed'), { description: msg })
+      await runManualCompact(id, t)
     } finally {
       setCompacting(false)
     }
@@ -1376,11 +1342,7 @@ export function MessageInput({
               <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
                 {/* 手动压缩上下文入口已整合到"添加"下拉菜单(2026-09-06),工具栏不再保留独立按钮 */}
                 <ContextUsageRing model={model} isStreaming={isStreaming} />
-                <ModelSelector
-                  value={model}
-                  onChange={onModelChange}
-                  label={modelLabel}
-                />
+                <ModelSelector value={model} onChange={onModelChange} label={modelLabel} />
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
                 <VoiceToolbar onTranscript={handleVoiceTranscript} disabled={isStreaming} />
                 {/* 发送/停止按钮(2026-07-30 用户规则:清除按钮已挪回 WebInputCore 内部 textarea 右上角悬浮呈现,
@@ -1459,6 +1421,8 @@ export function MessageInput({
           - 用户勾选"我了解"后才能点"继续启用"(内部 markFullAccessSuppressed/Acknowledged)
           - 确认后调 cyclePermissionMode(再次切到 bypass,此时 isFullAccessConfirmSuppressed=true,直走切换) */}
       <FullAccessConfirmBridge />
+      {/* D117:/diff 会话改动总览弹窗(全局单实例) */}
+      <SessionDiffDialog />
       {/* 权限模式快捷键帮助面板(2026-07-25 深化,深度对标 Codex CLI /help):
           - ? 键(Shift+/)全局唤起/关闭,由本组件内 useEffect 监听
           - 排除 textarea/input/contenteditable 内,用户打字不误触
