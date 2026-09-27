@@ -165,7 +165,11 @@ describe('86C 判据①:只持公钥即可离线验签通过', () => {
     // 链内那把对称密钥在本测试进程里从未配置 ⇒ 通过不可能是靠它
     expect(process.env.AUDIT_LOG_HMAC_SECRET ?? '').toBe('')
     const result = verifySignedAuditExport(envelope)
-    expect(result).toEqual({ ok: true })
+    expect(result.ok).toBe(true)
+    // 86G-2:结论自带分类。当前这把来自环境变量、尚未登记进表 ⇒ keyStatus=bootstrap。
+    expect(result.status).toBe('verified')
+    expect(result.keyStatus).toBe('bootstrap')
+    expect(result.kid).toBe(envelope.payload.keyId)
     primeEnv()
     expect(envelope.payload.algorithm).toBe('RSA-SHA256')
     expect(envelope.payload.rowCount).toBe(2)
@@ -229,12 +233,22 @@ describe('86C 判据②:阳性对照 —— 改一个字节必须验不过', () 
     expect(result.reason).toContain('RSA-SHA256 验签未通过')
   })
 
-  it('换一把公钥来验(kid 不匹配)⇒ 明确拒绝而不是静默通过', async () => {
+  it('换一把公钥来验 ⇒ 判"未知密钥"(86G-2:与"签名被改"不同形,绝不静默通过)', async () => {
+    // 旧口径在这里回的是"密钥标识不匹配"一句笼统的"验不过"。86G-2 之后它必须落成
+    // `unknown_key`:运维据此知道要去登记表里补这把公钥(而不是去查谁改了文件)。
     const envelope = await buildSignedAuditExport({}, 'json', 100)
     process.env[PUBLIC_KEY_INLINE_ENV] = secondaryPublic
     const result = verifySignedAuditExport(envelope)
     expect(result.ok).toBe(false)
-    expect(result.reason).toContain('密钥标识不匹配')
+    expect(result.status).toBe('unknown_key')
+    expect(result.reason).toContain('未知密钥')
+    // 点名:既点信封声称的 kid,也点表里当前都有谁 —— 拿到报告的人才能判断"没登记"还是"删了行"。
+    expect(result.reason).toContain(envelope.payload.keyId)
+    expect(result.kid).toBe(envelope.payload.keyId)
+    // 与"签名被改"必须是两个结论(把这条和上面那条对调即红):
+    expect(result.status).not.toBe('signature_invalid')
+    // 而"未知"不等于"没有可用公钥":表里此刻确实有一把(新的那把),所以是判定结论、不是机制故障。
+    primeEnv()
   })
 })
 
@@ -253,10 +267,10 @@ describe('86C 判据③:反向对照 —— 对称签名这一型必须被挡住
   })
 
   it('信封结构不合法(缺 payload)⇒ 判不通过并点名,不抛成"验过了"', async () => {
-    expect(verifySignedAuditExport({ signature: 'x' })).toEqual({
-      ok: false,
-      reason: '信封缺少 payload 对象',
-    })
+    const malformed = verifySignedAuditExport({ signature: 'x' })
+    expect(malformed.ok).toBe(false)
+    expect(malformed.status).toBe('malformed_envelope')
+    expect(malformed.reason).toBe('信封缺少 payload 对象')
     expect(verifySignedAuditExport('not-json-object').ok).toBe(false)
   })
 })
@@ -469,7 +483,7 @@ describe('86G-1 匿名公钥端点:免鉴权 + 显式列举 + 限流 + 无私钥
     delete process.env[PRIVATE_KEY_INLINE_ENV]
     delete process.env[PRIVATE_KEY_PATH_ENV]
     process.env[PUBLIC_KEY_INLINE_ENV] = body.data.publicKey
-    expect(verifySignedAuditExport(envelope)).toEqual({ ok: true })
+    expect(verifySignedAuditExport(envelope).status).toBe('verified')
     primeEnv()
   })
 

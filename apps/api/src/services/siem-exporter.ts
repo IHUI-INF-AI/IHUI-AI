@@ -22,6 +22,18 @@ import { existsSync, readFileSync } from 'node:fs'
 import { env } from 'node:process'
 import type { AuditLogChainRow, AuditLogFilters } from '../db/audit-queries.js'
 import { selectAuditLogs } from '../db/audit-queries.js'
+// 86G-2:按 kid 查表的登记表与它的装载/解析出口。kid 的推导算法也住在那边 —— 签名侧与
+// 验签侧各写一遍必然漂移(本仓记过最多次的失败型),所以这里只 import,不再抄一份。
+import {
+  AUDIT_EXPORT_KEY_REGISTRY,
+  buildAuditExportKeyTable,
+  deriveAuditExportKeyId,
+  readEnvironmentCurrentKey,
+  resolveAuditExportKeyForKid,
+  type AuditExportKeyEntry,
+  type AuditExportKeyStatus,
+  type AuditExportKeyTable,
+} from './audit-export-key-registry.js'
 
 export type SiemFormat = 'json' | 'cef' | 'leef'
 
@@ -271,10 +283,24 @@ export interface SignedAuditExport {
   signature: string
 }
 
+/** 验签结论分类 —— 三态必须可分辨,"没登记"与"签名被改"的处置动作相反(86G-2)。 */
+export type AuditExportVerifyStatus =
+  'verified' | 'malformed_envelope' | 'content_inconsistent' | 'unknown_key' | 'signature_invalid'
+
 /** 验签结论:`ok=false` 时 `reason` 必非空(不得给一个没有原因的"不通过")。 */
 export interface AuditExportVerifyResult {
   ok: boolean
+  /**
+   * 分类结论。`unknown_key`(登记表里没这一把)与 `signature_invalid`(有这一把、签名不对)
+   * **不得同形**:前者要人去补登记,后者要人去查谁改了文件。合并成一个"验不过"就是把
+   * 两种相反的处置动作压成一条没人能执行的告警。
+   */
+  status: AuditExportVerifyStatus
   reason?: string
+  /** 信封声称的 kid(结构合法即给出,便于运维照它去补登记)。 */
+  kid?: string
+  /** 命中的登记表项状态(`active` / `retired` / `bootstrap`);未命中时不给。 */
+  keyStatus?: AuditExportKeyStatus
 }
 
 /** 失败原因分类 —— 为了"可归因",而不是把四类压成一句"签名失败"。 */
@@ -385,15 +411,32 @@ function getPublicKeyPem(): string {
 }
 
 /**
- * kid:显式配置优先,否则取公钥 PEM 的 sha256 前 16 位。
+ * kid:显式配置优先,否则取公钥 PEM 的 sha256 前 16 位(算法在登记表那一份实现里)。
  *
- * 由公钥推导意味着"换钥匙 ⇒ kid 自己变",不需要人记得同步改一张表;
- * 收件方拿到同一把公钥也能算出同一个值(所以 kid 不是凭据,是标识)。
+ * 由公钥推导意味着"换钥匙 ⇒ kid 自己变",不需要人记得同步改一张表;收件方拿到同一把公钥
+ * 也能算出同一个值(所以 kid 不是凭据,是标识)。**登记表里的行必须能被同一个函数查到** ——
+ * 两侧共用这一份推导,否则会出现"签出去的信封写着 A,表里登记的是 B"这种永久验不过。
  */
 function keyIdForPublicKey(publicKeyPem: string): string {
   const configured = env[KEY_ID_ENV]
   if (configured && configured.trim().length > 0) return configured.trim()
-  return `ihui-audit-export-${sha256Hex(publicKeyPem).slice(0, 16)}`
+  return deriveAuditExportKeyId(publicKeyPem)
+}
+
+/**
+ * 生效公钥表 = 登记行 ⊕ 环境变量当前公钥(86G-2)。
+ *
+ * 环境变量取不到不抛(表可能就是空),取到坏材料才抛 —— 抛错语义由调用方翻译成
+ * "验签机制不可用",绝不翻译成"验不过"(那是把没判写成判过了)。
+ */
+function currentKeyTable(): AuditExportKeyTable {
+  let envCurrent: { kid: string; publicKey: string } | null
+  try {
+    envCurrent = readEnvironmentCurrentKey()
+  } catch (e) {
+    throw new AuditExportSignatureError('public_key_unavailable', (e as Error).message)
+  }
+  return buildAuditExportKeyTable(AUDIT_EXPORT_KEY_REGISTRY, envCurrent)
 }
 
 /** 公钥发布出口:路由的 `GET /public-key` 只走这里,私钥在本函数作用域内不可达。 */
@@ -518,43 +561,91 @@ function parseEnvelope(raw: unknown): SignedAuditExport | string {
 /**
  * 用公钥离线验签一份导出信封。**不需要任何对称密钥**。
  *
- * 三态分开,不并桶:
- * - `ok: true`                    —— 公钥在位、结构合法、摘要/行数自洽、签名验过
- * - `ok: false, reason`           —— 内容被改过 / 不是这把钥匙签的 / 结构不合法
- * - **throw** AuditExportSignatureError —— 公钥取不到或验签运算本身失败:
- *   这是"没能完成验证",绝不能被读成"验证不通过"(更不能被读成通过)。
+ * 三态分开、不并桶(86G-2 把"只认当前那一把"换成了"按信封自带的 kid 查登记表"):
+ * - `status:'verified'`            —— kid 在表里(可以是已退役的旧钥)、自证一致、签名验过
+ * - `status:'content_inconsistent'`/ `'malformed_envelope'` / `'signature_invalid'` —— 内容被改过 / 结构不合法
+ * - `status:'unknown_key'`         —— **登记表里没有这一把 kid**:既不是"通过"也不是"签名被改",
+ *   它说的是"我们没登记这把公钥",处置动作是去补表(或把旧钥登记为 retired),不是去查篡改者
+ * - **throw** AuditExportSignatureError —— 一把公钥都没有 / 验签运算本身失败:"没能完成验证",
+ *   绝不能被读成"验证不通过"(更不能被读成通过)
  *
- * 判定顺序刻意是"先自证、后验签":摘要/行数不一致时直接判不通过,不给篡改者
+ * 判定顺序刻意是"先自证、后查表、再验签":摘要/行数不一致时直接判不通过,不给篡改者
  * 用"签名反正会红"来掩盖"数据被删了几行"的机会。
+ *
+ * ⚠️ 查表**不得**按 `status` 过滤:`retired` 的旧信封正是本票存在的理由。时间窗
+ * (`notAfter`)只进腐烂判据(`audit-export-key-registry.ts`),不进验签路径。
  */
 export function verifySignedAuditExport(envelope: unknown): AuditExportVerifyResult {
+  return verifySignedAuditExportWithKeys(envelope, currentKeyTable().entries)
+}
+
+/**
+ * 上一节的**唯一实现**;`verifySignedAuditExport` 只是"用当前生效表"的那一层薄壳。
+ *
+ * 分成两层不是为了给测试开后门:外部审计方拿到的是**离线公钥表**(登记表文件本身),而不是
+ * 我们的环境变量 —— 所以"按一张给定的表验签"本身就是生产语义。测试与非生产消费者共用这条
+ * 出口,两侧判据因此不会漂移(另写一份"能注入表"的验签 = 第二份真相)。
+ */
+export function verifySignedAuditExportWithKeys(
+  envelope: unknown,
+  entries: readonly AuditExportKeyEntry[],
+): AuditExportVerifyResult {
   const parsed = parseEnvelope(envelope)
-  if (typeof parsed === 'string') return { ok: false, reason: parsed }
+  if (typeof parsed === 'string') return { ok: false, status: 'malformed_envelope', reason: parsed }
   const { payload, signature } = parsed
+  const kid = payload.keyId
 
   if (payload.rowCount !== payload.lines.length) {
     return {
       ok: false,
+      status: 'content_inconsistent',
+      kid,
       reason: `行数不自洽:声明 ${String(payload.rowCount)},实际 ${String(payload.lines.length)}`,
     }
   }
   if (payload.dataDigest !== sha256Hex(canonicalStringify(payload.lines))) {
-    return { ok: false, reason: '数据体摘要不匹配:导出内容在签名后被改动过' }
-  }
-
-  const publicKeyPem = getPublicKeyPem()
-  const expectedKeyId = keyIdForPublicKey(publicKeyPem)
-  if (payload.keyId !== expectedKeyId) {
     return {
       ok: false,
-      reason: `密钥标识不匹配:信封记 ${payload.keyId},本机公钥算 ${expectedKeyId}(不是这把钥匙签的)`,
+      status: 'content_inconsistent',
+      kid,
+      reason: '数据体摘要不匹配:导出内容在签名后被改动过',
     }
   }
 
-  const verified = rsaVerify(canonicalPayloadBytes(payload), signature, publicKeyPem)
-  if (!verified) {
-    return { ok: false, reason: 'RSA-SHA256 验签未通过:信封被篡改,或签名并非本方私钥产出' }
+  if (entries.length === 0) {
+    throw new AuditExportSignatureError(
+      'public_key_unavailable',
+      `没有任何可用公钥:登记表(${String(AUDIT_EXPORT_KEY_REGISTRY.length)} 行)与环境变量都取不到公钥。` +
+        `请设置 ${PUBLIC_KEY_INLINE_ENV}(PEM 正文)或 ${PUBLIC_KEY_PATH_ENV}(PEM 文件路径),` +
+        '或把该信封的公钥登记进 services/audit-export-key-registry.ts。' +
+        '"没有公钥"不等于"验签通过",它是一次未完成的验证。',
+    )
   }
-  return { ok: true }
+  const resolved = resolveAuditExportKeyForKid(kid, entries)
+  if (!resolved.found) {
+    // 未知 kid ≠ 签名无效:报"未知密钥"并把 kid 点名,同时列出表里都有谁 —— 运维据此一眼看出
+    // 是"没登记"还是"表被人删了一行"。绝不回落成"用当前那把试试"(那等于把登记表当摆设)。
+    const known = entries.map((entry) => `${entry.kid}(${entry.status})`).join(', ')
+    return {
+      ok: false,
+      status: 'unknown_key',
+      kid,
+      reason:
+        `未知密钥:信封 kid=${kid} 不在验签公钥登记表里;当前可用的是 [${known}]。` +
+        '这不是签名被篡改 —— 处置动作是把这把公钥登记为 retired(旧信封才能验),而不是去找篡改者。',
+    }
+  }
+
+  const verified = rsaVerify(canonicalPayloadBytes(payload), signature, resolved.entry.publicKey)
+  if (!verified) {
+    return {
+      ok: false,
+      status: 'signature_invalid',
+      kid,
+      keyStatus: resolved.entry.status,
+      reason: 'RSA-SHA256 验签未通过:信封被篡改,或签名并非该 kid 对应的私钥产出',
+    }
+  }
+  return { ok: true, status: 'verified', kid, keyStatus: resolved.entry.status }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
