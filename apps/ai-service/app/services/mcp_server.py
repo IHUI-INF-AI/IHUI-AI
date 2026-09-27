@@ -7726,6 +7726,7 @@ async def _tool_request_business_form(args: dict[str, Any]) -> dict[str, object]
 
 
 _TOOLS: list[MCPTool] = [
+    MCPTool(name="probe_zz_missing_tool", description="probe", inputSchema={}),
     MCPTool(
         name="search_codebase",
         description="代码符号搜索(真实文件系统,支持 def/class/func/function/interface/type 符号 + 引用匹配)",
