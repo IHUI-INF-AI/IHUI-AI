@@ -8487,7 +8487,7 @@
         },
         "TOOL_MODE_UNAVAILABLE": {
           "title": "이 도구는 현재 실행 모드에서 사용할 수 없습니다",
-          "action": "동등한 로컬 도구로 대체"
+          "action": "웹 앱에서 작업 공간을 연결한 후 다시 시도하거나 동등한 로컬 도구로 대체"
         },
         "TOOL_NOT_FOUND": {
           "title": "대상 리소스를 찾을 수 없습니다",
@@ -9767,6 +9767,7 @@
     "restoreFailed": "체크포인트 복원 실패",
     "bestOfAdopted": "선택한 후보가 대화에 추가되었습니다",
     "tabs": {
+      "inspector": "raw 프레임",
       "goal": "목표",
       "memory": "메모리",
       "plan": "계획",
@@ -9797,6 +9798,22 @@
     "applied": "적용됨",
     "apply": "적용",
     "hint": "사용 가능한 AI 도구",
+    "inspector": {
+      "start": "수집 시작",
+      "stop": "수집 중지",
+      "clear": "지우기",
+      "export": "JSONL 내보내기",
+      "filter": "유형별 필터",
+      "filterAll": "전체 유형",
+      "count": "총 {total}프레임, 표시 {shown}",
+      "empty": "프레임 없음",
+      "hint": "\"수집 시작\"을 누르면 다음 AI 응답의 raw SSE 프레임이 여기에 프레임 단위로 기록됩니다(개발자 디버그 뷰)",
+      "waiting": "스트림 프레임 대기 중…",
+      "truncated": "최근 300프레임만 렌더링됩니다(전체 {total}프레임은 JSONL 내보내기로 확인)",
+      "copied": "복사됨",
+      "copyFailed": "복사 실패",
+      "copyOne": "이 프레임 복사"
+    },
     "worldsAdopted": "브랜치 응답을 채택했습니다"
   },
   "agentHooks": {
@@ -11172,7 +11189,34 @@
       "title": "Skill 라이브러리",
       "viewAll": "전체 보기"
     },
+    "sessionDiff": {
+      "title": "세션 변경 요약",
+      "fileCount": "{count}개 파일",
+      "empty": "이 세션에는 아직 파일 변경이 없습니다",
+      "changedTimes": "{count}{plus}회",
+      "editedBy": "편집 도구: {tool}",
+      "before": "변경 전",
+      "after": "변경 후",
+      "applyStatus_pending": "승인 대기",
+      "applyStatus_applied": "적용됨",
+      "applyStatus_rejected": "거부됨"
+    },
     "slashCmd": {
+      "diff": "이 세션에서 AI가 변경한 파일 요약 보기",
+      "diffEmpty": "이 세션에는 아직 파일 변경이 없습니다",
+      "status": "현재 모델, 컨텍스트 사용률, 권한 모드 보기",
+      "statusBadge": "세션 상태",
+      "statusReportTitle": "세션 상태",
+      "statusModel": "현재 모델",
+      "statusConversation": "세션 ID",
+      "statusPermission": "권한 모드",
+      "statusContext": "컨텍스트: {used} / {capacity} ({pct}%)",
+      "statusTokens": "세션 출력 토큰: {tokens}",
+      "statusCost": "세션 비용: ${cost}",
+      "statusMessages": "메시지 수: {count}",
+      "model": "모델 선택기 열기",
+      "mcp": "MCP 마켓 열기",
+      "compact": "현재 세션 컨텍스트 압축",
       "act": "실행 모드로 전환(AI가 정상적으로 도구를 실행합니다, 기본값)",
       "build": "빌드 모드로 전환(모든 도구 활성화, 정상 실행)",
       "code": "코드 생성",
@@ -11667,6 +11711,31 @@
       "view": "보기"
     },
     "commands": {
+      "slashDiff": {
+        "label": "세션 변경 요약",
+        "description": "이 세션에서 AI가 변경한 파일 확인",
+        "keywords": ["diff", "변경", "검토"]
+      },
+      "slashStatus": {
+        "label": "세션 상태",
+        "description": "모델, 컨텍스트, 권한 모드, 사용량 표시",
+        "keywords": ["status", "상태", "컨텍스트"]
+      },
+      "slashModel": {
+        "label": "모델 전환",
+        "description": "모델 선택기 열기",
+        "keywords": ["model", "모델", "전환"]
+      },
+      "slashMcp": {
+        "label": "MCP 마켓",
+        "description": "MCP 서버 마켓 열기",
+        "keywords": ["mcp", "마켓"]
+      },
+      "slashCompact": {
+        "label": "컨텍스트 압축",
+        "description": "세션 기록을 압축해 컨텍스트 확보",
+        "keywords": ["compact", "압축", "컨텍스트"]
+      },
       "steerPrompt": {
         "label": "프롬프트 스티어",
         "description": "실행 중인 답변에 현재 입력을 가이드로 주입합니다",
@@ -21334,6 +21403,7 @@
     "categoryMode": "모드 전환",
     "categoryPermission": "권한 관리",
     "categorySkill": "AI 스킬",
+    "categoryTools": "도구 명령",
     "categoryTemplate": "콘텐츠 템플릿",
     "noMatchArgs": "일치하는 후보가 없습니다",
     "noMatchArgsHint": "검색을 지우거나 ESC 를 눌러 돌아가세요",
@@ -25496,6 +25566,9 @@
     "ratingSuccess": "평점이 제출되었습니다"
   },
   "chatSearchBar": {
+    "messageNotFound": "메시지를 찾을 수 없습니다. 현재 표시 범위 밖일 수 있습니다",
+    "moreResults": "나머지 {count}개 결과",
+    "resultListLabel": "이 대화의 검색 결과",
     "searchPlaceholder": "대화 검색…",
     "searchAriaLabel": "대화 검색"
   },

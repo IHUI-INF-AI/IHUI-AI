@@ -8487,7 +8487,7 @@
         },
         "TOOL_MODE_UNAVAILABLE": {
           "title": "このツールは現在の実行モードでは利用できません",
-          "action": "等価なローカルツールに切り替え"
+          "action": "Web アプリでワークスペースを連携してから再試行、または同等のローカルツールに切り替え"
         },
         "TOOL_NOT_FOUND": {
           "title": "対象のリソースが見つかりません",
@@ -9767,6 +9767,7 @@
     "restoreFailed": "チェックポイントの復元に失敗しました",
     "bestOfAdopted": "選択した候補を会話に書き込みました",
     "tabs": {
+      "inspector": "raw フレーム",
       "goal": "目標",
       "memory": "メモリ",
       "plan": "計画",
@@ -9797,6 +9798,22 @@
     "applied": "適用済み",
     "apply": "適用",
     "hint": "利用可能な AI ツール",
+    "inspector": {
+      "start": "収集開始",
+      "stop": "収集停止",
+      "clear": "クリア",
+      "export": "JSONL 出力",
+      "filter": "タイプで絞り込み",
+      "filterAll": "すべてのタイプ",
+      "count": "全 {total} フレーム、表示 {shown}",
+      "empty": "フレームなし",
+      "hint": "「収集開始」を押すと、次の AI 返信の raw SSE フレームをここに逐次記録します(開発者デバッグビュー)",
+      "waiting": "ストリームフレームを待機中…",
+      "truncated": "最新 300 フレームのみ表示(全 {total} フレームは JSONL 出力で取得できます)",
+      "copied": "コピーしました",
+      "copyFailed": "コピー失敗",
+      "copyOne": "このフレームをコピー"
+    },
     "worldsAdopted": "ブランチの返信を採用しました"
   },
   "agentHooks": {
@@ -11172,7 +11189,34 @@
       "title": "スキルライブラリ",
       "viewAll": "すべて表示"
     },
+    "sessionDiff": {
+      "title": "セッション変更一覧",
+      "fileCount": "{count} 件のファイル",
+      "empty": "このセッションでのファイル変更はまだありません",
+      "changedTimes": "{count}{plus} 回",
+      "editedBy": "編集ツール:{tool}",
+      "before": "変更前",
+      "after": "変更後",
+      "applyStatus_pending": "承認待ち",
+      "applyStatus_applied": "適用済み",
+      "applyStatus_rejected": "却下"
+    },
     "slashCmd": {
+      "diff": "このセッションで AI が変更したファイルの一覧を表示",
+      "diffEmpty": "このセッションでのファイル変更はまだありません",
+      "status": "現在のモデル・コンテキスト使用率・権限モードを表示",
+      "statusBadge": "セッション状態",
+      "statusReportTitle": "セッション状態",
+      "statusModel": "現在のモデル",
+      "statusConversation": "セッション ID",
+      "statusPermission": "権限モード",
+      "statusContext": "コンテキスト:{used} / {capacity}({pct}%)",
+      "statusTokens": "このセッションの出力トークン:{tokens}",
+      "statusCost": "セッションコスト:${cost}",
+      "statusMessages": "メッセージ数:{count}",
+      "model": "モデルセレクターを開く",
+      "mcp": "MCP マーケットを開く",
+      "compact": "このセッションのコンテキストを圧縮",
       "act": "実行モードに切り替え(AIは正常にツールを実行します、デフォルト)",
       "build": "ビルドモードに切替(全ツール利用可能、正常実行)",
       "code": "コード生成",
@@ -11667,6 +11711,31 @@
       "view": "表示"
     },
     "commands": {
+      "slashDiff": {
+        "label": "セッション変更一覧",
+        "description": "このセッションで AI が変更したファイルを確認",
+        "keywords": ["diff", "変更", "確認"]
+      },
+      "slashStatus": {
+        "label": "セッション状態",
+        "description": "モデル・コンテキスト・権限モード・使用量を表示",
+        "keywords": ["status", "状態", "コンテキスト"]
+      },
+      "slashModel": {
+        "label": "モデル切替",
+        "description": "モデルセレクターを開く",
+        "keywords": ["model", "モデル", "切替"]
+      },
+      "slashMcp": {
+        "label": "MCP マーケット",
+        "description": "MCP サーバーマーケットを開く",
+        "keywords": ["mcp", "マーケット"]
+      },
+      "slashCompact": {
+        "label": "コンテキスト圧縮",
+        "description": "セッション履歴を圧縮してコンテキストを解放",
+        "keywords": ["compact", "圧縮", "コンテキスト"]
+      },
       "steerPrompt": {
         "label": "プロンプトをステア",
         "description": "実行中の回答に現在の入力をガイドとして注入します",
@@ -21345,6 +21414,7 @@
     "categoryMode": "モード切替",
     "categoryPermission": "権限管理",
     "categorySkill": "AI スキル",
+    "categoryTools": "ツールコマンド",
     "categoryTemplate": "コンテンツテンプレート",
     "noMatchArgs": "一致する候補がありません",
     "noMatchArgsHint": "検索をクリアするか、ESC キーで戻ってください",
@@ -25507,6 +25577,9 @@
     "ratingSuccess": "評価を送信しました"
   },
   "chatSearchBar": {
+    "messageNotFound": "メッセージが見つかりません。現在の表示範囲外の可能性があります",
+    "moreResults": "他 {count} 件の結果",
+    "resultListLabel": "この会話内の検索結果",
     "searchPlaceholder": "会話を検索…",
     "searchAriaLabel": "会話を検索"
   },
