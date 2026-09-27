@@ -92,19 +92,23 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
             <Text style={styles.title} numberOfLines={1}>
               选择会员档位
             </Text>
+            {/* 关闭钮这一档只有宽/高/居中三条纯布局档(无底色无描边),所以盒子留在外层即可,
+                只把按压态的透明度下移到子 View —— 它没有背景可画,内外两层的观感全等;
+                外层保留尺寸与 hitSlop,命中区一分不减。 */}
             <Pressable
-              style={({ pressed }) => [
-                styles.closeButton,
-                pressed ? styles.closeButtonPressed : null,
-              ]}
+              style={styles.closeButton}
               onPress={handleClose}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="关闭"
             >
-              <Text style={styles.closeIcon} allowFontScaling={false}>
-                {'\u00D7'}
-              </Text>
+              {({ pressed }) => (
+                <View style={pressed ? styles.closeButtonPressed : null}>
+                  <Text style={styles.closeIcon} allowFontScaling={false}>
+                    {'\u00D7'}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
           <Text style={styles.subtitle}>选择档位后点击立即开通</Text>
@@ -120,47 +124,64 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
               levels.map((level) => {
                 const selected = selectedId === level.id
                 return (
+                  // 档位行带底色/圆角/描边 —— 属"整盒下移"那一档:外层裸 Pressable 只承接点击与
+                  // 无障碍语义,盒子(含选中态与按压态)整体下移到子 View 的数组形态上,再用撑满档
+                  // 把原来由父级 stretch 给出的整行宽还给盒子。留外层会把描边挤到 padding 内圈。
                   <Pressable
                     key={level.id}
-                    style={({ pressed }) => [
-                      styles.levelItem,
-                      selected ? styles.levelItemSelected : null,
-                      pressed ? styles.levelItemPressed : null,
-                    ]}
                     onPress={() => setSelectedId(level.id)}
                     accessibilityRole="button"
                     accessibilityLabel={`选择 ${level.levelName}`}
                     accessibilityState={{ selected }}
                   >
-                    <View style={styles.levelInfo}>
-                      <Text style={styles.levelName} numberOfLines={1}>
-                        {level.levelName}
-                      </Text>
-                      <Text style={styles.levelMeta} allowFontScaling={false}>
-                        {level.durationDays} 天 · Lv.{level.levelValue}
-                      </Text>
-                    </View>
-                    <Text style={styles.levelPrice} allowFontScaling={false}>
-                      ¥{level.price}
-                    </Text>
+                    {({ pressed }) => (
+                      <View
+                        style={[
+                          styles.levelItemFace,
+                          styles.levelItem,
+                          selected ? styles.levelItemSelected : null,
+                          pressed ? styles.levelItemPressed : null,
+                        ]}
+                      >
+                        <View style={styles.levelInfo}>
+                          <Text style={styles.levelName} numberOfLines={1}>
+                            {level.levelName}
+                          </Text>
+                          <Text style={styles.levelMeta} allowFontScaling={false}>
+                            {level.durationDays} 天 · Lv.{level.levelValue}
+                          </Text>
+                        </View>
+                        <Text style={styles.levelPrice} allowFontScaling={false}>
+                          ¥{level.price}
+                        </Text>
+                      </View>
+                    )}
                   </Pressable>
                 )
               })
             )}
           </ScrollView>
 
+          {/* 确认按钮带底色与圆角 —— 同"整盒下移":外层只承接点击/禁用与无障碍语义,
+              盒子(含禁用态与按压态)落到子 View 的数组形态上,宽度由撑满档保持原来的整行宽。 */}
           <Pressable
-            style={({ pressed }) => [
-              styles.confirmButton,
-              !selectedId ? styles.confirmButtonDisabled : null,
-              pressed ? styles.confirmButtonPressed : null,
-            ]}
             onPress={handleConfirm}
             disabled={!selectedId}
             accessibilityRole="button"
             accessibilityLabel="立即开通"
           >
-            <Text style={styles.confirmButtonText}>立即开通</Text>
+            {({ pressed }) => (
+              <View
+                style={[
+                  styles.confirmButtonFace,
+                  styles.confirmButton,
+                  !selectedId ? styles.confirmButtonDisabled : null,
+                  pressed ? styles.confirmButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.confirmButtonText}>立即开通</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>
@@ -238,6 +259,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 20,
   } as TextStyle,
+  // 下移到子 View 的盒子用这两档取回原来由父级 stretch 给出的整行宽;不是新的尺寸档。
+  levelItemFace: { width: '100%' } as ViewStyle,
   levelItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -277,6 +300,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.brandAccent.deep,
   } as TextStyle,
+  confirmButtonFace: { width: '100%' } as ViewStyle,
   confirmButton: {
     height: BUTTON_HEIGHT,
     borderRadius: rnRadius.lg,
