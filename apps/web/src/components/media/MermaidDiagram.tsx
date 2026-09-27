@@ -8,10 +8,41 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
+import {
+  MERMAID_SKIP_NOTICE_KEYS,
+  decideMermaidRender,
+  isMermaidContentOverBudget,
+  measureMermaidSource,
+  type MermaidRenderDecision,
+} from '@/components/ai/mermaid-render-budget'
 
 interface MermaidDiagramProps {
   code: string
   className?: string
+}
+
+/**
+ * 页面可见性(本链路唯一的一个开关,不要再在别处读 document.hidden)。
+ *
+ * 为什么需要它:mermaid 的 parse + layout 是主线程同步工作,在后台标签页里
+ * 做完也没有任何人看到 —— 而流式回答恰恰最容易发生在"用户已经切走了"的时候。
+ * 隐藏期间不发起渲染;回到前台由本 hook 翻牌触发一次正常渲染(不是重渲染)。
+ *
+ * SSR 面:本组件经 `dynamic({ ssr:false })` 挂载,`document` 恒存在;
+ * 仍留 `typeof document` 兜底,是为了让单测能在无 DOM 环境下 import 而不炸。
+ */
+function usePageVisible(): boolean {
+  const [visible, setVisible] = React.useState<boolean>(() =>
+    typeof document === 'undefined' ? true : document.visibilityState === 'visible',
+  )
+  React.useEffect(() => {
+    const sync = (): void => setVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', sync)
+    // 订阅后立刻回读一次:state 初值与订阅之间标签页可能已经切换过
+    sync()
+    return () => document.removeEventListener('visibilitychange', sync)
+  }, [])
+  return visible
 }
 
 /**
@@ -42,20 +73,47 @@ class MermaidErrorBoundary extends React.Component<
  *
  * - mermaid 通过 dynamic import 加载,不影响首屏 bundle
  * - 主题跟随 next-themes 的 resolvedTheme,自动切换 dark / default
+ * - **渲染预算**:源码规模超三维上限或页面不可见时**根本不进入 render**,降级为
+ *   `<pre>` 源码 + 一条走 i18n 的提示(判据见 `@/components/ai/mermaid-render-budget`)。
+ *   这一道是前置的,因为下面的 ErrorBoundary 抓得到抛错、抓不到挂死。
  * - 渲染失败时显示错误降级块 + 源码,不影响外层页面
  * - SVG 容器 overflow-x-auto,长图表可横向滚动
+ *
+ * 本组件是 web 端**唯一**的 mermaid 客户端渲染点(4 个调用方:markdown-stream /
+ * MarkdownViewer / vision-analysis / mcp-resource-viewer 都 dynamic-import 它),
+ * 所以预算落在这里 = 四个入口一起被覆盖,不需要在每个调用方各判一次。
  */
 function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
   const t = useTranslations('a11y')
   const { resolvedTheme } = useTheme()
   const [svg, setSvg] = React.useState<string | null>(null)
   const [error, setError] = React.useState<Error | null>(null)
+  const pageVisible = usePageVisible()
 
   // 用 useId 生成唯一 id,避免多实例冲突
   const rawId = React.useId()
   const id = `mermaid-${rawId.replace(/:/g, '')}`
 
+  const decision = React.useMemo<MermaidRenderDecision>(
+    () => decideMermaidRender({ ...measureMermaidSource(code), pageVisible }),
+    [code, pageVisible],
+  )
+  // 内容超预算时给出提示键;页面在后台不算超预算(那不是内容问题,是时机问题)
+  const skipNoticeKey =
+    decision.outcome === 'skip' && isMermaidContentOverBudget(decision.reason)
+      ? MERMAID_SKIP_NOTICE_KEYS[decision.reason]
+      : null
+  const shouldRender = decision.outcome === 'render'
+
+  // 已成功的 code+主题组合不再重复 render:否则"切走标签页 → 切回来"会为一张
+  // 已经画好的图再付一次全量布局(可见性开关是为了省工,不是为了造工)。
+  const renderedKeyRef = React.useRef<string | null>(null)
+
   React.useEffect(() => {
+    if (!shouldRender) return
+    const key = `${resolvedTheme}\u0000${code}`
+    if (renderedKeyRef.current === key) return
+
     let cancelled = false
 
     async function run(): Promise<void> {
@@ -78,6 +136,7 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
         const DOMPurify = DOMPurifyModule.default
         const clean = DOMPurify.sanitize(result.svg, { USE_PROFILES: { svg: true } })
         if (cancelled) return
+        renderedKeyRef.current = key
         setSvg(clean)
         setError(null)
       } catch (err) {
@@ -91,7 +150,17 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
     return () => {
       cancelled = true
     }
-  }, [code, resolvedTheme, id])
+  }, [shouldRender, code, resolvedTheme, id])
+
+  // 预算判退:不进 render,回落成源码 + 一条明示原因的提示(不得静默变空白)
+  if (skipNoticeKey !== null) {
+    return (
+      <div className={cn('rounded-md border border-border bg-muted/50 p-3 text-xs', className)}>
+        <p className="text-muted-foreground">{t(skipNoticeKey)}</p>
+        <pre className="mt-2 overflow-x-auto whitespace-pre text-muted-foreground">{code}</pre>
+      </div>
+    )
+  }
 
   // 渲染失败,显示错误降级块 + 源码
   if (error) {
