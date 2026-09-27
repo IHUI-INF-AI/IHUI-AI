@@ -142,7 +142,9 @@ export const visitTrackingRoutes: FastifyPluginAsync = async (server) => {
               type: 'object',
               description: '访问记录数据(可选, 缺省则取平铺字段)',
               properties: {
-                userId: { type: 'string', format: 'uuid' },
+                // G-261(同 G-257 口径):type-only,uuid 由 saveVisitLogSchema(Zod)校验;
+                // format:'uuid' 走 ajv 先拒会被 400 响应 schema(code:number)掩盖成 500
+                userId: { type: 'string', description: 'UUID(服务端 Zod 校验)' },
                 ip: { type: 'string' },
                 city: { type: 'string' },
                 url: { type: 'string' },
@@ -152,7 +154,7 @@ export const visitTrackingRoutes: FastifyPluginAsync = async (server) => {
                 visitDate: { type: 'string', description: 'YYYY-MM-DD' },
               },
             },
-            userId: { type: 'string', format: 'uuid' },
+            userId: { type: 'string', description: 'UUID(服务端 Zod 校验)' },
             ip: { type: 'string' },
             city: { type: 'string' },
             url: { type: 'string' },
@@ -358,10 +360,15 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
         tags: ['visit-tracking'],
         querystring: {
           type: 'object',
+          // G-261:querystring 一律 type:'string',真实校验一律 logListQuery(Zod:page/pageSize
+          // coerce+min/max/default,userId uuid)
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1 },
-            pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
-            userId: { type: 'string', format: 'uuid' },
+            page: { type: 'string', description: '页码(整数,默认 1;服务端 Zod 校验)' },
+            pageSize: {
+              type: 'string',
+              description: '每页条数(1-100,默认 20;服务端 Zod 校验)',
+            },
+            userId: { type: 'string', description: 'UUID(服务端 Zod 校验)' },
             url: { type: 'string' },
             startTime: { type: 'string', description: 'YYYY-MM-DD' },
             endTime: { type: 'string', description: 'YYYY-MM-DD' },
