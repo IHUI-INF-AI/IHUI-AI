@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   typeButton: {
     height: 50,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
