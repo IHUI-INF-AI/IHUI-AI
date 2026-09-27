@@ -52,7 +52,7 @@ import {
   type ConversationDetail,
   type UserStatistics,
 } from '@ihui/api-client'
-import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatDate } from '@ihui/shared/utils/date-utils'
 import { useAuth } from '../context/AuthContext'
@@ -812,7 +812,7 @@ function EditProfileModal({
     try {
       const res = await updateProfile({ nickname: trimmed })
       if (!res.success) {
-        setSaveError(res.error || '保存失败,请稍后重试')
+        setSaveError(apiFailureToText(res, '保存失败,请稍后重试'))
         return
       }
       onSaved()
@@ -1084,7 +1084,7 @@ function ProfileContentSection(): React.JSX.Element {
     try {
       const res = await listConversations({ page: 1, pageSize: 20 })
       if (!res.success) {
-        setError(res.error ?? '加载失败')
+        setError(apiFailureToText(res, '加载失败'))
         if (tab === 1) setTextContentList([])
         else if (tab === 2) setImageContentList([])
         else if (tab === 3) setVideoContentList([])
