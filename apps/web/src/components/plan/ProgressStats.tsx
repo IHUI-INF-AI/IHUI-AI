@@ -21,7 +21,7 @@ export function ProgressStats({ stats, className, compact = false }: ProgressSta
   return (
     <div className={cn('space-y-2', className)}>
       <div className="flex items-center gap-2">
-        <div className="h-2 flex-1 overflow-hidden rounded-sm bg-muted">
+        <div className="h-2 flex-1 overflow-hidden rounded-xs bg-muted">
           <div
             className="h-full rounded-sm bg-emerald-500 transition-all"
             style={{ width: `${completionPercent}%` }}

@@ -230,7 +230,7 @@ export default function EduFinanceStatisticsPage() {
                   ¥{stats.avgOrderAmount.toFixed(2)}
                 </span>
               </div>
-              <div className="h-2 overflow-hidden rounded bg-muted">
+              <div className="h-2 overflow-hidden rounded-xs bg-muted">
                 <div
                   className={cn('h-full rounded-md bg-gradient-to-r from-emerald-500 to-sky-500')}
                   style={{ width: `${Math.min(100, stats.avgOrderAmount / 10)}%` }}

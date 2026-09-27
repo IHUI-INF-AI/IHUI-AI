@@ -13,7 +13,7 @@ export default function WorkspaceLoading() {
     <div className="space-y-4 py-4">
       <div className="space-y-2">
         <div className="skeleton h-7 w-40 rounded" />
-        <div className="skeleton h-4 w-64 rounded" />
+        <div className="skeleton h-4 w-64 rounded-xs" />
       </div>
 
       {/* 项目卡片网格骨架 */}
@@ -22,11 +22,11 @@ export default function WorkspaceLoading() {
           <div key={i} className="rounded-lg border border-border p-3">
             <div className="mb-3 space-y-2">
               <div className="skeleton h-5 w-3/4 rounded" />
-              <div className="skeleton h-3 w-full rounded" />
+              <div className="skeleton h-3 w-full rounded-xs" />
             </div>
             <div className="flex items-center gap-2">
-              <div className="skeleton h-3 w-20 rounded" />
-              <div className="skeleton h-3 w-24 rounded" />
+              <div className="skeleton h-3 w-20 rounded-xs" />
+              <div className="skeleton h-3 w-24 rounded-xs" />
             </div>
           </div>
         ))}

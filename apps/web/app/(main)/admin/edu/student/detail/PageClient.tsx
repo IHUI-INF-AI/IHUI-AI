@@ -266,7 +266,7 @@ export default function EduStudentDetailPage() {
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-32 overflow-hidden rounded-2xl bg-muted">
+                        <div className="h-1.5 w-32 overflow-hidden rounded-xs bg-muted">
                           <div
                             className={cn(
                               'h-full rounded-md',

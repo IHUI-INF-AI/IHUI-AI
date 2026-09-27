@@ -143,11 +143,15 @@ export function CourseCard({
 
   if (onPress) {
     return (
-      <Pressable
-        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-        onPress={onPress}
-      >
-        {inner}
+      // 按压态样式不得写在 Pressable 的 style 上(守门 131 那一型):Pressable 注册过
+      // cssInterop,函数形态声明被展开成空对象,整份内联样式静默消失。
+      // 卡面档(底色/描边/圆角/overflow)落到内层 View 的数组形态;封面 Image 的 width 100%
+      // 仍相对该内层盒解析,外层无档时由父容器给槽位,与下面那条纯 View 分支渲染出逐字节
+      // 相同的盒子 —— 两条分支本来就同用 styles.card。
+      <Pressable onPress={onPress}>
+        {({ pressed }) => (
+          <View style={[styles.card, pressed ? styles.pressed : null]}>{inner}</View>
+        )}
       </Pressable>
     )
   }

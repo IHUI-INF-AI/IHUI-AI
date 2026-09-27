@@ -37,7 +37,7 @@ export function AiDiagnoseOverlay({
         <Tooltip content={t('terminalPanel.close')}>
           <button
             type="button"
-            className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             onClick={onClose}
             aria-label={t('terminalPanel.close')}
           >

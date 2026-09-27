@@ -60,10 +60,10 @@ function Skeleton() {
   return (
     <div className="space-y-3">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="animate-pulse rounded-xl border bg-card p-3">
-          <div className="mb-2 h-4 w-3/4 rounded bg-muted" />
-          <div className="mb-1 h-3 w-full rounded bg-muted" />
-          <div className="h-3 w-1/2 rounded bg-muted" />
+        <div key={i} className="animate-pulse rounded-lg border bg-card p-3">
+          <div className="mb-2 h-4 w-3/4 rounded-xs bg-muted" />
+          <div className="mb-1 h-3 w-full rounded-xs bg-muted" />
+          <div className="h-3 w-1/2 rounded-xs bg-muted" />
         </div>
       ))}
     </div>
@@ -115,7 +115,7 @@ export function KnowledgeList({ items, onSearch, loading }: KnowledgeListProps) 
           {items.map((item) => (
             <div
               key={item.id}
-              className="rounded-xl border bg-card p-3 transition-colors hover:bg-accent/30"
+              className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent/30"
             >
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm leading-relaxed">{truncate(item.content, 200)}</p>
