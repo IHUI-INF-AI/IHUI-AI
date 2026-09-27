@@ -2,84 +2,30 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useMemo, useState } from 'react'
-import { useTheme } from '../context/ThemeContext'
-import { useNavigation } from '@react-navigation/native'
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getLearnCourses } from '@ihui/api-client'
-import { CourseFilterScreen as SharedCourseFilterScreen, type CourseFilterItem } from '@ihui/rn-app'
-import {
-  matchesPriceTab,
-  priceOf,
-  type CoursePriceTab,
-  type LessonPriceRow,
-} from '../lib/course-filter-price'
-import { useI18n } from '../i18n'
-import { usePaginatedList } from '../hooks'
-import type { RootStackParamList } from '../navigation/RootNavigator'
+// 课程筛选屏的价格轴纯逻辑。
+// 单独成文件的理由不是"整洁":屏文件整体 import 会拉起 @react-navigation(它的字体资源在
+// vitest 下无法 transform ⇒ 收集期就炸),而这条轴的两半是**可判定的行为**——
+// 真机只能拍到空态(生产库已发布课程 total=0),拍不到"点了付费会不会少",所以必须能被单测。
+import type { LearnCourse } from '@ihui/api-client'
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+export type CoursePriceTab = 'all' | 'free' | 'paid'
 
-type PriceTab = CoursePriceTab
+/** 后端行上本屏真正读到的字段(adaptLesson 追加 instructor;price 是 numeric(10,2)) */
+export interface LessonPriceRow extends LearnCourse {
+  instructor?: string
+  price?: string | number
+}
 
-const PAGE_SIZE = 20
+/** lessons.price 由 Drizzle 回传字符串("0.00"/"99.50");非数、缺值、负数一律按免费看。 */
+export function priceOf(row: LessonPriceRow): number {
+  const n = typeof row.price === 'string' ? Number(row.price) : row.price
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : 0
+}
 
-export function CourseFilterScreen() {
-  const { resolvedTheme } = useTheme()
-  const { t } = useI18n()
-  const navigation = useNavigation<NavigationProp>()
-  const [draftTab, setDraftTab] = useState<PriceTab>('all')
-  const [appliedTab, setAppliedTab] = useState<PriceTab>('all')
-
-  const fetcher = useCallback(async () => {
-    const res = await getLearnCourses({ page: 1, pageSize: PAGE_SIZE })
-    if (!res.success) return { success: false as const, error: t('courseFilter.loadFailed') }
-    const list = (res.data?.list ?? []) as LessonPriceRow[]
-    return { success: true as const, data: { list, total: res.data?.total ?? list.length } }
-  }, [t])
-
-  const { items, loading, refreshing, error, refresh } = usePaginatedList<LessonPriceRow>(
-    fetcher,
-    PAGE_SIZE,
-  )
-
-  // 服务端只认 page/pageSize/categoryId/search,价格不是它的查询轴 —— 所以「应用」把草稿档落成
-  // 已应用档、由本地对已取回的行做过滤。草稿/已应用分开,是为了让「应用」这个按钮真的有事做。
-  const applyFilter = () => setAppliedTab(draftTab)
-
-  const reset = () => {
-    setDraftTab('all')
-    setAppliedTab('all')
-  }
-
-  const filterItems: CourseFilterItem[] = useMemo(
-    () =>
-      items
-        .filter((c) => matchesPriceTab(priceOf(c), appliedTab))
-        .map((c) => ({
-          id: c.id,
-          title: c.title,
-          instructor: c.instructor ?? '',
-          price: priceOf(c),
-        })),
-    [items, appliedTab],
-  )
-
-  return (
-    <SharedCourseFilterScreen
-      t={t}
-      items={filterItems}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      priceTab={draftTab}
-      onPriceTabChange={setDraftTab}
-      onApply={applyFilter}
-      onReset={reset}
-      onRefresh={refresh}
-      onBack={() => navigation.goBack()}
-      colorScheme={resolvedTheme}
-    />
-  )
+/** 三档互斥且完备:全部 ⊇ 免费 ∪ 付费,免费与付费无交集。 */
+export function matchesPriceTab(price: number, tab: CoursePriceTab): boolean {
+  if (tab === 'free') return price === 0
+  if (tab === 'paid') return price > 0
+  return true
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
