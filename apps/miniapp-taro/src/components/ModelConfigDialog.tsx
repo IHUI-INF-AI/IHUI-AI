@@ -625,6 +625,7 @@ export default function ModelConfigDialog({
                     </View>
                   )}
                   {it.url && (
+                    // radius-exempt: 删除角标正圆:绝对定位小圆钮,直径=边长
                     <View
                       className="absolute -top-1 -right-1 bg-destructive rounded-full flex items-center justify-center"
                       style={modelConfigDeleteBadgeStyle(toUnit)}
@@ -747,6 +748,7 @@ export default function ModelConfigDialog({
                     onClick={() => setConfigValue(item.name, !checked)}
                     hoverClass="opacity-60"
                   >
+                    {/* radius-exempt: Switch 拇指(§4 明文豁免,方档化会破坏形状) */}
                     <View
                       className="rounded-full bg-[var(--color-white-98)] transition-transform"
                       style={{
