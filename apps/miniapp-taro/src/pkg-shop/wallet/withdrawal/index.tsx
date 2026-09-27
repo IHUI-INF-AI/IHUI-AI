@@ -85,7 +85,7 @@ export default function WithdrawalPage() {
     <ThemeRoot>
       <View className="min-h-screen bg-background p-[20rpx]">
         {/* 可提现金额卡片 — 对齐 RN WithdrawScreen balanceCard(padding 14/radius 12/白卡) */}
-        <View className="p-[28rpx] rounded-xl bg-card mb-[24rpx]">
+        <View className="p-[28rpx] rounded-lg bg-card mb-[24rpx]">
           <Text className="block text-[length:28rpx] text-muted-foreground">
             {tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}
           </Text>
@@ -95,7 +95,7 @@ export default function WithdrawalPage() {
         </View>
 
         {/* 提现金额 + 提现方式卡片 — 对齐 RN WithdrawScreen card(padding 12/radius 12/border.light) */}
-        <View className="rounded-xl border-[length:2rpx] border-border bg-card p-[24rpx]">
+        <View className="rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
           <Text className="block text-[length:28rpx] text-muted-foreground">
             {tt('wallet.withdrawal.amountLabel', '提现金额')}
           </Text>

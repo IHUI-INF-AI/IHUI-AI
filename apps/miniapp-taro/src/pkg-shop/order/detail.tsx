@@ -87,12 +87,14 @@ export default function OrderDetail() {
           卡片 padding 24rpx / 圆角 24rpx / 2rpx 描边 / 白卡;字段 label 22rpx tertiary + value 32rpx,金额 44rpx/700 success */}
       <View className="min-h-screen bg-background pb-[140rpx]">
         <View className="p-[20rpx]">
-          <View className="rounded-xl border-[length:2rpx] border-border bg-card p-[24rpx]">
+          <View className="rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
             <Text className="block text-[length:32rpx] text-foreground">{order.title}</Text>
             <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
               {t('order.orderNo')}
             </Text>
-            <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">{order.orderNo}</Text>
+            <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
+              {order.orderNo}
+            </Text>
             <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
               {t('order.createTime')}
             </Text>
@@ -102,11 +104,15 @@ export default function OrderDetail() {
             <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
               {t('order.orderType')}
             </Text>
-            <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">{order.type}</Text>
+            <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
+              {order.type}
+            </Text>
             <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
               {t('order.orderStatus')}
             </Text>
-            <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">{statusText}</Text>
+            <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
+              {statusText}
+            </Text>
             <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
               {t('order.orderAmount')}
             </Text>
@@ -132,7 +138,9 @@ export default function OrderDetail() {
             hoverClass="opacity-60"
             onClick={onCancel}
           >
-            <Text className="text-[length:30rpx] font-medium text-foreground">{t('order.cancel')}</Text>
+            <Text className="text-[length:30rpx] font-medium text-foreground">
+              {t('order.cancel')}
+            </Text>
           </View>
         )}
         {order.status === 'pending' && (
