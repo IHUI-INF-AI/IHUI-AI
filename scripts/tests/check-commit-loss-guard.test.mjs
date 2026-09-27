@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-commit-loss-guard.mjs')
 
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-loss-'))
+  const dir = mkScratch('ihui-loss-')
   execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
@@ -100,7 +100,7 @@ test('CLI: 干净仓库无参数运行 → exit 0(无违规)', () => {
     assert.equal(r.status, 0, `干净仓库应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
     assert.match(r.stdout, /无 commit 丢失风险|未检测到 reset|未检测到悬空 commit/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -111,7 +111,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () =
     assert.ok(r.status === 0 || r.status === 1, `--help 不应 crash,实际 exit ${r.status}\nstderr: ${r.stderr}`)
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生 Error`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -121,7 +121,7 @@ test('CLI: --blocking flag 在干净仓库 → exit 0(无阻塞项)', () => {
     const r = runScript(['--blocking'], { cwd: dir })
     assert.equal(r.status, 0, `干净仓库 +blocking 应 exit 0,实际 ${r.status}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -131,7 +131,7 @@ test('CLI: --filter-stash flag 在干净仓库 → exit 0', () => {
     const r = runScript(['--filter-stash'], { cwd: dir })
     assert.equal(r.status, 0, `干净仓库 +filter-stash 应 exit 0,实际 ${r.status}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -142,7 +142,7 @@ test('CLI: HUSKY_SKIP_COMMIT_LOSS_CHECK=1 → 跳过检测 exit 0', () => {
     assert.equal(r.status, 0)
     assert.match(r.stdout, /已跳过/, '应显示跳过消息')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -158,7 +158,7 @@ test('检测: reflog 含 reset: moving to HEAD~ → 命中(stdout 报告 reset)'
     assert.match(r.stdout, /reset/, 'stdout 应提及 reset')
     assert.match(r.stdout, /检测到.*reset|reset 操作/, '应报告检测到 reset')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -168,7 +168,7 @@ test('检测: reflog 不含 reset → 不报告 reset(干净仓库)', () => {
     const r = runScript([], { cwd: dir })
     assert.match(r.stdout, /未检测到 reset/, '应报告未检测到 reset')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -181,7 +181,7 @@ test('检测: reset + --blocking → exit 1(阻塞模式)', () => {
     assert.equal(r.status, 1, `reset + blocking 应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /阻塞 commit|commit 丢失风险/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -199,7 +199,7 @@ test('检测: fsck 悬空 commit(分支删除) → 命中', () => {
     // 悬空 commit 应被检测到(可能被 tag 备份规则处理,但应出现在报告中)
     assert.match(r.stdout, /悬空 commit|dangling|unreachable|未.*备份/, '应提及悬空 commit')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -212,7 +212,7 @@ test('检测: lost-commit/* tag 存在 → stdout 列出', () => {
     const r = runScript([], { cwd: dir })
     assert.match(r.stdout, /lost-commit\/test-backup/, '应列出 lost-commit/test-backup tag')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -223,7 +223,7 @@ test('检测: backup/* tag 存在 → stdout 列出', () => {
     const r = runScript([], { cwd: dir })
     assert.match(r.stdout, /backup\/snapshot-1/, '应列出 backup/snapshot-1 tag')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -241,7 +241,7 @@ test('多规则: reset + 悬空 commit 同时 → 综合报告 + blocking exit 1
     assert.match(r.stdout, /reset/, '应报告 reset')
     assert.match(r.stdout, /悬空 commit|unreachable/, '应报告悬空 commit')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -264,7 +264,7 @@ test('备份: 悬空 commit 已 tag 备份 → 非 blocking(已保护)', () => {
     assert.equal(r.status, 0, `已备份悬空 commit + blocking 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /已全部 tag 备份|已保护|lost-commit\/backed-up/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -287,7 +287,7 @@ test('filter-stash: stash-like 悬空 commit 被过滤(不报告为丢失)', () 
       '应显示过滤行为或无悬空 commit',
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -301,7 +301,7 @@ test('鲁棒性: 无 origin remote → 不 crash(远程 tag 校验跳过)', () =
     assert.ok(r.status === 0 || r.status === 1, `无 origin 不应 crash,实际 exit ${r.status}`)
     assert.ok(!r.stderr.includes('Error:'), `不应有未捕获 Error`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -311,7 +311,7 @@ test('鲁棒性: 无 origin remote → 不 crash(远程 tag 校验跳过)', () =
 // 旧判定把这视同"必须人工 fetch"并 blocking ⇒ 结果只是逼人人 --no-verify,把真正防丢的
 // reset / 悬空 commit / 不可达对象三条一起关掉。新判定:本门自己 fetch + 固化,拿不到才降级为警告。
 test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回来并固化,不阻塞提交', () => {
-  const base = mkdtempSync(join(tmpdir(), 'ihui-loss-heal-'))
+  const base = mkScratch('ihui-loss-heal-')
   const origin = join(base, 'origin.git')
   const local = join(base, 'local')
   const other = join(base, 'other')
@@ -353,7 +353,7 @@ test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回�
     const packed = readFileSync(join(gitDir, 'packed-refs'), 'utf8')
     assert.match(packed, /refs\/tags\/lost-commit\/only-on-remote/, '自愈后必须固化进 packed-refs')
   } finally {
-    rmSync(base, { recursive: true, force: true })
+    rmScratch(base)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
