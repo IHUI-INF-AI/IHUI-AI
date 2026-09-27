@@ -53,7 +53,7 @@ export function TaskProgressBar({ completed, total, failed, running }: TaskProgr
           </span>
         )}
       </div>
-      <div className="relative h-3 overflow-hidden rounded-md bg-muted">
+      <div className="relative h-3 overflow-hidden rounded-xs bg-muted">
         <div
           className="absolute inset-y-0 left-0 bg-emerald-500 transition-all duration-300"
           style={{ width: `${successPct}%` }}

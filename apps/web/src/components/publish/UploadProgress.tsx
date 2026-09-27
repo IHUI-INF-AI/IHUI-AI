@@ -82,7 +82,7 @@ export function UploadProgress({ progress, fileName, status, fileSize }: UploadP
           {clamped.toFixed(0)}%
         </span>
       </div>
-      <div className="h-2 overflow-hidden rounded-md bg-muted">
+      <div className="h-2 overflow-hidden rounded-xs bg-muted">
         <div
           className={cn('h-full transition-all duration-300', STATUS_BAR_CLASS[status])}
           style={{ width: `${clamped}%` }}

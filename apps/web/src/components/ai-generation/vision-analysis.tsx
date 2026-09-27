@@ -181,7 +181,7 @@ export function VisionAnalysis() {
         {mutation.isPending ? (
           <div className="space-y-2">
             {[0, 1, 2].map((i) => (
-              <div key={`skel-${i}`} className="h-4 animate-pulse rounded bg-muted" />
+              <div key={`skel-${i}`} className="h-4 animate-pulse rounded-xs bg-muted" />
             ))}
           </div>
         ) : null}
