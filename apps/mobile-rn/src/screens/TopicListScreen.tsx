@@ -128,37 +128,43 @@ export function TopicListScreen() {
   ]
 
   const renderItem = ({ item }: { item: TopicItem }) => (
+    // 守门 131 改型:card 的 marginHorizontal/marginBottom 是列表行槽位属性,提到外层 cardSlot
+    // (命中区止于 margin 外沿,与旧函数形态一致);行盒/底色/圆角/padding 原样留内层。
     <Pressable
-      style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
+      style={styles.cardSlot}
       onPress={() => goTopic(item)}
       accessibilityRole="button"
       accessibilityLabel={item.name}
     >
-      {item.coverUrl ? (
-        <Image source={{ uri: item.coverUrl }} style={styles.cover} />
-      ) : (
-        <View style={[styles.cover, styles.coverFallback]}>
-          <Text style={styles.coverHash}>{'#'}</Text>
+      {({ pressed }) => (
+        <View style={[styles.card, pressed ? styles.cardPressed : null]}>
+          {item.coverUrl ? (
+            <Image source={{ uri: item.coverUrl }} style={styles.cover} />
+          ) : (
+            <View style={[styles.cover, styles.coverFallback]}>
+              <Text style={styles.coverHash}>{'#'}</Text>
+            </View>
+          )}
+          <View style={styles.cardBody}>
+            <Text style={styles.name} numberOfLines={1}>
+              {'#'}
+              {item.name}
+            </Text>
+            {item.description ? (
+              <Text style={styles.desc} numberOfLines={1}>
+                {item.description}
+              </Text>
+            ) : null}
+            <View style={styles.metaRow}>
+              <Text style={styles.meta}>
+                {t('topic.list.participants', { n: item.participantCount ?? 0 })}
+              </Text>
+              <Text style={styles.meta}>{t('topic.list.posts', { n: item.count ?? 0 })}</Text>
+            </View>
+          </View>
+          <ChevronRight size={18} color={tk.text.tertiary} />
         </View>
       )}
-      <View style={styles.cardBody}>
-        <Text style={styles.name} numberOfLines={1}>
-          {'#'}
-          {item.name}
-        </Text>
-        {item.description ? (
-          <Text style={styles.desc} numberOfLines={1}>
-            {item.description}
-          </Text>
-        ) : null}
-        <View style={styles.metaRow}>
-          <Text style={styles.meta}>
-            {t('topic.list.participants', { n: item.participantCount ?? 0 })}
-          </Text>
-          <Text style={styles.meta}>{t('topic.list.posts', { n: item.count ?? 0 })}</Text>
-        </View>
-      </View>
-      <ChevronRight size={18} color={tk.text.tertiary} />
     </Pressable>
   )
 
@@ -261,11 +267,14 @@ const createStyles = (tk: RnThemeTokens) =>
       marginHorizontal: rpx(24),
       marginBottom: rpx(20),
     },
+    // 守门 131 改型:行槽位档(margin 数值逐字从 card 搬来,未改动任何数字),card 余档进内层。
+    cardSlot: {
+      marginHorizontal: rpx(24),
+      marginBottom: rpx(16),
+    },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginHorizontal: rpx(24),
-      marginBottom: rpx(16),
       padding: rpx(24),
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
