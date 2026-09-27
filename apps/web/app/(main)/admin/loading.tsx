@@ -18,7 +18,7 @@ export default function AdminLoading() {
       {/* 标题骨架 */}
       <div className="space-y-2">
         <div className="skeleton h-7 w-40 rounded" />
-        <div className="skeleton h-4 w-64 rounded" />
+        <div className="skeleton h-4 w-64 rounded-xs" />
       </div>
 
       {/* 内容卡片骨架 */}
@@ -26,14 +26,14 @@ export default function AdminLoading() {
         {/* 表头 */}
         <div className="grid grid-cols-4 gap-4 px-4 py-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="skeleton h-4 rounded" />
+            <div key={i} className="skeleton h-4 rounded-xs" />
           ))}
         </div>
         {/* 数据行 */}
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="grid grid-cols-4 gap-4 px-4 py-3 last:border-b-0">
             {Array.from({ length: 4 }).map((_, j) => (
-              <div key={j} className="skeleton h-4 rounded" />
+              <div key={j} className="skeleton h-4 rounded-xs" />
             ))}
           </div>
         ))}

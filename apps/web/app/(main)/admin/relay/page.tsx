@@ -252,7 +252,7 @@ export default function AdminRelayOverviewPage() {
                   <span className="w-20 shrink-0 text-xs text-muted-foreground">
                     {p.providerCode}
                   </span>
-                  <div className="h-2 flex-1 overflow-hidden rounded-sm bg-muted">
+                  <div className="h-2 flex-1 overflow-hidden rounded-xs bg-muted">
                     <div
                       className="h-full bg-primary"
                       style={{ width: `${(p.count / maxProviderCount) * 100}%` }}
