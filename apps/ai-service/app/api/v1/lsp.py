@@ -33,6 +33,14 @@ from urllib.request import pathname2url, url2pathname
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.services.command_streamer import (
+    FRAME_READ_EOF,
+    FRAME_READ_LINE,
+    FRAME_READ_TOO_LARGE,
+    PROTOCOL_FRAME_LIMIT_BYTES,
+    read_protocol_frame,
+)
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/lsp", tags=["lsp"])
@@ -42,6 +50,9 @@ LSP_INIT_TIMEOUT_S = 15.0
 LSP_REQUEST_TIMEOUT_S = 10.0
 DIAGNOSTICS_POLL_S = 0.1
 DIAGNOSTICS_MAX_POLLS = 10
+# 跳过超预算响应体时的分块大小(与 command_streamer 的残余回收同量级,
+# 太小会把一次丢弃变成上万次 await)
+_LSP_SKIP_CHUNK_BYTES = 64 * 1024
 
 
 # ==================== Request models(camelCase 对齐前端)====================
@@ -220,6 +231,8 @@ class LspClient:
         self._reader_task: asyncio.Task[None] | None = None
         self._init_lock = asyncio.Lock()
         self._initialized = False
+        # 第三十三批:超限帧 / 超预算响应体的计数(丢弃不得静默)
+        self._dropped_frames = 0
 
     @classmethod
     def get(cls, workspace_path: str) -> LspClient:
@@ -241,6 +254,13 @@ class LspClient:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=self.workspace_path,
+                # 第三十三批:不声明 limit 时 stdout 的 StreamReader 用默认
+                # 65536,而 _read_loop 是按行读头部、再按 Content-Length 读体
+                # —— 头部一行超限(服务器把非协议内容写到 stdout 上很常见)
+                # 会抛 LimitOverrunError,被末尾的 `except Exception` 吞成
+                # "reader loop exit",此后所有 LSP 请求只会在 10s 后超时,
+                # 而日志里读不到真因。
+                limit=PROTOCOL_FRAME_LIMIT_BYTES,
             )
             self._reader_task = asyncio.create_task(self._read_loop())
             await self._request(
@@ -256,25 +276,75 @@ class LspClient:
             self._initialized = True
 
     async def _read_loop(self) -> None:
-        """读取 stdout,按 Content-Length 帧解析,分发响应 / 通知。"""
-        assert self.proc and self.proc.stdout
+        """读取 stdout,按 Content-Length 帧解析,分发响应 / 通知。
+
+        第三十三批(病灶):原来两处读取都没有字节上限声明 ——
+          1. 头部 `await self.proc.stdout.readline()` 一旦抛 LimitOverrunError,
+             就被末尾的 `except Exception` 吞成一句 "[lsp] reader loop exit",
+             此后该 workspace 的单例客户端再无人读帧,所有请求只会 10s 超时,
+             而真因(stdout 上出现了一条超预算的超长行)任何地方都读不到;
+          2. 响应体 `readexactly(content_length)` 完全不设上限,服务器(或被
+             污染的插件)回一个巨大的 Content-Length 就能把整块读进内存。
+        现在两类都在帧预算内分流,并且各自留计数与日志。
+        """
+        proc = self.proc
+        stdout = proc.stdout if proc is not None else None
+        if stdout is None:
+            logger.warning("[lsp] reader loop 未启动:子进程 stdout 不可用")
+            return
         try:
             while True:
                 headers: dict[str, str] = {}
                 while True:
-                    line = await self.proc.stdout.readline()
-                    if not line:
+                    frame = await read_protocol_frame(stdout)
+                    if frame.kind == FRAME_READ_LINE:
+                        line_str = frame.data.decode("utf-8", errors="replace").rstrip("\r\n")
+                        if line_str == "":
+                            break
+                        if ":" in line_str:
+                            k, v = line_str.split(":", 1)
+                            headers[k.strip().lower()] = v.strip()
+                        continue
+                    if frame.kind == FRAME_READ_TOO_LARGE:
+                        self._dropped_frames += 1
+                        logger.warning(
+                            "[lsp] stdout 头部出现超预算单行(>%d 字节,实读 %d 字节,"
+                            "累计 %d 次)—— 多半是语言服务器把日志写进了协议通道。"
+                            "该行的残余已读到行尾,但本条消息的 Content-Length 已无从"
+                            "确定 ⇒ 帧边界无法复原,只能停读该客户端;原因不是"
+                            "\"服务器掉了\",排查请从这条日志起",
+                            PROTOCOL_FRAME_LIMIT_BYTES,
+                            frame.dropped_bytes,
+                            self._dropped_frames,
+                        )
                         return
-                    line_str = line.decode("utf-8", errors="replace").rstrip("\r\n")
-                    if line_str == "":
-                        break
-                    if ":" in line_str:
-                        k, v = line_str.split(":", 1)
-                        headers[k.strip().lower()] = v.strip()
-                content_length = int(headers.get("content-length", "0"))
+                    if frame.kind == FRAME_READ_EOF:
+                        return  # 对端真的关了
+                    return  # 未预期的 kind:按结束保守处理
+                raw_len = headers.get("content-length", "0")
+                try:
+                    content_length = int(raw_len)
+                except ValueError:
+                    logger.warning("[lsp] Content-Length 无法解析(%r),跳过该消息", raw_len)
+                    continue
                 if content_length <= 0:
                     continue
-                body = await self.proc.stdout.readexactly(content_length)
+                if content_length > PROTOCOL_FRAME_LIMIT_BYTES:
+                    # 体超预算:**连接仍然可用**(长度已知,能整块跳过),
+                    # 所以这里绝不 return —— 那会被上层误读成"服务器掉了"。
+                    self._dropped_frames += 1
+                    logger.warning(
+                        "[lsp] 响应体 %d 字节超过帧预算 %d 字节(累计丢弃 %d 帧),"
+                        "整条已跳过、连接保持",
+                        content_length,
+                        PROTOCOL_FRAME_LIMIT_BYTES,
+                        self._dropped_frames,
+                    )
+                    if not await self._skip_body(stdout, content_length):
+                        logger.warning("[lsp] 跳过超预算响应体时对端提前关闭,停读")
+                        return
+                    continue
+                body = await stdout.readexactly(content_length)
                 msg = json.loads(body.decode("utf-8"))
                 if "id" in msg:
                     fut = self._responses.pop(msg["id"], None)
@@ -292,6 +362,21 @@ class LspClient:
                     )
         except Exception as e:
             logger.warning("[lsp] reader loop exit: %s", e)
+
+    @staticmethod
+    async def _skip_body(stdout: asyncio.StreamReader, nbytes: int) -> bool:
+        """按块丢弃 nbytes 的超预算响应体,返回帧边界是否仍然对齐。
+
+        为什么必须"读完再丢":不读完就把它们留在缓冲区里,下一条消息的头部
+        就会从上一体的中间开始解析 —— 那是比丢一条消息严重得多的帧粘连。
+        """
+        remaining = nbytes
+        while remaining > 0:
+            chunk = await stdout.read(min(remaining, _LSP_SKIP_CHUNK_BYTES))
+            if not chunk:
+                return False
+            remaining -= len(chunk)
+        return True
 
     async def _send(self, payload: dict[str, Any]) -> None:
         assert self.proc and self.proc.stdin
