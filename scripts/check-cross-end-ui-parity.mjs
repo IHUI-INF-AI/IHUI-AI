@@ -27,7 +27,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-import { radiusLookup, radiusSetOf } from './lib/radius-tokens.mjs'
+import { radiusEntriesOf, radiusLookup, radiusSetOf } from './lib/radius-tokens.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -1442,6 +1442,44 @@ export function radiusCount(f) {
   return (f.radius?.onlyMiniapp.length ?? 0) + (f.radius?.onlyRn.length ?? 0)
 }
 
+/**
+ * RE 维 —— **同一命名元素**在两端取了不同圆角档。
+ *
+ * 为什么要有第三条维而不是把 RD 修一修:RD 比的是"两端各自文件里出现过的圆角值**集合**之差",
+ * 于是 `NavBar` 报「仅小程序 4」、`VideoPlayer` 报「仅 RN 8」—— 这两个"一侧空集"只说明那一侧
+ * 的文件里没有圆角声明,**根本不证明同一个元素两端长得不一样**。按那种读数去给单端补数字,
+ * 产出的不是收敛而是视觉回归(票⑫在几何维演示过同型事故:10 档"差异"被证明从来不存在)。
+ * RE 因此**只在两侧同名时才判**;不同名不猜、不并档(kebab 的 `.mcd-upload-btn` 与 camel 的
+ * `uploadBtn` 不并 —— 一旦开始并档,配对就从证据变成猜测)。
+ *
+ * 三态分开,不得折成一个数:
+ *  - `mismatched` —— 两侧同名而档不同 ⇒ 真分叉,进锚点、可判红;
+ *  - `onlyMiniapp` / `onlyRn` —— 只有一侧给这个元素起了名字 ⇒ **不是分叉**,是配对射程边界,
+ *    只逐条报名("报数不报名"在本仓记过多次:只给计数,拿到数字的人无法判断该不该扩判据)。
+ */
+export function elementRadiusDiff(a, b) {
+  const norm = (x) => [...new Set(x || [])].sort((p, q) => p - q)
+  const names = [...new Set([...Object.keys(a || {}), ...Object.keys(b || {})])].sort()
+  const mismatched = []
+  const onlyMiniapp = []
+  const onlyRn = []
+  for (const n of names) {
+    const A = a?.[n]
+    const B = b?.[n]
+    if (A && B) {
+      if (String(norm(A)) !== String(norm(B)))
+        mismatched.push({ name: n, miniapp: norm(A), rn: norm(B) })
+    } else if (A) onlyMiniapp.push(n)
+    else onlyRn.push(n)
+  }
+  return { mismatched, onlyMiniapp, onlyRn }
+}
+
+/** RE 锚点计数 = 该组件里"同名而不同档"的元素数(一个元素算一处,不按档值双计)。 */
+export function elementRadiusCount(f) {
+  return f.elementRadius?.mismatched?.length ?? 0
+}
+
 /** 豁免必须是带理由的声明,不是消红通道;到期由守门 108 单独问责。 */
 export function waiverProblem(w) {
   if (!w) return null
@@ -1463,6 +1501,12 @@ export function resolveRel(fromFile, spec) {
 
 export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null, styles = {}) {
   const findings = []
+  /**
+   * 配对射程逐组件登记:`radiusEntriesOf` 在一侧读得出元素名、另一侧读不出时,那一族**本维零判据**。
+   * 它不是差异,所以不进 findings、不进锚点;但它必须能被点名 —— 没有这份名单,"RE 报 0"
+   * 与"RE 什么都没看见"在账面上就长得一模一样。
+   */
+  const radiusUnpaired = []
   for (const p of pairs.pairs) {
     const a = text[p.miniapp]
     const b = text[p.rn]
@@ -1499,12 +1543,33 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
           rn: radiusSetOf(bAll, radiusTable),
         }
       : null
+    /**
+     * RE 维:按**元素名**配对的圆角。与 RD 并列而非替换 —— RD 保留(它是"这一族的圆角值域"
+     * 的粗读数,锚点已按该口径钉着),RE 负责唯一能称为"同一元素两端不同形"的那一判。
+     * 共用同一份 `aAll` / `bAll`:样式表来源必须只有一处(票⑫ 的教训就是两端各自的取径
+     * 不同形,读数就不在同一口径上)。
+     */
+    const erA = radiusTable ? radiusEntriesOf(aAll, radiusTable) : { entries: {}, unnamed: 0 }
+    const erB = radiusTable ? radiusEntriesOf(bAll, radiusTable) : { entries: {}, unnamed: 0 }
+    const elementRadius = radiusTable
+      ? elementRadiusDiff(erA.entries, erB.entries)
+      : { mismatched: [], onlyMiniapp: [], onlyRn: [] }
+    if (radiusTable && (elementRadius.onlyMiniapp.length || elementRadius.onlyRn.length))
+      radiusUnpaired.push({
+        name: p.name,
+        onlyMiniapp: elementRadius.onlyMiniapp,
+        onlyRn: elementRadius.onlyRn,
+        // 一侧一个名字都读不出 = 那一腿根本没给元素起名(全走 utility 串或内联 style),
+        // 与"两侧各有名字但对不上"是两种处置,所以 unnamed 计数也要一并交回。
+        unnamed: { miniapp: erA.unnamed, rn: erB.unnamed },
+      })
     if (
       !named.length &&
       !geometry.onlyMiniapp.length &&
       !geometry.onlyRn.length &&
       !radius.onlyMiniapp.length &&
-      !radius.onlyRn.length
+      !radius.onlyRn.length &&
+      !elementRadius.mismatched.length
     )
       continue
     const w = (baseline.waivers ?? {})[p.name]
@@ -1514,13 +1579,19 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
       geometry,
       radius,
       radiusSeen,
+      elementRadius,
       lang: { miniapp: styleLanguage(a), rn: styleLanguage(b) },
       icons: { miniapp: iconCarriers(a), rn: iconCarriers(b) },
       invalidWaiver: waiverProblem(w) ?? undefined,
       waived: !!w && !waiverProblem(w),
     })
   }
-  return { findings, ...verdictOf(findings, baseline), pairCount: pairs.pairs.length }
+  return {
+    findings,
+    radiusUnpaired,
+    ...verdictOf(findings, baseline),
+    pairCount: pairs.pairs.length,
+  }
 }
 
 /**
@@ -1530,6 +1601,7 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
 export function verdictOf(findings, baseline) {
   const counts = baseline.counts ?? {}
   const radiusCounts = baseline.radiusCounts ?? {}
+  const elementRadiusCounts = baseline.elementRadiusCounts ?? {}
   const waivers = baseline.waivers ?? {}
   const red = []
   const shrunk = []
@@ -1537,18 +1609,23 @@ export function verdictOf(findings, baseline) {
   for (const f of findings) {
     const n = diffCount(f)
     const rn = radiusCount(f)
+    const en = elementRadiusCount(f)
     // 豁免判定只在这一处生效(规则本身在 waiverProblem,audit 里的字段只是同一规则的展示视图)。
     // 若两处各判一次,台账改一条就会一边认豁免、一边仍判红 —— 两处算同一件事必漂移,本仓记过多次。
     const w = waivers[f.name]
     if (w && !waiverProblem(w)) {
-      waived.push({ name: f.name, diffCount: n, radiusCount: rn })
+      waived.push({ name: f.name, diffCount: n, radiusCount: rn, elementRadiusCount: en })
       continue
     }
     const anchor = counts[f.name] ?? 0
     const rAnchor = radiusCounts[f.name] ?? 0
+    const eAnchor = elementRadiusCounts[f.name] ?? 0
     const over = []
     if (n > anchor) over.push(`几何/具名 ${n} > 锚点 ${anchor}`)
     if (rn > rAnchor) over.push(`圆角 ${rn} > 锚点 ${rAnchor}`)
+    // RE 单独一维一锚点:它与 RD 的差别不是松紧,而是**判的是不是同一件事** ——
+    // 合进 radiusCounts 会让"文件级值域变窄"替"同名元素新增分叉"顶掉名额(净零逃逸)。
+    if (en > eAnchor) over.push(`同名元素圆角 ${en} > 锚点 ${eAnchor}`)
     if (over.length)
       red.push({
         name: f.name,
@@ -1556,18 +1633,23 @@ export function verdictOf(findings, baseline) {
         anchor,
         radiusCount: rn,
         radiusAnchor: rAnchor,
+        elementRadiusCount: en,
+        elementRadiusAnchor: eAnchor,
         over,
         named: f.named,
         geometry: f.geometry,
         radius: f.radius,
+        elementRadius: f.elementRadius,
       })
-    else if (n < anchor || rn < rAnchor)
+    else if (n < anchor || rn < rAnchor || en < eAnchor)
       shrunk.push({
         name: f.name,
         diffCount: n,
         anchor,
         radiusCount: rn,
         radiusAnchor: rAnchor,
+        elementRadiusCount: en,
+        elementRadiusAnchor: eAnchor,
       })
   }
   /**
@@ -1587,14 +1669,43 @@ export function verdictOf(findings, baseline) {
     ...new Set([
       ...Object.keys(counts).filter((k) => !seen.has(k)),
       ...Object.keys(radiusCounts).filter((k) => !seen.has(k)),
+      ...Object.keys(elementRadiusCounts).filter((k) => !seen.has(k)),
     ]),
   ].sort()
   return { red, shrunk, waived, rot }
 }
 
+/**
+ * 重出台账前的**单调性核对**:既有锚点只允许下降或持平,一律不得上升、不得整键消失。
+ *
+ * 为什么这条必须由工具判而不是写进散文让人记得看:`--emit-baseline` 的输出就是直接盖掉台账
+ * 的那份文件。一旦某一轮在"判据覆盖面刚被扩过"的时刻重生成(票⑫就撞上过:提取式一放宽,
+ * 端上一行未改而读数凭空多 10 档),旧台账里那些**本来就比实态低**的锚点会被"合法地"抬上去 ——
+ * 从此那笔债没人再问责,而账面读起来像"已按实测重锚"。上升与消失都指向同一件事:
+ * 这轮产出的不是更紧的锚点,是一次无人察觉的放松。
+ *
+ * @returns {string[]} 空数组 = 可以落盘;否则每条是一个必须人工解释的破口。
+ */
+export function anchorRegression(prior, next) {
+  const out = []
+  for (const key of ['counts', 'radiusCounts', 'elementRadiusCounts']) {
+    const before = prior?.[key] ?? {}
+    const after = next?.[key] ?? {}
+    for (const [name, v] of Object.entries(before)) {
+      if (!(name in after)) {
+        out.push(`${key}.${name} 整键消失(锚点消失 = 该族下一次分叉自带免费额度)`)
+        continue
+      }
+      if (after[name] > v) out.push(`${key}.${name} ${v}→${after[name]} 上升(收紧脚本只允许下降)`)
+    }
+  }
+  return out
+}
+
 export function emitBaseline(findings, prior = {}) {
   const counts = {}
   const radiusCounts = {}
+  const elementRadiusCounts = {}
   for (const f of findings) {
     counts[f.name] = diffCount(f)
     /**
@@ -1602,6 +1713,9 @@ export function emitBaseline(findings, prior = {}) {
      * 才能让人看出"这一维扫过了、确实同档" —— 只记非零项会让新收口的组件读成"没配账"。
      */
     radiusCounts[f.name] = radiusCount(f)
+    // RE 同一条理由恒写 0。而且它现在全仓都是 0(HEAD 实测两侧元素名无一相同),
+    // 恒写键正好把"这一维扫过了、是配对面为空"与"这一维没跑"分开。
+    elementRadiusCounts[f.name] = elementRadiusCount(f)
   }
   /**
    * `pairingRejects` 必须**原样带走**:它是判据输入(哪些同名族不是同一个元素),不是存量数字。
@@ -1609,7 +1723,7 @@ export function emitBaseline(findings, prior = {}) {
    * 立刻回到"被当配对算差异"的状态,台账凭空多出 N 处"差异"(守门 83 的 `--update-baseline`
    * 冲掉他人审计台账,是同一型事故)。
    */
-  const out = { counts, radiusCounts, waivers: {} }
+  const out = { counts, radiusCounts, elementRadiusCounts, waivers: {} }
   if (prior && prior.pairingRejects) out.pairingRejects = prior.pairingRejects
   // 别名表与拆对表同理:它是**配对判据的输入**,不是存量数字。重写台账把别人登记的别名冲掉,
   // 那一族立刻回到"射程外零判据"的状态 —— 而账面看什么都正常(这条族从没在 counts 里出现过)。
@@ -1683,7 +1797,24 @@ export function main(argv, repoRoot = ROOT) {
     collected.styles ?? {},
   )
   if (argv.includes('--emit-baseline')) {
-    console.log(JSON.stringify(emitBaseline(res.findings, baseline), null, 2))
+    const next = emitBaseline(res.findings, baseline)
+    /**
+     * 重出台账前必须先过**单调性核对**:既有锚点上升或整键消失一律拒绝落盘。
+     * 这条闸的存在理由不是"有人手滑",而是覆盖面被扩宽的那一枚提交必然抬高读数
+     * (票⑫:提取式一放宽,端上一行未改而凭空多 10 档)—— 那一刻 `--emit-baseline` 的产物
+     * 看上去就是"按实测重锚过了",而它实际做的是一次无人察觉的放松。
+     * 说明走 console.error + 非零退出:T13 钉的就是这个分支的 stdout 只能是 JSON。
+     */
+    const regress = anchorRegression(baseline, next)
+    if (regress.length) {
+      console.error(
+        `× 拒绝出台账:锚点只允许下降或持平,下列 ${regress.length} 条上升/消失 ⇒ ` +
+          '要么判据刚被扩宽(那这些不是真分叉,须先甄别),要么是要放松存量(那不该由这一步做)',
+      )
+      for (const r of regress) console.error(`  - ${r}`)
+      return 1
+    }
+    console.log(JSON.stringify(next, null, 2))
     /**
      * 说明行一律走 stderr:这条模板的既定用法就是 `--emit-baseline > <台账文件>`,
      * 把它打进 stdout 等于把一句散文追加进 JSON 文件 —— 实测砸出来的
@@ -1705,8 +1836,12 @@ export function main(argv, repoRoot = ROOT) {
           diffCount: diffCount(f),
           radiusCount: radiusCount(f),
           radius: f.radius,
+          elementRadiusCount: elementRadiusCount(f),
+          elementRadius: f.elementRadius,
           lang: f.lang,
         })),
+        // RE 的射程边界也要能被机器读:下一票(给两腿立同一套元素名)的输入就是这两列名单。
+        radiusUnpaired: res.radiusUnpaired ?? [],
         unreachable: (collected.unreachableLegs ?? []).map((u) => ({ name: u.name, legs: u.legs })),
         undeterminedEdges: (collected.undeterminedEdges ?? []).length,
         // 配对射程也要能被机器读:下一票(按语义槽配对)的输入就是这两份名单,
@@ -1744,10 +1879,10 @@ export function main(argv, repoRoot = ROOT) {
      * 而它可能只是尺子没跟到 `.css`(2026-09-27 实测:6 个小程序组件把盒档写在同名 CSS 里)。
      */
     console.log(
-      `  ⓘ 读数口径:几何 = 组件源文本 + 该文件自己 import 的本地样式表(本轮并入 ` +
-        `${Object.keys(collected.styles ?? {}).length} 份);` +
-        `圆角 / 图标载体 / 单侧档仍只看组件源文本` +
-        `(RD 锚点由另一路会话按该口径钉着,同笔抬它的读数 = 把别人钉的锚顶成新增红)。` +
+      `  ⓘ 读数口径:几何与圆角(RD / RE)= 组件源文本 + 该文件自己 import 的本地样式表(本轮并入 ` +
+        `${Object.keys(collected.styles ?? {}).length} 份);图标载体 / 单侧档仍只看组件源文本。` +
+        `RE 与 RD 的分别不在取材面而在**配对单位**:RD 比文件内出现过的档值集合,` +
+        `RE 比两侧**同名元素**各取了哪一档 —— 前者的一条"分叉"可以同时意味着"对面这个文件压根没写圆角"。` +
         `取不到的样式文件计未判定,不当"该侧无档"`,
     )
     /**
@@ -1799,16 +1934,41 @@ export function main(argv, repoRoot = ROOT) {
         )
       if (f.radius?.onlyRn.length)
         bits.push(`RD 仅 RN ${f.radius.onlyRn.join('/')}(端上实取 ${f.radiusSeen?.rn.join('/')})`)
+      /**
+       * RE 与 RD 必须各说各话:`RD 仅小程序 4` 说的是"这个文件里出现过 4 而对面没出现过",
+       * `RE card 小程序8/RN12` 说的是"同一个叫 card 的元素两端取了不同档"。只有后者能当
+       * 改端的依据 —— 按前者补数字就是照着一个未证明的命题动 UI。
+       */
+      for (const m of f.elementRadius?.mismatched ?? [])
+        bits.push(`RE 同名元素 ${m.name} 小程序 ${m.miniapp.join('/')} vs RN ${m.rn.join('/')}`)
       const mark = f.waived ? '○' : res.red.some((r) => r.name === f.name) ? '×' : '·'
       console.log(`  ${mark} ${f.name} [${f.lang.miniapp}|${f.lang.rn}] ${bits.join(' | ')}`)
+    }
+    /**
+     * RE 的**射程边界逐条报名**,不只报数。这一格是这一维存在的全部理由:RD 那些
+     * "一侧空集"的读数,真实含义全在这里 —— 那一侧根本没给元素起名字(走 utility 串或内联
+     * style),于是两端从未在同名元素上相遇,既谈不上同档也谈不上分叉。
+     * 只印两个计数的话,拿到数字的人无法判断该不该扩配对判据,而那个判断正是下一票的唯一输入
+     * (本仓"报数不报名"记过多次:守门 70/76/81 同族)。**不判红** —— 它是覆盖面边界,
+     * 不是违规;把它判红就是一台谁也修不动的恒红门(§12e 同型)。
+     */
+    for (const u of res.radiusUnpaired ?? []) {
+      const bits = []
+      if (u.onlyMiniapp.length) bits.push(`仅小程序具名 ${u.onlyMiniapp.join('/')}`)
+      if (u.onlyRn.length) bits.push(`仅 RN 具名 ${u.onlyRn.join('/')}`)
+      bits.push(`无元素名可归的取用 mp=${u.unnamed.miniapp}/rn=${u.unnamed.rn}`)
+      console.log(`  ⊘ RE ${u.name} —— 两侧无一同名元素 ⇒ 本维零判据:${bits.join(' | ')}`)
     }
     const rdFindings = res.findings.filter(
       (f) => (f.radius?.onlyMiniapp.length ?? 0) + (f.radius?.onlyRn.length ?? 0) > 0,
     )
+    const reFindings = res.findings.filter((f) => elementRadiusCount(f) > 0)
     console.log(
       `可见几何差异 ${res.findings.length} 处 → 超锚点判红 ${res.red.length} / 带理由豁免 ${res.waived.length}` +
         (res.shrunk.length ? ` / 已变好可下调台账 ${res.shrunk.length}` : '') +
-        `;其中圆角跨端不同档 ${rdFindings.length} 对(RD 维,锚点单立见 radiusCounts)`,
+        `;其中圆角跨端不同档 ${rdFindings.length} 对(RD 维,锚点单立见 radiusCounts)` +
+        `;同名元素圆角分叉 ${reFindings.length} 族(RE 维,锚点单立见 elementRadiusCounts)` +
+        `;RE 对 ${res.radiusUnpaired?.length ?? 0} 族零判据(两侧未同名,报名见上)`,
     )
     if (res.shrunk.length)
       console.log(
@@ -2256,6 +2416,224 @@ function runSelfTest() {
       const okStock =
         verdictOf([f], { counts: { Foo: 5 }, radiusCounts: { Foo: 2 } }).red.length === 0
       return okRed && okStock
+    })(),
+  )
+  /**
+   * RE 维的成对正反例。存在的理由是一条实测读数:真仓 HEAD 上 RD 报了 10 对"圆角跨端不同档",
+   * 而按元素名配对去查,**一对都不成立** —— `NavBar` 的「仅小程序 4」对面那一侧根本没有圆角声明,
+   * `VideoPlayer` 的「仅 RN 8」小程序侧同理。集合之差把"对面没写"说成"两端不一样",
+   * 照着它补数字就制造视觉回归。下面 ①–④ 钉的是 RE 只能按**同名元素**产出结论。
+   */
+  t(
+    '㊵ RE①:同名元素两端同档(两种书写语言)必须判绿,不得因写法不同造出分叉',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      // 小程序侧走 CSS 类、RN 侧走 StyleSheet 键 —— 同名 `card` 都是 lg(8)
+      const r = audit(
+        p,
+        {
+          'a/Foo.tsx': '.card {\n  border-radius: var(--radius-lg);\n}\n',
+          'b/Foo.tsx': 'const s = {\n  card: {\n    borderRadius: rnRadius.lg,\n  },\n}\n',
+        },
+        {},
+        {},
+        tbl,
+      )
+      const f = r.findings[0]
+      return (
+        r.red.length === 0 &&
+        (!f || f.elementRadius.mismatched.length === 0) &&
+        elementRadiusCount(f ?? { elementRadius: { mismatched: [] } }) === 0
+      )
+    })(),
+  )
+  t(
+    '㊶ RE②:同名元素两端差一档必须判红,且红要能单独归因到 RE 这一维(锚点缺省 0 ⇒ 新增直接问责)',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      const src = (mpPx, rnStep) => ({
+        'a/Foo.tsx': `.card {\n  border-radius: ${mpPx};\n}\n`,
+        'b/Foo.tsx': `const s = {\n  card: {\n    borderRadius: rnRadius.${rnStep},\n  },\n}\n`,
+      })
+      const r = audit(p, src('8px', 'xl'), {}, {}, tbl)
+      const f = r.findings[0]
+      return (
+        r.red.length === 1 &&
+        elementRadiusCount(f) === 1 &&
+        f.elementRadius.mismatched[0].name === 'card' &&
+        String(f.elementRadius.mismatched[0].miniapp) === '8' &&
+        String(f.elementRadius.mismatched[0].rn) === '12' &&
+        r.red[0].over.join('').includes('同名元素圆角 1 > 锚点 0') &&
+        // 反向对照:三维各自钉在存量上时不得判红(存量不是新账)
+        audit(
+          p,
+          src('8px', 'xl'),
+          { counts: { Foo: 2 }, radiusCounts: { Foo: 2 }, elementRadiusCounts: { Foo: 1 } },
+          {},
+          tbl,
+        ).red.length === 0
+      )
+    })(),
+  )
+  /**
+   * ㊷ 是这一票的**核心对照**:同一份输入,RE 判"无从配对"并报名字,RD 判"跨端不同档"。
+   * 两侧从未同名 ⇒ 不存在"同一个元素长得不一样"这件事;而集合之差照样产出读数。
+   * 断言若写成"findings 为空"就是在骗自己 —— RD 仍然会推一条,那正是它一直在产的假信号。
+   */
+  t(
+    '㊷ RE③:一侧有名字、另一侧没有 ⇒ RE 不计红但逐条报名(同输入下 RD 仍报分叉 = 假信号来源)',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      const r = audit(
+        p,
+        {
+          // 小程序侧只写 utility 串:没有元素名可归 ⇒ 不得与 RN 的 `card` 配对
+          'a/Foo.tsx': '<View className="rounded-lg" />\n',
+          'b/Foo.tsx': 'const s = {\n  card: {\n    borderRadius: rnRadius.xl,\n  },\n}\n',
+        },
+        {},
+        {},
+        tbl,
+      )
+      const u = r.radiusUnpaired[0]
+      const f = r.findings[0]
+      return (
+        // RE 这一维:零分叉
+        elementRadiusCount(f) === 0 &&
+        !r.red[0].over.join('').includes('同名元素圆角') &&
+        // RD 这一维:照样报出"两端不同档" —— 这就是 NavBar / VideoPlayer 那两条读数的成因
+        radiusCount(f) === 2 &&
+        r.red[0].over.join('').includes('圆角 2 > 锚点 0') &&
+        // 而报名字让这一格变得可处置:对面根本没起元素名,该修的是命名而不是数字
+        u?.name === 'Foo' &&
+        u.onlyRn.join() === 'card' &&
+        u.onlyMiniapp.join() === '' &&
+        u.unnamed.miniapp === 1
+      )
+    })(),
+  )
+  t(
+    '㊸ RE④:注释里的档不得计入、同一形态写进代码必须计入(成对,否则不知哪边在说谎)',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      // 注释里写着 rounded-xl(12)而代码取 lg(8):计入就会与 RN 的 lg 造出一档假分叉
+      const commentIgnored = radiusEntriesOf(
+        '.card {\n  // 原写 rounded-xl,现按规范收口到 lg\n  border-radius: var(--radius-lg);\n}\n',
+        tbl,
+      )
+      // 反向对照:同一形态从注释搬进代码(utility 串 + 本文件真定义过的类名)必须被读到
+      const codeCounted = radiusEntriesOf(
+        '.card {\n  padding: 2px;\n}\n<View className="card rounded-xl" />',
+        tbl,
+      )
+      // 整块被注释掉的规则:类名与档都不能进射程(凭空多出一个"具名元素"就是凭空多一对可红)
+      const commentedRule = radiusEntriesOf(
+        '/* .ghost {\n  border-radius: var(--radius-2xl);\n} */\n',
+        tbl,
+      )
+      return (
+        String(commentIgnored.entries.card) === '8' &&
+        String(codeCounted.entries.card) === '12' &&
+        Object.keys(commentedRule.entries).length === 0 &&
+        commentedRule.unnamed === 0
+      )
+    })(),
+  )
+  t(
+    '㊹ RE 锚点第三家:RD 下调不得替 RE 上升顶掉名额(三维合一就是净零逃逸的入口)',
+    (() => {
+      const f = {
+        name: 'Foo',
+        named: [],
+        geometry: { onlyMiniapp: [], onlyRn: [] },
+        radius: { onlyMiniapp: [], onlyRn: [] },
+        elementRadius: { mismatched: [{ name: 'card', miniapp: [8], rn: [12] }] },
+      }
+      const v = verdictOf([f], {
+        counts: { Foo: 4 },
+        radiusCounts: { Foo: 3 },
+        elementRadiusCounts: { Foo: 0 },
+      })
+      return (
+        v.red.length === 1 &&
+        v.red[0].over.join('').includes('同名元素圆角 1 > 锚点 0') &&
+        verdictOf([f], {
+          counts: { Foo: 4 },
+          radiusCounts: { Foo: 3 },
+          elementRadiusCounts: { Foo: 1 },
+        }).red.length === 0
+      )
+    })(),
+  )
+  t(
+    '㊺ 重出台账必须拒绝"任一既有锚点上升或消失",只允许下降(覆盖面一放宽就是一次无声放松)',
+    (() => {
+      const prior = {
+        counts: { A: 2 },
+        radiusCounts: { A: 1 },
+        elementRadiusCounts: { A: 0 },
+      }
+      const rose = anchorRegression(prior, {
+        counts: { A: 3 },
+        radiusCounts: { A: 1 },
+        elementRadiusCounts: { A: 0 },
+      })
+      const gone = anchorRegression(prior, { counts: {}, radiusCounts: { A: 1 } })
+      const fell = anchorRegression(prior, {
+        counts: { A: 1 },
+        radiusCounts: { A: 0 },
+        elementRadiusCounts: { A: 0 },
+      })
+      // 新组件首次入账(锚点从缺省 0 起)不算上升 —— 否则任何新增配对都堵住重锚
+      const fresh = anchorRegression(prior, {
+        counts: { A: 2 },
+        radiusCounts: { A: 1 },
+        elementRadiusCounts: { A: 0, B: 0 },
+      })
+      // 两把锚点同时缺键(counts 与 elementRadiusCounts),radiusCounts 那维仍在 ⇒ 恰 2 条
+      return (
+        rose.length === 1 &&
+        rose[0].includes('counts.A') &&
+        gone.length === 2 &&
+        gone.every((x) => x.includes('整键消失')) &&
+        fell.length === 0 &&
+        fresh.length === 0
+      )
+    })(),
+  )
+  t(
+    '㊻ 装车锁:elementRadiusDiff / radiusEntriesOf 必须真在 audit 体内被调用' +
+      '(函数在、自检过,而 audit 没调 = 提交链上一路绿灯,本仓最高频失效型)',
+    (() => {
+      const body = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      const a = body.slice(
+        body.indexOf('export function audit('),
+        body.indexOf('export function verdictOf('),
+      )
+      // 判据写在别处不等于没装车,但写在别处的这一维就再也回不到 audit —— 本锁要求它必须在。
+      return (
+        /radiusEntriesOf\(aAll/.test(a) &&
+        /radiusEntriesOf\(bAll/.test(a) &&
+        /elementRadiusDiff\(erA\.entries, erB\.entries\)/.test(a) &&
+        /elementRadiusCount\(f\)/.test(
+          body.slice(
+            body.indexOf('export function verdictOf('),
+            body.indexOf('export function emitBaseline('),
+          ),
+        ) &&
+        /elementRadiusCounts\[f\.name\] = elementRadiusCount\(f\)/.test(
+          body.slice(
+            body.indexOf('export function emitBaseline('),
+            body.indexOf('export function parseBaseline('),
+          ),
+        ) &&
+        // RE 的红必须折进退出码:它挂在 res.red 上,所以 red 那条求和行必须在
+        /if \(aliasRed\) return 1/.test(body) &&
+        /return rotRed \+ res\.red\.length/.test(body)
+      )
     })(),
   )
   t(
@@ -3210,6 +3588,9 @@ export const __test__ = {
   audit,
   verdictOf,
   emitBaseline,
+  anchorRegression,
+  elementRadiusDiff,
+  elementRadiusCount,
   waiverProblem,
   faceFromArgv,
   chooseBaseline,

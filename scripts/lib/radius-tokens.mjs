@@ -191,4 +191,139 @@ export function radiusSetOf(src, table) {
   }
   return [...set].sort((a, b) => a - b)
 }
+
+/**
+ * 一行源码里圆角**归属于哪个元素名**:区分 JS 对象键与 CSS 选择器两种书写语言。
+ *
+ * CSS 选择器必须**按逗号分组、每组取最后一个类名** —— 后代选择器 `.a__item .a__label { … }`
+ * 被样式化的是 `.a__label`,把祖先也算进去就是给一个没设圆角的元素凭空记上一档,
+ * 而只要另一端恰有同名元素就会造出**假分叉**。逗号分组保留 `.a, .b { … }` 这两个真主体。
+ *
+ * JS 侧只认**行首的** `name:`(样式键)。不这样收窄会命中 `const styles: Record<…> = {`
+ * 这类带类型注解的声明,把 `styles` 当成元素名。
+ *
+ * @returns {{ names: string[], css: boolean }}
+ */
+export function blockOwnerOf(prelude) {
+  const t = (prelude || '').trim()
+  if (!t) return { names: [], css: false }
+  const key = /^\s*([A-Za-z_$][\w$]*)\s*:/.exec(t)
+  if (key) return { names: [key[1]], css: false }
+  if (!t.includes('.')) return { names: [], css: false }
+  const names = []
+  for (const grp of t.split(',')) {
+    const all = [...grp.matchAll(/\.([A-Za-z_][\w-]*)/g)]
+    if (all.length) names.push(all[all.length - 1][1])
+  }
+  // 选择器行不会以 `:` 结尾之外的形态混进 JS 档 —— 只收真出现 `.类名` 的情况。
+  return names.length ? { names: [...new Set(names)], css: true } : { names: [], css: false }
+}
+
+/**
+ * 源码 → **按元素名归属**的圆角档表。守门 128 的 RE 维用,与 `radiusSetOf` 并列而非替换。
+ *
+ * 为什么必须有这一维(`radiusSetOf` 不够用的实测理由):
+ * `radiusSetOf` 把一个文件里读到的**所有**圆角值收成集合再求差,于是"一侧空集"会被报成
+ * 跨端分叉 —— 而它只说明那一侧的文件里没有圆角声明,**根本不证明同一命名元素两端不同形**
+ * (真仓实测:`NavBar` 报「小程序[4] vs RN[]」、`VideoPlayer` 报「小程序[] vs RN[8]」)。
+ * 按那种读数去给单端补数字,等于制造视觉回归。RE 只在**键名/类名两侧都在**时才判等不等。
+ *
+ * 覆盖的书写形态(与 `radiusPxInLine` 同一份判据,不另写解析):
+ *  - JS 样式键 `card: { borderRadius: rnRadius.xl }`、`card: (tk) => ({ … })`(含跨行块)
+ *  - CSS 规则 `.card { border-radius: var(--radius-lg) }`(含多行选择器、逗号分组)
+ *  - `className="card rounded-lg"` —— 同串里存在**本文件样式表真定义过的类名**时才归给它;
+ *    纯 utility 串(flex / w-full 那类)没有元素名可归,计入 `unnamed` 如实报数。
+ *
+ * 已知边界(漏判方向,绝不误判):
+ *  - **注释整行/整块不计**:走本文件唯一的 `maskComments`,串内内容保留(否则
+ *    `className="rounded-lg"` 会一起被抹掉 —— 判据看不见真取用)。代价是含 `//` 的 URL 字面量
+ *    会把该行后半截断 ⇒ 那一处圆角漏读;`radiusSetOf` 为避开这个坑只做了"整行注释"判断,
+ *    RE 要判"注释里写的档不得计入",必须比它更进一步,所以这里选的是**宁可漏不误判**的方向。
+ *  - 匿名块(函数体、JSX 内联 `style={{ … }}`)拿不到元素名 ⇒ `unnamed`,不猜名字。
+ *  - 两端元素**不同名不配对**(kebab 的 `.mcd-upload-btn` 与 camel 的 `uploadBtn` 不并档)——
+ *    这是设计而非缺陷:并档就是"猜",而猜出来的配对会产出假分叉。
+ *
+ * @returns {{ entries: Record<string, number[]>, unnamed: number, cssNames: string[] }}
+ */
+export function radiusEntriesOf(src, table) {
+  const originalLines = (src || '').split('\n')
+  const lines = maskComments(src || '').split('\n')
+  const entries = {}
+  const cssNames = new Set()
+  let unnamed = 0
+  const add = (name, px) => {
+    if (!Number.isFinite(px) || px <= 0) return
+    const cur = entries[name] || (entries[name] = [])
+    if (!cur.includes(px)) cur.push(px)
+  }
+  const stack = [] // { names: string[], indent: number }
+  let pending = '' // 多行 CSS 选择器(`.a,` 换行 `.b {`)的预读
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]
+    const t = raw.trim()
+    if (!t) continue
+    const indent = raw.length - raw.trimStart().length
+    const isCloser = /^[})\]]/.test(t)
+    if (isCloser) {
+      while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop()
+    }
+    const openAt = t.indexOf('{')
+    let names = stack.length ? stack[stack.length - 1].names : []
+    if (openAt >= 0) {
+      const opens = (t.match(/\{/g) || []).length
+      const closes = (t.match(/[}\]]/g) || []).length
+      const owner = blockOwnerOf(pending + t.slice(0, openAt))
+      pending = ''
+      names = owner.names
+      if (owner.css) for (const n of owner.names) cssNames.add(n)
+      // 同行自包含(`card: { … },`)不入栈:入栈会把这个名字一直挂到后面的无关行上。
+      if (closes < opens) stack.push({ names, indent })
+    } else if (!isCloser && /^\.{1}[A-Za-z_]/.test(t)) {
+      pending = (pending + ' ' + t).slice(-400)
+      continue
+    } else if (!isCloser) {
+      pending = ''
+    }
+    const pxs = radiusPxInLine(raw, table)
+    if (!pxs.length) continue
+    /**
+     * 类名串形态整条交给第二遍(只有它能归到真类名)。第一遍若也记一次,同一处取用会在
+     * `unnamed` 与 `entries` 里各长一笔 —— 覆盖面读数虚高,而"有多少圆角无处归属"恰是
+     * 下一票要不要扩配对判据的唯一输入,报错的数比不报更坏。
+     */
+    if (/\bclass(?:Name)?\s*=/.test(raw)) continue
+    // 豁免标记活在注释里 ⇒ 判据看遮罩面、豁免看原文面(两处同一件事不得各遮一套)。
+    if (isRadiusExemptAt(originalLines, i)) continue
+    if (!names.length) {
+      unnamed += pxs.length
+      continue
+    }
+    for (const n of names) for (const p of pxs) add(n, p)
+  }
+  /**
+   * 第二遍:`className` 串里的圆角档归给**同串里那个真实存在样式表的类名**。
+   * 必须两遍分开 —— 第一遍跑完才知道本文件定义了哪些类名;先跑第一遍再跑这一遍,
+   * 顺序本身是判据的一部分(反过来会有一半的类名认不出来)。
+   */
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]
+    const at = raw.search(/\bclass(?:Name)?\s*=/)
+    if (at < 0) continue
+    const lits = [...raw.slice(at).matchAll(/["']([^"']+)["']/g)].map((m) => m[1])
+    if (!lits.length) continue
+    const text = lits.join(' ')
+    const pxs = radiusPxInLine(text, table)
+    if (!pxs.length) continue
+    if (isRadiusExemptAt(originalLines, i)) continue
+    const toks = new Set(text.split(/[\s{}]+/).filter(Boolean))
+    const known = [...toks].filter((k) => cssNames.has(k))
+    if (!known.length) {
+      unnamed += pxs.length
+      continue
+    }
+    for (const n of known) for (const p of pxs) add(n, p)
+  }
+  for (const k of Object.keys(entries)) entries[k].sort((a, b) => a - b)
+  return { entries, unnamed, cssNames: [...cssNames].sort() }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
