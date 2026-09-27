@@ -36,6 +36,10 @@ vi.mock('@ihui/api-client', () => ({
   streamChat: streamChatMock,
   setBaseUrl: vi.fn(),
   setTokenProvider: vi.fn(),
+  // 86A 起 agent.ts 还 import 这两个出口(审计上报)。本套件刻意 getToken=null
+  // (未登录即跳过上报),让既有用例只测账本接线、不掺上报路径。
+  fetchApi: vi.fn(async () => ({ success: true, data: { recorded: 0, failed: 0 } })),
+  getToken: () => null,
   formatSSEError: (err: unknown) => ({
     severity: 'unknown' as const,
     title: 'error',
