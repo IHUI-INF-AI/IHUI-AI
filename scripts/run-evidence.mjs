@@ -1,5 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * 取证包装器:把「跑失败」与「根本没跑到」变成**机器可分辨**的两件事。
  *
@@ -62,12 +64,62 @@ export function exitCodeForVerdict(v) {
   return 3
 }
 
-function writeLine(fd, s) {
+function writeLine(fd, s, state) {
+  if (markIfSettled(state)) return
   try {
     writeSync(fd, s + '\n')
   } catch {
     /* 文件句柄已失效:没有更好的去处,不谎报成功 */
   }
+}
+
+/** 第二次(终止之后)尝试写证据 ⇒ 记一笔,调用方读得到。两层都调它:handler 顶 + 每次写入前。 */
+function markIfSettled(state) {
+  if (!state || !state.settled) return false
+  state.doubleWrite = true
+  return true
+}
+
+/** Windows 的包管理器 shim 是 `.CMD`,而 `.CMD` **不是**可执行文件 ⇒ `spawn('pnpm')` 必 `ENOENT`。
+ *  本工具默认"不经 shell 直派生"(参数不被二次解释,这是设计属性),所以只在解析到 `.cmd/.bat`
+ *  时才改走 `cmd.exe /d /c`,且**如实登记**这条路径的边界:cmd 的引号规则与 MSVC 不同,含空格/引号
+ *  的参数可能被 cmd 重新切分 —— 需要逐字保参时请直接给可执行文件本体(如 `node`/`git.exe`)。 */
+const BATCH_EXT_RE = /\.(cmd|bat)$/i
+let cachedPathDirs = null
+function pathDirs() {
+  if (cachedPathDirs) return cachedPathDirs
+  const sep = process.platform === 'win32' ? ';' : ':'
+  cachedPathDirs = String(process.env.PATH || '')
+    .split(sep)
+    .filter(Boolean)
+  return cachedPathDirs
+}
+/** 找到 shim 的绝对路径(仅用于判后缀);找不到就返回 null(交给原命令,错误面照旧落 127)。
+ *  ⚠️ 候选必须**同时**包含"原名"与"原名+.cmd/.bat":PATH 上的 shim 可能已经带后缀
+ *  (调用方写 `pnpm.cmd`)也可能不带(写 `pnpm`)。漏掉前者时 `buildSpawnArgv(['pnpm.cmd'])` 会
+ *  原样返回,而 spawn 对 `.CMD` 必 `ENOENT` —— 恰是本要修的那一型。
+ *  不变量:**只返回带批处理后缀的路径**。裸名(`pnpm`)可能直接命中 PATH 上那个无后缀的
+ *  ELF/脚本 shim(Git Bash 的 `/usr/bin/pnpm` 就是),返回它等于凭空包一层 cmd.exe。 */
+function resolveBatchShim(cmd) {
+  const exts = process.platform === 'win32' ? ['', '.cmd', '.bat', '.CMD', '.BAT'] : ['']
+  const hit = (p) => BATCH_EXT_RE.test(p) && existsSync(p)
+  if (cmd.includes('/') || cmd.includes('\\')) {
+    for (const e of exts) if (hit(cmd + e)) return cmd + e
+    return null
+  }
+  for (const dir of pathDirs()) {
+    for (const e of exts) {
+      const p = resolve(dir, cmd + e)
+      if (hit(p)) return p
+    }
+  }
+  return null
+}
+/** 决定实际派生的 argv(导出给镜像测试用构造面证明,**不得**在测试里再抄一份判据)。 */
+export function buildSpawnArgv(cmdArgs) {
+  const shim = resolveBatchShim(cmdArgs[0])
+  if (shim && BATCH_EXT_RE.test(shim)) return ['cmd.exe', '/d', '/c', shim, ...cmdArgs.slice(1)]
+  return cmdArgs
 }
 
 function runCapture(outFile, cmdArgs, { timeoutMs, label }) {
@@ -77,9 +129,17 @@ function runCapture(outFile, cmdArgs, { timeoutMs, label }) {
   writeLine(fd, `#EVIDENCE-CMD: ${cmdArgs.join(' ')}`)
   if (label) writeLine(fd, `#EVIDENCE-LABEL: ${label}`)
   writeLine(fd, `#EVIDENCE-START: ${started}`)
+  // `error` 与 `close` 在派生失败(ENOENT)时**都会**触发;句柄只能关一次、RC 行只能写一次。
+  // 旧实现没记这一层:`error` 里 closeSync 之后 `close` 又 closeSync ⇒ EBADF 未捕获直接崩掉整个取证
+  // (2026-09-27 两路代理各自撞上,现象是"包装器自己崩",而证据里已经写了 RC=127 —— 结论对、进程死)。
+  //
+  // `state` 同时是**可观测位**,并且**就是交付给调用方的那个对象**(按引用共享 ⇒ 第二次终止尝试
+  // 发生在 resolve 之后,调用方仍读得到 `doubleWrite`)。分成两个对象就会漏报:finish 时把 false 抄过去,
+  // 之后置真的那一笔落在 state 上,调用方看的还是 outcome —— 这是写这一层时踩到的第二个坑。
+  const st = { rc: null, killed: false, note: '', doubleWrite: false, settled: false }
   return new Promise((res) => {
-    // 直接派生目标命令(不经 shell ⇒ 参数不会被二次解释;stdio 全接到同一个 fd ⇒ stdout/stderr 时序即真实时序)
-    const child = spawn(cmdArgs[0], cmdArgs.slice(1), {
+    const spawnArgs = buildSpawnArgv(cmdArgs)
+    const child = spawn(spawnArgs[0], spawnArgs.slice(1), {
       cwd: ROOT,
       windowsHide: true,
       stdio: ['ignore', fd, fd],
@@ -93,33 +153,44 @@ function runCapture(outFile, cmdArgs, { timeoutMs, label }) {
         child.kill('SIGTERM')
       }, timeoutMs)
     }
-    const onSignal = (sig) => {
-      writeLine(fd, `${KILLED_MARK}: ${sig}`)
-      closeSync(fd)
+    const finish = () => {
+      if (st.settled) return
+      st.settled = true
       if (timer) clearTimeout(timer)
-      res({ rc: null, killed: true, note: `本工具被 ${sig} 终止,已在证据里留痕` })
+      try {
+        closeSync(fd)
+      } catch {
+        /* 句柄已关:宁可少关一次也不崩,结论已写进证据 */
+      }
+      res(st)
+    }
+    const onSignal = (sig) => {
+      writeLine(fd, `${KILLED_MARK}: ${sig}`, st)
+      finish()
     }
     process.once('SIGTERM', () => onSignal('SIGTERM'))
     process.once('SIGINT', () => onSignal('SIGINT'))
     child.on('error', (e) => {
-      writeLine(fd, `#EVIDENCE-ERROR: ${e?.message ?? String(e)}`)
-      writeLine(fd, `${RC_MARK}127`)
-      closeSync(fd)
-      if (timer) clearTimeout(timer)
-      res({ rc: 127, killed: false, note: '命令无法派生(找不到可执行文件等)' })
+      if (st.settled) return
+      writeLine(fd, `#EVIDENCE-ERROR: ${e?.message ?? String(e)}`, st)
+      writeLine(fd, `${RC_MARK}127`, st)
+      writeLine(fd, `#EVIDENCE-END: ${new Date().toISOString()}`, st)
+      st.rc = 127
+      st.note = '命令无法派生(找不到可执行文件等)'
+      finish()
     })
     child.on('close', (code, signal) => {
-      if (timer) clearTimeout(timer)
+      if (st.settled) return
       if (signal || killedByUs) {
-        writeLine(fd, `${KILLED_MARK}: ${signal || 'timeout'}`)
-        closeSync(fd)
-        return res({ rc: null, killed: true, note: `子进程被 ${signal || 'timeout'} 终止` })
+        writeLine(fd, `${KILLED_MARK}: ${signal || 'timeout'}`, st)
+        st.killed = true
+        st.note = `子进程被 ${signal || 'timeout'} 终止`
+        return finish()
       }
-      const rc = code === null ? 1 : code
-      writeLine(fd, `${RC_MARK}${rc}`)
-      writeLine(fd, `#EVIDENCE-END: ${new Date().toISOString()}`)
-      closeSync(fd)
-      res({ rc, killed: false, note: '' })
+      writeLine(fd, `${RC_MARK}${code === null ? 1 : code}`, st)
+      writeLine(fd, `#EVIDENCE-END: ${new Date().toISOString()}`, st)
+      st.rc = code === null ? 1 : code
+      finish()
     })
   })
 }
@@ -141,7 +212,15 @@ function verify(outFile) {
   return { v, rcExit }
 }
 
-export const __test__ = { judgeEvidence, exitCodeForVerdict, RC_MARK, KILLED_MARK, verify, runCapture }
+export const __test__ = {
+  judgeEvidence,
+  exitCodeForVerdict,
+  RC_MARK,
+  KILLED_MARK,
+  verify,
+  runCapture,
+  buildSpawnArgv,
+}
 
 async function main() {
   const argv = process.argv.slice(2)
@@ -262,6 +341,48 @@ async function runSelfTest() {
       /* 清不掉不影响结论 */
     }
   }
+  // T15/T16 —— 2026-09-27 由两路并行代理各自撞出来后补的两格。
+  // 旧实现:派生失败(ENOENT)时 `error` 与 `close` **都**会触发,两边各 closeSync 一次 ⇒
+  // 第二次 `EBADF: close` 未捕获,整个取证进程崩掉(证据里其实已经写了 RC=127 —— 结论对、进程死,
+  // 而调用方只看到一句堆栈,极易误读成"被包装的命令出了问题")。
+  const f4 = resolve(dir, 'evidence-selftest-enoent.txt')
+  let enoentCrashed = false
+  try {
+    const c = await runCapture(f4, [resolve(dir, 'no-such-binary-xyz.exe')], { timeoutMs: 20_000 })
+    const txt = readFileSync(f4, 'utf8')
+    const rcLines = txt.split(/\r?\n/).filter((l) => l.startsWith(RC_MARK))
+    ok('T15 派生失败 ⇒ RC 行**恰好一条**且值为 127(句柄只关一次)', c.rc === 127 && rcLines.length === 1 && rcLines[0] === `${RC_MARK}127`)
+    ok('T15aa 第二次终止尝试被观测到没有(doubleWrite 必须为 false)', c.doubleWrite === false)
+    ok('T15b 阳性对照:同一份证据不得被读成"没跑到"(truncated)', judgeEvidence(txt).kind === 'complete')
+    ok('T15c 失败原因写进证据(#EVIDENCE-ERROR 在位)', /#EVIDENCE-ERROR: /.test(txt))
+  } catch (e) {
+    enoentCrashed = true
+    ok('T15 派生失败路径不崩(实测崩溃)', false)
+    ok('T15b 同上', false)
+    ok('T15c 同上', false)
+    console.log(`  ℹ️ 本条崩溃实录:${e?.message ?? e}`)
+  } finally {
+    if (!enoentCrashed) {
+      try {
+        rmSync(f4, { force: true })
+      } catch {
+        /* 清不掉由下一条统一判 */
+      }
+    }
+  }
+  ok('T16 .CMD shim 必须改走 cmd.exe /d /c(Windows 的 pnpm/npx 是 .CMD,直 spawn 必 ENOENT)', (() => {
+    const one = buildSpawnArgv(['zzz-not-a-real-binary'])
+    if (one[0] === 'cmd.exe') return false // 不存在的命令不得被凭空包一层
+    const abs = buildSpawnArgv([process.execPath, '-e', '0'])
+    if (abs[0] !== process.execPath || abs.join(' ') !== [process.execPath, '-e', '0'].join(' ')) return false
+    if (process.platform !== 'win32') return true // 非 Windows:没有 .CMD 这一族,只证"不乱包"
+    const asCmd = buildSpawnArgv(['pnpm.cmd', '--version'])
+    if (asCmd[0] !== 'cmd.exe' || asCmd[1] !== '/d' || asCmd[2] !== '/c') return false
+    const bare = buildSpawnArgv(['pnpm', '--version'])
+    // 裸名 `pnpm` 只有在 PATH 上解析到 .cmd/.bat 时才该被包;解析不到就原样交给 spawn(错误面照旧落 127)。
+    if (bare[0] === 'cmd.exe') return bare[3].toLowerCase().endsWith('.cmd')
+    return !existsSync(resolve(ROOT, 'pnpm'))
+  })())
   for (const f of [f1, f2]) {
     try {
       const txt = readFileSync(f, 'utf8')
@@ -295,3 +416,4 @@ if (isDirectRun) {
       process.exit(2)
     })
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
