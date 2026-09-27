@@ -8,6 +8,7 @@
  * 路径(server.ts 用 prefix:'/api' 注册 → 最终 /api/subagents/*):
  *  - POST   /subagents/dispatch       创建派单(调 ai-service agent_orchestrator)
  *  - GET    /subagents/active         列出 pending/running 派单
+ *  - GET    /subagents/all            全量派单(新→旧,支持 status/limit 透传;G-299①)
  *  - POST   /subagents/:id/cancel     取消派单
  *  - POST   /subagents/:id/resume     从 checkpoint 恢复(深化 v2 新增)
  *  - GET    /subagents/topology       Swarm 拓扑(节点 + 边)
@@ -429,6 +430,23 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
 
     const dispatches = subagentDispatchService.listActive()
+    return reply.send(success({ dispatches }))
+  })
+
+  // ---------- GET /subagents/all ----------
+  // G-299①(2026-09-28):agent-teams 页(apps/web/app/(main)/agent-teams/page.tsx)要**全量**
+  // 派单历史(含 completed/failed/cancelled),/subagents/active 只是 pending/running 子集 ——
+  // 客户端改道 active 会把"页面少了历史"写成"已修",所以补这条真面。
+  // 形状与 active 同({dispatches}),排序取新→旧(消费方按列表直读);status/limit 透传自查询串。
+  server.get('/subagents/all', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const q = request.query as { status?: string; limit?: string }
+    let dispatches = subagentDispatchService.listAll().slice().reverse()
+    if (q.status) dispatches = dispatches.filter((d) => d.status === q.status)
+    const limit = Number(q.limit)
+    if (Number.isFinite(limit) && limit >= 1) dispatches = dispatches.slice(0, limit)
     return reply.send(success({ dispatches }))
   })
 
