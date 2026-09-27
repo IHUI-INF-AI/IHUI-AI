@@ -130,7 +130,7 @@ $outFile = "$backupDir\ihui_dev_$stamp.dump"
 Write-Host "[1/3] 备份中: $dbName@localhost:$dbPort(角色 $dbUser) → $outFile" -ForegroundColor Cyan
 # -Fc = 自定义压缩格式(pg_restore 可直接还原,自带压缩);$dbUser 带 BYPASSRLS,不会漏被 RLS 遮蔽的行
 # -w = 禁止回落交互式口令提示(见文件头:scram 下无口令会挂在控制台上,而非快速失败)
-& $pgDump -w -Fc -h localhost -p $dbPort -U $dbUser -d $dbName --no-owner --no-privileges -f $outFile
+& $pgDump -w -Fc -h localhost -p $dbPort -U $dbUser -d $dbName --no-owner -f $outFile
 
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $outFile)) {
     Write-Host "[ERROR] 备份失败" -ForegroundColor Red
@@ -158,23 +158,37 @@ Get-ChildItem $backupDir -Filter "ihui_dev_*.dump" | Where-Object { $_.LastWrite
 $remaining = (Get-ChildItem $backupDir -Filter "ihui_dev_*.dump").Count
 Write-Host "[OK] 当前保留备份数: $remaining" -ForegroundColor Green
 
-# 云备份同步(异地容灾):复制最新 dump 到百度网盘同步盘(同步盘自动云同步)
+# 云备份同步(异地容灾):把保留窗口内**每一份**还没进同步盘的 dump 补过去(同步盘自动云同步)
+#
+# 旧写法只复制"最新一份"。2026-09-27 的备份节拍审计(scripts/pg-backup-cadence-audit.mjs)量到
+# 后果:本地 09-21/22/23 三份 dump 都在,云盘目录里却一天都没有 —— 某天复制成功了,第二天又被
+# "只取最新"跳过,那一天**永远补不回来**。异地腿的意义正是"本机整盘没了还有",而它缺哪天不由
+# 我们决定,所以改成按缺口补:这一轮漏了下轮自动带上,不靠人记得。稳态字节数不变(每日新增一份、
+# 复制一份),差别只出现在"曾经漏掉"的日子里。
 if ($cloudDir) {
     try {
         if (-not (Test-Path $cloudDir)) { New-Item -ItemType Directory -Force -Path $cloudDir | Out-Null }
-        $latest = Get-ChildItem $backupDir -Filter "ihui_dev_*.dump" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if ($latest) {
-            if ($latest.Length -le 0) {
-                # 最新 dump 为0字节(上次备份失败残留),跳过,不覆盖云盘有效备份
-                Write-Host "[WARN] 最新 dump ($($latest.Name)) 为 0 字节,跳过云同步以免覆盖有效异地备份" -ForegroundColor Yellow
-            } else {
-                Copy-Item $latest.FullName "$cloudDir\$($latest.Name)" -Force
-                Write-Host "[OK] 云备份同步完成: $cloudDir\$($latest.Name)" -ForegroundColor Green
+        $pending = @(Get-ChildItem $backupDir -Filter "ihui_dev_*.dump" |
+            Where-Object { $_.LastWriteTime -ge $cutoff -and -not (Test-Path -LiteralPath "$cloudDir\$($_.Name)") })
+        if ($pending.Count -eq 0) { Write-Host "[OK] 云备份同步:窗口内无缺口" -ForegroundColor Green }
+        foreach ($f in $pending) {
+            if ($f.Length -le 0) {
+                # 0 字节 = 上次备份失败的残留,跳过它,而不是把一份空档当成"有效异地备份"同步出去
+                Write-Host "[WARN] 跳过 0 字节 dump(上次失败残留): $($f.Name)" -ForegroundColor Yellow
+                continue
             }
+            Copy-Item $f.FullName "$cloudDir\$($f.Name)" -Force
+            if (-not (Test-Path -LiteralPath "$cloudDir\$($f.Name)")) {
+                # 复制"没报错却没落盘"(网盘占位/磁盘满/句柄被同步客户端拿走)必须响 —— 否则这条腿的
+                # 失败形态就是"日志写着同步完成,盘上没有",而账面一切正常。
+                throw "复制后回读失败:$cloudDir\$($f.Name)"
+            }
+            Write-Host "[OK] 云备份同步完成: $cloudDir\$($f.Name)" -ForegroundColor Green
         }
     } catch {
         Write-Host "[WARN] 云备份同步失败(不影响本地备份): $_" -ForegroundColor Yellow
     }
 }
+
 Write-Host "`n备份目录: $backupDir" -ForegroundColor Cyan
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
