@@ -339,7 +339,7 @@ test('T7 端到端双向锁(私有索引注入,绝不碰共享索引/工作树):
   }
 })
 
-test('T8 空暂存档不得判"无法判定"(与守门 135 的兜底同向),且 --strict 必须因存量判红', () => {
+test('T8 空暂存档不得判"无法判定"(与守门 135 的兜底同向),且 --strict 与存量同真假(有存量必红,归零后不得假红)', () => {
   const staged = spawnSync(process.execPath, [SRC, '--staged'], {
     cwd: REPO,
     encoding: 'utf8',
@@ -357,7 +357,17 @@ test('T8 空暂存档不得判"无法判定"(与守门 135 的兜底同向),且 
     windowsHide: true,
     timeout: 600000,
   })
-  assert.equal(strictRun.status, 1, '--strict 是问责入口:存量必须判红,否则它和默认档没有区别')
+  // 2026-09-27 存量归零后:strict 与默认档的差别**只在有存量时存在** —— 判据改成
+  // "strict 的状态 == (有存量 ? 红 : 绿)",而不是把"HEAD 必须还脏着"钉成断言
+  // (那等于要求世界永远留着立项那天的缺陷)。strict 有牙由 T7 注入对照证明。
+  const headStock = gate.analyze('head').stock.length
+  assert.equal(
+    strictRun.status,
+    headStock > 0 ? 1 : 0,
+    headStock > 0
+      ? `--strict 是问责入口:存量 ${headStock} 处必须判红,否则它和默认档没有区别`
+      : `存量为 0 时 --strict 应绿(红只能来自注入,T7 负责证明这一点);实得 ${strictRun.status}`,
+  )
 })
 
 test('T9 --json 只输出一份可 parse 的文档(说明性文本不得混进 stdout)', () => {
