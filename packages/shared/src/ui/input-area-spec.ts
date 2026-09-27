@@ -211,11 +211,19 @@ export const INPUT_AREA_CLOSE_HIT_SLOP_PX = 8
 export const INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX = 32
 
 /**
- * 【B 单端档·RN】大输入框(showVoiceMic)内的发送钮/麦克风高 40。
- * 变体差异,非取值分叉:小程序端这一位置是原项目 `sand_msg.png` 的 50rpx(=25)图标盒,
- * 见 INPUT_AREA_AI_HOME_ICON_BOX_PX;两端都在框内右侧,但一者是实底圆角钮、一者是裸图标。
+ * 【A 两端同值】大输入框(showVoiceMic)内的发送钮 / 麦克风方盒 32。
+ *
+ * 本条原先登记为「B 单端档·RN 40」,理由是"小程序端这一位置是 `sand_msg.png` 的 50rpx(=25)
+ * 裸图标,一者是实底钮、一者是裸图标"。**那个前提已经过期**:首页 ai-home 的发送钮已收成
+ * `GEOMETRY_PX.controlBox`(32)的 cta 实底方块(票⑨,`bg-cta` + `ctaForeground` 成对),
+ * 与 RN 框内右侧那一枚是同一个控件 —— 于是 40 vs 32 不再是"变体差异",而是同一元素两端各取一档。
+ * 取 32 的依据不是"两端较小档",而是这一档已有单一源头:`geometry.js` 的 `controlBox: 32`
+ * 注释即引 web `message-input.tsx` 的 `h-8 w-8`,小程序端已按它取数;RN 接回同一枚常数即可。
+ * 麦克风钮共用这一枚常数,所以它同步变 32;小程序端语音切换钮另有单端档
+ * `INPUT_AREA_AI_HOME_VOICE_BTN_W_PX`,那是"元素形态不同"而非本条的取值分叉。
+ * 右侧偏移那条(`INPUT_AREA_AI_HOME_INLINE_GAP_PX` 的派生式)由本常数自动跟随,无需另改。
  */
-export const INPUT_AREA_IN_SHELL_BTN_PX = 40
+export const INPUT_AREA_IN_SHELL_BTN_PX = GEOMETRY_PX.controlBox
 
 /**
  * 【B 单端档·RN】大输入框内放大钮的右侧偏移。收编前端内写 52,它的构成就是
