@@ -179,12 +179,18 @@ async def test_thread_settings_auto_compact_and_permission(tmp_path):
         "thread.settings",
         {
             "threadId": tid,
-            "settings": {"autoCompact": True, "permissionMode": "always"},
+            # 2026-09-27 G-254:此处原写 "always"。它从来不是 permissionMode 的对外值 ——
+            # 写本夹具时(commit 3b495651e)校验只查"非空字符串",任何拼写都恰好通过;
+            # "always" 实为审批**持久授权 scope**(approval_persistence.SCOPE_ALWAYS,
+            # session/always 一档),不是权限**模式**。G-161 归一后唯一真源
+            # (app/core/permission_mode.py)与 TS 侧均无此值,故翻为规范档 acceptEdits,
+            # 本用例要测的"permissionMode 校验并生效"断言逐字保留。
+            "settings": {"autoCompact": True, "permissionMode": "acceptEdits"},
         },
     )
     assert set(r["applied"]) == {"autoCompact", "permissionMode"}
     th = engine._threads[tid]
-    assert th.auto_compact is True and th.permission_mode == "always"
+    assert th.auto_compact is True and th.permission_mode == "acceptEdits"
     # autoCompact 非法类型
     err = await _rpc_error(
         engine,
