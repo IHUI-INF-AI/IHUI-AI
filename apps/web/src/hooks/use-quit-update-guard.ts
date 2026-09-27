@@ -7,6 +7,7 @@
 import * as React from 'react'
 import {
   isTauri,
+  quitApp,
   quitAndUpdateIfNeeded,
   type QuitUpdateStatus,
   type UpdateProgress,
@@ -46,12 +47,27 @@ const INITIAL_STATE: QuitUpdateGuardState = {
  */
 export function useQuitUpdateGuard() {
   const [state, setState] = React.useState<QuitUpdateGuardState>(INITIAL_STATE)
+  // 用 ref 而非 `state.visible` 做重入判据:闭包读到的是 effect 建立那一刻的快照,
+  // 而 effect 又依赖 [state.visible] —— 两者互相绕的结果是"链一断,再点退出被静默
+  // 吞掉",用户只剩一个无按钮、无超时的全屏 alertdialog。ref 让 handler 与渲染解耦。
+  const inFlightRef = React.useRef(false)
 
   React.useEffect(() => {
     if (!isTauri()) return
 
+    const abortToIdle = () => {
+      inFlightRef.current = false
+      setState({ ...INITIAL_STATE })
+    }
+
     const handleQuitRequest = () => {
-      if (state.visible) return // 防止重复触发
+      if (inFlightRef.current) {
+        // 第二次及以后:用户已明确表达"现在就要退出",不再走更新链,
+        // 直接请 Rust 侧 quit_app(它自带到点强杀的兜底)。
+        void quitApp().catch(abortToIdle)
+        return
+      }
+      inFlightRef.current = true
       setState({ ...INITIAL_STATE, visible: true, status: 'checking' })
 
       void quitAndUpdateIfNeeded(
@@ -67,12 +83,17 @@ export function useQuitUpdateGuard() {
         (status: QuitUpdateStatus) => {
           setState((prev) => ({ ...prev, status }))
         },
-      )
+      ).catch((e: unknown) => {
+        // quitAndUpdateIfNeeded 内部已 catch 过一次并再调 quitApp;走到这里说明
+        // 连那次 invoke 也失败了(Rust 侧没接住)。遮罩必须收起,否则界面没有任何出口。
+        console.warn('[quit-guard] quit chain failed, restoring UI:', e)
+        abortToIdle()
+      })
     }
 
     window.addEventListener('desktop-quit-request', handleQuitRequest)
     return () => window.removeEventListener('desktop-quit-request', handleQuitRequest)
-  }, [state.visible])
+  }, [])
 
   return state
 }
