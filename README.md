@@ -6332,3 +6332,17 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 >   逐字同形，字段声明收敛进 `@ihui/types` 的 `ToolCall.partialDiff`，端内归并层一律纯函数
 >   (web `createToolDeltaHandler` / 扩展 `lib/tool-call-frames.ts` / 小程序 `cards/types.ts` /
 >   RN `chat-render-model.ts`)，接线由各自的源码级锁 + 真实帧端到端用例钉住。
+
+
+
+
+## 运维与生产监控工具(2026-09-27 起)
+这台机由一支 agent 运维班组常驻值守(5 个班次:每小时巡检 / 每 30 分钟版本核验 / 每日 04:00 自愈 / 每日 05:30 备份核验 / 每周一体检邮件)。下面这几件是它们共用的出口,都不在提交链上,判的是**机器状态**——挂进提交链就会变成与任何提交都无关的恒红门,唯一结局是逼人 `--no-verify` 连带全部检查作废。
+| 工具 | 干什么 | 为什么必须有它 |
+| --- | --- | --- |
+| `scripts/sync-prometheus-live-config.mjs` | 把 `monitoring/prometheus/prometheus.yml` 派生到部署机那份运行副本,并让运行副本的 `rule_files` 直接指回仓库那份 `alerts.yml`;`--check` 零副作用,`--reload` 走热加载(本机 prometheus 已开 `enable-lifecycle`,改监控配置**不需要重启服务**) | 生产 prometheus 过去读仓库外一份手抄副本,只抓 6 个目标 ⇒ `AlertmanagerDown`/`AlertBridgeDown` 依赖的 `up{job=…}` 序列**根本不存在**,`== 0` 恒不成立 —— 邮件链路断了不会有任何告警。而仓库那份 `alerts.yml` 因带两条 Prometheus 3.x 不认的 `disabled:` 字段被 `promtool` **整份拒绝**,两侧各自"能跑"、合起来从没跑过。**规矩:凡 Down 类判据必须配一条"job 集合差"对账,"序列缺失"比"值为 0"更危险。** 派生器另有占位符凭据守卫(它曾把 `password: __REPLACE…` 逐字烘进生产 ⇒ 主机指标采集器恒 401、磁盘/内存告警长期哑) |
+| `scripts/prune-rotated-nssm-logs.mjs` | nssm 轮转副本的保留策略量算;**默认只读**,`--keep N --apply` 才删,超 40 份或 512MB 自动拒绝需 `--allow-mass` | **轮转 ≠ 保留策略**:nssm 只把写满那份改名,一个旧副本都不删(现读 6 组 / 48 份 / 1.19GB)。活文件(名里无时间戳)永不进候选、刚轮转 <1h 跳过、解析后落在 logs 目录外的一律剔除(防 junction 穿透清空) |
+| `scripts/alert-volume-report.mjs` | 只读量算"发信总量 / 风暴簇 / 跳门总量 / 哪道门导致跳门 / 检查整批没跑的次数" | 过去全仓没人统计过这些,"修好三道"可能只是"修好我看到的三道"。跳门的唯一真值来源是 `.workbuddy/safe-commit-attestation.jsonl` |
+| `scripts/pg-restore-drill.mjs` | 备份可恢复性核验:`--check`/`--offline-verify` 不碰库,`--apply` 才做在线还原演练 | 全仓 `pg_restore` 此前只出现在注释里 —— **没验过的备份不算备份**。文件层已证到最强(整份归档解出 363MB SQL 流零报错);在线演练缺一个建库权限,**属机主授权动作,agent 不得自行提权** |
+| `scripts/run-evidence.mjs` | 给任何一次取证落件并写 `#EVIDENCE-RC`,读侧 `--verify` 判"跑完 / 被截断 / 被杀" | 把"跑失败"与"根本没跑到"变成机器可分辨的两件事。管道尾的 `$?` 是 `tail` 的退出码,不是判据的 —— 本仓一天内三次因此得出相反结论 |
+**两条通用口径**:(1) 端内/部署机那份运行配置一律是**派生态**,禁止手改也禁止"只拦红不回写"(与 design-tokens 同源那条同规矩);(2) **改常驻服务的脚本必须重启才生效,而 PowerShell/node 每轮重新派生的子进程改工作树即刻生效** —— 判据是"它是常驻读进内存,还是每轮重新起",别一律当"要重启"。
