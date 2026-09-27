@@ -12840,3 +12840,38 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 > 结论只能是**"不归属本批"**，不是**"基线本来就红"** —— 这两句话的差别正是本仓记过多次的"把没判写成判过了"。
 > 要拿到真正的基线判据，得走 §12d 的 `git worktree add --detach` + 端内自装依赖那条重活，另计一票；
 > 在那之前，任何"某批改动没弄红测试"的说法都必须带上这个限定。
+### 第五十一波·续十八 —— 第六轮取证的未做格（2026-09-27 午后登记：每条都带归属与解阻判据）
+
+四路取证回来 9 格候选，本轮落了 4 格（批次 46/47/48/49 + 44 门 147）。**剩下 5 格不是"以后再说"，逐条写明为什么不归本枚、以及什么条件下才动**：
+
+- [ ] **G-241 自动化"结算状态机"（认领/退避/终态）—— 需建表，属 §24 领地**（归属：api 端持有者；本线只登记）
+  实测病灶：`apps/api/src/services/agent-automation-scheduler.ts:305-341` 只有一个**进程内布尔** + 串行 await，
+  `packages/database/src/schema/user-automations.ts` 无 `attempts/claimed_at/retry_at` 列、无 run 台账
+  （该文件内 `retry|attempt|backoff|claim` 全仓零命中）。后果两条相反且都真：ai-service 拒连时每 60s 无限重投；
+  上游回 5xx 时却被记成"已执行"永不再试；而任一条 SSE 卡死会让 `running` 永久为真 ⇒ **全站用户自动化停摆**。
+  解阻判据：先由人确认新增两列 + 一张 run 台账表的建表迁移（AGENTS §24 + 本机无 PG 端口 ⇒ 迁移在本地既不能
+  应用也不能验证，只能走守门 49 的离线判据 B1–B5 并明写"--db 模式本机不可用"），确认后才谈实现。
+- [ ] **G-242 一次性 capability ticket 取代常驻可重放内部令牌 —— 双侧排序决策未拍**（归属：ai-service↔api 两侧持有者）
+  实测敞口（HEAD 已入库，不是在飞编辑）：`apps/api/src/plugins/internal-service-token.ts:36-39` **自己注释承认**
+  这把密钥"常驻、无 TTL、可无限重放"，`:77-110` 的用户身份取自调用方自报 `X-User-Id` 并顺带授予管理员档，
+  `csrf.ts:228` 见该头即豁免 CSRF；发票侧散在 4 处（`api_tools_bridge.py:91-95`、`codebase_indexer.py:253`、
+  `im_bridge.py:287-290`、`control_autonomy.py:200`）。ZCode 的出口是 30s TTL 随机票 + **先 delete 再比 TTL**
+  （过期与重放同一路径），且发票口本身在 `/api/` token 闸内 —— "已认证"才能换"更高一档"，换完只够一次。
+  解阻判据：先拍"先发票后验票"还是"双读过渡窗"（改契约的顺序即安全属性，单边实施会把内部通道打断），
+  拍完本线可即时实施；**第三十五批的常量时间比较已就位**，两件事不冲突但必须同一序列里排。
+- [ ] **G-243 最低版本闸门不可远程切换**（归属：对外能力决策 ⇒ 需用户确认，§24）
+  `apps/cli/src/updater.ts:62-211` 的 `minimumVersion` 读**本地** package.json（实测 `engines` 无此键 ⇒ 分支永不触发），
+  `notifyUpdates` 只异步 warn；`apps/api/src/routes/app-version.ts` 的 platform 枚举里没有 `cli`，全仓无服务端版本闸
+  （`minCliVersion|X-Client-Version` 零命中）。症状是旧 CLI 带新契约继续跑，故障以难归因的运行时错呈现。
+  解阻判据：这是**对外行为**（会阻止用户使用旧版），须用户拍"阻止/只警告"与豁免口径；不是本线可自定默认值的项。
+- [ ] **G-244 后台任务 run 状态缺 append-only journal 与"禁用而非伪装"两半**（归属：ai-service 端）
+  `run_in_background` 注册表是进程内存字典，重启后 `bg_task_status` 查无此任务（`background_tasks.py:14` 已自登记为遗留）。
+  ZCode 的两条纪律值得照抄：store 无 journal 能力 ⇒ **整个服务显式禁用 + 结构化日志**，绝不退回内存 journal
+  （"run 看起来跑起来了，却在进程退出时把一切静默丢掉"）；回放是"事件按序重铸成与 live 同一种载荷喂同一 reducer"，
+  终态一律**从行派生**而非信任旧事件词表。解阻判据：与 G-241 同一张建表决策，别分两票做两次迁移。
+- [ ] **G-245 事故归档无"双上限"回收 —— 与 §5b 的禁删条款正面冲突，必须先由人定代数**（归属：`.git` 存续线）
+  实测：`G:/DevEnv/backups/git` 已 1.1GB / 43 项，历史 15+ 次事故，`scripts/git-guardian.mjs` 零 retention。
+  ZCode 的归档回收是 `maxFiles=5 + maxTotalBytes=100MB` 双上限 + deleted/failed 留痕 + mtime≥1s 稳定窗。
+  **本线刻意没做**：§5b 明文"禁止删除 `D:/IHUI-AI-git-repo`、`IHUI-AI.git-backup-20260912` 及两目录的 `*.broken-*` 归档"
+  —— 那是恢复现场不是垃圾；要加回收必须先由人裁定"保几代、哪些算现场"，机器不替人删恢复源。
+- [ ] **G-240 enforce 档的下一步不是翻默认，而是"用台账修描述"**（同续十七，编号不重复登记，仅在此点名）
