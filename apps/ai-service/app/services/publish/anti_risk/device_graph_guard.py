@@ -28,6 +28,7 @@ import json
 import os
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -172,6 +173,9 @@ class LinkageReport:
     linked_accounts: list[dict[str, str]] = field(default_factory=list)
     risk_score: int = 0
     linkage_types: list[str] = field(default_factory=list)
+    # 因"同属一个用户"而被跳过的候选数。**必须出现在报告里**，不得静默 ——
+    # 静默跳过与"根本没检查"在账面上长得一模一样，而本仓最高频的失效型就是这个。
+    same_owner_skipped: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -180,6 +184,7 @@ class LinkageReport:
             "linked_accounts": list(self.linked_accounts),
             "risk_score": self.risk_score,
             "linkage_types": list(self.linkage_types),
+            "same_owner_skipped": self.same_owner_skipped,
         }
 
 
@@ -296,11 +301,22 @@ class DeviceGraphGuard:
             account_id, fingerprint_hash[:12], proxy_ip,
         )
 
-    async def detect_linkage(self, account_id: str) -> LinkageReport:
+    async def detect_linkage(
+        self,
+        account_id: str,
+        owner_of: Callable[[str], str | None] | None = None,
+    ) -> LinkageReport:
         """检测账号是否与其他账号共享设备/IP/指纹/UA。
 
         Args:
             account_id: 被检测的账号 ID
+            owner_of: 可选的**归属解析器**（account_id → user_id，解析不到返回 None）。
+                给了它，"同一个用户名下的多个平台账号"就不再算跨账号关联 —— 一个人运营
+                十几个平台是**本产品的前提**，那些账号天然同一台机器、同一个 UA；不作用域化，
+                每次发布都会自己给自己判一次"跨会话关联"并自动冷却 1h（实测：16 个账号里
+                UA 维度命中 3 组，掘金那次发布就是这样被自己拦下的）。
+                **归属解析不到的候选一律照旧计入**（保守）：把"查不到主人"当成"同一个人"
+                等于给关联检测开后门。不给该参数时行为与改动前逐字一致。
 
         Returns:
             LinkageReport(含关联账号列表 + 风险评分)
@@ -314,10 +330,17 @@ class DeviceGraphGuard:
             linked: list[dict[str, str]] = []
             linkage_types: list[str] = []
             risk = 0
+            same_owner_skipped = 0
+            self_owner = owner_of(account_id) if owner_of is not None else None
 
             for other_id, other in self._bindings.items():
                 if other_id == account_id:
                     continue
+                if owner_of is not None and self_owner is not None:
+                    other_owner = owner_of(other_id)
+                    if other_owner is not None and other_owner == self_owner:
+                        same_owner_skipped += 1
+                        continue
 
                 reasons: list[str] = []
 
@@ -374,6 +397,7 @@ class DeviceGraphGuard:
                 linked_accounts=linked,
                 risk_score=risk,
                 linkage_types=linkage_types,
+                same_owner_skipped=same_owner_skipped,
             )
 
     async def clear_binding(self, account_id: str) -> None:
