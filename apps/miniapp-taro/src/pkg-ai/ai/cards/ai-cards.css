@@ -259,6 +259,28 @@
   color: var(--color-muted-foreground);
 }
 
+/* D113:工具流中 diff 预览(tool-delta 累积文本,仅 running 态渲染)。
+   档位与 App 端逐档对齐(RN 现读:monoText fontSize 11 / lineHeight 16、cardBody
+   paddingHorizontal 6dp / paddingBottom 5dp / gap 3dp;1 逻辑 px = 2rpx  ⇒
+   22rpx / 32rpx / 12rpx / 10rpx / 6rpx),**不在本端自创第二档**。
+   底色与圆角沿用本文件既有 mono 块档(var(--color-muted) + var(--radius-sm),同
+   .ai-card-term-output-wrap 与 web StreamCode 的 rounded-sm),不用描边分隔、不加文案。 */
+.ai-card-tool-partial-diff {
+  margin-top: 6rpx;
+  padding: 10rpx 12rpx;
+  background: var(--color-muted);
+  border-radius: var(--radius-sm);
+}
+.ai-card-tool-partial-diff-text {
+  display: block;
+  font-family: Menlo, Consolas, 'Courier New', monospace;
+  font-size: 22rpx;
+  line-height: 32rpx;
+  color: var(--color-foreground);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* ============ 终端输出卡片 ============ */
 .ai-card-term-item {
   padding: 14rpx 0;
