@@ -30,6 +30,7 @@ import { db } from '../db/index.js'
 import { aiBudgets, aiCostRecords, notifications, users } from '@ihui/database'
 import { sendEmail } from './email-service.js'
 import { renderSystemAlertEmail } from './email-templates.js'
+import { flattenUntrustedText, sanitizeAlertMessage } from '../utils/alert-text.js'
 
 // ---------------------------------------------------------------------------
 // 常量
@@ -390,12 +391,15 @@ async function dispatchAlert(server: FastifyInstance, payload: AlertPayload): Pr
     })
     if (payload.email) {
       try {
+        // 这条降级分支同样**不经 pushAlertWithResult**;此处 title/content 虽是固定模板
+        // 拼数字(实测不含自由文本),仍走同一出口函数 —— 理由是"例外清单必然腐烂":
+        // 今天靠"它只有数字"放过,明天有人往模板里插一个用户可控字段就没人记得补闸。
         const rendered = renderSystemAlertEmail({
           severity: payload.severity,
           source: 'BUDGET_ALERT',
           time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
-          title,
-          message: content,
+          title: flattenUntrustedText(title),
+          message: sanitizeAlertMessage(content),
         })
         await sendEmail({
           to: payload.email,
