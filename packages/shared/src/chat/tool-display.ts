@@ -27,6 +27,7 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   index_codebase: 'toolIndexCodebase',
   analyze_code: 'toolAnalyzeCode',
   generate_test: 'toolGenerateTest',
+  generate_report: 'toolGenerateReport',
   run_command: 'toolRunCommand',
   run_in_background: 'toolRunCommand',
   git_operations: 'toolGitOperations',
