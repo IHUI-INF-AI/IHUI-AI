@@ -304,14 +304,25 @@ fn toggle_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
 /// 转圈、进程不终止。宽限期在独立线程计时,不与事件循环争资源。
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
+    // 兜底必须**先武装、后干活**。2026-09-27 真机复现:遮罩停在「正在退出...」而本函数新增的
+    // 那条 ERROR 计数为 0 ⇒ 执行流从未走到 arm_forced_exit 那一行,即它被上面某个
+    // save_window_state 卡住了(store 访问 / 窗口几何取值 / 落盘都可能阻塞)。兜底写在会被卡住
+    // 的代码之后,等于没有兜底。
+    arm_forced_exit(&app, QUIT_FORCED_EXIT_GRACE_SECS);
     let _ = save_window_state(Some("main".to_string()), app.clone());
     let _ = save_window_state(Some("admin".to_string()), app.clone());
-    arm_forced_exit(&app, QUIT_FORCED_EXIT_GRACE_SECS);
     app.exit(0);
 }
 
 /// `quit_app` 的强制终止宽限期(秒):留给正常事件循环退出的时间,超时即强杀。
 const QUIT_FORCED_EXIT_GRACE_SECS: u64 = 3;
+
+/// 托盘「退出」把决定权交给前端后,Rust 侧留的**最长**等待(秒)。
+/// 前端那条链要跑"检查更新→下载→安装",可达数十秒,所以不能短;
+/// 但也不能像 2026-08-16 那样彻底不设限 —— 那次实测证明:整条前端链(含
+/// `invoke('quit_app')` 本身)可以完全挂死,而 Rust 侧一句"那我不等了"都没有,
+/// 用户就永久困在转圈遮罩里(09-27 复现的正是这一格)。
+const QUIT_FRONTEND_GRACE_SECS: u64 = 120;
 
 /// 装上"到点必然终止进程"的兜底,**只在用户已明确要求退出**时调用。
 ///
@@ -509,9 +520,26 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 let _ = save_window_state(Some("main".to_string()), app.clone());
                 let _ = save_window_state(Some("admin".to_string()), app.clone());
                 if let Some(window) = app.get_webview_window("main") {
-                    if let Err(e) = window.emit("desktop-tray-action", "quit") {
-                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
+                    let emitted = window.emit("desktop-tray-action", "quit").is_ok();
+                    if !emitted {
+                        log::warn!("[desktop-event] emit desktop-tray-action(quit) 失败,前端收不到退出请求");
                     }
+                    // 2026-09-27 立:退出请求交给前端之后,Rust 侧必须留一条"最迟会退"的下限。
+                    // 上面那条注释记录的 08-16 删除动作,删的是"emit 后 2s 定时强退"——2s 会打断
+                    // 前端的检查/下载/安装(可达数十秒),删除理由成立;但删完之后这一格变成
+                    // **完全无上限**,于是"前端整条链挂死"就成了永久卡死 —— 09-27 真机复现的正是
+                    // 这一格:遮罩停在「正在退出...」,而 quit_app 这个 command 从未被执行
+                    // (其内部新增的兜底日志计数为 0)。
+                    // 120s 远大于 15s 检查超时与常规下载窗口;emit 失败时前端根本收不到请求,
+                    // 没必要等满,直接用 3s。
+                    arm_forced_exit(
+                        app,
+                        if emitted {
+                            QUIT_FRONTEND_GRACE_SECS
+                        } else {
+                            QUIT_FORCED_EXIT_GRACE_SECS
+                        },
+                    );
                 } else {
                     // 主窗口不存在(异常状态),直接退出
                     app.exit(0);
