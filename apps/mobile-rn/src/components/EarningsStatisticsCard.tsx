@@ -205,7 +205,7 @@ export default function EarningsStatisticsCard({
 const styles = StyleSheet.create({
   card: {
     padding: 16,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
   } as ViewStyle,
   label: {

@@ -146,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 14 },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -169,7 +169,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       paddingHorizontal: 6,
       paddingVertical: 4,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       marginLeft: 8,
       overflow: 'hidden',
     },

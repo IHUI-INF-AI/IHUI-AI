@@ -232,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingVertical: 6,
       paddingHorizontal: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.success.DEFAULT,
       alignItems: 'center',
@@ -240,7 +240,7 @@ function createStyles(tk: AppThemeTokens) {
     outlineBtnText: { fontSize: 14, color: tk.success.DEFAULT },
     card: {
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -255,7 +255,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: 8,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     statusTagText: { fontSize: 14, color: tk.text.primary },
     cardMetaRow: {
@@ -274,7 +274,7 @@ function createStyles(tk: AppThemeTokens) {
     actionWrap: { marginTop: 12, gap: 8 },
     primaryBtn: {
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

@@ -169,7 +169,7 @@ function createStyles(tk: AppThemeTokens) {
     modelChip: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
       marginRight: 8,
     },
@@ -205,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
       maxHeight: 100,
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -216,7 +216,7 @@ function createStyles(tk: AppThemeTokens) {
     sendBtn: {
       paddingHorizontal: 16,
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -226,7 +226,7 @@ function createStyles(tk: AppThemeTokens) {
     clearBtn: {
       paddingHorizontal: 12,
       paddingVertical: 10,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },
     clearText: { color: tk.text.medium, fontSize: 14 },

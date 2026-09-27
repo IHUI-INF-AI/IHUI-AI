@@ -205,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
     },
     headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    balanceCard: { padding: 14, borderRadius: rnRadius.xl, backgroundColor: tk.brand.cta },
+    balanceCard: { padding: 14, borderRadius: rnRadius.lg, backgroundColor: tk.brand.cta },
     balanceLabel: { fontSize: 14, color: tk.brand.ctaForeground },
     balanceValue: {
       marginTop: 8,
@@ -233,7 +233,7 @@ function createStyles(tk: AppThemeTokens) {
     pkgCard: {
       width: 130,
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1.5,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -243,7 +243,7 @@ function createStyles(tk: AppThemeTokens) {
     popularBadge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     popularText: { fontSize: 10, fontWeight: '600', color: tk.brand.ctaForeground },
