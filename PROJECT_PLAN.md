@@ -12874,4 +12874,3 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   ZCode 的归档回收是 `maxFiles=5 + maxTotalBytes=100MB` 双上限 + deleted/failed 留痕 + mtime≥1s 稳定窗。
   **本线刻意没做**：§5b 明文"禁止删除 `D:/IHUI-AI-git-repo`、`IHUI-AI.git-backup-20260912` 及两目录的 `*.broken-*` 归档"
   —— 那是恢复现场不是垃圾；要加回收必须先由人裁定"保几代、哪些算现场"，机器不替人删恢复源。
-- [ ] **G-240 enforce 档的下一步不是翻默认，而是"用台账修描述"**（同续十七，编号不重复登记，仅在此点名）
