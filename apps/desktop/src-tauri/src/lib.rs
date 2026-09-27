@@ -4,6 +4,11 @@
 
 // 2026-09-17 薄壳化配套:线上前端自动刷新 + 断网兜底守卫(详见模块文档)
 mod auto_refresh;
+// 本地 git/diff 通道（2026-09-27）：纯判据 / 执行层 / tauri 胶水三件套。
+// 前两个文件只依赖 std，可用 `rustc --test` 单独跑单测；胶水层只映射 DTO。
+mod git_channel_ipc;
+mod git_local_status;
+mod git_status_core;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -2450,6 +2455,9 @@ pub fn run() {
                 reset_deep_link_gate_on_destroy(&label);
             }
         })
+        // 本地 git/diff 通道：授权根/允许基目录/git 候选都存在这份宿主状态里，
+        // 前端永远不能自报 root（见 git_channel_ipc.rs 头注）。
+        .manage(git_channel_ipc::GitChannelState::from_env())
         .setup(|app| {
             // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
 
@@ -2552,6 +2560,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_info,
+            git_channel_ipc::git_authorize_workspace,
+            git_channel_ipc::git_workspace_status,
+            git_channel_ipc::git_channel_info,
             open_in_chrome,
             get_admin_window_info,
             toggle_devtools,

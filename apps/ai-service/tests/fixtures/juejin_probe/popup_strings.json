@@ -1,0 +1,30 @@
+{
+  "_evidence_grade": "mixed-see-provenance",
+  "_provenance": {
+    "submit_api_url / draft_api_url": "逐字取自掘金线上生产 JS bundle 的接口字符串(公开资源,无需登录);取证存档 G:/IHUI-AI/.ihui-agent/tmp/juejin-probe/endpoints.json。注意:submit_api_url_v2 是防御性候选,不是 bundle 实测项(bundle 实测只有 v1)",
+    "popup_visible_button_texts": "掘金编辑器发布弹层的可见按钮文案全集:来源为历史 publish timeout 事故排查的线上实测记录(任务书给定)。本次只读探针因画像登录态已在服务端失效,未能现场复抓 —— 拿到新登录态后必须用实测 DOM 复验并替换本数组",
+    "old_assumption_popup_button_texts": "旧代码假设('确认发布' 单字面量)对应的文案面,用于反向判据测试",
+    "category_option_texts_seen": "弹层分类下拉的可滚动列表文案样例(掘金一级分类);分类数据是服务端内容,本数组仅驱动纯匹配逻辑测试,不代表现场抓取",
+    "submit_response_*": "提交接口响应形态未在 live 会话中抓到,extract_article_id_from_submit 按三种候选键(article_id/articleId/id)防御性解析;对应测试只验函数契约,不声称响应形状已被实测"
+  },
+  "submit_api_url": "https://api.juejin.cn/content_api/v1/article/publish?aid=2608",
+  "submit_api_url_v2": "https://api.juejin.cn/content_api/v2/article/publish",
+  "draft_api_url": "https://api.juejin.cn/content_api/v1/article_draft/create",
+  "draft_update_api_url": "https://api.juejin.cn/content_api/v1/article_draft/update",
+  "published_transition_url": "https://juejin.cn/published",
+  "redirected_home_url": "https://juejin.cn/",
+  "under_review_post_url": "https://juejin.cn/spost/7555123456789012345",
+  "popup_visible_button_texts": ["取消", "确定并发布"],
+  "old_assumption_popup_button_texts": ["确认发布"],
+  "category_option_texts_seen": [
+    "开发工具",
+    "后端",
+    "前端",
+    "Android",
+    "iOS",
+    "人工智能",
+    "开发",
+    "代码人生",
+    "阅读"
+  ]
+}
