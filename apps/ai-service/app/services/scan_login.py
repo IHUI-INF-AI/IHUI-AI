@@ -1026,11 +1026,17 @@ async def _save_account_to_db(
     platform: str,
     credentials_dict: dict[str, str],
     platform_name: str,
+    *,
+    verify_msg: str = "扫码登录成功",
 ) -> int:
     """加密保存账号到 DB,返回 account_id(扫码登录 + CDP 检测复用)。
 
     - 已存在同 user + platform → UPDATE credentials + status=active
     - 不存在 → INSERT 新账号
+
+    `verify_msg` 由调用方传入**当轮真实结论**:此前两处都硬写 `'扫码登录成功'`,而
+    「浏览器画像导入」这条路径根本没有走过扫码(2026-09-27 实测:导入后 verify 立即 FAIL,
+    账面却写着"扫码登录成功")。账面分叉不是措辞问题 —— 下游按 `last_verify_msg` 判可达。
     """
     from ..core.db import get_db_conn
     from .publish.credentials_crypto import encrypt
@@ -1048,21 +1054,81 @@ async def _save_account_to_db(
             await conn.execute(
                 """UPDATE publish_accounts
                    SET credentials_enc=$1, display_name=$2, status='active',
-                       last_verified_at=NOW(), last_verify_msg='扫码登录成功', updated_at=NOW()
+                       last_verified_at=NOW(), last_verify_msg=$4, updated_at=NOW()
                    WHERE id=$3""",
-                encrypted, display_name, row["id"],
+                encrypted, display_name, row["id"], verify_msg,
             )
             logger.info(f"[scan_login] 更新账号 {row['id']}({platform})")
             return int(row["id"])
         new_id = await conn.fetchval(
             """INSERT INTO publish_accounts(user_id, platform, display_name, credentials_enc, status, last_verified_at, last_verify_msg)
-               VALUES($1, $2, $3, $4, 'active', NOW(), '扫码登录成功') RETURNING id""",
-            user_id, platform, display_name, encrypted,
+               VALUES($1, $2, $3, $4, 'active', NOW(), $5) RETURNING id""",
+            user_id, platform, display_name, encrypted, verify_msg,
         )
         logger.info(f"[scan_login] 创建账号 {new_id}({platform})")
         return int(new_id)
     finally:
         await conn.close()
+
+
+async def _existing_credentials_present(user_id: str, platform: str) -> bool:
+    """该 (user, platform) 是否已有一份**非空**凭据在库里(决定"覆盖"是不是破坏性动作)。"""
+    from ..core.db import get_db_conn
+
+    conn = await get_db_conn()
+    try:
+        n = await conn.fetchval(
+            """SELECT count(*) FROM publish_accounts
+               WHERE user_id=$1 AND platform=$2
+                 AND credentials_enc IS NOT NULL AND length(credentials_enc) > 2""",
+            user_id,
+            platform,
+        )
+        return bool(n)
+    finally:
+        await conn.close()
+
+
+def should_overwrite_existing_credentials(existing: bool, verified: bool | None) -> bool:
+    """导入路径的唯一裁决点:**已有凭据时,只有"验过且通过"才授权覆盖**。
+
+    判据不是"新值更好"(机器判不了),而是"这次动作有没有破坏性":
+    - 库里没有凭据 ⇒ 落不落都是净新增,失败也照落并把真实结论写进 `last_verify_msg`;
+    - 库里已有凭据 ⇒ 只有 `verified is True` 才覆盖。`False`(已证伪)与 `None`(判不出)
+      都不授权 —— 密文无备份、不可回滚(2026-09-27 真实代价:csdn id=12 的 38 字段旧集被
+      11 字段失效集覆盖,旧集含 `UserSecret`,新集没有)。
+      **把 `None` 也算作可以覆盖**是错的:那等于"工具坏了就可以毁掉用户的登录态"。
+    """
+    if not existing:
+        return True
+    return verified is True
+
+
+async def verify_login_candidate(
+    platform: str,
+    credentials: Mapping[str, str],
+) -> tuple[bool | None, str]:
+    """按当前适配器校验一份候选凭据 ⇒ `(结论, 说明)`,结论三态。
+
+    - `True` 通过;
+    - `False` **已证伪**(平台明确回了未登录/过期);
+    - `None` **判不出**:没有适配器、Playwright 没装、或校验本身抛异常。
+      这一档必须与 `False` 分开 —— 机器状态不是用户凭据的证据,拿它当"已证伪"会把
+      一次可用导入判死;而破坏性动作(覆盖已有密文)只由 `True` 授权,所以两者都不覆盖。
+    """
+    from .publish.base_adapter import get_adapter
+
+    adapter = get_adapter(platform)
+    if adapter is None:
+        return None, "无可用适配器,未做校验"
+    try:
+        ok, msg = await adapter.verify_credentials(dict(credentials))
+    except Exception as e:  # noqa: BLE001
+        return None, f"校验不可用: {type(e).__name__}: {e}"
+    text = str(msg or "")
+    if not ok and "playwright" in text.lower():
+        return None, f"依赖缺失,未做校验: {text}"
+    return bool(ok), text
 
 
 async def _save_account_async(task: ScanTask) -> None:
@@ -1174,8 +1240,36 @@ async def detect_login_from_profile(platform: str, user_id: str) -> dict[str, An
     # cookies_dict 在上面已经按平台归属筛过(filter_platform_cookies 的 kept 集),
     # 这里不得再套一层"名字黑名单" —— 那是把已被证伪的口径再抄一遍。
     all_relevant = cookies_dict
+
+    # 先验后写:库里已有凭据时,一份**没通过校验**的候选集不得覆盖它。
+    # 立因(2026-09-27 真实代价):本函数旧顺序是"筛完直接 upsert,再让人去 verify",
+    # 于是用户 Chrome 里那份**已过期**的画像 cookie 集把 csdn id=12 仍可连通(verify=True,
+    # 'connected as lichunchuan1')的 38 字段密文换成了 11 字段失效集 —— 密文无备份、不可回滚,
+    # 且账面还写着 '扫码登录成功'。"探测到名字齐"不等于"登录态可用",覆盖是破坏性动作。
+    verify_ok, verify_note = await verify_login_candidate(platform, all_relevant)
+    existing = await _existing_credentials_present(user_id, platform)
+    if not should_overwrite_existing_credentials(existing, verify_ok):
+        return {
+            "detected": False, "cookies_count": len(cookies_dict), "account_id": None,
+            "error": (
+                f"候选登录态校验未通过({verify_note or '无可用适配器,无法校验'}),"
+                "而库里已有一份凭据 ⇒ **拒绝覆盖**,原凭据与账面状态一字未动;"
+                "请在该站浏览器里重新登录或改走扫码登录"
+            ),
+            "profile_available": True,
+            "dropped_by_domain": len(filter_result.dropped),
+            "existing_kept": True,
+        }
+    if verify_ok:
+        msg_to_store = "画像导入并校验通过"
+    elif verify_ok is None:
+        msg_to_store = "画像导入:无可用适配器,未校验"
+    else:
+        msg_to_store = f"画像导入(首建,校验未过): {verify_note}"
     try:
-        account_id = await _save_account_to_db(user_id, platform, all_relevant, config["name"])
+        account_id = await _save_account_to_db(
+            user_id, platform, all_relevant, config["name"], verify_msg=msg_to_store
+        )
     except Exception as e:  # noqa: BLE001
         logger.exception(f"[scan_login] 从用户浏览器保存账号失败:{e}")
         return {
@@ -1184,11 +1278,12 @@ async def detect_login_from_profile(platform: str, user_id: str) -> dict[str, An
         }
     logger.info(
         f"[scan_login] 用户浏览器检测成功: platform={platform}, "
-        f"account_id={account_id}, cookies={len(all_relevant)}"
+        f"account_id={account_id}, cookies={len(all_relevant)}, verified={verify_ok}"
     )
     return {
         "detected": True, "cookies_count": len(all_relevant), "account_id": account_id,
         "error": None, "profile_available": True, "matched": hit,
+        "verified": verify_ok, "verify_msg": verify_note,
     }
 
 

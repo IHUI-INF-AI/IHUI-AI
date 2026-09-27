@@ -6990,6 +6990,13 @@
     "dispatchSubagent": "Dispatch Subagent"
   },
   "agentRuntimePanel": {
+    "resumeUnavailable": "Unable to resume this run",
+    "pauseUnavailable": "Unable to pause this run",
+    "alreadyPausedBody": "This session was already paused; this request changed nothing.",
+    "pausedBody": "The loop stopped at a safe point. Choose Resume to continue from the latest checkpoint.",
+    "pausedTitle": "Paused",
+    "resume": "Resume",
+    "pause": "Pause",
     "cancelledBody": "Current execution stopped. To continue, modify your input and run again.",
     "cancelledTitle": "Task Cancelled",
     "clear": "Clear",
@@ -8722,6 +8729,7 @@
       "bottleneck": "bottleneck"
     },
     "toolCall": {
+      "streamingPreviewLabel": "Streaming preview (running; final result prevails)",
       "chartGenerated": "Chart generated",
       "chartPreviewFailed": "Chart preview failed. Copy the path and open it in your local browser.",
       "chartPreviewHint": "The local chart file cannot be previewed directly in the web page. Copy the path and open it in your local browser.",
