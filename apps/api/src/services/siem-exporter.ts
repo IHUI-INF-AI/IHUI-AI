@@ -16,10 +16,16 @@
  * 86C 追加:buildSignedAuditExport / verifySignedAuditExport —— 导出信封的非对称
  * 签名与离线验签(见文件末尾"86C"一节)。交付字节与签名对象都做键序归一的确定性
  * 序列化,收件方只需公钥即可自验,不需要持任何对称密钥。
+ *
+ * 86F 追加:信封 `chainAnchor`(导出区间的链上锚点:起始/结束 currentHash + 区间
+ * 行数)。验签侧在既有判据之外新增 `chain_anchor_invalid`:必须逐行证明该区间在链上
+ * prevHash→currentHash 连续、端点与行数对得上。无 chainAnchor 的旧信封整步跳过,
+ * 验签路径逐字不变(收件方兼容底线)。canonicalStringify 已合一到 `@ihui/shared`。
  */
 import { createHash, createSign, createVerify } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { env } from 'node:process'
+import { canonicalStringify } from '@ihui/shared'
 import type { AuditLogChainRow, AuditLogFilters } from '../db/audit-queries.js'
 import { selectAuditLogs } from '../db/audit-queries.js'
 // 86G-2:按 kid 查表的登记表与它的装载/解析出口。kid 的推导算法也住在那边 —— 签名侧与
@@ -185,9 +191,38 @@ export function formatHeader(format: SiemFormat): string {
 }
 
 /**
+ * 分页拉取链行(每页 PAGE_SIZE 条,受 maxItems 上限保护)。
+ *
+ * 86F ①:链锚要按链上顺序逐行核对 prevHash/currentHash,而 `streamExport` 交出的
+ * 是格式化后的字符串(cef/leef 行里根本没有哈希可捞)—— 所以行与格式化解耦成
+ * 这一层,`streamExport` 变成它的格式化薄壳(分页/上限行为逐字不变)。
+ */
+export async function* streamExportRows(
+  filters: AuditLogFilters,
+  maxItems = 10000,
+): AsyncGenerator<AuditLogChainRow> {
+  const PAGE_SIZE = 500
+  let page = 1
+  let emitted = 0
+
+  while (emitted < maxItems) {
+    const need = Math.min(PAGE_SIZE, maxItems - emitted)
+    const { list } = await selectAuditLogs(filters, page, need)
+    if (list.length === 0) break
+    for (const row of list) {
+      if (emitted >= maxItems) break
+      yield row
+      emitted++
+    }
+    if (list.length < need) break // 已到末页
+    page++
+  }
+}
+
+/**
  * 流式导出审计日志。
  *
- * 分页拉取(每页 PAGE_SIZE 条),逐条 yield 格式化后的行。
+ * 分页拉取(委托 `streamExportRows`),逐条 yield 格式化后的行。
  * 受 maxItems 上限保护(默认 10000,防止超大导出拖垮内存)。
  *
  * 用法:
@@ -200,21 +235,8 @@ export async function* streamExport(
   format: SiemFormat,
   maxItems = 10000,
 ): AsyncGenerator<string> {
-  const PAGE_SIZE = 500
-  let page = 1
-  let emitted = 0
-
-  while (emitted < maxItems) {
-    const need = Math.min(PAGE_SIZE, maxItems - emitted)
-    const { list } = await selectAuditLogs(filters, page, need)
-    if (list.length === 0) break
-    for (const row of list) {
-      if (emitted >= maxItems) break
-      yield formatLog(row, format)
-      emitted++
-    }
-    if (list.length < need) break // 已到末页
-    page++
+  for await (const row of streamExportRows(filters, maxItems)) {
+    yield formatLog(row, format)
   }
 }
 
@@ -257,6 +279,23 @@ export interface AuditExportFilterSnapshot {
 }
 
 /**
+ * 86F ① 导出区间的链上锚点(信封可选字段,随载荷一起被签名)。
+ *
+ * 三个量各自锁住一件事:`startHash`/`endHash` 锁"这段证据是链上哪一段"
+ * (区间首/末行的 currentHash),`rowCount` 锁"这段有多少行"。验签侧必须用
+ * 数据体逐行证明:prevHash→currentHash 首尾衔接、端点与行数对得上 —— 证明不
+ * 成立即新判据 `chain_anchor_invalid`(与"签名被改""摘要不匹配"分开归因)。
+ */
+export interface AuditExportChainAnchor {
+  /** 区间首行的 currentHash */
+  startHash: string
+  /** 区间末行的 currentHash */
+  endHash: string
+  /** 区间行数(必须与 lines.length / payload.rowCount 一致) */
+  rowCount: number
+}
+
+/**
  * 被签名的导出载荷。
  *
  * 逐字段都是判据:`lines` 是数据体本身,`dataDigest`/`rowCount` 是它的自证,
@@ -275,6 +314,11 @@ export interface AuditExportPayload {
   dataDigest: string
   filters: AuditExportFilterSnapshot
   lines: string[]
+  /**
+   * 86F ①:链锚(可选)。**缺省 = 86F 之前的旧信封,验签路径逐字不变** ——
+   * 收件方兼容底线钉死在此:新字段绝不得让旧导出判红。
+   */
+  chainAnchor?: AuditExportChainAnchor
 }
 
 /** 导出信封 = 数据体 + 签名(基 64)。验签只需 `payload` + `signature` + 公钥。 */
@@ -285,7 +329,18 @@ export interface SignedAuditExport {
 
 /** 验签结论分类 —— 三态必须可分辨,"没登记"与"签名被改"的处置动作相反(86G-2)。 */
 export type AuditExportVerifyStatus =
-  'verified' | 'malformed_envelope' | 'content_inconsistent' | 'unknown_key' | 'signature_invalid'
+  | 'verified'
+  | 'malformed_envelope'
+  | 'content_inconsistent'
+  | 'unknown_key'
+  | 'signature_invalid'
+  /**
+   * 86F ① 新判据:信封声称的链上区间证明不成立(端点/行数对不上,或区间内
+   * prevHash→currentHash 不衔接)。与 `content_inconsistent`(数据体自证被改)、
+   * `signature_invalid`(签名被改)分开归因:这一型说的是"锚与链段矛盾",
+   * 处置动作是查导出侧的区间取值,而不是去找篡改者。
+   */
+  | 'chain_anchor_invalid'
 
 /** 验签结论:`ok=false` 时 `reason` 必非空(不得给一个没有原因的"不通过")。 */
 export interface AuditExportVerifyResult {
@@ -334,26 +389,11 @@ const PUBLIC_KEY_PATH_ENV = 'AUDIT_EXPORT_SIGN_PUBLIC_KEY_PATH'
 const KEY_ID_ENV = 'AUDIT_EXPORT_SIGN_KEY_ID'
 
 /**
- * 递归排序 key 的 JSON 序列化。
- *
- * 注:`audit-log-service.ts` 里有一份同义私有实现,本层**不能**复用它(它未 export,
- * 而该文件属 86A 在飞区、本票禁改)。两处实现必漂移是本仓记过最多次的失败型,
- * 所以这里把"收口成一份"如实登记为待办(见交付报告残余清单),而不是假装没有第二份。
+ * 递归排序 key 的 JSON 序列化:86F(2026-09-28)起用 `@ihui/shared` 唯一出口
+ * (本文件原私有实现与 `audit-log-service.ts` 那份同义双实现,已合一;
+ * 行为对 JSON 域输入逐字节不变,签名载荷与导出摘要因此与存量信封兼容)。
+ * 反向锁:apps/api/tests/canonical-single-source.test.ts 钉生产面声明处 ≤1。
  */
-function canonicalStringify(value: unknown): string {
-  if (value === undefined || value === null) return 'null'
-  if (Array.isArray(value)) {
-    return '[' + value.map((item) => canonicalStringify(item)).join(',') + ']'
-  }
-  if (typeof value === 'object') {
-    const obj = value as Record<string, unknown>
-    const keys = Object.keys(obj).sort()
-    return (
-      '{' + keys.map((k) => JSON.stringify(k) + ':' + canonicalStringify(obj[k])).join(',') + '}'
-    )
-  }
-  return JSON.stringify(value)
-}
 
 function sha256Hex(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex')
@@ -543,6 +583,33 @@ function rsaVerify(canonical: string, signatureB64: string, publicKeyPem: string
 }
 
 /**
+ * 86F ①:计算导出区间的链锚;算不出就返回 undefined(信封保持旧形状)。
+ *
+ * 两个条件都是硬的:
+ * 1. `format==='json'` —— 链锚的价值在于收件方能**拿信封自己离线**逐行证明衔接,
+ *    而只有 JSON 行携带 prevHash/currentHash;cef/leef 数据体不带哈希,
+ *    挂锚等于"声称了但无法证明",不如不挂;
+ * 2. 区间在链上连续(第 i 行 prevHash === 第 i-1 行 currentHash)—— 带过滤条件的
+ *    子集导出(如按单一 userId)在链上天然不连续,根本不存在可锚定的"区间";
+ *    与其挂一个必然翻红的锚,不如保持旧形状走既有验签路径。
+ *
+ * 不挂 ⇒ payload 里没有 chainAnchor 键 ⇒ 验签侧整步跳过,与 86F 之前的信封逐字同形。
+ */
+function buildChainAnchor(
+  format: SiemFormat,
+  rows: readonly AuditLogChainRow[],
+): AuditExportChainAnchor | undefined {
+  if (format !== 'json' || rows.length === 0) return undefined
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i]?.prevHash !== rows[i - 1]?.currentHash) return undefined
+  }
+  const first = rows[0]
+  const last = rows[rows.length - 1]
+  if (!first || !last) return undefined
+  return { startHash: first.currentHash, endHash: last.currentHash, rowCount: rows.length }
+}
+
+/**
  * 生成**已签名**的审计导出信封。
  *
  * @param exportedAt 覆盖导出时刻(仅供单测做"同一内容两次导出签名字节全等"的判据;
@@ -555,11 +622,16 @@ export async function buildSignedAuditExport(
   maxItems = 10000,
   exportedAt?: string,
 ): Promise<SignedAuditExport> {
+  // 86F ①:改从 `streamExportRows` 收行(链锚要看行上的哈希),格式化仍走同一
+  // `formatLog` —— 交付字节与 86C/86G 时代逐字一致。
   const lines: string[] = []
-  for await (const line of streamExport(filters, format, maxItems)) {
-    lines.push(line)
+  const rows: AuditLogChainRow[] = []
+  for await (const row of streamExportRows(filters, maxItems)) {
+    rows.push(row)
+    lines.push(formatLog(row, format))
   }
 
+  const chainAnchor = buildChainAnchor(format, rows)
   const payload: AuditExportPayload = {
     algorithm: AUDIT_EXPORT_SIGNATURE_ALGORITHM,
     // kid 由公钥推导 ⇒ 签出去的信封自证"该用哪把公钥验我"
@@ -570,6 +642,8 @@ export async function buildSignedAuditExport(
     dataDigest: sha256Hex(canonicalStringify(lines)),
     filters: snapshotFilters(filters),
     lines,
+    // 链锚随载荷一起进签名(canonicalStringify 对缺失键不产字节 ⇒ 旧信封兼容)
+    ...(chainAnchor ? { chainAnchor } : {}),
   }
 
   const signature = rsaSign(canonicalPayloadBytes(payload), getPrivateKeyPem())
@@ -601,7 +675,88 @@ function parseEnvelope(raw: unknown): SignedAuditExport | string {
   if (typeof p['dataDigest'] !== 'string') return 'payload.dataDigest 不是字符串'
   if (!isStringArray(p['lines'])) return 'payload.lines 不是字符串数组'
   if (!isRecord(p['filters'])) return 'payload.filters 不是对象'
+  // 86F ①:chainAnchor 是可选键 —— 缺省(旧信封)不报错;出现但形状不对才判结构不合法。
+  const chainAnchor = p['chainAnchor']
+  if (chainAnchor !== undefined) {
+    if (!isRecord(chainAnchor)) return 'payload.chainAnchor 不是对象'
+    if (typeof chainAnchor['startHash'] !== 'string')
+      return 'payload.chainAnchor.startHash 不是字符串'
+    if (typeof chainAnchor['endHash'] !== 'string') return 'payload.chainAnchor.endHash 不是字符串'
+    if (typeof chainAnchor['rowCount'] !== 'number') return 'payload.chainAnchor.rowCount 不是数字'
+  }
   return { payload: p as unknown as AuditExportPayload, signature }
+}
+
+/**
+ * 86F ① 链锚连续性证明(新判据,与签名相互独立)。
+ *
+ * 用信封**自己的数据体**证明 `chainAnchor` 声称的区间:
+ * 1. 行数对得上:`anchor.rowCount === lines.length === payload.rowCount`(且 ≥1);
+ * 2. 端点对得上:首行 currentHash === startHash,末行 currentHash === endHash;
+ * 3. 逐行衔接:第 i 行 prevHash === 第 i-1 行 currentHash(JSON 行自带两列哈希,
+ *    捞不出哈希的行 ⇒ 证明不成立 —— "声称了区间却交不出区间"同样判红)。
+ *
+ * 无 `chainAnchor` ⇒ 返回 undefined(跳过证明):旧信封(86C/86G 导出、非 json
+ * 格式、过滤子集)的验签路径**逐字不变**,这是收件方兼容底线。
+ *
+ * @returns 失败原因;通过(或无需证明)时为 undefined
+ */
+export function verifyAuditExportChainAnchor(payload: AuditExportPayload): string | undefined {
+  const anchor = payload.chainAnchor
+  if (anchor === undefined) return undefined
+  if (!Number.isInteger(anchor.rowCount) || anchor.rowCount < 1) {
+    return `链锚区间行数非法:${String(anchor.rowCount)}(区间至少 1 行)`
+  }
+  if (anchor.rowCount !== payload.lines.length || anchor.rowCount !== payload.rowCount) {
+    return (
+      `链锚行数与数据体对不上:chainAnchor.rowCount=${String(anchor.rowCount)}, ` +
+      `payload.rowCount=${String(payload.rowCount)}, 实际行数=${String(payload.lines.length)}`
+    )
+  }
+  const hashes: { prevHash: string; currentHash: string }[] = []
+  for (let i = 0; i < payload.lines.length; i++) {
+    let parsedLine: unknown
+    try {
+      parsedLine = JSON.parse(payload.lines[i] ?? '')
+    } catch {
+      return `链锚证明失败:第 ${String(i)} 行不是 JSON 行,数据体不携带哈希,区间连续性无法证明`
+    }
+    if (
+      !isRecord(parsedLine) ||
+      typeof parsedLine['prevHash'] !== 'string' ||
+      typeof parsedLine['currentHash'] !== 'string'
+    ) {
+      return `链锚证明失败:第 ${String(i)} 行缺 prevHash/currentHash`
+    }
+    hashes.push({ prevHash: parsedLine['prevHash'], currentHash: parsedLine['currentHash'] })
+  }
+  const first = hashes[0]
+  const last = hashes[hashes.length - 1]
+  if (!first || !last) return '链锚证明失败:数据体为空但锚声称了非空区间'
+  if (first.currentHash !== anchor.startHash) {
+    return (
+      `链锚起点不符:声明 startHash=${anchor.startHash.slice(0, 16)}…, ` +
+      `区间首行 currentHash=${first.currentHash.slice(0, 16)}…`
+    )
+  }
+  if (last.currentHash !== anchor.endHash) {
+    return (
+      `链锚终点不符:声明 endHash=${anchor.endHash.slice(0, 16)}…, ` +
+      `区间末行 currentHash=${last.currentHash.slice(0, 16)}…`
+    )
+  }
+  for (let i = 1; i < hashes.length; i++) {
+    const cur = hashes[i]
+    const prev = hashes[i - 1]
+    if (!cur || !prev) break
+    if (cur.prevHash !== prev.currentHash) {
+      return (
+        `链锚区间不连续:第 ${String(i)} 行 prevHash=${cur.prevHash.slice(0, 16)}… ` +
+        `与第 ${String(i - 1)} 行 currentHash=${prev.currentHash.slice(0, 16)}… 不衔接`
+      )
+    }
+  }
+  return undefined
 }
 
 /**
@@ -610,13 +765,15 @@ function parseEnvelope(raw: unknown): SignedAuditExport | string {
  * 三态分开、不并桶(86G-2 把"只认当前那一把"换成了"按信封自带的 kid 查登记表"):
  * - `status:'verified'`            —— kid 在表里(可以是已退役的旧钥)、自证一致、签名验过
  * - `status:'content_inconsistent'`/ `'malformed_envelope'` / `'signature_invalid'` —— 内容被改过 / 结构不合法
+ * - `status:'chain_anchor_invalid'` —— 86F ①:信封声称的链上区间证明不成立
+ *   (端点/行数对不上,或区间内 prevHash→currentHash 不衔接)
  * - `status:'unknown_key'`         —— **登记表里没有这一把 kid**:既不是"通过"也不是"签名被改",
  *   它说的是"我们没登记这把公钥",处置动作是去补表(或把旧钥登记为 retired),不是去查篡改者
  * - **throw** AuditExportSignatureError —— 一把公钥都没有 / 验签运算本身失败:"没能完成验证",
  *   绝不能被读成"验证不通过"(更不能被读成通过)
  *
- * 判定顺序刻意是"先自证、后查表、再验签":摘要/行数不一致时直接判不通过,不给篡改者
- * 用"签名反正会红"来掩盖"数据被删了几行"的机会。
+ * 判定顺序刻意是"先自证(摘要/行数/链锚)、后查表、再验签":数据体或区间本身对不上时
+ * 直接判不通过,不给篡改者用"签名反正会红"来掩盖"数据被删了几行 / 锚与链段矛盾"的机会。
  *
  * ⚠️ 查表**不得**按 `status` 过滤:`retired` 的旧信封正是本票存在的理由。时间窗
  * (`notAfter`)只进腐烂判据(`audit-export-key-registry.ts`),不进验签路径。
@@ -656,6 +813,13 @@ export function verifySignedAuditExportWithKeys(
       kid,
       reason: '数据体摘要不匹配:导出内容在签名后被改动过',
     }
+  }
+  // 86F ①:链锚证明排在查表/验签**之前**(与摘要自证同一层理由:区间本身对不上时,
+  // 直接判红,不给篡改者用"签名反正会红"来掩盖"锚与链段矛盾"的机会)。
+  // 无 chainAnchor 的旧信封整步跳过 ⇒ 判定路径逐字不变(收件方兼容底线)。
+  const anchorReason = verifyAuditExportChainAnchor(payload)
+  if (anchorReason !== undefined) {
+    return { ok: false, status: 'chain_anchor_invalid', kid, reason: anchorReason }
   }
 
   if (entries.length === 0) {
