@@ -120,21 +120,57 @@ class TestReverseControlOnNewBranch:
 
 
 class TestWiredSurfaceAgentOrchestrator:
-    def test_enabled_fail_fast_before_llm(
+    def test_enabled_hands_off_to_v2_and_never_touches_legacy_llm(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """G1 接线把本站点的契约**翻了一面**:原来断言"开档必在触达 LLM 之前抛",
+        而现在开档就是要真交给收敛执行器 —— 旧断言不只是红,它还**不放哨兵地真跑一趟收敛执行**
+        (实测单跑 27s 并触达网关),违反 §5 测试隔离铁律。所以这里改判两件事:
+        ① 开档真的走到了 v2 适配器(返回的就是它的 step_result);
+        ② 旧路径的网关入口一次都没被碰 —— 这条才是这次改动真正需要被钉住的风险(双重执行)。
+        v2 自身的细节由 `test_executor_switch_v2_wired.py::TestNoDoubleExecutionAtEachSite`
+        双向钉住,本用例不复制第二份判据,只保证"接线的这一站没把旧路径一起跑"。
+        """
+        from app.core import executor_switch as es
         from app.services import agent_orchestrator as ao
 
-        # 若守卫不在 LLM 之前,这步会触达真实网关;置一个必炸哨兵即可反证。
+        legacy_hits: list[str] = []
+
         def _boom(*_a: Any, **_k: Any) -> Any:
-            raise AssertionError("收敛档必须 fail-fast 于 LLM 之前")
+            legacy_hits.append("legacy-llm")
+            raise AssertionError("开 v2 档后旧路径不得再触达真实网关(= 双重执行)")
 
         monkeypatch.setattr(ao.llm_gateway, "chat", _boom, raising=False)
         monkeypatch.setattr(ao.llm_gateway, "create", _boom, raising=False)
+
+        class _Stub:
+            def __init__(self) -> None:
+                self.calls: list[dict[str, Any]] = []
+
+            async def __call__(self, **kwargs: Any) -> dict[str, Any]:
+                self.calls.append(kwargs)
+                return {
+                    "step_result": {
+                        "agent_name": "coder",
+                        "input": "hello",
+                        "output": "from-v2",
+                        "status": "completed",
+                    },
+                    "diagnostics": {"engine": "agent_loop_v2"},
+                }
+
+        stub = _Stub()
+        monkeypatch.setattr(es, "_resolve_loop_v2_adapter", lambda: stub)
+        monkeypatch.setattr(
+            es, "HANDOFF_CONSUMER_SURFACES", frozenset({"agent_orchestrator._run_agent"})
+        )
         monkeypatch.setenv(EXECUTOR_ENV, "loop_v2")
-        with pytest.raises(LoopV2ConvergencePilotError) as ei:
-            asyncio.run(ao.agent_orchestrator.invoke("coder", "hello"))
-        assert ei.value.surface == "agent_orchestrator._run_agent"
+
+        out = asyncio.run(ao.agent_orchestrator.invoke("coder", "hello"))
+
+        assert len(stub.calls) == 1, f"开档必须恰好交给 v2 一次,实得 {len(stub.calls)}"
+        assert getattr(out, "output", None) == "from-v2", f"返回的必须是 v2 的结果,实得 {out}"
+        assert legacy_hits == [], "旧路径不得被再跑一遍"
 
 
 class TestWiredSurfaceHub:
