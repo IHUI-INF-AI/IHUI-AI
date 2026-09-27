@@ -208,7 +208,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     retryBtn: {
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 16,
       paddingVertical: 8,
       backgroundColor: tk.surface.muted,
@@ -242,7 +242,7 @@ function createStyles(tk: AppThemeTokens) {
     deleteBtn: {
       marginTop: 8,
       alignSelf: 'flex-start',
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.danger.light,
       paddingHorizontal: 8,

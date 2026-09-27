@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },
   confirmText: {

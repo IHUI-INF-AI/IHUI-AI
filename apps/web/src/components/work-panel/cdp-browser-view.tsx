@@ -775,7 +775,7 @@ export function CdpBrowserView({
               value={jsCode}
               onChange={(e) => setJsCode(e.target.value)}
               placeholder={t('runJsPlaceholder')}
-              className="h-14 w-full resize-none rounded border border-input bg-background p-1.5 font-mono text-[10px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-14 w-full resize-none rounded-sm border border-input bg-background p-1.5 font-mono text-[10px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               spellCheck={false}
             />
             <button

@@ -224,7 +224,7 @@ function createStyles(tk: AppThemeTokens) {
     panel: {
       marginTop: 6,
       padding: 8,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     panelTitle: { fontSize: 12, fontWeight: '600', color: tk.text.primary, marginBottom: 6 },

@@ -91,7 +91,7 @@ function createStyles(tk: AppThemeTokens) {
     muted: { fontSize: 14, color: tk.text.secondary },
     card: {
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.cta,
     },
     cardHeader: {
@@ -103,7 +103,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
       backgroundColor: 'rgba(255,255,255,0.25)',
     },
     badgeText: { fontSize: 10, color: tk.surface.light },

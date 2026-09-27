@@ -122,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -143,7 +143,7 @@ function createStyles(tk: AppThemeTokens) {
     roleBadge: {
       paddingHorizontal: 8,
       paddingVertical: 3,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     roleBadgeOwner: { backgroundColor: tk.brand.cta },
     roleBadgeAdmin: { backgroundColor: tk.success.DEFAULT },

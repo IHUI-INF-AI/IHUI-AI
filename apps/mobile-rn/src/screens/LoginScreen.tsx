@@ -1195,7 +1195,7 @@ const styles = StyleSheet.create({
     top: 158,
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(8),
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     backgroundColor: withAlpha(tokens.brandAccent.DEFAULT, 0.85),
     zIndex: 999,
     elevation: 999,
@@ -1206,10 +1206,10 @@ const styles = StyleSheet.create({
     color: tokens.brandAccent.foreground,
   },
   // ===== 运营商一键登录按钮(布局;颜色在组件内按主题取 AppThemeTokens) =====
-  // 规格对齐主登录按钮 loginBtn(高 40 / 圆角 6),作为 phone tab 置顶首选 CTA
+  // 规格对齐主登录按钮 loginBtn(高 40),作为 phone tab 置顶首选 CTA;圆角按角色表 control→sm(4)
   carrierOneKeyBtn: {
     height: 40,
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1313,7 +1313,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
   },
   agreementModalCancelText: {
     fontSize: rpx(32),
@@ -1325,7 +1325,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.brand.cta,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
   },
   agreementModalConfirmText: {
     fontSize: rpx(32),

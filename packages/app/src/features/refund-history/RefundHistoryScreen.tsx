@@ -102,7 +102,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 12 },
     card: {
       padding: 14,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

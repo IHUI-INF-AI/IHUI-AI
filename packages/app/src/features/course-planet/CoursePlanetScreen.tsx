@@ -194,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
@@ -240,7 +240,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     courseCard: {
       width: 140,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
     },
