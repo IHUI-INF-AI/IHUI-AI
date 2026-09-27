@@ -4551,6 +4551,10 @@ from ..tools import (
 from ..tools import (  # noqa: E402
     generate_chart as _generate_chart,
 )
+# PROJECT_PLAN #81 最小一环:报表模板生成器(report_tools,同 chart 的零依赖路线)
+from ..tools import (  # noqa: E402
+    generate_report as _generate_report,
+)
 from ..tools import (
     parse_document as _parse_document,
 )
@@ -8829,6 +8833,33 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="generate_report",
+        description=(
+            "生成报表/汇报文档(输出独立 HTML 产物文件,含标题/摘要/分节条目)。"
+            "用于周报月报、数据汇报、调研结论等结构化文档产物。"
+            "sections 参数为 JSON 字符串:[{\"heading\":\"节标题\",\"items\":[\"条目\",...]}]。"
+            "产物落盘 tmp/artifacts 并可经既有产物签名链路在会话中预览。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "报表标题(必填,如'2026-W39 运营周报')"},
+                "sections": {
+                    "type": "string",
+                    "description": (
+                        'JSON 字符串(必填):[{"heading":"本周进展","items":["条目1","条目2"]},'
+                        '{"heading":"下周计划","items":["..."]}],1-30 节,每节 1-50 条'
+                    ),
+                },
+                "period": {"type": "string", "description": "统计周期/日期范围(可选,如 2026-W39)"},
+                "summary": {"type": "string", "description": "顶部摘要段(可选,≤4000 字)"},
+                "output_dir": {"type": "string", "description": "输出目录(相对项目根,默认 tmp/artifacts)", "default": "tmp/artifacts"},
+            },
+            "required": ["title", "sections"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="parse_document",
         description=(
             "解析本地文档为可注入上下文的文本/Markdown,支持 15 种格式:"
@@ -9834,6 +9865,8 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "proactive_suggestion": _tool_proactive_suggestion,
     # ===== P0 新增工具(2026-09-01,竞品对标:图表生成 + 文档解析)=====
     "generate_chart": _generate_chart,
+    # PROJECT_PLAN #81 最小一环:报表模板生成器(2026-09-28,与 chart 共用产物基础设施)
+    "generate_report": _generate_report,
     "parse_document": _parse_document,
     # ===== P1 文档资产/表格(2026-09-09,anydoc 文档模型极致融合)=====
     "extract_document_assets": _extract_document_assets,

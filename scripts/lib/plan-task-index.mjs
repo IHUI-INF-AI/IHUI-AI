@@ -189,11 +189,49 @@ export function findDupOpenCopies(dupOpen) {
     const live = g.open.filter((r) => !DUP_POINTER_RE.test(r.raw))
     if (live.length < 2) continue
     const best = live.reduce((a, b) =>
-      a.raw.length === b.raw.length ? (a.line > b.line ? a : b) : a.raw.length > b.raw.length ? a : b,
+      a.raw.length === b.raw.length
+        ? a.line > b.line
+          ? a
+          : b
+        : a.raw.length > b.raw.length
+          ? a
+          : b,
     )
-    for (const r of live) if (r.line !== best.line) copies.push({ row: r, survivor: best, key: g.key })
+    for (const r of live)
+      if (r.line !== best.line) copies.push({ row: r, survivor: best, key: g.key })
   }
   return copies
+}
+
+/**
+ * F4b:**没有主键**的逐字相同未勾选孪生行(F4 的姊妹判据,补它失明的那一格)。
+ *
+ * 为什么 F4 看不见它们:F4 的分组键是复合主键(编号 + 标题前缀),而 `keyOfRow` 要求编号落在
+ * 正文开头 48 字内。台账里存在一整族"叙述式待办" —— `- [ ]（进行中）**真机走查…已修(commit …)**`、
+ * `- [ ] 仍在这台机器上、不由我裁的:…` —— 它们一辈子没有编号,于是**根本不进 F1/F4 的分组面**,
+ * 同一句话被并发 union 复制两遍而账面报 0。2026-09-27 实测:未勾选 313 行里 4 对逐字相同的孪生行
+ * 全部无主键 ⇒ 全部隐身;它们同时被派单口径各算一条,所以"活越做越多"里有这部分水分。
+ *
+ * 判据仍只认**逐字等值**(不认"很像")—— 相似度只能报数,不配判红,与 F4 同一条立项理由。
+ * 幸存者取行号靠后的一条(与 F4 的等长 tie-break 同规则);有主键的行**不在本判据里**,
+ * 免得同一对孪生行被 F4 与 F4b 各计一次债(两把尺子互相顶名额是本仓最贵的一类事故)。
+ */
+export function findVerbatimDupOpenRows(content) {
+  const byText = new Map()
+  for (const r of parseTaskRows(content)) {
+    if (r.state !== 'open') continue
+    if (compositeKeyOf(r.raw)) continue
+    if (DUP_POINTER_RE.test(r.raw)) continue
+    if (!byText.has(r.raw)) byText.set(r.raw, [])
+    byText.get(r.raw).push(r)
+  }
+  const groups = [...byText.values()].filter((g) => g.length > 1)
+  const copies = []
+  for (const g of groups) {
+    const best = g.reduce((a, b) => (b.line > a.line ? b : a))
+    for (const r of g) if (r.line !== best.line) copies.push({ row: r, survivor: best, key: '' })
+  }
+  return { groups, copies }
 }
 
 /** F2:正文自带的"闭合/作废声明"字面。窄集合,宁漏不误伤 —— 见门 120 的"名单要有正向证明"。 */
@@ -242,6 +280,114 @@ export function countMergeNotes(content) {
   return n
 }
 
+/**
+ * ── F7 归属四态 + F8 寿命(2026-09-27 立)──────────────────────────────
+ *
+ * F1–F6 全是"重复/分叉/指针"型判据,它们回答的是"同一件事被记了几遍"。
+ * 但用户报的现象是**总量**在涨,而这一维没有任何判据碰过。实测 HEAD 面(2026-09-27):
+ * 未勾选 308 行 / 派单口径 198 行 —— 其中只有 58 行带任何"归谁、等什么条件"的字样,
+ * 182 行连一个日期都没有。于是那一个 198 把"今晚就能做的活"和"要等 iOS 模拟器到位"
+ * 和"明确写着不归本机做"记在同一格里。**账与活同格,就是"越做越多"的真身**:
+ * 7 天前未勾选 19 行,2 天前 206,今天 308 —— 涨的主要不是活。
+ *
+ * 这一层因此补两件事:
+ *  - **F7 归属**:每条未勾选行按正文推导落在四桶之一。分类**只从行文本推导**,
+ *    不新增人工标记字段 —— 又一登记表就是又一张会腐烂的清单(§4 对 RN_ONLY_BRAND_KEYS 的教训)。
+ *  - **F8 寿命**:每条账必须有"交代"。交代 = 三选一:已认领(租约)/ 落在非 actionable 桶(说清了等什么归谁)/
+ *    有可算的日期(出生或最近进展)。**没有死亡条件的账只会累积**,这与守门 108 立项时
+ *    对豁免说的那句"只有出生、没有死亡"是同一条病。
+ *
+ * ⚠ 两个刻意的保守选择,别在后续"顺手收紧"时改掉:
+ *  1. F7 **不把等待类行踢出派单口径**,只在报告里分层。正则推错一条,代价是"一件真活从此没人看得见",
+ *     比虚高的数字更难发现 —— 判据失效的表现永远是安静(本仓记过最多次的那一型)。
+ *     要"只看现在能派的",显式跑 `--open --dispatchable`。
+ *  2. F8 的**到期只报数**,提交链只判"本次新增行有没有交代"。若把到期做成 blocking,
+ *     存量会在同一天集体到期(今天的登记 21 天后一起过期),那是一台与任何提交都无关的恒红门,
+ *     唯一结局是各会话 `--no-verify`、连带全部守门作废(§12e 同型)。
+ */
+export const DISPOSITIONS = ['actionable', 'waiting-human', 'waiting-env', 'owned-elsewhere']
+/** 判定顺序即优先级:一句"归属 X 端,阻塞在生产侧"该算别人的账,不该算成"等环境"。 */
+const DISPOSITION_RULES = [
+  [
+    'owned-elsewhere',
+    /归属[:：]|本票不认领|本线不认领|本线只登记|不代做|不代改|不代裁|他人账|不归本机|不归本线|归.{0,10}持有者|由.{0,12}持有者|留给.{0,10}(持有人|人)/,
+  ],
+  [
+    'waiting-human',
+    /需人定|需用户|待用户|待拍板|需用户确认|属 §24|请重新决定|未决决策|交人定|人来定|需人(定|拍板)/,
+  ],
+  [
+    'waiting-env',
+    /本机结构性缺|本机(无|没有|未装|起不来)|需真机|需 macOS|模拟器|开发者工具|阻塞(主体|在|于)|生产侧|暂留本地|需建表|等(并行|对端|环境|新装机)|外部(条件|服务)|线上(仍是|未|无)/,
+  ],
+]
+export function dispositionOf(line) {
+  for (const [kind, re] of DISPOSITION_RULES) if (re.test(line)) return kind
+  return 'actionable'
+}
+
+/** 行内最后一个日期。取**最后**而不是第一个:进展注记按本仓写法追加在行尾,
+ *  而括号里的引用日期(`(2026-09-21 逐条实测)`)可能是旧读数。 */
+const DATE_RE = /20\d{2}-\d{2}-\d{2}/g
+export function lastDateInRow(line) {
+  const re = new RegExp(DATE_RE.source, 'g')
+  let last = null
+  for (let m = re.exec(String(line)); m !== null; m = re.exec(String(line))) last = m[0]
+  return last
+}
+/** 出生日(追溯态)由 `scripts/plan-line-age.mjs` 回填,语义见该文件头注:
+ *  是"该行内容在计划文档里首次可见的提交日期",不是作者落笔日期。 */
+export const BIRTH_RE = /〔追溯@(20\d{2}-\d{2}-\d{2})〕/
+export function birthDateOf(line) {
+  const m = BIRTH_RE.exec(String(line))
+  return m ? m[1] : null
+}
+/** 这条账最后一次被交代的时间 = 行内最新日期,退到追溯出生日。都没有 ⇒ null(无从判龄)。 */
+export function ageAnchorOf(line) {
+  return lastDateInRow(line) ?? birthDateOf(line)
+}
+
+/** F8 的"有无交代":租约 / 非 actionable 归属 / 任何可算日期,三者齐缺即无主账。 */
+export function hasDisposition(row) {
+  if (row.claim) return true
+  if (dispositionOf(row.raw) !== 'actionable') return true
+  return ageAnchorOf(row.raw) !== null
+}
+
+export function parseDay(s) {
+  const m = /^(20\d{2})-(\d{2})-(\d{2})$/.exec(String(s ?? ''))
+  if (!m) return null
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
+  return Number.isNaN(d.getTime()) ? null : d
+}
+const DAY_MS = 86400000
+/** 台账寿命(天)。取 21 而非 30:本仓一天登记 100+ 行,30 天等于给膨胀留一整月的盲区;
+ *  而 21 天仍宽于门 109 的 72h 租约档 —— 租约是"有人在动",这里是"账该交代"。 */
+export const LEDGER_TTL_DAYS = 21
+export function daysSince(dayStr, today) {
+  const a = parseDay(dayStr)
+  const b = parseDay(today)
+  if (!a || !b) return null
+  return Math.floor((b.getTime() - a.getTime()) / DAY_MS)
+}
+/** F8b 到期清单:未勾选 ∧ 有可算锚点 ∧ 距今 > TTL。null 锚点不判(无从判龄,只报数)。 */
+export function findStaleOpenRows(content, today, ttl = LEDGER_TTL_DAYS) {
+  const out = []
+  for (const r of parseTaskRows(content)) {
+    if (r.state !== 'open') continue
+    const anchor = ageAnchorOf(r.raw)
+    if (!anchor) continue
+    const age = daysSince(anchor, today)
+    if (age !== null && age > ttl)
+      out.push({ ...r, anchor, age, disposition: dispositionOf(r.raw) })
+  }
+  return out
+}
+/** 无交代的未勾选行(F8a 的判据面;调用方负责只对"本次新增"那部分判红)。 */
+export function findUndisposedOpenRows(content) {
+  return parseTaskRows(content).filter((r) => r.state === 'open' && !hasDisposition(r))
+}
+
 /** 多行登记块的整体重复(F6)。
  *
  * 为什么行级判据(F1–F4)看不见它:那四条的量纲是**一行**。而事故的量纲是"一整块":
@@ -279,7 +425,12 @@ export function findDupBlocks(content) {
   }
   const verbatim = [...blocks.entries()]
     .filter(([, ls]) => ls.length > 1)
-    .map(([k, ls]) => ({ first: k.split('\n')[0], lines: ls, copies: ls.length, len: k.split('\n').length }))
+    .map(([k, ls]) => ({
+      first: k.split('\n')[0],
+      lines: ls,
+      copies: ls.length,
+      len: k.split('\n').length,
+    }))
     .sort((a, b) => a.lines[0] - b.lines[0])
   const byFirst = new Map()
   for (const k of blocks.keys()) {
@@ -306,8 +457,20 @@ export function auditPlan(content) {
   // 派单人拿这个数去派,就会把别人正在做的事再派一遍 —— 正是 §1 认领标记要防的那件事。
   const unclaimedRows = openRows.filter((r) => !r.claim)
   const dupCopies = findDupOpenCopies(dupOpen)
+  const verbatimDups = findVerbatimDupOpenRows(content)
   const dupBlocks = findDupBlocks(content)
-  const dupCopyLines = new Set(dupCopies.map((c) => c.row.line))
+  const dupCopyLines = new Set([...dupCopies.map((c) => c.row.line), ...verbatimDups.copies.map((c) => c.row.line)])
+  // F7 分层:每条未勾选行落一个归属桶;F8:交代与到期各一把清单。
+  // 都在**同一遍 parseTaskRows 的结果**上算,不得为它们再解析一次文档(两处解析必漂移)。
+  const dispBuckets = {
+    actionable: [],
+    'waiting-human': [],
+    'waiting-env': [],
+    'owned-elsewhere': [],
+  }
+  for (const r of unclaimedRows) dispBuckets[dispositionOf(r.raw)].push(r)
+  const undisposed = findUndisposedOpenRows(content)
+  const staleRows = findStaleOpenRows(content, new Date().toISOString().slice(0, 10))
   // 已写明"重复登记副本、不再单独派单"的行**也不进派单口径** —— 它由同题的幸存者代表。
   // 只把"当次算出来的副本"扣掉是不够的:归并动作跑完那一刻,被标注的行如果还算一条活,
   // 派单人就会照着虚高的数字把同一件活再派一遍(而账面看起来已经处理过了)。
@@ -318,6 +481,9 @@ export function auditPlan(content) {
     !DUP_POINTER_RE.test(r.raw)
   return {
     rows: rows.length,
+    /** 当前面上所有条目行的原文集合 —— 调用方用它算"本次新增的行"(逐字不在基准面上)。
+     *  F8a 只能判新增:存量没有义务在上线当天就补齐交代(那就是恒红门)。 */
+    rowTexts: new Set(rows.map((r) => r.raw)),
     openRows: openRows.length,
     doneRows: rows.length - openRows.length,
     claimedRows: openRows.filter((r) => r.claim).length,
@@ -329,7 +495,11 @@ export function auditPlan(content) {
     voidRows,
     rotated,
     dupCopies,
+    verbatimDups,
     dupBlocks,
+    dispBuckets,
+    undisposed,
+    staleRows,
     /** 派单口径 = 未勾选 ∧ **未带租约** ∧ 不是"与已完成同题的分叉副本" ∧ 不是"同一件事的第二条待办"(F4)∧ 不自带作废声明。
      *  租约这一维是第一版的漏口:146 条"无人认领"里混着 44 条别人已认领的活,
      *  照那个数派单就是把正在做的事再派一遍(§1 认领标记存在的理由)。
@@ -345,6 +515,10 @@ export function auditPlan(content) {
       rotatedPointers: rotated.length,
       dupOpenGroups: dupOpen.length,
       dupOpenCopies: dupCopies.length,
+      // F4b:无主键的逐字孪生行 —— F4 按复合主键分组,而这一族永远没有编号,所以在 F4 里恒为 0、
+      // 在账面上等于"不存在"。见 findVerbatimDupOpenRows 头注(2026-09-27 实测 4 对全部隐身)。
+      verbatimDupGroups: verbatimDups.groups.length,
+      verbatimDupCopies: verbatimDups.copies.length,
       // 已写明"重复登记副本"的未勾选行:它们与 dupOpenCopies 是两件事 —— 副本是**当次**算出来的,
       // 标过指针的是历史上已归并过的。派单口径两条都扣,所以报告里必须分列,否则读者对不上账。
       dupPointerRows: openRows.filter((r) => DUP_POINTER_RE.test(r.raw)).length,
@@ -356,6 +530,19 @@ export function auditPlan(content) {
       dupBlockDrifted: dupBlocks.drifted.length,
       dupDoneGroups: dupDone.length,
       claimable: unclaimedRows.filter(isClaimable).length,
+      // ── F7 归属分层(未认领口径,与 claimable 同集合基数)──
+      // 基数校验:四桶相加必须等于 unclaimed,不等就是分类逻辑漏桶(已由 selfTest 钉住)。
+      dispActionable: dispBuckets.actionable.length,
+      dispWaitingHuman: dispBuckets['waiting-human'].length,
+      dispWaitingEnv: dispBuckets['waiting-env'].length,
+      dispOwnedElsewhere: dispBuckets['owned-elsewhere'].length,
+      // ── F8 寿命两档 ──
+      // 无交代:全部未勾选行里既没租约、也没说等什么、又没有日期的 —— 这批才是"只会涨的账"。
+      undisposed: undisposed.length,
+      // 到期:有日期锚点但已超 TTL。默认只报数(见头注第 2 条保守选择)。
+      stale: staleRows.length,
+      // 无从判龄:连一个日期都没有。它必须单独报名 —— 把"看不见"混进"没问题"是本仓最高频失效型。
+      undated: undisposed.filter((r) => !ageAnchorOf(r.raw)).length,
     },
   }
 }

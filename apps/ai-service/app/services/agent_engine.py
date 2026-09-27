@@ -1695,6 +1695,90 @@ def _coerce_role_id(value: Any) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# "谁在调用"的判据(2026-09-27 立)—— 一份实现,处理器只许调这三出口
+# ---------------------------------------------------------------------------
+
+
+def _connection_principal(params: dict[str, Any]) -> str | None:
+    """取**承载层绑定的**令牌主体:只读 `params["userId"]`。
+
+    唯一写入方是 `routers/engine.py::_bind_principal` —— 它在鉴权之后把 JWT 验过的
+    身份覆盖进该键,客户端自述值在进入引擎前就被丢弃。所以这里的值是"这条连接证明
+    过的身份",而不是"被操作记录上写着的属主"。取不到即 None = 承载层没给身份
+    (未鉴权/dev 通道,或不经 HTTP/WS 直接以库方式驱动引擎的调用)。
+
+    刻意不读 params 里任何其它身份键(`ownerId` / `user_id` / `threadOwnerId` …):
+    那些都是客户端可填的。判据一旦承认第二种来源,绑定层就等于没做。
+    """
+    value = params.get("userId")
+    return value if isinstance(value, str) and value else None
+
+
+def _principal_allows(principal: str | None, owner: str | None) -> bool:
+    """属主对账的**唯一实现**;principal 与 owner 同为"某个用户 id 或 None"。
+
+    三态,判序不可调换(前两条共同保证"未鉴权通道行为与改动前逐字相同"):
+
+    ① principal 为 None ⇒ True。如实说明理由:**承载层没给身份**(未鉴权/dev 通道,
+       或不经承载层的直接调用),无从对账 ⇒ 维持改动前行为。**这不构成授权结论** ——
+       它只是"没有新证据",不是"这条连接被允许碰别人的数据"。把 None 当成"放行一切"
+       是本仓反复记过的 fail-open 形态,所以这一条必须留在注释里,不得被读成许可。
+    ② owner 为 None ⇒ True,同理:该线程/该待决请求建立时就没有可证明的属主
+       (无凭据可比)。
+    ③ 两侧都有值 ⇒ **精确相等**。不做前缀匹配、不做大小写归一、不认"部分匹配"。
+    """
+    if principal is None:
+        return True
+    if owner is None:
+        return True
+    return principal == owner
+
+
+def _thread_belongs(thread: EngineThread, principal: str | None) -> bool:
+    """这条线程是否归这位调用者。判据只有 `_principal_allows` 一份实现。
+
+    `getattr(..., None)` 只为**鸭子类型的替身**留路:既有测试用 `type("T", (), {...})`
+    造半份线程喂 `_require_thread`,那种对象没有 user_id 字段。取不到字段与"属主为
+    None"是同义(建立时就没有可证明的属主 ⇒ 无从对账,见 _principal_allows ②),
+    所以按 None 走;真实 EngineThread 的 `user_id` 是**必填字段**(见 dataclass 定义),
+    生产面不存在"字段缺席所以静默放过"这条路。
+    """
+    owner = getattr(thread, "user_id", None)
+    return _principal_allows(principal, owner if isinstance(owner, str) else None)
+
+
+@dataclass(frozen=True)
+class _PendingPermissionRequest:
+    """`request_permissions` 的待决请求:future + **它属于谁**(哪条线程、哪个用户)。
+
+    带主是**注册时**决定的(注册点就在 thread 闭包里,属主与线程同源),不是结算时去猜
+    的。旧形态只存裸 future ⇒ "谁能结这条"没有任何凭据可依:任何读到 requestId 的
+    连接都能把它结算掉,而结算成功还会连带触发 `grant_tool_approval_persist` 那一档
+    `sandbox_full_access` 权限升级。存进记录 = 让"越权"在数据结构上表示不出来。
+    """
+
+    thread_id: str
+    user_id: str | None
+    future: asyncio.Future[Any]
+
+
+@dataclass(frozen=True)
+class _PendingElicitationRequest:
+    """`request_user_input` 的待决提问:future + **它属于谁**(G-251,2026-09-27)。
+
+    与 `_PendingPermissionRequest` 同一条理由:旧形态在全局 dict 里存**裸 future**,于是
+    "谁能回答这个问题"在数据结构上表示不出来 —— 任何读到 elicitationId 的连接都能把它
+    结算掉,而结算成功的后果是**别人的模型回合里出现了攻击者提供的输入**(实测见
+    `.ihui-agent/tmp/b59/probe-before.txt`:修复前 bob 应答 applied=True 且 alice 的工具
+    直接拿到 "STOLEN")。带主注册后,判定与审批/线程面共用 `_principal_allows` 那一份实现。
+    """
+
+    thread_id: str
+    user_id: str | None
+    future: asyncio.Future[Any]
+
+
 def _spec(thread: EngineThread) -> dict[str, Any]:
     """把线程配置转成主循环工厂的 spec(承载层据此构造 AgentLoopV2)。
 
@@ -1794,10 +1878,12 @@ class AgentEngine:
         )
         # 会话持久化(session_store 单例/注入;None=未初始化,False=不可用哨兵)
         self._store: SessionStore | None | bool = store
-        # request_permissions 工具的待决请求(requestId → Future;approval.respond 结算)
-        self._permission_requests: dict[str, asyncio.Future[Any]] = {}
-        # elicitation 中轮提问的待决请求(2026-09-18 第四批,对标 Codex elicitation)
-        self._elicitation_requests: dict[str, asyncio.Future[Any]] = {}
+        # request_permissions 工具的待决请求(requestId → 带主记录;approval.respond 结算
+        # 前必须先过属主 —— 见 _PendingPermissionRequest)
+        self._permission_requests: dict[str, _PendingPermissionRequest] = {}
+        # elicitation 中轮提问的待决请求(2026-09-18 第四批,对标 Codex elicitation;
+        # G-251 起存带主记录 —— 结算前必须过属主,见 _PendingElicitationRequest)
+        self._elicitation_requests: dict[str, _PendingElicitationRequest] = {}
         # unified_exec 持久 shell 会话(2026-09-18 第四批,对标 Codex unified_exec)
         self._exec_sessions: dict[str, dict[str, Any]] = {}
         # shell 环境快照缓存(2026-09-20 批 55 接线,对标 Codex
@@ -2217,6 +2303,12 @@ class AgentEngine:
             # 进程重启后内存无此线程 → 按需从 SessionStore 恢复(降级失败仍报不存在)
             thread = self._try_restore_thread(thread_id)
         if thread is None:
+            raise JsonRpcError(THREAD_NOT_FOUND, f"线程不存在: {thread_id}")
+        if not _thread_belongs(thread, _connection_principal(params)):
+            # **与"线程不存在"同一个错误码、同一句消息形状**,一字不差。
+            # 刻意不给调用方"这条线程存在、但不属于你"的可枚举信号 —— 那等于把
+            # threadId 空间开放成探测接口(存在性 oracle),而且两种结论在客户端
+            # 分支上必然被写成不同的话,时间一长就变成"按属主存在性做事"的隐式契约。
             raise JsonRpcError(THREAD_NOT_FOUND, f"线程不存在: {thread_id}")
         if thread.status == "closed":
             raise JsonRpcError(THREAD_CLOSED, f"线程已关闭: {thread_id}")
@@ -4583,6 +4675,10 @@ class AgentEngine:
         except (TypeError, ValueError) as e:
             raise JsonRpcError(INVALID_PARAMS, "limit/offset 须为整数") from e
         include_archived = bool(params.get("includeArchived"))
+        # 属主一律取承载层绑定的令牌主体(_connection_principal),不取 params 里任何
+        # 别的身份键。取不到 = 未鉴权/dev 通道 ⇒ 两分支都退回改动前的"全给"语义
+        # (见 _principal_allows ① —— 那是"无从对账",不是"允许看别人的线程")。
+        principal = _connection_principal(params)
         store = self._persistence_store()
         if store is None:
             items = sorted(
@@ -4598,6 +4694,7 @@ class AgentEngine:
                         "updatedAt": t.updated_at,
                     }
                     for t in self._threads.values()
+                    if _thread_belongs(t, principal)
                 ),
                 key=lambda x: float(x["updatedAt"] or 0.0),
                 reverse=True,
@@ -4611,8 +4708,14 @@ class AgentEngine:
                 "offset": offset,
                 "hasMore": offset + len(page) < total,
             }
+        # total / hasMore 与返回集合的一致性由**库侧**保证:过滤写在 SQL 的 WHERE 里,
+        # COUNT(*) 与被分页的就是同一批行。事后在响应侧筛会让 total 说"全量"、
+        # threads 说"筛过" —— 本仓的"计数诚实性"禁令正是这一型。
         page_obj = store.list_threads(
-            limit=limit, offset=offset, include_archived=include_archived
+            limit=limit,
+            offset=offset,
+            include_archived=include_archived,
+            owner_user_id=principal,
         )
         items = []
         for t in page_obj.threads:
@@ -6002,7 +6105,11 @@ class AgentEngine:
             timeout_ms = max(1000, min(timeout_ms, 120_000))
             request_id = f"req_{uuid.uuid4().hex[:12]}"
             future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
-            self._permission_requests[request_id] = future
+            # 注册即带主:谁能结这条,由"这条请求是在谁的线程上、替哪个用户发出的"
+            # 决定,不由"谁后来拿到了 requestId"决定。
+            self._permission_requests[request_id] = _PendingPermissionRequest(
+                thread_id=thread.thread_id, user_id=thread.user_id, future=future
+            )
             try:
                 await (thread.emit or _noop_emitter)(
                     {
@@ -6586,7 +6693,11 @@ class AgentEngine:
             timeout_ms = max(1000, min(timeout_ms, 120_000))
             elicitation_id = f"eli_{uuid.uuid4().hex[:12]}"
             future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
-            self._elicitation_requests[elicitation_id] = future
+            # 带主注册:属主与线程同源(注册点就在 thread 闭包里),所以"谁能回答这条"
+            # 在创建时就是事实,不是结算时去猜的。
+            self._elicitation_requests[elicitation_id] = _PendingElicitationRequest(
+                thread_id=thread.thread_id, user_id=thread.user_id, future=future
+            )
             try:
                 await (thread.emit or _noop_emitter)(
                     {
@@ -6851,16 +6962,42 @@ class AgentEngine:
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
         """elicitation 决策回填(2026-09-18 第四批,对标 Codex elicitation):
-        唤醒等待中的 request_user_input 工具执行。"""
+        唤醒等待中的 request_user_input 工具执行。
+
+        G-251(2026-09-27)补上属主闸 —— 修复前这里**只看 elicitationId**,任何读到
+        该 id 的连接都能替别人作答,而后果是别人的模型回合里被塞进攻击者提供的输入。
+        principal 只可能来自承载层绑定的令牌主体(`_connection_principal`),判定共用
+        `_principal_allows` 那一份实现。
+
+        **两条拒绝路径同形**:id 不存在 / id 存在但不归你 ⇒ 都回 `reason:"unknown"`。
+        这里与 `approval.respond` 刻意不同:那边的请求自带 `threadId`(调用者本来就点名
+        了那条线程,再说一次不增加信息),而 elicitationId 是**唯一的把手** —— 分出
+        "没这条"与"有但不是你的"就把本端点变成存在性预言机(与 `_require_thread`
+        "不给可枚举信号"同一条口径)。点名他人线程仍回 `foreign_thread`:那格的信号
+        由调用者自己提供的 threadId 换回,不是新泄露。
+        """
         elicitation_id = params.get("elicitationId") or params.get("requestId")
         if not isinstance(elicitation_id, str) or not elicitation_id:
             raise JsonRpcError(INVALID_PARAMS, "缺少 elicitationId")
-        future = self._elicitation_requests.get(elicitation_id)
-        if future is None:
+        principal = _connection_principal(params)
+        thread_id = params.get("threadId")
+        if isinstance(thread_id, str) and thread_id:
+            named = self._threads.get(thread_id)
+            if named is not None and not _thread_belongs(named, principal):
+                # 点名了不属于自己的线程 ⇒ 不碰任何待决表、不结算任何 future。
+                return {
+                    "elicitationId": elicitation_id,
+                    "applied": False,
+                    "reason": "foreign_thread",
+                }
+        record = self._elicitation_requests.get(elicitation_id)
+        if record is None:
             return {"elicitationId": elicitation_id, "applied": False, "reason": "unknown"}
-        if future.done():
+        if not _principal_allows(principal, record.user_id):
+            return {"elicitationId": elicitation_id, "applied": False, "reason": "unknown"}
+        if record.future.done():
             return {"elicitationId": elicitation_id, "applied": False, "reason": "already_settled"}
-        future.set_result(params.get("value"))
+        record.future.set_result(params.get("value"))
         return {"elicitationId": elicitation_id, "applied": True}
 
     def _build_host_tool_definitions(self, thread: EngineThread) -> list[Any]:
@@ -6926,18 +7063,31 @@ class AgentEngine:
     ) -> dict[str, Any]:
         """回传宿主工具执行结果(结算对应的 tool/execute 请求)。
 
-        requestId → 线程查找:requestId 由引擎生成且全局唯一,故遍历线程
-        pending 表定位即可(线程数有限,不做额外索引)。找不到(已超时清理 /
-        线程已关闭)→ applied=False,客户端可安全忽略。
+        两条定位路径,两条都过属主闸:
+        ① 带 threadId → 走 `_require_thread`(吃到其内的 `_thread_belongs` 判定;
+           不存在与不归你同形,不回报他人 threadId);
+        ② 不带 threadId(老客户端 / SDK 不回显)→ 按 requestId 遍历定位,但**只在
+           principal 名下的线程里找**。principal 为 None(未鉴权/dev 通道,承载层没给
+           身份)才维持改动前的全表扫描 —— 那是"无从对账",不是"允许结算别人的请求",
+           判据的理由见 _principal_allows ①。
+        requestId 由引擎生成且全局唯一,故遍历线程 pending 表定位即可(线程数有限,
+        不做额外索引)。找不到(已超时清理 / 线程已关闭 / 不归你)→ applied=False,
+        客户端可安全忽略。
         """
         request_id = params.get("requestId")
         if not isinstance(request_id, str) or not request_id:
             raise JsonRpcError(INVALID_PARAMS, "缺少 requestId")
-        target: EngineThread | None = None
-        for thread in self._threads.values():
-            if request_id in thread.pending:
-                target = thread
-                break
+        thread_id = params.get("threadId")
+        principal = _connection_principal(params)
+        target: EngineThread | None
+        if isinstance(thread_id, str) and thread_id:
+            target = self._require_thread(params)
+        else:
+            target = None
+            for thread in self._threads.values():
+                if request_id in thread.pending and _thread_belongs(thread, principal):
+                    target = thread
+                    break
         if target is None:
             return {"requestId": request_id, "applied": False, "reason": "unknown_request"}
         future = target.pending.get(request_id)
@@ -6965,6 +7115,10 @@ class AgentEngine:
         批 53:客户端可携 persist 字段选择审批持久层级 ——
         "session"(本次会话免弹窗) / "always"(永久免弹窗) / 不传或 None(沿用批 52
         默认 session 落盘,行为不变)。非法值 INVALID_PARAMS。
+
+        threadId 是**可选**的(老客户端 / SDK 不回显也照常结算),但它只用于
+        "点名要结哪条线程的审批",**不再参与 principal 的推导** —— 谁在调用由承载层
+        绑定的令牌主体决定;点名了他人的线程即整条请求不产生副作用。
         """
         approval_id = params.get("approvalId") or params.get("requestId")
         if not isinstance(approval_id, str) or not approval_id:
@@ -6988,34 +7142,58 @@ class AgentEngine:
             resolve_approval_response,
         )
 
-        # O19(2026-09-21)审批属主校验 —— 本通道的信任边界必须写清楚:
-        # 这里**不在 HTTP 请求上下文**(JSON-RPC over MCP / engine WS),拿不到
-        # request.state.user_id。引擎能自证的 principal 只有 threadId 所绑定线程的
-        # EngineThread.user_id(线程创建时写入,后续审批条目的属主也正是同一个值 ——
-        # 见 agent_loop_v2._request_approval 用 self._user_id 登记)。
-        # 传 principal 的效果:① 盲猜 approval_id 解不掉他人审批;② A 线程解 B 用户
-        # 的审批 → owner != principal → 不生效(applied=False)。
-        # 不传 threadId 时 principal 退化为 None,此时只能结算同样无属主的条目
-        # (非 HTTP 上下文创建的历史审批),不会因此开出新口子。
-        # 敞口收口(2026-09-21 同日晚于本注释落地):thread.start 的 userId 曾由客户端
-        # 自述,谎报即可解他人审批;现承载层 routers/engine.py::_bind_principal 把
-        # **已验证身份**(HTTP request.state.user_id / WS 握手 token 的 sub)写回
-        # params.userId,自述值在进入引擎前被丢弃。仅剩"未鉴权通道"(principal=None,
-        # 如 dev 态)仍按自述值建线程 —— 那类通道本身无身份可谎报,信任级不变。
-        # 测试:tests/test_engine_principal_binding_59.py
+        # 本通道的信任边界(2026-09-27 收口):principal **只可能来自承载层绑定的令牌
+        # 主体**(`_connection_principal`),不再由"被点名的那条线程"反推。
+        #
+        # 旧写法 `principal = bound_thread.user_id` 把判据建在**被操作记录**上:bob
+        # 只要点名 alice 的线程,引擎就把 principal 换成 "alice",于是
+        # resolve_approval_response 比的是"受害者 vs 受害者自己"⇒ 必然通过(实测见
+        # tests/test_engine_principal_binding_59.py 与本票新测试的控制测量记录)。同一枚
+        # 结算还顺带走下面两处**跨线程全局 dict**:`_permission_requests` 的 future
+        # 与 `grant_tool_approval_persist` 的 sandbox_full_access 权限升级 —— 旧代码
+        # 在这两处完全不做属主判定。
+        #
+        # 承载层来源(历史,仍然成立):routers/engine.py::_bind_principal 在鉴权之后把
+        # JWT 验过的身份覆盖写进 params.userId,客户端自述值在进入引擎前就被丢弃;
+        # 未鉴权/dev 通道不写该键。O19(2026-09-21)当时补的是"thread.start 的 userId
+        # 曾由客户端自述"那一半,本票补的是"结算侧仍以被操作记录为准"这一半。
+        connection_principal = _connection_principal(params)
+        principal: str | None = connection_principal
         thread_id = params.get("threadId")
-        principal: str | None = None
+        named_thread: EngineThread | None = None
         if isinstance(thread_id, str) and thread_id:
-            bound_thread = self._threads.get(thread_id)
-            if bound_thread is not None:
-                principal = bound_thread.user_id
+            named_thread = self._threads.get(thread_id)
+            if named_thread is not None and not _thread_belongs(
+                named_thread, connection_principal
+            ):
+                # 点名了不属于自己的线程 ⇒ **整条请求不产生任何副作用**:不写
+                # _approval_registry、不结 _permission_requests 的 future、不调
+                # grant_tool_approval_persist。reason 只作诊断,不回显被点名线程的
+                # 任何信息(与 _require_thread 的"不给可枚举信号"同一条口径)。
+                return {
+                    "approvalId": approval_id,
+                    "decision": normalized,
+                    "applied": False,
+                    "persisted": None,
+                    "reason": "foreign_thread",
+                }
+            if principal is None and named_thread is not None:
+                # 回退:**只可能在未鉴权通道发生**(承载层没给身份 —— principal 已是
+                # None 才进得来)。带身份的调用一律以令牌主体为准,不会被被操作记录顶替。
+                principal = named_thread.user_id
         applied = bool(
             resolve_approval_response(approval_id, normalized, principal)
         )
-        # request_permissions 工具的待决请求同路结算(2026-09-18 第三批)
-        perm_future = self._permission_requests.get(approval_id)
-        if perm_future is not None and not perm_future.done():
-            perm_future.set_result(normalized)
+        # request_permissions 工具的待决请求同路结算(2026-09-18 第三批)。记录带主,
+        # "哪条线程/哪个用户能结哪条"由注册时决定;判定与审批条目共用 _principal_allows
+        # 那一份实现,不在此重写条件。
+        perm_request = self._permission_requests.get(approval_id)
+        if (
+            perm_request is not None
+            and not perm_request.future.done()
+            and _principal_allows(principal, perm_request.user_id)
+        ):
+            perm_request.future.set_result(normalized)
             applied = True
         # 批 53:批准且携带合法 persist → 升级落盘指定层级(always/session)
         persisted: str | None = None
