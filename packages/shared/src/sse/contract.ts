@@ -68,6 +68,16 @@ export const SSE_EVENTS = {
   // D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧(llm.py 执行前纯参数推导,
   // 载荷 {toolCallId, seq, partialText, truncated?},tool-result 到达即清;不入库)。
   TOOL_DELTA: 'tool-delta',
+  // V3 #63(2026-09-27 落地生产者,解阻前置三条已在 ai-service 面收口):对话流业务
+  // 表单**下行**帧。此前它单列在下方 FORM_FRAME_EVENTS 一段里,理由只有一条 ——
+  // 「契约 ⊆ 生产」(llm.py 零生产点 ⇒ 并进 SSE_EVENTS 会让
+  // scripts/check-agent-event-parity.mjs 的对账 0b 恒红)。生产点已真在
+  // llm.py 的工具循环里落下(request_business_form 拦截位),该理由随之消失,
+  // 于是按本文件自己写在 FORM_FRAME_EVENTS 注释第③条(c) 的指令并回来。
+  // **只并 REQUEST 这一条**:RESPONSE 是上行 POST 的 body,不是 SSE 事件
+  // (上方第 3 条实测证据仍然成立),且 Python 侧 SSE_EVENTS 里也只有 form_request,
+  // 并两条会让跨语言 parity 对账 0 直接红。
+  FORM_REQUEST: 'form_request',
 } as const
 
 /**
@@ -256,6 +266,19 @@ export type SSEEventPayload =
       danger_level: 'low' | 'medium' | 'high'
       session_id?: string
     }>
+  // 对话流业务表单请求(V3 #63:llm.py 的 request_business_form 拦截位发出;
+  // 前端 BusinessFormSection 消费,应答经 form-response 端点回传)。
+  // ⚠️ **本帧字段是 camelCase**,与上方 tool-approval 的 snake_case 不同族 —— 不是笔误,
+  // 而是解析层 packages/api-client/src/client.ts 的 tryParseFormRequest 读的就是
+  // requestId / sessionId / messageId 三个 camel 键(写成 snake 会被**整帧静默丢弃**)。
+  // 生产端必须与本类型 + 那个解析层同形;改任何一侧都要看另一侧(下行的 camel 与
+  // 上行的 snake_case 是**两条不同通道**,别把它们统一掉)。
+  //
+  // 为什么这里不套 `SSEEventWithMeta<…>`:那个泛型的约束是 `T extends Record<string, unknown>`,
+  // 而 **interface 没有隐式索引签名**(TS 的已知限制),把 `FormRequestFramePayload` 当类型参
+  // 数喂进去会直接 TS2344。改成与 `SSEEventMeta` 直接求交 ⇒ 同一个 agentId? 定义、零复制,
+  // 只绕开那条对本类型不成立的约束。
+  | (FormRequestFramePayload & SSEEventMeta & { type: 'form_request' })
   // 流结束(含 usage)
   | SSEEventWithMeta<{
       type: 'done'
@@ -343,31 +366,29 @@ export function isSSEEventName(value: string): value is SSEEventName {
 // V3 #63(2026-09-27 立):对话流业务表单帧 —— form_request / form_response
 // ===========================================================================
 //
-// **为什么它是独立一段,而不是 SSE_EVENTS 的第 29 个成员 —— 三条实测证据:**
+// **本段今天仍然单列,但只剩一条理由 —— 原有三条里有两条已被 2026-09-27 那一票消解:**
 //
-//  1. **零生产点**:wire 上的 `form_request` 在后端两侧全量 grep 均为 0 命中
-//     (`apps/api/src` 与 `apps/ai-service/app`)。`SSE_EVENTS` 的既有纪律是
-//     「契约 ⊆ 生产」由 `scripts/check-agent-event-parity.mjs` 的 **对账 0b**
-//     (llm.py 生产事件 ⊆ 契约)与 **对账 0**(两端集合一致)双向看护 ——
-//     把一帧无人生产的名字塞进去,就是把「已生效契约」与「目标形态」重新混回一处,
-//     正是 D34 第 36 轮收回 `settings_applied` / `terminal_output`、V3 #48 收回
-//     `token` 时清算的那一型(空心帧)。
-//  2. **跨语言集合由机器强制**:`SSE_EVENTS` 与 `apps/ai-service/app/core/sse_contract.py`
-//     的 `SSE_EVENTS` frozenset 必须逐名等值(对账 0,**blocking**)。本票写面不含
-//     ai-service,单侧加名 = 把一道与任何提交都无关的恒红门装进提交链(§12e 同型)。
-//     ⇒ **解阻前置**见下方 `FORM_FRAME_EVENTS` 注释第③条。
-//  3. **方向不同**:同一段里的 `form_response` 是**上行**帧(POST 到
+//  1. ~~**零生产点**~~(**已失效,2026-09-27 V3 #63 落地生产者**)。当时
+//     `apps/api/src` 与 `apps/ai-service/app` 两侧对 `form_request` 全量 grep 均 0 命中,
+//     而 `SSE_EVENTS` 的既有纪律是「契约 ⊆ 生产」(由
+//     `scripts/check-agent-event-parity.mjs` 的 **对账 0b** 与 **对账 0** 双向看护),
+//     塞一帧无人生产的名字进去就是 D34 第 36 轮收回 `settings_applied` / `terminal_output`、
+//     V3 #48 收回 `token` 时清算的那一型(空心帧)。**现在生产点在
+//     `app/routers/llm.py` 工具循环的 request_business_form 拦截位,该理由不再成立** ⇒
+//     `REQUEST` 已按本文件当时自己写下的指令并入 `SSE_EVENTS`(见上方 FORM_REQUEST 成员)。
+//  2. ~~**跨语言集合由机器强制,本票不含 ai-service**~~(**已失效**:落地那一票同时改
+//     `sse_contract.py` 与本文件,两侧逐名等值,对账 0 不红)。
+//  3. **仍然成立 —— 这是本段保留的唯一理由**:`form_response` 是**上行**帧(POST 到
 //     `/llm/complete/stream/{sessionId}/form-response`),不是 SSE 下行事件。
 //     把它列进 SSE_EVENTS 会让「前端监听对账」把一次 POST 当成 SSE 监听去要后端
-//     SSE 生产点 —— 判据与语义互咬。
+//     SSE 生产点 —— 判据与语义互咬。所以 `RESPONSE` 留在本段,`REQUEST` 已并入。
 //
-// **这一段是不是死声明?不是**:它有真实消费方 ——
+// **这一段不是死声明**:它有真实消费方 ——
 // `apps/web/src/hooks/use-chat/form-request-frame.ts`(线帧 → 端内渲染态的唯一投影)
 // 与 `apps/web/src/hooks/use-chat/send-message.ts`(`streamChat` 的 `onFormRequest`)。
 // 类型与 `@ihui/api-client` 的 `FormRequestEvent` 逐字段同形,并由
 // `apps/web/src/components/chat/__tests__/form-request-contract.test.ts` 的**双向
-// 可赋值断言**钉住(漂移即 tsc 红)—— 那是本段唯一能自动化执行的看护。
-// **不得**为让这段"看起来有牙"把它并进 SSE_EVENTS:那只会让 parity 门恒红。
+// 可赋值断言**钉住(漂移即 tsc 红)。
 
 /**
  * 对话流业务表单两帧的判别名(V3 #63 登记)。
@@ -375,19 +396,27 @@ export function isSSEEventName(value: string): value is SSEEventName {
  * ① `form_request` = 下行帧:后端请在消息流内渲染一张业务表单(邮件撰写 / 日历
  *    创建·更新)时发出;解析通道已在 `@ihui/api-client`(`StreamChatOptions.onFormRequest`,
  *    畸形帧在该层即丢:缺 `requestId` 或 `actions` 不成对)。
+ *    **值取自 `SSE_EVENTS.FORM_REQUEST`,本处不再写第二份字面量** —— 并入契约后
+ *    两处各写一遍就是"同一事实两份真相",漂移的表现是 parity 门与消费方看到不同名。
  * ② `form_response` = 上行应答(用户批准/拒绝),不是 SSE 事件(见上方第 3 条)。
- * ③ **生产侧待补(解阻前置,三条缺一不可,全在 ai-service 面)**:
- *    (a) 一个会请求用户填写业务表单的工具执行点(llm.py tool loop 内,与
- *        tool-delegate / tool-approval 同一拦截位)—— 决定"谁在什么条件下发这帧";
- *    (b) `apps/ai-service/app/api|router` 侧 `form-response` 接收端(现全仓 0 处),
- *        否则用户按「批准」后应答无处落地 —— 端内已按"发不出去就如实置 failed"实现,
- *        不会假装已提交;
- *    (c) `sse_contract.py` 的 `SSE_EVENTS` 同步登记 —— 与 (a) 同批落地,
- *        之后本段成员并入 `SSE_EVENTS` 并由 parity 门接管。
+ * ③ **解阻前置三条已收口(2026-09-27)**,如实登记落地位置与仍然开着的那一格:
+ *    (a) ✅ 工具执行点:`apps/ai-service/app/routers/llm.py` 主对话流 tool loop 内,
+ *        与 tool-approval 同一拦截位(工具名 `request_business_form`,注册在
+ *        `mcp_server._TOOLS`);
+ *    (b) ✅ 接收端:`POST /llm/complete/stream/{session_id}/form-response`
+ *        (同一文件,照 approval-response 的模板);
+ *    (c) ✅ `sse_contract.py` 的 `SSE_EVENTS` 同步登记,并按本条原指令把
+ *        `REQUEST` 并回 `SSE_EVENTS`。
+ *    **仍然开着的一格**:预填值走不到端上 —— 下行帧的线格式里没有承载 `prefill` 的槽位
+ *    (api-client 的解析层只保留 requestId/kind/fields/actions/sessionId/messageId,
+ *    多余键整帧丢弃时不报错、也不透传),故工具入参的 `prefill` 只在**服务端**与用户
+ *    提交的 values 合并后回灌给模型,表单卡上看不见预填。补齐要动
+ *    `packages/api-client`(解析层 + `FormRequestFramePayload` 各加一个可选槽),
+ *    不属本票射程(见交付报告"残余")。
  */
 export const FORM_FRAME_EVENTS = {
-  /** 下行:请前端在消息流内渲染一张业务表单 */
-  REQUEST: 'form_request',
+  /** 下行:请前端在消息流内渲染一张业务表单(值即 SSE_EVENTS.FORM_REQUEST) */
+  REQUEST: SSE_EVENTS.FORM_REQUEST,
   /** 上行:用户对那张表单的批准/拒绝应答(POST body,非 SSE 帧) */
   RESPONSE: 'form_response',
 } as const
