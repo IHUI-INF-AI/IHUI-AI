@@ -99,7 +99,7 @@ function createStyles(tk: AppThemeTokens) {
     entryCardFace: { width: '100%', flex: 1 } as ViewStyle,
     entryCard: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: 14,

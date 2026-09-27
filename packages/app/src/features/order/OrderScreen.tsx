@@ -228,7 +228,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 4,
       paddingHorizontal: 12,
       height: 40,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -243,7 +243,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 10 },
     card: {
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -273,7 +273,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
     badgeText: { fontSize: 11 },

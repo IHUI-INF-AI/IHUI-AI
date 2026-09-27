@@ -162,7 +162,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     retryText: { color: tk.surface.light, fontSize: 16 },
@@ -175,7 +175,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 10,
@@ -206,7 +206,7 @@ function createStyles(tk: AppThemeTokens) {
     playBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     playBtnDisabled: { backgroundColor: tk.border.medium },
@@ -239,7 +239,7 @@ function createStyles(tk: AppThemeTokens) {
     closeBtn: {
       marginTop: 12,
       paddingVertical: 10,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },

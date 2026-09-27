@@ -55,6 +55,7 @@ function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNo
             src={card.avatar}
             alt={card.name}
             width={48}
+            // radius-role-exempt: 48px 头像图(rounded-xl=圆角头像观感),属头像豁免族而非卡片容器,不得按 card 方档化 until 2026-11-26
             height={48}
             className="h-12 w-12 shrink-0 rounded-xl object-cover"
           />

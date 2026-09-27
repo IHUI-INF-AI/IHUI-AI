@@ -428,7 +428,7 @@ function createStyles(tk: AppThemeTokens) {
     goldBadge: {
       paddingHorizontal: 6, // rpx(12)
       paddingVertical: 2, // rpx(4)
-      borderRadius: rnRadius.sm, // rpx(8)
+      borderRadius: rnRadius.md, // rpx(12)
       backgroundColor: tk.vip.gold,
     },
     goldBadgeText: {
@@ -443,7 +443,7 @@ function createStyles(tk: AppThemeTokens) {
     followBtn: {
       paddingHorizontal: 14, // rpx(28)
       paddingVertical: 6, // rpx(12)
-      borderRadius: rnRadius['2xl'], // rpx(32)
+      borderRadius: rnRadius['2xl'], // rpx(32) radius-role-exempt: 关注按钮为胶囊形，radius≥高度一半，不得方档化 until 2026-11-26
       backgroundColor: tk.brand.cta,
     },
     followBtnActive: {
@@ -595,7 +595,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 12, // rpx(24)
-      borderRadius: rnRadius['2xl'], // 原 rpx(44)=22,R1 吸附至 2xl(16)
+      borderRadius: rnRadius.sm, // 原 rpx(44)=22,O81 角色档收口 control=sm(4)
       backgroundColor: tk.brand.cta,
     },
     footerBtnText: {
