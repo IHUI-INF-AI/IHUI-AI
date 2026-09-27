@@ -88,7 +88,6 @@ interface ModeOption {
   risk: 'low' | 'medium' | 'high'
 }
 
-
 // 移到组件外避免每次 render 重新创建(2026-07-25 深化)
 //
 // G-164 补 `plan` 档:共享类型 `WorkspacePermissionMode` 一直声明 4 档,而这里只给 3 档
@@ -432,7 +431,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
         side="top"
         align="end"
         gap={8}
-        className="w-[min(360px,calc(100vw-2rem))] rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
+        className="w-[min(360px,calc(100vw-2rem))] rounded-xl border bg-popover p-3 text-popover-foreground shadow-md"
       >
         {/* dialog 语义与焦点属性保留在内容层(PortalPanel 容器只负责定位,
             不透传 aria 属性与 tabIndex;与原 panel div 属性一致,行为等价) */}

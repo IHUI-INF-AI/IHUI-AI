@@ -286,7 +286,7 @@ export default function WechatPage() {
                 placeholder={
                   t('mdPathPlaceholder') + ' (可上传 md 或在线编辑;留空则用 LLM 自动生成)'
                 }
-                className="thin-scroll min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+                className="thin-scroll min-h-[180px] w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed"
               />
               {mdPath && (
                 <p className="text-xs text-muted-foreground">

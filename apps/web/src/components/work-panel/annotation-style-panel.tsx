@@ -155,9 +155,7 @@ export function AnnotationStylePanel({
         </div>
       )}
 
-      <div className="truncate font-mono text-[10px] text-muted-foreground">
-        {element.selector}
-      </div>
+      <div className="truncate font-mono text-[10px] text-muted-foreground">{element.selector}</div>
       {element.textExcerpt ? (
         <div className="truncate text-[11px] text-foreground" data-testid="picked-element-text">
           {element.textExcerpt}
@@ -175,7 +173,7 @@ export function AnnotationStylePanel({
                 onChange={(e) => setStyles((prev) => ({ ...prev, [field]: e.target.value }))}
                 disabled={typeof styles[field] !== 'string'}
                 data-testid={`style-${field}`}
-                className="h-6 rounded border border-input bg-background px-1.5 text-[11px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40"
+                className="h-6 rounded-sm border border-input bg-background px-1.5 text-[11px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40"
               />
             </label>
           )

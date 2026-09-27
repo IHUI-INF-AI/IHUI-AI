@@ -90,7 +90,7 @@ function SchemaView({ schema }: { schema: JsonSchema }) {
       )}
       <ul className="space-y-1.5">
         {Object.entries(properties).map(([fieldName, prop]) => (
-          <li key={fieldName} className="rounded-md border bg-card p-2.5">
+          <li key={fieldName} className="rounded-lg border bg-card p-2.5">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <code className="font-mono text-xs font-semibold text-primary">{fieldName}</code>
               <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">

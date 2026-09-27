@@ -138,7 +138,7 @@ export function AgentRuleDialog({
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder={t('placeholderDescription')}
-              className="min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              className="min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
             />
           </div>
           <DialogFooter>
