@@ -195,7 +195,57 @@ describe('闸门住在共同出口(不是只住在某几个生产者头上)', ()
     expect(svc).toContain('const title = flattenUntrustedText(notification.title)')
   })
 
-  it('脚本侧唯一发信出口(notify-deploy-failure)三条 message 来源全部过闸门', () => {
+  it('直发 renderSystemAlertEmail 的两条通道也必须过闸门(它们不经 pushAlert)', () => {
+    // 独立复核(2026-09-27)抓到上一笔提交把"notification-worker 插队列自由文本"算作已封,
+    // 而它走的是 queue.add → render → sendEmail 的直连支路 —— 声称与实态分叉比缺口更糟,
+    // 所以这里给每条直发通道都上一道源码面锁。
+    for (const rel of [
+      '../src/workers/notification-worker.ts',
+      '../src/services/budget-alert-service.ts',
+    ] as const) {
+      const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
+      expect(src, `${rel} 未过正文闸门`).toContain('sanitizeAlertMessage(')
+      expect(src, `${rel} 未过标题闸门`).toContain('flattenUntrustedText(')
+      expect(src, `${rel} 不得把未归一化的 title/message 直接交给渲染层`).not.toMatch(
+        /message: content \?\? ''/,
+      )
+    }
+  })
+})
+
+describe('flattenUntrustedText 的幂等边界(第二次调用不得改写上一轮如实报出的丢弃量)', () => {
+  it('被截断过的输出再次过闸 ⇒ 逐字不变,告示里的丢弃字符数不被改小', () => {
+    const once = flattenUntrustedText('y'.repeat(400))
+    expect(once).toMatch(/…\[截断,已丢弃 \d+ 字符\]$/)
+    expect(once).toContain('已丢弃 100 字符')
+    expect(flattenUntrustedText(once)).toBe(once)
+  })
+
+  it('未截断的输出仍然幂等(普通单行文本二次处理逐字不变)', () => {
+    const once = flattenUntrustedText('a\u200bb from 10.20.30.40')
+    expect(flattenUntrustedText(once)).toBe(once)
+  })
+})
+
+describe('用户主目录必须盖住(redactSecrets 的路径规则是注入式的,不传 home 就空转)', () => {
+  it('堆栈里别人机器的家目录不随告警邮件外流', () => {
+    const out = flattenUntrustedText('at fn (/home/lizong/src/a.ts:1:1)')
+    expect(out).not.toContain('/home/lizong')
+    const win = flattenUntrustedText('read C:\\Users\\Administrator\\secrets\\k.txt failed')
+    expect(win.toLowerCase()).not.toContain('administrator')
+    // 反向对照:普通相对路径不得被误伤(否则堆栈没法读)
+    expect(flattenUntrustedText('at fn (src/a.ts:1:1)')).toContain('src/a.ts')
+  })
+
+  it('整条正文通道同样盖住用户目录', () => {
+    expect(sanitizeAlertMessage('第一行\nC:\\Users\\Administrator\\x')).not.toMatch(
+      /Administrator/i,
+    )
+  })
+})
+
+describe('脚本侧唯一发信出口(notify-deploy-failure)三条 message 来源全部过闸门', () => {
+  it('三条来源各自都调了闸门', () => {
     // 该脚本是 §5e 规定的 ops 邮件唯一出口,而它**不走 pushAlert** —— 闸门只放在
     // pushAlertWithResult 上盖不到这条通道(凭据巡检的 detail 里含上游响应体前 60 字符)。
     const script = readFileSync(
@@ -209,6 +259,10 @@ describe('闸门住在共同出口(不是只住在某几个生产者头上)', ()
   })
 
   it('出口之后各渠道只能拿到闸门后的变量(不得再回读 notification.message)', () => {
+    const svc = readFileSync(
+      fileURLToPath(new URL('../src/services/alert-notification-service.ts', import.meta.url)),
+      'utf8',
+    )
     // 锚点要落在**赋值行之后**:赋值行本身当然含 notification.title,
     // 从它起算会把那两行自己的赋值读成"违规回读"预言据恒红。
     const anchor = svc.indexOf('const message = sanitizeAlertMessage(notification.message)')
