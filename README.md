@@ -6266,3 +6266,20 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | 命中"双向对照、裸标记不放行、真包现读非空)+ §22c 镜像 9 例(含 T1 装车证明、T2"摘线不得被读成          |
 | 已装车"、T4 取材面形状锁、T5 真仓阳性对照"看不见存量不算通过")。紧急跳过                              |
 | `HUSKY_SKIP_RN_INTEROP_FN_STYLE=1`。                                                                  |
+| —                                                                                              | CI:style-spec.yml                                                                                   | `check-no-important.mjs`                | 样式规范守门 —— 禁止 !important(CSS 感知版)。                                                                                                                                                                                                                                                                         |
+| **第 135 项 `check-api-failure-throw.mjs`(blocking,2026-09-27 立)** —— 拦                      |
+| `if (!X.success) throw new Error(X.error)`:ApiResult 失败分支带的 `status`/`errorCode` 被丢掉, |
+| 而 `toUserFriendlyMessage` 的判序是 errorCode → HTTP status → 文案正则,于是 401 的             |
+| "Invalid or expired token" 落到参数类正则 `/invalid                                            | missing                                                                                             | required/` 上,用户看到                  |
+| 「提交的信息有误,请检查后重试」。立因是真机实测:进 App「广场」tab 一进来就弹这句 ——            |
+| 它把"去重新登录"引导成"回去改表单",**修复方向被指错**,不是措辞偏好。                           |
+| 唯一出口 `apiFailureToError(res)`(`packages/shared/src/utils/error-messages.ts`);              |
+| 出口被摘线时本门判"没有出路"并参与退出码。判据面先剥注释与字符串,遮罩唯一实现在                |
+| `scripts/lib/code-mask.mjs`(守门 131 同日改引它 —— 两处算同一件事必漂移)。                     |
+| 存量 958 处按**该文件 HEAD 自身计数**套棘轮,行内豁免 `api-error-exempt: <原因>`                |
+| (须带原因,已挂守门 108 的 30 天到期档)。**刻意不判的第二半**:catch 里只把字符串交给 UI         |
+| (`showFloat(e.message)`)的,换出口也救不回身份 —— 余量迁移必须逐处读 catch 路径。               |
+| 取证:`--self-test`(含真仓 HEAD 阳性对照)+ 镜像 8 例(T6 用纯函数+构造面证明                     |
+| "没 export 的出口等于不存在"、T7 证明遮罩不得有第二份)+ 一次私有索引注入复跑                   |
+| (加一处新违规 ⇒ `--staged` exit 1 并点名文件)。紧急跳过 `HUSKY_SKIP_API_FAILURE_THROW=1`。     |
+| 140 | guardian-runner.mjs + package.json scripts | `check-rn-double-header.mjs` | ⚠️ RN 屏包装器 NavBar × 共享屏自带页头 ⇒ 同屏两条返回键与两个标题;判据从调用点实参识别抑制通道,禁删任一层(blocking;出口 `double-header-exempt`;细节见 AGENTS.md 同名条) |
