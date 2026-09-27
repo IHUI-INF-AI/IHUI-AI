@@ -7,7 +7,7 @@ export default function Loading() {
     <div className="space-y-4 p-3">
       <div className="space-y-2">
         <div className="skeleton h-8 w-36 rounded" />
-        <div className="skeleton h-4 w-64 rounded" />
+        <div className="skeleton h-4 w-64 rounded-xs" />
       </div>
       <div className="flex gap-2">
         <div className="skeleton h-9 w-20 rounded" />
@@ -22,11 +22,11 @@ export default function Loading() {
               <div className="skeleton h-12 w-12 rounded-lg" />
               <div className="flex-1 space-y-1">
                 <div className="skeleton h-5 w-28 rounded" />
-                <div className="skeleton h-4 w-20 rounded" />
+                <div className="skeleton h-4 w-20 rounded-xs" />
               </div>
             </div>
-            <div className="skeleton h-4 w-full rounded" />
-            <div className="skeleton h-4 w-3/4 rounded" />
+            <div className="skeleton h-4 w-full rounded-xs" />
+            <div className="skeleton h-4 w-3/4 rounded-xs" />
             <div className="flex gap-2">
               <div className="skeleton h-6 w-16 rounded" />
               <div className="skeleton h-6 w-16 rounded" />

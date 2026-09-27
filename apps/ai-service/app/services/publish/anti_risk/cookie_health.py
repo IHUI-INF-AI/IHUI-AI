@@ -35,19 +35,20 @@ import threading
 import time
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from app.core.logging import get_logger
 
+from .state_paths import resolve_state_path
+
 logger = get_logger(__name__)
 
 
-# Cookie 健康度元数据持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
-_HEALTH_FILE = Path(os.environ.get(
-    "ANTI_RISK_COOKIE_HEALTH_FILE",
+# Cookie 健康度元数据持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/;相对档锚定**仓库根**、与进程 cwd 无关)
+_HEALTH_FILE = resolve_state_path(
+    os.environ.get("ANTI_RISK_COOKIE_HEALTH_FILE"),
     ".ihui-agent/tmp/anti-cookie-health.json",
-)).resolve()
+)
 
 # 健康状态阈值(天)
 _EXPIRING_SOON_DAYS = 7  # 距过期 ≤7 天 → expiring_soon

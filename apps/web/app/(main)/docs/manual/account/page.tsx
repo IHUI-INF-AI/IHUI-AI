@@ -47,7 +47,7 @@ export default function ManualAccountPage() {
       {/* 个人资料 */}
       <section id="profile" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">6.1 个人资料</h2>
-        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <p>进入 <strong>设置 → 个人资料</strong>,可修改:</p>
           <ul className="ml-4 list-disc space-y-1">
             <li><strong>头像</strong>:上传图片(≤ 2MB,JPG/PNG)或选择默认头像</li>
@@ -63,7 +63,7 @@ export default function ManualAccountPage() {
       {/* 密码与安全 */}
       <section id="password" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">6.2 密码与登录安全</h2>
-        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <h3 className="font-semibold text-foreground">修改密码</h3>
           <ol className="ml-4 list-decimal space-y-1">
             <li>设置 → 安全 → "修改密码"</li>
@@ -90,7 +90,7 @@ export default function ManualAccountPage() {
       {/* 两步验证 */}
       <section id="2fa" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">6.3 两步验证(2FA)</h2>
-        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <p>开启 2FA 后,即使密码泄露,黑客也无法登录。强烈建议 Team / Enterprise 用户开启。</p>
           <ol className="ml-4 list-decimal space-y-1">
             <li>设置 → 安全 → "两步验证"</li>
@@ -113,7 +113,7 @@ export default function ManualAccountPage() {
       {/* API Key */}
       <section id="api-key" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">6.4 API Key 管理</h2>
-        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <p>API Key 用于通过代码调用智汇 AI 接口(对话 / Agent / 知识库等)。</p>
           <ol className="ml-4 list-decimal space-y-1">
             <li>设置 → API Key → "创建 Key"</li>
@@ -139,7 +139,7 @@ curl -X POST https://api.aizhs.top/v1/chat/completions \\
       {/* 主题与语言 */}
       <section id="appearance" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">6.5 主题与语言</h2>
-        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <h3 className="font-semibold text-foreground">主题</h3>
           <ul className="ml-4 list-disc space-y-1">
             <li><strong>亮色</strong>:白底黑字,白天使用</li>
@@ -165,7 +165,7 @@ curl -X POST https://api.aizhs.top/v1/chat/completions \\
       {/* 通知偏好 */}
       <section id="notifications" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">6.6 通知偏好</h2>
-        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <p>设置 → 通知,可分别配置:</p>
           <div className="space-y-2">
             {[

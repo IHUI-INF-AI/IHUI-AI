@@ -47,7 +47,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <h1 className="text-xl font-bold tracking-tight">IHUI AI</h1>
           <p className="mt-1 text-xs text-muted-foreground">AI SaaS Platform</p>
         </div>
-        <div className="rounded-xl border bg-card text-card-foreground shadow-sm">{children}</div>
+        <div className="rounded-lg border bg-card text-card-foreground shadow-sm">{children}</div>
       </div>
     </div>
   )

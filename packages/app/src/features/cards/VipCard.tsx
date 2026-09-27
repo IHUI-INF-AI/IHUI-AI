@@ -108,11 +108,13 @@ export function VipCard({
 
       {showPurchase ? (
         onPurchasePress ? (
-          <Pressable
-            style={({ pressed }) => [styles.purchaseBtn, pressed && styles.pressed]}
-            onPress={onPurchasePress}
-          >
-            {purchaseInner}
+          // 守门 131 那一型:函数形态 style 落在 Pressable 上会被 cssInterop 展开成空对象,
+          // 整份内联样式静默消失。按钮盒含底色/圆角(有绘制),整盒下移到子 View 数组形态;
+          // alignSelf flex-start 是纯布局档,留在外层槽位;宽度原本由内容决定,不补百分比宽。
+          <Pressable style={styles.purchaseBtnSlot} onPress={onPurchasePress}>
+            {({ pressed }) => (
+              <View style={[styles.purchaseBtn, pressed && styles.pressed]}>{purchaseInner}</View>
+            )}
           </Pressable>
         ) : (
           <View style={styles.purchaseBtn}>{purchaseInner}</View>
@@ -125,11 +127,12 @@ export function VipCard({
 
   if (onPress) {
     return (
-      <Pressable
-        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-        onPress={onPress}
-      >
-        {inner}
+      // 同上(守门 131 那一型):卡片盒含底色/描边/圆角(有绘制),整盒下移到子 View;
+      // 改前宽度由使用方给定的整行宽撑出,故内层用 cardFace 显式把宽度还给盒子。
+      <Pressable onPress={onPress}>
+        {({ pressed }) => (
+          <View style={[styles.cardFace, styles.card, pressed && styles.pressed]}>{inner}</View>
+        )}
       </Pressable>
     )
   }
@@ -138,6 +141,16 @@ export function VipCard({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
+    // 守门 131 转换新增:卡片盒下移到子 View 后,宽度由该档显式还给盒子
+    // (改前那一维由使用方整行宽撑出),未引入任何新数字档。
+    cardFace: {
+      width: '100%',
+    },
+    // 守门 131 转换新增:购买按钮的外层槽位,只承接 flex-start 这一布局档
+    // (数值沿用原 purchaseBtn 内的同一声明,盒子视觉已下移到内层)。
+    purchaseBtnSlot: {
+      alignSelf: 'flex-start',
+    },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius['2xl'],
