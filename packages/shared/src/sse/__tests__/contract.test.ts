@@ -27,9 +27,9 @@ import {
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 28 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval)', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(28)
-    expect(SSE_EVENT_NAMES).toHaveLength(28)
+  it('包含全部 29 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta)', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(29)
+    expect(SSE_EVENT_NAMES).toHaveLength(29)
   })
 
   // D34(2026-09-22,G-40/G-44):运行环境交代两帧。
@@ -122,6 +122,8 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   START: 'start',
   // V3 #58(2026-09-26):主聊天流工具审批帧
   TOOL_APPROVAL: 'tool-approval',
+  // D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧
+  TOOL_DELTA: 'tool-delta',
   DONE: 'done',
   ERROR: 'error',
   COMPACTION: 'compaction',
