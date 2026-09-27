@@ -80,7 +80,13 @@ function withExcludes(extra) {
  */
 function isExcludedDirName(name) {
   if (EXCLUDE_DIRS.has(name)) return true
-  return name.startsWith('.next-')
+  /**
+   * `.next-*` 与 `.tmp-*` 都是"构建 / 取证副本"族:里面是压缩产物,不是源码。
+   * 2026-09-15 立前者,2026-09-27 立后者 —— 实测 `apps/miniapp-taro/.tmp-wx-evidence-dist/`
+   * 一份微信产物副本单独贡献了胶囊守门 48 处"违规"里的 15 处(31%),真信号被淹在噪声里。
+   * 判落地的门把副本当源码,症状不是"多报几条",而是**没人再去读那份报告**。
+   */
+  return name.startsWith('.next-') || name.startsWith('.tmp-')
 }
 
 export { EXCLUDE_DIRS, withExcludes, isExcludedDirName }
