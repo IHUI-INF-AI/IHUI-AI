@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -21,7 +21,7 @@ const BOM_UTF16_BE = Buffer.from([0xfe, 0xff])
 
 // ─── 辅助:创建临时项目根目录 ─────────────────────────────
 function createTempRoot() {
-  return mkdtempSync(join(tmpdir(), 'ihui-dist-enc-'))
+  return mkScratch('ihui-dist-enc-')
 }
 
 // 辅助:在临时项目下创建一个 package/app(含 dist/<file>,文件内容由 buffer 指定)
@@ -71,7 +71,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,直接走默认扫描)', () =
     )
     assert.ok(!r.stderr.includes('Error:'), `不应产生未捕获 Error`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -84,7 +84,7 @@ test('无 packages/ 和 apps/ 目录 → exit 0 + 警告"未找到任何 package
     // 警告走 console.warn → stderr
     assert.match(r.all, /未找到任何 packages\/\*\/dist 或 apps\/\*\/dist/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -97,7 +97,7 @@ test('packages/ 存在但无 dist 子目录 → exit 0 + 警告', () => {
     assert.equal(r.status, 0, `无 dist 应 exit 0\nall: ${r.all}`)
     assert.match(r.all, /未找到任何 packages\/\*\/dist 或 apps\/\*\/dist/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -114,7 +114,7 @@ test('dist 文件无 BOM(UTF-8 无 BOM)→ exit 0 + 报告"所有 dist 文件均
     assert.match(r.stdout, /无 BOM: 1 个文件/)
     assert.match(r.stdout, /所有 dist 文件均为 UTF-8 无 BOM/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -134,7 +134,7 @@ test('dist 文件含 UTF-8 BOM (0xEF 0xBB 0xBF) → exit 1 + 报告 BOM 类型',
     assert.match(r.all, /UTF-8 BOM \(0xEF 0xBB 0xBF\)/)
     assert.match(r.all, /packages[\\/]utf8-bom-pkg[\\/]dist[\\/]index\.js/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -154,7 +154,7 @@ test('dist 文件含 UTF-16 LE BOM (0xFF 0xFE) → exit 1 + 报告 BOM 类型', 
     assert.match(r.all, /UTF-16 LE BOM \(0xFF 0xFE\)/)
     assert.match(r.all, /admin-auth\.js/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -172,7 +172,7 @@ test('dist 文件含 UTF-16 BE BOM (0xFE 0xFF) → exit 1 + 报告 BOM 类型', 
     assert.match(r.all, /发现 1 个含 BOM 的 dist 文件/)
     assert.match(r.all, /UTF-16 BE BOM \(0xFE 0xFF\)/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -195,7 +195,7 @@ test('多个 dist 文件含 BOM → 全部报告 + exit 1', () => {
     assert.match(r.all, /b\.mjs/)
     assert.match(r.all, /c\.css/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -213,7 +213,7 @@ test('apps/*/dist 文件含 BOM 同样被扫描 → exit 1', () => {
     assert.match(r.all, /发现 1 个含 BOM 的 dist 文件/)
     assert.match(r.all, /apps[\\/]api[\\/]dist[\\/]endpoints[\\/]admin-auth\.js/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -231,7 +231,7 @@ test('目标扩展名(.js .mjs .cjs .ts .map .css .json .html)中含 BOM → 全
     assert.equal(r.status, 1, `所有目标扩展名含 BOM 应 exit 1\nall: ${r.all}`)
     assert.match(r.all, /发现 8 个含 BOM 的 dist 文件/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -253,7 +253,7 @@ test('非目标扩展名(.txt .md .png .svg)即使含 BOM 也不扫描 → exit 
     assert.equal(r.status, 0, `非目标扩展名应跳过 → exit 0\nall: ${r.all}`)
     assert.match(r.all, /未找到任何 packages\/\*\/dist 或 apps\/\*\/dist/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -272,7 +272,7 @@ test('无扩展名文件(如 Makefile/Dockerfile)被跳过 → exit 0', () => {
     assert.equal(r.status, 0, `无扩展名文件应跳过 → exit 0\nall: ${r.all}`)
     assert.match(r.all, /未找到任何 packages\/\*\/dist 或 apps\/\*\/dist/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -291,7 +291,7 @@ test('空 dist 文件(0 字节)→ 不应误报 BOM → exit 0', () => {
     assert.equal(r.status, 0, `空文件不应误报 BOM → exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /无 BOM: 2 个文件/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -313,7 +313,7 @@ test('文件仅 1-2 字节(非 BOM)→ 不应误报 UTF-16 BOM → exit 0', () =
     assert.equal(r.status, 0, `小文件不应误报 BOM → exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /无 BOM: 3 个文件/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -335,7 +335,7 @@ test('BOM 违规时输出含 PowerShell 修复命令 + 根因说明(PowerShell W
     assert.match(r.all, /PowerShell WriteAllText 默认 UTF-16 LE BOM 编码/)
     assert.match(r.all, /Turbopack 解析失败/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
