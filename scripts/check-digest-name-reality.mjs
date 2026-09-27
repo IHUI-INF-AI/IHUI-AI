@@ -264,7 +264,7 @@ const BUILTIN_CALLEES = new Set([
 export function maskFaces(text, lang) {
   const py = lang === 'py'
   const out = []
-  let noStringChars = []
+  const noStringChars = []
   let i = 0
   let mode = 'code' // code | line | block | sq | dq | tpl | py3s
   let blockEnd = ''
@@ -587,7 +587,8 @@ export function looksLikeDataStructKey(name, surface) {
   if (/\b(?:join|stringify|format|dumps)\s*\(|JSON\.stringify/i.test(s) && !/path\.join/.test(s)) return false
   const hasSeparator = /['"`][^'"`\n]{0,60}(?::|__|\/)[^'"`\n]{0,60}['"`]/.test(s)
   const hasNamedConst = /(?:^|[^\w$])_?[A-Z][A-Z0-9_]{2,}(?:$|[^\w$])/.test(s)
-  const hasInterp = /\$\{/.test(s) || /\bf["']/.test(s)
+  // 这里曾多留一行 `const hasInterp = ...`,它与下一行的 hasPathShape(s) 逐字同式,
+  // 且没有任何一处读它 —— 判据不变,只是把"算了没人用"的死变量删掉。
   return (hasSeparator || hasNamedConst) && (hasPathShape(s) || hasSeparator)
 }
 
@@ -1014,8 +1015,18 @@ function calleeNames(body) {
 }
 
 /** 掩码证据:占位星号 / `[REDACTED]` / 返回 MASK 族常量(真仓 response-sanitizer 就是这么写的)。 */
+/**
+ * 第三种正当形态:**等长空格遮罩**(本仓 `scripts/lib/code-mask.mjs` 与判据层自己用的那套)——
+ * 把字符数组的某一位赋成空白字面量,然后把**同一个数组** join 回去返回。
+ * 两条必须同时出现:只写"赋空白"而不 join 回去 = 原值仍被返回,那不是掩码。
+ * 少了后半截,`function redact(v){const a=[v];a[0]='';return v}` 这种假脱敏就能拿到合格证。
+ */
+const BLANK_MASK_RE = /[\w$]+\s*\[[^\]]{1,24}\]\s*=\s*(["'])\s*\1[\s\S]{0,160}?\.join\s*\(/
+
 function hasMaskEvidence(body) {
-  return MASK_EVIDENCE_RE.test(body) || /\b(?:MASK|MASKED|REDACTED|REDACT|DUMMY)\b/.test(body)
+  return (
+    MASK_EVIDENCE_RE.test(body) || /\b(?:MASK|MASKED|REDACTED|REDACT|DUMMY)\b/.test(body) || BLANK_MASK_RE.test(body)
+  )
 }
 
 /**
@@ -1604,6 +1615,21 @@ fs.writeFileSync(p, SAMPLE)
   t('30 反向锁:同一形状把主路径也改成原样返回 ⇒ 必须命中',
     scanFile('x/r.ts', `function maskTail(v) {\n  if (!v) return v\n  return v.slice(0, 2) + '**'\n}\nfs.writeFileSync(p, maskTail(x))\n`).hits.length === 0 &&
       scanFile('x/r.ts', `function maskTail(v) {\n  if (!v) return v\n  return v\n}\nfs.writeFileSync(p, maskTail(x))\n`).hits.length === 1)
+
+  // 31 等长空格遮罩是本仓判据层的正当形态(code-mask.mjs 同套):逐位赋空白 + 把同一数组 join 回去。
+  //    反向对照刻意用**同一形状**只把 join 换成原样返回 —— 证明放行的是"遮罩真落进返回值",
+  //    不是"看见赋空白就闭眼放过"(那等于给假脱敏发合格证)。
+  t(
+    '31 等长空格遮罩(赋空白且 join 回原数组)⇒ 兑现;同形但返回原值 ⇒ 必须命中',
+    scanFile(
+      'x/m.ts',
+      `function maskSpan(src, from, to) {\n  const chars = src.split('')\n  for (let i = from; i < to; i++) chars[i] = ' '\n  return chars.join('')\n}\nfs.writeFileSync(p, maskSpan(code, 0, 9))\n`,
+    ).hits.length === 0 &&
+      scanFile(
+        'x/m.ts',
+        `function maskSpan(src, from, to) {\n  const chars = src.split('')\n  for (let i = from; i < to; i++) chars[i] = ' '\n  return src\n}\nfs.writeFileSync(p, maskSpan(code, 0, 9))\n`,
+      ).hits.length === 1,
+  )
 
   const failed = R.filter((r) => !r.pass)
   for (const r of R) console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.note ? ` — ${r.note}` : ''}`)
