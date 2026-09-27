@@ -173,52 +173,57 @@ export function TopicDetailScreen() {
   )
 
   const renderPost = ({ item }: { item: TopicPost }) => (
+    // 守门 131 改型:post 卡片无边距(内容自定高)⇒ 外层不设 style,父列表容器默认拉伸,
+    // 命中盒与卡片可视盒均等于原 Pressable;卡片底色 + pressed 淡出落内层数组形态。
     <Pressable
-      style={({ pressed }) => [styles.post, pressed ? styles.cardPressed : null]}
       onPress={() => navigation.navigate('CircleDetail', { id: String(item.id) })}
       accessibilityRole="button"
     >
-      <View style={styles.postUser}>
-        {item.avatar ? (
-          <Image source={{ uri: item.avatar }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarFallback]} />
-        )}
-        <View style={styles.userInfo}>
-          <Text style={styles.author}>{item.author || t('topic.detail.anonymous')}</Text>
-          <Text style={styles.time}>{formatTime(item.createTime)}</Text>
-        </View>
-      </View>
-      {item.title ? (
-        <Text style={styles.postTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-      ) : null}
-      <Text style={styles.postContent} numberOfLines={3}>
-        {item.content}
-      </Text>
-      {item.images && item.images.length > 0 ? (
-        <View style={styles.imgRow}>
-          {item.images.slice(0, 3).map((img, i) => (
-            <Image key={i} source={{ uri: img }} style={styles.postImg} />
-          ))}
-          {item.images.length > 3 ? (
-            <View style={[styles.postImg, styles.imgMore]}>
-              <Text style={styles.imgMoreText}>{`+${item.images.length - 3}`}</Text>
+      {({ pressed }) => (
+        <View style={[styles.post, pressed ? styles.cardPressed : null]}>
+          <View style={styles.postUser}>
+            {item.avatar ? (
+              <Image source={{ uri: item.avatar }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]} />
+            )}
+            <View style={styles.userInfo}>
+              <Text style={styles.author}>{item.author || t('topic.detail.anonymous')}</Text>
+              <Text style={styles.time}>{formatTime(item.createTime)}</Text>
+            </View>
+          </View>
+          {item.title ? (
+            <Text style={styles.postTitle} numberOfLines={2}>
+              {item.title}
+            </Text>
+          ) : null}
+          <Text style={styles.postContent} numberOfLines={3}>
+            {item.content}
+          </Text>
+          {item.images && item.images.length > 0 ? (
+            <View style={styles.imgRow}>
+              {item.images.slice(0, 3).map((img, i) => (
+                <Image key={i} source={{ uri: img }} style={styles.postImg} />
+              ))}
+              {item.images.length > 3 ? (
+                <View style={[styles.postImg, styles.imgMore]}>
+                  <Text style={styles.imgMoreText}>{`+${item.images.length - 3}`}</Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
+          <View style={styles.postFooter}>
+            <View style={styles.stat}>
+              <Heart size={14} color={tk.text.tertiary} />
+              <Text style={styles.statNum}>{item.likes ?? 0}</Text>
+            </View>
+            <View style={styles.stat}>
+              <MessageCircle size={14} color={tk.text.tertiary} />
+              <Text style={styles.statNum}>{item.comments ?? 0}</Text>
+            </View>
+          </View>
         </View>
-      ) : null}
-      <View style={styles.postFooter}>
-        <View style={styles.stat}>
-          <Heart size={14} color={tk.text.tertiary} />
-          <Text style={styles.statNum}>{item.likes ?? 0}</Text>
-        </View>
-        <View style={styles.stat}>
-          <MessageCircle size={14} color={tk.text.tertiary} />
-          <Text style={styles.statNum}>{item.comments ?? 0}</Text>
-        </View>
-      </View>
+      )}
     </Pressable>
   )
 
@@ -252,16 +257,18 @@ export function TopicDetailScreen() {
         </View>
       ) : null}
       {topic.name ? (
-        <Pressable
-          style={({ pressed }) => [styles.publishBar, pressed ? styles.cardPressed : null]}
-          onPress={goPublish}
-          accessibilityRole="button"
-        >
-          <PenLine size={15} color={tk.text.tertiary} />
-          <Text style={styles.publishText} numberOfLines={1}>
-            {t('topic.detail.publishPlaceholder')}
-          </Text>
-          <Text style={styles.publishBtn}>{t('topic.detail.publish')}</Text>
+        // 守门 131 改型:publishBar 是通栏行盒(上下 hairline 边 + 内容撑高)⇒ 外层不设 style,
+        // 通栏宽度由父列默认拉伸保持;行盒 + pressed 淡出落内层。
+        <Pressable onPress={goPublish} accessibilityRole="button">
+          {({ pressed }) => (
+            <View style={[styles.publishBar, pressed ? styles.cardPressed : null]}>
+              <PenLine size={15} color={tk.text.tertiary} />
+              <Text style={styles.publishText} numberOfLines={1}>
+                {t('topic.detail.publishPlaceholder')}
+              </Text>
+              <Text style={styles.publishBtn}>{t('topic.detail.publish')}</Text>
+            </View>
+          )}
         </Pressable>
       ) : null}
       <FlatList

@@ -277,48 +277,49 @@ export function CourseTabScreen({
           ) : (
             <View style={styles.courseList}>
               {courses.map((c) => (
-                <Pressable
-                  key={c.id}
-                  style={({ pressed }) => [
-                    styles.courseCard,
-                    pressed ? styles.courseCardPressed : null,
-                  ]}
-                  onPress={() => onPressCourse(c.id)}
-                >
-                  {c.cover ? (
-                    <Image
-                      source={{ uri: c.cover }}
-                      style={styles.courseImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={[styles.courseImage, styles.courseImageFallback]}>
-                      <BookOpen size={32} color={tk.text.medium} />
+                // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+                // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,卡面底色/圆角/overflow
+                // 裁切静默消失。courseCard 在这份表里是纯视觉档(无 margin/flex/width),外层在
+                // courseList(column,默认 alignItems stretch)里横向撑满 ⇒ 整档下移后盒子逐像素不变。
+                <Pressable key={c.id} onPress={() => onPressCourse(c.id)}>
+                  {({ pressed }) => (
+                    <View style={[styles.courseCard, pressed ? styles.courseCardPressed : null]}>
+                      {c.cover ? (
+                        <Image
+                          source={{ uri: c.cover }}
+                          style={styles.courseImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={[styles.courseImage, styles.courseImageFallback]}>
+                          <BookOpen size={32} color={tk.text.medium} />
+                        </View>
+                      )}
+                      <View style={styles.courseInfo}>
+                        <Text style={styles.courseTitle} numberOfLines={2}>
+                          {c.title}
+                        </Text>
+                        {c.description ? (
+                          <Text style={styles.courseDesc} numberOfLines={2}>
+                            {c.description}
+                          </Text>
+                        ) : null}
+                        <View style={styles.courseMeta}>
+                          {c.level ? (
+                            <View style={styles.levelBadge}>
+                              <Text style={styles.levelText}>{c.level}</Text>
+                            </View>
+                          ) : null}
+                          <Text style={styles.metaText}>
+                            {c.instructor} · {t('course.studentCount', { count: c.studentCount })}
+                          </Text>
+                        </View>
+                        <Text style={c.isFree ? styles.priceFree : styles.pricePaid}>
+                          {formatPrice(c.price, c.isFree)}
+                        </Text>
+                      </View>
                     </View>
                   )}
-                  <View style={styles.courseInfo}>
-                    <Text style={styles.courseTitle} numberOfLines={2}>
-                      {c.title}
-                    </Text>
-                    {c.description ? (
-                      <Text style={styles.courseDesc} numberOfLines={2}>
-                        {c.description}
-                      </Text>
-                    ) : null}
-                    <View style={styles.courseMeta}>
-                      {c.level ? (
-                        <View style={styles.levelBadge}>
-                          <Text style={styles.levelText}>{c.level}</Text>
-                        </View>
-                      ) : null}
-                      <Text style={styles.metaText}>
-                        {c.instructor} · {t('course.studentCount', { count: c.studentCount })}
-                      </Text>
-                    </View>
-                    <Text style={c.isFree ? styles.priceFree : styles.pricePaid}>
-                      {formatPrice(c.price, c.isFree)}
-                    </Text>
-                  </View>
                 </Pressable>
               ))}
               {totalPages > 1 ? (

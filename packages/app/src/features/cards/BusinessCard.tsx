@@ -122,11 +122,16 @@ export function BusinessCard({
       {actions ? (
         <View style={styles.actionsRow}>{actions}</View>
       ) : onContactPress ? (
-        <Pressable
-          style={({ pressed }) => [styles.contactBtn, pressed && styles.pressed]}
-          onPress={onContactPress}
-        >
-          <Text style={styles.contactBtnText}>联系</Text>
+        // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+        // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,整份内联样式静默消失。
+        // alignSelf 是外层在卡面(column)里占槽位的布局档,留在外层 ⇒ 按钮仍左对齐、
+        // 命中区仍只有按钮本身(移到内层会让整行可点)。
+        <Pressable onPress={onContactPress} style={styles.contactBtnBox}>
+          {({ pressed }) => (
+            <View style={[styles.contactBtn, pressed ? styles.pressed : null]}>
+              <Text style={styles.contactBtnText}>联系</Text>
+            </View>
+          )}
         </Pressable>
       ) : null}
     </Fragment>
@@ -134,11 +139,13 @@ export function BusinessCard({
 
   if (onPress) {
     return (
-      <Pressable
-        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-        onPress={onPress}
-      >
-        {inner}
+      // 同上:卡面档(底色/描边/圆角/padding/gap)落到内层 View 的数组形态。
+      // gap 仍作用在同一批子元素上(内层 View 就是这些子元素的父),与下面那条纯 View
+      // 分支渲染出逐字节相同的盒子 —— 两条分支本来就同用 styles.card。
+      <Pressable onPress={onPress}>
+        {({ pressed }) => (
+          <View style={[styles.card, pressed ? styles.pressed : null]}>{inner}</View>
+        )}
       </Pressable>
     )
   }
@@ -187,8 +194,10 @@ function createStyles(tk: AppThemeTokens) {
     contactLabel: { fontSize: 14, color: tk.text.secondary },
     contactValue: { fontSize: 14, color: tk.text.primary },
     actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    contactBtn: {
+    contactBtnBox: {
       alignSelf: 'flex-start',
+    },
+    contactBtn: {
       backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.xl,
       paddingHorizontal: 10,

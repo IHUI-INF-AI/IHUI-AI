@@ -82,43 +82,51 @@ export function LecturerListScreen({
   const [searchText, setSearchText] = useState('')
 
   const renderItem = ({ item }: { item: LecturerListItem }) => (
+    // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+    // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,卡片底色/圆角/内边距静默消失。
+    // marginHorizontal/marginBottom 留在外层(它既定位这张卡、也界定触区边界 —— 下移到内层
+    // 会让整行含边距都可点);面档 + flexDirection row 落内层,内层在外层里默认横向撑满 ⇒ 盒子不变。
     <Pressable
-      style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
+      style={styles.cardBox}
       onPress={() => onOpenLecturer(item.id)}
       accessibilityRole="button"
       accessibilityLabel={item.name}
     >
-      {item.avatar ? (
-        <Image source={{ uri: item.avatar }} style={styles.avatar} />
-      ) : (
-        <View style={[styles.avatar, styles.avatarFallback]}>
-          <Text style={styles.avatarFallbackText}>{item.name.slice(0, 1)}</Text>
+      {({ pressed }) => (
+        <View style={[styles.card, pressed ? styles.pressed : null]}>
+          {item.avatar ? (
+            <Image source={{ uri: item.avatar }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarFallback]}>
+              <Text style={styles.avatarFallbackText}>{item.name.slice(0, 1)}</Text>
+            </View>
+          )}
+          <View style={styles.cardBody}>
+            <View style={styles.nameRow}>
+              <Text style={styles.name} numberOfLines={1}>
+                {item.name}
+              </Text>
+              {item.title ? (
+                <View style={styles.titleBadge}>
+                  <Text style={styles.titleBadgeText} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            {item.intro ? (
+              <Text style={styles.intro} numberOfLines={2}>
+                {item.intro}
+              </Text>
+            ) : null}
+            <Text style={styles.meta}>
+              {t('teacher.list.courseCount', { n: item.courses })} ·{' '}
+              {t('teacher.list.studentCount', { n: item.students })}
+            </Text>
+          </View>
+          <ChevronRight size={18} color={tk.text.tertiary} />
         </View>
       )}
-      <View style={styles.cardBody}>
-        <View style={styles.nameRow}>
-          <Text style={styles.name} numberOfLines={1}>
-            {item.name}
-          </Text>
-          {item.title ? (
-            <View style={styles.titleBadge}>
-              <Text style={styles.titleBadgeText} numberOfLines={1}>
-                {item.title}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-        {item.intro ? (
-          <Text style={styles.intro} numberOfLines={2}>
-            {item.intro}
-          </Text>
-        ) : null}
-        <Text style={styles.meta}>
-          {t('teacher.list.courseCount', { n: item.courses })} ·{' '}
-          {t('teacher.list.studentCount', { n: item.students })}
-        </Text>
-      </View>
-      <ChevronRight size={18} color={tk.text.tertiary} />
     </Pressable>
   )
 
@@ -259,12 +267,16 @@ function createStyles(tk: AppThemeTokens) {
       padding: 0,
     },
     /* 讲师卡片 */
+    // 外层 = 卡片在列表里的占位与触区边界(守门 131:按压态不得写在 Pressable 的 style 上);
+    // 卡面档在下面的 card,由内层 View 承载。数值逐字搬移、未新增。
+    cardBox: {
+      marginHorizontal: 12, // rpx(24)
+      marginBottom: 12, // rpx(24)
+    },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12, // rpx(24)
-      marginHorizontal: 12, // rpx(24)
-      marginBottom: 12, // rpx(24)
       padding: 12, // rpx(24)
       borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.surface.card,
