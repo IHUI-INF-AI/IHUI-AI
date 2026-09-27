@@ -431,7 +431,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     retryBtn: {
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 16,
       paddingVertical: 8,
@@ -448,7 +448,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     searchInput: {
       height: 36, // h-9
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -507,7 +507,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     miniTag: {
-      borderRadius: rnRadius.xs,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 6,
       paddingVertical: 2,
@@ -530,7 +530,7 @@ function createStyles(tk: AppThemeTokens) {
     deleteBtn: {
       marginTop: 8,
       alignSelf: 'flex-start',
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.danger.light,
       paddingHorizontal: 8,
@@ -561,8 +561,8 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.overlay.modal,
     },
     sheet: {
-      borderTopLeftRadius: rnRadius['2xl'],
-      borderTopRightRadius: rnRadius['2xl'],
+      borderTopLeftRadius: rnRadius.xl,
+      borderTopRightRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       padding: 16,
     },
@@ -583,7 +583,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     textInput: {
       minHeight: 96,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: 12,
@@ -594,7 +594,7 @@ function createStyles(tk: AppThemeTokens) {
     categoryInput: {
       marginTop: 8,
       height: 36,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -609,7 +609,7 @@ function createStyles(tk: AppThemeTokens) {
     saveBtn: {
       marginTop: 16,
       alignItems: 'center',
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       paddingVertical: 12,
     },

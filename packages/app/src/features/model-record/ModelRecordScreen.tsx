@@ -93,7 +93,7 @@ function createStyles(tk: AppThemeTokens) {
     content: { padding: 12, paddingBottom: 24 },
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
       padding: 12,
     },

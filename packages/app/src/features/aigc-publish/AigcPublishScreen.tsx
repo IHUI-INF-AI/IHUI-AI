@@ -228,7 +228,7 @@ function createStyles(tk: AppThemeTokens) {
     typeChip: {
       flex: 1,
       paddingVertical: 10,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
     },
@@ -240,7 +240,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       paddingHorizontal: 12,
       paddingVertical: 10,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -253,7 +253,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       paddingHorizontal: 12,
       paddingVertical: 10,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 14,
@@ -263,13 +263,13 @@ function createStyles(tk: AppThemeTokens) {
     urlAddBtn: {
       paddingHorizontal: 14,
       paddingVertical: 10,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: primary,
     },
     urlAddText: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
     pickerBtn: {
       paddingVertical: 11,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: primary,
       backgroundColor: tk.surface.light,
@@ -322,7 +322,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       marginTop: 24,
       paddingVertical: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',

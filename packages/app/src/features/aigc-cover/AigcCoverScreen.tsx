@@ -168,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
       left: 8,
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: 'rgba(0,0,0,0.55)',
     },
     previewBadgeText: { fontSize: 12, color: tk.surface.light },
@@ -176,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
     filterChip: {
       paddingHorizontal: 14,
       paddingVertical: 6,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     filterChipActive: { backgroundColor: primary },
@@ -202,7 +202,7 @@ function createStyles(tk: AppThemeTokens) {
       right: 6,
       width: 24,
       height: 24,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.xl, // radius-exempt: 24×24 选中圆点,半径=边长一半为真圆(取 xs 会把它方档化)
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',
@@ -210,7 +210,7 @@ function createStyles(tk: AppThemeTokens) {
     aiGenBtn: {
       marginTop: 16,
       paddingVertical: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: primary,
       alignItems: 'center',
     },
@@ -218,7 +218,7 @@ function createStyles(tk: AppThemeTokens) {
     footer: { paddingHorizontal: 10, paddingVertical: 12, backgroundColor: tk.surface.light },
     confirmBtn: {
       paddingVertical: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',
