@@ -21,6 +21,7 @@ const course = read('../../../packages/api-client/src/endpoints/course.ts')
 const developer = read('../../../packages/api-client/src/endpoints/developer.ts')
 const learn = read('../../../packages/api-client/src/endpoints/learn.ts')
 const payment = read('../../../packages/api-client/src/endpoints/payment.ts')
+const aiMedia = read('../../../packages/api-client/src/endpoints/ai-media.ts')
 
 describe('getCategories → GET /api/learn/categories(旧 /api/course/categories 从未注册)', () => {
   const fn = course.slice(course.indexOf('export async function getCategories'))
@@ -72,6 +73,21 @@ describe('getWithdrawalStatus → GET 无体(旧 POST 从未注册,昵称/openId
     expect(body).not.toContain("method: 'POST'")
     expect(body).not.toContain('nickname')
     expect(body).not.toContain('openId')
+  })
+})
+
+describe('ai-audio 族 → /api/ai/audio/*(旧 /api/ai-audio/* 从未注册;textToSpeech 删除)', () => {
+  const code = stripComments(aiMedia)
+  it('三枚接真路由(chat/recognize/models),旧 ai-audio 面不回潮', () => {
+    expect(code).toContain("'/api/ai/audio/chat'")
+    expect(code).toContain("'/api/ai/audio/recognize'")
+    expect(code).toContain("'/api/ai/audio/models'")
+    expect(code).not.toContain('/api/ai-audio/')
+  })
+  it('textToSpeech 与 TtsResult 已摘(真 TTS 音频通道 = fetchTextToSpeechAudio 走 /api/ai/audio/speech)', () => {
+    expect(code).not.toContain('export async function textToSpeech')
+    expect(code).not.toContain('interface TtsResult')
+    expect(code).toContain("'/api/ai/audio/speech'")
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
