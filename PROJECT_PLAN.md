@@ -3518,7 +3518,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [ ] 73. `apps/miniapp-taro` AI 对话页(移植 `packages/app/src/features/agent-chat`;小程序用分块 `wx.request` 而非 stream)
 - [ ] 74. CLI 全屏 TUI 决策(三选一,建议 **A 真上 ink**:补依赖 + `tsconfig.include` 加 `.tsx`;顺带补或归档 README 声称的 `ihui config` / `ihui remote`)
 - [ ]（进行中@2026-09-27/v3wave3）75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯 Python 遍历;懒索引护栏 `_LAZY_INDEX_MAX_FILES=2000` 对 monorepo 复评) 进度(2026-09-27,不翻勾):两条通道已统一到同一份枚举实现 —— `file_search` 与 `mcp__filesystem__search_files` 共用 `apps/ai-service/app/services/rg_fallback_parity.py`(rg 优先、降级并行遍历),并各自回报 `enum_engine` / `enum_degraded`;`normalize_suffixes` 支持 `suffixes=None`(不过滤扩展名),因为 `file_search` 用的是**扩展名黑名单**而枚举层原先取白名单 —— 这是两通道结果集不一致的真因,已按「不改行为、只统一实现」收口,工具级对账 15 passed。**未达标题面**:「10 万文件级」只完成枚举侧,懒索引护栏 `mcp_server.py:634 _LAZY_INDEX_MAX_FILES = 2000` 对 monorepo 未复评(超 2000 即静默不建索引、返回 []),所以本票不翻勾。
-- [ ] 75. 〔重复登记副本〕同主键第二份未勾选副本,只加指针不动勾选;当前状态见带 v3wave3 租约的那一条(该条已写明默认档翻转与三轴派生阈值的完成事实与残余)。
+- [ ] 副本指针(编号 75)：同主键第二份未勾选副本,只加指针不动勾选;当前状态见带 v3wave3 租约的那条(该条写明默认档与三轴派生阈值及残余)。
 - [ ] 76. 知识引擎:Knowledge Card 自动蒸馏 + Repo Wiki 自同步(图存储默认 `InMemoryGraphStore` **重启即失** → 落 Drizzle;会话结束异步蒸馏 + card 三维元数据:来源/时效/置信)
 - [ ] 77. Goal-driven 自评估闭环 + My Quests 跨 workspace 全局看板(依赖 51)
 - [ ] 78. Experts 多智能体并行子模式(专家模板产品化 + 同文件写冲突治理:串行化或 worktree 隔离)
