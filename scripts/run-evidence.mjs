@@ -2,6 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/* eslint-disable no-console -- 本工具是 CLI 取证包装器,结论必须走 console(与 check-*.mjs 同形)。
+   注:该文件此前经**对象空间落地**入库,那条通道不跑 lint-staged,所以这一族 console 警告
+   在 HEAD 里安静地存在了一整天 —— 见 AGENTS.md §12「造好没装车」同族的落地侧版本。 */
 /**
  * 取证包装器:把「跑失败」与「根本没跑到」变成**机器可分辨**的两件事。
  *
@@ -29,7 +32,7 @@
  */
 import { spawn } from 'node:child_process'
 import { closeSync, existsSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -222,12 +225,37 @@ export const __test__ = {
   buildSpawnArgv,
 }
 
+/**
+ * 证据文件落点:相对路径一律按**仓库根**解释,且拒绝逃逸仓库根。
+ * 为什么加这一层(2026-09-27 由我自己的一次调用撞出来):旧写法直接 `resolve(ROOT, f)`,
+ * 于是在 `apps/miniapp-taro/` 下传 `../../.ihui-agent/tmp/x.txt` 会被算成
+ * `<盘根>\.ihui-agent\...` —— 一次手滑就把取证文件写到盘根(§15/§28 明令禁止的落点,
+ * 而守门 26 会把它算成父目录污染)。绝对路径不在此限(临时物落点由调用方按 §15b/§26 负责),
+ * 但最终落点会打进输出,让"写到哪儿了"当场可见,而不是事后靠 ENOENT 反推。
+ */
+export function resolveEvidencePath(f, root = ROOT) {
+  const abs = isAbsolute(f)
+  const p = abs ? f : resolve(root, f)
+  if (!abs) {
+    const rel = relative(root, p)
+    if (rel === '' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
+      throw new Error(
+        `证据文件路径逃出了仓库根:${JSON.stringify(f)} → ${p}` +
+          `(相对路径按仓库根解释;要写到仓库外请传绝对路径,并自行确认那是 §15b/§26 批准的落点)`,
+      )
+    }
+  }
+  return p
+}
+
 async function main() {
   const argv = process.argv.slice(2)
   const dIdx = argv.indexOf('--')
   const head = dIdx >= 0 ? argv.slice(0, dIdx) : argv
   const cmd = dIdx >= 0 ? argv.slice(dIdx + 1) : []
-  const flags = new Set(head.filter((a) => !a.startsWith('--') === false && a.startsWith('--') && !a.includes('=')))
+  const flags = new Set(
+    head.filter((a) => !a.startsWith('--') === false && a.startsWith('--') && !a.includes('=')),
+  )
   const opt = (k, d) => {
     const hit = head.find((a) => a.startsWith(`--${k}=`))
     return hit ? hit.slice(k.length + 3) : d
@@ -240,7 +268,14 @@ async function main() {
       console.error('❌ --verify 需要一个证据文件参数')
       return 2
     }
-    return verify(resolve(ROOT, f)).rcExit ?? 0
+    let fp
+    try {
+      fp = resolveEvidencePath(f)
+    } catch (e) {
+      console.error(`❌ ${e.message}`)
+      return 2
+    }
+    return verify(fp).rcExit ?? 0
   }
   const outArg = head.find((a) => !a.startsWith('--'))
   if (!outArg || !cmd.length) {
@@ -248,7 +283,14 @@ async function main() {
     return 2
   }
   const t = Number(opt('timeout', String(DEFAULT_TIMEOUT_MS)))
-  const r = await runCapture(resolve(ROOT, outArg), cmd, {
+  let outPath
+  try {
+    outPath = resolveEvidencePath(outArg)
+  } catch (e) {
+    console.error(`❌ ${e.message}`)
+    return 2
+  }
+  const r = await runCapture(outPath, cmd, {
     timeoutMs: Number.isFinite(t) && t > 0 ? t : 0,
     label: opt('label', ''),
   })
@@ -267,48 +309,81 @@ function selfTest() {
 async function runSelfTest() {
   const cases = []
   const ok = (name, cond) => cases.push([name, !!cond])
-  ok('T1 完整且 RC=0 ⇒ complete/exit0', (() => {
-    const v = judgeEvidence(`out\n${RC_MARK}0\n`)
-    return v.kind === 'complete' && v.rc === 0 && exitCodeForVerdict(v) === 0
-  })())
-  ok('T2 RC=1 ⇒ complete 但 exit1(失败≠没跑到)', (() => {
-    const v = judgeEvidence(`boom\n${RC_MARK}1\n`)
-    return v.kind === 'complete' && v.rc === 1 && exitCodeForVerdict(v) === 1
-  })())
-  ok('T3 无 RC 行 ⇒ truncated ⇒ exit3(本工具存在的理由)', (() => {
-    const v = judgeEvidence(`#EVIDENCE-START: x\n只打了半截 stdout`)
-    return v.kind === 'truncated' && exitCodeForVerdict(v) === 3
-  })())
-  ok('T4 阳性对照:同样的半截文本**不得**被判 complete/0', judgeEvidence('只打了一行就没了').kind !== 'complete')
-  ok('T5 被杀有标记 ⇒ killed,与 truncated 原因不同', (() => {
-    const v = judgeEvidence(`x\n${KILLED_MARK}: SIGTERM\n`)
-    return v.kind === 'killed' && exitCodeForVerdict(v) === 3
-  })())
-  ok('T6 RC 内容坏了 ⇒ malformed,不猜成 0', (() => {
-    const v = judgeEvidence(`${RC_MARK}yes\n`)
-    return v.kind === 'malformed' && exitCodeForVerdict(v) === 3
-  })())
+  ok(
+    'T1 完整且 RC=0 ⇒ complete/exit0',
+    (() => {
+      const v = judgeEvidence(`out\n${RC_MARK}0\n`)
+      return v.kind === 'complete' && v.rc === 0 && exitCodeForVerdict(v) === 0
+    })(),
+  )
+  ok(
+    'T2 RC=1 ⇒ complete 但 exit1(失败≠没跑到)',
+    (() => {
+      const v = judgeEvidence(`boom\n${RC_MARK}1\n`)
+      return v.kind === 'complete' && v.rc === 1 && exitCodeForVerdict(v) === 1
+    })(),
+  )
+  ok(
+    'T3 无 RC 行 ⇒ truncated ⇒ exit3(本工具存在的理由)',
+    (() => {
+      const v = judgeEvidence(`#EVIDENCE-START: x\n只打了半截 stdout`)
+      return v.kind === 'truncated' && exitCodeForVerdict(v) === 3
+    })(),
+  )
+  ok(
+    'T4 阳性对照:同样的半截文本**不得**被判 complete/0',
+    judgeEvidence('只打了一行就没了').kind !== 'complete',
+  )
+  ok(
+    'T5 被杀有标记 ⇒ killed,与 truncated 原因不同',
+    (() => {
+      const v = judgeEvidence(`x\n${KILLED_MARK}: SIGTERM\n`)
+      return v.kind === 'killed' && exitCodeForVerdict(v) === 3
+    })(),
+  )
+  ok(
+    'T6 RC 内容坏了 ⇒ malformed,不猜成 0',
+    (() => {
+      const v = judgeEvidence(`${RC_MARK}yes\n`)
+      return v.kind === 'malformed' && exitCodeForVerdict(v) === 3
+    })(),
+  )
   ok('T7 空文本 ⇒ missing', judgeEvidence('').kind === 'missing')
-  ok('T8 多条 RC 取最后一条(重试续写不误判)', (() => {
-    const v = judgeEvidence(`${RC_MARK}1\nagain\n${RC_MARK}0\n`)
-    return v.kind === 'complete' && v.rc === 0
-  })())
-  ok('T9 75 必须原样传播(push guard 链)', (() => {
-    const v = judgeEvidence(`${RC_MARK}75\n`)
-    return exitCodeForVerdict(v) === 1 && v.rc === 75
-  })())
+  ok(
+    'T8 多条 RC 取最后一条(重试续写不误判)',
+    (() => {
+      const v = judgeEvidence(`${RC_MARK}1\nagain\n${RC_MARK}0\n`)
+      return v.kind === 'complete' && v.rc === 0
+    })(),
+  )
+  ok(
+    'T9 75 必须原样传播(push guard 链)',
+    (() => {
+      const v = judgeEvidence(`${RC_MARK}75\n`)
+      return exitCodeForVerdict(v) === 1 && v.rc === 75
+    })(),
+  )
   ok('T10 CRLF 证据也能判', judgeEvidence(`x\r\n${RC_MARK}0\r\n`).kind === 'complete')
   // 端到端:真派生一个成功命令与一个失败命令,证明标记真的会落盘
   const dir = resolve(ROOT, '.ihui-agent', 'tmp')
   if (!existsSync(dir)) throw new Error('.ihui-agent/tmp 不在,自检拒绝往别处写')
   const f1 = resolve(dir, 'evidence-selftest-ok.txt')
   const f2 = resolve(dir, 'evidence-selftest-fail.txt')
-  const a = await runCapture(f1, [process.execPath, '-e', 'console.log("hi");process.exit(0)'], { timeoutMs: 30_000 })
-  const b = await runCapture(f2, [process.execPath, '-e', 'console.error("nope");process.exit(4)'], { timeoutMs: 30_000 })
+  const a = await runCapture(f1, [process.execPath, '-e', 'console.log("hi");process.exit(0)'], {
+    timeoutMs: 30_000,
+  })
+  const b = await runCapture(
+    f2,
+    [process.execPath, '-e', 'console.error("nope");process.exit(4)'],
+    { timeoutMs: 30_000 },
+  )
   const va = judgeEvidence(readFileSync(f1, 'utf8'))
   const vb = judgeEvidence(readFileSync(f2, 'utf8'))
   ok('T11 端到端成功:RC=0 且标记在文件末行', a.rc === 0 && va.kind === 'complete' && va.rc === 0)
-  ok('T12 端到端失败:RC=4 被如实记下(不是"没跑到")', b.rc === 4 && vb.kind === 'complete' && vb.rc === 4)
+  ok(
+    'T12 端到端失败:RC=4 被如实记下(不是"没跑到")',
+    b.rc === 4 && vb.kind === 'complete' && vb.rc === 4,
+  )
   ok('T13 端到端可验:verify() 对成功件返回 0', verify(f1).rcExit === 0 || verify(f1) !== undefined)
   // T14 —— 本工具存在的唯一理由的**真实**端到端:外部把包装器 SIGKILL 掉(模拟 agent 的
   // `timeout 200 …` 掐断输出那一型),证据文件必须**没有** RC 行 ⇒ 读侧判 INCOMPLETE 而不是"跑过了"。
@@ -318,7 +393,15 @@ async function runSelfTest() {
   try {
     const wrapper = spawn(
       process.execPath,
-      [resolve(HERE, 'run-evidence.mjs'), f3, '--timeout=0', '--', process.execPath, '-e', 'setTimeout(() => {}, 60000)'],
+      [
+        resolve(HERE, 'run-evidence.mjs'),
+        f3,
+        '--timeout=0',
+        '--',
+        process.execPath,
+        '-e',
+        'setTimeout(() => {}, 60000)',
+      ],
       { cwd: ROOT, windowsHide: true, stdio: 'ignore', detached: false },
     )
     await new Promise((r) => setTimeout(r, 2500))
@@ -326,10 +409,16 @@ async function runSelfTest() {
     await new Promise((r) => setTimeout(r, 800))
     const v14 = judgeEvidence(existsSync(f3) ? readFileSync(f3, 'utf8') : '')
     killedVerdict = v14.kind
-    ok('T14 外部 SIGKILL 包装器 ⇒ 证据无 RC ⇒ 判非 complete(exit 3)', (() => {
-      const v = { kind: killedVerdict }
-      return (v.kind === 'truncated' || v.kind === 'missing' || v.kind === 'killed') && exitCodeForVerdict(v) === 3
-    })())
+    ok(
+      'T14 外部 SIGKILL 包装器 ⇒ 证据无 RC ⇒ 判非 complete(exit 3)',
+      (() => {
+        const v = { kind: killedVerdict }
+        return (
+          (v.kind === 'truncated' || v.kind === 'missing' || v.kind === 'killed') &&
+          exitCodeForVerdict(v) === 3
+        )
+      })(),
+    )
     ok('T14b 阳性对照:被杀的那份**不得**被判 complete/通过', killedVerdict !== 'complete')
   } catch {
     ok('T14 端到端被杀场景(本机无法派生 ⇒ 计未判定,不记通过)', false)
@@ -351,9 +440,15 @@ async function runSelfTest() {
     const c = await runCapture(f4, [resolve(dir, 'no-such-binary-xyz.exe')], { timeoutMs: 20_000 })
     const txt = readFileSync(f4, 'utf8')
     const rcLines = txt.split(/\r?\n/).filter((l) => l.startsWith(RC_MARK))
-    ok('T15 派生失败 ⇒ RC 行**恰好一条**且值为 127(句柄只关一次)', c.rc === 127 && rcLines.length === 1 && rcLines[0] === `${RC_MARK}127`)
+    ok(
+      'T15 派生失败 ⇒ RC 行**恰好一条**且值为 127(句柄只关一次)',
+      c.rc === 127 && rcLines.length === 1 && rcLines[0] === `${RC_MARK}127`,
+    )
     ok('T15aa 第二次终止尝试被观测到没有(doubleWrite 必须为 false)', c.doubleWrite === false)
-    ok('T15b 阳性对照:同一份证据不得被读成"没跑到"(truncated)', judgeEvidence(txt).kind === 'complete')
+    ok(
+      'T15b 阳性对照:同一份证据不得被读成"没跑到"(truncated)',
+      judgeEvidence(txt).kind === 'complete',
+    )
     ok('T15c 失败原因写进证据(#EVIDENCE-ERROR 在位)', /#EVIDENCE-ERROR: /.test(txt))
   } catch (e) {
     enoentCrashed = true
@@ -370,19 +465,23 @@ async function runSelfTest() {
       }
     }
   }
-  ok('T16 .CMD shim 必须改走 cmd.exe /d /c(Windows 的 pnpm/npx 是 .CMD,直 spawn 必 ENOENT)', (() => {
-    const one = buildSpawnArgv(['zzz-not-a-real-binary'])
-    if (one[0] === 'cmd.exe') return false // 不存在的命令不得被凭空包一层
-    const abs = buildSpawnArgv([process.execPath, '-e', '0'])
-    if (abs[0] !== process.execPath || abs.join(' ') !== [process.execPath, '-e', '0'].join(' ')) return false
-    if (process.platform !== 'win32') return true // 非 Windows:没有 .CMD 这一族,只证"不乱包"
-    const asCmd = buildSpawnArgv(['pnpm.cmd', '--version'])
-    if (asCmd[0] !== 'cmd.exe' || asCmd[1] !== '/d' || asCmd[2] !== '/c') return false
-    const bare = buildSpawnArgv(['pnpm', '--version'])
-    // 裸名 `pnpm` 只有在 PATH 上解析到 .cmd/.bat 时才该被包;解析不到就原样交给 spawn(错误面照旧落 127)。
-    if (bare[0] === 'cmd.exe') return bare[3].toLowerCase().endsWith('.cmd')
-    return !existsSync(resolve(ROOT, 'pnpm'))
-  })())
+  ok(
+    'T16 .CMD shim 必须改走 cmd.exe /d /c(Windows 的 pnpm/npx 是 .CMD,直 spawn 必 ENOENT)',
+    (() => {
+      const one = buildSpawnArgv(['zzz-not-a-real-binary'])
+      if (one[0] === 'cmd.exe') return false // 不存在的命令不得被凭空包一层
+      const abs = buildSpawnArgv([process.execPath, '-e', '0'])
+      if (abs[0] !== process.execPath || abs.join(' ') !== [process.execPath, '-e', '0'].join(' '))
+        return false
+      if (process.platform !== 'win32') return true // 非 Windows:没有 .CMD 这一族,只证"不乱包"
+      const asCmd = buildSpawnArgv(['pnpm.cmd', '--version'])
+      if (asCmd[0] !== 'cmd.exe' || asCmd[1] !== '/d' || asCmd[2] !== '/c') return false
+      const bare = buildSpawnArgv(['pnpm', '--version'])
+      // 裸名 `pnpm` 只有在 PATH 上解析到 .cmd/.bat 时才该被包;解析不到就原样交给 spawn(错误面照旧落 127)。
+      if (bare[0] === 'cmd.exe') return bare[3].toLowerCase().endsWith('.cmd')
+      return !existsSync(resolve(ROOT, 'pnpm'))
+    })(),
+  )
   for (const f of [f1, f2]) {
     try {
       const txt = readFileSync(f, 'utf8')

@@ -577,12 +577,30 @@ if (hookFailed && commitResult.status !== 0) {
       return { ran: false, status: null, output: '', why: `基线面被中断或超时(${timeoutMs}ms)` }
     return { ran: true, status: g.status ?? 1, output: `${g.stdout || ''}${g.stderr || ''}`, why: null }
   }
+  /**
+   * 共享索引里"别人挂着的东西"(2026-09-27,G-268 的索引面翻版)。
+   * 判"红是不是本枚引入"时,这一步是必须的:本仓的提交一律带 pathspec(只交 expectedFiles),
+   * 而 71/84 这类门按**索引**判 —— 索引里常年挂着并发会话 staged 的活文档,它们结构上进不了
+   * 本枚提交,却会让"我的面"红、基线面(HEAD 的隔离检出)绿,差分于是把别人的现场定责给提交者。
+   * 唯一"修法"是去改别人的暂存,那是 §12 明令的事故,所以这里把它显式交给归因层判"未判定"。
+   */
+  const stagedNow = (run('git diff --cached --name-only --no-renames', { allowFail: true }) || '')
+    .split(/[\r\n]+/)
+    .map((l) => l.trim())
+    .filter((l) => l !== '')
+  const foreignStaged = stagedNow.filter((p) => !expectedFiles.includes(p))
+  if (foreignStaged.length > 0)
+    log(
+      'info',
+      `索引里另有 ${foreignStaged.length} 个非本票文件(${foreignStaged.slice(0, 6).join(', ')}${foreignStaged.length > 6 ? ' …' : ''}) —— 不随本枚提交走:commit 带 pathspec,只交上面声明的清单,故不中止(第一版在此中止反而自锁:并发会话随时可能 staged 东西,而它本来也进不来)`,
+    )
   const verdict0 = classifyHookFailure({
     text: hookOutput,
     fallbackText: hookLogTail,
     stagedFiles: expectedFiles,
     runGate,
     runGateBaseline,
+    foreignStaged,
   })
   /**
    * 批没跑完 ⇒ 由本脚本自己把守门批跑一遍取证(2026-09-26 立)。
@@ -636,6 +654,7 @@ if (hookFailed && commitResult.status !== 0) {
     runGate,
     runGateBaseline,
     hookText: hookOutput,
+    foreignStaged,
   })
   // 差分取证已经结束 ⇒ 立刻回收隔离工作树(它挂在 `.git/worktrees` 下,这台机的 .git 存续
   // 治理等不起一个长期挂着的 worktree 登记);mine 分支随后 process.exit 也有 process.on('exit') 兜底。
