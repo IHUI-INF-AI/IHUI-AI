@@ -6,6 +6,20 @@
 
 # 邮件服务部署手册(腾讯云 SES + IHUI AI)
 
+> ⚠️ **本手册的腾讯云 SES 部分已过期,不要照它配 `.env`**(2026-09-27 实测登记)。
+> 现行发信通道只有两条,住在 `apps/api/src/services/email-service.ts`:
+> **`smtp`(nodemailer 通用 SMTP,含国内收件人)→ `resend`(国外收件人)→ `stub`**,
+> 由 `MAIL_PROVIDER=auto` 按收件域名路由。代码里**已经没有任何一行读 `TENCENT_SES_*`**:
+> 全仓仅文档与本票台账、测试注释里出现该前缀;`apps/api/src` 与 `packages/auth` 零引用;
+> zod 清单也不含这些键;并且有一条回归用例专门钉住"失败原因里不再出现 `tencent_ses_keys_missing`"
+> (`apps/api/tests/email-service.test.ts`)。
+> **所以按 §7 去申请子账号、把 AK/SK 填进 `.env` 不会接到任何通道上**——填了也没人读,
+> 反而会让下一次凭据巡检把"空值的 `TENCENT_SES_*`"误当成待补欠账(本机 2026-09-27 现读:
+> 这 5 个键在 `apps/api/.env` 里就是空的,属**已摘除通道的残留**,不是待填凭据)。
+> 真要改发信配置,看运维侧的通道口径:**告警/运维到人只有邮件一条通道**,SMTP 恒为回落链首,
+> QQ 中继下 `From` 的邮箱段必须等于登录账号(否则 550 拒),`aizhs.top` 作 `From` 只走 Resend(已验证域)。
+> 下面各节保留作**历史配置记录**(DNS/SPF/DKIM 那部分对 `aizhs.top` 仍然有效)。
+
 > **作用域**:`apps/api` 邮件服务(`src/services/email-service.ts`)的完整启用流程。
 > 适用场景:验证码邮件 / 事务通知邮件 / 营销订阅邮件。
 > **预计耗时**:首次配置 10-15 分钟,DNS 生效后等 5-30 分钟可发件。
@@ -124,11 +138,15 @@ API 密钥管理 → 新建密钥 → 复制 SecretId + SecretKey。
 
 打开 `apps/api/.env`(没有就 `cp .env.example .env`),把下面 4 行填上真值:
 
+> 🚫 **本节已失效**:下面 4 个 `TENCENT_SES_*` 键**当前没有任何代码读取**(原因见文首告示),
+> 不要为"补全空值"去填它们;现行需要的是 SMTP 段(`SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS`)
+> 与 `RESEND_API_KEY`。这几行保留原文只为让读过旧版手册的人能对上号。
+
 ```bash
 # 邮件服务
 MAIL_PROVIDER=auto
 
-# 腾讯云 SES(国内邮箱)
+# 腾讯云 SES(国内邮箱)—— 已摘除通道,填了无人读
 TENCENT_SES_SECRET_ID=AKIDxxxxxxxxxxxxxxxxxxxx   # 替换成你的真值
 TENCENT_SES_SECRET_KEY=xxxxxxxxxxxxxxxxxxxxxxxx  # 替换成你的真值
 TENCENT_SES_FROM=noreply@aizhs.top               # 必须是 aizhs.top 域名下的地址

@@ -28,6 +28,9 @@
  * 判据取向(本仓惯例:**宁窄不误**):认不出的一律落 `other`,而 `other` 的行为与改动前
  *   逐字相同(marker 重试 + --no-verify 兜底)。新增分类只会**减少**跳门,绝不因为
  *   "分类不确定"把一次真钩子失败洗成不跳门,也绝不反过来。
+ *   (2026-09-27 补:`credentials-unavailable` 是唯一的**不减少跳门**的新增档 —— 它的
+ *   allow* 与 other 完全相同,只换取"分类名 + 出路文案"更准;当时的 --no-verify 重试
+ *   对凭据断点无害也无用,行为不变是为了不动 §5b push-gate 链,出路文案负责教人对因。)
  */
 import { pathToFileURL } from 'node:url'
 
@@ -35,8 +38,10 @@ import { pathToFileURL } from 'node:url'
 export const PUSH_TRIAGE_KINDS = Object.freeze([
   'pushed-ok',
   'up-to-date',
+  'protected-branch',
   'non-fast-forward',
   'secret-scan-blocked',
+  'credentials-unavailable',
   'hook-failed',
   'other',
 ])
@@ -56,6 +61,21 @@ export const SECRET_SCAN_RE =
   /repository rule violations|secret-scanning|Secret scanning|push declined due to/i
 
 /**
+ * 远端**分支保护策略**拒收(2026-09-27 17:1x 起本机实测,成因不是并发也不是质量门):
+ *   `remote: error: GH006: Protected branch update failed for refs/heads.main.`
+ *   `remote: - Required status check "CI / lint-typecheck-test (pull_request)" is expected.`
+ *   `! [remote rejected]       main -> main (protected branch hook declined)`
+ * ⚠ 这一档**必须排在 non-fast-forward 之前**:同一份回显里带着 `[remote rejected]`,
+ *   而 `NON_FAST_FORWARD_RE` 认这个特征 ⇒ 旧分诊把它报成"并发分叉",
+ *   于是每个会话照着出路去跑 `git-sync-converge.mjs`(实测 3 轮 × 每轮全量门,约 15 分钟白跑),
+ *   而收敛器**结构上修不了一个仓库设置**。分诊错一档的代价不是措辞,是把人引到一条死路上反复跑。
+ * 判据只用服务器侧的原话特征(GH006 / protected branch / Required status check),
+ * 不含 `[remote rejected]` —— 那一串在真分叉与钩子失败里都会出现,拿它当分支保护证据就是又一轮误标。
+ */
+export const PROTECTED_BRANCH_RE =
+  /GH006|protected branch update failed|protected branch hook declined|Required status check|branch is protected|rulesets?\b.*prevent/i
+
+/**
  * 远端拒收 non-fast-forward。git 的真实形态有两处:短横线式 `* [rejected]` 摘要行
  * 与 `hint: Updates were rejected because ...`;`fetch first` 是 GitLab/GitHub 侧常见回显。
  * 刻意不含 `error: failed to push some refs` —— 钩子失败时 git 打的是同一句,拿它当
@@ -63,6 +83,18 @@ export const SECRET_SCAN_RE =
  */
 export const NON_FAST_FORWARD_RE =
   /non-fast-forward|fetch first|updates were rejected|\[rejected\]|\[remote rejected\]|stale info/i
+
+/**
+ * 凭据**不可得**(≠凭据失效 —— 根本没拿到,而不是拿到了被拒)。特征串逐字取自
+ * `.workbuddy/git-push-guard-async.log` 的真实回显(2026-09-27 实测 60 条同型):
+ *   · `could not read Username|Password for '<url>'` —— 所有 helper 都没交出凭据、
+ *     git 回落交互提示后失败(有无 tty / GIT_TERMINAL_PROMPT 取值决定尾串形态);
+ *   · `failed to execute prompt script` —— 提示脚本本身跑不动(同一断点的另一形态)。
+ * 成因形态:失败发起进程的身份(典型 = LocalSystem 服务派生的 worker)读不到
+ * Administrator 的 wincred 库与家目录 store。
+ */
+export const CREDENTIALS_UNAVAILABLE_RE =
+  /could not read (?:Username|Password) for|failed to execute prompt script/i
 
 /**
  * 钩子痕迹:只有能**从输出里解析到**守门批的失败汇总或钩子脚本自身的报错,才算 hook-failed。
@@ -159,6 +191,22 @@ export function triagePushAttempt({
       why: '远端 push protection 拒收(输出含 repository rule violations / push declined 形态)',
     })
   }
+  if (PROTECTED_BRANCH_RE.test(text)) {
+    return verdict({
+      kind: 'protected-branch',
+      // 本地钩子跳不跳都改变不了服务器侧的策略 ⇒ 重试那一趟(含 --no-verify)必然白跑
+      allowHookRetry: false,
+      allowNoVerifyRetry: false,
+      terminalStatus: 'failed',
+      // 出路**刻意不指向收敛器**:收敛器修的是"远端已推进",而这里远端根本没动。
+      // 先自证不是分叉(本地已含远端 tip),再交机主在仓库侧决定(放开直推 / 或改走 PR)。
+      nextCommand: 'git ls-remote origin refs/heads/main && git merge-base --is-ancestor <远端SHA> HEAD',
+      why:
+        '远端**分支保护策略**拒收(GH006 / protected branch hook declined / Required status check expected)' +
+        ' ⇒ 这不是并发分叉,也不是质量门:本地已包含远端 tip 时快进推送依然被策略挡下。' +
+        '收敛器、--no-verify、重试都修不了它,出路只有仓库设置侧(允许直推 / 放宽必需状态检查)或改走 PR —— 属机主职权',
+    })
+  }
   if (NON_FAST_FORWARD_RE.test(text)) {
     return verdict({
       kind: 'non-fast-forward',
@@ -167,6 +215,18 @@ export function triagePushAttempt({
       terminalStatus: 'diverged',
       nextCommand: CONVERGE_COMMAND,
       why: '远端拒收 non-fast-forward(与质量门无关的并发分叉)',
+    })
+  }
+  if (CREDENTIALS_UNAVAILABLE_RE.test(text)) {
+    // 处置动作与出路写在 guard 的失败分支文案里(本判据只负责认出这一型并给问责入口)。
+    // ⚠️ allow* 一律沿用 verdict() 默认(与 other 相同)—— 本次修复**只**改分类与出路,
+    //    不改重试策略与退出码(§5b push-gate 链依赖 other 档的既有行为逐字不变)。
+    return verdict({
+      kind: 'credentials-unavailable',
+      nextCommand: 'node scripts/check-credential-health.mjs',
+      why:
+        'git 原话回显 could not read Username/Password / failed to execute prompt script ⇒ ' +
+        '发起进程的身份下**没有任何凭据 helper 交出值**(与"凭据已失效被远端拒绝"不同,是未取得)',
     })
   }
   if (UP_TO_DATE_RE.test(text)) {
@@ -262,6 +322,30 @@ if (isDirectRun && process.argv.includes('--self-test')) {
       'kind: pushed-ok',
       triagePushAttempt({ status: 0, stdout: '   a1b2c3d..e4f5a6b  main -> main' }).kind,
       'pushed-ok',
+    ],
+    [
+      'kind: credentials-unavailable(真实 worker 回显)',
+      triagePushAttempt({
+        status: 128,
+        stderr:
+          "bash: line 1: /dev/tty: No such device or address\nerror: failed to execute prompt script (exit code 1)\nfatal: could not read Username for 'https://github.com': No such file or directory",
+      }).kind,
+      'credentials-unavailable',
+    ],
+    [
+      'credentials-unavailable 不改重试策略(与 other 同旗)',
+      triagePushAttempt({ status: 128, stderr: "fatal: could not read Username for 'x'" })
+        .allowNoVerifyRetry,
+      true,
+    ],
+    [
+      '成对反向:另一型 exit 128(网络断)仍落 other',
+      triagePushAttempt({
+        status: 128,
+        stderr:
+          'fatal: unable to access https://github.com/: Failed to connect to 127.0.0.1 port 7897',
+      }).kind,
+      'other',
     ],
   ]
   let bad = 0

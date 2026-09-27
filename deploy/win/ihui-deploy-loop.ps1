@@ -150,6 +150,10 @@ function Invoke-PollOnce {
             ) -NoNewWindow -PassThru -RedirectStandardOutput $runOut -RedirectStandardError $runErr
             $deadline = (Get-Date).AddMinutes($RunBudgetMin)
             $seen = 0L
+            # 仅用于挂死时点名"当时在跑哪一段"(2026-09-27 加,只加打印,不改判定与阈值)。
+            # 旧措辞只有 pid,日志一停没人知道卡在哪;子进程自己每段都打一行(构建尝试 i/N、
+            # 交换 staging、GATE-ITER i/N …),把最后收到的那条带下来即可,不需要新增 IPC。
+            $lastLine = ''
             while ($true) {
                 foreach ($f in @($runOut, $runErr)) {
                     if (-not (Test-Path $f)) { continue }
@@ -161,7 +165,10 @@ function Invoke-PollOnce {
                         [void]$sr.BaseStream.Seek($seen, 'Begin')
                         while (-not $sr.EndOfStream) {
                             $line = $sr.ReadLine()
-                            if ($null -ne $line) { Log "[deploy] $line" }
+                            if ($null -ne $line) {
+                                Log "[deploy] $line"
+                                if ($line.Trim()) { $lastLine = $line }
+                            }
                         }
                         $seen = $sr.BaseStream.Position
                         $sr.Close(); $fs.Close()
@@ -176,6 +183,14 @@ function Invoke-PollOnce {
                 if ((Get-Date) -gt $deadline) {
                     $timedOut = $true
                     Log "FAIL  本轮超墙钟预算 $RunBudgetMin 分钟,判挂死 → taskkill /T 整树(pid=$($child.Id))"
+                    # 只加打印:把"卡在哪一段"写进日志。子进程输出经 LocalSystem 管道后中文
+                    # 已损坏成 U+FFFD(实测 deploy-loop.log),所以这里只保留可打印 ASCII ——
+                    # 判段用的恰好都是 ASCII 骨架(GATE-ITER / GATE-ITER-STALLED / .next-staging /
+                    # HEAD= / behind=0),中文丢了不影响定位,反而多一行噪音。
+                    $stage = if ($lastLine) { $lastLine } else { '<none>' }
+                    $stage = ($stage -replace '[^\x20-\x7E]', '?')
+                    if ($stage.Length -gt 160) { $stage = $stage.Substring(0, 160) }
+                    Log "FAIL  挂死时子进程最后一条输出 last-stage=$stage"
                     & taskkill /PID $child.Id /T /F 2>&1 | Out-Null
                     Start-Sleep -Seconds 3
                     break
