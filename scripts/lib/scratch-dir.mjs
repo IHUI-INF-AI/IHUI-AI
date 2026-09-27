@@ -3,9 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 临时夹具唯一落点。两条选址硬约束见 scratchRoot() 注释,均由实测踩坑固化而来。
+// G-286(2026-09-27):scratch 根改为**盘根锚定**并加二阶嵌套守卫 —— 旧推导按
+// 「脚本自身位置向上两级」取盘根,而 scratch-module-closure 会把整条 import 闭包拷进
+// 演练仓,拷进去之后"向上两级"跟着夹具走:夹具一层深 ⇒ `G:/DevEnv/Temp/DevEnv/Temp/
+// ihui-scratch`,两层深 ⇒ `<scratch 根>/DevEnv/Temp/ihui-scratch`(二阶嵌套,实测在盘,
+// 由 plan-union-merge / plan-tasks-merge 的闭包拷贝测试每轮复现一层深那份)。
 
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
-import { dirname, join, resolve, sep } from 'node:path'
+import { dirname, join, parse, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -21,16 +26,38 @@ const REPO_ROOT = resolve(HERE, '..', '..')
  *
  * 结论:与 scripts/lib/gitdir.mjs 的 gitArchiveDir() 同族推导 —— 工作树所在盘的
  * DevEnv/Temp(§15b 批准的临时物落点),不写死盘符。
+ *
+ * G-286:盘根一律取 `parse(HERE).root`(**模块所在盘的盘根本身**),不再由
+ * 「脚本位置向上两级」推导 —— 旧推导只对「仓库恰在 `<盘>:/IHUI-AI`」这一种布局成立,
+ * 本模块一旦被闭包拷贝进演练仓,向上两级就落到夹具的祖先上去(见文件头注)。
+ * 对真实布局两者逐字同值(换机/换盘语义不变);对被拷进夹具的副本,盘根锚定
+ * 始终回到同一个盘级 scratch 根 —— 夹具与真仓同盘,这正是选址的本意。
  */
-function scratchRoot() {
+export function scratchRoot() {
   const override = process.env.IHUI_SCRATCH_DIR
   if (override) return normalize(override)
-  const driveRoot = resolve(REPO_ROOT, '..', '..')
-  return normalize(join(driveRoot, 'DevEnv', 'Temp', 'ihui-scratch'))
+  return normalize(join(parse(HERE).root, 'DevEnv', 'Temp', 'ihui-scratch'))
 }
 
 function normalize(p) {
   return p.replace(/[\\/]+$/, '')
+}
+
+/**
+ * G-286 守卫:scratch 根内不得再出现 scratch 根。落点路径里出现第二层 `ihui-scratch`
+ * 段 ⇒ 抛错点名,绝不静默换路径 —— 换路径等于把"推导已经歪了"藏起来,下一个调用方
+ * 继续在错的位置建夹具。守卫放在 mkdir 之前:抛错时不得留下任何目录。
+ */
+function assertNoNestedScratchRoot(root) {
+  const segs = normalize(root).split(/[\\/]+/).filter(Boolean)
+  const hits = segs.filter((s) => s.toLowerCase() === 'ihui-scratch')
+  if (hits.length > 1) {
+    throw new Error(
+      `scratch 落点出现二阶嵌套(路径里有两层 ihui-scratch 段):${root} —— ` +
+        `推导链被拷进了夹具仓或 IHUI_SCRATCH_DIR 指歪,先修生产者再跑;` +
+        `盘根锚定推导见 scripts/lib/scratch-dir.mjs 头注(G-286)`,
+    )
+  }
 }
 
 function isInsideRepo(dir) {
@@ -45,6 +72,8 @@ export function mkScratch(prefix) {
   if (isInsideRepo(root)) {
     throw new Error(`scratch 落点不得在仓库树内: ${root}`)
   }
+  // G-286:嵌套守卫必须在 mkdir 之前 —— 抛错本身就是结论,不得先建目录再报。
+  assertNoNestedScratchRoot(root)
   mkdirSync(root, { recursive: true })
   const dir = mkdtempSync(join(root, prefix))
   live.add(dir)
