@@ -183,7 +183,7 @@ function createStyles(tk: AppThemeTokens) {
     balanceCard: {
       margin: 10,
       padding: 16,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.cta,
       gap: 8,
     },
@@ -238,7 +238,7 @@ function createStyles(tk: AppThemeTokens) {
     amountCard: {
       width: '30%',
       paddingVertical: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -258,7 +258,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     customInput: {
       backgroundColor: tk.surface.muted,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 14,
@@ -299,7 +299,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 10,
       marginBottom: 12,
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

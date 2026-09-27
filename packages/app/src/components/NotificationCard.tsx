@@ -64,7 +64,7 @@ export function createCardStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       padding: 16,
-      borderRadius: rnRadius.xl,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -85,7 +85,7 @@ export function createCardStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: rnRadius.sm,
+      borderRadius: 4,
       overflow: 'hidden',
     },
     typeSystem: {
@@ -95,7 +95,7 @@ export function createCardStyles(tk: AppThemeTokens) {
     dot: {
       width: 6,
       height: 6,
-      borderRadius: rnRadius.xs,
+      borderRadius: 3,
       backgroundColor: tk.danger.DEFAULT,
     },
     meta: {

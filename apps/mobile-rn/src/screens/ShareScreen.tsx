@@ -532,7 +532,7 @@ function createStyles(tk: RnThemeTokens) {
     } as ViewStyle,
     shareBtn: {
       height: 46,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

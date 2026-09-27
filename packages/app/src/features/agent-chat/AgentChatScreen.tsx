@@ -155,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 12,
       fontSize: 16,
       color: tk.text.primary,
@@ -164,7 +164,7 @@ function createStyles(tk: AppThemeTokens) {
     sendBtn: {
       paddingHorizontal: 14,
       height: 50,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -182,7 +182,7 @@ function createStyles(tk: AppThemeTokens) {
     backBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     backBtnText: { color: tk.surface.light, fontSize: 16 },
