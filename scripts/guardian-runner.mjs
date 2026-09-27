@@ -3873,21 +3873,6 @@ const checks = [
     args: [],
     mode: 'info',
   },
-]
-
-// === push 门检查集(2026-08-31 新增) ===
-// .husky/pre-push 直跑 `pnpm typecheck:full`,多会话并行时被其他会话非暂存损坏文件误伤
-// (上千个 TS1005 全部来自非暂存文件,却输出"❌ 全量 typecheck 失败,推送已阻止")。
-// 新增 scripts/check-typecheck.mjs 包装做 staged-scope 降级判定(全部报错文件均不在
-// 暂存区 → 降级为警告放行),经 --push-gate 显式启用;hook 本体不在改动允许范围内。
-const pushGateChecks = [
-  {
-    id: 'T1',
-    label: '🔍 push 门全量 typecheck(staged-scope 降级)',
-    script: 'check-typecheck.mjs',
-    args: [],
-    mode: 'blocking',
-  },
   // --- 角色档合规对账(元素类别→档位,77 不判的那一型)(1 项,blocking)---
   {
     id: '150',
@@ -3909,6 +3894,21 @@ const pushGateChecks = [
       '  存量还剩多少:同命令加 --json(数字一律现读,勿照文档抄)。',
       '  紧急跳过:HUSKY_SKIP_RADIUS_ROLE_CONFORMANCE=1(仅限红确属他人文件时)。',
     ].join('\n'),
+  },
+]
+
+// === push 门检查集(2026-08-31 新增) ===
+// .husky/pre-push 直跑 `pnpm typecheck:full`,多会话并行时被其他会话非暂存损坏文件误伤
+// (上千个 TS1005 全部来自非暂存文件,却输出"❌ 全量 typecheck 失败,推送已阻止")。
+// 新增 scripts/check-typecheck.mjs 包装做 staged-scope 降级判定(全部报错文件均不在
+// 暂存区 → 降级为警告放行),经 --push-gate 显式启用;hook 本体不在改动允许范围内。
+const pushGateChecks = [
+  {
+    id: 'T1',
+    label: '🔍 push 门全量 typecheck(staged-scope 降级)',
+    script: 'check-typecheck.mjs',
+    args: [],
+    mode: 'blocking',
   },
 ]
 
