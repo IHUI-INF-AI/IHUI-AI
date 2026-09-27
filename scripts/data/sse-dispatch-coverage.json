@@ -4,9 +4,9 @@
   "baseline": {
     "web": 30,
     "extension": 17,
-    "miniapp-taro": 22,
-    "mobile-rn": 19,
-    "cli": 14
+    "miniapp-taro": 23,
+    "mobile-rn": 20,
+    "cli": 15
   },
   "endpoints": {
     "web": ["apps/web/src", "apps/web/app"],
@@ -27,7 +27,7 @@
     "no-terminal-stream-ui": "该端无终端流展示位(整段也没有终端面板)。",
     "no-compaction-ui": "该端无上下文压缩分割线展示位。",
     "no-fallback-ui": "该端无模型降级提示位。",
-    "no-tool-delta-ui": "D113 文件写类工具的流中 diff 预览为 web 专用(工厂 stream-handlers.ts 的 onToolDelta 只接进 apps/web)。api-client 对该帧的口径是\"默认无回调时不解析\",故本端不注册不属静默丢弃缺陷,而是尚无渲染位;各端补齐 = 该端 D113 渲染票,判据是接上 tool-delta 并把本项从 missing 删除、baseline 同步上调。"
+    "no-tool-delta-ui": "扩展端结构上收不到这一帧:生产端只对 _FILE_EDIT_PREVIEW_TOOLS={write_file,file_edit,edit_file} 发帧(apps/ai-service/app/routers/llm.py:175 与 :3284-3298),而扩展会话携带的 agentTools 仅 ext_ui_* 七动词 + api_endpoints_search/api_endpoint_call(apps/extension/lib/ui-control-tools.ts:24-35,50-54),服务端补全注入面也是这七动词(control_autonomy.py:52-60)⇒ 模型在该面不可能调用写类工具、判据永不成立。要铺这一 UX 的前置是\"给扩展会话开通文件写工具\"(§24 新能力 + 安全语义,归产品裁决),不是接一帧回调。"
   },
   "missing": {
     "web": {},
@@ -53,8 +53,7 @@
       "onMemoryUpdates": "no-memory-update-ui",
       "onQuestion": "no-question-ui",
       "onFormRequest": "D77 业务表单帧:api-client 已暴露 onFormRequest(HEAD 实测),但 ① 生产者侧(Python sse_contract.py / llm.py 发 form_request)未入库,② web 宿主(contract.ts + send-message.ts + stores/business-forms.ts + business-form-section.tsx)在途且与并行会话的脏文件同面,③ 其余四端无表单渲染位。⇒ 五端一律显式登记而非静默丢弃。解阻判据:sse_contract.py 与 llm.py 工作树==HEAD 后,同一票内落地「Python 发帧 + TS 契约 + web 宿主 + 本项从 missing 删除 + baseline 上调」,四端按 H18 端覆盖矩阵补渲染位。",
-      "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。",
-      "onToolDelta": "no-tool-delta-ui"
+      "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。"
     },
     "mobile-rn": {
       "onAgentDelta": "no-agent-delta-ui",
@@ -66,8 +65,7 @@
       "onToolDelegate": "no-tool-delegate-ui",
       "onToolSummary": "no-tool-summary-ui",
       "onFormRequest": "D77 业务表单帧:api-client 已暴露 onFormRequest(HEAD 实测),但 ① 生产者侧(Python sse_contract.py / llm.py 发 form_request)未入库,② web 宿主(contract.ts + send-message.ts + stores/business-forms.ts + business-form-section.tsx)在途且与并行会话的脏文件同面,③ 其余四端无表单渲染位。⇒ 五端一律显式登记而非静默丢弃。解阻判据:sse_contract.py 与 llm.py 工作树==HEAD 后,同一票内落地「Python 发帧 + TS 契约 + web 宿主 + 本项从 missing 删除 + baseline 上调」,四端按 H18 端覆盖矩阵补渲染位。",
-      "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。",
-      "onToolDelta": "no-tool-delta-ui"
+      "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。"
     },
     "cli": {
       "onAgentDelta": "no-agent-delta-ui",
@@ -84,8 +82,7 @@
       "onToolDelegate": "no-tool-delegate-ui",
       "onToolSummary": "no-tool-summary-ui",
       "onFormRequest": "D77 业务表单帧:api-client 已暴露 onFormRequest(HEAD 实测),但 ① 生产者侧(Python sse_contract.py / llm.py 发 form_request)未入库,② web 宿主(contract.ts + send-message.ts + stores/business-forms.ts + business-form-section.tsx)在途且与并行会话的脏文件同面,③ 其余四端无表单渲染位。⇒ 五端一律显式登记而非静默丢弃。解阻判据:sse_contract.py 与 llm.py 工作树==HEAD 后,同一票内落地「Python 发帧 + TS 契约 + web 宿主 + 本项从 missing 删除 + baseline 上调」,四端按 H18 端覆盖矩阵补渲染位。",
-      "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。",
-      "onToolDelta": "no-tool-delta-ui"
+      "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。"
     }
   }
 }
