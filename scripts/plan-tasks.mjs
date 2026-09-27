@@ -142,6 +142,10 @@ function report(a, face) {
     `  F4 同一件事多条待办: ${c.dupOpenGroups} 组 / 副本 ${c.dupOpenCopies} 行(不进派单口径)`,
   )
   console.log(
+    `  F4b 无主键的逐字孪生待办: ${c.verbatimDupGroups} 组 / 副本 ${c.verbatimDupCopies} 行(不进派单口径)` +
+      ` —— F4 按复合主键分组,而叙述式待办没有编号,所以这一族在 F4 里恒为 0 而账面照样一人两句`,
+  )
+  console.log(
     `  F6 整块登记重复(块级,行级四条判不到这一维): ${c.dupBlocks} 块 / 共 ${c.dupBlockCopies} 份` +
       ` —— 逐字相同才可自动收口;另有 ${c.dupBlockDrifted} 块首行相同而正文漂移(必须人工判哪份作数)`,
   )
@@ -152,7 +156,7 @@ function report(a, face) {
   )
   console.log(
     `  其余排除项**明细**(同一行可同时命中多项,故只能当诊断看、不得拿去减法核账):` +
-      `同题已完成副本 ${c.forkOpenLines} / 自带作废声明 ${c.voidRows} / 当次算出的同题待办副本 ${c.dupOpenCopies} / 已标副本指针 ${c.dupPointerRows}`,
+      `同题已完成副本 ${c.forkOpenLines} / 自带作废声明 ${c.voidRows} / 当次算出的同题待办副本 ${c.dupOpenCopies} / 无主键逐字孪生副本 ${c.verbatimDupCopies} / 已标副本指针 ${c.dupPointerRows}`,
   )
   // ── F7 归属分层(未认领口径)──
   // 这一层答的是"这 198 条里有多少**现在就能做**"。不踢出派单口径,只报名 ——
@@ -219,6 +223,9 @@ export const probe = (a) => [
   ['F2', '带作废声明未落账(行)', a.counts.voidRows],
   ['F3', '行号指针已腐烂(处)', a.counts.rotatedPointers],
   ['F4', '同一件事多条待办(副本行)', a.counts.dupOpenCopies],
+  // F4b:F4 的分组键是复合主键,而"叙述式待办"永远没有编号 ⇒ 同一句话被复制两遍时 F4 报 0。
+  // 单独一维而不是并进 F4:并进 F4 会让"两处各计一次债"的锚点互相顶掉(守门 134 扩布尔档键那一课)。
+  ['F4b', '无主键的逐字孪生待办(副本行)', a.counts.verbatimDupCopies],
   // F6 是**块**级量纲:一整块多行登记被追加两遍时,行级四条(F1–F4)一路通过 ——
   // 每一行看起来都"只是又一个孪生行"。本仓 2026-09-26 真实自伤过三次(2 份 → 3 份)。
   ['F6', '整块登记重复(块)', a.counts.dupBlocks],
