@@ -3704,6 +3704,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)(1 项,blocking)---
+  {
+    id: '142',
+    label:
+      'Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)',
+    script: 'check-guardian-review-wired.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GUARDIAN_REVIEW_WIRED',
+    stagedTriggers: ['apps/ai-service/app/'],
+    onFailHint: [
+      '',
+      '  复核必须在生产面被调用;判不了/超时/无凭据必须显式未复核,禁止记为通过。',
+      '  现读:node scripts/check-guardian-review-wired.mjs ; 紧急跳过 HUSKY_SKIP_GUARDIAN_REVIEW_WIRED=1',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
