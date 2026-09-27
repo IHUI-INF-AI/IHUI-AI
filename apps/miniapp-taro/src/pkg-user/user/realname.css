@@ -25,7 +25,7 @@
   padding: 28rpx;
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   box-sizing: border-box;
 }
 .rn-intro-title {
@@ -88,7 +88,7 @@
   padding: 0 24rpx;
   background: var(--color-muted);
   border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   font-size: 32rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -183,7 +183,7 @@
   align-items: center;
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
 }
 .rn-result-icon {
   width: 96rpx;

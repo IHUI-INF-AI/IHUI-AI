@@ -174,7 +174,7 @@ function FieldRenderer({ field, value, onChange, onPaste, onClear, disabled }: F
             disabled={disabled}
             rows={3}
             placeholder={field.placeholder}
-            className="flex w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 pr-20 text-xs font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full resize-y rounded-sm border border-input bg-transparent px-3 py-2 pr-20 text-xs font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           />
           <div className="absolute right-1.5 top-1.5 flex gap-1">
             <Button

@@ -55,11 +55,11 @@
   color: var(--color-white-98);
 }
 .trader-badge {
-  /* 对齐 RN heroBadge:金 tint 底 rgba(255,215,0,0.18) + amber 字 */
+  /* 对齐 RN heroBadge:金 tint 底 rgba(255,215,0,0.18) + amber 字;圆角按角色档 chip→md */
   margin-left: 12rpx;
   padding: 8rpx 20rpx;
   background: var(--color-vip-gold-tint);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-md);
 }
 .trader-badge-text {
   font-size: 22rpx;
@@ -146,7 +146,7 @@
 .trader-tag {
   padding: 8rpx 20rpx;
   background: var(--color-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .trader-tag-text {
   font-size: 24rpx;
@@ -281,7 +281,7 @@
   /* 推荐 tag 对齐 RN 浅底深字语言(warning.amberLight/amberText) */
   padding: 4rpx 12rpx;
   background: var(--color-warning-amber-light);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .trader-package-tag-text {
   font-size: 20rpx;
@@ -319,7 +319,7 @@
   color: var(--color-foreground);
   background: var(--color-card);
   border: 2rpx solid var(--color-ring);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 .trader-package-btn-primary {
   color: var(--color-cta-foreground);
@@ -386,14 +386,14 @@
   box-shadow: 0 -4rpx 16rpx var(--color-black-6);
 }
 .footer-btn {
-  /* 对齐 RN buyBtn:高 44dp→88rpx / 圆角 15dp→30rpx / 字 16dp→32rpx 600 */
+  /* 对齐 RN buyBtn:高 44dp→88rpx / 字 16dp→32rpx 600;圆角按角色档 control→sm */
   flex: 1;
   height: 88rpx;
   line-height: 88rpx;
   padding: 0;
   font-size: 32rpx;
   font-weight: 600;
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-sm);
   border: none;
 }
 .footer-btn-ghost {

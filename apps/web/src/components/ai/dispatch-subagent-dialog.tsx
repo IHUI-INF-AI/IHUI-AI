@@ -421,7 +421,7 @@ function DispatchForm({
           onChange={(e) => setGoal(e.target.value)}
           rows={2}
           placeholder={t('taskGoalPlaceholder')}
-          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
@@ -487,7 +487,7 @@ function DispatchForm({
           onChange={(e) => setAffectedFilesText(e.target.value)}
           rows={3}
           placeholder={'d:\\path\\to\\file1\nd:\\path\\to\\file2'}
-          className="w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-1.5 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.forbidden')}>
@@ -495,7 +495,7 @@ function DispatchForm({
           value={forbiddenText}
           onChange={(e) => setForbiddenText(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.verifyCommands')}>
@@ -504,7 +504,7 @@ function DispatchForm({
           onChange={(e) => setVerifyCommandsText(e.target.value)}
           rows={2}
           placeholder={'pnpm --filter @ihui/api typecheck'}
-          className="w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-1.5 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.constraints')} required>
@@ -512,7 +512,7 @@ function DispatchForm({
           value={constraints}
           onChange={(e) => setConstraints(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.deliverables')} required>
@@ -520,11 +520,11 @@ function DispatchForm({
           value={deliverables}
           onChange={(e) => setDeliverables(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       {/* DAG 编辑器 */}
-      <div className="space-y-1.5 rounded-md border border-border bg-card px-2.5 py-2">
+      <div className="space-y-1.5 rounded-lg border border-border bg-card px-2.5 py-2">
         <label className="flex items-center gap-1.5 text-xs font-medium text-foreground">
           <input
             type="checkbox"
@@ -640,7 +640,7 @@ function DispatchForm({
         )}
       </div>
       {/* 重试 */}
-      <div className="space-y-1.5 rounded-md border border-border bg-card px-2.5 py-2">
+      <div className="space-y-1.5 rounded-lg border border-border bg-card px-2.5 py-2">
         <span className="text-xs font-medium text-foreground">{t('retrySection')}</span>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
@@ -680,7 +680,7 @@ function DispatchForm({
         </div>
       </div>
       {/* 配额 */}
-      <div className="space-y-1.5 rounded-md border border-border bg-card px-2.5 py-2">
+      <div className="space-y-1.5 rounded-lg border border-border bg-card px-2.5 py-2">
         <label className="flex items-center gap-1.5 text-xs font-medium text-foreground">
           <input
             type="checkbox"
@@ -798,7 +798,7 @@ function AutoPlanPanel() {
           onChange={(e) => setTask(e.target.value)}
           rows={3}
           placeholder={t('examplePlaceholder')}
-          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.constraintsOptional')}>
@@ -823,7 +823,7 @@ function AutoPlanPanel() {
         {isPlanning ? t('llmPlanning') : t('autoPlan')}
       </Button>
       {result && (
-        <div className="space-y-2 rounded-md border border-border bg-card px-2.5 py-2">
+        <div className="space-y-2 rounded-lg border border-border bg-card px-2.5 py-2">
           <div className="flex items-center gap-2">
             <span className="rounded-sm bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-400">
               {result.orchestration}
@@ -1012,7 +1012,7 @@ function CustomRolesPanel() {
           onChange={(e) => setAutoGenTask(e.target.value)}
           rows={2}
           placeholder={t('roleDescPlaceholder')}
-          className="w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5 text-[11px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2 py-1.5 text-[11px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
         <Button
           size="sm"
@@ -1048,7 +1048,7 @@ function CustomRolesPanel() {
       ) : (
         <div className="space-y-1.5">
           {roles.map((role) => (
-            <div key={role.id} className="rounded-md border border-border bg-card px-2.5 py-1.5">
+            <div key={role.id} className="rounded-lg border border-border bg-card px-2.5 py-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-foreground">{role.displayName}</span>
@@ -1177,7 +1177,7 @@ function CustomRoleForm({
           value={systemPrompt}
           onChange={(e) => setSystemPrompt(e.target.value)}
           rows={4}
-          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.skills')}>
@@ -1324,7 +1324,7 @@ function EvolutionPanel() {
       ) : history ? (
         <>
           {/* 当前 prompt */}
-          <div className="rounded-md border border-border bg-card px-2.5 py-2">
+          <div className="rounded-lg border border-border bg-card px-2.5 py-2">
             <div className="text-[11px] font-medium text-foreground">
               {t('evolutionCurrentPrompt', {
                 version:
@@ -1347,7 +1347,7 @@ function EvolutionPanel() {
               {history.versions.map((v) => (
                 <div
                   key={v.version}
-                  className="rounded-md border border-border bg-card px-2.5 py-1.5"
+                  className="rounded-lg border border-border bg-card px-2.5 py-1.5"
                 >
                   <div className="flex items-center justify-between">
                     <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
@@ -1387,7 +1387,7 @@ function EvolutionPanel() {
               {history.recentRecords.slice(0, 5).map((r, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-1.5 rounded-sm border border-border bg-card px-2 py-1 text-[10px]"
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-[10px]"
                 >
                   <span className={r.success ? 'text-green-600' : 'text-red-500'}>
                     {r.success ? '✓' : '✗'}
@@ -1425,7 +1425,7 @@ function EvolutionPanel() {
               </div>
               <div className="text-[11px] text-muted-foreground">{analysis.summary}</div>
               {analysis.patches.map((p, i) => (
-                <div key={i} className="rounded-sm border border-border bg-card px-2 py-1">
+                <div key={i} className="rounded-lg border border-border bg-card px-2 py-1">
                   <div className="text-[10px] text-red-500">- {p.originalText}</div>
                   <div className="text-[10px] text-green-600">+ {p.suggestedReplacement}</div>
                   <div className="mt-0.5 text-[10px] text-muted-foreground">

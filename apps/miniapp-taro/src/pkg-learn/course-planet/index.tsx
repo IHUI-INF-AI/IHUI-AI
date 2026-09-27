@@ -267,7 +267,7 @@ export default function CoursePlanet() {
             displayList.map((item) => (
               <View
                 key={item.id}
-                className="flex bg-card rounded-xl border border-border overflow-hidden mb-[24rpx]"
+                className="flex bg-card rounded-lg border border-border overflow-hidden mb-[24rpx]"
                 hoverClass="opacity-60"
                 onClick={() => onItemClick(item.id)}
               >

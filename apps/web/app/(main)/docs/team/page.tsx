@@ -85,7 +85,7 @@ export default function TeamDocsPage() {
       <section id="team-vs-personal" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">为什么需要团队版?</h2>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
-          <div className="rounded-2xl border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <p className="text-sm font-semibold">👤 个人版</p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li>独立 Agent / 知识库</li>
@@ -95,7 +95,7 @@ export default function TeamDocsPage() {
               <li>适合个人开发者</li>
             </ul>
           </div>
-          <div className="rounded-2xl border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <p className="flex items-center text-sm font-semibold">
               <Users className="mr-1.5 inline h-4 w-4" />
               团队版
@@ -114,7 +114,7 @@ export default function TeamDocsPage() {
       {/* RBAC 权限 */}
       <section id="rbac" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">RBAC 权限管理(7 级角色)</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-3">
+        <div className="rounded-lg border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             基于角色的权限控制(Role-Based Access Control),7 级角色覆盖企业全部场景:
           </p>
