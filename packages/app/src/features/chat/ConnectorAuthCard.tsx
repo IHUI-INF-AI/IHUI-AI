@@ -233,7 +233,7 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
     },
     chip: {
       backgroundColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 6,
       paddingVertical: 2,
     },
@@ -245,7 +245,7 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
       color: tk.text.primary,
     },
     flatChip: {
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 6,
       paddingVertical: 2,
     },

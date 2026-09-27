@@ -522,7 +522,7 @@ function MinimizedSummaryBar({
   const t = useTranslations('ai.pane')
   return (
     <div
-      className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs shadow-md"
+      className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs shadow-md"
       data-testid="pane-minimized-bar"
       role="status"
       aria-live="polite"

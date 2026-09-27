@@ -91,7 +91,7 @@ function createStyles(tk: AppThemeTokens) {
     logoCard: {
       padding: 14,
       marginBottom: 12,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -110,7 +110,7 @@ function createStyles(tk: AppThemeTokens) {
     appTagline: { marginTop: 8, fontSize: 14, color: tk.text.secondary, textAlign: 'center' },
     infoCard: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

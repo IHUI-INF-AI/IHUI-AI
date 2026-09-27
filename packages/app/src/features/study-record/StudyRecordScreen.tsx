@@ -180,7 +180,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 8 },
     statsCard: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     statLabel: { marginTop: 8, fontSize: 11, color: tk.text.secondary, textAlign: 'center' },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -215,7 +215,7 @@ function createStyles(tk: AppThemeTokens) {
     statusBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     statusCompleted: { backgroundColor: tk.success.light },
     statusPaused: { backgroundColor: tk.surface.card },

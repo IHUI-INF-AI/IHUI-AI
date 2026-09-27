@@ -152,7 +152,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       height: 50,
       paddingHorizontal: 12,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -162,7 +162,7 @@ function createStyles(tk: AppThemeTokens) {
     searchBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     searchBtnText: { color: tk.surface.light, fontSize: 16 },
@@ -183,7 +183,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -215,7 +215,7 @@ function createStyles(tk: AppThemeTokens) {
     enrollBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     enrollBtnDisabled: { backgroundColor: tk.text.tertiary },
