@@ -163,7 +163,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   entryBtn: {
-    flex: 1,
+    // 不得在这里写 flex: —— 等分宽度由外层 entryBtnHit 承担。
+    // 整份样式原先挂在横向行里的 Pressable 上(flex 指宽度),搬到子 View 后同一份 flex 落在
+    // 列方向上会把内容高度压成 0 ⇒ 按钮盒在、文字被裁掉(真机 VC53 实拍)。
     paddingVertical: 10,
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.brandAccent.DEFAULT,
