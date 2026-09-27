@@ -5,7 +5,8 @@
 import { useChatStore, type ToolCall } from '@/stores/chat'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { emitAgentHook } from '@/stores/agent-hooks'
-import type { ToolSummaryEvent, UsageEvent } from '@ihui/api-client'
+import type { ToolDeltaEvent,
+  ToolSummaryEvent, UsageEvent } from '@ihui/api-client'
 import { PROVIDER_QUOTA_EXHAUSTED } from '@ihui/api-client'
 import { BROWSER_TOOL_NAMES, extractToolUrl } from './tool-config'
 
@@ -117,6 +118,8 @@ export function createToolCallHandler(assistantMessageId: string) {
       if (event.task_id !== undefined) updates.task_id = event.task_id
       // L5-8 重试次数透传(后端下发时写入,ToolCallCard 渲染"重试N次"徽章)
       if (event.retryCount !== undefined) updates.retryCount = event.retryCount
+      // D113:tool-result 到达即清流中预览(最终 diff 以 result 的 diffInfo 为准)
+      updates.partialDiff = undefined
       useChatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, updates)
 
       // tool-result 含 URL:延迟打开(仅当之前 args 没 url 时,result 含 url 的场景)
@@ -126,6 +129,19 @@ export function createToolCallHandler(assistantMessageId: string) {
         useWorkPanelStore.getState().openPanel({ url, source: 'ai-tool' })
       }
     }
+  }
+}
+
+/**
+ * D113 onToolDelta 工厂(2026-09-27 立,G-227):文件写类工具流中 diff 预览。
+ * 载荷 partialText 为累积文本,直接覆盖写入 tc.partialDiff(同 seq 重放天然幂等);
+ * 仅 running 态渲染,tool-result 处理器负责清除。 */
+export function createToolDeltaHandler(assistantMessageId: string) {
+  return (event: ToolDeltaEvent) => {
+    if (!event.toolCallId) return
+    useChatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, {
+      partialDiff: event.partialText,
+    })
   }
 }
 
