@@ -186,11 +186,30 @@ export function titleOf(line) {
     .slice(0, TITLE_PREFIX)
 }
 
-/** 复合主键 = 编号 + '#' + 标题前缀;任一缺位则 null(不参与分叉判定,只计入"无主键行")。 */
+/**
+ * 标题前缀退化判定:第一个分界符**紧跟在主键之后**时,上式会切出"只剩编号本身"的标题 ——
+ * 于是**两个不同议题只要编号相同就得到同一个复合主键**,F1 把它们当"同题两态",
+ * 归并器 `--heal` 就把别人那条**未完成**的行翻成已完成。(2026-09-27 真实自伤:
+ * `**G-257. 审计日志族「参数校验…」已修**` 与 `**G-257(新登记)**:check-agent-engine-parity…`
+ * 两侧标题都被切成 `G-257` ⇒ key `G-257#G-257` ⇒ 别人的活被记成做过的账,事后逐行复原。)
+ * 判据:titleOf 的结果若等于主键(去空格后)即退化。
+ */
+export function titleIsDegenerate(line, title) {
+  if (!title) return false
+  const key = keyOfRow(line)
+  if (!key) return false
+  return title.replace(/[*`_\s]/g, '') === key.replace(/[*`_\s]/g, '')
+}
+
+/** 复合主键 = 编号 + '#' + 标题前缀;任一缺位则 null(不参与分叉判定,只计入"无主键行")。
+ *  ⚠️ 标题**退化**(切完只剩主键本身)同样返回 null:那意味着这一行给不出"编号之外的实质标题",
+ *  此时仅凭编号相同就判"同一件事"会把**不同议题**并成一条,归并器随之把别人的未完成任务翻成已完成。
+ *  宁可不算主键(退化成"无主键行",由 F4b 的逐字孪生判据兜),也不能拿一个会误翻勾的键去做事。 */
 export function compositeKeyOf(line) {
   const key = keyOfRow(line)
   const title = titleOf(line)
   if (!key || !title || title.length < 4) return null
+  if (titleIsDegenerate(line, title)) return null
   return `${key}#${title}`
 }
 
