@@ -20,14 +20,23 @@
  *
  * 锁语义:
  *   - 锁 = .git/ihui-git-write.lock 目录(mkdir 原子性)
- *   - 锁内 meta 文件记录 { unitId, pid, ts }
+ *   - 锁内 meta 文件记录 { unitId, pid, ts } + **进程身份两元** { host, pidStart }
+ *     (2026-09-27 接 lines:裸 pid 不足以回答"这个 pid 还是当初那个进程吗"——
+ *      pid 会被系统复用,部署锁 2026-09-25 就被一次复用冻了 11h50m,登记 G-193。
+ *      `pidStart` 取不到 ⇒ 整键不写 ⇒ 旧形态,判读走 unverifiable = 维持改动前行为。)
  *   - 可重入:同 unitId(同一写操作单元,如 safe-commit 及其 post-commit 子进程)
  *     再次 acquire 直接通过,避免嵌套死锁
  *   - 心跳续期(2026-09-18 根治):持锁方 spawn heartbeat 子进程(随父进程死亡自动退出),
  *     每 intervalMs 重写 meta.ts。根治事故:长流程(pre-commit 多分钟)期间 meta.ts 停留在
  *     acquire 时刻,被并发方按"悬挂锁"误判强制抢占 → 两个进程同时写 .git(锁反而制造损坏)。
+ *     心跳**只搬不测**身份两元(它写的是持有者的 pid/host/pidStart,自己是另一个进程)。
  *   - stale 清理(2026-09-18 加固):锁年龄超过 staleMs(默认 300s)**且持有者 pid 已死**
  *     才强制抢占;活进程的锁绝不被抢。另设 hardStale(默认 1800s)兜底 pid 复用假阳性。
+ *     ⚠️ **这句与代码不一致,登记而非顺手改**(2026-09-27 实测):下面 `acquire` 里的实际条件,与
+ *     本行"活进程的锁绝不会被抢"矛盾 —— 真实规则是"年龄超 staleMs **或** 超 hardStaleMs 就抢",
+ *     活着只被用来构造"极可能已被复用"这句措辞,真正兜住长流程的是**心跳续 ts**。
+ *     本票只**新增**一条更精确的路径(身份确证复用 ⇒ 立即抢占),**不把这条规则改严或改松**;
+ *     要统一文档与代码得由锁的持有人定夺(改严会把活人的长流程暴露在抢占下)。
  *   - 超时:acquire 等待 timeoutMs(默认 120s)后抛错
  *
  * 集成点(见 AGENTS.md 事故复盘):
@@ -54,6 +63,9 @@ import { pathToFileURL } from 'node:url'
 import { gitArchiveDir } from './lib/gitdir.mjs'
 // 抢占算法的唯一实现(2026-09-26 合并:本脚本与 deploy-lock.mjs 曾各写一份 claimStaleLock)。
 import { claimStaleLockCore } from './lib/stale-lock-claim.mjs'
+// 进程身份三元组(pid + pidStart + host)。裸 pid 不足以回答"这个 pid 还是当初那个进程吗"
+// —— 2026-09-25 的 G-193 就是 meta.pid=888 被 nssm.exe 复用,判活恒真 ⇒ 部署环冻结 11h50m。
+import { identityFields, verifyHolder } from './lib/proc-identity.mjs'
 
 function run(cmd, allowFail = false) {
   try {
@@ -88,10 +100,14 @@ function readMeta(dir) {
   }
 }
 
-function writeMeta(dir, unitId) {
+function writeMeta(dir, unitId, opts = {}) {
+  // 除 pid 之外再记两元:host(哪台机器)与 pidStart(那个 pid 的启动时刻)。
+  // pid 会被系统复用 ⇒ 单看 pid 判活要么恒真、要么恒假;年龄阈值只是在**猜**。
+  // 取不到 pidStart 时 identityFields 给 undefined,JSON.stringify 会整键丢掉
+  // ⇒ 与改动前的 meta 形态逐字相同(向后兼容,不写假值)。
   writeFileSync(
     metaFile(dir),
-    JSON.stringify({ unitId: unitId ?? '', pid: process.pid, ts: Date.now() }),
+    JSON.stringify({ unitId: unitId ?? '', pid: process.pid, ts: Date.now(), ...identityFields(opts.run ? { run: opts.run } : {}) }),
     'utf8',
   )
 }
@@ -269,6 +285,59 @@ function isPidAlive(pid) {
 }
 
 /**
+ * 身份三元组的**取用闸门**(2026-09-27 接线,机制见 scripts/lib/proc-identity.mjs)。
+ *
+ * 为什么需要这层 memo 而不是直接调 `verifyHolder`:
+ *  `acquire` 每 300ms 轮询一次、`clean` 挂在提交链上,而现测启动时间要派生一次 PowerShell。
+ *  语义硬要求写死了它**不得进快路径**,所以一个探测实例对**同一把锁**
+ *  (`unitId|pid|ts` 三元组变化即换锁)只问一次;`unverifiable` 的原因当场喊一遍,
+ *  因为"判不出来"与"判过了"在账面上必须长得不一样(本仓最高频的失效型)。
+ *  `heartbeat` / `check` 一律**不**经过这里 —— 它们既不判抢占,就不该付这次派生。
+ *
+ * @param {{run?:Function,host?:string}} [opts] 透给 proc-identity 的注入面(测试用假 run)
+ * @param {(m:string)=>void} [log] 输出出口(默认 console.log;测试夹具注入收集器)
+ * @returns {(meta:object)=>{kind:string,why?:string}}
+ */
+function makeIdentityProbe(opts = {}, log = (m) => console.log(m)) {
+  const seen = new Map()
+  return (meta) => {
+    const key = `${meta?.unitId ?? ''}|${meta?.pid ?? ''}|${meta?.ts ?? ''}`
+    if (!seen.has(key)) {
+      const verdict = verifyHolder(meta, opts)
+      if (verdict.kind === 'unverifiable') {
+        // 不据此抢占,但必须留痕:否则读日志的人会把"没有身份凭据"看成"身份已核过"
+        log(
+          `[git-lock] 身份无法核对(pid=${meta?.pid ?? ''}):${verdict.why} ⇒ 维持改动前判据(锁龄/存活),不据此抢占`,
+        )
+      }
+      seen.set(key, verdict)
+    }
+    return seen.get(key)
+  }
+}
+
+/**
+ * 把身份对账的实测结论如实带进"判死理由"(进抢占现场与日志)。
+ * 三种写法各有其义:`mismatch` 是确证、`match` 是"这人真的还持着锁而我仍按年龄抢了"
+ * (原判据的行为,不改)、`unverifiable` 是"没有身份凭据,这一条纯粹按年龄/存活猜"。
+ * 把没判与判过了写成同一句话,就是本仓反复记过的那一型。
+ */
+function identityNote(identity) {
+  if (!identity) return ';身份对账=未做(持有者 pid 已不存活,现测必然量不到,本条不依赖它)'
+  if (identity.kind === 'mismatch') return `;身份对账=mismatch(${identity.why})⇒ 确证 pid 已被复用`
+  return `;身份对账=${identity.kind}(${identity.why ?? '无原因'})⇒ 不构成额外授权,本条仍按年龄判据`
+}
+
+/**
+ * 身份三元组是否**授权**抢占 —— 两个调用点(acquire 的轮询判定 / clean 的手动清理)共用这一份,
+ * 不得各写一遍字面量比较(两处实现必漂移,且漂移的一侧会变成"悄悄多放开一点")。
+ * 只有 `mismatch` 授权;`match` 与 `unverifiable` 一律不授权,即**维持改动前行为**。
+ */
+function identityAuthorizesClaim(identity) {
+  return identity?.kind === 'mismatch'
+}
+
+/**
  * 清理 git 原生 index.lock(2026-09-19 立,根治 index.lock 卡死多 agent)。
  *
  * 根因:git 写操作(index/refs)被中断(kill/崩溃/宿主清树)时,index.lock 残留,
@@ -343,17 +412,43 @@ function cleanStaleIndexLocks() {
  *     此前死锁场景:agent 崩溃后锁残留,其他 agent 等 5 分钟才能继续,期间若绕过
  *     锁直接 git 操作 → index.lock 冲突 → 全员卡死。
  *   - acquire 前自动清理 stale index.lock:杜绝 git 原生锁残留阻塞。
+ *
+ * 2026-09-27 身份接线(G-193 的同型病灶):下面那行 `!holderAlive || age > hardStaleMs || age > staleMs`
+ *   **一个字都没改**(镜像测试 ⑤ 有结构锁)。它是"猜",但是**行为已知的猜** ——
+ *   注释写着"活进程的锁绝不会被抢",代码却是"名义活着的锁超 staleMs 也抢(靠心跳续命兜住)",
+ *   这一处文档与代码不一致**如实登记、不顺手改严也不改松**。
+ *   新增的只有更精确的那一条:锁里记着 `pidStart` 且现测值与之不符 ⇒ **确证**该 pid 已被复用
+ *   ⇒ 立即抢占,不必再等 300s/1800s 的年龄阈值。
+ *   `unverifiable`(旧 meta 没记 pidStart / 量不到启动时间 / 别机持有 / PowerShell 不可达)
+ *   一律**维持改动前行为**:抢错的代价是并发写坏 `.git`(§5b 事故链),少抢只是多等一轮。
+ *
+ * @param {{unitId?:string,timeoutMs?:number,staleMs?:number,hardStaleMs?:number,
+ *   dir?:string,cleanIndexLocks?:boolean,identityRun?:Function,log?:(m:string)=>void,
+ *   claimArchiveRoot?:string|null}} [opts]
+ *   `dir` / `cleanIndexLocks` / `identityRun` / `log` / `claimArchiveRoot` 是**测试与夹具专用通道**
+ *   (镜像测试据此在"不碰真实 `.git`、不派生真 PowerShell、抢占现场不落进 gitArchiveDir()"的
+ *   前提下跑端到端);生产调用点一个都不传 ⇒ 行为与改动前一致。
  */
-async function acquire({ unitId, timeoutMs = 120_000, staleMs = 300_000, hardStaleMs = 1_800_000 }) {
+async function acquire({
+  unitId,
+  timeoutMs = 120_000,
+  staleMs = 300_000,
+  hardStaleMs = 1_800_000,
+  dir = lockDir(),
+  cleanIndexLocks = true,
+  identityRun,
+  claimArchiveRoot,
+  log = (m) => console.log(m),
+} = {}) {
   // 先清理可能存在的 stale index.lock(死 git 进程残留),否则后续 git 操作全卡死
-  cleanStaleIndexLocks()
+  if (cleanIndexLocks) cleanStaleIndexLocks()
 
-  const dir = lockDir()
+  const probe = makeIdentityProbe(identityRun ? { run: identityRun } : {}, log)
   const deadline = Date.now() + timeoutMs
   for (;;) {
     try {
       mkdirSync(dir, { recursive: false })
-      writeMeta(dir, unitId)
+      writeMeta(dir, unitId, identityRun ? { run: identityRun } : {})
       return true
     } catch {
       // 锁已存在:检查可重入 / stale
@@ -365,17 +460,35 @@ async function acquire({ unitId, timeoutMs = 120_000, staleMs = 300_000, hardSta
       if (meta) {
         const age = Date.now() - (meta.ts ?? 0)
         const holderAlive = isPidAlive(meta.pid)
+        // 只有"名义存活"才值得现测身份:pid 已经不在时原判据本来就要抢,
+        // 而现测必然量不到(白派生一次 PowerShell,还会把原因写成"取不到启动时间")。
+        const identity = holderAlive ? probe(meta) : null
+        // —— 2026-09-27 新增的**唯一**一条更精确路径:身份确证该 pid 已被复用 ⇒ 立即抢占。
+        // `unverifiable` / `match` 都走不到这里(前者=维持原判据,后者=这人真的还持着锁)。
+        // 这里再调一次 claimStaleLock 而不是把两支并成一个条件,是为了不改动下面那行原判据的形状
+        // (镜像测试 ⑤ 锁着它);改名+回读+只处置改到的那份这套不变式仍在 lib 那一份实现里,
+        // 两处调用同一个出口 ⇒ 不存在"第二份抢占算法"。
+        if (identityAuthorizesClaim(identity)) {
+          const claim = claimStaleLock(
+            dir,
+            meta,
+            `身份三元组确证 pid=${meta.pid} 已不是持锁那个进程:${identity.why} ⇒ 立即抢占(锁龄仅 ${Math.round(age / 1000)}s,原判据要等到 staleMs=${Math.round(staleMs / 1000)}s)`,
+            { archiveRoot: claimArchiveRoot },
+          )
+          log(claim.log)
+          if (claim.ok) continue
+        }
         // 2026-09-19:死 PID 立即抢占(不等 staleMs);活进程才走 staleMs/hardStaleMs
-        if (!holderAlive || age > hardStaleMs || age > staleMs) {
+        else if (!holderAlive || age > hardStaleMs || age > staleMs) {
           // 悬挂锁(持有者已崩溃退出,或超 hardStale 兜底):强制抢占。
           // 2026-09-26:旧写法是 `removeLock(dir)` —— 在"我判它已死"与"我删它"之间,
           // 别的进程可以已经删掉旧锁并 mkdir 拿到新锁,于是删掉的是**别人的活锁**
           // (git 侧即 `.git/index.lock` 双写者)。抢占必须原子改名,见 claimStaleLock()。
           const why = holderAlive
-            ? `锁龄 ${Math.round(age / 1000)}s 已超 staleMs=${Math.round(staleMs / 1000)}s / hardStaleMs=${Math.round(hardStaleMs / 1000)}s,而持有者 pid=${meta.pid} 名义存活 ⇒ pid 极可能已被复用`
+            ? `锁龄 ${Math.round(age / 1000)}s 已超 staleMs=${Math.round(staleMs / 1000)}s / hardStaleMs=${Math.round(hardStaleMs / 1000)}s,而持有者 pid=${meta.pid} 名义存活 ⇒ pid 极可能已被复用${identityNote(identity)}`
             : `持有者 pid=${meta.pid} 已退出`
           const claim = claimStaleLock(dir, meta, why)
-          console.log(claim.log)
+          log(claim.log)
           if (claim.ok) continue
           // 没抢到 ⇒ 什么都不删,落到下面的超时判据 + 轮询等待(不 continue,避免热自旋)
         }
@@ -427,13 +540,22 @@ function release({ unitId, dir = lockDir() } = {}) {
 }
 
 
-/** 只读检查 */
+/**
+ * 只读检查。**刻意不做身份现测**:check 挂在人手与脚本链上(AGENTS §5b 诊断、
+ * `git-lock.mjs check`),每次现测一次 PowerShell 就是把它变成快路径(语义硬要求 2)。
+ * 这里只把**锁里记着什么**如实打出来,并写明"未现测",免得读报告的人把
+ * "打印了 pidStart"当成"身份已经核对过"。
+ */
 function check() {
   const dir = lockDir()
   if (!existsSync(dir)) return 0
   const meta = readMeta(dir)
+  const id =
+    meta && (meta.host || meta.pidStart)
+      ? ` host=${meta.host ?? '(未记)'} pidStart=${meta.pidStart ?? '(未记)'}`
+      : ' host=(旧 meta 未记) pidStart=(旧 meta 未记 ⇒ 身份无从对账)'
   console.log(
-    `locked: unit=${meta?.unitId ?? ''} pid=${meta?.pid ?? ''} ts=${meta ? new Date(meta.ts).toISOString() : ''}`,
+    `locked: unit=${meta?.unitId ?? ''} pid=${meta?.pid ?? ''} ts=${meta ? new Date(meta.ts).toISOString() : ''}${id}(check 只读,未现测启动时间)`,
   )
   return 1
 }
@@ -443,6 +565,12 @@ function check() {
  * 退出条件(全部自动,无需清理动作):
  *   - 锁目录消失(已释放)或 unitId 易主
  *   - parentPid 指定的持锁父进程已退出(detached spawn 场景父死子亡)
+ *
+ * ⚠️ 身份两元(host / pidStart)**只能原样搬,不得现测**:心跳是另一个进程,
+ * 而 `pid` 字段记的仍是持锁那位的 pid —— 在这里调 identityFields() 会把
+ * "心跳进程的启动时刻"写成"持锁进程的启动时刻",于是每一次身份对账都必然报
+ * mismatch ⇒ 一把正在被活人使用的锁被"确证复用"抢走。那比没有身份更糟。
+ * 旧 meta 没有这两个字段时写回是 undefined ⇒ JSON 丢键 ⇒ 形态一字不变(向后兼容)。
  */
 async function heartbeat({ unitId, intervalMs = 5_000, parentPid }) {
   const dir = lockDir()
@@ -453,7 +581,13 @@ async function heartbeat({ unitId, intervalMs = 5_000, parentPid }) {
     try {
       writeFileSync(
         metaFile(dir),
-        JSON.stringify({ unitId: meta.unitId, pid: meta.pid, ts: Date.now() }),
+        JSON.stringify({
+          unitId: meta.unitId,
+          pid: meta.pid,
+          ts: Date.now(),
+          host: meta.host,
+          pidStart: meta.pidStart,
+        }),
         'utf8',
       )
     } catch {
@@ -499,28 +633,37 @@ async function main() {
       // 用法: node scripts/git-lock.mjs clean
       const dir = lockDir()
       const removed = []
+      const probe = makeIdentityProbe()
       // 1. 清理死 PID 的 ihui-git-write.lock
       if (existsSync(dir)) {
         const meta = readMeta(dir)
         if (meta) {
           const holderAlive = isPidAlive(meta.pid)
           const age = Date.now() - (meta.ts ?? 0)
-          if (!holderAlive || age > 1_800_000) {
+          const identity = holderAlive ? probe(meta) : null
+          // 原判据(死 PID / 超 1800s 硬上限)一字未动;多出来的授权只有"身份确证复用"这一条。
+          if (!holderAlive || age > 1_800_000 || identityAuthorizesClaim(identity)) {
             // 同样是抢占 ⇒ 走原子改名,不得 rmSync 原路径(见 claimStaleLock 注释)
             const claim = claimStaleLock(
               dir,
               meta,
-              holderAlive
-                ? `clean:锁龄 ${Math.round(age / 1000)}s 超硬上限 1800s 而 pid=${meta.pid} 名义存活 ⇒ pid 复用`
-                : `clean:持有者 pid=${meta.pid} 已退出`,
+              identityAuthorizesClaim(identity)
+                ? `clean:${identity.why} ⇒ 身份确证该 pid 已不是持锁过程,立即抢占(锁龄 ${Math.round(age / 1000)}s,原判据要等 1800s)`
+                : holderAlive
+                  ? `clean:锁龄 ${Math.round(age / 1000)}s 超硬上限 1800s 而 pid=${meta.pid} 名义存活 ⇒ pid 复用${identityNote(identity)}`
+                  : `clean:持有者 pid=${meta.pid} 已退出`,
             )
             console.log(claim.log)
             if (claim.ok)
               removed.push(
-                `ihui-git-write.lock(unit=${meta.unitId} pid=${meta.pid} ${holderAlive ? 'hardStale' : 'dead'})`,
+                `ihui-git-write.lock(unit=${meta.unitId} pid=${meta.pid} ${
+                  identityAuthorizesClaim(identity) ? '身份确证复用' : holderAlive ? 'hardStale' : 'dead'
+                })`,
               )
           } else {
-            console.log(`保留 ihui-git-write.lock(持有者 pid=${meta.pid} 仍存活,age=${Math.round(age / 1000)}s)`)
+            console.log(
+              `保留 ihui-git-write.lock(持有者 pid=${meta.pid} 仍存活,age=${Math.round(age / 1000)}s${identity ? `;身份对账=${identity.kind}${identity.why ? `:${identity.why}` : ''}` : ''})`,
+            )
           }
         } else {
           // 无 meta.json 的残留锁目录:判不了归属 ⇒ 只能按"判死=无 meta"这一条改名抢占,
@@ -572,5 +715,10 @@ export const __test__ = {
   acquire,
   release,
   check,
+  // 身份三元组的接线面(镜像测试直接判这三件,不得在测试里抄第二份判据 —— §22c):
+  makeIdentityProbe,
+  identityNote,
+  identityAuthorizesClaim,
+  heartbeat,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
