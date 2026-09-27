@@ -12056,3 +12056,22 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **e2e 观察期现读**:两层根因(seed 前移 + extension 闭包)修复后,CI 已从「2 分钟基建死」进入「26-28 分钟全量测试」阶段(seed/build 步全绿);近两枚红为其他会话内容层失败,归各推送会话;连续 3 次绿收官的观察继续。
 - **学习页「更多」折行**:让出给 StudyBar 在飞会话(同文件族),本批零触碰,已在原条目下注让出说明。
 - **并行纪律**:本批提交与并发会话的「第二波认领」(54/62/63/75/83/80)零文件交集;全程 pathspec 提交 + PLAN 行级重放(提交面=HEAD+本批编辑,工作树在飞状态备份于 `.ihui-agent/tmp/plan-worktree-prebypass-20260927.md` 并在每批提交后原样恢复),未代收任何在飞内容。
+
+### 第五十一波·续七补 —— 出库通道阻塞点（2026-09-27 早，实测登记，非本会话可解）
+
+- [ ] **本地 main 与 origin/main 分叉且有两处真冲突，`union-converge` 判需人工 ⇒ 本会话交付暂留本地**：
+  现读 `本地 a36018aa132 / 远端 55cab9d1aa4`（远端那一枚是 `fix(rn): 附件钮激活态前景取配对档 ctaForeground`）。
+  冲突面两处：① `PROJECT_PLAN.md`（两侧各自向 EOF 追加，属活文档并集，归并出口现成）；
+  ② `apps/mobile-rn/src/components/Toolbar.tsx`（**两侧都是 RN 侧改动**，本会话按 §"移动端不归本会话接手"不代裁）。
+  工作树未被污染（`git status` 无 `UU`），收敛全程在对象空间做。
+  本会话那五枚交付（第三十一批 `47f3b6dc895`、第三十二批 `7207eba9615`、PLAN 登记 `090438e497f`、
+  AGENTS 规则 `7bc5ee7ed1f`、水印载荷补注 `9f78d87e2f1`）已逐枚 `merge-base --is-ancestor` 证在本地 main 祖先链，
+  随下一次成功收敛自动出库 —— **不需要重做、不需要再提交**。
+  解阻动作（归 RN 侧持有人或人）：`node scripts/git-sync-converge.mjs` 会在冲突处停下；
+  对 `Toolbar.tsx` 逐块裁决后重跑，或由该端持有人把自己那侧推上去使两侧不再同改该文件。
+- [ ] **同批登记一条通道侧实测（供下一次诊断省一轮）**：`core.sshCommand` 曾一度写成
+  `ssh -o ProxyCommand=D:/caches/connect.exe -H 127.0.0.1:7897 %h %p`（未加引号）⇒ ssh 把它解析成自己的
+  `-H` 选项，**每一次 git 网络操作立即失败**（`ssh: unknown option -- H`），症状与"网络不通"完全不同；
+  08:49 现读已被并发会话补上引号（`ssh -o "ProxyCommand=…"`）且 `D:/caches/connect.exe` 已在位（85,278 B）。
+  **规矩：判"通道坏了"先 `git config --local --get core.sshCommand` 逐字读一遍**，再查网络 ——
+  本仓 §5b/§15b 已多次记过"配置过期被下游报成凭据/通道失效"这一型。
