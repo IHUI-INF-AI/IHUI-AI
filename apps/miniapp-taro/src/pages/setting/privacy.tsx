@@ -143,7 +143,7 @@ export default function PrivacySettingPage() {
           <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
             {t('settingPrivacy.systemPermissions')}
           </Text>
-          <View className="rounded-xl border-[length:1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
+          <View className="rounded-lg border-[length:1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
             {PERMISSIONS.map((item) => (
               <View key={item.key} className="flex items-center justify-between py-[20rpx]">
                 <View className="mr-[16rpx] min-w-0 flex-1">
@@ -185,7 +185,7 @@ export default function PrivacySettingPage() {
           <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
             {t('settingPrivacy.privacySettings')}
           </Text>
-          <View className="rounded-xl border-[length:1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
+          <View className="rounded-lg border-[length:1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
             {switchItems.map((item) => (
               <View key={item.key} className="flex items-center justify-between py-[20rpx]">
                 <View className="mr-[16rpx] min-w-0 flex-1">

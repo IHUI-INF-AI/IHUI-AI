@@ -108,7 +108,7 @@ export default function Feedback() {
           缩略图 70dp→140rpx/圆角 16rpx;提交钮品牌灰蓝 100rpx 高圆角 24rpx */}
       <View className="min-h-screen bg-background">
         <View className="p-[28rpx]">
-          <View className="rounded-xl border border-[var(--color-border)] bg-card p-[28rpx]">
+          <View className="rounded-lg border border-[var(--color-border)] bg-card p-[28rpx]">
             <Text className="block text-[length:28rpx] text-muted-foreground">
               {tt('feedback.type', '类型')}
             </Text>
