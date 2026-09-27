@@ -20,6 +20,7 @@ import {
   auditPlan,
   compositeKeyOf,
   dispositionOf,
+  findIdCollisions,
   findRotatedPointers,
   keyOfRow,
   titleIsDegenerate,
@@ -30,6 +31,7 @@ import {
   countNewUndisposed,
   gate,
   grewViolations,
+  newCollisionGroups,
   parseArgs,
   probe,
   ratchetViolations,
@@ -522,4 +524,125 @@ test('M16 --next-id 必须被 parseArgs 认、被 main 分支真调用(否则取
     )
   if (!/usedIdsOfPrefix\(content/.test(cli) || !/nextTaskIdLabel\(content/.test(cli))
     throw new Error('分支没有从被审面现读 ⇒ 号可能来自别处(面取错的号比不取号更贵)')
+})
+
+/**
+ * M17 F9 撞号(2026-09-27 G-267):同一编号挂 >1 个不同标题前缀即点名。
+ * 判据族里 F1/F4/F4b 的键都是"编号+标题逐字等值"的复合主键,"两个不同任务抢同一个号"
+ * 的复合主键不相等 ⇒ 三条同时失明;§1"一个编号只能有一行当前状态"此前没有任何尺子执行。
+ * 定级(票面明令先量再定级):存量只报数(--strict 也不判红),提交链差值/基线棘轮只拦新增撞号组。
+ */
+const REAL_G267_ROWS = [
+  '- [ ]（进行中@2026-09-27/主会话）**G-267 台账新判据:同一编号挂两个不同标题(撞号)对现有尺子结构失明** —— 实测今天就有两行都用 `G-262`(一行是我"水印载荷按 HEAD 面补齐",一行是 G-257 正文"另计 G-262"指向的 git 进程积压), 而守门 130 的复合主键判据要求"编号 + 标题前缀**逐字等值**",所以它只抓得到"同一件事写了两份"(F4)与"逐字孪生"(F4b),抓不到"两个不同任务抢同一个号"。 后果不是账面难看:派单人按编号找活会找到错的那一行,而 §1"一个编号只能有一行当前状态"这条规矩**没有任何尺子在执行**。 判据形状(已在写):按编号聚合所有登记行,同一编号的**不同标题前缀** > 1 即点名(报"编号 G-x 被 N 个不同标题共用"),存量走 HEAD 棘轮只拦新增 —— 当场判红就是一台与本次提交无关的恒红门,唯一结局是逼人 `--no-verify` 连带废掉全部守门(§12e)。存量必须先量再定级,不得为变绿给任何编号加豁免清单(清单必然腐烂,§4 已记过)。',
+  '- [x] ✅(2026-09-27) **G-267 以"否证"结案:同编号挂多个标题不能做成判据,防线改摆生产侧** —— 本行原写的是"给台账加一条撞号判据"。**先量再动**:真仓 HEAD 面 227 个带字母前缀的编号里有 57 个挂着多个标题,逐条看绝大多数是本仓的子项命名惯例 (`D30` 6 个标题 = `D30无人值守修复闭环` / `D30①CI/守门失败信源` / `D30②修复结果开PR`…;`D17` 5 个、`D48` 4 个同理),按"同编号不同标题即红"判就是一台噪声门 —— **假阳比漏报更贵**:它指使人去"修"没坏的东西,还会让每个碰台账的会话合法跳门、连带全部守门作废(§12e)。',
+  '- [x] ✅(2026-09-27) **G-267 windows_exporter 401 的真因是"文件形状",并推翻本会话自己先前登记的一条错结论** —— 先前记的是"凭据与 bcrypt 哈希本就不配对(`compareSync` 四种取值全 false)",**那条是错的**:错在比对姿势,不在凭据。',
+]
+
+test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/归并产物不得算撞号;棘轮只拦新增', () => {
+  // ① 阳性对照(票面真实事件形态):同一 G-262 被两个不同任务各登记一次。
+  const pair =
+    '- [ ]（进行中@2026-09-27/甲）**G-262 水印载荷按 HEAD 面补齐**:说明。\n- [ ] **G-262 git 进程积压另计**:另一件事。'
+  const groups = findIdCollisions(pair)
+  if (groups.length !== 1 || groups[0].key !== 'G-262' || groups[0].titleCount !== 2)
+    throw new Error(
+      `应恰好点名 G-262 被 2 个标题共用,实测 ${JSON.stringify(groups.map((g) => [g.key, g.titleCount]))}`,
+    )
+  if (auditPlan(pair).counts.collisionGroups !== 1) throw new Error('auditPlan 未接 F9 计数')
+  // ② 反例:同题副本(标题逐字等值)是 F4 的病,F9 不串门。
+  if (
+    auditPlan('- [ ] **G-9 同一件事**:第一条。\n- [ ] **G-9 同一件事**:第二条。').counts
+      .collisionGroups !== 0
+  )
+    throw new Error('同题副本不得算撞号')
+  // ③ 反例:退化标题(切完只剩编号)不贡献"第二个标题"—— M16 钉过的真实事故形态不得复活。
+  const degen =
+    '- [x] ✅(2026-09-27) **G-257. 审计日志族「参数校验失败被掩盖成 500」已修(7 站点/2 文件)**:病灶形态\n' +
+    '- [ ] **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的可跑性依赖 cwd'
+  if (findIdCollisions(degen).length !== 0) throw new Error('两行退化标题同编号不得算撞号')
+  if (
+    auditPlan('- [ ] **G-258 实质议题**:真标题。\n- [ ] **G-258(新登记)**:退化标题行').counts
+      .collisionGroups !== 0
+  )
+    throw new Error('退化标题不得被算成第二个标题')
+  // ④ 修法不自伤:归并器 F1 翻勾产物(`**[归并]**` 前缀 ⇒ 标题被切为空)与 F4 副本指针(追加行尾)
+  //    都不得制造新撞号 —— 否则"唯一正确修法"会被自己的判据拦下,逼人跳门。
+  const heal =
+    '- [x] ✅(2026-09-26) **D99 复合主键正例**:说明。\n' +
+    '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「D99 · 复合主键正例」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 **D99 复合主键正例**:旧副本。'
+  if (findIdCollisions(heal).length !== 0) throw new Error('F1 归并产物不得算撞号(修法自伤)')
+  const ptr =
+    '- [ ] **D93 重复待办**:第一条登记。\n' +
+    '- [ ] **D93 重复待办**:与上一条同主键的第二次登记。 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记在 L1,派单以那条为准,本行不再单独派单。〕'
+  if (findIdCollisions(ptr).length !== 0) throw new Error('F4 副本指针行不得算撞号(修法自伤)')
+  // ⑤ 真实形态(§22c 红线):三条**逐字取自真仓 HEAD** 的 G-267 登记行(本票自己就被三个议题共用)。
+  const real = findIdCollisions(REAL_G267_ROWS.join('\n'))
+  if (real.length !== 1 || real[0].key !== 'G-267' || real[0].titleCount !== 3)
+    throw new Error(
+      `真实三行应点名为 G-267 被 3 个标题共用,实测 ${JSON.stringify(real.map((g) => [g.key, g.titleCount]))}`,
+    )
+  // ⑥ 反向锁:判据必须走 titleOf/keyOfRow 同一出口,不得另抄归一化(§1"窄版自伤"同一条禁令)。
+  const libSrc = readFileSync(new URL('../lib/plan-task-index.mjs', import.meta.url), 'utf8')
+  const fnStart = libSrc.indexOf('export function findIdCollisions')
+  if (fnStart < 0) throw new Error('lib 里找不到 findIdCollisions ⇒ 判据被搬走或改名,本锁须同批改')
+  const fn = libSrc.slice(fnStart, libSrc.indexOf('\n}', fnStart))
+  if (!fn.includes('titleOf(')) throw new Error('findIdCollisions 没走 titleOf ⇒ 必然另抄了一份标题归一化')
+  if (!fn.includes('titleIsDegenerate(')) throw new Error('findIdCollisions 没走 titleIsDegenerate ⇒ 退化标题会被算成第二个标题')
+  if (/\.replace\(/.test(fn)) throw new Error('findIdCollisions 内部不得再写归一化正则(标题处理唯一出口=titleOf)')
+  // 行为侧同锁:只差装饰(租约标记/强调记号)的两行是同一标题 —— 抄窄版会把它们误判成两个。
+  const deco =
+    '- [ ] **G-9 同一议题**:正文一。\n- [ ]（进行中@2026-09-27/乙）**G-9 同一议题**:正文二。'
+  if (findIdCollisions(deco).length !== 0) throw new Error('装饰差异不得被算成两个标题(titleOf 同一出口的行为证明)')
+  // ⑦ 成套性与方向:进 probe / 基线有数字键 / 涨点名且逐组报名 / 降与持平不判 / --strict 存量不判红。
+  if (!probe(auditPlan(pair)).some(([k, , n]) => k === 'F9' && n === 1))
+    throw new Error('F9 未进 probe ⇒ 提交链根本不判它')
+  const base = JSON.parse(
+    readFileSync(new URL('../plan-task-state-baseline.json', import.meta.url), 'utf8'),
+  )
+  if (typeof base.F9 !== 'number') throw new Error('基线缺 F9 键 ⇒ 棘轮对这一维静默不判(M9 同型)')
+  const face = (n, gs) => ({
+    counts: {
+      forks: 0,
+      voidRows: 0,
+      rotatedPointers: 0,
+      dupOpenCopies: 0,
+      verbatimDupCopies: 0,
+      dupBlocks: 0,
+      newUndisposed: 0,
+      mergeNotes: 99,
+      collisionGroups: n,
+    },
+    staleRows: [],
+    collisions: gs,
+  })
+  const g = findIdCollisions(pair)
+  if (!grewViolations(face(1, g), face(0, [])).some((x) => x.startsWith('F9')))
+    throw new Error('新增撞号组必须被差值棘轮点名')
+  if (grewViolations(face(0, []), face(1, g)).some((x) => x.startsWith('F9')))
+    throw new Error('清偿撞号不得判红 —— 反方向判红等于没人敢修')
+  const ng = newCollisionGroups(face(1, g), face(0, []))
+  if (ng.length !== 1 || ng[0].key !== 'G-262') throw new Error(`newCollisionGroups 应点名 G-262,实测 ${JSON.stringify(ng.map((x) => x.key))}`)
+  if (newCollisionGroups(face(1, g), null).length !== 0)
+    throw new Error('没有基准面时不得凭空数出新增撞号')
+  const log = console.log
+  const run = (fn2) => {
+    const cap = []
+    console.log = (s) => cap.push(String(s))
+    try {
+      return { rc: fn2(), cap }
+    } finally {
+      console.log = log
+    }
+  }
+  const grew = run(() => gate(face(1, g), false, ROOT, face(0, []), null))
+  if (grew.rc !== 1) throw new Error(`新增撞号组必须拦下本次提交,实测 exit ${grew.rc}`)
+  if (!grew.cap.some((x) => x.includes('G-262') && x.includes('被 2 个不同标题共用')))
+    throw new Error(`差值棘轮红档必须逐组点名"编号被 N 个不同标题共用",实测 ${JSON.stringify(grew.cap)}`)
+  const flat = run(() => gate(face(0, []), false, ROOT, face(0, []), null))
+  if (flat.rc !== 0) throw new Error(`什么都没带进来的提交不得被拦,实测 exit ${flat.rc}`)
+  // 恒红门检查:存量撞号(哪怕 --strict)只报数不判红 —— 定级理由见 lib findIdCollisions 头注。
+  const stock = run(() => gate(face(base.F9, []), true, ROOT, null, null))
+  if (stock.rc !== 0)
+    throw new Error(`--strict 遇存量撞号 ${base.F9} 组不得判红(恒红门),实测 exit ${stock.rc}`)
+  if (!stock.cap.some((x) => x.includes('F9') && x.includes(String(base.F9))))
+    throw new Error('绿档也必须把存量撞号数报出来(把看不见混进没问题是本仓最高频失效型)')
 })
