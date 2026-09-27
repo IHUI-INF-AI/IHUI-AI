@@ -5,15 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import {
-  mkdtempSync,
-  writeFileSync,
-  mkdirSync,
-  rmSync,
-  copyFileSync,
-} from 'node:fs'
+import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -35,7 +29,7 @@ const SOURCE_SCRIPT = join(__dirname, '..', 'check-cli-i18n-parity.mjs')
 
 /** 创建临时环境(复制脚本到 <tmp>/scripts/)。 */
 function createTempEnv() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-cli-i18n-'))
+  const dir = mkScratch('ihui-cli-i18n-')
   mkdirSync(join(dir, 'scripts'), { recursive: true })
   copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-cli-i18n-parity.mjs'))
   return dir
@@ -68,7 +62,7 @@ test('边界: 目录不存在 → exit 0 + "skipping"', () => {
     assert.equal(r.status, 0, `目录不存在应 exit 0\ncleanStdout: ${r.cleanStdout}`)
     assert.match(r.cleanStdout, /skipping/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -80,7 +74,7 @@ test('边界: 目录存在但无 JSON 文件 → exit 0 + "skipping"', () => {
     assert.equal(r.status, 0)
     assert.match(r.cleanStdout, /skipping/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -91,7 +85,7 @@ test('CLI: --quiet 目录不存在时仍 exit 0(抑制 [OK] 输出)', () => {
     assert.equal(r.status, 0)
     assert.ok(!r.cleanStdout.includes('[OK]'), `--quiet 应抑制 [OK] 输出\ncleanStdout: ${r.cleanStdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -109,7 +103,7 @@ test('Parity: 5 语言一致 → exit 0 + "parity"', () => {
     assert.match(r.cleanStdout, /parity/)
     assert.match(r.cleanStdout, /5 locales/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -124,7 +118,7 @@ test('Parity: --quiet 一致时抑制 stdout', () => {
     assert.equal(r.status, 0)
     assert.equal(r.cleanStdout, '', `--quiet 应抑制 stdout,实际: ${r.cleanStdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -142,7 +136,7 @@ test('Parity: 嵌套 key 一致 → exit 0', () => {
     assert.equal(r.status, 0, `嵌套 key 一致应 exit 0\ncleanStdout: ${r.cleanStdout}`)
     assert.match(r.cleanStdout, /parity/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -156,7 +150,7 @@ test('Parity: 空对象(0 keys)一致 → exit 0', () => {
     assert.equal(r.status, 0, `空对象一致应 exit 0\ncleanStdout: ${r.cleanStdout}`)
     assert.match(r.cleanStdout, /parity/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -179,7 +173,7 @@ test('违规: 5 语言 key 名不同(size 相同)→ exit 1 + "missing key"', ()
     assert.match(r.cleanStderr, /parity drift/)
     assert.match(r.cleanStderr, /missing key/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -195,7 +189,7 @@ test('违规: 5 语言 key 数量不同 → exit 1', () => {
     assert.equal(r.status, 1)
     assert.match(r.cleanStderr, /parity drift/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -210,7 +204,7 @@ test('违规: JSON 解析失败 → exit 1 + "invalid JSON"', () => {
     assert.equal(r.status, 1)
     assert.match(r.cleanStderr, /invalid JSON/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -225,7 +219,7 @@ test('边界: 只有 3 语言文件 → 校验存在的 3 语言(一致 → exit
     assert.equal(r.status, 0, `3 语言一致应 exit 0\ncleanStdout: ${r.cleanStdout}`)
     assert.match(r.cleanStdout, /3 locales/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -238,7 +232,7 @@ test('违规: --quiet 不一致时仍输出错误 → exit 1', () => {
     assert.equal(r.status, 1)
     assert.match(r.cleanStderr, /parity drift/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

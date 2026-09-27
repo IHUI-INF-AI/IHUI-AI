@@ -17,9 +17,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -175,7 +175,7 @@ test('V1_ROUTE_FILE_RE: 只认 routes 与 routes/other 下的 v1-*.ts', () => {
 
 // ─── 6. CLI 退出码(临时 fixture 树,不读真实业务文件) ─────────
 function makeFixtureTree(routeSource) {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-capability-'))
+  const root = mkScratch('ihui-capability-')
   mkdirSync(join(root, 'packages/types/src'), { recursive: true })
   mkdirSync(join(root, 'packages/types/generated'), { recursive: true })
   mkdirSync(join(root, 'apps/api/src/routes'), { recursive: true })
@@ -201,7 +201,7 @@ test('CLI: 未覆盖端点 → exit 1 并在 --json 中给出清单', () => {
     const parsed = JSON.parse(r.stdout)
     assert.equal(parsed.stats.uncovered, 1)
     assert.ok(parsed.failures.some((f) => f.code === 'ENDPOINT_UNCOVERED'))
-  } finally { rmSync(root, { recursive: true, force: true }) }
+  } finally { rmScratch(root) }
 })
 
 test('CLI: 全部登记 + 产物一致 → exit 0', () => {
@@ -210,7 +210,7 @@ test('CLI: 全部登记 + 产物一致 → exit 0', () => {
     const r = runCli(root, ['--json'])
     assert.equal(r.status, 0, r.stdout + r.stderr)
     assert.equal(JSON.parse(r.stdout).stats.uncovered, 0)
-  } finally { rmSync(root, { recursive: true, force: true }) }
+  } finally { rmScratch(root) }
 })
 
 test('CLI: 产物漂移 → exit 1 并提示重新生成', () => {
@@ -221,7 +221,7 @@ test('CLI: 产物漂移 → exit 1 并提示重新生成', () => {
     assert.equal(r.status, 1)
     assert.ok(r.stdout.includes('ARTIFACT_MISSING_SCOPES'))
     assert.ok(r.stdout.includes('REGENERATE_HINT'))
-  } finally { rmSync(root, { recursive: true, force: true }) }
+  } finally { rmScratch(root) }
 })
 
 test('CLI: --self-test 内置断言全绿(exit 0);产物缺失也判失败', () => {
@@ -235,7 +235,7 @@ test('CLI: --self-test 内置断言全绿(exit 0);产物缺失也判失败', () 
     const r = runCli(root, ['--json'])
     assert.equal(r.status, 1)
     assert.ok(r.stdout.includes('ARTIFACT_MISSING'))
-  } finally { rmSync(root, { recursive: true, force: true }) }
+  } finally { rmScratch(root) }
 })
 
 test('CLI: --staged 且无 v1 路由文件暂存时不判定端点覆盖(用环境变量注入清单)', () => {
@@ -248,6 +248,6 @@ test('CLI: --staged 且无 v1 路由文件暂存时不判定端点覆盖(用环�
     })
     assert.equal(r.status, 0, r.stdout + r.stderr)
     assert.equal(JSON.parse(r.stdout).stats.filesScanned, 0)
-  } finally { rmSync(root, { recursive: true, force: true }) }
+  } finally { rmScratch(root) }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

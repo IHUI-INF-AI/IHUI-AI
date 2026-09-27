@@ -6,14 +6,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
 import {
-  mkdtempSync,
   writeFileSync,
   rmSync,
   copyFileSync,
   mkdirSync,
 } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -24,7 +23,7 @@ const SOURCE_SCRIPT = join(__dirname, '..', 'check-dedupe.mjs')
 // 说明:check-dedupe.mjs 用 __dirname 推导 ROOT(=__dirname/..),
 // 故将脚本复制到 tempdir/scripts/,ROOT 即为 tempdir,可完全控制环境。
 function createTempProject() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-dedupe-'))
+  const dir = mkScratch('ihui-dedupe-')
   mkdirSync(join(dir, 'scripts'), { recursive: true })
   copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-dedupe.mjs'))
   return dir
@@ -63,7 +62,7 @@ test('--staged: 非 git 目录 → exit 0(git 命令抛错,catch 块退出)', ()
     const r = runScript(dir, ['--staged'])
     assert.equal(r.status, 0, `非 git 目录应 exit 0,实际 ${r.status}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -76,7 +75,7 @@ test('--staged: git 仓库无 staged 文件 → exit 0(跳过)', () => {
     assert.equal(r.status, 0, `无 staged 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /pnpm-lock\.yaml 未变更|跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -91,7 +90,7 @@ test('--staged: 暂存其他文件(非 pnpm-lock.yaml)→ exit 0(跳过)', () =>
     assert.equal(r.status, 0, `暂存非 lockfile 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /pnpm-lock\.yaml 未变更|跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -108,7 +107,7 @@ test('--staged: pnpm-lock.yaml 已暂存但工作树删除 → exit 0(LOCKFILE �
     assert.equal(r.status, 0, `LOCKFILE 不存在应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /未找到 pnpm-lock\.yaml/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -121,7 +120,7 @@ test('无 --staged: 无 pnpm-lock.yaml → exit 0(跳过)', () => {
     assert.match(r.stdout, /未找到 pnpm-lock\.yaml/)
     assert.match(r.stdout, /跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -136,7 +135,7 @@ test('--staged: 暂存 pnpm-lock.yaml.bak(非精确匹配)→ exit 0(跳过)', (
     assert.equal(r.status, 0, `非精确匹配应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /pnpm-lock\.yaml 未变更|跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -152,7 +151,7 @@ test('--staged: 暂存 subdir/pnpm-lock.yaml(非根路径)→ exit 0(跳过)', (
     assert.equal(r.status, 0, `非根路径应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /pnpm-lock\.yaml 未变更|跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -165,7 +164,7 @@ test('--staged: 附加额外参数(--staged --foo --bar)→ 仍识别 staged 模
     assert.equal(r.status, 0, `额外参数应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /pnpm-lock\.yaml 未变更|跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -177,7 +176,7 @@ test('输出: 消息包含 [check:dedupe] 前缀', () => {
     assert.equal(r.status, 0)
     assert.match(r.stdout, /\[check:dedupe\]/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -197,7 +196,7 @@ test('--staged: pnpm-lock.yaml 已暂存且存在 → 不跳过,进入 pnpm 检�
     // 应进入 pnpm dedupe 检查
     assert.match(r.stdout, /检查依赖版本碎片化/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -215,7 +214,7 @@ test('无 --staged: pnpm-lock.yaml 存在 → 进入 pnpm dedupe 检查', () => 
       'lockfile 存在不应输出"未找到"',
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -232,7 +231,7 @@ test('退出码: pnpm dedupe --check 失败 → exit 非零 + 输出"失败"', (
     assert.match(combined, /失败/)
     assert.match(combined, /pnpm dedupe/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -257,7 +256,7 @@ test('--staged: 多文件暂存含 pnpm-lock.yaml → 不跳过,进入 pnpm 检�
     // 应进入 pnpm dedupe 检查
     assert.match(r.stdout, /检查依赖版本碎片化/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
