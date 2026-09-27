@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { NoteCreateScreen as SharedNoteCreateScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -49,7 +50,7 @@ export function NoteCreateScreen() {
     })
     setSaving(false)
     if (res.success && res.data) navigation.replace('NoteDetail', { id: res.data.id })
-    else if (!res.success) setError(res.error || t('noteCreate.saveFailed'))
+    else if (!res.success) setError(apiFailureToText(res, t('noteCreate.saveFailed')))
   }
 
   return (

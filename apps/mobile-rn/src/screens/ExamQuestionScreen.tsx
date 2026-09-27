@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import {
   ExamQuestionScreen as SharedExamQuestionScreen,
   type ExamQuestionPaper,
@@ -39,7 +40,7 @@ export function ExamQuestionScreen() {
       )
       if (cancelled) return
       if (res.success) setExam(res.data)
-      else setError(res.error || t('examQuestion.loadFailed'))
+      else setError(apiFailureToText(res, t('examQuestion.loadFailed')))
       setLoading(false)
     })()
     return () => {
@@ -65,7 +66,7 @@ export function ExamQuestionScreen() {
       { method: 'POST', body: JSON.stringify({ answers }) },
     )
     if (res.success && res.data) navigation.replace('ExamResult', { id: res.data.id })
-    else if (!res.success) setError(res.error || t('examQuestion.submitFailed'))
+    else if (!res.success) setError(apiFailureToText(res, t('examQuestion.submitFailed')))
   }
 
   return (

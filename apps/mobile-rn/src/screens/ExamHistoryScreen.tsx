@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { ExamHistoryScreen as SharedExamHistoryScreen, type ExamHistoryItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -28,7 +29,7 @@ export function ExamHistoryScreen() {
     setError('')
     const res = await fetchApi<ExamHistoryItem[]>('/api/exam/records')
     if (res.success) setHistory(res.data ?? [])
-    else setError(res.error || t('examHistory.loadFailed'))
+    else setError(apiFailureToText(res, t('examHistory.loadFailed')))
     setLoading(false)
     setRefreshing(false)
   }
