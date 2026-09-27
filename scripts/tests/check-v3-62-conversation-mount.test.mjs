@@ -60,10 +60,41 @@ test('T2 取材面形状锁:必须走 face-reader 的读取入口,不得按磁�
 
 test('T3 真文件形态锁:侧栏真实源码里的三处装载点必须被同一判据认出(逐字取自交付文件)', () => {
   const masked = __test__.maskNoise(sidebarText, { keepStrings: false })
-  for (const exit of __test__.MOUNT_EXITS) {
+  for (const exit of __test__.MOUNT_EXITS.filter((x) => x.lane === 'ui')) {
     const used = masked.split(/\r?\n/).some((l) => __test__.isUseLine(l, exit.symbol))
     assert.ok(used, `真实侧栏源码应含 ${exit.symbol} 的调用/渲染点 —— 缺了就是本票没接上`)
   }
+})
+
+test('T3c 服务车道真源码:Python 的 def 行**不得**算装车点,而 llm.py 的那一条必须算(成对)', () => {
+  const svc = __test__.MOUNT_EXITS.find((x) => x.lane === 'service')
+  assert.ok(svc, '登记表里必须有服务侧出口,否则本条判据退化为空转')
+  const defText = readFileSync(join(REPO, svc.ownFile), 'utf8')
+  const callText = readFileSync(join(REPO, 'apps/ai-service/app/routers/llm.py'), 'utf8')
+  const defMasked = __test__.maskNoise(defText, { keepStrings: false, hashLineComments: true })
+  const callMasked = __test__.maskNoise(callText, { keepStrings: false, hashLineComments: true })
+  const defLines = defMasked.split(/\r?\n/).filter((l) => __test__.isUseLine(l, svc.symbol))
+  const callLines = callMasked.split(/\r?\n/).filter((l) => __test__.isUseLine(l, svc.symbol))
+  assert.ok(
+    defMasked.includes(`def ${svc.symbol}(`) || defMasked.includes(`async def ${svc.symbol}(`),
+    `${svc.ownFile} 应含该出口的定义行`,
+  )
+  assert.equal(defLines.length, 0, `Python 定义行被算成装车点(${defLines.length} 处)⇒ 本门对"生产者被摘掉"恒绿`)
+  assert.ok(callLines.length >= 1, 'llm.py 的生产者调用点必须被认出')
+  // 变异必须在**原文**上做、再交给判据自己遮蔽:在遮蔽后的文本上插 `#` 等于把注释写给
+  // 一个已经不再看注释的面 ⇒ 遮蔽层没关掉任何东西,变异臂会"永远无效"(本条第一次跑就是这样红的)。
+  const mutated = callText
+    .split(/\r?\n/)
+    .map((l) => (__test__.isUseLine(l, svc.symbol) ? `# gate-mutation: ${l}` : l))
+    .join('\n')
+  assert.equal(
+    __test__
+      .maskNoise(mutated, { keepStrings: false, hashLineComments: true })
+      .split(/\r?\n/)
+      .filter((l) => __test__.isUseLine(l, svc.symbol)).length,
+    0,
+    '注释掉调用点后仍有"调用点" ⇒ 变异无效',
+  )
 })
 
 test('T3b 变异对照:把装载点整行注释掉,同一条判据必须翻红(不只会对夹具发红)', () => {
@@ -73,7 +104,7 @@ test('T3b 变异对照:把装载点整行注释掉,同一条判据必须翻红(�
       .split(/\r?\n/)
       .findIndex((l) => __test__.isUseLine(l, symbol))
 
-  for (const exit of __test__.MOUNT_EXITS) {
+  for (const exit of __test__.MOUNT_EXITS.filter((x) => x.lane === 'ui')) {
     const lines = sidebarText.split(/\r?\n/)
     const idx = findUseLine(sidebarText, exit.symbol)
     assert.ok(idx >= 0, `真实侧栏应含 ${exit.symbol} 的调用点(否则 T3b 无变异对象)`)
@@ -89,9 +120,14 @@ test('T3b 变异对照:把装载点整行注释掉,同一条判据必须翻红(�
   }
 })
 
-test('T4 登记表自洽:每个 ownFile 必须落在侧栏面内、且含它登记的符号', () => {
+test('T4 登记表自洽:每条出口必须落在自己那条车道该在的面内、且含它登记的符号', () => {
+  // 分道断言而不是"一律 apps/web/src/":服务侧出口就该在 ai-service 里,
+  // 拿侧栏前缀去判它等于要求别人把生产者搬回 web 端(判据替人做了架构决定)。
+  const LANE_PREFIX = { ui: 'apps/web/src/', service: 'apps/ai-service/' }
   for (const exit of __test__.MOUNT_EXITS) {
-    assert.ok(exit.ownFile.startsWith('apps/web/src/'), `登记出口必须在 web 端内: ${exit.ownFile}`)
+    const prefix = LANE_PREFIX[exit.lane]
+    assert.ok(prefix, `未知车道 ${exit.lane}(新增车道必须同时给它一条真源码判据,不许复用别的车道的)`)
+    assert.ok(exit.ownFile.startsWith(prefix), `登记出口 ${exit.symbol} 必须在 ${prefix}: ${exit.ownFile}`)
     assert.ok(
       readFileSync(join(REPO, exit.ownFile), 'utf8').includes(exit.symbol),
       `${exit.ownFile} 应含它登记的符号 ${exit.symbol}(否则台账指向的不是这份实现)`,
