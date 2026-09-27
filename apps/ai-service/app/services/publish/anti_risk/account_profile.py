@@ -11,8 +11,8 @@
 2. 代理(同账号永远同 IP)— proxy_pool 分配
 3. 浏览器 user_data_dir(持久化 Cookie/LocalStorage/IndexedDB)— Playwright launch_persistent_context
 
-持久化结构:
-  .ihui-agent/tmp/anti-profiles/<account_id>/
+持久化结构(根目录锚定**仓库根**、与进程 cwd 无关,解析唯一出口 resolve_profile_root):
+  <repo root>/.ihui-agent/tmp/anti-profiles/<account_id>/
     ├── profile.json         — 指纹 + 代理配置(跨会话稳定)
     └── browser-data/        — Playwright 持久化浏览器目录(Cookie/Storage)
 
@@ -38,11 +38,40 @@ from .proxy_pool import ProxyConfig, get_proxy_pool
 logger = get_logger(__name__)
 
 
-# Profile 根目录(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
-_PROFILE_ROOT = Path(os.environ.get(
-    "ANTI_RISK_PROFILE_DIR",
-    ".ihui-agent/tmp/anti-profiles",
-)).resolve()
+def resolve_profile_root(raw: str | None) -> Path:
+    """账号画像根目录解析的**唯一出口** — 纯函数:不读 env、不碰文件系统、**与进程 cwd 无关**。
+
+    三态规则(全部由仓库根锚定,一条也不许看当前工作目录):
+
+    1. ``raw`` 为 None 或空白(环境变量未设 / 被设成空串)→
+       ``<仓库根>/.ihui-agent/tmp/anti-profiles``(AGENTS.md §15:临时产物放 .ihui-agent/tmp/)
+    2. ``raw`` 为**相对路径** → 锚定**仓库根**解析。不得按 cwd 解析 ——
+       旧实现 ``Path(".ihui-agent/tmp/anti-profiles").resolve()`` 正是"相对路径按进程
+       cwd 解析",同一账号在 apps/ai-service / 仓库根等不同目录下启动会落到**不同物理根**
+       ⇒ 画像与指纹隔离形同虚设(换目录 = 换一张脸),且在错误位置凭空长出空壳画像
+       (实测三份根并存:其中只有 apps/ai-service 下一份带真实 Cookies)。
+       该缺陷由 tests/test_profile_root_is_cwd_independent.py 锁死,不得复发。
+    3. ``raw`` 为**绝对路径** → 原样采用(仅 resolve() 做路径规范化)。
+
+    本函数**不创建任何目录**:mkdir 仍发生在画像首次使用时
+    (_ProfileManager._create_new),模块导入期保持零副作用。
+    """
+    # 仓库根:本文件在 <root>/apps/ai-service/app/services/publish/anti_risk/ 下,上溯 6 层。
+    # (apps/ai-service/app/** 现无已导出的"仓库根"解析出口 —— 既有各处都是模块内私有的
+    # parents[4] 计数;层数一旦随模块搬家过期,回归测试会当场点名它,不会静默漂开。)
+    root = Path(__file__).resolve().parents[6]
+    if raw is None or not raw.strip():
+        return (root / ".ihui-agent/tmp/anti-profiles").resolve()
+    candidate = Path(raw)
+    if candidate.is_absolute():
+        return candidate.resolve()
+    return (root / candidate).resolve()
+
+
+# Profile 根目录 —— 解析规则全部住在上方唯一出口 resolve_profile_root(),与 cwd 无关。
+# 环境变量语义保持不变:ANTI_RISK_PROFILE_DIR 给了就用它(绝对路径原样,相对路径锚定仓库根);
+# AGENTS.md §15:临时文件放 .ihui-agent/tmp/
+_PROFILE_ROOT = resolve_profile_root(os.environ.get("ANTI_RISK_PROFILE_DIR"))
 
 
 @dataclass
@@ -208,5 +237,5 @@ def get_account_profile(account_id: str, platform: str = "") -> AccountProfile:
     return _manager.get(account_id, platform)
 
 
-__all__ = ["AccountProfile", "get_account_profile"]
+__all__ = ["AccountProfile", "get_account_profile", "resolve_profile_root"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
