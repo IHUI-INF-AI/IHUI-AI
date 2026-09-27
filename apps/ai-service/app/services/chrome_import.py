@@ -21,12 +21,13 @@ import time
 from typing import Any
 
 from ..core.logging import get_logger
-from .scan_login import PLATFORM_SCAN_CONFIG, _save_account_to_db
+from .scan_login import PLATFORM_SCAN_CONFIG, _collect_platform_relevant, _save_account_to_db
 
 logger = get_logger(__name__)
 
-# 统计类 cookie 剔除关键字(与 scan_login.detect_login_from_cdp_session 保持一致)
-_TRACKER_KEYWORDS = ("google", "baidu", "cnzz", "_ga", "hm.baidu")
+# 归属判定不在这里:唯一出口是 scan_login._collect_platform_relevant(域名优先、名称兜底、判不出即丢)。
+# 本文件曾因自带一份"统计类关键字"名单,把用户 Chrome 全部 context 的整包 cookie 直接落库
+# —— 2026-09-27 库里那两份逐字节相同的 533 字段混包就是这个形状(同一次整浏览器 jar 被存成了两个平台账号)。
 
 # CDP 就绪探测参数
 _CDP_READY_TIMEOUT_SECONDS = 10.0
@@ -53,18 +54,20 @@ async def _wait_for_cdp_ready(port: int) -> bool:
     return False
 
 
-async def _collect_cookies_from_browser(browser: Any) -> dict[str, str]:
-    """遍历 browser.contexts,合并 cookie(name -> value)。"""
+async def _collect_cookies_from_browser(browser: Any) -> tuple[dict[str, str], list[dict[str, Any]]]:
+    """遍历 browser.contexts 合并 cookie,并**一并带回原始条目(含 domain)**供上层按站点归属筛。"""
     cookies_dict: dict[str, str] = {}
+    raw: list[dict[str, Any]] = []
     for ctx in browser.contexts:
         try:
             for c in await ctx.cookies():
                 if c.get("value"):
-                    cookies_dict[c["name"]] = c["value"]
+                    cookies_dict[str(c["name"])] = str(c["value"])
+                    raw.append(dict(c))
         except Exception:
             # 单个 context 异常不影响其它 context 的 cookie
             continue
-    return cookies_dict
+    return cookies_dict, raw
 
 
 async def import_chrome_cookies(port: int, platform: str, user_id: str) -> dict[str, Any]:
@@ -98,7 +101,9 @@ async def import_chrome_cookies(port: int, platform: str, user_id: str) -> dict[
             browser = await p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
             # 注意:绝不调用 browser.close()(会关闭用户的 Chrome);
             # async with 作用域退出时仅断开 playwright driver 连接,外部 Chrome 不受影响。
-            cookies_dict = await _collect_cookies_from_browser(browser)
+            cookies_dict, raw_cookies = await _collect_cookies_from_browser(browser)
+        # 先按平台归属筛:整浏览器 jar 里"名字像"的登录 cookie 不等于"这一站的登录态"
+        cookies_dict = _collect_platform_relevant(platform, cookies_dict, raw_cookies, config)
 
         # 3. 检测命中:success_cookies 中任一 key 存在且值长度 > 5
         hit = [
@@ -109,11 +114,8 @@ async def import_chrome_cookies(port: int, platform: str, user_id: str) -> dict[
             return {"detected": False, "cookies_count": len(cookies_dict),
                     "account_id": None, "error": None}
 
-        # 4. 命中 → 收集相关 cookies(剔除统计类)+ 加密保存
-        all_relevant = {
-            k: v for k, v in cookies_dict.items()
-            if not any(s in k.lower() for s in _TRACKER_KEYWORDS)
-        }
+        # 4. 命中集已在上面按归属筛过(不再套名字黑名单),直接加密保存
+        all_relevant = cookies_dict
         account_id = await _save_account_to_db(user_id, platform, all_relevant, config["name"])
         logger.info(
             f"[chrome_import] 导入成功: platform={platform}, account_id={account_id}, "
