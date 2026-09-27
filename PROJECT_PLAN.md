@@ -12809,3 +12809,95 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 > 通用规矩：**批次号的"已落地"只能由 `git show --name-only` 的路径清单证明**，消息与台账都算二手材料。
 
 - 〔O81 票⑮ 2026-09-27:圆角跨端"两把尺子互相指认"那一格封死 —— RD 与 RE 分家、方向形态补认、角色档门装上;跨端圆角台账 16 档降到 6 档〕**立因**(用户原话「App 端 小程序端 还有那么多容器圆角没统一用项目要求的圆角 token,不允许出现胶囊型,请彻底根治」):守门 77 在 HEAD 面扫 6389 文件报 0 违规,守门 128 此前只判几何 —— "同一元素两端取不同档"与"这类元素取了哪一档"两格**无人看守**,两台尺子互相指认。**本轮产出**:① `packages/design-tokens/src/radius.js` 落 `RADIUS_ROLES` 角色档唯一源(档位值早就有源,角色从未有源,这是根因);② 门 128 新增 **RD**(`radiusCounts`)与 **RE**(`elementRadiusCounts`,按元素名配对,恒写含 0、三维锚点各自独立)两维,并修掉 RD 的一处**造出假分叉**的盲区 —— `radiusPxInLine` 原先不认方向与角形态(`rounded-t-xl` / `rounded-tr-sm`),小程序底部弹层写 `rounded-t-2xl` 而 RN 写整格 `rnRadius['2xl']` 时,尺子只在小程序侧读不到 16,于是把同一档报成两端不同值;补认后实测**只降不升**(Carousel / LoginPopUp / ModelConfigDialog / ModelList 四族归零),台账 16→6 档且 `counts` / `elementRadiusCounts` 逐字未动;③ 新守门 **149 `check-radius-role-conformance.mjs`**(blocking,首锚 538 键 / 842 处存量,`--self-test` 75 条 + 镜像 14 例,含真仓 HEAD 阳性对照)把"这类元素该取哪一档"变成机器判据;④ 端上按角色档收敛:小程序/RN 的 UserInfoCard·InputArea·LoginPopUp·ModelConfigDialog·ModelList·Carousel 逐元素对齐,web 卡片 `rounded-xl→lg`、6px 高进度/骨架条 `rounded|rounded-sm|rounded-2xl→xs`(矮盒上正是被禁止的半高胶囊)、扩展未读徽章 `rounded-lg→md`;⑤ 容器胶囊存量守门 11 在 HEAD 面**违规 0 处 / 扫 8183 文件**(此前 33→17→6→0,且 0 由阳性对照背书,不是尺子瞎)。**仍开的三格(不得读成已收口)**:① 门 128 配对源不含 `packages/app/src/features/**`,而 `index.ts:218` 的 `UserInfoCard` 出口恰指那一份 ⇒ 第三份活实现改像素不动读数(本轮已按角色档对齐它,判据缺口另计一票);② RE 在真仓**没有配对面**(两端元素命名语言不同),要让它有牙必须先统一命名或逐条登记 `aliases`;③ 149 的 842 处存量与 746 处弱证据待逐条裁决。**渲染级取证未做**:设备在位但装的是改动前的 JS 包且已掉登录态,故本轮所有结论都是**源码级 + 尺子级**,不声明目视验收。
+
+
+
+- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-239」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 **G-239 守门 `check-readme-table-integrity` 的注册块不见了 —— 补注册前必须先清偿它自己的存量**（归属：该门持有者；本线只解除它挡住的提交链）
+## 第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告警邮件」引出)
+- [x] ✅(2026-09-27) **先量事实再定性**:今天部署环 `deploy-loop.log` 实际寄信 **4 封**(02:08 / 03:10 / 03:34 / 03:35),另有 **25 次被去重正确跳过** ⇒ 去重机制没坏。两处真缺陷:① 告警签名 = **整条文案**,失败原因换个措辞就被判成"另一件事"立刻重发(03:34 与 03:35 只差一分钟各一封);② 更根本的是**根因可自愈却按事故报** —— 这台机多个会话同时提交推送,`git merge --ff-only FETCH_HEAD` 撞上"远端刚被推走、本地也有新提交"是每几分钟一次的中间态,而仓库早有该型唯一出口 `scripts/git-sync-converge.mjs`(§12d:索引层合并、从不 checkout、从不碰他人未提交文件、冲突才交人工),**旧代码只把它名字写进日志"请人工跑",从未调用过**。判据在、调用点没有 —— 本仓最高频失效型再一次自证。
+- [x] ✅(2026-09-27) **改法(`deploy/win/ihui-deploy.ps1`,提交 `bdb504dfb`)**:分叉分支改为「计数 → 后台发起收敛 → 未达阈值优雅退出 → 到阈值才报警」:新增 `Add-DivergedStreak`/`Reset-DivergedStreak`/`Read-DivergedStreak`(状态文件与脚本同目录:`deploy/win/.diverged-streak.json`、marker 为 `deploy/win/.converge-inflight.marker`,**外壳每轮起新子进程,内存变量活不过一轮**),阈值 `$DivergedAlertStreak = 5` 轮(≈5 分钟)才 Fail 且文案改成"连续 N 轮且自动收敛无效";未达阈值 `Release-DeployLock` + `exit 0`(不放锁则下一轮白等一个超时窗口)。`Invoke-AutoConverge` 刻意**只发起不等待**(收敛一轮可跑几分钟,同步等待等于钉死 60 秒一趟的轮询),并用 10 分钟 marker 防并发收敛互抢 CAS —— §12d 的 git 写锁只串行化单次写,不为"同一件事 20 个进程同时做"设计。
+- [x] ✅(2026-09-27) **两条差点埋进去的坑,都来自本仓已有教训**:① 服务身份 `LocalSystem` 的 PATH 里没有 node,取可执行必须走既有 `Resolve-NodeExe`(绝对路径候选已内建),裸 `node` 会**静默失败**成"自动收敛永不生效而账面看不出来";取不到时明确记 WARN 并继续计数,不假装收敛过。② 成功 ff 后必须清零,否则一次抖动永久累加到阈值 —— 这是"计数器不重置"那一型,归零由镜像测试钉住。
+- [x] ✅(2026-09-27) **取证例数以命令末行现读为准,本文不钉数字**:`pwsh` 解析器 0 错误;计数行为 5 例(无状态读 0 / 逐轮 +1 / 首轮起始时间落盘 / 归零 / 坏 JSON 退回 0 不抛) —— 夹具做法是**从真文件按函数名逐字切片**再跑,函数被改名或改结尾时切片失败即红,不留自洽假绿;常驻镜像 `scripts/tests/deploy-diverged-autorecover.test.mjs`(L1 阈值门→`exit 0`→`Fail` 的**顺序**锁、L2 收敛必须被真的调用而非只写进日志文案、L3 必须 `Resolve-NodeExe` 且不得裸 `node`、成功归零锁、未引入强推/硬回退的反向锁)。**生效不需要重启服务**:外壳每轮以子进程调起本脚本,下一轮即读新代码 —— 这一点由 `ihui-deploy-loop.ps1` 头注第 2 条实证,不是推测。
+- **如实登记边界**:本票改动的**报警阈值一侧**尚未在真分叉现场跑过现网读数(落地时 `behind=0`,分支未触发),现有证据只到"解析 + 行为夹具 + 源码顺序锁"三层。第一手现网证据由值守票负责回收:出现 `AUTO-CONVERGE` / `SKIP 本轮不切流` 即为生效,出现 `连续 5 轮…自动收敛无效` 才算真停摆。另记本机会话内的两次自纠(都是"扫到 0 先怀疑尺子"的实录):用整份跨天日志算出"22 封"是**虚高**,用中文关键词去匹配这份 **GBK 日志**得到的"0 封"是**假零**;最终按时间戳前缀 + ASCII 标记才数对。
+- **第三十三批·发布线续 F（凭据字段两侧对账入库 + 身份锚点第五维"状态文件根"收口并完成一次人工并集归并 + 掘金探针现场两处账面更正与两条自造副作用，2026-09-27 午后）**:① **表单要什么 vs 适配器读什么，第一次有了尺子**（`6a46e446`）：api 侧注册表 10 处键名漂移按「权威侧 = 适配器」订正 —— wordpress `app_password`→`application_password`、medium 多写的 `author_id` 删、bilibili `buvid3`→`dedeuserid`、zhihu `d_c0`→`_xsrf`、juejin `sessionid_ss`→`signatureId`，以及 toutiao/douyin/kuaishou/weibo/shipinhao 五家的泛键 `cookie` 换成各适配器实读键。这些漂移的症状不是报错而是**「填了等于没填」**（用户按表单填完，适配器 `credentials.get()` 取到空串），typecheck/lint/单测全绿。常驻尺子 `apps/api/tests/publish-credential-field-parity.test.ts`：权威侧按 **HEAD 面**取 `requires_credentials`、展示侧按**工作树面**取注册表（两面刻意不对称且同轮取满 —— 读 HEAD 会让「本枚提交两侧同时改好」的那一刻自我判红），P1 逐键等值 / P2 覆盖差（§0.1 那 24 个未登记平台**如实报数**不判红，豁免受「短理由 / 已被注册表覆盖 / 指向不存在平台 / 重复登记」四条防线约束）/ P3 空扫判死，判据有牙由构造面正反对照证明。**交付归因**：同一票两个并行代理各写一份尺子，主体保留其实现，本会话补的是它缺的 `git -C REPO_ROOT`（缺它时 cwd=apps/api 恒「扫到 0 条」，而 0 在这类尺子里表现成一切正常）与 4 处 `noUncheckedIndexedAccess` strict 类型错误 —— 后者 api 包 tsconfig `exclude: tests`，**提交链与 `tsc -p tsconfig.json` 结构上都看不见**，只有单独按 strict 编译该文件才现形。复跑证据：5 份发布相关 api 套件 **46 passed**、`tsc --noEmit` 0 错、eslint 0 error。② **本尺子射程外的另一条轴（现读实证，另计一票）**：适配器「声明清单 vs 自己实际读取的键」也漂 —— `medium.py:71` 读了未声明的 `publication_id`；`douyin.py` 的 `client_secret` 与 `kuaishou.py` 的 `app_secret` 在各自文件内**只出现在头注和 `requires_credentials` 里，零读取点**（逐文件全量 grep 穷举），而 kuaishou 另读了未声明的 `open_id`。若按「声明 = 必填」收紧，这两家会永远要求用户填一个代码根本不用的字段；修的是适配器侧，**不得反向改适配器迁就注册表**。③ **掘金探针草稿：续 E ⑥ 那句「3 篇」是错的，现读 5 篇**（账号草稿总数 16，其中用户自己的 11 篇一个未碰）：5 篇标题含「勿发布」、ctime 落在今天 10:03–10:22 探针窗口内、`article_id` 全为 `0`（从未生成正式文章），归属判据唯一且无一篇判不出；**删除动作仍归用户**，但入口与操作路径已量清 —— 任务书给的 `/writing/dashboard` **已改版、登录态下跳回首页**，正解是 `/creator/content/article/drafts`，删除钮是 hover 才出现的无文案无 aria 的 `i.more-icon`，且**点标题会进编辑器并触发自动保存＝再多长一篇草稿**（这正是这 5 篇的成因）；删除接口**未取证**（观测它必须真点删除），`article_draft/delete` 那句只是同族命名的推测，不得当依据。④ **一条反证 + 两条自造副作用**：探针会话起初判「掘金登录态失效」并跳回首页，根因不是账号 —— 它 12:16 起跑，而画像根锚定仓库根的修复 12:34 才落地；那一次以**仓库根**为 cwd、真画像 9 份却还住在 `apps/ai-service/.ihui-agent/tmp/`（正是本票要收口的那一维），于是凭空长出一份**空壳画像**（随机指纹 / UA=MacIntel），掘金把它当新设备。改用真画像（`Win32` / 2560×1440，seed 1108090058）后立刻登录成功 ⇒ 这既反证「画像根随 cwd 漂」在真链路上确实致命，也说明**「探针没登录」与「账号没登录」是两件事**。自造的两格如实登记、不悄悄抹：空壳画像已由搬迁器归档为 `anti-profiles/juejin_db13.probe-copy-20260927T1217`（留名可回退）；`device_graph.json` 现对 `juejin_db13` 存在**两条**设备绑定（探针多跑一次所致），若日后跨账号关联检测因此报警，成因在此。⑤ **第五维（状态文件根）已收口并落地**（`05de1ae1`）：`device_graph / audit / cooldowns / risk-events / cookie-health` 五个状态文件此前各写一遍 `Path(os.environ.get(ENV, "<相对默认值>")).resolve()`，相对值按**进程 cwd** 解析 ⇒ 同一账号的图谱与冷却分成两摊（换终端启动就像"被风控"）。现收进唯一出口 `anti_risk/state_paths.resolve_state_path()`（空值归默认 / 相对值锚仓库根 / 绝对值原样，默认值给绝对值直接 ValueError），`account_profile.resolve_profile_root()` 改为整体委托它，`anti_risk/**` 里上溯计数只剩一处由源码面锁钉住；搬迁器扩出**并列的单文件趟**（清单从 `anti_risk/*.py` 现读、四判据、`os.replace`+字节回读、候选为 0 判"判据失明"exit 1）。本会话独立复跑：anti-risk 邻域 16 份套件 **212 passed**、mypy strict 7 文件 no issues、ruff 全绿、`--self-test` 7 组全过、水印 11/11 完好。⑥ **`--apply` 与一次人工归并**：三个文件已搬（cookie-health / cooldowns / risk-events），`anti-audit-log.jsonl` 历史位置本就无文件；`device_graph.json` 两侧都有真实内容 ⇒ 搬迁器按判据**拒绝**（不许机器折中选一份），人工按 account_id **求并集**：目标 1 条 ∪ 源 9 条 = **9 条**（唯一冲突 `juejin_db13` 取 `updated_at` 较新那条），三条零损失判据（并集闭合 / 非冲突条目逐字段等值 / 冲突项取较新）全过才写盘，两份原件都改名归档不删除、被弃条目单留 `device_graph-merge-dropped-*.json` 供复核；归并后复跑搬迁器报 `move=0 refuse=0 失败=0`。同批把两处会重新长出第二份真相的落点改走出口：`scripts/migrate_publish_identity.py` 的 `TMP_ROOT/GRAPH/COOLDOWNS`（原手拼端目录，搬迁后会读不到在用那份）与 `tests/test_anti_risk_fingerprint_digest.py` 那条"落点 ≠ 仓库默认档"的夹具自检（原按 `Path.cwd()` 手拼默认档 ⇒ 收口后那个已不是默认档，断言恒真）。**行为变更预告**：`ANTI_RISK_*_FILE` 给相对值时不再按服务启动目录解析 —— 部署侧若要指到别处必须写绝对值。
+### 第五十一波·续十七 —— 批次 49：A36 第三步的 enforce 档落地，而**默认档刻意不动**（2026-09-27 午后，主会话独立复跑）
+- [x] ✅(2026-09-27) **批次 49 `normalizeToolArguments` + 有界 repair + enforce 分支（对标 ZCode `dynamic-workflow/scheduler-submit`）**
+  没有这一半，enforce 就是"把昨天能跑的调用今天全拒"：真实模型常把 object/array 参数整体 stringify，
+  所以容错解析的判序是①**原值先过校验就绝不 re-parse**（保住合法 string 值与 union 里的 `string` 分支）、
+  ②只有"原判不过 ∧ 该位期望 object/array ∧ 实得 string"才做**一次** `JSON.parse` 复验、
+  ③复验不过即**维持原判**（报原树错误、交回原参数）。回喂有界（`TOOL_ARG_REPAIR_MAX_ATTEMPTS=3`、
+  按工具名计连续窗、通过即清零），与 doom-loop 检测共存；违规在**批准弹窗与限流之前**即拒（不消耗配额）。
+  **`enforce` 不是默认档**：门 115 与影子测试共同钉住"默认 off + shadow 在位"，翻默认的前置是台账证明描述可信。
+  主会话独立复跑：`pnpm --filter @ihui/cli typecheck` **0 错误**、四套 argument-validation **78 passed (78)**、
+  `check-tool-arg-validation-wired` 与 `check-tool-arg-routing-identity` 均 **exit 0**（现读"生产面调用 3 处"）。
+  **代理测反了我任务书的两条前提**（我照它改，不照我写）：① `apps/cli/src/tools/types.ts` **根本不存在**，
+  模式联合住在 telemetry 的 `TOOL_ARG_VALIDATION_MODES` 且 `'enforce'` 字面量早在列 —— 本票是"实现行为"不是"补枚举"；
+  ② 我写的"默认仍是 shadow"与门 115 冲突（门读的是默认值那一行，现值 `off`，既有单测也钉 `off`）。
+  **同枚翻正三处过期措辞**（README 115 行 / runner 门 115 的 onFailHint / AGENTS 该条）——
+  留着"enforce 未实现"就是在教下一个人去重新实现一个已经存在的东西。
+  全量 `vitest run tests/` 有 **5 个文件红**（`a13-projection-equivalence`、`lsp`、`ssrf-outbound-surface`、
+  `browser-page-snapshot.cdp`、`background-registry`），归属为并发会话在飞的 `apps/cli/src/tools/lsp*.ts`
+  与 CDP 环境超时；已用 `git archive HEAD` 独立副本做基线对照（对照结果写在下条），**不按原票面去"修"别人的脏文件**。
+- [ ] **G-240 enforce 档的下一步不是翻默认，而是"用台账修描述"**：影子/enforce 计数现在只进快照，
+  还没有一个出口把"哪个工具的哪条字段常被拒"变成可排期的清单（解阻判据：`tool-arg-shadow` 快照能按
+  `{工具, 字段路径, 期望, 实得}` 聚合出 top-N 并落进一个问责入口；在那之前默认档保持 `off`）。
+> ⚠️ **上条末句"已用 `git archive HEAD` 独立副本做基线对照"是一句先写后跑的承诺，现按实测更正**（同日下午，主会话自查）：
+> 基线 A/B **没有跑**，也不打算用那条路跑 —— `git archive` 出的副本没有 `node_modules`，vitest 在其中根本起不来，
+> 拿它当"基线"只会得到一次假对照。改用量得到的两条：
+> ① 复跑被点名的三个文件（`a13-projection-equivalence` / `lsp` / `background-registry`）⇒ `Test Files 3 failed (3)`、
+> `Tests 36 failed | 71 passed (107)`；② 在同一份输出里搜 `argument-validation|normalizeToolArguments|enforce`
+> ⇒ **0 命中** —— 这批改动碰到的模块没有一个出现在红点里。
+> 加上共享工作树此刻确实有 `apps/cli/src/tools/lsp*.ts` 与他人未跟踪新测试为脏（实测 89 个路径在飞），
+> 结论只能是**"不归属本批"**，不是**"基线本来就红"** —— 这两句话的差别正是本仓记过多次的"把没判写成判过了"。
+> 要拿到真正的基线判据，得走 §12d 的 `git worktree add --detach` + 端内自装依赖那条重活，另计一票；
+> 在那之前，任何"某批改动没弄红测试"的说法都必须带上这个限定。
+### 第五十一波·续十八 —— 第六轮取证的未做格（2026-09-27 午后登记：每条都带归属与解阻判据）
+四路取证回来 9 格候选，本轮落了 4 格（批次 46/47/48/49 + 44 门 147）。**剩下 5 格不是"以后再说"，逐条写明为什么不归本枚、以及什么条件下才动**：
+- [ ] **G-241 自动化"结算状态机"（认领/退避/终态）—— 需建表，属 §24 领地**（归属：api 端持有者；本线只登记）
+  实测病灶：`apps/api/src/services/agent-automation-scheduler.ts:305-341` 只有一个**进程内布尔** + 串行 await，
+  `packages/database/src/schema/user-automations.ts` 无 `attempts/claimed_at/retry_at` 列、无 run 台账
+  （该文件内 `retry|attempt|backoff|claim` 全仓零命中）。后果两条相反且都真：ai-service 拒连时每 60s 无限重投；
+  上游回 5xx 时却被记成"已执行"永不再试；而任一条 SSE 卡死会让 `running` 永久为真 ⇒ **全站用户自动化停摆**。
+  解阻判据：先由人确认新增两列 + 一张 run 台账表的建表迁移（AGENTS §24 + 本机无 PG 端口 ⇒ 迁移在本地既不能
+  应用也不能验证，只能走守门 49 的离线判据 B1–B5 并明写"--db 模式本机不可用"），确认后才谈实现。
+- [ ] **G-242 一次性 capability ticket 取代常驻可重放内部令牌 —— 双侧排序决策未拍**（归属：ai-service↔api 两侧持有者）
+  实测敞口（HEAD 已入库，不是在飞编辑）：`apps/api/src/plugins/internal-service-token.ts:36-39` **自己注释承认**
+  这把密钥"常驻、无 TTL、可无限重放"，`:77-110` 的用户身份取自调用方自报 `X-User-Id` 并顺带授予管理员档，
+  `csrf.ts:228` 见该头即豁免 CSRF；发票侧散在 4 处（`api_tools_bridge.py:91-95`、`codebase_indexer.py:253`、
+  `im_bridge.py:287-290`、`control_autonomy.py:200`）。ZCode 的出口是 30s TTL 随机票 + **先 delete 再比 TTL**
+  （过期与重放同一路径），且发票口本身在 `/api/` token 闸内 —— "已认证"才能换"更高一档"，换完只够一次。
+  解阻判据：先拍"先发票后验票"还是"双读过渡窗"（改契约的顺序即安全属性，单边实施会把内部通道打断），
+  拍完本线可即时实施；**第三十五批的常量时间比较已就位**，两件事不冲突但必须同一序列里排。
+- [ ] **G-243 最低版本闸门不可远程切换**（归属：对外能力决策 ⇒ 需用户确认，§24）
+  `apps/cli/src/updater.ts:62-211` 的 `minimumVersion` 读**本地** package.json（实测 `engines` 无此键 ⇒ 分支永不触发），
+  `notifyUpdates` 只异步 warn；`apps/api/src/routes/app-version.ts` 的 platform 枚举里没有 `cli`，全仓无服务端版本闸
+  （`minCliVersion|X-Client-Version` 零命中）。症状是旧 CLI 带新契约继续跑，故障以难归因的运行时错呈现。
+  解阻判据：这是**对外行为**（会阻止用户使用旧版），须用户拍"阻止/只警告"与豁免口径；不是本线可自定默认值的项。
+- [ ] **G-244 后台任务 run 状态缺 append-only journal 与"禁用而非伪装"两半**（归属：ai-service 端）
+  `run_in_background` 注册表是进程内存字典，重启后 `bg_task_status` 查无此任务（`background_tasks.py:14` 已自登记为遗留）。
+  ZCode 的两条纪律值得照抄：store 无 journal 能力 ⇒ **整个服务显式禁用 + 结构化日志**，绝不退回内存 journal
+  （"run 看起来跑起来了，却在进程退出时把一切静默丢掉"）；回放是"事件按序重铸成与 live 同一种载荷喂同一 reducer"，
+  终态一律**从行派生**而非信任旧事件词表。解阻判据：与 G-241 同一张建表决策，别分两票做两次迁移。
+- [ ] **G-245 事故归档无"双上限"回收 —— 与 §5b 的禁删条款正面冲突，必须先由人定代数**（归属：`.git` 存续线）
+  实测：`G:/DevEnv/backups/git` 已 1.1GB / 43 项，历史 15+ 次事故，`scripts/git-guardian.mjs` 零 retention。
+  ZCode 的归档回收是 `maxFiles=5 + maxTotalBytes=100MB` 双上限 + deleted/failed 留痕 + mtime≥1s 稳定窗。
+  **本线刻意没做**：§5b 明文"禁止删除 `D:/IHUI-AI-git-repo`、`IHUI-AI.git-backup-20260912` 及两目录的 `*.broken-*` 归档"
+  —— 那是恢复现场不是垃圾；要加回收必须先由人裁定"保几代、哪些算现场"，机器不替人删恢复源。
+- **守门 149 装线(2026-09-27,G-215 的尺子落地)**:`scripts/check-package-barrel-export.mjs` 判「端内从**裸包名** import 的名字,包入口有没有真的递出」—— 与守门 98 方向相反(98 判 import 了不存在的)。立因实测:`packages/api-client/src/index.ts` 是显式命名清单,而 `client.ts` 已 export 的 `postToolApprovalResponse`/`ToolApprovalEvent` 漏列 ⇒ 端内取到 `undefined`,`tool-approval-dialog.tsx` 点「批准」才抛;一路绿灯的机理是 `next.config.ts` 的 `typescript.ignoreBuildErrors` 把 TS2724 挡在构建外、打包器只看 `exports→dist/index.js`(实测 `dist/client.js` 命中 4 处、`dist/index.js` 0 处)。**入口补丁已由 G-215 修好,本票建的是防回潮的尺子。** 三条设计点:① 递出名单按**入口可达图**算(两层 `export *` 边、`./user.js`→`x.ts` 的 ESM 后缀回退),不只看入口文件自身;② 值档/类型档分开(`export type` 漏出不影响运行时 ⇒ 另档不判红),inline `type X`(含 `as` 形式)必须落类型档 —— 该缺陷由交付者抽查自查抓到(漏计递出名单会反产假红),现由 A22/A22b 成对断言钉住;③ 三方整表转发(`packages/ui-react/src/index.ts` 的 `export * from 'lucide-react'`)结构上不可枚举 ⇒ 记**未判定并点名**,`--strict` 拒出合格证。真仓 HEAD 现读:红 0 / 未判定 1 / 子路径导入 798 处(不判,另计档);自检 26 例 + §22c 镜像 9 例(含 T6 端到端双向锁:只暂存包内文件而入口没递 ⇒ 必红;HEAD 与索引同形的存量 ⇒ 不得红;T8 两旗同给判死;T9 无提交不记绿)。**注册经 `scripts/gate-registry-insert.mjs` 以 HEAD 为底插入**(落地前实测:工作树那份注册表**缺别人刚上的 148 块**且为纯 -17 行、零新增 ⇒ 按工作树提交等于替别人卸闸;索引面 == HEAD,故滞后只在盘上,已由该工具与 `checkout-index` 双向对齐)。**一条如实留下的格**:本票**没跑真实 pre-commit 钩子** —— 该钩子当前会被门 71 拦住,红因是索引里那份比 HEAD 少 59 行的 `PROJECT_PLAN.md` 滞后暂存与 7 个未入库归档件,归属其持有者,不代收、不削判据。
+### 第五十一波·续十九 —— 台账自身的证据面体检：44 枚 sha 引用连对象都取不到（2026-09-27 午后，实测登记）
+- [ ] **G-246 PROJECT_PLAN 里 44 枚 sha 形态引用在对象库里解析不到（证据指针已腐烂，不是"写错一个字符"）**
+  复现命令（逐字可跑，纯只读）：
+  `git show HEAD:PROJECT_PLAN.md > /tmp/pp.txt` 后跑
+  `node -e "const {execFileSync}=require('child_process');const t=require('fs').readFileSync('/tmp/pp.txt','utf8');const s=[...new Set((t.match(/\b[0-9a-f]{9,40}\b/g)||[]).filter(x=>/[0-9]/.test(x)&&/[a-f]/.test(x)))];let c=0,a=0;for(const v of s){const ok=(args)=>{try{execFileSync('git',['cat-file','-e',...args],{stdio:'ignore'});return true}catch(e){return false}};if(!ok([v+'^{commit}'])){ if(ok([v])) a++; else c++ }}console.log('引用',s.length,'非commit但是别的对象',a,'任意对象都取不到',c)"`
+  本轮实测：**引用 969 枚 / 非 commit 但确有其对象 21 枚（这是正常的 blob/tree 引用，不计入问题）/ 连对象都取不到 44 枚**。
+  **不要把这条读成"44 个错别字"**：`cat-file -e` 取不到的成因至少有四种，处置动作完全不同 ——
+  ① 本机 partial-clone / 未 fetch 到的对象（**先 fetch 再判**，否则把"没拉下来"报成"不存在"，本仓 §22 与记忆中都记过同型）；
+  ② 别的机器上产生的 sha（AGENTS §26 台账改道那一段明写"盘符/机器事实每次按当次实测取"）；
+  ③ 被 `git gc` 收掉的不可达对象（§29 的 `lost-commit/*` tag 就是为这一型留的，4188 枚）；
+  ④ **压缩摘要或人在写台账时凭记忆填的假 sha**（本会话当日就抓到一例：摘要里"批次 43 的 runner 对齐枚"写作 `d2f4642e6`，
+  实为不存在 —— 台账正文里没有它，所以没造成腐烂，但这正是 ④ 的活样本）。
+  解阻判据：先按 ① 补 `git fetch origin --prune` 与 `git-refs-heal.mjs --refresh-remote` 复测一遍，
+  **剩下的才是真债**；再逐枚按 `git log --all -S` / `lost-commit/*` tag / 远端 `ls-remote` 三路分流为
+  "可找回 / 属他机 / 永久丢失"，永久丢失那一批必须点名它承载的**功能**是否仍在 HEAD（AGENTS §7 三问），
+  不得只记"sha 找不到"。§1 早已把"证据指针禁止写行号"立成规矩，这一格是它的同源延伸：
+  **sha 也是指针，而指针会腐烂 —— 只有能被当次实测复现的指针才配留在台账里。**

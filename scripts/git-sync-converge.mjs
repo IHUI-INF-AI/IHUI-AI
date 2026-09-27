@@ -58,6 +58,32 @@ const C = {
 }
 const log = (color, msg) => console.log(`${color}${msg}${C.reset}`)
 
+/**
+ * 合并提交的身份必须随调用一起给,不能依赖"当前用户配过 global config"。
+ * 实测(2026-09-27 05:15,deploy\win\.converge.err.log):本器由 IHUI-DEPLOYLOOP 以服务身份
+ * (LocalSystem)后台发起,而 user.name/user.email 只配在交互账户的
+ * `C:\Users\Administrator\.gitconfig` 里(实测 `git config --show-origin` 唯一命中该文件,
+ * 仓库 local config 无此项)⇒ 服务那份读不到,于是无冲突分支的 commit-tree 直接
+ * `rc=128 Author identity unknown`。后果不是"某轮没合上",而是**部署环每 ~80 秒撞一次分叉、
+ * 连续 35+ 轮永不产出新构建**,线上停在旧提交,而每轮仍在对生产库跑 migrate+seed。
+ * 同一条判据 union-converge.mjs:75 早已修好(它走冲突分支),本器这一分支被漏掉 ——
+ * 而调用方把"非零退出"报成"union-converge 亦判需人工"时,崩溃会被读成内容裁决,
+ * 所以只有现读 err 日志才看得见真因。
+ * 取值与 scripts/git-rebuild-local.mjs 登记的仓库机器身份同一份,不自立第二档。
+ */
+export const GIT_MACHINE_IDENTITY = [
+  '-c',
+  'user.name=智汇AGI社区',
+  '-c',
+  'user.email=ok502319984@gmail.com',
+]
+
+/** 纯函数:拼出带身份的 `commit-tree` 参数(判据可被镜像测试直接喂构造面)。 */
+export function mergeCommitArgs({ tree, parents, message }) {
+  const ps = (Array.isArray(parents) ? parents : [parents]).flatMap((p) => ['-p', p])
+  return [...GIT_MACHINE_IDENTITY, 'commit-tree', tree, ...ps, '-m', message]
+}
+
 /** 轮询 push-state.json 至终态(guard 异步推送是后台跑的,须等落定再决策)。
  *  终态集 2026-09-26 起是 done | failed | diverged —— **diverged 必须算落定**:
  *  它是 guard 对"远端拒收 non-fast-forward"的结论,不写进来的话本函数会白等满
@@ -494,7 +520,11 @@ function selfTest() {
         LP('- 块行二:第二行,过块级阈值才计入'),
         LP('- 块行三:第三行'),
       ].join('\n')
-      writeFileSync(resolve(repo, 'PROJECT_PLAN.md'), `## 甲\n${BLK}\n## 乙\n${BLK}\n\n尾行非 bullet\n`, 'utf8')
+      writeFileSync(
+        resolve(repo, 'PROJECT_PLAN.md'),
+        `## 甲\n${BLK}\n## 乙\n${BLK}\n\n尾行非 bullet\n`,
+        'utf8',
+      )
       mkdirSync(resolve(repo, 'scripts'), { recursive: true })
       writeFileSync(
         resolve(repo, 'scripts/plan-task-state-baseline.json'),
@@ -665,17 +695,13 @@ function selfTest() {
     const dir10 = resolve(tmp, 'obj-face')
     mkdirSync(dir10, { recursive: true })
     const bg = (cwd, args) =>
-      execFileSync(
-        'git',
-        ['-c', 'user.name=ihui-test', '-c', 'user.email=t@t.local', ...args],
-        {
-          encoding: 'utf8',
-          cwd,
-          windowsHide: true,
-          timeout: 60_000,
-          stdio: ['ignore', 'pipe', 'pipe'],
-        },
-      ).trim()
+      execFileSync('git', ['-c', 'user.name=ihui-test', '-c', 'user.email=t@t.local', ...args], {
+        encoding: 'utf8',
+        cwd,
+        windowsHide: true,
+        timeout: 60_000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }).trim()
     const bare10 = resolve(dir10, 'origin.git')
     mkdirSync(bare10, { recursive: true })
     bg(dir10, ['init', '-q', '--bare', '-b', 'main', bare10])
@@ -722,6 +748,99 @@ function selfTest() {
       '用例 12:定向 fetch 补不到(该提交从未上过服务器)⇒ 判"无法判定"且不抛',
       r11.ok === false && r11.reason.includes(ghost10.slice(0, 11)),
       JSON.stringify(r11).slice(0, 140),
+    )
+
+    // ── 用例 13-15:合并提交的身份必须自带(2026-09-27 部署环停摆的真因)──────────
+    // 现场复刻服务身份:把 global/system 两份 config 指到不存在的路径,并抹掉 GIT_*_NAME/EMAIL,
+    // 于是 git 只能走"自动探测"⇒ 与 IHUI-DEPLOYLOOP 以 LocalSystem 跑本器时同形。
+    // **这一步是本组用例的全部价值**:不剥离配置的话,自检会在"交互账户配过身份的本机"上恒绿,
+    // 证明的是我的 %USERPROFILE% 而不是服务的那份(§22c"镜像测试只复读实现就是复读机"同型)。
+    const repoId = resolve(tmp, 'repo-identity')
+    mkdirSync(repoId, { recursive: true })
+    const idEnv = { ...process.env }
+    for (const k of [
+      'GIT_AUTHOR_NAME',
+      'GIT_AUTHOR_EMAIL',
+      'GIT_COMMITTER_NAME',
+      'GIT_COMMITTER_EMAIL',
+    ])
+      delete idEnv[k]
+    idEnv.GIT_CONFIG_GLOBAL = resolve(tmp, 'no-such-global-config')
+    idEnv.GIT_CONFIG_SYSTEM = resolve(tmp, 'no-such-system-config')
+    const ggit = (args, opts = {}) =>
+      execFileSync('git', args, {
+        encoding: 'utf8',
+        cwd: repoId,
+        windowsHide: true,
+        env: idEnv,
+        timeout: 60_000,
+        ...opts,
+      }).trim()
+    tgit(repoId, ['init', '-q', '-b', 'main'])
+    writeFileSync(resolve(repoId, 'a.txt'), '1\n')
+    tgit(repoId, ['add', '-A'])
+    tgit(repoId, ['commit', '-qm', 'base'])
+    const idParent = tgit(repoId, ['rev-parse', 'HEAD'])
+    const idTree = tgit(repoId, ['rev-parse', 'HEAD^{tree}'])
+
+    // 用例 13 = 阳性对照:没有身份 ⇒ git 必崩(证明"这一型确实会崩",而不是我在防一个假想故障)
+    let nakedErr = ''
+    try {
+      ggit(['commit-tree', idTree, '-p', idParent, '-m', 'no identity'])
+      nakedErr = 'UNEXPECTED-SUCCESS'
+    } catch (e) {
+      nakedErr = String(e.stderr || e.message || e)
+    }
+    ok(
+      '用例 13:服务身份现场(无 global config)裸 commit-tree ⇒ 必失败(阳性对照,防自检恒绿)',
+      /identity|auto-detect/i.test(nakedErr),
+      nakedErr.split('\n')[0].slice(0, 90),
+    )
+
+    // 用例 14 = 修复本体:同一现场带身份 ⇒ 建得出提交,且身份逐字回读一致
+    // (回读用 %cn/%ce 而不是只看退出码:非 ASCII 经 argv 传参在 Windows 上有码页风险,
+    //  不闭环回读就是"命令成功了、提交里写着乱码"那一型静默失真。)
+    let idOk = false
+    let idNote = ''
+    try {
+      const made = ggit(
+        mergeCommitArgs({ tree: idTree, parents: [idParent], message: 'with identity' }),
+      )
+      const back = ggit(['log', '-1', '--format=%cn%x00%ce', made])
+      idOk = /^[0-9a-f]{40}$/.test(made) && back === '智汇AGI社区\0ok502319984@gmail.com'
+      idNote = `sha=${made.slice(0, 11)} 回读=${JSON.stringify(back)}`
+    } catch (e) {
+      idNote = String(e.stderr || e.message || e)
+        .split('\n')[0]
+        .slice(0, 90)
+    }
+    ok('用例 14:mergeCommitArgs 带身份 ⇒ 同现场建提交成功且 %cn/%ce 逐字回读一致', idOk, idNote)
+
+    // 用例 15 = 纯函数形状:身份必须在 commit-tree **之前**(git 只认前置的 -c),双父顺序不变
+    const shape = mergeCommitArgs({ tree: 'T', parents: ['P1', 'P2'], message: 'M' })
+    const ctIdx = shape.indexOf('commit-tree')
+    ok(
+      '用例 15:参数顺序 = 身份 -c 在前 → commit-tree → -p 逐个 → -m(单父也成立)',
+      shape.join('\0') ===
+        [
+          '-c',
+          'user.name=智汇AGI社区',
+          '-c',
+          'user.email=ok502319984@gmail.com',
+          'commit-tree',
+          'T',
+          '-p',
+          'P1',
+          '-p',
+          'P2',
+          '-m',
+          'M',
+        ].join('\0') &&
+        ctIdx === 4 &&
+        shape.slice(0, ctIdx).join('\0') === GIT_MACHINE_IDENTITY.join('\0') &&
+        mergeCommitArgs({ tree: 'T', parents: 'P1', message: 'M' }).join('\0') ===
+          [...GIT_MACHINE_IDENTITY, 'commit-tree', 'T', '-p', 'P1', '-m', 'M'].join('\0'),
+      shape.join(' '),
     )
   } catch (e) {
     console.log(`❌ 自检异常:${e?.message ?? e}\n${e?.stack ?? ''}`)
@@ -846,8 +965,7 @@ function main() {
       )
       continue
     }
-    if (obj.recoveredByFetch)
-      log(C.yellow, '  远端提交对象曾缺失,已由定向 fetch 补齐(继续收敛)')
+    if (obj.recoveredByFetch) log(C.yellow, '  远端提交对象曾缺失,已由定向 fetch 补齐(继续收敛)')
     const localHead = git(['rev-parse', 'HEAD'])
 
     if (remoteHead === localHead) {
@@ -967,16 +1085,9 @@ function main() {
       }
 
       const mergeMsg = `Merge origin/${branch} (worktree-preserving sync via git-sync-converge) round${round}`
-      const mergeSha = git([
-        'commit-tree',
-        tree,
-        '-p',
-        freshLocal,
-        '-p',
-        freshRemote,
-        '-m',
-        mergeMsg,
-      ])
+      const mergeSha = git(
+        mergeCommitArgs({ tree, parents: [freshLocal, freshRemote], message: mergeMsg }),
+      )
       // CAS 更新引用:only-if-HEAD 未动。被并发推进则本轮作废转下一轮,
       // 绝不覆盖他人刚落地的本地提交(覆盖=丢 commit,见 AGENTS.md §22)。
       const cas = git(['update-ref', `refs/heads/${branch}`, mergeSha, freshLocal], {
@@ -1093,6 +1204,8 @@ export const __test__ = {
   writeAlignState,
   nextAlignState,
   recordAlignOutcome,
+  mergeCommitArgs,
+  GIT_MACHINE_IDENTITY,
   selfTest,
 }
 
