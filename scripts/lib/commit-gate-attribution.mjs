@@ -56,7 +56,10 @@ const ANSI_RE = /\x1b\[[0-9;]*m/g
  * 拒死(2026-09-25 02:22 真实发生,留痕 kind=mine,而 mypy 真正报错的是另外两个文件)。
  * 结论行必带定位或错误字样;纯清单行不带,故排除。
  */
-const FINDING_LINE_RE = /(error|错误|违规|failure|failed|❌|✗|:\d+\b|报数|判定)/i
+// 2026-09-28(G-263)导出:尺子 `scripts/check-redline-path-naming.mjs` 的静态筛必须与铰链
+// 用**同一份**"长得像结论的行"判据 —— 各写一遍必然漂移(漂移方向:尺子把铰链看不见的红
+// 算成可见,或反之),与本文件 normGatePath/lineNamesFile 单一实现的立规同条纪律。
+export const FINDING_LINE_RE = /(error|错误|违规|failure|failed|❌|✗|:\d+\b|报数|判定)/i
 
 /** 汇总块之后才是"批外步骤"的输出(pre-commit-hook 在 runner 之后还有若干独立 blocking 步)。 */
 function tailAfterSummary(text) {

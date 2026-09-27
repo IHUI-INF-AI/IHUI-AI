@@ -25,12 +25,12 @@
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 
 import { __test__ as G, WIRING_MODE } from '../check-miniapp-css-landing.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname.slice(1)), '..', '..')
 const GATE = join(ROOT, 'scripts', 'check-miniapp-css-landing.mjs')
@@ -609,7 +609,7 @@ const writeDist = (d, { wxss = 0, wxml = 0, indexHtml = false } = {}) => {
   for (let i = 0; i < wxml; i++) writeFileSync(join(d, `p${i}.wxml`), '<view/>')
 }
 test('形态分类是"能不能判定"的唯一分派点(四种形态各自的答案都被证明过)', () => {
-  const base = mkdtempSync(join(tmpdir(), 'ihui-shape-'))
+  const base = mkScratch('ihui-shape-')
   try {
     const absent = join(base, 'absent')
     assert.equal(G.classifyDist(absent).kind, 'absent', '目录不存在必须判 absent,不得报 0% 覆盖')
@@ -626,7 +626,7 @@ test('形态分类是"能不能判定"的唯一分派点(四种形态各自的�
     writeDist(good, { wxss: 2, wxml: 2 })
     assert.equal(G.classifyDist(good).kind, 'weapp', '正向对照:完整 weapp 产物必须被认出来(否则上面四条是恒真)')
   } finally {
-    rmSync(base, { recursive: true, force: true, maxRetries: 3 })
+    rmScratch(base)
   }
 })
 
@@ -701,7 +701,7 @@ test('源码里必须写着「当前为手动 / CI 门」,且结论行也要说�
 test('引擎判据三向可分(只有 v4 指纹 / 只有 v3 指纹 / 两版都有 ⇒ unknown)', () => {
   const V4 = '--tw-leading:;--tw-tracking:;--tw-gradient-position:initial;--tw-drop-shadow-size:;--tw-duration:initial;--tw-ease:initial;'
   const V3 = '--tw-bg-opacity:1;--tw-text-opacity:1;--tw-border-opacity:1;'
-  const base = mkdtempSync(join(tmpdir(), 'ihui-eng-'))
+  const base = mkScratch('ihui-eng-')
   try {
     const d = join(base, 'dist')
     mkdirSync(d, { recursive: true })
@@ -715,7 +715,7 @@ test('引擎判据三向可分(只有 v4 指纹 / 只有 v3 指纹 / 两版都�
     w(`${V4}${V3}`)
     assert.equal(G.detectProductTailwindMajor(d).major, 'unknown', '两版指纹同时出现时必须承认判不出,不得猜一个方向')
   } finally {
-    rmSync(base, { recursive: true, force: true, maxRetries: 3 })
+    rmScratch(base)
   }
 })
 
