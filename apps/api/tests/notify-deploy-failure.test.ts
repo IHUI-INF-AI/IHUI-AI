@@ -33,6 +33,8 @@ interface FakeDeps {
   sendSmtp: (o: SmtpCall['opts'], mail: SmtpCall['mail']) => Promise<void>
   fetchResend: (url: string, init: FetchCall['init']) => Promise<FetchResponseLike>
   now: () => string
+  nowMs: () => number
+  writeStateFile: (p: string, text: string) => void
 }
 
 function makeDeps(
@@ -40,10 +42,18 @@ function makeDeps(
     files?: Record<string, string>
     smtpError?: Error
     resendResponse?: { ok: boolean; status: number; body?: string }
+    nowMs?: number
+    writeError?: Error
   } = {},
-): { deps: FakeDeps; smtpCalls: SmtpCall[]; fetchCalls: FetchCall[] } {
+): {
+  deps: FakeDeps
+  smtpCalls: SmtpCall[]
+  fetchCalls: FetchCall[]
+  writes: Array<{ p: string; text: string }>
+} {
   const smtpCalls: SmtpCall[] = []
   const fetchCalls: FetchCall[] = []
+  const writes: Array<{ p: string; text: string }> = []
   const deps: FakeDeps = {
     readTextFile: (p) => {
       const c = opts.files?.[p]
@@ -62,8 +72,13 @@ function makeDeps(
       return { ok, status, text: async () => body }
     },
     now: () => '2026-09-24 10:00:00',
+    nowMs: () => opts.nowMs ?? Date.parse('2026-09-27T06:00:00Z'),
+    writeStateFile: (p, text) => {
+      if (opts.writeError) throw opts.writeError
+      writes.push({ p, text })
+    },
   }
-  return { deps, smtpCalls, fetchCalls }
+  return { deps, smtpCalls, fetchCalls, writes }
 }
 
 /** 断言"调用确实发生了"并收窄 noUncheckedIndexedAccess 的 undefined */
@@ -584,6 +599,129 @@ describe('runCore(端到端,零网络)', () => {
     expect(t.stripBom('﻿abc')).toBe('abc')
     expect(t.stripBom('abc')).toBe('abc')
     expect(t.defaultEnvFilePath().replace(/\\/g, '/')).toMatch(/apps\/api\/\.env$/)
+  })
+})
+
+describe('decideDedupe(纯函数,七支各有正反)', () => {
+  const W = 4 * 3600_000
+  const NOW = Date.parse('2026-09-27T06:00:00Z')
+  const base = { force: false, windowMs: W, nowMs: NOW, prevMs: null as number | null }
+
+  it('未给标识 ⇒ 发,且不去重(既有调用方行为不变)', () => {
+    expect(t.decideDedupe({ ...base, alertId: undefined }).action).toBe('send')
+    expect(t.decideDedupe({ ...base, alertId: '   ' }).action).toBe('send')
+  })
+  it('首次出现 ⇒ 发;窗口内重复 ⇒ 压;刚过窗口 ⇒ 发', () => {
+    expect(t.decideDedupe({ ...base, alertId: 'x', prevMs: null }).action).toBe('send')
+    const s = t.decideDedupe({ ...base, alertId: 'x', prevMs: NOW - 2 * 3600_000 })
+    expect(s.action).toBe('suppress')
+    expect(s.hoursSince).toBe(2)
+    expect(t.decideDedupe({ ...base, alertId: 'x', prevMs: NOW - W - 1 }).action).toBe('send')
+  })
+  it('--force-alert 与窗口归零都放行', () => {
+    const prev = NOW - 60_000
+    expect(t.decideDedupe({ ...base, alertId: 'x', prevMs: prev, force: true }).action).toBe('send')
+    expect(t.decideDedupe({ ...base, alertId: 'x', prevMs: prev, windowMs: 0 }).action).toBe('send')
+  })
+  it('时间戳晚于本次(时钟回拨/异机状态)⇒ 宁可重寄,绝不静默压掉', () => {
+    const d = t.decideDedupe({ ...base, alertId: 'x', prevMs: NOW + 10 * W })
+    expect(d.action).toBe('send')
+    expect(d.why).toContain('回拨')
+  })
+  it('resolveWindowMs:默认 4h、显式 0 关闭、非法值回默认(不得判成"永久压制")', () => {
+    expect(t.resolveWindowMs(undefined)).toBe(W)
+    expect(t.resolveWindowMs('0')).toBe(0)
+    expect(t.resolveWindowMs('abc')).toBe(W)
+    expect(t.resolveWindowMs('-2')).toBe(W)
+  })
+  it('pruneDedupeState 只逐出 2×窗口之外的条目', () => {
+    const state = { a: { ts: NOW }, b: { ts: NOW - W * 3 } }
+    expect(Object.keys(t.pruneDedupeState(state, NOW, W))).toEqual(['a'])
+  })
+  it('parseDedupeState 坏 JSON ⇒ 空状态 + 点名原因(把"没判"写成"没寄过"也要出声)', () => {
+    const bad = t.parseDedupeState('{ 这不是 json')
+    expect(bad.state).toEqual({})
+    expect(bad.problem).toContain('JSON')
+    const arr = t.parseDedupeState('[1,2]')
+    expect(arr.problem).toContain('顶层不是对象')
+    const ok = t.parseDedupeState(JSON.stringify({ a: { ts: 1 }, junk: { ts: 'x' } }))
+    expect(ok.problem).toBeNull()
+    expect(Object.keys(ok.state)).toEqual(['a'])
+  })
+})
+
+describe('告警标识去重端到端(零网络,状态注入)', () => {
+  const STATE = t.defaultDedupeStatePath()
+  const NOW = Date.parse('2026-09-27T06:00:00Z')
+  const argv = ['--alert-id', 'deploy-stalled', '--message', '线上停在旧版']
+
+  it('第一封:发送 + 落状态;第二封同标识:不发网络请求、suppressed、退出码按 0 路径', async () => {
+    const a = makeDeps({ nowMs: NOW })
+    const o1 = await t.runCore(argv, SMTP_ENV, a.deps)
+    expect(o1.sent).toBe(true)
+    expect(o1.suppressed).toBe(false)
+    expect(a.writes).toHaveLength(1)
+    expect(JSON.parse(must(a.writes[0], 'writes[0]').text)['deploy-stalled'].ts).toBe(NOW)
+
+    // 关键判据:第二轮**没被挡之前不允许再拨一次 SMTP** —— 这就是"每小时复寄同一件事"的病根
+    const b = makeDeps({ nowMs: NOW + 1800_000, files: { [STATE]: must(a.writes[0], 'w').text } })
+    const o2 = await t.runCore(argv, SMTP_ENV, b.deps)
+    expect(b.smtpCalls).toHaveLength(0)
+    expect(b.fetchCalls).toHaveLength(0)
+    expect(o2.suppressed).toBe(true)
+    expect(o2.sent).toBe(false)
+    expect(o2.dedupeWhy).toContain('未寄')
+    expect(b.writes).toHaveLength(0) // 压下不写状态:窗口不因压制而顺延
+    expect(t.computeExitCode(o2)).toBe(0)
+  })
+
+  it('状态文件必须落在仓库根的 .workbuddy/ 下(路径写歪一层 = 读不到 = 去重静默失效)', () => {
+    const p = t.defaultDedupeStatePath().replace(/\\/g, '/')
+    // 实测踩过:resolve(dirname,'..','..') 得到 .../apps/.workbuddy/… ⇒ readFileSync 恒 ENOENT,
+    // 每轮 prevMs 都是 null,去重结构上从未生效而账面一切正常。
+    expect(/\/\.workbuddy\/notify-dedupe-state\.json$/.test(p)).toBe(true)
+    expect(/\/apps\//.test(p)).toBe(false)
+    expect(p.length).toBeGreaterThan('/.workbuddy/notify-dedupe-state.json'.length)
+  })
+
+  it('不带 --alert-id ⇒ 每轮照发(本参数不得替别人关掉告警)', async () => {
+    const a = makeDeps()
+    await t.runCore(['--message', 'm'], SMTP_ENV, a.deps)
+    await t.runCore(['--message', 'm'], SMTP_ENV, a.deps)
+    expect(a.smtpCalls).toHaveLength(2)
+    expect(a.writes).toHaveLength(0)
+  })
+
+  it('投递失败 ⇒ 不写状态(一次抖动不能换来 4 小时静默)', async () => {
+    const a = makeDeps({ smtpError: new Error('socket hang up') })
+    const o = await t.runCore(argv, SMTP_ENV, a.deps)
+    expect(o.sent).toBe(false)
+    expect(a.writes).toHaveLength(0)
+  })
+
+  it('状态文件坏了 ⇒ 照寄并 warning 点名,绝不静默按"已寄过"处理', async () => {
+    const a = makeDeps({ files: { [STATE]: 'truncated' } })
+    const o = await t.runCore(argv, SMTP_ENV, a.deps)
+    expect(o.sent).toBe(true)
+    expect(o.warnings.join()).toContain('JSON')
+  })
+
+  it('--force-alert 绕过去重但仍刷新窗口,且不得把别人的标识抹掉(放行≠清账)', async () => {
+    const prev = JSON.stringify({ 'deploy-stalled': { ts: NOW }, 'db-backup-missing': { ts: NOW } })
+    const a = makeDeps({ nowMs: NOW + 60_000, files: { [STATE]: prev } })
+    const o = await t.runCore([...argv, '--force-alert'], SMTP_ENV, a.deps)
+    expect(a.smtpCalls).toHaveLength(1)
+    expect(o.suppressed).toBe(false)
+    const written = JSON.parse(must(a.writes[0], 'w').text) as Record<string, { ts: number }>
+    expect(written['deploy-stalled'].ts).toBe(NOW + 60_000)
+    expect(written['db-backup-missing'].ts).toBe(NOW)
+  })
+
+  it('记账写盘失败 ⇒ 不影响本次发送,但要 warning 说明下一轮可能重寄', async () => {
+    const a = makeDeps({ writeError: new Error('EPERM') })
+    const o = await t.runCore(argv, SMTP_ENV, a.deps)
+    expect(o.sent).toBe(true)
+    expect(o.warnings.join()).toContain('下一轮可能重寄')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
