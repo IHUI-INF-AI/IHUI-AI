@@ -43,7 +43,6 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   context_recall: 'toolContextRecall',
   parse_document: 'toolParseDocument',
   generate_chart: 'toolGenerateChart',
-  generate_report: 'toolGenerateReport',
   summarize_artifacts: 'toolSummarizeArtifacts',
   image_generation: 'toolImageGeneration',
   image_edit: 'toolImageEdit',
