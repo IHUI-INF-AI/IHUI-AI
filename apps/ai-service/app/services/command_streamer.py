@@ -19,6 +19,7 @@ import re
 import shlex
 import time
 from collections.abc import AsyncGenerator
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,172 @@ MAX_TIMEOUT = 1800
 
 # 超时后 SIGTERM 宽限期(SIGTERM → 等 5s → SIGKILL)
 _GRACE_PERIOD = 5.0
+
+# ===========================================================================
+# 协议帧预算与超限三类结局分流 —— 全服务唯一实现(第三十三批)
+# ===========================================================================
+#
+# 为什么本模块当宿主:它是本批 6 个受影响文件里唯一 **零 app 内部 import** 的
+# 模块(只依赖 stdlib),因此 mcp_client / container_runtime / agent_engine /
+# lsp / mcp_server 任意一侧 import 它都不可能构成循环,也不会把 httpx 之类的
+# 重依赖拖进本来很轻的读取路径。宿主一经选定不得再挪 —— 第二份实现必然漂移,
+# 而"两处算同一件事必漂移"是本仓记过最多次的失败型。
+#
+# 病灶(实测确认,不是假想):asyncio.StreamReader 的默认 limit = 65536,而它是
+# "任意流的一行"的**通用护栏**,不是本协议的帧预算。readline() 在缓冲超 limit
+# 仍找不到 \n 时抛 asyncio.LimitOverrunError;全仓 7 处协议读取点无一处理它
+# (grep "LimitOverrunError|IncompleteReadError" apps/ai-service/app = 0 命中)。
+# 后果有两种,而且都错:
+#   1. mcp_client._stdio_read_loop 用 `except Exception` 兜住一切 → 走到 finally
+#      里 _connected=False,并按 reconnect 配置 create_task(self._reconnect())。
+#      对端只要**恒定**输出一条超 64KiB 的行(大工具结果、LSP 大响应),本进程就
+#      无限重连;用户看到的是"这个 MCP 永远连不上",真因却是"结果太大" ——
+#      归因被彻底指错,而且没有任何一行日志说出这个真因。
+#   2. 不抛错的读取实现里,超限帧被当成空行/EOF 静默丢弃,而残余字节仍留在
+#      StreamReader 内部缓冲区里(readuntil 的文档原话:"the data will be left in
+#      the internal buffer, so it can be read again"),于是下一条帧从半行开始
+#      解析 —— 症状写成"偶发 JSON 解析失败",同样极难归因。
+#
+# 帧预算取值的三条依据(不是拍脑袋):
+#   - 下界:必须容得下真实合法帧。本仓 MCP 工具结果里的最大单产物是 5MB 图档
+#     (mcp_server._MAX_IMAGE_BYTES),base64 按 4/3 膨胀后 ≈6.67MB,再加 JSON
+#     字符串转义余量 → 单帧可到 ~7MB。默认的 64KiB 差了两个数量级。
+#   - 上界:不得超过下游入口上限。apps/api/src/server.ts 的全局
+#     bodyLimit = 1048576*10(10MiB),一帧若大过它,在本端收下后转发进 api 必
+#     413 —— 那只是把失败点后移,并换个更难归因的形态。
+#   - 取值:8MiB 是 10MiB 之下最近的 2 的幂,给 6.67MB 留约 19% 余量。内存代价
+#     有界:StreamReader 在缓冲超 2×limit(=16MiB)时暂停 transport,即"每连接
+#     峰值 16MiB",不是无界增长。
+PROTOCOL_FRAME_LIMIT_BYTES: int = 8 * 1024 * 1024
+
+# 残余回收时的分块大小。太小会把一次超限变成上万次 await(与 asyncio 内部
+# socket 读块同量级即可)。
+_FRAME_DRAIN_CHUNK_BYTES: int = 64 * 1024
+
+# 残余回收的硬上限:对端持续吐一条不带 \n 的巨流时不得无限 drain。
+# 超上限即如实判"失步"(见 ProtocolFrameRead.resynced),而不是假装对齐了。
+_FRAME_DRAIN_HARD_CAP_BYTES: int = 64 * 1024 * 1024
+
+# read_protocol_frame 的三类结局(稳定标识:调用方分流、测试断言、日志字段
+# 都认这三个值,不得改成裸字符串散落各处)。
+FRAME_READ_LINE: str = "line"
+FRAME_READ_TOO_LARGE: str = "frame_too_large"
+FRAME_READ_EOF: str = "eof"
+
+
+@dataclass(frozen=True)
+class ProtocolFrameRead:
+    """一次协议帧读取的结局(三类必须互斥且都被显式区分)。
+
+    属性:
+        kind: FRAME_READ_LINE / FRAME_READ_TOO_LARGE / FRAME_READ_EOF 三选一。
+        data: 仅 kind=FRAME_READ_LINE 时非空,是含行尾 \\n 的整帧字节。
+        dropped_bytes: kind=FRAME_READ_TOO_LARGE 时本帧被丢弃的字节数。
+            0 只出现在"长度已不可恢复"的那一支(见 read_protocol_frame 的
+            ValueError 分支),**不得**据此判断"什么都没丢"。
+            非零值必须由调用方计入计数并写日志 —— 静默变短等于伪造完整性。
+        resynced: kind=FRAME_READ_TOO_LARGE 时是否已把该帧残余读到行尾、下一帧
+            可以从干净边界开始解析。False 表示"残余未能安全退回缓冲区",
+            此时**不得**继续按下一条帧解析(那会把半行当新帧),调用方应按真实
+            断连处理,但日志里写的原因必须是"超限失步",不是"对端关闭"。
+    """
+
+    kind: str
+    data: bytes = b""
+    dropped_bytes: int = 0
+    resynced: bool = True
+
+
+async def _drain_frame_remainder(stream: Any) -> tuple[int, bool]:
+    """把"已确认超限"那一帧的残余读到行尾,返回 (丢弃字节数, 是否已对齐)。
+
+    为什么不能一路 ``await stream.read(n)`` 读到了事:``read(n)`` 的语义是
+    "从缓冲区前缀取至多 n 字节",取回的块**可能跨过本行行尾** —— 行尾之后的
+    字节属于下一帧,一旦被读走又没有公开的"退回"API,就等于吃掉下一帧的开头
+    (比原来的粘连更难查)。asyncio 没有 unread/peek,所以这里在能拿到
+    ``_buffer``(bytearray)时把跨过的那段**前置写回**;拿不到时(非标准
+    StreamReader 实现、或上游改了内部结构)**绝不猜**:如实返回
+    resynced=False,由调用方按真实断连处理并留日志,而不是假装已经对齐。
+
+    这里刻意用 getattr 而不是直接写 stream._buffer:一是 mypy 严格档下
+    asyncio.StreamReader 的私有属性不在 typeshed 里(直接点它会报 attribute
+    error,而报错的代价是有人去放宽判据或写 type: ignore);二是它本身就表达
+    "这是一个 duck-typing 的兜底路径,拿不到要降级" 的语义。
+    """
+    dropped = 0
+    while True:
+        chunk = await stream.read(_FRAME_DRAIN_CHUNK_BYTES)
+        if not chunk:
+            # 对端在行尾之前就关了:残余随 EOF 一起没了,下一帧无从粘连。
+            return dropped, True
+        dropped += len(chunk)
+        nl = chunk.find(b"\n")
+        if nl >= 0:
+            tail = chunk[nl + 1:]
+            if tail:
+                buf = getattr(stream, "_buffer", None)
+                if isinstance(buf, bytearray):
+                    # chunk 是从缓冲区前缀取走的,此刻缓冲区里剩的是 chunk
+                    # 之后的内容 ⇒ 把 tail 前置回去即还原原始字节序。
+                    buf[:0] = tail
+                    dropped -= len(tail)
+                else:
+                    # 没有可写回的缓冲区:tail 已被我们吞掉,下一帧必缺头。
+                    # 如实报失步,交给调用方断连(它会看到 resynced=False)。
+                    return dropped, False
+            return dropped, True
+        if dropped >= _FRAME_DRAIN_HARD_CAP_BYTES:
+            # 一条不带 \n 的巨流:不再无限 drain,如实判失步。
+            return dropped, False
+
+
+async def read_protocol_frame(stream: Any) -> ProtocolFrameRead:
+    """读一帧,把"正常行 / 帧超限 / EOF"三类结局显式分开。
+
+    取代裸 ``await stream.readline()``:裸调用把第二、三类压成同一个形态(要么
+    抛异常、要么回空 bytes),而这两种结局的处置动作完全不同 —— 超限应当**留在
+    连接上**继续读下一帧,EOF 才是连接结束。
+
+    为什么这里走 ``readuntil(b"\\n")`` 而不是 readline()(实测 3.12
+    asyncio/streams.py 读到的一手事实):readline() 内部就是 readuntil,但它把
+    LimitOverrunError **换了个皮**再抛,而且换皮前已经动过缓冲区 ——
+        找到行尾 ⇒ ``del buffer[:consumed + 1]``;找不到 ⇒ ``buffer.clear()``
+    也就是说"在 readline() 外面 catch 超限"这件事**从外面根本判不准**残留还在
+    不在缓冲区里:直接 catch ValueError 会把"整块缓冲区被清空"那一支当成已对齐,
+    下一条帧照样粘连,而账面全绿。readuntil 的文档承诺才是可依赖的那句
+    ("the data will be left in the internal buffer, so it can be read again"),
+    所以本函数按 readuntil 捕 LimitOverrunError,残余回收交给 _drain_frame_remainder。
+    只实现 readline() 的流对象(测试替身、第三方包装)走兼容支,那支上 ValueError
+    按"超限且长度不可恢复"处理 —— 生产路径到不了,生产用的是 StreamReader。
+    """
+    use_readuntil = callable(getattr(stream, "readuntil", None))
+    try:
+        line = await stream.readuntil(b"\n") if use_readuntil else await stream.readline()
+    except asyncio.LimitOverrunError:
+        dropped, resynced = await _drain_frame_remainder(stream)
+        return ProtocolFrameRead(
+            kind=FRAME_READ_TOO_LARGE, dropped_bytes=dropped, resynced=resynced
+        )
+    except asyncio.IncompleteReadError as exc:
+        # 与 readline() 同形:EOF 时把不带行尾的尾巴当**最后一帧**交出去。
+        # 容器/命令输出经常没有收尾换行(printf 'x'、进程被 kill 在半行),
+        # 把它当残帧丢掉就是对既有行为的一次回归。
+        partial = exc.partial if isinstance(exc.partial, bytes) else b""
+        if partial:
+            return ProtocolFrameRead(kind=FRAME_READ_LINE, data=partial)
+        return ProtocolFrameRead(kind=FRAME_READ_EOF)
+    except ValueError:
+        if use_readuntil:
+            raise  # 与超限无关的 ValueError(如分隔符为空),不冒充分流结论
+        return ProtocolFrameRead(
+            kind=FRAME_READ_TOO_LARGE,
+            dropped_bytes=0,  # readline() 抛错前已丢掉长度,如实记"不可恢复"
+            resynced=False,
+        )
+    if not line:
+        return ProtocolFrameRead(kind=FRAME_READ_EOF)
+    return ProtocolFrameRead(kind=FRAME_READ_LINE, data=line)
+
 
 # 危险命令黑名单(匹配即拒绝)
 _DANGEROUS_PATTERNS: list[tuple[str, str]] = [
@@ -95,20 +262,48 @@ def _clamp_timeout(timeout: int) -> int:
 async def _read_stream(
     stream: asyncio.StreamReader | None, ev_type: str, queue: asyncio.Queue[dict[str, Any] | None]
 ) -> None:
-    """逐行读取 stream,put 事件到 queue;结束时 put None 哨兵。stream 为 None 时直接 put 哨兵。"""
+    """逐行读取 stream,put 事件到 queue;结束时 put None 哨兵。stream 为 None 时直接 put 哨兵。
+
+    第三十三批:命令输出不是协议帧,但同一条 readline() 的超限异常一样会炸掉
+    本函数 —— 原实现 `except Exception` 后直接落到 finally 投哨兵,表现是
+    "这条命令的输出突然少了",而少的**原因**没人知道。现在超限只标注截断、
+    继续读下一行;真正结束连接的是 EOF。
+    """
     if stream is None:
         await queue.put(None)
         return
     try:
         while True:
-            line = await stream.readline()
-            if not line:
-                break
-            await queue.put({
-                "type": ev_type,
-                "content": line.decode("utf-8", errors="replace").rstrip("\r\n"),
-                "timestamp": time.time(),
-            })
+            frame = await read_protocol_frame(stream)
+            if frame.kind == FRAME_READ_LINE:
+                await queue.put({
+                    "type": ev_type,
+                    "content": frame.data.decode("utf-8", errors="replace").rstrip("\r\n"),
+                    "timestamp": time.time(),
+                })
+                continue
+            if frame.kind == FRAME_READ_TOO_LARGE:
+                # 如实标注截断(本仓铁律:静默变短等于伪造完整性)。
+                logger.warning(
+                    "stream_command %s 单行超帧预算 %d 字节(实读 %d 字节),已丢弃该行",
+                    ev_type, PROTOCOL_FRAME_LIMIT_BYTES, frame.dropped_bytes,
+                )
+                await queue.put({
+                    "type": ev_type,
+                    "content": f"[truncated: 单行超过 {PROTOCOL_FRAME_LIMIT_BYTES} 字节帧预算,"
+                               f"已丢弃 {frame.dropped_bytes} 字节]",
+                    "timestamp": time.time(),
+                    "truncated": True,
+                    "dropped_bytes": frame.dropped_bytes,
+                })
+                if not frame.resynced:
+                    # 残余没能退回 → 后面的字节都不可信,不再冒充还能继续读。
+                    logger.warning(
+                        "stream_command %s 超限帧残余未能对齐行尾,停止读取该流", ev_type
+                    )
+                    break
+                continue
+            break  # EOF
     except Exception as e:
         logger.warning("stream_command reader(%s) 异常: %s", ev_type, e)
     finally:
@@ -198,6 +393,10 @@ async def stream_command(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=full_env,
+            # 第三十三批:显式声明帧预算。不传 limit 时 asyncio 用默认 65536,
+            # 而 _read_stream 是按行读的 —— 一条 100KB 的单行输出(常见于
+            # base64/JSON 一行打印)就会抛 LimitOverrunError。见模块顶部依据。
+            limit=PROTOCOL_FRAME_LIMIT_BYTES,
         )
     except FileNotFoundError as e:
         yield {
