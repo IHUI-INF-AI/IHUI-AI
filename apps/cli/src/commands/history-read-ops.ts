@@ -173,8 +173,18 @@ export interface ResumeConversationHistoryInput extends ReadConversationHistoryI
   previous: HistoryReadOutcome
 }
 
+/**
+ * 服务端在 HEAD 就已经回传 `cursorState`(`apps/api/src/routes/chat.ts:832` 取自
+ * `chat-queries.ts:840` 的 `evaluateHistoryCursorState`),而 `@ihui/api-client` 的
+ * `ConversationHistoryResult` **还没把这个字段补进类型** —— 于是"本机 typecheck 绿、CI 红"
+ * (本机绿只是因为工作树里那份类型文件被另一个会话改过而未提交)。这里在**消费侧**做交叉类型
+ * 声明而不是去改别人的包:字段缺席时按 null 处理(null 的语义本来就是"本次没有任何一页给过结论"),
+ * 等那边把字段补进类型后这个交叉声明自动退化成冗余,调用点一字不改。
+ */
+type HistoryPageSource = ConversationHistoryResult & { cursorState?: HistoryCursorState | null }
+
 function toWirePage(
-  res: ConversationHistoryResult,
+  res: HistoryPageSource,
   limit: number,
 ): HistoryPageWire<ConversationMessage> {
   return {
