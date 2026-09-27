@@ -73,12 +73,16 @@ export function TeamDetailScreen({
                 {error || t('teamDetail.empty') || '暂无成员信息'}
               </Text>
               {onRetry ? (
-                <Pressable
-                  style={({ pressed }) => [styles.retryBtn, pressed ? styles.pressed : null]}
-                  onPress={onRetry}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.retryText}>{t('common.retry') || '重试'}</Text>
+                // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+                // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,整份内联样式静默消失。
+                // retryBtn 的 padding/height 自己定义盒子,外层在 center(column,alignItems center)
+                // 里 hug 内容 ⇒ 内层承载后盒子尺寸与位置逐像素不变。
+                <Pressable onPress={onRetry} accessibilityRole="button">
+                  {({ pressed }) => (
+                    <View style={[styles.retryBtn, pressed ? styles.pressed : null]}>
+                      <Text style={styles.retryText}>{t('common.retry') || '重试'}</Text>
+                    </View>
+                  )}
                 </Pressable>
               ) : null}
             </>
@@ -120,25 +124,33 @@ export function TeamDetailScreen({
         </View>
 
         <View style={styles.actionRow}>
+          {/* 同上(守门 131):flex/height 是外层在 actionRow 里占槽位的**布局档**,必须留在外层;
+              视觉档(底色/圆角/居中)随 pressed 一起落到撑满的内层 ⇒ 两个按钮各占一半、等高 44 不变。 */}
           <Pressable
-            style={({ pressed }) => [
-              styles.actionBtn,
-              styles.actionBtnPrimary,
-              pressed ? styles.pressed : null,
-            ]}
+            style={styles.actionBtnBox}
             onPress={onContact}
             accessibilityRole="button"
             accessibilityLabel={t('teamDetail.contact') || '联系成员'}
           >
-            <Text style={styles.actionBtnPrimaryText}>{t('teamDetail.contact') || '联系'}</Text>
+            {({ pressed }) => (
+              <View
+                style={[styles.actionBtn, styles.actionBtnPrimary, pressed ? styles.pressed : null]}
+              >
+                <Text style={styles.actionBtnPrimaryText}>{t('teamDetail.contact') || '联系'}</Text>
+              </View>
+            )}
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.actionBtn, pressed ? styles.pressed : null]}
+            style={styles.actionBtnBox}
             onPress={onViewOrders}
             accessibilityRole="button"
             accessibilityLabel={t('teamDetail.viewOrders') || '查看订单'}
           >
-            <Text style={styles.actionBtnText}>{t('teamDetail.viewOrders') || '查看订单'}</Text>
+            {({ pressed }) => (
+              <View style={[styles.actionBtn, pressed ? styles.pressed : null]}>
+                <Text style={styles.actionBtnText}>{t('teamDetail.viewOrders') || '查看订单'}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </ScrollView>
@@ -190,9 +202,15 @@ function createStyles(tk: AppThemeTokens) {
     statValue: { fontSize: 18, fontWeight: '600', color: tk.brand.DEFAULT },
     statLabel: { fontSize: 14, color: tk.text.secondary },
     actionRow: { flexDirection: 'row', gap: 12 },
-    actionBtn: {
+    // 外层 = 在 actionRow 里占一半 + 定高的布局档;视觉档在下面的 actionBtn(内层面)。
+    // 拆两层是为了把按压态从 Pressable 的 style 上摘下来(守门 131 那一型),数值逐字搬移未新增。
+    actionBtnBox: {
       flex: 1,
       height: 44,
+    },
+    actionBtn: {
+      width: '100%',
+      height: '100%',
       borderRadius: rnRadius.xl,
       alignItems: 'center',
       justifyContent: 'center',

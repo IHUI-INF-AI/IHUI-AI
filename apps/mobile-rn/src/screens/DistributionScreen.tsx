@@ -304,15 +304,20 @@ export function DistributionScreen() {
         <View style={shellStyles.functionBlocksWrap}>
           <FunctionBlockColumn blocks={functionBlocks} columns={2} onBlockPress={onBlockPress} />
         </View>
-        {/* 分享二维码邀请按钮(对齐 Uniapp 分销页分享二维码入口) */}
+        {/* 分享二维码邀请按钮(对齐 Uniapp 分销页分享二维码入口)
+            守门 131 改型:shareBtn 无边距定高自含 ⇒ 外层不设 style(父 wrap 默认拉伸,
+            命中盒 = 原 Pressable 盒),可视盒 + pressed 淡出落内层数组形态。 */}
         <View style={shellStyles.shareBtnWrap}>
           <Pressable
-            style={({ pressed }) => [shellStyles.shareBtn, pressed ? shellStyles.pressed : null]}
             onPress={() => setShareQrVisible(true)}
             accessibilityRole="button"
             accessibilityLabel="分享二维码"
           >
-            <Text style={shellStyles.shareBtnText}>分享二维码邀请好友</Text>
+            {({ pressed }) => (
+              <View style={[shellStyles.shareBtn, pressed ? shellStyles.pressed : null]}>
+                <Text style={shellStyles.shareBtnText}>分享二维码邀请好友</Text>
+              </View>
+            )}
           </Pressable>
         </View>
         <SharedDistributionScreen
@@ -367,49 +372,70 @@ export function DistributionScreen() {
                   ecl="M"
                 />
               </View>
+              {/* 守门 131 改型:以下四处函数形态 style 全部拆为「外层槽位 / 内层可视盒」。
+                  qrLinkBtn 无 alignSelf(靠居中容器按内容收缩,maxWidth 留内层照样生效);
+                  saveBtn/copyBtn 靠 alignSelf:'stretch' 占满弹层宽度 ⇒ 该槽位属性提到
+                  btnStretchWrap 留在外层,命中区与原 Pressable 全等;底色/边框/圆角随基档
+                  进内层,pressed 与 disabled 淡出同层叠加,观感逐像素不变。 */}
               <Pressable
-                style={({ pressed }) => [
-                  shellStyles.qrLinkBtn,
-                  pressed ? shellStyles.pressed : null,
-                ]}
                 onPress={handleCopyInviteLink}
                 accessibilityRole="button"
                 accessibilityLabel="复制邀请链接"
               >
-                <Text style={shellStyles.qrLinkText} numberOfLines={1}>
-                  {inviteLink}
-                </Text>
+                {({ pressed }) => (
+                  <View style={[shellStyles.qrLinkBtn, pressed ? shellStyles.pressed : null]}>
+                    <Text style={shellStyles.qrLinkText} numberOfLines={1}>
+                      {inviteLink}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
               <Text style={shellStyles.qrTip}>扫描上方二维码,注册成为会员</Text>
               <Text style={shellStyles.qrTipSub}>您将获得会员费 20% 的佣金收益</Text>
               <Pressable
-                style={({ pressed }) => [
-                  shellStyles.saveBtn,
-                  pressed ? shellStyles.pressed : null,
-                  savingQr ? shellStyles.saveBtnDisabled : null,
-                ]}
+                style={shellStyles.btnStretchWrap}
                 onPress={handleSaveQrToAlbum}
                 disabled={savingQr}
                 accessibilityRole="button"
                 accessibilityLabel="保存到相册"
               >
-                <Text style={shellStyles.saveBtnText}>{savingQr ? '保存中...' : '保存到相册'}</Text>
+                {({ pressed }) => (
+                  <View
+                    style={[
+                      shellStyles.saveBtn,
+                      pressed ? shellStyles.pressed : null,
+                      savingQr ? shellStyles.saveBtnDisabled : null,
+                    ]}
+                  >
+                    <Text style={shellStyles.saveBtnText}>
+                      {savingQr ? '保存中...' : '保存到相册'}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
               <Pressable
-                style={({ pressed }) => [shellStyles.copyBtn, pressed ? shellStyles.pressed : null]}
+                style={shellStyles.btnStretchWrap}
                 onPress={handleShareToFriend}
                 accessibilityRole="button"
                 accessibilityLabel="分享给好友"
               >
-                <Text style={shellStyles.copyBtnText}>分享给好友</Text>
+                {({ pressed }) => (
+                  <View style={[shellStyles.copyBtn, pressed ? shellStyles.pressed : null]}>
+                    <Text style={shellStyles.copyBtnText}>分享给好友</Text>
+                  </View>
+                )}
               </Pressable>
               <Pressable
-                style={({ pressed }) => [shellStyles.copyBtn, pressed ? shellStyles.pressed : null]}
+                style={shellStyles.btnStretchWrap}
                 onPress={handleCopyInviteLink}
                 accessibilityRole="button"
                 accessibilityLabel="复制邀请链接"
               >
-                <Text style={shellStyles.copyBtnText}>复制邀请链接</Text>
+                {({ pressed }) => (
+                  <View style={[shellStyles.copyBtn, pressed ? shellStyles.pressed : null]}>
+                    <Text style={shellStyles.copyBtnText}>复制邀请链接</Text>
+                  </View>
+                )}
               </Pressable>
             </>
           ) : (
@@ -522,6 +548,10 @@ const shellStyles = {
     color: tokens.text.secondary,
     textAlign: 'center',
   } as const,
+  // 守门 131 改型:弹层内按钮的「父容器槽位」档 —— 原基档里的 alignSelf:'stretch' 语义
+  // 必须由占父槽位的那一层承载(qrContent 是 alignItems:'center',缺它按钮会缩成内容宽),
+  // 故留在外层 Pressable;基档 saveBtn/copyBtn 原样进内层,不新建第二份视觉数值。
+  btnStretchWrap: { alignSelf: 'stretch' } as const,
   pressed: { opacity: 0.85 } as const,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

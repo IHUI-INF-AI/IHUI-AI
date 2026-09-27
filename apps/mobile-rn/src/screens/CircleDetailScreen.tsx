@@ -99,9 +99,10 @@ export function CircleDetailScreen() {
         onBack={() => navigation.goBack()}
         colorScheme={resolvedTheme}
       />
-      {/* 群聊入口(孤儿路由修复:CircleChat 注册无入口,圈子详情补挂) */}
+      {/* 群聊入口(孤儿路由修复:CircleChat 注册无入口,圈子详情补挂)
+          守门 131 改型:chatBtn 无边距、内容自定高 ⇒ 外层不设 style(通栏宽/命中盒不变),
+          行盒 + pressed 淡出落内层数组形态。 */}
       <Pressable
-        style={({ pressed }) => [styles.chatBtn, pressed ? styles.chatBtnPressed : null]}
         onPress={() =>
           navigation.navigate('CircleChat', {
             circleId: circle?.id ?? id,
@@ -111,7 +112,11 @@ export function CircleDetailScreen() {
         accessibilityRole="button"
         accessibilityLabel="进入群聊"
       >
-        <Text style={styles.chatBtnText}>进入群聊 ›</Text>
+        {({ pressed }) => (
+          <View style={[styles.chatBtn, pressed ? styles.chatBtnPressed : null]}>
+            <Text style={styles.chatBtnText}>进入群聊 ›</Text>
+          </View>
+        )}
       </Pressable>
     </View>
   )
