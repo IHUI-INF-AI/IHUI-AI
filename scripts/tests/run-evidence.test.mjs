@@ -71,7 +71,7 @@ test('T5 该工具刻意不接提交链 —— 注册表里不得出现它(它�
   )
 })
 
-test('T6 端到端装车证明:CLI 真跑 --self-test 必须 17 条全绿且 rc=0', () => {
+test('T6 端到端装车证明:CLI 真跑 --self-test 必须全绿且 rc=0(例数以末行为准,不钉死防漂移)', () => {
   const out = execFileSync(
     process.execPath,
     [TOOL, '--self-test'],
@@ -125,9 +125,12 @@ test('T8 证据件由工具自己清理:自检跑完不得在 tmp 留残留取�
     timeout: 300_000,
     stdio: 'ignore',
   })
-  const left = ['evidence-selftest-ok.txt', 'evidence-selftest-fail.txt', 'evidence-selftest-killed.txt'].filter((f) =>
-    existsSync(resolve(ROOT, '.ihui-agent', 'tmp', f)),
-  )
+  const left = [
+    'evidence-selftest-ok.txt',
+    'evidence-selftest-fail.txt',
+    'evidence-selftest-killed.txt',
+    'evidence-selftest-cwd.txt',
+  ].filter((f) => existsSync(resolve(ROOT, '.ihui-agent', 'tmp', f)))
   assert.deepEqual(left, [], '自检留下取证件 ⇒ 会被下一个人误当成本轮证据')
 })
 
@@ -177,6 +180,132 @@ test('T10 .CMD shim 走 cmd.exe 而裸名/绝对可执行原样交给 spawn(§22
     if (bare[0] === 'cmd.exe') {
       assert.ok(/\.cmd$/i.test(bare[3]), `只允许解析到带批处理后缀的路径,实测 ${bare[3]}`)
     }
+  }
+})
+
+// T11–T15 —— G-285:--cwd 透传 + --expect-cwd 一致性校验(正反成对)。
+// 立因:旧实现把被包装命令钉死在仓根,"从别的目录跑同一判据"那一发里子进程收到被改写过的
+// 路径(Cannot find module G:\scripts\…,根本没进被测进程),而 --verify 仍判 complete
+// —— 取证工具自己产出假合格证。这四条就是钉"这类取证原来做不了/做了也不可信"那一格。
+const AI_DIR = resolve(ROOT, 'apps', 'ai-service')
+const CWD_DIR = existsSync(AI_DIR) ? AI_DIR : ROOT
+
+test('T11 --cwd=<绝对路径>:子进程真在该目录跑,且 #EVIDENCE-CWD= 行落盘可读回', () => {
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-cwd-ok.txt')
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, file, `--cwd=${CWD_DIR}`, '--', process.execPath, '-e', 'console.log(process.cwd())'],
+      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
+    )
+    const txt = readFileSync(file, 'utf8')
+    assert.ok(txt.includes(`#EVIDENCE-CWD=${CWD_DIR}`), `CWD 行没落盘,证据头部:${txt.slice(0, 200)}`)
+    assert.ok(txt.includes(CWD_DIR), '子进程 stdout 必须打出该目录(证明 spawn 的 cwd 真的换了,不是只记了一行字)')
+  } finally {
+    try {
+      rmSync(file, { force: true })
+    } catch {
+      /* 清不掉不影响结论 */
+    }
+  }
+})
+
+test('T12 --verify --expect-cwd=<同值> ⇒ complete / exit 0,且原样报出 CWD 行', () => {
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-cwd-same.txt')
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, file, `--cwd=${CWD_DIR}`, '--', process.execPath, '-e', 'console.log(process.cwd())'],
+      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
+    )
+    const out = execFileSync(process.execPath, [TOOL, '--verify', file, `--expect-cwd=${CWD_DIR}`], {
+      cwd: ROOT,
+      windowsHide: true,
+      timeout: 120_000,
+      encoding: 'utf8',
+    })
+    assert.match(out, /complete/)
+    assert.match(out, new RegExp(CWD_DIR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'verify 必须把 CWD 行原样报出')
+  } finally {
+    try {
+      rmSync(file, { force: true })
+    } catch {
+      /* 清不掉不影响结论 */
+    }
+  }
+})
+
+test('T13 --verify --expect-cwd=<不同值> ⇒ truncated / exit 3(取证面错了 ⇒ 结论无效,不得 complete)', () => {
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-cwd-diff.txt')
+  let status = null
+  let out = ''
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, file, `--cwd=${CWD_DIR}`, '--', process.execPath, '-e', 'process.exit(0)'],
+      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
+    )
+    try {
+      execFileSync(process.execPath, [TOOL, '--verify', file, `--expect-cwd=${resolve(ROOT, 'scripts')}`], {
+        cwd: ROOT,
+        windowsHide: true,
+        timeout: 120_000,
+        encoding: 'utf8',
+      })
+    } catch (e) {
+      status = e.status
+      out = String(e.stdout ?? '')
+    }
+    assert.equal(status, 3, 'cwd 不符必须 exit 3(INCOMPLETE),不得发合格证')
+    assert.match(out, /truncated/, '判据落点必须是 truncated 那一族')
+  } finally {
+    try {
+      rmSync(file, { force: true })
+    } catch {
+      /* 清不掉不影响结论 */
+    }
+  }
+})
+
+test('T14 回归锁:不带 --cwd ⇒ 证据里没有 CWD 行,旧 verify 行为逐字不变', () => {
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-cwd-none.txt')
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, file, '--', process.execPath, '-e', 'console.log(process.cwd());process.exit(0)'],
+      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
+    )
+    const txt = readFileSync(file, 'utf8')
+    assert.ok(!txt.includes('#EVIDENCE-CWD='), '默认形态不得多出 CWD 行(既有调用方零感知)')
+    execFileSync(process.execPath, [TOOL, '--verify', file], {
+      cwd: ROOT,
+      windowsHide: true,
+      timeout: 120_000,
+      stdio: 'ignore',
+    })
+  } finally {
+    try {
+      rmSync(file, { force: true })
+    } catch {
+      /* 清不掉不影响结论 */
+    }
+  }
+})
+
+test('T15 expect-cwd 判据从源文件 import(§22c:镜像不得抄第二份),三臂 + 大小写归一', () => {
+  const t = gate.__test__
+  assert.equal(typeof t.CWD_MARK, 'string', '__test__ 缺 CWD_MARK')
+  assert.equal(typeof t.normCwd, 'function', '__test__ 缺 normCwd')
+  const j = t.judgeEvidence
+  const M = t.RC_MARK
+  const C = t.CWD_MARK
+  const ev = `${C}${CWD_DIR}\n${M}0\n`
+  assert.equal(j(ev, CWD_DIR).kind, 'complete', '同值必须放行')
+  assert.equal(j(ev, resolve(ROOT, 'scripts')).kind, 'truncated', '异值必须拦')
+  assert.equal(j(`${M}0`, CWD_DIR).kind, 'truncated', '期望给了而证据未记录 ⇒ 也不得发合格证')
+  if (process.platform === 'win32') {
+    const flip = CWD_DIR.toLowerCase() === CWD_DIR ? CWD_DIR.toUpperCase() : CWD_DIR.toLowerCase()
+    assert.equal(j(ev, flip).kind, 'complete', 'win32 同一目录的大小写两种写法不得误判')
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
