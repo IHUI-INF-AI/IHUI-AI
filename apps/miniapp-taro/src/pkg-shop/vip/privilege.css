@@ -39,7 +39,7 @@
   color: var(--color-foreground);
   font-size: 20rpx;
   font-weight: 500;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-md);
 }
 .level-badge.closed {
   background: var(--color-muted);
@@ -74,7 +74,7 @@
   padding: 28rpx 20rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -114,7 +114,7 @@
   padding: 28rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   margin-bottom: 24rpx;
 }
 .privilege-icon {
@@ -172,7 +172,7 @@
   color: var(--color-cta-foreground);
   font-size: 32rpx;
   font-weight: 600;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   border: none;
   text-align: center;
 }
@@ -239,7 +239,7 @@
   color: var(--color-cta-foreground);
   font-size: 30rpx;
   font-weight: 600;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   border: none;
   text-align: center;
 }
