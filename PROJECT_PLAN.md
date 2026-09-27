@@ -13430,3 +13430,31 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
   **仍未收口(如实)**:CLI 的 ACP / `server/agent-core` / headless 三面没有渲染卡片,未接预览回调;终端不做原地重绘,
   一批帧只落一次输出。扩展端待用户裁定。四端的**像素级到端观感**这次没有真机/真浏览器取证(只有单元与结构判据),
   收尾条件里那一条仍欠一次实机对照。
+
+## 第五十九批(2026-09-27 午后·第七波续):elicitation 待决表带主 —— 结算侧最后一张裸 future 表(G-251)
+
+- **大白话**:引擎里有三张"等客户端回话"的表。批 59 收了两张(审批、权限请求),这张 `elicitation`(模型中途问用户"要哪个选项")还漏着:表里只存一个裸 future,**谁拿到那串 id 谁就能替别人回答**。后果不是读到别人的数据,而是**往别人正在跑的模型回合里塞输入** —— 比读更重。
+- **做法**:与前两张同一条 —— 注册时就把"这是哪条线程、归谁"写进记录(`_PendingElicitationRequest`),结算时判定共用 `_principal_allows` 那一份实现,不新增第二套条件。
+- **两条拒绝口径刻意不同形,理由写在处理器注释里**:点名他人线程 ⇒ `reason:"foreign_thread"`(那格的信息本来就是调用者自己交出来的);只猜 id ⇒ 与"根本没这条"**同形回 `unknown`**。分得开就把端点变成存在性预言机(能不能查到某个 elicitationId 存在)。
+- **失效方向**:principal=None(未鉴权/dev 通道)与改动前逐字相同 —— 反向锁由 `test_elicitation_unauthenticated_channel_is_unchanged` 钉住,同时 `tests/test_engine_harness_fourth.py` 那两条不带身份的既有用例一字未改仍然绿。
+
+## 第六十批(2026-09-27 午后·G-249 收口):线程身份改不动了 —— 顺带否证一条台账说法
+
+- **大白话**:`threads` 表没有"属主"这一列,谁 owns 一条会话只写在 `metadata` 那块 JSON 里 —— 而那块 JSON 是**客户端能整写**的。批 59 之后"谁在调用"已经是令牌主体了,剩下的最后一格是"**被操作记录上写的属主本身可以改**"。
+- **同一把尺子量到的三条敞口**(探针 `.ihui-agent/tmp/b59/probe_meta2.py`,修复前的 HEAD 归档报 VULNERABLE、修复后的工作树报 SAFE):
+  - A `thread/metadata` 的 `merge=False` 整写把 `userId`/`roleId` 一起冲掉 ⇒ 重启恢复出的线程**没有属主** ⇒ 按"无从对账"的语义**任何**登录连接都能接着用它对话;
+  - B patch 里塞 `userId:"victim"` 就把会话**认领给别人** ⇒ victim 凭空多出一条不是自己的会话,真创建者反而碰不到;
+  - C 承载层 `POST /sessions/threads` 把 `get_current_user_id` 取到手又**原地丢弃**,只把请求体的 metadata 落库 ⇒ 自报身份赢了令牌主体。
+- **修法不是"一个端点一个补丁"**:键清单与规则只有一份(`IDENTITY_METADATA_KEYS` + `scrub_identity_keys` + `carry_identity_keys`),引擎侧 `_restamp_identity`、存储侧 `create_thread`/`update_thread_metadata` 各自不可绕过地调它;身份只能从**显式入参**进创建口,派生线程(fork / relay「继续上次会话」)继承来源属主 —— 否则每次派生都新造一条无属主线程。
+- **契约上的一句话**:codex 的 ClearableField(patch 值为 None 即删键)语义对这两个键**刻意不适用**。可清除的是业务元数据,不是授权凭据。
+- **否证一条台账说法(重要,防止下一个人照它绕路)**:票面写"动它会撞 batch-46 的两条 exact-equality 断言"。**实测不成立** —— `tests/test_engine_harness_query_46.py` / `test_store_metadata_47.py` 用的线程都没有属主,盖回逻辑对它们是恒等操作,那两条断言一字未改仍然绿(targeted 回归集 126 passed)。台账里的"拦阻"必须逐条自己验一遍再引用(与 `dont-touch-shared-deps-without-clean-signal` 同一条教训)。
+
+### 第五十一波·续廿一 —— 本轮现读的账与三条新登记(2026-09-27 午后,主会话现测)
+
+- [x] G-249 线程 metadata 整写抹掉已持久化身份 —— 第六十批收口(ab622df09),含"补写 metadata → 重启 → 仍有属主 → 外来调用被拒"回归。
+- [x] G-251 `elicitation.respond` 裸 future 无属主 —— 第五十九批收口(829782810)。
+- [ ]（进行中@2026-09-27/主会话）G-250 引擎只读/销毁面(`thread.search` / `items.list` / `turns.list` / `read` / `delete` / `archive`)与 `/api/sessions` 全部 13 个端点按属主过滤。**本轮新量到两条**:① `/api/sessions` 的 `user_id` **一次都没被用过**(13 个端点全中),不只是票面写的那一条 list;② 全仓 grep 该面**零生产调用方**(只有测试在打),所以收紧不会改任何用户可见行为 —— 爆炸半径已量完,不是未决问题。**另记一格**:`POST /api/relay/continue/{thread_id}` 凭 id 就能对别人的会话做摘要,与只读面同批处置。归属:主会话(本线)。
+- [ ] G-254 权限档归一(3b026807e)之后留下的两批**把旧拼写当契约**的测试:`tests/test_engine_harness_settings_48.py::test_thread_settings_auto_compact_and_permission` 与 `tests/test_permission_modes.py`(4 例)仍写 `permissionMode:"always"`,而 canonical 集是 default/acceptEdits/bypassPermissions/plan/manual + 五个历史别名,**不含 always**。归属:权限档唯一真源线(G-161 持有人)。解阻判据:逐条改判是"该档应回填成别名"还是"该测试应改拼写",两者都会让 guardian 68 的词汇对账跟着动,**不得由本线顺手定**。取证:两枚文件在**修复前的 HEAD 归档**里同样红(与本批无交集),不是新引入的。
+- [ ] G-255 同一块 metadata 的第二种被冲法:`thread/metadata` 整写会把 create 时落的**配置键**(sessionId/model/permissionMode/…)一并抹掉 ⇒ 重启后线程按缺省还原(权限档回落到 `_require_permission_mode` 的默认值)。身份键已由本批钉住,配置键仍属客户端可写面 —— 修法要给"引擎 owns 的配置段"与"客户端业务段"分段,不是再往 `IDENTITY_METADATA_KEYS` 里塞名字。归属:引擎 thread-store 契约持有人。解阻判据:先量有多少客户端真在 merge=False 里期望"整盘换掉"(现读:批 47 的两条断言即为此形态),再定分段口径。
+- [ ] G-256 一条**环境相关红**,归因未定:`tests/test_vector_memory.py::test_search_threshold_filter` 在工作树红(`assert 5 == 1`)而在 `git archive HEAD` 的干净检出绿 67 例。差异只可能是 gitignored 的 `.env`(干净检出里没有)让 embedding/DB 分支换了路。**没有据此定论**,只登记事实与复现命令。归属:vector_memory 持有人。解阻判据:带 `.env` 与不带 `.env` 各跑一次同一文件,若两侧结论不同即为测试隔离缺陷(§5 测试隔离铁律那一族)。
+- **本轮三条取证口径值得留下**:① 一次性判据 `rpc()` 里预先剥 `result` ⇒ 错误分支拿到 `{"code","message"}`,下游 `"error" not in x` **恒真**,把"已被拒绝"读成"读到了"(第一版探针就因此报错过一次 bob 那一格);② 未跟踪的 `app/services/sandbox/` 整包让 `test_gateway_wiring_58b`(8)+ `test_sandbox`(ImportError)+ `test_run_command_streaming`(3)在工作树全红而 HEAD 归档全绿 —— 并行期"全量套件的失败清单"**必须**与 pristine 归档做集合差才能归因;③ 归档基线(958s)比工作树全量(197s)慢 5 倍且红更多(73 vs 34),两次的**总体结论都不可用**,可用的只有"同一批文件两侧各跑一次"的对照。
