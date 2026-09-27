@@ -57,6 +57,7 @@ from enum import StrEnum
 from typing import Protocol
 
 from .agent_checkpoint import AgentLoopCheckpoint
+from .durable_resume import renew_resume_point_before_resume, select_resume_point
 from .run_ownership import owner_of
 
 logger = logging.getLogger(__name__)
@@ -419,7 +420,19 @@ async def _default_load_latest(session_id: str) -> AgentLoopCheckpoint:
     manager = get_agent_checkpoint_manager()
     in_memory = await manager.list_checkpoints(session_id=session_id)
     if in_memory:
-        return max(in_memory, key=lambda cp: cp.created_at)
+        # V3 #84:续跑点选取收口到**一条规则**(轮次优先、同轮取更晚心跳),不再在这里
+        # 另写一个 `max(created_at)` —— 两处各算一次"最新"必漂移,而漂移的代价是重跑一轮
+        # 有副作用的工具调用(见 durable_resume 头注判据 1)。全部候选都被排除
+        # (过期 / completed)时不在这儿下结论,继续走三级读取,由持久层给答案。
+        point = select_resume_point(in_memory)
+        if point.checkpoint is not None:
+            if point.ambiguous:
+                logger.warning(
+                    "同一轮有多份同心跳检查点,取用不确定:session=%s reason=%s",
+                    session_id,
+                    point.reason,
+                )
+            return point.checkpoint
 
     latest = await manager.load_latest_by_session(session_id)
     if latest is not None:
@@ -540,6 +553,12 @@ async def resume_session(
                 back.paused = True
                 back.updated_at = time.monotonic()
                 back.expires_at = back.updated_at + _PAUSED_RECORD_TTL_SECONDS
+
+    # V3 #84:续跑前把恢复点按**它自己声明的**耐久视野续期一次(只走既有 save_checkpoint
+    # 出口,不落新表/新列)。这一格**不是**续跑的前提:未声明 / 不需要 / 开关关 / 存储
+    # 异常,四种"没做"都只产出一条可诊断结论 —— 让一次本来能成的续跑因为续不上期而失败,
+    # 等于用一个新机制去制造原机制没有的红。
+    await renew_resume_point_before_resume(checkpoint)
 
     try:
         run_result = await runner(checkpoint, requester)
