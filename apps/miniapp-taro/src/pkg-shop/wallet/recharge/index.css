@@ -47,7 +47,7 @@
   align-items: center;
   margin: 20rpx;
   padding: 32rpx;
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-lg);
   background: var(--color-cta);
 }
 .rc-user-avatar {
@@ -141,7 +141,7 @@
   padding: 0 28rpx;
   font-size: 32rpx;
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   background: var(--color-muted);
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -208,7 +208,7 @@
   margin-top: 20rpx;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-sm);
   font-size: 32rpx;
   font-weight: 600;
 }

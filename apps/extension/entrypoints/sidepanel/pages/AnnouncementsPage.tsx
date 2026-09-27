@@ -90,7 +90,7 @@ export default function AnnouncementsPage() {
             const isOpen = !!expanded[a.id]
             const preview = stripHtml(a.content).slice(0, 80)
             return (
-              <Card key={a.id} className="rounded-md border-border shadow-none">
+              <Card key={a.id} className="rounded-lg border-border shadow-none">
                 <CardHeader
                   className="px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => toggle(a.id)}

@@ -37,7 +37,6 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
   readlinkSync,
@@ -47,9 +46,10 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { homedir, tmpdir } from 'node:os'
+import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { registryOf, findStashes, isInteractiveUserHome } from './check-home-junctions.mjs'
 import { devEnvRoot } from './seal-c-root-stray.mjs'
 
@@ -479,8 +479,8 @@ function selfTest() {
       join(dev, 'cache', 'userhome', 'appdata-local-pnpm-cache'),
   )
 
-  // 指纹:必须不穿透 junction(§26 头号危险)
-  const root = mkdtempSync(join(tmpdir(), 'ihui-rehome-'))
+  // 指纹:必须不穿透 junction(§26 头号危险)。夹具落点 = §26 唯一出口,不得用 os.tmpdir()。
+  const root = mkScratch('ihui-rehome-')
   try {
     mkdirSync(join(root, 'a', 'b'), { recursive: true })
     writeFileSync(join(root, 'a', 'b', 'f.txt'), '12345', 'utf8')
@@ -626,7 +626,7 @@ function selfTest() {
       )
     }
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
   // 登记表复用:修复器不得自带第二份清单
   const src = readFileSync(new URL(import.meta.url), 'utf8')

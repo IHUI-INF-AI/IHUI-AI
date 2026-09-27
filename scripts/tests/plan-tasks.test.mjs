@@ -414,16 +414,21 @@ test('M16 标题退化(切完只剩主键)不得算复合主键 —— 否则两
   // `**G-257(新登记)**:check-agent-engine-parity…`(别人的未完成任务)。
   // 两行的第一个分界符都紧跟在主键后面 ⇒ titleOf 都切出 "G-257" ⇒ 旧判据得到同一个 key
   // `G-257#G-257` ⇒ F1 认定"同题两态" ⇒ 归并器把**未做完的那条**翻成已完成。
-  const mine = '- [x] ✅(2026-09-27) **G-257. 审计日志族「参数校验失败被掩盖成 500」已修(7 站点/2 文件)**:病灶形态'
-  const theirs = '- [ ] **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的**可跑性依赖 cwd** —— 两个 cwd 下退出码不一致'
-  if (!titleIsDegenerate(mine, titleOf(mine))) throw new Error('第一行标题应判为退化(切完只剩 G-257)')
-  if (!titleIsDegenerate(theirs, titleOf(theirs))) throw new Error('第二行标题应判为退化(切完只剩 G-257)')
+  const mine =
+    '- [x] ✅(2026-09-27) **G-257. 审计日志族「参数校验失败被掩盖成 500」已修(7 站点/2 文件)**:病灶形态'
+  const theirs =
+    '- [ ] **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的**可跑性依赖 cwd** —— 两个 cwd 下退出码不一致'
+  if (!titleIsDegenerate(mine, titleOf(mine)))
+    throw new Error('第一行标题应判为退化(切完只剩 G-257)')
+  if (!titleIsDegenerate(theirs, titleOf(theirs)))
+    throw new Error('第二行标题应判为退化(切完只剩 G-257)')
   if (compositeKeyOf(mine) !== null || compositeKeyOf(theirs) !== null)
     throw new Error(`退化标题不得成键,实测 ${compositeKeyOf(mine)} / ${compositeKeyOf(theirs)}`)
   const a = auditPlan(['# p', mine, theirs].join('\n'))
   if (a.counts.forks !== 0)
     throw new Error(`不同议题同编号不得被 F1 配对(否则 --heal 会误翻勾),实测 ${a.counts.forks}`)
-  if (a.counts.claimable !== 1) throw new Error(`未勾选那条仍须进派单口径,实测 ${a.counts.claimable}`)
+  if (a.counts.claimable !== 1)
+    throw new Error(`未勾选那条仍须进派单口径,实测 ${a.counts.claimable}`)
   // 反向:正常带实质标题的同题两态**仍必须**被 F1 看见(不得把判据整个削成恒不配对)。
   const open = '- [ ] **G-256 有实质标题的议题**:仍未做。'
   const done = '- [x] ✅(2026-09-27) **G-256 有实质标题的议题**:已完成并附证据。'
@@ -515,6 +520,6 @@ test('M16 --next-id 必须被 parseArgs 认、被 main 分支真调用(否则取
     throw new Error(
       'main 里没有 nextIdRequested 这一支 ⇒ 开关被 parseArgs 收下却无人问,等于没有出口',
     )
-  if (!/usedIdsOfPrefix\(content/.test(cli) || !/nextTaskIdNumber\(content/.test(cli))
+  if (!/usedIdsOfPrefix\(content/.test(cli) || !/nextTaskIdLabel\(content/.test(cli))
     throw new Error('分支没有从被审面现读 ⇒ 号可能来自别处(面取错的号比不取号更贵)')
 })

@@ -44,7 +44,7 @@ function qualityClass(score: number): string {
 export function CompressionStatsTable({ stats, className }: CompressionStatsTableProps) {
   const rows = stats.recent ?? []
   return (
-    <div className={cn('rounded-md border bg-card', className)}>
+    <div className={cn('rounded-lg border bg-card', className)}>
       <Table>
         <TableHeader>
           <TableRow>

@@ -32,7 +32,7 @@ export default function StudyStats({ data = {} }: StudyStatsProps) {
   const weekPercent = weekTarget > 0 ? (weekMinutes / weekTarget) * 100 : 0
 
   return (
-    <View className="bg-card mx-3 my-3 rounded-xl p-4">
+    <View className="bg-card mx-3 my-3 rounded-lg p-4">
       <Text className="block text-sm font-medium text-foreground mb-3">
         {tt('study.statsTitle', '学习数据')}
       </Text>

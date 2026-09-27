@@ -102,10 +102,10 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -1826,7 +1826,9 @@ function runSelfTest() {
   )
 
   // 端到端层(独立临时假仓库 + 显式 --root 注入:自测只改 cwd 会静默扫真仓)
-  const base = mkdtempSync(join(tmpdir(), 'ihui-gate-wiring-selftest-'))
+  // 落点 = scripts/lib/scratch-dir.mjs 的 mkScratch(AGENTS §26 临时夹具唯一落点):
+  // os.tmpdir() 在活进程里可能仍钉在 C 盘,且仓库树内会让 git rev-parse 向上逃逸到真仓。
+  const base = mkScratch('ihui-gate-wiring-selftest-')
   try {
     const repo = makeFixtureRepo(base)
     const r1 = runGateCli([`--root=${repo}`, '--json'])
@@ -2199,7 +2201,7 @@ function runSelfTest() {
     assert(`EX 端到端异常: ${e && e.message}`, false)
   } finally {
     try {
-      rmSync(base, { recursive: true, force: true, maxRetries: 5 })
+      rmScratch(base)
     } catch {
       /* Windows 偶发句柄占用:临时目录自清 */
     }

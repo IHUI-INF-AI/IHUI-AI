@@ -67,7 +67,7 @@ export default function McpDocsPage() {
       {/* 什么是 MCP */}
       <section id="what-is-mcp" className="space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">什么是 MCP?</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-3">
+        <div className="rounded-lg border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             <strong>Model Context Protocol(MCP)</strong>是 Anthropic 主导的 AI 工具连接开放标准,
             让 AI 模型能够安全地调用外部工具、读取外部数据、执行外部操作。
@@ -88,7 +88,7 @@ export default function McpDocsPage() {
       <section id="preset-servers" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">100+ 预置 MCP Server</h2>
         <div className="grid gap-4 min-[768px]:grid-cols-2">
-          <div className="rounded-2xl border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">📁 文件与存储</h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>本地文件系统(读/写/搜索)</li>
@@ -97,7 +97,7 @@ export default function McpDocsPage() {
               <li>Notion / Obsidian / Logseq</li>
             </ul>
           </div>
-          <div className="rounded-2xl border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">💻 开发工具</h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>GitHub(GitLab/Bitbucket)— PR/Issue/代码搜索</li>

@@ -13,7 +13,10 @@ const { mockOpenWith, mockRunCompact, mockAddMessage } = vi.hoisted(() => ({
 }))
 
 vi.mock('@ihui/shared/chat/session-file-changes', async (importOriginal) => {
-  const mod = await importOriginal()
+  // `importOriginal()` 的返回是 `unknown`,直接展开会撞 TS2698("Spread types may only be
+  // created from object types")—— 这是**已入库**的红灯(该文件工作树==HEAD),CI 的 web
+  // typecheck 每次都红在这一行。只加断言,运行时行为一字不变。
+  const mod = (await importOriginal()) as Record<string, unknown>
   return {
     ...mod,
     collectSessionFileChanges: vi.fn(() => [

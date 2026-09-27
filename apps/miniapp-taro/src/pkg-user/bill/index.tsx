@@ -195,7 +195,7 @@ export default function Bill() {
               return (
                 <View
                   key={item.id}
-                  className="mb-[20rpx] rounded-xl border border-[var(--color-border)] bg-card p-[24rpx]"
+                  className="mb-[20rpx] rounded-lg border border-[var(--color-border)] bg-card p-[24rpx]"
                 >
                   <View className="flex items-center justify-between gap-[16rpx]">
                     <Text className="flex-1 truncate text-[length:32rpx] font-semibold text-foreground">
@@ -257,7 +257,7 @@ export default function Bill() {
         {data.payments.length > 0 ? (
           <View className="mx-[20rpx] mt-[32rpx]">
             <Text className="text-[length:28rpx] font-semibold text-foreground">缴费记录</Text>
-            <View className="mt-[16rpx] rounded-xl border border-[var(--color-border)] bg-card px-[24rpx]">
+            <View className="mt-[16rpx] rounded-lg border border-[var(--color-border)] bg-card px-[24rpx]">
               {data.payments.map((p, idx) => (
                 <View
                   key={p.id}

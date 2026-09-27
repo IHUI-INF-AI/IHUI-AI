@@ -313,7 +313,7 @@ export function MemoryGraphPanel() {
       {/* 选中节点详情 */}
       {selected && (
         <div
-          className="rounded-md border border-border bg-card p-2 text-xs leading-relaxed text-foreground"
+          className="rounded-lg border border-border bg-card p-2 text-xs leading-relaxed text-foreground"
           data-testid="memory-node-detail"
         >
           {selected.content}

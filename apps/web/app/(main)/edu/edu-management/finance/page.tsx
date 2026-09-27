@@ -1842,7 +1842,7 @@ export default function FinancePage() {
                     placeholder="留空则使用系统默认催缴文案"
                     value={reminderMessage}
                     onChange={(e) => setReminderMessage(e.target.value)}
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
                 </div>
               </div>

@@ -102,7 +102,9 @@ export function AttachmentsUpload({
           timeoutMs: 120_000,
         })
         if (!res.success) {
-          onError?.(new Error(tu('uploadFailedWithReason', { error: res.error ?? tu('unknownError') })))
+          onError?.(
+            new Error(tu('uploadFailedWithReason', { error: res.error ?? tu('unknownError') })),
+          )
           return null
         }
         const f = res.data?.file
@@ -227,7 +229,7 @@ export function AttachmentsUpload({
           {value.map((item, idx) => (
             <li
               key={`${item.url}-${idx}`}
-              className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm"
+              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm"
             >
               <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               <Tooltip content={item.name}>

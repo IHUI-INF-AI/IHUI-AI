@@ -178,6 +178,7 @@
     "toolDebugDisconnect": "断开调试器",
     "toolDebugListSessions": "调试会话列表",
     "toolVendorVoiceClone": "克隆声纹",
+    "toolRequestBusinessForm": "请求填写业务表单",
     "fileActivity": "{state, select, running {正在处理文件} completed {已处理文件} other {处理文件}}",
     "imageActivity": "{state, select, running {正在处理图像} completed {已处理图像} other {处理图像}}",
     "searchActivity": "{state, select, running {正在检索} completed {已检索} other {检索}}",
@@ -2093,7 +2094,9 @@
       "bypassSkipApproval": "已跳过审批",
       "mcpRequiresApproval": "MCP 标注要求确认",
       "policyRequiresApproval": "策略要求审批",
-      "policySkipsApproval": "策略免审批"
+      "policySkipsApproval": "策略免审批",
+      "guardianReviewSuggested": "复核建议改用更安全路径",
+      "guardianReviewAlternativeApplied": "已改用复核建议的路径"
     },
     "perm": {
       "allow": "已放行",

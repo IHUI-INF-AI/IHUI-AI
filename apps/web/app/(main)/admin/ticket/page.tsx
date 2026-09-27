@@ -99,7 +99,7 @@ export default function AdminTicketPage() {
             setStatus(e.target.value as '' | TicketStatus)
             setPage(1)
           }}
-          className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+          className="h-9 rounded-sm border border-input bg-transparent px-3 text-sm"
         >
           <option value="">全部状态</option>
           {Object.entries(STATUS_LABEL).map(([k, v]) => (

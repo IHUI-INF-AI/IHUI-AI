@@ -75,7 +75,7 @@ export function AiModelDialog({
                 id="apiFormat"
                 value={form.apiFormat}
                 onChange={(e) => setForm({ ...form, apiFormat: e.target.value })}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {API_FORMATS.map((f) => (
                   <option key={f.value} value={f.value}>
@@ -121,7 +121,7 @@ export function AiModelDialog({
                   id="pointsMultiplier"
                   value={form.pointsMultiplier}
                   onChange={(e) => setForm({ ...form, pointsMultiplier: Number(e.target.value) })}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   {POINTS_MULTIPLIERS.map((m) => (
                     <option key={m.value} value={m.value}>
