@@ -208,7 +208,7 @@ function ConfigCard({
           <TooltipTrigger asChild>
             <span
               className={cn(
-                'inline-flex cursor-default items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+                'inline-flex cursor-default items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-medium',
                 configured ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600',
               )}
             >
