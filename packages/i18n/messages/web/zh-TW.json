@@ -24543,15 +24543,12 @@
   "courseFilter": {
     "title": "篩選課程",
     "subtitle": "依條件篩選課程",
-    "category": "分類",
-    "level": "難度",
     "priceRange": "價格區間",
     "reset": "重設",
     "apply": "套用",
     "retry": "重試",
     "empty": "暫無課程",
     "instructor": "講師",
-    "level_label": "難度",
     "free": "免費"
   },
   "courseQAList": {
