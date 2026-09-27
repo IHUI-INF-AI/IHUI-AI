@@ -446,9 +446,16 @@ export function deriveFailureFromBody(
   }
   if (parsed) {
     // FastAPI 的错误体是 {detail:"..."};只认 message 会让 toast 直接显示整段原始 JSON 文本。
+    // 多结论端点的标准写法是形态② {detail:{errorCode,message}}(如 /agents/{sid}/pause|resume,
+    // V3 #65 契约测试钉住"errorCode 原样带回,不折成一句失败"):detail 是字典时从壳内取,
+    // 否则结论在派生出口这一层就丢了。优先级仍是顶层 message 先、detail 后。
+    const detailDict =
+      parsed.detail && typeof parsed.detail === 'object' ? (parsed.detail as Record<string, unknown>) : undefined
     if (typeof parsed.message === 'string' && parsed.message.trim()) message = parsed.message
     else if (typeof parsed.detail === 'string' && parsed.detail.trim()) message = parsed.detail
+    else if (typeof detailDict?.message === 'string' && detailDict.message.trim()) message = detailDict.message
     if (typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
+    else if (typeof detailDict?.errorCode === 'string') errorCode = detailDict.errorCode
   }
   return { message, errorCode }
 }

@@ -160,11 +160,20 @@ export function S() {
     expect(findFakeButtons(sentinel)).toEqual(['Plus', 'RotateCcw'])
   })
 
-  it('diff-file-list:操作位已降级为非交互元素,无假按钮', () => {
+  it('diff-file-list:操作钮均为真实动作按钮,无假按钮', () => {
     const code = read('ide/diff-file-list.tsx')
-    // 行内 checkbox 仍需 onClick={(e) => e.stopPropagation()}(阻止冒泡到行),
-    // 那是正当用法,故判据只针对 <button> 元素:整文件不允许再出现 <button。
-    expect(extractButtonBlocks(code)).toEqual([])
+    // 2026-09-23 a11y 审计(1500c09a0)曾把操作位整体降级为非交互元素并冻结「整文件无 <button」;
+    // V3 #66(08cc4e833)双排版 + D98 审阅态(40cf4af4a)又把「分栏/统一/编辑器打开/复制路径/全部已审」
+    // 恢复为带真实 handler 的功能钮。判据随之收口为语义判据:
+    // 每个 <button> 必须挂真实 onClick(仅 stopPropagation 仍判假),假按钮一律红。
+    const blocks = extractButtonBlocks(code)
+    expect(blocks.length).toBeGreaterThan(0)
+    for (const block of blocks) {
+      expect(
+        attrExpression(block.openTag, 'onClick'),
+        `无 handler 的按钮: ${block.openTag.slice(0, 60)}`,
+      ).not.toBeNull()
+    }
     expect(findFakeButtons(code)).toEqual([])
   })
 
