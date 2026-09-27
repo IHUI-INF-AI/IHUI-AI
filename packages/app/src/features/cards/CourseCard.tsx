@@ -162,7 +162,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -176,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
     lecturer: { fontSize: 14, color: tk.text.secondary },
     levelBadge: {
       backgroundColor: LEVEL_TINT,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
@@ -185,7 +185,7 @@ function createStyles(tk: AppThemeTokens) {
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     tag: {
       backgroundColor: tk.surface.card,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 8,
       paddingVertical: 3,
     },
@@ -194,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
     price: { fontSize: 18, fontWeight: '700', color: tk.danger.bright },
     freeTag: {
       backgroundColor: FREE_TINT,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },

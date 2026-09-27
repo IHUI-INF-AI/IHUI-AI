@@ -224,7 +224,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 16,
       minWidth: 16,
       paddingHorizontal: 4,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
     },

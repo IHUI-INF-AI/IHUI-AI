@@ -173,7 +173,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 4,
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },
     statText: { fontSize: 12, color: tk.text.medium },
