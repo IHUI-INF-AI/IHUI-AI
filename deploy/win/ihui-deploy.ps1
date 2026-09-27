@@ -282,6 +282,65 @@ function Fail {
     exit 1
 }
 
+# ── 分叉自动收敛与连续计数(2026-09-27 立,值守第一件工程活)────────────────────
+# 为什么"一撞分叉就寄信"是错的:这台机同时有多个会话在提交+推送,ff-only 撞上「远端刚被
+# 推走、本地也有新提交」是**每几分钟一次的常态中间态**,不是生产事故。旧写法每撞一次就 Fail,
+# 而告警签名取整条文案 ⇒ 换一种措辞就被当成新故障立刻重发(实测 09-27 03:34 与 03:35
+# 相隔一分钟各寄一封,一小时内四封到人)。
+# 仓库为这一型早有唯一出口 scripts/git-sync-converge.mjs(§12d:索引层合并、从不 checkout、
+# 从不碰他人未提交文件、冲突才交人工),而本脚本此前**只把它的名字写进日志"请人工跑",
+# 从未调用过** —— 判据在、调用点没有,正是本仓记过最多次的那一型失效。
+# 计数落文件而不是内存变量:外壳每轮重新起一个子进程,进程内变量活不过一轮。
+$DivergedAlertStreak = 5   # 连续 5 轮(外壳 ~60s/轮 ⇒ 约 5 分钟)仍分叉才认定为真停摆
+function Get-DivergedStateFile { Join-Path $PSScriptRoot '.diverged-streak.json' }
+function Read-DivergedStreak {
+    try {
+        $j = Get-Content (Get-DivergedStateFile) -Raw -ErrorAction Stop | ConvertFrom-Json
+        if ($j.count) { return @{ count = [int]$j.count; first = $j.first } }
+    } catch { }
+    return @{ count = 0; first = $null }
+}
+function Add-DivergedStreak {
+    $s = Read-DivergedStreak
+    $n = $s.count + 1
+    try {
+        @{ count = $n; first = $(if ($s.first) { $s.first } else { (Get-Date).ToString('o') }) } |
+            ConvertTo-Json -Compress | Set-Content (Get-DivergedStateFile) -NoNewline -Encoding utf8
+    } catch { Log "WARN  分叉计数写不进去:$($_.Exception.Message)(不因此报警,也不因此判成已修)" }
+    return $n
+}
+function Reset-DivergedStreak {
+    Remove-Item (Get-DivergedStateFile) -Force -ErrorAction SilentlyContinue
+}
+function Invoke-AutoConverge {
+    # 只发起、不等待:收敛一轮可跑几分钟,而外壳 60 秒一趟,同步等待等于把部署轮询钉死。
+    # marker 10 分钟内不重复发起 —— 并发收敛会互相抢 CAS,§12d 的 git 写锁只串行化单次写,
+    # 不为"同一件事被 20 个进程同时做"设计。
+    $marker = Join-Path $PSScriptRoot '.converge-inflight.marker'
+    if (Test-Path $marker) {
+        $ageMin = ((Get-Date) - (Get-Item $marker).LastWriteTime).TotalMinutes
+        if ($ageMin -ge 0 -and $ageMin -lt 10) {
+            Log "AUTO-CONVERGE 上一轮收敛发起于 $([Math]::Round($ageMin, 1)) 分钟前,仍在 10 分钟窗口内 ⇒ 不重复发起"
+            return
+        }
+    }
+    # 服务身份(LocalSystem)的 PATH 里没有 node —— 必须走 Resolve-NodeExe 的绝对路径兜底,
+    # 否则这里会得到一个"命令不存在"的静默失败,现象正是本文件头注记过的"自动跑用的还是旧档"。
+    $node = Resolve-NodeExe
+    if (-not $node) {
+        Log 'WARN  取不到 node 可执行文件 ⇒ 本轮无法自动收敛,只计入连续轮数(到阈值仍会报警)'
+        return
+    }
+    try {
+        Set-Content -Path $marker -Value (Get-Date).ToString('o') -NoNewline -Encoding utf8
+        Start-Process -FilePath $node -ArgumentList (Join-Path $Root 'scripts\git-sync-converge.mjs') `
+            -WorkingDirectory $Root -WindowStyle Hidden `
+            -RedirectStandardOutput (Join-Path $PSScriptRoot '.converge.out.log') `
+            -RedirectStandardError (Join-Path $PSScriptRoot '.converge.err.log') | Out-Null
+        Log "AUTO-CONVERGE 已后台发起 git-sync-converge(输出落 deploy\win\.converge.{out,err}.log)"
+    } catch { Log "WARN  自动收敛发起失败:$($_.Exception.Message)" }
+}
+
 function Invoke-Step { param([string]$name,[scriptblock]$body)
     Log "── $name ──"
     & $body | ForEach-Object { Write-Host "   $_" }
@@ -1208,10 +1267,19 @@ if ($behind -gt 0) {
         # (= 脏 ∩ 本次要改),不再把 41 个无关脏文件列成阻塞项。
         $stillDirty = Get-TrackedDirtyEntry
         if ($mergeOut -match 'Not possible to fast-forward') {
-            Log "BLOCKED-DIVERGED 远端与本地已分叉(git 原话:Not possible to fast-forward),这不是脏文件造成的。"
-            Log "BLOCKED-DIVERGED 处置:只能由人/持有人会话跑 node scripts/git-sync-converge.mjs(本脚本永不强推、永不硬回退、永不动他人未提交改动)。"
+            # 先自愈再判事故:发起一次后台收敛(§12d 唯一出口),本轮优雅退出让下一轮复检;
+            # 只有连续 $DivergedAlertStreak 轮仍收不拢才认定是真停摆并寄信 —— 那才是用户
+            # 真的在看旧版本。绝不强推、绝不硬回退、绝不动他人未提交改动(收敛脚本自身的保证)。
+            $streak = Add-DivergedStreak
+            Invoke-AutoConverge
+            Log "BLOCKED-DIVERGED 远端与本地已分叉(git 原话:Not possible to fast-forward),这不是脏文件造成的;已连续第 $streak 轮,阈值 $DivergedAlertStreak 轮"
             Log "BLOCKED-DIVERGED 背景(非成因):工作树另有 $($stillDirty.Count) 个未提交被跟踪文件。"
-            Fail "git merge --ff-only FETCH_HEAD 失败:仓库真分叉,需人工收敛后才能切流(未强推、未动任何在途改动)"
+            if ($streak -lt $DivergedAlertStreak) {
+                Log "SKIP  本轮不切流(自动收敛在途),优雅退出不报警,下一轮外壳复检;未切流、未动线上"
+                try { Release-DeployLock } catch {}
+                exit 0
+            }
+            Fail "git merge --ff-only FETCH_HEAD 连续 $streak 轮分叉且自动收敛无效:需人工收敛后才能切流(未强推、未动任何在途改动)"
         }
         $dirtyPaths = @($stillDirty | ForEach-Object { $_.Substring([Math]::Min(3, $_.Length)).Trim() })
         $mustTouch = @(& git -C $Root diff --name-only HEAD FETCH_HEAD 2>&1 | Out-String) -split "`r?`n" |
@@ -1228,6 +1296,7 @@ if ($behind -gt 0) {
         }
         Fail "git merge --ff-only FETCH_HEAD 失败(成因见紧邻上一行),已停止,未切流"
     }
+    Reset-DivergedStreak   # 能走到这里 = ff 成功 ⇒ 连续计数归零(否则一次抖动会永久累加到阈值)
     Ok "merge 完成,HEAD=$(git rev-parse --short HEAD | Out-String)"
 }
 
