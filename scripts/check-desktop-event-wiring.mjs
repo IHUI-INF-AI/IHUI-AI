@@ -54,6 +54,14 @@
  *     G3 队列有上限且丢弃必须计数+喊 / G4 取即清 + 就绪标记 + 按 label 绑定 + 命令已注册 /
  *     G5 目标窗口销毁清账 / G6 桥接端先 listen 后 take、补投走同一条处理链、只真成功才广播、
  *     不得在前端自建去重集合(那是把实时链改造成隐形重放链,同规则 E1) / G7 事件名与命令名两边同形。
+ *   规则 H(阻断,2026-09-27 立 · 随 5637972f4c 的**写法变更**同步扫描器):托盘每个菜单项都必须有
+ *     **可识别的去向** —— 要么 emit 到 desktop-tray-action(旧形态,层1 看得见),要么在 Rust 侧自己
+ *     把活儿干完(原生形态:show/hide/set_focus 或 exit 一族)。立据不是假想而是当日的真红:「托盘退出
+ *     改为立即退出」把 tray.quit 从 emit 链换成 arm_forced_exit + app.exit(0)
+ *     (apps/desktop/src-tauri/src/lib.rs 的 "tray.quit" 分支),层1 的 emit 计数于是从 8 掉到 7,
+ *     而**功能没坏** —— 掉的是一道本该被认出来的新写法。只把阈值 8 改成 7 就是把这台自失效防护改成
+ *     永远绿灯的假工具(AGENTS §12f「修红不得顺手放宽判据」),所以这里改的是**覆盖面**:H 认原生去向,
+ *     并新增「托盘菜单项数」这一维 tripwire,使"退出分支被清空"仍然当场判红。
  *
  * 取材面(2026-09-26 收口,与守门 36/93/118/124 同口径):
  *   默认判 **HEAD blob**,`--staged` 判**索引 blob**(这次提交会带走的那一份 —— 盘上随后改对
@@ -694,6 +702,149 @@ function auditDeepLinkMechanism(rawRust, rawBridge, rawNav) {
   return violations
 }
 
+// ============================================================================
+// 规则 H: 托盘菜单项「去向」对账(2026-09-27 立,随 5637972f4c 的写法变更同步扫描器)
+//
+// 为什么必须加这一维而不是把阈值 8 调成 7:层1 的 emit 计数是唯一替"托盘点着没反应"兜底的
+// 数字闸,而它只认 `emit("desktop-tray-action", "<字面量>")` 这一种写法。tray.quit 改成 Rust
+// 原生退出后不再 emit —— 于是计数掉了 1,而**没有任何一处代码变坏**。这种时刻只有两个出路:
+// 要么让判据认下新写法(H),要么把数字调小(= 给一台安全尺子发通行证,AGENTS §12f 明令禁止)。
+// H 做的正是"跟随代码":它问的不是"有没有 emit",而是"这一项按下去之后,事情到底有没有人做"。
+//
+// 三条判据,全部静态可判(提交者能满足 ⇒ 可以 blocking):
+//   H1 注册点与分发点都在位(一个托盘项都扫不到 = 判据失明,不是"没有违规")
+//   H2 菜单项 ↔ on_menu_event 分支双向同形(注册了没分支 = 点了静默;有分支没这项 = 菜单与分发分叉)
+//   H3 每个分支必须有可识别去向:emit 到 desktop-tray-action(且该 action 必须真被层1 抓到,
+//      否则这一路在三层对账里隐形)或原生效果调用(show/hide/set_focus/exit 一族)
+// 判据面**先剥注释**(复用 blankComments 那一份实现,Rust 侧不认单引号定界):lib.rs 的 quit 分支
+// 里就写着「原设计是 emit 给前端 → 前端查更新」,拿原文判去向等于让解释文字给自己发合格证
+// (本仓 §22c / 守门 70 / 守门 131 同型,已记过多次)。
+// ============================================================================
+
+const TRAY_ACTION_EVENT = 'desktop-tray-action'
+
+/** 托盘项注册点:`MenuItemBuilder::with_id("tray.<id>", …)` */
+const TRAY_ITEM_ID_RE = /MenuItemBuilder::with_id\(\s*"tray\.([a-z_]+)"/g
+/** 分支体内把活儿交给前端的形态(与层1 同形:action 必须是字符串字面量) */
+const TRAY_ARM_EMIT_RE = new RegExp(`"${TRAY_ACTION_EVENT}"\\s*,\\s*"([a-z_]+)"`, 'g')
+/**
+ * 原生去向:Rust 自己把活儿干完的可识别效果。
+ * 刻意**不含** `.close()` / `.destroy()` —— 那只是"窗口没了",不是"该菜单项的语义被执行了";
+ * 把它们当去向,会让"退出分支被清空只剩关窗"蒙混过关(正是本判据要防的那一型)。
+ */
+const TRAY_ARM_NATIVE_RE =
+  /\.(?:show|hide|set_focus|minimize|maximize|unminimize)\s*\(\s*\)|\bapp\s*\.\s*exit\s*\(|\barm_forced_exit\s*\(|\bstd\s*::\s*process\s*::\s*exit\s*\(/
+
+/** 取 `.on_menu_event(|app, event| match … { … })` 那个闭包的主体(花括号配平,失败 null)。 */
+function extractOnMenuEventBody(rustText) {
+  const at = rustText.indexOf('.on_menu_event(')
+  if (at < 0) return null
+  const braceStart = rustText.indexOf('{', at)
+  if (braceStart < 0) return null
+  let depth = 0
+  for (let i = braceStart; i < rustText.length; i++) {
+    const ch = rustText[i]
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return rustText.slice(braceStart, i + 1)
+    }
+  }
+  return null
+}
+
+/** 取分发体里所有 `"tray.<id>" => { … }` 分支(同名重复取第一处,配平失败则整段丢弃该项)。 */
+function extractTrayArms(body) {
+  const arms = new Map()
+  const re = /"tray\.([a-z_]+)"\s*=>\s*\{/g
+  let m
+  while ((m = re.exec(body)) !== null) {
+    const id = m[1]
+    const braceStart = body.indexOf('{', m.index + m[0].length - 1)
+    if (braceStart < 0) continue
+    let depth = 0
+    for (let i = braceStart; i < body.length; i++) {
+      const ch = body[i]
+      if (ch === '{') depth++
+      else if (ch === '}') {
+        depth--
+        if (depth === 0) {
+          if (!arms.has(id)) arms.set(id, body.slice(braceStart, i + 1))
+          re.lastIndex = i + 1
+          break
+        }
+      }
+    }
+  }
+  return arms
+}
+
+/**
+ * 判据主体(纯函数,`--self-test` 直接喂夹具字符串)。
+ * @param emittedActions 层1 已抓到的 desktop-tray-action action 集合;传 null 表示跳过 H3 的一致性交叉核对
+ * @returns {{items:Set<string>, arms:Map<string,string>, native:number, emitted:number,
+ *            emitIds:string[], nativeIds:string[], violations:string[]}}
+ */
+function auditTrayItemDestinations(rawRust, emittedActions = null) {
+  const rustText = blankComments(rawRust ?? '', { apostropheIsStringDelimiter: false })
+  const items = new Set([...rustText.matchAll(TRAY_ITEM_ID_RE)].map((m) => m[1]))
+  const violations = []
+  const say = (msg) => violations.push(msg)
+  const body = extractOnMenuEventBody(rustText)
+  if (body === null) {
+    say('H1 找不到 .on_menu_event( 注册点 —— 托盘菜单事件分发被摘线,所有菜单项都不再被看守')
+    return { items, arms: new Map(), native: 0, emitted: 0, emitIds: [], nativeIds: [], violations }
+  }
+  const arms = extractTrayArms(body)
+  // H1 空枚举判死:扫不到任何一项 ⇒ 先怀疑判据,而不是相信"托盘没有菜单"
+  if (items.size === 0)
+    say('H1 一个 MenuItemBuilder::with_id("tray.*") 都没扫到 ⇒ 判据对该文件失明(不得记为通过)')
+  if (arms.size === 0)
+    say('H1 on_menu_event 体内找不到任何 "tray.*" => 分支 ⇒ 判据失明(不得记为通过)')
+
+  let native = 0
+  let emitted = 0
+  /** 去向分类只在这里算一次;报告若另写一遍同一条判据,两处必然漂移 */
+  const emitIds = []
+  const nativeIds = []
+  for (const id of items) {
+    if (!arms.has(id))
+      say(
+        `H2 托盘项 "tray.${id}" 已注册进菜单,却没有 on_menu_event 分支 —— 点它静默无反应(与本门立项那一型同体)`,
+      )
+  }
+  for (const id of arms.keys()) {
+    if (!items.has(id))
+      say(
+        `H2 分支 "tray.${id}" 在菜单里找不到同名项 —— 菜单构建与事件分发已分叉(要么漏注册,要么留死分支)`,
+      )
+  }
+  for (const [id, arm] of arms) {
+    const actions = [...arm.matchAll(TRAY_ARM_EMIT_RE)].map((m) => m[1])
+    if (actions.length > 0) {
+      emitted++
+      emitIds.push(id)
+      for (const a of actions) {
+        if (emittedActions && !emittedActions.has(a))
+          say(
+            `H3 分支 "tray.${id}" emit 的 action "${a}" 未被层1 抓到(多半是变量形态 payload)—— 这一路在三层对账里完全隐形`,
+          )
+      }
+      continue
+    }
+    if (TRAY_ARM_NATIVE_RE.test(arm)) {
+      native++
+      nativeIds.push(id)
+      continue
+    }
+    say(
+      `H3 分支 "tray.${id}" 没有任何可识别去向:既不 emit 到 ${TRAY_ACTION_EVENT},也没有原生效果` +
+        `(show/hide/set_focus/exit 一族)—— 用户点这一项就是"完全没反应"。注释里写着怎么做不算去向。`,
+    )
+  }
+  return { items, arms, native, emitted, emitIds, nativeIds, violations }
+}
+
 // ---------------------------------------------------------------------------
 // --self-test:用夹具证明 E/F/G 三组判据各自有牙(不是恰好绿)
 // ---------------------------------------------------------------------------
@@ -1000,6 +1151,147 @@ async function deliverDeepLinkUrl(raw: string): Promise<void> {
     ) && ok
 
   // ===========================================================================
+  // H 组:托盘项去向。夹具 = lib.rs 的真实形态(4 项 emit + show/hide 原生 + quit 原生退出)。
+  // quit 那一支**故意在分支体内留着**历史注释「原设计: emit … 然后 app.exit(0)」——
+  // 于是"把真代码删掉、只剩注释"这一支变异,只有在判据确实看剥注释面时才红;
+  // blankComments 一旦失效(或有人把判据面换回原文),H3 立刻变绿而报告一切正常。
+  // 这正是本仓记过最多次的那一型:说明性文字也会带执行性字符。
+  // ===========================================================================
+  const H_QUIT_OK =
+    '"tray.quit" => { /* 原设计: emit("desktop-tray-action", "quit") 然后 app.exit(0) */ arm_forced_exit(app, 3); app.exit(0); }'
+  const hRust = (mutate = (s) => s) =>
+    mutate(`
+fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
+    let new_chat_item = MenuItemBuilder::with_id("tray.new_chat", labels[0]).build(app)?;
+    let show_item = MenuItemBuilder::with_id("tray.show", labels[1]).build(app)?;
+    let hide_item = MenuItemBuilder::with_id("tray.hide", labels[2]).build(app)?;
+    let theme_item = MenuItemBuilder::with_id("tray.theme", labels[3]).build(app)?;
+    let settings_item = MenuItemBuilder::with_id("tray.settings", labels[4]).build(app)?;
+    let update_item = MenuItemBuilder::with_id("tray.update", labels[5]).build(app)?;
+    let quit_item = MenuItemBuilder::with_id("tray.quit", labels[6]).build(app)?;
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "tray.new_chat" => { if let Err(e) = window.emit("desktop-tray-action", "new_chat") { log::warn!("{}", e); } }
+            "tray.show" => { let _ = window.show(); let _ = window.set_focus(); }
+            "tray.hide" => { let _ = window.hide(); }
+            "tray.theme" => { if let Err(e) = window.emit("desktop-tray-action", "toggle_theme") { log::warn!("{}", e); } }
+            "tray.settings" => { if let Err(e) = window.emit("desktop-tray-action", "open_settings") { log::warn!("{}", e); } }
+            "tray.update" => { if let Err(e) = window.emit("desktop-tray-action", "check_update") { log::warn!("{}", e); } }
+            ${H_QUIT_OK}
+            _ => {}
+        })
+}
+`)
+  const hEmitted = new Set(['new_chat', 'toggle_theme', 'open_settings', 'check_update'])
+  const hRun = (rust) => auditTrayItemDestinations(rust ?? hRust(), hEmitted)
+  /** 收 rust 字符串(不是判据结果)—— 上一版这里收对象,而对象没有 .violations 之外的字段可读,
+   *  判据结果 .violations 恒 undefined 直到 filter 抛 TypeError 才暴露:
+   *  夹具没真喂进判据的自检,等于没有自检。 */
+  const hViolationsOf = (rust, prefix) => hRun(rust).violations.filter((v) => v.startsWith(prefix))
+  /** 把 quit 那一支换成 body(保留分支头,只改去向) */
+  const hQuitBody = (body) => hRust((s) => s.replace(H_QUIT_OK, `"tray.quit" => { ${body} }`))
+
+  ok =
+    check('H 齐备夹具(4 emit + 2 原生窗口 + quit 原生退出)⇒ 0 违规', hRun().violations, true) && ok
+  ok =
+    check(
+      'H 计数如实:emitted 4 / native 3(证明两族各被认到,不是整片放过)',
+      hRun().emitted === 4 && hRun().native === 3
+        ? []
+        : [`实得 emitted=${hRun().emitted} native=${hRun().native}`],
+      true,
+    ) && ok
+  ok =
+    checkHas(
+      'H3 quit 只剩"存窗口状态"、去向全在注释里 ⇒ 必红(剥注释失效就会在这里变绿)',
+      hViolationsOf(hQuitBody('let _ = save_window_state(None, app.clone());'), 'H3'),
+      'H3',
+    ) && ok
+  ok =
+    checkHas(
+      'H3 quit 只剩 .close()(关窗 ≠ 执行该项语义)⇒ 必红',
+      hViolationsOf(hQuitBody('let _ = window.close();'), 'H3'),
+      'H3',
+    ) && ok
+  ok =
+    check(
+      'H3 quit 只留 arm_forced_exit(兜底本身会终止进程)⇒ 放过(门不得要求两种写法同时在场)',
+      hRun(hQuitBody('arm_forced_exit(app, 3);')).violations,
+      true,
+    ) && ok
+  ok =
+    checkHas(
+      'H2 注册了 quit 项却删掉它的分支 ⇒ 必红(点了静默无反应)',
+      hViolationsOf(
+        hRust((s) => s.replace(`            ${H_QUIT_OK}\n`, '')),
+        'H2',
+      ),
+      'H2',
+    ) && ok
+  ok =
+    checkHas(
+      'H2 有分支但菜单里没有这一项(菜单与分发分叉)⇒ 必红',
+      hViolationsOf(
+        hRust((s) =>
+          s
+            .replace(
+              '    let quit_item = MenuItemBuilder::with_id("tray.quit", labels[6]).build(app)?;\n',
+              '',
+            )
+            .replace(H_QUIT_OK, '"tray.quit" => { app.exit(0); }'),
+        ),
+        'H2',
+      ),
+      'H2',
+    ) && ok
+  ok =
+    checkHas(
+      'H3 分支 emit 变量形态 payload ⇒ 静态无可证去向,必红(不得静默算去向)',
+      hViolationsOf(
+        hRust(
+          (s) =>
+            s.replace(
+              'window.emit("desktop-tray-action", "toggle_theme")',
+              'window.emit("desktop-tray-action", &action_var)',
+            ),
+          // 该项已从层1 的 action 集合里消失 ⇒ 交叉核对那一支不该来兜这个场景
+        ),
+        'H3',
+      ),
+      'H3',
+    ) && ok
+  ok =
+    checkHas(
+      'H3 分支 emit 的字面量 action 未被层1 抓到(两把正则漂移)⇒ 必红,不得两边各绿一次',
+      auditTrayItemDestinations(hRust(), new Set(['toggle_theme', 'open_settings', 'check_update'])) // 故意漏掉 new_chat
+        .violations.filter((v) => v.startsWith('H3')),
+      'H3',
+    ) && ok
+  ok =
+    checkHas(
+      'H1 分发体在、但一个托盘项都扫不到 ⇒ 判"失明"(不是"没有违规")',
+      hViolationsOf(
+        hRust((s) => s.replace(/ {4}let \w+_item = MenuItemBuilder::with_id\([^\n]*\n/g, '')),
+        'H1',
+      ),
+      'H1',
+    ) && ok
+  ok =
+    checkHas(
+      'H1 一个托盘项都扫不到(连分发体也没了)⇒ 同样判"失明"',
+      hViolationsOf('fn nothing() {}', 'H1'),
+      'H1',
+    ) && ok
+  ok =
+    checkHas(
+      'H1 找不到 on_menu_event ⇒ 判"分发被摘线"',
+      hViolationsOf(
+        hRust((s) => s.replace('.on_menu_event(', '.on_something_else(')),
+        'H1',
+      ),
+      'H1',
+    ) && ok
+
+  // ===========================================================================
   // F 组(取材面):证明"默认档判 HEAD 而不是磁盘"不是文案,而是**读到的字节不一样**。
   // 做法是在临时 git 仓里让同一文件的 HEAD / 索引 / 磁盘三份内容**互异**,再逐面读它。
   // 为什么必须造这个现场:本门此前所有判据都只喂字符串夹具,而"读哪个面"这一格
@@ -1203,6 +1495,16 @@ for (const [event, actions] of [...rustEmits.entries()].sort()) {
   )
 }
 
+/**
+ * 规则 H 的取证:与层1 **同一轮、同一面**的 lib.rs 文本,不另开一次读(取材面纪律见守门 118)。
+ * 放在这里(而不是判据段)是为了让下面的 SANITY_MIN 能拿到"托盘菜单项数"这一维数字。
+ */
+const TRAY_EMITTED_ACTIONS = rustEmits.get(TRAY_ACTION_EVENT) ?? new Set()
+const trayAudit = auditTrayItemDestinations(rustLibText, TRAY_EMITTED_ACTIONS)
+console.log(
+  `  ${C.dim}托盘项去向: 菜单 ${trayAudit.items.size} 项 / 分支 ${trayAudit.arms.size} 个 → emit ${trayAudit.emitted} 项 · 原生 ${trayAudit.native} 项${C.reset}`,
+)
+
 // ============================================================================
 // [2/3] 层 2: 桥接端(use-desktop.ts)扫描
 // ============================================================================
@@ -1329,14 +1631,30 @@ const SANITY_MIN = [
   {
     label: 'Rust emit 命中数',
     actual: rustEmitHits,
-    min: 8,
-    hint: '托盘 5 action + before-close + 快捷键 2',
+    // 8 → 7 自 2026-09-27(5637972f4c):tray.quit 不再 emit,改由 Rust 原生退出
+    // (lib.rs 的 "tray.quit" 分支 = arm_forced_exit + app.exit(0))。
+    // **这一维掉 1 不是无人看守了**:那个分支的去向由规则 H 认(它同时把 show/hide 两向一并纳管),
+    // 且下面新加的「托盘菜单项数」把整张菜单钉在 7 项 —— 少一项、或某项没有去向,都当场判红。
+    min: 7,
+    hint: '托盘 4 action(quit 走原生分支,去向由规则 H 判)+ before-close + 快捷键 2',
   },
   {
     label: 'Rust emit 事件名数',
     actual: rustEmits.size,
     min: 3,
     hint: 'tray-action / shortcut / before-close',
+  },
+  {
+    label: '托盘菜单项数',
+    actual: trayAudit.items.size,
+    min: 7,
+    hint: 'new_chat / show / hide / theme / settings / update / quit —— 规则 H 的覆盖面基线',
+  },
+  {
+    label: '托盘项有去向的分支数',
+    actual: trayAudit.emitted + trayAudit.native,
+    min: 7,
+    hint: 'emit 与原生效果**合起来**必须覆盖全部 7 项(只认 emit 的旧判据对原生形态失明)',
   },
   {
     label: '桥接端 listen 数',
@@ -1627,6 +1945,34 @@ if (!rustLibText) {
     passed.push('规则 G: 深链闸门 7 组判据(唯一出口/未就绪入队/上限计数/取即清/销毁清账/时序/同名)全部在位')
     console.log(
       `  ${C.green}✓ G 深链闸门机制在位:${C.dim} 未就绪⇒暂存 / 队列有上限且丢弃计数 / 取即清 / Destroyed 清账 / 先 listen 后 take${C.reset}`,
+    )
+  }
+}
+
+// ============================================================================
+// 规则 H: 托盘菜单项去向对账(2026-09-27 立 —— 随写法变更同步扫描器,不是放宽判据)
+// ============================================================================
+
+console.log(`\n${C.cyan}规则 H: 托盘菜单项去向对账(emit 或原生效果,二者必居其一)${C.reset}`)
+
+if (!rustLibText) {
+  errors.push(
+    `规则 H 无法判定: ${RUST_LIB_REL} 未在本轮取材中取到内容 —— 托盘项去向不再被看守(不记为通过)`,
+  )
+  console.log(`  ${C.red}✗ H ${RUST_LIB_REL} 取不到,计「无法判定」${C.reset}`)
+} else {
+  for (const v of trayAudit.violations) {
+    errors.push(`托盘接线断裂(规则 H): ${v}`)
+    console.log(`  ${C.red}✗ ${v}${C.reset}`)
+  }
+  if (trayAudit.violations.length === 0) {
+    passed.push(
+      `规则 H: 托盘 ${trayAudit.items.size} 项全部有可识别去向(emit ${trayAudit.emitted} / 原生 ${trayAudit.native})`,
+    )
+    console.log(
+      `  ${C.green}✓ H 托盘 ${trayAudit.items.size} 项均有去向${C.reset} ` +
+        `${C.dim}emit:[${trayAudit.emitIds.join(', ')}] 原生:[${trayAudit.nativeIds.join(', ')}]` +
+        ` — quit 走原生即 5637972f4c 的写法变更,本判据认它${C.reset}`,
     )
   }
 }

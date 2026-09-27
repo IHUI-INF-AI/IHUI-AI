@@ -19,6 +19,7 @@
  *   node scripts/plan-tasks.mjs --void           # F2 带作废声明却未落账
  *   node scripts/plan-tasks.mjs --pointers       # F3 行号指针已腐烂
  *   node scripts/plan-tasks.mjs --gate [--strict] # 判据档(默认存量只报数;--strict 判红)
+ *   node scripts/plan-tasks.mjs --next-id G      # 取号出口:下一个空闲的 G- 编号(登记新条目前问一次,别手抄)
  *   node scripts/plan-tasks.mjs --json | --self-test | --staged | --worktree
  *
  * 取材面纪律(同守门 70/77/83/98/101/118):全量判 **HEAD blob**、`--staged` 判**索引 blob**、
@@ -35,7 +36,9 @@ import {
   auditPlan,
   compositeKeyOf,
   dispositionOf,
+  nextTaskIdNumber,
   parseTaskRows,
+  usedIdsOfPrefix,
   LEDGER_TTL_DAYS,
 } from './lib/plan-task-index.mjs'
 import { headAges } from './lib/plan-line-age.mjs'
@@ -46,11 +49,24 @@ const PLAN_REL = 'PROJECT_PLAN.md'
 const SAMPLE_REV = '0bc0af653df^'
 const LABEL = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(人工逃生舱)' }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const has = (f) => argv.includes(f)
   const sel = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
+  // `--next-id G` 与 `--next-id=G` 都收;旗标在位但族名缺失/被下一条旗标吃掉 ⇒ 记成"要取号但没给族名",
+  // 由 main 判用法错 exit 2(未知/残缺开关静默掉进默认分支,是本仓登记过的失效型)。
+  const niIdx = argv.indexOf('--next-id')
+  const niEq = argv.find((x) => x.startsWith('--next-id='))
+  const nextIdRequested = niIdx >= 0 || niEq !== undefined
+  let nextId = null
+  if (niEq !== undefined) nextId = niEq.slice('--next-id='.length)
+  else if (niIdx >= 0) {
+    const v = argv[niIdx + 1]
+    nextId = v !== undefined && !v.startsWith('-') ? v : ''
+  }
   return {
     json: has('--json'),
+    nextIdRequested,
+    nextId,
     open: has('--open'),
     forks: has('--forks'),
     void: has('--void'),
@@ -658,6 +674,27 @@ function selfTest() {
     s.cap.some((x) => x.includes('T6')),
     `--strict 必须报名(逐条列出),实测 ${JSON.stringify(s.cap.slice(0, 3))}`,
   )
+  // 取号出口(不在提交链,是生产侧防线)。为什么不做成判据:同编号抢两个不同任务这件事**事后判不了** ——
+  // 2026-09-27 实测真仓 HEAD 面 227 个带前缀编号里 57 个挂着多个标题,逐条看绝大多数是本仓子项命名惯例
+  // (D30① / D30② / D19的"派发前置"),按它判红就是造一台噪声门。所以防线只能摆在登记那一刻。
+  const nid =
+    '- [ ] **G-1 甲**:说明\n- [ ] **G-7 乙**:说明\n- [ ] **O13b 丙**:说明\n- [ ]75. 章节内裸序号\n'
+  ok(nextTaskIdNumber(nid, 'G') === 8, `G 族下一个空闲号应为 8,实测 ${nextTaskIdNumber(nid, 'G')}`)
+  const gUsed = usedIdsOfPrefix(nid, 'G')
+  ok(
+    gUsed !== null && gUsed.used === 2 && gUsed.max === 7,
+    `G 族应只数到 2 个号、最大 7(行首裸编号不占号段),实测 ${JSON.stringify(gUsed)}`,
+  )
+  ok(
+    nextTaskIdNumber(nid, 'O') === 14,
+    `O13b 与主号同段 ⇒ O 族下一个应为 14,实测 ${nextTaskIdNumber(nid, 'O')}`,
+  )
+  ok(nextTaskIdNumber(nid, 'Z') === null, '该族一条都没有 ⇒ 判不出(null),不得给 "Z-1" 这种号')
+  ok(nextTaskIdNumber(nid, '') === null, '空族名必须判不出,而不是退化成全族扫描')
+  ok(
+    usedIdsOfPrefix('- [ ]75. 只有裸序号\n', 'G') === null,
+    '只有章节内裸编号的面 ⇒ G 族仍应报"一条没有",不是"0 号已用"',
+  )
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
@@ -669,6 +706,36 @@ function main() {
   if (o.faceError) {
     console.log(`⚠️ 无法判定 —— ${o.faceError}`)
     return 2
+  }
+  if (o.nextIdRequested) {
+    if (!o.nextId) {
+      console.log('❌ 用法错 —— --next-id 需要族名(如 --next-id G):它回答的是下一个空闲的该族编号')
+      return 2
+    }
+    let content
+    try {
+      content = readPlan(o.root, o.face)
+    } catch (e) {
+      const why =
+        e instanceof Undetermined ? e.message : `取材失败:${String(e?.message ?? e).split('\n')[0]}`
+      console.log(`⚠️ 无法判定 —— ${why}`)
+      return 2
+    }
+    const detail = usedIdsOfPrefix(content, o.nextId)
+    const n = nextTaskIdNumber(content, o.nextId)
+    if (!detail || n === null) {
+      console.log(
+        `❌ 判不出 —— ${LABEL[o.face]} 面上 ${o.nextId} 族一条登记行都没有,` +
+          '故不给 "<族>-1" 这种号:空扫与"该族确实还没用过"在账面上同形,而取错号比不取号更贵',
+      )
+      return 2
+    }
+    console.log(
+      `下一个空闲编号 = ${o.nextId.toUpperCase()}-${n} ` +
+        `(现读 ${LABEL[o.face]}:该族已用 ${detail.used} 个号、最大 ${detail.max};` +
+        '只认带字母前缀的编号族,行首裸编号是章节内序号、不占号段)',
+    )
+    return 0
   }
   let a
   try {
