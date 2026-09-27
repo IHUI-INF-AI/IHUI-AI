@@ -80,7 +80,7 @@
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   font-size: 28rpx;
   font-weight: 600;
   background: var(--color-primary, var(--color-primary));
