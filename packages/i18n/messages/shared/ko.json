@@ -38,6 +38,7 @@
     "toolKnowledgeLookup": "지식 베이스 조회",
     "toolParseDocument": "문서 파싱",
     "toolGenerateChart": "차트 생성",
+    "toolGenerateReport": "보고서 생성",
     "toolSummarizeArtifacts": "산출물 요약",
     "activityMcp": "{mcp} MCP 호출",
     "activityPlugin": "{plugin} 플러그인 호출",
