@@ -1,12 +1,12 @@
 {
   "counts": {
     "AgentRuntimePanel": 1,
-    "BottomActionBar": 17,
+    "BottomActionBar": 15,
     "Carousel": 6,
     "CategoryBar": 1,
     "DrawerComponent": 19,
     "InputArea": 14,
-    "IntelligentAssistant": 7,
+    "IntelligentAssistant": 6,
     "LoginPopUp": 8,
     "ModelConfigDialog": 6,
     "ModelList": 6,
@@ -98,6 +98,7 @@
       "until": "2027-03-27"
     }
   },
+  "ledgerVersion": "2026-09-27 票⑭:配对源纳入 packages/app/src/features/**,同侧多候选按\"平台后缀 > 出口指向 > 目录序\"选腿(判据 = 包入口/端组件桶的 re-export 链按名解到的那一份,不是猜),进审候选在 --json 与人读报告双面点名",
   "pairingRejects": {
     "FloatBox": {
       "reason": "同名不同物:小程序端是右下角悬浮功能盒(赚米/客服/反馈三按钮,right 20rpx、收起推到 -240rpx),RN 端是顶部悬浮消息提示 toast(TOP_OFFSET 居中、duration 3000ms、4 种 type、多实例由 Toast Portal 堆叠)—— 两端头注逐字读自 HEAD,不是同一个界面元素",
@@ -117,6 +118,5 @@
       "reason": "两侧头注各自点名同一份历史源文件:小程序端「对齐原项目 DrawerComponentall.vue」、RN 端「1:1 复刻历史 Uniapp DrawerComponentall.vue(顶部用户区 / 5 主菜单 / 历史对话分组 / 底部操作区)」—— 同一个侧滑抽屉,不同命名",
       "until": "2027-03-27"
     }
-  },
-  "ledgerVersion": "2026-09-27 票⑭:配对源纳入 packages/app/src/features/**,同侧多候选按\"平台后缀 > 出口指向 > 目录序\"选腿(判据 = 包入口/端组件桶的 re-export 链按名解到的那一份,不是猜),进审候选在 --json 与人读报告双面点名"
+  }
 }
