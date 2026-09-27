@@ -24,10 +24,10 @@
   padding: 24rpx 32rpx 64rpx;
 }
 
-/* 对齐 RN 卡片:radius 12 / padding 16 (dp→rpx 1:2);RN 三类卡片均无描边 */
+/* 对齐 RN 卡片:padding 16 (dp→rpx 1:2);RN 三类卡片均无描边;圆角按角色档 card→lg */
 .dist-card {
   background: var(--color-card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   margin-bottom: 24rpx;
   padding: 32rpx;
 }
@@ -266,7 +266,7 @@
   line-height: 80rpx;
   text-align: center;
   font-size: 28rpx;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   border: none;
   padding: 0;
   background: var(--color-cta);
@@ -317,7 +317,7 @@
   height: 80rpx;
   background: var(--color-muted);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   padding: 0 24rpx;
   font-size: 28rpx;
   color: var(--color-foreground);
@@ -340,7 +340,7 @@
   color: var(--color-cta-foreground);
   font-size: 30rpx;
   font-weight: 600;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 .dist-verify-btn:active {
   opacity: 0.85;
