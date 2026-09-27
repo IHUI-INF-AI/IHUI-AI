@@ -13087,3 +13087,18 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   我把它读成"别人的现场"。**"未点名本次文件"不等于"与我无关"**,恒红门最常见的成因就是刚落地的那把尺子照到自己身上;
   归属一句话能验:`git ls-files MEMORY.md` 为空 + 文件里只有我那一行。已删除并复量 `check-root-dir-clean.mjs` exit 0,
   记忆索引的重复行也归一。规矩:**写文件一律绝对路径,不依赖 shell 站立点**(本会话第二次踩)。
+
+## 第五十七批(2026-09-27 傍晚·第七波):第七轮 ZCode 取证三路回报,其中一条被我量成**跨用户敞口**,四路实现在飞
+
+- **取证侧(三路并行,只读代理,各带覆盖度纪律)**:CLI/服务侧回报 2 条可落地 + 1 条否证;UI 侧回报 5 条可落地 + 1 条决策项 + 3 条否证;基础设施与工程工具侧回报 5 条(工程约束机器化那一轴判"已榨干"并逐格给否证位,运行时生命周期那一轴判"远未榨干、但今天报不出更多",依据是覆盖度数字)。三路一致承认**深读到体的比例极低**(UI 侧 9/1492 文件、CLI 侧 6/1704、基建侧 server 2/51 + desktop 5/268 + provider 0/6722)——所以"这条线榨干了"这句话本轮**仍然不成立**,而"下一轮该读哪一片"三份报告给的答案第一次收敛到同一处(`packages/provider` 那 6,722 行零体读 + `packages/services` 的凭据/配额族)。
+- **我自己复量后升级的那一条(比代理报的更重,且代理两处描述方向都对但结论都轻)**:引擎 JSON-RPC 通道的"谁在调用"是**从被操作的那条记录身上取的**,不是从令牌来的。逐条实测:
+  - `apps/ai-service/app/routers/engine.py:237` 的 `_bind_principal` 把**已验证身份**写进 `params["userId"]`(批量/流式/单发三条分支都绑,:294/:296/:388),但全仓只有 `agent_engine.py:2362` 一处读它(在 `thread.start`)。⇒ 原料一直在,没人消费。
+  - `agent_engine.py:2211 _require_thread` 只判"存在 + 未 closed",**不判属主**,而它是 **26 个调用点**共用的咽喉点。
+  - `:6957` `approval.respond` 的 principal 取自"被点名线程"的 `user_id`,随后比对的审批条目属主也来自同一线程 ⇒ 判据是**受害者 vs 受害者自己**。`:6924` `tools.result` 更宽:遍历全部线程找 requestId,无属主校验。
+  - `:7016` 结算的 `_permission_requests` 是一张**跨线程全局 dict**(注册点 `:6005` 只存 future,不带属主),且 `applied` 时会调 `grant_tool_approval_persist`(`:6003-6031` 那档 `sandbox_full_access`)⇒ 同一把钥匙能开权限升级。
+  - `:4576` `thread.list` **两个分支都不按属主过滤**:store 缺失分支直接遍历全部内存线程并回吐 `threadId/title/model/itemCount`;store 分支调 `session_store.list_threads(...)`,而该函数(`services/session_store.py:811`)的 SQL 只有 `WHERE archived = 0` —— **`threads` 表(:381-392)根本没有 user_id 列**。⇒ 一个已鉴权用户可以枚举别人的会话(这是"越权"从"要猜一个 uuid4"降级成"列个表就行"的那一步,也是代理没量的一层)。
+  - `apps/ai-service/app/routers/sessions.py` 现读 **14 条路由 / 15 处 `get_current_user_id` / 带属主过滤的 store 调用 0 处** ⇒ REST 面与引擎面同一根因,不是两处独立疏忽。
+  - `:2116 _try_restore_thread` 恢复线程时**不回填 `user_id`** ⇒ 进程重启后所有线程都无属主,"按线程取属主"这种写法在重启后静默退化成"无属主可比"。这一条决定了修法必须是**属主取承载层 + 把属主持久化**,只加 if 判断是不够的。
+  - 我未取证的一格(不得读成已证):合法客户端在 `approval.respond` 上**是否真的回显 `threadId`**(`packages/sdk/src/agent-engine.ts:688` 与 python 侧 `:762` 都只发 `{approvalId, decision}` ⇒ **不回显**)。所以修复必须保证"不带 threadId 的老客户端行为不变",靠的是"猜 id 也结不动别人的条目",而不是逼客户端加字段。
+- **四路实现在飞(主会话已按端划清文件面,禁止互相重叠;每路都禁了 git 写、禁了共享注册表)**:① 引擎属主咽喉点(`agent_engine.py` + `session_store.py` + 新建越权用例,要求"越权时 future 从未被结算"的断言,不是只断言状态码);② 滚动权裁决 + 测高持久化 + 前插确定性锚点(`apps/web/.../message-list/`,删掉 rAF 轮询 scrollHeight 那段);③ mermaid 渲染预算 + `createObjectURL` 成对释放(web,含语言包同票);④ 把 AGENTS 里那条**从未入库**的弹窗取证指针换成版本化只读探针(判据:三面 + 历史全零命中已实测,`git log --all --diff-filter=A -- '*console-watch*'` 零命中;静态门 52 绿不等于运行时不弹窗)。
+- **本轮顺带登记的一条否证(不做,给理由)**:竞品的 V8 crashpad / OOM 分型注解在我方**结构上不存在** —— 桌面端是 Tauri(Rust + WebView2),`apps/desktop` 的 TS 面 grep `updater|checkUpdate|rollback` 零命中。但同一格同时说明"我方桌面端更新/回滚"可能是真空,那一格**本轮未量**,不得反向读成"已确认不需要"。
