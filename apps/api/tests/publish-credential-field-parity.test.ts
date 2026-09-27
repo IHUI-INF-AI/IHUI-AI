@@ -77,6 +77,77 @@ export function readAdapterCredentials(rev = 'HEAD'): Map<string, string[]> {
   return out
 }
 
+/** 声明清单 vs 实际读取键 —— 同一份适配器源码内的**第二条轴**(P4)。
+ *
+ * 为什么单独一条:P1 判的是"注册表 vs 声明",而声明本身可以失真 —— 现读实证三型:
+ * `medium.py` 读了未声明的 `publication_id`;`douyin.py` 的 `client_secret`、`kuaishou.py` 的
+ * `app_secret` 声明了却在整个文件里没有任何读取点;`juejin.py` 的 `signatureId` 声明必填、
+ * 实际以空串注入(`verify` 只判 `sessionid`)。前两种会让用户**填一个代码根本不用的字段**或
+ * **拿不到必需的字段**,第三种让"必填"成为假承诺。
+ *
+ * 默认档**只报数不判红**:存量非零(上面三型就是现读到的),当场判红就是一台与任何提交都无关的
+ * 恒红门,唯一结局是逼人 `--no-verify` 连带废掉全部守门。要问责跑
+ * `IHUI_CRED_READ_STRICT=1 pnpm --filter @ihui/api test`。
+ */
+export function diffDeclaredVsRead(
+  declared: string[],
+  read: string[],
+): { declaredNotRead: string[]; readNotDeclared: string[] } {
+  const d = new Set(declared)
+  const r = new Set(read)
+  return {
+    declaredNotRead: [...d].filter((k) => !r.has(k)).sort(),
+    readNotDeclared: [...r].filter((k) => !d.has(k)).sort(),
+  }
+}
+
+/** 适配器里"从 credentials 取值"的键名。刻意只认 `credentials…` 开头的标识符 ——
+ *  `platform_config.get("open_id")` 这类不属凭据面,算进来就是把别的字典当凭据清单。 */
+const CRED_READ_RE = /\bcredentials\w*\s*(?:\.get\s*\(\s*|\[\s*)['"]([\w-]+)['"]/g
+
+/** 第二条读取通道:`playwright_base.py:150` 读的是 `credentials.get(self.primary_cookie)`,
+ *  键名写在子类的类属性里而不是 `credentials.get("…")` 字面量里。**不认它就会造 43 处假阳**
+ *  —— 第一版就是这样,把 18 个走基类注入的适配器全读成"声明了却不使用"。判据失效的表现
+ *  永远是安静地多报,所以这条与变异对照(见 P4 构造面那例)一起钉死。 */
+const PRIMARY_COOKIE_RE = /^\s{4}primary_cookie\s*[:=]\s*["']([\w-]+)["']/m
+
+/** 一份适配器源码里"实际被读走的凭据键" = 字面量取用 ∪ 经 `primary_cookie` 的间接取用。 */
+export function extractReadKeys(src: string): string[] {
+  const keys = new Set<string>()
+  for (const m of src.matchAll(CRED_READ_RE)) if (m[1]) keys.add(m[1])
+  const primary = src.match(PRIMARY_COOKIE_RE)?.[1]
+  if (primary) keys.add(primary)
+  return [...keys].sort()
+}
+
+/** 逐适配器取 (声明, 实读) 两份键集。**一次** git 遍历取满,不在 `readAdapterCredentials`
+ *  的结果上再套一层文件循环 —— 那会变成 O(n²) 次 `git show`(38 个适配器 = 1444 次派生)。 */
+export function readAdapterKeyPairs(rev = 'HEAD'): Map<string, { declared: string[]; read: string[] }> {
+  const files = git(['ls-tree', '-r', '--name-only', rev, ADAPTER_DIR])
+    .split('\n')
+    .filter((p) => p.endsWith('.py'))
+  const out = new Map<string, { declared: string[]; read: string[] }>()
+  for (const f of files) {
+    let src: string
+    try {
+      src = gitShow(rev, f)
+    } catch {
+      continue
+    }
+    const pid =
+      src.match(/^\s{4}platform_id\s*:\s*str\s*=\s*["']([^"']+)["']/m)?.[1] ??
+      src.match(/^\s{4}platform_id\s*=\s*["']([^"']+)["']/m)?.[1]
+    const reqRaw = src.match(/requires_credentials[^\n=]*=\s*\[([^\]]*)\]/)?.[1]
+    if (!pid || reqRaw === undefined) continue
+    const declared = [...reqRaw.matchAll(/["']([^"']+)["']/g)]
+      .map((m) => m[1])
+      .filter((k): k is string => k !== undefined)
+    const read = extractReadKeys(src)
+    if (!out.has(pid)) out.set(pid, { declared, read })
+  }
+  return out
+}
+
 /** 注册表侧：id 清单取自源码文本（注册表本体未导出），条目内容走导出的 findPlatformEntry()。
  *
  * 两面刻意不对称，且这是有理由的：**展示侧读本包工作树**（`findPlatformEntry` 被 import 的就是这份，
@@ -204,8 +275,46 @@ describe('凭据字段清单跨语言对账', () => {
     expect(ghosts, `注册表展示了适配器里没有的平台: ${ghosts.join(', ')}`).toEqual([])
   })
 
-  it('判据有牙：构造面正反对照（不依赖仓库此刻真值）', () => {
-    // 少一个必读键 ⇒ 必须点名 missing；多一个不读的键 ⇒ 必须点名 extra
+  it('P4 声明清单 vs 实际读取键：两个方向现读并报数（strict 才判红）', () => {
+    const pairs = readAdapterKeyPairs('HEAD')
+    expect(pairs.size, '适配器面枚举到 0 个 (判据失明,不算通过)').toBeGreaterThanOrEqual(30)
+    const declaredNotRead: string[] = []
+    const readNotDeclared: string[] = []
+    for (const [pid, { declared, read }] of pairs) {
+      const d = diffDeclaredVsRead(declared, read)
+      for (const k of d.declaredNotRead) declaredNotRead.push(`${pid}.${k}`)
+      for (const k of d.readNotDeclared) readNotDeclared.push(`${pid}.${k}`)
+    }
+    // 报数面必须出声：这两型都表现为"能发出去、表单填了、typecheck 全绿"，只有这一行会喊
+    console.warn(
+      `[P4 报数] 声明却从不读 ${declaredNotRead.length} 处: ${declaredNotRead.join(', ') || '无'}\n` +
+        `[P4 报数] 读了却未声明 ${readNotDeclared.length} 处: ${readNotDeclared.join(', ') || '无'}`,
+    )
+    if (process.env.IHUI_CRED_READ_STRICT === '1') {
+      expect(declaredNotRead, '声明必填却零读取点 = 让用户填一个代码根本不用的字段').toEqual([])
+      expect(readNotDeclared, '实际读取却未声明 = 用户按表单填不出必需项').toEqual([])
+    }
+  })
+
+  it('判据有牙：P4 构造面正反对照 + 只认 credentials 前缀', () => {
+    const d = diffDeclaredVsRead(['sessionid', 'signatureId'], ['sessionid', 'publication_id'])
+    expect(d).toEqual({ declaredNotRead: ['signatureId'], readNotDeclared: ['publication_id'] })
+    expect(diffDeclaredVsRead(['a', 'b'], ['b', 'a'])).toEqual({ declaredNotRead: [], readNotDeclared: [] })
+    // 取值形态三种都要认到；非 credentials 的字典不得算进来（否则别的 config 会被当凭据清单）
+    const src = [
+      'x = credentials.get("k1")',
+      "y = credentials['k2']",
+      'z = credentials_dict.get("k3")',
+      'w = platform_config.get("open_id")',
+      'v = settings.get("k4")',
+    ].join('\n')
+    expect(extractReadKeys(src)).toEqual(['k1', 'k2', 'k3'])
+    // 第二条通道:走 playwright_base 的适配器把键名写在类属性里，不认它就会把 18 个适配器
+    // 整片读成"声明了却不使用"（第一版正是如此，报数从 25 虚高到 43）
+    expect(extractReadKeys('class X:\n    primary_cookie = "BDUSS"\n')).toEqual(['BDUSS'])
+  })
+
+  it('判据有牙：构造面正反对照（不依赖仓库此刻真值）', () => {    // 少一个必读键 ⇒ 必须点名 missing；多一个不读的键 ⇒ 必须点名 extra
     const bad = diffCredentialFields(['sessionid', 'signatureId'], ['sessionid', 'sessionid_ss'])
     expect(bad.missing).toEqual(['signatureId'])
     expect(bad.extra).toEqual(['sessionid_ss'])
