@@ -279,7 +279,6 @@ export function useSystemTheme(): 'light' | 'dark' | null {
  * - check_update → 触发 updater 检查(hooks/use-updater.ts)
  * - quick_screenshot → 触发截图(hooks/use-updater.ts 无关,走 global-shortcut:screenshot
  *   → components/chat/message-input.tsx 的 handleScreenshot)
- * - quit → hooks/use-quit-update-guard.ts(桌面端退出自动更新守卫)
  *
  * 浏览器端 isTauri()=false,此 hook 不注册监听,无副作用。
  */
@@ -317,10 +316,6 @@ export function useDesktopEvents(): void {
             break
           case 'check_update':
             window.dispatchEvent(new CustomEvent('desktop-check-update'))
-            break
-          case 'quit':
-            // 2026-07-31:托盘退出 → 前端拦截,检查更新后退出或重启
-            window.dispatchEvent(new CustomEvent('desktop-quit-request'))
             break
         }
       })

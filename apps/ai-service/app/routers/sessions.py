@@ -24,7 +24,8 @@
 - GET    /api/sessions/search                       FTS5 全文检索(不可用自动降级 LIKE)
 
 存储注入:所有端点经 `Depends(get_session_store)` 获取进程级单例(路径由
-环境变量 SESSION_STORE_DB_PATH 控制,缺省 data/sessions.db);测试用
+环境变量 SESSION_STORE_DB_PATH 控制,缺省锚定模块位置的
+<ai-service 根>/data/sessions.db,不随 cwd 漂移);测试用
 app.dependency_overrides 注入 tmp_path 私有库,互不串扰。
 
 错误映射:
@@ -38,6 +39,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -73,13 +75,23 @@ _store_lock = threading.Lock()
 _store: SessionStore | None = None
 
 
+def resolve_session_db_path() -> str:
+    """解析会话库路径:env SESSION_STORE_DB_PATH 优先,缺省锚定模块位置。
+
+    缺省值由 `Path(__file__)` 推导(routers → app → ai-service 根)/data/sessions.db,
+    **不用 cwd** —— 从仓根起服务时相对 cwd 的 "data/sessions.db" 会在工作树根部
+    长出库文件(2026-09-27 G-283 实测)。正确启动方式下落点与旧实现一字不变。
+    """
+    default_db = Path(__file__).resolve().parents[2] / "data" / "sessions.db"
+    return os.getenv("SESSION_STORE_DB_PATH", str(default_db))
+
+
 def get_session_store() -> SessionStore:
     """返回进程级 SessionStore 单例(首次调用时按环境变量路径建库)。"""
     global _store
     with _store_lock:
         if _store is None:
-            db_path = os.getenv("SESSION_STORE_DB_PATH", "data/sessions.db")
-            _store = SessionStore(db_path)
+            _store = SessionStore(resolve_session_db_path())
         return _store
 
 
