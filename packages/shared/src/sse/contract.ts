@@ -65,6 +65,9 @@ export const SSE_EVENTS = {
   // POST /llm/complete/stream/{session_id}/approval-response;payload 与 agent
   // 任务流 tool-approval 同形,前端 ToolApprovalDialog 同一弹窗消费)。
   TOOL_APPROVAL: 'tool-approval',
+  // D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧(llm.py 执行前纯参数推导,
+  // 载荷 {toolCallId, seq, partialText, truncated?},tool-result 到达即清;不入库)。
+  TOOL_DELTA: 'tool-delta',
 } as const
 
 /**

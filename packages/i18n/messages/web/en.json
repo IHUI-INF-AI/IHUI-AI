@@ -8722,6 +8722,7 @@
       "bottleneck": "bottleneck"
     },
     "toolCall": {
+      "streamingPreviewLabel": "Streaming preview (running; final result prevails)",
       "chartGenerated": "Chart generated",
       "chartPreviewFailed": "Chart preview failed. Copy the path and open it in your local browser.",
       "chartPreviewHint": "The local chart file cannot be previewed directly in the web page. Copy the path and open it in your local browser.",

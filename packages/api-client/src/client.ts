@@ -936,6 +936,20 @@ export interface MemoryUpdatesEvent {
 /** 终端命令执行期间的实时输出增量事件(2026-09-18 立,消息级 terminal inline 实时回显)。
  *  后端在命令执行期间逐块下发 `event: terminal_delta` + `data: {"type":"terminal_delta",...}`,
  *  前端按 terminalId 累加到 store.terminalOutputs,供 TerminalSection 实时回显 stdout/stderr。 */
+/** 文件写类工具流中 diff 预览事件(D113,2026-09-27 立,G-227)。
+ *  后端在工具执行前从纯参数推导"将要写入的内容",逐帧下发累积文本;
+ *  tool-result 到达即被前端清除(最终 diff 以 tool-result 为准,本帧不入库)。 */
+export interface ToolDeltaEvent {
+  /** 与 tool-call-start 的 toolCallId 一致 */
+  toolCallId: string
+  /** 单调递增帧序(重放幂等:同 seq 覆盖) */
+  seq: number
+  /** 截至当前的预览文本(累积式,整帧替换渲染) */
+  partialText: string
+  /** 预览超预算被截断(总 400 行 / 32KB / 10 帧封顶) */
+  truncated?: boolean
+}
+
 export interface TerminalDeltaEvent {
   /** 与 terminal_start 的 terminalId 一致,用于关联同一终端任务 */
   terminalId: string
@@ -1082,6 +1096,8 @@ export interface StreamChatOptions {
    *  命令执行期间后端逐块下发 terminal_delta SSE 事件,前端按 terminalId 累加到 store.terminalOutputs,
    *  与 onTerminalStart/End(任务级生命周期)互补:本回调负责命令执行中的流式文本。 */
   onTerminalDelta?: (event: TerminalDeltaEvent) => void
+  /** D113:文件写类工具流中 diff 预览帧(默认无回调时不解析,与 injection 同口径) */
+  onToolDelta?: (event: ToolDeltaEvent) => void
   /** 自动重连最大次数(默认 3)。网络错误指数退避重连,业务错误(401/403/429)不重连 */
   maxRetries?: number
   /** 自动重连前回调(前端可显示"网络波动,正在重连…") */
@@ -2160,6 +2176,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         typeof opts.onTerminalStart === 'function' && typeof opts.onTerminalEnd === 'function'
       // 终端实时输出增量(2026-09-18 立):onTerminalDelta 存在时启用解析
       const hasTerminalDelta = typeof opts.onTerminalDelta === 'function'
+      // D113:tool-delta 流中预览(未注册回调不解析)
+      const hasToolDelta = typeof opts.onToolDelta === 'function'
       // #11 Citations 全链路(2026-09-13 立):knowledge_lookup 工具执行后下发引用溯源
       const hasCitations = typeof opts.onCitations === 'function'
       // P1 #27(2026-09-16 立):done 事件携带 memoryUpdates(已记住提示条数据源)
@@ -2767,6 +2785,36 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
        *  - 后端逐块下发 `event: terminal_delta` + `data: {"type":"terminal_delta",...}`
        *  - 按 terminalId 累加到 store.terminalOutputs(TerminalSection 实时回显),不落正文。
        *  - 与 tryParseTerminal(任务级 start/end)互补:本函数只处理执行中的流式文本。 */
+      // D113:tool-delta 流中预览帧解析(累积文本整帧透传;同 seq 由前端覆盖,天然幂等)
+      const tryParseToolDelta = (line: string): void => {
+        if (!hasToolDelta) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'tool-delta') return
+          if (typeof json.toolCallId !== 'string') return
+          opts.onToolDelta!({
+            toolCallId: json.toolCallId,
+            seq: typeof json.seq === 'number' ? json.seq : 0,
+            partialText: typeof json.partialText === 'string' ? json.partialText : '',
+            ...(json.truncated === true ? { truncated: true } : {}),
+          })
+        } catch {
+          /* 非 JSON 或非 tool-delta 事件忽略 */
+        }
+      }
+
       const tryParseTerminalDelta = (line: string): void => {
         if (!hasTerminalDelta) return
         if (!line || line.startsWith(':')) return
@@ -3223,6 +3271,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             // V3 #58(2026-09-26 立):主对话流工具审批请求帧
             case 'tool-approval':
               return 'tool_approval'
+            // D113:文件写类工具流中 diff 预览
+            case 'tool-delta':
+              return 'tool_delta'
             case 'plan_updated':
             case 'plan':
               return 'plan'
@@ -3287,6 +3338,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseCitations(line)
         } else if (route === 'terminal_delta') {
           tryParseTerminalDelta(line)
+        } else if (route === 'tool_delta') {
+          tryParseToolDelta(line)
         } else if (route === 'thinking') {
           tryParseThinking(line)
         } else if (route === 'usage') {
