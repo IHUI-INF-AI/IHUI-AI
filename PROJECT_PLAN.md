@@ -2445,6 +2445,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
       `apps/api/tests/agent-control-ui.test.ts` ⑭(三端各投各端 + 推送体 category 正确)、
       ⑮(endpoint=rn 注册与计数、未知 endpoint 仍 400),15 项全绿。
 - [ ] B15 本目标下**仍未闭环**的一件事(② 已于 2026-09-26 实测收口):① 移动两端运行时端到端实证 —— 本机结构性缺环境(adb 不存在、iOS 模拟器需 macOS、微信开发者工具不在位),解阻 = 三选一环境到位后复跑;② 已完成:协议第五族 ext_ui 在 packages/types/src/agent-control.ts:226 定义、:427 进 category 联合,并被 apps/api/tests/agent-control-ui.test.ts 的 ㉒/㉓/㉔ 三条钉住(㉔ 即每个 category 的候选端恰好一个反向锁,实测 :902)。顺带登记一处冗余::427 的联合里 ext_ui 写了两次(union 归并留下的重复项,类型上无害),清理另计。
+  - **2026-09-27 前提更正(机主指正"微信开发者工具都有啊,你自己控制啊")+ 当日实测**:本机环境并非缺失 —— 微信开发者工具 2.02.2608070 在 `G:\微信web开发者工具\`、adb 在 `%LOCALAPPDATA%\Android\Sdk\platform-tools`、AVD `ihui_api36` 在位可启动、admin 凭据在密钥盘 `IHUI生产账号/`。**移动端事项已由机主当日改派他人会话**,本侧不再执行;RN 侧构建阻塞与桌面端让位见第五十四批。
 - [ ] B15 本目标下**仍未闭环**的两件事(不写作已完成,各自给出解阻判据):
 
 - [ ] B15 本目标下**仍未闭环**的一件事(② 已于 2026-09-26 实测收口,见下):① 移动两端运行时端到端实证 —— 本机结构性缺环境(`adb` 不存在、iOS 模拟器需 macOS、微信开发者工具不在位),解阻 = 三选一环境到位后复跑;② 已完成:协议第五族 `ext_ui` 在 HEAD 有实现(`agent-control.ts:138`/`:231`)且被 `agent-control-ui.test.ts` 的 ㉑㉔ 正反两条钉住(含"每个 category 恰好一个择端"的反向锁)。 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记在 L2447,派单以那条为准,本行不再单独派单。〕
@@ -5113,6 +5114,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### 代码改动(2026-09-02 已完成,待提交)
 
 - [ ] **待用户执行**:①~~CORS 部署~~✅;②~~`pnpm build:desktop:saas`~~✅(0.1.16 已产出并签名);③~~装机实测基础项~~✅(2026-09-05 agent 自动化 8 项通过,见上);**剩余人工项**:真实账号登录后验证重启免登录/15min 静默续期/WebView SSO 打通;④ 若线上 /v1、/api/llm 等路径经 nginx 未全量代理,补齐 nginx 路由后复测(playground / AI 直连功能;SMOKE 已实证 /v1 WS 流式公网可用)。
+  - **2026-09-27 ③ 移交说明(机主"桌面端真实账号你自己去找啊,登啊"授权后实测)**:admin 凭据已在密钥盘定位;但启动 ihui-desktop 后弹出的 v0.1.44 安装/更新向导与**退出卡死(QuitUpdateOverlay 死锁)正被并发会话实时调查**(其取证的 PID 23856/40744 即本侧为测试而杀/起的实例)—— 按 §16 立即让位,登录验收并入该会话的修复验证;本侧已停止一切进程操作。
   - **2026-09-27 ④ 已核验**:仓库 `deploy/nginx/nginx-blue-green.conf` 现含 `location /v1/`(:249)与 `location /v1beta/`(:264),SMOKE 在案;今日实测 `https://aizhs.top/api/health` 200。本条剩余主体 = ③ 真实账号登录实测(重启免登录/静默续期/WebView SSO),须机主本人账号操作,agent 不可代。
 
 <!-- 已归档(2026-09-26):P1 跨端视觉一致性:miniapp-taro 对齐 web 样式 + 双端同步守门(2026-09-03 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
@@ -12450,3 +12452,12 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ]（进行中@2026-09-27/v3wave3）63. `form_request` SSE 帧 UI(`send-message.ts` 无 `onFormRequest`;`BusinessFormCard` 只在派发事件未在对话流消费) 〔更正票面前提(2026-09-27 现读):`form_request` **全仓后端零生产点** —— `apps/api/src` 与 `apps/ai-service/app` grep 均 0 命中,`packages/shared/src/sse/contract.ts` 亦未登记该成员(旧 client.ts 注释声称"与 contract 逐字段同形"是失实的,已就地更正)。D77/G-106 的对话流宿主以 `onFormRequest` 为装车落点且仍在飞 ⇒ 不删(砸他人承重点)、不补假生产者。真缺口 = 契约登记 + 生产者 + `form_response` 接收端三件,归 D77 后续票。〕
 - [ ] 63. `form_request` SSE 帧 UI(`send-message.ts` 无 `onFormRequest`;`BusinessFormCard` 只在派发事件未在对话流消费)
 - [ ]（进行中@2026-09-27/v3wave3）75. `file_search` 换 ripgrep / 并行遍历 + 10 万文件级(现纯 Python 遍历;懒索引护栏 `_LAZY_INDEX_MAX_FILES=2000` 对 monorepo 复评) 进度(2026-09-27,不翻勾):两条通道已统一到同一份枚举实现 —— `file_search` 与 `mcp__filesystem__search_files` 共用 `apps/ai-service/app/services/rg_fallback_parity.py`(rg 优先、降级并行遍历),并各自回报 `enum_engine` / `enum_degraded`;`normalize_suffixes` 支持 `suffixes=None`(不过滤扩展名),因为 `file_search` 用的是**扩展名黑名单**而枚举层原先取白名单 —— 这是两通道结果集不一致的真因,已按「不改行为、只统一实现」收口,工具级对账 15 passed。**未达标题面**:「10 万文件级」只完成枚举侧,懒索引护栏 `mcp_server.py:634 _LAZY_INDEX_MAX_FILES = 2000` 对 monorepo 未复评(超 2000 即静默不建索引、返回 []),所以本票不翻勾。
+
+
+## 第五十四批(2026-09-27 续二):§29 tag GC 关账(safe-gc 回收 2.7GB)+ RN 构建阻塞取证 + 桌面端/移动端事项改派
+
+- **§29 tag GC 已由机主明确授权并执行完毕,正式关账**:三族候选 **4,596 枚**(lost-commit 4,497 + backup 54 + nightly 45)逐枚严格遍历判型 —— **真空壳仅 2 枚**(均在 nightly-*,commit 可读但树内 blob 缺失,双重确认)已删;**lost-commit/backup 两族 4,551 枚全部遍历完好,一枚未动**(2026-09-24 台账记载的"4,283 枚已闭环、空壳回补至 0"与实测一致 —— 简报里"4450+ 空壳/16 万 broken link"是闭环前历史值)。`node scripts/safe-gc.mjs` 回收后 **.git 3.82GB → 1.12GB**;`git fsck --connectivity-only` broken link/missing **80 → 0**;`git rev-list --objects HEAD` gc 前后均 rc=0;跨 10 次 guardian tick 无回灌(nightly 族不在 refs-manifest);全量标签→sha 备份 `.ihui-agent/tmp/tag-gc-backup-20260927-091511.txt`,manifest 备份同目录。
+- **RN 真机复验受阻于构建工具链(精确取证,另立专项票)**:`assembleDebug`/`assembleRelease`/`-PreactNativeArchitectures=x86_64`/净空 .cxx 四次尝试全部死于同因 —— `react-native-screens@4.26.2` 与 `react-native-worklets@0.11` 的 CMake 任务 **`ninja: error: manifest build.ninja still dirty after 100 tries`**(CMake 反复 Re-running 循环;净空重试同样复现 ⇒ 非陈旧态,是工具链级)。上次成功的原生构建是 2026-09-05(build_release.log)。五份完整日志 `.ihui-agent/tmp/rn-build-*.log`。两枚 UI 修复(8ef8b657106 / d12125f071c)维持源码级验证,真机像素复验待该专项解决后进行。
+- **桌面端登录验收让位**:见「待用户执行」条目下的移交子注 —— 并发会话正在实时调查桌面端退出死锁,本侧按 §16 停止进程操作。
+- **模拟器复验环境已搭即撤**:AVD ihui_api36 本批启动验证过可正常上线(adb devices 实测 device),因事项改派,已 `adb emu kill` 干净关闭。
+- **并行纪律**:本批零代码改动,纯计划文档行级重放(提交面=HEAD+本批编辑);工作树在飞状态继续以 `.ihui-agent/tmp/plan-worktree-prebypass-20260927.md` 为准。
