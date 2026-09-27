@@ -29,6 +29,21 @@
     "UserInfoCard": 2,
     "VideoPlayer": 1
   },
+  "elementRadiusCounts": {
+    "AgentRuntimePanel": 0,
+    "BottomActionBar": 0,
+    "Carousel": 0,
+    "CategoryBar": 0,
+    "DrawerComponent": 0,
+    "InputArea": 0,
+    "IntelligentAssistant": 0,
+    "LoginPopUp": 0,
+    "ModelConfigDialog": 0,
+    "ModelList": 0,
+    "NavBar": 0,
+    "UserInfoCard": 0,
+    "VideoPlayer": 0
+  },
   "waivers": {},
   "pairingRejects": {
     "FloatBox": {
