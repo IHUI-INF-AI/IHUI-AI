@@ -296,11 +296,41 @@ fn toggle_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
 /// 真正退出应用(供前端 menu dispatcher 调用,2026-07-25 立)。
 /// 绕过 closeWindow 的"隐藏到托盘"语义,直接走 `app.exit(0)`。
 /// 2026-07-27 立:退出时持久化所有窗口状态(main + admin)。
+/// 2026-09-27 立:补"到点必然终止"兜底。`app.exit(0)` 只是向事件循环投递
+/// `Message::RequestExit`,runtime 侧处理它时仅把控制流设成 `ControlFlow::Exit`
+/// (实测 tauri-runtime-wry 2.11.4 `Message::RequestExit` 分支)——事件循环一旦被
+/// 任何主线程工作占住,这条退出请求就永不消费;而前端 quit 链与退出遮罩都没有出口
+/// (QuitUpdateOverlay 四态无按钮/无取消/无超时),用户侧表现就是"正在退出..."永久
+/// 转圈、进程不终止。宽限期在独立线程计时,不与事件循环争资源。
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     let _ = save_window_state(Some("main".to_string()), app.clone());
     let _ = save_window_state(Some("admin".to_string()), app.clone());
+    arm_forced_exit(&app, QUIT_FORCED_EXIT_GRACE_SECS);
     app.exit(0);
+}
+
+/// `quit_app` 的强制终止宽限期(秒):留给正常事件循环退出的时间,超时即强杀。
+const QUIT_FORCED_EXIT_GRACE_SECS: u64 = 3;
+
+/// 装上"到点必然终止进程"的兜底,**只在用户已明确要求退出**时调用。
+///
+/// 这与 2026-08-16 删掉的那条"托盘 emit 后 2s 定时强退"不是一回事:那条在 Rust
+/// 单方面计时,而前端此刻可能正在"检查/下载/安装更新"(可达数十秒),会被强杀并
+/// 可能损坏安装 —— 那个删除理由仍然成立,不得恢复。本函数只在 `quit_app` 已经
+/// 被调到之后生效:此时前端已决定"现在就退出",强制终止正是用户要的语义,
+/// 不会再打断更新。
+fn arm_forced_exit(app: &tauri::AppHandle, grace_secs: u64) {
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(grace_secs));
+        log::error!(
+            "[desktop] app.exit(0) 未在 {}s 内终止进程(事件循环未消费退出请求),强制退出",
+            grace_secs
+        );
+        handle.cleanup_before_exit();
+        std::process::exit(0);
+    });
 }
 
 /// 重启应用(2026-07-31 立,updater 安装完成后调用)。
