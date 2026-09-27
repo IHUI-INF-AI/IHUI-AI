@@ -27,6 +27,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import nodemailer from 'nodemailer'
 import { escapeHtml, renderSystemAlertEmail } from '../src/services/email-templates.js'
 import type { DispatchEmail } from '../src/services/email-templates.js'
+import { sanitizeAlertMessage } from '../src/utils/alert-text.js'
 
 type Severity = 'info' | 'warning' | 'critical'
 const SEVERITIES: readonly Severity[] = ['info', 'warning', 'critical']
@@ -230,18 +231,29 @@ interface MessageParts {
   runUrl?: string
 }
 
-/** message 优先级:--message-file 内容 > --message > stage/trigger/run-url 拼装(后者含固定影响说明) */
+/**
+ * message 优先级:--message-file 内容 > --message > stage/trigger/run-url 拼装(后者含固定影响说明)
+ *
+ * ⚠️ 三条来源**一律过闸门**:本脚本是 §5e 规定的运维到人唯一发信出口,而它的调用方
+ * 递进来的多是自由文本 —— `check-credential-health.mjs` 把各检查项 `detail`(含自家接口
+ * 响应体前 60 字符、GitHub run 字段、git 异常原文)拼成 message,`ihui-deploy.ps1` 递
+ * `$_` 异常文本,alert-bridge 递 Alertmanager 的 `annotations.description`。
+ * 闸门只放在 `pushAlert` 那个进程内出口上，**盖不到这条脚本通道**，所以在这里再收一道；
+ * 函数是幂等的(已净文本二次处理逐字不变)，与调用方自己先归一化不冲突。
+ */
 function composeMessage(parts: MessageParts): string {
-  if (parts.fileContent !== undefined) return parts.fileContent
-  if (parts.message !== undefined) return parts.message
-  return [
-    parts.stage ? `失败阶段:${parts.stage}` : '',
-    parts.trigger ? `触发人:${parts.trigger}` : '',
-    parts.runUrl ? `构建日志:${parts.runUrl}` : '',
-    '影响:该次部署未生效,线上仍由原环境承载流量,请尽快排查修复后重新部署。',
-  ]
-    .filter(Boolean)
-    .join('\n')
+  if (parts.fileContent !== undefined) return sanitizeAlertMessage(parts.fileContent)
+  if (parts.message !== undefined) return sanitizeAlertMessage(parts.message)
+  return sanitizeAlertMessage(
+    [
+      parts.stage ? `失败阶段:${parts.stage}` : '',
+      parts.trigger ? `触发人:${parts.trigger}` : '',
+      parts.runUrl ? `构建日志:${parts.runUrl}` : '',
+      '影响:该次部署未生效,线上仍由原环境承载流量,请尽快排查修复后重新部署。',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  )
 }
 
 /**
