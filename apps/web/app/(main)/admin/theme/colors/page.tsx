@@ -145,7 +145,7 @@ export default function ColorsPage() {
                             colors: f.colors.map((c, idx) => (idx === i ? e.target.value : c)),
                           }))
                         }
-                        className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent"
+                        className="h-8 w-10 cursor-pointer rounded-sm border border-input bg-transparent"
                       />
                       <Button
                         type="button"

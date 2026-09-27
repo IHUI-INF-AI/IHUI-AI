@@ -549,7 +549,7 @@ export default function PromptsPage() {
                     {t('prompts.detail.version', { version: viewVersion })}
                   </span>
                   <select
-                    className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="h-8 rounded-sm border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                     value={viewVersion}
                     onChange={(e) => handleViewVersionChange(Number(e.target.value))}
                   >
