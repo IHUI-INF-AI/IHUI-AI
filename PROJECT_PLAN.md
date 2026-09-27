@@ -12847,3 +12847,56 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 > 结论只能是**"不归属本批"**，不是**"基线本来就红"** —— 这两句话的差别正是本仓记过多次的"把没判写成判过了"。
 > 要拿到真正的基线判据，得走 §12d 的 `git worktree add --detach` + 端内自装依赖那条重活，另计一票；
 > 在那之前，任何"某批改动没弄红测试"的说法都必须带上这个限定。
+
+
+
+### 第五十一波·续十八 —— 第六轮取证的未做格（2026-09-27 午后登记：每条都带归属与解阻判据）
+四路取证回来 9 格候选，本轮落了 4 格（批次 46/47/48/49 + 44 门 147）。**剩下 5 格不是"以后再说"，逐条写明为什么不归本枚、以及什么条件下才动**：
+- [ ] **G-241 自动化"结算状态机"（认领/退避/终态）—— 需建表，属 §24 领地**（归属：api 端持有者；本线只登记）
+  实测病灶：`apps/api/src/services/agent-automation-scheduler.ts:305-341` 只有一个**进程内布尔** + 串行 await，
+  `packages/database/src/schema/user-automations.ts` 无 `attempts/claimed_at/retry_at` 列、无 run 台账
+  （该文件内 `retry|attempt|backoff|claim` 全仓零命中）。后果两条相反且都真：ai-service 拒连时每 60s 无限重投；
+  上游回 5xx 时却被记成"已执行"永不再试；而任一条 SSE 卡死会让 `running` 永久为真 ⇒ **全站用户自动化停摆**。
+  解阻判据：先由人确认新增两列 + 一张 run 台账表的建表迁移（AGENTS §24 + 本机无 PG 端口 ⇒ 迁移在本地既不能
+  应用也不能验证，只能走守门 49 的离线判据 B1–B5 并明写"--db 模式本机不可用"），确认后才谈实现。
+- [ ] **G-242 一次性 capability ticket 取代常驻可重放内部令牌 —— 双侧排序决策未拍**（归属：ai-service↔api 两侧持有者）
+  实测敞口（HEAD 已入库，不是在飞编辑）：`apps/api/src/plugins/internal-service-token.ts:36-39` **自己注释承认**
+  这把密钥"常驻、无 TTL、可无限重放"，`:77-110` 的用户身份取自调用方自报 `X-User-Id` 并顺带授予管理员档，
+  `csrf.ts:228` 见该头即豁免 CSRF；发票侧散在 4 处（`api_tools_bridge.py:91-95`、`codebase_indexer.py:253`、
+  `im_bridge.py:287-290`、`control_autonomy.py:200`）。ZCode 的出口是 30s TTL 随机票 + **先 delete 再比 TTL**
+  （过期与重放同一路径），且发票口本身在 `/api/` token 闸内 —— "已认证"才能换"更高一档"，换完只够一次。
+  解阻判据：先拍"先发票后验票"还是"双读过渡窗"（改契约的顺序即安全属性，单边实施会把内部通道打断），
+  拍完本线可即时实施；**第三十五批的常量时间比较已就位**，两件事不冲突但必须同一序列里排。
+- [ ] **G-243 最低版本闸门不可远程切换**（归属：对外能力决策 ⇒ 需用户确认，§24）
+  `apps/cli/src/updater.ts:62-211` 的 `minimumVersion` 读**本地** package.json（实测 `engines` 无此键 ⇒ 分支永不触发），
+  `notifyUpdates` 只异步 warn；`apps/api/src/routes/app-version.ts` 的 platform 枚举里没有 `cli`，全仓无服务端版本闸
+  （`minCliVersion|X-Client-Version` 零命中）。症状是旧 CLI 带新契约继续跑，故障以难归因的运行时错呈现。
+  解阻判据：这是**对外行为**（会阻止用户使用旧版），须用户拍"阻止/只警告"与豁免口径；不是本线可自定默认值的项。
+- [ ] **G-244 后台任务 run 状态缺 append-only journal 与"禁用而非伪装"两半**（归属：ai-service 端）
+  `run_in_background` 注册表是进程内存字典，重启后 `bg_task_status` 查无此任务（`background_tasks.py:14` 已自登记为遗留）。
+  ZCode 的两条纪律值得照抄：store 无 journal 能力 ⇒ **整个服务显式禁用 + 结构化日志**，绝不退回内存 journal
+  （"run 看起来跑起来了，却在进程退出时把一切静默丢掉"）；回放是"事件按序重铸成与 live 同一种载荷喂同一 reducer"，
+  终态一律**从行派生**而非信任旧事件词表。解阻判据：与 G-241 同一张建表决策，别分两票做两次迁移。
+- [ ] **G-245 事故归档无"双上限"回收 —— 与 §5b 的禁删条款正面冲突，必须先由人定代数**（归属：`.git` 存续线）
+  实测：`G:/DevEnv/backups/git` 已 1.1GB / 43 项，历史 15+ 次事故，`scripts/git-guardian.mjs` 零 retention。
+  ZCode 的归档回收是 `maxFiles=5 + maxTotalBytes=100MB` 双上限 + deleted/failed 留痕 + mtime≥1s 稳定窗。
+  **本线刻意没做**：§5b 明文"禁止删除 `D:/IHUI-AI-git-repo`、`IHUI-AI.git-backup-20260912` 及两目录的 `*.broken-*` 归档"
+  —— 那是恢复现场不是垃圾；要加回收必须先由人裁定"保几代、哪些算现场"，机器不替人删恢复源。
+- **守门 149 装线(2026-09-27,G-215 的尺子落地)**:`scripts/check-package-barrel-export.mjs` 判「端内从**裸包名** import 的名字,包入口有没有真的递出」—— 与守门 98 方向相反(98 判 import 了不存在的)。立因实测:`packages/api-client/src/index.ts` 是显式命名清单,而 `client.ts` 已 export 的 `postToolApprovalResponse`/`ToolApprovalEvent` 漏列 ⇒ 端内取到 `undefined`,`tool-approval-dialog.tsx` 点「批准」才抛;一路绿灯的机理是 `next.config.ts` 的 `typescript.ignoreBuildErrors` 把 TS2724 挡在构建外、打包器只看 `exports→dist/index.js`(实测 `dist/client.js` 命中 4 处、`dist/index.js` 0 处)。**入口补丁已由 G-215 修好,本票建的是防回潮的尺子。** 三条设计点:① 递出名单按**入口可达图**算(两层 `export *` 边、`./user.js`→`x.ts` 的 ESM 后缀回退),不只看入口文件自身;② 值档/类型档分开(`export type` 漏出不影响运行时 ⇒ 另档不判红),inline `type X`(含 `as` 形式)必须落类型档 —— 该缺陷由交付者抽查自查抓到(漏计递出名单会反产假红),现由 A22/A22b 成对断言钉住;③ 三方整表转发(`packages/ui-react/src/index.ts` 的 `export * from 'lucide-react'`)结构上不可枚举 ⇒ 记**未判定并点名**,`--strict` 拒出合格证。真仓 HEAD 现读:红 0 / 未判定 1 / 子路径导入 798 处(不判,另计档);自检 26 例 + §22c 镜像 9 例(含 T6 端到端双向锁:只暂存包内文件而入口没递 ⇒ 必红;HEAD 与索引同形的存量 ⇒ 不得红;T8 两旗同给判死;T9 无提交不记绿)。**注册经 `scripts/gate-registry-insert.mjs` 以 HEAD 为底插入**(落地前实测:工作树那份注册表**缺别人刚上的 148 块**且为纯 -17 行、零新增 ⇒ 按工作树提交等于替别人卸闸;索引面 == HEAD,故滞后只在盘上,已由该工具与 `checkout-index` 双向对齐)。**一条如实留下的格**:本票**没跑真实 pre-commit 钩子** —— 该钩子当前会被门 71 拦住,红因是索引里那份比 HEAD 少 59 行的 `PROJECT_PLAN.md` 滞后暂存与 7 个未入库归档件,归属其持有者,不代收、不削判据。
+### 第五十一波·续十九 —— 台账自身的证据面体检：44 枚 sha 引用连对象都取不到（2026-09-27 午后，实测登记）
+- [ ] **G-246 PROJECT_PLAN 里 44 枚 sha 形态引用在对象库里解析不到（证据指针已腐烂，不是"写错一个字符"）**
+  复现命令（逐字可跑，纯只读）：
+  `git show HEAD:PROJECT_PLAN.md > /tmp/pp.txt` 后跑
+  `node -e "const {execFileSync}=require('child_process');const t=require('fs').readFileSync('/tmp/pp.txt','utf8');const s=[...new Set((t.match(/\b[0-9a-f]{9,40}\b/g)||[]).filter(x=>/[0-9]/.test(x)&&/[a-f]/.test(x)))];let c=0,a=0;for(const v of s){const ok=(args)=>{try{execFileSync('git',['cat-file','-e',...args],{stdio:'ignore'});return true}catch(e){return false}};if(!ok([v+'^{commit}'])){ if(ok([v])) a++; else c++ }}console.log('引用',s.length,'非commit但是别的对象',a,'任意对象都取不到',c)"`
+  本轮实测：**引用 969 枚 / 非 commit 但确有其对象 21 枚（这是正常的 blob/tree 引用，不计入问题）/ 连对象都取不到 44 枚**。
+  **不要把这条读成"44 个错别字"**：`cat-file -e` 取不到的成因至少有四种，处置动作完全不同 ——
+  ① 本机 partial-clone / 未 fetch 到的对象（**先 fetch 再判**，否则把"没拉下来"报成"不存在"，本仓 §22 与记忆中都记过同型）；
+  ② 别的机器上产生的 sha（AGENTS §26 台账改道那一段明写"盘符/机器事实每次按当次实测取"）；
+  ③ 被 `git gc` 收掉的不可达对象（§29 的 `lost-commit/*` tag 就是为这一型留的，4188 枚）；
+  ④ **压缩摘要或人在写台账时凭记忆填的假 sha**（本会话当日就抓到一例：摘要里"批次 43 的 runner 对齐枚"写作 `d2f4642e6`，
+  实为不存在 —— 台账正文里没有它，所以没造成腐烂，但这正是 ④ 的活样本）。
+  解阻判据：先按 ① 补 `git fetch origin --prune` 与 `git-refs-heal.mjs --refresh-remote` 复测一遍，
+  **剩下的才是真债**；再逐枚按 `git log --all -S` / `lost-commit/*` tag / 远端 `ls-remote` 三路分流为
+  "可找回 / 属他机 / 永久丢失"，永久丢失那一批必须点名它承载的**功能**是否仍在 HEAD（AGENTS §7 三问），
+  不得只记"sha 找不到"。§1 早已把"证据指针禁止写行号"立成规矩，这一格是它的同源延伸：
+  **sha 也是指针，而指针会腐烂 —— 只有能被当次实测复现的指针才配留在台账里。**
