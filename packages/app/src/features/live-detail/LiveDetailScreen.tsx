@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { Play, Check } from 'lucide-react-native'
+import { ChevronLeft, Play, Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   LiveDetailChatStatus,
@@ -104,9 +104,12 @@ export function LiveDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error || t('liveDetail.empty')}</Text>
-        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
-        <TouchableOpacity style={styles.btnPrimary} onPress={onBack}>
-          <Text style={styles.btnPrimaryText}>{t('common.back')}</Text>
+        <TouchableOpacity
+          style={styles.btnPrimary}
+          onPress={onBack}
+          accessibilityLabel={t('common.back')}
+        >
+          <ChevronLeft size={16} color={tk.surface.light} />
         </TouchableOpacity>
       </View>
     )
