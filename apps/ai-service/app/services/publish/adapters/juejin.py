@@ -636,6 +636,11 @@ class JuejinAdapter(BasePlatformAdapter):
                             published_landing=False,
                         )
                         detail = category_error_detail or f"点击了「{confirm_text}」"
+                        # 没传 tags 时第⑤步整段被 `if modal_opened and tags` 跳过，症状是
+                        # "点了提交却没有任何请求"—— 那既不是平台改版也不是选择器失效，
+                        # 是调用方没给必填项。不写进结论，下一个人只会去怀疑选择器。
+                        if not tags:
+                            detail += ";tags 为空(targets[].config.tags 未提供,标签步骤被整步跳过)"
                         return PublishResult(
                             success=False, platform=self.platform_id,
                             error_message=f"{stuck};最后动作={detail};当前URL={page.url}",
