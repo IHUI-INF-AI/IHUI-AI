@@ -46,7 +46,9 @@ describe('BROWSER_TOOLS 注册完整性', () => {
   })
 
   it('操作类工具 dangerLevel 为 write', () => {
-    for (const name of ['browser_navigate', 'browser_click', 'browser_type', 'browser_evaluate']) {
+    // browser_screenshot 也在内:它把 PNG 写进工作区(save_path 缺省 .ihui/screenshots/),
+    // 声明成 read 会让批准/预算面按只读处置一次会改东西的调用 —— 由 ihui spec drift 抓到。
+    for (const name of ['browser_navigate', 'browser_click', 'browser_type', 'browser_evaluate', 'browser_screenshot']) {
       expect(BROWSER_TOOLS.find((t) => t.name === name)?.dangerLevel).toBe('write')
     }
   })
