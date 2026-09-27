@@ -166,11 +166,11 @@
   margin-bottom: 0;
 }
 
-/* ===== 输入框(对齐 RN input:高 40 / 圆角 6 / 边框) ===== */
+/* ===== 输入框(对齐 RN input:高 40 / 边框;圆角按角色档 control→sm) ===== */
 .login-input {
   height: 80rpx;
   border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   padding: 0 24rpx;
   font-size: 28rpx;
   color: var(--color-foreground);
@@ -349,10 +349,10 @@
   color: var(--color-muted-foreground);
 }
 
-/* ===== 主登录按钮(对齐 RN loginBtn:主题黑白底圆角,亮色纯黑/暗色纯白) ===== */
+/* ===== 主登录按钮(对齐 RN loginBtn:主题黑白底,亮色纯黑/暗色纯白;圆角按角色档 control→sm) ===== */
 .login-primary-btn {
   height: 80rpx;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background-color: var(--color-brand);
   display: flex;
   align-items: center;
@@ -386,7 +386,7 @@
   justify-content: center;
   gap: 16rpx;
   height: 80rpx;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--color-miniapp-green);
   color: var(--color-miniapp-green-foreground);
   font-size: 28rpx;
@@ -451,7 +451,7 @@
 .login-sso-btn {
   height: 68rpx;
   margin-top: 36rpx;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   border: 1rpx solid var(--color-border);
   background-color: transparent;
   display: flex;

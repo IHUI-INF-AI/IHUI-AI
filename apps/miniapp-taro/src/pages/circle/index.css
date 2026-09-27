@@ -65,7 +65,7 @@
   gap: 16rpx;
 }
 
-/* 对齐 RN topicChip:gap 6 / px 24 / h 64 / radius 32 / bg surface.card */
+/* 对齐 RN topicChip:gap 6 / px 24 / h 64 / bg surface.card(圆角按角色档 chip→md) */
 .ci-hottopic-chip {
   display: inline-flex;
   align-items: center;
@@ -73,7 +73,7 @@
   height: 64rpx;
   padding: 0 24rpx;
   background: var(--color-card);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-md);
   flex-shrink: 0;
 }
 
@@ -325,14 +325,14 @@
   color: var(--color-text-tertiary);
 }
 
-/* 对齐 RN emptyBtn:px 40 / py 16 / radius 32 / bg brand.DEFAULT */
+/* 对齐 RN emptyBtn:px 40 / py 16 / bg brand.DEFAULT(圆角按角色档 control→sm) */
 .ci-empty-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16rpx 40rpx;
   background: var(--color-brand);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-sm);
 }
 
 /* 对齐 RN emptyBtnText:13dp→26rpx / 600 / surface.card */

@@ -71,13 +71,13 @@
   padding: 80rpx 0;
 }
 
-/* ===== RN 单卡片(surface.light→card,radius 12dp,padding 14dp,gap 12dp) ===== */
+/* ===== RN 单卡片(surface.light→card, padding 14dp, gap 12dp;圆角按角色档 card→lg) ===== */
 .detail-card {
   display: flex;
   flex-direction: column;
   gap: 24rpx;
   background: var(--color-card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 28rpx;
 }
 
@@ -223,10 +223,10 @@
   color: var(--color-text-tertiary);
 }
 
-/* 图片(白卡之外,独立圆角) */
+/* 图片(白卡之外,独立圆角;按角色档 card→lg) */
 .img-card {
   margin-top: 24rpx;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
