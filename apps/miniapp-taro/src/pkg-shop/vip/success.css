@@ -54,11 +54,11 @@
   color: var(--color-muted-foreground);
 }
 
-/* 订单信息卡片(对标 RN card:白卡 + 24rpx 圆角 + 行距 24rpx) */
+/* 订单信息卡片(对标 RN card:白卡 + 行距 24rpx;圆角按角色档 card→lg) */
 .vs-info-card {
   width: 100%;
   background: var(--color-card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 24rpx;
   display: flex;
   flex-direction: column;

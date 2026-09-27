@@ -26,8 +26,7 @@
     "no-tool-summary-ui": "该端无工具摘要卡(tool-call-summary 族)展示位。",
     "no-terminal-stream-ui": "该端无终端流展示位(整段也没有终端面板)。",
     "no-compaction-ui": "该端无上下文压缩分割线展示位。",
-    "no-fallback-ui": "该端无模型降级提示位。",
-    "no-tool-delta-ui": "扩展端结构上收不到这一帧:生产端只对 _FILE_EDIT_PREVIEW_TOOLS={write_file,file_edit,edit_file} 发帧(apps/ai-service/app/routers/llm.py:175 与 :3284-3298),而扩展会话携带的 agentTools 仅 ext_ui_* 七动词 + api_endpoints_search/api_endpoint_call(apps/extension/lib/ui-control-tools.ts:24-35,50-54),服务端补全注入面也是这七动词(control_autonomy.py:52-60)⇒ 模型在该面不可能调用写类工具、判据永不成立。要铺这一 UX 的前置是\"给扩展会话开通文件写工具\"(§24 新能力 + 安全语义,归产品裁决),不是接一帧回调。"
+    "no-fallback-ui": "该端无模型降级提示位。"
   },
   "missing": {
     "web": {},

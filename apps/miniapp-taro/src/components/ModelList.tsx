@@ -22,6 +22,10 @@ import {
   MODEL_LIST_PRICE_BADGE_PADDING_Y_PX,
   MODEL_LIST_SECTION_HEADER_FONT_PX,
 } from '@ihui/shared/ui/model-list-spec'
+// 行尾「免费 / 付费」徽章的唯一判据(子路径导入,不挂 barrel)。
+// 本端此前**没有判据** —— 徽章恒真渲染"免费",对付费模型也在说免费,那是假陈述;
+// RN 侧则有两条互不相等的判据各住一个屏幕,现全部收进这一份实现。
+import { modelIsFree } from '@ihui/shared/ui/model-badge-facts'
 import type { ModelUsageCategory } from '@ihui/shared/constants'
 import type { LlmModel } from '@/api'
 import type { ModelType } from './ModelTypeButton'
@@ -226,7 +230,13 @@ export default function ModelList({
                 {tt('ModelList.text1', 'Agent模式')}
               </Text>
               {/* "免"位图槽(mian_label.png)已换与 RN freeBadge 同形的文字徽章:
-                  只换载体不重排,几何经 spec、配色走 tokens 链 */}
+                  只换载体不重排,几何经 spec、配色走 tokens 链。
+                  ⚠️ 这一枚**不**接 modelIsFree,是有意为之而非漏改:本行是「Agent 模式」
+                  的模式行(RN 同一处 `AgentModeRow` 根本不渲染价格徽章),`ModelListProps`
+                  在这条分支里没有 model 对象可投影 —— 硬套判据就得凭空造一个 id 或一个
+                  `inputPrice: 0`,那等于给一条无数据源的分支发合格证(同 NEW 徽章不予复制的
+                  处置)。该行"免费"属**模式级**声明,其价格事实在 LlmModel 契约之外,
+                  要判红得先给模式定价,另计一票。圆角仍与价格徽章族同档取 md。 */}
               <View
                 className="flex items-center justify-center"
                 style={{
@@ -237,7 +247,7 @@ export default function ModelList({
                   paddingRight: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX),
                   paddingTop: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
                   paddingBottom: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
-                  borderRadius: rnRadius.sm,
+                  borderRadius: rnRadius.md,
                   background: 'var(--color-success-lighter)',
                 }}
               >
@@ -314,7 +324,10 @@ export default function ModelList({
                 </Text>
                 {/* 排名第一(rankone.png)已换与 RN rankBadge 同形的 TOP1 文字徽章:
                     实底金/琥珀 + 近白字走 --color-warning 链(RN 同语义 = #F5B301 复刻档),
-                    几何经 spec 档,圆角同取 rnRadius.xs(与 RN rankBadge 同档) */}
+                    几何经 spec 档,圆角取 rnRadius.md —— RN `styles.rankBadge` 本就是 md(6px)。
+                    (此处原写"rnRadius.xs(与 RN rankBadge 同档)",那句注释是错的:xs=2px 而
+                    RN rankBadge=md=6px,两端差两档而账面一路报绿;2026-09-27 随手改对,不留给
+                    下一个人按它执行。) */}
                 {index === 0 ? (
                   <View
                     className="flex items-center justify-center"
@@ -324,7 +337,7 @@ export default function ModelList({
                       paddingRight: toUnit(MODEL_LIST_BADGE_PADDING_X_PX),
                       paddingTop: toUnit(MODEL_LIST_BADGE_PADDING_Y_PX),
                       paddingBottom: toUnit(MODEL_LIST_BADGE_PADDING_Y_PX),
-                      borderRadius: rnRadius.xs,
+                      borderRadius: rnRadius.md,
                       background: 'var(--color-warning)',
                     }}
                   >
@@ -339,29 +352,64 @@ export default function ModelList({
                     </Text>
                   </View>
                 ) : null}
-                {/* "免"徽章(原 mian_label.png,始终显示)同换 RN freeBadge 同形文字徽章,
-                    显示条件一字未动 */}
-                <View
-                  className="flex items-center justify-center"
-                  style={{
-                    marginLeft: toUnit(MODEL_LIST_BADGE_MARGIN_LEFT_PX),
-                    paddingLeft: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX),
-                    paddingRight: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX),
-                    paddingTop: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
-                    paddingBottom: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
-                    borderRadius: rnRadius.sm,
-                    background: 'var(--color-success-lighter)',
-                  }}
-                >
-                  <Text
+                {/* 行尾「免费 / 付费」二分支徽章(2026-09-27 把 RN 的价格徽章族铺到本端)。
+                    原注释写的是"显示条件一字未动" —— 那句是事实,而没动的那个条件**恒真**:
+                    付费模型在本端也被渲染成"免费",这是假陈述而不是"少一个徽章"。
+                    现判据走唯一源 modelIsFree(价格字段在场以价格为准,两档皆缺才回落自由网关
+                    id 前缀);分支形状与 RN `ModelList.tsx` 的 freeBadge/paidBadge 同形,
+                    几何经 spec 的 MODEL_LIST_PRICE_BADGE_* 档,圆角取 rnRadius.md(RN 同元素同档)。
+                    配色走 tokens 派生链、不自拼十六进制:RN warning.amberLight/amberText 的
+                    同源 CSS 档 = --color-warning-amber-light / --color-warning-amber-text
+                    (packages/design-tokens/src/styles/tokens.css 亮 243-244、暗 617-618)。
+                    ⚠️ 已补(2026-09-27 本票收尾):course.paid 五语言包在位
+                    (取值逐字取自本包已有的 devEnter.modelEdit.saleTypePaid —— 同一语义、已审过的档,
+                    不另翻一份),离线语言包已 gen:i18n 重生成。第二个参数保留为**防御性回退**
+                    (取不到键时端上不能空白),不是待补标记。 */}
+                {modelIsFree({ id: model.id, inputPrice: model.input_price }) ? (
+                  <View
+                    className="flex items-center justify-center"
                     style={{
-                      fontSize: toUnit(MODEL_LIST_PRICE_BADGE_FONT_PX),
-                      color: 'var(--color-success)',
+                      marginLeft: toUnit(MODEL_LIST_BADGE_MARGIN_LEFT_PX),
+                      paddingLeft: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX),
+                      paddingRight: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX),
+                      paddingTop: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
+                      paddingBottom: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
+                      borderRadius: rnRadius.md,
+                      background: 'var(--color-success-lighter)',
                     }}
                   >
-                    {tt('course.free', '免费')}
-                  </Text>
-                </View>
+                    <Text
+                      style={{
+                        fontSize: toUnit(MODEL_LIST_PRICE_BADGE_FONT_PX),
+                        color: 'var(--color-success)',
+                      }}
+                    >
+                      {tt('course.free', '免费')}
+                    </Text>
+                  </View>
+                ) : (
+                  <View
+                    className="flex items-center justify-center"
+                    style={{
+                      marginLeft: toUnit(MODEL_LIST_BADGE_MARGIN_LEFT_PX),
+                      paddingLeft: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX),
+                      paddingRight: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX),
+                      paddingTop: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
+                      paddingBottom: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_Y_PX),
+                      borderRadius: rnRadius.md,
+                      background: 'var(--color-warning-amber-light)',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: toUnit(MODEL_LIST_PRICE_BADGE_FONT_PX),
+                        color: 'var(--color-warning-amber-text)',
+                      }}
+                    >
+                      {tt('course.paid', '付费')}
+                    </Text>
+                  </View>
+                )}
               </View>
               {/* 用途分类标注 + 选中态(对齐原项目 .selected-icon 32rpx + selected_model.png) */}
               <View className="flex items-center">

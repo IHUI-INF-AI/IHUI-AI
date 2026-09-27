@@ -313,7 +313,7 @@ export default function CrewPage() {
                 value={form.inputMessage}
                 onChange={(e) => setForm({ ...form, inputMessage: e.target.value })}
                 placeholder="例如:撰写一份关于 RAG 知识库使用最佳实践的总结报告"
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
@@ -332,7 +332,7 @@ export default function CrewPage() {
                   id="modelId"
                   value={form.modelId}
                   onChange={(e) => setForm({ ...form, modelId: e.target.value })}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <option value="">默认 ({defaultModel})</option>
                   {models.map((m) => (

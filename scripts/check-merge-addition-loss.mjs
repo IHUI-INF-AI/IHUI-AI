@@ -34,11 +34,11 @@
  * 对象,层的 `catBatch` 头解析只认 blob),所以它没有"索引面 vs HEAD 面"可切 —— 这一点由 `--self-test`
  * 第 ②③ 组构造面证明,而不是靠注释声称。
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, assertRepoRoot, gitRaw, readWorktreeFile, resolveRemoteHead, selectFace } from './lib/face-reader.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_LIMIT = 12
@@ -219,7 +219,10 @@ export function auditUnseen(limit = 400, cwd = ROOT, p = markerPath(cwd)) {
 }
 
 function selfTest() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-merge-loss-'))
+  // 落点 = scripts/lib/scratch-dir.mjs 的 mkScratch(AGENTS §26 临时夹具唯一落点):
+  // 本夹具要模拟"非 git 目录",落在仓库树内会让 git rev-parse 向上逃逸到真仓;
+  // 而 os.tmpdir() 在活进程里可能仍钉在 C 盘,不得用作夹具根。
+  const dir = mkScratch('ihui-merge-loss-')
   const run = (...a) => git(a, dir)
   const fails = []
   const ok = (name, cond, note = '') => {
@@ -325,7 +328,7 @@ function selfTest() {
     )
   } finally {
     treeCache.clear()
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
   console.log(fails.length ? `\n❌ ${fails.length} 例失败` : '\n合并新增存续性自检通过')
   process.exit(fails.length ? 1 : 0)
