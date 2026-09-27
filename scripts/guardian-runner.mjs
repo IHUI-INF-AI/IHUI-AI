@@ -3810,9 +3810,25 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 会话失效出口对账(1 项,blocking)---
+  // --- 模型容量/推理档位跨语言对账(1 项,blocking)---
   {
     id: '147',
+    label:
+      '模型容量/推理档位跨语言对账',
+    script: 'check-model-capacity-parity.mjs',
+    args: ['--strict'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MODEL_CAPACITY_PARITY',
+    stagedTriggers: ['packages/api-client/src/', 'apps/ai-service/app/core/', 'apps/cli/src/subagents/'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 会话失效出口对账(1 项,blocking)---
+  {
+    id: '148',
     label:
       '会话失效统一出口注册对账:凡消费 @ihui/api-client fetchApi 的端必须注册 setUnauthorizedHandler 或持带 reason+未过期 reviewBy 的台账豁免(AP1);台账端已注册/指向不存在端/重复登记判红(AP2 反腐烂);注册口 export 或 notifyUnauthorized 调用点被摘线判失明不记绿(AP3);枚举 0 个消费端 exit 2 不记绿',
     script: 'check-auth-handler-registration-parity.mjs',

@@ -6299,3 +6299,9 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | "没 export 的出口等于不存在"、T7 证明遮罩不得有第二份)+ 一次私有索引注入复跑                   |
 | (加一处新违规 ⇒ `--staged` exit 1 并点名文件)。紧急跳过 `HUSKY_SKIP_API_FAILURE_THROW=1`。     |
 | (空闲号待定) | **尚未注册** —— 原 145 号注册块被并发提交回写,三面零命中 | `check-readme-table-integrity.mjs` | ⚠️ 设计定级 blocking 但**现值零调度器**:判据对 HEAD 面 README 现读 61 行 TI1(棘轮 cap=0),先清偿存量再补注册,否则接进提交链就是一台恒红门;TI1 竖排续行判红、T-B 半截行只报数,修复出口 `readme-table-unwrap.mjs`(出口 `table-cell-exempt`;细节与解阻顺序见 AGENTS.md 同名条) |
+- **凭据身份与画像根锚定(2026-09-27 收口)**:身份键唯一出口 `apps/ai-service/app/services/publish/anti_risk/account_identity.resolve_account_id(platform, credentials, db_account_id)` —— 适配器不得再自造 `f"{platform_id}_{credentials['account_id'] or 'default'}"`,那种键会让同平台所有账号在反风控层共用一张脸;画像根与 5 个反风控状态文件(设备图谱/审计/冷却/风险事件/Cookie 健康度)一律**锚定仓库根、与启动目录无关**(`ANTI_RISK_PROFILE_DIR` 仍可覆盖),旧位置由 `apps/ai-service/scripts/relocate_profile_root.py` 搬迁(默认 dry-run,回读 `Cookies` 字节 + mtime 一致才删源)。
+- **登录导入先验后写 + 覆盖可回滚**:扫码与粘贴两条路径共用 `verify_login_candidate()` → `should_overwrite_existing_credentials()` → 才写库(此前**无条件覆盖**,一次失败导入能把可用凭据换成过期集合而账面全绿);每次覆盖把旧密文压进 `extra.credentialsHistory`,写库出口唯一 = `publish/credential_history.apply_credentials_update()`(三处调用点),`last_verify_msg` 存**当轮真实结论**而非硬编码"扫码登录成功"。
+- **表单字段与适配器实读键对账**:前端注册表 10 处漂移(wordpress/medium/bilibili/zhihu/juejin 键名 + 五家泛键 `cookie`)按"权威侧 = 适配器"订正,常驻尺子 = `apps/api/tests/publish-credential-field-parity.test.ts`(P1 逐键等值 / P2 覆盖差如实报数 / P3 空扫判死)。
+- **Cookie 自动保活默认关**:`cookie_refresh_daemon` 启动期无人调用 `ensure_started()`,须显式开启 —— 在用户第三方账号上做未取证的写动作前保持关闭(判据与恢复方式见 `docs/PUBLISH_SETUP.md` §5)。
+- **发布运维文档**:`docs/PUBLISH_SETUP.md` 逐平台写明"要哪些凭据字段 / 怎么拿 / 失败长什么样",14 个平台锚点与 `setupHint` 出口由 `apps/api/tests/publish-setup-anchor.test.ts` 对账。
+| 147 | guardian-runner.mjs + `pnpm check:model-capacity` | `check-model-capacity-parity.mjs` | 模型兜底窗口/低窗口例外/推理档位 TS↔Python 两侧逐项等值(Python 源码自述"暂无自动对账门"是立项凭据);C1/C2/C3 三判据,默认档只报数、`--strict` 问责,无行内豁免(细节见 AGENTS.md 同名条) |
