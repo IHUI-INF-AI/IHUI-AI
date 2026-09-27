@@ -38,6 +38,7 @@
     "toolKnowledgeLookup": "Query knowledge base",
     "toolParseDocument": "Parse document",
     "toolGenerateChart": "Generate chart",
+    "toolGenerateReport": "Generate report",
     "toolSummarizeArtifacts": "Summarize artifacts",
     "activityMcp": "Calling {mcp} MCP",
     "activityPlugin": "Calling {plugin} plugin",

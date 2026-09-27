@@ -38,6 +38,7 @@
     "toolKnowledgeLookup": "ナレッジベースを照会",
     "toolParseDocument": "ドキュメントを解析",
     "toolGenerateChart": "グラフを生成",
+    "toolGenerateReport": "レポートを生成",
     "toolSummarizeArtifacts": "成果物を要約",
     "activityMcp": "{mcp} MCP を呼び出し",
     "activityPlugin": "{plugin} プラグインを呼び出し",
