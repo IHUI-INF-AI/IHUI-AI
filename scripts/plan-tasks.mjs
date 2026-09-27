@@ -165,6 +165,11 @@ function report(a, face) {
     `  F6 整块登记重复(块级,行级四条判不到这一维): ${c.dupBlocks} 块 / 共 ${c.dupBlockCopies} 份` +
       ` —— 逐字相同才可自动收口;另有 ${c.dupBlockDrifted} 块首行相同而正文漂移(必须人工判哪份作数)`,
   )
+  console.log(
+    `  F9 撞号(同编号挂多个不同标题): ${c.collisionGroups} 组` +
+      ` —— F1/F4 的键是"编号+标题逐字等值",抓不到"两个不同任务抢同一个号";存量绝大多数是子项命名惯例,` +
+      `只报数,差值棘轮只拦新增撞号组(逐组看 --json)`,
+  )
   console.log(`  同态重复(done 侧只报数): done ${c.dupDoneGroups} 组`)
   console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行`)
   console.log(
@@ -248,7 +253,21 @@ export const probe = (a) => [
   // F8 只在**差值档**有意义(本次提交新带入的无交代登记行)。基线里刻意不写这一项:
   // 全量档它恒为 0,写成基线 0 就等于宣称"存量已清零",而存量并没有 —— 那是替人做判断。
   ['F8', '新增登记无交代(行)', a.counts.newUndisposed ?? 0],
+  // F9 撞号(2026-09-27 G-267):同编号不同标题前缀 >1 的组数。存量非零且绝大多数是子项命名惯例
+  // (见 lib findIdCollisions 头注),所以它**只进差值/基线棘轮**(只拦新增撞号组),
+  // gate() 里 --strict 也不判它的红 —— 判存量红就是与任何提交无关的恒红门(§12e)。
+  ['F9', '撞号:同编号挂多个不同标题(组)', a.counts.collisionGroups ?? 0],
 ]
+
+/** F9 差值明细:相对基准面**新出现**的撞号组(组数上涨 ⇔ 新组;给已撞号组再加标题不改组数,
+ *  那一型由取号出口在登记那一刻拦,见 lib usedIdsOfPrefix 头注)。
+ *  没有基准面 ⇒ **不判**(返回空)而不是"全部算新增" —— 与 countNewUndisposed 同一条禁令:
+ *  把"没判"写成"判过了且有问题"会造出与提交无关的恒红门(§12e)。 */
+export function newCollisionGroups(now, before) {
+  if (!before?.collisions) return []
+  const prev = new Set(before.collisions.map((g) => g.key))
+  return (now?.collisions ?? []).filter((g) => !prev.has(g.key))
+}
 
 /** 棘轮纯函数:基线里没有某项 ⇒ 不判该项(既不"0 容忍"也不"通过")。 */
 export function ratchetViolations(base, items) {
@@ -295,6 +314,9 @@ function readBaseline(root) {
 export function gate(a, strict, root, before, beforeErr) {
   const items = probe(a)
   const nonZero = items.filter(([, , n]) => n > 0)
+  // F9 存量只报数、**--strict 也不判红**(定级理由见 lib findIdCollisions 头注:存量绝大多数是
+  // 子项命名惯例,判红=与任何提交无关的恒红门,§12e)。它唯一的红路是差值/基线棘轮(只拦新增撞号组)。
+  const strictNonZero = nonZero.filter(([k]) => k !== 'F9')
   let base = null
   try {
     base = readBaseline(root)
@@ -306,6 +328,14 @@ export function gate(a, strict, root, before, beforeErr) {
     const grew = grewViolations(a, before)
     if (grew.length) {
       console.log(`❌ 差值棘轮:本次改动让状态分叉变多 —— ${grew.join(';')}`)
+      // F9 上涨 ⇒ 逐组点名"编号 G-x 被 N 个不同标题共用"(票面要求的报名形态;只报数不点名
+      // 等于让改的人自己再去跑一遍全量档找差异)。
+      for (const g of newCollisionGroups(a, before))
+        console.log(
+          `   F9 新增撞号:编号 ${g.key} 被 ${g.titleCount} 个不同标题共用 —— ${g.titles
+            .map((t) => `「${t.title}」@L${t.lines.join(',')}`)
+            .join(' / ')}`,
+        )
       console.log('   归并掉新增的那几条(把副本行翻勾或改成内容锚点),别调基线、别削判据。')
       return 1
     }
@@ -356,9 +386,11 @@ export function gate(a, strict, root, before, beforeErr) {
       return 1
     }
   }
-  if (!nonZero.length) {
+  if (!strictNonZero.length) {
+    const f9 = items.find(([k]) => k === 'F9')?.[2] ?? 0
     console.log(
-      '✅ 六条"只判变多"的状态判据全部为零(F1–F4 + F6 块级 + F8 新增无交代;F5 注记存续性另判,见上)',
+      `✅ 全部"只判变多"的状态判据为零(F1–F4 + F6 块级 + F8 新增无交代;F5 注记存续性另判,见上;` +
+        `F9 撞号存量 ${f9} 组只报数,棘轮只拦新增,定级理由见 lib findIdCollisions 头注)`,
     )
     return 0
   }
@@ -371,7 +403,10 @@ export function gate(a, strict, root, before, beforeErr) {
     )
     return 0
   }
-  console.log(`❌ 状态判据成立:${nonZero.map(([k, label, n]) => `${k} ${label} ${n}`).join(' / ')}`)
+  // F9 不在判红名单里(见上方 strictNonZero 注释):存量红等于恒红门。
+  console.log(
+    `❌ 状态判据成立:${strictNonZero.map(([k, label, n]) => `${k} ${label} ${n}`).join(' / ')}`,
+  )
   return 1
 }
 
@@ -698,6 +733,92 @@ function selfTest() {
     usedIdsOfPrefix('- [ ]75. 只有裸序号\n', 'G') === null,
     '只有章节内裸编号的面 ⇒ G 族仍应报"一条没有",不是"0 号已用"',
   )
+  // ── F9 撞号(2026-09-27 G-267):同编号不同标题前缀 >1 即点名;存量只报数,棘轮只拦新增 ──
+  const F9FIX = [
+    '- [ ]（进行中@2026-09-27/甲）**G-262 水印载荷按 HEAD 面补齐**:说明。',
+    '- [ ] **G-262 git 进程积压另计**:另一件事。',
+    '',
+  ].join('\n')
+  const f9 = auditPlan(F9FIX)
+  ok(
+    f9.counts.collisionGroups === 1 && f9.collisions[0].key === 'G-262' && f9.collisions[0].titleCount === 2,
+    `F9 应恰好点名 G-262 被 2 个标题共用,实测 ${JSON.stringify(f9.collisions.map((g) => [g.key, g.titleCount]))}`,
+  )
+  // 反例 1:同题副本(标题逐字等值)是 F4 的病,不是撞号。
+  ok(
+    auditPlan('- [ ] **G-9 同一件事**:第一条。\n- [ ] **G-9 同一件事**:第二条。').counts
+      .collisionGroups === 0,
+    '同题副本不得算撞号(F4 与 F9 判据不串门)',
+  )
+  // 反例 2:退化标题(切完只剩编号)不贡献"第二个标题"—— M16 钉过的形态不得在 F9 里复活。
+  ok(
+    auditPlan(
+      '- [x] ✅(2026-09-27) **G-257. 审计日志族「参数校验失败被掩盖成 500」已修(7 站点/2 文件)**:病灶形态\n' +
+        '- [ ] **G-257(新登记)**:`check-agent-engine-parity.mjs` 的可跑性依赖 cwd',
+    ).counts.collisionGroups === 0,
+    '两行退化标题同编号不得算撞号(它们给不出"编号之外的实质标题")',
+  )
+  // 反例 3:一个实质标题 + 一个退化标题 ⇒ 只有 1 个标题,不算撞号。
+  ok(
+    auditPlan(
+      '- [ ] **G-258 实质议题**:真标题。\n- [ ] **G-258(新登记)**:退化标题行',
+    ).counts.collisionGroups === 0,
+    `退化标题不得被算成第二个标题,实测 ${auditPlan('- [ ] **G-258 实质议题**:真标题。\n- [ ] **G-258(新登记)**:退化标题行').counts.collisionGroups}`,
+  )
+  // 修法不自伤:归并器 F4 指针追加在行尾(标题不变)、F1 翻勾产出 `**【归并】**` 前缀(标题被切为空)
+  // ⇒ 两条正当修法都不得制造新撞号(否则"唯一正确修法"会被自己的判据拦)。
+  const healForm = auditPlan(
+    '- [x] ✅(2026-09-26) **D99 复合主键正例**:说明。\n' +
+      '- [x] ✅(2026-09-27) **【归并】** 本行与已完成登记同题 ⇒ 只落状态、不删行。 **D99 复合主键正例**:旧副本。',
+  )
+  ok(healForm.counts.collisionGroups === 0, `F1 归并产物不得算撞号,实测 ${healForm.counts.collisionGroups}`)
+  // 成套性 + 方向:进 probe ⇒ 走同一套差值棘轮;涨点名、平不点名;存量(含 --strict)不判红。
+  ok(
+    probe(f9).some(([k, , n]) => k === 'F9' && n === 1),
+    'F9 未进 probe 维度清单 ⇒ 提交链根本不判它',
+  )
+  const f9face = (n, groups) => ({
+    counts: {
+      forks: 0,
+      voidRows: 0,
+      rotatedPointers: 0,
+      dupOpenCopies: 0,
+      verbatimDupCopies: 0,
+      dupBlocks: 0,
+      newUndisposed: 0,
+      mergeNotes: 99,
+      collisionGroups: n,
+    },
+    staleRows: [],
+    collisions: groups,
+  })
+  const g1 = [{ key: 'G-262', titleCount: 2, titles: [{ title: '水印载荷按HEAD面补齐', lines: [2] }, { title: 'git进程积压另计', lines: [3] }] }]
+  ok(
+    grewViolations(f9face(1, g1), f9face(0, [])).some((x) => x.startsWith('F9')),
+    '新增撞号组必须被差值棘轮点名',
+  )
+  ok(
+    !grewViolations(f9face(0, []), f9face(1, g1)).some((x) => x.startsWith('F9')),
+    '清偿撞号(合并标题)不得判红 —— 否则没人敢修',
+  )
+  const newG = newCollisionGroups(f9face(1, g1), f9face(0, []))
+  ok(newG.length === 1 && newG[0].key === 'G-262', `newCollisionGroups 应点名 G-262,实测 ${JSON.stringify(newG.map((g) => g.key))}`)
+  ok(newCollisionGroups(f9face(0, []), null).length === 0, '没有基准面时不得凭空数出新增撞号')
+  // 恒红门检查:存量撞号(哪怕 --strict)只报数不判红 —— 定级理由见 lib findIdCollisions 头注。
+  const f9log = console.log
+  const f9cap = []
+  console.log = (s) => f9cap.push(String(s))
+  let f9rc
+  try {
+    f9rc = gate(f9face(59, []), true, ROOT, null, null)
+  } finally {
+    console.log = f9log
+  }
+  ok(f9rc === 0, `--strict 遇存量撞号不得判红(恒红门),实测 exit ${f9rc}`)
+  ok(
+    f9cap.some((x) => x.includes('F9') && x.includes('59')),
+    `--strict 绿档也必须把存量撞号数报出来,实测 ${JSON.stringify(f9cap.slice(0, 2))}`,
+  )
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
@@ -793,6 +914,10 @@ function main() {
         // F6 是块级量纲(整块登记被追加两遍)。存量非零时它只能当棘轮上限用,
         // 清到零之后把基线写成 0 ⇒ 零容忍;不得为了让这条绿去调高它。
         F6: a.counts.dupBlocks,
+        // F9 撞号(2026-09-27 G-267):基线写的是**当次 HEAD 面现读的存量组数** —— 它不是"清零后的地板",
+        // 而是"存量不得再涨"的棘轮上限(防有人跳门把新撞号塞进 HEAD;差值档拦不住那一型)。
+        // 为过门调高它 = 关掉这一维;给编号加豁免清单同样禁止(§4,清单必腐烂)。
+        F9: a.counts.collisionGroups,
         // F8 = 本次带入的"无交代新登记行"。全量档它算不出来(没有基准面)⇒ 这里恒为 0,
         // 写进基线的意思是**零容忍**:索引面一旦出现新裸账即红。
         // 为什么可以 blocking 而不成恒红门:它与 F1–F6 同轨 —— 只在"这次往计划文档写了新行"时
@@ -826,6 +951,12 @@ function main() {
           })),
           void: a.voidRows.map((r) => ({ line: r.line, text: clip(r.raw, 160) })),
           pointers: a.rotated.map((r) => ({ line: r.line, target: r.target, reason: r.reason })),
+          // F9 逐组点名明细(存量只报数,但"报数"也得能报到是哪几个编号、被哪几个标题共用)
+          collisions: a.collisions.map((g) => ({
+            key: g.key,
+            titleCount: g.titleCount,
+            titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
+          })),
         },
         null,
         2,
