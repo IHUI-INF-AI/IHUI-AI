@@ -395,7 +395,7 @@ import { registrySyncRoutes } from './registry-sync.js'
 import mfaRoutes from './mfa.js'
 import { auditLogRoutes } from './audit-log.js'
 // 86C:审计证据导出的非对称签名出口(admin 只读 2 端点:signed/public-key)
-import { auditEvidenceExportRoutes } from './audit-evidence-export.js'
+import { auditEvidenceExportRoutes, auditEvidencePublicKeyRoutes } from './audit-evidence-export.js'
 import { securityRoutes } from './security.js'
 
 // P0-4 补建:智能体创作核心接口(迁移自旧项目 aiModels.js,4 类端点:我的创作/收费配置 CRUD/agent 配置查询/工作流搜索)
@@ -1151,6 +1151,10 @@ export function registerRoutes(server: FastifyInstance) {
   // 86C 证据级导出出口(admin 2 端点):signed(已签名信封)/ public-key(验签公钥)
   // 收件方不持任何对称密钥即可离线验签 —— 链内 HMAC 是对称的,不能拿来签交付物。
   server.register(auditEvidenceExportRoutes, { prefix: '/api/admin/audit-evidence' })
+  // 86G-1 匿名公钥发布(单条路由、显式列举):外部审计方不持 admin 账号也要能自验签名信封。
+  // 不挂在上方 /api/admin/* 前缀下 —— network-segment 对该前缀强制 allowExternal:false,
+  // 公网到不了即"免鉴权等于没开"(注入点与后果见 server.ts 的 onRoute 注释)。
+  server.register(auditEvidencePublicKeyRoutes, { prefix: '/api/audit-evidence' })
   // 安全挑战路由(7 端点):challenge/verify-challenge/ip-reputation/block-ip/anomalies/report
   server.register(securityRoutes, { prefix: '/api/security' })
 
