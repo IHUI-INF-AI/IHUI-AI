@@ -42,7 +42,7 @@ export function SelectedToolsPanel({ tools, onRemove }: SelectedToolsPanelProps)
   if (tools.length === 0) return null
 
   return (
-    <div className="rounded-xl border border-border bg-card p-2">
+    <div className="rounded-lg border border-border bg-card p-2">
       <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] font-medium text-muted-foreground [&>span]:translate-y-[0.5px]">
         <Wrench className="h-3 w-3" />
         <span>{t('selectedToolsTitle')}</span>

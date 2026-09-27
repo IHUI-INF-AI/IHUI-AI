@@ -130,7 +130,7 @@ export default function AdminSystemMonitorPage() {
                   {c.unit}
                 </div>
                 {!c.raw && c.max > 0 && (
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-muted">
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-xs bg-muted">
                     <div
                       className={cn(
                         'h-full rounded-md',

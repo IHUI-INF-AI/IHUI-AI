@@ -48,5 +48,19 @@ describe('apiFailureToText —— ApiResult 失败分支的可显示出口', () 
       expect(apiFailureToText(c, 'FB')).toBe(toUserFriendlyMessage(apiFailureToError(c, 'FB')))
     }
   })
+
+  it('⑦ 未收窄的 else 分支(error 为 string | undefined)必须能直接喂进来', () => {
+    // 复现真实调用点形态:`if (res.success && res.data) {…} else { setError(res.error || F) }`
+    // 那个 else 不被 TS 收窄到失败分支(它还覆盖 success 为真而 data 为假),res.error 是可选的。
+    const res: { success: boolean; data?: unknown; error?: string; status?: number } = {
+      success: true,
+      data: undefined,
+      error: undefined,
+      status: 401,
+    }
+    // 类型层面能过(编译期判据),值层面 status 仍然赢:这一格正是"身份比文案有用"
+    expect(apiFailureToText(res, '加载失败')).toBe('登录已过期,请重新登录')
+    expect(apiFailureToText({ error: undefined }, '加载失败')).toBe('加载失败')
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

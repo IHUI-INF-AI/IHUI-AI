@@ -147,7 +147,7 @@ export default function EduCoursesPage() {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">{c.instructor}</p>
-                <div className="h-1.5 overflow-hidden rounded bg-muted">
+                <div className="h-1.5 overflow-hidden rounded-xs bg-muted">
                   <div
                     className="h-full rounded-md bg-primary transition-all"
                     style={{ width: `${c.progress}%` }}
