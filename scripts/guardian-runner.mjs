@@ -3843,6 +3843,22 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 角色档合规对账(元素类别→档位,77 不判的那一型)(1 项,blocking)---
+  {
+    id: '149',
+    label:
+      '角色档合规对账(元素类别→档位,77 不判的那一型)',
+    script: 'check-radius-role-conformance.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RADIUS_ROLE_CONFORMANCE',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
