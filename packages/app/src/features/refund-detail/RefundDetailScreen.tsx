@@ -104,8 +104,6 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingVertical: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: tk.border.light,
     },
     label: { fontSize: 14, color: tk.text.secondary },
     value: {

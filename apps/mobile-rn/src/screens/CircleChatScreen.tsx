@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { CircleChatScreen as SharedCircleChatScreen, type CircleChatMessage } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -53,7 +54,7 @@ export function CircleChatScreen() {
       if (res.success) {
         setMessages((res.data ?? []).map(toChatMessage))
       } else {
-        setError(res.error || t('circleChat.loadFailed'))
+        setError(apiFailureToText(res, t('circleChat.loadFailed')))
       }
     } catch {
       setError(t('circleChat.loadFailed'))
@@ -79,7 +80,7 @@ export function CircleChatScreen() {
       setMessages((prev) => [...prev, toChatMessage(res.data as ApiChatMsg)])
       setInput('')
     } else if (!res.success) {
-      setError(res.error || t('circleChat.sendFailed'))
+      setError(apiFailureToText(res, t('circleChat.sendFailed')))
     }
   }
 

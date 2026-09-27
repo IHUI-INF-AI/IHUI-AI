@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { Alert } from 'react-native'
 import { getAigcTasks, type AigcTask } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -72,7 +73,7 @@ export default function AigcCoverScreen() {
             .filter((c): c is AigcCoverOption => c !== null)
           setCovers(mapped)
         } else {
-          setError(res.error || t('aigcCover.loadFailed'))
+          setError(apiFailureToText(res, t('aigcCover.loadFailed')))
         }
       } catch {
         if (!cancelled) setError(t('aigcCover.loadFailed'))

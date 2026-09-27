@@ -35,6 +35,7 @@ import {
   type AiModel,
   type ConversationDetail,
 } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { AgentScreen as SharedAgentScreen, type AgentScreenItem } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import Carousel from '../components/Carousel'
@@ -244,7 +245,7 @@ export function AgentScreen() {
         // RecentAgents 最近使用:走 getAgentUseHistory 独立加载(见 loadRecentAgents),
         // 失败时降级取列表前 5 条(对齐 HomeScreen 模式)
         void loadRecentAgents(res.data.list ?? [])
-      } else setError(res.error || t('agentScreen.loadFailed'))
+      } else setError(apiFailureToText(res, t('agentScreen.loadFailed')))
     },
     [t, loadRecentAgents],
   )

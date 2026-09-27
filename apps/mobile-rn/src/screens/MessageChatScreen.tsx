@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { MessageChatScreen as SharedMessageChatScreen, type MessageChatMessage } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -36,7 +37,7 @@ export function MessageChatScreen() {
       )
       if (cancelled) return
       if (res.success) setMessages(res.data ?? [])
-      else setError(res.error || t('messageChat.loadFailed'))
+      else setError(apiFailureToText(res, t('messageChat.loadFailed')))
       setLoading(false)
     })()
     return () => {
@@ -60,7 +61,7 @@ export function MessageChatScreen() {
       setMessages((prev) => [...prev, res.data])
       setInput('')
     } else if (!res.success) {
-      setError(res.error || t('messageChat.sendFailed'))
+      setError(apiFailureToText(res, t('messageChat.sendFailed')))
     }
   }
 

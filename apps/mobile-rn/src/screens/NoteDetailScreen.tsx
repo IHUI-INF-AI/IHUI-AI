@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { NoteDetailScreen as SharedNoteDetailScreen, type NoteDetailItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -32,7 +33,7 @@ export function NoteDetailScreen() {
       const res = await fetchApi<NoteDetailItem>(`/api/notes/${encodeURIComponent(id)}`)
       if (cancelled) return
       if (res.success) setNote(res.data)
-      else setError(res.error || t('noteDetail.loadFailed'))
+      else setError(apiFailureToText(res, t('noteDetail.loadFailed')))
       setLoading(false)
     })()
     return () => {

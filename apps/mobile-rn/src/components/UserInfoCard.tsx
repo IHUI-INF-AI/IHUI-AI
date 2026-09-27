@@ -6,13 +6,15 @@
  * UserInfoCard 用户信息卡片 (mobile-rn 端)
  * 展示用户信息:头像/昵称/等级/VIP
  *
- * 2 变体(对齐历史 Uniapp 项目):
- * - new(默认):新版,带头像 + VIP 徽章 + 等级条 + 智汇值 + 充值按钮
- * - old:旧版简化卡,无 VIP 徽章/渐变背景,仅头像 + 用户名 + VIP 文本 + token + 登出按钮
- *
- * 迁移自旧项目 Vue 组件:
- * - UserInfoCard.vue → variant='new'
- * - UserInfoCardOld.vue → variant='old'
+ * 2026-09-27 删除 `variant='old'` 旧变体(含 `UserInfoCardOld` 与整张 `oldStyles`):
+ * 按 §7 三问核过 —— ① 它承载的是 Uniapp 历史项目 `UserInfoCardOld.vue` 的简化卡形态
+ * (居中大头像 + 会员状态文本 + token 面板 + 「修改资料」钮 + 登录钮);② 这些能力 new 变体
+ * 逐项都有等价实现(头像槽 + initials 兜底 / roleBadge 走 getRoleLabel 出「会员·操盘手·普通用户」/
+ * tokenRow / nameRow 的「编辑」+ avatarWrap.onPress / loggedOutWrap 登录钮);③ 唯一无处可去的
+ * 是它那一行 `ID:<uuid>` —— 而该变体在 HEAD 面**零调用方**(唯一消费点 ProfileScreen 不传变体选择,
+ * 全仓也无一处选旧变体),即这行 ID 今天不在任何屏幕上渲染,删除不撤走任何在跑能力。
+ * 把 ID 行搬进 new 变体 = 给 live 版面新增一行(§24 属须用户确认的新增),不在本票授权范围,
+ * 已如实登记在 spec 文件末差异登记第 3 条,由下一票决定去留。
  *
  * 共享类型 UserInfo 已下沉到 @ihui/types,消除两端数据类型重复定义。
  * 本地 Props 用 `userInfo: UserInfo` 对象结构,与 miniapp-taro 扁平 props 结构不同,
@@ -56,9 +58,6 @@ const AVATAR_BOX = userInfoCardAvatarStyle<number>((px) => px, USER_INFO_CARD_AV
 
 // 共享类型 UserInfo 已下沉到 @ihui/types,本地 re-export 保持调用方兼容
 export type { UserInfo }
-
-/** 用户信息卡片变体 */
-export type UserInfoCardVariant = 'new' | 'old'
 
 /**
  * 取用户名首字母作为默认头像 initials(AGENTS.md 强制规范:头像用 initials)。
@@ -108,17 +107,13 @@ export interface UserInfoCardProps {
    * 未传入时点击成长值条无响应;传入则由调用方决定打开等级介绍弹窗等行为。
    */
   onLevelIntro?: () => void
-  /** 变体选择,默认 'new' */
-  variant?: UserInfoCardVariant
 }
 
 export default function UserInfoCard(props: UserInfoCardProps) {
-  const variant = props.variant ?? 'new'
-  if (variant === 'old') return <UserInfoCardOld {...props} />
   return <UserInfoCardNew {...props} />
 }
 
-// ===== 新版(variant='new',对齐 UserInfoCard.vue)=====
+// ===== 用户信息卡(对齐历史项目 UserInfoCard.vue)=====
 
 function UserInfoCardNew({
   userInfo,
@@ -317,18 +312,22 @@ function UserInfoCardNew({
 
 /**
  * 本表里**刻意仍写着数字**的档位,逐条给出去向(不是漏改):
- *  - `paddingHorizontal: 32`(两枚登录钮)/ `paddingVertical: 4`(nameRow)/ `paddingHorizontal: 8`
+ *  - `paddingHorizontal: 32`(登录钮)/ `paddingVertical: 4`(nameRow)/ `paddingHorizontal: 8`
  *    + `paddingVertical: 6`(tokenRow / growthRow / inviteRow 的 muted 面板)/ `marginLeft: 4` × 3
  *    + `marginBottom: 4` × 2 / 弹窗整套(`padding: 20`、`fontSize: 18`、`paddingHorizontal: 24`、
  *    `paddingVertical: 8`、`fontSize: 14`、`marginBottom: 16`、`gap: 6`、`lineHeight: 20`)
- *    / initials(`fontSize: 32`、旧变体 `28`)。
+ *    / initials(`fontSize: 32`)。
  *  共同锚里没有对应的档,原因只有两种:① **小程序端根本不渲染这一格**(登录钮的胶囊横向档、
- *  等级弹窗、邀请码行、initials 兜底、旧变体 —— spec 文件末差异登记第 1/3/4 条);
+ *  等级弹窗、邀请码行、initials 兜底 —— spec 文件末差异登记第 1/3/4 条);
  *  ② **另一端同一属性没有额外一档**(行级面板容器、nameRow 的上下档 —— 小程序端那些行是平的,
  *  差异登记第 5 条)。把它们搬进 spec 只会让守门 128 看不见,屏幕上什么都不会变 ——
  *  那正是这道门(守门 128 跨端 UI 单一源对账)的失效模式,故宁可留着数字并点名。
  *  另:`marginLeft: 4` / `marginBottom: 4` 与小程序端 `gap-1` / `mb-1` **屏幕同值**,
  *  只是门的类名正则读不到 `gap-*` / `mb-*`(差异登记第 6 条),属测量残留,不是分叉。
+ *  ⚠️ 2026-09-27 起 `paddingHorizontal: 24` 在门账上**新成为"仅 RN 档"**:此前小程序端有一枚
+ *  24×20 的位图充值按钮,数字与弹窗关闭钮的 24 恰好等值而被算成"两端同档";那枚位图已按
+ *  「图标择优=矢量/文字优先」换成文字按钮,于是这一格回到它本来的定性 —— RN 单侧弹窗档。
+ *  这不是新分叉(屏幕上什么都没变),是**测量残留被清掉后显形的真单侧档**。
  */
 const newStyles = StyleSheet.create({
   loggedOutWrap: {
@@ -391,8 +390,9 @@ const newStyles = StyleSheet.create({
   },
   avatarFallbackText: {
     // initials 字号:小程序端这一格落的是默认位图头像、根本没有 initials 可渲染
-    // ⇒ 单侧档,不进共同锚表(spec 文件末差异登记第 4 条);旧变体同一角色写着 28,是本文件内
-    //    的端内一致性缺陷,已登记待组件源统一票处理,不在此凭空立档
+    // ⇒ 单侧档,不进共同锚表(spec 文件末差异登记第 4 条)。
+    // 此前同一角色在已删除的旧变体里还写着 28(端内一致性缺陷),随该死变体一并消失 ⇒ 本文件
+    // 这一角色现在只有一个数,不再需要"留给组件源统一票裁"的注记。
     fontSize: 32,
     fontWeight: '700',
     color: tokens.brandAccent.foreground,
@@ -613,188 +613,4 @@ const newStyles = StyleSheet.create({
   },
 })
 
-// ===== 旧版(variant='old',对齐 UserInfoCardOld.vue)=====
-
-function UserInfoCardOld({ userInfo, showRechargeBtn = true, onEdit, onLogin }: UserInfoCardProps) {
-  // 未登录态:显示登录按钮
-  if (!userInfo.uuid) {
-    return (
-      <View style={oldStyles.loggedOutWrap}>
-        <TouchableOpacity style={oldStyles.loginBtn} activeOpacity={0.7} onPress={onLogin}>
-          <Text style={oldStyles.loginBtnText}>登录</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
-
-  const isVip = userInfo.isVip === 1
-  const tokenStr = formatTokenValue(userInfo.tokenQuantity)
-  const hasAvatarUrl = Boolean(userInfo.avatarUrl)
-  const avatar = userInfo.avatarUrl || DEFAULT_AVATAR_URL
-
-  return (
-    <View style={oldStyles.card}>
-      {/* 头部:用户名 + 编辑按钮 */}
-      <View style={oldStyles.header}>
-        <Text style={oldStyles.username} numberOfLines={1} ellipsizeMode="tail">
-          {userInfo.username ? `AI IHUI丨${userInfo.username}` : '用户'}
-        </Text>
-        {showRechargeBtn ? (
-          <TouchableOpacity style={oldStyles.editBtn} activeOpacity={0.7} onPress={onEdit}>
-            <Text style={oldStyles.editBtnText}>修改资料</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      {/* 会员状态(简化文本,无徽章) */}
-      <View style={oldStyles.membershipRow}>
-        <Text style={oldStyles.membershipText}>{isVip ? '' : '未开通会员'}</Text>
-        {isVip ? <Text style={oldStyles.vipText}>VIP</Text> : null}
-      </View>
-
-      {/* 头像区:无 avatarUrl 时显示 initials 兜底,避免深色背景纯黑块 */}
-      <View style={oldStyles.avatarSection}>
-        {hasAvatarUrl ? (
-          <Image source={{ uri: avatar }} style={oldStyles.avatar} />
-        ) : (
-          <View style={oldStyles.avatarFallback}>
-            <Text style={oldStyles.avatarFallbackText}>{getInitials(userInfo.username)}</Text>
-          </View>
-        )}
-        <Text style={oldStyles.userId}>ID:{userInfo.uuid}</Text>
-      </View>
-
-      {/* Token 信息(背景色对比分隔,非分割线) */}
-      <View style={oldStyles.tokenInfo}>
-        <Text style={oldStyles.tokenLabel}>我的剩余token值</Text>
-        <Text style={oldStyles.tokenValue}>{tokenStr}</Text>
-      </View>
-    </View>
-  )
-}
-
-const oldStyles = StyleSheet.create({
-  loggedOutWrap: {
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  loginBtn: {
-    backgroundColor: tokens.brand.cta,
-    borderWidth: 2,
-    // 描边不得取墨档 text.primary(亮 #0A0A0A / 暗 #FAFAFA)——项目设计里没有纯黑描边;
-    // 本块填充就是 brand.cta,描边同色即"加厚",两态观感与改前一致且不再出现墨档
-    borderColor: tokens.brand.cta,
-    borderRadius: rnRadius.xl,
-    // 旧变体此前写着 12,而新变体(同一枚登录钮、同一个属性)是 spec 档 ⇒ 收口到同一处
-    paddingVertical: USER_INFO_CARD_LOGIN_PADDING_Y_PX,
-    paddingHorizontal: 32,
-  },
-  loginBtnText: {
-    fontSize: USER_INFO_CARD_LOGIN_FONT_PX,
-    fontWeight: '600',
-    color: tokens.brand.ctaForeground,
-  },
-  card: {
-    marginTop: 8,
-    // 卡片内边距唯一源 = spec(web `p-3` 同值 12);旧变体此前写 16,是同一根容器的第二个数
-    padding: USER_INFO_CARD_PADDING_PX,
-    borderRadius: rnRadius.xl,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.card,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  username: {
-    flex: 1,
-    // 昵称字号唯一源 = spec(旧变体此前写 16,与新变体的 14 分叉)
-    fontSize: USER_INFO_CARD_NAME_FONT_PX,
-    fontWeight: '700',
-    color: tokens.text.primary,
-  },
-  editBtn: {
-    backgroundColor: tokens.brandAccent.light,
-    borderRadius: rnRadius.xl,
-    // 操作按钮内边距与 spec 的 ACTION 档同值(旧变体此前写 12/6,6 低于其它钮的 4 档)
-    paddingHorizontal: USER_INFO_CARD_ACTION_PADDING_X_PX,
-    paddingVertical: USER_INFO_CARD_ACTION_PADDING_Y_PX,
-  },
-  editBtnText: {
-    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
-    fontWeight: '500',
-    color: tokens.brandAccent.foreground,
-  },
-  membershipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  membershipText: {
-    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
-    color: tokens.text.secondary,
-  },
-  vipText: {
-    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
-    fontWeight: '700',
-    color: tokens.warning.DEFAULT,
-    marginLeft: 4,
-  },
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatar: {
-    // 头像槽位唯一源 = spec(旧变体此前另写 64,与新变体的 48 是同一角色的第二个数)
-    width: USER_INFO_CARD_AVATAR_PX,
-    height: USER_INFO_CARD_AVATAR_PX,
-    borderRadius: rnRadius.xl,
-    borderWidth: 2,
-    borderColor: tokens.surface.light,
-    backgroundColor: tokens.surface.card,
-    marginBottom: 4,
-  },
-  // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
-  avatarFallback: {
-    ...AVATAR_BOX,
-    borderRadius: rnRadius.xl,
-    backgroundColor: tokens.brandAccent.DEFAULT,
-    marginBottom: 4,
-  },
-  avatarFallbackText: {
-    // initials 字号是单侧档(小程序端无头像 URL 时落默认位图,根本不渲染 initials)——
-    // 见 spec 文件末差异登记第 4 条。它与新变体同角色写的 32 是本文件内的端内一致性缺陷,
-    // 不是两端分叉,留给组件源统一票裁,不在此凭空立档。
-    fontSize: 28,
-    fontWeight: '700',
-    color: tokens.brandAccent.foreground,
-  },
-  userId: {
-    // 此前写着 11,低于 spec 可读下限 12 ⇒ 属"该端没改成引用"
-    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
-    color: tokens.text.tertiary,
-  },
-  tokenInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    // 面板内边距:旧变体写 8/12、新变体 tokenRow 写 8/6 —— 两个变体各自为政,而共同锚没有
-    // "行级面板内边距"这一档(小程序端这些行没有面板容器),故按单侧结构登记、不在此统一
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: tokens.surface.muted,
-    borderRadius: rnRadius.xl,
-  },
-  tokenLabel: {
-    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
-    color: tokens.text.primary,
-  },
-  tokenValue: {
-    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
-    fontWeight: '600',
-    color: tokens.text.primary,
-  },
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

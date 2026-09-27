@@ -53,7 +53,6 @@ export function MessageDirectScreen({
           data={items}
           keyExtractor={(item) => item.memberId}
           contentContainerStyle={styles.listBody}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <View style={styles.center}>
@@ -106,8 +105,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    listBody: { padding: 10, paddingBottom: 32 },
-    separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
+    listBody: { gap: 10, padding: 10, paddingBottom: 32 },
     card: {
       padding: 12,
       borderRadius: rnRadius.xl,

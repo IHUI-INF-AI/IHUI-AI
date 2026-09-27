@@ -50,7 +50,7 @@ import {
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { registryOf, findStashes } from './check-home-junctions.mjs'
+import { registryOf, findStashes, isInteractiveUserHome } from './check-home-junctions.mjs'
 import { devEnvRoot } from './seal-c-root-stray.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -645,6 +645,14 @@ function selfTest() {
 /** 冷却表:被进程占用(EBUSY)或仍在被写的项,30 分钟内不再重抄一遍几百 MB 去撞同一个失败。
  *  表由**修复器自己**读写 —— 只有它知道"哪项为什么失败";守护只负责触发。 */
 const COOLDOWN_MS = 30 * 60 * 1000
+/** 哪些结果要进冷却。**一条规则:失败即退避** —— 判据写成"哪几种 action 算失败"的名单,
+ *  就一定会漏掉名单之外的那一种,而漏掉的那一种正好是 10 秒一趟重抄几百 MB 的那一种
+ *  (2026-09-27 实测:旧名单只有 rename-failed / verify-failed,copy-failed 不在表内,
+ *  于是守护两小时刷了 1.3 万行同一句话)。抽成纯函数是为了能被直接测到:
+ *  只锁源码形状等于证明"那行字还在",不证明"这一类结果真的会退避"。 */
+export function shouldCool(row) {
+  return Boolean(row) && row.ok === false
+}
 export function cooldownPath(root) {
   return join(root, '.workbuddy', 'home-junctions-cooldown.json')
 }
@@ -666,6 +674,19 @@ async function main() {
   // 人工创造的窗口。2026-09-24 实测:`.codex` 被 Codex 的 LocalSystem 服务终身占用,
   // 人工把服务停下来跑 `--apply`,却被上一轮的冷却判成"跳过"—— 冷却把唯一可行的时机吞掉了。
   const noCooldown = argv.includes('--no-cooldown')
+  if (!isInteractiveUserHome(homedir())) {
+    // 搬运工具比判定门更要有这道闸:门判错只是报告错,这里判错会**动文件**。
+    // 在 LocalSystem 这类身份下 plan() 算出的是 `C:\Windows\System32\config\systemprofile\...`
+    // 那一批路径,而 targetFor() 算出的落点仍是同一棵改道树 —— 于是"把系统账户的目录搬进
+    // 真人正在用的缓存树"这一动作,在旧实现里是**会被真真切切发起的**(2026-09-27 实测由
+    // 守护每 10 秒发起一次,那次 robocopy 恰好失败才没落地)。
+    // 出口取 0 而非 2:这不是仓库故障也不是判定失败,是"这个执行体不在射程内";
+    // 但绝不打印 CHECK/APPLY 那行汇总,免得读报告的人把它当成"16 项都好"。
+    console.log(
+      `未判定:执行身份的家目录 ${homedir()} 不是交互用户配置目录(<盘>:\\Users\\<名>)⇒ 登记表算出的是另一批路径,本工具拒绝搬运(不写冷却表、不动任何文件)。要修真人账户的改道,请以该账户登录或以其身份调度。`,
+    )
+    return 0
+  }
   const items = plan()
   const coolFile = cooldownPath(ROOT)
   const cool = readCooldown(coolFile)
@@ -683,11 +704,14 @@ async function main() {
       continue
     }
     rows.push({ ...it, ...repairOne(it.src, it.dst, { dry: !apply, resetDst }) })
+    // **任何**失败项都要进冷却。旧判据只认 rename-failed / verify-failed 两种标签,于是
+    // copy-failed(robocopy 自己失败)不进表 —— 而常驻守护是 10 秒一趟,结果就是 2026-09-27
+    // 实测到的那个循环:同一项每 10 秒重抄一遍几百 MB 去撞同一个失败,日志 12 秒一条、
+    // 两小时刷了 1.3 万行,并为人邮件已发过一封。"哪几种失败算需要退避"是名单,
+    // 名单会漏掉自己立项那一型(本仓记过最多次的失效型)—— 所以判据改成一条规则:失败即退避。
     // --no-cooldown 时**不再新添**冷却条目(人工窗口失败要能立刻再试),但**保留既有条目**:
-    //   守护每 2 分钟一次的自动重试仍会被它拦住 —— 复制发生在改名之前,拦住的是"每轮重抄 100MB
-    //   然后撞同一个 EBUSY",那才是冷却存在的理由。
-    if (apply && !noCooldown && (rows.at(-1).action === 'rename-failed' || rows.at(-1).action === 'verify-failed'))
-      cool[it.src] = now + COOLDOWN_MS
+    //   守护每 10 秒一次的自动重试仍会被它拦住。
+    if (apply && !noCooldown && shouldCool(rows.at(-1))) cool[it.src] = now + COOLDOWN_MS
   }
   if (apply) {
     for (const k of Object.keys(cool)) if (cool[k] <= now) delete cool[k]
@@ -736,6 +760,7 @@ if (isDirectRun) {
 export const __test__ = {
   plan,
   targetFor,
+  shouldCool,
   fingerprintTree,
   sameFingerprint,
   diffFingerprint,
