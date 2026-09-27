@@ -130,7 +130,7 @@ function QuotaRow({
               : formatNumber(limit)}
         </span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
+      <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted">
         <div
           className="h-full rounded bg-primary/60"
           style={{
