@@ -13,9 +13,11 @@ import * as React from 'react'
 import {
   navigateCursor,
   parsePromptHistory,
+  PROMPT_HISTORY_PREFIX,
   pushPromptEntry,
   resolveHistoryText,
 } from '@ihui/shared/chat'
+import { touchAndEvictBuckets } from '@/lib/prompt-bucket-quota'
 
 /** keydown 事件的最小子集(handleArrowKey 不依赖真实 React 事件,便于单测) */
 export interface HistoryKeyLike {
@@ -63,6 +65,7 @@ export function usePromptHistory(params: UsePromptHistoryParams): UsePromptHisto
         if (typeof window !== 'undefined') {
           try {
             localStorage.setItem(newKey, JSON.stringify(oldEntries))
+            touchAndEvictBuckets(PROMPT_HISTORY_PREFIX, newKey)
           } catch {
             // 忽略存储异常(隐私模式 / 配额)
           }
@@ -85,6 +88,7 @@ export function usePromptHistory(params: UsePromptHistoryParams): UsePromptHisto
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem(key, JSON.stringify(next))
+          touchAndEvictBuckets(PROMPT_HISTORY_PREFIX, key)
         } catch {
           // 忽略存储异常(隐私模式 / 配额)
         }

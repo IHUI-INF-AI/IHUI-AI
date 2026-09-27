@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-i18n-keys.mjs')
 
 // ─── 辅助:创建临时项目根目录 ─────────────────────────────
 function createTempProject() {
-  return mkdtempSync(join(tmpdir(), 'ihui-i18n-'))
+  return mkScratch('ihui-i18n-')
 }
 
 // 辅助:写入 web messages(packages/i18n/messages/web/<lang>.json)
@@ -112,7 +112,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () =
     )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -127,7 +127,7 @@ test('CLI: --staged 模式(无 staged 文件 → 跳过 exit 0)', () => {
     assert.equal(r.status, 0, `--staged 无 staged 文件应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /无源文件变更|跳过/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -141,7 +141,7 @@ test('CLI: 无参数运行(有 apps/web 源码 + parity OK → exit 0)', () => {
     assert.equal(r.status, 0, `默认模式 parity OK 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /parity OK/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -154,7 +154,7 @@ test('parity: 5 语言 key 集合一致 → exit 0', () => {
     assert.equal(r.status, 0, `5 语言 parity 一致应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /parity OK/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -170,7 +170,7 @@ test('基准: zh-CN 是基准语言(其他 4 语言对比 zh-CN)', () => {
     assert.equal(r.status, 1, `ko 缺失 zh-CN 的 key 应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /zh-CN 有但 ko 缺失/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -186,7 +186,7 @@ test('缺失 key: zh-CN 有 common.save,ko 缺失 → exit 1 (base-only)', () =>
     assert.match(r.stdout, /base-only|zh-CN 有但 ko 缺失/)
     assert.match(r.stdout, /common\.save/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -202,7 +202,7 @@ test('多余 key: ko 有 common.extra,zh-CN 没有 → exit 1 (lang-only)', () =
     assert.match(r.stdout, /lang-only|ko 有但 zh-CN 无/)
     assert.match(r.stdout, /common\.extra/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -219,7 +219,7 @@ test('白名单: 脚本无白名单机制,所有 key 严格 parity 检查', () =
     assert.equal(r.status, 1, `无白名单机制,任何 key 缺失都应 exit 1`)
     assert.match(r.stdout, /common\.technical/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -251,7 +251,7 @@ test('JSON 解析失败: zh-CN.json 损坏 → exit 2「无法判定」(旧政�
     )
     assert.match(r.stderr, /无法判定|拿不到基准语言/, 'exit 2 必须给可诊断原因,不静默')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -281,7 +281,7 @@ test('JSON 解析失败: ko.json 损坏(非基准)⇒ 判红并点名(旧政策"
     const ok = runScript(['--parity-only'], { cwd: root })
     assert.equal(ok.status, 0, `ko 修好后应通过(否则本用例是空判据):\n${ok.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -306,7 +306,7 @@ test('JSON 重复 key: 同层两个同名 key → exit 1(前值被 JSON.parse �
     assert.match(r.stdout, /重复 key/, `应报告重复 key 问题,stdout: ${r.stdout}`)
     assert.match(r.stdout, /common\.save/, `应点名重复键路径,stdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -324,7 +324,7 @@ test('空 JSON: {} → 无 leaf key,5 语言一致 → exit 0', () => {
     const r = runScript(['--parity-only'], { cwd: root })
     assert.equal(r.status, 0, `空 JSON 5 语言一致应 exit 0,实际 ${r.status}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -371,7 +371,7 @@ test('fixture: 完整 5 语言文件(zh-CN/zh-TW/ko/ja/en)嵌套 parity OK', () 
     // 验证检查了 5 语言
     assert.match(r.stdout, /5 语言/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -386,7 +386,7 @@ test('--target=extension: 切换到 extension messages 目录', () => {
     assert.equal(r.status, 0, `extension target parity OK 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /\[extension\]/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -399,7 +399,7 @@ test('--target=shared: 切换到 shared messages 目录', () => {
     assert.equal(r.status, 0, `shared target parity OK 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /\[shared\]/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -432,7 +432,7 @@ test('合并: shared 有 common.save,web 无 → 合并后 parity OK', () => {
       `shared+web 合并 parity OK 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`,
     )
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -452,7 +452,7 @@ test('--staged: staged messages JSON → 触发 parity 检查', () => {
       `staged JSON + parity OK 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`,
     )
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -474,7 +474,7 @@ test('缺失键阻塞: 源码 useTranslations 引用未定义 key → exit 1', (
     assert.match(r.stdout, /categoryEfficiency/)
     assert.match(r.stdout, /拒绝提交|缺失键问题/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -496,7 +496,7 @@ test('缺失键通关: 补齐消息定义后同源码 → exit 0', () => {
     const r = runScript([], { cwd: root })
     assert.equal(r.status, 0, `补齐消息定义后应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -523,7 +523,7 @@ test('含点键: 顶层含点 key → exit 1 且提示改写为嵌套', () => {
     assert.match(r.stdout, /lane\.architect/, `应点名具体键,stdout: ${r.stdout}`)
     assert.match(r.stdout, /改写为嵌套/, `应给出修复方法,stdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -544,7 +544,7 @@ test('含点键: 等价的嵌套结构 → exit 0(不误报)', () => {
     const r = runScript(['--target=web'], { cwd: root })
     assert.equal(r.status, 0, `嵌套写法不应误报,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -585,7 +585,7 @@ test('同层重复 key: 同一对象内两个同名 key → exit 1 并点名路�
     assert.match(r.stdout, /重复 key/, `应报告重复 key 问题,stdout: ${r.stdout}`)
     assert.match(r.stdout, /nav\.home/, `应点名重复键路径,stdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -607,7 +607,7 @@ test('同层重复 key: 不同层的同名 key 不算重复(不误报)', () => {
     const r = runScript(['--target=web'], { cwd: root })
     assert.equal(r.status, 0, `跨层同名 key 不应误报,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -633,7 +633,7 @@ test('动态键: 点分隔前缀在某语言不是对象 → exit 1(今晚 44 �
     assert.equal(r.status, 1, `前缀不可达应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /静态前缀/, `应报告静态前缀问题,stdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -657,7 +657,7 @@ test('动态键: 点分隔前缀在五语言都是对象 → exit 0(不误报)',
     const r = runScript(['--target=web'], { cwd: root })
     assert.equal(r.status, 0, `前缀可达不应误报,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -678,7 +678,7 @@ test('动态键: 仅出现在注释里的拼接示例不得报警(去注释回�
     assert.equal(r.status, 0, `注释里的示例不应触发,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.ok(!/静态前缀/.test(r.stdout), `不应报静态前缀,stdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -725,7 +725,7 @@ test('useTt: const tt = useTt() 的缺键必须检出(旧版整文件漏检)', (
     assert.match(r.stdout, /login\.email/, `报告应点名 login.email,stdout: ${r.stdout}`)
     assert.ok(!/login\.save/.test(r.stdout), '已存在的 login.save 不该被列为缺失')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -742,7 +742,7 @@ test('useTt: 键齐全时 exit 0(补齐即转绿,不放宽规则)', () => {
     assert.equal(r.status, 0, `键齐全应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /miniapp-taro/, `应实际扫描 miniapp-taro,stdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -759,7 +759,7 @@ test('多键解构: const { t, tList } = useI18n() 的 t() 引用不得漏检', 
     assert.equal(r.status, 1, `多键解构的缺键应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /login\.ghost/, `报告应点名 login.ghost,stdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -779,7 +779,7 @@ test('多键解构: 补齐缺失键后 exit 0', () => {
     const r = runScript(['--target=miniapp-taro'], { cwd: root })
     assert.equal(r.status, 0, `补齐后应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -799,7 +799,7 @@ test('tf 别名: const tf = useTt() 的缺键必须检出', () => {
     assert.match(r.stdout, /login\.email/, `报告应点名 login.email,stdout: ${r.stdout}`)
     assert.ok(!/login\.save\b/.test(r.stdout), '已存在的 login.save 不该被列为缺失')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -815,7 +815,7 @@ test('tf 别名: 键齐全时 exit 0(补齐即转绿,不放宽规则)', () => {
     const r = runScript(['--target=miniapp-taro'], { cwd: root })
     assert.equal(r.status, 0, `tf() 键齐全应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -834,7 +834,7 @@ test('不误报: const tts = useTts() 不得被识别为翻译函数绑定', () 
     assert.equal(r.status, 0, `useTts 不应产生缺失键,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.ok(!/login\.notAKey/.test(r.stdout), `useTts 的参数不该被查,stdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -856,7 +856,7 @@ test('不误报: tt() 仅出现在注释里的示例键不得被检出(去注释
     assert.ok(!/login\.ghost/.test(r.stdout), `行注释示例不该被检出,stdout: ${r.stdout}`)
     assert.ok(!/login\.phantom/.test(r.stdout), `块注释示例不该被检出,stdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -880,7 +880,7 @@ test('含点键: 深层嵌套内部含点 key 也要检出(递归覆盖)', () =>
     assert.match(r.stdout, /common\.deep/, `报告应带父路径,stdout: ${r.stdout}`)
     assert.match(r.stdout, /tool\.before/, `应点名深层含点键,stdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -937,7 +937,7 @@ test('F1–F5 同一棵临时仓三面三答:磁盘脏不污染 HEAD 面;入索�
     assert.equal(f5.status, 1, `F5 索引含脏副本时 --staged 必须判红:\n${f5.stdout}${f5.stderr}`)
     assert.match(f5.stdout, /判定面:索引 blob/u, 'F5 末行必须自称索引 blob')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -971,7 +971,7 @@ test('F6 源文件面:只在磁盘上的 WIP 组件不得把 HEAD 面顶红(混�
     )
     assert.match(wt.stdout, /keyOnlyOnDiskWipComponent/, 'worktree 面必须点名 WIP 组件的缺失键')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -1059,7 +1059,7 @@ test('KR-1 五语言一致丢同一键 ⇒ parity 全绿而 KR 判红并点名(�
     // 关键对照:同一份输入 parity **不红** —— 若哪天 parity 也红了,说明 KR 这条纵向判据可以被删掉
     assert.doesNotMatch(r.stdout, /parity 问题/, 'parity 不应判红(它比的是语言之间)')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -1097,7 +1097,7 @@ test('KR-2 台账逐条声明(reason + 未过期 until)⇒ 同一批键不再计
     assert.equal(r.status, 0, `已声明的删除应放过,实得 ${r.status}:\n${r.stdout}${r.stderr}`)
     assert.match(r.stdout, /已声明放过 5 键/, '五门语言各声明一次 ⇒ 计数按文件累加,不是一键一条')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -1136,7 +1136,7 @@ test('KR-3 声明已过期 / reason 过短 ⇒ 不得继续放行(豁免不得�
     assert.match(r.stdout, /台账声明本身不可用/)
     assert.match(r.stdout, /已过期\(2020-01-01\)/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
