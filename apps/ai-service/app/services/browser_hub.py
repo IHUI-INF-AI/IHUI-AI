@@ -494,6 +494,7 @@ class BrowserSession:
         executor: ThreadPoolExecutor,
         main_loop: asyncio.AbstractEventLoop,
         user_agent: str | None = None,
+        owner_user_id: str | None = None,
     ) -> None:
         self.session_id = session_id
         self._context = context
@@ -501,6 +502,10 @@ class BrowserSession:
         self._executor = executor
         self._main_loop = main_loop
         self._user_agent = user_agent or ""
+        # 属主:令牌主体 id。**None = 系统级会话**(由内部链路创建、无调用方身份),
+        # 对已登录调用方一律不可见 —— 与 session_store.owner_scoped_allows 同一条口径,
+        # 宁可让"没盖章的会话"少一个人能看见,也不给"谁都能碰"留口子。
+        self.owner_user_id: str | None = owner_user_id or None
         self._cdp: Any | None = None  # sync CDPSession
         self._screencast_running = False
         self._screenshot_task: asyncio.Task[None] | None = None  # 截图轮询后台 task
@@ -785,6 +790,21 @@ class BrowserSession:
         await self._run_sync(_sync_close)
 
 
+def _same_owner(session_owner: str | None, caller: str | None) -> bool:
+    """会话属主与调用方主体是否同一人。
+
+    判序刻意为三态,不是 `==`:
+      - `caller is None` → 系统级调用(内部链路,无令牌主体),不设过滤 —— 与
+        `session_store.owner_scoped_allows` 里"None = 系统级"同一条口径;
+      - `caller` 有值而 `session_owner is None` → **不放行**(没盖章的会话对已登录
+        用户不可见,否则任何一次内部创建都等于向全站开放);
+      - 两者都有值 → 逐字等值才算。
+    """
+    if caller is None:
+        return True
+    return session_owner is not None and session_owner == caller
+
+
 # ---------------------------------------------------------------------------
 # BrowserHub:单例,管理持续运行的 Chromium 实例
 # ---------------------------------------------------------------------------
@@ -872,6 +892,7 @@ class BrowserHub:
         session_id: str | None = None,
         viewport: dict[str, int] | None = None,
         user_agent: str | None = None,
+        owner_user_id: str | None = None,
     ) -> BrowserSession:
         """创建新的浏览器会话(带 URL 幂等去重)。
 
@@ -898,8 +919,15 @@ class BrowserHub:
             if existing:
                 sid, ts = existing
                 if now - ts < self._DEDUP_WINDOW_SECONDS and sid in self._sessions:
-                    logger.info(f"[browser_hub] 幂等命中:复用 session {sid} (url={url})")
-                    return self._sessions[sid]
+                    candidate = self._sessions[sid]
+                    # 幂等窗口**不得跨属主复用**:这张表的键只有 URL,而两个人同时打开
+                    # 同一个平台登录页是常态(扫码登录更是如此)。旧写法会让第二个人拿到
+                    # 第一个人的 context —— 于是他的 cookies、他的登录态、他的画面全在
+                    # 别人屏幕上。判据用"同属主才复用",跨属主一律往下新建。
+                    if _same_owner(candidate.owner_user_id, owner_user_id):
+                        logger.info(f"[browser_hub] 幂等命中:复用 session {sid} (url={url})")
+                        return candidate
+                    logger.info(f"[browser_hub] 幂等窗口内但属主不同:为 {session_id or '新会话'} 另建会话")
 
         self._main_loop = asyncio.get_running_loop()
         session_id = session_id or str(uuid.uuid4())
@@ -909,7 +937,13 @@ class BrowserHub:
             "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
 
-        session = await self._build_session(url=url, session_id=session_id, viewport=vp, user_agent=ua)
+        session = await self._build_session(
+            url=url,
+            session_id=session_id,
+            viewport=vp,
+            user_agent=ua,
+            owner_user_id=owner_user_id,
+        )
 
         self._sessions[session_id] = session
         # 注册到幂等去重表(同 URL 在 _DEDUP_WINDOW_SECONDS 内复用此会话)
@@ -925,6 +959,7 @@ class BrowserHub:
         session_id: str,
         viewport: dict[str, int],
         user_agent: str,
+        owner_user_id: str | None = None,
     ) -> BrowserSession:
         """创建独立 BrowserContext 会话;初始导航命中反爬/风控墙时自动重建。
 
@@ -953,7 +988,15 @@ class BrowserHub:
                 self._executor, _sync_create
             )
             assert self._main_loop is not None  # _ensure_browser 已赋值,类型守卫
-            session = BrowserSession(session_id, context, page, self._executor, self._main_loop, user_agent)
+            session = BrowserSession(
+                session_id,
+                context,
+                page,
+                self._executor,
+                self._main_loop,
+                user_agent,
+                owner_user_id=owner_user_id,
+            )
             if url:
                 await session.navigate(url)
             if url and await session.is_challenged():
@@ -974,7 +1017,9 @@ class BrowserHub:
         assert session is not None
         return session
 
-    async def recreate_session(self, session_id: str) -> BrowserSession | None:
+    async def recreate_session(
+        self, session_id: str, owner_user_id: str | None = None
+    ) -> BrowserSession | None:
         """风控墙重建:以旧会话 URL/视口创建全新 context,关闭旧会话。
 
         返回新会话;旧会话不存在返回 None。
@@ -982,6 +1027,9 @@ class BrowserHub:
         async with self._lock:
             old = self._sessions.get(session_id)
             if not old:
+                return None
+            if not _same_owner(old.owner_user_id, owner_user_id):
+                # 与 get_session 同形:别人的会话在这里同样"不存在"
                 return None
             url = await old.get_current_url()
             vp = old.viewport
@@ -992,6 +1040,7 @@ class BrowserHub:
                 session_id=new_id,
                 viewport=vp,
                 user_agent=old._user_agent,
+                owner_user_id=old.owner_user_id,
             )
             self._sessions[new_id] = session
             if url:
@@ -1000,11 +1049,26 @@ class BrowserHub:
             logger.info(f"[browser_hub] 风控墙重建 session {session_id} -> {new_id} (url={url})")
             return session
 
-    def get_session(self, session_id: str) -> BrowserSession | None:
-        return self._sessions.get(session_id)
+    def get_session(
+        self, session_id: str, owner_user_id: str | None = None
+    ) -> BrowserSession | None:
+        """取会话;给了调用方身份时**按属主过滤**。
+
+        返回 None 而不是抛 403:与 session_store / 引擎那几处同一条口径 —— 别人的会话
+        与"不存在"必须同码同形,否则这个端点就成了"探测别人的 session_id 是否存在"的
+        预言机(session_id 是 uuid4,但内部链路会把它们回显到日志与前端状态里)。
+        """
+        session = self._sessions.get(session_id)
+        if session is None:
+            return None
+        if owner_user_id is not None and not _same_owner(session.owner_user_id, owner_user_id):
+            return None
+        return session
 
     # ---- 外部 Chrome 扫码登录(2026-09-02 新增,2026-09-16 改为复用用户真实 profile)----
-    async def launch_external_chrome(self, url: str) -> tuple[BrowserSession, dict[str, Any]]:
+    async def launch_external_chrome(
+        self, url: str, owner_user_id: str | None = None
+    ) -> tuple[BrowserSession, dict[str, Any]]:
         """用"用户自己的浏览器"打开 URL,并通过 CDP 附着,注册为 hub session。
 
         2026-09-16 重构(用户反馈"打开的不是我自己电脑上的浏览器"):
@@ -1084,7 +1148,15 @@ class BrowserHub:
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
             "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
-        session = BrowserSession(session_id, context, page, self._executor, self._main_loop, ua)
+        session = BrowserSession(
+            session_id,
+            context,
+            page,
+            self._executor,
+            self._main_loop,
+            ua,
+            owner_user_id=owner_user_id,
+        )
         self._sessions[session_id] = session
         self._external_procs[session_id] = (proc, ext_browser, profile_dir)
         meta: dict[str, Any] = {
@@ -1212,9 +1284,16 @@ class BrowserHub:
                 time.sleep(0.4)
         return entries
 
-    def list_sessions(self) -> list[str]:
-        return list(self._sessions.keys())
-    async def close_session(self, session_id: str) -> bool:
+    def list_sessions(self, owner_user_id: str | None = None) -> list[str]:
+        return [
+            sid
+            for sid, s in self._sessions.items()
+            if owner_user_id is None or _same_owner(s.owner_user_id, owner_user_id)
+        ]
+
+    async def close_session(self, session_id: str, owner_user_id: str | None = None) -> bool:
+        if self.get_session(session_id, owner_user_id) is None:
+            return False
         async with self._lock:
             return await self._close_session_internal(session_id)
 
@@ -1268,6 +1347,10 @@ class BrowserHub:
     @property
     def session_count(self) -> int:
         return len(self._sessions)
+
+    def session_count_for(self, owner_user_id: str | None = None) -> int:
+        """计数必须与 `list_sessions` **同一个谓词**(旧写法两个端点各算各的会分叉)。"""
+        return len(self.list_sessions(owner_user_id))
 
 
 # 全局单例

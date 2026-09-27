@@ -23,6 +23,11 @@ import {
   startPiiRetentionScheduler,
   stopPiiRetentionScheduler,
 } from './jobs/pii-retention-cleanup.js'
+// 86D(2026-09-28)审计证据链保留清理:结构行 180 天档只报数、原文 0 天档清墓碑(只 UPDATE 不 DELETE)。
+import {
+  startAuditEvidenceRetentionScheduler,
+  stopAuditEvidenceRetentionScheduler,
+} from './jobs/audit-evidence-retention.js'
 import {
   startRelayAlertEvaluationScheduler,
   stopRelayAlertEvaluationScheduler,
@@ -177,6 +182,7 @@ async function start() {
       syncStopPhase('stopLiteLLMPriceSyncScheduler', stopLiteLLMPriceSyncScheduler),
       syncStopPhase('stopHotWordsScheduler', stopHotWordsScheduler),
       syncStopPhase('stopPiiRetentionScheduler', stopPiiRetentionScheduler),
+      syncStopPhase('stopAuditEvidenceRetentionScheduler', stopAuditEvidenceRetentionScheduler),
       syncStopPhase('stopRelayAlertEvaluationScheduler', stopRelayAlertEvaluationScheduler),
       syncStopPhase('stopImageTaskWorker', stopImageTaskWorker),
       syncStopPhase('stopBackupCronScheduler', stopBackupCronScheduler),
@@ -266,6 +272,12 @@ async function start() {
   // 默认开启,ENABLE_PII_RETENTION=false 禁用)
   if (process.env.ENABLE_PII_RETENTION !== 'false') {
     startPiiRetentionScheduler()
+  }
+
+  // 启动 86D 审计证据链保留任务(每天 04:45):默认 dry-run 只报数;改写哈希属高危,
+  // 须显式 AUDIT_EVIDENCE_RETENTION_APPLY=true 才执行清理。ENABLE_AUDIT_EVIDENCE_RETENTION=false 禁用。
+  if (process.env.ENABLE_AUDIT_EVIDENCE_RETENTION !== 'false') {
+    startAuditEvidenceRetentionScheduler()
   }
 
   // 启动中转站告警规则评估(每 5 分钟,2026-09-16 立;ENABLE_RELAY_ALERT_EVALUATION=false 禁用)
