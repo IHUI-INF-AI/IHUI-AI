@@ -5,8 +5,15 @@
 /** 圆角档位名(与 radius.js 的 RADIUS_STEPS 键一致) */
 export type RadiusStep = 'xs' | 'sm' | 'DEFAULT' | 'md' | 'lg' | 'xl' | '2xl'
 
+/** 元素角色名(与 radius.js 的 RADIUS_ROLES 键一致)——"这个元素该用哪档"的唯一记录 */
+export type RadiusRole = 'tiny' | 'control' | 'chip' | 'card' | 'panel' | 'hero'
+
 /** 档位 → px 数值 */
 export declare const RADIUS_STEPS: Record<RadiusStep, number>
+/** 角色 → 档位名 */
+export declare const RADIUS_ROLES: Record<RadiusRole, RadiusStep>
+/** 角色 → px 数值(RN StyleSheet 按角色取档) */
+export declare const rnRadiusFor: Record<RadiusRole, number>
 /** 档位 → rem 字符串(Tailwind theme 消费) */
 export declare const RADIUS_REM: Record<RadiusStep, string>
 /** 档位 → CSS 变量名 */
