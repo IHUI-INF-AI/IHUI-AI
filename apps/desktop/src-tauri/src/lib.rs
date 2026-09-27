@@ -2491,6 +2491,24 @@ pub fn run() {
         .setup(|app| {
             // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
 
+            // 2026-09-27 立:main 窗口没建出来,进程就不该继续活着。
+            // 实测形态(09-27 桌面端日志):两实例并存时,第二个实例的 WebView2 因用户数据
+            // 目录被第一个占住而创建失败 —— `tauri_runtime_wry][ERROR] failed to create
+            // webview: ... 0x800700AA 请求的资源在使用中`,**但进程不退出**:它只剩
+            // single-instance 的隐藏消息窗口(标题 `com.ihui.desktop-siw`),却照常往下启动
+            // auto_refresh 常驻循环(同一份日志紧接着就是「启动探活成功 → 显示线上前端」)。
+            // 后果是任务栏/托盘多出一个既看不见界面、又没人会去关的进程,并且它会继续占住
+            // 数据目录,使下一次启动同样失败 —— 用户侧表现为"杀一个还剩一个、永远退不干净"。
+            // 必须挡在 auto_refresh::start 之前(它在本闭包更下方),否则循环已经起来了。
+            if app.get_webview_window("main").is_none() {
+                log::error!(
+                    "[desktop] main 窗口未创建成功(最常见原因:另一实例正占住 WebView2 用户数据目录);\
+                     不启动后台常驻循环,直接退出本进程。已有实例的窗口不受影响。"
+                );
+                app.cleanup_before_exit();
+                std::process::exit(0);
+            }
+
             #[cfg(debug_assertions)]
             {
                 if let Some(window) = app.get_webview_window("main") {
