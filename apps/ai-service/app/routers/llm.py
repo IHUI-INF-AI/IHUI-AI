@@ -167,6 +167,47 @@ _STEER_QUEUE_LIMIT = 8  # 单流引导队列上限,超限 steer 端点返回 429
 # 注意:本帧常量定义在 llm.py 本地(agent_events.py 非本任务领地);
 # sse_contract 契约清单由主会话登记,_sse() 诊断对未登记帧仅告警不阻断。
 _SSE_TOOL_APPROVAL = "tool-approval"
+# D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧(契约已登记 sse_contract.SSE_EVENTS)。
+_SSE_TOOL_DELTA = "tool-delta"
+# 预演范围:服务端流内真实执行的文件写类工具(apply_patch/create_file 走浏览器委托,
+# 由前端 InlineDiffCard 承担流中显示,不在本帧范围)。
+_FILE_EDIT_PREVIEW_TOOLS = frozenset({"write_file", "file_edit", "edit_file"})
+# 预览分帧预算:最多 10 帧 x 40 行,总量 400 行 / 32KB 截断(truncated 标志)。
+_PREVIEW_MAX_FRAMES = 10
+_PREVIEW_LINES_PER_FRAME = 40
+_PREVIEW_MAX_LINES = 400
+_PREVIEW_MAX_CHARS = 32 * 1024
+
+
+def _file_edit_preview_text(tool_name: str, args: dict[str, Any]) -> str | None:
+    """D113:文件写类工具的流中预览文本(纯参数推导,不触碰磁盘、不执行)。"""
+    if tool_name == "write_file":
+        c = args.get("content")
+        return c if isinstance(c, str) else None
+    if tool_name in ("file_edit", "edit_file"):
+        new = args.get("new_string")
+        return new if isinstance(new, str) else None
+    return None
+
+
+def _file_edit_preview_frames(text: str) -> list[tuple[str, bool]]:
+    """把预览文本切成 (partialText, truncated) 帧序列(累积式)。"""
+    lines = text.splitlines()
+    truncated = len(lines) > _PREVIEW_MAX_LINES or len(text) > _PREVIEW_MAX_CHARS
+    kept: list[str] = []
+    used = 0
+    for ln in lines[:_PREVIEW_MAX_LINES]:
+        if used + len(ln) + 1 > _PREVIEW_MAX_CHARS:
+            truncated = True
+            break
+        kept.append(ln)
+        used += len(ln) + 1
+    frames: list[tuple[str, bool]] = []
+    for i in range(0, len(kept), _PREVIEW_LINES_PER_FRAME):
+        is_last_batch = i + _PREVIEW_LINES_PER_FRAME >= len(kept)
+        frames.append(("
+".join(kept[: i + _PREVIEW_LINES_PER_FRAME]), truncated and is_last_batch))
+    return frames[:_PREVIEW_MAX_FRAMES]
 _APPROVAL_TIMEOUT = 120  # 秒:人工决策窗口(人在环延迟高于机器回传,比委托 60s 宽)
 _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端 30s 读超时掐流
 
@@ -3135,6 +3176,24 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 })
                                 continue
 
+                            # D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧(执行前纯参数推导)。
+                            # 让用户在审批弹窗与执行期间就看到改动走向;不触碰磁盘、不影响执行
+                            # 语义,tool-result 到达即被前端清除(最终 diff 以 tool-result 为准)。
+                            if tool_name in _FILE_EDIT_PREVIEW_TOOLS:
+                                _preview_text = _file_edit_preview_text(tool_name, args)
+                                if _preview_text:
+                                    for _pv_seq, (_pv_text, _pv_trunc) in enumerate(
+                                        _file_edit_preview_frames(_preview_text), start=1
+                                    ):
+                                        _pv_evt: dict[str, Any] = {
+                                            "type": _SSE_TOOL_DELTA,
+                                            "toolCallId": tc.get("id", ""),
+                                            "seq": _pv_seq,
+                                            "partialText": _pv_text,
+                                        }
+                                        if _pv_trunc:
+                                            _pv_evt["truncated"] = True
+                                        yield _sse(_SSE_TOOL_DELTA, _pv_evt)
                             # W1(2026-09-12 立)终端类工具:执行前发 terminal_start 事件。
                             # 前端 onTerminalStart → chatStore.appendMessageTerminalTask
                             # → MessageItem 的 TerminalSection 实时显示"运行中"命令区块。

@@ -892,6 +892,12 @@ export function createSendMessage(
         // terminal_delta(4 行/批),此处累加到 store.terminalOutputs(terminalId 为键),
         // 由终端实时面板边执行边滚动渲染。刻意不要求 messageId(事件只保证 terminalId),
         // 缺失时按 terminalId 关联即可;缓冲上限由 store 侧裁剪(20000 字符/键)。
+        onToolDelta: (evt) => {
+          // D113:流中 diff 预览(覆盖式写入 running 态 toolCall)
+          useChatStore.getState().updateToolCall(assistantId, evt.toolCallId, {
+            partialDiff: evt.partialText,
+          })
+        },
         onTerminalDelta: (evt) => {
           if (!evt.terminalId || !evt.text) return
           useChatStore.getState().appendTerminalOutput(evt.terminalId, evt.text)

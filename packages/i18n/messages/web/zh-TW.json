@@ -8722,6 +8722,7 @@
       "bottleneck": "瓶頸"
     },
     "toolCall": {
+      "streamingPreviewLabel": "串流預覽(執行中,最終以結果為準)",
       "chartGenerated": "圖表已生成",
       "chartPreviewFailed": "圖表預覽載入失敗,請複製路徑後在本機瀏覽器開啟。",
       "chartPreviewHint": "本地圖表檔案無法在網頁內直接預覽,請複製路徑後在本機瀏覽器開啟。",
