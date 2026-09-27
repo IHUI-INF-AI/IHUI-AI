@@ -50,13 +50,21 @@ vi.mock('@tauri-apps/api/event', () => ({
 
 import { useDesktopEvents, useTauriIpcReady } from '../use-desktop'
 
+/**
+ * 被测代码用 `'__TAURI_INTERNALS__' in window` 判环境,所以夹具必须能往 window 上
+ * 挂/摘这个全局。走 `unknown` 中转而非直接断言 —— 这不是给产品代码兜类型,是测试在
+ * 模拟宿主注入,该属性本来就不归 Window 的类型声明管。
+ */
+function ipcHost(): { __TAURI_INTERNALS__?: unknown } {
+  return globalThis.window as unknown as { __TAURI_INTERNALS__?: unknown }
+}
 function injectIpc() {
-  ;(globalThis.window as Record<string, unknown>).__TAURI_INTERNALS__ = {
+  ipcHost().__TAURI_INTERNALS__ = {
     transformCallback: () => {},
   }
 }
 function ejectIpc() {
-  delete (globalThis.window as Record<string, unknown>).__TAURI_INTERNALS__
+  delete ipcHost().__TAURI_INTERNALS__
 }
 
 describe('useTauriIpcReady — 等待异步注入,不是一帧定终身', () => {

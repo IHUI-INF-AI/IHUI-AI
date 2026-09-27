@@ -51,6 +51,8 @@ import ContextUsageStrip from './context-usage-strip'
 import { resolvePermissionTierText } from './permission-tier-text'
 import TaskStatusBar from './task-status-bar'
 import {
+  applyToolCallStart,
+  applyToolDelta,
   appendCitations,
   appendSteerNotice,
   appendTerminalDelta,
@@ -622,22 +624,22 @@ export default function ChatPage() {
           {
             onToolCallStart: (evt) => {
               const startedAt = Date.now()
+              // D83:MCP server 名回落口径留在调用方(serverId 只在这一支存在)
+              const serverName = evt.serverName ?? evt.serverId
+              // 重复 start 帧保留已有流中预览;纯函数与选择理由见 types.ts 的 applyToolCallStart
               upsertCard((c) => ({
                 ...c,
-                toolCalls: [
-                  ...c.toolCalls.filter((x) => x.id !== evt.toolCallId),
+                toolCalls: applyToolCallStart(
+                  c.toolCalls,
                   {
-                    id: evt.toolCallId,
-                    name: evt.toolName,
-                    status: 'running',
+                    toolCallId: evt.toolCallId,
+                    toolName: evt.toolName,
                     serverSource: evt.serverSource,
-                    // D83:MCP server 名一并落卡,措辞层按 server×tool 查定制表
-                    serverName: evt.serverName ?? evt.serverId,
-                    // 入参一并落卡:共享层 describeToolCall 靠它取"对象"
+                    serverName,
                     args: evt.args,
-                    startedAt,
                   },
-                ],
+                  startedAt,
+                ),
               }))
               pushStreamActivity(
                 toolActivityText(
@@ -669,6 +671,9 @@ export default function ChatPage() {
                         args: evt.args ?? x.args,
                         result: resultEvent?.result ?? x.result,
                         isError,
+                        // D113:tool-result 到达即清流中预览 —— 最终 diff 以 result 为准,
+                        // 留着预览会让"已完成的工具"同时显示预览与结果两份内容(对齐 web)
+                        partialDiff: undefined,
                         durationMs:
                           typeof x.startedAt === 'number' ? Date.now() - x.startedAt : x.durationMs,
                       }
@@ -691,6 +696,11 @@ export default function ChatPage() {
                 ),
               )
             },
+            // D113:工具流中 diff 预览 —— 共享 parser 认领帧后端内此前无分支 = 静默丢帧。
+            // partialText 是累积文本,按 toolCallId 覆盖写入(同 seq 重放天然幂等,seq 不参与
+            // 判断);start 帧未到时不凭空造条目,空 toolCallId 整帧丢弃(见 applyToolDelta)。
+            onToolDelta: (evt) =>
+              upsertCard((c) => ({ ...c, toolCalls: applyToolDelta(c.toolCalls, evt) })),
             onSubagentSpawn: (evt) =>
               pushStreamActivity(t('ai.stream.subagent', { phase: evt.role })),
             onSubagentProgress: (evt) =>

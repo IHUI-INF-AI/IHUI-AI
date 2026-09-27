@@ -9,6 +9,7 @@ mod auto_refresh;
 mod git_channel_ipc;
 mod git_local_status;
 mod git_status_core;
+mod startup_guard;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -317,27 +318,74 @@ fn quit_app(app: tauri::AppHandle) {
 /// `quit_app` 的强制终止宽限期(秒):留给正常事件循环退出的时间,超时即强杀。
 const QUIT_FORCED_EXIT_GRACE_SECS: u64 = 3;
 
-/// 托盘「退出」把决定权交给前端后,Rust 侧留的**最长**等待(秒)。
-/// 前端那条链要跑"检查更新→下载→安装",可达数十秒,所以不能短;
-/// 但也不能像 2026-08-16 那样彻底不设限 —— 那次实测证明:整条前端链(含
-/// `invoke('quit_app')` 本身)可以完全挂死,而 Rust 侧一句"那我不等了"都没有,
-/// 用户就永久困在转圈遮罩里(09-27 复现的正是这一格)。
-const QUIT_FRONTEND_GRACE_SECS: u64 = 120;
-
-/// 装上"到点必然终止进程"的兜底,**只在用户已明确要求退出**时调用。
+/// 托盘「退出」交给前端之后,Rust 侧**默认**只等多久(秒)。
 ///
-/// 这与 2026-08-16 删掉的那条"托盘 emit 后 2s 定时强退"不是一回事:那条在 Rust
-/// 单方面计时,而前端此刻可能正在"检查/下载/安装更新"(可达数十秒),会被强杀并
-/// 可能损坏安装 —— 那个删除理由仍然成立,不得恢复。本函数只在 `quit_app` 已经
-/// 被调到之后生效:此时前端已决定"现在就退出",强制终止正是用户要的语义,
-/// 不会再打断更新。
+/// 2026-09-27 由 120 改 5 —— 用户原话:「点了退出还得等 128 秒才能退?那退出按钮的意义
+/// 是什么,谁家程序这么设定?」这句是对的:120s 是我拿"兜底"当"修复"留下的口子,
+/// 它保证"最终会退",但没保证"按了就走",而后者才是这个按钮的全部语义。
+///
+/// 现在的模型是**租约**而不是等待:默认 5s 到点就强退;前端若真在跑更新链
+/// (检查/下载/安装,可达数十秒),由它自己调 `renew_quit_lease` 显式续期。
+/// 于是 2026-08-16 那次"2s 定时强退会打断安装"的理由仍然被尊重 —— 只是打断的
+/// 决定权从"Rust 单方面猜"换成了"前端明确说我在装"。前端接不到事件/整条链挂死时,
+/// 表现就是按退出 → 最多 5s → 进程消失。
+const QUIT_FRONTEND_GRACE_SECS: u64 = 5;
+
+/// 续租上限(秒):一次续租最多把强制终止推后这么久,防止前端"续一次就永远不断"。
+const QUIT_LEASE_MAX_SECS: u64 = 600;
+
+/// 退出租约的到期时刻(unix ms)。0 = 无退出请求在途。
+static QUIT_LEASE_DEADLINE_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+/// 看门狗线程是否已在跑(只允许一个,靠它读同一份到期时刻,避免多把表互相顶结论)。
+static QUIT_WATCHDOG_RUNNING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// 前端接手退出请求后为它**续租**。
+///
+/// 只有"我此刻正在检查/下载/安装更新"才该调它;不调就默认 5s 内必退。
+/// 续租失败(前端根本没接住事件)不构成故障 —— 那正是让 5s 兜底生效的路径。
+#[tauri::command]
+fn renew_quit_lease(secs: u64) {
+    use std::sync::atomic::Ordering;
+    let capped = secs.min(QUIT_LEASE_MAX_SECS);
+    let want = now_ms() + capped * 1000;
+    let prev = QUIT_LEASE_DEADLINE_MS.fetch_max(want, Ordering::SeqCst);
+    log::info!(
+        "[desktop] 退出租约已续 {capped}s(前端声明正在处理更新链;原到期时刻 {:?})",
+        prev
+    );
+}
+
+/// 装上"租约到期即终止进程"的兜底,**只在用户已明确要求退出**时调用。
+///
+/// 与 2026-08-16 删掉的那条"托盘 emit 后 2s 定时强退"的区别:那条在 Rust 单方面计时
+/// 且无人可续;本函数的到期时刻是一块**可续期**的租约,前端在真正干活时会推后它,
+/// 而它一旦停止续期(挂死/没接住事件/崩了),到点就退。
 fn arm_forced_exit(app: &tauri::AppHandle, grace_secs: u64) {
+    use std::sync::atomic::Ordering;
+    let started = now_ms();
+    QUIT_LEASE_DEADLINE_MS.fetch_max(started + grace_secs * 1000, Ordering::SeqCst);
+    // 已有哨兵在跑就只续期,不再派第二个线程 —— 两把表各等各的,先过期的那把会替后者做决定。
+    if QUIT_WATCHDOG_RUNNING.swap(true, Ordering::SeqCst) {
+        return;
+    }
     let handle = app.clone();
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_secs(grace_secs));
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        let now = now_ms();
+        let deadline = QUIT_LEASE_DEADLINE_MS.load(Ordering::SeqCst);
+        if now < deadline {
+            continue;
+        }
         log::error!(
-            "[desktop] app.exit(0) 未在 {}s 内终止进程(事件循环未消费退出请求),强制退出",
-            grace_secs
+            "[desktop] 退出请求在租约内未被完成(自发起已 {}s,无人续租),强制退出",
+            (now - started) / 1000
         );
         handle.cleanup_before_exit();
         std::process::exit(0);
@@ -530,8 +578,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                     // **完全无上限**,于是"前端整条链挂死"就成了永久卡死 —— 09-27 真机复现的正是
                     // 这一格:遮罩停在「正在退出...」,而 quit_app 这个 command 从未被执行
                     // (其内部新增的兜底日志计数为 0)。
-                    // 120s 远大于 15s 检查超时与常规下载窗口;emit 失败时前端根本收不到请求,
-                    // 没必要等满,直接用 3s。
+                    // 默认档 5s:前端若真在处理更新,由它调 renew_quit_lease 续租;
+                    // 不续租 = 到点就退(09-27 用户否掉了"默认等 120s"的写法 —— 那是拿兜底当修复)。
+                    // emit 失败时前端根本收不到请求,更没必要等,直接用 3s。
                     arm_forced_exit(
                         app,
                         if emitted {
@@ -2386,6 +2435,11 @@ pub fn run() {
             let _ = SetCurrentProcessExplicitAppUserModelID(wide.as_ptr());
         }
     }
+    // 2026-09-27 立:启动守护——在 Builder 之前探测/清理挂死或僵尸的旧实例,
+    // 根治"双击打不开"(tauri-plugin-single-instance 2.4.3 无超时 SendMessage +
+    // 隐藏窗口缺失时放行两个缺陷的组合,详见 startup_guard.rs 模块头注)。
+    // 必须早于 tauri::Builder:此刻本进程还没建任何窗口,清理旧实例不会误伤自己。
+    startup_guard::preflight();
     // 2026-07-26 立:启动时清理 WebView2 缓存(Windows),彻底杜绝桌面端样式不同步问题
     // - 用户反馈"样式没同步":web dev 已更新,但 Tauri WebView2 缓存了旧 CSS chunk
     // - 2026-09-25 收窄:旧写法是 `remove_dir_all(EBWebView)`,而 `cfg(dev)` **确实会被编译**
@@ -2518,6 +2572,22 @@ pub fn run() {
         .manage(git_channel_ipc::GitChannelState::from_env())
         .setup(|app| {
             // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
+            // 启动守护在 Builder 之前跑,那时日志插件还没初始化,计数在这里补记。
+            let killed_stale = startup_guard::take_killed_stale_count();
+            if killed_stale > 0 {
+                log::warn!(
+                    "[desktop] 启动守护:终止了 {} 个挂死/僵尸的旧实例(隐藏消息窗口缺失或 2s 不应答);\
+                     根因与判据见 startup_guard.rs",
+                    killed_stale
+                );
+            }
+            let lock_wait = startup_guard::take_webview_lock_wait_ms();
+            if lock_wait > 0 {
+                log::warn!(
+                    "[desktop] 启动守护:等旧实例遗留的孤儿 WebView2 释放 EBWebView 数据目录用了 {}ms(这段时间未建窗口属预期等待)",
+                    lock_wait
+                );
+            }
 
             // 2026-09-27 立:main 窗口没建出来,进程就不该继续活着。
             // 实测形态(09-27 桌面端日志):两实例并存时,第二个实例的 WebView2 因用户数据
@@ -2643,6 +2713,7 @@ pub fn run() {
             get_admin_window_info,
             toggle_devtools,
             quit_app,
+            renew_quit_lease,
             restart_app,
             open_admin_window,
             start_resize,
