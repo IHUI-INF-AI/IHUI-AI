@@ -24539,15 +24539,12 @@
   "courseFilter": {
     "title": "Filter Courses",
     "subtitle": "Filter courses by conditions",
-    "category": "Category",
-    "level": "Level",
     "priceRange": "Price range",
     "reset": "Reset",
     "apply": "Apply",
     "retry": "Retry",
     "empty": "No courses",
     "instructor": "Instructor",
-    "level_label": "Level",
     "free": "Free"
   },
   "courseQAList": {
