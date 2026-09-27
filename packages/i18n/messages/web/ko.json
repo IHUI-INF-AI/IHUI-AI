@@ -9767,6 +9767,7 @@
     "restoreFailed": "체크포인트 복원 실패",
     "bestOfAdopted": "선택한 후보가 대화에 추가되었습니다",
     "tabs": {
+      "inspector": "raw 프레임",
       "goal": "목표",
       "memory": "메모리",
       "plan": "계획",
@@ -9797,6 +9798,22 @@
     "applied": "적용됨",
     "apply": "적용",
     "hint": "사용 가능한 AI 도구",
+    "inspector": {
+      "start": "수집 시작",
+      "stop": "수집 중지",
+      "clear": "지우기",
+      "export": "JSONL 내보내기",
+      "filter": "유형별 필터",
+      "filterAll": "전체 유형",
+      "count": "총 {total}프레임, 표시 {shown}",
+      "empty": "프레임 없음",
+      "hint": "\"수집 시작\"을 누르면 다음 AI 응답의 raw SSE 프레임이 여기에 프레임 단위로 기록됩니다(개발자 디버그 뷰)",
+      "waiting": "스트림 프레임 대기 중…",
+      "truncated": "최근 300프레임만 렌더링됩니다(전체 {total}프레임은 JSONL 내보내기로 확인)",
+      "copied": "복사됨",
+      "copyFailed": "복사 실패",
+      "copyOne": "이 프레임 복사"
+    },
     "worldsAdopted": "브랜치 응답을 채택했습니다"
   },
   "agentHooks": {

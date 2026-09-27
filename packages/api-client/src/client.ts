@@ -15,6 +15,8 @@ import type {
 export type { CitationsEvent }
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker.js'
 import { getTransport, type TransportInit } from './transport.js'
+// D116 原始 SSE 全帧采集(默认关闭,零开销;展示端 stream-inspector 挂工具托盘)
+import { recordStreamFrame } from './stream-frame-log.js'
 import type { DeviceFingerprintCollector } from '@ihui/types'
 // error 序列化唯一出口(2026-09-26 立)。上行 tool-result 帧的 error 字段若被调用方在
 // catch 里把 Error 本体(as 强转即可过 tsc)塞进来,JSON.stringify 会得 "{}" ——
@@ -3361,6 +3363,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         while ((nl = buffer.indexOf('\n')) !== -1) {
           const line = buffer.slice(0, nl).replace(/\r$/, '')
           buffer = buffer.slice(nl + 1)
+          // D116:原始帧采集(关闭时零开销)
+          recordStreamFrame(line)
           // 捕获 SSE id: 行(用于 Last-Event-ID 断点续传)
           if (line.startsWith('id:')) lastEventIdRef.current = line.slice(3).trim()
           await dispatchTryParse(line)
@@ -3391,6 +3395,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       if (buffer.trim()) {
         if (buffer.startsWith('id:')) lastEventIdRef.current = buffer.slice(3).trim()
         // 阶段 2:尾部 buffer 残留,与主循环对称
+        recordStreamFrame(buffer)
         await dispatchTryParse(buffer)
         // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
         if (hasFallback) {
