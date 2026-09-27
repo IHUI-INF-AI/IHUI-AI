@@ -6283,3 +6283,5 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | "没 export 的出口等于不存在"、T7 证明遮罩不得有第二份)+ 一次私有索引注入复跑                   |
 | (加一处新违规 ⇒ `--staged` exit 1 并点名文件)。紧急跳过 `HUSKY_SKIP_API_FAILURE_THROW=1`。     |
 | 140 | guardian-runner.mjs + package.json scripts | `check-rn-double-header.mjs` | ⚠️ RN 屏包装器 NavBar × 共享屏自带页头 ⇒ 同屏两条返回键与两个标题;判据从调用点实参识别抑制通道,禁删任一层(blocking;出口 `double-header-exempt`;细节见 AGENTS.md 同名条) |
+| 144 | guardian-runner.mjs + package.json scripts | `check-rn-double-header.mjs` | ⚠️ RN 屏包装器 NavBar × 共享屏自带页头 ⇒ 同屏两条返回键与两个标题;判据从调用点实参识别抑制通道,禁删任一层(blocking;出口 `double-header-exempt`;细节见 AGENTS.md 同名条) |
+| 145 | guardian-runner.mjs + package.json scripts | `check-readme-table-integrity.mjs` | ⚠️ 长文塞进表格单元格 → prettier 把散文里的竖线当列分隔符重排,表格被打断;TI1 竖排续行判红、T-B 半截行只报数,修复出口 `readme-table-unwrap.mjs`(blocking;出口 `table-cell-exempt`;细节见 AGENTS.md 同名条) |
