@@ -38,7 +38,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # D6① 收敛开关(纯判定、零依赖,顶层 import 安全;默认 legacy = 现状行为)
-from ..core.executor_switch import guard_loop_v2_pilot  # noqa: E402
+from ..core.executor_switch import guard_loop_v2_pilot, take_loop_v2_handoff  # noqa: E402
 
 # ====================== Redis 客户端(惰性导入,降级 None) ======================
 
@@ -711,11 +711,61 @@ class JointDecisionEngine:
           3) 连接失败 / 超时 / httpx 不可用 ⇒ TRANSPORT_ERROR。
         任何一档都**不得**被写成"端点不存在就当作成功/跳过"—— 那正是本票要消灭的形态。
         """
-        # D6① 收敛开关接线点:playbook 的 subagent 派发是本中枢与"执行器"唯一
-        # 相交处。默认档直接返回(行为与改前逐字节等价);loop_v2 档 fail-fast。
+        # D6①/G1 收敛开关接线点:playbook 的 subagent 派发是本中枢与"执行器"唯一
+        # 相交处。2026-09-27 由"裸守卫"改为**消费 handoff**:
+        #   legacy 档(缺省)⇒ take_loop_v2_handoff 立即返回 None、下面的 guard 也是
+        #     空操作 ⇒ 本站与改前逐字节同形(仍然走 HTTP 派发,不发任何 LLM 请求)。
+        #   loop_v2 档 ⇒ 只有当该 playbook action 自己在 params 里声明了
+        #     agent_name + system_prompt 才谈得上投影(现存五条 subagent action 一条
+        #     都没声明)⇒ 底座按"缺投影入参"显式抛 PILOT marker,不跑个空循环骗人。
+        #     真声明了就必须**立即 return** 收敛结果,下面那段 httpx 派发一行不再执行
+        #     —— 双重执行(两次 LLM + 两遍工具副作用)比占位错误更坏。
         if pillar == "subagent":
+            handoff = await take_loop_v2_handoff(
+                "orchestration_hub._call_pillar_action[subagent]",
+                agent_name=str(params.get("agent_name") or ""),
+                system_prompt=str(params.get("system_prompt") or ""),
+                user_input=str(params.get("task") or trigger_event.event_type),
+                tool_names=(
+                    [str(t) for t in params["tool_names"]]
+                    if isinstance(params.get("tool_names"), list)
+                    else None
+                ),
+                model=params["model"] if isinstance(params.get("model"), str) else None,
+                max_iterations=(
+                    int(params["max_iterations"])
+                    if isinstance(params.get("max_iterations"), int)
+                    else 5
+                ),
+            )
+            if handoff is not None:
+                completed = handoff.step_result.get("status") == "completed"
+                return {
+                    # 本站原有键逐字保留(success/status/pillar/action/url/
+                    # base_url_source/response + 失败时的 error),只多一个 engine
+                    # 用于区分"进程内收敛执行"与"HTTP 派发"。
+                    "success": completed,
+                    # 封闭词表 BASE_URL_SOURCES/PillarCallStatus 都没有"进程内收敛
+                    # 执行"这一档,**刻意不新增枚举值**(那是替本票扩大对外契约)。
+                    # 跑成功 ⇒ OK(它的定义就是"调用真的成功");跑失败 ⇒ UNREPORTED
+                    # (词表里唯一"按非 ok 处理"的保守档)。把失败写成 HTTP_4XX/5XX
+                    # 等于凭空造一个不存在的对端。
+                    "status": PillarCallStatus.OK if completed else PillarCallStatus.UNREPORTED,
+                    "pillar": pillar,
+                    "action": action,
+                    "url": "",  # 这一趟没有发 HTTP,填任何地址都是假事实
+                    # 同理刻意用词表外的字面量:它既不是 settings 也不是 fallback,
+                    # 消费端只与 FALLBACK 比相等,所以不会被误判成"用了兜底地址"。
+                    "base_url_source": "converged:agent_loop_v2",
+                    "response": str(handoff.step_result.get("output") or "")[:500],
+                    "engine": handoff.engine,
+                    "error": handoff.step_result.get("error"),
+                }
+            # 只在 legacy 档可达;保留是为了"日后有人把该 surface 从登记表摘掉而不改
+            # 源码"时仍然 fail-fast,而不是静默回到下面的 HTTP 派发。
             guard_loop_v2_pilot("orchestration_hub._call_pillar_action[subagent]")
         api_path = _PILLAR_API_PATHS.get(pillar)
+
         if not api_path:
             return {
                 "success": False,
