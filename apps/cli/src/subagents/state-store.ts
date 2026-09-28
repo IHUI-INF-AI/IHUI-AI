@@ -9,13 +9,16 @@
  * 做减法:
  *   - 文件即数据库,JSON 直读直写,无锁(单用户场景足够)
  *   - 接口最小化:save/load/list/delete/prune
- *   - 状态机 4 态:running / completed / failed / cancelled
+ *   - 状态词汇引用 types.ts 的唯一成员清单(`SubagentLifecycleStatus`),
+ *     不在本文件再抄第二份 `running|completed|failed|cancelled` 名单。
+ *     新增一档 `detached_idle`(转后台中间态,非终态)= 只改 types.ts 一处即传导到此。
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { randomUUID } from 'node:crypto';
+import type { SubagentLifecycleStatus } from './types.js';
 
 export interface SubagentState {
   id: string;
@@ -27,7 +30,8 @@ export interface SubagentState {
   transcript: unknown[];
   toolState?: Record<string, unknown>;
   model?: string;
-  status: 'running' | 'completed' | 'failed' | 'cancelled';
+  /** 生命周期状态(唯一清单见 types.ts `SUBAGENT_LIFECYCLE_STATUSES`) */
+  status: SubagentLifecycleStatus;
   startedAt: string;
   endedAt?: string;
   error?: string;
