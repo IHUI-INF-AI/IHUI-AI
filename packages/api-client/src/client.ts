@@ -2624,10 +2624,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           return
         }
         if (!data || data === '[DONE]') return
+        let invoked = false
         try {
           const json = JSON.parse(data) as Record<string, unknown>
           if (json?.type !== 'tool-delegate') return
           if (typeof json.session_id !== 'string' || typeof json.tool_call_id !== 'string') return
+          invoked = true
           await opts.onToolDelegate!({
             session_id: json.session_id,
             tool_call_id: json.tool_call_id,
@@ -2639,8 +2641,18 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             iteration: typeof json.iteration === 'number' ? json.iteration : 0,
             type: 'tool-delegate',
           })
-        } catch {
-          /* 非 JSON 或非 tool-delegate 事件忽略;工具执行错误已通过 postToolResult 回传 */
+        } catch (err) {
+          // 原语义保留:**没被识别成本帧**(非 JSON / 缺字段)一律静默跳过,不中断读流。
+          // 但"回调已经跑起来了"再抛,就是**回传没送达** —— 后端协程还在等,静默咽掉等于
+          // 让整轮工具链默默等到超时(§5e「失败必须响」同一条禁令;2026-08-06 那句
+          // "抛错让调用方重试"在这一层从来没有出口,调用方拿不到任何信号)。
+          // 处置:不中断流(与既有设计一致),但必须喊出来,且喊的内容要能定位是哪一轮。
+          if (invoked) {
+            console.error(
+              '[streamChat] tool-delegate 回传未送达(后端将等到超时):',
+              err instanceof Error ? err.message : err,
+            )
+          }
         }
       }
 
@@ -3575,6 +3587,29 @@ function toWireError(error: string | null): string | null {
   return parts.join(' <- ')
 }
 
+/**
+ * 直连 ai-service 的三个上行应答端点**共用的**"这一趟到底被接受了没有"判据(唯一实现):
+ * `tool-result` / `approval-response` / `form-response` 对"会话不存在或已过期""条目不存在"
+ * 回的都是 **HTTP 200 + `{ok:false,error:…}`**(见 `apps/ai-service/app/routers/llm.py`
+ * 里各端点头两个 `return {"ok": False, …}`)。只看 `resp.ok` 会把"没送达"读成"已送达"——
+ * 三处的下游后果完全同形:等待方(工具协程 / 审批协程 / 表单协程)一直等到超时,
+ * 而界面上没有任何一条失败可看(与守门 134「改了 0 行也回成功」同一条病)。
+ *
+ * 包体不可解析(JSON 之外,如网关截出的 HTML 错误页)**也按未接受处理**:
+ * 读不出"被接受"就不是被接受 —— 把"判不出"写成"成功了"是本仓最高频的失效型。
+ */
+async function assertAiServiceAccepted(resp: Response, context: string): Promise<void> {
+  let body: { ok?: boolean; error?: string } | null = null
+  try {
+    body = (await resp.json()) as { ok?: boolean; error?: string }
+  } catch {
+    body = null
+  }
+  if (!body || body.ok !== true) {
+    throw new Error(`${context} not accepted: ${body?.error ?? '响应体不是可判定的 JSON'}`)
+  }
+}
+
 export async function postToolResult(
   sessionId: string,
   toolCallId: string,
@@ -3611,6 +3646,7 @@ export async function postToolResult(
       `postToolResult failed: HTTP ${resp.status} (session=${sessionId}, tool=${toolCallId})${detail ? `: ${detail}` : ''}`,
     )
   }
+  await assertAiServiceAccepted(resp, `postToolResult (session=${sessionId}, tool=${toolCallId})`)
 }
 
 /**
@@ -3664,22 +3700,13 @@ export async function postToolApprovalResponse(input: {
       `postToolApprovalResponse failed: HTTP ${resp.status} (session=${input.sessionId}, approval=${input.approvalId})${detail ? `: ${detail}` : ''}`,
     )
   }
-  // 接受与否**必须读包体**:该端点对"会话不存在/已过期"与"审批条目不存在"回的都是
-  // HTTP 200 + `{ok:false,error:…}`(`apps/ai-service/app/routers/llm.py` 的
-  // `post_tool_approval_response` 前两个 return)。只看 `resp.ok` 会把它读成"已送达"——
-  // 调用方(扩展侧栏 / web 对话框)据此收起横幅,而后端要等满 `_APPROVAL_TIMEOUT` 才按
-  // "未批准"收尾:用户点了「允许」,AI 那边永远等超时。
-  let accepted: { ok?: boolean; error?: string } | null = null
-  try {
-    accepted = (await resp.json()) as { ok?: boolean; error?: string }
-  } catch {
-    accepted = null
-  }
-  if (!accepted || accepted.ok !== true) {
-    throw new Error(
-      `postToolApprovalResponse not accepted: ${accepted?.error ?? '响应体不是可判定的 JSON'} (session=${input.sessionId}, approval=${input.approvalId})`,
-    )
-  }
+  // 接受与否**必须读包体**:200 + `{ok:false}` 的语义是"会话/条目不存在"(判据只有一份,
+  // 见 `assertAiServiceAccepted`)。只看 `resp.ok` 会让调用方(扩展侧栏 resolveApproval、
+  // web 的 ToolApprovalDialog)收起横幅,而后端等满 `_APPROVAL_TIMEOUT` 才按"未批准"收尾。
+  await assertAiServiceAccepted(
+    resp,
+    `postToolApprovalResponse (session=${input.sessionId}, approval=${input.approvalId})`,
+  )
 }
 
 /**
@@ -3759,5 +3786,11 @@ export async function postFormResponse(sessionId: string, event: FormResponseEve
       `postFormResponse failed: HTTP ${resp.status} (session=${sessionId}, request=${event.requestId})${detail ? `: ${detail}` : ''}`,
     )
   }
+  // 同族第三条上行通道:表单端点的"会话/待决项不存在"也是 200 + {ok:false}
+  // (`llm.py` 的 `post_form_response` 与 `_form_settle_rejected`),判据共用 `assertAiServiceAccepted`。
+  await assertAiServiceAccepted(
+    resp,
+    `postFormResponse (session=${sessionId}, request=${event.requestId})`,
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
