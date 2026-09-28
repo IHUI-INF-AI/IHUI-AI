@@ -321,7 +321,7 @@ export function FileMentionPopover({
       align="start"
       gap={8}
       testId="file-mention-popover"
-      className="flex w-72 flex-col overflow-hidden rounded-md border border-border bg-popover shadow-md"
+      className="flex w-72 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-md"
     >
       <div
         className="flex flex-wrap gap-1 p-1.5 pb-0"
@@ -401,7 +401,7 @@ export function FileMentionPopover({
                     onClick={() => pick(item)}
                     onMouseEnter={() => setActiveIndex(idx)}
                     className={cn(
-                      'relative flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors',
+                      'relative flex w-full items-start gap-2.5 rounded-sm px-2.5 py-1.5 text-left transition-colors',
                       isActive
                         ? 'bg-accent text-accent-foreground'
                         : 'text-foreground hover:bg-accent/50',

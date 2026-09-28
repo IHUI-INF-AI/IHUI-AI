@@ -246,7 +246,7 @@ export function ArtifactTurnBadge({ turn, messageId, className }: ArtifactTurnBa
       aria-label={t('jumpToOrigin')}
       onClick={() => jumpToMessageOrigin(messageId)}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+        'inline-flex shrink-0 items-center gap-1 rounded-sm border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
         className,
       )}
     >
@@ -332,7 +332,7 @@ export function ArtifactTurnNav({ count, activeIndex, onChangeIndex }: ArtifactT
         aria-label={t('stepBack')}
         disabled={!canBack}
         onClick={stepBack}
-        className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
       >
         <ChevronLeft className="h-3.5 w-3.5" />
       </button>
@@ -348,7 +348,7 @@ export function ArtifactTurnNav({ count, activeIndex, onChangeIndex }: ArtifactT
         aria-label={t('stepForward')}
         disabled={!canForward}
         onClick={stepForward}
-        className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
       >
         <ChevronRight className="h-3.5 w-3.5" />
       </button>

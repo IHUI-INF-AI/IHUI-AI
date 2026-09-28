@@ -518,7 +518,7 @@ export function InlineDiffCard({
               type="button"
               onClick={onApply}
               disabled={isApplying}
-              className="inline-flex items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-sm bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isApplying ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -531,7 +531,7 @@ export function InlineDiffCard({
               type="button"
               onClick={onReject}
               disabled={isApplying}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             >
               <X className="h-3.5 w-3.5" />
               <span>Reject</span>
@@ -545,7 +545,7 @@ export function InlineDiffCard({
             onClick={() =>
               setCommentTarget((prev) => (prev && prev.line === undefined ? null : {}))
             }
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
             data-testid="diff-comment-file-action"
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
@@ -558,7 +558,7 @@ export function InlineDiffCard({
             type="button"
             onClick={handleCopyGitApply}
             disabled={!filePatch}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             data-testid="inline-diff-copy-apply"
           >
             <Copy className="h-3.5 w-3.5" />

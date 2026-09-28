@@ -181,7 +181,7 @@ export default function VoiceSttPage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 py-10 text-center transition-colors hover:border-primary/50 hover:bg-accent"
+              className="flex w-full flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed border-muted-foreground/30 py-10 text-center transition-colors hover:border-primary/50 hover:bg-accent"
             >
               <Upload className="h-8 w-8 text-muted-foreground" />
               <span className="text-sm font-medium">{t('selectFile')}</span>

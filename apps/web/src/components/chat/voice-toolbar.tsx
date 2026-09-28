@@ -267,7 +267,7 @@ export function VoiceToolbar({ onTranscript, disabled }: VoiceToolbarProps) {
             aria-expanded={menuOpen}
             data-testid="voice-toolbar-main"
             className={cn(
-              'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+              'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors',
               recording
                 ? 'bg-red-500 text-white hover:bg-red-500/90'
                 : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',

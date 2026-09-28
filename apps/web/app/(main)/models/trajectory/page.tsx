@@ -377,7 +377,7 @@ export default function TrajectoryPage() {
             value={search}
             onChange={handleSearch}
             placeholder={t('trajectory.searchPlaceholder')}
-            className="h-9 w-full rounded-lg border border-border/60 bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30"
+            className="h-9 w-full rounded-sm border border-border/60 bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30"
           />
         </div>
 

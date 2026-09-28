@@ -122,7 +122,7 @@ export default function MemberFeedbackPage() {
             key={v}
             onClick={() => setTab(v)}
             className={cn(
-              'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              'flex-1 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
               tab === v
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',

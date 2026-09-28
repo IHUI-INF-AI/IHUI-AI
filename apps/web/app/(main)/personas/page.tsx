@@ -243,7 +243,7 @@ export default function PersonasPage() {
                   type="button"
                   onClick={() => handleToggle(p.name)}
                   aria-expanded={isSelected}
-                  className="block w-full rounded-lg text-left"
+                  className="block w-full rounded-sm text-left"
                 >
                   <CardContent className="min-[640px]:p-3 p-3">
                     <div className="flex items-center justify-between gap-2">
