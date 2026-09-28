@@ -398,6 +398,13 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'MULTIPLE_MATCHES.action',
     category: 'invalidResponse',
   },
+  NEEDS_INPUT_TIMEOUT: {
+    titleKey: 'NEEDS_INPUT_TIMEOUT.title',
+    actionKey: 'NEEDS_INPUT_TIMEOUT.action',
+    // 与 DELEGATE_TIMEOUT 同档:失败原因是"等待某一方在时限内没有回应",不是命令本身报错
+    // (后者走 runtimeException)。分类复用 D92 的 15 类主干,不得为这一码另起一类。
+    category: 'backendTimeout',
+  },
   NESTING_DEPTH_EXCEEDED: {
     titleKey: 'NESTING_DEPTH_EXCEEDED.title',
     actionKey: 'NESTING_DEPTH_EXCEEDED.action',
