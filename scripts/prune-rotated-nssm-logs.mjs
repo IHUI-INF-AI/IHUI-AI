@@ -35,12 +35,12 @@
  *     §26 记过"递归删除顺着 junction 把 D 盘真实目标清空"的事故)。
  */
 import { readdirSync, statSync, lstatSync, rmSync } from 'node:fs'
-import { join, resolve, dirname } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+// §15b 外置根唯一出口:盘根由它推导,本文件不再自己截盘符首字符。
+import { devEnvRoot } from './seal-c-root-stray.mjs'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
-const WORKTREE_DRIVE = resolve(HERE, '..').slice(0, 1).toUpperCase()
-const LOGS_DIR = join(`${WORKTREE_DRIVE}:\\`, 'DevEnv', 'logs')
+const LOGS_DIR = join(devEnvRoot(), 'logs')
 
 // 流段可选:带 `-err-`/`-out-` 的是分双流配置,不带的是 stdout/stderr 合写一份文件的配置。
 // 时间戳仍是必需的那一格 —— 它才是"已轮转"的唯一凭据,活文件名里没有它。
