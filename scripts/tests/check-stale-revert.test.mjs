@@ -63,7 +63,7 @@ function stageAncestorContent(dir, run, rel, v1, v2) {
   run('add', '--', rel)
 }
 
-test('乘数级路径的识别:门的注册表 / 门自身 / 钩子 / 清单 / 工作流,普通源码不算', () => {
+test('乘数级路径的识别:门的注册表 / 门自身 / 钩子 / 清单 / 工作流 / 三本活文档,普通源码不算', () => {
   const yes = [
     'scripts/guardian-runner.mjs',
     'scripts/check-stale-revert.mjs',
@@ -73,11 +73,76 @@ test('乘数级路径的识别:门的注册表 / 门自身 / 钩子 / 清单 / �
     'package.json',
     'pnpm-lock.yaml',
     '.github/workflows/ci.yml',
+    // 三本活文档(2026-09-29 收进射程;正向证明按门 120 的规矩必须"输入取自名单本身")
+    'PROJECT_PLAN.md',
+    'AGENTS.md',
+    'README.md',
   ]
   for (const p of yes) assert.ok(G.isMultiplierPath(p), `${p} 必须算乘数级`)
-  for (const p of ['apps/web/src/app/page.tsx', 'packages/shared/src/chat/index.ts', 'README.md', 'docs/x.md'])
-    assert.ok(!G.isMultiplierPath(p), `${p} 不该被当乘数级(会把护栏撑爆)`)
+  for (const p of ['apps/web/src/app/page.tsx', 'packages/shared/src/chat/index.ts', 'docs/x.md'])
+    assert.ok(!G.isMultiplierPath(p), `${p} 不该被当乘数级`)
   assert.ok(G.isMultiplierPath('scripts\\guardian-runner.mjs'), 'Windows 反斜杠形态必须同样认得')
+  assert.ok(G.isMultiplierPath('PROJECT_PLAN.md'.replace(/\//g, '/')), '台账形态必须认得(名本身即仓库根相对路径)')
+})
+
+/**
+ * 反向对照(这条才是本次扩容的意义所在):护栏**只**收普通文件,乘数级恒照判。
+ * 旧口径把 `README.md` 当普通文件 ⇒ 一次 ≥301 个普通文件的暂存集会同时躲过 R1 与 R1r,
+ * 台账被整本写回旧版时**退出码 0、不点名**。这里用同一把尺子跑两个臂:
+ *  A 臂 = 311 个普通文件 + 一份"等于祖先版本"的台账 ⇒ 必须仍点名 PROJECT_PLAN.md;
+ *  B 臂 = 只暂存那份台账 ⇒ 同样点名(证明 A 臂不是因为"文件少才判得到")。
+ */
+test('护栏短路时三本活文档仍被点名(旧口径下这一格无人看守)', () => {
+  const { dir, run } = repo()
+  try {
+    stageAncestorContent(dir, run, 'PROJECT_PLAN.md', '- [ ] D9 旧形态\n', '- [x] ✅(2026-01-01) D9 新形态\n')
+    pad(dir, run, G.MAX_FILES + 20, 'junk\n')
+    const r = G.audit(dir, { staged: true })
+    assert.equal(
+      r.code,
+      1,
+      `台账被写回旧版时,一次 ≥${G.MAX_FILES + 1} 个普通文件的暂存集**不得**把它洗成绿(实际 exit ${r.code})`,
+    )
+    assert.ok(
+      r.lines.some((l) => l.includes('PROJECT_PLAN.md')),
+      `必须点名 PROJECT_PLAN.md,实际结论行:${r.lines.slice(-4).join(' | ')}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * 祖先窗口 lazify 的**错位**自证(本次改动的真实风险不在"少判",而在"多判"):
+ * 新写法把 specs 拆成两批取,配对靠 `pre += 2` 手工推进 —— 一旦错位,`cur` 会读到
+ * 别的文件的 oid,于是"与 HEAD 一致"的文件被判成回写(假红),或反之(假绿)。
+ * 这里放三份:一份等于 HEAD、一份等于祖先、一份是真新内容 ⇒ 只许中间那份被点名。
+ */
+test('lazify 之后不得错位:等于 HEAD 的文件必须一个都不点名,等于祖先的那份必须点名', () => {
+  const { dir, run } = repo()
+  try {
+    const v1 = 'export const a = 1\n'
+    const v2 = 'export const a = 2\nexport const b = 3\n'
+    // 三份**同一批**建 v1 → v2 → HEAD,避免逐份建时 `add -A` 把别份的在途形态烘进提交(第一版
+    // 就是踩了这个:第二份的"回写"被顺手 commit 成了 HEAD,于是"等于 HEAD"的断言对着旧内容判)。
+    for (const f of ['a', 'b', 'c']) put(dir, `scripts/check-${f}.mjs`, v1)
+    run('add', '-A')
+    run('commit', '-qm', 'v1')
+    for (const f of ['a', 'b', 'c']) put(dir, `scripts/check-${f}.mjs`, v2)
+    run('add', '-A')
+    run('commit', '-qm', 'v2')
+    // a 留 HEAD 形态;b 写回 v1(真回写);c 写成既不等于 HEAD 也不等于任何祖先的新内容
+    put(dir, 'scripts/check-b.mjs', v1)
+    put(dir, 'scripts/check-c.mjs', 'export const a = 99\nexport const z = 1\n')
+    run('add', '--', 'scripts/check-b.mjs', 'scripts/check-c.mjs')
+    const r = G.audit(dir, { staged: true })
+    assert.equal(r.code, 1, `b 的回写必须拦(实际 exit ${r.code})`)
+    assert.ok(r.lines.some((l) => l.includes('scripts/check-b.mjs')), `必须点名 b:${r.lines.slice(-4).join(' | ')}`)
+    assert.ok(!r.lines.some((l) => l.includes('scripts/check-a.mjs')), 'a 与 HEAD 逐字相同,不得被点名')
+    assert.ok(!r.lines.some((l) => l.includes('scripts/check-c.mjs')), 'c 是真新内容,不得被点名')
+  } finally {
+    rmScratch(dir)
+  }
 })
 
 test('端到端:暂存集顶过上限时,乘数级回写仍必须判红(护栏不得把尺子一起改短)', () => {
