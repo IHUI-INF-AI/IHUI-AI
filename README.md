@@ -2880,7 +2880,7 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 **同日三批清理合计移除 4662 行零引用死代码**(一批 9 屏 3078 + 二批 PayButton/TabBar/Toolbar 与端内孤儿 PayButton 953 + 三批 Carousel/NavBar/UserInfoCard 631),适配层降至 **3 个且全部已接线**,第 64 项基线清零为**零豁免硬门**。三批的判据是一条可复用教训:**同名 + 有消费点都不构成"重复",必须逐字段比 props 契约**——`Carousel` 端内独有的 `variant='course'` + `courseMeta`、`NavBar` 端内独有的 `notification` / `variant='ai-home'`,接适配器上去就是静默掉功能。
 
 ### 守门执行语义(2026-09-22 起:跑完再汇总)
-### 台账排空的两把只读尺子(2026-09-28 立,配 §1「完成即归档」)
+### 台账排空的三把只读尺子(两把诊断 + 一把出口)(2026-09-28 立,配 §1「完成即归档」)
 
 把"已完成任务为什么搬不走、搬走之后谁在替它隐形"变成机器可查的清单,而不是人读日志。两条都**只读、只报数、不改一行、不判红**:
 
