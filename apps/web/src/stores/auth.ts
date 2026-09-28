@@ -18,6 +18,7 @@ import {
   getDesktopRefreshToken,
   setDesktopRefreshToken,
 } from '@/lib/desktop-token-vault'
+import { clearSessionLoggedOutMarker, markSessionLoggedOut } from '@/lib/session-marker'
 import { createPersistConfig, ssrStorage } from './persist-helpers'
 import { createAuthPersistStorage } from '@/lib/chat-persist-crypto'
 import type { PersistStorage } from 'zustand/middleware'
@@ -60,6 +61,12 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       user: null,
       setToken: (token, refreshOrPair) => {
+        // 登出标记与凭据同源同步(判据住在 @ihui/shared/auth/auto-login-policy,这里只落盘):
+        // 写入非空 token = 新一轮会话开始 ⇒ 标记作废;写入 null = 凭据被清(登出 / 会话失效)
+        // ⇒ 标记先落盘。与 RN `lib/token.ts` 的 `sessionLoggedOut = token === null` 同形,
+        // 否则"用户刚退出"这件事只活在这次内存里,冷启动照样会静默登回去。
+        if (token) clearSessionLoggedOutMarker()
+        else markSessionLoggedOut()
         // P2-18 修复(2026-08-06):setAuthCookie/setRefreshTokenCookie 已改为空操作,
         // cookie 由后端 httpOnly Set-Cookie 管理,此处不再实际写 cookie。
         setAuthCookie(token)
@@ -93,6 +100,8 @@ export const useAuthStore = create<AuthState>()(
         syncDesktopRefreshToken(refreshOrPair.refreshToken ?? null)
       },
       setTokenWithPrefs: (token, refreshOrPair, autoLogin) => {
+        // 登录成功写入凭据 ⇒ 登出标记作废(否则用户下次正常登录又被判成"刚登出")
+        clearSessionLoggedOutMarker()
         const refreshToken =
           typeof refreshOrPair === 'string' ? refreshOrPair : refreshOrPair.refreshToken
         const expiresIn =
@@ -115,6 +124,11 @@ export const useAuthStore = create<AuthState>()(
       },
       setUser: (user) => set({ user }),
       logout: () => {
+        // 标记先于凭据处置落盘(失效方向见 lib/session-marker.ts 头注):
+        // httpOnly refresh cookie 由后端管理,而 refreshToken 不落 localStorage ——
+        // 刷新页面后再登出时 rt 取不到 ⇒ 不调 /auth/logout ⇒ 服务端那份 cookie 仍有效,
+        // 冷启动的静默刷新就会把刚点过退出的用户登回去。这条持久标记是客户端唯一的出口。
+        markSessionLoggedOut()
         const { refreshToken } = get()
         // P2-18:httpOnly cookie 由后端管理,登出必须调后端接口(响应清 cookie);
         // 内存有 refreshToken 时携带 body 吊销,后端同时 clearAuthCookies。
