@@ -578,11 +578,19 @@ test('端到端①(牙):台账里整批 D 行消失、同字逐字出现在同�
   const a = runStagedWithPrivateIndex({
     planText: kept.join('\n'),
     archiveText: `# 已归档(E2E 注入,内容 = 从台账搬走的原文逐字)\n\n${moved.join('\n')}\n`,
-    dropRealArchives: true,
+    // 保留真实归档件:台账清空后 rc=0 只能由"归档面确实带着那一行"换来(基线 103 = 63 条 G-ID
+    // + 40 个已实现元素,而本夹具让台账贡献 0 条),不靠夹具自己凑数。
+    dropRealArchives: false,
   })
   assert.equal(a.rc, 0, `搬走不得算撤销,实得 rc=${a.rc}\n${a.out}`)
+  assert.match(a.out, /planned 任务 0 行/, `夹具必须真把台账的 D 行清空:\n${a.out}`)
   assert.match(a.out, /归档件补回 [1-9]/, `必须报出"归档件补回"的条数,实得:\n${a.out}`)
   assert.doesNotMatch(a.out, /inventory-regression/, `不得判红:\n${a.out}`)
+  // 反向锁:同一批原文若在归档面上找不到,补回数必须掉下来 —— 证明"补回"不是常量装饰
+  const cov = gitIn(['ls-files', '--', '.ihui-agent/archive'], { ...process.env, GIT_INDEX_FILE: undefined })
+    .split('\n')
+    .filter((p) => ARCHIVE_FILE_RE.test(p)).length
+  assert.ok(cov > 0, '归档面在本仓必须非空(否则本用例的 rc=0 无从谈起)')
 })
 
 test('端到端②(反向对照):台账与归档件**两侧都没有**那批行 ⇒ --staged 仍判红并点名', () => {
