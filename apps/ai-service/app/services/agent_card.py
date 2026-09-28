@@ -106,24 +106,35 @@ def registered_tool_names() -> frozenset[str]:
     return frozenset(tool.name for tool in _TOOLS)
 
 
-def _scope_meta_index(path: Path) -> dict[str, dict[str, Any]]:
+def _scope_meta_index(path: Path) -> tuple[dict[str, dict[str, Any]], bool]:
     """从能力清单原文按 scope 建索引(只取展示字段 domain/description)。
 
     `capability_gate.CapabilityManifest` 有意不保留 description/domain(门禁不需要),
     而 AgentSkill.description 是必填项且**必须**来自清单原文(不得自造文案),
-    故此处单独读一次同一文件;任何读取失败一律返回空表(降级为不虚报)。
+    故此处单独读一次同一文件。
+
+    G-702(2026-09-29):返回 (索引, read_ok) 把两种"空"分开,取代旧口径
+    "任何读取失败都折叠成空表返回"——
+    - ({}, False) ⇒ **读不到**(文件缺失 / IO 异常 / 非 JSON / 结构不像清单):
+      瞬时故障,不具权威性,调用方须按"读失败"记录并降级;
+    - ({}, True)  ⇒ 读到了、但该清单确实没有 capability 条目:**权威的空**。
+    两者呈现层都走 scope 派生兜底文案(不虚报),但日志与返回值不得把前者洗成后者。
     """
     try:
         raw: object = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError, UnicodeDecodeError) as e:
-        logger.warning("[agent_card] 能力清单原文读取失败(%s): %s", path, type(e).__name__)
-        return {}
+        logger.warning(
+            "[agent_card] 能力清单原文读取失败(%s): %s —— 判'读不到',不判'无元数据'",
+            path,
+            type(e).__name__,
+        )
+        return {}, False
     if not isinstance(raw, dict):
-        return {}
+        return {}, False
     data: dict[str, Any] = dict(raw)
     entries = data.get("capabilities")
     if not isinstance(entries, list):
-        return {}
+        return {}, False
     index: dict[str, dict[str, Any]] = {}
     for entry in entries:
         if not isinstance(entry, dict):
@@ -132,7 +143,7 @@ def _scope_meta_index(path: Path) -> dict[str, dict[str, Any]]:
         scope = item.get("scope")
         if isinstance(scope, str) and scope:
             index.setdefault(scope, item)
-    return index
+    return index, True
 
 
 def _is_advertisable(scope: str, data_class: str, third_party_eligible: bool) -> bool:
@@ -163,7 +174,14 @@ def build_skills(
         return []
     if tool_names is None:
         tool_names = registered_tool_names()
-    meta_index = _scope_meta_index(manifest_file())
+    meta_index, meta_ok = _scope_meta_index(manifest_file())
+    if not meta_ok:
+        # G-702:两态分开喊 —— "读不到"是瞬时故障,"权威的空"是清单事实,不得混写。
+        # 呈现层仍走 scope 派生兜底 description(不虚报),但这条 WARNING 说明它**不是**
+        # 因为"清单没有元数据"。
+        logger.warning(
+            "[agent_card] scope 元数据未读到(读失败)——description 走派生兜底文案"
+        )
 
     skills: list[dict[str, Any]] = []
     for scope in sorted(manifest.scope_meta):
