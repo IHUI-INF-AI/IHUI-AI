@@ -75,6 +75,11 @@ import { fileURLToPath } from 'node:url'
 import { catBatch, FACE_LABEL, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 // 取证夹具唯一落点(§26:既不得往 os.tmpdir() 写,也不得落在仓库树内)
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// G-307(看守侧):归并器合法翻勾会在行上留注记 —— legacy 形态把注记**前置**在正文之前,
+// 于是"剥掉复选框与状态装饰后编号落在正文开头"这一判活路径看不见被翻勾的那一行,
+// 防丢层把合法改写读成"整行消失"⇒ 回捞未勾原行 ⇒ F1 再红 ⇒ 再翻勾……(两小时 24 枚恢复型提交)。
+// 剥注记的实现与生产者共用一份(scripts/lib/plan-merge-annotation.mjs,§22c 同一条纪律)。
+import { stripForkPrefix } from './lib/plan-merge-annotation.mjs'
 
 const GIT_TIMEOUT = 60000
 const GIT = process.env.IHUI_GIT_BIN || 'git'
@@ -133,7 +138,10 @@ function checkboxBody(line) {
     if (!deco || !deco[0]) break
     body = body.slice(deco[0].length)
   }
-  return body
+  // G-307(看守侧修法 b):归并器 legacy 前置注记只在这里被剥掉 —— 剥完仍要求**编号在正文开头**,
+  // 所以"整段登记被删、只在别处留一句 `**[归并]** …` 引用"依旧不成立(那句引用的"正文"里没有
+  // 行首编号,headIdOf 照旧给 null)。识别的是生产者那一句固定形状,不是"任意带注记的行"。
+  return stripForkPrefix(body)
 }
 
 /**
@@ -1329,6 +1337,45 @@ function selfTest() {
       lost[0].marker === 'O13b 第二段' &&
       lostMarkers(b, reworded).length === 0 &&
       lostMarkers(b, done).length === 0
+    )
+  })
+  t('G-307(b):剥注记识别不得把"只剩注记、正文被截掉"或"整行被删"洗成存活(反洗白成对档)', () => {
+    const base =
+      '- [ ] G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。'
+    // ① 注记在位、正文没了 ⇒ 剥完行首没有编号 ⇒ 仍判丢(识别的是形状,不是"见过 [归并] 二字")
+    const husk = lostMarkers(
+      base,
+      '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-256 · 一条」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。',
+    )
+    // ② 整行被删,另一条同族登记行在正文中段提到该编号 ⇒ 带 id 的条目只认行首,必须仍判丢
+    const moved = lostMarkers(
+      base,
+      '- [ ] G-307 一条待办:细节见别处,本行只顺带提到 G-256 一条 的旧登记,不含它的行首形态。',
+    )
+    return husk.length === 1 && husk[0].id === 'G-256' && moved.length === 1
+  })
+  t('G-307(b):归并器两代翻勾注记都必须算"该行仍登记"(看守不得与生产者互咬)', () => {
+    const base =
+      '- [ ] G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。'
+    // legacy 前置式(2026-09-26..27 归并器产出、HEAD 存量):注记在前、正文逐字在后
+    const legacy =
+      '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-256 · 一条」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。'
+    // 现行后置式(G-307 修法 a):正文留在行首,注记追加行尾 —— head-id 天然命中,不经剥取也应活
+    const suffixed =
+      '- [x] ✅(2026-09-28) G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。 （[归并] 本行与已完成登记同题(主键 「G-256 · 一条」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）'
+    return (
+      lostMarkers(base, legacy).length === 0 &&
+      lostMarkers(base, suffixed).length === 0 &&
+      // 反向对照 ①:整行真删,只剩一句带同样编号的散文引用 ⇒ 必须仍判丢(剥注记不得洗白丢失)
+      lostMarkers(
+        base,
+        '- 说明:曾登记过 G-256 一条**环境相关红**,后来处理情况见别处,这里只是转述不是登记行。',
+      ).length === 1 &&
+      // 反向对照 ②:注记还在、正文被截掉 ⇒ 剥完行首没有编号,必须仍判丢
+      lostMarkers(
+        base,
+        '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-256 · 一条」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。',
+      ).length === 1
     )
   })
   t('healContent 走同一判据:编号仍是行首就不重复插,编号消失才回捞', () => {
