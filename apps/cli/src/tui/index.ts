@@ -18,4 +18,18 @@ export {
 export { readImageFromPath, readImageFromClipboard, type ImageInput, type ImageReadResult } from './image-input.js';
 export { enhancePrompt, enhanceWithImage, type EnhancedPrompt } from './prompt-enhancer.js';
 export { buildModePrompt, buildModeBanner, buildModeHistory } from './prompt-builder.js';
+/**
+ * 全屏终端界面(alt-screen)—— 纯函数层 + 唯一 IO 层,详见 `./fullscreen/index.ts`。
+ * 与上面几件的分工:上面是"行模式下的增强件",下面是"整屏由我们画"的那条路。
+ */
+export {
+  computeBoxes,
+  decideFullscreenCapability,
+  runFullScreenSession,
+  snapshotFrame,
+  type ConversationHost,
+  type FullScreenTerminal,
+  type RegionBoxes,
+  type Size,
+} from './fullscreen/index.js';
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
