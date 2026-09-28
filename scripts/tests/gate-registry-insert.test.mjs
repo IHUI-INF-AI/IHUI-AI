@@ -10,10 +10,16 @@
 //  + 锚点缺失/多处 ⇒ 拒绝凭猜插;结构等值零损失判据(禁止重复行计数)由拼接断言钉住;
 //  + 写盘前 node --check 自证语法(注册表坏了 = 整条 pre-commit 中止,守门 89 R8 记过同型崩点);
 //  + 端到端 happy:落地 + 回读单引号 id 行在位 + stdout 末行只打新 id。
+//  2026-09-27 追加(GATE_MODE 缺口,三条方向成对 + 一条源码反向锁):
+//  (a) T11 带 GATE_MODE=warn ⇒ 落地条目定级真是 warn(缺省档对照同批跑,证明不是"一律读成 warn");
+//  (b) T12 不带 GATE_MODE ⇒ 整块与**改动前原文逐字同形**(期望值是手写字面块,不借 buildEntry 自证);
+//  (c) T13 值域外 ⇒ exit 1 + 点名收到的值与值域 + 注册表/HEAD 分毫未动;空串在纯函数层钉
+//      (CLI 传空串在 Windows 上可能等于"未设",拿它当端到端判据会测出一个假绿);
+//  + T14 源码级反向锁:mode 行不得再是写死的字面量,且值域 {blocking, warn} 全仓只许写在一处。
 // git 写操作只发生在 scratch-dir 临时仓内(§26 唯一夹具落点)。
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -95,6 +101,10 @@ function runGate(dir, extra = {}) {
   for (const k of ['GATE_LABEL', 'GATE_SCRIPT', 'GATE_SKIP_ENV', 'GATE_TRIGGERS', 'GATE_HINT']) {
     if (extra[k] === null) delete env[k]
   }
+  // 定级必须由用例**显式**给:先无条件删掉从父进程继承来的 GATE_MODE —— 否则"未设"这一档
+  // (T12 = 既有行为逐字不变的证明)会被某一次恰好设了该 env 的外层会话读成 warn 档。
+  delete env.GATE_MODE
+  if (typeof extra.GATE_MODE === 'string') env.GATE_MODE = extra.GATE_MODE
   if (extra.triggers) env.GATE_TRIGGERS = extra.triggers
   if (extra.hint) env.GATE_HINT = extra.hint
   return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
@@ -240,4 +250,117 @@ test('T10 同一道门不得注册两次:script 已在表里 ⇒ exit 1 并点�
     norm(runGit(dir, ['show', 'HEAD:scripts/guardian-runner.mjs'])),
     /script: 'check-brand-new-gate\.mjs',/,
   )
+})
+
+/**
+ * 落地块里"该条目自己的定级行"的定位:runner 的字段顺序固定是 script → args → mode → skipEnv,
+ * 所以从 script 行往下两行就是这一条目的 mode 行。夹具里另有别人的 blocking 块 ⇒ 只认这一条。
+ */
+function landedModeLine(dir, script) {
+  const now = norm(git(['show', 'HEAD:scripts/guardian-runner.mjs'], { root: dir, raw: true })).split('\n')
+  const at = now.findIndex((l) => l.trim() === `script: '${script}',`)
+  assert.ok(at >= 0, `落地内容里找不到该条目的 script 行(${script})`)
+  assert.equal(now[at + 1], '    args: [],', '字段顺序漂了(本判据依赖 script→args→mode→skipEnv)')
+  const m = /^\s{4}mode: '([^']*)',$/.exec(now[at + 2] ?? '')
+  assert.ok(m, `mode 行形态不是 4 空格 + 单引号:${JSON.stringify(now[at + 2])}`)
+  return { mode: m[1], skipEnvLine: now[at + 3], lines: now }
+}
+
+test('T11 (a) GATE_MODE=warn ⇒ 落地条目 mode: warn,skipEnv 与非单引号 id 反查照旧成立', (t) => {
+  const dir = makeRunnerRepo(t, runnerFixture())
+  const r = runGate(dir, { GATE_MODE: 'warn', msg: 'feat(gates): warn 档落地' })
+  assert.equal(r.status, 0, `warn 档必须能落地(这正是本票要的出口):${r.stdout}|${r.stderr}`)
+  const got = landedModeLine(dir, 'check-e2e-gate.mjs')
+  assert.equal(got.mode, 'warn', '所选定级必须原样落进注册块')
+  assert.ok(__test__.GATE_MODES.includes(got.mode), '落地值必须落在同一份值域里(不得在测试里另抄 {blocking,warn})')
+  assert.equal(got.skipEnvLine, "    skipEnv: 'HUSKY_SKIP_E2E_GATE',", 'skipEnv 仍非空且仍是单引号形态')
+  const now = got.lines.join('\n')
+  assert.equal(now.split('\n').filter((l) => l === "    id: '24',").length, 1, 'id 仍必须是单引号形态且在位 1 处')
+  assert.equal(
+    now.split('\n').filter((l) => l.includes('id: "')).length,
+    0,
+    'warn 档不得顺手产出双引号 id',
+  )
+  // 阳性对照:同一支夹具不带 GATE_MODE 时仍是 blocking ⇒ 本用例的红不是"任何条目都读成 warn"
+  const dir2 = makeRunnerRepo(t, runnerFixture())
+  const r2 = runGate(dir2, { script: 'check-e2e-gate2.mjs', msg: 'feat(gates): 缺省档对照' })
+  assert.equal(r2.status, 0, `${r2.stdout}|${r2.stderr}`)
+  assert.equal(landedModeLine(dir2, 'check-e2e-gate2.mjs').mode, 'blocking', '缺省档对照必须是 blocking')
+})
+
+test('T12 (b) 不带 GATE_MODE ⇒ 产物与改动前逐字同形(整块按字面预期比对,不借实现自证)', (t) => {
+  // 这一段是**改动前**该工具对同一组 env 产出的原文(手写期望值,刻意不调 buildEntry —— 用实现验实现就是恒绿断言)
+  const EXPECTED_BLOCK_BEFORE_CHANGE = [
+    '  // --- 测试门(1 项,blocking)---',
+    '  {',
+    "    id: '24',",
+    '    label:',
+    "      '🧪 测试门(样例)',",
+    "    script: 'check-e2e-gate.mjs',",
+    '    args: [],',
+    "    mode: 'blocking',",
+    "    skipEnv: 'HUSKY_SKIP_E2E_GATE',",
+    '    stagedTriggers: [],',
+    '    onFailHint: [',
+    "      '',",
+    "      '',",
+    "    ].join('\\n'),",
+    '  },',
+    '',
+  ].join('\n')
+  const dir = makeRunnerRepo(t, runnerFixture())
+  const r = runGate(dir, {})
+  assert.equal(r.status, 0, `${r.stdout}|${r.stderr}`)
+  const now = norm(git(['show', 'HEAD:scripts/guardian-runner.mjs'], { root: dir, raw: true }))
+  assert.ok(now.includes(EXPECTED_BLOCK_BEFORE_CHANGE), '缺省档整块必须与改动前逐字同形(比对方式=字面块 includes)')
+  // 纯函数层再钉一次:mode 形参的默认值 == DEFAULT_GATE_MODE,传与不传逐字等值
+  const args = { id: '24', section: '测试门', label: '🧪 测试门(样例)', script: 'check-e2e-gate.mjs', skipEnv: 'HUSKY_SKIP_E2E_GATE' }
+  assert.deepEqual(
+    __test__.buildEntry(args),
+    __test__.buildEntry({ ...args, mode: __test__.DEFAULT_GATE_MODE }),
+    'buildEntry 缺省定级必须等于 DEFAULT_GATE_MODE',
+  )
+  assert.deepEqual(
+    __test__.buildEntry(args).join('\n'),
+    EXPECTED_BLOCK_BEFORE_CHANGE,
+    '纯函数产出与字面预期逐字等值(历史调用方与既有断言语义不变)',
+  )
+})
+
+test('T13 (c) GATE_MODE 值域外 ⇒ exit 1 并点名收到的值;拒绝路径注册表逐字不动、HEAD 不动', (t) => {
+  const dir = makeRunnerRepo(t, runnerFixture())
+  const before = norm(runGit(dir, ['show', 'HEAD:scripts/guardian-runner.mjs']))
+  const head = git(['rev-parse', 'HEAD'], { root: dir })
+  for (const bad of ['warn-only', 'Warn', 'error', 'BLOCKING', 'warn ', '  ']) {
+    const r = runGate(dir, { GATE_MODE: bad, msg: 'feat(gates): 不该落地' })
+    assert.equal(r.status, 1, `${JSON.stringify(bad)} 必须走业务拒绝(1),实得 status=${r.status} out=${r.stdout} err=${r.stderr}`)
+    assert.match(r.stderr, /GATE_MODE/, `拒绝理由要点名是哪个 env:${r.stderr}`)
+    assert.ok(r.stderr.includes(JSON.stringify(bad)), `拒绝理由必须原样点名收到的值 ${JSON.stringify(bad)}:${r.stderr}`)
+    assert.match(r.stderr, /blocking \| warn/, '要点名允许值域,好让人不改判据就能自助修复')
+    assert.equal(norm(runGit(dir, ['show', 'HEAD:scripts/guardian-runner.mjs'])), before, '拒绝不得留下任何注册表改动')
+    assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), head, '拒绝路径 HEAD 不动')
+  }
+  // 空串在纯函数层钉:CLI 传空串在 Windows 上可能等于"未设",拿它当端到端判据会测出一个假绿
+  assert.equal(typeof __test__.normalizeGateMode('').error, 'string', '空串必须算非法(设了却没落在值域内)')
+  assert.match(__test__.normalizeGateMode('').error, /""/, 'error 消息要点名空串本身')
+  // 反向锁:非法值绝不静默回落缺省档(那等于把"没判"写成"判过了")
+  for (const good of __test__.GATE_MODES) {
+    assert.deepEqual(__test__.normalizeGateMode(good), { mode: good })
+  }
+  assert.deepEqual(__test__.normalizeGateMode(undefined), { mode: __test__.DEFAULT_GATE_MODE })
+  // 阳性对照:合法值照旧放行,证明判据不是一律拒绝
+  const ok = runGate(dir, { GATE_MODE: 'warn', script: 'check-brand-ok-gate.mjs', msg: 'feat(gates): 合法定级照旧落' })
+  assert.equal(ok.status, 0, `合法定级必须仍能插入:err=${ok.stderr}`)
+})
+
+test('T14 源码级反向锁:mode 行不得再是写死的字面量,必须由变量经 jsQ 生成(§22c 镜像锁同族)', () => {
+  const src = norm(readFileSync(TOOL, 'utf8'))
+  assert.ok(
+    !/['"`] {4}mode: '(?:blocking|warn)',/.test(src),
+    '注册块的定级行又变回字符串字面量 ⇒ warn 档永远产不出,调用方只能绕过唯一出口手改注册表(= 替别人卸闸)',
+  )
+  assert.match(src, /mode:\s*\$\{[^}]*mode[^}]*\}/, '定级行必须由变量生成')
+  const domainLines = src.split('\n').filter((l) => l.includes("'blocking'") && l.includes("'warn'"))
+  assert.equal(domainLines.length, 1, `值域 {blocking, warn} 只许写在一处(GATE_MODES),实测 ${domainLines.length} 处:${domainLines}`)
+  assert.match(domainLines[0], /export const GATE_MODES/, '那一处必须是导出的 GATE_MODES,供测试复用而不是被测试重抄')
 })
