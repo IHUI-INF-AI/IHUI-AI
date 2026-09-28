@@ -114,7 +114,7 @@ export default function DistributionWithdraw() {
       </View>
       {/* 对齐 RN submitBtn:brand 底(语义 primary)+ 100rpx 高 + 24rpx 圆角;disabled 取 text-tertiary */}
       <Button
-        className={`mx-[20rpx] mt-[40rpx] rounded-xl text-[length:32rpx] font-semibold h-[100rpx] leading-[100rpx] ${submitting ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]' : 'bg-cta text-cta-foreground'}`}
+        className={`mx-[20rpx] mt-[40rpx] rounded-sm text-[length:32rpx] font-semibold h-[100rpx] leading-[100rpx] ${submitting ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]' : 'bg-cta text-cta-foreground'}`}
         disabled={submitting}
         onClick={onSubmit}
       >

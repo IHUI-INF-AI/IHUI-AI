@@ -190,7 +190,7 @@ export default function CachePage() {
             + brand(--color-primary)底;文字 16dp→32rpx semibold;
             文字色用 --color-primary-foreground 修正 RN surface.light 在暗色 brand 白底下不可读 */}
         <Button
-          className="mx-[20rpx] mt-[32rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-primary text-[length:32rpx] font-semibold disabled:opacity-60"
+          className="mx-[20rpx] mt-[32rpx] flex h-[100rpx] items-center justify-center rounded-sm bg-primary text-[length:32rpx] font-semibold disabled:opacity-60"
           style={{ color: 'var(--color-primary-foreground)' }}
           onClick={onClearAll}
           disabled={clearing}

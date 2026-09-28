@@ -130,13 +130,13 @@ export default function AskDetailPage() {
           style={{ paddingBottom: 'calc(16rpx + env(safe-area-inset-bottom))' }}
         >
           <Input
-            className="flex-1 h-[72rpx] px-[24rpx] bg-muted border-[length:2rpx] border-border rounded-xl text-[length:28rpx] text-foreground"
+            className="flex-1 h-[72rpx] px-[24rpx] bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
             value={answer}
             placeholder={t('ask.detail.placeholder')}
             onInput={(e) => setAnswer(e.detail.value)}
           />
           <Button
-            className={`ml-[16rpx] rounded-xl text-[length:24rpx] ${answer ? 'bg-[var(--color-brand)] text-primary-foreground' : 'bg-[var(--color-text-tertiary)] text-[color:var(--color-card)]'}`}
+            className={`ml-[16rpx] rounded-sm text-[length:24rpx] ${answer ? 'bg-[var(--color-brand)] text-primary-foreground' : 'bg-[var(--color-text-tertiary)] text-[color:var(--color-card)]'}`}
             size="mini"
             onClick={onAnswer}
             disabled={!answer}

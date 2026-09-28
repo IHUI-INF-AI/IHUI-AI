@@ -124,7 +124,7 @@ export function CategoryFormDialog({
                       type="button"
                       onClick={() => update('icon', iconName)}
                       className={cn(
-                        'flex h-8 w-8 items-center justify-center rounded-md border transition-colors',
+                        'flex h-8 w-8 items-center justify-center rounded-sm border transition-colors',
                         selected
                           ? 'border-brand-accent-deep bg-primary/10 text-primary'
                           : 'border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground',

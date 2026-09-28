@@ -62,7 +62,7 @@ export default function CirclesPage() {
         <button
           type="button"
           onClick={() => void load()}
-          className="px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+          className="px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
         >
           {t('common.retry')}
         </button>
@@ -84,7 +84,7 @@ export default function CirclesPage() {
         items.map((c) => (
           <Card
             key={c.id}
-            className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
+            className="rounded-lg border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
             onClick={() => openItemInWeb(`/circles/${encodeURIComponent(c.id)}`)}
           >
             <CardContent className="p-3 flex items-start gap-2.5 min-[640px]:p-3">
