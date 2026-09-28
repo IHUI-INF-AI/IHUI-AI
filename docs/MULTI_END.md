@@ -48,7 +48,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 | API | `apps/api/` | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL | 8802 | 4393 路由,业务管理 + 多厂商代理 + 认证 + WebSocket |
 | AI Service | `apps/ai-service/` | FastAPI + LangGraph + LiteLLM + MCP | 8803 | ~55 端点,LLM 网关 + Agent 执行 + MCP 工具 + A2A |
 | CLI | `apps/cli/` | TS(commander + inquirer + ws) | 终端 | 24 源配置导入 + subagent 并行 + ACP 协议 + TUI |
-| Desktop | `apps/desktop/` | Tauri 2.1 + React 18 + Vite | 桌面 | 系统托盘 + 深链接 + 自动更新 + 文件系统 |
+| Desktop | `apps/desktop/` | Tauri 2.1(Rust 薄壳,无前端工程) | 桌面 | 系统托盘 + 深链接 + 自动更新 + 文件系统;UI 由运行时直连的线上站点提供 |
 | Extension | `apps/extension/` | WXT 0.19 + React 19 | 浏览器 | 浏览器上下文菜单 + token 注入 + 页面增强 |
 | Mobile RN | `apps/mobile-rn/` | React Native 0.74.5 + Expo 51 + NativeWind | 8805 | 移动端 + SSO + 生物认证 + 推送 |
 | Miniapp Taro | `apps/miniapp-taro/` | Taro 4.2 + React 18 + Tailwind | 微信小程序 | 多端小程序(微信/支付宝/百度/字节/H5)+ 微信支付 |
@@ -137,19 +137,21 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 
 | 包 | 用途 | 主要消费端 |
 |----|------|------------|
-| `@ihui/auth` | JWT + token-family + blacklist + data-scope + OAuth2 + ws-auth | api / web / cli / desktop / extension / mobile-rn |
-| `@ihui/api-client` | 统一 API 客户端(endpoints + circuit-breaker + ws-client) | web / cli / desktop / extension / mobile-rn / miniapp-taro |
+| `@ihui/auth` | JWT + token-family + blacklist + data-scope + OAuth2 + ws-auth | api / web / cli / extension / mobile-rn |
+| `@ihui/api-client` | 统一 API 客户端(endpoints + circuit-breaker + ws-client) | web / cli / extension / mobile-rn / miniapp-taro |
 | `@ihui/types` | 跨端类型契约(user/api/ai/agent/workspace 等) | 全端 |
 | `@ihui/database` | Drizzle schema(160+ 表)+ 迁移 + client + RLS | api / ai-service(只读) |
-| `@ihui/ui-react` | Web 组件库(Button/Input/Card/Dialog/Tabs/Tooltip 等 25+) | web / desktop / extension |
+| `@ihui/ui-react` | Web 组件库(Button/Input/Card/Dialog/Tabs/Tooltip 等 25+) | web / extension |
 | `@ihui/ui-native` | React Native 组件库(avatar/badge/button/card/dialog/input/loading/switch/tabs/vip-badge,10 组件) | mobile-rn |
-| `@ihui/design-tokens` | 跨端基础原语(cn + HSL/HEX tokens + CSS 变量) | web / extension / mobile-rn / desktop |
+| `@ihui/design-tokens` | 跨端基础原语(cn + HSL/HEX tokens + CSS 变量) | web / extension / mobile-rn |
 | `@ihui/context-compaction` | 上下文压缩(88% 阈值自动压缩) | cli / api / ai-service |
 | `@ihui/sdk` | 多语言 SDK(TS/Go/Python/Java/.NET) | 外部集成 |
 | `@ihui/shared` | 8端共享业务逻辑(auth/sso + memory + notifications + plan + workflows 等) | 全端 |
 | `@ihui/rn-app` | RN app 共享逻辑(AboutScreen/ProfileScreen/SettingsScreen + tokens) | mobile-rn / web |
 | `@ihui/eslint-config` | base/next/react ESLint 配置 | 全端 |
 | `@ihui/tsconfig` | base/nextjs/node/react-library TSConfig | 全端 |
+
+> **desktop 不在上表任何一行的消费端里**(2026-09-29 按 `apps/desktop/package.json` 实测改正:devDependencies 仅 `@tauri-apps/cli` + `rimraf`,无 `typecheck` script)。桌面端 = Tauri 薄壳 + 直连线上站点,这些共享包由**线上站点加载的 `apps/web` 前端**消费,桌面端经站点**间接使用、不直接依赖**;上表标"全端"的行(`@ihui/types` / `@ihui/shared` / `@ihui/eslint-config` / `@ihui/tsconfig`)同此理解。旧条目把 desktop 列进 `api-client`/`ui-react`/`design-tokens`/`auth` 四行,与 §2.5 和该 package.json 矛盾,已删。
 
 > `@ihui/sdk` 还提供 Go / Python / Java / .NET 多语言 SDK,供外部系统接入,见 `packages/sdk/` 各子目录。
 
@@ -212,11 +214,14 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 
 ```
 桌面
-  └─ apps/desktop (Tauri)
-       ├─ @tauri-apps/plugin-http(原生 HTTP)
-       ├─ @ihui/api-client → apps/api (Fastify 8802) /api/*
+  └─ apps/desktop (Tauri 薄壳,不含前端)
+       ├─ 窗口 url 直连 https://aizhs.top/agents → 线上部署的 apps/web 站点
+       │    └─ 该站点内 @ihui/api-client → apps/api (Fastify 8802) /api/*
+       ├─ @tauri-apps/plugin-http(原生 HTTP,供 Rust 侧探活/更新检查)
        └─ @tauri-apps/plugin-store(token 持久化)
 ```
+
+> 桌面端**不**直接依赖 `@ihui/api-client`(`apps/desktop/package.json` 实测 devDependencies 仅 `@tauri-apps/cli` + `rimraf`):API 调用发生在运行时加载的那份线上 web 站点里,不是本端代码。旧条目把 `@ihui/api-client` 画成桌面端自身的一跳,与 §2.5 矛盾,已按事实改正。
 
 ### 4.6 miniapp-taro → api
 
@@ -318,7 +323,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 | api-subagent | `apps/api/` | `pnpm --filter @ihui/api typecheck && pnpm --filter @ihui/api test` |
 | ai-service-subagent | `apps/ai-service/` | `pytest` |
 | cli-subagent | `apps/cli/` | `pnpm --filter @ihui/cli typecheck` |
-| desktop-subagent | `apps/desktop/` | `pnpm --filter @ihui/desktop typecheck` |
+| desktop-subagent | `apps/desktop/` | `pnpm --filter @ihui/desktop build`(= `tauri build`);**无 `typecheck` script**(`apps/desktop/package.json` 实测 scripts 仅 dev/build/tauri/build:debug/icons:regen/clean),Rust 侧用 `cargo check` |
 | extension-subagent | `apps/extension/` | `pnpm --filter @ihui/extension typecheck` |
 | mobile-rn-subagent | `apps/mobile-rn/` | `pnpm --filter @ihui/mobile-rn typecheck` |
 | miniapp-taro-subagent | `apps/miniapp-taro/` | `pnpm --filter @ihui/miniapp-taro typecheck` |
@@ -374,7 +379,7 @@ API 契约(`api-contracts.ts` + `v1-endpoints.ts`)定义端点入参/出参,前�
 | api | Vitest | `apps/api/tests/` | 45+ 测试文件,Fastify inject 模式 |
 | ai-service | pytest | `apps/ai-service/tests/` | 13 文件 400 用例 |
 | cli | Vitest | `apps/cli/tests/` | 27 测试文件 |
-| desktop | Vitest + Testing Library | `apps/desktop/tests/` | i18n + token |
+| desktop | **无 JS 测试面**(本端无前端工程,`apps/desktop/tests/` 不存在,2026-09-29 实测);Rust 侧测试在 `apps/desktop/src-tauri/` | `apps/desktop/src-tauri/src/` | Rust 单元;旧条目"Vitest + Testing Library / i18n + token"失真,已按事实改正 |
 | extension | Vitest | `apps/extension/`(配置就绪) | `--passWithNoTests` |
 | mobile-rn | Vitest + Testing Library | `apps/mobile-rn/tests/` | setup |
 | miniapp-taro | Vitest | `apps/miniapp-taro/`(配置就绪) | `--passWithNoTests` |
@@ -409,6 +414,7 @@ docker compose up -d
 ### 9.2 Desktop 多平台发布
 
 Tauri 2.1 支持 Windows / macOS / Linux 三平台,通过 4 个包管理器分发:
+- **分发的是薄壳安装包**:桌面端 = Tauri 薄壳 + 直连线上站点:frontendDist 指向 src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/agents(V3 #72 拍板,桌面端不打包本地 web 产物)——四个包管理器与 Tauri updater 分发/更新的都是这份**不含前端产物**的壳,web 能力更新只需线上部署、无需重发桌面包
 - **winget**(Windows):`deploy/winget/IHUI.IHUI.yaml`
 - **scoop**(Windows):`deploy/scoop/ihui.json`
 - **homebrew**(macOS/Linux):`deploy/homebrew/ihui.rb`
