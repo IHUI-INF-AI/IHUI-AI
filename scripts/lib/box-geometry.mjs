@@ -115,6 +115,132 @@ export function boxDims(allLines, idx) {
 }
 
 /**
+ * 取"这一行的盒尺寸是**按什么写的**"—— 作用域内所有 `width` / `height` 声明的字面原文。
+ *
+ * 为什么需要字面而不是折算后的数值:判"半径是不是由这个盒的边长算出来的"时,
+ * `width: rpx(96)` 配的半径应写成 `rpx(96) / 2`,而不是拿 `48`(px 空间)去比 `96`(rpx 空间) ——
+ * `dimsFromText` 对不同书写形态的折算口径本来就不同(`w-[96rpx]` 折半、`width: 96rpx` 取原值),
+ * **跨形态比数值会造出假方形**(假方形=把胶囊读成真圆,比漏报更贵:它替"已清零"发合格证)。
+ * 字面同形则是作者自己写下的证据,与单位折算无关。
+ */
+export function scopeDimTexts(lines, i, anchor = /border(?:-?[A-Za-z-]*)?[Rr]adius/) {
+  const sc = objectScope(lines, i)
+  // objectScope 是按"最近的 { 行"找的,而 JSX 一行里就可能有 `{var(...)}` 这类花括号 ——
+  // 那会把窗口收成"只有这一行且大括号已闭合",锚点落不到窗口里,depth 全算错(实测小程序的
+  // `className="w-[56rpx] h-[56rpx] rounded-[28rpx]"` 就是这样:边长明明写在同一行,却读成"量不到")。
+  // 所以:窗口不含该行 ⇒ 退回按**该行自己**取,这也是 Tailwind 形态唯一正确的取材面。
+  const usable = sc && sc.start <= i && i <= sc.end ? sc : null
+  const win = usable ? lines.slice(usable.start, usable.end + 1).join('\n') : String(lines[i] ?? '')
+  const lineStart = usable ? lines.slice(usable.start, i).join('\n').length + 1 : 0
+  const at = win.slice(lineStart).search(anchor)
+  const anchorIdx = lineStart + (at < 0 ? 0 : at)
+  /**
+   * 只取**与半径声明同一层**的宽高。
+   * 为什么不能取整个作用域:RN 的 StyleSheet 里 `shadowOffset: { width: 0, height: 2 }` 与按钮自己的
+   * `width: 34, height: 34` 住在同一个对象里 —— 把阴影偏移当边长读,一条正方声明会因为
+   * "四个值不逐字相同"而判不出形状(实测 AgentScreen / CoursePlanetScreen / ProfileScreen 的
+   * 返回顶部钮全中这一型,每个都自带 iOS 阴影)。
+   * 也不用"行首深度":`const st = { a: { width: 20, borderRadius: 10 } }` 这种整行对象,
+   * 行首还在 0 层,声明却在 2 层 —— 锚点必须是那条圆角声明自己所在的位置。
+   */
+  const depthOf = (pos) => {
+    const before = win.slice(0, pos)
+    return (before.match(/\{/g) || []).length - (before.match(/\}/g) || []).length
+  }
+  const want = depthOf(anchorIdx)
+  const texts = []
+  for (const m of win.matchAll(/\b(?:width|height)\s*[:=]\s*([^,;}\n]+)/g)) {
+    if (depthOf(m.index) !== want) continue
+    const v = m[1].trim().replace(/\s+/g, '').replace(/^\{/, '').replace(/\}$/, '')
+    if (v) texts.push(v)
+  }
+  // Tailwind 的 `w-[96rpx] h-[96rpx]` / `w-12 h-12` 是**同一件事的第二种书写语言**:小程序与 RN 的
+  // className 形态里盒尺寸就长这样。只认 `width:/height:` 的门会把这类正方盒读成"量不到",
+  // 于是按规矩写的真圆只能靠挂标记平息(§4 记过的"覆盖面两半必须同改"同型)。
+  for (const m of win.matchAll(/\b([wh])-(?:\[(.*?)\]|(\d+(?:\.\d+)?))(?![\w-])/g)) {
+    if (depthOf(m.index) !== want) continue
+    const v = (m[2] ?? m[3] ?? '').trim()
+    // 只推**值**不推轴名:`w-[56rpx] h-[56rpx]` 要能被认成"同一个边长",带轴前缀就永远不相等。
+    if (v) texts.push(v)
+  }
+  return texts
+}
+
+/** 一条长度字面量拆成 `{v, unit}`;拆不出返回 null(表达式、百分比、变量名都不算数值长度)。 */
+export function lengthLiteral(text) {
+  const m = /^(?:rpx\()?(\d+(?:\.\d+)?)(px|rpx|rem|em)?\)?$/.exec(String(text).trim())
+  if (!m) return null
+  return { v: Number(m[1]), unit: m[2] || '' }
+}
+
+/**
+ * **胶囊判定的物理下限(px)**:短边小于它的不算胶囊,算"圆头端点"。
+ * 住在几何层是因为两把尺子都要用它 —— 门 150 的 C6 判"这个元素是不是胶囊",门 77 判"这个半径
+ * 是不是几何而不是档位取用",同一道物理线各写一遍必然漂移(一处改成 12、另一处留 16,同一个
+ * 6px 高的骨架条就会一边判红一边进队列)。要挪就只挪这里。
+ */
+export const CAPSULE_MIN_SHORT_PX = 16
+
+/**
+ * 一条半径相对**它自己那个盒**的几何定性(与 `isGeometricCircle` 同取材、同一把尺):
+ *  - `circle`       :正方盒 + 半径=边长一半 ⇒ 真圆装饰件,出了档位表射程;
+ *  - `capsule`      :非正方(或只量到一条边)+ 半径=那条边一半 + 短边 ≥ 下限 ⇒ 胶囊,项目不允许;
+ *  - `rounded-end`  :同样的"半径=边长一半",但那条边细于下限 ⇒ 圆头端点(§4 明令不得方档化);
+ *  - `tier`         :以上都不成立 ⇒ 这就是一个普通的圆角取用,必须走档位。
+ */
+export function classifyRadiusGeometry(lines, i, radiusText, anchor) {
+  const r = lengthLiteral(String(radiusText).replace(/^\{\s*|\s*\}$/g, ''))
+  if (!r || r.v <= 0) return 'tier'
+  const sides = (anchor ? scopeDimTexts(lines, i, anchor) : scopeDimTexts(lines, i))
+    .map(lengthLiteral)
+    .filter((x) => x && x.unit === r.unit && x.v > 0)
+    .map((x) => x.v)
+  if (!sides.length) return 'tier'
+  const hit = sides.find((s) => s === r.v * 2)
+  if (hit === undefined) return 'tier'
+  const uniq = new Set(sides)
+  // "正方"要求**两条边都量到**且同值:只量到一条(如 `h-[12rpx] w-full`)时,另一条可能是 100% 宽,
+  // 那它就是胶囊而不是圆 —— 单侧证据永远不足以判"圆"。
+  if (uniq.size === 1 && sides.length >= 2) return 'circle'
+  const short = Math.min(...sides)
+  const px = (v) => (r.unit === 'rpx' ? v / 2 : r.unit === 'rem' ? v * 16 : v)
+  return px(short) >= CAPSULE_MIN_SHORT_PX ? 'capsule' : 'rounded-end'
+}
+
+/**
+ * **几何真圆的字面同形证明**:`radius × 2 === 边长`,且半径与边长写在同一套单位里。
+ *
+ * 为什么按字面而不按折算后的数值:`dimsFromText` 对不同书写形态的折算口径本来就不同
+ * (`w-[96rpx]` 折成 48px、`width: 96rpx` 取原值 96),拿折算值互比会造出**假方形** ——
+ * 而假方形=把胶囊读成真圆,它比漏报贵:那等于替"已清零"发合格证。
+ * 判定要求作用域里所有宽高写成**同一个值**(正方),否则不算证明。
+ */
+export function isGeometricCircle(lines, i, radiusText, anchor) {
+  const r = lengthLiteral(String(radiusText).replace(/^\{\s*|\s*\}$/g, ''))
+  if (!r || r.v <= 0) return false
+  const sides = anchor ? scopeDimTexts(lines, i, anchor) : scopeDimTexts(lines, i)
+  if (sides.length < 2) return false
+  const uniq = new Set(sides)
+  if (uniq.size !== 1) return false
+  const s = lengthLiteral([...uniq][0])
+  if (!s) return false
+  if (s.unit !== r.unit) return false
+  return s.v === r.v * 2
+}
+
+/**
+ * `<边长> / 2` 这种**把推导写在源码里**的形态:分子必须与同一作用域的边长逐字同形。
+ * 与 `isGeometricCircle` 的区别是它判的是"作者写的是不是同一个量",而不是"两个数是不是二倍关系" ——
+ * 前者对单位折算完全免疫(`width: AVATAR, borderRadius: AVATAR / 2` 也算),后者只认数值字面量。
+ */
+export function isHalfOfDeclaredSide(lines, i, numeratorText) {
+  const n = String(numeratorText).trim().replace(/\s+/g, '')
+  if (!n) return false
+  const sides = scopeDimTexts(lines, i)
+  return sides.length >= 2 && new Set(sides).size === 1 && [...sides][0] === n
+}
+
+/**
  * 只问形状、不要数值的调用方走这条投影 —— **形状判据仍然只有一份实现**。
  * 返回 'square' / 'wide' / null(量不到 ⇒ 不猜)。
  */
