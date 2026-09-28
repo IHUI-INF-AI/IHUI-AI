@@ -444,9 +444,43 @@ export function dimsFromText(win, consts) {
       for (const m of win.matchAll(/\bpx-(\d+(?:\.\d+)?)(?![\w-])/g)) pxMax = Math.max(pxMax, Number(m[1]) * 4)
       for (const m of win.matchAll(/\bpx-\[(\d+(?:\.\d+)?)(rpx|px)\]/g))
         pxMax = Math.max(pxMax, Number(m[1]) * (m[2] === 'rpx' ? 0.5 : 1) * 2)
+      /**
+       * RN 侧的水平内边距与 Tailwind 的 `px-N` 是同一件事的两种书写 —— 只认后者会把
+       * `paddingHorizontal: 8` 的按钮整个判成"量不到盒形",于是**半径=短边一半的胶囊从尺子上消失**
+       * (2026-09-29 票㊼ 的立因:`BottomActionBar.addFileBtn`、`DevErrorToast.badge` 全是这一型)。
+       */
+      for (const m of win.matchAll(/\bpaddingHorizontal\s*:\s*([0-9.]+)/g))
+        pxMax = Math.max(pxMax, Number(m[1]))
+      for (const m of win.matchAll(/\bpadding(?:Left|Right)\s*:\s*([0-9.]+)/g))
+        pxMax = Math.max(pxMax, Number(m[1]))
+      /**
+       * `minWidth` 是**下限**不是定值:渲染宽度只会 ≥ 它。单独出现不足以下结论(没有内边距时
+       * 它可以正好等于高度 ⇒ 仍是方盒),但**只要有水平内边距**,宽度就必然超过这个下限 ⇒
+       * 不得再按"可证正方盒"声称几何真圆。反过来,把 minWidth 直接当宽度用会把
+       * `minWidth 36 + paddingHorizontal 8` 量成 36×36 的方盒 —— 那正是给胶囊发合格证。
+       */
+      const minW = minWidthPx(win, consts)
+      if (minW !== null && pxMax > 0) return { w: Math.max(w, minW), h, shape: 'wide', sameExpr }
       if (pxMax && pxMax * 2 >= h) return { w, h, shape: 'wide', sameExpr }
     }
     return { w, h, shape: null, sameExpr }
   }
   return { w, h, shape: Math.max(w, h) / Math.min(w, h) <= 1.35 ? 'square' : 'wide', sameExpr }
+}
+
+/**
+ * 量一段文本里的**宽度下限**(`minWidth: X` / `min-w-[24rpx]`),标识符与具名档都按 `constExprPx`
+ * 那一份求值 —— 半径侧与盒形侧解的是同一个常量,两边各写一遍就必然出现"半径认得、盒形不认"
+ * 那种自洽假结论(票㉟ 同一条)。取不到返回 null,由调用方按"没有下限"处理。
+ */
+export function minWidthPx(win, consts) {
+  for (const m of String(win || '').matchAll(/\bminWidth\s*[:=]\s*([^,;}\n]+)/g)) {
+    const v = constExprPx(m[1], consts)
+    if (v !== null && v > 0) return v
+  }
+  for (const m of String(win || '').matchAll(/\bmin-w-\[(\d+(?:\.\d+)?)(rpx|px)\]/g)) {
+    const v = lengthToPx(`${m[1]}${m[2]}`)
+    if (v !== null && v > 0) return v
+  }
+  return null
 }
