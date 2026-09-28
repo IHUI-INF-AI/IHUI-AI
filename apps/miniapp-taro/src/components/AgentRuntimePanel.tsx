@@ -52,7 +52,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
           size="mini"
           onClick={handleClear}
           disabled={status === 'running'}
-          className="text-xs text-muted-foreground bg-muted rounded-md"
+          className="text-xs text-muted-foreground bg-muted rounded-sm"
         >
           {t('ai.agentDetail.runtimeClear')}
         </Button>
@@ -123,12 +123,12 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
             placeholder={t('ai.agentDetail.runtimeInputPlaceholder')}
             disabled={status === 'running'}
             maxlength={-1}
-            className="flex-1 min-h-[120rpx] p-2 text-sm rounded-md border border-border bg-card"
+            className="flex-1 min-h-[120rpx] p-2 text-sm rounded-sm border border-border bg-card"
           />
           {status === 'running' ? (
             <Button
               onClick={handleStop}
-              className="ml-2 h-9 px-3 text-xs text-destructive-foreground bg-destructive rounded-md"
+              className="ml-2 h-9 px-3 text-xs text-destructive-foreground bg-destructive rounded-sm"
             >
               {t('ai.agentDetail.runtimeStop')}
             </Button>
@@ -136,7 +136,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
             <Button
               onClick={handleSend}
               disabled={!input.trim()}
-              className="ml-2 h-9 px-3 text-xs text-primary-foreground bg-[var(--color-primary)] rounded-md"
+              className="ml-2 h-9 px-3 text-xs text-primary-foreground bg-[var(--color-primary)] rounded-sm"
             >
               {t('ai.agentDetail.runtimeSend')}
             </Button>

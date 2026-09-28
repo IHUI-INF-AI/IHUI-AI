@@ -268,7 +268,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                   key={ch.key || 'channel-all'}
                   type="button"
                   onClick={() => setActiveChannel(ch.key)}
-                  className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
                     isActive
                       ? 'bg-cta text-cta-foreground'
                       : 'bg-background/60 text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -311,7 +311,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                 key={cat.key || 'category-all'}
                 type="button"
                 onClick={() => setActiveCategory(cat.key)}
-                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                className={`inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
                   isActive
                     ? 'bg-primary/10 text-primary font-semibold'
                     : 'text-muted-foreground/70 hover:bg-accent/60 hover:text-foreground'
@@ -332,7 +332,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                 key={tr.key || 'trend-all'}
                 type="button"
                 onClick={() => setActiveTrend(tr.key)}
-                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                className={`inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-medium transition-colors ${
                   isActive
                     ? 'bg-foreground/10 text-foreground font-semibold'
                     : 'text-muted-foreground/60 hover:bg-accent/50 hover:text-foreground'
@@ -455,7 +455,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                           <button
                             type="button"
                             onClick={() => openTrend(it)}
-                            className="relative z-10 inline-flex items-center gap-0.5 rounded text-muted-foreground/60 transition-colors hover:text-primary"
+                            className="relative z-10 inline-flex items-center gap-0.5 rounded-sm text-muted-foreground/60 transition-colors hover:text-primary"
                           >
                             <LineChart className="h-2.5 w-2.5" />
                             {t('feed.trendBtn')}

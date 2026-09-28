@@ -197,7 +197,7 @@
   width: 640rpx;
   max-height: 80vh;
   background: var(--color-card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;

@@ -7,8 +7,14 @@ import {
   createAppControlToolSelector,
   lastUserContent,
 } from '@ihui/shared/utils/app-control-intent'
-// 文件族策略(`@ihui/shared/chat/file-tool-intent`)本端**刻意不消费**,理由见 toolsForChatRequest 头注
-// (那里逐条记了三条实测;这条 import 一旦被"顺手补回来",就是给对话链塞进去两个必然执行失败的工具)。
+// 文件族策略(`@ihui/shared/chat/file-tool-intent`)与 web 逐字同值,但**带不带**由本端闸门决定,
+// 判据在 lib/workspace-capability.ts —— 没有闸门地直接带,就是给对话链塞进两个必然执行失败的工具。
+import { fileToolsFor } from '@ihui/shared/chat/file-tool-intent'
+import {
+  detectWorkspaceCapability,
+  fileToolsAllowed,
+  type WorkspaceCapability,
+} from './workspace-capability'
 
 /**
  * 扩展自有界面的 UI 操控工具族(2026-09-21 立,第五族 `ext_ui`)。
@@ -51,29 +57,31 @@ export const uiControlToolsFor = createAppControlToolSelector({
 /**
  * 聊天请求组装处调用:命中"操控本站"意图才带工具(普通问答保持流式首字延迟)。
  *
- * **本端只带 UI 操控族,不带文件族** —— 这一格是 2026-09-27 逐条实测出来的,不是偏好:
- *  1. 扩展请求既不送 `workspacePath` 也不送 `workspaceContext`(本端 `StreamChatOptions`
- *     里两个字段都不存在),而 `apps/ai-service/app/routers/llm.py` 的委托分支条件是
- *     `if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS` —— 条件不成立,写类工具
- *     就不会像 web 那样交回浏览器执行,而是落到服务端 `_mcp.call_tool`。
+ * **文件族带不带,由 `fileToolsAllowed()` 判(能力 ∧ 有执行代理),不由这里的意图判。**
+ * 2026-09-27 那四条实测仍然成立,只是它们描述的是"没有委托面时"的那一半:
+ *  1. 扩展请求不送 `workspacePath` / `workspaceContext`,而 `apps/ai-service/app/routers/llm.py`
+ *     的委托分支条件是 `if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS`
+ *     ⇒ 条件不成立,写类工具不会像 web 那样交回客户端执行,而是落到服务端 `_mcp.call_tool`。
  *  2. 服务端执行面里 `write_file` / `file_edit` 属 `mcp_server.py` 的 `_ADMIN_ONLY_TOOLS`,
  *     而对话链传下去的 `__user_role` 恒为 0(现读 `grep -n "__user_role" app/routers/llm.py`
- *     零命中;`mcp_server.py` 里那条注释原文即「对话链 user_role=0,入名单即断链」)
- *     ⇒ 带过去就是**每次必失败**,而失败之前用户已经看到一条流中 diff —— 界面在承诺一件不会发生的事。
- *  3. `edit_file` 在服务端注册表里根本不存在(注册名是 `file_edit`),它只在 web 的委托面里成立。
- *  4. 只读族也不能带:`read_file` 不在 admin 名单里,于是它会**在服务端工作区**上执行
- *     (`MCP_WORKSPACE_ROOTS`,缺省 `os.getcwd()`),等于把"每个扩展用户可读服务器文件"打开 ——
- *     这是越权面变更,不是能力补齐(AGENTS §5「已登录不等于可以动这条数据」)。
+ *     零命中;`mcp_server.py` 里那条注释原文即「对话链 user_role=0,入名单即断链」)。
+ *  3. `edit_file` 在服务端注册表里根本不存在(注册名是 `file_edit`),它只在委托面里成立。
+ *  4. 只读族也不能裸带:`read_file` 不在 admin 名单里,于是它会在**服务端工作区**上执行
+ *     (`MCP_WORKSPACE_ROOTS`,缺省 `os.getcwd()`),等于把"每个扩展用户可读服务器文件"打开。
  *
- * 所以扩展要真有 D113 的流中预览,前置是**委托面**(`onToolDelegate` + 工作区句柄 +
- * `POST /llm/complete/stream/{session_id}/tool-result`)与审批位(`onToolApproval`)—— 那属新功能,
- * 须用户批准;两条此刻都记在 `scripts/data/sse-dispatch-coverage.json` 的 missing 里。
- * 端内的 `tool-delta` 客户端管线(归并层 `lib/tool-call-frames.ts` + 渲染位 + `onToolDelta` 注册)
- * **保留**:委托面一到位即生效,而"帧到本端却没人接"才是本仓最贵的那一型。
+ * 这四条的**反向**是委托面的定义:送 `workspace_context` ⇒ 分支成立 ⇒ 工具回到本端执行,
+ * 1/2/3/4 一并失效。而那需要本端先有目录句柄与执行代理,`lib/workspace-capability.ts` 记的就是
+ * "本端此刻到底能不能提供它们"的现读判据 —— 探测不到就退回上面这四条所描述的今天状态。
+ *
+ * `capability` 只为测试注入(节点环境无 window ⇒ 判不出能力是预期);生产调用不传。
  */
-export function toolsForChatRequest(content: string): string[] {
+export function toolsForChatRequest(content: string, capability?: WorkspaceCapability): string[] {
   // 2026-09-21 修复:typecheck 阻塞 —— lastUserContent 的入参是消息数组(见 miniapp-taro 同名文件),
   // 此处误传字符串;包装为单条 user 消息,语义不变(只看当前这一句)
-  return uiControlToolsFor(lastUserContent([{ role: 'user', content }]))
+  const ui = uiControlToolsFor(lastUserContent([{ role: 'user', content }]))
+  if (!fileToolsAllowed(capability ?? detectWorkspaceCapability())) return ui
+  const files = fileToolsFor(content)
+  if (files.length === 0) return ui
+  return [...new Set([...ui, ...files])]
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

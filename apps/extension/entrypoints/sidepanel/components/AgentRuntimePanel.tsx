@@ -275,7 +275,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
         <span className="flex-1" />
         <button
           type="button"
-          className="bg-transparent border border-border rounded-md px-2 py-1 text-xs cursor-pointer text-muted-foreground shrink-0"
+          className="bg-transparent border border-border rounded-sm px-2 py-1 text-xs cursor-pointer text-muted-foreground shrink-0"
           onClick={handleClear}
           disabled={status === 'running'}
         >
@@ -321,7 +321,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
             <div className="flex items-center gap-1.5 mt-2">
               <button
                 type="button"
-                className="bg-cta text-cta-foreground border-none rounded-md px-2.5 py-1 text-xs font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-cta text-cta-foreground border-none rounded-sm px-2.5 py-1 text-xs font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => void handleApproval('approve')}
                 disabled={
                   !permission.approvalId ||
@@ -334,7 +334,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
               </button>
               <button
                 type="button"
-                className="bg-destructive text-white border-none rounded-md px-2.5 py-1 text-xs font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-destructive text-white border-none rounded-sm px-2.5 py-1 text-xs font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => void handleApproval('reject')}
                 disabled={
                   !permission.approvalId ||
@@ -404,7 +404,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
         {status === 'running' ? (
           <button
             type="button"
-            className="bg-destructive text-white border-none rounded-md px-3.5 py-1.5 text-xs font-medium cursor-pointer shrink-0 self-stretch"
+            className="bg-destructive text-white border-none rounded-sm px-3.5 py-1.5 text-xs font-medium cursor-pointer shrink-0 self-stretch"
             onClick={handleStop}
             data-testid="agent-runtime-stop"
           >
@@ -413,7 +413,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
         ) : (
           <button
             type="button"
-            className="bg-cta text-cta-foreground border-none rounded-md px-3.5 py-1.5 text-xs font-medium cursor-pointer shrink-0 self-stretch"
+            className="bg-cta text-cta-foreground border-none rounded-sm px-3.5 py-1.5 text-xs font-medium cursor-pointer shrink-0 self-stretch"
             onClick={handleSend}
             disabled={!input.trim()}
             data-testid="agent-runtime-send"
