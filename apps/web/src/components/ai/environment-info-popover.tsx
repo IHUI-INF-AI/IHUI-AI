@@ -149,7 +149,7 @@ function PopoverHeader({ onViewFull, t }: { onViewFull: () => void; t: EnvT }) {
           onClick={onViewFull}
           aria-label={t('viewFull')}
           data-testid="env-info-view-full"
-          className="rounded"
+          className="rounded-sm"
         >
           <Plus aria-hidden />
         </IconButton>
@@ -179,7 +179,7 @@ function ErrorHint({ message, onRetry, t }: { message: string; onRetry: () => vo
       <button
         type="button"
         onClick={onRetry}
-        className="mt-2 inline-flex h-6 items-center gap-1 rounded border border-border px-2 text-[12px] text-foreground transition-colors hover:bg-accent"
+        className="mt-2 inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-[12px] text-foreground transition-colors hover:bg-accent"
         data-testid="env-info-error-retry"
       >
         <RefreshCw className="h-3.5 w-3.5" aria-hidden />

@@ -346,7 +346,7 @@ export default function UserLlmConfigsPage() {
                               setEditingProvider(null)
                               setProvDialogOpen(true)
                             }}
-                            className="rounded-md border px-3 py-1 text-xs transition-colors hover:border-brand-accent-deep hover:bg-primary/5"
+                            className="rounded-sm border px-3 py-1 text-xs transition-colors hover:border-brand-accent-deep hover:bg-primary/5"
                           >
                             {tpl.name}
                           </button>
@@ -447,25 +447,25 @@ export default function UserLlmConfigsPage() {
             <section className="space-y-2">
               <p className="font-medium text-foreground">{tV2('byok.freeProvidersTitle')}</p>
               <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
-                <Card className="rounded-lg">
+                <Card className="rounded-xl">
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
                     <p className="text-xs font-medium">Cloudflare Workers AI</p>
                     <p className="text-[11px] text-muted-foreground">{tV2('byok.cfDesc')}</p>
                   </CardContent>
                 </Card>
-                <Card className="rounded-lg">
+                <Card className="rounded-xl">
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
                     <p className="text-xs font-medium">GitHub Models</p>
                     <p className="text-[11px] text-muted-foreground">{tV2('byok.githubDesc')}</p>
                   </CardContent>
                 </Card>
-                <Card className="rounded-lg">
+                <Card className="rounded-xl">
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
                     <p className="text-xs font-medium">HuggingFace</p>
                     <p className="text-[11px] text-muted-foreground">{tV2('byok.hfDesc')}</p>
                   </CardContent>
                 </Card>
-                <Card className="rounded-lg">
+                <Card className="rounded-xl">
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
                     <p className="text-xs font-medium">Pollinations</p>
                     <p className="text-[11px] text-muted-foreground">
@@ -473,7 +473,7 @@ export default function UserLlmConfigsPage() {
                     </p>
                   </CardContent>
                 </Card>
-                <Card className="rounded-lg min-[640px]:col-span-2">
+                <Card className="rounded-xl min-[640px]:col-span-2">
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
                     <p className="text-xs font-medium">LLM7</p>
                     <p className="text-[11px] text-muted-foreground">{tV2('byok.llm7Desc')}</p>
