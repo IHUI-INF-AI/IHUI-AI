@@ -17,7 +17,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 export type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps }
@@ -241,8 +241,8 @@ function createStyles(tk: AppThemeTokens) {
     modalMask: { flex: 1, backgroundColor: tk.overlay.modal, justifyContent: 'flex-end' },
     modalCard: {
       backgroundColor: tk.surface.light,
-      borderTopLeftRadius: rnRadius.xl,
-      borderTopRightRadius: rnRadius.xl,
+      borderTopLeftRadius: rnRadiusFor.panel,
+      borderTopRightRadius: rnRadiusFor.panel,
       padding: 14,
       paddingBottom: 32,
       maxHeight: '85%',
