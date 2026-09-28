@@ -283,12 +283,12 @@ function createStyles(tk: AppThemeTokens) {
     avatarBox: {
       width: 44,
       height: 44,
-      borderRadius: 22,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarImg: { width: '100%', height: '100%', borderRadius: '50%' }, // 跟随见方父容器:相对式即几何真圆(不需要标记)
+    avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl']}, // 跟随见方父容器:相对式即几何真圆(不需要标记)
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     memberInfo: { flex: 1, marginLeft: 10, marginRight: 8 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

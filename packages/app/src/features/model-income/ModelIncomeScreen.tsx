@@ -344,7 +344,7 @@ function createStyles(tk: AppThemeTokens) {
     cardAvatar: {
       width: 44,
       height: 44,
-      borderRadius: 22,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
