@@ -25,6 +25,17 @@
  *             —— 只有"对侧相对基底新增"的行才被强制补回;对侧没动、被本侧改写/删除的行
  *               处置权在本侧。旧写法 `max(ours,theirs)` 会把本侧就地改写**之前**的旧行复活
  *               (2026-09-25 实测:刚翻勾的待办被并回未勾,`check-task-claims` 当场重新报成可派)。
+ *             产出前再剥掉**成套的 Git 冲突标记三行**(2026-09-28 立,见下面那条"手工清偿为何徒劳"):
+ *             `^<<<<<<< ` + 其后第一个整行 `=======` + 其后第一个 `^>>>>>>> `,三行一起剥,
+ *             **中间两侧的内容行一律保留**(并集的语义本来就是"两侧内容都收下")。
+ *             只找到开头找不到结尾、或成对但中间没有 `=======` ⇒ **不剥**,该路径点名"需人工"。
+ *   手工清偿为何在这条链上是徒劳的(2026-09-28 同日两次实测):活文档里存在成对标记 ⇒ 守门
+ *   `check-no-conflict-markers` 在 `--rev HEAD` 判红 ⇒ 有人把三行删掉并前向提交;而合并**不传播删除**
+ *   (上面那条既定设计)⇒ 下一枚并集合并把仍带这三行的对侧版本按行补回来,红原地复活。
+ *   所以三行必须在**并集出口**被滤掉,而不是靠人反复删。剥掉这三行**不算丢行** —— 它们是 git 写给
+ *   机器看的分节线,不是台账内容;零丢失断言因此按同一份判据把被剥行的重数从期望表里扣掉
+ *   (见 `liveDocExpectedCountsAfterStrip`),并新增一条:产出的每份活文档**不得仍存在成对标记**,
+ *   判不出来(取不到内容)即拒绝落地并点名文件,不静默放行。
  *   落地前自证:丢本侧路径 = 0 ∧ 丢对侧路径 = 0 ∧ 三份文档未存活行 = 0 ∧ 两侧同改文件的**独有行不丢**
  *             (字符行 multiset 底线;真三方可能把两侧改动交织到不同位置,本断言只保证重数不减少、
  *              不判语义顺序 —— 局限如实说明,不假装更强);
@@ -56,6 +67,10 @@ import { auditOne } from './check-merge-addition-loss.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { resolveRemoteHead } from './lib/face-reader.mjs'
 import { auditPlan } from './lib/plan-task-index.mjs'
+// 冲突标记的配对判据与「剥三行」判据:**只有一份实现**,在 `scripts/lib/conflict-marker-triples.mjs`
+// (守门 `check-no-conflict-markers.mjs` 判红、`archive-completed-tasks.mjs` 搬运前问一句、本工具
+//  并集出口剥三行 —— 三处共用)。禁止在这里再写一遍 `^<<<<<<< ` 正则。
+import { findMarkerPairs, stripMarkerTriples } from './lib/conflict-marker-triples.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
@@ -318,6 +333,38 @@ export function unionLines(oursText, theirsText, baseText = null) {
   return res.endsWith('\n') ? res : res + '\n'
 }
 
+/**
+ * 活文档并集的**产出内容**与**零丢失断言期望表**,一次算清,两处共用。
+ *
+ * 为什么必须同一个出口(而不是"产出时剥、断言时不剥"):落地闸那句"未存活行"是按
+ * `liveDocExpectedCounts(a,b,bt)` 的期望重数比对的,而脊柱是本侧全文 —— 本侧带着的那三行标记
+ * 因此也在期望表里。若产出处剥掉它们而期望表不动,**每一次**碰到带标记活文档的合并都会被
+ * 自己的零丢失断言判成"丢了 3 行"而拒绝落地:那不是判据有牙,是一台恒红门(AGENTS §12e 同型)。
+ *
+ * 扣减口径**只跟着实际被剥掉的那些行**走(`stripMarkerTriples` 返回的 removed 多重集),
+ * 而不是"凡是形似标记的行一律从账上抹掉" —— 后者等于给零丢失断言开了一个万能豁免,
+ * 把"内容行真的没了"一起洗掉。剥完之后还有一条独立断言兜底:产出内容里**不得仍存在成对标记**
+ * (见 `verifyUnion`),所以"少剥"会被判红,而"多剥内容"会被未存活行判红。
+ *
+ * 返回 `{ text, strip, want }`:
+ *  - `strip.manual` 非空 ⇒ **不剥**,`want` 逐字等于三方期望表(什么都没扣),调用方须交人工;
+ *  - 其余情形 `text` 是剥完的内容,`want` 已按 removed 扣减。
+ */
+export function liveDocUnionOutput(oursText, theirsText, baseText = null) {
+  const unioned = unionLines(oursText, theirsText, baseText)
+  const want = liveDocExpectedCounts(oursText, theirsText, baseText)
+  const strip = stripMarkerTriples(unioned)
+  if (strip.manual.length > 0) return { text: unioned, strip, want }
+  if (strip.stripped === 0) return { text: unioned, strip, want }
+  const adjusted = new Map(want)
+  for (const [l, n] of strip.removed) {
+    const left = (adjusted.get(l) || 0) - n
+    if (left <= 0) adjusted.delete(l)
+    else adjusted.set(l, left)
+  }
+  return { text: strip.text, strip, want: adjusted }
+}
+
 /** 构造合并树。临时索引走 §26 的夹具唯一落点 `mkScratch` ——
  *  硬编码 `cwd/.ihui-agent/tmp` 会在"对临时仓库做取证"时直接 ENOENT(自检第一轮即如此),
  *  而且把夹具写进仓库树内还会让 git 的 toplevel 向上逃逸。
@@ -339,18 +386,7 @@ export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set(),
       }).trim()
     run(['read-tree', ours])
 
-    // 1) 活文档:三方行 union(对侧相对基底的**独有行**必须存活;本侧就地改写的行不得被旧副本复活)
-    for (const p of LIVE_DOCS) {
-      const a = show(ours, p, cwd)
-      const b = show(theirs, p, cwd)
-      if (a === b) continue
-      const bt = base ? show(base, p, cwd) : null
-      const oid = git(['hash-object', '-w', '--path', p, '--stdin'], cwd, unionLines(a, b, bt))
-      run(['update-index', '--add', '--cacheinfo', `100644,${oid},${p}`])
-    }
-
-    // 2) 对侧「相对共同基底自己动过」的路径:仅对侧动过 ⇒ 取对侧版本;两侧同改 ⇒ 真三方归并。
-    //    (活文档已在 1) 归并,两条路都不整体覆盖)
+    // 结果清单必须在两个步骤之前声明 —— 第 1) 步(活文档)现在也会往 needHuman 里点名。
     const tookTheirs = []
     const mergedClean = []
     const skippedDeletes = []
@@ -358,6 +394,42 @@ export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set(),
     const keptOurs = []
     const humanResolved = []
     const violations = []
+    /** 活文档里被本工具剥掉的成对冲突标记(逐路径报名,main() 必须逐条打印 —— 不得静默)。 */
+    const markerStrips = []
+    /** 孤立 `>>>>>>> `(无开头):只报名、不阻断(真仓 HEAD 面上就有合法夹具是这个形态)。 */
+    const markerOrphans = []
+
+    // 1) 活文档:三方行 union(对侧相对基底的**独有行**必须存活;本侧就地改写的行不得被旧副本复活),
+    //    产出前剥掉**成套**的冲突标记三行(两侧内容行全保留)—— 判据只有一份,见
+    //    `scripts/lib/conflict-marker-triples.mjs`。剥不净(半截标记 / 成对但缺分隔线)⇒ 不猜,交人工。
+    for (const p of LIVE_DOCS) {
+      const a = show(ours, p, cwd)
+      const b = show(theirs, p, cwd)
+      if (a === b) continue
+      const bt = base ? show(base, p, cwd) : null
+      const { text, strip } = liveDocUnionOutput(a, b, bt)
+      for (const u of strip.orphanEnds)
+        markerOrphans.push({ path: p, line: u.line, text: u.text })
+      if (strip.manual.length > 0) {
+        needHuman.push({
+          path: p,
+          kind: 'conflict-marker',
+          detail:
+            `并集产出里有本工具不敢剥的冲突标记形态(${strip.manual.length} 处):${strip.manual
+              .slice(0, 3)
+              .join(' / ')} —— 半截标记既不能整块删(会丢掉两侧内容之一)也不能留(下一次并集又回来),` +
+            '请按 AGENTS §12b 人工归并这一份,把标记连同它包裹的内容一起判掉',
+        })
+        continue
+      }
+      if (strip.stripped > 0)
+        markerStrips.push({ path: p, pairs: strip.stripped, lines: strip.stripped * 3 })
+      const oid = git(['hash-object', '-w', '--path', p, '--stdin'], cwd, text)
+      run(['update-index', '--add', '--cacheinfo', `100644,${oid},${p}`])
+    }
+
+    // 2) 对侧「相对共同基底自己动过」的路径:仅对侧动过 ⇒ 取对侧版本;两侧同改 ⇒ 真三方归并。
+    //    (活文档已在 1) 归并,两条路都不整体覆盖)
     const touchedOurs = new Set(diffNames(base, ours, cwd))
     for (const p of diffNames(base, theirs, cwd)) {
       if (LIVE_DOCS.includes(p)) continue
@@ -481,6 +553,8 @@ export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set(),
       skippedDeletes,
       needHuman,
       keptOurs,
+      markerStrips,
+      markerOrphans,
       humanResolved,
       violations,
     }
@@ -551,13 +625,34 @@ export function verifyUnion(ours, theirs, tree, cwd = ROOT, base = null) {
       continue
     }
     const bt = base ? show(base, p, cwd) : null
-    // 断言必须用**同一个期望表**(liveDocExpectedCounts),不得各写一份:
+    // 这条活文档在本仓库里**根本不存在**(两侧都取不到 ⇒ union 无事可做)。此时既不该判"未存活行"
+    // 也不该判"标记维未判定"—— 路径级的"本侧有而树里没有"上面已经单独判过红了。
+    // 不加这一句早退,凡是不含三份活文档的临时仓(本工具全部自检与镜像夹具都是)都会被新断言
+    // 判成"取不到 ⇒ 未判定"而永不落地 —— 把没判写成判过了不对,反过来把"没有这个东西"写成
+    // "没判成"同样不对:那是一台自己把自己锁死的工具。
+    if (blobOf(ours, p, cwd) === null && blobOf(theirs, p, cwd) === null) continue
+    // 断言必须与产出**同一个出口、同一份判据**(见 `liveDocUnionOutput`):
     // 上一版这里仍是旧的 max(本侧,对侧),于是三方化之后每一枚"本侧改写过别人的行"的合并
     // 都被落地闸判成"丢了 12 行"而拒绝落地 —— 判据与实现不同形时,工具会把自己锁死。
-    const want = liveDocExpectedCounts(a, b, bt)
-    const m = counter(show(tree, p, cwd))
+    // 同理,产出端剥掉的那三行标记若不在期望表里同步扣掉,零丢失断言就会把"剥标记"报成"丢台账行"。
+    const { strip, want } = liveDocUnionOutput(a, b, bt)
+    const mergedText = show(tree, p, cwd)
+    const m = counter(mergedText)
     for (const [l, n] of want)
       if ((m.get(l) || 0) < n) bad.push(`${p} 未存活行:${l.slice(0, 50)}`)
+    // ── 新增断言(2026-09-28):产出的每份活文档**不得仍存在成对冲突标记** ──────────────
+    // 为什么单独一条:剥标记这件事"做没做成"不能靠产出方的自我声明(那是让工具给自己发合格证),
+    // 必须在**被落地的树内容**上现读一遍。判不出来(内容取不到)同样拒绝落地,不静默放行。
+    if (blobOf(tree, p, cwd) === null) {
+      bad.push(`${p} 产出内容取不到 ⇒ 冲突标记维**未判定**,拒绝落地(未判定不是通过)`)
+    } else {
+      const still = findMarkerPairs(mergedText).pairs.length
+      if (still > 0)
+        bad.push(
+          `${p} 产出内容仍含 ${still} 对成对冲突标记 ⇒ 拒绝落地(并集出口没剥净 = 出现判据未覆盖的形态,` +
+            `按预期应是 ${strip.stripped} 对已剥;请人工核对这一族的书写形态并补判据)`,
+        )
+    }
     // 反向对照:本侧改写/删除过的行,合并树里的**重数**不得高于期望表 ——
     // 不能判">0 即复活":活文档里同一行常有真实多份(台账登记行就是如此,实测 D38 有 4 份),
     // 判存在会把"保住的那 3 份"误报成复活。第一版就被真仓咬出这一条。
@@ -951,6 +1046,143 @@ function selfTest() {
       '防复活必须是**有基底的三方判据**:只给两侧文本时旧行为不变(证明收紧靠的是 base 而不是削判据)',
       counter(unionLines('a\n', 'a\nb\n')).get('b') === 1,
     )
+    // ── 并集出口剥掉成对冲突标记三行(2026-09-28 立)。三行的**文本形态逐字取自真仓**
+    //    HEAD 面上的 `PROJECT_PLAN.md`(枚 761c0bc9a 第 16309–16311 行:`<<<<<<< ours` /
+    //    `=======` / `>>>>>>> theirs` —— 两侧内容为空),归档件里另有"ours 侧带一行内容"的同形态。 ──
+    const M_OPEN = '<<<<<<< ours'
+    const M_SEP = '======='
+    const M_END = '>>>>>>> theirs'
+    {
+      const bothEmpty = `L1\n${M_OPEN}\n${M_SEP}\n${M_END}\nL2\n`
+      const r = liveDocUnionOutput(bothEmpty, bothEmpty, 'L1\nL2\n')
+      ok(
+        '剥标记:成套三行被剥净,内容行逐字保留',
+        r.text === 'L1\nL2\n' && r.strip.stripped === 1 && r.strip.manual.length === 0,
+        JSON.stringify({ text: r.text, strip: r.strip.stripped, manual: r.strip.manual }),
+      )
+      ok(
+        '剥标记不算丢行:期望表里不再要求那三行,而内容行照旧要求',
+        !r.want.has(M_OPEN) && !r.want.has(M_SEP) && !r.want.has(M_END) && r.want.get('L1') === 1,
+        JSON.stringify([...r.want]),
+      )
+      ok(
+        '不剥之外的东西:只有一行 ======= 的合法 Markdown 必须原样留着',
+        liveDocUnionOutput('小节名\n=======\n正文\n', '小节名\n=======\n正文\n', null).text ===
+          '小节名\n=======\n正文\n',
+      )
+      const half = `L1\n${M_OPEN}\n${M_SEP}\n只有开头没有结尾\n`
+      const rh = liveDocUnionOutput(half, half, 'L1\n')
+      ok(
+        '半截标记(找不到 >>>>>>> 结尾)⇒ 整份不剥并点名需人工',
+        rh.text === half && rh.strip.manual.length === 1 && rh.strip.stripped === 0,
+        JSON.stringify(rh.strip.manual),
+      )
+      const noSep = `L1\n${M_OPEN}\nours-content\n${M_END}\nL2\n`
+      const rn = liveDocUnionOutput(noSep, noSep, 'L1\nL2\n')
+      ok(
+        '成对但中间没有整行 ======= ⇒ 同样不剥(不是可辩护的三行形态)、点名人工',
+        rn.text === noSep && rn.strip.manual.length === 1,
+        JSON.stringify(rn.strip),
+      )
+      const bothSides = `L1\n${M_OPEN}\nOURS-KEEP\n${M_SEP}\nTHEIRS-KEEP\n${M_END}\nL2\n`
+      const rb = liveDocUnionOutput(bothSides, bothSides, 'L1\nL2\n')
+      ok(
+        '两侧都有内容的成套标记 ⇒ 只剥三行,**双方内容都在**(选边删标记正是历史上静默丢内容的成因)',
+        rb.text.includes('OURS-KEEP') &&
+          rb.text.includes('THEIRS-KEEP') &&
+          !rb.text.includes(M_OPEN) &&
+          !rb.text.includes(M_END) &&
+          rb.text.split('\n').filter((l) => l === M_SEP).length === 0,
+        JSON.stringify(rb.text),
+      )
+      const twice = liveDocUnionOutput(rb.text, rb.text, 'L1\nL2\n')
+      ok(
+        '幂等:对已剥净的输入再跑一次,输出逐字不变、stripped=0',
+        twice.text === rb.text && twice.strip.stripped === 0,
+        JSON.stringify({ a: twice.text === rb.text, n: twice.strip.stripped }),
+      )
+      const orphan = `L1\n${M_END}\nL2\n`
+      const ro = liveDocUnionOutput(orphan, orphan, 'L1\nL2\n')
+      ok(
+        '孤立 >>>>>>> 只报名、不阻断(真仓 CLI patch 夹具就是这个形态,判红即恒红门)',
+        ro.text === orphan && ro.strip.manual.length === 0 && ro.strip.orphanEnds.length === 1,
+        JSON.stringify(ro.strip),
+      )
+    }
+    {
+      // 端到端:带着成对标记的本侧文档 + 对侧另加一行 ⇒ 能落地,且落地内容里没有成对标记。
+      const d4 = mkScratch('ihui-union-marker-')
+      try {
+        const g4 = (...a) => git(a, d4)
+        g4('init', '-q', '-b', 'main')
+        g4('config', 'user.email', 't@t')
+        g4('config', 'user.name', 't')
+        g4('config', 'core.autocrlf', 'false')
+        const DOC_BASE = '- [ ] 甲\n- [ ] 乙\n'
+        writeFileSync(join(d4, 'PROJECT_PLAN.md'), DOC_BASE, 'utf8')
+        writeFileSync(join(d4, 'x.ts'), '1\n', 'utf8')
+        g4('add', '-A')
+        g4('commit', '-qm', 'base')
+        g4('checkout', '-q', '-b', 'theirs')
+        writeFileSync(join(d4, 'PROJECT_PLAN.md'), DOC_BASE + '- [ ] 对侧行\n', 'utf8')
+        g4('add', '-A')
+        g4('commit', '-qm', 'theirs')
+        const theirsM = g4('rev-parse', 'HEAD').trim()
+        g4('checkout', '-q', '-B', 'ours', g4('rev-parse', 'theirs~1').trim())
+        writeFileSync(
+          join(d4, 'PROJECT_PLAN.md'),
+          `- [ ] 甲\n<<<<<<< ours\n=======\n>>>>>>> theirs\n- [ ] 乙\nOURS-ONLY 内容行\n`,
+          'utf8',
+        )
+        g4('add', '-A')
+        g4('commit', '-qm', 'ours 带未解标记三行')
+        const pm = plan(g4('rev-parse', 'HEAD').trim(), theirsM, d4)
+        const treeDoc = show(pm.tree, 'PROJECT_PLAN.md', d4)
+        ok(
+          '端到端:本侧文档里的成对标记三行不得阻止落地(否则每次合并都被它钉死)',
+          pm.bad.length === 0 && pm.needHuman.length === 0,
+          JSON.stringify({ bad: pm.bad.slice(0, 3), human: pm.needHuman }),
+        )
+        ok(
+          '端到端:落地树内容里既无成对标记、又保住双方全部行',
+          findMarkerPairs(treeDoc).pairs.length === 0 &&
+            ['- [ ] 甲', '- [ ] 乙', 'OURS-ONLY 内容行', '- [ ] 对侧行'].every((s) =>
+              treeDoc.includes(s),
+            ),
+          JSON.stringify(treeDoc),
+        )
+        ok(
+          '端到端:剥标记逐条报名(不得静默改台账)',
+          pm.markerStrips.length === 1 &&
+            pm.markerStrips[0].path === 'PROJECT_PLAN.md' &&
+            pm.markerStrips[0].pairs === 1,
+          JSON.stringify(pm.markerStrips),
+        )
+        ok(
+          '端到端:产物仍过守门 100 的 A1(剥三行没把任何路径变成"消失")',
+          auditOne(g4('commit-tree', pm.tree, '-p', g4('rev-parse', 'HEAD').trim(), '-p', theirsM, '-m', 'm'), d4).lost
+            .length === 0,
+        )
+        // 反向:本侧文档带**半截**标记 ⇒ 必须拒绝落地并点名,而不是"能剥多少剥多少"
+        writeFileSync(
+          join(d4, 'PROJECT_PLAN.md'),
+          `- [ ] 甲\n<<<<<<< ours\n=======\n半截\n- [ ] 乙\n`,
+          'utf8',
+        )
+        g4('add', '-A')
+        g4('commit', '-qm', 'ours 半截标记')
+        const ph = plan(g4('rev-parse', 'HEAD').trim(), theirsM, d4)
+        ok(
+          '端到端反向:半截标记 ⇒ needHuman 点名该活文档、落地闸不过、树内容未被改写',
+          ph.needHuman.some((h) => h.path === 'PROJECT_PLAN.md' && h.kind === 'conflict-marker') &&
+            ph.bad.length > 0 &&
+            show(ph.tree, 'PROJECT_PLAN.md', d4).includes('半截'),
+          JSON.stringify({ h: ph.needHuman.map((x) => [x.path, x.kind]), bad: ph.bad.slice(0, 2) }),
+        )
+      } finally {
+        rmScratch(d4)
+      }
+    }
     // 多重行的口径(真仓第一天就把我这条反向对照判成假阳:台账同一行本来就有 4 份)
     ok(
       '活文档:同一行有多份时按重数算,本侧删掉一份 ≠ "旧行被复活"',
@@ -1077,8 +1309,25 @@ async function main() {
     )
   for (const h of p.needHuman)
     console.log(
-      `  ❌ ${h.path} —— ${h.kind}:${h.detail}(本工具不猜、不选边,请人工判这一个文件;` +
-        `判好后用 --resolve '${h.path}=<整份内容文件>' 回灌,它会替你的判断做两侧丢行断言)`,
+      h.kind === 'conflict-marker'
+        ? `  ❌ ${h.path} —— ${h.kind}:${h.detail}\n` +
+          '     (这一型**没有** --resolve 出路:活文档的并集语义在行级,整份回灌等于绕开它;' +
+          '出路是先把那半截标记按 §12b 判掉 —— 它连同内容一起人工归并成一行,单枚提交即可,' +
+          '然后重跑本工具)'
+        : `  ❌ ${h.path} —— ${h.kind}:${h.detail}(本工具不猜、不选边,请人工判这一个文件;` +
+          `判好后用 --resolve '${h.path}=<整份内容文件>' 回灌,它会替你的判断做两侧丢行断言)`,
+    )
+  // 剥标记必须逐条报名:静默剥就等于"工具改了台账内容而没人知道",与本仓"绝不静默成看起来全绿"同一条禁令。
+  for (const s of p.markerStrips || [])
+    console.log(
+      `  · 活文档并集出口剥掉成对冲突标记:${s.path} ${s.pairs} 对(共 ${s.lines} 行:开头/分隔线/结尾)` +
+        '—— 两侧内容行一律保留;零丢失断言已按同一份判据把这 ' +
+        `${s.lines} 行的重数从期望表里扣掉,不是"放过丢行"`,
+    )
+  for (const o of p.markerOrphans || [])
+    console.log(
+      `  · 活文档里有孤立 ${JSON.stringify(o.text.slice(0, 24))}(无配对的开头标记)第 ${o.line} 行:${o.path}` +
+        ' —— 只报名不阻断(守门 79 对它不计红;真仓里 CLI patch 夹具就是这一合法形态)',
     )
   for (const r of p.humanResolved || [])
     console.log(
@@ -1145,6 +1394,7 @@ if (isDirectRun) {
 export const __test__ = {
   buildUnion,
   unionLines,
+  liveDocUnionOutput,
   verifyUnion,
   resolveTargets,
   plan,
