@@ -27,6 +27,7 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS } from '../sandbox/index.js';
 import * as fs from 'node:fs';
 // MCP 协议版本单一真源(packages/shared 镜像 ai-service tunables.py;
 // GAP-PLAN P0-1 收敛:此前此处二次写死旧版 '2024-11-05' 造成跨端漂移)
@@ -461,7 +462,8 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       if (!server.command) throw new Error('stdio transport 需要 command');
       const proc = spawn(server.command, server.args ?? [], {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, ...server.env },
+        // 第三方 MCP 子进程不该看到我方平台凭据;显式写在 server.env 里的值仍然生效(过滤在后合并)
+        env: { ...buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS), ...server.env },
         windowsHide: true,
       });
       proc.stderr?.on('data', () => { /* 忽略 stderr */ });
