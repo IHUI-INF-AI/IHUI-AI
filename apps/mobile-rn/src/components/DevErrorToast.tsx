@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   badge: {
     minWidth: BADGE_SIZE,
     height: BADGE_SIZE,
-    borderRadius: BADGE_SIZE / 2, // radius-exempt: 计数徽章胶囊端=BADGE_SIZE 高度一半(几何圆表达式)
+    borderRadius: BADGE_SIZE / 2,
     backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',

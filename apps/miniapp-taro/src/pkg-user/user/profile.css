@@ -115,7 +115,7 @@
   position: relative;
   width: 96rpx;
   height: 96rpx;
-  border-radius: 50%; /* radius-exempt: 96rpx 用户头像真圆 */
+  border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
   background: var(--color-muted);

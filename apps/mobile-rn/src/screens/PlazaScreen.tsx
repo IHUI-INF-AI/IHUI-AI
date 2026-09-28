@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
   identityAvatar: {
     width: 56,
     height: 56,
-    borderRadius: 56 / 2, // radius-exempt: 身份弹窗头像几何正圆(56dp 直径/2)
+    borderRadius: 56 / 2,
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
   } as ImageStyle,
