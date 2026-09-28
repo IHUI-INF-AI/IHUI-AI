@@ -45,6 +45,18 @@ DOOM_LOOP_HASH_ALGORITHM = 'sha256'
 DOOM_LOOP_STATES = ['observing', 'reflecting', 'terminating']
 DOOM_LOOP_STRATEGY_ACTIONS = ['inject_reflection', 'skip_tool_execution', 'terminate_loop']
 
+# D144(2026-09-29 立):主循环轮次上限的**引擎规范默认值**。
+# 它是 `AgentLoopV2.__init__(max_iterations=…)` 的实际缺省(不是装饰性常量 ——
+# 摘掉消费点就会被 parity 门 P4 判"机制未被消费")。
+# 刻意不等于其余三档(那里各有历史理由,已由门 P4 的登记表逐条写明 + 到期日):
+#   - `app/core/config.py` 的 `max_agent_iterations = 8`(V1 执行器与 run_stream 读的档)
+#   - `app/routers/agents.py` / `app/services/agent_engine.py` 的 `… or 8`(请求级兜底)
+#   - `apps/cli/src/config/defaults.ts` 的 `maxIterations = 25`(CLI 是第二个执行体,预算档不同)
+# 本值是**唯一**被 V2 构造器消费的默认档;改它 = 改所有未显式传 max_iterations 的
+# 引擎内任务的停止点,必须同一枚提交动 `agent_loop_v2.py` 的形参默认值。
+# 尺子:scripts/check-doom-loop-parity.mjs 的 P4(逐档现读 + 差异登记表带 reason/到期日)。
+AGENT_MAX_ITERATIONS = 10
+
 # 序列化兜底占位串(不含任何入参原文)—— 与 TS SERIALIZE_FALLBACK 同值
 _SERIALIZE_FALLBACK = '{"__doom_loop_unserializable__":true}'
 _DIGITS_RE = re.compile(r'\d+')
