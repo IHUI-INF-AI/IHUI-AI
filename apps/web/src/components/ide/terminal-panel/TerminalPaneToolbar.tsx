@@ -37,7 +37,7 @@ export function TerminalPaneToolbar({
             <button
               type="button"
               className={cn(
-                'flex h-5 w-5 items-center justify-center rounded transition-colors',
+                'flex h-5 w-5 items-center justify-center rounded-sm transition-colors',
                 aiSuggestOpen
                   ? 'bg-accent text-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -52,7 +52,7 @@ export function TerminalPaneToolbar({
         <Tooltip content={t('terminalPanel.splitVerticalTitle')}>
           <button
             type="button"
-            className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             onClick={() => onSplitRequest('vertical')}
             aria-label={t('terminalPanel.splitVerticalAria')}
           >
@@ -62,7 +62,7 @@ export function TerminalPaneToolbar({
         <Tooltip content={t('terminalPanel.splitHorizontalTitle')}>
           <button
             type="button"
-            className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             onClick={() => onSplitRequest('horizontal')}
             aria-label={t('terminalPanel.splitHorizontalAria')}
           >
@@ -73,7 +73,7 @@ export function TerminalPaneToolbar({
           <Tooltip content={t('terminalPanel.closePane')}>
             <button
               type="button"
-              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+              className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
               onClick={onClosePane}
               aria-label={t('terminalPanel.closePane')}
             >

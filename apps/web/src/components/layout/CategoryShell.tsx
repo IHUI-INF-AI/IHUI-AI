@@ -165,7 +165,7 @@ export function CategoryShell({
               <SheetTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground min-[768px]:hidden"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground min-[768px]:hidden"
                   aria-label={t('openNavMenu')}
                 >
                   <Menu className="h-4 w-4" />

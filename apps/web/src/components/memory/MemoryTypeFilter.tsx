@@ -29,7 +29,7 @@ export function MemoryTypeFilter({ active, onChange }: MemoryTypeFilterProps) {
           type="button"
           onClick={() => onChange(chip.value)}
           className={cn(
-            'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+            'rounded-sm border px-2.5 py-1 text-xs font-medium transition-colors',
             active === chip.value
               ? 'border-border bg-card text-foreground'
               : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',

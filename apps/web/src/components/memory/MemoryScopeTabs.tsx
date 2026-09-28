@@ -29,7 +29,7 @@ export function MemoryScopeTabs({ active, onChange }: MemoryScopeTabsProps) {
           type="button"
           onClick={() => onChange(tab.value)}
           className={cn(
-            'whitespace-nowrap min-[768px]:shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+            'whitespace-nowrap min-[768px]:shrink-0 rounded-sm border px-3 py-1.5 text-xs font-medium transition-colors',
             active === tab.value
               ? 'border-border bg-card text-foreground'
               : 'border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground',

@@ -215,7 +215,7 @@ export function CommandPalette({
                         key={item.id}
                         type="button"
                         data-idx={flatIdx}
-                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                        className={`flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-left transition-colors ${
                           flatIdx === activeIndex ? 'bg-accent' : 'hover:bg-accent/50'
                         }`}
                         onMouseEnter={() => setActiveIndex(flatIdx)}
