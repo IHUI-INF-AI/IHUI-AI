@@ -195,9 +195,72 @@ async function checkSharedContract() {
   if (!sharedAuth.includes(`userPersistKey = '${PERSIST_KEY}'`)) {
     issues.push(`[shared] auth-store.ts userPersistKey 默认值不是 '${PERSIST_KEY}'`)
   }
-  // 检查 partialize 行为(不持久化 token)
-  if (!sharedAuth.includes("Pick<AuthStoreState<TUser>, 'user' | 'isAuthenticated'>")) {
-    issues.push(`[shared] auth-store.ts partialize 包含 token 字段(违反安全契约)`)
+  // 检查 partialize 行为(不持久化 token)—— 语义判据,不是字面串判据
+  // 立因(2026-09-28 实测):旧写法是 `includes("Pick<AuthStoreState<TUser>, 'user' | 'isAuthenticated'>")`,
+  // 即"必须逐字写着这一串"。而 G-456 把持久化键集**收窄得更严**成 `Pick<AuthStoreState<TUser>, 'user'>`
+  // (登录态改成派生值,不再落盘),字面串不再匹配 ⇒ 门报"partialize 包含 token 字段(违反安全契约)",
+  // 而这句话本身是**假的**。它挂在 pre-commit 的批外 blocking 步上,于是此后每一次提交都被迫 --no-verify,
+  // 链上 187 道守门对每次提交全部作废(§12f 那一型:修"红在干净 HEAD 上的门"优先级高于一切新增)。
+  // 现行判据问的是契约本身:① 实际写进存储的键里有没有 token 材料;② 有没有显式键集收窄(没有就无法
+  // 证明将来不会 `...state` 把 token 带进去);③ 判不出就说判不出,不冒红也不记绿。
+  const pa = analyzePartialize(sharedAuth)
+  if (!pa.hasPartialize) {
+    issues.push(
+      '[shared] auth-store.ts 里找不到 partialize ⇒ 持久化了哪些键无从判断;安全契约要求显式声明键集',
+    )
+  } else if (pa.persistedTokenKeys.length > 0) {
+    issues.push(
+      `[shared] auth-store.ts partialize 把 token 材料写进存储:${pa.persistedTokenKeys.join(', ')}(违反安全契约)`,
+    )
+  } else if (!pa.hasPickNarrowing && pa.stateTokenKeys.length > 0) {
+    issues.push(
+      `[shared] auth-store.ts 的 AuthStoreState 声明了 ${pa.stateTokenKeys.join(', ')},而 partialize 没有 Pick 键集收窄 ⇒ 无法证明这些键不落盘(修法:const persisted: Pick<AuthStoreState<TUser>, 'user'> = …)`,
+    )
+  } else if (!pa.hasPickNarrowing && !pa.stateTokenKeys.length && !pa.literalKeys.length) {
+    failUndetermined(
+      'shared auth-store.ts 的 partialize 既没有 Pick 收窄、也取不到对象字面量键集,且状态接口里没有 token 档 ⇒ 这一维判不出(未判定 ≠ 通过)',
+    )
+  }
+}
+
+/** token 材料的键名特征:含 `token`(accessToken/refreshToken/id_token/…)即算。 */
+const TOKEN_KEY_RE = /token/i
+
+/**
+ * 从 shared auth-store 源码里抽出"partialize 到底往存储写哪些键"。
+ * 三条取材:① `Pick<AuthStoreState<…>, 'a' | 'b'>` 的联合键;② 赋值给持久化常量的对象字面量键;
+ * ③ `AuthStoreState` 接口自己声明的成员(用来判断"有没有 token 需要被挡住")。
+ * 全部按**语法形状**取,不锚定任何具体字符串 —— 否则下一个把代码改得更安全的人会先把门改红。
+ */
+export function analyzePartialize(src) {
+  const hasPartialize = /\bpartialize\s*:/.test(src)
+  const pickKeys = new Set()
+  for (const m of src.matchAll(/Pick<\s*AuthStoreState<[^>]*>\s*,\s*([^>]+?)\s*>/g)) {
+    for (const q of m[1].matchAll(/['"]([^'"]+)['"]/g)) pickKeys.add(q[1])
+  }
+  const literalKeys = new Set()
+  for (const m of src.matchAll(/(?:const|let)\s+persisted\b[^=]*=\s*\{([\s\S]{0,600}?)\n\s*\}/g)) {
+    for (const k of m[1].matchAll(/(?:^|[,{])\s*([A-Za-z_$][\w$]*)\s*:/g)) literalKeys.add(k[1])
+  }
+  // partialize 直接返回一个对象字面量的形态:`partialize: (s) => ({ a: …, b: … })`
+  for (const m of src.matchAll(/partialize\s*:[\s\S]{0,200}?=>\s*\(\s*\{([\s\S]{0,600}?)\}\s*\)/g)) {
+    for (const k of m[1].matchAll(/(?:^|[,{])\s*([A-Za-z_$][\w$]*)\s*:/g)) literalKeys.add(k[1])
+  }
+  const stateTokenKeys = []
+  const iface = src.match(/(?:interface|type)\s+AuthStoreState[\s\S]{0,1200}?\{([\s\S]{0,1200}?)\n\}/)
+  if (iface) {
+    for (const k of iface[1].matchAll(/(?:^|[;,{])\s*([A-Za-z_$][\w$]*)\s*[?]?\s*:/g)) {
+      if (TOKEN_KEY_RE.test(k[1])) stateTokenKeys.push(k[1])
+    }
+  }
+  const allPersisted = new Set([...pickKeys, ...literalKeys])
+  return {
+    hasPartialize,
+    hasPickNarrowing: pickKeys.size > 0,
+    pickKeys: [...pickKeys],
+    literalKeys: [...literalKeys],
+    stateTokenKeys,
+    persistedTokenKeys: [...allPersisted].filter((k) => TOKEN_KEY_RE.test(k)),
   }
 }
 
@@ -240,5 +303,12 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { resolveRootArg, ENDPOINTS, ALL_RELS, PERSIST_KEY, REQUIRED_EXPORTS }
+export const __test__ = {
+  resolveRootArg,
+  ENDPOINTS,
+  ALL_RELS,
+  PERSIST_KEY,
+  REQUIRED_EXPORTS,
+  analyzePartialize,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
