@@ -46,6 +46,24 @@ import asyncpg
 
 from ..core.db_pool import get_shared_pool
 from ..core.llm_gateway import llm_gateway
+from ._load_lifecycle import (
+    DECISION_BACKOFF as _DECISION_BACKOFF,
+)
+from ._load_lifecycle import (
+    DECISION_GAVE_UP as _DECISION_GAVE_UP,
+)
+from ._load_lifecycle import (
+    decide_attempt as _decide_attempt,
+)
+from ._load_lifecycle import (
+    monotonic as _monotonic,
+)
+from ._load_lifecycle import (
+    state_after_failure as _state_after_failure,
+)
+from ._load_lifecycle import (
+    state_after_success as _state_after_success,
+)
 from .differential_privacy import differential_privacy
 
 logger = logging.getLogger(__name__)
@@ -101,6 +119,12 @@ class FederatedLearner:
         # federated_lessons 是全局数据(非用户维度),用 _loaded 标记首次访问后全量加载
         self._loaded: bool = False
         self._loaded_lock: asyncio.Lock = asyncio.Lock()
+        # G-748(2026-09-29):读失败不再固化 —— 失败计数 + 退避窗口 + 放弃留痕。
+        # _loaded=False ∧ _load_failures>0 ⇒ "读不到",与 _loaded=True ∧ 缓存空
+        # ⇒ "权威的空" 结构上可区分;判定与数值住在 _load_lifecycle(唯一一份)。
+        self._load_failures: int = 0
+        self._load_next_attempt_s: float = 0.0
+        self._load_give_up_logged: bool = False
 
     # ==================================================================
     # P1 修复:按需懒加载(替代启动时全量 hydrate)
@@ -116,7 +140,15 @@ class FederatedLearner:
         故用 _loaded 布尔标记,首次访问时全量加载一次。
 
         线程安全:asyncio.Lock 防止并发首次访问重复加载。
-        加载失败也标记为已加载(避免每次调用都重试)。
+
+        G-748(2026-09-29,取代旧口径"加载失败也标记为已加载、从此不再重试"):
+        旧写法把一次瞬时 DB 故障永久固化成"确实没有 lessons"且余生不再重试 ——
+        与 G-702 在 ab_test_tracker 上修掉的那一处同型。判定住在 _load_lifecycle
+        (与 ab_test_tracker 共用那一份实现,两处各抄必漂移):
+        - 读到成功(含读到空表)⇒ 置 loaded,不再打 DB —— 权威的空允许固化;
+        - 读失败 ⇒ **不置 loaded**,指数退避重试(底 1s、封顶 60s);
+        - 连续失败达上限 ⇒ 停止自动重试(有界,防每次调用打爆 IO),loaded 仍 False
+          —— "试了 N 次都失败"不等于"没有数据"。
         """
         if self._loaded:
             return
@@ -124,15 +156,33 @@ class FederatedLearner:
             # double-check:拿到锁后再次确认(可能在等锁期间被其他协程加载)
             if self._loaded:
                 return
-            try:
-                await self.load_all_lessons()
-            except Exception as e:
-                logger.warning(
-                    "[federated_learner] _ensure_loaded 加载失败(降级空内存): %s", e
+            now = _monotonic()
+            decision = _decide_attempt(
+                loaded=self._loaded,
+                failures=self._load_failures,
+                next_attempt_s=self._load_next_attempt_s,
+                now=now,
+            )
+            if decision == _DECISION_GAVE_UP:
+                if not self._load_give_up_logged:
+                    self._load_give_up_logged = True
+                    logger.warning(
+                        "[federated_learner] _ensure_loaded 连续 %d 次读取失败,停止自动重试"
+                        "(状态=读不到,非空表;恢复靠下一次进程重启或人工触发)",
+                        self._load_failures,
+                    )
+                return
+            if decision == _DECISION_BACKOFF:
+                return  # 退避窗口内:本次调用不打 DB
+            ok, _count = await self._try_load_all_lessons()
+            if ok:
+                self._loaded, self._load_failures, self._load_next_attempt_s = (
+                    _state_after_success()
                 )
-            finally:
-                # 无论成功失败都标记已加载(避免重复重试)
-                self._loaded = True
+            else:
+                self._load_failures, self._load_next_attempt_s = _state_after_failure(
+                    self._load_failures, now
+                )
 
     # ==================================================================
     # 主聚合流程
@@ -193,9 +243,14 @@ class FederatedLearner:
 
             # 4. 聚合后刷新内存缓存(避免下次 list 还查 DB)
             if count > 0:
-                await self.load_all_lessons()
-                # P1 修复:标记已加载(缓存已刷新,后续 _ensure_loaded 不再重复加载)
-                self._loaded = True
+                # G-748:刷新是一次**读取**,它自己也可能失败(旧写法无条件置 loaded,
+                # 于是"刷新没读到"也被记成"已加载")。只在 read_ok 时固化。
+                refreshed_ok, _n = await self._try_load_all_lessons()
+                if refreshed_ok:
+                    # P1 修复:标记已加载(缓存已刷新,后续 _ensure_loaded 不再重复加载)
+                    self._loaded, self._load_failures, self._load_next_attempt_s = (
+                        _state_after_success()
+                    )
 
             logger.info(
                 "[federated_learner] aggregate_user_lessons 完成: "
@@ -540,15 +595,27 @@ class FederatedLearner:
         return True
 
     async def load_all_lessons(self, limit: int = 500) -> int:
-        """启动时从 DB 全量 hydrate 联邦 lessons 到内存缓存。
+        """公开计数投影:成功返回条数,失败返回 0。
 
-        由 main.py lifespan 调用,失败不阻塞启动(返回 0 + warning)。
+        ⚠️ 这里的 0 **分不出**"读到空表"与"读取失败"(失败也被投成 0)——
+        内部判定必须走 _try_load_all_lessons 的二元组(G-748:口径同
+        ab_test_tracker.load_active_tests,不得拿本函数返回值当"确实没有"的证据)。
+        """
+        ok, count = await self._try_load_all_lessons(limit)
+        return count if ok else 0
+
+    async def _try_load_all_lessons(self, limit: int = 500) -> tuple[bool, int]:
+        """从 DB 全量 hydrate 联邦 lessons,并把"读不到"与"读到但为空"分开返回。
+
+        由 main.py lifespan(经 load_all_lessons)/ _ensure_loaded 消费。
+
+        返回 (read_ok, count):
+        - (False, 0) ⇒ 连接/查询异常 = "读不到",瞬时故障,**不得**固化为权威的空;
+        - (True, 0)  ⇒ 查询成功且结果集为空 = **权威的空**,可以固化。
+        失败不抛(调用方按 read_ok 决定退避)。
 
         Args:
             limit: 最大加载条数(默认 500,防超大用户量爆内存)。
-
-        Returns:
-            加载到内存的 lesson 条数。
         """
         try:
             pool = await _get_pool()
@@ -574,10 +641,10 @@ class FederatedLearner:
                 )
         except Exception as e:
             logger.warning(
-                "[federated_learner] load_all_lessons 失败(降级空内存): %s: %s",
+                "[federated_learner] _try_load_all_lessons 读取失败(不固化为空): %s: %s",
                 type(e).__name__, e,
             )
-            return 0
+            return False, 0
 
         # 重建内存缓存
         self._cache = []
@@ -596,7 +663,7 @@ class FederatedLearner:
                 "createdAt": row["created_at"].isoformat() if row["created_at"] else "",
                 "updatedAt": row["updated_at"].isoformat() if row["updated_at"] else "",
             })
-        return len(self._cache)
+        return True, len(self._cache)
 
     # ==================================================================
     # 查询接口

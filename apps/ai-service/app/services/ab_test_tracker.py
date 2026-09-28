@@ -42,7 +42,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
 import uuid as _uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -50,6 +49,39 @@ from typing import Any
 import asyncpg
 
 from ..core.db_pool import get_shared_pool
+from ._load_lifecycle import (  # noqa: F401  (三个 `_LOAD_*` 原名 = 既有用例的取值缝)
+    DECISION_BACKOFF as _DECISION_BACKOFF,
+)
+from ._load_lifecycle import (
+    DECISION_GAVE_UP as _DECISION_GAVE_UP,
+)
+from ._load_lifecycle import (
+    # 三个 `_LOAD_*` 原名保留 = 既有用例的取值缝(`att_mod._LOAD_BACKOFF_BASE_S` 等),
+    # 别名不是第二份真相:数值住在 _load_lifecycle 一处。逐行 noqa 是因为本仓 ruff
+    # 配置会把未直接引用的 import 成员自动删掉(实测一次 --fix 就把这三行摘了)。
+    LOAD_BACKOFF_BASE_S as _LOAD_BACKOFF_BASE_S,  # noqa: F401
+)
+from ._load_lifecycle import (
+    LOAD_BACKOFF_MAX_S as _LOAD_BACKOFF_MAX_S,  # noqa: F401
+)
+from ._load_lifecycle import (
+    LOAD_MAX_CONSECUTIVE_FAILURES as _LOAD_MAX_CONSECUTIVE_FAILURES,  # noqa: F401
+)
+from ._load_lifecycle import (
+    decide_attempt as _decide_attempt,
+)
+from ._load_lifecycle import (
+    monotonic as _ll_monotonic,
+)
+from ._load_lifecycle import (
+    state_after_failure as _state_after_failure,
+)
+from ._load_lifecycle import (
+    state_after_success as _state_after_success,
+)
+from ._load_lifecycle import (
+    state_label as _load_state_label,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,14 +93,14 @@ _DEFAULT_SIGNIFICANCE_LEVEL = 0.05
 # G-702(2026-09-29 立):读失败的有界退避参数 —— 失败**不**置 loaded,按指数间隔重试,
 # 连续失败到上限才停自动重试(防每次调用打爆 DB IO);两种状态经 _try_load_active_tests
 # 与 get_status 可区分,"读不到"永远不等于"确实没有 running 测试"。
-_LOAD_BACKOFF_BASE_S = 1.0
-_LOAD_BACKOFF_MAX_S = 60.0
-_LOAD_MAX_CONSECUTIVE_FAILURES = 5
+# G-748(2026-09-29):判据数值与状态词汇收到 `_load_lifecycle` 那**一份**实现里
+# (同族 4 处要共用同一台尺子;两处各抄一遍必漂移)。上面保留 `_LOAD_*` 原名只是因为
+# 既有用例按 `att_mod._LOAD_BACKOFF_BASE_S` 取值/替换 —— 那是别名,不是第二份真相。
 
 
 def _monotonic() -> float:
     """单调钟取用出口:单测替换它以模拟退避窗口流逝,不用真 sleep。"""
-    return time.monotonic()
+    return _ll_monotonic()
 
 
 def _empty_stats() -> dict[str, Any]:
@@ -191,7 +223,14 @@ class ABTestTracker:
             # double-check:拿到锁后再次确认(可能在等锁期间被其他协程加载)
             if self._loaded:
                 return
-            if self._load_failures >= _LOAD_MAX_CONSECUTIVE_FAILURES:
+            now = _monotonic()
+            decision = _decide_attempt(
+                loaded=self._loaded,
+                failures=self._load_failures,
+                next_attempt_s=self._load_next_attempt_s,
+                now=now,
+            )
+            if decision == _DECISION_GAVE_UP:
                 if not self._load_give_up_logged:
                     self._load_give_up_logged = True
                     logger.warning(
@@ -200,21 +239,17 @@ class ABTestTracker:
                         self._load_failures,
                     )
                 return
-            now = _monotonic()
-            if now < self._load_next_attempt_s:
+            if decision == _DECISION_BACKOFF:
                 return  # 退避窗口内:本次调用不打 DB
             ok, _count = await self._try_load_active_tests()
             if ok:
-                self._loaded = True
-                self._load_failures = 0
-                self._load_next_attempt_s = 0.0
-            else:
-                self._load_failures += 1
-                delay = min(
-                    _LOAD_BACKOFF_BASE_S * (2 ** (self._load_failures - 1)),
-                    _LOAD_BACKOFF_MAX_S,
+                self._loaded, self._load_failures, self._load_next_attempt_s = (
+                    _state_after_success()
                 )
-                self._load_next_attempt_s = now + delay
+            else:
+                self._load_failures, self._load_next_attempt_s = _state_after_failure(
+                    self._load_failures, now
+                )
 
     # ==================================================================
     # 创建 / 查询
@@ -719,14 +754,10 @@ class ABTestTracker:
             1 for t in self._tests.values() if t.get("status") == "running"
         )
         total_count = len(self._tests)
-        if self._loaded:
-            load_state = "loaded"  # 含"读到空表"——权威的空
-        elif self._load_failures == 0:
-            load_state = "never_tried"
-        elif self._load_failures >= _LOAD_MAX_CONSECUTIVE_FAILURES:
-            load_state = "gave_up"  # 读不到,且已停止自动重试
-        else:
-            load_state = "retry_backoff"  # 读不到,退避中
+        # 词汇表唯一来源 = _load_lifecycle.state_label(四态互不冒充;见该模块头注)
+        load_state = _load_state_label(
+            loaded=self._loaded, failures=self._load_failures
+        )
         return {
             "totalTests": total_count,
             "runningTests": running_count,
