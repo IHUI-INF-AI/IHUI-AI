@@ -23,7 +23,7 @@ import type {
   MessageTab,
 } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 /** 消息中心 Tab/Item/Props 类型 re-export(单一来源 @ihui/types) */
@@ -264,7 +264,7 @@ function createStyles(tk: AppThemeTokens) {
       right: -4,
       minWidth: 16,
       height: 16,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.error.text,
       alignItems: 'center',
       justifyContent: 'center',
