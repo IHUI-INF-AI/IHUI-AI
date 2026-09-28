@@ -902,7 +902,33 @@ export function createSendMessage(
           if (!evt.terminalId || !evt.text) return
           useChatStore.getState().appendTerminalOutput(evt.terminalId, evt.text)
         },
+        // D151(2026-09-29 立):命令停在"等键盘输入"的一帧 —— 此处**只写 store**,
+        // 由 terminal-section 在同一张终端卡里长出输入行。刻意不弹 toast、不打 logger:
+        // promptTail 取自命令输出,服务端按凭据形态脱敏但不保证干净,而 toast/日志都会把它
+        // 带进第二条用户看不见(或看得见)的通道 —— 屏幕上原位显示是唯一的呈现面。
+        //
+        // sessionId 由本轮同源帧观察所得(见 store.aiStreamSessionId 的注释):terminal_interaction
+        // 帧本身不带会话 ID,拿不到就不写地址,提交时如实报失败,不猜一个发出去。
+        onTerminalInteraction: (evt) => {
+          if (!evt.terminalId) return
+          const observedSessionId = useChatStore.getState().aiStreamSessionId
+          useChatStore.getState().setTerminalInteraction(evt.terminalId, {
+            promptTail: evt.promptTail,
+            waitingSinceMs: evt.waitingSinceMs,
+            maxInputChars: evt.maxInputChars,
+            submitting: false,
+            failed: false,
+            ...(evt.messageId ? { messageId: evt.messageId } : {}),
+            // 帧自带的 sessionId 是权威值(D151 之后 mcp_server 一定填);观察值只作旧流兜底 ——
+            // 猜错会话的表现是"点了发送没反应",所以宁可用帧里的。
+            sessionId: evt.sessionId || observedSessionId,
+          })
+        },
         onTerminalEnd: (evt) => {
+          // D151:命令已经跑完(或失败)⇒ 那条"等待输入"从此无人接收,先清掉等待态再走原逻辑。
+          // 刻意放在 `!evt.messageId` 早退**之前**:该帧只保证 terminalId,
+          // 按 messageId 收口会在缺 messageId 的流里漏掉等待态。
+          if (evt.terminalId) useChatStore.getState().clearTerminalInteraction(evt.terminalId)
           if (!evt.messageId) return
           useChatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
             status: evt.status,
@@ -1009,6 +1035,9 @@ export function createSendMessage(
         // 2026-08-07:无工作区提示已移到 sendMessage 顶层,通过 noWorkspaceNoticeShown 去重,
         // 多个 fs 工具失败时只弹一次 toast,避免刷屏。
         onToolDelegate: async (event: ToolDelegateEvent) => {
+          // D151 前置:该帧的 session_id 与 llm.py 注入 terminal ctx 的是**同一个变量**,
+          // 故在此登记 ⇒ 后续 terminal_interaction 帧(它自己不带 sessionId)才有地址可用。
+          useChatStore.getState().noteStreamSessionId(event.session_id)
           const ws = useAiPanelStore.getState().activeWorkspace
           if (!ws?.name) {
             notifyNoWorkspace('当前没有活跃工作区')
@@ -1041,6 +1070,8 @@ export function createSendMessage(
         // postToolApprovalResponse 回传到主聊天流端点(llm.py _approval_sessions),
         // 而非 agent 任务流的 /agents/approval-response —— 两套审批注册表互不相通。
         onToolApproval: (event: ToolApprovalEvent) => {
+          // D151 前置:同 onToolDelegate —— 审批帧的 sessionId 就是本轮流会话 ID。
+          if (event.sessionId) useChatStore.getState().noteStreamSessionId(event.sessionId)
           dispatchToolApprovalRequest({
             approvalId: event.approvalId,
             toolName: event.toolName,
@@ -1073,6 +1104,8 @@ export function createSendMessage(
         //    承接 —— 两者逐字段同形,该等值由 chat/__tests__/form-request-contract.test.ts
         //    的双向可赋值断言钉住。
         onFormRequest: (event) => {
+          // D151 前置:同 onToolDelegate —— 表单帧的 sessionId 也是本轮流会话 ID。
+          if (event.sessionId) useChatStore.getState().noteStreamSessionId(event.sessionId)
           const entry = projectFormRequestFrame(event, assistantId)
           if (!entry) return
           useBusinessFormStore.getState().appendFormRequest(entry)
