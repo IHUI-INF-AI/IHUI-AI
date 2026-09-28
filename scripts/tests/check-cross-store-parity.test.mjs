@@ -24,6 +24,8 @@ import { spawnSync } from 'node:child_process'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { __test__ as G } from '../check-cross-store-parity.mjs'
+import { readFileSync as readFsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -389,7 +391,7 @@ test('检查 shared: 缺 partialize Pick 类型(违反安全契约)→ exit 1', 
     writeAuthStore(root, badAuth)
     const r = runScript(root)
     assert.equal(r.status, 1, `缺 partialize Pick 应 exit 1,实际 ${r.status}`)
-    assert.match(r.stderr, /\[shared\] auth-store\.ts partialize 包含 token 字段/)
+    assert.match(r.stderr, /auth-store\.ts 的 AuthStoreState 声明了 token,而 partialize 没有 Pick 键集收窄/)
   } finally {
     rmScratch(root)
   }
@@ -461,7 +463,7 @@ export function createSSRSafeWebTransport(): PersistTransport {
     // 应同时报告 3 处问题
     assert.match(r.stderr, /\[web\] 缺少必需导出: createLocalStorageTransport/)
     assert.match(r.stderr, /\[web\] 缺 getItem 方法/)
-    assert.match(r.stderr, /\[shared\] auth-store\.ts partialize 包含 token 字段/)
+    assert.match(r.stderr, /\[shared\] auth-store\.ts 的 AuthStoreState 声明了 token/)
     // 应输出问题总数
     assert.match(r.stderr, /❌ 发现 3 处问题/)
   } finally {
@@ -489,5 +491,65 @@ test('输出: 列出 4 端端点列表 → exit 0', () => {
   } finally {
     rmScratch(root)
   }
+})
+
+/* ════════════════════════════════════════════════════════════════════════════
+   partialize 判据换成语义式之后的三条"有牙 + 不放水"证明(2026-09-28)
+   立因:旧判据写死字面串 `Pick<AuthStoreState<TUser>, 'user' | 'isAuthenticated'>`,
+   G-456 把键集**收窄得更严**成 `Pick<AuthStoreState<TUser>, 'user'>` 之后,门反过来报
+   "partialize 包含 token 字段(违反安全契约)"—— 一句假话,而且它挂在 pre-commit 的
+   批外 blocking 步上,此后每次提交都被迫 --no-verify(§12f 的 P0 型:红在干净 HEAD 上的
+   门,优先级高于一切新增)。三条各挡一个方向:
+     A 阳性:真把 token 列进持久化键集 ⇒ 必红并点名(换成语义判据不等于放水)
+     B 反向:比旧写法更严的收窄 ⇒ 必绿(否则同一台恒红门原地复活)
+     C 真仓对照:仓库自己那份 auth-store 判出来必须是"有收窄、零 token 键"
+   ════════════════════════════════════════════════════════════════════════════ */
+test('A 阳性:partialize 把 accessToken 列进 Pick ⇒ exit 1 并点名该键(语义判据不是无条件放行)', () => {
+  const root = createTempProject()
+  try {
+    const badAuth = VALID_AUTH_STORE.replace(
+      "Pick<AuthStoreState<TUser>, 'user' | 'isAuthenticated'>",
+      "Pick<AuthStoreState<TUser>, 'user' | 'accessToken'>",
+    )
+    writeAllValid(root)
+    writeAuthStore(root, badAuth)
+    const r = runScript(root)
+    assert.equal(r.status, 1, `持久化 token 必须 exit 1,实际 ${r.status}`)
+    assert.match(r.stderr, /把 token 材料写进存储:accessToken/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('B 反向:比旧字面串更严的收窄(只留 user)必须 exit 0 —— 这正是 09-28 被误判红的那一种', () => {
+  const root = createTempProject()
+  try {
+    const stricter = VALID_AUTH_STORE.replace(
+      "Pick<AuthStoreState<TUser>, 'user' | 'isAuthenticated'>",
+      "Pick<AuthStoreState<TUser>, 'user'>",
+    )
+    writeAllValid(root)
+    writeAuthStore(root, stricter)
+    const r = runScript(root)
+    assert.equal(r.status, 0, `更严的键集收窄不该被判红(判红=一台恒红门),实际 ${r.status}:${r.stderr}`)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('C 真仓对照:analyzePartialize 对本仓 auth-store 的现读必须是"有 Pick 收窄 + 零 token 键"', () => {
+  const src = readFsSync(
+    join(__dirname, '..', '..', 'packages', 'shared', 'src', 'stores', 'auth-store.ts'),
+    'utf8',
+  )
+  const got = G.analyzePartialize(src)
+  assert.equal(got.hasPartialize, true, '本仓 auth-store 必须有 partialize;取不到先怀疑尺子')
+  assert.equal(
+    got.hasPickNarrowing,
+    true,
+    '本仓用 Pick 声明持久化键集 ⇒ 判据必须认得它(认不得就是 09-28 那台恒红门)',
+  )
+  assert.deepEqual(got.persistedTokenKeys, [], `本仓不应持久化任何 token 键,量到:${got.persistedTokenKeys.join(', ')}`)
+  assert.ok(got.stateTokenKeys.length > 0, '阳性对照:AuthStoreState 确实声明了 token 档 —— 否则本条是在对空集判绿')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
