@@ -420,7 +420,7 @@ export default function PromptsPage() {
                               <TooltipTrigger asChild>
                                 <button
                                   type="button"
-                                  className="rounded p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                                  className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:text-foreground"
                                   onClick={() => openView(p.name)}
                                 >
                                   <Eye className="h-4 w-4" />
@@ -432,7 +432,7 @@ export default function PromptsPage() {
                               <TooltipTrigger asChild>
                                 <button
                                   type="button"
-                                  className="rounded p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                                  className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:text-foreground"
                                   onClick={() => openEdit(p)}
                                 >
                                   <Edit3 className="h-4 w-4" />
@@ -444,7 +444,7 @@ export default function PromptsPage() {
                               <TooltipTrigger asChild>
                                 <button
                                   type="button"
-                                  className="rounded p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                                  className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:text-foreground"
                                   onClick={() => openHistory(p.name)}
                                 >
                                   <History className="h-4 w-4" />
@@ -456,7 +456,7 @@ export default function PromptsPage() {
                               <TooltipTrigger asChild>
                                 <button
                                   type="button"
-                                  className="rounded p-1.5 text-muted-foreground transition-colors hover:text-rose-500"
+                                  className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:text-rose-500"
                                   onClick={() => handleDelete(p.name)}
                                 >
                                   <Trash2 className="h-4 w-4" />

@@ -116,7 +116,7 @@ export default function DeepResearchPage() {
           onChange={(e) => setQuery(e.target.value)}
           rows={3}
           placeholder={t('queryPlaceholder')}
-          className="w-full resize-y rounded-lg border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="w-full resize-y rounded-sm border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -129,13 +129,13 @@ export default function DeepResearchPage() {
               onChange={(e) =>
                 setIterations(Math.max(1, Math.min(10, Number(e.target.value) || 4)))
               }
-              className="w-20 rounded-lg border bg-background px-2 py-1 text-sm"
+              className="w-20 rounded-sm border bg-background px-2 py-1 text-sm"
             />
           </label>
           <button
             onClick={start}
             disabled={loading || !query.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {t('start')}
