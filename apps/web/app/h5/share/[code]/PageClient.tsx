@@ -114,7 +114,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
 
   return (
     <div className="flex flex-1 flex-col px-4 pb-24 pt-6">
-      <article className="flex-1 overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <article className="flex-1 overflow-hidden ui-card rounded-lg border bg-card shadow-sm">
         <header className="flex items-center gap-2.5 px-4 py-3">
           {data.modelIcon ? (
             <Image

@@ -167,7 +167,7 @@ export function NewsInfoTable(props: Props) {
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto ui-card rounded-lg border">
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>

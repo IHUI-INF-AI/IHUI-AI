@@ -82,7 +82,7 @@ export function ItemList({
             />
           )}
           {showOrder && (
-            <div className="flex items-center gap-1 rounded-md border bg-card p-0.5">
+            <div className="flex items-center gap-1 ui-card rounded-lg border bg-card p-0.5">
               {ORDER_OPTIONS.map((opt) => (
                 <Button
                   key={opt.key}

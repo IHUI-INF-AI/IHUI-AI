@@ -239,7 +239,7 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
           />
         </button>
         {open && (
-          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-popover rounded-lg border bg-popover text-popover-foreground shadow-md">
+          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-popover ui-popover rounded-md border bg-popover text-popover-foreground shadow-md">
             <div className="border-b px-2 py-1.5">
               <SearchInput
                 placeholder={labels.searchPlaceholder}

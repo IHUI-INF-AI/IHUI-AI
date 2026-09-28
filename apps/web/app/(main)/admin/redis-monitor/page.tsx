@@ -40,7 +40,7 @@ const TB: Record<RedisMonitorResponse['topKeys'][number]['type'], string> = {
   stream: 'bg-indigo-500/10 text-indigo-600',
 }
 const Empty = () => (
-  <div className="mt-3 rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">
+  <div className="mt-3 ui-card rounded-lg border border-dashed py-6 text-center text-sm text-muted-foreground">
     暂无数据
   </div>
 )
