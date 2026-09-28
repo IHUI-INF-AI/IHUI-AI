@@ -48,7 +48,7 @@ export function CostEstimateBar() {
             setPendingConfirm(null)
           }}
           data-testid="cost-confirm-send"
-          className="shrink-0 rounded-md bg-cta px-2.5 py-1 text-[11px] font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+          className="shrink-0 rounded-sm bg-cta px-2.5 py-1 text-[11px] font-medium text-cta-foreground transition-colors hover:bg-cta/90"
         >
           {t('confirmSend')}
         </button>
@@ -59,7 +59,7 @@ export function CostEstimateBar() {
             setPendingConfirm(null)
           }}
           data-testid="cost-confirm-cancel"
-          className="shrink-0 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+          className="shrink-0 rounded-sm border border-border bg-card px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
         >
           {t('confirmCancel')}
         </button>
