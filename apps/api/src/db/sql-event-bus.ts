@@ -22,7 +22,8 @@ export interface SqlEvent {
  *
  * 设计要点:
  * - 用 AsyncLocalStorage 让 requestId 跨异步链传播,logger 回调无需手动传 requestId。
- * - listener 错误必须 swallow,不能影响 DB 查询本身。
+ * - listener 错误必须 swallow(不能影响 DB 查询本身),但**必须 console.warn 喊出来** ——
+ *   静默吞掉等于让订阅方整条失效而账面一切正常(§5e「失败必须响」)。
  * - emit 自动注入 ALS 中的 requestId。
  */
 class SqlEventBus {
@@ -41,12 +42,21 @@ class SqlEventBus {
   emit(event: SqlEvent): void {
     const store = this.als.getStore()
     const enriched: SqlEvent = store ? { ...event, requestId: store.requestId } : event
+    let index = 0
     for (const listener of this.listeners) {
       try {
         listener(enriched)
-      } catch {
-        // swallow listener errors,不能影响 DB 查询本身
+      } catch (err) {
+        // 仍然 swallow —— 监听器抛错不得打断 DB 查询本身;但**必须响**:
+        // 静默吞掉后,订阅方(pino sink / 慢查询告警 / 统计)整条失效而账面一切正常,
+        // 与本仓 §5e「失败必须响」和守门 70/76/81 记过的「判据失效的表现永远是安静」同一条禁令。
+        console.warn(
+          `[sql-event-bus] 监听器 #${index} 抛错,本次事件未送达该订阅方 durationMs=${
+            event.durationMs ?? 'n/a'
+          } query=${event.query.slice(0, 120)}: ${(err as Error)?.message ?? err}`,
+        )
       }
+      index += 1
     }
   }
 

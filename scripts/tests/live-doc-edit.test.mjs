@@ -1106,3 +1106,38 @@ test('I10 反向锁:幂等判据必须在 CAS 循环体内、且在拼块之前�
     '判据只看被审面;循环里出现 readFileSync 就是把它换成了磁盘面(共享工作树常年滞后 HEAD)',
   )
 })
+
+test('I11 畸形登记号必须被拒,且必须发生在写 blob 之前(2026-09-28 立)', () => {
+  const { newMalformed, MALFORMED_ID_RE } = __test__
+  assert.ok(typeof newMalformed === 'function' && MALFORMED_ID_RE, '判据未导出 = 镜像测不到它,等同于没有')
+  // 真事故形态:令牌展开值已含族名,正文又手写了一个 D ⇒ DD128
+  const bad = '- [ ] **DD128 AI 对话链路四竞品对标 V4 收口线 —— 唯一入口 x.md'
+  assert.ok(MALFORMED_ID_RE.test(bad), '本仓真实产出过的形态判不出 ⇒ 尺子对自家形态失明')
+  const g = '- [ ] **G-G-334 取号令牌被写成"字面 G- + 令牌"的畸形产物'
+  assert.ok(MALFORMED_ID_RE.test(g), '另一族同型形态必须同视(判据不认具体族名,否则新增族自动漏网)')
+  const ok1 = '- [ ] **D128 正常登记行'
+  assert.ok(!MALFORMED_ID_RE.test(ok1), '正当形态被误判 ⇒ 每台必红,唯一结局是逼人绕开本器')
+  const r = newMalformed('', bad + '\n' + ok1)
+  assert.equal(r.added.length, 1, '应只拦新引入的那一行')
+  assert.equal(r.preexisting.length, 0)
+})
+
+test('I12 存量畸形号只报数不拦:锚点必须取父提交(否则把他人的债钉成每次必红)', () => {
+  const { newMalformed } = __test__
+  const legacy = '- [ ] **DD100 别人历史留下的行'
+  const mine = '- [ ] **D900 我这次正当新增的行'
+  const r = newMalformed(legacy + '\n' + mine, legacy + '\n' + mine + '\n')
+  assert.equal(r.added.length, 0, '父提交里已在的畸形行不得算成本次新增 —— 那是 §12e 恒红门的成因')
+  assert.equal(r.preexisting.length, 1, '但必须报出来:存量与我刚造的不能在账面上长得一样')
+})
+
+test('I13 结构锁:判据必须在 CAS 循环内、writeBlob 之前(落地后再 exit 1 就是把已入库谎报成没落地)', () => {
+  const loopStart = TOOL_SRC.indexOf('for (let attempt = 1')
+  const loopEnd = TOOL_SRC.indexOf("if (landed === '')")
+  const body = TOOL_SRC.slice(loopStart, loopEnd)
+  assert.ok(/newMalformed\(\s*baseContent\s*,/.test(body), '未接入 CAS 循环 = 一次也不会跑(守门 64/70/76/81/115 同型)')
+  const at = body.indexOf('newMalformed(')
+  const wb = body.indexOf('writeBlob(')
+  assert.ok(at > 0 && wb > at, '必须在写 blob 之前判:内容入库后再 exit 1 会诱导重跑,而重跑正是 G-321 要消灭的那一步')
+  assert.match(body, /process\.exit\(1\)/, '拦下来必须是拒绝落地,不能只打印')
+})
