@@ -19,7 +19,7 @@
  * 4. 严格只读 Taro.storage,不引入额外副作用,确保与 utils/auth.ts 的存储区域
  *    完全一致(用独立 key 'ihui-auth-user',不与 token / userInfo 冲突)。
  *
- * 使用场景(只用于持久化 user + isAuthenticated,token 一律不落盘):
+ * 使用场景(只用于持久化 user;isAuthenticated 不落盘、由 token 派生,token 一律不落盘):
  * - zustand persist 写入 user 字段:经 createJSONStorage → PersistTransport
  *   → Taro.storage.setStorageSync('ihui-auth-user', json)
  * - hydrate 时:从 Taro.storage.getStorageSync('ihui-auth-user') 读出 JSON 字符串
