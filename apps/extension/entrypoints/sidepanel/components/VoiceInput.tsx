@@ -250,7 +250,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
             onClick={toggle}
             disabled={disabled}
             aria-label={buttonTitle}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors ${
               recording
                 ? 'bg-red-500 text-white hover:bg-red-500/90'
                 : error
