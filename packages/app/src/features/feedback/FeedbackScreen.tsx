@@ -256,7 +256,7 @@ function createStyles(tk: AppThemeTokens) {
       right: -6,
       width: 20,
       height: 20,
-      borderRadius: 10, // radius-exempt: 图片删除按钮 20×20 正圆(直径一半)
+      borderRadius: 10,
       backgroundColor: tk.overlay.modal,
       alignItems: 'center',
       justifyContent: 'center',

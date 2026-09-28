@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   rankBadge: {
     width: 24,
     height: 24,
-    borderRadius: rnRadius.xl, // radius-exempt: 24dp 名次徽章正圆(半径=边长一半),不得方档化
+    borderRadius: rnRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
