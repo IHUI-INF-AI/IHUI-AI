@@ -469,7 +469,7 @@ const createStyles = (tk: RnThemeTokens) =>
     checkoutBtn: {
       paddingHorizontal: rpx(36),
       height: rpx(72),
-      borderRadius: rpx(72) / 2, // radius-exempt: 结算按钮为胶囊(半径=高度一半),改方档会破坏形状
+      borderRadius: rnRadius.sm, // 结算按钮是控件 ⇒ control 档 sm(项目不允许胶囊)
       backgroundColor: tk.success.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
