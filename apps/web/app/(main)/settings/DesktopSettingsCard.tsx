@@ -4,46 +4,44 @@
 
 'use client'
 
-import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import {
   Monitor,
   Power,
+  Pin,
+  Info,
   Keyboard,
+  Cloud,
   RotateCcw,
   Bell,
   Minimize,
   Maximize2,
   X,
-  Pin,
 } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, Switch, Button } from '@ihui/ui-react'
+import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui-react'
 import { useDesktop } from '@/hooks/use-desktop'
-import { getLocalizedAppName } from '@/lib/tauri-bridge'
+import { DesktopPrefsSection, SwitchRow } from './DesktopPrefsSection'
+import type { DesktopPrefsPatch } from '@/lib/desktop-prefs-bridge'
+import { useDesktopPrefsSync } from '@/lib/desktop-prefs-sync'
+import { useAuthStore } from '@/stores/auth'
 import { toast } from 'sonner'
 
 /**
- * DesktopSettingsCard — 客户端独占设置卡片(2026-07-25 立)
+ * DesktopSettingsCard — 客户端独占设置卡片(2026-07-25 立,2026-09-28 补托盘/关闭偏好)。
  *
  * 仅在 Tauri 客户端 WebView 中渲染,浏览器环境返回 null。
+ * 内容:版本/平台 · 开机自启 · 托盘常驻 · 托盘与关闭偏好(拆给 DesktopPrefsSection)·
+ * 全局快捷键 · 窗口控制 · 高级操作。
  *
- * 内容:
- * - 客户端版本 / 平台信息
- * - 开机自启开关(Switch)
- * - 托盘常驻显示开关(Switch,2026-09-02 #2 立)
- * - 全局快捷键说明(Ctrl+Shift+I 唤起/隐藏)
- * - 窗口控制快捷入口(最小化/最大化/关闭)
- * - 重置窗口状态按钮
- * - 测试系统通知按钮
+ * 三条样式硬约束(AGENTS.md §4):文案全走 `useTranslations('settings')`(此前整张卡是硬编码中文,
+ * 缺的键由语言包那次提交补齐);图标与文字分开摆、按钮文字交给 ui-react Button 内置的
+ * wrapRawTextChildren;圆角只用档位名,不自写任意值。
  *
- * 样式遵循 AGENTS.md §4:
- * - 圆角守门:rounded-lg / rounded-md,无 rounded-full
- * - 中文+图标垂直对齐由 globals.css 全局 vcenter 规则自动处理
- * - hover 用 subtle bg-accent,无蓝色发光边框
- * - compact 紧凑布局
- *
- * i18n:客户端独占 UI,中文优先(用户偏好),后续按需补齐 5 语言。
+ * 偏好的**有效值只认宿主回传的那一份**:互斥组合由宿主规范化(`showTrayIcon=false` ⇒
+ * `closeBehavior` 不可能是 `'hide'`),前端不自己推 —— 见 useDesktop().updateDesktopPrefs。
  */
 export function DesktopSettingsCard() {
+  const t = useTranslations('settings')
   const {
     isDesktop,
     appInfo,
@@ -51,8 +49,12 @@ export function DesktopSettingsCard() {
     autostartEnabled,
     trayAlwaysVisible,
     loading,
+    desktopPrefs,
+    desktopPrefsLoading,
+    desktopPrefsSupported,
     toggleAutostart,
     toggleTrayAlwaysVisible,
+    updateDesktopPrefs,
     resetWindow,
     notify,
     minimize,
@@ -60,185 +62,236 @@ export function DesktopSettingsCard() {
     close,
   } = useDesktop()
 
+  // 跨设备漫游(G-301):未登录时整条链不启动 —— 拿 401 当“没开同步”是错的读法。
+  // 必须在 “if (!isDesktop) return null” **之前**调用:放到早退之后就是条件调用 hook,
+  // 浏览器环境会直接踩 React 的 hooks 规则(lint 与运行时各红一次)。
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const sync = useDesktopPrefsSync({
+    prefs: desktopPrefs,
+    available: isDesktop && desktopPrefsSupported,
+    authenticated: isAuthenticated,
+    applyRemote: (remote) => updateDesktopPrefs(remote),
+  })
+
   // 浏览器环境不渲染(整张卡片仅客户端可见)
   if (!isDesktop) return null
 
+  /** 偏好初值到位前一律禁用:否则用户能在"还不知道宿主怎么想"的窗口里连点两次。 */
+  const busy = loading || desktopPrefsLoading
+
+  /** 写偏好 ⇒ 只把宿主回传的有效值落进状态;失败保留旧值并点名(不静默吞)。 */
+  const commit = async (patch: DesktopPrefsPatch): Promise<void> => {
+    const effective = await updateDesktopPrefs(patch)
+    if (!effective) {
+      toast.error(t('desktopSaveFailed'))
+      return
+    }
+    toast.success(t('desktopSaved'))
+  }
+  const onPatch = (patch: DesktopPrefsPatch): void => {
+    void commit(patch)
+  }
+
   const handleResetWindow = async () => {
     await resetWindow()
-    toast.success('窗口状态已重置,下次启动将使用默认尺寸')
+    toast.success(t('desktopResetWindowDone'))
   }
 
   const handleTestNotify = async () => {
-    const appName = appInfo?.name || getLocalizedAppName()
-    await notify(appName, '这是一条测试通知,确认系统通知功能正常工作。')
-    toast.success('通知已发送,请查看系统通知中心')
+    await notify(t('desktopNotifyTestTitle'), t('desktopNotifyTestBody'))
+    toast.success(t('desktopNotifySent'))
   }
 
-  const handleMinimize = async () => {
-    await minimize()
-  }
-
-  const handleToggleMax = async () => {
-    await toggleMaximize()
-  }
-
-  const handleClose = async () => {
-    await close()
-  }
+  const closeNote =
+    desktopPrefs.closeBehavior === 'hide'
+      ? t('desktopCloseNoteHide')
+      : desktopPrefs.closeBehavior === 'quit'
+        ? t('desktopCloseNoteQuit')
+        : t('desktopCloseNoteAsk')
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Monitor className="h-4 w-4 shrink-0" />
-          <span className="whitespace-nowrap">客户端</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* 版本信息 */}
-        <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
-          <div className="flex min-w-0 items-center gap-2 text-sm">
-            <span className="shrink-0 whitespace-nowrap text-muted-foreground">版本</span>
-            <span className="truncate font-medium tabular-nums">{appInfo?.version ?? '—'}</span>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 text-sm">
-            <span className="shrink-0 whitespace-nowrap text-muted-foreground">平台</span>
-            <span className="truncate font-medium capitalize">{appInfo?.platform ?? '—'}</span>
-          </div>
-        </div>
-
-        {/* 开机自启开关 */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Power className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0">
-              <p className="whitespace-nowrap text-sm font-medium">开机自启</p>
-              <p className="line-clamp-2 text-xs text-muted-foreground">
-                登录系统时自动启动并最小化到托盘
-              </p>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Monitor className="h-4 w-4 shrink-0" />
+            <span className="whitespace-nowrap">{t('desktopCardTitle')}</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 版本信息 */}
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
+            <div className="flex min-w-0 items-center gap-2 text-sm">
+              <span className="shrink-0 whitespace-nowrap text-muted-foreground">
+                {t('desktopVersion')}
+              </span>
+              <span className="truncate font-medium tabular-nums">{appInfo?.version ?? '—'}</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-2 text-sm">
+              <span className="shrink-0 whitespace-nowrap text-muted-foreground">
+                {t('desktopPlatform')}
+              </span>
+              <span className="truncate font-medium capitalize">{appInfo?.platform ?? '—'}</span>
             </div>
           </div>
-          <Switch
+
+          <SwitchRow
+            icon={Power}
+            title={t('desktopAutostartTitle')}
+            desc={t('desktopAutostartDesc')}
             checked={autostartEnabled}
+            disabled={loading}
             onCheckedChange={(checked) => {
               void toggleAutostart()
-              toast.success(checked ? '已启用开机自启' : '已关闭开机自启')
+              toast.success(checked ? t('desktopAutostartOn') : t('desktopAutostartOff'))
             }}
-            disabled={loading}
-            aria-label="开机自启"
-            className="shrink-0"
           />
-        </div>
 
-        {/* 托盘常驻开关(2026-09-02 #2 立) */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Pin className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0">
-              <p className="whitespace-nowrap text-sm font-medium">托盘常驻显示</p>
-              <p className="line-clamp-2 text-xs text-muted-foreground">
-                将托盘图标固定在任务栏,不收入右下角隐藏区(Windows
-                11);关闭后如需恢复,请到系统"任务栏·小图标"处重新拖出
-              </p>
-            </div>
-          </div>
-          <Switch
+          <SwitchRow
+            icon={Pin}
+            title={t('desktopTrayPromoteTitle')}
+            desc={t('desktopTrayPromoteDesc')}
             checked={trayAlwaysVisible}
+            disabled={loading}
             onCheckedChange={() => {
               void toggleTrayAlwaysVisible().then((next) => {
-                toast.success(next ? '托盘图标已常驻任务栏' : '托盘图标已收入隐藏区')
+                toast.success(next ? t('desktopTrayPromoteOn') : t('desktopTrayPromoteOff'))
               })
             }}
-            disabled={loading}
-            aria-label="托盘常驻显示"
-            className="shrink-0"
           />
-        </div>
 
-        {/* 全局快捷键说明 */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Keyboard className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="whitespace-nowrap">全局快捷键</span>
-          </div>
-          <div className="grid grid-cols-1 gap-1.5 text-xs">
-            <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
-              <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                唤起 / 隐藏主窗口
-              </span>
-              <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
-                Ctrl+Shift+I
-              </kbd>
+          {/* 托盘与关闭偏好(六行 + 两种行控件都在 DesktopPrefsSection,受 §4 行数上限所拆)。
+              读不到宿主偏好时**不能**把本地默认档摆出去冒充现状 —— 旧安装器没有这套命令,
+              用户拨完什么也不会发生(表现就是"设置无效"却零提示)。改成明说需要更新版本。 */}
+          {desktopPrefsSupported ? (
+            <DesktopPrefsSection prefs={desktopPrefs} disabled={busy} onPatch={onPatch} />
+          ) : (
+            <div className="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{t('desktopPrefsUnsupported')}</span>
             </div>
-            <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
-              <span className="min-w-0 flex-1 truncate text-muted-foreground">退出应用</span>
-              <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
-                Ctrl+Q
-              </kbd>
+          )}
+
+          {/* 跨设备同步(G-301):本机值永远是执行真相,这里只负责“拉来后经宿主写回”。
+              宿主不支持这套偏好时整行不给 —— 同步开着却无法落回本机,比没有同步更糟。 */}
+          {desktopPrefsSupported && (
+            <SwitchRow
+              icon={Cloud}
+              title={t('desktopSyncTitle')}
+              desc={sync.state === 'unknown' ? t('desktopSyncUnknown') : t('desktopSyncDesc')}
+              checked={sync.state === 'on'}
+              disabled={busy || sync.busy || !isAuthenticated}
+              onCheckedChange={(next) => {
+                void sync.setEnabled(next).then((ok) => {
+                  if (!ok) {
+                    toast.error(t('desktopSyncFailed'))
+                    return
+                  }
+                  toast.success(next ? t('desktopSyncOn') : t('desktopSyncOff'))
+                })
+              }}
+            />
+          )}
+
+          {/* 全局快捷键说明 */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Keyboard className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="whitespace-nowrap">{t('desktopShortcutsTitle')}</span>
+            </div>
+            <div className="grid grid-cols-1 gap-1.5 text-xs">
+              <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  {t('desktopShortcutToggleWindow')}
+                </span>
+                <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
+                  Ctrl+Shift+I
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  {t('desktopShortcutQuit')}
+                </span>
+                <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
+                  Ctrl+Q
+                </kbd>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* 窗口控制快捷入口 */}
-        <div className="space-y-2">
-          <p className="text-sm font-medium">窗口控制</p>
-          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
+          {/* 窗口控制快捷入口 */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium">{t('desktopWindowTitle')}</p>
+            <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void minimize()
+                }}
+                className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
+              >
+                <Minimize className="h-3.5 w-3.5 shrink-0" />
+                <span className="whitespace-nowrap text-xs">{t('desktopWindowMinimize')}</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void toggleMaximize()
+                }}
+                className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
+              >
+                <Maximize2 className="h-3.5 w-3.5 shrink-0" />
+                <span className="whitespace-nowrap text-xs">
+                  {isMaximized ? t('desktopWindowRestore') : t('desktopWindowMaximize')}
+                </span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void close()
+                }}
+                className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
+              >
+                <X className="h-3.5 w-3.5 shrink-0" />
+                <span className="whitespace-nowrap text-xs">{t('desktopWindowClose')}</span>
+              </Button>
+            </div>
+            {/* 同一句话有三种说法,按**有效**档位说 —— 宿主把 hide 纠正成 quit 后这里跟着变,
+                否则设置页会替宿主撒一个它已经不做了的谎 */}
+            <p className="line-clamp-2 text-[11px] text-muted-foreground">{closeNote}</p>
+          </div>
+
+          {/* 高级操作 */}
+          <div className="flex flex-wrap gap-2 pt-1">
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              onClick={handleMinimize}
-              className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
+              onClick={() => {
+                void handleResetWindow()
+              }}
+              className="flex shrink-0 flex-nowrap items-center gap-1.5"
             >
-              <Minimize className="h-3.5 w-3.5 shrink-0" />
-              <span className="whitespace-nowrap text-xs">最小化</span>
+              <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+              <span className="whitespace-nowrap text-xs">{t('desktopResetWindow')}</span>
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              onClick={handleToggleMax}
-              className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
+              onClick={() => {
+                void handleTestNotify()
+              }}
+              className="flex shrink-0 flex-nowrap items-center gap-1.5"
             >
-              <Maximize2 className="h-3.5 w-3.5 shrink-0" />
-              <span className="whitespace-nowrap text-xs">{isMaximized ? '还原' : '最大化'}</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClose}
-              className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
-            >
-              <X className="h-3.5 w-3.5 shrink-0" />
-              <span className="whitespace-nowrap text-xs">关闭</span>
+              <Bell className="h-3.5 w-3.5 shrink-0" />
+              <span className="whitespace-nowrap text-xs">{t('desktopTestNotify')}</span>
             </Button>
           </div>
-          <p className="line-clamp-2 text-[11px] text-muted-foreground">
-            关闭按钮会最小化到系统托盘,真正退出请用托盘菜单"退出"或 Ctrl+Q
-          </p>
-        </div>
-
-        {/* 高级操作 */}
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleResetWindow}
-            className="flex shrink-0 flex-nowrap items-center gap-1.5"
-          >
-            <RotateCcw className="h-3.5 w-3.5 shrink-0" />
-            <span className="whitespace-nowrap text-xs">重置窗口状态</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleTestNotify}
-            className="flex shrink-0 flex-nowrap items-center gap-1.5"
-          >
-            <Bell className="h-3.5 w-3.5 shrink-0" />
-            <span className="whitespace-nowrap text-xs">测试通知</span>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
