@@ -96,7 +96,7 @@ const GIT_TIMEOUT = 300000
 const GIT_IDENTITY = ['-c', 'user.name=智汇AGI社区', '-c', 'user.email=ok502319984@gmail.com']
 
 function git(args, cwd = ROOT, input) {
-  return execFileSync(GIT, ['-c', 'safe.directory=*', ...GIT_IDENTITY, ...args], {
+  return execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...GIT_IDENTITY, ...args], {
     cwd,
     input,
     encoding: 'utf8',
@@ -139,7 +139,7 @@ function diffNames(a, b, cwd) {
 
 /** 内容面判据不得走 `git()`(encoding utf8 + trim 会毁掉二进制与行尾),单开 buffer 通道。 */
 function gitBuf(args, cwd = ROOT) {
-  return execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+  return execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
     cwd,
     encoding: 'buffer',
     windowsHide: true,
@@ -168,7 +168,7 @@ function modeOf(rev, p, cwd) {
 function writeBlob(content, p, cwd) {
   return execFileSync(
     GIT,
-    ['-c', 'safe.directory=*', 'hash-object', '-w', '--path', p, '--stdin'],
+    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'hash-object', '-w', '--path', p, '--stdin'],
     {
       cwd,
       input: content,
@@ -449,7 +449,7 @@ export function buildUnion(
   try {
     const env = { ...process.env, GIT_INDEX_FILE: idx }
     const run = (args) =>
-      execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+      execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
         cwd,
         env,
         windowsHide: true,
@@ -791,7 +791,7 @@ export function resolveTargets(theirsArg, cwd = ROOT) {
 
 function isAncestor(a, b, cwd) {
   return (
-    spawnSync(GIT, ['-c', 'safe.directory=*', 'merge-base', '--is-ancestor', a, b], {
+    spawnSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'merge-base', '--is-ancestor', a, b], {
       cwd,
       windowsHide: true,
       timeout: 120000,
@@ -1407,7 +1407,7 @@ async function main() {
   const sha = git(['commit-tree', p.tree, '-p', t.head, '-p', t.theirs, '-m', msg])
   const cas = spawnSync(
     GIT,
-    ['-c', 'safe.directory=*', 'update-ref', 'refs/heads/main', sha, t.head],
+    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'update-ref', 'refs/heads/main', sha, t.head],
     {
       cwd: ROOT,
       windowsHide: true,
