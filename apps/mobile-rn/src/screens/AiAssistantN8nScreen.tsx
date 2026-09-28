@@ -100,6 +100,8 @@ import {
   type ConversationDetail,
   type LlmModel,
   type TerminalDeltaEvent,
+  /** D151:terminal_interaction 载荷类型复用 @ihui/api-client(§3 共享层优先,禁止端内抄第二份字段表) */
+  type TerminalInteractionEvent,
 } from '@ihui/api-client'
 import {
   FALLBACK_MODELS,
@@ -531,13 +533,51 @@ export function terminalDisplayOutput(
   return live && live.length > (task.output?.length ?? 0) ? live : task.output
 }
 
+/**
+ * D151(2026-09-29 立):terminal_interaction 的端内呈现态(键 = terminalId)。
+ *
+ * 本端**只呈现不代答**:手机没有 web 那条「输入行 + postTerminalInput + 读 ack」的闭环,
+ * 而键入内容本身可能就是提示后要输的口令 —— 借聊天输入框代填等于把口令写进会话历史。
+ * 所以这里只交代「在等什么 + 该去哪个端处理」,文案取共享词包 `chat.terminal.*`(五语言已在)。
+ * 值刻意不用空串表示「没有等待」:`{promptTail:''}` 是合法帧(命令只回了 `(y/n)` 之外的空提示),
+ *  presence 才是判据,故用对象值而非 string,清空靠 delete 键。
+ */
+export type TerminalWaitingMap = Record<string, { promptTail: string }>
+
+/** onTerminalInteraction 回调的折叠步(导出供定向测试):空 terminalId 整帧丢弃,不触碰呈现态。 */
+export function applyTerminalInteractionToWaiting(
+  prev: TerminalWaitingMap,
+  event: Pick<TerminalInteractionEvent, 'terminalId' | 'promptTail'>,
+): TerminalWaitingMap {
+  if (!event.terminalId) return prev
+  return { ...prev, [event.terminalId]: { promptTail: event.promptTail ?? '' } }
+}
+
+/**
+ * terminal_end ⇒ 摘掉该条命令的等待态。
+ * 不摘的表现:命令早已跑完,界面上还挂着「等待你的输入」—— 把已发生的事写成没发生。
+ * 键不存在即原样返回(不为一次清理造出一个新对象)。
+ */
+export function clearTerminalWaiting(
+  prev: TerminalWaitingMap,
+  terminalId: string,
+): TerminalWaitingMap {
+  if (!terminalId || !prev[terminalId]) return prev
+  const next = { ...prev }
+  delete next[terminalId]
+  return next
+}
+
 /** 终端任务列表(W7 + D19 live 增量):命令 + 状态徽标 + 耗时;点击折叠查看等宽输出 + 退出码 */
 function TerminalTaskList({
   tasks,
   live,
+  waiting,
 }: {
   tasks: readonly TerminalTaskItem[]
   live?: Record<string, string>
+  /** D151:命令「等待键盘输入」的呈现态(键 = terminalId);缺失即不渲染该说明行 */
+  waiting?: TerminalWaitingMap
 }): React.JSX.Element {
   const { t } = useI18n()
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({})
@@ -561,6 +601,8 @@ function TerminalTaskList({
         // D19:live 缓冲与整帧 output 取更长者(web 同口径);运行中且有增量时默认展开成实时面板,
         // 用户手动折叠(openIds 记 false)仍被尊重;无增量帧时行为与改造前完全一致。
         const displayOutput = terminalDisplayOutput(task, live?.[task.id])
+        // D151:该条命令此刻是否在等键盘对象(值存在即是,空 promptTail 也算)。
+        const waitingOn = waiting?.[task.id]
         const open = openIds[task.id] ?? (task.status === 'running' && displayOutput !== undefined)
         return (
           <View key={task.id} style={bubbleStyles.card}>
@@ -581,6 +623,19 @@ function TerminalTaskList({
               <StatusBadge kind={toneKind} label={statusLabel} />
               {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
             </Pressable>
+            {/* D151:命令停在「等键盘输入」。刻意放在折叠判断之外 —— 收起状态也要看得见,
+                否则本端表现仍只是「命令一直转圈」,而这正是该帧要消灭的静默。 */}
+            {waitingOn ? (
+              <View style={bubbleStyles.cardBody} testID={`terminal-waiting-${task.id}`}>
+                <Text style={bubbleStyles.sectionLabel}>{t('chat.terminal.waitingInput')}</Text>
+                {waitingOn.promptTail ? (
+                  <Text style={bubbleStyles.monoText}>
+                    {t('chat.terminal.promptLabel', { prompt: waitingOn.promptTail })}
+                  </Text>
+                ) : null}
+                <Text style={bubbleStyles.blockHint}>{t('chat.terminal.mobileUnsupported')}</Text>
+              </View>
+            ) : null}
             {open ? (
               <View style={bubbleStyles.cardBody}>
                 {task.exitCode !== undefined ? (
@@ -625,6 +680,8 @@ interface MessageBubbleProps {
   onBranch?: () => void
   /** D19 terminal_delta 的 live 缓冲(键 = terminalId);缺失即面板退化为改造前形态 */
   terminalLive?: Record<string, string>
+  /** D151 命令「等待键盘输入」的呈现态(键 = terminalId);缺失即不渲染该行 */
+  terminalWaiting?: TerminalWaitingMap
 }
 
 function MessageBubble({
@@ -634,6 +691,7 @@ function MessageBubble({
   onRetry,
   onBranch,
   terminalLive,
+  terminalWaiting,
 }: MessageBubbleProps): React.JSX.Element {
   const { t } = useI18n()
   const isUser = message.role === 'user'
@@ -759,7 +817,11 @@ function MessageBubble({
           ) : null}
           {/* 终端任务可视化(W7 + D19:命令 + 等宽输出 + 退出码;运行中 live 增量与整帧取更长者) */}
           {answerVisible && message.terminalTasks && message.terminalTasks.length > 0 ? (
-            <TerminalTaskList tasks={message.terminalTasks} live={terminalLive} />
+            <TerminalTaskList
+              tasks={message.terminalTasks}
+              live={terminalLive}
+              waiting={terminalWaiting}
+            />
           ) : null}
           {/* D34 本轮上下文注入交代(第 45 轮补齐该端,此前该帧在本端 0 命中) */}
           {answerVisible && message.injections && message.injections.length > 0 ? (
@@ -893,6 +955,10 @@ export default function AiAssistantN8nScreen() {
   // 只由 onTerminalDelta 写入、终端面板按"与整帧 output 取更长者"读取 ——
   // 与消息正文(onDelta 通道)完全分离,不落 content。
   const [terminalLive, setTerminalLive] = useState<Record<string, string>>({})
+  // D151:terminal_interaction 的呈现态(键 = terminalId)。与 terminalLive 同一档纪律:
+  // 只由该帧写入、终端面板读取,刻意不进 setMessages —— 它不是正文,也不该随消息落库
+  // (键入提示语可能含口令上下文,落进历史就是把它复制进第二条通道)。
+  const [terminalWaiting, setTerminalWaiting] = useState<TerminalWaitingMap>({})
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
 
@@ -1530,8 +1596,17 @@ export default function AiAssistantN8nScreen() {
         onTerminalDelta: (event) => {
           setTerminalLive((prev) => applyTerminalDeltaToLive(prev, event))
         },
+        // D151(本票):命令停在「等键盘输入」的一帧。本端只呈现不代答(理由与文案档
+        // 写在 TerminalWaitingMap 的注释里);不注册的表现是终端面板一直转圈,
+        // 用户不知道命令在等人、也不知道该去哪个端处理 —— 静默丢弃正是守门 90 拦的那一型。
+        onTerminalInteraction: (event) => {
+          setTerminalWaiting((prev) => applyTerminalInteractionToWaiting(prev, event))
+        },
         // 终端任务可视化(W7):terminal_end 更新终态/输出/退出码/耗时
         onTerminalEnd: (event) => {
+          // D151:等待态必须一起摘掉 —— 命令已结算还挂「等待你的输入」等于把已发生的
+          // 事写成没发生。刻意放在 setMessages 之前:两条通道各自收口,互不依赖。
+          setTerminalWaiting((prev) => clearTerminalWaiting(prev, event.terminalId))
           setMessages((prev) => {
             const next = [...prev]
             const last = next[next.length - 1]
@@ -1811,6 +1886,7 @@ export default function AiAssistantN8nScreen() {
           : undefined
       }
       terminalLive={terminalLive}
+      terminalWaiting={terminalWaiting}
     />
   )
 
