@@ -10458,6 +10458,9 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "attachRejectType": "Unsupported file type; skipped {count} file(s): {names}",
+    "attachRejectSize": "File exceeds the size limit ({max}MB); skipped {count} file(s): {names}",
+    "attachRejectCount": "Up to {max} attachments are allowed; {count} were rejected this time",
     "mentionEngine": {
       "tabFile": "File",
       "tabFolder": "Folder",
