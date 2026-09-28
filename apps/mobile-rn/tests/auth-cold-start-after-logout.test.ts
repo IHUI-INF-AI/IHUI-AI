@@ -21,9 +21,10 @@
 //
 // 取材纪律:本文件**不**覆盖 `@ihui/shared/stores`(别名已直指真实工厂,见 vitest.config.ts
 // 里那条注释),第 4 例就是这条改动的验收 —— 它同时也是"凭据用例再也不必自带 vi.mock 才能
-// 测到实现"的证明。`@ihui/shared/auth` 那一份仍是手写替身(它忽略全部持久化回调、
-// 且没有 `setCachedWithoutPersist` ⇒ 直接用别名跑 `initApi()` 会 TypeError),
-// 所以本文件沿用了既有凭据用例的局部覆盖;为什么没顺手把它也换成真实工厂,见文件末"残余"。
+// 测到实现"的证明。`@ihui/shared/auth` 同一格已由 G-364 收口:别名不再指向手写替身,而直指
+// packages/shared/src/auth/index.ts。本文件因此**不再**自带 @ihui/shared/auth 的 vi.mock ——
+// 那段绕道存在的唯一理由是"别名拿到的是替身、替身没有 setCachedWithoutPersist,直接跑
+// initApi() 会 TypeError";现在默认路径就拿到真实工厂,所以末例测的确实是实现本身。
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -42,13 +43,6 @@ const { apiClient } = vi.hoisted(() => ({
 }))
 
 vi.mock('@ihui/api-client', () => apiClient)
-vi.mock('@ihui/shared/auth', async () => {
-  const real = await import('../../../packages/shared/src/auth/token-store')
-  return {
-    bindTokenStoreToApiClient: real.bindTokenStoreToApiClient,
-    createInMemoryTokenStore: real.createInMemoryTokenStore,
-  }
-})
 
 import storageMock, { resetAsyncStorageMock } from './__mocks__/async-storage'
 import { _resetSecureStoreBackendForTest } from '../src/lib/auth/secure-store'
@@ -183,7 +177,9 @@ describe('显式登出后的冷启动', () => {
     // 下一次改判据就会只改一处(本仓最高频失效型)。
     expect(src).toMatch(/shouldAttemptAutoLogin\s*\(\s*\{/)
     expect(src).toMatch(/sessionLoggedOut:\s*isSessionLoggedOut/)
-    const bare = src.match(/credentialStorage\.loadAutoLogin\(\)\s*&&\s*credentialStorage\.loadRemembered\(\)/)
+    const bare = src.match(
+      /credentialStorage\.loadAutoLogin\(\)\s*&&\s*credentialStorage\.loadRemembered\(\)/,
+    )
     expect(bare, '屏里不得再留一份裸条件(判据必须只住在 auto-login-policy)').toBeFalsy()
   })
 
