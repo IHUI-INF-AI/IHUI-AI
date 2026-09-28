@@ -1034,4 +1034,78 @@ function dn2a(d, s) {
   }
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+   C8 死规则分族棘轮(2026-09-29 补)。C4 此前只报数 ⇒ "31 涨到 60"与"没有新增"同形。
+   本组四把锁分别钉:①判据真挂在 runCheck 上且红进 failing 不进 notices(removal 即红);
+   ②真台账文件自洽且族名集合与代码里的封闭集一致(表与现实脱节即红);
+   ③--strict 这一维真的被消费(否则"拒绝出合格证"是句空话);
+   ④重锚出口在产物非新鲜时拒收(拿旧产物的读数冻锚点,等于给一把量错东西的尺子发合格证)。
+   行为层面的成对正反例住在门自己的 --self-test(P84–P95),本文件不重写判据(§22c)。
+   ──────────────────────────────────────────────────────────────────────────── */
+const GATE_SRC = readFileSync(GATE, 'utf8')
+
+test('C8 装车锁:runCheck 必须真算分族、真比锚点、红必须进 failing —— 删掉那一行本条必读红', () => {
+  const body = GATE_SRC.slice(GATE_SRC.indexOf('export async function runCheck'))
+  assert.match(body, /tallyDeadRuleFamilies\(/, '死规则集合必须按族统计,否则台账没有可比的读数')
+  assert.match(body, /auditDeadRuleRatchet\(\{/, '锚点比对必须真的发生')
+  assert.match(body, /foldDeadRuleRatchet\(\{/, '结论折档(默认只报名 / --strict 拒出合格证)必须由纯函数给,不在门里重写一遍')
+  const push = body.indexOf('failing.push(...ratchetFold.failing)')
+  assert.ok(push > 0, '增长必须进 failing(判红)。只 console.log 不 push = 判对了也没人被打断')
+  // 与 C3/C5 同族:结构性回归不得被覆盖率阈值管辖 —— 它在 C1 那条 if 之后作为兄弟语句出现。
+  const c1Branch = body.indexOf('C1 落地覆盖率')
+  assert.ok(c1Branch > 0 && c1Branch < push, '棘轮的红必须独立于 C1 的 minCoverage 分支')
+  assert.equal(
+    /failing\.push\(\.\.\.ratchetFold\.failing\)/.test(
+      // 变异:把那一行删掉(即"门算了但没判"),本条尺子必须翻红
+      body.replace('failing.push(...ratchetFold.failing)', '// removed by mutation'),
+    ),
+    false,
+    '变异没让判据翻红 ⇒ 这条锁是恒真的,量不到任何东西',
+  )
+})
+
+test('C8 台账对账:真文件必须被同一把尺子读通,且族名集合与代码里的封闭集一致', () => {
+  const rel = G.DEAD_RULE_BASELINE_REL
+  const text = readFileSync(join(ROOT, rel), 'utf8')
+  const parsed = G.parseDeadRuleBaseline(text)
+  assert.equal(parsed.ok, true, `台账 ${rel} 读不通:${parsed.reason} —— 门会整维判"未判定"`)
+  assert.deepEqual(
+    Object.keys(parsed.families).sort(),
+    [...G.DEAD_RULE_FAMILIES].sort(),
+    '台账族名与分类函数产出的封闭集不一致 ⇒ 要么族已废、要么分类漏了一族',
+  )
+  assert.equal(
+    parsed.families.fractional + parsed.families.prefixed + parsed.families.other,
+    parsed.total,
+    'total ≠ 各族之和:台账自相矛盾',
+  )
+  // 反向对照:同一条尺子必须能拒三种坏表(证明上面那条 ok 不是"恒真解析")。
+  for (const bad of [
+    '{"families":{"fractional":1},"total":9}',
+    '{"families":{"nonsense":1},"total":1}',
+    '{"families":{"fractional":1.5},"total":1.5}',
+    '{坏 json',
+    '',
+  ])
+    assert.equal(G.parseDeadRuleBaseline(bad).ok, false, `这形态必须读不通:${bad.slice(0, 24)}`)
+})
+
+test('C8 --strict 真的被消费:parseArgs 认这条旗、runCheck 把它喂给折档函数', () => {
+  assert.match(GATE_SRC, /else if \(a === .--strict.\) o\.strict = true/, '--strict 没进 parseArgs ⇒ 文档写了个跑不通的出路')
+  assert.match(GATE_SRC, /foldDeadRuleRatchet\(\{[^}]*strict: !!opts\.strict/s, 'strict 没传进折档判据 ⇒ "拒绝出合格证"是句空话')
+})
+
+test('C8 重锚出口只打印、非新鲜拒收(本门只读由上面那条写调用锁保证)', () => {
+  const body = GATE_SRC.slice(GATE_SRC.indexOf('async function main'))
+  assert.match(body, /opts\.emitDeadRuleBaseline/, '--emit-dead-rule-baseline 没接进 main')
+  assert.match(body, /draft\.ok \|\| !r\.deadRuleCurrent[\s\S]{0,220}return 2/, '产物非新鲜 / 没读数时必须拒收并 exit 2,而不是吐一份垃圾锚点')
+  assert.doesNotMatch(body, /writeFileSync\([^)]*dead-rule-baseline/, '重锚出口不得自己写台账:写盘是人的决定,门的职责是把草案打印出来')
+  // 纯函数那一侧同样拒收(G.auditDeadRuleRatchet 的 stale 分支由 --self-test P90 成对钉住)。
+  assert.equal(
+    G.draftDeadRuleBaseline({ current: { fractional: 0, prefixed: 0, other: 0, total: 0 }, freshness: 'stale', face: 'head' })
+      .ok,
+    false,
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
