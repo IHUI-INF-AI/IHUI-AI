@@ -51,6 +51,8 @@ vi.mock('@/hooks/use-desktop', () => ({
 
 /** 宿主回什么就落什么:卡片只读返回值,不参与裁定 */
 let currentPrefs = hostPrefs()
+/** 这台机器的桌面端有没有这套偏好命令(旧安装器 = false) */
+let prefsSupported = true
 
 /** 整体提升的函数声明:mock 工厂在导入阶段就会被调用,那时下面的 const 还没初始化 */
 function hostPrefs(over: Record<string, unknown> = {}) {
@@ -74,6 +76,7 @@ function hookState() {
     trayAlwaysVisible: true,
     loading: false,
     desktopPrefsLoading: false,
+    desktopPrefsSupported: prefsSupported,
     desktopPrefs: currentPrefs,
     toggleAutostart: vi.fn(async () => {}),
     toggleTrayAlwaysVisible: vi.fn(async () => true),
@@ -98,6 +101,7 @@ beforeEach(() => {
   toastMock.success.mockReset()
   toastMock.error.mockReset()
   currentPrefs = hostPrefs()
+  prefsSupported = true
   cleanup()
 })
 
@@ -148,6 +152,31 @@ describe('DesktopSettingsCard — 托盘图标与关闭行为', () => {
   it('整卡文案一律走 settings 取词(不留一处硬编码中文)', () => {
     render(<DesktopSettingsCard />)
     expect(document.body.textContent ?? '').not.toMatch(/[一-龥]/)
+  })
+})
+
+/**
+ * 旧安装器(没有 get_desktop_prefs 这条命令)下的卡片形态(2026-09-28 立)。
+ *
+ * 钉的是"读不到当成读到了"这一型:宿主要不到偏好时,把本地默认档摆出去冒充现状,
+ * 用户拨完什么也不会发生(表现就是"设置无效"而零提示)。必须改成明说需要更新版本,
+ * 并且**连同步开关一起不给** —— 同步开着却无法落回本机,比没有同步更糟。
+ */
+describe('DesktopSettingsCard — 宿主不支持这套偏好时(旧安装器)', () => {
+  it('六行与同步行都不出现,只给一行"需要更新桌面端版本"', () => {
+    prefsSupported = false
+    render(<DesktopSettingsCard />)
+    expect(screen.getByText('settings.desktopPrefsUnsupported')).toBeTruthy()
+    expect(screen.queryByRole('switch', { name: 'settings.desktopShowTrayTitle' })).toBeNull()
+    expect(screen.queryByRole('switch', { name: 'settings.desktopSyncTitle' })).toBeNull()
+  })
+
+  it('反向对照:supported=true 时这两行照旧出现(不得把早退写成整卡消失)', () => {
+    prefsSupported = true
+    render(<DesktopSettingsCard />)
+    expect(screen.queryByText('settings.desktopPrefsUnsupported')).toBeNull()
+    expect(screen.getByRole('switch', { name: 'settings.desktopShowTrayTitle' })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'settings.desktopSyncTitle' })).toBeTruthy()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
