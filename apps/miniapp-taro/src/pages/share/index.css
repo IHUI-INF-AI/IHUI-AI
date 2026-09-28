@@ -150,7 +150,7 @@
   width: 12rpx;
   height: 12rpx;
   background: var(--color-primary);
-  border-radius: 50%; /* radius-exempt: 12rpx 加载动画装饰圆点 */
+  border-radius: 50%;
   animation: shareLoadingBounce 1.4s ease-in-out infinite both;
 }
 .share-loading-dot:nth-child(1) {
