@@ -861,6 +861,24 @@ export function buildBlockDedupe(content) {
 }
 
 /** 块级收口的零损失断言 —— 四条同时成立才允许落地,任一不成立即整批停手。 */
+export const F_DIM_NO_RISE = [
+  ['F1', (c) => c.forks],
+  ['F2', (c) => c.voidRows],
+  ['F3', (c) => c.rotatedPointers],
+  ['F4', (c) => c.dupOpenCopies],
+  ['F6', (c) => c.dupBlocks],
+]
+
+export function fDimRegressions(before, after, extra = []) {
+  const out = []
+  for (const [k, get] of [...F_DIM_NO_RISE, ...extra]) {
+    const x = get(before)
+    const y = get(after)
+    if (y > x) out.push(`${k} 由 ${x} 涨到 ${y}`)
+  }
+  return out
+}
+
 export function verifyBlockDedupe(srcText, outText, deletedCount) {
   const problems = []
   const a = String(srcText).split('\n')
@@ -882,15 +900,7 @@ export function verifyBlockDedupe(srcText, outText, deletedCount) {
   }
   const before = audit(srcText).counts
   const after = audit(outText).counts
-  for (const [k, get] of [
-    ['F1', (c) => c.forks],
-    ['F2', (c) => c.voidRows],
-    ['F3', (c) => c.rotatedAuto],
-    ['F4', (c) => c.dupOpenCopies],
-    ['F6', (c) => c.dupBlocks],
-  ]) {
-    if (get(after) > get(before)) problems.push(`${k} 由 ${get(before)} 涨到 ${get(after)}`)
-  }
+  problems.push(...fDimRegressions(before, after))
   if (deletedCount > 0 && after.dupBlocks >= before.dupBlocks)
     problems.push(`删了 ${deletedCount} 行而块数没降(${before.dupBlocks}→${after.dupBlocks})—— 判据或实现有一边是错的`)
   if (after.mergeNotes < before.mergeNotes)
@@ -1009,15 +1019,7 @@ export function verifyRowDedupeCore(srcText, outText, deletedCount, match, findT
   // ③ F1–F4 + F6 无一上涨(这把尺子不许替别的维度制造红点)
   const before = audit(srcText).counts
   const after = audit(outText).counts
-  for (const [k, get] of [
-    ['F1', (c) => c.forks],
-    ['F2', (c) => c.voidRows],
-    ['F3', (c) => c.rotatedAuto],
-    ['F4', (c) => c.dupOpenCopies],
-    ['F6', (c) => c.dupBlocks],
-  ]) {
-    if (get(after) > get(before)) problems.push(`${k} 由 ${get(before)} 涨到 ${get(after)}`)
-  }
+  problems.push(...fDimRegressions(before, after))
   // ④ 归并落账注记不得随副本一起丢 —— 判的是"**种类**是否整类消失",不是"份数有没有变少"。
   //    本档删的正是逐字相同的孪生**指针行**,按份数比等于禁止本档存在:2026-09-29 真仓
   //    `--dedupe-rows` 一跑就报"253 掉到 244"(那 9 条同文指针就是它自己要清的东西)⇒
