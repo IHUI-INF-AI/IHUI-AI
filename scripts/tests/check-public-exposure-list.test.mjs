@@ -139,4 +139,69 @@ test('T7 X6 只报数:(B) 与 nginx 面的分歧不得变成 violation', () => {
   assert.ok(noEdge.undetermined.length > 0, '空内容文件必须喊未判定,不得静默算"无差异"')
   assert.equal(noEdge.state, 'consistent', 'X6 那一格未判定不得连带把 X1–X5 判成未判定')
 })
+
+// ── T8–T11 X7:已放开的条目必须回查 handler 是否真的解析身份 ─────────────────
+test('T8 装车锁:X7 必须真挂在 decide 上(函数在而没人调 = 一路绿灯)', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  const body = src.slice(src.indexOf('export function decide('))
+  assert.match(body, /identityOutletsFrom\(py\)/, 'decide 里没调身份出口推导 ⇒ X7 只是两个孤儿函数')
+  assert.match(body, /parseAiServiceRoutes\(py\)/, 'decide 里没调路由解析 ⇒ 同上')
+  // 行为面再证一次:把已开放项的 handler 换成"整片读",decide 必须给出一条 X7 红。
+  const leak = decide(withFixture({ py: gate.FIXTURE_PY_LEAKY }))
+  assert.ok(
+    leak.violations.some((v) => v.includes('X7')),
+    `整片读的开放项没被判红:${leak.violations.join(' / ')}`,
+  )
+})
+
+test('T9 出口名单只许现读推导:判据里不得出现第二份硬写的身份出口名', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  // 夹具(FIXTURE_PY*)里出现出口名是**故意的**(那是被测对象);判据面 = 去掉夹具常量之后的源码。
+  const judge = src.replace(/export const FIXTURE_PY[\s\S]*?\n}\n/g, '')
+  assert.doesNotMatch(judge, /IDENTITY_OUTLETS\s*=\s*\[/, '手写名单必然与源文件漂移')
+  assert.doesNotMatch(
+    judge.replace(/require·resolve·verify[^']*/g, ''),
+    /require_request_user_id/,
+    '出口名不得作为字面量出现在判据里(只能从源码解析出来)',
+  )
+  assert.deepEqual(gate.identityOutletsFrom(gate.FIXTURE_PY), [
+    'require_request_user_id',
+    'resolve_principal_from_headers',
+  ])
+})
+
+test('T10 真仓 HEAD 面阳性对照:X7 必须看得见 handler(0 违规且 0 未判定)', () => {
+  const c = decide(gather(ROOT, 'head'))
+  assert.deepEqual(
+    c.undetermined.filter((u) => u.includes('X7')),
+    [],
+    `真仓面上 X7 不许是"未判定"(解析不到 = 尺子没跟到那一层):${c.undetermined.join(' / ')}`,
+  )
+  assert.equal(c.violations.filter((v) => v.includes('X7')).length, 0, c.violations.join(' / '))
+  const py = gate.gatherPy(ROOT, 'head')
+  assert.ok(
+    py && Object.keys(py).length > 10,
+    `python 面只读到 ${py ? Object.keys(py).length : 0} 个文件`,
+  )
+  assert.ok(
+    gate.parseAiServiceRoutes(py).routes.some((r) => r.method === 'POST' && r.full === '/api/mcp'),
+    'POST /api/mcp 必须能在 HEAD 面解析到 handler(X7 的红与绿都以这一步为前提)',
+  )
+})
+
+test('T11 一跳委托不算违规;解析不到必须点名"未判定"(不改退出码,与 X6 同口径)', () => {
+  const hop = decide(withFixture({ py: gate.FIXTURE_PY_DELEGATED }))
+  assert.equal(hop.violations.filter((v) => v.includes('X7')).length, 0, hop.violations.join(' / '))
+  const none = decide(withFixture({ py: gate.FIXTURE_PY_UNRESOLVABLE }))
+  assert.equal(
+    none.violations.filter((v) => v.includes('X7')).length,
+    0,
+    '解析不到却判红 = 把"没看清"写成"有问题"',
+  )
+  assert.ok(
+    none.undetermined.some((u) => u.includes('X7 未判定')),
+    none.undetermined.join(' / '),
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

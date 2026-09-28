@@ -13,7 +13,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -362,6 +362,97 @@ test('T21 工具面(scripts/**)只影响记账面,且两侧都有牙 —— 纯�
   assert.equal(run(gate.scanFile('apps/a.ts', EXPIRED_LINE).entries).red[0]?.code, 'E2')
   assert.equal(run(tool).totals.toolFace, 1, '工具面条数必须如实报出,不得静默并账')
   assert.equal(run(tool).totals.undated, 0)
+})
+
+test('T23 E4「新豁免族必须同笔登记」:判据只引一次真相源,族集合按面分两侧(§22c 不抄实现)', () => {
+  // 登记与否的唯一真相 = FAMILY_LIFETIME_DAYS 的键集;构造面少填 `registered` 旗不得改变结论
+  assert.equal(gate.isFamilyRegistered('radius-exempt'), true)
+  assert.equal(gate.isFamilyRegistered('brand-new-gate-exempt'), false)
+  const app = { family: 'brand-new-gate-exempt', file: 'apps/demo/a.ts', expiry: '2099-12-31' }
+  const tool = { ...app, file: 'scripts/check-demo.mjs', toolFace: true }
+  assert.deepEqual([...gate.unregisteredUsedFamiliesOf([app])], ['brand-new-gate-exempt'])
+  assert.deepEqual([...gate.unregisteredUsedFamiliesOf([tool])], [], '工具面是说明书,不算在用')
+  const base = { grandfatherUntil: '2099-01-01', undatedCounts: {} }
+  const run = (headSet) =>
+    gate.analyze({
+      entries: [app],
+      suppressionsByFile: {},
+      baseline: base,
+      today: TODAY,
+      headCounts: {},
+      headUnregisteredFamilies: headSet,
+    })
+  const armed = run(new Set())
+  assert.equal(armed.red[0]?.code, 'E4', 'HEAD 没有这一族而记账面用了 ⇒ 必须点名 E4')
+  assert.match(armed.red[0].msg, /FAMILY_LIFETIME_DAYS/)
+  assert.deepEqual(run(new Set(['brand-new-gate-exempt'])).red, [], 'HEAD 已有的族是存量,只报数')
+  assert.deepEqual(run(undefined).red, [], '面=head 时 E4 不响(否则存量变恒红门,§12e)')
+  assert.deepEqual(
+    run(new Set()).totals.unregisteredUsedFamilies,
+    ['brand-new-gate-exempt'],
+    '在用未登记族必须如实报出,不得静默',
+  )
+})
+
+test('T24 E4 端到端有牙:临时索引新增未登记族必红、新增已登记族的第二处不红', () => {
+  const dir = mkScratch('exemption-e4')
+  const git = (a) =>
+    execFileSync('git', ['-c', 'safe.directory=*', '-C', dir, ...a], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30000,
+    })
+  try {
+    git(['init', '-q'])
+    git(['config', 'user.email', 't@test.invalid'])
+    git(['config', 'user.name', 't'])
+    mkdirSync(join(dir, 'scripts'), { recursive: true })
+    mkdirSync(join(dir, 'apps'), { recursive: true })
+    writeFileSync(
+      join(dir, gate.BASELINE_REL),
+      JSON.stringify({ grandfatherUntil: '2099-01-01', undatedCounts: {} }),
+    )
+    // HEAD 面:已登记族的豁免(radius-exempt,带未来到期日)⇒ E1/E2/E4 都该静默
+    writeFileSync(join(dir, 'apps', 'first.ts'), 'x // radius-exempt: 夹具 until 2099-12-31\n')
+    git(['add', '.'])
+    git(['commit', '-q', '-m', 'fixture'])
+    const runJSON = (args) => {
+      const r = spawnSync(process.execPath, [SCRIPT, '--root', dir, '--json', ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+      })
+      return { status: r.status, out: JSON.parse(r.stdout || '{}') }
+    }
+    const clean = runJSON(['--staged'])
+    assert.equal(clean.status, 0, `干净索引不得判红:${JSON.stringify(clean.out.red)}`)
+    // ① 索引新增一处**已登记**族的豁免 ⇒ E4 不响(不得把"表里有"也判红)
+    writeFileSync(join(dir, 'apps', 'second.ts'), 'y // radius-exempt: 第二处 until 2099-12-31\n')
+    git(['add', 'apps/second.ts'])
+    assert.deepEqual(runJSON(['--staged']).out.red, [], '已登记族的新使用不得触发 E4')
+    // ② 索引新增一处**未登记**族的豁免 ⇒ E4 必须点名该族
+    writeFileSync(join(dir, 'apps', 'third.ts'), 'z // brand-new-gate-exempt: 新族 until 2099-12-31\n')
+    git(['add', 'apps/third.ts'])
+    const hit = runJSON(['--staged'])
+    assert.equal(hit.status, 1, '未登记的新族被真的用上必须判红')
+    assert.ok(
+      (hit.out.red || []).some((v) => v.code === 'E4' && /brand-new-gate-exempt/.test(v.msg)),
+      `E4 必须点名族:${JSON.stringify(hit.out.red)}`,
+    )
+    // ③ 同一行文字只出现在 scripts/** ⇒ 不响(新立一道带豁免出口的门必须有合法出口)
+    git(['rm', '-q', '--cached', 'apps/third.ts'])
+    rmSync(join(dir, 'apps', 'third.ts'), { force: true })
+    writeFileSync(join(dir, 'scripts', 'check-new-gate.mjs'), 'z // brand-new-gate-exempt: 描述自己的出口\n')
+    git(['add', 'scripts/check-new-gate.mjs'])
+    const toolOnly = runJSON(['--staged'])
+    assert.deepEqual(
+      toolOnly.out.red.filter((v) => v.code === 'E4'),
+      [],
+      `工具面不得被 E4 判红:${JSON.stringify(toolOnly.out.red)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
 })
 
 test('T22 基线里不得再有工具面键(存量债必须是真豁免,prose 不是)', () => {
