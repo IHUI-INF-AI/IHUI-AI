@@ -1059,3 +1059,137 @@ test('R-K 调用方分流顺序:git-sync-converge 必须先认 UNDETERMINED 再�
   const branches = (conv.match(/includes\('UNDETERMINED'\)/g) || []).length
   assert.equal(branches, 2, `两处归并出口都要分流(实测 ${branches}):冲突分支与状态放大分支同型`)
 })
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * G-814386「副本指针 cap」的五条锁(2026-09-29 立)。
+ * 这一票的形状是"给一条既有判据开一个例外",而例外最贵的失败方式不是判错,是
+ * **静默** —— 少带的份数若没被点名,读报告的人就会把"0 丢失"当成"什么都没少"。
+ * 所以四条源码级锁(针只有一个来源 / 两条路径都接上 / 必须进报告与提交信息 /
+ * 豁免必须窄)加一条真临时仓的行为锁,缺一即红。
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+test('R-L 指针针只有一个来源:必须 import,不得在本文件里再写一份正则字面量', () => {
+  const src = srcOfTool()
+  const code = maskComments(src) // 头注原样写着那句指针文字,不剥注释就会拿说明当判据
+  assert.match(
+    code,
+    /import\s*\{[^}]*\bDUP_POINTER_RE\b[^}]*\}\s*from\s*'\.\/lib\/plan-task-index\.mjs'/,
+    '必须复用尺子那一份 DUP_POINTER_RE(两处各写一遍必漂移,漂移的固定代价是例外与派单口径不同形)',
+  )
+  assert.doesNotMatch(
+    code,
+    /=\s*\/[^/\n]*重复登记副本[^/\n]*\//,
+    '代码面不得再定义第二个"副本指针"正则 —— 有第二份就是本条锁存在的理由',
+  )
+  // 四个消费点各管一条路径(期望表 / 两侧同改丢行 / F5 豁免 / 活文档 cap),少一个就是那条路径又静默了
+  assert.equal(
+    (code.match(/DUP_POINTER_RE\.test\(/g) || []).length,
+    4,
+    '指针判据必须有且仅有这四处消费者(期望表、lostAddedLines、F5、liveDocPointerCaps)',
+  )
+})
+
+test('R-M 两条路径都必须接上 cap:只接"两侧同改"那一支,台账这一族就恰好无人点名', () => {
+  const src = srcOfTool()
+  const split = topLevelBody(src, 'function recordSideLosses(')
+  assert.match(split, /caps\.push\(/, '两侧同改路径必须把少带分流进 caps(而不是塞进 violations)')
+  const verify = topLevelBody(src, 'export function verifyUnion(')
+  assert.match(verify, /liveDocPointerCaps\(/, '活文档路径必须单独算少带 —— 它不经过 recordSideLosses')
+  assert.match(verify, /bad\.pointerCaps\s*=/, '少带必须随落地闸的返回值一起交回调用方')
+  const planBody = topLevelBody(src, 'export function plan(')
+  assert.match(
+    planBody,
+    /built\.caps/,
+    'plan() 的 caps 必须合流两条路径,只留一条 = 把另一条重新变静默',
+  )
+  assert.match(planBody, /vu\.pointerCaps/, '同上:活文档那一支也必须进同一个 caps 清单')
+})
+
+test('R-N 少带必须当着落地那一刻打出来,并写进合并提交信息(例外不得只活在内存里)', () => {
+  const src = srcOfTool()
+  assert.match(src, /formatPointerCapReport\(/, '报告必须经这一份出口排版(两处各印一遍必漂移)')
+  assert.match(
+    src,
+    /副本指针行有意少带 \$\{capDropped\} 份/,
+    '合并提交信息必须带少带份数 —— 后来人只读 git log 也要能分清"少带"与"丢了"',
+  )
+  assert.match(src, /const capDropped =/, '提交信息里的数字必须现算,不得由措辞冒充')
+})
+
+test('R-O F5 的豁免额度必须窄到"指针行 ∧ 仍 ≥1 份",否则注记整族的消失也会被放过', () => {
+  const body = topLevelBody(srcOfTool(), 'export function planStateRegressions(')
+  assert.match(
+    body,
+    /n < 1 \|\| !noteRe\.test\(l\) \|\| !DUP_POINTER_RE\.test\(l\)/,
+    '三个条件必须同时成立才计额度:仍有 ≥1 份 ∧ 是注记行 ∧ 是副本指针行',
+  )
+  assert.match(
+    body,
+    /new RegExp\(MERGE_NOTE_RE\.source\)/,
+    '注记针必须复用尺子那份 MERGE_NOTE_RE,且逐行判要用非全局副本(带 g 的 .test() 会推进 lastIndex)',
+  )
+  assert.match(
+    body,
+    /m\.mergeNotes < noteMax - allowed/,
+    '判红条件必须是"扣完合法额度仍差" —— 直接比 noteMax 会让每一枚台账收敛在落地闸自杀',
+  )
+})
+
+test('R-P 行为锁(真临时仓):指针行只带回一份且必须点名,不带指针的同样形态一份都不许多', () => {
+  const dir = mkScratch('union-cap-it-')
+  try {
+    const g = (...a) =>
+      execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+      }).trim()
+    g('init', '-q', '-b', 'main')
+    g('config', 'user.email', 't@t')
+    g('config', 'user.name', 't')
+    g('config', 'core.autocrlf', 'false')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '# 台账\n- [ ] 公共行\n', 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'base')
+    const base = g('rev-parse', 'HEAD')
+    const DOC = join(dir, 'PROJECT_PLAN.md')
+    const PTR = '〔【归并】重复登记副本(2026-09-26):同主键另一条,派单以那条为准。〕'
+    const ROW = `- [ ] G-9 同一件事 ${PTR}`
+    const PLAIN = '- [ ] G-9 同一件事 〔普通注记〕'
+    g('checkout', '-q', '-b', 'theirs', base)
+    const theirsDoc =
+      `# 台账\n- [ ] 公共行\n${ROW}\n${ROW}\n${ROW}\n${PLAIN}\n${PLAIN}\n${PLAIN}\n`
+    writeFileSync(DOC, theirsDoc, 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'theirs(三份指针行 + 三份不带指针的同文行)')
+    const theirs = g('rev-parse', 'HEAD')
+    g('checkout', '-q', '-B', 'ours', base)
+    // ours 必须真的有自己的改动:空提交会被 git 拒掉,而"两侧同改"这一格恰恰要的是
+    // 两父都动过同一份活文档 —— 否则本用例量的只是单侧复制,证不到落地闸那条路径。
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '# 台账\n- [ ] 公共行\n- [ ] ours 独有\n', 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'ours(带一行本侧独有)')
+    const p = U.plan(g('rev-parse', 'HEAD'), theirs, dir)
+    const doc = U.show(p.tree, 'PROJECT_PLAN.md', dir)
+    const cnt = (needle) => doc.split('\n').filter((l) => l === needle).length
+    assert.deepEqual(
+      [cnt(ROW), cnt(PLAIN)],
+      [1, 3],
+      '指针行只许带 1 份,不带指针的必须全带 —— 例外宽一档就是拿它盖真丢失',
+    )
+    assert.equal(p.bad.length, 0, `少带不是丢失,不得进 bad:${p.bad.slice(0, 2).join(' / ')}`)
+    const rows = (p.caps || []).flatMap((c) => U.formatPointerCapReport(c.capped))
+    assert.match(
+      rows.join('\n'),
+      /因副本指针有意少带 2 份/,
+      `caps 必须把少带的 2 份点名出来:${JSON.stringify(p.caps)}`,
+    )
+    assert.ok(
+      (p.caps || []).every((c) => c.capped?.every((e) => e.dropped > 0)),
+      '每条 cap 必须带真实差额,dropped=0 的条目是噪声(会让报告行数虚高)',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
