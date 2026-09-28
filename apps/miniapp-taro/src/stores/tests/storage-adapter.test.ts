@@ -242,7 +242,7 @@ describe('createTaroStorageTransport + zustand persist 集成', () => {
     expect(useStore2.getState().count).toBe(3)
   })
 
-  it('createAuthStore 集成:user 持久化 + 跨 store 实例 hydrate 恢复 isAuthenticated + user', async () => {
+  it('createAuthStore 集成:user 持久化 + 重启后 isAuthenticated 由 token 派生(不从盘上复活)', async () => {
     // 第 1 步:用真实 createAuthStore + createTaroStorageTransport 写入登录态
     const tokenStore1 = createInMemoryTokenStore()
     const userTransport1 = createTaroStorageTransport()
@@ -260,10 +260,10 @@ describe('createTaroStorageTransport + zustand persist 集成', () => {
 
     // token 一定不落盘(安全契约)
     expect(userTransport1.getItem('miniapp-auth-user')).not.toContain('tk-1')
-    // user + isAuthenticated 持久化(zustand persist 包装格式:{ state, version })
+    // 只持久化 user(zustand persist 包装格式:{ state, version });
+    // isAuthenticated 不落盘 —— 它是登录态的第二份真相,2026-09-28 收口为按 token 派生
     const persisted = JSON.parse(userTransport1.getItem('miniapp-auth-user') as string)
     expect(persisted.state).toEqual({
-      isAuthenticated: true,
       user: { id: 'u1', nickname: 'Alice' },
     })
 
@@ -292,7 +292,9 @@ describe('createTaroStorageTransport + zustand persist 集成', () => {
 
     // user 已恢复
     expect(auth2.getState().user).toEqual({ id: 'u1', nickname: 'Alice' })
-    expect(auth2.getState().isAuthenticated).toBe(true)
+    // 登录态不随 user 复活:tokenStore2 无 token ⇒ isAuthenticated 派生为 false。
+    // (旧断言 toBe(true) 钉的正是"盘上第二份真相"那一格 —— 未登录却显示已登录的成因,已废除)
+    expect(auth2.getState().isAuthenticated).toBe(false)
     // token 不持久化 → tokenStore2 仍为空
     expect(tokenStore2.getToken()).toBeNull()
   })
