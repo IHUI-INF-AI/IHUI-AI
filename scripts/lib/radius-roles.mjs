@@ -221,6 +221,16 @@ function isPanelCarrier(el, roleOf) {
  */
 export function classifySurfaces(elements, opts = {}) {
   const roleOf = opts.roleOf || rolesOfName
+  /**
+   * 只在**这个文件本身就是一个浮层组件**时启用改判。实测两头都踩过:
+   *  - 一律沿祖先链改判 ⇒ `meal/page.tsx`、`prompts/page.tsx` 里"对话框内容区排的 `<Card>` 数据卡"
+   *    被当成浮层体,并把同名键记成 `contested`(整键从此不改判);
+   *  - 只认直接父元素 ⇒ 真目标(LoginPopUp / PayPopup / NoteEditor 的 card 盒)不满足(中间还隔一层
+   *    布局 View),改判数从 25 掉到 16 并凭空造出 9 处红。
+   * 真正的判别是文件级身份:浮层组件的文件名自己就说"我是浮层",页面文件里的对话框只是内容容器。
+   * 页面里确有一层"自称 card 的浮层体"时,出路是显式身份标记 `ui-panel`,不是让启发式去猜。
+   */
+  if (!opts.modalFile) return { surfaceIdx: new Set(), surfaceKeys: new Set(), contestedKeys: new Set(), cardElements: 0 }
   const surfaceIdx = new Set()
   const keyState = new Map()
   let cardElements = 0
@@ -741,5 +751,12 @@ export function identityEvidenceInLine(codeLine, rawLine) {
       if (t === 'bg-popover' || t === 'text-popover-foreground') add('popover', 'popover-tier')
     }
   }
+  /**
+   * 身份标记还要**按整行认一遍**:RN/Taro 的样式表里类名是对象里的裸字符串
+   * (`'flex shrink-0 ui-card rounded-lg bg-card',` —— 没有 `className=` 锚点),
+   * 只走 classStringsInLine 会看不见自己写下的标记 ⇒ 门对"已声明身份"的元素继续报判不出。
+   * `ui-<role>` 是封闭集的显式声明,整行认不会有误判(不像 `bg-card` 那样要靠颜色猜)。
+   */
+  for (const m of String(rawLine || '').matchAll(new RegExp('\\b' + IDENTITY_CLASS_PREFIX + '([a-z]+)\\b', 'g'))) add(m[1], 'marker')
   return { roles, via }
 }
