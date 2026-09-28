@@ -58,7 +58,7 @@ export function ExamQuestionScreen({
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('examQuestion.loadFailed')}</Text>
         <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
-          <ChevronLeft size={16} color={tk.surface.light} />
+          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
         </TouchableOpacity>
       </View>
     )
@@ -70,7 +70,7 @@ export function ExamQuestionScreen({
       <View style={styles.center}>
         <Text style={styles.muted}>{t('examQuestion.loadFailed')}</Text>
         <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
-          <ChevronLeft size={16} color={tk.surface.light} />
+          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
         </TouchableOpacity>
       </View>
     )
