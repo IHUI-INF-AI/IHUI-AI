@@ -75,7 +75,7 @@ export function AppListPage({ titleKey, items }: AppListPageProps) {
               type="button"
               onClick={() => handleClick(item)}
               disabled={item.comingSoon}
-              className={`group flex flex-col items-start gap-1 p-3 text-left rounded-md border border-border bg-card transition-colors ${
+              className={`group flex flex-col items-start gap-1 p-3 text-left rounded-sm border border-border bg-card transition-colors ${
                 item.comingSoon
                   ? 'opacity-50 cursor-not-allowed'
                   : 'cursor-pointer hover:border-muted-foreground hover:bg-muted/50'

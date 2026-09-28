@@ -145,7 +145,7 @@ export default function VerifyCodeModal({
           {codes.map((c, idx) => (
             <Input
               key={idx}
-              className="w-9 h-11 text-center text-base border border-border rounded-md"
+              className="w-9 h-11 text-center text-base border border-border rounded-sm"
               type="number"
               maxlength={1}
               focus={visible && idx === currentIndex}
