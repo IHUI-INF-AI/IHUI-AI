@@ -153,7 +153,7 @@ function report(a, face) {
   console.log(`复合主键 ${a.composites} 组`)
   console.log(`  F1 同主键两态并存 : ${c.forks} 组 / 涉及未勾选行 ${c.forkOpenLines}`)
   console.log(`  F2 带作废声明未落账: ${c.voidRows} 行`)
-  console.log(`  F3 行号指针已腐烂  : ${c.rotatedPointers} 处`)
+  console.log(`  F3 行号指针        : ${c.rotatedPointers} 处 —— 其中可自动收口 ${c.rotatedAuto} 处、无出口交人工 ${c.rotatedNoExit} 处`)
   console.log(
     `  F4 同一件事多条待办: ${c.dupOpenGroups} 组 / 副本 ${c.dupOpenCopies} 行(不进派单口径)`,
   )
@@ -242,7 +242,7 @@ export function countNewUndisposed(now, before) {
 export const probe = (a) => [
   ['F1', '同主键两态并存(组)', a.counts.forks],
   ['F2', '带作废声明未落账(行)', a.counts.voidRows],
-  ['F3', '行号指针已腐烂(处)', a.counts.rotatedPointers],
+  ['F3', '行号指针可自动收口(处)', a.counts.rotatedAuto],
   ['F4', '同一件事多条待办(副本行)', a.counts.dupOpenCopies],
   // F4b:F4 的分组键是复合主键,而"叙述式待办"永远没有编号 ⇒ 同一句话被复制两遍时 F4 报 0。
   // 单独一维而不是并进 F4:并进 F4 会让"两处各计一次债"的锚点互相顶掉(守门 134 扩布尔档键那一课)。
@@ -257,6 +257,9 @@ export const probe = (a) => [
   // (见 lib findIdCollisions 头注),所以它**只进差值/基线棘轮**(只拦新增撞号组),
   // gate() 里 --strict 也不判它的红 —— 判存量红就是与任何提交无关的恒红门(§12e)。
   ['F9', '撞号:同编号挂多个不同标题(组)', a.counts.collisionGroups ?? 0],
+  // 自 2026-09-28 G-312:基线里 F9 存的是**排序后的键集**而不是组数 —— 判红只认"基线里没有的键",
+  // 所以"等量换掉一组撞号键"也红(计数锚点在这一型上恒绿),而同键再多挂一行不移动读数。
+  // 镜像 M9 要求每一维都必须有基线键:缺项 = 那一维静默不判,而账面看不出来。
 ]
 
 /** F9 差值明细:相对基准面**新出现**的撞号组(组数上涨 ⇔ 新组;给已撞号组再加标题不改组数,
@@ -269,12 +272,173 @@ export function newCollisionGroups(now, before) {
   return (now?.collisions ?? []).filter((g) => !prev.has(g.key))
 }
 
-/** 棘轮纯函数:基线里没有某项 ⇒ 不判该项(既不"0 容忍"也不"通过")。 */
-export function ratchetViolations(base, items) {
+/**
+ * F9 基线锚点的**形状** = 排序去重的撞号键数组(2026-09-27 G-312;此前是一个整数计数)。
+ *
+ * 为什么不是计数:计数锚点下的"红"只会说"变多了",说不出是哪几组。差值档手里有两把同轮
+ * 读数所以能点名(`newCollisionGroups`),基线档只拿到一个数 —— 于是"别人跳门把增长塞进 HEAD"
+ * 那一型虽然拦得住,被拦的人却拿不到可执行名单(G-312 立项起因:HEAD 面 59→71 红了一整晚,
+ * 而这 12 组增长要逐组判"哪侧是后来者"、且明令不得批量改号 ⇒ 当天的红给不出出口)。
+ * 与守门 134"锚点粒度不够细 ⇒ 换个写法就净零逃逸"同族:键集还额外抓住**等量换键**
+ * (清掉一组 + 新撞一组 ⇒ 组数不变而键集变),计数锚对那一型恒绿。
+ * @param a auditPlan 结果,或任何带 `collisions: [{key}]` 的构造面
+ */
+export function f9KeySetOf(a) {
+  return [
+    ...new Set(
+      (a?.collisions ?? []).map((g) => g.key).filter((k) => typeof k === 'string' && k !== ''),
+    ),
+  ].sort()
+}
+
+/**
+ * F9 基线层的纯函数判据。**结论分态,绝不并桶**(把"没看清"写成"有问题"或写成"没问题",
+ * 都是本仓最高频的失效型):
+ *  - `absent`     基线不存在 / 没有 F9 键 ⇒ 不判该项(与 `ratchetViolations` 同一条"缺项不判"善意)
+ *  - `unmigrated` F9 仍是旧形状(整数,或数组里混进非字符串)⇒ **不得静默放行**:那一维等于关着
+ *  - `blind`      有撞号组数却拿不到逐组明细 ⇒ 判"未判定",不冒红也不记绿
+ *  - `ok` / `red` 键集对账:只有"出现基线里没有的键"才红 —— 同键再多挂一行不移动读数
+ */
+export function f9Ratchet(base, a) {
+  if (!base || !Object.hasOwn(base, 'F9')) return { kind: 'absent', added: [] }
+  const v = base.F9
+  if (!Array.isArray(v) || v.some((x) => typeof x !== 'string' || x === ''))
+    return {
+      kind: 'unmigrated',
+      added: [],
+      message: `基线 F9 不是"排序后的键数组"形状(实测 ${JSON.stringify(v ?? null).slice(0, 60)})`,
+    }
+  if ((a?.counts?.collisionGroups ?? 0) > 0 && !Array.isArray(a?.collisions))
+    return {
+      kind: 'blind',
+      added: [],
+      message: '判定面给了撞号组数却没带逐组明细 ⇒ 键集无从对账(不记为通过)',
+    }
+  const prev = new Set(v)
+  const added = f9KeySetOf(a).filter((k) => !prev.has(k))
+  return { kind: added.length ? 'red' : 'ok', added }
+}
+
+/**
+ * F9 逐组点名的**唯一**文案出口(差值档与基线档共用一份)。
+ * 两处各写一遍必然漂移(本仓"两处算同一件事必漂移"记过多次);行号只当定位诊断用,
+ * 复核判据一律是"编号 + 标题"逐字对照 —— 每次 append 都会挪位(§1 第三条禁令)。
+ */
+export function f9GroupLine(g) {
+  return (
+    `编号 ${g.key} 被 ${g.titleCount} 个不同标题共用 —— ` +
+    `${(g.titles ?? []).map((t) => `「${t.title}」@L${(t.lines ?? []).join(',')}`).join(' / ')}`
+  )
+}
+
+/**
+ * 棘轮纯函数:基线里没有某项 ⇒ 不判该项(既不"0 容忍"也不"通过")。
+ *
+ * F9 例外(2026-09-27 G-312):它的锚点是**键集合**,精确判据需要判定面的逐组明细。
+ * 给了第三参 `a` ⇒ 走键集档(`gate()` 就是这么调的);没给(如 `git-sync-converge` 只拿
+ * `probe()` 的组数)⇒ 退化成粗尺"组数 > 基线键数",并在文案里明写自己是粗尺、点名去哪拿名单。
+ * 粗尺只可能漏"等量换键"那一型,而提交链走的是精确档 ⇒ 这次改动没有新增任何漏报面。
+ */
+export function ratchetViolations(base, items, a) {
   if (!base) return []
-  return items
-    .filter(([k, , n]) => typeof base[k] === 'number' && n > base[k])
+  const f9IsKeySet = Array.isArray(base.F9)
+  const out = items
+    // 键集形状下 F9 不吃"比数量"这条通用规则;整数旧形状照旧走通用规则(由 gate() 大声判"未迁移")
+    .filter(
+      ([k, , n]) => (k !== 'F9' || !f9IsKeySet) && typeof base[k] === 'number' && n > base[k],
+    )
     .map(([k, label, n]) => `${k} ${label} 由基线 ${base[k]} 涨到 ${n}`)
+  if (!f9IsKeySet) return out
+  if (a) {
+    const f = f9Ratchet(base, a)
+    if (f.kind === 'red')
+      out.push(
+        `F9 撞号:出现基线键集里没有的编号 ${f.added.join(' ')}(共 ${f.added.length} 组)`,
+      )
+    return out
+  }
+  const n = items.find(([k]) => k === 'F9')?.[2] ?? 0
+  if (n > base.F9.length)
+    out.push(
+      `F9 撞号(粗尺:调用方未提供逐组明细)组数 ${n} 超过基线键集 ${base.F9.length} 个 ⇒ 逐组名单跑 \`node scripts/plan-tasks.mjs --gate\``,
+    )
+  return out
+}
+
+/**
+ * `--update-baseline` 的判据(纯函数,**只写 F9 这一维、只许收窄**)。
+ *
+ * 为什么其余维度一律拒绝:① F1–F4/F4b/F6 的拦点是差值棘轮(本次改动 vs HEAD),基线只是
+ * 第二道;把"当次现读"整体刷一遍等于谁都能在跳门后把自己的账冻成新的地板。② F5 方向相反、
+ * F8 是全量档算不出的 0 地板,让它们跟着"顺手重写"会被抹成当次读数。
+ * 为什么只许收窄:扩大键集 = 给新撞号发通行证,与"为过门调高基线"同一条禁令。
+ * @param oldBase 基线文件解析结果
+ * @param nextKeys 当次判定面现读的撞号键集
+ */
+export function planF9BaselineRewrite(oldBase, nextKeys) {
+  if (!oldBase || !Object.hasOwn(oldBase, 'F9'))
+    return {
+      action: 'refuse-shape',
+      reason: `基线里没有 F9 键 —— "只许收窄"要拿既有键集来比,凭空写一份等于重开这一维`,
+    }
+  if (!Array.isArray(oldBase.F9) || oldBase.F9.some((x) => typeof x !== 'string' || x === ''))
+    return {
+      action: 'refuse-shape',
+      reason: `基线 F9 仍是旧形状(实测 ${JSON.stringify(oldBase.F9 ?? null).slice(0, 60)})—— 先人工迁移成排序键数组,否则"是否收窄"无从判定`,
+    }
+  const prev = new Set(oldBase.F9)
+  const next = [...new Set(nextKeys.filter((k) => typeof k === 'string' && k))].sort()
+  const added = next.filter((k) => !prev.has(k))
+  if (added.length)
+    return {
+      action: 'refuse-widen',
+      added,
+      reason: `本次现读有 ${added.length} 个键不在基线里:${added.join(' ')}`,
+    }
+  const removed = oldBase.F9.filter((k) => !next.includes(k))
+  if (!removed.length)
+    return { action: 'noop', reason: `现读键集与基线逐字相同(${oldBase.F9.length} 个),不必写盘` }
+  return {
+    action: 'write',
+    next,
+    removed,
+    reason: `收窄 ${oldBase.F9.length} → ${next.length}(清偿掉 ${removed.join(' ')})`,
+  }
+}
+
+/**
+ * 在 JSON 原文里**原位**替换一个顶层键的值文本,其余字节逐字不动(2026-09-27 G-312)。
+ *
+ * 为什么不用 `JSON.stringify(parsed)`:整文件重写会把别人的注记键/审计台账冲掉 —— 守门 83
+ * 那条 `--update-baseline` 同型事故(注记键被整文件重写抹掉)在本仓已经付过账。
+ * @throws 找不到该键时抛错(不静默"当作没有")
+ */
+export function replaceTopLevelJsonValueText(text, key, valueText) {
+  const m = new RegExp(`(^|\\n)\\s*"${key}"\\s*:`).exec(text)
+  if (!m) throw new Error(`基线里找不到顶层键 ${key}`)
+  const colon = m.index + m[0].length - 1
+  let i = colon + 1
+  while (i < text.length && /\s/.test(text[i])) i++
+  let depth = 0
+  let inStr = false
+  let esc = false
+  let end = i
+  for (; end < text.length; end++) {
+    const c = text[end]
+    if (inStr) {
+      if (esc) esc = false
+      else if (c === '\\') esc = true
+      else if (c === '"') inStr = false
+      continue
+    }
+    if (c === '"') inStr = true
+    else if (c === '{' || c === '[') depth++
+    else if (c === '}' || c === ']') {
+      if (depth === 0) break
+      depth--
+    } else if ((c === ',' || c === '\n') && depth === 0) break
+  }
+  return text.slice(0, i) + valueText + text.slice(end)
 }
 
 /** 差值棘轮纯函数:两把同形读数(候选面 vs 基准面)只比"变多"。 */
@@ -324,6 +488,9 @@ export function gate(a, strict, root, before, beforeErr) {
     console.log(`⚠️ 无法判定 —— ${e.message}`)
     return 2
   }
+  // F9 基线锚点必须是键集合(G-312)。旧形状 = 这一维关着 —— 静默放行等于把它写成"判过了且没问题",
+  // 而它恰恰是那层"别人跳门把增长塞进 HEAD"唯一的看守者,所以这里按**无法判定**处理(exit 2)。
+  const f9b = f9Ratchet(base, a)
   if (before) {
     const grew = grewViolations(a, before)
     if (grew.length) {
@@ -331,11 +498,7 @@ export function gate(a, strict, root, before, beforeErr) {
       // F9 上涨 ⇒ 逐组点名"编号 G-x 被 N 个不同标题共用"(票面要求的报名形态;只报数不点名
       // 等于让改的人自己再去跑一遍全量档找差异)。
       for (const g of newCollisionGroups(a, before))
-        console.log(
-          `   F9 新增撞号:编号 ${g.key} 被 ${g.titleCount} 个不同标题共用 —— ${g.titles
-            .map((t) => `「${t.title}」@L${t.lines.join(',')}`)
-            .join(' / ')}`,
-        )
+        console.log(`   F9 新增撞号:${f9GroupLine(g)}`)
       console.log('   归并掉新增的那几条(把副本行翻勾或改成内容锚点),别调基线、别削判据。')
       return 1
     }
@@ -345,12 +508,32 @@ export function gate(a, strict, root, before, beforeErr) {
   } else if (beforeErr) {
     console.log(`⚠️ 差值棘轮未判定 —— ${beforeErr}`)
   }
-  const vsBase = ratchetViolations(base, items)
+  if (f9b.kind === 'unmigrated' || f9b.kind === 'blind') {
+    console.log(`⚠️ 无法判定 —— F9 基线层:${f9b.message}`)
+    console.log(
+      f9b.kind === 'unmigrated'
+        ? `   出路:人工把 ${BASELINE_REL} 的 F9 写成当次 HEAD 面现读的撞号**键数组**(排序、去重),或跑 \`--update-baseline\`(它只认键集形状)。**禁止**改回整数蒙过去 —— 那等于把这一维关掉而账面看不出来。`
+        : `   出路:判定面必须带 collisions 明细(auditPlan 的产物本来就有 ⇒ 这一格只会是调用方自己拼了半个面)。`,
+    )
+    return 2
+  }
+  const vsBase = ratchetViolations(base, items, a)
   if (vsBase.length) {
     console.log(`❌ 基线棘轮:${vsBase.join(';')}`)
     console.log(`   差值判据看不见"别人跳门把增长塞进 HEAD"那一型,这一层就是为它留的。`)
+    // F9 红必须**逐组点名**(键 / 两侧标题 / 行号)—— "只报数不报名"等于让改的人再跑一遍全量档,
+    // 而这一维的存量按设计不判红,所以红只可能是新键:名单就是可执行出口本身。
+    const addedKeys = f9b.kind === 'red' ? new Set(f9b.added) : new Set()
+    for (const g of a?.collisions ?? [])
+      if (addedKeys.has(g.key)) console.log(`   F9 基线新增撞号:${f9GroupLine(g)}`)
+    if (addedKeys.size)
+      console.log(
+        '   (行号只当定位用,每次 append 都会挪位、不得当判据;复核请用"编号 + 标题"逐字对照 `--json` 的 collisions 清单)',
+      )
     console.log(
-      `   出路:清偿后人工跑 \`node scripts/plan-tasks.mjs --update-baseline\` 并说明为什么 —— 调高基线等于关掉这一维。`,
+      addedKeys.size
+        ? `   出路:逐组判"哪侧是后来者"并归并(G-312 明令不得批量改号)。清偿后人工跑 \`node scripts/plan-tasks.mjs --update-baseline\` —— 它只允许**收窄**键集,把新键写进基线等于关掉这一维。`
+        : `   出路:清偿后人工跑 \`node scripts/plan-tasks.mjs --update-baseline\` 并说明为什么 —— 调高基线等于关掉这一维。`,
     )
     return 1
   }
@@ -480,7 +663,7 @@ function selfTest() {
     ),
   )
   ok(
-    clean.counts.forks === 0 && clean.counts.voidRows === 0 && clean.counts.rotatedPointers === 0,
+    clean.counts.forks === 0 && clean.counts.voidRows === 0 && clean.counts.rotatedAuto === 0,
     '干净文档必须三条全零',
   )
   ok(clean.counts.claimable === 1, `干净文档派单口径应为 1,实测 ${clean.counts.claimable}`)
@@ -508,7 +691,7 @@ function selfTest() {
   const items = [
     ['F1', '同主键两态并存(组)', 5],
     ['F2', '带作废声明未落账(行)', 3],
-    ['F3', '行号指针已腐烂(处)', 0],
+    ['F3', '行号指针可自动收口(处)', 0],
   ]
   ok(ratchetViolations(null, items).length === 0, '没有基线时棘轮不得凭空判红')
   ok(
@@ -577,7 +760,9 @@ function selfTest() {
     '清偿(1 块降到 0)不得判红 —— 反方向判红等于没人敢做归并',
   )
   // 差值棘轮(提交链上的主判据):基准取不到时调用方根本不传 before,这里只比"变多"
-  const mk = (f1, f2, f3) => ({ counts: { forks: f1, voidRows: f2, rotatedPointers: f3 } })
+  const mk = (f1, f2, f3) => ({
+    counts: { forks: f1, voidRows: f2, rotatedPointers: f3, rotatedAuto: f3, rotatedNoExit: 0 },
+  })
   ok(grewViolations(mk(4, 0, 0), mk(3, 0, 0)).length === 1, '相对 HEAD 变多必须点名')
   ok(grewViolations(mk(3, 0, 0), mk(3, 0, 0)).length === 0, '等值不得判红(存量债不归本次提交)')
   ok(grewViolations(mk(2, 5, 0), mk(3, 0, 0)).length === 1, '一项降一项升时只点名上涨的那项')
@@ -680,7 +865,16 @@ function selfTest() {
     },
   ]
   const gateFace = {
-    counts: { forks: 0, voidRows: 0, rotatedPointers: 0, newUndisposed: 0, stale: 2, undated: 5 },
+    counts: {
+      forks: 0,
+      voidRows: 0,
+      rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
+      newUndisposed: 0,
+      stale: 2,
+      undated: 5,
+    },
     staleRows,
   }
   const log = console.log
@@ -782,6 +976,8 @@ function selfTest() {
       forks: 0,
       voidRows: 0,
       rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
       dupOpenCopies: 0,
       verbatimDupCopies: 0,
       dupBlocks: 0,
@@ -818,6 +1014,72 @@ function selfTest() {
   ok(
     f9cap.some((x) => x.includes('F9') && x.includes('59')),
     `--strict 绿档也必须把存量撞号数报出来,实测 ${JSON.stringify(f9cap.slice(0, 2))}`,
+  )
+  // ── F9 基线锚点 = 键集合(2026-09-27 G-312):四态各一条,成对 ──
+  const KEYS = ['D17', 'D30', 'G-262']
+  const grp = (key, n = 2) => ({
+    key,
+    titleCount: n,
+    titles: Array.from({ length: n }, (_, i) => ({
+      title: `${key} 标题${'甲乙丙'[i] ?? i + 1}`,
+      lines: [i + 1],
+    })),
+  })
+  const kface = (gs) => f9face(gs.length, gs)
+  ok(f9Ratchet({ F9: KEYS }, kface(KEYS.map(grp))).kind === 'ok', '基线含全部现键必须判绿')
+  const rAdd = f9Ratchet({ F9: KEYS }, kface([...KEYS.map(grp), grp('Z-9')]))
+  ok(rAdd.kind === 'red' && rAdd.added.join() === 'Z-9', `新撞号键必须只点名 Z-9,实测 ${JSON.stringify(rAdd)}`)
+  ok(
+    f9Ratchet({ F9: KEYS }, kface([grp('D17', 3), grp('D30'), grp('G-262')])).kind === 'ok',
+    '同键多挂一行(键集不变)不得移动读数 —— 这正是与计数锚的语义差',
+  )
+  ok(
+    f9Ratchet({ F9: KEYS }, kface([grp('D30'), grp('G-262'), grp('Z-9')])).kind === 'red',
+    '等量换键(组数不变而键集变)必须红 —— 计数锚对这一型恒绿,本次迁移换来的就是它',
+  )
+  const rOld = f9Ratchet({ F9: 59 }, kface(KEYS.map(grp)))
+  ok(rOld.kind === 'unmigrated', `整数旧形状必须判"形状未迁移"而不是静默放行,实测 ${JSON.stringify(rOld)}`)
+  ok(
+    f9Ratchet({ F9: KEYS }, { counts: { collisionGroups: 2 } }).kind === 'blind',
+    '有组数却没带逐组明细 ⇒ 判"未判定",不记通过',
+  )
+  ok(f9Ratchet({ F1: 0 }, kface([])).kind === 'absent', '基线缺 F9 键 ⇒ 不判该项(与 ratchet 同一条善意)')
+  const pWiden = planF9BaselineRewrite({ F9: KEYS }, [...KEYS, 'Z-9'])
+  ok(pWiden.action === 'refuse-widen', `扩大键集必须拒绝,实测 ${JSON.stringify(pWiden)}`)
+  ok(
+    planF9BaselineRewrite({ F9: 59 }, KEYS).action === 'refuse-shape' &&
+      planF9BaselineRewrite({ F1: 0 }, KEYS).action === 'refuse-shape',
+    '旧形状 / 缺 F9 键都不得由 --update-baseline 凭空补一份地板',
+  )
+  ok(
+    planF9BaselineRewrite({ F9: KEYS }, [...KEYS].reverse()).action === 'noop' &&
+      planF9BaselineRewrite({ F9: KEYS }, ['D17']).action === 'write',
+    '同键集(乱序)不写盘、收窄才写盘',
+  )
+  const splice = replaceTopLevelJsonValueText('{"F1": 0,\n  "F9": 59\n}\n', 'F9', '["D17"]')
+  ok(
+    splice === '{"F1": 0,\n  "F9": ["D17"]\n}\n',
+    `原位替换必须只动 F9 那一段值,实测 ${JSON.stringify(splice)}`,
+  )
+  let spliceThrew = false
+  try {
+    replaceTopLevelJsonValueText('{"F1": 0}\n', 'F9', '[]')
+  } catch {
+    spliceThrew = true
+  }
+  ok(spliceThrew, '找不到 F9 键时必须抛错,不得静默"当作没有"')
+  ok(
+    ratchetViolations({ F9: 59 }, [['F9', '撞号:同编号挂多个不同标题(组)', 60]]).join() ===
+      'F9 撞号:同编号挂多个不同标题(组) 由基线 59 涨到 60',
+    '整数旧形状在两参调用方(converge)一侧文案不得变 —— 改动只能落在 F9 的新形状上',
+  )
+  ok(
+    ratchetViolations({ F9: KEYS }, probe(kface([...KEYS.map(grp), grp('Z-9')]))).join().includes('粗尺'),
+    '键集形状 + 未给判定面 ⇒ 退化成粗尺且必须自报',
+  )
+  ok(
+    !ratchetViolations({ F9: KEYS }, probe(kface(KEYS.map(grp)))).length,
+    '粗尺:组数没超过基线键数时不得判红(恒红门)',
   )
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
@@ -905,34 +1167,74 @@ function main() {
       console.log('❌ --update-baseline 只允许在全量档(HEAD blob)执行,不得从索引/工作树面刷基线')
       return 2
     }
-    const body = JSON.stringify(
-      {
-        F1: a.counts.forks,
-        F2: a.counts.voidRows,
-        F3: a.counts.rotatedPointers,
-        F4: a.counts.dupOpenCopies,
-        // F6 是块级量纲(整块登记被追加两遍)。存量非零时它只能当棘轮上限用,
-        // 清到零之后把基线写成 0 ⇒ 零容忍;不得为了让这条绿去调高它。
-        F6: a.counts.dupBlocks,
-        // F9 撞号(2026-09-27 G-267):基线写的是**当次 HEAD 面现读的存量组数** —— 它不是"清零后的地板",
-        // 而是"存量不得再涨"的棘轮上限(防有人跳门把新撞号塞进 HEAD;差值档拦不住那一型)。
-        // 为过门调高它 = 关掉这一维;给编号加豁免清单同样禁止(§4,清单必腐烂)。
-        F9: a.counts.collisionGroups,
-        // F8 = 本次带入的"无交代新登记行"。全量档它算不出来(没有基准面)⇒ 这里恒为 0,
-        // 写进基线的意思是**零容忍**:索引面一旦出现新裸账即红。
-        // 为什么可以 blocking 而不成恒红门:它与 F1–F6 同轨 —— 只在"这次往计划文档写了新行"时
-        // 才可能非 0,而"新行写个出生日/说清归谁"完全在提交者手里(不像"到期"那样随日历涨)。
-        // 镜像 M9 要求每一维都必须有基线键:缺项 = 那一维静默不判,而账面看不出来。
-        F8: a.counts.newUndisposed ?? 0,
-        // F5 与前四条**方向相反**:记的是"归并落账注记至少要有这么多条",掉了才判红
-        F5: a.counts.mergeNotes,
-      },
-      null,
-      2,
+    const abs = path.join(o.root, BASELINE_REL)
+    if (!existsSync(abs)) {
+      console.log(`❌ 拒绝写基线:${BASELINE_REL} 不在位 —— 键集锚点要拿既有键集比才能判"只许收窄"`)
+      return 2
+    }
+    const raw = readFileSync(abs, 'utf8')
+    let oldBase = null
+    try {
+      oldBase = JSON.parse(raw)
+    } catch (e) {
+      console.log(`⚠️ 无法判定 —— ${BASELINE_REL} 解析失败:${String(e?.message ?? e).split('\n')[0]}`)
+      return 2
+    }
+    const plan = planF9BaselineRewrite(oldBase, f9KeySetOf(a))
+    if (plan.action === 'refuse-shape') {
+      console.log(`❌ 拒绝写基线 —— ${plan.reason}`)
+      console.log('   为什么不能"顺手补一份":没有旧键集就没法判这次是收窄还是放行新撞号。')
+      return 2
+    }
+    if (plan.action === 'refuse-widen') {
+      console.log(`❌ 拒绝:F9 基线只允许**收窄**。${plan.reason}`)
+      for (const g of a?.collisions ?? [])
+        if (plan.added.includes(g.key)) console.log(`   F9 ${f9GroupLine(g)}`)
+      console.log(
+        '   把它们写进基线 = 给新撞号发通行证(与"为过门调高基线"同一条禁令)。出路只有逐组判"哪侧是后来者"并归并 —— G-312 明令不得批量改号。',
+      )
+      return 1
+    }
+    if (plan.action === 'noop') {
+      console.log(`✅ 无变化:${plan.reason}(未写盘)`)
+      return 0
+    }
+    // 原位写回:只替换 F9 那一段值文本,F1–F8 与任何注记键/顺序逐字保留。
+    const valueText = JSON.stringify(plan.next, null, 2).replace(/\n/g, '\n  ')
+    let nextRaw
+    try {
+      nextRaw = replaceTopLevelJsonValueText(raw, 'F9', valueText)
+    } catch (e) {
+      console.log(`❌ 拒绝写盘 —— 原位替换失败:${String(e?.message ?? e).split('\n')[0]}`)
+      return 2
+    }
+    // 落地前自证:只有 F9 变了,其余键(含注记)与顺序逐字未动。工具的自证不等于它对,
+    // 但"整文件重写抹掉别人注记键"那一型(守门 83)至少不再可能悄悄发生。
+    let check = null
+    try {
+      check = JSON.parse(nextRaw)
+    } catch (e) {
+      console.log(`❌ 拒绝写盘 —— 原位替换产出的 JSON 解析不过:${String(e?.message ?? e).split('\n')[0]}`)
+      return 2
+    }
+    const sameKeys = JSON.stringify(Object.keys(check)) === JSON.stringify(Object.keys(oldBase))
+    const othersOk =
+      sameKeys &&
+      Object.keys(oldBase).every(
+        (k) => k === 'F9' || JSON.stringify(oldBase[k]) === JSON.stringify(check[k]),
+      )
+    if (!othersOk || JSON.stringify(check.F9) !== JSON.stringify(plan.next)) {
+      console.log('❌ 拒绝写盘 —— 自证未过:除 F9 之外的维度/注记键或键顺序发生了变化')
+      return 2
+    }
+    writeFileSync(abs, nextRaw, 'utf8')
+    console.log(`已更新 F9 基线(${LABEL[o.face]} 现读):${plan.reason}`)
+    console.log(
+      `其余维度(F1–F8)与注记键逐字未变(已 JSON.parse 自证):本工具自 G-312 起**只写 F9 这一维、只许收窄**。`,
     )
-    writeFileSync(path.join(o.root, BASELINE_REL), body + '\n', 'utf8')
-    console.log(`已写下棘轮基线(${LABEL[o.face]} 现读):${body.replace(/\s+/g, ' ')}`)
-    console.log('基线只许下调。为过门而调高 = 关掉这一维的看守,与"为消红削判据"同罪。')
+    console.log(
+      '   为什么其余维度不再由它刷:F1–F4/F4b/F6 的拦点是差值棘轮,把"当次现读"整体冻成新地板 = 跳一次门就能把自己的账洗成基线;F5 方向相反、F8 全量档算不出。要动它们只有人工改这份 JSON 并说明理由。',
+    )
     return 0
   }
   if (o.json) {

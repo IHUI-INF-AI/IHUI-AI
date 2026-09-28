@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { CSSProperties } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import { getTokens, type AppThemeTokens, type AppThemeMode } from '../theme/tokens'
 
 import { rnRadius } from '@ihui/design-tokens'
@@ -153,11 +154,6 @@ const textStyles = {
     color: tk.text.secondary,
     marginLeft: 4,
     marginTop: 1,
-  }),
-  backText: (tk: AppThemeTokens): CSSProperties => ({
-    fontSize: 14,
-    lineHeight: '25px',
-    color: tk.text.secondary,
   }),
   sizeLabel: (): CSSProperties => ({
     fontSize: 14,
@@ -400,10 +396,10 @@ export function Selecter({
             </div>
           ) : (
             <div style={viewStyles.inner()}>
-              {/* back-label-exempt: 子面板(比例档)收合回退按钮,文字是标签非页头返回键;本文件无 i18n/矢量图标通道,until 2026-12-31 */}
               <div
                 role="button"
                 tabIndex={0}
+                aria-label="返回"
                 style={{ ...viewStyles.backBtn(), borderColor: tk.gray[500] }}
                 onClick={resetRatioSelection}
                 onKeyDown={(e) => {
@@ -413,7 +409,7 @@ export function Selecter({
                   }
                 }}
               >
-                <span style={textStyles.backText(tk)}>返回</span>
+                <ChevronLeft size={16} color={tk.text.secondary} />
               </div>
               <div style={viewStyles.sizeLabel()}>
                 <span style={{ ...textStyles.sizeLabel(), color: tk.brand.DEFAULT }}>

@@ -613,5 +613,113 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
     )
   })
 
+  // ─── 15. 带值旗标:`--json` / `--top` 不得把**下一个旗标**当成值 ───
+  // 立项因由(2026-09-28 主会话实测复现):runner 给每道门追加 `--staged`,而旧解析**无条件**取
+  // 紧邻的下一个 token 当值 ⇒ 人手跑 `--json --staged` 会把 JSON 写进仓库根一个名叫 `--staged`
+  // 的文件(违反 AGENTS §28),且调用方按头注拿到的 stdout 是空的。三条规矩各由一条**正向**用例
+  // 钉住,并由两条**反向**用例保证"改成永远 stdout"这类破坏既有行为的写法蒙混不过去。
+  const twoHitFixture = () => {
+    const root = createTempProject()
+    writeFile(root, 'apps/web/app/a.tsx', ["export default function A() {", "  return <div>你好</div>", "}"].join('\n'))
+    writeFile(root, 'apps/web/app/b.tsx', ["export default function B() {", "  return <div>再见</div>", "}"].join('\n'))
+    return root
+  }
+
+  test('`--json --staged` ⇒ JSON 走 stdout(可单独 JSON.parse)且**不写出任何文件**', () => {
+    const root = twoHitFixture()
+    try {
+      const r = runScript(['--json', '--staged'], { cwd: root })
+      assert.equal(r.status, 0, `不带 --exit 1 必须永远 exit 0(既有语义),实际 ${r.status}`)
+      assert.equal(existsSync(join(root, '--staged')), false, '不得在 cwd 下写出名叫 --staged 的文件')
+      // 夹具不是 git 仓 ⇒ 本门会打"判定面退回提示";它必须落在 stderr,否则 stdout 就不是纯 JSON
+      let data = null
+      assert.doesNotThrow(() => {
+        data = JSON.parse(r.stdout)
+      }, `stdout 必须是**单独可 parse** 的 JSON,实得 stdout 前 200 字:${String(r.stdout).slice(0, 200)}`)
+      assert.ok(data && typeof data === 'object', 'parse 结果应为对象')
+      assert.equal(data.totalFiles, 2, 'stdout 档的量必须与文件档一致(2 个文件)')
+      assert.ok(Array.isArray(data.files) && Array.isArray(data.targets), '结构与其他档同形')
+      assert.match(r.stderr, /stdout/, 'stdout 档必须在输出里能看出用的是哪一档(提示走 stderr,不脏 stdout)')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('反向对照:`--json <真路径>` 仍然**写文件**(不得把整档改成"永远 stdout")', () => {
+    const root = twoHitFixture()
+    const jsonOut = join(root, 'report.json')
+    try {
+      const r = runScript(['--json', jsonOut], { cwd: root })
+      assert.equal(r.status, 0, `文件档 exit 码未变,实际 ${r.status}`)
+      assert.equal(existsSync(jsonOut), true, '带真路径时 --json 必须仍写文件')
+      const data = JSON.parse(readFileSync(jsonOut, 'utf8'))
+      assert.equal(data.totalFiles, 2)
+      assert.throws(
+        () => JSON.parse(r.stdout),
+        '反面对照:文件档的 stdout **不是** JSON(仍是 "Wrote … to …" 一行)—— 若这里能 parse,说明写文件那一支被摘掉、只剩 stdout 档',
+      )
+      assert.match(r.stdout, /Wrote 2 files .* to /, '文件档必须仍在 stdout 点名写出的路径')
+      assert.match(r.stdout, new RegExp(String(jsonOut).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), '路径必须逐字出现在提示行里')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('`--json` 作为末位旗标(后面没有值)⇒ 同样走 stdout,不产生名叫 undefined 的文件', () => {
+    const root = twoHitFixture()
+    try {
+      const r = runScript(['--root', root, '--json'], { cwd: root })
+      assert.equal(r.status, 0)
+      const data = JSON.parse(r.stdout)
+      assert.equal(data.totalFiles, 2, '末位 --json 也必须是 JSON 档')
+      const stray = ['undefined', '--json'].filter((n) => existsSync(join(root, n)))
+      assert.deepEqual(stray, [], `不得写出以旗标/undefined 命名的文件(实得:${stray})`)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('`--top` 只认纯数字:`--top --staged` ⇒ 退回 30 并在人读面点名"忽略无效"', () => {
+    const root = twoHitFixture()
+    try {
+      const r = runScript(['--top', '--staged'], { cwd: root })
+      const out = `${r.stdout}\n${r.stderr}`
+      assert.match(out, /忽略无效的 --top 值/, 'NaN 阈值不得静默:必须写明忽略了什么')
+      assert.match(r.stdout, /=== 硬编码中文 TOP 30 文件/, '必须退回默认 30(表头即档名)')
+      assert.throws(() => JSON.parse(r.stdout), '无效 --top 只影响阈值,不得把输出换成 JSON 档')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('正向对照:`--top 1` 仍生效(表头 TOP 1 且只列 1 个文件)', () => {
+    const root = twoHitFixture()
+    try {
+      const r = runScript(['--top', '1'], { cwd: root })
+      assert.match(r.stdout, /=== 硬编码中文 TOP 1 文件/, '合法数字必须照旧生效')
+      assert.ok(!/忽略无效/.test(r.stdout), '合法值不得报无效')
+      const listed = (r.stdout.match(/\n\s+\d+ 处 \| /g) || []).length
+      assert.equal(listed, 1, `TOP 1 只该列 1 个文件,实得 ${listed}`)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('形状锁:带值旗标必须拒绝"下一个 token 是旗标",且 stdout 档的提示必须走 stderr', () => {
+    const code = readFileSync(SCRIPT_PATH, 'utf8')
+    assert.match(
+      code,
+      /!v\.startsWith\('-'\)/,
+      'flagValue 必须保留"以 - 开头即不算值"这条判据(摘掉它就回到本次立项那一型)',
+    )
+    assert.match(code, /\/\^\\d\+\$\/\.test\(TOP_RAW\)/, '--top 必须按纯数字判(旧写法 parseInt 会把旗标折成 NaN)')
+    assert.match(
+      code,
+      /function notice\(msg\) \{\s*\n\s*if \(JSON_STDOUT\) console\.error\(msg\)/,
+      'JSON-stdout 档的一切提示必须改打 stderr,否则 stdout 不再是纯 JSON',
+    )
+    assert.match(code, /if \(JSON_OUT \|\| JSON_STDOUT\) \{[\s\S]{0,400}fs\.writeFileSync\(JSON_OUT, payload/, '文件档必须真的还在写盘')
+  })
+
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

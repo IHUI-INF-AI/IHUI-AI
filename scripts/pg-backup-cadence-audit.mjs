@@ -21,8 +21,8 @@
  *  ③ "不是缺失"的异常:0 字节、相对邻日中位数骤缩(<50%)、同一天后一份比前一份小(>10%,
  *    失败的截断轮典型形态)、当日没在计划时刻落盘却在数小时后才落(调度器在重试/延迟)。
  *  ④ 单一诚实总结论:`ok` / `degraded` / `broken` / `undetermined` + 原因清单。
- *  ⑤ 审计面自身的诚实性(2026-09-28 补):库清单解析不出来 ⇒ `BACKUP_LIST_UNDETERMINED`(undetermined)。
- *     这一类优先于"缺席"结论 —— 一把只审了半个面的尺子给出 MISSING/ok 都没有意义。
+ *  ⑤ 审计面自身的诚实性(2026-09-28 补):库清单解析不出来 ⇒ `BACKUP_LIST_UNDETERMINED`(undetermined),
+ *     且**审计面直接为空**(不留默认库)。这一类优先于"缺席"结论 —— 一把只审了半个面的尺子给出 MISSING/ok 都没有意义。
  *
  * 覆盖边界(如实登记,不得读成"备份链已被证明可用"):
  *  - 本工具只做**文件层** TOC 完整性;不证明每个压缩数据块可解压(那要 `pg-restore-drill --offline-verify`),
@@ -32,8 +32,9 @@
  *  - **审计的库清单读自被审 runner 本身**(`$backupDatabases = @(...)`,2026-09-28 起含 keycloak),
  *    不在本工具里写死库名。三条口径:
  *      ① 那一行解析不到 / 项里既不是引号字面量也不是 `$dbName` / `$dbName` 的兜底行不在同一份文件里
- *        ⇒ 结论 **`未判定:备份清单无从解析`**,绝不静默退回"只审 ihui_dev"(收窄审计面正是本工具存在的理由要防的事);
- *        此时仍按兜底清单把能看到的日子呈现出来,但那一句会进 findings 并否掉 ok。
+ *        ⇒ 结论 **`未判定:备份清单无从解析`**,并且**一个库都不审** —— 本工具不保留任何硬编码默认库,
+ *        因为"退回单个库"正是收窄审计面这一型事故的载体(它曾让 keycloak 从所有序列里消失);
+ *        此时逐日表只记 `UNAUDITED`(不判缺席也不判齐),目录里长得像备份档的文件逐条**报名**进观察项。
  *      ② 命名族按**每个库**识别:`<库名>_<日期>_<时刻>.dump` = 每晚链(dash 族 `<库名>-<日期>-<时刻>.dump`
  *        与 `.sql.gz` 另归旁生产者/旧形态)。目录里名字不在清单内、却长得像备份档(`*.dump` / `*.sql.gz`)的文件
  *        ⇒ 逐条**报名**进观察项(不判红:新加一个库却没改 runner 属另一种事故,得由人定性)。
@@ -56,6 +57,8 @@
  *  (给轮排用)。退出码:0=ok(默认档下 degraded 也为 0,因为报告里已点名它);1=findings;
  *  2=无法判定(备份目录不可读 / 缺 pg_restore / 开关错)。**`--strict` 下 undetermined 归 1**,
  *  但输出行会写明原判读是 undetermined —— 二者处置动作不同,不得在结论里混成一个词。
+ *  `--self-test` **不在本进程内跑判据**(取证在镜像测试里,那里才有注入的假 pg_restore 与临时目录);
+ *  它只打印那条真跑得通的命令并 exit 0 —— 这一枚 0 **不等于"已验证"**,别把它当合格证。
  *
  * 与提交链的关系:**本工具没有接进任何钩子、CI、计划任务,也不是守门**。
  * 它是手动 / 轮排用的只读审计器(`stagedTriggers` 一类概念对它不适用)。名字刻意不以
@@ -74,14 +77,17 @@ import { classifyDump, DUMP_NAME_RE, todayYmd } from './pg-restore-drill.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** 兜底库名:仅在清单解析不出来的时候用于"把看得见的日子呈现出来",绝不当作审计面(见头注 ⑤) */
-const LEGACY_CHAIN_DB = 'ihui_dev'
+/**
+ * 这里**没有**任何"默认库名"。审计面只来自 `parseBackupDatabases`(读被执行的那份 runner),
+ * 解析不出就是一个库都不审 ⇒ 未判定。留一个兜底库名 = 留一条静默缩面的路,
+ * 而"清单里有 keycloak、账面却只看 ihui_dev"正是本工具的立项事故(G-297)。
+ */
 
 const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 /** 库里带下划线时,dash 族/旧族把它写成 `ihui-dev`,所以这两个族按 `[-_]` 逐位放宽(仍是同一份实现产出的模式) */
 const altRe = (db) => escapeRe(db).replace(/_/g, '[-_]')
 
-/** 每晚链的命名:<库名>_<YYYYMMDD>_<HHMMSS>.dump —— 对 LEGACY_CHAIN_DB 逐字复现 drill 的 DUMP_NAME_RE */
+/** 每晚链的命名:<库名>_<YYYYMMDD>_<HHMMSS>.dump —— 对 drill 的 DUMP_NAME_RE 所用的那个库逐字复现(成对锁在镜像测试里) */
 export function dumpNameReFor(db) {
   return new RegExp(`^${escapeRe(db)}_(\\d{8})_(\\d{6})\\.dump$`)
 }
@@ -93,9 +99,6 @@ export function dashDumpReFor(db) {
 export function sqlGzReFor(db) {
   return new RegExp(`^${altRe(db)}[-_](\\d{8})[-_](\\d{6})\\.sql\\.gz$`)
 }
-
-export const DASH_DUMP_RE = dashDumpReFor(LEGACY_CHAIN_DB)
-export const SQLGZ_RE = sqlGzReFor(LEGACY_CHAIN_DB)
 
 /** 阈值(写在这里而不是散在判据里,便于"为什么是这个数"被追问) */
 export const THRESHOLDS = Object.freeze({
@@ -110,15 +113,16 @@ export const THRESHOLDS = Object.freeze({
 
 // ────────────────────────────── 纯函数层(镜像测试打这里) ──────────────────────────────
 
-/** 清单入参归一:空/缺省 ⇒ 兜底单库(只为"看得见"服务,报告里必须写明这是兜底) */
+/** 清单入参归一:去空去重;**空 ⇒ 空**(没有任何默认库,不拿单个库冒充整个审计面) */
 function normalizeDatabases(databases) {
   const list = Array.isArray(databases) ? databases.map((d) => String(d).trim()).filter(Boolean) : []
-  return list.length ? [...new Set(list)] : [LEGACY_CHAIN_DB]
+  return [...new Set(list)]
 }
 
 /**
  * 文件名 → {family,ymd,hms,db};family ∈ dump|dump-foreign|sqlgz|unrelated。
- * `databases` 决定"哪些库算被审面";不传 ⇒ 只认兜底单库(旧行为)。
+ * `databases` 决定"哪些库算被审面";空/未传 ⇒ 一个库都不认(全部 unrelated),
+ * 由调用方把疑似备份档报名,而不是猜一个默认库。
  * db 字段是逐库统计的锚:旁族文件归它自己那个库,绝不替别的库作证。
  */
 export function classifyFileName(name, databases) {
@@ -463,8 +467,12 @@ function readConfigFrom(first, second, pick) {
  */
 function resolveDatabases(deps, execCands) {
   if (deps.databases !== undefined) {
-    if (Array.isArray(deps.databases))
-      return { parsed: true, databases: normalizeDatabases(deps.databases), source: '(调用方注入)', primaryLiteral: null }
+    if (Array.isArray(deps.databases)) {
+      const injected = normalizeDatabases(deps.databases)
+      if (injected.length === 0)
+        return { parsed: false, databases: null, reason: '调用方注入了一份空清单 ⇒ 没有任何库可审(空清单不等于"全都齐了")', source: '(调用方注入)' }
+      return { parsed: true, databases: injected, source: '(调用方注入)', primaryLiteral: null }
+    }
     const o = deps.databases || {}
     return { parsed: false, databases: null, reason: o.reason || '调用方注入了一份解析不出的清单', source: '(调用方注入)' }
   }
@@ -590,14 +598,16 @@ function auditFile(item, ctx) {
  */
 function auditCloud(cloudDir, window, databases, byDay) {
   const note = '未判定:百度网盘是否真的收到这些文件,在本机结构上无从验证(同步目录里有文件 ≠ 已上传成功)'
+  const dbs = normalizeDatabases(databases)
   if (!cloudDir) return { dir: null, state: 'undetermined', perDay: [], note: '未判定:备份脚本里读不到 $cloudDir(可能该腿已移除)' }
+  if (dbs.length === 0)
+    return { dir: cloudDir, state: 'undetermined', perDay: [], note: '未判定:审计面为空(库清单解析不出)⇒ 云腿没有任何可比的库,不拿目录里有文件冒充"每库都同步了"' }
   let names = []
   try {
     names = readdirSync(cloudDir)
   } catch (e) {
     return { dir: cloudDir, state: 'undetermined', perDay: [], note: `未判定:本地同步目录不可读(${cloudDir}: ${e.message})——非部署机/网盘未挂载是常态,不等于云备份坏了` }
   }
-  const dbs = normalizeDatabases(databases)
   const cloudYmd = new Map() // db → Set(ymd)
   for (const db of dbs) cloudYmd.set(db, new Set())
   for (const n of names) {
@@ -631,6 +641,7 @@ export const STATUS_RANK = Object.freeze({
   OUT_OF_RETENTION: 6,
   ok: 7,
   PRE_START: 8,
+  UNAUDITED: 2, // 与 UNDETERMINED 同档:没看着 ≠ 坏了,但绝不是"齐了"
 })
 
 /** 一天里两个库各有各的状态时,取最严重的那个(不得让"另一库 MISSING"被先遍历到的 ok 盖掉) */
@@ -666,11 +677,12 @@ function buildReport(opts) {
   const schedSource = deps.scheduleHour !== undefined ? `${deps.scheduleHour}(调用方注入)` : sched.value !== null ? `${sched.source}:-Hour ${sched.value}` : `兜底 03:00(调度脚本读不到 -Hour;窗口判定按默认值,已在原因里注明)`
   const cloudDir = deps.cloudDir !== undefined ? deps.cloudDir : cloud.value
 
-  /** 清单解析不出来时,仍按兜底单库把看得见的日子呈现出来 —— 但审计面本身已判未判定,绝不冒充"全面已审" */
-  const databases = dbCfg.parsed ? dbCfg.databases : normalizeDatabases(null)
-  const databasesNote = dbCfg.parsed
-    ? ''
-    : `未判定:备份清单无从解析(${dbCfg.reason}${dbCfg.source ? ';出处试读 ' + dbCfg.source : ''})—— 本轮只按兜底清单 [${databases.join(', ')}] 呈现,任何"齐了"或"缺了"都不构成对全部库的结论`
+  /** 清单解析不出来 ⇒ 审计面为空。刻意**不**退回任何单个库:那正是 G-297 立项的那一型(账面只看一台,别的库缺多少天都是满分) */
+  const databases = dbCfg.parsed ? dbCfg.databases : []
+  const noFace = databases.length === 0
+  const databasesNote = noFace
+    ? `未判定:备份清单无从解析(${dbCfg.reason || '清单为空'}${dbCfg.source ? ';出处试读 ' + dbCfg.source : ''})—— 本工具不保留默认库,故本轮一个库都不审;任何"齐了"或"缺了"都无从谈起,目录里看到的疑似备份档只在观察项里报名`
+    : ''
 
   const listing = listDir(dir, databases)
   const meta = {
@@ -678,6 +690,7 @@ function buildReport(opts) {
     days,
     daysSource,
     databases,
+    databasesAudited: databases.length,
     databasesSource: dbCfg.source || '(读不到任何一份 runner)',
     databasesParsed: dbCfg.parsed,
     databasesNote,
@@ -718,9 +731,9 @@ function buildReport(opts) {
   const window = enumerateWindow(today, days)
   const scope = [...new Set([...window, ...[...byDay.keys()].filter((y) => !window.includes(y))])].sort()
 
-  /** 审计面自身的诚实性:清单解析不出 ⇒ undetermined,优先于任何"缺席/齐备"结论 */
+  /** 审计面自身的诚实性:清单解析不出(或空)⇒ undetermined,优先于任何"缺席/齐备"结论 */
   const faceFindings = []
-  if (!dbCfg.parsed) faceFindings.push({ code: 'BACKUP_LIST_UNDETERMINED', severity: 'undetermined', text: databasesNote })
+  if (noFace) faceFindings.push({ code: 'BACKUP_LIST_UNDETERMINED', severity: 'undetermined', text: databasesNote })
 
   // ── 逐库:缺席判定、同日多份、邻日骤缩、TABLE DATA、源库版本全部按库各算一份 ──
   const perDb = databases.map((db) => {
@@ -753,8 +766,13 @@ function buildReport(opts) {
     const obs = []
     const vd = judgeVersionDrift(series)
     if (vd.drift) obs.push(`${db} 源库版本在本窗口内不唯一:${vd.distinct.join(' / ')};以最近一日(${vd.reference})为参照,来自别的版本档的日子:${vd.odd.join(', ')} —— 升级/降级会在 TOC 里留下这个指纹,是信号不是故障`)
-    const und = series.filter((s) => s.shrink?.state === 'undetermined').length
-    if (und) obs.push(`${db} 骤缩规则在 ${und} 个日子判不出(同库邻日样本不足;按库分开算正是为了让这个数有意义)——已按"未判定"处理,不算通过`)
+    const und = series.filter((s) => s.shrink?.state === 'undetermined')
+    if (und.length)
+      obs.push(`${db} 骤缩规则在 ${und.length} 个日子判不出:${und.map((s) => `${s.ymd}(${s.shrink.reason || '原因未记'})`).join(', ')} —— 已按"未判定"处理,不算通过(按库分开算正是为了让这个数有意义)`)
+    // 表数量不到 = 表数漂移这一判据当日不适用。它既不是"没少表"也不是"通过",必须点名(否则"安静"就是这一格的失败形态)。
+    const noTable = series.filter((s) => typeof s.tableDataCount !== 'number')
+    if (noTable.length)
+      obs.push(`${db} TABLE DATA 条数在 ${noTable.length} 个日子量不到:${noTable.map((s) => `${s.ymd}(${s.name ? 'TOC 未判' : '当日无代表档'})`).join(', ')} —— 该库表数漂移判据这些日子未判定,不算通过`)
     if (st.mode === 'AFTER_WINDOW') obs.push(`${db} ${st.reason}`)
     return { db, startYmd: st.startYmd, startMode: st.mode, startReason: st.reason, auditedDays, dayRows: winRows, outOfWindowDays: outRows, series, findings, observations: obs }
   })
@@ -763,6 +781,9 @@ function buildReport(opts) {
   const rowOf = (db, ymd) => perDb.find((d) => d.db === db)?.dayRows.find((r) => r.ymd === ymd) || perDb.find((d) => d.db === db)?.outOfWindowDays.find((r) => r.ymd === ymd)
   const rollup = (ymd) => {
     const rows = perDb.map((d) => rowOf(d.db, ymd)).filter(Boolean)
+    if (rows.length === 0)
+      // 审计面为空(清单解析不出)⇒ 这一天既不是"齐"也不是"缺",是**没看**。不得用 worstStatus([])='ok' 冒充结论。
+      return { ymd, status: 'UNAUDITED', findings: [], notes: [noFace ? '审计面未判定 ⇒ 本日不作任何结论(不是"齐了")' : '本日无任何被审库的行(内部一致性异常,请报本工具持有人)'], perDatabase: [] }
     return {
       ymd,
       status: worstStatus(rows.map((r) => r.status)),
@@ -797,7 +818,9 @@ function buildReport(opts) {
   const excluded = files.filter((f) => f.verdict === 'excluded')
   if (excluded.length) observations.push(`${excluded.length} 份 .sql.gz 旧形态未参与三态判定:${excluded.map((f) => f.name).join(', ')}`)
   if (listing.unknownArtifacts.length)
-    observations.push(`名字不在被审清单(${databases.join('/')})里、却长得像备份档的 ${listing.unknownArtifacts.length} 个文件未参与任何判定:${listing.unknownArtifacts.join(', ')} —— 新增了库要先改进 runner 的 $backupDatabases,别让这一格悄悄隐身`)
+    observations.push(
+      `${noFace ? `审计面未判定 ⇒ 目录里 ${listing.unknownArtifacts.length} 个长得像备份档的文件全部未参与判定` : `名字不在被审清单(${databases.join(' / ')})里、却长得像备份档的 ${listing.unknownArtifacts.length} 个文件未参与任何判定`}:${listing.unknownArtifacts.join(', ')} —— 新增了库要先改进 runner 的 $backupDatabases,别让这一格悄悄隐身`,
+    )
   if (outOfWindowDays.length) observations.push(`窗口之外还在目录里的日子:${outOfWindowDays.map((d) => d.ymd).join(', ')}(保留策略之外,只列出)`)
 
   return {
@@ -827,14 +850,16 @@ export function renderHuman(r) {
   L.push(`── pg-backup-cadence-audit ── 生成于 ${r.generatedAt}`)
   L.push(`   备份目录: ${r.backupDir}`)
   L.push(`   窗口: 最近 ${r.days} 天(${r.window[0]} … ${r.window.at(-1)}),天数出处 ${r.daysSource}`)
-  L.push(`   审计的库(读自被审 runner,非本工具写死): ${(r.databases || []).join(' / ')} —— 出处 ${r.databasesSource}`)
+  L.push(`   审计的库(读自被审 runner,非本工具写死): ${(r.databases || []).length ? r.databases.join(' / ') : '一个都没有 —— 本工具不留默认库,见下'} —— 出处 ${r.databasesSource}`)
   if (r.databasesParsed === false && r.databasesNote) L.push(`   ❌ ${r.databasesNote}`)
   L.push(`   计划时刻: ${String(r.scheduleHour).padStart(2, '0')}:00 ±${THRESHOLDS.scheduleGraceHours}h,出处 ${r.scheduleSource}`)
   L.push(`   pg_restore: ${r.pgRestore} ${r.binExists ? '在位' : '❌ 不在位'}`)
   if (r.binariesMissingNote) L.push(`   ⚠ ${r.binariesMissingNote}`)
   L.push('')
-  const icon = { ok: '✅', 'ok-with-truncated': '⚠', TRUNCATED: '❌', MISSING: '❌', UNDETERMINED: '⚠', FOREIGN_ONLY: '⚠', PENDING_TODAY: '·', OUT_OF_RETENTION: '·', PRE_START: '·' }
+  const icon = { ok: '✅', 'ok-with-truncated': '⚠', TRUNCATED: '❌', MISSING: '❌', UNDETERMINED: '⚠', FOREIGN_ONLY: '⚠', PENDING_TODAY: '·', OUT_OF_RETENTION: '·', PRE_START: '·', UNAUDITED: '⚠' }
   L.push('① 逐日(窗口内,按库分列;统计一律不跨库混算)')
+  if (!r.byDatabase.length)
+    L.push(`  (无库可审 ⇒ 逐日不产出"齐/缺"结论;窗口 ${r.window[0]}…${r.window.at(-1)} 每天记 UNAUDITED,那是"没看"不是"没事")`)
   for (const d of r.byDatabase) {
     L.push(`  ▸ 库 ${d.db} —— 起判日 ${d.startYmd || '(窗口内无一天起判)'}:${d.startReason}`)
     for (const row of d.dayRows) {
@@ -878,6 +903,10 @@ function main(argv = [], deps = {}) {
   const cli = parseCliArgs(argv)
   if (cli.error) return { code: 2, out: { error: cli.error }, json: false }
   if (cli.help) return { code: 0, out: { help: '用法: node scripts/pg-backup-cadence-audit.mjs [--days N] [--json] [--strict]' }, json: false }
+  // --self-test 在本工具里**不实跑**:取证活在镜像测试(它才有人注入的假 pg_restore 与临时目录),
+  // 自己派生测试进程只会造出一条"跑了但什么都没验"的假出路。这里给出的必须是能真跑通的那一条命令。
+  if (cli.selfTest)
+    return { code: 0, out: { help: '本工具的取证在镜像测试,不在本进程内自跑:\n  node --test scripts/tests/pg-backup-cadence-audit.test.mjs\n(该测试须连跑两次结果一致;本开关不跑任何判据,因此它的 0 不构成"已验证"。)' }, json: false }
   const out = buildReport({ cli, deps })
   // json 标志必须随返回值一起出去 —— 早先它留在 cli 里,打印点读不到,于是 --json 形同没实现
   return { code: out.exitCode ?? 2, out, json: !!cli.json }
@@ -934,7 +963,6 @@ export const __test__ = {
   parseCliArgs,
   THRESHOLDS,
   DUMP_NAME_RE,
-  DASH_DUMP_RE,
-  SQLGZ_RE,
+  normalizeDatabases,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

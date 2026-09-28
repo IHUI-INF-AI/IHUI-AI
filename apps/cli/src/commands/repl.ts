@@ -21,7 +21,7 @@ import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import { PlanMachine } from '../plan/index.js';
 import { setupAgentTools, runToolLoop, decideCompaction, createTerminalDeltaSink, type ToolContext, type InterjectionBlock } from './agent.js';
-import { createDangerGate } from '../tools/danger-gate.js';
+import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
 import { InterjectionBuffer } from '../interjection.js';
 import { renderSlashHelp, suggestSlashCommands, slashCompleter } from './slash-registry.js';
 // P0 CLI 友好度优化(2026-07-31):4 个新命令模块
@@ -2460,9 +2460,11 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       },
       // 策略收口到唯一出口(五处手写之一,人机确认这条通路保留 inquirer 原文案):
       // flag 自动放行时原有的中文「自动允许危险操作」提示逐字保留,经 onDecision 挂回
-      confirmDangerous: createDangerGate({
+      // 86H:这一站是终端里真人批准的主通路,决策经包装器落审计链(入参原文不上线)。
+      confirmDangerous: createAuditedDangerGate({
         allowDangerous: state.opts.allowDangerous,
         silent: true,
+        auditSessionId: state.opts.sessionId,
         prompt: async (tool, args) => {
           const argSummary = JSON.stringify(args).slice(0, 100);
           const { confirm } = await inquirer.prompt([{

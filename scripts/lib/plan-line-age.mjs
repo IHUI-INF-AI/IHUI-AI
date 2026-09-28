@@ -46,6 +46,41 @@ import { mkScratch } from './scratch-dir.mjs'
 import { Undetermined, gitBinary, gitErrText } from './face-reader.mjs'
 import { parseTaskRows } from './plan-task-index.mjs'
 
+/**
+ * 带值旗标的取值(2026-09-28 修 `--limit --staged` 这一型;**口径照抄枚 380431ffc / 636c28f58 /
+ * 8832e73a4,不另发明**):紧邻的下一个 token 必须**存在、非空且不以 `-` 开头**,才算该旗标的值。
+ * 旧写法 `Number(argv[argv.indexOf('--limit') + 1])` 无条件把下一个 token 喂给 Number,于是
+ * `--limit --staged` ⇒ NaN ⇒ `slice(0, NaN)` ⇒ **寿命清单为空而 exit 0** —— 问责档读到"没有陈旧行"
+ * 这个结论,而它其实是"尺子没看到任何一行"。
+ * 本旗标处置与 --output/--spec 不同:**允许退回默认值,但必须大声点名**(一行 `忽略无效的 --limit 值: …`),
+ * 不得静默 —— 提示一律走 stderr,因为 `--json` 档的 stdout 是要被 JSON.parse 的。
+ */
+export function flagValue(list, flag) {
+  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null }
+  const raw = list[list.indexOf(flag) + 1]
+  const token = typeof raw === 'string' ? raw : null
+  const valid = token !== null && token !== '' && !token.startsWith('-')
+  return { present: true, valid, value: valid ? token : null, token }
+}
+
+/** `--limit` 缺省值(不带该旗标时的既有行为,一字未改)。 */
+export const DEFAULT_LIMIT = 20
+
+/**
+ * 解析 `--limit`:缺席 ⇒ 默认;紧邻 token 无效(缺失/空/是另一个旗标)或不是纯非负整数 ⇒ 默认 + notice。
+ * 返回 { limit, notice };notice 为 null 表示完全按原行为走(调用方不打任何额外行)。
+ */
+export function resolveLimit(list) {
+  const f = flagValue(list, '--limit')
+  if (!f.present) return { limit: DEFAULT_LIMIT, notice: null }
+  if (f.valid && /^\d+$/.test(f.token)) return { limit: Number(f.token), notice: null }
+  const got = f.token === null ? '(其后没有任何参数)' : JSON.stringify(f.token)
+  return {
+    limit: DEFAULT_LIMIT,
+    notice: `忽略无效的 --limit 值: ${got}(需要一个纯数字),已退回默认 ${DEFAULT_LIMIT}`,
+  }
+}
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const PLAN_REL = 'PROJECT_PLAN.md'
 const DAY_MS = 86400000
@@ -305,7 +340,8 @@ function main() {
     )
     return 0
   }
-  const limit = argv.includes('--limit') ? Number(argv[argv.indexOf('--limit') + 1]) : 20
+  const { limit, notice: limitNotice } = resolveLimit(argv)
+  if (limitNotice) console.error(`ℹ ${limitNotice}`)
   try {
     const { ages } = headAges()
     const measurable = ages.filter((x) => x.ageDays !== null).sort((x, y) => y.ageDays - x.ageDays)
