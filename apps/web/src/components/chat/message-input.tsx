@@ -68,6 +68,7 @@ import { parseMentionTrigger } from '@ihui/shared/chat/mention-engine'
 import { ContextSelectorPopover } from '@/components/ai/context-selector-popover'
 import { useAgentMdReference, AGENT_REF_PREFIX } from '@/hooks/use-agent-md-reference'
 import { useMessageSend } from '@/hooks/use-message-send'
+import { usePromptDrafts } from '@/hooks/use-prompt-drafts'
 import { usePromptHistory } from '@/hooks/use-prompt-history'
 import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
@@ -146,7 +147,7 @@ export function PromptPolishEntry({ state, disabled, onPolish }: PromptPolishEnt
       onClick={onPolish}
       aria-label={t('ariaLabel')}
       title={`${t('entryLabel')} · ${phaseLabel[state.phase]}`}
-      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
     >
       <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
       <span>{t('entryLabel')}</span>
@@ -275,18 +276,6 @@ export function MessageInput({
     const convId = useChatStore.getState().conversationId
     return localStorage.getItem(convId ? `chat:draft:${convId}` : 'chat:draft') ?? ''
   })
-  // W27:当前草稿 key 的 ref(防抖写入用;会话切换 effect 同步维护)
-  const draftKeyRef = React.useRef<string | null>(null)
-  // 防抖写入 localStorage(避免每个 keystroke 写入)
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      const key = draftKeyRef.current
-      if (typeof window !== 'undefined' && key) {
-        localStorage.setItem(key, value)
-      }
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [value])
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
   // D68 统一多源建议面板:单一聚合入口(工具栏按钮),旧三浮层入口原样保留不回归。
@@ -472,27 +461,17 @@ export function MessageInput({
     }
     wasStreamingRef.current = isStreaming
   }, [isStreaming, pendingMessages, sendPendingMessage, sideQueue, answerCurrentSideQuestion])
-  // W27(2026-09-14):会话切换时草稿迁移 —— 当前输入写回旧会话 key,载入目标会话草稿
-  const valueRef = React.useRef(value)
-  React.useEffect(() => {
-    valueRef.current = value
-  }, [value])
-  React.useEffect(() => {
-    if (draftKeyRef.current === null) {
-      // 首次挂载:仅记录当前 key(初始 value 已按该 key 读取)
-      draftKeyRef.current = draftKey
-      return
-    }
-    if (draftKeyRef.current === draftKey) return
-    const prevKey = draftKeyRef.current
-    draftKeyRef.current = draftKey
-    if (typeof window !== 'undefined') {
-      if (valueRef.current) localStorage.setItem(prevKey, valueRef.current)
-      else localStorage.removeItem(prevKey)
-      setValue(localStorage.getItem(draftKey) ?? '')
-    }
-    requestAnimationFrame(() => inputCoreRef.current?.resize())
-  }, [draftKey])
+  // W27(2026-09-14)→ D36(2026-09-28):草稿持久化收编进 usePromptDrafts hook ——
+  // 防抖写入、会话切换回写/载入、超长截断、桶配额淘汰都在 hook + shared 纯逻辑里,
+  // 本组件只保留 draftKey 计算(与 useMessageSend 清稿同源)与 resize 回调接线。
+  usePromptDrafts({
+    draftKey,
+    value,
+    setValue,
+    onRestored: React.useCallback(() => {
+      requestAnimationFrame(() => inputCoreRef.current?.resize())
+    }, []),
+  })
 
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
   // draftAutoSend(2026-09-08 立,首页「立即体验」CTA):预填后立即自动发送发起对话
@@ -1217,7 +1196,7 @@ export function MessageInput({
                       <button
                         type="button"
                         onClick={() => setInfoMode('bypass-permissions')}
-                        className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
+                        className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-sm text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
                         aria-label={t('permission.infoButtonLabel')}
                         data-testid="permission-mode-info-button"
                       >
@@ -1309,7 +1288,7 @@ export function MessageInput({
                 disabled={isStreaming}
                 onClick={() => setUnifiedOpen((o) => !o)}
                 className={cn(
-                  'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none',
+                  'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm px-2 text-xs font-medium leading-none',
                   'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                   'disabled:cursor-not-allowed disabled:opacity-50',
                 )}
@@ -1360,7 +1339,7 @@ export function MessageInput({
                           onClick={() => void steer()}
                           disabled={!value.trim()}
                           className={cn(
-                            'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+                            'inline-flex h-8 w-8 items-center justify-center rounded-sm transition-colors',
                             value.trim()
                               ? 'bg-amber-500 text-white hover:bg-amber-600'
                               : 'cursor-not-allowed bg-muted text-muted-foreground/50',
@@ -1376,7 +1355,7 @@ export function MessageInput({
                       <button
                         type="button"
                         onClick={onStop}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-sky-500 text-white hover:bg-sky-600"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-sky-500 text-white hover:bg-sky-600"
                         aria-label={stopLabel ?? t('stop')}
                       >
                         <Square className="h-3.5 w-3.5" fill="currentColor" />
@@ -1392,7 +1371,7 @@ export function MessageInput({
                         onClick={() => void submit()}
                         disabled={!canSend}
                         className={cn(
-                          'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+                          'inline-flex h-8 w-8 items-center justify-center rounded-sm transition-colors',
                           canSend
                             ? 'bg-cta text-cta-foreground hover:bg-cta/90'
                             : 'cursor-not-allowed bg-muted text-muted-foreground/50',
