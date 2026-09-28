@@ -3992,7 +3992,7 @@ const checks = [
       '判红只有一型:登记函数把实参裸存 / !!x / Boolean(x) 而全文无人调用它,且同一自检宿主内确实有用例传裸箭头函数或裸 function。',
       '该 self-test 条目从未被判过 —— 打印的通过数是假的。',
       '出路只有一条:把登记侧改成求值形态(体内调用该形参,或改用 push({name, fn}) + 消费循环 c.fn() 的 thunk 族)。禁止把用例改成布尔去过门。',
-      '判不出的形态(形参被喂进别的调用、括号配不平)只报名不判红;问责档:pnpm check:selftest-registrant(走 --strict,有未判定即 rc=2)。',
+      '判不出的形态(形参被喂进别的调用、括号配不平)只报名不判红;问责档:node scripts/check-selftest-registrant-evaluates.mjs --strict(有未判定即 rc=2)。',
       '定级 warn 是设计前提:现读潜伏 36 处 + 未判定 4 处,接成 blocking 就是每台每次被逼跳门(AGENTS 12f)。',
       '',
     ].join('\n'),
