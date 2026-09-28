@@ -494,7 +494,7 @@ test('无日期的 ✅ 标题不得被自动档搬走(≥7 天判据要求有日
   }
 })
 
-test('大批量阀门:自动档一次搬 >25 条必须拒绝且不写盘,人工 --allow-mass 才放行', () => {
+test('大批量阀门:超预算时自动档搬"最旧前缀"并把余量留在原地(旧"全批或不动"= 永久卡死)', () => {
   const dir = createTempGitRepo()
   try {
     const d = dateAgo(30)
@@ -506,18 +506,18 @@ test('大批量阀门:自动档一次搬 >25 条必须拒绝且不写盘,人工 
     assert.equal(r.status, 0, `阀门只挡不报红(钩子链不得因此失败),实得 ${r.status}`)
     assert.match(
       r.out,
-      /大批量归档阀门关闭中\(自动档\):26 条/,
-      `必须报出实测条数,实得:\n${r.out.slice(0, 300)}`,
+      /体积预算内取最旧前缀:本次搬 25 段/,
+      `必须报出本批实搬段数(预算 25 段),实得:\n${r.out.slice(0, 400)}`,
     )
-    assert.equal(
-      readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'),
-      planText,
-      '被阀门挡下时计划文档必须逐字节未变',
-    )
-    assert.ok(!existsSync(archiveFilePath(dir)), '被挡下时不得写出归档文件')
+    assert.match(r.out, /余 1 段/, '必须点名余量,不得静默少搬')
+    const head = gitShow(dir, 'HEAD:PROJECT_PLAN.md')
+    const stillThere = entries.filter((l) => /^### T\d+ /.test(l) && head.includes(l))
+    assert.equal(stillThere.length, 1, `未达预算的余量必须原样还在,实得 ${stillThere.length} 条:${stillThere}`)
+    assert.ok(head.includes('### T26 ✅'), '最旧前缀之外的段不得被搬走')
+    assert.ok(!head.includes('### T1 ✅'), '预算内的最旧段必须真被搬走(旧实现这里是整批拒绝 ⇒ 积压永远清不掉)')
+    assert.ok(existsSync(archiveFilePath(dir)), '真搬了就必须有归档文件(§1 两步走的第一步)')
     const r2 = runScript(dir, ['--auto-commit', '--allow-mass'])
     assert.equal(r2.status, 0)
-    assert.ok(existsSync(archiveFilePath(dir)), '显式放行后才真归档')
   } finally {
     rmScratch(dir)
   }
@@ -831,11 +831,21 @@ test('A1 底稿面=HEAD:工作树滞后把已入库的 [x] 写成 [ ] 时,归档
     assert.equal(r.status, 0, `应成功,实得 ${r.status}\n${r.all}`)
     assert.equal(revCount(dir), before + 1, '应新增一枚归档提交')
     const head = gitShow(dir, 'HEAD:PROJECT_PLAN.md')
-    assert.match(
+    // ★ 本票核心断言的新形态(2026-09-28):归档粒度扩到 bullet 级后,一条不属于被搬条目的
+    // 已入库 `- [x]` 行有**两种正当归宿** —— 原样留在 HEAD,或整行逐字进归档件并在原位留占位。
+    // 唯一**绝不合法**的形态是它被读成 `- [ ]`(把做过的记成没做)。旧版只允许第一种,
+    // 而那一版在 HEAD 面上把这一行写成 `- [ ] …` 就是本票立项要拦的那一型。
+    assert.doesNotMatch(
       head,
-      /^- \[x\] .*G-207/m,
-      '★ 本票核心断言:不属于被搬条目的已入库 [x] 行必须原样留在 HEAD。' +
-        '阳性对照(旧实现同夹具)见交付报告 —— 旧版产出的那一面里这一行是 `- [ ] …`',
+      /^- \[ \] .*G-207/m,
+      '★ 已入库的 [x] 行绝不得在归档产出的那一面被写成 [ ]',
+    )
+    const archived207 = gitShow(dir, 'HEAD:' + ARCHIVE_REL) || ''
+    const eitherAliveOrArchived =
+      /^- \[x\] .*G-207/m.test(head) || (/G-207/.test(archived207) && /<!--\s*已归档\(/.test(head))
+    assert.ok(
+      eitherAliveOrArchived,
+      '不属于被搬条目的已入库 [x] 行:要么原样留在 HEAD,要么带占位逐字进归档件 —— 二者皆无即丢失',
     )
     assert.match(head, /<!--\s*已归档\(/, '被搬条目在原位置留了占位')
     const files = commitFiles(dir)
@@ -904,7 +914,12 @@ test('B 正当归档仍在工作:条目确实完成 ≥7 天 ⇒ 搬走 + 留占
     const head = gitShow(dir, 'HEAD:PROJECT_PLAN.md')
     assert.match(head, /<!--\s*已归档\(/)
     assert.ok(!head.includes('条目正文 A'), '正文应已从计划文档搬走')
-    assert.match(head, /^- \[x\] .*G-207/m, '不属于被搬块的已入库行原样保留')
+    assert.doesNotMatch(head, /^- \[ \] .*G-207/m, '已入库的翻勾绝不得被读成未勾')
+    const arch207 = (gitShow(dir, 'HEAD:' + ARCHIVE_REL) || '').includes('G-207')
+    assert.ok(
+      /^- \[x\] .*G-207/m.test(head) || (arch207 && /<!--\s*已归档\(/.test(head)),
+      '不属于被搬块的已入库行:原样在 HEAD,或带占位逐字进归档件(bullet 级自 2026-09-28 起在射程内)',
+    )
     assert.ok((gitShow(dir, 'HEAD:' + ARCHIVE_REL) || '').includes('G-206 同一个缺口'), '归档件含被搬条目')
     assert.equal(
       readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8').replace(/\r\n/g, '\n'),
@@ -1001,6 +1016,69 @@ test('F --self-test 连跑两次都必须 RC=0 并报"失败 0"(本仓有一道�
       assert.equal(r.status, 0, `第 ${round} 次 --self-test 应 RC=0,实得 ${r.status}\n${r.all}`)
       assert.match(r.all, /自检共 \d+ 条断言,通过 \d+,失败 0/, '必须打印总量与失败数,不得默默退 0')
     }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── G/H 子弹级归档与"假条目"守卫(2026-09-28,响应用户"完成的内容不要再留在计划文档里")───
+// 端到端双向锁:只测纯函数不够 —— 采集器写对了但主流程没接线,就是本仓最高频的"造好没装车"。
+
+test('G 子弹级 - [x] 真被搬走,且同一章节里的 - [ ] 一字不动地留在原地', () => {
+  const dir = createTempGitRepo()
+  try {
+    const plan = [
+      '# 计划',
+      '',
+      '## 活章节',
+      `- [x] ✅(${dateAgo(30)}) **G-900 早就做完的一件事**`,
+      '  这行是上一条的缩进续行',
+      '- [ ] **G-901 这件还开着**',
+      '',
+    ].join('\n')
+    commitPlan(dir, plan)
+    const r = runScriptEnv(dir, ['--auto-commit'], {})
+    assert.equal(r.status, 0, `应 RC=0\n${r.all}`)
+    const head = execSync('git show HEAD:PROJECT_PLAN.md', {
+      cwd: dir,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    assert.ok(!/- \[x\].*G-900/.test(head), '已过阈值的已完成登记应被搬走(没搬=这一维没装车)')
+    assert.ok(/^- \[ \] \*\*G-901/m.test(head), '未完成行必须原样留在计划文档里')
+    assert.ok(/<!-- 已归档\(/.test(head), '原位必须留 §1 要求的归档占位')
+    const arch = execSync(`git show HEAD:.ihui-agent/archive/PROJECT_PLAN_${todayStr()}_auto-archive.md`, {
+      cwd: dir,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    assert.ok(arch.includes(`- [x] ✅(${dateAgo(30)}) **G-900 早就做完的一件事**`), '归档件里必须有逐字原文(第一步)')
+    assert.ok(arch.includes('  这行是上一条的缩进续行'), '缩进续行必须随条目一起进归档')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('H 标题写"已完成"但体内含未勾登记的假条目:连 --allow-mass 也不得搬走它', () => {
+  const dir = createTempGitRepo()
+  try {
+    const plan = [
+      '# 计划',
+      '',
+      `## 假装完成的条目(${dateAgo(30)} 立并完成 ✅)`,
+      '- [ ] **G-902 其实还开着,而且后面再没有同级标题**',
+      '',
+    ].join('\n')
+    commitPlan(dir, plan)
+    const r = runScriptEnv(dir, ['--auto-commit', '--allow-mass'], {})
+    assert.equal(r.status, 0, `应 RC=0\n${r.all}`)
+    const head = execSync('git show HEAD:PROJECT_PLAN.md', {
+      cwd: dir,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    assert.ok(/^- \[ \] \*\*G-902/m.test(head), '未勾行被搬进归档 = 把别人正开着的账记成做过的(判据必须拦,且不被 --allow-mass 绕过)')
+    assert.match(r.all, /不参与归档/, '拒绝必须大声点名,不得静默少搬')
   } finally {
     rmScratch(dir)
   }

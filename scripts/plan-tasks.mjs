@@ -1081,6 +1081,45 @@ function selfTest() {
     !ratchetViolations({ F9: KEYS }, probe(kface(KEYS.map(grp)))).length,
     '粗尺:组数没超过基线键数时不得判红(恒红门)',
   )
+  // ── F3 的"可自动收口"资格(2026-09-28 立):它决定的是**归并器能不能落笔**,不是"这条烂没烂" ──
+  // 判据必须与"改上去那句锚点说什么"逐字同形,否则:
+  //  · 两句都不成立却判 auto ⇒ 出口把一句核验不了的话写进台账(= 替别人编证据);
+  //  · 一律判 not-auto ⇒ 这一维永不为红,而它挂在 blocking 提交链上,等于把 F3 的自动档关掉。
+  // 三条各钉一个方向(键等值 / 两边都无键 / 无键但有逐字孪生),缺任一条都另一种失效不会被发现。
+  const keyedPair = [
+    '# 计划',
+    '- [x] ✅(2026-09-26) **D90 权威登记**:正文。',
+    '- [x] ✅(2026-09-26) **D90 权威登记**:副本,同主键的另一条登记在 L2。',
+  ].join('\n')
+  const kp = auditPlan(keyedPair).rotated
+  ok(kp.length === 1 && kp[0].autoFixable === true, '两侧同复合主键(且都有主键)⇒ 那句「同主键登记」是真话,必须可自动收口')
+  // 两边都**没有**主键:`compositeKeyOf` 一律返回 null,而 null===null 不是"同主键"。
+  // 旧判据正是从这里放行,于是给一句"与本行正文逐字相同"写给一份孪生都没有的行(2026-09-28 实测:
+  // 面上逐字相同份数 = 1 的那一行被认成可自动收口);而它随任何一次 append 自己长回红 —— 这一维在
+  // blocking 提交链上,红自己会长回来 = 每台每次提交被逼 --no-verify(§12f 那一型)。
+  const keylessPair = [
+    '# 计划',
+    '- [x] ✅(2026-09-26) **[归并]** 无主键的行甲:正文不同。',
+    '- [x] ✅(2026-09-27) **[归并]** 无主键的行乙:同主键的另一条登记在 L2。',
+  ].join('\n')
+  const kl = auditPlan(keylessPair).rotated
+  ok(
+    kl.length === 1 && kl[0].autoFixable === false,
+    `两边都无主键时 null===null 不得算"同主键"(实测 ${JSON.stringify(kl.map((x) => x.autoFixable))})`,
+  )
+  ok(
+    kl.length === 1 && kl[0].reason === '行号指针即使还指得准也不许存在(§1 要求内容锚点)',
+    '收紧资格不得让这条指针从账上消失 —— 它仍须被点名交人工(否则"不判红"就是"没判")',
+  )
+  // 无主键**但确有逐字孪生**:出口那句"与本行正文逐字相同,可按正文检索"就是可核验的事实 ⇒ 必须允许。
+  // 这一条同时是"上面收紧没有把自动档关掉"的反向对照(2026-09-28 由 --heal 收掉 21 行的正是这一型)。
+  const twinLine = '- [ ] 无主键行:存活于 L2 的同编号登记。〔孪生〕'
+  const twinFixture = ['# 计划', '- [x] ✅(2026-09-26) **D91 权威登记**:正文。', twinLine, twinLine].join('\n')
+  const tw = auditPlan(twinFixture).rotated
+  ok(
+    tw.length === 2 && tw.every((x) => x.autoFixable === true),
+    `有逐字孪生的无主键行必须可自动收口(实测 ${JSON.stringify(tw.map((x) => x.autoFixable))})`,
+  )
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
