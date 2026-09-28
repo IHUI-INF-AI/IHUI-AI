@@ -98,6 +98,15 @@
       "dangerous": "⚠ Dangerous command blocked: the command matched danger pattern {pattern}\nIf you really need to run it, set IHUI_YOLO=1",
       "alwaysConfirm": "⚠ Command blocked: it belongs to the \"always confirm\" tier (delete / force push / rebase / release, the hard-to-undo kind), and IHUI_YOLO must not let it pass silently.\nDrop IHUI_YOLO and retry so that you confirm each command."
     },
+    "sandbox": {
+      "spawnError": "Command failed to start ({code}) — the child process never ran; this is NOT \"it ran with no output\". Check that the command and the current working directory ({cwd}) exist.",
+      "outputLimit": "Output exceeded the {maxOutputBytes}-byte cap ({code}); the process was killed and its output truncated — this is a distinct \"output too long\" terminal state, not a timeout. To capture everything, raise maxOutputBytes or narrow the command's output.",
+      "statusMissing": "missing",
+      "unattributed": "Failure type unattributed (original info kept: {raw}) — classified neither as a timeout nor as normal completion. Verify manually before retrying.",
+      "fsProbeUnavailable": "Command exited with status {status} and no output, but the filesystem state could not be queried ({why}) — undetermined: treated neither as \"space/inodes exhausted\" nor as \"nothing happened\".",
+      "fsExhaustedSpace": "Root-cause diagnosis: the command exited with status {status} and no output, and the filesystem holding {cwd} measured exhausted free space (bavail×bsize≈{availMB}MB, below the 10MB diagnostic threshold) — most likely the disk filled up and the output/write failed. Free up disk space and retry.",
+      "fsExhaustedInodes": "Root-cause diagnosis: the command exited with status {status} and no output, and the filesystem holding {cwd} measured exhausted inodes (ffree={freeInodes}, below the 1000 diagnostic threshold) — the directory-entry table is full. Delete many small files/directories, or check this filesystem's inode quota, then retry."
+    },
     "goalNotAchieved": "Independent verification did not pass: this run must not be reported as complete",
     "truncatedByLength": "Output hit the length limit and was truncated; the reply may be incomplete. Ask me to continue in parts, or raise max_tokens and retry."
   },
