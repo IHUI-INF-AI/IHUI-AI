@@ -74,7 +74,12 @@ describe('自动提交凭据这一径路必须过跨端判据', () => {
       .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
       .join('\n')
     expect(codeFace).not.toMatch(/canAutoSubmitCredentials\s*=\s*/)
-    expect(codeFace).toMatch(/\n\s*canAutoSubmitCredentials,/, '组件必须以"无默认值的解构"接这个必填项')
+    // 失败说明只能挂在 expect 的第二参上 —— `toMatch` 的签名只有一个实参,
+    // 写成 `.toMatch(re, 'msg')` 在 tsc 下是 TS2554(2026-09-28 实测:云端 web build 步骤因此红,
+    // 而 `next build` 只看得到这条类型错,断言本身在运行时是好的)。
+    expect(codeFace, '组件必须以"无默认值的解构"接这个必填项').toMatch(
+      /\n\s*canAutoSubmitCredentials,/,
+    )
   })
 
   it('父组件必须真的把它透传给 password tab(接了参数没下传=没接)', () => {
