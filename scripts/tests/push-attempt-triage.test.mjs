@@ -393,6 +393,51 @@ function setIdentity(dir) {
     shGit(['config', '--local', k, v], dir)
 }
 
+// ── 2026-09-28 补:验证段的"等值"在并发下会把成功的推送报成失败 ──
+// 真实现场:guard 打出 `8dbacd2322..61f6fdc9d0  main -> main`(推成功了),随后 `git rev-parse HEAD`
+// 读到别的会话刚落的 commit ⇒ 等值读 false ⇒ 账面"push 报告成功但验证失败" + push-state=failed。
+test('T12 并发推送:等值假而祖先测真 ⇒ 终态 done,且依据必须报名是祖先测', () => {
+  const v = T.triagePushAttempt({
+    status: 0,
+    stdout: 'Everything up-to-date',
+    remoteEqualsLocal: false,
+    pushedShaContainedInRemote: true,
+  })
+  assert.equal(v.kind, 'up-to-date')
+  assert.equal(v.terminalStatus, 'done', '我推的那枚已被远端包含 ⇒ 不得落 failed')
+  assert.match(v.why, /祖先测/, '措辞必须说清是哪把尺子给的合格证(等值并不成立)')
+})
+
+test('T13 反向(两向):等值假 + 祖先测假 / 两把都未判定 ⇒ 仍 failed,不得凭 up-to-date 回显发合格证', () => {
+  const bothFalse = T.triagePushAttempt({
+    status: 0,
+    stdout: 'Everything up-to-date',
+    remoteEqualsLocal: false,
+    pushedShaContainedInRemote: false,
+  })
+  assert.equal(bothFalse.terminalStatus, 'failed', '两把尺子都不成立 ⇒ 未判定不等于成功')
+  const bothNull = T.triagePushAttempt({
+    status: 0,
+    stdout: 'Everything up-to-date',
+    remoteEqualsLocal: null,
+    pushedShaContainedInRemote: null,
+  })
+  assert.equal(bothNull.terminalStatus, 'failed', '两把尺子都没拿到 ⇒ 同样不得记成推送成功')
+})
+
+test('T14 向后兼容:只给等值(旧调用方形态)时结论一字不动', () => {
+  assert.equal(
+    T.triagePushAttempt({ status: 0, stdout: 'Everything up-to-date', remoteEqualsLocal: true })
+      .terminalStatus,
+    'done',
+  )
+  assert.equal(
+    T.triagePushAttempt({ status: 0, stdout: 'Everything up-to-date', remoteEqualsLocal: false })
+      .terminalStatus,
+    'failed',
+  )
+})
+
 test('T11 e2e:converge 在"本地落后 + 一条四小时前的他人读数"下报 SKIP,并把读数喊成历史残留/未现推', () => {
   const origin = mkScratch('ihui-conv-origin-')
   const work = mkScratch('ihui-conv-work-')
