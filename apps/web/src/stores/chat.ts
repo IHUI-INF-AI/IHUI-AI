@@ -228,6 +228,28 @@ export type CompactionStatus =
     }
   | null
 
+/** D151(2026-09-29 立):一条终端命令"正在等键盘输入"的渲染态。
+ *  字段取自 SSE `terminal_interaction` 帧(@ihui/api-client 的 TerminalInteractionEvent),
+ *  再加两个纯前端态(submitting / failed)与一个寻址凭据(sessionId)。
+ *  刻意不存 inputMode —— 目前服务端恒 'line',多一维就多一处要同步的真相;
+ *  也刻意不镜像 promptTail 之外的原文:等待态越薄,能被误持久化的东西越少。 */
+export interface TerminalInteractionState {
+  /** 提示原文(命令输出的尾行;服务端按凭据形态脱敏,但**不保证**干净 ⇒ 不得持久化/打日志) */
+  promptTail: string
+  /** 从判定"在等人"到发帧的毫秒数(帧原值) */
+  waitingSinceMs: number
+  /** 单次键入长度封顶(与服务端一致,输入框据此限制) */
+  maxInputChars: number
+  /** 关联助手消息 ID(帧可选携带) */
+  messageId?: string
+  /** 上行送回所需的 ai-service 流会话 ID;undefined = 本轮尚未观察到 ⇒ 提交如实报失败 */
+  sessionId?: string
+  /** 提交在途(防重复提交;一帧只许送一次) */
+  submitting: boolean
+  /** 上一次提交失败(界面据此显示"发送失败",并把该行留在框里) */
+  failed: boolean
+}
+
 interface ChatState {
   messages: ChatMessage[]
   currentModel: string
@@ -277,6 +299,19 @@ interface ChatState {
    *  终态渲染取更长者;内存以「单键 2 万字符 + 最多 20 个终端键(插入序淘汰最旧)」双重封顶,
    *  新建对话时随 clearMessages 清空。不持久化(执行期瞬时态,刷新即失效)。 */
   terminalOutputs: Record<string, string>
+
+  /** D151(2026-09-29 立)终端"等待键盘输入"态(键 = terminalId,与 terminalOutputs 并列切片):
+   *  数据源 = SSE `terminal_interaction` 帧,唯一写入点是 send-message.ts 的 onTerminalInteraction,
+   *  唯一消费点是 terminal-section.tsx 在同一张终端卡里渲染的输入行。
+   *  刻意**不进 partialize**(上面那份是白名单):promptTail 取自命令输出,服务端按凭据形态脱敏
+   *  但不保证干净,而用户键入更是密码候选 —— 任何一个落进 localStorage 都不行(AGENTS §5 认证面同族)。
+   *  terminal_end 与新流开始(clearMessages)都会清除,否则上一轮的"等待"会挂在下一轮卡上。 */
+  terminalInteractions: Record<string, TerminalInteractionState>
+  /** D151:本轮 ai-service 流会话 ID —— 上行 `postTerminalInput(sessionId, …)` 的唯一寻址凭据。
+   *  `terminal_interaction` 帧本身**不带** sessionId(见 TerminalInteractionEvent 定义),
+   *  而同一轮 tool_delegate / tool-approval / form_request 帧携带的正是 llm.py 里同一个
+   *  `session_id` 变量,故由那些帧观察所得;观察不到时输入行如实报失败,不猜一个地址发出去。 */
+  aiStreamSessionId: string | null
 
   /** D1 消息级计量(2026-09-19 立):按 messageId 索引的 Token 用量/计时/成本。
    * 由 onUsage 回调写入,驱动消息底部徽章行(1.2k tok · 3.4s · 首 0.8s · model · ¥0.01)。
@@ -473,6 +508,15 @@ interface ChatState {
   appendTerminalOutput: (terminalId: string, text: string) => void
   /** 清理指定终端任务的实时输出缓冲(terminal_end 到达时调用,终态交给 terminal.output) */
   clearTerminalOutput: (terminalId: string) => void
+  /** D151(2026-09-29 立):写入/合并某条终端命令的"等待输入"态(patch 逐字段覆盖;
+   *  新键自动补 submitting:false / failed:false)。唯一生产点 = send-message.ts onTerminalInteraction,
+   *  以及 terminal-section 提交前后的 submitting/failed 两维(不改帧带来的原文)。 */
+  setTerminalInteraction: (terminalId: string, patch: Partial<TerminalInteractionState>) => void
+  /** D151:清除某条终端命令的等待态(terminal_end / 提交成功后调用;不留可寻址的空把手) */
+  clearTerminalInteraction: (terminalId: string) => void
+  /** D151:登记本轮 ai-service 流会话 ID(与 tool_delegate/tool-approval/form_request 帧同源观察);
+   *  null = 显式清空。后到者覆盖(同一轮内只有一个活动会话 ID)。 */
+  noteStreamSessionId: (sessionId: string | null) => void
   /** D1 消息级计量(2026-09-19 立):写入某条助手消息的 usage 数据(onUsage 回调触发)。
    * messageId 为空时调用方已回退到当前流式消息 id。同名 id 直接覆盖(流末只到达一次)。 */
   setMessageUsage: (messageId: string, usage: MessageUsage) => void
@@ -562,6 +606,9 @@ export const useChatStore = create<ChatState>()(
       pendingDiffComments: [],
       // 2026-09-18 终端实时输出缓冲(执行期瞬时态,不持久化)
       terminalOutputs: {},
+      // D151 终端"等待输入"态 + 本轮上行寻址凭据(执行期瞬时态,不持久化)
+      terminalInteractions: {},
+      aiStreamSessionId: null,
       // D1 消息级计量(执行期瞬时态,不持久化)
       usageByMessageId: {},
       // Steer(中途引导)注入确认 + 当前流式 assistant 消息 ID(执行期瞬时态,不持久化)
@@ -712,6 +759,10 @@ export const useChatStore = create<ChatState>()(
           pendingDiffComments: [],
           // 2026-09-18:终端实时输出属消息级瞬时态,新建对话一并清空
           terminalOutputs: {},
+          // D151:同理必须**并列**清空 —— 上一轮残留的"等待输入"挂到下一轮的卡上,
+          // 用户会把一行字送进一个已经结束的命令(而界面看不出来)。
+          terminalInteractions: {},
+          aiStreamSessionId: null,
           // D1 消息级计量:新建对话一并清空
           usageByMessageId: {},
           // Steer(中途引导):新建对话一并清空,流式目标消息同步失效
@@ -1356,6 +1407,47 @@ export const useChatStore = create<ChatState>()(
           delete next[terminalId]
           return { terminalOutputs: next }
         }),
+
+      // D151(2026-09-29 立)终端"等待输入"态。与 terminalOutputs 并列而不复用那份:
+      // 后者是"它在输出",本切片是"它停住了、在等你敲一行",两态可以同时为真。
+      // patch 语义 = 逐字段覆盖合并(提交前后只动 submitting/failed,不必回带原文)。
+      setTerminalInteraction: (terminalId, patch) =>
+        set((s) => {
+          if (!terminalId) return s
+          const prev = s.terminalInteractions[terminalId]
+          const merged: TerminalInteractionState = {
+            promptTail: '',
+            waitingSinceMs: 0,
+            maxInputChars: 0,
+            submitting: false,
+            failed: false,
+            ...prev,
+            ...patch,
+          }
+          const next: Record<string, TerminalInteractionState> = {
+            ...s.terminalInteractions,
+            [terminalId]: merged,
+          }
+          // 键数封顶复用 terminalOutputs 那一档(同一轮终端数同一量级):
+          // 对象字符串键保持插入序,超出淘汰最旧,长会话不累积空把手。
+          const keys = Object.keys(next)
+          if (keys.length > TERMINAL_OUTPUT_MAX_KEYS) {
+            for (const stale of keys.slice(0, keys.length - TERMINAL_OUTPUT_MAX_KEYS)) {
+              delete next[stale]
+            }
+          }
+          return { terminalInteractions: next }
+        }),
+
+      clearTerminalInteraction: (terminalId) =>
+        set((s) => {
+          if (!(terminalId in s.terminalInteractions)) return s
+          const next = { ...s.terminalInteractions }
+          delete next[terminalId]
+          return { terminalInteractions: next }
+        }),
+
+      noteStreamSessionId: (sessionId) => set({ aiStreamSessionId: sessionId }),
 
       // D1 消息级计量(2026-09-19 立):onUsage 回调写入,按 messageId 索引(同名覆盖)。
       setMessageUsage: (messageId, usage) =>

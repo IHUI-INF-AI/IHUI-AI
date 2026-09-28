@@ -42,7 +42,9 @@ SSE_EVENTS: frozenset[str] = frozenset(
         # D151(2026-09-29 立,用户批「默认开 + 单次等待 300s」):命令停在"等键盘输入"时
         # 的一帧。生产点 mcp_server._await_terminal_input(经 llm.py 注入的 push 通道直投,
         # 与 terminal_delta 同一承载面),载荷
-        # {type, terminalId, promptTail, waitingSinceMs, inputMode, maxInputChars, messageId?}。
+        # {type, terminalId, sessionId, promptTail, waitingSinceMs, inputMode, maxInputChars, messageId?}。
+        # sessionId 是**必需**字段:上行出口的路径里带 {session_id},帧不给会话 id 前端就只能猜,
+        # 而猜错的表现是"点了发送什么都没发生"——不报错,最难查的那一型。
         # 键入送回是**上行** POST /llm/complete/stream/{session_id}/terminal-input
         # (snake_case terminal_id/text),与 form_response 同族,**不进**本集合。
         # 必须与 packages/shared/src/sse/contract.ts 同步(两份集合由 parity 断言看护)。
@@ -159,7 +161,15 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     # (上下文带才带,不是恒在字段),故列在末位并在那里说明可缺。
     SSEEventContract(
         "terminal_interaction",
-        ("terminalId", "promptTail", "waitingSinceMs", "inputMode", "maxInputChars", "messageId"),
+        (
+            "terminalId",
+            "sessionId",
+            "promptTail",
+            "waitingSinceMs",
+            "inputMode",
+            "maxInputChars",
+            "messageId",
+        ),
     ),
     SSEEventContract(
         "terminal_end",
