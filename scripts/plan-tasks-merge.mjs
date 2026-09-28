@@ -216,11 +216,16 @@ export function buildMerge(content, today) {
  * 典型一站:`D18 Agent SDK 对外开放(G-23)` 两行,指针分别写"另一条登记在 L258x"和"在 L6xxx",
  * 而 §1 早已判定行号指针不可复核(F3 现读 300 处、可自动收口 0)⇒ 两边都指向不存在的东西。
  *
- * **本函数只读、只报数,不改一行**:把"加指针前先验终端性"直接接进 `rewriteDup` 会让
- * 归并后 `dupOpenCopies` 不归零,而那正是落地验收链(:741)的硬判据 ⇒ 单改生产者侧等于让
- * 归并器每次自我拒绝(与恒红门同罪,§12e)。要收这一族必须**同笔**改两处:
- * ① `rewriteDup` 加指针前问一次本函数;② 验收链从「F4=0」升级为「F4=0 ∨ 剩余副本各有终端」。
- * 这属于提交链上的收敛行为变更,归台账判据持有人裁决,不在本诊断票射程内。
+ * **本函数只读、只报数,不改一行**;改一行是 `--restore-terminals` 那一档的职责(同档内成对存在,
+ * 免得诊断与修复分两处、诊断红了没人修 —— 本仓"判据只说红了不修"记过多次)。
+ *
+ * ⚠ 本函数初版在这里写过一段**错的**理由,现在是推翻它的地方:它说"把加指针前先验终端性接进
+ * `rewriteDup` 会让归并后 `dupOpenCopies` 不归零,而那是落地验收链的硬判据 ⇒ 单改生产者侧等于
+ * 让归并器自我拒绝"。这条推理错在**没先读 F4 自己的判据**:`findDupOpenCopies` 第一步就是
+ * `g.open.filter((r) => !DUP_POINTER_RE.test(r.raw))`,全指族在它眼里恒为 0 条副本 ——
+ * 所以恢复一行代表不会顶起 F4,验收链也无需放宽(实际落地的是差值护栏
+ * `pointerVisibilityRegression`:只拦"本次把本来看得见的那族弄没了代表",不追存量,免造恒红闸)。
+ * 一句话:**"改 A 会撞 B 那条断言"必须先去看 B 怎么算的,不能照着断言的名字推。**
  *
  * 口径边界(如实登记,不得当成"扫全了"):
  *  - 主键优先取 `compositeKeyOf`(与派单口径同一把尺子);**给不出主键的行不跳过**,改按
@@ -247,9 +252,57 @@ export function auditPointerTerminals(content) {
     }
     // 兜底键:剥掉归并注记再去空白,取正文前缀。必须与 F4b 的锚点语义同形,否则同一件事在
     // 派单侧按正文判、在这里按"看不见"判,读数就会替人做出"没有债"的判断。
-    const k = key || 'TXT:' + raw.replace(/〔【归并】[^〕]*〕/g, '').replace(/\s+/g, '').slice(0, 60)
+    // 兜底键:先剥机器注记**再**取主键。本函数初版不剥,而今天 F10 折出的 97 行把注记写在
+    // **编号之前** ⇒ `compositeKeyOf` 恒 null ⇒ 97 个**不同任务**被并成"1 族 / 97 行隐形"
+    // 这样一个假族,而按题面逐条查持有行实测是 97/97 全在(活一件没丢)。
+    // 更要命的是假族让第二层"按编号找代表"整层失明(id=null 时不查),读数会把真隐形
+    // 和判不出混成一个数。剥完仍给不出主键的行才落 TXT 兜底,兜底键同样用剥后的正文。
+    const bare = stripMergeNotes(raw).text
+    let bareKey = null
+    try {
+      bareKey = compositeKeyOf(bare)
+    } catch {
+      bareKey = null
+    }
+    const k = key || bareKey || 'TXT:' + bare.replace(/〔【归并】[^〕]*〕/g, '').replace(/\s+/g, '').slice(0, 60)
     if (!by.has(k)) by.set(k, [])
     by.get(k).push({ line: i + 1, text: raw })
+  }
+  // 第三层索引:同一**题面**在面上有没有未注记代表 —— 这一层不是加固,是纠错。
+  // F10 `--fold-twins` 的成组判据是「题面逐字相等而编号互异」,它折副本时留的持有行
+  // **编号本来就和被折行不同**,所以只按编号找代表会把 97 条"活还在"的折叠产物
+  // 全数判成隐形(实测:按编号判隐形 55 族 / 91 行,而逐条查持有行是 97/97 全在)。
+  // 判据必须与生产它的折叠同源,否则两台尺子对着同一件事各报各的数(本仓最高频失效型)。
+  const titleTerminal = new Map()
+  /** 面上**未注记**待办行的题面集合。折叠行声明的持有行要查这张表,而不是查"同编号"——
+   *  F10 的成组判据就是「同题而编号互异」,所以按编号找代表对这一族必然失败。 */
+  const liveTitles = new Set()
+  /** **已完成行**也算代表(第三层,不是加固而是纠错)。
+   *  不这么定的后果很具体:一族里 A(未注记)被 `--heal` 翻勾成 `[x]`,B 带副本指针 ——
+   *  翻勾后 A 不再是"未勾选行",按"只有活行才算代表"的口径这一族立刻变成隐形,
+   *  于是本档新加的差值护栏会把一次**正当的翻勾**判成"把活账弄隐形"而拒绝落地
+   *  —— 一台拦正当动作的闸与恒红门同罪(§12e)。而这件活并没有丢:它就在同键的已完成行里。 */
+  const doneKeys = new Set()
+  const doneTitles = new Set()
+  for (const raw of lines) {
+    if (!/^[-*+]\s\[[xX]\]/.test(raw)) continue
+    const dk = compositeKeyOf(raw)
+    if (dk) doneKeys.add(dk.split('#')[0])
+    const dt = titleOf(stripMergeNotes(raw).text)
+    if (dt) doneTitles.add(dt)
+  }
+  const bareTitleOf = (line) => {
+    const bare = stripMergeNotes(line).text
+    const t = titleOf(bare)
+    return t || bare.replace(/^[-*+]\s\[[ xX]\]\s*/, '').trim().slice(0, 24)
+  }
+  for (const rs of by.values()) {
+    for (const r of rs) {
+      const t = bareTitleOf(r.text)
+      if (!t) continue
+      if (!titleTerminal.has(t)) titleTerminal.set(t, false)
+      if (!DUP_POINTER_RE.test(r.text)) titleTerminal.set(t, true)
+    }
   }
   const groups = []
   // 第二层索引:同一**编号**在别的主键形态下有没有终端代表。
@@ -265,11 +318,49 @@ export function auditPointerTerminals(content) {
     if (!idLines.has(id)) idLines.set(id, [])
     idLines.get(id).push(...rs)
   }
+  /** 折叠行的持有行**不与它同编号**(F10 的成组判据就是"同题而编号互异"),所以按编号找
+   *  代表对这一族必然失败。本函数初版就是这样把 97 行"活其实还在"的折叠产物报成真隐形;
+   *  再改用自制题面去救,又被 `**` 包差异打掉(实测 titleOf 一侧带 `**` 一侧不带)⇒ 两层都判不出。
+   *  正解是问折叠**自己声明**的那句话:尾注 `持有行题面「X」` 里的 X 就是它承诺的出口,
+   *  拿 X 去未注记行的题面集合里查 —— 判据必须与生产它的折叠同源,不得由旁观者另算一遍相似度。 */
+  const foldedKeeperOf = (line) => {
+    // 刻意**不锚行尾**:F10 折完之后,同一行还可能被 F4 再追加一枚 `〔…〕` 副本指针,
+    // 那句尾注就不在末尾了(实测 `G-368` 一族两行正是这一型)。尾注是本档自己写的机器散文,
+    // 在里面找 `持有行题面「X」)` 不存在误吃作者正文的风险 —— 锚在末尾才是多余的严格。
+    const m = /持有行题面「([\s\S]*?)」\)/.exec(String(line))
+    return m ? m[1] : null
+  }
   for (const [key, rs] of by) {
     if (rs.some((r) => !DUP_POINTER_RE.test(r.text))) continue // 有终端代表 ⇒ 这件活仍可被看见,不计
     const id = key.startsWith('TXT:') ? null : key.split('#')[0]
     const pool = id ? idLines.get(id) || rs : rs
-    groups.push({ key, id, lines: rs, hidden: !pool.some((r) => !DUP_POINTER_RE.test(r.text)) })
+    const byId = !pool.some((r) => !DUP_POINTER_RE.test(r.text))
+    const t0 = bareTitleOf(rs[0].text)
+    // 判不出代表一律算隐形:`titleTerminal.get(t0) === true` 而不是 `!== false` —— 后者会把
+    // "这张表根本没登记过这个题面"读成"有代表",即把没判写成判过了(本仓最高频失效型)。
+    const declared = foldedKeeperOf(rs[0].text)
+    const byDeclared = declared ? liveTitles.has(declared) || doneTitles.has(declared) : false
+    const byTitle = byDeclared || (t0 ? titleTerminal.get(t0) === true : false)
+    // 已完成行那一层是**纠错**,不是加固:一族里唯一的未注记行被 `--heal` 翻勾之后,
+    // 剩下的副本全带指针 ⇒ 按"只有活行才算代表"的口径这一族立刻变成"隐形"。但那件活没丢,
+    // 它就在同键/同题面的已完成行里,对派单不可见是**正确**的。少了这一层,本档新加的
+    // 差值护栏会把每一次正当翻勾拦成"把活账弄隐形"—— 一台拦正当动作的闸与恒红门同罪(§12e)。
+    const byDone = (id ? doneKeys.has(id) : false) || (!!t0 && doneTitles.has(t0))
+    groups.push({
+      key,
+      id,
+      lines: rs,
+      hidden: byId && !byTitle && !byDone,
+      rescuedBy: !byId
+        ? '编号'
+        : byDone
+          ? '已完成行'
+          : byDeclared
+            ? '折叠声明的持有行'
+            : byTitle
+              ? '题面'
+              : null,
+    })
   }
   groups.sort((a, b) => Number(b.hidden) - Number(a.hidden) || b.lines.length - a.lines.length || String(a.key).localeCompare(String(b.key)))
   const hiddenCount = groups.filter((g) => g.hidden).length
@@ -282,6 +373,374 @@ export function auditPointerTerminals(content) {
   }
 }
 
+
+/**
+ * 机器写的归并注记里,**开括号紧贴标记**的那一族才有结构边界,才允许剥。
+ *
+ * 实测(2026-09-28,HEAD 面 749 处):`〔…〕` 641 处与 `（…）` 97 处都是"左括号 + 标记"起头;
+ * 另有 10 处**裸形态**(`**[归并]** 【归并】… L<行号>(枚 <sha>)重复…。本行不进派单口径…`)
+ * 根本没有闭括号。对裸形态"剥到行尾"等于拿结构缺失当授权去吃作者正文 ⇒ 一律拒绝并报名。
+ */
+const NOTE_OPENER = ['〔', '（']
+const NOTE_CLOSER = ['〕', '）']
+const MERGE_NOTE_NEEDLE = '【归并】重复登记副本'
+
+/** 从 `start` 处的左括号起按**同种括号**深度配平找闭符;找不到闭符返回 null(不猜行尾)。 */
+function balancedNoteSpan(line, start, openCh, closeCh) {
+  let depth = 0
+  for (let i = start; i < line.length; i++) {
+    const c = line[i]
+    if (c === openCh) depth++
+    else if (c === closeCh) {
+      depth--
+      if (depth === 0) return { start, end: i + 1 }
+    }
+  }
+  return null
+}
+
+/**
+ * 剥掉一行里所有"开括号紧贴标记"的注记段,**迭代到不动点**(实测同一行两处注记有 2 处)。
+ *
+ * 为什么不能用一条 `[^〕]*〕` 正则:HEAD 面上有 3 行的注记之后紧跟**作者自己**写的
+ * `〔进展@2026-09-28/主会话:…〕`,非贪婪或贪婪都会把它一起吃掉或留半截残迹 —— 深度配平是
+ * 唯一能同时不吃作者正文、不剩残迹的走法。
+ *
+ * @returns {{text:string, removed:string[], refused:boolean}} `refused=true` 表示这行还有
+ *   剥不掉的标记(裸形态或未闭合),调用方**不得**把它当"已剥净"。
+ */
+export function stripMergeNotes(line) {
+  let cur = String(line ?? '')
+  const removed = []
+  for (let guard = 0; guard < 8; guard++) {
+    const hit = cur.indexOf(MERGE_NOTE_NEEDLE)
+    if (hit < 0) return { text: cur, removed, refused: false }
+    const oi = hit - 1
+    const kind = oi >= 0 ? NOTE_OPENER.indexOf(cur[oi]) : -1
+    if (kind < 0) return { text: cur, removed, refused: true }
+    const span = balancedNoteSpan(cur, oi, NOTE_OPENER[kind], NOTE_CLOSER[kind])
+    if (!span) return { text: cur, removed, refused: true }
+    removed.push(cur.slice(span.start, span.end))
+    cur = cur.slice(0, span.start) + cur.slice(span.end)
+  }
+  return { text: cur, removed, refused: cur.includes(MERGE_NOTE_NEEDLE) }
+}
+
+/**
+ * 恢复出口的单行动作:把这一行上的机器归并注记剥掉,让它重新进派单口径。
+ *
+ * 两条路分开走,各有**既有**反判据,不得在此另写一份:
+ *  · F10 折叠形态(注记在编号之前 + 尾注记着原编号)⇒ 用 `stripTwinFold`,它连尾注一起还原,
+ *    并且折叠档自己的准入判据就是"剥掉注记后逐字等于底稿",可逆性已被钉死;
+ *  · 其余带外层括号的 `〔…〕` 形态 ⇒ 用 `stripMergeNotes`(深度配平)。
+ * 裸形态(`**[归并]** 【归并】… L<行号>(枚 …)重复…。本行不进派单口径…`)没有闭符,
+ * 按行尾剥会吃掉作者正文 ⇒ **一律拒绝并报名**,不许猜边界。
+ *
+ * @returns {{text?:string, removed?:string[], via?:string, refuse?:string}}
+ */
+export function restoreMergeNote(line) {
+  const src = String(line ?? '')
+  if (!DUP_POINTER_RE.test(src)) return { refuse: '这一行本来就不带副本指针(不该动)' }
+  if (isTwinFolded(src)) {
+    const t = stripTwinFold(src)
+    if (t === src) return { refuse: '折叠形态剥不出底稿(形状与 buildTwinFold 不同形)' }
+    if (DUP_POINTER_RE.test(t)) return { refuse: '剥完仍带副本指针(此行还叠着另一族注记)' }
+    return { text: t, removed: [src.slice(t.length)], via: 'stripTwinFold' }
+  }
+  const st = stripMergeNotes(src)
+  if (st.refused) return { refuse: '注记没有结构边界(裸形态或闭符缺失)⇒ 不许按行尾剥' }
+  if (!st.removed.length) return { refuse: '没剥掉任何东西(标记不在任何左括号之后)' }
+  if (DUP_POINTER_RE.test(st.text)) return { refuse: '剥完仍带副本指针(同行叠了两族注记且至少一族不可剥)' }
+  if (st.text.trim() === '') return { refuse: '剥完只剩空行 —— 这行的正文全在注记里,交人工' }
+  // 注记写在行尾时,它前面那个分隔空格是本工具写下的,剥完必须一起收掉:
+  // 留一个行尾空格就不是"逐字回到底稿",而是"回到底稿加一个尾巴"。
+  // 只在**注记确实贴到行尾**时收(实测 738 处全是这种形态),夹在正文中间的不动那一个空格。
+  const last = st.removed[st.removed.length - 1]
+  const wasAtEnd = src.endsWith(last)
+  return {
+    text: wasAtEnd ? st.text.replace(/[ \t　]+$/, '') : st.text,
+    removed: st.removed,
+    via: 'stripMergeNotes',
+  }
+}
+
+/**
+ * 纯函数:输入整档,输出"该恢复哪些行、哪些族拒绝、拒绝理由"。
+ *
+ * 选行规则 = **位置最靠前**的可剥行。刻意与 `foldTwins` 的持有行同规则,不得在此改用"正文最长":
+ * 长度会随别人往同一行追加取证而变化,两台尺子对同一族选出不同代表,就等于同一件事有两个权威行
+ * (本仓"两处算同一件事必漂移"记过最多次)。幂等性由"恢复后该族必有终端"保证,与选谁无关。
+ *
+ * 拒绝而不猜的每一条都点名给人工,因为恢复动作的失败方向必须是"少恢复一行",
+ * 绝不是"多剥掉一段作者正文"。
+ *
+ * @returns {{text:string, edits:Array, refused:Array<{key:string,lines:number[],reason:string}>,
+ *            hiddenBefore:number, hiddenRowsBefore:number}}
+ */
+export function buildRestoreTerminals(content, today = new Date().toISOString().slice(0, 10)) {
+  const audit = auditPointerTerminals(content)
+  const lines = String(content ?? '').split('\n')
+  // 撞号预检(F9 那一维)。为什么不能只查"未带指针的行":恢复动作把原编号领回来,
+  // 而同一编号此刻可能由**另一族带指针的行**以不同标题挂着 —— 那正是 F9 定义的撞号,
+  // 只查活行会漏,恢复就等于原地新建一个撞号组。判等一律用 `compositeKeyOf`(与 F9 同源),
+  // 不自写标题字符串比较 —— 折叠行与未折叠行的 titleOf 会差一层 `**`,按字符串比会大面积误拒。
+  const keyIndex = new Map() // 编号 -> [{line, key}]
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]
+    if (!/^[-*+]\s\[([ xX])\]/.test(raw)) continue
+    const ck = compositeKeyOf(stripMergeNotes(raw).text)
+    if (!ck) continue
+    const id = ck.split('#')[0]
+    if (!keyIndex.has(id)) keyIndex.set(id, [])
+    keyIndex.get(id).push({ line: i + 1, key: ck })
+  }
+  // F9 互咬预检(逐候选行算,不是批后兜底)。
+  // `findIdCollisions` 的输入是 **未剥注记** 的 `titleOf(raw)`,所以同一族里"一行剥了注记、
+  // 另一行还带着"就会给同一编号产生两个标题 ⇒ 守门 130 的 F9 差值棘轮当场判红。
+  // 那是**判据比的是原始题面**造成的,不是台账新债:活其实只有一件。
+  // 本档不许为了变绿去改那道门的判据(那属 lib 持有人),也不许整批拒落(一条畸形题面
+  // 不该按住 33 族),所以在这里**逐行**躲开:凡"剥完会让该编号的标题种数变多"的候选,
+  // 拒绝并点名,把该族留给 F9 的题面取源修好之后再收。
+  const f9Titles = new Map() // 编号 -> Map(原始题面 -> 行数)
+  for (const r of parseTaskRows(content)) {
+    if (!r.key) continue
+    const id = String(r.key).split('#')[0]
+    const t = titleOf(r.raw)
+    if (!t) continue
+    // 刻意**不**调 titleIsDegenerate:F9 用它,而它当前不在 lib 的导出面上(那道门还在别人手里,
+    // 不该由本档替别人加导出)。少这一层只让本判据更保守 —— 保守的方向是"少恢复一行并点名",
+    // 绝不是"多剥一段作者正文",所以不对称是安全的。等 F9 的题面取源改成剥注记后,这一格应撤。
+    if (!f9Titles.has(id)) f9Titles.set(id, new Map())
+    const m = f9Titles.get(id)
+    m.set(t, (m.get(t) || 0) + 1)
+  }
+  const f9WouldGrow = (id, beforeLine, afterLine) => {
+    const m = f9Titles.get(id)
+    if (!m) return false
+    const bt = titleOf(beforeLine)
+    const at = titleOf(afterLine)
+    if (bt === at) return false
+    const distinct = (map, minus, plus) => {
+      const s = new Set()
+      for (const [t, n] of map) {
+        const left = n - (t === minus ? 1 : 0)
+        if (left > 0) s.add(t)
+      }
+      if (plus) s.add(plus)
+      return s.size
+    }
+    return distinct(m, bt, null) < distinct(m, bt, at)
+  }
+  const edits = []
+  const refused = []
+  for (const g of audit.groups) {
+    if (!g.hidden) continue
+    let picked = null
+    for (const r of g.lines) {
+      const one = restoreMergeNote(r.text)
+      if (one.text === undefined) continue
+      picked = { r, one }
+      break
+    }
+    if (!picked) {
+      refused.push({
+        key: g.key,
+        lines: g.lines.map((r) => r.line),
+        reason: '族内每一行的注记都没有可剥的结构边界 ⇒ 交人工(不许按行尾猜)',
+      })
+      continue
+    }
+    const afterKey = compositeKeyOf(picked.one.text)
+    if (afterKey) {
+      const id = afterKey.split('#')[0]
+      const familyLines = new Set(g.lines.map((r) => r.line))
+      const clash = (keyIndex.get(id) || []).filter((x) => !familyLines.has(x.line) && x.key !== afterKey)
+      if (clash.length) {
+        refused.push({
+          key: g.key,
+          lines: g.lines.map((r) => r.line),
+          reason: `恢复会把编号 ${id} 领回来,而同编号在 L${clash[0].line} 挂的是另一件事「${clash[0].key.slice(id.length + 1, id.length + 46)}」⇒ 会原地造出 F9 撞号组,整族交人工`,
+        })
+        continue
+      }
+      if (f9WouldGrow(id, picked.r.text, picked.one.text)) {
+        refused.push({
+          key: g.key,
+          lines: g.lines.map((r) => r.line),
+          reason: `恢复会让守门 130 的 F9 多一组(它比的是未剥注记的 titleOf,同一编号于是出现"带注记/不带注记"两个题面)⇒ 解阻前置:F9 的题面取源改为剥注记后取值,归 lib 持有人,本档不代改判据`,
+        })
+        continue
+      }
+    }
+    edits.push({
+      line: picked.r.line,
+      before: picked.r.text,
+      after: picked.one.text,
+      via: picked.one.via,
+      key: g.key,
+      today,
+    })
+  }
+  const out = [...lines]
+  for (const e of edits) out[e.line - 1] = e.after
+  return {
+    text: out.join('\n'),
+    edits,
+    refused,
+    hiddenBefore: audit.hiddenFamilies,
+    hiddenRowsBefore: audit.hiddenRows,
+  }
+}
+
+/**
+ * 恢复档的零损失与"确实把判据修好了"双重对账。
+ *
+ * 为什么必须有第二条(反隐形闭合断言):剥注记这个动作可以做得"每行都对而整档没变好"
+ * —— 例如选错了行、或剥完仍被别的族判隐形。只判逐行可逆性就会把"跑过一次"当成"修好了"
+ * (本仓对这一型的记述已经几十次)。
+ */
+export function verifyRestoreTerminals(srcText, outText, edits) {
+  const problems = []
+  const a = String(srcText).split('\n')
+  const b = String(outText).split('\n')
+  if (a.length !== b.length) problems.push(`行数不等 ${a.length}→${b.length}(恢复只许改行内内容)`)
+  const touched = new Set(edits.map((e) => e.line))
+  for (let i = 0; i < a.length; i++) {
+    if (!touched.has(i + 1) && a[i] !== b[i]) {
+      problems.push(`L${i + 1} 未登记却被改动 ⇒ 结构等值不成立,整批不落`)
+      break
+    }
+  }
+  for (const e of edits) {
+    if (a[e.line - 1] !== e.before) problems.push(`L${e.line} 底稿与声明的 before 不等 ⇒ 行号已挪位,整批不落`)
+    if (b[e.line - 1] !== e.after) problems.push(`L${e.line} 产物没落到声明的位置`)
+    if (!DUP_POINTER_RE.test(e.before)) problems.push(`L${e.line} 底稿本来不带副本指针`)
+    if (DUP_POINTER_RE.test(e.after)) problems.push(`L${e.line} 恢复后仍带副本指针 ⇒ 这一行还是进不了派单`)
+    // 只许"减去注记",不许加字:after 必须是 before 的**保序子序列**
+    let i = 0
+    for (const ch of e.after) {
+      i = e.before.indexOf(ch, i)
+      if (i < 0) {
+        problems.push(`L${e.line} 恢复后的正文不是底稿的子序列(恢复动作只许删注记,不许写字)`)
+        break
+      }
+      i++
+    }
+  }
+  // 反互咬:剥掉的注记里可能带着「G-261」这样的编号,守门 71 若读成"登记行消失"就会回捞原行
+  const lost = lostMarkers(String(srcText), String(outText))
+  if (lost.length)
+    problems.push(
+      `恢复后被守门 71 判为消失的登记行 ${lost.length} 处(${lost.slice(0, 3).map((l) => String(l.marker ?? l).slice(0, 24)).join(' / ')})⇒ 会与回捞层互咬,拒落`,
+    )
+  // 反隐形闭合:每一条 edits 所在族必须真的不再隐形
+  const after = auditPointerTerminals(String(outText))
+  const stillHidden = new Set()
+  for (const g of after.groups.filter((x) => x.hidden)) for (const r of g.lines) stillHidden.add(r.line)
+  const notRescued = edits.filter((e) => stillHidden.has(e.line))
+  if (notRescued.length)
+    problems.push(`${notRescued.length} 行恢复后所在族仍被判隐形(首条 L${notRescued[0].line})⇒ 出口不闭合,整批不落`)
+  if (after.hiddenFamilies >= auditPointerTerminals(String(srcText)).hiddenFamilies && edits.length)
+    problems.push(`隐形族没有减少(${auditPointerTerminals(String(srcText)).hiddenFamilies}→${after.hiddenFamilies})⇒ 本枚等于没修`)
+  // F 维一律不得变差(这把尺子不许替别的维度制造红点)
+  const c0 = auditPlan(srcText).counts
+  const c1 = auditPlan(outText).counts
+  for (const [k, get] of [
+    ['F1', (c) => c.forks],
+    ['F2', (c) => c.voidRows],
+    ['F3', (c) => c.rotatedAuto],
+    ['F4', (c) => c.dupOpenCopies],
+    ['F4b', (c) => c.verbatimDupCopies],
+    ['F6', (c) => c.dupBlocks],
+    // F9 是"同一编号挂两个不同标题"—— 恢复把原编号领回来时最容易原地造出来,
+    // 所以既在选行时逐族预检,也在批后按同一把尺子(碰撞组数)兜一遍。
+    ['F9', (c) => c.collisionGroups],
+  ]) {
+    if (get(c1) > get(c0)) problems.push(`${k} 由 ${get(c0)} 涨到 ${get(c1)}`)
+  }
+  return { problems, hiddenAfter: after.hiddenFamilies, hiddenRowsAfter: after.hiddenRows, counts: c1 }
+}
+
+/**
+ * 恢复档的落地:临时索引 + commit-tree + CAS(与折叠档同一套 plumbing,绝不碰共享工作树)。
+ * 默认档只出报告 —— 恢复是活文档上"把一行交回派单"的动作,必须人看过名单再落。
+ */
+export function restoreTerminalsAndLand(maxAttempts = 8) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const spec = `HEAD:${PLAN_REL}`
+    const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
+    if (src === null || src === undefined) {
+      console.log('恢复档未判定 —— HEAD 取不到 PROJECT_PLAN.md(不记为已修)')
+      return 2
+    }
+    const r = buildRestoreTerminals(src)
+    if (!r.edits.length) {
+      console.log(
+        `✅ 恢复档:HEAD 无可自动恢复的隐形族${r.refused.length ? `(拒绝 ${r.refused.length} 族,逐条点名见 --restore-terminals 报告)` : ''},不动任何东西${attempt > 1 ? ` (第 ${attempt} 轮)` : ''}`,
+      )
+      return 0
+    }
+    const v = verifyRestoreTerminals(src, r.text, r.edits)
+    if (v.problems.length) {
+      console.log('❌ 恢复档停手(现场保留,交人工):')
+      for (const p of v.problems.slice(0, 10)) console.log('   ' + p)
+      return 1
+    }
+    const parent = gitIn(null, ['rev-parse', 'HEAD'])
+    const msg = [
+      'fix(plan): 恢复被"每行都带副本指针"遮住的待办登记(隐形族自动出口)',
+      '',
+      `触发时 HEAD 现读:隐形族 ${r.hiddenBefore} 族 / ${r.hiddenRowsBefore} 行 ⇒ 本枚给其中 ${r.edits.length} 族各恢复一行代表,隐形面降到 ${v.hiddenAfter} 族 / ${v.hiddenRowsAfter} 行。`,
+      `拒绝 ${r.refused.length} 族(注记没有结构边界 ⇒ 按行尾剥会吃作者正文;或恢复会把已被别人持有的编号领回来 ⇒ 撞号),一律交人工、不猜。`,
+      '动作只有"删掉机器写的归并注记"一种:勾选状态一字不动、不删行、不并抄,恢复后的正文必须是底稿的保序子序列。',
+      `可逆性由各自那把既有尺子把住:F10 折叠形态走 stripTwinFold(折叠档准入判据就是"剥注记后逐字回底稿"),其余走深度配平的 stripMergeNotes。`,
+      '零损失判据(任一不过即整批不落):行数不变 ∧ 未登记行逐字不变 ∧ 产物落在声明位置 ∧ 恢复后该行不再带副本指针 ∧ 守门 71 lostMarkers=0 ∧ 所在族真的不再隐形 ∧ F1/F2/F3/F4/F4b/F6 无一上涨。',
+      '为什么必须有这个出口:派单口径按"有没有副本指针"筛行,而 F4 的幸存者选择先看有没有指针 ⇒ 一族全部带指针时这件活对派单彻底隐形,账面却全绿。',
+    ].join('\n')
+    let landed
+    try {
+      landed = commitTreeWithIndex({
+        root: ROOT,
+        parent,
+        baseRef: parent,
+        message: msg,
+        entries: [{ path: PLAN_REL, text: r.text }],
+      })
+    } catch (e) {
+      console.log(`❌ 恢复档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
+      return 1
+    }
+    if (!casUpdateRef(landed.commit, parent, { root: ROOT })) {
+      console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),整轮按新 HEAD 现取重算行号再来`)
+      continue
+    }
+    const landedSpec = `${landed.commit}:${PLAN_REL}`
+    const landedText = catBatch(ROOT, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
+    if (landedText === null || landedText === undefined) {
+      console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
+      casUpdateRef(parent, landed.commit, { root: ROOT })
+      return 1
+    }
+    const recheck = verifyRestoreTerminals(src, landedText, r.edits)
+    if (recheck.problems.length) {
+      console.log(`❌ 落地后复验不过(${recheck.problems[0]}),回退到 ${parent.slice(0, 11)}`)
+      casUpdateRef(parent, landed.commit, { root: ROOT })
+      return 1
+    }
+    const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
+    const nOf = (x) => (Array.isArray(x) ? x.length : Number(x) || 0)
+    console.log(
+      `✅ 恢复档落地 ${landed.commit.slice(0, 11)}:恢复 ${r.edits.length} 行代表,隐形族 ${r.hiddenBefore}→${recheck.hiddenAfter}(行 ${r.hiddenRowsBefore}→${recheck.hiddenRowsAfter});` +
+        `落地面现读 F1 ${recheck.counts.forks} / F4 ${recheck.counts.dupOpenCopies} / 未勾选 ${recheck.counts.open};` +
+        `拒绝 ${r.refused.length} 族交人工;共享索引 移动 ${nOf(align.moved)} / 已就位 ${nOf(align.already)}` +
+        `${nOf(align.skipped) ? ` / 归属他人未动 ${align.skipped.map((s) => s.path).join(',')}` : ''}` +
+        `${align.lockAbandoned || align.failed ? '(共享索引未对齐 ⇒ 必须复跑,否则下一次普通提交会写回旧版)' : ''}`,
+    )
+    return 0
+  }
+  console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  return 1
+}
 
 // ── 块级重复的收口出口(F6)────────────────────────────────────────────
 /**
@@ -1128,6 +1587,25 @@ export function dedupeAndLand(maxAttempts = 8) {
   return 1
 }
 
+/**
+ * 「加指针不得把活账弄隐形」的差值判据 —— 两处落地闸(`healStopReasons` 与 `verifyMerge`)
+ * 共用这一份实现,不得各写一遍(两处算同一件事必漂移,本仓记过多次)。
+ *
+ * 为什么是**差值**而不是绝对零:`--heal` 与 `--dedupe-blocks` 每次都会往副本行上写指针,
+ * 而存量里本来就有 45 族/58 行是全指形态;按绝对零判就是一台与本次改动无关的恒红闸,
+ * 唯一结局是每次归并都被迫停手(§12e 同型)。只拦"这次把本来还看得见的那族弄没了代表"。
+ *
+ * 为什么不判 `dupOpenCopies`:那一维**本来就看不见这一型** —— `findDupOpenCopies` 先按
+ * `DUP_POINTER_RE` 滤掉带指针的行,全指族在它眼里是"0 条待办副本"。把这条记成"F4=0 就安全"
+ * 是本函数初版写下的错话(它据此断言"单改生产者侧会让归并器自我拒绝"),现予以推翻。
+ */
+export function pointerVisibilityRegression(srcText, merged) {
+  const b = auditPointerTerminals(String(srcText ?? ''))
+  const a = auditPointerTerminals(String(merged ?? ''))
+  if (a.hiddenFamilies <= b.hiddenFamilies && a.hiddenRows <= b.hiddenRows) return null
+  return `隐形族由 ${b.hiddenFamilies} 族/${b.hiddenRows} 行 变为 ${a.hiddenFamilies} 族/${a.hiddenRows} 行 —— 给一族加指针前必须留下一行不带指针的代表,否则这件活从 --open 口径整族消失`
+}
+
 /** 自愈的"该不该停手"判据 —— 抽成纯函数,否则这一层最要紧的安全断言只能在真仓上验一次。 */
 export function healStopReasons(srcText, merged, changed, refusedCount) {
   // 与 verifyMerge 同一处理:F1+F3 那一型里 F3 的锚点替换是本工具授权的改写,先折回 before,
@@ -1161,6 +1639,7 @@ export function healStopReasons(srcText, merged, changed, refusedCount) {
     after.forks || after.voidRows || after.rotatedAuto || after.dupOpenCopies
       ? '归并后未归零'
       : null,
+    pointerVisibilityRegression(srcText, merged),
   ].filter(Boolean)
 }
 
@@ -1213,6 +1692,8 @@ export function verifyMerge(original, merged, changed) {
   if (after.counts.rotatedAuto) problems.push(`F3(可自动收口)未归零:${after.counts.rotatedAuto} 处`)
   if (after.counts.dupOpenCopies)
     problems.push(`F4 未归零:${after.counts.dupOpenCopies} 行同题待办副本仍挂着`)
+  const ptrProblem = pointerVisibilityRegression(original, merged)
+  if (ptrProblem) problems.push(ptrProblem)
   return { problems, after: after.counts }
 }
 
@@ -1392,6 +1873,92 @@ function selfTest() {
   )
   ok(auditPointerTerminals('').families === 0 && auditPointerTerminals(null).families === 0, '空面不得凭空造出债')
   /**
+   * 恢复档成对断言(R1–R7)。这一族判据若只测"剥得掉",会漏掉它仅有的两个危险失败方向:
+   * 多吃作者正文、以及把已被别人占用的编号领回来(原地造 F9 撞号)。
+   * 另有一条 R5b/R8 是**接线锁**:护栏函数写在文件里而两处落地闸没调它,提交链上就等于没有。
+   */
+  const NOTE = ' 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记,派单以那条为准,本行不再单独派单。〕'
+  // 夹具必须用**真仓题面形态**(编号后带句点),因为守门 130 的 F9 比的正是未剥注记的 titleOf:
+  // 写成无句点的 `G-501 甲题` 会让"恢复一行"给同一编号造出两个题面 ⇒ 本档的 F9 互咬预检正当拒落。
+  // 第一版就那么写,那条红是夹具造的,不是仓库的债(真仓 38 族跑同一判据:因 F9 被拒的是 0 族)。
+  const RST_LINE = '- [ ] G-501. 甲题:一件待做的事。'
+  const rstSrc = [`${RST_LINE}${NOTE}`, `${RST_LINE}${NOTE}`].join('\n')
+  const rst1 = buildRestoreTerminals(rstSrc, '2026-09-28')
+  ok(rst1.edits.length === 1, `全指族必须恰好恢复一行代表(不是两行、不是零行),实测 ${rst1.edits.length}`)
+  ok(
+    rst1.edits.length === 1 && rst1.edits[0].after === RST_LINE,
+    `恢复后应逐字回到裸登记形态,实测 ${rst1.edits[0] ? JSON.stringify(rst1.edits[0].after) : '无 edits'}`,
+  )
+  const v1 = verifyRestoreTerminals(rstSrc, rst1.text, rst1.edits)
+  ok(v1.problems.length === 0, `正当恢复不得报问题,实测 ${v1.problems[0] ?? '无'}`)
+  ok(v1.hiddenAfter === 0, `恢复后该族不得再被判隐形,实测 ${v1.hiddenAfter}`)
+  // R1 反向:恢复动作若顺手写了新字,"保序子序列"判据必须炸(只判"剥没剥掉"拦不住加字)
+  const bad = rst1.edits.map((e) => ({ ...e, after: `${e.after}X` }))
+  const badLines = rstSrc.split('\n')
+  badLines[bad[0].line - 1] = bad[0].after
+  ok(
+    verifyRestoreTerminals(rstSrc, badLines.join('\n'), bad).problems.some((p) => p.includes('子序列')),
+    '恢复后的正文不是底稿子序列时必须拦下',
+  )
+  // R2:裸形态(无闭符)整族拒绝并点名 —— 按行尾剥会吃掉作者正文
+  const bareLine = '- [ ] **[归并]** 【归并】重复登记副本:本行与同标题登记 L9 重复。本行不进派单口径,活账以主行为准。'
+  const rst2 = buildRestoreTerminals([bareLine, bareLine].join('\n'), '2026-09-28')
+  ok(
+    rst2.edits.length === 0 && rst2.refused.length === 1 && rst2.refused[0].reason.includes('结构边界'),
+    `裸形态必须拒绝并报名,实测 edits=${rst2.edits.length} refused=${rst2.refused.length}`,
+  )
+  // R3:同编号在别处挂着另一件事 ⇒ 恢复会原地造出 F9 撞号,必须拒
+  const clashSrc = [`- [ ] G-502 丁题${NOTE}`, `- [ ] G-502 丁题${NOTE}`, `- [ ] G-502 卯题${NOTE}`].join('\n')
+  const rst3 = buildRestoreTerminals(clashSrc, '2026-09-28')
+  ok(
+    rst3.edits.length === 0 && rst3.refused.length >= 1 && rst3.refused.some((f) => f.reason.includes('撞号')),
+    `恢复会把别人正占着的编号领回来时必须拒,实测 edits=${rst3.edits.length} refused=${JSON.stringify(rst3.refused.map((f) => f.reason.slice(0, 18)))}`,
+  )
+  // R4:折叠孤立行(持有行已不在面上)必须由 stripTwinFold 还原,连尾注一起剥回底稿
+  const pre4 = '- [ ] **G-503. 折叠题**:第一份登记。'
+  const foldLine = buildTwinFold(pre4, '- [ ] **G-504. 别的题**:与它无关。', '2026-09-28')
+  const rst4 = buildRestoreTerminals(foldLine, '2026-09-28')
+  ok(
+    rst4.edits.length === 1 && rst4.edits[0].via === 'stripTwinFold' && rst4.edits[0].after === pre4,
+    `折叠产物必须逐字还原成底稿(尾注原编号一并剥掉),实测 ${JSON.stringify(rst4.edits[0] ?? rst4.refused[0])}`,
+  )
+  // R9:题面没有句点边界的族,恢复会让同一编号出现"带注记 / 不带注记"两个 titleOf ⇒
+  // 守门 130 的 F9 差值棘轮会当场判红。本档不许为变绿去改那道门的判据(lib 持有人职权),
+  // 也不许整批按住,所以**逐族**拒绝并写明解阻前置 —— 这条断言钉的就是"它真的拒"。
+  const f9Line = `- [ ] G-509 无句点题面${NOTE}`
+  const rst9 = buildRestoreTerminals([f9Line, f9Line].join('\n'), '2026-09-28')
+  ok(
+    rst9.edits.length === 0 && rst9.refused.length === 1 && rst9.refused[0].reason.includes('F9'),
+    `与 F9 互咬的那一型必须被拒并点名解阻前置,实测 edits=${rst9.edits.length} refused=${JSON.stringify(rst9.refused.map((f) => f.reason.slice(0, 12)))}`,
+  )
+  // R5:差值护栏必须点名"把一族唯一的代表也标上指针"的合并
+  const gSrc = [`- [ ] G-505 戊题`, `- [ ] G-505 戊题${NOTE}`].join('\n')
+  const gHide = [`- [ ] G-505 戊题${NOTE}`, `- [ ] G-505 戊题${NOTE}`].join('\n')
+  ok((pointerVisibilityRegression(gSrc, gHide) ?? '').includes('隐形族'), '抹掉唯一代表的合并必须被差值护栏点名')
+  // R6:留了代表的正常归并不得被点名(拦正当动作的闸与恒红门同罪)
+  ok(
+    pointerVisibilityRegression(gSrc, gSrc) === null && pointerVisibilityRegression(gSrc, `${gSrc}\n- [ ] 新行`) === null,
+    '没有把任何族弄隐形的改动不得被护栏拦',
+  )
+  // R7:一族里唯一的活行被正当翻勾 ⇒ 必须靠"已完成行也算代表"认下来,否则 --heal 每次翻勾都停手
+  ok(
+    pointerVisibilityRegression('- [ ] G-506 己题', '- [x] ✅(2026-09-28) G-506 己题') === null,
+    '翻勾成已完成不得被读成"把活账弄隐形"',
+  )
+  // R5b/R8 接线锁(行为式,不读源码):两处落地闸必须真的调了这条护栏
+  ok(
+    healStopReasons(gSrc, gHide, [{ line: 1, kind: 'F4', before: '- [ ] G-505 戊题', after: `- [ ] G-505 戊题${NOTE}` }], 0)
+      .join()
+      .includes('隐形族'),
+    '自愈停手判据必须挂上差值护栏 —— 函数在而无人调,提交链上等于没有',
+  )
+  ok(
+    verifyMerge(gSrc, gHide, [{ line: 1, kind: 'F4', before: '- [ ] G-505 戊题', after: `- [ ] G-505 戊题${NOTE}` }]).problems.some((p) =>
+      p.includes('隐形族'),
+    ),
+    '零损失对账链也必须挂上差值护栏(与 healStopReasons 同一份实现)',
+  )
+  /**
    * F10 折叠档 —— 成对断言(单向断言等于没有):
    *  (a) 同题 + 编号互异 ⇒ 恰好折掉后到的一条,持有行一字不动;
    *  (b) 第二遍 ⇒ 零改动(幂等是本票的全部价值,不钉住就等于没做);
@@ -1534,6 +2101,7 @@ export const KNOWN_FLAGS = [
   '--dedupe-rows',
   '--fold-twins',
   '--audit-pointers',
+  '--restore-terminals',
   '--json',
   '--match',
   '--allow-mass',
@@ -1612,10 +2180,75 @@ function main() {
     }
     if (tP.families > 12 && !has('--all')) console.log(`   …另 ${tP.families - 12} 族(--all 全列)`)
     console.log(
-      '   修法必须同笔两处(单改生产者侧会让归并器自我拒绝,撞 :741 那条「F4 必须归零」验收):' +
-        '① rewriteDup 加指针前先问本判据;② 验收链从「F4=0」升级为「F4=0 ∨ 剩余副本各有终端」。',
+      '   出口:`node scripts/plan-tasks-merge.mjs --restore-terminals`(默认只报名,--commit 才落)' +
+        '—— 每族恢复一行代表;注记没有结构边界的族与"恢复会撞号"的族一律拒绝并点名,交人工。',
+    )
+    console.log(
+      '   ⚠ 本函数初版在这里写过"修法必须同笔两处:① rewriteDup 加指针前先问本判据;② 验收链从「F4=0」升级为「F4=0 ∨ 各有终端」" —— 第②条是**错的**,' +
+        '已推翻并记在 pointerVisibilityRegression 的头注里:F4 先按 DUP_POINTER_RE 滤掉带指针的行,全指族在它眼里恒为 0,所以恢复一行代表既不会顶起 F4,也不需要放宽验收。',
     )
     return 0
+  }
+  /**
+   * 隐形活账的恢复档。三档语义与 --fold-twins / --dedupe-blocks 同形:
+   *  ① 不带 --commit ⇒ 报告档,一行不改;② 带 --commit ⇒ 对象空间落地(临时索引 + commit-tree
+   *     + CAS,绝不碰共享工作树);③ 判不出/会撞号 ⇒ 拒绝并逐族点名,不并入"通过"。
+   * 刻意**不**挂 post-commit 自动档:它把一行交回派单口径 = 改变"谁该被派活",
+   * 与删行同属活文档上最危险的动作,必须有人看过名单(G-336 立的那条规矩)。
+   */
+  if (has('--restore-terminals')) {
+    const selR = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
+    if (selR.error) {
+      console.log(`⚠️ 无法判定 —— ${selR.error}`)
+      return 2
+    }
+    let srcR
+    try {
+      srcR = readPlan(ROOT, selR.face)
+    } catch (e) {
+      console.log(`⚠️ 无法判定 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
+      return 2
+    }
+    const rR = buildRestoreTerminals(srcR)
+    const vR = rR.edits.length ? verifyRestoreTerminals(srcR, rR.text, rR.edits) : null
+    if (has('--json')) {
+      console.log(
+        JSON.stringify(
+          {
+            face: LABEL[selR.face],
+            hiddenBefore: rR.hiddenBefore,
+            hiddenRowsBefore: rR.hiddenRowsBefore,
+            edits: rR.edits.map((e) => ({ line: e.line, key: e.key, via: e.via, after: e.after.slice(0, 120) })),
+            refused: rR.refused,
+            problems: vR ? vR.problems : [],
+            hiddenAfter: vR ? vR.hiddenAfter : null,
+          },
+          null,
+          2,
+        ),
+      )
+      return vR && vR.problems.length ? 1 : 0
+    }
+    console.log(
+      `判定面:${LABEL[selR.face]}  隐形族 ${rR.hiddenBefore} 族 / ${rR.hiddenRowsBefore} 行 ⇒ 本档可自动恢复 ${rR.edits.length} 行代表,拒绝 ${rR.refused.length} 族(不猜)`,
+    )
+    for (const e of rR.edits.slice(0, has('--all') ? 99999 : 12))
+      console.log(`   ↺ L${e.line}(${e.via}) ${String(e.key).slice(0, 46)} ⇒ ${e.after.slice(0, 96)}`)
+    if (rR.edits.length > 12 && !has('--all')) console.log(`   …另 ${rR.edits.length - 12} 行(--all 全列)`)
+    for (const f of rR.refused.slice(0, has('--all') ? 99999 : 12))
+      console.log(`   ✋ L${f.lines.join(',L')} ${String(f.key).slice(0, 40)} —— ${f.reason}`)
+    if (rR.refused.length > 12 && !has('--all')) console.log(`   …另 ${rR.refused.length - 12} 族`)
+    if (vR && vR.problems.length) {
+      console.log('❌ 零损失对账不通过,整批不落:')
+      for (const p of vR.problems.slice(0, 8)) console.log('   ' + p)
+      return 1
+    }
+    if (vR) console.log(`✅ 零损失对账通过;恢复后隐形族 ${rR.hiddenBefore} → ${vR.hiddenAfter}(行 ${rR.hiddenRowsBefore} → ${vR.hiddenRowsAfter})`)
+    if (!has('--commit')) {
+      console.log('ℹ️ 未加 --commit:只出报告,一行未改。确认名单后再跑 --restore-terminals --commit')
+      return 0
+    }
+    return restoreTerminalsAndLand()
   }
   /**
    * F10 折叠档(同题不同编号的孪生登记)。三档语义与 --dedupe-blocks 同形:
