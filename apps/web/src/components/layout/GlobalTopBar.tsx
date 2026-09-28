@@ -48,6 +48,7 @@ import {
   closeWindow,
   startResize,
   onMaximizeChange,
+  isWindowMaximized,
   onWindowFocusChange,
   isWindowFocused,
 } from '@/lib/tauri-bridge'
@@ -230,9 +231,25 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   React.useEffect(() => {
     if (!isDesktop) return
     let cancelled = false
+    let maximizeEventArrived = false
     const unlisten = onMaximizeChange((maximized) => {
+      maximizeEventArrived = true
       if (!cancelled) setIsMaximized(maximized)
     })
+    // 与下方焦点态同一条认识:**resize 只报"变化"不报现状**,所以挂载时必须补查一次初值。
+    // 这不是理论场景 —— Rust 侧启动时按持久化键直接 `window.maximize()`
+    // (apps/desktop/src-tauri/src/lib.rs:1354-1357),窗口可以**在本次订阅之前**就已是最大化;
+    // 缺这一步时按钮显示"最大化"而它其实已最大化(点下去反而还原),且 8 向缩放区照常挂上。
+    // 事件已先到则丢弃补查值 —— 晚回来的初不得覆盖刚发生的事件。
+    void isWindowMaximized()
+      .then((maximized) => {
+        if (!cancelled && !maximizeEventArrived) setIsMaximized(maximized)
+      })
+      .catch((err: unknown) => {
+        // 读不到初值就维持改动前的行为(等下一次 resize),但必须喊出来:
+        // 静默吞掉会让"补查失效"表现得像"窗口没最大化"。
+        console.warn('[GlobalTopBar] 最大化初值补查失败,维持 resize 事件驱动:', err)
+      })
     return () => {
       cancelled = true
       unlisten()
