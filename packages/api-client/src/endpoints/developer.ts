@@ -378,16 +378,21 @@ export async function regenerateOauthSecret(
   })
 }
 
-/** 获取我授权的应用列表 */
-export async function getMyAuthorizedApps(
-  query: PageQuery = {},
-): Promise<ApiResult<PageData<OauthAuthorization>>> {
-  return fetchApi<PageData<OauthAuthorization>>(`/api/oauth-apps/my-authorized${buildQs(query)}`)
+/** 获取我授权的应用列表
+ * 门 8 死调用清账(2026-09-28):上一版 /api/oauth-apps/my-authorized 从未注册(门只判了
+ * 撤销那条,列表这条因模板串带 buildQs 落进"未判定"桶而隐身)——后端真路由是
+ * GET /auth/oauth/my-authorized(auth-extended.ts:1640),返回 { items }(无分页),
+ * 所以 PageQuery 参数一并摘掉,不留"能翻页"的假象。 */
+export async function getMyAuthorizedApps(): Promise<ApiResult<{ items: OauthAuthorization[] }>> {
+  return fetchApi<{ items: OauthAuthorization[] }>('/api/auth/oauth/my-authorized')
 }
 
-/** 撤销授权 */
-export async function revokeAuthorization(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/oauth-apps/authorizations/${id}`, {
+/** 撤销授权(按 sessionId;别人的 sessionId 在后端是"0 命中 ⇒ deleted:false")
+ * 门 8 死调用清账(2026-09-28):上一版 DELETE /api/oauth-apps/authorizations/${id} 从未注册;
+ * 真路由 = DELETE /auth/oauth/my-authorized/:sessionId(auth-extended.ts:1647)。
+ * 注意**不是** /settings/authorizations/:id —— 那条撤的是设备会话,不是 OAuth 授权。 */
+export async function revokeAuthorization(id: string): Promise<ApiResult<{ deleted: boolean }>> {
+  return fetchApi<{ deleted: boolean }>(`/api/auth/oauth/my-authorized/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
 }

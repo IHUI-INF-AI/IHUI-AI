@@ -36,9 +36,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync, copyFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { readFileSync, writeFileSync, copyFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导 ───
@@ -147,7 +147,7 @@ test('--json 模式 → exit 0, stdout 是合法 JSON 含 ok:true', () => {
 
 test('源 __test__ export 缺失 → exit 1, 报告 source_export_missing', () => {
   // 用临时副本(隔离测试环境, 不污染源文件)
-  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpDir = mkScratch('ihui-mirror-sync-')
   const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
   const tmpTest = join(tmpDir, 'check-staged-typecheck.test.mjs')
   try {
@@ -181,14 +181,14 @@ test('源 __test__ export 缺失 → exit 1, 报告 source_export_missing', () =
       'drift 应包含 source_export_missing 项',
     )
   } finally {
-    rmSync(tmpDir, { recursive: true, force: true })
+    rmScratch(tmpDir)
   }
 })
 
 // ─── 测试 4: 测试文件 import 路径错 → exit 1 ───────────────
 
 test('测试 import 路径错 → exit 1, 报告 test_import_missing', () => {
-  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpDir = mkScratch('ihui-mirror-sync-')
   const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
   const tmpTest = join(tmpDir, 'check-staged-typecheck.test.mjs')
   try {
@@ -215,14 +215,14 @@ test('测试 import 路径错 → exit 1, 报告 test_import_missing', () => {
       'drift 应包含 test_import_missing 项',
     )
   } finally {
-    rmSync(tmpDir, { recursive: true, force: true })
+    rmScratch(tmpDir)
   }
 })
 
 // ─── 测试 5: 源文件不存在 → exit 2 (异常) ─────────────────
 
 test('源文件不存在 → exit 2, 报告 source_missing', () => {
-  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpDir = mkScratch('ihui-mirror-sync-')
   try {
     const nonExistentSource = join(tmpDir, 'does-not-exist.mjs')
     const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
@@ -241,14 +241,14 @@ test('源文件不存在 → exit 2, 报告 source_missing', () => {
     assert.equal(report.ok, false)
     assert.equal(report.error, 'source_missing')
   } finally {
-    rmSync(tmpDir, { recursive: true, force: true })
+    rmScratch(tmpDir)
   }
 })
 
 // ─── 测试 6: 漂移场景 (缺一个键) → exit 1 + 失败信息含修复指南 ──
 
 test('源 __test__ 缺一个键 → exit 1, drift.source_key_missing', () => {
-  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpDir = mkScratch('ihui-mirror-sync-')
   const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
   const tmpTest = join(tmpDir, 'check-staged-typecheck.test.mjs')
   try {
@@ -282,14 +282,14 @@ test('源 __test__ 缺一个键 → exit 1, drift.source_key_missing', () => {
       '失败信息应含"修复方法"段',
     )
   } finally {
-    rmSync(tmpDir, { recursive: true, force: true })
+    rmScratch(tmpDir)
   }
 })
 
 // ─── 测试 7: --quiet 失败场景不污染 stdout ─────────────────
 
 test('--quiet + 漂移 → exit 1', () => {
-  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpDir = mkScratch('ihui-mirror-sync-')
   const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
   const tmpTest = join(tmpDir, 'check-staged-typecheck.test.mjs')
   try {
@@ -309,14 +309,14 @@ test('--quiet + 漂移 → exit 1', () => {
     // 注:守卫脚本失败路径 console.log 不受 QUIET 控制(2026-08-18 已知 bug,后续修)
     assert.equal(r.status, 1, `--quiet 漂移应 exit 1, 实际 ${r.status}`)
   } finally {
-    rmSync(tmpDir, { recursive: true, force: true })
+    rmScratch(tmpDir)
   }
 })
 
 // ─── 测试 11: 测试文件 import 行被注释掉 → exit 1 (修复 false-positive) ───
 
 test('测试文件 import 行被注释掉 → exit 1, 报告 test_import_missing', () => {
-  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpDir = mkScratch('ihui-mirror-sync-')
   const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
   const tmpTest = join(tmpDir, 'check-staged-typecheck.test.mjs')
   try {
@@ -345,14 +345,14 @@ test('测试文件 import 行被注释掉 → exit 1, 报告 test_import_missing
       'drift 应包含 test_import_missing 项',
     )
   } finally {
-    rmSync(tmpDir, { recursive: true, force: true })
+    rmScratch(tmpDir)
   }
 })
 
 // ─── 测试 12: 源脚本 isDirectRun 入口守护被注释掉 → exit 1 (新增 phase D) ───
 
 test('源 isDirectRun 守护被注释掉 → exit 1, 报告 source_isDirectRun_missing', () => {
-  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpDir = mkScratch('ihui-mirror-sync-')
   const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
   const tmpTest = join(tmpDir, 'check-staged-typecheck.test.mjs')
   try {
@@ -389,7 +389,7 @@ test('源 isDirectRun 守护被注释掉 → exit 1, 报告 source_isDirectRun_m
     // 防止误报: sourceHasIsDirectRunAnchor 应明确为 false
     assert.equal(report.checks.sourceHasIsDirectRunAnchor, false)
   } finally {
-    rmSync(tmpDir, { recursive: true, force: true })
+    rmScratch(tmpDir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

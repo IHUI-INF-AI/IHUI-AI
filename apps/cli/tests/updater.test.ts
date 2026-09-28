@@ -207,15 +207,27 @@ describe('updater', () => {
 
     it('有更新时输出 console.warn 含版本号', async () => {
       state.cacheExists = false;
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ 'dist-tags': { latest: '2.0.0' } }),
+      // G-243 起 notifyUpdates 会先问服务端最低版本闸门(走 createApiRequest,读 res.text()),
+      // 再查 registry(读 res.json())。两笔出站请求按 URL 分流各自 mock。
+      fetchMock.mockImplementation(async (url: unknown) => {
+        if (String(url).includes('min-cli-version')) {
+          return {
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            text: async () =>
+              JSON.stringify({ data: { minimumVersion: null, source: 'test', reason: 'no minimum' } }),
+          };
+        }
+        return { ok: true, json: async () => ({ 'dist-tags': { latest: '2.0.0' } }) };
       });
       notifyUpdates();
       await new Promise((resolve) => setImmediate(resolve));
       await new Promise((resolve) => setImmediate(resolve));
       expect(warnSpy).toHaveBeenCalled();
-      const callArg = String(warnSpy.mock.calls[0]?.[0] ?? '');
+      // 闸门放行也会留一行痕迹,升级提示按内容定位(仍要求同时含新/旧版本号)
+      const callArg =
+        warnSpy.mock.calls.map((c) => String(c[0] ?? '')).find((s) => s.includes('2.0.0')) ?? '';
       expect(callArg).toContain('2.0.0');
       expect(callArg).toContain('1.0.0');
     });

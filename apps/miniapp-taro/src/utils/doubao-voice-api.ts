@@ -16,8 +16,9 @@ import type { VoiceChatResult } from '@ihui/api-client'
 import { readFileToBase64 } from './file-utils'
 import { unwrapApi } from './api-bridge'
 
-export { sendVoiceMessage, textToSpeech, speechToText, getVoiceModels } from '@ihui/api-client'
-export type { VoiceChatResult, TtsResult } from '@ihui/api-client'
+// textToSpeech/TtsResult 已随门 8 死调用清账删除(2026-09-28):真 TTS 音频通道 = fetchTextToSpeechAudio
+export { sendVoiceMessage, speechToText, getVoiceModels } from '@ihui/api-client'
+export type { VoiceChatResult } from '@ihui/api-client'
 
 export async function voiceToBase64(filePath: string): Promise<string> {
   return readFileToBase64(filePath)

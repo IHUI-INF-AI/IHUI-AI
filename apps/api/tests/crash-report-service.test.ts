@@ -9,6 +9,8 @@
  *  - recordCrash 成功:insert → values → returning,返回 { id }
  *  - 静默失败:db 抛错不 rethrow,返回 { id: '' } 且记 warn 日志
  *  - 字段截断:errorMessage ≤ 4000 / stack ≤ 20000 / route ≤ 512
+ *    (夹具用非十六进制填充字符:纯 [0-9a-f] 长串会被 D94 脱敏规则整段盖掉,截断判据就量不到原长了)
+ *  - 落库前**先脱敏再截断**(ea8ccb36a 立的权威防线):凭据在内嵌长文本中也被盖
  *  - 缺省字段 → null / 'unknown'
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -104,15 +106,36 @@ describe('recordCrash', () => {
         return { returning: vi.fn().mockResolvedValue([{ id: 'crash-3' }]) }
       }),
     })
+    // 填充字符必须避开 [0-9a-fA-F]:否则整串先被 D94 十六进制脱敏规则盖成
+    // [REDACTED_SECRET](17 字符),本用例就测不到截断而是测到脱敏了。
     await recordCrash({
       platform: 'ios',
-      errorMessage: 'e'.repeat(5000),
+      errorMessage: 'x'.repeat(5000),
       stack: 's'.repeat(30000),
       route: 'r'.repeat(1000),
     })
     expect((captured.errorMessage as string).length).toBe(4000)
     expect((captured.stack as string).length).toBe(20000)
     expect((captured.route as string).length).toBe(512)
+  })
+
+  it('先脱敏再截断:超长文本内嵌的凭据被盖,截断不把凭据切成半截漏盖', async () => {
+    let captured: Record<string, unknown> = {}
+    mockInsert.mockReturnValue({
+      values: vi.fn().mockImplementation((v: Record<string, unknown>) => {
+        captured = v
+        return { returning: vi.fn().mockResolvedValue([{ id: 'crash-5' }]) }
+      }),
+    })
+    const fakeKey = `sk-${'A'.repeat(30)}`
+    await recordCrash({
+      platform: 'web',
+      errorMessage: `${fakeKey} ${'x'.repeat(5000)}`,
+    })
+    const msg = captured.errorMessage as string
+    expect(msg).toContain('[REDACTED_SECRET]')
+    expect(msg).not.toContain(fakeKey)
+    expect(msg.length).toBe(4000)
   })
 
   it('userId 与 version 显式传值时原样落库', async () => {

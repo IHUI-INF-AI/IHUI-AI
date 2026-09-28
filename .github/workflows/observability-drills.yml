@@ -252,8 +252,15 @@ jobs:
           echo "Covered: prometheus config + rules parse under the pinned production version;" \
                "every job selector in an alert rule resolves to a scraped job;" \
                "alertmanager keeps exactly one egress."
-          echo "NOT covered here (owned by the on-host watch shift, which is the only place" \
-               "these ports exist): service liveness on 8801/8802/8803/8815/9093/9096," \
+          echo "NOT covered here: service liveness on 8801/8802/8803/8815/9093/9096," \
                "scrape success of any target, and delivery of a fired alert to an inbox."
+          # 谁真的在管这三件事(2026-09-27 按实测写,不写"某个班次会看"):
+          #   - 端口活性 6 个全在 deploy/win/ihui-monitor.ps1 的探测清单里(nssm IHUI-MONITOR,
+          #     5 分钟一轮、不经 prometheus 的独立路径)。这一条过去只写了 8801/8802/8803,
+          #     而"监控系统自己死了谁来看"没人答 —— 8815/9093/9096 当时**无人探活**。
+          #   - 抓取是否成功:monitoring/prometheus/alerts.yml 里每组 *Down 规则(由 prometheus 自评,
+          #     所以它对"prometheus 自身死亡"这一格结构上无效,上一条才是它的兜底)。
+          #   - 到人:bridge 落盘的 UNDELIVERED 标记 + AlertBridgeMailUndelivered /
+          #     AlertmanagerDeliveryFailed 两条规则;以及每周必寄的运维周报(死手开关)。
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

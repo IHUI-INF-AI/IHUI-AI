@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-style-verification.mjs')
 
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-style-verify-'))
+  const dir = mkScratch('ihui-style-verify-')
   execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
@@ -68,7 +68,7 @@ test('豁免: HUSKY_SKIP_STYLE_VERIFY=1 → exit 0(跳过检查)', () => {
     assert.equal(r.status, 0, `HUSKY_SKIP_STYLE_VERIFY=1 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /HUSKY_SKIP_STYLE_VERIFY|跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -80,19 +80,19 @@ test('参数: 缺少 commit message 文件参数 → exit 1', () => {
     assert.equal(r.status, 1, `缺参数应 exit 1,实际 ${r.status}`)
     assert.match(stripAnsi(r.stderr), /缺少 commit message 文件参数/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 // ─── 3. 非 git 仓库(git diff 失败) → exit 0 ────────────
 test('非 git: 非 git 仓库目录(git diff 抛错被 catch) → exit 0', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-nongit-style-'))
+  const dir = mkScratch('ihui-nongit-style-')
   const msgPath = writeMsgFile(dir, 'feat: test\n')
   try {
     const r = runScript([msgPath], { cwd: dir })
     assert.equal(r.status, 0, `非 git 仓库应 exit 0(catch 兜底),实际 ${r.status}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -104,7 +104,7 @@ test('空 staged: git 仓库但无 staged 文件 → exit 0', () => {
     const r = runScript([msgPath], { cwd: dir })
     assert.equal(r.status, 0, `无 staged 文件应 exit 0,实际 ${r.status}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -117,7 +117,7 @@ test('非 css: staged apps/web/foo.tsx → exit 0(后缀不匹配)', () => {
     const r = runScript([msgPath], { cwd: dir })
     assert.equal(r.status, 0, `非 .css 文件应 exit 0,实际 ${r.status}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -130,7 +130,7 @@ test('非 web: staged apps/api/foo.css → exit 0(路径前缀不匹配)', () =>
     const r = runScript([msgPath], { cwd: dir })
     assert.equal(r.status, 0, `apps/api/ 下 .css 应 exit 0,实际 ${r.status}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -146,7 +146,7 @@ test('阻塞: staged apps/web/foo.css + commit message 无 trailer → exit 1', 
     assert.match(stripAnsi(r.stderr), /apps\/web\/globals\.css/)
     assert.match(stripAnsi(r.stderr), /Verified-DOM/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -164,7 +164,7 @@ Verified-DOM: http://localhost:8801/ (offsetHeight=58)
     assert.equal(r.status, 0, `有 .css 改动且有 trailer 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /样式验证守门通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -183,7 +183,7 @@ test('多文件阻塞: staged 多个 apps/web/*.css + 无 trailer → exit 1(std
     assert.match(stderr, /apps\/web\/src\/fix\.css/)
     assert.match(stderr, /apps\/web\/src\/nested\/deep\.css/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -202,7 +202,7 @@ Verified-DOM: http://localhost:8801/ai-world (offsetHeight=58 scrollHeight=58)
     assert.equal(r.status, 0, `多个 .css + 有 trailer 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /样式验证守门通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -221,7 +221,7 @@ Verified-DOM: http://localhost:8801/ai-world (textarea offsetHeight=58 scrollHei
     assert.equal(r.status, 0, `示例格式 trailer 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /样式验证守门通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -243,7 +243,7 @@ test('缩进不匹配: trailer 行首有空格 → exit 1(正则 ^ 要求行首)
     )
     assert.match(stripAnsi(r.stderr), /样式改动强制验证守门/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -261,7 +261,7 @@ verified-dom: http://localhost:8801/ (offsetHeight=58)
     assert.equal(r.status, 1, `小写 trailer 应 exit 1,实际 ${r.status}`)
     assert.match(stripAnsi(r.stderr), /样式改动强制验证守门/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -280,7 +280,7 @@ test('混合文件: staged apps/web/ 下 .css + .tsx 混合 + 无 trailer → ex
     // 不应把 .tsx 当作 css 列出
     assert.ok(!stderr.includes('apps/web/src/page.tsx'), '不应列出 .tsx 文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -302,7 +302,7 @@ Verified-DOM:
     )
     assert.match(stripAnsi(r.stderr), /样式改动强制验证守门/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -185,6 +185,22 @@ scrape_configs:
           service: 'grafana'
           layer: 'infra'
 
+  # RSSHub(自建国内媒体 RSS 聚合器,IHUI-RSSHUB 服务,监听 127.0.0.1:12000,LISTEN_INADDR_ANY=false)
+  # 消费方:apps/api jobs/ai-world-sync 的 RSS_FEEDS_CHINA 五个国内源(每日 0/12 点)。
+  # 立因(2026-09-27):该服务自 09-11 起停机(nssm Application 指向的 .workbuddy 那份 node.exe
+  # 已被其自升级顶掉,系统事件日志两次「系统找不到指定的路径」),而它此前既不是抓取目标、
+  # alerts.yml 也没有它的任何规则 —— "19 台 IHUI 服务少一台"账面全绿,即本 job + RsshubServiceDown 补的那格。
+  # /metrics 契约取证:dist/index.mjs 主应用注册 `I.get('/metrics',…)`,仅 DEBUG_INFO=false 才摘除
+  # (本安装 env 无该项);若日后设 DEBUG_INFO=false,把规则换成 windows_service_state 形态(见 alerts.yml 注)。
+  - job_name: 'rsshub'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['localhost:12000']
+        labels:
+          service: 'rsshub'
+          layer: 'backend'
+
   # Node Exporter（主机指标，可选）— 原生环境暂未安装，需启用时注释放开并将 target 改为 localhost:9100
   # - job_name: 'node'
   #   static_configs:

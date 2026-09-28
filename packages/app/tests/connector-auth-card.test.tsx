@@ -67,7 +67,13 @@ vi.mock('react-native', () => {
     onPress?: (ev: unknown) => void
     accessibilityRole?: string
   }) {
-    // Pressable 的 style 可为 ({pressed})=>... 函数,DOM 替身不解析,只保留命中语义
+    // Pressable 的 style 可为 ({pressed})=>... 函数,DOM 替身不解析,只保留命中语义;
+    // children 同理可为 ({pressed})=>ReactNode 渲染函数(8c2586781 两层形态),不求值则
+    // React 直接丢弃函数 children ⇒ 按钮 textContent 恒空。按真实 API 以 pressed=false 求值。
+    const resolved =
+      typeof children === 'function'
+        ? (children as (s: { pressed: boolean }) => ReactNode)({ pressed: false })
+        : children
     return createElement(
       'pressable',
       {
@@ -75,7 +81,7 @@ vi.mock('react-native', () => {
         role: accessibilityRole,
         onClick: () => onPress?.({}),
       },
-      children,
+      resolved,
     )
   }
   return {

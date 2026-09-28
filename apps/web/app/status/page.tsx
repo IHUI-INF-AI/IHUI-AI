@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Card, CardContent } from '@ihui/ui-react'
+import { getTranslations } from 'next-intl/server'
 import { cn } from '@/lib/utils'
 
 export const revalidate = 60
@@ -53,8 +54,17 @@ interface Incident {
   description: string
 }
 
+export interface IncidentsPayload {
+  incidents: Incident[]
+  /**
+   * 后端显式区分「确实没有事件」(false)与「查询失败所以列表为空」(true)。
+   * 缺席/非布尔一律按 false 读 —— 老缓存或旧版响应不得把页面判崩。
+   */
+  degraded: boolean
+}
+
 type StatusResult =
-  | { ok: true; overview: Overview; models: ModelStatus[]; incidents: Incident[] }
+  | { ok: true; overview: Overview; models: ModelStatus[]; incidents: IncidentsPayload }
   | { ok: false; error: string }
 
 // ===== 类型守卫 =====
@@ -124,8 +134,11 @@ function parseModels(d: unknown): ModelStatus[] | null {
   return out
 }
 
-function parseIncidents(d: unknown): Incident[] | null {
+/** 导出给回归测试:降级字段的容错读取是本端不崩的关键(旧版响应/缓存里没有 degraded)。 */
+export function parseIncidents(d: unknown): IncidentsPayload | null {
   if (!isRecord(d) || !Array.isArray(d.incidents)) return null
+  // degraded 是后端新增的降级标记:只认真正的 true,其余(缺失/非布尔)读成 false。
+  const degraded = d.degraded === true
   const out: Incident[] = []
   for (const i of d.incidents) {
     if (!isRecord(i)) return null
@@ -149,7 +162,7 @@ function parseIncidents(d: unknown): Incident[] | null {
       description: i.description,
     })
   }
-  return out
+  return { incidents: out, degraded }
 }
 
 // ===== 数据获取 =====
@@ -277,6 +290,24 @@ const SERVICE_LABELS: Record<string, string> = {
   redis: '缓存',
 }
 
+/**
+ * 事件查询降级提示(与「30 天无事件」互斥)。
+ *
+ * 后端在查询失败时回 HTTP 200 + `degraded: true`(为了不改状态页整体可用性),
+ * 若这里仍按空列表渲染"无事件记录",就是把「没判成」写成「判过了」—— 用户看到的
+ * 是"一切正常",而故障列表根本没取到。降级必须可见。
+ * 观感沿用本文件 degraded 徽章同一档(bg-amber-500/10 + amber-600/dark:amber-400),
+ * 图标用 lucide,不用 title 属性提示、不用分割线。
+ */
+export function IncidentsUnavailableNotice({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2">
+      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+      <span className="text-sm text-amber-600 dark:text-amber-400">{label}</span>
+    </div>
+  )
+}
+
 function overallStatus(
   services: Record<string, ServiceStatus>,
   models: ModelStatus[],
@@ -288,6 +319,7 @@ function overallStatus(
 }
 
 export default async function StatusPage() {
+  const copy = await getTranslations('statusPage')
   const result = await getStatus()
 
   if (!result.ok) {
@@ -304,7 +336,11 @@ export default async function StatusPage() {
     )
   }
 
-  const { overview, models, incidents } = result
+  const {
+    overview,
+    models,
+    incidents: { incidents, degraded: incidentsDegraded },
+  } = result
   const overall = overallStatus(overview.services, models)
 
   return (
@@ -384,7 +420,9 @@ export default async function StatusPage() {
       </Section>
 
       <Section icon={ShieldAlert} title="最近事件(30 天)">
-        {incidents.length === 0 ? (
+        {incidentsDegraded ? (
+          <IncidentsUnavailableNotice label={copy('incidentsUnavailable')} />
+        ) : incidents.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">最近 30 天无事件记录</p>
         ) : (
           <div className="space-y-3">

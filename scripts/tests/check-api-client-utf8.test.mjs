@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -19,7 +19,7 @@ const ENDPOINTS_REL = join('packages', 'api-client', 'src', 'endpoints')
 
 // ─── 辅助:创建临时项目根目录 ─────────────────────────────
 function createTempRoot() {
-  return mkdtempSync(join(tmpdir(), 'ihui-api-cli-utf8-'))
+  return mkScratch('ihui-api-cli-utf8-')
 }
 
 // 辅助:在临时项目下创建 endpoints 目录,并写入指定文件
@@ -71,7 +71,7 @@ test('CLI: 空项目根不崩溃(无 packages/api-client/src/endpoints)', () => 
     )
     assert.ok(!r.stderr.includes('Error:'), `不应产生未捕获 Error`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -84,7 +84,7 @@ test('无 packages/api-client/src/endpoints 目录 → exit 0 + 警告"未找到
     assert.match(r.stdout, /未找到/)
     assert.match(r.stdout, /跳过/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -98,7 +98,7 @@ test('endpoints 目录存在但为空 → exit 0 + 警告"无 .ts 文件"', () =
     assert.match(r.stdout, /无 \.ts 文件/)
     assert.match(r.stdout, /跳过/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -114,7 +114,7 @@ test('仅有非 .ts 文件(.js/.json)→ exit 0 + 警告"无 .ts 文件"', () =>
     assert.equal(r.status, 0, `非 .ts 应跳过 → exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /无 \.ts 文件/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -132,7 +132,7 @@ test('纯 ASCII .ts 文件 → exit 0 + "UTF-8 干净: 1 个文件" + 成功消�
     assert.match(r.stdout, /所有 1 个 api-client 源文件字节级 UTF-8 完整/)
     assert.match(r.stdout, /可安全被 tsc 编译/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -150,7 +150,7 @@ test('合法中文(3 字节 UTF-8)→ exit 0 + 干净', () => {
     assert.equal(r.status, 0, `合法中文应 exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /UTF-8 干净: 1 个文件/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -168,7 +168,7 @@ test('合法 emoji(4 字节 UTF-8)→ exit 0 + 干净', () => {
     assert.equal(r.status, 0, `合法 emoji 应 exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /UTF-8 干净: 1 个文件/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -183,7 +183,7 @@ test('空 .ts 文件(0 字节)→ exit 0 + 不误报', () => {
     assert.equal(r.status, 0, `空文件应 exit 0\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /UTF-8 干净: 1 个文件/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -205,7 +205,7 @@ test('规则 A:3 字节 UTF-8 第 3 字节为 0x3F(?) → exit 1 + 报告"3rd by
     assert.match(r.stdout, /3rd byte replaced by 0x3F/)
     assert.match(r.stdout, /0xe4 0xb8 0x3f/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -220,7 +220,7 @@ test('规则 B:2 字节 UTF-8 (0xC0-0xDF) 非法续字节 → exit 1 + "2-byte U
     assert.equal(r.status, 1, `2 字节非法续字节应 exit 1\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /2-byte UTF-8 invalid continuation/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -235,7 +235,7 @@ test('规则 B:4 字节 UTF-8 (0xF0-0xF7) 非法续字节 → exit 1 + "4-byte U
     assert.equal(r.status, 1, `4 字节非法续字节应 exit 1\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /4-byte UTF-8 invalid continuation/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -250,7 +250,7 @@ test('单独续字节(0x80)→ exit 1 + "invalid UTF-8 leading byte 0x80"', () =
     assert.equal(r.status, 1, `单独续字节应 exit 1\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /invalid UTF-8 leading byte 0x80/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -266,7 +266,7 @@ test('单文件 7 处违规 → 显示前 5 处 + "还有 2 处"截断', () => {
     assert.match(r.stdout, /发现 7 处损坏字节序列/)
     assert.match(r.stdout, /还有 2 处/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -291,7 +291,7 @@ test('混合:1 干净 + 1 损坏 → exit 1 + 报告损坏文件路径 + 修复�
     assert.match(r.stdout, /Turbopack/)
     assert.match(r.stdout, /PowerShell/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
