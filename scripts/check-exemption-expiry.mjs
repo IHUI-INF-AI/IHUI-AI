@@ -213,6 +213,24 @@ const SELF_EXEMPT_RE = /^scripts[/\\](?:tests[/\\])?check-exemption-expiry(?:\.t
  * packages/ 里的任何一条,所以 G02/G03 成对用例钉的是"同一行文字换个路径就必须入账"。
  */
 const TOOL_FACE_RE = /^scripts\//
+/**
+ * 「归档面」= `.ihui-agent/archive/**`,与工具面同性质:**记录,不是正在生效的豁免**。
+ * 一条写进归档任务条目的 `until YYYY-MM-DD` 描述的是当时那次裁决的期限;到期后既不该续期
+ * (改归档正文 = 伪造一手记录),也不该判红(它没在豁免任何代码)。实测触发点是一枚
+ * `PROJECT_PLAN_dedup-2026-09-26.md.new` —— 候选枚举按 `:(exclude)*.md` 剥文档,而它后缀是
+ * `.md.new`,**按扩展名排除文档这件事本身就有洞**;补一条按目录意图排除的面,并把条数如实报出
+ * (静默并入 toolFace 会让读报告的人以为那是门自己的说明书)。
+ */
+const ARCHIVE_FACE_RE = /^\.ihui-agent[/\\]archive[/\\]/
+/** 不记账的面只有一处判据:扫描侧、基线清洗侧、汇总侧共用它,避免三处各写一份而漂开。 */
+export function isNonLiveFace(rel) {
+  const n = String(rel || '').replace(/\\/g, '/')
+  return TOOL_FACE_RE.test(n) || ARCHIVE_FACE_RE.test(n)
+}
+export function isArchiveFace(rel) {
+  return ARCHIVE_FACE_RE.test(String(rel || '').replace(/\\/g, '/'))
+}
+
 const SUPPRESS_KINDS = {
   'eslint-disable': /\beslint-disable(?:-next-line|-line|-unrestricted)?\b/g,
   'ts-ignore': /@ts-(?:ignore|nocheck)\b/g,
@@ -257,7 +275,8 @@ export function scanFile(rel, text) {
   const entries = []
   const suppressions = {}
   if (typeof text !== 'string' || text === '') return { entries, suppressions }
-  const toolFace = TOOL_FACE_RE.test(String(rel).replace(/\\/g, '/'))
+  const toolFace = isNonLiveFace(rel)
+  const archiveFace = isArchiveFace(rel)
   const seenFileScoped = new Set()
   for (const [i, line] of String(text).split(/\r?\n/).entries()) {
     if (!line) continue
@@ -288,6 +307,7 @@ export function scanFile(rel, text) {
         hasReason: reason.length > 0,
         fileScoped,
         toolFace,
+        archiveFace,
         lifetimeDays: FAMILY_LIFETIME_DAYS[family] ?? DEFAULT_LIFETIME_DAYS,
         registered: isFamilyRegistered(family),
       })
@@ -503,6 +523,7 @@ export function analyze({
     totals: {
       entries: entries.length,
       toolFace: entries.filter((e) => e.toolFace).length,
+      archiveFace: entries.filter((e) => e.archiveFace).length,
       files: new Set(entries.map((e) => e.file)).size,
       families: new Set(entries.map((e) => e.family)).size,
       dated: entries.filter((e) => e.expiry).length,
@@ -608,7 +629,7 @@ export function mergeBaseline(old, observed) {
   // --update-baseline 会自行收干净(自愈),不需要有人记得。
   const purged = []
   for (const k of Object.keys(next.undatedCounts)) {
-    if (!TOOL_FACE_RE.test(String(k).split('::')[0] || '')) continue
+    if (!isNonLiveFace(String(k).split('::')[0] || '')) continue
     purged.push(`${k}=${next.undatedCounts[k]}`)
     delete next.undatedCounts[k]
   }
@@ -790,6 +811,24 @@ function selfTest() {
     'G08 判据正则字面量里的标记同属工具面(门 93 R8 那一型)',
     es("export const RE = /handcopy-token-exempt:\\s*\\S/", 'scripts/check-cross-end-tokens.mjs')[0]
       .toolFace === true,
+  )
+  /**
+   * G09–G11 归档面(`.ihui-agent/archive/**`)。立因是 HEAD 现测的一条 E2 红:归档任务条目正文里
+   * 抄着的 `until 2026-09-25` 到期后被本门判成"豁免已到期仍在生效",而那个文件名是
+   * `PROJECT_PLAN_dedup-2026-09-26.md.new` —— 候选枚举只按 `:(exclude)*.md` 剥文档,**后缀一变就漏**。
+   * 归档是一条记录,不是正在生效的豁免:续它的日期等于伪造一手记录,判它红等于造一条没有出口的恒红。
+   * 三条必须成对读:只加 G09 而不加 G10,就是把判据悄悄关掉而账面全绿。
+   */
+  const ARC_FILE = '.ihui-agent/archive/PROJECT_PLAN_dedup-2026-09-26.md.new'
+  const ARC_TXT = 'const a = 1 // alpha-plugin-exempt: 台账说明 until 2020-01-01'
+  const gArc = es(ARC_TXT, ARC_FILE)
+  ok(
+    'G09 归档面带已过期标记 ⇒ 不入账也不判 E2(改归档正文 = 伪造记录)',
+    gArc.length === 1 && gArc[0].toolFace === true && gArc[0].archiveFace === true && redOf(detail(gArc)) === '',
+  )
+  ok(
+    'G10 同一行文字换到 apps/ ⇒ 必须判 E2(与 G09 成对:归档让位不是全局关掉)',
+    redOf(detail(es(ARC_TXT, 'apps/demo/src/a.ts'))) === 'E2',
   )
   // A01–A03:HEAD 现测锚点(G-174 的出口)。三条要一起读 —— A03 是 A01 的反证:同一组输入
   // 不给锚点必须红,否则 A01 的绿可能只是判据没跑起来。
@@ -1081,7 +1120,7 @@ function report(res, opts) {
       `带到期日 ${t.dated}、无日期 ${t.undated}(基线存量 ${t.stockUndated})、已过期 ${t.expired}`,
   )
   console.log(
-    `  工具面(scripts/** 的说明书 / 判据正则 / 自检夹具)${t.toolFace} 处 —— 只报数,不入账也不判红` +
+    `  工具面(scripts/** 的说明书 / 判据正则 / 自检夹具)${t.toolFace} 处 + 归档面(${t.archiveFace}) —— 只报数,不入账也不判红` +
       `(E1 锚点与观测同用 undatedCountsOf,两侧对称,不会因本条产出假红)`,
   )
   console.log(
@@ -1219,6 +1258,8 @@ export const __test__ = {
   PREFILTER_RE,
   SELF_EXEMPT_RE,
   TOOL_FACE_RE,
+  isNonLiveFace,
+  isArchiveFace,
   FAMILY_LIFETIME_DAYS,
   DEFAULT_LIFETIME_DAYS,
   BASELINE_REL,
