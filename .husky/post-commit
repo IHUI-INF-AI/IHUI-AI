@@ -120,6 +120,14 @@ if (process.env.IHUI_ARCHIVE_COMMIT !== '1' && process.env.HUSKY_SKIP_ARCHIVE !=
   //  ③ 归档与门 71 的回捞互咬会产出逐字重复块(F6),今天用 `plan-tasks-merge.mjs --dedupe-blocks` 收过一次。
   // 正解一律在**判据侧**:被搬走的内容要在归档件里按**被审面**同面可查(HEAD 树 / 索引,不是盘上),
   // 计数类基线要跟着"台账 ⊕ 归档件"这个真实审面走。不得为了让某道门少红而把归档改回慢档。
+  // 排空步骤必须排在归档器**之前**:"标题写已完成、体内还裹着未勾选登记"的块是归档器结构上不许搬的
+  // 那一类(搬走=把别人正开着的活账归档),没有这一步,"完成即归档"只对干净块成立。
+  // 递归安全:该脚本走对象空间 commit-tree + CAS,而 commit-tree **不跑钩子** ⇒ 不会自触发;
+  // 它自带五条零损失不变量,任一不成立就整批不落(所以"钩子跑了"不等于"台账被改了")。
+  // 跳过:HUSKY_SKIP_LEDGER_STRIP=1(只关这一步,不影响归档 —— 两级开关刻意分开)
+  if (process.env.HUSKY_SKIP_LEDGER_STRIP !== '1') {
+    runLogged('post-commit-ledger-strip', 'node scripts/ledger-strip-open-rows.mjs --apply')
+  }
   runLogged('post-commit-archive', 'node scripts/archive-completed-tasks.mjs --auto-commit')
 }
 
