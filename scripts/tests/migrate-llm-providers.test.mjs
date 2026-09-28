@@ -21,15 +21,26 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawnSync, execFileSync } from 'node:child_process'
 import { writeFileSync, existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// 形态锁必须判**代码面**:本仓库不止一次记过"说明性文字也会带执行性字符" ——
+// 源脚本的 JSDoc 里逐字引用了被禁的旧写法,拿原文跑反向锁就会把注释当成代码判红。
+// 遮罩实现只有一份(scripts/lib/code-mask.mjs),测试不得自己再写一份。
+import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
+const REPO_ROOT = join(__dirname, '..', '..')
 const SCRIPT_PATH = join(__dirname, '..', 'migrate-llm-providers.mjs')
+
+// §22c:判据**直接 import 源函数**,不在测试里抄第二份 flagValue / resolveIoPaths。
+// (源脚本已按 §22d 加 isDirectRun 守卫 —— 没有它,这一行 import 就会真跑一次迁移并写文件。)
+const { flagValue, resolveIoPaths, DEFAULT_INPUT, DEFAULT_OUTPUT } = await import(
+  pathToFileURL(SCRIPT_PATH).href
+).then((m) => m.__test__)
 
 // ─── 辅助:strip ANSI 颜色码 ───────────────────────────────
 const ANSI_RE = /\x1b\[[0-9;]*m/g
@@ -352,6 +363,253 @@ test('parseEnv 剥离单/双引号包裹的值', () => {
     const json = JSON.parse(readFileSync(outPath, 'utf8'))
     assert.equal(json.openai.api_key, 'sk-double-quoted-12345678', '应剥离双引号')
     assert.equal(json.anthropic.api_key, 'sk-single-quoted-abcdef', '应剥离单引号')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 16–24 带值旗标吞掉紧邻旗标这一族(G-322 第二处:唯一会**写盘**的那一处)──────
+// 立因是实测,不是读码推测。HEAD 版在临时目录里的真实行为(逐字留档):
+//   `--input fixture.env --output --staged`      ⇒ RC=0,stdout `✅ 已写入纯 JSON → --staged`,
+//                                                  目录里真长出一个名叫 `--staged` 的文件(59 B,含 api_key);
+//   `--input fixture.env --output`(结尾无值)   ⇒ 先读 .env 成功,再 `writeFileSync(undefined)`
+//                                                  抛 `node:fs` 的裸 TypeError + 栈,RC=1;
+//   `--input --staged ...`                       ⇒ RC=1 但消息是「输入文件不存在: --staged」,
+//                                                  把"旗标写错了"报成了"文件找不到"——误导排查方向。
+// 现口径:值必须存在、非空且不以 `-` 开头;无效 ⇒ RC=2 + 点名实得 token,且**在读/写任何文件之前**
+// 退出(不回落默认路径 —— 回落等于把"用户以为写到别处"换成"静默写到 .env.migrated")。
+// 缺省档(不给这两个旗标)由 M21 拿 HEAD 副本做同瞬间 A/B 逐字节对账。
+
+/** 取 HEAD 版脚本落到临时目录,和当前版在同一瞬间对照 —— 不碰仓库、不碰工作树 */
+function writeHeadCopy(dir, name = 'migrate.head.mjs') {
+  const src = execFileSync(
+    'git',
+    ['-c', 'safe.directory=*', 'show', 'HEAD:scripts/migrate-llm-providers.mjs'],
+    { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true },
+  )
+  const p = join(dir, name)
+  writeFileSync(p, src, 'utf8')
+  return p
+}
+
+function runFile(cwd, scriptPath, args) {
+  return runScriptLike(cwd, scriptPath, args)
+}
+
+function runScriptLike(cwd, scriptPath, args) {
+  const r = spawnSync(process.execPath, [scriptPath, ...args], {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  r.out = stripAnsi(r.stdout)
+  r.err = stripAnsi(r.stderr)
+  return r
+}
+
+const STACK_FRAME_RE = /^\s+at\s+\S/m
+
+// ─── 16. 反例:`--output --staged` ⇒ RC=2 + 点名 token + 零写盘副作用 ───────────
+test('反例 --output --staged ⇒ exit 2、点名实得 token、不产出 --staged 文件、也不回落默认路径', () => {
+  const dir = createTempDir()
+  const envPath = writeEnv(dir, 'fixture.env', 'OPENAI_API_KEY=sk-leak-1234567890\n')
+  try {
+    const r = runScriptLike(dir, SCRIPT_PATH, ['--input', envPath, '--output', '--staged'])
+    assert.equal(r.status, 2, `应 exit 2,实得 ${r.status}\nstdout:${r.out}\nstderr:${r.err}`)
+    assert.match(r.err, /--output 没有收到有效的路径/)
+    assert.match(r.err, /"--staged"/, `必须点名实得 token,实得:${r.err}`)
+    assert.ok(!STACK_FRAME_RE.test(r.err), `不得打裸栈:\n${r.err}`)
+    // 副作用面:既不许产出那个垃圾文件,也**不许回落到默认输出路径**(那同样是写盘)
+    assert.ok(!existsSync(join(dir, '--staged')), '仍然写出了名叫 --staged 的文件')
+    assert.ok(!existsSync(join(dir, '.env.migrated')), '不得回落到默认输出路径写盘')
+    assert.doesNotMatch(r.out, /已写入/, `stdout 不得报"已写入":\n${r.out}`)
+    assert.equal(readdirSync(dir).sort().join(','), 'fixture.env', '临时目录里不得多出任何文件')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 17. 反例:`--apply --output --staged`(最危险的那一档)────────────────────
+test('反例 --apply --output --staged ⇒ 写盘档同样在读/写之前判死', () => {
+  const dir = createTempDir()
+  const envPath = writeEnv(dir, 'fixture.env', 'OPENAI_API_KEY=sk-leak-1234567890\n')
+  try {
+    const r = runScriptLike(dir, SCRIPT_PATH, ['--input', envPath, '--output', '--staged', '--apply'])
+    assert.equal(r.status, 2, `--apply 档必须同样 exit 2,实得 ${r.status}\nstderr:${r.err}`)
+    assert.match(r.err, /"--staged"/)
+    assert.ok(!existsSync(join(dir, '--staged')), '--apply 下仍然写出了名叫 --staged 的文件')
+    assert.ok(!existsSync(join(dir, '.env.migrated')), '不得回落到默认输出路径')
+    assert.equal(readdirSync(dir).sort().join(','), 'fixture.env')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 18. 反例:`--input --staged` ⇒ 说清是"旗标没给值",不是"文件不存在" ────────
+test('反例 --input --staged ⇒ exit 2 且点名旗标本身(旧版报的是误导性的"输入文件不存在")', () => {
+  const dir = createTempDir()
+  writeEnv(dir, 'fixture.env', 'OPENAI_API_KEY=sk-leak-1234567890\n')
+  try {
+    const r = runScriptLike(dir, SCRIPT_PATH, ['--input', '--staged', '--output', 'out.json'])
+    assert.equal(r.status, 2, `实得 ${r.status}\nstderr:${r.err}`)
+    assert.match(r.err, /--input 没有收到有效的路径/)
+    assert.match(r.err, /"--staged"/)
+    assert.doesNotMatch(r.err, /输入文件不存在/, '不得把"旗标写错"报成"文件找不到"')
+    assert.ok(!existsSync(join(dir, 'out.json')))
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 19. 反例:`--output` 结尾无值 ⇒ RC=2 点名"没给值"(旧版是裸 TypeError + 栈)──
+test('反例 --output 结尾无值 ⇒ exit 2 + 点名"其后没有任何参数",不打裸栈', () => {
+  const dir = createTempDir()
+  writeEnv(dir, '.env', 'OPENAI_API_KEY=sk-abc123456789\n')
+  try {
+    const r = runScriptLike(dir, SCRIPT_PATH, ['--output'])
+    assert.equal(r.status, 2, `实得 ${r.status}\nstderr:${r.err}`)
+    assert.match(r.err, /\(其后没有任何参数\)/)
+    assert.ok(!STACK_FRAME_RE.test(r.err), `旧版这里是 node:fs 的裸 TypeError + 栈:\n${r.err}`)
+    assert.equal(readdirSync(dir).sort().join(','), '.env', '不得有任何写盘副作用')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 20. 正例:合法值照旧生效(--apply 真写盘、真读输入)───────────────────────
+test('正例 --input/--output 给合法路径 ⇒ --apply 仍正常读写(校验没把功能改坏)', () => {
+  const dir = createTempDir()
+  const envPath = writeEnv(dir, 'fixture.env', 'OPENAI_API_KEY=sk-real-1234567890\nDATABASE_URL=postgres://x\n')
+  const outPath = join(dir, 'out.env')
+  try {
+    const r = runScriptLike(dir, SCRIPT_PATH, ['--input', envPath, '--output', outPath, '--apply'])
+    assert.equal(r.status, 0, `实得 ${r.status}\nstderr:${r.err}`)
+    assert.match(r.out, /已写入完整 \.env/)
+    const content = readFileSync(outPath, 'utf8')
+    assert.match(content, /LLM_PROVIDERS='/)
+    assert.match(content, /DATABASE_URL=postgres:\/\/x/, '原有字段应保留')
+    assert.ok(!existsSync(join(dir, '.env.migrated')), '给了 --output 就不该同时写默认路径')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 21. 缺省档逐字节 A/B:同一瞬间拿 HEAD 副本与新副本对照 ─────────────────────
+test('缺省档逐字不变:同瞬间拿 HEAD 副本与新副本跑,stdout/stderr/RC/产物字节全等', (t) => {
+  const cases = [
+    { name: '显式合法路径', args: ['--input', 'fixture.env', '--output', 'out.json'] },
+    { name: '一个旗标都不给(纯默认档)', args: [] },
+    { name: '默认档 + --apply', args: ['--apply'] },
+    { name: '默认档 + --dry-run', args: ['--dry-run'] },
+  ]
+  for (const c of cases) {
+    const dirA = createTempDir()
+    const dirB = createTempDir()
+    try {
+      const fixture = 'OPENAI_API_KEY=sk-ab-1234567890\nGITHUB_TOKEN=ghtok-abcdefgh\n'
+      for (const d of [dirA, dirB]) {
+        writeEnv(d, 'fixture.env', fixture)
+        writeEnv(d, '.env', fixture)
+      }
+      const head = writeHeadCopy(dirA)
+      // 相对路径跑,产物名一致 ⇒ 字节可比(绝对路径会把两个临时目录名本身打进输出)
+      const a = runFile(dirA, head, c.args)
+      const b = runFile(dirB, SCRIPT_PATH, c.args)
+      assert.equal(b.status, a.status, `${c.name}:RC 不同 a=${a.status} b=${b.status}\n${a.err}\n${b.err}`)
+      assert.equal(b.out, a.out, `${c.name}:stdout 不同形\n--- HEAD ---\n${a.out}\n--- 现在 ---\n${b.out}`)
+      assert.equal(b.err, a.err, `${c.name}:stderr 不同形\n${a.err}\n${b.err}`)
+      const filesA = readdirSync(dirA).filter((f) => !f.endsWith('.mjs')).sort()
+      const filesB = readdirSync(dirB).sort()
+      assert.deepEqual(filesB, filesA, `${c.name}:产物文件集合不同`)
+      for (const f of filesB) {
+        if (f === 'fixture.env' || f === '.env') continue
+        // Buffer 用 assert.equal 比是**按引用**比(两个不同 Buffer 永不 ===),
+        // 这里要的是字节全等 ⇒ 走 Buffer.equals,并把长度报出来,免得"看着不等"无从判读。
+        const bufB = readFileSync(join(dirB, f))
+        const bufA = readFileSync(join(dirA, f))
+        assert.ok(
+          bufB.equals(bufA),
+          `${c.name}:${f} 字节不等(a=${bufA.length}B b=${bufB.length}B)\n--- HEAD ---\n${bufA}\n--- 现在 ---\n${bufB}`,
+        )
+      }
+      t.diagnostic(`${c.name}: A/B RC=${a.status} 产物 [${filesA.join(',')}] 逐字节等值`)
+    } finally {
+      rmScratch(dirA)
+      rmScratch(dirB)
+    }
+  }
+})
+
+// ─── 22. 纯函数面(§22c:import 源判据,不抄第二份)──────────────────────────
+test('纯函数 resolveIoPaths:默认档 / 合法值 / 三种无效值', () => {
+  assert.equal(DEFAULT_INPUT, '.env', '默认输入路径不得被改动')
+  assert.equal(DEFAULT_OUTPUT, '.env.migrated', '默认输出路径不得被改动')
+  const none = resolveIoPaths([])
+  assert.deepEqual(
+    { input: none.input, output: none.output, invalid: none.invalid, errorLines: none.errorLines },
+    { input: '.env', output: '.env.migrated', invalid: [], errorLines: [] },
+    '不给旗标时必须与改前逐字同形',
+  )
+  const ok = resolveIoPaths(['--input', 'a.env', '--output', 'b.env'])
+  assert.deepEqual({ i: ok.input, o: ok.output, n: ok.invalid.length }, { i: 'a.env', o: 'b.env', n: 0 })
+  for (const bad of [['--output', '--staged'], ['--output'], ['--input', ''], ['--input', '--apply']]) {
+    const flag = bad[0]
+    const r = resolveIoPaths(bad)
+    assert.equal(r.invalid.length, 1, `${flag} 的无效值应被点到名:${JSON.stringify(r.invalid)}`)
+    assert.equal(r.invalid[0].flag, flag)
+    assert.ok(r.errorLines.length > 0, '必须给出可复制的出路文案')
+  }
+  // flagValue 自身的最小四态(改前该函数不存在,由本族修法引入)
+  assert.equal(flagValue([], '--input').present, false)
+  assert.equal(flagValue(['--input', 'x'], '--input').valid, true)
+  assert.equal(flagValue(['--input', '--output'], '--input').valid, false)
+  assert.equal(flagValue(['--input'], '--input').token, null)
+})
+
+// ─── 23. 形态锁:旧写法不得回来,且校验必须排在任何 read/write 之前 ─────────────
+test('装车锁:resolveIoPaths 必须真被 main 调用,且排在第一次读文件之前', () => {
+  const raw = readFileSync(SCRIPT_PATH, 'utf8')
+  // 正向锁走**代码面**(遮注释与字符串):本仓库不止一次记过"说明性文字也会带执行性字符",
+  // 而本脚本的 JSDoc 里逐字引用了被禁的旧写法 —— 不遮就是门给自己发合格证的反面(误红)。
+  const code = maskCommentsAndStrings(raw)
+  assert.ok(/const io = resolveIoPaths\(args\)/.test(code), 'main() 没调用 resolveIoPaths ⇒ 新校验是死代码')
+  const callAt = code.indexOf('const io = resolveIoPaths(args)')
+  const invalidAt = code.indexOf('io.invalid.length')
+  const firstRead = code.indexOf('readFileSync(input')
+  assert.ok(callAt >= 0 && invalidAt > callAt, 'invalid 判定必须紧跟取值')
+  assert.ok(firstRead > invalidAt, '路径校验必须排在**任何** readFileSync 之前 —— 否则"先读后判"仍能落盘')
+  assert.ok(code.indexOf('writeFileSync(output') > invalidAt, '同上,写盘之前必须先判过')
+  // "值不得以 - 开头"这条判据必须在**代码面**存在。刻意不带引号里的 `-`:遮罩会把字符串内容
+  // 抹成空格,写成 `startsWith('-')` 的断言在遮罩面上永远匹配不到(那又是一条恒假/恒真的空断言)。
+  assert.match(code, /!\s*token\.startsWith\(/, '"值不得以 - 开头"这一条判据本身不得被删')
+  // 反向锁走**原始面**,但只认"旧写法的标识符":遮罩会把字符串抹掉,拿含引号的模式去负向匹配
+  // 会得到一条**永远为真**的断言(与本仓"永远绿的断言与永远红的断言同样没用"是同一条禁令)。
+  // `inputIdx` / `outputIdx` 只存在于旧的 `args[args.indexOf(…) + 1]` 取值形态里,注释不会提到。
+  assert.ok(!/\binputIdx\b/.test(raw), '旧的 inputIdx 吞值写法又回来了')
+  assert.ok(!/\boutputIdx\b/.test(raw), '旧的 outputIdx 吞值写法又回来了')
+  // §22d:被 import 时不得触发 CLI(本文件顶部那次 import 就是它的正向证明)
+  assert.match(
+    code,
+    /const isDirectRun = process\.argv\[1\] && import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/,
+  )
+  assert.match(code, /if \(isDirectRun\) \{/)
+})
+
+// ─── 24. 反向对照:本族修法不得只是"把 --staged 当特例" ────────────────────────
+test('判据是"值不能以 - 开头"这一条通用规则,不是给 --staged 开的特例', () => {
+  const dir = createTempDir()
+  const envPath = writeEnv(dir, 'fixture.env', 'OPENAI_API_KEY=sk-x-1234567890\n')
+  // 刻意不列 '-h' / '--help':帮助分支排在取值校验**之前**(改前就如此,本次一字未动),
+  // 所以 `--output -h` 走的是"打印帮助并 exit 0"这条既有路径,不是吞值 —— 拿它当反例会把
+  // 一条既有行为误判成本票要修的形态。
+  try {
+    for (const swallowed of ['--staged', '--apply', '--dry-run', '--backup', '--redact']) {
+      const r = runScriptLike(dir, SCRIPT_PATH, ['--input', envPath, '--output', swallowed])
+      assert.equal(r.status, 2, `--output ${swallowed} 应 exit 2,实得 ${r.status}\nstderr:${r.err}`)
+      assert.ok(!existsSync(join(dir, swallowed)), `仍然产出了名叫 ${swallowed} 的文件`)
+    }
+    assert.equal(readdirSync(dir).sort().join(','), 'fixture.env', '不得有写盘副作用')
   } finally {
     rmScratch(dir)
   }
