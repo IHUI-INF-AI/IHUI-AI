@@ -8387,6 +8387,10 @@
           "title": "파라미터가 불완전하거나 잘못되었습니다",
           "action": "수정 후 재시도"
         },
+        "NEEDS_INPUT_TIMEOUT": {
+          "title": "명령이 입력을 기다리다 시간 초과",
+          "action": "응답 후 재시도"
+        },
         "NESTING_DEPTH_EXCEEDED": {
           "title": "구조 깊이가 처리 범위를 초과했습니다",
           "action": "단순화 후 재시도"
