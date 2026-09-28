@@ -434,7 +434,7 @@ export function AgentCanvasClient() {
           >
             {/* Controls/MiniMap 默认白底(xyflow 硬编码),深色模式下用 token 覆盖,
                 按钮图标继承全局 text-foreground(白),不覆盖 bg 会白底白图标看不清 */}
-            <Controls className="!rounded-md !border !border-border !bg-card !shadow-sm [&_button]:!bg-card [&_button]:!border-border [&_button]:!text-foreground [&_button:hover]:!bg-muted [&_button]:!border-b" />
+            <Controls className="!ui-card rounded-lg !border !border-border !bg-card !shadow-sm [&_button]:!bg-card [&_button]:!border-border [&_button]:!text-foreground [&_button:hover]:!bg-muted [&_button]:!border-b" />
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
           </ReactFlow>
         </div>

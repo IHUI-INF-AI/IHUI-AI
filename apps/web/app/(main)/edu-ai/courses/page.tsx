@@ -173,7 +173,7 @@ export default function EduAICoursesPage() {
     const display =
       typeof value === 'boolean' ? (value ? t('required') : t('elective')) : String(value)
     return (
-      <div className="rounded-lg border bg-muted/40 p-3">
+      <div className="ui-card rounded-lg border bg-muted/40 p-3">
         <p className="text-xs font-medium text-muted-foreground">{label}</p>
         <p className="mt-1 text-sm whitespace-pre-wrap">{display}</p>
       </div>

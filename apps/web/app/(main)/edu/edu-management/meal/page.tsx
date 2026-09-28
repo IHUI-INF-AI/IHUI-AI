@@ -1003,7 +1003,7 @@ export default function MealPage() {
         key={meal.id}
         type="button"
         className={cn(
-          'w-full rounded-sm px-2 py-1 text-left text-xs text-white transition-opacity hover:opacity-90',
+          'w-full ui-control rounded-sm px-2 py-1 text-left text-xs text-white transition-opacity hover:opacity-90',
           color,
         )}
         onClick={() => handleEditMeal(meal)}
@@ -1020,7 +1020,7 @@ export default function MealPage() {
     const Icon = MEAL_ICONS[mealType as keyof typeof MEAL_ICONS]
 
     return (
-      <div key={mealType} className="rounded-md border p-2">
+      <div key={mealType} className="ui-card rounded-lg border p-2">
         <div className="mb-1.5 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" />}

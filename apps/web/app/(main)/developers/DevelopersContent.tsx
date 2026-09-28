@@ -80,7 +80,7 @@ export function DevelopersContent(): React.JSX.Element {
 
   if (error || !data) {
     return (
-      <div className="mx-auto max-w-2xl rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="mx-auto max-w-2xl ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {(error as Error)?.message ?? '加载开发者信息失败'}
       </div>
     )
@@ -99,7 +99,7 @@ export function DevelopersContent(): React.JSX.Element {
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           <Code2 className="h-3.5 w-3.5 text-primary" />
           开发者门户 · v{data.version}
         </div>

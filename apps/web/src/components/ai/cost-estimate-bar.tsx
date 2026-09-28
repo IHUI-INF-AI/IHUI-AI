@@ -29,7 +29,7 @@ export function CostEstimateBar() {
   if (pendingConfirm) {
     return (
       <div
-        className="mx-2 mb-1 flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] text-foreground"
+        className="mx-2 mb-1 flex items-center gap-2 ui-card rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] text-foreground"
         data-testid="cost-negotiation-bar"
       >
         <Coins className="h-3 w-3 shrink-0 text-amber-500" aria-hidden />
