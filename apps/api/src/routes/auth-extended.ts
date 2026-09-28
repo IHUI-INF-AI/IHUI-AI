@@ -1758,6 +1758,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成设备授权 userCode,
     // userCode 可预测 -> 攻击者可劫持 OAuth 设备授权流程
     const userCode = generateShortCode(6)
+    // 摊销清理过期条目:此前过期码**只在被轮询到那一次**才删,弃用的设备授权会永久驻留
+    // (这个 Map 没有上限,而创建入口每次请求都 set 一条)。刻意不加定时器 —— 定时器要
+    // 管测试生命周期与多实例重复清扫,收益不值;每次新建前扫一遍把上界收敛到"TTL 窗口内
+    // 且有人来创建过"。
+    const nowMs = Date.now()
+    for (const [staleCode, staleEntry] of deviceCodeStore) {
+      if (nowMs > staleEntry.expiresAt) deviceCodeStore.delete(staleCode)
+    }
     deviceCodeStore.set(deviceCode, {
       userCode,
       clientId: parsed.data.client_id,
@@ -1790,6 +1798,15 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (Date.now() > entry.expiresAt) {
       deviceCodeStore.delete(parsed.data.device_code)
       return reply.status(400).send(error(400, 'device_code 已过期'))
+    }
+    // RFC 8628 §3.4:换 token 的这一侧必须证明是**发起那条流程的同一个 client**。
+    // schema 一直强制 body.client_id 存在,但此前从不与 entry.clientId 比对 —— 于是任何
+    // 拿到别人 device_code 的客户端都能换走那条流程的 token:device_code 是"把手",不是"身份"。
+    // 回包与"device_code 不存在"**刻意同形同码**,并顺手作废该码 —— 否则这个端点就成了
+    // device_code 的存在性预言机(区分"没有"与"不是你的"等于免费给攻击者回表)。
+    if (entry.clientId !== parsed.data.client_id) {
+      deviceCodeStore.delete(parsed.data.device_code)
+      return reply.status(400).send(error(400, 'device_code 无效'))
     }
     if (!entry.userId) return reply.status(428).send(error(428, 'authorization_pending'))
     const user = await findUserById(entry.userId)
