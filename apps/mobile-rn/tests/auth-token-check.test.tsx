@@ -38,15 +38,24 @@ describe('Debug token store', () => {
 
   it('should use mocked tokenStore', async () => {
     // Check what tokenStore the auth-store is using
-    const state = rnAuthStore.getState()
-
     // Set cached token
     tokenMocks.getToken.mockReturnValue('cached-tk')
 
     // Hydrate should read from tokenStore
-    await state.hydrate()
+    // 取一次引用再断言 = 断言的是"调用前那份 state"(真实工厂用 zustand,setState 产出新对象;
+    // 旧的手写替身是同一个可变对象,所以它在替身下才碰巧成立)。故每次读 state 都现取。
+    rnAuthStore.getState().hydrate()
 
-    expect(state.token).toBe('cached-tk')
+    expect(rnAuthStore.getState().token).toBe('cached-tk')
+    // 真实工厂的另一半语义:登录态是从 token 派生的,不是独立开关
+    expect(rnAuthStore.getState().isAuthenticated).toBe(true)
+
+    // 反向对照(同一条 hydrate 的另一侧):tokenStore 空 ⇒ 必须**覆盖**成 null,
+    // 而不是"跳过保留旧值"—— 这正是替身与真实工厂分叉的那一格。
+    tokenMocks.getToken.mockReturnValue(null)
+    rnAuthStore.getState().hydrate()
+    expect(rnAuthStore.getState().token).toBeNull()
+    expect(rnAuthStore.getState().isAuthenticated).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
