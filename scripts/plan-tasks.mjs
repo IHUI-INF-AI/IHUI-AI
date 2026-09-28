@@ -153,7 +153,7 @@ function report(a, face) {
   console.log(`复合主键 ${a.composites} 组`)
   console.log(`  F1 同主键两态并存 : ${c.forks} 组 / 涉及未勾选行 ${c.forkOpenLines}`)
   console.log(`  F2 带作废声明未落账: ${c.voidRows} 行`)
-  console.log(`  F3 行号指针已腐烂  : ${c.rotatedPointers} 处`)
+  console.log(`  F3 行号指针        : ${c.rotatedPointers} 处 —— 其中可自动收口 ${c.rotatedAuto} 处、无出口交人工 ${c.rotatedNoExit} 处`)
   console.log(
     `  F4 同一件事多条待办: ${c.dupOpenGroups} 组 / 副本 ${c.dupOpenCopies} 行(不进派单口径)`,
   )
@@ -242,7 +242,7 @@ export function countNewUndisposed(now, before) {
 export const probe = (a) => [
   ['F1', '同主键两态并存(组)', a.counts.forks],
   ['F2', '带作废声明未落账(行)', a.counts.voidRows],
-  ['F3', '行号指针已腐烂(处)', a.counts.rotatedPointers],
+  ['F3', '行号指针可自动收口(处)', a.counts.rotatedAuto],
   ['F4', '同一件事多条待办(副本行)', a.counts.dupOpenCopies],
   // F4b:F4 的分组键是复合主键,而"叙述式待办"永远没有编号 ⇒ 同一句话被复制两遍时 F4 报 0。
   // 单独一维而不是并进 F4:并进 F4 会让"两处各计一次债"的锚点互相顶掉(守门 134 扩布尔档键那一课)。
@@ -663,7 +663,7 @@ function selfTest() {
     ),
   )
   ok(
-    clean.counts.forks === 0 && clean.counts.voidRows === 0 && clean.counts.rotatedPointers === 0,
+    clean.counts.forks === 0 && clean.counts.voidRows === 0 && clean.counts.rotatedAuto === 0,
     '干净文档必须三条全零',
   )
   ok(clean.counts.claimable === 1, `干净文档派单口径应为 1,实测 ${clean.counts.claimable}`)
@@ -691,7 +691,7 @@ function selfTest() {
   const items = [
     ['F1', '同主键两态并存(组)', 5],
     ['F2', '带作废声明未落账(行)', 3],
-    ['F3', '行号指针已腐烂(处)', 0],
+    ['F3', '行号指针可自动收口(处)', 0],
   ]
   ok(ratchetViolations(null, items).length === 0, '没有基线时棘轮不得凭空判红')
   ok(
@@ -760,7 +760,9 @@ function selfTest() {
     '清偿(1 块降到 0)不得判红 —— 反方向判红等于没人敢做归并',
   )
   // 差值棘轮(提交链上的主判据):基准取不到时调用方根本不传 before,这里只比"变多"
-  const mk = (f1, f2, f3) => ({ counts: { forks: f1, voidRows: f2, rotatedPointers: f3 } })
+  const mk = (f1, f2, f3) => ({
+    counts: { forks: f1, voidRows: f2, rotatedPointers: f3, rotatedAuto: f3, rotatedNoExit: 0 },
+  })
   ok(grewViolations(mk(4, 0, 0), mk(3, 0, 0)).length === 1, '相对 HEAD 变多必须点名')
   ok(grewViolations(mk(3, 0, 0), mk(3, 0, 0)).length === 0, '等值不得判红(存量债不归本次提交)')
   ok(grewViolations(mk(2, 5, 0), mk(3, 0, 0)).length === 1, '一项降一项升时只点名上涨的那项')
@@ -863,7 +865,16 @@ function selfTest() {
     },
   ]
   const gateFace = {
-    counts: { forks: 0, voidRows: 0, rotatedPointers: 0, newUndisposed: 0, stale: 2, undated: 5 },
+    counts: {
+      forks: 0,
+      voidRows: 0,
+      rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
+      newUndisposed: 0,
+      stale: 2,
+      undated: 5,
+    },
     staleRows,
   }
   const log = console.log
@@ -965,6 +976,8 @@ function selfTest() {
       forks: 0,
       voidRows: 0,
       rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
       dupOpenCopies: 0,
       verbatimDupCopies: 0,
       dupBlocks: 0,

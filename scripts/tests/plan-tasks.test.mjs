@@ -17,6 +17,7 @@ import { test } from 'node:test'
 
 import {
   POINTER_FAMILIES,
+  pointerBlindness,
   VOID_MARK_RE,
   auditPlan,
   compositeKeyOf,
@@ -257,6 +258,8 @@ test('M11 F8 成套性:进 probe / 基线地板为 0 / 涨判红降判绿(缺一
       forks: 0,
       voidRows: 0,
       rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
       dupOpenCopies: 0,
       verbatimDupCopies: 0,
       dupBlocks: 0,
@@ -295,6 +298,8 @@ test('M11 F8 成套性:进 probe / 基线地板为 0 / 涨判红降判绿(缺一
       forks: 0,
       voidRows: 0,
       rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
       dupOpenCopies: 0,
       verbatimDupCopies: 0,
       dupBlocks: 0,
@@ -382,6 +387,8 @@ test('P-x 跨文件出口锁:probe 必须由 plan-tasks 真导出,且收敛器�
       forks: 0,
       voidRows: 0,
       rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
       dupOpenCopies: 0,
       verbatimDupCopies: 0,
       dupBlocks: 0,
@@ -657,6 +664,8 @@ test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/
       forks: 0,
       voidRows: 0,
       rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
       dupOpenCopies: 0,
       verbatimDupCopies: 0,
       dupBlocks: 0,
@@ -717,6 +726,32 @@ test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/
  * 244 处(2026-09-28 量)—— 旧判据只认前者,于是 rotatedPointers 一路报 0,而每一条行号指针都在烂。
  * 这一条用例同时是反向锁:把族表删回一条,分支②立刻翻红。
  */
+/**
+ * M19 活体不变量:宽尺数到的行号引用必须等于族表判到的条数,且钉在历史版本上而非只有 HEAD
+ * (HEAD 会被自己修好,那时"0 == 0"两条都成立 ⇒ 断言退化成恒真;取舍见本文件对 SAMPLE_REV 的头注)。
+ * 为什么必须有它:2026-09-28 一天内同一格栽三次 —— 族表只认「存活于」时,归并器自产的「另一条登记在
+ * L####」244 处全隐身;补上那族后又出现「见 L7652」「入库登记在 L8584」第三种拼法,而我第一版把
+ * `(?:完成)?登记在` 写成 `完成?登记在`(只把"完"变可选、"成"成了必需字符)⇒ 面上 9 处只判到 8。
+ * 夹具只证明函数会给答案;这条证明的是"没人换拼法时偷偷溜过去"。
+ */
+test('M19 族表不得落后于面上实际形态(宽尺命中数必须等于判据命中数)', () => {
+  let sawAny = false
+  for (const rev of ['64417a25b^', 'HEAD']) {
+    const txt = gitRaw(['show', `:PROJECT_PLAN.md`], ROOT)
+    if (!txt || txt.length < 1000) throw new Error(` 取不到计划文档 ⇒ 尺子无从自证`)
+    const { rawRefs, judged } = pointerBlindness(txt)
+    if (rawRefs !== judged)
+      throw new Error(`:面上  处行号引用,判据只吃到  处 ⇒ 族表漏一族(补族与出口声明,别削宽尺)`)
+    if (rawRefs > 0) sawAny = true
+  }
+  if (!sawAny)
+    throw new Error('两个版本都数到 0 处行号引用 ⇒ 对照无意义,换一个历史版本而不是让它恒真')
+  // 引用体(「…」与反引号包裹)里写的是"对这个形态的描述",不是指针
+  const cited = '- [ ] **X 说明**:这一型写作「…登记在 L13178」这类拼法。'
+  const onCited = findRotatedPointers(cited)
+  if (onCited.length !== 0)
+    throw new Error('「…」引用体里的样例被判成指针 ⇒ 出口会去改写自己的说明')
+})
 test('M18 F3 对"门自己产出的指针措辞"必须有牙(族表两条各一正一反)', () => {
   if (POINTER_FAMILIES.length < 2)
     throw new Error(`族表至少要有"存活于"与"另一条登记在"两族,实测 ${POINTER_FAMILIES.length}`)
