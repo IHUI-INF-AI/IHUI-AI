@@ -8387,6 +8387,10 @@
           "title": "参数不完整或无效",
           "action": "修改后重试"
         },
+        "NEEDS_INPUT_TIMEOUT": {
+          "title": "命令等待输入超时",
+          "action": "补答后重试"
+        },
         "NESTING_DEPTH_EXCEEDED": {
           "title": "结构层级超出可处理范围",
           "action": "简化后重试"
