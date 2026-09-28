@@ -23,9 +23,12 @@
  * 鉴权插件 mock 沿用 tests/ 既有形态(注入 apiKey 上下文,见
  * v1-message-bus-contract.test.ts,本文件不 mock 鉴权语义本身)。
  *
- * 主体豁免登记:GET /memory/working 保持 system-worker —— ai-service 侧
- * /memory/working 按 session_id 作用域(无 user_id 参数、无
- * require_request_user_id),用户主体无属主语义,用例把它钉死在现状上。
+ * 主体豁免已撤销(2026-09-28):GET /memory/working 原先登记为"保持 system-worker",
+ * 理由是 ai-service 侧按 session_id 作用域、条目不记属主 ⇒ 用户主体无属主语义。
+ * 写侧补属主后该前提不再成立,继续走系统通道会得到一个按 sub='system-worker'
+ * 比对、恒查不到真实条目的空桶(200 而 items:[]),故本文件把它与 memory 族其余
+ * 端点同视:必须注入真实用户主体,并且出站要带上 session_id 句柄
+ * (此前不传 ⇒ 下游 422 ⇒ 网关 503,该端点是一条结构死路)。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { jwtVerify } from 'jose'
@@ -303,21 +306,56 @@ describe('GET /v1/memory/procedural 程序记忆 — 用户主体', () => {
 })
 
 // =============================================================================
-// 3. 豁免登记:GET /memory/working 保持 system-worker(session 作用域,无属主语义)
+// 3. 豁免撤销:GET /memory/working 与 memory 族同视(用户主体 + session_id 句柄透传)
 // =============================================================================
 
-describe('GET /v1/memory/working 工作记忆 — 主体豁免(session 作用域)', () => {
-  it('保持系统通道 sub = system-worker(豁免理由见路由处注释)', async () => {
+describe('GET /v1/memory/working 工作记忆 — 主体豁免已撤销(2026-09-28)', () => {
+  it('sub = A 的 userId(不再是 system-worker),且出站带上 session_id', async () => {
     authState.apiKey = API_KEY_A
     const server = await buildServer()
     const res = await server.inject({
       method: 'GET',
-      url: '/v1/memory/working',
+      url: '/v1/memory/working?sessionId=sess-a',
       headers: { 'x-api-key': 'ihui_test_key' },
     })
     expect(res.statusCode).toBe(200)
-    expectOutboundPath('/api/memory/working')
-    expect(await decodeOutboundSubject()).toBe('system-worker')
+    expectOutboundPath('/api/memory/working?session_id=sess-a')
+    expect(await decodeOutboundSubject()).toBe('user-mem-A')
+    await server.close()
+  })
+
+  it('API-key B 用自己的 userId 读同一个 sessionId ⇒ 两桶不再共面(互见性切断)', async () => {
+    authState.apiKey = API_KEY_B
+    const server = await buildServer()
+    const res = await server.inject({
+      method: 'GET',
+      url: '/v1/memory/working?sessionId=sess-a&limit=20',
+      headers: { 'x-api-key': 'ihui_test_key' },
+    })
+    expect(res.statusCode).toBe(200)
+    expectOutboundPath('/api/memory/working?session_id=sess-a&limit=20')
+    const sub = await decodeOutboundSubject()
+    expect(sub).toBe('user-mem-B')
+    expect(sub).not.toBe('user-mem-A')
+    await server.close()
+  })
+
+  // 缺句柄在网关本地就 400 —— 此前不传 session_id 会让下游 422、被 forwardAiService
+  // 折成 503,把"调用方漏参数"报成"服务端故障";零出站是这条改判的唯一硬证据。
+  it.each([
+    ['缺 sessionId', '/v1/memory/working'],
+    ['空 sessionId', '/v1/memory/working?sessionId='],
+    ['limit 越界(201)', '/v1/memory/working?sessionId=sess-a&limit=201'],
+  ])('%s ⇒ 400 且不出站', async (_name, url) => {
+    authState.apiKey = API_KEY_A
+    const server = await buildServer()
+    const res = await server.inject({
+      method: 'GET',
+      url,
+      headers: { 'x-api-key': 'ihui_test_key' },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(outbound.length).toBe(0)
     await server.close()
   })
 })

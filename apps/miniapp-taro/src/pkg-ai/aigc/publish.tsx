@@ -210,7 +210,7 @@ export default function AigcPublish() {
           {t('aigc.publish.titleLabel')}
         </Text>
         <Input
-          className="w-full h-[84rpx] bg-[var(--color-muted)] rounded-xl border-[length:2rpx] border-[var(--color-border)] px-[24rpx] text-[length:32rpx] text-foreground box-border"
+          className="w-full h-[84rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] text-[length:32rpx] text-foreground box-border"
           maxlength={50}
           placeholder={t('aigc.publish.titlePlaceholder')}
           value={title}
@@ -222,7 +222,7 @@ export default function AigcPublish() {
           {t('aigc.publish.descLabel')}
         </Text>
         <Textarea
-          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-xl border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[length:32rpx] text-foreground box-border"
+          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[length:32rpx] text-foreground box-border"
           placeholder={t('aigc.publish.descPlaceholder')}
           value={desc}
           onInput={(e) => setDesc(e.detail.value)}
@@ -233,7 +233,7 @@ export default function AigcPublish() {
           {t('aigc.publish.promptLabel')}
         </Text>
         <Textarea
-          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-xl border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[length:32rpx] text-foreground box-border"
+          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[length:32rpx] text-foreground box-border"
           placeholder={t('aigc.publish.promptPlaceholder')}
           value={prompt}
           onInput={(e) => setPrompt(e.detail.value)}
@@ -241,7 +241,7 @@ export default function AigcPublish() {
 
         {/* 对齐 RN submitBtn(marginTop 24 → 48rpx,py 14 → 28rpx,radius 24rpx;禁用态 bg text.tertiary) */}
         <Button
-          className={`w-full text-[length:32rpx] font-semibold rounded-xl mt-[48rpx] ${
+          className={`w-full text-[length:32rpx] font-semibold rounded-sm mt-[48rpx] ${
             submitting || uploading
               ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]'
               : 'bg-primary text-[var(--color-primary-foreground)]'

@@ -472,7 +472,7 @@ export function Leaderboard({ entries }: Props) {
             key={tab.key}
             type="button"
             onClick={() => setActiveCategory(tab.key)}
-            className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
               activeCategory === tab.key
                 ? 'bg-cta text-cta-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -495,7 +495,7 @@ export function Leaderboard({ entries }: Props) {
               key={sub.key}
               type="button"
               onClick={() => setActiveSubcat(sub.key)}
-              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              className={`rounded-sm px-2 py-0.5 text-[11px] font-medium transition-colors ${
                 activeSubcat === sub.key
                   ? 'bg-foreground text-background'
                   : 'text-muted-foreground hover:bg-accent'
@@ -523,7 +523,7 @@ export function Leaderboard({ entries }: Props) {
             <button
               type="button"
               onClick={() => setActiveVendor(null)}
-              className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+              className={`rounded-sm px-1.5 py-0.5 text-[10px] transition-colors ${
                 activeVendor === null
                   ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-accent'
@@ -536,7 +536,7 @@ export function Leaderboard({ entries }: Props) {
                 key={v}
                 type="button"
                 onClick={() => setActiveVendor((cur) => (cur === v ? null : v))}
-                className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                className={`rounded-sm px-1.5 py-0.5 text-[10px] transition-colors ${
                   activeVendor === v
                     ? 'bg-cta text-cta-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-accent'
@@ -555,7 +555,7 @@ export function Leaderboard({ entries }: Props) {
             <button
               type="button"
               onClick={() => setFavOnly(false)}
-              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] transition-colors ${
+              className={`inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
                 !favOnly
                   ? 'bg-foreground/10 text-foreground font-semibold'
                   : 'text-muted-foreground/70 hover:bg-accent/60 hover:text-foreground'
@@ -567,7 +567,7 @@ export function Leaderboard({ entries }: Props) {
               type="button"
               onClick={() => setFavOnly(true)}
               disabled={favIds.size === 0}
-              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] transition-colors ${
+              className={`inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
                 favOnly
                   ? 'bg-amber-500/15 text-amber-700 font-semibold dark:text-amber-400'
                   : 'text-muted-foreground/70 hover:bg-accent/60 hover:text-foreground'
@@ -584,7 +584,7 @@ export function Leaderboard({ entries }: Props) {
             <button
               type="button"
               onClick={() => setShowColMenu((v) => !v)}
-              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-muted-foreground/70 transition-colors hover:bg-accent/60 hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] text-muted-foreground/70 transition-colors hover:bg-accent/60 hover:text-foreground"
               aria-label={t('leaderboard.colVisibility')}
             >
               <Settings2 className="h-2.5 w-2.5" />
@@ -616,7 +616,7 @@ export function Leaderboard({ entries }: Props) {
                         key={field}
                         type="button"
                         onClick={() => toggleCol(field)}
-                        className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[11px] transition-colors hover:bg-accent"
+                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-[11px] transition-colors hover:bg-accent"
                       >
                         <span
                           className={`inline-flex h-3 w-3 items-center justify-center rounded-sm border ${
@@ -677,7 +677,7 @@ export function Leaderboard({ entries }: Props) {
                           setSearchQuery('')
                           setActiveVendor(null)
                         }}
-                        className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-cta/20"
+                        className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-cta/20"
                       >
                         {t('leaderboard.clearFilter')}
                       </button>
@@ -716,7 +716,7 @@ export function Leaderboard({ entries }: Props) {
                       <button
                         type="button"
                         onClick={() => toggleFav(entry)}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-accent"
+                        className="inline-flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent"
                         aria-label={t('leaderboard.favToggle')}
                       >
                         <Star

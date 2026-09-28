@@ -241,7 +241,7 @@ export default function VipDetailsPage() {
       </View>
 
       <Button
-        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-cta text-cta-foreground rounded-xl text-[length:32rpx] font-semibold"
+        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-cta text-cta-foreground rounded-sm text-[length:32rpx] font-semibold"
         onClick={goUpgrade}
       >
         {t('vip.details.upgrade')}
