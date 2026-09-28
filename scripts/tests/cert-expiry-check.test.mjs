@@ -18,12 +18,14 @@
  */
 
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
-import { mkdtempSync, copyFileSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
+import { copyFileSync, writeFileSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import assert from 'node:assert/strict'
+
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(here, '..', '..')
@@ -32,11 +34,18 @@ const src = readFileSync(SRC, 'utf8')
 
 /** 用真件证书/私钥/公钥 + 一个怪形态组一个临时目录(不自己伪造密钥材料) */
 function fixture() {
-  const dir = mkdtempSync(join(resolve(REPO, '..', 'DevEnv', 'Temp'), 'cert-mirror-'))
-  for (const f of ['apiclient_cert.pem', 'apiclient_key.pem', 'pub_key.pem'])
-    copyFileSync(join(REPO, 'cert', f), join(dir, f))
-  // 一个既不是证书也不是密钥的 PEM 形态:必须落"未判定",不得被算成 ok 或 error
-  writeFileSync(join(dir, 'weird.pem'), '-----BEGIN X509 CRL-----\nQUJD\n-----END X509 CRL-----\n')
+  // 落点经 §26 唯一出口 mkScratch(此前它自己 `resolve(REPO,'..','DevEnv','Temp')` 拼 Temp,
+  // 绕开出口 ⇒ gitdir/scratch 的夹具闸与退出清理对这一族零覆盖)。
+  const dir = mkScratch('cert-mirror-')
+  try {
+    for (const f of ['apiclient_cert.pem', 'apiclient_key.pem', 'pub_key.pem'])
+      copyFileSync(join(REPO, 'cert', f), join(dir, f))
+    // 一个既不是证书也不是密钥的 PEM 形态:必须落"未判定",不得被算成 ok 或 error
+    writeFileSync(join(dir, 'weird.pem'), '-----BEGIN X509 CRL-----\nQUJD\n-----END X509 CRL-----\n')
+  } catch (e) {
+    rmScratch(dir)
+    throw e
+  }
   return dir
 }
 
@@ -75,7 +84,7 @@ test('M1 公钥按内容识别为公钥、只验可解析、不判到期也不�
     assert.equal(pub.severity, 'ok', `可解析的公钥不该计错误,实得 ${pub.severity}`)
     assert.match(String(pub.note), /无到期|不判/, '要明写"没判有效期" —— 不得读成"已确认证书有效"')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -88,7 +97,7 @@ test('M2 回归锁:pub_key.pem 不得再被送进私钥解析(那正是永远挂
     assert.ok(!String(pub.message || '').includes('DECODER'), '不得再出现 createPrivateKey 的解码错误')
     assert.equal(json.error, 0, `error 必须为 0,实得 ${json.error}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -102,7 +111,7 @@ test('M3 怪形态 PEM 落"未判定":独立计数、不冒充通过也不冒红
     assert.equal(json.unrecognized, 1)
     assert.equal(status, 0, '一条"判不出"不该把整份检查钉红(那会长出一条无人理的假红)')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
