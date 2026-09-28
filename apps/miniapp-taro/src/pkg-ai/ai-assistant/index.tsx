@@ -400,7 +400,7 @@ export default function AiAssistantPage() {
       {/* 对齐 RN InputArea:row 底对齐 / px12 py8 dp=24/16 rpx / card 底 + 上边框;输入框 minHeight 48dp=96rpx / 12dp=24rpx 圆角 / root 底描边;发送钮 44dp=88rpx brand 底 */}
       <View className="flex flex-row items-end bg-card border-t border-border px-[24rpx] py-[16rpx]">
         <Input
-          className="flex-1 h-[96rpx] px-[24rpx] bg-background border border-border rounded-xl text-[length:28rpx] text-foreground"
+          className="flex-1 h-[96rpx] px-[24rpx] bg-background border border-border rounded-sm text-[length:28rpx] text-foreground"
           placeholder={tt('tail.9', '请输入描述')}
           value={prompt}
           onInput={(e) => setPrompt(e.detail.value)}

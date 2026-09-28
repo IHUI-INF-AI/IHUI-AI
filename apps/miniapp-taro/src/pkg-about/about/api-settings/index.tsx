@@ -185,7 +185,7 @@ export default function ApiSettings() {
           </Text>
           <View className="flex items-center gap-[16rpx]">
             <Input
-              className="flex-1 h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-xl text-[length:28rpx] text-foreground"
+              className="flex-1 h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
               type="text"
               password={!showToken}
               value={apiToken}
@@ -208,7 +208,7 @@ export default function ApiSettings() {
             {tt('about.apiSettings.workflowId', '工作流 ID(Workflow ID)')}
           </Text>
           <Input
-            className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-xl text-[length:28rpx] text-foreground"
+            className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
             type="text"
             value={workflowId}
             placeholder={tt('about.apiSettings.workflowPlaceholder', '请输入工作流 ID')}
@@ -221,13 +221,13 @@ export default function ApiSettings() {
 
         <View className="flex gap-[24rpx] mb-[24rpx]">
           <Button
-            className="flex-1 text-[length:32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-xl m-0 p-0 after:border-0 bg-primary text-[var(--color-primary-foreground)]"
+            className="flex-1 text-[length:32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-sm m-0 p-0 after:border-0 bg-primary text-[var(--color-primary-foreground)]"
             onClick={save}
           >
             {tt('about.apiSettings.saveBtn', '保存设置')}
           </Button>
           <Button
-            className="flex-1 text-[length:32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-xl m-0 p-0 after:border-0 bg-background border-[length:2rpx] border-border text-[var(--color-text-medium)]"
+            className="flex-1 text-[length:32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-sm m-0 p-0 after:border-0 bg-background border-[length:2rpx] border-border text-[var(--color-text-medium)]"
             onClick={reset}
           >
             {tt('about.apiSettings.resetBtn', '重置默认')}
@@ -243,7 +243,7 @@ export default function ApiSettings() {
               {tt('about.apiSettings.diagnose', 'API 连通性测试')}
             </Text>
             <Button
-              className="text-[length:28rpx] font-semibold h-[64rpx] leading-[64rpx] px-[20rpx] py-0 bg-foreground text-background rounded-xl m-0 after:border-0 disabled:opacity-60"
+              className="text-[length:28rpx] font-semibold h-[64rpx] leading-[64rpx] px-[20rpx] py-0 bg-foreground text-background rounded-sm m-0 after:border-0 disabled:opacity-60"
               disabled={testing === 'testing'}
               onClick={testConnection}
             >

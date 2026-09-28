@@ -85,7 +85,7 @@ export default function SearchPage() {
         <button
           type="submit"
           disabled={loading || !query.trim()}
-          className="px-3 py-2 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-2 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {t('common.search')}
         </button>
@@ -103,7 +103,7 @@ export default function SearchPage() {
           <button
             type="button"
             onClick={() => void doSearch(submitted)}
-            className="px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+            className="px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
           >
             {t('common.retry')}
           </button>
@@ -117,7 +117,7 @@ export default function SearchPage() {
             {result.items.map((it) => (
               <Card
                 key={`${it.type}-${it.id}`}
-                className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
+                className="rounded-lg border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => openItem(it.url)}
               >
                 <CardHeader className="px-3 py-2">
