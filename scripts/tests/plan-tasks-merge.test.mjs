@@ -23,10 +23,29 @@ import {
   POINTER_FAMILIES,
   POINTER_NO_AUTO_REPAIR,
   auditPlan,
+  keyOfRow,
+  titleOf,
 } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { buildBlockDedupe, healStopReasons, verifyBlockDedupe, buildMerge, __test__ } from '../plan-tasks-merge.mjs'
+import {
+  buildBlockDedupe,
+  healStopReasons,
+  verifyBlockDedupe,
+  buildMerge,
+  foldTwins,
+  applyTwinFolds,
+  verifyTwinFold,
+  buildTwinFold,
+  stripTwinFold,
+  isTwinFolded,
+  twinFoldNote,
+  twinFoldRejectReason,
+  KNOWN_FLAGS,
+  __test__,
+} from '../plan-tasks-merge.mjs'
 import { forkPreserved } from '../lib/plan-merge-annotation.mjs'
+// 反向锁与"两维互咬"的判据一律引守门 71 自己那一份实现(§22c:镜像测试不抄第二份判据)
+import { headIdOf, headIdSet, lostMarkers, markerOf } from '../check-plan-line-loss.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const gitQ = (cwd, args) =>
@@ -38,8 +57,12 @@ const gitQ = (cwd, args) =>
   })
 const PLAN_A = ['# 计划', '', '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。', '- [ ] **D9 同一件事**:另一侧还挂着未勾。', '- [ ] **D8 真待办**:还没人做。', ''].join('\n')
 
-/** 搭一个带分叉夹具的临时 git 仓,并把它的项目根返回给调用方收尾。 */
-function fixtureRepo() {
+/**
+ * 搭一个带夹具的临时 git 仓,并把它的项目根返回给调用方收尾。
+ * 默认夹具 = PLAN_A(一条已做完 + 一条未翻勾的副本);折叠档需要自己的夹具,故两参可覆盖 ——
+ * 默认值不变,既有 T1/T3/… 的语义一字未动(向后兼容是这一票的硬要求)。
+ */
+function fixtureRepo(planText = PLAN_A, commitMsg = 'fixture: 一条已做完 + 一条未翻勾的副本') {
   const dir = mkScratch('plan-merge-e2e')
   const sdst = path.join(dir, 'scripts')
   mkdirSync(sdst, { recursive: true })
@@ -56,9 +79,9 @@ function fixtureRepo() {
    */
   gitQ(dir, ['config', 'user.email', 't@e2e'])
   gitQ(dir, ['config', 'user.name', 'e2e'])
-  writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), PLAN_A, 'utf8')
+  writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), planText, 'utf8')
   gitQ(dir, ['add', 'PROJECT_PLAN.md'])
-  gitQ(dir, ['commit', '-q', '-m', 'fixture: 一条已做完 + 一条未翻勾的副本'])
+  gitQ(dir, ['commit', '-q', '-m', commitMsg])
   return { dir, entry: path.join(sdst, 'plan-tasks-merge.mjs') }
 }
 
@@ -538,4 +561,303 @@ test('A2 端到端:从未实现的出口 ⇒ rc=2、原样点名,且绝不打出
   assert.equal(status, 2, `未识别参数必须 exit 2(无法判定),实得 ${status}:${out.slice(0, 200)}`)
   assert.match(out, /未识别的参数:"--dedupe-done-twins"/, '必须原样点名收到的那个 token')
   assert.doesNotMatch(out, /✅ 零损失对账通过|派单口径/, '拒绝那一趟不得同时打出成功档口的结论')
+})
+
+// ══ F10 折叠档:同一件事被并发取号登记成**不同编号**(2026-09-28 立)════════════
+// 立项凭据(2026-09-28 现读 HEAD 面,同一把尺子 parseTaskRows × titleOf × keyOfRow):
+// 同题而编号互异的族 **17 族 / 可折 23 行**,而 compositeKeyOf 对每一族都给不出相等的主键
+// ⇒ F1/F2/F4/F4b 四条判据结构上全盲 ⇒ 这些行永久留在 `--open` 里,把守门 130 钉成
+// "干净 HEAD 也红"(§12f:恒红门的唯一结局是各会话跳钩子、连带链上全部检查作废)。
+// 这一档的风险全在"折完之后两把尺子各怎么读它",所以**成对**断言不可省:
+// 正向证"折得对",反向证"判据有牙",再加一条端到端证"会自己提交的东西只推进 HEAD"。
+
+/** 逐字取自 HEAD 面 PROJECT_PLAN.md 的一族(并发取号把同一件事登成 G-300 / G-317 两行,L11783/L12147)。 */
+const TWIN_REAL = [
+  '- [ ]G-300 `USDT_TRC20_ADDRESS` 仍空（**等机主给值**——它是平台自己的 USDT-TRC20 收款地址,不是第三方凭据,本机 7 份 env 备份里从未有过非空值;同族 `USDT_ERC20_ADDRESS` 早有值,说明这是机主掌握的信息)。不填的后果已定位:TRC20 那条下单路径拿不到地址即 fail,与 webhook 无关(webhook 的 secret 本批已填回)。',
+  '- [ ]G-317 `USDT_TRC20_ADDRESS` 仍空（**等机主给值**——它是平台自己的 USDT-TRC20 收款地址,不是第三方凭据,本机 7 份 env 备份里从未有过非空值;同族 `USDT_ERC20_ADDRESS` 早有值,说明这是机主掌握的信息)。不填的后果已定位:TRC20 那条下单路径拿不到地址即 fail,与 webhook 无关(webhook 的 secret 本批已填回)。',
+  '- [ ] G-301 **与上面两行不相干的另一件事**:一行都不许被顺手改动。',
+].join('\n')
+
+test('T17 折叠档纯函数:同题两号恰好折一条、第二遍零改动、编号相同与已带指针的族一律不碰', () => {
+  const doc = [
+    '- [ ] **G-11. 同一件事**:第一份登记,持有行。',
+    '- [ ] **G-12. 同一件事**:并发取号抢到的另一个号,同一件事。',
+    '- [ ] **G-13. 别的事**:与上面两行无关。',
+  ].join('\n')
+  const L = doc.split('\n')
+  // 夹具自证:两行必须"题面逐字相等而编号互异",否则整条断言恒真(第一版就恒真过一次)
+  if (titleOf(L[0]) !== titleOf(L[1])) throw new Error('夹具的题面不相等 ⇒ 测不到这一型')
+  if (!keyOfRow(L[0]) || !keyOfRow(L[1])) throw new Error('夹具的编号不被 keyOfRow 认得 ⇒ 这一臂恒真,换形态而不是删断言')
+  if (keyOfRow(L[0]) === keyOfRow(L[1])) throw new Error('夹具的编号没互异 ⇒ 这是 F1/F4 的地盘,不是 F10')
+  const f = applyTwinFolds(doc, '2026-09-28')
+  if (f.edits.length !== 1) throw new Error(`一族两行应恰好折 1 行,实测 ${f.edits.length}`)
+  if (f.edits[0].line !== 2) throw new Error(`持有行必须是位置最靠前的 L1,实测折了 L${f.edits[0].line}`)
+  if (f.text.split('\n')[0] !== L[0]) throw new Error('持有行被改动 ⇒ 一行都不许顺手改')
+  if (f.text.split('\n')[2] !== L[2]) throw new Error('不相关行被改动')
+  if (!/^- \[ \]/.test(f.edits[0].after)) throw new Error(`本档不得动勾选:${f.edits[0].after.slice(0, 20)}`)
+  if (!isTwinFolded(f.edits[0].after)) throw new Error('产物必须被自家的形态判据认得(否则第二遍会重折)')
+  if (stripTwinFold(f.edits[0].after) !== L[1]) throw new Error('剥掉本档注记后必须逐字回到底稿')
+  // 幂等 —— 本票的全部价值就在这条上:union 会把没折的原件重新塞回来,所以折叠必须每次重跑,
+  // 而"每次重跑"不产生新改动才算收敛(第二遍若还能折,post-commit 就是一台永动机)。
+  const again = applyTwinFolds(f.text, '2026-09-28')
+  if (again.edits.length !== 0 || again.text !== f.text) throw new Error(`第二遍必须零改动,实测 ${again.edits.length} 行`)
+  // 反向对照 A:同题而**编号相同** ⇒ composite 相等 ⇒ 那是 F1/F4 那一维,本档不得插手(混维=两套翻勾判据互咬)
+  const sameKey = foldTwins(['- [ ] **G-11. 同一件事**:甲。', '- [ ] **G-11. 同一件事**:乙。'], '2026-09-28')
+  if (sameKey.edits.length !== 0) throw new Error(`编号相同的族被本档折了 ${sameKey.edits.length} 行 ⇒ 越界`)
+  // 反向对照 B:族内已有一条带 F4 归并指针 ⇒ 不得再折(指针行是"已判定"的形状,持有行也不许被换)
+  const ptr = foldTwins(
+    [
+      '- [ ] **G-11. 同一件事**:甲。',
+      '- [ ] **G-12. 同一件事** 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记,派单以那条为准。〕',
+    ],
+    '2026-09-28',
+  )
+  if (ptr.edits.length !== 0) throw new Error('已带归并指针的族被重折 ⇒ 与 F4 那一维打架')
+  // 反向对照 C:全组已完成 ⇒ 只点名不动手(翻勾与归档是别人的面),且**不得**记成"已修"
+  const allDone = foldTwins(
+    ['- [x] ✅(2026-09-20) **G-21. 全族已完成**:甲。', '- [x] ✅(2026-09-21) **G-22. 全族已完成**:乙。'],
+    '2026-09-28',
+  )
+  if (allDone.edits.length !== 0 || !allDone.undetermined.join().includes('已完成'))
+    throw new Error(`全已完成族必须"零改动 + 点名未判定",实测 edits=${allDone.edits.length} und=${JSON.stringify(allDone.undetermined)}`)
+  // 反向对照 D:组内行数超上限 ⇒ 不猜持有行(噪声与真事故都要人来判)
+  const big = foldTwins(
+    Array.from({ length: __test__.TWIN_GROUP_MAX + 1 }, (_, i) => `- [ ] **G-${100 + i}. 超上限族**:同一件事第 ${i} 份。`),
+    '2026-09-28',
+  )
+  if (big.edits.length !== 0 || !big.undetermined.join().includes('上限'))
+    throw new Error(`超上限族必须整组交人工,实测 edits=${big.edits.length}`)
+})
+
+test('T18 摘号一律喂真尺子,并配"把编号写进指针"的正对照;守门 71 的两把判据必须不受影响', () => {
+  const f = applyTwinFolds(TWIN_REAL, '2026-09-28')
+  if (f.edits.length !== 1) throw new Error(`逐字真档夹具应折 1 行,实测 ${f.edits.length} ⇒ 夹具与判据已漂开`)
+  const after = f.edits[0].after
+  // ① 摘号必须用**索引层那一份** keyOfRow 核(不抄第二份编号正则),它红 = 折完还是会被派单口径算一条活
+  if (keyOfRow(after) !== null) throw new Error(`折叠后 keyOfRow 仍取得到主键 ${keyOfRow(after)} ⇒ 摘号没生效`)
+  if (compositeBlind(after) !== true) throw new Error('折叠行必须对 composite 口径隐形(否则 F4 会来重标它)')
+  // ② 正对照:把编号写进指针的 48 字符窗口 ⇒ 真尺子**必须**取到键。
+  //    少了这一臂,上面那条 null 就只是同义反复(今天真犯过:指针里写了持有行的编号且落在窗口内,
+  //    于是"折掉一条副本"反而给账面新增一次撞号)。
+  const poisoned = f.edits[0].before.replace(/^- \[ \] */, '- [ ] （【归并】副本·持有行 G-999）')
+  if (keyOfRow(poisoned) === null) throw new Error('正对照失效:编号写进窗口内尺子竟取不到 ⇒ 这条断言没有牙')
+  if (!(twinFoldRejectReason(f.edits[0].before, poisoned) || '').includes('主键'))
+    throw new Error(`拒折判据必须点名"折完仍有主键",实得:${twinFoldRejectReason(f.edits[0].before, poisoned)}`)
+  // ③ 守门 71 侧:注记包在全角括号里 ⇒ `checkboxBody` 剥得掉 ⇒ "行首名额"与"标记"都不受任何影响。
+  //    这条不对称是本档的落点:换成 `〔〕`(F4 与旧一次性折叠用的那对)就会与回捞层互咬 ——
+  //    防丢层把合法折叠读成"整行消失"⇒ post-commit 塞回未折叠原件 ⇒ 折叠被原地复活(G-307 同型)。
+  if (headIdOf(f.edits[0].before) !== headIdOf(after))
+    throw new Error(`门 71 的"行首名额"被折叠改变了:${headIdOf(f.edits[0].before)}→${headIdOf(after)} ⇒ 会与回捞层互咬`)
+  if (markerOf(f.edits[0].before) !== markerOf(after))
+    throw new Error(`门 71 的整行标记被折叠改变了:${JSON.stringify(markerOf(f.edits[0].before))}→${JSON.stringify(markerOf(after))}`)
+  if (lostMarkers(TWIN_REAL, f.text).length !== 0)
+    throw new Error(`折叠后被判"整行消失"的登记行 ${lostMarkers(TWIN_REAL, f.text).length} 处 ⇒ 拒落是对的,这里却红了`)
+  const setOf = (s) => [...headIdSet(s)].sort().join(',')
+  if (setOf(TWIN_REAL) !== setOf(f.text)) throw new Error(`整档行首编号集合发生变化:${setOf(TWIN_REAL)} → ${setOf(f.text)}`)
+  // ④ 派单口径:折掉的行必须被 `DUP_POINTER_RE` 认出并逐出 --open(否则"摘号"只是换个地方挂账)
+  if (!DUP_POINTER_RE.test(after)) throw new Error('折叠行不含【归并】重复登记副本 ⇒ 不会被派单口径逐出')
+  const c0 = auditPlan(TWIN_REAL).counts
+  const c1 = auditPlan(f.text).counts
+  if (c0.open !== c1.open) throw new Error(`本档不删行不改勾选,未勾选数却从 ${c0.open} 变成 ${c1.open}`)
+  if (!(c1.claimable < c0.claimable)) throw new Error(`派单口径没缩小(${c0.claimable}→${c1.claimable})⇒ 折叠对派单无效,这一票就白做`)
+})
+
+/** composite 口径(索引层那把尺子)对这一行是否隐形 —— 给不出键即隐形。 */
+function compositeBlind(line) {
+  const t = titleOf(line)
+  return keyOfRow(line) === null || !t
+}
+
+test('T19 零损失断言必须拒落:四种"会被误判"的场景各自点名,一条都不许静默通过', () => {
+  const doc = TWIN_REAL
+  const f = applyTwinFolds(doc, '2026-09-28')
+  // (a) 行号在落地前挪位(并发 append 是本仓的常态):声明的 before 对不上 ⇒ 整批不落
+  const shifted = '# 新塞进来的一行标题\n' + doc
+  const pa = verifyTwinFold(shifted, shifted, f.edits, f.refused).problems
+  if (!pa.some((x) => x.includes('before'))) throw new Error(`底稿不等必须被点名:${JSON.stringify(pa)}`)
+  // (b) 偷偷改了一行没声明的:结构等值(新内容 == 前缀 ⊕ 本行 ⊕ 后缀)不成立
+  const tampered = f.text.replace('- [ ] G-301 **与上面两行不相干的另一件事**:一行都不许被顺手改动。', '- [ ] G-301 被改掉了')
+  const pb = verifyTwinFold(doc, tampered, f.edits, f.refused).problems
+  if (!pb.some((x) => x.includes('未登记'))) throw new Error(`未登记改动必须被点名:${JSON.stringify(pb)}`)
+  // (c) 产物本身有害(编号写进了 48 字符窗口):同一处位置、同样一行不删,零损失断言仍必须炸
+  const badAfter = f.edits[0].before.replace(/^- \[ \]*/, '- [ ] （【归并】副本·持有行 G-999）')
+  const badEdits = [{ ...f.edits[0], after: badAfter }]
+  const badText = doc.split('\n').map((l, i) => (i === f.edits[0].line - 1 ? badAfter : l)).join('\n')
+  const pc = verifyTwinFold(doc, badText, badEdits, f.refused).problems
+  if (!pc.some((x) => x.includes('主键'))) throw new Error(`"折完仍有主键"必须炸:${JSON.stringify(pc)}`)
+  // (d) 取不到整档 ⇒ 判"未判定",不得当成"没有债"(这是本仓最高频的失效方向)
+  const pd = verifyTwinFold(doc, undefined, f.edits, []).problems
+  if (!pd.some((x) => x.includes('未判定'))) throw new Error(`入参不是整档文本必须判未判定:${JSON.stringify(pd)}`)
+  if (applyTwinFoldsSafe(undefined) !== 'throw') throw new Error('applyTwinFolds 拿到非字符串必须抛错,不得 String(undefined) 造一份单行假文档')
+  // (e) 可逆性哨兵:标题里本来就带「…」的族是 HEAD 面实测形态(19 条里 4 条如此)。
+  //     非贪婪的剥取会停在标题内部那个 `」` ⇒ 把**合法**折叠误判成"不可逆"而永久拒绝,
+  //     那一族就再也没有出口。这一臂钉的是"误拒"方向 —— 与上面四条同为有牙断言。
+  const qDoc = [
+    '- [ ] G-1 **桌面端「启动后先进托盘」**:甲,持有行。',
+    '- [ ] G-2 **桌面端「启动后先进托盘」**:乙,同一件事的另一个编号。',
+  ].join('\n')
+  if (!titleOf(qDoc.split('\n')[0]).includes('」')) throw new Error('夹具的题面没含「」⇒ 这一臂恒真,换形态而不是删断言')
+  const q = applyTwinFolds(qDoc, '2026-09-28')
+  if (q.edits.length !== 1 || q.refused.length !== 0)
+    throw new Error(`题面含「」的族必须折得下来,实测 edits=${q.edits.length} refused=${JSON.stringify(q.refused.map((r) => r.reason))}`)
+  if (stripTwinFold(q.edits[0].after) !== qDoc.split('\n')[1]) throw new Error('贪婪哨兵剥回来的不是底稿 ⇒ 可逆性只是看起来成立')
+  if (verifyTwinFold(qDoc, q.text, q.edits, q.refused).problems.length)
+    throw new Error(`正当折叠被零损失断言误拒:${JSON.stringify(verifyTwinFold(qDoc, q.text, q.edits, q.refused).problems)}`)
+  // (f) 反向:正文里**本来就**有同款留痕的行不得再折(哨兵会过剥 ⇒ 不可逆 ⇒ 必须拒)
+  const twice = q.edits[0].after
+  if (twinFoldRejectReason(stripTwinFold(twice), buildTwinFold(twice, qDoc.split('\n')[0], '2026-09-28') ?? '') === null)
+    throw new Error('对已带留痕的行再折一次必须被拒 —— 两次注记叠在一行上等于伪造底稿')
+})
+
+function applyTwinFoldsSafe(x) {
+  try {
+    applyTwinFolds(x, '2026-09-28')
+    return 'no-throw'
+  } catch {
+    return 'throw'
+  }
+}
+
+test('T20 端到端(独立仓)--fold-twins --commit:产出一枚只含台账的提交,再跑一遍零提交且不改工作树', () => {
+  const plan = ['# 计划', '', ...TWIN_REAL.split('\n'), ''].join('\n')
+  const env = fixtureRepo(plan, 'fixture: 同一件事被并发取号登成两行(G-300/G-317)')
+  try {
+    const report = runCli(env, ['--fold-twins'])
+    if (report.code !== 0) throw new Error(`报告档应 exit 0,实得 ${report.code}:${report.out}`)
+    if (!/拟折 1 行/.test(report.out)) throw new Error(`报告档没数对三态:${report.out}`)
+    if (countCommits(env.dir) !== 1) throw new Error('报告档写盘了 —— 未加 --commit 必须一行不改')
+    if (report.added.length !== 0) throw new Error(`报告档留下文件 ${JSON.stringify(report.added)}`)
+    const r = runCli(env, ['--fold-twins', '--commit'])
+    if (r.code !== 0) throw new Error(`落地档应 exit 0,实得 ${r.code}:${r.out}`)
+    if (!/折叠档落地/.test(r.out)) throw new Error(`输出未点名落地:${r.out.trim()}`)
+    const head = gitQ(env.dir, ['show', 'HEAD:PROJECT_PLAN.md'])
+    const lines = head.split(/\r?\n/)
+    const kept = lines.find((l) => l.includes('G-300 `USDT_TRC20_ADDRESS`'))
+    const folded = lines.find((l) => isTwinFolded(l))
+    if (!kept || keyOfRow(kept) !== 'G-300') throw new Error(`持有行必须还是带号的 G-300:${JSON.stringify(kept && kept.slice(0, 60))}`)
+    if (!folded) throw new Error('HEAD 里找不到折叠档 ⇒ 落地没生效(而输出却说成功了)')
+    if (keyOfRow(folded) !== null) throw new Error(`落地面折叠行仍有主键 ${keyOfRow(folded)}`)
+    if (!/^- \[ \]/.test(folded)) throw new Error(`折叠行勾被翻了:${folded.slice(0, 20)}`)
+    if (!/\(原编号 G-317;持有行题面「.*」\)$/.test(folded))
+      throw new Error('折叠行必须在**行尾**留原编号沿革(否则日后无人查得到它原来是谁,而沿革写进窗口就会被取成自己的主键)')
+    if (stripTwinFold(folded) !== TWIN_REAL.split('\n')[1]) throw new Error('HEAD 面上的折叠档剥回注记后不等于原件')
+    if (lostMarkers(plan, head).length !== 0) throw new Error(`落地后被门 71 判为消失的登记行 ${lostMarkers(plan, head).length} 处 ⇒ 会与回捞层互咬`)
+    if (lines.length !== plan.split('\n').length) throw new Error(`行数变了 ${plan.split('\n').length}→${lines.length}(本档只许改行内内容)`)
+    const paths = gitQ(env.dir, ['show', '--name-only', '--format=', 'HEAD']).trim().split('\n').filter(Boolean)
+    if (paths.length !== 1 || paths[0] !== 'PROJECT_PLAN.md') throw new Error(`提交含意外路径:${JSON.stringify(paths)}`)
+    if (countCommits(env.dir) !== 2) throw new Error('提交总数应为 2(fixture + 折叠)')
+    if (readFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), 'utf8') !== plan)
+      throw new Error('工作树副本被折叠档改写 ⇒ 越权(并发会话的盘不是我的输出面)')
+    const again = runCli(env, ['--fold-twins', '--commit'])
+    if (again.code !== 0 || !/无可折/.test(again.out)) throw new Error(`第二遍应判"无可折":${again.out.trim()}`)
+    if (countCommits(env.dir) !== 2) throw new Error('幂等失败:第二遍又产出了一枚提交')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+test('T21 端到端 --heal --commit 现在也执行这一维,且与翻勾那一维互不打架(向后兼容)', () => {
+  const plan = [
+    '# 计划',
+    '',
+    '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。',
+    '- [ ] **D9 同一件事**:另一侧还挂着未勾。',
+    '- [ ] **D8 真待办**:还没人做。',
+    '- [ ] **G-41. 孪生登记**:第一份登记,持有行。',
+    '- [ ] **G-42. 孪生登记**:同一件事,并发取号取了另一个号。',
+    '',
+  ].join('\n')
+  /**
+   * 夹具自证(本条连踩两次):① 编号必须被**真尺子**认得出,② 题面必须过 `compositeKeyOf`
+   * 那道 ≥4 字的闸 —— 两条任一不满足,foldTwins 都会把整族当"看不见"跳过,于是这条端到端
+   * 断言恒真地"通过",而 --heal 那一维其实一行都没折(判据失效的表现永远是安静)。
+   */
+  const twinPair = plan.split('\n').filter((l) => /孪生登记/.test(l))
+  if (twinPair.length !== 2) throw new Error('夹具的孪生对没成对')
+  for (const l of twinPair) if (keyOfRow(l) === null) throw new Error(`夹具的编号不被 keyOfRow 认得 ⇒ 这一臂恒真:${l.slice(0, 30)}`)
+  if (titleOf(twinPair[0]) !== titleOf(twinPair[1])) throw new Error('夹具的两行题面不相等 ⇒ 测不到这一型')
+  if ((titleOf(twinPair[0]) ?? '').length < 4) throw new Error('题面短于尺子的 ≥4 字闸 ⇒ 夹具恒真,加长题面而不是删断言')
+  const env = fixtureRepo(plan, 'fixture: 一条 F1 分叉 + 一对同题不同编号的孪生待办')
+  try {
+    const r = runHeal(env)
+    if (r.code !== 0) throw new Error(`自愈应 exit 0,实得 ${r.code}:${r.out}`)
+    if (!/自愈落地/.test(r.out)) throw new Error(`输出未点名落地:${r.out.trim()}`)
+    const head = gitQ(env.dir, ['show', 'HEAD:PROJECT_PLAN.md'])
+    // 两维同一枚提交:F1 翻了勾,F10 折了副本 —— 只应有一枚提交
+    if (countCommits(env.dir) !== 2) throw new Error(`两维应合到一枚提交里,实测提交数 ${countCommits(env.dir)}`)
+    if (!/\[归并\]/.test(head)) throw new Error('F1 那一维没做(向后兼容破了)')
+    const folded = head.split(/\r?\n/).find((l) => isTwinFolded(l))
+    if (!folded) throw new Error('F10 这一维没随 --heal 一起执行 ⇒ 早退判据或调度漏了它')
+    if (keyOfRow(folded) !== null) throw new Error('落地面折叠行仍有主键')
+    if (!/^- \[ \]/.test(folded)) throw new Error('两维打架:折叠行动了勾选')
+    if (!head.includes('- [ ] **D8 真待办**:还没人做。')) throw new Error('真待办被误动')
+    if (head.split(/\r?\n/).length !== plan.split('\n').length) throw new Error('行数变了(两维都只许改行内内容)')
+    const second = runHeal(env)
+    if (second.code !== 0 || !/无状态分叉/.test(second.out)) throw new Error(`第二遍应判"无需自愈":${second.out.trim()}`)
+    if (countCommits(env.dir) !== 2) throw new Error('幂等失败:第二遍又产出提交')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+test('T22 源级反向锁:指针构造里没有行号也没有编号,没有豁免清单,落地只走 bypass-git 那一份 plumbing', () => {
+  const src = readFileSync(new URL('../plan-tasks-merge.mjs', import.meta.url), 'utf8')
+  const seg = (from, to) => {
+    const i = src.indexOf(from)
+    if (i < 0) throw new Error(`源里找不到 ${from} —— 结构被改名,这条锁正在无声失效`)
+    const j = to ? src.indexOf(to, i) : src.length
+    return src.slice(i, j < 0 ? src.length : j)
+  }
+  const decomment = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  // ① 构造折叠行的那一段(注记 + 行尾沿革)剥掉散文后,既不得出现行号锚,也不得出现任何编号字面量
+  const build = decomment(seg('export function twinFoldNote', '/** 剥掉**本档**写的注记'))
+  if (/\bL\d{1,6}\b/.test(build)) throw new Error('折叠行的构造里出现了行号锚(§1 规矩 3:行号在任何一次 append 后都会挪位)')
+  if (/[A-Za-z]{1,3}-\d{1,5}\b/.test(build.replace(/\d{4}-\d{2}-\d{2}/g, '')))
+    throw new Error('折叠行的构造里出现了编号字面量 ⇒ 指针会把副本自己的主键重新领回来')
+  const note = twinFoldNote('2026-09-28')
+  if (/[A-Za-z]{1,3}-\d{1,5}/.test(note.replace(/\d{4}-\d{2}-\d{2}/g, ''))) throw new Error(`注记里含编号形态:${note}`)
+  if (/\bL\d{1,6}\b/.test(note)) throw new Error(`注记里含行号:${note}`)
+  if (/[）)]/.test(note.slice(1, -1))) throw new Error('注记内部出现闭括号 ⇒ 全角括号不再是"一行一个括号",门 71 的剥取会失败')
+  if (!note.startsWith('（') || !note.endsWith('）')) throw new Error('注记必须整体包在全角括号里(门 71 只剥这一族装饰)')
+  // ② 没有豁免清单、没有硬编码编号:整段判据不得引用 archive 豁免通道或任何 id 名单
+  if (/archivedCopy|archiveExemptFor|dropArchivedLost/.test(seg('export function foldTwins', 'export function verifyTwinFold')))
+    throw new Error('折叠档用归档豁免通道绕过门 71 ⇒ 那是"先写再说",本票要求把形状做对而不是把看守买通')
+  // ③ 落地只走 lib/bypass-git 那一份 plumbing,且绝不出现"整仓 reset / 改工作树"
+  const land = seg('export function twinFoldAndLand', 'export function healAndLand')
+  for (const need of ['commitTreeWithIndex', 'casUpdateRef', 'alignSharedIndex', 'catBatch'])
+    if (!land.includes(need)) throw new Error(`落地档没引 ${need} —— 自己拼 git 命令读内容会被守门 118 判面不符,也不满足"每次 CAS 前重读 HEAD"`)
+  if (/git[^\n]*(checkout|reset\s+--hard|reset HEAD)/.test(land)) throw new Error('落地档动了共享工作树/全局 reset —— 越权')
+  if (/writeFileSync\([^)]*PROJECT_PLAN/.test(land)) throw new Error('落地档直接写台账文件 —— 必须走对象空间')
+  // ④ 调度必须真的在:CLI 开关 + --heal 那一路真的调了这一维 + 闭合断言挂在停手判据里
+  if (!/has\('--fold-twins'\)/.test(src)) throw new Error("CLI 没解析 --fold-twins —— 函数在而入口不在")
+  if (!/return twinFoldAndLand\(\)/.test(src)) throw new Error('--fold-twins --commit 没真的调落地函数')
+  const heal = seg('export function healAndLand', 'export function dedupeAndLand')
+  if (!heal.includes('applyTwinFolds') || !heal.includes('verifyTwinFold')) throw new Error('--heal 那一路没接折叠维(只接了一半就是账面全绿而活还在)')
+  if (!seg('export function healStopReasons').includes('折叠维未闭合')) throw new Error('闭合断言没挂进 healStopReasons —— 谁忘记调 verifyTwinFold 就无声变绿')
+})
+
+test('A3 --fold-twins 的三态输出必须分开打,判不出不得被写成通过', () => {
+  const env = fixtureRepo(
+    [
+      '# 计划',
+      '',
+      '- [x] ✅(2026-09-20) **G-31. 全族已完成**:甲。',
+      '- [x] ✅(2026-09-21) **G-32. 全族已完成**:乙。',
+      '',
+    ].join('\n'),
+    'fixture: 一对同题不同编号但都已完成的登记',
+  )
+  try {
+    const r = runCli(env, ['--fold-twins'])
+    if (r.code !== 0) throw new Error(`报告档应 exit 0,实得 ${r.code}:${r.out}`)
+    if (!/判不出 1 条/.test(r.out)) throw new Error(`未判定必须逐条点名:${r.out}`)
+    if (/F10 = 0 成员/.test(r.out)) throw new Error('把"判不出"打成"无成员"= 把未判定记成通过')
+    if (/拟折 [1-9]/.test(r.out)) throw new Error('全已完成的一族被折了 ⇒ 两维互咬')
+    if (countCommits(env.dir) !== 1 || r.added.length !== 0) throw new Error('报告档写了东西')
+    // 白名单必须认这一枚旗标(A1 同族口径):否则 --fold-twins 会被 inspectArgs 拒成 exit 2,
+    // 而"入口在、白名单不在"这一型在账面上表现为"命令不存在",读的人没有任何线索去查为什么。
+    if (!KNOWN_FLAGS.includes('--fold-twins')) throw new Error('--fold-twins 不在 KNOWN_FLAGS 里 ⇒ 会被拒成 exit 2')
+  } finally {
+    rmScratch(env.dir)
+  }
 })
