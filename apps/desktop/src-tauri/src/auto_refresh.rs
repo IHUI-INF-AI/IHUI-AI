@@ -217,7 +217,13 @@ async fn refresh_baseline(
 }
 
 /// 启动后台守卫任务(在 setup 中调用一次)。
-pub fn start(app: tauri::AppHandle) {
+///
+/// `reveal_on_probe` = 探活落定时**允许**把主窗口点亮。它必须由调用方把用户的
+/// `launch_minimized` 开关递进来，而不是在这里再读一遍偏好：
+/// 2026-09-28 真机实测「启动后先进托盘」在 8~11 秒后窗口自行转可见，成因就是这里
+/// 在线/离线两个分支都无条件 `w.show()`(窗口以 visible:false 创建，历史上靠这一次
+/// show 解决"永不出现")。同一件事在两处各读一次偏好必然漂移，所以判据只留 lib.rs 那一份。
+pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
     tauri::async_runtime::spawn(async move {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(12))
@@ -232,8 +238,15 @@ pub fn start(app: tauri::AppHandle) {
         if let Some(w) = app.get_webview_window("main") {
             if healthy {
                 // 远程页在窗口隐藏期间已开始加载,直接点亮
-                let _ = w.show();
-                log::info!("[auto-refresh] 启动探活成功 → 显示线上前端");
+                if reveal_on_probe {
+                    let _ = w.show();
+                    log::info!("[auto-refresh] 启动探活成功 → 显示线上前端");
+                } else {
+                    log::info!(
+                        "[auto-refresh] 启动探活成功,但用户要求启动后进托盘 → 保持隐藏\
+                         (唤起另有三条独立通道:托盘、Ctrl+Shift+I、单实例)"
+                    );
+                }
                 // 2026-09-17 薄壳核心假设自检:远程页是否可用 Tauri IPC。
                 // 机制:等页面稳定(8s) → JS 写 location.hash(#ipc-ok / #ipc-missing)→
                 // Rust 读窗口 URL(原生属性,不受页面 title/CSP 干扰)并落日志 → 清 hash。
@@ -264,7 +277,11 @@ pub fn start(app: tauri::AppHandle) {
                     "{} · 离线,自动重连中",
                     crate::localized_app_name()
                 ));
-                let _ = w.show();
+                if reveal_on_probe {
+                    let _ = w.show();
+                } else {
+                    log::info!("[auto-refresh] 离线兜底页已就绪,但用户要求启动后进托盘 → 保持隐藏");
+                }
                 notify(&app, "智汇AI", "网络连接不可用,已切换离线页并自动重连");
                 log::warn!("[auto-refresh] 启动探活失败 → 离线兜底页");
             }

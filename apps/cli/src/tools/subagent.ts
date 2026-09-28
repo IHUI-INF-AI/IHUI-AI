@@ -23,7 +23,7 @@
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import { setupAgentTools, runToolLoop } from '../commands/agent.js';
 import type { Tool, ToolResult } from './index.js';
-import { createDangerGate } from './danger-gate.js';
+import { createAuditedDangerGate } from './danger-gate-audit.js';
 import { listTools, clearTools, registerTools } from './index.js';
 import { runHook } from '../hooks/index.js';
 import { injectHostSection } from '../utils/prompt-injection-registry.js';
@@ -382,9 +382,12 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
           // 会话级旁路事实随子 ctx 下发,工具层披露可追溯(L7905 收口;与下方 gate 的 flag 继承同源)
           allowDangerous: parentOpts.allowDangerous,
           // 策略收口到唯一出口:子代理内无人可问 ⇒ 无 prompt,继承父进程 flag;未开即 denied(fail-closed,与旧行为逐路径等价)
-          confirmDangerous: createDangerGate({
+          // 86H:子代理里的危险放行同样要进链,归属记父会话 id(parentId)——
+          // 否则"父没批、子代理自己放行"这一型在审计面上完全不可见。
+          confirmDangerous: createAuditedDangerGate({
             allowDangerous: parentOpts.allowDangerous,
             silent: true,
+            auditSessionId: parentId,
           }),
           hunkTracker: parentOpts.hunkTracker,
           agentId: subagentId,

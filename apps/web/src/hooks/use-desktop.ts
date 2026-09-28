@@ -31,6 +31,17 @@ import {
   setTrayStatus,
   type DesktopAppInfo,
 } from '@/lib/tauri-bridge'
+import {
+  defaultDesktopPrefs,
+  getDesktopPrefs,
+  markDesktopPrefsIpcReady,
+  normalizeDesktopPrefs,
+  setDesktopBadge,
+  setDesktopPrefs,
+  subscribeDesktopPrefsChanged,
+  type DesktopPrefs,
+  type DesktopPrefsPatch,
+} from '@/lib/desktop-prefs-bridge'
 import { logger } from '@/lib/logger'
 
 /**
@@ -42,7 +53,8 @@ import { logger } from '@/lib/logger'
  * - isMaximized:主窗口是否最大化(实时同步)
  * - autostartEnabled:开机自启状态
  * - trayAlwaysVisible:托盘图标是否常驻任务栏(2026-09-02 #2 立)
- * - 操作:minimize / toggleMaximize / close / toggleAutostart / toggleTrayAlwaysVisible / resetWindow / notify
+ * - desktopPrefs / desktopPrefsLoading:托盘与关闭行为偏好(2026-09-28 立,桌面设置卡用)
+ * - 操作:minimize / toggleMaximize / close / toggleAutostart / toggleTrayAlwaysVisible / resetWindow / notify / updateDesktopPrefs
  *
  * 浏览器环境下 isDesktop=false,所有操作为 no-op,appInfo=null。
  * 组件可根据 isDesktop 决定是否渲染客户端独占 UI。
@@ -104,36 +116,70 @@ export function useDesktop() {
   const [autostartEnabled, setAutostartEnabled] = React.useState(false)
   const [trayAlwaysVisible, setTrayAlwaysVisibleState] = React.useState(true)
   const [loading, setLoading] = React.useState(true)
+  // 桌面偏好(2026-09-28 立):初值是默认档,拉到宿主真值前 UI 一律 disabled
+  const [desktopPrefs, setDesktopPrefsState] = React.useState<DesktopPrefs>(() => defaultDesktopPrefs())
+  const [desktopPrefsLoading, setDesktopPrefsLoading] = React.useState(true)
+  // 这台机器的桌面端**到底有没有**这套偏好命令。读成功 / 收到宿主广播 / 写成功 任一条成立 ⇒ true。
+  const [desktopPrefsSupported, setDesktopPrefsSupported] = React.useState(false)
 
-  // 初始化:加载 appInfo + 窗口状态 + 自启状态
+  // 初始化:加载 appInfo + 窗口状态 + 自启状态 + 托盘/关闭偏好
   React.useEffect(() => {
     if (!isDesktop) {
       setLoading(false)
+      // 只有"这台机器上根本没有宿主"才把偏好加载态收尾:桌面端首帧 isDesktop 仍是 false
+      // (异步注入),此时若一并清掉,控件会在还不知道宿主怎么想的那一帧就被放开,
+      // 用户能连点两次 —— busy 那道闸就白写了。
+      if (!isTauri()) setDesktopPrefsLoading(false)
       return
     }
+    // IPC 确认注入到位 ⇒ 放开 desktop-prefs-bridge 的 invoke 闸门(它不是 hook,判不到时机)
+    markDesktopPrefsIpcReady()
     let cancelled = false
     void (async () => {
       try {
-        const [info, maximized, autostart, trayVisible] = await Promise.all([
+        const [info, maximized, autostart, trayVisible, prefs] = await Promise.all([
           getDesktopAppInfo(),
           isWindowMaximized(),
           isAutostartEnabled(),
           isTrayAlwaysVisible().catch(() => true),
+          getDesktopPrefs(),
         ])
         if (cancelled) return
         setAppInfo(info)
         setIsMaximized(maximized)
         setAutostartEnabled(autostart)
         setTrayAlwaysVisibleState(trayVisible)
+        // null = 宿主问不到:保留默认档而不是编一个"读成功"的样子
+        if (prefs) {
+          setDesktopPrefsState(prefs)
+          // 只有真的从宿主读到过一份偏好,才算"这台机器的桌面端支持这些设置"。
+          // 旧安装器(没有 get_desktop_prefs 这条命令)会一直回 null —— 此时界面必须说出来,
+          // 而不是拿本地默认档冒充宿主的现状(那正是本票在同步层禁止过的同一型)。
+          setDesktopPrefsSupported(true)
+        }
       } catch {
         // 忽略桌面 API 错误
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+          setDesktopPrefsLoading(false)
+        }
       }
     })()
     return () => {
       cancelled = true
     }
+  }, [isDesktop])
+
+  // 宿主侧偏好变了(托盘菜单改主题、在另一处改设置)⇒ 以广播里的有效值刷新本地状态。
+  // 走 addEventListener 这一层而不是在 init 里轮询:偏好是事件驱动的,轮询只会把
+  // "宿主已经改了"读成"我这里还是旧的"。
+  React.useEffect(() => {
+    if (!isDesktop) return
+    return subscribeDesktopPrefsChanged((prefs) => {
+      setDesktopPrefsState(prefs)
+      setDesktopPrefsSupported(true)
+    })
   }, [isDesktop])
 
   // 监听窗口最大化状态变化(Resize 事件)
@@ -197,6 +243,26 @@ export function useDesktop() {
     await resetWindowState()
   }, [])
 
+  /**
+   * 写一项桌面偏好,并返回**宿主规范化后的有效偏好**(2026-09-28 立)。
+   *
+   * 为什么返回的是宿主的值而不是入参:宿主会就地纠正互相冲突的组合(`showTrayIcon=false` 时
+   * `closeBehavior` 不可能是 `'hide'`,它给回 `'quit'`)。前端自己算一遍同样的规则,就是在
+   * 种第二份真相 —— 两边一旦漂移,设置页显示的和托盘实际行为的会是两件事。
+   * 失败(含宿主未就绪)⇒ 返回 null 且**不动本地状态**,调用方据此提示保存失败。
+   */
+  const updateDesktopPrefs = React.useCallback(
+    async (patch: DesktopPrefsPatch): Promise<DesktopPrefs | null> => {
+      const effective = await setDesktopPrefs(patch)
+      if (!effective) return null
+      setDesktopPrefsState(effective)
+      // 写成功本身就证明宿主支持这套偏好(首次读取可能因宿主忙而暂时回 null)。
+      setDesktopPrefsSupported(true)
+      return effective
+    },
+    [],
+  )
+
   const notify = React.useCallback(async (title: string, body: string) => {
     await sendDesktopNotification(title, body)
   }, [])
@@ -208,11 +274,15 @@ export function useDesktop() {
     autostartEnabled,
     trayAlwaysVisible,
     loading,
+    desktopPrefs,
+    desktopPrefsLoading,
+    desktopPrefsSupported,
     minimize,
     toggleMaximize,
     close,
     toggleAutostart,
     toggleTrayAlwaysVisible,
+    updateDesktopPrefs,
     resetWindow,
     notify,
   }
@@ -269,6 +339,8 @@ export function useSystemTheme(): 'light' | 'dark' | null {
  * 事件来源:
  * - "desktop-tray-action":托盘菜单点击(new_chat/toggle_theme/open_settings/check_update)
  * - "desktop-shortcut":系统级快捷键(new_chat/quick_screenshot)
+ * - "desktop-close-requested":宿主问「点关闭按钮要怎么办」(2026-09-28 立,由 CloseChoiceDialog 应答)
+ * - "desktop-prefs-changed":宿主侧偏好已变更,payload = 有效偏好(刷新设置页)
  *
  * 转发策略(括号内为**实际消费方**,2026-09-22 补全地图:改派发前务必确认对端真的在监听):
  * - new_chat → global-shortcut:new-chat(SHORTCUT_ROUTES,providers/global-hooks-provider.tsx)
@@ -288,9 +360,14 @@ export function useDesktopEvents(): void {
   const ipcReady = useTauriIpcReady()
   React.useEffect(() => {
     if (!ipcReady) return
+    // 与 useDesktop 里同一件事的第二个打点:本 hook 才是常驻的那一个(根 Provider 挂载),
+    // 设置页没打开时也必须让 desktop-prefs-bridge 敢发 invoke —— 关闭询问的答复走的就是它。
+    markDesktopPrefsIpcReady()
     // 动态 import 避免浏览器端加载 Tauri event API
     let unlistenTray: (() => void) | undefined
     let unlistenShortcut: (() => void) | undefined
+    let unlistenCloseRequested: (() => void) | undefined
+    let unlistenPrefsChanged: (() => void) | undefined
     let unlistenBeforeClose: (() => void) | undefined
     let cancelled = false
     // 2026-08-02 修复: 异步监听器泄漏 - listen() 异步, cleanup 时可能未完成, unlisten 未赋值导致泄漏
@@ -341,6 +418,24 @@ export function useDesktopEvents(): void {
         }
       })
 
+      // 2026-09-28 立:宿主询问「点关闭按钮要怎么办」。转成 window 事件给
+      // CloseChoiceDialog 消费(它负责恰好一次地答复 resolve_close_choice)。
+      // 刻意不带 id、不做去重:这条链是 continuous 实时链,页面没挂载监听时事件即丢,
+      // 那是投递面的事实 —— 宿主等不到答复会走它自己的 3s 兜底,而不是由前端补发。
+      unlistenCloseRequested = await listen('desktop-close-requested', () => {
+        window.dispatchEvent(new CustomEvent('desktop-close-requested'))
+      })
+
+      // 宿主侧偏好已变更(托盘改主题 / 在别处改设置)⇒ 归一后原样再派发,
+      // 让设置页与托盘显示的是同一份有效值(不在这里改语义、不做本地纠正)
+      unlistenPrefsChanged = await listen<unknown>('desktop-prefs-changed', (event) => {
+        window.dispatchEvent(
+          new CustomEvent('desktop-prefs-changed', {
+            detail: normalizeDesktopPrefs(event.payload),
+          }),
+        )
+      })
+
       // 2026-07-29 #12:窗口关闭前事件,前端保存正在编辑的消息
       unlistenBeforeClose = await listen('desktop-before-close', () => {
         window.dispatchEvent(new CustomEvent('desktop-before-close'))
@@ -351,11 +446,15 @@ export function useDesktopEvents(): void {
       cancelled = true
       unlistenTray?.()
       unlistenShortcut?.()
+      unlistenCloseRequested?.()
+      unlistenPrefsChanged?.()
       unlistenBeforeClose?.()
       // listen 尚未完成时, 等待完成后立即清理
       pendingPromise?.then(() => {
         unlistenTray?.()
         unlistenShortcut?.()
+        unlistenCloseRequested?.()
+        unlistenPrefsChanged?.()
         unlistenBeforeClose?.()
       })
     }
@@ -453,6 +552,10 @@ export function useDesktopDeepLink(): void {
  *
  * 优先级:thinking > new_message > idle
  * 浏览器端 isTauri()=false,setTrayStatus 为 no-op,无副作用。
+ *
+ * 2026-09-28 同批:未读**条数**一并推给宿主的徽章通道(set_desktop_badge,签名收 u32)。
+ * tooltip 与徽章是两个宿主能力,但判定来源同一处(unreadCount),所以在这里一次性报过去;
+ * 0 与"要不要真的画"都由宿主裁定(它手里才有 `unreadBadge` 那一档)—— 前端不再抄一份开关判断。
  */
 export function useTrayStatus(isStreaming: boolean, unreadCount: number): void {
   const ipcReady = useTauriIpcReady()
@@ -465,6 +568,7 @@ export function useTrayStatus(isStreaming: boolean, unreadCount: number): void {
     } else {
       void setTrayStatus('idle')
     }
+    void setDesktopBadge(unreadCount)
   }, [ipcReady, isStreaming, unreadCount])
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
