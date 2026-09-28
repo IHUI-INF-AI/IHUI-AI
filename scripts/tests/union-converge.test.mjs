@@ -696,4 +696,62 @@ test('planStateRegressions 必须拦"归并把整块登记放大"(F6 在 KEYS �
   // 反向:等值不得判红(否则收敛永远做不成,唯一结局是人工选边 —— 那正是本工具立项的理由)
   assert.equal(U.planStateRegressions(oneSide, [oneSide, oneSide]).length, 0, '块数等值不得判红')
 })
+
+/**
+ * 反假红锁:`core.quotepath` 默认 true 会把中文路径输出成 `"...\346\226\207..."`,
+ * 而落地闸拿这份转义串去合并树里找同名路径 ⇒ 找不到 ⇒ 判"合并树丢了对侧路径"。
+ * 2026-09-28 实测:`docs/benchmark-evidence/2026-09/reconcile-附录C.md` 等 **5 枚真实存在的文件**
+ * 被判成丢失,整条收敛被堵死 —— 症状不是"少一个功能",而是"谁都合不了并,只能人工选边",
+ * 而人工选边正是本工具立项要消灭的那个动作。
+ */
+test('中文路径不得被 quotePath 转义成"丢失",且每个 git 派生点都必须带上开关', () => {
+  const dir = mkScratch('union-quotepath-')
+  const run = (...a) =>
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+    }).trim()
+  try {
+    run('init', '-q', '-b', 'main')
+    run('config', 'user.email', 't@t')
+    run('config', 'user.name', 't')
+    run('config', 'core.autocrlf', 'false')
+    writeFileSync(join(dir, 'base.txt'), 'b\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'init')
+    // 本侧:只动一个普通文件
+    writeFileSync(join(dir, 'ours.txt'), 'o\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'ours')
+    const ours = run('rev-parse', 'HEAD')
+    // 对侧:回退一格后加一枚**中文命名**的文件
+    run('checkout', '-q', 'HEAD~1')
+    mkdirSync(join(dir, 'docs'))
+    writeFileSync(join(dir, 'docs/附录C.md'), 't\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs')
+    const theirs = run('rev-parse', 'HEAD')
+
+    const listed = U.listPaths(theirs, dir)
+    assert.ok(listed.includes('docs/附录C.md'), `枚举面必须给出真名,实测 ${JSON.stringify(listed)}`)
+    assert.ok(
+      !listed.some((p) => p.includes('\\3')),
+      `枚举面里不得出现 quotePath 八进制转义形态:${JSON.stringify(listed.filter((p) => p.includes('\\3')))} —— 出现即说明该派生点又漏了开关`,
+    )
+    const named = U.diffNames(run('rev-parse', 'HEAD~1'), theirs, dir)
+    assert.ok(named.includes('docs/附录C.md'), `diff 面同样必须给出真名,实测 ${JSON.stringify(named)}`)
+
+    // 形状锁:本文件里每一处带 safe.directory 的 git 派生都必须同时带 quotepath 开关
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'union-converge.mjs'), 'utf8')
+    const missing = src
+      .split('\n')
+      .filter((l) => /'-c',\s*'safe\.directory=\*'/.test(l) && !/core\.quotepath=false/.test(l))
+    assert.deepEqual(missing, [], `这些 git 派生点缺 core.quotepath=false:\n${missing.join('\n')}`)
+    assert.ok(ours && theirs, '夹具自证:两侧提交都真在位')
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
