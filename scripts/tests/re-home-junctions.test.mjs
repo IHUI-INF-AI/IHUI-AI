@@ -20,6 +20,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
@@ -60,6 +61,32 @@ test('端到端:真复制 + 真建 junction + 经链接回读一致 + stash 已�
       2,
       'D 侧内容被递归删除穿透了 —— junction 只能断链,不许穿透删',
     )
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('目标同清单同字节而内容不同 ⇒ 删源前整段拒绝:不改名、不建链、不删任何东西', () => {
+  // G-411 夹具①:文件数与总字节与源完全相同、单个文件内容不同的目标树。
+  const { root, src, dst } = fixture()
+  try {
+    mkdirSync(join(dst, 'nested'), { recursive: true })
+    writeFileSync(join(dst, 'a.txt'), 'world', 'utf8') // 与源同为 5 字节,内容不同
+    writeFileSync(join(dst, 'nested', 'b.bin'), Buffer.alloc(2048, 9)) // 同为 2048 字节,内容不同
+    // robocopy 的复制判据经本机实测:两侧 mtime 只要**不完全相同**就会被抄(覆盖目标),
+    // 内容差异在 2b 之前就被抹平 —— 首轮"把源调旧 1 小时"翻红('moved')即此,单跑侥幸绿
+    // 只是两个时间刻打平的掷硬币。正解:把 src/dst 四个文件的 mtime **钉成同一个时刻** +
+    // 同尺寸 ⇒ robocopy 认"没变"跳过 ⇒ 内容差异活到内容闸,这一例测的才是闸门本身。
+    const tie = new Date(Math.floor(Date.now() / 1000) * 1000 - 3600_000) // 数字会被当"秒"喂 libuv(Windows EINVAL),必须传 Date
+    for (const rel of ['a.txt', join('nested', 'b.bin')]) {
+      utimesSync(join(src, rel), tie, tie)
+      utimesSync(join(dst, rel), tie, tie)
+    }
+    const res = R.repairOne(src, dst)
+    assert.equal(res.action, 'verify-content-failed', `实际:${res.action} / ${res.note}`)
+    assert.ok(statSync(src).isDirectory() && !lstatSync(src).isSymbolicLink(), '源必须仍是原目录')
+    assert.equal(readFileSync(join(src, 'a.txt'), 'utf8'), 'hello', '源内容必须原封未动')
+    assert.deepEqual(readdirSync(root).sort(), ['dst', 'src'], '不得留下任何改名现场(stash)')
   } finally {
     rmScratch(root)
   }
@@ -342,7 +369,7 @@ test('stash 清理按类型分流,且断链绝不穿透目标内容', () => {
     })
     const covered = join(home, '.demo.pre-junction-2026-01-02T00-00-00-000Z')
     mkdirSync(join(covered, 'sub'), { recursive: true })
-    writeFileSync(join(covered, 'k.txt'), 'abcde', 'utf8') // 字节数与在用内容等 ⇒ 同指纹
+    writeFileSync(join(covered, 'k.txt'), 'abcde', 'utf8') // 字节数与在用内容等而内容不同 ⇒ G-411 阳性样本
     writeFileSync(join(covered, 'sub', 'x.bin'), 'abcdefg', 'utf8')
     const unique = join(home, '.demo.pre-junction-2026-01-03T00-00-00-000Z')
     mkdirSync(unique, { recursive: true })
@@ -350,6 +377,10 @@ test('stash 清理按类型分流,且断链绝不穿透目标内容', () => {
     writeFileSync(join(unique, 'not-in-use.bin'), 'only-here', 'utf8')
     const bare = join(home, '.demo.pre-junction-2026-01-04T00-00-00-000Z.txt')
     writeFileSync(bare, 'x', 'utf8')
+    const mirr = join(home, '.demo.pre-junction-2026-01-05T00-00-00-000Z')
+    mkdirSync(join(mirr, 'sub'), { recursive: true })
+    writeFileSync(join(mirr, 'k.txt'), '12345', 'utf8') // 真镜像:路径+字节+内容三层全等
+    writeFileSync(join(mirr, 'sub', 'x.bin'), '1234567', 'utf8')
     const decoy = join(home, '.demo.not-a-stash') // 名字不匹配前缀,内容还独有一份
     mkdirSync(decoy, { recursive: true })
     writeFileSync(join(decoy, 'precious.bin'), 'do-not-touch', 'utf8')
@@ -361,8 +392,9 @@ test('stash 清理按类型分流,且断链绝不穿透目标内容', () => {
         '.demo.pre-junction-2026-01-02T00-00-00-000Z',
         '.demo.pre-junction-2026-01-03T00-00-00-000Z',
         '.demo.pre-junction-2026-01-04T00-00-00-000Z.txt',
+        '.demo.pre-junction-2026-01-05T00-00-00-000Z',
       ],
-      '枚举必须恰好命中这 4 个前缀项(decoy 不得混进来)',
+      '枚举必须恰好命中这 5 个前缀项(decoy 不得混进来)',
     )
 
     const dry = R.pruneStashes(src, dst, { apply: false })
@@ -371,8 +403,14 @@ test('stash 清理按类型分流,且断链绝不穿透目标内容', () => {
       `只判模式出现动作:${JSON.stringify(dry)}`,
     )
     assert.ok(
-      [linkStash, covered, unique, bare, decoy].every((p) => existsSync(p)),
+      [linkStash, covered, unique, bare, mirr, decoy].every((p) => existsSync(p)),
       '只判模式就动了盘',
+    )
+    // 报告不得承诺一个 apply 时不敢做的删除:dry 也必须把同尺寸不同内容判成 kept
+    assert.equal(
+      dry.find((r) => r.path === covered).action,
+      'kept',
+      'dry 档看不见内容闸 ⇒ apply 时的 kept 会变成账面外的急刹',
     )
 
     const rows = R.pruneStashes(src, dst, { apply: true })
@@ -384,8 +422,13 @@ test('stash 清理按类型分流,且断链绝不穿透目标内容', () => {
       2,
       '删掉那个 junction 之后目标内容必须一个字都没少(穿透删除即为此而设的反例)',
     )
-    assert.equal(byPath.get(covered).action, 'pruned', '被逐文件覆盖的目录型应可清')
-    assert.ok(!existsSync(covered))
+    // G-411 核心:路径+字节全等而内容不同 ⇒ 不得当成"已被逐文件覆盖"而删掉 stash。
+    // 旧实现(HEAD blob c239421c9 之后仍钝的那一层)在这一例判 pruned 并**真删了盘** ——
+    // A/B 取证见交付报告;这里把"删"翻成缺陷的规格,不再当验收线。
+    assert.equal(byPath.get(covered).action, 'kept', '同尺寸不同内容的目录型 stash 被删了 = 数据事故')
+    assert.ok(existsSync(covered), 'covered stash 必须还在(内容不一致,未被证明无独有数据)')
+    assert.equal(byPath.get(mirr).action, 'pruned', '真镜像(路径+字节+内容全等)才允许清')
+    assert.ok(!existsSync(mirr), 'mirr stash 必须已删 —— 内容闸不得把一致的对象也拦住(钝成另一型)')
     assert.equal(byPath.get(unique).action, 'kept', '有独有文件的目录型被删了 = 数据事故')
     assert.ok(existsSync(unique), 'unique stash 必须还在')
     assert.equal(byPath.get(bare).action, 'kept', '裸文件读不出目录指纹,空集不等于"已被覆盖"')
@@ -398,6 +441,7 @@ test('stash 清理按类型分流,且断链绝不穿透目标内容', () => {
       [
         '.demo',
         '.demo.not-a-stash',
+        '.demo.pre-junction-2026-01-02T00-00-00-000Z',
         '.demo.pre-junction-2026-01-03T00-00-00-000Z',
         '.demo.pre-junction-2026-01-04T00-00-00-000Z.txt',
       ].sort(),
