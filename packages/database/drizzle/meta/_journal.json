@@ -2066,6 +2066,13 @@
       "when": 1790568000000,
       "tag": "20260928120000_desktop_prefs",
       "breakpoints": true
+    },
+    {
+      "idx": 296,
+      "version": "7",
+      "when": 1790571600000,
+      "tag": "20260928050000_lessons_difficulty",
+      "breakpoints": true
     }
   ]
 }
