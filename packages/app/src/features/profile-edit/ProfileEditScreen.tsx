@@ -18,7 +18,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Camera, SquarePen } from 'lucide-react-native'
 import type { Gender, ProfileEditScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 /** 资料编辑共享屏 — props 注入式跨端组件(wrapper 负责 getProfile / updateProfile / Alert) */
@@ -237,7 +237,6 @@ function createStyles(tk: AppThemeTokens) {
       bottom: -4,
       width: 24,
       height: 24,
-      // radius-role-exempt: 头像上的编辑徽标是 24dp 圆(半径=半高),与头像同形不可方档化 until 2026-11-26
       borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
@@ -302,7 +301,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     modalCard: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadiusFor.panel,
       padding: 14,
       width: '100%',
     },

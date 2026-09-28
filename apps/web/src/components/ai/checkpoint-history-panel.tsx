@@ -101,7 +101,7 @@ export function CheckpointHistoryPanel({
                   {!isLast && (
                     <span className="absolute left-[7px] top-7 h-[calc(100%-0.5rem)] w-px bg-border" />
                   )}
-                  {/* radius-role-exempt: 时间轴 14x14 方形节点标记(h-3.5 w-3.5 + border-2),不是卡片容器 until 2026-11-26 */}
+                  
                   <span className="z-10 mt-0.5 h-3.5 w-3.5 shrink-0 rounded-md border-2 border-brand-accent-deep bg-card" />
                   <div className="min-w-0 flex-1 pb-2">
                     <div className="flex items-center justify-between gap-2">
