@@ -85,8 +85,10 @@ import {
   classifySurfaces,
   headToken,
   isRoleExemptAt,
+  declarationRanges,
   maskFaces,
   radiusFormsInLine,
+  ownerOfLine,
   roleSpec,
   rolesInTable,
   rolesOfClassList,
@@ -151,6 +153,8 @@ export function auditFileText(rel, src, table) {
     exempted: 0,
     usages: 0,
     surfaceOverrides: 0,
+    componentEvidence: 0,
+    componentUndetermined: [],
     scopeFallback: 0,
     scopeAmbiguous: 0,
     scopeCorrupt: 0,
@@ -173,6 +177,22 @@ export function auditFileText(rel, src, table) {
     surfaces = classifySurfaces(scope.elements, { roleOf: rolesOfName })
     out.scopeCorrupt = scope.corrupt
     for (const k of surfaces.contestedKeys) out.contested.push({ file: rel, key: k })
+  }
+  /**
+   * **组件名档**证据(C5,2026-09-28 由 HEAD 唯一一处 `role-conflict` 逼出):
+   * 一个组件的名字说的是**它自己那棵 JSX 树的根容器**,不是文件里每个元素,也不是内联小组件的外层名字 ——
+   * 所以归属走 `declarationRanges()`(code 面括号配平出的行区间)+ `ownerOfLine()`(取最内层)。
+   * 只在该行**确实是 JSX 根**(没有 JSX 祖先)时启用;它压在元素自身名字之后、颜色实用类之前:
+   * `plan-review-panel.tsx` 的根 `<div className="rounded-xl border bg-card">` 里,`bg-card` 说的是
+   * 背景档,而 `PlanReviewPanel` 说的是"这是什么" —— 名字赢,判 panel,`xl` 合规。
+   * 归属判不出(不在任何区间 / 名字给不出唯一角色)⇒ **不启用**并计数报名,绝不猜一档。
+   */
+  const declRanges = declarationRanges(code)
+  const rolesOfOwner = (line) => {
+    const own = ownerOfLine(declRanges, line)
+    if (!own) return null
+    const set = new Set(rolesOfName(own.name))
+    return set.size === 1 ? { roles: set, name: own.name } : null
   }
   /** @type {{names: string[], indent: number}[]} */
   const stack = []
@@ -253,6 +273,13 @@ export function auditFileText(rel, src, table) {
      */
     const info = scope ? scope.byLine.get(i + 1) : undefined
     let thisElementIsSurface = false
+    const isJsxRoot = !!(info && !info.ambiguous && (info.ancestors?.length || 0) === 0)
+    /** 组件名档按**最内层声明**归属 ⇒ 同文件内联的小组件不会被外层名字顶判 */
+    const compOwner = isJsxRoot ? rolesOfOwner(i + 1) : null
+    if (isJsxRoot && !compOwner) {
+      const own = ownerOfLine(declRanges, i + 1)
+      if (own) out.componentUndetermined.push({ file: rel, line: i + 1, owner: own.name })
+    }
     if (info && !info.ambiguous) {
       for (const r of rolesOfName(info.selfName)) strong.add(r)
       for (const k of info.keys) for (const r of rolesOfName(k)) strong.add(r)
@@ -288,6 +315,12 @@ export function auditFileText(rel, src, table) {
       } else if (strong.size) {
         roles = strong
         evidence = 'strong'
+      } else if (compOwner) {
+        roles = compOwner.roles
+        evidence = 'component'
+        rec.via = 'component'
+        rec.owner = compOwner.name
+        out.componentEvidence++
       } else if (weak.size) {
         roles = weak
         evidence = 'weak'
@@ -477,6 +510,8 @@ export function runAudit(repoRoot, face, { only } = {}) {
   let exempted = 0
   let compliant = 0
   let surfaceOverrides = 0
+  let componentEvidence = 0
+  const componentUndetermined = []
   let scopeFallback = 0
   let scopeAmbiguous = 0
   let scopeCorrupt = 0
@@ -489,6 +524,8 @@ export function runAudit(repoRoot, face, { only } = {}) {
     exempted += r.exempted
     compliant += r.compliant
     surfaceOverrides += r.surfaceOverrides
+    componentEvidence += r.componentEvidence
+    componentUndetermined.push(...r.componentUndetermined)
     scopeFallback += r.scopeFallback
     scopeAmbiguous += r.scopeAmbiguous
     scopeCorrupt += r.scopeCorrupt
@@ -512,6 +549,8 @@ export function runAudit(repoRoot, face, { only } = {}) {
     exempted,
     compliant,
     surfaceOverrides,
+    componentEvidence,
+    componentUndetermined,
     scopeFallback,
     scopeAmbiguous,
     scopeCorrupt,
@@ -553,6 +592,8 @@ function runAuditWorktree(repoRoot, only) {
   let exempted = 0
   let compliant = 0
   let surfaceOverrides = 0
+  let componentEvidence = 0
+  const componentUndetermined = []
   let scopeFallback = 0
   let scopeAmbiguous = 0
   let scopeCorrupt = 0
@@ -564,6 +605,8 @@ function runAuditWorktree(repoRoot, only) {
     exempted += r.exempted
     compliant += r.compliant
     surfaceOverrides += r.surfaceOverrides
+    componentEvidence += r.componentEvidence
+    componentUndetermined.push(...r.componentUndetermined)
     scopeFallback += r.scopeFallback
     scopeAmbiguous += r.scopeAmbiguous
     scopeCorrupt += r.scopeCorrupt
@@ -587,6 +630,8 @@ function runAuditWorktree(repoRoot, only) {
     exempted,
     compliant,
     surfaceOverrides,
+    componentEvidence,
+    componentUndetermined,
     scopeFallback,
     scopeAmbiguous,
     scopeCorrupt,
@@ -665,6 +710,9 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
         unclassified: argv.includes('--all') ? res.unclassified : undefined,
         weakFindings: res.weakFindings,
         surfaceOverrides: res.surfaceOverrides,
+        componentEvidence: res.componentEvidence,
+        componentAmbiguous: res.componentUndetermined.length,
+        componentUndetermined: res.componentUndetermined,
         scopeFallback: res.scopeFallback,
         scopeAmbiguous: res.scopeAmbiguous,
         scopeCorrupt: res.scopeCorrupt,
@@ -726,13 +774,21 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
         console.log(`   …其余 ${res.weakFindings.length - 15} 条见 --json 的 weakFindings`)
     }
     console.log(
+      `◦ 组件名档(C5):根容器按组件名判 ${res.componentEvidence} 处、名字给不出唯一角色而不启用 ${res.componentUndetermined.length} 处(不启用 ≠ 通过,逐条报名)。\n   ` +
       `◦ 包含关系(C4):按模态面改判 ${res.surfaceOverrides} 处(自称 card 而容器是模态载体)、` +
         `同名既当过面又当过卡 ⇒ 不改判 ${res.contested.length} 键、` +
         `归属判不出退回旧判序 ${res.scopeFallback} 行(其中并列候选 ${res.scopeAmbiguous} 行)、` +
         `闭合失配 ${res.scopeCorrupt} 处。退回与失配都**不是通过**:那些行仍按原逐行判序判,` +
         '只是容器这一维对它们不生效(判不出必须报名,不得静默当成"没有祖先")。',
     )
-    if (res.contested.length) {
+    if (argv.includes('--all') && res.componentUndetermined.length) {
+    console.log('◦ 组件名档判不出(根容器所在组件名给不出唯一角色),逐条报名:')
+    for (const u of res.componentUndetermined.slice(0, 60)) {
+      console.log('     ' + u.file + ':' + u.line + ' 组件 ' + u.owner)
+    }
+    if (res.componentUndetermined.length > 60) console.log('     …其余 ' + (res.componentUndetermined.length - 60) + ' 条见 --json')
+  }
+  if (res.contested.length) {
       console.log('   contested(不改判,逐条报名):')
       for (const c of res.contested.slice(0, 10)) console.log(`     ${c.file} 键 ${c.key}`)
       if (res.contested.length > 10)
@@ -1106,6 +1162,78 @@ export default function P() {
       return r.scopeAmbiguous >= 1 && r.scopeFallback >= 1 && r.undetermined[0]?.reason === 'role-conflict'
     })(),
   )
+  // —— C5:组件名档(根容器按**它自己的**组件名判,内联小组件不被外层顶判)
+  const A5 = (src, rel) => auditFileText(rel || 'x/T.tsx', src, table)
+  const C5_ROOT = [
+    'export function ConfigPanel() {',
+    '  return (',
+    '    <div className="rounded-xl">',
+    '      <span className="rounded-sm" />',
+    '    </div>',
+    '  )',
+    '}',
+  ].join('\n')
+  t('89 C5 组件根容器按组件名判 panel ⇒ rounded-xl 合规(带 via=component)', (() => {
+    const r = A5(C5_ROOT, 'x/ConfigPanel.tsx')
+    return r.violations.length === 0 && r.compliant >= 1
+  })())
+  t('90 C5 牙的证明:同一根容器改成 rounded-lg 必须判红且 role=panel', (() => {
+    const r = A5(C5_ROOT.replace('rounded-xl', 'rounded-lg'), 'x/ConfigPanel.tsx')
+    const v = r.violations.find((x) => x.via === 'component')
+    return v?.role === 'panel' && v?.expectedStep === 'xl' && v?.line === 3
+  })())
+  t('91 C5 只在 JSX **根**启用:子元素不得吃组件名(rounded-sm 不该被顶成 panel)', (() => {
+    const r = A5(C5_ROOT, 'x/ConfigPanel.tsx')
+    return !r.violations.some((v) => v.line === 4) && r.undetermined.length === 0
+  })())
+  t('92 C5 内联小组件的根按它自己的证据判,不被外层组件名顶判', (() => {
+    const src = [
+      'export function ConfigPanel() {',
+      '  return (',
+      '    <div className="rounded-xl">',
+      '      <EditButton />',
+      '    </div>',
+      '  )',
+      '}',
+      'function EditButton() {',
+      '  return <button className="rounded-lg">x</button>',
+      '}',
+    ].join('\n')
+    const r = A5(src, 'x/ConfigPanel.tsx')
+    const v = r.violations.find((x) => x.line === 9)
+    return v?.role === 'control' && v?.expectedStep === 'sm' && v?.via !== 'component'
+  })())
+  t('92b C5 内联小组件无标签证据时,按**自己的**组件名判 control(而非外层 ConfigPanel 的 panel)', (() => {
+    const src = [
+      'export function ConfigPanel() {',
+      '  return (',
+      '    <div className="rounded-xl">',
+      '      <EditButton />',
+      '    </div>',
+      '  )',
+      '}',
+      'function EditButton() {',
+      '  return <div className="rounded-lg">x</div>',
+      '}',
+    ].join('\n')
+    const r = A5(src, 'x/ConfigPanel.tsx')
+    const v = r.violations.find((x) => x.line === 9)
+    return v?.role === 'control' && v?.owner === 'EditButton' && v?.via === 'component'
+  })())
+  t('93 C5 声明括号配不平 ⇒ 判"归属判不出"不启用,绝不猜一个区间', (() => {
+    const src = 'export function BrokenPanel() {\n  return <div className="rounded-lg">x</div>\n'
+    const r = A5(src, 'x/BrokenPanel.tsx')
+    return r.violations.filter((v) => v.via === 'component').length === 0
+  })())
+  t('94 类名取证不得越界采兄弟属性(真实站点文本:兄弟属性的值曾被当成类名)', (() => {
+    const line = '<div className="rounded-xl border bg-card" data-testid="plan-review-panel">'
+    const got = classStringsInLine(line, line)
+    return got.length === 1 && got[0].includes('bg-card') && !got.join('').includes('plan-review-panel')
+  })())
+  t('94b 同一个 class 属性的多段形态必须收全(收窄不许变成失明)', (() => {
+    const line = '<div className={cn("rounded-xl bg-card", "px-3 py-2")}>'
+    return classStringsInLine(line, line).length === 2
+  })())
   // —— C4 的真仓双向对照(夹具只能证明函数会给答案,证明不了有人在问它)
   /**
    * 取材 ref 钉在**清偿前的出处提交**而不是 HEAD:票⑳ 把该形态从 HEAD 清掉之后,"HEAD 上还能量到"
@@ -1131,6 +1259,16 @@ export default function P() {
       r.violations.some((v) => v.role === 'panel' && v.actualStep === '2xl' && v.expectedStep === 'xl') &&
       overridden >= 1
   }
+  t(
+    '95 真仓 HEAD 对照:plan-review-panel.tsx 的根容器取证链必须给得出唯一角色(不得再落 role-conflict)',
+    (() => {
+      const rel = 'apps/web/src/components/ai/plan-review-panel.tsx'
+      const src = catBatch(repoRoot, ['HEAD:' + rel], { maxBuffer: 1 << 27 }).get('HEAD:' + rel)
+      if (!src) return false
+      const r = auditFileText(rel, src, table)
+      return r.undetermined.length === 0 && r.violations.length === 0
+    })(),
+  )
   t(
     `82 真仓出处阳性对照(${PROBE_REF.slice(0, 9)}):${SURF_PROBE.split(String.fromCharCode(47)).pop()} 的 card 键必须改判 panel,且 2xl 仍判红`,
     surfOk,
