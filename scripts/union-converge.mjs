@@ -68,7 +68,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { auditOne } from './check-merge-addition-loss.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { resolveRemoteHead, catBatch } from './lib/face-reader.mjs'
-import { auditPlan } from './lib/plan-task-index.mjs'
+import { auditPlan, malformedLine, f9GroupLine } from './lib/plan-task-index.mjs'
 // 搬运感知判据(2026-09-28):占位注释的解析与"哪些行属于那个被搬走的条目"的块归属,
 // 一律复用归档器那一份实现(`lib/plan-task-headings.mjs` 的 parseCompletedTaskBlocks),
 // **不得在本归并器里再抄一条"什么算一个已完成条目"的正则** —— 两处各写一遍必漂移。
@@ -248,6 +248,14 @@ function mergeThreeBlobs(baseOid, oursOid, theirsOid, cwd) {
  * 三条判据同守门 130:F1 同主键两态并存 / F2 自带作废声明未落账 / F3 行号指针已腐烂。
  * 取"各侧最大值"而不是"对侧值"作基准,是因为本侧也可能带着未清存量 —— 归并只许持平或变好。
  * 解析不出(空文本/非计划文档)⇒ 返回空数组并**不**声称通过:调用方只对真做了判定的路径说话。
+ *
+ * 2026-09-28 G-606 补两维,它们**不进上面那个计数档循环**、各判各的形状:
+ *  · **F9b 畸形登记号**:判**行集**而不判计数 —— 计数档对"合并抹掉一侧的旧畸形号、同时造出一枚
+ *    新的"恒净零(G-312 为 F9 付过的学费在这里同形重演)。点名到逐行原文,因为修复动作是一行字符。
+ *  · **F9 撞号组**:判**键集**——只有"两侧都不撞、而归并结果撞了"的键才算合并造的债。
+ *    两侧都不撞而结果撞 ⇒ 是归并把两条不同议题的行拼到同一编号下(取号器并发让号失败的形状);
+ *    已有一侧就撞的组**刻意不判红**:让同组多挂一行只能靠人工让号(F9 的差值档在提交链上拦),
+ *    而落地闸若为此拒绝归并,唯一出路是删掉某一侧的行 —— 那违反本工具的零丢失承诺,更贵。
  */
 export function planStateRegressions(mergedText, sideTexts) {
   const KEYS = [
@@ -261,12 +269,29 @@ export function planStateRegressions(mergedText, sideTexts) {
   ]
   const sides = (sideTexts ?? []).filter((t) => typeof t === 'string' && t.trim() !== '')
   if (typeof mergedText !== 'string' || mergedText.trim() === '' || sides.length === 0) return []
-  const m = auditPlan(mergedText).counts
+  // 每面只解析一遍(旧写法在每个 KEYS 项里对每侧重解析一次 ⇒ 加维就会把审计成本乘上去)
+  const mA = auditPlan(mergedText)
+  const sA = sides.map((t) => auditPlan(t))
+  const m = mA.counts
   const out = []
   for (const [k, label] of KEYS) {
-    const worst = Math.max(...sides.map((t) => auditPlan(t).counts[k]))
+    const worst = Math.max(...sA.map((a) => a.counts[k]))
     if (m[k] > worst) out.push(`${label} 各侧最多 ${worst},归并结果 ${m[k]}`)
   }
+  // F9b:逐字不在任何一侧的畸形行 = 归并自己造的(两侧各自带来的存量都按预存债放过)
+  const seenMalformed = new Set(
+    sA.flatMap((a) => a.malformedRows.map((r) => String(r.raw).trim().slice(0, 90))),
+  )
+  const newMal = (mA.malformedRows ?? []).filter(
+    (r) => !seenMalformed.has(String(r.raw).trim().slice(0, 90)),
+  )
+  for (const r of newMal.slice(0, 12)) out.push(`F9b 归并新增畸形登记号 ${malformedLine(r)}`)
+  if (newMal.length > 12) out.push(`F9b … 其余 ${newMal.length - 12} 行畸形号见 --json 的 malformedRows`)
+  // F9:两侧都不撞、归并结果才撞的键
+  const seenColl = new Set(sA.flatMap((a) => (a.collisions ?? []).map((g) => g.key)))
+  const newColl = (mA.collisions ?? []).filter((g) => !seenColl.has(g.key))
+  for (const g of newColl.slice(0, 12)) out.push(`F9 归并新增撞号组 ${f9GroupLine(g)}`)
+  if (newColl.length > 12) out.push(`F9 … 其余 ${newColl.length - 12} 组新增撞号见 --json 的 collisions`)
   /**
    * F5 方向与前四条相反:注记**少**了才坏。这一条正是本会话被咬两次的形状的落地闸 ——
    * 活文档按"每行重数 = max(两侧)"归并时,已落账的行会连同它的注记一起被未落账形态顶掉,
@@ -457,6 +482,13 @@ export function buildUnion(
         encoding: 'utf8',
         maxBuffer: 512 * 1048576,
       }).trim()
+    // ⚠️ `violations` 必须在**活文档归并循环之前**声明:1) 里的状态分叉判据(2026-09-28 补的那一格)
+    // 就往里 push,而下面 2) 的那批清单声明得更晚 —— 放在那里会让本函数在带 PROJECT_PLAN.md 冲突的
+    // 每一次调用上抛 `Cannot access 'violations' before initialization`(ReferenceError),
+    // 表现是"union-converge 亦判需人工",而真实原因是**这台收敛器当场崩了**。
+    // 崩溃被上层当成人工判定 ⇒ 所有会话的台账冲突都收敛不动、发布链卡死。自检补了一条
+    // "两侧同改台账 ⇒ 必须产出 plan(不抛)"的用例钉住这条路径。
+    const violations = []
     run(['read-tree', ours])
 
     // 1) 活文档:三方行 union(对侧相对基底的**独有行**必须存活;本侧就地改写的行不得被旧副本复活;
@@ -469,12 +501,24 @@ export function buildUnion(
       const bt = base ? show(base, p, cwd) : null
       const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
       liveDocs.push(ma)
-      const oid = git(
-        ['hash-object', '-w', '--path', p, '--stdin'],
-        cwd,
-        unionLines(a, b, bt, ma.suppress),
-      )
+      const mergedText = unionLines(a, b, bt, ma.suppress)
+      const oid = git(['hash-object', '-w', '--path', p, '--stdin'], cwd, mergedText)
       run(['update-index', '--add', '--cacheinfo', `100644,${oid},${p}`])
+      /**
+       * 状态分叉判据**必须挂在这条路上**,而不是挂在下面 2) 的 `mergedClean` 循环里 ——
+       * 2) 开头就有 `if (LIVE_DOCS.includes(p)) continue`,而台账正是活文档,所以那条循环
+       * **永远不会**拿到 PROJECT_PLAN.md。2026-09-28 那次半成品把判据函数与自检都写全了、
+       * `--self-test` 13 条全绿,而它在收敛落地路径上**生效次数为 0**(判据在、自检过、没人调,
+       * 守门 70/76/81/105/115 同族)。今天补的这一格才是"落地前自证清单"真正咬合的地方:
+       * 并集策略("每行重数取 max")本身就是状态副本的产地。
+       * 下面 2) 那条同名循环保留:它覆盖的是**别的目录里**恰好以 PROJECT_PLAN.md 结尾、
+       * 且两侧同改走了三方归并的文件(根台账归本条管,两者不重叠、不双计)。
+       */
+      if (p.endsWith('PROJECT_PLAN.md')) {
+        const sides = [bt, a, b].filter((t) => typeof t === 'string' && t !== '')
+        for (const msg of planStateRegressions(mergedText, sides))
+          violations.push(`${p} 归并放大任务状态分叉:${msg}`)
+      }
     }
 
     // 2) 对侧「相对共同基底自己动过」的路径:仅对侧动过 ⇒ 取对侧版本;两侧同改 ⇒ 真三方归并。
@@ -485,7 +529,6 @@ export function buildUnion(
     const needHuman = []
     const keptOurs = []
     const humanResolved = []
-    const violations = []
     const touchedOurs = new Set(diffNames(base, ours, cwd))
     for (const p of diffNames(base, theirs, cwd)) {
       if (LIVE_DOCS.includes(p)) continue
@@ -766,7 +809,7 @@ export function formatMoveAwareReport(list, { detail = false, maxEntries = 25 } 
 export function hasCommit(sha, cwd = ROOT) {
   if (!/^[0-9a-f]{7,40}$/.test(String(sha || ''))) return false
   return (
-    spawnSync(GIT, ['-c', 'safe.directory=*', 'cat-file', '-e', `${sha}^{commit}`], {
+    spawnSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'cat-file', '-e', `${sha}^{commit}`], {
       cwd,
       windowsHide: true,
       timeout: 60000,
@@ -1066,6 +1109,25 @@ function selfTest() {
       )
       ok('无丢行违规(干净三方那一个文件)', q.violations.length === 0, JSON.stringify(q.violations))
 
+      /**
+       * 形状锁:声明必须先于使用。起因是 2026-09-28 的一次真实卡死 —— 1) 里新加的"状态分叉"判据
+       * 往 `violations` push,而 `const violations = []` 声明在下面 2) 的清单堆里 ⇒
+       * `Cannot access 'violations' before initialization`,上层把它报成"union-converge 亦判需人工",
+       * 于是**所有会话的台账冲突都收敛不动、发布链卡死**。
+       * 为什么只能用源码序而不能用行为用例钉:抛不抛取决于 `planStateRegressions` 当期有没有报出
+       * 内容 —— 上面那个夹具恰好没报,于是自测 20 条全绿而真仓一撞分叉就崩(数据相关的崩溃,
+       * 行为用例天然测不到;源码序是这里唯一不依赖数据的锁)。
+       */
+      ok(
+        '形状锁:buildUnion 里 violations 的声明必须先于第一次 push',
+        (() => {
+          const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+          const decl = src.indexOf('const violations = []')
+          const use = src.indexOf('violations.push(')
+          return decl >= 0 && use >= 0 && decl < use
+        })(),
+      )
+
       // —— --resolve:人工判完的回灌出口必须**不是**选边的别名 ——
       const rfBoth = join(d2, '.resolve-both.txt')
       writeFileSync(rfBoth, 'x1\nOURS\nTHEIRS\nx3\n', 'utf8')
@@ -1141,6 +1203,54 @@ function selfTest() {
       'F5:注记与较好一侧持平或更多 ⇒ 不得报(否则清完账反而恒红)',
       planStateRegressions(PS_N1, [PS_N1, PS_N0]).length === 0 &&
         planStateRegressions(PS_N1 + PS_N1, [PS_N1]).length === 0,
+    )
+    // ── F9b 畸形号 / F9 撞号两维进落地闸(2026-09-28 G-606)──
+    // 成对:① 归并自己造的必须点名;② 两侧本来就带着的存量不得钉红归并(否则每次收敛都红)。
+    // 这两维判的是**行集/键集**而不是计数 —— 计数档对"抹掉一侧旧的、带进一枚新的"恒净零。
+    const MAL_G = '- [ ] **G-G-354 门33的provider名单该由谁供给**:甲。\n'
+    const CLEAN_G = '- [ ] **G-360 部署环 ff 竞态**:乙。\n'
+    ok(
+      'F9b:两侧都没有畸形号而归并结果有 ⇒ 必须点名到逐行原文(只报数等于让人再跑一遍全量档)',
+      planStateRegressions(MAL_G, [CLEAN_G, CLEAN_G]).join('').includes('F9b') &&
+        planStateRegressions(MAL_G, [CLEAN_G, CLEAN_G]).join('').includes('G-G-354'),
+      JSON.stringify(planStateRegressions(MAL_G, [CLEAN_G, CLEAN_G])),
+    )
+    ok(
+      'F9b:畸形行是**某一侧原样带着的存量** ⇒ 不得报(那是他人的历史债,归并没有制造它)。' +
+        '对照行刻意用**另一个号**:G-G-354 与 G-354 在 keyOfRow 下取到的是同一枚主键(判据从正文里' +
+        '搜 `G-\\d+`,第一段 `G-` 被跳过),两行并排会同时红在 F9 上 —— 那既是本例要避开的噪声, ' +
+        '也是"逐条剥前缀必须先问目标号有没有人占着"的根据(见 lib planMalformedStrip 的 refused)',
+      planStateRegressions(MAL_G + CLEAN_G, [MAL_G, CLEAN_G]).length === 0,
+      JSON.stringify(planStateRegressions(MAL_G + CLEAN_G, [MAL_G, CLEAN_G])),
+    )
+    ok(
+      'F9b 反向锁:等量换号(抹掉一侧的旧畸形号、同时带进一枚新的)必须仍被点名 —— ' +
+        '这一条就是"两把棘轮只比数量"那一型的落地闸版本,把它并进计数档就恒绿',
+      planStateRegressions(MAL_G, [CLEAN_G, '- [ ] **G-G-399 另一议题**:乙。\n'])
+        .join('')
+        .includes('G-G-354'),
+    )
+    const COL_A = '- [ ] **G-500 甲议题**:一侧写的。\n'
+    const COL_B = '- [ ] **G-500 乙议题**:另一侧写的。\n'
+    ok(
+      'F9:两侧各自都不撞、归并把两条不同议题拼到同一编号下 ⇒ 必须逐组点名',
+      planStateRegressions(COL_A + COL_B, [COL_A, COL_B]).join('').includes('F9 归并新增撞号组') &&
+        planStateRegressions(COL_A + COL_B, [COL_A, COL_B]).join('').includes('G-500'),
+      JSON.stringify(planStateRegressions(COL_A + COL_B, [COL_A, COL_B])),
+    )
+    ok(
+      'F9:某一侧本来就撞的组 ⇒ 归并不判红(同组多挂一行只能人工让号;为它拒绝收敛的唯一出路是' +
+        '删掉某一侧的行,那违反本工具的零丢失承诺,更贵)',
+      planStateRegressions(COL_A + COL_B + '- [ ] **G-500 丙议题**:第三行。\n', [
+        COL_A + COL_B,
+        COL_A,
+      ]).length === 0,
+      JSON.stringify(
+        planStateRegressions(COL_A + COL_B + '- [ ] **G-500 丙议题**:第三行。\n', [
+          COL_A + COL_B,
+          COL_A,
+        ]),
+      ),
     )
 
     // ── 活文档三方行 union(2026-09-25 实测逼出:旧写法 max(ours,theirs) 会把"本侧就地改写"
