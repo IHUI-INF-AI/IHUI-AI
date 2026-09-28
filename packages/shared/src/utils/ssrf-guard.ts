@@ -46,9 +46,45 @@ export const DENIED_CIDRS = [
   '240.0.0.0/4', // 保留(含 255.255.255.255 受限广播)
   '::/128', // IPv6 未指定
   '::1/128', // IPv6 回环
+  '100::/64', // Discard-Only(RFC 6666)—— 不是内网而是黑洞,判它属"特殊用途不可达"档
+  '2001:db8::/32', // 文档段(RFC 3849),不得出现在真实出站上
+  '64:ff9b:1::/48', // 本地使用 DNS64 前缀(RFC 8215 §3:非全局可路由),整段拒
   'fc00::/7', // IPv6 唯一本地地址(ULA)
   'fe80::/10', // IPv6 链路本地
   'ff00::/8', // IPv6 组播
+] as const
+
+/**
+ * 把 IPv4 嵌进 IPv6 的那一族前缀(6to4 / 全局 DNS64)—— **不**并进 `DENIED_CIDRS` 的原因:
+ *
+ * 那张表只会"整段前缀拒",而这一族里 `2002:0808:0808::`(= 8.8.8.8)与
+ * `64:ff9b::808:808`(= 同一个 8.8.8.8 经 NAT64)都是**真实公网目的**。按前缀名一律拒
+ * 就是本仓纪律明令禁止的"新增会误杀真实公网地址的判据"。所以这一族的判法是:
+ * 把嵌进来的那个 IPv4 取出来,再走一遍既有的 v4 拒绝网段 —— 于是
+ * `2002:7f00:0001::`(= 127.0.0.1)与 `64:ff9b::a9fe:a9fe`(= 169.254.169.254,IMDS)
+ * 被同一条 v4 名单认出,而公网那两条照旧放行。
+ *
+ * 位序只取有 RFC 明文依据的两档:
+ *  - 6to4:RFC 3056 —— 第 2、3 组(即自最高位起第 16 位开始的 32 位)就是嵌入的 IPv4。
+ *  - DNS64:RFC 6052 p=96 —— 低 32 位就是嵌入的 IPv4。
+ * `64:ff9b:1::/48`(RFC 8215 本地使用档)**刻意不在这里**:它整段不可全局路由,没有任何
+ * 公网目的住在里面,故按上面的 `DENIED_CIDRS` 前缀拒即可;而 RFC 6052 p=48 的嵌入位序本文件
+ * 未曾取证,**不猜位序** —— 宁可按前缀整段拒,也不要按一个记错的偏移去切地址。
+ */
+export interface Ipv6EmbeddedV4Prefix {
+  /** CIDR 字面量(与 `DENIED_CIDRS` 同一份解析器解析) */
+  readonly cidr: string
+  /** 嵌入 IPv4 的起始位偏移(自地址最高位数),故该 IPv4 占 bits [offset, offset+32) */
+  readonly v4BitOffset: number
+  readonly label: string
+}
+
+/**
+ * 每一行都必须被测试当作**输入**用过至少一次(同 `DENIED_CIDRS` 的义务,守门 120 对账)。
+ */
+export const IPV6_EMBEDDED_V4_PREFIXES = [
+  { cidr: '2002::/16', v4BitOffset: 16, label: '6to4(RFC 3056)' },
+  { cidr: '64:ff9b::/96', v4BitOffset: 96, label: 'DNS64 全局前缀(RFC 6052 p=96)' },
 ] as const
 
 /** 拒发主机名(精确匹配,大小写不敏感) */
@@ -174,23 +210,69 @@ function parseCidr(cidr: string): { family: 4 | 6; base: bigint; mask: bigint } 
   return { family: parsed.family, base: parsed.value & mask, mask }
 }
 
-const DENIED_RANGES = DENIED_CIDRS.map((cidr) => ({ cidr, range: parseCidr(cidr) })).filter(
-  (
-    entry,
-  ): entry is {
-    cidr: (typeof DENIED_CIDRS)[number]
-    range: NonNullable<ReturnType<typeof parseCidr>>
-  } => entry.range !== null,
-)
+type IpRange = { family: 4 | 6; base: bigint; mask: bigint }
+
+/**
+ * 预编译后的 CIDR 表(循环装配而非 `.filter(谓词)` —— 后者在 `as const` 名单上会因
+ * 字面量类型与宽化后的谓词类型互相不可赋值而报 TS2677,判据本身没有区别)。
+ */
+const DENIED_RANGES: readonly { cidr: string; range: IpRange }[] = (() => {
+  const rows: { cidr: string; range: IpRange }[] = []
+  for (const cidr of DENIED_CIDRS) {
+    const range = parseCidr(cidr)
+    if (range !== null) rows.push({ cidr, range })
+  }
+  return rows
+})()
+
+/** 命中某条 CIDR —— 循环体只此一份,`isPrivateOrReservedIp` 与嵌入 v4 复检共用,勿再抄第三遍。 */
+function hitsRange(value: bigint, family: 4 | 6, range: IpRange): boolean {
+  return range.family === family && (value & range.mask) === range.base
+}
+
+/** 该 32 位值(纯数字域的 IPv4)是否落在 v4 拒绝网段里。 */
+function isDeniedIpv4Value(value: bigint): boolean {
+  return DENIED_RANGES.some(({ range }) => hitsRange(value, 4, range))
+}
+
+/**
+ * 「IPv4 嵌在 IPv6 里」那两族的 CIDR 预编译(与 `DENIED_RANGES` 共用同一份 `parseCidr`)。
+ * 某行解析不到就会被跳过,而"这一行真在生效"不靠本文件自证,由
+ * `__tests__/ssrf-guard.test.ts` 里逐条成对的 denied/allowed 样本证明
+ * (名单类判据的正向证明义务,守门 120 同族)。
+ */
+const EMBEDDED_V4_RANGES: readonly { entry: Ipv6EmbeddedV4Prefix; range: IpRange }[] = (() => {
+  const rows: { entry: Ipv6EmbeddedV4Prefix; range: IpRange }[] = []
+  for (const entry of IPV6_EMBEDDED_V4_PREFIXES) {
+    const range = parseCidr(entry.cidr)
+    if (range !== null) rows.push({ entry, range })
+  }
+  return rows
+})()
+
+/**
+ * 若该地址属于"带嵌入 IPv4"的那一族,返回被嵌进来的那个 32 位值;否则 null。
+ * 只在 family 6 上取(family 4 已在原值上判过;而 `::ffff:0:0/96` 由 `parseIp`
+ * 折回 family 4,结构上不会到这里 —— 那是既有行为,本函数不重复它)。
+ */
+function embeddedIpv4Of(parsed: ParsedIp): bigint | null {
+  if (parsed.family !== 6) return null
+  for (const { entry, range } of EMBEDDED_V4_RANGES) {
+    if (!hitsRange(parsed.value, 6, range)) continue
+    const shift = BigInt(128 - entry.v4BitOffset - 32)
+    return (parsed.value >> shift) & 0xffffffffn
+  }
+  return null
+}
 
 /** 与 api 端内副本同名同语义,便于将来该端直接 re-export 本实现。 */
 export function isPrivateOrReservedIp(ip: string): boolean {
   const parsed = parseIp(ip)
   if (!parsed) return true // 解析不出来的形态一律按危险处理(fail-closed)
-  for (const { range } of DENIED_RANGES) {
-    if (range.family !== parsed.family) continue
-    if ((parsed.value & range.mask) === range.base) return true
-  }
+  if (DENIED_RANGES.some(({ range }) => hitsRange(parsed.value, parsed.family, range))) return true
+  // 6to4 / 全局 DNS64:按"嵌进来的那个 v4"判,而不是按前缀名整段拒(见 IPV6_EMBEDDED_V4_PREFIXES)
+  const embedded = embeddedIpv4Of(parsed)
+  if (embedded !== null) return isDeniedIpv4Value(embedded)
   return false
 }
 
@@ -241,18 +323,29 @@ export interface SsrfGuardOptions {
 /** 信任**永不**放行的主机名(云元数据服务与链路本地发现域) */
 const NEVER_TRUSTED_HOST_NAMES = ['metadata', 'metadata.google.internal', 'instance-data'] as const
 
-/** 信任永不放行的网段:链路本地(含 IMDS 169.254.169.254)与 IPv6 链路本地/唯一本地 */
+/** 169.254.0.0/16 —— 链路本地(含 IMDS 169.254.169.254),按 32 位数值域判 */
+function isLinkLocalIpv4Value(value: bigint): boolean {
+  return value >> 16n === 0xa9fen
+}
+
+/**
+ * 信任永不放行的网段:链路本地(含 IMDS 169.254.169.254)与 IPv6 链路本地/唯一本地。
+ *
+ * 取值一律经 `parseIp` 那**一份**解析器(旧写法在此处自己调 `parseIpv4ToNumber` +
+ * `parseIpv6ToBigInt` 两遍,等于同一件事的第二处解析 —— 于是它既看不见 `::ffff:` 折档,
+ * 也看不见本票新增的 6to4 / DNS64 嵌入档:`64:ff9b::a9fe:a9fe`(= 经 NAT64 打 IMDS)
+ * 会被信任层放行。`fc00::/7` 与 `fe80::/10` 的原有结论逐字保持。)
+ */
 function isNeverTrustedAddress(text: string): boolean {
-  const num = parseIpv4ToNumber(text)
-  if (num !== null) {
-    // 169.254.0.0/16
-    return num >>> 16 === 0xa9fe
-  }
-  const big = parseIpv6ToBigInt(text)
-  if (big === null) return false
-  const top = Number(big >> 112n)
+  const parsed = parseIp(text)
+  if (!parsed) return false
+  if (parsed.family === 4) return isLinkLocalIpv4Value(parsed.value)
+  const top = Number(parsed.value >> 112n)
   // fe80::/10 链路本地、fc00::/7 唯一本地(私网性质,自配端点无需它)
-  return (top & 0xffc0) === 0xfe80 || (top & 0xfe00) === 0xfc00
+  if ((top & 0xffc0) === 0xfe80 || (top & 0xfe00) === 0xfc00) return true
+  // 带嵌入 IPv4 的那一族:嵌进来的若是链路本地,同样永不放行
+  const embedded = embeddedIpv4Of(parsed)
+  return embedded !== null && isLinkLocalIpv4Value(embedded)
 }
 
 function isNeverTrustedHostname(host: string): boolean {
