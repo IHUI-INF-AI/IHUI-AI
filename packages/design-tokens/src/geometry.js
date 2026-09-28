@@ -46,6 +46,24 @@ export const GEOMETRY_PX = {
   controlBox: 32,
   /** 上述方块里的图标墨迹 14:web 同一处三枚字形(`Send` / `Plus` / `CheckCircle2`)全取 `h-3.5 w-3.5` */
   controlGlyph: 14,
+  /**
+   * 行内小箭头墨迹 16:O81 票(抽屉)落地时 RN 抽屉入口行 `ChevronRight size={16}` 的现值;
+   * 小程序侧补齐同档(`taroGeometry.glyphSm` = 32rpx),不再让"有没有箭头/多大"各写各的。
+   */
+  glyphSm: 16,
+  /** 次级小字 11:日期分组标题(两端抽屉实测同值 11,立档防止下一次漂) */
+  textCaption: 11,
+  /** 列表辅助文字 12:模型名 / 空态文案 / 菜单小标签(小程序 24rpx 现值,RN 空态由 13 收到此档) */
+  textLabel: 12,
+  /** 正文行 14:对话条目 / 入口行 / 区段标题(两端抽屉的公共整档,web body 同值) */
+  textBody: 14,
+  /** 昵称等强调文字 15:RN 抽屉昵称现值,小程序由 14 收到此档 */
+  textStrong: 15,
+  /**
+   * 左抽屉宽度 250:小程序 `rpx(500)` 折半即 250(= 750 设计宽的 2/3),RN 旧封顶 256 收进此档。
+   * RN 侧保留 `0.66 × 屏宽` 的比例收缩 —— 比例是窄屏自适应机制,封顶值才是档。
+   */
+  drawerWidth: 250,
 }
 
 /** RN / 共享包侧消费入口:StyleSheet 与内联 style 里写 `width: rnGeometry.tapBox` */
