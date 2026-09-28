@@ -50,6 +50,14 @@
  *   node scripts/union-converge.mjs --take-ours <path> [--take-ours <path>]...
  *       # 两侧同改且**能证明对侧那一版在本树必红**时,声明该路径取本侧。
  *       #   必须逐条附取证(跑过对侧版的结果),且会出现在输出与合并提交信息里。
+ *   node scripts/union-converge.mjs --take-theirs <path> [--take-theirs <path>]...
+ *       # 与上一条对称(2026-09-28 补)。用的唯一场景:两侧把**同一个功能**各写了一份,
+ *       #   且同一行被两种写法改写(实测 D151「命令在等键盘输入」:本侧 `awaitingInput:{promptTail}`
+ *       #   vs 主干 `waitingInput:boolean`)。这种冲突 `--resolve` 结构上无解 —— 它的零损失断言
+ *       #   要求两侧独有行都在,而"都在"= 同名类型/函数声明重复 ⇒ 编译不过;于是它只会一路
+ *       #   "需人工",把发布链卡在分叉上(2026-09-28 实测挡停约 3 小时)。
+ *       #   声明它 = 该路径持有者说"本侧这一份是被取代的",整文件取对侧。
+ *       #   纪律照抄 --take-ours:逐条声明、逐条打印、写进合并提交信息;不声明就仍是 needHuman。
  *   node scripts/union-converge.mjs --resolve '<path>=<内容文件>' [--resolve ...]
  *       # 真三方报冲突后,**人工判完的回灌出口**(2026-09-26 立)。此前"请人工判"是一句死路:
  *       #   工具不接收人工结果,人只能去做裸 git 手术(read-tree/commit-tree/update-ref),
@@ -493,6 +501,7 @@ export function buildUnion(
   takeOurs = new Set(),
   resolutions = new Map(),
   moveAwareCache = null,
+  takeTheirs = new Set(),
 ) {
   const scratch = mkScratch('union-idx')
   const idx = join(scratch, 'index')
@@ -554,6 +563,7 @@ export function buildUnion(
     const skippedDeletes = []
     const needHuman = []
     const keptOurs = []
+    const keptTheirs = []
     const humanResolved = []
     const touchedOurs = new Set(diffNames(base, ours, cwd))
     for (const p of diffNames(base, theirs, cwd)) {
@@ -580,6 +590,16 @@ export function buildUnion(
       // 显式声明 --take-ours <path>,并写进合并提交信息与输出,留下可追责的取证入口。
       if (takeOurs.has(p)) {
         keptOurs.push(p)
+        continue
+      }
+      // 对称的那一格(2026-09-28 补):两侧同一个功能各写一份、且**同一行被两种写法改写**时,
+      // `--resolve` 的零损失断言结构上喂不进去(两侧独有行都留 ⇒ 同名声明重复 ⇒ 编译不过),
+      // 于是这类合并永远"需人工"。缺的不是判断,是**声明式出口**:让持有裁决的人
+      // 显式说"这一路径本侧是被取代的那一份",整文件取对侧并大声留痕。
+      // 与 `--take-ours` 同一条纪律:必须逐条声明、必须打进输出与提交信息,不得默认。
+      if (takeTheirs.has(p)) {
+        run(['update-index', '--add', '--cacheinfo', `100644,${theirsBlob},${p}`])
+        keptTheirs.push(p)
         continue
       }
       const mode = modeOf(ours, p, cwd)
@@ -680,6 +700,7 @@ export function buildUnion(
       skippedDeletes,
       needHuman,
       keptOurs,
+      keptTheirs,
       humanResolved,
       violations,
       liveDocs,
@@ -902,7 +923,14 @@ function isAncestor(a, b, cwd) {
   )
 }
 
-export function plan(ours, theirs, cwd = ROOT, takeOurs = new Set(), resolutions = new Map()) {
+export function plan(
+  ours,
+  theirs,
+  cwd = ROOT,
+  takeOurs = new Set(),
+  resolutions = new Map(),
+  takeTheirs = new Set(),
+) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
   // 已经拦下,这条是给 import 者的 —— 两处判据同一份实现(hasCommit)。
@@ -914,7 +942,7 @@ export function plan(ours, theirs, cwd = ROOT, takeOurs = new Set(), resolutions
   const base = git(['merge-base', ours, theirs], cwd)
   // 一张抑制表同时喂归并与落地断言(分开算必漂移,而漂移的固定代价是"落地闸把合法未取回判成丢行")。
   const moveAwareCache = new Map()
-  const built = buildUnion(base, ours, theirs, cwd, takeOurs, resolutions, moveAwareCache)
+  const built = buildUnion(base, ours, theirs, cwd, takeOurs, resolutions, moveAwareCache, takeTheirs)
   // needHuman 同时进 bad:任何只看 bad 的调用方(含 git-sync-converge 之外的使用者)都不可能
   //   把一枚含冲突文件的树落地。冲突详情仍单独留清单,报告要点名到"是哪个文件"。
   const blocked = built.needHuman.map((h) => `${h.path} 需人工判(${h.kind}):${h.detail}`)
@@ -1136,6 +1164,35 @@ function selfTest() {
         show(q.tree, 'PROJECT_PLAN.md', d2).includes('theirs-line'),
       )
       ok('无丢行违规(干净三方那一个文件)', q.violations.length === 0, JSON.stringify(q.violations))
+
+      /**
+       * `--take-theirs` 的成对用例(2026-09-28 补,与上面的"选边必失败"成对而不是相反):
+       * 两侧把**同一行**改成两种写法时,`--resolve` 的零损失断言结构上喂不进去(两侧独有行都留
+       * ⇒ 同名声明重复 ⇒ 编译不过),所以缺的不是判断而是**声明式出口**。两条必须同时成立:
+       *  · 不声明 ⇒ 仍 needHuman(出口不能被静默打开,否则"选边"就成了默认动作);
+       *  · 声明 ⇒ 树内容逐字等于对侧、`keptTheirs` 点名该路径、且**不因此产生丢行违规**
+       *    (取代是本侧持有者的决定,不是归并器的失误)。
+       */
+      const forcedT = plan(o2, t2, d2, new Set(), new Map(), new Set(['clash.ts']))
+      ok(
+        'T-a 声明 --take-theirs ⇒ 该路径整文件取对侧并点名(不藏在 tookTheirs 里)',
+        forcedT.keptTheirs.includes('clash.ts') &&
+          blobOf(forcedT.tree, 'clash.ts', d2) === blobOf(t2, 'clash.ts', d2) &&
+          !forcedT.needHuman.some((h) => h.path === 'clash.ts'),
+        JSON.stringify([forcedT.keptTheirs, forcedT.needHuman.map((h) => h.path)]),
+      )
+      ok(
+        'T-b 反向锁:不声明时同一夹具仍必须判需人工(声明式例外不得变成默认放行)',
+        q.needHuman.some((h) => h.path === 'clash.ts') && !q.keptTheirs?.length,
+        JSON.stringify(q.needHuman.map((h) => h.path)),
+      )
+      ok(
+        'T-c 取对侧只影响被声明的那一路径:其余文件的两侧独有行仍须全在',
+        show(forcedT.tree, 'clean.ts', d2) === 'L1\nl2\nl3\nTHEIRS\nl5' &&
+          show(forcedT.tree, 'PROJECT_PLAN.md', d2).includes('ours-line') &&
+          show(forcedT.tree, 'PROJECT_PLAN.md', d2).includes('theirs-line'),
+        show(forcedT.tree, 'clean.ts', d2).replace(/\n/g, '|'),
+      )
 
       /**
        * 形状锁:声明必须先于使用。起因是 2026-09-28 的一次真实卡死 —— 1) 里新加的"状态分叉"判据
@@ -1519,6 +1576,14 @@ async function main() {
   const takeOurs = new Set()
   for (let i = 0; i < argv.length; i++)
     if (argv[i] === '--take-ours' && argv[i + 1]) takeOurs.add(argv[++i])
+  // --take-theirs <path>(可重复):与 --take-ours 对称的那一格(2026-09-28 补)。
+  //   用它的唯一正当场景是"两侧同一个功能各写一份,而**同一行**被两种写法改写"——
+  //   这种冲突 `--resolve` 结构上无解(两侧独有行都留 ⇒ 同名声明重复 ⇒ 编译不过),
+  //   于是它只会一路"需人工",把发布链卡在分叉上。声明它 = 该路径的持有者说"本侧是被取代的那一份"。
+  //   纪律与 --take-ours 完全一致:逐条声明、逐条打印、写进合并提交信息,绝不默认生效。
+  const takeTheirs = new Set()
+  for (let i = 0; i < argv.length; i++)
+    if (argv[i] === '--take-theirs' && argv[i + 1]) takeTheirs.add(argv[++i])
   // --resolve <path>=<文件>(可重复):人工判完冲突后的**回灌出口**。与 --take-ours 的关键区别:
   //   它不选边 —— 喂进来的整份内容照样过"两侧独有行不得减少"的断言,少哪一侧当场 violations。
   const resolutions = new Map()
@@ -1545,7 +1610,7 @@ async function main() {
     console.log(`[union-converge] 未判定:${t.undetermined}`)
     process.exit(2)
   }
-  const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions)
+  const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions, takeTheirs)
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 活文档行 union`,
   )
@@ -1572,6 +1637,10 @@ async function main() {
     console.log(
       `  · 人工归并已回灌:${r}(内容取自 --resolve;两侧独有行丢行断言已在这份内容上跑过,未过即 bad)`,
     )
+  for (const r of p.keptTheirs || [])
+    console.log(
+      `  · 取对侧(已声明):${r} —— 本侧在该路径的独有行被取代(同一行两种写法,--resolve 无解);声明者须附"哪一份是被消费的"取证`,
+    )
   if (p.bad.length) {
     console.log(`❌ 落地闸不过 ${p.bad.length} 处:`)
     for (const b of p.bad.slice(0, 15)) console.log(`   ${b}`)
@@ -1586,7 +1655,10 @@ async function main() {
     (p.humanResolved?.length
       ? `;人工归并回灌(已过两侧丢行断言): ${p.humanResolved.join(' ')}`
       : '') +
-    (p.keptOurs?.length ? `;取本侧(已声明+可复核): ${p.keptOurs.join(' ')}` : '')
+    (p.keptOurs?.length ? `;取本侧(已声明+可复核): ${p.keptOurs.join(' ')}` : '') +
+    (p.keptTheirs?.length
+      ? `;取对侧(已声明,本侧该行被取代——同一行两种写法时 --resolve 结构上无解): ${p.keptTheirs.join(' ')}`
+      : '')
   const sha = git(['commit-tree', p.tree, '-p', t.head, '-p', t.theirs, '-m', msg])
   const cas = spawnSync(
     GIT,
