@@ -390,7 +390,7 @@ function SyncDiffDetail({ result }: { result: ModelSyncResult }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full flex-wrap items-center gap-2 rounded px-1 py-0.5 text-left text-[11px] transition-colors hover:bg-accent/50"
+        className="flex w-full flex-wrap items-center gap-2 rounded-sm px-1 py-0.5 text-left text-[11px] transition-colors hover:bg-accent/50"
         aria-expanded={open}
       >
         <ChevronRight
@@ -786,7 +786,7 @@ function SyncHistoryTimeline() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded px-1 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        className="flex items-center gap-1.5 rounded-sm px-1 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
         aria-expanded={open}
       >
         <History className="h-3.5 w-3.5" />
