@@ -96,6 +96,13 @@ const HARD_CAP_MS = (() => {
   return Number.isFinite(v) && v > 0 ? v : 1_800_000
 })()
 
+/**
+ * "时间戳落在多远的未来"才算时钟异常,而不是当成正常读数。
+ * 取 5 分钟:跨机持锁时两侧时钟差通常是秒级(NTP),超过 5 分钟不可能是"刚刚建的锁";
+ * 而把它夹成 `ageMs=0` 会让硬上限永不触发 —— 那正是把"量不到"写成"没问题"。
+ */
+const FUTURE_TS_TOLERANCE_MS = 5 * 60_000
+
 /** 锁目录(默认路径:项目根 .deploy.lock,不随 cwd 变化) */
 function lockDir() {
   return join(repoRoot, '.deploy.lock')
@@ -397,11 +404,25 @@ function isProcessAlive(pid) {
  */
 function lockAgeMs(dir, state, now = Date.now()) {
   if (state.kind === 'ok' && state.meta.ts > 0) {
+    if (state.meta.ts > now + FUTURE_TS_TOLERANCE_MS) {
+      // **未来时间戳不等于"0 岁"**。旧写法 `Math.max(0, now - ts)` 把未来值夹成 0 ⇒ 锁龄恒 0
+      // ⇒ 硬上限永远到不了;叠加"pid 名义存活"就是 2026-09-25 冻结部署环 11h50m 的那组条件。
+      // 身份三元组(2026-09-27)能治 pid 复用那一半,但旧 meta 没记身份两元、或锁由别机持有时,
+      // 只剩"年龄"这一维兜底 —— 所以异常必须显式标出来交给 decideSteal,而不是夹成 0 当正常读数。
+      return {
+        ageMs: 0,
+        source: `不可判定(meta.ts 在未来 ${Math.round((state.meta.ts - now) / 1000)}s)`,
+        clockAnomalous: true,
+      }
+    }
     return { ageMs: Math.max(0, now - state.meta.ts), source: 'meta.ts' }
   }
   try {
+    const m = statSync(dir).mtimeMs
+    if (m > now + FUTURE_TS_TOLERANCE_MS)
+      return { ageMs: 0, source: '不可判定(锁目录 mtime 在未来)', clockAnomalous: true }
     return {
-      ageMs: Math.max(0, now - statSync(dir).mtimeMs),
+      ageMs: Math.max(0, now - m),
       source: '锁目录 mtime(降级信号,不如 pid 可靠)',
     }
   } catch {
@@ -531,6 +552,23 @@ function decideSteal({ dir, mode, staleMs, hardCapMs = HARD_CAP_MS, now = Date.n
         why:
           `持有者 ${who} 名义存活,但身份三元组确证该 pid 已被复用:${identity.why}` +
           `(锁龄 ${age.ageMs}ms / 硬上限 ${hardCapMs}ms ⇒ 不必等年龄兜底,归档现场后抢占)`,
+      }
+    }
+    /**
+     * 时钟读数异常(ts 或 mtime 落在未来)⇒ **年龄这一维已经判不出来**,而"无限 wait"不是可接受的
+     * 兜底(§5b/G-193 那条判断:宁可抢一把明显超时的锁并先归档现场,不可让生产一直不更新)。
+     * 排在身份确据之后、硬上限之前:`immediate:false` ⇒ 与硬上限同形,先归档现场再抢。
+     */
+    if (age.clockAnomalous) {
+      return {
+        action: 'steal',
+        immediate: false,
+        holderAlive: alive,
+        clockAnomalous: true,
+        ...info,
+        why:
+          `持有者 ${who} 名义存活,但锁龄判不出来(${age.source})` +
+          ' ⇒ 年龄兜底这一维失效,不能因此无限 wait;按硬上限同一档位归档现场后抢占',
       }
     }
     /**
@@ -1418,5 +1456,7 @@ export const __test__ = {
   // 2026-09-27 身份三元组接线面(镜像测试直接判这三件,不得在测试里抄第二份判据 —— §22c):
   holderIdentity,
   identityNote,
+  // 时钟容差也是判据的一部分:测试必须引这一份,不得在测试里另抄一个 5 分钟(§22c 同源理由)。
+  FUTURE_TS_TOLERANCE_MS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

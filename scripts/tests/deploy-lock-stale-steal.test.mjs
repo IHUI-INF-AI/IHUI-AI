@@ -236,4 +236,48 @@ test('⑦防复发:git-lock/deploy-lock 都不得再出现第二份 claimStaleLo
   const flagged2 = auditClaimStaleLockSource(replaced, 'mutation-fixture-2')
   assert.equal(flagged2.length, 3, `同名回退必须三条判据各自点名,实得 ${JSON.stringify(flagged2)}`)
 })
+// 时钟异常不是"0 岁":未来时间戳若被 Math.max(0,…) 夹成 0,硬上限永不触发,
+// 叠加"pid 名义存活"就是 2026-09-25 冻结部署环 11h50m 的那组条件(G-386)。
+test('未来 ts 判"锁龄不可判定"并给出抢占授权,而正常 ts 绝不误抢', (t) => {
+  const scratch = mkScratch('deploy-lock-clock')
+  t.after(() => rmScratch(scratch))
+  const dir = join(scratch, '.deploy.lock')
+  mkdirSync(dir)
+  const now = 1_800_000_000_000
+  const write = (ts) =>
+    writeFileSync(
+      join(dir, 'meta.json'),
+      JSON.stringify({ mode: 'build', pid: process.pid, ownerPid: process.pid, ts }),
+      'utf8',
+    )
+
+  write(now + 10 * 60_000) // 未来 10 分钟
+  const st = dl.readMeta(dir)
+  assert.equal(st.kind, 'ok', '夹具 meta 必须被读成 ok,否则下面测的是空转')
+  const age = dl.lockAgeMs(dir, st, now)
+  assert.equal(age.clockAnomalous, true, `未来 ts 必须标异常,实得 ${JSON.stringify(age)}`)
+  const verdict = dl.decideSteal({
+    dir,
+    mode: 'build',
+    staleMs: 600_000,
+    hardCapMs: dl.HARD_CAP_MS,
+    now,
+  })
+  assert.equal(verdict.action, 'steal', `年龄维失效时不得无限 wait,实得 ${JSON.stringify(verdict)}`)
+  assert.equal(verdict.immediate ?? false, false, '必须走"先归档现场再抢",不是秒抢通道')
+
+  write(now - 1000) // 控制组:一把正在跑的锁
+  const calm = dl.decideSteal({
+    dir,
+    mode: 'build',
+    staleMs: 600_000,
+    hardCapMs: dl.HARD_CAP_MS,
+    now,
+  })
+  assert.notEqual(
+    calm.action,
+    'steal',
+    `ts 正常且持有者存活时绝不得抢占,实得 ${JSON.stringify(calm)}`,
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

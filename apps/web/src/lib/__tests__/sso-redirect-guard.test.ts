@@ -22,6 +22,7 @@ vi.mock('@ihui/api-client', () => ({ refreshAccessTokenOnce: refreshMock }))
 
 import {
   isSameOriginRelative,
+  isSafeNavigationTarget,
   isBlockedByAuthGuard,
   syncAuthCookie,
   ensureSsoRedirectAllowed,
@@ -135,6 +136,51 @@ describe('ensureSsoRedirectAllowed - 决策链', () => {
     fetchMock.mockResolvedValue(probeResponse('opaqueredirect'))
     await expect(ensureSsoRedirectAllowed('/admin')).resolves.toBe(false)
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('isSafeNavigationTarget - 协议判定(与归属判定不同义)', () => {
+  // 阳性对照:这些伪 URL 都能被 new URL() 解析成功,但经 location.replace 会在**本站源**里
+  // 执行代码或取回本地字节 —— 而 /sso/mobile-auth 刚 Set-Cookie 了 auth_token。
+  it.each([
+    'javascript:alert(1)',
+    'JavaScript:alert(1)',
+    'data:text/html,<script>1</script>',
+    'blob:https://a/1',
+    'vbscript:msgbox(1)',
+  ])('能在本站源里执行的伪协议必须拒:%s', (target) => {
+    expect(isSafeNavigationTarget(target)).toBe(false)
+  })
+
+  it('站内相对路径放行', () => {
+    expect(isSafeNavigationTarget('/chat')).toBe(true)
+  })
+
+  // 控制组(这条最容易被"顺手加严"破坏):mobile-auth 的 redirect 语义是
+  // "WebView 接下来要打开的那个页面",外部 http(s) 页是设计意图 ⇒ 绝不能按 origin 白名单拒,
+  // 否则 App→Web 会话打通链路当场断(WebViewScreen 传的就是任意 http(s) 目标)。
+  it('外部 http(s) 绝对地址放行(它是 WebView 的目标,不是回站内的跳转)', () => {
+    expect(isSafeNavigationTarget('https://aizhs.top/pricing')).toBe(true)
+    expect(isSafeNavigationTarget('http://192.168.1.7:8801/sso/redirect')).toBe(true)
+  })
+
+  it('空串与裸串拒(交调用方回落,不猜"应该没问题")', () => {
+    expect(isSafeNavigationTarget('')).toBe(false)
+    expect(isSafeNavigationTarget('chat')).toBe(false)
+    expect(isSafeNavigationTarget('//evil.example.com/x')).toBe(false) // 协议相对:new URL 无 base 解析不出
+  })
+
+  // 自定义协议深链按本协议判拒。深链回 App 走的是 scheme 回调(ihui://),不经本页;
+  // 若将来要让本页支持深链,必须**显式扩协议**并在此写明理由,不得默默放行未知协议。
+  it('自定义协议深链判拒(需要时必须显式扩协议)', () => {
+    expect(isSafeNavigationTarget('ihui://sso/callback')).toBe(false)
+  })
+
+  it('与归属判定的边界互不代替:同源相对在两处都算站内', () => {
+    for (const t of ['/admin', '/chat']) {
+      expect(isSameOriginRelative(t)).toBe(true)
+      expect(isSafeNavigationTarget(t)).toBe(true)
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
