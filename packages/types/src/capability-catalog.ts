@@ -955,9 +955,17 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     // 恢复成 true 的前置 = 先给连接器配置落归属(另计一票),而不是把标注改回去。
     // 这道判据由 scripts/check-public-exposure-list.mjs 的 X3/X7 +
     // apps/api/tests/o5-nginx-edge-ratelimit.test.ts 的 NEVER_PUBLIC_SCOPES 双向钉住。
+    //
+    // 2026-09-29(G-371 落属主)**上面那句前置已经满足了,但本行仍是 false,这是机主当场拍的第二个决定**:
+    // "先落属主,暂不重开"。现读事实 —— 两条读路径都按调用方身份过滤
+    // (`connector_store.list_owned(user_id)` / `manager.list_registered(user_id)`),
+    // 跨属主写回 403、跨属主读与"没这条"同形(404),越权用例断言的是"副作用没发生"而非只断言状态码。
+    // 所以此处不再是"没有 scope",而是一份**已按属主收窄**的读面。
+    // 为什么还不放开:第三方 key 的主体模型与站内登录态不同(owner_user_id 从哪来、
+    // 是否同一命名空间)未取证,放开后"scoped"会再次变成纸面措辞。重开属机主裁决,不得顺手翻旗。
     thirdPartyEligible: false,
     idempotencyRequired: false,
-    description: '外部连接器/MCP server 清单与能力(实现侧无属主过滤 ⇒ 暂不对第三方开放)',
+    description: '外部连接器/MCP server 清单与能力(已按调用方属主过滤;第三方开放仍待机主重开)',
     // GET /api/connectors      ← app/routers/connectors.py:29(prefix /connectors)+ :107(@router.get(""))
     // GET /api/mcp/external/servers ← app/routers/mcp.py:346(main.py:697 挂 /api)
     host: 'ai-service',
