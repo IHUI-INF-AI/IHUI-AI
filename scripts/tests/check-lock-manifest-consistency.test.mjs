@@ -1083,3 +1083,125 @@ test('T35 optional 字段不得被静默丢弃:解析器必须真的赋值(否�
     rmScratch(s)
   }
 })
+
+/* ===================== R6 的第二条豁免:同一名字双声明、pnpm 只折一条落段 =====================
+ * 立论证据(2026-09-28 实测,不是推测):在**临时** workspace 里(只有 workspace: 链接、零网络、
+ * 零触碰真仓)让真 pnpm 产出 lock,再跑 `pnpm install --frozen-lockfile`:
+ *   deps+devDeps 双声明  → 锁只有 dependencies            → FROZEN_OK
+ *   deps+optionalDeps 双声明 → 锁只有 optionalDependencies → FROZEN_OK
+ *   deps+peer / dev+peer / peer-only / opt-only            → 亦全部 FROZEN_OK
+ * 而上一版 R6 在前两格上**判红** —— 本门的立论是"这一维的红与 pnpm 的拒装是同一件事"(T31 那条
+ * 双臂实测),所以 pnpm 接受的状态不配判红;留着它就是一台恒红门(§12e)。
+ * ⚠️ §22c 口径:下面 PNPM_REAL_LOCK 的 importer 块**逐字取自那次真产物**(含 settings 段与
+ *    `version: link:../lib` 写法),不是本门拼出来的形态 —— 夹具若只复刻实现的形状,
+ *    测试就从防线变成复读机。
+ */
+const PNPM_REAL_LOCK = [
+  "lockfileVersion: '9.0'",
+  '',
+  'settings:',
+  '  autoInstallPeers: true',
+  '  excludeLinksFromLockfile: false',
+  '',
+  'importers:',
+  '',
+  '  .: {}',
+  '',
+  '  pkgs/lib: {}',
+  '',
+  '  pkgs/web:',
+  '    dependencies:',
+  "      '@t/lib':",
+  '        specifier: workspace:*',
+  '        version: link:../lib',
+  '',
+].join('\n')
+
+/** 真 pnpm 那份产物的清单:同一个 @t/lib 同时写在 dependencies 与 devDependencies */
+const DUP_WEB_PKG = {
+  dependencies: { '@t/lib': 'workspace:*' },
+  devDependencies: { '@t/lib': 'workspace:*' },
+}
+
+/** 按真产物的目录布局落一个可判的树(workspace glob 是 pkgs/*,与 lock 的 importer 键同形) */
+function dupFixture(dir, lockText) {
+  for (const sub of ['pkgs/lib', 'pkgs/web']) mkdirSync(join(dir, sub), { recursive: true })
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), "packages:\n  - 'pkgs/*'\n")
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: '@t/root', version: '1.0.0' }))
+  writeFileSync(join(dir, 'pkgs/lib/package.json'), JSON.stringify({ name: '@t/lib', version: '1.0.0' }))
+  writeFileSync(
+    join(dir, 'pkgs/web/package.json'),
+    JSON.stringify({ name: '@t/web', version: '1.0.0', ...DUP_WEB_PKG }),
+  )
+  writeFileSync(join(dir, 'pnpm-lock.yaml'), lockText)
+  return dir
+}
+
+test('T36 双声明豁免:逐字取自真 pnpm 产物的那一份 lock 必须判绿(旧实现在这里判红 = 恒红门)', () => {
+  const s = mkScratch('lmci-t36')
+  try {
+    const dir = dupFixture(join(s, 'real'), PNPM_REAL_LOCK)
+    const r = gate.runCheck(dir, 'worktree')
+    assert.equal(r.undetermined, null, `真产物读不出即判据失明:${r.undetermined}`)
+    assert.deepEqual(
+      r.violations,
+      [],
+      'pnpm 自己产出、且 --frozen-lockfile 实测 RC=0 的状态不得判红',
+    )
+    assert.equal(r.sectionDrift.length, 0)
+    assert.equal(r.multiSectionExempted.length, 1, '放过必须留痕(静默变绿 = 把判过写成没判)')
+    assert.equal(r.multiSectionExempted[0].section, 'devDependencies')
+    assert.equal(r.multiSectionExempted[0].lockedIn, 'dependencies')
+
+    // 端到端(提交链走的就是这条路径):退出码 + 报告行都必须说出"这一格是放过的,不是没看"
+    const cli = runCLI(['--all', '--worktree', '--root', dir])
+    assert.equal(cli.code, 0, `CLI 不该在 pnpm 接受的状态上挡路:\n${cli.out}`)
+    assert.match(cli.out, /段位置违规 0/)
+    assert.match(cli.out, /同一名字双声明、pnpm 只折一条落段而放过 1 条/)
+    assert.doesNotMatch(cli.out, /\[分区漂移\]/)
+
+    // 反向对照(证明上面那条不是恒真):把同一条锁条目挪到清单**从未声明**的段
+    // ⇒ pnpm 不会产出这种形状,frozen-lockfile 会拒装 ⇒ 必须仍判红并点名两侧段。
+    const moved = dupFixture(
+      join(s, 'moved'),
+      PNPM_REAL_LOCK.replace('    dependencies:\n', '    optionalDependencies:\n'),
+    )
+    const rm = runCLI(['--all', '--worktree', '--root', moved])
+    assert.equal(rm.code, 1, '豁免只认"清单自己也声明过的段",挪去未声明段必须红')
+    assert.match(rm.out, /\[分区漂移\]/)
+    assert.match(rm.out, /@t\/lib/)
+    assert.match(rm.out, /dependencies\b.*optionalDependencies/s)
+  } finally {
+    rmScratch(s)
+  }
+})
+
+test('T37 双声明豁免的边界:peer 段不得替非 peer 声明做不在场的抗辩,单段声明一律不受影响', () => {
+  const dcl = {
+    dependencies: { '@t/lib': 'workspace:*' },
+    devDependencies: { '@t/lib': 'workspace:*' },
+  }
+  // 锁落在两个已声明段里任一段 ⇒ 放过(各一次,证明与"落在哪一段"无关、只与"那段是否被声明"有关)
+  for (const landing of ['dependencies', 'devDependencies']) {
+    const r = gate.compareDeclarations(dcl, gate.lockSectionsOf({ [landing]: { '@t/lib': 'workspace:*' } }))
+    assert.deepEqual(r.violations, [], `落在已声明段 ${landing} 不得判红`)
+    assert.equal(r.multiSectionExempted.length, 1)
+  }
+  // 未建模的段(importer 出现 peerDependencies 段)不得当豁免依据:维度 B 连 peer 自己的落段
+  // 都只敢落到 U3,让一个没建模的段替非 peer 声明做不在场抗辩 = 把豁免写成通行证。
+  const peerAlibi = gate.compareDeclarations(
+    dcl,
+    gate.lockSectionsOf({ peerDependencies: { '@t/lib': 'workspace:*' } }),
+  )
+  assert.equal(peerAlibi.violations.length, 2, '两侧声明槽位都要判红(peer 段不算)')
+  assert.ok(peerAlibi.violations.every((v) => v.kind === 'section-drift'))
+  assert.equal(peerAlibi.multiSectionExempted.length, 0)
+  // 单段声明(绝大多数包)必须完全不受这条豁免影响 —— 否则 T25 的阳性就只是碰巧
+  const single = gate.compareDeclarations(
+    { dependencies: { '@t/lib': 'workspace:*' } },
+    gate.lockSectionsOf({ devDependencies: { '@t/lib': 'workspace:*' } }),
+  )
+  assert.equal(single.violations.length, 1)
+  assert.equal(single.violations[0].kind, 'section-drift')
+  assert.equal(single.multiSectionExempted.length, 0)
+})

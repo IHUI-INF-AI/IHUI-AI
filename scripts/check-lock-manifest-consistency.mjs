@@ -50,13 +50,15 @@
  *      mismatch 只问"值对不对",于是"名字与值都对、但 lock 把它记在另一段"这一型两侧都不红。
  *      实测载体是那晚 CI 的 `@ihui/types`:package.json 声明在 devDependencies、lock 记在
  *      dependencies —— 安装面按 lock 走、打包闭包按 manifest 走,**红只在 CI,不在本机任何判据**。
- *      唯一豁免是 R5 的 peer(pnpm 把 peer 记进 dev 段是文档化行为);其余跨段一律判红。
+ *      豁免只有两条:R5 的 peer(pnpm 把 peer 记进别的段是文档化行为),以及"同一个名字在清单的
+ *      多个非 peer 段里都声明过、pnpm 只折成一条落段"(2026-09-28 实测补,见下方"协调"第三条);
+ *      其余跨段一律判红。
  *      落地前置:真仓 HEAD 面 26 包 / 515 条声明实测 **0 条跨段** ⇒ 不需要棘轮,当场零容忍
  *      (带基线的分区判据等于把这一型留给下一个撞见它的人)。
  *   R4/R5 放过的每一条(仅统计"值确实不同却被放过"的那些)都进 overrideExempted /
  *   peerExempted,并在结论行报数与 --json 里可审计(含命中的 override key),不静默变绿。
  *   R6 的**覆盖面自证**(2026-09-27 补):结论行单独印
- *      `维度 R6 段位置对账:核 N 条非 peer 声明键 / 段位置违规 M / peer 声明 K 条不参与(实测 importer 段集 …)`。
+ *      `维度 R6 段位置对账:核 N 条非 peer 声明键 / 段位置违规 M / 同一名字双声明、pnpm 只折一条落段而放过 K 条 / peer 声明 L 条不参与(实测 importer 段集 …)`。
  *   这一维若只混在"违规 N"里,读报告的人就分不开"判过且干净"与"一条都没核"—— 而后者正是本仓
  *   记过最多次的失效型("把没判写成判过了")。N 为 0 时该行显式追加"⚠️ 一条都没核,不得读成已通过"。
  *   R6 与维度 A/B 的**协调**(2026-09-28 L14030 续票逐条论证,不得读成"顺手放宽"):
@@ -81,6 +83,24 @@
  *       判会亮 14 条而 14 条全是 peer 声明 ⇒ 那是尺子错,不是仓库债。但这一条**豁免的前提是可测的**,
  *       所以它不再是前提时必须喊出来:若某一包的 importer **有** peerDependencies 段、而该 peer 声明
  *       不在其中,本门不再假定"放过是对的",落 U3 未判定(见下),而不是静默豁免。
+ *     · **同一个名字在清单的多个非 peer 段里都声明过 ⇒ 锁只落其中一段是 pnpm 的正常折叠,不判漂移**
+ *       (2026-09-28 六形态实测;临时仓 workspace: 链接、零网络、零触碰真仓 node_modules/lock)。
+ *       上一版把 R6 写成"除 peer 外一律按段判",于是**在 pnpm 自己产出的 lock 上产假阳**:
+ *         清单 deps+devDeps 双声明 → 锁只有 dependencies → 本维曾判 `devDependencies->dependencies` 红
+ *         清单 deps+optionalDeps 双声明 → 锁只有 optionalDependencies → 本维曾判 `dependencies->optionalDependencies` 红
+ *       而这两种状态 `pnpm install --frozen-lockfile` **实测全部 RC=0**(六形态逐个跑:deps+dev /
+ *       deps+peer / dev+peer / deps+opt / peer-only / opt-only ⇒ 均 FROZEN_OK)。本维的立论是
+ *       "这一维的红与 pnpm 的拒装是同一件事"(见上条双臂实测),所以**pnpm 接受的状态结构上不配判红** ——
+ *       留着它就是一台恒红门:真仓 HEAD 现读 4 处双声明(dev+peer ×4)恰好都落在已声明段而暂不触发,
+ *       但任何人把某个 runtime 依赖同时写进 deps 与 devDeps 就会被这道 blocking 门无端拦下
+ *       (§12e:恒红门唯一结局是逼人 `--no-verify`、连带全部守门作废)。
+ *       判据**不是**"清单里同名出现在多段 ⇒ 这一段免检",而是"锁落的那一段**必须是清单自己也声明过的
+ *       非 peer 段**":清单 deps+devDeps 双声明而锁记在 optionalDependencies(未声明段)⇒ 照判红,
+ *       所以这条豁免不构成洗白通道(镜像 T37 用正反两条钉住)。peer 段刻意**不**进"可接受落段"集合 ——
+ *       peer 的落段本来就没建模(维度 B/U3),让一个未建模的段替非 peer 声明做不在场的抗辩,
+ *       等于把豁免写成通行证。被放过的那一段在锁里没有条目(这正是走到这一支的前提),值维仍由
+ *       真有条目的那一段照常跑完 ⇒ 本豁免不减少任何一次值比对,只把 `sectionChecked` 的口径在报告行
+ *       里说清(见上"覆盖面自证"的 K)。
  *   R6 的三型**判不准**(U1/U2/U3)—— 既不冒红也不记绿,一律点名:
  *     · **U1 value-unreadable**:命中的锁条目没有 `specifier` 字段 ⇒ 段维仍按"键在位"照判,
  *       但**值**维无从比对。旧写法会拿 `null` 去和声明值比,产出一枚 `locked: null` 的假 mismatch;
@@ -531,6 +551,24 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
   const overrideExempted = []
   const peerExempted = []
   /**
+   * 同一个名字在 manifest 的**多个非 peer 段**里都声明过、而锁只落在其中一段 ⇒ 不判漂移。
+   * 这一档不是"怕误伤所以宽一点",而是实测出来的 pnpm 语义(见头注 R6 的"双重声明"条)。
+   */
+  const multiSectionExempted = []
+  /**
+   * 名字 → 它在 manifest 里被声明过的那些**非 peer** 段。维度 B 刻意不进来:peer 的落段
+   * 本来就交给下面的 peer 支(且 U3 只在"importer 真有 peer 段"时才喊判不准),让一个
+   * 未被建模的段去替非 peer 声明做不在场的抗辩,等于把豁免写成通行证。
+   */
+  const nonPeerSectionsOf = new Map()
+  for (const s of DEP_SECTIONS) {
+    if (s === 'peerDependencies') continue
+    for (const name of Object.keys(declaredBySection[s] ?? {})) {
+      if (!nonPeerSectionsOf.has(name)) nonPeerSectionsOf.set(name, [])
+      nonPeerSectionsOf.get(name).push(s)
+    }
+  }
+  /**
    * 三型**判不准**(U1 value-unreadable / U2 optional-placement-unmodeled /
    * U3 peer-section-exists-but-skipped),逐条点名。它们既不进 violations,也不进任何
    * "放过"清单 —— 本仓最高频的失效型是"把没判写成判过了",而"放过"与"没判"在账面上
@@ -625,6 +663,26 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
           })
           continue
         }
+        // 双重声明放过(2026-09-28 实测补,证据见头注 R6 的"双重声明"条):这个名字在清单里
+        // **还**声明在别的非 peer 段,而锁正是落在那一段之一 ⇒ pnpm 自己的记账形态,
+        // `pnpm install --frozen-lockfile` 实测 RC=0 通过 ⇒ 不是漂移。
+        // 排在 U2 之后:带 optional 标记的形态已有既立的"判不准"结论,本次不动它的语义。
+        // 排在 mismatch 之前不影响值维:被放过的那一段在锁里**根本没有条目**(这正是走到本支的
+        // 前提),真有条目的那一段照常走完同段判定 + override + 值比对,所以这条豁免
+        // 只在"pnpm 把双声明折成单条"时生效,洗不掉任何一次值比对。
+        const alsoDeclared = (nonPeerSectionsOf.get(name) ?? []).filter((s) => s !== section)
+        const landing = candidates.find((c) => alsoDeclared.includes(c.in))
+        if (landing) {
+          multiSectionExempted.push({
+            section,
+            name,
+            declared: spec,
+            locked: landing.entry.specifier,
+            lockedIn: landing.in,
+            alsoDeclaredIn: alsoDeclared,
+          })
+          continue
+        }
         violations.push({
           kind: 'section-drift',
           section,
@@ -701,7 +759,7 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
       if (!declaredNames.has(name)) orphans.push({ section: s, name, locked: entry.specifier })
     }
   }
-  return { violations, orphans, overrideExempted, peerExempted, undetermined }
+  return { violations, orphans, overrideExempted, peerExempted, multiSectionExempted, undetermined }
 }
 
 /** 维度 A 的输入:同一个面读 pnpm-workspace.yaml 的 overrides 段 */
@@ -742,6 +800,7 @@ export function runCheck(root, face = 'worktree') {
     const orphans = []
     const overrideExempted = []
     const peerExempted = []
+    const multiSectionExempted = []
     const undeterminedItems = []
     let declarations = 0
     let sectionChecked = 0
@@ -785,11 +844,13 @@ export function runCheck(root, face = 'worktree') {
       for (const o of r.orphans) o.pkg = rel
       for (const x of r.overrideExempted) x.pkg = rel
       for (const x of r.peerExempted) x.pkg = rel
+      for (const x of r.multiSectionExempted) x.pkg = rel
       for (const u of r.undetermined) u.pkg = rel
       violations.push(...r.violations)
       orphans.push(...r.orphans)
       overrideExempted.push(...r.overrideExempted)
       peerExempted.push(...r.peerExempted)
+      multiSectionExempted.push(...r.multiSectionExempted)
       undeterminedItems.push(...r.undetermined)
     }
     return {
@@ -801,6 +862,7 @@ export function runCheck(root, face = 'worktree') {
       orphans,
       overrideExempted,
       peerExempted,
+      multiSectionExempted,
       overridesLoaded: overrideEntries.length,
       parentScopedOverrides: parentScoped,
       sectionDrift: violations.filter((v) => v.kind === 'section-drift'),
@@ -822,6 +884,7 @@ export function runCheck(root, face = 'worktree') {
         orphans: [],
         overrideExempted: [],
         peerExempted: [],
+        multiSectionExempted: [],
         overridesLoaded: 0,
         parentScopedOverrides: 0,
         sectionDrift: [],
@@ -921,6 +984,7 @@ function report(result, mode, face, strict = false) {
   console.log(
     `维度 R6 段位置对账:核 ${result.sectionChecked} 条非 peer 声明键(逐段比清单段↔锁段)` +
       ` / 段位置违规 ${result.sectionDrift.length}` +
+      ` / 同一名字双声明、pnpm 只折一条落段而放过 ${(result.multiSectionExempted ?? []).length} 条` +
       ` / peer 声明 ${result.peerSectionSkipped} 条不参与本维` +
       `(实测 lock 的 importer 段集 = [${result.lockSectionNames.map(([s, n]) => `${s}×${n}`).join(', ') || '空'}],` +
       `无 peerDependencies 段可比)` +
@@ -956,7 +1020,7 @@ function report(result, mode, face, strict = false) {
       )
     } else {
       console.log(
-        `✅ specifier 全部一致、段位置违规 ${result.sectionDrift.length}(孤儿记账 ${result.orphans.length} 条、override 放过 ${result.overrideExempted.length} 条、peer 放过 ${result.peerExempted.length} 条均不计红)`,
+        `✅ specifier 全部一致、段位置违规 ${result.sectionDrift.length}(孤儿记账 ${result.orphans.length} 条、override 放过 ${result.overrideExempted.length} 条、peer 放过 ${result.peerExempted.length} 条、双声明折段放过 ${(result.multiSectionExempted ?? []).length} 条均不计红)`,
       )
     }
     return decideExitCode(result, strict)
@@ -1089,6 +1153,43 @@ export function lockExact(sections) {
   }
   lines.push('', 'packages:', '')
   return lines.join('\n')
+}
+
+/**
+ * 自检用的两个小工具(2026-09-28 加,为"双声明"那一档的正反两条):
+ *  - `lockSectionsOf`:把 `{段:{名:specifier}}` 摆成 compareDeclarations 要的 Map-of-Map。
+ *    直接调 compareDeclarations 而不是走整仓夹具,是因为边界形态(锁记在**未声明**的段、
+ *    锁记在 peer 段)在 makeFixture 的单包夹具里写不出第三种 importer 段之外的形状,
+ *    而判据的"有没有牙"恰恰只在段名上区分。
+ *  - `captureReport`:就地调**真**的 report() 并收其输出 —— 不在自检里派生 node
+ *    (每次提交都跑 --self-test,派生一次就是给提交链加一个控制台进程;§5b 的弹窗史),
+ *    也不在测试里重抄一遍文案(§22c:镜像只复读实现就是复读机)。
+ */
+function lockSectionsOf(sections) {
+  const out = new Map()
+  for (const [section, map] of Object.entries(sections)) {
+    if (Object.keys(map).length === 0) continue
+    out.set(
+      section,
+      new Map(Object.entries(map).map(([n, v]) => [n, { specifier: v, optional: undefined }])),
+    )
+  }
+  return out
+}
+
+function captureReport(result, strict = false) {
+  const lines = []
+  const log = console.log
+  const err = console.error
+  console.log = (...a) => lines.push(a.join(' '))
+  console.error = (...a) => lines.push(a.join(' '))
+  try {
+    const code = report(result, '--self-test', result.judgedFace ?? 'head', strict)
+    return { out: lines.join('\n'), code }
+  } finally {
+    console.log = log
+    console.error = err
+  }
 }
 
 const ACCIDENT_DEPS_BLOCK = [
@@ -1611,6 +1712,97 @@ export function runSelfTest() {
         rOvrSame.undeterminedItems.length === 0,
     )
 
+    /* ---------- R6 的第二条豁免:同一名字双声明、pnpm 只折一条落段(2026-09-28 六形态实测) ---------- */
+    // 实测出处:临时仓 workspace: 链接跑 `pnpm install --lockfile-only` 的真产物 ——
+    // deps+dev 双声明 ⇒ 锁只有 dependencies;deps+opt 双声明 ⇒ 锁只有 optionalDependencies;
+    // 两种状态 `pnpm install --frozen-lockfile` 均 RC=0。判红就是在一台 pnpm 接受的装机上产假阳。
+    const dupDev = makeFixture(join(scratch, 'multi-deps-dev'), {
+      webPkg: {
+        dependencies: { '@t/lib': 'workspace:*' },
+        devDependencies: { '@t/lib': 'workspace:*' },
+      },
+      lock: lockFrom({ dependencies: { '@t/lib': 'workspace:*' } }),
+    })
+    const rDupDev = runCheck(dupDev)
+    t(
+      '双声明①deps+devDeps、锁只记 dependencies ⇒ 必绿并计 multiSectionExempted(pnpm 实测形态,旧实现在这里判红)',
+      rDupDev.violations.length === 0 &&
+        rDupDev.undetermined === null &&
+        rDupDev.multiSectionExempted.length === 1 &&
+        rDupDev.multiSectionExempted[0].section === 'devDependencies' &&
+        rDupDev.multiSectionExempted[0].lockedIn === 'dependencies',
+    )
+    const rDupOpt = runCheck(
+      makeFixture(join(scratch, 'multi-deps-opt'), {
+        webPkg: {
+          dependencies: { '@t/lib': 'workspace:*' },
+          optionalDependencies: { '@t/lib': 'workspace:*' },
+        },
+        lock: lockFrom({ optionalDependencies: { '@t/lib': 'workspace:*' } }),
+      }),
+    )
+    t(
+      '双声明②deps+optionalDeps、锁只记 optionalDependencies ⇒ 同样必绿(实测 pnpm 把 opt 折到 opt 段)',
+      rDupOpt.violations.length === 0 && rDupOpt.multiSectionExempted.length === 1,
+    )
+    t(
+      '双声明反向锁:锁记在清单**没声明**的那一段 ⇒ 仍必判 section-drift(豁免不得变成通行证)',
+      (() => {
+        const r = compareDeclarations(
+          {
+            dependencies: { '@t/lib': 'workspace:*' },
+            devDependencies: { '@t/lib': 'workspace:*' },
+          },
+          lockSectionsOf({ optionalDependencies: { '@t/lib': 'workspace:*' } }),
+        )
+        return (
+          r.violations.length === 2 &&
+          r.violations.every((v) => v.kind === 'section-drift') &&
+          r.multiSectionExempted.length === 0
+        )
+      })(),
+    )
+    t(
+      'peer 段不得替非 peer 声明做不在场的抗辩(双声明 deps+dev 而锁只记 peerDependencies 段 ⇒ 必红)',
+      (() => {
+        const r = compareDeclarations(
+          {
+            dependencies: { '@t/lib': 'workspace:*' },
+            devDependencies: { '@t/lib': 'workspace:*' },
+          },
+          lockSectionsOf({ peerDependencies: { '@t/lib': 'workspace:*' } }),
+        )
+        return r.violations.every((v) => v.kind === 'section-drift')
+      })(),
+    )
+    t(
+      '豁免只折"段",不折"值":双声明、锁记 deps 而值不等 ⇒ 仍必判 mismatch(证明这条豁免没把值比对一起放掉)',
+      (() => {
+        const r = runCheck(
+          makeFixture(join(scratch, 'multi-value-still-checked'), {
+            webPkg: { dependencies: { dayjs: '^1.11.0' }, devDependencies: { dayjs: '^1.11.9' } },
+            lock: lockFrom({ dependencies: { dayjs: '^2.0.0' } }),
+          }),
+        )
+        return (
+          r.violations.length === 1 &&
+          r.violations[0].kind === 'mismatch' &&
+          r.multiSectionExempted.length === 1
+        )
+      })(),
+    )
+    t(
+      '覆盖面自证:双声明放过必须出现在 R6 那一行里(否则"核 N 条"会被读成 N 条全逐段判过)',
+      (() => {
+        const out = captureReport(rDupDev)
+        return (
+          out.code === 0 &&
+          /同一名字双声明、pnpm 只折一条落段而放过 1 条/.test(out.out) &&
+          /段位置违规 0/.test(out.out)
+        )
+      })(),
+    )
+
     /* ---------- 三型判不准:既不冒红也不记绿,且必须被点名 ---------- */
     const noSpec = makeFixture(join(scratch, 'u1-no-specifier'), {
       webPkg: { dependencies: { dayjs: '^1.11.0' } },
@@ -1943,6 +2135,8 @@ export const __test__ = {
   lockFrom,
   // 逐字段控制 importer 条目(构造 U1 缺 specifier / U2 带 optional 两种异形)
   lockExact,
+  // 直接喂 compareDeclarations 时的 importer 结构(镜像测试不得自己再拼一份 Map-of-Map)
+  lockSectionsOf,
   wsWithOverrides,
   DEFAULT_WORKSPACE_YAML,
   ACCIDENT_DEPS_BLOCK,
