@@ -31,6 +31,8 @@ import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { boxShape, boxDims } from './lib/box-geometry.mjs'
+import { radiusLookup, radiusPxInLine } from './lib/radius-tokens.mjs'
 import { catBatch } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
@@ -145,83 +147,6 @@ function isExempt(line, file, allLines, idx) {
     }
   }
 
-/**
- * 取**该元素自己的**属性区(不是"上下 5 行"):±5 会bleed 到邻居的尺寸,把 6×6 装饰点
- * 量成 `h-4 w-7` 的胶囊(实测就产出一枚假阳)。起始行 = 往上第一条缩进严格更小且开着标签的行;
- * 找不到就只取自身上下各 1 行。
- */
-function elementWindow(allLines, idx) {
-  const indentOf = (s) => (s || '').match(/^\s*/)[0].length
-  const myIndent = indentOf(allLines[idx])
-  let back = 2
-  for (let up = 1; up <= 30 && idx - up >= 0; up++) {
-    const l = allLines[idx - up] || ''
-    if (!l.trim()) continue
-    if (indentOf(l) < myIndent && /<[A-Za-z][\w.]*/.test(l)) {
-      back = up
-      break
-    }
-  }
-  return allLines
-    .slice(Math.max(0, idx - back), Math.min(allLines.length, idx + 6))
-    .join('\n')
-}
-
-/**
- * 量元素的盒子形状 —— **只有一份实现**,`hasSquarePair()` 与几何硬规则都从它取值,
- * 两处各算一遍必然漂移(本仓记过最多次的失败型)。
- * 返回 'square' / 'wide' / null(量不到 ⇒ 不猜)。宽度取窗口内最大、高度取最大,
- * 因为一个元素常同时带 `w-full h-10` 与 `min-w-8` 一类多个约束,保守地按"最大者"判形状
- * 只会把该拦的拦住、不会把方形误判成胶囊。rpx 按 2:1 折成 px,Tailwind 刻度按 4px 折。
- */
-function boxShape(allLines, idx) {
-  const window = elementWindow(allLines, idx)
-  let w = 0
-  let h = 0
-  for (const m of window.matchAll(/\b([wh])-\[(\d+(?:\.\d+)?)(rpx|px)\]/g)) {
-    const v = Number(m[2]) * (m[3] === 'rpx' ? 0.5 : 1)
-    if (m[1] === 'w') w = Math.max(w, v)
-    else h = Math.max(h, v)
-  }
-  for (const m of window.matchAll(/\b(?:width|height)\s*[:=]\s*(\d+(?:\.\d+)?)/g)) {
-    if (m[0].startsWith('w')) w = Math.max(w, Number(m[1]))
-    else h = Math.max(h, Number(m[1]))
-  }
-  /**
-   * **同表达式即同尺寸**:头像/圆点的边长常常来自变量或 `toUnit(CONST)` 这类换算,
-   * 量不到数字并不代表不是方形 —— 只要 width 与 height 写的是**同一个值**,几何上必然是正方形。
-   * 这不是"看名字猜",是取值相等这条可核验事实;而它替代了标记豁免(用户定档:不允许任何豁免)。
-   */
-  const dims = [...window.matchAll(/\b(width|height)\s*[:=]\s*([^,}\n]+)/g)].map((m) => ({
-    axis: m[1] === 'width' ? 'w' : 'h',
-    v: m[2].trim().replace(/\s+/g, ''),
-  }))
-  const wv = new Set(dims.filter((d) => d.axis === 'w').map((d) => d.v))
-  const hv = dims.filter((d) => d.axis === 'h').map((d) => d.v)
-  const sameExpr = hv.some((v) => wv.has(v))
-  for (const m of window.matchAll(/\b([wh])-(\d+(?:\.\d+)?)(?![\w-])/g)) {
-    const v = Number(m[2]) * 4
-    if (m[1] === 'w') w = Math.max(w, v)
-    else h = Math.max(h, v)
-  }
-  if (!w || !h) {
-    if (sameExpr) return 'square'
-    /**
-     * 只量到一维时的第二把尺:`rounded-full` + **横向内边距明显大于高度**(或带文本的
-     * `px-N` 胶囊钮)在几何上必然是胶囊 —— 内容撑开的宽度只会 ≥ 高度,而半径取到"高度一半"
-     * 就是两端全圆的药丸形。这一型正是用户点名要根除的"胶囊型",不允许以"量不到宽度"逃逸。
-     */
-    if (h) {
-      let pxMax = 0
-      for (const m of window.matchAll(/\bpx-(\d+(?:\.\d+)?)(?![\w-])/g)) pxMax = Math.max(pxMax, Number(m[1]) * 4)
-      for (const m of window.matchAll(/\bpx-\[(\d+(?:\.\d+)?)(rpx|px)\]/g))
-        pxMax = Math.max(pxMax, Number(m[1]) * (m[2] === 'rpx' ? 0.5 : 1) * 2)
-      if (pxMax && pxMax * 2 >= h) return 'wide'
-    }
-    return null
-  }
-  return Math.max(w, h) / Math.min(w, h) <= 1.35 ? 'square' : 'wide'
-}
 
   // 豁免 1: <img> / AvatarImage / next/image 上的 rounded-full(头像图片本身)
   if (/<img\b[^>]*\brounded-full\b/.test(trimmed)) return true
@@ -590,7 +515,31 @@ if (undetermined.length) {
 }
 
 let totalViolations = 0
+/**
+ * C2 需要的档位表 —— 与守门 77 / 128 / 150 同一份 `radius.js`(经 `radiusLookup` 展开成
+ * 档名与 `role:<角色>` 两类键)。取不到 ⇒ **整门无法判定**:少了表就是"这一维没判",
+ * 而门继续对其它四种写法报绿,账面与"扫过且干净"同形。
+ */
+const TABLE_REL = 'packages/design-tokens/src/radius.js'
+const tableSrc = isWorktree
+  ? safeRead(TABLE_REL)
+  : catBatch(ROOT, [facePrefix + TABLE_REL], { maxBuffer: 1 << 26 }).get(facePrefix + TABLE_REL)
+const RADIUS_TABLE = tableSrc ? radiusLookup(tableSrc) : null
+if (!RADIUS_TABLE) {
+  /**
+   * 表取不到 ⇒ **C2 那一维未判定**,但本门主判据(`rounded-full` / `pill` / `9999px` / `50%`)
+   * 与它无关,照旧判 —— 因为 C2 现在只报名不判红,为一维报数而让整门 exit 2 会把"其实判过了"
+   * 也一起抹掉(镜像夹具就是被这一条打成 17 例红的:夹具里没有档位表)。
+   * 若哪天 C2 升级成判据,这里必须同时升成 exit 2 —— 判红用的输入取不到,不配出任何结论。
+   */
+  console.log(`${C.yellow}⚠ C2 未判定:${facePrefix === 'HEAD:' ? 'HEAD' : '索引'}面取不到档位表 ${TABLE_REL}(其余四判据照判)${C.reset}`)
+}
 const fileReports = []
+/**
+ * C2 的三个计数(**只报名,不判红** —— 判红在守门 150,那里才量得出"这是哪一类元素"):
+ * 正方真圆(允许的形态)/ 半径取到短边一半的宽扁盒 / 量不到。
+ */
+const c2 = { circle: 0, capsule: 0, undetermined: 0, tierChecked: 0 }
 
 for (let fi = 0; fi < keptRel.length; fi++) {
   const rel = keptRel[fi]
@@ -625,6 +574,30 @@ for (let fi = 0; fi < keptRel.length; fi++) {
         })
       }
     }
+    /**
+     * C2 · 档位半径取到短边一半 = 与胶囊同形(票⑲ 登记的那格"没有判据",本条补上)。
+     * 上面那四条只认 `rounded-full` / `9999px` / `50%` 这类**显式全圆**写法,而真实站点是把
+     * 档位表里的最大档取到一个矮盒上:`height: 32` + `rnRadius['2xl']`(=16) 在屏幕上就是一枚
+     * 药丸,账面却一条"全圆"字样都没有。三处已入库站点就是这么活着并挂着豁免标记的。
+     * 判据只认几何量算(与旧那条 `radius-exempt` 免检通道同一条理由:**标记不是出路**),
+     * 量不到宽高 ⇒ 计入"未判定"并如实报数,绝不静默算通过。
+     */
+    if (VIOLATION_PATTERNS.some(({ re }) => re.test(line))) return
+    if (!RADIUS_TABLE) return
+    const radii = radiusPxInLine(line, RADIUS_TABLE)
+    if (!radii.length) return
+    c2.tierChecked++
+    const dims = boxDims(lines, idx)
+    const short = Math.min(dims.w || Infinity, dims.h || Infinity)
+    const r = Math.max(...radii)
+    if (!Number.isFinite(short) || short === Infinity) {
+      c2.undetermined++
+      return
+    }
+    if (r < short / 2) return
+    if (dims.shape === 'square') c2.circle++
+    else if (dims.shape === 'wide') c2.capsule++
+    else c2.undetermined++
   })
 
   if (findings.length > 0) {
@@ -633,6 +606,15 @@ for (let fi = 0; fi < keptRel.length; fi++) {
   }
 }
 
+console.log(
+  `${C.dim}  C2 档位半径 vs 盒形(只报名,问责在守门 150):量得出的取用 ${c2.tierChecked} 处 ⇒ 正方真圆(允许形态)${c2.circle} / ` +
+    `半径≥短边一半的宽扁盒 ${c2.capsule} / 量不到 ${c2.undetermined}${C.reset}`,
+)
+console.log(
+  `${C.dim}  本门不据此判红的理由:"胶囊"是**角色件**的错档(输入框/按钮/徽章取了半高半径),而按几何量还会` +
+    `把 4px 骨架条、进度条这类无角色证据的装饰线段一起卷进来,并对 StyleSheet 对象 blead 邻行尺寸` +
+    `(实测把 8×8 圆点量成 40×8)。类别由守门 150 五级证据判,形状由本门判 — 两台尺子各量一段。${C.reset}`,
+)
 console.log(`${C.bold}扫描结果:${C.reset}`)
 console.log(`  扫描文件: ${files.length} 个`)
 console.log(`  违规数:   ${totalViolations} 处`)
