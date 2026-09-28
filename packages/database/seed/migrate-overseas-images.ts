@@ -13,14 +13,20 @@
  *   cd packages/database
  *   DATABASE_URL="<apps/api/.env 里的 DATABASE_URL>" pnpm exec tsx seed/migrate-overseas-images.ts            # 默认 = 只读 dry-run,零写库
  *   DATABASE_URL=... pnpm exec tsx seed/migrate-overseas-images.ts --self-test                                 # 无库自检(零 DB 副作用)
- *   DATABASE_URL=... IHUI_IMAGE_MIGRATION_CONFIRM=apply pnpm exec tsx seed/migrate-overseas-images.ts --apply  # 写库(双确认闸)
+ *   # 写库(三确认:显式 DSN + CONFIRM=apply + 备份落点)——落点由根层工具交出,本包不得自行推导盘符:
+ *   BACKUP="$(node ../../scripts/archive-dir.mjs)"
+ *   DATABASE_URL=... IHUI_IMAGE_MIGRATION_CONFIRM=apply IHUI_IMAGE_MIGRATION_BACKUP_DIR="$BACKUP" \
+ *     pnpm exec tsx seed/migrate-overseas-images.ts --apply
  *
  * 写库安全链(全部同时成立才允许写):
  *   ① 必须显式给了 DATABASE_URL(缺省回退 DSN 可能悄悄打到别的库);
  *   ② 必须带 --apply 且环境变量 IHUI_IMAGE_MIGRATION_CONFIRM=apply(§5 测试隔离铁律取向:默认永远只读);
- *   ③ 写前把受影响行逐条(表/id/列/改前/改后)备份到 §15b 唯一备份目录
- *      `<盘符由 scripts/lib/gitdir.mjs 的 gitArchiveDir() 推导>/../sql/image-source-migration/*.json`,
- *      备份落盘失败即中止,不执行任何 UPDATE;DSN 在备份与输出中恒为脱敏态(密码不落任何文件/日志)。
+ *   ③ 必须给 IHUI_IMAGE_MIGRATION_BACKUP_DIR,且它是绝对路径、在 §15b 唯一备份目录下、
+ *      形态为 `<backups>/sql/image-source-migration`、不在工作树内
+ *      (`scripts/lib/gitdir.mjs` 住在 repo-tooling rank 90,本包 rank 20 反向 import 会被守门 103
+ *      判 D1/D2/D3,而自行硬编码盘符是 §15b 明令禁止的另一型 ⇒ 落点只能是入参);
+ *      写前把受影响行逐条(表/id/列/改前/改后)备份到该目录,备份落盘失败即中止,不执行任何 UPDATE;
+ *      DSN 在备份与输出中恒为脱敏态(密码不落任何文件/日志)。
  *   ④ 全程单事务;失败回滚,备份文件留在盘上供人工核对。
  *
  * 幂等:映射只命中境外域名,迁完即不再命中;跑两次结果一致(第二次现读 0 行)。
@@ -31,14 +37,9 @@ import { carousels } from '../src/schema/carousels.js'
 import { agents } from '../src/schema/agents-extended.js'
 import { lessons } from '../src/schema/learn.js'
 import { eq } from 'drizzle-orm'
-import {
-  DOMESTIC_IMAGE_POOL,
-  isOverseasImageUrl,
-} from '../../shared/src/constants/image-source-pool.ts'
-// @ts-expect-error — 根 tooling 层无类型声明;此为 AGENTS §15b 规定的备份落点唯一出口,禁止硬编码盘符
-import { gitArchiveDir } from '../../../scripts/lib/gitdir.mjs'
+import { DOMESTIC_IMAGE_POOL, isOverseasImageUrl } from './image-source-pool.js'
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, isAbsolute, resolve } from 'node:path'
 
 const TARGETS = [
   { name: 'carousels', table: carousels, idCol: carousels.id, urlCol: carousels.imageUrl },
@@ -59,17 +60,35 @@ export function redactDsn(dsn: string): string {
 }
 
 /**
- * 备份落点:gitArchiveDir() 给出 `<盘符>/DevEnv/backups/git`(§15b 唯一备份目录的既有出口),
- * 本脚本取 backups 根下的 sql/image-source-migration(与 pg dump 落 backups/pg、git 归档落 backups/git 同族)。
- * 出口返回 null(夹具/无法交出落点)⇒ 拒写。
+ * 备份落点由**调用方**给出(§15b 唯一备份目录下的 `<backups>/sql/image-source-migration`)。
+ *
+ * 为什么不在这里自己算:盘符推导住在 `scripts/lib/gitdir.mjs`(repo-tooling,rank 90),而本包是
+ * platform(rank 20)。层序规定"rank 小的可被 rank 大的依赖,反向即违规",import 它会被守门 103
+ * 判 D1/D2/D3 红(实测);而在端内硬编码盘符是 §15b 明令禁止的另一型(本机曾因此把备份解析到不存在的
+ * 路径,表现为下游门禁静默失效)。所以落点是入参,取法唯一:`node scripts/archive-dir.mjs`。
+ *
+ * 四条判据任一不成立 ⇒ 拒绝写库:未给 / 非绝对路径 / 落在工作树内(§15b 禁项)/ 形态不是本链专用目录
+ * (形态锁顺带挡住"把生产库快照写进网盘同步目录"那一型 —— 放进去等于上传)。
  */
-export function backupDirFor(worktree: string): string {
-  const gitArch = gitArchiveDir(worktree)
-  if (!gitArch) {
-    throw new Error('gitArchiveDir() 无法交出备份落点(疑似夹具工作树),拒绝写库')
+export function backupDirFor(raw: string | undefined, worktree: string): string {
+  const v = (raw ?? '').trim()
+  if (v === '') {
+    throw new Error(
+      '拒绝写库:未给备份落点。先跑 `node scripts/archive-dir.mjs` 取路径,再设 IHUI_IMAGE_MIGRATION_BACKUP_DIR=<该路径>',
+    )
   }
-  const backupsRoot = dirname(gitArch) // <X>/DevEnv/backups/git -> <X>/DevEnv/backups
-  return join(backupsRoot, 'sql', 'image-source-migration').replace(/\\/g, '/')
+  if (!isAbsolute(v)) throw new Error(`备份落点必须是绝对路径,实得:${v}`)
+  const norm = v.replace(/\\/g, '/').replace(/\/+$/, '')
+  const wt = resolve(worktree).replace(/\\/g, '/')
+  if (norm === wt || norm.startsWith(wt + '/')) {
+    throw new Error(`备份落点不得落在工作树内(§15b),实得:${norm}`)
+  }
+  if (!/backups\/sql\/image-source-migration$/.test(norm)) {
+    throw new Error(
+      `备份落点形态不对(应为 <backups>/sql/image-source-migration,经 scripts/archive-dir.mjs 交出),实得:${norm}`,
+    )
+  }
+  return norm
 }
 
 type MigrationRow = { table: string; id: string; column: string; old: string; next: string }
@@ -163,17 +182,36 @@ async function selfTest() {
     'DSN 脱敏',
     redactDsn('postgresql://u:p@ss!w@localhost:8810/db') === 'postgresql://u:***@localhost:8810/db',
   )
-  let threw = false
-  try {
-    backupDirFor(process.cwd())
-  } catch {
-    threw = true
+  // 备份落点是入参 ⇒ 判据只能用**构造面**证,不能拿本机此刻有没有 backups 目录当结论
+  // (那会把"机器态"读成"判据红",每台机器每次提交都被逼成恒红门)。
+  const WT = 'D:/IHUI-AI'
+  const okDir = 'D:/DevEnv/backups/sql/image-source-migration'
+  const threwFor = (raw: string | undefined) => {
+    try {
+      backupDirFor(raw, WT)
+      return false
+    } catch {
+      return true
+    }
   }
-  ok('备份落点推导可达(非夹具环境)', !threw || !gitArchiveDir(process.cwd()))
-  const dir = threw ? '' : backupDirFor(process.cwd())
+  ok('备份落点:合规绝对路径放过', !threwFor(okDir))
   ok(
-    `备份落点在 §15b 唯一备份目录内且不含写死盘符字面:${dir || '(未交出)'}`,
-    dir.includes('/DevEnv/backups/sql/image-source-migration'),
+    '备份落点:反斜杠形态同样放过(Windows 调用方)',
+    !threwFor('D:\\DevEnv\\backups\\sql\\image-source-migration'),
+  )
+  ok('备份落点:未给 ⇒ 拒写(不得回退到任何默认盘符)', threwFor(undefined) && threwFor('   '))
+  ok('备份落点:相对路径 ⇒ 拒写', threwFor('backups/sql/image-source-migration'))
+  ok(
+    '备份落点:落在工作树内 ⇒ 拒写(§15b 备份不得进仓库)',
+    threwFor(`${WT}/backups/sql/image-source-migration`),
+  )
+  ok(
+    '备份落点:形态不是本链专用目录 ⇒ 拒写(顺带挡住网盘同步目录那一型)',
+    threwFor('D:/DevEnv/backups/git') && threwFor('D:/BaiduSyncdisk/sql/image-source-migration'),
+  )
+  ok(
+    '备份落点:尾斜杠不得被读成两个不同目录',
+    backupDirFor(okDir + '/', WT) === backupDirFor(okDir, WT),
   )
   console.log(cases.join('\n'))
   console.log(
@@ -198,6 +236,12 @@ async function main() {
     if (process.env.IHUI_IMAGE_MIGRATION_CONFIRM !== 'apply') {
       console.error(
         '拒绝写库:需同时设置环境变量 IHUI_IMAGE_MIGRATION_CONFIRM=apply(双确认闸,防误触发)',
+      )
+      process.exit(2)
+    }
+    if (!process.env.IHUI_IMAGE_MIGRATION_BACKUP_DIR) {
+      console.error(
+        '拒绝写库:未给备份落点。取法 node scripts/archive-dir.mjs,再设 IHUI_IMAGE_MIGRATION_BACKUP_DIR=<该路径>(§15b 唯一备份目录;本包不得自行推导盘符)',
       )
       process.exit(2)
     }
@@ -253,9 +297,9 @@ async function main() {
   if (plan.length === 0) {
     console.log('合计 0 行待迁移 ⇒ 幂等复跑,无需写库;仍做终判。')
   }
-  // —— 写库前:先备份受影响行(§15b 唯一备份目录,经 gitArchiveDir() 出口推导)——
+  // —— 写库前:先备份受影响行(§15b 唯一备份目录;落点经 scripts/archive-dir.mjs 交出、环境变量注入)——
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const dir = backupDirFor(process.cwd())
+  const dir = backupDirFor(process.env.IHUI_IMAGE_MIGRATION_BACKUP_DIR, process.cwd())
   const backupFile = join(dir, `overseas-images-${stamp}.json`)
   const payload = {
     note: 'migrate-overseas-images.ts --apply 事前备份;恢复=逐行 UPDATE <table> SET <column>=<old> WHERE id=<id>',
