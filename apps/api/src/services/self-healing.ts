@@ -19,9 +19,8 @@ import { statfs, rm, readdir, stat } from 'node:fs/promises'
 import { existsSync, mkdirSync, statSync } from 'node:fs'
 import type { Dirent } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
-import { platform } from 'node:os'
-import { execFile } from 'node:child_process'
 import { agentLoop, codebaseIndexer, sandboxExecutor } from './workspace-ai-service.js'
+import { killProcessVerified, type KillVerifiedDeps } from '../utils/kill-verified.js'
 
 // =============================================================================
 // 类型
@@ -321,6 +320,7 @@ async function repairPort(
   port: number,
   dryRun: boolean,
   forceKillPid: number | null,
+  killDeps?: KillVerifiedDeps,
 ): Promise<SelfHealRepairResult> {
   const steps: SelfHealStep[] = []
   const inUse = await probePort(port)
@@ -357,29 +357,35 @@ async function repairPort(
     )
     return { workspacePath, kind: 'port', dryRun, ok: true, steps }
   }
-  const isWin = platform() === 'win32'
-  const cmd = isWin ? `taskkill /PID ${forceKillPid} /F` : `kill -9 ${forceKillPid}`
+  // G-670:forceKillPid 是客户端自报的,只当线索。终止一律走唯一出口 killProcessVerified:
+  // 先现场取该 pid 的 executablePath/commandLine 与期望特征比对(本站点可证的持有者锚点
+  // = 命令行引用了争用端口),不符 ⇒ 拒杀;取不到 ⇒ 未判定不杀。判定与终止命令的派生
+  // 不得在本文件再写一份(两处算同一件事必漂移)。
+  // 仍不走 sandboxExecutor(taskkill/kill 不在 agent 命令白名单,这是有意的安全边界;
+  // 出口内部为无 shell 的受控数字 PID 参数)。
   const t0 = Date.now()
-  // 终止进程不走 sandboxExecutor(taskkill/kill 不在 agent 命令白名单,这是有意的
-  // 安全边界);此处为显式鉴权修复动作,直接 execFile 无 shell,参数为受控数字 PID
-  const killOutput = await new Promise<string>((resolveKill) => {
-    const bin = isWin ? 'taskkill' : 'kill'
-    const argv = isWin ? ['/PID', String(forceKillPid), '/F'] : ['-9', String(forceKillPid)]
-    execFile(bin, argv, { timeout: 15_000, shell: false }, (err, out, errOut) => {
-      resolveKill(
-        err
-          ? `${String(err.message)}\n${String(out)}\n${String(errOut)}`.trim().slice(-1000)
-          : String(out || errOut || 'done').slice(-1000),
-      )
-    })
-  })
-  steps.push({
-    step: '终止占用进程',
-    command: cmd,
-    status: 'ok',
-    output: killOutput,
-    durationMs: Date.now() - t0,
-  })
+  const killOutcome = await killProcessVerified(
+    forceKillPid,
+    { commandLineAnyOf: [String(port)] },
+    killDeps,
+  )
+  steps.push(
+    killOutcome.killed
+      ? {
+          step: '终止占用进程',
+          command: killOutcome.command,
+          status: 'ok',
+          output: killOutcome.output,
+          durationMs: Date.now() - t0,
+        }
+      : {
+          step: '终止占用进程',
+          command: null,
+          status: 'fail',
+          output: killOutcome.record,
+          durationMs: Date.now() - t0,
+        },
+  )
   const stillInUse = await probePort(port)
   steps.push({
     step: '验证',
@@ -498,6 +504,8 @@ export async function repairWorkspaceIssue(params: {
   dryRun?: boolean
   port?: number
   forceKillPid?: number | null
+  /** G-670 测试/夹具注入口:身份探针与终止派生(生产调用方不传,走默认实测实现)。 */
+  killDeps?: KillVerifiedDeps
   minFreeMB?: number
   detail?: string
 }): Promise<SelfHealRepairResult> {
@@ -508,7 +516,13 @@ export async function repairWorkspaceIssue(params: {
     case 'index':
       return repairIndex(params.workspacePath, dryRun)
     case 'port':
-      return repairPort(params.workspacePath, params.port ?? 0, dryRun, params.forceKillPid ?? null)
+      return repairPort(
+        params.workspacePath,
+        params.port ?? 0,
+        dryRun,
+        params.forceKillPid ?? null,
+        params.killDeps,
+      )
     case 'disk':
       return repairDisk(params.workspacePath, dryRun, params.minFreeMB ?? DEFAULT_MIN_FREE_MB)
   }
