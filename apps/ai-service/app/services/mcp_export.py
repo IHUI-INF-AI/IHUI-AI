@@ -231,13 +231,21 @@ def _registered_resource(uri: str) -> _internal_mcp.MCPResource | None:
 
 
 def visible_export_resources(principal: _gate.Principal | None = None) -> list[Resource]:
-    """resources/list 视图:登记 + scope 命中(与 read_exported_resource 同源)。"""
+    """resources/list 视图:登记 + scope 命中(与 read_exported_resource 同源)。
+
+    "同源"靠**共用同一个谓词**实现,不是靠注释:`tools/list` 那一侧走的就是裁决函数
+    (`check_tool_access`),而这一侧若只判 `has_scope`,就会广告出一个一读就 403 的资源 ——
+    2026-09-28 把 `connectors:read` 标成 `thirdPartyEligible:false` 当轮实测到这一格,
+    现由 `_gate.scope_denied_for_channel` 补齐(它与 `enforce_scope` 是同一份判定)。
+    """
     out: list[Resource] = []
     for resource in _internal_mcp._RESOURCES:
         scope = _gate.scope_of_resource(resource.uri)
         if scope is None:
             continue
-        if principal is not None and not principal.has_scope(scope):
+        if principal is not None and (
+            not principal.has_scope(scope) or _gate.scope_denied_for_channel(principal, scope)
+        ):
             continue
         out.append(
             Resource(
