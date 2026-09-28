@@ -27,6 +27,33 @@ export function isSameOriginRelative(target: string): boolean {
   return target.startsWith('/') && !target.startsWith('//')
 }
 
+/** 可作为导航目标的协议(其余一律拒,哪怕 `new URL()` 能解析成功)。 */
+const SAFE_NAVIGATION_PROTOCOLS = new Set(['http:', 'https:'])
+
+/**
+ * 协议级安全判定 —— 与本文件的**归属/守卫**判定是两件事,不得互相代替:
+ *  - `isSameOriginRelative` 问"这一跳会不会被登录守卫 307 打回"(站内路径才会);
+ *  - 本函数问"这一跳会不会在**我们自己的源**里执行代码或取回本地字节"。
+ *
+ * 为什么必须有它:`/sso/mobile-auth` 的 `redirect` 语义是"WebView 接下来要打开的那个页面",
+ * 外部页是**设计意图**(`WebViewScreen` 传任意 http(s) 目标、`ChatToolsScreen` 传站内绝对地址),
+ * 对它套 origin 白名单会直接砍断 App→Web 回跳;但 `javascript:` / `data:` / `blob:` 这类伪 URL
+ * 经 `window.location.replace` 会在本站源里执行,而本页刚 Set-Cookie 了 auth_token —— 那是
+ * 同源 XSS/会话窃取,不是"跳到哪儿"的偏好问题。`//host` 形式按站内规则不算相对路径,
+ * 由 `new URL` 归到 http(s) 后再判,故仍可用(它只是导航,不执行本站代码)。
+ */
+export function isSafeNavigationTarget(target: string): boolean {
+  if (!target) return false
+  if (isSameOriginRelative(target)) return true
+  let parsed: URL
+  try {
+    parsed = new URL(target)
+  } catch {
+    return false // 裸串不是 URL ⇒ 由调用方回落,不猜"应该没问题"
+  }
+  return SAFE_NAVIGATION_PROTOCOLS.has(parsed.protocol)
+}
+
 /**
  * 静默续期一次,让后端 setAuthCookies 重新下发 httpOnly auth_token cookie。
  * 桌面端 refreshToken 取自 Tauri store(auth.json)走 body 模式,浏览器端靠
