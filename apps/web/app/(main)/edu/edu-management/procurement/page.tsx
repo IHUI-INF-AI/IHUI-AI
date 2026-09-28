@@ -703,7 +703,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={analyzing}
-              className="flex h-56 w-full flex-col items-center justify-center gap-3 rounded-md border border-dashed bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/50 disabled:opacity-50"
+              className="flex h-56 w-full flex-col items-center justify-center gap-3 rounded-sm border border-dashed bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/50 disabled:opacity-50"
             >
               <Camera className="h-10 w-10" />
               <span className="text-sm font-medium">{t('ai.clickToSelect')}</span>
