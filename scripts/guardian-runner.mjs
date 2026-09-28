@@ -3937,7 +3937,6 @@ const checks = [
     args: [],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_SERVICE_BINARY_PATHS',
-    stagedTriggers: [],
     onFailHint: [
       '',
       '本门判的是"这台机装了什么",不是本次提交改了什么 ⇒ 定级 warn:',
