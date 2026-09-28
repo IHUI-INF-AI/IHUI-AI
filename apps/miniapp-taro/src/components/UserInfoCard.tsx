@@ -175,7 +175,7 @@ export default function UserInfoCard({
             <Image
               src={avatar || defaultAvatarImg}
               mode="aspectFill"
-              className="rounded-full bg-muted"
+              className="rounded-2xl bg-muted"
               style={AVATAR_STYLE}
             />
             <View className="flex-1 min-w-0">

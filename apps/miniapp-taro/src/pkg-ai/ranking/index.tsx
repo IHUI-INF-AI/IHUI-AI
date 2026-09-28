@@ -3,7 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n, type TtFn } from '@/i18n'
-import BackChevron from '@/components/BackChevron'
 import SearchBar from '@/components/SearchBar'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
@@ -137,18 +136,10 @@ export default function RankingIndex() {
     Taro.navigateTo({ url: `/pkg-ai/ranking/detail?id=${id}` })
   }, [])
 
-  // 对齐 RN RankingScreen header 返回键(navigateBack 失败降级回首页,同 check-in/task-center)
-  const goBack = () => {
-    Taro.navigateBack({ delta: 1 }).catch(() => {
-      Taro.switchTab({ url: '/pages/index/index' })
-    })
-  }
-
   return (
     <View className="min-h-screen bg-background pb-[48rpx]">
-      {/* header 对齐 RN RankingScreen header(返回键统一走 BackChevron 矢量图标 / 标题 48rpx/700,页底色无卡片底) */}
+      {/* header 对齐 RN RankingScreen header(返回键由微信原生导航栏承担 / 标题 48rpx/700,页底色无卡片底) */}
       <View className="flex flex-col px-[20rpx] pt-[24rpx] pb-[16rpx]">
-        <BackChevron className="self-start mb-[16rpx]" onTap={goBack} />
         <Text className="text-[length:48rpx] font-bold text-foreground">
           {tt('ranking.listTitle', 'AI榜单')}
         </Text>
@@ -208,7 +199,7 @@ export default function RankingIndex() {
                 >
                   {logo ? (
                     <Image
-                      className="w-[88rpx] h-[88rpx] rounded-full border-[length:3rpx] border-solid border-border bg-[var(--color-muted)] shrink-0"
+                      className="w-[88rpx] h-[88rpx] rounded-2xl border-[length:3rpx] border-solid border-border bg-[var(--color-muted)] shrink-0"
                       src={logo}
                       mode="aspectFill"
                     />
