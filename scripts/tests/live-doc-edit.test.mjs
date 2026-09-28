@@ -13,9 +13,9 @@
 // git 写操作只发生在 scratch-dir 临时仓内,绝不碰真仓。
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -460,4 +460,324 @@ test('T16 整行改写档支持令牌:after 里的号由 HEAD 底稿现算', (t)
   const now = norm(runGit(dir, ['show', 'HEAD:DOC.md']))
   assert.match(now, /\*\*G-6 让号后\*\*/, `改写后的行没拿到算出的号:\n${now}`)
   assert.doesNotMatch(now, /NEXT_ID|G-5 旧标题/, '令牌与旧形态都必须消失')
+})
+
+// ── G-313 出路②:号段基准同时看远端那一份(2026-09-28)──────────────────────────────
+// 票面要求"方向必须成对",所以每一支都配了反向对照:
+//  N2 远端只抬高不压低(远端大 ⇒ 跳过那段;同值 / 更小 / 缺席 ⇒ 与改动前逐字同形);
+//  N3 readRemoteIdBasis 的六条出口一律"只降级、不失败、且点名原因";
+//  N4 端到端走**真实 ls-remote 传输**(夹具 origin,file:// 零网络):对象不在本地 ⇒ 降级并按本地落号,
+//     对象进夹具后 ⇒ 同一把尺子改判成"跳过远端那段";
+//  N5 反向锁:基准计算必须在 CAS 循环**内**(提到循环外 ⇒ 本条翻红);
+//  N6 形状锁:远端派生各自带数字 timeout、绝不为取号 fetch / 写 ref、不再抄第二份派生层。
+
+const LDE_LOCAL_BASE = '- [ ] **G-3 旧条目**:x\n'
+const LDE_LINE = '- [ ]（进行中@2026-09-28/工具）**{{NEXT_ID:G}} 新条目**:正文'
+const TOOL_SRC = norm(readFileSync(TOOL, 'utf8'))
+const fakeTransport = (over = {}) => ({
+  tipSha: () => ({ ok: true, sha: 'f'.repeat(40) }),
+  hasCommit: () => true,
+  docContent: () => '- [ ] **G-9 远端已占**:别人那批\n',
+  ...over,
+})
+
+test('N1 §22c 新增导出面:远端基准的四个出口必须在 __test__ 里(否则测试只能重抄判据)', () => {
+  for (const k of ['readRemoteIdBasis', 'idTokenFamilies', 'describeIdBasis', 'remoteTarget'])
+    assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
+  assert.equal(typeof __test__.REMOTE_ID_TRANSPORT, 'object')
+  for (const k of ['tipSha', 'hasCommit', 'docContent'])
+    assert.equal(typeof __test__.REMOTE_ID_TRANSPORT[k], 'function', `transport.${k} 缺失`)
+  assert.deepEqual(
+    __test__.idTokenFamilies([LDE_LINE, '{{NEXT_ID:O}} 乙', '{{NEXT_ID:G}} 丙', '无令牌']),
+    ['G', 'O'],
+    '族集合由正文推得并按出现顺序去重(硬写清单必然腐烂)',
+  )
+  assert.deepEqual(__test__.idTokenFamilies(['一个令牌都没有']), [])
+})
+
+test('N2 方向成对:远端 max 更大 ⇒ 新号跳过远端那段;同值 / 更小 / 缺席 ⇒ 与改动前逐字同形', () => {
+  const legacy = __test__.resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE)
+  assert.ok(legacy.lines[0].includes('**G-4 新条目**'), `改动前的形状:${legacy.lines[0]}`)
+
+  // (a) 本票唯一真正的产出:远端那批已占 G-9 ⇒ 本地"下一个空闲号"G-4 其实早被占了 ⇒ 让到 G-10
+  const raised = __test__.resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE, { max: { G: 9 } })
+  assert.ok(
+    raised.lines[0].includes('**G-10 新条目**'),
+    `远端更大时必须跳段,实得 ${raised.lines[0]}`,
+  )
+  assert.equal(raised.assigned, 'G-10')
+  assert.deepEqual(raised.basis, [{ family: 'G', localMax: 3, remoteMax: 9, chosenMax: 9 }])
+
+  // (c) 远端与本地同 max ⇒ 与"没有远端"逐字一致(防"新基准顺手把号抬了一位")
+  assert.deepEqual(
+    __test__.resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE, { max: { G: 3 } }).lines,
+    legacy.lines,
+  )
+  // 远端更小 ⇒ 绝不压低基准(远端可能是旧 tip,压回去等于把号退回别人占过的段)
+  assert.deepEqual(
+    __test__.resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE, { max: { G: 1 } }).lines,
+    legacy.lines,
+  )
+  // 远端缺席(降级 / 该族在远端为空 / 压根没查)⇒ 同旧行为
+  for (const r of [null, undefined, { max: {}, notes: ['对象不在本地'] }])
+    assert.deepEqual(__test__.resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE, r).lines, legacy.lines)
+
+  // 两族各自独立抬高(串号 = 本器自己造出撞号那一型),且形状仍按本地底稿的写法
+  const twoFam = __test__.resolveIdTokens(
+    ['- [ ] **{{NEXT_ID:O}} 甲**:x', LDE_LINE],
+    `${LDE_LOCAL_BASE}- [ ] **O2 丙**:y\n`,
+    { max: { G: 9, O: 7 } },
+  )
+  assert.ok(
+    twoFam.lines[0].includes('**O8 甲**'),
+    `O 族要按远端抬到 7 再递增,实得 ${twoFam.lines[0]}`,
+  )
+  assert.ok(twoFam.lines[1].includes('**G-10 新条目**'), `实得 ${twoFam.lines[1]}`)
+  // 一块里两个同族令牌在抬高后的基准上仍然逐个递增
+  const twoTokens = __test__.resolveIdTokens(
+    ['- [ ] **{{NEXT_ID:G}} 甲**:x', '- [ ] **{{NEXT_ID:G}} 乙**:y'],
+    LDE_LOCAL_BASE,
+    { max: { G: 9 } },
+  )
+  assert.ok(
+    twoTokens.lines[0].includes('**G-10 甲**') && twoTokens.lines[1].includes('**G-11 乙**'),
+    `实得 ${JSON.stringify(twoTokens.lines)}`,
+  )
+
+  // "号段基准"那一行必须把三条读数一起给 —— 只印最终值就分不清远端有没有参与
+  assert.ok(
+    __test__
+      .describeIdBasis(
+        { family: 'G', localMax: 3, remoteMax: 9, chosenMax: 9 },
+        { ref: 'refs/heads/main' },
+      )
+      .includes(
+        '号段基准:G=9(本地 HEAD 该族 max=3 / 远端 refs/heads/main max=9 ⇒ 取较大,新号跳过远端那段)',
+      ),
+    `抬高态措辞:\n${__test__.describeIdBasis({ family: 'G', localMax: 3, remoteMax: 9, chosenMax: 9 }, { ref: 'refs/heads/main' })}`,
+  )
+  const degraded = __test__.describeIdBasis(
+    { family: 'G', localMax: 3, remoteMax: null, chosenMax: 3 },
+    { ref: 'refs/heads/main' },
+  )
+  assert.ok(
+    degraded.includes('远端未参与') && degraded.includes('未与远端对齐'),
+    `降级措辞:${degraded}`,
+  )
+  assert.ok(!degraded.includes('已与远端对齐'), '降级绝不得被读成已对齐')
+  assert.ok(
+    __test__
+      .describeIdBasis({ family: 'G', localMax: 3, remoteMax: 3, chosenMax: 3 }, { ref: 'r' })
+      .includes('与本地同值,与改动前同形'),
+  )
+})
+
+test('N3 readRemoteIdBasis:远端问不到一律只降级不失败,且每条原因点名(把"没判"写成"判过了"是本仓最高频失效型)', () => {
+  const base = { root: 'X:', doc: 'DOC.md', families: ['G'] }
+  const ok = __test__.readRemoteIdBasis({ ...base, transport: fakeTransport() })
+  assert.deepEqual(ok.max, { G: 9 }, 'max 必须来自**远端那份底稿**现读,不是常量')
+  assert.deepEqual(ok.notes, [])
+  assert.equal(ok.tipSha, 'f'.repeat(40))
+
+  // ① ls-remote 抛(网络不可达 / 无 origin / 非 win32 拿不到 git / 超时)⇒ 降级,不抛
+  const net = __test__.readRemoteIdBasis({
+    ...base,
+    transport: fakeTransport({
+      tipSha: () => {
+        throw new Error('ssh: connect to github.com port 443 timed out')
+      },
+    }),
+  })
+  assert.deepEqual(net.max, {})
+  assert.match(net.notes[0], /远端不可问/)
+  assert.match(net.notes[0], /timed out/, '原因必须带上 git 的那句话,不能只说"没读到"')
+
+  // ② ls-remote 通了而该 ref 不存在 ⇒ 也是降级,不得当成"远端 max=0"
+  const noref = __test__.readRemoteIdBasis({
+    ...base,
+    transport: fakeTransport({
+      tipSha: () => ({ ok: false, reason: 'origin 上没有 refs/heads/main' }),
+    }),
+  })
+  assert.deepEqual(noref.max, {})
+  assert.match(noref.notes[0], /origin 上没有 refs\/heads\/main/)
+
+  // ③ tip 对象不在本地 ⇒ 票面那句措辞(它**不 fetch、不写 ref**)
+  const missing = __test__.readRemoteIdBasis({
+    ...base,
+    transport: fakeTransport({
+      hasCommit: () => {
+        throw new Error('fatal: Not a valid object name deadbeef^{commit}')
+      },
+    }),
+  })
+  assert.deepEqual(missing.max, {})
+  assert.match(missing.notes[0], /^对象不在本地,原因:/, `实得 ${missing.notes[0]}`)
+  // 降级之后取号仍然落得了地(与 resolveIdTokens 串起来的那一支)
+  assert.ok(
+    __test__
+      .resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE, missing)
+      .lines[0].includes('**G-4 新条目**'),
+    '远端这一维没判到 ⇒ 按本地基准发号,而不是拒绝落地',
+  )
+
+  // ④ 对象在而文档读不出(tip 里没这份文档)⇒ 另一条独立原因,不得混进"对象不在本地"
+  const noDoc = __test__.readRemoteIdBasis({
+    ...base,
+    transport: fakeTransport({
+      docContent: () => {
+        throw new Error('fatal: path DOC.md does not exist')
+      },
+    }),
+  })
+  assert.match(noDoc.notes[0], /读不到 DOC\.md/)
+  assert.doesNotMatch(noDoc.notes[0], /对象不在本地/)
+
+  // ⑤ 远端可读而该族在远端一条登记行都没有 ⇒ "读到且为空",与降级分开措辞、同样不构成上界
+  const emptyFam = __test__.readRemoteIdBasis({
+    ...base,
+    transport: fakeTransport({ docContent: () => '# 空的\n' }),
+  })
+  assert.deepEqual(emptyFam.max, {})
+  assert.match(emptyFam.notes[0], /不构成上界/)
+  assert.doesNotMatch(emptyFam.notes[0], /对象不在本地|远端不可问/)
+
+  // ⑥ transport 没返回文本 ⇒ 判不出,不算"远端没有这一族"
+  const nullContent = __test__.readRemoteIdBasis({
+    ...base,
+    transport: fakeTransport({ docContent: () => null }),
+  })
+  assert.match(nullContent.notes[0], /判不出,不算已对齐/)
+
+  // ⑦ 没有令牌(families 空)⇒ 一次远端都不问,零副作用
+  let asked = 0
+  const none = __test__.readRemoteIdBasis({
+    ...base,
+    families: [],
+    transport: {
+      tipSha: () => {
+        asked += 1
+        return { ok: true, sha: '' }
+      },
+      hasCommit: () => true,
+      docContent: () => '',
+    },
+  })
+  assert.equal(asked, 0, '没有令牌就不该为取号去问远端')
+  assert.deepEqual([none.max, none.notes], [{}, []])
+})
+
+test('N4 端到端·真实 ls-remote(夹具 origin,file:// 零网络):降级支与抬号支各跑一次', (t) => {
+  // A = "远端"夹具(与 B 无共同历史),B = 被测仓(origin → A)。
+  // fetch 只写**夹具**的 refs;真仓 refs 与网络一个字都没被碰(见 N6 的形状锁)。
+  const a = mkScratch('lde-origin-')
+  t.after(() => rmScratch(a))
+  runGit(a, ['init', '-q', '-b', 'main'])
+  writeFileSync(join(a, 'DOC.md'), '- [ ] **G-9 远端已占**:别人那批\n')
+  runGit(a, ['add', '-A'])
+  runGit(a, ['commit', '-q', '-m', 'remote advance'])
+
+  const { dir, inputs } = makeDocRepo(t, '- [ ] **G-3 旧条目**:x\n@@ANCHOR@@\n')
+  runGit(dir, ['remote', 'add', 'origin', pathToFileURL(a).href])
+  const blockFile = join(inputs, 'block.txt')
+  writeFileSync(blockFile, `${LDE_LINE}\n`, 'utf8')
+
+  // ── 阶段一:B 从未见过 A 那枚 commit ⇒ 不许 fetch,必须降级、必须点名、取号仍按本地 ──
+  const r1 = runLive(dir, { blockFile })
+  assert.equal(r1.status, 0, `降级侧也必须落得了地,实得 ${r1.status}\n${r1.stdout}\n${r1.stderr}`)
+  assert.ok(
+    r1.stdout.includes('号段基准未含远端(对象不在本地,原因:'),
+    `必须点名"未含远端",不得伪装成已对齐:\n${r1.stdout}`,
+  )
+  assert.ok(
+    r1.stdout.includes('号段基准:G=3(本地 HEAD 该族 max=3 / 远端未参与'),
+    `实得:\n${r1.stdout}`,
+  )
+  assert.match(r1.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-4/)
+  assert.match(norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })), /\*\*G-4 新条目\*\*/)
+  assert.ok(
+    !git(['for-each-ref', '--format=%(refname)'], { root: dir }).includes('refs/remotes/origin'),
+    '降级那一支不得留下任何 remote-tracking ref(§5b:嵌套 ref 会被宿主清理层删、update-ref 假成功)',
+  )
+
+  // ── 阶段二:把远端那枚 commit 的对象弄进夹具仓 ⇒ 同一把尺子必须改判 ──
+  runGit(dir, ['fetch', '-q', 'origin', 'main'])
+  const r2 = runLive(dir, { blockFile })
+  assert.equal(r2.status, 0, `${r2.stdout}\n${r2.stderr}`)
+  assert.ok(
+    !r2.stdout.includes('号段基准未含远端'),
+    `对象已在本地却仍报降级 ⇒ 远端那一维压根没读到:\n${r2.stdout}`,
+  )
+  assert.ok(
+    r2.stdout.includes(
+      '号段基准:G=9(本地 HEAD 该族 max=4 / 远端 refs/heads/main max=9 ⇒ 取较大,新号跳过远端那段)',
+    ),
+    `实得:\n${r2.stdout}`,
+  )
+  assert.match(r2.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-10/)
+  const docNow = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true }))
+  assert.match(docNow, /\*\*G-10 新条目\*\*/, `HEAD 里必须是跳过远端段后的号:\n${docNow}`)
+  assert.doesNotMatch(
+    docNow,
+    /\*\*G-5 新条目\*\*/,
+    '只看本地 HEAD 会产出 G-5 —— 那正是 G-313 要堵的那一型(对面已把 4..9 占掉)',
+  )
+})
+
+test('N5 反向锁:号段基准(含远端那一份)必须在 CAS 循环体内重算 —— 提到循环外本条必须翻红', () => {
+  const loopStart = TOOL_SRC.indexOf('for (let attempt = 1')
+  const loopEnd = TOOL_SRC.indexOf("if (landed === '')")
+  assert.ok(loopStart > 0, '找不到 CAS 循环起点(结构漂了,本锁失去意义)')
+  assert.ok(loopEnd > loopStart, '找不到 CAS 循环终点')
+  // 调用点(排除函数定义那一处)必须**全部**落在循环体内:循环外算一次 = 把远端读数烘成一次性
+  const callSites = []
+  const re = /readRemoteIdBasis\(\s*\{/g
+  let m
+  while ((m = re.exec(TOOL_SRC))) {
+    const before = TOOL_SRC.slice(Math.max(0, m.index - 9), m.index)
+    if (!before.endsWith('function ')) callSites.push(m.index)
+  }
+  assert.ok(callSites.length >= 1, '找不到 readRemoteIdBasis 的调用点(远端基准那一条没装车)')
+  const outside = callSites.filter((i) => i < loopStart || i > loopEnd)
+  assert.deepEqual(
+    outside,
+    [],
+    `号段基准被提到 CAS 循环外 ${outside.length} 处:每轮必须重算(HEAD 会动,远端 tip 也会动)`,
+  )
+  // 旧半边同锁:每轮也必须重取本地 HEAD 底稿
+  assert.ok(
+    TOOL_SRC.slice(loopStart, loopEnd).includes("git(['rev-parse', 'HEAD']"),
+    'CAS 循环内必须重取 HEAD',
+  )
+  assert.ok(
+    TOOL_SRC.slice(loopStart, loopEnd).includes(
+      'resolveIdTokens(targetLines, baseContent, remote)',
+    ),
+    '取号必须吃到本轮的远端基准,而不是上一轮的',
+  )
+})
+
+test('N6 形状锁:远端三次派生各自带数字 timeout、绝不为取号 fetch/写 ref、不抄第二份派生层', () => {
+  const tStart = TOOL_SRC.indexOf('export const REMOTE_ID_TRANSPORT = {')
+  const tEnd = TOOL_SRC.indexOf('export function readRemoteIdBasis')
+  assert.ok(tStart > 0 && tEnd > tStart, '传输面与读取面必须相邻(切片找不到就是结构漂了)')
+  const transportSrc = TOOL_SRC.slice(tStart, tEnd)
+  const gitCalls = (transportSrc.match(/\bgit\(\[/g) || []).length
+  const timeouts = (transportSrc.match(/timeout:/g) || []).length
+  assert.equal(gitCalls, 3, `远端读取恰好三次派生(ls-remote / cat-file -e / show),实得 ${gitCalls}`)
+  assert.equal(
+    timeouts,
+    gitCalls,
+    '每一次远端派生都必须带 timeout(守门 80 口径;本仓实测过无超时挂 80 分钟)',
+  )
+  assert.doesNotMatch(
+    transportSrc,
+    /'(fetch|update-ref|push|symbolic-ref)'/,
+    '为号段基准去 fetch / 写 ref 会撞上 §5b:嵌套 remote-tracking ref 被宿主清理层删、update-ref 返 0 却不落盘',
+  )
+  assert.doesNotMatch(
+    TOOL_SRC,
+    /\bexecFileSync\(/,
+    'windowsHide 与绝对路径 git 候选只许住在 lib/bypass-git.mjs 那一份里(抄第二份必漂,守门 52 判的就是这个)',
+  )
 })
