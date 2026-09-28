@@ -1141,9 +1141,13 @@ test('M20 粗尺与不变量:两参调用方(converge)照旧判 F9,而非 F9 各
     throw new Error(`键数超过基线时粗尺必须点名并自报形状,实测 ${JSON.stringify(coarse)}`)
   const same = ratchetViolations({ F9: BASE_KEYS }, probe(f9face(BASE_KEYS.map((k) => gOf(k)))))
   if (same.length) throw new Error(`什么都没多时粗尺不得判红(那是恒红门):${JSON.stringify(same)}`)
-  // 整数旧形状在两参调用方一侧照旧走"比数量"这条通用规则,文案逐字不变
+  // 整数旧形状在两参调用方一侧照旧走"比数量"这条通用规则,**文案模板**逐字不变。
+  // ⚠ 数目不能写死:`BASE_KEYS` 是从 `scripts/plan-task-state-baseline.json` **现读**的,基线每被
+  //   人工刷一次,硬写的数字就红一次(M20 在 2026-09-29 就是这样从"71"变成"73"的 —— 那枚红与
+  //   任何提交内容无关,正是本仓禁止的"把仓库瞬时状态当恒定前提")。本条要钉的是模板与判序,
+  //   数字由同一份夹具给出,所以它既不是恒真也没有放过模板漂移。
   const oldTxt = ratchetViolations({ F9: 59 }, probe(f9face(BASE_KEYS.map((k) => gOf(k)))))
-  if (oldTxt.join() !== 'F9 撞号:同编号挂多个不同标题(组) 由基线 59 涨到 71')
+  if (oldTxt.join() !== `F9 撞号:同编号挂多个不同标题(组) 由基线 59 涨到 ${BASE_KEYS.length}`)
     throw new Error(`旧形状文案漂了(两参消费者跟着变):${JSON.stringify(oldTxt)}`)
   // 非 F9 各维:与迁移前同一份文案模板(逐字)
   const f = f9face([])
