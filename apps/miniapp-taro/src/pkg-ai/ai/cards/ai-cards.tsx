@@ -223,6 +223,15 @@ function TerminalTaskItem({
         : 'ai.cards.status.done'
   return (
     <View className={`ai-card-term-item${task.status === 'failed' ? ' error' : ''}`}>
+      {task.status === 'running' && task.waitingInput ? (
+        // D151(2026-09-29 立):命令停在"等键盘输入"。本端**只交代、不代答** —— 手机键盘
+        // 送不进 ai-service 那条进程,给一个按了没反应的输入框是假 affordance,比不给更坏。
+        // 两行都是既有词包键(shared 命名空间 chat.terminal.*),零新字面量、零新色值。
+        <View className="ai-card-term-waiting">
+          <Text className="ai-card-section-note">{t('chat.terminal.waitingInput')}</Text>
+          <Text className="ai-card-section-note">{t('chat.terminal.mobileUnsupported')}</Text>
+        </View>
+      ) : null}
       <View className="ai-card-term-head">
         <View className="ai-card-term-cmd">
           <Text className="ai-card-term-prompt">$</Text>

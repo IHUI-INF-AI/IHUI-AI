@@ -19,6 +19,8 @@ import type {
   TerminalDeltaEvent,
   /** 文件写类工具流中 diff 预览(api-client 2026-09-27 立 D113,本解析器同批接上) */
   ToolDeltaEvent,
+  /** 命令在等键盘输入(api-client 2026-09-29 立 D151,本解析器同批接上) */
+  TerminalInteractionEvent,
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 
@@ -69,6 +71,10 @@ export interface SSEEvent {
     // ⇒ **帧能到设备却被静默丢掉**(api-client 那条链 2026-09-27 已解析,小程序端因此
     // 与 web/RN 不同源:工具跑完才看得到改了什么)。本变体只补这一格,渲染接线在端内票。
     | 'tool-delta'
+    // ===== D151(2026-09-29 立):命令在等键盘输入的一帧 =====
+    // 此前它在本解析链上**无人认领**,被下面 `sessionId` 那条泛化兜底折成 meta ⇒
+    // 小程序端拿不到 terminalId/提示原文,结构上不可能显示"它在等人"(见函数体内的认领注释)。
+    | 'terminal_interaction'
   content?: string
   sessionId?: string
   /** 错误码(对齐 @ihui/api-client SSEErrorInfo 字段) */
@@ -129,6 +135,8 @@ export interface SSEEvent {
   terminalDelta?: TerminalDeltaEvent
   /** D113 工具流中 diff 预览帧(tool-delta):字段口径与 api-client tryParseToolDelta 一致 */
   toolDelta?: ToolDeltaEvent
+  /** D151 命令在等键盘输入(terminal_interaction):字段口径与 api-client tryParseTerminalInteraction 一致 */
+  terminalInteraction?: TerminalInteractionEvent
 }
 
 function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
@@ -364,6 +372,28 @@ function parseLine(line: string): SSEEvent | null {
         ...(json.truncated === true ? { truncated: true } : {}),
       }
       return { type: 'tool-delta', toolDelta: delta }
+    }
+    // ===== D151(2026-09-29 立):terminal_interaction 同样必须在兜底抽取链之前认领 =====
+    // 载荷 {terminalId, sessionId, promptTail, waitingSinceMs, inputMode, maxInputChars, messageId?}
+    // —— 既不带 content/delta/text,又**带一个字符串 sessionId**,于是它一路走到下面那条
+    // `typeof json?.sessionId === 'string' ⇒ {type:'meta', sessionId}` 的泛化兜底,
+    // 被折成一条 meta 帧:terminalId 与提示原文全部丢失,小程序端**结构上不可能**知道
+    // 命令在等人(2026-09-29 派单代理实测探针打出 EVENTS=[{type:meta,sessionId:s-9}] 的那一格)。
+    // 字段收窄口径抄 @ihui/api-client client.ts 的 tryParseTerminalInteraction:terminalId
+    // 必须是 string,否则**丢弃**,绝不回落 chunk/meta —— 静默降级就是把"没看见"写成"看见了"。
+    if (json?.type === 'terminal_interaction') {
+      const terminalId = json.terminalId
+      if (typeof terminalId !== 'string') return null
+      const interaction: TerminalInteractionEvent = {
+        terminalId,
+        sessionId: typeof json.sessionId === 'string' ? json.sessionId : '',
+        promptTail: typeof json.promptTail === 'string' ? json.promptTail : '',
+        waitingSinceMs: typeof json.waitingSinceMs === 'number' ? json.waitingSinceMs : 0,
+        inputMode: 'line',
+        maxInputChars: typeof json.maxInputChars === 'number' ? json.maxInputChars : 4096,
+        ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+      }
+      return { type: 'terminal_interaction', terminalInteraction: interaction }
     }
     const choices = json?.choices as Array<Record<string, unknown>> | undefined
     const choice = choices?.[0]
