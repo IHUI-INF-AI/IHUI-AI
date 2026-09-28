@@ -55,7 +55,7 @@ export function ImageViewer({
       <button
         onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
         aria-label={t('zoomOut')}
-        className="rounded p-1.5 text-white hover:bg-white/20"
+        className="rounded-sm p-1.5 text-white hover:bg-white/20"
       >
         <ZoomOut className="h-4 w-4" />
       </button>
@@ -63,21 +63,21 @@ export function ImageViewer({
       <button
         onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
         aria-label={t('zoomIn')}
-        className="rounded p-1.5 text-white hover:bg-white/20"
+        className="rounded-sm p-1.5 text-white hover:bg-white/20"
       >
         <ZoomIn className="h-4 w-4" />
       </button>
       <button
         onClick={() => setRotation((r) => r + 90)}
         aria-label={t('rotate')}
-        className="rounded p-1.5 text-white hover:bg-white/20"
+        className="rounded-sm p-1.5 text-white hover:bg-white/20"
       >
         <RotateCw className="h-4 w-4" />
       </button>
       <button
         onClick={() => setFullscreen(true)}
         aria-label={t('fullscreen')}
-        className="rounded p-1.5 text-white hover:bg-white/20"
+        className="rounded-sm p-1.5 text-white hover:bg-white/20"
       >
         <Maximize className="h-4 w-4" />
       </button>
@@ -109,14 +109,14 @@ export function ImageViewer({
             <button
               onClick={prev}
               aria-label={t('previous')}
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md bg-black/60 p-2 text-white hover:bg-black/80"
+              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-sm bg-black/60 p-2 text-white hover:bg-black/80"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               onClick={next}
               aria-label={t('next')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-black/60 p-2 text-white hover:bg-black/80"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm bg-black/60 p-2 text-white hover:bg-black/80"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
