@@ -2,60 +2,28 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { resetAsyncStorageMock } from './__mocks__/async-storage'
+// 「进登录页要不要静默自动登录」的唯一决策出口。
+//
+// 单独成文件 + 依赖注入的理由不是整洁:这条判据的三个输入分别住在三个地方
+// (登出标记在 lib/token、两个勾选位在 lib/credential-storage),而它决定的是
+// "用户按了退出之后,应用会不会自己登回去" —— 一句话可判、必须可测。
+// 渲染整张 LoginScreen 来测它要 mock WebView / react-native-svg / 导航栈,那种测试
+// 断在第一处无关的依赖上,证不了判据本身。
+export interface AutoLoginDeps {
+  /** 本机是否处于"已显式登出/会话失效"状态(持久标记,活得比凭据久) */
+  sessionLoggedOut: () => boolean
+  /** 用户是否勾选过"自动登录" */
+  hasAutoLoginFlag: () => boolean
+  /** 盘上是否还留着可用凭据 */
+  hasRememberedCredentials: () => boolean
+}
 
-const { tokenMocks } = vi.hoisted(() => ({
-  tokenMocks: {
-    initApi: vi.fn(async () => {}),
-    setToken: vi.fn(async () => {}),
-    setRefreshToken: vi.fn(async () => {}),
-    getToken: vi.fn(() => null as unknown),
-    getRefreshToken: vi.fn(() => null as unknown),
-    clearToken: vi.fn(async () => {}),
-  },
-}))
-
-vi.mock('../src/lib/token', () => ({
-  ...tokenMocks,
-  tokenStore: {
-    getToken: () => tokenMocks.getToken() as string | null,
-    getRefreshToken: () => tokenMocks.getRefreshToken() as string | null,
-    setToken: tokenMocks.setToken,
-    setRefreshToken: tokenMocks.setRefreshToken,
-    clearAll: tokenMocks.clearToken,
-  },
-}))
-
-import { rnAuthStore } from '../src/stores/auth-store'
-
-describe('Debug token store', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    resetAsyncStorageMock()
-    tokenMocks.getToken.mockReturnValue(null)
-  })
-
-  it('should use mocked tokenStore', async () => {
-    // Check what tokenStore the auth-store is using
-    // Set cached token
-    tokenMocks.getToken.mockReturnValue('cached-tk')
-
-    // Hydrate should read from tokenStore
-    // 取一次引用再断言 = 断言的是"调用前那份 state"(真实工厂用 zustand,setState 产出新对象;
-    // 旧的手写替身是同一个可变对象,所以它在替身下才碰巧成立)。故每次读 state 都现取。
-    rnAuthStore.getState().hydrate()
-
-    expect(rnAuthStore.getState().token).toBe('cached-tk')
-    // 真实工厂的另一半语义:登录态是从 token 派生的,不是独立开关
-    expect(rnAuthStore.getState().isAuthenticated).toBe(true)
-
-    // 反向对照(同一条 hydrate 的另一侧):tokenStore 空 ⇒ 必须**覆盖**成 null,
-    // 而不是"跳过保留旧值"—— 这正是替身与真实工厂分叉的那一格。
-    tokenMocks.getToken.mockReturnValue(null)
-    rnAuthStore.getState().hydrate()
-    expect(rnAuthStore.getState().token).toBeNull()
-    expect(rnAuthStore.getState().isAuthenticated).toBe(false)
-  })
-})
+/**
+ * 登出标记优先:它排在最前,因为"用户刚刚主动退出"必须压过任何历史勾选。
+ * 两个勾选位缺一不可 —— 只勾了自动登录但没记住密码(或反之)都不构成静默重登的条件。
+ */
+export function shouldAttemptAutoLogin(deps: AutoLoginDeps): boolean {
+  if (deps.sessionLoggedOut()) return false
+  return deps.hasAutoLoginFlag() && deps.hasRememberedCredentials()
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
