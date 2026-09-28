@@ -153,13 +153,13 @@ const checks = [
   // 检测目标:apps/web/src/ 下所有 .tsx(8 个共享登录组件:LoginForm/EmailCodeLoginForm/
   //   PhoneCodeLoginForm/PasswordLoginForm/AgreementCheckbox/AgreementNoticeDialog/
   //   ThirdPartyLoginButtons/QrTab)
-  // 升级 blocking 评估:1 周观察期(2026-08-03)若无误报 → 改 mode: 'blocking'
+  // 升级 blocking 评估:观察期已满 —— 2026-09-28 全量档实测 803 个文件 0 违规,已翻 blocking
   {
     id: '2g-web',
     label: '🔍 i18n 命名空间传递(web→共享组件)',
     script: 'check-i18n-namespace-passing.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '3',
@@ -222,7 +222,7 @@ const checks = [
     label: '📐 圆角溢出(父 rounded + 子 bg 贴边)',
     script: 'check-rounded-overflow.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '11c',
@@ -710,10 +710,10 @@ const checks = [
   },
   {
     id: '2f-ext',
-    label: '🌐 [extension] i18n 键完整性(warn-only)',
+    label: '🌐 [extension] i18n 键完整性(blocking,2026-09-28 由 warn 升档)',
     script: 'check-i18n-keys.mjs',
     args: ['--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2f-shared',
@@ -724,24 +724,24 @@ const checks = [
   },
   {
     id: '2g-ext',
-    label: '🔍 [extension] zh-TW 简体字残留(warn-only)',
+    label: '🔍 [extension] zh-TW 简体字残留(blocking,2026-09-28 由 warn 升档)',
     script: 'scan-i18n-zh-residue.mjs',
     args: ['zh-TW', '--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2h-ext',
-    label: '🔍 [extension] ko.json 中文残留(warn-only)',
+    label: '🔍 [extension] ko.json 中文残留(blocking,2026-09-28 由 warn 升档)',
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ko', '--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2i-ext',
-    label: '🔍 [extension] en.json 破碎英文(warn-only)',
+    label: '🔍 [extension] en.json 破碎英文(blocking,2026-09-28 由 warn 升档)',
     script: 'check-i18n-broken-en.mjs',
     args: ['--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   // --- shared 守门(5 项,2026-07-26 i18n shared/ 抽取重构前置条件) ---
   // 与 2f-shared(已存在,跑 check-i18n-keys.mjs --target=shared)独立,不冲突
@@ -826,7 +826,7 @@ const checks = [
     label: '🌐 mobile-rn i18n parity 守门(warn-only 起步,2026-07-28 立)',
     script: 'check-i18n-keys.mjs',
     args: ['--target=mobile-rn', '--parity-only'],
-    mode: 'warn',
+    mode: 'blocking',
     onFailHint: [
       '',
       '  💡 mobile-rn 端 5 语言 i18n key 集合不一致。',
