@@ -25,7 +25,7 @@
  *  B4 `rounded-[...]` 任意值 → 必须换档位类(或 var(--radius-*))
  *     唯一放行:`0` / `none` / `inherit` / **可证的几何真圆**(见 `circleVerdict` 与
  *     `lib/box-geometry.mjs` 的 `isGeometricCircle` / `isHalfOfDeclaredSide`)。
- *     ⚠️ 2026-09-28 起 `radius-exempt:` 标记**不再是任何一判据的出口**(用户定档:"不允许有任何豁免")。
+ *     ⚠️ 2026-09-28 起 `radius-exempt` 标记**不再是任何一判据的出口**(用户定档:"不允许有任何豁免")。
  *     原先它把"真圆/头像/装饰点/胶囊"一律交给人写一句话放行,而"胶囊"恰是项目明令禁止的形状 ——
  *     于是标记既当豁免又当掩盖,而门从不量形状。现在形状由盒尺寸量出来:正方+半边=几何(放行),
  *     非正方+半边=胶囊(判红,不吃标记),量不出=判不出(判红,出路是把尺寸写进同一作用域)。
@@ -34,6 +34,12 @@
  *     本门判的是 HEAD 内容,而 `pnpm typecheck` 只跑 worktree —— 悬空标识符属于"两边都不红"
  *     的那一类(前向移植 / 批量改写的典型遗留),只能在读 HEAD blob 的这里补上。
  *     import 常写成多行,必须在整条 `{…}` 括号里找名字。
+ *  B8 豁免标记族**本身**(那个带冒号的指令形态)→ 红。通道废除靠两半:"写了也没用"由判序保证
+ *     (本门与门 150 都不再按标记放行),"写了就红"就是这一条 —— 只拆出口不拦回写,下一个人挂一行
+ *     标记就等于把那条通道悄悄接回来(票㉜ 把存量摘到 0 之后,HEAD 上又长出过 2 处,是实测不是假想)。
+ *     识别式与门 150 的报名共用 `lib/radius-exempt-marker.mjs` 那一份;判它必须看**原文行** ——
+ *     标记活在注释里,而本门逐行的第一步就是把整行注释直接 return。散文提这个族名不带冒号,
+ *     因此不会被自己判红(判据不能吃自己的说明文字)。
  *  B 走 **HEAD 锚点棘轮**:每文件容忍上限 = 该文件 HEAD 版本自身的违规数(全量审计时上限只来自
  *    人工基线,因为内容就是 HEAD)。只拦"这次改动把绕档加回来了",不拦仓库既有债。
  *    锚点原先是一份手工维护的 JSON 清单,它有两个致命伤:并行会话把已迁好的路径整文件回写成
@@ -65,6 +71,7 @@ import { execFileSync } from 'node:child_process'
 
 import { catBatch, Undetermined } from './lib/face-reader.mjs'
 import { objectDims, boxDims, scopeDimTexts, isHalfOfDeclaredSide, classifyRadiusGeometry } from './lib/box-geometry.mjs'
+import { RADIUS_EXEMPT_MARKER_RE } from './lib/radius-exempt-marker.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_FILE = join(ROOT, 'scripts/radius-single-source-baseline.json')
@@ -368,6 +375,21 @@ export function scanText(rel, text, table) {
     return d.w === d.h ? 'circle' : 'capsule'
   }
   lines.forEach((line, i) => {
+    /**
+     * B8:豁免标记族本身。放在**逐行第一步**、且在"整行注释直接 return"之前 —— 标记就活在注释里,
+     * 放到那行之后本门就永远看不见它(判据面与豁免面两套遮罩的历史教训,门 102/131 各记过一次)。
+     * 档位表自身不判:它是规格文件而非取用点,里面的散文一旦提到这个族名会替人写出假阳。
+     */
+    if (!TABLE_FILES.test(rel) && RADIUS_EXEMPT_MARKER_RE.test(line)) {
+      bad.push({
+        line: i + 1,
+        rule: 'B8',
+        raw: line.trim().slice(0, 120),
+        hint:
+          '圆角豁免通道已整体废除(项目定档「不允许有任何豁免」)—— 删掉这条标记:真圆由"正方盒 + 半径=半边"自己成立,' +
+          '胶囊是本项目禁止的形状,没有例外',
+      })
+    }
     const t = line.trim()
     if (/^(\/\/|\*|\/\*|<!--|#\s|;;)/.test(t)) return
     const isDocLike = /\.html$/i.test(rel)
@@ -702,6 +724,24 @@ async function selfTest() {
       red: false,
     },
     { name: 'B3 反向:量不到盒形时标记**不再**放行(零豁免 —— 形状是量出来的,不是谁声明的)', f: 'apps/web/app/x.css', s: '  border-radius: 50%; /* radius-exempt: 头像 */', red: true },
+    {
+      name: 'B8 合规取用 + 一行标记 ⇒ 仍红(拦的是"挂标记"这个动作本身,与那一档对不对无关)',
+      f: 'apps/web/app/b8.tsx',
+      s: 'const s = { card: { borderRadius: rnRadius.lg } } // radius-role-exempt: 主视觉卡\n',
+      red: true,
+    },
+    {
+      name: 'B8 标记写在整行注释里也必须被看见(判据面若是遮罩面,这一条会静默漏掉整族)',
+      f: 'apps/web/app/b8b.tsx',
+      s: '// radius-exempt: 这一行只有注释\nconst s = { card: { borderRadius: rnRadius.lg } }\n',
+      red: true,
+    },
+    {
+      name: 'B8 反向:散文提这个族名(不带冒号)不得被判红 —— 判据不能吃自己的说明文字',
+      f: 'apps/web/app/b8c.css',
+      s: '/* 这里以前挂过 radius-exempt 与 radius-role-exempt,通道已整体废除,现在靠形状量 */\n.card { border-radius: var(--radius-lg); }\n',
+      red: false,
+    },
     { name: 'B3 可证正方 + 50% ⇒ 真圆放行(不需要任何标记)', f: 'apps/web/app/x.css', s: '  width: 96rpx;\n  height: 96rpx;\n  border-radius: 50%;', red: false },
     { name: 'B3 注释行放行', f: 'apps/web/app/x.css', s: '  /* border-radius: 24rpx; */', red: false },
     { name: 'B3 tokens.css 自身定义行放行', f: 'packages/design-tokens/src/styles/tokens.css', s: '  border-radius: 8px;', red: false },
