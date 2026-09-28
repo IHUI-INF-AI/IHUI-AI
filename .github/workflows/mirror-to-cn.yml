@@ -108,37 +108,29 @@ jobs:
           # 与其让它带着坏判据去跑 69 分钟,不如 3 秒内失败并点名。
           LOCAL_INTERNAL_N=$(git for-each-ref --format='%(refname)' refs/tags | grep -Ec "$INTERNAL_TAG_RE" || true)
           echo "本地内部备份标签(按同一 RE 计)= ${LOCAL_INTERNAL_N}"
-          # ── 配额探针(0 字节) ─────────────────────────────────────────────────────
-          # 为什么必须有:被 pre-receive 拒掉的那一轮**照样把整包对象传到了服务端**
-          # (receive-pack 收完 pack 才跑钩子,包留在服务端等 housekeeping)。实测:
-          # 09-23 21:55 `Repo size: 1060.676MB` → 09-24 00:17 `1603.148MB`,中间正好 4 轮
-          # ≈ 135MB/轮,与我们每轮发送的 pack 大小同量级。**每 20 分钟一轮的重试
-          # 就是将仓库体积持续推高、让 Gitee 永远回不到配额内的那只手。**
-          # 探针推一个"服务端已有的 commit"到一个新 ref 名 ⇒ 对象全在,传输 0 字节,
-          # 但 pre-receive 照样执行 ⇒ 能不喂体积地把配额判词拿回来。探针 ref 用完立即删除。
-          PROBE_REF="refs/heads/ci-quota-probe"
-          REMOTE_MAIN=$(git ls-remote "$REMOTE" refs/heads/main 2>/dev/null | cut -f1)
-          if [ -n "${REMOTE_MAIN}" ]; then
-            PROBE_OUT=/tmp/gitee-probe.out
-            # `|| PROBE_RC=$?` 是必需的:本步跑在 `bash -e` 下,裸写一行可能失败的命令会让脚本
-            # 当场退出,下面的配额结论分支永远走不到(同文件上方 push 那处已踩过这个坑)。
-            PROBE_RC=0
-            git push --no-verify "$REMOTE" "${REMOTE_MAIN}:${PROBE_REF}" > "$PROBE_OUT" 2>&1 || PROBE_RC=$?
-            sed "s|${GITEE_TOKEN}|***|g" "$PROBE_OUT"
-            if grep -qE 'exceeds quota|size exceeds limit' "$PROBE_OUT"; then
-              echo "::error::Gitee 配额仍未释放(0 字节探针确认,本轮未向服务端发送任何对象)。差的是服务端体积回收:等 Gitee housekeeping,或由仓库所有者在 https://gitee.com/${GITEE_OWNER}/IHUI-AI/settings 点一次「Git GC」(Gitee 无 GC API)。在恢复之前**不再做全量推送** —— 每次被拒的全量推送会再堆 ~135MB,把恢复推得更远。"
-              exit 1
-            fi
-            if [ "${PROBE_RC}" -eq 0 ]; then
-              git push --no-verify --delete "$REMOTE" "${PROBE_REF}" >/dev/null 2>&1 \
-                || echo "::warning::探针 ref ${PROBE_REF} 删除失败,请手工清理(不影响本轮镜像)"
-              echo "✅ 配额探针通过(0 字节),继续全量镜像"
-            else
-              echo "::warning::探针以 rc=${PROBE_RC} 失败但不是配额原因(凭据/网络?),仍继续全量镜像并让真实失败自解释"
-            fi
-          else
-            echo "::warning::读不到远端 main 的 sha,跳过探针(直接尝试推送)"
-          fi
+          # ── 本步**不做任何前置探测**,配额判词只在真实推送被拒的那一刻拿 ─────────────
+          # 这里原有一道"0 字节配额探针"(把服务端已有的 commit 推到一个新 ref 名,指望不喂
+          # 体积地拿回 pre-receive 的配额判词,用完即删)。2026-09-28 逐轮 CI 日志取证后**已整块
+          # 移除** —— 它在两个方向上都证明不了任何东西,留着就是一句假话:
+          #   ① 被**接受**的推送照样打配额行。09-27 05:43 那一轮,服务端输出里
+          #      `remote: Repo size: 1624.812MB, exceeds quota 1024MB` 与
+          #      `* [new branch] 43d09fc31… -> ci-quota-probe` 同批出现(rc=0 ⇒ 推送成功)。
+          #      旧判据"命中 exceeds quota 即短路"于是把这一轮写成"配额未释放,本轮未向服务端
+          #      发送任何对象"并 exit 1 —— 而短路分支排在删除之前,**那个 ref 就此永久留在服务端**。
+          #   ② ref 一旦存在且与 main 同 sha,之后每一轮 `git push main:ci-quota-probe` 都被
+          #      客户端判为 `Everything up-to-date` —— **一次都不联系服务端**,探针恒 rc=0 并打印
+          #      "✅ 配额探针通过"。Gitee 现仅两条分支(main 与 ci-quota-probe,同为 43d09fc31,
+          #      经 /api/v5/repos/.../branches 只读确认)⇒ 探针此后生效次数 = 0,
+          #      09-27 11:34 起的 7 轮全部照常全量推送。这就是"把没判写成判过了"。
+          # 代价如实登记(不粉饰):没有前置探测 ⇒ 每 20 分钟一轮的重试仍会向服务端上传对象,
+          # 被拒的包按 Gitee 口径计入体积(实测 09-27 05:43 的 1624.812MB → 09-28 07:40 的
+          # 1715.750MB,7 轮 +90.9MB,其中长时间串流的轮次占绝大部分)。之所以仍不造一道
+          # "连续被拒就不再试"的闸:Gitee 的仓库 API(/api/v5/repos/{owner}/{repo}) **不返回
+          # 体积字段**,零对象的配额读数因此没有出口;而跨 run 记忆要引入 artifact/自派生状态文件
+          # 这套新机制,在本票里无法验证 ⇒ 宁可不装,也不留第二条"看起来有防护其实从不生效"的分支。
+          # 真正能降体积的那一步在**服务端 GC**,只能由仓库所有者点(见失败行的链接)。
+          # 反假绿守卫提前到任何推送之前(旧顺序里它在探针推送**之后**,即判据已失效时仍会先
+          # 向服务端推一次东西才失败)。
           if [ "${LOCAL_INTERNAL_N}" -lt 1000 ]; then
             echo "::error::INTERNAL_TAG_RE 在本仓库只匹配到 ${LOCAL_INTERNAL_N} 个标签,远低于实测 4206 —— 判据失效,拒绝以「无需删除/已排除」的假绿继续"
             exit 1
@@ -170,6 +162,9 @@ jobs:
             fi
           else
             echo "远端已无内部备份标签(此前已清理),跳过删除"
+            # 上面 DEL_N=0 是由 ls-remote 现数出来的(不是"没数"),所以这里写 0 是实测值而非假设;
+            # 不这样显式赋值,下方失败行里的 ${REMAIN_INTERNAL:-0} 就成了"没判当判过"。
+            REMAIN_INTERNAL=0
           fi
           # ─────────────────────────────────────────────────────────────────────────
           # 不用 --mirror:推 refs/remotes/origin/* 会被 Gitee 拒绝(deny hidden ref)
@@ -207,7 +202,15 @@ jobs:
           sed "s|${GITEE_TOKEN}|***|g" "$PUSH_OUT"
           if [ "$PUSH_RC" -ne 0 ]; then
             if grep -qE 'exceeds quota|size exceeds limit' "$PUSH_OUT"; then
-              echo "::error::Gitee 配额仍未释放(远端内部备份标签已删至 ${REMAIN_INTERNAL:-0} 个,本轮只推 ${#SPEC[@]} 个标签)。差的是**服务端 GC**,不是脚本判据 —— 需仓库所有者在 https://gitee.com/${GITEE_OWNER}/IHUI-AI/settings 点一次「Git GC」(Gitee 无 GC API)。在此之前改触发器/改判据都无效。"
+              # 判词取服务端自己打的那一行原文(含实测 MB),不转述不猜;它没打就如实写"未给出"。
+              SIZE_LINE=$(grep -aoE 'Repo size: [0-9.]+MB(, exceeds quota [0-9.]+MB)?' "$PUSH_OUT" | tail -1 || true)
+              GC_LINE=$(grep -aoE 'https://gitee\.com[^ ]*settings#git-gc' "$PUSH_OUT" | tail -1 || true)
+              echo "::error::Gitee 拒绝本轮全量推送。服务端判词:${SIZE_LINE:-本轮未打出体积数}。远端内部备份标签已删至 ${REMAIN_INTERNAL:-0} 个,本轮只推 ${#SPEC[@]} 个标签 —— 体积卡在服务端回收,不在 ref 清单。这一步**没有任何前置探测**(0 字节探针已于 2026-09-28 移除,它证明不了配额,详见本步上方注释),所以本轮对象已随上面的推送送出去了:被拒的包按 Gitee 口径仍计入体积 ⇒ 重试本身在把它推得更高,这是**已知代价**,不是遗漏。降体积只有服务端 GC 一条路(Gitee 无 GC API,housekeeping 不可由本 workflow 触发):${GC_LINE:-https://gitee.com/${GITEE_OWNER}/IHUI-AI/settings#git-gc} —— 由仓库所有者点一次「Git GC」。GC 之前下一轮(20 分钟后)仍会照原样再试,改触发器/改判据都无效。"
+            else
+              # 拿不到配额判词的失败(实测 09-28 那轮 74 分钟后 curl 65 TLS 断开)必须与"配额"
+              # 分开说:此时**无法判定**服务端是否收下并留下了本轮上传的对象,更无法判定配额是否
+              # 释放 —— 不许把"没拿到判词"写成"配额正常"或"配额已超",两种都是假账。
+              echo "::error::Gitee 推送失败,但本轮输出里没有配额判词(见上方 git 原始输出)⇒ 配额状态**未判定**:既不能说仍超限,也不能说已释放。若上方是传输层断开(curl 65 / GnuTLS / RPC / remote end hung up 那一型,实测有一轮推满 74 分钟才断),本轮对象可能已部分留在服务端;下一轮仍会照原样重试。"
             fi
             exit "$PUSH_RC"
           fi
