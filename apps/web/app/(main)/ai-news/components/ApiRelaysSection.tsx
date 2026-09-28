@@ -194,7 +194,7 @@ export function ApiRelaysSection() {
   }
 
   return (
-    <section className="rounded-lg border bg-card">
+    <section className="ui-card rounded-lg border bg-card">
       <header className="px-5 py-4">
         <h2 className="text-base font-semibold">{t('title')}</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>

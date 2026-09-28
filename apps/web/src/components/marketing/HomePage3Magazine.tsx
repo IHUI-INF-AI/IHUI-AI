@@ -68,7 +68,7 @@ function HeroCard({ item, tag }: { item: NewsItem; tag: string }) {
         <div className="absolute inset-0 bg-black/50 transition-colors group-hover:bg-black/60" />
       </div>
       <div className="relative z-10 mt-auto flex flex-col gap-1.5 p-3">
-        <span className="inline-flex w-fit items-center rounded-md bg-card px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-foreground">
+        <span className="inline-flex w-fit items-center ui-card rounded-lg bg-card px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-foreground">
           {tag}
         </span>
         <h3 className="line-clamp-2 text-lg font-bold leading-tight text-white min-[1024px]:text-xl">
