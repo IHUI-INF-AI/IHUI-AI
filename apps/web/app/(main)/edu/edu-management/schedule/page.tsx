@@ -818,7 +818,7 @@ export default function SchedulePage() {
         key={entry.id}
         type="button"
         className={cn(
-          'w-full rounded-sm px-2 py-1 text-left text-xs text-white transition-opacity hover:opacity-90',
+          'w-full ui-control rounded-sm px-2 py-1 text-left text-xs text-white transition-opacity hover:opacity-90',
           bgColor,
         )}
         onClick={() => handleEditSchedule(entry)}

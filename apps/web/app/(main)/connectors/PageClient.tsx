@@ -562,7 +562,7 @@ function ConnectorCard({
   const configured = entry.configured
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20">
+    <div className="flex flex-col gap-2.5 ui-card rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20">
       <div className="flex items-start gap-2.5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />

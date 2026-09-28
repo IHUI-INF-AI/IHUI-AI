@@ -120,7 +120,7 @@ export default function VipTraderPage() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {(error as Error).message}
       </div>
     )

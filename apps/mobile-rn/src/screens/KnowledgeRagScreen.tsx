@@ -334,7 +334,7 @@ export function KnowledgeRagScreen() {
             }
             contentContainerStyle={{ padding: 16 }}
             renderItem={({ item }) => (
-              <View className={`mb-3 rounded-lg border p-4 ${cardCls}`}>
+              <View className={`mb-3 ui-card rounded-lg border p-4 ${cardCls}`}>
                 <TouchableOpacity onPress={() => void openDetail(item.id, 'docs')}>
                   <Text className={`text-base font-medium ${titleCls}`} numberOfLines={1}>
                     {item.title}
@@ -374,7 +374,7 @@ export function KnowledgeRagScreen() {
           renderItem={({ item }) => (
             <TouchableOpacity
               onPress={() => void openDetail(item.docId, 'search')}
-              className={`mb-3 rounded-lg border p-4 ${cardCls}`}
+              className={`mb-3 ui-card rounded-lg border p-4 ${cardCls}`}
             >
               <Text className={`text-sm leading-6 ${bodyCls}`} numberOfLines={3}>
                 {item.content}

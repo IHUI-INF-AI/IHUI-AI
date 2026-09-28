@@ -146,7 +146,7 @@ export function TrendNotificationBanner() {
       : null
 
   return (
-    <div className="mx-6 mt-2 mb-1 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 dark:border-orange-800 dark:bg-orange-950/20">
+    <div className="mx-6 mt-2 mb-1 ui-card rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 dark:border-orange-800 dark:bg-orange-950/20">
       {/* 折叠态:🔥 X 资讯热度爆发 + 最新标题 + 增长率 + 相对时间 */}
       <div className="flex items-center gap-2">
         <Flame className="h-3.5 w-3.5 shrink-0 text-orange-500" />
