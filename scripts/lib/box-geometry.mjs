@@ -359,7 +359,7 @@ export function objectDims(lines, idx, consts) {
  * 一遍单位换算必然漂开。本轮"除法半径读成被除数 / `width: 96rpx` 不折半"就是同一笔债的两半,
  * 而只修一半会产出自洽的假阳(半径 8 配上量不到的 16×16 盒 ⇒ 把圆钮判成"该取 sm")。
  */
-import { lengthToPx, constantMapOf } from './length-units.mjs'
+import { lengthToPx, constantMapOf, constExprPx } from './length-units.mjs'
 
 /**
  * 盒形标识符常量表(`width: IMAGE_REMOVE_SIZE`)—— **默认自取,显式传入优先**。
@@ -411,9 +411,16 @@ export function dimsFromText(win, consts) {
    * 量不到盒形,被判成"control 该取 sm(4)" —— 那是**尺子的假阳**,照着它改代码就是把圆钮改方。
    * 两半必须同批改,这是本轮记下的一条规矩。
    */
-  for (const m of win.matchAll(/\b(width|height)\s*[:=]\s*([A-Za-z_$][\w$]*)\b/g)) {
-    if (!(consts instanceof Map) || !consts.has(m[2])) continue
-    const v = lengthToPx(consts.get(m[2]))
+  for (const m of win.matchAll(
+    /\b(width|height)\s*[:=]\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\b/g,
+  )) {
+    /**
+     * 求值走 `constExprPx` 那一份:它认标识符、成员档与链式
+     * (`const SECONDARY_BTN_SIZE = rnGeometry.tapBox` 这种"常量指向具名档"的写法)。
+     * 上一版只查一层 map 再交给 `lengthToPx`,所以这类盒形量不到 —— 半径侧认得、盒形侧不认,
+     * 产出的是**自洽的假结论**,比"读不出来"更坏:它会替一个未判定发合格证。
+     */
+    const v = constExprPx(m[2], consts)
     if (v === null || v <= 0) continue
     if (m[1] === 'width') w = Math.max(w, v)
     else h = Math.max(h, v)
