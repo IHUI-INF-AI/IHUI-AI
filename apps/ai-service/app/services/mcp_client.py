@@ -25,6 +25,7 @@ import logging
 import os
 import time
 import urllib.parse
+from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -867,6 +868,38 @@ class MCPClient:
             logger.error("重连失败(%s): %s", self._config.name, e)
 
 
+# ---------------------------------------------------------------------------
+# 无参回调的"当前连接主体"作用域(G-371 格①,机主 2026-09-29 拍"隔离")
+# ---------------------------------------------------------------------------
+#
+# 为什么要有这一格而不是给回调加形参:`AgentEngine` 的 `tool_lister` 契约是**无参**回调,而
+# 它挂在模块级单例 `ENGINE` 上(不是每连接一个实例),没有形参通道;改签名要动
+# `agent_engine.py`。但工具清单**必须**按主体收窄 —— 按空主体取等于"谁都只看得到部署级",
+# 那会把用户自己注册的外部 server 从他的会话里静默抹掉(过度收窄同样是行为变更,而且是
+# 机主明确不要的那一种)。
+#
+# 语义与 `network_guard._current_policy` / `mcp_server._terminal_stream_ctx` 同形:**承载层**
+# 在派生任务前把已验证的主体放进上下文,回调读它;读不到 ⇒ 空串 ⇒ 只看得到部署级
+# (fail-closed)。这里的值只可能来自 `_bind_principal` 写入的 `params.userId` —— 那一个已被
+# 令牌主体覆盖过客户端自述值,所以是宿主事实,不是请求体里谁都能写的字段。
+_mcp_principal_scope: ContextVar[str] = ContextVar("ihui_mcp_principal", default="")
+
+
+def bind_mcp_principal(user_id: str) -> Token[str]:
+    """绑定当前作用域的连接主体,返回 token(必须交回 `reset_mcp_principal`)。"""
+    return _mcp_principal_scope.set(user_id or "")
+
+
+def reset_mcp_principal(token: Token[str]) -> None:
+    """恢复上一层作用域。"""
+    _mcp_principal_scope.reset(token)
+
+
+def current_mcp_principal() -> str:
+    """当前作用域的主体;未绑定 ⇒ 空串(= 只看得到部署级),不是"没有限制"。"""
+    return _mcp_principal_scope.get()
+
+
 class MCPClientManager:
     """管理多个 MCP Client 实例。"""
 
@@ -894,7 +927,7 @@ class MCPClientManager:
         return name
 
     def owner_of(self, name: str) -> str | None:
-        """该 server 的注册者;"" 表示部署级;未注册返回 None。""" 
+        """该 server 的注册者;"" 表示部署级;未注册返回 None。"""
         if name not in self._clients:
             return None
         return self._owners.get(name, "")
@@ -1034,20 +1067,8 @@ class MCPClientManager:
             ]
         )
 
-    async def list_available_tools_unscoped(self) -> list[MCPClientTool]:
-        """遍历**全部** Client 取工具 —— 属主判据未接线的内部路径,不是"更快的那一个"。
-
-        为什么还存在:对话装配链 `app/routers/agents.py::_build_supertool_pool` 手里只有
-        `user_role`(角色),没有会话主体 user_id —— 把工具池按属主收窄需要先把主体透到
-        装配与 call_forward 两处,那是**所有 agent 会话的工具可见集**的行为变更(用户会突然
-        看不见某些工具),不是安全收口的顺带清理。已登记在 PROJECT_PLAN 的 G-371 追加段,
-        解阻前置 = 主体透进 `_build_supertool_pool` 后改调 `list_available_tools_async`。
-        新代码**不得**选用这一支;端点侧一律走 `list_available_tools_async`。
-        """
-        return await self._collect_tools(list(self._clients.values()))
-
-    async def _collect_tools(self, clients: list["MCPClient"]) -> list[MCPClientTool]:
-        """两份枚举共用的取工具循环(遍历面不同、失败语义相同 —— 一份实现,不分叉)。"""
+    async def _collect_tools(self, clients: list[MCPClient]) -> list[MCPClientTool]:
+        """枚举给定 client 集合的工具(遍历面由调用方决定 —— 只有一处传"可见集")。"""
         tools: list[MCPClientTool] = []
         for client in clients:
             if client.is_connected():
@@ -1069,14 +1090,6 @@ class MCPClientManager:
         """
         if not self.is_visible(server_name, caller_user_id):
             return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
-        return await self._call_tool(server_name, tool_name, args)
-
-    async def call_external_tool_unscoped(
-        self, server_name: str, tool_name: str, args: dict[str, Any]
-    ) -> dict[str, Any]:
-        """不判属主的内部调用路径 —— 只服务对话装配链,理由与解阻前置见
-        `list_available_tools_unscoped` 的文档串(同一格缺口,两处不得各自解释)。
-        """
         return await self._call_tool(server_name, tool_name, args)
 
     async def _call_tool(
