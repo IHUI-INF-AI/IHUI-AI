@@ -74,6 +74,7 @@ from ..services.capability_gate import (
     enforce_tool_access,
     refresh_tools_revision,
     resolve_principal_from_headers,
+    scope_denied_for_channel,
     scope_of_resource,
     tools_revision,
 )
@@ -225,7 +226,12 @@ def visible_resources(principal: Principal | None) -> list[MCPResource]:
         scope = scope_of_resource(r.uri)
         if scope is None:
             continue  # 未在 MCP 面登记 → 不列也不可读
-        if principal is not None and not principal.has_scope(scope):
+        if principal is not None and (
+            not principal.has_scope(scope) or scope_denied_for_channel(principal, scope)
+        ):
+            # 机器凭据通道读不到的 scope(platform 域 / thirdPartyEligible=false)不得列出来:
+            # 这一张表若只判 has_scope,就会广告出一个一读就 403 的资源,而本函数头注承诺的
+            # "视图与 resources/read 裁决同一张表"当场落空(2026-09-28 实测到这一格)。
             continue
         out.append(r)
     return out
