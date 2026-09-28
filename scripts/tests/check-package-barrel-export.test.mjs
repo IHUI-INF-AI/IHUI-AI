@@ -16,7 +16,7 @@
 
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -288,16 +288,13 @@ test('T9 无提交可审时不记绿(空仓 ⇒ 取不到判定面 ⇒ exit 2)',
     gitIn(dir, ['config', 'user.email', 'gate@fixture.local'])
     gitIn(dir, ['config', 'user.name', 'gate-fixture'])
     mkdirSync(join(dir, 'scripts'), { recursive: true })
-    copyFileSync(SRC, join(dir, 'scripts', GATE_REL))
-    for (const rel of [
-      'lib/face-reader.mjs',
-      'lib/gitdir.mjs',
-      'check-dangling-local-imports.mjs',
-    ]) {
-      const abs = join(dir, 'scripts', rel)
-      mkdirSync(dirname(abs), { recursive: true })
-      copyFileSync(join(SCRIPTS_DIR, rel), abs)
-    }
+    /**
+     * 闭包必须由 `copyScriptWithClosure` 现读,不得手抄相对导入清单:手抄那份在
+     * `lib/gitdir.mjs` 新增 `lib/scratch-dir.mjs` 依赖的那天起就漏拷,而漏拷的表现不是
+     * "断言失败",是 spawn 出 ERR_MODULE_NOT_FOUND ⇒ 本条要证的 exit 2 永远取不到。
+     * 判据失效的表现永远是错位而非安静 —— 它砸在另一条断言上,读起来像"门坏了"。
+     */
+    copyScriptWithClosure(SCRIPTS_DIR, GATE_REL, join(dir, 'scripts'), ['lib/face-reader.mjs'])
     const r = runGate(dir, [])
     assert.equal(r.code, 2, `HEAD 不存在时必须喊"无法判定":${r.code} ${r.out}`)
     assert.match(r.out, /无法判定/)
