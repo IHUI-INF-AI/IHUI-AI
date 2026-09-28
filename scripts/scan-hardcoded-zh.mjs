@@ -14,7 +14,12 @@
  * 用法:
  *   node scripts/scan-hardcoded-zh.mjs                       # 全量扫描,输出到 stdout
  *   node scripts/scan-hardcoded-zh.mjs --json <out.json>     # 输出 JSON 到文件
- *   node scripts/scan-hardcoded-zh.mjs --top 30              # 只显示 TOP N
+ *   node scripts/scan-hardcoded-zh.mjs --json                # 不带路径 ⇒ JSON 打到 stdout(纯 JSON,可直接 JSON.parse)
+ *     注意:`--json` 只在**紧邻的下一个 token 存在且不以 `-` 开头**时才算"写文件"。
+ *     runner 会给每道门追加 `--staged`,所以 `--json --staged` 走的是 **stdout 档**
+ *     (旧实现在这里把 `--staged` 当路径,在仓库根写出一个名叫 `--staged` 的文件 —— 2026-09-28 修)。
+ *     stdout 档把一切非 JSON 文本(判定面提示、模式提示)改打 stderr,保证 stdout 单独可 parse。
+ *   node scripts/scan-hardcoded-zh.mjs --top 30              # 只显示 TOP N(必须纯数字;否则忽略该旗标并退回 30,人读面会打一句)
  *   node scripts/scan-hardcoded-zh.mjs --staged              # 只扫暂存区文件(pre-commit 用)
  *   node scripts/scan-hardcoded-zh.mjs --exit 1              # 越过基线(ratchet)则 exit 1,供 pre-commit 守门
  *   node scripts/scan-hardcoded-zh.mjs --update-baseline     # 用当前全量结果重写基线文件(清理后下调)
@@ -150,8 +155,34 @@ function lineCommentAt(probe) {
 
 const argv = process.argv.slice(2)
 const args = new Set(argv)
-const JSON_OUT = args.has('--json') ? argv[argv.indexOf('--json') + 1] : null
-const TOP_N = args.has('--top') ? parseInt(argv[argv.indexOf('--top') + 1], 10) : 30
+/**
+ * 带值旗标的取值(2026-09-28 修 `--json --staged` 这一型)。旧写法**无条件**把紧邻的下一个 token
+ * 当成值,而 runner(`guardian-runner.mjs`)会给每道门追加 `--staged`,于是任何人手跑
+ * `node scripts/scan-hardcoded-zh.mjs --json --staged` 时,JSON 报告被写进**仓库根一个名叫
+ * `--staged` 的文件**(实测 `[scan-hardcoded-zh] Wrote 1 files / 62 hits to --staged`):
+ * ① 仓库根长出非法条目(违反 AGENTS §28 根目录整洁铁律,`git status` 只显 `?? --staged`,
+ *    而多数守门不喊),② 调用方按头注的用法以为 `--json` 走 stdout,实际拿到空 stdout ⇒ 解析不到结论。
+ * 现只接受"存在且不以 `-` 开头"的值;`--top` 同形只接受纯数字(旧写法 `parseInt('--staged')` = NaN
+ * 并把 NaN 当阈值用)。与文件上方 `--root` 的取值判据同形,不得各写一份。
+ */
+function flagValue(flag) {
+  const v = args.has(flag) ? argv[argv.indexOf(flag) + 1] : null
+  return typeof v === 'string' && v !== '' && !v.startsWith('-') ? v : null
+}
+// `--json` 两档:带路径 ⇒ 写文件(既有行为,一字不改);不带路径 / 下一个 token 是别的旗标 ⇒ JSON 打到 stdout
+const JSON_OUT = flagValue('--json')
+const JSON_STDOUT = args.has('--json') && JSON_OUT === null
+const TOP_RAW = args.has('--top') ? argv[argv.indexOf('--top') + 1] : null
+const TOP_VALID = typeof TOP_RAW === 'string' && /^\d+$/.test(TOP_RAW)
+const TOP_INVALID = args.has('--top') && !TOP_VALID
+const TOP_N = TOP_VALID ? Number(TOP_RAW) : 30
+/** 人读提示的去向。JSON-stdout 档必须把一切非 JSON 文本挪出 stdout,否则调用方 JSON.parse(stdout) 直接失败
+ *  (本门有两处判定面提示会在扫描中途打 stdout)。其余档(人读 / `--json <文件>`)的 stdout 行为一字未变。 */
+function notice(msg) {
+  if (JSON_STDOUT) console.error(msg)
+  else console.log(msg)
+}
+if (TOP_INVALID) notice('[scan-hardcoded-zh] 忽略无效的 --top 值(需要一个纯数字,紧邻的下一个 token 不是数字),已退回默认 30')
 const STRICT = args.has('--exit') && argv[argv.indexOf('--exit') + 1] === '1'
 const STAGED = args.has('--staged')
 const UPDATE_BASELINE = args.has('--update-baseline')
@@ -284,7 +315,7 @@ if (STAGED) {
     faceNotice = '--staged 暂存集为空(索引确实空,人工裸跑)⇒ 已退回全量口径按工作树判(与 scopeFiles 同一条兜底)'
   else face = 'staged'
 }
-if (faceNotice) console.log(`⚠️  [scan-hardcoded-zh] 判定面退回提示:${faceNotice}`)
+if (faceNotice) notice(`⚠️  [scan-hardcoded-zh] 判定面退回提示:${faceNotice}`)
 
 /** 对一份源码文本跑同一套命中判定(磁盘/索引/HEAD 三种取材共用一份判据,不得有两套真相)。
  *  本文件是"全顶层 + process.exit"的 CLI 脚本,没有 isDirectRun 守卫,故不 export ——
@@ -453,7 +484,7 @@ function headCountOf(rel) {
   return headCountCache.get(rel)
 }
 prefetchHeadAnchor(fileHits.map((h) => h.file))
-if (headFaceNotice) console.log(`⚠️  [scan-hardcoded-zh] ${headFaceNotice}`)
+if (headFaceNotice) notice(`⚠️  [scan-hardcoded-zh] ${headFaceNotice}`)
 const violations = fileHits
   .map((h) => ({
     file: h.file,
@@ -490,10 +521,8 @@ if (UPDATE_BASELINE) {
   process.exit(0)
 }
 
-if (JSON_OUT) {
-  fs.writeFileSync(
-    JSON_OUT,
-    JSON.stringify({
+if (JSON_OUT || JSON_STDOUT) {
+  const payload = JSON.stringify({
       scannedAt: new Date().toISOString(),
       totalFiles: fileHits.length,
       totalHits,
@@ -501,10 +530,16 @@ if (JSON_OUT) {
       // 内容文案豁免必须进产物:审计面看不到"哪些文件被谁免了",等于没有豁免制度
       contentExempts,
       files: fileHits,
-    }, null, 2),
-    'utf8',
-  )
-  console.log(`[scan-hardcoded-zh] Wrote ${fileHits.length} files / ${totalHits} hits to ${JSON_OUT}`)
+    }, null, 2)
+  if (JSON_OUT) {
+    fs.writeFileSync(JSON_OUT, payload, 'utf8')
+    console.log(`[scan-hardcoded-zh] Wrote ${fileHits.length} files / ${totalHits} hits to ${JSON_OUT}`)
+  } else {
+    // stdout 档:除 JSON 本身外**不打任何一行文本到 stdout**(模式提示走 stderr),
+    // 这样调用方可以只管 `JSON.parse(stdout)`;文件档与 stdout 档由此在输出上可区分。
+    console.error('[scan-hardcoded-zh] JSON 报告已打到 stdout(未写文件;要写文件请用 --json <路径>)')
+    console.log(payload)
+  }
   if (STRICT && violations.length > 0) process.exit(1)
   process.exit(0)
 }
