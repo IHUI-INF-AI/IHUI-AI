@@ -187,6 +187,10 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
             # stdout/stderr 的结构化在 tool-result 帧里已分开),不留空壳字段。
             "truncated",
             "totalChars",
+            # D151(2026-09-29):本轮被用户代答过几次。仅 >0 时下发(零交互的旧帧形状不变)——
+            # 计数原本只活在 tool-result 里,模型看得见、用户看不见,而"我替它答过一次"是
+            # 用户复盘这条命令的第一个问题(票面验收②"不得静默")。
+            "interactionCount",
         ),
     ),
     # V3 #48(2026-09-26)补登:agent 流执行开始(agents.py,断点续跑时带 resume_from)

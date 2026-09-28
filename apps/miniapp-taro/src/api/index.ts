@@ -54,6 +54,8 @@ import type {
 import type { TerminalDeltaEvent } from '@ihui/api-client'
 // D113:tool-delta(工具流中 diff 预览)同一纪律 —— 载荷口径以 api-client 为唯一真值。
 import type { ToolDeltaEvent } from '@ihui/api-client'
+// D151:terminal_interaction(命令在等键盘输入)同一纪律;本端**只渲染降级文案**,不接输入口。
+import type { TerminalInteractionEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 import type { AICardsData } from '@/pkg-ai/ai/cards/types'
@@ -320,6 +322,9 @@ export interface StreamEventCallbacks {
   onTerminalDelta?: (evt: TerminalDeltaEvent) => void
   /** D113 工具流中 diff 预览(tool-delta):同一纪律 —— 载荷复用 @ihui/api-client 的 ToolDeltaEvent */
   onToolDelta?: (evt: ToolDeltaEvent) => void
+  /** D151 命令在等键盘输入(terminal_interaction):载荷复用 @ihui/api-client 的 TerminalInteractionEvent。
+   *  本端只用于渲染"在等什么 + 这里不能代答"的降级文案,**不**接输入口(手机送不进那条进程)。 */
+  onTerminalInteraction?: (evt: TerminalInteractionEvent) => void
   /** 终端任务结束 */
   onTerminalEnd?: (evt: TerminalEndEvent) => void
   /** 主模型失败切换到备用模型 */
@@ -476,6 +481,15 @@ export const chatStream = async (
       // 这里只承接已认领的 evt.terminalDelta —— 与 api-client 的 onTerminalDelta 专用通道同语义。
       case 'terminal_delta':
         if (evt.terminalDelta) callbacks?.onTerminalDelta?.(evt.terminalDelta)
+        break
+      // D151(2026-09-29 立):命令在等键盘输入。共享 sse-parse 已在兜底链之前认领该帧 ——
+      // 在那之前它带一个字符串 sessionId,会一路滑到 `⇒ {type:'meta', sessionId}` 的泛化兜底,
+      // terminalId 与提示原文全丢 ⇒ 本端**结构上不可能**知道命令在等人(派单代理实测探针
+      // 打出 EVENTS=[{type:meta,sessionId:s-9}] 抓到的就是这一格)。
+      // 本端**只渲染降级文案、不接输入口**:手机键盘送不进 ai-service 那条进程,
+      // 给一个按了没反应的输入框是假 affordance,比不给更坏。
+      case 'terminal_interaction':
+        if (evt.terminalInteraction) callbacks?.onTerminalInteraction?.(evt.terminalInteraction)
         break
       case 'terminal_end':
         if (evt.terminalEnd) callbacks?.onTerminalEnd?.(evt.terminalEnd)
