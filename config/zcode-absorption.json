@@ -76,9 +76,14 @@
       "files": 3,
       "read": 3,
       "evidence": [
-        "packages/services/src/credential/providers/credentialCipherProvider.ts:24"
+        "packages/services/src/credential/providers/credentialCipherProvider.ts:24",
+        "packages/services/src/credential/credentialService.ts:61-72",
+        "packages/services/src/credential/credentialService.ts:109-115",
+        "packages/services/src/credential/providers/credentialCipherProvider.ts:24-38"
       ],
-      "notes": "机派生兜底密钥(platform:homedir:username 拼串 sha256)。历轮判'我方 getKey 无 key 即抛更强';本条出处未经主会话复验。2026-09-29 升 deep 的依据是**算术**(主会话现量 find 计数=3,与 read=3 等值),而'read 3 枚'这个读数本身仍来自取证代理当轮、主会话未逐枚复验 ⇒ 这一格是'数字闭合'不是'已亲验',复验入口:逐枚打开这 3 个文件。"
+      "notes": "机派生兜底密钥(platform:homedir:username 拼串 sha256)。历轮判'我方 getKey 无 key 即抛更强';本条出处未经主会话复验。2026-09-29 升 deep 的依据是**算术**(主会话现量 find 计数=3,与 read=3 等值),而'read 3 枚'这个读数本身仍来自取证代理当轮、主会话未逐枚复验 ⇒ 这一格是'数字闭合'不是'已亲验',复验入口:逐枚打开这 3 个文件。",
+      "verified": "self",
+      "remaining": "｜09-29 第二十一轮回填:主会话亲验具名 3 枚、新指针 3 枚可兑现(主会话 2026-09-29 逐行读到体全片 3 枚(含 19 行的接口件)⇒ verified 改 self;顺带产出一格现网缺陷(我方 MCP 凭据 store 把坏 JSON 当空 store),已立票。)"
     },
     {
       "path": "packages/services/src",
@@ -167,9 +172,9 @@
       "path": "packages/ui/src",
       "status": "windowed",
       "files": 1492,
-      "read": 201,
+      "read": 214,
       "notes": "lib n-z 16、lib a-m 46(W2-5 整文件读完 46/90)、settings 17、v4 10(W2-8)、ToolCallBlocks+app-shell+store+root+mentions 18(W3-9)、components+hooks 6(W3-5);W4 四路新增整文件读到体 115:hooks 28/98、components/ai-elements 32/46、components 其余 +13、ToolCallBlocks+chat-input-toolbar +8、store/workspace +12、v4 +6、顶层散件 6/138、quickpick 5/7、git-graph 3/6、presentation 2/6。⚠️ read=191 是【下界】:W3 旧登记的 24 个(ToolCallBlocks/store/root/mentions 18 + components/hooks 6)按目录判定全部落在 W4 集合内,而 W4 内部 components 与 components/ai-elements 至多重叠 13 —— 交集无法从台账推出,真实区间 [191,228];派单请跑 `node scripts/zcode-absorption-matrix.mjs` 看末行现值,不得照本字段做减法核账。⚠️ 口径更正:旧 notes 写的『ui 根 44』与现量不同口径 —— 顶层散件按 `git ls-files packages/ui/src` 行级过滤现量为 138(`*` 通配会递归,那是另一个口径,第一版据此量出 1492)。这是最大的一块未闭合面。",
-      "remaining": "message 渲染族与 messageTelemetry 后半 1300 行、workflow-timeline 39、v4 余 197、hooks 余 70、components 余 140、ToolCallBlocks 余 67、store 余 30、顶层散件余 132;quickpick 余 TaskFindDialog.tsx 389、git-graph 余 Pane/Dialog/CommitDetail 620、presentation 余 elementModel/pptxEngine/pdfPrintExport/textSelection 988。DeveloperToolsPane.tsx 与 App.tsx 仅段读,不计 read。 ｜09-29 第十九轮回填:本轮具名整读到体 5 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 5 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)",
+      "remaining": "message 渲染族与 messageTelemetry 后半 1300 行、workflow-timeline 39、v4 余 197、hooks 余 70、components 余 140、ToolCallBlocks 余 67、store 余 30、顶层散件余 132;quickpick 余 TaskFindDialog.tsx 389、git-graph 余 Pane/Dialog/CommitDetail 620、presentation 余 elementModel/pptxEngine/pdfPrintExport/textSelection 988。DeveloperToolsPane.tsx 与 App.tsx 仅段读,不计 read。 ｜09-29 第十九轮回填:本轮具名整读到体 5 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 5 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第二十一轮回填:供应商设置面与用量面板报告具名 13 枚、新指针 8 枚可兑现",
       "evidence": [
         "packages/ui/src/store/StoreProvider.tsx:56",
         "packages/ui/src/useTheme.ts:37",
@@ -185,7 +190,15 @@
         "packages/ui/src/store/zcodeSessionStoreWorkspaceSlice.ts:314-327",
         "packages/ui/src/store/mcpStore.ts:331-344",
         "packages/ui/src/store/tabStore.ts:1-60",
-        "packages/ui/src/store/index.ts:214-219"
+        "packages/ui/src/store/index.ts:214-219",
+        "packages/ui/src/settings/model-provider-section/ProviderModelMetadata.ts:327-361",
+        "packages/ui/src/settings/model-provider-section/InlineEditableProviderCard.tsx:237-272",
+        "packages/ui/src/settings/model-provider-section/ProviderDraftSave.ts:45-56",
+        "packages/ui/src/settings/model-provider-section/useModelConfigResolution.ts:33-79",
+        "packages/ui/src/settings/model-provider-section/ApiKeyInput.tsx:15-53",
+        "packages/ui/src/settings/usage-stats/appUsageModelPieChartViewModel.ts:30-57",
+        "packages/ui/src/settings/usage-stats/usageStatsUiParts.tsx:11-54",
+        "packages/ui/src/settings/usage-stats/UsageStatsErrorNotice.tsx:11-21"
       ],
       "tickets": [
         "G-384",
@@ -214,8 +227,14 @@
       "files": 20,
       "read": 20,
       "notes": "src+examples 全部读到体;但 Layer4/6 全仓零生产调用 ⇒ '有 ACK/重放'只是库素材,不是能力。2026-09-29 试过升 deep 被尺子本人拒(M2:deep 必须带出处指针,而这一条通篇没有 evidence)⇒ 已回退 windowed。**这一格的真实状态是'read=20 无人可兑现'**:数字与尺子现量等值(主会话 find 按 SOURCE_EXT 口径=20),但既没有 file:line 出处、也不是主会话逐枚复验的读数 —— 要升 deep 的解阻前置是逐枚打开这 20 个文件并留下 ≥1 条 evidence 指针,不是改状态字段。",
-      "evidence": [],
-      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 0 枚,其中 0 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)"
+      "evidence": [
+        "packages/rpc/src/persistent-protocol.ts:133-143",
+        "packages/rpc/src/persistent-protocol.ts:264-275",
+        "packages/rpc/src/buffer.ts:72-87",
+        "packages/rpc/src/channels.shared.ts:33-55",
+        "packages/rpc/src/delayedChannel.ts:4-16"
+      ],
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 0 枚,其中 0 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十一轮回填:主会话亲验具名 5 枚、新指针 5 枚可兑现(主会话逐行读到体 5 枚(persistent-protocol/buffer/channels/channels.shared/delayedChannel);其余 15 枚仍是取证代理当轮具名读数 ⇒ read=20 是\"5 亲验 + 15 代理具名\"的合计,不是全部亲验。)"
     },
     {
       "path": "packages/zcode-server-cli/src",
@@ -341,15 +360,22 @@
       "path": "apps/zcode-cli/packages/contracts",
       "status": "windowed",
       "files": 113,
-      "read": 22,
-      "remaining": "95 未读:interfaces 22(dynamic-workflow-run.port.ts 1037、session.events.ts 1238 仅窗口读)、tools 38、events 5、model 6、hooks/workspace-hook-trust.ts 324 余下。read 只算净新增:W6-C 整读到体 13 枚,其中 contract.ts 与 capabilities/index.ts 与旧 read=7 重叠 ⇒ 净 +11,不重复计。 ｜09-29 第十九轮回填:本轮具名整读到体 4 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)",
+      "read": 29,
+      "remaining": "95 未读:interfaces 22(dynamic-workflow-run.port.ts 1037、session.events.ts 1238 仅窗口读)、tools 38、events 5、model 6、hooks/workspace-hook-trust.ts 324 余下。read 只算净新增:W6-C 整读到体 13 枚,其中 contract.ts 与 capabilities/index.ts 与旧 read=7 重叠 ⇒ 净 +11,不重复计。 ｜09-29 第十九轮回填:本轮具名整读到体 4 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十一轮回填:契约层报告(tools/events/model/interfaces)具名 7 枚、新指针 7 枚可兑现",
       "evidence": [
         "apps/zcode-cli/packages/contracts/src/tools/contract.ts:174",
         "apps/zcode-cli/packages/contracts/src/tools/json-schema.ts:35",
         "apps/zcode-cli/packages/contracts/src/hooks/workspace-hook-trust.ts:123",
         "apps/zcode-cli/packages/contracts/src/interfaces/session-store.port.ts:843-867",
         "apps/zcode-cli/packages/contracts/src/plugins/index.ts:225-230",
-        "apps/zcode-cli/packages/contracts/src/errors/index.ts:85"
+        "apps/zcode-cli/packages/contracts/src/errors/index.ts:85",
+        "apps/zcode-cli/packages/contracts/src/tools/contract.ts:137-166",
+        "apps/zcode-cli/packages/contracts/src/tools/tool-result-metadata.ts:18-44",
+        "apps/zcode-cli/packages/contracts/src/interfaces/execution.port.ts:173-180",
+        "apps/zcode-cli/packages/contracts/src/interfaces/permission.port.ts:24-31",
+        "apps/zcode-cli/packages/contracts/src/events/session.events.ts:680-694",
+        "apps/zcode-cli/packages/contracts/src/tools/node-repl.ts:4-43",
+        "apps/zcode-cli/packages/contracts/src/model/invocation-context.ts:1-40"
       ],
       "tickets": [
         "G-464"
@@ -360,13 +386,21 @@
       "path": "apps/zcode-cli/packages/dynamic-workflow",
       "status": "windowed",
       "files": 97,
-      "read": 22,
-      "remaining": "78 未读:analysis 52 整目录(单独一票)、engine 21(engine/types.ts 944、concurrency.ts 265 仅窗口读)、schema 7、facade 5。2026-09-29 主会话现量把分母定回**尺子自己的口径**(`scripts/zcode-absorption-matrix.mjs` 的 `SOURCE_EXT` = ts|tsx|js|jsx|mjs|cjs|py|rs|swift|java|kt|go ⇒ 97),并写下三种口径的现量以免再漂:尺子口径 97 / 纯 ts|tsx 口径 94 / 全文件口径 102。此前登记的 94 是按 ts|tsx 窄口径算的,而尺子按 97 判漂 ⇒ **分母必须与尺子同口径**,否则每次跑矩阵都点名一个「已改对」的数字。read 由 4→19:旧 4 枚(hash / scheduler-submit / run-terminal / engine-settlement)全部落在本轮新集内 ⇒ 不重复计。",
+      "read": 30,
+      "remaining": "78 未读:analysis 52 整目录(单独一票)、engine 21(engine/types.ts 944、concurrency.ts 265 仅窗口读)、schema 7、facade 5。2026-09-29 主会话现量把分母定回**尺子自己的口径**(`scripts/zcode-absorption-matrix.mjs` 的 `SOURCE_EXT` = ts|tsx|js|jsx|mjs|cjs|py|rs|swift|java|kt|go ⇒ 97),并写下三种口径的现量以免再漂:尺子口径 97 / 纯 ts|tsx 口径 94 / 全文件口径 102。此前登记的 94 是按 ts|tsx 窄口径算的,而尺子按 97 判漂 ⇒ **分母必须与尺子同口径**,否则每次跑矩阵都点名一个「已改对」的数字。read 由 4→19:旧 4 枚(hash / scheduler-submit / run-terminal / engine-settlement)全部落在本轮新集内 ⇒ 不重复计。 ｜09-29 第二十一轮回填:编排引擎报告(engine/schema/facade)具名 8 枚、新指针 8 枚可兑现",
       "evidence": [
         "apps/zcode-cli/packages/dynamic-workflow/src/engine/errors.ts:14",
         "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-launch.ts:26",
         "apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler-submit.ts:82",
-        "apps/zcode-cli/packages/dynamic-workflow/src/engine/imported-cache-types.ts:19"
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/imported-cache-types.ts:19",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/concurrency.ts:105-248",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/errors.ts:9-77",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts:329-342",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler-submit.ts:23-92",
+        "apps/zcode-cli/packages/dynamic-workflow/src/schema/synthesize.ts:137-157",
+        "apps/zcode-cli/packages/dynamic-workflow/src/schema/validate.ts:1-26",
+        "apps/zcode-cli/packages/dynamic-workflow/src/facade/registry.ts:1-57",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/replay-order.ts:1-40"
       ],
       "tickets": [
         "G-462",
