@@ -24,7 +24,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, fetchApi, getToken, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent, type ToolDeltaEvent } from '@ihui/api-client';
+import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent, type ToolDeltaEvent } from '@ihui/api-client';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
 // 2026-09-27:doom_loop pattern 外发前过一次脱敏兜底(防原文字段流入服务端落库)
@@ -63,12 +63,12 @@ import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
 import { DEBUG_TOOLS } from '../tools/debug.js';
 import { CODEGRAPH_TOOLS, enableCodegraphIncremental, persistCodegraphCache } from '../tools/codegraph.js';
 import { createSubagentTool } from '../tools/subagent.js';
+import { type DangerGate } from '../tools/danger-gate.js';
+import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
 import {
-  createDangerGate,
-  type DangerGate,
-  type DangerGateDenyCause,
-  type DangerGateRoute,
-} from '../tools/danger-gate.js';
+  __resetAuditIngestClientWarnForTest,
+  resolveAuditIngestClient,
+} from '../utils/audit-ingest-client.js';
 import { CLIPBOARD_TOOLS } from '../tools/clipboard.js';
 import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
 import { createMarkdownRenderer } from './markdown-renderer.js';
@@ -725,36 +725,10 @@ export const TOOL_LEDGER_AUDIT_INGEST_PATH = '/api/cli/audit/tool-invokes';
 
 let toolLedgerAuditIngestMissing = false;
 
-/** 已就"取不到上报出口"喊过话的通道(按 tag 分档,一条通道的噪音不替另一条消音)。 */
-const auditClientMissingWarnedTags = new Set<string>();
-
 /** 仅测试用:重置"404 停止重试 / 出口缺失只喊一次"的模块级状态。 */
 export function __resetToolLedgerAuditStateForTest(): void {
   toolLedgerAuditIngestMissing = false;
-  auditClientMissingWarnedTags.delete('tool-ledger-audit');
-}
-
-/**
- * 取 api-client 的上报出口。历史测试套件常整模块 mock @ihui/api-client 且不带
- * 这两个导出 —— vitest 对缺失导出的**访问本身就会抛错**(不是 undefined),
- * 所以判"在不在"必须 try/catch 兜住访问,否则 fire-and-forget 变 unhandled
- * rejection。兜住的跳过仍喊一次:被跳过是真跳过,不是被无声消化。
- * 86A(工具账本)与 86H(审批决策)共用这一份实现 —— 两处各写一遍必然漂移。
- */
-function resolveAuditIngestClient(
-  tag: string,
-): { post: typeof fetchApi; hasToken: () => string | null } | null {
-  try {
-    return { post: fetchApi, hasToken: getToken };
-  } catch {
-    if (!auditClientMissingWarnedTags.has(tag)) {
-      auditClientMissingWarnedTags.add(tag);
-      process.stderr.write(
-        chalk.yellow(`[${tag}] api-client fetchApi/getToken unavailable; audit reporting skipped\n`),
-      );
-    }
-    return null;
-  }
+  __resetAuditIngestClientWarnForTest('tool-ledger-audit');
 }
 
 /**
@@ -800,88 +774,17 @@ export async function reportToolLedgerSnapshotToAudit(snapshot: LedgerSnapshot):
 
 // ==================== 审批决策 → 服务端审计链(86H 接线,2026-09-28)====================
 //
-// #86 维度③的缺口:`appendAuditLog` 只覆盖 FS 工作区一条链,agent 审批决策不进链 ——
-// danger-gate 的 flag/approved/denied 三路判定此前只在进程内 onDecision 可观测,
-// 进程一退就没有"谁在什么时候让不让"的痕迹。本函数把决策事实经服务端摄入端点
-// 落进 audit_logs_chain(唯一写入器仍是 api 侧的 recordAuditLog)。
-//
-// 三条与 86A 同形的口径,加一条本票特有的:
-// 1. **请求体不带任何身份字段** —— 属主由服务端从令牌主体取,strict schema 拒自报;
-// 2. **失败必须可见** —— 非 2xx/网络错写 stderr,只回显 status/errorCode 不回显响应体;
-// 3. **未登录不是失败** —— 无 token 即无主体,静默跳过;
-// 4. **上报与 console 静默无关**:`silent` 关的是提示文案,不是落链。结构化输出档案
-//    下把上报一起关掉,等于"没人看着就不记",而决策记录的价值恰在无人值守时。
-// wire 上只有 {sessionId, toolName, route, cause?} —— **不含被批准执行的入参原文**
-// (那属于 tool.invoke 行的指纹档,决策行回答的是让不让,不是跑了什么)。
-
-/** apps/api 侧审批决策摄入端点(挂载见 routes/index.ts 的 86H 注册块) */
-export const TOOL_APPROVAL_AUDIT_INGEST_PATH = '/api/cli/audit/tool-approvals';
-
-let toolApprovalAuditIngestMissing = false;
-
-/** 仅测试用:重置"404 停止重试 / 出口缺失只喊一次"的模块级状态。 */
-export function __resetToolApprovalAuditStateForTest(): void {
-  toolApprovalAuditIngestMissing = false;
-  auditClientMissingWarnedTags.delete('tool-approval-audit');
-}
-
-/** 一条审批决策事实(与 apps/api 服务层 toolApprovalAuditFactSchema 同集)。 */
-export interface ToolApprovalAuditFact {
-  sessionId: string;
-  toolName: string;
-  route: DangerGateRoute;
-  cause?: DangerGateDenyCause;
-}
-
-/**
- * 把一次 danger-gate 决策上报到服务端审计链(fire-and-forget 由调用方决定;
- * 本函数自身 await,以便测试 await 到落定再断言)。
- */
-export async function reportToolApprovalDecisionToAudit(fact: ToolApprovalAuditFact): Promise<void> {
-  if (toolApprovalAuditIngestMissing) return;
-  const client = resolveAuditIngestClient('tool-approval-audit');
-  if (!client) return;
-  // 未登录:没有可归属的主体,跳过(这不是上报失败,不产生噪音)。
-  if (!client.hasToken()) return;
-  const body = {
-    facts: [
-      {
-        sessionId: fact.sessionId,
-        toolName: fact.toolName,
-        route: fact.route,
-        ...(fact.cause ? { cause: fact.cause } : {}),
-      },
-    ],
-  };
-  const res = await client.post<{ recorded: number; failed: number }>(TOOL_APPROVAL_AUDIT_INGEST_PATH, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-  if (res.success) return;
-  if (res.status === 404) {
-    toolApprovalAuditIngestMissing = true;
-    process.stderr.write(
-      chalk.yellow(
-        `[tool-approval-audit] ingest endpoint not mounted (404 ${TOOL_APPROVAL_AUDIT_INGEST_PATH}); approval reporting disabled for this process\n`,
-      ),
-    );
-    return;
-  }
-  // 其余失败每次都报(不静默 catch 后当成功);刻意只回显 status/errorCode。
-  process.stderr.write(
-    chalk.yellow(
-      `[tool-approval-audit] report failed status=${res.status ?? 'network'}${res.errorCode ? ` code=${res.errorCode}` : ''} (tool=${fact.toolName} route=${fact.route})\n`,
-    ),
-  );
-}
-
+// 事实本体与"带审计的闸门包装器"住 tools/danger-gate-audit.ts —— 落链站点有五个
+// (runAgent / repl / acp / agent-core / subagent),其中三个在 tools/acp/server 层,
+// 让它们反向 import commands/agent.js 会造出 agent → tools/index → subagent → agent 的
+// 循环;而"一个决策怎么变成一行审计"绝不允许写五份。本文件只留 runAgent 那一站的构造。
 /**
  * runAgent 的危险闸门工厂(86H)。
  *
- * 策略仍住唯一出口 `createDangerGate`,本工厂只负责把"决策 → 审计落链"与调用方
- * 自己的 console 提示接在一起。导出它的原因是可测性:「结构化输出档案(silent)
- * 下仍必须落链」这一条只能用行为断言钉 —— 拿文本顺序判会在任何一次加注释或加分支时
- * 自己咬自己(闸门闭包的收尾 `});` 本身就含 `})`, brace matching 先在这里错过一次)。
+ * 落链本体在 `createAuditedDangerGate`(五个站点共用一份实现),本工厂只加 runAgent
+ * 这一站自己的 console 提示。导出它的原因是可测性:「结构化输出档案(silent)下仍必须
+ * 落链」这一条只能用行为断言钉 —— 拿文本顺序判会在任何一次加注释或加分支时自己咬自己
+ * (闸门闭包的收尾 `});` 本身就含 `})`,brace matching 先在这里错过一次)。
  */
 export function buildAgentDangerGate(opts: {
   allowDangerous: boolean;
@@ -889,19 +792,13 @@ export function buildAgentDangerGate(opts: {
   silent: boolean;
   sessionId?: string | null;
 }): DangerGate {
-  return createDangerGate({
+  return createAuditedDangerGate({
     allowDangerous: opts.allowDangerous,
+    // 对 createDangerGate 恒传 silent:true —— 提示由下面的 onDecision 自己发,
+    // 于是"关提示"与"关落链"两件事被物理分开(落链在包装器里,先于这段判序)。
     silent: true,
-    onDecision: ({ route, tool, args, cause }) => {
-      // 落链的判序先于 console 静默:上报的是"谁在什么时候让不让",结构化输出档案
-      // 下把它一起关掉,等于"没人看着就不记"。会话 ID 缺省时取 'cli-default'
-      // (服务端 schema 要求非空主体上下文标识,与 runToolLoop 的 sessionId 同法)。
-      void reportToolApprovalDecisionToAudit({
-        sessionId: opts.sessionId ?? 'cli-default',
-        toolName: tool.name,
-        route,
-        cause,
-      });
+    auditSessionId: opts.sessionId,
+    onDecision: ({ route, tool, args }) => {
       if (opts.silent) return;
       if (route === 'flag') {
         console.info(
