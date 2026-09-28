@@ -169,12 +169,19 @@ _SUPERTOOL_INTERNAL_SOURCE = "__builtin__"
 
 
 async def _build_supertool_pool(
-    tool_names: list[str] | None,
+    tool_names: list[str] | None, user_id: str
 ) -> "SuperToolPool | None":
-    """聚合内置 + 外部 MCP 工具为统一超级工具池。
+    """聚合内置 + **该会话主体看得见的**外部 MCP 工具为统一超级工具池。
 
     仅在开关开启且存在已连接外部 MCP server 时返回非 None pool;否则(开关关闭 /
     无外部 server / 任意聚合异常)返回 None,调用方据此降级到现有工具装配路径。
+
+    `user_id` 是必填的(G-371 格①,机主 2026-09-29 拍"隔离"):工具池此前把**所有人**注册的
+    外部 server 混进每一个会话 —— 别人的工具名、描述、入参格式对全员可见,而且能被别人的会话
+    调用(那台 server 的配置里可能带着他的凭据)。现在按 `MCPClientManager.is_visible` 收窄:
+    自己注册的 + 部署级(owner 为空串)的。**行为变化如实登记**:某用户自己装的外部 server 工具
+    不再出现在其他用户的会话里 —— 这正是隔离的目的;平台级预置的那批完全不受影响。
+    空主体(`""`)⇒ 只看得到部署级,是 fail-closed 而不是"没限制"。
     """
     if not _is_supertool_enabled():
         return None
@@ -188,11 +195,7 @@ async def _build_supertool_pool(
         )
 
         manager = get_mcp_client_manager()
-        # ⚠️ 这条枚举**不判属主**(与 `mcp.py` 的三个外部端点不同):装配链手里只有 `user_role`,
-        # 没有会话主体 user_id。收窄会改变所有 agent 会话的工具可见集(用户会突然看不见某些工具),
-        # 属行为变更而非顺带清理 ⇒ 已登记在 PROJECT_PLAN 的 G-371 追加段,解阻前置 = 主体透进
-        # `_build_supertool_pool` / `_supertool_invoke` 两处后改调 `list_available_tools_async`。
-        external = await manager.list_available_tools_unscoped()
+        external = await manager.list_available_tools_async(user_id)
         if not external:
             return None  # 无外部 server → 降级
 
@@ -219,13 +222,21 @@ async def _build_supertool_pool(
 
 
 async def _supertool_invoke(
-    server_name: str, tool_name: str, args: dict[str, Any], user_role: int = 0
+    server_name: str,
+    tool_name: str,
+    args: dict[str, Any],
+    user_role: int = 0,
+    user_id: str = "",
 ) -> Any:
     """call_forward 的统一路由:内置工具走 mcp_server,外部工具走 mcp_client。
 
     V3 #47 第二格(2026-09-26):内置源那一支必须把角色透传给 `call_tool`,否则聚合路径
     与直连路径给出不同的授权答案 —— 默认 0 是 fail-closed(调用方没证明过身份就按
     普通用户处理),不是"默认放开"。签名带默认值,既有三方调用方(含测试)不破。
+
+    G-371 格①(2026-09-29,机主拍"隔离"):外部源这一支现在也**必须带主体**。空 `user_id`
+    只看得到部署级 server(fail-closed),别人注册的那台在这里既调不到也看不见 —— 与
+    `_build_supertool_pool` 同一份 `is_visible` 判据,不在此处另写一遍 owner 比较。
     """
     from ..services.mcp_server import mcp_server
 
@@ -234,23 +245,27 @@ async def _supertool_invoke(
     from ..services.mcp_client import get_mcp_client_manager
 
     manager = get_mcp_client_manager()
+    if not manager.is_visible(server_name, user_id):
+        # 与"没这台 server"同模板(错误文本走未知那一个出口)
+        return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
     client = manager.get_client(server_name)
     if client is not None:
         return await client.call_tool(tool_name, args)
-    # 同 `_build_supertool_pool`:这里没有主体 user_id,只有角色 ⇒ 走显式命名的"不判属主"出口,
-    # 不得改回 `call_external_tool`(那个签名要求 caller_user_id,漏传就是静默放开)。
-    return await manager.call_external_tool_unscoped(server_name, tool_name, args)
+    return await manager.call_external_tool(server_name, tool_name, args, caller_user_id=user_id)
 
 
 def _supertool_tools_from_pool(
     pool: "SuperToolPool",
     tool_names: list[str] | None,
     user_role: int = 0,
+    user_id: str = "",
 ) -> list[Any]:
     """把超级工具池转换为 AgentLoopV2 的 ToolDefinition 列表(沿用 deferral 逻辑)。
 
     V3 #47 第二格:`user_role` 由 `_build_loop_v2_tools` 透传,经下面那个 `_invoke` 闭包
     固化进每个工具的执行器 —— 角色是**宿主事实**,不能由模型填,也不能在装配链上丢。
+    G-371 格①(2026-09-29):`user_id` 同理也是宿主事实 —— 外部源那一支按它判可见性,
+    漏传就等于"只看得到平台级"(fail-closed),不会变成"看得到所有人的"。
     这里刻意用闭包而不是 functools.partial:`call_forward` 的 invoke_fn 契约是
     `Callable[[str, str, dict], Awaitable[Any]]`(mcp_tool_aggregator.InvokeFn),
     闭包与该签名逐字同形,partial 会让类型层要额外解释。
@@ -264,7 +279,7 @@ def _supertool_tools_from_pool(
     tools: list[Any] = []
 
     async def _invoke(server_name: str, tool_name: str, args: dict[str, Any]) -> Any:
-        return await _supertool_invoke(server_name, tool_name, args, user_role)
+        return await _supertool_invoke(server_name, tool_name, args, user_role, user_id)
 
     for pt in pool.tools:
         key = pt.key
@@ -301,7 +316,7 @@ def _supertool_tools_from_pool(
 
 
 async def _build_loop_v2_tools(
-    tool_names: list[str] | None, user_role: int = 0
+    tool_names: list[str] | None, user_role: int = 0, user_id: str = ""
 ) -> list[Any]:
     """把 MCP 工具包装为 AgentLoopV2 的 ToolDefinition 列表(白名单过滤)。
 
@@ -325,9 +340,9 @@ async def _build_loop_v2_tools(
     get_tool_schema 必须保持完整 schema 且无论 tool_names 过滤如何都强制纳入,
     否则模型无法反查其他工具的完整参数。env 关闭时行为与历史完全一致。
     """
-    pool = await _build_supertool_pool(tool_names)
+    pool = await _build_supertool_pool(tool_names, user_id)
     if pool is not None:
-        return _supertool_tools_from_pool(pool, tool_names, user_role)
+        return _supertool_tools_from_pool(pool, tool_names, user_role, user_id)
 
     # —— 现有路径(无外部 server / 开关关闭 / 聚合异常时逐字节等价) ——
     from ..services.agent_loop_v2 import ToolDefinition
@@ -1145,7 +1160,9 @@ async def execute_agent_stream(
                 user_role = resolve_request_role_id(request)
                 loop = AgentLoopV2(
                     _make_loop_v2_llm(req.model),
-                    tools=await _build_loop_v2_tools(req.tools, user_role=user_role),
+                    tools=await _build_loop_v2_tools(
+                        req.tools, user_role=user_role, user_id=current_user
+                    ),
                     user_role=user_role,
                     session_id=session_id,
                     max_iterations=req.max_iterations or 8,
@@ -1364,7 +1381,9 @@ async def _resume_run_from_checkpoint(
         # V3 #47 第二格(2026-09-26):与 execute/stream 同口径把角色过桥 ——
         # 断点续跑恢复的是同一调用方的会话,若这里漏传,admin 在 resume 链上
         # 会被静默降成普通用户(与 stream 修掉的那半是同一个洞的两半)。
-        tools=await _build_loop_v2_tools(tools, user_role=resumed_role),
+        tools=await _build_loop_v2_tools(
+            tools, user_role=resumed_role, user_id=current_user
+        ),
         user_role=resumed_role,
         max_iterations=max_iterations or 8,
         enable_checkpoint=True,

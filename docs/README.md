@@ -84,6 +84,7 @@
 | [MONITORING.md](./MONITORING.md) | **可观测性**:Prometheus + Grafana(20 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager、应用指标、日志体系、API 日志批量写、SLI/SLO |
 | [INCIDENTS.md](./INCIDENTS.md) | 历史事故记录与复盘 |
 | [CREDENTIAL_ROTATION_RUNBOOK.md](./CREDENTIAL_ROTATION_RUNBOOK.md) | 凭证轮换运维手册 |
+| [CONNECTOR_OWNER_CLAIM_RUNBOOK.md](./CONNECTOR_OWNER_CLAIM_RUNBOOK.md) | **连接器/商店属主认领**:一条命令量出哪些记录没有属主(`node scripts/owner-claim.mjs`)、逐条点名认领与复验判据、两端真机重测步骤、装依赖的坑 |
 | [EMAIL_SETUP.md](./EMAIL_SETUP.md) | 邮件服务配置(SMTP/SES) |
 | [WECHAT_PAY_ACTIVATION_REPORT.md](./WECHAT_PAY_ACTIVATION_REPORT.md) | 微信支付 V3 激活报告 |
 

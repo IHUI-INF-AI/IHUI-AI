@@ -130,13 +130,16 @@ describe('Plugins loader', () => {
     expect(names).toEqual(['a', 'b', 'c']);
   });
 
-  it('同名插件后者覆盖前者', () => {
+  it('同名插件两份都不装载(G-684 改判:原为"后者覆盖前者")', () => {
+    // 改判理由:后写覆盖前写等于让目录枚举顺序决定谁的 tools/hooks/凭据生效,
+    // 而扫描顺序不是任何人声明过的意图 —— 歧义被静默裁决就是掷骰子。
+    // 诊断形态(每份各点名一条)由 tests/plugin-name-ambiguity.test.ts 逐条钉住,
+    // 本例只钉数组出口这一侧:两个名字都不许出现。
     writePlugin(tmpDir, 'first', { name: 'dup', version: '1.0.0', description: 'first' });
     writePlugin(tmpDir, 'second', { name: 'dup', version: '2.0.0', description: 'second' });
     const result = loadPlugins({ pluginsDir: tmpDir });
-    expect(result).toHaveLength(1);
-    expect(result[0]!.version).toBe('2.0.0');
-    expect(result[0]!.description).toBe('second');
+    expect(result).toEqual([]);
+    expect(result.map((p) => p.name)).not.toContain('dup');
   });
 
   it('顶层 plugin.json 视为单插件', () => {

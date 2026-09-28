@@ -16,7 +16,20 @@
  * - 多订阅者都收到回调
  * - 无 token 时 status=error,不连接
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest'
+
+/**
+ * 冷装载预算:2026-09-29 起 '@ihui/api-client' 别名直指真实 barrel
+ * (packages/api-client/src/index.ts,~90 个端点文件 / 1300+ 出口)——它替掉了一份
+ * 只给 14 个名字的虚构替身,代价是每个用到它的测试文件第一次 import 都要真评估整张
+ * 模块图。本机繁忙时该开销可越过全局 10s testTimeout(实测 13.3s,红在
+ * "connect 建立 WS" 的 await import 行上,而断言本身从未被执行)。这里用一条带
+ * 60s 预算的 beforeAll 把冷装载收在钩子里,让每个 it 拿到的都是热模块;
+ * 不得反过来把断言改成 skip 或调低判据。
+ */
+beforeAll(async () => {
+  await import('../src/lib/ws/chat-client')
+}, 60_000)
 
 /** 简易可控 WebSocket mock(支持手动 open / message / close) */
 class FakeWebSocket {

@@ -47,6 +47,13 @@ const TYPECHECK_TIMEOUT_MIN = Number(process.env.IHUI_TYPECHECK_TIMEOUT_MIN || 2
 const TYPECHECK_TIMEOUT_MS = TYPECHECK_TIMEOUT_MIN * 60 * 1000
 import { fileURLToPath } from 'node:url'
 import { readFileSync } from 'node:fs'
+// G-611:128+N 族码的集合/分类/产出侧全部住 scripts/lib/signal-exit.mjs —— 本文件的消费侧
+// 与两个被派生方的产出侧用**同一把尺子**,字面量集合在本文件不得再出现(镜像测试形状锁)。
+import {
+  classifySpawnOutcome,
+  installSignalExit,
+  TEMPFAIL_EXIT_CODE,
+} from './lib/signal-exit.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -247,6 +254,25 @@ if (SELF_TEST) {
     '样例12 含括号报错路径应能命中暂存区/推送范围条目(否则会误放行)',
   )
 
+  // 样例13(2026-09-29 G-611):close 结局四态分类与产出侧同一把尺子 ——
+  // 票面验收的"父侧读到 143 判临时失败"在这里以纯函数臂成立,进程臂见
+  // scripts/tests/signal-exit.test.mjs(真派生子进程产出 143 再由父侧分类)。
+  const cls13 = (over) => classifySpawnOutcome({ status: null, signal: null, ...over })
+  assert(cls13({ status: 143 }).kind === 'interrupt', '样例13a exit 143 ⇒ interrupt(父侧读到产出码,被杀 ≠ 结论)')
+  assert(
+    cls13({ status: 143 }).exitCode === TEMPFAIL_EXIT_CODE,
+    '样例13b interrupt ⇒ exit 75(临时失败,可带 hook 重试)',
+  )
+  assert(cls13({ status: 2 }).kind === 'verdict', '样例13c exit 2 是有结论的失败 ⇒ 不得被洗成中断')
+  assert(
+    cls13({ status: null, signal: 'SIGTERM' }).kind === 'interrupt',
+    '样例13d 无码只有 signal(子进程没装产出侧)⇒ 同样判"被杀"—— 旧集合判据对这一格失明,正是本票的病',
+  )
+  assert(
+    cls13({ status: 143, timedOut: true }).kind === 'timeout',
+    '样例13e 超时优先于族码判定(2026-09-20 语义逐字保留:重试=两次挂死)',
+  )
+
   process.env.PUSH_SCOPE_FILES = prevEnv
 
   if (failedCount > 0) {
@@ -287,6 +313,43 @@ if (DRY_RUN) {
   console.log(`[check-typecheck] 将运行命令: ${_dryFast ? `pnpm --filter ${_dryFast.name} run typecheck(定向快速通道:改动全部位于 apps/${_dryFast.app})` : 'node scripts/typecheck-full.mjs (等价 pnpm typecheck:full)'}`)
   process.exit(0)
 }
+
+// ─── 产出侧(G-611)──────────────────────────────────────────────────
+// 本脚本自己也是**被派生方**(guardian-runner 用 execSync 跑它)。改前被信号杀死时
+// 走 Node 默认动作 —— POSIX 上"死于信号、不产出码",父侧 execSync 只拿到
+// {status:null, signal},信号族集合对它结构上失明,于是一次 CTRL_C 被计成
+// "检查结论失败"→ 按"他人代码失败" --no-verify 绕门。装产出侧后:凡可捕获的信号,
+// 本脚本必产出 128+N(SIGINT→130 / SIGTERM→143),父侧按同一把尺子归"临时失败"。
+// streamChild:全量分支在飞的 typecheck-full 句柄,信号到来时先清场再退出,
+// 不把子进程树留成孤儿(与改前默认死法相比,这是净改善而非新语义)。
+let streamChild = null
+
+/** 终止我方派生的子进程(树)。win32 走 taskkill /T /F,其余 SIGKILL —— 与原超时分支逐字同语义(等价重构,两处实现不得再分开)。 */
+function killChildTree(child) {
+  if (!child || !child.pid) return
+  try {
+    if (process.platform === 'win32') {
+      // 连带子进程树:pnpm -r 会拉出 tsc/cmd.exe 子孙,单 kill 主进程会留下孤儿继续吃 CPU
+      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      })
+    } else {
+      child.kill('SIGKILL')
+    }
+  } catch {
+    try {
+      child.kill('SIGKILL')
+    } catch {
+      /* 忽略 */
+    }
+  }
+}
+
+installSignalExit({
+  label: 'check-typecheck',
+  onSignal: () => killChildTree(streamChild),
+})
 
 // ─── 定向快速通道(2026-09-20 根治推送慢) ───────────────────────────────
 // 痛点:全量门 = pnpm -r 全 workspace + 每次清 .tsbuildinfo,实测 25+ 分钟;而绝大多数
@@ -352,6 +415,15 @@ if (_fast) {
     console.log(`[check-typecheck] ✅ apps/${_fast.app} 定向 typecheck 通过(exit 0)`)
     process.exit(0)
   }
+  // G-611:快通道与全量通道同一把尺子 —— 定向 typecheck 被信号杀死(exit 130/143/
+  // 3221225786,或阻塞派生返回时只剩 signal 无码)不是"该包类型检查失败",
+  // 归 75 让 push 侧带 hook 重试;有结论的失败(如 exit 2)照旧落到下面的降级判定。
+  const fastOutcome = classifySpawnOutcome({ status: r.status ?? null, signal: r.signal ?? null })
+  if (fastOutcome.kind === 'interrupt') {
+    console.error(`[check-typecheck] ⚠️ apps/${_fast.app} 定向 typecheck 被中断(${fastOutcome.reason}),非类型检查结论`)
+    console.error(`[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`)
+    process.exit(TEMPFAIL_EXIT_CODE)
+  }
   // 与全量路径同源的 scope 降级判定(EXTRACT_ERROR_FILES/shouldDegrade 见下方全量分支)
   const fastErrorFiles = extractErrorFiles(`${_fout}\n${_ferr}`)
   if (scopeEnabled && fastErrorFiles.length > 0 && shouldDegrade(fastErrorFiles, scopeFiles)) {
@@ -380,6 +452,7 @@ const child = spawn(process.execPath, [resolve(__dirname, 'typecheck-full.mjs')]
   stdio: ['ignore', 'pipe', 'pipe'],
   windowsHide: true,
 })
+streamChild = child // G-611:信号处理器的清场句柄(见上方 installSignalExit)
 
 // ─── 硬超时上限(2026-09-20 根治,必须保留) ─────────────────────────────
 // 事故实证:某次 push 挂起 62 分钟无任何产出 —— check-typecheck 的 spawn 无 timeout、
@@ -405,21 +478,9 @@ const timeoutTimer = setTimeout(() => {
     '[check-typecheck] ⏭️ 按「环境挂起」处理(exit 1):不等第二次带 hook 重试,push guard 将直接降级重推',
   )
   console.error('   如需放宽上限:IHUI_TYPECHECK_TIMEOUT_MIN=40 git push ...')
-  try {
-    // 连带子进程树:pnpm -r 会拉出 tsc/cmd.exe 子孙,单 kill 主进程会留下孤儿继续吃 CPU
-    if (child.pid) {
-      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
-        stdio: 'ignore',
-        windowsHide: true,
-      })
-    }
-  } catch {
-    try {
-      child.kill('SIGKILL')
-    } catch {
-      /* 忽略 */
-    }
-  }
+  // G-611:内联 taskkill 块提成 killChildTree —— 与信号处理器的清场共用一份实现
+  // (两处实现必漂移;语义与原逐字路径等值:win32 连树 taskkill /T /F,其余 SIGKILL)
+  killChildTree(child)
 }, TYPECHECK_TIMEOUT_MS)
 timeoutTimer.unref?.()
 child.stdout.on('data', (d) => {
@@ -433,29 +494,35 @@ child.stderr.on('data', (d) => {
   process.stderr.write(s)
 })
 
-child.on('close', (code) => {
+child.on('close', (code, signal) => {
   clearTimeout(timeoutTimer)
-  if (timedOut) {
-    // 超时分支优先于任何退出码判定:超时杀出的 code 无类型语义,不得当真实结论用。
-    // 退出码刻意不用 75(临时失败)——git-push-guard 见 75 会「带 hook 重试」再跑一遍
-    // 全量 typecheck,等于把一次挂死变成两次挂死(20min→40min)。走普通失败(1):
-    // guard 直接降级到 --no-verify 重推,用户侧一次超时即出结论。
+  // G-611:四态分类的唯一出口住 scripts/lib/signal-exit.mjs(与产出侧同一把尺子)。
+  // 优先级 timedOut > pass > interrupt > verdict 由该函数保证:
+  //   - 超时分支优先于任何退出码判定 —— 超时杀出的 code 无类型语义,不得当真实结论用;
+  //     且刻意不归 75:git-push-guard 见 75 会「带 hook 重试」再跑一遍全量 typecheck,
+  //     等于把一次挂死变成两次挂死(20min→40min)。走普通失败(1):guard 直接降级
+  //     到 --no-verify 重推,用户侧一次超时即出结论。(2026-09-20 语义,逐字保留)
+  //   - interrupt 含两格:族码(130/137/141/143/3221225786,2026-09-18 中断分类的原格)
+  //     与"无码只有 signal"(G-611 新增 —— 子进程没装产出侧时旧集合判它失明,
+  //     一次 kill 被计成"结论失败"再被 --no-verify 绕门,正是本票的病)。
+  const outcome = classifySpawnOutcome({
+    status: code === null || code === undefined ? null : code,
+    signal: signal ?? null,
+    timedOut,
+  })
+  if (outcome.kind === 'timeout') {
     process.exit(1)
   }
-  if (code === 0) {
+  if (outcome.kind === 'pass') {
     console.log('[check-typecheck] ✅ 全量 typecheck 验证通过')
     process.exit(0)
   }
-
-  // 2026-09-18 中断分类:进程被外部杀死(CTRL_C 注入/宿主清树/管道中断)≠ 类型检查结论。
-  // 实测日志 39 次 exit 3221225786(0xC000013A)被误打印成"❌ 全量 typecheck 失败,推送已阻止",
-  // 随后 guard 按"其他 agent 代码失败"规则 --no-verify 绕过真实门禁重推。现以 75(临时失败)
-  // 退出,guardian-runner/hook/guard 全链路据此带 hook 重试,拿到真实类型检查结论。
-  const INTERRUPT_EXIT_CODES = new Set([130, 137, 141, 143, 3221225786])
-  if (INTERRUPT_EXIT_CODES.has(code)) {
-    console.error(`[check-typecheck] ⚠️ typecheck 进程被中断(exit ${code},CTRL_C/管道中断),非类型检查结论`)
-    console.error('[check-typecheck] ⏭️ 按临时失败处理(exit 75)—— push 侧将带 hook 重试以获取真实结论')
-    process.exit(75)
+  if (outcome.kind === 'interrupt') {
+    console.error(`[check-typecheck] ⚠️ typecheck 进程被中断(${outcome.reason}),非类型检查结论`)
+    console.error(
+      `[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`,
+    )
+    process.exit(TEMPFAIL_EXIT_CODE)
   }
 
   // 2026-08-31:staged-scope 降级判定(改动原因见文件头注释)

@@ -240,6 +240,10 @@ export type SSEEventPayload =
       truncated?: boolean
       /** 截断前的原始字符数;未截断时等于 output 长度 */
       totalChars?: number
+      /** D151(2026-09-29):本轮被用户代答过几次。**仅 >0 时下发** —— 零交互的旧帧形状一字不变。
+       *  计数原本只活在 tool-result 的 dict 里(模型看得见、用户看不见),而"我刚才替它答过
+       *  一次"是用户复盘这条命令时的第一个问题。 */
+      interactionCount?: number
       /**
        * formattedOutput 已于第 39 轮删除:我方无生产点也无消费方(后端不做输出排版,
        * stdout/stderr 的结构化由 tool-result 帧分别承载),契约里不留空壳字段。
@@ -385,9 +389,19 @@ export type SSEEventPayload =
   // 发射点是 `app/routers/llm.py` 流收尾处的 `_usage_frame`。本类型描述**命名帧**的
   // camelCase 线格式;`packages/api-client` 的 `onUsage` 另兼容旧 OpenAI 的 snake_case
   // 无名帧(那一路上 `messageId`/`timing` 为 null),不在此联合内重复建模。
+  //
+  // G-724(2026-09-29)线面真值更正 —— 契约此前比生产端乐观的两格:
+  //  ① messageId —— 唯一发射路径落的是 `_resolve_message_id() -> str | None` 的返回值
+  //     (llm.py `_usage_frame` 写 `"messageId": message_id`),**键恒写、值可空** ⇒ 类型是
+  //     `string | null` 而不是可选键(写成 `messageId?:` 等于把"键在而值为 null"抹掉);
+  //     消费端 `packages/api-client` 的 `UsageEvent.messageId` 早已按可空处理。
+  //  ② costUsd —— 发射处(llm.py `_usage_frame`)写死 `None`,**这条流上恒为 null**;
+  //     真实成本走 D33 的 usageDetail 持久化通道(经模型定价推算后落库供回放),不进本帧。
+  //     **要读成本请调查询接口,不要从 usage 帧取**;补发射端下发真值属产品口径(另计一票)。
   | SSEEventWithMeta<{
       type: 'usage'
-      messageId: string
+      /** 挂载到哪条 assistant 消息;生产端取不到时为 null(键仍然下发) */
+      messageId: string | null
       usage: {
         promptTokens: number | null
         completionTokens: number | null
@@ -401,7 +415,9 @@ export type SSEEventPayload =
         durationMs: number
       }
       model: string | null
-      /** 未计费/定价缺失时为 null(前端成本段不渲染) */
+      /** 未计费/定价缺失时为 null(前端成本段不渲染)。
+       *  G-724:发射处当前写死 `None` —— 本帧恒为 null,真成本走 usageDetail 持久化通道
+       *  (要读成本请调查询接口,不要从 usage 帧取)。 */
       costUsd: number | null
     }>
   // 文件写类工具的流中 diff 预览增量帧(D113 于 2026-09-27 立;2026-09-28 由 D132 补入联合)。

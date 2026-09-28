@@ -10,8 +10,12 @@
 //   ④ 取材基准是 HEAD 而不是工作树 —— 这是本票补的那处结构缺陷,回归会把它悄悄改回去。
 
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+// §26:临时夹具唯一落点(活进程 os.tmpdir() 可能仍钉在 C 盘,禁用)
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// 演练仓要拷的是**门 + 它的相对 import 闭包** —— 清单必须推导,手抄必然晚一拍
+// (scripts/lib/scratch-module-closure.mjs 头注记过两次 ERR_MODULE_NOT_FOUND 的预付款)。
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -209,7 +213,8 @@ test('⑤b 暂存区口径实跑:budget 一族的端内接线 + 台账一起进�
     'apps/mobile-rn/src/utils/budget-note.ts',
     'apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx',
   ]
-  const tmpIndex = join(tmpdir(), `ihui-sse-idx-${process.pid}-${Date.now()}`)
+  const idxDir = mkScratch('ihui-sse-idx-')
+  const tmpIndex = join(idxDir, 'index')
   copyFileSync(resolveGitIndex(), tmpIndex)
   const env = { ...process.env, GIT_INDEX_FILE: tmpIndex }
   try {
@@ -230,6 +235,7 @@ test('⑤b 暂存区口径实跑:budget 一族的端内接线 + 台账一起进�
     assert.match(out, /守门通过/u, `暂存区口径未判绿:${out}`)
   } finally {
     rmSync(tmpIndex, { force: true })
+    rmScratch(idxDir)
   }
 })
 
@@ -281,7 +287,8 @@ test('⑩ 台账判定面:索引与磁盘不一致时按索引出结论(旧磁�
     )
   }
 
-  const tmpIndex = join(tmpdir(), `ihui-sse-face-${process.pid}-${Date.now()}`)
+  const faceDir = mkScratch('ihui-sse-face-')
+  const tmpIndex = join(faceDir, 'index')
   copyFileSync(resolveGitIndex(), tmpIndex)
   const env = { ...process.env, GIT_INDEX_FILE: tmpIndex }
   const putLedgerInIndex = (obj) =>
@@ -347,6 +354,7 @@ test('⑩ 台账判定面:索引与磁盘不一致时按索引出结论(旧磁�
     assert.equal(readFileSync(join(REPO, LEDGER_PATH), 'utf8'), diskBefore, '本例不得改磁盘台账')
   } finally {
     rmSync(tmpIndex, { force: true })
+    rmScratch(faceDir)
   }
 })
 
@@ -498,27 +506,144 @@ test('⑫ 面旗 CLI 四态:--worktree 真换面、两面旗同给判死、末�
   assert.equal(pickBasis(['--staged', '--worktree']).basis, null)
 })
 
-test('⑬ 代码面复核:注释里的帧名不得算"该端已接"(票⑳ 的现场复现)', () => {
-  const script = join(REPO, 'scripts', 'check-sse-dispatch-parity.mjs')
-  const out = execFileSync(process.execPath, [script, '--json'], {
+/**
+ * ⑬ 代码面复核的**结构性**正控(2026-09-28 重写,取代票⑳ 的"真仓现场复现"旧写法)。
+ *
+ * 旧写法为什么必须换掉(判据量纲错了,不是措辞偏好):它拿"那两个帧名
+ * (onToolDelegate/onToolApproval)还能在 HEAD 面的 ui-control-tools 注释里找到"当
+ * "该端尚未接线"的证据。票㉑(64bc41cad1)把 extension 真接上这两帧后
+ * (baseline.extension 18→20、两条 missing 同日删除),bait 与断言前提一起消失
+ * ⇒ 镜像 14 pass / 1 fail,红的是镜像自己,不是门也不是仓库代码。
+ * **文本存在性不是结构事实** —— 任何"真仓此刻恰好有/没有某字样"的正控都会被仓库推进
+ * 洗成假证(守门 103 T12 的同型结论:证明取材面只能用纯函数+构造面,不得依赖仓库瞬时状态)。
+ * 真仓那半边("HEAD 实测与台账逐字一致")已由 ② 例覆盖,本例不再重复查文本。
+ *
+ * 新正控在**临时 git 仓**里造票⑳ 的真形态(帧名被 grep 看得见、代码面看不见),跑的是
+ * **生产入口**(CLI 默认档 = HEAD blob),不是门自己的 --self-test 注入件:
+ *   ① 缺 dispatch(名字只在注释里)且台账**未声明** ⇒ 必须判红并点名该帧 ——
+ *     若代码面复核被摘线(grep 的注释命中被当成接线),这一臂会绿、断言即翻红 ⇒ 有牙;
+ *   ②a 同形态但**真接线** ⇒ 必须判绿 —— 若复核过头(把真注册也剔掉),这一臂会红;
+ *   ②b 同形态但**已声明理由** ⇒ 必须判绿 —— 证明 ① 的红来自"未声明",不是"注释"本身。
+ * 三条臂都不依赖真仓此刻装着什么名字;① 与 ②a 只差一帧的注册面、① 与 ②b 只差台账
+ * missing 一条 ⇒ 红/绿的归因在构造上唯一。
+ */
+
+function gitIn(dir, args) {
+  return execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', dir, ...args], {
     encoding: 'utf8',
     windowsHide: true,
-    timeout: 240000,
-    maxBuffer: 64 * 1024 * 1024,
+    timeout: 120000,
+    maxBuffer: 32 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
-  const j = JSON.parse(out.slice(out.indexOf('{')))
-  const ext = j.hit?.extension ?? []
-  // 正控:那两个名字必须真存在于**被审面**(HEAD)。缺这一条,本例可能只是"名字本来就不在"的空证。
-  const git = resolveGitBin()
-  const found = execFileSync(
-    git,
-    ['-C', REPO, 'grep', '-l', '-E', 'onToolDelegate|onToolApproval', 'HEAD', '--', 'apps/extension'],
-    { encoding: 'utf8', windowsHide: true, timeout: 60000 },
-  )
-  assert.match(found, /ui-control-tools/u, '正控失效:HEAD 面上找不到那两个名字')
-  // 判据:复核后它们不得进 extension 命中集(它们是"为什么不接"的散文,不是接线)
-  assert.ok(!ext.includes('onToolDelegate'), '注释提及被当成装车 —— 代码面复核没生效')
-  assert.ok(!ext.includes('onToolApproval'), '同上:onToolApproval 也被散文冒充成了接线')
-  // 反向:真注册点必须仍然算(ChatPage 里的 onToolDelta 是代码,复核不得把它一起剔掉)
-  assert.ok(ext.includes('onToolDelta'), '复核过头:真注册被一起剔掉了')
+}
+
+function putFile(dir, rel, text) {
+  const abs = join(dir, rel)
+  mkdirSync(dirname(abs), { recursive: true })
+  writeFileSync(abs, text, 'utf8')
+}
+
+const FIXTURE_CLIENT_TS =
+  'export type StreamHandlers = {\n' +
+  '  onWired: (e: unknown) => void\n' +
+  '  onUndeclared: (e: unknown) => void\n' +
+  '  onAbort: () => void\n' +
+  '}\n'
+
+const fixtureLedger = ({ wired, declared }) =>
+  JSON.stringify(
+    {
+      toolCallbacks: ['onAbort'],
+      endpoints: { demo: ['apps/demo/src'] },
+      baseline: { demo: wired ? 2 : 1 },
+      groups: { 'no-ui': '演示端无对应展示位。' },
+      missing: { demo: declared ? { onUndeclared: 'no-ui' } : {} },
+    },
+    null,
+    2,
+  ) + '\n'
+
+const fixtureChatTs = ({ wired }) =>
+  wired
+    ? 'export const handlers = { onWired: noop, onUndeclared: noop }\n'
+    : 'export const handlers = { onWired: noop }\n' +
+      '// 演示端没接 onUndeclared:无渲染位,帧到本端会被静默丢弃(票⑳ 真形态:名字在散文里,代码里没有接线)\n'
+
+function buildFixtureRepo(variant) {
+  const dir = mkScratch('ihui-sse-fixture-')
+  gitIn(dir, ['init', '-q', '-b', 'main'])
+  gitIn(dir, ['config', 'user.email', 'gate@fixture.local'])
+  gitIn(dir, ['config', 'user.name', 'gate-fixture'])
+  gitIn(dir, ['config', 'commit.gpgsign', 'false'])
+  putFile(dir, 'packages/api-client/src/client.ts', FIXTURE_CLIENT_TS)
+  putFile(dir, 'apps/demo/src/chat.ts', fixtureChatTs(variant))
+  putFile(dir, 'scripts/data/sse-dispatch-coverage.json', fixtureLedger(variant))
+  // 门按自身位置推 ROOT,所以必须把**门 + 相对 import 闭包**放进 <演练仓>/scripts/ 再跑;
+  // 闭包由 scratch-module-closure 推导,不手抄(该模块头注:手抄必然晚一拍)。
+  copyScriptWithClosure(join(REPO, 'scripts'), 'check-sse-dispatch-parity.mjs', join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+    'lib/gitdir.mjs',
+    'lib/code-mask.mjs',
+  ])
+  gitIn(dir, ['add', '-A'])
+  gitIn(dir, ['commit', '-q', '-m', 'fixture'])
+  return dir
+}
+
+function runGateOn(dir) {
+  try {
+    const out = execFileSync(
+      process.execPath,
+      [join(dir, 'scripts', 'check-sse-dispatch-parity.mjs')],
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 180000,
+        maxBuffer: 32 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    return { code: 0, out }
+  } catch (e) {
+    return { code: e?.status ?? 1, out: String(e?.stdout ?? '') + String(e?.stderr ?? '') }
+  }
+}
+
+test('⑬ 代码面复核结构性正控:注释提及未声明⇒红;真接线/已声明⇒绿(临时仓真形态,不依赖真仓字样)', () => {
+  const dirs = []
+  try {
+    const red = runGateOn((dirs[0] = buildFixtureRepo({ wired: false, declared: false })))
+    assert.equal(
+      red.code,
+      1,
+      `①(缺 dispatch 且未声明)必须判红,实得 exit=${red.code} —— 这一臂若绿,说明注释命中被当成了接线(代码面复核在生产入口上被摘线):\n${red.out}`,
+    )
+    assert.match(
+      red.out,
+      /静默丢弃[^\n]*onUndeclared/u,
+      `① 必须现场点名被静默丢弃的那一帧:\n${red.out}`,
+    )
+    assert.match(
+      red.out,
+      /判定面:HEAD/u,
+      `① 必须跑在生产默认 HEAD 面(被审内容取提交树,不是磁盘):\n${red.out}`,
+    )
+
+    const wired = runGateOn((dirs[1] = buildFixtureRepo({ wired: true, declared: false })))
+    assert.equal(
+      wired.code,
+      0,
+      `②a(同形态、真接线)必须判绿 —— 否则 ① 只是"永远红",红什么都不证明:\n${wired.out}`,
+    )
+
+    const declared = runGateOn((dirs[2] = buildFixtureRepo({ wired: false, declared: true })))
+    assert.equal(
+      declared.code,
+      0,
+      `②b(同形态、已声明理由)必须判绿 —— 证明 ① 的红来自"未声明",不是来自"注释"本身:\n${declared.out}`,
+    )
+  } finally {
+    for (const d of dirs) if (d) rmScratch(d)
+  }
 })

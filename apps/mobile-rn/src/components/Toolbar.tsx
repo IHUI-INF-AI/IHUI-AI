@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   toolIconWrap: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: rnRadius['2xl'],
     marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
