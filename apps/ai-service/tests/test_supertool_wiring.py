@@ -68,16 +68,26 @@ class FakeManager:
         self.external = external
         self.client = FakeClient()
 
-    async def list_available_tools_async(self) -> list[Any]:
+    async def list_available_tools_unscoped(self) -> list[Any]:
+        """装配链现在调的是这一支(手里只有角色、没有主体)—— 见 agents.py 的登记注释。"""
         return self.external
+
+    async def list_available_tools_async(self, caller_user_id: str) -> list[Any]:
+        """端点侧的收窄版。装配链**不该**调它:那里拿不到 user_id,调了就等于偷偷用空串。"""
+        raise AssertionError(f"装配链不应走按主体收窄的枚举(caller={caller_user_id!r})")
 
     def get_client(self, name: str) -> FakeClient | None:
         return self.client if name.startswith("srv-") else None
 
-    async def call_external_tool(
+    async def call_external_tool_unscoped(
         self, server_name: str, tool_name: str, args: dict[str, Any]
     ) -> dict[str, Any]:
         return {"ok": True, "via": "manager", "tool": tool_name}
+
+    async def call_external_tool(
+        self, server_name: str, tool_name: str, args: dict[str, Any], *, caller_user_id: str
+    ) -> dict[str, Any]:
+        raise AssertionError("装配链不应走按主体收窄的调用出口")
 
 
 def _install_manager(monkeypatch: pytest.MonkeyPatch, external: list[Any]) -> FakeManager:
@@ -200,13 +210,13 @@ async def test_loop_tools_include_external_and_route(
 async def test_supertool_invoke_manager_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """get_client 返回 None 时走 manager.call_external_tool 兜底。"""
+    """get_client 返回 None 时走 manager 的**不判属主**兜底出口(装配链没有主体)。"""
     manager = _install_manager(monkeypatch, [])
 
     async def via_manager(server: str, tool: str, args: dict[str, Any]) -> dict[str, Any]:
         return {"ok": True, "via": "manager", "tool": tool}
 
-    monkeypatch.setattr(manager, "call_external_tool", via_manager)
+    monkeypatch.setattr(manager, "call_external_tool_unscoped", via_manager)
     # server 名不带 "srv-" 前缀 → get_client 返回 None → 走 manager 兜底
     out = await _supertool_invoke("legacy", "t", {})
     assert out == {"ok": True, "via": "manager", "tool": "t"}
