@@ -16348,3 +16348,51 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
   - **交付判据(现读,不引用本行数字)**:`node scripts/check-sse-dispatch-parity.mjs` 判 HEAD 面 ⇒ 本枚之后 cli 那行应消失;`pnpm --filter @ihui/api-client test` / `--filter @ihui/shared test` / `@ihui/web typecheck` / `@ihui/extension typecheck` / `@ihui/miniapp-taro typecheck` 全部 RC=0;`node scripts/union-converge.mjs --self-test` 61 例;`node --test scripts/tests/check-credential-health.test.mjs` T0–T10。**推送**:本地多枚领先远端,受 (b) 阻塞,由下一轮正常收敛带走 —— 本行不写"已推完"。
 
 - [x] ✅(2026-09-29) G-742 台账 F3 腐烂指针的「归档反查」出口已落地,活文档合并落地闸不再被一个谁都无法下降的数字卡住 —— 判据(scripts/lib/plan-task-index.mjs `auditPlan`)给每条腐烂指针标 `exit`:面内同主键 = `face`,目标已被搬走但同复合主键那条登记**逐字存在于被审面承认的归档件** = `archived`(归档面判据 import 守门 13c 的 `archiveFaceEntries`,不留第二份实现),两者皆不成立 = `null` ⇒ 逐条点名交人工、**绝不为让数字归零而改写**;没喂归档索引时 `rotatedAuto` 逐字退回旧口径并另发 `archivedIndexSupplied`,不把"没算"写成"没有"。出口(scripts/plan-tasks-merge.mjs `rewritePointer` 的 archived 档)产出「已随归档搬至 .ihui-agent/archive/<件名> 的条目「编号 · 标题」」,**不含任何行号**,正是 §1 第 3 条要求的形态,且保留 `【归并】重复登记副本` 标记 ⇒ 派单口径不因此多出一行。落地闸(scripts/union-converge.mjs)F3 维的比较量由 `rotatedPointers`(全部腐烂指针,合并只会单调上升、谁也降不了)改成它标签本该指的 `rotatedAuto`(此刻有出口可收),无出口那一半改为每次大声点名+计数而不再当放行条件(§12f:一台永不满足的 blocking 门 = 每台每次被逼跳门 = 全部守门作废)。现读(HEAD 面,跑 `node scripts/plan-tasks-merge.mjs --heal` 为准):全部腐烂指针 277 / 此刻有出口可收 140(面内 0 + 归档反查 140)/ **无出口交人工 137 处仍开着**,其构成 = 目标行已不是条目行或不存在且不在任何归档件里 + `ref` 一族 3 处 + 本行无复合主键 92 处(措辞"参见 L####"不承诺同主键,意图不可推断)⇒ 这一半属各登记行持有人改写,本票不动别人的行。取证:scripts/tests/plan-tasks-f3-archive-exit.test.mjs 8 例(T1 归档救回 / T2 哪儿都不在必拒并点名 / T3 目标在面上仍走 face 不被归档档顶掉 / T4 逐字取自真仓 HEAD 的样本 / T5 不喂索引 ⇒ auto 回 0 的变异对照 / T6 ref 族不得被救回 / T7 双臂有牙),plan-tasks-merge --self-test 81/0、union-converge 镜像 20/20、check-project-plan-archive 镜像 26/26。**尚未收口**:① 本地与远端仍分叉(合并被 8 条他人持有面的真内容冲突挡住,与本票无关),部署环要等那一层人工归并后才续跑;② 守门 130 的 F9 基线测试 plan-tasks.test.mjs M20 硬写"涨到 71"而基线 F9 已随合并 628f452235 长成 73 键 ⇒ 一条与内容无关的恒红测试,归 F9/G-312 持有人,本票不改别人那一维。
+
+- [ ] G-755 部署环被"本地/远端真分叉"挡停约 3 小时 —— 需要一次**两端形态二选一的人工裁决**,不是清账动作
+  - 现读实测(2026-09-28 20:41 UTC,全部经 `scripts/run-evidence.mjs` 封缄,只认 `#EVIDENCE-RC=`):
+    `deploy/win/deploy-loop.log` 每约 2 分钟一条 `FAIL git merge --ff-only 本轮远端 tip 分叉且自动收敛无效`;
+    最后一次成功切流的线上标记是 `apps/web/.next/IHUI_BUILD_SHA = 9282216b9f…`(写于本机 17:47),
+    ⇒ 17:50 起停止产出新构建,已入库的 141 枚远端提交与本机 19 枚未推提交都没上线。
+    对外可用性**没有坏**:`https://aizhs.top/` 连测三次 200(1.96–1.99s),本地 web 200 / api `/health` 200 /
+    图片 CDN 资产 200 ⇒ 症状精确到"线上停在旧版本",不是"线上挂了"。
+  - 挡停的直接原因(可复现):`node scripts/union-converge.mjs` 报 12 处落地闸不过,分两类 ——
+    ① **同一个功能被两条会话各写了一份**,7 个文件真冲突(共 17 个冲突区):D151「命令在等键盘输入」在
+    小程序/RN/web/api-client 两侧的形态不同 —— 本侧是 `awaitingInput?: { promptTail: string }`(渲染提示尾巴,
+    带 `chat.terminal.promptLabel`),对侧(trunk)是 `waitingInput?: boolean` + `markTerminalWaiting/clearTerminalWaiting`,
+    并各带自己的定向测试(`terminal-interaction-wiring.test.tsx` vs `terminal-interaction-degradation.test.ts` /
+    `terminal-interaction-mobile-degradation.test.tsx`)。`--resolve` 的零损失断言要求**两侧独有行都在**,
+    而"同一行被两种写法改写"这一型结构上做不到 ⇒ 这不是工具的错,是它拒绝替人选边。
+    ② **台账归并放大分叉**:F1 同主键两态 5→7、F4 同一件事多条待办 9→14、F9 归并新增撞号 3 组
+    (G-632 / G-730 / G-731 各被两个不同标题共用)。
+  - 等谁拍板:**等 D151 那一票的持有人(或机主)指定哪一份形态留下**。两条出路都可执行 ——
+    (a) 以 trunk 的 `waitingInput` 为准,本侧的 promptTail 呈现作为后续票重新落;
+    (b) 以本侧 `awaitingInput.promptTail` 为准,则对侧两份定向测试与 5 端消费点必须同批改,
+    且要在合并后立刻跑 miniapp/rn/web 三端 typecheck + 那两条测试。**不得**为了让收敛点头去
+    放宽 `--resolve` 的丢行断言或改落地闸判据(§12e 同型:那等于把"选边"变成默认动作)。
+  - 为什么本票不自行裁决:这条合并横跨 5 个端的运行时代码 + 4.9MB 台账,而本机此刻**无法**在被审面上
+    跑三端测试(工作树由多条会话共同持有,43–44 个被跟踪文件常年是别人的在飞现场);
+    强行合出来的红会由部署环直接带上生产。
+- [ ] G-756 四项"看着像运维欠账"的疑点已现读定性为**无需动作**(登记是为了下一个人不必重新扫)
+  - 在等什么:不等谁 —— 这一条是结案陈词,不是待偿项。若下列任一前提变了,结论就要重取(数字一律现读)。
+  - ① **TLS 证书 12 月 6 日到期**:实测 `aizhs.top` 解析到 Cloudflare IP(104.21.15.184 / 172.67.163.195),
+    本机 **没有任何 443 监听**(`netstat` 现读:80/8801/8802/8803/8810/8811/3100/9187…,无 443),
+    证书由 Cloudflare 边缘出示(issuer=Let's Encrypt,CN=aizhs.top,notAfter=2026-12-06)⇒ 续期是 Cloudflare
+    侧的自动动作,仓里没有也不该有"本机续期任务"。`deploy/nginx/**` 里 `/etc/nginx/ssl/aizhs.top.crt`
+    那三处引用服务的是 Linux/蓝绿部署形态,在本机不参与。
+  - ② **postgres_exporter 的 wal 采集器刷屏**:服务参数现读已含 `--no-collector.wal`,进程于本机 09:56:15
+    重启后 `svc-pg-exporter-nssm-err.log` 里 **wal 错误 0 条**(最后一条 09:56:06,在重启之前);
+    `/metrics` 现读 `pg_wal_*` 序列 0 个、`pg_exporter_last_scrape_error 0`。全仓 monitoring/deploy/scripts
+    对 wal 指标**零引用**(grep 现读 0 命中)⇒ 摘掉它不破坏任何看板/告警。此前 21MB 与 77MB 那两个大文件是
+    已轮转的历史副本,不是当下在响。
+  - ③ **`D:\DevEnv\logs` 1.3GB / 410 个文件**:保留策略工具 `scripts/prune-rotated-nssm-logs.mjs` 在仓但
+    **没有任何调度器**(package.json / guardian-runner / .husky / 计划任务 grep 现读全 0 命中)。
+    本轮**决定不删也不挂调度**,两条依据:(a) `D:` 现读余量 435.3GB / 总 731.2GB ⇒ 零容量压力;
+    (b) promtail 只对 `svc-api-nssm*.log` / `svc-ai-nssm*.log` 两族用**带通配**的路径(吃掉轮转副本),
+    其余服务用的是 `svc-*-nssm.log` / `svc-*-nssm-err.log`(精确后缀,只吃活文件)⇒ 多数服务的轮转副本
+    **不在 Loki 里**,删掉等于销毁唯一历史。要挂调度之前,必须先把轮转副本纳入采集(或明确放弃历史)。
+  - ④ **计划任务 `IHUI-AutoDeploy` 显示"从未运行/已禁用"**:它 `enabled=False` 且最后动作停在本机 09-14,
+    部署环现由 nssm 服务 `IHUI-DEPLOYLOOP` 承载(服务清单现读在位)⇒ 这条不是坏掉的守护,是被替代的旧载体。
+    其余 4 条 `IHUI*` 任务现读 `LastTaskResult=0`(git-guardian / Zombie-Guardian / credential-health /
+    C-Drive AutoMaintain),`IHUI-ImageCDN` 那条 result=0x41301 是"开机触发 + 子进程常驻"任务的表现形态,
+    其实况由端口验:80 在听、CDN 资产 200。
