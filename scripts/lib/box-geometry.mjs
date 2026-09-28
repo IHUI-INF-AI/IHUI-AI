@@ -12,9 +12,80 @@
  */
 
 /**
- * 取**该元素自己的**属性区(不是"上下 5 行"):±5 会bleed 到邻居的尺寸,把 6×6 装饰点
- * 量成 `h-4 w-7` 的胶囊(实测就产出一枚假阳)。起始行 = 往上第一条缩进严格更小且开着标签的行;
- * 找不到就只取自身上下各 1 行。
+ * 找到**开标签自己**结束的那一行:从 `start` 向后扫,花/方/圆括号深度为 0 时遇到的第一个
+ * 裸 `>`(前一字符不是 `= & ( [ < ! | ? : , + - * / % ~ ^`)就是开标签的闭合。
+ * 为什么要这些排除:`className="[&>svg]:h-4"` 里的 `>` 在方括号内、`=>` 是箭头函数、
+ * `placeholder="a > b"` 在字符串里(字符串这一维本函数**不**处理,故调用方只在 confident 时用)。
+ * 扫不到干净闭合 ⇒ 返回 `{end:null}` —— **交调用方退回宽窗或计"判不出",绝不猜。**
+ */
+function findTagClose(lines, start) {
+  let braces = 0
+  let flat = 0
+  let inString = 0
+  for (let i = start; i < Math.min(lines.length, start + 40); i++) {
+    const l = String(lines[i] ?? '')
+    for (let k = 0; k < l.length; k++) {
+      const ch = l[k]
+      if (inString) {
+        if (ch === inString && l[k - 1] !== '\\') inString = 0
+        continue
+      }
+      if (ch === '"' || ch === "'" || ch === '`') {
+        inString = ch
+        continue
+      }
+      if (ch === '{') braces += 1
+      else if (ch === '}') braces -= 1
+      else if (ch === '[' || ch === '(') flat += 1
+      else if (ch === ']' || ch === ')') flat -= 1
+      else if (
+        ch === '>' &&
+        braces <= 0 &&
+        flat <= 0 &&
+        !/[=>&(<[!|?:,+\-*/%~^]/.test(l[k - 1] || '')
+      )
+        return { end: i }
+    }
+    if (inString) inString = 0 // 不跨行猜字符串
+  }
+  return { end: null }
+}
+
+/**
+ * **只含该元素自己属性区**的文本,外加一个 `confident` 旗。
+ * C6(胶囊判据)用它:宽窗会把子节点的 `h-4 w-4` 算进父盒(HEAD 现读 14 处候选里 9 处就是这么来的),
+ * 但"找闭合"这件事没有真 JSX 词法器就会错(字符串里的 `>`、泛型 `<T>`),所以**不确定就不判** ——
+ * 一条会喊错的 blocking 尺子比漏报贵得多(§12e:恒红/误红的唯一结局是人人 `--no-verify`)。
+ */
+export function ownAttributeArea(allLines, idx) {
+  const indentOf = (s) => (s || '').match(/^\s*/)[0].length
+  const myIndent = indentOf(allLines[idx])
+  let back = 2
+  for (let up = 1; up <= 30 && idx - up >= 0; up++) {
+    const l = allLines[idx - up] || ''
+    if (!l.trim()) continue
+    if (indentOf(l) < myIndent && /<[A-Za-z][\w.]*/.test(l)) {
+      back = up
+      break
+    }
+  }
+  const start = Math.max(0, idx - back)
+  const { end } = findTagClose(allLines, start)
+  if (end === null) return { text: '', confident: false }
+  return { text: allLines.slice(start, end + 1).join('\n'), confident: true }
+}
+
+/** 与 `boxDims` 同形,但只在属性区能确定闭合时才给结论;否则 `{confident:false}`。 */
+export function boxDimsOwn(allLines, idx) {
+  const area = ownAttributeArea(allLines, idx)
+  if (!area.confident) return { w: 0, h: 0, shape: null, sameExpr: false, confident: false }
+  return { ...dimsFromText(area.text), confident: true }
+}
+
+/**
+ * 取**该元素自己的**属性区(宽窗:开标签行起、向后 6 行)。这是门 11 现有判据依赖的口径,
+ * **不改** —— 它宁可宽(把子节点尺寸算进来)也不能漏(头像的 `style={{width,height}}` 常在后面几行)。
+ * 需要"只算自己属性区"的判据(C6 胶囊)走 `ownAttributeArea`,那条路要求能确定闭合才下结论。
  */
 export function elementWindow(allLines, idx) {
   const indentOf = (s) => (s || '').match(/^\s*/)[0].length
@@ -28,9 +99,8 @@ export function elementWindow(allLines, idx) {
       break
     }
   }
-  return allLines
-    .slice(Math.max(0, idx - back), Math.min(allLines.length, idx + 6))
-    .join('\n')
+  const start = Math.max(0, idx - back)
+  return allLines.slice(start, Math.min(allLines.length, idx + 6)).join('\n')
 }
 
 /**
@@ -41,53 +111,7 @@ export function elementWindow(allLines, idx) {
  * Tailwind 刻度按 4px 折。返回 `{w,h,shape,sameExpr}`,量不到的一侧为 0。
  */
 export function boxDims(allLines, idx) {
-  const window = elementWindow(allLines, idx)
-  let w = 0
-  let h = 0
-  for (const m of window.matchAll(/\b([wh])-\[(\d+(?:\.\d+)?)(rpx|px)\]/g)) {
-    const v = Number(m[2]) * (m[3] === 'rpx' ? 0.5 : 1)
-    if (m[1] === 'w') w = Math.max(w, v)
-    else h = Math.max(h, v)
-  }
-  for (const m of window.matchAll(/\b(?:width|height)\s*[:=]\s*(\d+(?:\.\d+)?)/g)) {
-    if (m[0].startsWith('w')) w = Math.max(w, Number(m[1]))
-    else h = Math.max(h, Number(m[1]))
-  }
-  /**
-   * **同表达式即同尺寸**:头像/圆点的边长常常来自变量或 `toUnit(CONST)` 这类换算,
-   * 量不到数字并不代表不是方形 —— 只要 width 与 height 写的是**同一个值**,几何上必然是正方形。
-   * 这不是"看名字猜",是取值相等这条可核验事实;而它替代了标记豁免(用户定档:不允许任何豁免)。
-   */
-  const dims = [...window.matchAll(/\b(width|height)\s*[:=]\s*([^,}\n]+)/g)].map((m) => ({
-    axis: m[1] === 'width' ? 'w' : 'h',
-    v: m[2].trim().replace(/\s+/g, ''),
-  }))
-  const wv = new Set(dims.filter((d) => d.axis === 'w').map((d) => d.v))
-  const hv = dims.filter((d) => d.axis === 'h').map((d) => d.v)
-  const sameExpr = hv.some((v) => wv.has(v))
-  for (const m of window.matchAll(/\b([wh])-(\d+(?:\.\d+)?)(?![\w-])/g)) {
-    const v = Number(m[2]) * 4
-    if (m[1] === 'w') w = Math.max(w, v)
-    else h = Math.max(h, v)
-  }
-  if (!w || !h) {
-    if (sameExpr) return { w, h, shape: 'square', sameExpr }
-    /**
-     * 只量到一维时的第二把尺:`rounded-full` + **横向内边距明显大于高度**(或带文本的
-     * `px-N` 胶囊钮)在几何上必然是胶囊 —— 内容撑开的宽度只会 ≥ 高度,而半径取到"高度一半"
-     * 就是两端全圆的药丸形。这一型正是用户点名要根除的"胶囊型",不允许以"量不到宽度"逃逸。
-     */
-    if (h) {
-      let pxMax = 0
-      for (const m of window.matchAll(/\bpx-(\d+(?:\.\d+)?)(?![\w-])/g)) pxMax = Math.max(pxMax, Number(m[1]) * 4)
-      for (const m of window.matchAll(/\bpx-\[(\d+(?:\.\d+)?)(rpx|px)\]/g))
-        pxMax = Math.max(pxMax, Number(m[1]) * (m[2] === 'rpx' ? 0.5 : 1) * 2)
-      if (pxMax && pxMax * 2 >= h) return { w, h, shape: 'wide', sameExpr }
-    }
-    return { w, h, shape: null, sameExpr }
-  }
-  const shape = Math.max(w, h) / Math.min(w, h) <= 1.35 ? 'square' : 'wide'
-  return { w, h, shape, sameExpr }
+  return dimsFromText(elementWindow(allLines, idx))
 }
 
 /**
@@ -99,3 +123,89 @@ export function boxShape(allLines, idx) {
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 找一个声明行**所属的对象作用域**(RN StyleSheet / 内联 style 对象 / CSS 规则块)。
+ * 为什么需要它:`boxDims` 的属性区是按 **JSX 起始标签**回溯的,拿它去量 StyleSheet 里的
+ * `dot: { width: 8, height: 8, borderRadius: 4 }` 会 blead 到邻行的 `width: 40`,于是
+ * 一枚 8×8 圆点被量成 40×8 —— 判据于是把"正方真圆"报成"胶囊"。实测这就是门 11 第一版
+ * C2 产出 82 处里的一部分假阳来源。
+ *
+ * 回溯方式:从命中行往上找**第一条含 `{` 的行**(那就是本对象的开括号),再从那里做括号配平
+ * 找到闭括号。配不平(截断 / 语法坏了)⇒ 返回 null,交调用方计入"未判定" —— 不猜作用域,
+ * 与 lib/jsx-scope 对截断的处理同一条规矩。
+ */
+export function objectScope(lines, idx) {
+  let open = -1
+  for (let i = idx; i >= Math.max(0, idx - 60); i--) {
+    const l = String(lines[i] ?? '')
+    if (l.includes('{')) {
+      open = i
+      break
+    }
+  }
+  if (open < 0) return null
+  let depth = 0
+  for (let i = open; i < Math.min(lines.length, open + 400); i++) {
+    const l = String(lines[i] ?? '')
+    for (const ch of l) {
+      if (ch === '{') depth++
+      else if (ch === '}') {
+        depth--
+        if (depth === 0) return { start: open, end: i }
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * 量一个作用域内的盒尺寸(只在本对象内部找 width/height / w-[..] / h-[..])。
+ * 返回 `{w,h,shape,sameExpr}`,与 `boxDims` 同形 —— 两个上下文共用一把形状尺,
+ * 差别只在"从哪里取属性",不在"怎么算形状"。
+ */
+export function objectDims(lines, idx) {
+  const scope = objectScope(lines, idx)
+  if (!scope) return { w: 0, h: 0, shape: null, sameExpr: false }
+  const win = lines.slice(scope.start, scope.end + 1).join('\n')
+  return dimsFromText(win)
+}
+
+/** 从一段文本量出宽高与形状 —— boxDims 与 objectDims 的共同出口(单位折算只此一处)。 */
+export function dimsFromText(win) {
+  let w = 0
+  let h = 0
+  for (const m of win.matchAll(/\b([wh])-\[(\d+(?:\.\d+)?)(rpx|px)\]/g)) {
+    const v = Number(m[2]) * (m[3] === 'rpx' ? 0.5 : 1)
+    if (m[1] === 'w') w = Math.max(w, v)
+    else h = Math.max(h, v)
+  }
+  for (const m of win.matchAll(/\b(?:width|height)\s*[:=]\s*(\d+(?:\.\d+)?)/g)) {
+    if (m[0].startsWith('w')) w = Math.max(w, Number(m[1]))
+    else h = Math.max(h, Number(m[1]))
+  }
+  const dims = [...win.matchAll(/\b(width|height)\s*[:=]\s*([^,}\n]+)/g)].map((m) => ({
+    axis: m[1] === 'width' ? 'w' : 'h',
+    v: m[2].trim().replace(/\s+/g, ''),
+  }))
+  const wv = new Set(dims.filter((d) => d.axis === 'w').map((d) => d.v))
+  const hv = dims.filter((d) => d.axis === 'h').map((d) => d.v)
+  const sameExpr = hv.some((v) => wv.has(v))
+  for (const m of win.matchAll(/\b([wh])-(\d+(?:\.\d+)?)(?![\w-])/g)) {
+    const v = Number(m[2]) * 4
+    if (m[1] === 'w') w = Math.max(w, v)
+    else h = Math.max(h, v)
+  }
+  if (!w || !h) {
+    if (sameExpr) return { w, h, shape: 'square', sameExpr }
+    if (h) {
+      let pxMax = 0
+      for (const m of win.matchAll(/\bpx-(\d+(?:\.\d+)?)(?![\w-])/g)) pxMax = Math.max(pxMax, Number(m[1]) * 4)
+      for (const m of win.matchAll(/\bpx-\[(\d+(?:\.\d+)?)(rpx|px)\]/g))
+        pxMax = Math.max(pxMax, Number(m[1]) * (m[2] === 'rpx' ? 0.5 : 1) * 2)
+      if (pxMax && pxMax * 2 >= h) return { w, h, shape: 'wide', sameExpr }
+    }
+    return { w, h, shape: null, sameExpr }
+  }
+  return { w, h, shape: Math.max(w, h) / Math.min(w, h) <= 1.35 ? 'square' : 'wide', sameExpr }
+}
