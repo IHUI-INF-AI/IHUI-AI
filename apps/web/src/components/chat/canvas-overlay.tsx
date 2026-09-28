@@ -69,7 +69,7 @@ export function CanvasVersionMenu({ versions, onRevert }: CanvasVersionMenuProps
         side="bottom"
         align="end"
         gap={4}
-        className="max-h-48 w-64 overflow-y-auto rounded-sm border border-border/40 bg-popover p-1 shadow-lg"
+        className="max-h-48 w-64 overflow-y-auto rounded-xl border border-border/40 bg-popover p-1 shadow-lg"
       >
         <p className="px-2 py-1 text-[10px] font-medium text-muted-foreground">
           {t('canvasVersions')}

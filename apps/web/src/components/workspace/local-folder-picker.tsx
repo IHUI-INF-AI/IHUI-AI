@@ -359,7 +359,7 @@ function PathNav({
                         type="button"
                         onClick={() => onNavigate(bc.path)}
                         className={cn(
-                          'inline-flex h-6 max-w-[12rem] shrink-0 items-center truncate rounded px-1.5 text-xs transition-colors',
+                          'inline-flex h-6 max-w-[12rem] shrink-0 items-center truncate rounded-sm px-1.5 text-xs transition-colors',
                           isLast
                             ? 'font-medium text-foreground'
                             : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -436,7 +436,7 @@ function EntryRow({ entry, isSelected, onSelect, onOpen }: EntryRowProps) {
             onDoubleClick={() => onOpen(entry)}
             data-selected={isSelected}
             className={cn(
-              'group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors',
+              'group flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-sm transition-colors',
               isSelected ? 'bg-amber-500/15 text-foreground' : 'text-foreground hover:bg-muted/60',
             )}
           >
@@ -869,7 +869,7 @@ export function LocalFolderPicker({
                     if (browseError) void refetchBrowse()
                     else openMutation.reset()
                   }}
-                  className="inline-flex h-5 shrink-0 items-center gap-1 rounded border border-destructive/30 bg-background px-1.5 text-[10px] font-medium text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
+                  className="inline-flex h-5 shrink-0 items-center gap-1 rounded-sm border border-destructive/30 bg-background px-1.5 text-[10px] font-medium text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
                 >
                   <RefreshCw className="h-2.5 w-2.5" />
                   {t('retry')}
@@ -884,7 +884,7 @@ export function LocalFolderPicker({
                 <button
                   type="button"
                   onClick={() => setNativeHint(null)}
-                  className="inline-flex h-5 shrink-0 items-center justify-center rounded text-amber-700/70 transition-colors hover:bg-amber-500/15 hover:text-amber-700 dark:text-amber-400"
+                  className="inline-flex h-5 shrink-0 items-center justify-center rounded-sm text-amber-700/70 transition-colors hover:bg-amber-500/15 hover:text-amber-700 dark:text-amber-400"
                   aria-label={t('cancel')}
                 >
                   <X className="h-3 w-3" />

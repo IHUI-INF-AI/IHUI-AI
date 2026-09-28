@@ -253,7 +253,7 @@ export function FileExplorer() {
               ? t('fileExplorer.fileNamePlaceholder')
               : t('fileExplorer.folderNamePlaceholder')
           }
-          className="w-full rounded-md border border-border bg-background px-2 py-0.5 text-xs focus:outline-none"
+          className="w-full rounded-sm border border-border bg-background px-2 py-0.5 text-xs focus:outline-none"
         />
       </div>
     )
@@ -267,7 +267,7 @@ export function FileExplorer() {
             key={tab}
             onClick={() => setSubTab(tab)}
             className={cn(
-              'rounded px-2 py-0.5 text-xs transition-colors duration-150',
+              'rounded-sm px-2 py-0.5 text-xs transition-colors duration-150',
               subTab === tab
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:text-foreground',
@@ -295,7 +295,7 @@ export function FileExplorer() {
               }}
               disabled={!workspacePath}
               aria-label={t('fileExplorer.newFile')}
-              className="rounded p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
+              className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
             >
               <FilePlus className="h-3.5 w-3.5" />
             </button>
@@ -308,7 +308,7 @@ export function FileExplorer() {
               }}
               disabled={!workspacePath}
               aria-label={t('fileExplorer.newFolder')}
-              className="rounded p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
+              className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
             >
               <FolderPlus className="h-3.5 w-3.5" />
             </button>
@@ -317,7 +317,7 @@ export function FileExplorer() {
             <button
               onClick={() => void fetchFileTree()}
               aria-label={t('fileExplorer.refresh')}
-              className="rounded p-1 text-muted-foreground hover:bg-muted/50"
+              className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50"
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </button>

@@ -1158,7 +1158,7 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
           aria-controls={`admin-nav-group-${group.groupKey}`}
           onClick={() => toggleGroup(group.groupKey)}
           className={cn(
-            'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors',
+            'flex w-full items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors',
             hasActive
               ? 'text-primary'
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',

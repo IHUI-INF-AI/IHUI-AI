@@ -269,7 +269,7 @@ export function SourceControlPanel() {
           <button
             onClick={() => setBranchOpen(!branchOpen)}
             disabled={switchingBranch}
-            className="flex items-center gap-1 rounded px-1 py-0.5 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+            className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
           >
             <GitBranch
               className={cn('h-3.5 w-3.5 text-muted-foreground', switchingBranch && 'animate-spin')}
@@ -289,7 +289,7 @@ export function SourceControlPanel() {
             side="bottom"
             align="start"
             gap={4}
-            className="min-w-[160px] rounded-md border border-border bg-popover p-1 shadow-md"
+            className="min-w-[160px] rounded-xl border border-border bg-popover p-1 shadow-md"
           >
             {gitBranches.map((b) => (
               <button
@@ -297,7 +297,7 @@ export function SourceControlPanel() {
                 onClick={() => handleBranchCheckout(b)}
                 disabled={switchingBranch}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded px-2 py-1 text-xs transition-colors disabled:opacity-50',
+                  'flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs transition-colors disabled:opacity-50',
                   b === branch
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
@@ -324,7 +324,7 @@ export function SourceControlPanel() {
           <button
             onClick={handlePull}
             disabled={pulling}
-            className="rounded p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
+            className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
             aria-label={t('sourceControl.pull')}
           >
             <Download className={cn('h-3.5 w-3.5', pulling && 'animate-spin')} />
@@ -332,20 +332,20 @@ export function SourceControlPanel() {
           <button
             onClick={handlePush}
             disabled={pushing}
-            className="rounded p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
+            className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
             aria-label={t('sourceControl.push')}
           >
             <Upload className={cn('h-3.5 w-3.5', pushing && 'animate-spin')} />
           </button>
           <button
             onClick={handleRefresh}
-            className="rounded p-1 text-muted-foreground hover:bg-muted/50"
+            className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50"
             aria-label={t('sourceControl.refresh')}
           >
             <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
           </button>
           <button
-            className="rounded p-1 text-muted-foreground hover:bg-muted/50"
+            className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50"
             aria-label={t('sourceControl.more')}
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
@@ -359,14 +359,14 @@ export function SourceControlPanel() {
           onChange={(e) => setCommitMessage(e.target.value)}
           placeholder={t('sourceControl.commitPlaceholder')}
           rows={2}
-          className="w-full resize-none rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none"
+          className="w-full resize-none rounded-sm border border-border bg-background px-2 py-1 text-xs focus:outline-none"
         />
         <button
           onClick={handleCommit}
           disabled={committing || !commitMessage.trim()}
           aria-busy={committing}
           aria-label={t('sourceControl.commit')}
-          className="mt-1 flex w-full items-center justify-center gap-1 rounded-md bg-foreground py-1 text-xs text-background hover:bg-foreground/90 disabled:opacity-50"
+          className="mt-1 flex w-full items-center justify-center gap-1 rounded-sm bg-foreground py-1 text-xs text-background hover:bg-foreground/90 disabled:opacity-50"
         >
           {committing ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />

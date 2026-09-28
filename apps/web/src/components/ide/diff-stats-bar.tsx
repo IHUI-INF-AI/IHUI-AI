@@ -39,7 +39,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
         <button
           onClick={() => setDiffViewMode('split')}
           className={cn(
-            'flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors',
+            'flex items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors',
             diffViewMode === 'split'
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:text-foreground',
@@ -51,7 +51,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
         <button
           onClick={() => setDiffViewMode('unified')}
           className={cn(
-            'flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors',
+            'flex items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors',
             diffViewMode === 'unified'
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:text-foreground',
@@ -85,7 +85,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
               key={opt.value}
               onClick={() => onFilterChange(opt.value)}
               className={cn(
-                'rounded px-1.5 py-0.5 transition-colors',
+                'rounded-sm px-1.5 py-0.5 transition-colors',
                 filter === opt.value
                   ? 'bg-muted text-foreground'
                   : 'text-muted-foreground hover:text-foreground',
@@ -99,7 +99,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
       {onCommit && (
         <button
           onClick={onCommit}
-          className="ml-auto flex items-center gap-1 rounded bg-foreground px-2 py-0.5 text-background transition-colors hover:bg-foreground/90"
+          className="ml-auto flex items-center gap-1 rounded-sm bg-foreground px-2 py-0.5 text-background transition-colors hover:bg-foreground/90"
         >
           <GitCommit className="h-3 w-3" />
           <span>{t('diffStats.commit')}</span>

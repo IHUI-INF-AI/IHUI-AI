@@ -239,7 +239,7 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
                   >
                     <Badge
                       variant="secondary"
-                      className={cn('h-1.5 w-1.5 rounded-sm p-0', STATUS_COLOR[task.status])}
+                      className={cn('h-1.5 w-1.5 rounded-md p-0', STATUS_COLOR[task.status])}
                     />
                     <span className="flex-1 truncate">{task.title}</span>
                     {task.platform && (

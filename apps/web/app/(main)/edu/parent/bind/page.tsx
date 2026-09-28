@@ -223,7 +223,7 @@ export default function ParentBindPage() {
                         <Tooltip content={t('bind.confirm')}>
                           <button
                             onClick={() => confirmMutation.mutate(b.id)}
-                            className="rounded-lg p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
+                            className="rounded-sm p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
                           >
                             <CheckCircle2 className="h-4 w-4" />
                           </button>
@@ -231,7 +231,7 @@ export default function ParentBindPage() {
                         <Tooltip content={t('bind.reject')}>
                           <button
                             onClick={() => rejectMutation.mutate(b.id)}
-                            className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
+                            className="rounded-sm p-2 text-red-600 transition-colors hover:bg-red-50"
                           >
                             <XCircle className="h-4 w-4" />
                           </button>
@@ -241,7 +241,7 @@ export default function ParentBindPage() {
                     <Tooltip content={tc('delete')}>
                       <button
                         onClick={() => setShowDeleteId(b.id)}
-                        className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent"
+                        className="rounded-sm p-2 text-muted-foreground transition-colors hover:bg-accent"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

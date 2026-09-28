@@ -519,7 +519,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
           <div className="flex items-center gap-1 px-2 py-1 text-xs">
             <button
               onClick={() => setShowFileList(!showFileList)}
-              className="flex items-center rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="flex items-center rounded-sm p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             >
               {showFileList ? (
                 <ChevronDown className="h-3 w-3" />
@@ -535,14 +535,14 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
                 <button
                   onClick={goPrev}
                   disabled={activeIdx <= 0}
-                  className="rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
+                  className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
                 >
                   <ChevronUp className="h-3 w-3" />
                 </button>
                 <button
                   onClick={goNext}
                   disabled={activeIdx >= diffFiles.length - 1}
-                  className="rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
+                  className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
                 >
                   <ChevronDown className="h-3 w-3" />
                 </button>
@@ -553,7 +553,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
             )}
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
-              className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="ml-auto rounded-sm p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             >
               {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
             </button>

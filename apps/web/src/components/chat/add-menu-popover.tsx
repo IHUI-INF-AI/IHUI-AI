@@ -223,7 +223,7 @@ export function AddMenuPopover(props: {
           disabled={isStreaming}
           onClick={() => onOpenChange(!open)}
           className={cn(
-            'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none',
+            'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm px-2 text-xs font-medium leading-none',
             'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             'disabled:cursor-not-allowed disabled:opacity-50',
             'hover:-translate-y-px',
@@ -291,7 +291,7 @@ export function AddMenuPopover(props: {
                     onModeChange('prompt')
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
@@ -309,7 +309,7 @@ export function AddMenuPopover(props: {
                     onAddTextReference()
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
@@ -325,7 +325,7 @@ export function AddMenuPopover(props: {
                     onModeChange('skill')
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
@@ -342,7 +342,7 @@ export function AddMenuPopover(props: {
                     onAddFile()
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
@@ -359,7 +359,7 @@ export function AddMenuPopover(props: {
                     onModeChange('voice')
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
@@ -375,7 +375,7 @@ export function AddMenuPopover(props: {
                     onOpenPluginMarket()
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
@@ -391,7 +391,7 @@ export function AddMenuPopover(props: {
                     onOpenDeepResearch()
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                   )}
                 >
@@ -416,7 +416,7 @@ export function AddMenuPopover(props: {
                       onModeChange('menu')
                     }}
                     className={cn(
-                      'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                      'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
                       'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                     )}

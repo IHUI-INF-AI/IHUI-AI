@@ -389,7 +389,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
     },
     tabBtn: {
-      borderRadius: rnRadius.md, // rounded-md
+      borderRadius: rnRadius.sm, // rounded-md
       paddingVertical: 8, // py-2
       alignItems: 'center',
     },

@@ -66,7 +66,7 @@ export default function PlanListPage() {
               type="button"
               onClick={() => setFilter(f.value)}
               className={cn(
-                'rounded-md px-3 py-1.5 text-sm transition-colors',
+                'rounded-sm px-3 py-1.5 text-sm transition-colors',
                 filter === f.value
                   ? 'bg-foreground text-background'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',

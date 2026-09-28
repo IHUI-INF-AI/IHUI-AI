@@ -72,7 +72,7 @@ export default function PointsTasksPage() {
             type="button"
             onClick={() => setTab(key)}
             className={cn(
-              'rounded-md px-3 py-1.5 text-sm transition-colors',
+              'rounded-sm px-3 py-1.5 text-sm transition-colors',
               tab === key
                 ? 'bg-cta text-cta-foreground'
                 : 'bg-secondary text-secondary-foreground hover:bg-secondary/70',

@@ -201,12 +201,12 @@ export default function ComputerUsePage() {
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && openPage()}
             placeholder={t('urlPlaceholder')}
-            className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="flex-1 rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
           <button
             onClick={openPage}
             disabled={busy || !url.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -233,7 +233,7 @@ export default function ComputerUsePage() {
             <button
               onClick={takeScreenshot}
               disabled={busy || !openInfo}
-              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
             >
               <Camera className="h-3.5 w-3.5" /> {t('screenshot')}
             </button>
@@ -248,21 +248,21 @@ export default function ComputerUsePage() {
             <button
               onClick={extractText}
               disabled={busy || !openInfo}
-              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
             >
               <FileText className="h-3.5 w-3.5" /> {t('extractText')}
             </button>
             <button
               onClick={() => refreshSnapshot()}
               disabled={busy || !openInfo}
-              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
             >
               <ScanSearch className="h-3.5 w-3.5" /> {t('refreshSnapshot')}
             </button>
             <button
               onClick={closeBrowser}
               disabled={busy || !openInfo}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-40"
             >
               <CircleX className="h-3.5 w-3.5" /> {t('close')}
             </button>
@@ -320,7 +320,7 @@ export default function ComputerUsePage() {
             onChange={(e) => setTypeText(e.target.value)}
             rows={3}
             placeholder={t('typePlaceholder')}
-            className="w-full resize-y rounded-lg border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="w-full resize-y rounded-sm border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -334,7 +334,7 @@ export default function ComputerUsePage() {
             <button
               onClick={typeIntoSelected}
               disabled={busy || !openInfo || !typeText.trim()}
-              className="ml-auto inline-flex items-center gap-2 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+              className="ml-auto inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
             >
               <Keyboard className="h-4 w-4" /> {t('type')}
             </button>
@@ -401,7 +401,7 @@ export default function ComputerUsePage() {
                     clickElement(el)
                   }}
                   disabled={busy || el.disabled}
-                  className="shrink-0 inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-medium transition hover:bg-accent/80 disabled:opacity-40"
+                  className="shrink-0 inline-flex items-center gap-1 rounded-sm bg-accent px-2.5 py-1 text-xs font-medium transition hover:bg-accent/80 disabled:opacity-40"
                 >
                   <MousePointerClick className="h-3 w-3" /> {t('click')}
                 </button>

@@ -66,7 +66,7 @@ export default function PlazaPage() {
         <button
           type="button"
           onClick={() => void load()}
-          className="px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+          className="px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
         >
           {t('common.retry')}
         </button>
@@ -89,7 +89,7 @@ export default function PlazaPage() {
           {items.map((p) => (
             <Card
               key={p.id}
-              className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
+              className="rounded-lg border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
               onClick={() => openItemInWeb(`/plaza/${encodeURIComponent(p.id)}`)}
             >
               <CardHeader className="px-3 py-2">

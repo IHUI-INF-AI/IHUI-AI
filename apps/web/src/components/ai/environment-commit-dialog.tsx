@@ -158,7 +158,7 @@ export function EnvironmentCommitDialog() {
           }}
           placeholder={t('commitPlaceholder')}
           rows={3}
-          className="h-auto min-h-[64px] w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-brand-accent-deep"
+          className="h-auto min-h-[64px] w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-brand-accent-deep"
           data-testid="env-commit-textarea"
         />
         {hasRemote && (
