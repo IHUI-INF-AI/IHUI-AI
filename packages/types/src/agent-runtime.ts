@@ -1212,7 +1212,14 @@ export type GitHubOperation =
  * `agents.kanban.<status>` 五语言词表(AGENTS §30:状态词汇是一等契约)。
  * 常驻尺子:`scripts/check-agent-status-vocabulary-parity.mjs`。
  */
-export const AGENT_TASK_STATUSES = ['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done'] as const
+export const AGENT_TASK_STATUSES = [
+  'triage',
+  'todo',
+  'ready',
+  'in_progress',
+  'blocked',
+  'done',
+] as const
 
 export type AgentTaskStatus = (typeof AGENT_TASK_STATUSES)[number]
 
@@ -1280,6 +1287,36 @@ export function mapStatus(raw: string): AgentTaskStatus {
   return LEGACY_STATUS_MAP[raw] ?? (raw as AgentTaskStatus)
 }
 
+/**
+ * 被 `LEGACY_STATUS_MAP` 折叠进 `blocked` 的三种终态**成因**(2026-09-28 拍板:
+ * **不动六档枚举**(那是落库列 + REST 校验 + SSE 载荷 + Python 调度器 + 五语言的对外契约),
+ * 只在看板卡片上加一枚次级标记)。
+ *
+ * 为什么必须有这一层:这三档与"真的在等解阻塞"在折叠后完全同形,而它们的下一步动作相反 ——
+ * 「已取消 / 配额超限 / 被抢占」重跑大概率就好，「待解阻塞」要先去解阻塞。用户按同一张脸
+ * 决定重跑还是去查依赖，是被状态显示指错了方向。
+ */
+export const COLLAPSED_TERMINATIONS = ['cancelled', 'quota_exceeded', 'preempted'] as const
+export type AgentTaskTermination = (typeof COLLAPSED_TERMINATIONS)[number]
+
+/** 次级标记的 i18n 键(单一来源;`agents.kanban.*` 五语言必须同批齐,守门 151 同一条口径) */
+export const TERMINATION_LABEL_KEYS: Record<AgentTaskTermination, string> = {
+  cancelled: 'agents.kanban.terminatedCancelled',
+  quota_exceeded: 'agents.kanban.terminatedQuotaExceeded',
+  preempted: 'agents.kanban.terminatedPreempted',
+}
+
+/**
+ * 取原始状态里的终态成因;非终态(含 `blocked` 本身与 `failed`)一律返回 null。
+ * 刻意返回 null 而不是"猜测一个":把真失败说成被取消,比不标更糟。
+ */
+export function terminationOf(raw: string | null | undefined): AgentTaskTermination | null {
+  if (typeof raw !== 'string') return null
+  return (COLLAPSED_TERMINATIONS as readonly string[]).includes(raw)
+    ? (raw as AgentTaskTermination)
+    : null
+}
+
 /** 流转合法性校验(transition / admin PUT 共用) */
 export function isTransitionAllowed(from: AgentTaskStatus, to: AgentTaskStatus): boolean {
   return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false
@@ -1307,6 +1344,11 @@ export interface KanbanTask {
   description?: string
   /** Kanban 状态(默认 triage) */
   status: AgentTaskStatus
+  /**
+   * 被折叠进 `blocked` 的终态成因(2026-09-28 拍板:六档枚举不动,加次级标记)。
+   * 缺省 = 原始状态本身就是 blocked/failed 等,没有可点名的终态 —— 前端**不得**为消白标而猜一个。
+   */
+  termination?: AgentTaskTermination
   /** 优先级(数值越大越优先,默认 0) */
   priority: number
   /** 任务负载(输入参数,JSON) */
@@ -1423,9 +1465,9 @@ export interface AgentSSEEvent {
     | 'task_failed' // 失败
     | 'workspace_lock_acquired' // 工作区锁被获取(2-2)
     | 'workspace_lock_released' // 工作区锁被释放(2-2)
-    // D44(2026-09-23 收口):task_progress / worker_status / dag_level_advanced / log
-    // 为从未有生产点的死声明(WorkerPool._emit 只发 task_created/status_changed/
-    // completed/failed;apps/api 无 broadcastSSEEvent 写出),已从本联合类型回收,parity 不再登记。
+  // D44(2026-09-23 收口):task_progress / worker_status / dag_level_advanced / log
+  // 为从未有生产点的死声明(WorkerPool._emit 只发 task_created/status_changed/
+  // completed/failed;apps/api 无 broadcastSSEEvent 写出),已从本联合类型回收,parity 不再登记。
   /** 关联任务 ID */
   taskId?: string
   /** 关联 worker ID */
