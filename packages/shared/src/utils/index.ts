@@ -16,6 +16,8 @@ export * from './canonical-json'
 export * from './conversation-org'
 export * from './dangerous-command-detector'
 export * from './date-utils'
+// G-704(2026-09-29 立)「值等价即不写」的等深比较器唯一实现(端内不得各写一份近似品)
+export * from './deep-equal-records'
 export * from './error-messages'
 export * from './file-helpers'
 export * from './form-styles'
