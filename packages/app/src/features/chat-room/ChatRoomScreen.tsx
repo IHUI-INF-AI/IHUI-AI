@@ -415,7 +415,7 @@ function createStyles(tk: AppThemeTokens) {
       maxWidth: 240, // 历史 .message-bubble max-width 480rpx
       paddingVertical: 10, // rpx(20)
       paddingHorizontal: 12, // rpx(24)
-      borderRadius: rnRadiusFor.bubble, // rpx(12)
+      borderRadius: rnRadiusFor.bubble,
     },
     bubbleUser: {
       backgroundColor: tk.vip.gold, // 历史 #FFD700
