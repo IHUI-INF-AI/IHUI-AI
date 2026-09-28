@@ -60,7 +60,7 @@ export function ContextSelectorPopover({
       align="start"
       gap={8}
       testId="context-selector-popover"
-      className="flex w-80 flex-col overflow-hidden rounded-md border border-border bg-popover shadow-md"
+      className="flex w-80 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-md"
     >
       <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
         <Hash className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -91,7 +91,7 @@ export function ContextSelectorPopover({
                   onClick={() => onSelect(category)}
                   onMouseEnter={() => onHover(idx)}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors',
                     idx === activeIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50',
                   )}
                 >

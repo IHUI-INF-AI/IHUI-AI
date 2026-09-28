@@ -108,7 +108,7 @@ export default function KnowledgeBasePageClient() {
                 setPage(1)
               }}
               className={cn(
-                'flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors',
+                'flex w-full items-center justify-between rounded-sm px-3 py-2 text-sm transition-colors',
                 categoryId === 'all'
                   ? 'bg-primary/10 font-medium text-primary'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -126,7 +126,7 @@ export default function KnowledgeBasePageClient() {
                   setPage(1)
                 }}
                 className={cn(
-                  'flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors',
+                  'flex w-full items-center justify-between rounded-sm px-3 py-2 text-sm transition-colors',
                   categoryId === c.id
                     ? 'bg-primary/10 font-medium text-primary'
                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -200,7 +200,7 @@ export default function KnowledgeBasePageClient() {
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="inline-flex items-center rounded-md border px-2.5 py-1 text-sm transition-colors hover:bg-accent disabled:opacity-40"
+                className="inline-flex items-center rounded-sm border px-2.5 py-1 text-sm transition-colors hover:bg-accent disabled:opacity-40"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -211,7 +211,7 @@ export default function KnowledgeBasePageClient() {
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="inline-flex items-center rounded-md border px-2.5 py-1 text-sm transition-colors hover:bg-accent disabled:opacity-40"
+                className="inline-flex items-center rounded-sm border px-2.5 py-1 text-sm transition-colors hover:bg-accent disabled:opacity-40"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>

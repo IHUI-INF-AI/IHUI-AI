@@ -13,7 +13,12 @@
  * - 识别 getTranslations: 同时识别 useTranslations('ns') 和 getTranslations('ns')(含 await)
  * - 单文件多命名空间: 基于变量名精确归属,覆盖 t/tc/te 等变量;多 ns 时宽松检查(任一 ns 存在即通过)
  * - --staged 双模式: 暂存区报 error(exit 1) / 全量报 warning(exit 0)
- * - --target=web|extension|shared|cli|mobile-rn|miniapp-taro: 切换扫描目标
+ * - --target=web|extension|shared|cli|mobile-rn|miniapp-taro|api: 切换扫描目标
+ *   目标 → 语言包目录的映射只有一张表(TARGET_CONFIG,见下方实现注释)。
+ *   **未登记 / 拼错的 target 一律 exit 2 并点名可用清单**,不再静默按 web 扫一遍
+ *   (2026-09-28 G-304:此前 `--target=api` 与 `--target=nosuch-xyz` 打印的是 web 那一族的
+ *    读数,账面像"扫过了";api 族在门 [2] 上因此一直没有 parity 覆盖。i18n-diff / i18n-apply
+ *    在 2026-09-25 已按同一口径修过,本门随本次补上)
  *   (web 默认 apps/web/messages/; extension packages/i18n/messages/extension/; shared packages/i18n/messages/shared/)
  *   extension / shared 模式只做 key parity 校验,跳过源码使用检测与翻译完整性检测
  *   (extension 用 useI18n(),namespace 提取逻辑不适用;shared 为跨端共享基础 key 无源码消费方)
@@ -69,93 +74,233 @@ function findRepoRoot() {
 const REPO_ROOT = findRepoRoot()
 const isStaged = process.argv.includes('--staged')
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
+// 调用方是否**显式**传了 --target —— 决定"该判定面上这一族一个语言包都没有"是否判死
+// (口径同 scripts/i18n-diff.mjs 的 resolveTarget:点了名还沉默就是撒谎)。
+const TARGET_IS_EXPLICIT = targetArg !== undefined
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
-const isExtension = TARGET === 'extension'
-const isShared = TARGET === 'shared'
-const isCli = TARGET === 'cli'
-// 2026-08-19 立:mobile-rn 端 parity 守门(原 ID 2f-mobile-rn fall through 到 web,实际检查 web 而非 mobile-rn)
-const isMobileRn = TARGET === 'mobile-rn'
-// 2026-09 新增:miniapp-taro 端 parity + tt() 引用键缺失检测(与 mobile-rn 同构)
-const isMiniappTaro = TARGET === 'miniapp-taro'
-// 2026-09-28 G-304:`--target=api` 曾静默 fall through 到 web(实测把 web 的 23831 键数原样打第二遍),
-// 于是 `messages/api/**` 这一族在门 [2] 上零 parity 覆盖,而账面读起来像"查过了"。
-// 回落就是把"没判"写成"判过了"(本仓最高频失效型),现改为:白名单从 messages/ 的**实际目录**现读
-// (不另抄一份会腐烂的端名单),未知 target ⇒ exit 2 并点名 + 列出可用端;目录本身取不到 ⇒ 同样判死。
-const MESSAGES_ROOT = join(REPO_ROOT, 'packages/i18n/messages')
-let knownTargets = null
-try {
-  knownTargets = readdirSync(MESSAGES_ROOT, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name)
-} catch {
-  knownTargets = null
+
+/**
+ * target → 语言包目录 + 各判据落点的**唯一一张表**(2026-09-28 G-304)。
+ *
+ * 立因:此前这一族目录靠一串嵌套三元挑,末支**无条件落回 web** ⇒ `--target=api` 与
+ * `--target=nosuch-xyz` 都在原地重扫 web 那一族、把 web 的读数原样打印第二遍,账面读起来
+ * 像"这个端扫过了"(最坏的失效形态:安静)。同族的 i18n-diff.mjs / i18n-apply.mjs 在
+ * 2026-09-25 已按同一口径修过(未知 target 直接 exit 2),本门没跟上 ⇒ packages/i18n/
+ * messages/api/** 在门 [2] 上一直没有 parity 覆盖。现改成表驱动 + 未登记即拒,
+ * 结构上取消"回落"那一支:目录只能从表里来,表里没有就没有"下一档默认值"可落。
+ *
+ * 为什么 api 归本门管(实测,不是猜):`scripts/check-i18n-messages-exist.mjs` 的 ENDPOINTS
+ * 已把 api 列为第 7 个语言包端,但那道门只判**存在与可解析**,不判键集 parity;
+ * `i18n-diff` / `i18n-apply` 又只做"检测 + 写回"。⇒ parity 这一格此前全仓无人看守。
+ * 如实登记 api 的不完整处:apps/api 目前不加载 @ihui/i18n(预算告警模板在
+ * budget-alert-service.ts 内联中文,注释自述这份 JSON 是"翻译单一来源…供未来 i18n-loader
+ * 接入"),所以它按 cli 同构走 parity-only —— 只比这五份 JSON 彼此的键集,**不做**端内引用键
+ * 检测(没有消费方就没有可查的引用点)。
+ */
+const TARGET_CONFIG = {
+  web: {
+    dir: 'packages/i18n/messages/web',
+    parityOnly: false,
+    mergeShared: true,
+    stagedMessages: ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/'],
+    stagedSource: 'apps/web/',
+    srcDir: null, // null = apps/web
+    label: '',
+  },
+  extension: {
+    dir: 'packages/i18n/messages/extension',
+    parityOnly: true,
+    mergeShared: true,
+    stagedMessages: ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/'],
+    stagedSource: 'apps/extension/',
+    srcDir: null,
+    label: '[extension] ',
+  },
+  shared: {
+    dir: 'packages/i18n/messages/shared',
+    parityOnly: true,
+    mergeShared: false,
+    stagedMessages: ['packages/i18n/messages/shared/'],
+    // shared 无源码消费方(parity-only 模式下不会用到),留这一格只为让"为什么是它"可查
+    stagedSource: 'apps/web/',
+    srcDir: null,
+    label: '[shared] ',
+  },
+  cli: {
+    dir: 'packages/i18n/messages/cli',
+    parityOnly: true,
+    mergeShared: false,
+    stagedMessages: ['packages/i18n/messages/cli/'],
+    stagedSource: 'apps/cli/',
+    srcDir: null,
+    label: '[cli] ',
+  },
+  'mobile-rn': {
+    dir: 'packages/i18n/messages/mobile-rn',
+    parityOnly: false,
+    mergeShared: true,
+    stagedMessages: ['packages/i18n/messages/mobile-rn/', 'packages/i18n/messages/shared/'],
+    stagedSource: 'apps/mobile-rn/',
+    srcDir: 'apps/mobile-rn/src',
+    label: '[mobile-rn] ',
+    // 端内翻译函数走 hook 解构(t/tt)而非 useTranslations('ns'),且词典可在端内 .ts 兜底
+    hookExtract: true,
+  },
+  'miniapp-taro': {
+    dir: 'packages/i18n/messages/miniapp-taro',
+    parityOnly: false,
+    mergeShared: true,
+    stagedMessages: ['packages/i18n/messages/miniapp-taro/', 'packages/i18n/messages/shared/'],
+    stagedSource: 'apps/miniapp-taro/',
+    srcDir: 'apps/miniapp-taro/src',
+    label: '[miniapp-taro] ',
+    hookExtract: true,
+  },
+  api: {
+    dir: 'packages/i18n/messages/api',
+    parityOnly: true,
+    mergeShared: false,
+    stagedMessages: ['packages/i18n/messages/api/'],
+    stagedSource: 'apps/api/',
+    srcDir: null,
+    label: '[api] ',
+  },
 }
-if (!knownTargets) {
-  console.error(
-    `❌ [check-i18n-keys] 无法判定:取不到 ${relative(REPO_ROOT, MESSAGES_ROOT)}/ 的端目录 ⇒ 不冒绿,也不回落到 web`,
-  )
+const VALID_TARGETS = Object.keys(TARGET_CONFIG)
+
+/**
+ * 解析 --target,**绝不回落到 web**(本门与 i18n-diff 同一条修复)。
+ * 值不在表里(含 `mobile_rn`、`Miniapp-Taro`、`--target=` 空值这类拼错)⇒ exit 2 并点名
+ * 可用清单:打错一个字母就把"A 端的语言包"报成"B 端已通过",而报告看起来一切正常。
+ * @param {string} given     --target= 的原始值
+ * @param {(msg: string[]) => void} onFatal 判死出口(CLI 传进程退出包装,便于子进程断言)
+ */
+function resolveTarget(given, onFatal) {
+  const cfg = TARGET_CONFIG[given]
+  if (!cfg) {
+    onFatal([
+      `[i18n 键检查] ❌ --target=${JSON.stringify(given ?? '')} 不是受支持的端,已拒绝执行(未读任何语言包、未做任何判定)。`,
+      `   可用目标(须与 packages/i18n/messages/ 下的目录名逐字相同): ${VALID_TARGETS.join(' / ')}`,
+      `   拼写陷阱:连字符不是下划线、大小写敏感 —— "mobile_rn"、"Miniapp-Taro" 都会被拒。`,
+      `   为什么不再容忍:此前未匹配的 target 会静默按 web 处理,于是打错一个字母`,
+      `            看到的就是"web 那一族的读数",而真正想查的那一端一次也没被扫过。`,
+    ])
+    return null
+  }
+  return cfg
+}
+function fatalTargetLines(lines) {
+  for (const line of lines) console.error(line)
   process.exit(2)
 }
-if (targetArg && !knownTargets.includes(TARGET)) {
-  console.error(
-    `❌ [check-i18n-keys] 未知 --target=${TARGET}:${relative(REPO_ROOT, MESSAGES_ROOT)}/${TARGET} 不存在,` +
-      `不再回落到 web(那等于给没扫的端发合格证)。可用 target:${knownTargets.join(', ')}`,
-  )
-  process.exit(2)
+// 判死必须发生在读任何语言包之前 —— 与 i18n-diff 同一位置约束(形状锁由镜像测试钉)。
+const CFG = resolveTarget(TARGET, fatalTargetLines)
+if (!CFG) process.exit(2) // resolveTarget 已 exit;这一行只给控制流一个显式终点,不另立结论
+
+/**
+ * 端目录 ↔ TARGET_CONFIG 漂移对账(2026-09-28 G-304 的另一半;承另一路实现的判据)。
+ *
+ * 表是"target → 目录"的**唯一出口**(不能再把 argv 校验挂回目录清单,否则两处算同一件事必漂移),
+ * 但一张静态表会腐烂:`packages/i18n/messages/` 下多出一个没进表的目录 = 那一族在本门上**零覆盖**,
+ * 而账面读起来仍是"七个端都扫过了" —— 与 G-304 立因同型。所以这里用端目录的**实际清单**反查表:
+ *   · 清单取不到 ⇒ **按有没有显式 --target 分两手**:没指名 ⇒ 只喊"漂移对账未判定"(空仓 / 部分
+ *     checkout / 尚未建 messages 目录是合法形态,判死就是一台与本次提交无关的恒红门,AGENTS §12e);
+ *     指名了要查哪一端而根目录读不到 ⇒ exit 2 —— 那正是 G-304 立因的那一型("没扫过却打印通过"),
+ *     另一路实现把它整片判死、本路整片放过,合并不得把两者折成一个开关(此格两侧原为待拍板分歧,
+ *     现按"分歧的两半各归其位"收口:处置动作不同的两种输入,不许共用一个结论)。
+ *   · 目录不在表里 ⇒ 默认档大声点名 + 计数(它可能正是别人在飞的新端),`--strict` 才 exit 2。
+ *
+ * 这一块的输出**刻意不用**下面的颜色常量 `C`:`reportEndpointDrift` 在模块装载期就被调用,
+ * 而 `C` 声明在更下方 —— 引它就是给门自己的初始化路径埋 TDZ(语法能过、装载即炸)。
+ */
+const MESSAGES_ROOT_REL = 'packages/i18n/messages'
+const MESSAGES_ROOT = join(REPO_ROOT, MESSAGES_ROOT_REL)
+const isStrictFlag = process.argv.includes('--strict')
+function readEndpointDirs(root) {
+  try {
+    return readdirSync(root, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+  } catch {
+    return null
+  }
 }
-const isApi = TARGET === 'api'
-// 2026-07-26: --parity-only 强制仅做 5 语言 parity 校验(不扫描源文件)
-// 用途:guardian-runner 2n-web 项,即使暂存区无 i18n JSON 改动也强制跑 parity
+/**
+ * @param {string[]|null} endpointDirs messages 根下的实际端目录名;null = 取不到(不判红、不称已对账)
+ * @returns {{kind: 'undetermined'|'drift'|'ok', unlisted: string[]}}
+ */
+function classifyEndpointDrift(endpointDirs) {
+  if (endpointDirs === null) return { kind: 'undetermined', unlisted: [] }
+  const unlisted = endpointDirs.filter((d) => !VALID_TARGETS.includes(d))
+  return { kind: unlisted.length ? 'drift' : 'ok', unlisted }
+}
+function reportEndpointDrift(endpointDirs, opts = {}) {
+  const drift = classifyEndpointDrift(endpointDirs)
+  if (drift.kind === 'undetermined') {
+    // 两条分支的处置动作不同,所以分开判(这是两侧实现真正的分歧点,收敛成一条就把另一侧的修复关掉):
+    //   · **没有**显式 --target ⇒ 空仓 / 部分 checkout / messages 目录尚未建立是合法形态,判死就是一台
+    //     与本次提交无关的恒红门(AGENTS §12e),所以只喊"漂移对账未判定",不声称已对账;
+    //   · **有**显式 --target(2026-09-28 G-304 的另一半)⇒ 调用方指名要查那一端,而根目录都读不到,
+    //     等于"那一族一次也没被扫过"却回身打印通过 —— 回落就是把没判写成判过了,故按"无法判定"判死。
+    if (opts.explicitTarget && !opts.help && !opts.selfTest) {
+      console.error(
+        `[i18n 键检查] ❌ 显式指定了 --target 却取不到 ${MESSAGES_ROOT_REL}/ 的端目录 ⇒ 无法判定,不冒绿也不回落到 web(问责口径同 i18n-diff)。`,
+      )
+      process.exit(2)
+    }
+    if (!opts.quiet)
+      console.log(
+        `[i18n 键检查] ⚠️ 端目录漂移对账未判定:${MESSAGES_ROOT_REL}/ 取不到 ⇒ 不据此判红,也不声称已对账`,
+      )
+    return drift
+  }
+  for (const d of drift.unlisted) {
+    console.error(
+      `[i18n 键检查] ❌ ${MESSAGES_ROOT_REL}/${d} 未登记进 TARGET_CONFIG ⇒ 这一族语言包在本门上零覆盖(表是 target→目录 的唯一出口)。`,
+    )
+    console.error(
+      `   出路只有一条:在 TARGET_CONFIG 补一行(dir / parityOnly / mergeShared / stagedMessages / stagedSource / label),` +
+        `不得为了让本门闭嘴而删目录或把该端从清单里抹掉。`,
+    )
+  }
+  if (drift.kind === 'drift') {
+    if (opts.strict) {
+      console.error(`[i18n 键检查] --strict ⇒ 端目录未进表,按"未判定"判死(exit 2)。`)
+      process.exit(2)
+    }
+    console.error(
+      `[i18n 键检查] ⚠️ 端目录未进表:${drift.unlisted.join(' / ')} —— 默认档只点名不判红(可能是别人的在飞新端),问责跑 --strict`,
+    )
+  }
+  return drift
+}
+reportEndpointDrift(readEndpointDirs(MESSAGES_ROOT), {
+  strict: isStrictFlag,
+  explicitTarget: TARGET_IS_EXPLICIT,
+  help: process.argv.includes('--help'),
+  selfTest: process.argv.includes('--self-test'),
+})
+
+// 端形态判据全部由表给(2026-09-28 G-304):此前这里是 5 个 `TARGET === 'x'` 布尔 +
+// 两处 `isMobileRn || isMiniappTaro` 的手写端名单 —— 加一端忘改 if 链,正是 api 静默落回 web
+// 的同一型成因,所以一个布尔都不留。
 const isParityOnlyFlag = process.argv.includes('--parity-only')
 // parity-only 模式:仅做 5 语言 key parity 校验,跳过源码使用检测与翻译完整性检测
-// (extension / mobile-rn / cli 用各自 namespace 提取不适用;shared 为跨端共享基础 key 无源码消费方;
-//  --parity-only 用于 guardian-runner 2n-web 项兜底,防止 i18n JSON 没动时 parity 漂移漏检)
-const isParityOnly = isExtension || isShared || isCli || isApi || isParityOnlyFlag
+// 唯一真相是表里的 parityOnly 列(不得在别处再抄一份端名单 —— 那正是 G-304 的成因:
+// 表加了一端而 if 链没加,那一端就静默落回默认档)
+const isParityOnly = CFG.parityOnly || isParityOnlyFlag
 const WEB_DIR = join(REPO_ROOT, 'apps/web')
 // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
 // 2026-08-19:补充 mobile-rn 分支(原 fall through 到 web,守护形同虚设)
-const MESSAGES_DIR = isExtension
-  ? join(REPO_ROOT, 'packages/i18n/messages/extension')
-  : isShared
-    ? join(REPO_ROOT, 'packages/i18n/messages/shared')
-    : isCli
-      ? join(REPO_ROOT, 'packages/i18n/messages/cli')
-      : isMobileRn
-        ? join(REPO_ROOT, 'packages/i18n/messages/mobile-rn')
-        : isMiniappTaro
-          ? join(REPO_ROOT, 'packages/i18n/messages/miniapp-taro')
-          : isApi
-            ? join(REPO_ROOT, 'packages/i18n/messages/api')
-          : join(REPO_ROOT, 'packages/i18n/messages/web')
-// shared 目录:web/extension 非 shared 模式下与 MESSAGES_DIR 合并校验(方案 A)
+const MESSAGES_DIR = join(REPO_ROOT, CFG.dir)
+// shared 目录:mergeShared 为真的端与它合并校验(方案 A)
 // shared 模式下 MESSAGES_DIR === SHARED_DIR,二者相同
 const SHARED_DIR = join(REPO_ROOT, 'packages/i18n/messages/shared')
-// extension / shared / mobile-rn / cli 模式:暂存区路径前缀(extension 同时识别 apps/extension/)
-// 非 shared 模式同时识别 shared/(合并集的一部分,shared 改动需触发 parity 校验)
-// shared 模式只识别 shared/
-const STAGED_MESSAGES_PREFIXES = isShared
-  ? ['packages/i18n/messages/shared/']
-  : isCli
-    ? ['packages/i18n/messages/cli/']
-    : isMobileRn
-      ? ['packages/i18n/messages/mobile-rn/', 'packages/i18n/messages/shared/']
-      : isMiniappTaro
-        ? ['packages/i18n/messages/miniapp-taro/', 'packages/i18n/messages/shared/']
-        : isApi
-          ? ['packages/i18n/messages/api/', 'packages/i18n/messages/shared/']
-        : isExtension
-          ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
-          : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
-// 2026-08-19:补充 mobile-rn 前缀(staged mode 下识别 apps/mobile-rn/ 源码改动)
-const STAGED_SOURCE_PREFIX = isExtension
-  ? 'apps/extension/'
-  : isCli
-    ? 'apps/cli/'
-    : isMobileRn
-      ? 'apps/mobile-rn/'
-      : isMiniappTaro
-        ? 'apps/miniapp-taro/'
-        : 'apps/web/'
+// 暂存区语言包前缀:表里逐端登记 —— 只有 mergeShared 的端才把 shared/ 也算"本端相关改动"
+// (不合并就不为它开触发口,否则 shared 改动会去触发一根本不看它的 parity)
+const STAGED_MESSAGES_PREFIXES = CFG.stagedMessages
+// 暂存区源码前缀:staged mode 下识别 apps/<端>/ 源码改动
+const STAGED_SOURCE_PREFIX = CFG.stagedSource
 const EXCLUDE_DIRS = new Set([
   '.git',
   '.next',
@@ -180,12 +325,9 @@ const C = {
   reset: '\x1b[0m',
 }
 
-// 2026-09:mobile-rn / miniapp-taro 端源码目录(全量模式扫描 src,而非 apps/web)
-const APP_SRC_DIR = isMobileRn
-  ? join(REPO_ROOT, 'apps/mobile-rn/src')
-  : isMiniappTaro
-    ? join(REPO_ROOT, 'apps/miniapp-taro/src')
-    : null
+// 2026-09:端内源码目录(mobile-rn / miniapp-taro 全量模式扫自己的 src,而非 apps/web)
+// 表里的 srcDir 列为 null ⇒ 落回 WEB_DIR 的调用点见下方 `APP_SRC_DIR ? … : …`。
+const APP_SRC_DIR = CFG.srcDir ? join(REPO_ROOT, CFG.srcDir) : null
 
 function collectSourceFiles(dir, result = []) {
   if (!existsSync(dir)) return result
@@ -436,14 +578,15 @@ function loadMessages() {
     const rels = entries
       .filter((e) => e.endsWith('.json'))
       .flatMap((entry) =>
-        isShared || isCli
-          ? [relOf(join(MESSAGES_DIR, entry))]
-          : [relOf(join(MESSAGES_DIR, entry)), relOf(join(SHARED_DIR, entry))],
+        CFG.mergeShared
+          ? [relOf(join(MESSAGES_DIR, entry)), relOf(join(SHARED_DIR, entry))]
+          : [relOf(join(MESSAGES_DIR, entry))],
       )
     prefetchFaceTexts(rels)
   }
-  // shared 模式:仅读 MESSAGES_DIR(=== SHARED_DIR),不合并
-  if (isShared || isCli) {
+  // 不合并 shared 的端(shared 自身 / cli / api):仅读 MESSAGES_DIR,端内没有可查的引用点
+  // 判据是表里的 mergeShared 列,不是手写的端名单 —— 名单加一端忘加一条 if 就是 G-304 本身。
+  if (!CFG.mergeShared) {
     for (const entry of entries) {
       if (!entry.endsWith('.json')) continue
       try {
@@ -698,6 +841,18 @@ if (langNames.length === 0) {
     for (const u of unreadablePacks.slice(0, 6)) console.error(`   · ${u.file} — ${u.why}`)
     process.exit(2)
   }
+  // 显式点了名而这一族在该面上一个语言包都没有 ⇒ **无法判定**,不按"无事可查"跳过。
+  // 判死只对显式 --target 生效(与 scripts/i18n-diff.mjs 的 resolveTarget 同一非对称):
+  // 不带 --target 走默认 web,而"仓库尚无 messages 目录"是空仓 / 部分 checkout 的合法形态
+  // (由镜像测试第 1 条钉着)。点了端还报绿,就是把"没扫"写成了"扫过"。
+  if (TARGET_IS_EXPLICIT) {
+    console.error(
+      `${C.red}[i18n 键检查] ❌ --target=${TARGET} 在${FACE_LABEL[FACE]}上一个语言包都没枚举到(${relOf(MESSAGES_DIR)})⇒ 无法判定,不按"无事可查"跳过${C.reset}`,
+    )
+    console.error('   枚举到 0 个候选不是"这一端很干净",而是"这一端根本没被扫" —— 拒绝报绿。')
+    console.error(`判定面:${FACE_LABEL[FACE]}`)
+    process.exit(2)
+  }
   console.log(
     `${C.yellow}[i18n 键检查] ${FACE_LABEL[FACE]} 无 ${relOf(MESSAGES_DIR)} 语言包,跳过${C.reset}`,
   )
@@ -910,7 +1065,7 @@ function loadFallbackDict(target) {
     return null
   }
 }
-const FALLBACK_DICT = isMobileRn || isMiniappTaro ? loadFallbackDict(TARGET) : null
+const FALLBACK_DICT = CFG.hookExtract ? loadFallbackDict(TARGET) : null
 
 function extractHookKeys(src) {
   // 端内翻译函数变量有两大类绑定形态,缺一即整文件漏检(2026-09-21 补盲):
@@ -1006,8 +1161,9 @@ for (const file of sourceFiles) {
     continue
   }
 
-  // 端内模式(mobile-rn/miniapp-taro):用 hook 解构提取 + 合并词典/兜底词典双查
-  if (isMobileRn || isMiniappTaro) {
+  // 端内模式(mobile-rn/miniapp-taro,由表里的 hookExtract 列点名):
+  // 用 hook 解构提取 + 合并词典/兜底词典双查
+  if (CFG.hookExtract) {
     // 先去注释:注释里举的反例(如 `禁止 "…后重" + tt('p1','发') 这种拼接`)会被
     // 当成真实调用点提取出 p1,而它本就不是键 —— 注释不参与渲染,不该计入缺失。
     const keys = extractHookKeys(stripComments(src))
@@ -1534,19 +1690,17 @@ const shouldBlock =
 if (shouldBlock) {
   // 方案 A:web/extension 模式下 key 可能在 shared/(基础 key 已迁移)
   // 同时提示端文件和 shared 文件,迁移后 key 可能位于其中之一
-  const messagesRelPath = isExtension
-    ? `packages/i18n/messages/extension/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
-    : isShared
-      ? `packages/i18n/messages/shared/${BASE_LANG}.json`
-      : isCli
-        ? `packages/i18n/messages/cli/${BASE_LANG}.json`
-        : isMobileRn
-          ? `packages/i18n/messages/mobile-rn/${BASE_LANG}.json 或 apps/mobile-rn/src/lib/i18n.ts(messagesZhCN)`
-          : isMiniappTaro
-            ? `packages/i18n/messages/miniapp-taro/${BASE_LANG}.json 或 apps/miniapp-taro/src/lib/theme.ts(messagesZhCN)`
-            : isParityOnlyFlag
-              ? `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
-              : `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
+  // 提示落点由表推导(2026-09-28 G-304):旧的 isXxx 三元链末支同样落回 web,
+  // 只是这条只在判红时打印、不像 MESSAGES_DIR 那样决定"扫谁",所以危害小 —— 但一并收口,
+  // 免得留下"第二处端名单"等着下一个人忘加一端。带端内兜底词典的两端把词典列出来就够,
+  // 不同时列 shared(保持既有对外文案一字不变)。
+  const fallbackDictRel = FALLBACK_DICTS[TARGET]
+  const messagesRelPath =
+    `${CFG.dir}/${BASE_LANG}.json` +
+    (CFG.mergeShared && !fallbackDictRel
+      ? ` 或 packages/i18n/messages/shared/${BASE_LANG}.json`
+      : '') +
+    (fallbackDictRel ? ` 或 ${fallbackDictRel}(messagesZhCN)` : '')
   console.log(
     `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
   )
@@ -1573,19 +1727,9 @@ if (shouldBlock) {
   process.exit(1)
 }
 
-const targetLabel = isExtension
-  ? '[extension] '
-  : isShared
-    ? '[shared] '
-    : isCli
-      ? '[cli] '
-      : isMobileRn
-        ? '[mobile-rn] '
-        : isMiniappTaro
-          ? '[miniapp-taro] '
-          : isParityOnlyFlag
-            ? '[parity-only] '
-            : ''
+// 末行前缀 = 表里的 label(证明这份读数是**被点名那一族**的,不是 web 的复读)。
+// web 的 label 为空:带 --parity-only 时仍打 [parity-only](现状口径,一字未改)。
+const targetLabel = CFG.label || (isParityOnlyFlag ? '[parity-only] ' : '')
 // parity-only 路径(shared / extension / cli / --parity-only)不做源码扫描,
 // 此时 checkedFiles/checkedKeys 恒为 0 —— 只报 0 会让审阅者误判"这道闸在空转"
 // (实测曾据此怀疑 --target=shared 是盲区,注入违规才证伪:它确实会 exit 1)。

@@ -99,7 +99,7 @@ export default function RegistryPage() {
               key={f.key}
               onClick={() => setFilter(f.key)}
               className={cn(
-                'rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                'rounded-sm px-3 py-1 text-sm font-medium transition-colors',
                 filter === f.key
                   ? 'bg-background text-foreground'
                   : 'text-muted-foreground hover:text-foreground',
