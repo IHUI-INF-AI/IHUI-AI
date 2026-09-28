@@ -1,6 +1,5 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// Provenance-watermarked. 本仓库以 Apache-2.0 授权分发，须保留本声明与 LICENSE / NOTICE。
 
 /**
  * 上下文有效性守卫的运行期装配(三道守卫接入主循环的那一层)。
@@ -29,6 +28,8 @@ import {
   retryAfterOverflowDrop,
   findOrphanToolMessages,
   type ChatMessage,
+  // P2:决策原因的闭集类型(值域单一真源在共享包,禁止端内再抄一份字面量)
+  type CompactionDecisionReason,
   type CompressionResult,
   type ProviderUsage,
   type ReverifiedContext,
@@ -71,6 +72,22 @@ export interface GuardedCompaction {
   consecutiveQuickRefills: number;
   /** 原始压缩结果(取 compressedTokens 做真值复测的估算基准;挂起/未压为 null) */
   compression: CompressionResult | null;
+  /**
+   * P2 闭集原因。挂起分支固定 `circuit-breaker`(计数设施复用 RefillBreaker,
+   * 本层不另起一份计数器);其余路径透传压缩链路自己给出的 reason。
+   */
+  reason: CompactionDecisionReason;
+}
+
+/**
+ * 没有自带 reason 的压缩结果(V1 路径 / 测试注入的假 compact)按 trigger 反推一个闭集原因。
+ * 目的不是猜,而是保证**消费面永远拿到闭集值**、不会拿到 undefined 去自己发明字符串。
+ */
+function deriveReasonFromResult(result: CompressionResult): CompactionDecisionReason {
+  if (result.trigger === 'truncated') return 'truncated';
+  if (result.trigger === 'incompressible') return 'incompressible';
+  if (result.compressed === true || result.trigger === 'reclaim') return 'above-threshold';
+  return 'below-threshold';
 }
 
 /**
@@ -160,6 +177,9 @@ export class ContextGuards {
         userDiagnostic: this.diagnosticMessage,
         consecutiveQuickRefills: this.breaker.consecutiveQuickRefills,
         compression: null,
+        // 熔断即**不再发起压缩请求**(上面已直接 return,未调 compact);
+        // 计数与 latch 全部复用 RefillBreaker,本层不另起第二份计数器。
+        reason: 'circuit-breaker',
       };
     }
 
@@ -172,6 +192,7 @@ export class ContextGuards {
       userDiagnostic: null,
       consecutiveQuickRefills: 0,
       compression: result,
+      reason: result.reason ?? deriveReasonFromResult(result),
     };
 
     if (out.compressed) {
@@ -182,6 +203,9 @@ export class ContextGuards {
         this._suspended = true;
         this._diagnosticEmitted = true;
         out.suspended = true;
+        // 本轮确实压了,但压完即熔断 ⇒ 原因如实升级为 circuit-breaker
+        // ("从下一轮起不再发起压缩请求"),compressed:true 仍保留本轮事实。
+        out.reason = 'circuit-breaker';
         out.userDiagnostic = observation.diagnostic ?? this.breaker.diagnosticMessage();
       }
       this._pendingVerify = true;
@@ -282,4 +306,3 @@ export function recoverAfterOverflow(
     orphanToolMessages: orphans,
   };
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

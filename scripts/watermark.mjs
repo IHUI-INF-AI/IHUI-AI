@@ -89,7 +89,7 @@ const BANNER_LINES = [
  */
 const LEGACY_BANNER_LINES = [
   '© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
-  'Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
+  'Provenance-watermarked. 本仓库以 Apache-2.0 授权分发，须保留本声明与 LICENSE / NOTICE。',
 ]
 
 // ---------- 零宽字符编解码(仅用于识别/解码/升级 v1) ----------
