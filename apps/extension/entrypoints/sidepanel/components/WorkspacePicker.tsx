@@ -24,11 +24,17 @@ import {
 /**
  * 失败态要不要出文案 —— aborted / unsupported 一律不出:
  * 取消不是故障,能力缺失时本端今天的行为就是"点了没反应",这里不新造一套提示语。
- * 唯一允许出的两档(denied / not-writable)也只回显 DOMException 的 name,
- * 因为界面文案必须走语言包,而这里没有为它登记任何新键。
+ * 出文案的两档刻意不同形:浏览器拒授权(denied)回显 DOMException 的 name —— 那是可搜的技术标识,
+ * 给用户一句猜出来的中文只会掩盖真因;而"句柄拿到了但没有写权"(not-writable)是人话能讲清的
+ * 事实,用 chat.workspaceNotWritable(2026-09-28 随提交 3a8726494e 五语言同批入包)。
  */
 export function shouldShowFailure(kind: WorkspaceFailureKind): boolean {
   return kind === 'denied' || kind === 'not-writable'
+}
+
+/** 该档失败是不是只回显技术标识(其余可出文案档走语言包)。 */
+export function failureIsTechnical(kind: WorkspaceFailureKind): boolean {
+  return kind === 'denied'
 }
 
 export function WorkspacePicker() {
@@ -54,7 +60,7 @@ export function WorkspacePicker() {
         <span className="min-w-0 flex-1 truncate text-foreground">{workspace.name}</span>
         <button
           type="button"
-          aria-label={t('agent.permission')}
+          aria-label={t('agent.clear')}
           className="shrink-0 cursor-pointer rounded-sm border border-border bg-transparent p-1 text-muted-foreground hover:bg-muted/60"
           data-testid="ext-workspace-clear"
           onClick={() => clearActiveWorkspace()}
@@ -75,14 +81,18 @@ export function WorkspacePicker() {
           void handlePick()
         }}
       >
-        <span>{t('apps.workspace')}</span>
+        <span>{t('chat.selectWorkspace')}</span>
       </button>
       {failure && shouldShowFailure(failure.kind) ? (
         <p
-          className="mt-1 font-mono text-[11px] text-muted-foreground"
+          className={
+            failureIsTechnical(failure.kind)
+              ? 'mt-1 font-mono text-[11px] text-muted-foreground'
+              : 'mt-1 text-[11px] text-muted-foreground'
+          }
           data-testid="ext-workspace-failure"
         >
-          {failure.detail}
+          {failureIsTechnical(failure.kind) ? failure.detail : t('chat.workspaceNotWritable')}
         </p>
       ) : null}
     </div>
