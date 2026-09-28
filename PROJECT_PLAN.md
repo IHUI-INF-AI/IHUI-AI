@@ -16065,3 +16065,31 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
   `tests/app-root-background-focused-route.test.tsx` 用 `readFileSync` 读工作树,而本机 `ChatScreen.tsx`/`App.tsx`
   此刻是他人脏副本 ⇒ 全端跑测出 **2 failed / 68 passed(5 用例红)**,红的不是 HEAD 而是别人的在飞现场
   (守门 118 立项要防的正是这一型)。迁到 `face-reader` 判 HEAD/索引属另一票,派单前先跑一次现读确认存量还在。
+
+- [ ] **G-601 收敛阻塞(实测,不是"推不动"的含糊话):本地 7 枚提交与远端 9 个路径双向冲突,其中两处是"两个会话把同一票各做了一遍"**
+  - **实测口径**:`git merge-base HEAD 9b07e08382` = `7dc9533755`;`node scripts/union-converge.mjs` 干跑落地闸不过 **9 处**,
+    逐文件两侧都动过(不是单边 pass-through):`guardian-runner.mjs`(我 26+/0− vs 它 17+/0−)、
+    `packages/shared/src/stores/auth-store.ts`(72/22 vs 18/5)、`stores/__tests__/contract.test.ts`(51/4 vs 4/2)、
+    `stores/tests/cross-end-parity.test.ts`(6/3 vs 3/2)、`apps/miniapp-taro/src/stores/storage-adapter.ts`(1/1 vs 1/1)、
+    `storage-adapter.test.ts`(6/4 vs 7/4)、`apps/mobile-rn/tests/auth-single-credential-source.test.ts`(48/4 vs 4/3)、
+    `apps/ai-service/app/routers/llm.py`(115/16 vs 244/2 —— **"我方"这一列含别人已并入我本地线的提交,不可按"我的改动"归因**)、
+    `.ihui-agent/archive/PROJECT_PLAN_2026-09-29_auto-archive.md`(559/0 vs 800/0,两侧纯追加)。
+    工具刻意"不猜、不选边",`--resolve` 要求逐文件交整份内容并由它做两侧丢行断言 —— 所以这不是可以顺手过的关。
+  - **撞①(同票双做,G-363/#28)**:对侧 `G-456` 已把 `isAuthenticated` 收成派生并落 `merge: 剥该键` + `partialize 只落 user`;
+    我的 `d0de6ce4a5` 做的是**同一条判据的另一半** —— 多出 `selectIsAuthenticated` 订阅出口与 `setStateDerived`(写面携带该键一律忽略并重算)。
+    判据底线:两边语义不矛盾,**取"对侧持久面 ⊕ 我写面/选择器"是并集而非选边**;但须逐行核两侧注释是否互相顶结论,不得整文件替换。
+  - **撞②(同票双做 + 号码撞死,#33)**:两侧在 runner **同一条数组位置**各注册一道"按凭据存在性豁免"门,**id 都是 157**
+    (我 157=`check-gate-presence-exemption.mjs`,它 157=`check-credential-presence-bypass.mjs`,G-459)。
+    现读远端面 `9b07e08382` 里 **它注册的那个门体不存在**(`git ls-tree -r 9b07e08382 | grep -c check-credential-presence-bypass` = 0,
+    盘上也没有,索引里也没有)⇒ 远端此刻自己就踩着守门 89 的 R9"注册的门体不在面上"(与我上一枚 `6f0c539d85` 修的是同一型);
+    而并集若照单全收还会有 R5 撞号。**处置只有一条不越权的路**:保留有体、有自检、有镜像的一侧,另一侧的注册由**其持有人**决定
+    补体或撤注 —— 本会话不得替别人删注册块(§16 越权;删一行等于关掉那一层的闸)。
+  - **未受影响的事实**:7 枚本地提交都在 HEAD 线上且逐枚已回读声明路径;`.workbuddy` 的恢复源刷新实测已追平到
+    `8cbc85847`(守护日志行),所以"没推上去"不等于"只在工作树里"。工作树**未被卷入合并**
+    (converge 走 merge-tree/临时索引,`MERGE_HEAD` 实测不存在;期间我临时替换过一次 `RootNavigator.tsx` 做归因,
+    已还原并验证与 HEAD 逐字节一致)。
+  - **接手顺序建议(每条都可机器复核)**:① 先解 ①(纯并集,shared typecheck + 三端用例可当场验);
+    ② 再解 ② 的号码(现读两面上数值 id 最大 **157**,下一个空闲号 **158**;不得靠"改小一点避开"——撞号判据是 R5 全局唯一);
+    ③ `llm.py`/`guardian-runner.mjs` 之外的 4 个测试与 storage-adapter 族按 ① 的同一手法并;
+    ④ 归档文件两侧纯追加,按行多重集并;⑤ 全部解完再跑一次 `union-converge`(它会替我的判断做两侧丢行断言),
+    再 `git-sync-converge`,收尾仍只认 `git merge-base --is-ancestor <我的 sha> $(git rev-parse FETCH_HEAD)` 逐枚列结果 + 树内容抽查。
