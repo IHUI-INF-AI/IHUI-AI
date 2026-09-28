@@ -5,113 +5,73 @@
 /**
  * 守门 49(check-migration-bookkeeping.mjs)的镜像测试。
  *   T1–T6 = B10「journal 登记表空闲性」(2026-09-25 立)
- *   M1–M8 = B1「journal ↔ drizzle/*.sql 双射」的**判定面 / 归属**改造(2026-09-27 立)
+ *   M1–M8 = B1「journal ↔ drizzle/*.sql 双射」的**判定面 / 归属**(2026-09-27 立)
+ *   W1–W4 = 取材面收口到本仓现行口径(2026-09-28 立):默认档判 **HEAD blob**,`--staged` 判索引,
+ *           `--worktree` 降为人工逃生舱;两面旗同给判死;任一面取不到 ⇒ exit 2 且不回落。
  *
  * 取证分两层(AGENTS.md §22c/§22d):
- *   · 判据函数(sqlBasenamesFromListing / diffJournalVsSql)**直接 import** 源脚本的导出,
- *     不抄第二份 —— 源脚本自 2026-09-27 起带 isDirectRun 守卫,import 它不再有副作用;
+ *   · 判据函数与夹具**直接 import** 源脚本的导出,不抄第二份 —— 源脚本带 isDirectRun 守卫,
+ *     import 它不再有副作用;
  *   · 端到端(退出码、逐字输出)仍要 spawn CLI,因为那正是守门对外的形状。
  *
  * ⚠️ 全部 spawn 都必须带 `--root <夹具>`:源脚本的 ROOT 由 import.meta.url 推导(§15),
  *    不再看 process.cwd()。靠 cwd 定位夹具的老写法会在"账面绿"的前提下跑去审真仓 ——
  *    守门 70 的镜像测试 13/14 恒红就是这一型被发现的,本文件的 runGate() 已把该通道封死。
  *
- * T1–T6 钉死 B10(空闲/在飞两态、既有退出码语义一字不动、未判定不得记为空闲);
- * M 族钉死 B1 的四件事:
- *   M1/M2 纯判据的正反两向(集合运算与"恰好一层"的枚举口径)
- *   M3 F 型:别人的未跟踪 .sql 不得让 `--staged` 判红(立项缺陷本身)
- *   M4 C 型:journal 在册而 .sql 只在盘上 ⇒ `--staged` 必须判红(旧版在这一型是**假绿**)
- *   M5 真实拦截力未削弱:.sql 已入索引而 journal 未登记 ⇒ 两档都仍判红
- *   M6 全量档逐字不变:同一夹具下默认档照旧按磁盘判红,且不出现任何索引面字样
- *   M7 索引面取不到 ⇒ exit 2,既不冒红也绝不记绿
- *   M8 反向锁:不得用"跳过/放宽"来消除 false red(判据函数必须仍被两档共用)
+ * ⚠️ 2026-09-28 的口径变更让 T4/T5/M3–M7 的**期望值**整体翻转(默认档不再判磁盘):
+ *    旧断言写的是"默认档必须看得见盘上未跟踪的迁移",那是把"默认=磁盘"当规格。
+ *    现规格里那一格由 `--worktree` 承接,并且每条都配**同一夹具上的三档对照**,
+ *    否则"改了判据"与"改了期望"在账面上分不清(§22c:测试从防线变成掩体)。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, writeFileSync, readFileSync } from 'node:fs'
-import { spawnSync } from 'node:child_process'
+import { writeFileSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { resolveGitBin } from '../lib/gitdir.mjs'
 import {
   __test__ as GATE49,
   sqlBasenamesFromListing,
   diffJournalVsSql,
+  faceFromArgv,
+  faceJournalSpec,
+  faceSqlListArgs,
+  worktreeOnlyDirtyPaths,
+  parsePorcelainZ,
+  writeGateFixture,
+  mkFixtureRepo,
+  runGateAt,
+  gitIn,
+  fixtureTagOf,
+  FIXTURE_WATCH_OTHERS,
 } from '../check-migration-bookkeeping.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 const GATE = join(REPO, 'scripts', 'check-migration-bookkeeping.mjs')
-const GIT = resolveGitBin()
+const RUNNER = join(REPO, 'scripts', 'guardian-runner.mjs')
+const JOURNAL_REL = 'packages/database/drizzle/meta/_journal.json'
+const MIG_DIR_REL = 'packages/database/drizzle'
 
-const ANSI = /\x1b\[[0-9;]*m/g
-const strip = (s) => (s ?? '').replace(ANSI, '')
+/** B10_WATCH 的五路径(journal + 另外四个,与源脚本的 B10_WATCH 同源;改动两处一起改) */
+const WATCH = [JOURNAL_REL, ...FIXTURE_WATCH_OTHERS]
 
-/** B10_WATCH 的五路径(与源脚本同源;改动时两处一起改) */
-const WATCH = [
-  'packages/database/drizzle/meta/_journal.json',
-  'packages/database/src/schema/chat.ts',
-  'packages/database/src/schema/relation-tables.ts',
-  'apps/api/src/routes/chat.ts',
-  'apps/api/src/db/chat-queries.ts',
-]
-
-const tagOf = (i) => `2026092500000${i}_mirror_fixture_${i}`
-
-/** 造一份 B1-B5 全绿的最小记账夹具(n 条迁移) */
-function writeFixture(root, n) {
-  const drizzle = join(root, 'packages/database/drizzle')
-  mkdirSync(join(drizzle, 'meta'), { recursive: true })
-  const entries = Array.from({ length: n }, (_, i) => ({
-    idx: i,
-    tag: tagOf(i),
-    when: 1760000000000 + i * 1000,
-  }))
-  writeFileSync(
-    join(drizzle, 'meta/_journal.json'),
-    `${JSON.stringify({ version: 7, dialect: 'postgresql', entries }, null, 2)}\n`,
-  )
-  for (const e of entries) writeFileSync(join(drizzle, `${e.tag}.sql`), 'SELECT 1;\n')
-  for (const p of WATCH.slice(1)) {
-    mkdirSync(dirname(join(root, p)), { recursive: true })
-    writeFileSync(join(root, p), 'export {}\n')
-  }
-}
-
-function gitAt(cwd, args) {
-  const r = spawnSync(
-    GIT,
-    ['-c', 'safe.directory=*', '-c', 'user.name=f', '-c', 'user.email=f@l', '-C', cwd, ...args],
-    {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 60000,
-    },
-  )
-  assert.equal(r.status, 0, `git ${args.join(' ')} 失败: ${r.stderr}`)
-  return r.stdout
+/**
+ * 夹具与 spawn 一律**委托源脚本导出的那一份实现**(§22c:不得在测试里抄第二份夹具)。
+ * 本文件只保留薄包装:runGate 加 `--root`、mkCleanRepo 换前缀。
+ */
+function gitAt(cwd, a) {
+  return gitIn(cwd, a)
 }
 
 /** 建一个"干净已提交"的 scratch 仓(五路径全 tracked + 无未跟踪 .sql) */
 function mkCleanRepo(prefix) {
-  const dir = mkScratch(prefix)
-  writeFixture(dir, 2)
-  gitAt(dir, ['init', '-q'])
-  gitAt(dir, ['add', '-A'])
-  gitAt(dir, ['commit', '-q', '--no-verify', '-m', 'fixture'])
-  return dir
+  return mkFixtureRepo(prefix, 2)
 }
 
 function runGate(cwd, extra = []) {
   // `--root <夹具>` 是**强制**的:源脚本 ROOT 由 import.meta.url 推导,不看 cwd(§15)。
-  const r = spawnSync(process.execPath, [GATE, ...extra, '--root', cwd], {
-    cwd,
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 120000,
-  })
-  return { code: r.status, out: strip(r.stdout), err: strip(r.stderr) }
+  return runGateAt(cwd, extra)
 }
 
 /** B1-B5 的结论行(排除 B10 段里带"B1-B5"字样的自述行) */
@@ -120,7 +80,7 @@ const b15Lines = (out) =>
 
 /**
  * 让 journal **只在工作树**变脏而结构不变(追加一个尾部换行)。
- * 反例存档:第一版这里写的是"整份覆盖成 entries:[]",那会让 B5 提前 process.exit(1),
+ * 反例存档:第一版这里写的是"整份覆盖成 entries:[]",那会让 B5 提前判死,
  * 于是"在飞态"根本没跑到 B1-B5,T3 拿到空数组 —— 测的成了夹具而不是判据。
  */
 function dirtyJournalInWorktree(dir) {
@@ -172,19 +132,21 @@ test('T3 B1-B5 结论行在空闲/在飞两态逐字一致', () => {
   }
 })
 
-test('T4 只有未跟踪 .sql 时:B1-B5 仍绿但 B10 判在飞并点名', () => {
+test('T4 只有未跟踪 .sql 时:HEAD/索引两档 B1-B5 仍绿,B10 判在飞并点名,磁盘档判红', () => {
   const dir = mkCleanRepo('gate49-idle-t4')
   try {
-    // 追加第 3 条:journal 提交落地(干净),.sql 留在未跟踪面 —— B1 靠磁盘文件仍绿
-    writeFixture(dir, 3)
-    gitAt(dir, ['add', '--', WATCH[0]])
-    gitAt(dir, ['commit', '-q', '--no-verify', '-m', 'journal only'])
+    // 只在盘上丢一枚未跟踪 .sql,journal 三个面都不动 —— 这才是"别人在飞的迁移"的本相。
+    // (旧写法是"提交 journal 第 3 条 + .sql 留未跟踪":在 2026-09-28 的口径下 HEAD 档
+    //  本就该判红(journal 在册而 .sql 不在 HEAD),那不再是"在飞噪声",而是真缺东西。)
+    writeFileSync(join(dir, MIG_DIR_REL, `${fixtureTagOf(2)}.sql`), 'SELECT 9;\n')
     const d = runGate(dir)
-    assert.equal(d.code, 0)
-    assert.match(d.out, /B1 双向一一对应\(3 ↔ 3\)/, 'B1 必须是绿的,否则本例没证到"只有未跟踪 .sql"')
-    assert.match(d.out, /mirror_fixture_2\.sql 未跟踪的迁移文件\(在飞\)/)
+    assert.equal(d.code, 0, `HEAD 档不该为未跟踪文件背红:\n${d.out}${d.err}`)
+    assert.match(d.out, /B1 双向一一对应\(2 ↔ 2\)/, 'B1 必须绿,否则本例没证到"只有未跟踪 .sql"')
+    assert.match(d.out, /_gate49_fixture_2\.sql 未跟踪的迁移文件\(在飞\)/)
     assert.match(d.out, /B10 未判定,有人在飞/)
     assert.equal(runGate(dir, ['--require-idle']).code, 1)
+    // 配对:同一夹具的磁盘档必须看得见它(那一格没丢,只是不再默认)
+    assert.equal(runGate(dir, ['--worktree']).code, 1, '磁盘档必须仍判红,否则逃生舱名不副实')
   } finally {
     rmScratch(dir)
   }
@@ -193,12 +155,22 @@ test('T4 只有未跟踪 .sql 时:B1-B5 仍绿但 B10 判在飞并点名', () =>
 test('T5 取不到 git 状态:判「未判定」并给原因,绝不得记为空闲', () => {
   const dir = mkScratch('gate49-idle-t5')
   try {
-    writeFixture(dir, 2) // 不 git init:整目录不在任何工作树内
+    writeGateFixture(dir, 2) // 不 git init:整目录不在任何工作树内
+    // 2026-09-28 口径:默认档判 HEAD ⇒ 非 git 目录**取不到面**,必须 exit 2(不得记绿),
+    // 也不得再像旧版那样静默退化成"按磁盘判所以 exit 0"。
     const d = runGate(dir)
-    assert.equal(d.code, 0, '未判定同样不得改默认退出码')
-    assert.match(d.out, /B10 未判定\(无法取证\):/)
-    assert.ok(!/B10 空闲/.test(d.out), '取不到证据时记为空闲 = 把"没查"当成"查过且干净"')
-    assert.equal(runGate(dir, ['--require-idle']).code, 1, '未判定在问责档下不等于通过')
+    assert.equal(d.code, 2, `非 git 目录的默认档必须判死,实得 ${d.code}:\n${d.out}${d.err}`)
+    assert.match(d.err, /无法判定\(exit 2\)/)
+    // 逃生档仍能判(它本来就是磁盘面),且 B10 必须报"未判定(无法取证)"而不是"空闲"
+    const w = runGate(dir, ['--worktree'])
+    assert.equal(w.code, 0, '磁盘面不依赖 git,B1-B5 应照常判:\n' + w.out + w.err)
+    assert.match(w.out, /B10 未判定\(无法取证\):/)
+    assert.ok(!/B10 空闲/.test(w.out), '取不到证据时记为空闲 = 把"没查"当成"查过且干净"')
+    assert.equal(
+      runGate(dir, ['--worktree', '--require-idle']).code,
+      1,
+      '未判定在问责档下不等于通过',
+    )
   } finally {
     rmScratch(dir)
   }
@@ -276,18 +248,23 @@ test('M2b §22c 身份锁:测试 import 的就是源脚本那两份判据(不得
   assert.equal(GATE49.MIG_DIR_REL, 'packages/database/drizzle')
 })
 
-test('M3 F 型(立项缺陷本身):别人的未跟踪 .sql 不得让 --staged 判红,但默认档必须仍判红', () => {
+test('M3 F 型(立项缺陷本身):别人的未跟踪 .sql 不得让 --staged / HEAD 档判红,磁盘档必须判红', () => {
   const dir = mkCleanRepo('gate49-b1-m3')
   try {
     addDiskSql(dir, '20260927099999_foreign_inflight')
-    const d = runGate(dir)
-    assert.equal(d.code, 1, '全量档(磁盘面)是本票的问责面,一行都不许松')
-    assert.match(d.out, /B1 \.sql 存在但 journal 未登记\(1\)/)
     const s = runGate(dir, ['--staged'])
     assert.equal(s.code, 0, `索引面里没有那枚未跟踪 .sql ⇒ 本枚提交不该为它背红:\n${s.out}${s.err}`)
     assert.match(s.out, /B1 双向一一对应\(2 ↔ 2\)/)
-    assert.match(s.out, /B1 判定面=索引\(2 个 \.sql 在册\)/)
-    assert.match(s.out, /盘上另有 1 枚未跟踪 \.sql 不计入本面/, '"没算进来"与"盘上没有"必须可分')
+    assert.match(s.out, /B1 判定面=索引 blob.*\(2 个 \.sql 在册\)/)
+    assert.match(s.out, /另有 1 枚未跟踪 \.sql/, '"没算进来"与"盘上没有"必须可分')
+    // 2026-09-28:默认档改判 HEAD —— 那枚未跟踪文件同样不在 HEAD 里,所以默认档也必须绿。
+    const d = runGate(dir)
+    assert.equal(d.code, 0, `HEAD 档里没有它:\n${d.out}${d.err}`)
+    assert.match(d.out, /B1 判定面=HEAD blob/)
+    // 配对:磁盘档(逃生舱)必须仍看得见它,否则"收口"就把这一格弄丢了
+    const w = runGate(dir, ['--worktree'])
+    assert.equal(w.code, 1, '磁盘档必须仍判红(旧默认档的可见性由 --worktree 承接)')
+    assert.match(w.out, /B1 \.sql 存在但 journal 未登记\(1\)/)
   } finally {
     rmScratch(dir)
   }
@@ -296,76 +273,72 @@ test('M3 F 型(立项缺陷本身):别人的未跟踪 .sql 不得让 --staged �
 test('M4 C 型(反向:旧版在这一型是假绿):journal 在册而 .sql 未入索引 ⇒ --staged 必须判红', () => {
   const dir = mkCleanRepo('gate49-b1-m4')
   try {
-    writeFixture(dir, 3) // journal 追加第 3 条 + 盘上写第 3 枚 .sql
+    writeGateFixture(dir, 3) // journal 追加第 3 条 + 盘上写第 3 枚 .sql
     gitAt(dir, ['add', '--', WATCH[0]]) // **只**把 journal 推进索引(第 3 枚 .sql 留在未跟踪面)
-    const d = runGate(dir)
-    assert.equal(d.code, 0, '默认档按磁盘读:盘上 3 ↔ 3 ⇒ 绿(这正是旧版 --staged 的假绿来源)')
     const s = runGate(dir, ['--staged'])
     assert.equal(s.code, 1, '索引里有 journal 条目而对应 .sql 不在索引 ⇒ 本枚提交真的缺东西,必须红')
     assert.match(s.out, /B1 journal 有条目但缺 \.sql\(1\)/)
-    assert.match(s.out, /盘上另有 1 枚未跟踪 \.sql 不计入本面/)
+    assert.match(s.out, /另有 1 枚未跟踪 \.sql/)
+    const d = runGate(dir)
+    assert.equal(d.code, 0, '默认档判 HEAD:HEAD 里 journal 仍是 2 条 ⇒ 不为本枚在飞的改动背红')
+    assert.equal(runGate(dir, ['--worktree']).code, 0, '磁盘面盘上 3 ↔ 3 ⇒ 绿')
   } finally {
     rmScratch(dir)
   }
 })
 
-test('M5 真实拦截力未削弱:.sql 已入索引而 journal 未登记 ⇒ 两档都仍判红并点名', () => {
+test('M5 真实拦截力未削弱:.sql 已入索引而 journal 未登记 ⇒ 索引档与磁盘档都判红并点名', () => {
   const dir = mkCleanRepo('gate49-b1-m5')
   try {
     addDiskSql(dir, '20260927088888_staged_but_unlisted')
-    gitAt(dir, ['add', '--', 'packages/database/drizzle'])
-    const d = runGate(dir)
-    assert.equal(d.code, 1)
+    gitAt(dir, ['add', '--', MIG_DIR_REL])
     const s = runGate(dir, ['--staged'])
     assert.equal(s.code, 1, '把违规 staged 进来之后归属就是本枚 ⇒ 不得因"改造只讲归属"而放过')
     assert.match(s.out, /B1 \.sql 存在但 journal 未登记\(1\): 20260927088888_staged_but_unlisted/)
-    assert.match(s.out, /B1 判定面=索引\(3 个 \.sql 在册\)/)
+    assert.match(s.out, /B1 判定面=索引 blob.*\(3 个 \.sql 在册\)/)
+    assert.equal(runGate(dir, ['--worktree']).code, 1, '磁盘档同样必须红')
+    // HEAD 档:那枚文件从未入库 ⇒ HEAD 自身合法,不背这一格(归属判据,不是放宽判据)
+    assert.equal(runGate(dir).code, 0)
   } finally {
     rmScratch(dir)
   }
 })
 
-test('M6 全量档逐字不变:默认档不得出现任何索引面字样,结论行保持既有形状', () => {
+test('M6 默认档不得是磁盘档:必须点名 HEAD blob,且结论行形状保持既有', () => {
   const dir = mkCleanRepo('gate49-b1-m6')
   try {
     const clean = runGate(dir)
     assert.equal(clean.code, 0)
-    for (const banned of ['判定面=索引', '不计入本面', '[索引面]', '索引清单取不到'])
-      assert.ok(
-        !clean.out.includes(banned) && !clean.err.includes(banned),
-        `默认档出现了 ${banned}`,
-      )
-    assert.match(clean.out, /B1 双向一一对应\(2 ↔ 2\)/, '默认档的 B1 结论行必须是改动前那一条')
-    addDiskSql(dir, '20260927077777_only_on_disk')
-    const dirty = runGate(dir)
-    assert.match(
-      dirty.out,
-      /B1 \.sql 存在但 journal 未登记\(1\)/,
-      '默认档必须仍看得见盘上未跟踪的迁移',
-    )
+    assert.match(clean.out, /判定面 = HEAD blob/, '默认档必须自报它判的是 HEAD')
+    assert.match(clean.out, /B1 双向一一对应\(2 ↔ 2\)/, 'B1 结论行的形状不得因收口而变')
+    // 反向锁:默认档不得出现"工作树(磁盘)"字样
+    assert.ok(!/判定面 = 工作树/.test(clean.out), '默认档又退回磁盘面了(本票要消灭的那一型)')
   } finally {
     rmScratch(dir)
   }
 })
 
-test('M6b 两档同面时结论一致:索引==HEAD==盘上(干净仓)⇒ B1 两档给同一结论', () => {
+test('M6b 三面同面时结论一致:索引==HEAD==盘上(干净仓)⇒ 三档给同一结论', () => {
   const dir = mkCleanRepo('gate49-b1-m6b')
   try {
     const d = runGate(dir)
     const s = runGate(dir, ['--staged'])
+    const w = runGate(dir, ['--worktree'])
     assert.equal(d.code, 0)
     assert.equal(s.code, 0, '面重合时不得无中生有(否则本门在提交链上恒红)')
-    const b1 = (o) => (o.match(/B1 [^\n]*/) ?? ['<无>'])[0]
+    assert.equal(w.code, 0)
+    const b1 = (o) => (o.match(/✓ B1 [^\n]*/) ?? ['<无>'])[0]
     assert.equal(b1(s.out), b1(d.out), '两档的 B1 结论必须逐字相同')
+    assert.equal(b1(w.out), b1(d.out), '磁盘档同理')
   } finally {
     rmScratch(dir)
   }
 })
 
-test('M7 索引面取不到:exit 2「无法判定」,既不冒红也绝不记绿', () => {
+test('M7 索引面取不到:exit 2「无法判定」,既不冒红也绝不记绿,也不回落到磁盘面', () => {
   const dir = mkScratch('gate49-b1-m7')
   try {
-    writeFixture(dir, 2) // 不 git init:整目录不在任何工作树内 ⇒ 索引面无从取证
+    writeGateFixture(dir, 2) // 不 git init:整目录不在任何工作树内 ⇒ 索引面无从取证
     const s = runGate(dir, ['--staged'])
     assert.equal(s.code, 2, `取不到判定面必须 exit 2,实得 ${s.code}:\n${s.out}${s.err}`)
     assert.match(s.err, /无法判定\(exit 2\)/)
@@ -373,7 +346,11 @@ test('M7 索引面取不到:exit 2「无法判定」,既不冒红也绝不记绿
       !/B1 双向一一对应/.test(s.out),
       '没判过就不许出现 B1 的绿结论(把没判写成判过了 = 最高成本)',
     )
-    assert.equal(runGate(dir).code, 0, '默认档按磁盘判,不受索引面影响(逐字不变)')
+    // 关键新增:取不到索引面**不得回落**到磁盘面 —— 回落就是把"没判"写成"判过了"
+    assert.ok(
+      !/全部通过/.test(s.out + s.err),
+      '索引面取不到却打出通过结论 = 静默回落(守门 93/124 同型)',
+    )
   } finally {
     rmScratch(dir)
   }
@@ -382,13 +359,103 @@ test('M7 索引面取不到:exit 2「无法判定」,既不冒红也绝不记绿
 test('M8 反向锁:本枚在册的红不得被"另有未判定"洗掉(严重度优先级不可逆)', () => {
   const dir = mkCleanRepo('gate49-b1-m8')
   try {
-    writeFixture(dir, 3)
+    writeGateFixture(dir, 3)
     gitAt(dir, ['add', '--', WATCH[0]]) // 本枚自己的红:journal 在册、.sql 不在册
     addDiskSql(dir, '20260927066666_foreign_second') // 同时别人还在飞一枚
     const s = runGate(dir, ['--staged'])
     assert.equal(s.code, 1, '既有本枚的红又有未判定项 ⇒ 必须按本枚的红判,不得整体降档')
     assert.match(s.out, /B1 journal 有条目但缺 \.sql\(1\)/)
-    assert.match(s.out, /盘上另有 2 枚未跟踪 \.sql 不计入本面/, '未判定那一格仍要点名报数,不得静默')
+    assert.match(s.out, /另有 2 枚未跟踪 \.sql/, '未判定那一格仍要点名报数,不得静默')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// W 族:2026-09-28 取材面收口的**装车证明 + 反向锁**
+//
+// W1 = 只读地核 runner 注册项(本门确实在提交链上、确实是 blocking、跳过变量确实在位);
+// W2 = 源码级反向锁:不得再出现"默认判磁盘"的写法(判据不得 readFileSync 被审正文);
+// W3 = 三面取材的构造面证明(HEAD / 索引 / 磁盘各取哪一份规格互不相同);
+// W4 = 两面旗同给 ⇒ exit 2(端到面,不只是纯函数层)。
+// W1/W2 都是本仓"门存在、判据对、无人调度"与"文档写了跑不通的出路"两型的防线。
+// ═══════════════════════════════════════════════════════════════════════════
+
+test('W1 装车证明:runner 里这条门注册为 blocking,跳过变量与脚本自读同名(只读断言)', () => {
+  const runner = readFileSync(RUNNER, 'utf8')
+  const i = runner.indexOf("script: 'check-migration-bookkeeping.mjs'")
+  assert.ok(i > 0, 'runner 里没有这条门的 script 行 —— 门被摘线了')
+  // 取该 script 行所在的注册块(向前找 id:、向后找下一个 id:)
+  const head = runner.lastIndexOf('id:', i)
+  const next = runner.indexOf('\n    id:', i)
+  const block = runner.slice(head, next > 0 ? next : i + 1200)
+  assert.match(block, /id: '49'/, '注册项的 id 必须是 49')
+  assert.match(block, /mode: 'blocking'/, '本门必须是 blocking(降成 warn 等于没人被打断)')
+  assert.ok(
+    !/mode: 'warn'/.test(block),
+    `同一注册块里出现 warn 说明定级被改:\n${block.slice(0, 400)}`,
+  )
+  // 跳过变量的**成对性**:runner 声明了 skipEnv ⇒ 脚本必须读它;脚本读它 ⇒ 两侧名字必须同。
+  const declared = /skipEnv: '([A-Z0-9_]+)'/.exec(block)
+  const src = readFileSync(GATE, 'utf8')
+  const read = /process\.env\.(HUSKY_SKIP_[A-Z0-9_]+)/.exec(src)
+  assert.ok(read, '脚本里没有应急跳过出口 —— 恒红时唯一出路会退化成 --no-verify')
+  if (declared)
+    assert.equal(
+      declared[1],
+      read[1],
+      `runner 声明的 skipEnv(${declared[1]})与脚本自读的(${read[1]})不同名 —— 假逃生舱`,
+    )
+})
+
+test('W2 反向锁:被审正文不得再由 readFileSync 从磁盘取(默认档必须是 HEAD)', () => {
+  const src = readFileSync(GATE, 'utf8')
+  // ① 旧的"默认判磁盘"写法不得回来:判据里不得出现按绝对路径读 journal 的调用
+  for (const banned of ['readFileSync(JOURNAL', 'readFileSync(join(ROOT', 'readFileSync(DIR'])
+    assert.ok(
+      !src.includes(banned),
+      `源码里又出现 ${banned} —— 那就是按磁盘判被审正文(本票要消灭的形态)`,
+    )
+  // ② 三面取材必须走统一层
+  assert.ok(/catBatch\(/.test(src), '正文取材必须走 face-reader 的 catBatch')
+  assert.ok(/readWorktreeFile\(/.test(src), '磁盘逃生舱必须走 face-reader 的 readWorktreeFile')
+  assert.ok(/selectFace\(/.test(src), '面旗选择必须走 face-reader 的 selectFace(三门共用一条)')
+  // ③ **运行时**证明默认面不是 worktree(正则会被注释绕过,函数不会)
+  assert.equal(faceFromArgv([]).face, 'head', '默认档退回磁盘 = 本票的立项缺陷复活')
+  assert.equal(faceJournalSpec('head'), `HEAD:${JOURNAL_REL}`)
+  assert.equal(faceJournalSpec('staged'), `:${JOURNAL_REL}`)
+  assert.deepEqual(faceSqlListArgs('head'), [
+    'ls-tree',
+    '-r',
+    '--name-only',
+    '-z',
+    'HEAD',
+    '--',
+    MIG_DIR_REL,
+  ])
+})
+
+test('W3 仅工作树脏的判序:M␠/ MM / ?? 都不得被算进来(正反成对)', () => {
+  const rows = parsePorcelainZ(
+    [
+      ' M packages/database/drizzle/meta/_journal.json',
+      'M  packages/database/drizzle/a.sql',
+      'MM packages/database/drizzle/b.sql',
+      '?? packages/database/drizzle/c.sql',
+    ].join('\0'),
+  )
+  assert.deepEqual(worktreeOnlyDirtyPaths(rows), ['packages/database/drizzle/meta/_journal.json'])
+  assert.deepEqual(worktreeOnlyDirtyPaths([]), [])
+  assert.deepEqual(worktreeOnlyDirtyPaths(null), [])
+})
+
+test('W4 两面旗同给 ⇒ exit 2(端到面,不只是纯函数层)', () => {
+  const dir = mkCleanRepo('gate49-w4')
+  try {
+    const r = runGate(dir, ['--staged', '--worktree'])
+    assert.equal(r.code, 2, `两个互斥面同时给必须判死,实得 ${r.code}:\n${r.out}${r.err}`)
+    assert.match(r.err, /不得同用/)
+    assert.ok(!/全部通过/.test(r.out + r.err), '判死不得被读成通过')
   } finally {
     rmScratch(dir)
   }

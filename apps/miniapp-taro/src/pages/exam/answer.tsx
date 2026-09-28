@@ -249,7 +249,7 @@ export default function ExamAnswer() {
         <View className="mt-[32rpx] flex gap-[16rpx]">
           {currentIdx > 0 && (
             <View
-              className="h-[100rpx] flex-1 flex items-center justify-center rounded-xl bg-card"
+              className="h-[100rpx] flex-1 flex items-center justify-center ui-card rounded-lg bg-card"
               hoverClass="opacity-60"
               onClick={prev}
             >
@@ -260,7 +260,7 @@ export default function ExamAnswer() {
           )}
           {currentIdx < questions.length - 1 ? (
             <View
-              className="h-[100rpx] flex-1 flex items-center justify-center rounded-xl bg-card"
+              className="h-[100rpx] flex-1 flex items-center justify-center ui-card rounded-lg bg-card"
               hoverClass="opacity-60"
               onClick={next}
             >
@@ -270,7 +270,7 @@ export default function ExamAnswer() {
             </View>
           ) : (
             <View
-              className="h-[100rpx] flex-1 flex items-center justify-center rounded-xl bg-primary"
+              className="h-[100rpx] flex-1 flex items-center justify-center ui-control rounded-sm bg-primary"
               hoverClass="opacity-60"
               onClick={onSubmit}
             >

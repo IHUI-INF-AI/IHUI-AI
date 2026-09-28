@@ -368,7 +368,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             ref={dropdownRef}
             role="dialog"
             aria-label={labels.favoritesAndHistory}
-            className="absolute right-2 top-11 z-50 flex w-72 flex-col rounded-xl border border-border bg-popover p-1.5 shadow-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified"
+            className="absolute right-2 top-11 z-50 flex w-72 flex-col ui-popover rounded-md border border-border bg-popover p-1.5 shadow-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified"
           >
             {/* tab 切换 */}
             <div className="flex items-center gap-0.5 px-1 pb-1">
