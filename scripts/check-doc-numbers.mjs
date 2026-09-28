@@ -527,18 +527,23 @@ function main(argv) {
     return 2
   }
   const plan = planAccountability({ face, touched, strict })
+  // 按**文档**分别问责:strict/worktree 面全判;提交链面只判"本轮被触及的那份" ——
+  // 否则改 zh 的那枚会为 en 的旧账挡路(别人欠的债钉红无关提交,§12e 同型),
+  // 未触及文档的偏差如实计入"漂移只报数",它被改动的那枚必判。
+  const judgeAll = plan.enforce && (strict || face === 'worktree')
+  const driftDocs = []
   for (const [rel, text] of docsText) {
     const r = findStaleClaims(text, derived.numbers)
-    candidates += r.checked
+    const g = rel === 'README.md' ? checkGeneratedBlock(text, derived.numbers) : { ok: true, problems: [], checked: 0 }
+    if (!judgeAll && !touched.includes(rel)) {
+      const n = r.violations.length + g.problems.length + (r.danglingBlock ? 1 : 0)
+      if (n > 0) driftDocs.push({ rel, n })
+      continue
+    }
+    candidates += r.checked + g.checked
     for (const v of r.violations) violations.push({ ...v, file: rel })
     if (r.danglingBlock) blockProblems.push(`${rel}:生成块未闭合(有 begin 无 end)`)
-    if (rel === 'README.md') {
-      const g = checkGeneratedBlock(text, derived.numbers)
-      // 生成块里的每一行都是一次真对账 ⇒ 计入候选数,否则"正文不重复数字"的合规 README 会被
-      // 判成尺子失明(decide 的 candidates===0 那一支)
-      candidates += g.checked
-      if (!g.ok) blockProblems.push(...g.problems.map((p) => `README.md:${p}`))
-    }
+    if (!g.ok) blockProblems.push(...g.problems.map((p) => `${rel}:${p}`))
   }
 
   const descArg = readArg(argv, '--description')
@@ -567,8 +572,9 @@ function main(argv) {
     candidates,
     scopeApplicable: plan.enforce,
   })
+  const driftCount = driftDocs.reduce((a, d) => a + d.n, 0)
   if (!plan.enforce) {
-    const drift = violations.length + blockProblems.length + descProblems.length
+    const drift = driftCount + violations.length + blockProblems.length + descProblems.length
     console.log(`face=${face} · 现算 ${Object.keys(derived.numbers).length} 个数字 · ${plan.why}`)
     if (drift > 0) console.log(`   当前漂移 ${drift} 处(只报数)—— 明细:node scripts/check-doc-numbers.mjs --strict`)
     return code
@@ -576,6 +582,8 @@ function main(argv) {
   console.log(
     `face=${face} · 现算 ${Object.keys(derived.numbers).length} 个数字 · 散文/简介命中 ${candidates} 处数字 · 守门 ${derived.numbers.guardianGates ?? '?'} 道 · 问责:${plan.why}`,
   )
+  if (driftDocs.length > 0 && !judgeAll)
+    console.log(`   ${driftDocs.map((d) => `${d.rel}(${d.n} 处漂移)`).join('、')} 本轮未被触及 ⇒ 不判,被改动那枚必判`)
   for (const v of violations)
     console.log(`❌ ${v.file}:${v.line} \`${v.key}\` 写着 ${v.found},现算 ${v.want} —— ${v.excerpt}`)
   for (const p of blockProblems) console.log(`❌ ${p}`)
