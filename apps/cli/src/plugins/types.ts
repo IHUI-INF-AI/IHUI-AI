@@ -122,4 +122,69 @@ export interface LoadPluginsOptions {
   /** 是否递归扫描子目录(默认 false,只扫顶层) */
   recursive?: boolean;
 }
+
+/**
+ * 插件诊断的判别码 — **封闭联合**(`as const` 数组派生),禁止在产出点散落字符串字面量。
+ *
+ * 立因(G-683):`loader.ts` 的 `parseManifestFile` 原先 `catch { return null }` ——
+ * 有隔离但零诊断,用户只看到"插件没生效",账面没有任何线索说明**为什么**。
+ * 把失败编码成数据(稳定 code)而不是异常,才能被日志/CI/上层按码分档处理。
+ *
+ * `plugin-dependency-cycle` 是 G-684 点名要求的「环依赖专属判别码」:
+ * 它与 `manifest-name-ambiguous` **语义不同、文案不得复用** ——
+ * 前者是"依赖图成环"(需要拆开环),后者是"两份清单抢同一个名字"(需要改名或删一份)。
+ * `dependencies` 字段本身由 G-682 引入,引入后由装载器产出该码;现阶段无产出方。
+ */
+export const PLUGIN_DIAGNOSTIC_CODES = [
+  /** 清单文件读不出来(EISDIR / EACCES / 竞态消失等) */
+  'manifest-unreadable',
+  /** JSON 语法错误 */
+  'manifest-json-invalid',
+  /** JSON 能解析,但不是普通对象(数组 / 字符串 / 数字 / null) */
+  'manifest-not-object',
+  /** 缺 `name`(或 name 为空串) */
+  'manifest-name-missing',
+  /** 缺 `version`(或 version 为空串) */
+  'manifest-version-missing',
+  /** 同目录内被高优先级清单压掉的那一份(plugin.config.json vs plugin.json) */
+  'manifest-shadowed-by-priority',
+  /** 同名歧义:多份清单声明同一个 name ⇒ 全部不装载(G-684) */
+  'manifest-name-ambiguous',
+  /** 兜底:未预期的抛点,一律编码成诊断而不让单点失败抛穿整次装载 */
+  'manifest-unexpected-error',
+  /** 依赖环(G-682 的 dependencies 落地后由装载器产出;刻意不复用歧义码) */
+  'plugin-dependency-cycle',
+] as const;
+
+export type PluginDiagnosticCode = (typeof PLUGIN_DIAGNOSTIC_CODES)[number];
+
+/** 诊断严重级:`error` = 有清单没被装载;`warning` = 装载了但有内容被忽略 */
+export type PluginDiagnosticSeverity = 'error' | 'warning';
+
+/**
+ * 一条装载诊断 — "这份清单为什么没生效"的可机读记录。
+ * 消费方按 `code` 分档(逐条点名 / 汇总计数),不得靠 `message` 文本判流程。
+ */
+export interface PluginDiagnostic {
+  /** 稳定判别码(封闭集,见 PLUGIN_DIAGNOSTIC_CODES) */
+  code: PluginDiagnosticCode;
+  /** 严重级(由 code 唯一决定,产出点不各写一遍) */
+  severity: PluginDiagnosticSeverity;
+  /** 触发该诊断的清单/目录绝对路径 */
+  file: string;
+  /** 能解析出 name 时带上(G-684 的歧义场景必须点名是哪个名字撞了) */
+  pluginName?: string;
+  /** 相关路径(同名歧义时点名其余各份的清单路径) */
+  relatedFiles?: string[];
+  /** 人类可读说明(ASCII:诊断要能进日志,不得被控制台码页吃掉) */
+  message: string;
+}
+
+/** 装载结果:插件集合 + 每一条被跳过清单的诊断(G-683 的返回形态) */
+export interface PluginLoadResult {
+  /** 成功装载的插件(tools / hooks / commands 等扩展声明都在此) */
+  plugins: PluginDefinition[];
+  /** 装载过程的诊断:每个被跳过的清单恰好留一条;装载本身永不抛异常 */
+  diagnostics: PluginDiagnostic[];
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
