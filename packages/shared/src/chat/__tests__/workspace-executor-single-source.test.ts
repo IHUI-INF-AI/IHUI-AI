@@ -93,7 +93,12 @@ describe('② 全仓只有一处实现声明', () => {
     }
     // 0 命中不记绿:那说明扫描面没覆盖到实现(判据失明),与"确实只有一份"在账面上长得一样
     expect(hits.length, `实现声明应恰好 1 处,实到 ${hits.length}:${hits.join(', ')}`).toBe(1)
-    expect(hits[0].replace(ROOT.replace(/\\/g, '/'), '')).toContain(
+    const only = hits[0]
+    // 上面的 expect 不能让类型收窄(编译期不看断言语义),所以这里显式挡住:
+    // 走到这一步还没有实现,就是扫描面失明 —— 报错要比"取到 undefined 再炸"说得清是谁的锅。
+    if (only === undefined)
+      throw new Error(`扫描面没覆盖到实现声明(判据失明):roots=${roots.join(', ')}`)
+    expect(only.replace(ROOT.replace(/\\/g, '/'), '')).toContain(
       'packages/shared/src/chat/workspace-tool-executor.ts',
     )
   })
