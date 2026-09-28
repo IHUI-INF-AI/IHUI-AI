@@ -505,3 +505,39 @@ test('探针索引端到端:混合体只进私有 GIT_INDEX_FILE ⇒ --staged �
 
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * R1r 键变换的第二格(2026-09-28 由本门自撞抓到,补在这里而不是只写在注释里)。
+ * 现象:提交链的 lint-staged 会对 staged 文件跑 `prettier --write`,而本仓有一批文件在 HEAD 里就
+ * 不合规 ⇒ 第一次碰它的提交必然带上整片重排;重排后的 `        windowsHide: true,`(8 格)逐字等于
+ * 某个祖先的形态、却不等于 HEAD 的 6 格形态 ⇒ **纯格式化被读成"复活了一行旧内容"**,整枚提交被拒,
+ * 归因还把红定责到本次文件。后果与尾逗号那一格一模一样:人开始挂 LAND_ALLOW_STALE,连真回退一起放行。
+ * 这两条断言是一对的:只留前一条,判据可以退化成"什么都不算复活"而照样绿。
+ */
+test('R1r 键变换:纯缩进重排不得计复活,而真回退一行必须照旧点名(成对)', async () => {
+  const { resurrectAnalysis } = await import('../lib/stale-content-analysis.mjs')
+  const head = ['function f() {', '      windowsHide: true, // 提交链派生控制台程序时不得弹窗', '  return 1', '}'].join('\n')
+  const ancestor = [
+    'function f() {',
+    '        windowsHide: true, // 提交链派生控制台程序时不得弹窗',
+    '  return 1',
+    '}',
+  ].join('\n')
+  const reformatted = [
+    'function f() {',
+    '        windowsHide: true, // 提交链派生控制台程序时不得弹窗',
+    '  return 1',
+    '  // 本次真的新增了一行说明',
+  ].join('\n')
+  const a = resurrectAnalysis({ baseText: head, newText: reformatted, ancestors: [{ commit: 'a1b2c3d', text: ancestor }] })
+  assert.equal(a.status, 'judged', `纯重排应当可判,实得 ${a.status}/${a.reason}`)
+  assert.equal(a.count, 0, `纯缩进重排不得算复活,实得 ${a.count}:${JSON.stringify(a.sample).slice(0, 120)}`)
+  // 同一把尺子必须仍咬得住真回退:HEAD 侧那行的**内容**在落地面整个消失,换成祖先版本
+  const rolledBack = [
+    'function f() {',
+    '      windowsHide: false, // 祖先里那版把弹窗开关写回默认,正是要拦的形态',
+    '  return 1',
+  ].join('\n')
+  const b = resurrectAnalysis({ baseText: head, newText: rolledBack, ancestors: [{ commit: 'd4e5f6a', text: rolledBack }] })
+  assert.ok(b.status === 'judged' && b.count > 0, `真回退必须被点名(放宽键不许把牙一起磨掉),实得 ${b.status}/${b.count}`)
+})
