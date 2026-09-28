@@ -16,7 +16,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -24,7 +24,9 @@ import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import { SCRATCH_DIR_NAME, mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { gitBinary } from '../lib/face-reader.mjs'
-import { __test__ as gate } from '../check-fixture-tmpdir.mjs'
+// §22c:台账的两条判据(entryProblem / applyLedger)**直接 import 源门导出的那两个函数**,
+// 绝不在测试里复制第二份"什么算合法条目"的规则 —— 复制的那份会跟着实现一起漂绿(本仓记过多次)。
+import { __test__ as gate, applyLedger, entryProblem } from '../check-fixture-tmpdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS_DIR = resolve(HERE, '..')
@@ -356,8 +358,7 @@ test('接线现状锁:本门此刻**不在**提交链(默认档只报数);若被
   )
 })
 
-test('W1 接线锁:run() 必须把 rotations 喂给 decide —— 判据在 self-test 构造面上"存在"不等于提交链上会成立', () => {
-  // 2026-09-28 实测:死在轮次上限的代理把 rot 判据写进了 decide,并在 --self-test 里给它配了
+test('W1 接线锁:run() 必须把 rotations 喂给 decide —— 判据在 self-test 构造面上"存在"不等于提交链上会成立', () => {  // 2026-09-28 实测:死在轮次上限的代理把 rot 判据写进了 decide,并在 --self-test 里给它配了
   // 构造面用例(rotations:1 ⇒ code 1),而 run() 那一侧的 decide(...) 调用**从未传这个键**
   // ⇒ "台账条目指向已无命中文件 = 清单腐烂"这一维在提交链上永不触发,账面却读起来像已看守。
   // 这一型本仓记过多次(守门 70/76/81/115"函数在、自检过、调用点没接"),只有源码锁能防:
@@ -377,4 +378,201 @@ test('W1 接线锁:run() 必须把 rotations 喂给 decide —— 判据在 self
     'run() 的 decide 调用必须带上 rotations 这一维;漏传即判据半接线(自检恒绿而提交链永不判腐烂)',
   )
 })
+
+/* ───────────────── 台账两把防自欺锁(G-284 续票:把 69 处逐条定性) ─────────────────
+ * 台账文件 scripts/fixture-tmpdir-exemptions.json 此前**从未存在** ⇒ 全部存量按"零豁免"计违规。
+ * 补上它的那一刻,新增的两型风险同时出现:① 有人写一条空 reason / 非法日期的行把自己那一份
+ * 豁免掉(那等于给一台门发假合格证);② 修好之后行不删,台账替后来人做出"这一端已被想过"的判断。
+ * 两条各配一次变异自证:坏条目喂进去必红、还原必绿;零命中行必判 rot、有命中必不判 rot。
+ * 判据一律用源门导出的 entryProblem / applyLedger,不在本文件复制第二份合法性规则(§22c)。
+ */
+
+const TODAY = new Date().toISOString().slice(0, 10)
+const LEDGER_PATH = join(SCRIPTS_DIR, 'fixture-tmpdir-exemptions.json')
+/** 一份**必然产生命中**的夹具文本(它在模板串里,会被本文件自己的遮罩锁抹掉 ⇒ 不触发自家红线)。 */
+const HIT_TEXT = `const fs = require('node:fs')\nfs.mkdtempSync('/x')\n`
+const RAW_HITS = gate.scanFixtureText(HIT_TEXT).hits
+
+test('L1 台账形态锁:缺 reason / reviewBy 非 ISO / file 为空 ⇒ 门必须点名报错,且**不得**顺手整文件放过', () => {
+  assert.ok(RAW_HITS.length > 0, '夹具文本必须真产生命中,否则本锁没有对象(空转的断言比没有断言更糟)')
+  const BAD = [
+    { file: 'scripts/x.mjs', reviewBy: '2099-01-01' },
+    { file: 'scripts/x.mjs', reason: '   ', reviewBy: '2099-01-01' },
+    { file: 'scripts/x.mjs', reason: '判据对象是运行时 TEMP' },
+    { file: 'scripts/x.mjs', reason: '判据对象是运行时 TEMP', reviewBy: '2099/01/01' },
+    { file: 'scripts/x.mjs', reason: '判据对象是运行时 TEMP', reviewBy: '' },
+    { file: '', reason: '判据对象是运行时 TEMP', reviewBy: '2099-01-01' },
+    'not-an-object',
+  ]
+  for (const entry of BAD) {
+    // ① entryProblem 单独问得出问题(它才是"什么算合法"的那把尺子)
+    assert.ok(entryProblem(entry, TODAY), `坏条目必须被 entryProblem 点名:${JSON.stringify(entry)}`)
+    // ② 更要紧的是**失效方向**:条目坏 ⇒ 不得被当成"没有台账"以外的任何东西。
+    // 若实现把坏条目折成"该文件无命中/已豁免",一条随手写的行就能关掉判据 —— 那正是本台账
+    // 落地新引入的那一型,所以这里同时断言违规照计、rot=false(坏条目不豁免也不腐烂)。
+    const res = applyLedger({ wired: false, rawHits: RAW_HITS, entry, today: TODAY })
+    assert.ok(res.problem, `applyLedger 必须把问题带到结论里:${JSON.stringify(entry)}`)
+    assert.equal(
+      res.violations.length,
+      RAW_HITS.length,
+      `坏条目不得放过任何违规(否则"随便写一行 reason"就是第二个 SELF_EXEMPT):${JSON.stringify(entry)}`,
+    )
+  }
+  // 「该文件不在台账上」与「台账行坏」必须**同向**:两种都照计违规。
+  // 缺席被读成放过 = 只要不写行就能过关;坏行被读成放过 = 随手写一行就能关掉判据。两个方向各配一条。
+  const absent = applyLedger({ wired: false, rawHits: RAW_HITS, entry: null, today: TODAY })
+  assert.equal(absent.problem, null, '缺席不是坏行,不该报形态问题(那是另一码事,别把报告刷脏)')
+  assert.equal(absent.violations.length, RAW_HITS.length, '缺席 ⇒ 违规照计(缺席不等于通过)')
+  // 变异自证(还原 ⇒ 必绿):同一 file、补上非空 reason + 合法未过期 reviewBy ⇒ 豁免立即生效
+  const good = applyLedger({    wired: false,
+    rawHits: RAW_HITS,
+    entry: { file: 'scripts/x.mjs', reason: '判据对象是运行时 TEMP', reviewBy: '2099-01-01' },
+    today: TODAY,
+  })
+  assert.equal(good.problem, null, '合法条目不该被挑毛病')
+  assert.equal(good.violations.length, 0, '合法条目必须真的放过(否则台账等于没有出路)')
+  assert.ok(good.exempted > 0, '放过要计进 exempted —— 报告里"台账豁免 N 处"靠它,静默放过等于没判')
+})
+
+test('L2 rot 锁:台账行指向面上已无命中的文件 ⇒ 判清单腐烂且**不看 strict**;过期而有命中是另一桶', () => {
+  const valid = { file: 'scripts/gone.mjs', reason: '早已迁完', reviewBy: '2099-01-01' }
+  // ① 零命中 + 合法条目 ⇒ rot(挂着 = 替后来人做出"这一端已被想过"的判断)
+  const rotRes = applyLedger({ wired: false, rawHits: [], entry: valid, today: TODAY })
+  assert.equal(rotRes.rot, true)
+  assert.equal(
+    gate.decide({ listed: 5, unreadable: 0, violations: 0, rotations: 1, strict: false }).code,
+    1,
+    'rot 不是存量:任何档都要判红,否则默认档会把它读成"只是报数"',
+  )
+  // ② 变异自证(还原 ⇒ 必绿):同一行、同一 today,只要该文件在面上还有命中 ⇒ 是豁免不是腐烂
+  const withHit = applyLedger({ wired: false, rawHits: RAW_HITS, entry: valid, today: TODAY })
+  assert.equal(withHit.rot, false, '有命中而判腐烂 ⇒ 修好了不能留行、留着又红,这道门就没有合法状态')
+  assert.equal(withHit.violations.length, 0)
+  // ③ 第三桶:过期**而有**命中 ⇒ problem 点名 + 违规照计 + 不得算 rot(两桶一混就看不出谁欠账)
+  const expired = applyLedger({
+    wired: false,
+    rawHits: RAW_HITS,
+    entry: { ...valid, reviewBy: '2020-01-01' },
+    today: TODAY,
+  })
+  assert.match(expired.problem || '', /过期/, '过期要说明是过期,而不是笼统一句"条目坏"')
+  assert.ok(expired.violations.length > 0, '过期 ⇒ 豁免失效,账回到该文件头上')
+  assert.equal(expired.rot, false, '"过期而有命中"是待清偿的账,不是清单腐烂')
+  // ④ 结构锁:decide 的 rot 分支必须存在、判 1、且不吃 strict(有人"顺手加个 strict"即红)
+  const decideBody = extractFnBody(CODE, 'decide')
+  const rotLine = decideBody.split('\n').find((l) => l.includes('rotations'))
+  assert.ok(rotLine, 'decide 里再也找不到 rotations 那一支 ⇒ 本锁失去对象,先修锁再谈判据')
+  assert.match(rotLine, /code:\s*1/)
+  assert.doesNotMatch(rotLine, /strict/, 'rot 一旦挂到 strict 上,默认档就把腐烂读成"只是报数"')
+})
+
+test('L3 台账文件自身必须合法可 parse:坏 JSON / 空 reason / 过期行 / 重复 file 都不许入库', () => {
+  // 这条不测判据,测**我落地的那份数据**:台账一旦带着坏行入库,门在哪个档读它都会得出
+  // 与作者机相反的结论(本仓"作者机常绿、别的检出上每次提交都被逼 --no-verify"那一型,
+  // 见 gate-wiring 台账 P5 与 §12 的活文档纪律)。
+  const raw = readFileSync(LEDGER_PATH, 'utf8')
+  const parsed = JSON.parse(raw) // 坏 JSON 在这里就抛 —— 不得被 loader 静默折成"空清单"
+  assert.ok(Array.isArray(parsed.exemptions), '台账必须是 { exemptions: [...] } 形态')
+  assert.ok(parsed.$comment, '台账必须自带一句它是谁的豁免通道、以及**接线现状**')
+  const seen = new Set()
+  for (const e of parsed.exemptions) {
+    const p = entryProblem(e, TODAY)
+    assert.equal(p, null, `台账行形态坏/已过期:${e && e.file} —— ${p}`)
+    assert.ok(!seen.has(e.file), `同一 file 登记两行 ⇒ 按 file 建映射时静默顶掉一条:${e.file}`)
+    seen.add(e.file)
+    assert.ok(
+      gate.inScope(e.file),
+      `台账行指向不在射程的文件 ⇒ 它永远不会有任何命中,入库即 rot:${e.file}`,
+    )
+  }
+})
+
+test('L4 台账文件名与门体常量必须同值(改名/搬位不许只改一边)', () => {
+  assert.match(
+    CODE_LINES,
+    /const LEDGER_FILE = 'scripts\/fixture-tmpdir-exemptions\.json'/,
+    '门体里的台账路径常量漂了而本测试仍读旧文件 ⇒ 门读不到 ⇒ 按"零豁免"判,而账面像已收口',
+  )
+  assert.ok(existsSync(LEDGER_PATH), `工作树缺 ${LEDGER_PATH}:台账文件不入库就没法被任何面读到`)
+})
+
+test('L5 台账必须被 run() 真加载:一份从没被读过的台账与一份生效的台账,在输出里不得长得一样', () => {
+  // 2026-09-28 摘掉 todo:接线已落地(门体新增 loadLedger + 逐行 applyLedger,并在 --json 里
+  // 报 exemptionsLoaded)。留 todo 的那一晚,台账里 5 条 B 堆对现读读数**零影响**,
+  // 而账面读起来像"豁免已生效"—— 那正是本仓记过多次的半接线(函数在、自检过、调用点没接)。
+  // 用 --worktree 档而非默认档:台账与本测试同枚提交,提交前 HEAD 面上它当然不存在,
+  // 那种情形门必须走"缺席⇒零豁免并大声报出"那一支(另有 L1 钉住)。
+  const expiredEntry = {
+    file: 'scripts/check-c-drive-pollution.mjs',
+    reason: '判据对象是活 TEMP',
+    reviewBy: '2020-01-01',
+  }
+  const res = applyLedger({ wired: false, rawHits: RAW_HITS, entry: expiredEntry, today: TODAY })
+  assert.ok(res.violations.length > 0, '过期条目必须不再放过')
+  const cli = JSON.parse(runGateReal(['--worktree', '--json']))
+  assert.equal(
+    cli.exemptionsLoaded,
+    true,
+    'CLI 必须报告"台账已加载"这一维:没有它,一份从没被读过的台账与一份生效的台账在输出里长得一模一样',
+  )
+  const row = cli.perFile.find((f) => f.path === expiredEntry.file)
+  assert.ok(row, `被审面上应能枚举到台账点名的这个文件(${expiredEntry.file})`)
+  assert.ok(
+    (row.rawHits || []).length > 0,
+    '该行必须真有原始命中,否则"被放过 N 处"是拿空集凑出来的(条目还在而命中没了走 rot,由 L2 钉)',
+  )
+  assert.equal(
+    row.hits.length,
+    0,
+    `合法且未过期的台账应把该文件剩余违规全部放过,实得 ${JSON.stringify(row.hits)}`,
+  )
+  assert.equal(row.exempted, row.rawHits.length, 'exempted 必须等于被放过的原始命中数(少算 = 静默丢账)')
+  assert.equal(row.problem, null, '该行台账合法未过期 ⇒ 不得报 problem')
+
+  // 成对的另一臂走**构造面**(不在测试里 shell 出去读别的文件 —— 那会把两个文件耦合成
+  // "任一改名本测试即红",而改名本身不是缺陷):**台账在被审面上不存在** ⇒ 报告必须大声喊出来,
+  // 不得打"射程内没有 F1/F2 ⇒ 这一维已闭合"那种结论。
+  const absentReport = gate.formatReport(
+    [{ path: 'scripts/x.mjs', hits: [], rawHits: [], notices: [], wired: false, exempted: 0, problem: null, rot: false }],
+    { code: 0, kind: 'clean' },
+    { face: 'head', ledgerAbsent: true },
+  )
+  const absentText = absentReport.join('\n')
+  assert.match(absentText, /不存在|零豁免/, '台账缺席必须被点名(缺席不等于通过)')
+  assert.doesNotMatch(
+    absentText,
+    /这一维已闭合/,
+    '台账从没被读过时不得打"已闭合" —— 那一支要说"只证明没扫到违规,不证明豁免口径已复核"',
+  )
+  assert.match(absentText, /未加载/, '缺席档必须明写台账未加载,否则与已加载档在输出里同形')
+  const loadedText = gate
+    .formatReport(
+      [
+        {
+          path: 'scripts/x.mjs',
+          hits: [],
+          rawHits: [],
+          notices: [],
+          wired: false,
+          exempted: 0,
+          problem: null,
+          rot: false,
+        },
+      ],
+      { code: 0, kind: 'clean' },
+      { face: 'head', ledgerAbsent: false },
+    )
+    .join('\n')
+  assert.match(loadedText, /已闭合/, '加载过台账且确无命中时才允许打"已闭合"(两档不得同形,也不得同严)')
+})
+
+function runGateReal(args) {
+  return execFileSync(process.execPath, [GATE, ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 1 << 26,
+  })
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
