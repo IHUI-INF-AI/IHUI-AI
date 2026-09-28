@@ -212,7 +212,7 @@ export default function WorkflowDetailPage() {
     )
   if (wfQ.error || !wfQ.data)
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {(wfQ.error as Error)?.message ?? t('notFound')}
       </div>
     )

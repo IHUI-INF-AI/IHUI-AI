@@ -209,7 +209,7 @@ export function McpPane() {
   }, [])
 
   return (
-    <div className="flex h-full w-full overflow-hidden rounded-lg border border-border bg-card">
+    <div className="flex h-full w-full overflow-hidden ui-card rounded-lg border border-border bg-card">
       {/* 左侧:垂直分类 tab 栏 */}
       <div className="flex w-14 shrink-0 flex-col gap-0.5 bg-muted/20 p-1">
         {TABS.map((tab) => {
