@@ -58,7 +58,7 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
           disabled={disabled}
           aria-label={t(current.labelKey)}
           className={cn(
-            'mode-switcher-trigger flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors',
+            'mode-switcher-trigger flex h-8 shrink-0 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors',
             'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             'disabled:cursor-not-allowed disabled:opacity-50',
           )}

@@ -40,7 +40,7 @@ export function LanguageCard({ t, locale, onSelect }: Props) {
                 key={item.key}
                 onClick={() => onSelect(item.key)}
                 className={cn(
-                  'flex items-center justify-center gap-2 rounded-lg border p-3 text-sm transition-colors',
+                  'flex items-center justify-center gap-2 rounded-sm border p-3 text-sm transition-colors',
                   active
                     ? 'border-brand-accent-deep bg-primary/5 text-primary'
                     : 'hover:bg-accent hover:text-accent-foreground',

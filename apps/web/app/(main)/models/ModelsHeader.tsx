@@ -172,7 +172,7 @@ function ProviderStatusSummary() {
           onClick={() => setOpen(true)}
           disabled={isLoading || isError || !data}
           className={cn(
-            'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] transition-colors hover:bg-accent/50',
+            'inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px] transition-colors hover:bg-accent/50',
             summary.tone,
           )}
         >

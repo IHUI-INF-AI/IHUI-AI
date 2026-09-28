@@ -180,7 +180,7 @@ export function CookieHealthIndicator({
             onClick={handleRefresh}
             disabled={refreshing}
             className={cn(
-              'inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50',
+              'inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50',
               showBadge && 'ml-1',
             )}
             aria-label={t('cookieHealth.refresh')}

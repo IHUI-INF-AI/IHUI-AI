@@ -62,7 +62,7 @@ export function MemoryEditPanel({
               key={k}
               type="button"
               onClick={() => onChange({ ...editing, kind: k })}
-              className={`rounded px-2 py-1 text-xs ${
+              className={`rounded-sm px-2 py-1 text-xs ${
                 editing.kind === k ? KIND_BADGE[k] : 'bg-muted text-muted-foreground'
               }`}
             >

@@ -1482,7 +1482,7 @@ const MessageItem = React.memo(function MessageItem({
           type="button"
           onClick={handleQuoteSelection}
           data-testid={`message-quote-selection-${m.id}`}
-          className="mt-0.5 inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="mt-0.5 inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Quote className="h-3 w-3" aria-hidden />
           <span>{t('quoteSelection')}</span>
@@ -1538,7 +1538,7 @@ const MessageItem = React.memo(function MessageItem({
               rows={5}
               data-testid={`message-edit-textarea-${m.id}`}
               className={cn(
-                'w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm',
+                'w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-sm',
                 'text-foreground placeholder:text-muted-foreground',
                 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               )}

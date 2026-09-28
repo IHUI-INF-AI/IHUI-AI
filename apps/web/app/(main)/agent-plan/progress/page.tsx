@@ -321,7 +321,7 @@ export default function AgentPlanProgressPage() {
                 <button
                   key={v.version}
                   onClick={() => void selectVersion(v.version)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition hover:bg-muted ${
+                  className={`inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-sm transition hover:bg-muted ${
                     v.version === selectedVersion ? 'border-brand-accent-deep bg-primary/10' : ''
                   }`}
                 >
@@ -387,12 +387,12 @@ export default function AgentPlanProgressPage() {
           onChange={(e) => setPlanId(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void loadPlan(planId)}
           placeholder="输入 plan_id 打开计划"
-          className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="flex-1 rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
         <button
           onClick={() => void loadPlan(planId)}
           disabled={loading || !planId.trim()}
-          className="inline-flex items-center gap-2 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           打开
@@ -419,7 +419,7 @@ export default function AgentPlanProgressPage() {
               <li key={p.plan_id}>
                 <button
                   onClick={() => openRecent(p)}
-                  className="w-full rounded-lg border p-3 text-left transition hover:border-primary/50 hover:bg-muted/30"
+                  className="w-full rounded-sm border p-3 text-left transition hover:border-primary/50 hover:bg-muted/30"
                 >
                   <div className="mb-1 flex items-center justify-between gap-3">
                     <code className="truncate rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
