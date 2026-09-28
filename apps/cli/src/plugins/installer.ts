@@ -15,7 +15,9 @@
  *     可跳过的 errno 是封闭集 `{ENOENT, ENOTDIR, EISDIR}`(唯一实现在 `./path-safety.ts`),
  *     EPERM/EACCES/ELOOP 及任何未知形态一律判 unsafe ⇒ 拒装并给出点名到链接/阶段/错误码的诊断。
  *   - **安装落盘有提交点**:新副本先完整复制进 staging,才进入提交序列
- *     (旧副本原子改名挪开 → 新副本落位 → 事务号核对后才处置旧副本)。
+ *     (旧副本原子改名挪开 → 新副本落位 → **本次事务号随权威记录 registry.json 落盘**
+ *     → 事务号核对后才处置旧副本)。次序是判据不是风格(G-756,上游
+ *     `atomic-directory.ts:303-305`「权威先于删归档」):权威写失败即抛,归档一律不处置。
  *     复制失败 / 取消 / 落盘失败 ⇒ 旧副本一律仍在位。
  *
  * 修复缘由(实测缺陷,2026-09-28):旧实现在覆盖安装里先 `rmSync(dest)` 再 `copyDirRecursive`,
@@ -39,11 +41,14 @@ import {
 } from './paths.js';
 import {
   getOrCloneGitCache,
-  commitStagedSwap,
+  takeOwnershipOfTarget,
+  landStagedSwap,
+  finalizeStagedSwap,
   discardStagingDirectory,
   isUsableDirectoryCopy,
   prepareStagingDirectory,
   PluginSwapCancelledError,
+  type StagedSwap,
 } from './cache.js';
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
 import {
@@ -72,6 +77,12 @@ export interface InstallOutcome {
   source: string;
   /** 之前是否已装(短路径返回 true,不重复复制) */
   wasInstalled: boolean;
+  /**
+   * 本次落位的事务号(G-756),它同时写进了权威记录(`registry.json` 对应那条)。
+   * `wasInstalled: true` 的短路路径没有交换 ⇒ 该字段为 undefined。
+   * 调用方(与恢复侧的对账)据此能问出"这笔是不是权威认的那一笔",不必再猜。
+   */
+  transactionId?: string;
 }
 
 /** 卸载结果 */
@@ -98,6 +109,17 @@ export interface InstallRecord {
   installedAt: string;
   /** Git pin SHA(可选) */
   sha?: string;
+  /**
+   * 落这笔记录的那次目录交换的事务号(G-756 接线)。
+   *
+   * **可选,且接线前写的存量记录一律没有这个键** —— 权威读侧(`cache.ts` 的
+   * `authorityTransactionVerdict`)对"字段缺席"给的是 `unknown`(无从问出),
+   * **不是** `not-committed`:把"没写过"读成"权威否认这笔",会让每一次正常覆盖安装
+   * 都不肯清归档(那正是读侧注释里点名要避免的恒挡门)。判序与 G-730 的
+   * `unverifiable` 同一条规矩 —— 缺证据不算证据:既不据此判已提交,也不据此判被否认。
+   * 所以存量 registry 不需要迁移,恢复/收尾对它们的行为与接线前逐字一致。
+   */
+  transactionId?: string;
 }
 
 /** 安装注册表 */
@@ -421,12 +443,34 @@ export async function installPlugin(
 }
 
 /**
- * 把 sourceDir 落成 destDir —— 唯一的"复制到 staging → 提交"实现。
+ * 把 sourceDir 落成 destDir —— 唯一的"复制到 staging → 落位 → **权威落盘** → 处置旧副本"实现。
  *
- * 三条失败形态(复制失败 / 取消 / 落盘失败)一律只动 staging,旧副本仍在位;
+ * 提交序列在此显式编排,不再走 `commitStagedSwap`:那条序列的 land 与 finalize 之间
+ * 没有"权威落盘"这一格,而 G-730 给 finalize 加的前置③问的正是权威面
+ * —— 权威没写上,finalize 只能拿到 `unknown`(写侧接线前恒如此),归档永远收不掉。
+ * 次序照上游 `atomic-directory.ts:303-305`(权威落盘排在归档删除之前)与
+ * `marketplace.ts:1800-1821`(记录携 txnId 入权威文件):
+ *
+ *   takeOwnershipOfTarget(旧副本原子改名挪开) → landStagedSwap(新副本落位)
+ *     → persistInstallAuthority(registry 那条记录带上本次 transactionId)
+ *     → finalizeStagedSwap(此刻权威认这笔,才允许处置归档)
+ *
+ * 四条失败形态一律不产生"两代都没了":复制失败 / 取消 ⇒ 目标一步没动;
+ * 落盘失败 ⇒ 旧副本回位或原样保留在归档(cache 层负责);
+ * **权威写失败 ⇒ 当场抛出且不进入 finalize**,归档与其中的旧副本逐字仍在(可回位)。
  * local 与 git:url 两条腿共用它,不得各写一遍(两处实现必漂移)。
+ *
+ * @param reg 调用方已加载的注册表(去重短路用的同一份;写回沿用同一份基准,不另取一份)
+ * @param recordFields 本条记录除 installedAt / transactionId 之外的字段
+ * @returns 落进权威记录的那条(带本次事务号)
  */
-function installFromDirectory(sourceDir: string, destDir: string, signal?: AbortSignal): void {
+function installFromDirectory(
+  sourceDir: string,
+  destDir: string,
+  reg: InstallRegistry,
+  recordFields: Omit<InstallRecord, 'installedAt' | 'transactionId'>,
+  signal?: AbortSignal,
+): InstallRecord {
   // 提交点之前:取消 = 什么都不动,直接上抛
   if (signal?.aborted) throw new PluginSwapCancelledError(destDir);
   const staging = prepareStagingDirectory(destDir);
@@ -437,8 +481,26 @@ function installFromDirectory(sourceDir: string, destDir: string, signal?: Abort
     discardStagingDirectory(staging);
     throw e;
   }
-  // 越过提交点:此后不回退(取消也不回退)
-  commitStagedSwap(destDir, staging, { signal });
+  let swap: StagedSwap;
+  try {
+    // 没拿到槽位所有权 ⇒ 目标一步没动,临时物自己清掉(与 commitStagedSwap 同形)
+    swap = takeOwnershipOfTarget(destDir, staging);
+  } catch (e) {
+    discardStagingDirectory(staging);
+    throw e;
+  }
+  // 落盘失败由 landStagedSwap 负责回位/保留归档并抛 DirectorySwapError
+  landStagedSwap(swap);
+  // ——— 提交点已越过:此后绝不回退,也不响应取消(回退抹掉的就是已生效的插件) ———
+  const record: InstallRecord = {
+    ...recordFields,
+    installedAt: new Date().toISOString(),
+    transactionId: swap.transactionId,
+  };
+  // 权威落盘排在 finalize 之前:写不上就抛,绝不处置归档
+  persistInstallAuthority(reg, record, swap);
+  finalizeStagedSwap(swap);
+  return record;
 }
 
 /**
@@ -483,18 +545,20 @@ async function installLocal(
     };
   }
 
-  // 复制到 staging → 提交点替换(复制失败/取消 ⇒ 旧副本仍在位)
-  installFromDirectory(resolvedSrc, dest, signal);
-
-  // 写 registry
-  reg.records.push({
-    name: manifest.name,
-    version: manifest.version,
-    sourceType: 'local',
-    sourcePath: resolvedSrc,
-    installedAt: new Date().toISOString(),
-  });
-  saveInstallRegistryChecked(reg, dest);
+  // 复制到 staging → 落位 → 权威落盘(带本次事务号)→ 处置旧副本
+  // 失败一律在"权威写下"之前停下 ⇒ registry 不出现"记录说装了 2.0.0 而盘上是 v1"
+  const record = installFromDirectory(
+    resolvedSrc,
+    dest,
+    reg,
+    {
+      name: manifest.name,
+      version: manifest.version,
+      sourceType: 'local',
+      sourcePath: resolvedSrc,
+    },
+    signal,
+  );
 
   return {
     name: manifest.name,
@@ -502,19 +566,32 @@ async function installLocal(
     installedPath: dest,
     source: 'local',
     wasInstalled: false,
+    transactionId: record.transactionId,
   };
 }
 
 /**
- * 写安装记录,并把"文件已就位而记录没写上"这一格说清 ——
- * 插件文件此刻已是权威状态,不回退(那会抹掉刚生效的插件),但也不许静默。
+ * 权威落盘:把本次交换的事务号随这条安装记录写进 registry。
+ *
+ * 与改动前的区别只在**次序与后果**:旧实现是整条提交序列(含删归档)跑完之后才补记录,
+ * 写失败也只留一句"重跑一次安装即可补上记录" —— 于是权威面对这笔事务永远说不出
+ * "已提交",G-730 的 finalize/恢复只能按 `unknown` 走"零破坏回位、永不删"。
+ * 现在它排在 finalize 之前:写不上就抛,**绝不处置归档**。
+ * 仍然不回退已落位的新副本(那会抹掉刚生效的插件),但绝不静默。
  */
-function saveInstallRegistryChecked(reg: InstallRegistry, dest: string): void {
+function persistInstallAuthority(
+  reg: InstallRegistry,
+  record: InstallRecord,
+  swap: StagedSwap,
+): void {
   try {
+    reg.records.push(record);
     saveInstallRegistry(reg);
   } catch (e) {
     throw new Error(
-      `插件文件已就位(${dest}),但安装记录未写入:重跑一次安装即可补上记录。原始错误:${e instanceof Error ? e.message : String(e)}`,
+      `新副本已落位(${swap.target}),但权威记录未写入(事务 ${swap.transactionId}):` +
+        `旧副本归档未处置${swap.superseded ? `,逐字保留在 ${swap.superseded}(可回位)` : '(本次没有旧副本)'} —— ` +
+        `此刻既没有删任何归档,也没有回退新副本。原始错误:${e instanceof Error ? e.message : String(e)}`,
       { cause: e },
     );
   }
@@ -559,20 +636,21 @@ async function installGit(
     };
   }
 
-  // 复制到 staging → 提交点替换(复制失败/取消 ⇒ 旧副本仍在位)
-  installFromDirectory(pluginDir, dest, opts?.signal);
-
-  // 写 registry
-  reg.records.push({
-    name: manifest.name,
-    version: manifest.version,
-    sourceType: 'git',
-    sourceUrl: url,
-    pluginSubdir,
-    installedAt: new Date().toISOString(),
-    sha: opts?.sha,
-  });
-  saveInstallRegistryChecked(reg, dest);
+  // 复制到 staging → 落位 → 权威落盘(带本次事务号)→ 处置旧副本(与 local 同一条实现)
+  const record = installFromDirectory(
+    pluginDir,
+    dest,
+    reg,
+    {
+      name: manifest.name,
+      version: manifest.version,
+      sourceType: 'git',
+      sourceUrl: url,
+      pluginSubdir,
+      sha: opts?.sha,
+    },
+    opts?.signal,
+  );
 
   return {
     name: manifest.name,
@@ -580,6 +658,7 @@ async function installGit(
     installedPath: dest,
     source: 'git:url',
     wasInstalled: false,
+    transactionId: record.transactionId,
   };
 }
 

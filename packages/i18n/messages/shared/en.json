@@ -483,6 +483,18 @@
     "captchaRefresh": "Refresh captcha"
   },
   "chat": {
+    "mcp": {
+      "state": {
+        "connecting": "Connecting to {server}…",
+        "failed": "{server} failed to connect",
+        "reconnecting": "Reconnecting to {server} (attempt {attempt}/{maxAttempts})"
+      },
+      "action": {
+        "retry": "Reconnect now",
+        "openSettings": "Open MCP settings"
+      },
+      "mobileSettingsHint": "Manage MCP connections on desktop or web"
+    },
     "meta": {
       "changedElsewhere": "The {field} of this conversation was updated to \"{value}\" on another device",
       "pullOnly": "On the mini program, this change syncs the next time you open it",
