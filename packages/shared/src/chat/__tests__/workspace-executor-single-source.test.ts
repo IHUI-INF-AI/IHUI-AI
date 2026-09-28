@@ -93,9 +93,8 @@ describe('② 全仓只有一处实现声明', () => {
     }
     // 0 命中不记绿:那说明扫描面没覆盖到实现(判据失明),与"确实只有一份"在账面上长得一样
     expect(hits.length, `实现声明应恰好 1 处,实到 ${hits.length}:${hits.join(', ')}`).toBe(1)
-    expect(hits[0].replace(ROOT.replace(/\\/g, '/'), '')).toContain(
-      'packages/shared/src/chat/workspace-tool-executor.ts',
-    )
+    const sharedPath = (hits[0] ?? '').replace(ROOT.replace(/\\/g, '/'), '')
+    expect(sharedPath).toContain('packages/shared/src/chat/workspace-tool-executor.ts')
   })
 })
 
