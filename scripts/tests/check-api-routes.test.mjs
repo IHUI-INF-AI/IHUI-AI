@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, existsSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, existsSync, writeFileSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -715,5 +715,80 @@ test('api-client 棘轮存量:等于基线额度 ⇒ exit 0 且只报数', () =>
   } finally {
     destroyTempRoot(dir)
   }
+})
+
+// ═══════════════════════════════════════════════════════════
+// 13. 带值旗标的吞噬(2026-09-28 修 `--dump-* --staged` 这一型,口径照抄枚 380431ffc)
+// ═══════════════════════════════════════════════════════════
+
+// ─── 32. --dump-missing / --dump-backend 的"值"若以 `-` 开头 ⇒ 不算值 ──
+// 事故形态是 `--dump-missing --staged`(runner 给每道门追加 --staged)⇒ 在 cwd 写出名叫
+// `--staged` 的文件(§28 禁止形态)。夹具通道无法同时带 --staged 走 --worktree(两面旗同给
+// 由 face 判定在上游判死 —— 例 27 钉着),所以行为档用**同型**的无效 token --not-a-path
+// (脚本不认识它,面与退出码语义不变)证谓词本体;真仓 `--dump-missing --staged` 一站由
+// 交付报告的私有索引 CLI 现测 + 例 34 的源码形状锁钉死。
+// spawn cwd = 夹具根:即便判据退化成旧形态,产物也只会落在 scratch,绝不碰真仓。
+function runInCwd(extraArgs) {
+  const dir = createTempRoot()
+  try {
+    writeFile(dir, 'apps/api/src/routes/x.ts', `server.get('/api/live', async () => {})`)
+    writeFile(dir, 'apps/web/api.ts', `fetchApi('/api/dead-one')`)
+    const stray = join(dir, '--not-a-path')
+    const r = spawnSync('node', [SCRIPT_PATH, '--worktree', '--root', dir, ...extraArgs], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    r.out = (r.stdout || '').replace(/\x1b\[[0-9;]*m/g, '')
+    return { dir, stray, r }
+  } catch (e) {
+    destroyTempRoot(dir)
+    throw e
+  }
+}
+
+test('--dump-missing --not-a-path(以 - 开头的值):不写文件、人读结论仍在、stderr 点名无效值', () => {
+  const { dir, stray, r } = runInCwd(['--dump-missing', '--not-a-path'])
+  try {
+    assert.equal(r.status, 1, `退出码语义一字未动(web 缺失仍 1)\nstdout: ${r.out}\nstderr: ${r.stderr}`)
+    assert.match(r.out, /\/api\/dead-one/, '人读结论仍在(缺失照报)')
+    assert.match(r.out, /逐条死调用/, '--dump-missing 的布尔档人读段仍打出')
+    assert.match(r.stderr, /忽略无效的 --dump-missing 值: --not-a-path/, '无效值必须点名,不得静默按未给值处理')
+    assert.ok(!existsSync(stray), `不得在 cwd 产出名叫 --not-a-path 的文件: ${stray}`)
+  } finally {
+    // 变异反证(判据退化)时残留的产物在这里清掉;绿色路径永不产生它。
+    if (existsSync(stray)) rmSync(stray, { force: true })
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── 33. --dump-backend 同一条谓词、同一个出口(两处各写一份必漂移) ──
+test('--dump-backend --not-a-path(以 - 开头的值):同样不写文件并点名', () => {
+  const { dir, stray, r } = runInCwd(['--dump-backend', '--not-a-path'])
+  try {
+    assert.match(r.stderr, /忽略无效的 --dump-backend 值: --not-a-path/)
+    assert.ok(!existsSync(stray), `不得产出名叫 --not-a-path 的文件: ${stray}`)
+  } finally {
+    if (existsSync(stray)) rmSync(stray, { force: true })
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── 34. 形状锁:--dump-* 取值必须走唯一出口,不得退回裸 argv[indexOf(...)+1] ──
+// 只判源码形状(§22c:行为由 32/33 与既有 5/6 证,测试不复抄判据)。
+test('形状锁:dump 旗标取值单点化,旧的两行裸索引形态不得回来', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.doesNotMatch(
+    src,
+    /process\.argv\[\s*\w*(?:[dD]ump|Dump)\w*Idx\s*\+\s*1\s*\]/,
+    '两处站点曾各写一份 `process.argv[<名>Idx + 1]`,该形态不得回来',
+  )
+  assert.doesNotMatch(src, /argv\[\s*argv\.indexOf\('--dump-/, '裸 indexOf(...)+1 形态不得回来')
+  assert.match(src, /function\s+dumpFlagValue\s*\(/, '唯一取值出口必须在位')
+  assert.match(src, /dumpFlagValue\('--dump-backend'\)/, '后端档站点必须走出口')
+  assert.match(src, /dumpFlagValue\('--dump-missing'\)/, '缺失档站点必须走出口')
+  const guardHits = src.match(/startsWith\('-'\)/g) || []
+  assert.equal(guardHits.length, 1, '"不以 - 开头"判据只许写在唯一出口一处(两处各抄一份必漂移)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
