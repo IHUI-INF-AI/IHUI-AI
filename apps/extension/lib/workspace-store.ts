@@ -24,6 +24,7 @@
  * 所以本模块不依赖"读档写会怎么失败",而是要求读档当场就验证到 readwrite granted。
  */
 
+import { invalidateWorkspaceContextCache } from '@ihui/shared/chat/workspace-context-loader'
 import {
   detectWorkspaceCapability,
   registerWorkspaceToolExecutor,
@@ -126,7 +127,12 @@ export async function pickWorkspaceDirectory(
   }
 
   // 先收旧身份再登记新身份:换目录时若只登记不收回,闸门会一直开着指向一个已经没人用的句柄
-  if (active) unregisterWorkspaceToolExecutor(executorIdFor(active.name))
+  if (active) {
+    unregisterWorkspaceToolExecutor(executorIdFor(active.name))
+    // 缓存按目录名建索引,而 name 只是键不是身份:同名换目录(删掉重建、换一个挂载点)
+    // 时若不主动失效,下一轮会拿旧快照喂模型而签名校验照样"通过"。
+    invalidateWorkspaceContextCache(active.name)
+  }
   active = { name: handle.name, handle }
   registerWorkspaceToolExecutor(executorIdFor(handle.name))
   emit()
@@ -135,7 +141,10 @@ export async function pickWorkspaceDirectory(
 
 /** 收回执行面:清活动工作区 ⇒ 闸门立刻关 ⇒ 请求不再带文件族(不留"带着工具却没有执行方"的窗口) */
 export function clearActiveWorkspace(): void {
-  if (active) unregisterWorkspaceToolExecutor(executorIdFor(active.name))
+  if (active) {
+    unregisterWorkspaceToolExecutor(executorIdFor(active.name))
+    invalidateWorkspaceContextCache(active.name)
+  }
   active = null
   emit()
 }
