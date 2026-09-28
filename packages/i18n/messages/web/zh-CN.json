@@ -27418,5 +27418,8 @@
     "hintConfirm": "确认",
     "hintClose": "关闭",
     "clearAriaLabel": "清空搜索"
+  },
+  "statusPage": {
+    "incidentsUnavailable": "最近 30 天的事件数据暂时取不到"
   }
 }
