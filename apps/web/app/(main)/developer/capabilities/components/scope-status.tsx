@@ -70,7 +70,7 @@ export function ScopeChip({ scope }: { scope: string }): React.JSX.Element {
   const chip = (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] leading-none',
+        'inline-flex items-center gap-1 ui-chip rounded-md px-1.5 py-0.5 text-[11px] leading-none',
         blocked ? BLOCKED_CLASS : OPEN_CLASS,
       )}
     >

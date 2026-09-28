@@ -107,7 +107,7 @@ function McpResourceBrowser() {
 
   if (resources.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
+      <p className="ui-card rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
         {tm('noContent')}
       </p>
     )

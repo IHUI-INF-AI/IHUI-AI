@@ -631,7 +631,7 @@ function CustomSkillItem({
   return (
     <div
       className={cn(
-        'group flex w-full items-start gap-2 rounded-md px-2 py-2 transition-colors',
+        'group flex w-full items-start gap-2 ui-control rounded-sm px-2 py-2 transition-colors',
         skill.enabled ? 'hover:bg-accent' : 'opacity-60',
       )}
     >
