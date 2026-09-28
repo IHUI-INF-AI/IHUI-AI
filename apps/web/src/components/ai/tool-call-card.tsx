@@ -211,7 +211,7 @@ export function RollbackPreviewBadge({ state }: { state: RollbackPreviewState })
   return (
     <span
       data-testid={style.testId}
-      // radius-role-exempt: 回退三态徽章 leading-4 = 16px 盒高,rounded 取半高胶囊形态,不套 chip 方档 until 2026-11-26
+
       className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-4 ${style.chip}`}
     >
       <Icon className="h-3 w-3" />
