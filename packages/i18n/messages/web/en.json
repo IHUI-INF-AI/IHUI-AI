@@ -27451,5 +27451,8 @@
     "hintConfirm": "confirm",
     "hintClose": "close",
     "clearAriaLabel": "Clear search"
+  },
+  "statusPage": {
+    "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
   }
 }
