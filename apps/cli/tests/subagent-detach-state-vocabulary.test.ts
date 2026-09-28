@@ -18,7 +18,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 // 遮噪只引这份权威实现(§3"两处实现必漂移"是本仓记过最多次的失败型,测试不得再抄一份)
-import { maskComments } from '../../../scripts/lib/code-mask.mjs';
+import { maskComments } from '../../../scripts/lib/code-mask.mjs'; // arch-exempt: 判据面必须与被审门共用同一份遮罩实现(§22c,两处算同一件事必漂移),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 import {
   SUBAGENT_LIFECYCLE_STATUSES,
   SUBAGENT_TERMINAL_STATUSES,
