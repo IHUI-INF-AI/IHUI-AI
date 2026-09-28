@@ -485,4 +485,30 @@ test('T23 自检 harness 不得接受"函数当断言"(空断言锁)', () => {
   assert.ok(!/^\s+t\('[^']*', \(\) => \{$/m.test(src), '不得再有 t(name, () => {...}) 这种从不求值的用例形态')
 })
 
+/**
+ * T24 豁免通道废除的两半(2026-09-29 O81 票㊵),与门 77 的 T-B8 是一对:
+ *  ① 形状锁 —— 本门不得再引 `isRoleExemptAt` / `isRadiusExemptAt`,也不得自己抄一份识别式;
+ *  ② 行为锁 —— 同一段代码带标记与不带标记,**判定四格必须逐字相同**,只有 `marked` 变。
+ * 只留①会放过"判序里还藏着一条 continue"的写法(形状像没出口、行为上仍放行);
+ * 只留②则半年后有人加回一行 `if (marked) continue` 而镜像全绿 —— 本仓"摘完又长回来"就是实测过的。
+ */
+test('T24 豁免出口不得回来:形状锁 + 带标记/不带标记结论逐格相同', async () => {
+  const src = readFileSync(SRC, 'utf8')
+  const lib = readFileSync(LIB, 'utf8')
+  assert.ok(!/isRoleExemptAt|isRadiusExemptAt/.test(src), '本门还在引旧的"按标记放行"出口')
+  assert.ok(!/isRoleExemptAt|isRadiusExemptAt/.test(lib), 'radius-roles 里还留着放行函数(通道已废除,不得留恒可用的出口)')
+  assert.match(src, /from '\.\/lib\/radius-exempt-marker\.mjs'/, '报名用的识别式必须来自那一份 lib')
+  assert.ok(!/const\s+RADIUS_EXEMPT_MARKER_RE\s*=/.test(src), '本门抄了第二份识别式')
+
+  const { auditFileText } = await import(pathToFileURL(SRC).href)
+  const table = radiusLookup(headBlob('packages/design-tokens/src/radius.js'))
+  const code = 'const s = { card: { width: 40, height: 16, borderRadius: rnRadius.lg } }'
+  const a = auditFileText('x/P.tsx', code, table)
+  const b = auditFileText('x/P.tsx', `${code} // radius-role-exempt: 想免检`, table)
+  const g = (r) => [r.usages, r.violations.length, r.compliant, r.undetermined.length, r.capsule, r.trueCircle]
+  assert.deepEqual(g(b), g(a), '带标记的一侧结论与不带标记不同 ⇒ 标记仍在改变判定,通道没废除干净')
+  assert.equal(a.marked, 0, '不带标记不该计 marked')
+  assert.ok(b.marked >= 1, '带标记必须被数出来(报"没看见"与"看见了但无效"在账面上必须不同形)')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
