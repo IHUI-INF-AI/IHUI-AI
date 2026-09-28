@@ -21,9 +21,8 @@ export default function ProfileLoading() {
       </div>
 
       {/* 头像 + 统计卡片 */}
-      {/* 豁免 0b: 头像占位骨架 (avatar placeholder, h-20 w-20 = 80px 圆形占位符合 avatar shape) */}
       <div className="flex items-center gap-6">
-        <div className="skeleton h-20 w-20 rounded-full" />
+        <div className="skeleton h-20 w-20 rounded-2xl" />
         <div className="flex flex-1 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="flex flex-1 flex-col gap-2 rounded-lg border border-border p-3">

@@ -4,7 +4,7 @@
 
 import { View } from '@tarojs/components'
 import type { CSSProperties } from 'react'
-import { getRnTokens, TARO_RPX_PER_PX, type RnThemeMode } from '@ihui/design-tokens'
+import { getRnTokens, rnRadius, TARO_RPX_PER_PX, type RnThemeMode } from '@ihui/design-tokens'
 import {
   COLORFUL_LOADER_DEFAULT_SIZE_PX,
   COLORFUL_LOADER_DOT_COUNT,
@@ -73,7 +73,7 @@ const dotStyle = (
   left: '50%',
   marginLeft: toRpx(-dotSize / 2),
   marginTop: toRpx(-dotSize / 2),
-  borderRadius: '50%',
+  borderRadius: rnRadius['2xl'],
   backgroundColor: color,
   transform: `rotate(${angle}deg) translateY(-${toRpx(radius)})`,
 })
