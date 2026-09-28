@@ -22,6 +22,7 @@
 // @vitest-environment happy-dom
 
 import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { act, createElement } from 'react'
@@ -31,12 +32,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ActiveWorkspace, PickOutcome, WorkspaceFailureKind } from '../lib/workspace-store'
 
-/** 唯一合法的四枚既有键(本票严禁新增语言包键) */
+/**
+ * 允许用到的词键白名单。三枚新键(chat.selectWorkspace / chat.workspaceNotWritable /
+ * agent.clear)与旧三枚的区别只是"这一枚是本轮补进去的":2026-09-28 提交 3a8726494e
+ * 按五语言同批落包 —— 顺序是**词键先到位、代码后引用**,而不是反过来借一枚语义不符的旧键。
+ * 白名单仍然有用:它拦的是"顺手再借一枚",不是"不许有词键"。
+ */
 const ALLOWED_KEYS = [
-  'apps.workspace',
+  'chat.selectWorkspace',
+  'chat.workspaceNotWritable',
+  'agent.clear',
   'agent.permission',
   'agent.permissionDecision',
   'chat.injectionKindWorkspace',
+  'apps.workspace',
 ]
 
 const h = vi.hoisted(() => {
@@ -82,8 +91,16 @@ vi.mock('../src/i18n', async () => {
   type Messages = Record<string, unknown>
   const shared = (await import('@ihui/i18n/messages/shared/zh-CN.json'))
     .default as unknown as Messages
-  const ext = (await import('@ihui/i18n/messages/extension/zh-CN.json'))
-    .default as unknown as Messages
+  // 同一个 HEAD 面(工厂体内不得引用外层 const —— vi.mock 会被 hoist 到 import 之前)
+  const { execFileSync: efs } = await import('node:child_process')
+  const ext = JSON.parse(
+    efs('git', ['show', 'HEAD:packages/i18n/messages/extension/zh-CN.json'], {
+      cwd: resolve(process.cwd(), '../..'),
+      encoding: 'utf8',
+      maxBuffer: 1 << 26,
+      windowsHide: true,
+    }),
+  ) as unknown as Messages
   const messages = mergeMessages(shared, ext)
   return {
     useI18n: () => ({
@@ -104,9 +121,25 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const EXT_ROOT = resolve(HERE, '..')
 const COMPONENT_PATH = join(EXT_ROOT, 'entrypoints/sidepanel/components/WorkspacePicker.tsx')
 const COMPONENT_SRC = readFileSync(COMPONENT_PATH, 'utf8')
-const EXT_PACK = JSON.parse(
-  readFileSync(resolve(HERE, '../../../packages/i18n/messages/extension/zh-CN.json'), 'utf8'),
-) as Record<string, unknown>
+/**
+ * 取词面 = HEAD blob,不是工作树副本。实测此刻 packages/i18n/messages/extension/*.json 的
+ * 工作树副本被并发会话持有、比 HEAD 少 26 个键(端内 chat-branch / queue-bar-ext /
+ * steer-notice 三个文件 28 例正因它而红)。按磁盘判会让一把正确的改动被判红,
+ * 而"渲染出的词值"与"断言期望的词值"来自两份文件 —— 两面必须同一个源。
+ */
+const REPO_ROOT = resolve(HERE, '../../..')
+const PACK_PATH = 'packages/i18n/messages/extension/zh-CN.json'
+function headPackText(): string {
+  return execFileSync('git', ['show', 'HEAD:' + PACK_PATH], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    maxBuffer: 1 << 26,
+    windowsHide: true,
+  })
+}
+const EXT_PACK = JSON.parse(headPackText()) as Record<string, unknown>
+// 五语言 parity:新键只在 zh-CN 里有 = 其余四语言界面回显键名,所以逐包断言
+const FIVE_LOCALES = ['zh-CN', 'zh-TW', 'ja', 'ko', 'en'] as const
 
 /** 从真词包取词值(测试内不重述词值) */
 function lookup(key: string): string {
@@ -119,8 +152,8 @@ function lookup(key: string): string {
   return cur
 }
 
-const WORD_WORKSPACE = lookup('apps.workspace')
-const WORD_PERMISSION = lookup('agent.permission')
+const WORD_SELECT = lookup('chat.selectWorkspace')
+const WORD_CLEAR = lookup('agent.clear')
 
 /** 判代码形态前必须剥注释:本文件的说明里合法地写着中文与 `title` 等字样 */
 const codeOnly = (src: string): string =>
@@ -204,7 +237,7 @@ afterEach(async () => {
 describe('① 渲染与交互:状态全部来自 store,文案全部走词包', () => {
   it('静态渲染未设工作区 ⇒ 只有一个取目录按钮,词值是「工作区」而不是键名,且无清除钮/无失败行', () => {
     const markup = renderToStaticMarkup(<WorkspacePicker />)
-    expect(markup).toContain(WORD_WORKSPACE)
+    expect(markup).toContain(WORD_SELECT)
     // 回显键名 = 本端词包没这一键,必须红
     expect(markup).not.toContain('apps.workspace')
     expect(markup).toContain('data-testid="ext-workspace-pick"')
@@ -219,7 +252,7 @@ describe('① 渲染与交互:状态全部来自 store,文案全部走词包', (
     const { container } = await mount()
     expect(container.textContent).toContain('ihui-workspace')
     const clearBtn = buttonOf(container, 'ext-workspace-clear')
-    expect(clearBtn.getAttribute('aria-label')).toBe(WORD_PERMISSION)
+    expect(clearBtn.getAttribute('aria-label')).toBe(WORD_CLEAR)
     expect(container.querySelector('[data-testid="ext-workspace-pick"]')).toBeNull()
   })
 
@@ -262,7 +295,7 @@ describe('② 失败态四态:取消与"能力没有"都不许变成文案', () 
     const { container } = await mount()
     await click(container, 'ext-workspace-pick')
     expect(failureText(container)).toBeNull()
-    expect(container.textContent).toBe(WORD_WORKSPACE)
+    expect(container.textContent).toBe(WORD_SELECT)
   })
 
   it('unsupported ⇒ 静默(与今天一样无操作,不新造提示)', async () => {
@@ -270,18 +303,26 @@ describe('② 失败态四态:取消与"能力没有"都不许变成文案', () 
     const { container } = await mount()
     await click(container, 'ext-workspace-pick')
     expect(failureText(container)).toBeNull()
-    expect(container.textContent).toBe(WORD_WORKSPACE)
+    expect(container.textContent).toBe(WORD_SELECT)
   })
 
-  it('denied / not-writable ⇒ 出 detail,且逐字只是那一段技术串', async () => {
-    for (const [kind, detail] of [
-      ['denied', 'SecurityError'],
-      ['not-writable', 'prompt'],
-    ] as const) {
-      h.pick.mockResolvedValueOnce(failWith(kind, detail))
+  it('denied ⇒ 只出 detail 技术串;not-writable ⇒ 出语言包文案而不是裸档名', async () => {
+    h.pick.mockResolvedValueOnce(failWith('denied', 'SecurityError'))
+    {
       const { container, dispose } = await mount()
       await click(container, 'ext-workspace-pick')
-      expect(failureText(container)).toBe(detail)
+      expect(failureText(container)).toBe('SecurityError')
+      await dispose()
+    }
+    h.pick.mockResolvedValueOnce(failWith('not-writable', 'prompt'))
+    {
+      const { container, dispose } = await mount()
+      await click(container, 'ext-workspace-pick')
+      const shown = failureText(container)
+      // 真词值(HEAD 面包裹的中文),既不是内部档名 'prompt' 也不是回显的键名
+      expect(shown).toBe(lookup('chat.workspaceNotWritable'))
+      expect(shown).not.toBe('prompt')
+      expect(shown).not.toContain('chat.workspaceNotWritable')
       await dispose()
     }
   })
@@ -312,8 +353,26 @@ describe('③ 源码接线与纪律(摘掉即红)', () => {
     expect(CODE).not.toMatch(/useEffect\(\(\)\s*=>\s*\{\s*subscribeActiveWorkspace\(/)
   })
 
-  it('shouldShowFailure 必须真被渲染式调用(把判据从组件里摘掉 ⇒ 本用例红)', () => {
+  it('shouldShowFailure 与 failureIsTechnical 必须真被渲染式调用(摘掉即红)', () => {
     expect(CODE).toMatch(/shouldShowFailure\(\s*failure\.kind\s*\)/)
+    expect(CODE).toMatch(/failureIsTechnical\(\s*failure\.kind\s*\)/)
+  })
+
+  it('三枚新键在五语言包里都有非空值(parity:缺一语即该语言界面回显键名)', () => {
+    for (const loc of FIVE_LOCALES) {
+      const pack = JSON.parse(
+        execFileSync('git', ['show', 'HEAD:packages/i18n/messages/extension/' + loc + '.json'], {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          maxBuffer: 1 << 26,
+          windowsHide: true,
+        }),
+      ) as { chat?: Record<string, unknown> }
+      for (const key of ['selectWorkspace', 'workspaceNotWritable']) {
+        const v = pack.chat?.[key]
+        if (typeof v !== 'string' || v.trim() === '') throw new Error(loc + ' 缺 chat.' + key)
+      }
+    }
   })
 
   it('代码面(剥注释)零中文 ⇒ 界面串一律走 t();并禁 title/alert/confirm/prompt', () => {
