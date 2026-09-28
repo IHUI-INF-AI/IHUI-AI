@@ -54,7 +54,7 @@
  *   node scripts/check-stale-revert.mjs --self-test   # 独立临时仓端到端演练
  * 紧急跳过:HUSKY_SKIP_STALE_REVERT_GUARD=1(确属有意回退请改用 git revert 生成前向提交)
  */
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -69,6 +69,10 @@ import {
 // 两处各写一遍必然漂开(本仓记过最多次的失败型),而漂开的后果不是"数字不一致",是同一枚提交
 // 在两道尺子下一红一绿。本层是纯函数层 —— 取材一律走下面的 face-reader,不得在 lib 里读 git。
 import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
+// §26:临时夹具唯一落点(旧写法把演练仓造在仓内 `.ihui-agent/tmp/` —— 既不受 scratch 根的
+// 嵌套闸保护,也会被 post-commit 的 `--auto-clean` 按名字波及;os.tmpdir() 同样禁用,
+// 活进程的 TEMP 可能仍钉在 C 盘)。
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 export const SKIP_ENV = 'HUSKY_SKIP_STALE_REVERT_GUARD'
 export const ANCESTOR_WINDOW = 40
@@ -732,7 +736,7 @@ function deleteWarn(deleted) {
 
 /** 独立临时仓端到端演练:真造一次「旧内容被暂存」,必须判红并点名 */
 function selfTestRun() {
-  const root = mkdtempSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.ihui-agent', 'tmp', 'stale-revert-drill-'))
+  const root = mkScratch('stale-revert-drill-')
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
   const g = (args) => git(['-C', repo, ...args])
@@ -858,7 +862,7 @@ function selfTestRun() {
     )
     return fail ? 1 : 0
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 }
 
