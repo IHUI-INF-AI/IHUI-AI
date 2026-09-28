@@ -234,26 +234,31 @@ def _no_input_scanner(args: Any, **_kw: Any) -> _ScanPass:
 
 # 默认高危工具集合(可经 env TOOL_APPROVAL_HIGH_RISK_TOOLS 追加,逗号分隔)
 _DEFAULT_HIGH_RISK_TOOLS: frozenset[str] = frozenset({
-    # 写文件类
+    # 写文件类(名取自 _TOOLS 注册面,与注册表逐名核对过)
     "write_file",
     "file_edit",
-    "file_batch_edit",
-    "edit_file",
-    "create_file",
-    "delete_file",
-    # 1-2(2026-09-08):冲突按块落盘解决(写文件类)
     "resolve_conflict",
     # 命令类
     "run_command",
     "computer_mouse_click",
-    "computer_key_type",
-    "computer_screenshot",
+    "computer_keyboard_type",
+    "computer_screenshot_screen",
     # 浏览器交互类
     "browser_click_element",
     "browser_type_text",
     # 删除/写库类(git_operations 含 rm / db_query 写操作由用户按参数预览自决)
     "git_operations",
     "db_query",
+    # D143(2026-09-28,用户批"清理+补齐"):任意出网取数 —— fetch_url 是注册面真实存在的
+    # 名字(票面写的 api_endpoint_call 是幻影,注册表 0 命中,勘误在 V4 §十一)
+    "fetch_url",
+    # D143:edu 资金与外发 —— 动账/退审批/批量催缴属不可逆或对外发信,必须先进审批门
+    "edu_create_refund",
+    "edu_approve_refund",
+    "edu_reject_refund",
+    "edu_create_payment_record",
+    "edu_send_fee_reminder",
+    "edu_send_fee_reminder_batch",
 })
 
 # 前缀高危:computer_* 系列(电脑控制)整体视为高危

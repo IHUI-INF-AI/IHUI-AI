@@ -125,7 +125,9 @@ export function extractReadKeys(src: string): string[] {
 
 /** 逐适配器取 (声明, 实读) 两份键集。**一次** git 遍历取满,不在 `readAdapterCredentials`
  *  的结果上再套一层文件循环 —— 那会变成 O(n²) 次 `git show`(38 个适配器 = 1444 次派生)。 */
-export function readAdapterKeyPairs(rev = 'HEAD'): Map<string, { declared: string[]; read: string[] }> {
+export function readAdapterKeyPairs(
+  rev = 'HEAD',
+): Map<string, { declared: string[]; read: string[] }> {
   const files = git(['ls-tree', '-r', '--name-only', rev, ADAPTER_DIR])
     .split('\n')
     .filter((p) => p.endsWith('.py'))
@@ -178,7 +180,10 @@ export interface CredentialDiff {
 }
 
 /** 纯判据：喂两侧键清单，输出三类差异（顺序稳定，便于断言与报告）。 */
-export function diffCredentialFields(adapterKeys: string[], registryKeys: string[]): CredentialDiff {
+export function diffCredentialFields(
+  adapterKeys: string[],
+  registryKeys: string[],
+): CredentialDiff {
   const a = new Set(adapterKeys)
   const r = new Set(registryKeys)
   return {
@@ -231,7 +236,10 @@ export function validateCoverageExemptions(
 
 const adapters = readAdapterCredentials('HEAD')
 const registry = readRegistryCredentials(
-  readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../src/routes/publish-routes.ts'), 'utf8'),
+  readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), '../src/routes/publish-routes.ts'),
+    'utf8',
+  ),
 )
 
 describe('凭据字段清单跨语言对账', () => {
@@ -239,7 +247,10 @@ describe('凭据字段清单跨语言对账', () => {
     expect(adapters.size).toBeGreaterThanOrEqual(30)
     expect(registry.size).toBeGreaterThanOrEqual(14)
     // 注册表写了但解析不到条目的 id = 正则与真实结构漂了的指纹
-    expect([...registry.values()].some((v) => v.length > 0), '注册表键集全空 = 解析失效').toBe(true)
+    expect(
+      [...registry.values()].some((v) => v.length > 0),
+      '注册表键集全空 = 解析失效',
+    ).toBe(true)
   })
 
   it('P1 每个已收录平台的字段两侧逐键等值', () => {
@@ -267,8 +278,10 @@ describe('凭据字段清单跨语言对账', () => {
       new Set(adapters.keys()),
       new Set(registry.keys()),
     )
-    expect(problems, `豁免清单自洽性（防线有牙见"判据有牙"对照）: ${problems.join('; ')}`).toEqual([])
-    console.log(
+    expect(problems, `豁免清单自洽性（防线有牙见"判据有牙"对照）: ${problems.join('; ')}`).toEqual(
+      [],
+    )
+    console.info(
       `[P2 报数] 适配器有而注册表未收录 ${notInRegistry.length} 个（豁免清单现登记 ${COVERAGE_EXEMPTIONS.length} 条）：${notInRegistry.join(', ')}`,
     )
   })
@@ -302,7 +315,10 @@ describe('凭据字段清单跨语言对账', () => {
   it('判据有牙：P4 构造面正反对照 + 只认 credentials 前缀', () => {
     const d = diffDeclaredVsRead(['sessionid', 'signatureId'], ['sessionid', 'publication_id'])
     expect(d).toEqual({ declaredNotRead: ['signatureId'], readNotDeclared: ['publication_id'] })
-    expect(diffDeclaredVsRead(['a', 'b'], ['b', 'a'])).toEqual({ declaredNotRead: [], readNotDeclared: [] })
+    expect(diffDeclaredVsRead(['a', 'b'], ['b', 'a'])).toEqual({
+      declaredNotRead: [],
+      readNotDeclared: [],
+    })
     // 取值形态三种都要认到；非 credentials 的字典不得算进来（否则别的 config 会被当凭据清单）
     const src = [
       'x = credentials.get("k1")',
@@ -324,7 +340,8 @@ describe('凭据字段清单跨语言对账', () => {
     ).toEqual(['BDUSS', 'STOKEN'])
   })
 
-  it('判据有牙：构造面正反对照（不依赖仓库此刻真值）', () => {    // 少一个必读键 ⇒ 必须点名 missing；多一个不读的键 ⇒ 必须点名 extra
+  it('判据有牙：构造面正反对照（不依赖仓库此刻真值）', () => {
+    // 少一个必读键 ⇒ 必须点名 missing；多一个不读的键 ⇒ 必须点名 extra
     const bad = diffCredentialFields(['sessionid', 'signatureId'], ['sessionid', 'sessionid_ss'])
     expect(bad.missing).toEqual(['signatureId'])
     expect(bad.extra).toEqual(['sessionid_ss'])

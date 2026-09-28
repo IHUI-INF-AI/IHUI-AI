@@ -25,12 +25,12 @@
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 
 import { __test__ as G, WIRING_MODE } from '../check-miniapp-css-landing.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname.slice(1)), '..', '..')
 const GATE = join(ROOT, 'scripts', 'check-miniapp-css-landing.mjs')
@@ -609,7 +609,7 @@ const writeDist = (d, { wxss = 0, wxml = 0, indexHtml = false } = {}) => {
   for (let i = 0; i < wxml; i++) writeFileSync(join(d, `p${i}.wxml`), '<view/>')
 }
 test('形态分类是"能不能判定"的唯一分派点(四种形态各自的答案都被证明过)', () => {
-  const base = mkdtempSync(join(tmpdir(), 'ihui-shape-'))
+  const base = mkScratch('ihui-shape-')
   try {
     const absent = join(base, 'absent')
     assert.equal(G.classifyDist(absent).kind, 'absent', '目录不存在必须判 absent,不得报 0% 覆盖')
@@ -626,7 +626,7 @@ test('形态分类是"能不能判定"的唯一分派点(四种形态各自的�
     writeDist(good, { wxss: 2, wxml: 2 })
     assert.equal(G.classifyDist(good).kind, 'weapp', '正向对照:完整 weapp 产物必须被认出来(否则上面四条是恒真)')
   } finally {
-    rmSync(base, { recursive: true, force: true, maxRetries: 3 })
+    rmScratch(base)
   }
 })
 
@@ -701,7 +701,7 @@ test('源码里必须写着「当前为手动 / CI 门」,且结论行也要说�
 test('引擎判据三向可分(只有 v4 指纹 / 只有 v3 指纹 / 两版都有 ⇒ unknown)', () => {
   const V4 = '--tw-leading:;--tw-tracking:;--tw-gradient-position:initial;--tw-drop-shadow-size:;--tw-duration:initial;--tw-ease:initial;'
   const V3 = '--tw-bg-opacity:1;--tw-text-opacity:1;--tw-border-opacity:1;'
-  const base = mkdtempSync(join(tmpdir(), 'ihui-eng-'))
+  const base = mkScratch('ihui-eng-')
   try {
     const d = join(base, 'dist')
     mkdirSync(d, { recursive: true })
@@ -715,7 +715,7 @@ test('引擎判据三向可分(只有 v4 指纹 / 只有 v3 指纹 / 两版都�
     w(`${V4}${V3}`)
     assert.equal(G.detectProductTailwindMajor(d).major, 'unknown', '两版指纹同时出现时必须承认判不出,不得猜一个方向')
   } finally {
-    rmSync(base, { recursive: true, force: true, maxRetries: 3 })
+    rmScratch(base)
   }
 })
 
@@ -963,4 +963,75 @@ function mkFakeApp(base) {
   writeFileSync(join(app, 'src', 'app.css'), '.text-card{background:var(--color-card)}')
   return app
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   C0 产物新鲜度(2026-09-28 补)。立因是本机实测:dist 停在 09-14 15:58,而源码
+   09-25/09-26 才开的 @source 链与 --color-cta 档都在本次对账分母里 ⇒ 门报
+   C1 覆盖 56.39% / 缺 331 类(样例 `!bg-cta`),结论行却写 `exit 0 —— 通过`。
+   同一份源码重跑 weapp 构建后现读 95.78% —— 那 331 类不是端的洞,是尺子的年龄。
+   本门此前**没有任何一维**回答"这份 dist 是哪天的",所以旧产物的读数和真缺陷在账面上同形。
+   两条锁各管一头:装车锁防"函数写了没人调"(守门 70/76/81 同型),端到端双向锁防"判据没有牙"。
+   ──────────────────────────────────────────────────────────────────────────── */
+test('C0 装车锁:runCheck 必须真的调用 decideArtifactFreshness,并把 stale 落进 undetermined(不是只导出)', () => {
+  const src = readFileSync(join(ROOT, 'scripts', 'check-miniapp-css-landing.mjs'), 'utf8')
+  const body = src.slice(src.indexOf('export async function runCheck'))
+  assert.match(body, /decideArtifactFreshness\(/, 'runCheck 体内必须调用它,否则 C0 只是 __test__ 里一个没人问的函数')
+  assert.match(body, /state === 'stale'[\s\S]{0,200}undetermined\.push/, 'stale 必须进 undetermined(exit 2 未判定)—— 落 failing 就是把"取证不完整"冒充成"端有缺陷"')
+  assert.match(body, /state === 'undetermined'[\s\S]{0,120}undetermined\.push/, '量不到也必须点名,不得静默当成新鲜')
+})
+
+test('C0 端到端双向锁:同一份临时 dist/src,src 更新⇒stale、dist 更新⇒fresh、量不到⇒undetermined', () => {
+  const base = mkTmp('c0')
+  try {
+    const app = mkFakeApp(base)
+    const dist = join(app, 'dist')
+    mkdirSync(join(dist, 'pages'), { recursive: true })
+    writeFileSync(join(dist, 'base.wxml'), '<template name="t" />')
+    writeFileSync(join(dist, 'pages', 'i.wxml'), '<view />')
+    writeFileSync(join(dist, 'pages', 'i.wxss'), '.flex{display:flex}')
+    const srcFiles = ['apps/miniapp-taro/src/pages/i.tsx', 'apps/miniapp-taro/src/app.css']
+    const T_OLD = new Date('2026-09-14T15:58:28Z')
+    const T_NEW = new Date('2026-09-28T16:40:00Z')
+    utimesSync(join(app, 'src', 'pages', 'i.tsx'), T_OLD, T_OLD)
+    utimesSync(join(app, 'src', 'app.css'), T_OLD, T_OLD)
+    for (const f of ['base.wxml', join('pages', 'i.wxml'), join('pages', 'i.wxss')])
+      utimesSync(join(dist, f), T_NEW, T_NEW)
+
+    // 阳性对照:两个采集器都必须真量到值 —— 只判状态而量不到,状态就成了猜的
+    const dn = G.newestMtimeInDir(dist)
+    const sn = G.newestMtimeOfPaths(base, srcFiles)
+    assert.equal(typeof dn.ms, 'number', 'dist 最新 mtime 必须量得到(量不到说明 walkFiles/stat 姿势错了)')
+    assert.equal(typeof sn.ms, 'number', '源码最新 mtime 必须量得到')
+    assert.equal(sn.unreadable, 0, '夹具里两个源码文件都该 stat 成功')
+
+    assert.equal(G.decideArtifactFreshness(dn2a(dn, sn)).state, 'fresh', 'dist 比源码新 ⇒ 必须判新鲜(判成旧就是造一台恒红门)')
+
+    // 反向:把源码改到比 dist 新 —— 这一格必须翻成 stale,且给出可复核的毫秒差
+    utimesSync(join(app, 'src', 'app.css'), T_NEW, T_NEW)
+    utimesSync(join(dist, 'base.wxml'), T_OLD, T_OLD)
+    utimesSync(join(dist, 'pages', 'i.wxml'), T_OLD, T_OLD)
+    utimesSync(join(dist, 'pages', 'i.wxss'), T_OLD, T_OLD)
+    const r = G.decideArtifactFreshness(dn2a(G.newestMtimeInDir(dist), G.newestMtimeOfPaths(base, srcFiles)))
+    assert.equal(r.state, 'stale', '源码里有比产物新的改动 ⇒ 这份产物不可能含它,读数不是缺陷计数')
+    assert.ok(r.ageMs > 0, 'stale 必须带毫秒差,否则报告只会喊"旧"而说不出旧多少')
+
+    // 第三臂:任一度量取不到 ⇒ undetermined(把"没量到"写成"没问题"是本仓最高频失效型)
+    assert.equal(G.decideArtifactFreshness({ distNewestMs: null, srcNewestMs: 1 }).state, 'undetermined')
+    assert.equal(G.decideArtifactFreshness({ distNewestMs: 1, srcNewestMs: null }).state, 'undetermined')
+    assert.equal(G.newestMtimeInDir(join(base, 'no-such-dir')).ms, null, '不存在的目录必须量出 null 而不是抛错或报 0')
+  } finally {
+    rmTmp(base)
+  }
+})
+
+/** newestMtimeInDir / newestMtimeOfPaths 的返回形状 → decideArtifactFreshness 的入参形状。 */
+function dn2a(d, s) {
+  return {
+    distNewestMs: d.ms,
+    srcNewestMs: s.ms,
+    distUnreadable: d.unreadable,
+    srcUnreadable: s.unreadable,
+  }
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

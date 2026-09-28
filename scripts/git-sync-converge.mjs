@@ -1077,6 +1077,18 @@ function main() {
           log(C.green, `↻ merge-tree 冲突已由 union-converge 归并,转下一轮复核\n${uni.trim()}`)
           continue
         }
+        // "未判定"与"判了、需人工"是两件不同的事,混成一句就会把一次 fetch 说成一次归并失败
+        // (G-473:本器先 fetch 过才走到这里,但 --theirs 由调用方直给 union-converge 的路径没有)。
+        if (uni.includes('未判定:')) {
+          log(
+            C.red,
+            `❌ 本轮未判定(不是归并结论):union-converge 说对象不在本机。\n  它给出的出路:${uni
+              .split('\n')
+              .filter((l) => l.includes('未判定:'))
+              .join('\n')}`,
+          )
+          process.exit(1)
+        }
         log(
           C.red,
           `❌ 合并冲突,且 union-converge 亦判需人工(见上)。\n原始输出:\n${e.stdout ?? e.message}`,
