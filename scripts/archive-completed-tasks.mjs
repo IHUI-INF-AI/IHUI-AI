@@ -128,7 +128,7 @@ const noBullets = args.includes('--no-bullets')
 // 大批量(格式漂移/积压)时的显式人工放行口 —— 自动档(pre-commit 钩子)没有这个开关就走阀门
 const allowMass = args.includes('--allow-mass')
 const daysIdx = args.indexOf('--days')
-const daysThreshold = daysIdx >= 0 && args[daysIdx + 1] ? parseInt(args[daysIdx + 1], 10) : 7
+const daysThreshold = daysIdx >= 0 && args[daysIdx + 1] ? parseInt(args[daysIdx + 1], 10) : 0
 
 /**
  * 底稿面:`head`(默认,= 被审面)/ `worktree`(人工取证逃生舱,或"根本没有被审面可比"时的自动退化)。
@@ -206,7 +206,11 @@ function trimTrailingEmpty(lines) {
 
 function shouldArchive(task) {
   if (allMode) return true
-  if (!task.date) return false // 无日期不归档(除非 --all)
+  // **默认阈值 0 = 完成即归档**(2026-09-28 由 7 改,用户原话"2053 条应该全归档才对"):
+  // 旧默认把"刚做完一周内"整段留在台账里,于是台账里 98% 的已完成行(实测 2008/2053)按规则
+  // 一条都不动 —— 这不是节流,是把"归档"这个动作推迟到没人再看它的时候。
+  // `--days N` 仍可回到"只搬满 N 天的"节奏(取证或降速时用)。
+  if (!task.date) return daysThreshold <= 0 // 阈值为 0 时不需要年龄判据 ⇒ 无日期也搬;>0 时不猜生日
   return dateDiffDays(task.date) >= daysThreshold
 }
 
@@ -224,19 +228,23 @@ const BULLET_ANY_RE = /^\s*[-*+] \[[ xX]\]/
  * 三条不许漂的判据:
  *  ① **只搬整段都是已完成登记的最长连续块** —— 块内一旦出现任何 `- [ ]`(含缩进子行)
  *     就在那里断开。把别人正开着的账搬进归档,比不归档严重得多(派单口径会静默少行)。
- *  ② **日期取块内第一条能解析出的日期**;解析不到 ⇒ 不搬(除非 --all)—— 与条目级同一条规矩,
- *     不给"无出生证明"的行造一个生日。
+ *  ② **逐行判资格,不按整块第一行判**(2026-09-28 改,由实测逼出):旧写法取"块内第一条能解析出
+ *     的日期"当整块年龄 ⇒ 一条满阈值的老登记只要紧跟在一条新登记后面,就被整块带着留下。实测净后果:
+ *     台账里"该搬而没搬"的还剩 8 条 / 7,923 B,而采集器报"达阈值 0 段" —— 报数与真值分叉。
+ *     现在不可行的行(未达 `--days` 阈值 / 设了阈值却解析不到日期)同样**断开**成独立段,不被带走。
  *  ③ 产出的对象与条目级同形({startLine,endLine,bodyLines,titleText,date,level:'bullet'}),
  *     因此**复用**既有的结构等值自证、零损失闸与对象空间落地,不另写第二套 plumbing
  *     (同一会话手写 6 份并漂开,正是 object-space-land 入库的理由)。
  */
-export function collectCompletedBullets(content, { skipRanges = [] } = {}) {
+export function collectCompletedBullets(content, { skipRanges = [], lineEligible = null } = {}) {
   const lines = String(content ?? '').split('\n')
   const inSkip = (i) => skipRanges.some((r) => i >= r.startLine && i <= r.endLine)
+  // 默认档:阈值 0 ⇒ 每条已完成行都资格独立,只看它自己解不解得出生日(解不到也搬,不必判龄)
+  const eligible = lineEligible || ((l) => (daysThreshold <= 0 ? true : !!dateOf(l)))
   const out = []
   let i = 0
   while (i < lines.length) {
-    if (inSkip(i) || !BULLET_DONE_RE.test(lines[i])) {
+    if (inSkip(i) || !BULLET_DONE_RE.test(lines[i]) || !eligible(lines[i])) {
       i++
       continue
     }
@@ -247,6 +255,7 @@ export function collectCompletedBullets(content, { skipRanges = [] } = {}) {
       const l = lines[j]
       if (BULLET_ANY_RE.test(l)) {
         if (/^\s*[-*+] \[ \]/.test(l)) break // 块内遇到未完成登记 ⇒ 当场断开
+        if (!eligible(l)) break // 上一条登记不够格 ⇒ 它自己留下,不搭本段的车
         body.push(l)
         j++
         continue
@@ -938,13 +947,16 @@ async function main() {
   // 采集范围与本轮条目级搬运结果**互斥**(skipRanges),否则同一行被 splice 两次。
   if (!noBullets) {
     const bulletSkip = toArchive.map((t) => ({ startLine: t.startLine, endLine: t.endLine }))
-    const bulletAll = collectCompletedBullets(content, { skipRanges: bulletSkip })
+    // 逐行判资格(不是逐块):满阈值的老行紧跟在新行后面时,旧写法会整段带着它留下。
+    const bulletAll = collectCompletedBullets(content, {
+      skipRanges: bulletSkip,
+      lineEligible: (l) => shouldArchive({ date: dateOf(l) }),
+    })
     const bulletOk = bulletAll.filter(shouldArchive)
     if (bulletAll.length > 0) {
       console.log(
         C.dim +
-          `   子弹级采集:${bulletAll.length} 段连续已完成登记 / 达 ${daysThreshold} 天阈值 ${bulletOk.length} 段` +
-          `(其余 ${bulletAll.length - bulletOk.length} 段留在原地,含解析不到日期的段 —— 不造生日)` +
+          `   子弹级采集:面上达阈值的段 ${bulletOk.length} 段(逐行判龄,不按整块首行 —— 混合段会各自断开)` +
           C.reset,
       )
     }
@@ -1361,6 +1373,22 @@ function runSelfTest() {
   )
   ok('S12c 未勾选行的缩进子项不得被裹进上一条', !String(bRuns[1] && bRuns[1].bodyLines).includes('丁的缩进子项还开着'), JSON.stringify(bRuns[1]))
   ok('S12d skipRanges 内的子弹不采(与条目级搬运互斥)', collectCompletedBullets(bFix, { skipRanges: [{ startLine: 1, endLine: 3 }] }).length === 1, JSON.stringify(collectCompletedBullets(bFix, { skipRanges: [{ startLine: 1, endLine: 3 }] }).map((r) => r.startLine)))
+
+  // S12e 逐行判资格(2026-09-28 由实测逼出的缺陷):旧写法按"块内第一条日期"定整块年龄 ⇒
+  // 满阈值的老行紧跟在新行后面就被整段带着留下,而采集器还报"达阈值 0 段"(报数与真值分叉)。
+  const mixFix = [
+    '- [x] ✅(2026-01-02) **G-910 新的一条**',
+    '- [x] ✅(2025-01-01) **G-911 满阈值的一条**',
+    '- [x] ✅(2026-01-03) **G-912 又一条新的**',
+  ].join('\n')
+  const oldOnly = collectCompletedBullets(mixFix, {
+    lineEligible: (l) => String(l).includes('(2025-'),
+  })
+  ok('S12e 混合段里满阈值的行单独成段被搬走,不搭新行的车', oldOnly.length === 1 && oldOnly[0].bodyLines.length === 1 && oldOnly[0].bodyLines[0].includes('G-911'), JSON.stringify(oldOnly))
+  ok(
+    'S12f 相邻两条都满阈值时仍并成一段(不得为逐行判龄把占位数炸成一比一)',
+    collectCompletedBullets([ '- [x] ✅(2025-01-01) **G-913 甲**', '- [x] ✅(2025-01-02) **G-914 乙**' ].join('\n'), { lineEligible: (l) => String(l).includes('(2025-') }).length === 1,
+  )
 
   // S13 假条目守卫:标题写着已完成、体内还有未勾选 ⇒ 不搬(真仓 L13850 那一枚 575,577 B /
   // 块内未勾选 237 条就是这一型;人工按提示跑 --allow-mass 会把 237 件活账归档)。
