@@ -114,7 +114,7 @@ function SortableUserRow({
           {...listeners}
           aria-label="拖动以排序"
           className={cn(
-            'flex h-6 w-4 cursor-grab items-center justify-center rounded-md text-muted-foreground/60 transition-colors',
+            'flex h-6 w-4 cursor-grab items-center justify-center rounded-sm text-muted-foreground/60 transition-colors',
             'hover:bg-accent hover:text-foreground active:cursor-grabbing',
             isDragging && 'text-foreground',
           )}

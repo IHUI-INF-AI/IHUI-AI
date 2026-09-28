@@ -132,7 +132,7 @@ export default function ClawdbotPermissionsPage() {
             <div className="space-y-1">
               <Label>效果</Label>
               <select
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                className="h-9 w-full rounded-sm border bg-background px-3 text-sm"
                 value={form.effect}
                 onChange={(e) => setForm({ ...form, effect: e.target.value as 'allow' | 'deny' })}
               >
