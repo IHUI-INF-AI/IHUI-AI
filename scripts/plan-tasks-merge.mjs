@@ -56,6 +56,7 @@ import {
   DUP_POINTER_RE,
   POINTER_FAMILIES,
   POINTER_NO_AUTO_REPAIR,
+  archivedEntryIndex,
   auditPlan,
   countMergeNotes,
   compositeKeyOf,
@@ -63,6 +64,9 @@ import {
   parseTaskRows,
   titleOf,
 } from './lib/plan-task-index.mjs'
+// F3「归档反查出口」的**面判据**直接取守门 13c 那一份实现(A2/A3 问的就是"归档件真在被审面上吗",
+// 与本出口问的同一件事;在这里另抄一份 ls-tree/readFileSync 就是本仓禁的第二份真相)。
+import { archiveFaceEntries } from './check-project-plan-archive.mjs'
 // 折叠形态的**反判据**取自守门 71 自己那一份实现(不另抄):`headIdOf` 判"行首名额"还在不在,
 // `lostMarkers` 判"折叠会不会被防丢层读成整行消失"。见 foldTwins 头注 ① —— 那是两维互咬的接缝。
 import { TASK_ID_PATTERN, headIdOf, lostMarkers } from './check-plan-line-loss.mjs'
@@ -73,6 +77,46 @@ import { alignSharedIndex, casUpdateRef, commitTreeWithIndex } from './lib/bypas
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN_REL = 'PROJECT_PLAN.md'
+
+/**
+ * 本次运行使用的 F3「归档出口」索引(由 `readArchivedIndex` 按**当次被审面**填一次)。
+ * 为什么必须是**运行级单值**而不是每个调用点各传:本文件有 20 处读计数,其中一半参与
+ * "F1/F2/F3/F4 无一上涨"的落地前断言 —— 只要有两处用了不同口径(一处看归档、一处没看),
+ * `rotatedAuto` 就会在**同一轮**里既当基线又当结论,那正是落地闸被自己的尺子顶红的形状。
+ * null = 本次没算归档反查 ⇒ 逐字退回旧口径(面内同主键那一族),并由 `audit()` 在结论里带口径。
+ */
+let ARCHIVED_KEYS = null
+/** 本轮归档面的装载结果(只为把**口径**打印出来,不参与判据)。 */
+let ARCH_NOTE = null
+export function setArchivedIndex(m) {
+  ARCHIVED_KEYS = m
+}
+export function archivedIndex() {
+  return ARCHIVED_KEYS
+}
+/** 唯一的 audit 调用点:一次运行内所有读数同一口径(见上方 ARCHIVED_KEYS 注释)。 */
+function audit(text) {
+  return auditPlan(text, ARCHIVED_KEYS ? { archivedKeys: ARCHIVED_KEYS } : {})
+}
+
+/**
+ * 按**当次被审面**装载 F3 的归档出口索引,并把它设为本轮唯一索引。
+ * 返回 `unavailable` 的原因(不返回空索引冒充"没有出口"):
+ * 归档面读不到时,`rotatedNoExit` 会等于"全部腐烂指针",拿到那个数的人会以为台账里
+ * 277 条都无出口 —— 那是"没判"被写成"判过了"的反面(把"没看清"写成"没问题")。
+ * 所以调用方必须把 `unavailable` 原样打印出来,且**不得**在 unavailable 时落地归档类改写。
+ */
+export function loadArchivedIndex(root, face) {
+  try {
+    const { entries, undetermined } = archiveFaceEntries(root, face === 'staged' ? 'staged' : 'head')
+    const idx = archivedEntryIndex(entries)
+    setArchivedIndex(idx.size ? idx : new Map())
+    return { size: idx.size, files: entries.length, undetermined, unavailable: null }
+  } catch (e) {
+    setArchivedIndex(null)
+    return { size: 0, files: 0, undetermined: [], unavailable: String(e?.message ?? e).split('\n')[0] }
+  }
+}
 const LABEL = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(逃生舱)' }
 
 function readPlan(root, face) {
@@ -107,17 +151,31 @@ function rewriteFork(line, key, today) {
  * "逐字相同"的行写成"同主键"这种假话 —— 判据的取值必须与它修的那一族同形)。
  * `POINTER_REPAIRS` 的键集必须与 lib 的 `POINTER_FAMILIES` **同集**,由镜像测试钉死:
  * 判据能看见而出口修不了,等于把红永久留给下一个人。
+ *
+ * 每条规则收第二个参数 `archived`(null = 目标还在面上;非 null = 目标已被那件归档代表,
+ * 值是 `{ name }` = 受被审面承认的归档件文件名)。两条出口写出的是**同一种东西**(内容锚点,
+ * §1 第 3 条),差别只在指向面内还是归档面:面上那条写「存活于同主键登记「…」」,归档那条多写
+ * 一份**文件名** —— 读者要拿它去 `.ihui-agent/archive/` 里逐字复核,不给文件名这句锚点就不可
+ * 复核,与行号同等无用。两种措辞都**不得再含 `L<数字>`**(否则下一轮 F3 又把它判成腐烂指针,
+ * 出口等于没打开;这条由镜像的"改写后不含行号"断言钉着)。
  */
 const POINTER_REPAIRS = {
-  alive: (key) => (_m) =>
-    `存活于同主键登记 ${key ? anchorOf(key) : '(与本行正文逐字相同,可按正文检索)'}`,
-  dup: (key) => (m) => {
+  alive: (key, archived) => (_m) =>
+    archived
+      ? `已随归档搬至 ${ARCHIVE_DIR}/${archived.name} 的条目 ${anchorOf(key)}`
+      : `存活于同主键登记 ${key ? anchorOf(key) : '(与本行正文逐字相同,可按正文检索)'}`,
+  dup: (key, archived) => (m) => {
     const prefix = String(m).startsWith('逐字相同') ? '逐字相同的另一条登记' : '同主键的另一条登记'
+    if (archived)
+      return `${prefix}已随归档搬至 ${ARCHIVE_DIR}/${archived.name} 的条目 ${anchorOf(key)}`
     return `${prefix} ${key ? anchorOf(key) : '(与本行正文逐字相同,可按正文检索)'}`
   },
 }
 
-function rewritePointer(line, key) {
+/** 归档目录的字面(与 13c 的 ARCHIVE_DIR 同值;写成一处,免得出口与门各拼一份路径)。 */
+const ARCHIVE_DIR = '.ihui-agent/archive'
+
+function rewritePointer(line, key, archived = null) {
   let out = line
   for (const fam of POINTER_FAMILIES) {
     const rule = POINTER_REPAIRS[fam.id]
@@ -130,7 +188,7 @@ function rewritePointer(line, key) {
         )
       continue
     }
-    out = out.replace(new RegExp(fam.source, 'g'), rule(key))
+    out = out.replace(new RegExp(fam.source, 'g'), rule(key, archived))
   }
   return out
 }
@@ -158,7 +216,7 @@ function rewriteDup(line, key, today) {
  *             refused:string[], dupTwins:string[], before:object }}
  */
 export function buildMerge(content, today) {
-  const a = auditPlan(content)
+  const a = audit(content)
   const lines = content.split('\n')
   const dupTwins = []
   const plan = new Map()
@@ -169,9 +227,18 @@ export function buildMerge(content, today) {
   }
   for (const f of a.forks) for (const r of f.open) note(r.line, 'F1', f.key)
   for (const r of a.voidRows) note(r.line, 'F2', compositeKeyOf(r.raw) ?? '')
-  // 只把**能换成真锚点**的指针纳入改写计划;其余属"看得见但猜不出"的一半(目标行已不是条目行
-  // 或根本不存在 ⇒ 作者当时指的是哪一条无从推断),由报告点名交人工。
-  for (const p of a.rotated) if (p.autoFixable) note(p.line, 'F3', compositeKeyOf(lines[p.line - 1] ?? '') ?? '')
+  // 只把**有出口**的指针纳入改写计划。两条出口按强弱次序取(同一行可能挂着两条指针):
+  //  · `face` —— 目标行还在面上且与本行同复合主键;
+  //  · `archived` —— 目标行已被搬走,但同复合主键的那条登记**逐字存在于被审面承认的归档件**里。
+  // 其余属"看得见但猜不出"的一半(既不在面上、也不在任何归档件里 ⇒ 作者当时指的是哪一条无从
+  // 推断),由报告逐条点名交人工。**不得为了让数字归零而改写它们** —— 那会把腐烂指针换成假锚点。
+  const f3exit = new Map()
+  for (const p of a.rotated) {
+    if (!p.exit) continue
+    if (f3exit.get(p.line) === 'face') continue
+    f3exit.set(p.line, p.exit)
+  }
+  for (const ln of f3exit.keys()) note(ln, 'F3', compositeKeyOf(lines[ln - 1] ?? '') ?? '')
   // F4:同主键的多条未勾选 —— 幸存者由索引层判定,其余各加一句副本指针(不动勾选、不删行)
   for (const c of a.dupCopies) note(c.row.line, 'F4', c.key)
   // F4b:逐字相同但**没有编号**的孪生行 —— 同一条出口(只加指针、不动勾选、不删行),
@@ -191,7 +258,20 @@ export function buildMerge(content, today) {
     const twins = content.split('\n').filter((l) => l === before).length
     if (twins > 1) dupTwins.push(`L${ln} 有 ${twins} 条逐字同文的孪生行`)
     let after = before
-    if (v.kinds.includes('F3')) after = rewritePointer(after, v.key)
+    if (v.kinds.includes('F3')) {
+      const kind = f3exit.get(ln)
+      let archived = null
+      if (kind === 'archived') {
+        // 判据(`p.exit`)与出口(归档索引)必须**同面同轮**:索引里没有这条键,说明它是在
+        // 另一份面上算出来的 ⇒ 不猜、不改写,点名交人工。
+        archived = ARCHIVED_KEYS?.get(v.key) ?? null
+        if (!archived) {
+          refused.push(`L${ln} 判为归档出口但索引里没有这条键(面不同轮)`)
+          continue
+        }
+      }
+      after = rewritePointer(after, v.key, archived)
+    }
     if ((v.kinds.includes('F1') || v.kinds.includes('F2')) && /^- \[ \]/.test(after)) after = rewriteFork(after, v.key, today)
     // F4 放最后:一行只可能被标一次;F4 与 F1 结构上互斥(dupCopies 只收"全未勾选"的组)
     if (v.kinds.includes('F4') && /^- \[ \]/.test(after)) after = rewriteDup(after, v.key, today)
@@ -644,8 +724,8 @@ export function verifyRestoreTerminals(srcText, outText, edits) {
   if (after.hiddenFamilies >= auditPointerTerminals(String(srcText)).hiddenFamilies && edits.length)
     problems.push(`隐形族没有减少(${auditPointerTerminals(String(srcText)).hiddenFamilies}→${after.hiddenFamilies})⇒ 本枚等于没修`)
   // F 维一律不得变差(这把尺子不许替别的维度制造红点)
-  const c0 = auditPlan(srcText).counts
-  const c1 = auditPlan(outText).counts
+  const c0 = audit(srcText).counts
+  const c1 = audit(outText).counts
   for (const [k, get] of [
     ['F1', (c) => c.forks],
     ['F2', (c) => c.voidRows],
@@ -755,7 +835,7 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
  * 而整块重复要消除的恰恰是"多出来的那些行" —— 用改状态的方式永远消不掉块。
  */
 export function buildBlockDedupe(content) {
-  const { verbatim } = auditPlan(content).dupBlocks
+  const { verbatim } = audit(content).dupBlocks
   const lines = String(content).split('\n')
   const drop = new Set()
   const removed = []
@@ -796,8 +876,8 @@ export function verifyBlockDedupe(srcText, outText, deletedCount) {
     if (m === 0 && n > 0) problems.push(`值「${line.slice(0, 40)}…」在输出里一份都不剩`)
     if (m > n) problems.push(`值「${line.slice(0, 40)}…」反而变多 ${n}→${m}`)
   }
-  const before = auditPlan(srcText).counts
-  const after = auditPlan(outText).counts
+  const before = audit(srcText).counts
+  const after = audit(outText).counts
   for (const [k, get] of [
     ['F1', (c) => c.forks],
     ['F2', (c) => c.voidRows],
@@ -897,8 +977,8 @@ export function verifyRowDedupe(srcText, outText, deletedCount, match = null) {
     if (m > n) problems.push(`值「${line.slice(0, 40)}…」反而变多 ${n}→${m}`)
   }
   // ③ F1–F4 + F6 无一上涨(这把尺子不许替别的维度制造红点)
-  const before = auditPlan(srcText).counts
-  const after = auditPlan(outText).counts
+  const before = audit(srcText).counts
+  const after = audit(outText).counts
   for (const [k, get] of [
     ['F1', (c) => c.forks],
     ['F2', (c) => c.voidRows],
@@ -994,7 +1074,7 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
       casUpdateRef(parent, landed.commit, { root: ROOT })
       return 1
     }
-    const after = auditPlan(landedText).counts
+    const after = audit(landedText).counts
     const leftAfter = findRowTwins(landedText).filter((g) => !match || g.line.includes(match))
     if (leftAfter.length > 0) {
       console.log(`❌ 落地后回读仍有 ${leftAfter.length} 组等值副本,回退到 ${parent.slice(0, 11)}`)
@@ -1275,8 +1355,8 @@ export function verifyTwinFold(srcText, outText, edits, refused = []) {
   const left = foldTwins(b).edits.filter((e) => !refusedLines.has(e.line))
   if (left.length) problems.push(`折完仍有 ${left.length} 行可折 ⇒ 不闭合(幂等失败),交人工`)
   // F 维一律不得变差(这把尺子不许替别的维度制造红点)
-  const before = auditPlan(srcText).counts
-  const after = auditPlan(outText).counts
+  const before = audit(srcText).counts
+  const after = audit(outText).counts
   for (const [k, get] of [
     ['F1', (c) => c.forks],
     ['F2', (c) => c.voidRows],
@@ -1406,7 +1486,10 @@ export function healAndLand() {
     console.log('自愈未判定 —— HEAD 取不到 PROJECT_PLAN.md(不记为已修)')
     return 2
   }
-  const b0 = auditPlan(src).counts
+  const arch = loadArchivedIndex(ROOT, 'head')
+  if (arch.unavailable)
+    console.log(`⚠️ 归档出口未判定 —— ${arch.unavailable}(本轮 rotatedAuto 退回"只看面内"旧口径,不做归档类改写)`)
+  const b0 = audit(src).counts
   // F4 / F4b 与 F1/F2/F3 平级:副本行也是"状态与正文不符"的一种,早退判据漏看它 = 修复出口永不触发。
   // (2026-09-27 实测这一格:F4b 判据与归并出口都写好了,而早退只看 F4 ⇒ 报告"拟改写 15 行"、
   //  落地档回一句"无状态分叉"就什么都不做 —— 判据有牙而无人调度,正是本仓最高频的失效型。)
@@ -1482,7 +1565,7 @@ export function healAndLand() {
     // 结论文句里的数字必须**回读落地的那枚提交**再说,不得写死 "0/0/0/0":
     // 那是一句"我修好了"的承诺,而承诺的兑现与否结构上不在这个调用面上(本仓最贵的失效型)。
     const landedText = gitIn(null, ['show', `${commit}:${PLAN_REL}`], { encoding: 'utf8' })
-    const after = auditPlan(landedText).counts
+    const after = audit(landedText).counts
     const twinLeft = foldTwins(landedText.split('\n')).edits.length
     console.log(
       `✅ 自愈落地 ${commit.slice(0, 11)}:归并 ${r.changed.length} 行 + 折叠 ${f.edits.length} 行 → 落地面现读 F1 ${after.forks} / F2 ${after.voidRows} / F3(可自动收口) ${after.rotatedAuto} / F3(无出口) ${after.rotatedNoExit} / F4 ${after.dupOpenCopies} / F4b ${after.verbatimDupCopies}(副本指针行合计 ${after.dupPointerRows})/ F10 可折残留 ${twinLeft}`,
@@ -1516,7 +1599,7 @@ export function dedupeAndLand(maxAttempts = 8) {
       console.log('块级收口未判定 —— HEAD 取不到 PROJECT_PLAN.md(不记为已修)')
       return 2
     }
-    const b0 = auditPlan(src).counts
+    const b0 = audit(src).counts
     if (!b0.dupBlocks) {
       console.log(`✅ 块级收口:HEAD 无逐字重复的整块登记(F6=0),不动任何东西${attempt > 1 ? ` (第 ${attempt} 轮)` : ''}`)
       return 0
@@ -1568,7 +1651,7 @@ export function dedupeAndLand(maxAttempts = 8) {
         console.log(`↻ 第 ${attempt} 次 CAS 未胜出,重算再来`)
         continue
       }
-      const after = auditPlan(gitIn(null, ['show', `${commit}:${PLAN_REL}`], { encoding: 'utf8' })).counts
+      const after = audit(gitIn(null, ['show', `${commit}:${PLAN_REL}`], { encoding: 'utf8' })).counts
       if (after.dupBlocks >= b0.dupBlocks) {
         console.log(`❌ 落地后回读块数没降(${b0.dupBlocks}→${after.dupBlocks}),回退`)
         gitIn(null, ['update-ref', 'HEAD', head, commit])
@@ -1622,7 +1705,7 @@ export function healStopReasons(srcText, merged, changed, refusedCount) {
   const a0 = String(srcText).split('\n')
   const a1 = String(merged).split('\n')
   const touched = new Set(changed.map((c) => c.line))
-  const after = auditPlan(merged).counts
+  const after = audit(merged).counts
   /**
    * F10 折叠维的闭合断言写在**这里**,不在调用方的自觉里:谁都能忘记调 verifyTwinFold,
    * 而"忘记调"在账面上一律表现为绿。算得出可折行 ⇒ 本枚没把这一维做完 ⇒ 停手。
@@ -1694,7 +1777,7 @@ export function verifyMerge(original, merged, changed) {
         `行 ${c.line}(${c.kind})翻勾把正文改了:剥掉复选框与本工具注记后两侧必须逐字相等(截断/整行替换都不许落地)`,
       )
   }
-  const after = auditPlan(merged)
+  const after = audit(merged)
   if (after.counts.forks) problems.push(`F1 未归零:${after.counts.forks} 组`)
   if (after.counts.voidRows) problems.push(`F2 未归零:${after.counts.voidRows} 行`)
   if (after.counts.rotatedAuto) problems.push(`F3(可自动收口)未归零:${after.counts.rotatedAuto} 处`)
@@ -1813,13 +1896,13 @@ function selfTest() {
   const bd = buildBlockDedupe(dupDoc)
   ok(bd.deletedCount === 3, `两份逐字相同的块应删 3 行,实测 ${bd.deletedCount}`)
   ok(verifyBlockDedupe(dupDoc, bd.text, bd.deletedCount).length === 0, `块级零损失断言应全过:${JSON.stringify(verifyBlockDedupe(dupDoc, bd.text, bd.deletedCount))}`)
-  ok(auditPlan(bd.text).counts.dupBlocks === 0, `收口后 F6 应为 0,实测 ${auditPlan(bd.text).counts.dupBlocks}`)
-  ok(auditPlan(dupDoc).counts.dupBlocks === 1 && auditPlan(oneDoc).counts.dupBlocks === 0, '块级判据本身要能数出这一型')
+  ok(audit(bd.text).counts.dupBlocks === 0, `收口后 F6 应为 0,实测 ${audit(bd.text).counts.dupBlocks}`)
+  ok(audit(dupDoc).counts.dupBlocks === 1 && audit(oneDoc).counts.dupBlocks === 0, '块级判据本身要能数出这一型')
   ok(buildBlockDedupe(oneDoc).deletedCount === 0, '只有一份时一行都不许删(幂等 + 不误伤唯一副本)')
   // 漂移副本(首行同而正文不同)结构性不可自动折半:必须原样留着交人工
   const driftDoc = `## 甲段\n${BLK}\n## 乙段\n${[BLK.split('\n')[0], LP('- 块行二:被人工改过的第二行,与上面那份不再逐字相等'), BLK.split('\n')[2]].join('\n')}\n\n尾行不是 bullet`
-  ok(auditPlan(driftDoc).counts.dupBlocks === 0, '漂移不该算逐字重复(算了就等于允许机器折半)')
-  ok(auditPlan(driftDoc).counts.dupBlockDrifted === 1, `漂移应单独计 1,实测 ${auditPlan(driftDoc).counts.dupBlockDrifted}`)
+  ok(audit(driftDoc).counts.dupBlocks === 0, '漂移不该算逐字重复(算了就等于允许机器折半)')
+  ok(audit(driftDoc).counts.dupBlockDrifted === 1, `漂移应单独计 1,实测 ${audit(driftDoc).counts.dupBlockDrifted}`)
   ok(buildBlockDedupe(driftDoc).deletedCount === 0, '漂移副本一份都不许自动删')
   // 反向对照:假装"幸存份也没了" —— 断言必须炸,否则它等于没有
   ok(
@@ -2343,7 +2426,7 @@ function main() {
       console.log(`⚠️ 无法判定 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
       return 2
     }
-    const c0 = auditPlan(src0).counts
+    const c0 = audit(src0).counts
     if (!c0.dupBlocks) {
       console.log(`✅ 无逐字重复的整块登记(F6=0);漂移 ${c0.dupBlockDrifted} 块按设计不自动动`)
       return 0
@@ -2452,7 +2535,9 @@ function main() {
   let counts0
   try {
     src = readPlan(ROOT, sel.face)
-    counts0 = auditPlan(src).counts
+    const arch = loadArchivedIndex(ROOT, sel.face)
+    ARCH_NOTE = arch
+    counts0 = audit(src).counts
   } catch (e) {
     console.log(`⚠️ 无法判定 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e).split('\n')[0]}`)
     return 2
@@ -2462,7 +2547,14 @@ function main() {
   const v = verifyMerge(src, r.text, r.changed)
   const baseBlob = gitRaw(["rev-parse", sel.face === "staged" ? `:${PLAN_REL}` : `HEAD:${PLAN_REL}`], ROOT)
   console.log(`baseBlob=${baseBlob} —— 落地时必须对这一枚做 CAS:它一挪,行号就不再指向我审过的内容`)
-  console.log(`判定面:${LABEL[sel.face]}  现读:F1 ${counts0.forks} 组 / F2 ${counts0.voidRows} 行 / F3 ${counts0.rotatedPointers} 处(其中可自动收口 ${counts0.rotatedAuto}、无出口交人工 ${counts0.rotatedNoExit})/ F4 ${counts0.dupOpenCopies} 副本 / 未勾选 ${counts0.open}`)
+  console.log(`判定面:${LABEL[sel.face]}  现读:F1 ${counts0.forks} 组 / F2 ${counts0.voidRows} 行 / F3 ${counts0.rotatedPointers} 处(其中此刻有出口可收 ${counts0.rotatedAuto} 处 = 面内 ${counts0.rotatedAuto - counts0.rotatedArchived} + 归档反查 ${counts0.rotatedArchived};无出口交人工 ${counts0.rotatedNoExit})/ F4 ${counts0.dupOpenCopies} 副本 / 未勾选 ${counts0.open}`)
+  console.log(
+    `  F3 口径说明:rotatedPointers=${counts0.rotatedPointers} 是**全部**腐烂指针;rotatedAuto=${counts0.rotatedAuto} 是**此刻有出口能收**的。${
+      ARCH_NOTE?.unavailable
+        ? `本轮归档面**未判定**(${ARCH_NOTE.unavailable})⇒ 归档反查未参与,上面的 auto 数是旧口径,不得当"没出口"读。`
+        : `归档索引来自被审面 ${ARCH_NOTE.files} 件、认得 ${ARCH_NOTE.size} 条已归档登记${ARCH_NOTE.undetermined.length ? `;${ARCH_NOTE.undetermined.length} 件正文取不到(那一层未判定)` : ''}。`
+    }`,
+  )
   console.log(`拟改写 ${r.changed.length} 行(${r.changed.map((c) => c.kind).sort().join(',')})`)
   // F10 的现读必须与 F1–F4 同屏报出:它不在 composite 键里,默认档不报就等于"没有这一型"。
   const twR = foldTwins(src.split('\n'), today)
