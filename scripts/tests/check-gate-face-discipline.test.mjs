@@ -518,8 +518,16 @@ test('T22 白名单两处"已知漏报"的前提必须仍然成立(前提一变�
   )
   // qual 用门自己导出的 `prejoinedRepoConsts` 现算(不在测试里重抄判据,§22c)。
   // 关键是**成对**:非点形态必须 qual 1,否则"dot 得 0"可能只是 helper 没跑(§22c 的复读机教训)。
-  assert.equal(qualOf('.x-ignore.json'), 0, '点开头根级文件必须**不**进首段白名单(被钉住的那一格排除)')
-  assert.equal(qualOf('x-not-dot.json'), 1, '同形只差一个点前缀 ⇒ 必须 qualify(否则上一条 0 是恒真)')
+  assert.equal(
+    qualOf('.x-ignore.json'),
+    0,
+    '点开头根级文件必须**不**进首段白名单(被钉住的那一格排除)',
+  )
+  assert.equal(
+    qualOf('x-not-dot.json'),
+    1,
+    '同形只差一个点前缀 ⇒ 必须 qualify(否则上一条 0 是恒真)',
+  )
   assert.ok(
     !REPO_CONTENT_FILE_RE.test('.x-ignore.json') && REPO_CONTENT_FILE_RE.test('PROJECT_PLAN.md'),
     'FILE_RE 的方向必须仍是"挡点前缀、认非点前缀"',
@@ -612,7 +620,9 @@ test('T29 装车锁:resolveRootArg 必须真被 main 调用,旧的两处写法�
     'main() 没调用 resolveRootArg ⇒ 新校验是死代码,提交链上一路绿灯(守门 70/76/81 同型)',
   )
   assert.ok(
-    /function main\(argv\) \{\s*\n\s*const \{ root, errorLines \} = resolveRootArg\(argv\)/.test(src),
+    /function main\(argv\) \{\s*\n\s*const \{ root, errorLines \} = resolveRootArg\(argv\)/.test(
+      src,
+    ),
     'resolveRootArg 必须是 main 的第一件事(在它之前不许有裸 assertRepoRoot / 裸取 root)',
   )
   // 旧的吞值写法与"裸调用"写法都不得回来
@@ -620,7 +630,10 @@ test('T29 装车锁:resolveRootArg 必须真被 main 调用,旧的两处写法�
     !/argv\.includes\('--root'\)\s*\?\s*resolve\(argv\[argv\.indexOf\('--root'\) \+ 1\]/.test(src),
     '旧的 `argv[argv.indexOf(--root) + 1] || .` 取值形态又回来了',
   )
-  const mainBody = src.slice(src.indexOf('function main(argv)'), src.indexOf('\nfunction ', src.indexOf('function main(argv)') + 1))
+  const mainBody = src.slice(
+    src.indexOf('function main(argv)'),
+    src.indexOf('\nfunction ', src.indexOf('function main(argv)') + 1),
+  )
   assert.ok(
     !/^\s*assertRepoRoot\(root, '本门'\)$/m.test(mainBody),
     'main() 里不得再**裸**调 assertRepoRoot(抛出的 Undetermined 会逃成裸栈 + RC=1)',
