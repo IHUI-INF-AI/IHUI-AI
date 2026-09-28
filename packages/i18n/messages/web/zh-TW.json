@@ -7161,6 +7161,7 @@
       "terminatedCancelled": "已取消",
       "terminatedQuotaExceeded": "配額超限",
       "terminatedPreempted": "被搶佔",
+      "unrecognizedStatus": "未識別",
       "worker": "執行者",
       "workspace": "工作區",
       "low": "低",

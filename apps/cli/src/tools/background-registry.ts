@@ -7,7 +7,9 @@
  *
  * 灵感来源:参考行业 Agent 框架的 background commands + opencode 的 /loop。
  * 简化策略(做减法):
- *   - 模块级 Map 管理任务(不持久化,REPL 退出即丢失)
+ *   - 模块级 Map 管理任务(内存表在进程退出时消失),但**每一次生命周期事件都落一条台账**
+ *     —— 见 `./background-ledger.ts`("只报不恢复"):重启后这些任务能被看见,判成
+ *     `detached-unknown`,不会被渲染成完成,也不会被自动重跑。
  *   - 进程退出后保留最近 100 个已完成任务(供 get_command_output 查询)
  *   - 不引入 cron 库,/loop 用 setInterval
  */
@@ -16,6 +18,8 @@ import type { ChildProcess } from 'node:child_process';
 import * as crypto from 'node:crypto';
 // Worktree 并行隔离层:后台任务结束后自动清理其 worktree
 import { cleanupWorktree } from './worktree.js';
+// 跨进程台账(状态判据的唯一实现也在那里,本文件不再自己判"进程在不在")
+import { recordHeartbeat, recordTaskSettle, recordTaskStart, type LedgerRecordedTerminal } from './background-ledger.js';
 
 export type BackgroundTaskStatus = 'running' | 'exited' | 'killed' | 'error';
 
@@ -62,6 +66,35 @@ function cleanupTaskWorktree(task: BackgroundTask): void {
   if (!task.worktreePath) return;
   cleanupWorktree(task.worktreePath, task.worktreeSourcePath ?? process.cwd(), true);
   task.worktreePath = undefined;
+}
+
+/**
+ * 注册表的终态 → 台账终态。
+ *
+ * 刻意**不**把"拿不到退出码"折成成败:Windows 上外部终止常见 `close(null, null)`,
+ * 那种情况下落 `ended-unknown` —— 进程确实结束了(这是我们观察到的),但结果没记到,
+ * 而"结果没记到"永远不许被渲染成完成(AGENTS §30)。
+ */
+function toLedgerTerminal(status: BackgroundTaskStatus, exitCode: number | null | undefined): LedgerRecordedTerminal {
+  if (status === 'killed') return 'cancelled';
+  if (status === 'error') return 'failed';
+  if (exitCode === 0) return 'succeeded';
+  if (typeof exitCode === 'number') return 'failed';
+  return 'ended-unknown';
+}
+
+/**
+ * 落台账。**台账失败不改判任务** —— 它是观测面不是执行面,但失败必须留痕:
+ * `background-ledger` 自己把失败压进告警队列,呈现点(`repl` 的 `/bg list`)会把它喊出来。
+ */
+function ledgerSettle(task: BackgroundTask, note: string): void {
+  recordTaskSettle({
+    id: task.id,
+    terminal: toLedgerTerminal(task.status, task.exitCode),
+    exitCode: typeof task.exitCode === 'number' ? task.exitCode : null,
+    note,
+    command: task.command,
+  });
 }
 
 /**
@@ -164,6 +197,10 @@ export function registerTask(
   };
   tasks.set(id, task);
 
+  // 台账先落一条"已开始、无终态"的记录:进程一旦被宿主清掉而没人写终态,
+  // 读侧就会把它判成 detached-unknown —— 这是"能被看见"的唯一前提。
+  recordTaskStart({ id, command, childPid: process?.pid ?? null });
+
   if (process) {
     process.stdout?.on('data', (chunk: Buffer) => {
       if (task.stdoutBuf.length < MAX_OUTPUT_PER_TASK) {
@@ -173,6 +210,7 @@ export function registerTask(
           task.stdoutBuf = task.stdoutBuf.slice(0, MAX_OUTPUT_PER_TASK);
         }
       }
+      recordHeartbeat(id); // 有输出就是"还活着"的证据(模块内按 30s 节流)
     });
     process.stderr?.on('data', (chunk: Buffer) => {
       if (task.stderrBuf.length < MAX_OUTPUT_PER_TASK) {
@@ -182,6 +220,7 @@ export function registerTask(
           task.stderrBuf = task.stderrBuf.slice(0, MAX_OUTPUT_PER_TASK);
         }
       }
+      recordHeartbeat(id);
     });
     process.on('error', () => {
       task.status = 'error';
@@ -189,6 +228,7 @@ export function registerTask(
       // 任务异常结束,自动清理关联 worktree
       cleanupTaskWorktree(task);
       pruneCompleted();
+      ledgerSettle(task, 'spawn error');
       // 终态通知放在状态改写之后:等待者读到的快照必须已经是 'error',
       // 否则会出现"任务已通知结束而 status 仍是 running"这种自相矛盾的观测。
       notifySettled(task);
@@ -206,6 +246,7 @@ export function registerTask(
       // 任务结束,自动清理关联 worktree
       cleanupTaskWorktree(task);
       pruneCompleted();
+      ledgerSettle(task, signal ? `closed by signal ${signal}` : 'closed');
       notifySettled(task);
     });
   }
@@ -231,6 +272,15 @@ export function registerFailedTask(command: string, errorMessage: string): strin
   };
   tasks.set(id, task);
   pruneCompleted();
+  // 占位任务从未有过进程,但同样要进台账:否则"沙盒拒绝"这一类任务在重启后彻底查无此事。
+  recordTaskSettle({
+    id,
+    terminal: 'failed',
+    exitCode: null,
+    note: errorMessage,
+    command,
+    childPid: null,
+  });
   return id;
 }
 
