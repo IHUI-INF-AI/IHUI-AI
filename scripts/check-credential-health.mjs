@@ -38,6 +38,7 @@ import { request } from 'node:https'
 import { request as httpRequest } from 'node:http'
 import { resolveGitBin } from './lib/gitdir.mjs'
 import { resolveRemoteHead } from './lib/face-reader.mjs'
+import { redactAlertDetail, redactChildOutput } from './lib/secret-shape-redact.mjs'
 import { keyFile, resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
 // .env 解析复用现役实现(该脚本有 §22d isDirectRun 守卫,被 import 时不触发 CLI 副作用)
 import { parseEnvText } from './check-env-drift.mjs'
@@ -853,49 +854,6 @@ export function buildBrandMailArgv({ to, title, severity, messageFile, plain = f
   ]
 }
 
-/**
- * 子进程输出转诊断文本:逐行脱敏 + 截断。契约脚本自身不打印密钥,但 node 崩溃时会把 require 到的
- * .env 片段、整条命令行甚至堆栈倒进 stderr —— 这些一律不落巡检输出(取向与 ihui-deploy.ps1 的
- * Protect-NotifyOutput 一致)。比 ps1 多走半步:命中行保留到第一个 `=`/`:` 前的**键名**,
- * 于是 "缺 RESEND_API_KEY" 这类诊断仍读得懂,而值永不落地;没有分隔符可切的行(堆栈里裸嵌的
- * token)整行打码 —— 宁可不给诊断,不给泄露面。
- */
-const SECRETISH_RE = /(api[_-]?key|token|secret|passw|authorization|bearer)/i
-/**
- * 只脱敏、不截断 —— 给"必须留全诊断"的正文组装用(O86附⑦ 末格)。
- * 截断与脱敏是两件事:此前两者焊死在一个函数里,于是"把 detail 接进闸门"这个修法
- * 会顺手把 500 字的 CI 探针诊断砍成 300 字 —— 那是拿泄露修复换一个不可处置的告警。
- */
-export function redactSecretishLines(raw) {
-  return String(raw ?? '')
-    .split(/\r?\n/)
-    .map((l) => {
-      const line = l.trimEnd()
-      if (!SECRETISH_RE.test(line)) return line
-      const sep = /[=:]/.exec(line)
-      return sep && sep.index < 40 ? `${line.slice(0, sep.index + 1)}***` : '[已脱敏]'
-    })
-    .filter((l) => l !== '')
-    .join(' / ')
-}
-
-/** 告警正文里的一条 detail:只抹"值形状"的东西,不把提到 token/key 的散文整行打码。 */
-const ALERT_ASSIGN_RE =
-  /((?:api[_-]?key|access[_-]?key|secret[_-]?key|token|secret|passw(?:or)?d|authorization|bearer)\s*[=:]\s*["']?)([^\s,;)"']+)/gi
-const ALERT_LITERAL_RE =
-  /\b(gh[pousr]_[A-Za-z0-9]{8,}|xox[baprs]-[A-Za-z0-9-]{6,}|AKIA[A-Z0-9]{8,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{6,}\.)\b/g
-export function redactAlertDetail(detail) {
-  const s = String(detail ?? '')
-  // 先 assignment 再 literal:assignment 已经把值换成 *** 后,字面量那条不会再命中同一处
-  const masked = s.replace(ALERT_ASSIGN_RE, '$1***').replace(ALERT_LITERAL_RE, '[已脱敏]')
-  return masked || '(无详情)'
-}
-
-export function redactChildOutput(raw, limit = 300) {
-  const kept = redactSecretishLines(raw)
-  if (!kept) return '(无输出)'
-  return kept.length > limit ? `${kept.slice(0, limit)}…(截断)` : kept
-}
 
 /** dry-run 的通道判定:派发器自报"至少一条通道齐备"才算可用(齐备与否由它读 apps/api/.env 决定) */
 export function judgeDryRunChannel(stdout) {
