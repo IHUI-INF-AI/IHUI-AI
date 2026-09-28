@@ -452,6 +452,35 @@ class TestResourcesRead:
         assert r.json()["error"]["data"]["requiredScope"] == CONFIG_SCOPE
         assert resource_engine == []
 
+    def test_shipped_catalog_machine_channel_lists_only_what_it_can_read(
+        self, resource_engine: list[str]
+    ) -> None:
+        """上一条红在**注入的假清单**上 ⇒ 它对"入库那份 JSON + 真视图"这一格是盲的。
+
+        立因(2026-09-28,把 `connectors:read` 标成 `thirdPartyEligible:false` 当轮实测):
+        `resources/read` 立刻 403,而 `resources/list` 仍把 `config://agent` 广告给同一个
+        机器凭据。缺口是结构性的 —— 裁决只写在读侧,列表侧有**两份手写的 `has_scope`**
+        (本层 `visible_resources` 与 export 层 `visible_export_resources` 各一份),
+        而两条既有测试一条用假清单、一条不带 `api_key_id`,所以分叉一路绿着进来。
+        现由 `capability_gate.scope_denied_for_channel` 一份判定同时喂 tools/call、
+        resources/read、两侧 list ⇒ 数据断言与行为断言成对,谁只改一侧就红。
+        """
+        machine = _headers([cg.ALL_SCOPES], api_key_id="k-view")
+        # ① 数据侧:这个 False 来自入库的契约产物,不是测试自己造的
+        entry = next(c for c in _real_catalog()["capabilities"] if c["scope"] == CONFIG_SCOPE)
+        assert entry["thirdPartyEligible"] is False, "清单里的标注与本判据的前提顶不上"
+        # ② 裁决侧:读被拒,且取值实现一次都没被叫到(先授权、后取数)
+        r = _send("resources/read", {"uri": CONFIG_URI}, headers=machine)
+        assert r.status_code == 403
+        assert resource_engine == []
+        # ③ 视图侧:同一个 principal 的 list 不得再列它
+        listed = {
+            x["uri"] for x in _send("resources/list", headers=machine).json()["result"]["resources"]
+        }
+        assert CONFIG_URI not in listed, f"列表仍在广告一个读不到的资源:{sorted(listed)}"
+        # ④ 对照:同表另外两档仍对外 ⇒ 补齐视图侧不等于把机器通道一刀切
+        assert {MEMORY_URI, SKILLS_URI} <= listed
+
 
 class TestExportResourceSurface:
     async def test_read_exported_resource_with_scope(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -493,6 +522,23 @@ class TestExportResourceSurface:
         )
         assert [r.uri for r in result.resources] == [CONFIG_URI]
         assert {str(r.uri) for r in export.visible_export_resources(None)} == set(cg.RESOURCE_SCOPES)
+
+    async def test_export_machine_view_matches_read_on_shipped_catalog(self) -> None:
+        """export 层是**第二份**列表视图,必须单独钉一次(只修一侧=另一侧继续广告读不到的资源)。
+
+        与 `TestResourcesRead.test_shipped_catalog_machine_channel_lists_only_what_it_can_read`
+        同判据、不同实现面;上面的 `test_list_resources_narrows_with_principal` 不带
+        `api_key_id`(非机器通道),所以它对这一格同样盲。
+        """
+        principal = cg.resolve_principal_from_request(
+            _http_request(_headers([cg.ALL_SCOPES], api_key_id="k-export-view"))
+        )
+        listed = {str(r.uri) for r in export.visible_export_resources(principal)}
+        assert {MEMORY_URI, SKILLS_URI} <= listed, f"对照档不得被顺手关掉:{sorted(listed)}"
+        assert CONFIG_URI not in listed, f"export 视图与裁决分叉:{sorted(listed)}"
+        # 视图没列它,裁决也必须拒它(反向:若哪天视图放开而读侧仍拒,这条成对断言会红)
+        with pytest.raises(cg.ScopeDeniedError):
+            await export.read_exported_resource(principal, CONFIG_URI)
 
 
 # ---------------------------------------------------------------------------
