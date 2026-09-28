@@ -5,8 +5,8 @@
 /**
  * §22c 镜像测试 —— `scripts/check-tool-registry-integrity.mjs`(V3 #47 / #49)。
  *
- * 为什么必须有这个文件而不是只靠 `--self-test`:自检那 27 例是**门自己写的判据重放**,
- * 它证明"判据按我想到的方式工作";本文件额外钉三件自检结构上给不出的东西:
+ * 为什么必须有这个文件而不是只靠 `--self-test`:自检那些用例是**门自己写的判据重放**,
+ * 它证明"判据按我想到的方式工作";本文件额外钉四件自检结构上给不出的东西:
  *   T1 装车证明:提交链(pre-commit-hook)真的调用本门,且失败即 process.exit(1)。
  *      门存在而没人跑 = 没有(守门 70/76/81 同型;#47 这一票的立项理由之一就是
  *      "引擎内置名对全部门禁盲视")。
@@ -14,6 +14,8 @@
  *   T3/T3b/T3c 取材面形状锁:三条被审路径必须由 face-reader 现读,禁止回落工作树。
  *   T4–T7 V3 #47 的三条新判据(J12/J13/J14)各有一红一绿的成对证明,且输入
  *      **逐字取自真仓文件**(§22c 红线:夹具只复刻实现形状 = 复读机)。
+ *   T9 委托面搬家(2026-09-28):委托 case 只从共享层唯一实现读,旧 web 壳**不是**
+ *      case 判据的输入(两脸并集会同时废掉 J1/J5/J16 的牙),缺必需输入不得静默当空集。
  * 判据函数一律 `import` 源文件导出的 `__test__`,不得在本文件里再抄一份(§22c)。
  */
 
@@ -156,7 +158,7 @@ test('T4b J12 的模块级第二份清单判据:≥3 个内置名才判,1-2 个�
 // --- T5 J13:解析出口必须真装车 --------------------------------------------
 
 test('T5 J13 三型:未 import / 只 import 不调用 / 桥不现读注册表,各自必红', () => {
-  const { fixPy, fixHandlers, fixTs, fixEngine, fixBridge, CLEAN_BRIDGE } = G.fixtures
+  const { fixPy, fixHandlers, fixTs, fixShell, fixEngine, fixBridge, CLEAN_BRIDGE } = G.fixtures
   const clean = {
     [G.paths.PY_LLM]: fixPy(
       '    "read_file",\n    "apply_patch",',
@@ -164,7 +166,8 @@ test('T5 J13 三型:未 import / 只 import 不调用 / 桥不现读注册表,�
       '    "apply_patch": "用 file_edit",',
     ),
     [G.paths.PY_MCP]: fixHandlers(['read_file', 'write_file', 'run_command']),
-    [G.paths.TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']),
+    [G.paths.TS_EXEC_SHARED]: fixTs(['read_file', 'write_file', 'apply_patch']),
+    [G.paths.TS_EXEC]: fixShell(),
     [G.paths.PY_ENGINE]: fixEngine(['unified_exec', 'view_image', 'update_plan']),
     [G.paths.PY_BRIDGE]: fixBridge(CLEAN_BRIDGE),
   }
@@ -254,7 +257,7 @@ test('T6b 桥表解析器必须吃下真表里那些"带 ASCII 括号 + 多段�
 // --- T7 回归锁:J8/J9/J10 的既有判据不得被本次改动削弱 ---------------------
 
 test('T7 J8-J10 的旧判据在夹具变异上仍各自有牙(改判据不得只加不减)', () => {
-  const { fixPy, fixHandlers, fixTs, fixEngine, fixBridge, CLEAN_BRIDGE } = G.fixtures
+  const { fixPy, fixHandlers, fixTs, fixShell, fixEngine, fixBridge, CLEAN_BRIDGE } = G.fixtures
   const names = ['unified_exec', 'view_image', 'update_plan']
   const clean = {
     [G.paths.PY_LLM]: fixPy(
@@ -263,7 +266,8 @@ test('T7 J8-J10 的旧判据在夹具变异上仍各自有牙(改判据不得只
       '    "apply_patch": "用 file_edit",',
     ),
     [G.paths.PY_MCP]: fixHandlers(['read_file', 'write_file', 'run_command']),
-    [G.paths.TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']),
+    [G.paths.TS_EXEC_SHARED]: fixTs(['read_file', 'write_file', 'apply_patch']),
+    [G.paths.TS_EXEC]: fixShell(),
     [G.paths.PY_ENGINE]: fixEngine(names),
     [G.paths.PY_BRIDGE]: fixBridge(CLEAN_BRIDGE),
   }
@@ -318,6 +322,48 @@ test('T8 夹具与真仓同形(否则自检测的是已不存在的旧形态)', 
     real,
     /BRIDGE_MODES:\s*(?:Final\[)?tuple\[str, str, str\]\]?\s*=\s*\("port", "map", "local"\)/,
     '真仓的封闭集形态变了 → 夹具必须跟着改,否则自检在假绿',
+  )
+})
+
+// --- T9 委托面搬家(2026-09-28):判据只认共享层那一份实现 ------------------
+
+test('T9 委托 case 只读共享层唯一实现;旧 web 壳不是判据输入(两脸不得并集)', () => {
+  const { fixTs, fixShell } = G.fixtures
+  // 阳性对照(输入逐字取自真实文件,§22c 红线):委托专有四名必须真读得到。
+  const sharedText = readWorktree(G.paths.TS_EXEC_SHARED)
+  const frontend = G.frontendCases({ [G.paths.TS_EXEC_SHARED]: sharedText })
+  for (const n of ['apply_patch', 'create_file', 'delete_file', 'move_file'])
+    assert.ok(
+      frontend.has(n),
+      `共享层委托 case 读不到 '${n}' —— 判据的脸又指歪了(本门 2026-09-28 恒红的同一型)`,
+    )
+  // 真实旧壳必须是"无 case 且转发"的薄壳 —— 现状本身在被审面成立。
+  const shellText = readWorktree(G.paths.TS_EXEC)
+  assert.equal(
+    G.caseNamesIn(shellText).size,
+    0,
+    '旧 web 壳里长出了 case:第二份委托实现回潮(J16 在生产面已失明)',
+  )
+  assert.ok(
+    G.shellForwardsToSharedImplementation(shellText),
+    '旧 web 壳不再转发到唯一实现(J16 在生产面已失明)',
+  )
+  // 反向对照:实现"退回"旧壳而共享层清空 → 委托集合必须为空。
+  // 若哪天有人把两侧并集,这条会先红 —— 并集等于承认两份实现都合法,J1/J5/J16 同时失去牙。
+  const forkBack = G.frontendCases({
+    [G.paths.TS_EXEC_SHARED]: fixTs([]),
+    [G.paths.TS_EXEC]: fixTs(['apply_patch']),
+  })
+  assert.equal(
+    forkBack.has('apply_patch'),
+    false,
+    'web 壳的 case 被读进了委托集合 = 两脸并集,委托面唯一实现的约定作废',
+  )
+  // 必需输入缺席不得静默当空集(读空伪装成判过是本仓最高频失效型)。
+  assert.throws(
+    () => G.frontendCases({ [G.paths.TS_EXEC]: fixShell() }),
+    /未随取材提供/,
+    '共享层实现缺席时 frontendCases 必须抛,而不是读出一个空集合',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
