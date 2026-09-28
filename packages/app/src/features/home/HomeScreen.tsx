@@ -295,7 +295,7 @@ function createStyles(tk: AppThemeTokens) {
       minWidth: 16,
       height: 16,
       paddingHorizontal: 4,
-      borderRadius: rnRadius.lg, // radius-role-exempt: 16x16 未读红点，radius=高度一半=真圆 until 2026-11-26
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
