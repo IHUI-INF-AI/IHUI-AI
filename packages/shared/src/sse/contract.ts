@@ -353,6 +353,46 @@ export type SSEEventPayload =
       /** 限额重置时间(ISO,次日 0 点,可选) */
       resetAt?: string
     }>
+  // 消息级计量帧(D1/D7 于 2026-09-19 立;2026-09-28 由 D132 补入判别联合)。
+  // 字段清单的权威在 `apps/ai-service/app/core/sse_contract.py` 的
+  // `SSEEventContract("usage", ("messageId","usage","timing","model","costUsd"))`,
+  // 发射点是 `app/routers/llm.py` 流收尾处的 `_usage_frame`。本类型描述**命名帧**的
+  // camelCase 线格式;`packages/api-client` 的 `onUsage` 另兼容旧 OpenAI 的 snake_case
+  // 无名帧(那一路上 `messageId`/`timing` 为 null),不在此联合内重复建模。
+  | SSEEventWithMeta<{
+      type: 'usage'
+      messageId: string
+      usage: {
+        promptTokens: number | null
+        completionTokens: number | null
+        totalTokens: number | null
+        /** 思考链用量;不支持该档的模型下发 null,老帧缺席按 null 处理 */
+        reasoningTokens?: number | null
+      }
+      timing: {
+        /** 首 token 耗时;流未产出首 token 时为 null */
+        firstTokenMs: number | null
+        durationMs: number
+      }
+      model: string | null
+      /** 未计费/定价缺失时为 null(前端成本段不渲染) */
+      costUsd: number | null
+    }>
+  // 文件写类工具的流中 diff 预览增量帧(D113 于 2026-09-27 立;2026-09-28 由 D132 补入联合)。
+  // 字段清单同样以 `sse_contract.py` 的 `SSEEventContract("tool-delta", …)` 为准;
+  // 消费方 `packages/api-client/src/client.ts` 的 `tryParseToolDelta` 与
+  // `packages/shared/src/utils/sse-parse.ts` 都按这四个键取值。
+  | SSEEventWithMeta<{
+      type: 'tool-delta'
+      /** 对应的 tool-call-start 的 toolCallId */
+      toolCallId: string
+      /** 同一 toolCallId 内的递增序号(乱序/重传由消费端按 seq 收敛) */
+      seq: number
+      /** 本次增量的正文(不是全量) */
+      partialText: string
+      /** 超长截断标记;缺席表示未截断 */
+      truncated?: boolean
+    }>
 
 /** 事件名数组(去重,用于契约对账/测试)。 */
 export const SSE_EVENT_NAMES: readonly SSEEventName[] = Object.values(SSE_EVENTS)
