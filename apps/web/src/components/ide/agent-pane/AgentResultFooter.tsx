@@ -81,7 +81,7 @@ export function AgentResultFooter({
           type="button"
           onClick={onStop}
           disabled={!isRunning}
-          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="agent-pane-stop-btn"
         >
           <Square className="h-3 w-3" aria-hidden />
@@ -91,7 +91,7 @@ export function AgentResultFooter({
           type="button"
           onClick={onClear}
           disabled={isRunning}
-          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="agent-pane-clear-btn"
         >
           <Trash2 className="h-3 w-3" aria-hidden />

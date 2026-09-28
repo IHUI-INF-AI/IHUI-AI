@@ -94,7 +94,7 @@ function NumberField({
               aria-label={t('clearParam', { name: label })}
               data-testid={`${testId}-clear`}
               onClick={() => onChange(undefined)}
-              className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>
