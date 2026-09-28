@@ -76,6 +76,7 @@ import { registerHooksCommand } from './commands/hooks.js';
 import { registerHooksAutoCommand } from './commands/hooks-auto.js';
 import { registerImportCommand } from './commands/import.js';
 import { registerServeCommand } from './commands/serve.js';
+import { registerTuiCommand, tryFullScreenFromEnv } from './commands/tui.js';
 import { registerConnectCommand } from './commands/connect.js';
 import { startAcpServer } from './acp/server.js';
 import { registerSubagentParallelCommand } from './commands/subagent-parallel.js';
@@ -105,6 +106,37 @@ function resolvePermissions(opts: OptionValues): PermissionRules | undefined {
   const deny = parseToolList(typeof opts.disallowedTools === 'string' ? opts.disallowedTools : undefined);
   if (!allow && !deny) return undefined;
   return { allow, deny };
+}
+
+/**
+ * IHUI_TUI=1 时的全屏分支(默认档仍是行模式 —— 见 commands/tui.ts 头注的理由)。
+ *
+ * 关键约束:本次请求里若带了**全屏宿主还接不住的安全相关入参**(--tools /
+ * --disallowed-tools / --plan / --auto-approve-plan),就必须把这些点名给
+ * `tryFullScreenFromEnv`,由它交回行模式并打印原因。宁可少了个全屏,
+ * 也不能因为"换了个渲染层"就把用户点名的工具限制丢掉 —— 那是 fail-open。
+ */
+async function maybeRunFullScreen(
+  opts: OptionValues,
+  cfg: ReturnType<typeof resolveEffectiveConfig>,
+  sessionId: string | undefined,
+): Promise<boolean> {
+  const declined: string[] = [];
+  if (resolvePermissions(opts)) declined.push('--tools/--disallowed-tools');
+  if (cfg.planFirst) declined.push('--plan');
+  if (cfg.autoApprovePlan) declined.push('--auto-approve-plan');
+  return tryFullScreenFromEnv({
+    apiUrl: cfg.apiUrl,
+    apiKey: cfg.apiKey,
+    model: cfg.model,
+    workspacePath: typeof opts.workspace === 'string' ? opts.workspace : process.cwd(),
+    maxIterations: cfg.maxIterations,
+    permissionMode: cfg.permissionMode,
+    enableMcp: cfg.enableMcp,
+    allowDangerous: cfg.allowDangerous,
+    sessionId,
+    declined,
+  });
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -525,6 +557,8 @@ program
         cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
       });
       const session = resolveSession(opts);
+      // 默认档 = 行模式;只有 IHUI_TUI=1 才接管(接不住时打印原因并继续走 startREPL)。
+      if (await maybeRunFullScreen(opts, cfg, session.sessionId)) return;
       await startREPL({
         modelId: cfg.model,
         workspacePath: opts.workspace,
@@ -562,6 +596,8 @@ const chatCmd = program
       cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
     });
     const session = resolveSession(opts);
+    // 默认档 = 行模式;只有 IHUI_TUI=1 才接管(接不住时打印原因并继续走 startREPL)。
+    if (await maybeRunFullScreen(opts, cfg, session.sessionId)) return;
     await startREPL({
       modelId: cfg.model,
       workspacePath: opts.workspace,
@@ -873,6 +909,8 @@ program
 // serve 子命令 — 启动 Agent 内核 HTTP/WS server,支持远程驱动(对标 OpenCode client/server 架构)
 // 平台独占:仅 cli
 registerServeCommand(program);
+// 全屏终端界面:新增子命令,不改任何既有入口的默认行为(默认档仍是行模式)。
+registerTuiCommand(program);
 
 // connect 子命令 — 作为 TUI client 连接远程 Agent server(对标 OpenCode 远程驱动)
 // 平台独占:仅 cli
