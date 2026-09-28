@@ -27,12 +27,13 @@ import time
 import urllib.parse
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
+from collections.abc import Callable
 from typing import Any, cast
 
 import httpx
 
 from app.core.tunables import DEFAULT_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS
-from app.services import mcp_quality
+from app.services import mcp_quality, mcp_status
 from app.services.command_streamer import (
     FRAME_READ_LINE,
     FRAME_READ_TOO_LARGE,
@@ -128,6 +129,29 @@ class MCPClient:
         self._negotiated_protocol = ""
         self._server_info: dict[str, Any] = {}
         self._capabilities: dict[str, Any] = {}
+        # D154(2026-09-30 立)连接状态观察者:由 `MCPClientManager.register` 在注册时挂上
+        # —— 只有 manager 知道这台 server 的**注册者**是谁(主体来自注册事实,不来自发帧方)。
+        # 默认 None ⇒ 没有观察者时本类行为与改动前逐字相同。
+        self._on_status: Callable[[str, dict[str, Any]], None] | None = None
+
+    def set_status_hook(self, hook: "Callable[[str, dict[str, Any]], None] | None") -> None:
+        """挂/摘状态观察者(生产面唯一入口是 `MCPClientManager.register`)。"""
+        self._on_status = hook
+
+    def _emit_status(self, state: str, **extra: Any) -> None:
+        """把一次连接状态变更交给观察者。
+
+        观察者任何异常都**不得**穿透:MCP 连不上已经够糟了,不能再因为"提示发不出去"
+        把连接流程本身弄炸(那会把票要修的"看不出来"升级成"连不上还崩")。
+        异常一律 warn(§5e「失败必须响」),不改控制流。
+        """
+        hook = self._on_status
+        if hook is None:
+            return
+        try:
+            hook(state, extra)
+        except Exception as e:
+            logger.warning("MCP %s 状态观察者异常(%s %s): %s", self._config.name, state, extra, e)
 
     @property
     def config(self) -> MCPClientConfig:
@@ -160,18 +184,29 @@ class MCPClient:
         """连接外部 MCP Server。"""
         if self._connected:
             return
-        if self._config.transport == TRANSPORT_STDIO:
-            ok = await self._stdio_connect()
-        elif self._config.transport == TRANSPORT_SSE:
-            ok = await self._sse_connect()
-        elif self._config.transport == TRANSPORT_STREAMABLE_HTTP:
-            ok = await self._http_connect()
-        else:
-            logger.error("未知传输模式: %s", self._config.transport)
-            ok = False
-        if ok:
-            await self._send_notification("notifications/initialized")
-            logger.info("MCP Client 已连接: %s[%s]", self._config.name, self._config.transport)
+        # D154:三条出口都要有帧 —— connecting / connected / failed。
+        # 整段包一层 try 是为了"抛异常的那一型也得上屏":原先异常直接冒到调用方,
+        # 端上看到的表现是"某个工具调用失败了",而真实原因是这台 server 根本连不上。
+        self._emit_status("connecting")
+        try:
+            if self._config.transport == TRANSPORT_STDIO:
+                ok = await self._stdio_connect()
+            elif self._config.transport == TRANSPORT_SSE:
+                ok = await self._sse_connect()
+            elif self._config.transport == TRANSPORT_STREAMABLE_HTTP:
+                ok = await self._http_connect()
+            else:
+                logger.error("未知传输模式: %s", self._config.transport)
+                ok = False
+            if ok:
+                await self._send_notification("notifications/initialized")
+                logger.info("MCP Client 已连接: %s[%s]", self._config.name, self._config.transport)
+                self._emit_status("connected")
+            else:
+                self._emit_status("failed", reason=f"{self._config.transport} 连接未建立")
+        except Exception as e:
+            self._emit_status("failed", reason=f"{type(e).__name__}: {e}")
+            raise
 
     async def disconnect(self) -> None:
         """断开连接，清理资源。"""
@@ -849,6 +884,9 @@ class MCPClient:
                 self._config.max_reconnect_attempts,
                 self._config.name,
             )
+            # D154:放弃的那一格才是用户要看到的"连不上"。此前它只进服务端日志,
+            # 端上的表现是"某个工具调用失败了"—— 修复方向因此被指错(去查工具,而不是去查连接)。
+            self._emit_status("failed", reason=f"重连已达上限({self._config.max_reconnect_attempts})")
             return
         self._reconnect_attempts += 1
         delay = min(
@@ -860,6 +898,13 @@ class MCPClient:
             self._config.name,
             self._reconnect_attempts,
             delay,
+        )
+        # attempt/maxAttempts 成对(票第 3 栏的形状;词表 `chat.mcp.state.reconnecting`
+        # 要两格 —— 只发分子会渲染成"第 2/ 次重连",半句话比不发帧更糟)。
+        self._emit_status(
+            "reconnecting",
+            attempt=self._reconnect_attempts,
+            max_attempts=self._config.max_reconnect_attempts,
         )
         await asyncio.sleep(delay)
         try:
@@ -922,7 +967,20 @@ class MCPClientManager:
         if name in self._clients:
             logger.warning("MCP Client 已存在，覆盖: %s", name)
         self._owners[name] = owner_user_id
-        self._clients[name] = MCPClient(config)
+        client = MCPClient(config)
+        # D154(2026-09-30 立)连接状态下行:钩子只能挂在这里 —— **收信人取自注册事实**
+        # (`owner_user_id`,由端点侧 `require_request_user_id` 盖章),连接自己不知道也不该知道
+        # "该通知谁";把主体交给发帧方 = §5「认证不等于授权」那条禁令。
+        # 部署级(owner 为空串)照挂:`report_mcp_status` 按"无主体"拒发并计数,
+        # 不在这里开第二条分支 —— 分支一多,"谁收到了这一帧"就没人说得清了。
+        owner = owner_user_id
+
+        def _hook(state: str, extra: dict[str, Any]) -> None:
+            # 返回值刻意丢掉:观察者只负责"把这一帧发出去",派发成功与否都不改注册流程
+            mcp_status.report_mcp_status(owner, name, state, **extra)
+
+        client.set_status_hook(_hook)
+        self._clients[name] = client
         logger.info("MCP Client 已注册: %s[%s]", name, config.transport)
         return name
 
