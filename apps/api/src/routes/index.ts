@@ -86,6 +86,7 @@ import { crewRoutes } from './crew.js'
 import { agenticServiceRoutes } from './agentic-service.js'
 import { adminEduExtendedRoutes, adminCourseAuditRoutes } from './edu-extended.js'
 import aiCallbackRoutes from './ai-callback.js'
+import internalUserBroadcastRoutes from './internal-user-broadcast.js'
 import { adminSysRoutes, menuRoutersRoutes } from './admin-sys.js'
 import { dictPublicRoutes } from './dict.js'
 import { eduPublicRoutes } from './edu-public.js'
@@ -655,6 +656,8 @@ export function registerRoutes(server: FastifyInstance) {
 
   // AI 回调端点(由 AI service 推理完成后 POST 调用,入队 aiCallback)
   server.register(aiCallbackRoutes)
+  // D154:MCP 连接状态的 per-user 下行入口(ai-service → apps/api → WS 常连)
+  server.register(internalUserBroadcastRoutes)
 
   // 支付网关：微信/支付宝/基金/对账（R1 补完）
   server.register(paymentGatewayRoutes, { prefix: '/api' })
