@@ -13,12 +13,35 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { catBatch } from '../lib/face-reader.mjs'
+import { findMarkerPairs, stripMarkerTriples } from '../lib/conflict-marker-triples.mjs'
 import { __test__ as U } from '../union-converge.mjs'
 import { auditOne } from '../check-merge-addition-loss.mjs'
 
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
+const HERE = dirname(fileURLToPath(import.meta.url))
+/**
+ * 真仓取证用的仓库根。默认按本文件自身位置推(`scripts/tests/` 的上两级 = 仓库根);
+ * 在沙盒里复跑时(把 scripts/ 整棵拷进临时目录取证)本文件旁边没有 `.git`,
+ * 必须用 `IHUI_CONVERGE_EVIDENCE_REPO` 指回真仓 —— **指不到就 assert.fail,
+ * 不许把"取不到证据"读成"这一族没有问题"**(AGENTS §22c「镜像只复读实现就是复读机」同源)。
+ */
+const EVIDENCE_REPO =
+  process.env.IHUI_CONVERGE_EVIDENCE_REPO || resolve(HERE, '..', '..')
+/**
+ * 成对标记的**出处**:枚 `761c0bc9abcef1873a8fa0c9d034cf7d03f5cc70`(2026-09-28 当次的 HEAD),
+ * `PROJECT_PLAN.md` 第 16309–16311 行是两侧内容为空的三行,
+ * `.ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md` 有两处 ours 侧带一行内容的同形态。
+ * 刻意钉在**这个固定 sha**而不是 `HEAD`:账还完之后 HEAD 上就没有标记了,
+ * "真仓逐字取材"这条断言的前提会当场失效 —— 而判据是否还有牙,不能跟着存量一起消失。
+ */
+const MARKER_EVIDENCE = {
+  rev: '761c0bc9abcef1873a8fa0c9d034cf7d03f5cc70',
+  files: ['PROJECT_PLAN.md', '.ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md'],
+}
 
 function fixture() {
   const dir = mkScratch('union-it-')
@@ -377,5 +400,211 @@ test('planStateRegressions 必须拦"归并把整块登记放大"(F6 在 KEYS �
   )
   // 反向:等值不得判红(否则收敛永远做不成,唯一结局是人工选边 —— 那正是本工具立项的理由)
   assert.equal(U.planStateRegressions(oneSide, [oneSide, oneSide]).length, 0, '块数等值不得判红')
+})
+
+/* ═════════ 活文档并集出口剥掉成对冲突标记三行(2026-09-28 立) ═════════
+ * 形状:成对标记进 HEAD ⇒ 守门 79 判红 ⇒ 有人手工删三行并前向提交 ⇒ 下一枚并集合并把仍带这
+ * 三行的对侧版本按行 union 补回来(删除不随合并传播是本工具的既定设计)⇒ 红原地复活。
+ * 所以必须在并集出口剥掉。本组用例的重点是**判据只有一份**且**真能命中真仓写出来的那一形态**。
+ */
+
+/** 真仓逐字取材:从固定 rev 取活文档原文,量出**真实存在**的成对标记(旧逻辑必须判到)。 */
+function readVerbatimMarkers() {
+  const specs = MARKER_EVIDENCE.files.map((p) => `${MARKER_EVIDENCE.rev}:${p}`)
+  let got
+  try {
+    got = catBatch(EVIDENCE_REPO, specs)
+  } catch (e) {
+    assert.fail(`真仓取证取不到(仓库根 ${EVIDENCE_REPO}):${e.message}`)
+  }
+  const found = []
+  for (const [i, spec] of specs.entries()) {
+    const text = got.get(spec)
+    if (text === null || text === undefined)
+      assert.fail(
+        `出处 ${MARKER_EVIDENCE.rev}:${MARKER_EVIDENCE.files[i]} 取不到 ⇒ 无法复核"逐字取自真仓"这条判据` +
+          '(不得把取不到读成"这一族已无标记";沙盒复跑请设 IHUI_CONVERGE_EVIDENCE_REPO 指回真仓)',
+      )
+    const r = findMarkerPairs(text)
+    const lines = text.split('\n')
+    for (const p of r.pairs)
+      found.push({
+        path: MARKER_EVIDENCE.files[i],
+        text,
+        pair: p,
+        triple: [p.startLine, p.sepLine, p.endLine].map((n) => lines[n - 1]),
+      })
+  }
+  return found
+}
+
+const multiset = (t) => {
+  const m = new Map()
+  for (const l of t.split('\n')) m.set(l, (m.get(l) || 0) + 1)
+  return m
+}
+
+test('真仓逐字取材:该出处确实有 ≥2 对成对标记(证明下面每一条判的不是自造夹具)', () => {
+  const found = readVerbatimMarkers()
+  assert.ok(
+    found.length >= 2,
+    `出处 ${MARKER_EVIDENCE.rev.slice(0, 10)} 上成对标记不足 2 对(实得 ${found.length})—— 出处被改写或取证根不对`,
+  )
+  assert.ok(
+    found.some((f) => !f.path.endsWith('PROJECT_PLAN.md')),
+    '归档件里那两处(ours 侧带一行内容)也要量到,否则只覆盖了空内容的形态',
+  )
+})
+
+test('真仓逐字内容喂新逻辑:三行剥净、其余每一行逐字存活、行数差恰等于剥掉的行数', () => {
+  for (const f of readVerbatimMarkers()) {
+    // 旧逻辑(守门 79 的判据)对同一份内容必须判到成对标记 —— 这就是"阳性对照"
+    assert.ok(findMarkerPairs(f.text).pairs.length >= 1, `${f.path}: 旧逻辑竟判不到,夹具失效`)
+    assert.equal(f.triple.length, 3, `${f.path}: 三行定位不全(sepLine 为 null 的形态本工具一律不剥)`)
+    assert.match(f.triple[0], /^<<<<<<< /, `${f.path}: 开头行形态`)
+    assert.equal(f.triple[1], '=======', `${f.path}: 分隔线形态`)
+    assert.match(f.triple[2], /^>>>>>>> /, `${f.path}: 结尾行形态`)
+    const st = stripMarkerTriples(f.text)
+    assert.equal(st.manual.length, 0, `${f.path}: 真仓形态被判成"需人工"(${JSON.stringify(st.manual)})`)
+    assert.ok(st.stripped >= 1, `${f.path}: 剥了 0 对`)
+    assert.equal(
+      findMarkerPairs(st.text).pairs.length,
+      0,
+      `${f.path}: 剥完仍有成对标记 ⇒ 并集出口对它无效`,
+    )
+    // 除被剥的那些行外,每一行都逐字存活(多重集比对 —— 重复行要按重数核,不能用"包含")
+    const before = multiset(f.text)
+    const after = multiset(st.text)
+    const removedTotal = [...st.removed.values()].reduce((a, b) => a + b, 0)
+    let vanished = 0
+    for (const [l, n] of before) vanished += n - (after.get(l) || 0)
+    assert.equal(vanished, removedTotal, `${f.path}: 消失的行数(${vanished}) ≠ 剥掉的标记行数(${removedTotal})`)
+    assert.equal(
+      st.text.split('\n').length,
+      f.text.split('\n').length - removedTotal,
+      `${f.path}: 行数差不对`,
+    )
+    // 幂等:再跑一次逐字不变
+    const again = stripMarkerTriples(st.text)
+    assert.equal(again.text, st.text, `${f.path}: 二次运行改写了内容(不幂等)`)
+    assert.equal(again.stripped, 0, `${f.path}: 二次运行还在剥`)
+  }
+})
+
+test('并集出口:期望表跟着扣掉被剥的三行,而 unionLines 原产出仍带着它们(对照 = 不扣减就会误报丢行)', () => {
+  const ours = '- [ ] 甲\n<<<<<<< ours\n=======\n>>>>>>> theirs\n- [ ] 乙\n'
+  const theirs = '- [ ] 甲\n- [ ] 乙\n- [ ] 对侧行\n'
+  const base = '- [ ] 甲\n- [ ] 乙\n'
+  const raw = U.unionLines(ours, theirs, base)
+  assert.equal(findMarkerPairs(raw).pairs.length, 1, '对照组:未剥之前必须有一对(否则下面那条是空转)')
+  const out = U.liveDocUnionOutput(ours, theirs, base)
+  assert.equal(findMarkerPairs(out.text).pairs.length, 0, '产出必须剥净')
+  assert.equal(out.want.has('<<<<<<< ours'), false, '期望表必须跟着扣掉被剥行')
+  assert.equal(out.want.has('======='), false, '分隔线同样不得留在期望表里')
+  assert.equal(out.want.get('- [ ] 甲'), 1, '内容行照旧要求存活(扣减不是万能豁免)')
+  assert.equal(out.strip.stripped, 1, '剥了几对必须逐条报名')
+})
+
+test('扣减只认"被剥掉的那几行":无成对标记时,与标记同形的合法 Markdown 行不得从期望表里消失', () => {
+  // 只有一行 ======= 是合法 setext 下划线 —— 它既不该被剥,也不该被从期望表里扣掉
+  const doc = '小节名\n=======\n正文\n'
+  const out = U.liveDocUnionOutput(doc, doc, doc)
+  assert.equal(out.text, doc, '不得剥单行 =======')
+  assert.equal(out.want.get('======='), 1, '没被剥的行不得被扣减(否则零丢失断言就出现豁免口)')
+  assert.equal(out.strip.stripped, 0)
+})
+
+test('判据只有一份实现:配对判据的定义处与标记正则全仓唯一,两处消费方都走 import', () => {
+  const lib = readFileSync(join(HERE, '..', 'lib', 'conflict-marker-triples.mjs'), 'utf8')
+  const gate = readFileSync(join(HERE, '..', 'check-no-conflict-markers.mjs'), 'utf8')
+  const conv = readFileSync(join(HERE, '..', 'union-converge.mjs'), 'utf8')
+  const defs = [lib, gate, conv].filter((s) => /function findMarkerPairs\s*\(/.test(s)).length
+  assert.equal(defs, 1, `findMarkerPairs 的定义处必须唯一,实得 ${defs} 处`)
+  const regexes = [lib, gate, conv].filter((s) => /\/\^<<<<<<<\s/.test(s)).length
+  assert.equal(regexes, 1, '标记行首正则(判据字面量)只许出现在共用层一处')
+  assert.match(lib, /function stripMarkerTriples\s*\(/, '剥三行的判据住在共用层')
+  assert.doesNotMatch(conv, /function stripMarkerTriples\s*\(/, '消费方不得各自再实现一份 strip')
+  assert.doesNotMatch(gate, /function stripMarkerTriples\s*\(/, '同上')
+  assert.match(gate, /from '\.\/lib\/conflict-marker-triples\.mjs'/, '守门 79 必须改成 import 共用层')
+  assert.match(
+    gate,
+    /export \{[\s\S]{0,200}?findMarkerPairs[\s\S]{0,200}?from '\.\/lib\/conflict-marker-triples\.mjs'/,
+    '守门 79 要 re-export 它,否则 archive-completed-tasks 的既有 import 会断',
+  )
+  assert.match(conv, /from '\.\/lib\/conflict-marker-triples\.mjs'/, '收敛器必须 import 共用层')
+})
+
+test('装车证明:并集出口真的调 strip,落地闸真的在树内容上现读成对标记', () => {
+  const conv = readFileSync(join(HERE, '..', 'union-converge.mjs'), 'utf8')
+  const build = conv.slice(
+    conv.indexOf('export function buildUnion'),
+    conv.indexOf('export function verifyUnion'),
+  )
+  assert.match(build, /liveDocUnionOutput\(/, '活文档循环必须走并集出口(不是直接 unionLines)')
+  assert.match(build, /kind: 'conflict-marker'/, '剥不净时必须往 needHuman 里点名这一型')
+  assert.match(build, /markerStrips/, '剥了几对必须记录下来供 main() 报名(不得静默改台账)')
+  const verify = conv.slice(
+    conv.indexOf('export function verifyUnion'),
+    conv.indexOf('/** 找一对需要合并的输入'),
+  )
+  assert.match(verify, /liveDocUnionOutput\(/, '落地闸必须与产出同一个期望表出口')
+  assert.match(verify, /findMarkerPairs\(mergedText\)/, '落地闸必须在树内容上现读成对标记')
+  assert.match(verify, /未判定/, '取不到内容 ⇒ 未判定并拒绝落地(不静默放行)')
+  const main = conv.slice(conv.indexOf('async function main'))
+  assert.match(main, /markerStrips \|\| \[\]/, 'main() 必须逐条打印被剥的标记')
+  assert.match(main, /markerOrphans \|\| \[\]/, '孤立结尾标记必须逐条报名')
+  assert.match(
+    main,
+    /conflict-marker/,
+    '半截标记的人工出路必须被打印出来(不得给一条跑不通的 --resolve 出路)',
+  )
+})
+
+test('端到端(真临时仓):本侧带成对标记仍能落地且树内容无标记;半截标记必须拒绝落地', () => {
+  const { dir, run } = fixture()
+  try {
+    writeFileSync(
+      join(dir, 'PROJECT_PLAN.md'),
+      '- [ ] 甲\n<<<<<<< ours\n=======\n>>>>>>> theirs\n- [ ] 乙\n',
+      'utf8',
+    )
+    run('add', '-A')
+    run('commit', '-qm', 'ours 带成对标记')
+    const ours = run('rev-parse', 'HEAD')
+    run('checkout', '-q', 'HEAD~1')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\n- [ ] 对侧行\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs')
+    const theirs = run('rev-parse', 'HEAD')
+    run('update-ref', 'refs/heads/main', ours)
+    run('checkout', '-q', 'main')
+    const p = U.plan(ours, theirs, dir)
+    assert.deepEqual(p.bad, [], `带成对标记不得阻止落地:${p.bad.slice(0, 2).join(' / ')}`)
+    const doc = U.show(p.tree, 'PROJECT_PLAN.md', dir)
+    assert.equal(findMarkerPairs(doc).pairs.length, 0, `落地内容里不得还有成对标记:${doc}`)
+    assert.ok(
+      ['- [ ] 甲', '- [ ] 乙', '- [ ] 对侧行'].every((s) => doc.includes(s)),
+      `三方内容都要在:${doc}`,
+    )
+    assert.equal(p.markerStrips.length, 1, '剥标记必须报名')
+    // 反向:半截标记 ⇒ 交人工,且不得被"能剥多少剥多少"糊过去
+    writeFileSync(
+      join(dir, 'PROJECT_PLAN.md'),
+      '- [ ] 甲\n<<<<<<< ours\n=======\n只剩一半\n',
+      'utf8',
+    )
+    run('add', '-A')
+    run('commit', '-qm', 'ours 半截标记')
+    const half = run('rev-parse', 'HEAD')
+    const q = U.plan(half, theirs, dir)
+    assert.ok(
+      q.needHuman.some((h) => h.path === 'PROJECT_PLAN.md' && h.kind === 'conflict-marker'),
+      `半截标记必须点名需人工:${JSON.stringify(q.needHuman)}`,
+    )
+    assert.ok(q.bad.length > 0, '半截标记那一轮必须落不了地')
+    assert.match(U.show(q.tree, 'PROJECT_PLAN.md', dir), /只剩一半/, '不剥 ⇒ 内容不得被改动')
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
