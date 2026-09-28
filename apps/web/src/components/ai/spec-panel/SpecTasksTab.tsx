@@ -17,7 +17,7 @@ export function SpecTasksTab({ p }: { p: SpecPanelApi }) {
           onClick={p.handleSplitTasks}
           disabled={p.tasksLoading}
           className={cn(
-            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
             'bg-cta text-cta-foreground hover:bg-cta/90',
             p.tasksLoading && 'cursor-not-allowed opacity-60',
           )}
@@ -33,7 +33,7 @@ export function SpecTasksTab({ p }: { p: SpecPanelApi }) {
           <button
             type="button"
             onClick={p.handleExportTasks}
-            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60"
+            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60"
           >
             <Download className="h-3 w-3" />
             <span>导出到 PROJECT_PLAN</span>

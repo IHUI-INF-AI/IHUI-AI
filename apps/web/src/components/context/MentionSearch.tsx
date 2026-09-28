@@ -85,7 +85,7 @@ export function MentionSearch({
             aria-selected={activeType === t.value}
             onClick={() => onTypeChange(t.value)}
             className={cn(
-              'whitespace-nowrap min-[768px]:shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+              'whitespace-nowrap min-[768px]:shrink-0 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
               activeType === t.value
                 ? 'bg-cta text-cta-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
