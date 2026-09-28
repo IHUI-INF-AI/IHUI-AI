@@ -3,42 +3,26 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 跨端图源池唯一真相源 —— 只收录「境内可达」已实证的图片 URL。
+ * 境内可达图源池 —— `packages/shared/src/constants/image-source-pool.ts` 的**镜像副本**(层序禁止 database 依赖 shared)。
  *
- * 为什么存在:首页轮播/课程封面等数据侧内容图源曾指向 picsum.photos 等境外域名,
- * 国内移动网络不可达 → 图片加载失败(渲染侧的 onError 摘除已由 0b00d5cdd5 入库,
- * 本文件解决数据侧)。AGENTS §3 规定跨端 URL 常量住 `packages/shared/src/constants/`,
- * 端内与 seed 一律 import 本常量,禁止第二份登记表。
+ * 为什么这里要有一份而不是 import 那一份:架构契约表(`config/architecture-policy.yaml`)的层序是
+ * `contract(10) ← platform(20,含 packages/database) ← composite(30,含 packages/shared) ← product(40)`,
+ * 规则明写"rank 小的可被 rank 大的依赖,反向即违规"。所以 **database 不能 import shared** ——
+ * 而反过来让 shared re-export database 会把整个 DB 层拖进小程序包(`packages/database` 的 main 是含
+ * drizzle/postgres 的 barrel,且 exports 只暴露 `.`),weapp 构建必然变重甚至炸。
  *
- * 入池判据(2026-09-29 真实探测,逐条四要件齐备,缺一不入池):
- *   ① 直连(不带任何代理;经代理可达不算 —— 代理腿与移动网络无关)HTTP 200;
- *   ② Content-Type 为 image/*;
- *   ③ 跟随重定向后的最终 host 仍属该境内域名(302 到境外一律不合格);
- *   ④ 域名归属为境内主体。
- * 实测合格(池内 2 条):
- *   - statics.moonshot.cn …/01-open-world.png → 200 image/png 1,487,764 B,
- *     火山引擎 TOS,直连 IPv6 2408:8735::(中国联通段)
- *   - cdn.deepseek.com …/deepseek-chat-open-graph-image.jpeg → 200 image/jpeg 621,850 B,
- *     直连 IP 122.141.224.97(境内)
- * 实测不合格(勿再加回):statics.moonshot.cn …/02-strategy.png(404 NoSuchKey)、
- *   static.www.tencent.com …png(200 但返回 bot 挑战 JS 页,text/html)、
- *   mp-*.cdn.bspapp.com(uniCloud CDN 空间已停用,DNS NXDOMAIN)、file.aizhs.top(404)、
- *   aizhs.top/images/logo.png(200 image/png 但经 Cloudflare 境外边缘节点 2606:4700:: 交付)。
- * 如实登记:目标池 ≥10 条未达成 —— 候选面(仓内出现过的一切境内 URL)穷尽后仅 2 条通过。
- * 扩池唯一姿势:先按上面四要件实测留证,再把 URL 追加进本数组;禁止拿境外域名凑数。
+ * 于是这里保留一份**纯镜像**,由两道尺子钉住它不能漂:
+ * ① `scripts/check-image-source-domains.mjs`(提交链档)按**被审面**逐键比三张清单的字面量,漂移即红;
+ * ② `node --test scripts/tests/image-source-pool-parity.test.mjs` **真执行**两份模块,
+ *    在同一份语料上比 `domesticImageAt` / `isOverseasImageUrl` 的返回值 ——
+ *    清单对得上而判据函数各写各的,是"数据同值、行为分叉"那一型(本仓"两处算同一件事必漂移"记过多次)。
+ * 镜像不是第二份真相的前提是"有机器强制它不能漂";没有判据的镜像才是本仓反复登记的失效型。
  *
- * 消费方(同一份常量,禁止各自抄写):
- *   apps/miniapp-taro/src/pages/index/index.tsx / src/pkg-ai/aigc/list.tsx(`from '@ihui/shared/constants'`),
- *   `packages/shared/src/constants/index.ts` 的 barrel 出口(`export * from './image-source-pool'`)。
- *
- * `packages/database` **不得** import 本文件:架构契约表层序是
- * contract(10) ← platform(20,含 packages/database) ← composite(30,含本包) ← tooling(90),
- * "rank 小的可被 rank 大的依赖,反向即违规"(守门 103 实测判 D1/D2/D3 红)。
- * 所以 seed 侧用的是逐字镜像 `packages/database/seed/image-source-pool.ts`,由两把尺子钉住不漂:
- *   ① `scripts/check-image-source-domains.mjs` 按被审面逐键比三张清单(漂移即红);
- *   ② `node --test scripts/tests/image-source-pool-parity.test.mjs` 真执行两份模块比函数行为。
- * 判据本体住根层 `scripts/`(tooling),它不 import 本文件而是**从被审面解析清单**——
- * import 走磁盘而问责走 HEAD/索引,两面混取会让报告与提交内容不是同一份代码(守门 118)。
+ * 入池四要件(与 shared 那份同一条,任一不满足不得入池):直连 200 + `Content-Type: image/*` +
+ * 跟随重定向后**最终 host 仍在境内** + 非死链。实测代价记录在案:候选面穷尽后仅 2 条合格
+ * (14 条 `*.cdn.bspapp.com` 全部 DNS NXDOMAIN、tencent 静态域回 bot 墙 `text/html`、
+ * `aizhs.top` 经 Cloudflare 境外边缘)。**这两条是第三方站点的素材,随时可能被删**(同域名另一条
+ * `02-strategy.png` 实测已 404)⇒ 根治出路是自托管到国内对象存储后**尾部追加**,既有调用点自动多样化。
  */
 
 /** 境内可达图源池(轮转分配用;顺序稳定,追加只允许在尾部) */
@@ -50,6 +34,7 @@ export const DOMESTIC_IMAGE_POOL: readonly string[] = [
 /** 按序号轮转取池内 URL(池增长后既有调用自动多样化,无需回改) */
 export function domesticImageAt(index: number): string {
   const len = DOMESTIC_IMAGE_POOL.length
+  // 空池时回退境外源等于把缺陷放回去,所以宁可炸在这里(与 shared 那份同一条,行为由 parity 测试钉住)
   if (len === 0) throw new Error('DOMESTIC_IMAGE_POOL 为空:禁止回退境外图源,先按四要件实测入池')
   const url = DOMESTIC_IMAGE_POOL[((index % len) + len) % len]
   if (typeof url !== 'string') throw new Error('DOMESTIC_IMAGE_POOL 取值异常(索引/类型不闭合)')
@@ -58,7 +43,8 @@ export function domesticImageAt(index: number): string {
 
 /**
  * 境外「图片专用」域名 —— 该域名上出现的任何 URL 都是图片,判境外无需看路径后缀。
- * 判据/迁移脚本共用这一份清单,禁止在别处再抄第二份。
+ * 与 shared 那份**逐字等值**,由 `scripts/check-image-source-domains.mjs` 按被审面逐键对账(漂移即红);
+ * 子域名靠 host.endsWith 命中(如 fastly.picsum.photos),所以这里只登记裸域名。
  */
 export const OVERSEAS_IMAGE_ONLY_DOMAINS: readonly string[] = [
   'picsum.photos', // 随机占位图(本轮病灶)
