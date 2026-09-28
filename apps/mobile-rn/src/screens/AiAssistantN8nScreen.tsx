@@ -108,7 +108,7 @@ import {
   type ToolCallView,
 } from '@ihui/shared'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
-import { rnLightTokens as tokens, rnRadius } from '@ihui/design-tokens'
+import { rnLightTokens as tokens, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import {
   CitationList,
   InjectionDisclosure,
@@ -2140,7 +2140,7 @@ const bubbleStyles = StyleSheet.create({
     maxWidth: '78%',
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(16),
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadiusFor.bubble,
   },
   bubbleUser: { backgroundColor: tokens.brand.DEFAULT },
   bubbleAi: { backgroundColor: tokens.surface.card },

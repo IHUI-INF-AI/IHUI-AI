@@ -104,7 +104,7 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-lg rounded-xl border bg-card shadow-lg"
+        className="w-full max-w-lg ui-panel rounded-xl border bg-card shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 头部 */}

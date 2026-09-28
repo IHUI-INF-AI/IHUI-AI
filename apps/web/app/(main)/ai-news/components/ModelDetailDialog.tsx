@@ -157,7 +157,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
     >
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 模态内容区阻止冒泡,键盘用户通过关闭按钮(X)提供等价交互 */}
       <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border bg-card shadow-lg"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto ui-card rounded-lg border bg-card shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 头部 */}

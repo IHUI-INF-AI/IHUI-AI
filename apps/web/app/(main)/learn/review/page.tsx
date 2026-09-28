@@ -137,7 +137,7 @@ export default function ReviewPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-3xl rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="mx-auto max-w-3xl ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {error}
       </div>
     )
