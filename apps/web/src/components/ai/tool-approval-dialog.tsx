@@ -19,11 +19,11 @@
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { AlertTriangle, Check, Loader2, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, Check, Loader2, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { postToolApprovalResponse, sendToolApprovalResponse } from '@ihui/api-client'
 import type { ToolApprovalRequest, ToolApprovalScope } from '@ihui/types'
 import { AGENT_TASK_EVENTS, parseToolApprovalEvent } from '@ihui/shared'
-import { Modal } from '@/components/feedback'
+import { Modal, confirmDialog } from '@/components/feedback'
 
 /** 全局审批请求事件名(executeAgentStream 等消费方收到 SSE tool-approval 后可派发)。 */
 export const TOOL_APPROVAL_EVENT = 'ihui:tool-approval'
@@ -49,6 +49,58 @@ export function dispatchToolApprovalRequest(
   window.dispatchEvent(new CustomEvent(TOOL_APPROVAL_EVENT, { detail: req }))
 }
 
+// ---------------------------------------------------------------------------
+// D158(2026-09-28):审批第四档「批准并把这类命令加入放行」的前端判据。
+// 规则是 scope 的正交扩展(独立 state,不塞进 ToolApprovalScope 三档联合);
+// 仅 chat-stream 通道 + run_command 显示 —— agent 任务流的网关 schema 会静默
+// 丢弃 grant_rule,对那条通道展示该选项等于"看起来有、其实没装车"。
+// ---------------------------------------------------------------------------
+
+/** D158 第四档上送的固定口径:按 argv 前 2 个 token 落前缀规则(与后端预填一致)。 */
+const GRANT_RULE_TOKENS = 2
+
+/** D158:高危命令片段最小表(命令全文命中任一片段即要求二次确认)。 */
+const DANGEROUS_COMMAND_PATTERNS: readonly string[] = [
+  'rm -rf',
+  'rm -fr',
+  'mkfs',
+  'dd if=',
+  'shutdown',
+  'reboot',
+  'halt',
+  'del /f',
+  'rd /s',
+  ':(){',
+]
+
+/** 从 argsPreview(JSON,可能被 200 字符截断)尽力还原 run_command 的 argv。 */
+function extractRunCommandArgv(argsPreview: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(argsPreview)
+    if (parsed && typeof parsed === 'object') {
+      const argv = (parsed as { argv?: unknown }).argv
+      if (Array.isArray(argv)) {
+        const tokens = argv.filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+        if (tokens.length > 0) return tokens
+      }
+      const command = (parsed as { command?: unknown }).command
+      if (typeof command === 'string' && command.trim() !== '') {
+        return command.trim().split(/\s+/)
+      }
+    }
+  } catch {
+    // 截断的 JSON 落到这里,退回原文按空白切词兜底
+  }
+  const text = argsPreview.trim()
+  return text === '' ? [] : text.split(/\s+/)
+}
+
+/** 命令全文(小写)是否命中高危片段表。 */
+function isDangerousCommand(argv: readonly string[]): boolean {
+  const cmdline = argv.join(' ').toLowerCase()
+  return DANGEROUS_COMMAND_PATTERNS.some((p) => cmdline.includes(p))
+}
+
 interface ApprovalDialogState {
   /** 当前展示中的审批请求(一次一个,其余排队) */
   current: ToolApprovalRequest | null
@@ -60,11 +112,68 @@ interface ApprovalDialogState {
 
 const INITIAL_STATE: ApprovalDialogState = { current: null, queue: [], sending: false }
 
+// ---------------------------------------------------------------------------
+// V3 #65/D71:「正在等人决策」这件事的**唯一事实源**。
+//
+// 为什么要在弹窗这一侧发布、而不是让消费方去猜:审批请求经 DOM CustomEvent 单向流进弹窗,
+// 外面**没有任何可查询的状态**,于是 D71 `turn-status` 里最要紧的那一格 `waitingConfirm`
+// 在 web 侧结构性拿不到 —— 徽章头注写的"现状无处可见,是用户中断的直接成因",缺的就是
+// 这一个出口。在弹窗内部发布 = 状态与它的真正持有者同处一地,不会出现第二套判定。
+// ---------------------------------------------------------------------------
+
+let pendingApprovalRequest: ToolApprovalRequest | null = null
+const pendingApprovalListeners = new Set<() => void>()
+
+function publishToolApprovalPending(req: ToolApprovalRequest | null): void {
+  if (pendingApprovalRequest === req) return
+  pendingApprovalRequest = req
+  for (const listener of pendingApprovalListeners) listener()
+}
+
+/** 订阅"是否有一条审批在等人决策"(供 useSyncExternalStore 用)。 */
+export function subscribeToolApprovalPending(listener: () => void): () => void {
+  pendingApprovalListeners.add(listener)
+  return () => {
+    pendingApprovalListeners.delete(listener)
+  }
+}
+
+/** 当前等待决策的审批请求;null = 没有。SSR 快照恒 null(弹窗不在服务端渲染)。 */
+export function getToolApprovalPending(): ToolApprovalRequest | null {
+  return typeof window === 'undefined' ? null : pendingApprovalRequest
+}
+
+function getToolApprovalPendingSnapshot(): boolean {
+  return pendingApprovalRequest !== null
+}
+
+/** 是否有一条高危工具审批正等待用户决策 —— `waitingConfirm` 的事实源。 */
+export function useToolApprovalPending(): boolean {
+  return React.useSyncExternalStore(
+    subscribeToolApprovalPending,
+    getToolApprovalPendingSnapshot,
+    () => false,
+  )
+}
+
 export function ToolApprovalDialog() {
   const t = useTranslations('editor.toolApproval')
   const [state, setState] = React.useState<ApprovalDialogState>(INITIAL_STATE)
   const stateRef = React.useRef(state)
   stateRef.current = state
+
+  // 把"现在正等谁决策"发布给同页订阅者(D71 徽章的 waitingConfirm)。
+  // 卸载时必须清一次:弹窗被路由切换摘掉而审批还没答完时,留着旧值会让徽章永远显示
+  // "等你确认" —— 那比"看不见"更糟,因为它是个假事实。
+  React.useEffect(() => {
+    publishToolApprovalPending(state.current)
+  }, [state.current])
+  React.useEffect(
+    () => () => {
+      publishToolApprovalPending(null)
+    },
+    [],
+  )
 
   const enqueue = React.useCallback((req: ToolApprovalRequest) => {
     if (!req?.approvalId) return
@@ -80,7 +189,12 @@ export function ToolApprovalDialog() {
   }, [])
 
   const handleDecision = React.useCallback(
-    async (decision: 'approve' | 'reject', scope: ToolApprovalScope, reason: string) => {
+    async (
+      decision: 'approve' | 'reject',
+      scope: ToolApprovalScope,
+      reason: string,
+      withGrantRule = false,
+    ) => {
       const current = stateRef.current.current
       if (!current || stateRef.current.sending) return
       setState((prev) => ({ ...prev, sending: true }))
@@ -98,6 +212,11 @@ export function ToolApprovalDialog() {
             ...(decision === 'approve' ? { scope } : {}),
             // 空原因不携带(与后端"空值不写 key"语义一致)
             ...(reason.trim() !== '' ? { reason: reason.trim() } : {}),
+            // D158:第四档「批准并把这类命令加入放行」随 approve 一并上送
+            // (scope 的正交扩展;拒绝路径永不携带)
+            ...(decision === 'approve' && withGrantRule
+              ? { grantRule: { kind: 'exec_prefix' as const, tokens: GRANT_RULE_TOKENS } }
+              : {}),
           })
         } else {
           // agent 任务流:既有通道(网关 /agent/approval-response → ai-service 注册表)
@@ -157,11 +276,14 @@ export function ToolApprovalDialog() {
 
   // D84:作用域选择(批准时生效,默认"允许一次"=最小特权)与原因输入;
   // 新请求入栈时重置,避免上一条的授权范围/原因串到下一条。
+  // D158:第四档(顺带生成放行规则)是独立 state,与 scope 正交,同样随请求重置。
   const [scope, setScope] = React.useState<ToolApprovalScope>('once')
   const [reason, setReason] = React.useState('')
+  const [grantRule, setGrantRule] = React.useState(false)
   React.useEffect(() => {
     setScope('once')
     setReason('')
+    setGrantRule(false)
   }, [current?.approvalId])
 
   const SCOPE_OPTIONS: ReadonlyArray<{ value: ToolApprovalScope; labelKey: string }> = [
@@ -169,6 +291,31 @@ export function ToolApprovalDialog() {
     { value: 'session', labelKey: 'scopeSession' },
     { value: 'always', labelKey: 'scopeAlways' },
   ]
+
+  // D158:第四档仅在 chat-stream 通道 + run_command 时展示(见上方判据注释);
+  // 前缀展示与高危判定都从 argsPreview 尽力还原(argv / command 双形态兜底)。
+  const isChatStream = (current as ChatStreamToolApprovalRequest | null)?.channel === 'chat-stream'
+  const showGrantRule = isChatStream && current?.toolName === 'run_command'
+  const runCommandArgv = current ? extractRunCommandArgv(current.argsPreview) : []
+  const grantPrefix = runCommandArgv.slice(0, GRANT_RULE_TOKENS).join(' ')
+  const grantDangerous = isDangerousCommand(runCommandArgv)
+
+  const handleApproveClick = React.useCallback(() => {
+    void (async () => {
+      // D158:高危命令选第四档必须二次确认(原生 confirm 禁用,走项目自有确认框)
+      if (showGrantRule && grantRule && grantDangerous) {
+        const ok = await confirmDialog({
+          title: t('grantRuleConfirmTitle'),
+          content: t('grantRuleConfirmContent', { prefix: grantPrefix }),
+          variant: 'danger',
+          confirmText: t('approve'),
+          cancelText: t('grantRuleConfirmCancel'),
+        })
+        if (!ok) return
+      }
+      await handleDecision('approve', scope, reason, showGrantRule && grantRule)
+    })()
+  }, [showGrantRule, grantRule, grantDangerous, grantPrefix, scope, reason, t, handleDecision])
 
   return (
     <Modal
@@ -190,17 +337,17 @@ export function ToolApprovalDialog() {
             onClick={() => void handleDecision('reject', scope, reason)}
             disabled={state.sending}
             data-testid="tool-approval-reject"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
           >
             <AlertTriangle className="h-4 w-4" />
             {t('reject')}
           </button>
           <button
             type="button"
-            onClick={() => void handleDecision('approve', scope, reason)}
+            onClick={handleApproveClick}
             disabled={state.sending}
             data-testid="tool-approval-approve"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-cta px-4 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-cta px-4 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
           >
             {state.sending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -243,7 +390,7 @@ export function ToolApprovalDialog() {
                   aria-checked={scope === opt.value}
                   onClick={() => setScope(opt.value)}
                   data-testid={`tool-approval-scope-${opt.value}`}
-                  className={`inline-flex h-7 items-center rounded-sm border px-2.5 text-xs font-medium transition-colors ${
+                  className={`inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors ${
                     scope === opt.value
                       ? 'border-primary/40 bg-primary/10 text-primary'
                       : 'border-border bg-background text-muted-foreground hover:bg-accent'
@@ -254,6 +401,30 @@ export function ToolApprovalDialog() {
               ))}
             </div>
           </div>
+          {/* D158:第四档「批准并把这类命令加入放行」(scope 的正交扩展,独立 state;
+              仅 chat-stream + run_command 展示,见上方判据注释) */}
+          {showGrantRule && (
+            <div>
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={grantRule}
+                onClick={() => setGrantRule((v) => !v)}
+                data-testid="tool-approval-grant-rule"
+                className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors ${
+                  grantRule
+                    ? 'border-primary/40 bg-primary/10 text-primary'
+                    : 'border-border bg-background text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {t('grantRuleToggle')}
+              </button>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {t('grantRuleDesc', { prefix: grantPrefix })}
+              </p>
+            </div>
+          )}
           {/* D84:原因输入(可选,拒绝理由为主;随决策透传审计) */}
           <div>
             <label
@@ -270,7 +441,7 @@ export function ToolApprovalDialog() {
               maxLength={500}
               rows={2}
               data-testid="tool-approval-reason"
-              className="w-full resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-border"
+              className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-border"
             />
           </div>
           {pendingCount > 0 && (
