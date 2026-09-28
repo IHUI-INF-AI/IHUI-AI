@@ -11,6 +11,7 @@
 import { toast } from '@/components/common'
 import { compactConversation, getMessages } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
+import { noteBudgetTrustedZeroPhase } from './budget-state'
 
 /** 压缩结果语义(与后端 reason 对齐;failed = 网络/服务端错误) */
 export type ManualCompactOutcome = 'ok' | 'too_few' | 'incompressible' | 'skipped' | 'failed'
@@ -33,6 +34,10 @@ export async function runManualCompact(
     const res = await compactConversation(conversationId)
     if (res.success && res.data) {
       if (res.data.compressed) {
+        // G-404:/compact 真压缩成功是**结构化**重置信号 —— 紧随其后的那一枚 used=0
+        // budget 采样是真话,不得被"瞬时 0"判据 held 成旧值。阶段名来自本次成功分支,
+        // 不读文案。too_few/incompressible/failed 三支**不登记**(压缩没真发生)。
+        noteBudgetTrustedZeroPhase('compact')
         toast.success(
           t('compaction.compactSuccess', {
             before: String(res.data.originalTokens),

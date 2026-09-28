@@ -13,22 +13,70 @@
 //   (生产端真值见 apps/api/src/routes/ai-chat-stream.ts checkTokenBudget 的 payload)。
 
 import type { BudgetEvent } from '@ihui/api-client'
+import {
+  resolveContextUsedSample,
+  type ContextSamplePhase,
+  type ContextTrustedZeroPhase,
+} from '@ihui/shared/utils/context-used-sample'
 
 let currentBudgetEvent: BudgetEvent | null = null
 const budgetListeners = new Set<() => void>()
+
+// G-404(2026-09-29 立):瞬时 0 投影的两枚模块级状态 ——
+// ① pendingTrustedZeroPhase:结构化重置信号的**一次性**登记位(auto-compaction 帧 /
+//    手动 /compact / /compress 三个生产点写入;下一次 setBudgetEvent 消费后即清)。
+//    阶段只从结构化信号来,禁止从消息文案猜(守门 135 同族禁令)。
+// ② heldBudgetFrame:最近一枚被判为瞬时噪声而整帧丢弃的帧 —— 只作诊断出口
+//    (getHeldBudgetFrame),供测试与排障回答"0% 没出现是因为被 held 了",不参与渲染。
+let pendingTrustedZeroPhase: ContextTrustedZeroPhase | null = null
+let heldBudgetFrame: BudgetEvent | null = null
 
 function notifyBudgetListeners(): void {
   for (const listener of budgetListeners) listener()
 }
 
-/** send-message.ts onBudget 收到帧时的唯一写点 */
+/**
+ * G-404 例外登记的唯一入口:结构化压缩/重置信号落定时调用,使紧随其后的那一枚
+ * used=0 采样被接受为真值而不是被 held。参数类型收窄到封闭例外表
+ * (`CONTEXT_TRUSTED_ZERO_PHASES`)—— 端内想登记表外阶段,编译期就过不去。
+ */
+export function noteBudgetTrustedZeroPhase(phase: ContextTrustedZeroPhase): void {
+  pendingTrustedZeroPhase = phase
+}
+
+/** G-404 诊断口:最近一次被 held 丢弃的帧;没有则 null。仅供测试/排障。 */
+export function getHeldBudgetFrame(): BudgetEvent | null {
+  return heldBudgetFrame
+}
+
+/**
+ * send-message.ts onBudget 收到帧时的唯一写点。
+ * G-404:帧上的 usedTokens 先过 `resolveContextUsedSample` 投影 ——
+ * 非例外阶段收到的 0 ⇒ 整帧丢弃(条继续挂上一个可信采样,percent/level/文本
+ * 都源于同一枚坏采样,逐字段部分采信会把坏值劈成半真半假),并在 heldBudgetFrame
+ * 留诊断;其余情形(含 usedTokens=undefined 的"未收到"语义)维持原覆盖+通知行为。
+ */
 export function setBudgetEvent(event: BudgetEvent): void {
+  const phase: ContextSamplePhase = pendingTrustedZeroPhase ?? 'streaming'
+  pendingTrustedZeroPhase = null
+  const resolution = resolveContextUsedSample(
+    currentBudgetEvent ? { used: currentBudgetEvent.usedTokens } : null,
+    { used: event.usedTokens },
+    phase,
+  )
+  if (resolution.held) {
+    heldBudgetFrame = event
+    return
+  }
+  heldBudgetFrame = null
   currentBudgetEvent = event
   notifyBudgetListeners()
 }
 
 /** 显式回收(如离开额度语境的新会话);无帧可清时零通知,不做无谓重渲 */
 export function clearBudgetEvent(): void {
+  pendingTrustedZeroPhase = null
+  heldBudgetFrame = null
   if (currentBudgetEvent === null) return
   currentBudgetEvent = null
   notifyBudgetListeners()
