@@ -571,6 +571,58 @@ async function installLocal(
 }
 
 /**
+ * 安装记录的**主键** = 裸 `name`,不含 sourceType/sourceUrl/pluginSubdir/sourcePath。
+ *
+ * 依据(现读三处,不是猜):
+ *  - 安装目录按 name 派生:`getPluginInstallPath(manifest.name)`(本文件 local 腿与 git 腿各一次),
+ *    而 `paths.ts:55-57` 就是 `installed-plugins/<name>` ⇒ **同名两条记录必然指向同一个目录**,
+ *    "一名多行"在物理层没有承载物,它不是"多实例",只是同一件事被登记了两遍。
+ *  - 权威面问事务号用的也是裸 name:`cache.ts:266-276` 由 target 反推出 `recordKey = name`,
+ *    `cache.ts:520-524` 再 `records.find(r => r.name === recordKey)` 取记录。
+ *  - 卸载按 name 删的就是那一个目录(`uninstallPlugin`),所以"还剩一行别的同名记录"必然谎报已装。
+ *
+ * 刻意不把来源列并进主键:那三列描述的是"这一代从哪来",每次覆盖安装都可能合法变化
+ * (换仓库 URL / 增删 pluginSubdir / local→git 换源)。把它们并进主键 = 允许同名多行,而多行的
+ * 后果正是 G-808 的病灶:写侧旧实现 `reg.records.push(record)` 无条件追加,读侧按 name 取**首行**
+ * ⇒ 从第二次覆盖安装起 `authorityTransactionVerdict` 恒落 `not-committed` ⇒ 归档永远收不走
+ * (方向安全,但账目烂掉)。
+ *
+ * 上游的 `name@marketplace` 需要 `marketplace` 列,本仓 `InstallRecord` 没有 ⇒ 补列属 schema 决策
+ * (两个市场同名插件会撞成一行),**另计一票**;本票只按既有主键收口。
+ */
+function installRecordKey(record: Pick<InstallRecord, 'name'>): string {
+  return record.name;
+}
+
+/**
+ * 按主键 upsert:命中同主键则**就地替换那一行**(保持数组位置),否则追加。
+ *
+ * 三条设计点:
+ *  1. **原位替换**而不是"删掉再 push":读侧 `cache.ts:520-524` 取的是**首行**同名记录,
+ *     留在原位 ⇒ 它问到的必然是刚落的这一代。存量里已存在的同名多行(旧写侧留下的)一律**不动**
+ *     —— 本票不做数据迁移,那些副本由读侧的"取最新一行"兜底(见报告:那一行改动住在 cache.ts,
+ *     在本票文件清单外)。
+ *  2. **整体替换**而不是逐字段合并(即刻意**不**保留上一代的 `installedAt`):
+ *     ① 上一代的 `transactionId` 必须消失 —— 留着它,finalize 会去问一笔已被取代的事务;
+ *     ② `installedAt` 一并刷新,是为了让"按出生时刻排序取最新"这条读侧兜底不会把刚写的记录读成旧的。
+ *     上游 `marketplace.ts:1174-1185` 能保留出生时刻,是因为它另有独立的 createdAt;
+ *     本仓 `InstallRecord` 只有这一个时刻列,保留它就等于同时保留一个过期排序键。
+ *     用户可见后果:覆盖安装后"安装时间"变成本次时间(与 `registry-client.ts:195` 那条既有
+ *     upsert 先例同形 —— 它写的也是 `{ ...record, installedAt: now }`)。
+ *  3. 返回落进去的那条,便于调用方直接带回(不另取一份副本,避免"改的是副本而权威没动")。
+ */
+export function upsertInstallRecord(reg: InstallRegistry, record: InstallRecord): InstallRecord {
+  const key = installRecordKey(record);
+  const idx = reg.records.findIndex((r) => installRecordKey(r) === key);
+  if (idx >= 0) {
+    reg.records[idx] = record;
+  } else {
+    reg.records.push(record);
+  }
+  return record;
+}
+
+/**
  * 权威落盘:把本次交换的事务号随这条安装记录写进 registry。
  *
  * 与改动前的区别只在**次序与后果**:旧实现是整条提交序列(含删归档)跑完之后才补记录,
@@ -578,6 +630,10 @@ async function installLocal(
  * "已提交",G-730 的 finalize/恢复只能按 `unknown` 走"零破坏回位、永不删"。
  * 现在它排在 finalize 之前:写不上就抛,**绝不处置归档**。
  * 仍然不回退已落位的新副本(那会抹掉刚生效的插件),但绝不静默。
+ *
+ * G-808:落盘走 `upsertInstallRecord` 而不是 `records.push` —— 无条件追加正是同名多行的来源,
+ * 而整份 registry 的原子写仍然只在 `saveInstallRegistry` 那一处(AGENTS §守门 122 的唯一出口),
+ * upsert 只改内存里的那份数组,不新增第二次落盘、也不裸写文件。
  */
 function persistInstallAuthority(
   reg: InstallRegistry,
@@ -585,7 +641,7 @@ function persistInstallAuthority(
   swap: StagedSwap,
 ): void {
   try {
-    reg.records.push(record);
+    upsertInstallRecord(reg, record);
     saveInstallRegistry(reg);
   } catch (e) {
     throw new Error(
@@ -771,9 +827,13 @@ export async function uninstallPlugin(
     }
   }
 
-  // 移除注册表记录
+  // 移除注册表记录 —— 删该 name 的**全部**行,不是只删第一条。
+  // 依据:安装目录是按 name 那一个(`getPluginInstallPath(name)`,上面已整目录删除),所以任何
+  // 幸存的同名行都在谎报"还装着"。G-808 的账面烂掉形态正是 `splice(idx, 1)` 只第一条:
+  // 旧写侧留下的第二行永远声称已装而目录不在,而它自己也永远不会再被写到。
+  // 写侧改 upsert 后新数据一名一行,这里的全删只对**存量同名多行**生效(收敛它们,不制造新形态)。
   if (hadRecord) {
-    reg.records.splice(idx, 1);
+    reg.records = reg.records.filter((r) => installRecordKey(r) !== name);
     saveInstallRegistry(reg);
   }
 
