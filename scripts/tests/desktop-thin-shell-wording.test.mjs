@@ -20,7 +20,7 @@ import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { gitBinary } from '../lib/face-reader.mjs'
+import { gitBinary, catBatch } from '../lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -33,18 +33,17 @@ const SCAN_FILES = [
   'apps/web/scripts/build-static.mjs',
   'docs/MULTI_END.md',
   'docs/项目说明/8端一致性认证矩阵-2026-09-15.md',
+  'docs/port-management.md',
+  'README.md',
   'apps/desktop/src-tauri/tauri.conf.json',
 ]
 
-// 票①(根 README)由主会话处理:该文件的工作树与索引此刻都与他人并发内容不一致,本票禁改。
-// 但它**不是永久豁免** —— DEFERRED 里的每一项必须真的还带着旧措辞,否则就是"清单腐烂"(改好了还挂着,
-// 会替下一个人做出"这一处仍需处理"的判断)。同一条规矩见 AGENTS §4 对 RN_ONLY_BRAND_KEYS 的教训。
-const DEFERRED = [
-  {
-    path: 'README.md',
-    reason: 'G-723 票①:根 README 属 §12 活文档,此刻工作树/索引与并发会话不一致,由主会话处理',
-  },
-]
+// **DEFERRED 已清空(2026-09-29,G-723 票①② 当场清偿)**:原先挂着根 README 与 port-management
+// 两处"本票禁改"的账。两条都改完了,行留在清单里就是"清单腐烂"——它会替下一个人做出
+// "这一处仍需处理"的判断(AGENTS §4 对 RN_ONLY_BRAND_KEYS 记过同一条教训)。
+// 清单机制本身保留:今后若再遇到"该改但此刻被他人持有"的载体,登记时必须带 reason,
+// 且判据会因 staleDeferred 自动催它了结。
+const DEFERRED = []
 
 // 行内豁免(与仓库其它门同一条纪律:必须带原因,裸标记不放行)
 const EXEMPT_RE = /thin-shell-exempt:\s*\S/
@@ -96,6 +95,12 @@ export const FORBIDDEN_PATTERNS = [
     label: '声称桌面端有 JS 测试目录',
     re: /apps\/desktop\/tests\//,
     why: '本端无前端工程、该目录不存在;与 T6 同一型——把不存在的验证面写成承诺',
+  },
+  {
+    id: 'T8',
+    label: '把桌面端打包态说成"加载/使用 web/out 静态产物"',
+    re: /(?<!不)(?:build|打包)\s*时[^|\n]{0,12}?[`'"]?(?:\.\.\/)?(?:apps\/)?web\/out/,
+    why: '2026-09-17 `f10258c8f6`「终极薄壳」起,安装包不内嵌前端产物;`docs/port-management.md` 那句"build 时加载 `web/out` 静态产物"改了之后**没有任何尺子看着它**(T1–T7 一条都不命中),所以这条判据是"改完不再回潮"的唯一保证 —— 补判据前它已经在 HEAD 里躺着,而当时的 7 例测试全绿',
   },
 ]
 
@@ -171,15 +176,34 @@ function listTrackedFiles() {
 
 function readEntry(path, overrides = {}) {
   if (Object.prototype.hasOwnProperty.call(overrides, path)) return { path, text: overrides[path] }
-  return { path, text: normalize(readFileSync(join(ROOT, path), 'utf8')) }
+  // **取 HEAD 面,不取工作树磁盘**(2026-09-29 改,守门 118 那条取材面纪律):
+  // 共享工作区的 README / AGENTS 这类活文档常年**滞后 HEAD 且带着别人在飞的改动**,按磁盘判会出两种错 ——
+  // 别人没提交的旧措辞把我判红(与本提交无关),或别人改了而我看不见判绿。
+  // 本尺子守的是"仓库对外承诺的措辞",那就是 HEAD;取不到 ⇒ 落 undetermined(下面已按 text 非 string 处理),不记通过。
+  const text = faceText(path)
+  return { path, text: typeof text === 'string' ? normalize(text) : null }
 }
 
 function buildEntries(overrides = {}) {
   return listTrackedFiles().map((p) => readEntry(p, overrides))
 }
 
+// 一次批量读满,避免逐文件派生 git(与守门 118 同一条理由:枚举与内容同面同轮)。
+let FACE = null
+function faceText(path) {
+  if (FACE === null) {
+    try {
+      FACE = catBatch(ROOT, listTrackedFiles().map((p) => `HEAD:${p}`), { maxBuffer: 1 << 28 })
+    } catch {
+      FACE = new Map() // 一次都读不到 ⇒ 每条都落"取不到内容"的未判定,而不是静默空文本
+    }
+  }
+  return FACE.get(`HEAD:${path}`)
+}
+
 function currentBeforeBuildCommand() {
-  const conf = JSON.parse(readFileSync(join(ROOT, 'apps/desktop/src-tauri/tauri.conf.json'), 'utf8'))
+  const raw = faceText('apps/desktop/src-tauri/tauri.conf.json') ?? readFileSync(join(ROOT, 'apps/desktop/src-tauri/tauri.conf.json'), 'utf8')
+  const conf = JSON.parse(raw)
   return conf?.build?.beforeBuildCommand
 }
 
@@ -188,7 +212,7 @@ test('前置事实:本断言只在 beforeBuildCommand 为空时才成立,现读�
   assert.equal(v, '', `tauri.conf.json 的 build.beforeBuildCommand 实测=${JSON.stringify(v)},与 D148 拍板不一致 —— 先查配置再谈措辞`)
 })
 
-test('真仓工作树面:受检集合(除票① README)不得出现旧口径措辞', () => {
+test('真仓 HEAD 面:受检集合(含 README 与 port-management)不得出现旧口径措辞', () => {
   const r = scanThinShellWording({ beforeBuildCommand: currentBeforeBuildCommand(), entries: buildEntries() })
   assert.equal(r.applicable, true, r.reason)
   assert.deepEqual(
@@ -196,8 +220,9 @@ test('真仓工作树面:受检集合(除票① README)不得出现旧口径措�
     [],
     `检出 ${r.findings.length} 处旧口径:\n${r.findings.map((f) => `  ${f.id} ${f.path}:${f.line}  ${f.text}`).join('\n')}`,
   )
-  // 票①必须仍在 deferred 里被点名 —— 只报数不静默(AGENTS「绝不静默成看起来全绿」)。
-  assert.ok(r.deferred.length > 0, `README 若已被并发会话改好,请删掉 DEFERRED 里那一项(清单腐烂)`)
+  // DEFERRED 已清空 ⇒ deferred 必须为 0;不为 0 就说明有人**一边修好一边把行留在清单上**,
+  // 或新挂了没理由的豁免项。两者都要当场喊出来(AGENTS「绝不静默成看起来全绿」)。
+  assert.equal(r.deferred.length, 0, `还有 deferred 命中,说明清单没跟着清或改动没落地:${JSON.stringify(r.deferred)}`)
   assert.deepEqual(r.staleDeferred, [], `DEFERRED 里的这些项已不再命中旧口径,须删行: ${r.staleDeferred.join(', ')}`)
   assert.deepEqual(r.undetermined, [], `取不到内容的受检文件(不得当作通过): ${r.undetermined.map((u) => u.path).join(', ')}`)
 })
@@ -270,10 +295,49 @@ test('受检集合必须真的覆盖本票点名的载体(否则"没检出"只�
     'docs/MULTI_END.md',
     'docs/项目说明/8端一致性认证矩阵-2026-09-15.md',
     'apps/desktop/scripts/ensure-web-out.mjs',
+    // G-723 票①② 的载体必须在射程里 —— 不在射程就等于"改完没人看守"(与本票立项理由同一条)
+    'docs/port-management.md',
+    'README.md',
   ]) {
     assert.ok(files.includes(must), `受检集合漏了 ${must} —— 该处回归将无人看守`)
   }
   assert.ok(!files.includes('PROJECT_PLAN.md'), 'PROJECT_PLAN.md 不得进射程(历史票面允许引述旧措辞)')
   assert.ok(!files.includes('AGENTS.md'), 'AGENTS.md 不得进射程(同上)')
+})
+
+/**
+ * T8 的成对证明(G-723 票② 的"判据跟着改动走"那一半)。
+ * 立项事实:`docs/port-management.md` 那句"build 时加载 `web/out` 静态产物"在 HEAD 里躺着时,
+ * 上面 7 例**全绿** —— 因为 T1–T7 一条都不命中它。所以只改文字不改判据,等于把同一句话
+ * 交给下一个人的记性(§12f:"改被审代码的写法,必须同时改审它的正则";守门 117 记过同型)。
+ * 两条必须同时成立,缺一即本判据没有牙:
+ *  ① 旧句喂进去 ⇒ T8 命中(它能抓到我刚改掉的那一型);
+ *  ② 新句喂进去 ⇒ 零命中(它不把"承认薄壳 + 线上站点"的正确写法误判成违规)。
+ */
+test('T8 成对证明:旧那句"build 时加载 web/out 静态产物"必须被抓,新那句正确写法必须不被抓', () => {
+  const OLD =
+    '| 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 套壳:Desktop 通过 `tauri.conf.json` `devUrl:8801` 加载 web dev server,build 时加载 `web/out` 静态产物,不再需要独立 Vite 端口。启动:`pwsh -File scripts/start-dev.ps1 -Desktop` = api+ai-service+desktop,desktop 自带 web 8801,脚本自动注入 cargo PATH,与 web 互斥)| apps/desktop | `apps/desktop/src-tauri/tauri.conf.json` `devUrl: http://localhost:8801` | — |'
+  // 两条都是**构造面文本**,不读仓库 —— 本条证明的是"判据抓旧句、不抓新句"这件事本身;
+  // "仓库里现在到底是新句"由上面那条「真仓 HEAD 面」断言负责(两者判的东西不同,混在一起
+  // 就会把仓库瞬时状态当恒定前提,那是本仓记过多次的失效型)。
+  const NEW =
+    '| 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 薄壳:Desktop 的 `tauri.conf.json` `devUrl:8801` 只在**开发期**加载 web dev server;打包态**不内嵌前端产物** —— `beforeBuildCommand` 为空、`frontendDist` = `src-tauri/shell` 占位页、窗口 `url` 直指线上站点,2026-09-17 `f10258c8f6`「终极薄壳」定稿,详见 D148/G-723。因此不再需要独立 Vite 端口。启动:`pwsh -File scripts/start-dev.ps1 -Desktop` = api+ai-service+desktop,desktop 自带 web 8801,脚本自动注入 cargo PATH,与 web 互斥)| apps/desktop | `apps/desktop/src-tauri/tauri.conf.json` `devUrl: http://localhost:8801` | — |'
+  const hitOld = scanThinShellWording({
+    beforeBuildCommand: '',
+    entries: [{ path: 'docs/port-management.md', text: OLD }],
+  })
+  assert.ok(
+    hitOld.findings.some((f) => f.id === 'T8'),
+    `旧句没被 T8 抓到 ⇒ 这条判据是装饰品(实测 findings=${JSON.stringify(hitOld.findings.map((f) => f.id))})`,
+  )
+  const hitNew = scanThinShellWording({
+    beforeBuildCommand: '',
+    entries: [{ path: 'docs/port-management.md', text: NEW }],
+  })
+  assert.deepEqual(
+    hitNew.findings,
+    [],
+    `改后的正确写法被判红(实测 ${JSON.stringify(hitNew.findings.map((f) => [f.id, f.text]))})—— 判据过宽就会逼人绕过它`,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
