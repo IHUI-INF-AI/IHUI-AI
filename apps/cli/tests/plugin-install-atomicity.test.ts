@@ -10,7 +10,15 @@ import * as path from 'node:path';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 
 import { getInstalledPluginsDir, getPluginInstallPath, getRegistryPath } from '../src/plugins/paths.js';
-import { isUsableDirectoryCopy, supersededPathFor, swapScratchMarkers, DirectorySwapError, PluginSwapCancelledError } from '../src/plugins/cache.js';
+import {
+  isUsableDirectoryCopy,
+  supersededPathFor,
+  swapScratchMarkers,
+  authorityForTarget,
+  authorityTransactionVerdict,
+  DirectorySwapError,
+  PluginSwapCancelledError,
+} from '../src/plugins/cache.js';
 import {
   PluginPathUnsafeError,
   installMarketplacePlugin,
@@ -385,6 +393,157 @@ describe('installMarketplacePlugin — 取消通道贯穿到同一条提交序�
 
     expect(fs.existsSync(getPluginInstallPath('mp-p'))).toBe(false);
     expect(leftoverSwapScratch()).toEqual([]);
+  });
+});
+
+// ==================== G-756:权威记录写侧接线(事务号随安装记录落盘) ====================
+
+/**
+ * 钉的是 G-730 留下的半接线:读侧(`authorityTransactionVerdict` / finalize 前置③)已完备,
+ * 而权威记录(`InstallRecord` + `saveInstallRegistry()`)恒不写 transactionId ⇒ 安装目录的
+ * 权威结论永远落 `unknown`,处置只剩"零破坏回位、永不删"。
+ * 本票把写侧接上,并把次序当判据钉住:**land 之后、finalize 之前**。
+ *
+ * 关于票面"权威写失败 ⇒ 目标仍是旧副本"的一句:它与本票指定的次序(权威写排在 land 之后)
+ * 不自洽 —— 新副本此刻已在目标位,而 cache 层的 `restoreSuperseded` 在槽位已被占时按设计
+ * 不许覆盖(回退会抹掉刚生效的插件,与"取消在提交点之后不回退"同一条)。
+ * 所以这里钉的是这条次序真正要保证的安全实质:**归档一根手指都没碰、旧副本逐字仍在归档里
+ * 可回位、且 finalize 从未被跑到**。
+ */
+describe('installPlugin — 权威落盘排在 finalize 之前(G-756)', () => {
+  /** 阳性对照:把一份文件改名到一个已存在的目录上,这台机真的会失败(否则注入是空支票) */
+  function assertRenameFileOntoExistingDirFailsHere(blockerDir: string): void {
+    const probe = path.join(
+      path.dirname(blockerDir),
+      `.probe-file-${process.pid}-${Math.random().toString(36).slice(2, 6)}`,
+    );
+    fs.writeFileSync(probe, 'probe', 'utf-8');
+    try {
+      expect(() => fs.renameSync(probe, blockerDir)).toThrow();
+      expect(fs.existsSync(probe)).toBe(true);
+    } finally {
+      if (fs.existsSync(probe)) fs.rmSync(probe, { force: true });
+    }
+  }
+
+  it('① 成功安装:registry 那条记录带 transactionId,值等于本次 staged swap 的事务号', async () => {
+    process.chdir(tmpCwd);
+    writeLocalPlugin('plug', { name: 'a-txn', version: '1.0.0' }, { 'marker.txt': 'v1' });
+
+    const outcome = await installPlugin('./plug');
+
+    expect(typeof outcome.transactionId).toBe('string');
+    const rec = readRegistry().records.find((r) => r.name === 'a-txn');
+    expect(rec?.transactionId).toBe(outcome.transactionId);
+    // 短路路径(已装)没有交换 ⇒ 不该凭空带出一个事务号
+    const again = await installPlugin('./plug');
+    expect(again.wasInstalled).toBe(true);
+    expect(again.transactionId).toBeUndefined();
+  });
+
+  it('② 注入"权威写失败":抛错、归档未被处置、旧副本逐字留在归档里可回位(次序判据)', async () => {
+    process.chdir(tmpCwd);
+    writeLocalPlugin('v1', { name: 'a-order', version: '1.0.0' }, { 'marker.txt': 'v1' });
+    await installPlugin('./v1');
+    const dest = getPluginInstallPath('a-order');
+
+    // 换一个源目录(同插件名)绕开"已装短路",逼它真走覆盖 ⇒ 会产生旧副本归档
+    writeLocalPlugin('v2', { name: 'a-order', version: '2.0.0' }, { 'marker.txt': 'v2' });
+
+    // 把 registry.json 换成一个非空目录 ⇒ 权威落盘的 rename 必然失败
+    fs.rmSync(getRegistryPath(), { force: true });
+    fs.mkdirSync(getRegistryPath(), { recursive: true });
+    fs.writeFileSync(path.join(getRegistryPath(), 'keep.txt'), 'not-mine', 'utf-8');
+    assertRenameFileOntoExistingDirFailsHere(getRegistryPath());
+
+    await expect(installPlugin('./v2')).rejects.toThrow(/权威记录未写入/);
+
+    // 次序判据:权威没写上 ⇒ finalize 绝不被跑到 ⇒ 归档整体在位,里面就是那份旧副本
+    const archive = supersededPathFor(dest);
+    expect(fs.existsSync(archive)).toBe(true);
+    expect(fs.readFileSync(path.join(archive, 'marker.txt'), 'utf-8')).toBe('v1');
+    expect(fs.readFileSync(path.join(archive, 'plugin.json'), 'utf-8')).toContain('1.0.0');
+    // 占住权威路径的东西一根手指都没碰;权威面也确实没被更新
+    expect(fs.readFileSync(path.join(getRegistryPath(), 'keep.txt'), 'utf-8')).toBe('not-mine');
+    expect(readRegistry().records.find((r) => r.name === 'a-order')).toBeUndefined();
+    // 已落位的新副本不回退(G-729/G-730 越过提交点的既有语义,见本 describe 的头注)
+    expect(fs.readFileSync(path.join(dest, 'marker.txt'), 'utf-8')).toBe('v2');
+  });
+
+  it('③ 存量记录没有该字段 ⇒ 权威结论仍是 unknown,归档照旧被处置(与接线前逐字一致)', async () => {
+    process.chdir(tmpCwd);
+    const dest = getPluginInstallPath('a-legacy');
+    fs.mkdirSync(dest, { recursive: true });
+    fs.writeFileSync(path.join(dest, 'plugin.json'), JSON.stringify({ name: 'a-legacy', version: '1.0.0' }), 'utf-8');
+    fs.writeFileSync(path.join(dest, 'marker.txt'), 'v1', 'utf-8');
+    // 手造一份"接线前"的 registry:同一 name 一行,不带 transactionId
+    const legacy: InstallRegistry = {
+      records: [
+        {
+          name: 'a-legacy',
+          version: '1.0.0',
+          sourceType: 'local',
+          sourcePath: path.join(tmpCwd, 'v1'),
+          installedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    };
+    fs.mkdirSync(path.dirname(getRegistryPath()), { recursive: true });
+    fs.writeFileSync(getRegistryPath(), JSON.stringify(legacy), 'utf-8');
+
+    const authority = authorityForTarget(dest);
+    expect(authority).not.toBeNull();
+    // 字段缺席 = 无从问出,不是"权威否认这笔"(否则存量安装目录会被误判)
+    expect(authorityTransactionVerdict(authority!, 'any-transaction-id')).toBe('unknown');
+
+    writeLocalPlugin('v2', { name: 'a-legacy', version: '2.0.0' }, { 'marker.txt': 'v2' });
+    const outcome = await installPlugin('./v2');
+
+    expect(outcome.wasInstalled).toBe(false);
+    // 收尾行为与改动前一致:unknown 不拦处置 ⇒ 归档被收走,不留交换残留
+    expect(leftoverSwapScratch()).toEqual([]);
+    expect(isUsableDirectoryCopy(dest)).toBe(true);
+    // 新写的那一行确实带上了本次事务号(存量那一行原样不动)
+    const rows = readRegistry().records.filter((r) => r.name === 'a-legacy');
+    expect(rows.map((r) => r.version)).toEqual(['1.0.0', '2.0.0']);
+    expect(rows[0].transactionId).toBeUndefined();
+    expect(rows[1].transactionId).toBe(outcome.transactionId);
+  });
+
+  it('④ 收口判据:真实安装路径(不注入探针)之后,恢复侧问这笔事务得到 committed', async () => {
+    process.chdir(tmpCwd);
+    writeLocalPlugin('plug', { name: 'a-committed', version: '1.0.0' }, { 'marker.txt': 'v1' });
+
+    const outcome = await installPlugin('./plug');
+
+    const authority = authorityForTarget(getPluginInstallPath('a-committed'));
+    expect(authority).not.toBeNull();
+    // 写侧接线的直接后果:同一笔事务号不再是 unknown
+    expect(authorityTransactionVerdict(authority!, outcome.transactionId as string)).toBe('committed');
+    // 反向对照:别的号照样判"权威认的是另一笔" —— 判据不是被放宽成无条件绿
+    expect(authorityTransactionVerdict(authority!, '00000000-0000-4000-8000-000000000000')).toBe('not-committed');
+  });
+
+  it('⑤ 同一 name 有历史行(写侧接线后)⇒ 权威首行遮蔽本轮,归档零破坏保留不删', async () => {
+    process.chdir(tmpCwd);
+    writeLocalPlugin('v1', { name: 'a-dup', version: '1.0.0' }, { 'marker.txt': 'v1' });
+    await installPlugin('./v1');
+    const dest = getPluginInstallPath('a-dup');
+
+    writeLocalPlugin('v2', { name: 'a-dup', version: '2.0.0' }, { 'marker.txt': 'v2' });
+    const outcome = await installPlugin('./v2');
+
+    // 安装本身成功、新副本在位(不是拦门),但 registry 里同名有两行,
+    // 而读侧按 name 取**首行**问事务号 ⇒ 覆盖安装的归档这一型收不走。
+    expect(outcome.wasInstalled).toBe(false);
+    expect(fs.readFileSync(path.join(dest, 'marker.txt'), 'utf-8')).toBe('v2');
+    expect(readRegistry().records.filter((r) => r.name === 'a-dup').map((r) => r.version)).toEqual([
+      '1.0.0',
+      '2.0.0',
+    ]);
+    // 钉的是安全方向(绝不删权威可能仍指向的那一代),不是把"归档堆积"当期望行为:
+    // 堆积的根因是一行一名未收口,清它另计一票(既有 ④ 号用例把双行形态钉成了现状语义)。
+    expect(fs.existsSync(supersededPathFor(dest))).toBe(true);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
