@@ -162,8 +162,8 @@
       "path": "apps/zcode-cli/packages/core/src",
       "status": "windowed",
       "files": 500,
-      "read": 30,
-      "notes": "a-m 9/79、n-z 6/413、tool/handlers 4/120(W3-1)、runtime/helpers+subagent+system-reminder 11/78(W3-3);runtime/methods 归 W3-2(未回)。大头未动:handlers 正文、runtime/methods 98、attachment-*/media-*/provider-* 63、subagent 余 11、workflow 31、memory 10、browser-client 7。",
+      "read": 44,
+      "notes": "a-m 9/79、n-z 6/413、tool/handlers 4/120(W3-1)、runtime/helpers+subagent+system-reminder 11/78(W3-3)、runtime/methods 14/98(W3-2)。大头未动:handlers 正文、session-fork 1487/rewind-message 740/file-rewind 717/compact-active 725 等 80 个方法文件、attachment-*/media-* 63、workflow 31、memory 10。",
       "tickets": ["G-373", "G-375"]
     },
     {
@@ -181,12 +181,19 @@
       "read": 10,
       "notes": "失败分类/重试预算/出站策略。反例:上游把 rename 失败静默降级成 O_TRUNC 原地写 ⇒ 我方守门 122 反向不得引入 fallback-to-truncate。剩余 exec 24/mcp 19/plugins 15/storage 仓储面 ≈30/config 7/model 40。"
     },
-    { "path": "apps/zcode-cli/packages/contracts", "status": "unread", "files": 113, "read": 0 },
+    {
+      "path": "apps/zcode-cli/packages/contracts",
+      "status": "windowed",
+      "files": 113,
+      "read": 7,
+      "notes": "W3-8:工具结果元数据/契约/能力表/工作区钩子信任存储/工件端口读到体。剩余 interfaces 22、tools 38、events 5、model 6。反例:capabilities 整体是 export {} 却仍发布 ./capabilities 子路径且零 importer = 空心公开入口。"
+    },
     {
       "path": "apps/zcode-cli/packages/dynamic-workflow",
-      "status": "unread",
+      "status": "windowed",
       "files": 97,
-      "read": 0
+      "read": 4,
+      "notes": "W3-8:engine 的 hash/scheduler-submit/run-terminal/engine-settlement 读到体。剩余 analysis 52 整目录未读(单独一票)、engine 21、schema 7、facade 5。"
     },
     { "path": "apps/zcode-cli/packages/tui", "status": "unread", "files": 92, "read": 0 },
     { "path": "apps/zcode-cli/packages/cli", "status": "unread", "files": 97, "read": 0 },
