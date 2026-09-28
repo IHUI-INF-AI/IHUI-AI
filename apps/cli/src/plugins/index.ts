@@ -6,12 +6,17 @@
  * Plugins 系统主入口 — re-export 类型、加载器、注册表。
  *
  * 用法:
- *   import { loadPlugins, PluginRegistry } from './plugins/index.js';
+ *   import { loadPlugins, loadPluginsWithDiagnostics, PluginRegistry } from './plugins/index.js';
  *   const defs = loadPlugins({ pluginsDir: './plugins' });
  *   const registry = new PluginRegistry();
  *   registry.registerAll(defs);
  *   await registry.runSetups();
  *   const tools = registry.getToolExtensions();
+ *
+ * 诊断(G-683/G-684):
+ *   const { plugins, diagnostics } = loadPluginsWithDiagnostics({ pluginsDir });
+ *   // 每份被跳过的清单恰好一条 diagnostic(stable code + file + severity);
+ *   // 同名多份 ⇒ 两份都不装载,各点名对方路径。loadPlugins 仍是旧的数组契约。
  *
  * 集成到 Agent 主循环(留作后续任务):
  *   - 启动时调用 loadPlugins + registerAll + runSetups
@@ -27,9 +32,15 @@ export type {
   PluginHookContext,
   TurnContributorContext,
   LoadPluginsOptions,
+  PluginDiagnostic,
+  PluginDiagnosticCode,
+  PluginDiagnosticSeverity,
+  PluginLoadResult,
 } from './types.js';
 
-export { loadPlugins, validateManifest } from './loader.js';
+export { PLUGIN_DIAGNOSTIC_CODES } from './types.js';
+
+export { loadPlugins, loadPluginsWithDiagnostics, validateManifest } from './loader.js';
 
 export {
   PluginRegistry,

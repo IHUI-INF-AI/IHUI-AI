@@ -7,6 +7,7 @@ import { View, Text, Image, ScrollView, Video } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAigcList } from '@/api'
+import { domesticImageAt } from '@ihui/shared/constants'
 import './list.css'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
@@ -47,7 +48,7 @@ const MOCK_LIST: AigcItem[] = [
     id: 'm1',
     title: t('aigcList.d1'),
     author: t('aigcList.d2'),
-    coverUrl: 'https://picsum.photos/320/440?1',
+    coverUrl: domesticImageAt(100),
     fileUrl: '',
     fileType: 0,
     content: '',
@@ -61,7 +62,7 @@ const MOCK_LIST: AigcItem[] = [
     id: 'm2',
     title: t('aigcList.d3'),
     author: t('aigcList.d4'),
-    coverUrl: 'https://picsum.photos/320/360?2',
+    coverUrl: domesticImageAt(101),
     fileUrl: '',
     fileType: 0,
     content: '',
@@ -75,7 +76,7 @@ const MOCK_LIST: AigcItem[] = [
     id: 'm3',
     title: t('aigcList.d5'),
     author: t('aigcList.d6'),
-    coverUrl: 'https://picsum.photos/320/500?3',
+    coverUrl: domesticImageAt(102),
     fileUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     fileType: 1,
     content: '',
@@ -103,7 +104,7 @@ const MOCK_LIST: AigcItem[] = [
     id: 'm5',
     title: t('aigcList.d11'),
     author: t('aigcList.d12'),
-    coverUrl: 'https://picsum.photos/240/240?audio1',
+    coverUrl: domesticImageAt(103),
     fileUrl: 'https://www.w3schools.com/html/horse.mp3',
     fileType: 3,
     content: '',
@@ -117,7 +118,7 @@ const MOCK_LIST: AigcItem[] = [
     id: 'm6',
     title: t('aigcList.d13'),
     author: t('aigcList.d14'),
-    coverUrl: 'https://picsum.photos/320/440?4',
+    coverUrl: domesticImageAt(104),
     fileUrl: '',
     fileType: 0,
     content: '',
@@ -145,7 +146,7 @@ const MOCK_LIST: AigcItem[] = [
     id: 'm8',
     title: t('aigcList.d19'),
     author: t('aigcList.d12'),
-    coverUrl: 'https://picsum.photos/240/240?audio2',
+    coverUrl: domesticImageAt(105),
     fileUrl: 'https://www.w3schools.com/html/horse.mp3',
     fileType: 3,
     content: '',

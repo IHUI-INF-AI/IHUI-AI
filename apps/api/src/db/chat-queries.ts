@@ -427,6 +427,52 @@ export interface ListMessagesOpts {
   after?: string // 游标:返回此 message id 之后的消息(用于加载新消息)
 }
 
+// =============================================================================
+// G-788(2026-09-30 立):复合 keyset 条件与排序的**唯一一份**实现
+// 旧 findMessages 的 before/after(P1 #24 之前形态,游标是 message id)与
+// findMessagesCursor(P1 #24,keyset 游标是 {createdAt,id})都必须走这里 ——
+// 两处各写一遍必然漂移,而漂移的表现是"某条翻页路径又只看 createdAt"。
+//
+// 为什么双列不可省:conversation-import.ts 的落库路径把缺省/非法的 message createdAt
+// 一律回退到同一个 conversationCreatedAt(:165-167 与 :198-208),所以"同一时间戳的兄弟行"
+// 是常态而非边角。单列 lt/gt(created_at) 与游标同值的行**全部**被排除 ⇒ 向旧翻时被永久跳过。
+//
+// 方向必须同序:older 用 (lt, lt) + (desc, desc),newer 用 (gt, gt) + (asc, asc)。
+// 混用(如主键 gt 而次级键 lt)会产出"翻不动"或"重复返回"。
+//
+// id 作为决胜键的稳定性:chat_messages.id 是 uuid 列(`uuid('id').defaultRandom()`),
+// PG 对 uuid 按字节序比较、无 collation、全序且唯一;写入侧 id 由 gen_random_uuid() 生成,
+// 恒为小写规范形,故 JS 侧字典序与 PG 字节序同结论(测试内存 mock 依赖这一点)。
+// =============================================================================
+
+/** keyset 比较方向:older=(createdAt,id) < 游标(向旧翻);newer=(createdAt,id) > 游标(向新翻)。 */
+export type KeysetDirection = 'older' | 'newer'
+
+/** 把游标 (createdAt, id) 落成双列比较,并与调用方的会话过滤相与。 */
+export function keysetCursorCondition(
+  scope: SQL<unknown>,
+  direction: KeysetDirection,
+  cursor: { createdAt: Date; id: string },
+): SQL<unknown> | undefined {
+  // 两列同向(older 全 lt / newer 全 gt)就是"比较必须同序"的落点 ——
+  // 只有一个运算符旋钮是刻意的:留下两个必然被后来人调成反向。
+  const op = direction === 'older' ? lt : gt
+  return and(
+    scope,
+    or(
+      op(chatMessages.createdAt, cursor.createdAt),
+      and(eq(chatMessages.createdAt, cursor.createdAt), op(chatMessages.id, cursor.id)),
+    ),
+  )
+}
+
+/** 与 keysetCursorCondition 同序的 ORDER BY 键(两列同向,保证 keyset 切分稳定)。 */
+export function keysetCursorOrderBy(direction: KeysetDirection): [SQL<unknown>, SQL<unknown>] {
+  return direction === 'older'
+    ? [desc(chatMessages.createdAt), desc(chatMessages.id)]
+    : [asc(chatMessages.createdAt), asc(chatMessages.id)]
+}
+
 export async function findMessages(
   conversationId: string,
   opts: ListMessagesOpts,
@@ -444,11 +490,21 @@ export async function findMessages(
     if (!cursorMsg) {
       return { list: [], total: 0, hasMore: false, nextCursor: null }
     }
+    // G-788(2026-09-30):原来这里是单列 lt(chatMessages.createdAt, cursorMsg.createdAt)。
+    // 导入路径(conversation-import.ts:165-167)把缺省/非法 createdAt 一律回退到**同一个**
+    // 会话创建时刻,所以同值兄弟行成批存在;单列比较会把"与游标同一时间戳但排在它后面"
+    // 的行一起排除(向旧翻时它们永不被读到),且全程零报错。
+    // 修法是复用同文件已入库的复合 keyset 条件(createdAt,id),不新造第三套游标。
+    const condition = keysetCursorCondition(where, 'older', {
+      createdAt: cursorMsg.createdAt,
+      id: cursorMsg.id,
+    })
+    if (!condition) throw new Error('unreachable: keyset condition builder')
     const rows = await db
       .select()
       .from(chatMessages)
-      .where(and(where, lt(chatMessages.createdAt, cursorMsg.createdAt)))
-      .orderBy(desc(chatMessages.createdAt))
+      .where(condition)
+      .orderBy(...keysetCursorOrderBy('older'))
       .limit(limit + 1)
     hasMore = rows.length > limit
     list = hasMore ? rows.slice(0, limit) : rows
@@ -459,23 +515,32 @@ export async function findMessages(
     if (!cursorMsg) {
       return { list: [], total: 0, hasMore: false, nextCursor: null }
     }
+    // G-788 同上:向新翻时次级键必须与主键同向(gt + asc),否则同值行要么被重复返回,
+    // 要么"翻不动"(游标停在同一时间戳的中间,下一批取不到剩余兄弟行)。
+    const condition = keysetCursorCondition(where, 'newer', {
+      createdAt: cursorMsg.createdAt,
+      id: cursorMsg.id,
+    })
+    if (!condition) throw new Error('unreachable: keyset condition builder')
     const rows = await db
       .select()
       .from(chatMessages)
-      .where(and(where, gt(chatMessages.createdAt, cursorMsg.createdAt)))
-      .orderBy(asc(chatMessages.createdAt))
+      .where(condition)
+      .orderBy(...keysetCursorOrderBy('newer'))
       .limit(limit + 1)
     hasMore = rows.length > limit
     list = hasMore ? rows.slice(0, limit) : rows
   } else {
-    // offset 分页:按 createdAt desc 取页 + reverse 成正序,page=1 = 最新页(聊天 UI 行业惯例)
+    // offset 分页:按 (createdAt, id) desc 取页 + reverse 成正序,page=1 = 最新页(聊天 UI 行业惯例)
     // nextCursor = list[0]?.id(本页最旧一条),供前端 before 续传加载更早历史
+    // G-788:排序必须带 id 决胜 —— before 分支现在按 (createdAt,id) 切,若这里只按 createdAt 排,
+    // 同值行的先后由 PG 随意决定,页边界与游标就不在同一把序上(表现是翻页重复或跳过)。
     const [rows, totalRows] = await Promise.all([
       db
         .select()
         .from(chatMessages)
         .where(where)
-        .orderBy(desc(chatMessages.createdAt))
+        .orderBy(...keysetCursorOrderBy('older'))
         .limit(limit)
         .offset((opts.page - 1) * opts.pageSize),
       db
@@ -583,16 +648,12 @@ export async function findMessagesCursor(
 
   let condition: SQL<unknown> = where
   if (opts.direction === 'older' && opts.cursor) {
-    const cCreated = new Date(opts.cursor.createdAt)
-    const cId = opts.cursor.id
-    // 严格 keyset:(created_at, id) < (cCreated, cId);and/or 入参恒非空,返回值可安全收窄
-    const combined = and(
-      where,
-      or(
-        lt(chatMessages.createdAt, cCreated),
-        and(eq(chatMessages.createdAt, cCreated), lt(chatMessages.id, cId)),
-      ),
-    )
+    // G-788:这里原本是手写的双列比较,现与旧 findMessages 分支共用 keysetCursorCondition
+    // 那一份实现(条件与排序同序这件事只能有一处定义,否则两条翻页路径会各自漂)。
+    const combined = keysetCursorCondition(where, 'older', {
+      createdAt: new Date(opts.cursor.createdAt),
+      id: opts.cursor.id,
+    })
     if (!combined) throw new Error('unreachable: keyset condition builder')
     condition = combined
   }
@@ -602,7 +663,7 @@ export async function findMessagesCursor(
     .from(chatMessages)
     .where(condition)
     // 复合排序:created_at DESC + id DESC(同时间戳用 id 字典序决胜,保证 keyset 切分稳定)
-    .orderBy(desc(chatMessages.createdAt), desc(chatMessages.id))
+    .orderBy(...keysetCursorOrderBy('older'))
     .limit(limit + 1)
 
   const hasMore = rows.length > limit

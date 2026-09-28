@@ -3601,31 +3601,364 @@
         }
       }
     },
+    "/api/admin/audit-evidence/public-key": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "kid",
+            "required": false,
+            "description": "信封 payload.keyId 记的那个 kid;省略则返回当前签名公钥"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "获取审计导出验签公钥与 kid(不带 kid = 当前签名公钥;带 kid = 按登记表取那把)",
+        "tags": [
+          "audit-evidence-export"
+        ]
+      }
+    },
+    "/api/admin/audit-evidence/signed": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "userId",
+            "required": false,
+            "description": "按用户 ID 过滤(UUID,服务端 Zod 校验;仅作查询维度)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "description": "按动作筛选(auth.login/data.read 等)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "resourceType",
+            "required": false,
+            "description": "按资源类型筛选"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "startDate",
+            "required": false,
+            "description": "开始时间(ISO)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "endDate",
+            "required": false,
+            "description": "结束时间(ISO)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "description": "导出格式:json(默认)/ cef / leef"
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "导出行数上限,默认 10000,最大 50000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "生成带 RSA-SHA256 签名的审计日志导出信封(收件方仅需公钥即可离线验签)",
+        "tags": [
+          "audit-evidence-export"
+        ]
+      }
+    },
     "/api/admin/audit-logs": {
       "get": {
         "parameters": [
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1
+              "type": "string"
             },
             "in": "query",
             "name": "page",
             "required": false,
-            "description": "页码(默认 1)"
+            "description": "页码(整数,默认 1;服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
+              "type": "string"
             },
             "in": "query",
             "name": "pageSize",
             "required": false,
-            "description": "每页数量(1-100,默认 20)"
+            "description": "每页数量(1-100,默认 20;服务端 Zod 校验)"
           },
           {
             "schema": {
@@ -3634,7 +3967,7 @@
             "in": "query",
             "name": "userId",
             "required": false,
-            "description": "按用户 ID 筛选(可选)"
+            "description": "按用户 ID 筛选(可选;Zod 校验 UUID)"
           },
           {
             "schema": {
@@ -3762,34 +4095,30 @@
         "parameters": [
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1
+              "type": "string"
             },
             "in": "query",
             "name": "page",
-            "required": false
+            "required": false,
+            "description": "页码(整数,默认 1;服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
+              "type": "string"
             },
             "in": "query",
             "name": "pageSize",
-            "required": false
+            "required": false,
+            "description": "每页条数(1-100,默认 20;服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "query",
             "name": "userId",
             "required": false,
-            "description": "按用户 ID 筛选"
+            "description": "按用户 ID 筛选(UUID,服务端 Zod 校验;仅作查询维度)"
           },
           {
             "schema": {
@@ -3917,12 +4246,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "query",
             "name": "userId",
-            "required": false
+            "required": false,
+            "description": "UUID(服务端 Zod 校验)"
           },
           {
             "schema": {
@@ -3958,28 +4287,21 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "json",
-                "cef",
-                "leef"
-              ],
-              "default": "json"
+              "type": "string"
             },
             "in": "query",
             "name": "format",
-            "required": false
+            "required": false,
+            "description": "导出格式:json(默认)/ cef / leef(服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 50000,
-              "default": 10000
+              "type": "string"
             },
             "in": "query",
             "name": "limit",
-            "required": false
+            "required": false,
+            "description": "导出行数上限(1-50000,默认 10000;Zod 校验)"
           }
         ],
         "responses": {
@@ -3998,12 +4320,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "query",
             "name": "userId",
-            "required": false
+            "required": false,
+            "description": "UUID(服务端 Zod 校验)"
           },
           {
             "schema": {
@@ -4133,8 +4455,7 @@
                 "properties": {
                   "userId": {
                     "type": "string",
-                    "format": "uuid",
-                    "description": "验证指定用户的链(可选)"
+                    "description": "验证指定用户的链(可选;UUID,服务端 Zod 校验)"
                   },
                   "startDate": {
                     "type": "string",
@@ -4146,9 +4467,7 @@
                   },
                   "limit": {
                     "type": "integer",
-                    "minimum": 1,
-                    "maximum": 50000,
-                    "default": 10000
+                    "description": "验证行数上限(1-50000,默认 10000;Zod 校验)"
                   }
                 }
               }
@@ -4289,29 +4608,21 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "csv",
-                "json"
-              ],
-              "default": "csv"
+              "type": "string"
             },
             "in": "query",
             "name": "format",
             "required": false,
-            "description": "导出格式"
+            "description": "导出格式:csv(默认)/ json"
           },
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 10000,
-              "default": 10000
+              "type": "string"
             },
             "in": "query",
             "name": "limit",
             "required": false,
-            "description": "最大导出条数"
+            "description": "最大导出条数(1-10000,默认 10000;服务端 Zod 校验)"
           }
         ],
         "responses": {
@@ -27735,26 +28046,20 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "title",
-                  "content",
-                  "channels",
-                  "msgType"
-                ],
                 "properties": {
                   "title": {
                     "type": "string",
-                    "maxLength": 255
+                    "description": "标题(1-255 字符,服务端 Zod 校验)"
                   },
                   "content": {
                     "type": "string",
-                    "maxLength": 5000
+                    "description": "正文(1-5000 字符,服务端 Zod 校验)"
                   },
                   "userIds": {
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "format": "uuid"
+                      "description": "UUID(服务端 Zod 校验)"
                     },
                     "nullable": true,
                     "description": "指定用户 ID 列表(为 null 时按 roleFilter)"
@@ -27771,24 +28076,13 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "in_app",
-                        "email",
-                        "sms"
-                      ]
+                      "description": "in_app / email / sms(服务端 Zod 校验)"
                     },
-                    "minItems": 1
+                    "description": "派发渠道(1-20 个,服务端 Zod 校验)"
                   },
                   "msgType": {
                     "type": "string",
-                    "enum": [
-                      "system",
-                      "order",
-                      "project",
-                      "comment",
-                      "mention",
-                      "follow"
-                    ]
+                    "description": "system/order/project/comment/mention/follow(服务端 Zod 校验)"
                   }
                 }
               }
@@ -37752,22 +38046,21 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "query",
             "name": "pid",
             "required": false,
-            "description": "父部门ID筛选"
+            "description": "父部门ID筛选(UUID,服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "integer"
+              "type": "string"
             },
             "in": "query",
             "name": "companyId",
             "required": false,
-            "description": "公司ID筛选"
+            "description": "公司ID筛选(整数,服务端 Zod 校验)"
           }
         ],
         "responses": {
@@ -37831,8 +38124,7 @@
                   },
                   "pid": {
                     "type": "string",
-                    "format": "uuid",
-                    "description": "父部门ID"
+                    "description": "父部门ID(UUID,服务端 Zod 校验)"
                   },
                   "companyId": {
                     "type": "integer",
@@ -38071,7 +38363,7 @@
                   },
                   "pid": {
                     "type": "string",
-                    "format": "uuid"
+                    "description": "UUID(服务端 Zod 校验)"
                   },
                   "companyId": {
                     "type": "integer"
@@ -39406,13 +39698,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
             "required": true,
-            "description": "用户 ID"
+            "description": "用户 ID(UUID,服务端 Zod 校验)"
           }
         ],
         "responses": {
@@ -39508,13 +39799,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
             "required": true,
-            "description": "用户 ID"
+            "description": "用户 ID(UUID,服务端 Zod 校验)"
           }
         ],
         "responses": {
@@ -39623,13 +39913,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
             "required": true,
-            "description": "用户 ID"
+            "description": "用户 ID(UUID,服务端 Zod 校验)"
           }
         ],
         "requestBody": {
@@ -39641,13 +39930,11 @@
                 "properties": {
                   "role": {
                     "type": "integer",
-                    "minimum": 0,
-                    "description": "角色 ID"
+                    "description": "角色 ID(服务端 Zod 校验)"
                   },
                   "status": {
                     "type": "integer",
-                    "minimum": 0,
-                    "description": "用户状态"
+                    "description": "用户状态(服务端 Zod 校验)"
                   },
                   "deptId": {
                     "type": "integer",
@@ -40226,33 +40513,30 @@
         "parameters": [
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1
+              "type": "string"
             },
             "in": "query",
             "name": "page",
-            "required": false
+            "required": false,
+            "description": "页码(整数,默认 1;服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
+              "type": "string"
             },
             "in": "query",
             "name": "pageSize",
-            "required": false
+            "required": false,
+            "description": "每页条数(1-100,默认 20;服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "query",
             "name": "userId",
-            "required": false
+            "required": false,
+            "description": "UUID(服务端 Zod 校验)"
           },
           {
             "schema": {
@@ -82680,6 +82964,44 @@
         ]
       }
     },
+    "/api/ai/n8n/workflows/{id}": {
+      "put": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/ai/n8n/workflows/{id}/toggle": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/ai/nebius/chat": {
       "post": {
         "description": "代理调用 https://api.studio.nebius.ai/v1/chat/completions(OpenAI 协议全参数透传)",
@@ -111007,6 +111329,15 @@
         }
       }
     },
+    "/api/app-version/min-cli-version": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/app-version/{id}": {
       "delete": {
         "parameters": [
@@ -112170,6 +112501,121 @@
             "description": "Default Response"
           }
         }
+      }
+    },
+    "/api/audit-evidence/public-key": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "kid",
+            "required": false,
+            "description": "信封 payload.keyId;省略则返回当前签名公钥(与 86G-1 逐字同形)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "获取审计导出验签公钥与 kid(免鉴权 + IP 限流;仅公钥/kid/算法,绝不含私钥材料)",
+        "tags": [
+          "audit-evidence-export"
+        ]
       }
     },
     "/api/auth-codes/": {
@@ -115592,23 +116038,21 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "query",
             "name": "id",
             "required": false,
-            "description": "浏览记录 ID"
+            "description": "浏览记录 ID(UUID,服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "query",
             "name": "userId",
             "required": false,
-            "description": "会员 ID(传入则校验归属)"
+            "description": "会员 ID(UUID,传入则校验归属;服务端 Zod 校验)"
           }
         ],
         "responses": {
@@ -115764,13 +116208,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "query",
             "name": "userId",
             "required": false,
-            "description": "会员 ID"
+            "description": "会员 ID(UUID,服务端 Zod 校验)"
           }
         ],
         "responses": {
@@ -117394,15 +117837,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
+              "type": "string"
             },
             "in": "query",
             "name": "limit",
             "required": false,
-            "description": "每页 turn 数(非消息数)"
+            "description": "每页 turn 数(1-100,默认 20;非消息数,服务端 Zod 校验)"
           },
           {
             "schema": {
@@ -117415,27 +117855,21 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "newest",
-                "older",
-                "newer"
-              ]
+              "type": "string"
             },
             "in": "query",
             "name": "direction",
             "required": false,
-            "description": "newest=取最新 N turn;older=断点之前;newer=断点之后(增量续读)"
+            "description": "newest=取最新 N turn;older=断点之前;newer=断点之后(增量续读;服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
             "required": true,
-            "description": "对话 ID"
+            "description": "对话 ID(UUID,服务端 Zod 校验)"
           }
         ],
         "responses": {
@@ -117546,46 +117980,39 @@
         "parameters": [
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1
+              "type": "string"
             },
             "in": "query",
             "name": "page",
             "required": false,
-            "description": "页码(默认 1)"
+            "description": "页码(整数,默认 1;服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
+              "type": "string"
             },
             "in": "query",
             "name": "pageSize",
             "required": false,
-            "description": "每页数量(1-100,默认 20)"
+            "description": "每页条数(1-100,默认 20;服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "query",
             "name": "before",
             "required": false,
-            "description": "游标:返回该消息 ID 之前的记录"
+            "description": "游标:返回该消息 ID 之前的记录(UUID,服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "query",
             "name": "after",
             "required": false,
-            "description": "游标:返回该消息 ID 之后的记录"
+            "description": "游标:返回该消息 ID 之后的记录(UUID,服务端 Zod 校验)"
           },
           {
             "schema": {
@@ -117598,26 +118025,21 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "initial",
-                "older"
-              ]
+              "type": "string"
             },
             "in": "query",
             "name": "direction",
             "required": false,
-            "description": "initial=取最新 N 条;older=在 cursor 之前取更早的消息"
+            "description": "initial=取最新 N 条;older=在 cursor 之前取更早的消息(服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
             "required": true,
-            "description": "对话 ID"
+            "description": "对话 ID(UUID,服务端 Zod 校验)"
           }
         ],
         "responses": {
@@ -119651,6 +120073,34 @@
             "description": "Default Response"
           }
         }
+      }
+    },
+    "/api/cli/audit/tool-approvals": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "summary": "CLI agent 审批决策摄入审计链(86H)",
+        "tags": [
+          "audit",
+          "cli"
+        ]
+      }
+    },
+    "/api/cli/audit/tool-invokes": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "summary": "CLI 工具账本快照摄入审计链(86A2)",
+        "tags": [
+          "audit",
+          "cli"
+        ]
       }
     },
     "/api/collect": {
@@ -123312,6 +123762,122 @@
             "description": "Default Response"
           }
         }
+      }
+    },
+    "/api/desktop/prefs": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "读取桌面端偏好漫游配置",
+        "tags": [
+          "desktop"
+        ]
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "写入桌面端偏好漫游配置",
+        "tags": [
+          "desktop"
+        ]
       }
     },
     "/api/developer/api-key-groups": {
@@ -133118,13 +133684,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "userId",
             "required": true,
-            "description": "目标用户 ID"
+            "description": "目标用户 ID(UUID,服务端 Zod 校验)"
           }
         ],
         "responses": {
@@ -133215,13 +133780,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "userId",
             "required": true,
-            "description": "目标用户 ID"
+            "description": "目标用户 ID(UUID,服务端 Zod 校验)"
           }
         ],
         "responses": {
@@ -139342,15 +139906,6 @@
             "required": true
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/api/mcp/invoke": {
-      "post": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -153272,13 +153827,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
             "required": true,
-            "description": "方案 ID"
+            "description": "方案 ID(UUID,服务端 Zod 校验)"
           }
         ],
         "responses": {
@@ -154543,6 +155097,59 @@
         }
       }
     },
+    "/api/publish/monitor/overview": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/publish/monitor/refresh-metrics": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "publish:operate"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/publish/monitor/verify": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "publish:operate"
+            ]
+          }
+        ]
+      }
+    },
     "/api/publish/platforms": {
       "get": {
         "responses": {
@@ -154606,6 +155213,28 @@
       }
     },
     "/api/publish/scan-login/external-start": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "publish:operate"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/publish/scan-login/import-cookies": {
       "post": {
         "responses": {
           "200": {
@@ -156977,13 +157606,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
             "required": true,
-            "description": "角色 ID"
+            "description": "角色 ID(UUID,服务端 Zod 校验)"
           }
         ],
         "requestBody": {
@@ -156992,19 +157620,14 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "permissionIds"
-                ],
                 "properties": {
                   "permissionIds": {
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "format": "uuid"
+                      "description": "UUID(服务端 Zod 校验)"
                     },
-                    "minItems": 1,
-                    "maxItems": 100,
-                    "description": "权限 ID 列表"
+                    "description": "权限 ID 列表(1-100 个,服务端 Zod 校验)"
                   }
                 }
               }
@@ -157472,34 +158095,30 @@
         "parameters": [
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1
+              "type": "string"
             },
             "in": "query",
             "name": "page",
-            "required": false
+            "required": false,
+            "description": "页码(整数,默认 1;服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
+              "type": "string"
             },
             "in": "query",
             "name": "pageSize",
-            "required": false
+            "required": false,
+            "description": "每页条数(1-100,默认 20;服务端 Zod 校验)"
           },
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "query",
             "name": "taskId",
             "required": false,
-            "description": "任务ID筛选"
+            "description": "任务ID筛选(UUID,服务端 Zod 校验)"
           },
           {
             "schema": {
@@ -161054,6 +161673,15 @@
         ]
       }
     },
+    "/api/statistics/user-center": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/stock/analyse": {
       "post": {
         "responses": {
@@ -161399,6 +162027,15 @@
             "required": true
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/subagents/all": {
+      "get": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -164067,6 +164704,15 @@
         }
       }
     },
+    "/api/user/token-balance": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/users/change-phone": {
       "post": {
         "responses": {
@@ -165103,7 +165749,7 @@
                     "properties": {
                       "userId": {
                         "type": "string",
-                        "format": "uuid"
+                        "description": "UUID(服务端 Zod 校验)"
                       },
                       "ip": {
                         "type": "string"
@@ -165131,7 +165777,7 @@
                   },
                   "userId": {
                     "type": "string",
-                    "format": "uuid"
+                    "description": "UUID(服务端 Zod 校验)"
                   },
                   "ip": {
                     "type": "string"
@@ -165817,13 +166463,12 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
             "required": true,
-            "description": "工作流 ID"
+            "description": "工作流 ID(UUID,服务端 Zod 校验)"
           }
         ],
         "requestBody": {
@@ -165835,8 +166480,7 @@
                 "properties": {
                   "projectId": {
                     "type": "string",
-                    "format": "uuid",
-                    "description": "关联项目 ID(可选)"
+                    "description": "关联项目 ID(可选,UUID,服务端 Zod 校验)"
                   },
                   "context": {
                     "type": "object",
@@ -175861,7 +176505,27 @@
     },
     "/v1/memory/working": {
       "get": {
-        "description": "工作记忆",
+        "description": "工作记忆(按条目属主过滤;sessionId 为句柄,不是凭据)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "sessionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -175872,6 +176536,24 @@
                   "properties": {
                     "items": {
                       "type": "array"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
                     }
                   }
                 }
@@ -180875,7 +181557,7 @@
               "codebase:read": "代码库语义检索(索引内容属调用者)",
               "codebase:write": "代码库建索引/删除仓库",
               "computer:operate": "本机 GUI 控制(键鼠/剪贴板)—— 永不开放给外部 key",
-              "connectors:read": "外部连接器/MCP server 清单与能力",
+              "connectors:read": "外部连接器/MCP server 清单与能力(已按调用方属主过滤;第三方开放仍待机主重开)",
               "connectors:write": "注册/启停外部 MCP server —— 等于注入可执行工具,不对第三方 key 开放",
               "diff:apply": "把生成内容全量写入磁盘文件 —— 写文件系统,不对第三方 key 开放",
               "edu:read": "教育内容与题库读取",

@@ -245,7 +245,10 @@ export default function CoursePlanet() {
         )}
         {displayList.length > 0 && (
           <View className="px-[20rpx] mb-[24rpx]">
-            {/* 对齐 RN swiper 变体:高 144dp / 圆角 30dp→60rpx(className 覆盖组件默认 rounded-lg) */}
+            {/* 高度与圆角都回到组件默认(唯一源 carousel-spec + 组件根的角色档圆角)。
+                早先这里写死过一档高度、并用 className 覆盖组件圆角,注释给出的理由是"对齐 RN"。
+                那个理由是错的:对面同槽渲染的是另一枚组件(RN 课程卡),不是本配对组件,
+                照抄它的数只会让两端同名组件彼此不同 —— 而它恰恰是用户实拍投诉的成因。 */}
             <Carousel
               variant="course"
               items={displayList.slice(0, 5).map((item) => ({ img: item.coverUrl || '' }))}
@@ -256,8 +259,6 @@ export default function CoursePlanet() {
               }))}
               autoplay
               interval={4000}
-              height={144}
-              className="rounded-2xl"
               onItemClick={(_item, idx) => onItemClick(displayList[idx]?.id ?? '')}
             />
           </View>

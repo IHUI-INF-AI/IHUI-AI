@@ -19,6 +19,9 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as gate } from '../check-architecture-policy.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
+import { blankStrings } from '../lib/code-mask.mjs'
+// DC 的"另一份读数"必须来自守门 108 那一份实现(测试里重抄计数规则 = 镜像只复读实现,§22c)。
+import { scanFile } from '../check-exemption-expiry.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -421,5 +424,149 @@ test('T15 取材面提示语必须按 oid 实测(缺陷 2):"读了索引"不得�
   if (head && index && head === index) assert.doesNotMatch(out, /策略表取自|尚未入库/, `实测索引==HEAD(${head.slice(0, 8)})仍被提示 ⇒ 就是那条误报`)
   else if (head) assert.doesNotMatch(out, /尚未入库/, '表已入库(HEAD 有它),不得再说"尚未入库"')
   else assert.match(out, /尚未入库/, 'HEAD 真没有这张表时必须喊出来')
+})
+
+/** 读 `--json` 档并保证"解析不到"不会被静默当成"没有红"(取不到就是取不到,不许冒绿)。 */
+function runJson(args) {
+  const r = runCLI([...args, '--json'])
+  let parsed = null
+  let parseErr = null
+  try {
+    parsed = JSON.parse(r.out)
+  } catch (e) {
+    parseErr = e.message
+  }
+  return { ...r, json: parsed, parseErr }
+}
+
+const headFace = (rel) => gitRaw(['show', `HEAD:${rel}`], REPO, { timeout: 120000, maxBuffer: 1 << 26 })
+const sum = (o) => Object.values(o).reduce((a, b) => a + (Number(b) || 0), 0)
+
+/**
+ * T16 —— 表级例外的寿命(X1 缺到期日 / X2 已过期)。
+ *
+ * 三条各自独立的锁,缺任何一条这一维都会静默失效:
+ *  A **结构性**:全量档内容与锚点同面(都是 HEAD)⇒ 无日期存量恒 0 判红。它钉的是"存量不得转嫁"
+ *    这条设计 —— 有人把锚点默认成 0(等于"把所有存量当新增"),真仓此刻 1 条会立刻变红,而红在
+ *    每一次提交上就是恒红门(§12e 同型)。
+ *  B **计数器等值**:红数必须等于计数器里的 expired(过期必须红,不是只报数)。expired=0 时这一支
+ *    恒真,所以牙齿在 C 那一支的构造面配对上 —— 只留 A/B 就是"把没判写成判过了"。
+ *  C **构造面双向**:同一段实现,只有日期不同 ⇒ 过期侧必红且点名 id、未过期侧必 0。
+ */
+test('T16 表级例外的寿命判据成套生效:存量不得转嫁、过期必红、构造面双向证明它有牙', () => {
+  const full = runJson([])
+  assert.equal(full.parseErr, null, `--json 不可 parse:${full.parseErr}`)
+  const el = full.json && full.json.exceptionLifetime
+  assert.ok(el && typeof el.exceptions === 'number', '输出里没有 exceptionLifetime = 这一维根本没接线')
+  assert.equal(full.json.policyFace, 'HEAD', '全量档必须判 HEAD 那份表,否则下面的等值对不上同一个面')
+  const headTable = headFace(gate.POLICY_REL)
+  const P = gate.loadPolicy(gate.parseYaml(headTable, 'HEAD 表'))
+  assert.equal(el.exceptions, (P.exceptions || []).length, `计数器吃的表与被审面不是同一份(${el.exceptions} vs ${(P.exceptions || []).length})`)
+
+  const redNo = full.json.redByRule['exception-no-until'] || 0
+  assert.equal(redNo, 0, `全量档把 ${redNo} 条无日期存量判成了红 —— 锚点必须与内容同面(HEAD),否则存量债被转嫁成每一次提交的红(§12e 同型)`)
+  assert.equal(el.undated, el.undatedStock, `全量档 undated(${el.undated})应恒等于 undatedStock(${el.undatedStock});不等说明锚点没取到却没喊(anchorMissing=${el.anchorMissing})`)
+  const redExpiry = full.json.redByRule['exception-expired'] || 0
+  assert.equal(redExpiry, el.expired, `过期例外判红 ${redExpiry} 条 ≠ 计数器 ${el.expired} 条 ⇒ "过期即判红"与账面读数分叉(把没判写成判过了)`)
+
+  const staged = runJson(['--staged'])
+  assert.equal(staged.parseErr, null, `--staged --json 不可 parse:${staged.parseErr}`)
+  const se = staged.json.exceptionLifetime
+  const stagedRedNo = staged.json.redByRule['exception-no-until'] || 0
+  assert.equal(stagedRedNo, se.undated - se.undatedStock, `--staged 档的 X1 红数必须恰为"本次新登记的无日期例外"(undated ${se.undated} − 存量 ${se.undatedStock} = ${stagedRedNo})`)
+
+  // C 构造面配对:同一段代码,只改日期
+  const fixture = (untilLine) => `version: 1
+constraints:
+  max_file_lines: 100
+  max_contract_file_lines: 40
+  max_public_exports: 5
+layers:
+  - id: 'contract'
+    rank: 10
+modules:
+  - id: 'packages/a'
+    package: '@ihui/a'
+    layer: 'contract'
+    exported: true
+    managed: true
+    roots:
+      - 'packages/a'
+    requires: []
+    public_entrypoints: []
+exceptions:
+  - id: 'EX-PROBE'
+    rule: 'file-lines'
+    module: 'packages/a'
+    status: 'debt'
+${untilLine}    reason: '镜像夹具'
+`
+  const mk = (u) => gate.loadPolicy(gate.parseYaml(fixture(u), 'fixture'))
+  const today = new Date().toISOString().slice(0, 10)
+  const past = gate.auditExceptionExpiry(mk("    until: '2000-01-01'\n"), { anchorUndatedIds: new Set(), today })
+  assert.equal(past.hard.length, 1, '一条确定已过期的例外没有判红 ⇒ 判据对本片立项那一型全盲(恒绿尺子)')
+  assert.equal(past.hard[0].rule, 'exception-expired')
+  assert.match(past.hard[0].msg, /EX-PROBE/, '过期判红必须点名 id,否则修复者不知道该续哪一条')
+  const future = gate.auditExceptionExpiry(mk("    until: '2099-12-31'\n"), { anchorUndatedIds: new Set(), today })
+  assert.equal(future.hard.length, 0, '未过期却判红 = 造恒红门')
+  assert.equal(future.counters.dated, 1, '未过期必须进 dated 计数(否则报告读起来像"没有带日期的例外")')
+  const undated = gate.auditExceptionExpiry(mk(''), { anchorUndatedIds: new Set(), today })
+  assert.equal(undated.hard.length, 1, '新登记的无日期例外必须被 X1 拦住(否则"必须有到期日"只是散文)')
+  assert.equal(gate.auditExceptionExpiry(mk(''), { anchorUndatedIds: new Set(['EX-PROBE']), today }).hard.length, 0, '同一条在锚点面已是存量 ⇒ 只报数')
+  // 尺子反例:T16 用的 expired 等值断言,若把"过期"错标成"未过期"(日期在未来)必须不再红
+  assert.notEqual(past.hard.length, future.hard.length, '夹具失效:两侧同色 ⇒ 上面那条等值断言是恒真的')
+})
+
+/**
+ * T17 —— DC(纳管块内的 lint 抑制棘轮)。
+ * 四把锁:① 全量档恒 0 增长(锚点=内容与自身同面)② 阳性对照:本仓真实产出的形态必须看得见
+ * ③ 遮罩方向:字面量里的同名样例不得算抑制,而注释里的必须算(门不得把自己写的散文判成违规,
+ *   守门 131 同日刚踩过)④ 反向锁:计数实现只有守门 108 那一份(两处算同一件事必漂移)。
+ */
+test('T17 DC 棘轮锚点、阳性对照、遮罩方向与"计数只有一份实现"', () => {
+  const full = runJson([])
+  assert.equal(full.parseErr, null, `--json 不可 parse:${full.parseErr}`)
+  const lt = full.json && full.json.lintSuppressions
+  assert.ok(lt && typeof lt.managedTotal === 'number', '输出里没有 lintSuppressions = DC 没接线')
+  assert.equal(lt.growthFiles, 0, `全量档内容就是 HEAD,锚点与它逐字同面 ⇒ 增长档必须为 0;实得 ${lt.growthFiles} 说明锚点没取到当前面(把存量当新增 = 恒红门)`)
+  assert.equal(full.json.redByRule['lint-suppression-growth'] || 0, 0, 'DC 在全量档判红了存量')
+  // 阳性对照:纳管块内确有裸抑制(真仓现读数由门的输出给出),空扫不得被读成通过
+  assert.ok(lt.managedFiles >= 1 && lt.managedTotal >= 1, `DC 在真仓 HEAD 面一条都没看见(managedFiles=${lt.managedFiles})——判据失明与"仓库干净"在账面上同形,先去查判据`)
+  assert.ok(lt.allTotal >= lt.managedTotal, `含未收口块的全量读数(${lt.allTotal})不得小于纳管子集(${lt.managedTotal})`)
+  // 暂存档:DC 的红只允许落在"当前面确有增长"的文件上,且必须与红清单同数
+  const staged = runJson(['--staged'])
+  assert.equal(staged.parseErr, null, `--staged --json 不可 parse:${staged.parseErr}`)
+  const slt = staged.json.lintSuppressions
+  assert.equal(slt.growthFiles, staged.json.redByRule['lint-suppression-growth'] || 0, `--staged 档增长文件数(${slt.growthFiles})与 DC 红数不一致 ⇒ 报了数没判红 / 判了红没报名`)
+
+  // 遮罩方向:拿真仓里"专门解释这一族禁令"的文件喂同一判据
+  const probe = 'scripts/tests/check-ts-ignore.test.mjs'
+  const text = headFace(probe)
+  const raw = sum(scanFile(probe, text).suppressions)
+  const masked = sum(scanFile(probe, blankStrings(text)).suppressions)
+  assert.equal(gate.suppressionCount(text), masked, 'DC 的读数不等于守门 108 scanFile 在同一个遮罩面上的读数 ⇒ 计数已经出现第二份实现')
+  assert.ok(raw > masked, `字面量里的同名样例没有被清空(raw=${raw} masked=${masked})—— 本仓这类文件成批存在,不清空就会把"解释禁令的散文"算成抑制(守门 131 同型)。若该文件哪天不再提及这些字样,请连同本条一起改并写明理由(参照 T11 的规矩)`)
+  assert.equal(gate.suppressionCount("export const s = '@ts-ignore'\nexport const re = /eslint-disable/\n"), 0, '纯字面量形态必须算 0 处')
+  assert.equal(gate.suppressionCount('// eslint-disable-next-line no-console\n'), 1, '同一字样写进注释必须算 1 处(清空只关字符串那一格,不是把判据关掉)')
+
+  // 反向锁:本门不得自带第二份"抑制族"正则(必须 import 守门 108 的 scanFile)
+  const src = readFileSync(SCRIPT, 'utf8')
+  assert.match(src, /from '\.\/check-exemption-expiry\.mjs'/, 'DC 必须复用守门 108 的计数实现')
+  assert.match(src, /scanExemptionLedger\(/, 'import 了却没真调用 = 半接线(守门 118 同型)')
+  const secondImpl = src.split('\n').filter((l) => /^\s*(?:const|let|var)\s+[\w$]+\s*=\s*(?:\/|new RegExp\()/.test(l) && /eslint-disable|nocheck|ts-ignore/.test(l))
+  assert.deepEqual(secondImpl, [], '出现第二份 lint 抑制正则 ⇒ 两处算同一件事,必漂移')
+})
+
+test('T18 新判据成套接线:三条规则标签互不撞名、自检真跑到这两段', () => {
+  const tags = ['exception-no-until', 'exception-expired', 'lint-suppression-growth'].map((r) => (gate.RULES[r] || '').split(' ')[0])
+  assert.deepEqual(tags, ['X1', 'X2', 'DC'], `规则标签必须齐备且按序,实得 ${JSON.stringify(tags)}`)
+  assert.equal(new Set(tags).size, tags.length, '标签撞名 ⇒ 失败归属与 skipEnv 都会串门(守门 93 的编号事故同型)')
+  // 与既有标签也不得撞(整张 RULES 表)
+  const allTags = Object.values(gate.RULES).map((s) => String(s).split(' ')[0])
+  assert.equal(new Set(allTags).size, allTags.length, `RULES 标签出现重复:${allTags.join(',')}`)
+  const st = runCLI(['--self-test'])
+  assert.equal(st.code, 0, st.out)
+  for (const k of ['X1/X2 例外寿命', 'DC lint 抑制棘轮']) assert.ok(st.out.includes(k), `自检汇总段没点名「${k}」⇒ 新判据可能只是写了函数没人调用(判据存在而永不调用 = 没有)`)
+  assert.doesNotMatch(st.out, /❌/, '自检里出现 ❌ 就说明某条判据已与实现脱节')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

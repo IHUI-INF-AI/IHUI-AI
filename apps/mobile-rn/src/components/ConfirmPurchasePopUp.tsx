@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: ICON_BG_SIZE,
     height: ICON_BG_SIZE,
-    borderRadius: ICON_BG_SIZE / 2,
+    borderRadius: rnRadius['2xl'],
     backgroundColor: tokens.success.lighter,
     alignItems: 'center',
     justifyContent: 'center',

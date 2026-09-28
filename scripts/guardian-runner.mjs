@@ -36,6 +36,14 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { normalizeTriggers, triggersTouch } from './lib/guardian-triggers.mjs'
+// G-611:子门"被信号杀死"与"检查结论失败"的分界用共享尺子判(集合/分类唯一实现在该 lib;
+// 75 传播语义见执行段 catch)。此前本 runner 只认 status===75,子门被可捕获信号杀掉而
+// 产出 128+N、或没装产出侧只留下 signal 时,都被计成"结论失败"—— 归因分叉的 runner 层。
+import {
+  interruptReason,
+  shouldPropagateAsInterrupt,
+  TEMPFAIL_EXIT_CODE,
+} from './lib/signal-exit.mjs'
 
 // === 颜色 ===
 const C = {
@@ -823,7 +831,7 @@ const checks = [
   // 升级 blocking 评估:该前置早已满足 —— check-i18n-keys.mjs 有 mobile-rn 分支,mobile-rn 的 parity-only 档
   {
     id: '2f-mobile-rn',
-    label: '🌐 mobile-rn i18n parity 守门(warn-only 起步,2026-07-28 立)',
+    label: '🌐 mobile-rn i18n parity 守门(blocking,2026-09-28 由 warn 升档;立票 2026-07-28)',
     script: 'check-i18n-keys.mjs',
     args: ['--target=mobile-rn', '--parity-only'],
     mode: 'blocking',
@@ -1882,7 +1890,7 @@ const checks = [
   // 判据 A:四处档位表逐档同值(preset 必须写 `borderRadius: RADIUS_REM`,不得重新内联)。
   // 判据 B:端内取用必须引用档位(rnRadius.<step> / var(--radius-*) / rounded-<step>),
   //   数字字面量、rpx()、每文件自定 *_RADIUS 常量、rounded-[任意值] 一律红;
-  //   几何圆(头像/装饰点/胶囊)须显式 `radius-exempt:` 注释,不得静默。存量走基线棘轮只减不增。
+  //   几何圆(头像/装饰点/胶囊)由盒形量证(正方+半边=真圆出射程,非正方+半边=胶囊判红)。豁免标记族已于 2026-09-29 O81 票㊵ 整体废除,写它由 B8 判红。存量走 HEAD 棘轮只减不增。
   {
     id: '77',
     label: '📐  圆角单一源头对账(blocking,全 8 端:档位表一致 + 端内取用必须引用档位)',
@@ -1896,7 +1904,7 @@ const checks = [
       '     RN/内联 style : borderRadius: rnRadius.lg      (import { rnRadius } from \'@ihui/design-tokens\')',
       '     CSS/SCSS      : border-radius: var(--radius-lg)',
       '     类名          : rounded-lg(禁止 rounded-[24rpx] 这类任意值)',
-      '     真圆/头像/胶囊: 保留形状并加同行注释 radius-exempt: <原因>(不得静默写死数字)',
+      '     真圆/头像/胶囊: 用 size/2 几何表达式或等于档位值的档;项目不允许胶囊,也没有豁免标记 —— 写标记本门 B8 判红',
       '     档位漂移      : 改 radius.js 一处后跑 node scripts/check-radius-single-source.mjs --self-test,',
       '                     CSS 端同步 tokens.css 并按端内脚本重跑 design-tokens 同步。',
       '     自检:node scripts/check-radius-single-source.mjs --self-test',
@@ -4045,6 +4053,27 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 图源池与境外图片 URL 对账(1 项,blocking)---
+  {
+    id: '159',
+    label:
+      '图源池与境外图片 URL 对账:渲染与 seed 路径不得再出现境外图片域名的完整 URL,且 database 侧镜像必须与 shared 逐字等值',
+    script: 'check-image-source-domains.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_IMAGE_SOURCE_POOL',
+    stagedTriggers: ['packages/database/', 'apps/', 'packages/shared/', 'packages/app/', 'packages/ui-react/'],
+    onFailHint: [
+      '',
+      '',
+      '修法只有一条:把该 URL 换成境内可达图源池成员(packages/shared/src/constants/image-source-pool.ts,新增须按头注四要件实测入池);镜像漂移则两侧同批改那三张清单。禁止放宽域名清单或删镜像消红',
+      '单独复现:node scripts/check-image-source-domains.mjs --staged',
+      '自检/行为对账:node scripts/check-image-source-domains.mjs --self-test 与 node --test scripts/tests/image-source-pool-parity.test.mjs',
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
@@ -4069,7 +4098,7 @@ const checks = [
       '  修法只有一个:改成 packages/design-tokens/src/radius.js 的 RADIUS_ROLES 指定的那一档',
       '  (tiny→xs / control→sm / chip→md / card→lg / panel→xl / hero→2xl)。',
       '  确属新元素类别 ⇒ 先在 RADIUS_ROLES 加角色并同笔给出消费方,不得为消红放宽判据。',
-      '  行内出口 radius-role-exempt: <原因>(须带原因,只救本行/紧邻上行,不得用它清存量)。',
+      '  圆角豁免通道已整体废除(2026-09-29 O81 票㊵):标记不改变任何结论,而写标记本身由守门 77 的 B8 判红。',
       '  自验:node scripts/check-radius-role-conformance.mjs --files <你改的文件>;',
       '  存量还剩多少:同命令加 --json(数字一律现读,勿照文档抄)。',
       '  紧急跳过:HUSKY_SKIP_RADIUS_ROLE_CONFORMANCE=1(仅限红确属他人文件时)。',
@@ -4150,7 +4179,7 @@ guardian-runner.mjs — 守门脚本批量执行器
 执行逻辑:
   blocking 失败 → 记入清单并**继续跑完全部**,末尾列出全部失败门后 exit(1)
                   (逃生舱 GUARDIAN_STOP_ON_FIRST=1 恢复旧的"首个失败立即 exit(1)")
-  子门 exit 75   → 视为中断而非检查结论,**立即**以 75 向上传播(hook → push guard 据此重试),不收敛成 1
+  子门中断(75 / 信号族码 / 无码只有 signal) → 视为被杀而非检查结论,**立即**以 75 向上传播(hook → push guard 据此重试),不收敛成 1
   warn     失败 → 打印警告,继续执行
   info     →    始终继续,只打印信息
 `)
@@ -4249,7 +4278,8 @@ const startTime = Date.now()
 // 跑完再汇总(2026-09-22 改版):原先任一 blocking 门失败即 exit(1),会遮蔽其后所有门的结论
 // —— 既让人误判"刚注册的门没生效"(实测两次被 id 6 / id 30c 的在途失败截断),也会把
 // 本可一次看全的多处故障拆成多轮。改为一轮跑完、末尾列清单一次性退出。
-// 两条不变量:① exit 75(中断)仍**立即**向上传播,不收敛成 1(push guard 靠它决定重试);
+// 两条不变量:① 中断(75 或信号族/无码信号死,G-611 同一把尺子)仍**立即**向上传播,
+//    不收敛成 1(push guard 靠它决定重试);
 // ② GUARDIAN_STOP_ON_FIRST=1 完整恢复旧的快速失败行为(逃生舱)。
 const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
 /** blocking 失败门清单(末尾汇总用)。 */
@@ -4342,11 +4372,16 @@ for (const check of effectiveChecks) {
     const elapsed = Date.now() - checkStart
     // 2026-09-18 中断传播:子检查以 exit 75(临时失败/被中断)退出 ≠ 检查结论失败,
     // 必须原样向上传播(hook → push guard 据此带 hook 重试),不得收敛成 1。
-    if (check.mode === 'blocking' && e && e.status === 75) {
+    // 2026-09-29 G-611 扩两格(同一把尺子 scripts/lib/signal-exit.mjs):
+    //   ② 子进程装了产出侧、被可捕获信号杀死 ⇒ 退出码是 128+N 族(130/137/141/143/3221225786)
+    //      —— 旧判据只认 75,族码在这里会被计成"结论失败";
+    //   ③ 没装产出侧/不可捕获 ⇒ execSync 抛错只剩 {status:null, signal} —— 同样不是结论。
+    // 有结论的失败(非族非零码)不在此列,照旧计入 failedGates(不得反向把失败洗成中断)。
+    if (check.mode === 'blocking' && shouldPropagateAsInterrupt(e)) {
       console.error(
-        `⏭️ [${check.id}] ${check.label} 被中断(exit 75 临时失败)—— 非检查结论,以 75 向上传播`,
+        `⏭️ [${check.id}] ${check.label} 被中断(${interruptReason(e)})—— 非检查结论,以 ${TEMPFAIL_EXIT_CODE} 向上传播`,
       )
-      process.exit(75)
+      process.exit(TEMPFAIL_EXIT_CODE)
     }
     // 2026-08-19 立:catch {} 同时覆盖三种情况 — 脚本 exit 1 / 脚本崩溃 / 脚本不存在
     // stdio:inherit 已把 stderr/stdout 透传给上游,无需额外 silent-skip 检测。
