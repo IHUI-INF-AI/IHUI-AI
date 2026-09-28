@@ -75,6 +75,11 @@ export interface UserBroadcastConfig {
  */
 export interface UserBroadcastHandlers {
   'conversation:updated'?: (evt: Extract<UserBroadcastEvent, { event: 'conversation:updated' }>) => void
+  /**
+   * D154 MCP 连接状态下行(票 §11.3:与 D153 同一枚载体决策,不得另开一条通道)。
+   * 与 `'conversation:updated'` 同一条纪律:端内只接自己声明过的事件。
+   */
+  'mcp:status'?: (evt: Extract<UserBroadcastEvent, { event: 'mcp:status' }>) => void
   /** 收到对象形态但解不出已知事件的帧 ⇒ 「未判定」,必须计数/点名,不得静默丢弃 */
   onUndetermined?: (raw: unknown) => void
   /** 连接状态变化(`'injected'` 档恒为 `idle`,因为它不拥有连接) */
@@ -356,6 +361,7 @@ export function resetUserBroadcastHub(): void {
 /** 已知事件名清单的投影(端内若自己写字符串 ⇒ 与这里对不上就是第二份真相) */
 export const USER_BROADCAST_SUBSCRIBABLE_EVENTS: readonly UserBroadcastEventName[] = [
   'conversation:updated',
+  'mcp:status',
 ]
 
 // ===================== 宿主绑定工厂(端内适配器的唯一入口) =====================

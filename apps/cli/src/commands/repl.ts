@@ -2654,7 +2654,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         if (!event.citations.length) return
         state.statusLine.noteLine(
           citationNoteText(
-            event.citations.map((x) => ({ source: x.source, label: x.label })),
+            event.citations.map((x: { source: string; label: string }) => ({ source: x.source, label: x.label })),
           ),
         )
       },
