@@ -87,7 +87,7 @@ export default function InformationItem({
             style={{
               width: rpx(16),
               height: rpx(16),
-              borderRadius: '50%',
+              borderRadius: rnRadius['2xl'],
               background: TIMELINE_COLOR,
             }}
           />

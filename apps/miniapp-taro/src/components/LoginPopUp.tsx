@@ -162,7 +162,7 @@ export default function LoginPopUp({
                 })
               }
             }}
-            className="!p-0 !bg-transparent !border-none rounded-full overflow-hidden"
+            className="!p-0 !bg-transparent !border-none rounded-2xl overflow-hidden"
             style={{
               width: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
               height: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
@@ -171,7 +171,7 @@ export default function LoginPopUp({
             <Image
               src={avatar || defaultAvatar}
               mode="aspectFill"
-              className="rounded-full bg-muted border border-primary/20"
+              className="rounded-2xl bg-muted border border-primary/20"
               style={{
                 width: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
                 height: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
