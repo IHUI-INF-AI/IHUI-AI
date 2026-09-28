@@ -11,7 +11,18 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback/Tooltip'
 import { CenteredText } from '@/components/common/CenteredText'
 import { formatRelativeTime } from '@/lib/date-utils'
-import type { AgentTaskStatus, KanbanTask } from '@ihui/types'
+import type { AgentTaskStatus, AgentTaskTermination, KanbanTask } from '@ihui/types'
+import { TERMINATION_LABEL_KEYS } from '@ihui/types'
+
+/**
+ * 次级标记的 i18n 键末段:`agents.kanban.terminatedCancelled` → `terminatedCancelled`。
+ * 命名空间由 `useTranslations('agents.kanban')` 绑定,键表本身只在 @ihui/types 有一份 ——
+ * 在这里再写一份 `{cancelled:'…'}` 就是第二个真相(它过期时端上只会显示键名,不报错)。
+ */
+function terminationLabelSegment(termination: AgentTaskTermination): string {
+  const full = TERMINATION_LABEL_KEYS[termination]
+  return full.slice(full.lastIndexOf('.') + 1)
+}
 
 // ---------------------------------------------------------------------------
 // 共享常量(供 KanbanColumn / TaskDetailDialog 复用)
@@ -100,6 +111,20 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
             >
               {t(task.status)}
             </span>
+            {/* 2026-09-28 拍板:六档状态枚举不动,但被折叠成 blocked 的三种终态要能点名 ——
+                「已取消 / 配额超限 / 被抢占」重跑大概率就好,「待解阻塞」要先去解阻塞;
+                两者同形会把用户的下一步动作指错方向。文案键取自 @ihui/types 那一张表,
+                不在端内抄第二份名字表(§3 共享层优先)。 */}
+            {task.termination && (
+              <Tooltip content={t(terminationLabelSegment(task.termination))}>
+                <span
+                  data-testid={`kanban-termination-${task.termination}`}
+                  className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground"
+                >
+                  {t(terminationLabelSegment(task.termination))}
+                </span>
+              </Tooltip>
+            )}
             {/* 2-2 工作区锁徽标:任务持锁(进入 in_progress 抢到工作区锁)时显示 */}
             {task.lockedBy && (
               <Tooltip content={`${t('locked')}: ${task.lockedBy}`}>

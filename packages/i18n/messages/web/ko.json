@@ -7158,6 +7158,9 @@
       "todo": "할 일",
       "transition": "상태 전환",
       "triage": "분류 대기",
+      "terminatedCancelled": "취소됨",
+      "terminatedQuotaExceeded": "할당량 초과",
+      "terminatedPreempted": "선점됨",
       "worker": "작업자",
       "workspace": "워크스페이스",
       "low": "낮음",
@@ -13371,8 +13374,30 @@
       "title": "숏드라마 에디터"
     }
   },
+  "aiApprovedRules": {
+    "title": "명령 허용 규칙",
+    "description": "승인 시 생성된 명령 접두사 허용 규칙입니다. 90일 후 자동 만료되며 언제든 철회할 수 있습니다.",
+    "empty": "허용 규칙이 없습니다",
+    "prefixHeader": "명령 접두사",
+    "createdAtHeader": "생성 시각",
+    "expiresAtHeader": "만료 시각",
+    "neverExpires": "만료 없음",
+    "revoke": "철회",
+    "revokeConfirmTitle": "이 규칙을 철회하시겠습니까?",
+    "revokeConfirmContent": "철회하면 접두사 \"{prefix}\" 명령은 다시 수동 승인이 필요합니다.",
+    "revokeFailed": "철회에 실패했습니다. 다시 시도해 주세요",
+    "loadFailed": "허용 규칙을 불러오지 못했습니다",
+    "refresh": "새로 고침",
+    "scopeAlways": "장기 유효",
+    "scopeSession": "이 세션"
+  },
   "editor": {
     "toolApproval": {
+      "grantRuleToggle": "승인하고 이런 명령 허용에 추가",
+      "grantRuleDesc": "명령 접두사 \"{prefix}…\" 범위의 허용 규칙을 만듭니다. 90일 후 자동 만료되며, 허용 규칙 패널에서 언제든 철회할 수 있습니다.",
+      "grantRuleConfirmTitle": "고위험 명령을 허용하시겠습니까?",
+      "grantRuleConfirmContent": "명령 \"{prefix}…\"은(는) 고위험 작업에 해당합니다. 허용하면 90일 동안 유사한 명령은 다시 묻지 않으며, 사용에 따른 위험은 본인이 부담합니다.",
+      "grantRuleConfirmCancel": "취소",
       "approve": "승인",
       "argsPreview": "인수 미리보기",
       "description": "AI가 다음 고위험 작업의 실행을 요청했습니다. 실행을 허용할지 확인해 주세요.",
