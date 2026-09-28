@@ -40,6 +40,7 @@ import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared
 
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
+import { isUuidString } from '../../utils/uuid.js'
 const statsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
   // ===========================================================================
@@ -1113,6 +1114,7 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/roles/:id/users', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(404).send(error(404, '记录不存在'))
     const q = roleUsersQuerySchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, username, phone } = q.data
@@ -1146,6 +1148,10 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/roles/:id/unallocated-users', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(p.data.id)) return reply.status(404).send(error(404, '记录不存在'))
     const q = roleUsersQuerySchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, username, phone } = q.data
