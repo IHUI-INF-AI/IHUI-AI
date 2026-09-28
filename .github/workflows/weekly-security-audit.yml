@@ -126,20 +126,56 @@ jobs:
           path: reports/
           retention-days: 30
 
-      # 7. 发现高危漏洞时创建 Issue（生产依赖存在 high/critical）
-      - name: 高危漏洞创建 Issue
+      # 7. 发现高危漏洞时维护**唯一跟踪帖**（生产依赖存在 high/critical）
+      # 2026-09-28 社区卫生:原写法 `--title "... - ${DATE}"` 每周开一帖(与 [nightly] 同型)。
+      # 现口径同 button-wrap-nightly:命中即更新同一条(标题逐字相等匹配,不许 startsWith),
+      # 0 命中即自动关闭 —— 0 命中还留着 open 的"高危漏洞"帖就是腐烂台账。
+      # 注:原 `--label "security,backend"` 两枚标签本仓**从未存在**,gh 直接非 0 退出,
+      # 又被 `|| true` 吞掉 ⇒ 这条自动化历史上**一帖未产**(search "安全审计" = 0)。故此处不带标签。
+      - name: 高危漏洞跟踪帖（命中即更新 / 0 命中即关闭）
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          HIGH=$(jq '[.vulnerabilities[]? | select(.severity | ascii_downcase | IN("high","critical"))] | length' reports/pnpm-audit-prod.json 2>/dev/null || echo 0)
-          echo "高危漏洞数: $HIGH"
+          set -uo pipefail
+          TITLE='[安全审计] 生产依赖高危漏洞 · 自动跟踪'
+          HIGH=$(jq '[.vulnerabilities[]? | select(.severity | ascii_downcase | IN("high","critical"))] | length' reports/pnpm-audit-prod.json 2>/dev/null || echo -1)
+          echo "高危漏洞数: ${HIGH}(-1 = 报告取不到,判不出 ⇒ 不开也不关)"
+          case "$HIGH" in ''|*[!0-9-]*) HIGH=-1;; esac
+          # 报告本身缺失(前序步骤在写 JSON 之前就崩了)同样算"未判定",不得静默当 0
+          [ -s reports/pnpm-audit-prod.json ] || HIGH=-1
+          if [ "$HIGH" -lt 0 ]; then
+            echo "::notice::本轮拿不到可靠的漏洞计数(报告缺失或解析失败),跟踪帖不改动"
+            exit 0
+          fi
+          T="$TITLE" TRACKER=$(gh issue list --state open --limit 200 --json number,title \
+            --jq '.[] | select(.title == $env.T) | .number' | head -n1)
+          echo "TRACKER=${TRACKER:-（无）}"
           if [ "$HIGH" -gt 0 ]; then
-            DATE=$(date -u '+%Y-%m-%d')
-            gh issue create \
-              --title "[安全审计] 生产依赖发现 ${HIGH} 个高危漏洞 - ${DATE}" \
-              --body "请查看 artifact weekly-security-audit-${{ github.run_id }} 中的 pnpm-audit-prod.json 详细报告。" \
-              --label "security,backend" || true
+            {
+              echo "生产依赖(pnpm audit --prod)当前存在 **${HIGH}** 个 high/critical 漏洞。"
+              echo ""
+              echo "- 最近一次扫描: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+              echo "- 详细报告: artifact \`weekly-security-audit-${RUN_ID}\` 中的 reports/pnpm-audit-prod.json"
+              echo "- 复跑: \`pnpm audit --prod --audit-level=high\`"
+              echo ""
+              echo "---"
+              echo ""
+              echo "由 \`.github/workflows/weekly-security-audit.yml\` 自动维护(命中即更新本帖,0 命中即关闭)。"
+            } > tracker-body.md
+            if [ -n "$TRACKER" ]; then
+              gh issue edit "$TRACKER" --body-file tracker-body.md && echo "已更新唯一跟踪帖 #$TRACKER"
+            else
+              gh issue create --title "$TITLE" --body-file tracker-body.md || echo "::warning::跟踪帖创建失败"
+            fi
+          else
+            if [ -n "$TRACKER" ]; then
+              gh issue comment "$TRACKER" --body "本轮扫描($(date -u '+%Y-%m-%d'))高危 0 处 ⇒ 自动关闭本跟踪帖。"
+              gh issue close "$TRACKER" --reason completed
+            else
+              echo "高危 0 处且无在位跟踪帖,不做任何事"
+            fi
           fi
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
