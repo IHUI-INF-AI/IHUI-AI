@@ -129,7 +129,7 @@ export default function AiAssistantN8n() {
                     <View className="flex flex-row items-center justify-between">
                       <View className="flex flex-row items-center flex-1 min-w-0">
                         <View
-                          className={`w-[16rpx] h-[16rpx] rounded-sm mr-[16rpx] flex-shrink-0 ${statusInfo.dot}`}
+                          className={`w-[16rpx] h-[16rpx] ui-tiny rounded-xs mr-[16rpx] flex-shrink-0 ${statusInfo.dot}`}
                         />
                         <Text className="text-[length:32rpx] font-semibold text-foreground flex-1 min-w-0 truncate">
                           {name}

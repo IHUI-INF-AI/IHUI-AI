@@ -58,7 +58,7 @@ export default function RecruitmentPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-2xl rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="mx-auto max-w-2xl ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {(error as Error).message}
       </div>
     )
@@ -66,7 +66,7 @@ export default function RecruitmentPage() {
 
   if (!data) {
     return (
-      <div className="px-4 flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
+      <div className="px-4 flex flex-col items-center justify-center gap-2 ui-card rounded-lg border border-dashed py-8">
         <Users className="h-8 w-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('empty')}</p>
       </div>

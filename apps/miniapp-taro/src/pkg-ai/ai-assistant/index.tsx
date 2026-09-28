@@ -382,7 +382,7 @@ export default function AiAssistantPage() {
             {SUGGESTED.map((q) => (
               <View
                 key={q}
-                className="px-[24rpx] py-[12rpx] rounded-2xl bg-card border border-border"
+                className="px-[24rpx] py-[12rpx] ui-card rounded-lg bg-card border border-border"
                 onClick={() => {
                   setPrompt(q)
                   setTimeout(() => handleSend(), 0)

@@ -172,7 +172,7 @@ export function WithdrawalDetailTable(props: Props) {
         </HasPermi>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto ui-card rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
