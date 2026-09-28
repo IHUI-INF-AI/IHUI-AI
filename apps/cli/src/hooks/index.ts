@@ -44,6 +44,7 @@ import { canonicalizeArgs } from '../stream-tool-ledger.js';
 import { tryParseJson, isRecord } from '../util/json.js';
 import { gateHook } from './trust.js';
 import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS } from '../sandbox/index.js';
+import { redactCrashText } from '@ihui/shared/utils/redact';
 
 export interface HookEntry {
   name: string;
@@ -633,6 +634,34 @@ function runHookEntry(
   };
 }
 
+/**
+ * 钩子阻断理由的**唯一**成形出口。
+ *
+ * 钩子的 stdout/stderr 是用户脚本产生的、我们控制不了的文本,而 `reason` 会同时进 TUI 与模型
+ * 上下文(并随对话历史长期落库)。脚本里一句 `curl -H "Authorization: Bearer $TOKEN"` 失败,
+ * 原文就把凭据送进了会话 —— 上面 `buildFilteredEnv` 只管住了**环境**侧(钩子进程看不到我们的
+ * key),管不住**输出**侧这一路。
+ *
+ * 脱敏唯一出口 = `redactCrashText`(packages/shared/src/utils/redact.ts,端内不得再建第二套,
+ * 守门 144 的 V3 判「声明处 ≤ 1」)。顺序必须**先脱敏再截断** —— 反过来会把凭据切成半截、
+ * 形状不再成立(与 apps/api/src/services/crash-report-service.ts:49 同一姿势)。
+ * 截断必须留下被截掉多少:静默变短等于伪造完整性(AGENTS §30 同一条禁令)。
+ */
+export const HOOK_REASON_MAX_CHARS = 4000
+
+export function hookBlockReason(
+  label: string,
+  r: { exitCode: number; stdout: string; stderr: string },
+): string {
+  const raw = redactCrashText(r.stderr || r.stdout || `exit ${r.exitCode}`)
+  const cps = Array.from(raw)
+  const body =
+    cps.length <= HOOK_REASON_MAX_CHARS
+      ? raw
+      : `${cps.slice(0, HOOK_REASON_MAX_CHARS).join('')}…[已截断 ${cps.length - HOOK_REASON_MAX_CHARS} 个码点]`
+  return `${label}: ${body}`
+}
+
 export function runPreToolCall(toolName: string, input: unknown): HookResult {
   const config = loadHooks();
   const hooks = config.preToolCall ?? [];
@@ -647,7 +676,7 @@ export function runPreToolCall(toolName: string, input: unknown): HookResult {
     if (blockOnError && r.exitCode !== 0) {
       return {
         proceed: false,
-        reason: `钩子 "${entry.name}" 阻断: ${r.stderr || r.stdout || 'exit ' + r.exitCode}`,
+        reason: hookBlockReason(`钩子 "${entry.name}" 阻断`, r),
       };
     }
   }
@@ -668,7 +697,7 @@ export function runPostToolCall(toolName: string, output: unknown): HookResult {
     if (blockOnError && r.exitCode !== 0) {
       return {
         proceed: false,
-        reason: `postToolCall 钩子 "${entry.name}" 阻断: ${r.stderr || r.stdout || 'exit ' + r.exitCode}`,
+        reason: hookBlockReason(`postToolCall 钩子 "${entry.name}" 阻断`, r),
       };
     }
   }
@@ -687,7 +716,7 @@ export function runSessionStartHooks(config: HooksConfig | null, ctx: SessionHoo
     if (blockOnError && r.exitCode !== 0) {
       return {
         proceed: false,
-        reason: `sessionStart 钩子 "${entry.name}" 阻断: ${r.stderr || r.stdout || 'exit ' + r.exitCode}`,
+        reason: hookBlockReason(`sessionStart 钩子 "${entry.name}" 阻断`, r),
       };
     }
   }
@@ -759,7 +788,7 @@ export function runHook(event: HookEvent, ctx: HookContext): HookResult {
       if (blockOnError && r.exitCode !== 0) {
         return {
           proceed: false,
-          reason: `${event} 钩子 "${entry.name}" 阻断: ${r.stderr || r.stdout || 'exit ' + r.exitCode}`,
+          reason: hookBlockReason(`${event} 钩子 "${entry.name}" 阻断`, r),
         };
       }
     }
