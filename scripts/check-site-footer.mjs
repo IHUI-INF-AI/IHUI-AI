@@ -21,17 +21,123 @@
  * 6. 5 个 i18n 文件 footer 命名空间必须包含 internationalModels / chineseModels / agreementSubtitle / contactSubtitle
  *
  * 用法:
- *   node scripts/check-site-footer.mjs          # 单次守门
- *   pnpm footer:guard                          # package.json 集成
+ *   node scripts/check-site-footer.mjs            # 单次守门(判定面 = 工作树磁盘)
+ *   node scripts/check-site-footer.mjs --staged   # 提交链档:判定面 = 索引 blob
+ *   node scripts/check-site-footer.mjs --worktree # 显式磁盘档(人工逃生舱)
+ *   node scripts/check-site-footer.mjs --root <d> # 显式仓库根(测试/夹具通道)
+ *   pnpm footer:guard                            # package.json 集成
  *
- * 退出码: 0=通过, 1=失败
+ * 判定面(2026-09-28 收口,与守门 70/118 及 2i 死 key 扫描同口径):
+ *   本步是**批外 blocking**,旧形态把 SiteFooter.tsx / footer-data.ts / **5 个 web 语言包**
+ *   一律按磁盘读 —— 语言包是全仓并发写入最热的面之一,别人一次未暂存的 footer 键改动就能
+ *   把无关提交钉红,唯一出路是 --no-verify(一次绕过约等于链上全部守门作废,§12e/§12f)。
+ *   `--staged` ⇒ 7 份输入在同一次 `cat-file --batch` 里取自**索引 blob**(清单与内容同面同轮);
+ *   面上取不到 ⇒ **exit 2「未判定」并点名路径,绝不回退磁盘、绝不记为通过**。
+ *   缺省 / `--worktree` ⇒ 磁盘,既有行为逐字不变。
+ *
+ * 退出码: 0=通过, 1=失败(判据红), 2=无法判定(未判定:取材失败 / 参数矛盾)
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { Undetermined, assertRepoRoot, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const ROOT = resolve(__dirname, '..')
+
+/** `--root <dir>` / `--root=<dir>` 两种形态都必须认(只认一种会让假根被静默忽略 ⇒ 扫真仓假绿)。 */
+function resolveRootArg(list) {
+  const eq = list.find((a) => a.startsWith('--root='))
+  if (eq !== undefined) {
+    const v = eq.slice('--root='.length)
+    return v ? { root: resolve(v), error: null } : { root: null, error: '--root= 缺目录值' }
+  }
+  const i = list.indexOf('--root')
+  if (i < 0) return { root: null, error: null }
+  const v = list[i + 1]
+  if (!v || v.startsWith('-')) return { root: null, error: '--root 必须带目录值' }
+  return { root: resolve(v), error: null }
+}
+const argv = process.argv.slice(2)
+const rootArg = resolveRootArg(argv)
+if (rootArg.error) {
+  console.error(`[check-site-footer] 无法判定(exit 2,未判定): ${rootArg.error}`)
+  process.exit(2)
+}
+const ROOT = rootArg.root ?? resolve(__dirname, '..')
+
+const facePick = selectFace({
+  staged: argv.includes('--staged'),
+  worktree: argv.includes('--worktree'),
+  def: 'worktree',
+})
+if (facePick.error) {
+  console.error(`[check-site-footer] 无法判定(exit 2,未判定): ${facePick.error}`)
+  process.exit(2)
+}
+const FACE = facePick.face
+const FACE_LABEL_TEXT = FACE === 'staged' ? '索引 blob' : '工作树磁盘'
+
+function failUndetermined(what) {
+  console.error(`[check-site-footer] 无法判定(exit 2,未判定): ${what}`)
+  console.error('   这不是"SiteFooter 被回退",是这次判不了。**未判定 ≠ 通过**,也绝不回退磁盘。')
+  process.exit(2)
+}
+
+/** rel(仓库根相对、正斜杠) → 索引 blob 文本;null = 未预载。 */
+let faceIndex = null
+/** 7 份输入一次读满(清单与内容同面同轮;混面取数会产出自洽却错位的尺子,守门 118)。 */
+function ensureFaceIndex(rels) {
+  if (faceIndex) return
+  try {
+    assertRepoRoot(ROOT, '本门')
+  } catch (e) {
+    if (e instanceof Undetermined) failUndetermined(`判定面基准不成立:${e.message}`)
+    throw e
+  }
+  let got
+  try {
+    got = catBatch(ROOT, rels.map((r) => `:${r}`), { timeout: 120000 })
+  } catch (e) {
+    if (e instanceof Undetermined)
+      failUndetermined(`索引面取材失败(**不回退磁盘**):${e.message}`)
+    throw e
+  }
+  faceIndex = new Map()
+  for (const r of rels) {
+    const t = got.get(`:${r}`)
+    if (typeof t === 'string') faceIndex.set(r, t)
+  }
+}
+/** 按判定面读一份输入;返回 null = 该路径在**判定面**上取不到正文(文件不存在 / 非 blob)。 */
+function faceRead(rel) {
+  if (FACE !== 'staged') {
+    const abs = join(ROOT, rel)
+    if (!existsSync(abs)) return null
+    let s
+    try {
+      s = readFileSync(abs, 'utf8')
+    } catch (e) {
+      // 读失败原样抛 ⇒ 顶层折成 exit 2:一个编码/权限错误不得伪装成"文件不存在"的业务结论。
+      throw new Undetermined(`${FACE_LABEL_TEXT} 取不到 ${rel}: ${e.message}`)
+    }
+    return s.charCodeAt(0) === 0xfeff ? s.slice(1) : s
+  }
+  ensureFaceIndex(ALL_RELS)
+  return faceIndex.get(rel) ?? null
+}
+/** 枚举/取材在预载阶段就完成,面上"没有这条路径"是真缺失(与磁盘档同语义 ⇒ 判红)。 */
+function faceListed(rel) {
+  if (FACE !== 'staged') return existsSync(join(ROOT, rel))
+  ensureFaceIndex(ALL_RELS)
+  let out
+  try {
+    out = gitRaw(['ls-files', '--', rel], ROOT, { timeout: 60000 })
+  } catch (e) {
+    if (e instanceof Undetermined) failUndetermined(`索引面存在性问不到 ${rel}:${e.message}`)
+    throw e
+  }
+  return out.split(/\r?\n/).filter(Boolean).includes(rel)
+}
 
 const errors = []
 const warnings = []
@@ -46,12 +152,24 @@ function check(label, cond, hint) {
 }
 
 // 1. SiteFooter.tsx 关键 class 守门
-const sfPath = resolve(ROOT, 'apps/web/src/components/marketing/SiteFooter.tsx')
-if (!existsSync(sfPath)) {
-  errors.push(`SiteFooter.tsx 不存在: ${sfPath}`)
+const SF_REL = 'apps/web/src/components/marketing/SiteFooter.tsx'
+const FD_REL = 'apps/web/src/components/marketing/footer-data.ts'
+/** 本门全部输入(索引面一次读满的清单)。 */
+const ALL_RELS = [
+  SF_REL,
+  FD_REL,
+  'packages/i18n/messages/web/zh-CN.json',
+  'packages/i18n/messages/web/en.json',
+  'packages/i18n/messages/web/zh-TW.json',
+  'packages/i18n/messages/web/ko.json',
+  'packages/i18n/messages/web/ja.json',
+]
+
+if (!faceListed(SF_REL)) {
+  errors.push(`SiteFooter.tsx 不存在(判定面:${FACE_LABEL_TEXT}): ${SF_REL}`)
 } else {
   console.log('\n[1/6] SiteFooter.tsx 关键 class 守门')
-  const sf = readFileSync(sfPath, 'utf8')
+  const sf = faceRead(SF_REL) ?? ''
   check('py-2 md:py-3 padding(v10 拉高)', /py-2[^\n]*md:py-3/.test(sf), 'v10 footer 高度 ~140px 关键')
   check('h-7 w-7 icon box', /h-7 w-7/.test(sf), 'icon 容器尺寸')
   check('h-16 w-16 QR box', /h-16 w-16/.test(sf), 'QR 码容器尺寸')
@@ -70,12 +188,11 @@ if (!existsSync(sfPath)) {
 }
 
 // 2. footer-data.ts 导出守门
-const fdPath = resolve(ROOT, 'apps/web/src/components/marketing/footer-data.ts')
-if (!existsSync(fdPath)) {
-  errors.push(`footer-data.ts 不存在: ${fdPath}`)
+if (!faceListed(FD_REL)) {
+  errors.push(`footer-data.ts 不存在(判定面:${FACE_LABEL_TEXT}): ${FD_REL}`)
 } else {
   console.log('\n[2/6] footer-data.ts 导出守门')
-  const fd = readFileSync(fdPath, 'utf8')
+  const fd = faceRead(FD_REL) ?? ''
   check('export const INTERNATIONAL_MODELS', /export const INTERNATIONAL_MODELS/.test(fd))
   check('export const CHINESE_MODELS', /export const CHINESE_MODELS/.test(fd))
   check('MODELS 数组保留(BrandMarquee 依赖)', /export const MODELS/.test(fd))
@@ -103,7 +220,7 @@ const i18nFiles = [
   { lang: 'ja', file: 'packages/i18n/messages/web/ja.json' },
 ]
 
-console.log('\n[3-6/6] 5 语言 footer 命名空间关键 key 守门')
+console.log(`\n[3-6/6] 5 语言 footer 命名空间关键 key 守门(判定面:${FACE_LABEL_TEXT})`)
 const requiredKeys = [
   'internationalModels',
   'chineseModels',
@@ -118,12 +235,18 @@ const requiredKeys = [
   'copyright',
 ]
 for (const { lang, file } of i18nFiles) {
-  const fp = resolve(ROOT, file)
-  if (!existsSync(fp)) {
-    errors.push(`${lang} 文件不存在: ${file}`)
+  if (!faceListed(file)) {
+    errors.push(`${lang} 文件不存在(判定面:${FACE_LABEL_TEXT}): ${file}`)
     continue
   }
-  const json = JSON.parse(readFileSync(fp, 'utf8'))
+  const raw = faceRead(file)
+  let json
+  try {
+    json = JSON.parse(raw ?? '{}')
+  } catch (e) {
+    errors.push(`${lang} ${file} 解析失败(判定面:${FACE_LABEL_TEXT}): ${e.message}`)
+    continue
+  }
   const footer = json.footer
   if (!footer) {
     errors.push(`${lang} 缺 footer 命名空间`)

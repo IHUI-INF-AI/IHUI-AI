@@ -80,14 +80,17 @@
  *   1 = 错误(读写失败 / 被审面读不到正文 / 零损失断言拒绝落地 / 写通道不可用 / 落地回读不符)
  *   2 = 脚本自身异常(main 抛出未捕获错误;与 §22d 的"业务失败 vs 脚本异常"退出码约定一致)
  */
-import { existsSync, mkdirSync, appendFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, appendFileSync, writeFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { pathToFileURL } from 'node:url'
+import { pathToFileURL, fileURLToPath } from 'node:url'
 // 底稿取的是**被审面**(HEAD blob),不是磁盘副本 —— 取正文只有取材层这一条路(守门 118 判的
 // 正是"门脚本绕过这层自己派生 git 读内容");`readWorktreeFile` 只服务于"工作树档"那一支
 // (非 git 夹具 / 显式 --plan-face worktree)与落地后的磁盘对齐前置比较。
 import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+// 冲突标记的判据只有守门 79 那一份实现:归档器要在自己写盘前问同一句"这文档带着未解标记吗",
+// 自己再抄一遍 `<<<<<<< / ======= / >>>>>>>` 的配对逻辑就是第二个真相(本仓记过最多次的漂移型)。
+import { findMarkerPairs } from './check-no-conflict-markers.mjs'
 // 对象空间落地的 plumbing **只有一份**(scripts/lib/bypass-git.mjs,2026-09-27 收口)。
 // 本脚本刻意不再手写第二份 read-tree/commit-tree/CAS —— 同一会话手写 6 份并漂开正是它入库的理由。
 import {
@@ -100,7 +103,8 @@ import {
   writeBlobOfWorktree,
 } from './lib/bypass-git.mjs'
 // "已完成行"的身份与判据一律走台账那一份实现(§1 的 F1 用同一把尺子),不在这里重抄复选框正则。
-import { compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
+// MERGE_NOTE_RE 也在这一份里:归并落账注记的形状必须与门 130 数的那一条逐字同形。
+import { compositeKeyOf, parseTaskRows, MERGE_NOTE_RE } from './lib/plan-task-index.mjs'
 // 「什么算一个已完成条目标题」的**单一实现**(2026-09-26,与守门 13c 共用一份):
 // 两边各写一遍标题正则正是本仓最高频失效型 —— 写法一漂,判据静默失明且失明表现为安静
 // (HEAD 面 `^### .*✅` 0 命中 / `^## .*✅` 71 命中,归档器每次跑每次 0 条)。
@@ -331,9 +335,30 @@ export function selectWithinBudget(candidates, { maxEntries, maxBytes, entryByte
 /**
  * 归档占位的标题形态。**与守门 13c 的反查同形** —— 两边各写一遍就是"一边写一边看不见"
  * (AGENTS §1「标题形态三处必须同形」)。归档器与 13c 都从 lib 的 `headingTitle` 取标题文本。
+ *
+ * `notes` 是随块一起搬走的**归并落账注记**(〔【归并】…落账:复测 日期〕)。为什么必须留在原地:
+ * 台账门 130 的 F5 存续性棘轮判的就是"这批注记有没有被整文件写回抹掉"。bullet 级纳入归档后,
+ * 注记原本挂在 `- [x]` 行上 ⇒ 行一进归档,面上计数从 21 掉到 0,而门分不清"随块归档"与"被旧副本
+ * 抹掉"—— 那是本票制造的形态,必须让证据留在被审判的那一面,而不是去放宽那道门(§12e 禁"为消红削判据")。
+ * 注记插在"完整内容在 …"之**前**,保持 13c 反查的文件名仍是最后一个逗号段。
  */
-function placeholderLine(today, titleText, archiveBaseName) {
-  return `<!-- 已归档(${today}:${titleText.slice(0, 60)},完整内容在 .ihui-agent/archive/${archiveBaseName} -->`
+function placeholderLine(today, titleText, archiveBaseName, notes = '') {
+  const tail = String(notes || '').trim()
+  return `<!-- 已归档(${today}:${titleText.slice(0, 60)}${tail ? `,随块带走的归并落账注记: ${tail}` : ''},完整内容在 .ihui-agent/archive/${archiveBaseName} -->`
+}
+
+/**
+ * 取一个块里的归并落账注记(判据**只有一份**:正则取自 lib 的 MERGE_NOTE_RE,本器不重抄)。
+ * 同一注记在块内重复出现只留一份(按出现顺序),不同注记全部带上 —— 丢一条就是丢一条台账证据。
+ */
+export function mergeNotesOf(bodyLines) {
+  if (!bodyLines || bodyLines.length === 0) return ''
+  const re = new RegExp(MERGE_NOTE_RE.source, 'g')
+  const seen = []
+  for (const line of bodyLines) {
+    for (const m of String(line).match(re) || []) if (!seen.includes(m)) seen.push(m)
+  }
+  return seen.join(' ')
 }
 
 // ─── 底稿面:被审面优先,取不到不猜 ───────────────────────────────────────
@@ -552,7 +577,7 @@ export function derivedByConstructionOk({ parentText, newText, movedRanges, toda
   for (const r of sorted) {
     if (r.startLine < cursor) return false // 范围重叠 ⇒ 从后往前 splice 会互相踩行
     expect.push(...lines.slice(cursor, r.startLine))
-    expect.push(placeholderLine(today, r.titleText ?? '', archiveBaseName))
+    expect.push(placeholderLine(today, r.titleText ?? '', archiveBaseName, r.notes))
     cursor = r.endLine + 1
   }
   expect.push(...lines.slice(cursor))
@@ -562,7 +587,12 @@ export function derivedByConstructionOk({ parentText, newText, movedRanges, toda
 /** 把被搬条目换成占位,产出新正文与"被搬范围"清单(0 基行号,与 lib 的 startLine/endLine 同基)。 */
 export function buildNewPlanText({ baseText, tasks, today, archiveBaseName }) {
   const lines = String(baseText).split('\n')
-  const ranges = tasks.map((t) => ({ start: t.startLine, end: t.endLine, title: t.titleText }))
+  const ranges = tasks.map((t) => ({
+    start: t.startLine,
+    end: t.endLine,
+    title: t.titleText,
+    notes: mergeNotesOf(t.bodyLines),
+  }))
   // 前置断言:倒序 splice 只在"按行号升序且互不重叠"时等价于"逐块换成占位"。
   // 实测代价(2026-09-28):贪心选段按**日期**返回picked,直接把这里变成乱序 splice,产出面是一份
   // 交错损坏的文档 —— 靠下面的结构等值自证拒落才没写进提交面。判据不猜、不修,当场喊。
@@ -578,11 +608,20 @@ export function buildNewPlanText({ baseText, tasks, today, archiveBaseName }) {
   }
   for (let i = ranges.length - 1; i >= 0; i--) {
     const r = ranges[i]
-    lines.splice(r.start, r.end - r.start + 1, placeholderLine(today, r.title, archiveBaseName))
+    lines.splice(
+      r.start,
+      r.end - r.start + 1,
+      placeholderLine(today, r.title, archiveBaseName, r.notes),
+    )
   }
   return {
     newText: lines.join('\n'),
-    movedRanges: ranges.map((r) => ({ startLine: r.start, endLine: r.end, titleText: r.title })),
+    movedRanges: ranges.map((r) => ({
+      startLine: r.start,
+      endLine: r.end,
+      titleText: r.title,
+      notes: r.notes,
+    })),
   }
 }
 
@@ -660,7 +699,8 @@ async function landThroughObjectSpace({ base, toArchive }) {
   const { archiveFile, chunk, bodies } = buildArchiveChunk(today, toArchive)
   const existingArchive = existsSync(archiveFile) ? readWorktreeFile(ROOT, archiveRel) : null
   const archiveWouldBe = (existingArchive ?? '') + chunk
-  const placeholderOf = (t) => placeholderLine(today, t.titleText, archiveBaseName)
+  const placeholderOf = (t) =>
+    placeholderLine(today, t.titleText, archiveBaseName, mergeNotesOf(t.bodyLines))
   const blockEvidence = toArchive.map((t, i) => ({
     title: t.titleText,
     placeholderPresent: newText.split('\n').includes(placeholderOf(t)),
@@ -1008,7 +1048,12 @@ async function main() {
   //   每次自动档重算同一批再拒绝 ⇒ 阀把"少做一件事"变成了"永远不做这件事",归档机制对这批
   //   存量结构性失效而账面一路绿。现改为按**最旧优先贪心取前缀**:单批仍在预算内,但每轮真搬得动。
   //   只有"最旧那一条自身就超预算"才回到拒绝路径 —— 那才是真正需要人工裁的量级。
-  const MASS_MAX_ENTRIES = 25
+  // **段数上限随粒度一起过期**(2026-09-28 实测):25 这个数字是在"一段 = 一个 ## 条目(约 15 KB)"
+  //   的年代定的;bullet 级纳入后一段常常就是一行,于是 25 段/轮 只搬得动 100 KB,积压 535 段要
+  //   22 枚提交才排空 —— 上限卡的不再是它想防的"半本活文档被重写",而是把吞吐按段数切成了零头。
+  //   真正有意义的 bound 是**字节**:一次最多重写 256 KB(全文 4.65 MB 的 5.5%)。段数上限留作
+  //   "格式又漂了一次"的哨兵(一次冒出一大段小段才是异常),放到 500 后由字节先卡住。
+  const MASS_MAX_ENTRIES = 500
   const MASS_MAX_BYTES = 256 * 1024
   const entryBytes = (t) => Buffer.byteLength((t.bodyLines || []).join('\n'), 'utf8')
   if (autoCommit && !allowMass) {
@@ -1116,7 +1161,32 @@ async function main() {
     process.exit(1)
   }
 
+  // ── 冲突标记闸(2026-09-28 立,由实测事故补上)────────────────────────────
+  // 归档器写的是**工作树副本**,而共享工作区里 `PROJECT_PLAN.md` 偶尔会带着别人未解完的
+  // 冲突标记(`<<<<<<< ours` / `=======` / `>>>>>>> theirs`)。旧版没有任何一道闸看这件事,
+  // 于是它把标记连同搬运结果一起 `--no-verify` 提交进台账 —— 实测枚 `b54c79c36`(09-28 00:23)
+  // 就是这么进去的;而守门 79 当时因">2MB 先跳过"对台账全盲(那道护栏同日已改成
+  // "先问有没有标记线索、再谈体积"),所以整条链一声不响。
+  // 判据不另写一份:直接引守门 79 的 `findMarkerPairs`(两处各写一遍必然漂移)。
+  const scars = findMarkerPairs(newContent).pairs
+  if (scars.length > 0) {
+    console.error(
+      C.red +
+        `❌ 计划文档里带着 ${scars.length} 对未解冲突标记 ⇒ 拒绝归档并拒绝提交(自动档少做一件事不是错误,但把标记提交进台账是)` +
+        C.reset,
+    )
+    for (const s of scars.slice(0, 5))
+      console.error(`     行 ${s.startLine}–${s.endLine}  |  ${String(s.startText).trim()}`)
+    console.error(
+      C.yellow +
+        '   先解冲突(按 §12b 协作收尾重新归并,禁止手删三行标记当作已解决),再重跑归档。' +
+        C.reset,
+    )
+    process.exit(1)
+  }
+
   writeFileSync(PLAN_FILE, newContent, 'utf8')
+
 
   console.log(`${C.green}✅ 已归档 ${toArchive.length} 个条目${C.reset}`)
   console.log(
@@ -1464,6 +1534,58 @@ function runSelfTest() {
     threw2 = true
   }
   ok('S15b 升序且不重叠 ⇒ 放行(不得为了"更安全"把正常搬运也拒掉)', threw2 === false)
+
+  // S17 归并落账注记必须随块留在原地(门 130 的 F5 存续性棘轮数的就是它)。
+  // 成对:①带注记的块 ⇒ 占位里能看到该注记;②不带注记 ⇒ 占位与旧形态**逐字相同**
+  // (防我把守门 13c 反查的标题形态弄漂 —— 那会当场造出一台恒红门)。
+  const NOTE = '〔【归并】O7 落账:复测 2026-09-26: 该红不在门 116 判据里〕'
+  const withNote = placeholderLine(
+    today,
+    '某已完成条目',
+    archiveBaseName,
+    mergeNotesOf([`- [x] ✅(2026-09-26) 某已完成条目 ${NOTE}`]),
+  )
+  ok('S17 随块搬走的归并落账注记留在占位里(门 130 数得到)', withNote.includes('落账:复测 2026-09-26'), withNote)
+  ok(
+    'S17b 「完整内容在 …」仍是最后一个逗号段 ⇒ 13c 的文件名反查不被新字段打断',
+    withNote.split(',').pop().startsWith('完整内容在 .ihui-agent/archive/'),
+    withNote,
+  )
+  ok(
+    'S17c 无注记的块 ⇒ 占位与旧形态逐字相同(不得给 13c 造新形态)',
+    placeholderLine(today, '某个已完成任务条目(2026-09-01 完成 ✅)', archiveBaseName) ===
+      `<!-- 已归档(${today}:某个已完成任务条目(2026-09-01 完成 ✅),完整内容在 .ihui-agent/archive/${archiveBaseName} -->`,
+  )
+  // 注:正则截到日期为止(后半句叙述不进匹配),所以"数几份"必须拿判据自己吐出的形态数,
+  // 拿整串字面量去数会得到 0 —— 那是断言写错,不是判据没取到(第一版就错在这里)。
+  const NOTE_M = mergeNotesOf([`x ${NOTE}`])
+  const occ = (hay, needle) => hay.split(needle).length - 1
+  ok('S17c2 取到的是"到日期为止"那一段(后半句叙述不入选)', NOTE_M === '〔【归并】O7 落账:复测 2026-09-26', NOTE_M)
+  const twoNotes = mergeNotesOf([`a ${NOTE}`, 'b 〔【归并】O9 落账:复测 2026-09-27: 第二条〕'])
+  ok(
+    'S17d 同一注记跨行重复只留一份,不同注记各留一份(去重不是丢弃)',
+    occ(mergeNotesOf([`x ${NOTE} y ${NOTE}`, `z ${NOTE}`]), NOTE_M) === 1 &&
+      occ(twoNotes, NOTE_M) === 1 &&
+      twoNotes.includes('O9 落账:复测 2026-09-27') &&
+      twoNotes.trim().split(/\s(?=〔【归并】)/).length === 2,
+    twoNotes,
+  )
+
+  // S18 归档器写的是**工作树副本**:带未解冲突标记时它会把标记一起提交进台账(实测枚
+  // b54c79c36)。判据用守门 79 那一份实现,不在这里抄第二遍配对逻辑。
+  ok(
+    'S18 冲突标记配对:成对必命中、干净文本不误判(与守门 79 同一份实现)',
+    findMarkerPairs('a\n<<<<<<< ours\nb\n=======\nc\n>>>>>>> theirs\n').pairs.length === 1 &&
+      findMarkerPairs('a\n干净内容\n<<<<<<< 这不是标记(后缺空格)\n').pairs.length === 0,
+  )
+  // 装车证明:光有判据函数不算接上 —— 必须钉在"写 PLAN_FILE 之前"那一步上
+  // (守门 70/76/81 同型:判据在、没人调,表现是永远绿灯)。
+  ok(
+    'S18b 装车锁:main() 写计划文档之前必须先过冲突标记闸',
+    /const scars = findMarkerPairs\(newContent\)\.pairs[\s\S]{0,700}?writeFileSync\(PLAN_FILE, newContent/.test(
+      readFileSync(fileURLToPath(import.meta.url), 'utf8'),
+    ),
+  )
 
   let failed = 0
   for (const r of results) {
