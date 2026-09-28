@@ -87,7 +87,7 @@ export function InlineEditDialog() {
   return (
     <div
       aria-label="Inline Edit"
-      className="absolute left-1/2 top-2 z-30 flex max-w-[640px] -translate-x-1/2 flex-col gap-2 rounded-md border border-border bg-card p-2 shadow-md"
+      className="absolute left-1/2 top-2 z-30 flex max-w-[640px] -translate-x-1/2 flex-col gap-2 rounded-xl border border-border bg-card p-2 shadow-md"
     >
       {/* 顶部输入栏 */}
       <div className="flex items-center gap-1.5">

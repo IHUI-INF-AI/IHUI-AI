@@ -39,10 +39,13 @@ import {
   type AuthUser,
 } from '@ihui/api-client'
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { LoginScreen as SharedLoginScreen, getTokens, type NationOption } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
 import { OAUTH_BRAND_COLORS, withAlpha, rnRadius } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
+import { isSessionLoggedOut } from '../lib/token'
+import { shouldAttemptAutoLogin } from '../lib/auto-login-policy'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -408,11 +411,24 @@ export function LoginScreen() {
 
   // ===== 自动登录(对齐 web:勾选过"自动登录"的设备,启动进登录页时静默重登获取新 token) =====
   // 仅在挂载时触发一次:凭据已由 useLoginForm 初始化回填,直接复用 form.login()
+  //
+  // `isSessionLoggedOut()` 这一半是必须的:显式登出/会话失效**从不清** ihui-auto-login 与
+  // ihui-remember-credentials(唯一清除点是"取消记住密码"那个勾选动作),所以此前"退出登录"
+  // 之后冷启动回到登录页,这一帧会拿盘上的账号密码**静默重登回去** —— 用户按了退出,
+  // 应用却自己登回来。判据与写标记同源(lib/token 的持久登出标记,先落标记再删凭据)。
   const autoLoginFiredRef = useRef(false)
   useEffect(() => {
     if (autoLoginFiredRef.current) return
     autoLoginFiredRef.current = true
-    if (credentialStorage.loadAutoLogin() && credentialStorage.loadRemembered()) {
+    if (
+      shouldAttemptAutoLogin({
+        sessionLoggedOut: isSessionLoggedOut,
+        hasAutoLoginFlag: () => credentialStorage.loadAutoLogin(),
+        // 判据要的是"盘上有没有可用凭据"这个布尔,而 loadRemembered() 返回的是那条记录本身
+        // (或 null)—— 直接把对象当条件会让策略签名跟着变成 unknown,所以在这里收成布尔。
+        hasRememberedCredentials: () => credentialStorage.loadRemembered() !== null,
+      })
+    ) {
       void form.login()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时判定一次,form.login 为稳定 useCallback
@@ -500,14 +516,14 @@ export function LoginScreen() {
       if (res.success) {
         setEmailCountdown(CODE_COUNTDOWN_SECONDS)
       } else {
-        form.setError(res.error ?? 'auth.loginFailed')
+        form.setError(apiFailureToText(res, t('auth.loginFailed')))
       }
     } catch {
       form.setError('auth.loginFailed')
     } finally {
       setEmailCodeSending(false)
     }
-  }, [email, form])
+  }, [email, form, t])
 
   // 实际邮箱验证码登录(不含协议检查,供协议弹窗「同意」后直接续登)
   const performEmailLogin = useCallback(async () => {
@@ -529,14 +545,14 @@ export function LoginScreen() {
         navigateAfterLogin()
         persistLoginHistory(email.trim())
       } else {
-        form.setError(res.error ?? 'auth.loginFailed')
+        form.setError(apiFailureToText(res, t('auth.loginFailed')))
       }
     } catch {
       form.setError('auth.loginFailed')
     } finally {
       setEmailLoading(false)
     }
-  }, [email, emailCode, form, navigateAfterLogin, persistLoginHistory])
+  }, [email, emailCode, form, navigateAfterLogin, persistLoginHistory, t])
 
   const handleLoginByEmailCode = useCallback(() => {
     if (!checkAgreement('email')) return
@@ -558,14 +574,14 @@ export function LoginScreen() {
       if (res.success) {
         setPhoneCountdown(CODE_COUNTDOWN_SECONDS)
       } else {
-        form.setError(res.error ?? 'auth.loginFailed')
+        form.setError(apiFailureToText(res, t('auth.loginFailed')))
       }
     } catch {
       form.setError('auth.loginFailed')
     } finally {
       setPhoneCodeSending(false)
     }
-  }, [phone, form])
+  }, [phone, form, t])
 
   // 实际手机验证码登录(不含协议检查,供协议弹窗「同意」后直接续登)
   const performPhoneLogin = useCallback(async () => {
@@ -588,14 +604,14 @@ export function LoginScreen() {
         navigateAfterLogin()
         persistLoginHistory(phone.trim())
       } else {
-        form.setError(res.error ?? 'auth.loginFailed')
+        form.setError(apiFailureToText(res, t('auth.loginFailed')))
       }
     } catch {
       form.setError('auth.loginFailed')
     } finally {
       setPhoneLoading(false)
     }
-  }, [phone, phoneCode, form, navigateAfterLogin, persistLoginHistory])
+  }, [phone, phoneCode, form, navigateAfterLogin, persistLoginHistory, t])
 
   // ===== 手机号 tab 自动回填最近登录手机号(对齐 web 端) =====
   // onTabChange 经 SharedLoginScreen 每次 activeTab 变化(含初始 defaultTab=phone)回调;
@@ -638,7 +654,7 @@ export function LoginScreen() {
         navigateAfterLogin()
         if (res.phone) persistLoginHistory(res.phone)
       } else {
-        form.setError(apiRes.error ?? 'auth.loginFailed')
+        form.setError(apiFailureToText(apiRes, t('auth.loginFailed')))
       }
     } catch (err) {
       if (err instanceof CarrierOneClickError) {
@@ -657,7 +673,7 @@ export function LoginScreen() {
       setCarrierLoading(false)
       setCarrierWebUrl(null)
     }
-  }, [form, navigateAfterLogin, persistLoginHistory, showToast])
+  }, [form, navigateAfterLogin, persistLoginHistory, showToast, t])
 
   // 协议检查包装(点按钮先过协议;未勾选弹二次确认,'carrier' 动作待「同意」后续登)
   const handleCarrierOneClickLogin = useCallback(() => {
@@ -766,6 +782,9 @@ export function LoginScreen() {
       }
       // 用户取消(cancelled=true)不算错误,不弹错误提示
       if (!res.cancelled) {
+        // OAuthRedirectResult 只有 error 字符串(无 status / errorCode)—— 身份已在上游
+        // oauth-redirect.ts 构造该结果时丢失,此处 apiFailureToText 拿不到 HTTP status 也无从判序,
+        // 真正收口需给 OAuthRedirectResult 补 status 字段(属 lib/oauth-redirect 契约,另计)。
         form.setError(res.error ?? 'auth.loginFailed')
       }
     },
@@ -821,7 +840,7 @@ export function LoginScreen() {
             // 未绑定手机号:对齐 uniapp,微信登录返回"请先绑定手机号"时跳换绑页
             navigation.navigate('ChangePhone', { uuid: '' })
           } else {
-            form.setError(res.error ?? 'auth.loginFailed')
+            form.setError(apiFailureToText(res, t('auth.loginFailed')))
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)
