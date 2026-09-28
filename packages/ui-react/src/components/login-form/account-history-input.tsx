@@ -167,7 +167,7 @@ export function AccountHistoryInput({
         历史账号可在输入框获得焦点后双击展开,或键入字符时按 ArrowDown 打开。
       */}
       {showHistory && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-border bg-popover shadow-md">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-md">
           {loginHistory.length > 0 ? (
             <>
               {loginHistory.map((account, idx) => (
@@ -200,7 +200,7 @@ export function AccountHistoryInput({
                       setLoginHistory(removeFromLoginHistory(account))
                       if (loginHistory.length <= 1) setShowHistory(false)
                     }}
-                    className="shrink-0 rounded p-0.5 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+                    className="shrink-0 rounded-sm p-0.5 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
                     aria-label={t('auth.removeAccount')}
                   >
                     <X className="h-3.5 w-3.5" />
