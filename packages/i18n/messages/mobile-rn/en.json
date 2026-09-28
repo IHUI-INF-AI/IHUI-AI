@@ -1035,6 +1035,8 @@
   "courseFilter": {
     "title": "Filter Courses",
     "subtitle": "Find the right course for you",
+    "categoryRange": "Category",
+    "difficultyRange": "Difficulty",
     "priceRange": "Price Range",
     "reset": "Reset",
     "apply": "Apply",
@@ -1043,9 +1045,15 @@
     "instructor": "Instructor",
     "free": "Free",
     "loadFailed": "Failed to load filter",
+    "loadingMore": "Loading more",
     "price_all": "All",
     "price_free": "Free",
-    "price_paid": "Paid"
+    "price_paid": "Paid",
+    "difficulty_all": "All",
+    "difficulty_beginner": "Beginner",
+    "difficulty_intermediate": "Intermediate",
+    "difficulty_advanced": "Advanced",
+    "noCategories": "No categories available"
   },
   "courseQAAsk": {
     "title": "Ask a Question",
