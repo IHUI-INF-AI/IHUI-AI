@@ -781,6 +781,42 @@ export function buildBlockDedupe(content) {
 }
 
 /** 块级收口的零损失断言 —— 四条同时成立才允许落地,任一不成立即整批停手。 */
+/**
+ * "本档不许替别的维度制造红点"的 F 维策略表(**两份删除档共用一份实现**)。
+ *
+ * F3 取**指针总数** `rotatedPointers`,**不取**"可自动收口"那一档 `rotatedAuto`
+ * (2026-09-29 由真仓两次停手 + 一组对照量出来后改的,不是审美也不是"为跑通放宽"):
+ *  - 删行必然挪动后面每一行的行号 ⇒ 台账里 264 处 `L<行号>` 指针(§1 明令禁止的形态)中,
+ *    若干条会从"目标推不出(无出口)"翻成"目标可推断(可自动收口)";
+ *  - 真仓同一份 HEAD 面逐容量实测:`pointers 264→264`(债的总量**一字未动**)、
+ *    `noExit 264→260` 同时 `auto 0→4` —— 翻的是"能不能自动修",不是"有没有新增债";
+ *  - 判据宿主自己早已写明这一维会凭空 +1:`scripts/lib/plan-task-index.mjs:414-418`
+ *    (「任何一次 append 挪了行号…该维凭空 +1,与本次提交内容毫无关系…恒红门的唯一结局是
+ *    每台每次提交被逼 --no-verify」)—— 把删除档挂在这一维上,就是它说的那台恒红门;
+ *  - 换成总数那一维**不会漏掉真实危害**:产物若真多出指针,`rotatedPointers` 当场上涨即红
+ *    (镜像有正反两条:仅 auto 上抬而总数不变 ⇒ 放行;总数上涨 ⇒ 判红并点名)。
+ * 注:`verifyRestoreTerminals` 那一档刻意**没有**一起改 —— 它不删行、只补终态,同一维在它那里
+ * 的语义我没有做同量级的对照,不拿"看起来一致"当理由去动没测过的判据(改判据的门槛见 AGENTS §12f)。
+ */
+export const F_DIM_NO_RISE = [
+  ['F1', (c) => c.forks],
+  ['F2', (c) => c.voidRows],
+  ['F3', (c) => c.rotatedPointers],
+  ['F4', (c) => c.dupOpenCopies],
+  ['F6', (c) => c.dupBlocks],
+]
+
+/** 纯函数:喂两份 counts,返回变差的维度文案。抽出来是为了让"正反两臂"可被构造面证明。 */
+export function fDimRegressions(before, after, extra = []) {
+  const out = []
+  for (const [k, get] of [...F_DIM_NO_RISE, ...extra]) {
+    const x = get(before)
+    const y = get(after)
+    if (y > x) out.push(`${k} 由 ${x} 涨到 ${y}`)
+  }
+  return out
+}
+
 export function verifyBlockDedupe(srcText, outText, deletedCount) {
   const problems = []
   const a = String(srcText).split('\n')
@@ -802,15 +838,7 @@ export function verifyBlockDedupe(srcText, outText, deletedCount) {
   }
   const before = auditPlan(srcText).counts
   const after = auditPlan(outText).counts
-  for (const [k, get] of [
-    ['F1', (c) => c.forks],
-    ['F2', (c) => c.voidRows],
-    ['F3', (c) => c.rotatedAuto],
-    ['F4', (c) => c.dupOpenCopies],
-    ['F6', (c) => c.dupBlocks],
-  ]) {
-    if (get(after) > get(before)) problems.push(`${k} 由 ${get(before)} 涨到 ${get(after)}`)
-  }
+  problems.push(...fDimRegressions(before, after))
   if (deletedCount > 0 && after.dupBlocks >= before.dupBlocks)
     problems.push(`删了 ${deletedCount} 行而块数没降(${before.dupBlocks}→${after.dupBlocks})—— 判据或实现有一边是错的`)
   if (after.mergeNotes < before.mergeNotes)
@@ -929,15 +957,7 @@ export function verifyRowDedupeCore(srcText, outText, deletedCount, match, findT
   // ③ F1–F4 + F6 无一上涨(这把尺子不许替别的维度制造红点)
   const before = auditPlan(srcText).counts
   const after = auditPlan(outText).counts
-  for (const [k, get] of [
-    ['F1', (c) => c.forks],
-    ['F2', (c) => c.voidRows],
-    ['F3', (c) => c.rotatedAuto],
-    ['F4', (c) => c.dupOpenCopies],
-    ['F6', (c) => c.dupBlocks],
-  ]) {
-    if (get(after) > get(before)) problems.push(`${k} 由 ${get(before)} 涨到 ${get(after)}`)
-  }
+  problems.push(...fDimRegressions(before, after))
   // ④ 归并落账注记不得随副本一起丢 —— 判的是"**种类**是否整类消失",不是"份数有没有变少"。
   //    本档删的正是逐字相同的孪生**指针行**,按份数比等于禁止本档存在:2026-09-29 真仓
   //    `--dedupe-rows` 一跑就报"253 掉到 244"(那 9 条同文指针就是它自己要清的东西)⇒
