@@ -22,6 +22,7 @@ import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
 import { createMapping, listMappings } from '../../services/model-mapping-service.js'
+import { isUuidString } from '../../utils/uuid.js'
 
 const listQuerySchema = z.object({
   /** undefined=不筛选,null=全局,string=具体用户。scope=global 等价于 userId=null */
@@ -101,6 +102,7 @@ const modelMappingsRoutes: FastifyPluginAsync = async (server) => {
   server.patch('/admin/model-mappings/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const parsed = updateBodySchema.safeParse(request.body ?? {})
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -120,6 +122,10 @@ const modelMappingsRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/admin/model-mappings/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const [row] = await db
       .delete(aiModelMappings)
       .where(eq(aiModelMappings.id, p.data.id))
