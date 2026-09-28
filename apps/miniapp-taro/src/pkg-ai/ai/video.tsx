@@ -252,7 +252,7 @@ export default function VideoPage() {
             {t(currentVendor.descKey)}
           </Text>
           <Textarea
-            className="w-full min-h-[192rpx] p-[24rpx] text-[length:24rpx] bg-transparent border border-border rounded-md box-border"
+            className="w-full min-h-[192rpx] p-[24rpx] text-[length:24rpx] bg-transparent border border-border rounded-sm box-border"
             placeholder={t('ai.video.promptPlaceholder')}
             maxlength={500}
             value={prompt}
@@ -283,7 +283,7 @@ export default function VideoPage() {
             ))}
           </View>
           <Button
-            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-md text-[length:24rpx] font-medium bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] disabled:opacity-60"
+            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-sm text-[length:24rpx] font-medium bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] disabled:opacity-60"
             disabled={!prompt || status === 'pending' || status === 'running'}
             onClick={onGenerate}
           >
@@ -306,13 +306,13 @@ export default function VideoPage() {
             {resultUrl ? (
               <View className="flex gap-[16rpx] mt-[24rpx]">
                 <Button
-                  className="flex-1 h-[80rpx] leading-[80rpx] text-[length:24rpx] rounded-md border border-border bg-transparent text-muted-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-[length:24rpx] rounded-sm border border-border bg-transparent text-muted-foreground"
                   onClick={onDownload}
                 >
                   {t('ai.video.download')}
                 </Button>
                 <Button
-                  className="flex-1 h-[80rpx] leading-[80rpx] text-[length:24rpx] rounded-md border border-border bg-transparent text-muted-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-[length:24rpx] rounded-sm border border-border bg-transparent text-muted-foreground"
                   onClick={onShare}
                   openType="share"
                 >

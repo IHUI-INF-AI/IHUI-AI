@@ -191,7 +191,7 @@ export default function DownloadsPage() {
             <select
               value={platform}
               onChange={(e) => setPlatform(e.target.value)}
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-sm border border-border bg-background px-3 text-sm"
             >
               <option value="">{t('allPlatforms')}</option>
               {PLATFORM_KEYS.map((k) => (
@@ -207,7 +207,7 @@ export default function DownloadsPage() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-sm border border-border bg-background px-3 text-sm"
             />
           </div>
           <div className="space-y-1">
@@ -216,7 +216,7 @@ export default function DownloadsPage() {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-sm border border-border bg-background px-3 text-sm"
             />
           </div>
         </CardContent>

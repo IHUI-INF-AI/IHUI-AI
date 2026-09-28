@@ -103,7 +103,7 @@ export function NotificationLogDetailDialog({ open, log, onClose }: Props) {
           <textarea
             readOnly
             value={formatContent(log.content)}
-            className="h-40 w-full resize-none rounded-md border bg-muted/30 p-3 font-mono text-xs"
+            className="h-40 w-full resize-none rounded-sm border bg-muted/30 p-3 font-mono text-xs"
           />
         </div>
         <div className="space-y-1">
@@ -112,7 +112,7 @@ export function NotificationLogDetailDialog({ open, log, onClose }: Props) {
             readOnly
             value={log.error_message ?? ''}
             placeholder={t('emptyError')}
-            className="h-24 w-full resize-none rounded-md border bg-muted/30 p-3 font-mono text-xs"
+            className="h-24 w-full resize-none rounded-sm border bg-muted/30 p-3 font-mono text-xs"
           />
         </div>
       </DialogContent>
