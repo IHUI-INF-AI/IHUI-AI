@@ -478,7 +478,7 @@ export default function MessageIndex() {
             onClick={() => setShowSettings(false)}
           >
             <View
-              className="absolute bottom-0 left-0 right-0 bg-card ui-panel rounded-$1-2xl max-h-[80vh] overflow-y-auto"
+              className="absolute bottom-0 left-0 right-0 bg-card ui-panel rounded-t-xl max-h-[80vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
               hoverClass="opacity-60"
             >

@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   clearButton: {
     width: CLEAR_BUTTON_SIZE,
     height: CLEAR_BUTTON_SIZE,
-    borderRadius: CLEAR_BUTTON_SIZE / 2, // radius-exempt: 16dp 圆形清除按钮,取边长一半
+    borderRadius: CLEAR_BUTTON_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
