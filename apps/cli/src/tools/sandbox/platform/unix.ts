@@ -195,7 +195,11 @@ async function spawnPosix(
   return new Promise<SandboxExecResult>((resolve) => {
     const child = spawn(file, args, {
       cwd,
-      env: process.env, // POSIX 后端依赖系统 PATH;敏感变量过滤由策略层 blockedEnvVars 覆盖 bwrap --clearenv 场景
+      // env-boundary-gap: POSIX 后端**未**过滤敏感变量。原注释"由策略层 blockedEnvVars 覆盖"不成立
+      // —— 该过滤只在 Windows 后端实现(platform/windows.ts:213)，policy.ts:42 的字段在这一侧无人消费。
+      // 本机为 Windows，bwrap/sandbox-exec 语义不可验证，故 2026-09-28 这票只把它钉成可见缺口;
+      // 补齐时须同时给 Linux/macOS 取证(删掉本行并让测试走"已过滤"分支)。
+      env: process.env, // POSIX 后端依赖系统 PATH,故保留全量(缺口见上行声明)
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
