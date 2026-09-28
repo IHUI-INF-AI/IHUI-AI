@@ -483,6 +483,15 @@
     "captchaRefresh": "Refresh captcha"
   },
   "chat": {
+    "meta": {
+      "changedElsewhere": "The {field} of this conversation was updated to \"{value}\" on another device",
+      "pullOnly": "On the mini program, this change syncs the next time you open it",
+      "field": {
+        "title": "title",
+        "archive": "archive status",
+        "model": "model"
+      }
+    },
     "icuProbe": {
       "flowState": "{state, select, running {{count, plural, =0 {Stream running, no tools pending} one {Stream running, {count} tool scheduled} other {Stream running, {count} tools scheduled}}} paused {Stream paused} failed {Execution failed: <b>{reason}</b>}}"
     },
