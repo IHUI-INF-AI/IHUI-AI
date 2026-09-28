@@ -486,7 +486,14 @@
     "icuProbe": {
       "flowState": "{state, select, running {{count, plural, =0 {ストリーム実行中、待機ツールなし} other {ストリーム実行中、{count} 個のツールをスケジュール}}} paused {ストリーム一時停止} failed {実行失敗：<b>{reason}</b>}}"
     },
-    "send": "送信"
+    "send": "送信",
+    "terminal": {
+      "waitingInput": "入力をお待ちしています",
+      "promptLabel": "コマンドのプロンプト：{{prompt}}",
+      "submit": "送信",
+      "timeoutNoInput": "{{seconds}} 秒間、入力がありませんでした",
+      "mobileUnsupported": "このコマンドはキーボード入力が必要です。モバイルでは代行できません。デスクトップで処理するか、この実行を停止してください"
+    }
   },
   "richAnchorProbe": {
     "flow": "<detail>{target}</detail>を<action>注入中</action>"
