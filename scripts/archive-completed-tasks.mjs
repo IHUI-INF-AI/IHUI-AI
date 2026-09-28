@@ -681,12 +681,57 @@ function buildArchiveChunk(today, tasks) {
     `> 本文件由 scripts/archive-completed-tasks.mjs 自动生成,归档自 PROJECT_PLAN.md 的已完成任务条目。\n\n---\n\n`
   let chunk = existsSync(archiveFile) ? '' : archiveHeader
   const bodies = []
+  let stripped = 0
   for (const task of tasks) {
-    const body = trimTrailingEmpty(task.bodyLines).join('\n')
+    // 先摘"两侧皆空"的冲突三连再拼:`bodies` 与 `chunk` 必须同源,否则零损失闸拿去比对
+    // 的块正文与最终落进归档件的字节会差那三行(bodyInArchive 假红)。
+    const s = stripEmptyMarkerTriples(trimTrailingEmpty(task.bodyLines).join('\n'))
+    stripped += s.removed
+    const body = s.text
     bodies.push(body)
     chunk += body + '\n\n---\n\n'
   }
-  return { archiveFile, chunk, bodies }
+  return { archiveFile, chunk, bodies, stripped }
+}
+
+/**
+ * 摘除**两侧正文都为空**的冲突标记三连(`<<<<<<< X` / `=======` / `>>>>>>> Y`)。
+ *
+ * 为什么归档器必须管这件事(实测枚 `3a603ce89`,2026-09-28 14:19):写盘前那道闸只看
+ * **写回的台账**有没有标记,而标记当时躺在**被搬走的那一侧** ⇒ 台账侧全盲,两对空标记
+ * 随块进了归档件并永久留在版本树里。归档件不在 13c/71 的标记射程内,所以"搬进去"就是"入库"。
+ *
+ * 为什么只摘空的:ours/theirs 都零字节 ⇒ 删这三行不裁决任何内容,是零信息损失的机械动作;
+ * 只要有一侧非空,处置就是"选 ours 还是 theirs"——那是内容裁决(§12d 明令禁止手删三行标记
+ * 当作已解决),本函数**一律不碰**,由调用处的闸拒绝落地并点名交人工。
+ * @returns {{text:string, removed:number}}
+ */
+export function stripEmptyMarkerTriples(bodyText) {
+  const lines = String(bodyText ?? '').split('\n')
+  const out = []
+  let removed = 0
+  for (let i = 0; i < lines.length; i++) {
+    if (/^<<<<<<< /.test(lines[i])) {
+      let j = i + 1
+      while (j < lines.length && !/^=======$/.test(lines[j]) && !/^>>>>>>> /.test(lines[j])) j++
+      if (j < lines.length && /^=======$/.test(lines[j])) {
+        let k = j + 1
+        let theirsEmpty = true
+        while (k < lines.length && !/^>>>>>>> /.test(lines[k])) {
+          if (lines[k].trim() !== '') theirsEmpty = false
+          k++
+        }
+        const oursEmpty = lines.slice(i + 1, j).every((x) => x.trim() === '')
+        if (k < lines.length && /^>>>>>>> /.test(lines[k]) && oursEmpty && theirsEmpty) {
+          removed += 3
+          i = k
+          continue
+        }
+      }
+    }
+    out.push(lines[i])
+  }
+  return { text: out.join('\n'), removed }
 }
 
 /** 一段块正文是否**逐行连续**地出现在目标文本里(§1 第二步"完整内容进归档文件"的证据判据)。 */
@@ -744,7 +789,25 @@ async function landThroughObjectSpace({ base, toArchive }) {
   // ② 归档块先在**内存里**算出来:判据没通过之前,本函数一个字节都不往磁盘上写。
   //    (把 appendFileSync 放在零损失闸之前 = 拒绝落地时还留一份没入库的归档件当"半截现场",
   //     那是把一次可复核的失败换成一份需要下一个人去猜的垃圾。)
-  const { archiveFile, chunk, bodies } = buildArchiveChunk(today, toArchive)
+  const { archiveFile, chunk, bodies, stripped } = buildArchiveChunk(today, toArchive)
+  if (stripped > 0) {
+    console.log(
+      `${C.yellow}⚠️ 被搬走的正文里摘除了 ${stripped / 3} 对"两侧皆空"的冲突标记(零信息损失的机械动作,已计入归档面)${C.reset}`,
+    )
+  }
+  // 台账侧那道闸(main 写盘前的 scars)只看写回内容;标记若躺在**被搬走的一侧**就漏过去了,
+  // 而漏过去的结果是把标记搬进归档件 = 让它永久进版本树(实测枚 3a603ce89)。这一支补另一半。
+  const chunkScars = findMarkerPairs(chunk).pairs
+  if (chunkScars.length > 0) {
+    console.error(
+      C.red +
+        `❌ 待归档正文里还有 ${chunkScars.length} 对**非空**冲突标记 ⇒ 拒绝落地(两侧都有内容时,选哪边是裁决,不是搬运)` +
+        C.reset,
+    )
+    for (const s of chunkScars.slice(0, 5)) console.error(C.red + `   行 ${s.startLine}–${s.endLine} | ${String(s.startText).trim()}` + C.reset)
+    console.error(C.yellow + '   先按 §12d 归并解冲突(`--ours/--theirs` 或重新三方合并),禁止手删三行标记当作已解决。' + C.reset)
+    process.exit(1)
+  }
   const existingArchive = existsSync(archiveFile) ? readWorktreeFile(ROOT, archiveRel) : null
   const archiveWouldBe = (existingArchive ?? '') + chunk
   const placeholderOf = (t) =>
@@ -1706,6 +1769,17 @@ function runSelfTest() {
     describeBlockedBlock(s19.movable[0], s19Doc).openRows.length === 0,
   )
   const s19src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+  // S20 空冲突三连:两侧皆零字节 ⇒ 可机械摘除(实测枚 3a603ce89 就是这么把标记带进归档件的)。
+  const em = stripEmptyMarkerTriples('a\n<<<<<<< ours\n=======\n>>>>>>> theirs\nb\n')
+  ok('S20 两侧皆空的三连被摘除且不误伤正文', em.removed === 3 && em.text === 'a\nb\n', JSON.stringify(em))
+  const ne = stripEmptyMarkerTriples('a\n<<<<<<< ours\nX\n=======\nY\n>>>>>>> theirs\nb\n')
+  ok('S20b 非空三连一律不碰(那是裁决不是搬运)', ne.removed === 0 && ne.text === 'a\n<<<<<<< ours\nX\n=======\nY\n>>>>>>> theirs\nb\n', JSON.stringify(ne))
+  const half = stripEmptyMarkerTriples('a\n<<<<<<< ours\nX\n=======\n>>>>>>> theirs\nb\n')
+  ok('S20c 只有一侧有内容也不摘(保守:宁可留给闸拒绝)', half.removed === 0)
+  ok(
+    'S20d 装车锁:归档侧必须真过这道闸(台账侧那道拦不住被搬走一侧的标记)',
+    /const chunkScars = findMarkerPairs\(chunk\)\.pairs/.test(s19src) && /stripEmptyMarkerTriples\(trimTrailingEmpty/.test(s19src),
+  )
   // 锁的范围必须切到 main() 体内:全文件级"不得出现 entryHasOpenRows"会打到
   // partitionPlanBlocks 自己那一行 —— 那是判据的唯一合法居所,把它判红等于要求门自杀。
   const s19MainStart = s19src.indexOf('async function main()')
