@@ -15,6 +15,14 @@
  */
 
 /** 剥掉块注释与行注释后的等行文本(行号不变 —— 豁免规则按行生效,删字符会错位)。 */
+import { RPX_PER_PX, lengthToPx, constantMapOf } from './length-units.mjs'
+/**
+ * 单位折算与常量归集**住在 `lib/length-units.mjs`**,本文件只再导出(既有调用方的 import 一行都不用改):
+ * 半径侧与盒形侧量的是同一个物理量,写两份折算必然漂移;而几何层只需要单位层,不该被拖进本文件的
+ * 圆角专属逻辑(radiusLookup / 豁免判断)—— 那会让每一个按文件清单搭的几何夹具都得复制圆角层。
+ */
+export { RPX_PER_PX, lengthToPx, constantMapOf }
+
 function maskComments(src) {
   const out = []
   let inBlock = false
@@ -110,8 +118,6 @@ export function isRadiusExemptAt(lines, i) {
   return i > 0 && /radius-exempt/.test(lines[i - 1] || '')
 }
 
-/** 小程序 rpx 是 750 稿半单位(与守门 77 / geometry 同口径)。 */
-export const RPX_PER_PX = 2
 
 /**
  * 一行源码里的圆角**取档** → px 数组。逐行调用,好让豁免规则按行生效。
@@ -129,7 +135,45 @@ export const RPX_PER_PX = 2
  * `rounded-full` / `rounded-none` 不在此列:前者是"胶囊/正圆"那一型(守门 11 与 77 管),
  * 后者是 0,都不是"这个元素该取哪一档"的判断。
  */
-export function radiusPxInLine(line, table) {
+
+
+
+/**
+ * 把一个"半径被除数"折成 px。**解不到就返回 null**,由调用方报名 —— 拿被除数当半径是错的
+ * 读数,而错的读数比"没读数"更贵(它会替真圆与胶囊两个等式都给出自相矛盾的答案)。
+ * 支持:档位(`rnRadius.lg` / `rnRadius['2xl]`)、角色档(`rnRadiusFor.panel`)、`rpx(40)`、
+ * 带单位字面量(`60rpx` / `8px` / `0.5rem`)、同文件常量标识符(最多再解一层,防环)。
+ */
+export function radiusOperandPx(text, table, consts, depth = 0) {
+  const t = (text || '')
+    // CSS 侧写成 `calc(60rpx / 2)` —— 括号只是包裹,先剥掉再按形态解释。
+    .trim()
+    .replace(/^calc\(/, '')
+    .replace(/\)$/, '')
+    .trim()
+  if (!t) return null
+  const step =
+    /\brnRadius\s*(?:\.\s*(xs|sm|md|lg|xl|2xl)\b|\[\s*['"](2xl|xs|sm|md|lg|xl)['"]\s*\])/.exec(t)
+  if (step) return table[step[1] ?? step[2]] ?? null
+  const role = /\brnRadiusFor\s*(?:\.\s*(\w+)\b|\[\s*['"](\w+)['"]\s*\])/.exec(t)
+  if (role) return table[`role:${role[1] ?? role[2]}`] ?? null
+  const direct = lengthToPx(t)
+  if (direct !== null) return direct
+  /**
+   * 标识符 ⇒ 查同文件常量表再解一层。这里**必须限深并排除自引用**:上一版注释写着"最多再解一层,
+   * 防环",而实现里根本没有 depth —— `const A = A`(以及探查夹具里自指的 map)直接 `RangeError:
+   * Maximum call stack size exceeded` 把整门打挂。**承诺了防护而代码没兑现,与本仓守门 137
+   * 判的"名字承诺摘要、实现没兑现"是同一型**;判据写完要拿它应当崩的输入喂一次,不是只看它此刻绿。
+   */
+  const next =
+    depth < 4 && /^[A-Za-z_$][\w$]*$/.test(t) && consts instanceof Map ? consts.get(t) : undefined
+  if (typeof next === 'string' && next.trim().replace(/\s+/g, '') !== t) {
+    return radiusOperandPx(next, table, consts, depth + 1)
+  }
+  return null
+}
+
+export function radiusPxInLine(line, table, consts) {
   const out = []
   const push = (v) => {
     if (Number.isFinite(v) && v > 0) out.push(Math.round(v * 100) / 100)
@@ -140,23 +184,44 @@ export function radiusPxInLine(line, table) {
   for (const m of line.matchAll(/\brounded-\[\s*(\d+(?:\.\d+)?)(rpx|px)?\s*\]/g)) {
     push(m[2] === 'rpx' ? Number(m[1]) / RPX_PER_PX : Number(m[1]))
   }
-  for (const m of line.matchAll(/var\(--radius-(xs|sm|md|lg|xl|2xl)\)/g)) {
+  for (const m of line.matchAll(/var\(--radius-(xs|sm|md|lg|xl|2xl)\)(?!\s*\/)/g)) {
     if (table[m[1]] !== undefined) push(table[m[1]])
   }
   for (const m of line.matchAll(
-    /\brnRadius\s*(?:\.\s*(xs|sm|md|lg|xl|2xl)\b|\[\s*['"](2xl|xs|sm|md|lg|xl)['"]\s*\])/g,
+    /\brnRadius\s*(?:\.\s*(xs|sm|md|lg|xl|2xl)\b|\[\s*['"](2xl|xs|sm|md|lg|xl)['"]\s*\])(?!\s*\/)/g,
   )) {
     const step = m[1] || m[2]
     if (table[step] !== undefined) push(table[step])
   }
-  for (const m of line.matchAll(/\brnRadiusFor\s*(?:\.\s*(\w+)\b|\[\s*['"](\w+)['"]\s*\])/g)) {
+  for (const m of line.matchAll(
+    /\brnRadiusFor\s*(?:\.\s*(\w+)\b|\[\s*['"](\w+)['"]\s*\])(?!\s*\/)/g,
+  )) {
     const role = m[1] || m[2]
     if (table[`role:${role}`] !== undefined) push(table[`role:${role}`])
   }
+  /**
+   * 裸数字半径 —— **不得把除法的被除数当成半径**。旧实现只看 `(?![\w.])`,而 `borderRadius: 60 / 2`
+   * 里的 `60` 后面跟的是空格,于是照收 60 —— 而 §4 明令真圆/胶囊"优先 size / 2 表达式",所以这一支
+   * 每认一次被除数,就把一个规范写法读成"半径 = 整个边长":真圆等式(半径=半边)与胶囊等式
+   * (半径≥短边一半)同时不成立。HEAD 面实测 37 处该形态整族因此对两台尺子隐身。
+   * 除法交给下一支,这一支显式排除 `值 / 数`。
+   */
   for (const m of line.matchAll(
-    /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*(\d+(?:\.\d+)?)(?![\w.])/g,
+    /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*(\d+(?:\.\d+)?)(?![\w.])(?!\s*\/)/g,
   ))
     push(Number(m[1]))
+  /**
+   * 除法形态 `borderRadius: <被除数> / <数>`(`60 / 2`、`rnRadius.lg / 2`、`rpx(40) / 2`、
+   * `SIZE_PX / 2`)。被除数经 `radiusOperandPx` 折 px 再除右值;**解不到整条不 push**
+   * (跨文件常量),由调用方按未判定报名 —— 宁可"读不出",绝不读成一个错的数。
+   */
+  for (const m of line.matchAll(
+    /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*([^,;{}\n]+?)\s*\/\s*(\d+(?:\.\d+)?)/g,
+  )) {
+    const left = radiusOperandPx(m[1], table, consts)
+    if (left === null) continue
+    push(left / Number(m[2]))
+  }
   /**
    * CSS 声明形态:`border-radius: 8px` / `border-radius: 24rpx` / 四值简写
    * `border-radius: 8px 8px 0 0`。2026-09-27 补 —— 小程序把盒档写进同名 `.css`,只认 RN 驼峰
@@ -166,11 +231,22 @@ export function radiusPxInLine(line, table) {
    * "正圆"当成一个可选档。
    */
   for (const m of line.matchAll(
-    /\bborder(?:-top|bottom)?-(?:left|right)?radius\s*:\s*(\d+(?:\.\d+)?)(rpx|px|%)?(?:\s|;|\/|\*|$)/g,
+    /\bborder(?:-top|bottom)?-(?:left|right)?radius\s*:\s*(\d+(?:\.\d+)?)(rpx|px|%)?(?!\s*\/)(?:\s|;|\*|$)/g,
   )) {
     if (m[2] === '%') continue
     if (m[2] === undefined || m[2] === 'px') push(Number(m[1]))
     else push(Number(m[1]) / RPX_PER_PX)
+  }
+  /**
+   * CSS 侧除法形态(`border-radius: 60rpx / 2`):与 JS 侧共用 `radiusOperandPx` 那一份算术,
+   * 不在这里另写一遍单位换算 —— 两处算同一件事必漂移,是本仓记过最多次的失败型。
+   */
+  for (const m of line.matchAll(
+    /\bborder(?:-top|bottom)?-(?:left|right)?radius\s*:\s*([^;{}\n]+?)\s*\/\s*(\d+(?:\.\d+)?)/g,
+  )) {
+    const left = radiusOperandPx(m[1], table, consts)
+    if (left === null) continue
+    push(left / Number(m[2]))
   }
   // 四值/两值简写:每个长度档都要看见(只取第一个数 = 横向档整族隐身,票⑫同一记实测教训)
   for (const m of line.matchAll(
@@ -187,6 +263,7 @@ export function radiusPxInLine(line, table) {
 /** 整份源码 → 圆角档集合(按行遮豁免)。返回排序后的去重数组。 */
 export function radiusSetOf(src, table) {
   const lines = (src || '').split('\n')
+  const consts = constantMapOf(src)
   const set = new Set()
   for (let i = 0; i < lines.length; i++) {
     if (isRadiusExemptAt(lines, i)) continue
@@ -199,7 +276,7 @@ export function radiusSetOf(src, table) {
      * 当注释吃掉(守门 70 的 `'https://x/*'` 假绿同型),那需要一份字符串感知的遮罩,另票做。
      */
     if (/^(\/\/|\/\*|\*|\{\/\*|<!--)/.test(t)) continue
-    for (const px of radiusPxInLine(lines[i], table)) set.add(px)
+    for (const px of radiusPxInLine(lines[i], table, consts)) set.add(px)
   }
   return [...set].sort((a, b) => a - b)
 }
@@ -269,6 +346,8 @@ export function radiusEntriesOf(src, table) {
     if (!cur.includes(px)) cur.push(px)
   }
   const stack = [] // { names: string[], indent: number }
+  // 除法形态半径(`SIZE / 2`)的被除数常量大多定义在同一份源码里,这里归集一次供逐行使用。
+  const consts = constantMapOf(src)
   let pending = '' // 多行 CSS 选择器(`.a,` 换行 `.b {`)的预读
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i]
@@ -296,7 +375,7 @@ export function radiusEntriesOf(src, table) {
     } else if (!isCloser) {
       pending = ''
     }
-    const pxs = radiusPxInLine(raw, table)
+    const pxs = radiusPxInLine(raw, table, consts)
     if (!pxs.length) continue
     /**
      * 类名串形态整条交给第二遍(只有它能归到真类名)。第一遍若也记一次,同一处取用会在
@@ -324,7 +403,7 @@ export function radiusEntriesOf(src, table) {
     const lits = [...raw.slice(at).matchAll(/["']([^"']+)["']/g)].map((m) => m[1])
     if (!lits.length) continue
     const text = lits.join(' ')
-    const pxs = radiusPxInLine(text, table)
+    const pxs = radiusPxInLine(text, table, consts)
     if (!pxs.length) continue
     if (isRadiusExemptAt(originalLines, i)) continue
     const toks = new Set(text.split(/[\s{}]+/).filter(Boolean))
