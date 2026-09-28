@@ -6866,21 +6866,21 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
     去会话归属 ⇒ 2 例红、去作用域包裹 ⇒ 围栏 1d 红),还原均 `cmp` 逐字节一致;mypy/ruff 0 错。
     **这一格值得留下的不是漏洞而是形状**:签名收紧 + 一条只看单文件的判据,合起来会把"同一身份
     的第二条通道"完整漏掉而账面全绿 —— 覆盖面必须由枚举给出,不能由立项时想到的那几个文件给出。
-- [ ] G-740 **relay `POST /continue/{thread_id}` 派生的新线程不继承属主 —— 一条常驻回归在干净 HEAD 上恒红(2026-09-29 现读;归属:relay/session_store 那笔在飞改动,不是新功能)**:
-    症状是 `tests/test_thread_identity_immutable.py::test_relay_continue_inherits_owner` 红,报
+- [ ] G-740 **`tests/test_thread_identity_immutable.py::test_relay_continue_inherits_owner` 在干净 HEAD 上恒红;重测定性:红的是这行测试自己的调用形状,不是生产行为 —— 一行可修,但该文件此刻由他人持有(2026-09-29 现读)**:
+    症状:该例报 `app/routers/relay.py:60` 抛 `404: thread 不存在`;同文件其余 9 例绿。
     `app/routers/relay.py:60` 抛 `404: thread 不存在`;其余 9 例全绿。
     **归属是靠 A/B 量出来的,不是猜的**:同一枚测试在当下 HEAD 与在本波第一枚提交之前那枚提交
     (`ec62ba30a8`,用 `git worktree add --detach` 建干净检出、拿主树 venv 的 python 跑,用完即
     `git worktree remove --force`)上**都是同一条红** ⇒ 与本波 G-371 的四拍板提交无关。
-    根因现读两处:`git show HEAD:apps/ai-service/app/routers/relay.py | grep -c carry_engine_owned_keys`
-    = 0 且 `git show HEAD:apps/ai-service/app/services/session_store.py` 同样 = 0,即 relay 已经挂上
-    了 `_owned_thread`(别人的会话与"不存在"同形 404,这是对的),但 `/continue/{id}` **派生新线程时
-    没把属主带过去**,于是新线程无主 ⇒ 下一步按属主校验就 404。
-    **等的是谁**:另一会话此刻正把工作树版 `session_store.py` 里那 +78 行 `carry_engine_owned_keys`
-    在飞(该文件 `git status` 为 ` M`,按 §12 归属纪律我不碰、不代落、不重实现)。
-    落地判据(谁做谁自验):`pytest tests/test_thread_identity_immutable.py -q -o addopts=""` 末行
-    `10 passed`,且**正向对照必须保留** —— 只把测试改绿(例如放宽断言或删掉那一例)等于制造第二张
-    合格证,本仓"把没判写成判过了"是同一条禁令。
+    **根因(第一次登记把它写成“派生线程不继承属主”,那是错的,现按重测改回)**:`relay.py:152-166` 早就把来源线程的
+    属主与角色喂进 `create_thread`(行内注着“批 60 / G-249”),而 `tests/test_relay_owner_binding.py` 用两条
+    用例把这件事钉成契约并**当场绿**:`pytest tests/test_relay_owner_binding.py -q -o addopts=""` → 5 passed,
+    其中正向断言派生线程属主 = alice、反向断言别人的主体被拒且**一条线程都不派生**。真红因是这一例仍按
+    老形状直接调端点函数(`continue_thread(source_id, store=store)`),而该端点自 `106f47773f`(G-250 收尾)
+    起多了承载层形参 `user_id` —— 不传时形参拿到的是 `Depends` 哨兵对象,`_owned_thread` 于是按“不是你的”判 404。
+    修法只有一行且**断言本体一字不动**:按同族兄弟文件的约定把主体显式喂进去 —— `out = relay_router.continue_thread(source_id, "alice", store)`(已在主树用临时换文件方式实测:改后该例转绿,还原经 `cmp` 逐字节一致)。
+    落地判据(谁做谁自验):干净 HEAD 检出里 `pytest tests/test_thread_identity_immutable.py -q -o addopts=""` → `10 passed`。
+    本会话**不代落**:该测试文件与 `session_store.py` 同为他人在飞(均 ` M`),按 §12 归属纪律只登记;主树里另有 3 例红来自持有人正在做的“引擎段保留”改动,与本条无关,别去追。禁止用放宽断言或删例把它变绿 —— 那等于造第二张合格证。
     顺带登记一条**别再照抄的旧口径**:`relay.py` 头注写着"本模块四个端点此前一个身份依赖都没挂",
     那描述的是**它自己立项时**的状态;现在四个端点里三个已挂属主闸,剩那一格就是本条 —— 按旧注
     派单会去找已经不存在的洞。
