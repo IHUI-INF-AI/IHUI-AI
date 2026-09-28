@@ -30,6 +30,21 @@ from typing import Any
 import asyncpg
 
 from ..core.db_pool import get_shared_pool
+from ._load_lifecycle import (
+    DECISION_BACKOFF as _DECISION_BACKOFF,
+)
+from ._load_lifecycle import (
+    DECISION_GAVE_UP as _DECISION_GAVE_UP,
+)
+from ._load_lifecycle import (
+    DECISION_LOADED as _DECISION_LOADED,
+)
+from ._load_lifecycle import (
+    LoadRecord,
+)
+from ._load_lifecycle import (
+    monotonic as _monotonic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +97,10 @@ class UserProfileBuilder:
         # 画像缓存:user_id -> UserProfileAggregate
         self._profiles: dict[str, dict[str, Any]] = {}
         # P1 修复:按需懒加载,替代 main.py startup 全量 hydrate
-        # 跟踪已加载用户,首次访问该用户时才从 DB 加载画像
-        self._loaded_users: set[str] = set()
+        # G-748(2026-09-29):原来的 `_loaded_users: set[str]` 只能表达"加载过",
+        # 表达不了"试过了但没读到" —— 而 `finally: add(user_id)` 正是把后者写成前者
+        # 的那一型。换成 per-key 的 LoadRecord(判定住在 _load_lifecycle,唯一一份)。
+        self._load_records: dict[str, LoadRecord] = {}
         self._loaded_lock: asyncio.Lock = asyncio.Lock()
 
     # ==================================================================
@@ -98,24 +115,42 @@ class UserProfileBuilder:
         只加载该用户的画像。
 
         线程安全:asyncio.Lock 防止并发首次访问重复加载同一用户。
-        加载失败也标记为已加载(避免每次调用都重试,DB 异常时降级空内存)。
+
+        G-748(2026-09-29,取代旧口径"加载失败也标记为已加载、从此不再重试"):
+        旧写法把该用户的一次瞬时 DB 故障永久固化成"这个用户没有画像"且余生不再重试
+        —— 与 G-702 在 ab_test_tracker 上修掉的那一处同型。判定住在 _load_lifecycle
+        (唯一一份):读成功(含"该行不存在"这种权威的空)才固化;读失败不置 loaded,
+        指数退避(底 1s 封顶 60s),连续失败到上限才停自动重试且仍非 loaded。
         """
-        if not user_id or user_id in self._loaded_users:
+        if not user_id:
+            return
+        rec = self._load_records.get(user_id)
+        if rec is not None and rec.loaded:
             return
         async with self._loaded_lock:
             # double-check:拿到锁后再次确认(可能在等锁期间被其他协程加载)
-            if user_id in self._loaded_users:
+            rec = self._load_records.setdefault(user_id, LoadRecord())
+            now = _monotonic()
+            decision = rec.decide(now)
+            if decision == _DECISION_LOADED:
                 return
-            try:
-                await self.load_profile(user_id)
-            except Exception as e:
-                logger.warning(
-                    "[user_profile] _ensure_loaded 加载失败(user=%s 降级空内存): %s",
-                    user_id, e,
-                )
-            finally:
-                # 无论成功失败都标记已加载(避免重复重试)
-                self._loaded_users.add(user_id)
+            if decision == _DECISION_GAVE_UP:
+                if not rec.give_up_logged:
+                    rec.give_up_logged = True
+                    logger.warning(
+                        "[user_profile] _ensure_loaded 连续 %d 次读取失败,停止自动重试"
+                        "(user=%s 状态=读不到,非无画像;恢复靠下一次进程重启或人工触发)",
+                        rec.failures,
+                        user_id,
+                    )
+                return
+            if decision == _DECISION_BACKOFF:
+                return  # 退避窗口内:本次调用不打 DB
+            ok, _profile = await self._try_load_profile(user_id)
+            if ok:
+                rec.apply_success()
+            else:
+                rec.apply_failure(now)
 
     # ==================================================================
     # 全量画像构建
@@ -138,8 +173,10 @@ class UserProfileBuilder:
         """
         # P1 修复:build_profile 会全量重建并覆盖缓存,预先标记已加载
         # 避免 build_profile 后 update_profile 的 _ensure_loaded 用 DB 旧数据覆盖新画像
+        # G-748:这是"缓存刚被本进程写全"的正当固化,走共享出口的 mark_loaded
+        # (失败计数与退避一并归零),不是"读失败也当加载完"。
         if user_id:
-            self._loaded_users.add(user_id)
+            self._load_records.setdefault(user_id, LoadRecord()).mark_loaded()
         client = memory_client or self._client
         entries = await self._get_entries(user_id, client)
         if not entries:
@@ -461,19 +498,33 @@ class UserProfileBuilder:
     # ==================================================================
 
     async def load_profile(self, user_id: str) -> dict[str, Any] | None:
-        """从 DB 加载单个用户画像到内存(按需 hydrate)。
+        """公开投影:读成功返回画像(或 None=该用户确实没有),读失败返回 None。
+
+        ⚠️ 返回 None **分不出**"无画像"与"读不到"——内部判定必须走
+        _try_load_profile 的二元组(G-748:口径同 ab_test_tracker.load_active_tests)。
+        """
+        ok, profile = await self._try_load_profile(user_id)
+        return profile if ok else None
+
+    async def _try_load_profile(self, user_id: str) -> tuple[bool, dict[str, Any] | None]:
+        """从 DB 加载单个用户画像,并把"读不到"与"权威的空"分开返回。
+
+        返回 (read_ok, profile):
+        - (False, None) ⇒ 连接/查询异常,或**行存在但 JSON 解析不出** = "读不到",
+          与 agent_card._scope_meta_index 对损坏文件的判定同形,**不得**固化成"无画像";
+        - (True, None)  ⇒ 该 id 无画像行(或 id 为空/非 UUID,DB 里不可能有它)=
+          **权威的空**,可以固化;
+        - (True, dict)  ⇒ 读到画像。
+        失败不抛(调用方按 read_ok 决定退避)。
 
         Args:
             user_id: 用户 ID
-
-        Returns:
-            加载到的画像聚合(dict),或 None(无 / 失败)
         """
         if not user_id:
-            return None
+            return True, None
         user_uuid = _parse_uuid(user_id)
         if user_uuid is None:
-            return None
+            return True, None
         try:
             pool = await _get_pool()
             async with pool.acquire() as conn:
@@ -483,23 +534,24 @@ class UserProfileBuilder:
                 )
         except Exception as e:
             logger.warning(
-                "[user_profile] load_profile 失败(user=%s 降级空): %s",
+                "[user_profile] _try_load_profile 读取失败(user=%s,不固化为无画像): %s",
                 user_id, e,
             )
-            return None
+            return False, None
         if not row:
-            return None
+            return True, None  # 权威的空:该用户还没有画像行
         try:
             profile = json.loads(row["profile"])
             if isinstance(profile, dict):
                 self._profiles[user_id] = profile
-                return profile
+                return True, profile
         except (json.JSONDecodeError, TypeError) as e:
             logger.warning(
-                "[user_profile] load_profile JSON 解析失败(user=%s): %s",
+                "[user_profile] _try_load_profile JSON 解析失败(user=%s): %s",
                 user_id, e,
             )
-        return None
+        # 行在、内容读不出来 ⇒ 算"读不到"(不得固化成"这个用户没有画像")
+        return False, None
 
     async def load_all_profiles(self, limit: int = 1000) -> int:
         """启动时从 DB 全量 hydrate 用户画像到内存。
