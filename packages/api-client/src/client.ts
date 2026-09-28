@@ -663,20 +663,22 @@ export async function fetchApi<T>(
         try {
           const result = await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
           // 401 自动续期(2026-08-06):access token 过期 → 静默刷新 → 重试一次
-          if (
-            'status' in result &&
-            result.status === 401 &&
-            !authRetried &&
-            !isAuthEndpoint(normalizedUrl)
-          ) {
-            const newToken = await refreshAccessTokenOnce()
-            if (newToken) {
-              headers['Authorization'] = `Bearer ${newToken}`
-              authRetried = true
-              continue
+          if ('status' in result && result.status === 401 && !isAuthEndpoint(normalizedUrl)) {
+            if (authRetried) {
+              // 续期拿到了新 token、重试**仍然 401** ⇒ 新凭据也被服务端拒 = 会话真死了。
+              // 这一格此前是静默的:`!authRetried` 把整个 401 块跳过,连通知都不发 ——
+              // 而它恰恰是最不可恢复的那一种 401(真机实测:能力上报每 60s 重复,永远不进登录页)。
+              notifyUnauthorized(normalizedUrl, restOptions.method)
+            } else {
+              const newToken = await refreshAccessTokenOnce()
+              if (newToken) {
+                headers['Authorization'] = `Bearer ${newToken}`
+                authRetried = true
+                continue
+              }
+              // 401 且续期没拿到 token(未注入续期实现 / 续期失败)→ 通知端内(2026-09-25)
+              notifyUnauthorized(normalizedUrl, restOptions.method)
             }
-            // 401 且续期没拿到 token(未注入续期实现 / 续期失败)→ 通知端内(2026-09-25)
-            notifyUnauthorized(normalizedUrl, restOptions.method)
           }
           return result as ApiResult<T>
         } catch (err) {
@@ -715,6 +717,10 @@ export async function fetchApi<T>(
           result = await circuitBreaker.execute(async () => {
             return await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
           })
+          // 与无熔断分支同一出口:重试仍 401 = 新凭据也被拒,必须通知(2026-09-27)
+          if ('status' in result && result.status === 401) {
+            notifyUnauthorized(normalizedUrl, restOptions.method)
+          }
         } else {
           // 401 且续期没拿到 token → 通知端内(与上方无熔断分支同一出口,2026-09-25)
           notifyUnauthorized(normalizedUrl, restOptions.method)
@@ -2661,10 +2667,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           return
         }
         if (!data || data === '[DONE]') return
+        let invoked = false
         try {
           const json = JSON.parse(data) as Record<string, unknown>
           if (json?.type !== 'tool-delegate') return
           if (typeof json.session_id !== 'string' || typeof json.tool_call_id !== 'string') return
+          invoked = true
           await opts.onToolDelegate!({
             session_id: json.session_id,
             tool_call_id: json.tool_call_id,
@@ -2676,8 +2684,18 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             iteration: typeof json.iteration === 'number' ? json.iteration : 0,
             type: 'tool-delegate',
           })
-        } catch {
-          /* 非 JSON 或非 tool-delegate 事件忽略;工具执行错误已通过 postToolResult 回传 */
+        } catch (err) {
+          // 原语义保留:**没被识别成本帧**(非 JSON / 缺字段)一律静默跳过,不中断读流。
+          // 但"回调已经跑起来了"再抛,就是**回传没送达** —— 后端协程还在等,静默咽掉等于
+          // 让整轮工具链默默等到超时(§5e「失败必须响」同一条禁令;2026-08-06 那句
+          // "抛错让调用方重试"在这一层从来没有出口,调用方拿不到任何信号)。
+          // 处置:不中断流(与既有设计一致),但必须喊出来,且喊的内容要能定位是哪一轮。
+          if (invoked) {
+            console.error(
+              '[streamChat] tool-delegate 回传未送达(后端将等到超时):',
+              err instanceof Error ? err.message : err,
+            )
+          }
         }
       }
 
@@ -3656,6 +3674,34 @@ function toWireError(error: string | null): string | null {
   return parts.join(' <- ')
 }
 
+/**
+ * 直连 ai-service 的上行应答端点**共用的**"这一趟到底被接受了没有"判据(唯一实现):
+ * `tool-result` / `approval-response` / `form-response` 对"会话不存在或已过期""条目不存在"
+ * 回的都是 **HTTP 200 + `{ok:false,error:…}`**(见 `apps/ai-service/app/routers/llm.py`
+ * 里各端点头两个 `return {"ok": False, …}`)。只看 `resp.ok` 会把"没送达"读成"已送达"——
+ * 三处的下游后果完全同形:等待方(工具协程 / 审批协程 / 表单协程)一直等到超时,
+ * 而界面上没有任何一条失败可看(与守门 134「改了 0 行也回成功」同一条病)。
+ *
+ * 包体不可解析(JSON 之外,如网关截出的 HTML 错误页)**也按未接受处理**:
+ * 读不出"被接受"就不是被接受 —— 把"判不出"写成"成功了"是本仓最高频的失效型。
+ *
+ * ⚠️ 本函数在 2026-09-28 被 `7baa8ab0e7`(一枚**纯 web UI** 的提交)随 `client.ts` 的
+ * 旧基线整文件回写**一起删掉过**(连同下面三条调用点与 streamChat 的 `invoked` 诊断),
+ * 而 `git status`、diff 行数与其余守门全都不响 —— 台账 G-593 当时把它记成"守卫没跟上实现",
+ * 逐行取史后才定性:**是实现被回写,不是测试超前**。还原本判据即那次静默回滚的清偿。
+ */
+async function assertAiServiceAccepted(resp: Response, context: string): Promise<void> {
+  let body: { ok?: boolean; error?: string } | null = null
+  try {
+    body = (await resp.json()) as { ok?: boolean; error?: string }
+  } catch {
+    body = null
+  }
+  if (!body || body.ok !== true) {
+    throw new Error(`${context} not accepted: ${body?.error ?? '响应体不是可判定的 JSON'}`)
+  }
+}
+
 export async function postToolResult(
   sessionId: string,
   toolCallId: string,
@@ -3692,6 +3738,7 @@ export async function postToolResult(
       `postToolResult failed: HTTP ${resp.status} (session=${sessionId}, tool=${toolCallId})${detail ? `: ${detail}` : ''}`,
     )
   }
+  await assertAiServiceAccepted(resp, `postToolResult (session=${sessionId}, tool=${toolCallId})`)
 }
 
 /**
@@ -3754,6 +3801,10 @@ export async function postToolApprovalResponse(input: {
       `postToolApprovalResponse failed: HTTP ${resp.status} (session=${input.sessionId}, approval=${input.approvalId})${detail ? `: ${detail}` : ''}`,
     )
   }
+  await assertAiServiceAccepted(
+    resp,
+    `postToolApprovalResponse (session=${input.sessionId}, approval=${input.approvalId})`,
+  )
 }
 
 /**
@@ -3833,6 +3884,10 @@ export async function postFormResponse(sessionId: string, event: FormResponseEve
       `postFormResponse failed: HTTP ${resp.status} (session=${sessionId}, request=${event.requestId})${detail ? `: ${detail}` : ''}`,
     )
   }
+  await assertAiServiceAccepted(
+    resp,
+    `postFormResponse (session=${sessionId}, request=${event.requestId})`,
+  )
 }
 
 /** D151(2026-09-29 立,用户批「默认开 + 单次等待 300s」):把用户键入送回正在等的命令。
