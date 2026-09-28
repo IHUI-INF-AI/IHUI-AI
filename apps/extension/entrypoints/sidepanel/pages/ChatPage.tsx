@@ -39,7 +39,7 @@ import { applyToolCallStart, applyToolDelta } from '../../../lib/tool-call-frame
 // 不在端内重写 —— 服务端委托分支(`if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS`)
 // 读的就是这里预加载出来的那份文本,口径分叉的症状是"同一句话在 web 委托、在扩展不委托"。
 import { executeWorkspaceTool } from '@ihui/shared/chat/workspace-tool-executor'
-import { loadWorkspaceContext } from '@ihui/shared/chat/workspace-context-loader'
+import { loadWorkspaceContextCached } from '@ihui/shared/chat/workspace-context-loader'
 import { getActiveWorkspace } from '../../../lib/workspace-store'
 import { WorkspacePicker } from '../components/WorkspacePicker'
 import { ToolApprovalBanner } from '../components/ToolApprovalBanner'
@@ -339,19 +339,14 @@ export default function ChatPage() {
     const toolStartTimes = new Map<string, number>()
 
     // 票㉑:活动工作区决定两件事 —— 请求带不带 workspaceContext(服务端委托开关),
-    // 以及本端有没有执行面来回传 tool-delegate。预加载失败(句柄失效/目录被搬走)时
-    // 按"没有工作区"走,而不是硬塞一份空上下文:空串在 Python 里为假,那恰好就是委托分支的反面。
+    // 以及本端有没有执行面来回传 tool-delegate。
+    // `loadWorkspaceContextCached` 自己就把"句柄失效/目录被搬走"折成 undefined(共享层那一份
+    // 缓存策略:失败不写缓存、命中前按全量文件签名校验),所以这里不再包 try ——
+    // 空串在 Python 里为假,那恰好就是委托分支的反面,undefined 就是如实降级。
     const workspace = getActiveWorkspace()
-    let workspaceContext: string | undefined
-    if (workspace) {
-      try {
-        workspaceContext = (await loadWorkspaceContext(workspace.handle)).text
-      } catch {
-        // 句柄失效 / 目录被移动或删除:这轮按"无工作区"发,不硬塞空上下文
-        // (空串在 Python 为假 ⇒ 委托分支不进,工具会落回服务端执行面,与不带头一样要如实降级)
-        workspaceContext = undefined
-      }
-    }
+    const workspaceContext = workspace
+      ? await loadWorkspaceContextCached(workspace.handle)
+      : undefined
 
     const opts: StreamChatOptions = {
       model,
