@@ -18,7 +18,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 // 遮噪只引这份权威实现(§3"两处实现必漂移"是本仓记过最多次的失败型,测试不得再抄一份)
-import { maskComments } from '../../scripts/lib/code-mask.mjs';
+import { maskComments } from '../../../scripts/lib/code-mask.mjs';
 import {
   SUBAGENT_LIFECYCLE_STATUSES,
   SUBAGENT_TERMINAL_STATUSES,
