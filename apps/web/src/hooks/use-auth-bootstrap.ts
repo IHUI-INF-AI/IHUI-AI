@@ -11,6 +11,8 @@ import { useUserStore } from '@/stores/user'
 import { getAuthCookie } from '@/lib/cookie-utils'
 import { fetchApi } from '@/lib/api'
 import { refreshAccessTokenOnce } from '@ihui/api-client'
+import { canSilentlyReLogin } from '@ihui/shared/auth/auto-login-policy'
+import { isSessionLoggedOut } from '@/lib/session-marker'
 
 export interface UseAuthBootstrapReturn {
   ready: boolean
@@ -64,6 +66,17 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
   React.useEffect(() => {
     let cancelled = false
     async function bootstrap() {
+      // 用户主动登出 / 会话失效后,冷启动**不得**再用 httpOnly refresh cookie 静默登回。
+      // 判据住在 @ihui/shared/auth/auto-login-policy(登出标记优先),这里只注入 web 的落盘实现;
+      // 标记由 stores/auth.ts 的 logout()/setToken(null) 写入,由下一次真正的登录写入凭据清除。
+      // 没有这一道:刷新页面后内存 refreshToken 为空 ⇒ logout 拿不到 rt ⇒ 不调 /auth/logout ⇒
+      // 服务端 cookie 仍有效 ⇒ 下面的 tryRefresh() 成功,用户"退出去了又自己回来"。
+      if (!canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })) {
+        // 与"刷新失败"同处置:清掉持久化的幽灵 isAuthenticated 标志位后停在未登录态
+        logout()
+        setReady(true)
+        return
+      }
       // P2-18 修复(2026-08-06):auth_token 已 httpOnly,前端 JS 读不到 cookie,
       // 不再从 document.cookie 恢复 token。改为无内存 token 时直接静默刷新
       // (POST /api/auth/refresh 不带 refreshToken body,靠 httpOnly cookie 自动附带)。

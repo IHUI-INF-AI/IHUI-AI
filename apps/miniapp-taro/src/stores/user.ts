@@ -19,7 +19,9 @@ import {
   getUserInfo,
   setUserInfo as persistUserInfo,
   clearAuth,
+  isSessionLoggedOut,
 } from '../utils/auth'
+import { canSilentlyReLogin } from '@ihui/shared/auth/auto-login-policy'
 import type { UserInfo } from '../utils/auth'
 import * as api from '../api'
 import { wechatLogin, type WechatLoginResult } from '../utils/wechat-login'
@@ -81,6 +83,9 @@ const userStoreApi = createStore<UserState>((set) => ({
   trySilentWechatLogin: async () => {
     // 已登录则不重复 wx.login(避免无谓的网络请求)
     if (getToken()) return null
+    // 静默登录的准入闸(与 app.tsx 冷启动那一条同一个判据,不是两份实现):
+    // 用户主动登出后不得自己登回去。显式点击的 loginByWechat / loginByMiniApp 不经这一闸。
+    if (!canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })) return null
     try {
       const result = await wechatLogin({ withProfile: false })
       set({ token: getToken(), user: getUserInfo(), refreshToken: getRefreshToken() })
@@ -98,6 +103,8 @@ const userStoreApi = createStore<UserState>((set) => ({
   trySilentMiniAppLogin: async () => {
     // 已登录则不重复登录(避免无谓的网络请求)
     if (getToken()) return null
+    // 同 trySilentWechatLogin:静默路径一律过登出标记闸(同一个共享判据,不是第二份实现)
+    if (!canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })) return null
     try {
       const result = await miniAppLogin({ withProfile: false })
       set({ token: getToken(), user: getUserInfo(), refreshToken: getRefreshToken() })

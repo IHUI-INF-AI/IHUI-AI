@@ -191,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
     podiumAvatar: {
       width: 48,
       height: 48,
-      borderRadius: 48 / 2, // radius-exempt: 领奖台头像几何正圆(48dp 直径/2)
+      borderRadius: 48 / 2,
       borderWidth: 2,
       alignItems: 'center',
       justifyContent: 'center',
@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     listAvatar: {
       width: 44,
       height: 44,
-      borderRadius: 44 / 2, // radius-exempt: 榜单行头像几何正圆(44dp 直径/2)
+      borderRadius: 44 / 2,
       borderWidth: 1.5,
       alignItems: 'center',
       justifyContent: 'center',
