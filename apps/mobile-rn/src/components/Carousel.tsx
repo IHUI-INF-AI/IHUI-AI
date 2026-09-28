@@ -11,7 +11,7 @@
  * 共享类型 CarouselItem + 共享 hook useAutoPlay 已下沉到 packages,
  * 消除 mobile-rn / miniapp-taro 两端类型与自动播放逻辑重复。
  */
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Image,
   ScrollView,
@@ -45,38 +45,61 @@ const toUnit = (px: number) => px
 
 const DEFAULT_HEIGHT = carouselDefaultHeightPx()
 
+/** 失败图源集合的初始值:模块级常量,避免每次 render 造一个新 Set 打穿 useMemo 依赖。 */
+const NO_FAILED_SOURCES: ReadonlySet<string> = new Set<string>()
+
 export default function Carousel({
   banner,
   height = DEFAULT_HEIGHT,
   autoplayInterval = 3000,
   onItemPress,
 }: CarouselProps) {
-  const { current, setCurrent } = useAutoPlay(
-    banner?.length ?? 0,
-    autoplayInterval,
-    !!banner && banner.length > 1,
+  /**
+   * 图源加载失败的项**整项不渲染**(内容级降级),而不是在营销位摆一枚故障图形。
+   *
+   * 成因(真机拍到的「智能体」tab 首屏,像素归因见交付报告):轮播的图来自后端字段
+   * (`agents.avatar` / `carousels.imageUrl` / `lessons.coverImage`),这些行里存的是
+   * picsum.photos 这类境外随机图服务,国内移动网络可达性不稳 → 取不到图。
+   * RN `<Image>` 失败时自身不产出任何占位,所以这一格此前的表现是"营销位空着";
+   * 而把它摘掉才是这里要的处置:轮播是营销位,少一张卡远好过露一个错误态。
+   * 键取 uri 而非下标 —— 数据换一批后同一 uri 仍应继续被摘除,下标则会错位。
+   */
+  const [failedSources, setFailedSources] = useState<ReadonlySet<string>>(NO_FAILED_SOURCES)
+  const markSourceFailed = useCallback((uri: string) => {
+    setFailedSources((prev) => (prev.has(uri) ? prev : new Set<string>(prev).add(uri)))
+  }, [])
+
+  const slides = useMemo(
+    () => (banner ?? []).filter((item) => !failedSources.has(item.img)),
+    [banner, failedSources],
   )
+
+  const { current, setCurrent } = useAutoPlay(slides.length, autoplayInterval, slides.length > 1)
   const scrollRef = useRef<ScrollView>(null)
   const { width } = useWindowDimensions()
+
+  // 有项因失败被摘掉后,current 可能暂时越界(自动播放的下一跳会自己取模收敛),
+  // 这里只把这一帧的落点夹回首项,不做任何位移补偿。
+  const activeIndex = current < slides.length ? current : 0
 
   // current 变化时滚动到对应位置(useAutoPlay 内部已驱动 current 自动变化)
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({ x: current * width, animated: true })
+      scrollRef.current.scrollTo({ x: activeIndex * width, animated: true })
     }
-  }, [current, width])
+  }, [activeIndex, width])
 
   const onScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const idx = Math.round(e.nativeEvent.contentOffset.x / width)
-      if (idx !== current && idx >= 0 && idx < banner.length) {
+      if (idx !== current && idx >= 0 && idx < slides.length) {
         setCurrent(idx)
       }
     },
-    [current, width, banner.length, setCurrent],
+    [current, width, slides.length, setCurrent],
   )
 
-  if (!banner || banner.length === 0) {
+  if (slides.length === 0) {
     // 守门 128:此占位文案(text-xs=12)在小程序侧**没有对照元素** —— 小程序空列表 return null。
     // 它当前与小程序叠加层的 p-3/text-xs 数值巧合相消,不是两端同值;别把这一行读成已收口档
     // (映射与裁决依据见 @ihui/shared/ui/carousel-spec 头注,O81)。
@@ -103,14 +126,18 @@ export default function Carousel({
         onMomentumScrollEnd={onScrollEnd}
         style={StyleSheet.absoluteFill}
       >
-        {banner.map((item, index) => (
+        {slides.map((item, index) => (
           <TouchableOpacity
             key={index}
             activeOpacity={0.9}
             onPress={() => onItemPress?.(item, index)}
             style={{ width, height }}
           >
-            <Image source={{ uri: item.img }} style={{ width, height, resizeMode: 'cover' }} />
+            <Image
+              source={{ uri: item.img }}
+              onError={() => markSourceFailed(item.img)}
+              style={{ width, height, resizeMode: 'cover' }}
+            />
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -118,11 +145,11 @@ export default function Carousel({
       {/* 指示器:容器结构与点的宽高一律取 carousel-spec(与小程序端同一份档),
           本文件只留配色与圆角两个端内落点(圆角归守门 77、配色归 tokens 派生链)。 */}
       <View style={carouselIndicatorWrapStyle(toUnit)}>
-        {banner.map((_, index) => (
+        {slides.map((_, index) => (
           <View
             key={index}
-            style={carouselDotStyle(toUnit, index === current)}
-            className={index === current ? 'bg-white rounded-md' : 'bg-white/50 rounded-sm'}
+            style={carouselDotStyle(toUnit, index === activeIndex)}
+            className={index === activeIndex ? 'bg-white rounded-md' : 'bg-white/50 rounded-sm'}
           />
         ))}
       </View>
