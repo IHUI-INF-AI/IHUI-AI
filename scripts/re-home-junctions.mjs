@@ -45,7 +45,11 @@ import {
   rmSync,
   statSync,
   writeFileSync,
+  openSync,
+  readSync,
+  closeSync,
 } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -124,6 +128,56 @@ export function sameFingerprint(a, b) {
     if (!b.has(k) || b.get(k) !== v) return false
   }
   return true
+}
+
+/** 分块算 sha256(不把整个文件读进内存 —— .cargo 里有数百 MB 的单文件)。读不到返回 null。 */
+export function digestFile(p) {
+  const h = createHash('sha256')
+  const buf = Buffer.alloc(1 << 20)
+  let fd
+  try {
+    fd = openSync(p, 'r')
+    for (;;) {
+      const n = readSync(fd, buf, 0, buf.length, null)
+      if (n <= 0) break
+      h.update(buf.subarray(0, n))
+    }
+    return h.digest('hex')
+  } catch {
+    return null
+  } finally {
+    if (fd !== undefined) {
+      try {
+        closeSync(fd)
+      } catch {
+        /* 关闭失败不影响已算出的摘要 */
+      }
+    }
+  }
+}
+
+/**
+ * 内容级对账,只比"两侧同尺寸"的文件。
+ *
+ * 为什么必须有它:`fingerprintTree` 记的是 `相对路径 → 字节数`,而 §26 承诺的是
+ * "逐文件(相对路径 + **字节**)校验" —— 同尺寸不同内容可以一路通过,然后源被删掉,
+ * 删的还是别家工具的真实数据(`.cargo`/`.codex`)。**尺寸已不同**的在 sameFingerprint
+ * 那一层就出局,所以本函数的 IO 与"改道本身"同量级,且只对"真的要删源"的项跑一次
+ * (守护每 2 分钟一趟,不能每次全量哈希 —— 这也是不把它塞进 fingerprintTree 的理由)。
+ *
+ * 任一侧读不到 = **不能证明相同** ⇒ 计入不同,不猜"应该一样"。攒够一条即提前停,
+ * 因为结论已经成立,不必把几百 GB 读完。
+ */
+export function contentDiff(rootA, rootB, fpA, fpB) {
+  const mismatched = []
+  for (const [rel, size] of fpA) {
+    if (!fpB.has(rel) || fpB.get(rel) !== size) continue
+    const a = digestFile(join(rootA, rel))
+    const b = digestFile(join(rootB, rel))
+    if (a === null || b === null || a !== b) mismatched.push(rel)
+    if (mismatched.length >= 20) break
+  }
+  return mismatched
 }
 
 function run(cmd, args, timeout = STEP_TIMEOUT_MS) {
@@ -263,6 +317,20 @@ export function repairOne(srcPath, dstPath, { dry = false, resetDst = false } = 
       }
     if (residueOnly) resetDst = true // 下一轮先清掉自己造的残留
   }
+
+  // 2b) **删源之前**的内容级对账。上面那层只比"路径 + 字节数",同尺寸不同内容会一路通过,
+  //     而这一层的下一步就是把源删掉 —— 校验只到"大小一致"不等于 §26 承诺的逐字节校验。
+  //     不一致 ⇒ 不建 junction、不改名、不删任何东西(失败即退避由 shouldCool 统一判)。
+  const contentMismatch = contentDiff(srcPath, dstPath, snap, fingerprintTree(dstPath))
+  if (contentMismatch.length > 0)
+    return {
+      src: srcPath,
+      action: 'verify-content-failed',
+      ok: false,
+      note:
+        `尺寸全等但内容不同(${contentMismatch.length} 个起,例:${contentMismatch.slice(0, 3).join(', ')})` +
+        ' ⇒ 不建 junction、不删源;多半是复制期被写入或目标指向了另一个已有数据的目录,交人工判',
+    }
 
   // 3) 源改名(占用中的目录改名会失败 = 安全失败)
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -493,6 +561,55 @@ function selfTest() {
     push('同内容指纹相等', sameFingerprint(fp, fingerprintTree(join(root, 'a'))))
     writeFileSync(join(root, 'a', 'b', 'f.txt'), '12', 'utf8')
     push('字节数变了必须不等', !sameFingerprint(fp, fingerprintTree(join(root, 'a'))))
+
+    // 内容级对账(2026-09-28 A1):指纹只到"字节数",同尺寸不同内容必须被这一层拦下。
+    mkdirSync(join(root, 'c1'), { recursive: true })
+    mkdirSync(join(root, 'c2'), { recursive: true })
+    writeFileSync(join(root, 'c1', 'same-size.txt'), 'AAAA', 'utf8')
+    writeFileSync(join(root, 'c2', 'same-size.txt'), 'BBBB', 'utf8') // 同尺寸、不同字节
+    writeFileSync(join(root, 'c1', 'other.txt'), 'xxxxxxxx', 'utf8')
+    writeFileSync(join(root, 'c2', 'other.txt'), 'yyyyyyyy', 'utf8')
+    const f1 = fingerprintTree(join(root, 'c1'))
+    const f2 = fingerprintTree(join(root, 'c2'))
+    push(
+      '阳性对照:尺寸全等而内容不同必须被点名',
+      f1.size === 2 &&
+        sameFingerprint(f1, f2) === true && // 老那一层看不出问题 —— 这正是缺陷存在的原因
+        contentDiff(join(root, 'c1'), join(root, 'c2'), f1, f2).length === 2,
+      JSON.stringify(contentDiff(join(root, 'c1'), join(root, 'c2'), f1, f2)),
+    )
+    const f3 = fingerprintTree(join(root, 'c1'))
+    push(
+      '反向对照:尺寸已不同时本层不重复报(交给 sameFingerprint,否则两处各喊一次)',
+      contentDiff(join(root, 'c1'), join(root, 'c1'), f3, new Map([['other.txt', 1]])).length === 0,
+    )
+    push(
+      '读不到 = 不能证明相同 ⇒ 计入不同(不猜"应该一样")',
+      contentDiff(
+        join(root, 'c1'),
+        join(root, 'c1'),
+        new Map([['ghost.txt', 4]]),
+        new Map([['ghost.txt', 4]]),
+      ).length === 1,
+    )
+    push(
+      '摘要稳定且能区分内容',
+      digestFile(join(root, 'c1', 'same-size.txt')) ===
+        digestFile(join(root, 'c1', 'same-size.txt')) &&
+        digestFile(join(root, 'c1', 'same-size.txt')) !==
+          digestFile(join(root, 'c2', 'same-size.txt')),
+    )
+    // 装车锁:闸门必须真的排在"改名/删源"之前 —— 只测函数等于测自己,所以这里锁调用顺序。
+    push(
+      'repairOne 体内 contentDiff 必须排在源改名之前(否则内容校验对删除不起作用)',
+      (() => {
+        const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+        const body = src.slice(src.indexOf('export function repairOne'))
+        const atGate = body.indexOf('contentDiff(')
+        const atRename = body.indexOf('renameSync(srcPath, stash)')
+        return atGate > 0 && atRename > atGate
+      })(),
+    )
     push(
       'absent 项判 ok 且不动盘',
       repairOne(join(root, 'nope'), join(root, 'dst')).action === 'absent',
