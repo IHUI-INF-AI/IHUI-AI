@@ -64,30 +64,39 @@ class FakeClient:
 
 
 class FakeManager:
+    """只实现装配链会碰到的那四个出口 —— 刻意**不**实现 `client_status` / `list_registered`
+    等端点侧方法:测试打到 AttributeError 就说明装配链越过了它该用的收窄出口。
+    """
+
     def __init__(self, external: list[Any]) -> None:
         self.external = external
         self.client = FakeClient()
+        #: 装配链每次枚举/兜底调用时收到的主体 —— 断言"主体真的传到了"用,不是摆设。
+        # 刻意做成实例属性:类属性会让多个测试用例共用一份账,断言就变成跨用例串账。
+        self.seen_callers: list[str] = []
 
-    async def list_available_tools_unscoped(self) -> list[Any]:
-        """装配链现在调的是这一支(手里只有角色、没有主体)—— 见 agents.py 的登记注释。"""
-        return self.external
+    def is_visible(self, name: str, caller_user_id: str) -> bool:
+        """夹具内的可见性:以 `own-` 开头的算"别人那台"(对任何 caller 都不可见)。
+
+        刻意**不**按 `caller_user_id` 放宽:那会让"漏传主体(空串)"与"传了主体"两种调用
+        得到同一个答案,本文件的 `seen_callers` 断言就退化成只查"参数有没有写"。真实判据
+        (自己注册 + 部署级)由 `tests/test_mcp_client.py` 那侧覆盖。
+        """
+        return not name.startswith("own-")
 
     async def list_available_tools_async(self, caller_user_id: str) -> list[Any]:
-        """端点侧的收窄版。装配链**不该**调它:那里拿不到 user_id,调了就等于偷偷用空串。"""
-        raise AssertionError(f"装配链不应走按主体收窄的枚举(caller={caller_user_id!r})")
+        """G-371 格①之后,装配链走的就是这一支(带主体),所以这里记账而不是抛错。"""
+        self.seen_callers.append(caller_user_id)
+        return self.external
 
     def get_client(self, name: str) -> FakeClient | None:
         return self.client if name.startswith("srv-") else None
 
-    async def call_external_tool_unscoped(
-        self, server_name: str, tool_name: str, args: dict[str, Any]
-    ) -> dict[str, Any]:
-        return {"ok": True, "via": "manager", "tool": tool_name}
-
     async def call_external_tool(
         self, server_name: str, tool_name: str, args: dict[str, Any], *, caller_user_id: str
     ) -> dict[str, Any]:
-        raise AssertionError("装配链不应走按主体收窄的调用出口")
+        self.seen_callers.append(caller_user_id)
+        return {"ok": True, "via": "manager", "tool": tool_name, "caller": caller_user_id}
 
 
 def _install_manager(monkeypatch: pytest.MonkeyPatch, external: list[Any]) -> FakeManager:
@@ -110,14 +119,14 @@ def _install_manager(monkeypatch: pytest.MonkeyPatch, external: list[Any]) -> Fa
 @pytest.mark.asyncio
 async def test_no_external_server_degrades(monkeypatch: pytest.MonkeyPatch) -> None:
     _install_manager(monkeypatch, [])
-    pool = await _build_supertool_pool(None)
+    pool = await _build_supertool_pool(None, "user-a")
     assert pool is None  # 无外部 server → 走现有路径
 
     enabled = agents_router._is_supertool_enabled()
     monkeypatch.setattr(agents_router, "_is_supertool_enabled", lambda: False)
-    baseline = await _build_loop_v2_tools(None)
+    baseline = await _build_loop_v2_tools(None, user_id="user-a")
     monkeypatch.setattr(agents_router, "_is_supertool_enabled", lambda: enabled)
-    without = await _build_loop_v2_tools(None)
+    without = await _build_loop_v2_tools(None, user_id="user-a")
     assert [t.name for t in baseline] == [t.name for t in without]
 
 
@@ -132,7 +141,7 @@ async def test_aggregator_failure_degrades(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(
         "app.services.mcp_tool_aggregator.MCPSuperToolAggregator", BoomAgg
     )
-    pool = await _build_supertool_pool(None)
+    pool = await _build_supertool_pool(None, "user-a")
     assert pool is None  # 聚合异常 → 降级不阻断
 
 
@@ -154,7 +163,7 @@ async def test_pool_unifies_builtin_and_external(
             ),
         ],
     )
-    pool = await _build_supertool_pool(None)
+    pool = await _build_supertool_pool(None, "user-a")
     assert pool is not None
     names = [pt.key for pt in pool.tools]
     assert "ext_only" in names
@@ -174,7 +183,7 @@ async def test_loop_tools_include_external_and_route(
     manager = _install_manager(
         monkeypatch, [FakeExternalTool(name="ext_only", description="外部独有工具")]
     )
-    tools = await _build_loop_v2_tools(None)
+    tools = await _build_loop_v2_tools(None, user_id="user-a")
     by_name = {t.name: t for t in tools}
     assert "ext_only" in by_name
     assert "read_file" in by_name  # 内置工具仍在统一清单内
@@ -210,16 +219,47 @@ async def test_loop_tools_include_external_and_route(
 async def test_supertool_invoke_manager_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """get_client 返回 None 时走 manager 的**不判属主**兜底出口(装配链没有主体)。"""
-    manager = _install_manager(monkeypatch, [])
+    """get_client 返回 None 时走 manager 的兜底出口 —— 它同样要求主体(G-371 格①)。"""
+    _install_manager(monkeypatch, [])
 
-    async def via_manager(server: str, tool: str, args: dict[str, Any]) -> dict[str, Any]:
-        return {"ok": True, "via": "manager", "tool": tool}
-
-    monkeypatch.setattr(manager, "call_external_tool_unscoped", via_manager)
     # server 名不带 "srv-" 前缀 → get_client 返回 None → 走 manager 兜底
-    out = await _supertool_invoke("legacy", "t", {})
-    assert out == {"ok": True, "via": "manager", "tool": "t"}
+    out = await _supertool_invoke("legacy", "t", {}, 0, "user-a")
+    assert out == {"ok": True, "via": "manager", "tool": "t", "caller": "user-a"}
+
+
+@pytest.mark.asyncio
+async def test_supertool_invoke_refuses_foreign_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """外部源那一支的属主闸:不可见的 server **调不到**,且回包与"没这台"同模板。
+
+    这条防的是"枚举收窄了但调用还开着"—— 那才是真正能把别人的机器上的凭据借走的那一步。
+    与 `未知 MCP Server` 同形是刻意的:差异本身会变成存在性预言机。
+    """
+    manager = _install_manager(monkeypatch, [])
+    out = await _supertool_invoke("own-bob", "t", {}, 0, "user-a")
+    assert out == {"ok": False, "error": "未知 MCP Server: own-bob"}
+    assert manager.seen_callers == [], "不可见的 server 不该走到 manager 兜底调用"
+
+
+@pytest.mark.asyncio
+async def test_assembly_chain_threads_the_principal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """格①的落点判据:装配链把**会话主体**传到枚举与兜底调用,而不是留空串。
+
+    空串不是"没限制",是"只看得到部署级"—— 所以漏传会让用户自己注册的外部 server 静默
+    从会话里消失,而账面(typecheck / 其余门)一切正常。这条断言防的就是"改了签名但调用点忘了传"。
+    """
+    manager = _install_manager(monkeypatch, [FakeExternalTool(name="ext_only", description="d")])
+    await _build_supertool_pool(None, "user-z")
+    assert manager.seen_callers == ["user-z"], manager.seen_callers
+
+    await _build_loop_v2_tools(None, user_id="user-y")
+    assert manager.seen_callers[-1] == "user-y", manager.seen_callers
+
+    await _supertool_invoke("legacy", "t", {}, 0, "user-x")
+    assert manager.seen_callers[-1] == "user-x", manager.seen_callers
 
 
 @pytest.mark.asyncio
@@ -232,7 +272,7 @@ async def test_tool_names_filter_applies(monkeypatch: pytest.MonkeyPatch) -> Non
             FakeExternalTool(name="ext_drop", description="d", server_name="srv-a"),
         ],
     )
-    tools = await _build_loop_v2_tools(["ext_keep"])
+    tools = await _build_loop_v2_tools(["ext_keep"], user_id="user-a")
     names = [t.name for t in tools]
     assert "ext_keep" in names
     assert "ext_drop" not in names
