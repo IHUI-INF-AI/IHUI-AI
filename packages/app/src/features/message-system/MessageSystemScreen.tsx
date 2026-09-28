@@ -124,7 +124,6 @@ function createStyles(tk: AppThemeTokens) {
     dot: {
       width: 8,
       height: 8,
-      // radius-role-exempt: 8dp 未读红点须整圆(半径=直径一半),方档化会破坏形状 until 2026-11-26
       borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.DEFAULT,
     },

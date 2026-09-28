@@ -114,7 +114,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     label: { fontSize: 14, color: tk.text.secondary },
-    dot: { width: 8, height: 8, borderRadius: rnRadius.sm }, // radius-role-exempt: 8x8 状态装饰点，radius=高度一半=真圆，不得方档化 until 2026-11-26
+    dot: { width: 8, height: 8, borderRadius: rnRadius.sm }, 
     dotOnline: { backgroundColor: tk.success.DEFAULT },
     dotOffline: { backgroundColor: tk.text.tertiary },
     statusText: { fontSize: 14, fontWeight: '600' },
