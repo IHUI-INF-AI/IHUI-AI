@@ -1243,46 +1243,34 @@ export const WORKSPACE_AGENT_TASK_STATUSES = ['running', 'completed', 'failed', 
 export type WorkspaceAgentTaskStatus = (typeof WORKSPACE_AGENT_TASK_STATUSES)[number]
 
 /**
- * 第二域徽章文案的 i18n 键 —— **单一来源**(与 `TERMINATION_LABEL_KEYS` /
- * `UNRECOGNIZED_STATUS_LABEL_KEY` 同一条规矩:键名只在 types 写一份,端内只经 `i18nLeafKey()`
- * 取末段后喂给已绑定的命名空间;两处各写一遍必然漂,而漂的那一侧表现为"这一档只显示键名")。
- *
- * 立因是守门 151 落地时如实登记的那格残余:`apps/web/src/components/ai/agent-tasks-panel.tsx`
- * 与 `apps/web/src/components/agents/UnifiedTaskDashboard.tsx` 把 `row.status` **原样**渲染进徽章,
- * 于是非中文界面看到的是裸英文值 `running` —— 与守门 74"端内取词缺键回显键名"同型,
- * 只是这里连键都不曾有。本常量把"该取哪个词"钉死在一处,显示侧只许引用它。
- *
- * ⚠️ 命名空间刻意选 `agentTasks`(面板已 `useTranslations('agentTasks')` 绑定),**不新开一格**:
- * 未绑定命名空间的键会被 i18n 死键审计判成孤儿,唯一出路是写进
- * `scripts/i18n-contract-keys.json` —— 而该台账一旦键真被绑定就反过来判"清单腐烂",等于给下一个人留雷。
- *
- * ⚠️ `en` 的 `statusCanceled` 写 **"Canceled"(单 l)是有意的**:它对应本域线上值 `canceled`;
- * `agents.kanban.terminatedCancelled` 那枚 "Cancelled"(双 l)属**第三个域**(`BgAgentStatus`)。
- * 同屏两种拼写不得"顺手统一"—— 那会把两个域的词表并成一张(守门 151 SV2 判的就是这两域不相交)。
- *
- * 新增一档必须**同枚提交**补齐这五语言(AGENTS §30:状态词汇是一等契约),不得写豁免清单消账。
+ * D152(2026-09-29 立,用户拍板「六态」):会话内「目标(goal)」状态机的封闭集 ——
+ * **第三个域**,与上面两个刻意不相交、也不得并集:
+ *  · `AGENT_TASK_STATUSES` 是 Kanban 任务卡的六列(triage/todo/ready/in_progress/blocked/done),
+ *    `blocked`/`done` 在此处**同词不同义**(那两列讲"这张卡卡住了/做完了",这里讲
+ *    "这一会话的目标被阻塞/达成"),把两个域并起来等于改两套对外契约;
+ *  · `WORKSPACE_AGENT_TASK_STATUSES` 是 workspace 进程内任务态(running/completed/…)。
+ * 判据:`scripts/check-agent-status-vocabulary-parity.mjs` 的 SV2 要求登记域两两不相交,
+ * 而 goal 域**不进**那张表(它没有跨语言第二副本 —— 服务端同一份值在
+ * `apps/ai-service/app/services/session_store.py::GOAL_STATUSES`,两处同名常量由
+ * `packages/shared/src/sse/__tests__/contract.test.ts` 的在位断言看护)。
+ * 与 CLI 的 `budget_limited` / 预算帧 critical 档语义对齐(AGENTS §8)。
+ * ⚠️ 新增一档必须同枚提交补齐 `chat.goal.status.*` 五语言词表(AGENTS §19/§30),
+ *    不得端内硬编码中文。
  */
-export const WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS: Record<WorkspaceAgentTaskStatus, string> = {
-  running: 'agentTasks.statusRunning',
-  completed: 'agentTasks.statusCompleted',
-  failed: 'agentTasks.statusFailed',
-  canceled: 'agentTasks.statusCanceled',
-}
+export const GOAL_STATUSES = [
+  'active',
+  'paused',
+  'blocked',
+  'done',
+  'usageLimited',
+  'budgetLimited',
+] as const
 
-/**
- * 取第二域某原始状态值的文案键;**认不出来时返回 null,绝不猜一个已知档**。
- *
- * 为什么必须返回 null 而不是 `statusRunning` 之类的兜底:该字段在端内刻意仍写 `string`
- * (值来自 JSON,服务端加一档时写联合等于让编译期替运行时撒谎),所以线上真会出现登记表之外的值。
- * 把一个没人认得的值翻成"运行中",与 AGENTS §30「钩子无终态不得渲染成"完成"」是同一条禁令的反面 ——
- * 表现是用户按一张假文案决定要不要等待或重跑。
- * 显示侧的正解:`null` ⇒ 原样显示该值并加 `data-*`/注释标记为"未判定",不得用翻译表假装覆盖。
- */
-export function workspaceAgentTaskStatusLabelKey(raw: string): string | null {
-  return (WORKSPACE_AGENT_TASK_STATUSES as readonly string[]).includes(raw)
-    ? WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS[raw as WorkspaceAgentTaskStatus]
-    : null
-}
+/** 下行帧 `goal_updated` 额外允许的目标态:cleared(单帧承载清除,不建第二帧)。 */
+export const GOAL_WIRE_STATUSES = [...GOAL_STATUSES, 'cleared'] as const
+
+export type GoalStatus = (typeof GOAL_STATUSES)[number]
+export type GoalWireStatus = (typeof GOAL_WIRE_STATUSES)[number]
 
 // ---------------------------------------------------------------------------
 // 状态机运行时常量(2026-09-11 2-2 P1:跨端单一来源)
