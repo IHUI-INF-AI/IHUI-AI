@@ -98,7 +98,8 @@
       "dangerous": "⚠ Dangerous command blocked: the command matched danger pattern {pattern}\nIf you really need to run it, set IHUI_YOLO=1",
       "alwaysConfirm": "⚠ Command blocked: it belongs to the \"always confirm\" tier (delete / force push / rebase / release, the hard-to-undo kind), and IHUI_YOLO must not let it pass silently.\nDrop IHUI_YOLO and retry so that you confirm each command."
     },
-    "goalNotAchieved": "Independent verification did not pass: this run must not be reported as complete"
+    "goalNotAchieved": "Independent verification did not pass: this run must not be reported as complete",
+    "truncatedByLength": "Output hit the length limit and was truncated; the reply may be incomplete. Ask me to continue in parts, or raise max_tokens and retry."
   },
   "waiting": {
     "agent": {
