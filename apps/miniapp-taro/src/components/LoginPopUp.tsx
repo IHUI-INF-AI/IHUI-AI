@@ -162,7 +162,7 @@ export default function LoginPopUp({
                 })
               }
             }}
-            className="!p-0 !bg-transparent !border-none rounded-2xl overflow-hidden"
+            className="!p-0 !bg-transparent !border-none rounded-sm overflow-hidden"
             style={{
               width: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
               height: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
