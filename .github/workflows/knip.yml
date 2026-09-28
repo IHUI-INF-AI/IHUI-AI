@@ -51,18 +51,22 @@ jobs:
 
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@v4
 
       - name: Setup pnpm
+        id: setup-pnpm
         uses: pnpm/action-setup@v6
 
       - name: Setup Node
+        id: setup-node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
       - name: Install dependencies
+        id: install
         run: pnpm install --frozen-lockfile
 
       # 2026-09-10 根因修复:此前直接 `pnpm knip`(发现问题即 exit 1),本仓库恒红——
@@ -71,10 +75,29 @@ jobs:
       #   是结构性误报,导致门禁零信号、真实新增死代码被淹没。
       #   改为「棘轮」门禁:不得新增(基线见 knip-baseline.json),清理后可 --update 收紧。
       - name: Run Knip(棘轮:不得新增死代码)
+        id: knip
         run: node scripts/check-knip-ratchet.mjs
 
       # 完整报告仅作信息展示(不阻塞),便于按模块规划清理
       - name: Knip 完整报告(信息性,不阻塞)
+        id: knip-full-report
         if: always()
         run: pnpm knip --no-exit-code
+
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # 立因与行为契约见该脚本头注;边界:只在 failure() 分支跑,不碰上面任何步骤的判据
+      # 严格程度(无 continue-on-error、不删步骤、不扩 permissions、不新增 secret)。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/knip.yml
+          TRIAGE_IDS: checkout setup-pnpm setup-node install knip knip-full-report
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SETUP_PNPM: ${{ steps.setup-pnpm.outcome }}
+          O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
+          O_KNIP: ${{ steps.knip.outcome }}
+          O_KNIP_FULL_REPORT: ${{ steps.knip-full-report.outcome }}
+        run: bash scripts/ci-failure-triage.sh
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
