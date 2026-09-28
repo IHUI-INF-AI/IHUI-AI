@@ -275,4 +275,146 @@ test('面里枚举到 0 文件的端 ⇒ 必须点名未判定(空扫不是通�
     rmScratch(dir)
   }
 })
+
+// ─── N12 一跳解析·能解析的构造面必命中(2026-09-27 判据扩面票,成对正例) ───
+// 单值 const 模板 + 第三实参 method ⇒ 拼真前缀、认 POST、点名到调用行;不得再落未判定。
+test('一跳解析正例:单值 const 模板解析后必须带真 method 进对账并点名', () => {
+  const dir = root()
+  try {
+    emptyBackend(dir)
+    put(
+      dir,
+      'apps/cli/src/commands/n12.ts',
+      [
+        "const API_PREFIX = '/api/n12probe';",
+        'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+        'async function go(baseUrl, x) {',
+        '  const path = `/thing/${encodeURIComponent(x)}`;',
+        "  const resp = await apiRequest(baseUrl, path, { method: 'POST' });",
+        '  return resp',
+        '}',
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir)
+    assert.equal(r.status, 1, `单值 const 解析出的死调用必须判红\n${r.out}`)
+    assert.match(r.out, /POST \/api\/n12probe\/thing\/:param/)
+    assert.match(r.out, /n12\.ts:5/)
+    assert.match(r.out, /· cli:文件 1 \/ 调用 1/)
+    assert.match(r.out, /未判定\(CLI 变量路径调用点\)0 处 —— 变量站点/)
+    assert.doesNotMatch(r.out, /<变量路径>/, '解出来了就不许再点名未判定条目')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── N13 一跳解析·解析不到的仍落未判定(成对反例;红线:不许为降数造路径) ───
+test('一跳解析反例:初始化式是函数调用 ⇒ 仍计未判定并点名原因,不改退出码', () => {
+  const dir = root()
+  try {
+    emptyBackend(dir)
+    put(
+      dir,
+      'apps/cli/src/commands/n13.ts',
+      [
+        "const API_PREFIX = '/api/n13probe';",
+        'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+        'const qs = makeQs(a, b)',
+        'const r = await apiRequest(baseUrl, qs, { apiKey })',
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir)
+    assert.equal(r.status, 0, `解析不出不得判红\n${r.out}`)
+    assert.match(r.out, /未判定\(CLI 变量路径调用点\)1 处/)
+    assert.match(r.out, /n13\.ts:4 —— 初始化式不是字面量/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── N14 三元两分支逐条对账:注册的一支不得被牵连判红,没注册的一支必须点名 ───
+test('三元两分支各判各的:已注册分支放过、未注册分支点名(不是挑一条代表)', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/n14.ts', "server.get('/api/n14probe/list', async () => ({}))\n")
+    put(
+      dir,
+      'apps/cli/src/commands/n14.ts',
+      [
+        "const API_PREFIX = '/api/n14probe';",
+        'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+        'async function go(baseUrl, session, apiKey) {',
+        '  const path = session',
+        '    ? `/session/${encodeURIComponent(session)}`',
+        '    : `/list?pageSize=${N}`;',
+        '  const resp = await apiRequest(baseUrl, path, { apiKey });',
+        '  return resp',
+        '}',
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir)
+    assert.equal(r.status, 1, `未注册的那条分支必须判红\n${r.out}`)
+    assert.match(r.out, /GET \/api\/n14probe\/session\/:param/)
+    assert.doesNotMatch(r.out, /n14probe\/list @/, '已注册分支不得被连片判红')
+    assert.match(r.out, /未判定\(CLI 变量路径调用点\)0 处 —— 变量站点/, '两分支都解析掉了,只剩 0 处')
+    assert.doesNotMatch(r.out, /<变量路径>/, '解出来了就不许再点名未判定条目')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── N15 import 一跳端到端:目标文件在面上 ⇒ 常量路径进对账并点到调用行 ───
+test('import 一跳:同仓相对路径的导出常量必须被拼到调用点名下', () => {
+  const dir = root()
+  try {
+    emptyBackend(dir)
+    put(dir, 'apps/cli/src/lib/n15paths.ts', "export const HOP_PATH = '/api/n15probe/hop';\n")
+    put(
+      dir,
+      'apps/cli/src/commands/n15.ts',
+      [
+        "import { HOP_PATH } from '../lib/n15paths.js';",
+        "const API_PREFIX = '/api/n15probe';",
+        'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+        'const resp = await apiRequest(baseUrl, HOP_PATH, { apiKey });',
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir)
+    assert.equal(r.status, 1, `import 一跳解析出的死调用必须判红\n${r.out}`)
+    assert.match(r.out, /GET \/api\/n15probe\/hop @ apps\/cli\/src\/commands\/n15\.ts:4/)
+    assert.match(r.out, /未判定\(CLI 变量路径调用点\)0 处 —— 变量站点/)
+    assert.doesNotMatch(r.out, /<变量路径>/, '解出来了就不许再点名未判定条目')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── N16 跨包 import 刻意不在一跳射程 ⇒ 未判定 + 点名,而不是跟着解析器猜 ───
+test('跨包/别名 import 说明符不参与一跳解析,站点必须仍落未判定并点名', () => {
+  const dir = root()
+  try {
+    emptyBackend(dir)
+    put(
+      dir,
+      'apps/cli/src/commands/n16.ts',
+      [
+        "import { EXT_PATH } from '@ihui/shared/x';",
+        "const API_PREFIX = '/api/n16probe';",
+        'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+        'const r = await apiRequest(baseUrl, EXT_PATH, { apiKey })',
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir)
+    assert.equal(r.status, 0, `不判红(判不出不是违规)\n${r.out}`)
+    assert.match(r.out, /未判定\(CLI 变量路径调用点\)1 处/)
+    assert.match(r.out, /n16\.ts:4 —— import 说明符非相对路径/)
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

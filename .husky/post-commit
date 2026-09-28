@@ -106,7 +106,15 @@ runLogged('post-commit-lfs', `git lfs post-commit ${process.argv.slice(2).map((a
 // 防递归: 归档 commit 自身设 IHUI_ARCHIVE_COMMIT=1, 此处检测到则跳过归档脚本
 // 跳过: HUSKY_SKIP_ARCHIVE=1(手动跳过归档, 紧急场景)
 if (process.env.IHUI_ARCHIVE_COMMIT !== '1' && process.env.HUSKY_SKIP_ARCHIVE !== '1') {
-  runLogged('post-commit-archive', 'node scripts/archive-completed-tasks.mjs --auto-commit')
+  // ⚠️ 必须显式传 `--days 7`,不得依赖脚本默认值(2026-09-28 实测事故):`archive-completed-tasks.mjs`
+  // 的 daysThreshold 缺省是 **0**,而 0 在它的判据里读作"不需要年龄判据 ⇒ 无日期也搬"。上面这段注释
+  // 承诺的是"完成 ≥7 天",代码实际做的是"任何 `[x]` 在下一枚提交就被搬走" —— 后果不是少做事,而是
+  // 三件同时坏:① 当天新登记的行被立刻归档(主会话今天那行 G-342 落地两枚提交后就进了归档件),
+  // ② 于是 `live-doc-edit` 在 CAS 里现取的号段 max 回退,同一个号被两次登记认领(号段单调性破防),
+  // ③ 守门 130 的 F5 存续性棘轮(归并落账注记只许增不许掉)从基线 21 掉到 0 ⇒ 判红 ⇒ 每台碰台账的
+  // 提交都被逼 `--no-verify`,连带约 190 道门作废(§12f 同型)。脚本那侧的缺省值本身仍与 AGENTS §1
+  // 不一致,归该文件持有人收(它此刻有他人在飞的改动,不在本枚里顺手改)。
+  runLogged('post-commit-archive', 'node scripts/archive-completed-tasks.mjs --auto-commit --days 7')
 }
 
 // ─── 3. 自动 push guard(AGENTS.md §20, 2026-07-20 立) ──────
