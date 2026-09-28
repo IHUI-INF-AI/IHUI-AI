@@ -721,21 +721,73 @@ function auditDeepLinkMechanism(rawRust, rawBridge, rawNav) {
 // 判据面**先剥注释**(复用 blankComments 那一份实现,Rust 侧不认单引号定界):lib.rs 的 quit 分支
 // 里就写着「原设计是 emit 给前端 → 前端查更新」,拿原文判去向等于让解释文字给自己发合格证
 // (本仓 §22c / 守门 70 / 守门 131 同型,已记过多次)。
+//
+// 2026-09-28 同型再补(本票):5637972f4c 之后菜单构建又从"手列 7 个 builder"改成**表驱动**
+// (`MenuItemBuilder::with_id(format!("tray.{}", item.id), …)`,id 清单唯一登记在
+// desktop_prefs.rs 的 `TRAY_MENU_ITEMS`),而 quit 的去向从 `app.exit(0)` 提成了
+// `exit_application(app)`(仓内唯一退出序列)。两个后果都是"功能没坏、判据瞎了":
+// 字面量正则扫不到任何菜单项 ⇒ H1 报失明 + H2 把 7 条真分支全判成孤儿;原生族认不出
+// exit_application ⇒ H3 把真退出的分支判成"没反应"。修法与 H 立项时同一条:**扩覆盖面,
+// 不削判据** —— id 清单从被审面的登记表**现读**(不在门里抄第二份名单,守门 131 现读注册表
+// 同取向),原生族加 exit_application。反向对照由 --self-test 钉死:删掉 quit 分支仍必须红。
 // ============================================================================
 
 const TRAY_ACTION_EVENT = 'desktop-tray-action'
 
-/** 托盘项注册点:`MenuItemBuilder::with_id("tray.<id>", …)` */
+/** 托盘项注册点·旧字面量形态:`MenuItemBuilder::with_id("tray.<id>", …)` */
 const TRAY_ITEM_ID_RE = /MenuItemBuilder::with_id\(\s*"tray\.([a-z_]+)"/g
+/**
+ * 托盘项注册点·表驱动形态(2026-09-28 起的真形态):
+ * `MenuItemBuilder::with_id(format!("tray.{}", item.id), …)` —— id 不再以字面量出现,
+ * 清单唯一来源是 desktop_prefs.rs 的 TRAY_MENU_ITEMS 登记表(下方现读,不在本门抄第二份)。
+ */
+const TRAY_ITEM_ID_FORMAT_RE = /MenuItemBuilder::with_id\(\s*format!\(\s*"tray\.\{\}"/
+/** 托盘登记表所在文件(RUST_SRC_DIR 内的清单本就会列出它;此处只点名,供判据取文) */
+const RUST_DESKTOP_PREFS_REL = 'apps/desktop/src-tauri/src/desktop_prefs.rs'
 /** 分支体内把活儿交给前端的形态(与层1 同形:action 必须是字符串字面量) */
 const TRAY_ARM_EMIT_RE = new RegExp(`"${TRAY_ACTION_EVENT}"\\s*,\\s*"([a-z_]+)"`, 'g')
 /**
  * 原生去向:Rust 自己把活儿干完的可识别效果。
  * 刻意**不含** `.close()` / `.destroy()` —— 那只是"窗口没了",不是"该菜单项的语义被执行了";
  * 把它们当去向,会让"退出分支被清空只剩关窗"蒙混过关(正是本判据要防的那一型)。
+ * `exit_application(` 于 2026-09-28 加入:它是 lib.rs:322 自述的「真正终止进程的**唯一**序列」
+ * (quit_app / tray.quit / 关窗决策共用),与旧的 `app.exit(0)` 同语义 —— 只是被提成函数,
+ * 判据不认它就是把门自己的立项形态(原生立即退出)判成违规。
  */
 const TRAY_ARM_NATIVE_RE =
-  /\.(?:show|hide|set_focus|minimize|maximize|unminimize)\s*\(\s*\)|\bapp\s*\.\s*exit\s*\(|\barm_forced_exit\s*\(|\bstd\s*::\s*process\s*::\s*exit\s*\(/
+  /\.(?:show|hide|set_focus|minimize|maximize|unminimize)\s*\(\s*\)|\bapp\s*\.\s*exit\s*\(|\barm_forced_exit\s*\(|\bexit_application\s*\(|\bstd\s*::\s*process\s*::\s*exit\s*\(/
+
+/**
+ * 从被审面现读托盘项登记表:`pub const TRAY_MENU_ITEMS: [TrayMenuItem; N] = [ … ]`。
+ * 返回 `{ ids: string[], declared: number }`;任何一步解析不出(声明不见 / 括号配平失败 /
+ * 实收条目数 ≠ 声明的 N)⇒ null,调用方必须把它读成**判据失明**而不是"没有菜单项"。
+ * 数量对账是防"清单腐烂成第二份假账":改表忘改 `[; N]`(编译会红,但门不能等编译)。
+ */
+export function extractTrayRegistryItems(prefsText) {
+  const raw = blankComments(prefsText ?? '', { apostropheIsStringDelimiter: false })
+  const decl = /pub const TRAY_MENU_ITEMS\s*:\s*\[\s*TrayMenuItem\s*;\s*(\d+)\s*\]\s*=\s*\[/.exec(raw)
+  if (!decl) return null
+  const bracketStart = decl.index + decl[0].length - 1
+  let depth = 0
+  let end = -1
+  for (let i = bracketStart; i < raw.length; i++) {
+    const ch = raw[i]
+    if (ch === '[') depth++
+    else if (ch === ']') {
+      depth--
+      if (depth === 0) {
+        end = i
+        break
+      }
+    }
+  }
+  if (end < 0) return null
+  const body = raw.slice(bracketStart, end + 1)
+  const ids = [...body.matchAll(/TrayMenuItem\s*\{\s*id:\s*"([a-z_]+)"/g)].map((m) => m[1])
+  const declared = Number(decl[1])
+  if (declared !== ids.length) return null
+  return { ids, declared }
+}
 
 /** 取 `.on_menu_event(|app, event| match … { … })` 那个闭包的主体(花括号配平,失败 null)。 */
 function extractOnMenuEventBody(rustText) {
@@ -784,14 +836,32 @@ function extractTrayArms(body) {
 /**
  * 判据主体(纯函数,`--self-test` 直接喂夹具字符串)。
  * @param emittedActions 层1 已抓到的 desktop-tray-action action 集合;传 null 表示跳过 H3 的一致性交叉核对
+ * @param registryText desktop_prefs.rs 在被审面上的正文(表驱动形态的 id 清单唯一来源);
+ *                     字面量形态在场时不依赖它,表驱动形态解析不出 ⇒ 判"失明",不记通过
  * @returns {{items:Set<string>, arms:Map<string,string>, native:number, emitted:number,
  *            emitIds:string[], nativeIds:string[], violations:string[]}}
  */
-function auditTrayItemDestinations(rawRust, emittedActions = null) {
+function auditTrayItemDestinations(rawRust, emittedActions = null, registryText = null) {
   const rustText = blankComments(rawRust ?? '', { apostropheIsStringDelimiter: false })
-  const items = new Set([...rustText.matchAll(TRAY_ITEM_ID_RE)].map((m) => m[1]))
   const violations = []
   const say = (msg) => violations.push(msg)
+  // 菜单项 id 的两种真形态:
+  //   旧 MenuItemBuilder::with_id("tray.<id>", …) ⇒ 字面量直接进集合;
+  //   新 with_id(format!("tray.{}", item.id), …) ⇒ 清单从被审面的 TRAY_MENU_ITEMS 登记表现读。
+  const items = new Set([...rustText.matchAll(TRAY_ITEM_ID_RE)].map((m) => m[1]))
+  const tableDriven = TRAY_ITEM_ID_FORMAT_RE.test(rustText)
+  if (tableDriven) {
+    const registry = extractTrayRegistryItems(registryText ?? '')
+    if (registry === null) {
+      say(
+        'H1 检出表驱动 MenuItemBuilder::with_id(format!("tray.{}", …)),但 TRAY_MENU_ITEMS 登记表' +
+          `(${RUST_DESKTOP_PREFS_REL})解析不出或条目数与 [; N] 声明不符 ⇒ 判据失明(不得记为通过)` +
+          ' —— 本门刻意不在自己源码里抄第二份 id 名单,清单漂了就必须喊,不能静默补',
+      )
+    } else {
+      for (const id of registry.ids) items.add(id)
+    }
+  }
   const body = extractOnMenuEventBody(rustText)
   if (body === null) {
     say('H1 找不到 .on_menu_event( 注册点 —— 托盘菜单事件分发被摘线,所有菜单项都不再被看守')
@@ -800,7 +870,10 @@ function auditTrayItemDestinations(rawRust, emittedActions = null) {
   const arms = extractTrayArms(body)
   // H1 空枚举判死:扫不到任何一项 ⇒ 先怀疑判据,而不是相信"托盘没有菜单"
   if (items.size === 0)
-    say('H1 一个 MenuItemBuilder::with_id("tray.*") 都没扫到 ⇒ 判据对该文件失明(不得记为通过)')
+    say(
+      'H1 一个托盘项都没扫到(字面量 with_id("tray.*") 与表驱动 format!("tray.{}", …) 两族均为空)' +
+        ' ⇒ 判据对该文件失明(不得记为通过)',
+    )
   if (arms.size === 0)
     say('H1 on_menu_event 体内找不到任何 "tray.*" => 分支 ⇒ 判据失明(不得记为通过)')
 
@@ -1294,6 +1367,124 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
     ) && ok
 
   // ===========================================================================
+  // H' 组(2026-09-28):表驱动菜单构建 + exit_application 原生退出。
+  // 夹具逐字取自 lib.rs:443 / desktop_prefs.rs:73 的真实形态 —— 菜单项 id 不再以字面量出现,
+  // 清单唯一来源是登记表;quit 的去向是 exit_application(仓内唯一退出序列出口)。
+  // 本组存在的理由:上一代门对这两个真形态全盲(H1 报失明、H2 把 7 条真分支判孤儿、
+  // H3 把真退出判成"没反应"),而功能一个字没坏 —— 判据必须认自己该认的世界,
+  // 但**认新的不等于放过缺的**:每条"补齐 ⇒ 绿"都配一条"删掉 ⇒ 仍红"。
+  // ===========================================================================
+  const hPrefs = (mutate = (s) => s) =>
+    mutate(`
+pub const TRAY_MENU_ITEMS: [TrayMenuItem; 7] = [
+    TrayMenuItem { id: "new_chat", label_index: 0, group: 0 },
+    TrayMenuItem { id: "show", label_index: 1, group: 1 },
+    TrayMenuItem { id: "hide", label_index: 2, group: 1 },
+    TrayMenuItem { id: "theme", label_index: 3, group: 2 },
+    TrayMenuItem { id: "settings", label_index: 4, group: 2 },
+    TrayMenuItem { id: "update", label_index: 5, group: 2 },
+    TrayMenuItem { id: "quit", label_index: 6, group: 3 },
+];
+`)
+  const H_TABLE_QUIT_ARM = '"tray.quit" => { /* 原设计曾 emit 给前端 */ exit_application(app); }'
+  const hRustTable = (mutate = (s) => s) =>
+    mutate(`
+fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
+    for id in &prefs.tray_menu_items {
+        let Some(item) = tray_menu_item(id) else { continue; };
+        let menu_item =
+            MenuItemBuilder::with_id(format!("tray.{}", item.id), labels[item.label_index])
+                .build(app)?;
+    }
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "tray.new_chat" => { if let Err(e) = window.emit("desktop-tray-action", "new_chat") { log::warn!("{}", e); } }
+            "tray.show" => { let _ = window.show(); let _ = window.set_focus(); }
+            "tray.hide" => { let _ = window.hide(); }
+            "tray.theme" => { if let Err(e) = window.emit("desktop-tray-action", "toggle_theme") { log::warn!("{}", e); } }
+            "tray.settings" => { if let Err(e) = window.emit("desktop-tray-action", "open_settings") { log::warn!("{}", e); } }
+            "tray.update" => { if let Err(e) = window.emit("desktop-tray-action", "check_update") { log::warn!("{}", e); } }
+            ${H_TABLE_QUIT_ARM}
+            _ => {}
+        })
+}
+`)
+  const hTableRun = (rust, prefs) =>
+    auditTrayItemDestinations(rust ?? hRustTable(), hEmitted, prefs ?? hPrefs())
+  const hTableViolationsOf = (rust, prefs, prefix) =>
+    hTableRun(rust, prefs).violations.filter((v) => v.startsWith(prefix))
+
+  ok =
+    check('H 表驱动夹具(登记表 7 项 + format! 构建 + quit 走 exit_application)⇒ 0 违规', hTableRun().violations, true) && ok
+  ok =
+    check(
+      'H 表驱动计数如实:emitted 4 / native 3 且 quit 记在 native(证明 exit_application 真被认,不是整片放过)',
+      (() => {
+        const a = hTableRun()
+        return a.emitted === 4 && a.native === 3 && a.nativeIds.includes('quit')
+          ? []
+          : [`实得 emitted=${a.emitted} native=${a.native} nativeIds=[${a.nativeIds}]`]
+      })(),
+      true,
+    ) && ok
+  ok =
+    checkHas(
+      'H2 表驱动形态:删掉整条 quit 分支(登记表仍列着 quit)⇒ 必红 —— 本票的反向对照,门改宽后"退出分支没了"必须照样炸',
+      hTableViolationsOf(
+        hRustTable((s) => s.replace(`            ${H_TABLE_QUIT_ARM}\n`, '')),
+        undefined,
+        'H2',
+      ),
+      'H2',
+    ) && ok
+  ok =
+    checkHas(
+      'H3 表驱动形态:quit 分支只剩注释(真调用被删)⇒ 必红 —— 注释提到 exit_application 也不给合格证',
+      hTableViolationsOf(
+        hRustTable((s) => s.replace('exit_application(app);', '/* 这里原本调用 exit_application(app) */')),
+        undefined,
+        'H3',
+      ),
+      'H3',
+    ) && ok
+  ok =
+    checkHas(
+      'H1 表驱动形态但登记表解析不出(文件被搬走/改名)⇒ 判"失明",绝不拿分支头当清单静默通过',
+      hTableViolationsOf(undefined, '', 'H1'),
+      'H1',
+    ) && ok
+  ok =
+    checkHas(
+      'H1 登记表条目数与 [; N] 声明不符(清单腐烂)⇒ 必红',
+      hTableViolationsOf(
+        // 只改声明数、不删条目 ⇒ 6 ≠ 7 实收 ⇒ 判腐烂;若连条目一起删会自洽漏判(第一版就栽在这)
+        undefined,
+        hPrefs((s) => s.replace('[TrayMenuItem; 7]', '[TrayMenuItem; 6]')),
+        'H1',
+      ),
+      'H1',
+    ) && ok
+  ok =
+    checkHas(
+      'H2 登记表改名 id:"quit"→"terminate"(双向分叉:新项无分支 + 旧分支无此项)⇒ 必红',
+      hTableViolationsOf(
+        undefined,
+        hPrefs((s) => s.replace('id: "quit"', 'id: "terminate"')),
+        'H2',
+      ),
+      'H2',
+    ) && ok
+  ok =
+    checkHas(
+      'H3 表驱动 quit 分支只剩 .close()(关窗 ≠ 退出语义)⇒ 必红(原生族加 exit_application 不放宽 close 判口)',
+      hTableViolationsOf(
+        hRustTable((s) => s.replace(H_TABLE_QUIT_ARM, '"tray.quit" => { let _ = window.close(); }')),
+        undefined,
+        'H3',
+      ),
+      'H3',
+    ) && ok
+
+  // ===========================================================================
   // F 组(取材面):证明"默认档判 HEAD 而不是磁盘"不是文案,而是**读到的字节不一样**。
   // 做法是在临时 git 仓里让同一文件的 HEAD / 索引 / 磁盘三份内容**互异**,再逐面读它。
   // 为什么必须造这个现场:本门此前所有判据都只喂字符串夹具,而"读哪个面"这一格
@@ -1500,9 +1691,12 @@ for (const [event, actions] of [...rustEmits.entries()].sort()) {
 /**
  * 规则 H 的取证:与层1 **同一轮、同一面**的 lib.rs 文本,不另开一次读(取材面纪律见守门 118)。
  * 放在这里(而不是判据段)是为了让下面的 SANITY_MIN 能拿到"托盘菜单项数"这一维数字。
+ * 表驱动形态的 id 清单也取自**同一个 CONTENTS**(desktop_prefs.rs 本就在 RUST_SRC_DIR 清单里)——
+ * 清单与内容混面会造出自洽却基准错位的尺子,登记表不在面上 ⇒ 判"失明",不借 HEAD 凑数。
  */
 const TRAY_EMITTED_ACTIONS = rustEmits.get(TRAY_ACTION_EVENT) ?? new Set()
-const trayAudit = auditTrayItemDestinations(rustLibText, TRAY_EMITTED_ACTIONS)
+const trayRegistryText = textOf(CONTENTS, RUST_DESKTOP_PREFS_REL)
+const trayAudit = auditTrayItemDestinations(rustLibText, TRAY_EMITTED_ACTIONS, trayRegistryText)
 console.log(
   `  ${C.dim}托盘项去向: 菜单 ${trayAudit.items.size} 项 / 分支 ${trayAudit.arms.size} 个 → emit ${trayAudit.emitted} 项 · 原生 ${trayAudit.native} 项${C.reset}`,
 )
