@@ -153,6 +153,14 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **SVG 圆角同样受管(B5)**:`rx` / `ry` 会产生圆角,JSX 内联 SVG 必须写 `rx={rnRadius.xs}`;**静态 `.svg` 资产**没有 JS 通道,取值须等于档位值(偏档就近吸附、等距取小),确属图形轮廓则把该资产目录声明进守门 77 的 `OUT_OF_SCOPE` 并写明理由 —— **没有行内标记这条路**(2026-09-29 O81 票㊵ 把圆角豁免通道整体废除,写标记本身由该门 B8 判红)。
 - **生成式 HTML/CSS 字符串**(cli 分享页、`packages/shared/src/design/design-templates.ts`、扩展 content script、api 的 `swagger-theme.ts` 等拼 CSS 文本处):**不得写死数字**,用同表插值 `border-radius: ${RADIUS_CSS_PX.md}`(`import { RADIUS_CSS_PX } from '@ihui/design-tokens'`),不新增第二份真相。
 - **真圆/胶囊:靠量出来的形状,不靠标记(2026-09-29 O81 票㊵ 收口)**:头像 / 装饰点 / 红点 / 进度环 / Switch 拇指 / 半高胶囊输入框**不得方档化把形状改坏**。写法只有两种 —— `size / 2` 几何表达式,或取等于档位值的档。判据按盒形量:**正方盒 + 半径 ≥ 半边 ⇒ 几何真圆**(出了角色档射程,不需要任何自述);**非正方盒上半径 ≥ 短边一半 ⇒ 胶囊,判红且没有任何出路**(项目定档:不允许胶囊、不允许豁免);量不到盒形 ⇒ 判"无法确认",出路是把盒尺寸写进同一作用域。旧文档要求的行内 `radius-exempt` / `radius-role-exempt` 标记**已整体废除**:它们不再改变任何结论,而写下一行标记这件事由守门 77 的新判据 **B8** 判红(通道废除要两半才成立 —— 拆出口 + 拦回写;票㉜ 摘完 47 处存量之后 HEAD 上又长出过 2 处,只拆不拦就会被下一个人悄悄接回来)。
+- **宽度下限不是定值(2026-09-29 O81 票㊼ 立)**:`minWidth` / `min-w-*` 给的是**下限**,内容多一位就变宽。
+  于是 `minWidth: X` + 水平内边距 + `borderRadius = X / 2` 渲染出来是**两端全圆的胶囊**,不是头像那种真圆 ——
+  计数徽章与附件按钮两处就是这么活着的(§4 本就明令计数徽章禁半高胶囊)。判据口径三条,缺一不可:
+  ① `minWidth` 单独出现**不判**胶囊(它可以正好等于高度,量不出就别下结论);
+  ② `minWidth ∧ 水平内边距` ⇒ 宽度必然 > 高 ⇒ 不得再按"可证正方盒"声称几何真圆;
+  ③ `width` 写死时,加多少内边距都改不了盒宽(不得把 648 处真圆顶成胶囊红)。
+  同批补齐 RN 的 `paddingHorizontal` / `paddingLeft|Right` 取材 —— 旧实现只认 Tailwind 的 `px-N`,
+  同一件事两种书写只跟一半,这一型在尺子上是**静默**的(与"改了 web 忘了 App"同因)。
 - **守门**:`scripts/check-radius-single-source.mjs`(guardian 第 **77** 项,blocking)三判据 —— A 档位表四处对账(改一处忘改另一处即红)、B 端内取用必须引用档位(B1 数值与字符串形态 / B2 本地常量 / B3 CSS 字面量 / B4 任意值类 / B5 SVG rx-ry / **B6 引用 `rnRadius`、`RADIUS_CSS_PX` 却没在本文件 import** —— 本门判 HEAD 而 `pnpm typecheck` 只跑 worktree,悬空标识符属于"两边都不红"那一类)、C 覆盖面对账(含圆角的跟踪文件要么落在 SCAN_DIRS,要么在 `OUT_OF_SCOPE` 写明为什么不适用)。**B 的棘轮锚点是「该文件 HEAD 版本自身的违规数」**,不是手工清单 —— 只拦"这次改动把绕档加回来了",不拦仓库既有债。2026-09-24 换锚的起因:并行会话的索引层重建把 309 个路径整文件回写成迁移前的旧基线(**HEAD 积累 1179 处**),静态清单对此完全绿灯;同时全量审计改判 **HEAD blob 而非工作树**,因为滞后的旧草稿会被按磁盘读误记成本仓债务(一道与真实改动无关的红门只会逼人 `--no-verify`,连带废掉全部守门)。`scripts/radius-single-source-baseline.json` 降级为人工兜底,**现须为空**(镜像测试钉死)。判据**不锚定行首**,故 `width:16px; border-radius:50%` 同行多声明、TS 里生成的 CSS 一样可见。按文件自验:`--files <a> <b>`;紧急跳过 `HUSKY_SKIP_RADIUS_GUARD=1`;自检 `--self-test`(49 例,含真实表端到端对账、静态/内联 SVG 两种语义、NaN 防回归、HEAD 锚点四方向正反例、多行 import 不误伤),镜像测试 `node --test scripts/tests/check-radius-single-source.test.mjs`(4 例,含"锚点必须是 HEAD 而非静态清单"的装车证明)。容器纯圆违规仍由 `scripts/check-rounded-full.mjs`(第 11 项)管,两条互补不互替。
 
 ### Button 高度档位守门(强制,2026-09-07 立)
