@@ -152,7 +152,7 @@ export default function ExamAnswer() {
       return (
         <ThemeRoot>
           <Input
-            className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-xl text-[length:32rpx] text-foreground"
+            className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-[length:32rpx] text-foreground"
             type="text"
             placeholder={t('exam.answer.answerPlaceholder')}
             value={typeof ans === 'string' ? ans : ''}
@@ -165,7 +165,7 @@ export default function ExamAnswer() {
       return (
         <ThemeRoot>
           <Textarea
-            className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-xl text-[length:32rpx] text-foreground min-h-[320rpx]"
+            className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-[length:32rpx] text-foreground min-h-[320rpx]"
             placeholder={t('exam.answer.answerPlaceholder')}
             value={typeof ans === 'string' ? ans : ''}
             onInput={(e) => select(e.detail.value)}

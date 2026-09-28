@@ -162,7 +162,7 @@ export default function SetNeed() {
       </View>
 
       <Button
-        className="fixed bottom-[32rpx] left-[20rpx] right-[20rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-xl text-[length:32rpx] font-semibold"
+        className="fixed bottom-[32rpx] left-[20rpx] right-[20rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-[length:32rpx] font-semibold"
         loading={saving}
         onClick={save}
         disabled={saving}
