@@ -61,6 +61,26 @@ def _scoped_user_uuid(user_uuid: str | None, scope: tuple[str, bool]) -> str | N
     return user_uuid if is_admin else user_id
 
 
+def _owner_allows(owner: str, scope: tuple[str, bool]) -> bool:
+    """单条记录的归属判定**唯一**出口(G-754,2026-09-29)。
+
+    旧写法在三处各写一遍 `if owner and owner != user_id and not is_admin`,而
+    `owner and` 让空属主行短路成"放行" —— 那一行注释把它解释成"历史行为不强制",
+    但只要还有无主体通道在铸新行(G-753 `/api/workflows` 整族没有主体),这类行就在
+    **持续新增**,于是"空属主"被读成了"人人可见可改"。这是把**属主未知**当成了
+    **无属主即公开**,而媒体任务行是归属型(user_uuid 有列、有索引、list/stats 按等值过滤),
+    所以正确语义只有一条:属主未知 ⇒ 仅 admin 可达,非 admin 一律 404(与不归属同形,
+    不给存在性 oracle)。
+
+    list/stats/clear/批量取消走的是 `_scoped_user_uuid` 的等值过滤,非 admin 本来就
+    取不到空属主行;本函数补齐的是**按 task_id 直取的那三侧门**,两侧结论从此一致。
+    """
+    user_id, is_admin = scope
+    if is_admin:
+        return True
+    return bool(owner) and owner == user_id
+
+
 @router.post("/media/tasks/callback")
 async def media_tasks_callback(request: Request) -> dict[str, Any]:
     """token6688 官方终态 webhook → media_tasks 实时回写(对话内媒体任务自动收尾)。
@@ -211,14 +231,16 @@ async def media_task_detail(
     """媒体任务详情:库内记录;在途且 provider=token6688 时实时探测最新状态。
 
     2026-09-09 P0 越权修复:非 admin 只能看自己的任务(不归属按 404,不泄露存在性;
-    与 agent_runtime._require_session 同策略,历史 user_uuid='' 行不强制)。
+    与 agent_runtime._require_session 同策略)。
+    G-754(2026-09-29)改了这条的后半:历史上"空属主行不强制"等于任何登录用户按
+    task_id 就能读到别人的媒体任务(无主体通道仍在铸这类行,见 G-753),现按
+    `_owner_allows` 走 —— 空属主 = 属主未知 ⇒ 仅 admin 可达,非 admin 同样 404。
     """
     row = await get_media_task(task_id)
     if row is None:
         raise HTTPException(status_code=404, detail="媒体任务不存在")
-    user_id, is_admin = request_user
     owner = str(row.get("user_uuid") or "")
-    if owner and owner != user_id and not is_admin:
+    if not _owner_allows(owner, request_user):
         raise HTTPException(status_code=404, detail="媒体任务不存在")
     if (
         row.get("status") in _STATUS_IN_FLIGHT
@@ -297,9 +319,8 @@ async def media_task_delete(
     row = await get_media_task(task_id)
     if row is None:
         raise HTTPException(status_code=404, detail="媒体任务不存在")
-    user_id, is_admin = request_user
     owner = str(row.get("user_uuid") or "")
-    if owner and owner != user_id and not is_admin:
+    if not _owner_allows(owner, request_user):
         raise HTTPException(status_code=404, detail="媒体任务不存在")
     try:
         deleted = await delete_media_task(task_id)
@@ -326,9 +347,8 @@ async def media_task_cancel(
     row = await get_media_task(task_id)
     if row is None:
         raise HTTPException(status_code=404, detail="媒体任务不存在")
-    user_id, is_admin = request_user
     owner = str(row.get("user_uuid") or "")
-    if owner and owner != user_id and not is_admin:
+    if not _owner_allows(owner, request_user):
         raise HTTPException(status_code=404, detail="媒体任务不存在")
     if row.get("status") not in _STATUS_IN_FLIGHT:
         raise HTTPException(
