@@ -86,7 +86,7 @@ export default function SelfHealingPage() {
             onChange={(e) => setTask(e.target.value)}
             placeholder={t('taskPlaceholder')}
             rows={3}
-            className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <div>
@@ -98,7 +98,7 @@ export default function SelfHealingPage() {
             value={targetPath}
             onChange={(e) => setTargetPath(e.target.value)}
             placeholder={t('targetPlaceholder')}
-            className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <div className="flex items-center justify-between">
@@ -106,7 +106,7 @@ export default function SelfHealingPage() {
           <button
             onClick={() => void run()}
             disabled={loading || !task.trim() || !targetPath.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {loading ? t('running') : t('run')}

@@ -65,7 +65,7 @@ function ErrorView({
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-1.5 rounded-md bg-cta px-6 py-2.5 text-sm text-cta-foreground transition-colors hover:bg-cta/90"
+        className="inline-flex items-center gap-1.5 rounded-sm bg-cta px-6 py-2.5 text-sm text-cta-foreground transition-colors hover:bg-cta/90"
       >
         <RotateCcw className="h-4 w-4" />
         {t('retry')}
@@ -249,7 +249,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
             type="button"
             onClick={copyLink}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 rounded-md border px-4 py-2.5 text-sm transition-colors',
+              'flex flex-1 items-center justify-center gap-1.5 rounded-sm border px-4 py-2.5 text-sm transition-colors',
               copied ? 'border-emerald-500 text-emerald-500' : 'hover:bg-muted',
             )}
           >
@@ -259,7 +259,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
           <button
             type="button"
             onClick={wechatShare}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-[#07c160] px-4 py-2.5 text-sm text-white transition-opacity hover:opacity-90"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-sm bg-[#07c160] px-4 py-2.5 text-sm text-white transition-opacity hover:opacity-90"
           >
             <Share2 className="h-4 w-4" />
             {t('wechatShare')}
