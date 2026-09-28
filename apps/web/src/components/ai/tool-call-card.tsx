@@ -458,6 +458,10 @@ function ChartArtifactBlock({
           <iframe
             src={iframeSrc}
             title={fileName}
+            /* iframe-sandbox-relax: 加载的是模型生成的图表产物文件(签名 URL 换来的静态 HTML),
+               不给 allow-scripts 图表渲染不出。档值 = MODEL_CONTENT_SANDBOX
+               (packages/ui-react/src/components/webview-frame.tsx 的唯一实现),
+               刻意**不含** allow-same-origin ⇒ 与本站 DOM/存储隔离(见上方 406 行同一条理由)。 */
             sandbox="allow-scripts"
             className="h-[280px] w-full"
           />
