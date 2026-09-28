@@ -77,7 +77,7 @@ export function CompareContent({
       </section>
 
       {/* 对比表格 */}
-      <section className="mt-12 overflow-x-auto rounded-2xl border bg-card shadow-sm">
+      <section className="mt-12 overflow-x-auto ui-card rounded-lg border bg-card shadow-sm">
         <table className="w-full">
           <thead>
             <tr className="bg-muted/30">
@@ -132,7 +132,7 @@ export function CompareContent({
       </section>
 
       {/* CTA */}
-      <section className="mt-12 rounded-2xl border bg-card p-3 text-center">
+      <section className="mt-12 ui-hero rounded-2xl border bg-card p-3 text-center">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
         <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           30 分钟体验 IHUI AI

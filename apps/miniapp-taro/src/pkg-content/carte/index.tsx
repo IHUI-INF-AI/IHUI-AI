@@ -87,7 +87,7 @@ export default function CartePage() {
         </View>
 
         {/* 名片主卡(RN card:白底 / 圆角16 / 描边 border-light / padding14) */}
-        <View className="mx-4 p-3.5 rounded-2xl bg-card border border-border">
+        <View className="mx-4 p-3.5 ui-card rounded-lg bg-card border border-border">
           <View className="flex items-center">
             {info.avatar ? (
               <Image

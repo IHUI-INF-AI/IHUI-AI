@@ -158,7 +158,7 @@ export default function StudyIndex() {
                 <Text className="block text-[length:32rpx] font-semibold text-foreground">
                   {r.courseTitle}
                 </Text>
-                <View className="h-[12rpx] bg-card rounded-xl overflow-hidden mt-[16rpx]">
+                <View className="h-[12rpx] bg-card ui-tiny rounded-xs overflow-hidden mt-[16rpx]">
                   <View
                     className="h-[12rpx] bg-success rounded-xl"
                     style={{ width: `${r.progress}%` }}

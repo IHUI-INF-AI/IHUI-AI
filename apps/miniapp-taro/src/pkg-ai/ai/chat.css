@@ -127,7 +127,7 @@
       var(--color-white-40) 129%
     )
     2;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-2xl);
 }
 .msg-item.assistant .bubble {
   background: var(--color-card);
@@ -478,7 +478,7 @@
   align-items: center;
   gap: 16rpx;
   padding: 16rpx 24rpx;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-2xl);
   margin-top: 10rpx;
 }
 .voice-bubble.user {

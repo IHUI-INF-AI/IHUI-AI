@@ -166,7 +166,7 @@ function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void 
     >
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 模态内容区阻止冒泡,键盘用户通过关闭按钮(X)提供等价交互 */}
       <div
-        className="w-full max-w-xs rounded-2xl border bg-card p-3 shadow-lg"
+        className="w-full max-w-xs ui-hero rounded-2xl border bg-card p-3 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between pb-3">
