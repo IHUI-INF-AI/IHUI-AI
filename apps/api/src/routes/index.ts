@@ -30,6 +30,7 @@ import { interactionsRoutes } from './interactions.js'
 import { promotionRoutes, adminPromotionRoutes } from './promotions.js'
 import { gamificationRoutes } from './gamification.js'
 import { creditsUsageRoutes } from './credits-usage.js'
+import { desktopPrefsRoutes } from './desktop-prefs.js'
 import { pointsTasksRoutes } from './points-tasks.js'
 import { userExtraRoutes } from './user-extras.js'
 import { aiSkillsProxyRoutes } from './ai-skills-proxy.js'
@@ -557,6 +558,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(gamificationRoutes, { prefix: '/api' })
   // 按日积分消耗聚合（只读，需登录）：/api/credits/usage/daily
   server.register(creditsUsageRoutes, { prefix: '/api/credits' })
+  // 桌面端偏好跨设备漫游（需登录，整棵子树强制鉴权）：/api/desktop/prefs
+  server.register(desktopPrefsRoutes, { prefix: '/api' })
   server.register(pointsTasksRoutes, { prefix: '/api' })
   server.register(userExtraRoutes, { prefix: '/api/user' })
   server.register(aiSkillsProxyRoutes, { prefix: '/api/ai-skills' })
