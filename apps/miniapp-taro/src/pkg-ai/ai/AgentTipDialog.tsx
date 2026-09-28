@@ -56,7 +56,7 @@ export default function AgentTipDialog({ visible, onClose }: AgentTipDialogProps
       hoverClass="opacity-60"
     >
       <View
-        className="w-[600rpx] bg-card rounded-xl py-[40rpx] px-[32rpx] overflow-hidden"
+        className="w-[600rpx] bg-card ui-card rounded-lg py-[40rpx] px-[32rpx] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >

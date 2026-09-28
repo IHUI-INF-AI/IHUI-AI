@@ -111,14 +111,14 @@ export default function LiveDetail() {
               </Text>
             </View>
             {live.anchor && (
-              <View className="px-[16rpx] py-[4rpx] rounded-xl bg-[var(--color-card)]">
+              <View className="px-[16rpx] py-[4rpx] ui-chip rounded-md bg-[var(--color-card)]">
                 <Text className="text-[length:22rpx] text-muted-foreground">
                   {t('live.detail.anchor', { name: live.anchor })}
                 </Text>
               </View>
             )}
             {live.watchCount !== undefined ? (
-              <View className="px-[16rpx] py-[4rpx] rounded-xl bg-[var(--color-card)]">
+              <View className="px-[16rpx] py-[4rpx] ui-chip rounded-md bg-[var(--color-card)]">
                 <Text className="text-[length:22rpx] text-muted-foreground">
                   {t('live.viewers', { n: live.watchCount })}
                 </Text>

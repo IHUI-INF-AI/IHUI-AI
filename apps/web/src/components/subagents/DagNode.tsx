@@ -54,7 +54,7 @@ function DagNodeComponent({ data }: NodeProps) {
 
   return (
     <div
-      className={`group relative w-[180px] rounded-lg border bg-card p-3 shadow-sm transition-colors hover:bg-accent ${accent.border}`}
+      className={`group relative w-[180px] ui-control rounded-sm border bg-card p-3 shadow-sm transition-colors hover:bg-accent ${accent.border}`}
     >
       {/* 入边连接点(左) */}
       <Handle
