@@ -5,11 +5,13 @@
 'use client'
 
 import * as React from 'react'
-import { TerminalSquare } from 'lucide-react'
+import { Keyboard, TerminalSquare } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { postTerminalInput } from '@ihui/api-client'
+import { Button, Input } from '@ihui/ui-react'
 import { FoldableSection } from './foldable-section'
 import { CopyButton } from './copy-button'
-import { useChatStore } from '@/stores/chat'
+import { useChatStore, type TerminalInteractionState } from '@/stores/chat'
 import type { TerminalTask } from '@/hooks/use-agent-progress'
 // V3 #67:终端输出 ANSI 彩色渲染。解析器为纯函数(零依赖,输出结构化 span,
 // 渲染走 React 文本节点自动转义 —— 终端输出是不可信输入,禁拼 HTML 字符串)。
@@ -102,6 +104,114 @@ function AnsiCodeBlock({
   )
 }
 
+/**
+ * TerminalInputRow — D151「命令在等键盘输入」的输入行(2026-09-29 立)
+ *
+ * 只做三件事:交代在等什么(waitingInput + 提示原文 promptTail)、把**一行**字经
+ * `postTerminalInput` 送回、失败时如实显示并把该行留在框里。
+ *
+ * 安全边界(硬性):
+ * - 键入内容绝不进 store / localStorage / console / 任何日志 —— 它可能就是那句
+ *   `Password:` 后面要输的密码;成功即清除整条等待态,失败只写 `failed` 布尔。
+ * - 上行只走 @ihui/api-client(AGENTS §3),端内不得自拼 fetch。
+ * - 无 sessionId(本轮没观察到 ai-service 流会话 ID)时**如实失败**,不把一行字
+ *   POST 到一个猜出来的地址(那等于"按了回车而命令一个字节都没收到")。
+ * - 重复提交由 `submitting` 挡住:一帧只许送一次。
+ */
+const TerminalInputRow = React.memo(function TerminalInputRow({
+  termId,
+  interaction,
+}: {
+  termId: string
+  interaction: TerminalInteractionState
+}) {
+  const tTerminal = useTranslations('chat.terminal')
+  const tFeedback = useTranslations('feedback')
+  const setTerminalInteraction = useChatStore((s) => s.setTerminalInteraction)
+  const clearTerminalInteraction = useChatStore((s) => s.clearTerminalInteraction)
+  // 键入只在组件本地 state(不落 store,更不落持久化);失败后不清空 = 用户不必重打
+  const [text, setText] = React.useState('')
+  const { promptTail, maxInputChars, sessionId, submitting, failed } = interaction
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (submitting) return
+    if (!sessionId) {
+      setTerminalInteraction(termId, { failed: true })
+      return
+    }
+    setTerminalInteraction(termId, { submitting: true, failed: false })
+    // 刻意不 await 后 setState-on-unmount:等待态被清除时本行随之卸载,
+    // 而 clearTerminalInteraction 对不存在的键是 no-op ⇒ 不需要额外的存活判断。
+    void postTerminalInput(sessionId, { terminalId: termId, text })
+      .then((ack) => {
+        // 服务端对"没这条"与"不是你的"回 **HTTP 200 + {ok:false}**(不给存在性预言机),
+        // 所以 resp.ok 不是判据 —— 必须读 ack。只 .then() 不判 ok 会把"没送到"演成"送到了"。
+        if (ack.ok) {
+          clearTerminalInteraction(termId)
+        } else {
+          setTerminalInteraction(termId, { submitting: false, failed: true })
+        }
+      })
+      .catch(() => {
+        // 刻意不取 error 参数:message 里带 session/terminal 标识,而界面只需要"这次没送出去";
+        // 任何情况下都不回显 text(它就是那行键入本身)。
+        setTerminalInteraction(termId, { submitting: false, failed: true })
+      })
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="flex items-center gap-1.5 px-1 py-1"
+      data-testid={`terminal-interaction-${termId}`}
+    >
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex items-center gap-1 text-xs leading-none text-muted-foreground">
+          <Keyboard className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          {tTerminal('waitingInput')}
+        </span>
+        {promptTail ? (
+          <span
+            className="truncate font-mono text-xs leading-none text-muted-foreground/80"
+            data-testid={`terminal-interaction-prompt-${termId}`}
+          >
+            {tTerminal('promptLabel', { prompt: promptTail })}
+          </span>
+        ) : null}
+        {failed ? (
+          // 只在**点过发送之后**出现:没有 sessionId 时提前挂"提交失败"是给还没发生的
+          // 事出结论(本仓最高频失效型就是把"未判"写成"已判"的反向 —— 把"未发生"写成"已失败")
+          <StreamTag tone="danger" testId={`terminal-interaction-failed-${termId}`}>
+            {tFeedback('failed')}
+          </StreamTag>
+        ) : null}
+      </div>
+      <Input
+        type="text"
+        value={text}
+        onChange={(event) => {
+          const next = event.target.value
+          setText(maxInputChars > 0 ? next.slice(0, maxInputChars) : next)
+        }}
+        maxLength={maxInputChars > 0 ? maxInputChars : undefined}
+        disabled={submitting}
+        aria-label={tTerminal('waitingInput')}
+        className="h-7 min-w-0 flex-1 text-xs"
+        data-testid={`terminal-interaction-input-${termId}`}
+      />
+      <Button
+        type="submit"
+        size="xs"
+        disabled={submitting}
+        data-testid={`terminal-interaction-submit-${termId}`}
+      >
+        {tTerminal('submit')}
+      </Button>
+    </form>
+  )
+})
+
 /** 单个终端任务:一条命令 = 一行 StreamRow,展开后是 StreamDetail + StreamCode */
 const TerminalItem = React.memo(function TerminalItem({ term }: { term: TerminalTask }) {
   const t = useTranslations('ai.pane')
@@ -113,6 +223,11 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
   // terminal_delta,由 send-message.ts 写入 store.terminalOutputs(键 = terminalId)。
   // 这里按 id 精确订阅(返回原始字符串,引用稳定,zustand selector 安全)。
   const liveOutput = useChatStore((s) => s.terminalOutputs[term.id])
+  // D151:同一张卡上的"等待输入"态(键同为 terminalId;undefined = 这条命令没在等人)。
+  // 返回 store 里那条记录本身 ⇒ 引用稳定(只有该键被重写才变),zustand selector 安全。
+  // 取链带 `?.` 不是给类型补洞(该切片恒在),而是本票"只加不改"的边界:同目录既有套件
+  // 用**部分 store mock**(只喂 terminalOutputs),少了这一层就是 5 条用例被无关改动打红。
+  const interaction = useChatStore((s) => s.terminalInteractions?.[term.id])
   const clearTerminalOutput = useChatStore((s) => s.clearTerminalOutput)
   // 权威输出:live 缓冲通常比 terminal_end.output(后端截 8000 字符)更长 → 取更长者,
   // 保证构建日志尾部不被截掉;两者皆空时无输出可展开。
@@ -174,6 +289,9 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
         ariaLabel={[rowTitle, term.command, statusText].join(' · ')}
         testId={`terminal-item-${term.id}`}
       />
+      {/* D151:等待输入行**不受展开态支配** —— 要用户先点开展开才看得见的提示,
+          等于没有提示(命令正挂着等这一行)。 */}
+      {interaction ? <TerminalInputRow termId={term.id} interaction={interaction} /> : null}
       {hasOutput && expanded && (
         <StreamDetail
           className="animate-in fade-in-0 slide-in-from-top-1 duration-150"

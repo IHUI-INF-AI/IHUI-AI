@@ -337,7 +337,12 @@ export function ToolApprovalDialog() {
             onClick={() => void handleDecision('reject', scope, reason)}
             disabled={state.sending}
             data-testid="tool-approval-reject"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+            className={
+              // 与 ui-react Button default 定稿同档(h-9/px-4/rounded-sm);门的 panel 类别来自
+              // "模态文件"的容器推断而非元素本身,逐档裁决见 PROJECT_PLAN 圆角线条目。
+              // radius-role-exempt: 页脚两个按钮是控件不是容器,到期由该门持有人改判据或本处改回
+              'inline-flex h-9 items-center gap-1.5 rounded-sm border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50'
+            }
           >
             <AlertTriangle className="h-4 w-4" />
             {t('reject')}
@@ -347,7 +352,12 @@ export function ToolApprovalDialog() {
             onClick={handleApproveClick}
             disabled={state.sending}
             data-testid="tool-approval-approve"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-cta px-4 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
+            className={
+              // 同上:主按钮实底 + 前景已成对(bg-cta / text-cta-foreground,守门 83 R5 认这套),
+              // 半径取控件档,门的 panel 类别来自"模态文件"的容器推断而非元素本身。
+              // radius-role-exempt: 页脚主按钮是控件不是容器,到期由该门持有人改判据或本处改回
+              'inline-flex h-9 items-center gap-1.5 rounded-sm bg-cta px-4 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50'
+            }
           >
             {state.sending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -390,7 +400,7 @@ export function ToolApprovalDialog() {
                   aria-checked={scope === opt.value}
                   onClick={() => setScope(opt.value)}
                   data-testid={`tool-approval-scope-${opt.value}`}
-                  className={`inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors ${
+                  className={`inline-flex h-7 items-center rounded-sm border px-2.5 text-xs font-medium transition-colors ${
                     scope === opt.value
                       ? 'border-primary/40 bg-primary/10 text-primary'
                       : 'border-border bg-background text-muted-foreground hover:bg-accent'
@@ -411,7 +421,7 @@ export function ToolApprovalDialog() {
                 aria-checked={grantRule}
                 onClick={() => setGrantRule((v) => !v)}
                 data-testid="tool-approval-grant-rule"
-                className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors ${
+                className={`inline-flex h-7 items-center gap-1.5 rounded-sm border px-2.5 text-xs font-medium transition-colors ${
                   grantRule
                     ? 'border-primary/40 bg-primary/10 text-primary'
                     : 'border-border bg-background text-muted-foreground hover:bg-accent'
@@ -441,7 +451,7 @@ export function ToolApprovalDialog() {
               maxLength={500}
               rows={2}
               data-testid="tool-approval-reason"
-              className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-border"
+              className="w-full resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-border"
             />
           </div>
           {pendingCount > 0 && (

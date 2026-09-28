@@ -171,4 +171,40 @@ describe('R4 装车证明(开关必须真的接进去)', () => {
     assert.ok(!/commit-tree/.test(body.slice(0, 4000)), '落地函数里不该再出现自派生 commit-tree')
   })
 })
+
+// ── 2026-09-29 修的那一咬:第④条按"份数下降"判,把本档在自己要清的那一型上永久锁死 ──
+// 真仓现读证据:同一枚 HEAD 面上最多的几组等值孪生**本身就是归并指针行**,跑 `--dedupe-rows`
+// 报的是"归并落账注记由 253 掉到 244(不得随副本一起丢)" ⇒ 一条都删不掉。
+// 判据互咬的失效方向不是"少清一点",而是"这一维在真账面上永远落不了地",所以三条用例成对。
+const NOTE_TWIN =
+  '- [x] ✅(2026-09-28) G-907 **一条被并集带回两遍的已完成登记**:正文逐字相同〔【归并】翻勾落账:复测 2026-09-28〕'
+
+describe('第④条:注记判"种类是否整类消失",不判"份数有没有变少"(G-336 单行档解咬)', () => {
+  const src = ['# 台账', '', NOTE_TWIN, NOTE_TWIN, ''].join('\n')
+
+  it('该摘的必须摘得动:孪生指针行的第 2..N 份被摘掉时零损失断言不得拦', () => {
+    const r = buildRowDedupe(src)
+    assert.equal(r.deletedCount, 1, '两份逐字相同的已完成行应摘掉后一份')
+    assert.deepEqual(verifyRowDedupe(src, r.text, r.deletedCount), [], `不该再报"注记掉了":\n${JSON.stringify(verifyRowDedupe(src, r.text, r.deletedCount))}`)
+    assert.equal(r.groups[0].copies, 2)
+  })
+
+  it('注记整类消失仍必须被拒(保护没被削掉,只是换了正确的判法)', () => {
+    const out = ['# 台账', '', ''].join('\n')
+    const problems = verifyRowDedupe(src, out, 2)
+    assert.ok(problems.length > 0, '把唯一载体整类删掉必须拦下来')
+    assert.ok(
+      problems.some((p) => /一份都不剩|种类.*掉到/.test(p)),
+      `拦截理由必须落在"幸存性/注记种类"上,实得:${JSON.stringify(problems)}`,
+    )
+  })
+
+  it('形状锁:第④条不得再退回"份数比较"(退回去本档就永远落不了地)', () => {
+    const fn = SRC.slice(SRC.indexOf('export function verifyRowDedupe'), SRC.indexOf('export function verifyTwinFold'))
+    assert.ok(fn.length > 200, '取不出本档函数体 ⇒ 这条锁对着空气判绿')
+    assert.ok(!/after\.mergeNotes\s*<\s*before\.mergeNotes/.test(fn), '又按份数比判了 —— 孪生指针行一删就恒拒')
+    assert.ok(/countMergeNotes\(distinct\(/.test(fn), '第④条必须走"去重后的种类"这把同源尺子(且复用 lib 那一份 countMergeNotes)')
+    assert.match(SRC, /import \{[\s\S]*?\bcountMergeNotes\b[\s\S]*?\} from '\.\/lib\/plan-task-index\.mjs'/)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
