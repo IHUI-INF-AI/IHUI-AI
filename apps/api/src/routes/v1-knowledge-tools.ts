@@ -16,8 +16,11 @@
  * - ai-service memory 族(2026-09-25 v1 租户隔离收口):ai-service 侧已按
  *   require_request_user_id 把记忆桶归属到令牌主体(sub),必须用
  *   mintInternalJwt(apiKey.userId) 注入真实用户主体 —— 走 system-worker 会把
- *   全部 v1 API-key 租户折进同一个系统桶(v1 租户互见)。仅 /memory/working
- *   例外:ai-service 侧按 session_id 作用域、无用户主体参数,保持系统通道。
+ *   全部 v1 API-key 租户折进同一个系统桶(v1 租户互见)。
+ *   /memory/working 的例外已于 2026-09-28 **撤销**:它原先的理由是"working 条目不记
+ *   属主、用户主体在此无属主语义";写侧补属主后前提消失,而系统通道会退化成
+ *   "按 sub='system-worker' 比对 ⇒ 恒空桶"(200 + items:[]),比报错更难发现。
+ *   该端点同时补上 session_id 透传 —— 此前不传 ⇒ 下游 422 ⇒ 网关 503,是一条结构死路。
  *
  * 端点清单(58 个):
  * === Knowledge/RAG(14)===
@@ -311,6 +314,21 @@ const memoryDreamSchema = z.object({
 
 const forgetMemorySchema = z.object({
   memoryId: z.string().min(1),
+})
+
+/**
+ * GET /memory/working 的查询入参(2026-09-28 撤销主体豁免时同批立)。
+ *
+ * `sessionId` 是**句柄不是凭据** —— 能否读到桶内条目由 ai-service 逐条按"条目属主 ==
+ * 令牌主体"裁(唯一判据 `apps/ai-service/app/services/memory_service.py::entry_visible_to`),
+ * 传别人的 session_id 只会拿到空桶,且与"这条 session 不存在"**同形回包**(200 + 空列表)。
+ * `limit` 的 1..200 与 ai-service 侧 `Query(ge=1, le=200)` 同值:在这里判是为了拿 400,
+ * 而不是让下游 422 被 `forwardAiService` 折成 503(那会把"客户端少传参数"报成服务端故障)。
+ */
+const workingMemoryQuerySchema = z.object({
+  sessionId: z.string().min(1),
+  // query 一律是字符串,z.coerce 让本判据不依赖 fastify 的 schema 强制类型转换是否生效
+  limit: z.coerce.number().int().min(1).max(200).optional(),
 })
 
 const publishMessageSchema = z.object({
@@ -2315,8 +2333,16 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
     '/memory/working',
     {
       schema: {
-        description: '工作记忆',
+        description: '工作记忆(按条目属主过滤;sessionId 为句柄,不是凭据)',
         tags: ['Memory'],
+        querystring: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string' },
+            limit: { type: 'integer', minimum: 1, maximum: 200 },
+          },
+          required: ['sessionId'],
+        },
         response: {
           200: {
             type: 'object',
@@ -2324,30 +2350,49 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
               items: { type: 'array' },
             },
           },
+          400: errorResponseSchema,
           401: errorResponseSchema,
         },
       },
       preHandler: [requireApiKeyAuth, requireCapability('memory:read'), requireApiKeyQuota()],
     },
-    async (_request, reply) => {
-      // 主体豁免(2026-09-25 v1 租户隔离收口):ai-service 的 /memory/working 按
-      // session_id 作用域(会话内存缓冲,端点无 user_id 参数、无 require_request_user_id),
-      // 用户主体在此无属主语义 —— 保持系统通道,不硬改。
-      return forwardAiService(reply, '/api/memory/working', { method: 'GET' }, (data) => {
-        const d = asObj(data)
-        const items = Array.isArray(d.items) ? d.items : Array.isArray(d.data) ? d.data : []
-        const result: V1WorkingMemoryResponse = {
-          items: items.map((m) => {
-            const o = asObj(m)
-            return {
-              id: String(o.id ?? ''),
-              content: String(o.content ?? ''),
-              createdAt: String(o.createdAt ?? o.created_at ?? new Date().toISOString()),
-            }
-          }),
-        }
-        return result
-      })
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = workingMemoryQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      // 主体豁免已于 2026-09-28 **撤销**(承 2026-09-25 那条"仅 working 例外")。
+      // 原豁免的理由是"working 条目不记属主、用户主体在此无属主语义";写侧补属主
+      // (memory_service.add_working(owner=…))落地后该前提不再成立 —— 继续走
+      // system-worker 会让读侧按 sub='system-worker' 比对,结果是一个**查不到任何
+      // 真实条目的系统桶**:状态码 200、items 恒空,比一次 503 更难被发现。
+      // 出站参数名是 ai-service 的 snake_case(`session_id`),入站保持本 API 的 camelCase。
+      const upstream: Record<string, string> = { session_id: parsed.data.sessionId }
+      if (parsed.data.limit !== undefined) upstream.limit = String(parsed.data.limit)
+      const path = `/api/memory/working?${new URLSearchParams(upstream).toString()}`
+      return forwardAiService(
+        reply,
+        path,
+        { method: 'GET' },
+        (data) => {
+          const d = asObj(data)
+          const items = Array.isArray(d.items) ? d.items : Array.isArray(d.data) ? d.data : []
+          const result: V1WorkingMemoryResponse = {
+            items: items.map((m) => {
+              const o = asObj(m)
+              return {
+                id: String(o.id ?? ''),
+                content: String(o.content ?? ''),
+                createdAt: String(o.createdAt ?? o.created_at ?? new Date().toISOString()),
+              }
+            }),
+          }
+          return result
+        },
+        userId,
+      )
     },
   )
 
