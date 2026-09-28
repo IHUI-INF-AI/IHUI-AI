@@ -29,7 +29,10 @@ import {
 } from '../src/config/ai-service-edge'
 
 const VALID_BASE = 'http://127.0.0.1:8803'
-const ENABLED = { [AI_SERVICE_EDGE_ENABLED_ENV]: 'true', [AI_SERVICE_EDGE_BASE_URL_ENV]: VALID_BASE }
+const ENABLED = {
+  [AI_SERVICE_EDGE_ENABLED_ENV]: 'true',
+  [AI_SERVICE_EDGE_BASE_URL_ENV]: VALID_BASE,
+}
 
 // ───────────────────────── 从目录现算期望集合(唯一的判据来源) ─────────────────────────
 
@@ -51,7 +54,12 @@ function aiServiceRows(): AiServiceRouteRow[] {
       const m = ROUTE_RE.exec(raw.trim())
       // 形态不认识(通配 / 参数段 / 拼接串)就不当作候选,交给下面的形态断言处理。
       if (!m) continue
-      rows.push({ scope: entry.scope, eligible: entry.thirdPartyEligible === true, method: m[1], path: m[2] })
+      rows.push({
+        scope: entry.scope,
+        eligible: entry.thirdPartyEligible === true,
+        method: m[1],
+        path: m[2],
+      })
     }
   }
   return rows
@@ -63,9 +71,9 @@ function isExactPath(p: string): boolean {
 }
 
 /** 同一个 path 上既有可公开又有不可公开的方法 ⇒ rewrites 无法分流 ⇒ 整条不放。 */
-function collidedPaths(): Set<string> {
+function collidedPaths(rows: AiServiceRouteRow[] = aiServiceRows()): Set<string> {
   const byPath = new Map<string, AiServiceRouteRow[]>()
-  for (const r of aiServiceRows()) {
+  for (const r of rows) {
     const list = byPath.get(r.path) ?? []
     list.push(r)
     byPath.set(r.path, list)
@@ -117,7 +125,10 @@ describe('边缘表 ↔ 能力目录对账(派生态,不是第二份决策)', ()
       const hit = rows.find(
         (r) => r.path === row.upstreamPath && r.method === row.method && r.scope === row.scope,
       )
-      expect(hit, `${row.method} ${row.upstreamPath} 找不到 scope=${row.scope} 的目录声明`).toBeTruthy()
+      expect(
+        hit,
+        `${row.method} ${row.upstreamPath} 找不到 scope=${row.scope} 的目录声明`,
+      ).toBeTruthy()
       expect(hit?.eligible).toBe(true)
     }
   })
@@ -126,11 +137,21 @@ describe('边缘表 ↔ 能力目录对账(派生态,不是第二份决策)', ()
     expect([...AI_SERVICE_EDGE_BLOCKED_PATHS].sort()).toEqual([...collidedPaths()].sort())
   })
 
-  it('对照:确有一条同路径混方法的真实冲突(sandbox/computer-use 之类不在其中)', () => {
-    // 这条断言把「排除清单不为空」变成事实而非巧合:目录里 GET 可公开、POST 不可公开
-    // 的同路径就是 /api/mcp/external/servers。若哪天目录收权把这条冲突消掉,本断言会
-    // 要求同步改掉排除清单,而不是留一张死表。
-    expect(collidedPaths().has('/api/mcp/external/servers')).toBe(true)
+  it('对照:方法冲突的推导有牙(构造面成对,不依赖此刻目录里恰好有一条冲突)', () => {
+    // 这条原先钉的是「/api/mcp/external/servers 确实在冲突集里」。2026-09-28 把
+    // `connectors:read` 收权(`thirdPartyEligible:false`,实测其 handler 整片读、无属主过滤)
+    // 之后,那条路径**两个方法都不可公开** ⇒ 它不再是"方法冲突",冲突集合合法地变空。
+    // 继续钉那一个名字,等于把「仓库此刻恰好有一处冲突」当恒定前提:它会被一次正当的收权
+    // 打破(红得没道理),也会在推导写坏时跟着红(分不清是哪种)。现改喂构造行判**规则本身**:
+    // 同路径混可公开/不可公开 ⇒ 必进冲突集;两档同可公开 ⇒ 不得进(反向对照,防"见同路径即判冲突")。
+    const collided = collidedPaths([
+      { scope: 'a:read', eligible: true, method: 'GET', path: '/api/x' },
+      { scope: 'a:write', eligible: false, method: 'POST', path: '/api/x' },
+      { scope: 'b:read', eligible: true, method: 'GET', path: '/api/y' },
+      { scope: 'b:list', eligible: true, method: 'POST', path: '/api/y' },
+    ])
+    expect(collided.has('/api/x')).toBe(true)
+    expect(collided.has('/api/y')).toBe(false)
   })
 })
 
@@ -146,7 +167,10 @@ describe('默认拒绝:配置不齐时一条 rewrite 都不注册', () => {
   })
   it('开关值不是字面量 true 一律视为关(1 / TRUE / yes / 空串 都不放行)', () => {
     for (const v of ['1', 'TRUE', 'yes', 'on', '', ' false']) {
-      expect(buildAiServiceEdgeRewrites({ ...ENABLED, [AI_SERVICE_EDGE_ENABLED_ENV]: v }), `值=${v}`).toEqual([])
+      expect(
+        buildAiServiceEdgeRewrites({ ...ENABLED, [AI_SERVICE_EDGE_ENABLED_ENV]: v }),
+        `值=${v}`,
+      ).toEqual([])
     }
   })
   it('基址形态不合法一律视为未配置(相对路径 / 非 http(s) / 带 userinfo / 带 query 或 hash)', () => {
@@ -160,7 +184,9 @@ describe('默认拒绝:配置不齐时一条 rewrite 都不注册', () => {
       '  ',
     ]) {
       expect(resolveEdgeBaseUrl(bad).ok, `应当拒绝:${bad}`).toBe(false)
-      expect(buildAiServiceEdgeRewrites({ ...ENABLED, [AI_SERVICE_EDGE_BASE_URL_ENV]: bad })).toEqual([])
+      expect(
+        buildAiServiceEdgeRewrites({ ...ENABLED, [AI_SERVICE_EDGE_BASE_URL_ENV]: bad }),
+      ).toEqual([])
     }
   })
   it('反例对照(有牙证明):配置齐备时**确实**产出与表等长的规则 ⇒ 上面的 0 条不是恒真', () => {
@@ -173,7 +199,9 @@ describe('默认拒绝:配置不齐时一条 rewrite 都不注册', () => {
 describe('放行形态:只注册精确路径,不注册任何前缀', () => {
   it('source 恰为 /ai-service + 上游路径,destination 恰为 基址 + 上游路径', () => {
     for (const row of AI_SERVICE_EDGE_ROUTES) {
-      const hit = buildAiServiceEdgeRewrites(ENABLED).find((r) => r.source === `${AI_SERVICE_EDGE_PREFIX}${row.upstreamPath}`)
+      const hit = buildAiServiceEdgeRewrites(ENABLED).find(
+        (r) => r.source === `${AI_SERVICE_EDGE_PREFIX}${row.upstreamPath}`,
+      )
       expect(hit, `缺规则:${row.upstreamPath}`).toBeTruthy()
       expect(hit?.destination).toBe(`${VALID_BASE}${row.upstreamPath}`)
     }
@@ -194,7 +222,7 @@ describe('放行形态:只注册精确路径,不注册任何前缀', () => {
       `${AI_SERVICE_EDGE_PREFIX}/api/sandbox/run`, // sandbox:run —— thirdPartyEligible=false
       `${AI_SERVICE_EDGE_PREFIX}/api/computer-use/keystroke`, // computer:operate
       `${AI_SERVICE_EDGE_PREFIX}/api/agent-control/execute`, // browser:operate
-      `${AI_SERVICE_EDGE_PREFIX}/api/mcp/external/servers`, // connectors:write(同路径 GET 才可公开)
+      `${AI_SERVICE_EDGE_PREFIX}/api/mcp/external/servers`, // 该路径两个方法现在都不可公开(read=connectors:read / write=connectors:write)
       `${AI_SERVICE_EDGE_PREFIX}/api/mcp/store/install`, // 未登记的兄弟路径
       `${AI_SERVICE_EDGE_PREFIX}/api/agents/execute`, // 执行面
     ]) {
