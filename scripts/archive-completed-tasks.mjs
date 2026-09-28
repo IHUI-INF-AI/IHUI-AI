@@ -107,6 +107,8 @@ import { compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
 // 搬运集 ⊂ 保护集由 lib 的构造保证(isArchivableTaskHeading 定义第一句即 isCompletedTaskHeading)。
 import {
   parseCompletedTaskBlocks,
+  entryHasOpenRows,
+  isArchivableTaskHeading,
   extractCompletedTaskHeadings,
   countBulletCompleted,
 } from './lib/plan-task-headings.mjs'
@@ -122,6 +124,7 @@ const dryRun = args.includes('--dry-run')
 const allMode = args.includes('--all')
 const autoCommit = args.includes('--auto-commit')
 const selfTest = args.includes('--self-test')
+const noBullets = args.includes('--no-bullets')
 // 大批量(格式漂移/积压)时的显式人工放行口 —— 自动档(pre-commit 钩子)没有这个开关就走阀门
 const allowMass = args.includes('--allow-mass')
 const daysIdx = args.indexOf('--days')
@@ -206,6 +209,115 @@ function shouldArchive(task) {
   if (!task.date) return false // 无日期不归档(除非 --all)
   return dateDiffDays(task.date) >= daysThreshold
 }
+
+const BULLET_DONE_RE = /^\s*[-*+] \[[xX]\]/
+const BULLET_ANY_RE = /^\s*[-*+] \[[ xX]\]/
+
+/**
+ * 子弹级已完成登记的采集器(2026-09-28 立,响应用户"完成的内容不要再留在 PROJECT_PLAN 里")。
+ *
+ * 为什么必须有这一维:`parseCompletedTaskBlocks` 只认 ##/### 两级带 ✅ 的**条目标题**,
+ * 而台账里绝大多数完成状态写在 bullet 级 `- [x]`(HEAD 面实测 2106 条)—— 旧实现对此
+ * 明写"不搬也不护",于是计划文档只增不减(实测 4.9 MB)。这不是阀值调错,是**归档粒度**
+ * 本来就漏掉了这一整个量纲。
+ *
+ * 三条不许漂的判据:
+ *  ① **只搬整段都是已完成登记的最长连续块** —— 块内一旦出现任何 `- [ ]`(含缩进子行)
+ *     就在那里断开。把别人正开着的账搬进归档,比不归档严重得多(派单口径会静默少行)。
+ *  ② **日期取块内第一条能解析出的日期**;解析不到 ⇒ 不搬(除非 --all)—— 与条目级同一条规矩,
+ *     不给"无出生证明"的行造一个生日。
+ *  ③ 产出的对象与条目级同形({startLine,endLine,bodyLines,titleText,date,level:'bullet'}),
+ *     因此**复用**既有的结构等值自证、零损失闸与对象空间落地,不另写第二套 plumbing
+ *     (同一会话手写 6 份并漂开,正是 object-space-land 入库的理由)。
+ */
+export function collectCompletedBullets(content, { skipRanges = [] } = {}) {
+  const lines = String(content ?? '').split('\n')
+  const inSkip = (i) => skipRanges.some((r) => i >= r.startLine && i <= r.endLine)
+  const out = []
+  let i = 0
+  while (i < lines.length) {
+    if (inSkip(i) || !BULLET_DONE_RE.test(lines[i])) {
+      i++
+      continue
+    }
+    const start = i
+    const body = []
+    let j = i
+    while (j < lines.length && !inSkip(j)) {
+      const l = lines[j]
+      if (BULLET_ANY_RE.test(l)) {
+        if (/^\s*[-*+] \[ \]/.test(l)) break // 块内遇到未完成登记 ⇒ 当场断开
+        body.push(l)
+        j++
+        continue
+      }
+      // 续行 = 缩进正文(块内已有 ≥2 空格缩进的行才认),它属于上一条登记
+      if (/^ {2,}\S/.test(l) && body.length > 0) {
+        if (/^\s*[-*+] \[ \]/.test(l)) break
+        body.push(l)
+        j++
+        continue
+      }
+      break
+    }
+    if (body.length > 0) {
+      const dateMatch = body.find((l) => dateOf(l)) ?? ''
+      out.push({
+        startLine: start,
+        endLine: j - 1,
+        level: 'bullet',
+        title: body[0],
+        titleText: String(body[0])
+          .replace(/^\s*[-*+] \[[xX]\]\s*/, '')
+          .slice(0, 80),
+        date: dateOf(dateMatch),
+        bodyLines: body,
+      })
+    }
+    i = Math.max(j, start + 1)
+  }
+  return out
+}
+
+/** 行内第一个 YYYY-MM-DD(与 lib 的取龄口径同源:解析不到返回 null,不猜)。 */
+function dateOf(line) {
+  const m = /(20\d{2}-\d{2}-\d{2})/.exec(String(line ?? ''))
+  return m ? m[1] : null
+}
+
+/**
+ * 体积预算下的**最旧优先贪心选段**(从主流程抽成纯函数,是为了让它能被自检证到两面:
+ * 既能证明"每轮真搬得动",也能证明"最旧一条自身超预算时返回空集" —— 后者是拒绝路径,
+ * 不是"搬一半"。旧实现是"全批或不动",积压一旦超阈值就永久卡死(2026-09-28 实测:
+ * 3 条 / 592,001 B 每次自动档重算同一批再拒绝,归档机制对存量结构性失效而账面一路绿)。
+ */
+export function selectWithinBudget(candidates, { maxEntries, maxBytes, entryBytes }) {
+  const totalBytes = candidates.reduce((s, t) => s + entryBytes(t), 0)
+  if (candidates.length <= maxEntries && totalBytes <= maxBytes) {
+    return { picked: candidates, totalBytes, deferredCount: 0, deferredBytes: 0 }
+  }
+  const byAge = [...candidates].sort((a, b) =>
+    String(a.date || '9999-12-31') < String(b.date || '9999-12-31') ? -1 : 1,
+  )
+  const picked = []
+  let acc = 0
+  for (const t of byAge) {
+    const b = entryBytes(t)
+    if (picked.length === 0 && b > maxBytes) break // 单条即超预算 ⇒ 整批拒绝(不拆条目)
+    if (picked.length >= maxEntries || acc + b > maxBytes) break
+    picked.push(t)
+    acc += b
+  }
+  return {
+    picked,
+    totalBytes,
+    oldestBytes: byAge.length > 0 ? entryBytes(byAge[0]) : 0,
+    deferredCount: byAge.length - picked.length,
+    deferredBytes: totalBytes - acc,
+  }
+}
+
+
 
 /**
  * 归档占位的标题形态。**与守门 13c 的反查同形** —— 两边各写一遍就是"一边写一边看不见"
@@ -785,14 +897,59 @@ async function main() {
     process.exit(0)
   }
   const tasks = parseCompletedTaskBlocks(content)
-  const toArchive = tasks.filter(shouldArchive)
+  // 「标题带 ✅ 但体内还裹着未完成登记」的**假条目**一律不搬(2026-09-28 实测 HEAD 面:
+  // 一条 `## P1 侧边栏底部 5 工具按钮…立并完成 ✅` 之后再无同级标题 ⇒ 块一路吞到文件末尾 =
+  // 771 行 / 575,577 B,块内 `- [ ]` 237 条)。搬走它等于把别人正开着的 237 件活账归档,
+  // 派单口径静默少 237 行 —— 那比"积压没清"严重得多。
+  // 本判据与体积阀**正交**:`--allow-mass` 只放宽"一次搬多少字节",不放宽"这一条能不能搬"。
+  const candidates = tasks.filter(shouldArchive)
+  const blocked = candidates.filter((t) => entryHasOpenRows(t.bodyLines))
+  let toArchive = candidates.filter((t) => !entryHasOpenRows(t.bodyLines))
+  if (blocked.length > 0) {
+    console.log(
+      C.yellow +
+        `⛔ 有 ${blocked.length} 个"条目标题写着已完成、体内仍有未勾选登记"的块**不参与归档**:` +
+        C.reset,
+    )
+    for (const t of blocked) {
+      const openN = t.bodyLines.filter((l) => /^[-*+] \[ \]/.test(l)).length
+      console.log(
+        C.yellow +
+          `   L${t.startLine + 1}(lvl=${t.level})体内未勾选 ${openN} 条 / 整块 ${Buffer.byteLength(t.bodyLines.join('\n'), 'utf8')} B —— ${String(t.titleText).slice(0, 60)}` +
+          C.reset,
+      )
+    }
+    console.log(
+      C.dim +
+        '   出路是把该节的已完成条目升到独立 ##/### 标题下,或就地删掉标题里的"已完成"标记 —— 归档器不替你判哪些行是活账。' +
+        C.reset,
+    )
+  }
   // 如实报数(禁止把"看不见"洗成"确信没有"):保护集比搬运集宽的部分、以及完全在归档粒度
   // 之外的 bullet 级 `- [x]`,都必须出现在输出里。
   const protectedCount = extractCompletedTaskHeadings(content).length
   const bulletCount = countBulletCompleted(content)
   const granularityNote =
     `(保护集 ${protectedCount} 条含"已完成"无"✅"者只护不搬;` +
-    `另有 ${bulletCount} 处已完成状态写在 bullet 级 - [x],不在 §1 条目粒度内,不搬也不护)`
+    `另有 ${bulletCount} 处已完成状态写在 bullet 级 - [x],` +
+    `${noBullets ? '本次 --no-bullets ⇒ 不纳入(默认档是纳入的)' : '已纳入归档粒度(2026-09-28 立)'})`
+
+  // ── 子弹级纳入(2026-09-28,响应用户"完成的内容不要再记在 PROJECT_PLAN 里")──
+  // 采集范围与本轮条目级搬运结果**互斥**(skipRanges),否则同一行被 splice 两次。
+  if (!noBullets) {
+    const bulletSkip = toArchive.map((t) => ({ startLine: t.startLine, endLine: t.endLine }))
+    const bulletAll = collectCompletedBullets(content, { skipRanges: bulletSkip })
+    const bulletOk = bulletAll.filter(shouldArchive)
+    if (bulletAll.length > 0) {
+      console.log(
+        C.dim +
+          `   子弹级采集:${bulletAll.length} 段连续已完成登记 / 达 ${daysThreshold} 天阈值 ${bulletOk.length} 段` +
+          `(其余 ${bulletAll.length - bulletOk.length} 段留在原地,含解析不到日期的段 —— 不造生日)` +
+          C.reset,
+      )
+    }
+    toArchive = [...toArchive, ...bulletOk].sort((a, b) => a.startLine - b.startLine)
+  }
 
   if (toArchive.length === 0) {
     console.log(
@@ -817,26 +974,36 @@ async function main() {
     process.exit(0)
   }
 
-  // 大批量阀门 —— 只在**自动档**(pre-commit 钩子带 --auto-commit)生效,人工跑不受限。
+  // 大批量阀门 —— 只在**自动档**(post-commit 钩子带 --auto-commit)生效,人工跑不受限。
   // 依据(2026-09-25 实测):修好匹配式后,正常稳态一次是 7 条 / 14.8 KB / 全文的 0.61%;
   //   超过 25 条或 256 KB 就意味着"格式又漂了一次"或"积压被一次性放开",那种量级的活文档重写
-  //   必须是人做的决定(共享工作区里并发会话正拿着这份文件,§12)⇒ 拒绝并打印实测数字 + 放行口,
-  //   绝不静默搬走半个计划文档。(参照 §5c 水印门"单次缺口 > 200 个拒绝自动回写"的同一条设计。)
+  //   必须是人做的决定(共享工作区里并发会话正拿着这份文件,§12)⇒ 绝不静默搬走半个计划文档。
+  //   (参照 §5c 水印门"单次缺口 > 200 个拒绝自动回写"的同一条设计。)
+  // **但"全批或不动"是错的默认**(2026-09-28 实测):积压 3 条 / 592,001 B 就永久超阈值,
+  //   每次自动档重算同一批再拒绝 ⇒ 阀把"少做一件事"变成了"永远不做这件事",归档机制对这批
+  //   存量结构性失效而账面一路绿。现改为按**最旧优先贪心取前缀**:单批仍在预算内,但每轮真搬得动。
+  //   只有"最旧那一条自身就超预算"才回到拒绝路径 —— 那才是真正需要人工裁的量级。
   const MASS_MAX_ENTRIES = 25
   const MASS_MAX_BYTES = 256 * 1024
+  const entryBytes = (t) => Buffer.byteLength((t.bodyLines || []).join('\n'), 'utf8')
   if (autoCommit && !allowMass) {
-    const movedBytes = toArchive.reduce(
-      (s, t) => s + Buffer.byteLength(t.bodyLines.join('\n'), 'utf8'),
-      0,
-    )
-    if (toArchive.length > MASS_MAX_ENTRIES || movedBytes > MASS_MAX_BYTES) {
+    const sel = selectWithinBudget(toArchive, {
+      maxEntries: MASS_MAX_ENTRIES,
+      maxBytes: MASS_MAX_BYTES,
+      entryBytes,
+    })
+    if (sel.picked.length === 0 && toArchive.length > 0) {
       console.log(
         C.yellow +
           '⚠  大批量归档阀门关闭中(自动档):' +
           toArchive.length +
           ' 条 / ' +
-          movedBytes +
-          ' B (阈值 ' +
+          sel.totalBytes +
+          ' B,且最旧一条自身 ' +
+          sel.oldestBytes +
+          ' B 已超单批预算 ' +
+          MASS_MAX_BYTES +
+          ' B(预算 ' +
           MASS_MAX_ENTRIES +
           ' 条或 ' +
           MASS_MAX_BYTES +
@@ -845,12 +1012,21 @@ async function main() {
       )
       console.log(
         C.dim +
-          '   这通常是标题格式又漂了一次或积压被一次放开;先 --dry-run 看清单,确认后再人工跑:' +
+          '   单条即超预算 ⇒ 不拆条目搬(拆了就不是"完整任务条目"了),需人工放行:' +
           ' node scripts/archive-completed-tasks.mjs --allow-mass' +
           C.reset,
       )
       // 退出码 0:这是"自动档少做一件事",不是错误 —— 绝不得让钩子链因此红
       process.exit(0)
+    }
+    if (sel.deferredCount > 0) {
+      toArchive = sel.picked
+      console.log(
+        C.dim +
+          `   体积预算内取最旧前缀:本次搬 ${sel.picked.length} 段 / ${sel.totalBytes - sel.deferredBytes} B,` +
+          `余 ${sel.deferredCount} 段 / ${sel.deferredBytes} B 下一轮继续(每轮都在搬,不再永久卡死)` +
+          C.reset,
+      )
     }
   }
 
@@ -1163,6 +1339,54 @@ function runSelfTest() {
   const ph = placeholderLine(today, '某个已完成任务条目(2026-09-01 完成 ✅)', archiveBaseName)
   ok('S11 占位含相对路径且以 HTML 注释闭合', ph.startsWith('<!-- 已归档(') && ph.endsWith('-->') && ph.includes('.ihui-agent/archive/' + archiveBaseName), ph)
   ok('S11b 标题超 60 字被截断(既有形态,不得改)', placeholderLine(today, 'x'.repeat(80), archiveBaseName).includes('x'.repeat(60)))
+
+  // S12 子弹级采集器:连续 - [x] 并成一段,缩进续行算正文,**遇到任何未勾选行当场断开**
+  // (把别人正开着的账搬进归档比不归档严重得多 ⇒ 这一条是本维的安全底座,必须可测)。
+  const bFix = [
+    '## 活章节',
+    '- [x] ✅(2026-09-01) **G-300 甲已完成**',
+    '  续行说明属于甲',
+    '- [x] ✅(2026-09-02) **G-301 乙已完成**',
+    '- [ ] **G-302 丙还开着**',
+    '## 另一章',
+    '- [x] ✅(2026-09-03) **G-303 丁已完成**',
+    '  - [ ] 丁的缩进子项还开着',
+  ].join('\n')
+  const bRuns = collectCompletedBullets(bFix)
+  ok('S12 连续已完成登记并成一段(含缩进续行)', bRuns.length === 2 && bRuns[0].bodyLines.length === 3, JSON.stringify(bRuns.map((r) => r.bodyLines.length)))
+  ok(
+    'S12b 采集段内一条未勾选都不许有(正反两章都验)',
+    bRuns.every((r) => !r.bodyLines.some((l) => /^\s*[-*+] \[ \]/.test(l))),
+    JSON.stringify(bRuns.map((r) => r.bodyLines)),
+  )
+  ok('S12c 未勾选行的缩进子项不得被裹进上一条', !String(bRuns[1] && bRuns[1].bodyLines).includes('丁的缩进子项还开着'), JSON.stringify(bRuns[1]))
+  ok('S12d skipRanges 内的子弹不采(与条目级搬运互斥)', collectCompletedBullets(bFix, { skipRanges: [{ startLine: 1, endLine: 3 }] }).length === 1, JSON.stringify(collectCompletedBullets(bFix, { skipRanges: [{ startLine: 1, endLine: 3 }] }).map((r) => r.startLine)))
+
+  // S13 假条目守卫:标题写着已完成、体内还有未勾选 ⇒ 不搬(真仓 L13850 那一枚 575,577 B /
+  // 块内未勾选 237 条就是这一型;人工按提示跑 --allow-mass 会把 237 件活账归档)。
+  // §22c:标题逐字取自 HEAD:PROJECT_PLAN.md 第 13850 行,不得用自造形态。
+  const REAL_FALSE_HEADING =
+    '## P1 侧边栏底部 5 工具按钮收进用户行下拉菜单(2026-09-21 立并完成 ✅,平台独占:仅 apps/web)'
+  ok('S13 真实形态标题确实被认作可搬条目(否则守卫无从谈起)', isArchivableTaskHeading(REAL_FALSE_HEADING))
+  ok(
+    'S13b 体内有未勾选行 ⇒ 守卫判不搬',
+    entryHasOpenRows([REAL_FALSE_HEADING, '- [ ] 还开着的活账']) === true,
+  )
+  ok('S13c 体内全是已完成 ⇒ 守卫不得拦(否则归档整族失效)', entryHasOpenRows([REAL_FALSE_HEADING, '- [x] ✅(2026-09-21) 做完了']) === false)
+
+  // S14 体积预算取最旧前缀:每轮都搬得动(旧"全批或不动"= 永久卡死);单条超预算 ⇒ 空集(不拆条目)
+  const eb = (t) => Buffer.byteLength(t.bodyLines.join('\n'), 'utf8')
+  const cands = [
+    { date: '2026-09-10', bodyLines: ['- [x] ' + 'A'.repeat(100)] },
+    { date: '2026-09-20', bodyLines: ['- [x] ' + 'B'.repeat(100)] },
+    { date: '2026-09-05', bodyLines: ['- [x] ' + 'C'.repeat(100)] },
+  ]
+  const g1 = selectWithinBudget(cands, { maxEntries: 25, maxBytes: 150, entryBytes: eb })
+  ok('S14 超预算时按最旧优先取前缀,不是整批拒绝', g1.picked.length === 1 && g1.picked[0].date === '2026-09-05' && g1.deferredCount === 2, JSON.stringify({ p: g1.picked.map((x) => x.date), d: g1.deferredCount }))
+  const g2 = selectWithinBudget([{ date: '2026-09-01', bodyLines: ['- [x] ' + 'X'.repeat(400)] }], { maxEntries: 25, maxBytes: 150, entryBytes: eb })
+  ok('S14b 最旧一条自身超预算 ⇒ 返回空集(拒绝路径,绝不搬半条)', g2.picked.length === 0 && g2.oldestBytes > 150, JSON.stringify({ p: g2.picked.length, o: g2.oldestBytes }))
+  const g3 = selectWithinBudget(cands, { maxEntries: 25, maxBytes: 100000, entryBytes: eb })
+  ok('S14c 预算内 ⇒ 整批原样通过(不得为"更安全"而少搬)', g3.picked.length === 3 && g3.deferredCount === 0, JSON.stringify(g3.picked.length))
 
   let failed = 0
   for (const r of results) {
