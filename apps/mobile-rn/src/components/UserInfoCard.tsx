@@ -372,8 +372,10 @@ const newStyles = StyleSheet.create({
     // 盒子结构(边长 + overflow + 居中)取自 spec 出口,端内不重摆;
     // 48dp 的唯一源在 user-info-card-spec(≥44 命中块 + Tailwind 整档,与小程序端同值;
     // 原 rpx(163)≈81.5 是 Uniapp 旧稿换算 hack,非注册档,已收口)
+    // 半径取**边长的一半** = 真圆:§4 把头像列在"真圆/装饰件"族里(明令不得方档化),
+    // 而同一屏的 ProfileScreen 头像早就是真圆 —— 两端、同屏同族必须同一个形状。
     ...AVATAR_BOX,
-    borderRadius: rnRadius.lg,
+    borderRadius: USER_INFO_CARD_AVATAR_PX / 2,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.brandAccent.light,
@@ -383,12 +385,13 @@ const newStyles = StyleSheet.create({
     // 数字仍住在 spec 常量里 —— 端内没有第二个 48
     width: USER_INFO_CARD_AVATAR_PX,
     height: USER_INFO_CARD_AVATAR_PX,
+    borderRadius: USER_INFO_CARD_AVATAR_PX / 2,
     resizeMode: 'cover',
   },
   // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
   avatarFallback: {
     ...AVATAR_BOX,
-    borderRadius: rnRadius.lg,
+    borderRadius: USER_INFO_CARD_AVATAR_PX / 2,
     backgroundColor: tokens.brandAccent.DEFAULT,
   },
   avatarFallbackText: {
