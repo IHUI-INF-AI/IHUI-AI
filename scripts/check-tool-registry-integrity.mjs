@@ -10,7 +10,12 @@
  *   ai-service 的 fs 类工具存在**两个相交但不对等的可达面**,此前没有任何地方说明:
  *     (a) 本地注册面 —— 名字在 `mcp_server._TOOL_HANDLERS` 里,任何部署形态都可执行;
  *     (b) 浏览器委托面 —— 名字**不在**本地注册表,仅在请求携带 `workspace_context` 时
- *         由前端 `apps/web/src/lib/workspace-tool-executor.ts` 执行。
+ *         由前端委托实现执行。该实现的**唯一落点**自 2026-09-28 起住在
+ *         `packages/shared/src/chat/workspace-tool-executor.ts`(「执行器从 web 提为共享层」那串
+ *         提交);旧路径 `apps/web/src/lib/workspace-tool-executor.ts` 降为 re-export 薄壳,
+ *         **不再当 case 判据的输入**。判据的脸跟着搬家同批改 —— 改被审代码的位置而不改审它的
+ *         判据,就是在给一台瞎掉的尺子背书(守门 117 同型;这次是"红在干净 HEAD 上的恒红门",
+ *         后果是每次提交被逼 --no-verify,§12f)。
  *   后果:`apply_patch` / `create_file` / `delete_file` / `move_file` 属于 (b) 而非 (a),
  *   于是桌面端/本地工作区(无 workspace_context)下调它们会一路走到 `_mcp.call_tool`
  *   拿到模糊的「未知工具」—— 模型不知道为什么失败,也不知道该换成哪个工具,只会
@@ -37,6 +42,13 @@
  *      —— 这三条一起定义什么叫「委托专有」,任一破都说明常量已与实际脱节。
  *   J6 前端实现了的工具必须 ∈ `_FS_DEPENDENT_TOOLS` ∪ 本地注册表 —— 否则前端那支实现
  *      永远不会被调到,是死代码。
+ *   J16 旧 web 路径只允许是**转发薄壳**(2026-09-28,委托面搬家逼出的判据):该文件在被审面
+ *      上存在时 —— ① 不得自带任何 `case '<name>':`(第二份委托实现回潮 = 两处算同一件事必
+ *      漂移,本仓记过最多次的失败型);② 必须有一条 import/export … from 指向唯一实现
+ *      (specifier 含 `chat/workspace-tool-executor`,或整包转发 `@ihui/shared`)。
+ *      **文件缺席不判**(旧壳被合法删除后调用点断裂由 tsc/门 98 接管,本门只认委托面)。
+ *      刻意**不做两脸并集**:委托 case 只从共享层那一份读;把旧壳的 case 也算进判据输入,
+ *      等于承认"两份都合法"——自检里"实现退回旧壳而共享层无 case 必红"那条就是这条选择的牙。
  *   J7 `_DELEGATE_ONLY_HINTS` 的键集合 === `_DELEGATE_ONLY_TOOLS`(提示文案不许漏新老)。
  *   J8 `BUILTIN_ENGINE_TOOLS` 的每个成员必须在 `ENGINE_TOOL_BRIDGE` 有条目,且桥表不得留
  *      已不在这个名单里的旧条目(V3 #47 —— 引擎内核自带的名字此前对全部门禁盲视:实测
@@ -127,31 +139,47 @@ export function pickFace(argv) {
   })
 }
 
-/** 三份被审文件按同一个面、同一轮读满;取不到一律抛 Undetermined(绝不回落另一个面)。 */
+/** 必需输入(委托面实现搬家后,J1/J5/J6 只认共享层那一份)。 */
 function inputRels() {
-  // 不在模块顶层求值:PY_LLM/PY_MCP/TS_EXEC 声明在本函数之后,顶层数组会撞 TDZ。
-  return [PY_LLM, PY_MCP, TS_EXEC, PY_ENGINE, PY_BRIDGE]
+  // 不在模块顶层求值:PY_LLM/PY_MCP/TS_EXEC_SHARED 声明在本函数之后,顶层数组会撞 TDZ。
+  return [PY_LLM, PY_MCP, TS_EXEC_SHARED, PY_ENGINE, PY_BRIDGE]
+}
+/**
+ * 可选输入:旧 web 路径的 re-export 薄壳。存在时只喂 J16 的"薄壳完整性"检查,
+ * **不作为任何 case/可达性判据的来源**;缺席不判(见头注 J16 段)。
+ */
+function optionalInputRels() {
+  return [TS_EXEC]
 }
 function readInputs(root, face) {
-  const rels = inputRels()
+  const required = inputRels()
+  const optional = optionalInputRels()
+  const rels = [...required, ...optional]
+  const out = {}
   if (face === 'worktree') {
-    const out = {}
-    for (const rel of rels) {
+    for (const rel of required) {
       const text = readWorktreeFile(root, rel)
       if (text === null || text === undefined)
         throw new Undetermined(rel + ' 在磁盘上不存在(工作树档)')
       out[rel] = text
+    }
+    for (const rel of optional) {
+      const text = readWorktreeFile(root, rel)
+      if (text !== null && text !== undefined) out[rel] = text
     }
     return out
   }
   const prefix = face === 'staged' ? ':' : 'HEAD:'
   const specs = rels.map((rel) => prefix + rel)
   const got = catBatch(root, specs, { maxBuffer: 1 << 28 })
-  const out = {}
   for (let i = 0; i < rels.length; i++) {
     const text = got.get(specs[i])
-    if (text === null || text === undefined)
-      throw new Undetermined((face === 'staged' ? '索引' : 'HEAD') + ' 取不到 ' + rels[i])
+    if (text === null || text === undefined) {
+      if (required.includes(rels[i]))
+        throw new Undetermined((face === 'staged' ? '索引' : 'HEAD') + ' 取不到 ' + rels[i])
+      // 可选输入(薄壳)缺席:不判也不报错,交给 J16 的"缺席跳过"分支。
+      continue
+    }
     out[rels[i]] = text
   }
   return out
@@ -159,6 +187,9 @@ function readInputs(root, face) {
 
 const PY_LLM = 'apps/ai-service/app/routers/llm.py'
 const PY_MCP = 'apps/ai-service/app/services/mcp_server.py'
+// 委托面唯一实现(2026-09-28 由下面那个 web 路径搬入共享层;J1/J5/J6 只读这一份)。
+const TS_EXEC_SHARED = 'packages/shared/src/chat/workspace-tool-executor.ts'
+// 旧 web 路径:re-export 薄壳,可选输入,只喂 J16,永远不再当 case 判据来源。
 const TS_EXEC = 'apps/web/src/lib/workspace-tool-executor.ts'
 // J11 的枚举面(V3 #47 第三格):别名表的模块级定义只允许存在于这个包内的一处。
 const APP_PY_DIR = 'apps/ai-service/app'
@@ -316,12 +347,36 @@ function dictMap(fileAbs, src, varName) {
   return out
 }
 
-/** 前端 switch-case 里实现了的工具名。 */
-function frontendCases(texts) {
-  const src = texts[TS_EXEC]
+/** switch-case 里的工具名(委托面与旧壳的"回潮"检查共用这一份解析)。 */
+const FRONTEND_CASE_RE = /^\s*case '([A-Za-z0-9_]+)':/gm
+function caseNamesIn(text) {
   const names = new Set()
-  for (const m of src.matchAll(/^\s*case '([A-Za-z0-9_]+)':/gm)) names.add(m[1])
+  for (const m of text.matchAll(FRONTEND_CASE_RE)) names.add(m[1])
   return names
+}
+
+/** 委托面实现里执行的工具名 —— 只读共享层那一份(两脸并集 = 承认两份实现都合法,禁止)。 */
+function frontendCases(texts) {
+  const src = texts[TS_EXEC_SHARED]
+  if (src === null || src === undefined)
+    throw new Error(
+      `委托面实现 ${TS_EXEC_SHARED} 未随取材提供 —— 判据不接受缺输入,读空会伪装成"0 处违规"`,
+    )
+  return caseNamesIn(src)
+}
+
+/**
+ * J16:旧 web 薄壳里出现任何 case 都算"第二份委托实现回潮";
+ * 转发判据只认 import/export … from 语句的 specifier(散文里提到那个路径不算装车),
+ * 放过两条合法形态:子路径 `…/chat/workspace-tool-executor` 与整包 barrel `@ihui/shared`。
+ */
+const SHELL_FORWARD_RE = /\b(?:export|import)\b[^\n]*?\bfrom\s*['"]([^'"]+)['"]/g
+function shellForwardsToSharedImplementation(text) {
+  for (const m of text.matchAll(SHELL_FORWARD_RE)) {
+    const spec = m[1]
+    if (spec.includes('chat/workspace-tool-executor') || spec === '@ihui/shared') return true
+  }
+  return false
 }
 
 /**
@@ -650,6 +705,8 @@ function collect(texts) {
     aliases: dictMap(PY_MCP, texts[PY_MCP], '_TOOL_ALIASES'),
     local: localRegistry(texts),
     frontend: frontendCases(texts),
+    // J16 的输入:旧 web 薄壳,缺席 = null(不判)。它永远不参与 frontend 集合。
+    shellSrc: texts[TS_EXEC] ?? null,
     builtins,
     bridge: bridgeEntries(texts),
     // V3 #47 第二格(2026-09-26):处置结论的封闭集 + J12/J13 的取材面。
@@ -666,11 +723,11 @@ function check(d, aliasDefs) {
   const failures = []
   const sorted = (s) => [...s].sort()
 
-  // J1 —— 真幽灵:本地不注册、前端也不实现
+  // J1 —— 真幽灵:本地不注册、委托面也不实现
   for (const name of sorted(d.fs)) {
     if (!d.local.has(name) && !d.frontend.has(name)) {
       failures.push(
-        `J1 真幽灵工具名 '${name}':既不在 ${PY_MCP}._TOOL_HANDLERS,也不在 ${TS_EXEC} 的 case 里 —— 任何部署形态都不可达`,
+        `J1 真幽灵工具名 '${name}':既不在 ${PY_MCP}._TOOL_HANDLERS,也不在 ${TS_EXEC_SHARED} 的 case 里 —— 任何部署形态都不可达`,
       )
     }
   }
@@ -712,7 +769,7 @@ function check(d, aliasDefs) {
     }
     if (!d.frontend.has(name)) {
       failures.push(
-        `J5 '${name}' 标为委托专有,但 ${TS_EXEC} 没有对应 case —— 委托过去只会得到「浏览器端不支持」`,
+        `J5 '${name}' 标为委托专有,但 ${TS_EXEC_SHARED} 没有对应 case —— 委托过去只会得到「浏览器端不支持」`,
       )
     }
     if (d.local.has(name)) {
@@ -722,11 +779,32 @@ function check(d, aliasDefs) {
     }
   }
 
-  // J6 —— 前端实现了却没人会调到 = 死代码
+  // J6 —— 委托面实现了却没人会调到 = 死代码
   for (const name of sorted(d.frontend)) {
     if (!d.fs.has(name) && !d.local.has(name)) {
       failures.push(
-        `J6 ${TS_EXEC} 实现了 '${name}',但它既不可委托也不在本地注册 —— 该实现永远执行不到`,
+        `J6 ${TS_EXEC_SHARED} 实现了 '${name}',但它既不可委托也不在本地注册 —— 该实现永远执行不到`,
+      )
+    }
+  }
+
+  // J16 —— 旧 web 路径只允许是转发薄壳(2026-09-28 委托面搬家后新增)。
+  // 判"回潮"而不是并入:壳里长 case = 第二份委托实现,"两处算同一件事必漂移"是本仓
+  // 记过最多次的失败型;壳里没转发 = 壳被掏空而 web 调用点还指着它。
+  // 壳**缺席**不判 —— 把它删掉是合法演进(调用点断裂由 tsc / 守门 98 接管),
+  // 判红等于替未来的正当删除设一道恒红门。
+  if (d.shellSrc !== null && d.shellSrc !== undefined) {
+    const forked = [...caseNamesIn(d.shellSrc)].sort()
+    if (forked.length > 0) {
+      failures.push(
+        `J16 ${TS_EXEC}(re-export 薄壳)里长出 ${forked.length} 个 case(${forked.join(', ')})` +
+          ` —— 委托实现的唯一落点是 ${TS_EXEC_SHARED};在壳里再写一份就是第二份真相,` +
+          '搬家前的旧判据脸不许长回来',
+      )
+    } else if (!shellForwardsToSharedImplementation(d.shellSrc)) {
+      failures.push(
+        `J16 ${TS_EXEC} 存在却没有转发到唯一实现(${TS_EXEC_SHARED})—— ` +
+          'web 调用点仍 import 这个壳,壳不转发就等于把委托链掐断;转发写 `export * from …chat/workspace-tool-executor`',
       )
     }
   }
@@ -1040,6 +1118,8 @@ ${cases.map((n) => `    case '${n}':`).join('\n')}
       return { result: null, error: \`浏览器端不支持工具: \${toolName}\` }
 }
 `
+// 2026-09-28 委托面搬家:旧 web 路径的合法形态 = 纯 re-export 壳(J16 唯一放过的写法)。
+const fixShell = () => `export * from '@ihui/shared/chat/workspace-tool-executor'\n`
 
 // withBuilders=true 时还原 #47 第一格要消除的那一型:内置名被**再抄一遍**的构造表。
 // J15(V3 #47 末格)起,夹具必须与真仓同形:每个内置名都有一个 `_<name>_tool` 构造函数;
@@ -1102,7 +1182,8 @@ function runSelfTest() {
       '    "apply_patch": "用 file_edit",',
     ),
     [PY_MCP]: fixHandlers(['read_file', 'write_file', 'run_command']),
-    [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']),
+    [TS_EXEC_SHARED]: fixTs(['read_file', 'write_file', 'apply_patch']),
+    [TS_EXEC]: fixShell(),
     [PY_ENGINE]: fixEngine(['unified_exec', 'view_image', 'update_plan']),
     [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE),
   }
@@ -1164,17 +1245,46 @@ function runSelfTest() {
       'J5',
     ],
     [
-      'J5 委托专有但前端无实现必红',
-      { ...cleanFiles, [TS_EXEC]: fixTs(['read_file', 'write_file']) },
+      'J5 委托专有但委托面无实现必红(反向对照:声明了而委托面没有 case)',
+      { ...cleanFiles, [TS_EXEC_SHARED]: fixTs(['read_file', 'write_file']) },
       'J5',
     ],
     [
-      'J6 前端死实现必红',
+      'J6 委托面死实现必红',
       {
         ...cleanFiles,
-        [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch', 'never_called']),
+        [TS_EXEC_SHARED]: fixTs(['read_file', 'write_file', 'apply_patch', 'never_called']),
       },
       'J6',
+    ],
+    // ── J16(2026-09-28 委托面搬家):旧 web 壳只许转发 ─────────────────────
+    [
+      'J16 壳里长出 case(第二份委托实现回潮)必红',
+      { ...cleanFiles, [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']) },
+      'J16',
+    ],
+    [
+      'J16 壳不再转发到唯一实现必红(转发被摘线)',
+      { ...cleanFiles, [TS_EXEC]: 'export const noop = 1\n' },
+      'J16',
+    ],
+    [
+      '两脸不得并集:实现退回旧壳而共享层无 case ⇒ J5 必须仍红(并集写法会把这例判绿)',
+      {
+        ...cleanFiles,
+        [TS_EXEC_SHARED]: fixTs(['read_file', 'write_file']),
+        [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']),
+      },
+      'J5',
+    ],
+    [
+      '旧壳缺席不判红(合法删除由 tsc/门98 接管,本门只认委托面)',
+      (() => {
+        const rest = { ...cleanFiles }
+        delete rest[TS_EXEC]
+        return rest
+      })(),
+      null,
     ],
     [
       'J7 提示表缺项必红',
@@ -1201,7 +1311,8 @@ function runSelfTest() {
             '    "apply_patch": "用 file_edit",',
           ),
         [PY_MCP]: fixHandlers(['read_file', 'write_file', 'run_command']),
-        [TS_EXEC]: fixTs(['read_file', 'write_file', 'apply_patch']),
+        [TS_EXEC_SHARED]: fixTs(['read_file', 'write_file', 'apply_patch']),
+        [TS_EXEC]: fixShell(),
         [PY_ENGINE]: fixEngine(['unified_exec', 'view_image', 'update_plan']),
         [PY_BRIDGE]: fixBridge(CLEAN_BRIDGE),
       },
@@ -1527,10 +1638,40 @@ function runSelfTest() {
       )
     }
   }
+  // ── 真仓 HEAD 阳性对照(2026-09-28 委托面搬家) ─────────────────────────────
+  // 用**被审面上的真实内容**喂同一判据:① 四个委托专有名必须真从共享层那份实现里读到
+  // (证明"绿"不是把委托面指歪/读空挣来的 —— 读空时 J1/J5 会红,但把 paths 指到一个
+  // 恰好无 case 的文件再顺手改集合,账面照样会"全绿";这里断言的是 case 确实在),
+  // ② 同一判据在 HEAD 全文上必须零失败(恒红门在自检面同样藏不住)。
+  // 取不到真仓(非 git 环境)⇒ 本例判"未判定"并按失败计,绝不记为通过。
+  {
+    const realName = '真仓 HEAD 阳性对照:委托面 4 case 在读且整判据零失败'
+    let realMsg = null
+    try {
+      const texts = readInputs(ROOT_DEFAULT, 'head')
+      const dd = collect(texts)
+      const need = ['apply_patch', 'create_file', 'delete_file', 'move_file'].filter(
+        (n) => !dd.frontend.has(n),
+      )
+      const fails = check(dd, scanAliasDefinitions(ROOT_DEFAULT, 'head'))
+      if (need.length > 0)
+        realMsg = `委托面 ${TS_EXEC_SHARED} 没读到 case: ${need.join(', ')} —— 绿是读空挣来的`
+      else if (fails.length > 0) realMsg = `期望零失败,实际: ${fails[0]}`
+    } catch (e) {
+      realMsg = `未判定(真仓 HEAD 取不到): ${e instanceof Error ? e.message : String(e)}`
+    }
+    if (realMsg === null) {
+      console.log(`  ${C.green}✓${C.reset} ${realName}`)
+    } else {
+      bad++
+      console.log(`  ${C.red}✗${C.reset} ${realName} — ${realMsg}`)
+    }
+  }
+  const total = cases.length + 1
   console.log(
     bad === 0
-      ? `${C.green}✅ 自检通过 ${cases.length}/${cases.length}${C.reset}`
-      : `${C.red}❌ 自检失败 ${bad}/${cases.length}${C.reset}`,
+      ? `${C.green}✅ 自检通过 ${total}/${total}${C.reset}`
+      : `${C.red}❌ 自检失败 ${bad}/${total}${C.reset}`,
   )
   process.exit(bad === 0 ? 0 : 1)
 }
@@ -1597,17 +1738,18 @@ console.log(`${C.red}${C.bold}❌ 工具注册表完整性失败 — ${failures.
 for (const f of failures) console.log(`  • ${f}`)
 console.log('')
 console.log(
-  `${C.dim}修复:对齐落点 —— ${PY_MCP} 的 _TOOL_ALIASES(全仓唯一一份模块级定义)/ _TOOL_HANDLERS ↔ ${PY_LLM} 的 _FS_DEPENDENT_TOOLS / _DELEGATE_ONLY_TOOLS / _DELEGATE_ONLY_HINTS ↔ ${TS_EXEC} 的 case;llm.py 只 import,不得再抄第二份${C.reset}`,
+  `${C.dim}修复:对齐落点 —— ${PY_MCP} 的 _TOOL_ALIASES(全仓唯一一份模块级定义)/ _TOOL_HANDLERS ↔ ${PY_LLM} 的 _FS_DEPENDENT_TOOLS / _DELEGATE_ONLY_TOOLS / _DELEGATE_ONLY_HINTS ↔ ${TS_EXEC_SHARED} 的 case(委托面唯一实现;${TS_EXEC} 只是 re-export 薄壳,不得再放 case);llm.py 只 import,不得再抄第二份${C.reset}`,
 )
 process.exit(1)
 }
 
 // §22c:暴露判据本体给镜像测试(必须放在 isDirectRun 守卫之后)。
 export const __test__ = {
-  paths: { PY_LLM, PY_MCP, PY_ENGINE, PY_BRIDGE, TS_EXEC, APP_PY_DIR },
+  paths: { PY_LLM, PY_MCP, PY_ENGINE, PY_BRIDGE, TS_EXEC, TS_EXEC_SHARED, APP_PY_DIR },
   pickFace,
   readInputs,
   inputRels,
+  optionalInputRels,
   stripLineComments,
   stripPyDocstrings,
   pyCollection,
@@ -1615,6 +1757,8 @@ export const __test__ = {
   dictKeySet,
   dictMap,
   frontendCases,
+  caseNamesIn,
+  shellForwardsToSharedImplementation,
   scanTupleEntries,
   splitTupleElements,
   bridgeEntries,
@@ -1628,6 +1772,6 @@ export const __test__ = {
   scanAliasDefinitions,
   buildFixture,
   rmScratch,
-  fixtures: { fixPy, fixHandlers, fixTs, fixEngine, fixBridge, CLEAN_BRIDGE, RESOLVER_WIRING },
+  fixtures: { fixPy, fixHandlers, fixTs, fixShell, fixEngine, fixBridge, CLEAN_BRIDGE, RESOLVER_WIRING },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
