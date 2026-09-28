@@ -113,4 +113,29 @@ describe('③ 共享层那份是真实现', () => {
     expect(r.error).toContain('path 参数缺失')
   })
 })
+
+/**
+ * ④ 跨端同一语义:两个请求目录句柄的端都必须请求 `readwrite`。
+ *
+ * 判据是"源码里那一次调用穿了什么档",不是运行时探测 —— 因为这条链的失败形态是安静的:
+ * 读档句柄进了执行器,`write_file` 报错回传给模型,而用户已经看到一条流中 diff。
+ * 两端各写各的档位正是 O81 要避免的那种分叉(一端能用、一端不能用)。
+ */
+describe('④ 两端 pick 都请求 readwrite(委托执行面需要写权)', () => {
+  const sites: ReadonlyArray<[string, string]> = [
+    [
+      'apps/web/src/components/workspace/local-folder-picker.tsx',
+      "showDirectoryPicker({ mode: 'readwrite' })",
+    ],
+    ['apps/extension/lib/workspace-store.ts', "mode: 'readwrite'"],
+  ]
+  for (const [rel, needle] of sites) {
+    it(`${rel} 请求 readwrite`, () => {
+      const src = readFileSync(join(ROOT, rel), 'utf8')
+      expect(src.replace(/\s+/g, ' '), rel).toContain(needle.replace(/\s+/g, ' '))
+      // 反向锁:不得再退回只读档(那会把写类工具变成"发得出去、执行必失败")
+      expect(src).not.toMatch(/showDirectoryPicker\(\{\s*mode:\s*'read'\s*\}\)/)
+    })
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

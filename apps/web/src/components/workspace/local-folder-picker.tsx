@@ -109,7 +109,15 @@ async function pickDirectoryNative(): Promise<NativePickResult | null> {
   }
   if (typeof w.showDirectoryPicker !== 'function') return null
   try {
-    const handle = await w.showDirectoryPicker({ mode: 'read' })
+    // 2026-09-28(票㉑)改档:此前请求的是 `mode:'read'`,而这枚句柄随后会被 tool-delegate
+    // 执行器拿去做 `getFileHandle(create:true)` / `createWritable()` / `removeEntry()`
+    // (packages/shared/src/chat/workspace-tool-executor.ts)—— 读档句柄没有写权限,
+    // 于是"浏览器端让 AI 改文件"这条路是**发得出去、执行必失败**的(失败前用户已经看到流中 diff)。
+    // 实测依据:本 build 里 `mode:'readwrite'` 是被接受的枚举(与 'read' 同样报"需要用户手势",
+    // 而 bogus 值报 TypeError),受信任点击后错误从 SecurityError 翻成 AbortError ⇒ 手势链是通的。
+    // 如实登记**没有实测**的一格:只读档调 createWritable 的确切报错名(拖放通道取不到句柄);
+    // 所以这里不写"读档会怎样失败",只把要的东西改成执行面真正需要的 readwrite。
+    const handle = await w.showDirectoryPicker({ mode: 'readwrite' })
     return { path: handle.name, handle }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') return null
