@@ -11,6 +11,8 @@
 //   ① 期望元素锚点漂移(已实现元素的文件或关键标识不见 → 说明渲染位被删/改名)
 //   ② 元素声明依赖的契约事件在两端契约里找不到(ai-service 与 packages/shared 必须同时有)
 //   ③ 清单条目数倒退(低于 entryCountBaseline = 有人删了任务行或删了已实现元素而未说明)
+//      **审面 = PROJECT_PLAN.md ⊕ 同面的归档件**(2026-09-28 立,见下方"审面"段):
+//      这一判据数的是"清单里还有没有这条 G-ID 的交代",不是"这一行还躺在台账正文里"。
 //   ④ 锚点存续性倒退(④a 单条目锚点数 < anchorCountBaseline.perElement / ④b 全清单锚点总数 < total)
 //      —— 只按**条目**判不按**文件**判:锚点在同条目内从一端搬到另一端是合法重构,总数不变即绿。
 //   ⑤ 注释式摘线(锚点的关键标识在**代码面**上已不见,只在注释里存续 = anchor-commented-out)
@@ -27,14 +29,36 @@
 //     或行首」且同一行内闭合)时才当正则跳过),因此形如 `a /= /re/` 这类极端写法仍可能被当成注释起点;
 //   · 判据⑤认的是"代码面上不存续",不认"运行时是否真被调用"(摘线到一段死代码里仍算存续)。
 //
-// 用法:node scripts/check-chat-element-coverage.mjs [--self-test] [--json]
-//   runner 下发的 --staged 不参与收窄:锚点/契约/清单条目都是"整仓属性",
-//   按暂存集收范围恰好会放过"删掉别处锚点"这一类(与守门 78 同取向)。
+// 用法:node scripts/check-chat-element-coverage.mjs [--self-test] [--json] [--staged|--worktree]
+//   runner 下发的 --staged 不参与**文件范围**收窄:锚点/契约/清单条目都是"整仓属性",
+//   按暂存集收范围恰好会放过"删掉别处锚点"这一类(与守门 78 同取向);但它**参与面**的选择
+//   (--staged = 索引 blob,缺省 = HEAD blob,--worktree = 仅人工逃生舱,两面旗同给 ⇒ exit 2)。
+//
+// ─── 审面(2026-09-28 立;这一票改的是审面,不是阈值)───────────────────────────────
+//
+// 起因不是假想:2026-09-28 用户决定把自动归档档改成"完成即归档"(`archive-completed-tasks.mjs`
+// 的 daysThreshold 缺省 = 0),台账里完成的 D 行会被**搬进** `.ihui-agent/archive/PROJECT_PLAN_*.md`。
+// 而本门的 entryCount 里有一部分正是从台账正文的 D 行现读 G-ID(`planSource.taskLinePattern`),
+// 于是"搬走"被读成"撤销":当天实测台账行数没减、元素没删,entryCount 却从基线 103 掉到 74 判红,
+// 主会话手工把 68 行搬回台账才转绿 —— 那是**症状处置**,政策继续跑就会一次次复发。
+//
+// 先例是仓里已有的正确做法,照抄不重新发明:守门 71(`check-plan-line-loss.mjs`)的归档豁免
+// "原文能在 archive 里找到 ⇒ 不算丢",且清单与内容**同面同轮**取(`--staged` 走 `git ls-files`
+// 索引、全量走 `git ls-tree HEAD`,不 `readdirSync`);守门 13c 的 A2/A3 同一取向。
+// 依据 G-183/G-173:**只躺在本机磁盘上、从未进任何提交的归档件不构成凭据** —— 否则"这台机
+// 归档过"可以授权"那台机删行",而 §1 那句"archive 里找得到 ⇒ 不算丢"承诺的是一件事实在仓库里,
+// 不是本机巧合。
+//
+// **基线不为变绿而下调**:`scripts/data/chat-flow-elements.json` 的 `entryCountBaseline` 保持现值
+// (103)。判据变宽的唯一来源是"归档件在同面上确实带着那一行",不是把阈值调低。
+// 三态不许并桶:归档件列到 0 个候选 ⇒ exit 2「无法判定」(枚举失效不是通过);清单里有名字而 blob
+// 取不到 ⇒ **点名并计数**且 exit 2 拒绝出具合格证(把"没判"写成"判过了"是本仓最高频失效型)。
 
 import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { catBatch, gitRaw, selectFace, FACE_LABEL, Undetermined } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DATA_FILE = join(ROOT, 'scripts', 'data', 'chat-flow-elements.json')
@@ -108,6 +132,107 @@ export function contentAt(rel, repoRoot = ROOT) {
   if (src === 'disk') return readDisk()
   const blob = gitAt(['show', src === 'index' ? `:${norm}` : `HEAD:${norm}`])
   return blob !== null ? blob : readDisk()
+}
+
+// ─── 审面(2026-09-28 立):台账 ⊕ **同面**的归档件 ─────────────────────────────────
+//
+// 清单条目数判的是"这条 G-ID 在仓库里还有没有交代",不是"这一行还躺在台账正文里"。
+// 自动归档档 2026-09-28 起为"完成即归档"(daysThreshold 缺省 0,用户的当天决定,不是缺陷),
+// 完成的 D 行会被**搬进**归档件;只数台账正文就把"搬走"读成"撤销"(当天实测 entryCount 103→74
+// 而台账行数一行未减、元素一个未删)。归档件必须按**被审面**取:清单走 `git ls-tree HEAD` /
+// `git ls-files --cached`(不是 readdirSync),内容走 face-reader 的 catBatch **同面同轮**读满
+// (先例 = 守门 71 的 archivedCopy / 守门 13c 的 A2/A3)。
+// 只躺在本机、从未进任何提交的归档件不构成凭据(G-183):否则"A 机归档过"能授权"B 机删行"。
+
+/** 归档目录(相对仓库根)与文件名判据 —— 与守门 71 同形,刻意不另立第二套命名。 */
+const ARCHIVE_REL = '.ihui-agent/archive'
+const ARCHIVE_FILE_RE = /(^|\/)PROJECT_PLAN_.*\.md$/
+/** 归档清单/内容一次 git 派生的上限:归档件是台账搬运行的产物,单份可达数百 KB。 */
+const ARCHIVE_GIT_TIMEOUT = 60_000
+
+/**
+ * 纯函数:某一面里该走哪条取内容路径。
+ * 与 `pickSource`(锚点判据的既有取向:已暂存取索引 / 仅工作树脏取 HEAD / 干净取磁盘,
+ * 三者对干净文件逐字等价)分开,是因为**归档面从来没有"磁盘档"**:磁盘面从来不是归档凭据。
+ */
+export function archiveFaceFor(face) {
+  return face === 'staged' ? 'staged' : 'head'
+}
+
+/** 某一面里真实存在的归档副本路径(已入库的那些年)。`staged` 读索引,`head` 读 HEAD 树。 */
+export function listArchiveFilesOnFace(face, root = ROOT) {
+  const f = archiveFaceFor(face)
+  const args =
+    f === 'staged'
+      ? ['ls-files', '-z', '--', ARCHIVE_REL]
+      : ['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ARCHIVE_REL]
+  return gitRaw(args, root, { timeout: ARCHIVE_GIT_TIMEOUT })
+    .split('\0')
+    .filter(Boolean)
+    .map((p) => p.replaceAll('\\', '/'))
+    .filter((p) => ARCHIVE_FILE_RE.test(p))
+    .sort()
+}
+
+/**
+ * 台账 ⊕ 归档件的合并取材(一次批量派生,逐文件各开一次 git 是本仓守门 80 立过的 fork 风暴)。
+ * @returns {{archives:Array<{path:string,text:string}>, missing:string[], enumerated:number, face:string, error:string|null}}
+ *   - `enumerated === 0` ⇒ 调用方必须**判死**(空扫正是本判据要防的那一型故障,不得记绿);
+ *   - `missing` = 面上有名字而 blob 取不到(unmerged / 对象损坏)⇒ 必须点名计数,
+ *     不得静默当"没有那份"(把"没判"写成"判过了"是本仓最高频失效型)。
+ */
+export function readArchiveCorpus(face, root = ROOT) {
+  const usedFace = archiveFaceFor(face)
+  try {
+    const files = listArchiveFilesOnFace(usedFace, root)
+    if (files.length === 0) return { archives: [], missing: [], enumerated: 0, face: usedFace, error: null }
+    const specs = files.map((p) => `${usedFace === 'staged' ? ':' : 'HEAD:'}${p}`)
+    const got = catBatch(root, specs, { timeout: ARCHIVE_GIT_TIMEOUT })
+    const archives = []
+    const missing = []
+    for (let i = 0; i < files.length; i++) {
+      const v = got.get(specs[i])
+      if (typeof v === 'string') archives.push({ path: files[i], text: v })
+      else missing.push(files[i])
+    }
+    return { archives, missing, enumerated: files.length, face: usedFace, error: null }
+  } catch (e) {
+    return {
+      archives: [],
+      missing: [],
+      enumerated: 0,
+      face: usedFace,
+      error: e instanceof Undetermined ? e.message : `归档面取材异常:${e?.message ?? e}`,
+    }
+  }
+}
+
+/** 一路文本里 D 族任务行贡献的 G-ID 集合(判据与 parsePlanned 同一份 pattern,不另抄)。 */
+export function gapIdsOfText(text, planSource) {
+  const set = new Set()
+  for (const p of parsePlanned(String(text ?? ''), planSource.taskLinePattern, planSource.gapIdPattern)) {
+    for (const g of p.gaps) set.add(g)
+  }
+  return set
+}
+
+/**
+ * 纯判据:审面 = 台账正文 ⊕ 同面归档件。
+ * 集合按 G-ID 去重(同一件事在台账与归档件各出现一次只算一条,不得双计),
+ * 并单独报"只存在于归档件"的那一部分 = **搬走而未撤销**的证据(本票的全部理由)。
+ * @returns {{gapIds:Set<string>, fromPlan:number, archivedOnly:string[]}}
+ */
+export function mergeGapIds({ planText, archives = [], planSource }) {
+  const fromPlan = gapIdsOfText(planText, planSource)
+  const gapIds = new Set(fromPlan)
+  const archivedOnly = new Set()
+  for (const a of archives) {
+    for (const g of gapIdsOfText(a?.text ?? '', planSource)) {
+      if (!gapIds.has(g)) archivedOnly.add(g)
+      gapIds.add(g)
+    }
+  }
+  return { gapIds, fromPlan: fromPlan.size, archivedOnly: [...archivedOnly].sort() }
 }
 
 // ─── 判据⑤ 剥注释(2026-09-25 立,堵"把宿主那行 import 改成注释"仍算存续的假绿)──────
@@ -392,33 +517,46 @@ export function checkEvents(implemented, contractPyText, contractTsText) {
   return violations
 }
 
-export function checkBaseline(entryCount, baseline) {
+export function checkBaseline(entryCount, baseline, corpusNote = '') {
   return entryCount < baseline
     ? [
         {
           kind: 'inventory-regression',
           id: '(inventory)',
-          detail: `清单条目 ${entryCount} < 基线 ${baseline} —— 删任务行或删已实现元素必须同 PR 说明理由并调基线`,
+          detail:
+            `清单条目 ${entryCount} < 基线 ${baseline}${corpusNote} —— ` +
+            `删任务行或删已实现元素必须同 PR 说明理由并调基线;` +
+            `基线不为变绿而下调,本判据的**阈值**不是本票的可调项`,
         },
       ]
     : []
 }
 
-export function runChecks({ data, planText, contractPy, contractTs }) {
-  const planned = parsePlanned(planText, data.planSource.taskLinePattern, data.planSource.gapIdPattern)
-  const gapIds = new Set()
-  for (const p of planned) for (const g of p.gaps) gapIds.add(g)
+export function runChecks({ data, planText, contractPy, contractTs, archives = [], archiveMissing = [] }) {
+  const merged = mergeGapIds({ planText, archives, planSource: data.planSource })
+  const gapIds = merged.gapIds
   const anchorRes = checkAnchors(data.implemented, ROOT, {
     commentOnlyBaseline: data.commentOnlyAnchorBaseline?.entries,
   })
   const persistenceRes = checkAnchorPersistence(data.implemented, data.anchorCountBaseline)
   const eventViolations = checkEvents(data.implemented, contractPy, contractTs)
   const entryCount = gapIds.size + data.implemented.length
-  const baselineViolations = checkBaseline(entryCount, data.entryCountBaseline)
+  const baselineViolations = checkBaseline(
+    entryCount,
+    data.entryCountBaseline,
+    `(审面 = 台账 ${merged.fromPlan} 条 + 归档件补回 ${merged.archivedOnly.length} 条,` +
+      `共读 ${archives.length} 份同面归档件)`,
+  )
   const anchorCount = (data.implemented ?? []).reduce((s, el) => s + (el.anchors ?? []).length, 0)
   return {
-    plannedTasks: planned.length,
+    plannedTasks: parsePlanned(planText, data.planSource.taskLinePattern, data.planSource.gapIdPattern).length,
     gapIds: gapIds.size,
+    // 台账正文单独一条与"归档件补回"分开计:只有后者才是"搬走 ≠ 撤销"的证据,不得混成一桶
+    planGapIds: merged.fromPlan,
+    archivedOnlyGapIds: merged.archivedOnly,
+    archiveFiles: archives.length,
+    // 面上有名字而 blob 取不到 ⇒ 计数偏低 = "未判定",绝不能读成"通过"
+    archiveMissing: [...archiveMissing],
     implemented: (data.implemented ?? []).length,
     anchorCount,
     entryCount,
@@ -540,6 +678,48 @@ function selfTest() {
     const ok = got === Math.min(expectedMin, 1) && (expectedMin === 0 ? res.violations.length === 0 : true)
     if (!ok) bad++
     console.log(`${ok ? '✓' : '✗'} ${label} → ${res.violations.length} 违规(期望 ${expectedMin === 0 ? '0' : '≥1'})`)
+  }
+  // ── ③ 的审面(2026-09-28 立):台账 ⊕ 同面归档件。正反必须成对,否则判据没有牙 ──
+  const archivedLine = '- [x] ✅(2026-09-27)**D77 搬走的元素(G-151)**:归档前原文\n'
+  const planWithoutThatLine = '- [ ] **D90 示例元素(G-140)**:x\n'
+  const corpusCases = [
+    [
+      '③a 台账行被搬进归档件(同字在归档面上)⇒ 不判红',
+      planWithoutThatLine,
+      [{ path: '.ihui-agent/archive/PROJECT_PLAN_2026-09-28.md', text: archivedLine }],
+      false,
+    ],
+    [
+      '③b 反向对照:台账与归档件两侧都没有 ⇒ 仍判红(不得把"看不见"写成"没有")',
+      planWithoutThatLine,
+      [{ path: '.ihui-agent/archive/PROJECT_PLAN_2026-09-28.md', text: '# 已归档(内容里不含该行)\n' }],
+      true,
+    ],
+    [
+      '③c 两侧各有一份同字 ⇒ 只计一条(去重,不得双计把额度刷出来)',
+      plan + '\n' + archivedLine,
+      [{ path: '.ihui-agent/archive/PROJECT_PLAN_2026-09-28.md', text: archivedLine }],
+      false,
+    ],
+  ]
+  for (const [label, planText, archives, expectRed] of corpusCases) {
+    const data = { ...base, entryCountBaseline: 3 }
+    const res = runChecks({ data, planText, contractPy: '', contractTs: '', archives })
+    // 去重证明:同一批 G-ID 只在台账里出现一次 vs 台账与归档件各出现一次,gapIds 必须同值
+    const ref = runChecks({ data, planText, contractPy: '', contractTs: '', archives: [] })
+    const isRed = res.violations.some((v) => v.kind === 'inventory-regression')
+    const dedupOk = label.startsWith('③c') ? res.gapIds === ref.gapIds : true
+    const ok = isRed === expectRed && dedupOk && res.entryCount >= 3 === !expectRed
+    if (!ok) bad++
+    console.log(
+      `${ok ? '✓' : '✗'} ${label} → 条目 ${res.entryCount}(基线 3)、archivedOnly ${res.archivedOnlyGapIds.length}、去重 ${dedupOk ? '同值' : '双计!'}`,
+    )
+  }
+  // 归档面的面选择:磁盘面从来不是归档凭据(G-183),worktree 也只能落回头树
+  for (const [f, want] of [['staged', 'staged'], ['head', 'head'], ['worktree', 'head']]) {
+    const ok = archiveFaceFor(f) === want
+    if (!ok) bad++
+    console.log(`${ok ? '✓' : '✗'} 归档面 ${f} → ${want}(实得 ${archiveFaceFor(f)})`)
   }
   // ⑤b 的"只报数"必须真报出数(报不出来 = 存量清单形同隐形)
   const knownCase = runChecks({
@@ -685,9 +865,42 @@ function main(argv) {
     return 0
   }
   const data = loadJson(DATA_FILE)
+  // 面旗先判:两个面旗同给 = 自相矛盾(取哪一面都会让另一面成为假绿)⇒ 判死,不猜。
+  const { face, error: faceError } = selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
+  if (faceError) {
+    console.error(`❌ [chat-element-coverage] ${faceError} —— 无法判定(不冒红,也不记绿)`)
+    return 2
+  }
+  if (face === 'worktree') {
+    console.error('⚠️  [chat-element-coverage] --worktree 是**人工排查**逃生舱:锚点按磁盘判,提交链不得使用')
+  }
+  // 归档件与台账**同面同轮**取(见文件头"审面"段):面上列到 0 个候选 = 尺子失效,不是"没有归档";
+  // blob 取不到 ⇒ 后面逐条点名并以"未判定"退出,绝不静默当"没有那份"。
+  const corpus = readArchiveCorpus(face)
+  if (corpus.error) {
+    console.error(
+      `❌ [chat-element-coverage] 归档面(${FACE_LABEL[corpus.face] ?? corpus.face})取材失败 ⇒ 无法判定:${corpus.error}`,
+    )
+    return 2
+  }
+  if (corpus.enumerated === 0) {
+    console.error(
+      `❌ [chat-element-coverage] ${FACE_LABEL[corpus.face] ?? corpus.face}里 ${ARCHIVE_REL}/ 下枚举到 0 份 PROJECT_PLAN_*.md ` +
+        `⇒ 审面不完整,无法判定(空枚举不是"通过";归档清单来源被摘线/目录搬家正是本判据要防的那一型)`,
+    )
+    return 2
+  }
   // 计划文本与两份契约同样按**仓库内容**判(见 contentAt 注释):PROJECT_PLAN.md 是共享工作区里
   // 最容易被并发会话按旧基线整文件覆写的一份,按磁盘读会把"别人没提交的旧副本"当成本仓清单。
   const planText = contentAt('PROJECT_PLAN.md')
+  if (!planText.trim()) {
+    console.error(`❌ [chat-element-coverage] 被审面(${FACE_LABEL[face] ?? face})取不到 PROJECT_PLAN.md ⇒ 无法判定`)
+    return 2
+  }
   const relOpt = (p) => (p.startsWith(ROOT) ? p.slice(ROOT.length + 1).replaceAll('\\', '/') : null)
   const readOpt = (p) => {
     const rel = relOpt(resolve(p))
@@ -698,16 +911,20 @@ function main(argv) {
     planText,
     contractPy: readOpt(CONTRACT_PY),
     contractTs: readOpt(CONTRACT_TS),
+    archives: corpus.archives,
+    archiveMissing: corpus.missing,
   })
   if (argv.includes('--json')) {
     console.log(JSON.stringify({ ...res, violations: res.violations }, null, 2))
   }
   if (res.violations.length === 0) {
     console.log(
-      `✅ [chat-element-coverage] 清单 ${res.entryCount} 条(G-ID ${res.gapIds} + 已实现锚点 ${res.implemented})、锚点 ${res.anchorCount} 条、planned 任务 ${res.plannedTasks} 行,锚点存续性/代码面/契约均一致`,
+      `✅ [chat-element-coverage] 清单 ${res.entryCount} 条(G-ID ${res.gapIds} = 台账 ${res.planGapIds} + 归档件补回 ${res.archivedOnlyGapIds.length}、已实现锚点 ${res.implemented};审面归档件 ${res.archiveFiles} 份)、锚点 ${res.anchorCount} 条、planned 任务 ${res.plannedTasks} 行,锚点存续性/代码面/契约均一致`,
     )
   } else {
-    console.error(`❌ [chat-element-coverage] ${res.violations.length} 处违规(清单 ${res.entryCount} 条、锚点 ${res.anchorCount} 条):`)
+    console.error(
+      `❌ [chat-element-coverage] ${res.violations.length} 处违规(清单 ${res.entryCount} 条 = 台账 ${res.planGapIds} + 归档件补回 ${res.archivedOnlyGapIds.length}、锚点 ${res.anchorCount} 条、审面归档件 ${res.archiveFiles} 份):`,
+    )
     for (const v of res.violations) console.error(`  ${v.kind} :: ${v.id} :: ${v.detail}`)
   }
   // 存量与未判定一律要喊出来:静默的"看起来全绿"与恒红门同样是本仓记过最多次的坑
@@ -734,6 +951,19 @@ function main(argv) {
       `  ⚠️ anchorCountBaseline.perElement 有 ${res.danglingBaseline.length} 个键在 implemented 里已无对应条目(元素被改名/删除的指纹,只提示):${res.danglingBaseline.join(', ')}`,
     )
   }
+  // 归档件补回的那部分是**本票的全部理由**,必须被看见(否则没人能判断"变宽"来自哪里)。
+  if (res.archivedOnlyGapIds.length > 0) {
+    console.error(
+      `  ℹ️ 审面里有 ${res.archivedOnlyGapIds.length} 条 G-ID **只在归档件里**(台账正文已无该行 = 完成即归档搬走,不是撤销):${res.archivedOnlyGapIds.slice(0, 12).join(' ')}${res.archivedOnlyGapIds.length > 12 ? ' …' : ''}`,
+    )
+  }
+  if (res.archiveMissing.length > 0) {
+    console.error(
+      `  ⚠️ 未判定:${res.archiveMissing.length} 份归档件在审面上有名字而 blob 取不到(unmerged / 对象缺失)—— 计数因此**偏低**,本门拒绝出具"已通过"合格证(把"没判"写成"判过了"是本仓最高频失效型):`,
+    )
+    for (const p of res.archiveMissing) console.error(`     · ${p}`)
+  }
+  if (res.violations.length === 0 && res.archiveMissing.length > 0) return 2
   if (res.violations.length === 0) return 0
   console.error(
     `\n  💡 修复:渲染位被删/改名 → 恢复或同 PR 更新 scripts/data/chat-flow-elements.json 并说明理由;\n     事件单端缺 → 补 sse_contract.py 与 packages/shared/src/sse/contract.ts 两处;\n     条目/锚点倒退 → 恢复任务行或锚点,或说明为何撤销后同 PR 调基线;\n     注释式摘线(anchor-commented-out)→ 恢复宿主那行真代码,或把 mustMatch 改指代码面上的真实标识;\n     自检:node scripts/check-chat-element-coverage.mjs --self-test\n     紧急跳过(不推荐):${SKIP_ENV}=1 git commit ...`,
@@ -751,6 +981,13 @@ export const __test__ = {
   runChecks,
   pickSource,
   contentAt,
+  // 2026-09-28 审面:镜像测试**直接 import**这些,不得再抄一份判据(§22c)
+  mergeGapIds,
+  gapIdsOfText,
+  archiveFaceFor,
+  listArchiveFilesOnFace,
+  readArchiveCorpus,
+  ARCHIVE_FILE_RE,
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
