@@ -128,6 +128,13 @@ export interface Tool extends ToolContractMount {
    * (那条通道属守门 108 的"到期豁免账",蹭它就是给一道没有寿命的豁免开后门)。
    */
   execBudget?: ToolExecBudget;
+  /**
+   * 注册归属(2026-09-28 拍板,治"MCP 同名互相静默顶掉"):
+   * 内建省略即视为 `'builtin'`,MCP 工具写成 `mcp:<serverName>`。
+   * 注册表按它判冲突 —— 跨归属同名一律拒绝后到者并报名,同归属重连刷新允许覆盖
+   * (否则 MCP 重连会留下一条指向已死连接的旧工具,那比原来的静默顶掉更糟)。
+   */
+  registrationOwner?: string;
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }
 
@@ -422,8 +429,35 @@ export function isToolHubEnabled(): boolean {
   return hubEnabled;
 }
 
+/**
+ * 跨归属的同名注册被拒的清单(每条形如 "工具名冲突 …")。
+ * 状态面/自检可取用;不做"只 warn 完事"—— 静默覆盖的表现不是报错,而是**结果悄悄来自另一台服务器**。
+ */
+const registrationConflicts: string[] = [];
+
+function ownerOf(tool: Tool): string {
+  return tool.registrationOwner ?? 'builtin';
+}
+
 function registerTool(tool: Tool): void {
+  const existing = registry.get(tool.name);
+  const owner = ownerOf(tool);
+  if (existing && ownerOf(existing) !== owner) {
+    const line =
+      `工具名冲突:'${tool.name}' 已由 ${ownerOf(existing)} 注册 ⇒ 拒收 ${owner} 的同名工具` +
+      `(保留先到者。**不做静默覆盖** —— 覆盖会让调用悄悄跑到另一台服务器,` +
+      `而 --disallowed-tools 也没法按服务器表达)。请给其中一台的工具改名,或移除重复配置。`;
+    registrationConflicts.push(line);
+    console.error(`[tools] ${line}`);
+    return;
+  }
+  // 同归属 = 同一台服务器重连后刷新:必须允许覆盖,否则旧对象会一直挂在表上
   registry.set(tool.name, tool);
+}
+
+/** 已登记的注册冲突(只读副本)。 */
+export function getToolRegistrationConflicts(): string[] {
+  return [...registrationConflicts];
 }
 
 export function registerTools(tools: Tool[]): void {
