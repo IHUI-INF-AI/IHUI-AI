@@ -88,7 +88,7 @@
     {
       "path": "packages/services/src",
       "status": "windowed",
-      "read": 191,
+      "read": 218,
       "notes": "第 1 波 E1-E7 覆盖 session/zcode-agent/bots/git/storage/process/runtime-tools/terminal/file/cua-permission-broker/subagents/setting/feedback/plugins/skill-sync/conversation-share;W3-10 补 fs/memory/settings-sync/fileWatcher/faultInjection。",
       "remaining": "commandsService.ts,conversationShareArtifactDiscovery.ts,conversationShareSource.ts,conversationShareHttpClient.ts,pluginSyncArchive.ts,settingsSyncService.ts,clientConfigScenes 实现 2 个 ｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 6 枚,指针 6 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)",
       "evidence": [
@@ -98,7 +98,17 @@
         "packages/services/src/conversation-share/conversationShareHttpClient.ts:120-183",
         "packages/services/src/conversation-share/conversationShareService.ts:1437-1447",
         "packages/services/src/conversation-share/conversationShareArtifactSource.ts:33-35",
-        "packages/services/src/conversation-share/conversationShareArtifactDiscovery.ts:120-137"
+        "packages/services/src/conversation-share/conversationShareArtifactDiscovery.ts:120-137",
+        "packages/services/src/cua-permission-broker/windowsCuaDevHelperHost.ts:34",
+        "packages/services/src/conversation-share/conversationSharePublicProjection.ts:258-262",
+        "packages/services/src/conversation-share/conversationShareService.ts:209-211",
+        "packages/services/src/oauth/oauthService.ts:896-898",
+        "packages/services/src/oauth/oauthService.ts:997-1007",
+        "packages/services/src/oauth/oauthUnauthorizedRequest.ts:63-64"
+      ],
+      "tickets": [
+        "G-814410",
+        "G-814411"
       ]
     },
     {
@@ -400,13 +410,19 @@
         "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/sessions.ts:339-343",
         "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/usage.ts:590-674",
         "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/usage.ts:202-226",
-        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/dwf-journal-codecs.ts:317-321"
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/dwf-journal-codecs.ts:317-321",
+        "apps/zcode-cli/packages/adapters/src/skills/index.ts:194-215",
+        "apps/zcode-cli/packages/adapters/src/skills/index.ts:231",
+        "apps/zcode-cli/packages/adapters/src/skills/index.ts:113-128"
       ],
       "rejectedEvidence": [
         "apps/zcode-cli/packages/adapters/src/fs/index.ts:740"
       ],
       "rejectedNote": "fs/index.ts:735-753 是**反例**:rename 外套裸 catch 后用 O_CREAT|O_TRUNC 原地重写真身 ⇒ ENOSPC/EACCES 时先删临时文件再截断用户原文件;Windows 目标被占用时 rename 回 EPERM(守门 122 头注已记为实测事实)⇒ 最常见机型上每次并发保存都走非原子原地写且调用方无信号。我方 atomic-write.ts 全文件 O_TRUNC 零命中并由守门 122 R2/R3 判接线 ⇒ 该格我方严格优于上游,登记为 122 判据合理性的外部证据,不得抄。",
-      "notes": "失败分类/重试预算/出站策略。反例:上游把 rename 失败静默降级成 O_TRUNC 原地写 ⇒ 我方守门 122 反向不得引入 fallback-to-truncate。剩余 exec 24/mcp 19/plugins 15/storage 仓储面 ≈30/config 7/model 40。"
+      "notes": "失败分类/重试预算/出站策略。反例:上游把 rename 失败静默降级成 O_TRUNC 原地写 ⇒ 我方守门 122 反向不得引入 fallback-to-truncate。剩余 exec 24/mcp 19/plugins 15/storage 仓储面 ≈30/config 7/model 40。",
+      "tickets": [
+        "G-814412"
+      ]
     },
     {
       "path": "apps/zcode-cli/packages/contracts",
@@ -486,7 +502,7 @@
       "path": "apps/zcode-cli/packages/cli",
       "status": "windowed",
       "files": 97,
-      "read": 7,
+      "read": 37,
       "notes": "parseArgs strict:true + 失败即 stderr/help/exit 1,且注释显式先摘掉自 re-exec 的末位入口路径(否则严格解析误报未知参数)。我方 commander 侧已有 modeUnknown + exit(1)(不构成缺陷,登记意识)。2026-09-29 第三波另收:进程级异常边界的 latch 与 monitor 归因、信号退出码 128+N 的产出侧、清理有界 + watchdog unref、重复信号用 on 不用 once(参 process-errors.ts:52 / shutdown.ts:6 / protocol-lifecycle.ts:58)。",
       "remaining": "90 未整读;run.ts(587)仅窗口读。",
       "evidence": [
@@ -495,7 +511,28 @@
         "apps/zcode-cli/packages/cli/src/shutdown.ts:6",
         "apps/zcode-cli/packages/cli/src/protocol-lifecycle.ts:58",
         "apps/zcode-cli/packages/cli/src/runtime-warnings.ts:52",
-        "apps/zcode-cli/packages/cli/src/tui-stderr.ts:62"
+        "apps/zcode-cli/packages/cli/src/tui-stderr.ts:62",
+        "apps/zcode-cli/packages/cli/src/command-center/slash-command-types.ts:1-128",
+        "apps/zcode-cli/packages/cli/src/command-center/slash-commands.ts:222-227",
+        "apps/zcode-cli/packages/cli/src/command-center/create.ts:378",
+        "apps/zcode-cli/packages/cli/src/command-center/handlers/plugins.ts:82-103",
+        "apps/zcode-cli/packages/cli/src/command-center/handlers/goal.ts:65-86",
+        "apps/zcode-cli/packages/cli/src/command-center/handlers/expert.ts:65-67",
+        "apps/zcode-cli/packages/cli/src/prompt-command.ts:79-107",
+        "apps/zcode-cli/packages/cli/src/headless-workflow.ts:31-51",
+        "apps/zcode-cli/packages/cli/src/headless-workflow.ts:300-349",
+        "apps/zcode-cli/packages/cli/src/run.ts:42",
+        "apps/zcode-cli/packages/cli/src/tui-prompt-handler.ts:78-91",
+        "apps/zcode-cli/packages/cli/src/custom-command-expand.ts:17-56"
+      ],
+      "tickets": [
+        "G-814404",
+        "G-814405",
+        "G-814406",
+        "G-814407",
+        "G-814408",
+        "G-814409",
+        "G-814413"
       ]
     },
     {
@@ -526,11 +563,17 @@
       "path": ".agents",
       "status": "windowed",
       "files": 84,
-      "read": 2,
+      "read": 16,
       "notes": "技能披露模型/frontmatter 权限/27 源注入登记表/文档即判据四问已答。未逐篇读:react-best-practices rules 70、ai-elements references 50、agent-browser 11。",
       "tickets": [
         "G-380",
         "G-381"
+      ],
+      "evidence": [
+        ".agents/skills/react-best-practices/rules/js-tosorted-immutable.md:14-21",
+        ".agents/skills/react-best-practices/rules/rendering-conditional-render.md:16",
+        ".agents/skills/react-best-practices/rules/async-parallel.md:15-17",
+        ".agents/skills/agent-browser/SKILL.md:436-447"
       ]
     },
     {
@@ -571,8 +614,28 @@
     },
     {
       "path": "apps",
-      "status": "unread",
-      "notes": "兜底:apps 下未被 core/bootstrap/adapters/contracts/dynamic-workflow/tui/cli/scripts/tools 吃掉的散文件。"
+      "status": "windowed",
+      "notes": "兜底:apps 下未被 core/bootstrap/adapters/contracts/dynamic-workflow/tui/cli/scripts/tools 吃掉的散文件。 ｜09-29 第五十八批:apps/zcode-cli/dependencies/README.md(71)与 .gitattributes(3)整读到体;该目录 18 份 ripgrep/ugrep/bfs 的 tar.gz/zip 按 na 切片单列(见 apps/zcode-cli/dependencies/native-search),理由与可复核判据写在该切片 notes 里。",
+      "read": 2,
+      "evidence": [
+        "apps/zcode-cli/dependencies/README.md:38-41",
+        "apps/zcode-cli/dependencies/README.md:61-64",
+        "apps/zcode-cli/dependencies/.gitattributes:2-3"
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/dependencies/native-search",
+      "status": "na",
+      "files": 0,
+      "read": 0,
+      "notes": "18 份 ripgrep/ugrep/bfs 压缩包(实测 git ls-files 该目录 \\.(tar\\.gz|zip)$ 命中 18)。判 na 的两条可复核判据:①扩展名 ∈ {tar.gz,zip},上游自己用 apps/zcode-cli/dependencies/.gitattributes:2-3 把它们标 binary(-diff -merge -text);②首块含 NUL/非 UTF-8 ⇒ wc -l 与 grep 对其无意义。可读替身是同目录 SHA256SUMS 18 行(每行 <64hex>  相对路径,已整读)与 README.md 的\"复用前全量验 hash,缺/改即 fail preparation\"(README.md:61-64)。与 cli 侧搜索的关系见 README.md:38-41:解析相对路径、不下载、不回退镜像 ⇒ 离线可得 + 版本钉定 + 校验三件。",
+      "evidence": [
+        "apps/zcode-cli/dependencies/README.md:38-41",
+        "apps/zcode-cli/dependencies/README.md:61-64",
+        "apps/zcode-cli/dependencies/.gitattributes:2-3",
+        "apps/zcode-cli/dependencies/native-search/SHA256SUMS:1-18"
+      ]
     }
   ],
   "ticketIndex": {
@@ -585,6 +648,16 @@
     "G-379": "桌面:整页导航绕过存草稿闸 + 日志无保留期(可落地)",
     "G-380": "技能/项目层配置键白名单缺失,防线目前只是一行 gitignore(可落地)",
     "G-381": "文档表 ↔ 判据名双向对账缺口(端口三副本 / UI_GUIDELINES §3.1 ↔ RADIUS_ROLES)",
-    "G-382": "第 3 波待办名单与两格结构空白(app/src/features 不在 128 配对源;module.css/CSS-in-JS 未测量)"
+    "G-382": "第 3 波待办名单与两格结构空白(app/src/features 不在 128 配对源;module.css/CSS-in-JS 未测量)",
+    "G-814404": "斜杠命令「注册表 ↔ 分派 switch」到达性对账 + 名字去重(新门 check-slash-command-wired)(可落地;G-814413 需拍板)",
+    "G-814405": "工具契约补 confirmation 档,门 111 判\"写/危险而确认凭据缺席\"(可落地;G-814413 需拍板)",
+    "G-814406": "无头(--print/--json)退出前等待在飞后台任务与通知回合,退不出就落 interrupted(可落地;G-814413 需拍板)",
+    "G-814407": "非交互 ∧ 无审批面 ⇒ deny,且拒绝文案取自单一出口(委托同一 denyBroker)(可落地;G-814413 需拍板)",
+    "G-814408": "事件流单一写者:常驻订阅与 per-turn sink 二选一(detachEvents),不靠双装去重(可落地;G-814413 需拍板)",
+    "G-814409": "clipboard 四处 slice 裁剪必须自报\"丢弃 N 字\"(可落地;G-814413 需拍板)",
+    "G-814413": "自定义命令展开链 $ARGUMENTS/$1..$n + 保留名 gate(等用户拍板,属新增能力)(可落地;G-814413 需拍板)",
+    "G-814410": "公开投影改 allow-list 逐 kind 重建 + 穷尽 switch 无 default + 引用闭包校验(可落地;G-814413 需拍板)",
+    "G-814411": "令牌刷新写回前加\"旧 token 仍是当前值\"的三匹配 CAS 复核(可落地;G-814413 需拍板)",
+    "G-814412": "技能未知 frontmatter 键 ⇒ safeToAutoLoad 保守档 + description 长度闸(getAllowedTools 生产零调用)(可落地;G-814413 需拍板)"
   }
 }
