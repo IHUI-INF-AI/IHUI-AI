@@ -7161,6 +7161,7 @@
       "terminatedCancelled": "취소됨",
       "terminatedQuotaExceeded": "할당량 초과",
       "terminatedPreempted": "선점됨",
+      "unrecognizedStatus": "미인식",
       "worker": "작업자",
       "workspace": "워크스페이스",
       "low": "낮음",
