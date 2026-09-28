@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import { resolveApiBaseUrl } from '@/lib/api-base-url'
+import { isSafeNavigationTarget, parseAllowedOrigins } from '@/lib/sso-redirect-guard'
 import { buildSsoRedirectUrl } from '@ihui/shared'
 
 /**
@@ -33,20 +34,20 @@ import { buildSsoRedirectUrl } from '@ihui/shared'
  * 真正的安全边界由 SSO code 生成 API(apps/api)服务端保证。
  */
 
+/**
+ * 本页的落点策略:**同源相对路径** ∪ **env 白名单 origin**(`NEXT_PUBLIC_SSO_ALLOWED_ORIGINS`)。
+ *
+ * 2026-09-28 票 A3/G-413:原先这里自己写了一份 `url.startsWith('/') && !url.startsWith('//')` +
+ * 一份 origin 比对,与 @/lib/sso-redirect-guard 是同一件事的两份实现 —— 而它漏掉的正是那份尺子
+ * 同日补上的反斜杠形态:`/\evil.com` 在这里算"站内相对路径",在浏览器里却按 `https://evil.com`
+ * 解析(WHATWG special-scheme 的 "authority ignore slashes" 状态把 `\` 等值当 `/`),于是带着
+ * 刚落库的 sso_code 跳去外站。判据一律走共享出口(AGENTS §3:不得在端内再抄一份),
+ * 本页只提供"这一档允许哪些 origin"这个策略参数。
+ */
 function isAllowedRedirect(url: string): boolean {
-  if (!url) return false
-  if (url.startsWith('/') && !url.startsWith('//')) return true
-  try {
-    const parsed = new URL(url)
-    const allowed = process.env.NEXT_PUBLIC_SSO_ALLOWED_ORIGINS
-    if (allowed) {
-      const origins = allowed.split(',').map((s) => s.trim())
-      if (origins.includes(parsed.origin)) return true
-    }
-    return false
-  } catch {
-    return false
-  }
+  return isSafeNavigationTarget(url, {
+    allowedOrigins: parseAllowedOrigins(process.env.NEXT_PUBLIC_SSO_ALLOWED_ORIGINS),
+  })
 }
 
 export default function SsoRedirectPageClient() {
