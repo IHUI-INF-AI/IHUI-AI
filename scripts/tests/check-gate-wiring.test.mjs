@@ -439,4 +439,116 @@ test('T17 真仓注册表 R8 必 0 枚 bad(升档前置:不得留下一枚恒红
     assert.ok(Array.isArray(r[k]), `${k} 必须是数组(结论行要如实报数,不能缺项)`)
   }
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// R10(票 G-409):文档/登记表点名 ↔ 实现侧存在
+//   成对判据一律在这里钉住(端到端三态另由源脚本 --self-test 的 R10a–R10h 用临时仓库跑),
+//   本文件守的是**判据形状**:两臂必须互为对照,缺一臂就退化成"只会响的喇叭"。
+// ─────────────────────────────────────────────────────────────────────────
+
+/** 一条"文档声称这道门已接线"的登记行(AGENTS 速查里最常见的形态) */
+const DOC_CLAIM_LINE = '\n- 守门:`scripts/check-ghost-r10.mjs`(blocking,guardian 第 899 项)\n'
+const docsOf = (text) => [{ name: 'AGENTS.md', text }]
+const emptyAllow = new Set()
+
+test('T20 R10 成对 ①②:点名一道不存在的门必被抓住;同一行改指真实存在的门必须放它过去', () => {
+  // ① 门体不在面上 ⇒ 必点名,且要报出"哪份文档第几行"(只报数不能复核)
+  const hit = G.findDocNamedAbsentGates({
+    docs: docsOf('- 速查\n' + DOC_CLAIM_LINE),
+    hasPath: () => false,
+    allowNames: emptyAllow,
+  })
+  assert.equal(hit.gap.length, 1, '一行接线断言 + 门体不在面上 ⇒ 必须落 gap')
+  assert.equal(hit.gap[0].script, 'check-ghost-r10.mjs')
+  assert.equal(hit.gap[0].doc, 'AGENTS.md')
+  assert.ok(hit.gap[0].line >= 1 && hit.gap[0].excerpt.includes('check-ghost-r10'), '必须带可复核的出处')
+  // ② 同一行,唯一变量换成"门体在面上" ⇒ 必须放过(否则本门会在每一条正常登记行上响)
+  const miss = G.findDocNamedAbsentGates({
+    docs: docsOf('- 速查\n' + DOC_CLAIM_LINE),
+    hasPath: (p) => p === 'scripts/check-ghost-r10.mjs',
+    allowNames: emptyAllow,
+  })
+  assert.equal(miss.gap.length, 0, '门体在面上 ⇒ 一态都不许进(这条是 ① 的对照组)')
+  assert.equal(miss.named, 1, '点名计数仍要如实记上,不能因为放过就看不见')
+  assert.deepEqual([miss.narrative.length, miss.exempt.length], [0, 0])
+})
+
+test('T21 R10 三态不并桶:接线断言/叙述性/台账三条落点各归一处,且互不顶名额', () => {
+  const text =
+    '- 守门:`scripts/check-gap-r10.mjs`(blocking)\n' +
+    '可复用到:任何场景(如 `scripts/check-narrative-r10.mjs` 等)。\n' +
+    '- 守门:`scripts/check-allowed-r10.mjs`(blocking)\n'
+  const r = G.findDocNamedAbsentGates({
+    docs: docsOf(text),
+    hasPath: () => false,
+    allowNames: new Set(['check-allowed-r10.mjs']),
+  })
+  assert.deepEqual(r.gap.map((x) => x.script), ['check-gap-r10.mjs'], '真缺口只该有带接线断言的那一条')
+  assert.deepEqual(r.narrative.map((x) => x.script), ['check-narrative-r10.mjs'], '散文举例不得算缺口')
+  assert.deepEqual(r.exempt.map((x) => x.script), ['check-allowed-r10.mjs'], '台账条目必须单独成一组(不并进 gap)')
+  assert.equal(r.named, 3, '三态合计必须等于点名总数 —— 少了就是有一类被静默吞掉')
+})
+
+test('T22 R10 与 R4 严格互补:runner 有门而文档没点名只归 R4,R10 不得重复计债', () => {
+  const wired = ['check-wired.mjs', 'check-undocumented.mjs']
+  const docText = '- 已接线:`scripts/check-wired.mjs`(blocking)\n'
+  const r4 = G.findUndocumentedGates(wired, docText)
+  assert.deepEqual(r4, ['check-undocumented.mjs'], 'R4 的既有语义不得被改动')
+  // 这一型里门体**在面上**(它已接线),所以 R10 的三态都不得含它 —— 两道门各计一次会让
+  // 同一笔债在两份报告里互相顶掉(守门 134 那条锚点粒度教训同型)。
+  const r10 = G.findDocNamedAbsentGates({
+    docs: docsOf(docText),
+    hasPath: (p) => p === 'scripts/check-wired.mjs',
+    allowNames: emptyAllow,
+  })
+  const all = [...r10.gap, ...r10.narrative, ...r10.exempt].map((x) => x.script)
+  assert.equal(all.includes('check-undocumented.mjs'), false, 'R10 不得把"文档没点名"算成自己的账')
+  assert.deepEqual(all, [])
+})
+
+test('T23 R10 编号维:只报数、永不判红,且带字母后缀的 id 不得被截成整数冒充缺口', () => {
+  const runner =
+    "const G = [\n  { id: '1', script: 'check-wired.mjs' },\n  { id: \"42\", script: 'check-quoted.mjs' },\n  { id: '13c', script: 'check-suffix.mjs' },\n]\n"
+  const reg = G.parseRunnerRegistrations(runner)
+  assert.deepEqual([...reg.ids].sort(), ['1', '13c', '42'], '单/双引号与带后缀 id 都必须认(否则合法注册会被读成失踪)')
+  const stale = G.findStaleIdMentions({
+    docs: docsOf(
+      [
+        '守门 13c 与本条无关(带后缀,必须放过)。',
+        '守门 777 说的其实是 `scripts/check-wired.mjs`(它挪过号了)。',
+        '```',
+        '守门 888 是围栏里的示例,不得计数。',
+        '```',
+      ].join('\n'),
+    ),
+    runnerIds: reg.ids,
+    runnerScripts: reg.byScript,
+  })
+  assert.deepEqual(stale.map((x) => x.id), ['777'], '只有真失踪的编号该被点名:13c 不能截成 13,围栏内不能算')
+  assert.equal(stale[0].actual, '1', '同一行点了门体的名 ⇒ 必须回指它在注册面上的真实 id(可复核的出处)')
+})
+
+test('T24 R10 形状锁:main() 必须真把判据挂上,默认档不得进 reds,文档面不得退化读工作区', () => {
+  const src = readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), '..', 'check-gate-wiring.mjs'), 'utf8')
+  const main = src.slice(src.indexOf('async function main('), src.indexOf('// ─── self-test'))
+  assert.ok(main.length > 500, 'main() 区块取形失败(截取判据的前置条件不成立 ⇒ 本条断言无牙)')
+  // ① 装车:两条判据必须被 main() 真调用(函数在而无人调 = 提交链上一路绿灯,守门 70/102 同型)
+  for (const call of ['findDocNamedAbsentGates(', 'findStaleIdMentions(', 'parseRunnerRegistrations(']) {
+    assert.ok(main.includes(call), `main() 里没有调用 ${call} ⇒ R10 对该形态失明`)
+  }
+  // ② 定级:red-r10 只允许出现在 --strict 分支里(默认档判红 = 与改动无关的恒红门,§12e)
+  const strictGuard = main.match(/if \(opts\.strict\) \{[\s\S]{0,400}?red-r10/)
+  assert.ok(strictGuard, 'red-r10 必须在 `if (opts.strict)` 块内 —— 默认档判红就是造一台恒红机')
+  assert.equal(
+    (main.match(/status: 'red-r10'/g) || []).length,
+    1,
+    "red-r10 只允许有一处 push 点(两处就会让默认档在某一支上偷偷判红)",
+  )
+  // ③ 取材面:R10 的两份文档必须复用 docReader(HEAD∪索引),不得另起一次工作区读取
+  assert.ok(/const readmeText = docReader\.read\('README\.md'\)/.test(main), 'README.md 必须走 docReader(与 R2/R4 同面)')
+  assert.ok(!/readFileSync\([^)]*(AGENTS|README)\.md/.test(main), '文档面禁止 readFileSync 工作区(他人未提交的编辑不算仓库内容)')
+  // ④ 存在性面:必须把索引并进 HEAD 全树(同一枚提交里"新立门 + 补点名行"不得被自己挡住)
+  assert.ok(/r10Face[\s\S]{0,160}tracked[\s\S]{0,80}r10IndexPaths|new Set\(\[...tracked, \.\.\.r10IndexPaths\]\)/.test(main), 'R10 存在性面必须是 HEAD ∪ 索引')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
