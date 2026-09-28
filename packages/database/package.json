@@ -23,6 +23,8 @@
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check",
     "seed": "tsx seed/index.ts",
+    "migrate:overseas-images": "tsx seed/migrate-overseas-images.ts",
+    "check:image-domains": "tsx scripts/check-image-source-domains.mjs",
     "clean": "rimraf dist .turbo node_modules"
   },
   "dependencies": {
