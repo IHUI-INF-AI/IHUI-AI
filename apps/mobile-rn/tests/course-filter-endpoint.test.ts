@@ -29,6 +29,7 @@ const SCREEN = 'apps/mobile-rn/src/screens/CourseFilterScreen.tsx'
 const API_ROUTES_INDEX = 'apps/api/src/routes/index.ts'
 const API_SERVER = 'apps/api/src/server.ts'
 const LEARN_ENDPOINT_FILE = 'packages/api-client/src/endpoints/learn.ts'
+const API_LEARN_ROUTE = 'apps/api/src/routes/learn.ts'
 
 /** 把 `import { a, b as c } from './x.js'` 与默认导入收成 局部名 → 相对模块路径 */
 function importMap(src: string, ownDir: string): Map<string, string> {
@@ -185,6 +186,76 @@ function endpointPath(): string {
   return p
 }
 
+/** 取出 `obj = {` 处 openIdx 那个对象字面量的**内部**文本(字符串感知,只数花括号) */
+function objectLiteralBody(src: string, openIdx: number): string {
+  let depth = 0
+  let quote: string | null = null
+  for (let i = openIdx; i < src.length; i++) {
+    const ch = src[i] as string
+    if (quote) {
+      if (ch === '\\') i++
+      else if (ch === quote) quote = null
+      continue
+    }
+    if (ch === "'" || ch === '"' || ch === '`') quote = ch
+    else if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return src.slice(openIdx + 1, i)
+    }
+  }
+  throw new Error('花括号没配平 —— 被读的那份文件语法已坏')
+}
+
+/** 对象字面量体 → 顶层键名。体里有 `z.uuid({ error: … })` 这类嵌套对象,裸按逗号切会把嵌套键算进来。 */
+function topLevelObjectKeys(body: string): string[] {
+  const keys: string[] = []
+  let depth = 0
+  let quote: string | null = null
+  let buf = ''
+  const flush = () => {
+    const m = /^\s*([A-Za-z_$][\w$]*)\s*:/.exec(buf)
+    if (m?.[1]) keys.push(m[1])
+    buf = ''
+  }
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i] as string
+    if (quote) {
+      if (ch === '\\') {
+        buf += ch
+        buf += body[++i] ?? ''
+      } else if (ch === quote) {
+        quote = null
+        buf += ch
+      } else buf += ch
+      continue
+    }
+    if (ch === "'" || ch === '"' || ch === '`') quote = ch
+    else if (ch === '{' || ch === '(' || ch === '[') depth++
+    else if (ch === '}' || ch === ')' || ch === ']') depth--
+    else if (ch === ',' && depth === 0) {
+      flush()
+      continue
+    }
+    buf += ch
+  }
+  flush()
+  return keys
+}
+
+/**
+ * 现读服务端 `lessonsQuerySchema` 的顶层键名 —— 不在测试里抄第二份清单。
+ * 键名拼错的症状不是报错而是**筛不动**:Zod 静默剥掉未知键,响应 200、集合没变。
+ */
+function lessonsQuerySchemaKeys(): Set<string> {
+  const src = read(API_LEARN_ROUTE)
+  const decl = src.indexOf('const lessonsQuerySchema')
+  if (decl === -1) throw new Error('learn.ts 里找不到 lessonsQuerySchema —— 服务端换了形态')
+  const open = src.indexOf('{', src.indexOf('z.object', decl))
+  if (open === -1) throw new Error('lessonsQuerySchema 不是 z.object({...}) 形态')
+  return new Set(topLevelObjectKeys(objectLiteralBody(src, open)))
+}
+
 describe('课程筛选屏取数端点必须真实存在', () => {
   it('屏不再自拼裸路径,改走 @ihui/api-client 的端点函数(§3 共享层优先)', () => {
     const src = read(SCREEN)
@@ -221,11 +292,14 @@ describe('课程筛选屏取数端点必须真实存在', () => {
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 价格轴的行为判据(真机 VC55 拍到"屏不再报错、只剩这一根轴",但"按钮真的有事做"
- * 不能靠一张空态截图说话 —— 生产库当前已发布课程 total=0,截图永远只能是空态)。
- * 所以把这条轴的两半各自量一遍:价格解析(后端 numeric 回传字符串)与档位判定。
+ * 筛选轴的行为判据(2026-09-28 起住服务端)。
+ *
+ * 这一族真机拍不到:生产库已发布课程 total=0,截图永远只能是空态,而"点付费到底会不会少"
+ * 是这条轴唯一存在的理由。所以两半各自量:价格解析(后端 numeric 回传字符串)+ 轴映射
+ * (档位 → 查询参数)。旧的那半 `matchesPriceTab` 已随"端内二次过滤"一起删掉 —— 症状是
+ * 分页与筛选互斥:第二页根本没取回来,过滤却按第一页算。
  */
-describe('价格轴必须真的过滤', () => {
+describe('筛选轴必须真的落到查询参数上', () => {
   it('后端 numeric 字符串与缺值都归一到同一档', async () => {
     const { priceOf } = await import('../src/lib/course-filter-price')
     const row = (price: unknown) => ({ id: 'x', title: 't', price }) as never
@@ -238,10 +312,55 @@ describe('价格轴必须真的过滤', () => {
     expect(priceOf(row(-3))).toBe(0)
   })
 
-  it('三档判定互斥且完备(免费/付费/全部)', async () => {
-    const { matchesPriceTab } = await import('../src/lib/course-filter-price')
-    expect([matchesPriceTab(0, 'free'), matchesPriceTab(9, 'free')]).toEqual([true, false])
-    expect([matchesPriceTab(0, 'paid'), matchesPriceTab(9, 'paid')]).toEqual([false, true])
-    expect([matchesPriceTab(0, 'all'), matchesPriceTab(9, 'all')]).toEqual([true, true])
+  it('三根轴取 all 档时必须整键不下传(而不是传一个服务端会 400 的值)', async () => {
+    const { ALL_SENTINEL, buildCourseFilterQuery, DEFAULT_COURSE_FILTER_AXES } =
+      await import('../src/lib/course-filter-price')
+    const q = buildCourseFilterQuery(DEFAULT_COURSE_FILTER_AXES, 3, 20)
+    expect(q.page).toBe(3)
+    expect(q.pageSize).toBe(20)
+    for (const k of ['price', 'difficulty', 'categoryId'] as const) {
+      expect(q[k], `${k} 处于默认档却仍被下传`).toBeUndefined()
+      expect(k in q ? q[k] : undefined).toBeUndefined()
+    }
+    // 逐轴选中的正向对照:三根各自能把值带出去(缺一根 = 那根轴又是装饰品)
+    expect(
+      buildCourseFilterQuery({ ...DEFAULT_COURSE_FILTER_AXES, price: 'paid' }, 1, 20).price,
+    ).toBe('paid')
+    expect(
+      buildCourseFilterQuery({ ...DEFAULT_COURSE_FILTER_AXES, difficulty: 'advanced' }, 1, 20)
+        .difficulty,
+    ).toBe('advanced')
+    expect(
+      buildCourseFilterQuery({ ...DEFAULT_COURSE_FILTER_AXES, categoryId: 'c-1' }, 1, 20)
+        .categoryId,
+    ).toBe('c-1')
+    expect(ALL_SENTINEL).toBe('all')
+  })
+
+  it('跨层锁:映射出的键名必须在服务端 lessonsQuerySchema 里(Zod 会静默剥掉未知键)', async () => {
+    const schemaKeys = lessonsQuerySchemaKeys()
+    // 阳性对照:提取式若整棵走空,下面所有断言都会"通过",所以先量尺子本身
+    expect(
+      schemaKeys.size,
+      '读不到 lessonsQuerySchema 的键 = 尺子失效,不是没有拼错',
+    ).toBeGreaterThanOrEqual(4)
+    const { DEFAULT_COURSE_FILTER_AXES, buildCourseFilterQuery } =
+      await import('../src/lib/course-filter-price')
+    const all = buildCourseFilterQuery(
+      { ...DEFAULT_COURSE_FILTER_AXES, price: 'free', difficulty: 'beginner', categoryId: 'c-1' },
+      1,
+      20,
+    )
+    const sent = Object.keys(all).filter((k) => (all as Record<string, unknown>)[k] !== undefined)
+    for (const k of sent) expect(schemaKeys.has(k), `端内下传了服务端不认的键 ${k}`).toBe(true)
+    // 反向对照:服务端确实认这些键(不是"提取式恰好只剩这几个"),且页码是它的键
+    for (const k of ['page', 'pageSize', 'price', 'difficulty', 'categoryId']) {
+      expect(schemaKeys.has(k), `lessonsQuerySchema 应含 ${k}`).toBe(true)
+    }
+    expect(schemaKeys.has('notARealQueryParam')).toBe(false)
+    // 提取式的自身判据:`z.uuid({ error: … })` 的 error 是**嵌套**键,把它算进顶层就等于
+    // 这把尺子什么都能量到(包括端内根本不该发的名字)。它服务端不返回 400、Zod 也不剥,
+    // 所以只能在这里挡住读法本身。
+    expect(schemaKeys.has('error'), '嵌套对象的键不得被算成顶层查询键').toBe(false)
   })
 })

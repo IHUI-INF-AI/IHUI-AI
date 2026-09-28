@@ -52,20 +52,16 @@ import type {
   AgentControlCapability,
 } from '@ihui/types'
 import { authenticate, checkAuth, checkAuthOrInternalService } from '../plugins/auth.js'
+import { isVerifiedAgentControlInternalCall } from '../utils/internal-principal.js'
 import { success, error } from '../utils/response.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 
-/**
- * 校验 Authorization: Bearer 是否等于内部服务密钥(时序安全比较)。
- * 长度不一致直接 false(避免 timingSafeEqual 抛错)。
- */
-function isInternalSecret(authHeader: string | undefined): boolean {
-  const internalSecret = process.env.AGENT_CONTROL_INTERNAL_SECRET ?? ''
-  if (!internalSecret || !authHeader?.startsWith('Bearer ')) return false
-  const bearer = authHeader.slice(7).trim()
-  if (bearer.length === 0 || bearer.length !== internalSecret.length) return false
-  return timingSafeEqual(Buffer.from(bearer, 'utf-8'), Buffer.from(internalSecret, 'utf-8'))
-}
+// 内部服务密钥的校验住在唯一出口 utils/internal-principal.ts
+// (isVerifiedAgentControlInternalCall,#23):本路由与 CSRF 钩子(plugins/csrf.ts 的
+// onRequest)必须问**同一份实现** —— 钩子需要在鉴权之前认出"已通过内部密钥自证的
+// 机器调用",而两处各写一份密钥比较正是本仓反复登记的漂移源。密钥比较本身又是
+// plugins/internal-service-token.ts 的 secretsEqual(定长散列 + timingSafeEqual),
+// 全仓仅此一份;fail-closed:AGENT_CONTROL_INTERNAL_SECRET 未配置时一律 false。
 
 // ---------------------------------------------------------------------------
 // 状态:已注册的端 + pending requests
@@ -291,7 +287,9 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     // 现要求:① Authorization: Bearer == AGENT_CONTROL_INTERNAL_SECRET(ai-service
     // 内部调用,ai-service 侧已带该 header);② 或携带合法用户 JWT(兼容历史)。
     // 两者皆无 → 401 拒绝。api 侧未配置密钥时仅 JWT 路径可用。
-    let authed = isInternalSecret(request.headers.authorization)
+    // (密钥校验走唯一出口 isVerifiedAgentControlInternalCall,与 CSRF 钩子同一份实现;
+    //  #23 修复前该形态的 Bearer 会被上游 CSRF 403 拦死,永远走不到这一行。)
+    let authed = await isVerifiedAgentControlInternalCall(request)
     if (!authed) {
       try {
         await authenticate(request)
