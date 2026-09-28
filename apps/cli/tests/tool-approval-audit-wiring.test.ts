@@ -55,10 +55,14 @@ vi.mock('../src/audit.js', () => ({ auditLog: vi.fn() }));
 
 import {
   buildAgentDangerGate,
-  reportToolApprovalDecisionToAudit,
-  TOOL_APPROVAL_AUDIT_INGEST_PATH,
-  __resetToolApprovalAuditStateForTest,
 } from '../src/commands/agent.js';
+import {
+  reportToolApprovalDecisionToAudit,
+  createAuditedDangerGate,
+  TOOL_APPROVAL_AUDIT_INGEST_PATH,
+  TOOL_APPROVAL_AUDIT_FALLBACK_SESSION,
+  __resetToolApprovalAuditStateForTest,
+} from '../src/tools/danger-gate-audit.js';
 import type { DangerGateDenyCause, DangerGateRoute } from '../src/tools/danger-gate.js';
 import type { Tool } from '../src/tools/index.js';
 
@@ -287,31 +291,80 @@ describe('C 层:route 三档与 cause 四档逐档如实转发', () => {
 // D 层:装车证明(结构,不是文本顺序)
 // =============================================================================
 
-describe('D 层:装车', () => {
-  it('runAgent 必须用该工厂构造 confirmDangerous,三个输入都传进来', () => {
+describe('D 层:装车(五个站点共用一份实现,谁都不许绕过包装器)', () => {
+  const SRC_FILES = [
+    '../src/commands/agent.ts',
+    '../src/commands/repl.ts',
+    '../src/acp/server.ts',
+    '../src/server/agent-core.ts',
+    '../src/tools/subagent.ts',
+  ];
+
+  it('五个生产站点必须全部经带审计的包装器构造 confirmDangerous', () => {
+    for (const rel of SRC_FILES) {
+      const src = fs.readFileSync(path.resolve(HERE, rel), 'utf8');
+      if (rel === '../src/commands/agent.ts') {
+        // runAgent 这一站多包一层工厂(为了让 silent 语义可被行为断言钉),所以两条分开判:
+        // 站点用工厂、工厂内部用包装器。合成一条跨度正则会在这次挪动函数顺序时无辜变红。
+        expect(src).toMatch(/confirmDangerous:\s*buildAgentDangerGate\(\{/);
+        expect(src).toMatch(/return createAuditedDangerGate\(\{/);
+      } else {
+        expect(src, `站点 ${rel} 未用带审计的包装器`).toMatch(
+          /confirmDangerous:\s*createAuditedDangerGate\(\{/,
+        );
+      }
+    }
+  });
+
+  it('反向锁:站点不得再直连 createDangerGate(直连 = 决策静默不落链,而账面全绿)', () => {
+    for (const rel of SRC_FILES) {
+      const src = fs.readFileSync(path.resolve(HERE, rel), 'utf8');
+      expect(src, `站点 ${rel} 又直连了 createDangerGate`).not.toMatch(/createDangerGate\s*\(/);
+    }
+  });
+
+  it('runAgent 那一站仍把三个输入传进工厂(silent 语义未被接线改变)', () => {
     expect(AGENT_SRC).toMatch(
       /confirmDangerous:\s*buildAgentDangerGate\(\{[\s\S]{0,300}?allowDangerous:[\s\S]{0,120}?silent,[\s\S]{0,120}?sessionId:/,
     );
   });
 
-  it('工厂内部必须把决策喂给上报函数(而不是只挂 console)', () => {
-    expect(AGENT_SRC).toMatch(
-      /onDecision:\s*\(\s*\{[^}]*route[^}]*\}\s*\)\s*=>\s*\{[\s\S]{0,600}?reportToolApprovalDecisionToAudit\(\{/,
-    );
+  it('行为判序:调用方 onDecision 抛错时,审计事实必须已经发出(包装器不吞也不前置)', async () => {
+    const gate = createAuditedDangerGate({
+      allowDangerous: true,
+      silent: true,
+      auditSessionId: 'sess-order',
+      onDecision: () => {
+        throw new Error('caller hook blew up');
+      },
+    });
+    // 不替调用方吞异常(吞了就是"提示层炸掉 ⇒ 放行结论也一起变"),但落链发生在它之前
+    await expect(gate(DANGEROUS_TOOL, DANGEROUS_ARGS)).rejects.toThrow('caller hook blew up');
+    expect(fetchApiMock).toHaveBeenCalledTimes(1);
+    expect(bodyOfCall(0).facts[0]).toMatchObject({ route: 'flag', sessionId: 'sess-order' });
+  });
+
+  it('会话 ID 缺省必须落 fallback 常量(服务端 schema 要求非空,不得发空串)', async () => {
+    const gate = createAuditedDangerGate({ allowDangerous: true, silent: true });
+    await gate(DANGEROUS_TOOL, DANGEROUS_ARGS);
+    expect(bodyOfCall().facts[0]!.sessionId).toBe(TOOL_APPROVAL_AUDIT_FALLBACK_SESSION);
   });
 
   it('上报调用的参数清单是封闭四项:sessionId / toolName / route / cause', () => {
-    const callSite = /reportToolApprovalDecisionToAudit\(\{([\s\S]{0,300}?)\}\);/.exec(AGENT_SRC);
+    const auditSrc = fs.readFileSync(
+      path.resolve(HERE, '../src/tools/danger-gate-audit.ts'),
+      'utf8',
+    );
+    const callSite = /reportToolApprovalDecisionToAudit\(\{([\s\S]{0,400}?)\}\);/.exec(auditSrc);
     expect(callSite, '找不到上报调用体').toBeTruthy();
     const body = callSite![1]!;
-    expect(body).toMatch(/sessionId:/);
-    expect(body).toMatch(/toolName:/);
-    // route / cause 是简写形态(不带冒号)—— 只 match 冒号的那把尺子会静默漏掉它们,
-    // 然后以"参数很少"的名义给出假绿灯。
-    expect(/^[ \t]*route,[ \t]*$/m.test(body)).toBe(true);
-    expect(/^[ \t]*cause,[ \t]*$/m.test(body)).toBe(true);
+    // 按**键名集合**判,而不是"某几个子串在不在":多塞一个 key(哪怕叫 args 或 userId)
+    // 当场红;少一个 key(比如把 cause 删了)也当场红 —— 只 match 冒号的旧写法会漏掉
+    // 简写形态,而只 match 简写的会漏掉属性形态,两种形态都见过。
+    const keys = [...body.matchAll(/(?:^|[,{\s])([A-Za-z_]\w*)\s*:/g)].map((m) => m[1]);
+    expect([...new Set(keys)].sort()).toEqual(['cause', 'route', 'sessionId', 'toolName']);
     expect(body).not.toMatch(/\bargs\b/);
-    expect(body).not.toMatch(/userId|user_id/);
+    expect(body).not.toMatch(/userId|user_id|token|secret|password/i);
   });
 
   it('两侧路径常量逐字等值(CLI 常量 == 服务端注册后的完整路径)', () => {
