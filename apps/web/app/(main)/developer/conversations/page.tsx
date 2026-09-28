@@ -193,7 +193,7 @@ export default function ConversationsPage() {
                             <input
                               value={editTitle}
                               onChange={(e) => setEditTitle(e.target.value)}
-                              className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm"
+                              className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-sm"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') saveEdit()
                                 if (e.key === 'Escape') {

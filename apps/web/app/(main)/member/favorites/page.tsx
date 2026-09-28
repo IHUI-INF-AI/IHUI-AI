@@ -92,7 +92,7 @@ export default function MemberFavoritesPage() {
             key={t.value}
             onClick={() => setTab(t.value)}
             className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
               tab === t.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
