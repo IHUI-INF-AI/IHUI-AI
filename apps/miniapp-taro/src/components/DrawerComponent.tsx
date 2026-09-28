@@ -419,7 +419,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
         onClick={handleMaskClick}
       />
       <View
-        className="relative bg-card ui-card rounded-$1-xl overflow-hidden transition-transform"
+        className="relative bg-card ui-card rounded-t-lg overflow-hidden transition-transform"
         style={{ maxHeight: '80vh', height }}
         onClick={handleStop}
         hoverClass="opacity-60"

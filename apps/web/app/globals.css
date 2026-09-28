@@ -303,7 +303,7 @@
 }
 .thin-scroll::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-muted-foreground) 60%, transparent);
-  border-radius: 3px; /* radius-exempt: 6px 宽滚动条滑块胶囊端,取宽度一半;第三方 ::-webkit-scrollbar 皮肤 */
+  border-radius: var(--radius-xs); /* 滚动条滑块也走档位表:项目不允许胶囊端 */
   transition: background 0.2s ease;
 }
 .thin-scroll::-webkit-scrollbar-thumb:hover {
