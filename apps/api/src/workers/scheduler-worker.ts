@@ -97,7 +97,7 @@ export const AI_FEED_ALERT_COOLDOWN_SEC = 24 * 60 * 60
  * "同 user + 同 severity 冷却"是同一判据形态)。
  */
 export function aiFeedAlertIdentity(sourceCode: string, severity: string): string {
-  return `alert:dedup:ai-feed-collect:${sourceCode.trim().toLowerCase()}`
+  return `alert:dedup:ai-feed-collect:${sourceCode.trim().toLowerCase()}:${severity}`
 }
 
 /** 一条失败源在本轮严重度档上的去重输入。 */
