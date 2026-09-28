@@ -21,6 +21,15 @@ import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { resolveGitBin } from '../lib/gitdir.mjs'
+// §22c:判据一律**直接 import 源实现**,不得在测试里再抄一份遮噪逻辑(抄的那份会跟着一起漂绿)。
+import {
+  SCRIPT_COMMENT_DIALECTS,
+  maskScriptComments,
+  scanScriptCommentSpans,
+} from '../lib/code-mask.mjs'
+
+const GIT_BIN = resolveGitBin() || 'git'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS_DIR = resolve(HERE, '..')
@@ -128,12 +137,23 @@ test('T4 调用侧判据有牙:代码面裸 powershell 调用 deploy .ps1 必点
     // 反向对照 5:裸 powershell 但目标不在 deploy/** ⇒ 不属本判据
     put(dir, 'elsewhere.mjs', 'powershell -File D:\\somewhere\\tool.ps1\n')
     // 反向对照 6:powershell 出现在标识符里、无 `-参数` 跟随 ⇒ 不误伤
-    put(dir, 'ident.mjs', 'const powershellPath = find(); powershellPath.run(deploy/win/tool.ps1)\n')
+    put(
+      dir,
+      'ident.mjs',
+      'const powershellPath = find(); powershellPath.run(deploy/win/tool.ps1)\n',
+    )
     const { code, out } = runGate(['--root', dir])
     assert.equal(code, 0, `默认档调用侧只报数不判红:\n${out}`)
     assert.match(out, /\[CALLER\][^\n]*站点: 1 个/, `应恰好命中 1 处,实际:\n${out}`)
     assert.match(out, /-\s+caller\.mjs:1/, '违规调用点必须点名到 文件:行')
-    for (const neg of ['commented.mjs', 'usage.mjs', 'pwsh-ok.mjs', 'vbs-ok.mjs', 'elsewhere.mjs', 'ident.mjs']) {
+    for (const neg of [
+      'commented.mjs',
+      'usage.mjs',
+      'pwsh-ok.mjs',
+      'vbs-ok.mjs',
+      'elsewhere.mjs',
+      'ident.mjs',
+    ]) {
       assert.ok(
         !new RegExp(`-\\s+${neg}:`).test(out),
         `${neg} 不该被点名 —— 宁漏不误报,命中注释/字符串/合规形态就是门在判自己的文档`,
@@ -182,4 +202,275 @@ test('T7 真仓现读冒烟(不设数字断言,只钉"三面报告都在")', () 
   // 本例刻意不断言数字:数字属共享工作树瞬时状态(守门 103 T12 那一课),
   // 它只钉"报告三面都在" —— 摘掉任何一行可见性,本例即红。
 })
+
+// ─── G-391②(2026-09-28):调用侧覆盖面从"只判 JS/TS"扩到脚本系 ───────────────
+// 盲区原文:`.ps1/.sh/.bat/.vbs` 里的调用点结构上不判(code-mask 不认其注释语法)。
+// 补这一族需要的是**各语言的遮噪语义**,不是放宽判据 —— 所以 T8–T12 各钉一条:
+//  ① 同一形态写在**代码面**必须被点名(阳性对照;把某个方言的遮噪摘掉 ⇒ 该方言的"注释用例"转红,
+//     把某个扩展名从覆盖面里摘掉 ⇒ 该扩展名的"命中用例"转红);
+//  ② 同一形态只写在**该语言自己的注释**里必须不点名(反向对照:门不得判自己的解释文字,
+//     守门 70/131 同型);
+//  ③ 合法写法(pwsh / 同行经 *.vbs 包装 / 目标不在 deploy/**)不得点名。
+// 脚本档**刻意不遮字符串**:VBScript/batch/PowerShell 的真调用就写在引号里
+// (`objShell.Run "powershell -File deploy\\…"` 是 §26 计划任务的包装形态),抹引号 = 没收尺子。
+
+const CALL_PATH = 'deploy/win/tool.ps1' // 被调路径(不需要真存在,判据看的是调用侧文本)
+const CALL_WIN = 'deploy\\win\\tool.ps1'
+/** 命中行的三种书写形态(纯文本,便于逐方言复用) */
+const barePs = `powershell -File ${CALL_WIN}\n`
+const bareSh = `powershell -File ${CALL_PATH}\n`
+
+/**
+ * 逐方言成对夹具:`hit` = 代码面上的真调用(必须点名),
+ * `comment` = **同一段文本**只存在于该语言的注释里(必须不可见)。
+ * `file` 的扩展名必须与门里 CALLER_SCRIPT_DIALECT 的键对得上(T9 拿它做名单正向证明)。
+ */
+const SCRIPT_PAIRS = [
+  {
+    name: 'ps1 行首 # 注释',
+    hit: 'hit.ps1',
+    comment: 'cmt.ps1',
+    commentText: `#requires -Version 7\n# ${barePs.trim()}\n`,
+    hitText: `#requires -Version 7\n${barePs}`,
+  },
+  {
+    name: 'ps1 <# #> 块注释',
+    hit: 'hit2.ps1',
+    comment: 'cmt2.ps1',
+    commentText: `#requires -Version 7\n<#\n  ${barePs.trim()}\n#>\nWrite-Host ok\n`,
+    hitText: `#requires -Version 7\n${barePs}`,
+  },
+  {
+    name: 'sh 词首 # 注释',
+    hit: 'hit.sh',
+    comment: 'cmt.sh',
+    commentText: `#!/bin/sh\n# ${bareSh.trim()}\n`,
+    hitText: `#!/bin/sh\n${bareSh}`,
+  },
+  {
+    name: 'bash # 在词中不算注释(该行仍是代码面)',
+    hit: 'hit.bash',
+    comment: 'cmt.bash',
+    commentText: `# ${bareSh.trim()}\n`,
+    hitText: `echo a#b ${bareSh}`,
+  },
+  {
+    name: 'bat @rem 注释',
+    hit: 'hit.bat',
+    comment: 'cmt.bat',
+    commentText: `@echo off\r\n@rem ${barePs.trim()}\r\n`,
+    hitText: `@echo off\r\nstart ${barePs}`,
+  },
+  {
+    name: 'cmd :: 注释',
+    hit: 'hit.cmd',
+    comment: 'cmt.cmd',
+    commentText: `:: ${barePs.trim()}\r\n`,
+    hitText: barePs,
+  },
+  {
+    name: 'vbs 串外撇号注释;串内的调用必须仍可见',
+    hit: 'hit.vbs',
+    comment: 'cmt.vbs',
+    commentText: `' ${barePs.trim()}\n`,
+    hitText: `objShell.Run "${barePs.trim()}", 1, False\n`,
+  },
+]
+
+test('T8 脚本系调用面有牙:每种语言的代码面命中必点名,同文写进该语言注释必不点名', () => {
+  const dir = mkScratch('pwsh-script-')
+  try {
+    const expect = []
+    const hidden = []
+    for (const p of SCRIPT_PAIRS) {
+      put(dir, p.hit, p.hitText)
+      expect.push(p.hit)
+      put(dir, p.comment, p.commentText)
+      hidden.push(p.comment)
+      // 合法形态 a) 显式 pwsh(同目录换名,避免与 hit 文件同名)
+      const pwshRel = p.hit.replace(/^hit/, 'pwshok')
+      put(dir, pwshRel, p.hitText.replace(/powershell/g, 'pwsh'))
+      hidden.push(pwshRel)
+      // 合法形态 b) §26 的 wscript/*.vbs 包装(同行出现 .vbs ⇒ 该形态按既有判据算合规)
+      const wrappedRel = p.hit.replace(/^hit/, 'wrapped')
+      put(dir, wrappedRel, `${p.hitText.trimEnd()} rem wrapper.vbs\n`)
+      hidden.push(wrappedRel)
+    }
+    // 目标不在 deploy/** 的裸调用:不属本判据(既有射程边界,不得因扩面而变宽)
+    put(dir, 'elsewhere.sh', `powershell -File src/run.ps1\n`)
+    hidden.push('elsewhere.sh')
+    // 标识符形态:powershell 后不跟 `-参数` ⇒ 不误伤(既有边界,扩面后仍须成立)
+    put(dir, 'ident.bat', `set powershellPath=1\n%powershellPath% deploy\\win\\tool.ps1\n`)
+    hidden.push('ident.bat')
+
+    const { code, out } = runGate(['--root', dir])
+    assert.equal(code, 0, `命中属调用侧,默认档必须只报数不判红:\n${out}`)
+    assert.match(
+      out,
+      new RegExp(`\\[CALLER\\][^\\n]*站点: ${expect.length} 个`),
+      `应恰好命中 ${expect.length} 处(每种语言一条),实际:\n${out}`,
+    )
+    for (const rel of expect) {
+      assert.match(
+        out,
+        new RegExp(`-\\s+${rel.replace('.', '\\.')}:[12]\\b`),
+        `${rel} 的代码面站点没被点名,或行号被报漂(遮噪不等长 ⇒ 行号会跳)\n${out}`,
+      )
+    }
+    for (const rel of hidden) {
+      assert.ok(
+        !new RegExp(`-\\s+${rel.replace('.', '\\.')}:[0-9]`).test(out),
+        `${rel} 不该被点名 —— 注释形态/合规形态被判定,就是门在判自己的文档或判据被放宽`,
+      )
+    }
+    // 问责档:命中计入退出码(扩面后脚本系也必须能问责,否则"报数"没人看)
+    const strict = runGate(['--root', dir, '--strict'])
+    assert.equal(strict.code, 1, `--strict 下脚本系命中必须计入退出码:\n${strict.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T9 覆盖面名单正向证明(§120):门里登记的每个脚本扩展名都真能命中一条', () => {
+  const src = readFileSync(GATE, 'utf8')
+  const block = /const CALLER_SCRIPT_DIALECT = new Map\(\[([\s\S]*?)\]\)\n/.exec(src)
+  assert.ok(block, '门里找不到 CALLER_SCRIPT_DIALECT 映射 ⇒ 覆盖面被整块摘掉(判据失明不是通过)')
+  const entries = [...block[1].matchAll(/\['(\.[a-z0-9]+)',\s*'([a-z]+)'\]/g)].map((m) => ({
+    ext: m[1],
+    dialect: m[2],
+  }))
+  const exts = entries.map((e) => e.ext)
+  // 票面要求的六个扩展名:漏一条 = 该扩展名的调用点在面上整型隐身(守门 102 左向箭头那一课)
+  for (const need of ['.ps1', '.sh', '.bash', '.bat', '.cmd', '.vbs']) {
+    assert.ok(exts.includes(need), `覆盖面漏扩展名 ${need} ⇒ 门对该形态全盲`)
+  }
+  // 方言名必须是 lib 那一份封闭集里的:在门里自造方言 = 遮噪层在提交链上抛错
+  for (const { ext, dialect } of entries) {
+    assert.ok(
+      SCRIPT_COMMENT_DIALECTS.includes(dialect),
+      `${ext} 映射到未知方言 ${dialect}(lib 会抛错,而不是静默放过)`,
+    )
+  }
+  // 正向证明:名单里每一条都造一个真站点,逐条点名 —— 名单可以是张死表而门一路报绿,这条就是防它。
+  // (注释形态的逐语言反证在 T8:那里按各语言自己的注释语法喂,不能用同一把 `#` 套所有语言。)
+  const dir = mkScratch('pwsh-exts-')
+  try {
+    for (const { ext } of entries) put(dir, `cover/a${ext}`, bareSh)
+    const { out } = runGate(['--root', dir])
+    for (const { ext } of entries) {
+      // 只认 CALLER 的 `文件:行:` 形态(判定面的 FAIL 清单不带行号,不会串台)
+      assert.match(
+        out,
+        new RegExp(`-\\s+cover[/\\\\]a${ext.replace('.', '\\.')}:1:`),
+        `扩展名 ${ext} 在名单里却没命中 ⇒ 名单与判据脱钩(§120 立此判据的原因)\n${out}`,
+      )
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T10 遮噪语义(共用层):等长、只遮注释不遮字符串、未知方言抛错而不是静默返原文', () => {
+  const samples = {
+    ps: `#requires -Version 7\n<#\n doc ${barePs.trim()}\n#>\n${barePs}`,
+    sh: `#!/bin/sh\n# ${bareSh.trim()}\n${bareSh}`,
+    bat: `@echo off\r\n@rem ${barePs.trim()}\r\n${barePs}`,
+    vbs: `' ${barePs.trim()}\nobjShell.Run "${barePs.trim()}", 1\n`,
+  }
+  for (const d of SCRIPT_COMMENT_DIALECTS) {
+    const src = samples[d]
+    assert.ok(src, `方言 ${d} 没有样本 ⇒ 名单条目缺正向证明`)
+    const masked = maskScriptComments(src, d)
+    assert.equal(masked.length, src.length, `${d}: 遮噪必须等长(各门按行回溯并报行号)`)
+    assert.equal(
+      masked.split(/\r?\n/).length,
+      src.split(/\r?\n/).length,
+      `${d}: 行数不得变(换行必须原样保留)`,
+    )
+    const spans = scanScriptCommentSpans(src, d)
+    assert.ok(spans.length > 0, `${d}: 一条注释都没遮 ⇒ 该方言的遮噪整块失效`)
+    for (const [from, to] of spans) {
+      assert.ok(from < to && to <= src.length, `${d}: 区间越界 [${from},${to})`)
+      for (let k = from; k < to; k++) {
+        if (src[k] === '\n') assert.equal(masked[k], '\n', `${d}: 换行被遮掉了`)
+        else if (src[k] === '\r') assert.equal(masked[k], '\r', `${d}: CR 被遮掉了`)
+        else assert.equal(masked[k], ' ', `${d}: 注释位未遮成空格 @${k}`)
+      }
+    }
+    // 只遮注释、**不遮字符串**:代码面(含引号里的真调用)在遮噪后必须仍逐字可见
+    const visible = masked.includes(bareSh.trim()) || masked.includes(barePs.trim())
+    assert.ok(visible, `${d}: 代码面那条被抹掉了 ⇒ 遮噪越界(抹了字符串或抹了多行)`)
+  }
+  // 未知方言必须抛错:静默返原文 = 把全部注释当代码判(误报),静默返空 = 整型失明
+  assert.throws(() => maskScriptComments('x', 'nope'), /未知脚本方言/)
+  assert.equal(maskScriptComments('', 'ps'), '')
+  assert.deepEqual(scanScriptCommentSpans(bareSh, 'ps'), [])
+})
+
+test('T11 --staged 与全量档同形:.ps1/.vbs 里的调用侧在暂存档也必须被看见', () => {
+  const dir = mkScratch('pwsh-staged-shape-')
+  try {
+    // deploy 下的 .ps1 旧写法被豁免面 continue 掉 ⇒ 调用侧在暂存档看不见它(两面分叉)
+    put(dir, 'deploy/win/pos.ps1', `#requires -Version 7\n${barePs}`)
+    put(dir, 'wrapper.vbs', `objShell.Run "${barePs.trim()}", 1\n`)
+    const full = runGate(['--root', dir])
+    assert.match(full.out, /deploy[/\\]win[/\\]pos\.ps1:2/, `全量档必须点名:\n${full.out}`)
+    assert.match(full.out, /wrapper\.vbs:1/, `全量档必须点名 vbs 站点:\n${full.out}`)
+    // 造一个真 git 仓:--staged 必须走暂存路径,否则本例什么也没证明(退化路径与全量同形是废话)
+    const g = gitInitAndAdd(dir)
+    assert.ok(g.ok, `夹具 git 不可用(${g.reason})⇒ 无法证伪"退化为全树扫描",本例按未判定处理而判红`)
+    const staged = runGate(['--staged', '--root', dir])
+    assert.ok(
+      !/非 git 环境/.test(staged.out),
+      `--staged 走了退化路径,本例就没在证暂存档:\n${staged.out}`,
+    )
+    assert.match(
+      staged.out,
+      /deploy[/\\]win[/\\]pos\.ps1:2/,
+      `--staged 必须与全量档同形:\n${staged.out}`,
+    )
+    assert.match(staged.out, /wrapper\.vbs:1/, `--staged 必须点名 vbs 站点:\n${staged.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T12 报告文案不得回头声称脚本系是盲区(覆盖面声称与判据必须同形)', () => {
+  const dir = mkScratch('pwsh-prose-')
+  try {
+    put(dir, 'src/ok.ps1', '#requires -Version 7\nWrite-Host hi\n')
+    const { out } = runGate(['--root', dir])
+    assert.ok(
+      !/因遮噪层[\s\S]{0,40}不判/.test(out),
+      `报告仍在说脚本系"因遮噪层不适用而不判"(覆盖面已扩,那句话现在是假账):\n${out}`,
+    )
+    assert.match(out, /覆盖面[\s\S]{0,300}\.ps1/, '覆盖面行必须逐条列出脚本扩展名')
+    assert.match(out, /覆盖面[\s\S]{0,400}\.vbs/, '覆盖面行必须点名 .vbs')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/** 在夹具里起一个一次性 git 仓并 `add -A`;失败返回原因(调用方据此判红,不静默跳过)。 */
+function gitInitAndAdd(dir) {
+  for (const args of [
+    ['init', '-q'],
+    ['-c', 'user.email=t@t', '-c', 'user.name=t', 'add', '-A'],
+  ]) {
+    const s = spawnSync(GIT_BIN, ['-c', 'safe.directory=*', ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60_000,
+    })
+    if (s.status !== 0) {
+      return {
+        ok: false,
+        reason: `git ${args.join(' ')} ⇒ ${String(s.stderr ?? s.error ?? '').trim()}`,
+      }
+    }
+  }
+  return { ok: true }
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
