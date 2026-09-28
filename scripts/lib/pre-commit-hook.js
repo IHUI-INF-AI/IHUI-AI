@@ -348,11 +348,15 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER !== '1') {
 // 阻塞规则:RULE-1a(禁用色板)/RULE-2(app.css 回归)/RULE-3(路由页 ThemeRoot)/RULE-5(删除类复用)。
 // WARN 规则:RULE-1b(其他 hex)/RULE-4(tsx 内联 hex)不阻塞提交。
 // 跳过方法(紧急):HUSKY_SKIP_MINIAPP_PARITY=1 git commit ...
+// 判定面(2026-09-28 收口):本步跑在守门批**之外**且 blocking,旧形态把 pages/components 整片
+//   按**磁盘**读 ⇒ 别人一次未暂存的 miniapp 页面就把无关提交钉红,唯一出路 --no-verify
+//   (约等于链上全部守门对该提交作废,§12e/§12f)。`--staged` ⇒ 判索引 blob,红点从此只可能
+//   来自本次提交;面上取不到 ⇒ 脚本 exit 2「未判定」(不冒红也不记绿),不回退磁盘。
 if (process.env.HUSKY_SKIP_MINIAPP_PARITY !== '1') {
   if (
     !run(
-      '🎨 miniapp-taro 跨端样式一致性守门(2026-09-03 立)',
-      'node scripts/check-miniapp-taro-style-parity.mjs',
+      '🎨 miniapp-taro 跨端样式一致性守门(2026-09-03 立,判定面=索引 blob)',
+      'node scripts/check-miniapp-taro-style-parity.mjs --staged',
     )
   ) {
     console.error('❌ miniapp-taro 跨端样式一致性守门失败,提交已阻止')
@@ -533,7 +537,14 @@ try {
 }
 
 // 跨端 storage-adapter 一致性守门(node 直接跑,避免 husky 环境变量污染)
-if (!run('🔗 跨端 storage-adapter parity 守门...', 'node scripts/check-cross-store-parity.mjs')) {
+// 判定面(2026-09-28 收口):批外 blocking,旧形态按磁盘读 5 份输入 ⇒ 别人未暂存的 adapter /
+//   shared auth-store 改动会钉红无关提交(§12e/§12f)。`--staged` ⇒ 判索引 blob。
+if (
+  !run(
+    '🔗 跨端 storage-adapter parity 守门(判定面=索引 blob)...',
+    'node scripts/check-cross-store-parity.mjs --staged',
+  )
+) {
   process.exit(1)
 }
 
@@ -573,13 +584,16 @@ if (process.env.HUSKY_SKIP_BUTTON_WRAP_CHECK !== '1') {
 //      commit 部分回退,本守门在每次 commit 时跑,确保关键 class + 5 语言 i18n key 完整。
 // 跳过方法(紧急):HUSKY_SKIP_FOOTER_GUARD=1 git commit ...
 // 性能:仅读 5 个 i18n 文件 + SiteFooter.tsx + footer-data.ts,~300ms 跑完。
+// 判定面(2026-09-28 收口):批外 blocking,旧形态把这 7 份输入按**磁盘**读 —— 5 个 web 语言包
+//   是全仓并发写入最热的面之一,别人一次未暂存的 footer 键改动就钉红无关提交(§12e/§12f)。
+//   `--staged` ⇒ 7 份输入同一次 cat-file --batch 取自索引 blob;面上取不到 ⇒ exit 2「未判定」。
 // 阻断条件:1) SiteFooter 关键 class 缺失;2) ECOSYSTEM_GROUPS 不是 5 分组;
 //         3) 5 语言 footer 命名空间任一 key 缺失或为空。
 if (process.env.HUSKY_SKIP_FOOTER_GUARD !== '1') {
   if (
     !run(
-      '🦶 SiteFooter 守门(防 v10/v11 回退, 5 语言 i18n + 关键 class, 2026-07-30 立)...',
-      'node scripts/check-site-footer.mjs',
+      '🦶 SiteFooter 守门(防 v10/v11 回退, 5 语言 i18n + 关键 class, 2026-07-30 立;判定面=索引 blob)...',
+      'node scripts/check-site-footer.mjs --staged',
     )
   ) {
     console.error(
@@ -737,11 +751,14 @@ if (process.env.HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY !== '1') {
 //      单一事实源;本门断言代码库新增的默认关 env 必须登记进台账(漏登即红),
 //      防止「移植完成但线上从不跑」的能力再次无感堆积。
 // 跳过方法(紧急):HUSKY_SKIP_CAPABILITY_MATRIX=1 git commit ...
+// 判定面(2026-09-28 收口):批外 blocking,旧形态把 apps/ai-service/app 下全部 .py 按**磁盘**读
+//   ⇒ 别人一个未暂存、还没登记进台账的默认关 env 就把无关提交钉红(§12e/§12f)。
+//   `--staged` ⇒ 清单与内容同面同轮取自索引 blob;取不到 ⇒ exit 2「未判定」,不回退磁盘。
 if (process.env.HUSKY_SKIP_CAPABILITY_MATRIX !== '1') {
   if (
     !run(
-      '📋 能力矩阵对账守门(默认关 env 必须登记台账)...',
-      'node scripts/check-capability-matrix.mjs --quiet',
+      '📋 能力矩阵对账守门(默认关 env 必须登记台账;判定面=索引 blob)...',
+      'node scripts/check-capability-matrix.mjs --quiet --staged',
     )
   ) {
     console.error('❌ 能力矩阵对账守门失败,提交已阻止')
