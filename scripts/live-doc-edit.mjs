@@ -56,6 +56,14 @@
  *  "提交前查一次占用"挡不住别人事后取同一个号(与守门编号撞号同族)。为什么必须**递增**而不是
  *  每个令牌都算 max+1:一次登记两件事是常态,那样本器自己就会产出它要防的那一型。
  *  该族一条登记行都没有 ⇒ exit 2 拒绝落地,绝不给 "<族>-1"。
+ *  占用面(G-313 续,2026-09-28 补)= **台账 ⊕ `.ihui-agent/archive/PROJECT_PLAN*.md`**,由
+ *  `lib/plan-id-face.mjs` 的 `collectIdFace()` 给(与 `next-plan-id.mjs` 共用那一份实现)。理由:
+ *  归档器把已完成条目整块搬进归档件、台账只留一行 HTML 注释占位 ⇒ 只看台账的 max 会随每次归档回落,
+ *  令牌就会发出**已用过的号**(本仓 2026-09-28 一天内重发两次,登记在 `6b812de31`)。取号与幂等判据的
+ *  编号形状**必须吃同一张面** —— 两面不同形时,发出去的号会匹配不上自己编出的匹配式,幂等判据就永远
+ *  不命中(那等于把"重复落地"这一型重新放开)。面判不出(台账取不到 / 归档件枚举失败 / 有件取不到)
+ *  ⇒ exit 2 拒绝落地,**绝不退回窄面发号**。非 `PROJECT_PLAN.md`(AGENTS/README)⇒ 归档件不适用,
+ *  面 = 该文档自身,与改动前逐字同形。
  *
  *  号段基准(G-313 出路②,2026-09-28 加):基准 = **max(本地 HEAD 底稿该族 max, 远端那一份该族
  *  max)**。只问 `git ls-remote` + 本机对象库;远端 tip 的对象**本地没有就不 fetch、不写任何 ref**,
@@ -96,6 +104,7 @@ import {
   writeBlob,
 } from './lib/bypass-git.mjs'
 import { usedIdsOfPrefix } from './lib/plan-task-index.mjs'
+import { collectIdFace } from './lib/plan-id-face.mjs'
 
 /**
  * 令牌 `{{NEXT_ID:G}}` ⇒ 落成 `G-<下一个空闲号>`。
@@ -460,6 +469,37 @@ export function describeInPlace({ chk, anchorLines, head, families }) {
 }
 
 /**
+ * 畸形登记编号检测(纯函数)。2026-09-28 立,由一次真实复发链逼出:同一行被三次修回 `D128`,
+ * 每次并发合并又把它带回 `DD128` —— 因为**没有任何尺子看编号形态**:畸形号是"新增行",
+ * 防丢门(守门 71)结构上只查"行消失",对它完全失明。本器正是产出该形态的工具
+ * (取号令牌展开后已含族名,正文再手写一个 `D` 就成 `DD128`;`G-` + `{{NEXT_ID:G}}` 同型产 `G-G-334`),
+ * 所以判据必须由它自己兑现 —— 判据不覆盖自己产出的形态,就等于只拦得住别人、拦不住自己(§4 同一条)。
+ * 判据锚在"族名在编号段里出现两次"这一形状上,两种形态同视;不做白名单、不认具体族名,
+ * 因此新增任何一族都自动被覆盖(白名单必然腐烂,见 §4 对 RN_ONLY_BRAND_KEYS 的教训)。
+ */
+export const MALFORMED_ID_RE = /^-\s\[[ xX]\]\s*\**\s*([A-Za-z]{1,4})[-－]?\1[-－]?\d/
+export function findMalformedIds(text = '') {
+  const out = []
+  for (const l of String(text).split(/\r?\n/)) {
+    const m = l.match(MALFORMED_ID_RE)
+    if (m) out.push({ line: l.trim().slice(0, 90), family: m[1] })
+  }
+  return out
+}
+/**
+ * 只拦"本次新引入"的畸形行,存量只报数。
+ * 这一条是本判据不沦为恒红门的全部前提(§12e:与本次改动无关的红,唯一结局是逼人 --no-verify
+ * 并连带废掉全部守门):台账里由他人历史留下的畸形号不能钉红每一次落地,但必须打印出来,
+ * 否则"存量"和"我刚造的"在账面上长得一样。
+ */
+export function newMalformed(baselineText = '', landedText = '') {
+  const norm = (arr) => new Set(arr.map((x) => x.line))
+  const before = norm(findMalformedIds(baselineText))
+  const after = findMalformedIds(landedText)
+  return { added: after.filter((x) => !before.has(x.line)), preexisting: after.filter((x) => before.has(x.line)) }
+}
+
+/**
  * 索引对齐这一步的结论 ⇒ 退出码与措辞的唯一出口(纯函数 —— 这类"两个方向"的行为只能在构造面上钉,
  * 端到端一次只能造出一个方向;头注 G-321② 那条分档判据的全部牙齿都在这里)。
  *  ① 没落地 ⇒ 1:这一档绝不能被 ② 顺手洗绿(否则"内容没进库"读起来像"只是索引的事")。
@@ -593,9 +633,30 @@ async function main() {
     }
     const baseLines = norm(git(['show', `${head}:${doc}`], { root, raw: true })).split('\n')
     baseCount = baseLines.length
+    const ledgerText = baseLines.join('\n')
+    // ── 取号的**占用面**:台账 ⊕ `.ihui-agent/archive/PROJECT_PLAN*.md`(2026-09-28 补)──
+    // 为什么必须宽面:归档器把已完成条目整块搬进归档件、台账只留一行 HTML 注释占位,于是只看
+    // 台账的 max 会随每次归档**回落**,令牌就会发出已用过的号(立门当日现读 O 族:台账 88 / 宽面 90;
+    // 一天内重发两次号登记在 6b812de31)。判据仍只有一份 —— 本器不抄第二份编号语法,宽面由
+    // lib/plan-id-face.mjs 给,取号/形状都走 lib/plan-task-index.mjs 的 usedIdsOfPrefix。
+    // 为什么它**必须在 CAS 循环内**:与远端基准同理 —— HEAD 每轮在动,归档件也随归档提交增长,
+    // 提到循环外就把"这一轮看到的面"烘成一次性读数(N5 那条锁判的就是同一型)。
+    // 为什么拒绝而不是退回窄面:按窄面发号**正是本缺陷的症状**,而撞号事后结构上判不了
+    // (lib usedIdsOfPrefix 头注记过);停在这里只贵一次重试。
+    // 非 PROJECT_PLAN.md(AGENTS/README)⇒ 归档件不适用,面 = 该文档自身,与改动前逐字同形。
+    const idFace = collectIdFace({ root, source: head, doc, ledgerText })
+    for (const n of idFace.notes) console.log(`ℹ 占用面:${n}`)
+    if (!idFace.ok || idFace.undetermined.length > 0) {
+      for (const n of idFace.undetermined) console.error(`❌ 占用面判不出:${n}`)
+      console.error(
+        `❌ 无法算出完整占用面(${mode})⇒ 拒绝落地:宁可报错,也不按"只有台账"的窄面发号。` +
+          `归档件里已用过的号,台账看不见。`,
+      )
+      process.exit(2)
+    }
+    const baseContent = idFace.text
     // 令牌**在每次尝试里重算**:别人先推进了 HEAD,下一轮算出的空闲号自然跟着变 ——
     // 这正是把取号放进 CAS 的意义(提交前"查一次占用"在高并发仓里不构成证据)。
-    const baseContent = baseLines.join('\n')
     const targetLines = replacements ? replacements.map((p) => p.after) : block
     const families = idTokenFamilies(targetLines)
     // 号段基准**也在每次尝试里重算**:HEAD 会动,远端 tip 也会动(origin 常年被后台 worker 推进)。
@@ -664,6 +725,27 @@ async function main() {
       process.exit(1)
     }
     nextCount = built.next.length
+    // 畸形登记编号防线(2026-09-28 立;同一行 D128↔DD128 第四次来回逼出)。
+    // 为什么必须在**写 blob 之前**而不是落地之后:内容一旦 commit,再 exit 1 就是把"已入库"谎报成
+    // "没落地",而"没落地"的唯一反应就是重跑 —— 那正是本器 G-321 花两档退出码要消灭的混淆。
+    // 为什么存量只报数:由他人历史留下的畸形号钉红每一次落地,结局是逼人绕开本器改用 pathspec 硬交,
+    // 那是拿一个更危险的出口换一个账面好看(§12e 恒红门同一条)。
+    {
+      const mal = newMalformed(baseContent, built.next.join('\n'))
+      if (mal.added.length > 0) {
+        console.error(`❌ 本次要写入的内容里有 ${mal.added.length} 行畸形登记编号(族名在编号段出现两次)⇒ 拒绝落地:`)
+        for (const x of mal.added.slice(0, 4)) console.error(`   · ${x.line}`)
+        console.error(
+          `   成因固定:取号令牌 {{NEXT_ID:X}} 展开值**本身已含族名**,正文再手写一个字面 X 就产出 XX123` +
+            `(本仓在案另一形态 G-G-334 同源)。改法:删掉正文里那一个字面族名,只留令牌。`,
+        )
+        process.exit(1)
+      }
+      if (mal.preexisting.length > 0)
+        console.log(
+          `ℹ 台账存量畸形编号 ${mal.preexisting.length} 行(父提交里已在 ⇒ 只报数不拦,与本次落地无关;逐条清偿另计批)`,
+        )
+    }
     const blob = writeBlob(built.next.join('\n'), { root })
     const { commit } = commitTreeWithIndex({
       root,
@@ -760,5 +842,8 @@ export const __test__ = {
   blockInPlaceCheck,
   describeInPlace,
   alignOutcome,
+  findMalformedIds,
+  newMalformed,
+  MALFORMED_ID_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
