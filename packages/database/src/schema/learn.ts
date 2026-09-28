@@ -34,6 +34,10 @@ export const learnCategories = pgTable(
   }),
 )
 
+/** 课程难度取值域(与公开筛选轴 / 前端档位同名,单一来源在本文件)。 */
+export const LESSON_DIFFICULTIES = ['beginner', 'intermediate', 'advanced'] as const
+export type LessonDifficulty = (typeof LESSON_DIFFICULTIES)[number]
+
 /**
  * 课程表
  */
@@ -47,6 +51,14 @@ export const lessons = pgTable(
     categoryId: uuid('category_id').references(() => learnCategories.id, { onDelete: 'set null' }),
     lecturerId: uuid('lecturer_id').references(() => users.id, { onDelete: 'set null' }),
     lecturerName: varchar('lecturer_name', { length: 100 }),
+    /**
+     * 难度轴(2026-09-28 加列)。**可空且无默认值** —— 历史行没有可信来源可回填,
+     * 按标题/分类猜难度等于制造假数据,所以只允许"新数据显式写、老数据保持 NULL"。
+     * 取值域由 LESSON_DIFFICULTIES 定义;SQL 层不加 CHECK(既有行不受影响不代表新写入
+     * 不该被服务端校验挡住 —— 唯一的写入口 routes/learn.ts 用同一份常量做 Zod 校验,
+     * 判据与列同源,不在两处各写一份)。
+     */
+    difficulty: varchar('difficulty', { length: 20 }).$type<LessonDifficulty | null>(),
     price: numeric('price', { precision: 10, scale: 2 }).default('0').notNull(),
     originalPrice: numeric('original_price', { precision: 10, scale: 2 }),
     isFree: boolean('is_free').default(false).notNull(),

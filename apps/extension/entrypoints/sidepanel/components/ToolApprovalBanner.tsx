@@ -19,12 +19,12 @@ import { useI18n } from '../../../src/i18n'
  * 也让映射逻辑能在 node 环境下被纯函数测到 —— 本端 vitest 的 environment 是 node,
  * renderToStaticMarkup 点不了真按钮,把判定只留在 JSX 事件里就等于判不到(同名测试对此写明)。
  *
- * 最小特权:批准一律 scope='once'。契约里另有 'session' 一档,但本端可用词键
- * (agent.permissionDecision / approve / reject / permission)中没有「本会话都允许」的逐字等义
- * 文案;agent.modeBypassPermissions 的词值是「全部放行」,语义宽度等于 always,比 session 又大一
- * 整档 —— 拿它当按钮文案就是骗用户签一张比所需更大的授权。所以本 UI 不出第三枚按钮,而
- * resolveApprovalAction 的封闭集也不给 session 留分支(留了就是无人可达的死码)。
- * 真要加这枚按钮:先补五语言词键,再在这里加档,顺序不得颠倒。
+ * 最小特权:默认批准档一律 scope='once'。第三档「本会话内都允许」于 2026-09-28 落地
+ * (词键 `chat.approveForSession` 五语言同批进包,提交 3a8726494e8)—— 之前不加这枚按钮,
+ * 是因为本端可用词键里没有它的逐字等义文案,而 `agent.modeBypassPermissions` 的词值是
+ * 「全部放行」,语义宽度等于 always:拿它当 session 的按钮文案就是骗用户签一张比所需更大的授权。
+ * 现在词到位了,所以按本文件自述的顺序补上这一档。**always 仍然不出**:它比 session 又大一档,
+ * 且到现在也没有逐字等义词 —— `resolveApprovalAction` 的反向锁继续钉住"任何档都不得是 always"。
  */
 
 /**
@@ -34,8 +34,8 @@ import { useI18n } from '../../../src/i18n'
  */
 export const APPROVAL_NO_SESSION = 'no-session'
 
-/** 横幅渲染的按钮种类(封闭集:新增一档的前提是上一段注释说的那两步先做完) */
-export const APPROVAL_BUTTON_KINDS = ['approve', 'reject'] as const
+/** 横幅渲染的按钮种类(封闭集;新增一档的前提见文件头注:词键必须先在五语言包里到位) */
+export const APPROVAL_BUTTON_KINDS = ['approve', 'approve-session', 'reject'] as const
 
 /** 按钮种类(由 APPROVAL_BUTTON_KINDS 反推,不得另抄一份字面量联合) */
 export type ApprovalButtonKind = (typeof APPROVAL_BUTTON_KINDS)[number]
@@ -57,6 +57,8 @@ export function resolveApprovalAction(kind: ApprovalButtonKind): ApprovalAction 
   switch (kind) {
     case 'approve':
       return { decision: 'approve', scope: 'once' }
+    case 'approve-session':
+      return { decision: 'approve', scope: 'session' }
     case 'reject':
       return { decision: 'reject' }
     default:
@@ -84,6 +86,12 @@ const BUTTON_BY_KIND: Record<ApprovalButtonKind, { className: string; labelKey: 
   approve: {
     labelKey: 'agent.approve',
     className: 'rounded-sm border-none bg-cta px-2.5 py-1 text-xs font-medium text-cta-foreground',
+  },
+  'approve-session': {
+    labelKey: 'chat.approveForSession',
+    // 第三枚用中性描边而不是第二份 CTA 实底:一屏两个主按钮会让人分不清默认那个
+    className:
+      'rounded-sm border border-border bg-transparent px-2.5 py-1 text-xs font-medium text-foreground',
   },
   reject: {
     labelKey: 'agent.reject',
