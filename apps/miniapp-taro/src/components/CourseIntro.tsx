@@ -38,7 +38,7 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
             {tt('course.objectives', '学习目标')}
           </Text>
           {data.objectives.map((obj, i) => (
-            <View key={i} className="flex items-start mb-1.5">
+            <View key={i} className="flex items-start mb-[12rpx]">
               <LineIcon
                 name="check"
                 size="14px"
@@ -60,7 +60,7 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
             {data.highlights.map((h, i) => (
               <Text
                 key={i}
-                className="text-[length:22rpx] px-2 py-1 mr-1.5 mb-1 rounded bg-primary/10 text-primary"
+                className="text-[length:22rpx] px-2 py-1 mr-[12rpx] mb-1 rounded bg-primary/10 text-primary"
               >
                 {h}
               </Text>
@@ -75,7 +75,7 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
             {tt('course.audience', '适合人群')}
           </Text>
           {data.suitableFor.map((s, i) => (
-            <View key={i} className="flex items-start mb-1.5">
+            <View key={i} className="flex items-start mb-[12rpx]">
               <Text className="text-xs text-primary mr-2">·</Text>
               <Text className="flex-1 text-xs text-muted-foreground">{s}</Text>
             </View>

@@ -46,10 +46,10 @@ export default function LevelBadge({
   const colorClass = LEVEL_COLORS[level] || LEVEL_COLORS[0]
   const sizeClass =
     size === 'sm'
-      ? 'px-2 py-0.5 text-[length:20rpx]'
+      ? 'px-2 py-[4rpx] text-[length:20rpx]'
       : size === 'lg'
         ? 'px-3 py-1 text-sm'
-        : 'px-2.5 py-0.5 text-xs'
+        : 'px-[20rpx] py-[4rpx] text-xs'
 
   return (
     <View className="inline-flex items-center">

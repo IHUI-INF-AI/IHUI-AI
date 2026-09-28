@@ -63,7 +63,7 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
         list.map((item, idx) => (
           <View
             key={item.id}
-            className={`flex items-center py-2.5 px-3 mb-1.5 rounded-lg ${
+            className={`flex items-center py-[20rpx] px-3 mb-[12rpx] rounded-lg ${
               idx < 3 ? 'bg-[var(--color-warning-amber-light)]' : 'bg-card'
             }`}
           >

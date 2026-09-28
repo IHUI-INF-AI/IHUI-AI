@@ -79,6 +79,23 @@
  *        面 1 == 0 ⇒ 这一维写**「未判定(本轮无可观测转写需求)」,绝不记为通过**(空扫报绿是本仓最高频失效型);
  *        **部分偏跳不触发 C5**,仍归 C4 计数 —— C5 只判"整轮没跑"这一型结构性失效,量级偏跳是 C4 的地盘。
  *      C5 与 C1 的 pct **互不遮蔽**:它不受 `--min-coverage` 影响(观测档照样判红),C1 判不判红也不决定 C5。
+ *   C8 死规则分族棘轮(2026-09-29 补)。C4 此前**只报数**,所以"死规则从 31 涨到 60"在账面上与
+ *      "没有新增"完全同形 —— 一个只报数的维度等于没有防线(本仓原话:warn 的代价不是"少一道闸",
+ *      是"门判对了也没人被打断")。本维把 C4 的名字集合按**令牌形状**分成三族
+ *      (`fractional` = 刻度小数档,如 `mt-1.5`;`prefixed` = `!` / `:` 前缀档,如 `!p-0`、`first:mt-0`;
+ *      `other` = 其余。现读的那 11 条全部来自**根本没被编译进产物的子树**(`custom-tab-bar` 而
+ *      `app.config.ts` 是 `custom:false`,与四个零引用方组件)—— 但"成因"形状判不出,所以只按形状分族,
+ *      成因写进台账 provenance,不当判据),逐族对 `scripts/miniapp-css-dead-rule-baseline.json`
+ *      的锚点做**只减不增**棘轮:存量只报数,超过锚点即红。三条不可漂的写法:
+ *        ① **台账缺失 / 自相矛盾 / 产物非新鲜 ⇒ 不判也不记绿**,一律"未判定"并点名原因;
+ *           尤其 **C0 判 stale 时绝不比对** —— 拿旧产物的读数去比台账(或据它重锚)就是把垃圾写进锚点;
+ *        ② **逐族各自立锚,不合成一个总数**:"修掉一族 + 加回另一族"必须仍然红
+ *           (守门 134 扩布尔档键时踩过的净零逃逸通道,AGENTS 有登记);
+ *        ③ 台账里**没有**的族锚点算 0(新增一族没有存量可躲);台账里的族在面上消失算"可下调"并报名,
+ *           绝不自动改账。
+ *      `--strict` 把"这一维没判"升成 exit 2(拒绝出合格证);默认档只把它作为 notice 打印。
+ *      重锚出口 = `--emit-dead-rule-baseline` 把台账 JSON **打印**到 stdout(本门只读,镜像测试
+ *      钉住"源码里不得有写向仓库路径的写调用"),由人 `> scripts/miniapp-css-dead-rule-baseline.json` 落盘。
  *
  * 引擎同源(2026-09-25 换档,本门从"报一个错引擎的数"改成"同引擎或弃权"):
  *   端 `apps/miniapp-taro/package.json` 声明 Tailwind v3,但真实 weapp 构建跑的是 **v4.3.3**
@@ -177,6 +194,13 @@ export function auditWiring({
 /** 微信小程序主包硬上限(字节)。是决策算术的分母,不是本门可调参数。 */
 const MAIN_PACKAGE_LIMIT = 2 * 1024 * 1024
 const MISSING_SAMPLES = 5
+/** C8 死规则棘轮台账(受版本控制的登记表)。本门只读它,写它由人重定向 `--emit-dead-rule-baseline`。 */
+export const DEAD_RULE_BASELINE_REL = 'scripts/miniapp-css-dead-rule-baseline.json'
+/**
+ * 族名封闭集:分类函数只产这三个。台账里出现第四个键 = 表与现实脱节(判"未判定"而不是拿它当锚点),
+ * 因为一个没人产的族会永远"零差异",而它读起来像"这一族已收口"。
+ */
+export const DEAD_RULE_FAMILIES = Object.freeze(['fractional', 'prefixed', 'other'])
 /** 只认 className/class 后紧跟的三种字面量形态;其余写法一律不猜。 */
 const CLASS_ATTR_RE = /(?:className|class)\s*=\s*(?:"([^"]*)"|'([^']*)'|\{`([^`]*)`\})/g
 /**
@@ -1554,6 +1578,190 @@ export function auditMangleLeg({ demandKinds, sightingKinds, sampleNames = [] })
   return { verdict: 'in', reason: '', demandKinds, sightingKinds, sampleNames: [] }
 }
 
+/* ───────────── C8 死规则分族棘轮(2026-09-29 补;判据全部是纯函数) ───────────── */
+
+/**
+ * `fractional` 族的属性前缀 = "刻度小数档"能出现的位置(内/外边距、gap、space、尺寸、inset)。
+ * 刻意**列前缀而不是写一条宽正则**:判"值里有个点"会把 `w-[50%]` / `top-1/2` / `text-[10px]`
+ * 这类任意值/分数形态一起收进这一族,而它们的修法与成因完全不同(见文件头 C8 条)。
+ * 漏列一个前缀的后果是**保守**的:那条名字落进 `other`,不会把 `fractional` 判成"没涨"。
+ */
+const FRACTIONAL_PREFIXES = new Set([
+  'm', 'mx', 'my', 'mt', 'mr', 'mb', 'ml',
+  'p', 'px', 'py', 'pt', 'pr', 'pb', 'pl',
+  'gap', 'gap-x', 'gap-y', 'space', 'space-x', 'space-y',
+  'w', 'h', 'min-w', 'min-h', 'max-w', 'max-h', 'size',
+  'inset', 'top', 'right', 'bottom', 'left',
+])
+
+/**
+ * 按**令牌形状**给一条死规则归族(名字 → 族名)。三族之外不设第四族:
+ *  - `prefixed` —— 以 `!`(important)开头或含 `:`(变体前缀)。weapp 的 CSS 侧把它们转写成
+ *    `_e` / `_c`,而运行时改名腿跳过这些 token ⇒ 这是**工具链缺陷**,不是源码里能 grep 掉的东西;
+ *  - `fractional` —— `<前缀>-<数字>.<数字>` 且前缀在刻度档名单里(`.` 被 CSS 侧转写成 `_d`、
+ *    运行时永不产出 `_d`,故整族结构性失效)。这一族**可以**在源码侧改:换成 rpx 任意值形态;
+ *  - `other` —— 其余。现读数全部来自"根本没被编译进产物"的子树,但成因不在形状里,
+ *    所以本函数**不**声称它是成因,只归族;成因写在台账 provenance 里。
+ */
+export function classifyDeadRuleFamily(name) {
+  if (typeof name !== 'string' || name.length === 0) return 'other'
+  if (name.startsWith('!') || name.includes(':')) return 'prefixed'
+  const bare = name.startsWith('-') ? name.slice(1) : name
+  const cut = bare.lastIndexOf('-')
+  if (cut > 0) {
+    const prefix = bare.slice(0, cut)
+    const value = bare.slice(cut + 1)
+    if (FRACTIONAL_PREFIXES.has(prefix) && /^\d+\.\d+$/.test(value)) return 'fractional'
+  }
+  return 'other'
+}
+
+/** 名字集合 → 逐族计数 + total。total 恒为三者之和(不是"另一个数"),守恒由自检钉住。 */
+export function tallyDeadRuleFamilies(names) {
+  const out = { fractional: 0, prefixed: 0, other: 0 }
+  for (const n of names ?? []) out[classifyDeadRuleFamily(n)] += 1
+  return { ...out, total: out.fractional + out.prefixed + out.other }
+}
+
+/**
+ * 台账文本 → 锚点。**取不到 / 坏 JSON / 非法族 / 非数字 / total≠各族之和** 一律
+ * `{ok:false, reason}` —— 调用方据此判"未判定",绝不当成"锚点是 0"(那会把每次读数都判成增长,
+ * 造一台与仓库无关的恒红门),也绝不当成"没有台账 = 放过"。
+ */
+export function parseDeadRuleBaseline(text) {
+  if (typeof text !== 'string' || text.trim() === '')
+    return { ok: false, reason: `台账 ${DEAD_RULE_BASELINE_REL} 取不到 ⇒ 棘轮未判定(不得当成 0,也不得当成放过)` }
+  let doc
+  try {
+    doc = JSON.parse(text)
+  } catch (e) {
+    return { ok: false, reason: `台账 ${DEAD_RULE_BASELINE_REL} 不是合法 JSON:${e.message}` }
+  }
+  const fam = doc && typeof doc === 'object' ? doc.families : null
+  if (!fam || typeof fam !== 'object' || Object.keys(fam).length === 0)
+    return { ok: false, reason: `台账 ${DEAD_RULE_BASELINE_REL} 没有 families 锚点(空表 = 各族锚点 0,那是恒红而非判据)` }
+  const unknown = Object.keys(fam).filter((k) => !DEAD_RULE_FAMILIES.includes(k))
+  if (unknown.length)
+    return { ok: false, reason: `台账里这些族分类函数根本产不出来:${unknown.join(' ')} ⇒ 表与现实脱节,判未判定` }
+  for (const [k, v] of Object.entries(fam))
+    if (!Number.isInteger(v) || v < 0)
+      return { ok: false, reason: `台账 ${k} 锚点不是非负整数:${JSON.stringify(v)}` }
+  const sum = DEAD_RULE_FAMILIES.reduce((a, k) => a + (fam[k] ?? 0), 0)
+  if (!Number.isInteger(doc.total) || doc.total !== sum)
+    return { ok: false, reason: `台账自相矛盾:total=${JSON.stringify(doc.total)} 而各族之和=${sum} ⇒ 拒绝据它判红` }
+  return { ok: true, families: { ...fam }, total: doc.total }
+}
+
+/**
+ * 棘轮本体(纯函数)。三条硬规则:
+ *  1. `freshness !== 'fresh'` ⇒ `not-judged`,**连当前读数都不比** —— 旧产物比台账 = 把垃圾写进锚点;
+ *  2. 逐族比,**不合并成总数**:一族降、另一族同幅上涨必须仍判红(净零逃逸是守门 134 记过的通道);
+ *  3. 台账没有的族锚点算 0(新增族直接问责);面上归零的族只报"可下调",不自动改账。
+ */
+export function auditDeadRuleRatchet({ current, baseline, freshness }) {
+  if (freshness !== 'fresh')
+    return {
+      verdict: 'not-judged',
+      reason: `C0 产物新鲜度 = ${freshness ?? '(未量)'} ⇒ 本轮不参与棘轮比对(拿不是这次源码的产物比锚点,读数与台账都是垃圾)`,
+      current: current ?? null,
+      anchor: null,
+      overs: [],
+      shrunk: [],
+    }
+  if (!baseline || baseline.ok !== true)
+    return {
+      verdict: 'not-judged',
+      reason: (baseline && baseline.reason) || '台账缺失 ⇒ 棘轮未判定',
+      current: current ?? null,
+      anchor: null,
+      overs: [],
+      shrunk: [],
+    }
+  // 没有读数就不算"零增长":调用方漏喂 current 时的失效方向必须是"多问一句",不是"多发一张合格证"。
+  if (!current || !Number.isInteger(current.total))
+    return {
+      verdict: 'not-judged',
+      reason: '本轮没有死规则读数(current 缺 total)⇒ 不判增长,也绝不记为"没有增长"',
+      current: current ?? null,
+      anchor: { ...baseline.families, total: baseline.total },
+      overs: [],
+      shrunk: [],
+    }
+  const overs = []
+  const shrunk = []
+  const families = new Set([...DEAD_RULE_FAMILIES, ...Object.keys(baseline.families)])
+  for (const f of families) {
+    const now = current?.[f]
+    const anchor = baseline.families[f] ?? 0
+    if (!Number.isInteger(now)) continue // 当前读数里没有这一族 = 0,由下面 total 守恒兜住
+    if (now > anchor) overs.push({ family: f, now, anchor, delta: now - anchor })
+    else if (now < anchor) shrunk.push({ family: f, now, anchor })
+  }
+  const nowTotal = current?.total ?? 0
+  if (nowTotal > baseline.total) overs.push({ family: 'total', now: nowTotal, anchor: baseline.total, delta: nowTotal - baseline.total })
+  else if (nowTotal < baseline.total) shrunk.push({ family: 'total', now: nowTotal, anchor: baseline.total })
+  return {
+    verdict: overs.length ? 'growth' : 'ok',
+    reason: overs.length
+      ? `死规则比台账锚点增长:${overs.map((o) => `${o.family} ${o.anchor}→${o.now}(+${o.delta})`).join(' / ')}`
+      : '',
+    current,
+    anchor: { ...baseline.families, total: baseline.total },
+    overs,
+    shrunk,
+  }
+}
+
+/**
+ * 棘轮结论 → 本门三种出口(纯函数,可构造面证明"默认档只报数 / --strict 拒绝出合格证 / 增长恒红")。
+ * `growth` 的红**不受 `--min-coverage` 管辖**:它是结构性回归信号,不是覆盖率阈值 ——
+ * 与 C3 主包超上限、C5 转写腿空转同一条规矩(否则"观测档"就把回归洗成安静)。
+ */
+export function foldDeadRuleRatchet({ ratchet, strict }) {
+  const out = { failing: [], undetermined: [], notices: [] }
+  if (!ratchet) return out
+  if (ratchet.verdict === 'growth') {
+    out.failing.push(
+      `C8 ${ratchet.reason} —— 逐族各自立锚(一族变好不替另一族变坏顶名额)。出路只有两条:把新增的死规则按族修回可挂载形态(fractional 族换 rpx 任意值;prefixed 族属 weapp 改名腿缺陷,需上报或换写法),或由人重锚台账并在提交说明里写理由。禁止为消红放宽判据。`,
+    )
+  } else if (ratchet.verdict === 'not-judged') {
+    const line = `C8 死规则棘轮未判定:${ratchet.reason}`
+    if (strict) out.undetermined.push(line)
+    else out.notices.push(`${line} —— 这一维**不计为通过**`)
+  }
+  for (const s of ratchet.shrunk ?? [])
+    out.notices.push(
+      `C8 ${s.family} 死规则由 ${s.anchor} 降到 ${s.now} ⇒ 台账锚点可下调(重锚:node scripts/check-miniapp-css-landing.mjs --emit-dead-rule-baseline,须新鲜产物且人工确认)`,
+    )
+  return out
+}
+
+/**
+ * 台账 JSON 草案(供人重定向落盘)。**只有 C0=fresh 才给草案** —— 从旧产物生成的锚点
+ * 会把一把"量了 14 天前包"的尺子的读数冻成常态。
+ */
+export function draftDeadRuleBaseline({ current, freshness, face }) {
+  if (freshness !== 'fresh')
+    return {
+      ok: false,
+      reason: `产物新鲜度 = ${freshness ?? '(未量)'},拒绝生成锚点(旧产物的读数不是端的缺陷计数)`,
+    }
+  return {
+    ok: true,
+    json: `${JSON.stringify(
+      {
+        $comment:
+          'C8 死规则分族棘轮锚点(scripts/check-miniapp-css-landing.mjs)。各族只减不增;重锚 = 跑 --emit-dead-rule-baseline 并人工确认,禁止为让门变绿而调高。',
+        families: { fractional: current.fractional, prefixed: current.prefixed, other: current.other },
+        total: current.total,
+        provenance: { face, freshness, generatedBy: 'node scripts/check-miniapp-css-landing.mjs --emit-dead-rule-baseline' },
+      },
+      null,
+      2,
+    )}\n`,
+  }
+}
+
 /**
  * C1 的算术,**刻意做成纯函数**:覆盖率是本门唯一判红的量。若只能在"真仓 + 真跑 tailwind"
  * 下观察它,镜像测试就证明不了它"该红时红、该绿时绿"(§22c:形状判据只能用纯函数 + 构造面证明)。
@@ -1670,6 +1878,22 @@ export function computeCoverage(
 }
 
 /* ───────────────────────── 源码取材面(经 scripts/lib/face-reader.mjs) ───────────────────────── */
+
+/**
+ * 单个**登记表**文件的取材,与源码**同一个面**。
+ * 台账读磁盘、内容读 git 会在"并行会话刚补了台账"那一瞬间造出自洽却错位的尺子
+ * (守门 101/118 各记过一次同型),所以登记表也走被审面,不开第二条取材通道。
+ * 取不到 ⇒ 返回 null,由 parseDeadRuleBaseline 判"未判定"(既不是"锚点 0",也不是"放过")。
+ */
+function readFaceFile(root, face, rel) {
+  if (face === 'worktree') return readWorktreeFile(root, rel)
+  const rev = face === 'staged' ? '' : 'HEAD'
+  const spec = rev + ':' + rel
+  const got = catBatch(root, [spec], { timeout: 60000 })
+  const t = got.get(spec)
+  if (typeof t !== 'string') return null
+  return t.indexOf(String.fromCharCode(0)) >= 0 ? null : t
+}
 
 /** 清单与内容必须同一个面(否则"glob 读盘 + 内容读 git"会造出基准错位的假绿尺子)。 */
 function listSourceFiles(root, face) {
@@ -2084,6 +2308,42 @@ export async function runCheck(opts) {
 
   const minCoverage = opts.minCoverage ?? 1
   const failing = []
+  /* ---- C8 死规则分族棘轮(2026-09-29 补):把 C4 那串"只报数"的读数钉成只减不增 ----
+     输入必须齐三样才比:C4 真的量过(runtimeFaceJudged)、台账合法、C0 判 fresh。
+     缺任何一样 ⇒ not-judged,而不是"锚点 0"或"没有增长"—— 把没判写成判过了是本仓最高频失效型。 */
+  let deadRuleCurrent = null
+  let deadRuleRatchet = {
+    verdict: 'not-judged',
+    reason: coverage
+      ? 'C4 运行时可达性一维未判定(运行时类名语料没量到)⇒ 死规则集合不可信,不参与棘轮'
+      : 'C1 未能判定 ⇒ 死规则集合无从取,棘轮不参与比对',
+    current: null,
+    anchor: null,
+    overs: [],
+    shrunk: [],
+  }
+  let deadRuleBaselineReason = ''
+  if (coverage && coverage.runtimeFaceJudged) {
+    deadRuleCurrent = tallyDeadRuleFamilies(coverage.deadRuleKindsList || [])
+    let baseText = null
+    try {
+      baseText = readFaceFile(root, face, DEAD_RULE_BASELINE_REL)
+    } catch (e) {
+      if (!(e instanceof Undetermined)) throw e
+      baseText = null
+      deadRuleBaselineReason = `台账取材判不出:${e.message}`
+    }
+    const parsed = parseDeadRuleBaseline(baseText)
+    if (!parsed.ok) deadRuleBaselineReason = parsed.reason
+    deadRuleRatchet = auditDeadRuleRatchet({
+      current: deadRuleCurrent,
+      baseline: parsed,
+      freshness: freshness ? freshness.state : null,
+    })
+  }
+  const ratchetFold = foldDeadRuleRatchet({ ratchet: deadRuleRatchet, strict: !!opts.strict })
+  for (const u of ratchetFold.undetermined) undetermined.push(u)
+  for (const n of ratchetFold.notices) notices.push(n)
   // C1 只在"参考层与产物**同引擎**且与源码**同面**"时计红。人工对比档照样出数,
   // 但它是一句**读数**而不是一句**结论** —— 拿错引擎/错面的分母判红,和拿它判绿一样错。
   const c1Judged = !!coverage && !engineMismatch && referenceJudged
@@ -2096,6 +2356,8 @@ export async function runCheck(opts) {
   // 恰恰是最需要它的那一刻 —— 让阈值能免掉它,就等于又造一条"量级判据冒充结构判据"。
   failing.push(...failingC5)
   failing.push(...failingBudget)
+  // C8 与它们同族:死规则增长是结构性回归,不是覆盖率阈值,任何观测档都不该把它读成通过。
+  failing.push(...ratchetFold.failing)
   const exit = undetermined.length ? 2 : failing.length ? 1 : 0
   return {
     exit,
@@ -2118,6 +2380,10 @@ export async function runCheck(opts) {
     referenceFace: reference ? referenceFace : null,
     coverage,
     freshness,
+    deadRuleCurrent,
+    deadRuleRatchet,
+    deadRuleBaselineRel: DEAD_RULE_BASELINE_REL,
+    deadRuleBaselineReason,
     mangleLeg,
     cssLeg,
     spacingFamily,
@@ -2259,6 +2525,26 @@ function report(r, asJson) {
       `C7 spacing 刻度族:${r.spacingFamily.verdict} —— ` +
         (r.spacingFamily.reason ||
           `需求 ${r.spacingFamily.demandedSpacing} 档 / 改名集合命中 ${r.spacingFamily.renamedSpacing} 档 ⇒ 整族进不了改名集合已被排除`),
+    )
+  }
+
+  /* ---- C8 死规则分族棘轮:读数 + 锚点 + 结论(增长红行本身在下方 failing 里) ---- */
+  {
+    const rc = r.deadRuleRatchet || {}
+    const cur = r.deadRuleCurrent
+    const anchor = rc.anchor
+    const fmt = (o) =>
+      o ? `fractional ${o.fractional} / prefixed ${o.prefixed} / other ${o.other} / 合计 ${o.total}` : '(未量)'
+    console.log(
+      `C8 死规则棘轮(${r.deadRuleBaselineRel}):${rc.verdict}` +
+        ` —— 现读 ${fmt(cur)} ‖ 锚点 ${fmt(anchor)}` +
+        (rc.reason ? `\n   ${rc.reason}` : '') +
+        (r.deadRuleBaselineReason && r.deadRuleBaselineReason !== (rc.reason || '')
+          ? `\n   台账:${r.deadRuleBaselineReason}`
+          : '') +
+        (rc.verdict === 'not-judged'
+          ? '\n   这一维**不计为通过**:未判定与"没有增长"是两回事(默认档只报名,问责跑 --strict)。'
+          : ''),
     )
   }
 
@@ -3482,6 +3768,217 @@ export function selfTest() {
     'fresh',
   )
 
+  /* ---- P84–P95:C8 死规则分族棘轮(2026-09-29 补) ----
+     C4 此前只报数 ⇒ "31 涨到 60"与"没有新增"在账面上同形。族名一律按**令牌形状**分,
+     样例文本逐字取自真读数(见 PROJECT_PLAN O62 / 本轮 --json 的 deadRuleKindsList),
+     不得用自造夹具冒充"能命中真形态"(§22c 的教训:镜像只复读实现就是复读机)。
+     正向 / 反向成对,净零逃逸与 stale 拒比各一条 —— 那两条是本维与"总数棘轮"的全部区别。 */
+  eq(
+    'P84 分族正向:三族各由真读数里的名字命中(族不是纸面分类)',
+    [
+      classifyDeadRuleFamily('mt-1.5'),
+      classifyDeadRuleFamily('py-0.5'),
+      classifyDeadRuleFamily('!p-0'),
+      classifyDeadRuleFamily('first:mt-0'),
+      classifyDeadRuleFamily('w-[400rpx]'),
+      classifyDeadRuleFamily('top-1/2'),
+    ].join(','),
+    'fractional,fractional,prefixed,prefixed,other,other',
+  )
+  eq(
+    'P85 分族反向:**修复形态**不得仍算 fractional(否则 A 族改完读数不动 = 白改),' +
+      '整数刻度/百分比/negative 形态也不得算',
+    [
+      classifyDeadRuleFamily('mt-[12rpx]'),
+      classifyDeadRuleFamily('p-[28rpx]'),
+      classifyDeadRuleFamily('mt-3'),
+      classifyDeadRuleFamily('w-[50%]'),
+      classifyDeadRuleFamily('text-[10px]'),
+      classifyDeadRuleFamily('-mt-1.5'),
+    ].join(','),
+    'other,other,other,other,other,fractional',
+  )
+  eq(
+    'P86 tally 守恒:各族之和 == total,且真读数那 31 名的分族 = 15/5/11/31',
+    (() => {
+      const names = [
+        'gap-1.5', 'h-2.5', 'w-2.5', 'mb-1.5', 'mr-1.5', 'mr-2.5', 'mt-0.5', 'mt-1.5',
+        'mx-0.5', 'p-3.5', 'px-1.5', 'px-2.5', 'py-0.5', 'py-1.5', 'py-2.5',
+        '!p-0', '!px-4', '!py-0', 'first:mt-0', 'last:mb-0',
+        'h-[24px]', 'mt-[2px]', 'pb-[2px]', 'pt-[6px]', 'text-[10px]', 'top-1/2',
+        'w-[24px]', 'w-[400rpx]', 'w-[420rpx]', 'z-[1040]', 'z-[9995]',
+      ]
+      const t = tallyDeadRuleFamilies(names)
+      return [t.fractional, t.prefixed, t.other, t.total, names.length].join('/')
+    })(),
+    '15/5/11/31/31',
+  )
+  eq(
+    'P87 增长正向:某族超锚点即红,并点名族名 / 锚点 / 现值 / 增量(可复核,不是形容词)',
+    (() => {
+      const b = { ok: true, families: { fractional: 15, prefixed: 5, other: 11 }, total: 31 }
+      const r = auditDeadRuleRatchet({
+        current: { fractional: 16, prefixed: 5, other: 11, total: 32 },
+        baseline: b,
+        freshness: 'fresh',
+      })
+      return [r.verdict, r.overs.length, r.overs[0].family, r.overs[0].delta, /15→16/.test(r.reason)].join(',')
+    })(),
+    // 2 条 = 该族本身 + 合计(合计那一格是"current 各族与 total 不自洽"的一致性护栏,
+    // 由 tally 产出时恒等于各族之和;它不额外多判一枚红,只多点名一次)。
+    'growth,2,fractional,1,true',
+  )
+  eq(
+    'P88 增长反向:同锚点不判红;变好只列"可下调"并报名(绝不静默,也绝不自动改账)',
+    (() => {
+      const b = { ok: true, families: { fractional: 15, prefixed: 5, other: 11 }, total: 31 }
+      const same = auditDeadRuleRatchet({
+        current: { fractional: 15, prefixed: 5, other: 11, total: 31 },
+        baseline: b,
+        freshness: 'fresh',
+      })
+      const better = auditDeadRuleRatchet({
+        current: { fractional: 0, prefixed: 5, other: 11, total: 16 },
+        baseline: b,
+        freshness: 'fresh',
+      })
+      return [same.verdict, same.overs.length, better.verdict, better.shrunk.length].join(',')
+    })(),
+    'ok,0,ok,2',
+  )
+  eq(
+    'P89 净零逃逸(本维存在的理由):一族降 15、另一族同幅涨 15 ⇒ 总数不变,**仍必须判红**',
+    (() => {
+      const b = { ok: true, families: { fractional: 15, prefixed: 5, other: 11 }, total: 31 }
+      const r = auditDeadRuleRatchet({
+        current: { fractional: 0, prefixed: 20, other: 11, total: 31 },
+        baseline: b,
+        freshness: 'fresh',
+      })
+      return [r.verdict, r.overs.map((o) => `${o.family}+${o.delta}`).join(' '), r.shrunk.length].join('|')
+    })(),
+    // shrunk 只有 fractional 一条:total 两侧都是 31 ⇒ 不 shrunk 也不 over —— 正是"总数顶名额"失效的那格,
+    // 而族级锚点仍把它判红。
+    'growth|prefixed+15|1',
+  )
+  eq(
+    'P90 stale 拒比(与 P87 同一组增长数字):C0 说旧产物 ⇒ 不判也不记绿,且不得产出 overs',
+    (() => {
+      const b = { ok: true, families: { fractional: 15, prefixed: 5, other: 11 }, total: 31 }
+      const cur = { fractional: 99, prefixed: 99, other: 99, total: 297 }
+      return [
+        auditDeadRuleRatchet({ current: cur, baseline: b, freshness: 'stale' }).verdict,
+        auditDeadRuleRatchet({ current: cur, baseline: b, freshness: 'stale' }).overs.length,
+        auditDeadRuleRatchet({ current: cur, baseline: b, freshness: 'undetermined' }).verdict,
+        auditDeadRuleRatchet({ current: cur, baseline: b, freshness: null }).verdict,
+      ].join(',')
+    })(),
+    'not-judged,0,not-judged,not-judged',
+  )
+  eq(
+    'P91 台账三种坏形态一律"未判定"而不是"锚点 0"(缺失=放过 或 缺失=满天红,两个方向都不对)',
+    (() => {
+      const b = { ok: true, families: { fractional: 15, prefixed: 5, other: 11 }, total: 31 }
+      const cur = { fractional: 3, prefixed: 1, other: 2, total: 6 }
+      const v = (text) => parseDeadRuleBaseline(text)
+      const r = (parsed) => auditDeadRuleRatchet({ current: cur, baseline: parsed, freshness: 'fresh' })
+      return [
+        v(null).ok,
+        v('{坏 json').ok,
+        v('{"families":{"nope":3},"total":3}').ok,
+        v('{"families":{"fractional":15},"total":9}').ok,
+        v('{"families":{},"total":0}').ok,
+        r(v(null)).verdict,
+        r(b).verdict,
+        parseDeadRuleBaseline(JSON.stringify(b)).ok,
+      ].join(',')
+    })(),
+    'false,false,false,false,false,not-judged,ok,true',
+  )
+  eq(
+    'P92 台账没有的族锚点算 0:新增一族没有存量可躲(否则"再造一族"是免费的)',
+    (() => {
+      const b = { ok: true, families: { fractional: 15 }, total: 15 }
+      const r = auditDeadRuleRatchet({
+        current: { fractional: 0, prefixed: 4, other: 0, total: 4 },
+        baseline: b,
+        freshness: 'fresh',
+      })
+      return [r.verdict, r.overs.map((o) => `${o.family}:${o.anchor}->${o.now}`).join(' ')].join('|')
+    })(),
+    // 台账只登记了 fractional 一族 → 新出现的 prefixed 族锚点按 0 计,直接问责(没有存量可躲)。
+    'growth|prefixed:0->4',
+  )
+  eq(
+    'P92b 没有读数不算"零增长":current 缺 total ⇒ 未判定(失效方向必须是多问一句)',
+    [
+      auditDeadRuleRatchet({
+        current: null,
+        baseline: { ok: true, families: { fractional: 1 }, total: 1 },
+        freshness: 'fresh',
+      }).verdict,
+      auditDeadRuleRatchet({
+        current: {},
+        baseline: { ok: true, families: { fractional: 1 }, total: 1 },
+        freshness: 'fresh',
+      }).overs.length,
+    ].join(','),
+    'not-judged,0',
+  )
+  eq(
+    'P93 fold:增长红在任何档都进 failing(不受 --strict / --min-coverage 管辖);' +
+      '未判定默认档只报名、--strict 才拒绝出合格证',
+    (() => {
+      const growth = { verdict: 'growth', reason: 'x', overs: [], shrunk: [] }
+      const nj = { verdict: 'not-judged', reason: 'y', overs: [], shrunk: [] }
+      const ok = { verdict: 'ok', reason: '', overs: [], shrunk: [{ family: 'fractional', now: 0, anchor: 15 }] }
+      const f = (r, strict) => foldDeadRuleRatchet({ ratchet: r, strict })
+      return [
+        f(growth, false).failing.length,
+        f(growth, true).failing.length,
+        f(nj, false).undetermined.length + f(nj, false).notices.length,
+        f(nj, true).undetermined.length,
+        f(ok, false).failing.length + f(ok, false).undetermined.length,
+        f(ok, false).notices.length,
+      ].join(',')
+    })(),
+    '1,1,1,1,0,1',
+  )
+  eq(
+    'P94 重锚出口拒收旧产物、且产出的草案自身守恒(total == 各族之和、可 parse)',
+    (() => {
+      const cur = { fractional: 15, prefixed: 5, other: 11, total: 31 }
+      const stale = draftDeadRuleBaseline({ current: cur, freshness: 'stale', face: 'head' })
+      const fresh = draftDeadRuleBaseline({ current: cur, freshness: 'fresh', face: 'head' })
+      const doc = JSON.parse(fresh.json)
+      return [
+        stale.ok,
+        fresh.ok,
+        doc.total === doc.families.fractional + doc.families.prefixed + doc.families.other,
+        parseDeadRuleBaseline(fresh.json).ok,
+      ].join(',')
+    })(),
+    'false,true,true,true',
+  )
+  eq(
+    'P95 台账路径与族名集合是本门的公开契约(镜像测试要按同一份表核真台账,不得各写一份)',
+    [
+      DEAD_RULE_BASELINE_REL,
+      DEAD_RULE_FAMILIES.join('|'),
+      // 真仓台账必须能被同一把尺子读回来 —— 取不到/不自洽 ⇒ 这里就红,不留到跑门那一刻。
+      parseDeadRuleBaseline(
+        (() => {
+          try {
+            return readFileSync(join(DEFAULT_ROOT, DEAD_RULE_BASELINE_REL), 'utf8')
+          } catch {
+            return ''
+          }
+        })(),
+      ).ok,
+    ].join(' / '),
+    'scripts/miniapp-css-dead-rule-baseline.json / fractional|prefixed|other / true',
+  )
+
   let failed = 0
   for (const x of results) {
     console.log(
@@ -3528,6 +4025,8 @@ function parseArgs(argv) {
     else if (a === '--min-coverage') o.minCoverage = Number(argv[++i])
     else if (a === '--dist-dirname') o.distDirname = argv[++i]
     else if (a === '--root') o.root = resolve(argv[++i])
+    else if (a === '--strict') o.strict = true
+    else if (a === '--emit-dead-rule-baseline') o.emitDeadRuleBaseline = true
     else if (a === '--help' || a === '-h') o.help = true
     else throw new Error(`未知参数:${a}`)
   }
@@ -3557,6 +4056,12 @@ const HELP = `用法:node scripts/check-miniapp-css-landing.mjs [选项]
                       = --reference-engine v3 的别名(与换档前的口径逐位对账时用)
   --dist-dirname <d>  换产物目录名(默认 dist)
   --root <dir>        仓库根(镜像测试夹具通道)
+  --strict            把 C8 死规则棘轮的"未判定"(台账缺失/台账自相矛盾/产物非新鲜)升成 exit 2
+                      —— 拒绝出具合格证。默认档只把它作为 notice 打印(其余维度的未判定照旧 exit 2)。
+  --emit-dead-rule-baseline
+                      把 C8 台账 JSON 草案**打印**到 stdout(本门只读,不落盘),由人重定向:
+                        node scripts/check-miniapp-css-landing.mjs --emit-dead-rule-baseline > scripts/miniapp-css-dead-rule-baseline.json
+                      产物非新鲜时拒绝生成(C0)。重锚必须人工确认,禁止为让门变绿而调高锚点。
   --self-test         纯判据成对正反例(零副作用)
 退出码:0 通过 / 1 判红 / 2 无法判定(既不记绿也不冒红)
 定级:当前为手动 / CI 门,**未接进提交链**。`
@@ -3578,6 +4083,27 @@ async function main() {
       return 2
     }
     throw e
+  }
+  if (opts.emitDeadRuleBaseline) {
+    // 草案只走 stdout(本门只读:镜像测试钉死"源码里不得有写向仓库路径的写调用")。
+    // 未判定不给草案 —— 从旧产物或无死规则读数生成的锚点会把一把量错东西的尺子冻成常态。
+    const draft = draftDeadRuleBaseline({
+      current: r.deadRuleCurrent,
+      freshness: r.freshness ? r.freshness.state : null,
+      face: r.face,
+    })
+    if (!draft.ok || !r.deadRuleCurrent) {
+      console.error(
+        `❌ 拒绝生成 C8 台账:${draft.reason || '死规则集合未量到'} —— 先重跑一次 weapp 构建再取`,
+      )
+      return 2
+    }
+    process.stderr.write(
+      `# 草案由现读生成:面 = ${r.face},dist 最新写入 ${r.freshness.distNewest},现读 fractional ${r.deadRuleCurrent.fractional} / prefixed ${r.deadRuleCurrent.prefixed} / other ${r.deadRuleCurrent.other}\n` +
+        `# 落盘前请核对与本轮 C4 读数一致;重锚 = 人工决定,禁止为让门变绿而调高。\n`,
+    )
+    process.stdout.write(draft.json)
+    return 0
   }
   report(r, opts.json)
   return r.exit
@@ -3623,6 +4149,15 @@ export const __test__ = {
   isSpacingScaleCandidate,
   partitionRuntimeReachability,
   auditMangleLeg,
+  classifyDeadRuleFamily,
+  tallyDeadRuleFamilies,
+  parseDeadRuleBaseline,
+  auditDeadRuleRatchet,
+  foldDeadRuleRatchet,
+  draftDeadRuleBaseline,
+  readFaceFile,
+  DEAD_RULE_BASELINE_REL,
+  DEAD_RULE_FAMILIES,
   measureMainPackage,
   classifyDualMeaning,
   findBlindSpots,

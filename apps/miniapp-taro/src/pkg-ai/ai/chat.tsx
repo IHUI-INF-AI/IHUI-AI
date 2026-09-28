@@ -56,7 +56,9 @@ import {
   appendCitations,
   appendSteerNotice,
   appendTerminalDelta,
+  applyTerminalInteraction,
   backfillSteerNoticesFromMetadata,
+  clearTerminalInteraction,
   toSteerNotice,
   type AICardsData,
 } from './cards/types'
@@ -752,24 +754,39 @@ export default function ChatPage() {
                 terminalTasks: appendTerminalDelta(c.terminalTasks, evt),
               }))
             },
+            // D151(本票):terminal_interaction —— 命令停在"等键盘输入"。本端**只呈现不代答**
+            // (理由写在 cards/types.ts 的 awaitingInput 注释:手机没有 web 那条"输入行 + ack 回读"
+            // 闭环,而键入内容可能就是口令,不能借聊天输入框代填)。不注册的表现是
+            // "命令一直在转圈",用户只能整轮停止 —— 静默丢帧正是守门 90 拦的那一型。
+            onTerminalInteraction: (evt) => {
+              upsertCard((c) => ({
+                ...c,
+                terminalTasks: applyTerminalInteraction(c.terminalTasks, evt),
+              }))
+            },
             onTerminalEnd: (evt) => {
               upsertCard((c) => ({
                 ...c,
-                terminalTasks: c.terminalTasks.map((x) =>
-                  x.id === evt.terminalId
-                    ? {
-                        ...x,
-                        status: evt.status,
-                        // terminal_end 的 output 是权威快照整体替换;但 D19 起 running 期
-                        // 已有实时累加的 output,终帧缺 output 时不得清空它(否则等于丢增量)。
-                        output: evt.output ?? x.output,
-                        // 截断交代必须一起承接:小程序没有 live 输出缓冲,只能靠这两个字段
-                        truncated: evt.truncated ?? x.truncated,
-                        totalChars: evt.totalChars ?? x.totalChars,
-                        exitCode: evt.exitCode,
-                        durationMs: evt.durationMs,
-                      }
-                    : x,
+                // D151:终态必须一起摘掉"等待输入"的呈现 —— 命令都跑完了还挂着那句话,
+                // 就是把已发生的事写成没发生(先 map 出终态,再按 terminalId 清等待)。
+                terminalTasks: clearTerminalInteraction(
+                  c.terminalTasks.map((x) =>
+                    x.id === evt.terminalId
+                      ? {
+                          ...x,
+                          status: evt.status,
+                          // terminal_end 的 output 是权威快照整体替换;但 D19 起 running 期
+                          // 已有实时累加的 output,终帧缺 output 时不得清空它(否则等于丢增量)。
+                          output: evt.output ?? x.output,
+                          // 截断交代必须一起承接:小程序没有 live 输出缓冲,只能靠这两个字段
+                          truncated: evt.truncated ?? x.truncated,
+                          totalChars: evt.totalChars ?? x.totalChars,
+                          exitCode: evt.exitCode,
+                          durationMs: evt.durationMs,
+                        }
+                      : x,
+                  ),
+                  evt.terminalId,
                 ),
               }))
               pushStreamActivity(t('ai.stream.terminal', { status: evt.status }))
