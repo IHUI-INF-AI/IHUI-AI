@@ -98,7 +98,7 @@ export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
           type="button"
           data-testid="ambient-suggestions-restore"
           onClick={() => setEnabled(true)}
-          className="rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="rounded-sm px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           {t('restore')}
         </button>

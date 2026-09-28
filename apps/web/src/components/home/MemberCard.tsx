@@ -100,7 +100,7 @@ export function MemberCard() {
               <button
                 onClick={() => checkInMut.mutate()}
                 disabled={checkedIn}
-                className={`mt-3 inline-flex items-center gap-1.5 rounded-md border px-4 py-1.5 text-xs transition-colors ${
+                className={`mt-3 inline-flex items-center gap-1.5 rounded-sm border px-4 py-1.5 text-xs transition-colors ${
                   checkedIn
                     ? 'border-border text-muted-foreground'
                     : 'border-brand-accent-deep text-primary hover:bg-cta hover:text-cta-foreground'

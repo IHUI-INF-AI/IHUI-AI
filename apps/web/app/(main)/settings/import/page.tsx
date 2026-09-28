@@ -197,7 +197,7 @@ function CliImportSection() {
                     key={s.source}
                     type="button"
                     onClick={() => setSource(s.source)}
-                    className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                    className={`flex items-center gap-2 rounded-sm border px-3 py-2 text-left text-xs transition-colors ${
                       active
                         ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                         : 'border-border text-muted-foreground hover:bg-accent'
@@ -327,7 +327,7 @@ function CliImportSection() {
                       key={s}
                       type="button"
                       onClick={() => setStrategy(s)}
-                      className={`rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors ${
+                      className={`rounded-sm border px-2 py-1.5 text-left text-[11px] transition-colors ${
                         active
                           ? 'outline outline-1 outline-border bg-primary/5'
                           : 'border-border hover:bg-accent'

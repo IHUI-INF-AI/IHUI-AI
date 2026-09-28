@@ -336,7 +336,7 @@ export function PluginMarketplace() {
               type="button"
               onClick={() => setQueryInput('')}
               aria-label={t('clear')}
-              className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -351,7 +351,7 @@ export function PluginMarketplace() {
                 type="button"
                 onClick={() => setUiPrefs((prev) => ({ ...prev, sort: s }))}
                 className={cn(
-                  'rounded px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
+                  'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
                   sort === s
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
@@ -374,7 +374,7 @@ export function PluginMarketplace() {
             type="button"
             onClick={() => setUiPrefs((prev) => ({ ...prev, filter: cat.key }))}
             className={cn(
-              'inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
+              'inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
               filter === cat.key
                 ? 'bg-foreground/10 text-foreground'
                 : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -403,7 +403,7 @@ export function PluginMarketplace() {
               setQueryInput('')
               setUiPrefs((prev) => ({ ...prev, filter: 'all' }))
             }}
-            className="mt-4 rounded-md bg-foreground/10 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-foreground/15"
+            className="mt-4 rounded-sm bg-foreground/10 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-foreground/15"
           >
             {t('emptyReset')}
           </button>
@@ -538,7 +538,7 @@ function PluginCardActions({
           disabled={!isInstalled}
           aria-label={isPinned ? unpinLabel : pinLabel}
           className={cn(
-            'flex h-6 w-6 items-center justify-center rounded transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
+            'flex h-6 w-6 items-center justify-center rounded-sm transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
             isPinned
               ? 'text-amber-500 hover:bg-amber-500/10'
               : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -562,7 +562,7 @@ function PluginCardActions({
           }}
           aria-label={isInstalled ? uninstallLabel : installLabel}
           className={cn(
-            'flex h-6 w-6 items-center justify-center rounded transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
+            'flex h-6 w-6 items-center justify-center rounded-sm transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
             isInstalled
               ? 'text-emerald-500 hover:bg-emerald-500/10'
               : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -808,7 +808,7 @@ function MarketPluginCard({
             }}
             aria-label={isAddedToChat ? addedToChatLabel : addToChatLabel}
             className={cn(
-              'flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors',
+              'flex h-6 w-6 shrink-0 items-center justify-center rounded-sm transition-colors',
               isAddedToChat
                 ? 'bg-cta text-cta-foreground hover:bg-cta/90'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground',

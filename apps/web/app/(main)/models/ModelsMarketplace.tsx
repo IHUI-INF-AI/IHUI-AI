@@ -552,7 +552,7 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
+        'inline-flex h-7 items-center gap-1 rounded-sm border px-2.5 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
         active
           ? 'border-brand-accent-deep bg-cta text-cta-foreground'
           : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground',

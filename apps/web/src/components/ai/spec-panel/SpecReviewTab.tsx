@@ -29,7 +29,7 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
             type="button"
             onClick={p.handleSubmitReview}
             disabled={p.reviewLoading}
-            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md bg-cta px-3 text-xs font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
+            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm bg-cta px-3 text-xs font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
           >
             {p.reviewLoading ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -45,7 +45,7 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
               type="button"
               onClick={p.handleApprove}
               disabled={p.reviewLoading}
-              className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md bg-green-600 px-3 text-xs font-medium text-white hover:bg-green-600/90 disabled:opacity-60"
+              className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm bg-green-600 px-3 text-xs font-medium text-white hover:bg-green-600/90 disabled:opacity-60"
             >
               {p.reviewLoading ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -58,7 +58,7 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
               type="button"
               onClick={p.handleReject}
               disabled={p.reviewLoading}
-              className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md bg-red-600 px-3 text-xs font-medium text-white hover:bg-red-600/90 disabled:opacity-60"
+              className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm bg-red-600 px-3 text-xs font-medium text-white hover:bg-red-600/90 disabled:opacity-60"
             >
               <Square className="h-3 w-3" />
               <span>拒绝</span>
@@ -68,7 +68,7 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
               value={p.reviewComment}
               onChange={(e) => p.setReviewComment(e.target.value)}
               placeholder={t('rejectReasonPlaceholder')}
-              className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+              className="h-7 flex-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
             />
           </>
         )}
