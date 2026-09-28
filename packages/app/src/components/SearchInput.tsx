@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: rnRadius.lg / 2,
+    borderRadius: rnRadius.sm,
   },
   voiceAreaText: {
     fontSize: INPUT_FONT_SIZE,

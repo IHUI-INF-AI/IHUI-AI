@@ -1191,7 +1191,7 @@ const styles = StyleSheet.create({
   collapsedFab: {
     width: 56,
     height: 56,
-    borderRadius: 56 / 2,
+    borderRadius: rnRadius.sm, // 角色档 control(按钮)→ sm
     backgroundColor: tokens.brand.cta, // 悬浮加号,前景在同一元素的 <Plus color={tokens.brand.ctaForeground}/>
     alignItems: 'center',
     justifyContent: 'center',

@@ -30,6 +30,7 @@
  * - ModelConfigDialog 模型配置弹窗
  */
 import { aizhsUrl } from '@/constants/icon-urls'
+import { domesticImageAt } from '@ihui/shared/constants'
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Image, Text, ScrollView, Button } from '@tarojs/components'
 import Taro, {
@@ -255,19 +256,19 @@ const MOCK_MATERIAL_IMAGE: MaterialItem[] = [
   {
     id: 'i1',
     title: t('pagesindexindex.d39'),
-    imageList: ['https://picsum.photos/seed/img1/300/300'],
+    imageList: [domesticImageAt(0)],
     time: '2026-08-10',
   },
   {
     id: 'i2',
     title: t('pagesindexindex.d40'),
-    imageList: ['https://picsum.photos/seed/img2/300/300'],
+    imageList: [domesticImageAt(1)],
     time: '2026-08-09',
   },
   {
     id: 'i3',
     title: t('pagesindexindex.d41'),
-    imageList: ['https://picsum.photos/seed/img3/300/300'],
+    imageList: [domesticImageAt(2)],
     time: '2026-08-08',
   },
 ]
@@ -277,14 +278,14 @@ const MOCK_MATERIAL_VIDEO: MaterialItem[] = [
     id: 'v1',
     title: t('pagesindexindex.d42'),
     videoUrl: 'https://example.com/video1.mp4',
-    posterUrl: 'https://picsum.photos/seed/vid1/300/200',
+    posterUrl: domesticImageAt(3),
     time: '2026-08-10',
   },
   {
     id: 'v2',
     title: t('pagesindexindex.d43'),
     videoUrl: 'https://example.com/video2.mp4',
-    posterUrl: 'https://picsum.photos/seed/vid2/300/200',
+    posterUrl: domesticImageAt(4),
     time: '2026-08-09',
   },
 ]

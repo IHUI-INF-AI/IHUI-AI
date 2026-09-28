@@ -1962,6 +1962,7 @@ async def _await_terminal_input(
     command: str,
     prompt_tail: str,
     ctx: dict[str, Any],
+    waiting_since_ms: int = 0,
 ) -> tuple[str | None, bool]:
     """登记待决项 → 发 terminal_interaction 帧 → 等待键入。
 
@@ -1976,7 +1977,10 @@ async def _await_terminal_input(
         # 上下文 —— 帧不带会话 id,前端就得猜(猜错的表现是"点了发送什么都没发生",不报错)。
         "sessionId": str(ctx.get("session_id") or ""),
         "promptTail": prompt_tail,
-        "waitingSinceMs": 0,
+        # 静默时长是**量出来的**(观察器每 0.5s 一轮,这是判定"在等人"那一刻的 idle),
+        # 不是装饰字段 —— 写死 0 会让前端那个"等了多久"的读数永远是零,与本仓
+        # "不得留没有生产点的字段"那条纪律同一条禁令。
+        "waitingSinceMs": max(0, int(waiting_since_ms)),
         "inputMode": "line",
         "maxInputChars": TERMINAL_INTERACTION_MAX_INPUT_CHARS,
     }
@@ -2051,7 +2055,9 @@ async def _watch_terminal_input(
         activity["last_prompt"] = prompt
         state["waiting"] = True
         try:
-            text, timed_out = await _await_terminal_input(terminal_id, command, prompt, ctx)
+            text, timed_out = await _await_terminal_input(
+                terminal_id, command, prompt, ctx, int(idle * 1000)
+            )
             if text:
                 writer = getattr(proc, "stdin", None)
                 if writer is not None and not writer.is_closing():

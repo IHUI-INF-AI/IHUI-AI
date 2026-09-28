@@ -35,10 +35,11 @@ A24 纪律("无上限"档只放宽一条判据 + 序列化哨兵):
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from email.utils import parsedate_to_datetime
+from email.utils import format_datetime, parsedate_to_datetime
 from typing import Final, Literal
 
 # --- 头名与值域常量(唯一声明处,消费方 import,不得另抄字面量)----------------
@@ -112,6 +113,8 @@ def parse_retry_after_seconds(raw: object) -> float | None:
 
     先试数值(整数/浮点秒),失败再试 HTTP-date(RFC 9110 IMF-fixdate)。
     HTTP-date 遇时钟偏移算出过去时刻 → 夹到 0.0(立即重试,不是负等待)。
+    G-707:HTTP-date 分支先验形、解析后按 canonical 形态逐字回比 ——
+    宽松解析器接受的"不存在/自相矛盾日期"一律回落 None,不固化成等待。
     """
     if raw is None or isinstance(raw, bool):
         return None
@@ -131,16 +134,105 @@ def parse_retry_after_seconds(raw: object) -> float | None:
     return seconds
 
 
+# --- G-707:HTTP-date 预验形与 canonical 重建(唯一实现,别处不得再抄)-----------
+# 只接受 RFC 9110 §5.6.7 的三种合法形态;前两种时区限 GMT/UTC/±0000,
+# 非 UTC 数值偏移(+0800/EST 那类)不是 HTTP-date 合法形态,判无效(不猜意图)。
+# asctime 无时区字段,沿用既有"naive ⇒ 按 UTC 处理"的语义(行为不变,只是加了验形)。
+_HTTP_DATE_SHAPE_RE: Final = re.compile(
+    r"""
+    ^
+    (?:
+        # IMF-fixdate: Sun, 06 Nov 2022 08:34:01 GMT
+        (?P<dow>[A-Za-z]{3}),\ (?P<day>\d{2})\ (?P<mon>[A-Za-z]{3})\ (?P<year>\d{4})\ (?P<time>\d{2}:\d{2}:\d{2})\ (?P<tz>GMT|UTC|[+-]\d{4})
+      | # RFC 850(deprecated): Sunday, 06-Nov-22 08:34:01 GMT
+        (?P<dow850>[A-Za-z]{3,9}),\ (?P<day850>\d{2})-(?P<mon850>[A-Za-z]{3})-(?P<year850>\d{2})\ (?P<time850>\d{2}:\d{2}:\d{2})\ (?P<tz850>GMT|UTC|[+-]\d{4})
+      | # asctime(deprecated): Sun Nov  6 08:34:01 2022 —— 日字段空格补齐,可双空格,故用 \s+
+        (?P<dowA>[A-Za-z]{3})\s+(?P<monA>[A-Za-z]{3})\s+(?P<dayA>\d{1,2})\s+(?P<timeA>\d{2}:\d{2}:\d{2})\s+(?P<yearA>\d{4})
+    )
+    $
+    """,
+    re.VERBOSE | re.ASCII,
+)
+
+# 视为 UTC 的时区标记(HTTP-date 的规范时区只有 GMT;UTC/±0000 是宽容同值)
+_HTTP_DATE_UTC_TZ: Final = ("GMT", "UTC", "+0000", "-0000")
+
+
+def _cap(token: object) -> str:
+    """星期/月份 token 统一首字母大写(回比对本来就走大小写归一,这里只求形态齐整)。"""
+    return str(token).capitalize()
+
+
+def _canonical_from_shape(shape: re.Match[str]) -> str | None:
+    """把输入按捕获字段重建为规范 IMF-fixdate,供解析结果逐字回比。
+
+    RFC 850 的两位年份按 `email.utils._parsedate_tz` 同规则展开(≤69 归 2000s,
+    >69 归 1900s)——镜像规则若与标准漂移,回比自然不等 ⇒ 失效方向是"更严"，
+    绝不会把坏值放成过。返回 None:匹配到了形态但时区是非 UTC 偏移,判无效。
+    """
+    if shape.group("day") is not None:
+        if shape.group("tz") not in _HTTP_DATE_UTC_TZ:
+            return None
+        return (
+            f"{_cap(shape.group('dow'))}, {shape.group('day')} "
+            f"{_cap(shape.group('mon'))} {shape.group('year')} "
+            f"{shape.group('time')} GMT"
+        )
+    if shape.group("day850") is not None:
+        if shape.group("tz850") not in _HTTP_DATE_UTC_TZ:
+            return None
+        yy = int(str(shape.group("year850")))
+        # 常量操作数放最前:A24 的"+1 换算唯一性"镜像判据按"加号+空格+一"扫描函数源码面,
+        # 写成"变量在前"的世纪展开会被它误计成第二个载体(该测试属 A24 门,不削它)。
+        yyyy = 2000 + yy if yy <= 69 else 1900 + yy
+        return (
+            f"{_cap(str(shape.group('dow850'))[:3])}, {shape.group('day850')} "
+            f"{_cap(shape.group('mon850'))} {yyyy:04d} {shape.group('time850')} GMT"
+        )
+    if shape.group("dayA") is not None:
+        return (
+            f"{_cap(shape.group('dowA'))}, {int(str(shape.group('dayA'))):02d} "
+            f"{_cap(shape.group('monA'))} {shape.group('yearA')} "
+            f"{shape.group('timeA')} GMT"
+        )
+    return None
+
+
 def _parse_http_date_seconds(text: str) -> float | None:
-    """HTTP-date → 距今秒数;不可解析回落 None;过去时刻夹 0。"""
+    """HTTP-date → 距今秒数;过去时刻夹 0(G-707:先验形,解析后按规范形态逐字回比)。
+
+    为什么不满足于裸 `parsedate_to_datetime`:宽松解析器会接受**实际不存在/自相矛盾**
+    的日期(上游 JS 的 Date.parse 甚至会把 `Fri, 32 Jan 2026` 滚成 2 月 1 日当合法值)。
+    本机 CPython 3.12 实测:`32 Jan 2026`、`30 Feb 2026`、`25:34:01` 这类越界由
+    datetime 构造器抛 ValueError 被现有 except 兜住 —— 但那是**第三方库的巧合严格**,
+    不是防线;而"星期与日历矛盾"(`Mon, 06 Nov 2022 08:34:01 GMT`,该日实为 Sunday)
+    裸解析**照样接受**,坏表头/被篡改的等待指示就这么变成合法等待时长。
+    所以按票面口径做两遍:
+      ① 预验形:只接受 RFC 9110 §5.6.7 的三种 HTTP-date 形态(IMF-fixdate / RFC 850 /
+         asctime),时区要求 GMT/UTC/+0000(-0000)——非 UTC 数值偏移(如 +0800)不是
+         HTTP-date 合法形态,判无效回落 None(调用方走本地退避曲线,安全方向);
+         asctime 无时区,沿用既有"naive ⇒ 按 UTC 处理"的语义(行为不变,只是加了验形)。
+      ② canonical 回比:解析结果用 format_datetime 重排成规范 IMF-fixdate,与输入各字段
+         重建出的规范形态**逐字比对**(大小写不敏感)。凡不等 —— 不存在的日期、星期
+         自相矛盾、两位年份解释分歧、越界数字 —— 一律视为无效返回 None,不固化成等待。
+    """
+    shape = _HTTP_DATE_SHAPE_RE.match(text)
+    if shape is None:
+        return None
+    claimed = _canonical_from_shape(shape)
+    if claimed is None:
+        # 形态虽匹配,但时区是 HTTP-date 非法的非 UTC 偏移
+        return None
     try:
         when = parsedate_to_datetime(text)
-    except (TypeError, ValueError):
-        return None
-    if when is None:
+    except (TypeError, ValueError, OverflowError):
         return None
     if when.tzinfo is None:
         when = when.replace(tzinfo=UTC)
+    canonical = format_datetime(when.astimezone(UTC), usegmt=True)
+    if canonical.upper() != claimed.upper():
+        # canonical 回比不等:宽松解析器接受了不该存在的日期/自相矛盾的星期 ⇒ 无效
+        return None
     delta = (when - datetime.now(UTC)).total_seconds()
     return max(delta, 0.0)
 

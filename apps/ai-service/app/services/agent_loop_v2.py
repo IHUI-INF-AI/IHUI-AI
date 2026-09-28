@@ -5806,7 +5806,12 @@ async def run_converged_agent(
 
     started = time.monotonic()
     names = list(tool_names) if tool_names is not None else None
-    tools = await _build_loop_v2_tools(names, user_role=user_role)
+    # G-371 格①(2026-09-29):主体必须跟着角色一起透下去 —— 这个函数**手里就有** user_id
+    # (下一行就喂给 AgentLoopV2),所以这里没有"拿不到主体"的借口。None ⇒ 空串 ⇒ 只看得到
+    # 部署级 server,与 AgentLoopV2 那侧"user_id=None 是回退、不是授权结论"同档。
+    tools = await _build_loop_v2_tools(
+        names, user_role=user_role, user_id=str(user_id or "")
+    )
     loop = AgentLoopV2(
         _make_loop_v2_llm(model),
         tools=list(tools),

@@ -191,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
     podiumAvatar: {
       width: 48,
       height: 48,
-      borderRadius: 48 / 2,
+      borderRadius: rnRadius['2xl'],
       borderWidth: 2,
       alignItems: 'center',
       justifyContent: 'center',
@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     listAvatar: {
       width: 44,
       height: 44,
-      borderRadius: 44 / 2,
+      borderRadius: rnRadius['2xl'],
       borderWidth: 1.5,
       alignItems: 'center',
       justifyContent: 'center',

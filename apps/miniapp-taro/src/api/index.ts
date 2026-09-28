@@ -54,8 +54,7 @@ import type {
 import type { TerminalDeltaEvent } from '@ihui/api-client'
 // D113:tool-delta(工具流中 diff 预览)同一纪律 —— 载荷口径以 api-client 为唯一真值。
 import type { ToolDeltaEvent } from '@ihui/api-client'
-// D151:terminal_interaction(命令在等键盘输入)同一纪律 —— 载荷复用 api-client 的 TerminalInteractionEvent,
-// 不在端内抄第二份字段表(§3 共享层优先;字段口径以 api-client 为唯一真值)。
+// D151:terminal_interaction(命令在等键盘输入)同一纪律;本端**只渲染降级文案**,不接输入口。
 import type { TerminalInteractionEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
@@ -321,11 +320,11 @@ export interface StreamEventCallbacks {
   onTerminalStart?: (evt: TerminalStartEvent) => void
   /** D19 终端实时输出增量(terminal_delta):载荷类型复用 @ihui/api-client,与共享 sse-parse 的 evt.terminalDelta 同构 */
   onTerminalDelta?: (evt: TerminalDeltaEvent) => void
-  /** D151 命令「等待键盘输入」(terminal_interaction):载荷复用 @ihui/api-client 的 TerminalInteractionEvent。
-   *  本端**只呈现不代答**(手机没有可用的代答通道,理由见 cards/types.ts 的 awaitingInput 注释)。 */
-  onTerminalInteraction?: (evt: TerminalInteractionEvent) => void
   /** D113 工具流中 diff 预览(tool-delta):同一纪律 —— 载荷复用 @ihui/api-client 的 ToolDeltaEvent */
   onToolDelta?: (evt: ToolDeltaEvent) => void
+  /** D151 命令在等键盘输入(terminal_interaction):载荷复用 @ihui/api-client 的 TerminalInteractionEvent。
+   *  本端只用于渲染"在等什么 + 这里不能代答"的降级文案,**不**接输入口(手机送不进那条进程)。 */
+  onTerminalInteraction?: (evt: TerminalInteractionEvent) => void
   /** 终端任务结束 */
   onTerminalEnd?: (evt: TerminalEndEvent) => void
   /** 主模型失败切换到备用模型 */
@@ -483,9 +482,12 @@ export const chatStream = async (
       case 'terminal_delta':
         if (evt.terminalDelta) callbacks?.onTerminalDelta?.(evt.terminalDelta)
         break
-      // D151:terminal_interaction。共享 sse-parse 已把该帧在兜底抽取链之前认领(它不带
-      // text/content/delta,原状是走到末尾 return null = 帧到设备却被静默丢掉);
-      // 这里把它接到端内回调表 —— 不注册就等于没接(守门 90 的存在理由)。
+      // D151(2026-09-29 立):命令在等键盘输入。共享 sse-parse 已在兜底链之前认领该帧 ——
+      // 在那之前它带一个字符串 sessionId,会一路滑到 `⇒ {type:'meta', sessionId}` 的泛化兜底,
+      // terminalId 与提示原文全丢 ⇒ 本端**结构上不可能**知道命令在等人(派单代理实测探针
+      // 打出 EVENTS=[{type:meta,sessionId:s-9}] 抓到的就是这一格)。
+      // 本端**只渲染降级文案、不接输入口**:手机键盘送不进 ai-service 那条进程,
+      // 给一个按了没反应的输入框是假 affordance,比不给更坏。
       case 'terminal_interaction':
         if (evt.terminalInteraction) callbacks?.onTerminalInteraction?.(evt.terminalInteraction)
         break
