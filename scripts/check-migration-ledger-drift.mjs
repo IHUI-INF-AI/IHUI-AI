@@ -12,9 +12,29 @@
  * 防回潮机制。本脚本把它变成机械可证:**部署后比对 journal 序号全集与账本行
  * 全集,缺行即告警**。
  *
- * ⚠️ 判据边界(计划原文明确记过的坑):必须按 **journal 序号(idx)** 界定,
- * **不得按迁移文件 sha256 hash 界定** —— 改历史迁移文件会让按 hash 判定误报。
- * drizzle migrator 按序号顺序执行、每执行一条写一行账本,故可靠可比维度是
+ * ⚠️ 判据边界(G-789 收口:此处原措辞把"迁移记账的任何判定"一律禁于文件 hash,
+ * 与同族守门 49 里已有的可核验 hash 判据互相矛盾 —— 后人会据那句把守门 49 的内容对账当误设拆掉。
+ * 现改为**分维表述**,两种判据都不删):
+ *
+ * 【本门只判一个维度 = 应用状态】即"journal 里的每条迁移,账本里有没有对应那一行"。
+ * 这个维度按**记录集**判定 —— journal 条目全集 vs 账本行全集的**行数与水位序**。
+ * 该维度**不得**按迁移文件内容的 sha256 判定,理由不是"hash 不可用",而是**两个量各自漂移**:
+ * 文件字节会因重放、零宽溯源水印注入、格式化而改变(守门 49 头注记过的实测形态 —— 水印注入
+ * 后旧 hash 全失效,库内一度出现 153 个重复 hash 与 `NOFILE:`/`manual_` 伪值),而记账的
+ * **行集与水位序一个都没变**。拿文件 hash 判"这条迁移应用过没有",会把"已应用但字节变了"
+ * 读成"未应用",误报方向恰好相反(漏判带外对象,还反过来把正常记账判成缺失)。
+ *
+ * 【hash 判的另外两个维度,主都不在本门】
+ *   ① 账本行 hash 的**合法性与唯一性** = 守门 49 `scripts/check-migration-bookkeeping.mjs`
+ *      的 **B9**(按判据名找,不写行号 —— 行号随任何一次 append 挪位);
+ *   ② **已应用迁移的内容是否漂移**(当前 .sql 的 hash ↔ 当初记账的 hash 逐条对账)= 该门的
+ *      **B11** 维度(2026-09-27 现读:HEAD 面尚无 B11,它在他人工作树的在飞改动里;
+ *      落地之前这一格无人看守)。
+ * 所以"改历史迁移文件会让按 hash 判定误报"这句话的准确含义是:**它不是应用状态的判据,
+ * 而正是内容漂移对账(B11)要抓的那件事** —— 不得据此把 B11 当误设拆掉,也不得据此声称
+ * "本项目没有任何 hash 判据"。
+ *
+ * drizzle migrator 按序号顺序执行、每执行一条写一行账本,故本门可靠可比的维度是
  * **行数与水位序**:账本行数 < journal 条目数 = 有迁移从未记账(其对象带外);
  * 账本行数 > journal 条目数 = journal 被裁剪或账本被污染。两者都告警。
  *
@@ -53,7 +73,8 @@ const DEFAULT_LEDGER_TABLE = 'drizzle.__drizzle_migrations'
 /**
  * 解析 drizzle journal(_journal.json)。
  * 返回 { version, entries: [{ idx, tag, when }] };结构非法抛 Error(调用方 exit 2)。
- * 只读 idx/tag/when —— 刻意不读任何 hash 字段(见头注释判据边界)。
+ * 只读 idx/tag/when —— **应用状态**这一维不由 hash 判,故本门不消费 journal 的 hash 字段
+ * (hash 的合法性/唯一性 与 内容漂移 两维归守门 49 的 B9/B11,见头注释判据边界)。
  */
 export function parseJournal(jsonText) {
   const doc = JSON.parse(jsonText)
@@ -144,8 +165,8 @@ function printHelp() {
   --self-test          内置断言(不连库)
   --help               本帮助
 
-判据:journal 序号全集 vs 账本行全集(行数与水位序),缺行/多余行即红;
-按序号界定,不按迁移文件 hash 界定(改历史文件会让按 hash 判定误报)。`)
+判据:journal 序号全集 vs 账本行全集(行数与水位序),缺行/多余行即红。
+本门只判**应用状态**这一个维度,该维度按记录集判定、不按迁移文件内容 hash 判定(文件字节会因重放/水印注入而变,而记账行集与水位序不变)。hash 判的另外两维另有主:账本行 hash 合法性与唯一性 = 守门 49 的 B9;已应用迁移内容是否漂移 = 守门 49 的 B11(源码头注写明了分维边界与在飞状态)。`)
 }
 
 async function main() {
@@ -210,7 +231,9 @@ async function main() {
 
   if (cmp.missing.length > 0) {
     for (const m of cmp.missing) {
-      console.error(`  ✗ 缺行:idx=${m.idx} tag=${m.tag} —— 对象可能带外存在而账本无记账(按序号界定,非 hash)`)
+      console.error(
+        `  ✗ 缺行:idx=${m.idx} tag=${m.tag} —— 对象可能带外存在而账本无记账(应用状态这一维按序号判定;内容是否漂移归守门 49 的 B11)`,
+      )
     }
     console.error(
       `[ledger-drift] ❌ 账本 ${cmp.actual} 行 < journal ${cmp.expected} 条,缺 ${cmp.missing.length} 行 —— ` +
@@ -258,7 +281,7 @@ function runSelfTest() {
   })
   const parsed = parseJournal(sample)
   assert(parsed.entries.length === 3 && parsed.entries[2].tag === '0002_lucky_hiroim', 'parseJournal: 三条目解析')
-  assert(!('hash' in (parsed.entries[0] ?? {})), 'parseJournal: 刻意丢弃 hash 字段(判据边界)')
+  assert(!('hash' in (parsed.entries[0] ?? {})), 'parseJournal: 应用状态这一维不消费 hash 字段(hash 的合法性/内容漂移两维归守门 49 的 B9/B11)')
   let threw = false
   try {
     parseJournal('{"entries":"not-array"}')
