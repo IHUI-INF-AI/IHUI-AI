@@ -32,13 +32,29 @@
  *     信任层只认不透明字符串 —— 两侧同一份实现的说明写在那儿。
  *   - readTrustedFolderRecord / listTrustedFolderRecords:读记录(含摘要)
  *   - checkFolderContentTrust(folder, bundleDigest, hookName, declDigest):内容判定
- *   - gateHook(spec, absCwd, trustFileText?, overridesText?):组合判断 — 派发前一次性调用
+ *   - gateHook(spec, absCwd, trustFileText?, overridesText?, trustFilePath?):组合判断 — 派发前一次性调用
  *   - grantHumanHookOverride / hasHumanHookOverride / listHumanHookOverrides:人工放行层
  *     (被规则拒绝的钩子留一条带理由、留痕的可调用出口 —— 拒绝是判定,不是永久禁止,§30)
+ *
+ * 写盘纪律(2026-09-28):这份清单**就是**"批准后免批"的凭据本身 —— 写坏它等于钩子在无人批准下
+ * 执行,清空它等于批准静默丢失。所以本文件的五个写点(disabled-hooks 追加/重写、trusted-folders
+ * 重写×2、人工放行台账追加)一律只走 `../util/atomic-write.ts` 那一份出口(同目录 tmp + rename、
+ * Windows EPERM 族重试、读后写 stale 校验、不跟随重解析点)。冲突时**每次重试都重取基线并重建内容**
+ * (即"在别人那一份之上重算"),有界重试后仍冲突 ⇒ 拒绝覆盖 + 点名,绝不后写赢。
+ * 旧形态有两格是实测过的敞口:① 裸 appendFileSync/writeFileSync 可留下半截清单(改名替换前不原子);
+ * ② `readTrustFileText()` 把读盘失败**吞成 null**,于是 `saveTrustedFolderRecord` 会在一次 EBUSY 后
+ * 把整张信任清单重写成一行的"全新文件" —— 批准丢失且无人报错。
+ *
+ * fail-closed(2026-09-28 复核):此前只有"逐行摘要读不出"会落 `unknown-format` 而拒绝,文件级损坏
+ * 在目录级判定上仍算"批过"。现由 `readTrustFileSnapshot` 统一裁定:清单里有行读不出摘要 ⇒ 整份清单
+ * **改名留证**(`.corrupt-<UTC 时刻>`,rename 不读不写 ⇒ 原字节逐字可复得)并清空记录集;读盘失败
+ * (非 ENOENT)同样清空但**不改名**(没验证过内容的文件不配被移走)。两种状态都不放行任何钩子,
+ * 且**不接受人工放行台账** —— 清单损坏时"批准过什么"已无从核对,按台账放行等价于把损坏文件当空文件
+ * 照常放行,正是本条要禁的语义。"恢复成空清单"永远不是成功,只是留证后的一个事实。
  */
 
-import { readFileSync, appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { join, resolve, isAbsolute, dirname } from 'node:path'
+import { readFileSync, existsSync, renameSync } from 'node:fs'
+import { join, resolve, isAbsolute } from 'node:path'
 import { homedir } from 'node:os'
 // 规范化器只认这一份实现(AGENTS「两处算同一 key 必须共用一份实现」):
 // apps/cli/src/stream-tool-ledger.ts 的 canonicalizeArgs(递归按 key 排序)。
@@ -46,6 +62,9 @@ import { homedir } from 'node:os'
 // 且共享层不在本票受影响文件清单内,故复用现存唯一实现;外提是另一票的动作。
 // 摘要算法本身在配置层(index.ts),这里只用规范化器序列化"逐条摘要表"。
 import { canonicalizeArgs } from '../stream-tool-ledger.js'
+// 写盘只认这一份出口(同目录 tmp+rename / 读后写校验 / 不跟随重解析点)——不得在本文件里再写
+// 第二套 tmp+rename 重试(两处实现必漂移,而漂移的表现为"看起来都在原子写")。
+import { captureWriteBaseline, commitAtomicWrite, WriteConflictError } from '../util/atomic-write.js'
 
 /**
  * 旧格式信任记录(升级前落盘的裸目录行)的摘要占位值。
@@ -70,6 +89,169 @@ export function normalizeFolderPath(p: string): string {
     n = n.slice(0, -1)
   }
   return process.platform === 'win32' ? n.toLowerCase() : n
+}
+
+// ==================== 写盘纪律:唯一出口 + 冲突点名 ====================
+
+/**
+ * 冲突重试上限。每次尝试都**重新捕获基线并重建内容**(buildContent 拿到的是这一次读到的磁盘内容),
+ * 所以重试不是"把同一份旧内容再盖一遍",而是在别人刚写的那份之上重算 —— 这一点决定了
+ * "有重试"与"后写赢"是两件相反的事。
+ */
+const TRUST_WRITE_MAX_ATTEMPTS = 3
+
+/** 一次原子写的结果:成功,或被拒绝并带上可点名的原因 */
+type TrustWriteOutcome = { ok: true } | { ok: false; reason: string }
+
+/**
+ * 拒绝覆盖必须喊出来。调用方契约仍是布尔(commands/hooks.ts 那一层只认成功/失败,本票不动它),
+ * 但"为什么没写进去"不能只留在返回值里 —— 批准静默丢失正是本票要杀的那一型。
+ */
+function reportTrustWriteRefusal(target: string, reason: string): void {
+  console.warn(`[hook-trust] 拒绝写入信任清单 ${target}:${reason}`)
+}
+
+/**
+ * 原子重写一个文件。`buildContent(current)` 的入参就是这次尝试捕获到的磁盘内容(null = 尚不存在),
+ * 因此追加型写点写成 `(current) => (current ?? '') + line` 与旧的 appendFileSync 逐字同形。
+ * WriteConflictError ⇒ 重取基线再试(有界);其它错误(含符号链接、目录、读盘失败)⇒ 立即停,
+ * 磁盘原样不动。
+ */
+function atomicRewrite(target: string, buildContent: (current: string | null) => string): TrustWriteOutcome {
+  let reason = '未知失败(未产生任何一次尝试)'
+  for (let attempt = 1; attempt <= TRUST_WRITE_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const baseline = captureWriteBaseline(target)
+      commitAtomicWrite(baseline, buildContent(baseline.content))
+      return { ok: true }
+    } catch (e) {
+      if (e instanceof WriteConflictError) {
+        reason = e.message
+        continue
+      }
+      reason = e instanceof Error ? e.message : String(e)
+      break
+    }
+  }
+  return { ok: false, reason }
+}
+
+/** 布尔返回的写点共用出口:失败即点名,不静默 */
+function writeOrComplain(target: string, buildContent: (current: string | null) => string): boolean {
+  const outcome = atomicRewrite(target, buildContent)
+  if (!outcome.ok) reportTrustWriteRefusal(target, outcome.reason)
+  return outcome.ok
+}
+
+// ==================== 读盘纪律:损坏留证 + fail-closed ====================
+
+/**
+ * 信任清单文件的四态。只有 `ok` 与 `absent` 会交出记录集;
+ * `corrupt` / `unreadable` 一律交出空集 —— 空集在这里的语义是"一个钩子都不放行",
+ * 不是"清单为空所以没人批准过任何东西"(那两句在判定上等价,在**取证**上完全不同:
+ * 后者会让人以为仓库/机器状态正常,前者必须能说出证据文件在哪)。
+ */
+export type TrustFileState = 'absent' | 'ok' | 'corrupt' | 'unreadable'
+
+export interface TrustFileSnapshot {
+  state: TrustFileState
+  records: TrustedFolderRecord[]
+  /** 损坏行的 1-based 行号(只有 corrupt 时非空) */
+  malformedLines: number[]
+  /** corrupt 时改名留证后的路径;改名失败 ⇒ null,且 detail 里点名失败原因 */
+  evidencePath: string | null
+  /** ok 时保留原文供调用方复用(避免一次判定里读两遍盘、留证两次) */
+  text: string | null
+  detail: string
+}
+
+/** 留证件后缀:`<清单路径>.corrupt-<UTC 时刻>`(冒号与点换成 `-`,Windows 文件名安全) */
+const CORRUPT_EVIDENCE_SUFFIX = '.corrupt-'
+
+/** 同一毫秒内重复损坏的对账:留证文件名后缀序号,不得覆盖已有的证据 */
+function corruptEvidencePathFor(trustFilePath: string, seq: number): string {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  return `${trustFilePath}${CORRUPT_EVIDENCE_SUFFIX}${stamp}${seq === 0 ? '' : `-${seq + 1}`}`
+}
+
+/**
+ * 把损坏的清单**整体改名留证**。用 rename 而不是"读出来再写一份":不读不写 ⇒ 原字节逐字可复得,
+ * 且不会因为"恢复动作自己又写坏一次"把唯一的现场弄丢。改名失败不改判结论(仍然不放行),
+ * 但必须点名 —— 现场没保住是另一件事,不能与判定混成一团。
+ */
+function quarantineTrustFile(trustFilePath: string): { evidencePath: string | null; failed: string } {
+  for (let seq = 0; seq < 10; seq += 1) {
+    const candidate = corruptEvidencePathFor(trustFilePath, seq)
+    if (existsSync(candidate)) continue
+    try {
+      renameSync(trustFilePath, candidate)
+      return { evidencePath: candidate, failed: '' }
+    } catch (e) {
+      return { evidencePath: null, failed: e instanceof Error ? e.message : String(e) }
+    }
+  }
+  return { evidencePath: null, failed: '同一时刻的留证件已排满 10 份,未能移出现场' }
+}
+
+/**
+ * 读信任清单并给出**可用于判定**的快照(缺省读 `~/.ihui/trusted-folders`)。
+ * 三条 fail-closed 口径写在实现里,不写在调用方的自觉里:
+ *   ① 有行读不出摘要 ⇒ 整份清单改名留证 + 记录集清空(目录级判定从此也判"未批准");
+ *   ② 读盘失败(非 ENOENT)⇒ 记录集清空但**不改名**(读不到字节就没有可留的证,
+ *      更不许把一个内容未验证过的文件移走);
+ *   ③ 只有 ok / absent 才把解析出的记录交出去。
+ */
+export function readTrustFileSnapshot(
+  trustFilePath: string = TRUSTED_FOLDERS_PATH,
+): TrustFileSnapshot {
+  let text: string | null = null
+  try {
+    text = existsSync(trustFilePath) ? readFileSync(trustFilePath, 'utf-8') : null
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e)
+    return {
+      state: 'unreadable',
+      records: [],
+      malformedLines: [],
+      evidencePath: null,
+      text: null,
+      detail: `读取 ${trustFilePath} 失败(${reason})→ 按"无法判定"处理,不放行任何钩子`,
+    }
+  }
+  if (text === null) {
+    return {
+      state: 'absent',
+      records: [],
+      malformedLines: [],
+      evidencePath: null,
+      text: null,
+      detail: `${trustFilePath} 不存在(尚未批准任何目录)`,
+    }
+  }
+  const scanned = recordsWithLines(text)
+  const malformedLines = scanned.filter((x) => x.record.malformed).map((x) => x.line)
+  if (malformedLines.length > 0) {
+    const { evidencePath, failed } = quarantineTrustFile(trustFilePath)
+    const kept = evidencePath
+      ? `已整体改名留证 → ${evidencePath}(原字节逐字可复得)`
+      : `改名留证**失败**(${failed}):清单仍在原位,但同样不给出任何信任`
+    return {
+      state: 'corrupt',
+      records: [],
+      malformedLines,
+      evidencePath,
+      text: null,
+      detail: `信任清单 ${trustFilePath} 第 ${malformedLines.join(', ')} 行的摘要字段读不出来;${kept}`,
+    }
+  }
+  return {
+    state: 'ok',
+    records: scanned.map((x) => x.record),
+    malformedLines: [],
+    evidencePath: null,
+    text,
+    detail: '',
+  }
 }
 
 /**
@@ -116,37 +298,23 @@ export function listDisabledHooks(): string[] {
  */
 export function disableHook(hookName: string): boolean {
   if (isHookDisabled(hookName)) return false
-  try {
-    // 兜底:确保 ~/.ihui 存在
-    const dir = join(homedir(), '.ihui')
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true })
-    }
-    const line = hookName.includes('\n') ? JSON.stringify(hookName) : hookName
-    appendFileSync(DISABLED_HOOKS_PATH, `${line}\n`, 'utf-8')
-    return true
-  } catch {
-    return false
-  }
+  const line = hookName.includes('\n') ? JSON.stringify(hookName) : hookName
+  // 追加 = 在捕获到的那一份之后加一行(目录不存在由唯一写盘出口负责创建,不再单独 mkdir)
+  return writeOrComplain(DISABLED_HOOKS_PATH, (current) => `${current ?? ''}${line}\n`)
 }
 
 /**
  * 取消禁用(整文件重写,删除对应行)。
- * 返回 true 表示成功移除, false 表示原本未禁用或写入失败。
+ * 返回 true 表示成功移除, false 表示原本未禁用或写入被拒绝(被拒绝时已点名)。
  */
 export function enableHook(hookName: string): boolean {
   if (!isHookDisabled(hookName)) return false
-  try {
-    const content = readFileSync(DISABLED_HOOKS_PATH, 'utf-8')
-    const next = content
+  return writeOrComplain(DISABLED_HOOKS_PATH, (current) =>
+    (current ?? '')
       .split('\n')
-      .filter((line) => line.trim() !== hookName)
-      .join('\n')
-    writeFileSync(DISABLED_HOOKS_PATH, next, 'utf-8')
-    return true
-  } catch {
-    return false
-  }
+      .filter((l) => l.trim() !== hookName)
+      .join('\n'),
+  )
 }
 
 /**
@@ -158,9 +326,14 @@ export function enableHook(hookName: string): boolean {
  * 判定统一走 readTrustedFolderRecord(同一份行解析),不得在此另抄一遍 split/trim。
  *
  * @param trustFileText 测试/诊断注入口;缺省读 ~/.ihui/trusted-folders
+ * @param trustFilePath 清单文件位置注入口(测试用);缺省同一处
  */
-export function isFolderTrusted(folderPath: string, trustFileText?: string): boolean {
-  return readTrustedFolderRecord(folderPath, trustFileText) !== null
+export function isFolderTrusted(
+  folderPath: string,
+  trustFileText?: string,
+  trustFilePath?: string,
+): boolean {
+  return readTrustedFolderRecord(folderPath, trustFileText, trustFilePath) !== null
 }
 
 /**
@@ -176,11 +349,19 @@ export function isFolderTrusted(folderPath: string, trustFileText?: string): boo
 export function trustFolder(
   folderPath: string,
   digests?: { bundleDigest: string; declarations: Record<string, string> },
+  trustFilePath?: string,
 ): boolean {
   const abs = isAbsolute(folderPath) ? folderPath : resolve(folderPath)
-  if (!isFolderTrusted(abs)) return saveTrustedFolderRecord(abs, digests?.bundleDigest ?? LEGACY_DIGEST, digests?.declarations ?? {})
+  if (!isFolderTrusted(abs, undefined, trustFilePath)) {
+    return saveTrustedFolderRecord(
+      abs,
+      digests?.bundleDigest ?? LEGACY_DIGEST,
+      digests?.declarations ?? {},
+      trustFilePath,
+    )
+  }
   // 已在名单里:旧格式行(或需要刷新摘要)时升级为带摘要的记录,新格式且摘要一致则幂等
-  const rec = readTrustedFolderRecord(abs)
+  const rec = readTrustedFolderRecord(abs, undefined, trustFilePath)
   if (!rec) return false
   const nextBundle = digests?.bundleDigest ?? rec.bundleDigest
   const nextDecls = digests?.declarations ?? rec.declarationDigests
@@ -188,7 +369,7 @@ export function trustFolder(
     // 摘要逐位相同 → 幂等,不重写文件(重写会让"什么也没发生"看起来像一次变更)
     if (canonicalizeArgs(rec.declarationDigests) === canonicalizeArgs(nextDecls)) return false
   }
-  return saveTrustedFolderRecord(abs, nextBundle, nextDecls)
+  return saveTrustedFolderRecord(abs, nextBundle, nextDecls, trustFilePath)
 }
 
 /**
@@ -196,32 +377,27 @@ export function trustFolder(
  * 逐行走 parseTrustLine 比对 —— 新格式那一行是 `路径\t摘要\t摘要表`,
  * 拿整行去比目录名永远不相等,旧写法会把要删的那行原样留下(撤销静默失效)。
  */
-export function untrustFolder(folderPath: string): boolean {
-  if (!isFolderTrusted(folderPath)) return false
+export function untrustFolder(folderPath: string, trustFilePath?: string): boolean {
+  if (!isFolderTrusted(folderPath, undefined, trustFilePath)) return false
   const abs = isAbsolute(folderPath) ? folderPath : resolve(folderPath)
   const target = normalizeFolderPath(abs)
-  try {
-    const content = readFileSync(TRUSTED_FOLDERS_PATH, 'utf-8')
-    const next = content
+  return writeOrComplain(trustFilePath ?? TRUSTED_FOLDERS_PATH, (current) =>
+    (current ?? '')
       .split('\n')
       .filter((rawLine) => {
         const rec = parseTrustLine(rawLine)
         return rec === null ? rawLine.trim() !== '' : rec.folder !== target
       })
-      .join('\n')
-    writeFileSync(TRUSTED_FOLDERS_PATH, next, 'utf-8')
-    return true
-  } catch {
-    return false
-  }
+      .join('\n'),
+  )
 }
 
 /**
  * 列出所有被信任的 folder 路径(供 `ihui hooks list` 等 UI)。
  * 只回路径一列 —— 摘要列要看"内容变没变"请用 listTrustedFolderRecords。
  */
-export function listTrustedFolders(): string[] {
-  return listTrustedFolderRecords().map((r) => r.rawPath)
+export function listTrustedFolders(trustFilePath?: string): string[] {
+  return listTrustedFolderRecords(undefined, trustFilePath).map((r) => r.rawPath)
 }
 
 // ==================== 内容信任层(A20:信任绑"当时批准的那份内容",不绑目录) ====================
@@ -324,25 +500,25 @@ function parseTrustLine(rawLine: string): TrustedFolderRecord | null {
   return { rawPath, folder, bundleDigest, declarationDigests: digests, legacy: false, malformed: false }
 }
 
-function readTrustFileText(): string | null {
-  if (!existsSync(TRUSTED_FOLDERS_PATH)) return null
-  try {
-    return readFileSync(TRUSTED_FOLDERS_PATH, 'utf-8')
-  } catch {
-    return null
-  }
+/** 逐行解析并带上 1-based 行号(损坏留证要能点名是哪一行) */
+function recordsWithLines(text: string): Array<{ record: TrustedFolderRecord; line: number }> {
+  const out: Array<{ record: TrustedFolderRecord; line: number }> = []
+  text.split('\n').forEach((rawLine, idx) => {
+    const rec = parseTrustLine(rawLine)
+    if (rec) out.push({ record: rec, line: idx + 1 })
+  })
+  return out
 }
 
-/** 逐行解析信任文件;`trustFileText` 为测试/诊断注入口,缺省读 ~/.ihui/trusted-folders */
-function parseTrustRecords(trustFileText?: string): TrustedFolderRecord[] {
-  const content = trustFileText ?? readTrustFileText()
-  if (content === null) return []
-  const out: TrustedFolderRecord[] = []
-  for (const rawLine of content.split('\n')) {
-    const rec = parseTrustLine(rawLine)
-    if (rec) out.push(rec)
-  }
-  return out
+/**
+ * 逐行解析信任文件。两条取材路径必须给出同一个结论:
+ *   - 注入了 `trustFileText`(测试/诊断,或 gateHook 复用同一份快照)⇒ 只解析这段文本,
+ *     **不动盘**:没有"替调用方把它手里那份文件改名"这种语义;
+ *   - 未注入 ⇒ 走 readTrustFileSnapshot,损坏/读不出一律交出空记录集(fail-closed)。
+ */
+function parseTrustRecords(trustFileText?: string, trustFilePath?: string): TrustedFolderRecord[] {
+  if (trustFileText !== undefined) return recordsWithLines(trustFileText).map((x) => x.record)
+  return readTrustFileSnapshot(trustFilePath ?? TRUSTED_FOLDERS_PATH).records
 }
 
 /**
@@ -352,14 +528,18 @@ function parseTrustRecords(trustFileText?: string): TrustedFolderRecord[] {
 export function readTrustedFolderRecord(
   folderPath: string,
   trustFileText?: string,
+  trustFilePath?: string,
 ): TrustedFolderRecord | null {
   const target = normalizeFolderPath(isAbsolute(folderPath) ? folderPath : resolve(folderPath))
-  return parseTrustRecords(trustFileText).find((r) => r.folder === target) ?? null
+  return parseTrustRecords(trustFileText, trustFilePath).find((r) => r.folder === target) ?? null
 }
 
 /** 列出全部信任记录(供 `ihui hooks list` 标出"这条对应哪份内容 / 内容是否已变") */
-export function listTrustedFolderRecords(trustFileText?: string): TrustedFolderRecord[] {
-  return parseTrustRecords(trustFileText)
+export function listTrustedFolderRecords(
+  trustFileText?: string,
+  trustFilePath?: string,
+): TrustedFolderRecord[] {
+  return parseTrustRecords(trustFileText, trustFilePath)
 }
 
 /**
@@ -371,19 +551,20 @@ export function saveTrustedFolderRecord(
   folderPath: string,
   bundleDigest: string,
   declarationDigests: Record<string, string>,
+  trustFilePath?: string,
 ): boolean {
   const abs = isAbsolute(folderPath) ? folderPath : resolve(folderPath)
   if (abs.includes('\t') || abs.includes('\n') || abs.includes('\r')) return false
   const target = normalizeFolderPath(abs)
   const line = `${abs}${RECORD_SEP}${bundleDigest}${RECORD_SEP}${canonicalizeArgs(declarationDigests)}`
-  try {
-    const dir = join(homedir(), '.ihui')
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-    const existing = readTrustFileText()
+  // 基线内容即重建依据:旧写法先 `readTrustFileText()` 读一遍(**读盘失败被吞成 null**),
+  // 再 writeFileSync 整文件 —— 于是一次 EBUSY 就把整张信任清单重写成"只有一行的新文件",
+  // 批准静默丢失且无人报错。现由唯一出口把"读到的"与"落盘前复核的"钉成同一份字节。
+  return writeOrComplain(trustFilePath ?? TRUSTED_FOLDERS_PATH, (current) => {
     const kept: string[] = []
     let replaced = false
-    if (existing !== null) {
-      for (const rawLine of existing.split('\n')) {
+    if (current !== null) {
+      for (const rawLine of current.split('\n')) {
         const rec = parseTrustLine(rawLine)
         if (rec && rec.folder === target && !replaced) {
           kept.push(line)
@@ -394,11 +575,8 @@ export function saveTrustedFolderRecord(
       }
     }
     if (!replaced) kept.push(line)
-    writeFileSync(TRUSTED_FOLDERS_PATH, kept.join('\n'), 'utf-8')
-    return true
-  } catch {
-    return false
-  }
+    return kept.join('\n')
+  })
 }
 
 // ==================== 人工放行层(拆终态票 2026-09-29:拒绝是判定,不是永久禁止) ====================
@@ -541,7 +719,14 @@ export interface HumanHookOverrideGrantSpec {
 export function grantHumanHookOverride(
   spec: HumanHookOverrideGrantSpec,
   overridesPath: string = HOOK_OVERRIDES_PATH,
-): { ok: boolean; error?: string; tracePath: string; record?: HumanHookOverrideRecord } {
+): {
+  ok: boolean
+  error?: string
+  /** 写被拒绝的**具体原因**(冲突/符号链接/读盘失败);不静默成 'write-failed' 一句话 */
+  errorDetail?: string
+  tracePath: string
+  record?: HumanHookOverrideRecord
+} {
   if (spec.hookName.trim() === '') return { ok: false, error: 'hook-name-required', tracePath: overridesPath }
   if (spec.bundleDigest.trim() === '') {
     return { ok: false, error: 'bundle-digest-required', tracePath: overridesPath }
@@ -560,14 +745,12 @@ export function grantHumanHookOverride(
     ...(spec.declarationDigest ? { declarationDigest: spec.declarationDigest } : {}),
     reason: spec.reason.trim(),
   }
-  try {
-    const dir = dirname(overridesPath)
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-    appendFileSync(overridesPath, `${JSON.stringify(record)}\n`, 'utf-8')
-    return { ok: true, tracePath: overridesPath, record }
-  } catch {
-    return { ok: false, error: 'write-failed', tracePath: overridesPath }
+  // 追加 = 在捕获到的那一份之后落一行(别人刚写过就重取基线重算,绝不把别人的台账整块盖掉)
+  const outcome = atomicRewrite(overridesPath, (current) => `${current ?? ''}${JSON.stringify(record)}\n`)
+  if (!outcome.ok) {
+    return { ok: false, error: 'write-failed', errorDetail: outcome.reason, tracePath: overridesPath }
   }
+  return { ok: true, tracePath: overridesPath, record }
 }
 
 /** 台账全量回读(展示/审计用)。 */
@@ -592,10 +775,11 @@ export function checkFolderContentTrust(
   hookName?: string,
   declarationDigest?: string,
   trustFileText?: string,
+  trustFilePath?: string,
 ): ContentTrustVerdict {
   const folder = normalizeFolderPath(isAbsolute(folderPath) ? folderPath : resolve(folderPath))
   const remedy = `ihui hooks trust "${folder}"`
-  const rec = readTrustedFolderRecord(folder, trustFileText)
+  const rec = readTrustedFolderRecord(folder, trustFileText, trustFilePath)
   if (!rec) {
     return {
       state: 'untrusted',
@@ -657,9 +841,16 @@ export function isFolderContentTrusted(
   hookName?: string,
   declarationDigest?: string,
   trustFileText?: string,
+  trustFilePath?: string,
 ): boolean {
-  return checkFolderContentTrust(folderPath, bundleDigest, hookName, declarationDigest, trustFileText)
-    .allowed
+  return checkFolderContentTrust(
+    folderPath,
+    bundleDigest,
+    hookName,
+    declarationDigest,
+    trustFileText,
+    trustFilePath,
+  ).allowed
 }
 
 // ==================== 派发 gate ====================
@@ -727,12 +918,18 @@ const CONTENT_TRUST_SKIP_ENV = 'IHUI_HOOK_TRUST_ALLOW_STALE'
  *   5. 第 3/4 支拒绝前先看人工放行台账(`hook-overrides.jsonl`)—— 拒绝是判定不是永久禁止,
  *      台账按"钩子名 + 目录 + 被拒那一刻的束摘要(可选单条摘要) + 理由"逐字匹配;
  *      第 1/2 支(disabled)**不接受**放行,那是用户自己的开关。
+ *   6.(2026-09-28 补)**文件级 fail-closed 走在 3/4/5 之前**:清单本身损坏或读不出
+ *      ⇒ 改名留证 + 不放行任何钩子,且**不接受人工放行台账**。第 5 条那句"拒绝是一次判定"
+ *      的前提是"我们还知道被拒的是哪份内容";清单坏了时这个前提不成立,按台账放行就等于
+ *      把损坏文件当空文件、一切照常放行 —— 那正是本条要禁的语义,不是§30 要保的出路。
+ *      出路仍然真实且只有一条:重新 `ihui hooks trust "<folder>"`(留证件里能逐字复得原字节)。
  */
 export function gateHook(
   spec: HookSpecLite,
   absCwd: string,
   trustFileText?: string,
   overridesText?: string,
+  trustFilePath?: string,
 ): HookGateResult {
   // 人工放行的匹配素材:束摘要缺失(半套/没接)时无从核对"放的是哪份内容" → 台账不参与。
   const overrideBundleDigest = spec.bundleDigest ?? ''
@@ -763,7 +960,24 @@ export function gateHook(
       detail: `hook "${spec.name}" is in ~/.ihui/disabled-hooks`,
     }
   }
-  if (!isFolderTrusted(absCwd, trustFileText)) {
+  // ---- 第 0.5 道:清单文件本身的可用性(2026-09-28)。注入文本的调用方自己负责那份字节,
+  //      所以只有"真读盘"这一支才做损坏留证。读过一次就把原文复用到下面的两道判定 ——
+  //      否则一次 gate 会读两遍盘,损坏时还会尝试留证两次。 ----
+  let effectiveTrustText = trustFileText
+  if (effectiveTrustText === undefined) {
+    const snapshot = readTrustFileSnapshot(trustFilePath ?? TRUSTED_FOLDERS_PATH)
+    if (snapshot.state === 'corrupt' || snapshot.state === 'unreadable') {
+      return {
+        allowed: false,
+        reason: 'folder-not-trusted',
+        detail:
+          `${snapshot.detail}。清单不可用时拒绝放行任何钩子(人工放行台账这一轮**不参与**),` +
+          `重新批准的唯一出口:\`ihui hooks trust "${normalizeFolderPath(absCwd)}"\``,
+      }
+    }
+    effectiveTrustText = snapshot.text ?? ''
+  }
+  if (!isFolderTrusted(absCwd, effectiveTrustText)) {
     if (humanOverride) return overrideResult('目录未信任,但人工对该目录该束内容放行了这一次')
     return {
       allowed: false,
@@ -798,7 +1012,14 @@ export function gateHook(
   if (process.env[CONTENT_TRUST_SKIP_ENV] === '1') {
     return { allowed: true }
   }
-  const verdict = checkFolderContentTrust(absCwd, bundleDigest, hookName, declarationDigest, trustFileText)
+  // 复用上面那一次读盘的结果(同一份字节喂两道判定);注入文本的调用方同样只走这一条路径。
+  const verdict = checkFolderContentTrust(
+    absCwd,
+    bundleDigest,
+    hookName,
+    declarationDigest,
+    effectiveTrustText,
+  )
   if (!verdict.allowed) {
     // 拒绝的一次性原则(§30):内容判红是"这一份没被批过",不是"这个钩子永远不许跑"。
     // 人工看过这份内容并放行 → 台账命中即过;没台账 → 与改动前逐字同形地拒绝。
