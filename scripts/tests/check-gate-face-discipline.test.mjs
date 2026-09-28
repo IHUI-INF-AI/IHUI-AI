@@ -394,7 +394,7 @@ test('T20 遮噪机必须认正则字面量(否则它对立项那一型全盲)',
     'blankStrings 必须是同一台分词器的投影(分叉成第二台 ⇒ 一半判定重新变盲)',
   )
   assert.match(
-    readFileSync(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs'), 'utf8'),
+    readFileSync(resolve(ROOT, 'scripts/lib/code-mask.mjs'), 'utf8'),
     /export function blankStrings\(text\) \{\n\s*return scanLiterals\(text\)\.blanked\n\}/,
     'blankStrings 的函数体必须是那一行投影(不得再自带一遍状态机)',
   )
@@ -429,19 +429,46 @@ test('T23 立项那一型的最小复现:唯一读取藏在正则行之后 ⇒ l
   )
 })
 
-test('T24 遮噪只剩一台机器:maskComments 必须走同一个 scanSpans', () => {
-  const src = readFileSync(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs'), 'utf8')
+test('T24 遮噪只剩一台机器:分词器住在 lib/code-mask.mjs,本门不得自带第二台', () => {
+  const gateSrc = readFileSync(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs'), 'utf8')
+  const libSrc = readFileSync(resolve(ROOT, 'scripts/lib/code-mask.mjs'), 'utf8')
+  // ① 本门必须**引**那一份实现,并且自己一台都不写。这一条替代了旧的"maskComments 必须走
+  //    同一个 scanSpans"—— 2026-09-28 把 118 私有的那份更聪明的遮噪器上收进 lib 之后,
+  //    "同一台机器"这件事的**落点**变了,但它要防的东西一点没变:两台分词器一条规则,
+  //    必然出现"这半边判定看得见、那半边看不见"(§22c / 守门 103 的"取源只能有一份实现")。
+  assert.match(gateSrc, /from '\.\/lib\/code-mask\.mjs'/, '本门没引唯一遮罩层')
+  for (const def of [
+    'scanSpans',
+    'readStringSpan',
+    'readRegexSpan',
+    'scanLiterals',
+    'blankByMask',
+    'maskComments',
+    'blankStrings',
+    'regexCanStart',
+  ]) {
+    assert.ok(
+      !new RegExp(`function ${def}\\s*\\(`).test(gateSrc),
+      `本门里还留着 \`function ${def}(\` 的定义 —— 上收到 lib 之后不得再分叉第二台`,
+    )
+  }
+  // ② lib 那一面:每台扫描器只许有一处实现,maskComments 必须走 scanSpans(而不是自己追引号)
+  assert.equal((libSrc.match(/function readStringSpan\(/g) || []).length, 1, '字符串扫描只能有一份')
+  assert.equal((libSrc.match(/function scanSpans\(/g) || []).length, 1, '分词器只能有一台')
   assert.match(
-    src,
-    /export function maskComments\(src\) \{[\s\S]{0,400}?for \(const s of scanSpans\(src\)\)/,
-    'maskComments 不得再自带一遍引号状态机(它服务的判据是"字符串要保留",但**注释区间**必须由同一台分词器给出)',
+    libSrc,
+    /export function maskComments\(src\) \{[\s\S]{0,600}?for \(const s of scanSpans\(src\)\)/,
+    'maskComments 不得自带一遍引号状态机(它服务的判据是"字符串要保留",但**注释区间**必须由同一台分词器给出)',
   )
-  // 反向锁:全文件只允许**一处** `readStringSpan` 开栏实现,且不得再出现"逐字符找配对引号"的旧循环
-  const scannerDefs = (src.match(/function readStringSpan\(/g) || []).length
-  assert.equal(scannerDefs, 1, '字符串扫描只能有一份实现')
+  // ③ 两个导出的**档**各钉一头:旧导出必须仍关着正则档(它是 131/135/148/150 的现读数基线,
+  //    打开等于替别人的门换读数),新导出必须开着(156 按括号配平取实参,正则里的 `(` 不遮
+  //    就会把真调用读成"配不平" —— 现读 4 处未判定里 3 处正是这一型)。
+  assert.match(libSrc, /blankSpans\(src, \['line', 'block', 'string'\], \{ regex: false \}\)/)
+  assert.match(libSrc, /blankSpans\(src, \['line', 'block', 'string', 'regex'\]\)/)
+  // ④ 反向锁:朴素那台独立状态机不得回到 lib(它只允许作为"关掉正则档的同一次分词"存在)
   assert.ok(
-    !/while \(i < text\.length\) \{\n\s*if \(text\[i\] === '\\\\\\\\'\) \{/.test(src),
-    '不得再留着第二台朴素字符串状态机(那台就是 24 道门被判 no-content 的原因)',
+    !/while \(i < src\.length\) \{/.test(libSrc),
+    'lib 里不得再出现第二台独立 while 状态机(那台就是 24 道门被判 no-content 的原因)',
   )
 })
 
@@ -491,8 +518,16 @@ test('T22 白名单两处"已知漏报"的前提必须仍然成立(前提一变�
   )
   // qual 用门自己导出的 `prejoinedRepoConsts` 现算(不在测试里重抄判据,§22c)。
   // 关键是**成对**:非点形态必须 qual 1,否则"dot 得 0"可能只是 helper 没跑(§22c 的复读机教训)。
-  assert.equal(qualOf('.x-ignore.json'), 0, '点开头根级文件必须**不**进首段白名单(被钉住的那一格排除)')
-  assert.equal(qualOf('x-not-dot.json'), 1, '同形只差一个点前缀 ⇒ 必须 qualify(否则上一条 0 是恒真)')
+  assert.equal(
+    qualOf('.x-ignore.json'),
+    0,
+    '点开头根级文件必须**不**进首段白名单(被钉住的那一格排除)',
+  )
+  assert.equal(
+    qualOf('x-not-dot.json'),
+    1,
+    '同形只差一个点前缀 ⇒ 必须 qualify(否则上一条 0 是恒真)',
+  )
   assert.ok(
     !REPO_CONTENT_FILE_RE.test('.x-ignore.json') && REPO_CONTENT_FILE_RE.test('PROJECT_PLAN.md'),
     'FILE_RE 的方向必须仍是"挡点前缀、认非点前缀"',
@@ -585,7 +620,9 @@ test('T29 装车锁:resolveRootArg 必须真被 main 调用,旧的两处写法�
     'main() 没调用 resolveRootArg ⇒ 新校验是死代码,提交链上一路绿灯(守门 70/76/81 同型)',
   )
   assert.ok(
-    /function main\(argv\) \{\s*\n\s*const \{ root, errorLines \} = resolveRootArg\(argv\)/.test(src),
+    /function main\(argv\) \{\s*\n\s*const \{ root, errorLines \} = resolveRootArg\(argv\)/.test(
+      src,
+    ),
     'resolveRootArg 必须是 main 的第一件事(在它之前不许有裸 assertRepoRoot / 裸取 root)',
   )
   // 旧的吞值写法与"裸调用"写法都不得回来
@@ -593,7 +630,10 @@ test('T29 装车锁:resolveRootArg 必须真被 main 调用,旧的两处写法�
     !/argv\.includes\('--root'\)\s*\?\s*resolve\(argv\[argv\.indexOf\('--root'\) \+ 1\]/.test(src),
     '旧的 `argv[argv.indexOf(--root) + 1] || .` 取值形态又回来了',
   )
-  const mainBody = src.slice(src.indexOf('function main(argv)'), src.indexOf('\nfunction ', src.indexOf('function main(argv)') + 1))
+  const mainBody = src.slice(
+    src.indexOf('function main(argv)'),
+    src.indexOf('\nfunction ', src.indexOf('function main(argv)') + 1),
+  )
   assert.ok(
     !/^\s*assertRepoRoot\(root, '本门'\)$/m.test(mainBody),
     'main() 里不得再**裸**调 assertRepoRoot(抛出的 Undetermined 会逃成裸栈 + RC=1)',
