@@ -6,7 +6,7 @@
     "extension": 20,
     "miniapp-taro": 23,
     "mobile-rn": 20,
-    "cli": 15
+    "cli": 16
   },
   "endpoints": {
     "web": ["apps/web/src", "apps/web/app"],
