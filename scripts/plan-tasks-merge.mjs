@@ -21,6 +21,12 @@
  *  - F4 同一件事多条待办 → **不动勾选**(两件事都还没做完),只给副本行加一句
  *    `〔【归并】重复登记副本…派单以那条为准〕`。索引层认这句字面把它逐出派单口径,
  *    于是"173 条未勾选"与"真待办 97 条"这两个数从此分开。**新指针一律写内容锚点,不写行号。**
+ *  - F10 同一件事被**并发取号**登记成几条**不同编号**(F1/F4 按"编号+题面逐字等值"配主键 ⇒
+ *    对这一型全盲,它会永久钉着守门 130 红) → 出口是 `foldTwins`:留一条持有行,其余折成
+ *    "摘掉主键位置上的编号 + 只写持有行**题面**指针"的副本档 —— 同样**一行不删、不增、不翻勾、
+ *    正文逐字保留**。摘号是这一型独有的必需步骤:不摘号则派单口径照旧算它一条活。
+ *    模式:`--fold-twins`(报告) / `--fold-twins --commit`(单独落地) / `--heal --commit`
+ *    (与 F1/F2/F3/F4 同一枚提交里一起落)。判据与散文见 `foldTwins` 头注。
  *
  * 安全阀(全部由机器核,不靠人眼):
  *  1. 改写按**行号精确 splice**,所以"面上有逐字同文的孪生行"不构成误伤 —— 真正的风险是
@@ -52,7 +58,13 @@ import {
   POINTER_NO_AUTO_REPAIR,
   auditPlan,
   compositeKeyOf,
+  keyOfRow,
+  parseTaskRows,
+  titleOf,
 } from './lib/plan-task-index.mjs'
+// 折叠形态的**反判据**取自守门 71 自己那一份实现(不另抄):`headIdOf` 判"行首名额"还在不在,
+// `lostMarkers` 判"折叠会不会被防丢层读成整行消失"。见 foldTwins 头注 ① —— 那是两维互咬的接缝。
+import { TASK_ID_PATTERN, headIdOf, lostMarkers } from './check-plan-line-loss.mjs'
 // 翻勾注记的形态与"剥注记后正文逐字相等"的成对判据,生产侧与看守侧(守门 71)共用这一份实现
 // (G-307:两层自愈互咬的根因之一就是"注记长什么样"在两边各写一遍)。
 import { buildForkedLine, forkPreserved, anchorOf } from './lib/plan-merge-annotation.mjs'
@@ -544,6 +556,355 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
   return 1
 }
 
+// ── 同题不同编号的孪生登记折叠档(F10,2026-09-28 立)─────────────────
+/**
+ * 这一型与 F1/F4 的**唯一**差别就是"编号":并发取号抢同一个号、或改派工具重排过编号之后,
+ * 同一件事的几份登记各自带着**不同**的编号 ⇒ `compositeKeyOf` 互不相等 ⇒ 现有归并器
+ * (按"编号 + 标题前缀逐字等值"配主键)结构上看不见它。于是这些行永久留在待办清单里,
+ * 并把台账门(守门 130)钉成"干净 HEAD 上也红" —— §12f:与提交内容无关的恒红门,唯一结局是
+ * 各会话跳钩子、连带链上全部检查对每次提交作废,所以修它优先于任何新增工作。
+ * 立项现读(HEAD 面 2026-09-28,同一把尺子 parseTaskRows × titleOf × keyOfRow):
+ * 同题而编号互异的族 33 组,**全部**落在 F1/F4 的盲区里,其中未勾选行 23 条可折。
+ *
+ * 动作与 F4 同族(只改行内注记、不删行、不动勾选、不并抄),但**必须多做一步**:
+ * 把编号从**主键位置**摘掉。只加指针不摘号 ⇒ composite 仍在 ⇒ 派单口径照旧算它一条活
+ * —— F4 的产物正是那个形态,所以它只能治"同编号"那一型,治不了这一型。
+ *
+ * 三条不可漂的写法,每条都有实测理由(不是审美):
+ *  ① 注记必须包在**全角括号**里、且其内部不得出现 `）` 与 `)`。
+ *     为什么不用 `〔〕`(F4 与归并落账注记用的那对):守门 71 的 `checkboxBody` 只按
+ *     `[（(][^）)]*[）)]` 剥状态装饰 —— 写成 `〔〕` 它剥不掉 ⇒ 该行"行首名额"消失 ⇒
+ *     防丢层把合法折叠读成整行消失 ⇒ post-commit 回捞**未折叠**的原行 ⇒ 折叠被原地复活,
+ *     正是 G-307 记过的"两层自愈互咬"(实测两小时 24 枚恢复型提交)。
+ *     用全角括号则两侧各得其所:门 71 剥得掉(防丢面不受任何影响),而索引层的 `DECOR_RE`
+ *     只认 `（进行中…）`/`✅…`/`（已完成）` 几族 ⇒ 剥不掉 ⇒ 主键窗口里看不见编号 ⇒ 号被摘掉。
+ *     这条不对称是本档全部机制的落点,由 `verifyTwinFold` 里的 `headIdOf` 等值 +
+ *     `lostMarkers` 为空两条断言当场把住 —— 不是靠注释承诺。
+ *  ② 指针文字里**绝不写行号**(§1 规矩 3),也**绝不把持有行的编号写进注记**:编号一旦落在
+ *     `KEY_MAX_OFFSET` 窗口内,就会被 `keyOfRow` 取成这一行的**新**主键 —— 今天真犯过一次,
+ *     后果是"折掉一条副本反而新增一次撞号"。所以注记只写持有行的**题面**(titleOf 的产物,
+ *     题面本身已被 stripOwnKey 剥掉自己的编号),而"原编号"这一沿革放在**行尾**(窗口之外)。
+ *  ③ 折叠产物一律喂**真尺子**:`keyOfRow(after)` 必须为 null,否则**不折这一行**、点名交人工。
+ *     判不出就是判不出 —— 不把"没判"写成"判过了"(本仓最高频失效型)。
+ */
+/** 组内行数上限:超过它就不猜持有行(噪声或真事故都得人来判),与"机器折半即有损"同一条纪律。 */
+const TWIN_GROUP_MAX = 8
+/** 复选框前缀(含其后原有空白)—— 折叠必须把它连同空白一起原样留住,否则"逐字保留"不成立。 */
+const CHECKBOX_LEAD_RE = /^(\s*[-*]\s\[[ xX]\]\s*)/
+/** 本档写进去的注记体(行首、全角括号包裹、内部无闭括号)。 */
+const TWIN_NOTE_RE = /^（【归并】重复登记副本·同题不同编号·\d{4}-\d{2}-\d{2}·[^）)]*）/
+/** 注记体 + 复选框前缀一起匹配,替换成捕获组即"只剥本档注记"。 */
+const TWIN_FOLDED_RE = /^(\s*[-*]\s\[[ xX]\]\s*)（【归并】重复登记副本·同题不同编号·\d{4}-\d{2}-\d{2}·[^）)]*）/
+/**
+ * 行尾沿革(原编号 + 持有行题面),刻意留在 KEY_MAX_OFFSET 窗口之外。
+ * 题面那一段**必须**用贪婪 `.*` 收在行尾的 `」)` 上,不能用 `[^」]*`:台账里的标题本身常带
+ * 「…」(HEAD 面实测 19 条里有 4 条如此,例:题面「桌面端「启动后先进托盘」…」),非贪婪会把
+ * 剥取停在标题内部那个 `」` 上 ⇒ 剥完不等于底稿 ⇒ 可逆判据把合法折叠误拒、那一族永久留在待办。
+ * 而 `;持有行题面「` 这一段就是天然哨兵:旧的一次性折叠形态 ` (原编号 G-316)` 后面没有它,
+ * 不会被误当成哨兵起点(真撞上"正文里本来就有这句"的那一行,过剥 ⇒ 判不可逆 ⇒ 拒落,方向是安全的)。
+ */
+const TWIN_TAIL_RE = / \(原编号 [^();]+;持有行题面「.*」\)$/
+const TWIN_ID_RE = new RegExp(TASK_ID_PATTERN)
+
+/** 注记正文:固定散文(不含任何编号、行号、闭括号),日期由调用方给。 */
+export function twinFoldNote(today) {
+  return `（【归并】重复登记副本·同题不同编号·${today}·本行与同题登记的持有行重复,现摘掉编号只留指针,不翻勾、不并抄、正文逐字保留,派单以持有行为准）`
+}
+
+/**
+ * 把一条同题副本折成"摘号 + 指针"形态。给不出编号或给不出持有行题面 ⇒ 返回 null(调用方记未判定)。
+ * 幂等由 `DUP_POINTER_RE` 在调用点挡住(本函数不自己判重复)。
+ */
+export function buildTwinFold(line, keeperLine, today) {
+  const m = CHECKBOX_LEAD_RE.exec(line)
+  if (!m) return null
+  const key = keyOfRow(line)
+  const anchor = titleOf(keeperLine)
+  if (!key || !anchor) return null
+  return `${m[1]}${twinFoldNote(today)}${line.slice(m[1].length)} (原编号 ${key};持有行题面「${anchor}」)`
+}
+
+/** 剥掉**本档**写的注记与沿革,还原底稿 —— 折叠必须可逆,不可逆就等于在改别人的登记。 */
+export function stripTwinFold(line) {
+  return String(line).replace(TWIN_FOLDED_RE, '$1').replace(TWIN_TAIL_RE, '')
+}
+
+/** 这行是不是本档折出来的形态(注记 + 沿革都在位才算)。 */
+export function isTwinFolded(line) {
+  return TWIN_FOLDED_RE.test(line) && TWIN_TAIL_RE.test(line)
+}
+
+const STATE_TOKEN_RE = /^\s*[-*]\s\[[ xX]\]/
+
+/**
+ * 一条折叠产物的**准入判据**(全用真尺子,不抄编号正则)。返回拒绝理由或 null。
+ * 顺序有意:先查最便宜也最要命的"摘号有没有成",再查可逆性、勾选、行首名额、注记洁净。
+ */
+export function twinFoldRejectReason(beforeLine, afterLine) {
+  if (afterLine === null || afterLine === undefined) return '构造失败(拿不到本行编号或持有行题面)'
+  const k = keyOfRow(afterLine)
+  if (k !== null) return `折叠后 keyOfRow 仍取得到主键 ${k} ⇒ 这一折等于给自己又领一次号,不折`
+  if (stripTwinFold(afterLine) !== beforeLine) return '剥掉本档注记后不等于底稿(折叠不可逆)'
+  const bs = STATE_TOKEN_RE.exec(beforeLine)?.[0]
+  const as = STATE_TOKEN_RE.exec(afterLine)?.[0]
+  if (bs !== as) return `勾选状态被改了(${JSON.stringify(bs)}→${JSON.stringify(as)})—— 翻勾是 --heal 那一维的职责`
+  // 门 71 的"行首名额"必须原样保住,否则防丢层会把这行读成消失并回捞未折叠原行(互咬)。
+  if (headIdOf(beforeLine) !== headIdOf(afterLine))
+    return `行首编号被门 71 读成变了(${String(headIdOf(beforeLine))}→${String(headIdOf(afterLine))})⇒ 会与回捞层互咬`
+  const note = TWIN_NOTE_RE.exec(afterLine.replace(CHECKBOX_LEAD_RE, ''))?.[0] ?? ''
+  if (!note) return '注记形状不合本档构造(内部出现了闭括号?)'
+  if (TWIN_ID_RE.test(note)) return '注记里出现了任务编号形态 ⇒ 会被尺子读成本行主键'
+  if (/\bL\d{1,6}\b/.test(note)) return '注记里出现了行号(§1 规矩 3 禁止证据指针写行号)'
+  return null
+}
+
+/**
+ * 纯函数:输入计划文档的行数组,输出"该折哪些行、留哪一行当持有行、哪些判不出"。
+ *
+ * 成组判据(刻意与 F1/F4 不同源、也不与它们混进同一个函数):**题面逐字相等而编号互异**。
+ * 编号相同那一型是 composite 相等 ⇒ 现有 `--heal` 那一维(翻勾 / 加 F4 指针)负责,这里一律跳过。
+ *
+ * 持有行规则(确定性 + 幂等,理由写在这里而不是藏在代码里):
+ *  · 只在**未勾选**行里选 —— 已完成行由 F1(翻勾)与归档器负责,本档碰它就两维互咬;
+ *  · 已带 `【归并】重复登记副本` 指针的行既不当持有行、也不再折(它就是"已折过"的形状),
+ *    所以"若该组已有折好的副本 ⇒ 以现存持有行为准"天然成立;
+ *  · 剩下的候选取**文件里位置最靠前**的那一行。用位置而不是用"看起来更完整":长度会随别人
+ *    往同一行追加取证而变化,拿它选持有者会让持有人在两次运行之间换人 ⇒ 不幂等。
+ *  跑第二遍 ⇒ 被折的行已无主键、不再进组 ⇒ 候选只剩持有行一行 ⇒ edits 为空,幂等。
+ *
+ * @returns {{edits:Array<{line:number,before:string,after:string,title:string,keeperLine:number}>,
+ *            groups:Array<object>, undetermined:string[], refused:Array<{line:number,title:string,reason:string}>}}
+ */
+export function foldTwins(lines, today = new Date().toISOString().slice(0, 10)) {
+  const content = Array.isArray(lines) ? lines.join('\n') : String(lines ?? '')
+  const edits = []
+  const groups = []
+  const undetermined = []
+  const refused = []
+  const byTitle = new Map()
+  for (const r of parseTaskRows(content)) {
+    if (!r.key) continue // 已经没有主键的行不参与(无号可摘,也不是"同题不同编号")
+    const t = titleOf(r.raw)
+    if (!t || t.length < 4) continue // 与 compositeKeyOf 同一条题面闸:给不出实质题面就不配判"同题"
+    if (!byTitle.has(t)) byTitle.set(t, [])
+    byTitle.get(t).push(r)
+  }
+  for (const [t, rows] of byTitle) {
+    const keys = new Set(rows.map((r) => r.key))
+    if (keys.size < 2) continue // 编号互异这一条不成立 ⇒ 不是本档的地盘(F1/F4 各管自己那一型)
+    const open = rows.filter((r) => r.state === 'open')
+    const doneMembers = rows.length - open.length
+    if (rows.length > TWIN_GROUP_MAX) {
+      undetermined.push(`题面「${t}」组内 ${rows.length} 行 > 上限 ${TWIN_GROUP_MAX} ⇒ 不猜持有行,交人工`)
+      continue
+    }
+    if (!open.length) {
+      // 全组都是已完成:那是归档器与 F1 的面,本档一行都不碰(只点名,不判通过也不判红)
+      undetermined.push(`题面「${t}」的 ${doneMembers} 行全部已完成 ⇒ 本档不动勾选,交归档器/F1 那一维`)
+      continue
+    }
+    const candidates = open.filter((r) => !DUP_POINTER_RE.test(r.raw))
+    if (!candidates.length) {
+      undetermined.push(`题面「${t}」的 ${open.length} 条未勾选行都带归并指针 ⇒ 没有可认定的持有行,交人工`)
+      continue
+    }
+    if (candidates.length < 2) {
+      groups.push({
+        title: t,
+        keeper: { line: candidates[0].line, key: candidates[0].key },
+        folded: [],
+        openMembers: open.length,
+        doneMembers,
+      })
+      continue
+    }
+    const keeper = candidates[0]
+    const folded = []
+    for (const r of candidates.slice(1)) {
+      const after = buildTwinFold(r.raw, keeper.raw, today)
+      const why = twinFoldRejectReason(r.raw, after)
+      if (why) {
+        undetermined.push(`题面「${t}」的 L${r.line} 不折:${why}`)
+        refused.push({ line: r.line, title: t, reason: why })
+        continue
+      }
+      edits.push({ line: r.line, before: r.raw, after, title: t, keeperLine: keeper.line })
+      folded.push({ line: r.line, key: r.key })
+    }
+    groups.push({
+      title: t,
+      keeper: { line: keeper.line, key: keeper.key },
+      folded,
+      openMembers: open.length,
+      doneMembers,
+    })
+  }
+  edits.sort((a, b) => a.line - b.line)
+  groups.sort((a, b) => a.keeper.line - b.keeper.line)
+  return { edits, groups, undetermined, refused }
+}
+
+/**
+ * 把 foldTwins 的产物落到内容上(行内改写,一行不增不删)。
+ * 入参不是字符串 ⇒ 抛错而不是 `String(undefined)='undefined'`:后者会"成功地"折出一份
+ * 单行假文档,而调用链只看得到"没报错"(本仓最高频失效型:把取不到当成判过)。
+ */
+export function applyTwinFolds(content, today) {
+  if (typeof content !== 'string') throw new TypeError(`applyTwinFolds 需要整档文本,实得 ${typeof content}`)
+  const lines = content.split('\n')
+  const { edits, groups, undetermined, refused } = foldTwins(lines, today)
+  for (const e of edits) lines[e.line - 1] = e.after
+  return { text: lines.join('\n'), edits, groups, undetermined, refused }
+}
+
+/**
+ * 折叠档的零损失断言 —— 六条同时成立才允许落地,任一不成立即整批停手:
+ * ① 行数相等 ② 未声明的行逐字不变(= 新内容 == 前缀 ⊕ 本行 ⊕ 后缀的结构等值)
+ * ③ 每处改动都落在声明的 before/after 上 ④ 剥掉本档注记后逐字回到底稿(可逆)
+ * ⑤ 折完 `keyOfRow` 取不到主键 ⑥ 折叠不被守门 71 读成消失 ∧ 幂等闭合 ∧ F1/F2/F3/F4/F4b/F6 不涨、注记不降。
+ * ④⑤⑥ 是这一档**特有**的三条:它们防的就是"本档把自己造出的行交给另一把尺子去回捞"。
+ */
+export function verifyTwinFold(srcText, outText, edits, refused = []) {
+  const problems = []
+  if (typeof srcText !== 'string' || typeof outText !== 'string')
+    return {
+      problems: [`折叠档的零损失断言未判定 —— 入参不是整档文本(src=${typeof srcText} out=${typeof outText}),不把"没内容"当成"通过"`],
+      before: null,
+      after: null,
+    }
+  const a = srcText.split('\n')
+  const b = outText.split('\n')
+  if (a.length !== b.length) problems.push(`行数不等 ${a.length}→${b.length}(本档只许改行内内容)`)
+  const touched = new Set(edits.map((e) => e.line))
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    if (!touched.has(i + 1) && a[i] !== b[i]) {
+      problems.push(`L${i + 1} 未登记却被改动 —— 结构等值(新内容 == 前缀 ⊕ 本行 ⊕ 后缀)不成立`)
+      break
+    }
+  }
+  for (const e of edits) {
+    if (a[e.line - 1] !== e.before)
+      problems.push(`L${e.line} 底稿与声明的 before 不等 ⇒ 行号在本次落地前已挪位,整批不落`)
+    if (b[e.line - 1] !== e.after) problems.push(`L${e.line} 产物没落到声明的位置`)
+    if (stripTwinFold(b[e.line - 1] ?? '') !== e.before)
+      problems.push(`L${e.line} 剥掉本档注记后不等于底稿(不可逆的折叠不许落地)`)
+    if (keyOfRow(b[e.line - 1] ?? '') !== null) problems.push(`L${e.line} 折叠后仍能取到主键`)
+  }
+  /**
+   * 反互咬断言(本档的命门):折叠后的整档**不得**在守门 71 眼里丢任何一条登记行。
+   * 它红 = 本档的注记形状让防丢层读成"整行消失" = post-commit 会回捞未折叠原行 =
+   * G-307 那型循环。这条必须在落地那一刻把住,而不是留给下一个人去发现。
+   */
+  const lost = lostMarkers(String(srcText), String(outText))
+  if (lost.length)
+    problems.push(
+      `折叠后被守门 71 判为消失的登记行 ${lost.length} 处(${lost
+        .slice(0, 3)
+        .map((l) => String(l.marker ?? l).slice(0, 24))
+        .join(' / ')})⇒ 会与回捞层互咬,拒落`,
+    )
+  // 幂等/闭合:除了**本轮已点名不折**的那几行,不得还有可折对象;有的话就是判据自己不算数
+  const refusedLines = new Set(refused.map((r) => r.line))
+  const left = foldTwins(b).edits.filter((e) => !refusedLines.has(e.line))
+  if (left.length) problems.push(`折完仍有 ${left.length} 行可折 ⇒ 不闭合(幂等失败),交人工`)
+  // F 维一律不得变差(这把尺子不许替别的维度制造红点)
+  const before = auditPlan(srcText).counts
+  const after = auditPlan(outText).counts
+  for (const [k, get] of [
+    ['F1', (c) => c.forks],
+    ['F2', (c) => c.voidRows],
+    ['F3', (c) => c.rotatedAuto],
+    ['F4', (c) => c.dupOpenCopies],
+    ['F4b', (c) => c.verbatimDupCopies],
+    ['F6', (c) => c.dupBlocks],
+  ]) {
+    if (get(after) > get(before)) problems.push(`${k} 由 ${get(before)} 涨到 ${get(after)}`)
+  }
+  if (after.mergeNotes < before.mergeNotes)
+    problems.push(`归并落账注记由 ${before.mergeNotes} 掉到 ${after.mergeNotes}(不得随折叠一起丢)`)
+  return { problems, before, after }
+}
+
+/** 折叠档的落地:临时索引 + commit-tree + CAS(走 lib/bypass-git 那一份 plumbing,绝不碰共享工作树)。 */
+export function twinFoldAndLand(maxAttempts = 8) {
+  const today = new Date().toISOString().slice(0, 10)
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const spec = `HEAD:${PLAN_REL}`
+    const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
+    if (src === null || src === undefined) {
+      console.log('折叠档未判定 —— HEAD 取不到 PROJECT_PLAN.md(不记为已修)')
+      return 2
+    }
+    const f = applyTwinFolds(src, today)
+    if (!f.edits.length) {
+      console.log(
+        `✅ 折叠档:HEAD 无可折的同题不同编号待办行${f.undetermined.length ? `(判不出 ${f.undetermined.length} 条,逐条点名见报告)` : ''},不动任何东西${attempt > 1 ? ` (第 ${attempt} 轮)` : ''}`,
+      )
+      return 0
+    }
+    const { problems, after } = verifyTwinFold(src, f.text, f.edits, f.refused)
+    if (problems.length) {
+      console.log('❌ 折叠档停手(现场保留,交人工):')
+      for (const p of problems.slice(0, 10)) console.log('   ' + p)
+      return 1
+    }
+    const parent = gitIn(null, ['rev-parse', 'HEAD'])
+    const msg = [
+      'fix(plan): 折叠"同题不同编号"的孪生待办登记(F10 折叠档)',
+      '',
+      `触发时 HEAD 现读:${f.groups.length} 族同题而编号互异的登记,折掉其中 ${f.edits.length} 行(每族留位置最靠前的未完成行当持有行)。`,
+      `判不出 ${f.undetermined.length} 条(全已完成族 / 组内超上限 / 摘号后尺子仍取得到主键 —— 一律交人工,不猜)。`,
+      '折叠形态:正文逐字保留、勾选状态一字不动、只在复选框后插一句全角括号注记 + 行尾留 (原编号 …;持有行题面「…」)。',
+      '摘号是必须的:F1/F4 的主键是"编号+标题逐字等值",而这一族编号互异 ⇒ 现有归并器全盲;不摘号则派单口径照算一条活。',
+      '零损失判据(六条,任一不过即整批不落):行数不变 ∧ 新内容 == 前缀⊕本行⊕后缀 ∧ 剥注记后逐字回到底稿 ∧ 守门 71 lostMarkers=0 ∧ 折完无残留(幂等) ∧ F1/F2/F3/F4/F4b/F6 无一上涨、归并注记不降。',
+      `落地面现读:F1 ${after.forks} / F2 ${after.voidRows} / F3(可自动收口) ${after.rotatedAuto} / F4 ${after.dupOpenCopies} / F4b ${after.verbatimDupCopies}。`,
+    ].join('\n')
+    let landed
+    try {
+      landed = commitTreeWithIndex({
+        root: ROOT,
+        parent,
+        baseRef: parent,
+        message: msg,
+        entries: [{ path: PLAN_REL, text: f.text }],
+      })
+    } catch (e) {
+      console.log(`❌ 折叠档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
+      return 1
+    }
+    if (!casUpdateRef(landed.commit, parent, { root: ROOT })) {
+      console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),整轮按新 HEAD 现取重算折叠位置再来`)
+      continue
+    }
+    const landedSpec = `${landed.commit}:${PLAN_REL}`
+    const landedText = catBatch(ROOT, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
+    if (landedText === null || landedText === undefined) {
+      console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
+      casUpdateRef(parent, landed.commit, { root: ROOT })
+      return 1
+    }
+    const recheck = verifyTwinFold(src, landedText, f.edits, f.refused)
+    if (recheck.problems.length) {
+      console.log(`❌ 落地后复验不过(${recheck.problems[0]}),回退到 ${parent.slice(0, 11)}`)
+      casUpdateRef(parent, landed.commit, { root: ROOT })
+      return 1
+    }
+    const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
+    const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
+    console.log(
+      `✅ 折叠档落地 ${landed.commit.slice(0, 11)}:折 ${f.edits.length} 行(持有行 ${f.groups.length} 族保持原样),` +
+        `落地面现读 F1 ${recheck.after.forks} / F2 ${recheck.after.voidRows} / F4 ${recheck.after.dupOpenCopies} / 未勾选 ${recheck.after.open};` +
+        `共享索引 移动 ${nOf(align.moved)} / 已就位 ${nOf(align.already)}` +
+        `${nOf(align.skipped) ? ` / 归属他人未动 ${align.skipped.map((s) => s.path).join(',')}` : ''}` +
+        `${nOf(align.undetermined) ? ` / 未判定 ${nOf(align.undetermined)}` : ''}` +
+        `${align.lockAbandoned || align.failed ? '(共享索引未对齐 ⇒ 必须复跑一次,否则下一次普通提交会写回旧版)' : ''}`,
+    )
+    return 0
+  }
+  console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  return 1
+}
+
 // ── 自愈层(挂 post-commit)──────────────────────────────────────────
 /**
  * 对**当时**的 HEAD 重算归并,并落地一枚前向修复提交。
@@ -582,12 +943,30 @@ export function healAndLand() {
   // F4 / F4b 与 F1/F2/F3 平级:副本行也是"状态与正文不符"的一种,早退判据漏看它 = 修复出口永不触发。
   // (2026-09-27 实测这一格:F4b 判据与归并出口都写好了,而早退只看 F4 ⇒ 报告"拟改写 15 行"、
   //  落地档回一句"无状态分叉"就什么都不做 —— 判据有牙而无人调度,正是本仓最高频的失效型。)
-  if (!b0.forks && !b0.voidRows && !b0.rotatedAuto && !b0.dupOpenCopies && !b0.verbatimDupCopies) {
-    console.log('✅ 自愈:HEAD 无状态分叉,不动任何东西')
+  // F10(同题不同编号的孪生副本)与上面五条**平级**挂在同一枚落地里,理由与那一格逐字相同:
+  // 它结构上不在 composite 键里(编号互异),F1–F4b 一条都不计它,早退若不看它 = 这一族永不开工。
+  const today = new Date().toISOString().slice(0, 10)
+  const tw0 = foldTwins(src.split('\n'), today)
+  const twinOpen = tw0.edits.length
+  // 整条判据留在一行里:T10 的源码锁就是钉这一行的(把 F10 拆成多行会让那条锁无声失效)
+  if (!b0.forks && !b0.voidRows && !b0.rotatedAuto && !b0.dupOpenCopies && !b0.verbatimDupCopies && !twinOpen) {
+    console.log('✅ 自愈:HEAD 无状态分叉(也没有可折的同题不同编号孪生副本),不动任何东西')
     return 0
   }
-  const r = buildMerge(src, new Date().toISOString().slice(0, 10))
-  const bad = healStopReasons(src, r.text, r.changed, r.refused.length)
+  const r = buildMerge(src, today)
+  /**
+   * 折叠维跑在**归并结果之上**这一层:`buildMerge` 只改行内内容、一行不增不删 ⇒ 两维共用同一套
+   * 行号坐标,合到一枚提交、一次 CAS 里落地。两维刻意互不干涉:F10 只插注记、绝不碰复选框,
+   * 翻勾永远归 F1/F2;`[...r.changed, ...折叠]` 一起交给零损失对账,所以"多改一行"瞒不住。
+   */
+  const f = applyTwinFolds(r.text, today)
+  const bad = healStopReasons(
+    src,
+    f.text,
+    [...r.changed, ...f.edits.map((e) => ({ ...e, kind: 'F10折叠' }))],
+    r.refused.length + f.refused.length,
+  )
+  bad.push(...verifyTwinFold(r.text, f.text, f.edits, f.refused).problems)
   if (bad.length) {
     console.log(`❌ 自愈停手:${bad.join(' / ')} —— 现场保留,交人工`)
     return 1
@@ -598,14 +977,16 @@ export function healAndLand() {
   const tmp = path.join(scratch, 'pp.md')
   const msgFile = path.join(scratch, 'msg.txt')
   const idx = path.join(scratch, 'index')
-  writeFileSync(tmp, r.text, 'utf8')
+  writeFileSync(tmp, f.text, 'utf8')
   writeFileSync(
     msgFile,
     [
       'fix(plan): 自愈被回写的任务状态副本(守门 130 的 post-commit 层)',
       '',
       `触发时 HEAD 现读:F1 ${b0.forks} / F2 ${b0.voidRows} / F3(可自动收口) ${b0.rotatedAuto} / F3(无出口,交人工) ${b0.rotatedNoExit} / F4 ${b0.dupOpenCopies} → 归并 ${r.changed.length} 行后 0 / 0 / 0 / 0。`,
-      `行数 ${src.split('\n').length} → ${r.text.split('\n').length}(一行不删一行不加),未参与改写的 ${src.split('\n').length - r.changed.length} 行逐字不变。`,
+      `另:F10「同题不同编号」孪生副本现读 ${tw0.groups.length + tw0.undetermined.length} 族可议(成组 ${tw0.groups.length} / 判不出 ${tw0.undetermined.length})⇒ 本枚折掉 ${f.edits.length} 行,每族只留位置最靠前的未完成行当持有行;判不出一律不折、交人工(${f.undetermined.length} 条逐条点名见 --fold-twins 报告)。`,
+
+      `行数 ${src.split('\n').length} → ${f.text.split('\n').length}(一行不删一行不加),未参与改写的 ${src.split('\n').length - r.changed.length - f.edits.length} 行逐字不变。`,
       '成因与修法同源:scripts/plan-tasks-merge.mjs 按当次 HEAD 重算行号(绝不用旧行号)。',
       '复活路径是"按内存里旧计划文档整文件提交 + --no-verify 跳过 pre-commit",所以这一层必须挂 post-commit。',
     ].join('\n'),
@@ -633,14 +1014,21 @@ export function healAndLand() {
     gitIn(null, ['update-index', '--add', '--cacheinfo', `100644,${blob},${PLAN_REL}`])
     // 结论文句里的数字必须**回读落地的那枚提交**再说,不得写死 "0/0/0/0":
     // 那是一句"我修好了"的承诺,而承诺的兑现与否结构上不在这个调用面上(本仓最贵的失效型)。
-    const after = auditPlan(gitIn(null, ['show', `${commit}:${PLAN_REL}`], { encoding: 'utf8' })).counts
+    const landedText = gitIn(null, ['show', `${commit}:${PLAN_REL}`], { encoding: 'utf8' })
+    const after = auditPlan(landedText).counts
+    const twinLeft = foldTwins(landedText.split('\n')).edits.length
     console.log(
-      `✅ 自愈落地 ${commit.slice(0, 11)}:归并 ${r.changed.length} 行 → 落地面现读 F1 ${after.forks} / F2 ${after.voidRows} / F3(可自动收口) ${after.rotatedAuto} / F3(无出口) ${after.rotatedNoExit} / F4 ${after.dupOpenCopies} / F4b ${after.verbatimDupCopies}(副本指针行合计 ${after.dupPointerRows})`,
+      `✅ 自愈落地 ${commit.slice(0, 11)}:归并 ${r.changed.length} 行 + 折叠 ${f.edits.length} 行 → 落地面现读 F1 ${after.forks} / F2 ${after.voidRows} / F3(可自动收口) ${after.rotatedAuto} / F3(无出口) ${after.rotatedNoExit} / F4 ${after.dupOpenCopies} / F4b ${after.verbatimDupCopies}(副本指针行合计 ${after.dupPointerRows})/ F10 可折残留 ${twinLeft}`,
     )
     if (after.forks + after.voidRows + after.rotatedAuto + after.dupOpenCopies + after.verbatimDupCopies > 0) {
       console.log('   ⚠️ 落地面仍有未归并项 —— 上面就是现读数字,不得当"已清零"引用。')
       return 1
     }
+    if (twinLeft > 0) {
+      console.log(`   ⚠️ 落地面仍有 ${twinLeft} 行可折 —— 折叠维没闭合,不得当"已清零"引用。`)
+      return 1
+    }
+
     return 0
   } finally {
     rmScratch(scratch)
@@ -749,6 +1137,13 @@ export function healStopReasons(srcText, merged, changed, refusedCount) {
   const a1 = String(merged).split('\n')
   const touched = new Set(changed.map((c) => c.line))
   const after = auditPlan(merged).counts
+  /**
+   * F10 折叠维的闭合断言写在**这里**,不在调用方的自觉里:谁都能忘记调 verifyTwinFold,
+   * 而"忘记调"在账面上一律表现为绿。算得出可折行 ⇒ 本枚没把这一维做完 ⇒ 停手。
+   * (被 `twinFoldRejectReason` 点名拒折的行不进 edits,所以"该交人工的"不会被这条读成"未闭合"。)
+   */
+  const twinLeft = foldTwins(String(merged).split('\n')).edits.length
+
   // G-307(a) 落地闸(healAndLand 走的是这一支,不是 verifyMerge):任何 F1/F2 翻勾若没有
   // "剥复选框/装饰/租约/注记后正文逐字相等",整批停手 —— 截断正文的实现进不了 HEAD。
   const bodyBroken = changed.some(
@@ -762,6 +1157,7 @@ export function healStopReasons(srcText, merged, changed, refusedCount) {
     a0.length !== a1.length ? `行数不等 ${a0.length}→${a1.length}` : null,
     a0.some((l, i) => !touched.has(i + 1) && l !== a1[i]) ? '有未登记行被改动' : null,
     bodyBroken ? '有翻勾行未逐字保留正文(剥注记后必须相等)' : null,
+    twinLeft ? `折叠维未闭合:折完仍有 ${twinLeft} 行"同题不同编号"可折` : null,
     after.forks || after.voidRows || after.rotatedAuto || after.dupOpenCopies
       ? '归并后未归零'
       : null,
@@ -996,6 +1392,95 @@ function selfTest() {
   )
   ok(auditPointerTerminals('').families === 0 && auditPointerTerminals(null).families === 0, '空面不得凭空造出债')
   /**
+   * F10 折叠档 —— 成对断言(单向断言等于没有):
+   *  (a) 同题 + 编号互异 ⇒ 恰好折掉后到的一条,持有行一字不动;
+   *  (b) 第二遍 ⇒ 零改动(幂等是本票的全部价值,不钉住就等于没做);
+   *  (c) 同题而编号相同 ⇒ **不是**本档地盘(那是 F1/F4 那一维);
+   *  (d) 已有归并指针的那一族 ⇒ 不重复折;
+   *  (e) 摘号必须用**真尺子**核,并配一条"把 G-999 写进注记"的正对照 —— 少了正对照,
+   *      `keyOfRow(after) === null` 就只是一句同义反复(今天真犯过这个错:指针里写了持有行的
+   *      编号且落在前 48 字符内 ⇒ 折一条副本反而多造一次撞号)。
+   */
+  const twinSrc = [
+    '- [ ] **G-11. 同一件事**:第一份登记。',
+    '- [ ] **G-12. 同一件事**:并发取号抢到的另一个号,同一件事。',
+    '- [ ] **G-13. 别的事**:与上面两行无关。',
+  ].join('\n')
+  const twLines = twinSrc.split('\n')
+  const tw1 = applyTwinFolds(twinSrc, '2026-09-28')
+  ok(tw1.edits.length === 1, `同题两号应恰好折 1 行,实测 ${tw1.edits.length}`)
+  ok(tw1.edits[0]?.line === 2, `持有行必须是位置最靠前的 L1,折的是 L2,实测 ${JSON.stringify(tw1.edits.map((e) => e.line))}`)
+  ok(tw1.text.split('\n')[0] === twLines[0], '持有行必须逐字不动(一行都不许被顺手改)')
+  ok(tw1.text.split('\n')[2] === twLines[2], '不相关行必须逐字不动')
+  ok(!!tw1.edits[0] && keyOfRow(tw1.edits[0].after) === null, `摘号未生效:keyOfRow 实得 ${tw1.edits[0] && keyOfRow(tw1.edits[0].after)}`)
+  ok(!!tw1.edits[0] && stripTwinFold(tw1.edits[0].after) === twLines[1], '剥掉本档注记后必须逐字回到底稿')
+  ok(!!tw1.edits[0] && /^- \[ \]/.test(tw1.edits[0].after), '本档不得翻勾')
+  ok(
+    !!tw1.edits[0] && headIdOf(tw1.edits[0].after) === headIdOf(twLines[1]),
+    `门 71 的"行首名额"必须原样保住,实得 ${headIdOf(tw1.edits[0] && tw1.edits[0].after)}`,
+  )
+  ok(
+    !!tw1.edits[0] && lostMarkers(twinSrc, tw1.text).length === 0,
+    `折叠不得被防丢层读成消失,实测 ${lostMarkers(twinSrc, tw1.text).length} 处`,
+  )
+  ok(verifyTwinFold(twinSrc, tw1.text, tw1.edits, tw1.refused).problems.length === 0, `正当折叠的零损失断言应全过:${JSON.stringify(verifyTwinFold(twinSrc, tw1.text, tw1.edits, tw1.refused).problems)}`)
+  const tw2 = applyTwinFolds(tw1.text, '2026-09-28')
+  ok(tw2.edits.length === 0 && tw2.text === tw1.text, `幂等:第二遍必须零改动,实测 ${tw2.edits.length} 行`)
+  ok(
+    healStopReasons(twinSrc, tw1.text, tw1.edits.map((e) => ({ ...e, kind: 'F10折叠' })), 0).length === 0,
+    `正当折叠不该被自愈档停手:${JSON.stringify(healStopReasons(twinSrc, tw1.text, tw1.edits.map((e) => ({ ...e, kind: 'F10折叠' })), 0))}`,
+  )
+  ok(
+    healStopReasons(twinSrc, twinSrc, tw1.edits.map((e) => ({ ...e, kind: 'F10折叠' })), 0).join().includes('折叠维未闭合'),
+    '一行都不折(孪生仍在)必须被闭合断言停手 —— 否则"跑过一次"又会被当成"修好了"',
+  )
+  ok(
+    foldTwins(['- [ ] **G-11. 同一件事**:甲。', '- [ ] **G-11. 同一件事**:乙。']).edits.length === 0,
+    '编号相同那一型归 F1/F4,本档不得插手(混维就会有两套翻勾判据互咬)',
+  )
+  const ptrOwned = [
+    '- [ ] **G-11. 同一件事**:甲。',
+    '- [ ] **G-12. 同一件事** 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记,派单以那条为准。〕',
+  ].join('\n')
+  const twPtr = foldTwins(ptrOwned.split('\n'), '2026-09-28')
+  ok(twPtr.edits.length === 0, `已带归并指针的一族不得再折,实测折了 ${twPtr.edits.length} 行`)
+  /** 正对照:注记里出现 `G-<数字>` 且落在主键窗口内 ⇒ 尺子**必须**取得到键,否则上面的 null 断言是同义反复。 */
+  const poisoned = twLines[1].replace(/^- \[ \] /, '- [ ] （【归并】副本·持有行 G-999）')
+  ok(keyOfRow(poisoned) !== null, '正对照失效:把编号写进注记前 48 字符,真尺子竟取不到主键 ⇒ 这条断言没有牙')
+  ok(
+    (twinFoldRejectReason(twLines[1], poisoned) || '').includes('主键'),
+    `编号写进注记必须被拒折判据点名,实得:${twinFoldRejectReason(twLines[1], poisoned)}`,
+  )
+  const numbered = twLines[1].replace(/^- \[ \] /, '- [ ] （【归并】副本·见 L1234）')
+  ok(
+    twinFoldRejectReason(twLines[1], numbered) !== null,
+    '行号写进注记也要被点名拒折(§1 规矩 3;拒因是"取到主键"还是"不可逆"都算拦住,但不能放行)',
+  )
+  ok(
+    buildTwinFold('- [x] ✅(2026-09-20) **G-12. 同一件事**:乙。', twLines[0], '2026-09-28').includes('[x]'),
+    '已完成行若被显式构造,复选框必须原样带过去(选持有行时本档不选它)',
+  )
+  ok(
+    foldTwins(['- [ ] **G-1. 题**:甲。', '- [ ] **G-2. 题**:乙。']).undetermined.length === 0,
+    '两行一族不构成"可疑超上限",不该记未判定',
+  )
+  ok(
+    foldTwins(Array.from({ length: TWIN_GROUP_MAX + 1 }, (_, i) => `- [ ] **G-${10 + i}. 超上限族**:同一件事第 ${i} 份。`)).undetermined
+      .join()
+      .includes('上限'),
+    '组内行数超上限必须点名交人工,不得猜持有行',
+  )
+  ok(
+    foldTwins(['- [x] ✅(2026-09-20) **G-1. 全族已完成**:甲。', '- [x] ✅(2026-09-21) **G-2. 全族已完成**:乙。']).undetermined
+      .join()
+      .includes('已完成'),
+    '全组已勾选 ⇒ 本档不动勾选,点名交 F1/归档器那一维(不得记为"已修")',
+  )
+  ok(
+    foldTwins([]).edits.length === 0 && foldTwins(null).edits.length === 0,
+    '空面不得凭空造出折叠',
+  )
+  /**
    * 带值旗标的取值判据(枚 380431ffc 同族口径)。成对,单向断言等于没有:
    * 只判"坏的必被拒"会让它退化成"永远拒",而 (b) 那一臂证明合法路径照写。
    */
@@ -1047,6 +1532,7 @@ export const KNOWN_FLAGS = [
   '--commit',
   '--dedupe-blocks',
   '--dedupe-rows',
+  '--fold-twins',
   '--audit-pointers',
   '--json',
   '--match',
@@ -1130,6 +1616,69 @@ function main() {
         '① rewriteDup 加指针前先问本判据;② 验收链从「F4=0」升级为「F4=0 ∨ 剩余副本各有终端」。',
     )
     return 0
+  }
+  /**
+   * F10 折叠档(同题不同编号的孪生登记)。三档语义与 --dedupe-blocks 同形:
+   *  ① 不带 --commit ⇒ **报告档**,一行不改;② 带 --commit ⇒ 走对象空间落地(临时索引 +
+   *     commit-tree + CAS,不碰共享工作树);③ 判不出一律交人工,不并入"通过"。
+   * 它刻意**不**挂 post-commit 自动跑的独立入口 —— 这一维已经由 `--heal --commit` 在同一枚
+   * 提交里调度;这里的 --fold-twins --commit 是给人工复核与"只有孪生、没有分叉"那次收口用的。
+   */
+  if (has('--fold-twins')) {
+    const selT = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
+    if (selT.error) {
+      console.log(`⚠️ 无法判定 —— ${selT.error}`)
+      return 2
+    }
+    let srcT
+    try {
+      srcT = readPlan(ROOT, selT.face)
+    } catch (e) {
+      console.log(`⚠️ 无法判定 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
+      return 2
+    }
+    const dayT = argv.find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a)) ?? new Date().toISOString().slice(0, 10)
+    const fT = applyTwinFolds(srcT, dayT)
+    const vT = verifyTwinFold(srcT, fT.text, fT.edits, fT.refused)
+    if (has('--json')) {
+      console.log(
+        JSON.stringify(
+          { face: LABEL[selT.face], day: dayT, edits: fT.edits, groups: fT.groups, undetermined: fT.undetermined, problems: vT.problems },
+          null,
+          2,
+        ),
+      )
+      return vT.problems.length ? 1 : 0
+    }
+    console.log(
+      `判定面:${LABEL[selT.face]}  F10 同题不同编号:成组 ${fT.groups.length} 族(持有行保持原样)/ ` +
+        `拟折 ${fT.edits.length} 行 / 判不出 ${fT.undetermined.length} 条 —— 三态分开数,"判不出"不计入通过`,
+    )
+    for (const e of fT.edits.slice(0, has('--all') ? 99999 : 10)) {
+      console.log(`  - 折 L${e.line}(持有行 L${e.keeperLine},题面「${e.title.slice(0, 40)}」)`)
+    }
+    if (fT.edits.length > 10 && !has('--all')) console.log(`    …另 ${fT.edits.length - 10} 行(--all 全列)`)
+    if (fT.undetermined.length) {
+      console.log(`  ⚠️ 判不出 ${fT.undetermined.length} 条(不折、不记绿,逐条点名):`)
+      for (const u of fT.undetermined.slice(0, has('--all') ? 99999 : 10)) console.log('     · ' + u)
+      if (fT.undetermined.length > 10 && !has('--all')) console.log(`     …另 ${fT.undetermined.length - 10} 条`)
+    }
+    if (!fT.edits.length && !fT.undetermined.length && !fT.groups.length)
+      console.log('  ✅ 本面没有"同题而编号互异"的登记族(F10 = 0 成员,不是"判不出")')
+    if (vT.problems.length) {
+      console.log('❌ 零损失断言未过,拒交付:')
+      for (const p of vT.problems.slice(0, 10)) console.log('   ' + p)
+      return 1
+    }
+    if (fT.edits.length)
+      console.log(
+        '✅ 零损失断言六条全过(行数不变 / 未登记行逐字不变 / 剥注记回底稿 / keyOfRow 取不到主键 / 守门 71 判不到消失 / 折完无残留)',
+      )
+    if (!has('--commit')) {
+      console.log('ℹ️ 未加 --commit:只出报告,一行未改。确认后再跑 --fold-twins --commit')
+      return 0
+    }
+    return twinFoldAndLand()
   }
   if (has('--heal') && has('--commit')) return healAndLand()
   if (has('--heal')) {
@@ -1274,6 +1823,12 @@ function main() {
   console.log(`baseBlob=${baseBlob} —— 落地时必须对这一枚做 CAS:它一挪,行号就不再指向我审过的内容`)
   console.log(`判定面:${LABEL[sel.face]}  现读:F1 ${counts0.forks} 组 / F2 ${counts0.voidRows} 行 / F3 ${counts0.rotatedPointers} 处(其中可自动收口 ${counts0.rotatedAuto}、无出口交人工 ${counts0.rotatedNoExit})/ F4 ${counts0.dupOpenCopies} 副本 / 未勾选 ${counts0.open}`)
   console.log(`拟改写 ${r.changed.length} 行(${r.changed.map((c) => c.kind).sort().join(',')})`)
+  // F10 的现读必须与 F1–F4 同屏报出:它不在 composite 键里,默认档不报就等于"没有这一型"。
+  const twR = foldTwins(src.split('\n'), today)
+  console.log(
+    `F10 同题不同编号的孪生登记:成组 ${twR.groups.length} 族 / 拟折 ${twR.edits.length} 行 / 判不出 ${twR.undetermined.length} 条` +
+      `(判不出不计入通过;逐条点名见 --fold-twins)`,
+  )
   for (const c of r.changed.slice(0, has('--all') ? 9999 : 8)) {
     console.log(`\n  L${c.line} [${c.kind}]`)
     console.log(`    - ${c.before.slice(0, 140)}`)
@@ -1330,6 +1885,20 @@ export const __test__ = {
   rewriteDup,
   anchorOf,
   POINTER_REPAIRS,
+  /**
+   * F10 折叠档的构造与判据一并交出(§22c):镜像测试若自己抄一份"注记长什么样",
+   * 它就会跟着生产侧一起漂绿 —— 今天这套东西最贵的失效型正是"两份实现各说各话"。
+   */
+  foldTwins,
+  buildTwinFold,
+  stripTwinFold,
+  isTwinFolded,
+  twinFoldRejectReason,
+  verifyTwinFold,
+  TWIN_NOTE_RE,
+  TWIN_TAIL_RE,
+  CHECKBOX_LEAD_RE,
+  TWIN_GROUP_MAX,
   /** 测试直接 import 这一份判据(§22c:镜像测试不得再抄一份源判据,抄了就跟着一起漂绿) */
   flagValue,
 }
