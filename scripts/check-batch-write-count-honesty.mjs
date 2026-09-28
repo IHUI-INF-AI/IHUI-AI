@@ -73,9 +73,11 @@
  *   B1/V 都看不见。现已补上 **裸 SQL 写链**这一维(`findRawSqlWriteChains`,写判据用
  *   `DELETE FROM` / `UPDATE <ident>` / `INSERT INTO` / `TRUNCATE TABLE` 的**搭配式**而非裸关键字,
  *   以免把 `WHERE action = 'UPDATE'` 这类读查询判成写)。**仍开着两格,如实登记**:
- *     ① B2 那一跳(ack 在调用方、写住在**另一个文件**的委托函数里)仍只认 drizzle 链 —— 普查实测
- *       HEAD 面"含裸 SQL 写的具名函数"**零个**被 ack 落点调用,所以补它当前无存量可验,属投机;
- *       出现该形状时必须回来接(`indexExportedFns` 需同时收"保留字符串"那一档正文)。
+ *     ① B2 那一跳(ack 在调用方、写住在**另一个文件**的委托函数里)仍只认 drizzle 链 —— 触发条件
+ *       ("任一 ack 落点的最小函数体 await 了体内含无 RETURNING 裸 SQL 写的具名函数 ⇒ 必补",票 守门134)
+ *       现由 `measureB2RawSqlTrigger` 在 HEAD 面**可复跑**地普查(镜像 M24 带阳性/阴性对照钉它不是
+ *       瞎眼量出来的 0)。2026-09-28 复跑:一跳 15 条、命中 0 ⇒ 判据不动。出现该形状的那天 M24 当场红,
+ *       接维时读 `indexExportedFns` 的 rawBodyText("保留字符串"那一档已随测量收进,索引不用再改)。
  *     ② ack 键在 `BOOL_ACK_KEYS` 五键**之外**的同一形状(实测两处病灶的回的是 `updated:true`)——
  *       加键属全 API 语义决策(见上"布尔档的键族"一段),不是这道门能顺手扩的;两处病灶已改真。
  *
@@ -1043,8 +1045,17 @@ const AWAIT_CALL_RE = /\bawait\s+([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)
  *  starReexport  文件里有 `export * from …`  ⇒ 名单不可枚举 ⇒ N1 未判定
  *  reexportNames `export { A } from …` 的再导出名(同样不当作"本体的函数体")
  */
-export function indexExportedFns(code) {
+export function indexExportedFns(code, nonBlankCode = null) {
   const byName = new Map()
+  // 两档面**逐字符同位**(maskText 只抹字符不改长度)⇒ 遮蔽面上算出的范围切"保留字符串"那一档
+  // 就是同一个函数体的原文。判据(B2 第二遍)仍只读 bodyText;rawBodyText 是给
+  // measureB2RawSqlTrigger(票 守门134 触发条件测量)预留的取材口 —— 头注"已知空档①"里
+  // "indexExportedFns 需同时收'保留字符串'那一档正文"说的就是这一行,接维时不必再改索引。
+  const put = (name, start, end) => {
+    const e = { bodyText: code.slice(start, end) }
+    if (nonBlankCode) e.rawBodyText = nonBlankCode.slice(start, end)
+    byName.set(name, e)
+  }
   const reexportNames = new Set()
   let starReexport = false
   let m
@@ -1056,7 +1067,7 @@ export function indexExportedFns(code) {
     let i = close
     while (i < code.length && code[i] !== '{' && code[i] !== ';' && code[i] !== ')') i++
     const end = closeBrace(code, i)
-    if (end > 0 && !byName.has(m[1])) byName.set(m[1], { bodyText: code.slice(i, end) })
+    if (end > 0 && !byName.has(m[1])) put(m[1], i, end)
   }
   const varRe = /\bexport\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*/g
   while ((m = varRe.exec(code)) !== null) {
@@ -1068,14 +1079,14 @@ export function indexExportedFns(code) {
       const bi = from + block[0].length - 1
       const end = closeBrace(code, bi)
       if (end > 0) {
-        byName.set(m[1], { bodyText: code.slice(bi, end) })
+        put(m[1], bi, end)
         continue
       }
     }
     const expr = /^(?:async\s+)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/.exec(slice)
     if (expr) {
       const s0 = from + expr[0].length
-      byName.set(m[1], { bodyText: code.slice(s0, statementEnd(code, s0, code.length)) })
+      put(m[1], s0, statementEnd(code, s0, code.length))
       continue
     }
     const kf = /^function\b/.exec(slice)
@@ -1083,7 +1094,7 @@ export function indexExportedFns(code) {
       let i = from + kf[0].length
       while (i < code.length && code[i] !== '{') i++
       const end = closeBrace(code, i)
-      if (end > 0) byName.set(m[1], { bodyText: code.slice(i, end) })
+      if (end > 0) put(m[1], i, end)
     }
   }
   const namedRe = /\bexport\s*\{([\s\S]*?)\}\s*from/g
@@ -1287,6 +1298,110 @@ export function aggregateB2(res, judged) {
     res.b2.bareExempt += j.bareExempt || 0
   }
   return res
+}
+
+/**
+ * 票 守门134(条件性扩面①)的**触发条件测量** —— 它不是判据:不接 B2、不进 decide、
+ * 不影响任何退出码。B2 那一跳目前只认 drizzle 链,而裸 SQL 写住在被调体的模板串里
+ * (遮蔽面上被抹成空格)⇒ 判据看不见;本函数按票面判据逐字测量:
+ *   **任一 ack 落点的最小函数体 await 了一个"体内含无 RETURNING 裸 SQL 写"的具名函数 ⇒ 必补。**
+ * 命中 > 0 的那天,接 B2 裸 SQL 维时读 indexExportedFns 的 rawBodyText + 复用同一份
+ * findRawSqlWriteChains —— 不得再写第二套 SQL 解析或第二份导出索引(§22c)。
+ * 口径与 B2 第一遍同形、取材同面同轮:ack 落点 = findBooleanAckSends(与 V1/B1 同一份),
+ * 一跳解析 = parseImportBindings + resolveModuleSpec(与 planDelegatedAckSites 同一份),
+ * 裸 SQL 写判据 = findRawSqlWriteChains(与 B1/V 同一份)。刻意**不**照抄 planDelegatedAckSites
+ * 的两处收窄(有直接 drizzle 链归 B1 那一格、调用方自带库答复那一格)—— 票面问的是"任一 ack
+ * 落点",测宽不测漏;命中若落在 B1 射程,接维时再按判据口径归位。
+ * 2026-09-28 立票实测:真仓 HEAD 面一跳 15 条、命中 0、判不出 0(含无 RETURNING 裸 SQL 写的
+ * 具名导出函数全 src 共 7 个,零个被 ack 落点经 import 调用)⇒ 判据不动,测量由镜像 M24 复跑。
+ * @returns {{hits:Array, hops:number, undetermined:Array}}
+ */
+export function measureB2RawSqlTrigger(root, face) {
+  assertRepoRoot(root, GATE)
+  const paths = listCandidates(root, face)
+  if (!paths.length)
+    throw new Undetermined(
+      `${face} 面在 ${SCAN_DIRS.join(' / ')} 下枚举到 0 个候选源文件 ⇒ 测量失效,这个 0 不是"没有触发"`,
+    )
+  const texts = readCandidates(root, face, paths)
+  const known = listFacePaths(root, face)
+  const hops = []
+  const undetermined = []
+  for (const p of paths) {
+    const t = texts.get(p)
+    const mk = maskText(t)
+    const masked = mk.text
+    if (mk.leaks.length) {
+      undetermined.push({ caller: p, line: 0, kind: 'lexical-unclosed' })
+      continue // U2 同口径:词法未闭合的文件结论不可信,不拿它冒充 0
+    }
+    const nonBlank = maskText(t, { blankStrings: false }).text
+    const bodies = findFunctionBodies(masked)
+    const imports = parseImportBindings(nonBlank, masked)
+    for (const b of findBooleanAckSends(masked)) {
+      const body = enclosingBody(bodies, b.index)
+      if (!body) continue // 解析不出函数体那一格连 B1 都不判,更不构成 B2 的触发
+      const bodyText = masked.slice(body.start, body.end)
+      AWAIT_CALL_RE.lastIndex = 0
+      let m
+      while ((m = AWAIT_CALL_RE.exec(bodyText)) !== null) {
+        const parts = m[1].split(/\s*\.\s*/)
+        const base = parts[0]
+        const line = lineAt(masked, body.start + m.index)
+        if (parts.length > 1) {
+          if (imports.namespaces.has(base))
+            undetermined.push({ caller: p, line, kind: 'namespace-forward', name: m[1] })
+          continue
+        }
+        const binding = imports.named.get(base)
+        if (!binding) continue // 本地 helper:不属 B2 那一跳(N3 同口径)
+        const r = resolveModuleSpec(binding.specifier, p, known)
+        if (!r.path) {
+          undetermined.push({ caller: p, line, kind: r.kind, name: base, specifier: binding.specifier })
+          continue
+        }
+        hops.push({ caller: p, line, key: b.key, path: r.path, name: binding.exported })
+      }
+    }
+  }
+  const calleeTexts = readCalleeTexts(root, face, [...new Set(hops.map((h) => h.path))])
+  const idx = new Map()
+  for (const [cp, ct] of calleeTexts)
+    idx.set(cp, indexExportedFns(maskText(ct).text, maskText(ct, { blankStrings: false }).text))
+  const hits = []
+  for (const h of hops) {
+    if (!calleeTexts.has(h.path)) {
+      undetermined.push({ caller: h.caller, line: h.line, kind: 'callee-face-missing', name: h.name, path: h.path })
+      continue
+    }
+    const fn = idx.get(h.path).byName.get(h.name)
+    if (!fn) {
+      undetermined.push({ caller: h.caller, line: h.line, kind: 'callee-not-indexed', name: h.name, path: h.path })
+      continue
+    }
+    const cw = findRawSqlWriteChains(fn.rawBodyText || '')
+    const bare = cw.chains.filter((c) => !c.hasReturning)
+    if (bare.length)
+      hits.push({
+        caller: h.caller,
+        line: h.line,
+        key: h.key,
+        callee: h.path,
+        fn: h.name,
+        bareWrites: bare.length,
+        receivers: [...new Set(bare.map((c) => c.receiver))],
+      })
+    for (const u of cw.unparsed)
+      undetermined.push({
+        caller: h.caller,
+        line: h.line,
+        kind: 'callee-execute-unparsed',
+        name: h.name,
+        path: h.path,
+        at: u.index,
+      })
+  }
+  return { hits, hops: hops.length, undetermined }
 }
 
 /* ------------------------------- 单文件判据 ------------------------------- */
@@ -2486,6 +2601,15 @@ const B2FIX = {
     '  return reply.send(success({ id, deleted: true }))',
     '  return reply.send(success({ removed: true, deleted }))',
   ),
+  /* ---- 票 守门134(条件性扩面①)触发条件测量的对照腿 ----
+   * 判据(B2)对这两条**都不判** —— 那一跳目前只认 drizzle 链;它们是 measureB2RawSqlTrigger
+   * 的阳性/阴性对照(镜像 M24),证明"HEAD 面命中 0"是测量有眼量出来的,不是测量失明读出来的。 */
+  /** 被调腿发裸 SQL 写而无 RETURNING ⇒ 触发条件形状,测量必须命中。 */
+  calleeRawNoReturning:
+    'export async function deleteThing(id: string): Promise<void> {\n  await db.execute(sql`DELETE FROM things WHERE id = ${id}`)\n}\n',
+  /** 同一条腿补 RETURNING ⇒ 库答复住在模板串里,不是触发(阴性对照)。 */
+  calleeRawReturning:
+    'export async function deleteThing(id: string): Promise<any[]> {\n  return db.execute(sql`DELETE FROM things WHERE id = ${id} RETURNING id`)\n}\n',
 }
 
 function selfTest(argv) {
@@ -3742,6 +3866,8 @@ export const __test__ = {
   listFacePaths,
   readCalleeTexts,
   scanFaceBundle,
+  // 票 守门134 触发条件测量(不是判据):镜像 M24 从这里取,不得在测试里再写一份一跳解析。
+  measureB2RawSqlTrigger,
   B2_FIXTURES: B2FIX,
   B2_CALLER,
   B2_CALLEE,

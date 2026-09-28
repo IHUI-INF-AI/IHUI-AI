@@ -56,9 +56,48 @@
  *   R4/R5 放过的每一条(仅统计"值确实不同却被放过"的那些)都进 overrideExempted /
  *   peerExempted,并在结论行报数与 --json 里可审计(含命中的 override key),不静默变绿。
  *   R6 的**覆盖面自证**(2026-09-27 补):结论行单独印
- *   `维度 R6 段位置对账:核 N 条非 peer 声明键 / 段位置违规 M / peer 声明 K 条不参与(实测 importer 段集 …)`。
+ *      `维度 R6 段位置对账:核 N 条非 peer 声明键 / 段位置违规 M / peer 声明 K 条不参与(实测 importer 段集 …)`。
  *   这一维若只混在"违规 N"里,读报告的人就分不开"判过且干净"与"一条都没核"—— 而后者正是本仓
  *   记过最多次的失效型("把没判写成判过了")。N 为 0 时该行显式追加"⚠️ 一条都没核,不得读成已通过"。
+ *   R6 与维度 A/B 的**协调**(2026-09-28 L14030 续票逐条论证,不得读成"顺手放宽"):
+ *     · **overrides 命中时同样按段判,override 不豁免段位置。** 理由:override 改写的是 lock 里
+ *       `specifier` 的**值**(pnpm 把 override 目标写进该字段),它**不改这个键归属哪一段** —— 段
+ *       由 manifest 里这个依赖写在哪个字段决定,与版本选择器无关。而 `--frozen-lockfile` 的比对
+ *       是"取 `importers.<pkg>.<清单同名字段>` 里的 specifier":段错了连**条目都取不到**,那是
+ *       整段跳过链接的成因,与"取到了但值不等"是两种病。所以段判必须排在 override 放过**之前**
+ *       —— 代码顺序即判据,写成"先命中 override 就 continue"会让跨段被 overrideExempted 洗白
+ *       (镜像 T31 用"被 override 的依赖 manifest 记 devDeps、lock 记 deps 且值恰等于目标"钉住)。
+ *       **这一维的红与 pnpm 的拒装是同一件事(2026-09-28 双臂实测,临时仓零触碰真仓)**:
+ *       同一份 manifest(`dependencies.dayjs`)配两份只差段名的 lock 跑 CI 那一跑
+ *       `pnpm install --frozen-lockfile` ⇒ 跨段臂 RC=1 且回
+ *       `[ERR_PNPM_OUTDATED_LOCKFILE] Cannot install with "frozen-lockfile" …not up to date with
+ *       <ROOT>\package.json`,同段臂则先过 `Lockfile is up to date, resolution step is skipped`。
+ *       ⚠️ 取证口径:`--dry-run` 那一档**两臂退出码都是 0**,判别只在文案上
+ *       (`up to date; a real install would make no changes` ↔ `A real install would make the
+ *       following changes`)—— 拿 dry-run 的 RC 当"CI 装得上"的结论就是一台恒绿的尺子。
+ *     · **peer 落 dependencies/devDependencies 段不判段位置,是结构性的而不是措辞习惯**(维度 B):
+ *       现审面实测 26 个 importer 的段集 = dependencies×17 / devDependencies×23 / optionalDependencies×1,
+ *       **没有 peerDependencies 段**,于是"清单 peer 段 ↔ 锁 peer 段"没有可比对象;按逐段键集等值
+ *       判会亮 14 条而 14 条全是 peer 声明 ⇒ 那是尺子错,不是仓库债。但这一条**豁免的前提是可测的**,
+ *       所以它不再是前提时必须喊出来:若某一包的 importer **有** peerDependencies 段、而该 peer 声明
+ *       不在其中,本门不再假定"放过是对的",落 U3 未判定(见下),而不是静默豁免。
+ *   R6 的三型**判不准**(U1/U2/U3)—— 既不冒红也不记绿,一律点名:
+ *     · **U1 value-unreadable**:命中的锁条目没有 `specifier` 字段 ⇒ 段维仍按"键在位"照判,
+ *       但**值**维无从比对。旧写法会拿 `null` 去和声明值比,产出一枚 `locked: null` 的假 mismatch;
+ *       peer 那一支还会把它计进"放过了一条值漂移",那是把没判写成判过了。
+ *     · **U2 optional-placement-unmodeled**:正要判跨段,而该锁条目带 `optional:` 标记 ⇒ 本解析器
+ *       不建模 pnpm 对 optional 条目的落段规则(现审面实测 `optional:` 出现 0 次,故这不是"已知
+ *       无害"而是"没见过 ⇒ 不敢猜"),分不清"跨段漂移"与"optional 的合法落段",判不准。
+ *     · **U3 peer-section-exists-but-skipped**:见上,维度 B 的豁免前提在被审面上不再成立。
+ *   **--strict(2026-09-28 落地;此前该旗标在本门根本不存在,而 PROJECT_PLAN 已有条目按"跑了
+ *   --strict 且 RC=0"当证据 —— 未知旗标被 argv 静默忽略,那句读数是空转得来的,属"文档写了
+ *   跑不通的出路")**:语义 = **拒绝出具合格证**,不改判据。
+ *     · 有违规 ⇒ 仍 exit 1(已判出的红必须点名,不能被"不出证"盖掉);
+ *     · 无违规但 U1+U2+U3 > 0,**或段维一条都没核(sectionChecked=0)** ⇒ exit 2;
+ *     · 无违规且未判定 0 ⇒ exit 0。
+ *     默认档(提交链走这一档,runner `args: []`)**只报数不判红** —— 与改动无关的恒红门唯一结局
+ *     是逼人 `--no-verify` 连带废掉全部守门(§12e);现审面实测 U1/U2/U3 = 0,所以 --strict
+ *     今日 RC=0,不是出生即红。
  *
  * 模式与**判定面**(2026-09-24 收口到本仓对"读内容作判据"的既立口径,同守门 70/77/83/98):
  *   缺省(全量审计) 判 **HEAD blob**(`git show HEAD:<path>`)
@@ -82,12 +121,14 @@
  *   咬出的假 exit 2)、junction 下的仓库根比较、64MB maxBuffer —— 全部由
  *   `scripts/lib/face-reader.mjs` 单点持有。本门只留自己需要的**形状适配**(`has` / `listDir`:
  *   94 要文件清单、101 要包清单,层刻意不统一对外形状)。再抄一份实现等于再抄一份风险。
- *   --json     机器可读输出(judgedFace 如实标面)
+ *   --json     机器可读输出(judgedFace 如实标面;含 undeterminedItems 逐条)
+ *   --strict   拒绝出具合格证:未判定 > 0 或段维一条都没核 ⇒ exit 2(详见上段"--strict"条)。
+ *              提交链**不带**这一档(runner `args: []`),默认档只报数
  *   --root <d> 显式指定仓库根(测试通道;缺省由脚本自身位置推导)。注意配 --worktree
  *              才按磁盘判 —— 磁盘夹具目录通常不是 git 仓,判 HEAD/索引会如实 exit 2。
  *   --self-test 临时目录小 fixture 正反成对自检(绝不扫真仓)
  *
- * 退出码:0 通过 / 1 业务违规 / 2 无法判定或脚本自身异常
+ * 退出码:0 通过 / 1 业务违规 / 2 无法判定、脚本自身异常,或 --strict 下有未判定而拒绝出合格证
  */
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -454,7 +495,7 @@ export function parseLockImporters(text) {
       if (!sectionName) throw new Undetermined(`第 ${i + 1} 行的包名出现在任何依赖段之外`)
       const m = line.match(/^ {6}(.+?):\s*$/)
       if (!m) throw new Undetermined(`包名行不认识(第 ${i + 1} 行): ${line}`)
-      dep = { specifier: null }
+      dep = { specifier: null, optional: undefined }
       sections.get(sectionName).set(unquoteScalar(m[1]), dep)
       continue
     }
@@ -462,7 +503,11 @@ export function parseLockImporters(text) {
       const m = line.match(/^ {8}([A-Za-z]+):\s*(.*)$/)
       if (!m || !dep) throw new Undetermined(`specifier/version 行不认识(第 ${i + 1} 行): ${line}`)
       if (m[1] === 'specifier') dep.specifier = unquoteScalar(m[2])
-      else if (m[1] !== 'version' && m[1] !== 'optional') {
+      // `optional` 过去被**静默丢弃**(只保证不报"未知字段")。丢弃的代价不是少一个信息,
+      // 而是段维度在"条目带 optional 标记"时给出一个它没有资格给出的结论 —— 见头注 U2。
+      // 现把它取进条目,判据据此把该条落"未判定",而不是冒红或记绿。
+      else if (m[1] === 'optional') dep.optional = unquoteScalar(m[2]) !== 'false'
+      else if (m[1] !== 'version') {
         throw new Undetermined(`importer 依赖项下出现未知字段 "${m[1]}"(第 ${i + 1} 行)`)
       }
       continue
@@ -473,11 +518,25 @@ export function parseLockImporters(text) {
   return importers
 }
 
+/**
+ * "这条锁条目到底读没读到值"的唯一判式。刻意写两档而不是 `== null`:本仓 eslint 开着
+ * `eqeqeq`,`== null` 会在下一次 lint 里以**错误**形态挡下别人的提交(§12e:红在本任务
+ * 之外照样逼人绕钩子)。语义就是"没取到 ⇒ 值维判不准"。
+ */
+const isUnset = (v) => v === null || v === undefined
+
 export function compareDeclarations(declaredBySection, lockSections, overrideEntries = []) {
   const violations = []
   const orphans = []
   const overrideExempted = []
   const peerExempted = []
+  /**
+   * 三型**判不准**(U1 value-unreadable / U2 optional-placement-unmodeled /
+   * U3 peer-section-exists-but-skipped),逐条点名。它们既不进 violations,也不进任何
+   * "放过"清单 —— 本仓最高频的失效型是"把没判写成判过了",而"放过"与"没判"在账面上
+   * 长得一模一样,所以必须分列(见头注 R6 的三型判不准)。
+   */
+  const undetermined = []
   const declaredNames = new Set()
   for (const section of DEP_SECTIONS) {
     for (const [name, spec] of Object.entries(declaredBySection[section] ?? {})) {
@@ -504,8 +563,32 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
       const pick = candidates.find((c) => c.in === section) ?? candidates[0]
       // 维度 B:peer 的 lock 记账常在别的段且值是解析后的范围 ⇒ 不比值,只验条目在位(缺条目已红)
       if (section === 'peerDependencies') {
-        // 只把"值确实不同却被放过"计入报数,逐字相同的 peer 属于正常绿,不算豁免
-        if (pick.entry.specifier !== spec) {
+        // U3:维度 B 的豁免建立在一条**可测前提**上 —— 现审面实测 26 个 importer 里
+        // 根本没有 peerDependencies 段,所以"清单 peer 段 ↔ 锁 peer 段"没有可比对象,只能放过。
+        // 一旦被审面上这个段存在、而这条 peer 声明不在其中,前提就没了:此时继续"放过"
+        // 等于替一个本可以比的形态背书。判不准,不冒红也不记绿(--strict 拒绝出合格证)。
+        if (own === undefined && lockSections.has('peerDependencies')) {
+          undetermined.push({
+            reason: 'peer-section-exists-but-skipped',
+            section,
+            name,
+            declared: spec,
+            locked: pick.entry.specifier,
+            lockedIn: pick.in,
+          })
+        } else if (isUnset(pick.entry.specifier) || typeof spec !== 'string') {
+          // U1:键在位(段维照判完了),但值读不出。旧写法会拿 null 去比,把"没读到"
+          // 计成"值漂移"并塞进 peerExempted —— 那是把没判写成判过了。
+          undetermined.push({
+            reason: 'value-unreadable',
+            section,
+            name,
+            declared: spec,
+            locked: pick.entry.specifier,
+            lockedIn: pick.in,
+          })
+        } else if (pick.entry.specifier !== spec) {
+          // 只把"值确实不同却被放过"计入报数,逐字相同的 peer 属于正常绿,不算豁免
           peerExempted.push({
             section,
             name,
@@ -523,8 +606,40 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
       // 而 bundler 按 manifest 读到的却是"生产依赖"。维度 B 只豁免 peer —— pnpm 把 peer 记进
       // 别的段是它文档化的行为,把 runtime 依赖记进 dev 段不是。
       if (!candidates.some((c) => c.in === section)) {
+        // **这一支必须排在 override 放过之前**(代码顺序即判据,头注 R6 的"协调"条):
+        // override 只改 lock 里 specifier 的**值**,不改这个键归属哪一段;跨段是"取不到条目"
+        // 那一型,与"取到了但值不等"是两种病,所以被 override 命中的依赖**照样按段判**。
+        // 写成"先命中 override 就 continue"会让跨段被 overrideExempted 洗白(镜像 T31 钉住)。
+        //
+        // U2:正要判跨段,而这条锁条目带 `optional:` 标记 ⇒ 本解析器**不建模** pnpm 对
+        // optional 条目的落段规则(现审面实测 `optional:` 出现 0 次 —— "没见过"不等于"无害",
+        // 没见过就说明无从判),分不清这是漂移还是 optional 的合法落段。判不准。
+        if (pick.entry.optional) {
+          undetermined.push({
+            reason: 'optional-placement-unmodeled',
+            section,
+            name,
+            declared: spec,
+            locked: pick.entry.specifier,
+            lockedIn: pick.in,
+          })
+          continue
+        }
         violations.push({
           kind: 'section-drift',
+          section,
+          name,
+          declared: spec,
+          locked: pick.entry.specifier,
+          lockedIn: pick.in,
+        })
+        continue
+      }
+      // U1(非 peer 支):段维这条已经判完了(同段有条目),但值维读不出 ——
+      // 不得拿 null 与声明值比出一枚 `locked: null` 的假 mismatch,也不得算"绿"。
+      if (isUnset(pick.entry.specifier) || typeof spec !== 'string') {
+        undetermined.push({
+          reason: 'value-unreadable',
           section,
           name,
           declared: spec,
@@ -586,7 +701,7 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
       if (!declaredNames.has(name)) orphans.push({ section: s, name, locked: entry.specifier })
     }
   }
-  return { violations, orphans, overrideExempted, peerExempted }
+  return { violations, orphans, overrideExempted, peerExempted, undetermined }
 }
 
 /** 维度 A 的输入:同一个面读 pnpm-workspace.yaml 的 overrides 段 */
@@ -627,6 +742,7 @@ export function runCheck(root, face = 'worktree') {
     const orphans = []
     const overrideExempted = []
     const peerExempted = []
+    const undeterminedItems = []
     let declarations = 0
     let sectionChecked = 0
     let peerSectionSkipped = 0
@@ -669,10 +785,12 @@ export function runCheck(root, face = 'worktree') {
       for (const o of r.orphans) o.pkg = rel
       for (const x of r.overrideExempted) x.pkg = rel
       for (const x of r.peerExempted) x.pkg = rel
+      for (const u of r.undetermined) u.pkg = rel
       violations.push(...r.violations)
       orphans.push(...r.orphans)
       overrideExempted.push(...r.overrideExempted)
       peerExempted.push(...r.peerExempted)
+      undeterminedItems.push(...r.undetermined)
     }
     return {
       undetermined: null,
@@ -688,6 +806,9 @@ export function runCheck(root, face = 'worktree') {
       sectionDrift: violations.filter((v) => v.kind === 'section-drift'),
       sectionChecked,
       peerSectionSkipped,
+      // 三型判不准(U1/U2/U3)逐条点名 —— 它必须与"放过"分列,否则"没判"与"判过且干净"
+      // 在账面上同形(本仓最高频失效型)。--strict 据此拒绝出具合格证。
+      undeterminedItems,
       lockSectionNames: [...lockSectionNames.entries()].sort(),
     }
   } catch (e) {
@@ -706,6 +827,7 @@ export function runCheck(root, face = 'worktree') {
         sectionDrift: [],
         sectionChecked: 0,
         peerSectionSkipped: 0,
+        undeterminedItems: [],
         lockSectionNames: [],
       }
     }
@@ -744,7 +866,37 @@ function formatViolation(v) {
   )
 }
 
-function report(result, mode, face) {
+/** 三型判不准的说辞(报告面与 --json 共用一份,不得两处各写一遍) */ const UNDET_REASON_TEXT = {
+  'value-unreadable': '锁条目没有 specifier 字段 ⇒ 值维判不准(段维按键在位照判)',
+  'optional-placement-unmodeled':
+    '锁条目带 optional 标记 ⇒ 本判据不建模 optional 的落段规则,段维判不准',
+  'peer-section-exists-but-skipped':
+    'importer 有 peerDependencies 段而该 peer 声明不在其中 ⇒ 维度 B 的豁免前提不再成立',
+}
+
+/**
+ * 合格证拒绝判据 —— **唯一一份**。报告文案与 --json 的退出码必须同源:两处各写一遍
+ * "什么算不出证"必然漂移,而漂移的表现永远是"某一条路径悄悄放行"(本仓 §"两处算同一件事")。
+ * 红(violations)优先于不出证:已判出的违规必须点名,不能被"不出合格证"盖掉。
+ */
+export function certRefusal(result, strict) {
+  if (!strict) return null
+  if (result.violations.length > 0) return null
+  const undets = result.undeterminedItems ?? []
+  if (undets.length > 0 || result.sectionChecked === 0)
+    return { undets: undets.length, sectionChecked: result.sectionChecked }
+  return null
+}
+
+/** 退出码的唯一算式(0 通过 / 1 业务违规 / 2 无法判定或 --strict 拒绝出合格证) */
+export function decideExitCode(result, strict) {
+  if (result.undetermined) return 2
+  if (result.violations.length > 0) return 1
+  if (certRefusal(result, strict)) return 2
+  return 0
+}
+
+function report(result, mode, face, strict = false) {
   const judged = face ?? result.judgedFace ?? 'worktree'
   console.log(
     `🔍 lock↔manifest specifier 对账 [${mode}] | 判定面: ${FACE_LABEL[judged]} —— ${FACE_NOTE[judged]}`,
@@ -754,7 +906,7 @@ function report(result, mode, face) {
     console.error(
       `❌ 无法判定: ${result.undetermined} —— 本门拒绝在判据失效时"静默记为通过"(exit 2)`,
     )
-    return 2
+    return decideExitCode(result, strict)
   }
   console.log(
     `扫描包 ${result.packagesScanned} / 声明条目 ${result.declarations} / 违规 ${result.violations.length} / 孤儿记账 ${result.orphans.length}(反向条目不计红,如实报数)`,
@@ -774,6 +926,19 @@ function report(result, mode, face) {
       `无 peerDependencies 段可比)` +
       (result.sectionChecked === 0 ? ' —— ⚠️ 一条都没核,不得把本维读成"已通过"' : ''),
   )
+  // **未判定必须自成一维**,既不进 violations 也不进"放过"清单:"放过"是"判了、结论是合法",
+  // "未判定"是"没判出结论"。两者同形就是把没判写成判过了(本仓记过最多次的失效型)。
+  const undets = result.undeterminedItems ?? []
+  console.log(
+    `未判定 ${undets.length} 条(段/值判不准,既不记绿也不冒红${strict ? ';--strict 下拒绝出合格证' : ';默认档只报数'})` +
+      (undets.length > 0 ? ':' : ' —— 本维全部判出结论'),
+  )
+  for (const u of undets) {
+    console.log(
+      `[未判定] ${u.pkg} ${u.section}.${u.name}: ${(UNDET_REASON_TEXT[u.reason] ?? u.reason).trim()}` +
+        `(锁记在 ${u.lockedIn},specifier ${u.locked})`,
+    )
+  }
   for (const v of result.violations) console.log(formatViolation(v))
   for (const o of result.orphans) {
     console.log(
@@ -781,15 +946,25 @@ function report(result, mode, face) {
     )
   }
   if (result.violations.length === 0) {
-    console.log(
-      `✅ specifier 全部一致、段位置违规 ${result.sectionDrift.length}(孤儿记账 ${result.orphans.length} 条、override 放过 ${result.overrideExempted.length} 条、peer 放过 ${result.peerExempted.length} 条均不计红)`,
-    )
-    return 0
+    // --strict 的语义是**拒绝出具合格证**,不是加判据。判据只有一份(certRefusal),
+    // 文案与退出码同源 —— 报告说"拒绝"而退出码给 0,就等于写了一条跑不通的出路。
+    const refusal = certRefusal(result, strict)
+    if (refusal) {
+      console.error(
+        `❌ --strict 拒绝出具合格证:未判定 ${refusal.undets} 条、段维核对 ${refusal.sectionChecked} 条` +
+          `(要求未判定 = 0 且段维至少核过 1 条)—— "没判出结论"不得读成"通过"`,
+      )
+    } else {
+      console.log(
+        `✅ specifier 全部一致、段位置违规 ${result.sectionDrift.length}(孤儿记账 ${result.orphans.length} 条、override 放过 ${result.overrideExempted.length} 条、peer 放过 ${result.peerExempted.length} 条均不计红)`,
+      )
+    }
+    return decideExitCode(result, strict)
   }
   console.log(
     '修复姿势: 改 package.json 后跑一次全量 `pnpm install`(不带 --filter)让 lock 重新记账,两者必须同 commit。',
   )
-  return 1
+  return decideExitCode(result, strict)
 }
 
 function w(path, content) {
@@ -891,6 +1066,29 @@ function wsWithOverrides(overrideLines) {
     "    - '@opentelemetry/api'",
     '',
   ].join('\n')
+}
+
+/**
+ * 逐条控制 importer 条目字段的夹具构造器。
+ * `lockFrom` 恒写 specifier+version,而三型判不准(U1 缺 specifier / U2 带 optional)
+ * 恰恰要求"少写字段"与"多写字段"两种异形 —— 那种形状只能精确点出来,不得靠改
+ * lockFrom 的默认行为去凑(那会把正常夹具一起改掉)。
+ */
+export function lockExact(sections) {
+  const lines = ["lockfileVersion: '9.0'", '', 'importers:', '', '  .: {}', '', '  apps/web:']
+  for (const [section, list] of Object.entries(sections)) {
+    if (list.length === 0) continue
+    lines.push(`    ${section}:`)
+    for (const dep of list) {
+      lines.push(`      ${JSON.stringify(dep.name)}:`)
+      for (const [k, v] of Object.entries(dep)) {
+        if (k === 'name') continue
+        lines.push(`        ${k}: ${JSON.stringify(v)}`)
+      }
+    }
+  }
+  lines.push('', 'packages:', '')
+  return lines.join('\n')
 }
 
 const ACCIDENT_DEPS_BLOCK = [
@@ -1382,6 +1580,194 @@ export function runSelfTest() {
       rCatalogGuard.violations.length === 0,
     )
 
+    /* ---------- R6 与维度 A/B 的协调(L14030 续票:override 不豁免段、peer 只豁免"落哪段") ---------- */
+    const ovrWs = wsWithOverrides(['  dayjs: 2.0.0'])
+    // 被 override 的依赖:manifest 记 devDeps、lock 记 deps,而值**恰好等于 override 目标**
+    // ⇒ 必须判 section-drift,不得被 overrideExempted 洗白(头注:"override 改的是值,不改归属段")。
+    const ovrDrift = makeFixture(join(scratch, 'ovr-cross-section'), {
+      webPkg: { devDependencies: { dayjs: '^1.11.0' } },
+      lock: lockFrom({ dependencies: { dayjs: '2.0.0' } }),
+      workspace: ovrWs,
+    })
+    const rOvrDrift = runCheck(ovrDrift)
+    t(
+      'R6×维度A:被 override 的依赖跨段仍判 section-drift(段判排在 override 放过之前,值等于目标也不豁免)',
+      rOvrDrift.violations.length === 1 &&
+        rOvrDrift.violations[0].kind === 'section-drift' &&
+        rOvrDrift.violations[0].section === 'devDependencies' &&
+        rOvrDrift.violations[0].lockedIn === 'dependencies' &&
+        rOvrDrift.overrideExempted.length === 0,
+    )
+    const ovrSame = makeFixture(join(scratch, 'ovr-same-section'), {
+      webPkg: { devDependencies: { dayjs: '^1.11.0' } },
+      lock: lockFrom({ devDependencies: { dayjs: '2.0.0' } }),
+      workspace: ovrWs,
+    })
+    const rOvrSame = runCheck(ovrSame)
+    t(
+      'R6×维度A 反向对照:同一段 + 值等于 override 目标 ⇒ 绿并计 overrideExempted(证明上一条不是逢 override 即红)',
+      rOvrSame.violations.length === 0 &&
+        rOvrSame.overrideExempted.length === 1 &&
+        rOvrSame.undeterminedItems.length === 0,
+    )
+
+    /* ---------- 三型判不准:既不冒红也不记绿,且必须被点名 ---------- */
+    const noSpec = makeFixture(join(scratch, 'u1-no-specifier'), {
+      webPkg: { dependencies: { dayjs: '^1.11.0' } },
+      // 同段、条目在位,但锁里根本没写 specifier ⇒ 值维判不准。旧写法会拿 null 去比,
+      // 产出一枚 locked:null 的假 mismatch(把没读到写成"值漂移")。
+      lock: lockExact({ dependencies: [{ name: 'dayjs', version: '1.11.1' }] }),
+    })
+    const rU1 = runCheck(noSpec)
+    t(
+      'U1 锁条目缺 specifier ⇒ 落未判定,不得产假 mismatch,也不得算绿',
+      rU1.violations.length === 0 &&
+        rU1.undeterminedItems.length === 1 &&
+        rU1.undeterminedItems[0].reason === 'value-unreadable' &&
+        rU1.undeterminedItems[0].pkg === 'apps/web',
+    )
+    const u1StillDrift = makeFixture(join(scratch, 'u1-peer-no-specifier'), {
+      webPkg: { peerDependencies: { react: '>=18' } },
+      lock: lockExact({ devDependencies: [{ name: 'react', version: '19.0.0' }] }),
+    })
+    const rU1Peer = runCheck(u1StillDrift)
+    t(
+      'U1 的 peer 一支:值读不出不得计进 peerExempted(那是把没判写成"放过了一条值漂移")',
+      rU1Peer.violations.length === 0 &&
+        rU1Peer.peerExempted.length === 0 &&
+        rU1Peer.undeterminedItems.length === 1,
+    )
+    const optCross = makeFixture(join(scratch, 'u2-optional-cross'), {
+      webPkg: { dependencies: { fsevents: '^2.3.0' } },
+      // 正要判跨段,而该条目带 optional: ⇒ 本解析器不建模 optional 的落段规则(现审面实测 0 次,
+      // 没见过不等于无害)⇒ 判不准,既不判 drift 也不放过。
+      lock: lockExact({
+        devDependencies: [
+          { name: 'fsevents', specifier: '^2.3.0', version: '2.3.3', optional: true },
+        ],
+      }),
+    })
+    const rU2 = runCheck(optCross)
+    t(
+      'U2 跨段 + 锁条目带 optional ⇒ 落未判定(不冒红也不记绿),段维不得拿没建模的形状判红',
+      rU2.violations.length === 0 &&
+        rU2.undeterminedItems.length === 1 &&
+        rU2.undeterminedItems[0].reason === 'optional-placement-unmodeled',
+    )
+    const optSame = makeFixture(join(scratch, 'u2-optional-same'), {
+      webPkg: { optionalDependencies: { fsevents: '^2.3.0' } },
+      lock: lockExact({
+        optionalDependencies: [
+          { name: 'fsevents', specifier: '^2.3.0', version: '2.3.3', optional: true },
+        ],
+      }),
+    })
+    t(
+      'U2 反向对照:同段 + optional ⇒ 绿且无未判定(optional 只让"跨段"这一结论失去资格)',
+      runCheck(optSame).violations.length === 0 && runCheck(optSame).undeterminedItems.length === 0,
+    )
+    const peerSectionExists = makeFixture(join(scratch, 'u3-peer-section'), {
+      webPkg: { peerDependencies: { react: '>=18' } },
+      // 维度 B 的豁免前提是"实测 importer 没有 peerDependencies 段可比"。夹具里这个段存在
+      // 而该 peer 不在其中 ⇒ 前提不再成立 ⇒ 判不准(不得继续静默豁免)。
+      lock: lockExact({
+        peerDependencies: [{ name: 'vue', specifier: '^3.0.0', version: '3.4.0' }],
+        devDependencies: [{ name: 'react', specifier: '19.0.0', version: '19.0.0' }],
+      }),
+    })
+    const rU3 = runCheck(peerSectionExists)
+    t(
+      'U3 importer 有 peer 段而该 peer 不在其中 ⇒ 落未判定,不得静默按维度 B 放过',
+      rU3.violations.length === 0 &&
+        rU3.undeterminedItems.length === 1 &&
+        rU3.undeterminedItems[0].reason === 'peer-section-exists-but-skipped',
+    )
+    t(
+      '判不准不得串门:U1 与真 mismatch 是两件事(值不等仍判 mismatch,不进未判定)',
+      (() => {
+        const realMismatch = makeFixture(join(scratch, 'u1-vs-real-mismatch'), {
+          webPkg: { dependencies: { dayjs: '^1.11.0' } },
+          lock: lockExact({
+            dependencies: [{ name: 'dayjs', specifier: '^2.0.0', version: '2.0.0' }],
+          }),
+        })
+        const rm = runCheck(realMismatch)
+        return (
+          rm.violations.length === 1 &&
+          rm.violations[0].kind === 'mismatch' &&
+          rm.undeterminedItems.length === 0
+        )
+      })(),
+    )
+
+    /* ---------- --strict:拒绝出具合格证,而不是加判据 ---------- */
+    const strictGreen = runCheck(driftFixed) // 全同段、零未判定
+    t(
+      '--strict 的真绿侧:未判定 0 且段维核过 ≥1 条 ⇒ decideExitCode = 0(不得出生即红)',
+      strictGreen.violations.length === 0 &&
+        strictGreen.undeterminedItems.length === 0 &&
+        strictGreen.sectionChecked > 0 &&
+        decideExitCode(strictGreen, true) === 0,
+    )
+    t(
+      '--strict 的拒绝侧:有未判定 ⇒ 默认档 0(提交链不受影响)、strict 档 2',
+      decideExitCode(rU1, false) === 0 && decideExitCode(rU1, true) === 2,
+    )
+    t(
+      '--strict 的段维失明侧:一条都没核(缺 importer 那型)⇒ 即便违规为 0 也拒绝出证',
+      (() => {
+        const noKeys = makeFixture(join(scratch, 'strict-no-section-keys'), {
+          webPkg: { peerDependencies: { react: '>=18' } },
+          lock: lockExact({
+            devDependencies: [{ name: 'react', specifier: '>=18', version: '19' }],
+          }),
+        })
+        const r = runCheck(noKeys)
+        return (
+          r.violations.length === 0 &&
+          r.sectionChecked === 0 &&
+          decideExitCode(r, false) === 0 &&
+          decideExitCode(r, true) === 2
+        )
+      })(),
+    )
+    t(
+      '红优先于不出证:已判出的违规必须点名,strict 不得把它盖成 2',
+      (() => {
+        const withViolation = makeFixture(join(scratch, 'strict-with-violation'), {
+          webPkg: { dependencies: { dayjs: '^1.11.0' } },
+          lock: lockFrom({ devDependencies: { dayjs: '^1.11.0' } }),
+        })
+        const r = runCheck(withViolation)
+        return r.violations.length === 1 && decideExitCode(r, true) === 1
+      })(),
+    )
+    t(
+      'certRefusal 与 decideExitCode 必须同源(报告文案与退出码不得各判各的)',
+      certRefusal(rU1, true) !== null &&
+        certRefusal(rU1, false) === null &&
+        certRefusal(strictGreen, true) === null &&
+        decideExitCode(rU1, true) === 2 &&
+        decideExitCode(rU1, false) === 0,
+    )
+    t(
+      '整面无法判定(取不到)时 strict 不得把它改判成 0 或 1 —— 仍是 2,且违规清单为空',
+      (() => {
+        const r = runCheck(join(scratch, 'not-a-repo-at-all'), 'head')
+        return (
+          r.undetermined !== null &&
+          r.violations.length === 0 &&
+          r.undeterminedItems.length === 0 &&
+          decideExitCode(r, true) === 2 &&
+          decideExitCode(r, false) === 2
+        )
+      })(),
+    )
+    // ⚠️ 刻意**不**在自检里读真仓:--self-test 的既有契约是"临时目录小 fixture 正反成对,
+    // 绝不扫真仓",而"真仓 HEAD 面 --strict 必须 RC=0(不得出生即红,§12e)"是一条会随仓库
+    // 移动的读数 —— 按守门 103 T12 那一课,证明这类行为只能用纯函数 + 构造面;真仓那一格
+    // 归镜像测试(它本来就带只读的真仓取证 T26/T27,本次新增 T32)。
+
     /* ---------- 判定面(2026-09-24 收口:--staged 判索引、全量判 HEAD,不判滞后的工作树) ---------- */
     const BROKEN_WEB = { dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' } }
     const OK_WEB = {
@@ -1519,12 +1905,15 @@ async function main() {
     console.error(`❌ ${e.message}`)
     process.exit(2)
   }
+  const strict = argv.includes('--strict')
   const result = runCheck(root, face)
   if (argv.includes('--json')) {
-    console.log(JSON.stringify({ mode, ...result, judgedFace: face }, null, 2))
-    process.exit(result.undetermined ? 2 : result.violations.length ? 1 : 0)
+    console.log(JSON.stringify({ mode, strict, ...result, judgedFace: face }, null, 2))
+    // 退出码走同一个算式(decideExitCode):此前 --json 与 report 各写一遍 ternary,
+    // 加一档就只有一处会带上它 —— 两处算同一件事必漂移,是本仓记过最多次的形态。
+    process.exit(decideExitCode(result, strict))
   }
-  process.exit(report(result, mode, face))
+  process.exit(report(result, mode, face, strict))
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -1552,9 +1941,15 @@ export const __test__ = {
   makeFixture,
   lockWith,
   lockFrom,
+  // 逐字段控制 importer 条目(构造 U1 缺 specifier / U2 带 optional 两种异形)
+  lockExact,
   wsWithOverrides,
   DEFAULT_WORKSPACE_YAML,
   ACCIDENT_DEPS_BLOCK,
+  // 退出码只有一份算式:镜像测试要能直接调用它,不得在测试里再抄一遍 ternary(§22c)
+  certRefusal,
+  decideExitCode,
+  UNDET_REASON_TEXT,
   // 判定面(§22c:面选择本身要能被测试直接调用,不得只活在文件内部)
   makeFaceReader,
   resolveFace,

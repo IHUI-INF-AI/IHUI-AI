@@ -4,6 +4,8 @@
 
 // 2026-09-17 薄壳化配套:线上前端自动刷新 + 断网兜底守卫(详见模块文档)
 mod auto_refresh;
+// 2026-09-28 立:托盘/关窗/启动/角标的「行为偏好」——判定与持久化都在模块内,本文件只做接线。
+mod desktop_prefs;
 // 本地 git/diff 通道（2026-09-27）：纯判据 / 执行层 / tauri 胶水三件套。
 // 前两个文件只依赖 std，可用 `rustc --test` 单独跑单测；胶水层只映射 DTO。
 mod git_channel_ipc;
@@ -15,6 +17,12 @@ use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent, TrayIconId};
 use tauri::{Emitter, Manager};
+// 行为偏好的判定与持久化住在 desktop_prefs.rs,这里只引它已有的出口(不开第二份判据)。
+use desktop_prefs::{
+    decide_close_action, desktop_prefs_path, load_desktop_prefs, normalize_prefs, save_desktop_prefs,
+    should_migrate_launch_minimized, tray_menu_item, CloseBehavior, CloseDecision, DesktopPrefs,
+    DesktopPrefsPatch, TraySingleClick,
+};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use std::io::Cursor;
@@ -305,11 +313,20 @@ fn toggle_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
 /// 用户侧表现就是"正在退出..."永久转圈、进程不终止。宽限期在独立线程计时,不与事件循环争资源。
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
-    // 兜底必须**先武装、后干活**。2026-09-27 真机复现:遮罩停在「正在退出...」而本函数新增的
-    // 那条 ERROR 计数为 0 ⇒ 执行流从未走到 arm_forced_exit 那一行,即它被上面某个
-    // save_window_state 卡住了(store 访问 / 窗口几何取值 / 落盘都可能阻塞)。兜底写在会被卡住
-    // 的代码之后,等于没有兜底。
-    arm_forced_exit(&app, QUIT_FORCED_EXIT_GRACE_SECS);
+    // 2026-09-28:退出序列抽成 exit_application(),与托盘「退出」、「关闭窗口→退出」
+    // (close_behavior=quit)、resolve_close_choice 共用同一份实现 —— 四处算同一件事,
+    // 各写一遍必然漂移(兜底武装顺序就是其中最容易漂的一步)。
+    exit_application(&app);
+}
+
+/// 真正终止进程的**唯一**序列,由 quit_app / tray.quit / 关窗决策 / resolve_close_choice 共用。
+///
+/// 兜底必须**先武装、后干活**。2026-09-27 真机复现:遮罩停在「正在退出...」而本函数新增的
+/// 那条 ERROR 计数为 0 ⇒ 执行流从未走到 arm_forced_exit 那一行,即它被上面某个
+/// save_window_state 卡住了(store 访问 / 窗口几何取值 / 落盘都可能阻塞)。兜底写在会被卡住
+/// 的代码之后,等于没有兜底。
+fn exit_application(app: &tauri::AppHandle) {
+    arm_forced_exit(app, QUIT_FORCED_EXIT_GRACE_SECS);
     let _ = save_window_state(Some("main".to_string()), app.clone());
     let _ = save_window_state(Some("admin".to_string()), app.clone());
     app.exit(0);
@@ -405,44 +422,35 @@ fn tray_menu_labels() -> [&'static str; 7] {
     }
 }
 
-/// 构建系统托盘(7 项菜单:新建对话/显示/隐藏/切换主题/设置/检查更新/退出)+ 双击托盘唤起。
+/// 构建系统托盘(菜单项与分隔线由 `desktop-behavior.json` 的 `tray_menu_items` 决定;
+/// 默认 7 项 = 新建对话/显示/隐藏/切换主题/设置/检查更新/退出,与历史逐字同形)。
 /// 2026-07-29 扩充:emit 事件给前端处理业务逻辑(新建对话/主题/设置),检查更新调 updater。
+/// 2026-09-28 改版:菜单按偏好顺序从登记表 `TRAY_MENU_ITEMS` 构建,不再手列 7 个 builder;
+/// 左键语义按 `tray_single_click`。判据(哪些 id 合法、quit 必须在)只有一份,在 desktop_prefs。
 fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
     let labels = tray_menu_labels();
-    let new_chat_item = MenuItemBuilder::with_id("tray.new_chat", labels[0])
-        .build(app)
-        .map_err(|e| e.to_string())?;
-    let show_item = MenuItemBuilder::with_id("tray.show", labels[1])
-        .build(app)
-        .map_err(|e| e.to_string())?;
-    let hide_item = MenuItemBuilder::with_id("tray.hide", labels[2])
-        .build(app)
-        .map_err(|e| e.to_string())?;
-    let theme_item = MenuItemBuilder::with_id("tray.theme", labels[3])
-        .build(app)
-        .map_err(|e| e.to_string())?;
-    let settings_item = MenuItemBuilder::with_id("tray.settings", labels[4])
-        .build(app)
-        .map_err(|e| e.to_string())?;
-    let update_item = MenuItemBuilder::with_id("tray.update", labels[5])
-        .build(app)
-        .map_err(|e| e.to_string())?;
-    let quit_item = MenuItemBuilder::with_id("tray.quit", labels[6])
-        .build(app)
-        .map_err(|e| e.to_string())?;
-    let menu = MenuBuilder::new(app)
-        .item(&new_chat_item)
-        .separator()
-        .item(&show_item)
-        .item(&hide_item)
-        .separator()
-        .item(&theme_item)
-        .item(&settings_item)
-        .item(&update_item)
-        .separator()
-        .item(&quit_item)
-        .build()
-        .map_err(|e| e.to_string())?;
+    let prefs = load_desktop_prefs(app);
+    let mut menu_builder = MenuBuilder::new(app);
+    let mut previous_group: Option<u8> = None;
+    for id in &prefs.tray_menu_items {
+        let Some(item) = tray_menu_item(id) else {
+            // normalize 已把未知 id 丢掉,走到这里说明登记表与判据漂了 —— 喊出来,
+            // 而不是静默少一项(菜单少一项在托盘上是看不出来的)。
+            log::error!("[desktop] 托盘菜单项 {id} 查不到登记项,已跳过(不应发生)");
+            continue;
+        };
+        let menu_item =
+            MenuItemBuilder::with_id(format!("tray.{}", item.id), labels[item.label_index])
+                .build(app)
+                .map_err(|e| e.to_string())?;
+        // 分隔线只插在分组变化处:默认档下产出的正是历史那三条(0|1|2|3 组之间)。
+        if matches!(previous_group, Some(group) if group != item.group) {
+            menu_builder = menu_builder.separator();
+        }
+        previous_group = Some(item.group);
+        menu_builder = menu_builder.item(&menu_item);
+    }
+    let menu = menu_builder.build().map_err(|e| e.to_string())?;
 
     let icon = app
         .default_window_icon()
@@ -452,6 +460,10 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
         .icon(icon)
         .tooltip(localized_app_name())
         .menu(&menu)
+        // 左键语义:Menu(默认档)让托盘层自己弹菜单(tauri 侧默认就是 true,这里显式写出来
+        // 是为了让这个字段真的被消费到,而不是靠"不调用 setter"来表达);
+        // ToggleWindow 关掉左键弹菜单,改由下面的 Click 处理器切窗口显隐。
+        .show_menu_on_left_click(matches!(prefs.tray_single_click, TraySingleClick::Menu))
         .on_menu_event(|app, event| match event.id().as_ref() {
             "tray.new_chat" => {
                 // emit 事件给前端,前端处理新建对话(切到 /agents + 重置 chat store)
@@ -517,11 +529,8 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 // 托盘另有独立「检查更新」项,那条会明确报 已是最新 / 失败 / 可安装。
                 //
                 // 兜底仍然"先武装、后干活":save_window_state 会访问 store 与窗口几何,
-                // 任一卡住都不该把"退出"这件事一起带走。
-                arm_forced_exit(app, QUIT_FORCED_EXIT_GRACE_SECS);
-                let _ = save_window_state(Some("main".to_string()), app.clone());
-                let _ = save_window_state(Some("admin".to_string()), app.clone());
-                app.exit(0);
+                // 任一卡住都不该把"退出"这件事一起带走 —— 这条顺序由 exit_application 保证。
+                exit_application(app);
             }
             _ => {}
         })
@@ -552,16 +561,35 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                     button: MouseButton::Left,
                     ..
                 } => {
-                    // Windows 习惯:左键单击托盘图标显示主窗口并聚焦
-                    // macOS 已通过 menu 显示菜单,不重复处理
-                    #[cfg(target_os = "windows")]
-                    {
-                        if let Some(window) = app.get_webview_window("main") {
-                            if window.is_visible().unwrap_or(false) {
-                                let _ = window.set_focus();
-                            } else {
-                                let _ = window.show();
-                                let _ = window.set_focus();
+                    // 现读偏好而不是缓存一份:托盘只在建/拆时重建,而偏好可能已被另一个窗口改掉;
+                    // 为省一次 <1KB 的 JSON 读引入第二份真相不值得(点一次托盘才读一次)。
+                    match load_desktop_prefs(app).tray_single_click {
+                        TraySingleClick::Menu => {
+                            // 默认档 = 历史行为逐字不动:菜单由托盘层左键弹出;
+                            // Windows 习惯再补一步"显示主窗口并聚焦"
+                            // macOS 已通过 menu 显示菜单,不重复处理
+                            #[cfg(target_os = "windows")]
+                            {
+                                if let Some(window) = app.get_webview_window("main") {
+                                    if window.is_visible().unwrap_or(false) {
+                                        let _ = window.set_focus();
+                                    } else {
+                                        let _ = window.show();
+                                        let _ = window.set_focus();
+                                    }
+                                }
+                            }
+                        }
+                        TraySingleClick::ToggleWindow => {
+                            // 用户显式选了"左键当窗口开关"⇒ 全平台生效(这一档的语义就是
+                            // 不弹菜单、只切显隐),不再按平台分叉。
+                            if let Some(window) = app.get_webview_window("main") {
+                                if window.is_visible().unwrap_or(false) {
+                                    let _ = window.hide();
+                                } else {
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
                             }
                         }
                     }
@@ -714,17 +742,35 @@ fn apply_tray_promotion(app: &tauri::AppHandle, target: u32, force: bool) -> boo
     changed
 }
 
-/// 在主线程移除并重建托盘图标,使注册表 IsPromoted 变更即时生效(2026-09-02 #2 立)。
-/// 菜单/事件处理器由 build_tray 全量重建,与启动时行为一致。
-#[cfg(target_os = "windows")]
-fn rebuild_tray_on_main_thread(app: &tauri::AppHandle) {
+/// 让「托盘图标存在与否」与 `show_tray_icon` 对齐的唯一出口(2026-09-28 立)。
+///
+/// 拆掉/重建都必须走主线程:托盘是宿主 UI 对象(Windows 上要建在有消息循环的线程上)。
+/// `run_on_main_thread` 是**投递**不是阻塞等待,所以从同步命令(它们自己就跑在主线程)里调用
+/// 不会自锁 —— 与 `rebuild_tray_on_main_thread` 历史上同一条路径。
+/// show=false 时只移除不重建;菜单变化(show=true)也走这里,因为重建会重新读偏好。
+fn apply_tray_visibility(app: &tauri::AppHandle, show: bool) {
     let app = app.clone();
-    let _ = app.clone().run_on_main_thread(move || {
+    let result = app.clone().run_on_main_thread(move || {
         let _ = app.remove_tray_by_id("main");
+        if !show {
+            log::warn!("[desktop-prefs] show_tray_icon=false:已移除托盘图标(关窗语义按 quit)");
+            return;
+        }
         if let Err(e) = build_tray(&app) {
-            log::error!("[desktop] rebuild tray after promote failed: {}", e);
+            log::error!("[desktop] tray rebuild failed: {}", e);
         }
     });
+    if let Err(e) = result {
+        log::error!("[desktop] 无法在主线程上应用托盘显隐(show={show}): {e}");
+    }
+}
+
+/// 在主线程移除并重建托盘图标,使注册表 IsPromoted 变更即时生效(2026-09-02 #2 立)。
+/// 菜单/事件处理器由 build_tray 全量重建,与启动时行为一致。
+/// 2026-09-28:实现并入 apply_tray_visibility(同一件事只留一份)。
+#[cfg(target_os = "windows")]
+fn rebuild_tray_on_main_thread(app: &tauri::AppHandle) {
+    apply_tray_visibility(app, true);
 }
 
 /// 后台延迟触发托盘常驻写入(2026-09-02 #2 立,target=1,尊重身份记录与开关)。
@@ -1732,6 +1778,263 @@ fn set_tray_always_visible(app: tauri::AppHandle, enabled: bool) -> Result<(), S
     Ok(())
 }
 
+// ================== 行为偏好命令 + 关窗决策(2026-09-28 立)==================
+
+/// 关窗「询问我」这一档的等待闸门(managed state)。
+///
+/// 为什么要有 `generation`:用户连点两次关闭(或前端慢到上一次还没答完又来了第二次),
+/// 若只看 `pending`,旧看门狗会在新询问还没答完时就冲进来落兜底动作。每次询问递增代数,
+/// 看门狗只对自己那一代生效。
+#[derive(Default)]
+struct CloseGate {
+    state: Mutex<CloseGateState>,
+    answered: std::sync::Condvar,
+}
+
+#[derive(Default)]
+struct CloseGateState {
+    /// 有一次询问挂着;看门狗与 `resolve_close_choice` **各自把它置 false 来认领**,
+    /// 保证一次询问只落一个终态(不会出现"兜底 hide 完又跟着答一次 quit")。
+    pending: bool,
+    /// 前端给的选择原文("hide"/"quit"/"cancel"),仅用于把状态交代清楚,判定不读它。
+    answer: Option<String>,
+    generation: u64,
+}
+
+/// 等前端答复的上限:超过就按「有托盘→hide / 无托盘→quit」兜底,并喊一行 warn。
+/// 关窗询问的兜底时限。这条**不是**人的决策时间预算,而是"前端根本没接住这条事件"
+/// (webview 卡死 / 监听没注册)的机器故障兜底 —— 3s 会让正常Speed的用户点慢一点就被
+/// 兜底顶掉,而迟到的答复按 pending 已认领只能记一笔,用户视角是"弹框自己消失了、
+/// 我点什么用没有"(2026-09-28 真机走这一路时实测到的体感)。取 30s:仍然有界,
+/// 但人在 30 秒内不可能没注意到一个居中的模态。
+const CLOSE_ASK_TIMEOUT_MS: u64 = 30_000;
+
+fn lock_close_gate(gate: &CloseGate) -> std::sync::MutexGuard<'_, CloseGateState> {
+    // 事件循环里绝不因为别人 panic 过就再 panic 一次(锁中毒取内值继续)。
+    gate.state
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// 开一次询问,返回它的代数。
+fn begin_close_ask(app: &tauri::AppHandle) -> u64 {
+    let gate = app.state::<CloseGate>();
+    let mut st = lock_close_gate(&gate);
+    st.generation += 1;
+    st.answer = None;
+    st.pending = true;
+    st.generation
+}
+
+/// 命令侧认领这次询问并记下答案。返回 None = 已经没有挂账(超时兜底先认领走了)。
+fn submit_close_answer(app: &tauri::AppHandle, choice: &str) -> Option<u64> {
+    let gate = app.state::<CloseGate>();
+    let mut st = lock_close_gate(&gate);
+    if !st.pending {
+        log::warn!(
+            "[desktop-prefs] 收到关窗答复 {choice},但已无挂起的询问(多半是 {}ms 超时兜底先落了);\
+             仍按用户的选择执行,不再另判一次",
+            CLOSE_ASK_TIMEOUT_MS
+        );
+        return None;
+    }
+    st.pending = false;
+    st.answer = Some(choice.to_string());
+    let generation = st.generation;
+    drop(st);
+    gate.answered.notify_all();
+    Some(generation)
+}
+
+/// 起一个看门狗线程等前端回答,超时才落兜底终态。
+///
+/// **为什么不能原地等**:`on_window_event` 与同步 `#[tauri::command]` 跑在同一条主线程上,
+/// 主线程一停,前端的 `resolve_close_choice` 连进 Rust 的机会都没有 ⇒ 每次必然走超时,
+/// 「询问」这一档就成了死代码。等这件事必须离开主线程(与 `arm_forced_exit` 同一条理由)。
+/// 用 condvar 等,不忙等、不自旋。
+fn spawn_close_ask_watchdog(app: tauri::AppHandle, generation: u64) {
+    std::thread::spawn(move || {
+        let gate = app.state::<CloseGate>();
+        let deadline = Instant::now() + Duration::from_millis(CLOSE_ASK_TIMEOUT_MS);
+        // Rust 1.97 起 wait_timeout_while 返回 Result(锁中毒在这一层给出);
+        // 中毒时取内值继续判定 —— 事件循环里绝不因为别人 panic 过就把自己也 panic 掉。
+        let waited = gate.answered.wait_timeout_while(
+            lock_close_gate(&gate),
+            deadline.saturating_duration_since(Instant::now()),
+            |s| s.generation == generation && s.pending && s.answer.is_none(),
+        );
+        let mut st = match waited {
+            Ok((guard, _timed_out)) => guard,
+            Err(poisoned) => poisoned.into_inner().0,
+        };
+        if st.generation != generation {
+            return; // 已被更新的一次询问顶替
+        }
+        if !st.pending {
+            return; // 前端已答复,动作由 resolve_close_choice 落,这里不重复
+        }
+        st.pending = false; // 认领掉这次决策,此后迟到的答复只会被记一笔
+        drop(st);
+        // 与本仓「不得有静默无终态路径」同一条禁令:兜底要落,而且要说清为什么落。
+        let tray_present = app.tray_by_id("main").is_some();
+        log::warn!(
+            "[desktop-prefs] 关窗询问 {}ms 内前端未答复 ⇒ 兜底 {}(web 层没接住这条事件?)",
+            CLOSE_ASK_TIMEOUT_MS,
+            if tray_present { "hide" } else { "quit" }
+        );
+        if tray_present {
+            apply_close_hide(&app);
+        } else {
+            exit_application(&app);
+        }
+    });
+}
+
+/// 隐藏主窗口 + 持久化状态 —— 与历史「关闭即隐藏到托盘」那条路径逐字同形。
+fn apply_close_hide(app: &tauri::AppHandle) {
+    match app.get_webview_window("main") {
+        Some(window) => {
+            let _ = window.hide();
+        }
+        None => log::warn!("[desktop-prefs] 关窗去向=hide 但 main 窗口不在,无事可做"),
+    }
+    let _ = save_window_state(Some("main".to_string()), app.clone());
+}
+
+/// 落盘 + 托盘副作用 + 广播,`set_desktop_prefs` 与 `resolve_close_choice(remember)` 共用。
+/// 顺序固定:合并 → **归一** → 落盘 → 托盘对齐 → 广播 → 回 effective 值。
+fn write_desktop_prefs(app: &tauri::AppHandle, patch: DesktopPrefsPatch) -> DesktopPrefs {
+    let current = load_desktop_prefs(app);
+    let next = normalize_prefs(patch.merge_into(current.clone()));
+
+    if let Err(e) = save_desktop_prefs(app, &next) {
+        // 契约把这两个命令的返回类型钉成 DesktopPrefs(不带 Result),所以落盘失败只能在这里喊。
+        log::error!("[desktop-prefs] 落盘失败({e}):本次改动只对本次会话生效,重启会回到盘上那份");
+    }
+
+    // 托盘只在"形状变了"或"实际存在性与期望不一致"时重建 —— 否则改个角标开关不该让图标闪一下。
+    // 顺带自愈:启动时 build_tray 失败(托盘没建出来)也会在这一格被补回来。
+    let tray_present = app.tray_by_id("main").is_some();
+    let tray_shape_changed = current.tray_menu_items != next.tray_menu_items
+        || current.tray_single_click != next.tray_single_click;
+    if tray_shape_changed || tray_present != next.show_tray_icon {
+        apply_tray_visibility(app, next.show_tray_icon);
+    }
+
+    if let Err(e) = app.emit("desktop-prefs-changed", &next) {
+        log::warn!("[desktop-event] emit desktop-prefs-changed failed: {}", e);
+    }
+    next
+}
+
+/// 读桌面端行为偏好。返回的一直是**归一后**的 effective 值,前端不需要重算不变量。
+#[tauri::command]
+fn get_desktop_prefs(app: tauri::AppHandle) -> DesktopPrefs {
+    load_desktop_prefs(&app)
+}
+
+/// 写桌面端行为偏好(patch 语义:只覆盖带过来的那几档)。
+#[tauri::command]
+fn set_desktop_prefs(app: tauri::AppHandle, patch: DesktopPrefsPatch) -> DesktopPrefs {
+    write_desktop_prefs(&app, patch)
+}
+
+/// 前端对 `desktop-close-requested` 的答复。choice ∈ {"hide","quit","cancel"}。
+/// `remember=true` 时先把这一档选择落成 `close_behavior`(下次不再问),再执行本次动作。
+#[tauri::command]
+fn resolve_close_choice(
+    app: tauri::AppHandle,
+    choice: String,
+    remember: bool,
+) -> Result<(), String> {
+    let normalized = choice.trim().to_lowercase();
+    // "记住"必须落在执行**之前**:quit 这一支会把进程带走,顺序反了就永远记不上。
+    if remember {
+        let behavior = match normalized.as_str() {
+            "hide" => Some(CloseBehavior::Hide),
+            "quit" => Some(CloseBehavior::Quit),
+            // cancel 不是一种"以后都这样"的偏好;非法 choice 交给下面统一报错。
+            _ => None,
+        };
+        if let Some(behavior) = behavior {
+            write_desktop_prefs(&app, DesktopPrefsPatch { close_behavior: Some(behavior), ..DesktopPrefsPatch::default() });
+        }
+    }
+    // 先认领挂账(让看门狗退出),再执行 —— 两条都幂等,但顺序反了会短暂出现两个决定者。
+    match normalized.as_str() {
+        "hide" => {
+            submit_close_answer(&app, "hide");
+            apply_close_hide(&app);
+            Ok(())
+        }
+        "quit" => {
+            submit_close_answer(&app, "quit");
+            exit_application(&app);
+            Ok(())
+        }
+        "cancel" => {
+            submit_close_answer(&app, "cancel");
+            Ok(())
+        }
+        other => Err(format!("choice 只能是 hide/quit/cancel,收到: {other}")),
+    }
+}
+
+/// 任务栏红点直径(物理像素):overlay 会被缩到图标一角,画大了只是浪费字节。
+const BADGE_DIAMETER_PX: u32 = 16;
+
+/// 画一枚实心红点 RGBA(纯像素运算,不依赖窗口/宿主,因此可单测)。
+/// 外缘 1px 线性淡出 —— 16px 下不淡出就是一颗锯齿方块。
+fn build_unread_badge_rgba() -> (Vec<u8>, u32, u32) {
+    use image::{Rgba, RgbaImage};
+    let d = BADGE_DIAMETER_PX;
+    let radius = (d as f32 - 1.0) / 2.0;
+    let mut img = RgbaImage::from_pixel(d, d, Rgba([0, 0, 0, 0]));
+    for y in 0..d {
+        for x in 0..d {
+            let dx = x as f32 - radius;
+            let dy = y as f32 - radius;
+            let coverage = (radius + 0.5 - (dx * dx + dy * dy).sqrt()).clamp(0.0, 1.0);
+            if coverage <= 0.0 {
+                continue;
+            }
+            img.put_pixel(
+                x,
+                y,
+                Rgba([220, 38, 38, (coverage * 255.0) as u8]),
+            );
+        }
+    }
+    (img.into_raw(), d, d)
+}
+
+/// 未读红点(Windows 任务栏 overlay icon)。
+/// `unread_badge=false` 或 `unread == 0` ⇒ 清掉 overlay;否则盖上红点。
+/// 与 `set_tray_status` **刻意不耦合**:角标关掉时 tooltip 仍要照常工作。
+#[tauri::command]
+fn set_desktop_badge(app: tauri::AppHandle, unread: u32) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let prefs = load_desktop_prefs(&app);
+        let window = app.get_webview_window("main").ok_or("main window not found")?;
+        if !prefs.unread_badge || unread == 0 {
+            return window.set_overlay_icon(None).map_err(|e| e.to_string());
+        }
+        let (rgba, width, height) = build_unread_badge_rgba();
+        window
+            .set_overlay_icon(Some(tauri::image::Image::new_owned(rgba, width, height)))
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (&app, unread);
+        log::info!(
+            "[desktop-prefs] set_overlay_icon 是 Windows 专属 API,本平台按 no-op 处理(unread={unread})"
+        );
+        Ok(())
+    }
+}
+
 #[tauri::command]
 async fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
@@ -2449,21 +2752,40 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .on_window_event(|window, event| {
             let label = window.label().to_string();
-            // main 窗口关闭时最小化到托盘,而不是退出应用(真正退出走托盘菜单"退出")
-            // admin 窗口直接关闭(辅助窗口,不需要最小化到托盘)
+            // main 窗口关闭的去向由 desktop-behavior.json 的 close_behavior 决定
+            // (hide=隐藏到托盘 / quit=退出进程 / ask=问前端);admin 只持久化状态后直接关。
+            // 2026-09-28 之前这里是硬编码的"一律隐藏到托盘"。
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if label == "main" {
+                    // 先无条件 prevent_close:前端慢/没接住时,窗口也绝不能在这次决策期间消失
+                    // (2026-09-28 立;此前 hide 是硬编码的,新加"询问"这一档后这条顺序更要紧)。
                     api.prevent_close();
-                    // 2026-07-29 #12:emit before-close 事件给前端,前端保存正在编辑的消息
-                    // emit 是同步派发,前端 listen 异步处理;前端保存完不需要回调 Rust,
-                    // 窗口立即隐藏(保存仍在进行,可接受)
+                    // 2026-07-29 #12:emit before-close 事件给前端,前端保存正在编辑的消息。
+                    // 这条与去向无关(隐藏/退出/询问都需要先存草稿),所以三种去向都照发,
+                    // 保持 web 端已监听的这条事件向后兼容。
                     if let Err(e) = window.emit("desktop-before-close", ()) {
                         log::warn!("[desktop-event] emit desktop-before-close failed: {}", e);
                     }
-                    let _ = window.hide();
-                    // 隐藏到托盘时持久化窗口状态
                     let app = window.app_handle().clone();
-                    let _ = save_window_state(Some(label.clone()), app);
+                    // 托盘在不在取**运行时事实**:偏好里 show_tray_icon 可能仍是 true,
+                    // 而 build_tray 当时失败了 —— 那时"隐藏"同样无处可去。
+                    let tray_present = app.tray_by_id("main").is_some();
+                    let prefs = load_desktop_prefs(&app);
+                    match decide_close_action(&prefs, tray_present) {
+                        // 两种确定去向都**不依赖 web 层**:Rust 直接执行。
+                        CloseDecision::Hide => apply_close_hide(&app),
+                        CloseDecision::Quit => exit_application(&app),
+                        CloseDecision::Ask => {
+                            // 顺序要紧:先挂账,**再** emit。反过来的话前端若在两者之间答完,
+                            // 挂账还没建立 ⇒ 答复被当成"无挂起",而随后建好的账会在 3s 后
+                            // 落一次兜底动作 —— 用户刚点的「取消」会被一次凭空 hide 顶掉。
+                            let generation = begin_close_ask(&app);
+                            if let Err(e) = window.emit("desktop-close-requested", ()) {
+                                log::warn!("[desktop-event] emit desktop-close-requested failed: {}", e);
+                            }
+                            spawn_close_ask_watchdog(app.clone(), generation);
+                        }
+                    }
                 } else if label == "admin" {
                     // 2026-08-16 修复:admin 在 CloseRequested 时就持久化窗口状态。
                     // 此前依赖 Destroyed 事件,但销毁后 get_webview_window 可能返回 None,
@@ -2510,6 +2832,8 @@ pub fn run() {
         // 本地 git/diff 通道：授权根/允许基目录/git 候选都存在这份宿主状态里，
         // 前端永远不能自报 root（见 git_channel_ipc.rs 头注）。
         .manage(git_channel_ipc::GitChannelState::from_env())
+        // 关窗「询问我」的等待闸门(2026-09-28 立):窗口事件与命令共用这一份挂账状态。
+        .manage(CloseGate::default())
         .setup(|app| {
             // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
             // 启动守护在 Builder 之前跑,那时日志插件还没初始化,计数在这里补记。
@@ -2577,11 +2901,44 @@ pub fn run() {
             });
             // 2026-07-25 修订:不再调用 build_app_menu(已删除),菜单全部走 web 端 HTML 顶栏
             // let _ = build_app_menu(app.handle().clone());
-            let _ = build_tray(app.handle());
-            // 2026-09-02 #2:托盘图标写入 Win11 任务栏常驻(IsPromoted=1),
-            // 解决"新身份图标默认被丢进右下角隐藏溢出区、需反复手动拖拽"的问题
-            #[cfg(target_os = "windows")]
-            schedule_tray_promote(app.handle());
+            // 2026-09-28:托盘是否创建由 `show_tray_icon` 决定。false ⇒ 全程没有托盘,
+            // 而"关窗=隐藏"这条语义已被 normalize 归一成 quit,不会出现"窗口藏进一个
+            // 不存在的地方、再也唤不出来"这种死态。
+            // 2026-09-28 老用户迁移:此前"开机自启即最小化"是唯一表现,而 `--minimized` 是
+            // autostart 插件注册启动项时**写死**的参数(见 tauri_plugin_autostart::init),
+            // 开过自启的机器每次开机都带着它。新开关默认 false ⇒ 不迁移的话,装过自启的老用户
+            // 升级后开机突然弹一个窗口 —— 那是会被当故障报回来的行为回归,不是"新默认值"能盖过去的。
+            // 判据三条同时成立才迁:偏好文件此前不存在(= 该功能上线后的首次启动)∧ 带 --minimized
+            // ∧ 迁前值为 false。手动双击启动不带该参数 ⇒ 不迁(默认仍弹窗)。迁移结果落盘,
+            // 因此在设置界面里看得见、可改 —— 不藏成只有代码知道的隐式状态。
+            let mut startup_prefs = load_desktop_prefs(app.handle());
+            let prefs_absent_before = desktop_prefs_path(app.handle()).map(|p| !p.exists()).unwrap_or(false);
+            let argv_has_minimized = std::env::args().any(|a| a == "--minimized");
+            if should_migrate_launch_minimized(
+                prefs_absent_before,
+                startup_prefs.launch_minimized,
+                argv_has_minimized,
+            ) {
+                startup_prefs.launch_minimized = true;
+                log::info!(
+                    "[desktop-prefs] 迁移:首次启动即带 --minimized(开机自启旧表现)⇒ launch_minimized=true\
+                     (旧行为原样保留,可在设置里关掉)"
+                );
+                if let Err(e) = save_desktop_prefs(app.handle(), &startup_prefs) {
+                    log::warn!("[desktop-prefs] 迁移写盘失败({e})⇒ 本次仍按迁移后的值执行,但下次启动会重判");
+                }
+            }
+            if startup_prefs.show_tray_icon {
+                let _ = build_tray(app.handle());
+                // 2026-09-02 #2:托盘图标写入 Win11 任务栏常驻(IsPromoted=1),
+                // 解决"新身份图标默认被丢进右下角隐藏溢出区、需反复手动拖拽"的问题。
+                // 2026-09-28:挪进本分支 —— 它在命中变更时会**重建**托盘,用户明确不要托盘时
+                // 不能由它把图标拉回来(那就等于这个开关不生效)。
+                #[cfg(target_os = "windows")]
+                schedule_tray_promote(app.handle());
+            } else {
+                log::warn!("[desktop-prefs] show_tray_icon=false:本次启动不创建托盘图标");
+            }
             // 启动时设置本地化窗口标题(中文系统 → 智汇AI,其他 → IHUI AI)
             // admin 窗口已改为 lazy create(2026-07-29),启动时不存在,
             // 标题在 open_admin_window 中通过 WebviewWindowBuilder::title 设置
@@ -2593,13 +2950,32 @@ pub fn run() {
             // 2026-07-27 立:仅恢复 main 窗口,admin 窗口在 open_admin_window 时恢复
             let _ = restore_window_state(Some("main".to_string()), app.handle().clone());
             // 2026-09-17 薄壳化配套:启动线上前端自动刷新(3min 构建指纹轮询)+ 断网兜底守卫(30s 健康检查)
-            auto_refresh::start(app.handle().clone());
+            // ⚠️ 2026-09-28:守卫在启动探活落定时会 `w.show()`(窗口以 visible:false 创建,历史上
+            // 靠这一次点亮)。用户勾了「启动后先进托盘」就必须把它按住,否则 8~11 秒后窗口自己冒出来
+            // (真机实测过一遍)。判据只留这一份,不许 auto_refresh 自己再读一遍偏好。
+            auto_refresh::start(app.handle().clone(), !startup_prefs.launch_minimized);
             // 2026-08-16 修复:autostart 插件透传 --minimized(开机自启最小化到托盘),
             // 此前无任何 args 解析,开机自启会直接弹出主窗口。须在恢复窗口状态后执行。
-            if std::env::args().any(|a| a == "--minimized") {
+            // 2026-09-28 立:**用户开关压过命令行参数** —— 这条反直觉,所以把理由写全:
+            // - 契约的字面写法是「带 `--minimized` 或 launch_minimized=true ⇒ 隐藏」;
+            // - 同一份契约又规定「带 `--minimized` 而 launch_minimized=false ⇒ 显示窗口」。
+            //   两条同时成立的唯一自洽解就是"只看 launch_minimized",参数不再改变结果。
+            // - 为什么必须这样:`--minimized` 是 autostart 插件注册启动项时**写死**的
+            //   (见上面 tauri_plugin_autostart::init 的 Some(vec!["--minimized"])),用户只要
+            //   开过一次自启,每次开机就都带着它。让参数说了算,等于"启动后进后台"这个开关
+            //   一旦关掉就再也打不开 —— 持久化的用户选择被一条他改不动的命令行参数覆盖。
+            // ⚠️ 如实登记行为变更:此前"开机自启即最小化"是默认表现,现在默认档
+            //   launch_minimized=false ⇒ 自启也会弹窗口;要老表现请把该开关打开。
+            if startup_prefs.launch_minimized {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
                 }
+            } else if std::env::args().any(|a| a == "--minimized") {
+                // 参数被盖掉这件事必须看得见,不能静默(否则下次没人知道为什么"自启不最小化了")。
+                log::info!(
+                    "[desktop-prefs] 带了 --minimized 但 launch_minimized=false ⇒ 按用户开关显示窗口\
+                     (开关优先于参数,理由见上)"
+                );
             }
             // 注册全局快捷键(2026-07-29 扩充:3 个系统级快捷键)
             // 系统级 = 窗口失焦也能触发(与浏览器内 keydown 互补)
@@ -2680,6 +3056,10 @@ pub fn run() {
             set_tray_status,
             get_tray_always_visible,
             set_tray_always_visible,
+            get_desktop_prefs,
+            set_desktop_prefs,
+            resolve_close_choice,
+            set_desktop_badge,
             take_pending_deep_links
         ])
         .run(tauri::generate_context!())

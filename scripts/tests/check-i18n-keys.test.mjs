@@ -103,7 +103,14 @@ const PARITY_OK = {
 test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () => {
   const root = createTempProject()
   try {
-    // 无 messages 目录 → 脚本输出 "messages 文件不存在或不完整,跳过" 并 exit 0
+    // 无 messages 目录 + **没**指名 target → 脚本输出"…语言包,跳过"并 exit 0(默认档跳过)。
+    // 【原为"待拍板 · 两侧互斥",合并时收口】两路的结论并不真的互斥,因为它们各自答的是不同输入:
+    //   · 本路答的是"没指名要查哪一端"(空仓 / 部分 checkout / 尚未建 messages)——合法形态,判死就是
+    //     一台与本次提交无关的恒红门(AGENTS §12e ⇒ 逼出 --no-verify,一次作废约 185 道门)。
+    //   · 另一路答的是"显式 --target=api 而根读不到"——那一族一次也没被扫过却回身打印通过,
+    //     回落就是把"没判"写成"判过了"(G-304 的立项事故形态)。
+    // 所以合并件按"处置动作不同的两种输入"分两手,两侧各自的修复都还在:本条测没指名那一手,
+    // 下面 1b 测指名那一手(指名 ⇒ exit 2)。谁都不许被折成对方的默认值。
     const r = runScript(['--help'], { cwd: root })
     assert.equal(
       r.status,
@@ -111,6 +118,43 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () =
       `--help 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
     )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
+    assert.match(
+      `${r.stdout}\n${r.stderr}`,
+      /端目录漂移对账未判定/,
+      '取不到端目录时必须自报"未对账",不得把"没判"写成"判过了"(另一路实现的反腐烂意图)',
+    )
+  } finally {
+    rmScratch(root)
+  }
+})
+
+// ─── 1b. 同一个"读不到 messages 根"的输入,按有没有指名 target 分两手(两侧分歧的收口处)──
+test('根取不到:没指名 target ⇒ exit 0 且自报未对账;指名了 ⇒ exit 2,不冒绿也不回落 web', () => {
+  const root = createTempProject()
+  try {
+    const bare = runScript(['--worktree'], { cwd: root })
+    assert.equal(
+      bare.status,
+      0,
+      `没指名 target 时空仓是合法形态,判死就是恒红门(AGENTS §12e);实得 ${bare.status}\n${bare.stdout}\n${bare.stderr}`,
+    )
+    assert.match(`${bare.stdout}\n${bare.stderr}`, /端目录漂移对账未判定/, '放过必须喊得出来')
+    const named = runScript(['--target=api', '--worktree'], { cwd: root })
+    assert.equal(
+      named.status,
+      2,
+      `指名要查 api 而根目录读不到 ⇒ 那一族一次也没被扫过,必须按"无法判定"判死;实得 ${named.status}\n${named.stdout}\n${named.stderr}`,
+    )
+    assert.match(
+      `${named.stdout}\n${named.stderr}`,
+      /无法判定/,
+      'exit 2 要给可诊断原因,不能只留一个码',
+    )
+    assert.doesNotMatch(
+      `${named.stdout}\n${named.stderr}`,
+      /parity OK|通过,parity 比对/,
+      '判死那一趟同时打出「通过」= 自相矛盾的合格证',
+    )
   } finally {
     rmScratch(root)
   }
@@ -1345,6 +1389,131 @@ test('G304-4 显式点了名而该族枚举到 0 个包 ⇒ 判死;没点名而�
       assert.ok(!/通过/.test(skip.stdout), '跳过不得伪装成"通过"')
     } finally {
       rmScratch(empty)
+    }
+  } finally {
+    rmScratch(root)
+  }
+})
+
+// ─── G304-5 / G304-6 / G304-7:合并进来的另一路实现(G-304 的另一份写法)────────
+// 裁决记录:另一路对同一张票给了**另一套实现**(白名单从 messages/ 目录现读 + argv 校验),
+// 它的三条行为断言与本路可共存,原样保留(仅把报错文案适配到留下那一侧的措辞 —— 文案是契约的
+// 一部分,而留下的是本路的 `不是受支持的端` / `可用目标(…)`)。
+// 它那三条**形状锁**(readdirSync(MESSAGES_ROOT / knownTargets.includes(TARGET) /
+// if (!knownTargets) exit 2)锁的是**被否决的那一侧的写法**:把 argv 校验挂回磁盘目录清单,
+// 正是"两处算同一件事必漂移"的成因,故不照抄 —— 改锁合并后的**实际形态**(见 G304-7),
+// 并把它真正要防的那件事(清单腐烂)以判据形式留下(见 DRIFT-1 / DRIFT-2)。
+test('G304-5(另一路用例并入)未知 target 判死那一趟不得同时打出任何通过读数', () => {
+  const r = runFaceScript(['--target=__no_such_end__'], { cwd: REAL_REPO || process.cwd() })
+  assert.equal(
+    r.status,
+    2,
+    `未知 target 必须判死,实得 status=${r.status} stderr=${String(r.stderr || '').slice(0, 160)}`,
+  )
+  assert.match(
+    r.stderr || '',
+    /--target="__no_such_end__"/,
+    `结论行必须点名那个 target,否则等于没给出路: ${String(r.stderr).slice(0, 200)}`,
+  )
+  assert.match(
+    r.stderr || '',
+    /可用目标/,
+    `必须列出可用端清单(措辞随实现,但必须存在): ${String(r.stderr).slice(0, 200)}`,
+  )
+  assert.doesNotMatch(
+    `${r.stdout || ''}${r.stderr || ''}`,
+    /parity OK|通过,parity 比对/,
+    '判死那一趟同时打出「通过」= 两态同屏的自相矛盾合格证',
+  )
+})
+
+test('G304-6(另一路阳性对照并入)同档形对比:api 与 web 的 parity 键路径数不得相同', () => {
+  // 与 G304-1 的差别不是重复:那条拿"api 的 parity 数 vs web 的源码检查数"比不同量纲,
+  // 这条把两端逼到**同一模式(--parity-only)**再比同一字段 —— 回落回来时两数必逐字相同。
+  const api = runFaceScript(['--target=api', '--parity-only'], { cwd: REAL_REPO || process.cwd() })
+  const web = runFaceScript(['--target=web', '--parity-only'], { cwd: REAL_REPO || process.cwd() })
+  assert.equal(api.status, 0, `api 档应通过,stderr=${String(api.stderr || '').slice(0, 200)}`)
+  assert.equal(web.status, 0, `web 档应通过,stderr=${String(web.stderr || '').slice(0, 200)}`)
+  const numOf = (out) => (String(out).match(/parity 比对 5 语言 × (\d+) 键路径/) || [])[1]
+  const a = numOf(api.stdout)
+  const w = numOf(web.stdout)
+  assert.ok(
+    a && w,
+    `两档都必须量到自己的键路径数,实得 api=${a} web=${w}(量不到=判据看不见那一族)`,
+  )
+  assert.notEqual(a, w, `api 与 web 报了同一个数(${a})⇒ 静默回落回来了,本票的立项事故形态`)
+})
+
+test('G304-7(合并形状锁)目录只能从表来,而表必须与磁盘端目录对账 —— 两条出口都在位', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  const code = src
+    .split('\n')
+    .filter((l) => !/^\s*(\/\/|\/?\*)/.test(l))
+    .join('\n')
+  // 本路:表是唯一出口
+  assert.match(code, /const VALID_TARGETS = Object\.keys\(TARGET_CONFIG\)/u, '清单不再由表导出')
+  assert.match(code, /!VALID_TARGETS\.includes\(d\)/u, '磁盘端目录未反查表 ⇒ 腐烂无人对账')
+  // 另一路的反腐烂意图(以判据形式留下):磁盘清单必须被真的读一次并在装载期对账
+  assert.match(code, /function readEndpointDirs\(/u, '端目录读取出口不见了(对账失去对象)')
+  assert.match(
+    code,
+    /reportEndpointDrift\(readEndpointDirs\(MESSAGES_ROOT\),\s*\{[\s\S]{0,240}?strict:\s*isStrictFlag[\s\S]{0,240}?explicitTarget:\s*TARGET_IS_EXPLICIT[\s\S]{0,240}?\}\s*\)/u,
+    '对账没挂在装载路径上,或 --strict / 显式 --target 没接进去(问责档与 G-304 那一半形同虚设)',
+  )
+  // 反向锁:另一路那套"argv 校验挂回磁盘清单"的写法不得进来(两处算同一件事必漂移)
+  assert.ok(!/knownTargets/u.test(code), 'argv 校验又挂回磁盘端目录清单 ⇒ 与 TARGET_CONFIG 两处并存')
+  assert.ok(
+    !/readdirSync\(MESSAGES_ROOT\)[\s\S]{0,80}\.includes\(TARGET\)/u.test(code),
+    '未知 target 又改回"现读目录白名单" ⇒ 表与目录谁说了算再次分叉',
+  )
+})
+
+// ─── DRIFT:表 ↔ 磁盘端目录对账的行为面(另一路"手工清单必然腐烂"的意图落地)───
+test('DRIFT-1 未进表的端目录:默认档大声点名 + 计数,但不改判定结论(可能是别人的在飞新端)', () => {
+  const root = createTempProject()
+  try {
+    writeWebMessages(root, PARITY_OK)
+    mkdirSync(join(root, 'packages', 'i18n', 'messages', 'brand-new-end'), { recursive: true })
+    // --parity-only:让本次判定本身是一行可读的绿(默认全量档在"无源码"夹具里走的是跳过档,
+    // 那样这条用例就只是在测跳过 —— 漂移点名必须与一次**真实判定**同屏才说明它没顶掉判定)
+    const r = runScript(['--worktree', '--parity-only'], { cwd: root })
+    const out = `${r.stdout}\n${r.stderr}`
+    assert.match(out, /brand-new-end 未登记进 TARGET_CONFIG/, `必须点名那个目录:\n${out}`)
+    assert.match(out, /零覆盖/, `必须说清后果(那一族本门零覆盖):\n${out}`)
+    assert.match(out, /端目录未进表:brand-new-end/, '汇总行必须带计数,否则多条漂移看不全')
+    assert.equal(r.status, 0, `默认档不得因别人的在飞新端判红,实际 ${r.status}\n${out}`)
+    assert.match(r.stdout, /通过,parity 比对/, `点名漂移不得挤掉本次判定:\n${r.stdout}`)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('DRIFT-2 --strict 才把漂移判死(问责档),且判死那一趟不得打出通过读数', () => {
+  const root = createTempProject()
+  try {
+    writeWebMessages(root, PARITY_OK)
+    mkdirSync(join(root, 'packages', 'i18n', 'messages', 'brand-new-end'), { recursive: true })
+    const r = runScript(['--worktree', '--parity-only', '--strict'], { cwd: root })
+    assert.equal(
+      r.status,
+      2,
+      `--strict 下漂移必须 exit 2,实际 ${r.status}\n${r.stdout}${r.stderr}`,
+    )
+    assert.match(r.stderr, /brand-new-end/, '判死必须点名是哪个端目录')
+    assert.doesNotMatch(
+      `${r.stdout}\n${r.stderr}`,
+      /通过,parity 比对|parity OK/,
+      '判死与合格证不得同屏(两态同屏=读不出哪个作数)',
+    )
+    // 变异对照:把那个目录删掉 ⇒ 同一份表立刻不判红 ⇒ 上面的红不是恒红(§12e)
+    rmScratch(root)
+    const clean = createTempProject()
+    try {
+      writeWebMessages(clean, PARITY_OK)
+      const ok = runScript(['--worktree', '--parity-only', '--strict'], { cwd: clean })
+      assert.equal(ok.status, 0, `没有漂移却仍判红 = 恒红门:${ok.stdout}${ok.stderr}`)
+    } finally {
+      rmScratch(clean)
     }
   } finally {
     rmScratch(root)

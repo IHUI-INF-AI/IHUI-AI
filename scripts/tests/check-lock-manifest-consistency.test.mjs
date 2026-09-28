@@ -876,3 +876,210 @@ test('T30 装车证明:本门在 guardian-runner 里必须成套(id 101 唯一 +
     "id '101' 在 runner 里重复登记",
   )
 })
+
+/* ===================== L14030 续票:段维与 A/B 两维的协调 + 三型判不准 + --strict ===================== */
+
+test('T31 R6×维度A:被 override 的依赖跨段仍判 section-drift,不得被 overrideExempted 洗白', () => {
+  // 头注的论证:override 改的是 lock 里 specifier 的**值**,不改这个键归属哪一段;
+  // `--frozen-lockfile` 取的是 `importers.<pkg>.<清单同名字段>`,段错了连条目都取不到。
+  // 所以"值恰等于 override 目标"不构成放过 —— 这条测的就是代码顺序(段判必须在前)。
+  const s = mkScratch('lmci-t31')
+  try {
+    const ws = gate.wsWithOverrides(['  dayjs: 2.0.0'])
+    const cross = gate.makeFixture(join(s, 'cross'), {
+      webPkg: { devDependencies: { dayjs: '^1.11.0' } },
+      lock: gate.lockFrom({ dependencies: { dayjs: '2.0.0' } }),
+      workspace: ws,
+    })
+    const rc = gate.runCheck(cross)
+    assert.equal(rc.undetermined, null)
+    assert.deepEqual(
+      rc.violations.map((v) => v.kind),
+      ['section-drift'],
+    )
+    assert.equal(rc.violations[0].section, 'devDependencies')
+    assert.equal(rc.violations[0].lockedIn, 'dependencies')
+    assert.equal(rc.overrideExempted.length, 0, '跨段被 override 放过 = 判据被自己另一维洗白')
+    assert.equal(rc.undeterminedItems.length, 0, '这一型判得出结论,不该混进未判定')
+
+    // 反向对照:同一段 + 值等于目标 ⇒ 必须绿并如实计入放过(否则本条就是逢 override 即红)
+    const same = gate.makeFixture(join(s, 'same'), {
+      webPkg: { devDependencies: { dayjs: '^1.11.0' } },
+      lock: gate.lockFrom({ devDependencies: { dayjs: '2.0.0' } }),
+      workspace: ws,
+    })
+    const rs = gate.runCheck(same)
+    assert.deepEqual(rs.violations, [])
+    assert.equal(rs.overrideExempted.length, 1)
+    assert.equal(rs.undeterminedItems.length, 0)
+  } finally {
+    rmScratch(s)
+  }
+})
+
+test('T32 §12e 出生即红检查:真仓 HEAD 面 --strict 必须 RC=0(三型判不准在存量上不得算账)', () => {
+  // 新加的"未判定"若把已有合法形状扫进来,--strict 就是一台与任何提交无关的恒红档,
+  // 唯一结局是逼人 --no-verify 连带废掉全部守门。所以问责档必须在真仓上现读为 0。
+  const r = gate.runCheck(repoRoot(), 'head')
+  assert.equal(r.undetermined, null, `真仓 HEAD 面判不出:${r.undetermined}`)
+  assert.ok(r.sectionChecked > 0, '段维一条都没核 ⇒ 这一维的绿没有资格,先去查枚举面')
+  assert.deepEqual(
+    r.undeterminedItems.map((u) => `${u.pkg}|${u.section}.${u.name}|${u.reason}`),
+    [],
+    '新增三型判不准把存量算进来了 —— 必须逐条定性,不得为变绿削判据(削了就等于没这一维)',
+  )
+  const cli = runCLI(['--strict'])
+  assert.equal(cli.code, 0, `真仓 --strict 必须 RC=0,实得:\n${cli.out}`)
+  assert.match(cli.out, /未判定 0 条/)
+  assert.match(cli.out, /维度 R6 段位置对账:核 \d+ 条非 peer 声明键/)
+})
+
+test('T33 三型判不准各自成格:默认档只报数(不冒红),--strict 端到端 exit 2(不记绿)', () => {
+  const cases = [
+    {
+      label: 'U1 锁条目缺 specifier',
+      webPkg: { dependencies: { dayjs: '^1.11.0' } },
+      lock: gate.lockExact({ dependencies: [{ name: 'dayjs', version: '1.11.1' }] }),
+      reason: 'value-unreadable',
+    },
+    {
+      label: 'U2 跨段而锁条目带 optional',
+      webPkg: { dependencies: { fsevents: '^2.3.0' } },
+      lock: gate.lockExact({
+        devDependencies: [
+          { name: 'fsevents', specifier: '^2.3.0', version: '2.3.3', optional: true },
+        ],
+      }),
+      reason: 'optional-placement-unmodeled',
+    },
+    {
+      label: 'U3 importer 有 peer 段而该 peer 不在其中',
+      webPkg: { peerDependencies: { react: '>=18' } },
+      lock: gate.lockExact({
+        peerDependencies: [{ name: 'vue', specifier: '^3.0.0', version: '3.4.0' }],
+        devDependencies: [{ name: 'react', specifier: '19.0.0', version: '19.0.0' }],
+      }),
+      reason: 'peer-section-exists-but-skipped',
+    },
+  ]
+  const s = mkScratch('lmci-t33')
+  try {
+    for (const [i, c] of cases.entries()) {
+      const dir = gate.makeFixture(join(s, `u${i}`), { webPkg: c.webPkg, lock: c.lock })
+      const r = gate.runCheck(dir)
+      // 三条互斥:判不准不得同时进 violations / 任何一种"放过"清单
+      assert.deepEqual(r.violations, [], `${c.label} 不得冒红`)
+      assert.deepEqual(r.peerExempted, [], `${c.label} 不得被写成 peer 放过`)
+      assert.deepEqual(r.overrideExempted, [], `${c.label} 不得被写成 override 放过`)
+      assert.equal(r.undeterminedItems.length, 1, `${c.label} 必须恰好一条未判定`)
+      assert.equal(r.undeterminedItems[0].reason, c.reason)
+      // CLI 双档:默认(提交链走这档)0,--strict 2
+      const dflt = runCLI(['--all', '--worktree', '--root', dir])
+      assert.equal(dflt.code, 0, `${c.label} 默认档必须只报数不判红:${dflt.out}`)
+      assert.match(dflt.out, /\[未判定\]/)
+      const strict = runCLI(['--all', '--worktree', '--strict', '--root', dir])
+      assert.equal(strict.code, 2, `${c.label} --strict 必须拒绝出合格证:${strict.out}`)
+      assert.match(strict.out, /拒绝出具合格证/)
+    }
+  } finally {
+    rmScratch(s)
+  }
+})
+
+test('T34 退出码只允许一份算式:--json 与 report 不得各写一遍 ternary(反向锁)', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  // 形状锁一律比**空白归一化后**的文本:T20 那条教训原样适用 —— prettier 在 lint-staged 里
+  // 会把长调用折行,按原文 match 的结果是"下一个碰这文件的提交者(不是我)替我挨一条形状红",
+  // 而那条红唯一出路是绕钩子(§12e 同型)。归一化只压空白、不重排 token ⇒ "调用存在"仍成立。
+  const flat = (t) => t.replace(/\s+/g, ' ')
+  const fsrc = flat(src)
+  // 旧形态:`process.exit(result.undetermined ? 2 : result.violations.length ? 1 : 0)` ——
+  // 报告面与 --json 各算一遍,加一档(--strict)时只会有一处带上它,而账面两处都"像是对的"。
+  // 这一条比**原文**是故意的:ternary 里没有一个多余空白,归一化反而会把它藏起来。
+  assert.doesNotMatch(
+    src,
+    /result\.undetermined \? 2 : result\.violations\.length/,
+    '退出码被拆成两处 ternary,--strict 会在其中一侧静默失效',
+  )
+  assert.ok(
+    (src.match(/decideExitCode\(/g) ?? []).length >= 3,
+    'decideExitCode 必须被 CLI 两条出口与 report 共同调用(否则同源没成立)',
+  )
+  assert.match(fsrc, /process\.exit\(decideExitCode\(result, strict\)\)/)
+  assert.match(fsrc, /process\.exit\(report\(result, mode, face, strict\)\)/)
+  assert.match(fsrc, /const strict = argv\.includes\('--strict'\)/)
+  // 纯函数侧:同一份结果在 strict 两档下必须给出**不同**码,否则 --strict 是空旗标
+  const withUndef = {
+    undetermined: null,
+    violations: [],
+    undeterminedItems: [{ reason: 'value-unreadable' }],
+    sectionChecked: 5,
+  }
+  assert.equal(gate.decideExitCode(withUndef, false), 0)
+  assert.equal(gate.decideExitCode(withUndef, true), 2)
+  // 反向:没有未判定且段维核过 ⇒ strict 也必须是 0(不得是一台恒红档)
+  assert.equal(gate.decideExitCode({ ...withUndef, undeterminedItems: [] }, true), 0)
+  // 失明侧:段维一条都没核 ⇒ strict 拒绝出证
+  assert.equal(
+    gate.decideExitCode({ ...withUndef, undeterminedItems: [], sectionChecked: 0 }, true),
+    2,
+  )
+  // 红优先于不出证
+  assert.equal(
+    gate.decideExitCode({ ...withUndef, violations: [{ kind: 'section-drift' }] }, true),
+    1,
+  )
+  // 整面无法判定仍是 2
+  assert.equal(gate.decideExitCode({ ...withUndef, undetermined: 'x' }, false), 2)
+})
+
+test('T35 optional 字段不得被静默丢弃:解析器必须真的赋值(否则 U2 是恒假的死分支)', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  // 同 T34:形状锁比空白归一化后的文本,prettier 把这条 else-if 折行时不得把下一个提交者钉红
+  assert.match(
+    src.replace(/\s+/g, ' '),
+    /else if \(m\[1\] === 'optional'\) dep\.optional =/,
+    'importer 的 optional 又被改回"容忍但不取"⇒ U2 那一支永远不会触发,判据对这一型全盲',
+  )
+  // 行为侧才是本条的实质:同一形状只在 optional 这一维上分叉 ⇒ 结论必须不同形
+  // (若解析器仍丢弃该字段,两种形状会给出同一个 section-drift,本条就退化成复读机)。
+  const s = mkScratch('lmci-t35')
+  try {
+    const webPkg = { dependencies: { fsevents: '^2.3.0' } }
+    const withOpt = gate.makeFixture(join(s, 'with'), {
+      webPkg,
+      lock: gate.lockExact({
+        devDependencies: [
+          { name: 'fsevents', specifier: '^2.3.0', version: '2.3.3', optional: true },
+        ],
+      }),
+    })
+    const plain = gate.makeFixture(join(s, 'plain'), {
+      webPkg,
+      lock: gate.lockExact({
+        devDependencies: [{ name: 'fsevents', specifier: '^2.3.0', version: '2.3.3' }],
+      }),
+    })
+    const rw = gate.runCheck(withOpt)
+    const rp = gate.runCheck(plain)
+    assert.equal(rw.undeterminedItems.length, 1, '带 optional ⇒ 未判定')
+    assert.equal(rw.violations.length, 0)
+    assert.equal(
+      rp.violations.length,
+      1,
+      '不带 optional ⇒ 同形必须是 section-drift(证明区别真在字段上)',
+    )
+    assert.equal(rp.violations[0].kind, 'section-drift')
+    assert.equal(rp.undeterminedItems.length, 0)
+    // 直接问解析器本体一次:两条结论的差异必须来自"字段被取进条目",
+    // 而不是某处恰好按别的形状分支(§22c:判据失效的表现永远是安静,得问源头)。
+    const parsed = gate.parseLockImporters(
+      gate.lockExact({
+        devDependencies: [{ name: 'x', specifier: '1.0.0', version: '1.0.0', optional: true }],
+      }),
+    )
+    assert.equal(parsed.get('apps/web').get('devDependencies').get('x').optional, true)
+  } finally {
+    rmScratch(s)
+  }
+})
