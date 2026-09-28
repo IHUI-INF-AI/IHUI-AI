@@ -23,7 +23,7 @@ export function Hero() {
   return (
     <section
       aria-label={t('hero.label')}
-      className="overflow-hidden rounded-lg border bg-card shadow-sm"
+      className="overflow-hidden ui-card rounded-lg border bg-card shadow-sm"
     >
       <div className="grid grid-cols-1 gap-6 p-3 min-[768px]:grid-cols-[1fr_auto]">
         <div className="space-y-3">

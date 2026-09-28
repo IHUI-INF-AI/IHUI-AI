@@ -53,7 +53,7 @@ export default function DistributionPlan() {
   return (
     <ThemeRoot className="min-h-screen bg-background p-[28rpx] pb-[200rpx]">
       {/* 对齐 RN EarnCommissionScreen introCard:标题+描述+统计同卡,内容居中 */}
-      <View className="bg-card rounded-xl p-[28rpx] flex flex-col items-center gap-[24rpx]">
+      <View className="bg-card ui-card rounded-lg p-[28rpx] flex flex-col items-center gap-[24rpx]">
         <Text className="block text-[length:36rpx] font-bold text-foreground text-center">
           {tt('distribution.plan.introTitle', '邀请好友,赚取佣金')}
         </Text>
@@ -84,7 +84,7 @@ export default function DistributionPlan() {
       </View>
 
       {/* 对齐 RN sectionCard:白卡 + 居中标题 + 圆形序号规则列表 */}
-      <View className="bg-card rounded-xl p-[28rpx] mt-[24rpx] flex flex-col gap-[24rpx]">
+      <View className="bg-card ui-card rounded-lg p-[28rpx] mt-[24rpx] flex flex-col gap-[24rpx]">
         <Text className="block text-[length:32rpx] font-semibold text-foreground text-center">
           {tt('distribution.plan.rulesTitle', '分佣规则')}
         </Text>

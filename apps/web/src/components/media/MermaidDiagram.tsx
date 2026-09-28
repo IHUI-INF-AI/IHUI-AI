@@ -195,7 +195,7 @@ export function MermaidDiagram(props: MermaidDiagramProps): React.ReactElement {
   return (
     <MermaidErrorBoundary
       fallback={
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs">
+        <div className="ui-card rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs">
           <p className="text-destructive">{t('mermaidRenderFailed')}</p>
           <pre className="mt-2 text-xs text-muted-foreground">{props.code}</pre>
         </div>
