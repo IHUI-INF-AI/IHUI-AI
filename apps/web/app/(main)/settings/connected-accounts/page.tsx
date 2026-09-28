@@ -90,7 +90,7 @@ export default function ConnectedAccountsPage() {
     return (
       <div
         key={platform.key}
-        className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/30"
+        className="flex items-center justify-between ui-control rounded-sm border p-3 transition-colors hover:bg-muted/30"
       >
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-muted p-2">

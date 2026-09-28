@@ -93,7 +93,7 @@ export default function QueueBar({
 
   return (
     <div
-      className="rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+      className="ui-card rounded-lg border border-border bg-card px-2 py-1.5 text-xs"
       data-testid="ext-queue-bar"
       aria-label={t(`${OPS_NS}.ariaLabel`)}
     >
