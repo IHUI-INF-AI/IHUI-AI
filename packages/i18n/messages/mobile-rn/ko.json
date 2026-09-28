@@ -1035,6 +1035,8 @@
   "courseFilter": {
     "title": "강좌 필터",
     "subtitle": "조건에 맞는 강좌를 찾아보세요",
+    "categoryRange": "분류",
+    "difficultyRange": "난이도",
     "priceRange": "가격 범위",
     "reset": "초기화",
     "apply": "확인",
@@ -1043,9 +1045,15 @@
     "instructor": "강사",
     "free": "무료",
     "loadFailed": "필터 불러오기 실패",
+    "loadingMore": "더 불러오는 중",
     "price_all": "전체",
     "price_free": "무료",
-    "price_paid": "유료"
+    "price_paid": "유료",
+    "difficulty_all": "전체",
+    "difficulty_beginner": "입문",
+    "difficulty_intermediate": "중급",
+    "difficulty_advanced": "고급",
+    "noCategories": "사용 가능한 분류가 없습니다"
   },
   "courseQAAsk": {
     "title": "강좌 질문",

@@ -31,6 +31,13 @@ const MAX_TAG_SPAN_LINES = 40
 const ID_RE = /[A-Za-z0-9_$]/
 
 /**
+ * 可以**直接接一个表达式**的关键字:`return <div/>`、`yield <Modal/>`、`await <X/>`、
+ * `case <` 不算(那是比较),但 `default` 在 JSX 三元里可能接元素。判据只用于"前一词元是不是
+ * 关键字而不是普通标识符",所以宁可少列(漏列的形态只是退回 genericSkipped 报名,不会误建元素)。
+ */
+const EXPR_KEYWORDS = new Set(['return', 'yield', 'await', 'in', 'of', 'else', 'do', 'throw'])
+
+/**
  * 内在标签白名单。刻意**不**放宽成"全小写即标签":`a < divx` 这类比较式会凭空长出幽灵祖先,
  * 而祖先是改判依据 —— 多一个假祖先比少认一个真标签贵得多(假阳比漏报更贵,门 118 记过)。
  * RN / Taro 侧真仓一律是 `<View>` 这类大写组件名,走 `isComponentName` 那一支。
@@ -274,9 +281,21 @@ export function scanJsx(src, opts = {}) {
     while (p >= 0 && /\s/.test(text[p])) p--
     const prev = p >= 0 ? text[p] : ''
     if (ID_RE.test(prev) || prev === '.') {
-      genericSkipped++ // `Array<View>` / `useState<Foo>()` / `a.b < C`
-      i++
-      continue
+      /**
+       * 前一个词元是**标识符** ⇒ 这个 `<` 通常是泛型参数或比较运算(`Array<View>` / `a < b`)。
+       * 但 `return <div>x</div>`、`await <Modal/>` 这类**表达式关键字后面直接接 JSX**(不套括号)
+       * 是真实写法:实测这一型让扫描器在 `function E(){ return <div/> }` 上直接失配,
+       * 而失配的表现不是报错,是**这一整个文件的容器维不生效**(C4/C5 双双看不见)。
+       * 所以按"前一词元是否为可接表达式的关键字"放行,其余照旧计 genericSkipped。
+       */
+      let w = p
+      while (w >= 0 && ID_RE.test(text[w])) w--
+      const word = text.slice(w + 1, p + 1).toLowerCase()
+      if (!EXPR_KEYWORDS.has(word) || prev === '.') {
+        genericSkipped++ // `Array<View>` / `useState<Foo>()` / `a.b < C`
+        i++
+        continue
+      }
     }
     if (prev === '>') {
       // **必须再往前看一格**:JSX 子元素紧跟在父标签的 `>` 之后,把 `>` 一律当"非标签起始"
