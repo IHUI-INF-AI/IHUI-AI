@@ -14,6 +14,7 @@ import {
   tokenStore,
   refreshAccessToken,
   onUnrecoverableUnauthorized,
+  isSessionLoggedOut,
 } from './utils/auth'
 import { exchangeSsoCode } from './utils/sso'
 import { initPrivacyGuard } from './utils/privacy'
@@ -28,6 +29,7 @@ import {
   setUnauthorizedHandler,
 } from '@ihui/api-client'
 import { bindTokenStoreToApiClient } from '@ihui/shared/auth'
+import { canSilentlyReLogin } from '@ihui/shared/auth/auto-login-policy'
 import { createTaroTransport } from './utils/api-client-transport'
 import { useUiControlBridge } from './hooks/use-ui-control-bridge'
 import { BASE_URL } from './utils/api-config'
@@ -220,7 +222,17 @@ function SsoLaunchHandler() {
     void (async () => {
       await consumeSsoCodeFromLaunch(launchQuery, () => t('login.loginSuccess'))
       // 未登录且是小程序环境(微信或支付宝)→ 静默跨端登录
-      if (!getToken() && isMiniAppEnvironment()) {
+      //
+      // 登出标记这一半是必须的(2026-09-27 任务 #29,与 RN/web 同一份判据):
+      // 退出登录走的是 `clearAuth()` → 清 token,而 wx.login 的 code 每次冷启动都拿得到,
+      // 所以只看 `!getToken()` 的话,"用户刚点了退出"和"新用户首次进入"在盘上长得一模一样,
+      // 下一次冷启动就静默登回去了。判据住在 @ihui/shared/auth/auto-login-policy(登出标记优先),
+      // 本端没有"自动登录"勾选位也没有记住的账密 —— 静默登录的准入条件是平台能力本身,
+      // 所以它作为 gate 传进去,而不是把不存在的勾选位伪造成 `() => true`。
+      if (
+        !getToken() &&
+        canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut, gates: [isMiniAppEnvironment] })
+      ) {
         try {
           await useUserStore.getState().trySilentMiniAppLogin()
         } catch {
