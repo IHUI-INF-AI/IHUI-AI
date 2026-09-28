@@ -1801,6 +1801,7 @@ Windows PowerShell 5.1(`powershell.exe`)已 EOL(微软停止维护),且存在已
    - ❌ `powershell.exe -Command ...`
    - 唯一例外:Windows 系统 5.1 专属 cmdlet 需在脚本里 `Set-Alias` 显式标注
 2. **所有项目内 `.ps1` 文件第一行必须 `#requires -Version 7`**:在 5.1 上跑会**直接报错退出**,这正是强制效果
+- **适用面例外(2026-09-28 G-225 出路②落地)**:`deploy/**` 的 `.ps1` **不吃该 pragma**,守门 `scripts/check-pwsh-version.mjs` 对该面**不判红只报名**(报告行 `[EXEMPT]` 给出该面总数与缺 pragma 数,现读一律看该行,不引用文档数字)。原因不是遗漏而是可用性决定:`#requires` 在 5.1 上是**直接拒绝执行**,而这些脚本由 nssm 服务与计划任务拉起 —— 别机/服务身份若仍是 5.1,补 pragma 等于让部署/备份/监控服务停摆。**因此不得按本节那句"所有项目内 .ps1"推断运维脚本已受版本强制**;那句话现在只覆盖非豁免面。这一族的真判据在**调用侧**:代码面凡调用 `deploy/**.ps1` 必须显式指名 `pwsh`/`pwsh.exe` 或经 `*.vbs` 包装(§26),裸 `powershell -File deploy/…` 即 `[CALLER]` 命中;默认档与提交链只报数,问责跑 `--strict`,升 blocking 的前置是真仓 HEAD 面现读为 0。门内逐字打印的盲区:调用侧只判 JS/TS 系,`.ps1/.sh/.bat/.vbs` 的调用面因 `code-mask` 不认其注释语法而**不判** —— 那是"没判",不是"已确认没有"。
 3. **CI / 守门脚本必须用 `pwsh`** 跑
 4. **路径统一用正斜杠 `/`**:`C:/Program Files/PowerShell/7/`,避免 5.1 反斜杠转义 bug
 5. **`.ps1` 文件用 UTF-8 with BOM 写**:PowerShell 5.1 默认以 ANSI 代码页读 `.ps1`,`Out-File -Encoding UTF8` 在 5.1 上写的是 UTF-16 LE,必须用 `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($true))`
