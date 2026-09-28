@@ -31,7 +31,8 @@ import type { UserInfoCardMinimalProps } from '@ihui/types'
 /// 书写形态:**本族全部档位经 `toUnit(具名档)` 内联**,端内不落第二个数字。
 /// (此前登录钮的上下档与进度条粗细写过等值 Tailwind 类名 `py-3.5` / `h-2` —— 渲染字节相同,但守门 128
 ///  的具名档判据只认档名,于是这两档在小程序侧读不出来、被记成"另一端没接线";现收回类名形态,
-///  与同文件其余 11 档同一姿势。徽章族的 `px-2`/`py-0.5` 保留,因为同档已由 BADGE_PAD_STYLE 引过常量。)
+///  与同文件其余 11 档同一姿势。徽章族的 `px-2`/`py-[4rpx]` 保留(后者与旧 `py-0.5` 等值:刻度小数档
+///  在小程序产物里是不落地的死规则,守门 C4 现读 15 档,已一律换成等值 rpx 任意值形态),因为同档已由 BADGE_PAD_STYLE 引过常量。)
 const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
 const PAD_STYLE = { padding: toUnit(USER_INFO_CARD_PADDING_PX) }
 const HEADER_GAP_STYLE = { gap: toUnit(USER_INFO_CARD_HEADER_GAP_PX) }
@@ -192,7 +193,7 @@ export default function UserInfoCard({
                     与 RN 端 roleBadge 是同一角色,此前各写 4 / 2,现统一到 chip 档。 */}
                 {isVip ? (
                   <View
-                    className="px-2 py-0.5 rounded-md flex-shrink-0"
+                    className="px-2 py-[4rpx] rounded-md flex-shrink-0"
                     style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text
@@ -204,10 +205,10 @@ export default function UserInfoCard({
                   </View>
                 ) : null}
                 {/* 操盘手身份标识(对齐原项目 identityType=2,不同身份显示不同徽标)
-                    徽章内边距与等级徽章同档:spec BADGE_PADDING_X 8 = `px-2` / Y 2 = `py-0.5` */}
+                    徽章内边距与等级徽章同档:spec BADGE_PADDING_X 8 = `px-2` / Y 2 = `py-[4rpx]` */}
                 {identityType === 2 ? (
                   <View
-                    className="px-2 py-0.5 rounded-md flex-shrink-0"
+                    className="px-2 py-[4rpx] rounded-md flex-shrink-0"
                     style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text

@@ -13,13 +13,15 @@
  * 安全性:所有文本均以 React 子节点渲染(React 自动对文本做 HTML 转义,不注入 innerHTML),
  * 链接仅放行 http(s) / mailto / # 协议,其余降级为纯文本,杜绝 javascript: 注入。
  */
-import { type ComponentType, useMemo, type ReactNode } from 'react'
-import { Check, CircleDashed, Loader2, Terminal, X } from 'lucide-react'
+import { type ComponentType, useMemo, useState, type ReactNode } from 'react'
+import { Check, CircleDashed, Keyboard, Loader2, Terminal, X } from 'lucide-react'
 import {
   buildRenderModel,
+  describeMcpToolActivity,
   describeToolCall,
   humanizeToolText,
   permissionTierWordKeys,
+  toolActivityState,
   toolDisplayKey,
   type ChatMessage,
   type ReasoningRenderBlock,
@@ -31,7 +33,7 @@ import {
   type ToolSubjectKind,
 } from '@ihui/shared'
 import { formatTokenCount } from '@ihui/shared/utils'
-import { ContextInjectionList } from '@ihui/ui-react'
+import { Button, ContextInjectionList, Input } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 
 /** i18n 翻译函数签名(与 useI18n 的 t 一致) */
@@ -252,6 +254,52 @@ export function toolDisplayName(toolName: string | undefined, tTool: Translate):
   return key ? tTool(key) : toolName
 }
 
+/** `mcpToolActivityTitle` 只读这几字段,签名收窄便于调用方与测试都只喂必要项 */
+export type McpToolRowInput = Pick<
+  ToolRenderBlock,
+  'toolName' | 'status' | 'serverSource' | 'serverName' | 'serverId'
+>
+
+/**
+ * MCP 工具行的定制措辞(D83 接线,extension 端渲染点入口;与 mobile-rn 的
+ * `chat-render-model.mcpToolActivityTitle` 同名同语义,跨端 grep 找得到同一个概念)。
+ *
+ * 措辞层不在端内:`@ihui/shared/chat` 的 `describeMcpToolActivity` 才是唯一数据源
+ * (server×tool → server → tool → 功能名 → 码名 五级回落 + 双时态 + 带上下文档)。
+ * web(`tool-call-card.tsx` / `task-status-bar.tsx`)与小程序(`cards/tool-line.ts`)、
+ * RN 早已各自接上,本端此前只有 `serverName` 当徽章摆在行尾、行首标题仍是裸码名
+ * (`create_issue`),即"造好没装车"那一型:链在共享层、端上没人调,屏幕就永远不涨。
+ *
+ * 返回 `null` = "本端这一行没有可渲染的 MCP 措辞",调用方必须沿用既有功能名口径:
+ * - 非 MCP(serverSource ≠ 'mcp')—— 内置/插件工具不归本层管,免得顺手改掉全站工具行文案;
+ * - error / cancelled —— 对失败或被撤回的调用声称"已完成 X"是假陈述(用共享的
+ *   `toolActivityState` 判,不在端内重抄一份状态白名单);
+ * - 整条链走到链尾只剩原始码名 —— 界面禁止直显 `create_issue`。
+ *
+ * 取词边界的回显归一(与 RN 同一处坑):共享层 `usableRenderedText` 拿**未加前缀**的键比结果,
+ * 而本端 `tTool`(= `makeToolTranslate(t)`,已补 `taskStatus.`)缺键时回显的是点号全路径,
+ * 两者不等 ⇒ 那道守卫在本端形状上判不出回显。键的拼法只有本端知道,所以在这里归一,
+ * 不去改共享层判据(改了要同时复核 web / 小程序 / RN 三个消费端,属另一票)。
+ */
+export function mcpToolActivityTitle(block: McpToolRowInput, tTool: Translate): string | null {
+  if (block.serverSource !== 'mcp') return null
+  const state = toolActivityState(block.status)
+  if (state === null) return null
+  const line = describeMcpToolActivity({
+    // serverId 回落与 web 同一口径(MCP 帧可能只带 ID 不带显示名)
+    serverName: block.serverName ?? block.serverId ?? null,
+    toolName: block.toolName,
+    state,
+    translate: (key, params) => {
+      const text = tTool(key, params)
+      // 回显键名 ⇒ 交空串:共享层认空串为"本级未命中",会继续走链,最终落回原始码名,
+      // 再由下面的 `line === block.toolName` 折成 null —— 语言包漏译不会把键名印到界面。
+      return text === `taskStatus.${key}` ? '' : text
+    },
+  })
+  return line === block.toolName ? null : line
+}
+
 /** 对象类字形特征:路径 / URL / 命令用等宽字体,检索词与实体名按正文 */
 const MONO_SUBJECT_KINDS: ReadonlySet<ToolSubjectKind> = new Set<ToolSubjectKind>([
   'path',
@@ -406,7 +454,10 @@ function ToolBlockView({
     status: block.status,
   })
   const Icon = toolStatusIcon(block)
-  const title = view.nameKey ? tTool(view.nameKey) : view.codeName
+  // D83:MCP 行先取共享层 server×tool 定制措辞(「正在创建 GitHub 议题」),
+  // 未命中即交回下方既有链 —— 内置/插件工具的标题一个字节都不动。
+  const title =
+    mcpToolActivityTitle(block, tTool) ?? (view.nameKey ? tTool(view.nameKey) : view.codeName)
   const metricText =
     view.metricKind === 'none' || view.metricValue === null || view.metricValue < 0
       ? ''
@@ -678,9 +729,114 @@ export function PlanStepsView({ steps, explanation }: PlanStepsViewProps) {
 export interface MessageContentProps {
   message: ChatMessage
   streaming?: boolean
+  /**
+   * D151:命令「等待键盘输入」的呈现态(键 = **原始 terminalId**,不是渲染块的复合 id)。
+   * 刻意不折进 render model —— `TerminalRenderBlock.id` 是 `${messageId}:terminal:${task.id||index}`
+   * 这种复合串(task.id 缺失时退化成下标),拿它当寻址键会在缺 id 的流里指错命令。
+   * 因此本组件自己按 `message.terminalTasks[].id` 对齐,只给**确实还在本条消息里**的任务出行。
+   */
+  terminalInteractions?: Record<string, TerminalInteractionView>
+  /** 上行回调:由宿主(ChatPage)经 @ihui/api-client 的 postTerminalInput 送出,本组件不自行发请求 */
+  onTerminalInputSubmit?: (terminalId: string, text: string) => void
 }
 
-export function MessageContent({ message, streaming = false }: MessageContentProps) {
+/**
+ * D151 单条命令的等待态(视图层)。`sessionId` 留在宿主侧(ChatPage)—— 它是寻址凭据,
+ * 渲染层拿到也没有能发的通道,少传一份就少一处可能猜错的地方。
+ */
+export interface TerminalInteractionView {
+  promptTail: string
+  maxInputChars: number
+  submitting: boolean
+  failed: boolean
+}
+
+/**
+ * TerminalInputRow — D151「命令在等键盘输入」的输入行(与 web terminal-section 同口径)。
+ *
+ * 三条硬边界(照抄 web 的理由,不是风格偏好):
+ * - 键入只存在本组件本地 state:不落 store / 不进会话历史 / 不进任何日志 —— 它可能就是
+ *   `Password:` 后面要输的那行口令,任何"顺手复制一份"的通道都是泄露面。
+ * - 发送后**不清空**输入框:失败时用户不必重打;成功即由宿主摘掉等待态 ⇒ 本行卸载。
+ * - 提交中禁用,一帧只送一次(重复提交会往同一个子进程喂两行)。
+ */
+function TerminalInputRow({
+  terminalId,
+  interaction,
+  onSubmit,
+  t,
+}: {
+  terminalId: string
+  interaction: TerminalInteractionView
+  onSubmit?: (terminalId: string, text: string) => void
+  t: Translate
+}) {
+  const [text, setText] = useState('')
+  const { promptTail, maxInputChars, submitting, failed } = interaction
+  return (
+    <form
+      className="mt-1 flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1"
+      data-testid={`terminal-interaction-${terminalId}`}
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (submitting) return
+        onSubmit?.(terminalId, text)
+      }}
+    >
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex items-center gap-1 text-[10px] leading-none text-muted-foreground">
+          <Keyboard className="h-3 w-3 shrink-0" aria-hidden />
+          {t('chat.terminal.waitingInput')}
+        </span>
+        {promptTail ? (
+          <span
+            className="truncate font-mono text-[10px] leading-none text-muted-foreground"
+            data-testid={`terminal-interaction-prompt-${terminalId}`}
+          >
+            {t('chat.terminal.promptLabel', { prompt: promptTail })}
+          </span>
+        ) : null}
+        {failed ? (
+          // 只在点过发送之后出现:没有提交就挂「失败」是给没发生的事下结论
+          <span
+            className="text-[10px] leading-none text-destructive"
+            data-testid={`terminal-interaction-failed-${terminalId}`}
+          >
+            {t('feedback.failed')}
+          </span>
+        ) : null}
+      </div>
+      <Input
+        type="text"
+        value={text}
+        onChange={(event) => {
+          const next = event.target.value
+          setText(maxInputChars > 0 ? next.slice(0, maxInputChars) : next)
+        }}
+        maxLength={maxInputChars > 0 ? maxInputChars : undefined}
+        disabled={submitting}
+        aria-label={t('chat.terminal.waitingInput')}
+        className="h-7 min-w-0 flex-1 text-xs"
+        data-testid={`terminal-interaction-input-${terminalId}`}
+      />
+      <Button
+        type="submit"
+        size="xs"
+        disabled={submitting}
+        data-testid={`terminal-interaction-submit-${terminalId}`}
+      >
+        {t('chat.terminal.submit')}
+      </Button>
+    </form>
+  )
+}
+
+export function MessageContent({
+  message,
+  streaming = false,
+  terminalInteractions,
+  onTerminalInputSubmit,
+}: MessageContentProps) {
   const { t } = useI18n()
   const tTool = useMemo(() => makeToolTranslate(t), [t])
   const model = useMemo(() => buildRenderModel(message, { streaming }), [message, streaming])
@@ -690,6 +846,16 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
   const stampedTier =
     typeof message.metadata?.permissionMode === 'string' ? message.metadata.permissionMode : null
   const firstTerminalIdx = model.blocks.findIndex((b) => b.kind === 'terminal')
+  // D151:等待输入的行只给**本条消息里确实存在**的任务出(顺序取 terminalTasks 的原序,
+  // 不取 Object.keys —— 后者会把同一轮两条命令按字典序打乱,与终端块顺序不一致)。
+  const pendingTerminalInputs = terminalInteractions
+    ? (message.terminalTasks ?? [])
+        .map((task) => ({ id: task.id, interaction: terminalInteractions[task.id] }))
+        .filter(
+          (row): row is { id: string; interaction: TerminalInteractionView } =>
+            !!row.id && !!row.interaction,
+        )
+    : []
   return (
     <div className="flex flex-col gap-1.5" data-testid="message-content">
       {stampedTier !== null && (
@@ -727,6 +893,15 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
             return null
         }
       })}
+      {pendingTerminalInputs.map((row) => (
+        <TerminalInputRow
+          key={`terminal-input-${row.id}`}
+          terminalId={row.id}
+          interaction={row.interaction}
+          onSubmit={onTerminalInputSubmit}
+          t={t}
+        />
+      ))}
       {model.isEmpty && message.role === 'assistant' ? (
         <span className="text-muted-foreground">...</span>
       ) : null}
