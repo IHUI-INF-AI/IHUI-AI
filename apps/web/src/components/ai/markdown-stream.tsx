@@ -155,6 +155,10 @@ function InlineHtmlPreview({ code }: { code: string }) {
       </div>
       <iframe
         title="inline-html-preview"
+        /* iframe-sandbox-relax: 预览的是模型现写的 html/svg 代码块(srcDoc),不给 allow-scripts
+           则内联预览整块空白,该功能即失效。档值 = MODEL_CONTENT_SANDBOX
+           (packages/ui-react/src/components/webview-frame.tsx 的唯一实现),
+           刻意**不含** allow-same-origin ⇒ 帧内 opaque origin,读不到本站 Cookie/存储。 */
         sandbox="allow-scripts"
         srcDoc={code}
         className="h-[160px] w-full bg-white"

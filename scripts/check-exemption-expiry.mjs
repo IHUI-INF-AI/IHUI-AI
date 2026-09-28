@@ -139,6 +139,19 @@ const FAMILY_LIFETIME_DAYS = {
    */
   'selftest-registrant-exempt': 30,
   /**
+   * 守门 157(`check-credential-presence-bypass.mjs`,按凭据存在性豁免对账)的行内出口。取 **30 天**
+   * —— 它是**待偿的裁决债**:该出口只救"这一处确实只按存在性判定、且有别的不变量兜住"的情况,
+   * 出路是把验真补进条件(`===` / `secretsEqual` / `timingSafeEqual` / `isVerified…`),或改走台账
+   * `scripts/data/credential-presence-exemptions.json` 的 `file + anchor + reason + reviewBy`
+   * (那条有独立的复核日,不归本表管)。不是 `back-label-exempt` 那种结构性定性,所以不取 365;
+   * 更不取 `DEFAULT_LIFETIME_DAYS` 的 90 天默认档 —— 默认档意味着"没人给它拍过寿命",而这一族
+   * 豁免的是鉴权路径上的一次跳过,寿命必须由被豁免的那一侧决定(§5「认证不等于授权」同族)。
+   * **同笔登记的真正理由**:本族若不在表里,任何人在 `apps/api` 写第一次行内豁免都会被守门 157 的
+   * 邻居 E4 判成"新引入的未登记豁免族"—— 一道门自己的合法出口被另一道门钉红,就是本节上面反复
+   * 写的"两道门互咬"(radius-role-exempt / border-ink-exempt 都记过同一课)。
+   */
+  'credential-presence-exempt': 30,
+  /**
    * `check-batch-write-count-honesty` 的 B1/B2 判据(假删除 ack)的合法例外通道:确属"该 delete/update
    * 由触发器/UPSERT 语义保证必命中一行"时才允许保留字面量 `deleted: true`。取 **30 天**,与
    * `glyph-arrow-exempt` / `statusbar-exempt` / `api-error-exempt` 同档 —— 这一族是**待偿的迁移债**,
