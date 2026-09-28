@@ -142,8 +142,14 @@ test('豁免原因不得由注释闭合符冒充(两条通道同口径;裸标记
   for (const c of cases) {
     const bare = (c.line + close.replace('MARKER', c.name)).replace(/\s+$/, '')
     const withReason = (c.line + reasonClose.replace('MARKER', c.name)).replace(/\s+$/, '')
-    const nOf = (src) => gate.auditFile('apps/miniapp-taro/src/t.tsx', src).findings.filter((f) => f.rule === c.rule).length
-    assert.equal(nOf(c.line + '\n'), 1, `${c.name}:阳性对照失效 —— 已知违规看不见,后面两条断言都无意义`)
+    const nOf = (src) =>
+      gate.auditFile('apps/miniapp-taro/src/t.tsx', src).findings.filter((f) => f.rule === c.rule)
+        .length
+    assert.equal(
+      nOf(c.line + '\n'),
+      1,
+      `${c.name}:阳性对照失效 —— 已知违规看不见,后面两条断言都无意义`,
+    )
     assert.equal(nOf(bare), 1, `${c.name}:裸标记 + 注释闭合符被当成"带了原因"⇒ 整行免检`)
     assert.equal(nOf(withReason), 0, `${c.name}:真原因必须放过,否则人工出口是空头承诺`)
   }
@@ -392,9 +398,20 @@ test('真仓 HEAD 上 S0 必须为 0,且遍历盲区必须为 0(机制此刻就�
 
 test('跨行自闭合标签的属性区必须真被咨询(HEAD 真文件双向证明,不是夹具复刻实现的形状)', () => {
   // §22c 的教训:判据的对象是真实文件的形态时,至少一条用例的输入必须逐字取自那个真文件。
-  // 这里用 HEAD 上真实存在的那一处(packages/app/src/features/course-screen/CourseScreen.tsx,
-  // 翻页按钮的 `{t('common.back')}` 摆在 `<FlatList … />` 的 ListFooterComponent prop 体里,
-  // 自闭合的 `/>` 落在另一行 —— 旧遍历把整段 prop 体当成一个 token 跳过了)。
+  //
+  // 受害者换过一次,原因是**正当收编**而不是判据坏了:原受害者是同一文件里翻页按钮的
+  // `{t('common.back')}` 文字返回 + 就近的 `back-label-exempt` 标记(旧遍历把跨行自闭合
+  // `/>` 之前那整段 prop 体当成一个 token 跳过了)。枚 `140c783c3`("P1 返回键同一型跨端清账")
+  // 把文字返回收编成矢量 `ChevronLeft` + `accessibilityLabel` 并删掉豁免标记 ⇒
+  // "剥掉豁免必判到"那一臂的夹具前提消失了。本条测试自己当时的出口就写着"需要换受害者,不得删",
+  // 所以这里**换形状、不换判据目标**:仍然要证明「跨行自闭合标签的属性区被祖先栈咨询过」。
+  //
+  // 现在的双向臂(输入仍是 HEAD 真字节,只做一处可控变换):
+  //  A 原样     ⇒ 不判红(无障碍名称不是渲染文字)且**盲区探针必须点名 0 处**(证明那一格被咨询过,
+  //              而不是"整段被跳过所以没红");
+  //  E 单点变换 ⇒ 把那一处**跨行自闭合**图标(`size/color/style` 各占一行、`/>` 落在另一行)换回
+  //              文字返回 ⇒ 必须恰好判到一处。若下探断了,E 就与 A 同形(0 条)——
+  //              这一臂就是"判据有牙"的证明,不是恒真断言。
   const COURSE = 'packages/app/src/features/course-screen/CourseScreen.tsx'
   const head = execFileSync('git', ['show', `HEAD:${COURSE}`], {
     cwd: ROOT,
@@ -403,31 +420,38 @@ test('跨行自闭合标签的属性区必须真被咨询(HEAD 真文件双向�
     timeout: 120000,
     windowsHide: true,
   })
-  const stripped = head.replace(/^.*back-label-exempt:[^\n]*\n/m, '')
-  assert.notEqual(stripped, head, '夹具前提变了(HEAD 上那处豁免注释不见了)⇒ 本条需要换受害者,不得删')
+  const CROSS_LINE_SELF_CLOSING =
+    /<ChevronLeft\n\s+size=\{16\}\n\s+color=\{tk\.text\.primary\}\n\s+style=\{page <= 1 && styles\.pageBtnDisabled\}\n\s*\/>/
+  // 前提锁:HEAD 上那个"多行开标签 + 跨行自闭合图标"的形状必须还在。
+  // 它一旦再次消失(又一轮正当收编),本条要**换受害者**而不是删断言 —— 与旧版同一句出口。
+  assert.equal(
+    head.split(CROSS_LINE_SELF_CLOSING).length - 1,
+    1,
+    '夹具前提变了(HEAD 上那处跨行自闭合形状不见了)⇒ 本条需要换受害者,不得删',
+  )
+
   const asIs = gate.auditFile(COURSE, head)
+  assert.equal(asIs.findings.length, 0, 'HEAD 现状(矢量 + accessibilityLabel)不该判红')
   assert.equal(
     asIs.notes.backBlind.length,
     0,
-    '格子仍被盲区探针点名 = 属性区下探断了,GA4 在这一型上是瞎的',
+    `格子仍被盲区探针点名 = 属性区下探断了,GA4 在这一型上是瞎的:${asIs.notes.backBlind
+      .map((b) => `${b.file}:${b.line}`)
+      .join(' | ')}`,
   )
-  assert.equal(
-    asIs.findings.filter((f) => f.rule === 'GA4' || f.rule === 'GA5').length,
-    0,
-    'HEAD 该处带 back-label-exempt 原因 ⇒ 现状不该判红(判红就是与改动无关的恒红)',
-  )
-  assert.ok(
-    asIs.notes.backExempt >= 1,
-    '下探没跑到那一格时 backExempt 不会增加 —— 这条把"绿是因为放过"和"绿是因为没看见"分开',
-  )
-  const unexempted = gate.auditFile(COURSE, stripped)
-  const hit = unexempted.findings.filter((f) => f.rule === 'GA4' || f.rule === 'GA5')
+
+  const swapped = head.replace(CROSS_LINE_SELF_CLOSING, "{t('common.back')}")
+  assert.notEqual(swapped, head, '变换没命中任何字节 ⇒ 本条退化成恒真,拒绝')
+  const judged = gate.auditFile(COURSE, swapped)
+  const hit = judged.findings.filter((f) => f.rule === 'GA4' || f.rule === 'GA5')
   assert.equal(
     hit.length,
     1,
-    `剥掉豁免后必须判到那一格(判到=判据有牙;判不到=门只是被豁免遮住了):${unexempted.findings.map((f) => `${f.rule}@${f.line}`).join(' | ')}`,
+    `把那一格换回文字返回必须恰好判到一处(判到=判据有牙;判不到=门只是被形状骗过):${judged.findings
+      .map((f) => `${f.rule}@${f.line}`)
+      .join(' | ')}`,
   )
-  assert.equal(unexempted.notes.backBlind.length, 0, '同一格既判红又点名盲区 = 两套结论互相打脸')
+  assert.equal(judged.notes.backBlind.length, 0, '同一格既判红又点名盲区 = 两套结论互相打脸')
 })
 
 test('属性区下探的三条结构锁:入口走 walkJsxRange、下探的祖先栈从空开始、盲区读数恒打印', () => {
@@ -446,7 +470,7 @@ test('属性区下探的三条结构锁:入口走 walkJsxRange、下探的祖先
     '属性区下探的祖先栈不再是空数组 ⇒ prop 宿主开始给 prop 体伪造可点证据(假阳)',
   )
   assert.ok(
-    flat.includes('t.attrs.includes(\'<\')'),
+    flat.includes("t.attrs.includes('<')"),
     '下探触发条件被改 ⇒ 要么整类形态重新隐身,要么每个标签都递归(白烧提交链)',
   )
   // 盲区读数那行必须**恒打印**(0 也打印):有才打印的话,读报告的人分不清"量到 0"与"这一层没量"
@@ -467,10 +491,7 @@ test('GA5 / GA6 必须真的挂在 scan() 上(判据写在文件里而没人调�
   // 而恒红门的实际结局是逼人 --no-verify、连带废掉全部守门。"取不到 config"的正反例由 --self-test 管。
   assert.deepEqual(
     violations.ga6.map((x) => x.file).sort(),
-    [
-      'apps/miniapp-taro/src/pages/dupe/index.tsx',
-      'apps/miniapp-taro/src/pages/navbar/index.tsx',
-    ],
+    ['apps/miniapp-taro/src/pages/dupe/index.tsx', 'apps/miniapp-taro/src/pages/navbar/index.tsx'],
     `GA6 跨文件判据未经 scan() 产出,或继承链判序坏:${violations.ga6.map((x) => x.file).join(' | ')}`,
   )
   assert.equal(notes.chromeUndetermined.length, 0, '本夹具两处 config 齐备 ⇒ 不该出现未判定')
@@ -485,8 +506,11 @@ test('GA5 / GA6 必须真的挂在 scan() 上(判据写在文件里而没人调�
 
 test('GA7 必须真挂在 scan() 上,且正反两例的输入逐字取自 HEAD 真文件(§22c:镜像只复读实现就是复读机)', () => {
   // 立门的那一型是**跨文件组合**(wrapper 的 NavBar × 子屏的 BackChevron),所以判"接线"不能靠夹具
-  // 名字 —— 夹具复刻的是实现的形状;这里喂 git show 现读的三份真文件,scan() 必须量到 HEAD 上
-  // 真实存在的 SettingsScreen 双层页头,量不到 = 判据被摘或解析层坏了。
+  // 名字 —— 夹具复刻的是实现的形状;这里喂 git show 现读的真文件三元组。
+  // 2026-09-27 起 SettingsScreen 的双层页头已收敛(共享侧不再画 BackChevron),所以阳性对照改成
+  // "真文件 + 内存注入一枚内置页头":真实形态(barrel 命名再导出、wrapper 的 onBack 接线)
+  // 复刻不了,而注入只活在内存 —— 刻意**不**要求"HEAD 必须还留着 ≥1 处违规",那等于把
+  // "世界是脏的"钉成判据,清完账的门反而红。
   const gitShow = (p) =>
     execFileSync('git', ['show', `HEAD:${p}`], {
       cwd: ROOT,
@@ -498,13 +522,33 @@ test('GA7 必须真挂在 scan() 上,且正反两例的输入逐字取自 HEAD �
   const WRAP = 'apps/mobile-rn/src/screens/SettingsScreen.tsx'
   const CHILD = 'packages/app/src/features/settings/SettingsScreen.tsx'
   const BARREL = 'packages/app/src/index.ts'
-  const src = Object.fromEntries([WRAP, CHILD, BARREL].map((p) => [p, gitShow(p)]))
-  const { violations, notes } = gate.scan((p) => src[p] ?? null, [WRAP, CHILD, BARREL], {
-    checkWiring: false,
-  })
+  const scanWith = (childText) => {
+    const src = Object.fromEntries([
+      [WRAP, gitShow(WRAP)],
+      [CHILD, childText],
+      [BARREL, gitShow(BARREL)],
+    ])
+    return gate.scan((p) => src[p] ?? null, [WRAP, CHILD, BARREL], { checkWiring: false })
+  }
+  // 反向锁:真 HEAD 三元组 ⇒ 0 处(本票链上 Settings 已收敛;有人回退则这条当场翻红)
+  const clean = scanWith(gitShow(CHILD))
+  assert.equal(
+    clean.violations.ga7.length,
+    0,
+    `真 HEAD 的 Settings 组合被读成双层 ⇒ 内置页头被加回去了:${JSON.stringify(clean.violations.ga7).slice(0, 240)}`,
+  )
+  const MARK = '<View style={styles.container}>'
+  const childSrc = gitShow(CHILD)
+  assert.ok(
+    childSrc.includes(MARK),
+    `注入锚点 ${MARK} 不在子屏里了 ⇒ 夹具前提漂了,换锚点,别删这条对照`,
+  )
+  const { violations, notes } = scanWith(
+    childSrc.replace(MARK, `${MARK}\n      <BackChevron onPress={onBack} label="返回" />`),
+  )
   assert.ok(
     violations.ga7.length >= 1,
-    'GA7 组合层双返回未经 scan() 产出(判据被摘线,或 barrel 一跳解析坏了)—— HEAD 全量实测该页就是红点之一',
+    'GA7 组合层双返回未经 scan() 产出(判据被摘线,或 barrel 一跳解析坏了)—— 真文件+注入都量不到就是失明',
   )
   assert.ok(
     violations.ga7.some((x) => x.file === WRAP),
@@ -520,7 +564,8 @@ test('GA7 必须真挂在 scan() 上,且正反两例的输入逐字取自 HEAD �
   const ADR = 'packages/app/src/features/activity-detail/ActivityDetailScreen.tsx'
   const adr = gitShow(ADR)
   assert.ok(
-    (adr.match(/\breturn\b/g) || []).length >= 3 && (adr.match(/<BackChevron\b/g) || []).length >= 3,
+    (adr.match(/\breturn\b/g) || []).length >= 3 &&
+      (adr.match(/<BackChevron\b/g) || []).length >= 3,
     '夹具前提变了(该文件不再是"多分支各一套页头"的形态)⇒ 这条反向锁需要换受害者,不得删',
   )
   const r2 = gate.scan((p) => (p === ADR ? adr : null), [ADR], { checkWiring: false })
@@ -528,7 +573,10 @@ test('GA7 必须真挂在 scan() 上,且正反两例的输入逐字取自 HEAD �
   // 静态锁:scan() 真调 findRnDoubleHeaders;scanRepo 真把 headerBackFiles 补进批次(GA7 的依赖
   // 与屏文件必须同面同轮 —— 漏补时 --staged 只含 wrapper,子屏永远"取不到",整条判据在提交链失明)
   const SRC = readFileSync(join(ROOT, 'scripts', 'check-glyph-arrow-icon.mjs'), 'utf8')
-  assert.ok(/findRnDoubleHeaders\(readFile, files\)/.test(SRC), 'scan() 不再调用 findRnDoubleHeaders = 摘线')
+  assert.ok(
+    /findRnDoubleHeaders\(readFile, files\)/.test(SRC),
+    'scan() 不再调用 findRnDoubleHeaders = 摘线',
+  )
   assert.ok(
     /\.\.\.headerBackFiles\(root, face\)/.test(SRC),
     'scanRepo 的取材批次丢了 headerBackFiles = GA7 依赖读不到,会把"没读"洗成"没命中"',
@@ -554,7 +602,7 @@ test('新增豁免族必须在守门 108 的存活期表里登记(否则它只�
 // 上面那条 scan 接线断言的夹具:三种出口各一个(ga5 命中 / ga6 命中 / ga6 未判定)
 const FIXTURES = {
   'apps/miniapp-taro/src/mix.tsx':
-    "export const P = ({ go }) => <Text onClick={go}>← 返回</Text>\n",
+    'export const P = ({ go }) => <Text onClick={go}>← 返回</Text>\n',
   'apps/miniapp-taro/src/pages/dupe/index.tsx':
     "import BackChevron from '@/components/BackChevron'\nexport default function V() {\n  return <BackChevron />\n}\n",
   'apps/miniapp-taro/src/pages/dupe/index.config.ts':

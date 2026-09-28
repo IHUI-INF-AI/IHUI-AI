@@ -21,11 +21,30 @@
  *  LAND_MSG    必填,提交信息
  *  LAND_ROOT   测试/换仓通道:被落地的仓库根(缺省 = 本脚本所在仓根)
  *  LAND_BASE_REF 取证通道:防覆盖对账的基线 ref(缺省 HEAD;只有测试用它造"别人已改过"的现场)
+ *  LAND_ALLOW_STALE 显式放行"陈旧落地"(见 staleLandingGuard 的成因),放行时必打一行留痕
  * 退出码:0 = 已落地且回读通过(对齐的 skipped/未判定只在 stdout 点名);
- *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / CAS 12 次未抢到 / 提交面回读缺路径 / 索引锁龄超上限);
+ *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
+ *            落地内容里存在"基线已删、祖先版本写过"的复活行,或该维判据未判定 ⇒ 未判定不等于通过 /
+ *            CAS 12 次未抢到 / 提交面回读缺路径 / 索引锁龄超上限);
  *        2 = 用法或环境错(空清单 / 空消息 / 声明路径不在盘上 / 根不可当仓库问)。
  *
  * ⚠️ 头注刻意不写"已接 pre-commit / CI / 第 N 项"—— 它是手动常驻工具,那种话会被守门 89 判"声称已接线而零命中"。
+ *
+ * 2026-09-27 补的第二道拒绝(同日实测事故,登记为在账缺陷):本器**只**按声明路径取磁盘字节,
+ * 而磁盘副本常年滞后 HEAD(它正是被绕开的原因 —— 走 pathspec 更糟)。一次真实落地把别人当天
+ * 合法删掉的 25 行整批送回、又抹掉 HEAD 里 3 行活内容,而 `git status`、diff 行数、typecheck、
+ * 全部守门都不响。判据不再自写:复用守门 84 导出的那一份"要交的内容 != HEAD 且字节级等于该路径
+ * 某祖先版本"判定(heal-worktree-tracked 的 alignDrifts 用的是同一出口),本器只是**在落盘前问它一次**。
+ *
+ * 2026-09-27 补的第三道判据(同日第二次自伤,形态与上一道**不同**,整 blob 那一型看不见它):
+ * 上面那条判据的前提是"要交的内容 == 某个祖先版本",而真实事故里调用方**还在陈旧副本上又做了
+ * 自己的小改动**(5 个语言包各加 4 行新键)⇒ 落地的 blob = `祖先副本 ⊕ 新行`,逐字节不等于任何祖先
+ * ⇒ 谓词永不成立 ⇒ offenders 空、连"只报不拦"那一支也进不去(它在 hits 循环里),守卫与没装一样。
+ * 现补**行级复活**判据(`resurrectAnalysis`):一行同时满足 ① 不在基准 blob 里 ② 在要落地的内容里
+ * ③ 在该路径某个祖先版本里 ⇒ 它是"被搬回来的旧内容",不是"新写的内容"。真新编辑只造 ①②,
+ * 陈旧拼接才造 ①②③ —— 这个不对称就是判据的牙(镜像测试两臂各钉一边,两臂同色即判据无牙)。
+ * 祖先窗口**不在本器重复数字**:走守门 84 的 `ancestorCommits` 那一个出口(窗口长度住在它内部);
+ * 一个路径的全部祖先正文经 `face-reader.catBatch` **一次批量**读完(不逐行、不逐 blob 派生)。
  */
 
 import { existsSync } from 'node:fs'
@@ -41,7 +60,18 @@ import {
   headBlobOf,
   resolveHeadRef,
   writeBlobOfWorktree,
+  ABSENT,
 } from './lib/bypass-git.mjs'
+import { analyze as staleAncestorAnalysis, ancestorCommits } from './check-stale-revert.mjs'
+import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+// 行级复活/计行判据的**单一实现**(2026-09-28 提取到 lib:守门 84 的 R1r 要用同一把尺子,
+// 两处各写一遍必然漂开 —— 本层只留 import 与再导出,不再持有第二份计数口径)。
+import {
+  lineDelta,
+  resurrectAnalysis,
+  RESURRECT_MAX_BLOB_BYTES,
+  RESURRECT_MIN_LINE_LEN,
+} from './lib/stale-content-analysis.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // 水印 CLI 与本器同目录:用它而不是拼 cwd 相对路径,理由见 watermarkPreflight 内注释。
@@ -69,6 +99,231 @@ export function parseArgs(env = process.env) {
 /** 防覆盖护栏:基线快照与当下 HEAD 之间,哪些目标路径的内容被别人动过。 */
 export function clobberedPaths(paths, baseMap, headNow, { root }) {
   return paths.filter((p) => headBlobOf(headNow, p, { root }) !== baseMap.get(p))
+}
+
+/* 计行口径与行级复活判据(linesOf / tallyLines / resurrectKey / lineDelta / resurrectAnalysis)
+ * 已于 2026-09-28 提取到 scripts/lib/stale-content-analysis.mjs —— 守门 84 的 R1r 与本器必须用
+ * **同一把尺子**,所以本文件不再持有实现,只 import 上面那一份。 */
+/**
+ * 陈旧落地守卫。两条互相补盲的判据,任一条成立即**拒绝**:
+ *
+ *  A. **整 blob**:盘上要交的副本**等于该路径某个祖先版本**、且落地会**抹掉基线里活着的行**。
+ *     判据只有一份,住在守门 84(`check-stale-revert.mjs` 导出的 analyze):"要交的内容 != HEAD
+ *     且字节级等于该路径某祖先版本"。heal-worktree-tracked 的 alignDrifts 调的是同一个出口;
+ *     本器**不再抄第三份**(两处算同一件事必漂移是本仓记过最多次的失败型)。它给得出精确祖先 sha。
+ *  B. **行级复活**:内容不等于任何祖先(因为调用方在陈旧副本上又改了东西)⇒ A 结构上看不见,
+ *     但落地仍会把基线已删的行搬回来。判据是 `resurrectAnalysis`(①②③ 三条见其注释)。
+ *
+ * 三种结论,不并桶:
+ *  - offender(参与拒绝):A 成立 ∧ 有行会从基线消失(或量不到消失行数)/ B 量到复活行 ≥ 1 /
+ *    B **未能判定**(取不到祖先正文、无祖先版本、超过尺寸护栏)—— 判不了就不放行,
+ *    本器已有大声出口 `LAND_ALLOW_STALE=1`,宁可让人显式确认,绝不把"没判"写成"判过了"。
+ *  - 只报不拦:A 成立 ∧ 相对基线只增不删 ∧ B 已判定且复活 0 行(即新增的都是噪声行/真新内容)。
+ *    这一支现在很窄 —— B 未判定也走 offender,所以"把别人删掉的行搬回来"不再能从这一支溜走。
+ *  - 不在射程(报数不判红):基线里没有这条(新增文件无行可消失)/ 基线该路径 ≠ 当下 HEAD
+ *    (守门 84 的祖先链以 HEAD 为锚,那条链此刻不是本次落地的基准)/ 二进制正文(行级判据按定义
+ *    不适用,而 A 仍照判)。三种都**报名**,不静默。
+ */
+export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
+  const headRef = head ?? git(['rev-parse', 'HEAD'], { root })
+  const notes = []
+  const judged = []
+  for (const p of paths) {
+    const b = headBlobOf(baseRef, p, { root })
+    if (b === ABSENT) continue
+    if (b !== headBlobOf(headRef, p, { root })) {
+      notes.push({
+        path: p,
+        kind: 'face-mismatch',
+        why: '基线与当下 HEAD 在该路径上不同 ⇒ 祖先链不是本次落地的基准,交防覆盖护栏判定',
+      })
+      continue
+    }
+    judged.push(p)
+  }
+  let hits
+  try {
+    hits = staleAncestorAnalysis(root, judged, { source: 'worktree' })
+  } catch (e) {
+    return {
+      ok: false,
+      offenders: judged.map((p) => mkEntry(p, null, null, null, {
+        status: 'undetermined',
+        reason: '整 blob 判据未能运行 ⇒ 行级判据无从对齐',
+      })),
+      notes,
+      reason: `陈旧判据未能运行:${firstLine(e)}`,
+    }
+  }
+  const hitBy = new Map(hits.map((h) => [h.path, h.commit]))
+
+  // 祖先清单:每路径一次 git log(复用守门 84 的窗口出口,本器不重复窗口数字)。
+  // 尺寸护栏排在**取祖先正文之前**:不这样就会为一个 3.9MB 的滞后大文件派 40 × 3.9MB 的读,
+  // 而那份读的结果按定义不采用(超限即未判定)—— 白花一次派生等于给自己造一个"太慢所以被人跳过"的守卫。
+  const shasBy = new Map()
+  const logFailed = new Set()
+  const sizeExceeded = new Set()
+  const worktreeOf = new Map()
+  for (const p of judged) {
+    try {
+      worktreeOf.set(p, readWorktreeFile(root, p))
+    } catch (e) {
+      worktreeOf.set(p, e) // 留错误对象:报告要能区分"读不到"与"读出来是 null(二进制/不存在)"
+    }
+  }
+  let texts = new Map()
+  let batchError = null
+  try {
+    texts = catBatch(root, judged.map((p) => `${baseRef}:${p}`))
+  } catch (e) {
+    batchError = firstLine(e)
+  }
+  if (!batchError) {
+    for (const p of judged) {
+      const wt = worktreeOf.get(p)
+      const base = texts.get(`${baseRef}:${p}`)
+      if (typeof wt === 'string' && typeof base === 'string' && Math.max(wt.length, base.length) > RESURRECT_MAX_BLOB_BYTES) {
+        sizeExceeded.add(p)
+        continue
+      }
+      try {
+        shasBy.set(p, ancestorCommits(root, p))
+      } catch {
+        shasBy.set(p, [])
+        logFailed.add(p) // "读不到祖先"与"没有祖先"是两件事,后者才可能真是新文件
+      }
+    }
+    // 正文:**每路径一次批量读满**(它的全部祖先版本走同一次 cat-file --batch,不逐 blob 派生)。
+    const ancSpecs = []
+    for (const p of judged) for (const c of shasBy.get(p) ?? []) ancSpecs.push(`${c}:${p}`)
+    if (ancSpecs.length > 0) {
+      try {
+        for (const [k, v] of catBatch(root, ancSpecs)) texts.set(k, v)
+      } catch (e) {
+        batchError = firstLine(e)
+      }
+    }
+  }
+
+  const offenders = []
+  for (const p of judged) {
+    const wt = worktreeOf.get(p)
+    const newText = wt instanceof Error ? null : wt
+    const baseText = batchError ? null : (texts.get(`${baseRef}:${p}`) ?? null)
+    const delta = lineDelta(baseText, newText)
+    const wholeHit = hitBy.get(p) ?? null
+    let line
+    if (batchError) line = { status: 'undetermined', reason: `祖先正文批量读取失败:${batchError}`, sample: [], commits: [] }
+    else if (sizeExceeded.has(p))
+      line = {
+        status: 'out-of-scope',
+        reason: `正文超过行级扫描尺寸护栏 ${RESURRECT_MAX_BLOB_BYTES}B ⇒ 未读祖先(整 blob 判据仍照判)`,
+        sample: [],
+        commits: [],
+      }
+    else if (logFailed.has(p)) line = { status: 'undetermined', reason: '祖先提交清单取不到(git log 未能运行)', sample: [], commits: [] }
+    else
+      line = resurrectAnalysis({
+        baseText,
+        newText,
+        ancestors: (shasBy.get(p) ?? []).map((c) => ({
+          commit: c.slice(0, 9),
+          text: texts.get(`${c}:${p}`) ?? null,
+        })),
+      })
+    if (wt instanceof Error)
+      notes.push({ path: p, kind: 'undetermined', why: `工作树正文读不到:${firstLine(wt)}` })
+    const entry = mkEntry(p, wholeHit, delta, line)
+    // 未覆盖必须**逐条报名**,且与"是否参与拒绝"无关 —— 一台只在放行时才沉默的守卫,
+    // 读报告的人会把"没判"当成"判过了"(本仓最高频失效型)。
+    if (line.status === 'out-of-scope')
+      notes.push({ ...entry, kind: 'line-out-of-scope', why: `行级复活判据未覆盖此路径:${line.reason}` })
+    const refuseByBlob = !!wholeHit && (delta.vanished === null || delta.vanished > 0)
+    const refuseByLines = line.status === 'judged' ? line.count > 0 : line.status === 'undetermined'
+    if (refuseByBlob || refuseByLines) {
+      offenders.push(entry)
+      continue
+    }
+    if (wholeHit)
+      notes.push({
+        ...entry,
+        kind: 'resurrect-only',
+        why:
+          `内容等于祖先 ${wholeHit},相对基线只增 ${delta.appeared} 行、不删任何行,` +
+          `且新增行都不在该祖先版本里(复活 0 行)⇒ 只报不拦`,
+      })
+  }
+  return { ok: offenders.length === 0, offenders, notes }
+}
+
+/** 报告条目的一份子:两条判据的读数并排放,渲染层不再各自判一次。 */
+function mkEntry(path, commit, delta, line, fallback) {
+  const d = delta ?? { vanished: null, appeared: null, vanishedSample: [], appearedSample: [] }
+  return {
+    path,
+    commit,
+    ...d,
+    resurrected: line?.count ?? null,
+    resurrectedSample: line?.sample ?? [],
+    resurrectedBy: line?.commits ?? [],
+    lineStatus: line?.status ?? 'undetermined',
+    lineReason: line?.reason ?? fallback?.reason ?? '判据未运行',
+  }
+}
+
+function firstLine(e) {
+  return String(e?.message ?? e ?? '').split('\n')[0] || '(无输出)'
+}
+
+/** 拒绝/留痕时要说的话集中在一处:出口必须可复制,原因必须点名到文件与祖先版本。 */
+function staleReport(guard, { allowStale }) {
+  const lines = []
+  for (const n of guard.notes) {
+    lines.push(`ℹ️ ${n.path}:${n.why}`)
+    appendSamples(lines, n)
+  }
+  const uncovered = guard.notes.filter((n) => n.kind === 'line-out-of-scope').length
+  if (!guard.offenders.length) {
+    if (uncovered)
+      lines.push(
+        `ℹ️ 行级复活判据未覆盖 ${uncovered} 条路径(尺寸护栏 / 二进制 / 无祖先版本)—— **未覆盖 ≠ 通过**;` +
+          '这些路径仍由整 blob 那一支护着,要行级也盖上就得把正文取回本器(另计一票)。',
+      )
+    return lines
+  }
+  const unjudged = guard.offenders.filter((o) => o.lineStatus === 'undetermined').length
+  const head = allowStale
+    ? `⚠️ LAND_ALLOW_STALE=1 ⇒ 放行 ${guard.offenders.length} 处陈旧落地(其中 ${unjudged} 处判据未判定 —— 放行不等于判过;这一枚提交确实会把下面这些行写回旧态,该行输出即留痕)`
+    : `❌ 陈旧落地守卫:这些声明路径的盘上副本**等于该文件某个祖先版本**,或会把基线里已被删掉的行**搬回**落地内容 ⇒ 拒绝落地${guard.reason ? '(' + guard.reason + ')' : ''}`
+  lines.push(head)
+  for (const o of guard.offenders) {
+    const v = o.vanished === null ? '消失行数未判定' : `消失 ${o.vanished} 行`
+    const a = o.appeared === null ? '重现行数未判定' : `重现 ${o.appeared} 行`
+    const blob = o.commit ? `== 祖先 ${o.commit}` : o.lineStatus === 'judged' ? '(内容不等于任何祖先)' : '(祖先版本取不到)'
+    const who = o.resurrectedBy.length ? `(见于祖先 ${o.resurrectedBy.slice(0, 3).join(', ')})` : ''
+    const r =
+      o.lineStatus === 'judged'
+        ? `复活 ${o.resurrected} 行(证据行门槛:含字母且 ≥${RESURRECT_MIN_LINE_LEN} 字符)${who}`
+        : `复活行数未判定:${o.lineReason}`
+    lines.push(`   - ${o.path}  ${blob}  ${v} / ${a} / ${r}`)
+    appendSamples(lines, o)
+  }
+  if (!allowStale) {
+    lines.push('   最常见成因:共享工作树副本滞后 HEAD ⇒ 落地器取的是磁盘字节(走 pathspec 只会更糟),')
+    lines.push('   而调用方又在这份滞后副本上补了自己的改动(所以整 blob 判据看不见,只有行级复活看得见)。')
+    lines.push('   出口 ① 取 HEAD 形态重新施加改动(先看判据再动手,别覆盖别人的在飞现场):')
+    lines.push('            git cat-file blob HEAD:<path> > <path>   ← 覆盖工作树副本,确认其中没有你自己的未提交内容才用')
+    lines.push('   出口 ② 确属有意重生成 ⇒ LAND_ALLOW_STALE=1 重跑本器(会大声留痕,不会静默放行)')
+    lines.push('   标了"未判定"的行是**判据没读到东西**(浅历史 / 超过尺寸护栏 / git 派生失败),不是"检查过且干净";')
+    lines.push('   未判定不得被读成通过 —— 要放行只有出口 ② 这一条显式路径。')
+  }
+  return lines
+}
+
+function appendSamples(lines, entry) {
+  for (const l of entry.vanishedSample ?? []) lines.push(`       - 消失: ${l}`)
+  for (const l of entry.appearedSample ?? []) lines.push(`       + 重现: ${l}`)
+  for (const l of entry.resurrectedSample ?? []) lines.push(`       ↺ 复活: ${l}`)
 }
 
 /**
@@ -164,6 +419,22 @@ async function main() {
     process.exit(1)
   }
 
+  /**
+   * 陈旧落地守卫:放在 CAS **与水印预检之前** —— 拒绝路径上对象库、ref、索引都没被碰过,
+   * 也不必先花一次 verify 派生去为一个注定不落地的内容做证。
+   * 判据本身不在此重述(见 detectStaleLanding),这里只接线。
+   */
+  const allowStale = process.env.LAND_ALLOW_STALE === '1'
+  if (allowStale)
+    console.log('⚠️ LAND_ALLOW_STALE=1 ⇒ 陈旧落地守卫只做报告、不参与拒绝(该行输出即留痕)')
+  const guard = detectStaleLanding({ root, paths, baseRef, head: head0 })
+  const refusing = !guard.ok && !allowStale
+  for (const line of staleReport(guard, { allowStale })) {
+    if (refusing) console.error(line)
+    else console.log(line)
+  }
+  if (refusing) process.exit(1)
+
   let landed = ''
   let parentSha = ''
   // 水印预检(G-253):旁路提交不跑钩子,这道检查是"无横幅文件进 HEAD"的唯一拦截点。
@@ -251,5 +522,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { parseArgs, clobberedPaths }
+export const __test__ = { parseArgs, clobberedPaths, lineDelta, resurrectAnalysis, detectStaleLanding, staleReport }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
