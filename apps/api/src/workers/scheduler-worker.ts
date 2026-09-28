@@ -4,6 +4,7 @@
 
 import type { FastifyInstance } from 'fastify'
 import type { Worker } from 'bullmq'
+import type { Redis } from 'ioredis'
 import { createWorker } from '../plugins/queue.js'
 import {
   SCHEDULER_QUEUE_NAME,
@@ -29,7 +30,7 @@ import {
   cleanupOldHeatStats,
   cleanupOauthSessions,
 } from '../services/scheduled-tasks-service.js'
-import { pushAlert } from '../services/alert-notification-service.js'
+import { pushAlert, pushAlertWithResult } from '../services/alert-notification-service.js'
 import { scanAndChargeDueContracts } from '../services/subscription-service.js'
 import {
   refreshWorkWechatToken,
@@ -63,6 +64,201 @@ import { purgeAllExpiredLlmCallLogRawText } from '../services/audit-log-service.
 // `src/utils/alert-text.ts`,由本 worker 与 `alert-notification-service` 的**共同出口**
 // 与 `alert-notification-service` 的共同出口共用同一把尺子,放在生产者各自头上会漏。
 import { capAlertMessage, flattenUntrustedText, untrustedErrorField } from '../utils/alert-text.js'
+
+// ============================================================================
+// ai-feed-collect 失败告警的「按身份去重」
+// ============================================================================
+// 立因(实测):采集每 6h 一轮,而坏源不会因为又过了一小时就自己变好,原实现在此
+// **无条件** pushAlert ⇒ 同一批 4 个坏源每轮各寄一封内容逐字相同的邮件(48h 内 7 封)。
+// 加的是**按身份**的冷却,**不是总量闸** —— AGENTS §5e 明文禁止"每日 N 封"计数闸:
+// 自设总量上限等于把"告警静默"再复制一遍,不同告警一律照寄。
+//
+// 状态住在 Redis(与 watch-aspect 的 dedup 键、DistributedLock 同一个 `server.redis` 出口),
+// 不放进程内存:本 worker 由 nssm 服务承载,进程一重启内存里的去重记忆就清零并立刻重发。
+// 也不放文件:服务身份(LocalSystem)的 TEMP 是 C:\Windows\Temp 而非已迁走的 HKCU TEMP,
+// 任何"写 $env:TEMP"式落点在服务里只是往 C 盘内部挪坑(AGENTS §26)。
+// 也不放 notifications 表:budget-alert-service 那套 6h cooldown 复用该表,而它的
+// user_id 是 notNull + FK ⇒ 运维告警没有属主可填,那一套在本型上结构上不可复用。
+
+/**
+ * 冷却窗口。**必须严格大于采集周期(6h)**:6h 周期配 6h 窗口时两轮间隔恒 ≥ 窗口,
+ * 一封也压不住 —— 现象是"去重加了,邮件没少",比不去重更难查。
+ * 取 24h:坏源持续未修时人每天仍收到一封"还在坏",新坏源永远即时到人。
+ */
+export const AI_FEED_ALERT_COOLDOWN_SEC = 24 * 60 * 60
+
+/**
+ * 去重身份 = 单个失败源 + 该源本轮的严重度档。
+ *
+ * 刻意**不取"本轮失败源集合"的哈希**:那样"某个源恢复了"也会换出新身份,而那一封
+ * 讲的仍是同样几个仍在坏的源(没有新信息却喊人);且源交替坏/好能让每一轮都是新身份,
+ * 去重形同虚设。取单源后:清单里有**至少一个没报过的源**就送,全报过才压住;
+ * warning→critical 的升档算新信息(键含 severity,与 budget-alert-service 的
+ * "同 user + 同 severity 冷却"是同一判据形态)。
+ */
+export function aiFeedAlertIdentity(sourceCode: string, severity: string): string {
+  return `alert:dedup:ai-feed-collect:${sourceCode.trim().toLowerCase()}`
+}
+
+/** 一条失败源在本轮严重度档上的去重输入。 */
+export interface AiFeedFailingSource {
+  sourceCode: string
+  severity: string
+}
+
+/**
+ * 冷却状态存储。`isInCooldown` 返回 `null` 表示**判不出**(存储不可用),
+ * 调用方必须按"没报过"处理并照送 —— 宁可重发一封,不可把坏源藏起来。
+ */
+export interface AlertCooldownStore {
+  isInCooldown(identity: string): Promise<boolean | null>
+  /** 返回 false = 登记失败(后果只是下一轮重发,不丢告警),调用方须留一行日志。 */
+  markReported(identities: readonly string[]): Promise<boolean>
+}
+
+/** Redis 缺失 / 未注册 redis 插件时的降级:一律判不出。 */
+function resolveAlertCooldownRedis(server: FastifyInstance): Redis | null {
+  const client: Redis | undefined = server.redis
+  if (!client || typeof client.get !== 'function' || typeof client.set !== 'function') {
+    return null
+  }
+  return client
+}
+
+export function createRedisAlertCooldownStore(client: Redis | null): AlertCooldownStore {
+  return {
+    async isInCooldown(identity) {
+      if (!client) return null
+      try {
+        return (await client.get(identity)) !== null
+      } catch {
+        return null
+      }
+    },
+    async markReported(identities) {
+      if (!client || identities.length === 0) return client !== null
+      try {
+        await Promise.all(
+          identities.map((id) => client.set(id, '1', 'EX', AI_FEED_ALERT_COOLDOWN_SEC)),
+        )
+        return true
+      } catch {
+        return false
+      }
+    },
+  }
+}
+
+export interface AiFeedAlertDecision {
+  /** 本轮是否真的推。 */
+  shouldPush: boolean
+  /** 推成功后应登记的身份(本轮"没报过"的那些)。 */
+  newIdentities: string[]
+  /** 被窗口压住的源(抑制必须可见,逐条留日志)。 */
+  suppressedSources: string[]
+  /** 认不出是哪个源 ⇒ 没有可去重的身份,照送并点名。 */
+  undeterminedSources: string[]
+  /** 冷却存储判不出 ⇒ 全量照送。 */
+  storeUnavailable: boolean
+}
+
+/**
+ * 纯判据:把"该不该推"与"推谁"从推送与 Redis 里分出来(与 auto-login-policy 把判据
+ * 单独成函数同一理由 —— 不拆就只能 mock 整条 BullMQ worker 才能证它)。
+ */
+export async function decideAiFeedCollectAlert(
+  failing: readonly AiFeedFailingSource[],
+  store: AlertCooldownStore,
+): Promise<AiFeedAlertDecision> {
+  const newIdentities: string[] = []
+  const suppressedSources: string[] = []
+  const undeterminedSources: string[] = []
+  let storeUnavailable = false
+
+  for (const entry of failing) {
+    const code = entry.sourceCode.trim()
+    if (!code) {
+      undeterminedSources.push(entry.sourceCode)
+      continue
+    }
+    const identity = aiFeedAlertIdentity(code, entry.severity)
+    const inCooldown = await store.isInCooldown(identity)
+    if (inCooldown === null) {
+      storeUnavailable = true
+      continue
+    }
+    if (inCooldown) {
+      suppressedSources.push(code)
+      continue
+    }
+    newIdentities.push(identity)
+  }
+
+  // 三条"照送"的通道:存储判不出 / 有认不出身份的源 / 有没报过的源。
+  const shouldPush = storeUnavailable || undeterminedSources.length > 0 || newIdentities.length > 0
+  return { shouldPush, newIdentities, suppressedSources, undeterminedSources, storeUnavailable }
+}
+
+export interface AiFeedAlertLog {
+  info(obj: unknown, msg: string): void
+  warn(obj: unknown, msg: string): void
+}
+
+/**
+ * 决策 + 报送 + 登记。**只在确认送达后**登记冷却:先登记后推送的话,一次 SMTP 失败
+ * 就把这封告警静默 24h,那正是 §5e 要防的"告警静默"。
+ */
+export async function maybePushAiFeedCollectAlert(deps: {
+  failing: readonly AiFeedFailingSource[]
+  store: AlertCooldownStore
+  /** true = 至少一条通道确认送达。 */
+  push: () => Promise<boolean>
+  log: AiFeedAlertLog
+}): Promise<AiFeedAlertDecision> {
+  const { failing, store, push, log } = deps
+  const decision = await decideAiFeedCollectAlert(failing, store)
+
+  if (!decision.shouldPush) {
+    // 抑制必须留行:否则读日志的人无从判断"这一轮是判过且压住了"还是"根本没人判"。
+    log.info(
+      {
+        suppressedSources: decision.suppressedSources,
+        cooldownSec: AI_FEED_ALERT_COOLDOWN_SEC,
+      },
+      'ai-feed-collect 告警按身份去重:本轮失败源均已在窗口内报过,不重复推送',
+    )
+    return decision
+  }
+
+  log.info(
+    {
+      newIdentities: decision.newIdentities.length,
+      suppressedSources: decision.suppressedSources,
+      undeterminedSources: decision.undeterminedSources,
+      storeUnavailable: decision.storeUnavailable,
+    },
+    'ai-feed-collect 告警按身份去重:存在未报过的失败源,照推',
+  )
+
+  const delivered = await push()
+  if (!delivered) {
+    log.warn(
+      { failedSources: failing.map((f) => f.sourceCode) },
+      'ai-feed-collect 告警未确认送达,不进入冷却(下一轮照发)',
+    )
+    return decision
+  }
+  if (decision.newIdentities.length > 0) {
+    const committed = await store.markReported(decision.newIdentities)
+    if (!committed) {
+      log.warn(
+        { newIdentities: decision.newIdentities },
+        'ai-feed-collect 告警冷却身份登记失败,下一轮会重发这些源',
+      )
+    }
+  }
+  return decision
+}
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -147,19 +343,20 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                 resolved: result.resolved,
                 escalated: result.escalated,
                 backupIssues: result.backupIssues,
+                backupUndetermined: result.backupUndetermined,
               },
               'daily alert check done',
             )
             if (result.escalated > 0) {
               try {
-                if (result.backupIssues.length > 0) {
+                // 每个库一条告警:标题含库名 ⇒ 下游按身份去重(PagerDuty dedup_key、bridge 的
+                // alertname 指纹)不会让 keycloak 的缺失被 ihui_dev 那条窗口吞掉。
+                for (const one of result.backupAlerts) {
                   await pushAlert({
-                    title: '数据库备份监控告警(缺失/空备份/过期)',
-                    // backupIssues 里混着**文件系统 readdir 读回来的文件名**与一条
-                    // `检查异常 ${err.message}`(alert-check-service.ts:107)—— 后者是异常原文,
-                    // 与资讯源错误同属不可信外部文本,按同一把尺子逐条折行 + 封顶。
+                    title: one.title,
+                    // backupIssues 与未判定行都按库拆进 one.lines(不可信文本)
                     message: capAlertMessage(
-                      result.backupIssues.map((s) => `- ${flattenUntrustedText(s)}`).join('\n'),
+                      one.lines.map((s) => `- ${flattenUntrustedText(s)}`).join('\n'),
                     ),
                     severity: 'critical',
                     source: 'alert-check-daily',
@@ -167,10 +364,13 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                       checked: result.checked,
                       resolved: result.resolved,
                       escalated: result.escalated,
+                      backupTarget: one.target,
                       backupIssues: result.backupIssues,
+                      backupUndetermined: result.backupUndetermined,
                     },
                   })
-                } else {
+                }
+                if (result.backupAlerts.length === 0) {
                   await pushAlert({
                     title: '告警升级通知',
                     message: `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
@@ -437,6 +637,7 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             )
             // P0 修复：采集存在失败源时主动告警，避免"靠人发现故障"。
             // 一旦某源连续失败需人工介入调整；全量或超半数失败按 critical 升级。
+            // 按身份去重见上方 decideAiFeedCollectAlert(同一源在窗口内只喊一次,新坏源即时到人)。
             if (failed.length > 0) {
               const ratio = failed.length / Math.max(result.fetchedSources || failed.length, 1)
               const severity =
@@ -448,18 +649,28 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                 )
                 .join('\n')
               try {
-                await pushAlert({
-                  title: `AI 资讯采集失败告警（${failed.length}/${result.fetchedSources} 源失败）`,
-                  message: capAlertMessage(
-                    `本轮采集共 ${result.totalItems} 条，${result.fetchedSources} 源，其中 ${failed.length} 源失败：\n${failedList}`,
-                  ),
-                  severity,
-                  source: 'ai-feed-collect',
-                  metadata: {
-                    totalItems: result.totalItems,
-                    fetchedSources: result.fetchedSources,
-                    failedCount: failed.length,
-                    failedSources: failed.map((d) => d.sourceCode),
+                await maybePushAiFeedCollectAlert({
+                  failing: failed.map((d) => ({ sourceCode: d.sourceCode, severity })),
+                  store: createRedisAlertCooldownStore(resolveAlertCooldownRedis(server)),
+                  log: server.log,
+                  // 邮件正文照旧列出**全部**在坏的源(不只是新坏的那个):人要知道现在整体坏成什么样。
+                  // 送达判定取"至少一条通道确认成功",全落空则不进冷却(下一轮照发)。
+                  push: async () => {
+                    const pushed = await pushAlertWithResult({
+                      title: `AI 资讯采集失败告警（${failed.length}/${result.fetchedSources} 源失败）`,
+                      message: capAlertMessage(
+                        `本轮采集共 ${result.totalItems} 条，${result.fetchedSources} 源，其中 ${failed.length} 源失败：\n${failedList}`,
+                      ),
+                      severity,
+                      source: 'ai-feed-collect',
+                      metadata: {
+                        totalItems: result.totalItems,
+                        fetchedSources: result.fetchedSources,
+                        failedCount: failed.length,
+                        failedSources: failed.map((d) => d.sourceCode),
+                      },
+                    })
+                    return Object.values(pushed).some(Boolean)
                   },
                 })
               } catch (err) {
