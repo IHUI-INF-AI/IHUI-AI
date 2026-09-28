@@ -11,27 +11,37 @@
  * §5c 溯源水印：本文件受 `scripts/watermark.mjs` 管理。
  */
 import path from 'node:path'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 import {
+  POINTER_FAMILIES,
+  pointerBlindness,
   VOID_MARK_RE,
   auditPlan,
   compositeKeyOf,
   dispositionOf,
+  findIdCollisions,
   findRotatedPointers,
   keyOfRow,
   titleIsDegenerate,
   titleOf,
 } from '../lib/plan-task-index.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   countNewUndisposed,
+  f9GroupLine,
+  f9KeySetOf,
+  f9Ratchet,
   gate,
   grewViolations,
+  newCollisionGroups,
   parseArgs,
+  planF9BaselineRewrite,
   probe,
+  replaceTopLevelJsonValueText,
   ratchetViolations,
 } from '../plan-tasks.mjs'
 
@@ -118,7 +128,12 @@ test('M5 真实文档的行号指针确实会腐烂(F3 守的是发生过的事,
     throw new Error(`${SAMPLE_REV} 里已无 L 号指针样本 —— 换历史版本,不得跳过`)
   const bad = findRotatedPointers(pointerRows.join('\n'))
   if (bad.length === 0) throw new Error('F3 对真实形态一条都没点到 ⇒ 判据对该形态失明')
-  const known = ['目标行不存在', '目标行不是条目行', '目标行是另一条(复合主键不等)']
+  const known = [
+    '目标行不存在',
+    '目标行不是条目行',
+    '目标行是另一条(复合主键不等)',
+    '行号指针即使还指得准也不许存在(§1 要求内容锚点)',
+  ]
   for (const b of bad)
     if (!known.includes(b.reason)) throw new Error(`出现未登记的原因分类:${b.reason}`)
 })
@@ -190,6 +205,20 @@ test('M9 每一维判据都必须有基线键(缺项=那一维静默不判,而�
   )
   for (const k of keys) {
     if (k === 'F5') continue // F5 方向相反,单独由 gate() 判,不走 ratchetViolations
+    if (k === 'F9') {
+      // G-312:F9 的锚点是**键集合**而不是计数。"缺项/错形状 ⇒ 那一维静默不判"这条善意对两种
+      // 形状同样成立,所以本条必须按新形状判 —— 退回 `typeof === 'number'` 等于把迁移后的锚点
+      // 当成"缺项",而 gate() 侧对整数形状是**判无法判定(exit 2)**,两边对同一份基线给出相反结论。
+      if (!Array.isArray(base.F9) || base.F9.some((x) => typeof x !== 'string' || x === ''))
+        throw new Error(
+          `基线 F9 不是"非空字符串数组"⇒ 这一维只能判"形状未迁移",不得被读成通过:${JSON.stringify(base.F9 ?? null).slice(0, 60)}`,
+        )
+      if (JSON.stringify([...base.F9].sort()) !== JSON.stringify(base.F9))
+        throw new Error('基线 F9 必须已排序 —— 未排序时"是否收窄"随人工编辑顺序漂移,锚点就不再是一个集合')
+      if (new Set(base.F9).size !== base.F9.length)
+        throw new Error('基线 F9 有重复键 ⇒ "基线里没有的键"会算重,棘轮读数不再等于组数')
+      continue
+    }
     if (typeof base[k] !== 'number')
       throw new Error(
         `基线缺 ${k}(棘轮对缺项那一维完全不判 ⇒ 加维必须同笔写基线):${JSON.stringify(base)}`,
@@ -229,6 +258,8 @@ test('M11 F8 成套性:进 probe / 基线地板为 0 / 涨判红降判绿(缺一
       forks: 0,
       voidRows: 0,
       rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
       dupOpenCopies: 0,
       verbatimDupCopies: 0,
       dupBlocks: 0,
@@ -267,6 +298,8 @@ test('M11 F8 成套性:进 probe / 基线地板为 0 / 涨判红降判绿(缺一
       forks: 0,
       voidRows: 0,
       rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
       dupOpenCopies: 0,
       verbatimDupCopies: 0,
       dupBlocks: 0,
@@ -354,6 +387,8 @@ test('P-x 跨文件出口锁:probe 必须由 plan-tasks 真导出,且收敛器�
       forks: 0,
       voidRows: 0,
       rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
       dupOpenCopies: 0,
       verbatimDupCopies: 0,
       dupBlocks: 0,
@@ -412,18 +447,23 @@ test('M14 行首裸编号族必须进复合主键(F1 曾对整族失明 ⇒ 已�
 test('M16 标题退化(切完只剩主键)不得算复合主键 —— 否则两个不同议题会被并成一条并误翻勾', () => {
   // 真实事故形态(2026-09-27):`**G-257. 审计日志族…已修**`(已完成)与
   // `**G-257(新登记)**:check-agent-engine-parity…`(别人的未完成任务)。
-  // 两行的第一个分界符都紧跟在主键后面 ⇒ titleOf 都切出 "G-257" ⇒ 旧判据得到同一个 key
-  // `G-257#G-257` ⇒ F1 认定"同题两态" ⇒ 归并器把**未做完的那条**翻成已完成。
+  // 旧判据下两行的第一个分界符都紧跟主键 ⇒ 都切出 "G-257" ⇒ 同一个 key `G-257#G-257`
+  // ⇒ F1 认定"同题两态" ⇒ 归并器把**未做完的那条**翻成已完成。
+  //
+  // ⚠️ 修法分了两层,这一条只测"不得并成一条"那一层:
+  //  · `(新登记)` 这种**编号之外给不出实质标题**的形态 ⇒ 判退化 ⇒ 不成键(本条测它);
+  //  · `. 标题` 这种全仓最常见形态**不该**被判退化 —— 编号是本行主键,剥掉它剩下才是题面。
+  //    把它一并判退化等于把整个 `G-NNN. 标题` 族从对账里摘掉(那正是 M17 钉的那格失明)。
   const mine =
     '- [x] ✅(2026-09-27) **G-257. 审计日志族「参数校验失败被掩盖成 500」已修(7 站点/2 文件)**:病灶形态'
   const theirs =
     '- [ ] **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的**可跑性依赖 cwd** —— 两个 cwd 下退出码不一致'
-  if (!titleIsDegenerate(mine, titleOf(mine)))
-    throw new Error('第一行标题应判为退化(切完只剩 G-257)')
+  if (titleIsDegenerate(mine, titleOf(mine)))
+    throw new Error(`"编号. 实质标题"形态不得判退化,实测标题 ${JSON.stringify(titleOf(mine))}`)
   if (!titleIsDegenerate(theirs, titleOf(theirs)))
-    throw new Error('第二行标题应判为退化(切完只剩 G-257)')
-  if (compositeKeyOf(mine) !== null || compositeKeyOf(theirs) !== null)
-    throw new Error(`退化标题不得成键,实测 ${compositeKeyOf(mine)} / ${compositeKeyOf(theirs)}`)
+    throw new Error('第二行(编号后紧跟括号)仍须判退化 —— 撞号防线不许松')
+  if (compositeKeyOf(theirs) !== null)
+    throw new Error(`退化标题不得成键,实测 ${compositeKeyOf(theirs)}`)
   const a = auditPlan(['# p', mine, theirs].join('\n'))
   if (a.counts.forks !== 0)
     throw new Error(`不同议题同编号不得被 F1 配对(否则 --heal 会误翻勾),实测 ${a.counts.forks}`)
@@ -434,6 +474,25 @@ test('M16 标题退化(切完只剩主键)不得算复合主键 —— 否则两
   const done = '- [x] ✅(2026-09-27) **G-256 有实质标题的议题**:已完成并附证据。'
   const b = auditPlan(['# p', done, open].join('\n'))
   if (b.counts.forks !== 1) throw new Error(`正常同题两态必须仍被点名,实测 ${b.counts.forks}`)
+})
+
+test('M18 全仓最常见的 `**G-NNN. 标题**` 形态必须成键并被 F1 看见(补退化判据时曾把整族摘掉)', () => {
+  // 2026-09-28 现读:HEAD 里 G-265 / G-283 两组的"已完成副本"与"未勾原件"标题逐字相同,
+  // 却因为 titleOf 把编号本身留在标题里而两边都 null ⇒ F1=0 报"无分叉",而台账里其实躺着
+  // 两份状态相互矛盾的登记(派单人按 --open 拿走的就是那份已完成票的未勾原件)。
+  const open = '- [ ] **G-265. 守门 `check-stale-dist.mjs` 对 `@ihui/types` 的跳过口径正是幻影缺陷的成因**:它打印 skip'
+  const done =
+    '- [x] ✅(2026-09-27) **G-265. 守门 `check-stale-dist.mjs` 对 `@ihui/types` 的跳过口径正是幻影缺陷的成因**:它打印 skip'
+  const key = compositeKeyOf(open)
+  if (!key) throw new Error('该形态必须给出复合主键,实测 null ⇒ 整族仍在失明')
+  if (key !== compositeKeyOf(done)) throw new Error('同题两态必须同键,实测两侧不同')
+  if (key.startsWith('G-265#G-265')) throw new Error('标题里不得还留着主键本身(那正是退化形态)')
+  const a = auditPlan(['# p', done, open].join('\n'))
+  if (a.counts.forks !== 1) throw new Error(`同题两态必须被 F1 点名,实测 ${a.counts.forks}`)
+  // 变异对照(写在断言里,防止只测"函数会给答案"而不测"有人问它"):
+  // 把 titleOf 里的 stripOwnKey 摘掉 ⇒ 本条与 M16 的第一断言应同时翻红。
+  if (!/stripOwnKey\(stripLeadingNumeric\(rawBody\)/.test(readFileSync(path.resolve(ROOT, 'scripts', 'lib', 'plan-task-index.mjs'), 'utf8')))
+    throw new Error('titleOf 必须经 stripOwnKey 剥本行主键 —— 摘掉它就回到整族失明')
 })
 
 test('M15 带字母后缀的编号必须与标题跳过**同一份**实现(两处各抄一版 ⇒ 判据在自己刚修的族上失明)', () => {
@@ -522,4 +581,423 @@ test('M16 --next-id 必须被 parseArgs 认、被 main 分支真调用(否则取
     )
   if (!/usedIdsOfPrefix\(content/.test(cli) || !/nextTaskIdLabel\(content/.test(cli))
     throw new Error('分支没有从被审面现读 ⇒ 号可能来自别处(面取错的号比不取号更贵)')
+})
+
+/**
+ * M17 F9 撞号(2026-09-27 G-267):同一编号挂 >1 个不同标题前缀即点名。
+ * 判据族里 F1/F4/F4b 的键都是"编号+标题逐字等值"的复合主键,"两个不同任务抢同一个号"
+ * 的复合主键不相等 ⇒ 三条同时失明;§1"一个编号只能有一行当前状态"此前没有任何尺子执行。
+ * 定级(票面明令先量再定级):存量只报数(--strict 也不判红),提交链差值/基线棘轮只拦新增撞号组。
+ */
+const REAL_G267_ROWS = [
+  '- [ ]（进行中@2026-09-27/主会话）**G-267 台账新判据:同一编号挂两个不同标题(撞号)对现有尺子结构失明** —— 实测今天就有两行都用 `G-262`(一行是我"水印载荷按 HEAD 面补齐",一行是 G-257 正文"另计 G-262"指向的 git 进程积压), 而守门 130 的复合主键判据要求"编号 + 标题前缀**逐字等值**",所以它只抓得到"同一件事写了两份"(F4)与"逐字孪生"(F4b),抓不到"两个不同任务抢同一个号"。 后果不是账面难看:派单人按编号找活会找到错的那一行,而 §1"一个编号只能有一行当前状态"这条规矩**没有任何尺子在执行**。 判据形状(已在写):按编号聚合所有登记行,同一编号的**不同标题前缀** > 1 即点名(报"编号 G-x 被 N 个不同标题共用"),存量走 HEAD 棘轮只拦新增 —— 当场判红就是一台与本次提交无关的恒红门,唯一结局是逼人 `--no-verify` 连带废掉全部守门(§12e)。存量必须先量再定级,不得为变绿给任何编号加豁免清单(清单必然腐烂,§4 已记过)。',
+  '- [x] ✅(2026-09-27) **G-267 以"否证"结案:同编号挂多个标题不能做成判据,防线改摆生产侧** —— 本行原写的是"给台账加一条撞号判据"。**先量再动**:真仓 HEAD 面 227 个带字母前缀的编号里有 57 个挂着多个标题,逐条看绝大多数是本仓的子项命名惯例 (`D30` 6 个标题 = `D30无人值守修复闭环` / `D30①CI/守门失败信源` / `D30②修复结果开PR`…;`D17` 5 个、`D48` 4 个同理),按"同编号不同标题即红"判就是一台噪声门 —— **假阳比漏报更贵**:它指使人去"修"没坏的东西,还会让每个碰台账的会话合法跳门、连带全部守门作废(§12e)。',
+  '- [x] ✅(2026-09-27) **G-267 windows_exporter 401 的真因是"文件形状",并推翻本会话自己先前登记的一条错结论** —— 先前记的是"凭据与 bcrypt 哈希本就不配对(`compareSync` 四种取值全 false)",**那条是错的**:错在比对姿势,不在凭据。',
+]
+
+test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/归并产物不得算撞号;棘轮只拦新增', () => {
+  // ① 阳性对照(票面真实事件形态):同一 G-262 被两个不同任务各登记一次。
+  const pair =
+    '- [ ]（进行中@2026-09-27/甲）**G-262 水印载荷按 HEAD 面补齐**:说明。\n- [ ] **G-262 git 进程积压另计**:另一件事。'
+  const groups = findIdCollisions(pair)
+  if (groups.length !== 1 || groups[0].key !== 'G-262' || groups[0].titleCount !== 2)
+    throw new Error(
+      `应恰好点名 G-262 被 2 个标题共用,实测 ${JSON.stringify(groups.map((g) => [g.key, g.titleCount]))}`,
+    )
+  if (auditPlan(pair).counts.collisionGroups !== 1) throw new Error('auditPlan 未接 F9 计数')
+  // ② 反例:同题副本(标题逐字等值)是 F4 的病,F9 不串门。
+  if (
+    auditPlan('- [ ] **G-9 同一件事**:第一条。\n- [ ] **G-9 同一件事**:第二条。').counts
+      .collisionGroups !== 0
+  )
+    throw new Error('同题副本不得算撞号')
+  // ③ 反例:退化标题(切完只剩编号)不贡献"第二个标题"—— M16 钉过的真实事故形态不得复活。
+  const degen =
+    '- [x] ✅(2026-09-27) **G-257. 审计日志族「参数校验失败被掩盖成 500」已修(7 站点/2 文件)**:病灶形态\n' +
+    '- [ ] **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的可跑性依赖 cwd'
+  if (findIdCollisions(degen).length !== 0) throw new Error('两行退化标题同编号不得算撞号')
+  if (
+    auditPlan('- [ ] **G-258 实质议题**:真标题。\n- [ ] **G-258(新登记)**:退化标题行').counts
+      .collisionGroups !== 0
+  )
+    throw new Error('退化标题不得被算成第二个标题')
+  // ④ 修法不自伤:归并器 F1 翻勾产物(`**[归并]**` 前缀 ⇒ 标题被切为空)与 F4 副本指针(追加行尾)
+  //    都不得制造新撞号 —— 否则"唯一正确修法"会被自己的判据拦下,逼人跳门。
+  const heal =
+    '- [x] ✅(2026-09-26) **D99 复合主键正例**:说明。\n' +
+    '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「D99 · 复合主键正例」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 **D99 复合主键正例**:旧副本。'
+  if (findIdCollisions(heal).length !== 0) throw new Error('F1 归并产物不得算撞号(修法自伤)')
+  const ptr =
+    '- [ ] **D93 重复待办**:第一条登记。\n' +
+    '- [ ] **D93 重复待办**:与上一条同主键的第二次登记。 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记在 L1,派单以那条为准,本行不再单独派单。〕'
+  if (findIdCollisions(ptr).length !== 0) throw new Error('F4 副本指针行不得算撞号(修法自伤)')
+  // ⑤ 真实形态(§22c 红线):三条**逐字取自真仓 HEAD** 的 G-267 登记行(本票自己就被三个议题共用)。
+  const real = findIdCollisions(REAL_G267_ROWS.join('\n'))
+  if (real.length !== 1 || real[0].key !== 'G-267' || real[0].titleCount !== 3)
+    throw new Error(
+      `真实三行应点名为 G-267 被 3 个标题共用,实测 ${JSON.stringify(real.map((g) => [g.key, g.titleCount]))}`,
+    )
+  // ⑥ 反向锁:判据必须走 titleOf/keyOfRow 同一出口,不得另抄归一化(§1"窄版自伤"同一条禁令)。
+  const libSrc = readFileSync(new URL('../lib/plan-task-index.mjs', import.meta.url), 'utf8')
+  const fnStart = libSrc.indexOf('export function findIdCollisions')
+  if (fnStart < 0) throw new Error('lib 里找不到 findIdCollisions ⇒ 判据被搬走或改名,本锁须同批改')
+  const fn = libSrc.slice(fnStart, libSrc.indexOf('\n}', fnStart))
+  if (!fn.includes('titleOf(')) throw new Error('findIdCollisions 没走 titleOf ⇒ 必然另抄了一份标题归一化')
+  if (!fn.includes('titleIsDegenerate(')) throw new Error('findIdCollisions 没走 titleIsDegenerate ⇒ 退化标题会被算成第二个标题')
+  if (/\.replace\(/.test(fn)) throw new Error('findIdCollisions 内部不得再写归一化正则(标题处理唯一出口=titleOf)')
+  // 行为侧同锁:只差装饰(租约标记/强调记号)的两行是同一标题 —— 抄窄版会把它们误判成两个。
+  const deco =
+    '- [ ] **G-9 同一议题**:正文一。\n- [ ]（进行中@2026-09-27/乙）**G-9 同一议题**:正文二。'
+  if (findIdCollisions(deco).length !== 0) throw new Error('装饰差异不得被算成两个标题(titleOf 同一出口的行为证明)')
+  // ⑦ 成套性与方向:进 probe / 基线有数字键 / 涨点名且逐组报名 / 降与持平不判 / --strict 存量不判红。
+  if (!probe(auditPlan(pair)).some(([k, , n]) => k === 'F9' && n === 1))
+    throw new Error('F9 未进 probe ⇒ 提交链根本不判它')
+  const base = JSON.parse(
+    readFileSync(new URL('../plan-task-state-baseline.json', import.meta.url), 'utf8'),
+  )
+  if (!Array.isArray(base.F9) || base.F9.some((x) => typeof x !== 'string' || x === ''))
+    throw new Error(
+      `基线 F9 不是键数组 ⇒ 棘轮对这一维静默不判(G-312 迁移后必须是排序键集):${JSON.stringify(base.F9 ?? null).slice(0, 60)}`,
+    )
+  const face = (n, gs) => ({
+    counts: {
+      forks: 0,
+      voidRows: 0,
+      rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
+      dupOpenCopies: 0,
+      verbatimDupCopies: 0,
+      dupBlocks: 0,
+      newUndisposed: 0,
+      mergeNotes: 99,
+      collisionGroups: n,
+    },
+    staleRows: [],
+    collisions: gs,
+  })
+  const g = findIdCollisions(pair)
+  if (!grewViolations(face(1, g), face(0, [])).some((x) => x.startsWith('F9')))
+    throw new Error('新增撞号组必须被差值棘轮点名')
+  if (grewViolations(face(0, []), face(1, g)).some((x) => x.startsWith('F9')))
+    throw new Error('清偿撞号不得判红 —— 反方向判红等于没人敢修')
+  const ng = newCollisionGroups(face(1, g), face(0, []))
+  if (ng.length !== 1 || ng[0].key !== 'G-262') throw new Error(`newCollisionGroups 应点名 G-262,实测 ${JSON.stringify(ng.map((x) => x.key))}`)
+  if (newCollisionGroups(face(1, g), null).length !== 0)
+    throw new Error('没有基准面时不得凭空数出新增撞号')
+  const log = console.log
+  const run = (fn2) => {
+    const cap = []
+    console.log = (s) => cap.push(String(s))
+    try {
+      return { rc: fn2(), cap }
+    } finally {
+      console.log = log
+    }
+  }
+  const grew = run(() => gate(face(1, g), false, ROOT, face(0, []), null))
+  if (grew.rc !== 1) throw new Error(`新增撞号组必须拦下本次提交,实测 exit ${grew.rc}`)
+  if (!grew.cap.some((x) => x.includes('G-262') && x.includes('被 2 个不同标题共用')))
+    throw new Error(`差值棘轮红档必须逐组点名"编号被 N 个不同标题共用",实测 ${JSON.stringify(grew.cap)}`)
+  const flat = run(() => gate(face(0, []), false, ROOT, face(0, []), null))
+  if (flat.rc !== 0) throw new Error(`什么都没带进来的提交不得被拦,实测 exit ${flat.rc}`)
+  // 恒红门检查:存量撞号(哪怕 --strict)只报数不判红 —— 定级理由见 lib findIdCollisions 头注。
+  // 这一臂同时是"基线含全部现键 ⇒ 绿"的正向证明(键集逐字取自真仓基线,一个都不多一个都不少)。
+  const stockGroups = base.F9.map((k) => ({
+    key: k,
+    titleCount: 2,
+    titles: [
+      { title: `${k} 标题甲`, lines: [1] },
+      { title: `${k} 标题乙`, lines: [2] },
+    ],
+  }))
+  const stock = run(() => gate(face(base.F9.length, stockGroups), true, ROOT, null, null))
+  if (stock.rc !== 0)
+    throw new Error(
+      `--strict 遇存量撞号 ${base.F9.length} 组不得判红(恒红门),实测 exit ${stock.rc}:${JSON.stringify(stock.cap.slice(-2))}`,
+    )
+  if (!stock.cap.some((x) => x.includes('F9') && x.includes(String(base.F9.length))))
+    throw new Error('绿档也必须把存量撞号数报出来(把看不见混进没问题是本仓最高频失效型)')
+})
+
+/**
+ * M18 F3 必须认得**归并器自己产出**的那一族指针措辞。
+ * 立项凭据是现读而非假想:HEAD 面 `存活于 L<行号>` 0 处,而 `同主键/逐字相同的另一条登记在 L<行号>`
+ * 244 处(2026-09-28 量)—— 旧判据只认前者,于是 rotatedPointers 一路报 0,而每一条行号指针都在烂。
+ * 这一条用例同时是反向锁:把族表删回一条,分支②立刻翻红。
+ */
+/**
+ * M19 活体不变量:宽尺数到的行号引用必须等于族表判到的条数,且钉在历史版本上而非只有 HEAD
+ * (HEAD 会被自己修好,那时"0 == 0"两条都成立 ⇒ 断言退化成恒真;取舍见本文件对 SAMPLE_REV 的头注)。
+ * 为什么必须有它:2026-09-28 一天内同一格栽三次 —— 族表只认「存活于」时,归并器自产的「另一条登记在
+ * L####」244 处全隐身;补上那族后又出现「见 L7652」「入库登记在 L8584」第三种拼法,而我第一版把
+ * `(?:完成)?登记在` 写成 `完成?登记在`(只把"完"变可选、"成"成了必需字符)⇒ 面上 9 处只判到 8。
+ * 夹具只证明函数会给答案;这条证明的是"没人换拼法时偷偷溜过去"。
+ */
+test('M19 族表不得落后于面上实际形态(宽尺命中数必须等于判据命中数)', () => {
+  let sawAny = false
+  for (const rev of ['64417a25b^', 'HEAD']) {
+    const txt = gitRaw(['show', `:PROJECT_PLAN.md`], ROOT)
+    if (!txt || txt.length < 1000) throw new Error(` 取不到计划文档 ⇒ 尺子无从自证`)
+    const { rawRefs, judged } = pointerBlindness(txt)
+    if (rawRefs !== judged)
+      throw new Error(`:面上  处行号引用,判据只吃到  处 ⇒ 族表漏一族(补族与出口声明,别削宽尺)`)
+    if (rawRefs > 0) sawAny = true
+  }
+  if (!sawAny)
+    throw new Error('两个版本都数到 0 处行号引用 ⇒ 对照无意义,换一个历史版本而不是让它恒真')
+  // 引用体(「…」与反引号包裹)里写的是"对这个形态的描述",不是指针
+  const cited = '- [ ] **X 说明**:这一型写作「…登记在 L13178」这类拼法。'
+  const onCited = findRotatedPointers(cited)
+  if (onCited.length !== 0)
+    throw new Error('「…」引用体里的样例被判成指针 ⇒ 出口会去改写自己的说明')
+})
+test('M18 F3 对"门自己产出的指针措辞"必须有牙(族表两条各一正一反)', () => {
+  if (POINTER_FAMILIES.length < 2)
+    throw new Error(`族表至少要有"存活于"与"另一条登记在"两族,实测 ${POINTER_FAMILIES.length}`)
+  // 两族各一条**指向别的话题**的指针 ⇒ 必须各自被点名并归到正确族名
+  const badDoc = [
+    '# 计划', // L1
+    '', // L2
+    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L5,派单以那条为准。〕', // L3
+    '- [ ] **D9 丙事**:说明。 〔另见登记:存活于 L5 的同编号登记。〕', // L4
+    '- [ ] **D8 乙事**:与两条指针都不同的另一条。', // L5
+  ].join('\n')
+  const bad = findRotatedPointers(badDoc)
+  if (bad.length !== 2)
+    throw new Error(`两族各应点名 1 处,实测 ${bad.length} 处:${JSON.stringify(bad.map((b) => b.family))}`)
+  for (const fam of ['alive', 'dup'])
+    if (!bad.some((b) => b.family === fam))
+      throw new Error(`族 ${fam} 一条都没判到 ⇒ 判据对该形态失明(这正是 2026-09-28 立项那一格)`)
+  // ② 行号**还指得准**时也必须判红:§1 禁的是"用行号当证据",不是"用指错的行号当证据"。
+  //    只判已腐烂那一半,等于允许一批"这次恰好还没挪位"的行号指针留在账上,下一枚 append 就变哑。
+  const okDoc = [
+    '# 计划', // L1
+    '', // L2
+    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L4,派单以那条为准。〕', // L3
+    '- [ ] **D7 甲事**:还没人做。', // L4 —— 与 L3 同主键,指针当前指得准
+  ].join('\n')
+  const ok = findRotatedPointers(okDoc)
+  if (ok.length !== 1)
+    throw new Error(`指得准的行号指针同样不得留在账上(§1 禁止的是行号本身),实测 ${ok.length} 处`)
+  if (ok[0].reason !== '行号指针即使还指得准也不许存在(§1 要求内容锚点)')
+    throw new Error(`应归到新原因,实测:${ok[0].reason}`)
+  // ③ 真正的"不红"形态 = 内容锚点(修复出口的产物),它必须一条都不判
+  const anchored = [
+    '# 计划',
+    '',
+    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记 「D7 · 甲事」,派单以那条为准。〕',
+    '- [ ] **D7 甲事**:还没人做。',
+  ].join('\n')
+  if (findRotatedPointers(anchored).length !== 0)
+    throw new Error('内容锚点形态被判红 ⇒ 出口产出的形态被门自己当成违规(两道机制互咬)')
+})
+
+/**
+ * M18–M20 F9 基线层的**键集锚点**(2026-09-27 G-312)。
+ *
+ * 为什么单独立三条而不是靠 M17:M17 钉的是"撞号怎么数出来"(判据侧),本三条钉的是
+ * "数出来之后拿什么当锚点"(台账侧)。台账原文的修法:基线 F9 从计数改成排序键数组,
+ * 判红条件仍是"出现基线里没有的键"。计数锚的后果是确定的 —— 红只说"变多了",
+ * 说不出是哪几组;而它还有第二种失明的形状是**等量换键**(清一组 + 新撞一组 ⇒ 组数不变),
+ * 与守门 134"锚点粒度不够细 ⇒ 换个写法就净零逃逸"同族。四臂成对,一臂都不能少。
+ */
+const BASE_KEYS = JSON.parse(
+  readFileSync(new URL('../../scripts/plan-task-state-baseline.json', import.meta.url), 'utf8'),
+).F9
+const gOf = (key, n = 2) => ({
+  key,
+  titleCount: n,
+  titles: Array.from({ length: n }, (_, i) => ({
+    title: `${key} 标题${'甲乙丙丁戊'[i] ?? i + 1}`,
+    lines: [i + 1],
+  })),
+})
+const f9face = (gs) => ({
+  counts: {
+    forks: 0,
+    voidRows: 0,
+    rotatedPointers: 0,
+    dupOpenCopies: 0,
+    verbatimDupCopies: 0,
+    dupBlocks: 0,
+    newUndisposed: 0,
+    mergeNotes: 99,
+    collisionGroups: gs.length,
+  },
+  staleRows: [],
+  collisions: gs,
+})
+const capture = (fn) => {
+  const log = console.log
+  const cap = []
+  console.log = (s) => cap.push(String(s))
+  try {
+    return { rc: fn(), cap }
+  } finally {
+    console.log = log
+  }
+}
+
+test('M18 F9 键集锚四臂:基线含全部现键⇒绿 / 新键⇒红且点名 / 同键多挂一行⇒读数不动 / 等量换键⇒红(计数锚恒绿那一型)', () => {
+  // (a) 基线含全部现键 ⇒ 绿(逐字用真基线键集,不是自造夹具)
+  if (f9Ratchet({ F9: BASE_KEYS }, f9face(BASE_KEYS.map((k) => gOf(k)))).kind !== 'ok')
+    throw new Error('基线含全部现键却判红 ⇒ 锚点被读成了"集合相等才行"以外的东西')
+  // (b) 注入一个基线里没有的撞号键 ⇒ 红,且点名该键与**两侧标题**
+  const inj = f9Ratchet(
+    { F9: BASE_KEYS },
+    f9face([...BASE_KEYS.map((k) => gOf(k)), gOf('Z-3120927', 2)]),
+  )
+  if (inj.kind !== 'red' || inj.added.join() !== 'Z-3120927')
+    throw new Error(`注入新键必须只点名 Z-3120927,实测 ${JSON.stringify(inj)}`)
+  const red = capture(() =>
+    gate(f9face([...BASE_KEYS.map((k) => gOf(k)), gOf('Z-3120927', 2)]), false, ROOT, null, null),
+  )
+  if (red.rc !== 1) throw new Error(`基线里没有的键必须拦下,实测 exit ${red.rc}`)
+  if (!red.cap.some((x) => x.includes('基线新增撞号') && x.includes('Z-3120927')))
+    throw new Error(`红档必须逐组点名(键),实测 ${JSON.stringify(red.cap.slice(-3))}`)
+  for (const t of ['Z-3120927 标题甲', 'Z-3120927 标题乙'])
+    if (!red.cap.some((x) => x.includes(t)))
+      throw new Error(`红档必须报出两侧标题"${t}"(否则被拦的人拿不到可执行名单),实测 ${JSON.stringify(red.cap.slice(-2))}`)
+  if (!red.cap.some((x) => x.includes('行号只当定位')))
+    throw new Error('必须声明行号不得当判据(§1:每次 append 都会挪位)')
+  // (c) 同键多挂一行 ⇒ 读数不移动(与计数锚的语义差之"多挂"侧)
+  const extraRow = f9face([...BASE_KEYS.map((k) => gOf(k)), gOf(BASE_KEYS[0], 3)])
+  if (f9Ratchet({ F9: BASE_KEYS }, extraRow).kind !== 'ok')
+    throw new Error('同一撞号编号上再多挂一个标题不得移动基线读数(那是 F1/F4 的病,不是新撞号)')
+  const stillGreen = capture(() => gate(extraRow, false, ROOT, null, null))
+  if (stillGreen.rc !== 0)
+    throw new Error(`同键多挂一行不得拦提交,实测 exit ${stillGreen.rc}:${JSON.stringify(stillGreen.cap.slice(-2))}`)
+  // (c2) 等量换键:去掉一个基线键 + 新撞一个非基线键 ⇒ **组数与基线键数相等**,
+  //       计数锚在这一型上恒绿,键集锚必须红。这是本次迁移换来的真本事,必须有名字。
+  const swap = [...BASE_KEYS.slice(1).map((k) => gOf(k)), gOf('Z-3120927')]
+  if (swap.length !== BASE_KEYS.length)
+    throw new Error('夹具不成立(组数没对上基线键数)⇒ 这一臂退化成普通新增测试')
+  const swapped = f9Ratchet({ F9: BASE_KEYS }, f9face(swap))
+  if (swapped.kind !== 'red' || swapped.added.join() !== 'Z-3120927')
+    throw new Error(`等量换键必须被键集锚抓到(计数锚对它恒绿),实测 ${JSON.stringify(swapped)}`)
+  // (d) 基线还是整数 ⇒ 大声"形状未迁移"并按无法判定处理,绝不静默放行
+  const oldShape = f9Ratchet({ F9: 59 }, f9face(BASE_KEYS.map((k) => gOf(k))))
+  if (oldShape.kind !== 'unmigrated' || !oldShape.message.includes('形状'))
+    throw new Error(`整数旧值必须判"形状未迁移",实测 ${JSON.stringify(oldShape)}`)
+  const dir = mkScratch('plan-g312-shape')
+  try {
+    mkdirSync(path.join(dir, 'scripts'), { recursive: true })
+    writeFileSync(
+      path.join(dir, 'scripts', 'plan-task-state-baseline.json'),
+      `${JSON.stringify({ F1: 0, F2: 0, F3: 0, F4: 0, F4b: 0, F6: 0, F5: 21, F8: 0, F9: 59 }, null, 2)}\n`,
+      'utf8',
+    )
+    const g = capture(() => gate(f9face(BASE_KEYS.map((k) => gOf(k))), false, dir, null, null))
+    if (g.rc !== 2)
+      throw new Error(`旧形状基线不得返回 0/1 冒充当过结论,必须 exit 2(无法判定),实测 ${g.rc}`)
+    if (!g.cap.some((x) => x.includes('无法判定') && x.includes('形状')))
+      throw new Error(`旧形状必须大声报"形状未迁移",实测 ${JSON.stringify(g.cap.slice(-2))}`)
+  } finally {
+    rmScratch(dir)
+  }
+  // 出口一致性:键集必须由 f9KeySetOf **排序去重**(否则"是否收窄"随人工编辑顺序漂移),
+  // 点名文案必须出自 f9GroupLine 那一份实现(两处各写一遍必漂移)。
+  if (f9KeySetOf(f9face([gOf('B-2'), gOf('A-1'), gOf('B-2')])).join() !== 'A-1,B-2')
+    throw new Error('f9KeySetOf 未排序去重 ⇒ 键集读数不可比较,收窄与新增都会算错')
+  const line = f9GroupLine(gOf('K-1'))
+  if (!line.includes('K-1 标题甲') || !line.includes('K-1 标题乙') || !line.includes('被 2 个不同标题共用'))
+    throw new Error(`f9GroupLine 没带出两侧标题 ⇒ 逐组点名退化成只报编号:${line}`)
+  // 反向对照:同一份面换回键集形状基线 ⇒ 必须不是 exit 2(否则 (d) 只是"恒 2"的空锁)
+  const okShape = capture(() => gate(f9face(BASE_KEYS.map((k) => gOf(k))), false, ROOT, null, null))
+  if (okShape.rc !== 0) throw new Error(`键集形状基线 + 全部键在册 ⇒ 必须 exit 0,实测 ${okShape.rc}`)
+  // blind 态:有组数却没带逐组明细 ⇒ 未判定,不记通过
+  const blind = f9Ratchet({ F9: BASE_KEYS }, { counts: { collisionGroups: 3 } })
+  if (blind.kind !== 'blind') throw new Error(`缺逐组明细必须判"未判定"而不是 ok,实测 ${JSON.stringify(blind)}`)
+})
+
+test('M19 --update-baseline 只写 F9、只许收窄;拒绝扩大与"顺手刷别的维度"', () => {
+  // 判据层四态
+  const widen = planF9BaselineRewrite({ F9: ['A', 'B'] }, ['A', 'B', 'C'])
+  if (widen.action !== 'refuse-widen' || widen.added.join() !== 'C')
+    throw new Error(`新键集含基线外的键必须拒绝,实测 ${JSON.stringify(widen)}`)
+  const shape = planF9BaselineRewrite({ F9: 59 }, ['A'])
+  if (shape.action !== 'refuse-shape')
+    throw new Error(`旧形状基线不得被"顺手写成键集"(那等于由工具替人决定地板),实测 ${JSON.stringify(shape)}`)
+  const shapeMissing = planF9BaselineRewrite({ F1: 0 }, ['A'])
+  if (shapeMissing.action !== 'refuse-shape')
+    throw new Error(`基线里没有 F9 键时必须拒绝,不能凭空建一份地板:${JSON.stringify(shapeMissing)}`)
+  const noop = planF9BaselineRewrite({ F9: ['A', 'B'] }, ['B', 'A'])
+  if (noop.action !== 'noop') throw new Error(`同键集(乱序输入也一样)不得写盘,实测 ${JSON.stringify(noop)}`)
+  const narrow = planF9BaselineRewrite({ F9: ['A', 'B'] }, ['A'])
+  if (narrow.action !== 'write' || narrow.next.join() !== 'A' || narrow.removed.join() !== 'B')
+    throw new Error(`收窄必须落盘并点名被清掉的键,实测 ${JSON.stringify(narrow)}`)
+  // 写盘层:原位替换必须只动 F9 那一段,注记键与其余维度逐字保留(守门 83 注记键同型事故)
+  const abs = new URL('../../scripts/plan-task-state-baseline.json', import.meta.url)
+  const raw = readFileSync(abs, 'utf8')
+  const old = JSON.parse(raw)
+  const narrowed = old.F9.slice(1)
+  const nextRaw = replaceTopLevelJsonValueText(raw, 'F9', JSON.stringify(narrowed, null, 2).replace(/\n/g, '\n  '))
+  const chk = JSON.parse(nextRaw)
+  if (JSON.stringify(Object.keys(chk)) !== JSON.stringify(Object.keys(old)))
+    throw new Error('原位替换改变了键顺序 ⇒ 注记键被挪动或整文件重写过')
+  for (const k of Object.keys(old))
+    if (k !== 'F9' && JSON.stringify(old[k]) !== JSON.stringify(chk[k]))
+      throw new Error(`原位替换动了 ${k}(本工具只许动 F9)`)
+  if (chk._F9shapeNote !== old._F9shapeNote || typeof chk._F9shapeNote !== 'string')
+    throw new Error('注记键丢失或被改写 —— 整文件重写就是这一型的成因')
+  // F9 值块之外的字节必须逐字相同(一次纯 F9 替换;比"数行数"或"比行数"都更严)
+  const stripF9Value = (t) => {
+    const k = t.indexOf('"F9":')
+    const vStart = t.indexOf('[', k)
+    const vEnd = t.indexOf(']', vStart) + 1
+    if (k < 0 || vStart < 0) throw new Error('夹具不成立:基线里没找到 F9 的数组值')
+    return t.slice(0, vStart) + '[]' + t.slice(vEnd)
+  }
+  if (stripF9Value(raw) !== stripF9Value(nextRaw))
+    throw new Error('F9 值块之外的字节发生了变化 ⇒ 不是一次纯 F9 原位替换')
+  // 找不到键时必须抛错而不是静默"当作没有"(静默跳过 = 基线永远刷不动而账面报成功)
+  let threw = false
+  try {
+    replaceTopLevelJsonValueText('{"F1": 0}\n', 'F9', '[]')
+  } catch {
+    threw = true
+  }
+  if (!threw) throw new Error('基线里没有 F9 时不得静默通过')
+  // 源码锁:刷基线那一段不得再自己造 F1..F8 的值(只许经 planF9BaselineRewrite 写 F9)
+  const src = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  const blk = src.slice(src.indexOf('if (o.updateBaseline) {'), src.indexOf('if (o.json) {'))
+  if (!blk.length || blk.length > 6000) throw new Error(`刷基线代码块解析异常(长度 ${blk.length})⇒ 本锁须同批改`)
+  for (const k of ['F1:', 'F2:', 'F3:', 'F4:', 'F5:', 'F6:', 'F8:'])
+    if (blk.includes(k))
+      throw new Error(`刷基线块里出现了 ${k} —— G-312 起它只许写 F9 这一维,其余维度被工具重写等于跳一次门就能洗自己的账`)
+  if (!blk.includes('planF9BaselineRewrite')) throw new Error('刷基线块没走 planF9BaselineRewrite ⇒ 判据被绕过')
+  if ((blk.match(/writeFileSync\(/g) || []).length !== 1)
+    throw new Error('刷基线块必须只有一个写盘出口(多处写盘 = 绕过"自证只动 F9"那道锁)')
+})
+
+test('M20 粗尺与不变量:两参调用方(converge)照旧判 F9,而非 F9 各维文案逐字不变;gate 必须真调 f9Ratchet', () => {
+  const items = probe(f9face([...BASE_KEYS.map((k) => gOf(k)), gOf('Z-1')]))
+  // 键集形状 + 没给 a ⇒ 粗尺:组数超过基线键数才算债,且文案自报是粗尺
+  const coarse = ratchetViolations({ F9: BASE_KEYS }, items)
+  if (coarse.length !== 1 || !coarse[0].includes('粗尺'))
+    throw new Error(`键数超过基线时粗尺必须点名并自报形状,实测 ${JSON.stringify(coarse)}`)
+  const same = ratchetViolations({ F9: BASE_KEYS }, probe(f9face(BASE_KEYS.map((k) => gOf(k)))))
+  if (same.length) throw new Error(`什么都没多时粗尺不得判红(那是恒红门):${JSON.stringify(same)}`)
+  // 整数旧形状在两参调用方一侧照旧走"比数量"这条通用规则,文案逐字不变
+  const oldTxt = ratchetViolations({ F9: 59 }, probe(f9face(BASE_KEYS.map((k) => gOf(k)))))
+  if (oldTxt.join() !== 'F9 撞号:同编号挂多个不同标题(组) 由基线 59 涨到 71')
+    throw new Error(`旧形状文案漂了(两参消费者跟着变):${JSON.stringify(oldTxt)}`)
+  // 非 F9 各维:与迁移前同一份文案模板(逐字)
+  const f = f9face([])
+  f.counts.forks = 3
+  f.counts.dupBlocks = 2
+  const others = ratchetViolations({ F1: 1, F6: 1, F9: BASE_KEYS }, probe(f))
+  if (others.join(';') !== 'F1 同主键两态并存(组) 由基线 1 涨到 3;F6 整块登记重复(块) 由基线 1 涨到 2')
+    throw new Error(`F1–F8 的基线档语义被动过(本票明令一字不动):${JSON.stringify(others)}`)
+  // 源码锁:gate 必须真把判定面喂给键集档,并把"形状未迁移"落成非零退出
+  const src = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  const body = src.slice(src.indexOf('export function gate('), src.indexOf('// ── 自检'))
+  if (!body.includes('f9Ratchet(base, a)'))
+    throw new Error('gate 没调 f9Ratchet ⇒ 键集判据在提交链上生效次数为 0(自检恒绿那一型)')
+  if (!body.includes('ratchetViolations(base, items, a)'))
+    throw new Error('gate 没把判定面喂给 ratchetViolations ⇒ 基线档还在比数量')
+  if (!/unmigrated[\s\S]{0,400}return 2/.test(body))
+    throw new Error('"形状未迁移"没有落成非零退出 ⇒ 静默放行,等于把这一维关掉')
+  if (!body.includes('f9GroupLine(')) throw new Error('gate 没走逐组点名的唯一文案出口(两处各写一遍必漂移)')
 })

@@ -92,6 +92,38 @@ export function leadingNumericId(body) {
 /** 编号前缀(含 markdown 强调记号)的长度 —— titleOf 要从正文里跳过它,否则标题只剩编号本身。 */
 const LEADING_NUMERIC_FULL_RE = /^[*\s`]*(\d{1,3}[A-Z]?)[.、]\s*/
 
+/**
+ * 剥掉"行首就是本行主键 + 分界符"的那一截(`**G-257. 审计日志族…**` 这一族,全仓最常见形态)。
+ *
+ * 不剥会怎样:`titleOf` 后面的 `[.、]` 截断会把标题切成**只剩编号本身** ⇒ `titleIsDegenerate`
+ * 判退化 ⇒ 整族 composite=null ⇒ F1/F4 对这一族**完全失明**。这不是假设:2026-09-27 补
+ * 退化判据(防"同编号不同议题"被误翻勾)时只解决了撞号那一面,却把 `G-NNN. 标题` 这一族
+ * 从对账里整体摘掉了 —— 修判据的那一族上自己失明,本仓已记过同型(见 M15 那条注释)。
+ *
+ * 剥完之后:
+ *  - `**G-257. 审计…**` ⇒ 标题 `审计…`,真实、非退化 ⇒ 恢复对账;
+ *  - `**G-257(新登记)**:…` ⇒ 编号后紧跟括号,不是 `.`/`、` ⇒ 不剥,标题被切成空 ⇒ 仍退化、
+ *    仍 null。**撞号误翻勾那条防线一字不松**(它防的正是"编号之外给不出实质标题")。
+ *
+ * 刻意用**逐字符扫描**而不是拼正则:编号要插进 pattern 里,而 `key` 含 `-`、且我们得先写
+ * `\s`/`\*` 这类元字符 —— 一把"转义整条 pattern"的 helper 会把 `\s` 变成"反斜杠 + s",
+ * 判据静默永不命中而不报任何错(本函数上一版正是这样"写了但没生效")。字符串比较没有这个坑。
+ */
+const KEY_LEAD_NOISE = new Set(['*', '`', ' ', '\t'])
+
+export function stripOwnKey(body, key) {
+  if (!key || typeof body !== 'string') return body
+  let i = 0
+  while (i < body.length && KEY_LEAD_NOISE.has(body[i])) i += 1
+  if (!body.startsWith(key, i)) return body
+  let j = i + key.length
+  while (j < body.length && (body[j] === ' ' || body[j] === '\t')) j += 1
+  if (body[j] !== '.' && body[j] !== '、') return body
+  j += 1
+  while (j < body.length && (body[j] === ' ' || body[j] === '\t')) j += 1
+  return body.slice(j)
+}
+
 /** 剥掉行首编号形态(含其前置强调记号)。只在 `leadingNumericId` 判成立后调用。 */
 export function stripLeadingNumeric(body) {
   return LEADING_NUMERIC_FULL_RE.test(body) ? body.replace(LEADING_NUMERIC_FULL_RE, '') : body
@@ -179,7 +211,7 @@ export function titleOf(line) {
   // ⚠️ 这里**必须**调用 leadingNumericId 的同一个出口(经 stripLeadingNumeric),不得在本行再抄一份
   // 正则:上一版这里抄了一份不含 `**` 与字母后缀的窄版,于是 `- [ ] **86A. …**` 的标题被 cut 在
   // 编号后面那个 `.` 上 ⇒ 标题只剩 "86A"(3 字 <4)⇒ composite=null —— 判据在**自己刚修的这一族**上失明。
-  const body = stripLeadingNumeric(rawBody)
+  const body = stripOwnKey(stripLeadingNumeric(rawBody), keyOfRow(line))
   return body
     .replace(/[*`_\s]/g, '')
     .replace(/[（(【[:：.、,，!！?？].*$/, '')
@@ -298,25 +330,131 @@ export function findVoidRows(content) {
   return parseTaskRows(content).filter((r) => r.state === 'open' && VOID_MARK_RE.test(r.raw))
 }
 
-/** F3:`L<行号>` 式证据指针,核它指向的行是否仍是同一复合主键的条目行。 */
-export const POINTER_RE = /(?:逐字)?存活于\s*L(\d{1,6})/g
+/**
+ * F3:`L<行号>` 式证据指针,核它指向的行是否仍是同一复合主键的条目行。
+ *
+ * **为什么是"族表"而不是一条正则**(2026-09-28 实测逼出来的):归并器自己产出的指针措辞有两种,
+ * 而旧判据只认最早那一种 —— HEAD 面现读 `存活于 L<行号>` **0 处**,而 `同主键/逐字相同的另一条
+ * 登记在 L<行号>` 244 处,于是 `rotatedPointers` 一路报 0,同时台账里每一条行号指针都在按 §1
+ * 明文禁止的方式腐烂("行号在任何一次 append 后都会挪位…实测复核通过率 0/27")。
+ * 判据只看自己立项那一型、看不见自己后续产出的那一型,是本仓记过最多次的失明形态。
+ * 族表同时是**修复出口的配对清单**:任何一族被加进判据面,`plan-tasks-merge.mjs` 必须给出对应的
+ * 改写规则,否则镜像测试的"族表与修复规则必须同集"直接判红 —— 免得又出现"判得到、修不了"。
+ */
+export const POINTER_FAMILIES = [
+  { id: 'alive', source: '(?:逐字)?存活于\\s*L(\\d{1,6})(?:\\s*的同编号登记)?' },
+  { id: 'dup', source: '(?:同主键|逐字相同)?(?:的另一条|的权威|的)?(?:完成)?登记在\\s*L(\\d{1,6})(?:\\(本行无编号主键\\))?' },
+  // 第三种拼法由 2026-09-28 的活体对照抓出来:台账里另有一族「(另|参)见 L####」「指向 L####」的证据引用,
+  // 宽尺数到 9 处而判据只命中 1 处 —— 又是"判据落后于产出形态"(一天内第三次)。
+  { id: 'ref', source: '(?:另见|参见|见|指向)\\s*L(\\d{1,6})' },
+]
+/**
+ * 哪些族**没有**自动出口,以及为什么。
+ * `ref` 一族的 7/9 处指向的行**已经不是条目行或根本不存在**(实测)—— 作者的意图无从推断,
+ * 把 L#### 换成"当下那一行的内容锚点"等于替他把错指针改成看起来对的错指针。
+ * 判据的红与修的口子是两件事:**看得见**是门的责任,**猜得出**不是。
+ */
+export const POINTER_NO_AUTO_REPAIR = { ref: '目标行已腐烂且意图不可推断 ⇒ 只能由该行持有人改写(点名不自动修)' }
+/**
+ * 行号指针的**原始**出现面(比全部族都宽,只用于"族表有没有落后于产出形态"的活体对照,不参与判据)。
+ * 为什么要单独留一把宽尺:2026-09-28 一天内同一格栽了三次 —— 族表只认「存活于」时,归并器自产的
+ * 「另一条登记在 L####」244 处全隐身;把 dup 族放宽后,又出现「…的完成登记在 L13178」这种新拼法。
+ * 每次都是"账面 0 / 面上有"。宽尺不判红,只用来问一句:**判据没命中而宽尺命中 ⇒ 判据瞎了**。
+ */
+export const POINTER_RAW_REF_RE = /(?:存活于|登记在|见|指向)\s*L(\d{1,6})/g
+
+/**
+ * 「…」与反引号包裹的片段是**叙述**(在描述这个形态),不是可执行指针 ——
+ * 与守门 109 对 `（进行中）` 的同一条判序一致(它把反引号内的认领标记排除在"挂牌"之外)。
+ * 不这么做会有两个后果:① 记录这一型缺陷的台账行自己被门判成违规;② 修复出口会把
+ * 说明文字里的样例改写成锚点,把注释当数据改了(本仓"镜像测试只复读实现"的同族失效)。
+ */
+function quotedRanges(line) {
+  const out = []
+  let s = -1
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]
+    if (c === '「') s = i
+    else if (c === '」' && s >= 0) {
+      out.push([s, i])
+      s = -1
+    } else if (c === '`') {
+      const j = line.indexOf('`', i + 1)
+      if (j > i) {
+        out.push([i, j])
+        i = j
+      }
+    }
+  }
+  return out
+}
+const inQuoted = (ranges, at) => ranges.some(([a, b]) => at >= a && at <= b)
+
+/** 判据命中数必须等于宽尺在**非引用体**上的出现数 —— 不等就是族表漏了一族(交调用方喊"失明",不冒绿)。 */
+export function pointerBlindness(content) {
+  const rows = parseTaskRows(content)
+  let raw = 0
+  for (const r of rows) {
+    const q = quotedRanges(r.raw)
+    const re = new RegExp(POINTER_RAW_REF_RE.source, 'g')
+    let m
+    while ((m = re.exec(r.raw)) !== null) if (!inQuoted(q, m.index)) raw++
+  }
+  return { rawRefs: raw, judged: findRotatedPointers(content).length }
+}
 export function findRotatedPointers(content) {
   const lines = String(content).split(/\r?\n/)
   const bad = []
   for (const r of parseTaskRows(content)) {
-    // 共享一个带 /g 的正则跨字符串 exec 会因 lastIndex 残留而漏匹配 —— 每行开一把新的
-    const re = new RegExp(POINTER_RE.source, 'g')
-    for (let m = re.exec(r.raw); m !== null; m = re.exec(r.raw)) {
-      const target = Number(m[1])
-      const t = lines[target - 1]
-      const reason = !t
-        ? '目标行不存在'
-        : !/^\s*[-*]\s\[[ xX]\]/.test(t)
-          ? '目标行不是条目行'
-          : compositeKeyOf(t) !== compositeKeyOf(r.raw)
-            ? '目标行是另一条(复合主键不等)'
-            : null
-      if (reason) bad.push({ line: r.line, target, reason, raw: r.raw })
+    const quoted = quotedRanges(r.raw)
+    // 一条指针只归第一个命中的族:族表之间是**有意的宽窄层次**,不做并集计数(否则同一条被算两次,
+    // 而 F3 的读数会随族表增删而跳,谁都没改台账却在涨)。
+    const claimed = []
+    for (const fam of POINTER_FAMILIES) {
+      // 共享一个带 /g 的正则跨字符串 exec 会因 lastIndex 残留而漏匹配 —— 每行每族各开一把新的
+      const re = new RegExp(fam.source, 'g')
+      for (let m = re.exec(r.raw); m !== null; m = re.exec(r.raw)) {
+        if (inQuoted(quoted, m.index) || claimed.some(([a, b]) => m.index >= a && m.index <= b)) continue
+        claimed.push([m.index, m.index + m[0].length - 1])
+        const target = Number(m[1])
+        const t = lines[target - 1]
+        const reason = !t
+          ? '目标行不存在'
+          : !/^\s*[-*]\s\[[ xX]\]/.test(t)
+            ? '目标行不是条目行'
+            : compositeKeyOf(t) !== compositeKeyOf(r.raw)
+              ? '目标行是另一条(复合主键不等)'
+              : // §1 的原话是"证据指针**禁止**写行号",不是"禁止写已经指不准的行号"。
+                // 只判已腐烂的那一半,等于允许 35 处"这次恰好还没挪位"的行号指针留在账上,
+                // 而它们下一枚 append 就变哑 —— 旧版正是这一格,配合只认一种措辞的族表,
+                // 账面报 0 而 HEAD 里 222 处指针全烂(2026-09-28 实测)。
+                '行号指针即使还指得准也不许存在(§1 要求内容锚点)'
+        if (reason)
+          bad.push({
+            line: r.line,
+            target,
+            reason,
+            family: fam.id,
+            raw: r.raw,
+            /**
+             * 能不能**自动**把它换成内容锚点,判据只有一条:换上去的锚点必须是真的。
+             * - 目标行不存在 / 不是条目行 ⇒ 作者指的是"当时那一行",现在问不出他指什么 ⇒ 不可自动改;
+             * - 目标行在、且与本行同复合主键 ⇒ 换成"同主键登记「本行键」"是真话 ⇒ 可自动改;
+             * - 目标行在但是**另一条** ⇒ 换成任何锚点都是替他把错指针改成"看起来对的错指针" ⇒ 不可自动改。
+             * 为什么这条必须存在:2026-09-28 实测面上 9 处行号引用里 7 处的目标行已不是条目行或
+             * 根本不存在。若把它们并进"归零判据",自愈档会永远停手(= 一台新的全局失效门);
+             * 若让它们自动改写,就是在编造证据。**看得见**是门的责任,**猜得出**不是。
+             */
+            autoFixable:
+              // 两个条件缺一不可:**有出口**(该族的措辞我们能安全换成锚点)且**目标推得出来**
+              // (指向的行还在、且与本行同复合主键)。少了前一条,归并计划里会有它而改写函数不动它,
+              // 于是自愈档因"无可施加的改写"整轮停手(2026-09-28 实测 L88 就是这个形态)。
+              !POINTER_NO_AUTO_REPAIR[fam.id] &&
+              !!t &&
+              /^\s*[-*]\s\[[ xX]\]/.test(t) &&
+              compositeKeyOf(t) === compositeKeyOf(r.raw),
+          })
+      }
     }
   }
   return bad
@@ -503,6 +641,50 @@ export function findDupBlocks(content) {
   return { verbatim, drifted }
 }
 
+/**
+ * F9:撞号 —— 同一编号挂 >1 个**不同标题前缀**(2026-09-27 G-267 立)。
+ *
+ * 为什么 F1/F4/F4b 看不见它:那三条的分组键是复合主键(编号 + 标题前缀逐字等值)——
+ * F1 抓"同一件事写了两份还两态并存",F4 抓"同一件事的多条待办",F4b 抓无主键的逐字孪生;
+ * 而"两个**不同任务**抢同一个号"的两行复合主键**不相等**,三条判据同时失明。
+ * 后果不是账面难看:派单人按编号找活会找到错的那一行,而 §1"一个编号只能有一行当前状态"
+ * 这条规矩没有任何尺子在执行。
+ * 口径与其余判据同源:编号走 `keyOfRow`、标题走 `titleOf` **同一出口**,禁止另抄正则
+ * (§1"行首裸编号"那条记过"另抄一份窄版⇒在自己刚修的族上失明");
+ * 标题**退化**(`titleIsDegenerate`,切完只剩编号)的行不贡献标题 —— 那正是 M16 钉过的
+ * "两个不同议题同编号被并成一条"的形态,它给不出"编号之外的实质标题",不能算第二个标题;
+ * 归并器 F1 翻勾产出的 `**【归并】**` 前缀行标题被切为空 ⇒ 天然不贡献标题,
+ * F4 副本指针追加在行尾 ⇒ 标题不变,两条修法都不会自己制造新撞号。
+ * 定级(票面明令"先量再定级"):落地当天 HEAD 面现读存量撞号组数为**非零大数**,
+ * 逐条看绝大多数是本仓子项命名惯例(D30①/D30②/O81票㉑ 一族),不是真撞号 ——
+ * 所以本维**只进差值/基线棘轮(只拦新增撞号组),存量只报数、`--strict` 也不判红**;
+ * 当场判红就是与任何提交无关的恒红门(§12e),而为变绿给编号加豁免清单同样禁止(§4)。
+ * @returns {Array<{key:string,titleCount:number,titles:Array<{title:string,lines:number[]}>}>} 按编号首现顺序
+ */
+export function findIdCollisions(content) {
+  const byKey = new Map()
+  for (const r of parseTaskRows(content)) {
+    if (!r.key) continue
+    const title = titleOf(r.raw)
+    if (!title) continue
+    if (titleIsDegenerate(r.raw, title)) continue
+    if (!byKey.has(r.key)) byKey.set(r.key, new Map())
+    const titles = byKey.get(r.key)
+    if (!titles.has(title)) titles.set(title, [])
+    titles.get(title).push(r.line)
+  }
+  const groups = []
+  for (const [key, titles] of byKey) {
+    if (titles.size < 2) continue
+    groups.push({
+      key,
+      titleCount: titles.size,
+      titles: [...titles.entries()].map(([title, lines]) => ({ title, lines })),
+    })
+  }
+  return groups
+}
+
 /** 一把跑完四条统计。数字一律现读,不得写进文档当恒定事实。 */
 /**
  * 取号出口(生产侧防"同编号抢两个不同任务")。
@@ -510,6 +692,8 @@ export function findDupBlocks(content) {
  * 为什么不做成判据:2026-09-27 实测同一份 HEAD 里"同编号、不同标题"有 **57/227** 个编号,
  * 逐条看绝大多数是本仓的子项命名惯例(`D30①` / `D30②` / `D30补强` / `D19的"派发前置"…`),
  * 不是撞号 —— 拿它当判据红就是造一台噪声门(假阳比漏报更贵:它指使人去"修"没坏的东西)。
+ * (同日 G-267 续:**F9 已按棘轮形态落地** —— 它不判这批存量的红,只拦"本次新增的撞号组",
+ * 与本注"按它判红就是造一台噪声门"的实测结论不冲突;取号出口仍保留,防线在登记那一刻。)
  * 而当天真实发生的那一起(两路会话各登记了一个 `G-262`,分别指水印补齐与 git 进程积压)
  * 结构上事后判不了,**只能在登记那一刻把号算出来** —— 所以本函数住在判据层、由
  * `plan-tasks.mjs --next-id` 暴露,不在提交链上。
@@ -570,6 +754,7 @@ export function auditPlan(content) {
   const dupCopies = findDupOpenCopies(dupOpen)
   const verbatimDups = findVerbatimDupOpenRows(content)
   const dupBlocks = findDupBlocks(content)
+  const collisions = findIdCollisions(content)
   const dupCopyLines = new Set([
     ...dupCopies.map((c) => c.row.line),
     ...verbatimDups.copies.map((c) => c.row.line),
@@ -611,6 +796,7 @@ export function auditPlan(content) {
     dupCopies,
     verbatimDups,
     dupBlocks,
+    collisions,
     dispBuckets,
     undisposed,
     staleRows,
@@ -627,6 +813,14 @@ export function auditPlan(content) {
       forkOpenLines: forkOpenLines.size,
       voidRows: voidRows.length,
       rotatedPointers: rotated.length,
+      /**
+       * F3 的两个量纲必须分开,否则同一枚提交里既要"全看见"又要"能自愈"是矛盾的:
+       * `rotatedAuto` = 能换成**真**锚点的(并入归零判据与差值棘轮);
+       * `rotatedNoExit` = 目标行已不可推断的(只点名交人工 —— 并进归零判据就是一台永不落地
+       * 的自愈档,并进棘轮就是凭"判据变尖"给别人记债,见 findRotatedPointers 里 autoFixable 的注释)。
+       */
+      rotatedAuto: rotated.filter((b) => b.autoFixable).length,
+      rotatedNoExit: rotated.filter((b) => !b.autoFixable).length,
       dupOpenGroups: dupOpen.length,
       dupOpenCopies: dupCopies.length,
       // F4b:无主键的逐字孪生行 —— F4 按复合主键分组,而这一族永远没有编号,所以在 F4 里恒为 0、
@@ -643,6 +837,8 @@ export function auditPlan(content) {
       dupBlockCopies: dupBlocks.verbatim.reduce((s, b) => s + b.copies, 0),
       dupBlockDrifted: dupBlocks.drifted.length,
       dupDoneGroups: dupDone.length,
+      // F9 撞号(见 findIdCollisions 头注定级理由):存量只报数,提交链只拦新增撞号组。
+      collisionGroups: collisions.length,
       claimable: unclaimedRows.filter(isClaimable).length,
       // ── F7 归属分层(未认领口径,与 claimable 同集合基数)──
       // 基数校验:四桶相加必须等于 unclaimed,不等就是分类逻辑漏桶(已由 selfTest 钉住)。

@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-staged-files.mjs')
 
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-staged-files-'))
+  const dir = mkScratch('ihui-staged-files-')
   execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
@@ -56,14 +56,14 @@ function stripAnsi(s) {
 
 // ─── 1. 非 git: 非 git 仓库目录 → exit 0(git 命令失败 catch 兜底) ──
 test('非 git: 非 git 仓库目录 → exit 0(兜底)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-nongit-'))
+  const dir = mkScratch('ihui-nongit-')
   try {
     const r = runScript({ cwd: dir })
     assert.equal(r.status, 0, `非 git 应 exit 0,实际 ${r.status}`)
     const out = stripAnsi(r.stdout)
     assert.match(out, /暂无 staged 文件/, 'git 失败兜底应输出"暂无 staged 文件"')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -78,7 +78,7 @@ test('空 staged: git 仓库无 staged 文件 → exit 0 + 提示文案', () => 
     // 不应出现"清单"字样
     assert.ok(!out.includes('清单'), '空 staged 不应输出清单')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -93,7 +93,7 @@ test('单 staged 文件 → exit 0 + 列出该文件', () => {
     assert.match(out, /staged 文件清单\(1 个\)/)
     assert.match(out, /- apps\/web\/index\.ts/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -110,7 +110,7 @@ test('多 staged 文件(3 个)→ exit 0 + 计数 + 全部列出', () => {
     assert.match(out, /- apps\/api\/b\.ts/)
     assert.match(out, /- packages\/ui\/c\.tsx/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -129,7 +129,7 @@ test('始终 exit 0: 跨 4 目录 16 文件 → exit 0(始终不阻塞)', () => 
     const out = stripAnsi(r.stdout)
     assert.match(out, /staged 文件清单\(16 个\)/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -145,7 +145,7 @@ test('输出格式: 含 ℹ️ 引导符 + 缩进 + 文件路径前缀 - ', () =
     // 文件行以 "     - " 开头(5 空格 + 短横线 + 空格)
     assert.match(out, /^     - src\/a\.ts$/m)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -162,7 +162,7 @@ test('Modified 文件(已 commit 后修改并 add)→ 显示在清单', () => {
     assert.match(out, /staged 文件清单\(1 个\)/)
     assert.match(out, /- README\.md/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -177,7 +177,7 @@ test('Deleted 文件(git rm 后 stage)→ 显示在清单', () => {
     assert.match(out, /staged 文件清单\(1 个\)/)
     assert.match(out, /- README\.md/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -194,7 +194,7 @@ test('Renamed 文件(git mv)→ --name-only 显示新路径', () => {
     assert.match(out, /- NEWREADME\.md/)
     assert.ok(!out.includes('README.md -> '), 'name-only 模式不应显示 -> 重命名标记')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -209,7 +209,7 @@ test('中文路径文件 → 正确显示在清单', () => {
     assert.match(out, /staged 文件清单\(1 个\)/)
     assert.match(out, /- docs\/中文指南\.md/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -224,7 +224,7 @@ test('路径含空格 → 正确显示在清单', () => {
     assert.match(out, /staged 文件清单\(1 个\)/)
     assert.match(out, /- apps\/web\/my file\.ts/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -241,7 +241,7 @@ test('空白行过滤: 单文件不会因末尾换行产生空条目', () => {
     const dashLines = (out.match(/^     - /gm) || []).length
     assert.equal(dashLines, 1, `应只有 1 个文件行,实际 ${dashLines}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -268,7 +268,7 @@ test('输出顺序: 与 git diff --cached --name-only 一致', () => {
       .filter(Boolean)
     assert.deepEqual(fileLines, gitOut, '脚本输出顺序应与 git 一致(不额外排序)')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -286,7 +286,7 @@ test('大量文件(50 个)→ 计数正确 + 全部列出 + exit 0', () => {
     const dashLines = (out.match(/^     - /gm) || []).length
     assert.equal(dashLines, 50, `应有 50 个文件行,实际 ${dashLines}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

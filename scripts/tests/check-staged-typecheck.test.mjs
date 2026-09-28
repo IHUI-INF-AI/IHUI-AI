@@ -26,9 +26,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync, execSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url, 不硬编码) ───
@@ -60,7 +60,7 @@ function stripAnsi(s) {
 
 // ─── 辅助: 创建临时 git 仓库 (含初始 commit) ───────────────
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-typecheck-'))
+  const dir = mkScratch('ihui-typecheck-')
   execSyncQuiet('git init -b main', dir)
   execSyncQuiet('git config user.email test@test.com', dir)
   execSyncQuiet('git config user.name test', dir)
@@ -85,12 +85,12 @@ function execSyncQuiet(cmd, cwd) {
  */
 function makeGetOriginalIncludePkg(raw) {
   if (raw === null) {
-    const dir = mkdtempSync(join(tmpdir(), 'ihui-getincl-'))
-    return { pkg: makePkg(dir), cleanup: () => rmSync(dir, { recursive: true, force: true }) }
+    const dir = mkScratch('ihui-getincl-')
+    return { pkg: makePkg(dir), cleanup: () => rmScratch(dir) }
   }
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-getincl-'))
+  const dir = mkScratch('ihui-getincl-')
   writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify(raw), 'utf8')
-  return { pkg: makePkg(dir), cleanup: () => rmSync(dir, { recursive: true, force: true }) }
+  return { pkg: makePkg(dir), cleanup: () => rmScratch(dir) }
 }
 
 // ─── 测试 1: filterTscOutputForStagedFiles 单元测试 ────────
@@ -416,7 +416,7 @@ test('getOriginalInclude: tsconfig.json 不存在 (读取失败) → 走回退�
 })
 
 test('getOriginalInclude: tsconfig.json 是非法 JSON → 走回退默认', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-getincl-'))
+  const dir = mkScratch('ihui-getincl-')
   try {
     writeFileSync(join(dir, 'tsconfig.json'), '{ invalid json', 'utf8')
     const pkg = makePkg(dir)
@@ -427,7 +427,7 @@ test('getOriginalInclude: tsconfig.json 是非法 JSON → 走回退默认', () 
       './**/*.d.ts',
     ])
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -481,7 +481,7 @@ test('CLI: -h 短选项 → exit 0, stdout 含帮助文本', () => {
 })
 
 test('CLI: 非 git 目录 + --staged → exit 0 (无 staged 文件, 跳过)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-nongit-typecheck-'))
+  const dir = mkScratch('ihui-nongit-typecheck-')
   try {
     const r = spawnSync('node', [SCRIPT_PATH, '--staged'], {
       cwd: dir,
@@ -492,7 +492,7 @@ test('CLI: 非 git 目录 + --staged → exit 0 (无 staged 文件, 跳过)', ()
     const out = stripAnsi(r.stdout)
     assert.match(out, /暂存区无文件|跳过/, '应显示暂存区无文件 / 跳过')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -508,7 +508,7 @@ test('CLI: git 仓库 + 空 staged → exit 0 (提示无 staged)', () => {
     const out = stripAnsi(r.stdout)
     assert.match(out, /暂存区无文件|跳过/, '应显示暂无 staged 文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -527,7 +527,7 @@ test('CLI: git 仓库 + staged .ts 文件 + --dry-run → exit 0 (打印分组, 
     const out = stripAnsi(r.stdout)
     assert.match(out, /dry-run/, 'stdout 应含 dry-run 标识')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -554,7 +554,7 @@ test('CLI: 无参数 + git 仓库 + 空 staged → exit 0 (默认 staged 模式)
     })
     assert.equal(r.status, 0, `默认模式 + 空 staged 应 exit 0, 实际 ${r.status}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

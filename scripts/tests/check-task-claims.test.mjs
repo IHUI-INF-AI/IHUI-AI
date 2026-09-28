@@ -30,7 +30,9 @@ const SCRIPT = join(REPO, 'scripts', 'check-task-claims.mjs')
 const GIT_BIN = resolveGitBin() || 'git'
 
 /** 只对**临时索引**做 plumbing(hash-object -w / update-index),refs / 主索引 / 磁盘零触碰 ——
- *  与守门 90 镜像 ⑩ 同一套"索引≠磁盘"构造法;对象写入与 ⑩ 同性质(GC 自收,不构成 git 写史)。 */
+ *  与守门 90 镜像 ⑩ 同一套"索引≠磁盘"构造法;对象写入与 ⑩ 同性质(GC 自收,不构成 git 写史)。
+ *  maxBuffer 由调用方按需放大 —— `show HEAD:PROJECT_PLAN.md` 的正文远超 execFileSync 默认 1MB,
+ *  被截断会抛 ENOBUFB(工具失败伪装成"内容没有",与本仓"未判定不得记绿"同一条禁令)。 */
 function gitRun(args, opts = {}) {
   return execFileSync(
     GIT_BIN,
@@ -40,6 +42,7 @@ function gitRun(args, opts = {}) {
       windowsHide: true,
       timeout: 60000,
       env: opts.env ?? process.env,
+      ...(opts.maxBuffer === undefined ? {} : { maxBuffer: opts.maxBuffer }),
       ...(opts.input === undefined ? {} : { input: opts.input }),
     },
   )
@@ -507,4 +510,150 @@ test('T18 形状锁:计划文档必须经 face-reader 按面取,不得再回磁�
   )
   // 反向锁:两面旗同给必须判死(不许"顺手挑一个面")。
   assert.match(code, /if \(picked\.error\)[\s\S]*?process\.exit\(2\)/, '面旗冲突未折成 exit 2')
+})
+
+// ---------- T19-T21:CL3 的「结构位 vs 反引号叙述」维(2026-09-28 修假阳) ----------
+// 立因:HEAD 面"裸标记×[x] 矛盾行 5"里真牌 0 枚 —— 5 行全是**用反引号引用「（进行中）」
+// 这个形态本身**的叙述行(S13 当年把"叙述不算状态"只应用到 `[x]` 半边)。
+// 三条锁的分工:T19 = 夹具四对正反(CLI 端到端),T20 = **真仓 HEAD 逐字输入**的成对牙齿
+// (§22c:判据的对象是真实文件的形态时,必须拿真行喂,不能全用自造夹具),T21 = 源码形状锁
+// ("判不出"档必须**计入+打印**成对在位 —— 静默放过就是把真敞口洗成绿)。
+
+test('T19 反引号叙述不计 / 剥掉包裹必计 / 判不出保守计入并打印(--plan 夹具端到端)', () => {
+  const dir = mkScratch('claims-t19')
+  try {
+    const readJ = (f) => JSON.parse(runCli(['--check-gate', '--plan', f, '--json']).out)
+    // ① 两行叙述(取任务书原形,反引号成对)⇒ 计 0、不红、不落"判不出"档
+    const narr = join(dir, 'narrative.md')
+    writeFileSync(
+      narr,
+      [
+        '- [x] ✅(2026-09-25) **同一台"双态行制造机"的第二条成因**:`merge-live-doc` 的容器短路只比"整行逐字包含",而本仓翻勾**必然改行首状态**(`- [ ]（进行中）` → `- [x] ✅(日期)`…)',
+        '- [x] ✅(2026-09-26) **更正** 上面第二格说"18 条翻勾 + 2 条租约摘牌",枚数抄错:`9147d9f4847` 是 **19 行翻勾(其中 2 行同时带 `（进行中）` 标记被一并摘掉)**',
+      ].join('\n') + '\n',
+    )
+    const r1 = runCli(['--check-gate', '--plan', narr])
+    assert.equal(r1.status, 0, `叙述行不该判红:${r1.out}`)
+    assert.match(r1.out, /裸标记×\[x\] 矛盾行 0/, '报数面仍把叙述计成矛盾行')
+    const j1 = readJ(narr)
+    assert.equal(j1.leases.legacyContradictions, 0)
+    assert.equal(j1.leases.contradictions, 0)
+    assert.equal(j1.leases.undeterminedCode, 0, '反引号成对的行不该落"判不出"档')
+    // ② 控制测量(不可省):同一真形状**剥掉全部反引号** ⇒ 标记全落结构位 ⇒ 必须计 2。
+    //    只报"矛盾行 0"不构成证据 —— 判据失明和仓库干净在账面上长得一模一样。
+    const struct = join(dir, 'structural.md')
+    writeFileSync(struct, readFileSync(narr, 'utf8').replace(/`/g, ''))
+    const j2 = readJ(struct)
+    assert.equal(j2.leases.legacyContradictions, 2, '剥掉包裹后就是真牌而不计 ⇒ (①) 的 0 来自判据失明')
+    assert.match(runCli(['--check-gate', '--plan', struct]).out, /裸标记×\[x\] 矛盾行 2/)
+    // ③ 判不出(奇数反引号,截断长行的真实形态)⇒ **保守计入** + undeterminedCode 点名并打印
+    const odd = join(dir, 'odd.md')
+    writeFileSync(odd, '- [x] ✅(2026-09-26) 这行被截断:前面有个 `（进行中） 后面没有闭引号\n')
+    const j3 = readJ(odd)
+    assert.equal(j3.leases.undeterminedCode, 1, '配不成对必须计入 undeterminedCode,不得静默')
+    assert.equal(j3.leases.legacyContradictions, 1, '判不出必须按"计入"处置 —— 放过就是把真敞口洗成绿')
+    assert.match(runCli(['--check-gate', '--plan', odd]).out, /反引号配不对的行 1 处/, '判不出档必须打印')
+    // ④ 叙述里的**租约形态示例**不红;同文剥掉反引号(= 真挂牌)必红 —— 同一夹具两向对拆
+    const leaseNarr = join(dir, 'lease-narrative.md')
+    writeFileSync(
+      leaseNarr,
+      '- [x] ✅(2026-09-26) 协议叙述:`- [ ]（进行中）` 的新写法是 `（进行中@2026-09-26/qa）`,已完成行不得再挂\n',
+    )
+    assert.equal(runCli(['--check-gate', '--plan', leaseNarr]).status, 0, '码段内租约示例不该 CL3 红')
+    const leaseReal = join(dir, 'lease-structural.md')
+    writeFileSync(leaseReal, readFileSync(leaseNarr, 'utf8').replace(/`/g, ''))
+    const r4 = runCli(['--check-gate', '--plan', leaseReal])
+    assert.equal(r4.status, 1, '剥掉包裹后的租约牌必须 CL3 红(不放过真牌)')
+    assert.match(r4.out, /CL3/)
+    // ⑤ 双反引号码段(CommonMark 闭合串须等长)同属叙述
+    const dbl = join(dir, 'double.md')
+    writeFileSync(dbl, '- [x] 样例见 ``（进行中@2026-09-26/qa）`` 这种写法,不该算牌\n')
+    assert.equal(runCli(['--check-gate', '--plan', dbl]).status, 0)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T20 真仓 HEAD 逐字输入:叙述行不计的**理由**必须可复核,剥掉反引号必计(尺子的牙长在真形态上)', () => {
+  // §22c:判据的对象是真实文件的形态 ⇒ 至少一条用例的输入逐字取自真实文件(这里取 HEAD 面,
+  // 全部用内容锚点筛行,不锚行号 —— 行号在任何一次 append 后都会挪位)。
+  const head = gitRun(['show', 'HEAD:PROJECT_PLAN.md'], { maxBuffer: 1 << 29 })
+  const cand = head
+    .split('\n')
+    .map((l) => l.trimStart())
+    .filter((t) => /^- \[[xX]\]/.test(t) && t.includes('（进行中'))
+  assert.ok(cand.length > 0, 'HEAD 面上连一行含标记的勾选行都没有?若真归零,本夹具需重新设计,不得静默空转')
+  let counted = 0
+  for (const t of cand) {
+    const asIs = claims.findContradictions(t)
+    const aCount = asIs.contradictions.length + asIs.legacyContradictions
+    const bare = t.match(/（进行中[^）]*）/g) ?? []
+    if (aCount > 0) {
+      counted++
+      // 被计的行必须给得出理由:undetermined(保守计入)或存在结构位标记
+      if (asIs.undeterminedCode === 0) {
+        const { spans } = claims.codeSpanRangesOf(t)
+        assert.ok(
+          bare.some((m) => {
+            const at = t.indexOf(m)
+            return !claims.insideCodeSpan(spans, at, m.length)
+          }),
+          `计了矛盾却找不到结构位标记:${t.slice(0, 60)}`,
+        )
+      }
+    } else if (bare.length > 0 && asIs.undeterminedCode === 0) {
+      // 未计且反引号配得上对 ⇒ 每个标记必须**确实**落在已配对码段内(排除整行短路)
+      const { spans } = claims.codeSpanRangesOf(t)
+      for (const m of t.matchAll(/（进行中[^）]*）/g))
+        assert.ok(
+          claims.insideCodeSpan(spans, m.index, m[0].length),
+          `未计但标记不在码段内 ⇒ 误判方向反了:${t.slice(0, 60)}`,
+        )
+    }
+    // 阳性对照:剥掉全部反引号后标记全落结构位 —— 含闭合标记的真行必须被计
+    if (bare.length > 0) {
+      const u = claims.findContradictions(t.replace(/`/g, ''))
+      assert.ok(
+        u.contradictions.length + u.legacyContradictions >= 1,
+        `剥掉包裹仍不计 ⇒ 判据对真形态失明:${t.slice(0, 60)}`,
+      )
+    }
+  }
+  // 整篇与逐行口径一致(排除跨行串扰);只断**相等**这一不变量,不钉"当前几条"。
+  const whole = claims.findContradictions(head)
+  assert.equal(
+    whole.contradictions.length + whole.legacyContradictions,
+    counted,
+    '整篇计数 ≠ 逐行合计 ⇒ 判据被相邻行串扰',
+  )
+  console.log(
+    `  (真仓现读:含标记的勾选行 ${cand.length} 条,其中仍计 ${counted} 条 —— 数字随台账在途变化,本测试不钉死)`,
+  )
+})
+
+test('T21 形状锁:"判不出"档必须计入+打印成对在位;不得退化成整行放过', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  assert.match(src, /if \(undetermined\) undeterminedCode\+\+/, 'undeterminedCode 不再在判不出档累加')
+  assert.match(
+    src,
+    /const structural = undetermined\s*\n\s*\? matches/,
+    '判不出必须**保守计入**(全部标记按结构位算)—— 改成放过就是把真敞口洗成绿',
+  )
+  assert.match(
+    src,
+    /gate\.summary\.undeterminedCode > 0[\s\S]{0,80}console\.log/,
+    '判不出档必须打印(判据失效的表现永远是安静)',
+  )
+  // 反向锁:旧写法"判不出 ⇒ continue(整行放过)"不得回来 —— 那比误判更糟,它不喊。
+  assert.doesNotMatch(
+    src,
+    /if \(undetermined\) \{[\s\S]{0,140}?\bcontinue\b/,
+    '判不出又退化成静默放过整行',
+  )
+  // 反向锁:标记筛选不得绕开码段判据回到"整行 match"(被推翻的旧本体)。
+  assert.doesNotMatch(
+    src,
+    /const markers = t\.match\(\/（进行中\[\^）\]\*）\/g\)/,
+    '旧的整行 match 写法回来 ⇒ 叙述行又会被计成矛盾',
+  )
 })

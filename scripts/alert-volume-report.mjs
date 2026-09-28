@@ -119,6 +119,21 @@ export function parseLogLine(line) {
 }
 
 /**
+ * 让 `24h` / `7d` 两桶**恒在**,与调用方请求的 `--hours` / `--days` 无关。
+ * 立因(2026-09-27 值守实测):summary 的字段名写死 `mailTotal24h`,取值却是 `windows[`${hours}h`]`;
+ * 而值守巡检口径就是 `--hours 4`,那次账面报 `mailTotal24h=2` 而当天真实是 28 ——
+ * 字段名会替读报告的人做出"一天只寄了 2 封"的判断,而那其实是 4 小时的数。
+ * 名字承诺哪个跨度就必须量哪个跨度。
+ * @param {Record<string, unknown>} map 已按请求窗口算好的桶
+ * @param {(label: '24h' | '7d') => unknown} build 缺哪桶补哪桶(已有同名桶一律复用,不重算)
+ */
+export function ensureFixedWindows(map, build) {
+  const out = { ...map }
+  for (const label of ['24h', '7d']) if (out[label] === undefined) out[label] = build(label)
+  return out
+}
+
+/**
  * 发信面量算。**返回三态**:判到了什么 / 没判到什么 + 原因。
  * @param {string} text latin1 解出的日志尾部(字节保真;中文不解码)
  */
@@ -152,10 +167,10 @@ export function scanMailLog(text, { nowMs, hours = 24, days = 7 }) {
       alerts.push({ ms: p.ms })
     }
   }
-  const windows = {
-    [`${hours}h`]: windowStats(mails, alerts, nowMs - hours * HOUR, nowMs, 'hourly'),
-    [`${days}d`]: windowStats(mails, alerts, nowMs - days * DAY, nowMs, 'daily'),
-  }
+  const windows = ensureFixedWindows(
+    { [`${hours}h`]: windowStats(mails, alerts, nowMs - hours * HOUR, nowMs, 'hourly'), [`${days}d`]: windowStats(mails, alerts, nowMs - days * DAY, nowMs, 'daily') },
+    (label) => windowStats(mails, alerts, nowMs - (label === '24h' ? 24 * HOUR : 7 * DAY), nowMs, label === '24h' ? 'hourly' : 'daily'),
+  )
   return {
     mails,
     alerts,
@@ -291,7 +306,10 @@ export function parseAttestation(text, { nowMs, hours = 24, days = 7 }) {
     badLines,
     tsRange: dated.length ? [Math.min(...dated.map((e) => e.ms)), Math.max(...dated.map((e) => e.ms))] : null,
     all: aggregate(entries),
-    windows: { [`${hours}h`]: aggregate(inWin(hours * HOUR)), [`${days}d`]: aggregate(inWin(days * DAY)) },
+    windows: ensureFixedWindows(
+      { [`${hours}h`]: aggregate(inWin(hours * HOUR)), [`${days}d`]: aggregate(inWin(days * DAY)) },
+      (label) => aggregate(inWin(label === '24h' ? 24 * HOUR : 7 * DAY)),
+    ),
   }
 }
 
@@ -527,16 +545,22 @@ function buildReport(o) {
 
   const undetermined = coverage.filter((c) => c.state === 'undetermined')
   const hKey = `${hours}h`
-  const dKey = `${days}d`
+  // 字段名与跨度必须同形:`*Window` = 本次请求的窗口,`*24h` / `*7d` = 恒定的那个跨度。
+  // 只留 `*24h` 而让它跟随 `--hours` 漂移,等于给读数的人一个会骗人的标签(成因见 ensureFixedWindows)。
   const summary = {
-    mailTotal24h: mail ? mail.windows[hKey].mailCount : null,
-    mailTotal7d: mail ? mail.windows[dKey].mailCount : null,
+    windowHours: hours,
+    windowDays: days,
+    mailTotalWindow: mail ? mail.windows[hKey].mailCount : null,
+    mailTotal24h: mail ? mail.windows['24h'].mailCount : null,
+    mailTotal7d: mail ? mail.windows['7d'].mailCount : null,
     alertSkippedTotal: mail ? mail.totals.alertSkipped : null,
     skipTotalAllTime: att ? att.all.skips : null,
-    skipTotal24h: att ? att.windows[hKey].skips : null,
-    skipTotal7d: att ? att.windows[dKey].skips : null,
+    skipTotalWindow: att ? att.windows[hKey].skips : null,
+    skipTotal24h: att ? att.windows['24h'].skips : null,
+    skipTotal7d: att ? att.windows['7d'].skips : null,
     noBatchTotal: att ? att.all.noBatchCount : null,
-    stormClusters24h: mail ? mail.windows[hKey].storms.length : null,
+    stormClustersWindow: mail ? mail.windows[hKey].storms.length : null,
+    stormClusters24h: mail ? mail.windows['24h'].storms.length : null,
     sourcesCovered: coverage.filter((c) => c.state === 'covered').length,
     sourcesUndetermined: undetermined.length,
   }
@@ -552,6 +576,9 @@ function renderHuman(rep) {
   const p = (s = '') => L.push(s)
   const hKey = `${rep.hours}h`
   const dKey = `${rep.days}d`
+  // 请求窗口之外补列 24h / 7d 的紧凑读数:`--hours 4` 时报告原本只有"近 4h"和"近 7d"两节,
+  // 而结论行却写着 mailTotal24h ⇒ 读的人只能拿 4h 的数当一天用。
+  const extraKeys = ['24h', '7d'].filter((k) => k !== hKey && k !== dKey)
 
   p(`告警与跳门总量量算仪(只读)—— 现读 ${new Date(rep.nowMs).toISOString()}`)
   p()
@@ -582,6 +609,11 @@ function renderHuman(rep) {
       }
       if (w.storms.length > 6) p(`      …另 ${w.storms.length - 6} 簇(计数与合计已含,列前面 6 簇)`)
     }
+    // 固定窗口只报数,不再抄一遍逐签名明细(同一份清单打两次,读的人反而分不清哪份是准的)
+    for (const key of extraKeys) {
+      const w = rep.mail.windows[key]
+      p(`  [近 ${key}] MAIL=${w.mailCount} 封 / ${w.distinctSignatures} 个签名 / ALERT(同签名被去重跳过)=${w.alertSkipped} 行 / 疑似风暴=${w.storms.length} 簇(只报数;逐签名明细按请求窗口列)`)
+    }
     const kw = Object.entries(rep.mail.keywordCounts).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
     if (kw.length) p(`  关键字计数(本次读到的全部行):${kw.map(([k, v]) => `${k}=${v}`).join(' ')}`)
     const t = rep.mail.totals
@@ -604,7 +636,9 @@ function renderHuman(rep) {
   } else {
     const a = rep.att
     p(`  全量:${a.all.skips} 次;其中 ranFullBatch=false(一批检查**全没跑**就跳了,比跳门更严重)= ${a.all.noBatchCount} 次`)
-    p(`  近 ${hKey}:${a.windows[hKey].skips} 次 / 近 ${dKey}:${a.windows[dKey].skips} 次`)
+    // 同键只列一次:默认档 --hours 24 时请求窗口就是 24h,列两遍会被读成两个不同的数。
+    const attKeys = [...new Set([hKey, '24h', dKey, '7d'])]
+    p(`  跳门次数:${attKeys.map((k) => `近 ${k} ${a.windows[k].skips} 次`).join(' / ')}`)
     p(`  kind 分布(全量):${fmtKinds(a.all.kinds)}`)
     if (a.totals.badLines || a.totals.undated)
       p(`  ⚠️ 坏行 ${a.totals.badLines} 条 / 无有效 ts ${a.totals.undated} 条 —— 都不进任何计数(把没判写成判过是本仓最高频失效型)`)
@@ -627,10 +661,11 @@ function renderHuman(rep) {
   p('  未覆盖清单(射程边界,不是待办遗漏):')
   for (const u of NOT_COVERED) p(`    - ${u}`)
   p(
-    `  结论计数:mailTotal24h=${rep.summary.mailTotal24h} mailTotal7d=${rep.summary.mailTotal7d} ` +
+    `  结论计数:windowHours=${rep.summary.windowHours} windowDays=${rep.summary.windowDays} (字段名里的 24h/7d 是恒定跨度,不随 --hours/--days 变)` +
+      `mailTotalWindow=${rep.summary.mailTotalWindow} mailTotal24h=${rep.summary.mailTotal24h} mailTotal7d=${rep.summary.mailTotal7d} ` +
       `alertSkippedTotal=${rep.summary.alertSkippedTotal} skipTotalAllTime=${rep.summary.skipTotalAllTime} ` +
-      `skipTotal24h=${rep.summary.skipTotal24h} skipTotal7d=${rep.summary.skipTotal7d} ` +
-      `noBatchTotal=${rep.summary.noBatchTotal} stormClusters24h=${rep.summary.stormClusters24h} ` +
+      `skipTotalWindow=${rep.summary.skipTotalWindow} skipTotal24h=${rep.summary.skipTotal24h} skipTotal7d=${rep.summary.skipTotal7d} ` +
+      `noBatchTotal=${rep.summary.noBatchTotal} stormClustersWindow=${rep.summary.stormClustersWindow} stormClusters24h=${rep.summary.stormClusters24h} ` +
       `sourcesCovered=${rep.summary.sourcesCovered} sourcesUndetermined=${rep.summary.sourcesUndetermined}`,
   )
   p('')
@@ -697,7 +732,7 @@ function collect(opts = {}) {
 // ─────────────────────────────────────────────────────────────
 
 async function selfTest() {
-  const { mkdirSync, writeFileSync, rmSync } = await import('node:fs')
+  const { mkdirSync, writeFileSync } = await import('node:fs')
   const { mkScratch, rmScratch } = await import('./lib/scratch-dir.mjs')
   const { TextDecoder } = await import('node:util')
   let pass = 0
@@ -806,7 +841,10 @@ async function selfTest() {
         registry: { ok: false, reason: '夹具不提供注册表' },
       })
       if (rep.summary.skipTotalAllTime !== null) throw new Error('台账取不到却报出了跳门数')
-      if (rep.summary.mailTotal24h !== null || rep.summary.mailTotal7d !== null) throw new Error('日志取不到却报出了发信数')
+      for (const k of ['mailTotalWindow', 'mailTotal24h', 'mailTotal7d', 'stormClustersWindow', 'stormClusters24h'])
+        if (rep.summary[k] !== null) throw new Error(`发信日志取不到却报出了 ${k} ⇒ 新增计数字段必须一起进"取不到即为 null"这张清单,漏一个就能伪装成结论`)
+      for (const k of ['skipTotalWindow', 'skipTotal24h', 'skipTotal7d'])
+        if (rep.summary[k] !== null) throw new Error(`跳门台账取不到却报出了 ${k}`)
       if (rep.summary.sourcesUndetermined < 5) throw new Error(`五个源都没读到,却只报 ${rep.summary.sourcesUndetermined} 条未判定`)
       const human = renderHuman(rep)
       if (!/未判定/.test(human)) throw new Error('人读档没喊未判定')
@@ -889,6 +927,43 @@ async function selfTest() {
       if (!human.includes('node scripts/check-prod-bundle-shadow.mjs --staged')) throw new Error('复现命令没给到 ⇒ 报告读完不知道该跑什么')
     })
 
+    t('S11b 字段名与跨度必须同形:--hours 4 时 *24h 不得装 4 小时的数(值守口径实测踩过的坑)', () => {
+      // 正例:请求窗口 4h 内 1 封、24h 内 2 封 ⇒ 两个字段各报各的。
+      // 反向锁:实现若退回"24h 读请求窗口",两个字段会同为 1 ⇒ 本条当场变红(已用变异取证)。
+      const nowMs = Date.parse('2026-09-27T05:00:00Z')
+      const rep = collect({
+        nowMs,
+        hours: 4,
+        days: 7,
+        mailRead: okRead(
+          [
+            '[2026-09-27 04:30:00 +00:00] [deploy] [04:30:00 +00:00] MAIL  delivered a x@y.com',
+            '[2026-09-27 00:30:00 +00:00] [deploy] [00:30:00 +00:00] MAIL  delivered b x@y.com',
+          ].join('\n'),
+        ),
+        mailPath: join(box, 'w.log'),
+        attRead: okRead(
+          [
+            JSON.stringify({ ts: '2026-09-27T04:00:00.000Z', kind: 'mine', ranFullBatch: true, failedGates: ['44'] }),
+            JSON.stringify({ ts: '2026-09-26T23:00:00.000Z', kind: 'not-ours', ranFullBatch: true, failedGates: ['29'] }),
+          ].join('\n') + '\n',
+        ),
+        attPath: join(box, 'w.jsonl'),
+        alertRaw: null,
+        dedupeRaw: null,
+        registry: { ok: true, face: '夹具', map: new Map([['44', 'check-root-dir-clean.mjs'], ['29', 'check-push-sync.mjs']]), entries: 2, dupIds: [] },
+      })
+      if (rep.summary.mailTotalWindow !== 1) throw new Error(`请求窗口应 1 封,实得 ${rep.summary.mailTotalWindow}`)
+      if (rep.summary.mailTotal24h !== 2) throw new Error(`*24h 应 2 封(恒定跨度),实得 ${rep.summary.mailTotal24h} ⇒ 字段又在装请求窗口的数`)
+      if (rep.summary.mailTotal7d !== 2) throw new Error(`*7d 应 2 封,实得 ${rep.summary.mailTotal7d}`)
+      if (rep.summary.skipTotalWindow !== 1) throw new Error(`跳门请求窗口应 1 次,实得 ${rep.summary.skipTotalWindow}`)
+      if (rep.summary.skipTotal24h !== 2) throw new Error(`跳门 *24h 应 2 次,实得 ${rep.summary.skipTotal24h}`)
+      const human = renderHuman(rep)
+      if (!human.includes('mailTotalWindow=1')) throw new Error('人读档没带出请求窗口读数')
+      if (!human.includes('mailTotal24h=2')) throw new Error('人读档的 24h 字段没报真正的 24h')
+      if (!human.includes('[近 24h]')) throw new Error('紧凑补节缺失 ⇒ 读报告的人拿不到"一天"这一行,只能拿 4h 当 24h')
+    })
+
     t('S12 时间戳形状:无 tz 按 UTC;非法日期落 null;半行不得冒充"无时间戳行"', () => {
       const ok = parseLogLine('[2026-09-27 04:00:00] [deploy] MAIL  x')
       if (!ok || ok.keyword !== 'MAIL') throw new Error('无 tz 形态没解析')
@@ -951,6 +1026,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 export const __test__ = {
   parseLogLine,
   scanMailLog,
+  ensureFixedWindows,
   findStorms,
   parseAttestation,
   parseRegistry,
