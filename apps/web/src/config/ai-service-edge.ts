@@ -74,23 +74,30 @@ export const AI_SERVICE_EDGE_ROUTES: readonly AiServiceEdgeRoute[] = [
     upstreamPath: '/api/mcp/export/sse',
     rationale: 'MCP SSE transport,同属 mcp:connect 声明面',
   },
-  {
-    scope: 'connectors:read',
-    method: 'GET',
-    upstreamPath: '/api/connectors',
-    rationale: '只读连接器清单(risk=low、thirdPartyEligible=true)',
-  },
+  // 2026-09-28:`connectors:read` 从这张表里**撤掉**了 —— 原先它的理由是"risk=low、
+  // thirdPartyEligible=true",而实测两个 handler(`routers/connectors.py::list_connectors`
+  // 走 `connector_store.list_all()`、`routers/mcp.py::list_external_servers` 走
+  // `manager.list_registered()`)都是**整片读、不按属主过滤**:广告它是"可公开"等于
+  // 让任何持有效凭据的人枚举别人的连接器配置。目录侧已同步把该 scope 标成
+  // `thirdPartyEligible:false`(恢复前置 = 先落归属,不是把广告加回来)。
+  // 这条撤除由 `apps/api/tests/o5-nginx-edge-ratelimit.test.ts` 的 NEVER_PUBLIC_SCOPES
+  // 与 `scripts/check-public-exposure-list.mjs` 的 X3/X7 双向钉住:把它加回 nginx 白名单会红。
 ]
 
 /**
  * 因「同路径上存在不可公开方法」而被排除的上游路径(派生态,同样由测试对账)。
  *
  * 登记它而不是静默不放行:静默会让后来人以为是漏配,顺手「补上」就是造一个敞口。
- * `/api/mcp/external/servers` 的 GET 属 `connectors:read`(可公开),但同路径的 POST 属
- * `connectors:write`(thirdPartyEligible=false,语义是「注册外部 MCP server = 注入可执行
- * 工具」)。rewrites 无法按方法分流 ⇒ 整条不放。
+ *
+ * **现读为空,而这不是"没配"**:`/api/mcp/external/servers` 过去挂在这里,是因为它的
+ * GET 属 `connectors:read`(当时可公开)、POST 属 `connectors:write`(不可公开),而
+ * rewrites 无法按方法分流 ⇒ 整条不放。2026-09-28 `connectors:read` 被标成
+ * `thirdPartyEligible:false`(实测它的 handler `manager.list_registered()` 整片读、不按
+ * 属主过滤)⇒ 两个方法都不可公开,这一条**不再是"方法冲突"**,而是根本不在开放集里 ——
+ * 由 `apps/web/tests/ai-service-edge.test.ts` 的双向对账钉住:谁再把该路径的任一方法标成
+ * 可公开,冲突会重新出现、这张表必须同步把它加回来,而不是留一张死表。
  */
-export const AI_SERVICE_EDGE_BLOCKED_PATHS: readonly string[] = ['/api/mcp/external/servers']
+export const AI_SERVICE_EDGE_BLOCKED_PATHS: readonly string[] = []
 
 export interface EdgeRewrite {
   readonly source: string
