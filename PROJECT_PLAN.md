@@ -13437,3 +13437,101 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
   - 现读成因:本轮想把四路取证报的 34 个文件名回填进 `config/zcode-absorption.json`,结果只有 5 个可证(dynamic-workflow 的 concurrency.ts / scheduler-submit.ts / errors.ts 在 `remaining` 原文里被写成"仅窗口读" ⇒ 证明确属未读;bootstrap 的 telemetry-bootstrap.ts / runtime-config.ts 同),其余 29 个**不记**,因为 ui(191)/shared(91)/desktop(71)/tui(8)/.agents(2) 这些切片的旧 read 集从来没有逐名清单 ⇒ 无法证明新读与旧读不重叠。头条因此只从 957 升到 **962/4093 = 23.5%**,而真实读量明显更高 —— 这是台账把自己的可核验性锁死在"少报"那一侧。
   - 落地判据:给每个 slice 增加具名数组 `readFiles`(值 = 相对上游根的完整路径),并把 `scripts/zcode-absorption-matrix.mjs` 新增一条判据:**`read` 必须等于 `readFiles` 去重后的长度**(有 `readFiles` 时;没有则沿用现判据只报数),同时 M8/M11 的"读量"改从具名集合算。回填时"新读文件名 ∈ readFiles ⇒ 不计数"可机器判定,下界问题消失。
   - 不可做的事:不得为了让数字上升而省略去重判据(那是把台账改成宣传板)、不得 `--update` 式把当前读数冻成基线(与本仓对 sha 腐烂门同一禁令)、不得把代理报的"读了 N 个"直接抄进 `read`(本会话已抓到一次代理报数与逐名清单不自洽)。
+
+### ZCode 吸收线 · 第十九轮取证登记:八份只读报告的落账(2026-09-29)
+
+本轮收到 8 份取证报告(r5-core-loop / r5-ui-v4-lib / r6-ui-rest / r7-provider / r8-web-scripts-services /
+r5-contracts-analysis / r5-bootstrap-agents / r6-desktop / r6-services-tui)。判"值得抄"的 49 条逐条立项
+(每条自带落点与可跑验收命令);判"已有等价/不抄"的写否证与重开触发条件;代理自报"判不了"的格子按未判定
+登记,**不得读成已覆盖**。另有 t8-migration-checksum 跑到 150 轮上限**未交报告**,其半句"live DB 上量到真分叉"
+无可兑现出处,整条**不采信、不入库**(本机 8810 无监听,该说法本身可疑),要拿这一格须重开一枚有证据的票。
+
+#### 一、核心循环与流式(r5-core-loop,8 条)
+
+- [ ] G-632 分支代际计数器:异步解算期间分支被切换 ⇒ 本轮结果必须作废而非落地。落点 apps/cli 会话分支装配出口;验收 `node --test apps/cli/tests/branch-generation.test.ts`。2026-09-29 立项
+- [ ] G-633 回合起点预留号:并发回合不得复用同一 turnId(先 reserve 再落盘)。落点回合序号分配处;验收 反证用例"两次并发 reserve 必得不同号"。2026-09-29 立项
+- [ ] G-634 被取消的流也必须持久化:cancelled 的部分回答不得整段丢弃,须落"已取消"终态+已有内容。落点流式结算出口;验收 `pnpm --filter @ihui/cli exec vitest run tests/cancelled-stream-persistence.test.ts`。2026-09-29 立项
+- [ ] G-635 partial 载体与 error 载体不得同形:截断的部分结果须走自己的字段,不得伪装成 error.message。落点流式事件契约;验收 契约两侧同形对账 + 一条"partial 不带 error 键"用例。2026-09-29 立项
+- [ ] G-636 步级 max_tokens 预算:多步工具循环里每一步各取自己的输出预算,而非沿用整轮预算。落点 provider 调用装配;验收 构造面"两步两预算"断言。2026-09-29 立项
+- [ ] G-637 审批应答竞态:同一 permissionRequestId 的两次应答只许第一次生效(结算点 CAS)。落点审批待决表结算;验收 竞态用例"并发 respond 只结算一次"。2026-09-29 立项
+- [ ] G-638 钩子改写参数后必须重过权限判定:hook 对 tool input 的改写不得绕过已批准的授权面。落点 hooks 执行→权限链;验收 `pnpm --filter @ihui/cli exec vitest run tests/hook-rewrite-permission-recheck.test.ts`。2026-09-29 立项
+- [ ] G-639 每个 tool_call 各自的 cancelled 合成帧:取消时不得只发一帧整体 cancelled,须逐未完成的 tool_call 合成。落点流式取消出口;验收 用例"两个 in-flight tool_call ⇒ 两帧"。2026-09-29 立项
+
+#### 二、UI v4/lib 与传输层(r5-ui-v4-lib,3 条)
+
+- [ ] G-640 重放单调性守卫:SSE 重连按 `lastEventId` 起播,已消费的事件不得二次进状态机。落点共享 SSE 消费出口;验收 构造面"重放窗口重叠 ⇒ 状态计数不变"。2026-09-29 立项
+- [ ] G-641 有界缓冲区必须暴露 dropped:溢出丢弃要回传丢弃条数,静默变短等于伪造完整性(§5e 同一条禁令)。落点缓冲区实现与消费面;验收 断言 `dropped>0` 时输出面有计数行。2026-09-29 立项
+- [ ] G-642 设备标识 trim 兜底:空白/超长 id 必须归一后再落键,不得把 `" "` 当有效身份。落点设备 id 归一出口;验收 正反用例各一条。2026-09-29 立项
+
+#### 三、门禁自身的缺口(1 条)
+
+- [ ] G-643 门 103 的 `--worktree` 旗标不存在:AGENTS 写着"`--worktree` 仅人工逃生舱",而 `main(argv)` 只解析 `--staged/--json/--strict/--managed-trial` ⇒ 带该旗静默落默认档(HEAD),我本轮就是被它骗了一次取证。落点 scripts/check-architecture-policy.mjs 的参数面(要么实现,要么把文档那句删掉并改成"无该档");验收 `node scripts/check-architecture-policy.mjs --worktree` 必须与不带旗标**结论不同形**或当场报错,二者必居其一。2026-09-29 立项
+
+#### 四、小程序/App 设置面与状态诚实性(r6-ui-rest,4 条)
+
+- [ ] G-644 分层配置的三态补丁:patch 只能从 draft 派生,`undefined`=未触碰、`null`=显式清除、敏感字段 `''`=沿用;effective 合并值绝不回写,JSON 解析失败不得静默整块覆写。落点 apps/api/src/routes/user-llm-configs.ts PUT + apps/web/src/lib/user-llm-configs.ts;验收 `git grep -n "apiKeyEnc = JSON.stringify" HEAD -- apps/api/src/routes/user-llm-configs.ts` 同行须有 `=== null` 分支,且坏 JSON 用例点名而非 ignore。2026-09-29 立项
+- [ ] G-645 一次性回填三态返回:迁移函数不得返回 void,须回 {completed,changed,skipped},源清理只在 completed 后做,重跑靠跳过集幂等。落点 packages/shared/src/utils/storage-migration.ts;验收 `git show HEAD:packages/shared/src/utils/storage-migration.ts` 中 `removeItem(legacyKey)` 前置必有写回成功判据。2026-09-29 立项
+- [ ] G-646 "申请占用"与"提交事实"两态分离:一次性提示/徽标已读这类游标,claim 成功不等于已消费,须候选复核后才写 consumed 游标。落点 packages/shared/src/hooks 新增 `useOncePerEvent` 工厂;验收 成对用例"claim 后崩溃 ⇒ 下次仍会弹"与"commit 后重放 ⇒ 不重复弹"。2026-09-29 立项
+- [ ] G-647 截断披露按维度复核:布尔 `truncated` 不得直接印"仅展示 N/M",须 `shown<total` 才念,且卡片与详情页共用一份实现。落点 apps/web/src/components/media/preview-view-switch.tsx:288、office-preview.tsx:355、apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx:267;验收 `git grep -n "{truncated &&" HEAD -- apps/web/src` 命中由 2 降 0。2026-09-29 立项
+
+#### 五、供应商能力与出站面(r7-provider,5 条)
+
+- [ ] G-648 发布前复读栅栏:异步解算完成后必须重读上游版本,版本变了或仍有 pending ⇒ 本轮整份丢弃、禁止"先短暂发布再修正"。落点 ai-service 供应商能力/entitlement 快照装配出口;验收 `git grep -c "superseded" HEAD -- apps/ai-service` ≥1 且注入式镜像"改中间面 ⇒ 本轮必弃"。2026-09-29 立项
+- [ ] G-649 entitlement 层失败走显式 fail-closed 投影:账号解析失败合成 `entitled:false` 发布,不依赖账号的其余层照常可用,启动时 uninitialized 主动播种。落点 provider 权益聚合层;验收 用例"账号源抛错 ⇒ 快照含 entitled:false 且非账号 provider 仍可解析"。2026-09-29 立项
+- [ ] G-650 三态保留规则:unknown 沿用上一轮、显式空为本轮权威、身份变更禁止沿用旧值。落点 usage/entitlement 刷新出口;验收 三条正反用例(抖动后仍显示 no_plan / 显式空清掉白名单 / 换账号不复活旧连接)。2026-09-29 立项
+- [ ] G-651 公开资产出站四件套:`credentials:'omit'` + `redirect:'error'` + 流式字节上限 + 错误归一只回 stage/reason;业务错误 message 附 `(x-request-id:…)` 供与后端日志对账。落点服务端资产拉取统一出口;验收 `git grep -c "credentials: 'omit'" HEAD -- apps/api/src` ≥1 且 arrayBuffer 无上限站点改走该出口并报名。2026-09-29 立项
+- [ ] G-652 必须面/可选面双语义降级:可选面 transport 失败清空该区+计数,但 HTTP200 信封失败仍上抛(不得把"后端报错"伪装成"零用量")。落点首页/dashboard 用量聚合;验收 用例"mock 429 ⇒ 区域清空带计数行"与"mock 200+code!=0 ⇒ 整体红"两者不得同形。2026-09-29 立项
+
+#### 六、生命周期与产物可复现(r8-web-scripts-services,4 条)
+
+- [ ] G-653 原子声明标记:锁/所有权 meta 一律"写临时件 → link 发布",`EEXIST` 走既有校验,并发读者永不见半截文件。落点 scripts/deploy-lock.mjs:258/:482、scripts/git-lock.mjs:116、scripts/check-credential-health.mjs:948;验收 两把锁的 self-test 各加一条"并发读不得拿到空 meta",既有 S41/S49 不回归。2026-09-29 立项
+- [ ] G-654 派生运行计数 + 身份守卫:计数由各集合求和派生、同值不发事件、`remove(key, identity)` 只在身份匹配时删(旧 runtime 的终态不得清掉同 key 的新登记)。落点 SSE 任务面板与 prompt-queue 运行数;验收 新用例"旧 runtimeIdentity 的 unavailable 不清新登记"。2026-09-29 立项
+- [ ] G-655 确定性归档与内容寻址哈希:排序目录项、mode 仅取执行位、gzip mtime=0、对(type/path/mode/size/bytes)规范化流做 sha256。**同票必须一并处置那条空承诺**:`deploy/homebrew/ihui.rb` 自述 tar.gz 无生产者却仍挂手贴 sha256 ⇒ 要么真产出并 `--check`,要么删该 url+sha256 引用。验收 同输入两次跑 ⇒ 同 sha256。2026-09-29 立项
+- [ ] G-656 一次性凭据"先烧再验"定性票:逐文件读 sso_code/授权码 exchange,判是否"取到即原子 delete、删成功才继续验过期";本轮代理未整读 `oauth-as.ts`,**结论未判定,不得据此直接改造**。验收 定性表落档 + 补一条"同码连 exchange 两次,第二次必失败"。2026-09-29 立项
+
+#### 七、契约与分析层(r5-contracts-analysis,5 条)
+
+- [ ] G-657 迁移不可变对账的锁内一格(对 G-609 的增量,不重复立项):checksum 判定必须在写事务内**重读账本**再判,不得只在事务外预检。落点 scripts/check-migration-bookkeeping.mjs 的 B11;验收 `--db` 面改一字节历史 .sql 必报 checksum_mismatch(需先剥零宽水印)。2026-09-29 立项
+- [ ] G-658 插件同名 fail-closed + 结构化诊断面:同名不同 rootPath ⇒ 禁止 last-write-wins 与按显示名猜,返回 diagnostics 随产物;不得留"后扫到的覆盖前者"。落点 apps/cli/src/plugins/loader.ts:83;验收 两同名夹具必出 plugin_ambiguous_name,且加载顺序翻转结论不变。2026-09-29 立项
+- [ ] G-659 队列 durable admission 账本:admitted→promoted/cancelled/discarded/failed 状态机,重启不得把 failed 改写成 discarded,promotion 与 user message 同事务(消"队列已消费而转录无消息"的孤儿窗)。落点 apps/ai-service/app/core/queue_items.py(现仅 {id,text,createdAt});验收 kill 于 ACK 后必留一行 discarded。2026-09-29 立项
+- [ ] G-660 版本比较四态:不可解析不得折成 0,须返回 unknown 并让两个消费点同尺(现 `apps/cli/src/updater.ts:86-96` 的 `||0` 使 belowMinimum 与"一律放行"对同一事实给相反答案)。落点 compareVersions;验收 喂 "v1.2.3-beta"/"abc" 必得 unknown 而非 <0。2026-09-29 立项
+- [ ] G-661 推断值不得混进原样字段:模式与字面量分键存放,取不到形状返回 undefined 而非空 pattern。落点 packages/types 契约层(与守门 135 同族);验收 喂模板名时渲染面读到 pattern,不读到伪造字面量。2026-09-29 立项
+
+#### 八、启动期与治理规则可执行化(r5-bootstrap-agents,6 条)
+
+- [ ] G-662 迟到资源由创建边界释放:关停信号不得等卡住的 init Promise,init 之后才建成的句柄必须走 disposeLate 且失败打 warn。落点 apps/api/src/utils/shutdown-phases.ts + apps/cli/src/acp/server.ts:721;验收 构造面"abort 早于 create resolve ⇒ disposeLate 被调用"。2026-09-29 立项
+- [ ] G-663 把"出处出口"从散文升成判据:AGENTS A19 条自己写着「这条是散文约束、没有门」。落点新门判"读 env/配置的具名出口返回类型必须含 sources 形状 + 启动序列必须打来源三键";验收 注入一个无 sources 的新配置出口即红、既有 key-dir 侧必绿。2026-09-29 立项
+- [ ] G-664 关停期新建实例立即回收:stopping 后 create() 出来的对象当场 close 并 assertServing() 抛,close 需 memoize 且聚合错误。落点 apps/api/src/utils/shutdown-phases.ts;验收 关停中调工厂必抛且新建体被 close。2026-09-29 立项
+- [ ] G-665 CI 永不自动刷新基线:workflow 与 CI 脚本面出现任一门的 `--update-baseline` 即红(现状是巧合而非约束,30 个脚本暴露该旗标)。落点并入 scripts/check-gate-wiring.mjs 新维;验收 临时索引注入一行即红、现状必绿。2026-09-29 立项
+- [ ] G-666 lint 抑制新增须同笔带到期豁免:守门 34 是 warn、门 108 的 E3 只报数,故"新增一条 eslint-disable/@ts-ignore 而没有任何带 until 的豁免"目前无闸(现读存量 342/70 处 ⇒ 必须按文件 HEAD 自身套棘轮,不得当场判红)。落点扩 scripts/check-exemption-expiry.mjs 的 E3;验收 棘轮四向 + 阳性对照。2026-09-29 立项
+- [ ] G-667 被剪掉的矩阵格子必须带不变式:pruned 项逐条给 invariant 或 guard,"A missing test path is a gap, not coverage"。落点 scripts/check-capability-matrix.mjs 产物判据;验收 剪一格不写理由即红。2026-09-29 立项
+
+#### 九、桌面与主机侧(r6-desktop,5 条)
+
+- [ ] G-668 忙时收到的 tick 不得丢:`if (ticking) return` 三处须改记 tickRequested 位并在本轮结束后立即补跑(现行为=用户白等一个轮询周期)。落点 apps/api/src/services/automations/index.ts:65、agent-automation-scheduler.ts:310、automation-repair-service.ts:717;验收 用例"busy 期请求 ⇒ 不等下个 interval"。2026-09-29 立项
+- [ ] G-669 重试按确定性分流:permanent 置终态、仅 transient 回队并有界退避,结算落空须 releaseClaim 并点名 dropped(现 `agent-automation-scheduler.ts:289-295` catch 后不改任何时间戳 ⇒ 每 60s 无限重放且全仓无 attempt/lastError 计数)。落点同文件 + routes/automations.ts;验收 用例"缺凭据类错误 ⇒ 第二次不再重放并显示 paused"。2026-09-29 立项
+- [ ] G-670 杀进程前复核进程身份:taskkill 的 pid 必须现场用 commandLine/executablePath 再筛一遍(现 `apps/api/src/services/self-healing.ts:361,367` 直接用**客户端自报**的 pid `/F`,端口探针从不识别持有者)。复用已有出口 scripts/lib/proc-identity.mjs,不新造。验收 用例"pid 被复用 ⇒ 拒绝杀并报名"。2026-09-29 立项
+- [ ] G-671 状态文件损坏须隔离并报名:ENOENT 与解析失败分流,损坏件 rename 到 `.corrupt-<ts>` + warning 点名路径,再做 schemaVersion/数组形状校验(现 `apps/cli/src/tools/checkpoints/index.ts:132`、`hunks.ts:171` 是 `catch {}` 静默跳目录且零形状校验)。验收 用例"坏 JSON ⇒ 隔离件在、账面有名字"。2026-09-29 立项
+- [ ] G-672 终态谓词进类型签名:释放/结算原语的 outcome 参数用 `Exclude<…, 'running'>` 让非终态**结构上装不进来**(现 `workspace-lock-heartbeat.ts:188` 不收状态参数,靠调用点手写守卫)。同型第二格 subagent-dispatch-service.ts:1382、agents-kanban.ts:605。验收 `git grep -nE "Exclude<[^>]*(running|pending|in_progress)" HEAD` 由 0 变 ≥1 且 `pnpm --filter @ihui/api typecheck` 全绿。2026-09-29 立项
+
+#### 十、共享层/TUI/远程面(r6-services-tui,8 条)
+
+- [ ] G-673 权限预览的键别名族 + 双承载层:工具入参抽成 {command,filePaths,scope,fileChanges} 纯函数,键名按别名集合匹配(`file_path` 漏了预览就只剩标题),显示条数有预算,审批弹窗不得直接 `JSON.stringify(input)`。落点 packages/shared/src 新增 preview 出口 + apps/web/src/components/ai/permission-confirm-dialog.tsx:26-38/:119(三端共用);验收 正例"只写 file_path 的 Edit ⇒ 预览含该路径"与"input/rawInput 两承载层同判"。2026-09-29 立项
+- [ ] G-674 入站契约默认 .strict():2187 处 `z.object(` 只有 2 处 `.strict()`,另有 3 处 `.passthrough()` ⇒ 客户端自报字段被静默接受或静默剥离。先收 IPC/WS 入站面,按棘轮推进,不得一次性翻严造恒红门。落点新门 scripts/check-inbound-schema-strict.mjs;验收 HEAD 面棘轮 + 一条"未知字段必拒"用例。2026-09-29 立项
+- [ ] G-675 互斥身份用类型表达:两种后台来源标记用 `?: never` 做成不可构造(现全仓 `?: never` 0 处,归属以 varchar 平铺 ⇒ 分组/图标/结算各读一个)。落点 packages/types/src;验收 `pnpm --filter @ihui/types typecheck` + 负例"两键同给必 TS2322"。2026-09-29 立项
+- [ ] G-676 显示宽度尺先消副本再谈新增:`apps/cli/src/util/text-width.ts:6-7` 与 `commands/task-status-line.ts:114-116` 私有副本**已漂**(后者少 `\uFE10-\uFE19`),`tui/fullscreen/transcript.ts:59-61` 完全无宽度意识。第一动作是删副本改引单一尺,再加渲染前行数预算。验收 `git grep -c "function visibleWidth" HEAD -- apps/cli` = 1。2026-09-29 立项
+- [ ] G-677 归属窗口随请求 settle 关闭:AsyncLocalStorage store 加 active 位,请求结束后迟到的日志不得回写该 requestId,且**被丢弃条目须计数**(上游那里是静默 return,抄时不得照抄这一格)。落点 apps/api/src/db/sql-event-bus.ts:31;验收 新用例"请求结束后 emit ⇒ 不落该 requestId 且有丢弃计数"。2026-09-29 立项
+- [ ] G-678 两端能力清单对账(注册面↔取用面):Host 已注册而 Renderer 漏挂 proxy 时,消费方静默退回更差的一条路(8MiB 预览)且无一行错误。落点新门 scripts/check-ipc-channel-consumers.mjs(**warn 起步**,存量未知时 blocking 即恒红门);验收 `--self-test` + 真仓现读报名。2026-09-29 立项
+- [ ] G-679 可寻址性守恒尺:渲染出来的每个行内动作/按钮,target 必须能被同一次冷 materialization 的 resolver 精确命中(文本还在但按钮点了必 stale,是这一型的唯一发现手段);启发式项只报数、崩溃与可寻址失败才判红。落点 scripts/check-transcript-addressability.mjs(源取 ~/.ihui/audit.jsonl 历史,只读复制);验收 经 run-evidence 落件并 `--verify` 读回。2026-09-29 立项
+- [ ] G-680 生成物自带源版本钉 + 输入内容哈希:`--check` 陈旧检测我方已有(7+ 生成器),但源版本与输入 sha256 全缺 ⇒ 键集合相同而值不同时按集合比的门看不见。落点 scripts/sync-miniapp-tokens.mjs、apps/miniapp-taro/scripts/gen-i18n-compressed.mjs 等;验收 `node scripts/sync-miniapp-tokens.mjs --check --require-source-hash`。2026-09-29 立项
+
+#### 十一、否证与不抄(每条带重开触发条件)
+
+- **广播同步的回声抑制/单调游标(r6-ui-rest 第 3 条)= 待命型**:我方 `BroadcastChannel` 与 `sourceWindowId` 现读均 0 命中,唯一同类是 `apps/miniapp-taro/src/lib/theme.ts:128-134` 的单向 eventCenter 广播(幂等、不构成环)。**重开触发条件**:任一端出现两个及以上 surface 复用同一份可变状态并双向广播。
+- **退避三则取消不耗预算 / 坏控制文件锁内重建 / 失败计数按身份分区(r7 第⑥条)= 已有等价**:逐条现读 `apps/ai-service/app/services/responses_retry.py:179`、`scripts/deploy-lock.mjs:49-51,129,464`、llm_gateway 的 cooldown 按 provider_code 分区。**重开触发条件**:上述任一实现被改写或删除。
+- **本地设置写栅栏(r7 第⑦条)= 无落点**:我方端侧设置走服务端 DB、行级 CAS 承担,不存在"多进程共写同一份本地配置文件"面。**重开触发条件**:出现任何把服务端权威写回本地文件的功能。
+- **失败文案由枚举键驱动(r6-ui-rest 第 6 条)= 已有等价,残余另计**:我方枚举族 101 处已有,缺的是 `packages/shared/src/utils/error-messages.ts:114` 那 16 条文案正则兜底档——那是守门 135 与"错误身份不得塌成文案正则"这条在账线的项,不另立同号。
+- **状态词汇走词表(r6-ui-rest 第 7 条)= 已有等价**:由 §19 + 守门 74/133/151 覆盖;仅 `apps/web/src/components/api/TicketCard.tsx:30` 这类端内字面量表是既知存量(守门 70 的射程面内)。
+- **上游反例,判不抄并记形状**:bigmodel 用量映射用厂商中文显示名 `"缓存"|"未缓存"|"输出"` 字符串匹配判分桶(文案一改静默失效);对 error|message|msg|detail 四键取第一个字符串当消息(把两因折一句);`analyze.ts:67-69` 编译失败时 declaredArtifacts 返回 `[]` 而头注自称"诊断非空时照常给出"(把没判写成判过了);`errors/index.ts:85` 的 `replace(/_/g,"_")` 空操作冒充规范化、同为 not-found 的 recoverable 无依据分叉;`websocket.ts:45-49` readyState≠OPEN 时不发不抛不计数直接丢一帧;`app-sidebar-section-header.tsx:12-13` 与 `app-thought-components.tsx:13-14` 两份同名折叠标记各取不同字形族(该仓自己的 AGENTS 明文统一 `+`/`-`)。**共同教训:散文规则没有尺子就会与代码分叉——我方凡写"必须/禁止"的句子都要指得出判据或明确登记为无判据。**
+- **`.agents` 语料不得直接搬(本轮前提更正)**:`grep -rlE "Derived from|THIRD_PARTY_NOTICES" .agents` = **113/240** 带第三方出处头(其中 react-best-practices 标 Vercel Engineering)⇒ 入库任何一份必须先登记 `config/third-party-provenance/*.json` 的 roots,否则撞守门 107 的 P2/P8;自有可直接用的只有 architecture-governance(12)、dep-refs(2)、feature-boundary-planner(6)。
+- **代理自报"判不了"的三格(按未判定登记,不得读成已覆盖)**:① 迁移不可变那格的严重级别需有库现读,本机 8810 无监听 ⇒ 未判定;② 小程序列表正常返回但本行快照缺席 ⇒ 是否落终态,我方无 MCP 设置页等价面,既找不到机制也无法证否;③ 上游"预算裁剪顺序"(先剔超限条再占条数预算)——我方 `sse_buffer`/`guardian_context` 的裁剪循环正文本轮未读到。
