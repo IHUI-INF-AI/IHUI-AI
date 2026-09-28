@@ -40,10 +40,17 @@
  *      回 **500**(fail-open 崩在鉴权层后面)。
  *   X6 (B) 那份 Next.js 边缘表与 nginx 面的差 —— **只报名报数**。判红就是让一份别人在写的
  *      清单替每次提交挡路(§12e 同型),而这一格需要的是"有人看见",不是"有人被打断"。
+ *   X7 **只对已放开的条目**回查 ai-service 的 handler:函数体(或它一跳调用的同文件 helper)
+ *      必须引用一个身份出口,出口名单由 `jwt_auth.py` / `capability_gate.py` 的顶层函数**现读推导**
+ *      (不抄第二份名字)。立论是实测:`connectors:read` 在目录里写着 `thirdPartyEligible:true`,
+ *      而它的 handler 是 `connector_store.list_all()` 零属主过滤 —— "目录说有对外语义"与
+ *      "实现收不收身份"此前没有任何一把尺子连着(门 117 / 152 判的都是"收了身份却没比对",
+ *      对"一个身份参数都不收的整片读"结构上失明)。刻意不判全量:HEAD 面 266 条可解析路由里
+ *      212 条不引用出口,当场判红就是一台恒红门。
  *
  * 三态与退出码(绝不把"没判"写成"判过了"):
  *   0 一致(含"开放集为空 = 6 条全只内网"这一合法档,会如实说明)
- *   1 不一致(X1–X5 逐条点名)
+ *   1 不一致(X1–X5、X7 逐条点名)
  *   2 未判定(任一必需输入在被审面取不到 / 目录解析失败 / 枚举到 0 条 ai-service 条目 ⇒ 尺子失效)
  *
  * 定级:**warn / 纯手动档,刻意不接提交链**。① 它判的是"两份部署配置 + 一份契约产物"的跨面
@@ -275,6 +282,105 @@ export function readEdgeTable(tsText) {
   return { routes, blocked: blocked.map((s) => s.replace(/'/g, '')) }
 }
 
+/**
+ * X7 用:从 ai-service 的 python 源码面解析"某条 METHOD /path 由哪个 handler 函数承接",
+ * 并要求该函数体引用到一个**身份出口**。
+ *
+ * 立论不是风格而是实测到的两件事(2026-09-28,拍板②第一档当轮):
+ *  - 能力目录把 `connectors:read` 标成 `thirdPartyEligible:true`,而它的两个 handler
+ *    (`routers/connectors.py::list_connectors` 走 `connector_store.list_all()`、
+ *     `routers/mcp.py::list_external_servers` 走 `manager.list_registered()`)**零属主过滤** ——
+ *    "目录说有对外语义"与"实现收不收身份"之间没有任何一把尺子。
+ *  - 门 117 / 门 152 判的都是"收了 user_id 或读了 state.user_id 却没比对",所以
+ *    "**一个身份参数都不收的整片读**"在两把尺子的候选集里根本不存在 ⇒ 它们双 RC=0 不构成
+ *    "ai-service 无未对齐读面"。X7 补的就是那一格,且**只对已放开的条目判红**
+ *    (HEAD 面实测 266 条可解析路由里 212 条不引用身份出口 —— 全量判红就是一台恒红门,§12e)。
+ *
+ * 身份出口名单**从源码推导**,不抄第二份字面量:`core/jwt_auth.py` 与
+ * `services/capability_gate.py` 里名字以 require / resolve / verify 开头、且落到
+ * principal 或 user_id 的顶层函数。名单为空 ⇒ 判"未判定"(拿空名单当"谁都没用 ⇒ 都违规"
+ * 会把整条判据变成一台自证的机器)。
+ *
+ * @param {Record<string,string>} py 相对路径 → 源码文本(必须与其余输入同面同轮)
+ */
+export function identityOutletsFrom(py) {
+  const sources = Object.entries(py).filter(
+    ([p, text]) =>
+      typeof text === 'string' &&
+      (p.endsWith('app/core/jwt_auth.py') || p.endsWith('app/services/capability_gate.py')),
+  )
+  const names = new Set()
+  for (const [, text] of sources) {
+    for (const m of text.matchAll(/^(?:async )?def ([A-Za-z_][\w]*)\(/gm)) {
+      const n = m[1] ?? ''
+      if (/^(require|resolve|verify)/.test(n) && /(principal|user_id|owner_scoped)/i.test(n))
+        names.add(n)
+    }
+  }
+  return [...names].sort()
+}
+
+/**
+ * 解析 python 路由面:main.py 的 `include_router(x.router, prefix="/api")` + 各模块自己的
+ * `APIRouter(prefix=…)` + 装饰器路径,拼成完整的 `METHOD /path`,并截出 handler 函数体。
+ * 解析不到的条目**不猜**:调用方按"未判定"处理。
+ */
+function pyStrings(py) {
+  /** @type {Record<string,string>} */
+  const out = {}
+  for (const [k, v] of Object.entries(py ?? {})) if (typeof v === 'string') out[k] = v
+  return out
+}
+
+export function parseAiServiceRoutes(py) {
+  py = pyStrings(py)
+  const mainKey = Object.keys(py).find((p) => p.endsWith('app/main.py'))
+  if (!mainKey) return { routes: [], note: '取不到 app/main.py ⇒ 无法解析 include_router 前缀' }
+  const main = py[mainKey] ?? ''
+  // include_router(mcp_official.router, prefix="/api") —— 模块变量名即文件名(本仓 main.py 用
+  // `from app.routers import a, b, …` 的整名导入,没有别名;出现别名时该条解析不到 ⇒ 未判定)。
+  const includes = new Map()
+  for (const m of main.matchAll(
+    /include_router\(\s*([A-Za-z_]\w*)\.router\s*(?:,\s*prefix\s*=\s*"([^"]*)")?/g,
+  ))
+    includes.set(m[1], m[2] ?? '')
+  const routes = []
+  for (const [path, text] of Object.entries(py)) {
+    const mod = /\/([A-Za-z0-9_]+)\.py$/.exec(path)?.[1] ?? ''
+    const inc = includes.get(mod)
+    if (inc === undefined) continue
+    const own = /APIRouter\(\s*prefix\s*=\s*"([^"]*)"/.exec(text)?.[1] ?? ''
+    const lines = text.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const d = /^@router\.(get|post|put|delete|patch)\(\s*"([^"]*)"/.exec(lines[i] ?? '')
+      if (!d) continue
+      const method = d[1].toUpperCase()
+      const full = (inc + own + d[2]).replace(/\/$/, '') || '/'
+      let fn = ''
+      let bodyStart = -1
+      for (let j = i + 1; j < lines.length; j++) {
+        const sig = /^(?:async )?def ([A-Za-z_]\w*)/.exec(lines[j] ?? '')
+        if (sig) {
+          fn = sig[1]
+          bodyStart = j
+          break
+        }
+        if (/^@|^class /.test(lines[j] ?? '')) break
+      }
+      if (bodyStart < 0) continue
+      let end = lines.length
+      for (let j = bodyStart + 1; j < lines.length; j++) {
+        if (/^(?:@|async def |def |class )/.test(lines[j] ?? '')) {
+          end = j
+          break
+        }
+      }
+      routes.push({ method, full, file: path, fn, body: lines.slice(bodyStart, end).join('\n') })
+    }
+  }
+  return { routes, note: '' }
+}
+
 // ==================== 结论(三态不并桶) ====================
 
 /**
@@ -423,6 +529,67 @@ export function decide(inputs) {
   }
 
   const opened = [...new Set([...siteKeys, ...dockerKeys])].sort()
+  // ── X7 已放开的每一条,其 ai-service handler 必须真的解析身份 ─────────────
+  // 只对**开放集**判红(全量判红 = 212 条存量 ⇒ 恒红门,§12e),且解析不到一律"未判定"。
+  const declaredOpen = [
+    ...new Map(
+      [...site.declared, ...docker.declared].map((d) => [
+        `${d.capability}|${d.method}|${d.upstream}`,
+        d,
+      ]),
+    ).values(),
+  ]
+  if (declaredOpen.length > 0) {
+    const py = inputs.py
+    if (!py || Object.keys(py).length === 0) {
+      undetermined.push('X7 未判定:ai-service python 面未取到 ⇒ 无从判断 handler 是否解析身份')
+    } else {
+      const outlets = identityOutletsFrom(py)
+      if (outlets.length === 0) {
+        undetermined.push(
+          'X7 未判定:身份出口名单为空(没从 jwt_auth / capability_gate 解析出 require·resolve·verify 开头且落到 principal / user_id 的顶层函数)⇒ 拿空名单判红等于自证',
+        )
+      } else {
+        const { routes, note } = parseAiServiceRoutes(py)
+        if (routes.length === 0)
+          undetermined.push(
+            `X7 未判定:python 路由解析出 0 条(${note || 'main.py 无 include_router'})`,
+          )
+        for (const d of declaredOpen) {
+          const upstream = String(d.upstream ?? '')
+          const hits = routes.filter(
+            (r) => r.method === String(d.method).toUpperCase() && r.full === upstream,
+          )
+          if (routes.length > 0 && hits.length === 0) {
+            undetermined.push(
+              `X7 未判定:${d.capability} 的 ${d.method} ${upstream} 在 python 面解析不到 handler(动态/别名注册或路径带参数段)`,
+            )
+            continue
+          }
+          for (const h of hits) {
+            const fileText = py[h.file] ?? ''
+            const usesOutlet = (text) => outlets.some((n) => new RegExp(`\\b${n}\\b`).test(text))
+            // 同文件里每个顶层函数的体(按下一个顶层 def/class 切),供一跳委托查表用。
+            const defs = new Map()
+            for (const m of fileText.matchAll(
+              /^(?:async )?def ([A-Za-z_]\w*)[^:]*:\n((?:(?: {4}|\t)[^\n]*\n|\s*\n)*)/gm,
+            ))
+              defs.set(m[1], m[2] ?? '')
+            const delegated =
+              usesOutlet(h.body) ||
+              [...defs.entries()].some(
+                ([name, body]) =>
+                  name !== h.fn && usesOutlet(body) && new RegExp(`\\b${name}\\(`).test(h.body),
+              )
+            if (!delegated)
+              violations.push(
+                `X7 ${d.capability}: 已对公网开放,但 handler ${h.file}::${h.fn} 的函数体不引用任何身份出口(${outlets.slice(0, 3).join(' / ')}…)⇒ 该端点是"整片读",任何凭据都能读到别人的数据`,
+              )
+          }
+        }
+      }
+    }
+  }
   return {
     state: violations.length === 0 ? 'consistent' : 'inconsistent',
     reason:
@@ -445,12 +612,68 @@ export function exitCodeFor(conclusion) {
 // ==================== 取材(清单与内容同面同轮) ====================
 
 /** @returns {{[k:string]:string|null}} 取不到一律 null,由 decide() 折进"未判定"。 */
+/** X7 需要的 python 扫描面(有界集,写在常量里以便镜像测试钉住)。 */
+export const PY_SCAN_DIRS = ['apps/ai-service/app']
+
+/**
+ * X7 的取材:与五份配置输入**同面**(HEAD / 索引 / 工作树),一次 `cat-file --batch` 读满。
+ * 只读 `main.py`(include_router 前缀)+ 两个出口源文件 + `routers|api` 下的模块 —— 这是
+ * 有界集:路由若长在别处,`parseAiServiceRoutes` 解析不到 ⇒ X7 报"未判定"并点名,而不是
+ * 判"没有 handler 所以没问题"。
+ *
+ * **清单与内容必须同面同轮**:`--staged` 拿 `ls-files`(= 索引里的文件集)去读 `:path` 的
+ * blob,全量档拿 `ls-tree HEAD` 去读 `HEAD:path`。混用(清单来自一面、内容来自另一面)会
+ * 在并发会话刚推进的那一瞬间产出自洽却错位的尺子 —— 与本文件头注立的口径同形。
+ */
+export function gatherPy(root, face) {
+  const listCmd =
+    face === 'head'
+      ? ['ls-tree', '-r', '--name-only', 'HEAD', '--', ...PY_SCAN_DIRS]
+      : ['ls-files', '--', ...PY_SCAN_DIRS]
+  let files = []
+  try {
+    files = gitRaw(listCmd, root, { timeout: 60_000 })
+      .split('\n')
+      .filter(
+        (f) =>
+          f.endsWith('.py') &&
+          (/\/(main|jwt_auth|capability_gate)\.py$/.test(f) || /\/(routers|api)\//.test(f)),
+      )
+  } catch {
+    return null
+  }
+  if (files.length === 0) return null
+  if (face === 'worktree') {
+    /** @type {Record<string,string>} */
+    const out = {}
+    for (const f of files) {
+      const t = readWorktreeFile(root, f)
+      if (t !== null) out[f] = t
+    }
+    return Object.keys(out).length > 0 ? out : null
+  }
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const map = catBatch(
+    root,
+    files.map((f) => `${prefix}${f}`),
+    { timeout: 180_000, maxBuffer: 128 * 1024 * 1024 },
+  )
+  /** @type {Record<string,string>} */
+  const out = {}
+  for (const f of files) {
+    const t = map.get(`${prefix}${f}`)
+    if (t) out[f] = t
+  }
+  return Object.keys(out).length > 0 ? out : null
+}
+
 export function gather(root, face) {
   if (face === 'worktree') {
     const out = {}
     // readWorktreeFile:文件不存在 → null(折进"未判定");读失败(编码/权限)**原样抛** ——
     // 一个编码错误不得伪装成"该文件不存在"的业务结论(层的注释明文,这里不套 try 正是为此)。
     for (const [k, rel] of Object.entries(INPUTS)) out[k] = readWorktreeFile(root, rel)
+    out.py = gatherPy(root, 'worktree')
     return out
   }
   const prefix = face === 'staged' ? ':' : 'HEAD:'
@@ -458,6 +681,9 @@ export function gather(root, face) {
   const map = catBatch(root, revs)
   const out = {}
   for (const [k, rel] of Object.entries(INPUTS)) out[k] = map.get(`${prefix}${rel}`) ?? null
+  // X7:只有确实开放了东西才需要 python 面(两侧都没开放 ⇒ 没有可判的 handler)。
+  const anyOpen = [out.siteFragment, out.docker].some((t) => t && ANNOTATION_LINE_RE.test(t))
+  out.py = anyOpen ? gatherPy(root, face) : null
   return out
 }
 
@@ -600,6 +826,81 @@ export function withFixture(over = {}) {
   }
 }
 
+/**
+ * X7 的 python 构造面(自检用)。刻意造**两份** handler:
+ *  - `mcp_official.py::mcp_official_endpoint` 直接引用身份出口 ⇒ 放开它合法;
+ *  - `connectors.py::list_connectors` 是"整片读"(`store.list_all()` 不判归属)⇒ 放开它必须红。
+ * 真实文件与之一字不差地同形(实测 HEAD:`routers/connectors.py:105` 就是
+ * `records = connector_store.list_all()`,函数体里没有任何身份出口)。
+ */
+export const FIXTURE_PY = {
+  'apps/ai-service/app/main.py':
+    'from app.routers import connectors, mcp_official\n' +
+    'app.include_router(mcp_official.router, prefix="/api")\n' +
+    'app.include_router(connectors.router, prefix="/api")\n',
+  'apps/ai-service/app/core/jwt_auth.py':
+    'def require_request_user_id(request):\n    return str(request.state.user_id)\n',
+  'apps/ai-service/app/services/capability_gate.py':
+    'def resolve_principal_from_headers(headers):\n    return Principal("u")\n',
+  'apps/ai-service/app/routers/mcp_official.py':
+    'from app.services.capability_gate import resolve_principal_from_headers\n' +
+    'router = APIRouter()\n' +
+    '\n' +
+    '@router.post("/mcp", response_model=None)\n' +
+    'async def mcp_official_endpoint(request):\n' +
+    '    principal = resolve_principal_from_headers(dict(request.headers))\n' +
+    '    return {"ok": bool(principal)}\n',
+  'apps/ai-service/app/routers/connectors.py':
+    'router = APIRouter(prefix="/connectors")\n' +
+    '\n' +
+    '@router.get("", response_model=None)\n' +
+    'async def list_connectors():\n' +
+    '    records = connector_store.list_all()\n' +
+    '    return {"connectors": records, "count": len(records)}\n',
+}
+
+const MCP_ENDPOINT_POSITIVE =
+  '    principal = resolve_principal_from_headers(dict(request.headers))\n'
+
+/** S15:同一个 handler 换成"整片读"(实测 connectors.py 的真实形态) ⇒ X7 必须红。 */
+export const FIXTURE_PY_LEAKY = {
+  ...FIXTURE_PY,
+  'apps/ai-service/app/routers/mcp_official.py': FIXTURE_PY[
+    'apps/ai-service/app/routers/mcp_official.py'
+  ].replace(MCP_ENDPOINT_POSITIVE, '    return {"servers": manager.list_registered()}\n'),
+}
+
+/** S16:一跳委托 —— handler 只调同文件 helper,出口在 helper 体里 ⇒ 不得判红。 */
+export const FIXTURE_PY_DELEGATED = {
+  ...FIXTURE_PY,
+  'apps/ai-service/app/routers/mcp_official.py': FIXTURE_PY[
+    'apps/ai-service/app/routers/mcp_official.py'
+  ]
+    .replace(MCP_ENDPOINT_POSITIVE, '    principal = _who_is_calling(request)\n')
+    .replace(
+      'router = APIRouter()\n',
+      'router = APIRouter()\n\n\ndef _who_is_calling(request):\n    return resolve_principal_from_headers(dict(request.headers))\n\n',
+    ),
+}
+
+/** S18:出口源文件不在面上(jwt_auth / capability_gate 都没读到)⇒ 名单为空 ⇒ 未判定。 */
+export const FIXTURE_PY_NO_OUTLET_SOURCE = {
+  ...FIXTURE_PY,
+  'apps/ai-service/app/core/jwt_auth.py': undefined,
+  'apps/ai-service/app/services/capability_gate.py': undefined,
+}
+
+/** S19:开放项指向一条 python 面里不存在的路径 ⇒ 未判定,不得读成"没 handler ⇒ 安全"。 */
+export const FIXTURE_PY_UNRESOLVABLE = {
+  ...FIXTURE_PY,
+  'apps/ai-service/app/routers/mcp_official.py': FIXTURE_PY[
+    'apps/ai-service/app/routers/mcp_official.py'
+  ].replace(
+    '@router.post("/mcp", response_model=None)',
+    '@router.post("/mcp-typo", response_model=None)',
+  ),
+}
+
 function selfTest() {
   /**
    * 把 fixture 落进一个**临时独立 git 仓**并按 HEAD 面判 —— 证明的是"判据在被审面上给答案",
@@ -623,6 +924,14 @@ function selfTest() {
         const abs = join(dir, rel)
         mkdirSync(dirname(abs), { recursive: true })
         writeFileSync(abs, inputs[k] ?? '', 'utf8')
+      }
+      // X7 的端到端证明要把 python 面也落进**同一个临时仓**(清单与内容同面),
+      // 否则自检只证明"decide 会吃一个 py 参数",不证明 gather 取得到、按被审面读得对。
+      for (const [rel, text] of Object.entries(inputs.py ?? {})) {
+        if (text === undefined) continue // 构造"该文件不在面上"这一型(S18 用)
+        const abs = join(dir, rel)
+        mkdirSync(dirname(abs), { recursive: true })
+        writeFileSync(abs, text, 'utf8')
       }
       gitRaw(['add', '-A'], dir)
       gitRaw(['commit', '-q', '-m', 'fixture'], dir)
@@ -808,6 +1117,51 @@ function selfTest() {
     JSON.stringify(openSetEmpty),
   )
 
+  // ── X7:python 面三态(S14–S19)────────────────────────────────────────
+  // 前两型走**临时仓端到端**(证明 gather 在同面下真能取到 python 并解析),
+  // 后三型走 decide 构造面 —— 它们判的是"取不到 / 名单空 / 解析不到",
+  // 那些情形没法靠往仓里少放文件稳定造出来(少放会让 X1–X5 的输入也一起没了)。
+  const x7ok = run(withFixture({ py: FIXTURE_PY }))
+  t(
+    'S14 handler 引用身份出口 ⇒ X7 不红且未判定为 0',
+    x7ok.violations.filter((v) => v.includes('X7')).length === 0 &&
+      x7ok.undetermined.filter((u) => u.includes('X7')).length === 0,
+    JSON.stringify({ v: x7ok.violations, u: x7ok.undetermined }),
+  )
+  const x7leak = run(withFixture({ py: FIXTURE_PY_LEAKY }))
+  t(
+    'S15 开放项的 handler 是"整片读" ⇒ X7 判红并点名 handler',
+    x7leak.violations.some((v) => v.includes('X7') && v.includes('mcp_official_endpoint')),
+    JSON.stringify(x7leak.violations),
+  )
+  const x7hop = run(withFixture({ py: FIXTURE_PY_DELEGATED }))
+  t(
+    'S16 一跳委托(handler 调同文件 helper,helper 引用出口)⇒ 不得判红',
+    x7hop.violations.filter((v) => v.includes('X7')).length === 0,
+    JSON.stringify(x7hop.violations),
+  )
+  const x7nopy = decide(withFixture({}))
+  t(
+    'S17 有开放项而 python 面取不到 ⇒ X7 未判定(既不冒红也不记绿)',
+    x7nopy.violations.filter((v) => v.includes('X7')).length === 0 &&
+      x7nopy.undetermined.some((u) => u.includes('X7 未判定')),
+    JSON.stringify({ v: x7nopy.violations, u: x7nopy.undetermined }),
+  )
+  const x7nooutlet = decide(withFixture({ py: FIXTURE_PY_NO_OUTLET_SOURCE }))
+  t(
+    'S18 身份出口名单为空 ⇒ 未判定,不得拿空名单把所有人判违规(那是一台自证机器)',
+    x7nooutlet.violations.filter((v) => v.includes('X7')).length === 0 &&
+      x7nooutlet.undetermined.some((u) => u.includes('名单为空')),
+    JSON.stringify({ v: x7nooutlet.violations, u: x7nooutlet.undetermined }),
+  )
+  const x7unresolved = decide(withFixture({ py: FIXTURE_PY_UNRESOLVABLE }))
+  t(
+    'S19 路径解析不到 handler ⇒ 未判定并点名,不得读成"没有 handler ⇒ 没问题"',
+    x7unresolved.violations.filter((v) => v.includes('X7')).length === 0 &&
+      x7unresolved.undetermined.some((u) => u.includes('解析不到 handler')),
+    JSON.stringify({ v: x7unresolved.violations, u: x7unresolved.undetermined }),
+  )
+
   let failed = 0
   for (const r of results) {
     if (!r.pass) failed += 1
@@ -837,11 +1191,20 @@ export const __test__ = {
   sideReport,
   readCatalog,
   readEdgeTable,
+  identityOutletsFrom,
+  parseAiServiceRoutes,
+  gatherPy,
+  PY_SCAN_DIRS,
   openKeyOf,
   decide,
   exitCodeFor,
   gather,
   withFixture,
+  FIXTURE_PY,
+  FIXTURE_PY_LEAKY,
+  FIXTURE_PY_DELEGATED,
+  FIXTURE_PY_NO_OUTLET_SOURCE,
+  FIXTURE_PY_UNRESOLVABLE,
   analyze: decide,
   FIXTURE_CATALOG,
   FIXTURE_SITE_SHELL,
