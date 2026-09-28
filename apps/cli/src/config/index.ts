@@ -14,12 +14,15 @@
  *   6. cli       — 命令行参数(--key=value,. 分隔嵌套)
  *
  * 任一层加载失败不阻塞,降级到默认。
+ * 第 3 层 project 额外受可写键策略约束(G-408①,见 config/layer-policy.ts):
+ * 安全敏感键与未知键/非法枚举值在该层被拒绝并点名,不静默。
  */
 
 export * from './defaults.js'
 export * from './merge.js'
 export * from './env.js'
 export * from './cli.js'
+export * from './layer-policy.js'
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
@@ -29,6 +32,7 @@ import { DEFAULT_SETTINGS } from './defaults.js'
 import { collectLayerContributions, deepMergeAll, type ConfigSourceEntry } from './merge.js'
 import { parseEnvOverrides } from './env.js'
 import { parseCliOverrides } from './cli.js'
+import { filterProjectLayerSettings } from './layer-policy.js'
 
 export interface LoadConfigOptions {
   /** 工作目录(默认 process.cwd()),用于定位 project 级配置 */
@@ -112,8 +116,19 @@ function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
   const defaults = DEFAULT_SETTINGS
   // Layer 2: global(~/.ihui/settings.json)
   const globalConfig = loadSettingsFile(globalPath)
-  // Layer 3: project(<cwd>/.ihui/settings.json)
-  const projectConfig = loadSettingsFile(projectPath)
+  // Layer 3: project(<cwd>/.ihui/settings.json)—— G-408①:这一层是**仓库内容**,必须过
+  // 可写键封闭表(config/layer-policy.ts):安全敏感键/未知键/非法枚举一律拒绝并点名。
+  // 此前它零键过滤,防线只剩 .gitignore 的 `.ihui/*` 一行 —— ignore 不是判据。
+  const projectRaw = loadSettingsFile(projectPath)
+  const projectFilter = filterProjectLayerSettings(projectRaw as Record<string, unknown>)
+  if (projectFilter.rejected.length > 0) {
+    // 拒绝必须可见:静默丢弃安全键等于让仓库作者可以"悄悄试",下一次换个键再来。
+    console.warn(
+      `[config] ${projectPath} 有 ${projectFilter.rejected.length} 个键被项目层策略拒绝(未合入配置):\n` +
+        projectFilter.rejected.map((r) => `  - ${r.key}(${r.category}): ${r.reason}`).join('\n'),
+    )
+  }
+  const projectConfig = projectFilter.accepted
   // Layer 4: session(运行时临时配置;opts 优先,其次模块级状态)
   const session = opts.sessionOverrides ?? sessionConfig ?? {}
   // Layer 5: env(IHUI_ 前缀环境变量)
