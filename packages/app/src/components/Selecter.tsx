@@ -122,7 +122,7 @@ const viewStyles = {
     paddingLeft: 8,
     paddingRight: 8,
     height: 25,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
     marginRight: 10,
     flexShrink: 0,
     border: '1px solid',

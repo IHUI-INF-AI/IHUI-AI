@@ -56,7 +56,7 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
             <button
               key={t.id}
               onClick={() => openDetail(t)}
-              className="flex w-full items-center gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent/50"
+              className="flex w-full items-center gap-3 rounded-sm border bg-card p-3 text-left transition-colors hover:bg-accent/50"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
                 <Ticket className="h-4 w-4" />
