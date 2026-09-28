@@ -15776,14 +15776,14 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
 
 ### 第五十八波·续七 —— SSO 深链"换到令牌却不翻页"定案并修 + 守门 108 两份实现归并(2026-09-28 午后,真机两臂实验)
 
-- [x] ✅(2026-09-28)G-G-418 RN SSO 深链:令牌换到了、也落库了,界面仍停在登录页 —— 根因是"条件渲染会自动翻页"这个前提被 2026-09-27 那次改动悄悄作废
+- [x] ✅(2026-09-28)G-462 RN SSO 深链:令牌换到了、也落库了,界面仍停在登录页 —— 根因是"条件渲染会自动翻页"这个前提被 2026-09-27 那次改动悄悄作废
   - 现象(可重跑):`am start -a android.intent.action.VIEW -d "ihui://sso/callback?sso_code=<有效码>"` 之后,+3s / +8s 两次 uiautomator 采样都仍是登录页(邮箱登录 / 验证码登录 / …);而 force-stop + 冷启动后首屏不再是登录页(是应用内屏 + 麦克风授权框)⇒ 令牌确实在盘上。
   - 两臂实验把断点钉在"换到之后":发第二枚码 → 等满 30s TTL → 我再拿同一枚码去 `POST /api/auth/sso/exchange` 得 **401「授权码无效或已过期」**。服务端在比较 clientId **之前**就先 `DEL` 键,所以"码没了"只证明**应用发出了交换请求**;配合冷启动已登录,才凑成"请求成功且落库、界面没翻"。若应用从未发出请求,这枚码在我手里应当还能换到 200。
   - 根因:`Login` 自 2026-09-27(会话失效出口那一票)起在 `token ? (A) : (B)` 的**两个分支都注册**,React Navigation 换树时按**路由名**对齐当前路由 ⇒ 树翻了、当前路由名仍是 `Login`、人原地不动。而 `apps/mobile-rn/src/screens/LoginScreen.tsx:316` 那句"无 returnUrl 时 token 生效后 RootNavigator 自动渲染,无需手动导航",正是被那次改动作废的前提 —— **一次改动作废了另一处的散文前提,而 typecheck / 单测 / 守门全都不红**。
   - 修法:判据抽成纯函数 `apps/mobile-rn/src/navigation/auth-arrival.ts`(输入 `hadToken / hasToken / routeName`),只认"无→有"这一次;带着令牌被 401 出口送去 Login 的那条路**明确不动**(锁 A 要求人停在登录页,反向对照已写进用例)。`RootNavigator` 在 `token` 变化时调它,命中才 `navigationRef.reset` 到 `Main`;`prevTokenRef` 初值取当前 token,使"冷启动即已登录"不被误判成"刚到"。
   - 取证:`apps/mobile-rn/tests/auth-arrival-navigation.test.ts` 9 例(6 条判据组合,含两条反向 + 3 条装车锁;装车锁读**剥掉注释后的代码面**,复用 `scripts/lib/code-mask.mjs` 那一份实现 —— 为此补 `scripts/lib/code-mask.d.mts`,让 TS 侧不必再自己写第二个注释剥离器)。`pnpm --filter @ihui/mobile-rn typecheck` 0 错。真机端到端复测见本波下一条(重出包后跑同一对两臂实验)。
   - 同批如实登记一条**不是本票造成的红**:`apps/mobile-rn/tests/app-root-background-focused-route.test.tsx` 3 例失败(根 View 底色 `rgb(245,245,245)` ≠ 期望 `rgb(0,0,0)`)。把 `RootNavigator.tsx` 原地换成 HEAD 版复跑仍 3 例 ⇒ 与本票无关;真实来源是**工作树里 `apps/mobile-rn/App.tsx` 的在飞改动(−33 / +10,尚未提交)**,归属那个会话,本票未碰它、也没替它提交。
-- [x] ✅(2026-09-28)G-G-419 守门 108 的"存档面"在同一夜被两条会话各写一份:已按"对侧那份为生效版"归并
+- [x] ✅(2026-09-28)G-463 守门 108 的"存档面"在同一夜被两条会话各写一份:已按"对侧那份为生效版"归并
   - 两侧互不为超集(本侧独有 31 行 / 对侧独有 29 行),而**真正的行为差只有三处**:① "不记账的面"缺一个共用出口(扫描侧、基线清洗侧、汇总侧各写一份);② `--update-baseline` 的清洗条件只认工具面 ⇒ 存档面一旦进了台账就永远出不去(判据说不计账,台账却还在替它记账);③ 路径反斜杠归一。
   - 处置:以**已推送、对全队生效的那份**为底逐字保留,只把上面三点合进去(不删对侧任何一行),并补自检 M04 成对用例。变异自证:把清洗条件改回只认工具面 ⇒ 恰好 M04 红(65/66);还原即 66/66。门 108 在 HEAD 面与索引面均 RC=0。
   - 通用规矩(与「两会话两条单点」同一条):**同 seam 两份实现时,后落地方把"本侧"改成"对侧那份"再合流**,而不是让合并工具选边 —— `union-converge --resolve` 的"两侧独有行都不得减少"断言,正好把这种归并逼成真并集而不是覆盖;而落地器那侧要显式 `LAND_ALLOW_STALE=1` 留痕,因为它把"采用对侧措辞"读成"陈旧副本"(实测:唯一被点名的复活行逐字存在于对侧文件中)。
@@ -15945,21 +15945,21 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
 
 ### 第五十八波·续八 —— SSO 翻页修复的真机端到端复测 + 一枚游客可访问路由的 500 收口(2026-09-28 傍晚)
 
-- [x] ✅(2026-09-28)G-G-429 续七 那条"改完待真机复测"的账已偿:VC66 装机后同一对实验翻过页来了
+- [x] ✅(2026-09-28)G-464 续七 那条"改完待真机复测"的账已偿:VC66 装机后同一对实验翻过页来了
   - 同一支探针 `node .ihui-agent/tmp/rn-preview/sso-recheck.mjs`(先 `pm clear` → 过隐私同意门 → **现读确认起点在登录页** → 按应用侧同款参数 `clientId=mobile-rn` 签一枚码 → `am start -d ihui://sso/callback?sso_code=…` → +3s / +8s 各采一次面)。
   - 修复前(VC65,枚 62a7967c 之前那版包):+3s ❌ 仍在登录页、+8s ❌ 仍在登录页(起点已确认为登录页,不是"没到应用")。
   - 修复后(VC66,含 62a7967c 的 `authArrivalAction` 那一笔):+3s ✅ 已翻页、+8s ✅ 已翻页,落点是首页(`AI应用商店 / 广场 / 智汇AI / 动态 / 我的` 五 tab + 「分享领智汇值」首访弹窗)。
   - 取证件:`.ihui-agent/tmp/rn-preview/sso-recheck2.log`(修复前)/ `sso-recheck3.log`(修复后)/ `vc73-after-flip.png`、`vc73-home-clean.png`、`vc73-plaza.png`(装机实拍)。
-- [x] ✅(2026-09-28)G-G-430 真机普查顺手抓到并已修:`GET /api/agents/<不是 uuid 的一段>` 在**游客可访问**的路由上回 **500**
+- [x] ✅(2026-09-28)G-465 真机普查顺手抓到并已修:`GET /api/agents/<不是 uuid 的一段>` 在**游客可访问**的路由上回 **500**
   - 实测(不带任何令牌,直连生产):`/api/agents/carousel` 与 `/api/agents/definitely-not-a-real-slug-9x7` 均 `500 {"code":500,"message":"服务器错误"}`。机制:`agents.agent_id` 是 `uuid` 列,而参数校验只有 `z.string()`,于是 `eq(agents.agentId, 'carousel')` 让 Postgres 抛 `22P02 invalid input syntax for type uuid`,路由没兜住。
   - 为什么值得单独一条:"这条记录不存在"与"这个服务坏了"在响应上**完全同形**,客户端无法分支,监控只看到一枚 5xx;而 AGENTS §5 早就记过同族("游客走到依赖 `request.userId` 的 handler 不是 401 而是 500")。
   - 修法:形状闸移到**进 SQL 之前** —— 读侧 404(不泄露存在性)、写侧(PUT/DELETE)400(畸形 id 是客户端错误)。同批把 `routes/interactions.ts` 与 `plugins/ws-tasks.ts` 里两处手写的 uuid 正则并到 `apps/api/src/utils/uuid.ts` 这一个出口。
   - **刻意没并的第三处**:`routes/edu-supplementary-routes.ts` 用 `z.uuid()`,实测它比本判据**更严**(校验 RFC 版本位/变体位 —— `11112222-3333-4444-5555-666677778888` 被 zod 拒、被本判据收;12 条语料里 2 条不等价,取证 `.ihui-agent/tmp/rn-preview/uuid-equivalence.mjs`)。把严的换成宽的是**放宽别人的契约**,所以本票一度并进去后又按 HEAD 原样还原,并由镜像测试反向钉住"edu 仍走 zod"。
   - 取证:`apps/api/tests/agent-detail-malformed-id.test.ts` 8 例(三条畸形路径断言 **404/400 且服务层零调用**、两条反向对照"合法 uuid 必须仍进服务层"、一条判据单一出口锁)。**变异自证**:删掉 GET 那道闸 ⇒ 恰好 3 例红(5/8),还原后 8/8;`pnpm --filter @ihui/api typecheck` 0 错。
-- [ ] G-G-431 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `uuid` 列
+- [ ] G-466 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `uuid` 列
   - 本票只修了 agents 一族(实测到红的这一条)。同一形状在任何"`z.string()` 参数 → `eq(<uuid 列>, 值)`"的路由上都成立,而这类写法在 `apps/api/src/routes/**` 里不止一处(同文件就有 `categoryIdParam` / `recordIdParam` / `idParam` 四条只校验 `z.string()`)。
   - 可跑的普查出口(下一条票直接用):对每条 `server.get/put/delete('/<资源>/:<param>')`,拿一个非 uuid 的字符串打一次,凡回 5xx 即同型;修法一律走 `isUuidString` 那道形状闸,不得用 try/catch 把 22P02 洗成 200。
-- [ ] G-G-432 真机拍到的观感缺陷(登记,未修):首页轮播的图片来源在移动网络下失败,错误占位是一个橙色告警三角
+- [ ] G-467 真机拍到的观感缺陷(登记,未修):首页轮播的图片来源在移动网络下失败,错误占位是一个橙色告警三角
   - 实拍:`vc73-plaza.png` 顶部 hero 中央一枚 `⚠` 占位(同一屏下方卡片缩略图正常)。数据侧实测 `/api/agents` 返回的 `avatar` / `cover` 都指向 `picsum.photos`(境外随机图服务)—— 真机走移动网络时该域名可达性不稳,失败态就露出来了。
   - 这不是渲染 bug 而是**素材源**问题:要么换成自有 CDN/本地兜底图,要么把错误占位换成与品牌同源的静默底(告警三角在首页 hero 上读起来像"系统坏了")。属产品取舍,故只登记不代裁。
 <!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
