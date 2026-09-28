@@ -123,7 +123,7 @@ export function SpecGenerateForm({
                   key={opt.value}
                   type="button"
                   onClick={() => setScopeType(opt.value)}
-                  className={`rounded-md border px-3 py-2 text-left transition-colors ${
+                  className={`rounded-sm border px-3 py-2 text-left transition-colors ${
                     scopeType === opt.value
                       ? 'outline outline-1 outline-border bg-primary/5 text-foreground'
                       : 'border-border bg-background text-muted-foreground hover:bg-accent'
@@ -187,7 +187,7 @@ export function SpecGenerateForm({
                   type="button"
                   onClick={() => setSelectedTemplate(tpl)}
                   disabled={loading}
-                  className={`rounded-md border px-3 py-2 text-left transition-colors ${
+                  className={`rounded-sm border px-3 py-2 text-left transition-colors ${
                     selectedTemplate?.id === tpl.id
                       ? 'border-brand-accent-deep bg-primary/5'
                       : 'border-border bg-background hover:bg-accent'

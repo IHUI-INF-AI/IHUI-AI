@@ -208,7 +208,7 @@ export default function EduCourseLearnPage() {
                   type="button"
                   onClick={() => setCurrentSec(s)}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors',
                     active?.id === s.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent',
                   )}
                 >

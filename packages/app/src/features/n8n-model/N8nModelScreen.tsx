@@ -263,7 +263,7 @@ function createStyles(tk: AppThemeTokens) {
     card: { padding: 12, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tk.border.light },
     cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     cardTitleRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-    dot: { width: 8, height: 8, borderRadius: rnRadius.sm, marginRight: 8 },
+    dot: { width: 8, height: 8, borderRadius: rnRadius.xs, marginRight: 8 },
     dotRun: { backgroundColor: tk.success.DEFAULT },
     dotStop: { backgroundColor: tk.text.tertiary },
     cardName: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },

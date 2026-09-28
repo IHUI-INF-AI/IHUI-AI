@@ -359,7 +359,7 @@ function EventFeedTab() {
           <button
             type="button"
             onClick={refresh}
-            className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs transition-colors hover:bg-accent"
+            className="inline-flex h-7 items-center gap-1 rounded-sm px-2 text-xs transition-colors hover:bg-accent"
           >
             <RefreshCw className="h-3 w-3" />
             <span>{t('events.refresh')}</span>
@@ -373,7 +373,7 @@ function EventFeedTab() {
           type="button"
           onClick={() => setPillarFilter(null)}
           className={cn(
-            'rounded-md border px-2 py-1 text-xs transition-colors',
+            'rounded-sm border px-2 py-1 text-xs transition-colors',
             pillarFilter === null
               ? 'border-brand-accent-deep bg-cta text-cta-foreground'
               : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted',
@@ -387,7 +387,7 @@ function EventFeedTab() {
             type="button"
             onClick={() => setPillarFilter(p)}
             className={cn(
-              'rounded-md border px-2 py-1 text-xs transition-colors',
+              'rounded-sm border px-2 py-1 text-xs transition-colors',
               pillarFilter === p
                 ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                 : cn('hover:opacity-80', pillarStyle(p)),
@@ -442,7 +442,7 @@ function EventFeedTab() {
                     <button
                       type="button"
                       onClick={() => setExpanded((p) => ({ ...p, [id]: !p[id] }))}
-                      className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent"
+                      className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-accent"
                       aria-label={t('events.payload')}
                     >
                       {isOpen ? (
@@ -623,7 +623,7 @@ function DecisionsTab() {
                   onClick={() => void handleToggle(pb.id)}
                   disabled={isToggling}
                   className={cn(
-                    'inline-flex h-5 shrink-0 items-center gap-1 rounded-md border px-1.5 text-[10px] transition-colors disabled:opacity-50',
+                    'inline-flex h-5 shrink-0 items-center gap-1 rounded-sm border px-1.5 text-[10px] transition-colors disabled:opacity-50',
                     enabled
                       ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
                       : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted',
@@ -1053,7 +1053,7 @@ export function OrchestrationHubPanel() {
               onClick={() => setActiveTab(tab.key)}
               aria-pressed={active}
               className={cn(
-                'inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-xs transition-colors',
+                'inline-flex h-7 items-center gap-1 rounded-sm px-2.5 text-xs transition-colors',
                 active
                   ? 'bg-cta text-cta-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',

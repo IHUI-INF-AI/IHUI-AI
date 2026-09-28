@@ -741,7 +741,7 @@ export default function ChatPage() {
       <div className="flex items-center justify-between pb-2 border-b border-border">
         <h3 className="m-0 text-sm font-semibold">{t('chat.title')}</h3>
         <select
-          className="text-xs text-foreground px-2 py-1 border border-border rounded-md bg-card cursor-pointer transition-colors hover:border-muted-foreground focus:outline-none focus:border-muted-foreground"
+          className="text-xs text-foreground px-2 py-1 border border-border rounded-sm bg-card cursor-pointer transition-colors hover:border-muted-foreground focus:outline-none focus:border-muted-foreground"
           value={model}
           onChange={(e) => setModel(e.target.value)}
           disabled={streaming}

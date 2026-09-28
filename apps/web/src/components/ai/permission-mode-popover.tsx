@@ -387,7 +387,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
           // 无显式 focus-visible:ring,但 globals.css 规则对未来扩展可主动失效 ring)。
           data-state={isOpen ? 'open' : 'closed'}
           className={cn(
-            'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none',
+            'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm px-2 text-xs font-medium leading-none',
             'duration-150 ease-out',
             currentMode === 'bypass-permissions'
               ? cn(
@@ -486,7 +486,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                   onMouseEnter={() => setFocusedIndex(idx)}
                   disabled={updateMode.isPending}
                   className={cn(
-                    'group relative flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-colors',
+                    'group relative flex w-full items-start gap-2.5 rounded-sm p-2.5 text-left transition-colors',
                     'disabled:cursor-not-allowed disabled:opacity-60',
                     // 当前选中:实心高亮
                     isSel
@@ -558,7 +558,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
             onClick={() => handleSelect('bypass-permissions')}
             disabled={updateMode.isPending}
             className={cn(
-              'mt-1 flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors',
+              'mt-1 flex w-full items-center gap-2 rounded-sm border px-2 py-1.5 text-left transition-colors',
               currentMode === 'bypass-permissions'
                 ? 'border-amber-500/40 bg-amber-500/5'
                 : 'border-border/60 hover:border-amber-500/30 hover:bg-amber-500/5',
@@ -587,7 +587,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                 }}
                 disabled={setDefault.isPending || activeWorkspace?.mode === currentMode}
                 data-testid="permission-set-default"
-                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {setDefault.isPending ? (
                   <Loader2 className="h-3 w-3 animate-spin" />

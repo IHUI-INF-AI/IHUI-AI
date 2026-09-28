@@ -57,10 +57,10 @@ function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNo
             width={48}
             // radius-role-exempt: 48px 头像图(rounded-xl=圆角头像观感),属头像豁免族而非卡片容器,不得按 card 方档化 until 2026-11-26
             height={48}
-            className="h-12 w-12 shrink-0 rounded-xl object-cover"
+            className="h-12 w-12 shrink-0 rounded-lg object-cover"
           />
         ) : (
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
             {getInitials(card.name)}
           </div>
         )}

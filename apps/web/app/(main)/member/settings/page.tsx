@@ -69,7 +69,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       type="button"
       onClick={() => onChange(!checked)}
       className={cn(
-        'relative h-5 w-9 rounded-lg transition-colors',
+        'relative h-5 w-9 rounded-sm transition-colors',
         checked ? 'bg-primary' : 'bg-muted',
       )}
     >
