@@ -204,6 +204,14 @@
 #          "端应用声明 exported:false,这条依赖声明本身就是违规"。正确出路是把那个导出
 #          脚本挪进 packages/(可依赖面),或让脚本走 CLI 而不是 import 源文件。
 #      ⇒ "翻 managed:true"不是未知工作量:22 个模块今天就能翻,2 个模块各差一处整改。
+#   2026-09-29 追加一条**已登记的现实边**(不是消红动作,是把现实写进表):
+#     `scripts/tests/image-source-pool-parity.test.mjs` import `packages/database/seed/image-source-pool.ts`。
+#     与上面 apps/api 那一条**不同型**:被依赖的是 packages/database(exported:true,rank 20),
+#     repo-tooling(rank 90)向下依赖合法,只有 D1(未声明)会红;而 apps/api 是端应用(exported:false),
+#     那条依赖声明本身就是违规,所以当时的正确结论才是"不得写进 requires"。
+#     这里不能退成"读文本比对":本测试的价值恰在**真执行**两份实现比函数行为 ——
+#     清单等值由 `scripts/check-image-source-domains.mjs` 按被审面判,行为等值只有跑起来才量得到;
+#     也不退成"只测一份":那等于把镜像放成无人对账的第二份真相(本仓"造好没装车"同型)。
 # 3. 本表只支持受限 YAML 子集(缩进 2 空格、值不加行内 # 注释、标量可加单/双引号)。
 #    解析器认不出的行会**显式报错并 exit 2(无法判定)**,不会静默跳行 ——
 #    静默跳过的后果是"扫到 0 条却报绿"(既有门反复踩过的同一类)。
@@ -515,6 +523,9 @@ modules:
       - 'packages/ui-react'
     requires:
       - 'packages/design-tokens'
+      # 2026-09-29 票 #27 web 端收口:lib/remember-credentials 的记录形态/key 名
+      # 唯一真相改指 @ihui/shared(与 RN/小程序同一份 codec,禁止第二份凭据真相)。
+      - 'packages/shared'
     public_entrypoints:
       - '.'
 
@@ -674,6 +685,7 @@ modules:
       - 'packages/api-client'
       - 'packages/types'
       - 'packages/shared'
+      - 'packages/database'
     public_entrypoints: []
 
 # ---------------------------------------------------------------------------
