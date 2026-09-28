@@ -111,8 +111,13 @@ export default function Carousel({
   const activeIndex = current < total ? current : 0
 
   return (
+    // 容器圆角取角色档 hero(特大容器:首页主视觉 / 活动横幅),档值一律走档位表、
+    // 角色→档的对应走角色表,本行是小程序端**唯一**一处轮播容器圆角落点。
+    // 立因:此前小程序端把圆角声明在组件根、RN 端声明在各屏的外层 wrapper —— 同一元素两处在
+    // 不同层取值,跨端对账门只配组件文件因而配不到真值,用户实拍的"两端不一样"长期无人看守。
+    // 调用点不得再各写一档,那等于把本行的单点声明绕开。
     <View
-      className={cn('relative w-full overflow-hidden rounded-lg bg-muted', className)}
+      className={cn('relative w-full overflow-hidden rounded-2xl bg-muted', className)}
       style={{ height: heightStyle }}
     >
       <ScrollView
