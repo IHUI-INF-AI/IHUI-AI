@@ -16020,3 +16020,48 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
 
 - [x] ✅(2026-09-28) **G-{{NEXT_ID:G-}} 自动归档按滞后的磁盘副本追加,把当日归档件削掉 17,537 行 —— 当场找回 + 根因收口(单端工程治理:scripts/archive-completed-tasks.mjs)**:枚 `3e19e1097f`「chore(auto): 归档 58 个已完成任务条目」做的是**追加**,产出面却是 30,879 行 → 13,342 行。成因:归档器走对象空间落地(底稿取被审面),唯独"归档件已有的内容"取自磁盘工作树副本,而最后一步的提交 blob 又走 `writeBlobOfWorktree(archiveRel)` 直接读磁盘 —— 磁盘滞后多少,提交面就缩水多少。三条既有判据都看不见这一格:门 71/13c 只核计划文档的登记行与占位,归档器自己的零损失闸只看"被搬块是否逐字落进将要提交的那份文本",而那份文本本身就是旧的,所以一路无声。修法 = 新增导出纯函数 `reconcileArchiveBase(head, disk)` 做行多重集三态校准:**fresh**(磁盘 ⊇ 被审面 ⇒ 照常 append,不动别人在飞的内容)/ **stale**(磁盘 ⊂ 被审面 ⇒ 以 HEAD 面为底整写,HEAD ⊇ 磁盘 ⇒ 可证零独有数据)/ **divergent**(两侧各有对方没有的行 ⇒ 拒绝落地并点名两侧条数,那是裁决不是搬运);另加一条"下笔之前再量一次磁盘"的守卫 —— 本文件由每一路会话的 post-commit 钩子写,判据取材与下笔之间被第三方追加过就不再是同一份,此时整写会吞掉别人的追加。丢掉的 17,537 行当场找回:分叉收敛时该归档件两侧冲突,按 max(base, ours, theirs) 的行多重集并集经 `union-converge --resolve` 出口回灌,落地枚 `536b411c9ef2`(A1 复核 0 丢失),远端现读 31,131 行。取证:`--self-test` 56 条断言(S23a–S23g:stale / fresh(磁盘超集)/ 等值 / divergent / 整份缺失 / 同一行按**重数**而非"见过没有"判 / 装车锁"main 必须真用该出口且 stale 走整写、fresh 才走追加")**连跑两次**均 56/56 exit 0;顺带清掉一条 HEAD 自带、会挡住每次改该文件提交的 lint 错(main() 解构出的 `candidates` 从未被使用),并同步改掉 S19d 装车锁的期望文本 —— 它锁的是"main 必须走 partitionPlanBlocks 而不是自己再抄一份筛选",少一个名字不影响该判据的牙。
   - 同一轮量到并修掉的另外两格:① **宿主清理层删了 28 个跟踪文件、且删除被暂存进共享索引**,其中 `scripts/lib/ledger-move-aware.mjs` 与 `scripts/lib/stale-content-analysis.mjs` 仍被 HEAD 侧代码 import ⇒ `union-converge` 与 `heal-worktree-tracked` **双双起不来**(工作区自愈工具自己坏了,而没有任何一道门喊);处置 = 逐路径 `git checkout HEAD -- <path>` 全部复原(门 99 的机读判据当场点名那两个仍被引用的暂存删除,复跑 rc=0 佐证),`git ls-tree HEAD` 与磁盘全量对账现读 missing=0。② `git-push-guard` 终段只验 `local HEAD == remote tip`,而多会话共享同一 gitdir 时 HEAD 会在"推送"与"验证"之间被别人推进 ⇒ 实测把 `8dbacd2322..61f6fdc9d0 main -> main` 这趟**确实推成了**的推送报成"push 报告成功但验证失败",并把 push-state 写成 failed(下游 converge 与部署环据此以为通道坏了)。现改为**等值或祖先测任一成立即 done**,措辞点名是哪把尺子给的合格证;祖先判定住进 `scripts/lib/bypass-git.mjs` 的 `isAncestor`(true / false / null 三态 —— 128 档"对象取不到"不得被折叠成"不是祖先",否则"没推上去"与"仓库半恢复态"在账面上同形)。同一枚提交顺带给 `commitTreeWithIndex` 配上随调用的提交身份(服务身份 LocalSystem 读不到交互账户的 .gitconfig ⇒ commit-tree 直接 fatal,这一型 union-converge 头注早记过而本层漏了),旁证 = bypass-git 镜像在**无 ambient identity** 的默认 shell 下从「9 过 4 红」变成 13/13 全绿。
+
+- [x] ✅(2026-09-29) **G-579 本轮:五张子票入库 + 我自己先前的两处"装了但没人走到"被实测推翻**:
+  ① **守门 157 门体入库**(`6f0c539d85`)—— 注册块早在 HEAD 而门体是未跟踪文件,门 89 的 R9 对**每一枚提交**恒红;
+  门体在 HEAD 面实测无新增红(扫 202 文件 / 命中 1 处按该文件 HEAD 自身存量棘轮只报数)⇒ 不是恒红门。
+  取证:自检全通过 + 镜像 10/10(含"注册必须在 HEAD 面复现 grep 计数"的装车证明)。
+  ② **门 130 的 F9 收窄到编号位**(`8cbc85847b`)—— 宽口径把行文引用/畸形号子串算成撞号,差值棘轮会拦在
+  无能为力的人身上;真仓现读 宽 94 组 → 严 77 组,真撞号一条不丢(镜像 10 例含"改回全文匹配 ⇒ 三条反向用例必翻红"的变异自证)。
+  ③ **G-364 auth 测试替身降级为转发 + 常驻保真锁**(`5b4cd0d9e7`)—— 端内那份自述型 `createInMemoryTokenStore`
+  吞掉全部三个持久化回调、缺 `setCachedWithoutPersist`、类型名也不同 ⇒ "看起来覆盖了凭据链路"的用例实际测的是虚构 API;
+  真实 auth 四子模块本就平台无关(存储差异由 `InMemoryTokenStoreOptions` 回调表达),所以不需要替身。锁 13 例。
+  ④ **G-363 `isAuthenticated` 收成 token 的派生投影**(`d0de6ce4a5`)—— 持久化块只落 user、setState 携带该键被忽略并重算、
+  rehydrate 读回即剥除;新增 `selectIsAuthenticated` 为唯一订阅出口;shared/RN/小程序三端用例同枚入账(4+1+1 文件均绿)。
+  ⑤ **G-365 冷启动静默重登判据收进跨端共享层**(`53ca101383`)—— 此前只落在 RN 一端,web 与小程序同一型
+  (按了退出下次自己登回去);**落地时被陈旧落地守卫拦过一次**,出口 ② 前先用行多重集自证该文件 13+/0−、
+  相对 HEAD 丢失 0 行,那枚"复活"是新分流里的 `setReady(true)` 与祖先同名(假阳),不是他人内容损失。
+  ⑤b **RN 端内那份降级为转发**(`6a2d6429e3`)—— §3 禁的是"两份真相",不是"两份同形";等价锁换成三条有牙判据
+  (引用同值 / 转发文件里不得出现判定语句 / 落盘 key 三端同值),因为收口后再比结论就是"同一个函数和自己比"。
+  ⑤c **"登出后自动登回"的第三条径路**(`f91458b670`)—— 共享登录表单的 mount effect 只读 localStorage 持久标志就
+  `requestSubmit()`,web 点完退出落到登录页 300ms 后又自己登回去,而 `use-auth-bootstrap` / `lib/api` 两条已收口径路**全绿**;
+  改成必填 `canAutoSubmitCredentials`(无默认值 ⇒ 漏传是编译错误而非静默放开,守门 91 同一课),
+  web 接共享判据、扩展两处显式 `() => true` 并注明本表面未启用凭据持久化。锁 6 例,双向自证已跑。
+  ⑥ **160 处 uuid 参数路由形状闸**(`dc4d00fda3`)—— 非 uuid 串喂进 uuid 列被 Postgres 抛 22P02、未兜住就是 500,
+  "这条不存在"与"服务坏了"同形。**复核抓到并修掉四处,都是子票交付里带进来的**:
+  10 个文件的补 import 被插进多行 `import {` 中间(整文件语法坏,api typecheck 67 枚 TS1003 族 ⇒ 修后 0);
+  `clawdbot system/logs` 把整条 query 对象当 id 守卫(**会让该路由永远 404**);
+  `agent-extended /heat/list` 对**可选筛选位**无条件 404(agentId 缺席本属合法,改成"给了值且非 uuid 才 400");
+  `v1-ai-core` 一处回 400 而该路由 ResponseSchema 只声明 204/401/403/404 —— 加 400 等于改已发布的 v1 契约,改回 404。
+  逐文件行多重集证明 62 个文件对 HEAD 零丢失;另有 4 个带删除行的 api 文件**不在本批**(两侧都无 `isUuidString`,
+  属他人 在飞现场:`ai-callback.ts` 8+/131-、`notification-worker.ts`、`block-exempt-paths.ts`、`ip-block-exemption.test.ts`)。
+  ⑦ **我自己的两处"装了但没人走到"(本轮被实测推翻,值得单独留)**:
+  守门 157 的教训我先犯在守护上 —— 先前落的 `healWorktreeBare` 写在 `remediate()` 里,而 `remediate()` 被
+  `coreOk = pointerOk && gitdirOk && gitUsable` 三项把关,`core.bare=true` 时这三项**全为真**(`rev-parse` 在裸档下照样成功),
+  于是每 2 分钟一趟都走健康分支、把其余 heal* 全跑完再 return 0,**自愈在提交链上生效次数为 0**
+  (活仓库带裸档跑了数小时;`--check` 也照报"✅ .git 健康")。现抽成 `coreHealthy()` 一份实现供 main/daemon 共用,
+  `e081341981` 落地。两条新锁各配变异自证:**⑤ 用故障现场读数当阳性对照**(三项全真而 worktreeUsable=false ⇒ 判不健康)、
+  **⑥ 反向锁死两处调用点不得重抄三项式**;旧的"装车证明④"在该变异下**一路报绿**——它证的是链的中段连着,证不了这条链会被走上去。
+  ⑧ **本轮新量到、尚未做的两格(登记为待办,不是已完成)**:
+  (a) `apps/mobile-rn/tests/__mocks__/ihui-api-client.ts` 的覆盖面实测 **替身提供 14 个名字,而消费面从
+  `@ihui/api-client` 取用 226 个**(差集 216,含 `fetchApi`/`setUnauthorizedHandler`/`streamChat` 等运行时名字,
+  多数类型名可忽略但运行时名不可)—— 与 G-364 同一型且**半径大得多**:把别名直指真实 barrel 需先让全端测试
+  能在无 transport 下收集,属独立一票,不得顺手改(改了会把 68 个在绿文件推向收集期失败)。
+  (b) 两个 RN 测试**按磁盘判被审内容**:`tests/mcp-tool-row-title-d83.test.ts:161` 与
+  `tests/app-root-background-focused-route.test.tsx` 用 `readFileSync` 读工作树,而本机 `ChatScreen.tsx`/`App.tsx`
+  此刻是他人脏副本 ⇒ 全端跑测出 **2 failed / 68 passed(5 用例红)**,红的不是 HEAD 而是别人的在飞现场
+  (守门 118 立项要防的正是这一型)。迁到 `face-reader` 判 HEAD/索引属另一票,派单前先跑一次现读确认存量还在。
