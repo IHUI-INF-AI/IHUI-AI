@@ -111,7 +111,7 @@ export function FundingSection({ items }: Props) {
               key={field}
               type="button"
               onClick={() => toggleSort(field)}
-              className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+              className={`inline-flex items-center gap-0.5 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors ${
                 sortField === field
                   ? 'bg-foreground text-background'
                   : 'bg-muted text-muted-foreground hover:bg-accent'

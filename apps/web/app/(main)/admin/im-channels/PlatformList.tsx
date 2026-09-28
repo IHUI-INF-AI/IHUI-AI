@@ -95,7 +95,7 @@ export default function PlatformList({
             onClick={() => onSelect(v.platform)}
             aria-current={isSelected ? 'true' : undefined}
             className={cn(
-              'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors',
+              'flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors',
               'hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               isSelected && 'bg-muted',
             )}

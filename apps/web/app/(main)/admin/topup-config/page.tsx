@@ -448,7 +448,7 @@ export default function AdminTopupConfigPage() {
             <select
               value={previewMethod}
               onChange={(e) => setPreviewMethod(e.target.value)}
-              className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+              className="h-8 rounded-sm border border-border bg-background px-2 text-sm"
             >
               {Object.keys(minTopupByMethod).length === 0 ? (
                 <option value="alipay">alipay</option>
