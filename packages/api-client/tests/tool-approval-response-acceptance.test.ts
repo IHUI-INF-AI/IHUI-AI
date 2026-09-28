@@ -74,8 +74,10 @@ describe('postToolApprovalResponse 的接受性', () => {
 
   it('B 200 + {ok:false} ⇒ 必须 reject,并带上 error 与两个技术 id', async () => {
     responses.push({ status: 200, body: '{"ok":false,"error":"session not found or expired"}' })
+    // 顺序是"定位前缀 → not accepted → 端点给的 error":三个判据共用一份出口后
+    // (`assertAiServiceAccepted`),消息形态由那份实现决定,所以这里按实际形状断言。
     await expect(postToolApprovalResponse(input)).rejects.toThrow(
-      /session not found or expired[\s\S]*sess-abc[\s\S]*appr-xyz/,
+      /postToolApprovalResponse \(session=sess-abc, approval=appr-xyz\) not accepted: session not found or expired/,
     )
   })
 
