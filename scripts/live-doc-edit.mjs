@@ -56,6 +56,14 @@
  *  "提交前查一次占用"挡不住别人事后取同一个号(与守门编号撞号同族)。为什么必须**递增**而不是
  *  每个令牌都算 max+1:一次登记两件事是常态,那样本器自己就会产出它要防的那一型。
  *  该族一条登记行都没有 ⇒ exit 2 拒绝落地,绝不给 "<族>-1"。
+ *  占用面(G-313 续,2026-09-28 补)= **台账 ⊕ `.ihui-agent/archive/PROJECT_PLAN*.md`**,由
+ *  `lib/plan-id-face.mjs` 的 `collectIdFace()` 给(与 `next-plan-id.mjs` 共用那一份实现)。理由:
+ *  归档器把已完成条目整块搬进归档件、台账只留一行 HTML 注释占位 ⇒ 只看台账的 max 会随每次归档回落,
+ *  令牌就会发出**已用过的号**(本仓 2026-09-28 一天内重发两次,登记在 `6b812de31`)。取号与幂等判据的
+ *  编号形状**必须吃同一张面** —— 两面不同形时,发出去的号会匹配不上自己编出的匹配式,幂等判据就永远
+ *  不命中(那等于把"重复落地"这一型重新放开)。面判不出(台账取不到 / 归档件枚举失败 / 有件取不到)
+ *  ⇒ exit 2 拒绝落地,**绝不退回窄面发号**。非 `PROJECT_PLAN.md`(AGENTS/README)⇒ 归档件不适用,
+ *  面 = 该文档自身,与改动前逐字同形。
  *
  *  号段基准(G-313 出路②,2026-09-28 加):基准 = **max(本地 HEAD 底稿该族 max, 远端那一份该族
  *  max)**。只问 `git ls-remote` + 本机对象库;远端 tip 的对象**本地没有就不 fetch、不写任何 ref**,
@@ -96,6 +104,7 @@ import {
   writeBlob,
 } from './lib/bypass-git.mjs'
 import { usedIdsOfPrefix } from './lib/plan-task-index.mjs'
+import { collectIdFace } from './lib/plan-id-face.mjs'
 
 /**
  * 令牌 `{{NEXT_ID:G}}` ⇒ 落成 `G-<下一个空闲号>`。
@@ -593,9 +602,30 @@ async function main() {
     }
     const baseLines = norm(git(['show', `${head}:${doc}`], { root, raw: true })).split('\n')
     baseCount = baseLines.length
+    const ledgerText = baseLines.join('\n')
+    // ── 取号的**占用面**:台账 ⊕ `.ihui-agent/archive/PROJECT_PLAN*.md`(2026-09-28 补)──
+    // 为什么必须宽面:归档器把已完成条目整块搬进归档件、台账只留一行 HTML 注释占位,于是只看
+    // 台账的 max 会随每次归档**回落**,令牌就会发出已用过的号(立门当日现读 O 族:台账 88 / 宽面 90;
+    // 一天内重发两次号登记在 6b812de31)。判据仍只有一份 —— 本器不抄第二份编号语法,宽面由
+    // lib/plan-id-face.mjs 给,取号/形状都走 lib/plan-task-index.mjs 的 usedIdsOfPrefix。
+    // 为什么它**必须在 CAS 循环内**:与远端基准同理 —— HEAD 每轮在动,归档件也随归档提交增长,
+    // 提到循环外就把"这一轮看到的面"烘成一次性读数(N5 那条锁判的就是同一型)。
+    // 为什么拒绝而不是退回窄面:按窄面发号**正是本缺陷的症状**,而撞号事后结构上判不了
+    // (lib usedIdsOfPrefix 头注记过);停在这里只贵一次重试。
+    // 非 PROJECT_PLAN.md(AGENTS/README)⇒ 归档件不适用,面 = 该文档自身,与改动前逐字同形。
+    const idFace = collectIdFace({ root, source: head, doc, ledgerText })
+    for (const n of idFace.notes) console.log(`ℹ 占用面:${n}`)
+    if (!idFace.ok || idFace.undetermined.length > 0) {
+      for (const n of idFace.undetermined) console.error(`❌ 占用面判不出:${n}`)
+      console.error(
+        `❌ 无法算出完整占用面(${mode})⇒ 拒绝落地:宁可报错,也不按"只有台账"的窄面发号。` +
+          `归档件里已用过的号,台账看不见。`,
+      )
+      process.exit(2)
+    }
+    const baseContent = idFace.text
     // 令牌**在每次尝试里重算**:别人先推进了 HEAD,下一轮算出的空闲号自然跟着变 ——
     // 这正是把取号放进 CAS 的意义(提交前"查一次占用"在高并发仓里不构成证据)。
-    const baseContent = baseLines.join('\n')
     const targetLines = replacements ? replacements.map((p) => p.after) : block
     const families = idTokenFamilies(targetLines)
     // 号段基准**也在每次尝试里重算**:HEAD 会动,远端 tip 也会动(origin 常年被后台 worker 推进)。
