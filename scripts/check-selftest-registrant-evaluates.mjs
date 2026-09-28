@@ -23,6 +23,14 @@
 //   提交都无关的恒红门,唯一结局是各会话 `--no-verify` 连带废掉链上全部守门(AGENTS §12f/§12e 同型)。
 //   本门自己的现读数(潜伏 36 / 未判定 4)一律以命令末行为准 —— 与票面 41 的差来自口径(本门把登记点
 //   限定在自检宿主内,并把值比较族/装箱族另档计),**两个数不得互相顶账**。
+//   ⚠️ 上面那对数字是**换遮罩档之前**的读数,保留只为让"为什么改"可追溯;现值一律跑末行。
+//   2026-09-28 起本门判定用 `maskCommentsStringsAndRegex`(认正则字面量的那一档,同一台分词器):
+//   旧那档 `maskCommentsAndStrings` 把正则里的 `(` / `'` 当代码,于是本门按括号配平取实参时会把
+//   **真调用读成"配不平"** ⇒ 落未判定。换档后实测 未判定 4 → 1、潜伏 36 → 38、自检宿主 141 → 149
+//   (浮出来的都是以前被遮噪吞掉的可见代码,不是新增缺陷)。剩下那一处
+//   `check-miniapp-css-landing.mjs` 的 `eq` 不是遮罩问题:它把形参 `got` 喂进
+//   `JSON.stringify(got)`,本门结构上看不见那一层是不是求值 ⇒ **照旧未判定,不得改成通过**。
+//   问责档 `--strict` 因此仍 rc=2,直到那一处被逐条读明白或本门扩出第二判据。
 //   判红必须再要第二条同时成立:**同一文件内**确实有用例把函数当结论传进来(R-CASE)—— 那才是"这一型
 //   正在咬人"。它今天掩盖的不是旧账,而是**下一个用 `() =>` 写用例的人**。
 //
@@ -80,11 +88,15 @@
 // 行内出口:`selftest-registrant-exempt: <原因>`(必须带原因,只救**本行** —— 写在登记行是声明
 //   "这个登记函数我知道它不求值",写在用例行是声明"这一条我知道它不会被判"。原因里请写清它属于
 //   "我故意传函数、登记侧另有求值路径"还是别的;不许用注释闭合符冒充原因。)
+// 到期档:该族已登记进守门 108 的 `FAMILY_LIFETIME_DAYS`,取 **30 天**(待偿债,不是结构性定性)——
+//   出路是把登记侧改成求值或直接传结果。写 `... until YYYY-MM-DD` 才入账,正向锁由本门镜像测试
+//   T10 钉住(表住在 108,此处不得复制天数表);"被真用上而未登记"那一格自 2026-09-28 起是 108 的
+//   判据 E4(提交链档、HEAD 锚点棘轮,存量只报数)。
 
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 import {
   Undetermined,
   assertRepoRoot,
@@ -488,7 +500,7 @@ export function analyzeSource({ rel, raw }) {
     unreadable: typeof raw === 'string' ? null : `${rel}: 内容取不到`,
   }
   if (typeof raw !== 'string') return res
-  const code = maskCommentsAndStrings(raw)
+  const code = maskCommentsStringsAndRegex(raw)
   const rawLines = raw.split(/\r?\n/)
   const hosts = findSelfTestHosts(code)
   res.hosts = hosts.length
@@ -1069,9 +1081,15 @@ function selfTest() {
   })
 
   t('t) 遮罩只有一份实现(本门不得自带第二份遮噪 —— 镜像 T1 钉源码形状)', () => {
-    if (typeof maskCommentsAndStrings !== 'function') return '没引 lib/code-mask 那一份'
-    const one = maskCommentsAndStrings('const a = 1 // 注释里的 cases.push({ name, ok })')
+    if (typeof maskCommentsStringsAndRegex !== 'function') return '没引 lib/code-mask 那一份'
+    const one = maskCommentsStringsAndRegex('const a = 1 // 注释里的 cases.push({ name, ok })')
     if (one.includes('cases.push')) return '注释没被遮 ⇒ 判据会自咬'
+    // 本门用**认正则**的那一档:正则字面量里的 `(` / `'` 是模式不是代码,不遮就会把
+    // 真调用的括号算成配不平(现读 4 处未判定里 3 处正是这一型)。成对对照:正则体必须
+    // 被遮掉,而真代码必须逐字留着 —— 只判一边就允许"把遮罩整体关掉"蒙过这一条。
+    const rx = maskCommentsStringsAndRegex('const re = /\\(\\s*add\\(/g\nreadCases(x, () => 1)\n')
+    if (rx.includes('add')) return '正则体没被遮 ⇒ 本门仍在用盲掉的那一档'
+    if (!rx.includes('readCases')) return '真代码被吞 ⇒ 遮罩关掉了判据本身'
     return true
   })
 
