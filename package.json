@@ -105,6 +105,8 @@
     "check:merge-loss": "node scripts/check-merge-addition-loss.mjs",
     "check:sequence-lag": "node scripts/check-sequence-lag.mjs --strict",
     "check:sequence-lag:fix": "node scripts/check-sequence-lag.mjs --fix",
+    "doc:numbers": "node scripts/gen-doc-numbers.mjs",
+    "check:doc-numbers": "node scripts/check-doc-numbers.mjs --strict",
     "check:desktop-cache-plaintext": "node scripts/check-desktop-cache-plaintext.mjs",
     "check:prompt-injection": "node scripts/check-prompt-injection-registry.mjs",
     "check:outbound-routes": "node scripts/check-declared-outbound-routes.mjs --strict",
