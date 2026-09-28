@@ -43,6 +43,7 @@ import { createHash } from 'node:crypto';
 import { canonicalizeArgs } from '../stream-tool-ledger.js';
 import { tryParseJson, isRecord } from '../util/json.js';
 import { gateHook } from './trust.js';
+import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS } from '../sandbox/index.js';
 
 export interface HookEntry {
   name: string;
@@ -494,7 +495,7 @@ function runWebhookSync(
     timeout,
   };
   const result = spawnSync(process.execPath, ['-e', WEBHOOK_SCRIPT], {
-    env: { ...process.env, ...env, IHUI_WEBHOOK_CFG: JSON.stringify(cfg) },
+    env: { ...buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS), ...env, IHUI_WEBHOOK_CFG: JSON.stringify(cfg) },
     encoding: 'utf-8',
     timeout: timeout + 3000,
     windowsHide: true,
@@ -541,9 +542,10 @@ function warnOnce(line: string): void {
  * 派发前的信任判定 —— 只挂在 runHookEntry 这一个执行收口点上。
  *
  * 为什么必须有:配置可以从**工作区**里加载(`loadHooksConfig` 读 `<cwd>/.{ihui,claude,cursor}/
- * hooks.json`),而 command 形态是 `spawnSync(cmd, { shell: true, env: {...process.env} })` ——
- * 没有这道门时,clone 一个陌生仓库并在里面跑 CLI,仓库自带的命令就会带着全部 API key 执行。
- * trust.ts 里这道门早就写好了,只是从来没有被调用(第一轮修的正是这一格)。
+ * hooks.json`),而 command 形态是经 shell 派生的子进程,默认会继承整个进程环境 ——
+ * 若既没有信任门、环境又未过滤,clone 一个陌生仓库并在里面跑 CLI,仓库自带的命令就会带着全部 API key 执行。
+ * trust.ts 里这道门早就写好了,只是从来没有被调用(第一轮修的正是这一格);
+ * 环境侧由 `buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS)` 兜第二层(2026-09-28),两层各管一种误配。
  *
  * 第二轮补的是**另一半**:门只问"这个目录在不在清单里",所以一旦某个目录被信任过,
  * 之后往它的 hooks.json 里塞任何命令都不再问一次。这里因此把"现在这份内容"的两个摘要
@@ -619,7 +621,7 @@ function runHookEntry(
     shell: true,
     encoding: 'utf-8',
     timeout: entry.timeout ?? 10_000,
-    env: { ...process.env, ...env },
+    env: { ...buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS), ...env },
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
   });
