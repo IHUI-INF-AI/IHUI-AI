@@ -6386,3 +6386,4 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 ## 守门补登：服务二进制路径存续性（2026-09-28 立，warn）
 `scripts/check-service-binary-paths.mjs` 把"外部自升级把 Windows 服务的二进制路径烂掉"这一型变成机器可查事实：RSSHub 曾因为 `~\.workbuddy\binaries\node\versions\<新版本>` 整个目录被换掉而**静默停服 3 天，期间没有任何告警**，而全仓没有任何一处会去问"服务声明要跑的那个 exe 今天还在不在"。
 门体遍历本机服务、按 nssm 的 `Parameters\Application` 绝对路径逐条判存在性，结论分三态且**绝不并桶**：可判存在 / 确认缺失 / 未判定。枚举不到任何 nssm 托管服务（例如这台开发机）时如实报"未判定"并点名原因——那不等于通过。定级是 **warn**：服务路径属机器状态，提交者结构上满足不了，挂进 blocking 只会让每台每次提交被逼 `--no-verify`，一次绕过等于全部守门对该提交作废。问责档跑 `--strict`（确认缺失与未判定都拒绝出具合格证）；应急跳过变量 `HUSKY_SKIP_SERVICE_BINARY_PATHS`。
+>   所以扩展此刻**不带**文件族(理由四条写进端内 `toolsForChatRequest` 头注并被测试锁住:排除必须带理由,否则下一个人会顺手补回来)。**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 小程序 / RN 三端**:载荷 `partialText` 是**累积文本**
