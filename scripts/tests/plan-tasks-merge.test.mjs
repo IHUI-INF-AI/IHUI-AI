@@ -12,12 +12,18 @@
  * §5c 溯源水印:本文件受 `scripts/watermark.mjs` 管理。
  */
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
+import {
+  DUP_POINTER_RE,
+  POINTER_FAMILIES,
+  POINTER_NO_AUTO_REPAIR,
+  auditPlan,
+} from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { buildBlockDedupe, healStopReasons, verifyBlockDedupe, buildMerge, __test__ } from '../plan-tasks-merge.mjs'
 import { forkPreserved } from '../lib/plan-merge-annotation.mjs'
@@ -220,11 +226,16 @@ test('T9 F4b 归并出口:无主键的逐字孪生行只加指针、不动勾选
   if (marked.length !== 2) throw new Error(`两族孪生各标一条,实测 ${marked.length}`)
   for (const l of marked) {
     if (!/^- \[ \]/.test(l)) throw new Error(`副本行动了勾选状态:${l.slice(0, 40)}`)
-    if (l.includes('同主键的另一条登记在') && !l.includes('D99'))
+    if (l.includes('同主键的另一条登记') && !l.includes('D99'))
       throw new Error(`无主键行被写成"同主键"= 一句无法核验的假话:${l.slice(0, 60)}`)
   }
-  if (!marked.some((l) => l.includes('逐字相同的另一条登记在')))
-    throw new Error('F4b 的措辞档没生效(说明 hasKey 分档在调用点丢了)')
+  if (!marked.some((l) => /逐字相同的另一条登记/.test(l)))
+    throw new Error('F4b 的措辞档没生效(说明无主键分档在调用点丢了)')
+  // 2026-09-28 契约变更:F4/F4b 新指针**一律不写行号**(§1「证据指针禁止写行号」,而 HEAD 面 244 条
+  // 行号指针全是本工具自己产的、F3 当时一条不认)。这一条锁住病根不复发。
+  for (const l of marked)
+    if (/〔【归并】重复登记副本[^〕]*L\d/.test(l))
+      throw new Error(`新指针又写了行号,下一次 append 就成死指针:${l.slice(0, 80)}`)
   // 幂等:第二次跑不得再加第二句
   const again = buildMerge(m.text, '2026-09-28')
   if (again.changed.length > 0)
@@ -270,4 +281,261 @@ test('T11 正文逐字保留:两代形态各一对正反例,判据与被测实�
   // 反向锁:旧"整行替换"的产出形状不得回来(VERDICT_TAG 前置模板已删)
   if (src.includes('**[${VERDICT_TAG}]**') || src.includes('。 ${body}'))
     throw new Error('legacy 前置模板仍在某处生产新行 —— 守门 71 的循环会复活')
+})
+
+/**
+ * T11 指针族的"判得到 ⇔ 修得了"必须成套,且出口一律不再产行号。
+ * 立项凭据(2026-09-28 现读):HEAD 面 244 条 `另一条登记在 L<行号>` 是**本工具自己写的**,
+ * 而 F3 当时只认 `存活于 L<行号>`(该族现读 0 条)⇒ 账面 F3=0、指针全在烂(§1 明文禁止行号指针)。
+ * 四条锁各防一型:① 族表与修复出口不同集 ⇒ 新加一族判得到却修不了,红永久留给下一个人;
+ * ② 出口再写行号 ⇒ 同一条病复发;③ 无主键分支谎称"同主键" ⇒ 一句无法核验的假话;
+ * ④ 端到端不归零 ⇒ "跑过一次"被当成"修好了"。
+ */
+test('T11 指针族表与修复出口成套,且改写后不留任何行号指针', () => {
+  // 每条族表要么有改写规则、要么显式登记"无自动出口 + 原因":皆无 = 判得到却修不了(红留给下一个人),
+  // 皆有 = 声明自相矛盾。静默"某族没人管"是本仓最贵的那一型失明。
+  const repairs = new Set(Object.keys(__test__.POINTER_REPAIRS))
+  const noExit = new Set(Object.keys(POINTER_NO_AUTO_REPAIR))
+  for (const f of POINTER_FAMILIES) {
+    const has = repairs.has(f.id)
+    const declared = noExit.has(f.id)
+    if (has === declared)
+      throw new Error(
+        `族 ${f.id} 的出口声明不自洽(有改写规则=${has},登记无出口=${declared})⇒ 必须恰好其一`,
+      )
+    if (declared && !String(POINTER_NO_AUTO_REPAIR[f.id] || '').trim())
+      throw new Error(`族 ${f.id} 登记了无自动出口却没写原因`)
+  }
+  if (!repairs.has('dup') || !noExit.has('ref'))
+    throw new Error('dup 族必须有改写规则、ref 族必须登记无自动出口(HEAD 面实测两型各自如此)')
+
+  const k = 'D7#D7甲事'
+  // 指针必须指向**同复合主键的条目行**(L4)才落在"可自动收口"那一型;指向空行属"无出口"型,
+  // 用它当端到端夹具会让断言恒真(第一版就是这样,auto 实测 0 而不是 1)。
+  const dupLine =
+    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L4,派单以那条为准。〕'
+  const fixed = __test__.rewritePointer(dupLine, k)
+  if (/L\d/.test(fixed)) throw new Error(`修复出口仍写着行号:${fixed}`)
+  if (!fixed.includes('另一条登记') || !fixed.includes('「'))
+    throw new Error(`内容锚点没换上,实测:${fixed.slice(0, 140)}`)
+
+  // 无主键分支不得谎称"同主键"(F4b 的孪生行本来就没有编号)
+  const noKey =
+    '- [ ] 重启宿主后 %TEMP% 才真指 D 盘 〔【归并】重复登记副本(2026-09-27):逐字相同的另一条登记在 L5841(本行无编号主键),派单以那条为准。〕'
+  const fixedNoKey = __test__.rewritePointer(noKey, '')
+  if (/L\d/.test(fixedNoKey)) throw new Error(`无主键分支仍写行号:${fixedNoKey}`)
+  if (/同主键/.test(fixedNoKey)) throw new Error('对没有编号的行说"同主键"是一句无法核验的假话')
+  if (!/逐字相同/.test(fixedNoKey)) throw new Error('无主键分支必须保留"逐字相同"这个可核验措辞')
+
+  // 无自动出口那一族必须**原样返回**:它的目标行已不可推断,猜一个锚点等于编造证据
+  const refLine = '- [ ] **D8 乙事**:说明。 〔另见 L9 的那一条。〕'
+  if (__test__.rewritePointer(refLine, k) !== refLine)
+    throw new Error('ref 族登记了无自动出口,改写函数却动了它')
+
+  // 新产的指针一律禁止行号
+  const fresh = __test__.rewriteDup('- [ ] **D9 同一件事**:短的那条。', k, '2026-09-28')
+  if (/L\d/.test(fresh)) throw new Error(`rewriteDup 又产出行号指针 ⇒ 病根复发:${fresh}`)
+  if (!DUP_POINTER_RE.test(fresh)) throw new Error('新指针必须被派单口径认得,否则等于没归并')
+
+  // 端到端:可收口族归零 + 无出口族一处都不能被改动
+  const doc = [
+    '# 计划',
+    '',
+    dupLine,
+    '- [ ] **D7 甲事**:还没人做。',
+    refLine,
+  ].join('\n')
+  const a0 = auditPlan(doc).counts
+  if (a0.rotatedAuto !== 1)
+    throw new Error(
+      `夹具没含"可自动收口"那一型(auto=${a0.rotatedAuto})⇒ 这条端到端断言无牙,换形态而不是删断言`,
+    )
+  const merged = buildMerge(doc, '2026-09-28')
+  const a1 = auditPlan(merged.text).counts
+  if (a1.rotatedAuto !== 0) throw new Error('可自动收口那一族未归零 ⇒ 出口对它失效')
+  if (a1.rotatedNoExit !== a0.rotatedNoExit)
+    throw new Error('无出口那一族被自动改了 = 在编造证据(它必须原样留着交人工)')
+  if (/登记在\s*L\d/.test(merged.text)) throw new Error('输出里仍残留 dup 族的行号指针')
+})
+
+/**
+ * 跑 CLI 一次,并把**工作目录未跟踪清单的前后差集**一起返回。
+ * 为什么必须量这一维:旗标吞噬那一型的全部症状都在这格里 —— `--write-to --staged` 会在
+ * cwd 写出一个名叫 `--staged` 的文件(§28 禁止形态),而期望路径没被写、程序还打印"已写到"。
+ * 只看退出码和 stdout 什么都看不见(归并器自认为写完了),差集才是唯一的物证。
+ */
+function runCli(env, args) {
+  const untracked = () =>
+    gitQ(env.dir, ['status', '--porcelain', '-uall'])
+      .split('\n')
+      .filter((l) => l.startsWith('?? '))
+      .map((l) => l.slice(3))
+      .sort()
+  const before = untracked()
+  let code = 0
+  let out = ''
+  try {
+    out = execFileSync(process.execPath, [env.entry, ...args], {
+      cwd: env.dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+    })
+  } catch (e) {
+    code = e.status ?? 1
+    out = `${e.stdout ?? ''}${e.stderr ?? ''}`
+  }
+  return { code, out, added: untracked().filter((p) => !before.includes(p)) }
+}
+
+/**
+ * T12 (a) 臂:`--write-to --staged` ⇒ 大声拒绝 + 点名收到的 token + **一个文件都不产**。
+ * 立项凭据:改动前该形态把候选文本写成 cwd 下一个名叫 `--staged` 的文件并打印"已写到 --staged",
+ * 期望路径没写、台账没更新,而退出码是 0 —— "判据失效的表现永远是安静"那一型。
+ */
+test('T12 --write-to 被别的旗标顶上:非零退出 + 点名 token + 工作目录零新增文件', () => {
+  const env = fixtureRepo()
+  try {
+    const r = runCli(env, ['--write-to', '--staged'])
+    if (r.code === 0) throw new Error(`无效值必须非零退出,实得 0(等于自认为写完了):${r.out.trim().slice(0, 200)}`)
+    if (!r.out.includes('--staged')) throw new Error(`拒绝必须点名**真实收到的** token:${r.out.trim().slice(0, 200)}`)
+    if (/候选文本已写到/.test(r.out)) throw new Error('拒绝档不得同时宣称已写到')
+    if (r.added.length !== 0) throw new Error(`工作目录多出 ${JSON.stringify(r.added)} —— §28 禁止形态,而它只有 git status 看得见`)
+    if (existsSync(path.join(env.dir, '--staged'))) throw new Error('写出了名叫 --staged 的文件(修复未生效)')
+    // 拒绝也不是回落:文档本体与 HEAD 都必须一字未动
+    if (readFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), 'utf8') !== PLAN_A) throw new Error('拒绝档却改写了文档本体')
+    if (countCommits(env.dir) !== 1) throw new Error('报告档不得产出任何提交')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+/**
+ * T13 (b) 臂:合法路径必须**真的写出且内容正确**。
+ * 只留 T12 会让判据退化成"永远拒" —— 那与放行同样糟(归并器从此交不出候选文本)。
+ */
+test('T13 --write-to 合法路径:真写出、内容就是归并后的候选文本、文档本体没被碰', () => {
+  const env = fixtureRepo()
+  try {
+    const target = path.join(env.dir, 'out', 'candidate.md')
+    mkdirSync(path.dirname(target), { recursive: true })
+    const r = runCli(env, ['--write-to', target])
+    if (r.code !== 0) throw new Error(`合法路径应 exit 0,实得 ${r.code}:${r.out.trim().slice(0, 200)}`)
+    if (!/候选文本已写到/.test(r.out)) throw new Error(`未宣称写到目标:${r.out.trim().slice(0, 200)}`)
+    if (!existsSync(target)) throw new Error('宣称已写到而文件不在(打印与磁盘分叉)')
+    const written = readFileSync(target, 'utf8')
+    // 「翻勾注记长什么样」两侧各写了一份,按「同一想法只留一份」保留较新的一侧:
+    //   · 对侧这一行判的是**前置式** `**[归并]** …`(注记在正文之前);
+    //   · 本侧 G-307 已把注记迁到**行尾全角括号式** `（[归并] …）`、正文留在行首,并由上面那条
+    //     T11 加了反向锁禁止前置模板再生产新行(前置式正是守门 71 回捞循环那 24 枚恢复型提交的成因)。
+    // 判据的**意图**一字未松,反而更严:现在要求「已翻勾 + 当日日期 + 正文回到行首 + 归并注记成套」,
+    // 缺任一项即红。真待办未被吞、内容与输入不同、文档本体未被碰这三条断言逐字未动。
+    if (!/^- \[x\] ✅\(\d{4}-\d{2}-\d{2}\) \*\*D9 同一件事\*\*.*（\[归并\] 本行与已完成登记同题/m.test(written))
+      throw new Error('写出的不是归并后的候选文本(副本行未翻勾)')
+    if (!written.includes('- [ ] **D8 真待办**:还没人做。')) throw new Error('真待办被吞')
+    if (written === PLAN_A) throw new Error('内容与输入逐字相同 ⇒ 什么都没归并')
+    if (readFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), 'utf8') !== PLAN_A) throw new Error('写候选文本却碰了文档本体')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+/**
+ * T14 (c) 臂:`--write-to` 后面什么都不给 ⇒ 与改动前同形(非零 + 拒写),
+ * **绝不得**回落到某个默认路径去写别处(落错地方比不落更糟)。
+ */
+test('T14 --write-to 缺值:保持改动前的拒绝语义,不回落到默认路径', () => {
+  const env = fixtureRepo()
+  try {
+    const r = runCli(env, ['--write-to'])
+    if (r.code !== 1) throw new Error(`缺值应 exit 1(与改动前一致),实得 ${r.code}:${r.out.trim().slice(0, 200)}`)
+    if (!/❌/.test(r.out)) throw new Error(`必须大声拒绝:${r.out.trim().slice(0, 200)}`)
+    if (r.added.length !== 0) throw new Error(`缺值却写出了文件 ${JSON.stringify(r.added)} —— 回落写错地方`)
+    if (existsSync(path.join(env.dir, 'PROJECT_PLAN.md.bak')) || existsSync(path.join(env.dir, 'candidate.md')))
+      throw new Error('存在默认路径回落(本工具不允许)')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+/**
+ * T15 (d) 臂:源码级反向锁 + 判据本身的行为锁。
+ * 为什么两条都要:§22c 记过"镜像测试只复读实现就是复读机" —— 只锁源码文本会跟着漂绿,
+ * 只测行为又防不住有人把裸 `argv[indexOf()+1]` 抄回来却在别处调一个别的谓词。
+ * 判据一律用**从源文件 import 的那一份**(`__test__.flagValue`),不在测试里重写。
+ */
+test('T15 反向锁:裸 argv[indexOf()] 取值不得回来,且取值判据就是源里那一份', () => {
+  const src = readFileSync(new URL('../plan-tasks-merge.mjs', import.meta.url), 'utf8')
+  if (/argv\[argv\.indexOf\('--write-to'\)/.test(src))
+    throw new Error('又回到"把紧邻的下一个 token 当值"的裸取值 —— 本票要修的正是这一格')
+  if (!/flagValue\(argv,\s*'--write-to'\)/.test(src))
+    throw new Error('main() 没有走取值判据(判据在而无人调用 = 没有,守门 70/76/81 同族)')
+  if (!/export function flagValue/.test(src)) throw new Error('判据未 export ⇒ 测试只能自己抄一份(§22c 禁止)')
+  // 无效值那一支必须既点名又非零退出,不得静默忽略旗标
+  const branch = /if \(wt\.present && !wt\.valid\)\s*\{[\s\S]{0,600}?\n  \}/.exec(src)
+  if (!branch) throw new Error('找不到"无效值"那一格拒绝分支(形态变了,本锁需同步)')
+  if (!/return 1/.test(branch[0])) throw new Error('拒绝分支没有非零退出码 ⇒ 调用方读成"跑成功了"')
+  if (!/wt\.token/.test(branch[0])) throw new Error('拒绝分支没点名真实收到的 token')
+  // 判据行为四态(成对:合法值必须放行,否则本校验只是"永远拒")
+  const f = __test__.flagValue
+  if (typeof f !== 'function') throw new Error('__test__.flagValue 未导出 ⇒ 上面那条 export 锁是空的')
+  if (f(['--write-to', '--staged'], '--write-to').valid) throw new Error('- 开头的 token 被判成了合法值')
+  if (f(['--write-to'], '--write-to').valid) throw new Error('缺值被判成了合法值')
+  if (f(['--write-to', ''], '--write-to').valid) throw new Error('空串被判成了合法值')
+  if (f(['--write-to', 'a/b.md'], '--write-to').value !== 'a/b.md') throw new Error('合法路径被拒 ⇒ 归并器交不出候选文本')
+  if (f(['--all'], '--write-to').present) throw new Error('旗标缺席却报"值为空"')
+})
+
+/**
+ * T16 既有的第二格拒绝(PROJECT_PLAN.md 本体)语义一字未动 —— 新校验加在**拒绝链前面**,
+ * 不是替换它。改动前该臂 exit 1 + 那句原文,改动后必须仍是。
+ */
+test('T16 --write-to PROJECT_PLAN.md:原有那格拒绝与原文案未被替换', () => {
+  const env = fixtureRepo()
+  try {
+    const r = runCli(env, ['--write-to', 'PROJECT_PLAN.md'])
+    if (r.code !== 1) throw new Error(`应 exit 1,实得 ${r.code}`)
+    if (!/不允许直接写文档本体/.test(r.out)) throw new Error(`原拒绝文案漂了:${r.out.trim().slice(0, 200)}`)
+    if (r.added.length !== 0) throw new Error(`多出文件 ${JSON.stringify(r.added)}`)
+    if (readFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), 'utf8') !== PLAN_A) throw new Error('文档本体被写')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+// —— 未识别参数不得降级成"无参"(2026-09-28 立,由一条写进台账的幻影出口逼出)——
+// 旧形态只判 includes(已知旗标),不认识的一律静默忽略 ⇒ `--dedupe-done-twins`(从未实现的出口)
+// 会落进默认报告档并打出「✅ 零损失对账通过…派单口径 403 → 403」,读的人没有理由怀疑那个操作
+// 根本没发生。本会话就据此把一条假出口写进了台账 —— 与 i18n-apply 把 --help 当"无参"进写盘模式
+// 同族,只是失效方向从"误写盘"变成"误发合格证"。
+test('A1 inspectArgs:未识别旗标必须点名;合法旗标与两类合法位置参数不得误判', async () => {
+  const mod = await import('../plan-tasks-merge.mjs')
+  const assert = (await import('node:assert/strict')).default
+  const inspectArgs = mod.inspectArgs ?? mod.__test__?.inspectArgs
+  const KNOWN_FLAGS = mod.KNOWN_FLAGS ?? mod.__test__?.KNOWN_FLAGS
+  assert.ok(typeof inspectArgs === 'function' && Array.isArray(KNOWN_FLAGS), '出口必须从模块直接可取(不得靠 __test__ 凑第二份)')
+  assert.deepEqual(inspectArgs(['--dedupe-done-twins']).unknown, ['--dedupe-done-twins'])
+  assert.deepEqual(inspectArgs(['--heal', '--commit']).unknown, [])
+  assert.deepEqual(inspectArgs(['--write-to', 'cand.json', '2026-09-28']).unknown, [])
+  assert.deepEqual(inspectArgs(['--staged', 'oops.json']).unknown, ['oops.json'])
+  assert.ok(KNOWN_FLAGS.includes('--dedupe-blocks'), '已实现的出口必须在白名单里')
+})
+
+test('A2 端到端:从未实现的出口 ⇒ rc=2、原样点名,且绝不打出"通过"档口的结论', async () => {
+  const assert = (await import('node:assert/strict')).default
+  let status = 0
+  let out = ''
+  try {
+    out = execFileSync(
+      process.execPath,
+      [path.join(ROOT, 'scripts', 'plan-tasks-merge.mjs'), '--dedupe-done-twins'],
+      { encoding: 'utf8', cwd: ROOT, timeout: 120000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+  } catch (e) {
+    status = e.status
+    out = `${e.stdout ?? ''}${e.stderr ?? ''}`
+  }
+  assert.equal(status, 2, `未识别参数必须 exit 2(无法判定),实得 ${status}:${out.slice(0, 200)}`)
+  assert.match(out, /未识别的参数:"--dedupe-done-twins"/, '必须原样点名收到的那个 token')
+  assert.doesNotMatch(out, /✅ 零损失对账通过|派单口径/, '拒绝那一趟不得同时打出成功档口的结论')
 })

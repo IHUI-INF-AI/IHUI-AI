@@ -30,6 +30,13 @@ UUID 就能读/改/删别人的记忆(认证 ≠ 授权)。现每个带 user_id 
 调用方一律用返回值喂服务层,杜绝"校验了 A、却仍拿参数里的 B 去查库"的两张皮。
 `/memory/working` 无 user_id 参数(仅 session_id 句柄),不在本票对齐面内
 (session_id 归属另记,见交付报告"同型面")。
+现读补充(2026-09-27 安全票,常驻取证):该端点今日既无端点级鉴权地板也无属主过滤;
+仓内唯一入口是 apps/api v1 网关转发(v1-knowledge-tools.ts:2315-2336,不传
+session_id ⇒ 本路由 422 ⇒ 网关 503,结构死路),且 working 桶不记属主
+(services/memory_service.py:217/:229-240,save() 的 working 分支 :677-680 丢弃
+已解析 owner)⇒ session↔owner 权威来源缺失,**未收紧**。现状钉桩见
+tests/test_memory_authz.py 的 WORKING_PENDING_LEDGER 与 test_working_* 系列;
+收紧前须先定权威来源,不得凭猜造一份,也不得为消红削守门 117 的判据。
 """
 
 from __future__ import annotations
