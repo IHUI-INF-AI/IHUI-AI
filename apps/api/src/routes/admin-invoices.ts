@@ -14,6 +14,7 @@ import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, parseOrThrow, emptyToUndefined } from '../utils/response.js'
 import { eduInvoiceTitles } from '@ihui/database'
+import { isUuidString } from '../utils/uuid.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -80,6 +81,7 @@ export const adminInvoicesRoutes: FastifyPluginAsync = async (server) => {
   // 详情查询
   server.get('/invoices/titles/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    if (!isUuidString(id)) return reply.status(404).send(error(404, '发票抬头不存在'))
     const [row] = await db
       .select()
       .from(eduInvoiceTitles)
@@ -112,6 +114,7 @@ export const adminInvoicesRoutes: FastifyPluginAsync = async (server) => {
   // 3. 更新发票抬头
   server.put('/invoices/titles/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = parseOrThrow(updateBodySchema, request.body)
     const [row] = await db
       .update(eduInvoiceTitles)
@@ -125,6 +128,10 @@ export const adminInvoicesRoutes: FastifyPluginAsync = async (server) => {
   // 4. 删除发票抬头
   server.delete('/invoices/titles/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const [row] = await db.delete(eduInvoiceTitles).where(eq(eduInvoiceTitles.id, id)).returning()
     if (!row) return reply.status(404).send(error(404, '发票抬头不存在'))
     return reply.send(success({ id, deleted: Boolean(row) }))

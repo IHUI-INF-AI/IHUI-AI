@@ -101,7 +101,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
                       style={{
                         width: rpx(40),
                         height: rpx(40),
-                        borderRadius: '50%', // radius-exempt: 40rpx 见方分享图标的真圆(直径=边长),方档化会变方块
+                        borderRadius: '50%',
                         marginRight: rpx(8),
                       }}
                     />

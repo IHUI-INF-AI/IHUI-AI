@@ -8,6 +8,7 @@ import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, logout, type UserInfo } from '@/api'
+import { markSessionLoggedOut } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 
@@ -97,6 +98,10 @@ export default function Settings() {
           } catch {
             // ignore
           }
+          // 顺序要紧:上面把 storage 整片擦了,标记必须写在**擦之后**,否则写下去也被抹掉。
+          // 没有这一道 ⇒ 冷启动没有 token + 是小程序环境 ⇒ wx.login 换一份新凭据静默登回
+          // (判据在 @ihui/shared/auth/auto-login-policy,与 RN / web 同一份实现)。
+          markSessionLoggedOut()
           Taro.showToast({ title: tt('user.loggedOut', '已退出登录'), icon: 'success' })
           setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)
         }

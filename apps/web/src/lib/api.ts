@@ -17,6 +17,8 @@ import { getAuthCookie } from '@/lib/cookie-utils'
 import { getDesktopRefreshToken, setDesktopRefreshToken } from '@/lib/desktop-token-vault'
 import { resolveApiBaseUrl, resolveStreamApiBaseUrl } from '@/lib/api-base-url'
 import { webDeviceFingerprintCollector } from '@/hooks/use-device-fingerprint'
+import { canSilentlyReLogin } from '@ihui/shared/auth/auto-login-policy'
+import { isSessionLoggedOut } from '@/lib/session-marker'
 
 // 2026-07-25 修复 CSRF:内存 token 为 null 时从 auth_token cookie 兜底读取。
 // P2-18 修复(2026-08-06):auth_token 已 httpOnly,getAuthCookie() 恒返回 null,
@@ -32,6 +34,10 @@ setTokenProvider({
   // cookie,改从 Tauri store(auth.json)读 refreshToken 走 body 模式(后端 /auth/refresh
   // bodyToken 优先于 cookieToken);轮转写入由 stores/auth.ts setToken 统一落 vault。
   refreshAccessToken: async () => {
+    // 会话已被用户结束 ⇒ 不再静默续期(与 RN lib/token.ts 的"本地会话已结束则返回 null"同形)。
+    // 不拦这一道:登出后任何一次 401 都可能借服务端那份仍有效的 httpOnly cookie 把用户登回去。
+    // 判据住在 @ihui/shared/auth/auto-login-policy;清除点在登录写入凭据时(stores/auth.ts setToken)。
+    if (!canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })) return null
     const storedRefresh = await getDesktopRefreshToken() // 浏览器返回 null → cookie 模式不变
     const res = await fetchApiShared<{
       accessToken: string

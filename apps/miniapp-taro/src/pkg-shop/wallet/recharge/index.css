@@ -53,7 +53,7 @@
 .rc-user-avatar {
   width: 80rpx;
   height: 80rpx;
-  border-radius: 50%; /* radius-exempt: 充值页用户头像正圆 */
+  border-radius: 50%;
   background: var(--color-muted);
 }
 .dark .rc-user-avatar {
