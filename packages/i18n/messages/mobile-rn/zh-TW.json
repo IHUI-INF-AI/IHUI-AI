@@ -1035,6 +1035,8 @@
   "courseFilter": {
     "title": "篩選課程",
     "subtitle": "按條件找到適合你的課",
+    "categoryRange": "分類",
+    "difficultyRange": "難度",
     "priceRange": "價格區間",
     "reset": "重設",
     "apply": "確定",
@@ -1043,9 +1045,15 @@
     "instructor": "講師",
     "free": "免費",
     "loadFailed": "載入篩選失敗",
+    "loadingMore": "正在載入更多",
     "price_all": "全部",
     "price_free": "免費",
-    "price_paid": "付費"
+    "price_paid": "付費",
+    "difficulty_all": "全部",
+    "difficulty_beginner": "入門",
+    "difficulty_intermediate": "進階",
+    "difficulty_advanced": "高級",
+    "noCategories": "暫無可選分類"
   },
   "courseQAAsk": {
     "title": "課程提問",
