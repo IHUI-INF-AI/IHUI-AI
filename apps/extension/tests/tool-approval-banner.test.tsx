@@ -162,14 +162,17 @@ describe('ToolApprovalBanner 渲染层', () => {
     expect(html).toContain('agent.reject')
   })
 
-  it('两枚按钮各渲染一次,且 testid 与封闭档集逐字对齐(加档没配样式即红)', () => {
+  it('三枚按钮各渲染一次,testid 与封闭档集逐字对齐,且没有 always 档', () => {
     const html = render(RESOLVABLE_EVENT)
+    // 逐档对齐:档集与渲染必须同形(加档没配样式 / 配了样式没进档集,都会在这里红)
+    expect(APPROVAL_BUTTON_KINDS).toEqual(['approve', 'approve-session', 'reject'])
     for (const kind of APPROVAL_BUTTON_KINDS) {
       const marker = `data-testid="tool-approval-${kind}"`
       expect(html.split(marker).length - 1).toBe(1)
     }
-    // 档集之外不得凭空多出第三枚审批按钮
-    expect(html).not.toContain('tool-approval-approve-session')
+    // 第三档的词键必须真在 HEAD 的五语言包里(键到位才准出按钮,顺序不得颠倒)
+    expect(html).toContain('chat.approveForSession')
+    // always 仍然不出:比 session 又大一档,且至今没有逐字等义词
     expect(html).not.toContain('tool-approval-always')
   })
 
@@ -181,24 +184,34 @@ describe('ToolApprovalBanner 渲染层', () => {
 })
 
 describe('ToolApprovalBanner 判定层:决策装配', () => {
-  it('批准 ⇒ (approve, once);拒绝 ⇒ (reject) 且不带作用域', () => {
+  it('三档装配:approve⇒once、approve-session⇒session、reject 不带作用域', () => {
     expect(resolveApprovalAction('approve')).toEqual({ decision: 'approve', scope: 'once' })
+    expect(resolveApprovalAction('approve-session')).toEqual({
+      decision: 'approve',
+      scope: 'session',
+    })
     expect(resolveApprovalAction('reject')).toEqual({ decision: 'reject' })
     // 显式断「没有」:reject 若被顺手带上 scope,后端会收到无意义的作用域字段
     expect(resolveApprovalAction('reject')?.scope).toBeUndefined()
   })
 
   it('认不出的档返回 null,绝不猜一个默认决策', () => {
-    // 'approve-session' 是**本票刻意不做**的第三选择(缺逐字等义词键),这里钉它不可达
-    expect(resolveApprovalAction('approve-session' as never)).toBeNull()
+    // 改判记录:2026-09-28 之前 'approve-session' 是刻意不可达的(词键没到位);
+    // 词键随提交 3a8726494e 落包后本档已可达(见上一条用例),这里只留"仍然不存在"的档。
     expect(resolveApprovalAction('always' as never)).toBeNull()
+    expect(resolveApprovalAction('approve-always' as never)).toBeNull()
+    // 空串/undefined 也不能被读成"默认 once"—— 那会让一次误点变成放行
+    expect(resolveApprovalAction('' as never)).toBeNull()
   })
 
   it('最小特权反向锁:任何档的装配结果都不得是 scope=always', () => {
     for (const kind of APPROVAL_BUTTON_KINDS) {
-      expect(resolveApprovalAction(kind)?.scope).not.toBe('always')
+      const a = resolveApprovalAction(kind)
+      expect(a?.scope).not.toBe('always')
+      // 批准档只能是 once / session 两种,拒绝档不带作用域
+      if (a?.decision === 'approve') expect(['once', 'session']).toContain(a.scope)
     }
-    // 源码面同锁(判据写进注释里也会被这条抓到,所以组件里连该字面量都不许出现)
+    // 源码面同锁:组件里连该字面量都不许出现(写了就是给未来的"顺手加一档"留门)
     expect(CODE).not.toMatch(/['"]always['"]/)
   })
 })
