@@ -153,7 +153,7 @@ export function TerminalPanel() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded-lg border border-border bg-card">
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-card">
       <TerminalTabBar
         sessions={sessions}
         activeSessionId={activeSessionId}
