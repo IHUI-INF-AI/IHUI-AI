@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
@@ -12,7 +12,8 @@ import { tokens } from '../theme/active-tokens'
 import { useAuth } from '../context/AuthContext'
 import { setUnauthorizedHandler } from '@ihui/api-client'
 import { logoutAuth } from '../stores/auth-store'
-import { navigateTo } from './navigation-ref'
+import { navigateTo, navigationRef } from './navigation-ref'
+import { authArrivalAction } from './auth-arrival'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { useUiControlBridge } from '../hooks/use-ui-control-bridge'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
@@ -580,6 +581,27 @@ function RootNavigatorInner() {
       })
     })
     return () => setUnauthorizedHandler(null)
+  }, [token])
+
+  /**
+   * 令牌"无→有"那一次,如果人还停在 Login / Register,必须主动把他送出去(#31)。
+   *
+   * 为什么条件渲染不够:`Login` 自 2026-09-27 起在**两个分支都注册**(会话失效出口要它同步可达),
+   * React Navigation 换树时按路由名对齐当前路由 ⇒ 树翻了、路由名仍是 `Login`、界面原地不动。
+   * 真机实测:SSO 深链换到令牌并落库(冷启即已登录),而 +3s / +8s 两次采样都还停在登录页。
+   * 判据只认"上一次没有、这一次有" —— 带着令牌被 401 出口送去 Login 的那条路不得赶走(锁 A 要求)。
+   */
+  const prevTokenRef = useRef<string | null>(token)
+  useEffect(() => {
+    const action = authArrivalAction({
+      hadToken: Boolean(prevTokenRef.current),
+      hasToken: Boolean(token),
+      routeName: navigationRef.getCurrentRoute()?.name,
+    })
+    prevTokenRef.current = token
+    if (action !== 'reset-to-main') return
+    if (!navigationRef.isReady()) return
+    navigationRef.reset({ index: 0, routes: [{ name: 'Main' }] })
   }, [token])
 
   useEffect(() => {
