@@ -7161,6 +7161,7 @@
       "terminatedCancelled": "Cancelled",
       "terminatedQuotaExceeded": "Quota exceeded",
       "terminatedPreempted": "Preempted",
+      "unrecognizedStatus": "Unrecognized",
       "worker": "Worker",
       "workspace": "Workspace",
       "low": "Low",
