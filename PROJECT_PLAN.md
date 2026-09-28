@@ -7214,7 +7214,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   ii 落地验收链(`plan-tasks-merge.mjs:741` 那条「F4 必须归零」)升级为「F4=0 ∨ 剩余副本各有终端」。
   **只改 i 会让归并器每次自我拒绝**(副本归不了零 ⇒ `healStopReasons` 停手 ⇒ 自动档永不生效),与恒红门同罪(§12e),
   所以这一格归台账判据持有人裁决,不由本票顺手改收敛链。
-  **⑤ 三笔既有连带后果的现值**:取号面纳入归档件 —— 本会话未动 `next-plan-id.mjs`/`live-doc-edit.mjs`(另路实现票在做);
+  **⑤ 三笔既有连带后果的现值**:取号面纳入归档件 —— **本会话实测否证了"把归档件拼进取号扫描面"这条路**:`usedIdsOfPrefix` 只认**行首**编号,而归档件里的行首登记最大只到 `G-251`、台账已到 `G-383`,拼接抬不动 max(归档正文里 `G-369` 这类只是行内引用,lib 不认)。正解要改 `scripts/lib/plan-task-index.mjs` 的编号权威判据(该文件此刻由他人持有未提交)⇒ 归该门持有人;`node scripts/next-plan-id.mjs --check` 现读仍报 `O82 ×5`/`O86 ×7` 等重号在账,与"回退"无关、属另一型。本会话未动 `next-plan-id.mjs`/`live-doc-edit.mjs`;
   门 57 的 `entryCount` 已有他人会话在工作树写 `archiveFaceFor`(归属他人,本票不碰、不代交);
   门 130 的 F5 基线判据住在 `scripts/plan-task-index.mjs`(该文件此刻 ` M`,只登记不代改);F6 现读 0 块(逐字重复已被并发清偿)。
 
