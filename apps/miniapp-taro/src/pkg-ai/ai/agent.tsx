@@ -297,10 +297,10 @@ export default function AgentPage() {
 
   return (
     <View className="min-h-screen bg-background">
-      {/* ===== 轮播图(对齐原项目 tools/index.vue Carousel 组件;RN carouselWrap: mt18/mx20/圆角30rpx)===== */}
+      {/* ===== 轮播图(对齐原项目 tools/index.vue 的 Carousel 组件;本屏只留外边距,
+          圆角归组件根单点声明。旧注释把 RN 侧的圆角写成另一个数,那是抄来的、不是档位表上的)===== */}
       <View className="px-[20rpx] pt-[18rpx] pb-[8rpx]">
         <Carousel
-          className="rounded-2xl"
           items={[
             {
               id: 'b1',

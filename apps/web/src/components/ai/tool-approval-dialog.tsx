@@ -340,7 +340,6 @@ export function ToolApprovalDialog() {
             className={
               // 与 ui-react Button default 定稿同档(h-9/px-4/rounded-sm);门的 panel 类别来自
               // "模态文件"的容器推断而非元素本身,逐档裁决见 PROJECT_PLAN 圆角线条目。
-              // radius-role-exempt: 页脚两个按钮是控件不是容器,到期由该门持有人改判据或本处改回 until 2026-11-27
               'inline-flex h-9 items-center gap-1.5 rounded-sm border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50'
             }
           >
@@ -355,7 +354,6 @@ export function ToolApprovalDialog() {
             className={
               // 同上:主按钮实底 + 前景已成对(bg-cta / text-cta-foreground,守门 83 R5 认这套),
               // 半径取控件档,门的 panel 类别来自"模态文件"的容器推断而非元素本身。
-              // radius-role-exempt: 页脚主按钮是控件不是容器,到期由该门持有人改判据或本处改回 until 2026-11-27
               'inline-flex h-9 items-center gap-1.5 rounded-sm bg-cta px-4 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50'
             }
           >
