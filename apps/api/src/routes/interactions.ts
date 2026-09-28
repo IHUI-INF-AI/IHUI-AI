@@ -17,6 +17,7 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { isUuidString } from '../utils/uuid.js'
 import { commentLikes } from '@ihui/database'
 import { findComments, createComment, likeComment, unlikeComment } from '../db/comment-queries.js'
 import { followUser, unfollowUser, isFollowing } from '../db/social-queries.js'
@@ -48,7 +49,7 @@ const commentListQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional().default(0),
 })
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 
 // ============================================================================
 // Routes
@@ -78,7 +79,7 @@ export const interactionsRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /interactions/like/:commentId — 取消点赞
   server.delete<{ Params: { commentId: string } }>('/like/:commentId', async (request, reply) => {
     const { commentId } = request.params
-    if (!UUID_RE.test(commentId)) {
+    if (!isUuidString(commentId)) {
       return reply.status(400).send(error(400, 'commentId 必须为 UUID'))
     }
     await unlikeComment(commentId, request.userId!)
@@ -88,7 +89,7 @@ export const interactionsRoutes: FastifyPluginAsync = async (server) => {
   // GET /interactions/like/check?commentId=xxx — 查询是否已点赞
   server.get<{ Querystring: { commentId?: string } }>('/like/check', async (request, reply) => {
     const cid = request.query.commentId
-    if (!cid || !UUID_RE.test(cid)) {
+    if (!cid || !isUuidString(cid)) {
       return reply.status(400).send(error(400, 'commentId 必须为 UUID'))
     }
     const [row] = await db
@@ -118,7 +119,7 @@ export const interactionsRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /interactions/follow/:userId — 取消关注
   server.delete<{ Params: { userId: string } }>('/follow/:userId', async (request, reply) => {
     const { userId: targetId } = request.params
-    if (!UUID_RE.test(targetId)) {
+    if (!isUuidString(targetId)) {
       return reply.status(400).send(error(400, 'userId 必须为 UUID'))
     }
     await unfollowUser(request.userId!, targetId)
@@ -128,7 +129,7 @@ export const interactionsRoutes: FastifyPluginAsync = async (server) => {
   // GET /interactions/follow/status?userId=xxx — 关注状态
   server.get<{ Querystring: { userId?: string } }>('/follow/status', async (request, reply) => {
     const tid = request.query.userId
-    if (!tid || !UUID_RE.test(tid)) {
+    if (!tid || !isUuidString(tid)) {
       return reply.status(400).send(error(400, 'userId 必须为 UUID'))
     }
     const following = await isFollowing(request.userId!, tid)

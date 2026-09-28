@@ -11,6 +11,7 @@ import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { sanitizeCsvCell } from '../utils/csv-utils.js'
 import { batchWriteOutcome } from '../utils/batch-outcome.js'
+import { isUuidString } from '../utils/uuid.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { db, dbRead } from '../db/index.js'
@@ -325,6 +326,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // GET /agents/:agentId - 代理详情
   server.get('/agents/:agentId', async (request, reply) => {
     const { agentId } = agentIdParam.parse(request.params)
+    // 形状闸必须在进 SQL 之前:`agents.agent_id` 是 uuid 列,把 'carousel' 这种字符串喂给
+    // `eq()` 会让 Postgres 抛 22P02 ⇒ 游客可访问的这条路由对"根本不存在的一段"回 **500**,
+    // 于是"不存在"与"服务坏了"在响应上完全同形(2026-09-28 真机普查实测)。
+    if (!isUuidString(agentId)) return reply.status(404).send(error(404, '智能体不存在'))
     const detail = await getAgentDetail(agentId)
     // 游客视图(2026-09-21 市场公开化):仅已发布可见,响应脱敏(不含 prompt/bot 配置)
     if (!detail?.agent) return reply.status(404).send(error(404, '智能体不存在'))
@@ -374,6 +379,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // PUT /agents/:agentId - 更新代理
   server.put('/agents/:agentId', async (request, reply) => {
     const { agentId } = agentIdParam.parse(request.params)
+    // 写侧同形:畸形 id 是**客户端错误**,不该走到 SQL 再冒成 500(读侧用 404 是不泄露存在性)
+    if (!isUuidString(agentId)) return reply.status(400).send(error(400, 'agentId 格式不正确'))
     const body = z
       .object({
         name: z.string().optional(),
@@ -398,6 +405,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /agents/:agentId - 删除代理
   server.delete('/agents/:agentId', async (request, reply) => {
     const { agentId } = agentIdParam.parse(request.params)
+    if (!isUuidString(agentId)) return reply.status(400).send(error(400, 'agentId 格式不正确'))
     const agent = await deleteAgent(agentId, request.userId)
     if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
     return reply.send(success({ deleted: true }))
