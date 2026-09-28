@@ -65,7 +65,7 @@ export default function ChatFavoritesPage() {
         <button
           type="button"
           onClick={() => void load()}
-          className="px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+          className="px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
         >
           {t('common.retry')}
         </button>
@@ -87,7 +87,7 @@ export default function ChatFavoritesPage() {
         items.map((f) => (
           <Card
             key={f.id}
-            className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
+            className="rounded-lg border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
             onClick={() => openItemInWeb(`/chat/favorites/${encodeURIComponent(f.id)}`)}
           >
             <CardContent className="p-3 min-[640px]:p-3">
