@@ -29,11 +29,14 @@ import {
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 31 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction)', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(31)
-    expect(SSE_EVENT_NAMES).toHaveLength(31)
+  it('包含全部 32 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction;D152: + goal_updated)', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(32)
+    expect(SSE_EVENT_NAMES).toHaveLength(32)
     // 光有计数会放过"删了别的、加了这个",新帧必须点名在位:
     expect(SSE_EVENTS.TERMINAL_INTERACTION).toBe('terminal_interaction')
+    // D152(2026-09-29):目标状态单帧(cleared 由 status 承载,无 goal_cleared 第二帧)
+    expect(SSE_EVENTS.GOAL_UPDATED).toBe('goal_updated')
+    expect(SSE_EVENT_NAMES as readonly string[]).not.toContain('goal_cleared')
   })
 
   // V3 #63(2026-09-27 落地生产者):form_request 按 contract.ts 自己写在
@@ -147,6 +150,8 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   // V3 #63(2026-09-27 落地生产者后并回契约):对话流业务表单下行帧。
   // 上行那一条 form_response **不在这里**(它不是 SSE 事件,见 contract.ts 第 3 条)。
   FORM_REQUEST: 'form_request',
+  // D152(2026-09-29):会话目标状态的下行帧(单帧,cleared 由 status 承载)
+  GOAL_UPDATED: 'goal_updated',
   DONE: 'done',
   ERROR: 'error',
   COMPACTION: 'compaction',
@@ -192,6 +197,8 @@ const UNION_MEMBER_BY_NAME: Record<SSEEventName, SSEEventPayload['type']> = {
   terminal_delta: 'terminal_delta',
   // D151(2026-09-29):命令在等键盘输入的一帧(判别联合成员见 contract.ts)
   terminal_interaction: 'terminal_interaction',
+  // D152(2026-09-29):会话目标状态帧(判别联合成员见 contract.ts)
+  goal_updated: 'goal_updated',
   terminal_end: 'terminal_end',
   terminal_start: 'terminal_start',
   thinking: 'thinking',
