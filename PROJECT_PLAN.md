@@ -330,7 +330,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 <!-- 已归档(2026-09-28:✅(2026-09-25)**新尺子(层的镜像套件第四型)**:`判"远端在哪"只许走层` —— 扫 HEAD 的 `s,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 - **本票未做的两件(归属明确,不是遗漏)**:① O74 的 ②(对齐器长期失败要经 §5e 喊到人)仍在原票;② 尺子只在**同一文件既没走层也没问服务器**时才响 ⇒ 一个"走层了但又在别处偷用残值"的文件它看不见(宁漏不误报的代价),要收得更紧得先做调用点级数据流,不属本票范围。
 ## O77 型 B 棘轮在 HEAD 上是红的:归属与精确修法(2026-09-25 登记,**未修**)
-<!-- 已归档(2026-09-28:✅(2026-09-26) **归属:守门 116 持有者(本票不认领、不抬基线)** —— 层的"常量绑裸 git"棘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **归属:守门 116 持有者(本票不认领、不抬基线)** —— 层的"常量绑裸 git"棘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md 〔【归并】O7 落账:复测 2026-09-26 -->
 
 | `upsert-ts` | 有主键 + `updated_at` | `ON CONFLICT DO UPDATE ... WHERE EXCLUDED.updated_at > t.updated_at`(本地更新才覆盖) |
 | `insert-only` | 有主键、无 `updated_at` | `ON CONFLICT DO NOTHING`(只补缺、不改旧) |
@@ -1793,7 +1793,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 
 #### B4g 第 11 轮补证（G-112~G-113 + 两处自我纠正）
 
-<!-- 已归档(2026-09-28:✅(2026-09-26) **D81 活动条目双时态语法(G-112/G-113)**:按 Codex `widget,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **D81 活动条目双时态语法(G-112/G-113)**:按 Codex `widget,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md 〔【归并】D81 落账:复测 2026-09-26 -->
 
 
 <!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「D81」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
@@ -4759,7 +4759,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [ ]（进行中） **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件(`DeveloperKeyDialog` / `AiGenerationContent` / `PermissionSelector` / `helpers`),**逐条按内容复核后全部不在 HEAD**(`git grep <新键名> HEAD -- apps/web` 四处均 0 命中),工作区也已被并发会话覆盖 → 判为**丢失需重做**,不要当成已完成。中途我一度按"工作区里有"记成"已落地",那是读到了被覆盖前的窗口 —— 并行期复核一律以 **HEAD 对象树内容**为准(档案第 4 节已记此教训)。
 <!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「O13b」),是被并发并集留下的未翻勾副本 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 - [ ] **他人账，本票未代改（登记事实与解阻判据）**：门 103 **全量**档 exit 1 报 2 处，红在
-<!-- 已归档(2026-09-28:✅(2026-09-26)**D64 小元素包(G-72/75/77/79/82/83)**:①Credits 热力图(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26)**D64 小元素包(G-72/75/77/79/82/83)**:①Credits 热力图(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md 〔【归并】D64 落账:复测 2026-09-26 -->
 >
 >
 <!-- 已归档(2026-09-28:✅(2026-09-26)（完成:提交 c80253f29b7 —— 栈单一来源落 packages/ui-react/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
@@ -4777,7 +4777,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [ ] **本线仍未闭环的一件(归属明确,不是遗漏)**:守门 93 的 **R1/R2/R4/R5 那半边仍按磁盘读** 两份 token 源文件,而同文件 R3 段头(`scripts/check-cross-end-tokens.mjs:1367`)自己写着"扫**仓库内容**,不扫共享工作树的未提交缓冲区"⇒ 同一道门两种取材面,AGENTS「口径同 77/83/98:全量判 HEAD blob」对它**只对了一半**。静态证据(本机不得为取证去改共享 token 文件,故不给动态复现):`grep -n "readFileSync(RN_TOKENS_PATH\|readFileSync(TOKENS_CSS_PATH" scripts/check-cross-end-tokens.mjs` 命中 1297/1298/1563 三处主流程读取。**当前不构成红点**(实测两文件工作树==HEAD),按"未引爆不动他人面"登记;解阻判据:任一 `pnpm check:all` 轮里这道门因这两份文件报出与本次提交内容无关的差异,即当场按 R3/R6 同形收口(HEAD / 索引 + `--worktree` 逃生舱)。
 <!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「O80 · 存量漂移一条」),是被并发并集留,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 **留一条一般化结论**:*镜像测试若只复刻实现的形状,它就只是实现的复读机* —— 凡是"从某个真实文件里取形态"的判据,至少要有一条用例的输入**逐字取自那个真实文件**,否则实现和对象一起漂而测试永远绿。
-<!-- 已归档(2026-09-28:✅(2026-09-26) **紧急(他人暂存态,非本会话所为,2026-09-24 11:0x 发现)**:**索引里,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **紧急(他人暂存态,非本会话所为,2026-09-24 11:0x 发现)**:**索引里,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md 〔【归并】D62 落账:复测 2026-09-26 -->
 - [ ] **紧急(他人暂存态,非本会话所为,2026-09-24 11:0x 发现)**:**索引里有 16 条"已暂存的删除"**,一次不带 pathspec 的普通 commit 就会把这些**已入库功能从版本树删掉**。清单含三个成体系功能族 + 一道守门:① D62 语音字幕(`packages/shared/src/chat/voice-subtitles.ts` + web 组件 + 测试)、② D91 批注锚点(`annotation-anchors.ts` 同族)、③ D67 额度归属(`quota-ownership.ts` 同族)、④ **并发会话 cb99ef0c 刚提交的 `apps/mobile-rn/src/theme/color-scheme-sync.ts` 及其测试与 NativeWind mock**(删掉即把"App 主题开关驱动 NativeWind"这次修复整体回退)、⑤ `scripts/check-home-junctions.mjs` + 其镜像测试。**判为误删而非迁移的依据**:索引里的桶文件 `packages/shared/src/chat/index.ts` **与 HEAD 一字未改且仍导出这三模块**(二者矛盾 ⇒ 构建必炸,实测 Metro 就在 `export * from './voice-subtitles'` 处失败),且`git ls-files` 全仓**无替代路径**。**本会话处置边界**:只把 13 个文件(2626 行)的内容**恢复到工作区**让构建可用,**索引一字未动** —— 是否撤销这些暂存删除由制造它们的会话自己决定(§5b:他人已暂存的删除只报数、不代裁)。取证:`git diff --cached --diff-filter=D --name-only`;复跑恢复:`node .ihui-agent/tmp/rn-build/restore-worktree.mjs`。**另注**:`heal-worktree-tracked.mjs --check` 此时报"工作区已跟踪文件存续正常"—— 其判据②要求"索引 blob == HEAD blob",而暂存删除使该条件不成立,故**这类"已暂存的删除"不在存续自愈覆盖面上**,是一道无人看的路;要闭环需在守门侧对 `--diff-filter=D` 的暂存删除单独计数并阻断(未擅自新增守门,留单)。 〔【归并】重复登记副本(2026-09-27):逐字相同的另一条登记 (与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
 <!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与另一条已完成登记**正文逐字等值**(该登记开头「**紧急(他人暂存,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 <!-- 已归档(2026-09-28:第五十一波·续末五 —— G-231 穷尽式恒红门审计 + 告警/跳门总量首次可量 + 收敛器不再自造全链跳门(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
