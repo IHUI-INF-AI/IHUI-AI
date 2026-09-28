@@ -119,14 +119,14 @@ export default function LiveList() {
             </Text>
           </View>
           <View
-            className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
+            className="flex-1 bg-card ui-card rounded-lg py-2.5 flex items-center justify-center"
             onClick={() => Taro.navigateTo({ url: '/pkg-learn/live/calendar' })}
             hoverClass="opacity-60"
           >
             <Text className="text-sm text-foreground">{tt('live.calendarBtn', '📅 日历')}</Text>
           </View>
           <View
-            className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
+            className="flex-1 bg-card ui-card rounded-lg py-2.5 flex items-center justify-center"
             onClick={() => Taro.navigateTo({ url: '/pkg-learn/live/subscribe' })}
             hoverClass="opacity-60"
           >
@@ -135,7 +135,7 @@ export default function LiveList() {
             </Text>
           </View>
         </View>
-        <View className="flex mb-[24rpx] bg-card rounded-xl">
+        <View className="flex mb-[24rpx] bg-card ui-card rounded-lg">
           {tabs.map((tab) => (
             <View
               key={tab.key}

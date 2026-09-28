@@ -123,7 +123,7 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
 export function KanbanTaskCardEmpty() {
   const t = useTranslations('agents.kanban')
   return (
-    <div className="flex items-center justify-center rounded-md border border-dashed py-6 text-xs text-muted-foreground">
+    <div className="flex items-center justify-center ui-card rounded-lg border border-dashed py-6 text-xs text-muted-foreground">
       <CenteredText enabled={false}>{t('empty')}</CenteredText>
     </div>
   )

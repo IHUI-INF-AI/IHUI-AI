@@ -240,7 +240,7 @@ export default function LiveHost() {
               {tt('liveHost.productManagement', '商品管理')}
             </Text>
             <View
-              className="rounded-xl bg-[var(--color-card)] px-[16rpx] py-[8rpx]"
+              className="ui-control rounded-sm bg-[var(--color-card)] px-[16rpx] py-[8rpx]"
               onClick={() =>
                 Taro.showToast({
                   title: tt('liveHost.addProductToast', '商品添加功能待接入'),
