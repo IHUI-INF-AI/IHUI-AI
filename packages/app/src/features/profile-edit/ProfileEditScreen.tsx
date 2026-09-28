@@ -18,7 +18,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Camera, SquarePen } from 'lucide-react-native'
 import type { Gender, ProfileEditScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 /** 资料编辑共享屏 — props 注入式跨端组件(wrapper 负责 getProfile / updateProfile / Alert) */
@@ -302,7 +302,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     modalCard: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadiusFor.panel,
       padding: 14,
       width: '100%',
     },
