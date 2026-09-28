@@ -1,0 +1,128 @@
+# ============================================================
+# ai-service 对外能力白名单(server 级片段)—— 2026-09-28 立(机主拍板:按能力目录逐项放开)
+# ============================================================
+#
+# 本文件**不是** http 级配置:它以 `.fragment` 结尾,故 `nginx.conf` 的
+# `include /etc/nginx/conf.d/*.conf` 不会把它当独立配置读入(那样会因缺 server 壳而
+# `nginx -t` 直接失败)。它只被两处 `include`:
+#   ① 同目录 public-ai-service.conf 的专用 server 块(默认档,见该文件头注);
+#   ② 主站 deploy/nginx/nginx-blue-green.conf 的 443 server 块 —— **本次未接线**,
+#      因为该文件在本票文件清单之外;要挂主站,由该文件持有人在 server 块内加一行
+#      `include /etc/nginx/conf.d/public-ai-service.locations.fragment;`
+#      (位置与 `location /api/` 之前之后无关:本片段全部是 `location =` 精确匹配,
+#       nginx 的精确匹配优先于任何前缀匹配,不会与 `/api/` 抢序,也不会反向继承它。)
+#
+# ── 为什么白名单只写"精确匹配",不写 `^~ /api/mcp/` 也不写正则 ──────────────
+# AGENTS §5 的明文禁令:兜底正则(`/api/<前缀>/[^/]+` 这类)会把**静态子路由**一起放行。
+# 本仓实测过该型的后果:`/api/agents/[^/]+` 让 `/agents/health` 游客可达,而
+# `/agents/need-tasks` 的 handler 依赖 `request.userId` ⇒ 游客走到它不是 401 而是 **500**
+# (fail-open 崩在鉴权层后面)。`location =` 是唯一"新增端点不会因落在同一前缀下而被
+# 顺手开放"的形态:开放面只能靠**显式加一条**扩大。因此本片段**禁止**出现
+# `location ~` / `location ~*` / `location ^~` / 裸前缀 `location /api/…/`
+# (该禁令由 apps/api/tests/o5-nginx-edge-ratelimit.test.ts 判据 ⑪ 与
+#  scripts/check-public-exposure-list.mjs 的 X5 双向钉住)。
+# 若将来确有"一族多静态段"的需求:用正则**必须**配一张静态段排除表(参照
+# apps/api 的 AGENTS_PROTECTED_STATIC_SEGMENTS),并把排除表项逐条登记进下面的注释块。
+#
+# ── 每条开放项必须同时具备的三件事(缺一即本票判"暴露与鉴权不同位") ──────────
+#   a) 能力目录里有该 scope、`host:'ai-service'`、`thirdPartyEligible:true`、
+#      `dataClass != platform`  ⇒ 由 scripts/check-public-exposure-list.mjs 的 X3 现读对账;
+#   b) 身份只能来自**凭据本身**:ai-service 侧唯一出口是
+#      app/services/capability_gate.py::resolve_principal_from_headers —— 只认
+#      HS256 用户 JWT(`Authorization: Bearer`)或 HMAC 签名的内网头 X-IHUI-Principal,
+#      机器 key(ihui_ / X-Api-Key)**一律显式 401**;它不读任何请求体/Query 里自报的 userId;
+#   c) 本片段把 b) 的两条"可信通道"里**只有公网不该有**的那条剥掉:见每个 location 里的
+#      `proxy_set_header X-IHUI-Principal "";`。不剥的后果:内网头一旦被外部携带即等于
+#      冒名(它是"apps/api 在内网签发给 ai-service 的"凭据,公网面没有任何理由收到它)。
+#      `X-Api-Key` 同样剥掉 —— 不是因为它能通权(ai-service 见到就 401),而是为了让
+#      "为什么被拒"只有一种答案,不把产品语义的 401 变成排障谜题。
+#
+# ── 回退(一行,把整个对外面收回零暴露)────────────────────────────────────
+#   mv /etc/nginx/conf.d/public-ai-service.locations.fragment \
+#      /etc/nginx/conf.d/public-ai-service.locations.fragment.off && nginx -t && nginx -s reload
+#   ⚠️ 走"②主站 include"那条路时,只挪本文件即可:nginx 对找不到的 include 路径是
+#   **启动即失败**(不是静默跳过),所以漏放/挪走都不会变成"配置在而闸没了"的静默降级。
+#
+# ── 与本仓另两份"对外清单"的关系(必须一起读,否则就是三份真相各自漂移)────────
+# 现读到的同名机制共三处,层级不同、不是重复,但**必须由脚本对账**:
+#   (A) `packages/types/src/capability-catalog.ts` —— 资格面:"这个 scope 是什么、
+#       能不能对机器开放"(全局契约,跨端消费)。
+#   (B) `apps/web/src/config/ai-service-edge.ts`(O20,`ce7b9880ffd` 2026-09-26)——
+#       **Next.js rewrites 形态**的边缘表,命名空间 `/ai-service/*`,双开关
+#       `IHUI_AI_SERVICE_EDGE_ENABLED=true` + `IHUI_AI_SERVICE_EDGE_BASE_URL`
+#       (缺省即一条 rewrite 都不注册 = 默认拒绝),并由 `apps/web/tests/ai-service-edge.test.ts`
+#       从 (A) 现算期望集合双向对账。
+#   (C) 本片段 + docker 侧对应 location —— **nginx 形态**的边缘表。
+# 为什么要 (C):`output:'export'` 的静态导出**不跑 Next middleware/rewrites**,
+# 而 A 套壳那套部署由 nginx 直接对公网(docker-compose.yml 里 web 侧就是 nginx),
+# 所以 (B) 在那台机上结构性不生效 —— 只登记 (B) 等于"清单在、闸不在"。
+# 对账出口:`node scripts/check-public-exposure-list.mjs --worktree`(warn / 手动档),
+# 它逐条比 (A)(B)(C) 三方,(B) 与 (C) 的差异**只报数并点名**(两侧语义层级不同,
+# 当场判红就是一台与任何提交都无关的恒红门,§12e 同型)。
+# ⚠️ 已知的一处真实分歧(不在本票内擅改):(B) 放了 `connectors:read` 的
+#   `GET /api/connectors`,而本票判它 ③ 判不准(端点无属主过滤,详见下方③段)。
+#   收敛方向只有两条:给端点补 owner 过滤后两边一起放开,或按本票把它从 (B) 摘掉。
+#   该处置属 (B) 与 ai-service routers 的持有人,不由本票代裁。
+#
+# ── 现读的开放清单(2026-09-28,共 1 条)──────────────────────────────────
+# 能力目录里 `host:'ai-service'` 的条目现读为 **6 项 / 11 条 route 模式**,按"要不要公网"
+# 分成三类(逐条理由写在交付报告与 public-exposure-audit 输出里,不在此重复):
+#   ① 该对外(1 项):mcp:connect
+#   ② 该只内网(4 项):sandbox:run / browser:operate / computer:operate / connectors:write
+#     —— 前两项 thirdPartyEligible:false 且分别等于"任意命令执行"与"驱动真实账号的浏览器",
+#        computer:operate 的 dataClass 是 platform(目录明文:机器凭据一律 403),
+#        connectors:write 等于向平台注入可执行工具。
+#   ③ 判不准(1 项):connectors:read —— 目录侧写着 thirdPartyEligible:true + scoped-read,
+#     但两个 GET 端点**都没有属主过滤**:`app/routers/connectors.py:107 list_connectors()`
+#     不取 user_id,读的是全站单文件 `data/connector_store.json`,`_safe()` 只剥
+#     app_secret 明文却原样回 `extra`(语雀 user/repo、飞书 folder_token);
+#     `app/routers/mcp.py:346` 同理是平台级外部 MCP server 注册表。
+#     ⇒ 放开它 = 任何持 JWT 者可枚举全站连接器与外部端点,与 AGENTS §5
+#       "认证不等于授权 / scoped-read 必须经 owner 过滤"冲突。**先补属主过滤或改判
+#       dataClass=platform,再谈放开** —— 两条修法都落在本票文件清单之外,已停手上报。
+#
+# ① 项里另外两条 route 模式刻意**没有**放开:
+#   POST /api/mcp/export/streamable 与 GET /api/mcp/export/sse 只有在
+#   `ENABLE_MCP_EXPORT` 打开时才被挂载(app/main.py:975 `if mcp_export.is_enabled(): mount_to_app`),
+#   默认关闭 ⇒ 在公网面上放两条指向不存在端点的 location 等于凭空多两个探测靶子。
+#   部署机若要开该开关,必须**同批**在本片段与 docker 侧各加对应 location(两侧开放集
+#   由 X2 对账,单边加会直接判不一致)。
+
+# ── ① mcp:connect —— 官方 MCP 协议单入口(streamable HTTP,JSON-RPC 2.0) ──────
+# 路由出处:apps/ai-service/app/routers/mcp_official.py:587 `@router.post("/mcp")`
+#          经 app/main.py:761 `include_router(mcp_official.router, prefix="/api")`
+# 该 router 自身**零端点级鉴权**(鉴权在函数第一行 `resolve_principal_from_headers`),
+# 且 /api/mcp 在 app/core/jwt_auth.py:40 `_NEVER_PUBLIC_ROOTS` 清单里 —— 即"绝不允许经
+# JWT_PUBLIC_PATHS 匿名放行",O1 已把"匿名可调"定性为事故。本 location 因此只允许
+# **带凭据**的流量进去(匿名流量照样由应用层 401,边缘再叠一层 anon_zone 掐洪泛)。
+# 工具面自身有闸:`tools/call` 先过 `enforce_tool_access(principal, name)`,并把
+# `principal.sub` 透传为 `user_id`(不是硬编码),tools/list 只列能力目录登记过的工具。
+# 注解格式(两侧同形,是 scripts/check-public-exposure-list.mjs 的输入,不是注释性的摆设):
+#   # @public-exposure: open capability=<目录 scope> method=<HTTP 方法> path=<本壳上的公网路径> upstream=<ai-service 侧路径>
+# `upstream=` 才是两侧对账的键(站点壳挂在 /api/mcp,docker 壳挂在 /ai-service/api/mcp ——
+# 公网路径按部署形态不同,**必须**不同;拿 path 对账会产出自洽却错位的红)。
+location = /api/mcp {
+    # @public-exposure: open capability=mcp:connect method=POST path=/api/mcp upstream=/api/mcp
+    limit_req zone=aisvc_open_zone burst=30 nodelay;
+    limit_req zone=aisvc_anon_zone burst=5 nodelay;
+
+    # (c) 剥掉只有内网才存在的身份通道 —— 见文件头"三件事"。
+    proxy_set_header X-IHUI-Principal "";
+    proxy_set_header X-Api-Key "";
+
+    proxy_pass http://ihui_ai_service_public;
+    proxy_http_version 1.1;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    # MCP 的 tools/call 可以带 progressToken 走 SSE 长响应(_progress_stream),
+    # 所以这三条与主站 /ws 同口径:关缓冲 + 长读超时 + 不降级为 HTTP/1.0。
+    # 超时取值理由:ai-service 侧工具执行预算见 packages/types 的 TOOL_EXEC_BUDGET_*,
+    # 单次上限远小于 3600s;这里的长超时只为"连接不被边缘掐断",不是允许无限挂起。
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_connect_timeout 5s;
+    proxy_read_timeout    3600s;
+    proxy_send_timeout    3600s;
+}
