@@ -92,11 +92,14 @@ test('T2 反向锁:摘线必须被判成"未装车"(T1 不是恒真复读)', () 
   if (!entry) throw new Error('工作树的 runner 里没有该条目 ⇒ 反向锁无从构造(这是测试无效,不是通过)')
   if (entryFor(real.replace(entry, ''), 'check-doc-numbers.mjs') !== null)
     throw new Error('探针失效:删掉整块后仍能找到该脚本')
-  // CLAIMS 也不可以是张死表:每条要真能命中自己的 sample(与门内 S18 同源,在镜像面再钉一次)
+  // CLAIMS 也不可以是张死表:每条要真能命中自己的 sample(与门内 S18 同源,在镜像面再钉一次)。
+  // 探针数字用该措辞自己的 `probe`(位数区间内的真数)—— 固定喂 '123456' 会踩中
+  // `(\d{1,3})`/`(\d{1,2})` 这类位数下限,把反向锁做成**恒红误报**(与本仓"恒红断言与恒绿同样有害"同条禁令)。
   if (CLAIMS.length < 8) throw new Error(`CLAIMS 只剩 ${CLAIMS.length} 条 ⇒ 覆盖面退化`)
   for (const c of CLAIMS) {
+    if (!c.probe) throw new Error(`措辞 ${c.key} 缺 probe ⇒ 反向锁退化为固定数字,必踩位数下限`)
     c.re.lastIndex = 0
-    if (!c.re.exec(c.sample.replace('<N>', '123456'))) throw new Error(`措辞 ${c.key} 连自己的 sample 都不命中 ⇒ 死条款`)
+    if (!c.re.exec(c.sample.replace('<N>', c.probe))) throw new Error(`措辞 ${c.key} 连自己的 sample(probe=${c.probe})都不命中 ⇒ 死条款`)
   }
 })
 

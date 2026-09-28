@@ -81,6 +81,7 @@ export const CLAIMS = [
     re: /(?<![\d,])(\d{3,6}(?:,\d{3})*)(?![\d,])\s*(?:张(?:数据库)?表|个数据库表|数据库表|tables?\b)/gi,
     pick: (m) => m[1],
     sample: '<N> 张表',
+    probe: '583',
   },
   {
     key: 'apiRoutes',
@@ -90,6 +91,7 @@ export const CLAIMS = [
     re: /(?<![\d,])(\d{2,6}(?:,\d{3})*)(?![\d,])\s*(?:条\s*)?API\s*路由(?!文件)|(?<![\d,])(\d{2,6})(?![\d,])\s*(?:API\s)?routes?\b(?! files?)/gi,
     pick: (m) => m[1] ?? m[2],
     sample: '<N> API 路由',
+    probe: '4363',
   },
   {
     key: 'aiServiceRoutes',
@@ -97,6 +99,7 @@ export const CLAIMS = [
     re: /(?<![\d,])(\d{2,6})(?![\d,])\s*(?:条\s*)?(?:FastAPI|AI-?Service|ai-service)\s*(?:路由|routes?\b)/gi,
     pick: (m) => m[1],
     sample: '<N> FastAPI 路由',
+    probe: '548',
   },
   {
     key: 'wsEndpoints',
@@ -104,6 +107,7 @@ export const CLAIMS = [
     re: /(?<![\d,])(\d{1,4})(?![\d,])\s*(?:个|条)?\s*(?:WebSocket|WS)\s*(?:端点|通道)|(?:WebSocket|WS)\s*(?:端点|通道)\s*[（(]?\s*(\d{1,4})/gi,
     pick: (m) => m[1] ?? m[2],
     sample: '<N> 个 WebSocket 端点',
+    probe: '25',
   },
   {
     key: 'llmModels',
@@ -111,6 +115,7 @@ export const CLAIMS = [
     re: /(?<![\d,])(\d{2,5})(?![\d,])\s*(?:个|种)?\s*(?:大模型|模型清单|入库模型)|(?<![\d,])(\d{2,5})(?![\d,])\s*(?:catalogued LLMs?|LLMs)\b/gi,
     pick: (m) => m[1] ?? m[2],
     sample: '<N> 大模型',
+    probe: '118',
   },
   {
     key: 'publishPlatforms',
@@ -121,6 +126,7 @@ export const CLAIMS = [
       /(?<![\d,])(\d{1,3})(?![\d,])\s*(?:个)?\s*(?:大)?发布平台|(?<![\d,])(\d{1,3})(?![\d,])\s*(?:个)?\s*平台(?:自动)?发布|(?<![\d,])(\d{1,3})[- ]platforms? auto-publishing|(?<![\d,])(\d{1,3})[- ]platforms? publishing/gi,
     pick: (m) => m[1] ?? m[2] ?? m[3] ?? m[4],
     sample: '<N> 平台自动发布',
+    probe: '38',
   },
   {
     key: 'testFiles',
@@ -128,6 +134,7 @@ export const CLAIMS = [
     re: /(?<![\d,])(\d{3,6}(?:,\d{3})*)(?![\d,])\s*(?:个)?\s*测试文件/gi,
     pick: (m) => m[1],
     sample: '<N> 测试文件',
+    probe: '2104',
   },
   {
     key: 'i18nLanguages',
@@ -135,6 +142,7 @@ export const CLAIMS = [
     re: /(?<![\d,])(\d{1,2})(?![\d,])\s*(?:种)?\s*语言\s*(?:i18n|parity|locale|消息包)/gi,
     pick: (m) => m[1],
     sample: '<N> 语言 i18n',
+    probe: '5',
   },
   {
     key: 'ciWorkflows',
@@ -144,6 +152,7 @@ export const CLAIMS = [
     re: /(?<![\d,])(\d{1,3})(?![\d,])\s*(?:个)?\s*CI\s*workflows?\b|(?<![\d,])(\d{1,3})(?![\d,])\s*(?:个)?\s*workflows?\.ya?ml\b|workflows?\s*[（(]\s*(\d{1,3})\s*(?:个)?\s*(?:yml|文件)/gi,
     pick: (m) => m[1] ?? m[2] ?? m[3],
     sample: '<N> CI workflows',
+    probe: '46',
   },
   {
     key: 'guardianGates',
@@ -151,6 +160,7 @@ export const CLAIMS = [
     re: /(?<![\d,])(\d{3,4})(?![\d,])\s*(?:道|个|项)\s*(?:工程)?守门(?!期)|(?<![\d,])(\d{3,4})(?![\d,])\s*(?:工程)?守门(?:脚本|闸)/gi,
     pick: (m) => m[1] ?? m[2],
     sample: '<N> 道工程守门',
+    probe: '188',
   },
   {
     key: 'appPackages',
@@ -158,6 +168,7 @@ export const CLAIMS = [
     re: /(?<![\d,])(\d{1,3})(?![\d,])\s*(?:个)?\s*(?:workspace\s*)?app\s*(?:packages?\b|工作区包)/gi,
     pick: (m) => m[1],
     sample: '<N> app packages',
+    probe: '9',
   },
 ]
 
