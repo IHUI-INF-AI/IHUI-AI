@@ -40,9 +40,9 @@
  *      直接失败 → 走 catch 打一行警告后**恒绿**(与守门 70 的 ROOT 教训同型,静默失效)。
  */
 import { execFileSync, execSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readWorktreeFile } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -82,6 +82,53 @@ const SANCTIONED_RELEASE_BRANCHES = new Set([
 ])
 
 /**
+ * §9b 的现行前提已变:2026-09-27 起 main 开启分支保护(直推被 GH006 拒),每个代理的改动
+ * **必须**经"分支 + PR"入库 —— 审计建议原文即「每个 AI 代理用独立分支走 PR」。所以本门要防的
+ * 不再是"存在旁支",而是"旁支长期滞留"。两类豁免,都只报数不判红:
+ *  - in-flight:分支尖端提交时刻距今 ≤ GRACE_HOURS(默认 48,`IHUI_SINGLE_BRANCH_GRACE_HOURS`
+ *    可调)的分支,即"正在路上"的 PR 工作分支;超窗回到判据(合并或删除)。
+ *  - backup:`backup/` 与 `ihui-backup/` 前缀(含其 `origin/` 镜像)。§5b 明令禁止删除/清理备份
+ *    gitdir 与现场归档,§22 要求备份引用本地+远端双留 —— 门喊"删掉它"等于替人犯 §5b 的禁令。
+ * 取不到提交时刻 ⇒ **不豁免**(宁误拦,不静默放行;与本门镜像豁免同取向)。
+ */
+const GRACE_HOURS_DEFAULT = 48
+const graceHours = (() => {
+  const raw = process.env.IHUI_SINGLE_BRANCH_GRACE_HOURS
+  if (raw === undefined || raw === '') return GRACE_HOURS_DEFAULT
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 0 ? n : GRACE_HOURS_DEFAULT
+})()
+
+export const BACKUP_REF_PREFIXES = ['backup/', 'ihui-backup/']
+
+/** `for-each-ref` 的 "短名 unix时刻" 输出 → Map(短名 → 提交秒);坏行跳过不猜 */
+export function branchTipTimes(raw) {
+  const map = new Map()
+  for (const line of String(raw ?? '').split('\n')) {
+    const s = line.trim()
+    if (!s) continue
+    const sp = s.lastIndexOf(' ')
+    if (sp <= 0) continue
+    const name = s.slice(0, sp)
+    const ct = Number(s.slice(sp + 1))
+    if (name && Number.isFinite(ct) && ct > 0) map.set(name, ct)
+  }
+  return map
+}
+
+/**
+ * 在飞/备份豁免判定(纯函数,供 self-test 与镜像测试直接喂构造面)。
+ * @returns {'in-flight'|'backup'|null} null = 不豁免,回到原判据
+ */
+export function inFlightExempt(name, tipTimes, nowMs, grace) {
+  const bare = name.startsWith('origin/') ? name.slice('origin/'.length) : name
+  if (BACKUP_REF_PREFIXES.some((p) => bare.startsWith(p))) return 'backup'
+  const ct = tipTimes.get(name)
+  if (ct === undefined || !Number.isFinite(nowMs)) return null
+  return (nowMs / 1000 - ct) / 3600000 <= grace ? 'in-flight' : null
+}
+
+/**
  * origin/HEAD -> origin/main 是 git 符号引用输出,非真实分支,需跳过。
  * 但 AGENTS.md §5b 的嵌套 ref 自愈会把 refs/remotes/<remote>/HEAD 固化进 packed-refs,
  * git pack-refs 将符号引用摊平为普通 sha ref → `git branch -a` 输出无 `->` 的 `origin/HEAD`,
@@ -94,14 +141,16 @@ function isSymbolicRef(branch) {
 /**
  * goal 模式豁免判定:分支必须以 goal/ 开头,且 .ihui-agent/goal-runtime/STATE.md
  * 标注 active(AGENTS.md §9b 豁免条款)。
+ * 2026-09-28:内容改走取材层唯一出口 `readWorktreeFile`(守门 118 的 face 判据)。这份 STATE.md 是
+ * **机器态**(gitignored 的目标运行目录,不在任何被审面上),所以读磁盘面本身是对的;约束在于
+ * 读取动作只许有那一份实现 —— 取不到(null)与读失败(抛 Undetermined)一律按"不豁免"处理,
+ * 失效方向是多拦,不是放行。
  */
 function isActiveGoalBranch(branch) {
   if (!branch.startsWith('goal/')) return false
-  const statePath = join(ROOT, '.ihui-agent', 'goal-runtime', 'STATE.md')
-  if (!existsSync(statePath)) return false
   try {
-    const state = readFileSync(statePath, 'utf8')
-    return state.includes('active')
+    const state = readWorktreeFile(ROOT, '.ihui-agent/goal-runtime/STATE.md')
+    return typeof state === 'string' && state.includes('active')
   } catch {
     return false
   }
@@ -227,7 +276,29 @@ function main() {
         `mirrors=${[...mirrorRemotes].join(',')} unresolvable=${[...unresolvable].join(',')}`,
     )
   }
-  const exempt = { mirror: [], phantom: [] }
+  const exempt = { mirror: [], phantom: [], 'in-flight': [], backup: [] }
+  /** 分支尖端提交时刻(一次 for-each-ref,不逐个起进程);取不到 ⇒ 空表 ⇒ 在飞豁免整段失效并如实喊出 */
+  let tipTimes = new Map()
+  let tipTimesOk = true
+  try {
+    tipTimes = branchTipTimes(
+      execFileSync(
+        'git',
+        [
+          '-C',
+          ROOT,
+          'for-each-ref',
+          '--format=%(refname:short) %(committerdate:unix)',
+          'refs/heads',
+          'refs/remotes',
+        ],
+        { encoding: 'utf8', windowsHide: true, timeout: 10000, maxBuffer: 16 * 1024 * 1024 },
+      ),
+    )
+  } catch {
+    tipTimesOk = false
+  }
+  const nowMs = Date.now()
   const illegal = branches
     .filter((entry) => {
       const b = entry.name
@@ -238,6 +309,13 @@ function main() {
       // push 备份后产生的 origin/<branch> 远程跟踪引用,是该 worktree 工作上下文的镜像,
       // 与本地分支同等豁免,不应被误判为 §9b 禁止的 feature 分支(否则并行会话互相阻塞)。
       if (b.startsWith('origin/') && worktreeBranches.has(b.slice('origin/'.length))) return false
+      // 2026-09-28:main 受保护 ⇒ 分支 + PR 是唯一入库通道,在飞窗口内的分支不判红;
+      // 备份引用(backup/ 与 ihui-backup/)永不判红 —— §5b 明令禁止删除它们。
+      const flight = inFlightExempt(b, tipTimes, nowMs, graceHours)
+      if (flight) {
+        exempt[flight].push(b)
+        return false
+      }
       const why = nonLocalExempt(entry, { mirrorRemotes, unresolvable })
       if (why) {
         exempt[why].push(b)
@@ -262,6 +340,24 @@ function main() {
           `prune 只是治标)${C.reset}`,
       )
     }
+    if (!tipTimesOk) {
+      console.log(
+        `${C.yellow}⚠️ 提交时刻取不到(for-each-ref 失败)⇒ 在飞窗口豁免本轮整体失效,` +
+          `所有旁支按原判据计红(失效方向是多拦,不是放行)${C.reset}`,
+      )
+    }
+    if (exempt['in-flight'].length) {
+      console.log(
+        `${C.dim}ℹ️ 不判但如实报数:${exempt['in-flight'].length} 个在飞分支(≤${graceHours}h,` +
+          `main 受保护 ⇒ 走分支+PR 入库)—— 超窗必须合并或删除:${exempt['in-flight'].join(', ')}${C.reset}`,
+      )
+    }
+    if (exempt.backup.length) {
+      console.log(
+        `${C.dim}ℹ️ 不判但如实报数:${exempt.backup.length} 个备份引用(§5b 禁删/§22 要求双留,` +
+          `本门不得喊人删它们):${exempt.backup.join(', ')}${C.reset}`,
+      )
+    }
   }
 
   if (illegal.length === 0) {
@@ -278,7 +374,7 @@ function main() {
     console.error(`  ${C.red}✗ ${b}${C.reset}`)
   }
   console.error(`
-${C.yellow}💡 AGENTS.md §9b 强制规则:除 main 外禁止创建任何分支(含远程),所有改动统一往 main 合并。${C.reset}
+${C.yellow}💡 AGENTS.md §9b(2026-09-28 口径):main 已受分支保护,改动经"分支 + PR"入库;本门只拦**超在飞窗口(${graceHours}h)仍滞留**的旁支。${C.reset}
    修复(三选一):
      A. 已合并 → 删除:git branch -d <分支>(本地)+ git push origin --delete <分支>(远程)
      B. 未合并但内容已在 main → 确认后删除:git branch -D <分支>
@@ -335,6 +431,54 @@ export function selfTest() {
   t('反向对照:未配进 git remote 的第三类远端且可解析 → 仍判(宁误拦)', () => {
     return nonLocalExempt(e('zzz/work'), ctx({ mirrorRemotes: new Set() })) === null
   })
+  // ---- 2026-09-28 新增:在飞窗口 + 备份引用。豁免类判据最大的风险是"把该拦的放过去",
+  //      所以每条正例都配一条反向对照(超窗仍判 / 取不到时刻不豁免 / backup 不看时刻)。
+  const HOUR = 3600000
+  const now = 1_800_000_000_000
+  const tips = branchTipTimes(
+    [
+      `ci-fix/fresh ${Math.floor((now - 5 * HOUR) / 1000)}`,
+      `origin/ci-fix/fresh ${Math.floor((now - 5 * HOUR) / 1000)}`,
+      `stale-old ${Math.floor((now - 200 * HOUR) / 1000)}`,
+      'backup/cleanup-2026-09-28-x 1700000000',
+      'ihui-backup/main-2026-09-27-r1 1700000000',
+      'garbage-line',
+      '',
+      `broken not-a-number`,
+    ].join('\n'),
+  )
+  t('for-each-ref 解析:好行入表、坏行与空行跳过不猜', () => {
+    return (
+      tips.size === 5 &&
+      tips.get('ci-fix/fresh') === Math.floor((now - 5 * HOUR) / 1000) &&
+      !tips.has('garbage-line') &&
+      !tips.has('broken')
+    )
+  })
+  t('在飞窗口内的 PR 分支豁免为 in-flight(本地与 origin/ 镜像同视)', () => {
+    return (
+      inFlightExempt('ci-fix/fresh', tips, now, 48) === 'in-flight' &&
+      inFlightExempt('origin/ci-fix/fresh', tips, now, 48) === 'in-flight'
+    )
+  })
+  t('反向对照:超窗仍判(豁免不得变成永久放行)', () => {
+    return inFlightExempt('stale-old', tips, now, 48) === null
+  })
+  t('反向对照:取不到提交时刻不豁免(失效方向是多拦,不是放行)', () => {
+    return (
+      inFlightExempt('never-listed', tips, now, 48) === null &&
+      inFlightExempt('broken', tips, now, 48) === null
+    )
+  })
+  t('备份引用豁免为 backup(§5b 禁删 / §22 双留,含 origin/ 镜像)', () => {
+    return (
+      inFlightExempt('backup/cleanup-2026-09-28-x', tips, now, 48) === 'backup' &&
+      inFlightExempt('origin/ihui-backup/main-2026-09-27-r1', tips, now, 48) === 'backup'
+    )
+  })
+  t('反向对照:backup 判据不看时刻(超龄备份也绝不喊删)', () => {
+    return inFlightExempt('backup/ancient', new Map(), now, 0) === 'backup'
+  })
   let bad = 0
   for (const [name, ok] of cases) {
     if (!ok) bad++
@@ -353,5 +497,5 @@ if (isDirectRun) {
   main()
 }
 
-export const __test__ = { mirrorRemoteSet, nonLocalExempt }
+export const __test__ = { mirrorRemoteSet, nonLocalExempt, branchTipTimes, inFlightExempt }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
