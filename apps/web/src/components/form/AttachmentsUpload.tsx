@@ -251,7 +251,7 @@ export function AttachmentsUpload({
                   e.preventDefault()
                   handleRemove(idx)
                 }}
-                className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label={t('remove')}
               >
                 <X className="h-3.5 w-3.5" />

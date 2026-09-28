@@ -79,7 +79,7 @@ export function TerminalSessionList({
         <button
           type="button"
           className={cn(
-            'flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors',
+            'flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground transition-colors',
             'hover:bg-background hover:text-foreground',
             loading && 'pointer-events-none opacity-40',
           )}
@@ -141,7 +141,7 @@ export function TerminalSessionList({
                     <button
                       type="button"
                       className={cn(
-                        'flex h-4 w-4 items-center justify-center rounded opacity-0 transition-opacity',
+                        'flex h-4 w-4 items-center justify-center rounded-sm opacity-0 transition-opacity',
                         'hover:bg-destructive/15 hover:text-destructive',
                         'group-hover:opacity-60',
                         'group-focus-within:opacity-60',
