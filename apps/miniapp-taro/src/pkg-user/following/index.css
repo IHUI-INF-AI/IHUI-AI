@@ -73,7 +73,7 @@
   color: var(--color-muted-foreground);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 .following-sort-btn-active {
   color: var(--color-primary);

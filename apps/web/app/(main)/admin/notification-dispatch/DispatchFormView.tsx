@@ -85,7 +85,7 @@ export function DispatchFormView({ form, submitting, onChange, onSubmit }: Props
               type="button"
               onClick={() => onChange({ ...form, targetMode: m })}
               className={cn(
-                'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
+                'rounded-sm border px-3 py-1.5 text-sm font-medium transition-colors',
                 form.targetMode === m
                   ? 'border-brand-accent-deep bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
