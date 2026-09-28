@@ -248,7 +248,7 @@ export function ProviderFormDialog({
                     type="button"
                     onClick={() => setShowKey((s) => !s)}
                     aria-label={showKey ? t('hideKey') : t('showKey')}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                   >
                     {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </button>

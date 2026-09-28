@@ -516,7 +516,7 @@ function TeacherScheduleDialog({
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-gray-300"
+              className="h-4 w-4 rounded-sm border-gray-300"
               checked={form.isAvailable}
               onChange={(e) => update('isAvailable', e.target.checked)}
             />

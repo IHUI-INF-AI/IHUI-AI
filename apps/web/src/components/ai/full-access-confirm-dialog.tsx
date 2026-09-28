@@ -119,7 +119,7 @@ export function FullAccessConfirmDialog({
       size="md"
       title={
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-amber-500/10">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
             <ShieldX className="h-4 w-4 text-amber-500" aria-hidden="true" />
           </div>
           <span>{t('firstTimeConfirmTitle')}</span>
@@ -131,7 +131,7 @@ export function FullAccessConfirmDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-border bg-foreground/5 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+            className="rounded-xl border border-border bg-foreground/5 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
           >
             {t('firstTimeConfirmCancel')}
           </button>
@@ -141,7 +141,7 @@ export function FullAccessConfirmDialog({
             disabled={!acknowledged}
             data-testid="full-access-confirm-button"
             className={cn(
-              'rounded-md px-4 py-2 text-sm font-medium transition-colors',
+              'rounded-xl px-4 py-2 text-sm font-medium transition-colors',
               acknowledged
                 ? 'bg-amber-500 text-white hover:bg-amber-600'
                 : 'cursor-not-allowed bg-muted text-muted-foreground/50',

@@ -289,7 +289,7 @@ export function ByokWizard() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-sticky flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg transition-colors hover:bg-emerald-700"
+        className="fixed bottom-6 right-6 z-sticky flex items-center gap-2 rounded-sm bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg transition-colors hover:bg-emerald-700"
       >
         <Wand2 className="h-4 w-4" />
         {t('trigger')}
@@ -339,8 +339,8 @@ export function ByokWizard() {
                       onClick={() => setSelected(p)}
                       className={
                         selected?.code === p.code
-                          ? 'flex flex-col items-start gap-1 rounded-md border-2 border-emerald-500 bg-emerald-50/50 p-2.5 text-left dark:bg-emerald-950/20'
-                          : 'flex flex-col items-start gap-1 rounded-md border border-border p-2.5 text-left transition-colors hover:border-emerald-400 hover:bg-accent'
+                          ? 'flex flex-col items-start gap-1 rounded-sm border-2 border-emerald-500 bg-emerald-50/50 p-2.5 text-left dark:bg-emerald-950/20'
+                          : 'flex flex-col items-start gap-1 rounded-sm border border-border p-2.5 text-left transition-colors hover:border-emerald-400 hover:bg-accent'
                       }
                     >
                       <span className="text-sm font-medium">{p.name}</span>

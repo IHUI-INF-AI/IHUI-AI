@@ -148,7 +148,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                 onChange={(e) => setArbitrationContext(e.target.value)}
                 placeholder={t('arbitrationContextPlaceholder')}
                 rows={2}
-                className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
+                className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
               />
             </div>
             {conflicts.map((conflict, idx) => (

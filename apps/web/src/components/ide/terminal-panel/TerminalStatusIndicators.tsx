@@ -67,7 +67,7 @@ export function TerminalStatusIndicators({
           <button
             type="button"
             onClick={onReconnect}
-            className="pointer-events-auto shrink-0 rounded px-1.5 py-0.5 text-[11px] text-foreground hover:bg-accent"
+            className="pointer-events-auto shrink-0 rounded-sm px-1.5 py-0.5 text-[11px] text-foreground hover:bg-accent"
           >
             {t('terminalPanel.reconnect')}
           </button>
@@ -80,7 +80,7 @@ export function TerminalStatusIndicators({
           <button
             type="button"
             onClick={onDismissError}
-            className="pointer-events-auto shrink-0 rounded px-1 text-xs leading-none text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="pointer-events-auto shrink-0 rounded-sm px-1 text-xs leading-none text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             ×
           </button>

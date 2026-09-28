@@ -49,7 +49,7 @@ export function ErrorFallback({ error, onReset }: { error?: Error; onReset: () =
       </p>
       <button
         onClick={onReset}
-        className="mt-2 inline-flex items-center gap-2 rounded-md bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
+        className="mt-2 inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
       >
         <RefreshCw className="h-4 w-4" />
         {t('retry')}
@@ -72,7 +72,7 @@ function StaticErrorFallback({ onReset }: { onReset?: () => void }) {
       <button
         type="button"
         onClick={onReset}
-        className="rounded-md bg-cta px-4 py-2 text-cta-foreground"
+        className="rounded-sm bg-cta px-4 py-2 text-cta-foreground"
       >
         重试
       </button>

@@ -79,7 +79,7 @@ function TwoFactorPanel({
         placeholder={tAuth('twoFactorPlaceholder')}
         // eslint-disable-next-line jsx-a11y/no-autofocus -- 两步验证码输入框需要自动聚焦，提升用户体验
         autoFocus
-        className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-brand-accent-deep"
+        className="h-10 w-full rounded-sm border border-border bg-background px-3 text-sm outline-none focus:border-brand-accent-deep"
         onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
       />
       {err && <p className="text-xs text-destructive">{err}</p>}
@@ -88,14 +88,14 @@ function TwoFactorPanel({
           type="button"
           onClick={handleSubmit}
           disabled={!code.trim()}
-          className="h-9 flex-1 rounded-md bg-cta px-4 text-sm font-medium text-cta-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="h-9 flex-1 rounded-sm bg-cta px-4 text-sm font-medium text-cta-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {tAuth('twoFactorSubmit')}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="h-9 rounded-md border border-border px-4 text-sm text-muted-foreground hover:bg-muted/50"
+          className="h-9 rounded-sm border border-border px-4 text-sm text-muted-foreground hover:bg-muted/50"
         >
           {tAuth('twoFactorCancel')}
         </button>

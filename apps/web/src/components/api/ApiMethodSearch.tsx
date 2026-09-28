@@ -87,7 +87,7 @@ export default function ApiMethodSearch({
           align="start"
           gap={4}
           style={anchorWidth ? { width: anchorWidth } : undefined}
-          className="max-h-72 overflow-auto rounded-md border bg-popover shadow-lg"
+          className="max-h-72 overflow-auto rounded-xl border bg-popover shadow-lg"
         >
           <ul className="w-full">
             {filtered.map((m) => (

@@ -58,7 +58,7 @@ export function SidebarQuickActions({
               disabled={isStreaming}
               aria-label={tchat('newConversation')}
               aria-pressed={aiPanelOpen}
-              className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-9 w-9 items-center justify-center rounded-sm bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-5 w-5" />
             </button>
