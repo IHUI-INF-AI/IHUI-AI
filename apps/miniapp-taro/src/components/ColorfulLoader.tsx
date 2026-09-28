@@ -63,11 +63,10 @@ export default function ColorfulLoader({
             style={{
               width: `${dotSize}rpx`,
               height: `${dotSize}rpx`,
-              // 圆点半径 = 自己边长的一半,与 RN 端同一式(RN 写 `borderRadius: size / 2`)。
-              // 不写档名:写 `rounded-2xl` 会让"这一端有 16 这一档、那一端只有动态式"读成跨端分叉,
-              // 而两端等效半径本来就是同一个数(共享源给的 dotSize)。
+              // 圆点半径 = 自己边长的一半:相对式即几何真圆,与 RN 端 `borderRadius: size / 2` 同形。
+              // 这里不用档名/类名 —— 72 颗点共享同一个 dotSize,写成固定档会让"盒比档小"时
+              // 被 CSS 夹持、盒比档大时被裁成非真圆,而相对式在两种尺寸下都是真圆。
               borderRadius: `${dotSize / 2}rpx`,
-
               top: '50%',
               left: '50%',
               marginLeft: `-${dotSize / 2}rpx`,
