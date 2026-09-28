@@ -335,7 +335,7 @@ export function SlashCommandPalette({
                     onOpenChange(false)
                   }}
                   className={cn(
-                    'relative flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors',
+                    'relative flex w-full items-start gap-2.5 rounded-sm px-2.5 py-2 text-left transition-colors',
                     isActive
                       ? 'bg-accent text-accent-foreground'
                       : 'text-foreground hover:bg-accent/50',
@@ -412,7 +412,7 @@ export function SlashCommandPalette({
                       }
                     }}
                     className={cn(
-                      'relative flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors',
+                      'relative flex w-full items-start gap-2.5 rounded-sm px-2.5 py-2 text-left transition-colors',
                       isActive
                         ? 'bg-accent text-accent-foreground'
                         : 'text-foreground hover:bg-accent/50',
@@ -533,7 +533,7 @@ export function SlashCommandPalette({
         side="top"
         align="end"
         gap={8}
-        className="w-96 overflow-hidden rounded-md border border-border bg-popover p-0 shadow-md"
+        className="w-96 overflow-hidden rounded-xl border border-border bg-popover p-0 shadow-md"
       >
         {content}
       </PortalPanel>

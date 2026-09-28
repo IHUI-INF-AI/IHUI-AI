@@ -17,7 +17,7 @@ export function SpecEnhanceTab({ p }: { p: SpecPanelApi }) {
           onClick={p.handleEnhance}
           disabled={p.enhanceLoading}
           className={cn(
-            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
             'bg-cta text-cta-foreground hover:bg-cta/90',
             p.enhanceLoading && 'cursor-not-allowed opacity-60',
           )}
