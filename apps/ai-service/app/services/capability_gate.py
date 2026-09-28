@@ -543,6 +543,30 @@ class ToolAccessDecision:
     matrix_fallback: bool = False
 
 
+def scope_denied_for_channel(
+    principal: Principal, scope: str, *, manifest: CapabilityManifest | None = None
+) -> bool:
+    """机器凭据通道(API key)对 `dataClass=platform` / `thirdPartyEligible=false` 的 scope 一律拒。
+
+    这是**唯一**一份该判定:`check_tool_access`(tools/call)、`enforce_scope`(resources/read)、
+    `visible_export_resources`(resources/list)三处共用。分两处写必然漂移,而漂移的表现是
+    "列表里广告着一个一读就 403 的资源" —— 本文件对 `RESOURCE_SCOPES` 的承诺是"视图与裁决同源"
+    (见该表头注),只判读侧就是自己打破自己写的不变量。
+
+    `manifest` 由调用方注入已加载的那份,避免同一请求里重复取(层内有按 mtime 的缓存,
+    但重复 stat 与"两处各拿一份可能不同步的清单"是两件事)。清单缺失 ⇒ False:缺失的下游处理
+    各有 fail-safe(tools/call 直接拒;资源面走 `has_scope`),不在这一层凭空判拒。
+    """
+    if not principal.is_machine_channel:
+        return False
+    if manifest is None:
+        manifest = load_capability_manifest()
+    if manifest is None:
+        return False
+    meta = manifest.scope_meta.get(scope)
+    return meta is not None and (meta.data_class == "platform" or not meta.third_party_eligible)
+
+
 def check_tool_access(principal: Principal, tool_name: str) -> ToolAccessDecision:
     """tools/call 前置裁决。
 
@@ -571,17 +595,13 @@ def check_tool_access(principal: Principal, tool_name: str) -> ToolAccessDecisio
             error_code="TOOL_NOT_REGISTERED",
             message=f"工具 {tool_name} 未登记能力目录,默认拒绝",
         )
-    if principal.is_machine_channel:
-        meta = manifest.scope_meta.get(scope)
-        if meta is not None and (
-            meta.data_class == "platform" or not meta.third_party_eligible
-        ):
-            return ToolAccessDecision(
-                allowed=False,
-                required_scope=scope,
-                error_code="SCOPE_DENIED",
-                message=f"scope {scope} 属平台/高危通道,机器凭据(API key)永不放行",
-            )
+    if scope_denied_for_channel(principal, scope, manifest=manifest):
+        return ToolAccessDecision(
+            allowed=False,
+            required_scope=scope,
+            error_code="SCOPE_DENIED",
+            message=f"scope {scope} 属平台/高危通道,机器凭据(API key)永不放行",
+        )
     if not principal.has_scope(scope):
         return ToolAccessDecision(
             allowed=False,
@@ -609,13 +629,10 @@ def enforce_tool_access(principal: Principal, tool_name: str) -> ToolAccessDecis
 
 def enforce_scope(principal: Principal, scope: str, *, resource_label: str) -> None:
     """资源级 scope 检查(resources/read 等):scope 不在集合内 → ScopeDeniedError。"""
-    if principal.is_machine_channel:
-        manifest = load_capability_manifest()
-        meta = manifest.scope_meta.get(scope) if manifest is not None else None
-        if meta is not None and (meta.data_class == "platform" or not meta.third_party_eligible):
-            raise ScopeDeniedError(
-                f"scope {scope} 属平台/高危通道,机器凭据永不放行({resource_label})", scope
-            )
+    if scope_denied_for_channel(principal, scope):
+        raise ScopeDeniedError(
+            f"scope {scope} 属平台/高危通道,机器凭据永不放行({resource_label})", scope
+        )
     if not principal.has_scope(scope):
         raise ScopeDeniedError(f"访问 {resource_label} 需要 scope: {scope}", scope)
 
@@ -1035,6 +1052,7 @@ __all__ = [
     "resolve_principal_from_headers",
     "resolve_principal_from_request",
     "reset_tools_revision_state",
+    "scope_denied_for_channel",
     "scope_of_resource",
     "tools_revision",
     "verify_principal_header",
