@@ -85,17 +85,20 @@ export function encryptField(plain: string): string {
  * 字段级解密：兼容新格式（encrypted payload JSON）与存量明文。
  * - 存量为加密 payload → AES-256-GCM 解密返回原始字符串
  * - 存量明文（未加密历史数据）→ 原样返回（兼容读路径，不报错）
+ *
+ * 解密失败必须抛出，**不得**回落到 `stored`：`stored` 本身就是加密荷载的 JSON 文本，
+ * 一旦当明文返回，读路径（auth-identity 的 idCard）会把整段密文当成身份证号送到客户端，
+ * 于是"密钥已换 / 数据被篡改"与"成功读到明文"在响应上完全同形。
  */
 export function decryptField(stored: string): string {
+  let parsed: unknown
   try {
-    const parsed: unknown = JSON.parse(stored)
-    if (isEncryptedPayload(parsed)) {
-      const value = decryptJSON(parsed)
-      return typeof value === 'string' ? value : String(value ?? '')
-    }
+    parsed = JSON.parse(stored)
   } catch {
-    /* 非加密荷载（存量明文），原样返回 */
+    return stored // 存量明文：不是 JSON
   }
-  return stored
+  if (!isEncryptedPayload(parsed)) return stored // 存量明文：是 JSON 但不是加密荷载形状
+  const value = decryptJSON(parsed)
+  return typeof value === 'string' ? value : String(value ?? '')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
