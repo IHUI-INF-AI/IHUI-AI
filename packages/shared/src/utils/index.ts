@@ -10,10 +10,14 @@ export * from './async'
 export * from './base64'
 // 上下文占用归因分解(按构成来源,而非只报总量)
 export * from './context-attribution'
+// canonical JSON 序列化唯一出口(86F:审计链哈希与导出签名共用,生产面禁止第二份)
+export * from './canonical-json'
 // D20 会话组织(文件夹/标签)的归一化、回收与筛选规则唯一实现(端内不得再建第二套)
 export * from './conversation-org'
 export * from './dangerous-command-detector'
 export * from './date-utils'
+// G-704(2026-09-29 立)「值等价即不写」的等深比较器唯一实现(端内不得各写一份近似品)
+export * from './deep-equal-records'
 export * from './error-messages'
 export * from './file-helpers'
 export * from './form-styles'

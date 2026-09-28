@@ -9,8 +9,11 @@
  * 2026-08-04 生产切换:next.config.ts 的 output:'export' 改为显式环境变量控制,
  * 仅当 EXPORT_STATIC=true(或 GITHUB_PAGES=true)时启用静态导出。
  * 本脚本设置 EXPORT_STATIC=true 后调用 next build,供:
- *   - Tauri 桌面端(tauri.conf.json beforeBuildCommand)
  *   - GitHub Pages CI(已有 GITHUB_PAGES=true,也可直接走本脚本,幂等)
+ *   - 历史:Tauri 桌面端曾经 tauri.conf.json 的 beforeBuildCommand 消费本产物;2026-09-17 终极薄壳化后
+ *     该字段为空串、build 直跑 tauri build,桌面端 = Tauri 薄壳 + 直连线上站点:frontendDist 指向
+ *     src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/agents(V3 #72 拍板,桌面端不打包本地 web 产物),
+ *     本产物已不是桌面端的分发源(另见 apps/desktop/scripts/ensure-web-out.mjs 头注)
  * 生产服务端模式(next build + next start)不设 EXPORT_STATIC,走正常服务端构建。
  *
  * 2026-08-28 修复静态导出构建失败(output:'export' 与 force-dynamic 路由不兼容):
@@ -82,7 +85,9 @@ function restoreRuntimeRoutes() {
  */
 function moveDir(src, dest) {
   // preserveTimestamps:必须保留原 mtime,否则构建后恢复的 cdn/uploads 时间戳变新,
-  // ensure-web-out.mjs 的源码 mtime 比对永远判定"需要重建"→ 桌面端每次打包前端全量重跑(2026-09-04)
+  // 会让 apps/desktop/scripts/ensure-web-out.mjs 的源码 mtime 比对永远判定"需要重建"→ 前端全量重跑(2026-09-04)
+  // 该脚本不在桌面端构建链(tauri.conf.json 的 build.beforeBuildCommand 为空串、build 直跑 tauri build),
+  // 它仅是手动问责/条件重建入口 —— 但保留 mtime 这一条对手动调用仍然成立,不得因"不在构建链"而删。
   cpSync(src, dest, { recursive: true, preserveTimestamps: true })
   rmSync(src, { recursive: true, force: true })
 }
@@ -114,8 +119,9 @@ try {
 
   // 2026-09-05: Turbopack + 自定义 distDir(.next-static)时,Next 16 把静态导出写入
   // distDir 而非约定的 out/(webpack 时代行为)。下游契约(CI verify "apps/web/out"、
-  // 桌面 ensure-web-out.mjs outDir、GitHub Pages)都消费 out/,此处统一同步,
+  // GitHub Pages;以及 apps/desktop/scripts/ensure-web-out.mjs 被手动调用时的 outDir)都消费 out/,此处统一同步,
   // 否则 CI 静默用不到产物(desktop-v0.1.16 发布 verify 步骤失败实证)。
+  // 注:ensure-web-out.mjs 不在桌面端构建链(beforeBuildCommand 为空串),把它列进消费方只是"手动调用"那一档。
   // 2026-09-05 深夜复补:M3 收官提交误删此块致 release-desktop CI 全平台失败,现恢复。
   const staticDist = path.join(webRoot, '.next-static')
   const outDir = path.join(webRoot, 'out')

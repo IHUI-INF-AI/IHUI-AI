@@ -540,15 +540,17 @@ async def call_external_tool(
 
 
 def _store_mutate_gate(
-    name: str, user_id: str, request: Request, *, denied_error: str
+    name: str, user_id: str, request: Request, *, denied_error: str, needs_admin_error: str
 ) -> JSONResponse | None:
     """商店写侧的**唯一闸门**:把 `mcp_store.mutate_decision` 的结论翻成 HTTP。
 
     返回 None ⇒ 放行;否则就是该回的错误响应(404=没这条 / 403=没权限)。归属判断**不住在
-    这里**(端点各写一遍必然与 store 层漂开),这一层只做两件事:
+    这里**(端点各写一遍必然与 store 层漂开),这一层只做三件事:
 
     ① 403 文案由调用方整句传入 —— 覆盖/卸载/启用/停用四处既有措辞不同,不得为省事合并;
-    ② **管理员越档不得静默**:改别人的或无主的安装都记 warning 点名是谁改的 ——
+    ② **两档拒绝各有自己的句子**:"由他人安装"(别人的记录)与"无属主的存量安装,需管理员"
+       说的不是同一件事,合成一句会把人引导成"去找装它的人",而正确出路是"找管理员";
+    ③ **管理员越档不得静默**:改别人的或无主的安装都记 warning 点名是谁改的 ——
        否则"谁把我的 Server 停了"这件事事后无从查起(与本仓"失败必须响"同一条禁令)。
 
     角色只经 `resolve_request_role_id` 那一份出口取(store 层不碰 HTTP 对象,故作为入参传下去)。
@@ -558,6 +560,8 @@ def _store_mutate_gate(
     decision = mcp_store.mutate_decision(name, user_id, resolve_request_role_id(request))
     if decision == mcp_store.MUTATE_MISSING:
         return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
+    if decision == mcp_store.MUTATE_NEEDS_ADMIN:
+        return JSONResponse(status_code=403, content={"error": needs_admin_error})
     if decision == mcp_store.MUTATE_DENIED:
         return JSONResponse(status_code=403, content={"error": denied_error})
     if decision == mcp_store.MUTATE_BY_ADMIN:
@@ -678,6 +682,7 @@ async def install_mcp_store_server(
                 user_id,
                 request,
                 denied_error=f"MCP Server 已由他人安装,不能覆盖其配置: {name}",
+                needs_admin_error=f"MCP Server {name} 是无属主的存量安装,需管理员权限才能覆盖其配置",
             )
             if gate is not None:
                 # 复用同名记录等于**把别人的 env/args 整条换掉**(不只是"再装一次"),
@@ -747,6 +752,7 @@ async def uninstall_mcp_store_server(
             user_id,
             request,
             denied_error=f"MCP Server 由他人安装,无权卸载: {name}",
+            needs_admin_error=f"MCP Server {name} 是无属主的存量安装,需管理员权限才能卸载",
         )
         if gate is not None:
             return gate
@@ -777,6 +783,7 @@ async def enable_mcp_store_server(
             user_id,
             request,
             denied_error=f"MCP Server 由他人安装,无权启用: {name}",
+            needs_admin_error=f"MCP Server {name} 是无属主的存量安装,需管理员权限才能启用",
         )
         if gate is not None:
             return gate
@@ -831,6 +838,7 @@ async def disable_mcp_store_server(
             user_id,
             request,
             denied_error=f"MCP Server 由他人安装,无权停用: {name}",
+            needs_admin_error=f"MCP Server {name} 是无属主的存量安装,需管理员权限才能停用",
         )
         if gate is not None:
             return gate

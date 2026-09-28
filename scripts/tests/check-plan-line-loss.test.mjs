@@ -117,6 +117,8 @@ test('§22c 装车证明:判据符号必须来自源文件导出(__test__ 或具
     'faceNoticeFor',
     'runCheck',
     'historyMarkers',
+    // 编号形态维(G-722):按面选基准的编排出口
+    'malformedReport',
   ])
     assert.equal(typeof G[fn], 'function', `源导出缺判据 ${fn}(§22c 锚点漂移,或该判据被整块删掉)`)
 })
@@ -146,6 +148,12 @@ test('端到端夹具的装车面:闭包必须覆盖相对 import,复制后的�
     assert.ok(
       closure.some((p) => p.endsWith('lib/face-reader.mjs')),
       `闭包实得 ${closure.join(' , ')} —— 内容面已走取材层,闭包不含它即说明判据又搬家了`,
+    )
+    // G-722:编号形态判据从 live-doc-edit.mjs import ⇒ 闭包必须带上它(连同它自己的相对 import),
+    // 否则端到端夹具在 spawn 门的那一刻 ERR_MODULE_NOT_FOUND —— 那正是"14 例端到端红 5 例"的旧事故型。
+    assert.ok(
+      closure.includes('scripts/live-doc-edit.mjs'),
+      `闭包缺 scripts/live-doc-edit.mjs(实得 ${closure.join(' , ')})⇒ 编号形态判据的载体没搬进夹具`,
     )
   } finally {
     rmScratch(dir)
@@ -617,8 +625,7 @@ test('端到端(归档豁免成对):同一行在已入库归档件里逐字可�
   }
 })
 
-test('端到端(回捞侧两种处置):编号整体消失才回插;同编号仍有登记点只点名、一个字节都不写', () => {
-  const dirA = tempPlanRepo(V_MULTI)
+test('端到端(回捞侧两种处置):编号整体消失才回插;同编号仍有登记点只点名、一个字节都不写', () => {  const dirA = tempPlanRepo(V_MULTI)
   const sole = '### O44 名额判活夹具丁节:这一处编号只有一行登记,被旧基线吞掉之后应当被自动回捞回来。'
   // 语料必须够"肥":规模安全闸按 missing/seen 比例判异常(默认 40%),只放 2 条登记行的夹具
   // 会被它正确地拒掉 ⇒ 本例要测的是"回捞动作",不是那道闸(那道闸另有自己的成对用例)。
@@ -646,6 +653,54 @@ test('端到端(回捞侧两种处置):编号整体消失才回插;同编号仍�
   } finally {
     rmScratch(dirA)
     rmScratch(dirB)
+  }
+})
+
+// ── 编号形态维(G-722):判据住 live-doc-edit,门只做按面接线的编排 ────────────────────
+const MAL_BASE = [
+  '# 计划',
+  '',
+  '- [ ] G-9001 形态维基线行:三面都在,用来确认注入只动了要动的那一行,正文足够长。',
+  '',
+  '- [ ] DD9002 存量畸形号(台账历史遗留):已在 HEAD ⇒ 只报数;当场判红就是恒红门(§12e)。',
+  '',
+].join('\n')
+
+test('形状锁(G-722):编号形态判据只许 live-doc-edit 一份,门体内不得再抄第二份形态正则', () => {
+  const s = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
+  assert.match(s, /from '\.\/live-doc-edit\.mjs'/, '门必须从 live-doc-edit.mjs import 判据(票面指定的接法)')
+  assert.match(s, /newMalformed\(/, 'staged/worktree 档必须真调 newMalformed —— 只 import 不接线 = 没有这道维')
+  assert.match(s, /findMalformedIds\(/, 'head 档的存量报名必须走 findMalformedIds,不得只报"无"')
+  // 反向锁:共享判据的三个形状记号在门体内出现即说明抄了第二份(族名字符类量词 / 全角连字符 / 反向引用)
+  assert.doesNotMatch(s, /A-Za-z\]\{1,4\}/, '门体内出现"族名字符类+量词"⇒ 第二份形态正则字面量')
+  assert.doesNotMatch(s, /\uFF0D/, '门体内出现全角连字符 ⇒ 抄了共享判据编号段分隔符的形态')
+  assert.ok(!s.includes('\\1'), '门体内出现 regex 反向引用 ⇒ 形态判据被就地重写,两处必然漂移')
+})
+
+test('端到端(G-722):索引注入畸形号 → --staged exit 1 并点名;摘掉重复前缀的同形行 → exit 0 且存量报名', () => {
+  const dir = tempPlanRepo(MAL_BASE)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `${MAL_BASE}\n- [ ] G-G-987 注入的畸形新增行:族名在编号段出现两次,长度足够入选。\n`, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    const red = runGate(dir, ['--staged'])
+    assert.equal(red.status, 1, `注入畸形号必须 exit 1,实际 ${red.status}\n${red.stdout}${red.stderr}`)
+    const redOut = `${red.stdout}\n${red.stderr}`
+    assert.match(redOut, /畸形登记编号/)
+    assert.match(redOut, /G-G-987/)
+    assert.match(redOut, /未检出登记行丢失/, '登记行没丢时不得打"0 条丢失"的丢失报告,必须分开说')
+    // 成对反向:同一行摘掉重复前缀 ⇒ 判绿,且存量 DD9002 必须被报数(静默省略=把没判写成判过了)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `${MAL_BASE}\n- [ ] G-987 摘掉重复族名后的正常登记行:与注入行只差编号形态,长度也够。\n`, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    const green = runGate(dir, ['--staged'])
+    assert.equal(green.status, 0, `摘完前缀不该红,实际 ${green.status}\n${green.stderr}`)
+    const greenOut = `${green.stdout}\n${green.stderr}`
+    assert.match(greenOut, /无登记行丢失/)
+    assert.match(greenOut, /存量/)
+    // 全量档同一现场:HEAD 只有存量 DD9002 ⇒ 只报数不判红(§12e),不得把台账旧账钉在每次问责上
+    const head = runGate(dir, [])
+    assert.equal(head.status, 0, `全量档不得因存量判红,实际 ${head.status}\n${head.stderr}`)
+  } finally {
+    rmScratch(dir)
   }
 })
 
