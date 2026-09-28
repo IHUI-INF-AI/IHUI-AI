@@ -40,6 +40,8 @@ import {
   STATUS_VARIANTS,
   mapStatus,
   terminationOf,
+  countUnrecognizedTasks,
+  statusOrUnrecognized,
 } from '../services/agent-task-status.js'
 import type {
   KanbanTask,
@@ -76,6 +78,9 @@ function toKanbanTask(row: AgentTaskRow): KanbanTask {
   const workspacePath =
     row.workspacePath ??
     (typeof payload.workspacePath === 'string' ? payload.workspacePath : undefined)
+  // 未识别档归一(唯一出口在 @ihui/types):原始值落在六档之外时挂一个可选的 rawStatus 供报数。
+  // 刻意**不动 status**:它继续是 mapStatus 的结果(legacy 归一、未知值原样透传),既有断言逐字不变。
+  const normalizedStatus = statusOrUnrecognized(row.status)
   return {
     id: row.id,
     agentId: row.agentId,
@@ -86,6 +91,8 @@ function toKanbanTask(row: AgentTaskRow): KanbanTask {
     // 刻意**新增可选字段**而不是拆第七档状态 —— 后者要同时动落库列 / REST 枚举 / SSE 载荷 /
     // Python 调度器 / 五语言词表(2026-09-28 拍板)。取不到即 undefined,不猜一个标记。
     termination: terminationOf(row.status) ?? undefined,
+    // "未识别"档的载体:只有原始值不在六档内时这个键才出现(且只报数,不参与任何判定)。
+    ...(normalizedStatus.rawStatus !== undefined ? { rawStatus: normalizedStatus.rawStatus } : {}),
     priority: row.priority,
     payload: row.payload ?? {},
     result: row.result ?? undefined,
@@ -121,6 +128,16 @@ export async function buildKanbanColumns(visibleTeamIds?: string[]): Promise<Kan
     .where(conditions)
     .orderBy(desc(agentTasks.priority), desc(agentTasks.createdAt))
   const tasks = rows.map(toKanbanTask)
+  // 未识别档**只报数**:这些任务不进下面任何一列(按定义拿不到已知档的归属),
+  // 但也不能静默消失 —— 未知状态既不代表成功也不代表失败,必须留下一个可问责的计数。
+  // (默认 6 列视图的响应形态由用例会当契约钉着,所以这一计数不走响应体而走日志;
+  //  客户端能拿到未识别任务的场景 —— /tasks 扁平列表 —— 另有看板上的计数条。)
+  const unrecognizedCount = countUnrecognizedTasks(tasks)
+  if (unrecognizedCount > 0) {
+    console.warn(
+      `[agents-kanban] 未识别状态任务 ${unrecognizedCount} 条(不计入任何已知列,仅报数;原始值见 rawStatus)`,
+    )
+  }
   return KANBAN_COLUMNS.map((col) => ({
     status: col.status,
     titleKey: col.titleKey,
