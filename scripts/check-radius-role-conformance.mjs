@@ -943,6 +943,16 @@ export function emitBaseline(violations, baseline) {
 
 export function lineOf(v) {
   const corner = v.corner ? `[${v.corner}]` : ''
+  /**
+   * 胶囊是**形状维**,不存在"该取哪一档"的答案 —— 走通用模板会打印出
+   * `角色 capsule 取 undefined(undefinedpx),应为 undefined(undefinedpx)`(本门第一次判红时印的就是
+   * 这一句)。红必须读得懂:量到的盒形与出路直接来自 `detail`,而不是让人去猜哪个字段没赋值。
+   */
+  if (v.role === CAPSULE_ROLE)
+    return (
+      `  ${v.file}:${v.line}${corner} 胶囊判红 —— ${v.detail || '半径取到短边一半'}` +
+      ';出路:改取该元素类别的角色档(见 radius.js 的 RADIUS_ROLES),挂标记不是出路(守门 77 B8 判红)'
+    )
   return `  ${v.file}:${v.line}${corner} 角色 ${v.role} 取 ${v.actualStep}(${v.actualPx}px),应为 ${v.expectedStep}(${v.expectedPx}px) —— ${v.form}`
 }
 
@@ -1609,6 +1619,31 @@ export default function P() {
     ].join('\n')
     const r = A5(src, 'x/Menu.tsx')
     return r.violations.filter((v) => v.reason === 'capsule').length === 0
+  })())
+  /**
+   * 票㊼ 的三条成对用例:`minWidth` 是**下限**不是定值。旧尺子只读 `width|height`,于是
+   * `minWidth 36 + height 36 + paddingHorizontal 8 + radius 18` 这类"多位数就变宽"的计数徽章 /
+   * 附件按钮被读成"量不到盒形" ⇒ 胶囊从账面上消失(HEAD 实存 3 处,含 §4 明令禁的计数徽章族)。
+   * 反向两条同样必须有牙:没有水平内边距时 minWidth 可以正好等于高度(不得凭空判胶囊),
+   * 而 `width` 写死时加多少内边距都改不了盒宽(不得把真圆顶成胶囊)。
+   */
+  t('113 minWidth + 水平内边距 + 半径=高一半 ⇒ 胶囊判红(宽度只会 ≥ 下限,旧尺子读成"量不到"而放行)', (() => {
+    const r = A5(
+      'const s = {\n  addFileBtn: { height: 36, minWidth: 36, paddingHorizontal: 8, borderRadius: 18 },\n}\n',
+      'x/Bar.tsx',
+    )
+    return r.capsule === 1 && r.violations.filter((v) => v.reason === 'capsule').length === 1
+  })())
+  t('113b 反向:有 minWidth 但**没有**水平内边距 ⇒ 不得判胶囊(它可以正好等于高度)', (() => {
+    const r = A5('const s = {\n  dot: { height: 36, minWidth: 36, borderRadius: 18 },\n}\n', 'x/Dot.tsx')
+    return r.capsule === 0 && r.violations.filter((v) => v.reason === 'capsule').length === 0
+  })())
+  t('113c 反向:width 是定值时 paddingHorizontal 不得把真圆顶成胶囊(固定宽的方盒仍是方盒)', (() => {
+    const r = A5(
+      'const s = {\n  icon: { width: 36, height: 36, paddingHorizontal: 8, borderRadius: 18 },\n}\n',
+      'x/Icon.tsx',
+    )
+    return r.trueCircle === 1 && r.capsule === 0
   })())
   const C5_ROOT = [
     'export function ConfigPanel() {',
