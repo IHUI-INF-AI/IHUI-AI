@@ -159,7 +159,7 @@ export default function EduExamTakePage() {
                   type="button"
                   onClick={() => toggle(q.id, opt.key, q.type === 'single')}
                   className={cn(
-                    'flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left text-sm transition-colors',
+                    'flex w-full items-center gap-3 rounded-sm border px-3 py-2.5 text-left text-sm transition-colors',
                     selected ? 'border-brand-accent-deep bg-primary/5' : 'hover:bg-accent',
                   )}
                 >
