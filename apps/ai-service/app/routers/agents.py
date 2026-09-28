@@ -188,7 +188,11 @@ async def _build_supertool_pool(
         )
 
         manager = get_mcp_client_manager()
-        external = await manager.list_available_tools_async()
+        # ⚠️ 这条枚举**不判属主**(与 `mcp.py` 的三个外部端点不同):装配链手里只有 `user_role`,
+        # 没有会话主体 user_id。收窄会改变所有 agent 会话的工具可见集(用户会突然看不见某些工具),
+        # 属行为变更而非顺带清理 ⇒ 已登记在 PROJECT_PLAN 的 G-371 追加段,解阻前置 = 主体透进
+        # `_build_supertool_pool` / `_supertool_invoke` 两处后改调 `list_available_tools_async`。
+        external = await manager.list_available_tools_unscoped()
         if not external:
             return None  # 无外部 server → 降级
 
@@ -233,7 +237,9 @@ async def _supertool_invoke(
     client = manager.get_client(server_name)
     if client is not None:
         return await client.call_tool(tool_name, args)
-    return await manager.call_external_tool(server_name, tool_name, args)
+    # 同 `_build_supertool_pool`:这里没有主体 user_id,只有角色 ⇒ 走显式命名的"不判属主"出口,
+    # 不得改回 `call_external_tool`(那个签名要求 caller_user_id,漏传就是静默放开)。
+    return await manager.call_external_tool_unscoped(server_name, tool_name, args)
 
 
 def _supertool_tools_from_pool(
