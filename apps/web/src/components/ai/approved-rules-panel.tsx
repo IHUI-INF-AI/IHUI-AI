@@ -95,7 +95,7 @@ export function ApprovedRulesPanel() {
           onClick={() => void refresh()}
           disabled={loading}
           data-testid="approved-rules-refresh"
-          className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+          className="inline-flex h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
         >
           {loading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -149,7 +149,7 @@ export function ApprovedRulesPanel() {
                 onClick={() => void handleRevoke(grant)}
                 disabled={revokingKey !== null}
                 data-testid={`approved-rules-revoke-${grant.cacheKey}`}
-                className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
               >
                 {revokingKey === grant.cacheKey ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
