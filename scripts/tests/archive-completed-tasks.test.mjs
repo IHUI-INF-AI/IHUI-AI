@@ -531,30 +531,39 @@ test('无日期的 ✅ 标题: 默认档(阈值 0)搬走;设了阈值才"不造�
   }
 })
 
-test('大批量阀门:超预算时自动档搬"最旧前缀"并把余量留在原地(旧"全批或不动"= 永久卡死)', () => {
+test('大批量阀门:超字节预算时自动档搬"最旧前缀"并留下余量,下一轮接着搬(旧"全批或不动"= 永久卡死)', () => {
   const dir = createTempGitRepo()
   try {
-    const d = dateAgo(30)
+    // 30 段 × 20 KB ≈ 600 KB,超 256 KB 单批预算;日期从旧到新,用来验"取的是最旧前缀"。
+    const bodies = 'x'.repeat(20000)
+    const heads = []
     const entries = []
-    for (let i = 1; i <= 26; i++) entries.push(`### T${i} ✅(${d})`, `正文 ${i}`, '')
-    const planText = ['# plan', '', ...entries].join('\n')
-    commitPlan(dir, planText)
+    for (let i = 1; i <= 30; i++) {
+      const day = dateAgo(90 - i) // i=1 最旧
+      heads.push(`### T${i} ✅(${day})`)
+      entries.push(heads[i - 1], `正文 ${i} ${bodies}`, '')
+    }
+    commitPlan(dir, ['# plan', '', ...entries].join('\n'))
     const r = runScript(dir, ['--auto-commit'])
     assert.equal(r.status, 0, `阀门只挡不报红(钩子链不得因此失败),实得 ${r.status}`)
-    assert.match(
-      r.out,
-      /体积预算内取最旧前缀:本次搬 25 段/,
-      `必须报出本批实搬段数(预算 25 段),实得:\n${r.out.slice(0, 400)}`,
-    )
-    assert.match(r.out, /余 1 段/, '必须点名余量,不得静默少搬')
-    const head = gitShow(dir, 'HEAD:PROJECT_PLAN.md')
-    const stillThere = entries.filter((l) => /^### T\d+ /.test(l) && head.includes(l))
-    assert.equal(stillThere.length, 1, `未达预算的余量必须原样还在,实得 ${stillThere.length} 条:${stillThere}`)
-    assert.ok(head.includes('### T26 ✅'), '最旧前缀之外的段不得被搬走')
-    assert.ok(!head.includes('### T1 ✅'), '预算内的最旧段必须真被搬走(旧实现这里是整批拒绝 ⇒ 积压永远清不掉)')
+    const m = r.out.match(/本次搬 (\d+) 段 \/ (\d+) B,余 (\d+) 段/)
+    assert.ok(m, `必须报出"本批搬几段 / 实搬字节 / 余量几段",实得:\n${r.out.slice(0, 400)}`)
+    const moved = Number(m[1])
+    const deferred = Number(m[3])
+    assert.ok(moved >= 2 && moved < 30, `应搬走一部分而不是整批或零,实得搬 ${moved} 段`)
+    assert.ok(deferred === 30 - moved, `余量点名必须与实搬数互补,实得余 ${deferred}`)
+    assert.ok(Number(m[2]) <= 256 * 1024, `单批不得超字节预算,实得 ${m[2]} B`)
+    const head1 = gitShow(dir, 'HEAD:PROJECT_PLAN.md')
+    assert.ok(!head1.includes(heads[0]), '最旧那段必须真被搬走(旧实现这里是整批拒绝 ⇒ 积压永远清不掉)')
+    assert.ok(head1.includes(heads[29]), '超预算的最新段不得被搬走')
     assert.ok(existsSync(archiveFilePath(dir)), '真搬了就必须有归档文件(§1 两步走的第一步)')
-    const r2 = runScript(dir, ['--auto-commit', '--allow-mass'])
+    // 这条才是"永久卡死"被修好的正面证明:同一批积压,下一轮**还在往前搬**。
+    const r2 = runScript(dir, ['--auto-commit'])
     assert.equal(r2.status, 0)
+    const m2 = r2.out.match(/本次搬 (\d+) 段/)
+    assert.ok(m2 && Number(m2[1]) >= 1, `第二轮必须继续搬,实得:\n${r2.out.slice(0, 300)}`)
+    const head2 = gitShow(dir, 'HEAD:PROJECT_PLAN.md')
+    assert.ok(!head2.includes(heads[1]), '第二轮应把次旧那段也搬走')
   } finally {
     rmScratch(dir)
   }
