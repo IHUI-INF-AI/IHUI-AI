@@ -304,7 +304,7 @@ export default function KnowledgeCardsPage() {
   const renderCardRow = (card: KnowledgeCardSummary & { content?: string }) => (
     <li
       key={card.id}
-      className="flex flex-wrap items-center gap-3 rounded-lg border p-3"
+      className="flex flex-wrap items-center gap-3 ui-card rounded-lg border p-3"
       data-testid={`card-${card.id}`}
     >
       <div className="min-w-0 flex-1">

@@ -69,7 +69,7 @@ export function UploadProgress({ progress, fileName, status, fileSize }: UploadP
         : 'uploadFailed'
 
   return (
-    <div className="space-y-1.5 rounded-md border bg-muted/30 p-2.5">
+    <div className="space-y-1.5 ui-card rounded-lg border bg-muted/30 p-2.5">
       <div className="flex items-center gap-2">
         <Icon className={STATUS_ICON_CLASS[status]} />
         <span className="min-w-0 flex-1 truncate text-xs font-medium">
