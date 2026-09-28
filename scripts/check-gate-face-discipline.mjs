@@ -31,6 +31,9 @@
 //   node scripts/check-gate-face-discipline.mjs            # 全量档:只报数,恒 exit 0(除脚本自身异常)
 //   node scripts/check-gate-face-discipline.mjs --staged   # 提交链:改到的门必须走取材层
 //   node scripts/check-gate-face-discipline.mjs --self-test
+//   node scripts/check-gate-face-discipline.mjs --root <目录>   # 镜像测试/人工取证通道:值必须存在、
+//                                                                非空且不以 - 开头,否则 exit 2 点名
+//                                                                实得 token(2026-09-28 修 G-322 第三处)
 // 紧急跳过:HUSKY_SKIP_GATE_FACE_DISCIPLINE=1
 
 import { dirname, resolve } from 'node:path'
@@ -716,9 +719,68 @@ export function analyze(root, face) {
   return { ...decide({ verdicts, mode }), verdicts, notices: [] }
 }
 
+/**
+ * 带值旗标的取值(2026-09-28 修 G-322 这一族的第三处;
+ * **口径照抄枚 380431ffc / 636c28f58 / 8832e73a4,不另发明**):紧邻的下一个 token 必须
+ * **存在、非空且不以 `-` 开头**,才算该旗标的值。
+ */
+export function flagValue(list, flag) {
+  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null }
+  const raw = list[list.indexOf(flag) + 1]
+  const token = typeof raw === 'string' ? raw : null
+  const valid = token !== null && token !== '' && !token.startsWith('-')
+  return { present: true, valid, value: valid ? token : null, token }
+}
+
+/**
+ * `--root` 的取值 + 「判不出」的报告形态(2026-09-28 修;**只改形态,判据一字未动**)。
+ * 返回 { root, errorLines } —— errorLines 非空即调用方 exit 2,不再往下判。
+ *
+ * 两处旧形态实测(HEAD):
+ *   ① `--root --staged` ⇒ root 被顶成 `--staged`,`--staged` 档同时消失 ⇒ 对着一个不存在的
+ *      目录判,而抛出来的是 `Undetermined: git rev-parse 失败: … ENOENT` 的**裸栈 + RC=1**;
+ *   ② `--root <非仓库根>` ⇒ assertRepoRoot 抛 Undetermined **逃出 main**(旧 try 只包 analyze)
+ *      ⇒ 同样是裸栈 + RC=1;
+ *   ③ `--root`(结尾无值)⇒ 旧写法 `|| '.'` 静默回落到 cwd,等于"没给值也算给了"。
+ * 本仓对「判不出」的口径是 **exit 2 + 点名原因**(见同文件 analyze 的 catch 与 face-reader 的
+ * Undetermined 约定),所以三条统一收成:值无效 ⇒ exit 2 并点名实得 token;面的基准不对 ⇒ exit 2
+ * 并转述 assertRepoRoot 的原话;真正的脚本内部异常仍保留栈(那是 bug,该看得见)。
+ */
+export function resolveRootArg(argv) {
+  const f = flagValue(argv, '--root')
+  if (f.present && !f.valid) {
+    const got = f.token === null ? '(其后没有任何参数)' : JSON.stringify(f.token)
+    return {
+      root: null,
+      errorLines: [
+        `❌ 无法判定(exit 2): --root 没有收到有效的目录 —— 紧邻的 token 实得:${got}`,
+        '   带值旗标的值必须存在、非空且不以 - 开头;否则 --root --staged 会把 --staged 当成根,',
+        '   于是既丢了 --staged 档、又对着一个不存在的路径判 —— 这比判红更糟(账面读起来像跑过)。',
+        '   出路:--root <目录> 给真实目录(该旗标是镜像测试/人工取证通道,提交链的 runner 不传它),',
+        '   或者整个去掉 --root(默认按脚本自身位置推导仓库根)。',
+      ],
+    }
+  }
+  const root = f.present ? resolve(f.value) : ROOT
+  try {
+    assertRepoRoot(root, '本门')
+  } catch (e) {
+    // Undetermined = "判不出"(按口径转述原因,不打栈);其它异常 = 脚本自身故障,保留栈可诊断。
+    if (e instanceof Undetermined) return { root: null, errorLines: [`❌ 无法判定(exit 2): ${e.message}`] }
+    return {
+      root: null,
+      errorLines: [`❌ 无法判定(exit 2): ${e?.message ?? String(e)}`, e?.stack ?? ''],
+    }
+  }
+  return { root, errorLines: [] }
+}
+
 function main(argv) {
-  const root = argv.includes('--root') ? resolve(argv[argv.indexOf('--root') + 1] || '.') : ROOT
-  assertRepoRoot(root, '本门')
+  const { root, errorLines } = resolveRootArg(argv)
+  if (errorLines.length) {
+    for (const line of errorLines) console.error(line)
+    return 2
+  }
   const { face, error } = selectFace({
     staged: argv.includes('--staged'),
     worktree: argv.includes('--worktree'),
@@ -1283,6 +1345,8 @@ export const __test__ = {
   decide,
   usesLayerRead,
   gitContentReads,
+  flagValue,
+  resolveRootArg,
   prejoinedRepoConsts,
   readsPrejoinedConst,
   scanLiterals,
