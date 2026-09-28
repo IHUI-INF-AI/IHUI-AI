@@ -55,7 +55,24 @@ export default defineConfig({
       // 收口必须在配置层:上一轮只给 tests/terminal-delta-live.test.ts 加局部 vi.mock,于是每个
       // 新触到 active-tokens 的套件再破一次 —— 逐套件补丁正是本条要根治的反模式。
       'react-native-restart': resolve(__dirname, 'tests/__mocks__/react-native-restart.ts'),
-      '@ihui/api-client': resolve(__dirname, 'tests/__mocks__/ihui-api-client.ts'),
+      // 2026-09-29 收口(同一族第三格,范本 = 下方 ihui-shared-auth / sso-core 两条 +
+      // tests/shared-auth-alias-fidelity.test.ts):'@ihui/api-client' 此前指到端内手写替身
+      // tests/__mocks__/ihui-api-client.ts。实测该替身只给 14 个名字,而消费面(mobile-rn/src
+      // 全部取用,现读)从 '@ihui/api-client' 具名取用 250 个(其中 157 个含运行时值,如
+      // fetchApi / setUnauthorizedHandler / streamChat / refreshAccessTokenOnce)——凡走这个
+      // 别名且不自带 vi.mock 的用例,测的都是虚构 API。
+      // 真实包本就框架无关(全 src 唯一外部导入是 @ihui/types 且实测全部 type-only):
+      // 网络走 setTransport 注入口(默认包一层全局 fetch),WS 走 webSocketFactory 形参,
+      // token 走 setTokenProvider,Taro 专用实现拆在 voice-stt.taro.ts 深路径——平台边界本来就是
+      // adapter 注入(§3 工厂/DI),不存在"必须重写一份业务逻辑"的格子。故别名直指真实源码;
+      // 替身降级为纯转发(同 ihui-shared-auth.ts 的处置:不删、只转发,防止别名被指回时长出
+      // 第二份实现)。常驻锁:tests/api-client-alias-fidelity.test.ts。
+      // 子路径别名必须排在父别名之前(最长匹配优先,同 @ihui/shared 各条的登记):
+      // StudyPublishScreen / SubagentsScreen 按 '@ihui/api-client/endpoints/*' 深路径导入,
+      // Metro 侧经 exports './endpoints/*' 解析到真实端点文件;被父别名吞掉会改写成
+      // <index.ts>/endpoints/… 而解析失败。
+      '@ihui/api-client/endpoints': resolve(__dirname, '../../packages/api-client/src/endpoints'),
+      '@ihui/api-client': resolve(__dirname, '../../packages/api-client/src/index.ts'),
       // Sub-path aliases must come BEFORE their parent/base alias (longest match first)
       // 2026-09-28 收口(G-364):sso-core 从"手写替身"改为直指真实源码 —— 与同文件
       // app-control-intent / stores 那两条同一条规矩(纯逻辑模块,给它写 mock 测的就是 mock)。

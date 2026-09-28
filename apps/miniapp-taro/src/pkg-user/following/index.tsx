@@ -145,12 +145,12 @@ export default function FollowingPage() {
                 >
                   {item.avatar ? (
                     <Image
-                      className="w-[96rpx] h-[96rpx] rounded-full bg-muted mr-[24rpx] shrink-0"
+                      className="w-[96rpx] h-[96rpx] rounded-2xl bg-muted mr-[24rpx] shrink-0"
                       src={item.avatar || defaultAvatar}
                       mode="aspectFill"
                     />
                   ) : (
-                    <View className="w-[96rpx] h-[96rpx] rounded-full bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
+                    <View className="w-[96rpx] h-[96rpx] rounded-2xl bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
                       {/* 对齐 RN avatarInitial 18dp/600/text.secondary */}
                       <Text className="text-[length:36rpx] font-semibold text-muted-foreground">
                         {initial}

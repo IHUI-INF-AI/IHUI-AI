@@ -49,7 +49,7 @@ export function Avatar({
       className={cn(
         'items-center justify-center overflow-hidden bg-muted',
         sizeMap[size],
-        shape === 'circle' ? 'rounded-full' : 'rounded-lg',
+        shape === 'circle' ? 'rounded-2xl' : 'rounded-lg',
         className,
       )}
       accessibilityRole="image"
@@ -59,7 +59,7 @@ export function Avatar({
       {source ? (
         <Image
           source={source}
-          className={cn(shape === 'circle' ? 'rounded-full' : 'rounded-lg', 'h-full w-full')}
+          className={cn(shape === 'circle' ? 'rounded-2xl' : 'rounded-lg', 'h-full w-full')}
         />
       ) : (
         <Text className={cn('font-medium text-muted-foreground', textSizeMap[size])}>

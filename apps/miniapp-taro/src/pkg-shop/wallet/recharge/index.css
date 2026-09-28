@@ -53,7 +53,7 @@
 .rc-user-avatar {
   width: 80rpx;
   height: 80rpx;
-  border-radius: 50%;
+  border-radius: var(--radius-2xl);
   background: var(--color-muted);
 }
 .dark .rc-user-avatar {

@@ -23,6 +23,7 @@ import {
   POINTER_FAMILIES,
   POINTER_NO_AUTO_REPAIR,
   auditPlan,
+  compositeKeyOf,
   keyOfRow,
   titleOf,
 } from '../lib/plan-task-index.mjs'
@@ -639,9 +640,15 @@ test('T18 摘号一律喂真尺子,并配"把编号写进指针"的正对照;守
   const f = applyTwinFolds(TWIN_REAL, '2026-09-28')
   if (f.edits.length !== 1) throw new Error(`逐字真档夹具应折 1 行,实测 ${f.edits.length} ⇒ 夹具与判据已漂开`)
   const after = f.edits[0].after
-  // ① 摘号必须用**索引层那一份** keyOfRow 核(不抄第二份编号正则),它红 = 折完还是会被派单口径算一条活
-  if (keyOfRow(after) !== null) throw new Error(`折叠后 keyOfRow 仍取得到主键 ${keyOfRow(after)} ⇒ 摘号没生效`)
-  if (compositeBlind(after) !== true) throw new Error('折叠行必须对 composite 口径隐形(否则 F4 会来重标它)')
+  // ① 摘号的真判据(2026-09-29 换):旧写法断言 `keyOfRow(after) === null`,而那身隐形来自索引层
+  //    "括注把编号推出 48 字窗口"的缺陷 —— 同一缺陷当天让 39 个已用号看起来空闲,lib 修好后它必然现形。
+  //    现在喂的还是**索引层那一份**尺子,判的换成可证的两条:主键不得被换成别人的号 ∧ 指针族必须在场。
+  const kAfter = keyOfRow(after)
+  if (kAfter !== null && kAfter !== keyOfRow(f.edits[0].before))
+    throw new Error(`折叠后主键换成 ${String(kAfter)}(折前主键 ${String(keyOfRow(f.edits[0].before))})⇒ 这一折给本行改了身份`)
+  if (!DUP_POINTER_RE.test(after)) throw new Error('折叠行不含【归并】重复登记副本 ⇒ 不会被派单口径逐出')
+  if (compositeBlind(after, TWIN_REAL.split('\n')[0]) !== true)
+    throw new Error('折叠行必须已退出 composite 口径的活动副本计数(否则 F4 会来重标它)')
   // ② 正对照:把编号写进指针的 48 字符窗口 ⇒ 真尺子**必须**取到键。
   //    少了这一臂,上面那条 null 就只是同义反复(今天真犯过:指针里写了持有行的编号且落在窗口内,
   //    于是"折掉一条副本"反而给账面新增一次撞号)。
@@ -668,10 +675,16 @@ test('T18 摘号一律喂真尺子,并配"把编号写进指针"的正对照;守
   if (!(c1.claimable < c0.claimable)) throw new Error(`派单口径没缩小(${c0.claimable}→${c1.claimable})⇒ 折叠对派单无效,这一票就白做`)
 })
 
-/** composite 口径(索引层那把尺子)对这一行是否隐形 —— 给不出键即隐形。 */
-function compositeBlind(line) {
-  const t = titleOf(line)
-  return keyOfRow(line) === null || !t
+/**
+ * composite 口径下这行是否已退出"活动副本"计数。
+ * 旧义是"给不出 composite 键 ⇒ 隐形",那身隐形来自索引层装饰档漏算的缺陷,lib 修好后恒假。
+ * 现判可证的那一条:F4 按 编号+题面 分组 —— 折叠行保留**自己的**编号 ⇒ 与持有行不成组;
+ * 而"不再算一条活待办"由 DUP_POINTER 过滤负责(① 与 ④ 分别钉住)。共享 composite 键 = 没摘干净。
+ */
+function compositeBlind(line, keeperLine) {
+  const c = compositeKeyOf(line)
+  if (!c) return true
+  return c !== compositeKeyOf(keeperLine)
 }
 
 test('T19 零损失断言必须拒落:四种"会被误判"的场景各自点名,一条都不许静默通过', () => {
@@ -742,7 +755,11 @@ test('T20 端到端(独立仓)--fold-twins --commit:产出一枚只含台账的�
     const folded = lines.find((l) => isTwinFolded(l))
     if (!kept || keyOfRow(kept) !== 'G-300') throw new Error(`持有行必须还是带号的 G-300:${JSON.stringify(kept && kept.slice(0, 60))}`)
     if (!folded) throw new Error('HEAD 里找不到折叠档 ⇒ 落地没生效(而输出却说成功了)')
-    if (keyOfRow(folded) !== null) throw new Error(`落地面折叠行仍有主键 ${keyOfRow(folded)}`)
+    if (keyOfRow(folded) !== headIdOf(folded))
+      throw new Error(
+        `落地面折叠行的主键不再是它自己的行首号:${keyOfRow(folded)} vs ${headIdOf(folded)}(隐形已从判据里退出,逐出派单靠指针)`,
+      )
+    if (!DUP_POINTER_RE.test(folded)) throw new Error('落地面折叠行缺【归并】重复登记副本指针 ⇒ 派单口径不会逐出它')
     if (!/^- \[ \]/.test(folded)) throw new Error(`折叠行勾被翻了:${folded.slice(0, 20)}`)
     if (!/\(原编号 G-317;持有行题面「.*」\)$/.test(folded))
       throw new Error('折叠行必须在**行尾**留原编号沿革(否则日后无人查得到它原来是谁,而沿革写进窗口就会被取成自己的主键)')
@@ -794,7 +811,9 @@ test('T21 端到端 --heal --commit 现在也执行这一维,且与翻勾那一�
     if (!/\[归并\]/.test(head)) throw new Error('F1 那一维没做(向后兼容破了)')
     const folded = head.split(/\r?\n/).find((l) => isTwinFolded(l))
     if (!folded) throw new Error('F10 这一维没随 --heal 一起执行 ⇒ 早退判据或调度漏了它')
-    if (keyOfRow(folded) !== null) throw new Error('落地面折叠行仍有主键')
+    if (keyOfRow(folded) !== 'G-42')
+      throw new Error(`F10 落地面折叠行的主键不再是它自己那个号:实得 ${String(keyOfRow(folded))}`)
+    if (!DUP_POINTER_RE.test(folded)) throw new Error('F10 落地面折叠行缺副本指针 ⇒ --open 仍会把它算一条活')
     if (!/^- \[ \]/.test(folded)) throw new Error('两维打架:折叠行动了勾选')
     if (!head.includes('- [ ] **D8 真待办**:还没人做。')) throw new Error('真待办被误动')
     if (head.split(/\r?\n/).length !== plan.split('\n').length) throw new Error('行数变了(两维都只许改行内内容)')
