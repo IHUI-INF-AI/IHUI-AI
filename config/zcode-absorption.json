@@ -172,9 +172,9 @@
       "path": "packages/ui/src",
       "status": "windowed",
       "files": 1492,
-      "read": 216,
+      "read": 218,
       "notes": "lib n-z 16、lib a-m 46(W2-5 整文件读完 46/90)、settings 17、v4 10(W2-8)、ToolCallBlocks+app-shell+store+root+mentions 18(W3-9)、components+hooks 6(W3-5);W4 四路新增整文件读到体 115:hooks 28/98、components/ai-elements 32/46、components 其余 +13、ToolCallBlocks+chat-input-toolbar +8、store/workspace +12、v4 +6、顶层散件 6/138、quickpick 5/7、git-graph 3/6、presentation 2/6。⚠️ read=191 是【下界】:W3 旧登记的 24 个(ToolCallBlocks/store/root/mentions 18 + components/hooks 6)按目录判定全部落在 W4 集合内,而 W4 内部 components 与 components/ai-elements 至多重叠 13 —— 交集无法从台账推出,真实区间 [191,228];派单请跑 `node scripts/zcode-absorption-matrix.mjs` 看末行现值,不得照本字段做减法核账。⚠️ 口径更正:旧 notes 写的『ui 根 44』与现量不同口径 —— 顶层散件按 `git ls-files packages/ui/src` 行级过滤现量为 138(`*` 通配会递归,那是另一个口径,第一版据此量出 1492)。这是最大的一块未闭合面。",
-      "remaining": "message 渲染族与 messageTelemetry 后半 1300 行、workflow-timeline 39、v4 余 197、hooks 余 70、components 余 140、ToolCallBlocks 余 67、store 余 30、顶层散件余 132;quickpick 余 TaskFindDialog.tsx 389、git-graph 余 Pane/Dialog/CommitDetail 620、presentation 余 elementModel/pptxEngine/pdfPrintExport/textSelection 988。DeveloperToolsPane.tsx 与 App.tsx 仅段读,不计 read。 ｜09-29 第十九轮回填:本轮具名整读到体 5 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 5 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第二十一轮回填:供应商设置面与用量面板报告具名 13 枚、新指针 8 枚可兑现 ｜09-29 第三十三批回填:UI 两大块整读到体 message.tsx **1670 行**(1-340/341-680/681-1020/1021-1340/1341-1670)、markdown-table.tsx 1420(1-360/361-720/721-1080/1081-1420)。**行数更正:台账旧文写 1516 是错的**,现按 wc -l 取 1670。**路径更正**:真实前缀是「packages/ui/src/components/ai-elements/」,不是「apps/zcode-cli/packages/ui/src/components/」。残余:prompt-input 753、diagram-preview-dialog 702、image-preview-dialog 564、code-block 550 未整读。",
+      "remaining": "message 渲染族与 messageTelemetry 后半 1300 行、workflow-timeline 39、v4 余 197、hooks 余 70、components 余 140、ToolCallBlocks 余 67、store 余 30、顶层散件余 132;quickpick 余 TaskFindDialog.tsx 389、git-graph 余 Pane/Dialog/CommitDetail 620、presentation 余 elementModel/pptxEngine/pdfPrintExport/textSelection 988。DeveloperToolsPane.tsx 与 App.tsx 仅段读,不计 read。 ｜09-29 第十九轮回填:本轮具名整读到体 5 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 5 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第二十一轮回填:供应商设置面与用量面板报告具名 13 枚、新指针 8 枚可兑现 ｜09-29 第三十三批回填:UI 两大块整读到体 message.tsx **1670 行**(1-340/341-680/681-1020/1021-1340/1341-1670)、markdown-table.tsx 1420(1-360/361-720/721-1080/1081-1420)。**行数更正:台账旧文写 1516 是错的**,现按 wc -l 取 1670。**路径更正**:真实前缀是「packages/ui/src/components/ai-elements/」,不是「apps/zcode-cli/packages/ui/src/components/」。残余:prompt-input 753、diagram-preview-dialog 702、image-preview-dialog 564、code-block 550 未整读。 ｜09-29 第三十四批回填:prompt-input.tsx 753(段接 1-400/401-753)、code-block.tsx 550(1-300/301-550)整读到体。残余:文件尾 :744-753 的四个 re-export 兄弟件(prompt-input-buttons/actions/textarea/primitives)与「code-viewer.js」(shiki 渲染本体)未读。",
       "evidence": [
         "packages/ui/src/store/StoreProvider.tsx:56",
         "packages/ui/src/useTheme.ts:37",
@@ -202,7 +202,12 @@
         "packages/ui/src/components/ai-elements/message.tsx:708-748",
         "packages/ui/src/components/ai-elements/message.tsx:404-428",
         "packages/ui/src/components/ai-elements/markdown-table.tsx:81-91",
-        "packages/ui/src/components/ai-elements/markdown-table.tsx:705-733"
+        "packages/ui/src/components/ai-elements/markdown-table.tsx:705-733",
+        "packages/ui/src/components/ai-elements/prompt-input.tsx:342-410",
+        "packages/ui/src/components/ai-elements/prompt-input.tsx:282-299",
+        "packages/ui/src/components/ai-elements/code-block.tsx:465",
+        "packages/ui/src/components/ai-elements/code-block.tsx:488-493",
+        "packages/ui/src/components/ai-elements/code-block.tsx:159-163"
       ],
       "tickets": [
         "G-384",
