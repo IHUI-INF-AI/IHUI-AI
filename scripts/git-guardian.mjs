@@ -230,6 +230,19 @@ function worktreeUsable() {
   return git(['rev-parse', '--is-inside-work-tree'], true) === 'true'
 }
 
+/**
+ * 核心健康判据 —— main 与 daemon **共用这一份实现**(两处各写必然漂移)。
+ *
+ * 漂移的实证:`core.bare=true` 时 `pointerOk / gitdirOk / gitUsable` **三条全绿**
+ * (`rev-parse` 在裸档下照样成功),所以旧表达式把这一型判成"健康"、直接进健康分支早退,
+ * `remediate()` 结构上到不了 —— 我先前落进 `remediate()` 的自愈**在提交链上生效次数为 0**,
+ * 实测活仓库带裸档跑了数小时而守护每 2 分钟一趟、每趟都把其余 heal* 跑完再 return 0。
+ * "函数在、判据对、调度路径不经过它"与本仓反复登记的「造好没装车」是同一型(守门 70/76/81)。
+ */
+function coreHealthy(s) {
+  return Boolean(s.pointerOk && s.gitdirOk && s.gitUsable && s.worktreeUsable)
+}
+
 /** 用显式 `--git-dir` 读写某个 gitdir 的 core.bare(裸档下 `-C 工作树` 这条路是走不通的) */
 function readBareFlag(gitdir = GITDIR) {
   const bin = resolveGitBin()
@@ -2152,7 +2165,7 @@ function main() {
     registerTask()
   }
 
-  const coreOk = before.pointerOk && before.gitdirOk && before.gitUsable
+  const coreOk = coreHealthy(before)
   if (coreOk && before.refsOk) {
     // `.git` 与嵌套 ref 都健康 ≠ 工作区健康:宿主会成批删除工作区里的已跟踪文件
     // (实测同日三轮 137→27→1)。计划任务跑的是本单轮路径(startDaemon 未启用),
@@ -2188,7 +2201,8 @@ function main() {
     if (!CHECK_ONLY) watchWatchdog()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
     if (!CHECK_ONLY) ensureS4u()
-    if (CHECK_ONLY) console.log('✅ .git 健康(pointer + gitdir + git 可用 + 嵌套 ref 完整)')
+    if (CHECK_ONLY)
+      console.log('✅ .git 健康(pointer + gitdir + git 可用 + 工作树可用 + 嵌套 ref 完整)')
     return 0
   }
 
@@ -2206,7 +2220,8 @@ function main() {
   remediate(before)
 
   const after = status()
-  const ok = after.pointerOk && after.gitdirOk && after.gitUsable && after.refsOk
+  const ok =
+    after.pointerOk && after.gitdirOk && after.gitUsable && after.refsOk && after.worktreeUsable
   log(ok ? `✅ 自愈成功(HEAD=${after.head})` : '❌ 自愈失败,需人工介入')
   return ok ? 0 : 1
 }
@@ -2222,15 +2237,13 @@ function startDaemon() {
   const tick = () => {
     try {
       const h = status()
-      const coreOk = h.pointerOk && h.gitdirOk && h.gitUsable
+      const coreOk = coreHealthy(h)
       if (!coreOk) {
         log(anomalyLine(h))
         remediate(h)
         const a = status()
         log(
-          a.pointerOk && a.gitdirOk && a.gitUsable && a.refsOk
-            ? `✅ 自愈成功(HEAD=${a.head})`
-            : '❌ 自愈失败,需人工介入',
+          coreHealthy(a) && a.refsOk ? `✅ 自愈成功(HEAD=${a.head})` : '❌ 自愈失败,需人工介入',
         )
       } else if (!h.refsOk) {
         // 核心健康但嵌套 ref 被宿主清理(实测高频) → 离线重建, 不打扰人
@@ -2296,6 +2309,7 @@ export const __test__ = {
   readBareFlag,
   writeBareFalse,
   healWorktreeBare,
+  coreHealthy,
   NOTIFY_DEFAULT_WINDOW_MS,
   NOTIFY_DEFAULT_FAIL_COOLDOWN_MS,
 }
