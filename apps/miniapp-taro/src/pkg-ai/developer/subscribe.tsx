@@ -168,12 +168,12 @@ export default function DeveloperSubscribePage() {
           <View className="flex-shrink-0">
             {dev.avatar ? (
               <Image
-                className="w-[128rpx] h-[128rpx] rounded-full bg-muted"
+                className="w-[128rpx] h-[128rpx] rounded-2xl bg-muted"
                 src={dev.avatar}
                 mode="aspectFill"
               />
             ) : (
-              <View className="w-[128rpx] h-[128rpx] rounded-full bg-muted flex items-center justify-center">
+              <View className="w-[128rpx] h-[128rpx] rounded-2xl bg-muted flex items-center justify-center">
                 <Text className="text-[length:32rpx] font-semibold text-muted-foreground">
                   {dev.name.charAt(0) || '?'}
                 </Text>
