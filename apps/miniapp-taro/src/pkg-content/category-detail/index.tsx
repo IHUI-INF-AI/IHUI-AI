@@ -78,7 +78,7 @@ export default function CategoryDetailPage() {
           </Text>
           {/* RN tab: paddingHorizontal 10dp=20rpx, paddingVertical 6dp=12rpx, radius 6dp=12rpx, bg surface.card */}
           <View
-            className="flex items-center px-[20rpx] py-[12rpx] rounded-md bg-card"
+            className="flex items-center px-[20rpx] py-[12rpx] ui-card rounded-lg bg-card"
             hoverClass="opacity-60"
             onClick={toggleSort}
           >

@@ -248,7 +248,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
 
   return (
     <div className="flex flex-col gap-2" data-testid="agent-runtime-panel">
-      <div className="flex items-center gap-1.5 px-2 py-1.5 border border-border rounded-md bg-card text-xs">
+      <div className="flex items-center gap-1.5 px-2 py-1.5 border border-border ui-card rounded-lg bg-card text-xs">
         <span className="font-semibold text-xs">{t('nav.tabRuntime')}</span>
         {sessionId && (
           <TooltipProvider>

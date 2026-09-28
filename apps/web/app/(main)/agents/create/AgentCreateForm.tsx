@@ -240,7 +240,7 @@ function SkillCheckboxList({ selected, onChange }: SkillCheckboxListProps) {
         return (
           <label
             key={skill.id}
-            className="flex cursor-pointer items-start gap-2 rounded-md border bg-card px-3 py-2 text-sm transition-colors hover:bg-accent/50 has-[:checked]:border-primary/40 has-[:checked]:bg-primary/5"
+            className="flex cursor-pointer items-start gap-2 ui-control rounded-sm border bg-card px-3 py-2 text-sm transition-colors hover:bg-accent/50 has-[:checked]:border-primary/40 has-[:checked]:bg-primary/5"
           >
             <input
               type="checkbox"

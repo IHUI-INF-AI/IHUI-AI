@@ -207,7 +207,7 @@ export default function FavoritesPage() {
 
       {/* 批量操作栏 */}
       {manageMode && displayList.length > 0 ? (
-        <View className="mt-[16rpx] flex items-center justify-between py-[16rpx] px-[20rpx] bg-card border-[length:2rpx] border-border rounded-xl">
+        <View className="mt-[16rpx] flex items-center justify-between py-[16rpx] px-[20rpx] bg-card border-[length:2rpx] border-border ui-card rounded-lg">
           <View
             className="flex items-center"
             hoverClass="opacity-60"
