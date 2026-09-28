@@ -58,7 +58,7 @@ import {
   X,
 } from 'lucide-react-native'
 
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import {
   BOTTOM_ACTION_BAR_CHIP_FONT_PX,
   BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
@@ -1024,7 +1024,7 @@ const styles = StyleSheet.create({
     height: SECONDARY_BTN_SIZE,
     minWidth: SECONDARY_BTN_SIZE,
     paddingHorizontal: 8,
-    borderRadius: SECONDARY_BTN_SIZE / 2,
+    borderRadius: rnRadiusFor.control,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: tokens.border.light,

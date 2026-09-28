@@ -71,15 +71,13 @@ const BASELINE_REL = 'scripts/exemption-expiry-baseline.json'
 const DEFAULT_LIFETIME_DAYS = 90
 /** 已知族的建议存活期(天)。改这里就是改策略,不得在各门里各抄一份。 */
 const FAMILY_LIFETIME_DAYS = {
-  'radius-exempt': 90,
   /**
-   * 守门 150(圆角角色档合规对账)的行内出口:某处元素确实不属 RADIUS_ROLES 的六档语义时,
-   * 写 `radius-role-exempt: <原因>` 只救本行/紧邻上行。取 **60 天** —— 它是**待偿的配档债**
-   * (出路只有两条:把该类别补进 RADIUS_ROLES 并同笔给出消费方,或把这一处改回角色表那一档),
-   * 不像 back-label-exempt 那样是"结构性定性"(那种取 365);又因改档同时动两端观感、需跨端回归,
-   * 故比 glyph-arrow-exempt 的 30 天长。短周期只会逼人删标记、删了又被门判红,两道门互咬。
+   * 圆角的两个豁免族(角色档那一族与档位表那一族)已于 2026-09-29 O81 票㊵ **整体移除**:
+   * 项目定档「不允许有任何豁免」,而留在表里就等于本门还在替一条不存在的出口背书 —— 豁免账的
+   * 登记表只能是"合法出口的清单",不能是"历史名字的纪念馆"。判红由守门 77 的 B8 接手
+   * (写这条标记本身就是违规,而不是"写了之后有 90 天寿命")。
+   * 表里若再出现它们,即"通道被悄悄接回来",由门 77 的镜像 T-B8 与本门的族表用例各拦一半。
    */
-  'radius-role-exempt': 60,
   'arch-exempt': 90,
   'ihui-allow-important': 90,
   'brand-mail-exempt': 30,
@@ -631,13 +629,22 @@ export function mergeBaseline(old, observed) {
   const next = { ...old, undatedCounts: { ...(old.undatedCounts || {}) } }
   const lowered = []
   const added = []
-  // 工具面键一律不得留在账里:prose 不是待偿债务,留着 E3 的宽限期永远销不完。
-  // 写在合并层而不是"手工清一次",是因为旧基线可能被一次回退带回来 —— 那时下一次
-  // --update-baseline 会自行收干净(自愈),不需要有人记得。
   const purged = []
   for (const k of Object.keys(next.undatedCounts)) {
-    if (!TOOL_FACE_RE.test(String(k).split('::')[0] || '')) continue
-    purged.push(`${k}=${next.undatedCounts[k]}`)
+    const file = String(k).split('::')[0] || ''
+    const fam = String(k).split('::')[1] || ''
+    // ① 工具面键一律不得留在账里:prose 不是待偿债务,留着 E3 的宽限期永远销不完。
+    // ② 族已从登记表移除 ⇒ 它那笔额度**同时作废**(2026-09-29 O81 票㊵:圆角豁免通道整体废除)。
+    //    留在账里有两个坏处:T11 判"基线里出现未登记族"而恒红(清单腐烂),而更要紧的是它读起来
+    //    像"这一族还有额度" —— 那正是替一条已废除的出口继续背书。
+    // 两条都写在合并层而不是"手工清一次",因为旧基线可能被一次回退带回来 ——
+    // 那时下一次 --update-baseline 会自行收干净(自愈),不需要有人记得。
+    // 没有 `::族` 段的旧式键不参与族判定(它没有族可判)—— 拿空串去查登记表会把所有此类键误清。
+    if (!TOOL_FACE_RE.test(file) && (fam === '' || isFamilyRegistered(fam))) continue
+    // 前缀把"为什么清"写进账目本身:日志只说"清掉 N 键"就会把两种完全不同的处置混成一个数
+    // (工具面 prose 与"族已废除"必须分开报,否则读的人以为只是又清了一批注释)。
+    const why = TOOL_FACE_RE.test(file) ? '工具面' : '族已废除'
+    purged.push(`${why}:${k}=${next.undatedCounts[k]}`)
     delete next.undatedCounts[k]
   }
   for (const [k, v] of Object.entries(observed.undatedCounts)) {
@@ -659,17 +666,22 @@ export function mergeBaseline(old, observed) {
 // ------------------------------------------------------------ 自检(构造面 + 一次真仓)
 
 const TODAY = '2026-09-25'
-const KEY = 'a.ts::radius-exempt'
+/**
+ * 夹具用的族名**不携带语义** —— 本门判的是"有没有登记 / 带不带原因 / 过没过期",与那一族管什么无关。
+ * 刻意不用圆角那两族做示例:它们已从登记表移除(票㊵),夹具里再写它们就等于把"这条通道还活着"
+ * 教给每一个读自检的人。
+ */
+const KEY = 'a.ts::border-ink-exempt'
 const E = (o) => ({
   file: 'a.ts',
-  family: 'radius-exempt',
+  family: 'border-ink-exempt',
   line: 1,
   expiry: null,
   hasReason: true,
   ...o,
 })
-const F_INLINE = '  borderRadius: 17, // radius-exempt: 正圆(直径一半)'
-const F_PREV = '// radius-exempt: 图例微圆角\n{ borderRadius: 1 },'
+const F_INLINE = '  borderRadius: 17, // border-ink-exempt: 正圆(直径一半)'
+const F_PREV = '// border-ink-exempt: 图例微圆角\n{ borderRadius: 1 },'
 const F_GLYPH = '<Text>›</Text></View> // glyph-arrow-exempt: 与封面同源的指示符'
 const F_ALLOW = "s.textContent='*{c:x!important;/*!ihui-allow-important:压过外部页面*/}'"
 const F_THREE =
@@ -730,7 +742,7 @@ function selfTest() {
   // 日期解析:四类陷阱 + 方向
   ok(
     'P01 非法月(2026-13-01)不当成到期日',
-    e0('// radius-exempt: 原因 until 2026-13-01').expiry === null,
+    e0('// border-ink-exempt: 原因 until 2026-13-01').expiry === null,
   )
   ok('P02 标记**之前**的散文日期不得被读成本笔到期日', e0(F_PROSE, 'h.mjs').expiry === null)
   ok(
@@ -739,7 +751,7 @@ function selfTest() {
   )
   ok(
     'P04 prev-line 挂靠的标记也能带到期日',
-    e0('// radius-exempt: 正圆 until 2020-05-05\n{ borderRadius: 1 }').expiry === '2020-05-05',
+    e0('// border-ink-exempt: 正圆 until 2020-05-05\n{ borderRadius: 1 }').expiry === '2020-05-05',
   )
   // 实测自伤:一条 `border-ink-exempt: … 2026-09-26 扩判据后暴露的既有定稿 … until 2027-09-26`
   // 被读成到期日 2026-09-26 ⇒ 次日整道 blocking 门恒红,而它拦的不是任何人的代码问题。
@@ -786,14 +798,14 @@ function selfTest() {
   ok('R03 到期日当天不算过期(边界)', redOf(detail([E({ expiry: TODAY })])) === '')
   ok('R04 明日到期不算过期', redOf(detail([E({ expiry: shiftDay(TODAY, 1) })])) === '')
   ok('R05 昨天到期算过期', redOf(detail([E({ expiry: shiftDay(TODAY, -1) })])) === 'E2')
-  const down = detail([], { 'z::radius-exempt': 5 })
+  const down = detail([], { 'z::border-ink-exempt': 5 })
   ok('R01 存量减少 ⇒ 绿 + 提示可下调', down.red.length === 0 && down.soft.length === 1)
   ok('R02 从 0 起的新豁免 ⇒ 红', redOf(detail([E()], { [KEY]: 0 })) === 'E1')
   // G01–G08 记账面 vs 工具面(scripts/**)。**六条成对**:每一格"不红"都必须由对面那一格"红"
   // 反向钉住 —— 否则"不红"完全可能只是判据失效(本仓最高频的那型假绿)。
-  const G_TXT = '// radius-exempt: 头像要纯圆'
-  const G_KEY_TOOL = 'scripts/check-demo.mjs::radius-exempt'
-  const G_KEY_APP = 'apps/demo/src/a.ts::radius-exempt'
+  const G_TXT = '// border-ink-exempt: 头像要纯圆'
+  const G_KEY_TOOL = 'scripts/check-demo.mjs::border-ink-exempt'
+  const G_KEY_APP = 'apps/demo/src/a.ts::border-ink-exempt'
   const gTool = es(G_TXT, 'scripts/check-demo.mjs')
   const gApp = es(G_TXT, 'apps/demo/src/a.ts')
   ok(
@@ -890,7 +902,7 @@ function selfTest() {
   )
   ok(
     'U02 基线里本轮未观测到的键计 staleKeys(不删、只喊)',
-    detail([], { 'gone.ts::radius-exempt': 2 }).totals.staleKeys === 1,
+    detail([], { 'gone.ts::border-ink-exempt': 2 }).totals.staleKeys === 1,
   )
   // U03–U08:E4「新豁免族必须同笔登记」从散文变成判据。**每一格"不红"都要有对面那一格"红"**
   // 反向钉住,否则"不红"完全可能只是判据失效(本仓最高频那型假绿)。
@@ -903,7 +915,7 @@ function selfTest() {
     expiry: '2099-12-31',
     toolFace: true,
   })
-  const uReg = E({ family: 'radius-exempt', file: 'apps/demo/src/a.ts', expiry: '2099-12-31' })
+  const uReg = E({ family: 'border-ink-exempt', file: 'apps/demo/src/a.ts', expiry: '2099-12-31' })
   const uScanTool = es(F_FUTURE, 'scripts/check-demo.mjs')
   const uScanApp = es(F_FUTURE, 'apps/demo/src/a.ts')
   ok(
@@ -951,14 +963,36 @@ function selfTest() {
       .undatedCounts.upMe === 1,
   )
   const mp = mergeBaseline(
-    { undatedCounts: { 'scripts/check-a.mjs::arch-exempt': 7, 'apps/x.ts::radius-exempt': 3 } },
+    { undatedCounts: { 'scripts/check-a.mjs::arch-exempt': 7, 'apps/x.ts::border-ink-exempt': 3 } },
     { undatedCounts: {} },
   )
   ok(
     'M03 工具面键不得留在账里(且只清它,别的面一条不动)',
     mp.next.undatedCounts['scripts/check-a.mjs::arch-exempt'] === undefined &&
-      mp.next.undatedCounts['apps/x.ts::radius-exempt'] === 3 &&
+      mp.next.undatedCounts['apps/x.ts::border-ink-exempt'] === 3 &&
       mp.purged.length === 1,
+  )
+  // M03b/M03c 成对:族从登记表移除 ⇒ 它那笔额度必须同时销掉;而**仍登记**的族一条都不许动。
+  // 只测 M03b 会放过"purge 条件写宽了把全表清光"那一型 —— 那等于把存量债一夜抹平,
+  // 而账面读起来像"账已清完"(本仓最高频的失效型就是这种自洽的假绿)。
+  const abol = mergeBaseline(
+    {
+      undatedCounts: {
+        'apps/x.ts::radius-exempt': 41,
+        'apps/y.ts::border-ink-exempt': 2,
+      },
+    },
+    { undatedCounts: {} },
+  )
+  ok(
+    'M03b 已废除族(不在登记表里)的额度必须被清掉并点名',
+    abol.next.undatedCounts['apps/x.ts::radius-exempt'] === undefined &&
+      abol.purged.length === 1 &&
+      abol.purged[0].startsWith('族已废除:apps/x.ts::radius-exempt='),
+  )
+  ok(
+    'M03c 反向:仍登记的族一条不许动(清宽了就是把存量债一夜抹平)',
+    abol.next.undatedCounts['apps/y.ts::border-ink-exempt'] === 2,
   )
   const e2e = endToEndCase()
   ok('X01 临时仓 HEAD 面:已过期豁免判红并点名', e2e.headRed)
@@ -990,7 +1024,7 @@ function endToEndCase() {
     // HEAD 面:一条**已过期**豁免 ⇒ E2 必红,且与基线无关
     writeFileSync(
       path.join(dir, 'a.ts'),
-      'export const x = 1 // radius-exempt: 真圆 until 2020-01-01\n',
+      'export const x = 1 // border-ink-exempt: 真圆 until 2020-01-01\n',
       'utf8',
     )
     git(['add', 'a.ts', BASELINE_REL])
@@ -999,7 +1033,7 @@ function endToEndCase() {
     // 索引面:同一行改成未来日期 ⇒ 同一份判据必须给出不同结论(否则会红/绿不分)
     writeFileSync(
       path.join(dir, 'a.ts'),
-      'export const x = 1 // radius-exempt: 真圆 until 2099-12-31\n',
+      'export const x = 1 // border-ink-exempt: 真圆 until 2099-12-31\n',
       'utf8',
     )
     git(['add', 'a.ts'])
@@ -1110,7 +1144,8 @@ function writeBaseline(root, baseline, entries, today, face) {
   const keys = Object.keys(next.undatedCounts).length
   console.log(
     `基线已合并(只下调+并集):下调 ${lowered.length} 键 / 新增 ${added.length} 键 / ` +
-      `清出工具面 ${purged.length} 键(prose 不是债务)/ 现共 ${keys} 键,面=${face}`,
+      `清出 ${purged.length} 键(工具面 prose ${purged.filter((p) => p.startsWith('工具面:')).length} / ` +
+      `已废除族 ${purged.filter((p) => p.startsWith('族已废除:')).length})/ 现共 ${keys} 键,面=${face}`,
   )
 }
 
