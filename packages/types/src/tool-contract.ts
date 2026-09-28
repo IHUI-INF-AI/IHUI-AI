@@ -100,10 +100,63 @@ export interface ToolShapeDescriptor {
 /** 投影后交给 provider 的 JSON Schema 节点(开放键位,provider 侧扩展字段原样透传)。 */
 export type ProviderJsonSchema = Readonly<Record<string, unknown>>
 
+/**
+ * **路由身份键清单(唯一一份;守门与类型层共用,禁止在别处抄第二份)**。
+ *
+ * 规范(注释级,2026-09-25 立;机器判据 = `scripts/check-tool-arg-routing-identity.mjs`):
+ * **路由身份一律由宿主在 closure / ctx 里绑定,绝不得出现在 `shape.input` 或任何会进入
+ * 模型可见 schema 的参数集合里。** 一旦这类键进了 schema,模型就能自己填一个**别人的**值,
+ * 把结果投给别的会话 / 别的宿主实例 —— 那是越权,不是参数校验问题(同族先例见
+ * `docs/runtime-capability-disclosure.md` 与 agent-control 链路"投递定址按实例绑定、模型不得覆盖")。
+ *
+ * 判据的归一化口径住在守门内(小写 + 去 `_`/`-`,故 `sessionId` 与 `session_id` 同视),
+ * 这里只出**清单**,以免两份实现各处漂移。
+ *
+ * 为什么正是这 16 个:它们每一个都回答"**这次调用归谁 / 落到哪条会话 / 落到哪个实例**",
+ * 即"投递定址"本身:
+ * - `sessionId` / `agentId` / `instanceId` — 会话、Agent 定义、宿主实例三级定址;
+ * - `userId` — 归属主体(填别人的 = 直接跨账号);
+ * - `conversationId` / `chatId` — 对话容器(结果会被写进哪一个对话);
+ * - `runId` / `turnId` — 运行与轮次(把产出续到别人那一轮上)。
+ *
+ * **刻意排除的键(它们是"内容引用"而不是"路由身份",纳进来会误拦正当用法)**:
+ * - `messageId` / `message_id` — 模型引用它要回复/引用哪条消息,是任务内容的一部分;
+ * - `toolCallId` / `tool_call_id` — 协议关联位(把结果对回某次调用),宿主本就按它回填;
+ * - `taskId` / `subagentId` / `fileId` / `path` 等 — 业务对象句柄,权限由 effectScope + 批准面管,
+ *   不构成"投给别的会话/别的实例"的定址能力。
+ * 要往这张表加键,先问一句:**填错它会不会把结果送到别人那里?** 会 → 加;不会 → 属于内容引用,不得加。
+ */
+export const ROUTING_IDENTITY_KEYS = [
+  'sessionId',
+  'session_id',
+  'agentId',
+  'agent_id',
+  'instanceId',
+  'instance_id',
+  'userId',
+  'user_id',
+  'conversationId',
+  'conversation_id',
+  'chatId',
+  'chat_id',
+  'runId',
+  'run_id',
+  'turnId',
+  'turn_id',
+] as const
+
+export type RoutingIdentityKey = (typeof ROUTING_IDENTITY_KEYS)[number]
+
 export interface ToolShapeContract {
   /** 可见性位:false ⇒ 不进下发清单(内部编排专用工具,模型不该看到) */
   visibleToProvider: boolean
-  /** 入参形状:校验面与模型面同源的那一份 */
+  /**
+   * 入参形状:校验面与模型面同源的那一份。
+   *
+   * ⚠️ 注释级规范(判据在守门,不在本类型):`input.properties` / `parameters` 的键集
+   * **只准放业务入参**。路由身份(见上方 `ROUTING_IDENTITY_KEYS`)由宿主在 closure / ctx 绑定,
+   * 一旦进到这里就变成"模型可填",等于把投递定址交给模型 —— 越权而非校验问题。
+   */
   input: ToolShapeDescriptor
   /** 出参形状:本仓现状多数工具未声明,故可选;声明了就同时用于出参校验 */
   output?: ToolShapeDescriptor
@@ -145,6 +198,9 @@ export interface ToolPermissionContract {
   /**
    * 无论多宽松都必须问。**只覆盖放行分支,绝不覆盖拒绝分支** ——
    * 被静态规则拒绝的调用不得因为 alwaysAsk 而变成"问一次再放行"。
+   *
+   * 消费者(此前全仓零消费者,声明等于空支票):
+   * `apps/cli/src/tools/index.ts` 的 `requiresUserConfirmation()` —— 唯一实现,只认显式 `true`。
    */
   alwaysAsk?: boolean
   matchSources?: readonly ToolMatchSource[]
@@ -186,6 +242,27 @@ export interface ToolContract {
 }
 
 /**
+ * 免批两轴的**声明面**(2026-09-28 立,第三方工具面专用)。
+ *
+ * 它钉的是这一型漏洞:第三方工具能不能免批,过去只看一档危险级别(**单轴**),于是
+ * "只读但会把请求打到外部世界"与"不碰外部世界但会写"在批准闸上长得一模一样。
+ * 口径(用户 2026-09-28 拍板):**只有「只读」且「不碰外部世界」同时成立才允许免批**,
+ * 任一不成立就必须问。
+ *
+ * 两条**独立**字段,刻意不合成一个布尔,也不借用 `riskLevel`/`dangerLevel` 冒充 ——
+ * 一档风险级别回答的是"这一档多危险",而这里要的是两条可各自取证、各自为假的事实
+ * (合并即"把两轴压回一轴",正是本票要消灭的形态)。
+ * 判据(两者的合取)只住一处:`apps/cli/src/tools/index.ts` 的 `requiresUserConfirmation()`;
+ * 声明方(如 `tools/mcp-runtime.ts`)只抄事实,不得自己判"免不免批"。
+ */
+export interface ApprovalExemptionAxes {
+  /** 轴 A(只读):true = 被声明为只读取数据、不产生状态变更;false/缺席 = 未证明 ⇒ 按非只读处置 */
+  readonly readonlyAxis: boolean
+  /** 轴 B(不碰外部世界):true = 被声明为不触达外部世界;false/缺席 = 未证明 ⇒ 按"碰"处置 */
+  readonly closedWorldAxis: boolean
+}
+
+/**
  * 契约挂载位:各端 `Tool` 接口 `extends` 它。
  *
  * **可选是本阶段的刻意设计**(第二阶段翻缺省语义时才收紧):本阶段"没挂契约"必须由
@@ -194,6 +271,17 @@ export interface ToolContract {
  */
 export interface ToolContractMount {
   contract?: ToolContract
+  /**
+   * 免批两轴的声明位(见 `ApprovalExemptionAxes`)。
+   *
+   * 为什么住在挂载位而不是塞进 `contract.permission`:后者要求同时填满 `shape` 与
+   * `resultBudget` 才能构造,而第三方工具**没有**声明过结果预算 —— 为了一条批准判据
+   * 去伪造一份 `resultBudget`,等于顺手给该工具的输出加一道裁剪(执行器边界按契约截断),
+   * 那是本票明确禁止的"顺手改缺省语义"。两轴因此独立成一份只声明事实的挂载位。
+   *
+   * **缺席 = 本判据不适用**(内建工具行为逐字不变),不是"两轴都不成立"。
+   */
+  approvalExemption?: ApprovalExemptionAxes
 }
 
 /** 契约形状的最小视图:两个谓词只需要 `contract?.permission.effectScope`。 */

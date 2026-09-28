@@ -486,7 +486,14 @@
     "icuProbe": {
       "flowState": "{state, select, running {{count, plural, =0 {对话流运行中，暂无待处理工具} other {对话流运行中，已调度 {count} 个工具}}} paused {对话流已暂停} failed {执行失败：<b>{reason}</b>}}"
     },
-    "send": "发送"
+    "send": "发送",
+    "terminal": {
+      "waitingInput": "等待你的输入",
+      "promptLabel": "命令提示：{{prompt}}",
+      "submit": "发送",
+      "timeoutNoInput": "{{seconds}} 秒内未收到输入",
+      "mobileUnsupported": "此命令需要键盘输入，手机端暂不能代答，请在桌面端处理或停止本次执行"
+    }
   },
   "richAnchorProbe": {
     "flow": "<action>正在注入</action><detail>{target}</detail>"

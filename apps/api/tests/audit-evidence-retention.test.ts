@@ -82,7 +82,9 @@ interface HashInput {
   metadata: Record<string, unknown> | null
 }
 
-function inputOf(row: Partial<EvidenceChainRow> & { metadata: Record<string, unknown> | null }): HashInput {
+function inputOf(
+  row: Partial<EvidenceChainRow> & { metadata: Record<string, unknown> | null },
+): HashInput {
   return {
     timestamp: row.timestamp as string,
     userId: row.userId ?? null,
@@ -217,9 +219,9 @@ describe('86D 审计证据保留策略(env 口径照抄 retentionOf 形态)', ()
     })
     expect(p).toMatchObject({ rawDays: 3, structDays: 90, maxPurge: 10 })
     expect(resolveAuditEvidencePolicy({ AUDIT_EVIDENCE_RAW_RETENTION_DAYS: '-1' }).rawDays).toBe(0)
-    expect(resolveAuditEvidencePolicy({ AUDIT_EVIDENCE_STRUCT_RETENTION_DAYS: 'abc' }).structDays).toBe(
-      180,
-    )
+    expect(
+      resolveAuditEvidencePolicy({ AUDIT_EVIDENCE_STRUCT_RETENTION_DAYS: 'abc' }).structDays,
+    ).toBe(180)
   })
   it('原文字段族登记在案:body(历史行)/params/query(站内带原值)', () => {
     expect([...RAW_EVIDENCE_METADATA_FIELDS]).toEqual(['body', 'params', 'query'])
@@ -229,7 +231,12 @@ describe('86D 审计证据保留策略(env 口径照抄 retentionOf 形态)', ()
 describe('86D 判据 1 — dry-run 默认零写入(数 mock 调用,不是"没报错")', () => {
   it('不带 apply:一条 UPDATE/DELETE 都不发,但报全三个数', async () => {
     const chain = buildChain(3)
-    const fake = makeFakeTx({ chain, structExpired: 7, rawCandidates: 3, targetIds: ['id-0', 'id-1'] })
+    const fake = makeFakeTx({
+      chain,
+      structExpired: 7,
+      rawCandidates: 3,
+      targetIds: ['id-0', 'id-1'],
+    })
     const r = await runAuditEvidenceRetention({ deps: depsFor(fake), env: {} })
     expect(countWrites(fake.statements)).toBe(0)
     expect(r.mode).toBe('dry-run')
@@ -252,7 +259,11 @@ describe('86D 判据 2 — 原文 0 天:字段被清、rawRetained=false、rawPu
     const chain = buildChain(3)
     const fake = makeFakeTx({ chain, structExpired: 7, rawCandidates: 3, targetIds: ['id-1'] })
     const auditWrite = vi.fn(async () => 'x')
-    const r = await runAuditEvidenceRetention({ apply: true, deps: depsFor(fake, auditWrite), env: {} })
+    const r = await runAuditEvidenceRetention({
+      apply: true,
+      deps: depsFor(fake, auditWrite),
+      env: {},
+    })
     expect(r.status).toBe('ok')
     expect(fake.statements.some((s) => /^DELETE/.test(s.text))).toBe(false)
     const updates = fake.statements.filter((s) => s.text.startsWith('UPDATE'))
@@ -321,18 +332,35 @@ describe('86D 判据 3(核心)— 三张面三种结论,且删行/改字节永�
     expect(face3b.reason).toContain('current_hash')
 
     // 三(四)种结论两两可分辨
-    expect(new Set([face1.conclusion, face2.conclusion, face3a.conclusion, face3b.conclusion]).size)
-      .toBe(3)
+    expect(
+      new Set([face1.conclusion, face2.conclusion, face3a.conclusion, face3b.conclusion]).size,
+    ).toBe(3)
     expect(face3a.reason).not.toBe(face3b.reason)
     // 贴一次实际读数到测试输出(票面要求"贴三次实际读数"的载体)
-    console.log(
+    console.info(
       '[86D 三面对照]',
       JSON.stringify(
         {
-          face1: { valid: face1.valid, conclusion: face1.conclusion, tombstonedRows: face1.tombstonedRows },
-          face2: { valid: face2.valid, conclusion: face2.conclusion, tombstonedRows: face2.tombstonedRows },
-          face3a_deleted: { valid: face3a.valid, conclusion: face3a.conclusion, reason: face3a.reason },
-          face3b_byte: { valid: face3b.valid, conclusion: face3b.conclusion, reason: face3b.reason },
+          face1: {
+            valid: face1.valid,
+            conclusion: face1.conclusion,
+            tombstonedRows: face1.tombstonedRows,
+          },
+          face2: {
+            valid: face2.valid,
+            conclusion: face2.conclusion,
+            tombstonedRows: face2.tombstonedRows,
+          },
+          face3a_deleted: {
+            valid: face3a.valid,
+            conclusion: face3a.conclusion,
+            reason: face3a.reason,
+          },
+          face3b_byte: {
+            valid: face3b.valid,
+            conclusion: face3b.conclusion,
+            reason: face3b.reason,
+          },
         },
         null,
         1,
@@ -401,9 +429,7 @@ describe('86D 判据 5 — 变异:墓碑判定不是恒真,仿造/篡改必翻�
     })
     const cleaned = applyEvidenceUpdatesToRows(chain, plan.updates)
     expect(auditEvidenceIntegrityReport(cleaned).conclusion).toBe('compliant-purged')
-    const tampered = cleaned.map((r) =>
-      r.id === 'id-1' ? { ...r, action: r.action + '!' } : r,
-    )
+    const tampered = cleaned.map((r) => (r.id === 'id-1' ? { ...r, action: r.action + '!' } : r))
     const report = auditEvidenceIntegrityReport(tampered)
     expect(report.valid).toBe(false)
     expect(report.conclusion).toBe('tampered')
@@ -496,7 +522,9 @@ describe('86D SQL 形态与降级(镜像判据,防"函数在而 SQL 漂")', () =
     const updates = fake.statements.filter((s) => s.text.startsWith('UPDATE'))
     const tail = updates[updates.length - 1]
     expect(tail?.text).not.toContain('metadata =')
-    expect(tail?.params.some((p) => typeof p === 'string' && p.includes('"purged":true'))).toBe(false)
+    expect(tail?.params.some((p) => typeof p === 'string' && p.includes('"purged":true'))).toBe(
+      false,
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

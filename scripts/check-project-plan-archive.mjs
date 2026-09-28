@@ -327,10 +327,26 @@ function archivedTitleOf(headingLine) {
 function placeholderTitles(content) {
   const out = new Set()
   for (const line of placeholderLines(content)) {
-    const start = line.indexOf('):')
     const end = line.lastIndexOf(',完整内容在')
-    if (start < 0 || end < 0 || end <= start) continue
-    out.add(line.slice(start + 2, end).trim())
+    if (end < 0) continue
+    // 锚点必须覆盖**归档器现行生成形态**(archiver placeholderLine:397 =
+    // `<!-- 已归档(日期:标题…,完整内容在 …` —— 日期后**没有**闭括号)。
+    // 旧散文形态 `(日期):标题` 在真实台账里也有,容忍并存;两把锚点都取不到 ⇒ 跳过该行
+    // (宁漏不误:把整行当标题塞进集合会让"复活比对"拿垃圾键乱撞)。
+    // 2026-09-28 实测:本函数原版只认 `):`,而现行占位根本没有这个序列 ⇒ 集合恒空 ⇒
+    // A4 复活检测在生产面上**整条失明**,账面却因"集合空 ⇒ 无复活"一路报绿(本仓最高频失效型)。
+    const modern = /^<!-- 已归档\(\d{4}-\d{2}-\d{2}:/.exec(line)
+    const legacy = line.indexOf('):')
+    let title = ''
+    if (modern) title = line.slice(modern[0].length, end).trim()
+    else if (legacy >= 0) title = line.slice(legacy + 2, end).trim()
+    else continue
+    if (title === '') continue
+    out.add(title)
+    // 归档器把标题截到 60 字再写占位(带归并落账注记时还会再挂尾巴),而复活比对键是
+    // `archivedTitleOf(标题行) = headingTitle().slice(0,60)` —— 两侧都按 60 截才有交口;
+    // 不补这一条,凡带尾注的占位与条目永不匹配(A4 对那一族照样失明)。
+    out.add(title.slice(0, 60))
   }
   return out
 }

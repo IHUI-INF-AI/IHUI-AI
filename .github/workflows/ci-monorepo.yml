@@ -185,21 +185,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        id: checkout
       - uses: actions/setup-python@v5
+        id: setup-python
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install uv
+        id: install-uv
         run: pip install uv
       - name: Install dependencies
+        id: install-deps
         working-directory: apps/ai-service
         run: uv pip install --system -e ".[dev]"
       - name: Ruff check
+        id: ruff
         working-directory: apps/ai-service
         run: ruff check .
       - name: Mypy
+        id: mypy
         working-directory: apps/ai-service
         run: mypy app/
       - name: Install ripgrep（rg↔python 双通道对账测试的前置工具）
+        id: install-rg
         # 缺 rg 时 `tests/test_file_search_ripgrep_v75.py` 刻意判"本结果不可用于对账"而不是
         # 静默通过(`shutil.which("rg")` 解析不到即降级并拒绝出合格证)。所以 CI 要么装它,
         # 要么永远看着一批"环境红"把真信号埋掉 —— 与 §"判据失效的表现永远是安静"同一条。
@@ -208,6 +215,7 @@ jobs:
           sudo apt-get install -y -qq ripgrep
           rg --version | head -1
       - name: Pytest（离线单测子集，排除真网/端到端集成测试，避免依赖外部服务）
+        id: pytest
         working-directory: apps/ai-service
         run: |
           pytest -m "not network" \
@@ -217,6 +225,24 @@ jobs:
             --ignore=tests/test_mcp_streamable_http_e2e.py \
             --ignore=tests/test_native_fc_e2e_real.py \
             --ignore=tests/test_tool_loop_e2e.py
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # 立因与行为契约见该脚本头注;边界:只在 failure() 分支跑,不碰上面任何步骤的判据
+      # 严格程度(无 continue-on-error、不删步骤、不扩 permissions、不新增 secret)。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout setup-python install-uv install-deps ruff mypy install-rg pytest
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SETUP_PYTHON: ${{ steps.setup-python.outcome }}
+          O_INSTALL_UV: ${{ steps.install-uv.outcome }}
+          O_INSTALL_DEPS: ${{ steps.install-deps.outcome }}
+          O_RUFF: ${{ steps.ruff.outcome }}
+          O_MYPY: ${{ steps.mypy.outcome }}
+          O_INSTALL_RG: ${{ steps.install-rg.outcome }}
+          O_PYTEST: ${{ steps.pytest.outcome }}
+        run: bash scripts/ci-failure-triage.sh
 
   build-docker:
     needs: build

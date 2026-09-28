@@ -16,7 +16,14 @@
  *   就在取证中途被一次 h5 构建覆盖)。接成 blocking 只会逼人 --no-verify,连带废掉全部守门
  *   (§12e 同型,本仓最高频反面教训)。镜像测试锁住「声明的接线态与实际接线态必须一致」。
  *
- * 三条判据:
+ * 判据(C0 新鲜度 2026-09-28 补,其余 C1–C7 为既有维度;编号不连续是历史,新增维度不再重排):
+ *   C0 产物新鲜度(2026-09-28 补,**结构判据,不是量级判据**):本次对账取的源码集(端内 .ts/.tsx/.css)
+ *      在盘上的最新 mtime 若晚于 dist 的最新 mtime,则这份产物**结构上不可能**含有那些改动 ⇒ 读数不是
+ *      端的缺陷计数。判据落 `undetermined`(exit 2 未判定):旧产物既不配判红、更不配判绿。
+ *      实录:本机 dist 停在 09-14 15:58,门报 **C1 覆盖 56.39% / 缺 331 类**(样例 `!bg-cta` —— 那是
+ *      09-26 才立的 CTA 档,旧包里当然没有),而结论行是 `exit 0 —— 通过`(观测档不判 pct)。
+ *      同一份源码重跑 weapp 构建后现读 **95.78%**:那 331 类里绝大部分从来不是端上的洞,是尺子的年龄。
+ *      两侧任一度量取不到 ⇒ 同样 undetermined,绝不因量不到而放行。
  *   C1 落地覆盖率 = |源码用到 ∩ utility 参考层 ∩ dist 里真有规则| / |源码用到 ∩ utility 参考层|。
  *      低于 --min-coverage(默认 100%)即判红,并给若干缺失样例。
  *      **命中判据按 weapp 转写名比对**(2026-09-25 收紧):weapp-tailwindcss 产出 wxss 时把类名
@@ -527,6 +534,102 @@ export function classifyDist(distDir) {
     }
   }
   return { kind: 'weapp', reason: '', wxssCount, wxmlCount }
+}
+
+/* ─────────────────── C0 产物新鲜度(2026-09-28 补) ─────────────────── */
+
+/**
+ * 本门拿"git 面上的源码"去比"磁盘上的产物",而**产物由构建器从工作树生成、它不看 git 面**。
+ * 于是有一格结构上必然出错:盘上的源码(或本次对账取的这批源码所对应的工作树副本)比 dist
+ * 新 ⇒ 此刻的 dist **不可能**含有那些改动 ⇒ 报出来的覆盖率不是端的缺陷计数,而是"一把量旧包的
+ * 尺子的读数"。
+ *
+ * 实录(2026-09-28 本机):dist 是 09-14 15:58 构建的,而源码里 09-25 才开的 `@source` 链、
+ * 09-26 才立的 `--color-cta` 档都在本次对账的分母里 ⇒ 门报 **C1 覆盖 56.39%、缺 331 类 / 10 处
+ * 用法起手的 `!bg-cta` 这类整族"没落地"** —— 那条读数如果被拿去派单,就是让人去修一批不存在的问题
+ * (与本仓"假阳比漏报更贵"同一条教训)。而它当时的结论行是 `exit 0 —— 通过`,因为观测档
+ * `--min-coverage 0` 不判 pct:旧产物既没被判红,也没被点名,账面读起来像"量过了、没问题"。
+ *
+ * 判据只有一条方向:**量不到一律 undetermined**,绝不因 stat 失败而放行(把没判写成判过了是本仓
+ * 最高频失效型)。stale 也不判红 —— 它不是端的错,是"取证动作本身不完整",出路是重跑构建再问责,
+ * 所以落进 undetermined(exit 2 未判定),既不记绿也不冒红。
+ *
+ * @param {{distNewestMs:number|null,srcNewestMs:number|null,distUnreadable?:number,srcUnreadable?:number}} a
+ * @returns {{state:'fresh'|'stale'|'undetermined',reason:string,ageMs:number|null}}
+ */
+export function decideArtifactFreshness(a) {
+  const dist = a && a.distNewestMs
+  const src = a && a.srcNewestMs
+  if (typeof dist !== 'number' || !Number.isFinite(dist))
+    return {
+      state: 'undetermined',
+      reason: `产物最新写入时刻量不到(distUnreadable=${(a && a.distUnreadable) || 0})`,
+      ageMs: null,
+    }
+  if (typeof src !== 'number' || !Number.isFinite(src))
+    return {
+      state: 'undetermined',
+      reason: `源码最新修改时刻量不到(srcUnreadable=${(a && a.srcUnreadable) || 0})`,
+      ageMs: null,
+    }
+  return src > dist
+    ? {
+        state: 'stale',
+        reason: `盘上源码比产物新 ${src - dist} ms ⇒ 本次对账的改动不可能在这份产物里`,
+        ageMs: src - dist,
+      }
+    : {
+        state: 'fresh',
+        reason: `产物不早于所取源码面(相差 ${dist - src} ms)`,
+        ageMs: null,
+      }
+}
+
+/** 目录里最新一个文件的 mtime(不跟随重解析点之外的东西;单文件 stat 失败只计数不静默)。 */
+export function newestMtimeInDir(dir) {
+  let ms = null
+  let file = null
+  let unreadable = 0
+  let files = 0
+  for (const p of walkFiles(dir)) {
+    files++
+    let st
+    try {
+      st = statSync(p)
+    } catch {
+      unreadable++
+      continue
+    }
+    const v = st.mtimeMs
+    if (typeof v === 'number' && Number.isFinite(v) && (ms === null || v > ms)) {
+      ms = v
+      file = p
+    }
+  }
+  return { ms, file, unreadable, files }
+}
+
+/** 给定仓库相对路径清单在**磁盘上**的最新 mtime(清单来自被审面,mtime 只能来自工作树)。 */
+export function newestMtimeOfPaths(root, rels) {
+  let ms = null
+  let file = null
+  let unreadable = 0
+  for (const rel of rels) {
+    const abs = join(root, rel)
+    let st
+    try {
+      st = statSync(abs)
+    } catch {
+      unreadable++
+      continue
+    }
+    const v = st.mtimeMs
+    if (typeof v === 'number' && Number.isFinite(v) && (ms === null || v > ms)) {
+      ms = v
+      file = rel
+    }
+  }
+  return { ms, file, unreadable, counted: rels.length }
 }
 
 /**
@@ -1685,6 +1788,39 @@ export async function runCheck(opts) {
     else throw e
   }
 
+  /* ---- C0 产物新鲜度:只在确认为 weapp 产物后判(其余形态已有自己的 undetermined) ---- */
+  let freshness = null
+  if (shape.kind === 'weapp') {
+    const distNew = newestMtimeInDir(distDir)
+    const srcNew = newestMtimeOfPaths(
+      root,
+      [...tsFiles, ...cssFiles],
+    )
+    const decided = decideArtifactFreshness({
+      distNewestMs: distNew.ms,
+      srcNewestMs: srcNew.ms,
+      distUnreadable: distNew.unreadable,
+      srcUnreadable: srcNew.unreadable,
+    })
+    const fmt = (ms) => (typeof ms === 'number' ? new Date(ms).toISOString() : '(量不到)')
+    freshness = {
+      ...decided,
+      distNewest: fmt(distNew.ms),
+      srcNewest: fmt(srcNew.ms),
+      distNewestFile: distNew.file,
+      srcNewestFile: srcNew.file,
+      distUnreadable: distNew.unreadable,
+      srcUnreadable: srcNew.unreadable,
+    }
+    if (decided.state === 'stale') {
+      undetermined.push(
+        `C0 产物新鲜度:**旧产物** —— dist 最新写入 ${freshness.distNewest},而盘上源码在 ${freshness.srcNewest} 仍有改动(${srcNew.file})⇒ 本次 C1 读数量的是不含这些改动的旧包,不得当作端的缺陷计数,也不得据此判"已收口"。出路:重跑一次 weapp 构建后再问责(pnpm --filter @ihui/miniapp-taro build)`,
+      )
+    } else if (decided.state === 'undetermined') {
+      undetermined.push(`C0 产物新鲜度判不出:${decided.reason}`)
+    }
+  }
+
   /* ---- utility 参考层:引擎由产物决定、取材面由 planReferenceFace 决定;做不到同引擎/同面就弃权 ---- */
   let referenceFace = null
   let reference = null
@@ -1981,6 +2117,7 @@ export async function runCheck(opts) {
     referenceBytesIsNetUtilities: reference ? !!reference.bytesIsNetUtilities : null,
     referenceFace: reference ? referenceFace : null,
     coverage,
+    freshness,
     mangleLeg,
     cssLeg,
     spacingFamily,
@@ -2027,6 +2164,19 @@ function report(r, asJson) {
     )
   }
   console.log(`产物形态 = ${r.distShape},wxss ${r.wxssFiles} 个`)
+  if (r.freshness) {
+    const f = r.freshness
+    console.log(
+      `C0 产物新鲜度:${f.state === 'fresh' ? '新鲜' : f.state === 'stale' ? '**旧产物**' : '**未判定**'}` +
+        ` —— dist 最新写入 ${f.distNewest}(${f.distNewestFile || '?'})‖ 端内源码最新 ${f.srcNewest}(${f.srcNewestFile || '?'})` +
+        (f.distUnreadable || f.srcUnreadable
+          ? `;stat 取不到:dist ${f.distUnreadable} 个 / 源码 ${f.srcUnreadable} 个(计未判定,不静默)`
+          : '') +
+        (f.state === 'stale'
+          ? '\n   ⇒ 本次 C1 读数量的是**不含这些改动**的旧包:既不得当端的缺陷计数派单,也不得读成"已收口"。出路是先重跑 weapp 构建再问责。'
+          : ''),
+    )
+  }
   if (r.engineMismatch) {
     console.log(
       `⚠️ 引擎不一致 ⇒ 下面的"参考层"是**错引擎的清单**(人工指定档 ${r.referenceRequested} 才会走到这里;auto 档遇此情形直接判「无法判定」):` +
@@ -3291,6 +3441,47 @@ export function selfTest() {
     '1,0',
   )
 
+  /* ---- P80–P83:C0 产物新鲜度(2026-09-28 补) ----
+     立因实录:本机 dist 停在 09-14 15:58,而源码 09-25 开 @source 链、09-26 立 --color-cta 档,
+     两者都在本次对账的分母里 ⇒ 门报 C1 覆盖 56.39% / 缺 331 类(样例 `!bg-cta`),结论行却写
+     `exit 0 —— 通过`(观测档 --min-coverage 0 不判 pct)。同一份源码刚重跑构建后实测 **95.78%**,
+     即那 331 类里绝大部分不是端的缺陷,是**一把量了 14 天前旧包的尺子**。
+     P80 正向 / P81 反向 / P82 两态各一条"量不到不得放行" / P83 边界(相等算新鲜)。 */
+  eq(
+    'P80 C0 正向:源码最新 mtime 晚于 dist ⇒ stale,并把毫秒差写进 reason(可复核,不是形容词)',
+    (() => {
+      const r = decideArtifactFreshness({ distNewestMs: 1_000, srcNewestMs: 2_500 })
+      return [r.state, r.ageMs, /旧包|不可能/.test(r.reason) || /比产物新/.test(r.reason)]
+    })(),
+    [
+      'stale',
+      1500,
+      true,
+    ],
+  )
+  eq(
+    'P81 C0 反向:dist 不早于源码 ⇒ fresh,绝不因"刚构建过"以外的理由判旧',
+    (() => {
+      const r = decideArtifactFreshness({ distNewestMs: 5_000, srcNewestMs: 1_000 })
+      return [r.state, r.ageMs]
+    })(),
+    ['fresh', null],
+  )
+  eq(
+    'P82 C0 三态:dist 或 src 任一侧量不到 ⇒ undetermined(把"没量到"写成"没问题"是本仓最高频失效型)',
+    [
+      decideArtifactFreshness({ distNewestMs: null, srcNewestMs: 1 }).state,
+      decideArtifactFreshness({ distNewestMs: 1, srcNewestMs: null }).state,
+      decideArtifactFreshness({}).state,
+    ].join(','),
+    'undetermined,undetermined,undetermined',
+  )
+  eq(
+    'P83 C0 边界:两侧 mtime 相等算 fresh(构建与源码同刻是正常形态,不得造一台恒红门)',
+    decideArtifactFreshness({ distNewestMs: 7_777, srcNewestMs: 7_777 }).state,
+    'fresh',
+  )
+
   let failed = 0
   for (const x of results) {
     console.log(
@@ -3414,6 +3605,9 @@ export const __test__ = {
   unmappedPunctIn,
   countWorktreeDrift,
   findCollapsedLengthMisses,
+  decideArtifactFreshness,
+  newestMtimeInDir,
+  newestMtimeOfPaths,
   missFamily,
   WEAPP_CLASS_MANGLE_TABLE,
   classifyDist,

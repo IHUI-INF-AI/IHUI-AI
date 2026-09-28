@@ -79,8 +79,19 @@ export function tallyLines(s, key = (l) => l) {
  * (AGENTS §12e:逼人来绕的尺子等于没有尺子)。真回潮的形态(整段文本 HEAD 里一个字都没有)
  * 不受这个键变换影响:事故那 5 行 `"quitChecking": "…"` 去逗号后在 HEAD 里照样不存在。
  * 只对 `key` 生效,`lineDelta`(消失/多出计数)仍按原口径,两处不得混用。
+ *
+ * ② **去行首缩进**(2026-09-28 补,由本门第一次自撞抓到) —— 提交链里 lint-staged 会对 staged 文件跑
+ *   `prettier --write`,而本仓有一批文件**在 HEAD 里就不合规**。第一次碰它的提交必然带上整片重排,
+ *   重排后的 `        windowsHide: true,`(8 格)会逐字等于**某个祖先**的形态、却不等于 HEAD 的 6 格形态
+ *   ⇒ 纯格式化被读成"复活了一行旧内容",整枚提交被拒,而且归因把红**定责到本次文件**(它确实点名了),
+ *   于是下一个接手者只会去挂 `LAND_ALLOW_STALE` —— 与①完全同一条失效路径。
+ *   真回潮不受影响:事故那 5 行 `"quitChecking": "…"` 去掉缩进与逗号后在 HEAD 里照样不存在。
+ *   ⇒ 放宽的是误伤,不是牙;判据的"复活"从此定义为**内容级**(去缩进后的行文本),不是字节级。
  */
-export const resurrectKey = (l) => l.replace(/,+$/, '')
+export const resurrectKey = (l) =>
+  l
+    .replace(/^[ \t　]+/, '')
+    .replace(/,+$/, '')
 
 /**
  * 行级**多重集**差(纯函数,构造面可证)。

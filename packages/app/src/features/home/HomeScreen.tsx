@@ -23,7 +23,7 @@ import type {
 } from '../../types'
 import { MoreLink, useFontMultiplier } from '../../components/MoreLink'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 export type { HomeRecommendItem, HomeLiveItem, HomeProgressItem, HomeMenuItem, HomeScreenProps }
 
