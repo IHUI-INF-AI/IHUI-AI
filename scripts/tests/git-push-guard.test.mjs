@@ -502,9 +502,26 @@ const PROTECTED_BRANCH_STDERR = [
   '',
 ].join('\n')
 
+/**
+ * 远端 ref 竞态的**真实回显**(2026-09-28 05:23Z / 06:2xZ 两次实测,逐字取自 git 与远端输出)。
+ * 难点全在"同一段里同时出现旁路通知与 `Required status check`":管理员有权直推时,GitHub 打的
+ * `Bypassed rule violations` 两行是**旁路成功**的通知,而这一趟真正的死因是下面那句 CAS 锁失败
+ * (别的会话同秒推了)。旧判序让 `Required status check` 先命中 ⇒ 出路写成"去改仓库设置/走 PR",
+ * 方向完全反了。夹具用真原文,不用自造文本(§22c)。
+ */
+const REMOTE_REF_RACE_STDERR = [
+  'remote: Bypassed rule violations for refs/heads/main:        ',
+  'remote: ',
+  'remote: - Required status check "CI / lint-typecheck-test (push)" is expected.        ',
+  'To https://github.com/IHUI-INF-AI/IHUI-AI.git',
+  " ! [remote rejected]       main -> main (cannot lock ref 'refs/heads/main': is at 6b8cd0f6aa11 but expected c12612dc9f02)",
+  "error: failed to push some refs to 'https://github.com/IHUI-INF-AI/IHUI-AI.git'",
+].join('\n')
+
 const FIXTURES_BY_KIND = {
   'pushed-ok': { status: 0, stdout: '   1111111..2222222  main -> main\n' },
   'up-to-date': { status: 0, stdout: 'Everything up-to-date\n', remoteEqualsLocal: true },
+  'remote-ref-race': { status: 1, stderr: REMOTE_REF_RACE_STDERR },
   'protected-branch': { status: 1, stderr: PROTECTED_BRANCH_STDERR },
   'non-fast-forward': { status: 1, stderr: NFF_STDERR },
   'secret-scan-blocked': { status: 1, stderr: SECRET_SCAN_STDERR },
@@ -553,6 +570,43 @@ test('分诊·成对:分支保护不得被误标成并发分叉,且出路不得�
   // 顺序锁:两型同现时按服务器侧策略优先(策略在,推多少次都是 GH006)
   const mixed = triagePushAttempt({ status: 1, stderr: `${NFF_STDERR}\n${PROTECTED_BRANCH_STDERR}` })
   assert.equal(mixed.kind, 'protected-branch', '策略拒收优先于分叉,否则修复了策略之后仍然一路报"去收敛"')
+})
+
+/**
+ * 2026-09-28:竞态 / 策略 / 分叉 三档必须**互不顶结论**(本票的核心红线 = "不得合并两档")。
+ * 竞态与策略的出路是相反的:一个"先取真值再重推、别动仓库设置",一个"动仓库设置或改走 PR"。
+ * 判据本体与成对反证的完整一套住在 scripts/tests/push-attempt-triage.test.mjs;
+ * 这里只锁"三档同现时的优先序",因为它决定 guard 实际会打印哪一条出路。
+ */
+test('分诊·成对:ref 锁竞态不得被误标成分支保护,也不得被并进分叉', () => {
+  const v = triagePushAttempt(FIXTURES_BY_KIND['remote-ref-race'])
+  assert.equal(v.kind, 'remote-ref-race', `真回显必须落在竞态档。实得:${v.kind}`)
+  assert.notEqual(v.kind, 'protected-branch', '旁路通知里的 Required status check 不是拒收证据')
+  assert.notEqual(
+    v.kind,
+    'non-fast-forward',
+    'CAS 没抢到 ≠ 两边各走各的,把人赶去收敛器同样是错方向',
+  )
+  assert.notEqual(v.nextCommand, CONVERGE_COMMAND, '竞态的第一步是取网络真值,不是收敛')
+  assert.equal(v.allowNoVerifyRetry, false, '与质量门无关:竞态绝不产生 --no-verify 计划')
+  assert.equal(v.allowHookRetry, false, '再跑一趟 270s 的门也仍然抢不到那个 ref')
+  assert.equal(
+    v.terminalStatus,
+    'failed',
+    '通道没坏 ⇒ 落 failed 让下一次 guard 重试,不冒充 diverged',
+  )
+  // 反向对照 1:纯策略拒收仍必须留在策略档(竞态档不得把它吃掉)
+  assert.equal(triagePushAttempt(FIXTURES_BY_KIND['protected-branch']).kind, 'protected-branch')
+  // 反向对照 2:真分叉仍必须走 converger(既有语义一字未动)
+  const nff = triagePushAttempt(FIXTURES_BY_KIND['non-fast-forward'])
+  assert.equal(nff.kind, 'non-fast-forward')
+  assert.equal(nff.nextCommand, CONVERGE_COMMAND)
+  // 反向对照 3:三型同现时按"最具体者胜"——git 自己的 CAS 原话排在最前
+  const allThree = triagePushAttempt({
+    status: 1,
+    stderr: `${NFF_STDERR}\n${PROTECTED_BRANCH_STDERR}\n${REMOTE_REF_RACE_STDERR}`,
+  })
+  assert.equal(allThree.kind, 'remote-ref-race', '判序:竞态必须先于策略与分叉命中')
 })
 
 test('分诊·成对:真守门批汇总必判 hook-failed 且保留原重试链', () => {
