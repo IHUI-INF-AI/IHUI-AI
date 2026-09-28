@@ -39,6 +39,25 @@ export function QueryProvider({ children }: { children: ReactNode }) {
     prevAuth.current = isAuthenticated
   }, [isAuthenticated, queryClient])
 
+  // 2026-09-29(G-371 消费端):主体**由有到无**时清空全站查询缓存。
+  // 为什么在这一层做而不是给每个查询加 `enabled`:连接器/用户模型配置/会员卡统计这类
+  // 查询都是"按调用方取数"的(后端已按属主收窄),而缓存是模块级单例、登出不清 ⇒
+  // 同一浏览器换账号会在 refetch 完成前把上一个账号的条目渲染给新账号。逐键加闸有两个
+  // 毛病:① 漏一个键就漏一个洞(全仓 queryKey 含主体的 presently 为 0 处,逐键改是长跑);
+  // ② 加 `enabled` 会把"还没有主体"的渲染永久停在 pending,而多个页面的 pending 分支与
+  // "零条目"渲染同一个空容器 ⇒ 整段空白(D17 在 ecosystem-hub 上正是这么钉的,实测加
+  // enabled 会把它判红)。在登出点清一次,覆盖的是**这一族**而不是一个键。
+  // 只在"有→无"这一条边上动手:首帧 store 尚未水合时 prev 与 current 都是 null ⇒ 不清,
+  // 免得把"冷启动"变成每次都全量重取(那才是真的把体验改坏)。
+  const principalId = useAuthStore((s) => s.user?.id ?? null)
+  const prevPrincipal = useRef(principalId)
+  useEffect(() => {
+    if (prevPrincipal.current !== null && principalId === null) {
+      queryClient.clear()
+    }
+    prevPrincipal.current = principalId
+  }, [principalId, queryClient])
+
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 }
 

@@ -115,7 +115,7 @@ export const LOGIN_POPUP_SHEET_PADDING_TOP_PX = 8
 /** 拖拽条宽 36:RN 底部抽屉独有(数值与 geometry.js 的 tapBox=36 同档属巧合,本档语义是把手宽)。 */
 export const LOGIN_POPUP_DRAG_BAR_WIDTH_PX = 36
 
-/** 拖拽条高 4:几何正圆/胶囊圆角仍走 `高/2` 表达式 + radius-exempt 标记(守门 77),本表只存高度。 */
+/** 拖拽条高 4:圆角写成 高/2 就是两端全圆的把手形状,守门按盒形定性(短边细于可点尺寸的装饰族只进队列),本项目不允许任何圆角标记;本表只存高度。 */
 export const LOGIN_POPUP_DRAG_BAR_HEIGHT_PX = 4
 
 /** 拖拽条底距 12:与分块间距同值但语义独立(把手与内容的距离),不并档。 */

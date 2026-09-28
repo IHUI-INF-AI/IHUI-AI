@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
   toolCell: {
     width: '48.5%',
     minHeight: 53, // 描述两行时按内容放开,不裁字;常规文案下单行保持 53
-    borderRadius: 27, // radius-exempt: 工具格胶囊端≈cell 高度一半(53 基准,minHeight 按内容可放开)
+    borderRadius: rnRadius.lg, // 工具格是卡片类容器 ⇒ card 档 lg(项目不允许胶囊)
     marginBottom: 10,
     backgroundColor: tokens.surface.card,
     flexDirection: 'row',
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   toolIconWrap: {
     width: 38,
     height: 38,
-    borderRadius: 19, // radius-exempt: 图标底 38×38 正圆(直径一半)
+    borderRadius: 19,
     marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
