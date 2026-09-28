@@ -6,9 +6,14 @@ name: NativeWind Upgrade Monitor
 
 # 每月 1 号 00:00 UTC (北京时间 08:00) 检查 NativeWind 5.0 stable 是否发布。
 # scripts/check-nativewind-status.mjs 退出码语义:
-#   - exit 0: 未发布 (仍 4.x 或 5.x-preview),workflow 成功,无操作
-#   - exit 1: 5.0 stable 已发布,创建 Issue 提醒升级 + workflow 失败 (触发 Actions 通知)
-#   - exit 2: 网络 / npm registry 异常,workflow 成功 (不误报)
+#   - exit 0: 未发布 (仍 4.x 或 5.x-preview),workflow 成功 ⇒ 关闭跟踪帖(如果有)
+#   - exit 1: 5.0 stable 已发布 ⇒ **更新**唯一跟踪帖(没有才建)+ workflow 失败 (触发 Actions 通知)
+#   - exit 2: 网络 / npm registry 异常,workflow 成功 ⇒ 不动跟踪帖(判不出 ≠ 没发布)
+#
+# 2026-09-28 社区卫生:标题原带 `(${date})`,所以每个月真发布过都会新开一帖,
+# 与 [nightly] button 换行帖同型(外部审计点名的"机器人帖淹没真实反馈"那一族)。
+# 现口径与 `.github/workflows/button-wrap-nightly.yml` 一致:**任何时刻最多一条**在位。
+# 匹配用标题**逐字相等**,不许用 startsWith —— 后者会把历史遗留的带日期副本重新接上。
 #
 # 升级步骤详见 scripts/check-nativewind-status.mjs 输出。
 
@@ -52,16 +57,65 @@ jobs:
           fi
           exit 0
 
-      - name: 5.0 stable 已发布 - 创建 Issue 提醒升级
-        if: steps.check.outputs.exit_code == '1'
+      - name: 维护唯一跟踪帖 (5.0 stable 已发布 ⇒ 更新 / 未发布 ⇒ 关闭)
+        # exit 2 = registry 取不到,结论"未判定",这一档绝不动帖(既不开也不关)。
+        if: steps.check.outputs.exit_code == '0' || steps.check.outputs.exit_code == '1'
         uses: actions/github-script@v7
         with:
           script: |
+            const published = process.env.NW_PUBLISHED === '1';
             const date = new Date().toISOString().slice(0, 10);
-            const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
-            const title = `NativeWind 5.0 stable 已发布 - 请升级并移除 metro.config.js monkey-patch (${date})`;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // 标题不带日期 —— 带日期就是"每次触发新开一帖"的成因。
+            const TRACK_TITLE = 'NativeWind 5.0 stable 已发布 - 请升级并移除 metro.config.js monkey-patch · 自动跟踪';
+
+            // 逐字相等匹配(不许 startsWith):历史遗留的带日期同族帖不得被认作跟踪帖。
+            // 刻意不按 label 过滤 —— 下面创建时标签可能不存在(仓库没建过它们),
+            // 按标签找会让"在位帖"永远找不到,于是每次又开一条新的。
+            const findTracker = async () => {
+              for (let page = 1; page <= 5; page++) {
+                const { data: issues } = await github.rest.issues.listForRepo({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  state: 'open',
+                  per_page: 100,
+                  page,
+                });
+                if (issues.length === 0) break;
+                const hit = issues.find((i) => !i.pull_request && i.title === TRACK_TITLE);
+                if (hit) return hit;
+              }
+              return null;
+            };
+
+            const tracker = await findTracker();
+
+            if (!published) {
+              if (!tracker) {
+                core.info('未发布,且无在位跟踪帖,不做任何事');
+                return;
+              }
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: tracker.number,
+                body: `本轮巡检(${date})读到 latest 仍非 5.x stable ⇒ 自动关闭本跟踪帖。若后续真发布,同一 workflow 会重建一条。`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: tracker.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+              core.info(`跟踪帖 #${tracker.number} 已关闭(未发布)`);
+              return;
+            }
+
             const body = [
               '## NativeWind 5.0 stable 已发布',
+              '',
+              `- 最近一次巡检: ${date}`,
               '',
               '监控脚本 `scripts/check-nativewind-status.mjs` 检测到 `npm view nativewind dist-tags` 的 `latest` 已变为 5.x stable。',
               '',
@@ -77,27 +131,45 @@ jobs:
               '- 监控脚本: `scripts/check-nativewind-status.mjs`',
               `- 触发 workflow: ${runUrl}`,
               '- 本地复验: `pnpm nativewind:status`',
+              '',
+              '---',
+              '',
+              '由 `.github/workflows/nativewind-monitor.yml` 自动维护(命中即更新本帖,不再命中即关闭)。',
+              '',
             ].join('\n');
+
+            if (tracker) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: tracker.number,
+                body,
+              });
+              core.info(`已更新唯一跟踪帖 #${tracker.number}`);
+              return;
+            }
 
             try {
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title,
+                title: TRACK_TITLE,
                 body,
                 labels: ['dependencies', 'mobile-rn'],
               });
-              core.info('Issue 创建成功 (带标签)');
+              core.info('跟踪帖创建成功 (带标签)');
             } catch (err) {
               // 标签可能不存在,降级为无标签创建
               core.warning(`带标签创建失败 (${err.status}): ${err.message},降级为无标签创建`);
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title,
+                title: TRACK_TITLE,
                 body,
               });
             }
+        env:
+          NW_PUBLISHED: ${{ steps.check.outputs.exit_code == '1' && '1' || '0' }}
 
       - name: 标记 workflow 失败 (触发 Actions 邮件通知)
         if: steps.check.outputs.exit_code == '1'

@@ -90,4 +90,23 @@ jobs:
             exit 0
           fi
           echo "$RESP" | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['comment'])" > comment.md
-          gh pr comment "$PR_NUM" --body-file comment.md
+          # ── 幂等:同一个 PR 只留**一条** AI 评审评论 ────────────────────────────
+          # 触发器含 `synchronize`,原写法每次 push 追加一条 ⇒ 一个 PR 上叠 N 条同族长文,
+          # 把真人 review 挤下去(与"机器人帖淹没真实互动"同型,只是发生在 PR 面)。
+          # 现:按隐藏标记找自己上一条评论,有则 PATCH、无则新建。标记是 HTML 注释,渲染不可见。
+          {
+            echo ""
+            echo '<!-- pr-ai-review:auto -->'
+          } >> comment.md
+          M='<!-- pr-ai-review:auto -->'
+          # `|| true` 是必需的:本步开头是 `set -euo pipefail`,而 head 提前关管道会给上游
+          # gh 一个 SIGPIPE ⇒ 没有这层兜底时"零条评论"这种正常情形会把整个 step 判失败。
+          EXISTING=$(M="$M" gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUM}/comments?per_page=100" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]") | select(.body | contains($env.M)) | .id' \
+            | head -n1 || true)
+          if [ -n "$EXISTING" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${EXISTING}" -F body=@comment.md >/dev/null
+            echo "已更新该 PR 上唯一的 AI 评审评论 #${EXISTING}(不再追加新评论)"
+          else
+            gh pr comment "$PR_NUM" --body-file comment.md
+          fi
