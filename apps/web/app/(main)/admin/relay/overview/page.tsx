@@ -253,7 +253,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
             中转站调用 / 消费 / 错误率 / 模型分布(每 30s 自动刷新)
           </p>
         </div>
-        <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
+        <div className="flex items-center gap-1 ui-card rounded-lg border border-border bg-card p-0.5">
           {(['today', '7d', '30d'] as const).map((r) => (
             <Button
               key={r}

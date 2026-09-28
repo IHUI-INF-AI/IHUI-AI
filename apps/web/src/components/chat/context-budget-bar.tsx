@@ -68,7 +68,7 @@ export function ContextBudgetBar() {
       data-testid="context-budget-bar"
       data-level={event.level}
       className={cn(
-        'mx-4 mb-2 rounded-lg px-3 py-2 text-xs',
+        'mx-4 mb-2 ui-card rounded-lg px-3 py-2 text-xs',
         critical
           ? 'bg-red-500/10 text-red-700 dark:text-red-400'
           : 'bg-amber-500/10 text-amber-700 dark:text-amber-400',

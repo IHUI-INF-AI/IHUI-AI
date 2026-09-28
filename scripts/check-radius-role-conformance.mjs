@@ -82,6 +82,7 @@ import {
   CORNER_NAMES,
   ROLE_STEMS,
   classStringsInLine,
+  identityEvidenceInLine,
   classifySurfaces,
   headToken,
   isRoleExemptAt,
@@ -154,6 +155,7 @@ export function auditFileText(rel, src, table) {
     usages: 0,
     surfaceOverrides: 0,
     componentEvidence: 0,
+    identityEvidence: 0,
     componentUndetermined: [],
     scopeFallback: 0,
     scopeAmbiguous: 0,
@@ -297,6 +299,16 @@ export function auditFileText(rel, src, table) {
     }
     const classText = classStringsInLine(codeLine, rawLines[i] || '').join(' ')
     if (classText) for (const r of rolesOfClassList(classText)) weak.add(r)
+    /**
+     * 身份通道(票㉘)。**先并进 strong,但只在该行还没有元素级强证据时定音** ——
+     * 标签名/样式键是比 aria/testid 更贴身的名字,顺序不能倒;而它必须压过颜色档(weak),
+     * 否则 「bg-card」 会一直把浮层顶成卡片(票㉖ 那唯一一处 role-conflict 的真实成因)。
+     */
+    const ident = identityEvidenceInLine(codeLine, rawLines[i] || '')
+    if (ident.roles.size) {
+      out.identityEvidence++
+      if (!strong.size) for (const r of ident.roles) strong.add(r)
+    }
     const ownerName = names.length ? names[names.length - 1] : null
     const keyIsSurface = !!(surfaces && ownerName && surfaces.surfaceKeys.has(ownerName))
 
@@ -511,6 +523,7 @@ export function runAudit(repoRoot, face, { only } = {}) {
   let compliant = 0
   let surfaceOverrides = 0
   let componentEvidence = 0
+  let identityEvidence = 0
   const componentUndetermined = []
   let scopeFallback = 0
   let scopeAmbiguous = 0
@@ -525,6 +538,7 @@ export function runAudit(repoRoot, face, { only } = {}) {
     compliant += r.compliant
     surfaceOverrides += r.surfaceOverrides
     componentEvidence += r.componentEvidence
+    identityEvidence += r.identityEvidence
     componentUndetermined.push(...r.componentUndetermined)
     scopeFallback += r.scopeFallback
     scopeAmbiguous += r.scopeAmbiguous
@@ -550,6 +564,7 @@ export function runAudit(repoRoot, face, { only } = {}) {
     compliant,
     surfaceOverrides,
     componentEvidence,
+    identityEvidence,
     componentUndetermined,
     scopeFallback,
     scopeAmbiguous,
@@ -593,6 +608,7 @@ function runAuditWorktree(repoRoot, only) {
   let compliant = 0
   let surfaceOverrides = 0
   let componentEvidence = 0
+  let identityEvidence = 0
   const componentUndetermined = []
   let scopeFallback = 0
   let scopeAmbiguous = 0
@@ -606,6 +622,7 @@ function runAuditWorktree(repoRoot, only) {
     compliant += r.compliant
     surfaceOverrides += r.surfaceOverrides
     componentEvidence += r.componentEvidence
+    identityEvidence += r.identityEvidence
     componentUndetermined.push(...r.componentUndetermined)
     scopeFallback += r.scopeFallback
     scopeAmbiguous += r.scopeAmbiguous
@@ -631,6 +648,7 @@ function runAuditWorktree(repoRoot, only) {
     compliant,
     surfaceOverrides,
     componentEvidence,
+    identityEvidence,
     componentUndetermined,
     scopeFallback,
     scopeAmbiguous,
@@ -711,6 +729,7 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
         weakFindings: res.weakFindings,
         surfaceOverrides: res.surfaceOverrides,
         componentEvidence: res.componentEvidence,
+        identityEvidence: res.identityEvidence,
         componentAmbiguous: res.componentUndetermined.length,
         componentUndetermined: res.componentUndetermined,
         scopeFallback: res.scopeFallback,
@@ -774,6 +793,8 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
         console.log(`   …其余 ${res.weakFindings.length - 15} 条见 --json 的 weakFindings`)
     }
     console.log(
+      `◦ 身份通道(票㉘):ARIA role / data-testid / ui-<role> / bg-popover 给得出身份的 ${res.identityEvidence} 行。
+   ` +
       `◦ 组件名档(C5):根容器按组件名判 ${res.componentEvidence} 处、名字给不出唯一角色而不启用 ${res.componentUndetermined.length} 处(不启用 ≠ 通过,逐条报名)。\n   ` +
       `◦ 包含关系(C4):按模态面改判 ${res.surfaceOverrides} 处(自称 card 而容器是模态载体)、` +
         `同名既当过面又当过卡 ⇒ 不改判 ${res.contested.length} 键、` +
