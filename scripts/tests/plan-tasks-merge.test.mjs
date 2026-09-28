@@ -18,7 +18,12 @@ import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
-import { DUP_POINTER_RE, POINTER_FAMILIES, auditPlan } from '../lib/plan-task-index.mjs'
+import {
+  DUP_POINTER_RE,
+  POINTER_FAMILIES,
+  POINTER_NO_AUTO_REPAIR,
+  auditPlan,
+} from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { buildBlockDedupe, healStopReasons, verifyBlockDedupe, buildMerge, __test__ } from '../plan-tasks-merge.mjs'
 
@@ -249,17 +254,33 @@ test('T10 落地调度锁:早退判据必须看见 F4b,结论数字必须回读�
  * ④ 端到端不归零 ⇒ "跑过一次"被当成"修好了"。
  */
 test('T11 指针族表与修复出口成套,且改写后不留任何行号指针', () => {
-  const fams = POINTER_FAMILIES.map((f) => f.id).sort().join(',')
-  const rules = Object.keys(__test__.POINTER_REPAIRS).sort().join(',')
-  if (fams !== rules)
-    throw new Error(`判据族 ${fams} 与修复出口 ${rules} 不同集 ⇒ 有一族判得到却修不了`)
-  const key = 'D7#D7甲事'
+  // 每条族表要么有改写规则、要么显式登记"无自动出口 + 原因":皆无 = 判得到却修不了(红留给下一个人),
+  // 皆有 = 声明自相矛盾。静默"某族没人管"是本仓最贵的那一型失明。
+  const repairs = new Set(Object.keys(__test__.POINTER_REPAIRS))
+  const noExit = new Set(Object.keys(POINTER_NO_AUTO_REPAIR))
+  for (const f of POINTER_FAMILIES) {
+    const has = repairs.has(f.id)
+    const declared = noExit.has(f.id)
+    if (has === declared)
+      throw new Error(
+        `族 ${f.id} 的出口声明不自洽(有改写规则=${has},登记无出口=${declared})⇒ 必须恰好其一`,
+      )
+    if (declared && !String(POINTER_NO_AUTO_REPAIR[f.id] || '').trim())
+      throw new Error(`族 ${f.id} 登记了无自动出口却没写原因`)
+  }
+  if (!repairs.has('dup') || !noExit.has('ref'))
+    throw new Error('dup 族必须有改写规则、ref 族必须登记无自动出口(HEAD 面实测两型各自如此)')
+
+  const k = 'D7#D7甲事'
+  // 指针必须指向**同复合主键的条目行**(L4)才落在"可自动收口"那一型;指向空行属"无出口"型,
+  // 用它当端到端夹具会让断言恒真(第一版就是这样,auto 实测 0 而不是 1)。
   const dupLine =
-    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L2,派单以那条为准。〕'
-  const fixed = __test__.rewritePointer(dupLine, key)
+    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L4,派单以那条为准。〕'
+  const fixed = __test__.rewritePointer(dupLine, k)
   if (/L\d/.test(fixed)) throw new Error(`修复出口仍写着行号:${fixed}`)
-  if (!/另一条登记/.test(fixed) || !fixed.includes('「'))
+  if (!fixed.includes('另一条登记') || !fixed.includes('「'))
     throw new Error(`内容锚点没换上,实测:${fixed.slice(0, 140)}`)
+
   // 无主键分支不得谎称"同主键"(F4b 的孪生行本来就没有编号)
   const noKey =
     '- [ ] 重启宿主后 %TEMP% 才真指 D 盘 〔【归并】重复登记副本(2026-09-27):逐字相同的另一条登记在 L5841(本行无编号主键),派单以那条为准。〕'
@@ -267,24 +288,36 @@ test('T11 指针族表与修复出口成套,且改写后不留任何行号指针
   if (/L\d/.test(fixedNoKey)) throw new Error(`无主键分支仍写行号:${fixedNoKey}`)
   if (/同主键/.test(fixedNoKey)) throw new Error('对没有编号的行说"同主键"是一句无法核验的假话')
   if (!/逐字相同/.test(fixedNoKey)) throw new Error('无主键分支必须保留"逐字相同"这个可核验措辞')
-  // 新产的指针(rewriteDup)同样禁止行号
-  const fresh = __test__.rewriteDup('- [ ] **D9 同一件事**:短的那条。', key, '2026-09-28')
+
+  // 无自动出口那一族必须**原样返回**:它的目标行已不可推断,猜一个锚点等于编造证据
+  const refLine = '- [ ] **D8 乙事**:说明。 〔另见 L9 的那一条。〕'
+  if (__test__.rewritePointer(refLine, k) !== refLine)
+    throw new Error('ref 族登记了无自动出口,改写函数却动了它')
+
+  // 新产的指针一律禁止行号
+  const fresh = __test__.rewriteDup('- [ ] **D9 同一件事**:短的那条。', k, '2026-09-28')
   if (/L\d/.test(fresh)) throw new Error(`rewriteDup 又产出行号指针 ⇒ 病根复发:${fresh}`)
   if (!DUP_POINTER_RE.test(fresh)) throw new Error('新指针必须被派单口径认得,否则等于没归并')
-  // 端到端:含腐烂指针的文档跑一遍 buildMerge,出口必须把它清零
+
+  // 端到端:可收口族归零 + 无出口族一处都不能被改动
   const doc = [
     '# 计划',
     '',
     dupLine,
-    '- [ ] **D8 乙事**:与指针无关的另一条。',
-    '',
+    '- [ ] **D7 甲事**:还没人做。',
+    refLine,
   ].join('\n')
-  if (auditPlan(doc).counts.rotatedPointers === 0)
-    throw new Error('夹具本身就没被判红 ⇒ 这条端到端断言无牙,换一个形态而不是删掉它')
+  const a0 = auditPlan(doc).counts
+  if (a0.rotatedAuto !== 1)
+    throw new Error(
+      `夹具没含"可自动收口"那一型(auto=${a0.rotatedAuto})⇒ 这条端到端断言无牙,换形态而不是删断言`,
+    )
   const merged = buildMerge(doc, '2026-09-28')
-  if (auditPlan(merged.text).counts.rotatedPointers !== 0)
-    throw new Error('buildMerge 之后 F3 必须归零(否则"跑过一次"会被读成"修好了")')
-  if (/登记在\s*L\d/.test(merged.text)) throw new Error('输出里仍残留行号指针')
+  const a1 = auditPlan(merged.text).counts
+  if (a1.rotatedAuto !== 0) throw new Error('可自动收口那一族未归零 ⇒ 出口对它失效')
+  if (a1.rotatedNoExit !== a0.rotatedNoExit)
+    throw new Error('无出口那一族被自动改了 = 在编造证据(它必须原样留着交人工)')
+  if (/登记在\s*L\d/.test(merged.text)) throw new Error('输出里仍残留 dup 族的行号指针')
 })
 
 /**

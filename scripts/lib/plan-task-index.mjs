@@ -343,21 +343,79 @@ export function findVoidRows(content) {
  */
 export const POINTER_FAMILIES = [
   { id: 'alive', source: '(?:逐字)?存活于\\s*L(\\d{1,6})(?:\\s*的同编号登记)?' },
-  { id: 'dup', source: '(?:同主键|逐字相同)的另一条登记在\\s*L(\\d{1,6})(?:\\(本行无编号主键\\))?' },
+  { id: 'dup', source: '(?:同主键|逐字相同)?(?:的另一条|的权威|的)?(?:完成)?登记在\\s*L(\\d{1,6})(?:\\(本行无编号主键\\))?' },
+  // 第三种拼法由 2026-09-28 的活体对照抓出来:台账里另有一族「(另|参)见 L####」「指向 L####」的证据引用,
+  // 宽尺数到 9 处而判据只命中 1 处 —— 又是"判据落后于产出形态"(一天内第三次)。
+  { id: 'ref', source: '(?:另见|参见|见|指向)\\s*L(\\d{1,6})' },
 ]
-/** 向后兼容的并集面(取第一个捕获组即行号)。 */
-export const POINTER_RE = new RegExp(
-  `(?:${POINTER_FAMILIES.map((f) => f.source).join('|')})`,
-  'g',
-)
+/**
+ * 哪些族**没有**自动出口,以及为什么。
+ * `ref` 一族的 7/9 处指向的行**已经不是条目行或根本不存在**(实测)—— 作者的意图无从推断,
+ * 把 L#### 换成"当下那一行的内容锚点"等于替他把错指针改成看起来对的错指针。
+ * 判据的红与修的口子是两件事:**看得见**是门的责任,**猜得出**不是。
+ */
+export const POINTER_NO_AUTO_REPAIR = { ref: '目标行已腐烂且意图不可推断 ⇒ 只能由该行持有人改写(点名不自动修)' }
+/**
+ * 行号指针的**原始**出现面(比全部族都宽,只用于"族表有没有落后于产出形态"的活体对照,不参与判据)。
+ * 为什么要单独留一把宽尺:2026-09-28 一天内同一格栽了三次 —— 族表只认「存活于」时,归并器自产的
+ * 「另一条登记在 L####」244 处全隐身;把 dup 族放宽后,又出现「…的完成登记在 L13178」这种新拼法。
+ * 每次都是"账面 0 / 面上有"。宽尺不判红,只用来问一句:**判据没命中而宽尺命中 ⇒ 判据瞎了**。
+ */
+export const POINTER_RAW_REF_RE = /(?:存活于|登记在|见|指向)\s*L(\d{1,6})/g
+
+/**
+ * 「…」与反引号包裹的片段是**叙述**(在描述这个形态),不是可执行指针 ——
+ * 与守门 109 对 `（进行中）` 的同一条判序一致(它把反引号内的认领标记排除在"挂牌"之外)。
+ * 不这么做会有两个后果:① 记录这一型缺陷的台账行自己被门判成违规;② 修复出口会把
+ * 说明文字里的样例改写成锚点,把注释当数据改了(本仓"镜像测试只复读实现"的同族失效)。
+ */
+function quotedRanges(line) {
+  const out = []
+  let s = -1
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]
+    if (c === '「') s = i
+    else if (c === '」' && s >= 0) {
+      out.push([s, i])
+      s = -1
+    } else if (c === '`') {
+      const j = line.indexOf('`', i + 1)
+      if (j > i) {
+        out.push([i, j])
+        i = j
+      }
+    }
+  }
+  return out
+}
+const inQuoted = (ranges, at) => ranges.some(([a, b]) => at >= a && at <= b)
+
+/** 判据命中数必须等于宽尺在**非引用体**上的出现数 —— 不等就是族表漏了一族(交调用方喊"失明",不冒绿)。 */
+export function pointerBlindness(content) {
+  const rows = parseTaskRows(content)
+  let raw = 0
+  for (const r of rows) {
+    const q = quotedRanges(r.raw)
+    const re = new RegExp(POINTER_RAW_REF_RE.source, 'g')
+    let m
+    while ((m = re.exec(r.raw)) !== null) if (!inQuoted(q, m.index)) raw++
+  }
+  return { rawRefs: raw, judged: findRotatedPointers(content).length }
+}
 export function findRotatedPointers(content) {
   const lines = String(content).split(/\r?\n/)
   const bad = []
   for (const r of parseTaskRows(content)) {
+    const quoted = quotedRanges(r.raw)
+    // 一条指针只归第一个命中的族:族表之间是**有意的宽窄层次**,不做并集计数(否则同一条被算两次,
+    // 而 F3 的读数会随族表增删而跳,谁都没改台账却在涨)。
+    const claimed = []
     for (const fam of POINTER_FAMILIES) {
       // 共享一个带 /g 的正则跨字符串 exec 会因 lastIndex 残留而漏匹配 —— 每行每族各开一把新的
       const re = new RegExp(fam.source, 'g')
       for (let m = re.exec(r.raw); m !== null; m = re.exec(r.raw)) {
+        if (inQuoted(quoted, m.index) || claimed.some(([a, b]) => m.index >= a && m.index <= b)) continue
+        claimed.push([m.index, m.index + m[0].length - 1])
         const target = Number(m[1])
         const t = lines[target - 1]
         const reason = !t
@@ -371,7 +429,31 @@ export function findRotatedPointers(content) {
                 // 而它们下一枚 append 就变哑 —— 旧版正是这一格,配合只认一种措辞的族表,
                 // 账面报 0 而 HEAD 里 222 处指针全烂(2026-09-28 实测)。
                 '行号指针即使还指得准也不许存在(§1 要求内容锚点)'
-        if (reason) bad.push({ line: r.line, target, reason, family: fam.id, raw: r.raw })
+        if (reason)
+          bad.push({
+            line: r.line,
+            target,
+            reason,
+            family: fam.id,
+            raw: r.raw,
+            /**
+             * 能不能**自动**把它换成内容锚点,判据只有一条:换上去的锚点必须是真的。
+             * - 目标行不存在 / 不是条目行 ⇒ 作者指的是"当时那一行",现在问不出他指什么 ⇒ 不可自动改;
+             * - 目标行在、且与本行同复合主键 ⇒ 换成"同主键登记「本行键」"是真话 ⇒ 可自动改;
+             * - 目标行在但是**另一条** ⇒ 换成任何锚点都是替他把错指针改成"看起来对的错指针" ⇒ 不可自动改。
+             * 为什么这条必须存在:2026-09-28 实测面上 9 处行号引用里 7 处的目标行已不是条目行或
+             * 根本不存在。若把它们并进"归零判据",自愈档会永远停手(= 一台新的全局失效门);
+             * 若让它们自动改写,就是在编造证据。**看得见**是门的责任,**猜得出**不是。
+             */
+            autoFixable:
+              // 两个条件缺一不可:**有出口**(该族的措辞我们能安全换成锚点)且**目标推得出来**
+              // (指向的行还在、且与本行同复合主键)。少了前一条,归并计划里会有它而改写函数不动它,
+              // 于是自愈档因"无可施加的改写"整轮停手(2026-09-28 实测 L88 就是这个形态)。
+              !POINTER_NO_AUTO_REPAIR[fam.id] &&
+              !!t &&
+              /^\s*[-*]\s\[[ xX]\]/.test(t) &&
+              compositeKeyOf(t) === compositeKeyOf(r.raw),
+          })
       }
     }
   }
@@ -731,6 +813,14 @@ export function auditPlan(content) {
       forkOpenLines: forkOpenLines.size,
       voidRows: voidRows.length,
       rotatedPointers: rotated.length,
+      /**
+       * F3 的两个量纲必须分开,否则同一枚提交里既要"全看见"又要"能自愈"是矛盾的:
+       * `rotatedAuto` = 能换成**真**锚点的(并入归零判据与差值棘轮);
+       * `rotatedNoExit` = 目标行已不可推断的(只点名交人工 —— 并进归零判据就是一台永不落地
+       * 的自愈档,并进棘轮就是凭"判据变尖"给别人记债,见 findRotatedPointers 里 autoFixable 的注释)。
+       */
+      rotatedAuto: rotated.filter((b) => b.autoFixable).length,
+      rotatedNoExit: rotated.filter((b) => !b.autoFixable).length,
       dupOpenGroups: dupOpen.length,
       dupOpenCopies: dupCopies.length,
       // F4b:无主键的逐字孪生行 —— F4 按复合主键分组,而这一族永远没有编号,所以在 F4 里恒为 0、
