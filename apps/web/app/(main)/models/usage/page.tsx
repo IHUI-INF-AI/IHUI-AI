@@ -369,7 +369,7 @@ export default function UsagePage() {
                 key={key}
                 type="button"
                 className={cn(
-                  'h-7 rounded-md px-3 text-xs font-medium transition-colors',
+                  'h-7 rounded-sm px-3 text-xs font-medium transition-colors',
                   isActive
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',

@@ -179,7 +179,7 @@ export function WorkspacePermissionDialog({
                   type="button"
                   onClick={() => setSelectedMode(opt.value)}
                   className={cn(
-                    'flex items-start gap-3 rounded-lg border p-3 text-left transition-colors',
+                    'flex items-start gap-3 rounded-sm border p-3 text-left transition-colors',
                     isSel
                       ? 'outline outline-1 outline-border bg-primary/5'
                       : 'border-border hover:bg-muted/40',

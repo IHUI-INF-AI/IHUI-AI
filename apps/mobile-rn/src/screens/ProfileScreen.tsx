@@ -2028,7 +2028,7 @@ const styles = StyleSheet.create({
   audioPlayBtn: {
     width: 36,
     height: 36,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2257,7 +2257,7 @@ const styles = StyleSheet.create({
   tabRetryBtn: {
     paddingHorizontal: rpx(40),
     paddingVertical: rpx(16),
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.DEFAULT,
   },
   tabRetryText: {
@@ -2322,8 +2322,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 22,
     height: 22,
-    borderBottomRightRadius: rnRadius.xl,
-    borderTopLeftRadius: rnRadius.lg,
+    borderBottomRightRadius: rnRadius.md,
+    borderTopLeftRadius: rnRadius.md,
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2384,7 +2384,7 @@ const styles = StyleSheet.create({
   editProfileSaveBtn: {
     flex: 1,
     backgroundColor: tokens.brand.DEFAULT,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -2457,7 +2457,7 @@ const styles = StyleSheet.create({
   },
   levelIntroCloseBtn: {
     backgroundColor: tokens.brand.DEFAULT,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',

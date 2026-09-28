@@ -220,7 +220,7 @@ export function McpPane() {
               <button
                 type="button"
                 className={cn(
-                  'flex h-12 flex-col items-center justify-center gap-0.5 rounded-md text-[10px] transition-colors',
+                  'flex h-12 flex-col items-center justify-center gap-0.5 rounded-sm text-[10px] transition-colors',
                   isActive
                     ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -244,7 +244,7 @@ export function McpPane() {
           <Tooltip content={t('mcpPane.refresh')}>
             <button
               type="button"
-              className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               onClick={() => void load(activeTab)}
               disabled={loading}
               aria-label={t('mcpPane.refresh')}
@@ -342,7 +342,7 @@ export function McpPane() {
                   <Tooltip content={t('mcpPane.copy')}>
                     <button
                       type="button"
-                      className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                       onClick={() => handleCopy(result)}
                       aria-label={t('mcpPane.copy')}
                     >
@@ -524,7 +524,7 @@ function DetailPanel({
                   value={values[f.name] ?? ''}
                   onChange={(e) => setValues((prev) => ({ ...prev, [f.name]: e.target.value }))}
                   placeholder={f.description || ''}
-                  className="h-6 rounded border border-border bg-background px-2 text-xs outline-none focus:border-ring/50"
+                  className="h-6 rounded-sm border border-border bg-background px-2 text-xs outline-none focus:border-ring/50"
                 />
               </label>
             ))
@@ -564,7 +564,7 @@ function DetailPanel({
             value={values.args ?? ''}
             onChange={(e) => setValues((prev) => ({ ...prev, args: e.target.value }))}
             placeholder={t('mcpPane.slashArgsHint')}
-            className="h-6 rounded border border-border bg-background px-2 text-xs outline-none focus:border-ring/50"
+            className="h-6 rounded-sm border border-border bg-background px-2 text-xs outline-none focus:border-ring/50"
           />
         </div>
       )}
@@ -572,7 +572,7 @@ function DetailPanel({
       {/* 调用按钮 */}
       <button
         type="button"
-        className="mt-1 flex h-7 items-center justify-center gap-1.5 rounded-md bg-accent px-3 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/80 disabled:opacity-50"
+        className="mt-1 flex h-7 items-center justify-center gap-1.5 rounded-sm bg-accent px-3 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/80 disabled:opacity-50"
         onClick={handleInvoke}
         disabled={calling}
       >

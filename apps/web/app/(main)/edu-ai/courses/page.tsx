@@ -349,7 +349,7 @@ export default function EduAICoursesPage() {
                     type="button"
                     disabled={page <= 1}
                     onClick={() => setPage(page - 1)}
-                    className="rounded border px-2 py-1 disabled:opacity-50"
+                    className="rounded-sm border px-2 py-1 disabled:opacity-50"
                   >
                     {t('prev')}
                   </button>
@@ -357,7 +357,7 @@ export default function EduAICoursesPage() {
                     type="button"
                     disabled={page >= totalPages}
                     onClick={() => setPage(page + 1)}
-                    className="rounded border px-2 py-1 disabled:opacity-50"
+                    className="rounded-sm border px-2 py-1 disabled:opacity-50"
                   >
                     {t('next')}
                   </button>

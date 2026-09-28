@@ -155,14 +155,14 @@ export function InlineEditDialog() {
           <div className="flex items-center gap-1">
             <button
               onClick={rejectPatch}
-              className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <X className="h-3 w-3" />
               <span>{t('reject')}</span>
             </button>
             <button
               onClick={acceptPatch}
-              className="flex items-center gap-1 rounded-md bg-cta px-2 py-1 text-xs text-cta-foreground hover:bg-cta/90"
+              className="flex items-center gap-1 rounded-sm bg-cta px-2 py-1 text-xs text-cta-foreground hover:bg-cta/90"
             >
               <Check className="h-3 w-3" />
               <span>{t('accept')}</span>

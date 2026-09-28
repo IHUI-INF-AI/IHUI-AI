@@ -1003,7 +1003,7 @@ export default function MealPage() {
         key={meal.id}
         type="button"
         className={cn(
-          'w-full rounded-md px-2 py-1 text-left text-xs text-white transition-opacity hover:opacity-90',
+          'w-full rounded-sm px-2 py-1 text-left text-xs text-white transition-opacity hover:opacity-90',
           color,
         )}
         onClick={() => handleEditMeal(meal)}
@@ -1028,7 +1028,7 @@ export default function MealPage() {
           </div>
           <button
             type="button"
-            className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent"
+            className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-accent"
             onClick={() => handleAddMeal(date, mealType)}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -1282,7 +1282,7 @@ export default function MealPage() {
                               <div className="flex items-center justify-end">
                                 <button
                                   type="button"
-                                  className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 group-focus-within:opacity-100 hover:opacity-100"
+                                  className="rounded-sm p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 group-focus-within:opacity-100 hover:opacity-100"
                                   onClick={() => handleAddMeal(dateStr, mt.value)}
                                 >
                                   <Plus className="h-3 w-3" />

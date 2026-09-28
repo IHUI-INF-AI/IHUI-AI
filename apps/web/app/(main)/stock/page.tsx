@@ -330,7 +330,7 @@ export default function StockAnalysePage() {
                   <button
                     type="button"
                     onClick={() => openDetail(item)}
-                    className="flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors hover:bg-accent"
+                    className="flex w-full items-center gap-3 rounded-sm px-2 py-2.5 text-left transition-colors hover:bg-accent"
                   >
                     <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
                       {item.symbol}

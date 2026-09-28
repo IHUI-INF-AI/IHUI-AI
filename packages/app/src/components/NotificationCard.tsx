@@ -64,7 +64,7 @@ export function createCardStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       padding: 16,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

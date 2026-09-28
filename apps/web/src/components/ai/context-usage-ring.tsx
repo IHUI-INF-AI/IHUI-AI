@@ -795,7 +795,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
                     onClick={() => handleCompress(200000)}
                     disabled={compressDisabled}
                     className={cn(
-                      'inline-flex items-center justify-center gap-1 rounded-md border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
+                      'inline-flex items-center justify-center gap-1 rounded-sm border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
                       'hover:bg-accent hover:text-accent-foreground',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       // 2026-07-19 中文 + 图标垂直对齐
@@ -814,7 +814,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
                     onClick={() => handleCompress(1000000)}
                     disabled={compressDisabled}
                     className={cn(
-                      'inline-flex items-center justify-center gap-1 rounded-md border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
+                      'inline-flex items-center justify-center gap-1 rounded-sm border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
                       'hover:bg-accent hover:text-accent-foreground',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       '[&>span]:translate-y-[var(--text-vcenter-offset)]',

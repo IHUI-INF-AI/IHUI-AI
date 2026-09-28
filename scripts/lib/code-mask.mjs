@@ -21,30 +21,34 @@
 // (如守门 131 的 T5)会先于仓库发现整片失配。
 
 /**
- * @param {string} src 源码全文
- * @returns {string} 等长文本,注释与字符串内容替换为空格(换行保留)
+ * 词法扫描的**唯一一遍**:返回被抹掉的区间清单,`kind` 区分注释与字符串。
+ *
+ * 为什么要把区间也交出去而不只交文本:调用方有时需要知道"这一段被抹是因为它是字符串,
+ * 还是因为它是注释"—— JSX 扫描器要跳过字符串字面量里的 `<View`,却必须把注释抹掉后的
+ * 空白当普通空白(守门 150 的 `jsx-scope`)。只给一份抹平文本就得再抄一个词法器,
+ * 而"两处算同一件事必漂移"是本仓记过最多次的失效型(§3 共享层优先)。
+ *
+ * @param {string} src
+ * @returns {{start: number, end: number, kind: 'comment'|'string'}[]} 按 start 升序
  */
-export function maskCommentsAndStrings(src) {
-  if (typeof src !== 'string') return ''
-  const out = src.split('')
+export function maskedSpans(src) {
+  const spans = []
+  if (typeof src !== 'string') return spans
   let i = 0
-  const blank = (from, to) => {
-    for (let k = from; k < to && k < out.length; k++) if (out[k] !== '\n') out[k] = ' '
-  }
   while (i < src.length) {
     const c = src[i]
     const n = src[i + 1]
     if (c === '/' && n === '/') {
       let j = src.indexOf('\n', i)
-      if (j < 0) j = src.length
-      blank(i, j)
+      j = j < 0 ? src.length : j
+      spans.push({ start: i, end: j, kind: 'comment' })
       i = j
       continue
     }
     if (c === '/' && n === '*') {
       let j = src.indexOf('*/', i + 2)
       j = j < 0 ? src.length : j + 2
-      blank(i, j)
+      spans.push({ start: i, end: j, kind: 'comment' })
       i = j
       continue
     }
@@ -63,12 +67,27 @@ export function maskCommentsAndStrings(src) {
         if (src[j] === '\n' && c !== '`') break
         j++
       }
-      blank(i, j)
+      spans.push({ start: i, end: j, kind: 'string' })
       i = j
       continue
     }
     i++
   }
+  return spans
+}
+
+/**
+ * @param {string} src 源码全文
+ * @returns {string} 等长文本,注释与字符串内容替换为空格(换行保留)
+ */
+export function maskCommentsAndStrings(src) {
+  if (typeof src !== 'string') return ''
+  const out = src.split('')
+  const blank = (from, to) => {
+    for (let k = from; k < to && k < out.length; k++) if (out[k] !== '\n') out[k] = ' '
+  }
+  // 判定与遮蔽都由 maskedSpans 那一遍词法给出 —— 这里只是它的一个投影,不得再走一遍状态机。
+  for (const s of maskedSpans(src)) blank(s.start, s.end)
   return out.join('')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

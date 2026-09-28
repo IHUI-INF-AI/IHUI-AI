@@ -62,7 +62,7 @@ export function SourceList({ sources, onToggle, onBudgetChange, className }: Sou
                 value={s.budgetPercent}
                 disabled={!s.enabled}
                 onChange={(e) => onBudgetChange?.(s.type, Number(e.target.value))}
-                className="mt-2 h-1 w-full cursor-pointer appearance-none rounded-xs bg-muted accent-primary disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-2 h-1 w-full cursor-pointer appearance-none rounded-sm bg-muted accent-primary disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label={`${s.label} 预算百分比`}
               />
             </div>

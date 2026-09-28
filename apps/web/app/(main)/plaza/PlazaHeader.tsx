@@ -33,7 +33,7 @@ export function PlazaHeader({ tab, setTab, circlesTotal, asksTotal }: Props) {
         <button
           onClick={() => setTab('circles')}
           className={cn(
-            'flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors',
+            'flex items-center gap-1.5 rounded-sm px-4 py-1.5 text-sm font-medium transition-colors',
             tab === 'circles'
               ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground',
@@ -48,7 +48,7 @@ export function PlazaHeader({ tab, setTab, circlesTotal, asksTotal }: Props) {
         <button
           onClick={() => setTab('asks')}
           className={cn(
-            'flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors',
+            'flex items-center gap-1.5 rounded-sm px-4 py-1.5 text-sm font-medium transition-colors',
             tab === 'asks'
               ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground',

@@ -235,7 +235,7 @@ function TagChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'whitespace-nowrap max-w-full truncate rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+        'whitespace-nowrap max-w-full truncate rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
         active
           ? 'bg-cta text-cta-foreground'
           : 'bg-muted text-muted-foreground hover:text-foreground',

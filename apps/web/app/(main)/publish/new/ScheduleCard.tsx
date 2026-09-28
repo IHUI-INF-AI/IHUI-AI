@@ -44,7 +44,7 @@ export function ScheduleCard({
             type="button"
             onClick={() => onScheduleModeChange('now')}
             className={cn(
-              'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm transition-colors',
+              'inline-flex flex-1 items-center justify-center gap-1.5 rounded-sm border px-3 py-2 text-sm transition-colors',
               scheduleMode === 'now'
                 ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                 : 'border-border text-muted-foreground hover:bg-accent',
@@ -57,7 +57,7 @@ export function ScheduleCard({
             type="button"
             onClick={() => onScheduleModeChange('schedule')}
             className={cn(
-              'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm transition-colors',
+              'inline-flex flex-1 items-center justify-center gap-1.5 rounded-sm border px-3 py-2 text-sm transition-colors',
               scheduleMode === 'schedule'
                 ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                 : 'border-border text-muted-foreground hover:bg-accent',

@@ -70,7 +70,7 @@ export function TerminalHistorySearch({
         <Tooltip content={t('terminalPanel.closeSearchTitle')}>
           <button
             type="button"
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             onClick={onClose}
             aria-label={t('terminalPanel.close')}
           >
