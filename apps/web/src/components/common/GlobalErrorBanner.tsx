@@ -44,7 +44,7 @@ export function GlobalErrorBanner() {
           <button
             type="button"
             onClick={() => clearError(err.id)}
-            className="flex-shrink-0 rounded p-0.5 transition-colors hover:bg-destructive/20"
+            className="flex-shrink-0 rounded-sm p-0.5 transition-colors hover:bg-destructive/20"
             aria-label={t('dismiss')}
           >
             <X className="h-3.5 w-3.5" />

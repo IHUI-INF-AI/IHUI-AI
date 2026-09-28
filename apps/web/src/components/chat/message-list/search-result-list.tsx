@@ -76,7 +76,7 @@ export function SearchResultList({ results, selectedId, onPick }: SearchResultLi
                 onClick={() => onPick(result.id)}
                 aria-current={isSelected ? 'true' : undefined}
                 aria-label={timeText ? `${result.preview} · ${timeText}` : result.preview}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted/50 data-[current=true]:bg-muted"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left transition-colors hover:bg-muted/50 data-[current=true]:bg-muted"
               >
                 <span className="min-w-0 flex-1 truncate text-xs text-foreground">
                   {result.preview}
