@@ -462,7 +462,6 @@ export default function MessageIndex() {
       <View className="min-h-screen bg-background">
         <NavBar
           title={t('message.center')}
-          showBack={false}
           notification={notification}
           rightText={t('message.settings')}
           onRightClick={() => setShowSettings(true)}
@@ -479,7 +478,7 @@ export default function MessageIndex() {
             onClick={() => setShowSettings(false)}
           >
             <View
-              className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl max-h-[80vh] overflow-y-auto"
+              className="absolute bottom-0 left-0 right-0 bg-card ui-panel rounded-$1-2xl max-h-[80vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
               hoverClass="opacity-60"
             >

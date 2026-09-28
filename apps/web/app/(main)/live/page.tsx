@@ -139,7 +139,7 @@ export default function LivePage() {
         <BackButton fallbackHref="/edu-ai" />
         <Link
           href="/live/host"
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
+          className="inline-flex items-center gap-1.5 ui-control rounded-sm border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
         >
           <RadioTower className="h-4 w-4" />
           {t('hostLink')}
