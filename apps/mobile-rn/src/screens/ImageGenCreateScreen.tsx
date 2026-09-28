@@ -119,7 +119,7 @@ export function ImageGenCreateScreen() {
           multiline
           numberOfLines={4}
           textAlignVertical="top"
-          className="min-h-[96px] rounded-md border border-gray-200 p-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
+          className="min-h-[96px] rounded-sm border border-gray-200 p-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
         />
 
         {/* 尺寸 chips */}
