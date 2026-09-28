@@ -31,7 +31,7 @@
  *  - 临时索引/临时内容文件一律落 scripts/lib/scratch-dir.mjs(§26 唯一夹具落点),不写 os.tmpdir()、不落仓库树内。
  */
 
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, statSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
@@ -81,6 +81,38 @@ export function git(args, opts = {}) {
   }
 }
 
+/**
+ * 祖先判定:a 是否被 b 包含(a === b 也算)。返回 true / false / null。
+ *
+ * 为什么要单列一个出口,而不是让调用方各自 `git merge-base --is-ancestor` 看退出码:
+ * execFileSync 对**非零退出**一律抛错,而这条判据的三种结果各有各的含义 ——
+ * 0 = 是祖先;1 = git 明确说不是;128 及其它 = 对象根本取不到(未判定)。
+ * 用 allowFail 的二值通道会把"未判定"折叠成"不是祖先",于是"我推的那枚没上远端"
+ * 与"仓库处于半恢复态、对象读不到"在账面上长得一模一样。null 一律交调用方明写。
+ * 只读判据,不产生任何写操作。
+ */
+export function isAncestor(a, b, { root }) {
+  if (!root) throw new Error('isAncestor() 必须显式传 root(不猜调用方位置)')
+  if (!a || !b) return null
+  const full = ['-c', 'safe.directory=*']
+  if (process.platform === 'win32') full.push('-c', 'core.protectNTFS=false')
+  let r
+  try {
+    r = spawnSync(GIT_BIN, [...full, '-C', root, 'merge-base', '--is-ancestor', a, b], {
+      windowsHide: true,
+      timeout: DEFAULT_TIMEOUT_MS,
+      stdio: 'ignore',
+      encoding: 'utf8',
+    })
+  } catch {
+    return null
+  }
+  if (r.error || r.signal) return null
+  if (r.status === 0) return true
+  if (r.status === 1) return false
+  return null
+}
+
 /** 某 ref 下路径的 blob oid;取不到(路径不在该提交/该提交不存在)= ABSENT。 */
 export function headBlobOf(ref, path, { root }) {
   const out = git(['rev-parse', '--verify', '--quiet', `${ref}:${path}`], { root, allowFail: true })
@@ -114,6 +146,20 @@ export function writeBlobOfWorktree(path, { root }) {
 }
 
 /**
+ * 提交身份随调用一起给,不依赖"当前环境配过 identity"。
+ *
+ * 实测两处同型故障:① union-converge 头注记的那一次 —— 收敛器由 IHUI-DEPLOYLOOP 以服务身份
+ * (LocalSystem)后台发起,而 user.name/user.email 只配在交互账户的 .gitconfig 里,于是
+ * `commit-tree` 直接 `fatal: unable to auto-detect email address`,收敛一次都没成功过;
+ * ② 本层的镜像测试 T5/T6/T8/T10 在**没有 global identity 的干净 shell**里恒红
+ * (`Author identity unknown`)—— 与 ① 同一个成因,只是发生在测试面,长期被读成"环境不好"。
+ * 取值与本仓既有三处字面量同源(`scripts/git-rebuild-local.mjs` 的 init 配置、
+ * `scripts/git-sync-converge.mjs` 与 `scripts/union-converge.mjs` 各自的 GIT_IDENTITY);
+ * 那三处是本票之前各写各的存量,**迁移到本出口**属另一票(动别人的热路径文件要与其持有者错开)。
+ */
+export const REPO_GIT_IDENTITY_ARGS = ['-c', 'user.name=智汇AGI社区', '-c', 'user.email=ok502319984@gmail.com']
+
+/**
  * 临时索引提交:read-tree <baseRef> → 逐条 update-index --cacheinfo → write-tree → commit-tree。
  * 全程不触碰共享主索引、不触碰工作树(GIT_INDEX_FILE 只挂在本函数派生上)。
  * entries:[{path, blob}] 或 [{path, text}](text 走 writeBlob);也兼容单路径 {treePath, text|blob}。
@@ -132,7 +178,7 @@ export function commitTreeWithIndex({ root, parent, message, entries, treePath, 
       git(['update-index', '--add', '--cacheinfo', `${e.mode},${e.blob},${e.path}`], { root, env })
     }
     const tree = git(['write-tree'], { root, env })
-    const commit = git(['commit-tree', tree, '-p', parent, '-m', message], { root, env })
+    const commit = git([...REPO_GIT_IDENTITY_ARGS, 'commit-tree', tree, '-p', parent, '-m', message], { root, env })
     return { tree, commit, entries: list.map((e) => ({ path: e.path, blob: e.blob })) }
   } finally {
     rmScratch(dir)

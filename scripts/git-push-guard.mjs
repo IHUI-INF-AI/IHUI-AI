@@ -42,6 +42,7 @@ import {
 } from 'node:fs'
 import { resolve } from 'node:path'
 import { catBatchCheck } from './lib/face-reader.mjs'
+import { isAncestor } from './lib/bypass-git.mjs'
 import { triagePushAttempt, describeVerdict, CONVERGE_COMMAND } from './lib/push-attempt-triage.mjs'
 
 const C = {
@@ -1061,23 +1062,38 @@ if (!verifiedRemote) {
   process.exit(1)
 }
 
-// 把验证结果回喂分诊:「什么都没推」这一档的终态**只能**由 local==remote 的实测决定,
+// 验证问的是"**我推的那枚**到没到远端",不是"此刻两台是否同一枚"(2026-09-28 立)。
+// 多会话共享同一 gitdir:`git rev-parse HEAD` 在推送与验证之间会被别人的 commit 推进,
+// 于是等值判据在**完全成功**的一趟上读出 false —— 实测把 `8dbacd2322..61f6fdc9d0 main -> main`
+// 报成"push 报告成功但验证失败",并把 push-state 写成 failed,下游(converge / 部署环)
+// 据此以为通道坏了。祖先测才是那条问题的答案;等值继续当"什么都没推"那一档的证据用。
+const containedInRemote = localHead ? isAncestor(localHead, verifiedRemote, { root: process.cwd() }) : null
+const verifiedEqual = newLocalHead === verifiedRemote
+const verifiedLanded = verifiedEqual || containedInRemote === true
+
+// 把验证结果回喂分诊:「什么都没推」这一档的终态**只能**由实测决定,
 // 判据仍住在 lib 里(一份实现,guard 与测试同视它)。
 const finalVerdict = triagePushAttempt({
   status: pushResult.status,
   stdout: pushResult.stdout,
   stderr: pushResult.stderr,
-  remoteEqualsLocal: newLocalHead === verifiedRemote,
+  remoteEqualsLocal: verifiedEqual,
+  pushedShaContainedInRemote: containedInRemote,
 })
-const nextState =
-  finalVerdict.terminalStatus ?? (newLocalHead === verifiedRemote ? 'done' : 'failed')
+const nextState = finalVerdict.terminalStatus ?? (verifiedLanded ? 'done' : 'failed')
 
-if (newLocalHead === verifiedRemote) {
+if (verifiedLanded) {
   if (finalVerdict.pushedNothing) {
     log('ok', '本次未推送任何东西:远端 tip 已包含本地(或已由并发推送落地)')
-    log('warn', '  ↑ 不是"推送成功"—— 一个字节都没上过去,合格证只在验证确实相等时才给')
-  } else {
+    log('warn', '  ↑ 不是"推送成功"—— 一个字节都没上过去,合格证只在验证确实成立时才给')
+  } else if (verifiedEqual) {
     log('ok', `push 成功 + 验证通过!local HEAD === origin/${branch} HEAD`)
+  } else {
+    log('ok', `push 成功 + 验证通过(祖先测):本次推的 ${localHead.substring(0, 7)} 已在远端 tip ${verifiedRemote.substring(0, 7)} 的历史里`)
+    log(
+      'warn',
+      `  local HEAD 此刻已是 ${newLocalHead?.substring(0, 7)} —— 验证窗口内有并发提交推进,这**不是**推送失败,别再去跑收敛器`,
+    )
   }
   writePushState(nextState, localHead, {
     kind: finalVerdict.kind,
@@ -1086,17 +1102,18 @@ if (newLocalHead === verifiedRemote) {
   })
   log(
     'ok',
-    `commit: ${C.green}${newLocalHead.substring(0, 7)}${C.reset} ${C.dim}(local == remote,已落地)${C.reset}`,
+    `commit: ${C.green}${verifiedRemote.substring(0, 7)}${C.reset} ${C.dim}(远端已含本次交付,已落地)${C.reset}`,
   )
   process.exit(0)
 } else {
   log(
     'err',
-    `push 报告成功但验证失败:local=${newLocalHead?.substring(0, 7)} vs remote=${verifiedRemote.substring(0, 7)}`,
+    `push 报告成功但验证失败:local=${newLocalHead?.substring(0, 7)} vs remote=${verifiedRemote.substring(0, 7)}` +
+      `(且本次推的 ${localHead?.substring(0, 7)} 祖先测=${containedInRemote === null ? '未判定' : containedInRemote ? '成立' : '不成立'})`,
   )
   writePushState('failed', localHead, {
     kind: finalVerdict.kind,
-    reason: `验证 local!=remote(远端 ${verifiedRemote.substring(0, 7)} 非本次推送落地)`,
+    reason: `验证 local!=remote 且祖先测不成立(远端 ${verifiedRemote.substring(0, 7)} 非本次推送落地)`,
     pushedNothing: finalVerdict.pushedNothing,
   })
   process.exit(1)
