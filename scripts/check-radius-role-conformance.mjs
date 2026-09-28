@@ -99,6 +99,20 @@ import {
   rolesOfName,
   stepNameForPx,
 } from './lib/radius-roles.mjs'
+/**
+ * 具名档表(几何表 + 共享 spec 常量)的解析**只有门 128 那一份**。本门要的是同一张表 ——
+ * 自己再解析一遍 `GEOMETRY_PX` 必然与它漂开,表现就是同一个 `rnGeometry.tapBox` 一边判真圆、
+ * 另一边判未判定。门 128 带 §22d 的 isDirectRun 守卫,引它不会连带触发 CLI 主流程。
+ */
+import { specTiers } from './check-cross-end-ui-parity.mjs'
+
+/**
+ * 具名档的来源文件:几何表本体 + 共享 spec 目录。它们**不在本门射程内**(`SPEC_RE` 把它们排除
+ * 在判定面之外),但除法形态半径的被除数(`SECONDARY_BTN_SIZE / 2`)常常定义在那里 —— 不取这张表,
+ * 那一族就永远停在「未判定」,而它恰恰是胶囊最惯用的写法。
+ */
+const TIER_SOURCE_RE =
+  /(^|[\\/])geometry\.[jt]s$|^packages\/shared\/src\/ui\/[A-Za-z0-9._-]+\.ts$/
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RADIUS_TABLE_REL = 'packages/design-tokens/src/radius.js'
@@ -163,8 +177,12 @@ export function roleTableProblems(table) {
  * @param {string} rel 仓库相对路径(只用于点名)
  * @param {string} src 该文件在**被审面**上的正文
  * @param {Record<string, number>} table radiusLookup 的产物
+ * @param {Map<string,string>} [baseConsts] 跨文件的具名档表(门 128 `specTiers` 的产物,键如
+ *   `geometry.tapBox` / `SPEC_X_PX`)。除法形态半径(`X / 2`)的被除数多数不在本文件里 ——
+ *   同文件常量由 `constantMapOf` 归集,具名档由这张表补;两边都取不到时**落「未判定」报名**,
+ *   不得拿被除数凑数,也不得让这一行从账面上消失。
  */
-export function auditFileText(rel, src, table) {
+export function auditFileText(rel, src, table, baseConsts) {
   const out = {
     violations: [],
     undetermined: [],
@@ -199,12 +217,7 @@ export function auditFileText(rel, src, table) {
   const rawLines = src.split('\n')
   // 注释与字符串的抹法只有一份实现(lib/code-mask.mjs);本门要的两面都由它派生(见 radius-roles)。
   const { code, kept, strings } = maskFaces(src)
-  /**
-   * 除法形态半径(`60 / 2`、`VOICE_BTN_SIZE / 2`)的被除数常量**多数定义在同一份文件里**,
-   * 所以按整份源码归集一次供逐行使用;跨文件 import 的常量解不到,由除法支落一条
-   * `undivided` 记录、本门按「未判定」报名(不得让这一行从账面上消失)。
-   */
-  const consts = constantMapOf(src)
+  const consts = new Map([...(baseConsts ?? []), ...constantMapOf(src)])
   const codeLines = code.split('\n')
   const keptLines = kept.split('\n')
   /**
@@ -685,9 +698,10 @@ export function runAudit(repoRoot, face, { only } = {}) {
     if (!files.length) throw new Undetermined(`--files 指定的路径一个都不在被审面里:${[...want].join(' ')}`)
   }
   if (!files.length) throw new Undetermined(`${FACE_TXT[face]}上枚举到 0 个在射程文件 —— 空扫不记绿`)
-  const specs = [...files, RADIUS_TABLE_REL, BASELINE_REL].map((p) =>
-    face === 'staged' ? `:${p}` : `HEAD:${p}`,
-  )
+  // 具名档来源与正文**同面同轮**取:表读盘、内容读 HEAD 会产出自洽却错位的尺子(门 83/101 同条)。
+  const tierFiles = listTracked(repoRoot, face).filter((p) => TIER_SOURCE_RE.test(p))
+  const specAt = (p) => (face === 'staged' ? `:${p}` : `HEAD:${p}`)
+  const specs = [...files, ...tierFiles, RADIUS_TABLE_REL, BASELINE_REL].map(specAt)
   const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 29, timeout: 180000 })
   const tableSrc = got.get(face === 'staged' ? `:${RADIUS_TABLE_REL}` : `HEAD:${RADIUS_TABLE_REL}`)
   if (tableSrc === null || tableSrc === undefined)
@@ -701,6 +715,18 @@ export function runAudit(repoRoot, face, { only } = {}) {
     baselineSrc === null || baselineSrc === undefined
       ? { anchors: {}, $note: '台账不在被审面上 —— 本次按"零锚点"判,任何存量都会判红(接线前须先入锚)' }
       : parseBaseline(baselineSrc, BASELINE_REL)
+  /**
+   * 具名档表(`geometry.tapBox` / `SPEC_X_PX`)—— 供除法形态半径的被除数取值。
+   * 取不到表(文件不在面上 / 解析为空)⇒ 表为空 Map,那些行照旧落「未判定」报名,**不猜**。
+   */
+  const tierSources = {}
+  for (const rel of tierFiles) {
+    const s = got.get(specAt(rel))
+    if (typeof s === 'string') tierSources[rel] = s
+  }
+  const baseConsts = new Map(
+    Object.entries(specTiers(tierSources)).map(([k, v]) => [k, String(v)]),
+  )
   const violations = []
   const undetermined = []
   const unclassified = []
@@ -726,7 +752,7 @@ export function runAudit(repoRoot, face, { only } = {}) {
     const src = got.get(face === 'staged' ? `:${rel}` : `HEAD:${rel}`)
     if (src === null || src === undefined)
       throw new Undetermined(`${FACE_TXT[face]}取不到 ${rel}(清单与内容必须同面同轮)`)
-    const r = auditFileText(rel, src, table)
+    const r = auditFileText(rel, src, table, baseConsts)
     usages += r.usages
     exempted += r.exempted
     compliant += r.compliant
@@ -804,6 +830,16 @@ function runAuditWorktree(repoRoot, only) {
   if (!table) throw new Undetermined('档位表解析不出内容(空表不判绿)')
   const baseSrc = readWorktreeFile(repoRoot, BASELINE_REL)
   const baseline = baseSrc ? parseBaseline(baseSrc, BASELINE_REL) : { anchors: {} }
+  // 具名档表:工作树档本就整面读盘,这里同面取,不与内容面错开。
+  const tierSources = {}
+  for (const rel of listTracked(repoRoot, 'head')) {
+    if (!TIER_SOURCE_RE.test(rel)) continue
+    const s = readWorktreeFile(repoRoot, rel)
+    if (typeof s === 'string') tierSources[rel] = s
+  }
+  const baseConsts = new Map(
+    Object.entries(specTiers(tierSources)).map(([k, v]) => [k, String(v)]),
+  )
   const violations = []
   const undetermined = []
   const unclassified = []
@@ -828,7 +864,7 @@ function runAuditWorktree(repoRoot, only) {
   for (const rel of files) {
     const src = readWorktreeFile(repoRoot, rel)
     if (src === null) continue
-    const r = auditFileText(rel, src, table)
+    const r = auditFileText(rel, src, table, baseConsts)
     usages += r.usages
     exempted += r.exempted
     compliant += r.compliant
@@ -1766,7 +1802,26 @@ export default function P() {
       return r.trueCircle === 1 && r.capsule === 0
     })(),
   )
-  const SURF_PROVE_NAME = (p) => p.split('/').pop()
+  t(
+    '93 被除数是具名档(`rnGeometry.tapBox`)⇒ 表在场能量出真圆,表缺席必须落未判定(不得猜值)',
+    (() => {
+      const src =
+        'const s = {\n  btn: { width: 44, height: 44, borderRadius: rnGeometry.tapBox / 2 },\n}\n'
+      const noTable = auditFileText('x/T.tsx', src, table)
+      const withTable = auditFileText(
+        'x/T.tsx',
+        src,
+        table,
+        new Map([['geometry.tapBox', '44']]),
+      )
+      return (
+        noTable.undetermined.some(u => u.reason === 'divide-operand-unknown') &&
+        noTable.trueCircle === 0 &&
+        withTable.trueCircle === 1 &&
+        withTable.undetermined.length === 0
+      )
+    })(),
+  )
   const bad = results.filter((r) => !r.ok)
   for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.name}${r.extra ? ` —— ${r.extra}` : ''}`)
   console.log(`--self-test: ${results.length} 条,失败 ${bad.length} 条`)
