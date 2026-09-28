@@ -165,13 +165,15 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_OUTPUT_BYTES = 1024 * 1024;
 
 /** 默认屏蔽的环境变量(匹配 key,大小写不敏感,支持后缀通配如 *_API_KEY) */
-const DEFAULT_BLOCKED_ENV_VARS = [
+export const DEFAULT_BLOCKED_ENV_VARS = [
   'IHUI_API_KEY',
   'IHUI_AUDIT',
   'STEPFUN_API_KEY',
   'AGNES_API_KEY',
   'AI_CALLBACK_SECRET',
   'CREDENTIALS_ENCRYPTION_KEY',
+  // 机器凭据清单:通配 `*_API_KEY`/`*_SECRET`/`*_TOKEN` 都盖不到复数 KEYS 结尾
+  'IHUI_SERVE_MACHINE_KEYS',
   '*_API_KEY',
   '*_SECRET',
   '*_TOKEN',
@@ -253,7 +255,14 @@ export function evaluateCommandAllowlist(
   return isCommandAllowed(cmdName, allowlist) ? null : `command_not_allowed: ${cmdName}`;
 }
 
-function buildFilteredEnv(blocked: string[]): NodeJS.ProcessEnv {
+/**
+ * 交给子进程前剥掉敏感环境变量。
+ *
+ * 这是本仓**唯一**一份 env 过滤实现:沙箱执行与所有第三方边界(MCP stdio 子进程、
+ * hook 命令、交互终端里跑的 shell)都必须经这里,不得在别处再抄一张 deny 表 ——
+ * 两处清单必漂移是本项目记过最多次的失败型。
+ */
+export function buildFilteredEnv(blocked: string[]): NodeJS.ProcessEnv {
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
     if (blocked.some((p) => matchPattern(key, p))) {
