@@ -106,8 +106,9 @@ describe('RN 凭据单一数据源', () => {
     expect(getRefreshToken()).toBeNull()
     expect(rnAuthStore.getState().token).toBeNull()
     expect(rnAuthStore.getState().isAuthenticated).toBe(false)
-    // 持久化快照也不得停留在"已登录"态(那是第二个"有没有登录态"的数据源)
-    expect(persistedSnapshot()?.state?.isAuthenticated).toBe(false)
+    // 持久化快照结构位不得含 isAuthenticated(G-456:登录态是「有没有 token」的派生值,
+    // 入库即第二份真相;旧断言期望它落在快照里,正是被收口的那份形态)
+    expect(Object.keys(persistedSnapshot()?.state ?? {})).not.toContain('isAuthenticated')
   })
 
   it('登录成功 → 冷启动 hydrate → token 仍在', async () => {
@@ -141,7 +142,7 @@ describe('RN 凭据单一数据源', () => {
     expect(getRefreshToken()).toBeNull()
     expect(rnAuthStore.getState().token).toBeNull()
     expect(rnAuthStore.getState().isAuthenticated).toBe(false)
-    expect(persistedSnapshot()?.state?.isAuthenticated).toBe(false)
+    expect(Object.keys(persistedSnapshot()?.state ?? {})).not.toContain('isAuthenticated')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
