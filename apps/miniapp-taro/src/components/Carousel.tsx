@@ -4,7 +4,7 @@
 
 import { useTt } from '@/i18n'
 import { View, ScrollView, Image, Text } from '@tarojs/components'
-import { useCallback } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { cn, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   carouselDefaultHeightPx,
@@ -45,6 +45,9 @@ export interface CarouselProps {
   courseMeta?: CourseMetaItem[]
 }
 
+/** 失败图源集合的初始值:模块级常量,避免每次 render 造一个新 Set 打穿 useMemo 依赖。 */
+const NO_FAILED_SOURCES: ReadonlySet<string> = new Set<string>()
+
 /**
  * Carousel 通用轮播 / 课程专用轮播
  *
@@ -65,8 +68,32 @@ export default function Carousel({
   courseMeta = [],
 }: CarouselProps) {
   const tt = useTt()
-  const { current, setCurrent } = useAutoPlay(items.length, interval, autoplay)
-  const total = items.length
+  /**
+   * 图源加载失败的项**整项不渲染**(内容级降级),与 RN 端 `apps/mobile-rn/src/components/
+   * Carousel.tsx` 同一处置 —— 两端同名组件的失败语义必须同形(守门 128 的立项理由)。
+   *
+   * 成因:轮播图来自后端字段(carousels.imageUrl / lessons.coverImage / agents.avatar),
+   * 行内存的是 picsum.photos 这类境外随机图服务,国内移动网络可达性不稳 → 取不到图。
+   * 小程序 <Image> 失败时不留任何占位,营销位就是空一块;摘掉该项才是这里要的结果。
+   * 键取 uri 而非下标:换一批数据后同一 uri 仍应继续被摘除,下标会错位。
+   * 注意:img 本就是空串的项**不进这一格** —— 它走下方既有的「无图兜底文案卡」,
+   * 那是有意设计的文字形态(pkg-ai/ai/agent.tsx 三张营销卡就靠它),不是失败态。
+   */
+  const [failedSources, setFailedSources] = useState<ReadonlySet<string>>(NO_FAILED_SOURCES)
+  const markSourceFailed = useCallback((uri: string) => {
+    setFailedSources((prev) => (prev.has(uri) ? prev : new Set<string>(prev).add(uri)))
+  }, [])
+
+  const slides = useMemo(
+    () =>
+      items
+        .map((item, sourceIndex) => ({ item, sourceIndex }))
+        .filter(({ item }) => !item.img || !failedSources.has(item.img)),
+    [items, failedSources],
+  )
+
+  const { current, setCurrent } = useAutoPlay(slides.length, interval, autoplay)
+  const total = slides.length
 
   const goTo = useCallback(
     (idx: number) => {
@@ -79,22 +106,33 @@ export default function Carousel({
   if (total === 0) return null
 
   const heightStyle = typeof height === 'number' ? `${height}px` : height
+  // 有项因图失败被摘掉后,current 可能暂时越界(自动播放的下一跳会自己取模收敛),
+  // 这里只把这一帧的落点夹回首项,不做任何位移补偿。与 RN 端同一处理。
+  const activeIndex = current < total ? current : 0
 
   return (
+    // 容器圆角取角色档 hero(特大容器:首页主视觉 / 活动横幅),档值一律走档位表、
+    // 角色→档的对应走角色表,本行是小程序端**唯一**一处轮播容器圆角落点。
+    // 立因:此前小程序端把圆角声明在组件根、RN 端声明在各屏的外层 wrapper —— 同一元素两处在
+    // 不同层取值,跨端对账门只配组件文件因而配不到真值,用户实拍的"两端不一样"长期无人看守。
+    // 调用点不得再各写一档,那等于把本行的单点声明绕开。
     <View
-      className={cn('relative w-full overflow-hidden rounded-lg bg-muted', className)}
+      className={cn('relative w-full overflow-hidden rounded-2xl bg-muted', className)}
       style={{ height: heightStyle }}
     >
       <ScrollView
         scrollX
         scrollWithAnimation
-        scrollIntoView={`carousel-item-${current}`}
+        scrollIntoView={`carousel-item-${activeIndex}`}
         className="h-full"
         style={{ height: heightStyle }}
       >
         <View style={{ display: 'flex', width: `${total * 100}%` }}>
-          {items.map((item, index) => {
-            const meta = variant === 'course' ? courseMeta[index] : undefined
+          {slides.map(({ item, sourceIndex }, index) => {
+            // courseMeta / onItemClick 的入参下标语义 = 调用方传进来的那个数组的下标,
+            // 所以一律用 sourceIndex —— 前面某项因图失败被摘掉后,叠加层与点击回调
+            // 不得跟着错位(courseMeta 与 items 同长是按原下标对齐的)。
+            const meta = variant === 'course' ? courseMeta[sourceIndex] : undefined
             // 修复 (2026-08-12 v2 + 2026-09-03 亮色化):img 为空 → 渐变 banner fallback。
             //   H5 实测 inline backgroundImage 会被 Taro 样式序列化丢弃，导致首屏只剩浅灰。
             //   方案:① className 绑定 carousel-fallback-0/1/2（由 app.css 全局写死亮色 token
@@ -125,11 +163,17 @@ export default function Carousel({
                   height: heightStyle,
                   flex: '0 0 auto',
                 }}
-                onClick={() => onItemClick?.(item, index)}
+                onClick={() => onItemClick?.(item, sourceIndex)}
                 hoverClass="opacity-60"
               >
                 {hasImg ? (
-                  <Image src={item.img} mode="aspectFill" className="h-full w-full" lazyLoad />
+                  <Image
+                    src={item.img}
+                    mode="aspectFill"
+                    className="h-full w-full"
+                    lazyLoad
+                    onError={() => markSourceFailed(item.img)}
+                  />
                 ) : null}
                 {!hasImg && (item.title || item.subtitle) ? (
                   // 守门 128:整块「无图兜底文案」(p-4/text-xl/mb-2/text-sm 折出 16/20/8/14)是
@@ -187,14 +231,16 @@ export default function Carousel({
       {total > 1 && (
         <View style={carouselIndicatorWrapStyle(toUnit)}>
           {/* 指示点两态的档与 RN 同一份落点:活跃 16×6 取 md、非活跃 6×6 取 sm(此前两端声明不同档) */}
-          {items.map((_, index) => (
+          {slides.map((_, index) => (
             <View
               key={index}
               onClick={() => goTo(index)}
-              style={carouselDotStyle(toUnit, current === index)}
+              style={carouselDotStyle(toUnit, activeIndex === index)}
               className={cn(
                 'transition-all',
-                current === index ? 'rounded-md bg-foreground/80' : 'rounded-sm bg-foreground/30',
+                activeIndex === index
+                  ? 'rounded-md bg-foreground/80'
+                  : 'rounded-sm bg-foreground/30',
               )}
             />
           ))}

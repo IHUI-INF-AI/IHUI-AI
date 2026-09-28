@@ -10,78 +10,80 @@
 
 四态口径：**L1 逐字 / L2 近义(Jaccard≥0.5) 不算差距**；L3=需人工核（键同名或子串同形，形似不等于等同）；MISS=候选缺失，须逐条定性后才可写进台账。控制测量在运行前已通过，故 MISS 不是匹配器空转的产物。
 
+> ⚠️ 族级数字不得引用：72/72 行落在 (未判定) 桶（族名只对它紧跟着的那一块有效，见 parseInventory 的复位规矩）。逐条原文与判定态仍可用。
+
 | 节 | 族 | 竞品键 | 竞品原文 | 判定 | 我方对应 |
 | --- | --- | --- | --- | --- | --- |
-| 附录 E |  | `TEAM_PROFILE_BUSY` | 团队正在更新 | MISS |  |
-| 附录 E |  | `TEAM_ARCHIVED` | 团队已归档 | L2 | teamKnowledge.status.archived (J=0.50) |
-| 附录 E |  | `AGENT_CONFIGURATION_ARCHIVED` | Agent 已归档 | L2 | agentCanvas.typeAgent (J=0.57) |
-| 附录 E |  | `BUILTIN_AGENT_ARCHIVE_FORBIDDEN` | 无法归档默认 Qoder | L3 | 子串同形:cliImport.sourceQoder |
-| 附录 E |  | `FILE_UPLOAD_INCOMPLETE` | 文件上传尚未完成 | L3 | 子串同形:knowledgeRag.upload.modeFile |
-| 附录 E |  | `FILE_SCAN_PENDING` | 文件等待安全检查，请稍后下载 | MISS |  |
-| 附录 E |  | `FILE_SCAN_PROCESSING` | 文件安全检查中，请稍后下载 | L3 | 子串同形:ai.toolCall.pendingCheckingShort |
-| 附录 E |  | `FILE_CONTENT_REJECTED` | 文件未通过安全检查，无法下载 | L3 | 子串同形:admin.edu.answer.programming.notPassed |
-| 附录 E |  | `FILE_SCAN_FAILED` | 文件安全检查失败，暂时无法下载 | MISS |  |
-| 附录 E |  | `FILE_SCAN_TIMEOUT` | 文件安全检查超时，暂时无法下载 | MISS |  |
-| 附录 E |  | `FILE_SCAN_UNSUPPORTED` | 暂不支持对此类文件进行安全检查，无法下载 | L3 | 子串同形:ecosystem.capUnsupported |
-| 附录 E |  | `FILE_SCAN_UNSCANNABLE` | 无法完成文件安全检查，无法下载 | MISS |  |
-| 附录 E |  | `FILE_GET_FAILED` | 无法获取文件 | MISS |  |
-| 附录 E |  | `FILE_AUTH_REQUIRED` | 协作身份已失效 | MISS |  |
-| 附录 E |  | `FILE_UNAVAILABLE` | 文件不存在或无法访问 | L3 | 子串同形:admin.saas.stateNotFound |
-| 附录 E |  | `FILE_NOT_READY` | 文件尚未就绪 | MISS |  |
-| 附录 E |  | `FILE_SCAN_BLOCKED` | 文件检查阻止下载 | MISS |  |
-| 附录 E |  | `FILE_RATE_LIMITED` | 文件请求过于频繁 | L2 | ai.pane.errorCatalog.CONCURRENCY_LIMIT_EXCEEDED.title (J=0.71) |
-| 附录 E |  | `FILE_DOWNLOAD_FAILED` | 文件暂时下载失败 | L3 | 子串同形:certificate.detail.downloadError |
-| 附录 E |  | `FILE_INTEGRITY_FAILED` | 文件完整性校验失败 | MISS |  |
-| 附录 E |  | `FILE_DISK_SPACE` | 本地缓存空间不足 | MISS |  |
-| 附录 E |  | `FILE_STORAGE_INVALID` | 无法写入或访问文件缓存 | MISS |  |
-| 附录 E |  | `FILE_SIZE_LIMIT` | 文件超过支持的大小 | MISS |  |
-| 附录 E |  | `FILE_LOCAL_EXECUTION_REQUIRED` | 当前执行环境不支持获取附件 | L3 | 子串同形:ecosystem.capUnsupported |
-| 附录 E |  | `FILE_BACKEND_UNAVAILABLE` | 当前环境未提供文件获取能力 | L3 | 子串同形:user.realname.noReason |
-| 附录 E |  | `FILE_INVALID_ID` | 文件标识无效 | MISS |  |
-| 附录 E |  | `FILE_IDENTITY_CHANGED` | 文件获取期间身份已切换 | MISS |  |
-| 附录 E |  | `WORKSPACE_ADDITIONAL_DIRECTORY_UNAVAILABLE` | 无法添加文件夹 | L2 | aigcPublish.fileAddText (J=0.50) |
-| 附录 E |  | `AGENT_TOOL_RULE_CONFLICT` | 工具规则冲突 | MISS |  |
-| 附录 E |  | `AUTH_NETWORK` | 无法连接登录服务 | MISS |  |
-| 附录 E |  | `LOGIN_TIMEOUT` | 登录超时 | MISS |  |
-| 附录 E |  | `BROWSER_OPEN_FAILED` | 无法打开浏览器 | L2 | nav.openBrowser (J=0.67) |
-| 附录 E |  | `AUTH_SERVER_ERROR` | 服务暂不可用 | L1 | 源码字面量 |
-| 附录 E |  | `AUTH_UNAUTHORIZED` | 登录已失效 | MISS |  |
-| 附录 E |  | `AUTH_LOGIN_FAILED` | 登录未完成 | L2 | points.tasks.notCompleted (J=0.50) |
-| 附录 E |  | `CHAT_ATTACHMENT_LIMIT_EXCEEDED` | 附件数量超限 | MISS |  |
-| 附录 E |  | `CHAT_SESSION_WORKSPACE_UNAVAILABLE` | 工作区不可用 | L3 | 子串同形:agent.fieldWorkspace |
-| 附录 E |  | `CHAT_SESSION_HISTORY_MISSING` | 会话历史缺失 | MISS |  |
-| 附录 E |  | `CHAT_SESSION_OPERATION_FAILED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `QODER_EXECUTION_CONTROL_FAILED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `QODER_EXECUTION_CONTROL_PREPARATION_FAILED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `QODER_EXECUTION_SEND_FAILED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `QODER_EXECUTION_STREAM_ENDED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `QODER_EXECUTION_STREAM_FAILED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `QODER_EXECUTION_NO_RESPONSE` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `MCP_CAPABILITY_REVOKED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_EXECUTION_UNSUPPORTED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_SERVICE_UNAVAILABLE` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_PROFILE_NOT_FOUND` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_SELECTION_KEY_INVALID` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_SIGNED_OUT` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_ACCOUNT_CHANGED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_SECURE_STORAGE_UNAVAILABLE` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_CREDENTIAL_UNAVAILABLE` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_PROVIDER_UNSUPPORTED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_CATALOG_LOAD_FAILED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_CATALOG_UNSUPPORTED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_PROVIDER_REQUEST_FAILED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_UNAVAILABLE` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `BYOK_AUTHENTICATION_FAILED` | 这轮回复失败 | MISS |  |
-| 附录 E |  | `CHAT_SESSION_INPUT_NOT_DELIVERED` | 消息尚未发送 | MISS |  |
-| 附录 E |  | `CHAT_SESSION_AGENT_RUNTIME_UNAVAILABLE` | Agent 暂不可用 | L2 | agentCanvas.typeAgent (J=0.50) |
-| 附录 E |  | `CHAT_SESSION_RUNTIME_RECONCILE_TIMEOUT` | 消息尚未发送 | MISS |  |
-| 附录 E |  | `CHAT_SESSION_RUNTIME_RELEASE_PENDING` | 消息尚未发送 | MISS |  |
-| 附录 E |  | `CHAT_SESSION_RUNTIME_RELEASE_FAILED` | 消息尚未发送 | MISS |  |
-| 附录 E |  | `CHAT_SESSION_INPUT_RESULT_UNKNOWN` | 消息发送状态待确认 | L3 | 子串同形:ai.pane.diffStatus.pending |
-| 附录 E |  | `QODER_EXECUTION_NETWORK_UNAVAILABLE` | 无法连接执行服务 | MISS |  |
-| 附录 E |  | `AVATAR_UNAVAILABLE` | 头像更新失败 | L2 | common.update.error (J=0.60) |
-| 附录 E |  | `AVATAR_LOGIN_REQUIRED` | 头像更新失败 | L2 | common.update.error (J=0.60) |
-| 附录 E |  | `AVATAR_IDENTITY_CHANGED` | 头像更新失败 | L2 | common.update.error (J=0.60) |
-| 附录 E |  | `AVATAR_BUSY` | 头像更新失败 | L2 | common.update.error (J=0.60) |
-| 附录 E |  | `AVATAR_INVALID_INPUT` | 头像更新失败 | L2 | common.update.error (J=0.60) |
+| 附录 E | (未判定) | `TEAM_PROFILE_BUSY` | 团队正在更新 | MISS |  |
+| 附录 E | (未判定) | `TEAM_ARCHIVED` | 团队已归档 | L2 | teamKnowledge.status.archived (J=0.50) |
+| 附录 E | (未判定) | `AGENT_CONFIGURATION_ARCHIVED` | Agent 已归档 | L2 | agentCanvas.typeAgent (J=0.57) |
+| 附录 E | (未判定) | `BUILTIN_AGENT_ARCHIVE_FORBIDDEN` | 无法归档默认 Qoder | L3 | 子串同形:cliImport.sourceQoder |
+| 附录 E | (未判定) | `FILE_UPLOAD_INCOMPLETE` | 文件上传尚未完成 | L3 | 子串同形:knowledgeRag.upload.modeFile |
+| 附录 E | (未判定) | `FILE_SCAN_PENDING` | 文件等待安全检查，请稍后下载 | MISS |  |
+| 附录 E | (未判定) | `FILE_SCAN_PROCESSING` | 文件安全检查中，请稍后下载 | L3 | 子串同形:ai.toolCall.pendingCheckingShort |
+| 附录 E | (未判定) | `FILE_CONTENT_REJECTED` | 文件未通过安全检查，无法下载 | L3 | 子串同形:admin.edu.answer.programming.notPassed |
+| 附录 E | (未判定) | `FILE_SCAN_FAILED` | 文件安全检查失败，暂时无法下载 | MISS |  |
+| 附录 E | (未判定) | `FILE_SCAN_TIMEOUT` | 文件安全检查超时，暂时无法下载 | MISS |  |
+| 附录 E | (未判定) | `FILE_SCAN_UNSUPPORTED` | 暂不支持对此类文件进行安全检查，无法下载 | L3 | 子串同形:ecosystem.capUnsupported |
+| 附录 E | (未判定) | `FILE_SCAN_UNSCANNABLE` | 无法完成文件安全检查，无法下载 | MISS |  |
+| 附录 E | (未判定) | `FILE_GET_FAILED` | 无法获取文件 | MISS |  |
+| 附录 E | (未判定) | `FILE_AUTH_REQUIRED` | 协作身份已失效 | MISS |  |
+| 附录 E | (未判定) | `FILE_UNAVAILABLE` | 文件不存在或无法访问 | L3 | 子串同形:admin.saas.stateNotFound |
+| 附录 E | (未判定) | `FILE_NOT_READY` | 文件尚未就绪 | MISS |  |
+| 附录 E | (未判定) | `FILE_SCAN_BLOCKED` | 文件检查阻止下载 | MISS |  |
+| 附录 E | (未判定) | `FILE_RATE_LIMITED` | 文件请求过于频繁 | L2 | ai.pane.errorCatalog.CONCURRENCY_LIMIT_EXCEEDED.title (J=0.71) |
+| 附录 E | (未判定) | `FILE_DOWNLOAD_FAILED` | 文件暂时下载失败 | L3 | 子串同形:certificate.detail.downloadError |
+| 附录 E | (未判定) | `FILE_INTEGRITY_FAILED` | 文件完整性校验失败 | MISS |  |
+| 附录 E | (未判定) | `FILE_DISK_SPACE` | 本地缓存空间不足 | MISS |  |
+| 附录 E | (未判定) | `FILE_STORAGE_INVALID` | 无法写入或访问文件缓存 | MISS |  |
+| 附录 E | (未判定) | `FILE_SIZE_LIMIT` | 文件超过支持的大小 | MISS |  |
+| 附录 E | (未判定) | `FILE_LOCAL_EXECUTION_REQUIRED` | 当前执行环境不支持获取附件 | L3 | 子串同形:ecosystem.capUnsupported |
+| 附录 E | (未判定) | `FILE_BACKEND_UNAVAILABLE` | 当前环境未提供文件获取能力 | L3 | 子串同形:user.realname.noReason |
+| 附录 E | (未判定) | `FILE_INVALID_ID` | 文件标识无效 | MISS |  |
+| 附录 E | (未判定) | `FILE_IDENTITY_CHANGED` | 文件获取期间身份已切换 | MISS |  |
+| 附录 E | (未判定) | `WORKSPACE_ADDITIONAL_DIRECTORY_UNAVAILABLE` | 无法添加文件夹 | L2 | aigcPublish.fileAddText (J=0.50) |
+| 附录 E | (未判定) | `AGENT_TOOL_RULE_CONFLICT` | 工具规则冲突 | MISS |  |
+| 附录 E | (未判定) | `AUTH_NETWORK` | 无法连接登录服务 | MISS |  |
+| 附录 E | (未判定) | `LOGIN_TIMEOUT` | 登录超时 | MISS |  |
+| 附录 E | (未判定) | `BROWSER_OPEN_FAILED` | 无法打开浏览器 | L2 | nav.openBrowser (J=0.67) |
+| 附录 E | (未判定) | `AUTH_SERVER_ERROR` | 服务暂不可用 | L1 | 源码字面量 |
+| 附录 E | (未判定) | `AUTH_UNAUTHORIZED` | 登录已失效 | MISS |  |
+| 附录 E | (未判定) | `AUTH_LOGIN_FAILED` | 登录未完成 | L2 | points.tasks.notCompleted (J=0.50) |
+| 附录 E | (未判定) | `CHAT_ATTACHMENT_LIMIT_EXCEEDED` | 附件数量超限 | MISS |  |
+| 附录 E | (未判定) | `CHAT_SESSION_WORKSPACE_UNAVAILABLE` | 工作区不可用 | L3 | 子串同形:agent.fieldWorkspace |
+| 附录 E | (未判定) | `CHAT_SESSION_HISTORY_MISSING` | 会话历史缺失 | MISS |  |
+| 附录 E | (未判定) | `CHAT_SESSION_OPERATION_FAILED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `QODER_EXECUTION_CONTROL_FAILED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `QODER_EXECUTION_CONTROL_PREPARATION_FAILED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `QODER_EXECUTION_SEND_FAILED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `QODER_EXECUTION_STREAM_ENDED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `QODER_EXECUTION_STREAM_FAILED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `QODER_EXECUTION_NO_RESPONSE` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `MCP_CAPABILITY_REVOKED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_EXECUTION_UNSUPPORTED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_SERVICE_UNAVAILABLE` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_PROFILE_NOT_FOUND` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_SELECTION_KEY_INVALID` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_SIGNED_OUT` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_ACCOUNT_CHANGED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_SECURE_STORAGE_UNAVAILABLE` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_CREDENTIAL_UNAVAILABLE` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_PROVIDER_UNSUPPORTED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_CATALOG_LOAD_FAILED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_CATALOG_UNSUPPORTED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_PROVIDER_REQUEST_FAILED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_UNAVAILABLE` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `BYOK_AUTHENTICATION_FAILED` | 这轮回复失败 | MISS |  |
+| 附录 E | (未判定) | `CHAT_SESSION_INPUT_NOT_DELIVERED` | 消息尚未发送 | MISS |  |
+| 附录 E | (未判定) | `CHAT_SESSION_AGENT_RUNTIME_UNAVAILABLE` | Agent 暂不可用 | L2 | agentCanvas.typeAgent (J=0.50) |
+| 附录 E | (未判定) | `CHAT_SESSION_RUNTIME_RECONCILE_TIMEOUT` | 消息尚未发送 | MISS |  |
+| 附录 E | (未判定) | `CHAT_SESSION_RUNTIME_RELEASE_PENDING` | 消息尚未发送 | MISS |  |
+| 附录 E | (未判定) | `CHAT_SESSION_RUNTIME_RELEASE_FAILED` | 消息尚未发送 | MISS |  |
+| 附录 E | (未判定) | `CHAT_SESSION_INPUT_RESULT_UNKNOWN` | 消息发送状态待确认 | L3 | 子串同形:ai.pane.diffStatus.pending |
+| 附录 E | (未判定) | `QODER_EXECUTION_NETWORK_UNAVAILABLE` | 无法连接执行服务 | MISS |  |
+| 附录 E | (未判定) | `AVATAR_UNAVAILABLE` | 头像更新失败 | L2 | common.update.error (J=0.60) |
+| 附录 E | (未判定) | `AVATAR_LOGIN_REQUIRED` | 头像更新失败 | L2 | common.update.error (J=0.60) |
+| 附录 E | (未判定) | `AVATAR_IDENTITY_CHANGED` | 头像更新失败 | L2 | common.update.error (J=0.60) |
+| 附录 E | (未判定) | `AVATAR_BUSY` | 头像更新失败 | L2 | common.update.error (J=0.60) |
+| 附录 E | (未判定) | `AVATAR_INVALID_INPUT` | 头像更新失败 | L2 | common.update.error (J=0.60) |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

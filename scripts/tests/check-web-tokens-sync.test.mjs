@@ -317,7 +317,13 @@ test('F7 形状锁:被审内容与清单都不得再摸盘,清单出口只能是
   assert.doesNotMatch(src, /existsSync\s*\(/, '存在性判据又摸盘了(清单与内容会分属两个面)')
   assert.doesNotMatch(src, /readdirSync\s*\(/, '枚举又摸盘了(应走层的 ls-files / ls-tree)')
   assert.doesNotMatch(src, /from 'node:fs'/, '门体不该自带 fs —— 磁盘面只走层的 readWorktreeFile')
+  // 票 G-391① 要求的第三格反向锁:**问 git 只能走层**。门体自己派生进程 / 自己 `git show`,
+  // 就退回"引了层却各读各的面"那一型(守门 118 的 half-wired:管子共用不等于面共用),
+  // 并且绕掉层收口的那批易错点(绝对路径 git、safe.directory、timeout、maxBuffer、windowsHide)。
+  assert.doesNotMatch(src, /child_process/, '门体自己派生进程问 git ⇒ 层的取材纪律全部旁路')
+  assert.doesNotMatch(src, /['"]show['"]/, '取内容不得用 git show —— 必须走层的 catBatch(逐文件派生即 fork 风暴)')
   assert.match(src, /from '\.\/lib\/face-reader\.mjs'/, '取材必须走统一层')
+  assert.match(src, /gitRaw\s*\(/, '枚举只能走层的 gitRaw,不是自己的 git 派生')
   assert.match(
     src,
     /catBatch\s*\(/,
@@ -333,6 +339,20 @@ test('F7 形状锁:被审内容与清单都不得再摸盘,清单出口只能是
     /listAuditedFiles\s*\(/,
     'readFaceInputs 必须先在同面上枚举再读内容',
   )
+
+  // **有牙证明**:上面四条 doesNotMatch 若写成恒真式(正则漂一个字符就永远不命中),
+  // 这条锁就只是装饰 —— 拿一段"坏门体"样本喂同一批正则,四条必须全部命中。
+  // 样本刻意只用 import 形态与裸字符串,不写成 `execFile*Sync('git', …)` 的调用形状,
+  // 免得本夹具源码被守门 52(派生控制台程序必须带 windowsHide)当成真调用判红。
+  const BAD_GATE = [
+    "import { readFileSync } from 'node:fs'",
+    "import { execFileSync } from 'node:child_process'",
+    "const text = readFileSync(p, 'utf8')",
+    "const spec = 'show'",
+  ].join('\n')
+  for (const re of [/readFileSync\s*\(/, /from 'node:fs'/, /child_process/, /['"]show['"]/]) {
+    assert.match(BAD_GATE, re, `反向锁 ${re} 对"坏门体"不命中 = 恒真装饰,本条必须红`)
+  }
 })
 
 test('F8 装车证明:守门 37 在 runner 里仍是 blocking + args 为空(提交链由 runner 下发 --staged,门体不得自写)', () => {

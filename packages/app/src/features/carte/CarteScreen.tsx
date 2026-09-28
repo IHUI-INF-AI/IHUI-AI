@@ -188,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',

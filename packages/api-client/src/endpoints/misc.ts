@@ -136,41 +136,21 @@ export async function getMcpProjectDetail(id: string): Promise<ApiResult<McpProj
   return fetchApi<McpProject>(`/api/mcp/${id}`)
 }
 
-/** 创建 MCP 项目 */
-export async function createMcpProject(input: Partial<McpProject>): Promise<ApiResult<McpProject>> {
-  return fetchApi<McpProject>('/api/mcp', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
+/** 创建 / 更新 / 删除 MCP 项目 —— 2026-09-29 死调用清账:三个出口删除。
+ *
+ * 它们打的 `POST /api/mcp`、`PUT /api/mcp/:id`、`DELETE /api/mcp/:id` **后端从未注册**
+ * (`apps/api/src/routes/user/mcp-routes.ts` 全文件只挂了两条 GET),所以这三个调用
+ * 无论谁用都只会拿到 404 —— 留着等于在公共出口面上写"我们有这个能力"。
+ * 生产面零调用方(全仓跟踪面 `git grep createMcpProject|updateMcpProject|deleteMcpProject`
+ * 除本定义处外 0 命中),也没有测试把它们当契约钉。
+ * 按 §7 三问核过:① 承载的功能 = 改市场目录条目;② 等价实现 = **不存在**(路由就没有);
+ * ③ 因此不是"删功能",是"删一个从未兑现的承诺"。将来要真做,先在后端注册路由再补出口。
+ * 与 `invokeMcpTool`(同批下线)同族,取证见 `apps/api/src/routes/user/mcp-routes.ts` 头注。 */
 
-/** 更新 MCP 项目 */
-export async function updateMcpProject(
-  id: string,
-  input: Partial<McpProject>,
-): Promise<ApiResult<McpProject>> {
-  return fetchApi<McpProject>(`/api/mcp/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(input),
-  })
-}
-
-/** 删除 MCP 项目 */
-export async function deleteMcpProject(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/mcp/${id}`, { method: 'DELETE' })
-}
-
-/** 调用 MCP 工具 */
-export async function invokeMcpTool(input: {
-  projectId: string
-  toolName: string
-  args?: Record<string, unknown>
-}): Promise<ApiResult<unknown>> {
-  return fetchApi<unknown>('/api/mcp/invoke', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
+/** 调用 MCP 工具 —— 2026-09-29 死调用清账:删除。
+ * 后端 `POST /api/mcp/invoke`(apps/api/src/routes/user/mcp-routes.ts)已随本出口同笔下线;
+ * 本函数在生产面零调用方(全仓跟踪面 git grep 只有它自己的定义处),
+ * 且它对应的路由也不读 mcp_servers 表。取证见 mcp-routes.ts 头注。 */
 
 // ===================== openclaw =====================
 

@@ -1267,7 +1267,10 @@ export function createSendMessage(
         useChatStore.getState().setStreaming(false)
         // Steer(中途引导,2026-09-19 立):流收尾同步清除流式消息 ID。
         // 代际守卫内清理,防止被「切换会话」abort 的旧流清掉新流的指向。
-        useChatStore.getState().setStreamingAssistantId(null)
+        // G-703(2026-09-29 立):上面两行已由 store 的单一出口 clearRunScopedState() 取代 ——
+        // 终态必须把 isStreaming / streamingAssistantId / aiStreamSessionId 一次性回收,
+        // 不靠调用点自觉补行(这一处此前就没有补到 aiStreamSessionId)。
+        useChatStore.getState().clearRunScopedState()
         useChatStore.getState().markAllAgentStreamsDone()
         // #23 撤回未执行工具卡(2026-09-13 立):流收尾时把仍处 running 的工具卡置为
         // cancelled(报错/中断/超时路径下后端不会再返回 tool-result)。

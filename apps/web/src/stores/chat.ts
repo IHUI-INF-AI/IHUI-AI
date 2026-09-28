@@ -17,6 +17,8 @@ import type {
 } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
 import { markStreamError } from '@ihui/shared/chat'
+// G-704(2026-09-29 立):值等价比较器只能有共享层那一份实现(端内不得再抄一份近似品)
+import { areRecordValuesEqual } from '@ihui/shared/utils/deep-equal-records'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ihui/types/ai'
 
@@ -372,6 +374,14 @@ interface ChatState {
   setMessageError: (id: string, error: string, errorCode?: string) => void
   clearMessages: () => void
   setStreaming: (v: boolean) => void
+  /** G-703(2026-09-29 立):运行域寻址凭据的**唯一**回收出口。
+   *  `isStreaming` / `streamingAssistantId` / `aiStreamSessionId` 三键在同一事务里清掉 ——
+   *  回合进入终态后,上一轮的上行寻址凭据必须一起失效(留着的表现是假"还在跑" + 把新输入
+   *  送到一条已经死掉的流上,而界面看不出来)。`setStreaming(false)` 与 `clearMessages` 都走它,
+   *  调用点不得再各自补一句 `setStreamingAssistantId(null)`(那正是"靠调用点自觉"的旧形态)。
+   *  清单见 RUN_SCOPED_RESET 注释;非运行域的键(terminalOutputs / interruptedMessageId 等)
+   *  刻意**不**在这里回收。 */
+  clearRunScopedState: () => void
   setError: (e: string | null) => void
   setConversationId: (id: string | null) => void
   /** 设置用户是否向上滚动(由 MessageList scroll handler 调用) */
@@ -567,6 +577,31 @@ interface ChatState {
 // 500 条足够覆盖大部分长对话场景,且内存占用可控。
 const MAX_MESSAGES = 500
 
+/** G-703(2026-09-29 立)运行域状态的一次性回收清单 —— 本文件里这三键的复位值**只有这一份**。
+ *
+ *  为什么是这三键:它们同属"本轮在跑"这一件事的凭据 ——
+ *   - `isStreaming`:运行标志(输入区禁用、按钮态、续接判定都读它);
+ *   - `streamingAssistantId`:steer 端点的定位键(conversationId + messageId 找 upstream 会话);
+ *   - `aiStreamSessionId`:见 :310-314 的原注释 —— `postTerminalInput` 的**唯一**上行寻址凭据。
+ *  旧形态是 `setStreaming` 裸写一个键、流收尾时调用点再各补一句 `setStreamingAssistantId(null)`,
+ *  而 `aiStreamSessionId` 除初值与 clearMessages 外**没有任何清除点**(现读
+ *  `git grep -n 'aiStreamSessionId' HEAD -- apps/web/src | grep -v __tests__` 可复核):
+ *  于是回合进终态后,上一轮的 sessionId 仍被下一轮的消费点拿去用。
+ *
+ *  刻意不在清单里的键(不得"顺手一起清",它们的归属另有语义):
+ *   - `terminalOutputs` / `terminalInteractions`:终态渲染要取更完整的 live 缓冲(见 :295-308),
+ *     清除点是 terminal_end 与 clearMessages,不是"流结束";
+ *   - `interruptedMessageId`:#21「中断后追加指令继续」正是要在流结束之后仍可用;
+ *   - `messages` / `conversationId` / 草稿队列:会话域,不是运行域。 */
+const RUN_SCOPED_RESET: Pick<
+  ChatState,
+  'isStreaming' | 'streamingAssistantId' | 'aiStreamSessionId'
+> = {
+  isStreaming: false,
+  streamingAssistantId: null,
+  aiStreamSessionId: null,
+}
+
 function genId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -752,6 +787,9 @@ export const useChatStore = create<ChatState>()(
 
       clearMessages: () =>
         set({
+          // G-703(2026-09-29 立):运行域三键(isStreaming / streamingAssistantId /
+          // aiStreamSessionId)走**同一份**清单复位,不在这里各抄一行 —— 抄第二份就是第二个真相。
+          ...RUN_SCOPED_RESET,
           messages: [],
           error: null,
           memoryUpdateNotices: [],
@@ -762,12 +800,10 @@ export const useChatStore = create<ChatState>()(
           // D151:同理必须**并列**清空 —— 上一轮残留的"等待输入"挂到下一轮的卡上,
           // 用户会把一行字送进一个已经结束的命令(而界面看不出来)。
           terminalInteractions: {},
-          aiStreamSessionId: null,
           // D1 消息级计量:新建对话一并清空
           usageByMessageId: {},
-          // Steer(中途引导):新建对话一并清空,流式目标消息同步失效
+          // Steer(中途引导):提示条一并清空;流式目标消息 ID 已随上面 RUN_SCOPED_RESET 失效
           steerNoticesByMessageId: {},
-          streamingAssistantId: null,
         }),
       /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
       setMessages: (messages: ChatMessage[]) => set({ messages }),
@@ -803,7 +839,12 @@ export const useChatStore = create<ChatState>()(
           return { messages: s.messages.slice(0, idx + 1) }
         }),
       setCompactionStatus: (status) => set({ compactionStatus: status }),
-      setStreaming: (v) => set({ isStreaming: v }),
+      /** G-703:false 侧不再裸写单键 —— "本轮不再在跑"这一件事必然同时意味着"上一轮的寻址凭据
+       *  作废",所以它只能是一次 RUN_SCOPED_RESET 写入。true 侧保持只置运行标志,
+       *  不得顺手清凭据(本轮的 sessionId 是在 setStreaming(true) **之后**由同源帧观察登记的)。 */
+      setStreaming: (v) => set(v ? { isStreaming: true } : RUN_SCOPED_RESET),
+      /** G-703:运行域凭据的唯一回收出口(清单与"为什么是这三键"见 RUN_SCOPED_RESET 注释)。 */
+      clearRunScopedState: () => set(RUN_SCOPED_RESET),
 
       setError: (e) => set({ error: e }),
 
@@ -1215,11 +1256,15 @@ export const useChatStore = create<ChatState>()(
             notices.push({ messageId, items: items.slice() })
           } else {
             const existing = notices[existingIdx]!
-            const merged = [...existing.items, ...items]
-            notices[existingIdx] = {
-              messageId,
-              items: Array.from(new Set(merged)).filter((v) => v.length > 0),
-            }
+            const mergedItems = Array.from(new Set([...existing.items, ...items])).filter(
+              (v) => v.length > 0,
+            )
+            const merged = { messageId, items: mergedItems }
+            // G-704(2026-09-29 立)值等价即不写:done 事件重放 / 历史加载与 done 先后到齐时,
+            // 同一批 items 会被再送一次。原先无条件重建 notices[existingIdx] 与整个数组引用
+            // ⇒ 订阅侧收到"变了"。等价时**原样返回 s**(一个对象都不重建)。
+            if (areRecordValuesEqual(existing, merged)) return s
+            notices[existingIdx] = merged
           }
           return { memoryUpdateNotices: notices }
         }),
@@ -1509,15 +1554,22 @@ export const useChatStore = create<ChatState>()(
           return { messages: next }
         }),
 
-      // P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE onUsage 回调写入 meta.usage
+      // P1 token 用量写入消息级 meta(2026-08-15 立):后端 SSE onUsage 回调写入 meta.usage
       updateMessageMeta: (messageId, meta) =>
         set((s) => {
           const idx = s.messages.findIndex((m) => m.id === messageId)
           if (idx === -1) return s
           const target = s.messages[idx]
           if (!target) return s
+          const mergedMeta: Record<string, unknown> = { ...(target.meta ?? {}), ...meta }
+          // G-704(2026-09-29 立)值等价即不写:高频 SSE 写入位(send-message 每 800ms 的
+          // meta.usage 估算)每帧都新造一个对象,而值常常一个字节都没变。原先无条件
+          // 重建消息对象 + 整个 messages 数组 ⇒ 订阅方每次拿到新引用 ⇒ store→effect→set 自环
+          // 与整列表重渲染。比较必须**等深**(usage 是嵌在 meta 下的对象,只比顶层键等于没比)。
+          // 等价时原样返回 s:连对象都不重建,这样引用相等断言才判得出"确实没写"。
+          if (areRecordValuesEqual(target.meta ?? {}, mergedMeta)) return s
           const next = s.messages.slice()
-          next[idx] = { ...target, meta: { ...(target.meta ?? {}), ...meta } }
+          next[idx] = { ...target, meta: mergedMeta }
           return { messages: next }
         }),
 

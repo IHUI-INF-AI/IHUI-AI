@@ -43,9 +43,10 @@
 //  棘轮锚点 = **该文件 HEAD 自身的「文件 × 角色」违规数**,键粒度到角色为止 —— 只到文件层的
 //  锚点会让"把一处 card 改成 control 写法"净零逃逸(守门 134 扩布尔档键时同一课)。
 //
-// 人工出口 `radius-role-exempt: <原因>`:必须带原因(裸标记、以及"裸标记 + 注释闭合符冒充原因"
-//  都不放行),且只在命中行或其紧邻上一行生效。30 天存活期由守门 108 管 —— **须由主会话把
-//  `radius-role-exempt` 登记进 `FAMILY_LIFETIME_DAYS`,本票不改那个文件**(并行改注册表必互撞)。
+// 圆角豁免通道**已整体废除**(O81 票㊵,项目定档「不允许有任何豁免」):本门看见任何
+// `radius-exempt` / `radius-role-exempt` 标记时**一处也不放行**,只把它们报名进 `marked`;
+// 写标记这个动作本身由守门 77 的 B8 判红。几何定性(C6)取代了标记的全部正当用途 ——
+// 真圆由"正方盒 + 半径=半边"自己说出来,胶囊则无论如何都是违规,不需要作者自述。
 //
 // ⚠️ 本门**刻意不自行接进提交链**:注册表由主会话单写(门 93/128 记过同型覆盖事故)。
 //    接线条目建议值(编号请现读空闲号,勿照抄本文):
@@ -74,7 +75,8 @@
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
-import { isRadiusExemptAt, radiusLookup, blockOwnerOf, constantMapOf } from './lib/radius-tokens.mjs'
+import { radiusLookup, blockOwnerOf, constantMapOf } from './lib/radius-tokens.mjs'
+import { radiusExemptMarkerAt } from './lib/radius-exempt-marker.mjs'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { scanJsx, hasJsxShape } from './lib/jsx-scope.mjs'
@@ -86,7 +88,6 @@ import {
   identityEvidenceInLine,
   classifySurfaces,
   headToken,
-  isRoleExemptAt,
   isModalTag,
   isOverlayName,
   declarationRanges,
@@ -99,6 +100,20 @@ import {
   rolesOfName,
   stepNameForPx,
 } from './lib/radius-roles.mjs'
+/**
+ * 具名档表(几何表 + 共享 spec 常量)的解析**只有门 128 那一份**。本门要的是同一张表 ——
+ * 自己再解析一遍 `GEOMETRY_PX` 必然与它漂开,表现就是同一个 `rnGeometry.tapBox` 一边判真圆、
+ * 另一边判未判定。门 128 带 §22d 的 isDirectRun 守卫,引它不会连带触发 CLI 主流程。
+ */
+import { specTiers } from './check-cross-end-ui-parity.mjs'
+
+/**
+ * 具名档的来源文件:几何表本体 + 共享 spec 目录。它们**不在本门射程内**(`SPEC_RE` 把它们排除
+ * 在判定面之外),但除法形态半径的被除数(`SECONDARY_BTN_SIZE / 2`)常常定义在那里 —— 不取这张表,
+ * 那一族就永远停在「未判定」,而它恰恰是胶囊最惯用的写法。
+ */
+const TIER_SOURCE_RE =
+  /(^|[\\/])geometry\.[jt]s$|^packages\/shared\/src\/ui\/[A-Za-z0-9._-]+\.ts$/
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RADIUS_TABLE_REL = 'packages/design-tokens/src/radius.js'
@@ -163,15 +178,19 @@ export function roleTableProblems(table) {
  * @param {string} rel 仓库相对路径(只用于点名)
  * @param {string} src 该文件在**被审面**上的正文
  * @param {Record<string, number>} table radiusLookup 的产物
+ * @param {Map<string,string>} [baseConsts] 跨文件的具名档表(门 128 `specTiers` 的产物,键如
+ *   `geometry.tapBox` / `SPEC_X_PX`)。除法形态半径(`X / 2`)的被除数多数不在本文件里 ——
+ *   同文件常量由 `constantMapOf` 归集,具名档由这张表补;两边都取不到时**落「未判定」报名**,
+ *   不得拿被除数凑数,也不得让这一行从账面上消失。
  */
-export function auditFileText(rel, src, table) {
+export function auditFileText(rel, src, table, baseConsts) {
   const out = {
     violations: [],
     undetermined: [],
     unclassified: [],
     weakFindings: [],
     compliant: 0,
-    exempted: 0,
+    marked: 0,
     usages: 0,
     surfaceOverrides: 0,
     componentEvidence: 0,
@@ -199,12 +218,7 @@ export function auditFileText(rel, src, table) {
   const rawLines = src.split('\n')
   // 注释与字符串的抹法只有一份实现(lib/code-mask.mjs);本门要的两面都由它派生(见 radius-roles)。
   const { code, kept, strings } = maskFaces(src)
-  /**
-   * 除法形态半径(`60 / 2`、`VOICE_BTN_SIZE / 2`)的被除数常量**多数定义在同一份文件里**,
-   * 所以按整份源码归集一次供逐行使用;跨文件 import 的常量解不到,由除法支落一条
-   * `undivided` 记录、本门按「未判定」报名(不得让这一行从账面上消失)。
-   */
-  const consts = constantMapOf(src)
+  const consts = new Map([...(baseConsts ?? []), ...constantMapOf(src)])
   const codeLines = code.split('\n')
   const keptLines = kept.split('\n')
   /**
@@ -346,12 +360,16 @@ export function auditFileText(rel, src, table) {
     const capsuleWide = (f) => !!gd.own && gd.own.shape === 'wide' && halfHit(f)
     const capsuleRed = (f) => capsuleWide(f) && ownShort >= CAPSULE_MIN_SHORT
     if (!gd.wide.shape && !(gd.own && gd.own.shape)) out.dimsUndetermined += 1
-    const marked = isRoleExemptAt(rawLines, i) || isRadiusExemptAt(rawLines, i)
+    /**
+     * 标记只**报名**,不改变任何结论(通道已废除,见头注)。`exemptionIgnored` 刻意保留:它记的是
+     * "形状自己已经判红、标记救不了"的那些行 —— 没有这一个数,自检就只能断"总数没变",
+     * 而"总数没变"既可能是判据有牙,也可能是判据根本没看见标记。
+     */
+    const marked = radiusExemptMarkerAt(rawLines, i)
     const capsuleHere = forms.some(capsuleRed)
-    if (marked && capsuleHere) out.exemptionIgnored += forms.length
-    if (marked && !capsuleHere) {
-      out.exempted += forms.length
-      continue
+    if (marked) {
+      out.marked += forms.length
+      if (capsuleHere) out.exemptionIgnored += forms.length
     }
     /**
      * 证据分强弱,强弱不可混判(实测理由,不是偏好):
@@ -543,6 +561,13 @@ export function auditFileText(rel, src, table) {
         continue
       }
       if (capsuleWide(f)) {
+        /**
+         * 能走到这里说明窄窗量得出**扁盒**且半径已够半边,唯一没满足的是短边 ≥ 可点下限 ——
+         * 所以队列的理由必须写成这一句,而不是沿用票㉚ 之前那句"盒形会被子节点污染"
+         * (那条前置已经由 `boxDimsOwn` 解决;留着旧措辞就是在替一个已不存在的缺陷背书,
+         *  而读队列的人会按它去找子节点。)
+         */
+        rec.detail = `短边 ${geomShort}px 细于可点下限 ${CAPSULE_MIN_SHORT}px ⇒ §4 的装饰条 / 骨架行 / 指示点族:半径=半边就是圆头端点,判红等于逼设计改方角`
         out.capsuleFindings.push(rec)
         continue
       }
@@ -685,9 +710,10 @@ export function runAudit(repoRoot, face, { only } = {}) {
     if (!files.length) throw new Undetermined(`--files 指定的路径一个都不在被审面里:${[...want].join(' ')}`)
   }
   if (!files.length) throw new Undetermined(`${FACE_TXT[face]}上枚举到 0 个在射程文件 —— 空扫不记绿`)
-  const specs = [...files, RADIUS_TABLE_REL, BASELINE_REL].map((p) =>
-    face === 'staged' ? `:${p}` : `HEAD:${p}`,
-  )
+  // 具名档来源与正文**同面同轮**取:表读盘、内容读 HEAD 会产出自洽却错位的尺子(门 83/101 同条)。
+  const tierFiles = listTracked(repoRoot, face).filter((p) => TIER_SOURCE_RE.test(p))
+  const specAt = (p) => (face === 'staged' ? `:${p}` : `HEAD:${p}`)
+  const specs = [...files, ...tierFiles, RADIUS_TABLE_REL, BASELINE_REL].map(specAt)
   const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 29, timeout: 180000 })
   const tableSrc = got.get(face === 'staged' ? `:${RADIUS_TABLE_REL}` : `HEAD:${RADIUS_TABLE_REL}`)
   if (tableSrc === null || tableSrc === undefined)
@@ -701,13 +727,25 @@ export function runAudit(repoRoot, face, { only } = {}) {
     baselineSrc === null || baselineSrc === undefined
       ? { anchors: {}, $note: '台账不在被审面上 —— 本次按"零锚点"判,任何存量都会判红(接线前须先入锚)' }
       : parseBaseline(baselineSrc, BASELINE_REL)
+  /**
+   * 具名档表(`geometry.tapBox` / `SPEC_X_PX`)—— 供除法形态半径的被除数取值。
+   * 取不到表(文件不在面上 / 解析为空)⇒ 表为空 Map,那些行照旧落「未判定」报名,**不猜**。
+   */
+  const tierSources = {}
+  for (const rel of tierFiles) {
+    const s = got.get(specAt(rel))
+    if (typeof s === 'string') tierSources[rel] = s
+  }
+  const baseConsts = new Map(
+    Object.entries(specTiers(tierSources)).map(([k, v]) => [k, String(v)]),
+  )
   const violations = []
   const undetermined = []
   const unclassified = []
   const weakFindings = []
   const contested = []
   let usages = 0
-  let exempted = 0
+  let marked = 0
   let compliant = 0
   let surfaceOverrides = 0
   let componentEvidence = 0
@@ -726,9 +764,9 @@ export function runAudit(repoRoot, face, { only } = {}) {
     const src = got.get(face === 'staged' ? `:${rel}` : `HEAD:${rel}`)
     if (src === null || src === undefined)
       throw new Undetermined(`${FACE_TXT[face]}取不到 ${rel}(清单与内容必须同面同轮)`)
-    const r = auditFileText(rel, src, table)
+    const r = auditFileText(rel, src, table, baseConsts)
     usages += r.usages
-    exempted += r.exempted
+    marked += r.marked
     compliant += r.compliant
     surfaceOverrides += r.surfaceOverrides
     componentEvidence += r.componentEvidence
@@ -760,7 +798,7 @@ export function runAudit(repoRoot, face, { only } = {}) {
     weakFindings,
     contested,
     usages,
-    exempted,
+    marked,
     compliant,
     surfaceOverrides,
     componentEvidence,
@@ -804,13 +842,23 @@ function runAuditWorktree(repoRoot, only) {
   if (!table) throw new Undetermined('档位表解析不出内容(空表不判绿)')
   const baseSrc = readWorktreeFile(repoRoot, BASELINE_REL)
   const baseline = baseSrc ? parseBaseline(baseSrc, BASELINE_REL) : { anchors: {} }
+  // 具名档表:工作树档本就整面读盘,这里同面取,不与内容面错开。
+  const tierSources = {}
+  for (const rel of listTracked(repoRoot, 'head')) {
+    if (!TIER_SOURCE_RE.test(rel)) continue
+    const s = readWorktreeFile(repoRoot, rel)
+    if (typeof s === 'string') tierSources[rel] = s
+  }
+  const baseConsts = new Map(
+    Object.entries(specTiers(tierSources)).map(([k, v]) => [k, String(v)]),
+  )
   const violations = []
   const undetermined = []
   const unclassified = []
   const weakFindings = []
   const contested = []
   let usages = 0
-  let exempted = 0
+  let marked = 0
   let compliant = 0
   let surfaceOverrides = 0
   let componentEvidence = 0
@@ -828,9 +876,9 @@ function runAuditWorktree(repoRoot, only) {
   for (const rel of files) {
     const src = readWorktreeFile(repoRoot, rel)
     if (src === null) continue
-    const r = auditFileText(rel, src, table)
+    const r = auditFileText(rel, src, table, baseConsts)
     usages += r.usages
-    exempted += r.exempted
+    marked += r.marked
     compliant += r.compliant
     surfaceOverrides += r.surfaceOverrides
     componentEvidence += r.componentEvidence
@@ -862,7 +910,7 @@ function runAuditWorktree(repoRoot, only) {
     weakFindings,
     contested,
     usages,
-    exempted,
+    marked,
     compliant,
     surfaceOverrides,
     componentEvidence,
@@ -902,6 +950,16 @@ export function emitBaseline(violations, baseline) {
 
 export function lineOf(v) {
   const corner = v.corner ? `[${v.corner}]` : ''
+  /**
+   * 胶囊是**形状维**,不存在"该取哪一档"的答案 —— 走通用模板会打印出
+   * `角色 capsule 取 undefined(undefinedpx),应为 undefined(undefinedpx)`(本门第一次判红时印的就是
+   * 这一句)。红必须读得懂:量到的盒形与出路直接来自 `detail`,而不是让人去猜哪个字段没赋值。
+   */
+  if (v.role === CAPSULE_ROLE)
+    return (
+      `  ${v.file}:${v.line}${corner} 胶囊判红 —— ${v.detail || '半径取到短边一半'}` +
+      ';出路:改取该元素类别的角色档(见 radius.js 的 RADIUS_ROLES),挂标记不是出路(守门 77 B8 判红)'
+    )
   return `  ${v.file}:${v.line}${corner} 角色 ${v.role} 取 ${v.actualStep}(${v.actualPx}px),应为 ${v.expectedStep}(${v.expectedPx}px) —— ${v.form}`
 }
 
@@ -941,7 +999,7 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
         face: res.face,
         scannedFiles: res.files.length,
         usages: res.usages,
-        exempted: res.exempted,
+        marked: res.marked,
         compliant: res.compliant,
         violationCount: res.violations.length,
         violations: res.violations,
@@ -975,7 +1033,8 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
       console.log('⚠️⚠️ 正在按**磁盘**判(工作树档):共享工作树常年滞后 HEAD,本档只供人工排查,不得作为结论 ⚠️⚠️')
     console.log(
       `判定面 ${FACE_TXT[res.face]}:扫 ${res.files.length} 个在射程文件、读到 ${res.usages} 处圆角取用` +
-        `(豁免 ${res.exempted} 处;台账锚点 ${Object.keys(res.baseline?.anchors || {}).length} 条)`,
+        `(带豁免标记的取用 ${res.marked} 处 —— 通道已整体废除,一处也不豁免,写标记本身由守门 77 B8 判红;` +
+          `台账锚点 ${Object.keys(res.baseline?.anchors || {}).length} 条)`,
     )
     if (res.roleTableProblems.length) {
       console.log(
@@ -1050,7 +1109,8 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
   }
   if (res.capsuleFindings.length) {
     console.log(
-      `◦ C6 胶囊候选 ${res.capsuleFindings.length} 处(队列,不判红 —— 盒形量算会被子节点污染,升级前置写在判定处注释):`,
+      `◦ C6 圆头端点队列 ${res.capsuleFindings.length} 处(半径已取到扁盒短边的一半,而短边细于可点下限 ` +
+        `⇒ §4 明令装饰条/骨架行/指示点不得方档化,故不判红;**不判红也不记通过**,逐条附量到的短边与理由):`,
     )
     if (argv.includes('--all'))
       for (const u of res.capsuleFindings.slice(0, 60)) {
@@ -1187,13 +1247,18 @@ export async function selfTest(repoRoot = ROOT) {
   t('40 CSS 选择器 .card 取 xl ⇒ 判红', A('.card { border-radius: 24rpx; }').violations[0]?.role === 'card')
   t('41 后代选择器只算最后一个类(祖先不得漏档给子元素)', A('.card .notice { border-radius: 24rpx; }').unclassified.length === 1)
   t('42 自带角色的取用压过名字证据:rnRadiusFor.panel ⇒ 合规', A('const s = { card: { borderRadius: rnRadiusFor.panel } }').compliant === 1)
-  // —— 豁免
-  t('43 带原因的 radius-role-exempt 放行本行', A('const s = { card: { borderRadius: rnRadius.xl } } // radius-role-exempt: 主视觉卡').violations.length === 0)
-  t('44 标记写在紧邻上一行也放行', A('const s = {\n  // radius-role-exempt: 与广告位同档\n  card: { borderRadius: rnRadius.xl },\n}').violations.length === 0)
-  t('45 裸标记(无原因)不放行', A('const s = { card: { borderRadius: rnRadius.xl } } // radius-role-exempt:').violations.length === 1)
-  t('46 注释闭合符不得冒充原因', A('const s = { card: { borderRadius: rnRadius.xl } } /* radius-role-exempt: */').violations.length === 1)
-  t('47 标记救不了整棵子树(只放行命中行)', A('const s = { // radius-role-exempt: 只该管一行\n  card: { borderRadius: rnRadius.xl },\n  chip: { borderRadius: rnRadius.lg },\n}').violations.length === 1)
-  t('48 radius-exempt(守门 77 那一族)在本门同样生效', A('const s = { card: { borderRadius: rnRadius.xl } } // radius-exempt: 真圆').violations.length === 0)
+  // —— 豁免通道(O81 票㊵ 整体废除:以下五条断言的是"标记**不再**改变任何结论",
+  //    43/44/48 在废除前是"放行",47 从前只判 1 处;逐条翻过来才是判据真有牙的证据)
+  t('43 带原因的标记也不放行(通道已废除)', A('const s = { card: { borderRadius: rnRadius.xl } } // radius-role-exempt: 主视觉卡').violations.length === 1)
+  t('44 标记写在紧邻上一行同样不放行', A('const s = {\n  // radius-role-exempt: 与广告位同档\n  card: { borderRadius: rnRadius.xl },\n}').violations.length === 1)
+  t('45 裸标记(无原因)同判红 —— "必须带原因"那套严格性已整体不适用', A('const s = { card: { borderRadius: rnRadius.xl } } // radius-role-exempt:').violations.length === 1)
+  t('46 注释闭合符形态同判红', A('const s = { card: { borderRadius: rnRadius.xl } } /* radius-role-exempt: */').violations.length === 1)
+  t('47 标记救不了整棵子树,也救不了任何一行(两处错档都判红)', A('const s = { // radius-role-exempt: 想管两行\n  card: { borderRadius: rnRadius.xl },\n  chip: { borderRadius: rnRadius.lg },\n}').violations.length === 2)
+  t('48 另一族(radius-tokens 那一族)在本门同样不放行', A('const s = { card: { borderRadius: rnRadius.xl } } // radius-exempt: 真圆').violations.length === 1)
+  t('48b 标记只被**数**出来:带标记的取用计入 marked,不判红的那一侧也不计合规', (() => {
+    const r = A('const s = { card: { borderRadius: rnRadius.xl } } // radius-exempt: 真圆')
+    return r.marked === 1 && r.compliant === 0 && r.violations.length === 1
+  })())
   // —— 棘轮与台账
   const counts = { 'a.tsx|card': 2, 'b.tsx|chip': 1 }
   t(
@@ -1514,20 +1579,29 @@ export default function P() {
     const r = A5('const s = { card: { width: 40, height: 16, borderRadius: rnRadius.lg } }', 'x/Bar.tsx')
     return r.violations.length === 1 && r.violations[0].reason === 'capsule' && r.capsuleFindings.length === 0
   })())
-  t('108 胶囊不吃豁免:挂 radius-role-exempt 的扁盒仍判红,并计 exemptionIgnored', (() => {
+  t('108 胶囊不吃豁免:挂标记的扁盒仍判红,并计 exemptionIgnored 与 marked', (() => {
     const r = A5(
       'const s = { card: { width: 40, height: 16, borderRadius: rnRadius.lg } } // radius-role-exempt: 想免检',
       'x/Bar2.tsx',
     )
-    return r.violations.length === 1 && r.exemptionIgnored >= 1 && r.exempted === 0
+    return r.violations.length === 1 && r.exemptionIgnored >= 1 && r.marked >= 1
   })())
-  t('109 反向:同样标记落在正方真圆上 ⇒ 标记照旧生效(忽略只给形状成立那一侧)', (() => {
-    const r = A5(
-      'const s = { card: { width: 16, height: 16, borderRadius: rnRadius.lg } } // radius-role-exempt: 圆点',
-      'x/Dot2.tsx',
-    )
-    return r.exemptionIgnored === 0 && r.exempted >= 1
-  })())
+  t(
+    '109 通道已废除:带标记与不带标记的**同一段代码**结论必须逐字相同(只断"不判红"不足以证明标记没生效)',
+    (() => {
+      const bare = 'const s = { card: { width: 16, height: 16, borderRadius: rnRadius.lg } }'
+      const a = A5(bare, 'x/Dot2.tsx')
+      const b = A5(`${bare} // radius-role-exempt: 圆点`, 'x/Dot2.tsx')
+      const same =
+        a.trueCircle === b.trueCircle &&
+        a.compliant === b.compliant &&
+        a.violations.length === b.violations.length &&
+        a.undetermined.length === b.undetermined.length &&
+        a.capsule === b.capsule
+      // 标记自己要被数出来(报名),但它**不移动任何一格判定**。
+      return same && a.marked === 0 && b.marked === 1 && b.exemptionIgnored === 0 && b.trueCircle === 1
+    })(),
+  )
   t('110 量不出盒形 ⇒ 计 dimsUndetermined 报名,绝不静默当成"判过了"', (() => {
     const r = A5('const s = { card: { borderRadius: rnRadius.lg } }', 'x/NoDims.tsx')
     return r.dimsUndetermined >= 1 && r.trueCircle === 0 && r.violations.length === 0
@@ -1553,6 +1627,31 @@ export default function P() {
     ].join('\n')
     const r = A5(src, 'x/Menu.tsx')
     return r.violations.filter((v) => v.reason === 'capsule').length === 0
+  })())
+  /**
+   * 票㊼ 的三条成对用例:`minWidth` 是**下限**不是定值。旧尺子只读 `width|height`,于是
+   * `minWidth 36 + height 36 + paddingHorizontal 8 + radius 18` 这类"多位数就变宽"的计数徽章 /
+   * 附件按钮被读成"量不到盒形" ⇒ 胶囊从账面上消失(HEAD 实存 3 处,含 §4 明令禁的计数徽章族)。
+   * 反向两条同样必须有牙:没有水平内边距时 minWidth 可以正好等于高度(不得凭空判胶囊),
+   * 而 `width` 写死时加多少内边距都改不了盒宽(不得把真圆顶成胶囊)。
+   */
+  t('113 minWidth + 水平内边距 + 半径=高一半 ⇒ 胶囊判红(宽度只会 ≥ 下限,旧尺子读成"量不到"而放行)', (() => {
+    const r = A5(
+      'const s = {\n  addFileBtn: { height: 36, minWidth: 36, paddingHorizontal: 8, borderRadius: 18 },\n}\n',
+      'x/Bar.tsx',
+    )
+    return r.capsule === 1 && r.violations.filter((v) => v.reason === 'capsule').length === 1
+  })())
+  t('113b 反向:有 minWidth 但**没有**水平内边距 ⇒ 不得判胶囊(它可以正好等于高度)', (() => {
+    const r = A5('const s = {\n  dot: { height: 36, minWidth: 36, borderRadius: 18 },\n}\n', 'x/Dot.tsx')
+    return r.capsule === 0 && r.violations.filter((v) => v.reason === 'capsule').length === 0
+  })())
+  t('113c 反向:width 是定值时 paddingHorizontal 不得把真圆顶成胶囊(固定宽的方盒仍是方盒)', (() => {
+    const r = A5(
+      'const s = {\n  icon: { width: 36, height: 36, paddingHorizontal: 8, borderRadius: 18 },\n}\n',
+      'x/Icon.tsx',
+    )
+    return r.trueCircle === 1 && r.capsule === 0
   })())
   const C5_ROOT = [
     'export function ConfigPanel() {',
@@ -1766,7 +1865,26 @@ export default function P() {
       return r.trueCircle === 1 && r.capsule === 0
     })(),
   )
-  const SURF_PROVE_NAME = (p) => p.split('/').pop()
+  t(
+    '93 被除数是具名档(`rnGeometry.tapBox`)⇒ 表在场能量出真圆,表缺席必须落未判定(不得猜值)',
+    (() => {
+      const src =
+        'const s = {\n  btn: { width: 44, height: 44, borderRadius: rnGeometry.tapBox / 2 },\n}\n'
+      const noTable = auditFileText('x/T.tsx', src, table)
+      const withTable = auditFileText(
+        'x/T.tsx',
+        src,
+        table,
+        new Map([['geometry.tapBox', '44']]),
+      )
+      return (
+        noTable.undetermined.some(u => u.reason === 'divide-operand-unknown') &&
+        noTable.trueCircle === 0 &&
+        withTable.trueCircle === 1 &&
+        withTable.undetermined.length === 0
+      )
+    })(),
+  )
   const bad = results.filter((r) => !r.ok)
   for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.name}${r.extra ? ` —— ${r.extra}` : ''}`)
   console.log(`--self-test: ${results.length} 条,失败 ${bad.length} 条`)

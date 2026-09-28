@@ -25,13 +25,15 @@ import logging
 import os
 import time
 import urllib.parse
+from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
+from collections.abc import Callable
 from typing import Any, cast
 
 import httpx
 
 from app.core.tunables import DEFAULT_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS
-from app.services import mcp_quality
+from app.services import mcp_quality, mcp_status
 from app.services.command_streamer import (
     FRAME_READ_LINE,
     FRAME_READ_TOO_LARGE,
@@ -127,6 +129,29 @@ class MCPClient:
         self._negotiated_protocol = ""
         self._server_info: dict[str, Any] = {}
         self._capabilities: dict[str, Any] = {}
+        # D154(2026-09-30 立)连接状态观察者:由 `MCPClientManager.register` 在注册时挂上
+        # —— 只有 manager 知道这台 server 的**注册者**是谁(主体来自注册事实,不来自发帧方)。
+        # 默认 None ⇒ 没有观察者时本类行为与改动前逐字相同。
+        self._on_status: Callable[[str, dict[str, Any]], None] | None = None
+
+    def set_status_hook(self, hook: "Callable[[str, dict[str, Any]], None] | None") -> None:
+        """挂/摘状态观察者(生产面唯一入口是 `MCPClientManager.register`)。"""
+        self._on_status = hook
+
+    def _emit_status(self, state: str, **extra: Any) -> None:
+        """把一次连接状态变更交给观察者。
+
+        观察者任何异常都**不得**穿透:MCP 连不上已经够糟了,不能再因为"提示发不出去"
+        把连接流程本身弄炸(那会把票要修的"看不出来"升级成"连不上还崩")。
+        异常一律 warn(§5e「失败必须响」),不改控制流。
+        """
+        hook = self._on_status
+        if hook is None:
+            return
+        try:
+            hook(state, extra)
+        except Exception as e:
+            logger.warning("MCP %s 状态观察者异常(%s %s): %s", self._config.name, state, extra, e)
 
     @property
     def config(self) -> MCPClientConfig:
@@ -159,18 +184,29 @@ class MCPClient:
         """连接外部 MCP Server。"""
         if self._connected:
             return
-        if self._config.transport == TRANSPORT_STDIO:
-            ok = await self._stdio_connect()
-        elif self._config.transport == TRANSPORT_SSE:
-            ok = await self._sse_connect()
-        elif self._config.transport == TRANSPORT_STREAMABLE_HTTP:
-            ok = await self._http_connect()
-        else:
-            logger.error("未知传输模式: %s", self._config.transport)
-            ok = False
-        if ok:
-            await self._send_notification("notifications/initialized")
-            logger.info("MCP Client 已连接: %s[%s]", self._config.name, self._config.transport)
+        # D154:三条出口都要有帧 —— connecting / connected / failed。
+        # 整段包一层 try 是为了"抛异常的那一型也得上屏":原先异常直接冒到调用方,
+        # 端上看到的表现是"某个工具调用失败了",而真实原因是这台 server 根本连不上。
+        self._emit_status("connecting")
+        try:
+            if self._config.transport == TRANSPORT_STDIO:
+                ok = await self._stdio_connect()
+            elif self._config.transport == TRANSPORT_SSE:
+                ok = await self._sse_connect()
+            elif self._config.transport == TRANSPORT_STREAMABLE_HTTP:
+                ok = await self._http_connect()
+            else:
+                logger.error("未知传输模式: %s", self._config.transport)
+                ok = False
+            if ok:
+                await self._send_notification("notifications/initialized")
+                logger.info("MCP Client 已连接: %s[%s]", self._config.name, self._config.transport)
+                self._emit_status("connected")
+            else:
+                self._emit_status("failed", reason=f"{self._config.transport} 连接未建立")
+        except Exception as e:
+            self._emit_status("failed", reason=f"{type(e).__name__}: {e}")
+            raise
 
     async def disconnect(self) -> None:
         """断开连接，清理资源。"""
@@ -848,6 +884,9 @@ class MCPClient:
                 self._config.max_reconnect_attempts,
                 self._config.name,
             )
+            # D154:放弃的那一格才是用户要看到的"连不上"。此前它只进服务端日志,
+            # 端上的表现是"某个工具调用失败了"—— 修复方向因此被指错(去查工具,而不是去查连接)。
+            self._emit_status("failed", reason=f"重连已达上限({self._config.max_reconnect_attempts})")
             return
         self._reconnect_attempts += 1
         delay = min(
@@ -860,11 +899,50 @@ class MCPClient:
             self._reconnect_attempts,
             delay,
         )
+        # attempt/maxAttempts 成对(票第 3 栏的形状;词表 `chat.mcp.state.reconnecting`
+        # 要两格 —— 只发分子会渲染成"第 2/ 次重连",半句话比不发帧更糟)。
+        self._emit_status(
+            "reconnecting",
+            attempt=self._reconnect_attempts,
+            max_attempts=self._config.max_reconnect_attempts,
+        )
         await asyncio.sleep(delay)
         try:
             await self.connect()
         except Exception as e:
             logger.error("重连失败(%s): %s", self._config.name, e)
+
+
+# ---------------------------------------------------------------------------
+# 无参回调的"当前连接主体"作用域(G-371 格①,机主 2026-09-29 拍"隔离")
+# ---------------------------------------------------------------------------
+#
+# 为什么要有这一格而不是给回调加形参:`AgentEngine` 的 `tool_lister` 契约是**无参**回调,而
+# 它挂在模块级单例 `ENGINE` 上(不是每连接一个实例),没有形参通道;改签名要动
+# `agent_engine.py`。但工具清单**必须**按主体收窄 —— 按空主体取等于"谁都只看得到部署级",
+# 那会把用户自己注册的外部 server 从他的会话里静默抹掉(过度收窄同样是行为变更,而且是
+# 机主明确不要的那一种)。
+#
+# 语义与 `network_guard._current_policy` / `mcp_server._terminal_stream_ctx` 同形:**承载层**
+# 在派生任务前把已验证的主体放进上下文,回调读它;读不到 ⇒ 空串 ⇒ 只看得到部署级
+# (fail-closed)。这里的值只可能来自 `_bind_principal` 写入的 `params.userId` —— 那一个已被
+# 令牌主体覆盖过客户端自述值,所以是宿主事实,不是请求体里谁都能写的字段。
+_mcp_principal_scope: ContextVar[str] = ContextVar("ihui_mcp_principal", default="")
+
+
+def bind_mcp_principal(user_id: str) -> Token[str]:
+    """绑定当前作用域的连接主体,返回 token(必须交回 `reset_mcp_principal`)。"""
+    return _mcp_principal_scope.set(user_id or "")
+
+
+def reset_mcp_principal(token: Token[str]) -> None:
+    """恢复上一层作用域。"""
+    _mcp_principal_scope.reset(token)
+
+
+def current_mcp_principal() -> str:
+    """当前作用域的主体;未绑定 ⇒ 空串(= 只看得到部署级),不是"没有限制"。"""
+    return _mcp_principal_scope.get()
 
 
 class MCPClientManager:
@@ -889,12 +967,25 @@ class MCPClientManager:
         if name in self._clients:
             logger.warning("MCP Client 已存在，覆盖: %s", name)
         self._owners[name] = owner_user_id
-        self._clients[name] = MCPClient(config)
+        client = MCPClient(config)
+        # D154(2026-09-30 立)连接状态下行:钩子只能挂在这里 —— **收信人取自注册事实**
+        # (`owner_user_id`,由端点侧 `require_request_user_id` 盖章),连接自己不知道也不该知道
+        # "该通知谁";把主体交给发帧方 = §5「认证不等于授权」那条禁令。
+        # 部署级(owner 为空串)照挂:`report_mcp_status` 按"无主体"拒发并计数,
+        # 不在这里开第二条分支 —— 分支一多,"谁收到了这一帧"就没人说得清了。
+        owner = owner_user_id
+
+        def _hook(state: str, extra: dict[str, Any]) -> None:
+            # 返回值刻意丢掉:观察者只负责"把这一帧发出去",派发成功与否都不改注册流程
+            mcp_status.report_mcp_status(owner, name, state, **extra)
+
+        client.set_status_hook(_hook)
+        self._clients[name] = client
         logger.info("MCP Client 已注册: %s[%s]", name, config.transport)
         return name
 
     def owner_of(self, name: str) -> str | None:
-        """该 server 的注册者;"" 表示部署级;未注册返回 None。""" 
+        """该 server 的注册者;"" 表示部署级;未注册返回 None。"""
         if name not in self._clients:
             return None
         return self._owners.get(name, "")
@@ -1034,20 +1125,8 @@ class MCPClientManager:
             ]
         )
 
-    async def list_available_tools_unscoped(self) -> list[MCPClientTool]:
-        """遍历**全部** Client 取工具 —— 属主判据未接线的内部路径,不是"更快的那一个"。
-
-        为什么还存在:对话装配链 `app/routers/agents.py::_build_supertool_pool` 手里只有
-        `user_role`(角色),没有会话主体 user_id —— 把工具池按属主收窄需要先把主体透到
-        装配与 call_forward 两处,那是**所有 agent 会话的工具可见集**的行为变更(用户会突然
-        看不见某些工具),不是安全收口的顺带清理。已登记在 PROJECT_PLAN 的 G-371 追加段,
-        解阻前置 = 主体透进 `_build_supertool_pool` 后改调 `list_available_tools_async`。
-        新代码**不得**选用这一支;端点侧一律走 `list_available_tools_async`。
-        """
-        return await self._collect_tools(list(self._clients.values()))
-
-    async def _collect_tools(self, clients: list["MCPClient"]) -> list[MCPClientTool]:
-        """两份枚举共用的取工具循环(遍历面不同、失败语义相同 —— 一份实现,不分叉)。"""
+    async def _collect_tools(self, clients: list[MCPClient]) -> list[MCPClientTool]:
+        """枚举给定 client 集合的工具(遍历面由调用方决定 —— 只有一处传"可见集")。"""
         tools: list[MCPClientTool] = []
         for client in clients:
             if client.is_connected():
@@ -1069,14 +1148,6 @@ class MCPClientManager:
         """
         if not self.is_visible(server_name, caller_user_id):
             return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
-        return await self._call_tool(server_name, tool_name, args)
-
-    async def call_external_tool_unscoped(
-        self, server_name: str, tool_name: str, args: dict[str, Any]
-    ) -> dict[str, Any]:
-        """不判属主的内部调用路径 —— 只服务对话装配链,理由与解阻前置见
-        `list_available_tools_unscoped` 的文档串(同一格缺口,两处不得各自解释)。
-        """
         return await self._call_tool(server_name, tool_name, args)
 
     async def _call_tool(

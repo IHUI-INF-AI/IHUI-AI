@@ -159,7 +159,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 56,
       height: 56,
-      borderRadius: 56 / 2,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

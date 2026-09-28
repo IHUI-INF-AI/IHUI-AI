@@ -19,7 +19,7 @@ import type {
   TerminalDeltaEvent,
   /** 文件写类工具流中 diff 预览(api-client 2026-09-27 立 D113,本解析器同批接上) */
   ToolDeltaEvent,
-  /** 命令「等待键盘输入」帧(api-client 2026-09-29 立 D151,本解析器同批接上) */
+  /** 命令在等键盘输入(api-client 2026-09-29 立 D151,本解析器同批接上) */
   TerminalInteractionEvent,
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
@@ -65,17 +65,16 @@ export interface SSEEvent {
     // 在下方兜底抽取链之前无人认领 ⇒ 曾被判成 chunk,把 stdout 混进聊天正文。
     // 本类型**只消污染**:跨端渲染接线属另一票(mobile-rn 注册 + 契约对账)。
     | 'terminal_delta'
-    // ===== D151(2026-09-29 立):terminal_interaction —— 命令停在"等键盘输入"的一帧 =====
-    // 载荷 {terminalId, sessionId, promptTail, waitingSinceMs, maxInputChars} 既不带
-    // content/delta 也不带 text ⇒ 在本兜底抽取链之前无人认领,原状是走到末尾 `return null`
-    // = **帧能到设备却被静默丢掉**(api-client 一侧同批已解析,故小程序与 web/RN 不同源)。
-    | 'terminal_interaction'
     // ===== D113(2026-09-27 立):文件写类工具流中 diff 预览帧 =====
     // 后端 tool-delta 载荷是 {toolCallId, seq, partialText, truncated?} —— 既不带 content
     // 也不带 delta/text,在本兜底抽取链之前无人认领,一路走到函数末尾 `return null`
     // ⇒ **帧能到设备却被静默丢掉**(api-client 那条链 2026-09-27 已解析,小程序端因此
     // 与 web/RN 不同源:工具跑完才看得到改了什么)。本变体只补这一格,渲染接线在端内票。
     | 'tool-delta'
+    // ===== D151(2026-09-29 立):命令在等键盘输入的一帧 =====
+    // 此前它在本解析链上**无人认领**,被下面 `sessionId` 那条泛化兜底折成 meta ⇒
+    // 小程序端拿不到 terminalId/提示原文,结构上不可能显示"它在等人"(见函数体内的认领注释)。
+    | 'terminal_interaction'
   content?: string
   sessionId?: string
   /** 错误码(对齐 @ihui/api-client SSEErrorInfo 字段) */
@@ -134,10 +133,10 @@ export interface SSEEvent {
   retryScheduled?: RetryScheduledEvent
   /** D19-A1 终端实时输出增量帧(terminal_delta):字段口径与 api-client tryParseTerminalDelta 一致 */
   terminalDelta?: TerminalDeltaEvent
-  /** D151 命令等待键盘输入帧(terminal_interaction):字段口径与 api-client tryParseTerminalInteraction 一致 */
-  terminalInteraction?: TerminalInteractionEvent
   /** D113 工具流中 diff 预览帧(tool-delta):字段口径与 api-client tryParseToolDelta 一致 */
   toolDelta?: ToolDeltaEvent
+  /** D151 命令在等键盘输入(terminal_interaction):字段口径与 api-client tryParseTerminalInteraction 一致 */
+  terminalInteraction?: TerminalInteractionEvent
 }
 
 function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
@@ -355,28 +354,6 @@ function parseLine(line: string): SSEEvent | null {
       }
       return { type: 'terminal_delta', terminalDelta: delta }
     }
-    // ===== D151(2026-09-29 立):terminal_interaction 必须在兜底抽取链之前认领 =====
-    // 后端 apps/ai-service/app/services/mcp_server.py::_await_terminal_input 产的帧形如
-    // {"type":"terminal_interaction","terminalId","sessionId","promptTail","waitingSinceMs",
-    //  "maxInputChars"[,"messageId"]} —— 它**不带 text/content/delta**,所以不会像 terminal_delta
-    // 那样污染正文,但也没人认领 ⇒ 走到函数末尾 `return null` 被静默丢弃,小程序界面上
-    // 表现成"命令卡住了而界面一动不动"。认领口径与 api-client tryParseTerminalInteraction
-    // 逐位一致(先看 type 再看 terminalId,**不看 text** —— 同一承载面上两种帧靠 type 分流);
-    // terminalId 不是 string 一律丢弃,绝不回落 chunk(与 terminal_delta 同一条纪律)。
-    if (json?.type === 'terminal_interaction') {
-      const terminalId = json.terminalId
-      if (typeof terminalId !== 'string') return null
-      const interaction: TerminalInteractionEvent = {
-        terminalId,
-        sessionId: typeof json.sessionId === 'string' ? json.sessionId : '',
-        promptTail: typeof json.promptTail === 'string' ? json.promptTail : '',
-        waitingSinceMs: typeof json.waitingSinceMs === 'number' ? json.waitingSinceMs : 0,
-        inputMode: 'line',
-        maxInputChars: typeof json.maxInputChars === 'number' ? json.maxInputChars : 4096,
-        ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
-      }
-      return { type: 'terminal_interaction', terminalInteraction: interaction }
-    }
     // ===== D113(2026-09-27 立):tool-delta 同样必须在兜底抽取链之前认领 =====
     // 载荷 partialText 是**累积文本**(整帧替换渲染),若滑到下面的 content/delta/text 泛化
     // 兜底就会被当成正文增量喷进气泡;而它的 type 又不在任何既有分支里,原状是走到末尾
@@ -395,6 +372,28 @@ function parseLine(line: string): SSEEvent | null {
         ...(json.truncated === true ? { truncated: true } : {}),
       }
       return { type: 'tool-delta', toolDelta: delta }
+    }
+    // ===== D151(2026-09-29 立):terminal_interaction 同样必须在兜底抽取链之前认领 =====
+    // 载荷 {terminalId, sessionId, promptTail, waitingSinceMs, inputMode, maxInputChars, messageId?}
+    // —— 既不带 content/delta/text,又**带一个字符串 sessionId**,于是它一路走到下面那条
+    // `typeof json?.sessionId === 'string' ⇒ {type:'meta', sessionId}` 的泛化兜底,
+    // 被折成一条 meta 帧:terminalId 与提示原文全部丢失,小程序端**结构上不可能**知道
+    // 命令在等人(2026-09-29 派单代理实测探针打出 EVENTS=[{type:meta,sessionId:s-9}] 的那一格)。
+    // 字段收窄口径抄 @ihui/api-client client.ts 的 tryParseTerminalInteraction:terminalId
+    // 必须是 string,否则**丢弃**,绝不回落 chunk/meta —— 静默降级就是把"没看见"写成"看见了"。
+    if (json?.type === 'terminal_interaction') {
+      const terminalId = json.terminalId
+      if (typeof terminalId !== 'string') return null
+      const interaction: TerminalInteractionEvent = {
+        terminalId,
+        sessionId: typeof json.sessionId === 'string' ? json.sessionId : '',
+        promptTail: typeof json.promptTail === 'string' ? json.promptTail : '',
+        waitingSinceMs: typeof json.waitingSinceMs === 'number' ? json.waitingSinceMs : 0,
+        inputMode: 'line',
+        maxInputChars: typeof json.maxInputChars === 'number' ? json.maxInputChars : 4096,
+        ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+      }
+      return { type: 'terminal_interaction', terminalInteraction: interaction }
     }
     const choices = json?.choices as Array<Record<string, unknown>> | undefined
     const choice = choices?.[0]
