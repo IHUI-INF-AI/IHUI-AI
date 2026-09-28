@@ -412,9 +412,43 @@ async function selfTest() {
     ok(afterUntrackedStaged.violations.length === 0, 'T4b 未跟踪副本存在时 --staged 档仍 0 违规')
     ok(afterUntrackedStaged.untracked >= 1, 'T4c 未跟踪候选被如实计数(≥1),不静默')
 
+    // —— T4d/T4e:本票的承重对照 —— 把**同一份内容**放进索引(不提交)——
+    // 只有 T4a/T4b 的话,判据退化成"什么都不扫"照样全绿;这一对才证明"面上没有 ⇒ 不判、
+    // 面上有 ⇒ 必判"是同一条判据的两面,而不是把门改松了(§22c:正反必须成对)。
+    // 取面抛异常一律**算一次失败并继续跑完**,绝不让自检半途退出 —— 只打一半读数的取证
+    // 与"根本没跑"同形(变异自证:把 staged 前缀写成 'HEAD:' 时,旧写法直接 rc=2 且 T5/T6 不再跑)。
+    const runScan = (r, f) => {
+      try {
+        return { violations: scanCandidates(r, f).violations, err: null }
+      } catch (e) {
+        return { violations: [], err: e?.message ?? String(e) }
+      }
+    }
+    g(repo, 'add', '--', 'apps/miniapp-taro/.tmp-twq-fix/common.js')
+    const indexedBare = runScan(repo, 'staged')
+    const headAtSameMoment = runScan(repo, 'head')
+    ok(
+      indexedBare.violations.some(
+        (v) =>
+          v.file === 'apps/miniapp-taro/.tmp-twq-fix/common.js' &&
+          v.rule === 'bare-refreshAccessToken',
+      ),
+      `T4d 同一份裸 refreshAccessToken 内容**进了索引** ⇒ --staged 必红(这次提交会带走它)${
+        indexedBare.err ? `(取材抛出:${indexedBare.err})` : ''
+      }`,
+    )
+    ok(
+      headAtSameMoment.violations.length === 0,
+      `T4e 同一瞬间它仍不在 HEAD ⇒ 默认档 0 违规(两面各自说话,绝不互相顶结论)${
+        headAtSameMoment.err ? `(取材抛出:${headAtSameMoment.err})` : ''
+      }`,
+    )
+
     // —— T5:阳性对照 —— 把真实违规喂进 HEAD ⇒ 必红 ——
-    // 先撤掉 T4 的未跟踪副本:不撤的话下面 `git add -A` 会把它一并收进 HEAD,
-    // 使 T6 的"白名单面全绿"被一份非白名单内容判红(夹具之间必须互不串)。
+    // 先撤掉 T4 的副本(索引 + 磁盘两处):T4d 已把它暂存,只撤盘不撤索引的话下面
+    // `git add -A` 会把它一并收进 HEAD,使 T6 的"白名单面全绿"被一份非白名单内容判红
+    // (夹具之间必须互不串)。
+    g(repo, 'reset', '-q', '--', 'apps/miniapp-taro/.tmp-twq-fix/common.js')
     rmSync(join(repo, 'apps', 'miniapp-taro', '.tmp-twq-fix', 'common.js'), { force: true })
     write(repo, 'apps/web/src/bad.ts', BAD_BARE)
     g(repo, 'add', '-A')
