@@ -46,6 +46,16 @@ export interface McpToolDef {
     properties?: Record<string, unknown>;
     required?: string[];
   };
+  /**
+   * MCP 标准工具注解(tools/list 原样带回),本仓只取**免批两轴**用得上的两项:
+   * `readOnlyHint`(轴 A:只读)与 `openWorldHint`(轴 B:是否触达外部世界)。
+   * 这里只是把服务端**自报的事实**抄下来,不做任何批准判定 —— 判定唯一实现在
+   * `tools/index.ts` 的 `requiresUserConfirmation()`。
+   */
+  annotations?: {
+    readOnlyHint?: boolean;
+    openWorldHint?: boolean;
+  };
 }
 
 export interface McpResource {
@@ -739,8 +749,11 @@ function convertSchema(schema: unknown): Record<string, ToolParameter> {
  *   → registerTool 进 registry → runToolLoop 的 listTools()/toolsToProviderSchema() 下发。
  * TODO(生态扩展后续):接入 @modelcontextprotocol/sdk 替换手写 JSON-RPC(当前零依赖自实现),
  * 并支持 prompts/resources 等 MCP 其余原语。
+ *
+ * `export` 只为让单测能拿到**生产的那一份**转换(免批两轴的映射是它的行为,不该在测试里
+ * 重写一遍 —— 本仓"测试内联第二份判据"记过多次)。判定本身**不在**本文件。
  */
-function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
+export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
   const params = convertSchema(mcpTool.inputSchema);
   const required = mcpTool.inputSchema.required ?? [];
   const serverName = conn.server.name;
@@ -752,6 +765,18 @@ function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
     description: mcpTool.description ?? `MCP 工具 (${serverName})`,
     parameters: params,
     required,
+    // 免批**两轴的声明**(不是判定):只有服务端**显式**自报 readOnlyHint=true 才算只读、
+    // 显式自报 openWorldHint=false 才算不碰外部世界(MCP 规范里 openWorldHint 缺省视为 true,
+    // 即"没自报 = 没证明 = 不许免批")。两轴各自为假是两回事,合取判定住在
+    // `tools/index.ts` 的 `requiresUserConfirmation()`。
+    //
+    // 用户可感知的变化(改前实测):本文件从前**从不**写 dangerLevel,而批准闸只认
+    // `dangerLevel === 'dangerous'` ⇒ 每一个 MCP 工具都是免批;自本笔起,凡两轴没同时
+    // 成立的 MCP 工具都要走确认弹窗(含"完全没自报 annotations"这一整族)。
+    approvalExemption: {
+      readonlyAxis: mcpTool.annotations?.readOnlyHint === true,
+      closedWorldAxis: mcpTool.annotations?.openWorldHint === false,
+    },
     async execute(args): Promise<ToolResult> {
       try {
         const raw = await callMcpServer(conn, 'tools/call', {
