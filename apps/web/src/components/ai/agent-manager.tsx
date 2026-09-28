@@ -75,7 +75,7 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
                     type="button"
                     onClick={() => onSelect?.(agent.id)}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                      'flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-left transition-colors',
                       isSel ? 'bg-primary/10 ring-1 ring-ring/30' : 'hover:bg-muted/50',
                     )}
                   >

@@ -57,7 +57,7 @@ export function ExportAuditReport({
       type="button"
       onClick={handleExport}
       data-testid="export-audit-report"
-      className="mt-2 inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+      className="mt-2 inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
     >
       <FileDown className="h-3 w-3" aria-hidden />
       {t('auditExportBtn')}
