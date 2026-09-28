@@ -1029,7 +1029,7 @@ export function OrchestrationHubPanel() {
   const [activeTab, setActiveTab] = React.useState<TabKey>('events')
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background/80 backdrop-blur-md">
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background/80 backdrop-blur-md">
       {/* 标题栏 */}
       <header className="flex h-11 shrink-0 items-center gap-2 bg-muted/30 px-3">
         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-cta text-cta-foreground">
