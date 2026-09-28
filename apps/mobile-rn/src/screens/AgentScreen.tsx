@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
     right: 16,
     width: 34,
     height: 34,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
