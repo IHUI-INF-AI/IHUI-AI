@@ -16,15 +16,15 @@
   },
   "radiusCounts": {
     "AgentRuntimePanel": 1,
-    "BottomActionBar": 3,
+    "BottomActionBar": 2,
     "Carousel": 0,
     "CategoryBar": 0,
     "DrawerComponent": 3,
     "InputArea": 1,
     "IntelligentAssistant": 1,
-    "LoginPopUp": 3,
+    "LoginPopUp": 2,
     "ModelConfigDialog": 0,
-    "ModelList": 2,
+    "ModelList": 3,
     "NavBar": 1,
     "UserInfoCard": 2,
     "VideoPlayer": 1

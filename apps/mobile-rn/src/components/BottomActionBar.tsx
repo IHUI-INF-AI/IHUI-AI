@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
   voiceBtn: {
     width: VOICE_BTN_SIZE,
     height: VOICE_BTN_SIZE,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
   secondaryBtn: {
     width: SECONDARY_BTN_SIZE,
     height: SECONDARY_BTN_SIZE,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
