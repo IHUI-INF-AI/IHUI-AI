@@ -44,7 +44,9 @@ import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 // `powershell -ExecutionPolicy Bypass -File deploy\win\...` 例子,先剥注释**与字符串**再判,
 // 否则门会把自己文档里的例子判成违规(本仓"判据失效的表现永远是安静"的反面:判据误伤
 // 自己的解释文字,守门 131 同型事故)。
-import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+// 脚本系(.ps1/.sh/.bat/.cmd/.vbs)另走同一份 lib 的 `maskScriptComments` 方言档:注释语法是
+// `#` / `REM` / `::` / `'`,与 JS 词法不同形;而**字符串不遮**(那正是"引号里的真调用"所在)。
+import { maskCommentsAndStrings, maskScriptComments } from './lib/code-mask.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
 
 const GIT_BIN = resolveGitBin() || 'git'
@@ -183,15 +185,36 @@ function pushExempt(rel, absPath) {
 // ── ③ 调用侧判据:代码面调用 deploy/**.ps1 必须指名 PS7 引擎或经 vbs 包装 ────────
 // 判的是**调用方**而不是被调脚本头部 —— 豁免面"头部不判"是可用性决定,不等于"这一族没尺子"。
 // 规则(全部同行成立才算命中,方向刻意是宁漏不误报):
-//   a) 剥注释与字符串后的面上出现 `powershell[.exe] -<参数>` 调用形态(必须紧跟 `-参数`,
-//      避免把 `powershellPath` 这类标识符读成调用);
+//   a) 遮噪后的**代码面**上出现 `powershell[.exe] -<参数>` 调用形态(必须紧跟 `-参数`,
+//      避免把 `powershellPath` 这类标识符读成调用);遮噪按语言分档,见下方"覆盖面";
 //   b) 同一行引用 `deploy/<…>.ps1` 路径(两种分隔符都认);
 //   c) 该行不含 `pwsh`(显式 PS7 ⇒ 合规),也不含 `.vbs`(§26 计划任务一律经纯 ASCII wscript
 //      包装 ⇒ 合规,裸 powershell 不在这条调用里)。
-// 覆盖面如实登记:只判 JS/TS 系扩展 —— 这些语言的注释/字符串有 code-mask 那一份可靠遮噪;
-// .ps1/.sh/.bat/.vbs 的注释语法(`#`、`'`、`REM`)不在遮噪层射程,套上去就是拿门自己的
-// 文档例子判红(误报),所以那一侧只登记为已知盲区、不判(宁漏不误报)。
-const CALLER_EXTS = new Set(['.mjs', '.cjs', '.js', '.jsx', '.ts', '.tsx'])
+// 覆盖面(2026-09-28 G-391② 把这一族从盲区收进判据):
+//   ① JS/TS 系(.mjs/.cjs/.js/.jsx/.ts/.tsx)—— 沿用 lib/code-mask 的 JS 档,注释**与字符串**都遮。
+//   ② 脚本系(.ps1/.sh/.bash/.bat/.cmd/.vbs)—— 走同一份 lib 的**脚本方言**档
+//      (`maskScriptComments`),它按各语言自己的词法遮注释:PowerShell `#` 与 `<# #>`、
+//      shell `#`(仅词首)、batch `REM`/`::`(仅命令起始位)、VBScript `'`(串外)。
+//      这一档**不遮字符串**,因为脚本语言的真调用恰恰写在引号里
+//      (`objShell.Run "powershell -File deploy\win\x.ps1"` 是 §26 计划任务的包装形态)——
+//      抹引号等于没收这把尺子;而 JS 档抹字符串是对的,那里 usage 文本就在字符串里。
+//      把 JS 语义套到脚本文件上,两个方向都错:不遮 `#`/`'`/`REM` ⇒ 门把 deploy/win/*.ps1 头部
+//      逐字写着的用法示例判成违规(守门 70/131 同型);抹字符串 ⇒ 对立项那一型全盲却一路报绿。
+const CALLER_JS_EXTS = new Set(['.mjs', '.cjs', '.js', '.jsx', '.ts', '.tsx'])
+/** 扩展名 → lib/code-mask 的脚本方言(封闭映射;漏一条 = 该扩展名整型隐身,由镜像 T9 钉住)。 */
+const CALLER_SCRIPT_DIALECT = new Map([
+  ['.ps1', 'ps'],
+  ['.sh', 'sh'],
+  ['.bash', 'sh'],
+  ['.bat', 'bat'],
+  ['.cmd', 'bat'],
+  ['.vbs', 'vbs'],
+])
+/** 该扩展名是否在调用侧射程内;返回遮噪方言名(JS 档用 'js'),不在射程返回 null。 */
+function callerDialectForExt(ext) {
+  if (CALLER_JS_EXTS.has(ext)) return 'js'
+  return CALLER_SCRIPT_DIALECT.get(ext) ?? null
+}
 /** 自豁免:本门与镜像测试必然逐字写出被禁形态来解释/验证判据,判它们等于门判自己的散文(守门 79 同型)。 */
 const CALLER_SELF_EXEMPT = new Set([
   'scripts/check-pwsh-version.mjs',
@@ -204,7 +227,7 @@ const COMPLIANT_VBS_WRAPPER = /\.vbs\b/i
 
 const callerHits = []
 
-function scanCallerFile(absPath, relForReport) {
+function scanCallerFile(absPath, relForReport, dialect) {
   let text
   try {
     text = readFileSync(absPath, 'utf8')
@@ -214,14 +237,17 @@ function scanCallerFile(absPath, relForReport) {
   // 预筛:必须是判据字面量的**超集**(调用形态按小写 powershell 判,这里同词直取)。
   // 预筛漏一个形态,门就在该形态上失明 —— 与判据不同形的预筛等于没有(守门 102 同课)。
   if (!text.includes('powershell')) return
-  const masked = maskCommentsAndStrings(text)
+  // 遮噪只许走 lib/code-mask 那一份实现:JS 档遮注释+字符串,脚本档按各语言词法只遮注释。
+  // 方言由调用方按扩展名传入(callerDialectForExt);lib 收到未知方言**抛错**而不是返回原文,
+  // 所以"漏映射"当场炸而不是静默把整棵子树判成代码面(§"把没判写成判过了"同型禁令)。
+  const masked = dialect === 'js' ? maskCommentsAndStrings(text) : maskScriptComments(text, dialect)
   const lines = masked.split(/\r?\n/)
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i]
     if (!BARE_POWERSHELL_CALL.test(l)) continue
     if (!DEPLOY_PS1_REF.test(l)) continue
     if (COMPLIANT_ENGINE.test(l) || COMPLIANT_VBS_WRAPPER.test(l)) continue
-    callerHits.push({ rel: relForReport, line: i + 1, text: l.trim().slice(0, 160) })
+    callerHits.push({ rel: relForReport, line: i + 1, text: l.trim().slice(0, 160), dialect })
   }
 }
 
@@ -242,10 +268,11 @@ function walkExemptAndCallers(dir) {
     } else {
       const dot = e.name.lastIndexOf('.')
       const ext = dot >= 0 ? e.name.slice(dot).toLowerCase() : ''
-      if (!CALLER_EXTS.has(ext)) continue
+      const dialect = callerDialectForExt(ext)
+      if (!dialect) continue
       const rel = relative(ROOT, full).replace(/\\/g, '/')
       if (CALLER_SELF_EXEMPT.has(rel)) continue
-      scanCallerFile(full, rel)
+      scanCallerFile(full, rel, dialect)
     }
   }
 }
@@ -321,22 +348,29 @@ if (STAGED) {
     for (const relRaw of staged) {
       const rel = relRaw.replace(/\\/g, '/')
       const segs = rel.split('/')
-      const isPsi = rel.toLowerCase().endsWith('.ps1')
+      const dot = rel.lastIndexOf('.')
+      const ext = dot >= 0 ? rel.slice(dot).toLowerCase() : ''
+      const dialect = callerDialectForExt(ext)
+      // 调用侧:与全量档 `walkExemptAndCallers` **同形** —— 那一遍对每个在射程内的文件都跑
+      // (deploy/**.ps1 既进豁免面也进调用侧),暂存档若对 .ps1 只跑 pragma 面就跑掉了这一半。
+      // .ps1 现在是调用面扩展名之一,这一格从"理论不一致"变成"实测会分叉"(镜像 T8 钉住)。
+      const callerOk =
+        dialect &&
+        !CALLER_SELF_EXEMPT.has(rel) &&
+        !segs.some((s) => NEVER_ENTER_DIRS.has(s) || isExcludedDirName(s))
+      const isPsi = ext === '.ps1'
       if (isPsi && segs.includes(DEPLOY_DIR_NAME)) {
         pushExempt(rel, join(ROOT, relRaw)) // 豁免面:进报告、不判红
+        if (callerOk) scanCallerFile(join(ROOT, relRaw), rel, dialect)
         continue
       }
       if (isPsi) {
-        if (isSkippedPath(relRaw)) continue
-        checkFile(join(ROOT, relRaw)) // 已删除的文件 readFileSync 失败即跳过
+        if (!isSkippedPath(relRaw)) checkFile(join(ROOT, relRaw)) // 已删除的文件 readFileSync 失败即跳过
+        if (callerOk) scanCallerFile(join(ROOT, relRaw), rel, dialect)
         continue
       }
-      const dot = rel.lastIndexOf('.')
-      const ext = dot >= 0 ? rel.slice(dot).toLowerCase() : ''
-      if (!CALLER_EXTS.has(ext)) continue
-      if (CALLER_SELF_EXEMPT.has(rel)) continue
-      if (segs.some((s) => NEVER_ENTER_DIRS.has(s) || isExcludedDirName(s))) continue
-      scanCallerFile(join(ROOT, relRaw), rel)
+      if (!callerOk) continue
+      scanCallerFile(join(ROOT, relRaw), rel, dialect)
     }
   }
 } else {
@@ -364,12 +398,16 @@ if (exemptPsi.length > 0) {
 }
 console.log(
   `[CALLER] 代码面裸 powershell 调用 deploy/**.ps1 的站点: ${callerHits.length} 个` +
-    '(判据：剥注释与字符串后，同一行含 `powershell[.exe] -<参数>` + deploy 路径，且无 pwsh、无 .vbs)',
+    '(判据：遮掉注释后，同一行含 `powershell[.exe] -<参数>` + deploy 路径，且无 pwsh、无 .vbs)',
 )
-for (const h of callerHits) console.log(`  - ${h.rel}:${h.line}: ${h.text}`)
+for (const h of callerHits) console.log(`  - ${h.rel}:${h.line}: [${h.dialect}] ${h.text}`)
 console.log(
-  '  覆盖面：仅 JS/TS 系(.mjs/.cjs/.js/.jsx/.ts/.tsx)在判；.ps1/.sh/.bat/.vbs 调用面因遮噪层\n' +
-    '        不适用(code-mask 不认其注释语法)而**不判**，属如实登记的盲区，不是"已确认没有"。',
+  '  覆盖面：JS/TS 系(.mjs/.cjs/.js/.jsx/.ts/.tsx，遮注释+字符串)与脚本系(.ps1/.sh/.bash/.bat/.cmd/\n' +
+    "        .vbs，按各语言词法只遮注释：PS `#`/`<# #>`、shell `#`(词首)、batch `REM`/`::`、VBS `'`)。\n" +
+    '        脚本系自 2026-09-28(G-391②)起在判；其**字符串刻意不遮** —— 那里引号内就是真调用\n' +
+    '        (`objShell.Run "powershell -File deploy\\…"` 是 §26 的 wscript 包装形态)。\n' +
+    '        仍未遮的一格如实登记：脚本文件里的**变量拼接**(`& $exe -File "deploy\\x.ps1"` 之类)判不\n' +
+    '        出来，属"看不见"而不是"已确认没有"。',
 )
 console.log(
   STRICT
