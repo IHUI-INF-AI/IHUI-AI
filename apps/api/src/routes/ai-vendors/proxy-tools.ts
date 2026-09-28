@@ -13,6 +13,11 @@ import { success, error } from '../../utils/response.js'
 import { buildSchema } from '../../utils/swagger.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { generateCompactId } from '../../utils/crypto-random.js'
+// issue #71:n8n **基址**的 env 读取只有一个出口。本子路由历史上读 N8N_BASE_URL,
+// 故以它为主名、N8N_DOMAIN 只作别名兜底(主名优先 ⇒ 主名在位时现网指向不变,详见
+// utils/n8n-env.ts 顶部三条不可漂的写法)。
+// 禁止在本文件再直接写 process.env.N8N_DOMAIN / N8N_BASE_URL。
+import { readN8nBaseUrl, readN8nCredentials, n8nBaseHint } from '../../utils/n8n-env.js'
 import { db } from '../../db/index.js'
 import {
   createVideoTask,
@@ -109,6 +114,8 @@ const bailianChatBody = z.object({
 })
 
 // N8N 官方 GET /workflows 查询参数:active/limit/cursor/tags
+/** 本子路由的 n8n 基址主名(历史名,保持其优先权;另一名字只作别名,见 utils/n8n-env.ts)。 */
+const N8N_ENV_PRIMARY = 'N8N_BASE_URL' as const
 const n8nWorkflowsBody = z.object({
   n8nDomain: z.string().optional(),
   apiKey: z.string().optional(),
@@ -408,14 +415,16 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       if (body.topK !== undefined) parameters.top_k = body.topK
       if (body.maxTokens !== undefined) parameters.max_tokens = body.maxTokens
       if (body.seed !== undefined) parameters.seed = body.seed
-      if (body.repetitionPenalty !== undefined) parameters.repetition_penalty = body.repetitionPenalty
+      if (body.repetitionPenalty !== undefined)
+        parameters.repetition_penalty = body.repetitionPenalty
       if (body.presencePenalty !== undefined) parameters.presence_penalty = body.presencePenalty
       if (body.stop !== undefined) parameters.stop = body.stop
       if (body.hasThoughts !== undefined) parameters.has_thoughts = body.hasThoughts
       if (body.resultFormat) parameters.result_format = body.resultFormat
       if (body.enableThinking !== undefined) parameters.enable_thinking = body.enableThinking
       if (body.stream) parameters.incremental_output = body.incrementalOutput ?? true
-      else if (body.incrementalOutput !== undefined) parameters.incremental_output = body.incrementalOutput
+      else if (body.incrementalOutput !== undefined)
+        parameters.incremental_output = body.incrementalOutput
       const payload: Record<string, unknown> = {
         model: appId,
         input,
@@ -673,7 +682,8 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       if (body.duration !== undefined) submitBody.duration = body.duration
       if (body.aspect_ratio) submitBody.aspect_ratio = body.aspect_ratio
       if (body.framespersecond !== undefined) submitBody.framespersecond = body.framespersecond
-      if (body.watermark !== null && body.watermark !== undefined) submitBody.watermark = body.watermark
+      if (body.watermark !== null && body.watermark !== undefined)
+        submitBody.watermark = body.watermark
       if (body.i2v_align) submitBody.i2v_align = body.i2v_align
       if (body.image_urls?.length) submitBody.image_urls = body.image_urls
       if (body.use_pre_llm !== undefined) submitBody.use_pre_llm = body.use_pre_llm
@@ -870,13 +880,16 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = n8nWorkflowRunBody.parse(request.body)
-      const baseUrl = process.env.N8N_BASE_URL
-      if (!baseUrl) return reply.status(503).send(error(503, 'N8N_BASE_URL 未配置'))
+      // issue #71:基址经唯一出口读两个名字(N8N_BASE_URL 主名 / N8N_DOMAIN 别名)。
+      // 这一条的 key 走 requireVendorKey(厂商配置),不是 N8N_API_KEY,所以文案只提基址。
+      const base = readN8nBaseUrl(N8N_ENV_PRIMARY)
+      if (!base) return reply.status(503).send(error(503, `${n8nBaseHint(N8N_ENV_PRIMARY)} 未配置`))
+      // origin 已在唯一出口里去过尾斜杠并补好 scheme,这里不得再各自 replace。
       const key = requireVendorKey('n8n', reply)
       if (!key) return
       const url = body.workflowId
-        ? `${baseUrl.replace(/\/$/, '')}/api/v1/workflows/${encodeURIComponent(body.workflowId)}/activate`
-        : `${baseUrl.replace(/\/$/, '')}${body.webhookPath ?? '/webhook'}`
+        ? `${base.origin}/api/v1/workflows/${encodeURIComponent(body.workflowId)}/activate`
+        : `${base.origin}${body.webhookPath ?? '/webhook'}`
       try {
         const resp = await fetchWithTimeout(
           url,
@@ -1238,13 +1251,14 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       }),
     },
     async (_request, reply) => {
-      const baseUrl = process.env.N8N_BASE_URL
-      const key = process.env.N8N_API_KEY
-      if (!baseUrl || !key) return reply.status(503).send(error(503, 'N8N 服务未配置'))
+      // issue #71:基址经唯一出口读两个名字(N8N_BASE_URL 主名 / N8N_DOMAIN 别名);
+      // "基址 + N8N_API_KEY 都在位才算已配置"的与条件与改动前同形。
+      const cred = readN8nCredentials(N8N_ENV_PRIMARY)
+      if (!cred) return reply.status(503).send(error(503, 'N8N 服务未配置'))
       try {
         const resp = await fetchWithTimeout(
-          `${baseUrl.replace(/\/$/, '')}/api/v1/workflows?active=true`,
-          { method: 'GET', headers: { 'X-N8N-API-KEY': key } },
+          `${cred.origin}/api/v1/workflows?active=true`,
+          { method: 'GET', headers: { 'X-N8N-API-KEY': cred.apiKey } },
           30_000,
         )
         const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
