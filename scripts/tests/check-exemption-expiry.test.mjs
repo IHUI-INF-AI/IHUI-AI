@@ -5,7 +5,7 @@
 // §22c 镜像测试:直接 import 源脚本的 __test__,禁止在测试里复制一份实现。
 //
 // 断的是**不变量**,不是存量数字 —— 本仓反复记录"清单/计数写死 ⇒ 清单腐烂 ⇒ 恒红 ⇒ 全队
-// --no-verify ⇒ 全部守门作废"。因此这里没有任何一条形如"radius-exempt 必须有 149 处"的断言;
+// --no-verify ⇒ 全部守门作废"。因此这里没有任何一条形如"border-ink-exempt 必须有 149 处"的断言;
 // 涉及仓内实际形态的断言一律从基线文件/源码**推导**出来再自比。
 //
 // 夹具在 mkScratch 临时目录构造并显式 --root 传入,绝不扫真仓(守门 70 教训:测试靠 cwd
@@ -29,7 +29,7 @@ const BASELINE_PATH = join(REPO, gate.BASELINE_REL)
 const TODAY = '2026-09-25'
 const entry = (over) => ({
   file: 'a.ts',
-  family: 'radius-exempt',
+  family: 'border-ink-exempt',
   line: 1,
   attach: 'inline',
   expiry: null,
@@ -85,7 +85,7 @@ test('T03 isPast 的方向是唯一真相(反一次就让 9 条判据同时错�
 
 test('T04 E1 只认"超出基线的部分"(新增豁免不带日期才红)', () => {
   const entries = [entry({}), entry({ line: 2 })]
-  const base = { grandfatherUntil: '2099-01-01', undatedCounts: { 'a.ts::radius-exempt': 2 } }
+  const base = { grandfatherUntil: '2099-01-01', undatedCounts: { 'a.ts::border-ink-exempt': 2 } }
   assert.equal(
     gate.analyze({ entries, suppressionsByFile: {}, baseline: base, today: TODAY }).red.length,
     0,
@@ -102,7 +102,7 @@ test('T05 E2 已过期豁免无条件红,基线救不了它(豁免=借来的时�
   const r = gate.analyze({
     entries: [expired],
     suppressionsByFile: {},
-    baseline: { grandfatherUntil: '2099-01-01', undatedCounts: { 'a.ts::radius-exempt': 1 } },
+    baseline: { grandfatherUntil: '2099-01-01', undatedCounts: { 'a.ts::border-ink-exempt': 1 } },
     today: TODAY,
   })
   assert.equal(r.red.length, 1)
@@ -111,7 +111,7 @@ test('T05 E2 已过期豁免无条件红,基线救不了它(豁免=借来的时�
 })
 
 test('T06 E3 基线自身过期即整门红;账销完即绿;字段缺失按"过期"处理', () => {
-  const stock = { grandfatherUntil: '2020-01-01', undatedCounts: { 'a.ts::radius-exempt': 3 } }
+  const stock = { grandfatherUntil: '2020-01-01', undatedCounts: { 'a.ts::border-ink-exempt': 3 } }
   assert.ok(
     gate
       .analyze({ entries: [], suppressionsByFile: {}, baseline: stock, today: TODAY })
@@ -157,7 +157,7 @@ test('T07 lint 抑制面只报数不判红(规格 §7 的"不得独立成第二�
 
 test('T08 两种挂靠方式与各族拼写都能被同一判据看见(否则同时产假红与假绿)', () => {
   const cases = [
-    ['x = 1 // radius-exempt: 正圆', 'radius-exempt', 'inline'],
+    ['x = 1 // border-ink-exempt: 正圆', 'border-ink-exempt', 'inline'],
     ['// statusbar-exempt: 与封面同高\nconst a = 1', 'statusbar-exempt', 'prev-line'],
     ['<Text>›</Text> // glyph-arrow-exempt: 同源指示符', 'glyph-arrow-exempt', 'inline'],
     ["a('*!important/*!ihui-allow-important:理由*/')", 'ihui-allow-important', 'inline'],
@@ -315,7 +315,7 @@ test('T20 自豁免不得吃掉别的文件里的过期豁免(临时仓双向对
       join(dir, gate.BASELINE_REL),
       JSON.stringify({ grandfatherUntil: '2099-01-01', undatedCounts: {} }),
     )
-    const EXPIRED = 'export const v = 1 // radius-exempt: 夹具日期已过去 until 2020-01-01\n'
+    const EXPIRED = 'export const v = 1 // border-ink-exempt: 夹具日期已过去 until 2020-01-01\n'
     // 同名文件走自豁免 ⇒ 不红;换个路径的同一条豁免必须照红
     writeFileSync(join(dir, 'scripts', 'check-exemption-expiry.mjs'), EXPIRED)
     writeFileSync(join(dir, 'apps', 'other.ts'), EXPIRED)
@@ -343,8 +343,8 @@ test('T21 工具面(scripts/**)只影响记账面,且两侧都有牙 —— 纯�
   const re = gate.TOOL_FACE_RE
   assert.ok(re instanceof RegExp, '__test__ 必须导出 TOOL_FACE_RE')
   assert.ok(re.source.startsWith('^'), '工具面必须锚定路径行首:写成 /scripts\\// 会把别的面吞掉')
-  const LINE = '// radius-exempt: 头像要纯圆'
-  const EXPIRED_LINE = '// radius-exempt: 头像要纯圆 until 2020-01-01'
+  const LINE = '// border-ink-exempt: 头像要纯圆'
+  const EXPIRED_LINE = '// border-ink-exempt: 头像要纯圆 until 2020-01-01'
   const tool = gate.scanFile('scripts/check-some-gate.mjs', LINE).entries
   const app = gate.scanFile('apps/web/src/x.ts', LINE).entries
   assert.equal(tool.length, 1)
@@ -352,7 +352,7 @@ test('T21 工具面(scripts/**)只影响记账面,且两侧都有牙 —— 纯�
   assert.equal(app[0].toolFace, false, 'apps/ 一侧不得被吞(吞了 = 本门对全部业务代码失明)')
   // 无日期账:工具面不进账,记账面照进 —— 观测侧与 HEAD 锚点侧共用 undatedCountsOf,对称
   assert.deepEqual(gate.undatedCountsOf(tool), {})
-  assert.deepEqual(gate.undatedCountsOf(app), { 'apps/web/src/x.ts::radius-exempt': 1 })
+  assert.deepEqual(gate.undatedCountsOf(app), { 'apps/web/src/x.ts::border-ink-exempt': 1 })
   const base = { grandfatherUntil: '2099-01-01', undatedCounts: {} }
   const run = (entries) =>
     gate.analyze({ entries, suppressionsByFile: {}, baseline: base, today: TODAY, headCounts: {} })
@@ -366,7 +366,7 @@ test('T21 工具面(scripts/**)只影响记账面,且两侧都有牙 —— 纯�
 
 test('T23 E4「新豁免族必须同笔登记」:判据只引一次真相源,族集合按面分两侧(§22c 不抄实现)', () => {
   // 登记与否的唯一真相 = FAMILY_LIFETIME_DAYS 的键集;构造面少填 `registered` 旗不得改变结论
-  assert.equal(gate.isFamilyRegistered('radius-exempt'), true)
+  assert.equal(gate.isFamilyRegistered('border-ink-exempt'), true)
   assert.equal(gate.isFamilyRegistered('brand-new-gate-exempt'), false)
   const app = { family: 'brand-new-gate-exempt', file: 'apps/demo/a.ts', expiry: '2099-12-31' }
   const tool = { ...app, file: 'scripts/check-demo.mjs', toolFace: true }
@@ -412,8 +412,8 @@ test('T24 E4 端到端有牙:临时索引新增未登记族必红、新增已登
       join(dir, gate.BASELINE_REL),
       JSON.stringify({ grandfatherUntil: '2099-01-01', undatedCounts: {} }),
     )
-    // HEAD 面:已登记族的豁免(radius-exempt,带未来到期日)⇒ E1/E2/E4 都该静默
-    writeFileSync(join(dir, 'apps', 'first.ts'), 'x // radius-exempt: 夹具 until 2099-12-31\n')
+    // HEAD 面:已登记族的豁免(border-ink-exempt,带未来到期日)⇒ E1/E2/E4 都该静默
+    writeFileSync(join(dir, 'apps', 'first.ts'), 'x // border-ink-exempt: 夹具 until 2099-12-31\n')
     git(['add', '.'])
     git(['commit', '-q', '-m', 'fixture'])
     const runJSON = (args) => {
@@ -427,7 +427,7 @@ test('T24 E4 端到端有牙:临时索引新增未登记族必红、新增已登
     const clean = runJSON(['--staged'])
     assert.equal(clean.status, 0, `干净索引不得判红:${JSON.stringify(clean.out.red)}`)
     // ① 索引新增一处**已登记**族的豁免 ⇒ E4 不响(不得把"表里有"也判红)
-    writeFileSync(join(dir, 'apps', 'second.ts'), 'y // radius-exempt: 第二处 until 2099-12-31\n')
+    writeFileSync(join(dir, 'apps', 'second.ts'), 'y // border-ink-exempt: 第二处 until 2099-12-31\n')
     git(['add', 'apps/second.ts'])
     assert.deepEqual(runJSON(['--staged']).out.red, [], '已登记族的新使用不得触发 E4')
     // ② 索引新增一处**未登记**族的豁免 ⇒ E4 必须点名该族
@@ -472,7 +472,7 @@ test('T22 基线里不得再有工具面键(存量债必须是真豁免,prose �
 // 而后果定是逼人绕开门。成对方向必须钉死:同一行文字在**活文件**里仍无条件判 E2,
 // 否则"不红"就只是判据失效(本仓最高频那型假绿)。
 test('T25 存档面只报数不入账,但活文件同一条过期豁免照旧判 E2(成对)', () => {
-  const TXT = '// radius-exempt: 头像要纯圆 until 2020-01-01'
+  const TXT = '// border-ink-exempt: 头像要纯圆 until 2020-01-01'
   const arch = gate.scanFile('.ihui-agent/archive/PROJECT_PLAN_dedup-2026-09-26.md', TXT)
   const live = gate.scanFile('apps/demo/src/a.ts', TXT)
   assert.equal(arch.entries.length, 1, '存档面也必须被扫到(不是不读,是不入账)')
@@ -488,4 +488,22 @@ test('T25 存档面只报数不入账,但活文件同一条过期豁免照旧判
   // 报数不得静默并入别的档
   assert.match(SRC, /archiveFace: entries\.filter\(\(e\) => e\.archiveFace\)\.length/, 'totals 缺存档面计数')
 })
+
+/**
+ * T-FAM 已废除的圆角豁免族不得留在登记表里(2026-09-29 O81 票㊵)。
+ * `FAMILY_LIFETIME_DAYS` 的语义是"合法出口的寿命清单":留一行没人能用的族名,等于替一条已废除的
+ * 通道继续背书 —— 下一个读表的人会以为"挂这行标记有 90 天寿命",而判据那边早已没有任何放行支路。
+ * 这是"清单腐烂"那一型的镜像:本仓 RN_ONLY_BRAND_KEYS / waivers 空表都记过同一条。
+ * 反向的一半(写了就红)由门 77 的镜像 T-B8 钉 —— 两条合起来才是"通道死了"的完整证据。
+ */
+test('T-FAM 已废除的圆角豁免族不得留在登记表里', () => {
+  const fams = Object.keys(gate.FAMILY_LIFETIME_DAYS)
+  for (const dead of ['radius-exempt', 'radius-role-exempt'])
+    assert.ok(
+      !fams.includes(dead),
+      `${dead} 仍在 FAMILY_LIFETIME_DAYS ⇒ 门 108 还在替一条已废除的出口发寿命`,
+    )
+  assert.equal(gate.isFamilyRegistered('radius-exempt'), false, 'isFamilyRegistered 必须与表同形')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
