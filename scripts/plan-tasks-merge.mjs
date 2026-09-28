@@ -1514,16 +1514,19 @@ export function openRowsDedupeAndLand(match = null, maxAttempts = 8, opts = {}) 
  *     `[（(][^）)]*[）)]` 剥状态装饰 —— 写成 `〔〕` 它剥不掉 ⇒ 该行"行首名额"消失 ⇒
  *     防丢层把合法折叠读成整行消失 ⇒ post-commit 回捞**未折叠**的原行 ⇒ 折叠被原地复活,
  *     正是 G-307 记过的"两层自愈互咬"(实测两小时 24 枚恢复型提交)。
- *     用全角括号则两侧各得其所:门 71 剥得掉(防丢面不受任何影响),而索引层的 `DECOR_RE`
- *     只认 `（进行中…）`/`✅…`/`（已完成）` 几族 ⇒ 剥不掉 ⇒ 主键窗口里看不见编号 ⇒ 号被摘掉。
+ *     用全角括号则门 71 剥得掉(防丢面不受任何影响)。至于"这一行不再算一条活待办",**不靠隐形**:
+ *     索引层 2026-09-29 修好装饰档漏算之后,折叠行的行首号必然被 `keyOfRow` 看见 —— 逐出派单口径的
+ *     是 `DUP_POINTER_RE`(`findDupOpenCopies` 用的同一份过滤),不是窗口的盲区。
  *     这条不对称是本档全部机制的落点,由 `verifyTwinFold` 里的 `headIdOf` 等值 +
  *     `lostMarkers` 为空两条断言当场把住 —— 不是靠注释承诺。
  *  ② 指针文字里**绝不写行号**(§1 规矩 3),也**绝不把持有行的编号写进注记**:编号一旦落在
  *     `KEY_MAX_OFFSET` 窗口内,就会被 `keyOfRow` 取成这一行的**新**主键 —— 今天真犯过一次,
  *     后果是"折掉一条副本反而新增一次撞号"。所以注记只写持有行的**题面**(titleOf 的产物,
  *     题面本身已被 stripOwnKey 剥掉自己的编号),而"原编号"这一沿革放在**行尾**(窗口之外)。
- *  ③ 折叠产物一律喂**真尺子**:`keyOfRow(after)` 必须为 null,否则**不折这一行**、点名交人工。
- *     判不出就是判不出 —— 不把"没判"写成"判过了"(本仓最高频失效型)。
+ *  ③ 折叠产物一律喂**真尺子**:折后主键要么取不到、要么必须仍是本行行首那个号(不得被注记内的他人号
+ *     顶位),且产物必须含 `DUP_POINTER_RE` 认得的副本指针;两条任一不成立 ⇒ **不折这一行**、点名交人工。
+ *     判不出就是判不出 —— 不把"没判"写成"判过了"(本仓最高频失效型)。旧写法要求 `keyOfRow(after)`
+ *     恒为 null,那是把机制盖在尺子的盲区上;盲区已于 2026-09-29 被修掉,判据随之换成可证的那一条。
  */
 /** 组内行数上限:超过它就不猜持有行(噪声或真事故都得人来判),与"机器折半即有损"同一条纪律。 */
 const TWIN_GROUP_MAX = 8
@@ -1575,13 +1578,48 @@ export function isTwinFolded(line) {
 const STATE_TOKEN_RE = /^\s*[-*]\s\[[ xX]\]/
 
 /**
+ * 行首注记区(复选框之后、正文之前的那一段全角括注)里是否混进了任务编号形态。
+ * 一条实现,两处调用(`twinFoldRejectReason` 拒折 / `verifyTwinFold` 落地前复核)—— 注记里写持有行
+ * 编号这一型当年真犯过:"折掉一条副本反而给账面新增一次撞号"。
+ * 判的是**形状卫生**而不是尺子会不会取到它:索引层 2026-09-29 补认装饰档之后,括注里的引用不再顶位,
+ * 但指针里的编号会随持有行改名而腐烂成查不到的死指针(§1 规矩 3 同一条理由),所以照旧拒。
+ */
+function strayIdInLeadDecoration(line) {
+  const m = /^\s*[-*]\s\[[ xX]\]\s*(（[^）]*）)/.exec(String(line ?? ''))
+  if (!m) return []
+  const re = new RegExp(TWIN_ID_RE.source, 'g')
+  return [...m[1].matchAll(re)].map((x) => x[0])
+}
+
+/**
  * 一条折叠产物的**准入判据**(全用真尺子,不抄编号正则)。返回拒绝理由或 null。
  * 顺序有意:先查最便宜也最要命的"摘号有没有成",再查可逆性、勾选、行首名额、注记洁净。
  */
 export function twinFoldRejectReason(beforeLine, afterLine) {
   if (afterLine === null || afterLine === undefined) return '构造失败(拿不到本行编号或持有行题面)'
   const k = keyOfRow(afterLine)
-  if (k !== null) return `折叠后 keyOfRow 仍取得到主键 ${k} ⇒ 这一折等于给自己又领一次号,不折`
+  const kBefore = keyOfRow(beforeLine)
+  /**
+   * 旧判据是 `keyOfRow(afterLine) === null` —— 那身"隐形"靠的是索引层把编号推出 48 字窗口的**缺陷**
+   * (`lib/plan-task-index.mjs` 于 2026-09-29 修掉:同一机制当天让 39 个已用号看起来空闲,并因此重发过号)。
+   * 把机制建在尺子的盲区上,尺子修好那天这一维就静默停摆,而账面只看见"折不动"。
+   * 现改为可证的那一条:折叠**不得改变本行身份** —— 折后主键要么取不到,必须仍等于折前那一个。
+   * (刻意不拿门 71 的 `headIdOf` 当右半边:它对 `**G-12. 题面**` 这种粗体形态返回 null,
+   * 拿它比会把自己的夹具判成"改了身份";`headIdOf` 等值那一判仍在下面,管的是防丢层互咬。)
+   * "不再算一条活待办"另由 `DUP_POINTER_RE`(索引层派单口径逐出指针族的同一份判据)在 verifyTwinFold 把关。
+   */
+  if (k !== null && k !== kBefore)
+    return `折叠后主键为 ${k},而本行折前主键是 ${String(kBefore)} ⇒ 这一折给这行改了身份,不折`
+  const stray = strayIdInLeadDecoration(afterLine)
+  if (stray.length)
+    return `注记区在本行主键之前出现了别的任务编号 ${stray.slice(0, 2).join(',')} ⇒ 会被尺子读成本行主键(撞号),不折`
+  // 注记内容的三条判据排在可逆性**之前**:poison 构造(把持有行编号写进注记)必须被点名成
+  // "注记里有编号形态 ⇒ 会被尺子读成本行主键",而不是被后面那条更泛的"剥不回底稿"顶掉 ——
+  // 一名判据的失败原因会被下一个原因冒充,而读报告的人会以为防的是别的事(本仓"三态不得并桶"同族)。
+  const note = TWIN_NOTE_RE.exec(afterLine.replace(CHECKBOX_LEAD_RE, ''))?.[0] ?? ''
+  if (!note) return '注记形状不合本档构造(内部出现了闭括号?)'
+  if (TWIN_ID_RE.test(note)) return `注记里出现了任务编号形态 ⇒ 会被尺子读成本行主键(实得 ${k})`
+  if (/\bL\d{1,6}\b/.test(note)) return '注记里出现了行号(§1 规矩 3 禁止证据指针写行号)'
   if (stripTwinFold(afterLine) !== beforeLine) return '剥掉本档注记后不等于底稿(折叠不可逆)'
   const bs = STATE_TOKEN_RE.exec(beforeLine)?.[0]
   const as = STATE_TOKEN_RE.exec(afterLine)?.[0]
@@ -1589,10 +1627,6 @@ export function twinFoldRejectReason(beforeLine, afterLine) {
   // 门 71 的"行首名额"必须原样保住,否则防丢层会把这行读成消失并回捞未折叠原行(互咬)。
   if (headIdOf(beforeLine) !== headIdOf(afterLine))
     return `行首编号被门 71 读成变了(${String(headIdOf(beforeLine))}→${String(headIdOf(afterLine))})⇒ 会与回捞层互咬`
-  const note = TWIN_NOTE_RE.exec(afterLine.replace(CHECKBOX_LEAD_RE, ''))?.[0] ?? ''
-  if (!note) return '注记形状不合本档构造(内部出现了闭括号?)'
-  if (TWIN_ID_RE.test(note)) return '注记里出现了任务编号形态 ⇒ 会被尺子读成本行主键'
-  if (/\bL\d{1,6}\b/.test(note)) return '注记里出现了行号(§1 规矩 3 禁止证据指针写行号)'
   return null
 }
 
@@ -1699,7 +1733,8 @@ export function applyTwinFolds(content, today) {
  * 折叠档的零损失断言 —— 六条同时成立才允许落地,任一不成立即整批停手:
  * ① 行数相等 ② 未声明的行逐字不变(= 新内容 == 前缀 ⊕ 本行 ⊕ 后缀的结构等值)
  * ③ 每处改动都落在声明的 before/after 上 ④ 剥掉本档注记后逐字回到底稿(可逆)
- * ⑤ 折完 `keyOfRow` 取不到主键 ⑥ 折叠不被守门 71 读成消失 ∧ 幂等闭合 ∧ F1/F2/F3/F4/F4b/F6 不涨、注记不降。
+ * ⑤ 折完主键不得变成别人的号(取不到 或 仍是本行行首号)∧ 产物必须含 `DUP_POINTER_RE` 认得的副本指针。
+ * ⑥ 折叠不被守门 71 读成消失 ∧ 幂等闭合 ∧ F1/F2/F3/F4/F4b/F6 不涨、注记不降。
  * ④⑤⑥ 是这一档**特有**的三条:它们防的就是"本档把自己造出的行交给另一把尺子去回捞"。
  */
 export function verifyTwinFold(srcText, outText, edits, refused = []) {
@@ -1726,7 +1761,15 @@ export function verifyTwinFold(srcText, outText, edits, refused = []) {
     if (b[e.line - 1] !== e.after) problems.push(`L${e.line} 产物没落到声明的位置`)
     if (stripTwinFold(b[e.line - 1] ?? '') !== e.before)
       problems.push(`L${e.line} 剥掉本档注记后不等于底稿(不可逆的折叠不许落地)`)
-    if (keyOfRow(b[e.line - 1] ?? '') !== null) problems.push(`L${e.line} 折叠后仍能取到主键`)
+    const kAfter = keyOfRow(b[e.line - 1] ?? '')
+    const kBeforeRow = keyOfRow(e.before)
+    if (kAfter !== null && kAfter !== kBeforeRow)
+      problems.push(`L${e.line} 折叠后主键为 ${kAfter},而折前主键是 ${String(kBeforeRow)} ⇒ 折叠给这行改了身份,整批不落`)
+    if (!DUP_POINTER_RE.test(b[e.line - 1] ?? ''))
+      problems.push(`L${e.line} 产物不含【归并】重复登记副本指针 ⇒ 派单口径不会逐出它,这一折只是换个地方挂账`)
+    const stray = strayIdInLeadDecoration(b[e.line - 1] ?? '')
+    if (stray.length)
+      problems.push(`L${e.line} 注记区在本行主键之前出现别的任务编号 ${stray.slice(0, 2).join(',')} ⇒ 会被尺子读成本行主键,整批不落`)
   }
   /**
    * 反互咬断言(本档的命门):折叠后的整档**不得**在守门 71 眼里丢任何一条登记行。
@@ -1772,7 +1815,18 @@ export function verifyTwinFold(srcText, outText, edits, refused = []) {
     const touchedTitles = new Set(edits.map((e) => e.title).filter(Boolean))
     const keeperless = []
     for (const t of touchedTitles) {
-      if (!b.some((l) => /^\s*-\s\[ \]/.test(l) && titleOf(l) === t)) keeperless.push(t)
+      /**
+       * 持有行的认法(2026-09-29 改):旧写法只靠 `titleOf(l) === t` —— 其前提是"指针行的题面
+       * 会被全角括号闸切成空,所以不可能冒充持有行"。索引层补认装饰档之后那个前提**不再成立**
+       * (括注被剥掉 ⇒ 指针行也取回题面 ⇒ 全族折成指针时这条断言静默通过,活账无人认领)。
+       * 现按结构位认:未勾选 ∧ 题面相符 ∧ 不带副本指针 ∧ 未被本档折过 —— 四条都是可见事实。
+       */
+      if (
+        !b.some(
+          (l) => /^\s*-\s\[ \]/.test(l) && titleOf(l) === t && !DUP_POINTER_RE.test(l) && !isTwinFolded(l),
+        )
+      )
+        keeperless.push(t)
     }
     if (keeperless.length)
       problems.push(
@@ -2479,7 +2533,15 @@ function selfTest() {
   ok(tw1.edits[0]?.line === 2, `持有行必须是位置最靠前的 L1,折的是 L2,实测 ${JSON.stringify(tw1.edits.map((e) => e.line))}`)
   ok(tw1.text.split('\n')[0] === twLines[0], '持有行必须逐字不动(一行都不许被顺手改)')
   ok(tw1.text.split('\n')[2] === twLines[2], '不相关行必须逐字不动')
-  ok(!!tw1.edits[0] && keyOfRow(tw1.edits[0].after) === null, `摘号未生效:keyOfRow 实得 ${tw1.edits[0] && keyOfRow(tw1.edits[0].after)}`)
+  ok(
+    !!tw1.edits[0] &&
+      (keyOfRow(tw1.edits[0].after) === null ||
+        keyOfRow(tw1.edits[0].after) === keyOfRow(twLines[1])) &&
+      DUP_POINTER_RE.test(tw1.edits[0].after),
+    `摘号未生效:折后主键实得 ${tw1.edits[0] && keyOfRow(tw1.edits[0].after)}(折前主键 ${keyOfRow(twLines[1])})、指针在场=${
+      tw1.edits[0] ? DUP_POINTER_RE.test(tw1.edits[0].after) : false
+    } —— 主键不得被换成别人的号,且必须被派单口径的指针族逐出`,
+  )
   ok(!!tw1.edits[0] && stripTwinFold(tw1.edits[0].after) === twLines[1], '剥掉本档注记后必须逐字回到底稿')
   ok(!!tw1.edits[0] && /^- \[ \]/.test(tw1.edits[0].after), '本档不得翻勾')
   ok(
@@ -3024,7 +3086,7 @@ function main() {
     }
     if (fT.edits.length)
       console.log(
-        '✅ 零损失断言六条全过(行数不变 / 未登记行逐字不变 / 剥注记回底稿 / keyOfRow 取不到主键 / 守门 71 判不到消失 / 折完无残留)',
+        '✅ 零损失断言六条全过(行数不变 / 未登记行逐字不变 / 剥注记回底稿 / 主键仍是本行行首号且带副本指针 / 守门 71 判不到消失 / 折完无残留)',
       )
     if (!has('--commit')) {
       console.log('ℹ️ 未加 --commit:只出报告,一行未改。确认后再跑 --fold-twins --commit')

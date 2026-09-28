@@ -221,11 +221,16 @@ function createStyles(tk: AppThemeTokens) {
     backBtn: { marginRight: 12 },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     avatarWrap: { alignItems: 'center', paddingVertical: 16, gap: 8 },
-    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: tk.surface.light },
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: rnRadius['2xl'],
+      backgroundColor: tk.surface.light,
+    },
     avatarFallback: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.border.light,
       alignItems: 'center',
       justifyContent: 'center',

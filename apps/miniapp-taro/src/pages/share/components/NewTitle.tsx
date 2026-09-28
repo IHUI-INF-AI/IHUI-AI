@@ -5,6 +5,7 @@
 import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { rpx } from '@/utils/rpx'
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * NewTitle 热门资讯列表组件
@@ -65,7 +66,7 @@ export default function NewTitle({ items, onItemClick }: NewTitleProps) {
             style={{
               width: rpx(20),
               height: rpx(20),
-              borderRadius: '50%',
+              borderRadius: rnRadius['2xl'],
               background: 'var(--color-muted)',
               marginRight: rpx(16),
               flexShrink: 0,
