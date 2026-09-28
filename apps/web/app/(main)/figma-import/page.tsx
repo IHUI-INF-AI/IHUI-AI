@@ -103,7 +103,7 @@ export default function FigmaImportPage() {
               type="button"
               onClick={() => setTarget(k)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium',
+                'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium',
                 target === k
                   ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-accent',

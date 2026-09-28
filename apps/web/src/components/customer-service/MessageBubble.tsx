@@ -58,7 +58,7 @@ export function MessageBubble({ message, isSelf }: Props) {
           <button
             type="button"
             onClick={() => setZoomed(true)}
-            className="block max-h-48 overflow-hidden rounded-lg border"
+            className="block max-h-48 overflow-hidden rounded-sm border"
           >
             <Image
               src={message.content}

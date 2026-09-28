@@ -171,7 +171,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
               aria-label={t('previous')}
-              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
+              className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -184,7 +184,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
               onClick={() => setPage((p) => Math.min(numPages, p + 1))}
               disabled={page >= numPages}
               aria-label={t('next')}
-              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
+              className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -195,7 +195,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
             <button
               onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
               aria-label={t('zoomOut')}
-              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
+              className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent"
             >
               <ZoomOut className="h-4 w-4" />
             </button>
@@ -205,7 +205,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
             <button
               onClick={() => setScale((s) => Math.min(3, s + 0.2))}
               aria-label={t('zoomIn')}
-              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
+              className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent"
             >
               <ZoomIn className="h-4 w-4" />
             </button>
@@ -214,7 +214,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
             <button
               onClick={() => setTextSelectable((v) => !v)}
               className={cn(
-                'rounded p-1 transition-colors hover:bg-accent',
+                'rounded-sm p-1 transition-colors hover:bg-accent',
                 textSelectable ? 'bg-primary/10 text-primary' : 'text-muted-foreground',
               )}
             >

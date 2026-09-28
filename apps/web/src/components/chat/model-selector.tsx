@@ -548,7 +548,7 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
               router.push('/user/subscription')
             }}
             className={cn(
-              'mt-3 inline-flex h-8 w-full items-center justify-center rounded-md px-3 text-xs font-medium',
+              'mt-3 inline-flex h-8 w-full items-center justify-center rounded-sm px-3 text-xs font-medium',
               'bg-foreground text-background transition-colors hover:bg-foreground/90',
             )}
           >
@@ -824,7 +824,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           disabled={disabled || loading}
           aria-label={label}
           className={cn(
-            'inline-flex h-8 min-w-0 items-center gap-1 rounded-md border border-input bg-card px-2 text-sm font-medium transition-colors',
+            'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm border border-input bg-card px-2 text-sm font-medium transition-colors',
             'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
           )}
         >

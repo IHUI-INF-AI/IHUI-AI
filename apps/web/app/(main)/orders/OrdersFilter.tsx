@@ -67,7 +67,7 @@ export function OrdersFilter({ status, setStatus, orderType, setOrderType, view,
         <button
           onClick={() => setView('table')}
           className={cn(
-            'rounded p-1.5 transition-colors',
+            'rounded-sm p-1.5 transition-colors',
             view === 'table'
               ? 'bg-accent text-foreground'
               : 'text-muted-foreground hover:text-foreground',
@@ -79,7 +79,7 @@ export function OrdersFilter({ status, setStatus, orderType, setOrderType, view,
         <button
           onClick={() => setView('card')}
           className={cn(
-            'rounded p-1.5 transition-colors',
+            'rounded-sm p-1.5 transition-colors',
             view === 'card'
               ? 'bg-accent text-foreground'
               : 'text-muted-foreground hover:text-foreground',

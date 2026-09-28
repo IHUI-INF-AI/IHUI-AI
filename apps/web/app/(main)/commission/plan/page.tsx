@@ -123,7 +123,7 @@ export default function CommissionPlanPage() {
               readOnly
               value={inviteUrl}
               placeholder={t('inviteLinkPlaceholder')}
-              className="h-9 flex-1 rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground"
+              className="h-9 flex-1 rounded-sm border bg-muted/40 px-3 text-sm text-muted-foreground"
             />
             <Button onClick={handleCopy} disabled={!inviteUrl}>
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}

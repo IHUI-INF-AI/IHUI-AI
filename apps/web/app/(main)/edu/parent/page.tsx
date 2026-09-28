@@ -334,7 +334,7 @@ function ChildrenListView({
         <button
           key={child.bindingId}
           onClick={() => onSelectChild(child.studentId)}
-          className="group rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+          className="group rounded-sm border bg-card p-3 text-left transition-colors hover:bg-accent"
         >
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
@@ -385,7 +385,7 @@ function ChildDetailView({
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent"
+          className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-accent"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
@@ -1087,7 +1087,7 @@ function BindingsManagement() {
                         <Tooltip content={t('actionConfirm')}>
                           <button
                             onClick={() => confirmMutation.mutate(b.id)}
-                            className="rounded-lg p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
+                            className="rounded-sm p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
                           >
                             <CheckCircle2 className="h-4 w-4" />
                           </button>
@@ -1095,7 +1095,7 @@ function BindingsManagement() {
                         <Tooltip content={t('actionReject')}>
                           <button
                             onClick={() => rejectMutation.mutate(b.id)}
-                            className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
+                            className="rounded-sm p-2 text-red-600 transition-colors hover:bg-red-50"
                           >
                             <XCircle className="h-4 w-4" />
                           </button>
@@ -1105,7 +1105,7 @@ function BindingsManagement() {
                     <Tooltip content={t('actionDelete')}>
                       <button
                         onClick={() => setShowDeleteId(b.id)}
-                        className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent"
+                        className="rounded-sm p-2 text-muted-foreground transition-colors hover:bg-accent"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

@@ -157,7 +157,7 @@ function createStyles(tk: AppThemeTokens) {
     modeBtn: {
       flex: 1,
       paddingVertical: 8,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },
     modeBtnActive: { backgroundColor: tk.brand.cta },
