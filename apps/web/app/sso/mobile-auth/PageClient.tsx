@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Loader2, ShieldAlert } from 'lucide-react'
+import { isSafeNavigationTarget } from '@/lib/sso-redirect-guard'
 
 /**
  * SSO 移动端授权消费页(2026-08-27 立,App→Web 会话打通)
@@ -53,7 +54,17 @@ export default function SsoMobileAuthPage() {
         const json = (await res.json()) as { code?: number; message?: string }
         if (cancelled) return
         if (res.ok && json.code === 0) {
-          // exchange 响应已由后端 Set-Cookie(auth_token/refresh_token httpOnly),直接跳转
+          // exchange 响应已由后端 Set-Cookie(auth_token/refresh_token httpOnly),直接跳转。
+          // 这里的 redirect 语义是"WebView 接下来要打开的那个页面"(外部页是设计意图,
+          // 所以**不套** sso/redirect 那份 origin 白名单 —— 那会砍断 App→Web 回跳),
+          // 但必须先过协议闸:`javascript:`/`data:` 经 location.replace 会在**我们自己的源**里执行,
+          // 带着刚 Set-Cookie 的会话 ⇒ 同源 XSS/会话窃取。不安全则回落站内首页并留一行喊话,
+          // 不新增 5 语言文案(这种输入只在攻击/畸形链接场景出现),产品要显式提示时另计一票。
+          if (!isSafeNavigationTarget(redirectUrl)) {
+            console.warn('[sso/mobile-auth] 拒绝对不安全目标跳转,已回落站内首页:', redirectUrl)
+            window.location.replace('/')
+            return
+          }
           window.location.replace(redirectUrl)
           return
         }

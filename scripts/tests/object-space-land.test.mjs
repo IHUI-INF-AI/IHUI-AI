@@ -287,18 +287,58 @@ test('T12 形状锁:祖先判定与祖先窗口只能各引守门 84 那一份,�
     assert.ok(!secondImpl.test(code), `出现第二份祖先判定的形状:${secondImpl}`)
   for (const rawOnly of [/--find-object/, /\[\s*['"]log['"]\s*,/])
     assert.ok(!rawOnly.test(src), `本器自己派生 git 找祖先(那正是守门 84 的活):${rawOnly}`)
-  // ── 行级复活那一支的三条同源锁(2026-09-28 补)──
+  // ── 行级复活那一支的三条同源锁(2026-09-28 补;同日判据提取到 lib 后**改的是位置,不是松紧**)──
   assert.match(src, /import\s*\{[^}]*\bancestorCommits\b[^}]*\}\s*from\s*['"]\.\/check-stale-revert\.mjs['"]/,
     '祖先窗口必须走守门 84 的 ancestorCommits 出口(窗口长度住在它内部),不得在本器另立数字')
   assert.match(code, /ancestorCommits\s*\(/, 'import 了窗口出口却没调用 = 行级判据拿的是自造清单(假接线)')
   assert.ok(!/max-count\s*=/.test(src), '本器自己数祖先窗口(出现 --max-count=)就是第二份窗口阈值')
+  /**
+   * 剥尾 `\r` 的计行口径**仍然只能有一份** —— 2026-09-28 起那一份住在
+   * `scripts/lib/stale-content-analysis.mjs`(守门 84 的 R1r 与本器共用),所以本器里必须是 **0 处**。
+   * 原先这里断言"本器内恰好 1 处":那是提取**之前**的唯一合法形状,提取之后照旧断言 1 就等于
+   * 要求本器再抄一份实现 —— 那正是这条锁要禁的东西。断言的**对象**(计数口径只能有一份)没变,
+   * 变的是"那一份在哪";两侧都被钉死(本器 0 + lib 恰好 1),比改短之前更严,不是放宽。
+   */
   assert.equal(
     (code.match(/replace\(\/\\r\$\//g) ?? []).length,
-    1,
-    '剥尾 \\r 的计行口径只能有一份(linesOf);两份 ⇒ lineDelta 与 resurrectAnalysis 会对同一次落地给出两种行数结论',
+    0,
+    '计行口径已提取到 lib:本器内不得再出现任何一处剥尾 \\r(出现即为第二份实现)',
   )
+  assert.equal(
+    (readFileSync(join(HERE, '..', 'lib', 'stale-content-analysis.mjs'), 'utf8').match(/replace\(\/\\r\$\//g) ?? []).length,
+    1,
+    'lib 里必须**恰好**一处剥尾 \\r(linesOf);0 处=判据没落地,2 处=同一文件里又分了叉',
+  )
+  assert.match(
+    src,
+    /import\s*\{[^}]*\bresurrectAnalysis\b[^}]*\}\s*from\s*['"]\.\/lib\/stale-content-analysis\.mjs['"]/,
+    '行级复活判据必须从 lib import(与守门 84 的 R1r 同源)',
+  )
+  for (const moved of [/function\s+linesOf\b/, /function\s+tallyLines\b/, /function\s+resurrectAnalysis\b/, /function\s+lineDelta\b/])
+    assert.ok(!moved.test(code), `已提取到 lib 的实现不得在本器重新出现:${moved}`)
   assert.match(code, /catBatch\s*\(/, '祖先正文必须走 face-reader 的批量读取口(守门 118 的取材面纪律),不得逐 blob 派生')
 })
+
+/**
+ * T18 —— 同一性锁(比形状锁更有牙的一条):本器 `__test__` 里那两个函数**必须就是 lib 的同一对象**。
+ * 形状锁只能证明源码里没有第二份"形状";拷贝一份再改名可以绕过它。函数标识符同一 ⇒ 结构上不可能
+ * 存在第二份实现(两道判据对同一次落地给出不同结论这一型被排除在类型之外,而不是靠人自觉)。
+ */
+test('T18 同一性:本器用的复活/计行判据必须与 lib 是同一个函数对象(不是复制品)', async () => {
+  const lib = await import('../lib/stale-content-analysis.mjs')
+  assert.equal(__test__.resurrectAnalysis, lib.resurrectAnalysis, 'resurrectAnalysis 必须是 lib 的那一个')
+  assert.equal(__test__.lineDelta, lib.lineDelta, 'lineDelta 必须是 lib 的那一个')
+  // 守门 84 那一侧也必须是同一个函数对象(它经由自己的 import 引 lib;两条门各自持有拷贝就是漂移的起点)
+  const gate = await import('../check-stale-revert.mjs')
+  const gateSrc = readFileSync(join(HERE, '..', 'check-stale-revert.mjs'), 'utf8')
+  assert.match(gateSrc, /from\s*['"]\.\/lib\/stale-content-analysis\.mjs['"]/, '守门 84 必须引 lib 那一份')
+  assert.equal(typeof gate.__test__.analyzeResurrect, 'function', 'R1r 出口必须在位(不在即红,不得写成 ?? 兜底)')
+  // 三态语义在 lib 层也被钉一次(与 T16 的构造面同源,防提取时把某一态写丢)
+  assert.equal(lib.resurrectAnalysis({ baseText: 'a\n', newText: 'a\n', ancestors: [] }).status, 'out-of-scope')
+  assert.equal(lib.resurrectAnalysis({ baseText: null, newText: 'a\n', ancestors: [{ commit: 'c', text: 'a\n' }] }).status, 'undetermined')
+  assert.equal(lib.resurrectAnalysis({ baseText: 'a\n', newText: 'a\n', ancestors: [{ commit: 'c', text: 'a\n' }] }).status, 'judged')
+})
+
 
 test('T13 lineDelta 纯函数面:多重集计数 / CRLF 不算删除 / 取不到正文不得折成 0', () => {
   const d = __test__.lineDelta('a\nb\nc\n', 'a\nc\n')
