@@ -81,7 +81,7 @@
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.openTerminal` | 打开终端面板 | L2 | aiChat.openTerminal (J=0.60) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.closeTerminal` | 关闭终端面板 | L2 | ide.terminalSessionList.closeTerminalAria (J=0.60) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.terminalUnavailable` | 开始任务后可打开终端面板 | L3 | 子串同形:aiChat.openTerminal |
-| 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.createPullRequest` | Create PR | MISS |  |
+| 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.createPullRequest` | Create PR | skip |  |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.createDraftPullRequest` | 创建 Draft PR | MISS |  |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.createPullRequestManually` | 手动创建 PR | L2 | dispatchDialog.manualCreate (J=0.50) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.label` | 任务工作面 | MISS |  |
@@ -185,7 +185,7 @@
 | 14 会话管理·分享·导 | feedback.* | `feedback.contentLabel` | 问题或建议（必填） | MISS |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.contentPlaceholder` | 描述你看到了什么、期望发生什么，以及可以稳定复现的操作步骤 | L3 | 子串同形:llmSettings.v2.byok.stepsTitle |
 | 14 会话管理·分享·导 | feedback.* | `feedback.diagnosticsNotice` | 发送时会附带当前运行日志和你选择的截图，以帮助定位问题。 | L3 | 子串同形:agentCanvas.logsTitle |
-| 14 会话管理·分享·导 | feedback.* | `feedback.characterCount` | {{current}} / {{max}} | MISS |  |
+| 14 会话管理·分享·导 | feedback.* | `feedback.characterCount` | {{current}} / {{max}} | skip |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.screenshotLabel` | 屏幕截图 | MISS |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.screenshotDescription` | 可添加、拖入或粘贴 PNG、JPG、GIF 或 WebP，最多 3 张，单张不超过 10 M | MISS |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.screenshotAlt` | 反馈截图 {{index}} | MISS |  |
@@ -211,7 +211,7 @@
 | 14 会话管理·分享·导 | feedback.* | `feedback.errors.server` | 反馈服务暂时无法处理请求，请稍后重试。 | L3 | 键末段同名，原文待核 |
 | 14 会话管理·分享·导 | feedback.* | `feedback.errors.unsupported` | 当前宿主尚不支持发送问题反馈。 | L3 | 子串同形:ecosystem.capUnsupported |
 | 14 会话管理·分享·导 | feedback.* | `feedback.errors.unknown` | 反馈未能发送，请稍后重试。 | L3 | 子串同形:ai.pane.errorCatalog.API_BRIDGE_ERROR.action |
-| 14 会话管理·分享·导 | myWork.* | `myWork.title` | Attention | MISS |  |
+| 14 会话管理·分享·导 | myWork.* | `myWork.title` | Attention | skip |  |
 | 14 会话管理·分享·导 | myWork.* | `myWork.description` | 集中处理只有你能作出的判断；执行过程、普通更新和可自动恢复的问题不会出现在这里。 | MISS |  |
 | 14 会话管理·分享·导 | myWork.* | `myWork.decisions` | 需要我判断 | MISS |  |
 | 14 会话管理·分享·导 | myWork.* | `myWork.assigned` | 分配给我 | MISS |  |
@@ -224,7 +224,7 @@
 | 14 会话管理·分享·导 | nav.* | `nav.members` | 成员 | L1 | search.quickSuggestions.4 |
 | 14 会话管理·分享·导 | nav.* | `nav.projects` | 项目 | L1 | ai.pane.hookSummary.source.project |
 | 14 会话管理·分享·导 | nav.* | `nav.discussion` | 讨论 | MISS |  |
-| 14 会话管理·分享·导 | nav.* | `nav.betaTag` | Beta | L2 | chat.vendor.meta (J=0.50) |
+| 14 会话管理·分享·导 | nav.* | `nav.betaTag` | Beta | skip |  |
 | 14 会话管理·分享·导 | nav.* | `nav.search` | 搜索 | L1 | knowledgeCard.searchLabel |
 | 14 会话管理·分享·导 | nav.* | `nav.automation` | 自动化 | L1 | floatingChat.openclaw.tabAutomation |
 | 14 会话管理·分享·导 | nav.* | `nav.extensions` | 扩展 | MISS |  |
