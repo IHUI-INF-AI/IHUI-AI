@@ -5407,7 +5407,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 <!-- 已归档(2026-09-28:✅(2026-09-26) **O82续三 落账** 三路守门票全部入库：守门 8 前端调用面从 apps/web 扩到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 - [ ] **O82续三·D35后续①**：`projectionState` 的**写入**方仍无人接 —— 服务端注释自称"投影器写入在后续段落接线"，本票只做了读侧；读侧投影已可用，不得读成整票闭环。
 <!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
-- [ ] **O82续三·D41后续①**：11 条新文案只在组件内联兜底（清单在 `.ihui-agent/tmp/i18n-d41.json`，键名 `previewView*` / `previewSource*`），**未入语言包** ⇒ 五种语言实际都不走取词通道；补录要按 §19 流水线（`i18n-diff` → 翻译 → `i18n-apply` → parity 复验），不得手改单个语言文件。
+- [x] ✅(2026-09-28) **O82续三·D41后续①**：11 条新文案只在组件内联兜底（清单在 `.ihui-agent/tmp/i18n-d41.json`，键名 `previewView*` / `previewSource*`），**未入语言包** ⇒ 五种语言实际都不走取词通道；补录要按 §19 流水线（`i18n-diff` → 翻译 → `i18n-apply` → parity 复验），不得手改单个语言文件。 〔翻勾依据(2026-09-28 现读):11 键(previewView* 4 + previewSource* 7)已全部入五语语言包 chat 段 —— 五语逐文件实测各 11/11,check-i18n-keys 全量 parity OK(18150 键,HEAD 面);消费点 preview-view-switch.tsx:147-150 先走 t() 再回落内联降落伞,内联表头注明"不新增文案、要改句子走 §19 流水线",键名清单登记在受版本控制的 scripts/data/i18n-d41-preview-keys.json。票面"只在组件内联兜底"是补录前的状态。〕
 <!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 
 
