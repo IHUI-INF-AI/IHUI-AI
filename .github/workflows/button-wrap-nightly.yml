@@ -7,7 +7,8 @@ name: button-wrap-nightly
 # button 文字换行 nightly 扫描
 # - cron 北京时间 03:00 (UTC 19:00, 每天)
 # - 跑 scripts/check-shrinkable-text-button.mjs 全量扫描
-# - 命中时自动创建 GitHub Issue (labels: nightly / ui-bug / guardian)
+# - 命中时维护**一条**跟踪 Issue (labels: nightly / ui-bug / guardian):已有则更新,没有才新建;
+#   0 命中时自动关闭在位的那条。2026-09-28 前是"每晚开一条",同文帖累计 14 条,已收口。
 # - 报告始终上传为 artifact (30 天保留)
 #
 # 触发:
@@ -84,9 +85,42 @@ jobs:
             const date = new Date().toISOString().slice(0, 10);
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
-            // 无命中 → 直接跳过 (return 不抛错)
+            // 单一跟踪帖(2026-09-28 改):同一条违规此前**每晚新建一份**,累计 14 条同文帖,
+            // 把真实反馈埋掉了(外部审计点名"46 个开放 issue 里 14 个是机器人帖")。
+            // 现口径:命中 ⇒ 更新这一条;0 命中 ⇒ 关掉这一条。0 命中却留着 open = 台账腐烂。
+            const TRACK_TITLE = '[nightly] button 文字换行违规 · 自动跟踪';
+            const findTracker = async () => {
+              const r = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                labels: 'nightly',
+                per_page: 100,
+              });
+              // 标题逐字相等才算跟踪帖 —— 用 startsWith 会把历史遗留的带日期副本再算一份
+              return r.data.find((i) => !i.pull_request && i.title === TRACK_TITLE) || null;
+            };
+
             if (hits === 0) {
-              core.info('未命中, 跳过 Issue 创建');
+              const tracker = await findTracker();
+              if (!tracker) {
+                core.info('未命中, 且无在位跟踪帖, 不做任何事');
+                return;
+              }
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: tracker.number,
+                body: `本轮扫描(${date})命中 **0** 处 ⇒ 自动关闭本跟踪帖。后续再命中时同一 workflow 会重开一条跟踪帖。`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: tracker.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+              core.info(`跟踪帖 #${tracker.number} 已关闭(0 命中)`);
               return;
             }
 
@@ -113,16 +147,29 @@ jobs:
               '',
               '完整报告见 workflow run artifact: `nightly-button-wrap-report`',
               '',
-              `由 \`.github/workflows/button-wrap-nightly.yml\` 自动创建 · ${runUrl}`,
+              `由 \`.github/workflows/button-wrap-nightly.yml\` 自动维护(命中即更新本帖,0 命中即关闭) · ${runUrl}`,
               '',
             ].join('\n');
 
-            const title = `[nightly] button 文字换行违规 ${hits} 处 (${date})`;
+            // 命中:有跟踪帖就改它,没有才建 —— 保证**任何时刻最多一条**在位。
+            const tracker = await findTracker();
+            if (tracker) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: tracker.number,
+                body,
+              });
+              core.info(`已更新唯一跟踪帖 #${tracker.number}(命中 ${hits} 处 / ${files} 个文件)`);
+              core.setOutput('issue_number', String(tracker.number));
+              core.setOutput('issue_url', tracker.html_url);
+              return;
+            }
 
             const issue = await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title,
+              title: TRACK_TITLE,
               body,
               labels: ['nightly', 'ui-bug', 'guardian'],
             });
