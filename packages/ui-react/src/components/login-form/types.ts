@@ -194,6 +194,13 @@ export interface LoginFormProps {
    */
   enableCredentialPersistence?: boolean
   /**
+   * 允许用记住的凭据自动提交表单吗?必填、无默认值 ⇒ 漏传是编译错误,不是"静默把用户登回去"。
+   * 判据请调跨端唯一出口 `canSilentlyReLogin`(来自 @ihui/shared/auth/auto-login-policy),
+   * 不要在端内另写一份;确实没有登出标记概念的表面(扩展弹窗)才传 `() => true` 并注明原因。
+   * 透传给 password tab 的 PasswordLoginForm,原因写在那个字段的注释里。
+   */
+  canAutoSubmitCredentials: () => boolean
+  /**
    * 主推第三方平台(如 wechat):第三方登录区把该平台渲染为整行大按钮(FS微信一键登录),
    * 其余平台保留图标网格。仅设置时生效,不设则维持原有 3 列网格。2026-09-06 立。
    */
