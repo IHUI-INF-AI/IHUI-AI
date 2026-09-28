@@ -8,6 +8,7 @@ import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
 import { removeIfSame } from '../utils/connection-registry.js'
+import { isUuidString } from '../utils/uuid.js'
 import { config } from '../config/index.js'
 import { db } from '../db/index.js'
 import { eq, and } from 'drizzle-orm'
@@ -80,8 +81,7 @@ const wsTasksPlugin: FastifyPluginAsync = async (server) => {
   server.get('/ws/tasks/:taskId', { websocket: true }, (socket, request) => {
     const { taskId } = request.params as { taskId: string }
     // 2026-07-24 安全审计:taskId UUID 格式校验(防 channel 注入 + 防 Redis key 注入)
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    if (!UUID_RE.test(taskId)) {
+    if (!isUuidString(taskId)) {
       socket.close(1008, '无效的 taskId 格式')
       return
     }
