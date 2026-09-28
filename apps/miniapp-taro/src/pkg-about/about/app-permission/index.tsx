@@ -141,7 +141,7 @@ export default function AppPermission() {
                 </Text>
               </View>
               <Button
-                className="flex-shrink-0 text-[length:24rpx] bg-primary text-[var(--color-primary-foreground)] rounded-lg px-[20rpx] leading-[56rpx] m-0 after:border-0"
+                className="flex-shrink-0 text-[length:24rpx] bg-primary text-[var(--color-primary-foreground)] rounded-sm px-[20rpx] leading-[56rpx] m-0 after:border-0"
                 size="mini"
                 onClick={onOpenSetting}
               >

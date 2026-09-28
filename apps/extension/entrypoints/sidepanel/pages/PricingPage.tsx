@@ -61,7 +61,7 @@ export default function PricingPage() {
                 <button
                   type="button"
                   onClick={() => openInWeb('/vip')}
-                  className="px-2.5 py-1 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors shrink-0"
+                  className="px-2.5 py-1 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors shrink-0"
                 >
                   {t('page.pricing.open')} ↗
                 </button>

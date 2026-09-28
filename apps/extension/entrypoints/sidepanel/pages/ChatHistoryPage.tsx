@@ -75,7 +75,7 @@ export default function ChatHistoryPage() {
         <button
           type="button"
           onClick={() => void load()}
-          className="px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+          className="px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
         >
           {t('common.retry')}
         </button>
@@ -97,7 +97,7 @@ export default function ChatHistoryPage() {
         items.map((c) => (
           <Card
             key={c.id}
-            className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
+            className="rounded-lg border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
             onClick={() => openItemInWeb(`/chat/${encodeURIComponent(c.id)}`)}
           >
             <CardContent className="p-3 min-[640px]:p-3">
@@ -109,7 +109,7 @@ export default function ChatHistoryPage() {
                     e.stopPropagation()
                     void onDelete(c.id)
                   }}
-                  className="shrink-0 px-2 py-1 text-[11px] rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="shrink-0 px-2 py-1 text-[11px] rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
                 >
                   {t('common.delete')}
                 </button>

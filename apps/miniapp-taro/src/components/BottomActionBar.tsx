@@ -331,7 +331,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         </View>
       )}
       <Input
-        className="flex-1 px-3 py-2 text-sm bg-muted rounded-md"
+        className="flex-1 px-3 py-2 text-sm bg-muted rounded-sm"
         placeholder={placeholder}
         value={value}
         disabled={disabled}
