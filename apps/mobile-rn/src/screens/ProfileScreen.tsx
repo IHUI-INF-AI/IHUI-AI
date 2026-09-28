@@ -21,7 +21,7 @@ import {
   type ImageSourcePropType,
 } from 'react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 // 分享图兜底资源(require 写法对齐项目惯例,如 BusinessLicenseScreen)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const SHARE_FALLBACK_IMAGE: ImageSourcePropType = require('../../assets/images/common/default/vip_message.jpg')
@@ -1861,7 +1861,7 @@ const styles = StyleSheet.create({
     bottom: 76, // TabBar 上方
     width: 34,
     height: 34,
-    borderRadius: 17, // radius-exempt: 返回顶部按钮 34×34 正圆(直径一半)
+    borderRadius: 17,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2010,7 +2010,7 @@ const styles = StyleSheet.create({
     marginLeft: rpx(-60),
     width: 60,
     height: 60,
-    borderRadius: 30, // radius-exempt: 视频播放按钮 60×60 正圆(直径一半,对齐 Uniapp 50%)
+    borderRadius: 30,
     backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2167,7 +2167,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadiusFor.panel,
     padding: rpx(40),
     alignItems: 'center',
   },
@@ -2286,8 +2286,8 @@ const styles = StyleSheet.create({
   },
   editProfileCard: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius.xl,
-    borderTopRightRadius: rnRadius.xl,
+    borderTopLeftRadius: rnRadiusFor.panel,
+    borderTopRightRadius: rnRadiusFor.panel,
     padding: rpx(40),
     paddingBottom: rpx(64),
   },
@@ -2308,7 +2308,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 72,
     height: 72,
-    borderRadius: rnRadius.xl, // radius-exempt: 72dp 头像底,12 为有意圆角方(头像族不得方档化成 4)
+    borderRadius: 72 / 2,
     overflow: 'hidden',
   },
   editProfileAvatar: {
@@ -2410,8 +2410,8 @@ const styles = StyleSheet.create({
   },
   levelIntroCard: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius.xl,
-    borderTopRightRadius: rnRadius.xl,
+    borderTopLeftRadius: rnRadiusFor.panel,
+    borderTopRightRadius: rnRadiusFor.panel,
     padding: rpx(40),
     paddingBottom: rpx(64),
     maxHeight: '80%',
@@ -2478,7 +2478,7 @@ const styles = StyleSheet.create({
   unsubscribeCard: {
     width: '100%',
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadiusFor.panel,
     padding: rpx(40),
     alignItems: 'center',
   },

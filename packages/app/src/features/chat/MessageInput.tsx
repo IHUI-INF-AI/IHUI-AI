@@ -395,7 +395,7 @@ function createStyles(tk: AppThemeTokens) {
       right: 2.5,
       width: 15,
       height: 15,
-      borderRadius: 7.5, // radius-exempt: 文件移除按钮 15×15 正圆(直径一半)
+      borderRadius: 7.5,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

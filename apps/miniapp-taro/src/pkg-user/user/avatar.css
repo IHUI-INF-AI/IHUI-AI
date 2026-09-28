@@ -33,7 +33,7 @@
   position: relative;
   width: 96rpx;
   height: 96rpx;
-  border-radius: 50%; /* radius-exempt: 头像预览框正圆 */
+  border-radius: 50%;
   overflow: hidden;
   background: var(--color-card);
 }
@@ -64,7 +64,7 @@
   bottom: -8rpx;
   width: 48rpx;
   height: 48rpx;
-  border-radius: 50%; /* radius-exempt: 圆形编辑角标,取边长一半 */
+  border-radius: 50%;
   background: var(--color-cta);
   display: flex;
   align-items: center;

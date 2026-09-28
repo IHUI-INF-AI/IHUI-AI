@@ -398,7 +398,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 64, // rpx(128)
       height: 64, // rpx(128)
-      borderRadius: 64 / 2, // radius-exempt: 讲师头像几何正圆(64dp 直径/2)
+      borderRadius: 64 / 2,
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: {

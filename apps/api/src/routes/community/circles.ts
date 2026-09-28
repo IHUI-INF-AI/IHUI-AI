@@ -42,6 +42,7 @@ import {
 } from './_shared.js'
 import { buildResponseSchema, paginationQuerySchema } from '../../utils/api-schemas.js'
 import { sanitizeUgcInput } from '../../db/sensitive-words-queries.js'
+import { isUuidString } from '../../utils/uuid.js'
 
 const circlesRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权:GET /circles(列表)与 GET /circles/:id(详情)公开访问,其他路由需登录
@@ -138,6 +139,7 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
+      if (!isUuidString(parsed.data.id)) return reply.status(404).send(error(404, '圈子不存在'))
       const circle = await findCircleByIdOrSlug(parsed.data.id)
       if (!circle) {
         return reply.status(404).send(error(404, '圈子不存在'))
@@ -254,6 +256,7 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!parsedP.success) {
         return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
       }
+      if (!isUuidString(parsedP.data.id)) return reply.status(404).send(error(404, '圈子不存在'))
       const parsedQ = listCirclePostsQuery.safeParse(request.query)
       if (!parsedQ.success) {
         return reply.status(400).send(error(400, parsedQ.error.issues[0]?.message ?? '参数错误'))
@@ -370,6 +373,7 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!parsedP.success) {
         return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
       }
+      if (!isUuidString(parsedP.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
       const circle = await findCircleByIdOrSlug(parsedP.data.id)
       if (!circle) {
         return reply.status(404).send(error(404, '圈子不存在'))
@@ -431,6 +435,10 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!parsedP.success) {
         return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
       }
+      // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+      // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+      // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+      if (!isUuidString(parsedP.data.id)) return reply.status(404).send(error(404, '圈子不存在'))
       const parsedQ = listCirclePostsQuery.safeParse(request.query)
       if (!parsedQ.success) {
         return reply.status(400).send(error(400, parsedQ.error.issues[0]?.message ?? '参数错误'))
