@@ -61,7 +61,7 @@ export default function Loading({
           mask ? 'bg-[var(--color-black-40)]' : ''
         }`}
       >
-        <View className="flex flex-col items-center justify-center px-6 py-5 bg-card rounded-xl shadow-sm">
+        <View className="flex flex-col items-center justify-center px-6 py-5 bg-card ui-card rounded-lg shadow-sm">
           {spinner}
         </View>
       </View>

@@ -30,7 +30,7 @@ export function ModelCompareBar({ entries, onRemove, onClear, onCompare }: Props
         {entries.map((e) => (
           <span
             key={e.id}
-            className="inline-flex items-center gap-1 rounded-md bg-card px-2 py-0.5 text-xs shadow-sm"
+            className="inline-flex items-center gap-1 ui-chip rounded-md bg-card px-2 py-0.5 text-xs shadow-sm"
           >
             <span className="min-w-0 max-w-[120px] truncate">{e.modelName}</span>
             <button

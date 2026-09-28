@@ -80,14 +80,14 @@ export default function PointsPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/points/mall"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
+            className="inline-flex items-center gap-1.5 ui-control rounded-sm border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
           >
             <ShoppingBag className="h-4 w-4" />
             {t('mallLink')}
           </Link>
           <Link
             href="/points/tasks"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
+            className="inline-flex items-center gap-1.5 ui-control rounded-sm border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
           >
             <ListChecks className="h-4 w-4" />
             {t('taskCenterLink')}

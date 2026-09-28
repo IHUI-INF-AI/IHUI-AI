@@ -71,7 +71,7 @@ function AgentList() {
     )
   if (error)
     return (
-      <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive my-2 text-xs">
+      <div className="bg-destructive/10 text-destructive px-2.5 py-2 ui-card rounded-lg border border-destructive my-2 text-xs">
         {error}
       </div>
     )
