@@ -13075,6 +13075,57 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   对这批条目又是空的。为什么 71 当轮没喊红也没回捞,**我没有取证**(它头注里编号族含 `O\d+`,所以最可能的解释是归档豁免那一支,但那也只是候选,不在这里当结论写)。
   本轮已从出处 `705e9810f9^` **逐字取回 226 行**(判据:条目行在 HEAD 里逐字不存在才算缺,已存在的一份都不重插);
   补族属门 71 的射程,**另计一票**。
+  **补账①②③④(2026-09-28 同日,主会话;提交 `3a8726494e` / `43a5248278` / `c3d14f5586` / `fe69a7ae56` / `baca9cbf32`)** ——
+  上面"本轮刻意没做的三件"与"顺带登记的两条门自身的洞"里的 (a) 已全部清偿,逐件带可复核落点:
+  - **① i18n 键 + 审批第三档**(`3a8726494e` 落键、`43a5248278` 改组件):扩展五语言各补
+    `chat.selectWorkspace` / `chat.workspaceNotWritable` / `chat.approveForSession` 三键 —— 落地用
+    `.ihui-agent/tmp/land-i18n.mjs`(当时一次性)按 **HEAD blob ⊕ 本块** 经私有索引 commit-tree 落盘,
+    **不覆盖并发会话的工作树副本**(它们当时比 HEAD 少 26 键、多 3 个 `agent.decision*` 键,直接交磁盘会把别人
+    已入库的行整批写回旧态);判据三条:锚点命中恰好 1、除插入段外逐行等值、总行数恰好 +3。
+    组件侧原先借用的四个近义键(`apps.workspace` / `agent.permission` / `agent.reject` / `common.cancel`)
+    全部换成逐字等义的真键;第三档"本会话都允许"随之落地为 `approve-session` → `{decision:'approve', scope:'session'}`,
+    而"永远放行"那一档仍**永久禁用**。端内 79 例绿,含摘掉任一键即红的正向锁与反向对照。
+    **仍留一格真债**:扩展五语言的**工作树副本**此刻仍被并发会话持有(比 HEAD 少 26 键),所以本机
+    `pnpm --filter @ihui/extension test` 有 3 个文件 28 例正因为它而红,而 `wxt build` 会把这三键
+    打成回显 —— 待该会话对齐词表后自然消解,本票不代改他人副本。
+  - **② 上下文缓存提到共享层**(`c3d14f5586`):命中前按**全量可加载文件签名**(path+mtime+size)校验、
+    签名收集抛错时选择重读而非沿用、加载失败不写缓存 —— 三条件从 web 端内胶水提出为
+    `@ihui/shared/chat/workspace-context-loader` 的 `loadWorkspaceContextCached` /
+    `peekWorkspaceContextCache` / `invalidateWorkspaceContextCache`;扩展请求路径改走它
+    (此前每轮重扫目录树,上限 2000 条目),`workspace-store` 在切换与清除两处收回缓存
+    (目录名只是键不是身份,同名换目录不清就得等签名恰好全等才重载)。
+    搬家理由与执行器同一条:**这个返回值就是委托开关 `workspace_context` 本身**。
+    新测试 12 例(命中不读正文 / 增·删·改内容与只改 mtime 各触发重载 / png 不误触 / 签名校验失败仍重读 /
+    失败不写缓存 / 按名失效不误清 + 跨端源码锁"全仓只有一处签名比较实现"),三条变异各自翻红
+    (失败写缓存 ⇒ ④ 红;沿用旧值 ⇒ ③ 红;store 少调一次 invalidate ⇒ 共享 ⑥ 与扩展 ①′ 双双红)。
+    顺带修我自己写错的一处调用形态:第二参数是 `{ onLog }` 而非裸函数 —— 传函数时 `opts.onLog` 取不到,
+    日志整条静默,是"看起来接了、其实没接"那一型。
+  - **③ 守门 49 的判定面**(`fe69a7ae56`,即上面 (a) 那一格):全量档由磁盘改判 **HEAD blob**
+    (journal 取 `HEAD:…/_journal.json`、.sql 清单取 `ls-tree -r --name-only -z HEAD`,清单与正文同面同轮走
+    `face-reader` 的 `catBatch`/`gitRaw`)、`--staged` 判索引、磁盘降为 `--worktree` 逃生舱、两面旗同给 exit 2 判死、
+    任一面取不到 exit 2 点名且**不回落**(回落就是把"没判"写成"判过了");三面各加"判定面自证行",逐条点名
+    未跟踪 .sql 与仅工作树脏的受控路径,只报数不判红。B1–B9 判据一字未动;psql 不可用时汇总行由"已对照"
+    改为「库内双射**未判定**∶原因」。取证:全量 exit 0「296 条,判定面=head」、`--staged` exit 0、
+    `--staged --worktree` exit 2、`--self-test` 44/44、镜像 20 例,`check-gate-face-discipline` 对本门分类由
+    loose-fs 翻成 `face`。**代价如实登记**:默认档不再"看见未 add 的迁移",那一格移交 `--worktree` + B10。
+    落地时本器按行级复活判据**拒过一次**:经查这两枚路径的 HEAD blob 与最后一次触碰它们的提交 `7a2aefead4`
+    逐字同 sha(无人隔空改过),被点名的 6 行是缩进变体假阳 ⇒ 走工具唯一显式出口 `LAND_ALLOW_STALE=1` 并留痕,
+    不是压判据凑绿。
+  - **④ 委托往返的服务端进程内证明**(`baca9cbf32`):新增
+    `apps/ai-service/tests/test_workspace_delegate_roundtrip.py` 9 例 —— 委托帧六字段到线且序在
+    `tool-call-start` 后、`tool-result` 前;服务端 `read_file` 执行桩**零调用**,反面由"去掉
+    `workspace_context` ⇒ 同桩被调 1 次且零委托帧"兜住(没有那条,"零调用"可能只是 loop 压根没跑);
+    回传走**生产端点** `/api/llm/complete/stream/{sid}/tool-result` 并回灌下一轮(`role: tool` 实收客户端 marker);
+    超时支另开一例(0.2s)使"这轮不是被超时放开的"两侧都有对照;另含 session 收尾、零 `_fire_callback`、
+    零取池、未知 session 被拒不被复活。主会话独立复跑 `9 passed`,交付方三文件合跑 44 passed 而对同族基线
+    35 passed ⇒ 零回归。一条射程边界如实登记:`pyproject.toml` 的 `exclude=["tests/"]` ⇒ 本文件不在守门 35
+    (mypy --strict)射程内(现读 `mypy app --strict` 0 issues / 571 files,ruff 通过)。
+    **它不能证明的**:浏览器与扩展的真实点击、原生目录选择框、前端执行器产出 payload 的真实形状、真实 provider
+    调用与计量 —— 本机无可登录后端(8801/8802/8810/8811 实测零监听),这一格仍是**真人验收缺口**,
+    不属于本票能就地清偿的范围(要它得等有后端的环境或用户侧一次真机点击)。
+  - **顺带按 §22 处方备份一次**:`check-commit-loss-guard` 在本轮拦下并发 reset 留下的 1 枚悬空提交
+    (`27c9c4ed8968`,并发会话 O81 票⑳「容器圆角按角色档收敛 281-350 文件」那批工作),已 tag 成
+    `lost-commit/radius-batch-281-350-27c9c4ed` —— 只加引用,不删任何东西;该门随即由红转绿。
 
 ## 第五十六批(2026-09-27 午后):会话失效出口三端补齐 + 函数形态 style 存量清零 + 一道门"注册先进仓、脚本还在门外"的成套收口
 
