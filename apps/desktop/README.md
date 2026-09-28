@@ -38,7 +38,17 @@ pnpm --filter @ihui/desktop dev
 pnpm dev:desktop:saas
 ```
 
-`tauri.conf.json` 的 `beforeDevCommand` 为 `pnpm --filter @ihui/web dev`，`devUrl` 为 `http://localhost:8801`。即开发态同样复用 web 的 dev server，改 web 代码即时生效。`pnpm dev:desktop:saas`（`scripts/desktop-dev-saas.mjs`）会把 `beforeDevCommand` 覆盖为空、自己以线上 `NEXT_PUBLIC_*` 后端地址常驻拉起 8801，再启动 `tauri dev`。
+`tauri.conf.json` 的 `beforeDevCommand` 为 `pnpm --filter @ihui/web dev`，`devUrl` 为 `http://localhost:8801`。**但这两条在开发态都不起作用**：主窗口的 `app.windows[0].url` 写的是绝对地址 `https://aizhs.top/agents`，而 Tauri 2 只有 `WebviewUrl::App`（相对路径）才会被解析到 `devUrl`，`External` 一律原样加载（`tauri-utils/src/config.rs` 的 http(s) 反序列化 + `tauri/src/manager/webview.rs` 的 `get_app_url()` 分支，2.11.x 实测）。所以 `tauri dev` 与 `pnpm dev:desktop:saas`（`scripts/desktop-dev-saas.mjs` 只覆盖 `beforeDevCommand`）加载的都是线上前端，`devUrl` 是一条没被用上的历史配置。
+
+要在开发态加载本地 web 构建（验证"只在本地存在的界面"时必须这么做），把窗口 `url` 一起换成相对路径、并把 `devUrl` 指到本地端口：
+
+```bash
+# 覆盖配置只影响本次 dev 进程，零文件改动(2026-09-28 实测:DevTools 标题变为 localhost:8861)
+node -e 'const c=require("./apps/desktop/src-tauri/tauri.conf.json");const w={...c.app.windows.find(x=>x.label==="main"),url:"index.html"};require("fs").writeFileSync(".ihui-agent/tmp/desktop-dev-override.json",JSON.stringify({build:{beforeDevCommand:"",devUrl:"http://localhost:8861"},app:{windows:[w]}}))'
+pnpm --filter @ihui/desktop exec tauri dev --config .ihui-agent/tmp/desktop-dev-override.json
+```
+
+两点实测注意：① 覆盖必须带上**完整的 windows[0] 对象**（只给 `{label,url}` 会丢掉 `decorations:false`/`visible:false`/`theme` 等）；② `url` 要写成相对值而不是 `http://localhost:8861/` —— 绝对地址会被当成远程来源，而 `capabilities/default.json` 的 `remote.urls` 只放行 `aizhs.top`，本地页会拿不到 IPC（表现是宿主命令全部失败）。另外 `src-tauri/src/auto_refresh.rs` 的离线守卫在连续探活失败后会把页面顶回线上首页，dev 期间需保证 `aizhs.top/api/health` 可达。
 
 ## 构建
 

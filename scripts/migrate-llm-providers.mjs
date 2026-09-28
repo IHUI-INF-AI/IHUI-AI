@@ -16,10 +16,17 @@
  *   node scripts/migrate-llm-providers.mjs --dry-run --input .env.example
  *   node scripts/migrate-llm-providers.mjs --help
  *
+ * `--input` / `--output` 的取值硬约束(2026-09-28,G-322 这一族里**唯一会写盘**的一处):
+ *   紧邻的下一个 token 必须存在、非空且不以 `-` 开头,才算这个旗标的值。
+ *   给了旗标却没给合法值(如 `--output --staged`、`--output` 结尾)⇒ **exit 2 并点名实得 token**,
+ *   且在读任何文件、写任何文件**之前**退出;**绝不回落默认路径**。
+ *   不给这两个旗标时仍是 `.env` → `.env.migrated`,与改动前逐字同形。
+ *
  * 必读:阶段 2 仍保留 24+7 扁平字段向后兼容(阶段 3 才删),本脚本生成 JSON 后
  * 可与扁平字段共存,Settings.get_provider_config 优先读 JSON.
  */
 import { readFileSync, writeFileSync, existsSync, copyFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 // Provider 字段名映射:从 config.py 扁平字段同步(单一 source of truth)
 // 格式: { canonical_name: [字段前缀列表] }
@@ -208,6 +215,77 @@ function stripFlatFields(content) {
 }
 
 // =============================================================================
+// 旗标取值(2026-09-28 修 G-322 这一族里**唯一会写盘**的一处)
+// =============================================================================
+
+/**
+ * 带值旗标的取值(**口径照抄枚 380431ffc / 636c28f58 / 8832e73a4,不另发明**):紧邻的下一个
+ * token 必须**存在、非空且不以 `-` 开头**,才算该旗标的值。
+ */
+function flagValue(list, flag) {
+  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null };
+  const raw = list[list.indexOf(flag) + 1];
+  const token = typeof raw === 'string' ? raw : null;
+  const valid = token !== null && token !== '' && !token.startsWith('-');
+  return { present: true, valid, value: valid ? token : null, token };
+}
+
+/** 不给 `--input` / `--output` 时的默认路径 —— **本次改动一个字都不许动**(调用方按它跑)。 */
+export const DEFAULT_INPUT = '.env';
+export const DEFAULT_OUTPUT = '.env.migrated';
+
+/**
+ * 解析读写路径(纯函数,无副作用 —— 镜像测试直接 import,§22c 禁止在测试里再抄一份判据)。
+ *
+ * 旧写法 `args[args.indexOf('--input') + 1]` / `+ 1` 无条件把紧邻 token 当路径,于是:
+ *   - `--output --staged` ⇒ 写出一个**名叫 `--staged` 的文件**(实测 HEAD 版在临时目录里
+ *     RC=0 且落盘 59 字节,里面还带着 `api_key`),而 stdout 照旧打 `✅ 已写入纯 JSON`;
+ *   - `--output`(结尾)⇒ `output === undefined` ⇒ `writeFileSync(undefined)` 抛裸 TypeError
+ *     + 栈(RC=1),报的是 `node:fs` 而不是"你把旗标写错了"。
+ * 这一处比其它几处更危险,因为 `--apply` 档下**写的是真文件**:路径被顶掉时,要么把迁移产物
+ * 落到意料之外的位置,要么把 input 读成另一个旗标名。
+ *
+ * 现口径:给了旗标就必须给合法值;无效 ⇒ `invalid` 非空 + `errorLines` 点名实得 token,
+ * 由调用方在**读任何文件、写任何文件之前** exit 2。**绝不回落默认路径**(回落等于把
+ * "用户以为写到了别处" 换成 "静默写到 .env.migrated",同一型的失真)。
+ * 不给这两个旗标时 `input/output` 与改动前逐字同形(默认档)。
+ * @returns {{input:string, output:string, invalid:Array<{flag:string, token:string|null}>, errorLines:string[]}}
+ */
+export function resolveIoPaths(list) {
+  const inp = flagValue(list, '--input');
+  const out = flagValue(list, '--output');
+  const bad = [
+    { flag: '--input', ...inp },
+    { flag: '--output', ...out },
+  ].filter((f) => f.present && !f.valid);
+  if (bad.length === 0) {
+    return {
+      input: inp.present ? inp.value : DEFAULT_INPUT,
+      output: out.present ? out.value : DEFAULT_OUTPUT,
+      invalid: [],
+      errorLines: [],
+    };
+  }
+  const errorLines = [];
+  for (const f of bad) {
+    const got = f.token === null ? '(其后没有任何参数)' : JSON.stringify(f.token);
+    errorLines.push(`❌ [migrate-llm-providers] ${f.flag} 没有收到有效的路径 —— 紧邻的 token 实得:${got}`);
+  }
+  errorLines.push(
+    '   带值旗标的值必须存在、非空且不以 - 开头;否则 --output --staged 会写出一个名叫 --staged',
+    '   的文件(还带着 api_key)而 stdout 照旧报"已写入",--apply 档下这是往意料之外的位置落盘。',
+    `   出路:--input <真实文件> --output <真实文件>;或整个去掉这两个旗标走默认`,
+    `   (${DEFAULT_INPUT} → ${DEFAULT_OUTPUT})。`,
+  );
+  return {
+    input: inp.present ? inp.value : DEFAULT_INPUT,
+    output: out.present ? out.value : DEFAULT_OUTPUT,
+    invalid: bad.map((f) => ({ flag: f.flag, token: f.token })),
+    errorLines,
+  };
+}
+
+// =============================================================================
 // CLI
 // =============================================================================
 
@@ -220,7 +298,9 @@ LLM provider .env 迁移脚本(2026-07-26 阶段 2)
 
 参数:
   --input <file>    输入 .env 文件路径(默认: .env)
+                    值必须存在、非空且不以 - 开头;给了旗标却没给合法值 ⇒ exit 2 并点名实得 token
   --output <file>   输出文件路径(默认: .env.migrated)
+                    同上 —— 无效值会在**写盘之前**判死,不会写出一个叫 --staged 的文件
   --apply           写入完整 .env 格式(含 LLM_PROVIDERS=... 一行)
                     默认(无 --apply)只写入纯 JSON 到 --output
   --dry-run         只打印预览,不写任何文件
@@ -250,93 +330,122 @@ LLM provider .env 迁移脚本(2026-07-26 阶段 2)
 `);
 }
 
-const args = process.argv.slice(2);
+async function main() {
+  const args = process.argv.slice(2);
 
-if (args.includes('--help') || args.includes('-h')) {
-  printHelp();
-  process.exit(0);
-}
-
-const inputIdx = args.indexOf('--input');
-const input = inputIdx >= 0 ? args[inputIdx + 1] : '.env';
-const outputIdx = args.indexOf('--output');
-const output = outputIdx >= 0 ? args[outputIdx + 1] : '.env.migrated';
-const dryRun = args.includes('--dry-run');
-const apply = args.includes('--apply');
-const backup = args.includes('--backup');
-const stripFlat = args.includes('--strip-flat');
-const redact = args.includes('--redact');
-
-// --strip-flat 必须配合 --apply(不带 --apply 时不会写文件,strip-flat 无意义)
-if (stripFlat && !apply) {
-  console.error('❌ --strip-flat 必须配合 --apply 使用');
-  process.exit(2);
-}
-
-if (!existsSync(input)) {
-  console.error(`❌ 输入文件不存在: ${input}`);
-  process.exit(1);
-}
-
-const envContent = readFileSync(input, 'utf8');
-const env = parseEnv(envContent);
-const { providers, json, stats } = migrate(env);
-
-console.log(`📖 已解析 ${Object.keys(env).length} 个 env 变量`);
-console.log(`🔍 匹配到 ${stats.matched} 个 LLM provider`);
-
-if (Object.keys(providers).length === 0) {
-  console.log('⚠️  未发现任何 LLM provider 配置(所有 *_API_KEY / *_API_BASE / *_TOKEN 都为空)');
-}
-
-if (dryRun) {
-  console.log('\n--- 📋 预览(JSON 格式,写入文件为单行)---');
-  if (redact) {
-    console.log(JSON.stringify(redactProviders(providers), null, 2));
-  } else {
-    console.log(JSON.stringify(providers, null, 2));
-    console.log('⚠️  api_key 未脱敏,建议加 --redact 参数防止终端日志泄露');
+  if (args.includes('--help') || args.includes('-h')) {
+    printHelp();
+    process.exit(0);
   }
 
-  if (stripFlat) {
-    const { removed } = stripFlatFields(envContent);
-    console.log('\n--- 🗑  将删除以下扁平字段 ---');
-    if (removed.length === 0) {
-      console.log('(无匹配的扁平字段)');
+  // 读写路径先验,**在任何 readFileSync / writeFileSync / copyFileSync 之前**判死:
+  // `--output --staged` 一型在旧版会真的落盘(见 resolveIoPaths 的注释)。
+  const io = resolveIoPaths(args);
+  if (io.invalid.length > 0) {
+    for (const line of io.errorLines) console.error(line);
+    process.exit(2);
+  }
+  const input = io.input;
+  const output = io.output;
+  const dryRun = args.includes('--dry-run');
+  const apply = args.includes('--apply');
+  const backup = args.includes('--backup');
+  const stripFlat = args.includes('--strip-flat');
+  const redact = args.includes('--redact');
+
+  // --strip-flat 必须配合 --apply(不带 --apply 时不会写文件,strip-flat 无意义)
+  if (stripFlat && !apply) {
+    console.error('❌ --strip-flat 必须配合 --apply 使用');
+    process.exit(2);
+  }
+
+  if (!existsSync(input)) {
+    console.error(`❌ 输入文件不存在: ${input}`);
+    process.exit(1);
+  }
+
+  const envContent = readFileSync(input, 'utf8');
+  const env = parseEnv(envContent);
+  const { providers, json, stats } = migrate(env);
+
+  console.log(`📖 已解析 ${Object.keys(env).length} 个 env 变量`);
+  console.log(`🔍 匹配到 ${stats.matched} 个 LLM provider`);
+
+  if (Object.keys(providers).length === 0) {
+    console.log('⚠️  未发现任何 LLM provider 配置(所有 *_API_KEY / *_API_BASE / *_TOKEN 都为空)');
+  }
+
+  if (dryRun) {
+    console.log('\n--- 📋 预览(JSON 格式,写入文件为单行)---');
+    if (redact) {
+      console.log(JSON.stringify(redactProviders(providers), null, 2));
     } else {
-      removed.forEach((line) => console.log(`  ${line}`));
+      console.log(JSON.stringify(providers, null, 2));
+      console.log('⚠️  api_key 未脱敏,建议加 --redact 参数防止终端日志泄露');
     }
+
+    if (stripFlat) {
+      const { removed } = stripFlatFields(envContent);
+      console.log('\n--- 🗑  将删除以下扁平字段 ---');
+      if (removed.length === 0) {
+        console.log('(无匹配的扁平字段)');
+      } else {
+        removed.forEach((line) => console.log(`  ${line}`));
+      }
+    }
+
+    if (backup) {
+      console.log('\n--- 💾 备份预览(--dry-run 下不实际备份)---');
+      console.log(`  将备份 ${input} → ${input}.bak.<timestamp>`);
+    }
+
+    console.log(`\n--- 📍 写入目标: ${output} (${apply ? '完整 .env 格式' : '纯 JSON'}) ---`);
+    console.log('✅ dry-run 模式,不写任何文件');
+    process.exit(0);
   }
 
+  // --backup: 在写入 output 之前备份 input(--dry-run 已在上面 exit,这里一定非 dry-run)
   if (backup) {
-    console.log('\n--- 💾 备份预览(--dry-run 下不实际备份)---');
-    console.log(`  将备份 ${input} → ${input}.bak.<timestamp>`);
+    const backupPath = backupEnv(input);
+    console.log(`✅ 已备份原 .env → ${backupPath}`);
   }
 
-  console.log(`\n--- 📍 写入目标: ${output} (${apply ? '完整 .env 格式' : '纯 JSON'}) ---`);
-  console.log('✅ dry-run 模式,不写任何文件');
-  process.exit(0);
-}
-
-// --backup: 在写入 output 之前备份 input(--dry-run 已在上面 exit,这里一定非 dry-run)
-if (backup) {
-  const backupPath = backupEnv(input);
-  console.log(`✅ 已备份原 .env → ${backupPath}`);
-}
-
-if (apply) {
-  let baseContent = envContent;
-  if (stripFlat) {
-    const { strippedContent, removed } = stripFlatFields(baseContent);
-    baseContent = strippedContent;
-    console.log(`🗑  已删除 ${removed.length} 行扁平字段`);
+  if (apply) {
+    let baseContent = envContent;
+    if (stripFlat) {
+      const { strippedContent, removed } = stripFlatFields(baseContent);
+      baseContent = strippedContent;
+      console.log(`🗑  已删除 ${removed.length} 行扁平字段`);
+    }
+    const content = baseContent + `\n\n# ========== 2026-07-26 阶段 2 迁移产物 ==========\n# 由 scripts/migrate-llm-providers.mjs 生成\n# 优先于扁平字段(向后兼容,阶段 3 才删扁平字段)\nLLM_PROVIDERS='${json}'\n`;
+    writeFileSync(output, content);
+    console.log(`✅ 已写入完整 .env(含 LLM_PROVIDERS=...) → ${output}`);
+  } else {
+    writeFileSync(output, json);
+    console.log(`✅ 已写入纯 JSON → ${output}`);
+    console.log('   提示:加 --apply 参数会生成完整 .env 格式(追加 LLM_PROVIDERS=... 一行)');
   }
-  const content = baseContent + `\n\n# ========== 2026-07-26 阶段 2 迁移产物 ==========\n# 由 scripts/migrate-llm-providers.mjs 生成\n# 优先于扁平字段(向后兼容,阶段 3 才删扁平字段)\nLLM_PROVIDERS='${json}'\n`;
-  writeFileSync(output, content);
-  console.log(`✅ 已写入完整 .env(含 LLM_PROVIDERS=...) → ${output}`);
-} else {
-  writeFileSync(output, json);
-  console.log(`✅ 已写入纯 JSON → ${output}`);
-  console.log('   提示:加 --apply 参数会生成完整 .env 格式(追加 LLM_PROVIDERS=... 一行)');
 }
+
+// §22d:被 import 时不得触发 CLI 副作用(镜像测试要 import resolveIoPaths 这条判据;
+// 本脚本的 CLI 会读 .env 并**写文件**,不加这道守卫时 import 一次就等于跑一次迁移)
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`);
+    process.exit(2);
+  });
+}
+
+export const __test__ = {
+  flagValue,
+  resolveIoPaths,
+  parseEnv,
+  migrate,
+  redactProviders,
+  stripFlatFields,
+  DEFAULT_INPUT,
+  DEFAULT_OUTPUT,
+};
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -69,7 +69,7 @@ export function NoteScreen({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityLabel={t('common.back')}
         >
-          <ChevronLeft size={16} color={tk.surface.light} />
+          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
         </TouchableOpacity>
       </View>
     )
