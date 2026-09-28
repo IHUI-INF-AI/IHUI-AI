@@ -561,6 +561,13 @@ export function auditFileText(rel, src, table, baseConsts) {
         continue
       }
       if (capsuleWide(f)) {
+        /**
+         * 能走到这里说明窄窗量得出**扁盒**且半径已够半边,唯一没满足的是短边 ≥ 可点下限 ——
+         * 所以队列的理由必须写成这一句,而不是沿用票㉚ 之前那句"盒形会被子节点污染"
+         * (那条前置已经由 `boxDimsOwn` 解决;留着旧措辞就是在替一个已不存在的缺陷背书,
+         *  而读队列的人会按它去找子节点。)
+         */
+        rec.detail = `短边 ${geomShort}px 细于可点下限 ${CAPSULE_MIN_SHORT}px ⇒ §4 的装饰条 / 骨架行 / 指示点族:半径=半边就是圆头端点,判红等于逼设计改方角`
         out.capsuleFindings.push(rec)
         continue
       }
@@ -1102,7 +1109,8 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
   }
   if (res.capsuleFindings.length) {
     console.log(
-      `◦ C6 胶囊候选 ${res.capsuleFindings.length} 处(队列,不判红 —— 盒形量算会被子节点污染,升级前置写在判定处注释):`,
+      `◦ C6 圆头端点队列 ${res.capsuleFindings.length} 处(半径已取到扁盒短边的一半,而短边细于可点下限 ` +
+        `⇒ §4 明令装饰条/骨架行/指示点不得方档化,故不判红;**不判红也不记通过**,逐条附量到的短边与理由):`,
     )
     if (argv.includes('--all'))
       for (const u of res.capsuleFindings.slice(0, 60)) {
