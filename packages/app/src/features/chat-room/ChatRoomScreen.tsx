@@ -19,7 +19,7 @@ import { ChevronLeft, FileText, Music, Video, X } from 'lucide-react-native'
 import { SearchInput } from '../../components/SearchInput'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 // ── 类型定义(强类型,禁用 any;内联定义对齐 MessageChatScreen 模式) ──
 
@@ -415,7 +415,7 @@ function createStyles(tk: AppThemeTokens) {
       maxWidth: 240, // 历史 .message-bubble max-width 480rpx
       paddingVertical: 10, // rpx(20)
       paddingHorizontal: 12, // rpx(24)
-      borderRadius: rnRadius.md, // rpx(12)
+      borderRadius: rnRadiusFor.bubble, // rpx(12)
     },
     bubbleUser: {
       backgroundColor: tk.vip.gold, // 历史 #FFD700

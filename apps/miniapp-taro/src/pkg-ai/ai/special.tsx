@@ -218,7 +218,7 @@ export default function SpecialModelsPage() {
   return (
     <ThemeRoot className="min-h-screen bg-background pb-[60rpx] box-border">
       {/* Banner */}
-      <View className="relative mx-[20rpx] mt-[36rpx] mb-[24rpx] p-[32rpx] rounded-2xl overflow-hidden bg-card">
+      <View className="relative mx-[20rpx] mt-[36rpx] mb-[24rpx] p-[32rpx] ui-card rounded-lg overflow-hidden bg-card">
         <View
           className="absolute top-0 left-0 right-0 bottom-0 z-0"
           style={{ background: 'var(--color-secondary)' }}
