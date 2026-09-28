@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { CHART_BLUE, CHART_ORANGE } from '@ihui/design-tokens'
+import { CHART_BLUE, CHART_ORANGE, rnRadius } from '@ihui/design-tokens'
 import type { LeaderboardEntry } from '@/lib/ai-news-api'
 import { parseNumeric } from './text-utils'
 
@@ -107,7 +107,7 @@ export function PriceChart({ entries }: Props) {
                 width={BAR_W}
                 height={inH}
                 fill={CHART_BLUE}
-                rx={1.5} // radius-exempt: 图表细柱微圆角(1.5px),吸附到档位会破坏观感
+                rx={rnRadius.xs}
               >
                 {d.inputRaw !== null ? (
                   <title>{t('priceChart.inputPrice', { name: d.name, price: d.inputRaw })}</title>
@@ -121,7 +121,7 @@ export function PriceChart({ entries }: Props) {
                 width={BAR_W}
                 height={outH}
                 fill={CHART_ORANGE}
-                rx={1.5} // radius-exempt: 图表细柱微圆角(1.5px),吸附到档位会破坏观感
+                rx={rnRadius.xs}
               >
                 {d.outputRaw !== null ? (
                   <title>{t('priceChart.outputPrice', { name: d.name, price: d.outputRaw })}</title>
@@ -142,13 +142,11 @@ export function PriceChart({ entries }: Props) {
       })}
       {/* 图例 */}
       <g>
-        {/* radius-exempt: 图例小方块微圆角(1px),吸附到档位会破坏观感 */}
-        <rect x={PAD_L} y={2} width={8} height={8} fill={CHART_BLUE} rx={1} />
+        <rect x={PAD_L} y={2} width={8} height={8} fill={CHART_BLUE} rx={rnRadius.xs} />
         <text x={PAD_L + 12} y={9} className="fill-muted-foreground" fontSize={8}>
           {t('priceChart.legendInput')}
         </text>
-        {/* radius-exempt: 图例小方块微圆角(1px),吸附到档位会破坏观感 */}
-        <rect x={PAD_L + 44} y={2} width={8} height={8} fill={CHART_ORANGE} rx={1} />
+        <rect x={PAD_L + 44} y={2} width={8} height={8} fill={CHART_ORANGE} rx={rnRadius.xs} />
         <text x={PAD_L + 56} y={9} className="fill-muted-foreground" fontSize={8}>
           {t('priceChart.legendOutput')}
         </text>

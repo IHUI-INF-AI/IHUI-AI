@@ -4015,6 +4015,36 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 凭据在场即豁免对账(1 项,blocking)---
+  // 编号说明(union 收敛当日):本条目与上一条是**同一天两个会话各立的同型门**(都判「安全钩子里
+  // 凭据头名在场即裸放行」)。两侧已各自入库,删任一道等于替别人卸闸,故两道全留;撞号按
+  // 「后来者改号」处置 —— 上一条已占远端号,本侧尚未推送 ⇒ 本侧让号。是否把两道合成一道属
+  // 各判据持有人的裁决,不在收敛票范围内。编号一律以 runner 现值为准,不得照文档派单。
+  {
+    id: '158',
+    label:
+      '🛡️ 凭据在场即豁免对账(blocking,拦「安全钩子里只要带了某个头就直接跳过校验」—— 票#23 CSRF 现场收口后无人看守的那一型)',
+    script: 'check-gate-presence-exemption.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GATE_PRESENCE_EXEMPTION',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '',
+      '  💡 本门钉的形态:安全语义文件面(apps/api/src/plugins/** + apps/api/src/middleware/** + 文件名含 csrf/auth/permission/rate-limit/internal 的源码)里,if (<只对 headers/cookies 做存在性判断>) 紧跟裸放行(return / return true / return next()),且分支内没有任何验证调用。',
+      '     阳性对照(这门的存在理由):把票#23 修复前的 csrf.ts 历史 blob(6fb790eb70a8^)喂同一判据,必须点名那行 x-internal-service-token;改写成「验过才免」(isVerified*/secretsEqual/verify*/timingSafeEqual/jwt.verify/compare*)后落 passed。',
+      '     三态不可混:命中(判红;存量按该文件 HEAD 自身计数只报数)/ 放过(做了验证调用)/ 判不出(helper 调用、动态属性名、与凭据字段混项)—— 判不出逐条点名并计数,--strict 下有未判定即 exit 2,拒绝出合格证。',
+      '     口径同 70/77/83/98/101/103/118:全量判 HEAD blob、--staged 判索引 blob、--worktree 仅人工、两面旗同给 exit 2、取不到判"无法判定"不回落、枚举到 0 个候选判死。',
+      '     行内出口 presence-exempt: <原因>(须带原因,只救本行或紧邻上一纯注释行);该族尚未进守门 108 的存活期表,当前落其默认 90 天档,定档另计一票。',
+      '     刻意不判(如实登记):条件先存进变量再判(单跳回溯不在射程)、头值做 == 字面比较(是否安全比较属另一维)、continue 形态、Python 侧(守门 117 管那一层的另一型)。',
+      '     ① 看清单:node scripts/check-gate-presence-exemption.mjs [--json|--staged|--strict]',
+      '     ② 自检:node scripts/check-gate-presence-exemption.mjs --self-test',
+      '     ③ 镜像:node --test scripts/tests/check-gate-presence-exemption.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_GATE_PRESENCE_EXEMPTION=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

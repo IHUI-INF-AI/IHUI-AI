@@ -21,6 +21,7 @@ import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
 import { calculateAgentPermission } from '../services/agent-service.js'
 import { getConversationHistory } from '../services/context-manager-service.js'
 import { generateOrderNumber } from '../utils/crypto-random.js'
+import { isUuidString } from '../utils/uuid.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -1107,6 +1108,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.get('/rules/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    if (!isUuidString(parsed.data.id)) return reply.status(404).send(error(404, '规则不存在'))
     try {
       const rows = await db
         .select()
@@ -1152,6 +1154,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/rules/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    if (!isUuidString(parsed.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const bodyParsed = updateRuleSchema.safeParse(req.body ?? {})
     if (!bodyParsed.success) {
       return reply.status(400).send(error(400, '参数校验失败'))
@@ -1183,6 +1186,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.delete('/rules/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    if (!isUuidString(parsed.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     try {
       const removed = await db
         .delete(agentRule)
@@ -1297,6 +1301,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       agentId?: string
       dateStr?: string
     }
+    // agentId 是可选筛选位,缺席时照常列全量;只在"给了值但不是 uuid"时拦,
+    // 否则 Postgres 会对非 uuid 串抛 22P02 而这里会变成 500。
+    if (q.agentId && !isUuidString(q.agentId))
+      return reply.status(400).send(error(400, 'agentId 格式不正确'))
     const { page, pageSize } = parsePaging(q)
     const offset = (page - 1) * pageSize
     const conditions: SQL[] = []
@@ -1324,6 +1332,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   server.get('/heat/summary', async (req, reply) => {
     const { agentId } = req.query as { agentId: string }
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(agentId)) return reply.status(404).send(error(404, '记录不存在'))
     if (!agentId) return reply.status(400).send(error(400, '缺少 agentId 参数'))
     try {
       const totalRows = await db

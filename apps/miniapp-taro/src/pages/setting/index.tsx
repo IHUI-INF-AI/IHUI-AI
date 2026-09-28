@@ -8,6 +8,7 @@ import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, logout, type UserInfo } from '@/api'
+import { markSessionLoggedOut } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 
@@ -51,6 +52,10 @@ export default function SettingIndexPage() {
             logger.error('setting/index', '退出登录', e)
             Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
           }
+          // 本出口只调后端登出接口、不清本地凭据 ⇒ 必须显式落登出标记(判据在
+          // @ihui/shared/auth/auto-login-policy),否则一次 401 触发的静默续期就会把
+          // 刚点过退出的用户登回去。清凭据那一步属另一条既有缺陷,不在本票顺手改。
+          markSessionLoggedOut()
           Taro.reLaunch({ url: '/pages/login/login' })
         }
       },

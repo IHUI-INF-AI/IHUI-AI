@@ -1190,7 +1190,6 @@ function UploadButton({
         </Text>
       </Pressable>
       {url && onDelete ? (
-        // radius-exempt: 删除角标正圆:绝对定位小圆钮,直径=边长
         <Pressable
           onPress={(e) => {
             e.stopPropagation()

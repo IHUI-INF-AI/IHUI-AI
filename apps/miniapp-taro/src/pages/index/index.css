@@ -303,7 +303,7 @@
   right: 20%;
   height: 4rpx;
   background: var(--color-link);
-  border-radius: 2rpx; /* radius-exempt: 2px 高下划线指示条,半径取高度一半为圆头端点,改方档会破坏胶囊形 */
+  border-radius: 2rpx;
 }
 
 /* 素材列表滚动区 */
