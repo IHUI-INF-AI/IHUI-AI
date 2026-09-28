@@ -26,17 +26,86 @@
  *   node scripts/pre-deploy.mjs --skip-tests   # 跳过测试(应急)
  *   node scripts/pre-deploy.mjs --env production # 生产模式(env 检查更严)
  *
+ * `--env` 只接受两个值(与本脚本汇总行 `模式:` 打印的两档**同名**,不得凭空发明第三档):
+ *   production  → 严格档(env 缺项判 FAIL、警告段单独提示)
+ *   staging     → 开发档(= 不带 `--env` 时的行为)
+ *   其它任何东西 / 漏值 / `--env --skip-tests`(紧邻 token 以 `-` 开头)⇒ **exit 2 并点名实得 token**,
+ *   在跑任何门禁**之前**退出。**绝不**静默降级成开发档 —— 旧写法
+ *   `ARGS[ARGS.indexOf('--env') + 1] === 'production'` 让 `--env --skip-tests` 悄悄按开发档跑完
+ *   10 项并 exit 0,即"生产模式 env 检查更严"这一档结构性没跑而账面全绿(G-322 那一族)。
+ *
  * 输出:每项 [OK] / [FAIL] / [WARN] 颜色标注 + 最终汇总 + exit code
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { execSync } from 'node:child_process'
 
 const ROOT = process.cwd()
 const ARGS = process.argv.slice(2)
 const SKIP_TESTS = ARGS.includes('--skip-tests')
-const PROD_MODE = ARGS.includes('--env') && ARGS[ARGS.indexOf('--env') + 1] === 'production'
+
+/**
+ * 带值旗标的取值(2026-09-28 修 G-322 这一族;**口径照抄枚 380431ffc / 636c28f58 / 8832e73a4,
+ * 不另发明**):紧邻的下一个 token 必须**存在、非空且不以 `-` 开头**,才算该旗标的值。
+ */
+function flagValue(list, flag) {
+  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null }
+  const raw = list[list.indexOf(flag) + 1]
+  const token = typeof raw === 'string' ? raw : null
+  const valid = token !== null && token !== '' && !token.startsWith('-')
+  return { present: true, valid, value: valid ? token : null, token }
+}
+
+/** `--env` 的合法值 = 汇总行 `模式:` 已经打印的那两档(不得发明第三档)。 */
+export const ENV_MODES = ['production', 'staging']
+
+/**
+ * 解析 `--env`(纯函数,无副作用 —— 镜像测试直接 import 它,§22c 禁止在测试里再抄一份)。
+ * 旧写法 `PROD_MODE = ARGS.includes('--env') && ARGS[ARGS.indexOf('--env') + 1] === 'production'`
+ * 的问题是**把"没拿到值"和"拿到了非 production 的值"混成同一件事**:`--env --skip-tests`、`--env`
+ * 结尾、`--env prodction`(手打错)都会静默落进开发档,于是第 8 项"生产模式必填 env vars"里
+ * 那 6 个必填项从 FAIL 降级成 WARN、汇总的警告段也不提示 —— 跑完还是 `✅ 全部通过`,而"生产
+ * 模式检查更严"这一档根本没生效(台账 G-314/G-322 的同一型)。
+ * 现口径:给了 `--env` 就必须给一个合法值;无效 ⇒ `invalid:true` + `errorLines` 点名实得 token,
+ * 由调用方在**跑任何门禁之前** exit 2。不给 `--env` 时行为与改动前逐字同形(开发档、无提示)。
+ * @returns {{present:boolean, valid:boolean, prodMode:boolean, value:string|null, token:string|null, invalid:boolean, errorLines:string[]}}
+ */
+export function resolveEnvMode(list) {
+  const f = flagValue(list, '--env')
+  if (!f.present) return { present: false, valid: false, prodMode: false, value: null, token: null, invalid: false, errorLines: [] }
+  if (f.valid && ENV_MODES.includes(f.token))
+    return {
+      present: true,
+      valid: true,
+      prodMode: f.token === 'production',
+      value: f.token,
+      token: f.token,
+      invalid: false,
+      errorLines: [],
+    }
+  const got = f.token === null ? '(其后没有任何参数)' : JSON.stringify(f.token)
+  return {
+    present: true,
+    valid: false,
+    prodMode: false,
+    value: null,
+    token: f.token,
+    invalid: true,
+    errorLines: [
+      `❌ [pre-deploy] --env 没有收到有效的档位名 —— 紧邻的 token 实得:${got}`,
+      `   合法值只有 ${ENV_MODES.join(' / ')}(与本脚本"模式:"汇总行打印的两档同名同义)。`,
+      `   带值旗标的值必须存在、非空且不以 - 开头;否则 --env --skip-tests 会把 --skip-tests 当成档位,`,
+      `   "生产模式 env 检查更严"这一档就静默没跑(第 8 项的 6 个必填项从 FAIL 降级成 WARN)而账面照旧全绿。`,
+      `   出路:--env production(严格档)/ --env staging(开发档)/ 整个去掉 --env(等价于 staging)。`,
+    ],
+  }
+}
+
+const ENV_MODE = resolveEnvMode(ARGS)
+const PROD_MODE = ENV_MODE.prodMode
+
 
 const C = {
   red: '\x1b[31m',
@@ -504,7 +573,13 @@ function checkGitStatus() {
 // =====================================================
 // 主流程
 // =====================================================
-function main() {
+async function main() {
+  // 档位旗标读错 ⇒ 在跑任何一项门禁之前判死(见 resolveEnvMode 的注释)。
+  // 走 stderr:stdout 是本脚本的 [OK]/[FAIL] 报告面,有人 tee 它做后续判读。
+  if (ENV_MODE.invalid) {
+    for (const line of ENV_MODE.errorLines) console.error(line)
+    process.exit(2)
+  }
   const t0 = Date.now()
   console.log(`${C.bold}IHUI-AI R65 Pre-deploy 自检${C.reset}`)
   console.log(`${C.dim}模式: ${PROD_MODE ? 'PRODUCTION(严格)' : 'STAGING(开发)'}${SKIP_TESTS ? ' / 跳过测试' : ''}${C.reset}`)
@@ -555,5 +630,19 @@ function main() {
   process.exit(0)
 }
 
-main()
+// §22d:被 import 时不得触发 CLI 副作用(镜像测试要 import resolveEnvMode 这条判据)
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+export const __test__ = {
+  flagValue,
+  resolveEnvMode,
+  ENV_MODES,
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

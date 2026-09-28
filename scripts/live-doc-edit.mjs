@@ -11,8 +11,26 @@
  * 已入库的行整批写回旧态。所以底稿每次尝试都从**当下 HEAD** 现取,判据是**结构等值**
  * (new == HEAD 的前缀 ⊕ 本块 ⊕ 后缀),禁止用"重复行计数"那种启发式 —— 台账里本来就有大量
  * 逐字相同的短行(`- [ ]` 条目、`  },`、空行),启发式会把合法复用误判成"凭空多出"(wire-gate 就死在这上面,
- * 整块一次没落地成功过)。锚点命中数必须**恰好 1**:0 处 = 锚点文案已漂或本块已在位,>1 处 = 有歧义,
- * 两种都拒绝凭猜插。
+ * 整块一次没落地成功过)。锚点命中数必须**恰好 1**:0 处 = 锚点文案已漂(块在不在位由下面的幂等判据
+ * 单独判,不再与这一型混在一句里),>1 处 = 有歧义,两种都拒绝凭猜插。
+ *
+ * 幂等判据(G-321①,2026-09-28 立 —— 本仓一次真实自伤的落点):"锚点命中恰好 1"**从来不构成**
+ * "本块不在位"的证据。上一轮有人对同一锚点跑了两次(第一次其实已成功入库,只是 stdout 末行一句关于
+ * 共享主索引的红被读成整体失败),同一段落在 HEAD 里落了两份,还紧贴 Markdown 表格行没有空行分隔。
+ * 现在**拼块之前**在**本次调用实际取材的那一面**(该轮 CAS 现取的 HEAD 底稿,不是磁盘)现读
+ * "锚点之后紧邻的 N 行(N=块行数)是否已与本块逐行等值"⇒ 等值即判"已在位",不插入、exit 0、并点名依据。
+ * 两条不许漂的写法:
+ *  ① **禁止**用"已插块清单 / 台账文件"实现 —— 清单必然腐烂(本仓对 `RN_ONLY_BRAND_KEYS`、机器态门 id
+ *     清单记过同一条教训),判据必须当场从被审面量出来。
+ *  ② 块里的 `{{NEXT_ID:族}}` 会让两次跑产出**不逐字相同**的文本(第一次的号进了底稿,第二次号更大),
+ *     所以匹配式只把**编号的数字段**当可变位(形状取自 `usedIdsOfPrefix` 的 `template`,与本器取号
+ *     同一个出口,不另写一份"什么算一个编号"),其余字符必须逐字等值。失效方向刻意是"宁可认不出已在位,
+ *     也绝不误拦合法插入"(票面第二条成对用例:同锚点、实质不同必须仍插得进去)。
+ *     边界:两行**除自动号以外逐字相同**时本判据认作同一块 —— 那与"重跑"在内容上不可区分,而按 §1
+ *     "一个编号只能有一行当前状态",这种登记本来就该换一个标题;此时工具拒绝追加并点名落点行号,交人裁决。
+ *
+ * 退出码分档(G-321②):"内容已落地"与"仅共享主索引没对齐"过去混成同一个失败信号(1),于是调用方
+ * 只能在"重跑造双份"与"漏跑留旧态"之间猜。现在前者由上面的幂等判据拦住,后者由 0 档明写(见 `alignOutcome`)。
  *
  * CLI 契约(env 驱动):
  *  LIVE_DOC          必填,仓库相对路径(须在 HEAD 里存在)
@@ -43,9 +61,21 @@
  *  max)**。只问 `git ls-remote` + 本机对象库;远端 tip 的对象**本地没有就不 fetch、不写任何 ref**,
  *  如实打印"号段基准未含远端(对象不在本地,原因:…)"后按本地基准落盘。远端**只抬高、不压低**,
  *  所以远端与本地同 max(或远端问不到)时取号与改动前逐字同形。降级一律喊出来,不得静默。
- * 退出码:0 = 已落地且回读证明本块每一条非空行都在 HEAD 里(索引对齐未尽只点名不判红);
- *        1 = 业务拒绝(锚点命中 0 或 >1 / 结构等值不成立 / 文档不在 HEAD / CAS 12 次未抢到 / 回读缺行 / 索引锁龄超上限);
+ * 退出码:0 = 已落地且回读证明本块每一条非空行都在 HEAD 里(**共享主索引未对齐只点名不判红**,
+ *        含 `.git/index.lock` 锁龄超上限 —— 那是索引副作用,不是"没落地";重跑不会补对齐,只会撞幂等判据),
+ *        或 本块已在位(幂等命中:不产生新提交、不写任何东西);
+ *        1 = 业务拒绝(锚点命中 0 或 >1 / 结构等值不成立 / 文档不在 HEAD / CAS 12 次未抢到 / 回读缺行 /
+ *            编号形状编译不出 ⇒ 无法证明"不在位");
  *        2 = 用法或环境错(缺必填 env / 锚点或正文块为空 / 根不可当仓库问)。
+ *
+ * 已知边界(如实登记,别读成"重复落地这一族已被全覆盖"):
+ *  - **EOF 追加档不在幂等射程**:票面 ① 的判据定义在"锚点之后紧邻 N 行"上,EOF 档没有锚点可点名。
+ *    既有端到端测试 N4 的第二段恰恰是"同一块再跑一次"来证明号被远端抬高,给 EOF 加幂等会把那条断言
+ *    打死(既有断言不许放宽)⇒ 这一格留白,要收它得先改 N4 的取材设计,那是另一票。
+ *  - **整行改写档天然不需要**:它的 `before` 命中 0 就是"这条已改过"的信号(`replace-not-found`),
+ *    再跑一次产不出双份。
+ *  - "已在位"那一支**不动共享主索引**:对齐判据要的是"那枚提交的父",而本次没有新提交、索引此刻归谁
+ *    无从判定 ⇒ 只把 0 档的措辞写在上面,不代删别人的锁、不猜。
  *
  * ⚠️ 头注不写"已接 pre-commit/CI"字样(守门 89 R1/R2 判"声称已接线而零命中")。
  */
@@ -333,6 +363,145 @@ export function locateAnchor(baseLines, anchorLines) {
   return { hits, idx }
 }
 
+/** 正则字面量转义:块文本里任何字符都可能是元字符(`.` `(` `[` `*` `$` `\` …),一律按字面判。 */
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 幂等判据(①)的匹配式编译面:把**模板行**(仍带 `{{NEXT_ID:族}}`)编成整行锚定的正则,
+ * 令牌的数字段是唯一可变位,其余字符逐字等值。
+ *
+ * 为什么必须放开这一位:同一块第二次跑产出的文本**不逐字相同**(第一次的号已进底稿,第二次号更大),
+ * 纯逐行等值会漏掉的恰恰是台账记下的那一型;而把"逐字不同"一律读成"内容不同"就又回到重复落地。
+ * 为什么形状只取 `usedIdsOfPrefix` 的 `template`(与本器取号同一个出口):本仓纪律是"两处算同一件事
+ * 必漂移",`G-265` 带连字符而 `O4` 不带这类书写差异由该族自己现读决定,不在这里再抄一张族表。
+ * 无令牌的块 ⇒ 匹配式就是逐字面 ⇒ 等价于票面 ① 原文那句"逐行等值"(这是缺省形态,不是特例)。
+ * 编不出形状 ⇒ `ok:false`(调用方拒绝落地,不退化成"逐字等值再判一次"——那会把这一型洗成"未在位")。
+ */
+export function compileBlockMatchers(templateLines, baseContent) {
+  const shapes = {}
+  for (const f of idTokenFamilies(templateLines)) {
+    const used = usedIdsOfPrefix(baseContent, f)
+    if (!used || typeof used.template !== 'string' || !used.template.includes('%d'))
+      return { ok: false, reason: `family-shape-unreadable:${f}` }
+    const at = used.template.indexOf('%d')
+    shapes[f] =
+      escapeRegExp(used.template.slice(0, at)) + '\\d+' + escapeRegExp(used.template.slice(at + 2))
+  }
+  const matchers = []
+  for (const l of templateLines) {
+    const line = String(l)
+    let src = ''
+    let last = 0
+    for (const m of line.matchAll(ID_TOKEN_RE)) {
+      src += escapeRegExp(line.slice(last, m.index))
+      const shape = shapes[m[1].toUpperCase()]
+      if (!shape) return { ok: false, reason: `family-shape-unreadable:${m[1].toUpperCase()}` }
+      src += `(?:${shape})`
+      last = m.index + m[0].length
+    }
+    src += escapeRegExp(line.slice(last))
+    matchers.push(new RegExp(`^${src}$`))
+  }
+  return { ok: true, matchers, families: Object.keys(shapes) }
+}
+
+/**
+ * 幂等判据(①)的判据本体:在**本轮实际取材的那一面**(= 传进来的 `baseLines`,由该次 CAS 从 HEAD
+ * 现取)上现读"锚点之后紧邻 N 行"是否已是本块。
+ * 三条不冒充:锚点命中数 ≠ 1 ⇒ 本函数**不表态**(`anchor-not-unique`),交给 `assemble` 那条既有判据去
+ * 区分"文案已漂"与"有歧义" —— 同一件事在两处各判一次必然漂移(本仓"两处算同一件事"记过多次)。
+ * EOF 追加档(`anchorLines` 缺省)⇒ 一律 `no-anchor`,原因写在头注"已知边界"那一格(N4 的既有断言依赖
+ * EOF 档可重复追加),不是"忘了做"。
+ */
+export function blockInPlaceCheck({ baseLines, anchorLines, matchers }) {
+  const n = Array.isArray(matchers) ? matchers.length : 0
+  if (!anchorLines) return { inPlace: false, verdict: 'no-anchor', need: n }
+  if (n === 0) return { inPlace: false, verdict: 'no-matcher' }
+  const { hits, idx } = locateAnchor(baseLines, anchorLines)
+  if (hits !== 1) return { inPlace: false, verdict: 'anchor-not-unique', hits }
+  const at = idx + anchorLines.length
+  const seen = baseLines.slice(at, at + n)
+  if (seen.length < n)
+    return { inPlace: false, verdict: 'too-short', need: n, got: seen.length, at, anchorAt: idx + 1 }
+  for (let i = 0; i < n; i++)
+    if (!matchers[i].test(seen[i]))
+      return {
+        inPlace: false,
+        verdict: 'content-differs',
+        need: n,
+        at,
+        anchorAt: idx + 1,
+        firstDiffAt: at + i + 1,
+        expected: String(matchers[i].source),
+        actual: seen[i],
+      }
+  return { inPlace: true, at, lines: n, anchorAt: idx + 1 }
+}
+
+/**
+ * "已在位"那一档的唯一措辞出口(纯函数,便于镜像测试把依据逐字钉住)。
+ * 必须点名:锚点(第几行 + 原文前缀)、块行数、落点行号、编号位这一维怎么判的 —— 让读的人知道为什么没动。
+ */
+export function describeInPlace({ chk, anchorLines, head, families }) {
+  const where = anchorLines
+    ? `锚点 = 被审面第 ${chk.anchorAt} 行「${String(anchorLines[0]).slice(0, 60)}」`
+    : '锚点 = 无'
+  const idDim =
+    families && families.length
+      ? `编号位按族形状视作可变段(${families.join(',')} 族,形状现取自 usedIdsOfPrefix),其余字符逐字等值`
+      : '本块无取号令牌 ⇒ 逐字等值'
+  return [
+    `✅ 本块已在位 ⇒ 不插入、不产生新提交(退出码 0 = 交付事实,不是失败 ⇒ **不要重跑**)`,
+    `   判定依据:${where};块行数 ${chk.lines};被审面第 ${chk.at + 1}..${chk.at + chk.lines} 行与本块逐行等值(现读 HEAD=${String(head).slice(0, 12)} 的那一面,不读磁盘)`,
+    `   ${idDim}`,
+  ].join('\n')
+}
+
+/**
+ * 索引对齐这一步的结论 ⇒ 退出码与措辞的唯一出口(纯函数 —— 这类"两个方向"的行为只能在构造面上钉,
+ * 端到端一次只能造出一个方向;头注 G-321② 那条分档判据的全部牙齿都在这里)。
+ *  ① 没落地 ⇒ 1:这一档绝不能被 ② 顺手洗绿(否则"内容没进库"读起来像"只是索引的事")。
+ *    `main()` 的"CAS 12 次未抢到"那一支也走这里 ⇒ 失败措辞与退出码同源,不留第二份。
+ *  ② 内容已入库、仅共享主索引未对齐 ⇒ **0** + 点名 sha 与原因:非零退出会被调用方读成"没落",而"没落"
+ *    的唯一反应就是重跑 —— 重跑正是 G-321 那次造出重复段落的一步。同时把"重跑不会补对齐"与后果写清楚。
+ *  ③ 已对齐 ⇒ 沿用改动前那行措辞**逐字不变**(既有断言 T4/T13 钉着它,漂了就等于放宽既有判据)。
+ */
+export function alignOutcome({ landedSha = '', doc = '', align = {}, detail = '' } = {}) {
+  if (!landedSha)
+    return {
+      code: 1,
+      lines: [
+        `❌ 内容未落地${detail ? `(${detail})` : ''}⇒ 退出码 1:这不是"仅索引未对齐",不得读成已交付`,
+      ],
+    }
+  const tail = [
+    ...(align.skipped ?? []).map((s) => `⚠️ 未动(归属他人):${s.path}(${s.reason})`),
+    ...(align.undetermined ?? []).map((u) => `⚠️ 未判定:${u.path}(${u.reason})`),
+  ]
+  if (align.lockAbandoned || align.failed) {
+    const reason = align.lockAbandoned
+      ? '.git/index.lock 锁龄超上限 ⇒ 不代删别人的锁'
+      : String(align.error ?? '轮次耗尽')
+    return {
+      code: 0,
+      lines: [
+        `⚠️ 内容已入库 ${landedSha}(doc=${doc})⇒ 交付完成;**仅共享主索引未对齐**(原因:${reason})`,
+        `   这一档不是失败:退出码 0。重跑本工具会被幂等判据判成"已在位"而**不会**把索引对齐,所以别用重跑修它。`,
+        `   后果与出口:主索引仍停在父提交 blob ⇒ 任何人一枚不带 pathspec 的普通提交就会把本次交付写回旧版;人工确认锁的归属后,按 alignSharedIndex 同一条判据(索引 blob == 父提交 blob 或索引里没有该路径 ⇒ 才动)单独对齐。`,
+        ...tail,
+      ],
+    }
+  }
+  const moved = align.moved?.length ?? 0
+  const already = align.already?.length ?? 0
+  return {
+    code: 0,
+    lines: [`✅ 主索引已对齐 ${moved + already}/1 路径(移动 ${moved} / 已就位 ${already})`, ...tail],
+  }
+}
+
 /**
  * 组装 + 结构等值自证(唯一的零损失判据,禁止换成重复行计数):
  *  anchor 模式:next == base[0..insertAt) ⊕ block ⊕ base[insertAt..)
@@ -450,6 +619,26 @@ async function main() {
       tok.assigned && replacements
         ? replacements.map((p, i) => ({ ...p, after: tok.lines[i] }))
         : replacements
+    // 幂等判据(G-321①):**拼块之前**在**本轮实际取材的那一面**(`baseLines` = 该次 CAS 从 HEAD 现取,
+    // 不读磁盘)现读"锚点之后紧邻 N 行是否已是本块"。锚点命中恰好 1 从来不是"块没在位"的证据 ——
+    // 上一轮同一锚点跑了两次就是从这里漏过去的,而同一段落落两份之后锚点命中数**仍然是 1**。
+    // 只判插入档的锚点形态:改写档的 `before` 命中 0 已经是"这条已改过"的信号;EOF 档没有锚点可点名
+    // (既有断言 N4 还依赖"同一块再跑一次"来证明号被远端抬高)⇒ 两条都写在头注"已知边界"里,不是遗漏。
+    if (!effReplacements && anchorLines) {
+      const cm = compileBlockMatchers(block, baseContent)
+      if (!cm.ok) {
+        console.error(
+          `❌ 编号形状编译不出(${cm.reason})⇒ 无法证明"本块不在位",不猜、拒绝落地` +
+            `(与本器取号共用 usedIdsOfPrefix 那一个出口;退化成"逐字等值再判一次"就是把这一型洗成"未在位")`,
+        )
+        process.exit(1)
+      }
+      const chk = blockInPlaceCheck({ baseLines, anchorLines, matchers: cm.matchers })
+      if (chk.inPlace) {
+        console.log(describeInPlace({ chk, anchorLines, head, families: cm.families }))
+        process.exit(0)
+      }
+    }
     const built = effReplacements
       ? applyReplacements(baseLines, effReplacements)
       : assemble(baseLines, effBlock, anchorLines)
@@ -458,7 +647,7 @@ async function main() {
       // not-found / multi-hit 与"内容已漂移后重试"无关的形态也会随 HEAD 移动而变;一律当场拒绝,不重试猜测
       console.error(
         built.reason === 'not-found'
-          ? `❌ HEAD 版里找不到锚点(锚点文案已漂或本块已在位)⇒ 不猜,拒绝写盘`
+          ? `❌ HEAD 版里找不到锚点(锚点文案已漂 ⇒ 幂等判据也无从判"已在位";块在不在位从来不靠这一句猜)⇒ 不猜,拒绝写盘`
           : String(built.reason || '').startsWith('chain-hit')
             ? `❌ 第 ${String(built.reason).replace('chain-hit#', '').split('<')[0]} 项的 before 等于另一项的 after ⇒ 逐项顺序替换会把前一项刚改出的行再改一遍,而声明里没有这件事,拒绝写盘(${built.reason})`
             : String(built.reason || '').startsWith('replace-not-found')
@@ -503,10 +692,13 @@ async function main() {
     console.log(`⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重取 HEAD 底稿重试`)
   }
   if (landed === '') {
-    console.error(
-      `❌ ${MAX_CAS_ATTEMPTS} 次均未抢到 CAS${rejectReason ? `(最后一轮拒绝原因:${rejectReason})` : ''}`,
-    )
-    process.exit(1)
+    const fail = alignOutcome({
+      landedSha: '',
+      doc,
+      detail: `${MAX_CAS_ATTEMPTS} 次均未抢到 CAS${rejectReason ? `(最后一轮拒绝原因:${rejectReason})` : ''}`,
+    })
+    for (const line of fail.lines) console.error(line)
+    process.exit(fail.code)
   }
 
   // 回读证明:插入档要求"本块每一条非空行都在 HEAD 里";改写档要求"每一条 after 都在、
@@ -538,20 +730,11 @@ async function main() {
   } else console.log('✅ 回读:本块每一条非空行都在 HEAD 里')
 
   const align = alignSharedIndex({ root, paths: [doc], parentRef: parentSha })
-  if (align.lockAbandoned) {
-    console.error('❌ .git/index.lock 锁龄超上限:不代删别人的锁,请人工确认持有者后重跑')
-    process.exit(1)
-  }
-  if (align.failed) {
-    console.error(`❌ 索引对齐未完成:${align.error ?? '轮次耗尽'}`)
-    process.exit(1)
-  }
-  console.log(
-    `✅ 主索引已对齐 ${align.moved.length + align.already.length}/1 路径(移动 ${align.moved.length} / 已就位 ${align.already.length})`,
-  )
-  for (const s of align.skipped) console.log(`⚠️ 未动(归属他人):${s.path}(${s.reason})`)
-  for (const u of align.undetermined) console.log(`⚠️ 未判定:${u.path}(${u.reason})`)
-  process.exit(0)
+  // G-321②:走到这里内容**已经**入库并过了回读 ⇒ 索引没对齐只是副作用,不得冒充整次失败。
+  // 退出码与措辞的唯一出口是纯函数 `alignOutcome`(构造面上双向钉:没落地仍判 1)。
+  const verdict = alignOutcome({ landedSha: landed, doc, align })
+  for (const line of verdict.lines) console.log(line)
+  process.exit(verdict.code)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -573,5 +756,9 @@ export const __test__ = {
   describeIdBasis,
   remoteTarget,
   REMOTE_ID_TRANSPORT,
+  compileBlockMatchers,
+  blockInPlaceCheck,
+  describeInPlace,
+  alignOutcome,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
