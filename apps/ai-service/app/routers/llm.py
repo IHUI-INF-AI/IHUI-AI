@@ -3826,6 +3826,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "decision": None,
                                     "scope": None,
                                     "reason": None,
+                                    # D158 UI 半张补(2026-09-28):_persist_grant_rule 从
+                                    # 条目读 argv 落前缀规则,而条目此前不含 argv ⇒ 第四档
+                                    # 批准在生产链路上永远落空(测试夹具带 argv,生产条目
+                                    # 没有 —— 上一批遗漏)。补齐后规则才真正落库;
+                                    # 非 run_command / argv 缺失时 _persist_grant_rule 自行跳过。
+                                    "argv": args.get("argv") if isinstance(args, dict) else None,
+                                    "tool_name": tool_name,
                                 }
                                 # 发 tool-approval SSE 帧(帧名/payload 见模块头注释,与
                                 # agent 任务流同形,前端 ToolApprovalDialog 可复用解析)
@@ -6227,4 +6234,106 @@ async def compaction_demo(
     except Exception as e:
         logger.exception("compaction_demo 内部异常: %s", e)
         return _error_json(f"compaction failed: {type(e).__name__}: {e}", 500)
+
+
+# =============================================================================
+# D158 UI 半张(2026-09-28):前缀放行规则的管理出口(列表 + 撤销)
+# =============================================================================
+# 前端 ApprovedRulesPanel(apps/web)经 @ihui/api-client 的 listApprovalGrants /
+# revokeApprovalGrant 调用本端点,管理审批第四档「批准并生成放行规则」落库的前缀规则。
+# 鉴权复用本文件既有模式:JWT 中间件已把令牌主体注入 request.state.user_id
+# (与 _resolve_owner_uuid / _ensure_restricted_model_access 同一来源),
+# 缺失即 401;不接受请求体/Query 自报身份。
+
+# 本出口只管前缀规则(exec_prefix);其余 kind(exec_once / mcp_tool)不经这里删。
+_APPROVAL_GRANT_MANAGED_KINDS = ("exec_prefix",)
+
+
+def _readable_exec_prefix(cache_key: str) -> str:
+    """把 normalize_exec_key 的 \\x1f 连接键还原成可读形态(``git\\x1fpush`` → ``git push``)。"""
+    return cache_key.replace("\x1f", " ").strip()
+
+
+@router.get("/llm/approval-grants", response_model=None)
+async def list_approval_grants(request: Request) -> dict[str, Any]:
+    """D158:列出前缀放行规则(审批第四档授予的持久层规则)。
+
+    未过期判定复用 approval_persistence.list_keys 的权威集(单一实现,不复制第二份
+    过期过滤逻辑);created_at / expires_at 明细是 list_keys 没有的投影,经同一把
+    连接锁做只读 SELECT —— 本票约束不改 approval_persistence,也不新建存储层,
+    借用其私有连接出口是刻意为之(单一 DB 路径,不抄第二份 _DB_PATH 解析)。
+    """
+    if not getattr(request.state, "user_id", None):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        from app.services import approval_persistence as _ap
+
+        unexpired = set(_ap.list_keys("exec_prefix"))
+        conn = _ap._get_conn()
+        with _ap._lock:
+            rows = conn.execute(
+                "SELECT cache_key, scope, created_at, expires_at FROM approval_grants "
+                "WHERE kind='exec_prefix'"
+            ).fetchall()
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001 - 持久层异常不炸路由,显式失败标记回给面板
+        logger.warning("D158 approval-grants 列表查询失败: %s", e)
+        return {"ok": False, "error": "query failed", "grants": []}
+    by_key: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        key = str(row["cache_key"])
+        if key not in unexpired:
+            # 已过期/未登记:以 list_keys 权威集为准(过期行留给 purge 清理)
+            continue
+        grant = by_key.setdefault(
+            key,
+            {
+                "cacheKey": key,
+                "prefix": _readable_exec_prefix(key),
+                "tokenCount": len([t for t in key.split("\x1f") if t]),
+                "kind": "exec_prefix",
+                "scopes": [],
+                "createdAt": None,
+                "expiresAt": None,
+            },
+        )
+        if row["scope"] not in grant["scopes"]:
+            grant["scopes"].append(str(row["scope"]))
+        created = row["created_at"]
+        expires = row["expires_at"]
+        if created and (grant["createdAt"] is None or str(created) < str(grant["createdAt"])):
+            grant["createdAt"] = created
+        # 同键多行取最晚过期(展示最长有效期;NULL = 永不过期,保持 NULL)
+        if expires and (grant["expiresAt"] is None or str(expires) > str(grant["expiresAt"])):
+            grant["expiresAt"] = expires
+    grants = sorted(by_key.values(), key=lambda g: str(g["createdAt"] or ""), reverse=True)
+    return {"ok": True, "grants": grants}
+
+
+@router.delete("/llm/approval-grants", response_model=None)
+async def revoke_approval_grant(request: Request) -> dict[str, Any] | JSONResponse:
+    """D158:按 cache_key + kind 精确撤销一条放行规则(面板单条撤销按钮)。
+
+    撤销复用 approval_persistence.revoke(单一实现,按 cache_key+kind 复合键删);
+    kind 白名单只放行本出口覆盖的 exec_prefix(宁窄不误)。"没这条"与"删了"都回
+    ok(幂等),不给存在性探针 —— 面板撤销后自行刷新列表即可看到结果。
+    """
+    if not getattr(request.state, "user_id", None):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    cache_key = str(request.query_params.get("cache_key") or "")
+    kind = str(request.query_params.get("kind") or "exec_prefix")
+    if not cache_key:
+        return JSONResponse(status_code=422, content={"ok": False, "error": "cache_key required"})
+    if kind not in _APPROVAL_GRANT_MANAGED_KINDS:
+        return JSONResponse(status_code=422, content={"ok": False, "error": "kind not allowed"})
+    try:
+        from app.services import approval_persistence as _ap
+
+        _ap.revoke(cache_key, kind)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("D158 放行规则撤销失败(kind=%s): %s", kind, e)
+        return {"ok": False, "error": "revoke failed"}
+    logger.info("D158 放行规则已撤销(kind=%s, key=%s)", kind, cache_key[:64])
+    return {"ok": True}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
