@@ -108,7 +108,12 @@
       "fsExhaustedInodes": "根因诊断:命令空输出且以 {status} 退出,而 {cwd} 所在文件系统实测 inode 已尽(ffree={freeInodes},低于 1000 诊断阈)—— 目录项已满;请清理大量小文件/目录,或检查该文件系统的 inode 配额后重试。"
     },
     "goalNotAchieved": "独立校验未通过:本次运行不得宣布完成",
-    "truncatedByLength": "本轮输出已达长度上限被截断,回复可能不完整;可让我分次继续,或调高 max_tokens 后重试。"
+    "truncatedByLength": "本轮输出已达长度上限被截断,回复可能不完整;可让我分次继续,或调高 max_tokens 后重试。",
+    "mcpCredentials": {
+      "storePlaintext": "MCP 凭据当前以明文存于 {path}（本机降级）",
+      "storeEncrypted": "MCP 凭据已加密存储（后端：{backend}）",
+      "migrationFailed": "凭据迁移未完成，已保留原文件且未覆盖（{reason}）"
+    }
   },
   "waiting": {
     "agent": {
