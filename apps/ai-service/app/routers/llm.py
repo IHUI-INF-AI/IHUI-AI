@@ -767,6 +767,13 @@ def _format_terminal_end_event(
         _evt["exitCode"] = _exit_code
     if message_id:
         _evt["messageId"] = message_id
+    # D151 验收②:"terminal_end 之前若有交互,必须有交互计数(不得静默)"。计数原本只活在
+    # tool-result 的 dict 里 —— 模型看得见、用户看不见,而"我刚才替它答过一次"恰恰是用户
+    # 复盘这条命令时的第一个问题。仅在 >0 时下发,零交互的旧帧形状一字不变。
+    if isinstance(exec_result, dict):
+        _inter = exec_result.get("interactionCount")
+        if isinstance(_inter, int) and _inter > 0:
+            _evt["interactionCount"] = _inter
     return _sse(SSE_TERMINAL_END, _evt)
 
 

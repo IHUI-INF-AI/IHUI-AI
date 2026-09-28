@@ -152,6 +152,40 @@ export interface TerminalTaskView {
   totalChars?: number
   durationMs?: number
   exitCode?: number
+  /** D151(2026-09-29 立):该命令正停在"等键盘输入"。小程序端**只标状态、不接输入口** ——
+   *  手机键盘送不进 ai-service 那条进程,给一个按了没反应的输入框是假 affordance,比不给更坏;
+   *  渲染面见 ai-cards.tsx TerminalTaskItem,文案走 chat.terminal.* 两键。 */
+  waitingInput?: boolean
+}
+
+/**
+ * D151:把"命令在等键盘输入"归并进 terminalTasks(纯函数,chat.tsx 消费)。
+ *
+ * 只认已存在的任务:terminal_start 在本端先于执行落地(llm.py 执行前发 start 帧),
+ * 找不到 id 时**不自建**一张没有命令文本的卡 —— 那会把"我没看见 start 帧"伪装成"有条命令在跑"。
+ * 重复帧幂等(已标记再标记不变)。
+ */
+export function markTerminalWaiting(
+  tasks: TerminalTaskView[],
+  terminalId: string,
+): TerminalTaskView[] {
+  if (!terminalId) return tasks
+  let touched = false
+  const next = tasks.map((x) => {
+    if (x.id !== terminalId || x.waitingInput === true) return x
+    touched = true
+    return { ...x, waitingInput: true }
+  })
+  return touched ? next : tasks
+}
+
+/** D151:terminal_end 落定时清掉等待标记(命令已结束还挂着"在等你"是错的态)。 */
+export function clearTerminalWaiting(
+  tasks: TerminalTaskView[],
+  terminalId: string,
+): TerminalTaskView[] {
+  if (!terminalId) return tasks
+  return tasks.map((x) => (x.id === terminalId && x.waitingInput ? { ...x, waitingInput: false } : x))
 }
 
 /** D19:terminal_delta 实时输出累加上限,对齐 web store appendTerminalOutput 的 20000 字符/键(防长命令刷爆 setData) */
