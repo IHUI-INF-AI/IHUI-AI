@@ -394,7 +394,7 @@ test('T20 遮噪机必须认正则字面量(否则它对立项那一型全盲)',
     'blankStrings 必须是同一台分词器的投影(分叉成第二台 ⇒ 一半判定重新变盲)',
   )
   assert.match(
-    readFileSync(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs'), 'utf8'),
+    readFileSync(resolve(ROOT, 'scripts/lib/code-mask.mjs'), 'utf8'),
     /export function blankStrings\(text\) \{\n\s*return scanLiterals\(text\)\.blanked\n\}/,
     'blankStrings 的函数体必须是那一行投影(不得再自带一遍状态机)',
   )
@@ -429,19 +429,46 @@ test('T23 立项那一型的最小复现:唯一读取藏在正则行之后 ⇒ l
   )
 })
 
-test('T24 遮噪只剩一台机器:maskComments 必须走同一个 scanSpans', () => {
-  const src = readFileSync(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs'), 'utf8')
+test('T24 遮噪只剩一台机器:分词器住在 lib/code-mask.mjs,本门不得自带第二台', () => {
+  const gateSrc = readFileSync(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs'), 'utf8')
+  const libSrc = readFileSync(resolve(ROOT, 'scripts/lib/code-mask.mjs'), 'utf8')
+  // ① 本门必须**引**那一份实现,并且自己一台都不写。这一条替代了旧的"maskComments 必须走
+  //    同一个 scanSpans"—— 2026-09-28 把 118 私有的那份更聪明的遮噪器上收进 lib 之后,
+  //    "同一台机器"这件事的**落点**变了,但它要防的东西一点没变:两台分词器一条规则,
+  //    必然出现"这半边判定看得见、那半边看不见"(§22c / 守门 103 的"取源只能有一份实现")。
+  assert.match(gateSrc, /from '\.\/lib\/code-mask\.mjs'/, '本门没引唯一遮罩层')
+  for (const def of [
+    'scanSpans',
+    'readStringSpan',
+    'readRegexSpan',
+    'scanLiterals',
+    'blankByMask',
+    'maskComments',
+    'blankStrings',
+    'regexCanStart',
+  ]) {
+    assert.ok(
+      !new RegExp(`function ${def}\\s*\\(`).test(gateSrc),
+      `本门里还留着 \`function ${def}(\` 的定义 —— 上收到 lib 之后不得再分叉第二台`,
+    )
+  }
+  // ② lib 那一面:每台扫描器只许有一处实现,maskComments 必须走 scanSpans(而不是自己追引号)
+  assert.equal((libSrc.match(/function readStringSpan\(/g) || []).length, 1, '字符串扫描只能有一份')
+  assert.equal((libSrc.match(/function scanSpans\(/g) || []).length, 1, '分词器只能有一台')
   assert.match(
-    src,
-    /export function maskComments\(src\) \{[\s\S]{0,400}?for \(const s of scanSpans\(src\)\)/,
-    'maskComments 不得再自带一遍引号状态机(它服务的判据是"字符串要保留",但**注释区间**必须由同一台分词器给出)',
+    libSrc,
+    /export function maskComments\(src\) \{[\s\S]{0,600}?for \(const s of scanSpans\(src\)\)/,
+    'maskComments 不得自带一遍引号状态机(它服务的判据是"字符串要保留",但**注释区间**必须由同一台分词器给出)',
   )
-  // 反向锁:全文件只允许**一处** `readStringSpan` 开栏实现,且不得再出现"逐字符找配对引号"的旧循环
-  const scannerDefs = (src.match(/function readStringSpan\(/g) || []).length
-  assert.equal(scannerDefs, 1, '字符串扫描只能有一份实现')
+  // ③ 两个导出的**档**各钉一头:旧导出必须仍关着正则档(它是 131/135/148/150 的现读数基线,
+  //    打开等于替别人的门换读数),新导出必须开着(156 按括号配平取实参,正则里的 `(` 不遮
+  //    就会把真调用读成"配不平" —— 现读 4 处未判定里 3 处正是这一型)。
+  assert.match(libSrc, /blankSpans\(src, \['line', 'block', 'string'\], \{ regex: false \}\)/)
+  assert.match(libSrc, /blankSpans\(src, \['line', 'block', 'string', 'regex'\]\)/)
+  // ④ 反向锁:朴素那台独立状态机不得回到 lib(它只允许作为"关掉正则档的同一次分词"存在)
   assert.ok(
-    !/while \(i < text\.length\) \{\n\s*if \(text\[i\] === '\\\\\\\\'\) \{/.test(src),
-    '不得再留着第二台朴素字符串状态机(那台就是 24 道门被判 no-content 的原因)',
+    !/while \(i < src\.length\) \{/.test(libSrc),
+    'lib 里不得再出现第二台独立 while 状态机(那台就是 24 道门被判 no-content 的原因)',
   )
 })
 
