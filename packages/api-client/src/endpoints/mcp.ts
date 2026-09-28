@@ -154,6 +154,19 @@ export interface McpExternalServersResponse {
   count: number
 }
 
+/**
+ * (重)连接单台 Server 的响应(D154 的「立即重连」动作)。
+ *
+ * 形状由 ai-service `_server_info()` 决定(协商到的协议/能力/connected 等),
+ * 失败时是 `{ error }` —— 两边都保持开放字典,不在端内钉死第二份契约。
+ */
+export interface McpExternalServerActionResult {
+  name?: string
+  connected?: boolean
+  error?: string
+  [key: string]: unknown
+}
+
 /** MCP 商店条目(目录条目 + 安装状态合并,2026-09-02 立,P2-1) */
 export interface McpStoreEntry {
   /** 唯一标识(URL path 安全,小写连字符) */
@@ -263,6 +276,22 @@ export async function registerDirectoryServer(
 /** 获取已注册的外部 MCP Server 列表(含连接状态) */
 export async function listExternalServers(): Promise<ApiResult<McpExternalServersResponse>> {
   return fetchApi<McpExternalServersResponse>('/api/mcp/external/servers')
+}
+
+/**
+ * (重)连接指定外部 MCP Server —— D154 对话内「立即重连」动作的唯一出口。
+ *
+ * 走 POST 而不是让端上自己改本地状态:重连的**结果**必须由生产面再发一帧
+ * `mcp:status` 回来(connecting → connected / failed),否则按钮点下去界面就停在旧档,
+ * 而"看不出发生了什么"正是本票要修的那一型。
+ */
+export async function connectExternalServer(
+  name: string,
+): Promise<ApiResult<McpExternalServerActionResult>> {
+  return fetchApi<McpExternalServerActionResult>(
+    `/api/mcp/external/servers/${encodeURIComponent(name)}/connect`,
+    { method: 'POST' },
+  )
 }
 
 // ===================== MCP 应用商店(P2-1,2026-09-02 立) =====================
