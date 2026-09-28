@@ -3094,7 +3094,7 @@ const styles = StyleSheet.create({
     right: 20,
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: rnRadius['2xl'],
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',

@@ -598,7 +598,7 @@ function createStyles(tk: AppThemeTokens) {
     fabCircle: {
       width: 50,
       height: 50,
-      borderRadius: 50 / 2,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
