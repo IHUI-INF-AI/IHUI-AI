@@ -18,6 +18,10 @@
 #      postgres.exe 复用 ⇒ `Get-Process -Id 8052` 恒真 ⇒ 每轮 return,零次部署)。
 #      现判据四条同时成立才算"仍被持有",实现唯一出口在 `deploy-lock-common.ps1`
 #      (与 ihui-deploy.ps1 共用同一份,禁止两处各写一遍 Get-Process)。
+#      读者这一侧另有一条(G-208② 落地时补):判成陈旧之后,**先归档现场再删**,且
+#      `Clear-IhuiDeployLockStale` 的返回值必须被看见 —— 它返回 $false 意味着"判定与
+#      删除之间有人刚写下新锁",此时继续无条件写自己的锁就是把并发持有者盖掉。
+#      取证入口:`-SelfTestScratch <临时目录>` 只跑这一段,不发起部署。
 #   2. 调用 ihui-deploy.ps1(幂等:behind=0 直接优雅退出,不部署)
 #   3. 全量输出落盘 deploy-loop.log,便于回看失败原因
 #   4. **每轮墙钟预算($RunBudgetMin,默认 45 分钟)**:超预算即 taskkill /T 整树并按
@@ -49,7 +53,13 @@
 param(
     [switch]$Daemon,
     [int]$IntervalSeconds = 60,
-    [int]$RunBudgetMin = 45          # 单轮墙钟预算:构建本身允许 30 分钟,留余量给门禁与重启
+    [int]$RunBudgetMin = 45,         # 单轮墙钟预算:构建本身允许 30 分钟,留余量给门禁与重启
+    # 取证通道:给定目录时**只**跑"锁处置"这一段并打印 JSON 结论,绝不发起部署、绝不碰
+    # deploy\win\.deploy-loop.lock。由 deploy/tests/deploy-loop-lock-preemption.test.mjs 驱动。
+    # 为什么入口在本文件而不是全放在夹具里:本票要证的是**本文件**拿到判据结论之后做的事
+    # (让路 / 归档 / 抢占 / 不覆盖别人的新锁)。把这些搬进夹具另写一遍再测,测的是副本,
+    # 而不是生产路径上真被执行的那几行(§22c"镜像只复读实现就是复读机"的反面)。
+    [string]$SelfTestScratch = ''
 )
 
 $ErrorActionPreference = 'Continue'   # 本层不因下层退出码中断,交给日志判定
@@ -132,23 +142,118 @@ if (-not $PwshExe) {
     exit 1
 }
 
+# ── 抢占前的"现场归档"(G-208② / 判据 3)────────────────────────────────────
+# 为什么必须有它:抢占一把"判据说无主"的锁是**高危且不可逆**的动作,而判据本身可能
+# 错(CIM 读不到启动时刻、时钟被调过、别人用旧格式写了锁)。删完之后如果没人能回答
+# "当时锁里到底写着什么、凭什么抢",这次抢占在账面上就等于没发生过 —— 与本仓"失败
+# 必须响 / 不得把没判写成判过了"(§5e、守门 118)是同一条禁令。
+# 落点刻意选在**已被 .gitignore 忽略的项目内目录**(`.ihui-agent/*` 第 163 行):
+#   · 不落 $env:TEMP —— 服务身份是 LocalSystem,其 TEMP 是 C:\Windows\Temp(§26 第四类真因);
+#   · 不落 deploy\win\ —— 那会把只存在于部署机的运行台账塞进 `git status`,下一轮
+#     不带 pathspec 的提交就可能把它打包入库(§12 污染型);
+#   · 也不走 gitArchiveDir() 口径 —— 本文件是**部署机运行态**脚本,那把出口是 git 现场
+#     归档用的(§5b/§15b),两类东西混在一个桶里会让"这是仓库现场还是运维台账"分不清。
+# 只留最近 $StaleArchiveKeep 份:deploy-loop.log 曾因"只增不滚"两个月积到 53MB(见上),
+# 同一型错误不在新目录上再犯一次。
+$StaleArchiveKeep = 20
+function Save-IhuiStaleLockSnapshot {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][psobject]$State,
+        [string]$ArchiveDir = '',
+        [scriptblock]$Logger
+    )
+    if (-not $ArchiveDir) {
+        $ArchiveDir = Join-Path (Join-Path $Root '.ihui-agent\tmp\deploy-loop') 'stale-lock-archive'
+    }
+    $emit = { param($m) if ($Logger) { & $Logger $m } else { Write-Host $m } }
+    try {
+        if (-not (Test-Path -LiteralPath $ArchiveDir)) {
+            New-Item -ItemType Directory -Path $ArchiveDir -Force -ErrorAction Stop | Out-Null
+        }
+        # 原样字节:归档件的价值在于"删掉的那一刻文件里写着什么",包括别人手改过的
+        # 半截 JSON —— 那正是 C0 判不出的现场,解析后再写就把它抹平了。
+        $raw = $null
+        if (Test-Path -LiteralPath $Path) {
+            $raw = [string](Get-Content -LiteralPath $Path -Raw -ErrorAction Stop)
+        }
+        $m = $State.Meta
+        $snap = [ordered]@{
+            archivedAtUtc = ([DateTime]::UtcNow).ToString('o')
+            lockPath      = $Path
+            verdict       = $State.Verdict
+            failed        = $State.Failed
+            reason        = $State.Reason
+            checks        = $State.Checks
+            # 三项读数写在这里,是为了让归档件**自己**能回答"凭什么抢",不依赖去翻日志
+            readings = [ordered]@{
+                pid          = $m.Pid
+                ownerKind    = $m.OwnerKind
+                metaKind     = $m.Kind
+                writtenAt    = $(if ($null -ne $m.WrittenAtUtc) { Format-IhuiLockUtc $m.WrittenAtUtc } else { '' })
+                heartbeatAt  = $(if ($null -ne $m.HeartbeatAtUtc) { Format-IhuiLockUtc $m.HeartbeatAtUtc } else { '' })
+                bootId       = $m.BootId
+                fileMtimeUtc = $(if ($null -ne $m.FileAgeUtc) { $m.FileAgeUtc.ToString('o') } else { '' })
+            }
+            rawContent = $raw
+        }
+        $stamp = ([DateTime]::UtcNow).ToString('yyyyMMdd-HHmmss-fff')
+        $dest = Join-Path $ArchiveDir ("stale-lock-{0}-{1}.json" -f $stamp, $PID)
+        [System.IO.File]::WriteAllText($dest, ($snap | ConvertTo-Json -Depth 5), (New-Object System.Text.UTF8Encoding($false)))
+        Get-ChildItem -LiteralPath $ArchiveDir -Filter 'stale-lock-*.json' -File -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending | Select-Object -Skip $StaleArchiveKeep |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+        & $emit ("陈旧锁现场已归档:$dest(判定 {0} / 失败项 {1})" -f $State.Verdict, $(if ($State.Failed) { $State.Failed } else { '-' }))
+        return $true
+    } catch {
+        # 归档失败**不**改变判据结论,但必须喊出来:静默删掉一把被判陈旧的锁 = 事后无从复核
+        & $emit ("WARN  陈旧锁现场归档失败:{0} —— 仍按判据处置,但本轮日志必须能回答凭什么抢" -f $_.Exception.Message)
+        return $false
+    }
+}
+
+# ── 一轮的锁处置(唯一入口;取证走这里,不走整条部署链)──────────────────────
+# 返回 $true = 本轮已持有锁,可以部署;$false = 本轮让路(调用方直接 return)。
+# 三条"让路"分支的共同点:**抢错的代价是两个 next build 并发写 .next,漏一轮的代价
+# 只是 60 秒后再来一次** —— 失效方向恒定向"少抢一把"倾斜(判据 1)。
+function Enter-IhuiLoopLock {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [scriptblock]$Logger,
+        [string]$ArchiveDir = ''
+    )
+    if (-not $Logger) { $Logger = { param($m) Log $m } }
+    $st = Resolve-IhuiDeployLockState -Path $Path -OwnerKind 'loop'
+    if ($st.LockExists) {
+        if ($st.ShouldHold) {
+            # held 与 undetermined 都让路:后者是"判不出",抢锁的代价是并发构建,
+            # 而让路的代价只是一轮不部署(下一轮再判,且锁龄超绝对上限后会自行清理)。
+            & $Logger "跳过:锁仍被持有或判不出,本轮让路 —— $(Format-IhuiDeployLockState -State $st)"
+            return $false
+        }
+        # 判据认定无主 ⇒ 先留现场,再删(顺序不可反:删完就没有"当时写着什么"可归档了)
+        [void](Save-IhuiStaleLockSnapshot -Path $Path -State $st -ArchiveDir $ArchiveDir -Logger $Logger)
+        $cleared = Clear-IhuiDeployLockStale -Path $Path -State $st -Logger $Logger
+        if (-not $cleared) {
+            # Clear 内部有一道同一性复核:判定与删除之间锁被换过 ⇒ 取消删除并返回 $false。
+            # 旧写法不看返回值、紧接着无条件 Write-IhuiDeployLock ⇒ 会把那个**刚写下新锁的
+            # 并发持有者**整份盖掉,两个构建同时写 .next —— 这把锁存在的全部理由被自己拆掉。
+            # 这一格在改判据那天就存在,只是没人让机器问过它(与"判据在位而无人调度"同型)。
+            & $Logger "跳过:陈旧锁未删成(判定之后锁内容已被换 ⇒ 可能有并发持有者刚写下新锁),本轮让路、不覆盖它"
+            return $false
+        }
+    }
+    if (-not (Write-IhuiDeployLock -Path $Path -OwnerKind 'loop')) {
+        & $Logger "FAIL  并发锁写下失败($Path),本轮不部署(宁可漏一轮,不可并发构建)"
+        return $false
+    }
+    return $true
+}
+
 function Invoke-PollOnce {
     # ---- 1) 并发锁(四条判据同时成立才算持有;见 deploy-lock-common.ps1) ----
     # 旧实现在这里只有一句 `Get-Process -Id $pidIn` 的存活判断,pid 复用即恒真。
-    $lockState = Resolve-IhuiDeployLockState -Path $LockFile -OwnerKind 'loop'
-    if ($lockState.LockExists) {
-        if ($lockState.ShouldHold) {
-            # held 与 undetermined 都让路:后者是"判不出",抢锁的代价是并发构建,
-            # 而让路的代价只是一轮不部署(下一轮再判,且锁龄超绝对上限后会自行清理)。
-            Log "跳过:锁仍被持有或判不出,本轮让路 —— $(Format-IhuiDeployLockState -State $lockState)"
-            return
-        }
-        Clear-IhuiDeployLockStale -Path $LockFile -State $lockState -Logger { param($m) Log $m }
-    }
-    if (-not (Write-IhuiDeployLock -Path $LockFile -OwnerKind 'loop')) {
-        Log "FAIL  并发锁写下失败($LockFile),本轮不部署(宁可漏一轮,不可并发构建)"
-        return
-    }
+    if (-not (Enter-IhuiLoopLock -Path $LockFile)) { return }
     try {
         # ---- 2) 调真实部署脚本(不带 -deployLatest:落后才部署,behind=0 优雅退出) ----
         Log "———— 部署轮询开始 ————"
@@ -250,6 +355,198 @@ function Invoke-PollOnce {
         # 只删自己那把(pid 对得上才删)。旧写法无条件 Remove-Item 会在"上一轮的锁被判
         # 陈旧清掉、新持有者刚写下锁"的窗口里替别人放锁 ⇒ 两个构建并发。
         Remove-IhuiDeployLock -Path $LockFile -OwnerKind 'loop' | Out-Null
+    }
+}
+
+# =============================================================================
+# 取证通道:只跑锁处置,绝不发起部署(判据 1/2/3 的三条现场都由这里真跑)
+#
+# 现场一律在 -SelfTestScratch 下造**真文件、真 mtime、真进程**:
+#   S1 身份复用 = 2026-09-26 08:37 那次 46 分钟冻结的逐字重放
+#      (旧裸 pid 锁 + mtime 早于该 pid 的启动时刻,那个 pid 是本夹具真起活的子进程)
+#   S2 跨重启 = 判据 2 要求的那条**可证**形态:锁 mtime 早于本机真 LastBootUpTime
+#   S3 活着的持锁者(反例,不可省)= 四条全满足 ⇒ 让路,且锁内容**逐字节不得变**
+#   S4 unverifiable 对照 = 内容读不出 ⇒ 与改动前一样让路(不删、不覆盖、不归档)
+#      + 同一把坏内容超绝对上限 ⇒ 必须有出路(否则"少抢一把"会退化成"永久挡住")
+# 全程用自建的收集 Logger,不写生产 deploy-loop.log,也不碰 deploy\win\.deploy-loop.lock。
+# =============================================================================
+function Invoke-IhuiLoopLockSelfTest {
+    param([Parameter(Mandatory = $true)][string]$Scratch)
+    $ErrorActionPreference = 'Stop'
+    $arch = Join-Path $Scratch 'archive'
+    New-Item -ItemType Directory -Path $arch -Force | Out-Null
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $logger = { param($m) $lines.Add([string]$m) }
+    $out = [ordered]@{}
+    $child = $null
+
+    function Take-Log { param([int]$From) $r = @($lines[$From..([math]::Max($From, $lines.Count - 1))]); $r -join ' | ' }
+
+    try {
+        $now = [DateTime]::UtcNow
+        $bootIdNow = Get-IhuiDeployLockBootId
+        $bootUtc = ConvertTo-IhuiLockUtc ([datetime]$bootIdNow)   # 归一到 UTC 才可比(见下)
+        $selfFacts = Get-IhuiDeployLockProcessFacts -ProcessId $PID
+        $youngFacts = $null
+        # 真起一个短命的活进程当"复用者"(夹具必须先自证量得到它,否则 S1/S2 的现场是假的)。
+        # -WindowStyle Hidden:§5b/判据 6 —— 绝不弹可见窗口。收尾只按自己的 pid 精确停,
+        # 不用 taskkill /IM(那会连带杀掉别人的同名进程)。
+        $child = Start-Process -FilePath $PwshExe -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep -Seconds 60') -PassThru -WindowStyle Hidden
+        Start-Sleep -Seconds 2
+        $youngFacts = Get-IhuiDeployLockProcessFacts -ProcessId $child.Id
+        $out._fixtures = [ordered]@{
+            pwshExe           = $PwshExe
+            selfPid           = $PID
+            selfStartReadable = [bool]$selfFacts.StartReadable
+            selfStartUtc      = (Format-IhuiLockUtc $selfFacts.ProcessStartUtc)
+            youngPid          = $child.Id
+            youngExists       = [bool]$youngFacts.ProcessExists
+            youngStartReadable = [bool]$youngFacts.StartReadable
+            youngStartUtc     = (Format-IhuiLockUtc $youngFacts.ProcessStartUtc)
+            bootId            = $bootIdNow
+            nowUtc            = $now.ToString('o')
+        }
+        if (-not $selfFacts.StartReadable) { throw '夹具失效:本进程自己的 StartTime 都量不到,S3 的现场无从构造' }
+        if (-not $youngFacts.ProcessExists -or -not $youngFacts.StartReadable) { throw "夹具失效:刚起的子进程 pid=$($child.Id) 量不到(存在=$($youngFacts.ProcessExists) 启动时刻可读=$($youngFacts.StartReadable))" }
+        if (-not $bootIdNow) { throw '夹具失效:本机启动标识量不到,S2 的"早于 LastBootUpTime"无从核对' }
+
+        # ── S1:今早那把锁的逐字重放(旧裸 pid + mtime 早于该 pid 的启动时刻) ──
+        $n0 = $lines.Count
+        # 归档数按**增量**量,不按绝对值:同一目录可能被别的取证进程也写过归档件,
+        # 绝对值会把别人的现场算成本轮的证据(实测同时跑两支 node --test 就撞出 5≠1)。
+        $archBefore1 = @(Get-ChildItem -LiteralPath $arch -Filter 'stale-lock-*.json' -File -ErrorAction SilentlyContinue).Name
+        $p1 = Join-Path $Scratch 's1-reused.lock'
+        [System.IO.File]::WriteAllText($p1, "$($child.Id)")
+        (Get-Item -LiteralPath $p1).LastWriteTimeUtc = $now.AddMinutes(-30)
+        $acq1 = [bool](Enter-IhuiLoopLock -Path $p1 -Logger $logger -ArchiveDir $arch)
+        $after1 = [string](Get-Content -LiteralPath $p1 -Raw)
+        $new1 = @( @(Get-ChildItem -LiteralPath $arch -Filter 'stale-lock-*.json' -File -ErrorAction SilentlyContinue) |
+            Where-Object { $archBefore1 -notcontains $_.Name } )
+        $out.s1 = [ordered]@{
+            acquired = $acq1; log = (Take-Log $n0); lockAfter = $after1
+            lockAfterPid = $(try { ([int]($after1 | ConvertFrom-Json).pid) } catch { 0 })
+            archiveAdded = $new1.Count
+            archivePath = $(if ($new1.Count -gt 0) { $new1[0].FullName } else { '' })
+            archivedRaw = $(if ($new1.Count -gt 0) { try { ([string](Get-Content -LiteralPath $new1[0].FullName -Raw) | ConvertFrom-Json).rawContent.Trim() } catch { "<读不回:$($_.Exception.Message)>" } } else { '' })
+        }
+        [void](Remove-IhuiDeployLock -Path $p1 -OwnerKind 'loop')
+
+        # ── S2:判据 2 的可证形态 —— 锁 mtime 早于本机真 LastBootUpTime ──
+        # 两式都跑:旧裸 pid(没有 bootId,C3 只能跳过)与结构化锁(带上一轮开机的 bootId)。
+        # 报**实际**拦下的那一条(不预设是 C2 还是 C3):判据要能自证"这一型被拦",
+        # 至于被哪一条拦是它自己的事,写死反而会把演进成问题。
+        $boot = [datetime]$bootIdNow
+        $n2 = $lines.Count
+        $p2 = Join-Path $Scratch 's2-crossboot-legacy.lock'
+        [System.IO.File]::WriteAllText($p2, "$($child.Id)")
+        (Get-Item -LiteralPath $p2).LastWriteTimeUtc = $boot.AddMinutes(-30)
+        $st2 = Resolve-IhuiDeployLockState -Path $p2 -OwnerKind 'loop'
+        # 必须在**抢占之前**把盘上时间读走并算好比较:Enter 一旦把陈旧锁换成自己的新锁,
+        # 同一再读到的就是刚刚写下的那份(实测如此 —— 那条"mtime 早于开机"的断言会去
+        # 量一个已经不存在的现场,报出 mtimeEarlierThanBoot=false)。**先取证后动手**,
+        # 与判据 3"先归档再删"是同一条顺序要求。
+        $diskMtime2 = (Get-Item -LiteralPath $p2).LastWriteTimeUtc
+        $earlier2 = $diskMtime2 -lt $bootUtc
+        $acq2 = [bool](Enter-IhuiLoopLock -Path $p2 -Logger $logger -ArchiveDir $arch)
+        $p2b = Join-Path $Scratch 's2b-crossboot-structured.lock'
+        $meta2b = [ordered]@{
+            pid = $child.Id; ownerKind = 'loop'
+            writtenAt = (Format-IhuiLockUtc $boot.AddMinutes(-20))
+            bootId = (Format-IhuiLockUtc $boot.AddHours(-3))
+            heartbeatAt = (Format-IhuiLockUtc $now.AddMinutes(-1))
+        }
+        [void](Write-IhuiDeployLockJson -Path $p2b -Meta $meta2b)
+        $st2b = Resolve-IhuiDeployLockState -Path $p2b -OwnerKind 'loop'
+        $acq2b = [bool](Enter-IhuiLoopLock -Path $p2b -Logger $logger -ArchiveDir $arch)
+        $out.s2 = [ordered]@{
+            lastBootUpTimeUtc = (Format-IhuiLockUtc $bootUtc)
+            legacy = [ordered]@{
+                # 两条值都**从盘上现读**,而且现读发生在抢占之前(见上):不是我刚做过的
+                # 减法 —— 拿 $boot.AddMinutes(-30) -lt $boot 去断言"早于开机"是条恒真式
+                # (永远绿的断言与永远红的同样没用),现读文件系统时间才有牙。
+                mtimeUtc = (Format-IhuiLockUtc $diskMtime2)
+                earlierThanBoot = $earlier2
+                verdict = $st2.Verdict; failed = $st2.Failed
+                acquired = $acq2; log = (Take-Log $n2)
+            }
+            structured = [ordered]@{ verdict = $st2b.Verdict; failed = $st2b.Failed; acquired = $acq2b }
+        }
+        [void](Remove-IhuiDeployLock -Path $p2 -OwnerKind 'loop')
+        [void](Remove-IhuiDeployLock -Path $p2b -OwnerKind 'loop')
+
+        # ── S3(反例,不可省):活着的持锁者绝不被抢,内容逐字节不得变 ─────────
+        # 两式:结构化(自己刚写下的)与旧裸 pid(升级窗口里仍在跑的老守护写下的)。
+        # 后者尤其要紧 —— 判据若"认不出旧格式就抢",升级那一轮就会把正在构建的守护抢掉。
+        $n3 = $lines.Count
+        $archBefore3 = @(Get-ChildItem -LiteralPath $arch -Filter 'stale-lock-*.json' -File -ErrorAction SilentlyContinue).Count
+        $p3 = Join-Path $Scratch 's3-live.lock'
+        [void](Write-IhuiDeployLock -Path $p3 -OwnerKind 'loop')
+        $before3 = [string](Get-Content -LiteralPath $p3 -Raw)
+        $acq3 = [bool](Enter-IhuiLoopLock -Path $p3 -Logger $logger -ArchiveDir $arch)
+        $after3 = [string](Get-Content -LiteralPath $p3 -Raw)
+        $p3b = Join-Path $Scratch 's3b-live-legacy.lock'
+        [System.IO.File]::WriteAllText($p3b, "$PID")
+        (Get-Item -LiteralPath $p3b).LastWriteTimeUtc = $selfFacts.ProcessStartUtc.AddSeconds(5)
+        $before3b = [string](Get-Content -LiteralPath $p3b -Raw)
+        $acq3b = [bool](Enter-IhuiLoopLock -Path $p3b -Logger $logger -ArchiveDir $arch)
+        $after3b = [string](Get-Content -LiteralPath $p3b -Raw)
+        $arch3 = @(Get-ChildItem -LiteralPath $arch -Filter 'stale-lock-*.json' -File).Count
+        $out.s3 = [ordered]@{
+            structuredAcquired = $acq3; unchanged = ($before3 -ceq $after3)
+            legacyAcquired = $acq3b; legacyUnchanged = ($before3b -ceq $after3b)
+            log = (Take-Log $n3)
+            # 让路的两次都**不该**留下归档件:归档只属于"真抢占了"那一路。
+            # 量**增量**而不是绝对值 —— 绝对值里混着 S1/S2 合法留下的归档件,
+            # 拿它当"这一路没归档"的证据就是把"没看清"写成"没问题"。
+            archiveAddedByS3 = ($arch3 - $archBefore3)
+        }
+        [void](Remove-IhuiDeployLock -Path $p3 -OwnerKind 'loop')
+
+        # ── S4(对照):unverifiable 维持改动前的行为 = 让路,不据此抢占 ───────
+        $n4 = $lines.Count
+        $p4 = Join-Path $Scratch 's4-unverifiable.lock'
+        [System.IO.File]::WriteAllText($p4, 'not-a-json-at-all')
+        (Get-Item -LiteralPath $p4).LastWriteTimeUtc = $now.AddMinutes(-5)
+        $before4 = [string](Get-Content -LiteralPath $p4 -Raw)
+        $acq4 = [bool](Enter-IhuiLoopLock -Path $p4 -Logger $logger -ArchiveDir $arch)
+        $after4 = [string](Get-Content -LiteralPath $p4 -Raw)
+        # 同一把坏内容,只是把文件时间推到绝对上限之外 ⇒ 必须有出路,
+        # 否则"少抢一把"就变成"任何人都抢不动、部署环永久停摆"(G-208 的原病)。
+        (Get-Item -LiteralPath $p4).LastWriteTimeUtc = $now.AddHours(-7)
+        $acq4b = [bool](Enter-IhuiLoopLock -Path $p4 -Logger $logger -ArchiveDir $arch)
+        $out.s4 = [ordered]@{
+            holds = (-not $acq4); unchanged = ($before4 -ceq $after4); stillThere = (Test-Path -LiteralPath $p4)
+            overCapAcquired = $acq4b; log = (Take-Log $n4)
+        }
+        [void](Remove-IhuiDeployLock -Path $p4 -OwnerKind 'loop')
+    } finally {
+        # 只按自己起的 pid 收尾(判据 6:禁止 taskkill /IM)
+        if ($null -ne $child) { try { Stop-Process -Id $child.Id -Force -ErrorAction SilentlyContinue } catch {} }
+    }
+    ($out | ConvertTo-Json -Depth 8 -Compress)
+}
+
+if ($SelfTestScratch) {
+    # 自我护栏:取证通道绝不允许把落点指到生产目录 —— 那会把"跑一次测试"变成"改一次生产锁"。
+    $probe = ''
+    try { $probe = [System.IO.Path]::GetFullPath($SelfTestScratch).TrimEnd('\', '/') } catch { $probe = '' }
+    $winFull = ''
+    try { $winFull = [System.IO.Path]::GetFullPath($WinDir).TrimEnd('\', '/') } catch { $winFull = '' }
+    if (-not $probe) {
+        Write-Host "FAIL  -SelfTestScratch 解析不出绝对路径,拒绝跑取证"
+        exit 2
+    }
+    if ($winFull -and ($probe -ieq $winFull)) {
+        Write-Host "FAIL  -SelfTestScratch 指向生产目录 $winFull,拒绝(取证只在临时目录里写)"
+        exit 2
+    }
+    New-Item -ItemType Directory -Path $SelfTestScratch -Force | Out-Null
+    try {
+        Invoke-IhuiLoopLockSelfTest -Scratch $SelfTestScratch
+        exit 0
+    } catch {
+        Write-Host ("FAIL  取证通道异常:{0}" -f $_.Exception.Message)
+        exit 1
     }
 }
 
