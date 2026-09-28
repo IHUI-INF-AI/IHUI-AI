@@ -32,7 +32,8 @@
  *    zustand 共享 store 的镜像与 user 持久化。tokenStore 是真值源,
  *    auth store 是 React 订阅层(避免双源不一致)。
  * 2. **安全**:token/refreshToken/expiresIn 一律不持久化到 chrome.storage,
- *    只持久化 user + isAuthenticated。token 仍由 tokenStore 走
+ *    持久化 blob 只存 user 资料(G-456:登录态由「有没有 token」派生,不入库)。
+ *    token 仍由 tokenStore 走
  *    chrome.storage.local 的 TOKEN_STORAGE_KEY 等三个 key 管理。
  * 3. **依赖注入**:tokenStore 从 lib/token 导入,userTransport 用本端
  *    chrome.storage.local 包装,所有 IO 边界明确。

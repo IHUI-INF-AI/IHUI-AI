@@ -88,7 +88,7 @@ const webTokenStore: TokenStore = {
   },
 }
 
-/** user + isAuthenticated 持久化 transport(SSR 安全) */
+/** user 资料持久化 transport(SSR 安全;登录态不入库,由 hydrate 派生) */
 const userTransport = createSSRSafeWebTransport()
 
 /**
