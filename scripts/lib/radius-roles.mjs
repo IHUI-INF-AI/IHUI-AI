@@ -62,8 +62,16 @@ export const ROLE_STEMS = {
     evidence: 'Tag / CountBadge / UnreadBadge / CategoryChip —— 胶囊**类**元素,不是胶囊形状',
   },
   panel: {
-    stems: ['panel', 'modal', 'dialog', 'drawer', 'sheet', 'popover'],
+    stems: ['panel', 'modal', 'dialog', 'drawer', 'sheet'],
     evidence: 'PayPopup / ModelDetailDialog / Drawer / RightPanel —— 面板弹窗档 xl',
+  },
+  popover: {
+    stems: ['popover', 'menu', 'contextmenu', 'ctxmenu', 'tooltip'],
+    evidence: 'TerminalContextMenu / FileContextMenu / TagsView 右键菜单 / add-menu-popover —— 轻量浮层档 md',
+  },
+  bubble: {
+    stems: ['bubble', 'chatbubble', 'messagebubble'],
+    evidence: '会话流消息盒(voice.tsx / ai-assistant 气泡)—— 与卡片不同类,档 2xl',
   },
   hero: {
     stems: ['hero', 'banner', 'spotlight'],
@@ -682,3 +690,56 @@ export function isRoleExemptAt(rawLines, i) {
   return i > 0 && !!roleExemptReason(rawLines[i - 1])
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * **身份通道**(2026-09-28 票㉘):类别不该只靠猜 —— 代码里已经写着"这是什么"的三处权威信号,
+ * 此前一律没被采:
+ *  ① ARIA 「role=」(menu / dialog / tooltip / listbox / button…)—— ARIA 角色就是元素的身份;
+ *  ② 「data-testid」(annotation-popover / plan-review-panel / tagsview-context-menu)—— 作者自己给这个盒子起的名字;
+ *  ③ 身份标记类 「ui-<role>」(§3.1 的角色名,封闭集)—— 给"连名字都没有"的元素留的显式出口。
+ * 另加一条窄口径:色档名里只有 **popover** 算身份(bg-popover 说的是"这是一层浮出",
+ * 项目里它就是浮层的类族);bg-card / bg-muted 仍只是背景档,**不**算身份 ——
+ * 那正是上一票 5 处 role-conflict 的成因,放宽到它们等于把身份判据整片关掉。
+ */
+export const IDENTITY_ROLES = ['tiny', 'control', 'chip', 'card', 'panel', 'popover', 'bubble', 'hero']
+const ARIA_ROLE_TO_RADIUS = {
+  menu: 'popover',
+  menuitem: 'control',
+  listbox: 'card',
+  combobox: 'control',
+  button: 'control',
+  tab: 'control',
+  tooltip: 'popover',
+  dialog: 'panel',
+  alertdialog: 'panel',
+  drawer: 'panel',
+}
+const IDENTITY_CLASS_PREFIX = 'ui-'
+
+/** 一行里的身份证据(强档)。返回 {roles:Set, via:string[]}。 */
+export function identityEvidenceInLine(codeLine, rawLine) {
+  const roles = new Set()
+  const via = []
+  const add = (r, from) => {
+    if (!r || !IDENTITY_ROLES.includes(r)) return
+    if (!roles.has(r)) {
+      roles.add(r)
+      via.push(from)
+    }
+  }
+  for (const m of String(rawLine || '').matchAll(/\brole\s*=\s*["']([\w-]+)["']/g)) {
+    add(ARIA_ROLE_TO_RADIUS[String(m[1]).toLowerCase()], 'aria')
+  }
+  for (const m of String(rawLine || '').matchAll(/\bdata-(?:testid|test-id|test)\s*=\s*["']([^"'\n]+)["']/g)) {
+    for (const r of rolesOfName(m[1])) add(r, 'testid')
+  }
+  for (const c of classStringsInLine(codeLine, rawLine)) {
+    for (const tok of String(c).split(/[\s,{}'"]+/)) {
+      const t = String(tok || '').replace(/^[\w[\].-]+:/, '')
+      if (t.startsWith(IDENTITY_CLASS_PREFIX)) add(t.slice(IDENTITY_CLASS_PREFIX.length), 'marker')
+      // 只有 popover 这一色档算身份(浮层类族名),其余色档继续走弱证据
+      if (t === 'bg-popover' || t === 'text-popover-foreground') add('popover', 'popover-tier')
+    }
+  }
+  return { roles, via }
+}
