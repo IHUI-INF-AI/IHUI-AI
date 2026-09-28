@@ -228,7 +228,8 @@ describe('SSE 契约:主面事件数与判别联合成员数对账(D132)', () =>
  * 这才是"名字有、结构没有"在端上的真实后果(各端此前只能各自 `as`,上游改名六端不红)。
  */
 interface UsageFieldProbe {
-  messageId: string
+  /** G-724:生产端 `_resolve_message_id() -> str | None` 会把 null 落进这个键 ⇒ 读取面同可空 */
+  messageId: string | null
   promptTokens: number | null
   completionTokens: number | null
   totalTokens: number | null
@@ -314,6 +315,28 @@ describe('usage 帧:按 type 收窄出字段类型(D132 的可消费性)', () =>
       costUsd: 0.0042,
       agentId: 'agent-9',
     })
+  })
+
+  it('messageId 为 null 的命名帧合法(G-724:生产端 _resolve_message_id() 可返回 None)', () => {
+    // llm.py 的 `_usage_frame` **恒写全部五个键**,只是 messageId 的值可为 None、
+    // costUsd 今天恒为 None(真成本走 D33 的 usageDetail 持久化通道,不在这条帧上)。
+    // 这一例把"键在而值为 null"钉进契约消费面 —— 若 messageId 被改回 `messageId?: string`
+    // (可选键),`satisfies` 不会红,但它就不再描述生产端真正下发的东西;可空值档才是判据。
+    const unattributed = {
+      type: 'usage',
+      messageId: null,
+      usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+      timing: { firstTokenMs: null, durationMs: 7 },
+      model: null,
+      costUsd: null,
+    } satisfies SSEEventPayload
+
+    const probe = readUsageFrame(unattributed)
+    if (probe === null) {
+      throw new Error('[usage-frame] messageId=null 的帧没有被识别成 usage 成员(收窄失效?)')
+    }
+    expect(probe.messageId).toBeNull()
+    expect(probe.costUsd).toBeNull()
   })
 
   it('非 usage 帧走不到这条分支(收窄不是"逢帧都当 usage")', () => {
