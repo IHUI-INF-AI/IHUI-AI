@@ -18,7 +18,7 @@
 // 类别证据判不出 ⇒ 落「未判定」逐条点名,**绝不静默算通过**;一个类别信号都没有的元素
 // 不在本门射程(如实报数,不写成"已合规")—— 与"射程边界必须报名、不得只报数"同一条。
 
-import { maskCommentsAndStrings } from './code-mask.mjs'
+import { maskCommentsAndStrings, maskedSpans } from './code-mask.mjs'
 
 /**
  * 角色 → 可用于识别该角色的**词元**(whole token,不是子串)。
@@ -83,8 +83,16 @@ export const ROLE_STEMS = {
   },
 }
 
-/** Tailwind/CSS 实用类前缀:剥掉后才好认头词元(`bg-card` → `card`)。 */
-const UTILITY_PREFIXES = ['bg', 'text', 'border', 'ring', 'shadow', 'fill', 'stroke', 'outline']
+/**
+ * **不是身份**的实用类前缀(2026-09-28 立,由 HEAD 实测 5 处 `role-conflict` 逼出)。
+ * `z-popover` / `z-modal` 写的是**层叠档**(项目里 z 档名就是 popover/modal/max/loading 这一族,
+ * 见守门 27 的 z-index 契约),把它们当"这个元素是哪一类"的证据,就会出现
+ * `<div className="z-popover … bg-card">` 同时被认成 panel 与 card 这种**互斥类别** ——
+ * 判据只能落 role-conflict,而世界其实一点歧义都没有。
+ * 刻意只列 `z`:颜色/描边族(`bg-card`、`border-input`)确实是弱身份证据,继续走 weak 档;
+ * 放宽到"所有非 rounded 前缀"等于把类别证据整片关掉(那是放宽判据,不是收窄误报)。
+ */
+const NON_IDENTITY_PREFIXES = ['z']
 
 /** 名字 → 词元数组(camelCase / PascalCase / kebab / snake / 数字边界都切)。 */
 export function nameTokens(name) {
@@ -102,13 +110,14 @@ export function headToken(name) {
   return toks.length ? toks[toks.length - 1] : null
 }
 
-/** 单个类名 token 剥掉变体与实用类前缀后的语义词元(`bg-card`→card、`hover:rounded-lg`→lg)。 */
+/** 单个类名 token 剥掉变体与实用类前缀后的语义词元(`bg-card`→card、`z-popover`→null)。 */
 export function semanticTokenOfClassToken(token) {
   const t = String(token || '').replace(/^[\w[\].-]+:/, '')
   const parts = nameTokens(t)
   if (!parts.length) return null
   const head = parts[parts.length - 1]
-  if (parts.length > 1 && UTILITY_PREFIXES.includes(parts[parts.length - 2])) return head
+  // 层叠档名不是身份 —— 见 NON_IDENTITY_PREFIXES 的实测理由(HEAD 5 处 role-conflict 的唯一成因)
+  if (parts.length > 1 && NON_IDENTITY_PREFIXES.includes(parts[parts.length - 2])) return null
   return head
 }
 
@@ -142,6 +151,105 @@ export function rolesOfClassList(classText) {
 }
 
 /**
+ * 模态载体的**标签名**(后缀匹配:`<LoginPopUp>` / `<BottomSheet>` / `<Modal>` 都算)。
+ * 为什么按后缀而不是头词元:`PopUp` 切词后头词元是 `up`,按头词元判会把这一族整片漏掉 ——
+ * 与"档位键 '2xl' 被按字母开头识别漏掉"、"角色表值支 `hero:'2xl'` 不被识别"是同一条教训的
+ * 第三个实例:**名字的切分方式不能替名字做语义决定**。
+ */
+export const MODAL_TAG_SUFFIXES = ['modal', 'popup', 'dialog', 'drawer', 'sheet', 'overlay', 'mask', 'actionsheet']
+
+/** 满屏遮罩这一**几何角色**的样式键名(它活在键上,不在标签上)。 */
+export const OVERLAY_KEY_STEMS = ['overlay', 'mask', 'backdrop', 'scrim', 'dimmer']
+
+export function isModalTag(tag) {
+  const s = String(tag || '').toLowerCase()
+  return MODAL_TAG_SUFFIXES.some((x) => s.endsWith(x))
+}
+
+export function isOverlayName(name) {
+  const toks = nameTokens(name)
+  if (!toks.length) return false
+  if (OVERLAY_KEY_STEMS.includes(toks[toks.length - 1])) return true
+  return toks.join('') === 'absolutefill' // `StyleSheet.absoluteFill` 就是满屏遮罩本身
+}
+
+/** 该元素的**自有名字**里有没有 card 族(样式键 + 组件标签)。 */
+function cardNamesOf(el, roleOf) {
+  const out = []
+  for (const k of el.keys || []) if (roleOf(k).includes('card')) out.push(k)
+  if (el.base && roleOf(el.base).includes('card')) out.push(el.base)
+  return out
+}
+
+/** 该元素是不是"面板族"(模态载体 / 遮罩 / 明确命名为 panel)。 */
+function isPanelCarrier(el, roleOf) {
+  if (!el) return false
+  if (isModalTag(el.base)) return true
+  if (roleOf(el.base || '').includes('panel')) return true
+  for (const k of el.keys || []) if (isOverlayName(k) || roleOf(k).includes('panel')) return true
+  return false
+}
+
+/**
+ * **包含关系解析**:找出"模态面"元素,以及它们用到的样式键。
+ *
+ * 判据(两条同时成立才算面,缺一不算):
+ *  ① 元素自有的某个名字属于 card 族(它自称"卡片");
+ *  ② 从它往外走,第一个给出类别信号祖先**是模态载体**(标签是 `<Modal>/<*Popup>/…`,
+ *     或祖先自己应用了 `overlay`/`backdrop`/`StyleSheet.absoluteFill` 这类遮罩键,
+ *     或祖先自己的名字是 panel 族)。
+ * 往外走时若先撞上另一张 card ⇒ 它是**模态内容里的卡片**,不是面(内层卡仍按 card 判)。
+ *
+ * 为什么这一格必须由容器而不是由名字定:实测四个 RN 模态件(ConfirmPurchasePopUp /
+ * LoginPopUp / PrivacyPolicyModal / VerifyCodeModal)与小程序 `.pp-card` 同形 ——
+ * 弹窗本体一律命名 `card:`,而它是**面板**:按名字判就会把"模态面应收 xl"这一维整片读成
+ * "卡片应收 lg",反过来逼端上给弹窗补一个卡片档圆角 —— 那是拿尺子改设计。
+ *
+ * 同名键既当过面又当过普通卡 ⇒ `contested`:不改判,交调用方报名。
+ * 这是刻意选的失效方向:一个键在同一个文件里身份不同时,任何一边的改判都有一半是错的。
+ *
+ * @param {object[]} elements `lib/jsx-scope.scanJsx().elements`
+ * @param {{roleOf?: (name: string) => string[]}} [opts]
+ */
+export function classifySurfaces(elements, opts = {}) {
+  const roleOf = opts.roleOf || rolesOfName
+  const surfaceIdx = new Set()
+  const keyState = new Map()
+  let cardElements = 0
+  for (let i = 0; i < (elements || []).length; i++) {
+    const el = elements[i]
+    const own = cardNamesOf(el, roleOf)
+    if (!own.length) continue
+    cardElements++
+    let surface = false
+    const chain = el.ancestorsIdx || []
+    for (let j = chain.length - 1; j >= 0; j--) {
+      const a = elements[chain[j]]
+      if (cardNamesOf(a, roleOf).length) break // 外层已有卡 ⇒ 本元素是内容卡
+      if (isPanelCarrier(a, roleOf)) {
+        surface = true
+        break
+      }
+    }
+    if (surface) surfaceIdx.add(i)
+    for (const k of own) {
+      const st = keyState.get(k) || { surface: 0, other: 0 }
+      if (surface) st.surface++
+      else st.other++
+      keyState.set(k, st)
+    }
+  }
+  const surfaceKeys = new Set()
+  const contestedKeys = new Set()
+  for (const [k, st] of keyState) {
+    if (st.surface && st.other) contestedKeys.add(k)
+    else if (st.surface) surfaceKeys.add(k)
+  }
+  return { surfaceIdx, surfaceKeys, contestedKeys, cardElements }
+}
+
+
+/**
  * 两份遮罩面(方向不同,各有其用,不得混为一谈):
  *
  *  - `code`:注释 + 字符串内容都抹(`maskCommentsAndStrings` 原样出口)。
@@ -158,6 +266,13 @@ export function rolesOfClassList(classText) {
  */
 export function maskFaces(src) {
   const code = maskCommentsAndStrings(src)
+  /**
+   * 字符串区间直接取自 code-mask 那一遍词法(**不另起词法器**),供 JSX 扫描器跳过串内的
+   * `<View`。它与下面 `kept` 的回填判序有一处刻意的不同:`kept` 对"未配对引号"选择不回填
+   * (老口径,门 150 的锚点就是按它钉的),而 JSX 扫描要的是"词法器认为这里是串"的事实。
+   * 两者各有其用,不构成第二套遮罩 —— 判定用的区间与回填用的区间都来自同一份 `maskedSpans`。
+   */
+  const strings = maskedSpans(src).filter((s) => s.kind === 'string')
   const kept = [...code]
   const isQuote = (c) => c === '"' || c === "'" || c === '`'
   /**
@@ -218,7 +333,7 @@ export function maskFaces(src) {
     }
     i++
   }
-  return { code, kept: kept.join('') }
+  return { code, kept: kept.join(''), strings }
 }
 
 /**
