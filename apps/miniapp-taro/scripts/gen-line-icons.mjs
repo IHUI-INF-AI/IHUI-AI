@@ -48,7 +48,7 @@ for (const file of svgs.sort()) {
 // lucide 字形里的 rx/ry 是 24 格 viewBox 的**几何单位**,不是 UI 圆角档位(吸附会把图标扭歪)。
 // 守门 77 的 B5 看不到这层语义,故由生成器自己吐豁免行 —— 手写 marker 会在下次生成时被抹掉,
 // 生成器内置才闭环(2026-09-23 圆角同源收口时实测到该缺口)。
-const EXEMPT = '  // radius-exempt: lucide 字形几何,rx/ry 为 24 格 viewBox 单位而非 UI 圆角档位'
+const EXEMPT = '
 const lines = entries.flatMap(([k, v]) => {
   const row = `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`
   return /\br[xy]\s*=/.test(v) ? [EXEMPT, row] : [row]

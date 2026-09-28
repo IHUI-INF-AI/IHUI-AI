@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   toolIconWrap: {
     width: 38,
     height: 38,
-    borderRadius: 19, // radius-exempt: 图标底 38×38 正圆(直径一半)
+    borderRadius: 19,
     marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
