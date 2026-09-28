@@ -21,7 +21,7 @@ import {
   type ImageSourcePropType,
 } from 'react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 // 分享图兜底资源(require 写法对齐项目惯例,如 BusinessLicenseScreen)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const SHARE_FALLBACK_IMAGE: ImageSourcePropType = require('../../assets/images/common/default/vip_message.jpg')
@@ -2167,7 +2167,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadiusFor.panel,
     padding: rpx(40),
     alignItems: 'center',
   },
@@ -2286,8 +2286,8 @@ const styles = StyleSheet.create({
   },
   editProfileCard: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius.xl,
-    borderTopRightRadius: rnRadius.xl,
+    borderTopLeftRadius: rnRadiusFor.panel,
+    borderTopRightRadius: rnRadiusFor.panel,
     padding: rpx(40),
     paddingBottom: rpx(64),
   },
@@ -2410,8 +2410,8 @@ const styles = StyleSheet.create({
   },
   levelIntroCard: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius.xl,
-    borderTopRightRadius: rnRadius.xl,
+    borderTopLeftRadius: rnRadiusFor.panel,
+    borderTopRightRadius: rnRadiusFor.panel,
     padding: rpx(40),
     paddingBottom: rpx(64),
     maxHeight: '80%',
@@ -2478,7 +2478,7 @@ const styles = StyleSheet.create({
   unsubscribeCard: {
     width: '100%',
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadiusFor.panel,
     padding: rpx(40),
     alignItems: 'center',
   },

@@ -45,7 +45,7 @@ import {
   userInfoCardAvatarStyle,
 } from '@ihui/shared/ui/user-info-card-spec'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 /**
  * 头像盒子结构只在 spec 出口里摆一次(方档 + overflow + 居中),端内三个头像位
@@ -577,7 +577,7 @@ const newStyles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     // 保留 xl(12):这一格是**弹窗**(等级说明 Modal),角色档 panel → xl,不是卡片。
     // 不得为了"卡片一律 8"把它一起收小 —— 那属于按档名误读角色。
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadiusFor.panel,
     padding: 20,
     alignItems: 'center',
   },
