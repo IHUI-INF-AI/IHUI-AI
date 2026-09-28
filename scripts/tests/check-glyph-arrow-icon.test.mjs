@@ -398,9 +398,20 @@ test('真仓 HEAD 上 S0 必须为 0,且遍历盲区必须为 0(机制此刻就�
 
 test('跨行自闭合标签的属性区必须真被咨询(HEAD 真文件双向证明,不是夹具复刻实现的形状)', () => {
   // §22c 的教训:判据的对象是真实文件的形态时,至少一条用例的输入必须逐字取自那个真文件。
-  // 这里用 HEAD 上真实存在的那一处(packages/app/src/features/course-screen/CourseScreen.tsx,
-  // 翻页按钮的 `{t('common.back')}` 摆在 `<FlatList … />` 的 ListFooterComponent prop 体里,
-  // 自闭合的 `/>` 落在另一行 —— 旧遍历把整段 prop 体当成一个 token 跳过了)。
+  //
+  // 受害者换过一次,原因是**正当收编**而不是判据坏了:原受害者是同一文件里翻页按钮的
+  // `{t('common.back')}` 文字返回 + 就近的 `back-label-exempt` 标记(旧遍历把跨行自闭合
+  // `/>` 之前那整段 prop 体当成一个 token 跳过了)。枚 `140c783c3`("P1 返回键同一型跨端清账")
+  // 把文字返回收编成矢量 `ChevronLeft` + `accessibilityLabel` 并删掉豁免标记 ⇒
+  // "剥掉豁免必判到"那一臂的夹具前提消失了。本条测试自己当时的出口就写着"需要换受害者,不得删",
+  // 所以这里**换形状、不换判据目标**:仍然要证明「跨行自闭合标签的属性区被祖先栈咨询过」。
+  //
+  // 现在的双向臂(输入仍是 HEAD 真字节,只做一处可控变换):
+  //  A 原样     ⇒ 不判红(无障碍名称不是渲染文字)且**盲区探针必须点名 0 处**(证明那一格被咨询过,
+  //              而不是"整段被跳过所以没红");
+  //  E 单点变换 ⇒ 把那一处**跨行自闭合**图标(`size/color/style` 各占一行、`/>` 落在另一行)换回
+  //              文字返回 ⇒ 必须恰好判到一处。若下探断了,E 就与 A 同形(0 条)——
+  //              这一臂就是"判据有牙"的证明,不是恒真断言。
   const COURSE = 'packages/app/src/features/course-screen/CourseScreen.tsx'
   const head = execFileSync('git', ['show', `HEAD:${COURSE}`], {
     cwd: ROOT,
@@ -409,35 +420,38 @@ test('跨行自闭合标签的属性区必须真被咨询(HEAD 真文件双向�
     timeout: 120000,
     windowsHide: true,
   })
-  const stripped = head.replace(/^.*back-label-exempt:[^\n]*\n/m, '')
-  assert.notEqual(
-    stripped,
-    head,
-    '夹具前提变了(HEAD 上那处豁免注释不见了)⇒ 本条需要换受害者,不得删',
+  const CROSS_LINE_SELF_CLOSING =
+    /<ChevronLeft\n\s+size=\{16\}\n\s+color=\{tk\.text\.primary\}\n\s+style=\{page <= 1 && styles\.pageBtnDisabled\}\n\s*\/>/
+  // 前提锁:HEAD 上那个"多行开标签 + 跨行自闭合图标"的形状必须还在。
+  // 它一旦再次消失(又一轮正当收编),本条要**换受害者**而不是删断言 —— 与旧版同一句出口。
+  assert.equal(
+    head.split(CROSS_LINE_SELF_CLOSING).length - 1,
+    1,
+    '夹具前提变了(HEAD 上那处跨行自闭合形状不见了)⇒ 本条需要换受害者,不得删',
   )
+
   const asIs = gate.auditFile(COURSE, head)
+  assert.equal(asIs.findings.length, 0, 'HEAD 现状(矢量 + accessibilityLabel)不该判红')
   assert.equal(
     asIs.notes.backBlind.length,
     0,
-    '格子仍被盲区探针点名 = 属性区下探断了,GA4 在这一型上是瞎的',
+    `格子仍被盲区探针点名 = 属性区下探断了,GA4 在这一型上是瞎的:${asIs.notes.backBlind
+      .map((b) => `${b.file}:${b.line}`)
+      .join(' | ')}`,
   )
-  assert.equal(
-    asIs.findings.filter((f) => f.rule === 'GA4' || f.rule === 'GA5').length,
-    0,
-    'HEAD 该处带 back-label-exempt 原因 ⇒ 现状不该判红(判红就是与改动无关的恒红)',
-  )
-  assert.ok(
-    asIs.notes.backExempt >= 1,
-    '下探没跑到那一格时 backExempt 不会增加 —— 这条把"绿是因为放过"和"绿是因为没看见"分开',
-  )
-  const unexempted = gate.auditFile(COURSE, stripped)
-  const hit = unexempted.findings.filter((f) => f.rule === 'GA4' || f.rule === 'GA5')
+
+  const swapped = head.replace(CROSS_LINE_SELF_CLOSING, "{t('common.back')}")
+  assert.notEqual(swapped, head, '变换没命中任何字节 ⇒ 本条退化成恒真,拒绝')
+  const judged = gate.auditFile(COURSE, swapped)
+  const hit = judged.findings.filter((f) => f.rule === 'GA4' || f.rule === 'GA5')
   assert.equal(
     hit.length,
     1,
-    `剥掉豁免后必须判到那一格(判到=判据有牙;判不到=门只是被豁免遮住了):${unexempted.findings.map((f) => `${f.rule}@${f.line}`).join(' | ')}`,
+    `把那一格换回文字返回必须恰好判到一处(判到=判据有牙;判不到=门只是被形状骗过):${judged.findings
+      .map((f) => `${f.rule}@${f.line}`)
+      .join(' | ')}`,
   )
-  assert.equal(unexempted.notes.backBlind.length, 0, '同一格既判红又点名盲区 = 两套结论互相打脸')
+  assert.equal(judged.notes.backBlind.length, 0, '同一格既判红又点名盲区 = 两套结论互相打脸')
 })
 
 test('属性区下探的三条结构锁:入口走 walkJsxRange、下探的祖先栈从空开始、盲区读数恒打印', () => {
