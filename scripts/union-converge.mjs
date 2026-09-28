@@ -554,6 +554,9 @@ export function buildUnion(
     // 崩溃被上层当成人工判定 ⇒ 所有会话的台账冲突都收敛不动、发布链卡死。自检补了一条
     // "两侧同改台账 ⇒ 必须产出 plan(不抛)"的用例钉住这条路径。
     const violations = []
+    // 声明式放行过的量纲(必须一路交回调用方打印并写进合并提交信息,不能只在内存里"放过")。
+    // 声明位置在 1) 之前:活文档那一条循环就要往里 push —— 挂在下面 2) 的累加器群里会撞 TDZ。
+    const acceptedGrowth = []
     run(['read-tree', ours])
 
     // 1) 活文档:三方行 union(对侧相对基底的**独有行**必须存活;本侧就地改写的行不得被旧副本复活;
@@ -596,8 +599,6 @@ export function buildUnion(
     const needHuman = []
     const keptOurs = []
     const keptTheirs = []
-    // 声明式放行过的量纲(必须一路交回调用方打印并写进合并提交信息,不能只在内存里"放过")
-    const acceptedGrowth = []
     const humanResolved = []
     const touchedOurs = new Set(diffNames(base, ours, cwd))
     for (const p of diffNames(base, theirs, cwd)) {
@@ -1227,6 +1228,32 @@ function selfTest() {
           blobOf(forcedT.tree, 'clash.ts', d2) === blobOf(t2, 'clash.ts', d2) &&
           !forcedT.needHuman.some((h) => h.path === 'clash.ts'),
         JSON.stringify([forcedT.keptTheirs, forcedT.needHuman.map((h) => h.path)]),
+      )
+      /**
+       * 反 TDZ 的形状锁(2026-09-28 实测:第一次 --apply 就是死在
+       * `Cannot access 'acceptedGrowth' before initialization` —— 累加器声明挂在 2) 的群里,
+       * 而 1) 活文档循环先用它;纯函数自检对此全绿,因为它是照着"函数会给答案"写的,
+       * 而不是照"有人调它"写的。声明必须先于使用,这条能由源码文本判,不需要真跑一次合并。)
+       */
+      ok(
+        '声明放行:累加器的声明必须早于第一次使用(1) 活文档循环在 2) 的累加器群之前)',
+        (() => {
+          const src = readFileSync(new URL(import.meta.url), 'utf8')
+          const decl = src.indexOf('const acceptedGrowth = []')
+          const use = src.indexOf('acceptedGrowth.push')
+          return decl >= 0 && use >= 0 && decl < use
+        })(),
+      )
+      ok(
+        '声明放行:accepted 必须真的传到落地闸的两处调用点(只加形参不传 = 自检绿而生效次数 0)',
+        (() => {
+          const src = readFileSync(new URL(import.meta.url), 'utf8')
+          return (
+            src.includes('planStateRegressions(mergedText, sides, accepted)') &&
+            src.includes('planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted)') &&
+            src.includes('moveAwareCache, takeTheirs, accepted,')
+          )
+        })(),
       )
       ok(
         'T-b 反向锁:不声明时同一夹具仍必须判需人工(声明式例外不得变成默认放行)',
