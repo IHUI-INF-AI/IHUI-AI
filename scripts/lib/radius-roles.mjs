@@ -19,6 +19,13 @@
 // 不在本门射程(如实报数,不写成"已合规")—— 与"射程边界必须报名、不得只报数"同一条。
 
 import { maskCommentsAndStrings, maskedSpans } from './code-mask.mjs'
+/**
+ * 除法形态半径(`60 / 2`、`rnRadius.lg / 2`、`rpx(40) / 2`、`SIZE_PX / 2`)的被除数怎么折成 px,
+ * **只许有一份算术** —— 守门 77 / 128 走 `radius-tokens.radiusPxInLine`,本门走
+ * `radiusFormsInLine`,两边各写一遍单位换算就必然漂开(rpx 折半、rem ×16 这条口径已经在本仓
+ * 记过至少三次:门 128 票⑫、box-geometry 的单位归一、以及本轮"37 处除法整族隐身")。
+ */
+import { radiusOperandPx } from './radius-tokens.mjs'
 
 /**
  * 角色 → 可用于识别该角色的**词元**(whole token,不是子串)。
@@ -500,7 +507,7 @@ const CAMEL_DIR = String.raw`(?:Top|Bottom)?(?:Left|Right)?`
  * @param {string} line `maskFaces().kept` 的一行(注释已抹、字符串保留)
  * @param {Record<string, number>} table `radiusLookup` 的产物
  */
-export function radiusFormsInLine(line, table) {
+export function radiusFormsInLine(line, table, consts) {
   const out = []
   const seen = new Set()
   const steps = stepsInTable(table)
@@ -549,8 +556,8 @@ export function radiusFormsInLine(line, table) {
       ...describe(px),
     })
   }
-  // 2) CSS 变量:`var(--radius-lg)`(由表拼,不抄档名)
-  const cssVar = new RegExp(String.raw`var\(\s*--radius(?:-(${stepAlt}))?\s*\)`, 'g')
+  // 2) CSS 变量:`var(--radius-lg)`(由表拼,不抄档名)。`var(--radius-lg) / 2` 交给除法支。
+  const cssVar = new RegExp(String.raw`var\(\s*--radius(?:-(${stepAlt}))?\s*\)(?!\s*\/)`, 'g')
   while ((m = cssVar.exec(line))) {
     const step = m[1] || 'DEFAULT'
     if (!(step in table)) continue
@@ -560,7 +567,7 @@ export function radiusFormsInLine(line, table) {
   //    标识符先**泛抓再查表**:表里没有的名字(拼错、动态下标)必须落「未判定」并点名,
   //    不得因为"正则没匹配上"就从账面上消失 —— 那是把没判写成判过了。
   const rnStep = new RegExp(
-    String.raw`\b(?:rnRadius|RADIUS_STEPS)\s*(?:\.\s*([A-Za-z_$][\w$]*)\b|\[\s*([^\]\n]{0,40}?)\s*\])`,
+    String.raw`\b(?:rnRadius|RADIUS_STEPS)\s*(?:\.\s*([A-Za-z_$][\w$]*)\b|\[\s*([^\]\n]{0,40}?)\s*\])(?!\s*\/)`,
     'g',
   )
   while ((m = rnStep.exec(line))) {
@@ -575,7 +582,7 @@ export function radiusFormsInLine(line, table) {
   }
   // 4) 角色入口(自带类别,最强证据)。同样先泛抓标识符再查表。
   const rnRole = new RegExp(
-    String.raw`\b(?:rnRadiusFor|radiusFor|RADIUS_ROLES)\s*(?:\.\s*([A-Za-z_$][\w$]*)\b|\[\s*([^\]\n]{0,40}?)\s*\])`,
+    String.raw`\b(?:rnRadiusFor|radiusFor|RADIUS_ROLES)\s*(?:\.\s*([A-Za-z_$][\w$]*)\b|\[\s*([^\]\n]{0,40}?)\s*\])(?!\s*\/)`,
     'g',
   )
   while ((m = rnRole.exec(line))) {
@@ -593,7 +600,7 @@ export function radiusFormsInLine(line, table) {
   }
   // 5) RN 驼峰属性(含方向):`borderRadius` / `borderTopLeftRadius` / `borderBottomRadius` …
   const rnPropNum = new RegExp(
-    String.raw`\bborder(${CAMEL_DIR})Radius\s*:\s*(\d+(?:\.\d+)?)(?![\w.])`,
+    String.raw`\bborder(${CAMEL_DIR})Radius\s*:\s*(\d+(?:\.\d+)?)(?![\w.])(?!\s*\/)`,
     'g',
   )
   while ((m = rnPropNum.exec(line))) {
@@ -605,6 +612,10 @@ export function radiusFormsInLine(line, table) {
     'g',
   )
   while ((m = rnPropStr.exec(line))) {
+    // 带除号的值串交给下面的除法支,免得 parseRadiusValueList 把 `60rpx / 2` 切成两条档。
+    // 判据只问"有没有除号",**不能**写成 `数字 / 数字` —— 被除数带单位时斜杠前是 `rpx` 的 `x`,
+    // 那样 `60rpx / 2` 会漏过让渡、被值串支切成 30 与 2 两条(本轮实测踩到)。
+    if (String(m[3]).includes('/')) continue
     for (const rec of parseRadiusValueList(m[3], table, m[1] || '', m[0].trim())) push(rec)
   }
   // 6) CSS 声明:`border-radius` 与四个方向变体,值可以是 1~4 段
@@ -613,7 +624,68 @@ export function radiusFormsInLine(line, table) {
     'g',
   )
   while ((m = cssProp.exec(line))) {
+    // 与上面字符串支同一条让渡规则:**只要值串含除号就交给除法支**
+    // (不能按"数字 / 数字"判 —— `60rpx / 2` 的斜杠前是 `x`,那样写会漏过让渡)。
+    if (String(m[2]).includes('/')) continue
     for (const rec of parseRadiusValueList(m[2], table, cssDirOf(m[1]), m[0].trim())) push(rec)
+  }
+  /**
+   * 7) **除法形态**:`borderRadius: 60 / 2`、`rnRadius.lg / 2`、`rpx(40) / 2`、
+   *    `LOGIN_POPUP_AVATAR_BOX_PX / 2`、CSS `border-radius: 60rpx / 2`。
+   *
+   *    为什么这一支是判据的**必需项**而不是"顺手多认一种写法":§4 明令真圆/胶囊一族
+   *    "优先 `size / 2` 表达式",所以它是本项目最规范的圆角写法;而旧判据按**被除数**记账
+   *    (把 60 当成半径),于是"半径 = 边长一半"的等式永不成立 —— 真圆证不出,**胶囊也证不出**。
+   *    HEAD 面实测至少 37 处该形态整族隐身,里面就有 `VOICE_BTN_SIZE / 2`、
+   *    `SECONDARY_BTN_SIZE / 2`、`rpx(40) / 2` 这些一眼就是按钮/条形的盒子 —— 所以此前那个
+   *    "胶囊判红 0 处"是失明读数,不是达标。
+   *
+   *    被除数经 `radiusOperandPx` 折 px(与守门 77/128 共用那一份算术)。**解不到**(常量来自
+   *    跨文件 import)时不猜、也不留空:落一条 `offScale` 记录并带 `undivided` 点名被除数,
+   *    由门按「未判定」报名 —— 一行圆角从账面上消失,比它被记成未判定危险得多。
+   */
+  const DIV_JS = new RegExp(
+    String.raw`\bborder(${CAMEL_DIR})Radius\s*:\s*([^,;{}\n]+?)\s*\/\s*(\d+(?:\.\d+)?)`,
+    'g',
+  )
+  const DIV_CSS = new RegExp(
+    String.raw`\b(border(?:-(?:top|bottom))?(?:-(?:left|right))?-radius)\s*:\s*([^;{}\n]+?)\s*\/\s*(\d+(?:\.\d+)?)`,
+    'g',
+  )
+  for (const [re, isCss] of [
+    [DIV_JS, false],
+    [DIV_CSS, true],
+  ]) {
+    while ((m = re.exec(line))) {
+      const dir = isCss ? cssDirOf(m[1]) : m[1] || ''
+      const operand = m[2]
+      const right = Number(m[3])
+      const roleM = /\brnRadiusFor\s*(?:\.\s*(\w+)\b|\[\s*['"](\w+)['"]\s*\])/.exec(operand)
+      const role = roleM ? roleM[1] || roleM[2] : null
+      const kind = isCss ? 'value-list' : 'rn-prop'
+      /**
+       * `radiusText` 带的是**值的原文**(`VOICE_BTN_SIZE / 2`)。几何定性有一条不需要任何数值就能
+       * 成立的路线(`halvedSideVerdict`:分子与盒的边长**逐字同形**),而本门的 C6 从前只按数值算 ——
+       * 于是同一行在守门 77 那边判 capsule、在这边判不出,正是"两台尺子互相指认"的又一格。
+       */
+      const radiusText = `${operand} / ${m[3]}`
+      const left = radiusOperandPx(operand, table, consts)
+      if (left === null || !right) {
+        push({
+          kind,
+          dir,
+          role,
+          form: m[0].trim(),
+          radiusText,
+          px: null,
+          steps: [],
+          offScale: true,
+          undivided: operand,
+        })
+        continue
+      }
+      push({ kind, dir, role, form: m[0].trim(), radiusText, ...describe(left / right) })
+    }
   }
   /**
    * `0` 一律丢弃(两条路径都会产它:RN 的 `borderTopLeftRadius: 0` 与 CSS 简写里的某个角)。

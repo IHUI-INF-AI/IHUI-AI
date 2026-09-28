@@ -130,7 +130,7 @@
 .ci-user-avatar {
   width: 96rpx;
   height: 96rpx;
-  border-radius: 48rpx; /* radius-exempt: 圆形头像,半径=宽高一半 */
+  border-radius: 48rpx;
   background: var(--color-muted);
 }
 
@@ -217,7 +217,7 @@
 .ci-avatar {
   width: 56rpx;
   height: 56rpx;
-  border-radius: 28rpx; /* radius-exempt: 圆形头像,半径=宽高一半 */
+  border-radius: 28rpx;
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -383,7 +383,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-brand);
-  border-radius: 52rpx; /* radius-exempt: 圆形发布悬浮按钮,半径=宽高一半 */
+  border-radius: 52rpx;
   z-index: 10;
 }
 

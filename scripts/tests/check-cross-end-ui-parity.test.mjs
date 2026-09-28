@@ -480,11 +480,14 @@ test('T22 圆角按元素归属的解析只许一份实现(遮罩/豁免在别�
  */
 test('T20 方向形态真仓阳性对照 + 窄正则不得回来(漏计一侧 = 造出假分叉)', () => {
   const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
-  const drawer = git(['show', 'HEAD:apps/miniapp-taro/src/components/DrawerComponent.tsx']).stdout
-  assert.ok(drawer.includes('rounded-t-xl'), '真仓那一处站点搬家了 ⇒ 本对照失效,要换成现役站点而不是删测试')
+  // 现役站点:票㉜ 把 DrawerComponent 的档位从 xl 收到 lg(角色表 card→lg),方向形态本身没变;
+  // 这一族里 `rounded-t-2xl` 仍在的两处是弹层底,取第一个。**阳性对照要的是"这一型还在射程内",
+  // 不是某一行**——所以要换现役站点而不是把测试删掉。
+  const drawer = git(['show', 'HEAD:apps/miniapp-taro/src/components/VipBenefitsPopup.tsx']).stdout
+  assert.ok(drawer.includes('rounded-t-2xl'), '真仓那一处站点搬家了 ⇒ 本对照失效,要换成现役站点而不是删测试')
   assert.ok(
-    radiusSetOf(drawer, tbl).includes(12),
-    'rounded-t-xl 读不出 12 ⇒ 门会把小程序的 12 报成"仅 RN 有 12",凭空一对分叉',
+    radiusSetOf(drawer, tbl).includes(16),
+    'rounded-t-2xl 读不出 16 ⇒ 门会把小程序的 16 报成"仅 RN 有 16",凭空一对分叉',
   )
   const libSrc = readFileSync(resolve(ROOT, 'scripts/lib/radius-tokens.mjs'), 'utf8')
   assert.match(libSrc, /tr\|tl\|br\|bl/, '方向分支被退回窄正则 ⇒ 整族底部弹层再次隐身,而账面只会变好看')

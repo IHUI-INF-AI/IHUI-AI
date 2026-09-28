@@ -161,13 +161,13 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 24, // radius-exempt: 48dp 圆形头像,取边长一半
+      borderRadius: 24,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
     },
-    avatarImg: { width: 48, height: 48, borderRadius: 24 }, // radius-exempt: 48dp 圆形头像图,取边长一半
+    avatarImg: { width: 48, height: 48, borderRadius: 24 },
     avatarText: { fontSize: 20, fontWeight: '700', color: tk.surface.light },
     userMeta: { flex: 1, gap: 4 },
     nickname: { fontSize: 18, fontWeight: '600', color: tk.text.primary },

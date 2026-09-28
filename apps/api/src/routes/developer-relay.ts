@@ -44,6 +44,7 @@ import {
   getUserSubscriptionStatus,
 } from '../services/api-subscription-service.js'
 import { placeOrder } from '../services/order-service.js'
+import { isUuidString } from '../utils/uuid.js'
 
 const usageQuerySchema = z.object({
   /** 起始日期 YYYY-MM-DD(默认近 30 天) */
@@ -220,6 +221,7 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     if (!userId) return reply.status(401).send(error(401, '未登录'))
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const parsed = updateKeyBodySchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -674,6 +676,10 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     if (!userId) return reply.status(401).send(error(401, '未登录'))
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
 
     // 查映射行 + ownership 校验
     const [existing] = await dbRead
