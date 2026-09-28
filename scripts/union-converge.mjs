@@ -756,7 +756,26 @@ export function formatMoveAwareReport(list, { detail = false, maxEntries = 25 } 
   return out
 }
 
-/** 找一对需要合并的输入;skip 非空表示无事可做。 */
+/**
+ * 某枚 commit 的对象在不在本机。**ls-remote 只问引用、不下载对象**(§5b),所以"拿到了远端
+ * sha"与"能对它跑 merge-base"是两件事:2026-09-28 同一窗口踩到两次 —— `merge-base --is-ancestor
+ * <远端sha> HEAD` 回 `fatal: Not a valid commit name …`,而本器把它读成"不是祖先"继续往下,
+ * 直到 `plan()` 里那句 `merge-base` 抛 Node 堆栈,账面表现为"工具坏了"而不是"你还差一次 fetch"。
+ * 本器绝不代跑 fetch(网络动作与 ref 写入的归属留给调用方),只把这一维显式判出来。
+ */
+export function hasCommit(sha, cwd = ROOT) {
+  if (!/^[0-9a-f]{7,40}$/.test(String(sha || ''))) return false
+  return (
+    spawnSync(GIT, ['-c', 'safe.directory=*', 'cat-file', '-e', `${sha}^{commit}`], {
+      cwd,
+      windowsHide: true,
+      timeout: 60000,
+      encoding: 'utf8',
+    }).status === 0
+  )
+}
+
+/** 找一对需要合并的输入;skip 非空表示无事可做,undetermined 非空表示"这一步还没资格判"。 */
 export function resolveTargets(theirsArg, cwd = ROOT) {
   const head = git(['rev-parse', 'HEAD'], cwd)
   const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
@@ -783,6 +802,18 @@ export function resolveTargets(theirsArg, cwd = ROOT) {
     }
   }
   if (theirs === head) return { head, theirs, skip: '已同步' }
+  // 对象不在本机时,**任何祖先判据都不可信**:`isAncestor` 只因 cat-file 失败而回 false,于是
+  // "已被本地包含 / 纯落后"两条一起被跳过,一路走到 plan() 的 merge-base 才抛 Node 堆栈
+  // (G-473:读起来像工具坏了,而真相只是"还差一次 fetch")。这里显式判"未判定":
+  // 既不冒红(它不是内容裁决,不该和真冲突混在一张单子上),也不记绿(它什么都没判)。
+  const missing = [theirs, head].filter((s) => s && !hasCommit(s, cwd))
+  if (missing.length)
+    return {
+      head,
+      theirs,
+      skip: null,
+      undetermined: `对象不在本机(${missing.map((s) => String(s).slice(0, 11)).join('、')})⇒ 本器不代跑 fetch;出口:git fetch --no-tags origin ${missing[0]} 后重跑`,
+    }
   if (isAncestor(theirs, head, cwd)) return { head, theirs, skip: '目标已被本地包含' }
   if (isAncestor(head, theirs, cwd))
     return { head, theirs, skip: '本地纯落后 ⇒ 走 ff/converge,不用 union' }
@@ -801,6 +832,14 @@ function isAncestor(a, b, cwd) {
 }
 
 export function plan(ours, theirs, cwd = ROOT, takeOurs = new Set(), resolutions = new Map()) {
+  // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
+  // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
+  // 已经拦下,这条是给 import 者的 —— 两处判据同一份实现(hasCommit)。
+  const miss = [ours, theirs].filter((s) => s && !hasCommit(s, cwd))
+  if (miss.length)
+    throw new Error(
+      `未判定:对象不在本机(${miss.map((s) => String(s).slice(0, 11)).join('、')})⇒ 本器不代跑 fetch;出口:git fetch --no-tags origin ${miss[0]} 后重跑`,
+    )
   const base = git(['merge-base', ours, theirs], cwd)
   // 一张抑制表同时喂归并与落地断言(分开算必漂移,而漂移的固定代价是"落地闸把合法未取回判成丢行")。
   const moveAwareCache = new Map()
@@ -1362,6 +1401,12 @@ async function main() {
     console.log(`[union-converge] ${t.skip} ⇒ 无需合并`)
     process.exit(0)
   }
+  if (t.undetermined) {
+    // 退出码 2 = "本器没资格判",刻意区别于 1("判了,需人工"):调用方把 2 读成内容裁决,
+    // 就会把一次 fetch 说成一次归并失败(git-sync-converge 那一支按措辞分流,见其 ③ 段)。
+    console.log(`[union-converge] 未判定:${t.undetermined}`)
+    process.exit(2)
+  }
   const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions)
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 活文档行 union`,
@@ -1452,6 +1497,7 @@ export const __test__ = {
   unionLines,
   verifyUnion,
   resolveTargets,
+  hasCommit,
   plan,
   listPaths,
   show,

@@ -174,6 +174,7 @@ def grant(
     kind: str,
     *,
     ttl_seconds: int | None = None,
+    ttl_days: int | None = None,
 ) -> None:
     """登记一次审批授权(幂等 INSERT OR IGNORE)。
 
@@ -181,6 +182,8 @@ def grant(
     cache_key: 规范化键(normalize_exec_key 产物 / 工具名+参数摘要);
     kind: 'exec_prefix' | 'exec_once' | 'mcp_tool';
     ttl_seconds: 仅 session 级有意义,给定则在 created_at 基础上设 expires_at;
+    ttl_days: D158(2026-09-28)—— always 级的过期天数(用户批的第四档预填口径:90 天)。
+        历史语义保持:两个参数都不给 ⇒ always 仍永久(session 级照旧只认 ttl_seconds)。
         always 级忽略 ttl(永久)。
     """
     if scope not in _SCOPES:
@@ -189,9 +192,14 @@ def grant(
         raise ValueError(f"非法 kind: {kind!r} (允许: {sorted(_KINDS)})")
 
     created_at = _now_iso()
-    expires_at = None if (scope == SCOPE_ALWAYS or ttl_seconds is None) else _iso_plus_ttl(
-        int(ttl_seconds)
-    )
+    expires_at: str | None
+    if scope == SCOPE_ALWAYS and ttl_days is not None:
+        # D158:always 级也可带过期天数(第四档预填口径 90 天)。不给 ⇒ 永久(历史语义)。
+        expires_at = _iso_plus_ttl(int(ttl_days) * 86400)
+    else:
+        expires_at = None if (scope == SCOPE_ALWAYS or ttl_seconds is None) else _iso_plus_ttl(
+            int(ttl_seconds)
+        )
     conn = _get_conn()
     with _lock:
         conn.execute("BEGIN IMMEDIATE")
@@ -219,11 +227,13 @@ def check(cache_key: str, kind: str) -> str | None:
     conn = _get_conn()
     now = _now_iso()
     with _lock:
-        # always 优先
+        # always 优先(D158:也给 always 行判过期 —— 只有过期落在 90 天 TTL 上;历史
+        # 行 expires_at 为 NULL ⇒ 永不过,语义不变)
         row = conn.execute(
             "SELECT 1 FROM approval_grants "
-            "WHERE cache_key=? AND kind=? AND scope='always'",
-            (cache_key, kind),
+            "WHERE cache_key=? AND kind=? AND scope='always' "
+            "AND (expires_at IS NULL OR expires_at > ?)",
+            (cache_key, kind, now),
         ).fetchone()
         if row is not None:
             return SCOPE_ALWAYS

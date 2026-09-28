@@ -240,13 +240,14 @@ describe('createChromeStorageTransport 与 zustand persist 集成', () => {
       expect(mock.spies.set).toHaveBeenCalled()
     })
 
-    // chrome.storage.local 中应能找到持久化的 JSON(包含 user + isAuthenticated,不含 token)
+    // chrome.storage.local 中应能找到持久化的 JSON(只含 user 资料,不含 token)
     const persisted = mock.storage['ihui-auth-user']
     expect(typeof persisted).toBe('string')
     const parsed = JSON.parse(persisted as string)
     expect(parsed.state.user).toEqual({ id: 'u1', nickname: 'alice', email: 'a@b.com' })
-    expect(parsed.state.isAuthenticated).toBe(true)
-    // 安全:token 永远不应落盘(只持久化 user + isAuthenticated)
+    // G-456:登录态不入库(由「有没有 token」派生,入库即第二份真相)
+    expect(parsed.state.isAuthenticated).toBeUndefined()
+    // 安全:token 永远不应落盘
     expect(parsed.state.token).toBeUndefined()
   })
 
@@ -277,7 +278,7 @@ describe('createChromeStorageTransport 与 zustand persist 集成', () => {
     expect(raw).not.toBeNull()
     const parsed = JSON.parse(raw as string)
     expect(parsed.state.user.nickname).toBe('alice')
-    expect(parsed.state.isAuthenticated).toBe(true)
+    expect(parsed.state.isAuthenticated).toBeUndefined()
 
     // === 第二次:新建 store(同 storage key)→ 触发 hydrate 恢复 user ===
     {
@@ -296,8 +297,11 @@ describe('createChromeStorageTransport 与 zustand persist 集成', () => {
           nickname: 'alice',
           email: 'a@b.com',
         })
-        expect(auth2.getState().isAuthenticated).toBe(true)
       })
+      // G-456:登录态只由「有没有 token」派生 —— 本夹具的 tokenStore2 是空的,
+      // 旧断言在这里期望 true,等于要求 blob 里的第二份真相越权定登录态
+      // (真机重启时 tokenStore 会从 chrome.storage 读到真 token,那才是真值来源)。
+      expect(auth2.getState().isAuthenticated).toBe(false)
     }
   })
 })

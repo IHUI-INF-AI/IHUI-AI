@@ -103,7 +103,7 @@ import {
   sameLines,
   writeBlob,
 } from './lib/bypass-git.mjs'
-import { usedIdsOfPrefix } from './lib/plan-task-index.mjs'
+import { usedIdsOfPrefix, bodyOfRow } from './lib/plan-task-index.mjs'
 import { collectIdFace } from './lib/plan-id-face.mjs'
 
 /**
@@ -183,7 +183,7 @@ export const REMOTE_ID_TRANSPORT = {
  */
 export function readRemoteIdBasis({ root, doc, families, transport = REMOTE_ID_TRANSPORT } = {}) {
   const { remote, ref } = remoteTarget()
-  const out = { max: {}, notes: [], tipSha: '', remote, ref }
+  const out = { max: {}, notes: [], tipSha: '', remote, ref, remoteAheadUnfetched: false }
   if (!Array.isArray(families) || families.length === 0) return out
   let tip
   try {
@@ -201,6 +201,9 @@ export function readRemoteIdBasis({ root, doc, families, transport = REMOTE_ID_T
     transport.hasCommit({ root, sha: tip.sha })
   } catch (e) {
     out.notes.push(`对象不在本地,原因:${oneLine(e)}`)
+    // 这一档与"远端完全问不到"必须分开:tip 已经问到,说明对面确实在推进,只是那些对象
+    // 还没进本地库 —— 补救是一条本地 fetch,而不是猜它没占号(2026-09-29 D168 一手事故)。
+    out.remoteAheadUnfetched = true
     return out
   }
   let content
@@ -249,6 +252,33 @@ export function describeIdBasis(b, remote) {
   if (b.remoteMax === null) return `${head} / 远端未参与:原因见上一行 ⇒ 未与远端对齐)`
   const rel = b.remoteMax > b.localMax ? '⇒ 取较大,新号跳过远端那段' : '⇒ 与本地同值,与改动前同形'
   return `${head} / 远端 ${remote?.ref ?? '?'} max=${b.remoteMax} ${rel})`
+}
+
+/**
+ * 取号前的"远端对齐"闸门(纯函数)。2026-09-29 立，由 D168 让号枚的一手事故逼出：上一版对
+ * "远端 tip 问得到、对象不在本地"只打一行警告就照发号 —— 本器当天真发出 `G-592/G-593` 两枚，
+ * 与远端 09-28 的登记同号(其一已 `[x]`)，并集收敛后当场撞出 2 组 F9，须再让一次号才收得住。
+ * **两种降级必须分档，不得并桶**：
+ *  ① 远端完全问不到(离线 / CI / 凭据缺失)⇒ 照旧"警告着落号"。这一档没有便宜的补救动作，拒了
+ *     等于把工具变成"断网就不能用"，而失效方向是逼人改用 pathspec 硬交(§12e 同一条禁令)。
+ *  ② tip 已问到、只是对象还没进本地库 ⇒ 补救动作是一条 `git fetch`(由调用方做)，本器**自己绝不
+ *     fetch、绝不写 ref**(N6 形状锁)，所以只能拒绝并把出路写成一步命令。
+ * 只在"本次真的在发号"时判 —— 正文里没有取号令牌的纯改写落地不受影响(第三条分支返回 block:false)。
+ */
+export function idBasisGate({ families = [], remote = null, allowUnaligned = false } = {}) {
+  if (!families.length || !remote) return { block: false, reason: '', note: '' }
+  if (!remote.remoteAheadUnfetched) return { block: false, reason: '', note: '' }
+  if (allowUnaligned)
+    return {
+      block: false,
+      reason: '',
+      note: `已按 IHUI_PLAN_ID_ALLOW_UNALIGNED 应急放行(远端 tip ${String(remote.tipSha || '').slice(0, 9)} 的对象仍不在本地 ⇒ 本次号**未与远端对齐**)`,
+    }
+  return {
+    block: true,
+    reason: `远端 tip ${String(remote.tipSha || '').slice(0, 9)} 已知在推进,而那些对象不在本地库`,
+    note: '',
+  }
 }
 
 /**
@@ -478,10 +508,17 @@ export function describeInPlace({ chk, anchorLines, head, families }) {
  * 因此新增任何一族都自动被覆盖(白名单必然腐烂,见 §4 对 RN_ONLY_BRAND_KEYS 的教训)。
  */
 export const MALFORMED_ID_RE = /^-\s\[[ xX]\]\s*\**\s*([A-Za-z]{1,4})[-－]?\1[-－]?\d/
+/**
+ * 装饰档必须一起判(2026-09-29 补)：翻勾产出的正是 `- [x] ✅(日期) <号>`，认领产出的正是
+ * `- [ ]（进行中@日期/持有者） <号>`。上一版把锚钉在"复选框之后立刻是编号"，于是**这两档整族隐身**
+ * —— 而本器就是这两档的生产者：判据不覆盖自己产出的形态，就等于只拦得住别人、拦不住自己(§4 同一条)。
+ * 剥装饰只引 `plan-task-index.bodyOfRow` 那一份实现：在两边各写一遍"什么算状态装饰"必然漂开。
+ */
+export const MALFORMED_BODY_RE = /^[`*\s]*([A-Za-z]{1,4})[-－]?\1[-－]?\d/
 export function findMalformedIds(text = '') {
   const out = []
   for (const l of String(text).split(/\r?\n/)) {
-    const m = l.match(MALFORMED_ID_RE)
+    const m = MALFORMED_ID_RE.exec(l) || MALFORMED_BODY_RE.exec(String(bodyOfRow(l) ?? ''))
     if (m) out.push({ line: l.trim().slice(0, 90), family: m[1] })
   }
   return out
@@ -674,6 +711,25 @@ async function main() {
     for (const n of remote?.notes ?? [])
       console.log(`⚠️ 号段基准未含远端(${n})⇒ 仍按本地 HEAD 底稿落号,**未与远端对齐**`)
     for (const b of tok.basis ?? []) console.log(describeIdBasis(b, remote))
+    {
+      const gate = idBasisGate({
+        families,
+        remote,
+        allowUnaligned: process.env.IHUI_PLAN_ID_ALLOW_UNALIGNED === '1',
+      })
+      if (gate.note) console.log(`⚠️ ${gate.note}`)
+      if (gate.block) {
+        console.error(
+          `❌ 本次要取号,但${gate.reason} ⇒ 拒绝落地(对面明明在推进,而本器绝不 fetch、绝不写 ref,` +
+            `拿不到对面那一份底稿时发号就是猜对面没占过)。\n` +
+            '   一手成因(2026-09-29):同一种降级上一版只警告不拒,当天发出的两枚号与远端 09-28 的登记同号' +
+            '(其一已完成),并集收敛后当场撞出 2 组 F9,须再让一次号才收得住。\n' +
+            '   出路:先 `git fetch --no-tags origin main`(只取对象与 FETCH_HEAD,不碰工作区),再重跑本次落地;' +
+            '确属离线/必须先行则 `IHUI_PLAN_ID_ALLOW_UNALIGNED=1` 重跑,报告会明写"未与远端对齐"。',
+        )
+        process.exit(1)
+      }
+    }
     if (tok.assigned) assigned = tok.assigned
     effBlock = tok.assigned && !replacements ? tok.lines : block
     effReplacements =
@@ -836,6 +892,7 @@ export const __test__ = {
   readRemoteIdBasis,
   idTokenFamilies,
   describeIdBasis,
+  idBasisGate,
   remoteTarget,
   REMOTE_ID_TRANSPORT,
   compileBlockMatchers,
@@ -845,5 +902,6 @@ export const __test__ = {
   findMalformedIds,
   newMalformed,
   MALFORMED_ID_RE,
+  MALFORMED_BODY_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
