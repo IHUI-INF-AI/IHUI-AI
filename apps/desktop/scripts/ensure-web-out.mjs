@@ -3,14 +3,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// [单产物分发契约] desktop 有意复用 web 产物:apps/web 的前端静态导出(web/out)经
-// tauri.conf.json 的 frontendDist("../../web/out")直接作为桌面端界面分发,桌面端不自建前端。
-// 本脚本是该契约的唯一校验点:产物存在且源码不新于产物时跳过,否则(含产物缺失)触发重建。
-// 智汇AI (IHUI AI) 桌面端 — 条件构建前端产物 (tauri beforeBuildCommand)
-// 根治打包慢问题:tauri build 每次强制重跑整份前端(882 页)是耗时主因。
-// 本脚本按需构建:仅当 web/out 缺失,或 web 源码比产物更新时,才执行前端静态导出;
-// 否则直接跳过(仅打包 Tauri 配置/Rust 增量,通常几秒内完成)。
-// 强制重建:FORCE_FRONTEND_BUILD=1 node scripts/ensure-web-out.mjs
+// 智汇AI (IHUI AI) 桌面端 — 条件构建前端产物(历史遗留件,现为手动问责/条件重建入口)
+// 架构口径(2026-09-17 终极薄壳化,现行为准):桌面端 = Tauri 薄壳 + 直连线上站点:frontendDist 指向 src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/agents(V3 #72 拍板,桌面端不打包本地 web 产物)
+// 桌面端 AI 版本由线上站点决定,本仓不可校验:线上不可用=桌面端一起不可用、无法本地降级、无法离线首屏(仅有薄壳占位页与 Rust 侧 offline:// 重连提示,本地无可渲染 UI)
+// 本脚本不在构建链:tauri.conf.json 的 build.beforeBuildCommand 为空串、apps/desktop/package.json 的 build 直跑 tauri build,它仅是手动问责/条件重建入口。问责命令(从仓库根):pnpm --filter @ihui/desktop exec node scripts/ensure-web-out.mjs
+// 手动调用时行为:apps/web/out 产物存在且源码不新于产物则跳过,否则(含产物缺失)触发 pnpm --filter @ihui/web build:static 重建。
+// 强制重建:FORCE_FRONTEND_BUILD=1 node scripts/ensure-web-out.mjs;无条件跳过构建(只打印判定):TAURI_SKIP_FRONTEND=1 同上。
+// 若未来回到内嵌 web 产物方案:必须同步改 tauri.conf.json 的 frontendDist/beforeBuildCommand 并把本脚本重新接回构建链(另见 apps/desktop/src-tauri/README.md)。
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
@@ -30,8 +29,8 @@ const EXCLUDE = new Set(['node_modules', '.next', '.git', '.turbo', 'out']);
 // 静态导出时内联进产物,必须在构建前注入(进程环境变量优先于 web/.env)。
 // 覆盖方式:DESKTOP_API_BASE_URL / DESKTOP_STREAM_API_BASE_URL / DESKTOP_AI_SERVICE_URL
 // (如本地联调时指向 127.0.0.1),或直接预设对应 NEXT_PUBLIC_* 变量。
-// 仅桌面端构建路径(tauri beforeBuildCommand)注入;GitHub Pages 直接跑
-// build:static 不经过本脚本,行为不变。api 侧 CORS 已硬编码放行
+// 仅手动运行本脚本时注入;桌面端构建链(2026-09-17 薄壳化后)已不经过本脚本,GitHub Pages 直接跑
+// build:static 同样不经过本脚本,行为不变。api 侧 CORS 已硬编码放行
 // http://tauri.localhost / tauri://localhost(server.ts DESKTOP_ORIGINS)。
 const DESKTOP_ENV_DEFAULTS = {
   NEXT_PUBLIC_API_BASE_URL: process.env.DESKTOP_API_BASE_URL ?? 'https://api.aizhs.top',
