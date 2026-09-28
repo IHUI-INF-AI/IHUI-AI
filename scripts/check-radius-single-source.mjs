@@ -344,6 +344,18 @@ export function scanText(rel, text, table) {
   const bad = []
   const lines = text.split('\n')
   const steps = Object.entries(table.RADIUS_STEPS).map(([, v]) => v)
+  /**
+   * B9 的上限 = **档位表里的最大档**(2xl = 16px)。写死 16 就是抄第二份真相:档位表一改,
+   * 抄数的门会对着旧表打分(本文件头注为 A 判据写下的同一条理由)。
+   */
+  const MAX_STEP = Math.max(...steps.filter((n) => Number.isFinite(n)))
+  /**
+   * B9 只管**数值与档位形态**的半径。"全圆写法"(`rounded-full` / `50%` / `9999px`)的等效半径
+   * 由守门 11 的 C7 判 —— 那一族的归属门本来就是"容器禁用纯圆/胶囊"这道,而本门的主题是
+   * "有没有绕档位表写死数字",相对写法里根本没有写死的数字。同一族两道门各计一次,
+   * 两处读数就会互相顶掉(守门 83 为这条写过明文),所以这里**不留**几何上限闸。
+   */
+  const B9_HINT = `圆角半径不得超过最大档 2xl(${MAX_STEP}px)—— 项目定档"不允许圆角过大",改取 ≤ 2xl 的档(全圆写法由守门 11 的 C7 判同一上限)`
   // B7 的档位名单**从 radius.js 的表现取**;`DEFAULT` 是数值兜底键、不是类名后缀,留着它
   // 就等于把"看起来像类名"当成"是类名",而那正是 B7 要防的同一型。
   const classStepNames = new Set([...Object.keys(table.RADIUS_STEPS).filter((k) => k !== 'DEFAULT'), 'full', 'none'])
@@ -452,6 +464,24 @@ export function scanText(rel, text, table) {
           const px = isRpx ? declared / 2 : declared
           if (px === 0) return
           /**
+           * `<边长> / 2` 必须先折算再比上限。这条不是修饰:正则捕获的是**分子**,
+           * 所以 `borderRadius: 18 / 2`(真实半径 9)在按分子判的写法下会被读成 18 ——
+           * 而 18 > 16 就判红。实测 HEAD 面因此**凭空造出 4 枚假阳**(`18 / 2`、`24 / 2`、
+           * `20 / 2` 三形),而我差点去"修"它们:那等于把三处本来正确的几何真圆改小,
+           * 而门的红会变成唯一证据。**假阳的代价不是多一条红,是逼人改坏没坏的东西。**
+           */
+          const halfForm = /^\s*\/\s*2\b/.test(line.slice(m.index + m[0].length))
+          const effective = halfForm ? px / 2 : px
+          /**
+           * B9 先于"几何放行"判:`48×48 盒上的 24` 数值上就是半边,旧口径把它当几何真圆放走,
+           * 而项目定档是**任何圆角半径 ≤ 最大档 16px**(用户 2026-09-29 裁决:不允许圆角过大,
+           * 圆形头像/圆形图标底板不再豁免)。放行支路因此必须带上这一道闸,否则它就是漏口。
+           */
+          if (effective > MAX_STEP) {
+            bad.push({ line: i + 1, rule: 'B9', raw: `${raw}(=${effective}px)`, hint: B9_HINT })
+            return
+          }
+          /**
            * "半径由盒尺寸算出来"的两种几何写法在此放行,合起来就是 §4 推荐的那一种:
            *  - `<边长> / 2`:**分子必须等于同一作用域量得到的正方边长** —— 写 `/ 2` 只是*声称*在算一半,
            *    40×40 的盒上写 `10 / 2` 仍是绕档(声称不等于证明);
@@ -463,7 +493,7 @@ export function scanText(rel, text, table) {
            * 单位折算口径不同(`w-[96rpx]` 折半、`width: 96rpx` 取原值),跨形态比数值会造出假方形。
            * 判不出来就不是放行 —— 落回下面的红,出路是写成相对式(`50%`)或把盒尺寸写进同一作用域。
            */
-          const halfForm = /^\s*\/\s*2\b/.test(line.slice(m.index + m[0].length))
+          // 数值支路走到这里已经过了"折算后 > MAX_STEP"那道闸,所以半径必 ≤ 最大档 —— 几何放行不再叠上限闸。
           if (halfForm ? isHalfOfDeclaredSide(lines, i, raw) : geoPass(i, raw)) return
           bad.push({ line: i + 1, rule: isRpx ? 'B1-rpx' : 'B1', raw, hint: `应写 ${targetOf(table, px)}(几何圆请写成 <边长> / 2 或 50%)` })
         } else {
@@ -471,6 +501,8 @@ export function scanText(rel, text, table) {
           if (/var\(--radius|inherit|none/.test(val)) return
           if (/50%|9999px/.test(val)) {
             // 与 B3 同一条尺子:形状量出来才算几何,标记在这一侧不起作用(见 circleVerdict 注释)。
+            // 正方盒 ⇒ 真圆 ⇒ 几何放行;**等效半径是否超上限由守门 11 的 C7 判**(那一族归它量),
+            // 本门不再叠一道,免得同一枚站点两处计数。
             const v = circleVerdict(i)
             if (v === 'circle') return
             bad.push({
@@ -661,7 +693,15 @@ async function selfTest() {
     { name: 'B1 `<边长> / 2` 且分子等于同一作用域的正方边长 ⇒ §4 推荐的几何式,放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 20, height: 20, borderRadius: 20 / 2 } }', red: false },
     { name: 'B1 反向:`/ 2` 只是声称在算一半 —— 分子与盒尺寸不符(10 vs 40×40)不得放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 40, height: 40, borderRadius: 10 / 2 } }', red: true },
     { name: 'B1 反向:量不到盒形的 `/ 2` 不得放行(声称不等于证明)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 20 / 2 } }', red: true },
-    { name: 'B1 数值真圆:同一作用域量到 48×48 且半径=边长一半 ⇒ 放行(形状量出来,与标记无关)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 48, height: 48, borderRadius: 24 } }', red: false },
+    // 用户 2026-09-29 定档「任何圆角半径不得超过最大档 2xl=16px,圆形头像不再豁免」之后,
+    // 这一格的原期望("48×48 上的 24 按形状放行")**已被裁决推翻** —— 半径 24 超上限,必红。
+    // 留原样就是让自检替一条已废的口径背书,所以改判红,并补一条仍在上限内的几何真圆当放行对照。
+    { name: 'B1 数值真圆 48×48 上的 24 ⇒ 形状是正圆但**半径超上限**,按 2026-09-29 定档判红', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 48, height: 48, borderRadius: 24 } }', red: true },
+    { name: 'B1 数值真圆 32×32 上的 16 ⇒ 既是几何真圆又不超上限 ⇒ 放行(上一条的放行对照)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 32, height: 32, borderRadius: 16 } }', red: false },
+    { name: 'B1 `<边长> / 2` 折算后才比上限:48 的盒写 `48 / 2`=24 ⇒ 红', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 48, height: 48, borderRadius: 48 / 2 } }', red: true },
+    { name: 'B1 `<边长> / 2` 折算是真半径:18 的盒写 `18 / 2`=9 ⇒ 几何放行(不得按分子 18 去比上限而误判)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 18, height: 18, borderRadius: 18 / 2 } }', red: false },
+    { name: 'B1 反向:`/ 2` 的分子与盒边长不符(36 的盒写 18/2)⇒ 声称不等于证明,仍按绕档拦', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 36, height: 36, borderRadius: 18 / 2 } }', red: true },
+
     { name: 'B1 反向:量不到盒形时标记**不再**替几何背书(零豁免)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 24 } } // radius-exempt: 48dp 头像正圆', red: true },
     { name: 'B1 rpx 绕档必拦', f: 'apps/mobile-rn/src/x.tsx', s: 'const st = { a: { borderRadius: rpx(16) } }', red: true },
     { name: 'B2 本地常量必拦', f: 'apps/mobile-rn/src/x.tsx', s: 'const CARD_RADIUS = 12', red: true },
