@@ -42,7 +42,7 @@ import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { LoginScreen as SharedLoginScreen, getTokens, type NationOption } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
-import { OAUTH_BRAND_COLORS, withAlpha, rnRadius } from '@ihui/design-tokens'
+import { OAUTH_BRAND_COLORS, withAlpha, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { isSessionLoggedOut } from '../lib/token'
 import { shouldAttemptAutoLogin } from '../lib/auto-login-policy'
@@ -1275,7 +1275,7 @@ const styles = StyleSheet.create({
   agreementModalCard: {
     width: rpx(580),
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadiusFor.panel,
     shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: rpx(12) },
     shadowOpacity: 0.15,
