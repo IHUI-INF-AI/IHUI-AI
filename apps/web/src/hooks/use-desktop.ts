@@ -119,6 +119,8 @@ export function useDesktop() {
   // 桌面偏好(2026-09-28 立):初值是默认档,拉到宿主真值前 UI 一律 disabled
   const [desktopPrefs, setDesktopPrefsState] = React.useState<DesktopPrefs>(() => defaultDesktopPrefs())
   const [desktopPrefsLoading, setDesktopPrefsLoading] = React.useState(true)
+  // 这台机器的桌面端**到底有没有**这套偏好命令。读成功 / 收到宿主广播 / 写成功 任一条成立 ⇒ true。
+  const [desktopPrefsSupported, setDesktopPrefsSupported] = React.useState(false)
 
   // 初始化:加载 appInfo + 窗口状态 + 自启状态 + 托盘/关闭偏好
   React.useEffect(() => {
@@ -148,7 +150,13 @@ export function useDesktop() {
         setAutostartEnabled(autostart)
         setTrayAlwaysVisibleState(trayVisible)
         // null = 宿主问不到:保留默认档而不是编一个"读成功"的样子
-        if (prefs) setDesktopPrefsState(prefs)
+        if (prefs) {
+          setDesktopPrefsState(prefs)
+          // 只有真的从宿主读到过一份偏好,才算"这台机器的桌面端支持这些设置"。
+          // 旧安装器(没有 get_desktop_prefs 这条命令)会一直回 null —— 此时界面必须说出来,
+          // 而不是拿本地默认档冒充宿主的现状(那正是本票在同步层禁止过的同一型)。
+          setDesktopPrefsSupported(true)
+        }
       } catch {
         // 忽略桌面 API 错误
       } finally {
@@ -170,6 +178,7 @@ export function useDesktop() {
     if (!isDesktop) return
     return subscribeDesktopPrefsChanged((prefs) => {
       setDesktopPrefsState(prefs)
+      setDesktopPrefsSupported(true)
     })
   }, [isDesktop])
 
@@ -247,6 +256,8 @@ export function useDesktop() {
       const effective = await setDesktopPrefs(patch)
       if (!effective) return null
       setDesktopPrefsState(effective)
+      // 写成功本身就证明宿主支持这套偏好(首次读取可能因宿主忙而暂时回 null)。
+      setDesktopPrefsSupported(true)
       return effective
     },
     [],
@@ -265,6 +276,7 @@ export function useDesktop() {
     loading,
     desktopPrefs,
     desktopPrefsLoading,
+    desktopPrefsSupported,
     minimize,
     toggleMaximize,
     close,
