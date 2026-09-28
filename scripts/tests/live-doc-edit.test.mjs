@@ -66,9 +66,9 @@ function makeDocRepo(t, docText) {
 
 function runLive(
   dir,
-  { doc = 'DOC.md', anchorFile, blockFile, replaceFile, msg = 'docs: e2e register' } = {},
+  { doc = 'DOC.md', anchorFile, blockFile, replaceFile, msg = 'docs: e2e register', extraEnv = {} } = {},
 ) {
-  const env = { ...process.env, LIVE_ROOT: dir, LIVE_DOC: doc, LIVE_MSG: msg }
+  const env = { ...process.env, LIVE_ROOT: dir, LIVE_DOC: doc, LIVE_MSG: msg, ...extraEnv }
   if (replaceFile) {
     env.LIVE_REPLACE_FILE = replaceFile
     delete env.LIVE_BLOCK_FILE
@@ -685,9 +685,10 @@ test('N4 端到端·真实 ls-remote(夹具 origin,file:// 零网络):降级支�
   const blockFile = join(inputs, 'block.txt')
   writeFileSync(blockFile, `${LDE_LINE}\n`, 'utf8')
 
-  // ── 阶段一:B 从未见过 A 那枚 commit ⇒ 不许 fetch,必须降级、必须点名、取号仍按本地 ──
+  // ── 阶段一:B 从未见过 A 那枚 commit ⇒ 不许 fetch;而"对面在推进"已经问到,所以取号必须被拒 ──
+  // 2026-09-29 由"只警告着落号"改判为拒绝:同一种降级当天真发出两枚与远端同号的登记(立因见 I14)。
   const r1 = runLive(dir, { blockFile })
-  assert.equal(r1.status, 0, `降级侧也必须落得了地,实得 ${r1.status}\n${r1.stdout}\n${r1.stderr}`)
+  assert.equal(r1.status, 1, `远端 tip 已知而对象不在本地 ⇒ 取号必须被拒,实得 ${r1.status}\n${r1.stdout}\n${r1.stderr}`)
   assert.ok(
     r1.stdout.includes('号段基准未含远端(对象不在本地,原因:'),
     `必须点名"未含远端",不得伪装成已对齐:\n${r1.stdout}`,
@@ -696,7 +697,18 @@ test('N4 端到端·真实 ls-remote(夹具 origin,file:// 零网络):降级支�
     r1.stdout.includes('号段基准:G=3(本地 HEAD 该族 max=3 / 远端未参与'),
     `实得:\n${r1.stdout}`,
   )
-  assert.match(r1.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-4/)
+  assert.match(r1.stderr, /拒绝落地[\s\S]*git fetch --no-tags origin main/, `拒绝时必须给出一步 fetch 出路,不得只喊"不行":\n${r1.stderr}`)
+  assert.match(norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })), /\*\*G-3 旧条目\*\*/, '被拒那一支之后 HEAD 必须还是原样')
+  assert.doesNotMatch(norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })), /G-4/, '拒绝落地而号却进了库 ⇒ 就是把"没落地"谎报成"已落地"(G-321 那一型)')
+  // 应急档必须真的可用:确属离线/必须先行时按 env 放行,并且把"未对齐"喊在报告里
+  const r1b = runLive(dir, { blockFile, extraEnv: { IHUI_PLAN_ID_ALLOW_UNALIGNED: '1' } })
+  assert.equal(r1b.status, 0, `应急放行那一支必须落得了地,实得 ${r1b.status}\n${r1b.stdout}\n${r1b.stderr}`)
+  assert.ok(
+    r1b.stdout.includes('已按 IHUI_PLAN_ID_ALLOW_UNALIGNED 应急放行') &&
+      r1b.stdout.includes('未与远端对齐'),
+    `放行那一支必须明写未对齐,不得静默:\n${r1b.stdout}`,
+  )
+  assert.match(r1b.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-4/)
   assert.match(norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })), /\*\*G-4 新条目\*\*/)
   assert.ok(
     !git(['for-each-ref', '--format=%(refname)'], { root: dir }).includes('refs/remotes/origin'),
@@ -818,6 +830,7 @@ test('I0 §22c 新增导出面:幂等判据与退出码分档的四个出口必�
     'blockInPlaceCheck',
     'describeInPlace',
     'alignOutcome',
+    'idBasisGate',
   ])
     assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
 })
@@ -1117,6 +1130,21 @@ test('I11 畸形登记号必须被拒,且必须发生在写 blob 之前(2026-09-
   assert.ok(MALFORMED_ID_RE.test(g), '另一族同型形态必须同视(判据不认具体族名,否则新增族自动漏网)')
   const ok1 = '- [ ] **D128 正常登记行'
   assert.ok(!MALFORMED_ID_RE.test(ok1), '正当形态被误判 ⇒ 每台必红,唯一结局是逼人绕开本器')
+  // 装饰档(2026-09-29 补):翻勾与认领产出的就是带 ✅(日期) / （进行中@…） 的行,判据必须跟着走。
+  // 这四条里前两条是"应当红",后两条是"应当绿"—— 只留前者就等于允许把正当翻勾判成畸形。
+  const decBad = '- [x] ✅(2026-09-29) GG-600 带完成标记的畸形行'
+  const claimBad = '- [ ]（进行中@2026-09-29/甲）DD128 带租约的畸形行'
+  const decOk = '- [x] ✅(2026-09-29) G-600 带完成标记的正当行'
+  const claimOk = '- [ ]（进行中@2026-09-29/甲）G-600 带租约的正当行'
+  const hit = (s) => newMalformed('', s).added.length
+  assert.equal(hit(decBad), 1, '带 ✅(日期) 的畸形行不得隐身(本器自己就产这一档)')
+  assert.equal(hit(claimBad), 1, '带租约标记的畸形行同样不得隐身')
+  assert.equal(hit(decOk), 0, '带装饰的正当行必须放过,否则翻勾一次就被自己的判据拦住')
+  assert.equal(hit(claimOk), 0, '带租约的正当行必须放过')
+  const BR = __test__.MALFORMED_BODY_RE
+  assert.ok(BR instanceof RegExp, '装饰档判据必须导出(否则镜像只能重抄一份判据,§22c 的复读机那一型)')
+  assert.ok(BR.test('GG-600 剥完装饰的正文'), '判据本体必须判得动剥装饰后的正文')
+  assert.ok(!BR.test('G-600 剥完装饰的正文'), '正当号形不得被本体误判')
   const r = newMalformed('', bad + '\n' + ok1)
   assert.equal(r.added.length, 1, '应只拦新引入的那一行')
   assert.equal(r.preexisting.length, 0)
@@ -1140,4 +1168,54 @@ test('I13 结构锁:判据必须在 CAS 循环内、writeBlob 之前(落地后�
   const wb = body.indexOf('writeBlob(')
   assert.ok(at > 0 && wb > at, '必须在写 blob 之前判:内容入库后再 exit 1 会诱导重跑,而重跑正是 G-321 要消灭的那一步')
   assert.match(body, /process\.exit\(1\)/, '拦下来必须是拒绝落地,不能只打印')
+})
+
+test('I14 取号前的远端对齐闸门:两种降级分档,只有"能补救的那一档"才拦(2026-09-29 立)', () => {
+  const { idBasisGate } = __test__
+  assert.equal(typeof idBasisGate, 'function', '判据未导出 ⇒ 镜像只能重抄一份,抄的那份会跟着漂绿(§22c)')
+  // 一手事故:本器发出 G-592/G-593 时,远端 09-28 已占下这两个号(其一已勾)。当时那版只打一行
+  // "未与远端对齐"就照落,并集收敛后当场撞出 2 组 F9,须再让一次号 —— 本条就是把那次代价钉住。
+  const ahead = { remoteAheadUnfetched: true, tipSha: 'd7a9376aa9c11222de66c9a43565cd7f09257c17' }
+  const g = idBasisGate({ families: ['G'], remote: ahead })
+  assert.equal(g.block, true, 'tip 已问到而对象不在本地 ⇒ 必须拒(补救是一条本地 fetch,不是猜)')
+  assert.match(g.reason, /对象不在本地/, '拒绝理由必须点名是哪一档,不得写成泛泛的"远端未对齐"')
+  // 反向护栏三条,缺一条就等于把闸门做成"只要降级就拒"⇒ 断网机器不能登记任何新票(§12e 同型)
+  assert.equal(
+    idBasisGate({ families: ['G'], remote: ahead, allowUnaligned: true }).block,
+    false,
+    '应急档必须真能放行,否则各会话会绕过本器改用 pathspec 硬交',
+  )
+  assert.match(idBasisGate({ families: ['G'], remote: ahead, allowUnaligned: true }).note, /未与远端对齐/, '放行也不得静默:报告里必须仍写着没对齐')
+  assert.equal(
+    idBasisGate({ families: [], remote: ahead }).block,
+    false,
+    '本次不取号 ⇒ 纯改写落地绝不能被这条拦住',
+  )
+  assert.equal(
+    idBasisGate({ families: ['G'], remote: { remoteAheadUnfetched: false, tipSha: 'a'.repeat(40) } }).block,
+    false,
+    '远端已参与(对象在本地)⇒ 与改动前逐字同形,不得新增拦阻',
+  )
+  assert.equal(
+    idBasisGate({ families: ['G'], remote: { remoteAheadUnfetched: false, notes: ['远端不可问'] } }).block,
+    false,
+    '真离线(ls-remote 问不到)那一档保持放行:这里没有便宜的补救动作',
+  )
+  assert.equal(idBasisGate({ families: ['G'], remote: null }).block, false, '没传远端读数时不得凭空拦')
+})
+
+test('I15 装车锁:I14 那条判据必须接在 CAS 循环内、writeBlob 之前(判据在而无人调 = 提交链上一路绿灯)', () => {
+  const loopStart = TOOL_SRC.indexOf('for (let attempt = 1')
+  const loopEnd = TOOL_SRC.indexOf("if (landed === '')")
+  assert.ok(loopStart > 0 && loopEnd > loopStart, '找不到 CAS 循环边界 ⇒ 本锁对着空气判绿')
+  const body = TOOL_SRC.slice(loopStart, loopEnd)
+  assert.ok(/idBasisGate\(\s*\{/.test(body), '闸门未接进 CAS 循环 ⇒ 一次也不会跑(守门 64/70/76/81/115 同型)')
+  const at = body.indexOf('idBasisGate(')
+  const wb = body.indexOf('writeBlob(')
+  assert.ok(at > 0 && wb > at, '必须在写 blob 之前判:落地后再 exit 1 会诱导重跑,而重跑会再发一次号')
+  assert.match(body.slice(at, at + 1400), /process\.exit\(1\)/, '拦下来必须是拒绝落地,不能只打印')
+  assert.ok(
+    body.indexOf('idBasisGate(') > body.indexOf('readRemoteIdBasis('),
+    '必须先取到远端读数再判闸门,反过来判的是上一轮的读数',
+  )
 })
