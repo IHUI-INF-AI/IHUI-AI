@@ -44,7 +44,10 @@ export const KEY_MAX_OFFSET = 48
 const PRIORITY_LABEL_RE = /^P\d+$/
 
 const CHECKBOX_RE = /^\s*[-*]\s\[( |x|X)\]\s*/
-/** 复选框之后可连续出现的状态装饰:租约标记、`✅(日期)`、`✅ 日期`、`【已完成】`。
+/** 复选框之后可连续出现的**词形**状态装饰:租约标记、`✅(日期)`、`✅ 日期`、`【已完成】`。
+ *  ⚠ 行首**括注形**装饰(`（待派/X）` / `（【归并】…）` / `〔…〕` / 嵌套长括注)不在本正则里 ——
+ *  由 bodyOfRow 第二档 stripBracketDecorations 走配平扫描,且只在"剥完后编号位真有编号"时才吃
+ *  (无条件吃会把归并器"摘号进括注"的产物重新点亮,见该函数头注与本票 M24/M28)。
  *  导出理由:主键区那一侧的"状态词表"(`DECOR_STATUS_WORDS`)必须与**这里**同源 ——
  *  两处各列一份迟早漂成"一边把 `(进行中@…)` 当装饰吃掉、一边还当题面"。
  *  漂移由自检/镜像测试的逐词对账当场翻红,不靠人记得。 */
@@ -55,17 +58,22 @@ function stripInlineMarks(s) {
   return s.replace(/^[*\s`【(「]+/, '').replace(/[*\s`】)」]+$/, '')
 }
 
-/** 剥掉复选框与其后所有状态装饰,露出条目真正的正文开头(主键位置从这里算)。 */
+/** 剥掉复选框与其后所有状态装饰,露出条目真正的正文开头(主键位置从这里算)。
+ *  装饰有两族:**词形**(租约 / `✅(日期)` / `已完成` …,由 DECOR_RE 认,无条件剥,与既有语义逐字节同形)
+ *  与**括注形**(行首连续的成对括号,由 matchBalancedGroupAt 走深度感知扫描,同种符号可嵌套)。
+ *  括注形**只在"剥完后编号位上真有编号"时才吃**(stripBracketDecorations 的"最长锚定前缀"回退):
+ *  - 不吃则漏算(实测 `（待派/QODER-O81）G-627` 的编号被括注里另一个族的号掩蔽、
+ *    `（【归并】…长注…）G-619` 被推出主键窗口 —— 取号器低估历史 ⇒ 重发已用号,2026-09-29 台账自伤两次);
+ *  - 无条件吃则自伤(实测 `**【归并】** 本行与已完成登记同题…` 那一族归并产物:吃掉 `【归并】`
+ *    后题面被切成指针散文 ⇒ 与持有行同编号不同标题,plan-tasks 自检"修法不自伤"当场红)。
+ *  回退保住的正是既有窗口语义与 M16/M20/M21 全部契约:**没有编号可露的括注一律不动**。 */
 export function bodyOfRow(line) {
   const m = CHECKBOX_RE.exec(line)
   if (!m) return null
-  let body = line.slice(m[0].length)
-  for (;;) {
-    const before = body
-    body = body.replace(DECOR_RE, '')
-    if (body === before) break
-  }
-  return body
+  const body = line.slice(m[0].length)
+  const legacy = oldStrip(body)
+  const bracked = stripBracketDecorations(legacy)
+  return bracked === legacy ? legacy : bracked
 }
 
 /** 行首裸编号形态:`- [ ]75. file_search 换 ripgrep …`。
@@ -141,6 +149,88 @@ const GROUP_DECOR_CONTENT_RE = new RegExp(
 const GROUP_PAIRS = { '(': ')', '（': '）', '[': ']', '【': '】' }
 const KEY_TRAILING_NOISE = new Set(['*', '`', ' ', '\t', ':', '：'])
 
+/**
+ * 成对括注的**唯一**扫描原语:从 `from` 起识别一个配平的括注(同种符号可嵌套,
+ * 如 `【【归并】…】` / `(…(…)…)`),返回闭合符之后一位的下标;开不出或不闭合 ⇒ -1(不猜)。
+ * 行首装饰档与主键后括注两侧共用这一份扫描(pairs 表按位置策略给,两处各写一遍必漂移)。
+ */
+export function matchBalancedGroupAt(s, from, pairs) {
+  const opener = s[from]
+  const closer = pairs[opener]
+  if (!closer) return -1
+  let depth = 0
+  for (let j = from; j < s.length; j += 1) {
+    if (s[j] === opener) depth += 1
+    else if (s[j] === closer && --depth === 0) return j + 1
+  }
+  return -1
+}
+
+/**
+ * 行首装饰括注的形状表。半角方括号 `[...]` 刻意**不在**表内:台账里它装着行文引用与处置档
+ * (`[O76 判:已完成残余]`、markdown 链接),内容是引用不是装饰;吃了会把被引 id 从取号集合里
+ * 摘掉 —— 那是把"漏算"修成另一种"漏算"。主键后那一侧沿用 GROUP_PAIRS(含 `[`)的既有语义;
+ * 两表差异是**位置策略**,扫描只有一份实现。`〔〕` 只在行首吃:键后 `〔拆票…〕` 一族
+ * 的 stripOwnKey 结论必须与旧版逐字同形(M20 的题面切分契约)。
+ */
+const LEAD_DECOR_PAIRS = { '（': '）', '(': ')', '【': '】', '〔': '〕' }
+const LEAD_DECOR_SEP = new Set([' ', '\t', ':', '：'])
+
+/** 编号是否就落在正文开头(可夹强调记号/反引号/空白前缀)。只复用 TASK_ID_PATTERN 与
+ *  LEADING_NUMERIC_RE 这两个既有出口,不写第三份编号语法。 */
+function anchoredKeyAhead(s) {
+  let k = 0
+  while (k < s.length && KEY_LEAD_NOISE.has(s[k])) k += 1
+  const tail = s.slice(k)
+  if (new RegExp(`^(?:${TASK_ID_PATTERN})`).test(tail)) return true
+  return LEADING_NUMERIC_RE.test(tail)
+}
+
+/** 词形装饰的既有剥离(与改动前的 bodyOfRow 循环逐字同形)—— 括注回退保不住时交回它。 */
+function oldStrip(body) {
+  for (;;) {
+    const b2 = body.replace(DECOR_RE, '')
+    if (b2 === body) return body
+    body = b2
+  }
+}
+
+/** 从 s 吃**一个**行首括注(先跳过强调记号,吃完连同其后的空白/冒号);吃不出 ⇒ null。 */
+function nextGroupState(s) {
+  let k = 0
+  while (k < s.length && KEY_LEAD_NOISE.has(s[k])) k += 1
+  const end = matchBalancedGroupAt(s, k, LEAD_DECOR_PAIRS)
+  if (end < 0) return null
+  let n = end
+  while (n < s.length && LEAD_DECOR_SEP.has(s[n])) n += 1
+  return s.slice(n)
+}
+
+/**
+ * 括注档的"最长锚定前缀"剥离:沿确定性路径(词形 DECOR 步与括注步交替)逐步吃,
+ * 记录**最后一个**"编号位上真有编号"的状态;一个都没有 ⇒ 原样交回(= 旧语义)。
+ * 为什么必须"最长"而不是"第一个":`（待派/QODER-O81）（注）G-627` 里两截都是装饰,
+ * 第一个锚定态并不存在(`（` 开头不算编号位),最深态才把两截一起让给 G-627。
+ * 每一步都严格变短 ⇒ 必然终止。
+ */
+function stripBracketDecorations(s) {
+  let cur = s
+  let best = null
+  for (;;) {
+    const d = cur.replace(DECOR_RE, '')
+    if (d !== cur) {
+      cur = d
+      if (anchoredKeyAhead(cur)) best = cur
+      continue
+    }
+    const g = nextGroupState(cur)
+    if (g === null) break
+    cur = g
+    if (anchoredKeyAhead(cur)) best = cur
+  }
+  return best === null ? s : best
+}
+
 /** 从 `from` 起连续跳过"紧跟主键的状态括注"(可夹强调记号/冒号/空白)。
  *  未闭合的括号**不吃**(那会把整行吞成括注,题面变空 ⇒ 反而把这一族判成退化)。
  *  @returns 吃到的位置;一个都没吃到 ⇒ 原样返回 `from` */
@@ -149,18 +239,10 @@ export function skipKeyAttachedDecorGroups(s, from) {
   for (;;) {
     let k = i
     while (k < s.length && KEY_TRAILING_NOISE.has(s[k])) k += 1
-    const opener = s[k]
-    const closer = GROUP_PAIRS[opener]
-    if (!closer) return i
-    let depth = 0
-    let j = k
-    for (; j < s.length; j += 1) {
-      if (s[j] === opener) depth += 1
-      else if (s[j] === closer && --depth === 0) break
-    }
-    if (depth !== 0) return i
-    if (!GROUP_DECOR_CONTENT_RE.test(s.slice(k + 1, j))) return i
-    i = j + 1
+    const end = matchBalancedGroupAt(s, k, GROUP_PAIRS)
+    if (end < 0) return i
+    if (!GROUP_DECOR_CONTENT_RE.test(s.slice(k + 1, end - 1))) return i
+    i = end
   }
 }
 

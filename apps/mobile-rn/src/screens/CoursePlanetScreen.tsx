@@ -42,6 +42,7 @@ import Loading from '../components/common/Loading'
 import { NavBar } from '../components/NavBar'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { rnRadius } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
     marginLeft: rpx(-34),
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: rnRadius.sm, // 角色档 control(按钮)→ sm
     backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center',
     justifyContent: 'center',

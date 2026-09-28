@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 50,
     height: 50,
-    borderRadius: 50 / 2,
+    borderRadius: rnRadius['2xl'],
   } as ImageStyle,
   bottomTopText: {
     flex: 1,

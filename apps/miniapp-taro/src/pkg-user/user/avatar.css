@@ -33,7 +33,7 @@
   position: relative;
   width: 96rpx;
   height: 96rpx;
-  border-radius: 50%;
+  border-radius: var(--radius-2xl);
   overflow: hidden;
   background: var(--color-card);
 }
