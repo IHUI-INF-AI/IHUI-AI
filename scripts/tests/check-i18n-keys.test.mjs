@@ -1176,3 +1176,177 @@ test('KR-5 跨层形状锁:每条判红结论行必须被归因层认作结论(�
     '这些判红结论行归因层看不见 ⇒ 本门自己的红会被判成 not-ours 并放行跳门',
   )
 })
+
+// ─── G-304: --target 未匹配时**绝不回落 web**(2026-09-28 立) ─────────
+/**
+ * 病灶(实测,不是假想):改前 `--target=api` 与 `--target=nosuch-xyz` 打印的是
+ * **web 那一族**的读数 —— 末行逐字等于 `--target=web` 的输出,于是 packages/i18n/messages/api/**
+ * 在门 [2] 上根本没有 parity 覆盖,而账面读起来像"这个端扫过了"。
+ * 「看起来扫过了」是本仓记过最多次的失效形态(守门 70/76/81/118 同族):判据没跑的伪装成跑过,
+ * 比少一道闸更糟,因为它替人做出了"这一格已收口"的判断。
+ * 同族的 i18n-diff.mjs / i18n-apply.mjs 在 2026-09-25 已按同一口径修过(未知 target 直接 exit 2),
+ * 本组用例锁的就是"本门不许再退回去"。
+ */
+
+// 真仓根:从测试文件位置向上找含 web 语言包的目录(不依赖 `node --test` 从哪儿跑)
+const REAL_REPO = (() => {
+  let dir = __dirname
+  for (let i = 0; i < 10; i++) {
+    try {
+      readFileSync(join(dir, 'packages', 'i18n', 'messages', 'web', 'zh-CN.json'), 'utf8')
+      return dir
+    } catch {
+      const parent = join(dir, '..')
+      if (parent === dir) break
+      dir = parent
+    }
+  }
+  return null
+})()
+
+// 独立 oracle:自己数 HEAD 面上某族 zh-CN 的叶子键数,不读脚本的结论
+// (否则断言只是在复读实现 —— §22c"镜像测试只复读实现就是复读机")
+function leafCountOfHeadPack(repoRoot, relPack) {
+  const raw = execSync(`git show HEAD:${relPack}`, { cwd: repoRoot, encoding: 'utf8' })
+  const walk = (o) => {
+    let n = 0
+    for (const v of Object.values(o)) {
+      n += v && typeof v === 'object' && !Array.isArray(v) ? walk(v) : 1
+    }
+    return n
+  }
+  return walk(JSON.parse(raw))
+}
+
+test('G304-1 --target=api 必须扫 api 那一族并报出**它自己**的读数(正向:不再复读 web)', () => {
+  assert.ok(REAL_REPO, '找不到真仓 packages/i18n —— 本条是阳性对照,缺对象就是判据失明')
+  const r = runFaceScript(['--target=api'], { cwd: REAL_REPO })
+  assert.equal(r.status, 0, `api parity 应 exit 0,实际 ${r.status}\n${r.stdout}${r.stderr}`)
+  // 末行必须带 [api] 前缀 + parity 档计数(表里的 label 列)
+  assert.match(r.stdout, /\[api\] 通过/, `末行未点名 api: ${r.stdout}`)
+  const m = r.stdout.match(/parity 比对 5 语言 × (\d+) 键路径/)
+  assert.ok(m, `未报出 api 自己的键路径数: ${r.stdout}`)
+  // 独立 oracle(自己数 HEAD 面上的 api/zh-CN)必须与门报出的数一致
+  const apiLeaves = leafCountOfHeadPack(REAL_REPO, 'packages/i18n/messages/api/zh-CN.json')
+  assert.equal(
+    Number(m[1]),
+    apiLeaves,
+    `门报 ${m[1]} 键路径 vs 独立数出的 api 叶子 ${apiLeaves} —— 对不上就是还在读别的端`,
+  )
+  // 反向对照:web 那一族的读数**绝不得**出现在 api 档里(改前这一条正是失败点)
+  const web = runFaceScript(['--target=web'], { cwd: REAL_REPO })
+  assert.equal(web.status, 0, `web 档应 exit 0: ${web.stdout}${web.stderr}`)
+  const wm = web.stdout.match(/已检查 \d+ 文件, (\d+) 键/)
+  assert.ok(wm, `web 档末行形态漂了,本对照失去对象: ${web.stdout}`)
+  assert.notEqual(
+    Number(m[1]),
+    Number(wm[1]),
+    `api 报的键数(${m[1]})与 web 的(${wm[1]})相同 —— 两族同值的可能极低,更可能是回落`,
+  )
+  assert.ok(
+    !web.stdout.includes('[api]'),
+    'web 档不得带 [api] 前缀(两档输出必须可区分,否则"扫过哪一族"无从判断)',
+  )
+})
+
+test('G304-2 未登记 / 拼错的 target 一律 exit 2 并点名可用清单(不得按 web 报绿)', () => {
+  const cases = [
+    ['nosuch-xyz', '不存在的端名'],
+    ['Mobile-RN', '大小写陷阱'],
+    ['mobile_rn', '下划线陷阱'],
+    ['', '--target= 空值'],
+  ]
+  for (const [t, why] of cases) {
+    const r = runFaceScript([`--target=${t}`], { cwd: REAL_REPO || process.cwd() })
+    assert.equal(
+      r.status,
+      2,
+      `--target=${JSON.stringify(t)}(${why})应 exit 2「无法判定」,实际 ${r.status}\n${r.stdout}`,
+    )
+    assert.match(
+      r.stderr,
+      /不是受支持的端/,
+      `exit 2 必须点名原因(${why}),不得只留一个码: ${r.stderr}`,
+    )
+    // 判死必须列出可选端 —— 否则下一个人只能猜哪个拼法对
+    for (const name of ['web', 'extension', 'shared', 'cli', 'mobile-rn', 'miniapp-taro', 'api']) {
+      assert.match(r.stderr, new RegExp(`\\b${name}\\b`), `清单里缺 ${name}: ${r.stderr}`)
+    }
+    assert.ok(!/通过/.test(r.stdout), `判死时 stdout 不得出现任何"通过"字样: ${r.stdout}`)
+  }
+})
+
+test('G304-3 形状锁:目录只能从 TARGET_CONFIG 来,回落 web 那一支不得回来', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  const code = src
+    .split('\n')
+    .filter((l) => !/^\s*(\/\/|\/?\*)/.test(l))
+    .join('\n')
+  // 正向:三件装车事实
+  assert.match(code, /const TARGET_CONFIG = \{/u, 'target 表不见了(端名单又散回 if 链的成因)')
+  assert.match(code, /const MESSAGES_DIR = join\(REPO_ROOT, CFG\.dir\)/u, 'MESSAGES_DIR 不再由表给')
+  assert.match(code, /function resolveTarget\(/u, 'resolveTarget 不在位')
+  assert.match(code, /const CFG = resolveTarget\(TARGET, fatalTargetLines\)/u, '解析出口没被调用')
+  // 判死必须早于任何取材 —— 与 i18n-diff 同一位置约束("未读任何语言包"这句才成立)
+  assert.ok(
+    code.indexOf('const CFG = resolveTarget(') < code.indexOf('const MESSAGES_DIR'),
+    'resolveTarget 晚于 MESSAGES_DIR ⇒ 判死前已经读过语言包,拒绝执行的承诺落空',
+  )
+  // 反向锁:旧写法是"一条末支落回 web 的嵌套三元"。这个字面量在表里以 dir: '...' 出现,
+  // 只在 join(REPO_ROOT, …) 的位置上才是被禁止的回落形态 —— 所以两边都能精确判定。
+  assert.ok(
+    !/:\s*join\(REPO_ROOT,\s*'packages\/i18n\/messages\/web'\s*\)/u.test(code),
+    '"target 未匹配 ⇒ 落回 web"那一支又回来了(G-304 的本体)',
+  )
+  // 反向锁:parity-only / 合并 shared 不得再用手写端名单(加一端忘改一条 if 就是本票成因)
+  assert.ok(!/isShared \|\| isCli/u.test(code), 'mergeShared 判断又退回手写端名单')
+  assert.ok(
+    !/isExtension \|\| isShared \|\| isCli/u.test(code),
+    'parityOnly 判断又退回手写端名单',
+  )
+  // 空枚举不得被算成通过:显式点了名而该族一个包都没有 ⇒ 必须是 exit 2 那一支
+  assert.match(
+    code,
+    /if \(TARGET_IS_EXPLICIT\)/u,
+    'TARGET_IS_EXPLICIT 判死分支不见了(点了名还"无事可查"就是静默放行)',
+  )
+})
+
+test('G304-4 显式点了名而该族枚举到 0 个包 ⇒ 判死;没点名而目录缺失 ⇒ 如实跳过', () => {
+  // 成对用例:两臂的**唯一差别**是有没有点名,结论必须相反。
+  // 只留"判死"那一臂,就允许有人把默认档也一并判红(空仓/部分 checkout 会被顶红);
+  // 只留"跳过"那一臂,就是本次要修的洞。
+  const root = createTempProject()
+  try {
+    writeWebMessages(root, PARITY_OK) // 只给 web 一族,api 族在磁盘上不存在
+    const named = runScript(['--target=api', '--worktree'], { cwd: root })
+    assert.equal(
+      named.status,
+      2,
+      `点名 api 而它一个包都没有 ⇒ 应 exit 2,实际 ${named.status}\n${named.stdout}${named.stderr}`,
+    )
+    assert.match(named.stderr, /一个语言包都没枚举到/, `判死原因没点名: ${named.stderr}`)
+    assert.match(named.stderr, /packages\/i18n\/messages\/api/, `必须点名是哪一族: ${named.stderr}`)
+    assert.ok(!/通过/.test(named.stdout), `判死臂不得出现"通过": ${named.stdout}`)
+
+    const unnamed = runScript(['--worktree'], { cwd: root })
+    assert.equal(
+      unnamed.status,
+      0,
+      `未点名走默认 web(该族在位)应照常判 parity 通过,实际 ${unnamed.status}\n${unnamed.stdout}`,
+    )
+
+    const empty = createTempProject()
+    try {
+      // 未点名 + 连 web 都没有:空仓 / 部分 checkout 的合法形态,必须是"跳过"而不是判死
+      const skip = runScript(['--worktree'], { cwd: empty })
+      assert.equal(skip.status, 0, `空仓未点名应 exit 0 跳过,实际 ${skip.status}`)
+      assert.match(skip.stdout, /语言包,跳过/, `跳过要喊出原因: ${skip.stdout}`)
+      assert.ok(!/通过/.test(skip.stdout), '跳过不得伪装成"通过"')
+    } finally {
+      rmScratch(empty)
+    }
+  } finally {
+    rmScratch(root)
+  }
+})

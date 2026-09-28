@@ -33,6 +33,33 @@ param(
 
 # 全局路径与约束
 $ErrorActionPreference = 'Stop'
+
+# ── 子进程输出编码 = UTF-8(G-305,2026-09-28 立)──────────────────────────────
+# 病灶(实测,最小复现见交付报告):本脚本被部署环用 `Start-Process -RedirectStandardOutput`
+# 调起,而 LocalSystem 上下文里 `[Console]::OutputEncoding` 默认是 **gb2312(CP936)**。
+# 于是本脚本写的每一行中文(以及它 `& git`/`& node` 捕获后转写的中文)都以 **GBK 字节**
+# 落进 run-*.out.log,而读取侧(ihui-deploy-loop.ps1 里那句增量 `StreamReader` 尾读)
+# 按 UTF-8 解 ⇒ deploy-loop.log 里的中文全成 `?`/U+FFFD。后果不是难看,而是**所有靠中文
+# 措辞写的复盘与判读在这个面上读不出来**(实测近 400 行里有 129 处 U+FFFD)。
+# 取证两组字节(同一行「中文探针你好」):
+#   现状  : 47 41 54 45 2D 4D 41 52 4B 20 D6 D0 CE C4 CC BD D5 EB C4 E3   ← GBK
+#   修复后: 47 41 54 45 2D 4D 41 52 4B 20 E4 B8 AD E6 96 87 E6 8E A2 E9  ← UTF-8
+# 为什么改这一层而不是"事后把整份日志转码":转码要在 GBK/UTF-8 之间猜,猜错即二次损坏;
+# 而在**写的一侧**定死编码,链路上每一跳(本脚本 → out.log → 守护 → deploy-loop.log)
+# 都是同一份 UTF-8,无需再猜。`$OutputEncoding` 管的是"喂给原生命令的 stdin",一并设
+# 成 UTF-8,免得 `& git` 这类调用只修一半。判据一律不依赖中文措辞(本仓 ASCII 标记
+# GATE-ITER / HEALTH / behind= 等保持原样),所以这次只改编码、**不动任何判定逻辑**。
+# 生效时机如实登记:本文件每轮由守护**新起子进程**读取 ⇒ 下一轮即生效,无需重启服务;
+# 而守护自身(ihui-deploy-loop.ps1)那半截要等 IHUI-DEPLOYLOOP 重启。
+try {
+    [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)   # 无 BOM:日志文件首字节必须是内容
+    $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+} catch {
+    # 不得静默降级:设不上就是"这一轮日志仍会是乱码",必须喊出来。
+    # 用 ASCII 写这条,因为此刻编码还是坏的,中文喊了也读不出来。
+    Write-Warning 'WARN console-output-encoding NOT set to UTF-8; deploy-loop.log will keep mojibake for CJK lines'
+}
+
 $Root       = 'D:\IHUI-AI'
 $WebDir     = "$Root\apps\web"
 $ApiDir     = "$Root\apps\api"
