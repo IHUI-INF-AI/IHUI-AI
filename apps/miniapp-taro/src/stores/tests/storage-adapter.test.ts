@@ -242,7 +242,7 @@ describe('createTaroStorageTransport + zustand persist 集成', () => {
     expect(useStore2.getState().count).toBe(3)
   })
 
-  it('createAuthStore 集成:user 持久化 + 跨 store 实例 hydrate 恢复 isAuthenticated + user', async () => {
+  it('createAuthStore 集成:user 持久化 + 跨 store 实例恢复 user(登录态由 token 派生,不入库)', async () => {
     // 第 1 步:用真实 createAuthStore + createTaroStorageTransport 写入登录态
     const tokenStore1 = createInMemoryTokenStore()
     const userTransport1 = createTaroStorageTransport()
@@ -260,12 +260,12 @@ describe('createTaroStorageTransport + zustand persist 集成', () => {
 
     // token 一定不落盘(安全契约)
     expect(userTransport1.getItem('miniapp-auth-user')).not.toContain('tk-1')
-    // user + isAuthenticated 持久化(zustand persist 包装格式:{ state, version })
+    // 只持久化 user 资料(G-456:登录态不入库,由「有没有 token」派生)
     const persisted = JSON.parse(userTransport1.getItem('miniapp-auth-user') as string)
     expect(persisted.state).toEqual({
-      isAuthenticated: true,
       user: { id: 'u1', nickname: 'Alice' },
     })
+    expect(Object.keys(persisted.state)).not.toContain('isAuthenticated')
 
     // 第 2 步:新 store 实例(模拟 App 重启)+ 同一 transport 通道,hydrate 后应恢复 user
     const tokenStore2 = createInMemoryTokenStore() // 空的,无 token
@@ -292,7 +292,10 @@ describe('createTaroStorageTransport + zustand persist 集成', () => {
 
     // user 已恢复
     expect(auth2.getState().user).toEqual({ id: 'u1', nickname: 'Alice' })
-    expect(auth2.getState().isAuthenticated).toBe(true)
+    // G-456:登录态只由「有没有 token」派生。本夹具的 tokenStore2 刻意为空 ——
+    // 旧断言在空 token 下期望 true,等于把 blob 里的第二份真相当登录凭据
+    // (真机重启时 tokenStore 会从 Taro.storage 读到真 token,那才是真值来源)。
+    expect(auth2.getState().isAuthenticated).toBe(false)
     // token 不持久化 → tokenStore2 仍为空
     expect(tokenStore2.getToken()).toBeNull()
   })
