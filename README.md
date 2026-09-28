@@ -6372,3 +6372,5 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 > - 本仓库采用 **Apache-2.0** 开源许可：允许商用、修改与再分发（须保留版权声明与 NOTICE，并标注修改）。
 > - 版权与归属声明详见 **根目录 [NOTICE](NOTICE)**（Apache-2.0 要求随每一副本保留本声明与 NOTICE）。
 > - 源文件头部保留一行可见版权署名（Apache-2.0 第 4 条归属声明）。
+
+**两台机器状态探测器现在有名字了(warn,不进提交链)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.workbuddy` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
