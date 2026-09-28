@@ -30,7 +30,11 @@
  *  - 口令只进子进程 env,永不打印;取径与 deploy/win/ihui-pg-backup.ps1 一致:
  *    env IHUI_DB_BACKUP_USER/PASSWORD → scripts/lib/key-dir.mjs 的 db-backup/ihui-backup.txt。
  *  - 不删除、不移动备份目录任何东西;派生一律绝对路径 + timeout + windowsHide(§5b/§26)。
- *  - 盘符不硬编码:DevEnv 根按脚本自身位置同盘推导(与 scripts/lib/gitdir.mjs gitArchiveDir 同式)。
+ *  - 盘符不硬编码:DevEnv 根一律走 `scripts/seal-c-root-stray.mjs` 的 `devEnvRoot()`
+ *    (§15b 外置根唯一出口;`re-home-junctions.mjs` / `check-c-drive-pollution.mjs` 同源复用)。
+ *    本脚本此前自己 `resolve(repoRoot,'..','..')` 数层取盘根,并注释称"与 gitdir.mjs
+ *    gitArchiveDir 同式" —— 那句自 `971690247` 起不再成立(gitdir 那侧已改成盘根锚定
+ *    `parse(wt).root` + 夹具闸),撒谎的注释比没注释更糟:它会教下一个人照旧写法抄。
  *
  * 退出码:0=判定完整;1=判据失败/中止(含统计不一致、restore 失败);
  *        2=无法判定(缺 dump/缺二进制/缺凭据/开关错);3=凭据不足以在线演练(文件层证据已给)。
@@ -40,6 +44,13 @@ import { spawnSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { keyFile } from './lib/key-dir.mjs'
+// DevEnv 根的唯一出口 —— 本模块**不再**自己"仓根向上两级 + DevEnv"(旧私有 devEnvRoot 的写法)。
+// 两条真实差别:① 旧写法头上那句"与 gitdir.mjs gitArchiveDir 同式"自 `971690247` 起已不成立
+//   (那一枚把 gitdir 改成按 `parse(wt).root` 盘根锚定 + 夹具闸),注释与实现不同形比没注释更糟 ——
+//   它会教下一个人照旧写法抄;② 共用出口多认一条 `IHUI_DEVENV_ROOT`(§15b 换机逃生舱,
+//   `deploy/win/ihui-pg-backup.ps1` 的 `$DevEnvRoot` 与之同语义)。未设该环境变量时**两者逐字同值**
+//   (本机同为 `G:\DevEnv`),逐字核对由 scripts/tests/pg-restore-drill.test.mjs 的 P-落点1/2/3 做。
+import { devEnvRoot } from './seal-c-root-stray.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -205,10 +216,7 @@ export function runPlan(plan, { allowWrites, exec, check }) {
 
 // ────────────────────────────── IO 层(默认实现;main 使用) ──────────────────────────────
 
-/** DevEnv 根:按仓库所在盘推导(D:/IHUI-AI ⇒ D:/DevEnv),与 gitdir.mjs gitArchiveDir 同式,不写死盘符 */
-function devEnvRoot() {
-  return join(resolve(repoRoot, '..', '..'), 'DevEnv')
-}
+/** 落点推导一律经文件头那条共用出口;此处只负责"该用途下 DevEnv 里的哪一层目录"。 */
 function pgBinDir() {
   return process.env.IHUI_PG_BIN_DIR || join(devEnvRoot(), 'runtimes', 'pgsql', 'bin')
 }
@@ -712,6 +720,10 @@ export const __test__ = {
   parseCliArgs,
   buildPlan,
   runPlan,
+  // 落点解析:镜像测试按"真值逐字不变 + 共用出口真的被 consult"两条断言打这两个出口,
+  // 不在测试里重抄一遍推导(§22c:禁止第二份实现)。
+  pgBinDir,
+  backupPgDir,
   fingerprint,
   fingerprintsEqual,
   quoteIdent,
