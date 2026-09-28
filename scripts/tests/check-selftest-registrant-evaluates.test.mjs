@@ -23,6 +23,8 @@ import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 import { __test__ as gate } from '../check-selftest-registrant-evaluates.mjs'
+// 存活期表的唯一真相源住在守门 108;豁免族的到期档只在它那儿判(T10),本文件不得复制天数表。
+import { __test__ as expiry } from '../check-exemption-expiry.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
@@ -222,5 +224,28 @@ test('T9 射程边界:lib/ 与 tests/ 不在面内(node:test 的 test(name, fn) 
   for (const p of ['scripts/lib/face-reader.mjs', 'scripts/tests/x.test.mjs', 'apps/web/a.mjs'])
     assert.equal(gate.SCOPE_RE.test(p), false, `${p} 不该进射程`)
   assert.equal(gate.SCOPE_RE.test('scripts/check-foo.mjs'), true)
+})
+
+test('T10 豁免族必须进守门 108 的存活期表并取 30 天(一条没有到期档的豁免出口 = 无人看管的出口)', () => {
+  // 判据只引一次真相源:表住在 108(`expiry.FAMILY_LIFETIME_DAYS`),本测试不得复制一份天数表(§22c)。
+  // 这条锁的由来:`radius-role-exempt` / `back-label-exempt` 都是**单独一票**补登记的 —— 说明
+  // "立门时顺手登记"长期只是散文。守门 108 现已把"族被真用上而未登记"收成判据 E4(提交链档、
+  // HEAD 锚点棘轮),但 E4 判的是**被豁免侧的用**:门体自己在 scripts/** 写出族名不算,
+  // 所以带豁免出口的门必须自带这样一条正向锁,而不是等下游有人真的写了豁免才红。
+  assert.equal(
+    expiry.isFamilyRegistered(gate.EXEMPT_MARK),
+    true,
+    `${gate.EXEMPT_MARK} 不在 FAMILY_LIFETIME_DAYS 里 ⇒ 它只出生不死亡`,
+  )
+  assert.equal(
+    expiry.FAMILY_LIFETIME_DAYS[gate.EXEMPT_MARK],
+    30,
+    '待偿债取 30 天(与 156 同走"先报数、清零后才谈 blocking"的路线);改成更长的档必须写理由',
+  )
+  assert.notEqual(
+    expiry.FAMILY_LIFETIME_DAYS[gate.EXEMPT_MARK],
+    expiry.DEFAULT_LIFETIME_DAYS,
+    '靠默认值兜底不算登记 —— 那正是 E4 要判的形态',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
