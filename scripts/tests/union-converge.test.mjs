@@ -990,3 +990,41 @@ test('R-F 反向锁(源码级):不可达之后不得回落到跟踪 ref 残值�
     'plan() 的出路文案必须复用同一份实现,不得各写一遍(CLI 用户与 import 者拿到的指导不能不一样)',
   )
 })
+
+test('R-H 出路文案:远端真值根本没问到 ⇒ 三出口齐备,且不得复用"无需合并"那套措辞', () => {
+  const text = U.unreachableObjectGuidance({
+    noRemoteTruth: 'ls-remote 超时',
+    branch: 'main',
+  })
+  // 三出口:联网取分支 / 免联网喂可达 sha / refs 存续体检
+  assert.match(text, /git fetch origin main/, '缺出口①(按分支 fetch)')
+  assert.match(text, /--theirs/, '缺出口②(免联网;本轮实测就是靠它落成的,不给就等于没有)')
+  assert.match(text, /git-refs-heal/, '缺出口③(连续问不到时先查 refs,而不是反复重跑)')
+  // 这一型不是"无事可做":沿用旧措辞就会把网络失败说成同步完成
+  assert.ok(!text.includes('无需合并'), '"无需合并"属于 skip 分支的措辞,未判定不得复用')
+  // 分支名取不到时留占位,绝不印出 `fetch origin HEAD` 这条必败命令(与 R-C/R-G 同一规矩)
+  const detached = U.unreachableObjectGuidance({ noRemoteTruth: 'x', branch: '' })
+  assert.match(detached, /git fetch origin <当前分支名>/)
+  assert.ok(!/git fetch origin HEAD/.test(detached), '不得给出取 HEAD 的 fetch 指令')
+})
+
+test('R-I 反向锁(源码级):"取不到远端真值"两支不得再塞进 skip(否则头注又成空承诺)', () => {
+  const body = topLevelBody(srcOfTool(), 'export function resolveTargets(')
+  // 本票修的正是这一格:头注写着 "2 = 无法判定:…或取不到远端真值",而实现把这两支给了 skip,
+  // 于是 CLI 打印"无需合并"并 exit 0 —— 调用方据此跳过一整轮收敛,账面全绿。
+  assert.doesNotMatch(
+    body,
+    /skip:\s*`取不到/,
+    '「取不到远端真值」必须落 undetermined(exit 2),不得回 skip(exit 0)',
+  )
+  assert.doesNotMatch(
+    body,
+    /skip:\s*`取远端/,
+    '「取远端异常」必须落 undetermined(exit 2),不得回 skip(exit 0)',
+  )
+  assert.equal(
+    (body.match(/noRemoteTruth:/g) || []).length,
+    2,
+    '两支都要走同一份出路实现(noRemoteTruth 入参),少一支就是又分叉了',
+  )
+})
