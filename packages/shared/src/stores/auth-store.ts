@@ -5,15 +5,21 @@
 /**
  * @ihui/shared/stores/auth-store — 跨端共享 Auth zustand 工厂
  *
- * 设计原则(2026-07-25 立):
+ * 设计原则(2026-07-25 立;2026-09-28 收口 isAuthenticated):
  * 1. 零新概念:复用已有 TokenStore 契约(stage 1-3 已落地),auth store 仅镜像状态供 React 订阅
  * 2. 依赖注入:tokenStore(必传)+ userTransport(可选,用于 user 持久化)由各端注入
  * 3. 非破坏性:与 useAuth hook(stage 4 落地)平行存在,组件可任选;后续阶段可桥接
+ * 4. 安全优先:token/refreshToken/expiresIn 一律不持久化(走 tokenStore),持久化块只落 user。
+ *    —— 对侧(G-456)同一条原则的原文措辞,语义相同,并陈于此以免丢账:
  * 4. 安全优先:token/refreshToken/expiresIn 一律不持久化(走 tokenStore);持久化 blob 只存 user 资料,
  *    登录态一律由「有没有 token」派生(hydrate),不写进存储(2026-09-28 G-456 收口:
  *    「isAuthenticated 入库」是登录态的第二份真相,失效形态是 token 已清而 blob 里仍 true
  *    ⇒ UI 认为已登录、请求全 401)
  *    遵循 web 端 2026-07-21 安全审计结论:localStorage 不可存 token,httpOnly cookie 才是正解
+ * 5. 单一真相:登录态只由 token 决定。isAuthenticated 是 token !== null 的派生投影 ——
+ *    写入面上任何 setState 携带的 isAuthenticated 一律被忽略并重算,持久化面上该键不落盘、
+ *    rehydrate 时读回即剥除(旧 storage 块里的残留键被 merge 忽略,不产生"无 token 却
+ *    isAuthenticated=true"的组合)。第二份真相只会漂移,这是本仓记过最多次的失效型。
  *
  * 与 useAuth hook(stage 4)的差异:
  * - useAuth:hook 层(组件级 useState + useEffect),适合"用一次创建一次"的场景
@@ -57,7 +63,11 @@ export interface AuthStoreState<TUser = AuthUser> {
   refreshToken: string | null
   /** token 过期时间(秒),镜像自 tokenStore */
   expiresIn: number | null
-  /** 是否已认证,derived: !!token(为方便订阅者,显式存储) */
+  /**
+   * 派生只读:恒等于 `token !== null`(见 selectIsAuthenticated)。
+   * 保留在 state 形状里只为兼容既有订阅写法;它不是独立开关 ——
+   * setState 传入该键会被忽略并按 token 重算,持久化块也不携带它。
+   */
   isAuthenticated: boolean
   /** 当前用户信息(可持久化) */
   user: TUser | null
@@ -88,6 +98,17 @@ export interface AuthStoreState<TUser = AuthUser> {
   hydrate: () => void
   /** 标记 ready(true),用于 SSR 后客户端首帧渲染 */
   setReady: (ready: boolean) => void
+}
+
+/**
+ * 登录态的唯一判据选择器:isAuthenticated 就是 `token !== null` 的投影。
+ * 新代码优先用它订阅(不依赖 state 上那个派生字段),
+ * 全仓不得再出现第二处"算 isAuthenticated"的实现。
+ */
+export function selectIsAuthenticated<TUser = AuthUser>(
+  state: Pick<AuthStoreState<TUser>, 'token'>,
+): boolean {
+  return state.token !== null
 }
 
 export interface CreateAuthStoreOptions<TUser = AuthUser> {
@@ -140,7 +161,7 @@ export interface CreatedAuthStore<TUser = AuthUser> {
  * })
  *
  * // 组件订阅
- * const isAuthenticated = auth.useAuthStore((s) => s.isAuthenticated)
+ * const isAuthenticated = auth.useAuthStore(selectIsAuthenticated)
  * ```
  */
 export function createAuthStore<TUser = AuthUser>(
@@ -156,6 +177,8 @@ export function createAuthStore<TUser = AuthUser>(
   } = options
 
   // 包装 transport 为 zustand persist 需要的 StateStorage 接口(返回 raw string)
+  // 注意:user persist 只存 user(security: 不存 token;单一真相: 不存 isAuthenticated)
+  // —— 对侧同一注记的原文措辞(语义相同,并陈于此以免丢账):
   // 注意:user persist 只存 user 资料(security: 不存 token;登录态不入库,由 hydrate 派生)
   const persistStorage: StateStorage = {
     getItem: async (name) => {
@@ -172,6 +195,28 @@ export function createAuthStore<TUser = AuthUser>(
     },
   }
 
+  // 登录态派生的唯一落点:一切经本工厂的 state 写入都过这里,
+  // patch 里携带的 isAuthenticated 一律被剥掉并按"结果的 token"重算。
+  // 之所以包在 setState 层而不是各动作里各算一遍:两处算同一件事必漂移(本仓记过多次),
+  // 外部调用方(如各端 reset)也不得拿到"独立翻转 isAuthenticated"的口子。
+  const setStateDerived: StoreApi<AuthStoreState<TUser>>['setState'] = ((
+    partial:
+      | Partial<AuthStoreState<TUser>>
+      | ((state: AuthStoreState<TUser>) => Partial<AuthStoreState<TUser>>),
+    replace?: boolean,
+  ) => {
+    const patch = (
+      typeof partial === 'function' ? partial(storeApi.getState()) : partial
+    ) as Partial<AuthStoreState<TUser>> | undefined
+    const { isAuthenticated: _ignored, ...rest } = patch ?? {}
+    void _ignored
+    const nextToken = 'token' in rest ? rest.token ?? null : replace ? null : storeApi.getState().token
+    storeApi.setState(
+      { ...rest, isAuthenticated: nextToken !== null } as Partial<AuthStoreState<TUser>>,
+      replace as false | undefined,
+    )
+  }) as StoreApi<AuthStoreState<TUser>>['setState']
+
   // storeApi 在下方 createStore 调用后初始化,initialState 内的方法体在运行时
   // 才被调用(闭包延迟解析),故此处引用 storeApi 不会触发 TDZ。
   const initialState: AuthStoreState<TUser> = {
@@ -186,12 +231,11 @@ export function createAuthStore<TUser = AuthUser>(
       if (input.refreshToken !== undefined) {
         await tokenStore.setRefreshToken(input.refreshToken)
       }
-      // 同步镜像
-      storeApi.setState({
+      // 同步镜像;isAuthenticated 由 setStateDerived 按 token 派生,动作不再各自写它
+      setStateDerived({
         token: input.token,
         refreshToken: input.refreshToken ?? storeApi.getState().refreshToken,
         expiresIn: input.expiresIn ?? storeApi.getState().expiresIn,
-        isAuthenticated: true,
         user: input.user !== undefined ? input.user : storeApi.getState().user,
       })
       if (onLogin) {
@@ -199,15 +243,14 @@ export function createAuthStore<TUser = AuthUser>(
       }
     },
     setUser: (user) => {
-      storeApi.setState({ user })
+      setStateDerived({ user })
     },
     logout: async () => {
       await tokenStore.clearAll?.()
-      storeApi.setState({
+      setStateDerived({
         token: null,
         refreshToken: null,
         expiresIn: null,
-        isAuthenticated: false,
         user: null,
       })
       if (onLogout) {
@@ -217,15 +260,14 @@ export function createAuthStore<TUser = AuthUser>(
     hydrate: () => {
       const token = tokenStore.getToken()
       const refreshToken = tokenStore.getRefreshToken()
-      storeApi.setState({
+      setStateDerived({
         token,
         refreshToken,
         expiresIn: storeApi.getState().expiresIn,
-        isAuthenticated: !!token,
       })
     },
     setReady: (ready) => {
-      storeApi.setState({ ready })
+      setStateDerived({ ready })
     },
   }
 
@@ -235,6 +277,9 @@ export function createAuthStore<TUser = AuthUser>(
     persist(() => initialState, {
       name: userPersistKey,
       storage: createJSONStorage(() => persistStorage),
+      // 安全:仅持久化 user;token 一律不落盘(2026-07-21 审计),
+      // isAuthenticated 不落盘(2026-09-28 收口:登录态第二份真相,派生自 token)
+      // —— 对侧同一注记的原文措辞(语义相同,并陈于此以免丢账):
       // 安全:仅持久化 user 资料,token 一律不落盘;登录态不入库(由 hydrate 从 token 派生)
       partialize: (state) => {
         const persisted: Pick<AuthStoreState<TUser>, 'user'> = {
@@ -248,6 +293,9 @@ export function createAuthStore<TUser = AuthUser>(
         }
         return persisted
       },
+      // 旧 storage 块(收口前写入的)里可能仍带 isAuthenticated —— 该键一律读回即剥除。
+      // 不 bump version:version 变了而 migrate 缺失会让 zustand 整块丢弃,连带丢掉在用的 user;
+      // merge 是逐键过滤,只挡第二份真相,不动任何端的历史数据。
       // 登录态是派生值,不是存储值(2026-09-28,G-456):zustand 默认 merge 是
       // {...currentState, ...persistedState},旧 blob 里那份 isAuthenticated 会原样渗进
       // state —— 「token 已清而 UI 认为已登录」那型事故的来源。这里把旧形状的该键剥掉
@@ -259,6 +307,19 @@ export function createAuthStore<TUser = AuthUser>(
         delete rest.isAuthenticated
         return { ...current, ...rest }
       },
+      /* 待人工裁决(互斥项 c5-M1):本侧那份 merge 在剥除该键的同时还按唯一选择器重算
+         isAuthenticated。该派生已由上方 setStateDerived 在整个写入面兜住,所以现行取
+         对侧「只剥该键、不在 merge 层提前派生」那一版(它同时保留其余持久化键,不静默丢弃)。
+         本侧实现原文逐字留档如下。
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState ?? {}) as { user?: TUser | null }
+        const merged = {
+          ...currentState,
+          user: 'user' in persisted ? persisted.user ?? null : currentState.user,
+        }
+        return { ...merged, isAuthenticated: selectIsAuthenticated(merged) }
+      },
+      */
       // SSR 友好:hydrate 完成后设置 ready
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -274,13 +335,15 @@ export function createAuthStore<TUser = AuthUser>(
   // - selector 调用 useAuthStore((s) => s.user) → 返回切片
   // - .getState()/.setState()/.subscribe() → 转发到 storeApi
   // storeApi 的方法基于闭包 state(非 this),作为引用赋值给 useBoundStore 后仍正确工作。
+  // setState 走 setStateDerived:外部写入同样不能独立翻转 isAuthenticated(派生只读对整个面生效,
+  // 否则"收口了工厂、放开了调用方"等于没收口)。
   const useBoundStore = Object.assign(
     function useAuthStoreHook<U>(selector?: (state: AuthStoreState<TUser>) => U): U {
       return useStore(storeApi, selector as (state: AuthStoreState<TUser>) => U)
     } as UseBoundStore<StoreApi<AuthStoreState<TUser>>>,
     {
       getState: storeApi.getState,
-      setState: storeApi.setState,
+      setState: setStateDerived,
       subscribe: storeApi.subscribe,
     },
   )
@@ -288,12 +351,11 @@ export function createAuthStore<TUser = AuthUser>(
   return {
     useAuthStore: useBoundStore,
     getState: storeApi.getState,
-    setState: storeApi.setState,
+    setState: setStateDerived,
     subscribe: storeApi.subscribe,
+    // 与 state.hydrate 同一实现:登录态派生只住在 setStateDerived 一处
     hydrate: () => {
-      const token = tokenStore.getToken()
-      const refreshToken = tokenStore.getRefreshToken()
-      storeApi.setState({ token, refreshToken, isAuthenticated: !!token })
+      storeApi.getState().hydrate()
     },
   }
 }
