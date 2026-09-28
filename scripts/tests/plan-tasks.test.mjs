@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 import {
+  DECOR_RE_SOURCE,
+  DECOR_STATUS_WORDS,
   VOID_MARK_RE,
   auditPlan,
   compositeKeyOf,
@@ -447,7 +449,8 @@ test('M18 全仓最常见的 `**G-NNN. 标题**` 形态必须成键并被 F1 看
   // 2026-09-28 现读:HEAD 里 G-265 / G-283 两组的"已完成副本"与"未勾原件"标题逐字相同,
   // 却因为 titleOf 把编号本身留在标题里而两边都 null ⇒ F1=0 报"无分叉",而台账里其实躺着
   // 两份状态相互矛盾的登记(派单人按 --open 拿走的就是那份已完成票的未勾原件)。
-  const open = '- [ ] **G-265. 守门 `check-stale-dist.mjs` 对 `@ihui/types` 的跳过口径正是幻影缺陷的成因**:它打印 skip'
+  const open =
+    '- [ ] **G-265. 守门 `check-stale-dist.mjs` 对 `@ihui/types` 的跳过口径正是幻影缺陷的成因**:它打印 skip'
   const done =
     '- [x] ✅(2026-09-27) **G-265. 守门 `check-stale-dist.mjs` 对 `@ihui/types` 的跳过口径正是幻影缺陷的成因**:它打印 skip'
   const key = compositeKeyOf(open)
@@ -458,7 +461,15 @@ test('M18 全仓最常见的 `**G-NNN. 标题**` 形态必须成键并被 F1 看
   if (a.counts.forks !== 1) throw new Error(`同题两态必须被 F1 点名,实测 ${a.counts.forks}`)
   // 变异对照(写在断言里,防止只测"函数会给答案"而不测"有人问它"):
   // 把 titleOf 里的 stripOwnKey 摘掉 ⇒ 本条与 M16 的第一断言应同时翻红。
-  if (!/stripOwnKey\(stripLeadingNumeric\(rawBody\)/.test(readFileSync(path.resolve(ROOT, 'scripts', 'lib', 'plan-task-index.mjs'), 'utf8')))
+  // 锁的是**题面必须经 `stripLeadingNumeric` + `stripOwnKey` 这两个共享出口**(M19 把主键区
+  // 扩到"紧跟主键的状态括注"后,titleOf 改成先存 `stripped` 再喂 stripOwnKey —— 变量名换了,
+  // 要锁的东西一字未变;锁形状而锁错对象,等于下一位接手的人按这条去改判据)。
+  const src = readFileSync(path.resolve(ROOT, 'scripts', 'lib', 'plan-task-index.mjs'), 'utf8')
+  if (!/const stripped = stripLeadingNumeric\(rawBody\)/.test(src))
+    throw new Error(
+      'titleOf 必须经 stripLeadingNumeric 剥行首裸编号 —— 摘掉它就回到 M14 那一族失明',
+    )
+  if (!/stripOwnKey\(\s*stripped\s*,\s*key/.test(src))
     throw new Error('titleOf 必须经 stripOwnKey 剥本行主键 —— 摘掉它就回到整族失明')
 })
 
@@ -609,13 +620,17 @@ test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/
   const fnStart = libSrc.indexOf('export function findIdCollisions')
   if (fnStart < 0) throw new Error('lib 里找不到 findIdCollisions ⇒ 判据被搬走或改名,本锁须同批改')
   const fn = libSrc.slice(fnStart, libSrc.indexOf('\n}', fnStart))
-  if (!fn.includes('titleOf(')) throw new Error('findIdCollisions 没走 titleOf ⇒ 必然另抄了一份标题归一化')
-  if (!fn.includes('titleIsDegenerate(')) throw new Error('findIdCollisions 没走 titleIsDegenerate ⇒ 退化标题会被算成第二个标题')
-  if (/\.replace\(/.test(fn)) throw new Error('findIdCollisions 内部不得再写归一化正则(标题处理唯一出口=titleOf)')
+  if (!fn.includes('titleOf('))
+    throw new Error('findIdCollisions 没走 titleOf ⇒ 必然另抄了一份标题归一化')
+  if (!fn.includes('titleIsDegenerate('))
+    throw new Error('findIdCollisions 没走 titleIsDegenerate ⇒ 退化标题会被算成第二个标题')
+  if (/\.replace\(/.test(fn))
+    throw new Error('findIdCollisions 内部不得再写归一化正则(标题处理唯一出口=titleOf)')
   // 行为侧同锁:只差装饰(租约标记/强调记号)的两行是同一标题 —— 抄窄版会把它们误判成两个。
   const deco =
     '- [ ] **G-9 同一议题**:正文一。\n- [ ]（进行中@2026-09-27/乙）**G-9 同一议题**:正文二。'
-  if (findIdCollisions(deco).length !== 0) throw new Error('装饰差异不得被算成两个标题(titleOf 同一出口的行为证明)')
+  if (findIdCollisions(deco).length !== 0)
+    throw new Error('装饰差异不得被算成两个标题(titleOf 同一出口的行为证明)')
   // ⑦ 成套性与方向:进 probe / 基线有数字键 / 涨点名且逐组报名 / 降与持平不判 / --strict 存量不判红。
   if (!probe(auditPlan(pair)).some(([k, , n]) => k === 'F9' && n === 1))
     throw new Error('F9 未进 probe ⇒ 提交链根本不判它')
@@ -644,7 +659,8 @@ test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/
   if (grewViolations(face(0, []), face(1, g)).some((x) => x.startsWith('F9')))
     throw new Error('清偿撞号不得判红 —— 反方向判红等于没人敢修')
   const ng = newCollisionGroups(face(1, g), face(0, []))
-  if (ng.length !== 1 || ng[0].key !== 'G-262') throw new Error(`newCollisionGroups 应点名 G-262,实测 ${JSON.stringify(ng.map((x) => x.key))}`)
+  if (ng.length !== 1 || ng[0].key !== 'G-262')
+    throw new Error(`newCollisionGroups 应点名 G-262,实测 ${JSON.stringify(ng.map((x) => x.key))}`)
   if (newCollisionGroups(face(1, g), null).length !== 0)
     throw new Error('没有基准面时不得凭空数出新增撞号')
   const log = console.log
@@ -660,7 +676,9 @@ test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/
   const grew = run(() => gate(face(1, g), false, ROOT, face(0, []), null))
   if (grew.rc !== 1) throw new Error(`新增撞号组必须拦下本次提交,实测 exit ${grew.rc}`)
   if (!grew.cap.some((x) => x.includes('G-262') && x.includes('被 2 个不同标题共用')))
-    throw new Error(`差值棘轮红档必须逐组点名"编号被 N 个不同标题共用",实测 ${JSON.stringify(grew.cap)}`)
+    throw new Error(
+      `差值棘轮红档必须逐组点名"编号被 N 个不同标题共用",实测 ${JSON.stringify(grew.cap)}`,
+    )
   const flat = run(() => gate(face(0, []), false, ROOT, face(0, []), null))
   if (flat.rc !== 0) throw new Error(`什么都没带进来的提交不得被拦,实测 exit ${flat.rc}`)
   // 恒红门检查:存量撞号(哪怕 --strict)只报数不判红 —— 定级理由见 lib findIdCollisions 头注。
@@ -669,4 +687,148 @@ test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/
     throw new Error(`--strict 遇存量撞号 ${base.F9} 组不得判红(恒红门),实测 exit ${stock.rc}`)
   if (!stock.cap.some((x) => x.includes('F9') && x.includes(String(base.F9))))
     throw new Error('绿档也必须把存量撞号数报出来(把看不见混进没问题是本仓最高频失效型)')
+})
+
+// ── M19..M22:主键区扩到"装饰前缀"(2026-09-28,`**G-290(进行中@…)` 一族)──────────────
+
+/** 逐字取自 HEAD 的 G-290 未勾行(正文裁短到可断言长度,形状一字未动):
+ *  编号在 `**` 之后、紧跟一个**半角**租约括注 `(进行中@日期/持有者)`。
+ *  旧判据在这里把题面切在第一个 `(` 上 ⇒ 只剩编号 ⇒ `titleIsDegenerate` ⇒ composite=null
+ *  ⇒ F1 对这一整族看不见(2026-09-28 现读:F1=0,而同一编号确实两态并存)。 */
+const G290_OPEN =
+  '- [ ] **G-290(进行中@2026-09-27/主会话)`QuitUpdateOverlay` 引用了四个谁都没写的键 —— 安静存量,归属该功能持有人** —— 今天修 G-289 时顺带量到'
+
+test('M19 主键区必须吃到"紧跟主键的状态括注"(F1 曾对 `**G-NNN(进行中@…) 题面**` 整族失明)', () => {
+  const k0 = compositeKeyOf(G290_OPEN)
+  if (!k0) throw new Error('带状态括注的登记行必须给出复合主键,实测 null ⇒ 整族仍在失明')
+  if (k0 !== 'G-290#QuitUpdateOverlay引用了四个谁都')
+    throw new Error(`题面必须从括注之后开始且不得含装饰字,实测 ${JSON.stringify(k0)}`)
+  // 同一件事在"翻勾 / 就地改写"后的四种合法写法:全角租约、纯日期括注、`.` 分界、摘牌后直接相接。
+  const variants = [
+    '- [x] ✅(2026-09-28) **G-290（进行中@2026-09-28/主会话）`QuitUpdateOverlay` 引用了四个谁都没写的键 —— 安静存量,归属该功能持有人** —— 已按台账出口收口',
+    '- [x] ✅(2026-09-28) **G-290(2026-09-28 复测) `QuitUpdateOverlay` 引用了四个谁都没写的键 —— 安静存量,归属该功能持有人** —— 已收口',
+    '- [x] ✅(2026-09-28) **G-290. `QuitUpdateOverlay` 引用了四个谁都没写的键 —— 安静存量,归属该功能持有人** —— 已收口',
+    '- [x] ✅(2026-09-28) **G-290 `QuitUpdateOverlay` 引用了四个谁都没写的键 —— 安静存量,归属该功能持有人** —— 已收口',
+  ]
+  variants.forEach((v, i) => {
+    if (keyOfRow(v) !== 'G-290') throw new Error(`变体 ${i} 的编号主键丢了:${keyOfRow(v)}`)
+    if (compositeKeyOf(v) !== k0)
+      throw new Error(
+        `变体 ${i} 必须与原件同键(否则 widening 等于凭空造出一个"新任务",归并器双计),实测 ${JSON.stringify(compositeKeyOf(v))}`,
+      )
+    const a = auditPlan(['# p', G290_OPEN, v].join('\n'))
+    if (a.counts.forks !== 1)
+      throw new Error(`变体 ${i}:同主键两态并存必须被 F1 点名,实测 ${a.counts.forks}`)
+  })
+  // 反向对照:装饰字**不得**被读进题面(否则同一件事因日期不同而键不同 ⇒ F1 又一次失明)。
+  if (/进行中|已完成|2026-09-2\d/.test(k0)) throw new Error(`装饰漏进主键:${k0}`)
+})
+
+test('M20 收窄三判据一字未松:叙述括注仍判退化、行文引用不算第二次登记、量值不当编号', () => {
+  // ① 非状态的叙述括注(`(新登记)`)必须**留**在题面切分点上 ⇒ 仍判退化 ⇒ 仍 null。
+  //    M16 钉的就是这个形态:放宽到"任意括号都吃掉"等于拆掉撞号误翻勾那条防线。
+  const noteParen =
+    '- [ ] **G-257(新登记)**:`scripts/check-agent-engine-parity.mjs` 的**可跑性依赖 cwd** —— 两个 cwd 下退出码不一致'
+  if (compositeKeyOf(noteParen) !== null)
+    throw new Error(`叙述性括注必须仍判退化,实测 ${compositeKeyOf(noteParen)}`)
+  if (!titleIsDegenerate(noteParen, titleOf(noteParen)))
+    throw new Error('titleIsDegenerate 对本形态必须给 true —— 否则 M16 那条防线只是恰好没红')
+  // ② 已完成行的**正文**里提到 G-290,不得因此变成 G-290 的第二次登记(行首编号优先,且括注/正文不参与)。
+  const mention =
+    '- [x] ✅(2026-09-28) **D70 与 G-290 无关的另一件事**:本行只是在正文里提到 G-290 已收口,不得算第二次登记'
+  if (keyOfRow(mention) !== 'D70') throw new Error(`行文引用被当成本行主键:${keyOfRow(mention)}`)
+  const doc = ['# p', G290_OPEN, mention].join('\n')
+  const a = auditPlan(doc)
+  if (a.counts.forks !== 0)
+    throw new Error(
+      `"正文提到某编号"不得造出分叉,实测 ${JSON.stringify(a.forks.map((g) => g.key))}`,
+    )
+  if (a.counts.collisionGroups !== 0)
+    throw new Error(
+      `同一把尺子不得把引用算成撞号,实测 ${JSON.stringify(a.collisions.map((c) => c.key))}`,
+    )
+  // ③ 引用落在主键窗口之外(48 字之后)⇒ 整行无主键(与 M7/M14 同一条收窄)。
+  const far =
+    '- [x] ✅(2026-09-28) **D71 另一件完全不同的事**:这一行正文很长很长,一直写到六十字之后才提到 G-290 那个票,所以它绝不该被算成 G-290 的第二次登记'
+  if (keyOfRow(far) !== 'D71') throw new Error(`D71 被抢走:${keyOfRow(far)}`)
+  if (/G-290/.test(compositeKeyOf(far) ?? ''))
+    throw new Error('窗口外的引用不得进主键,实测 ' + compositeKeyOf(far))
+  // ④ 量值与超 3 位**裸数字**照旧不算编号(widening 没有触碰发现,只触碰题面起点)。
+  //    (字母族按 TASK_ID_PATTERN 走,`G-2900` 本来就是它的合法形态,不在本判据射程。)
+  for (const [line, why] of [
+    ['- [ ] **12.3 万**文件级的普查另计一票', '量值开头'],
+    ['- [ ] **2900. 四位裸数字不是行首编号形态**', '>3 位裸数字'],
+  ])
+    if (keyOfRow(line) !== null) throw new Error(`${why} 不得算主键,实测 ${keyOfRow(line)}`)
+})
+
+test('M21 归并器真实出口翻勾前后必须同键(它翻勾时会摘掉租约括注 ⇒ 键一漂 F1 就看不见自己产的分叉)', async () => {
+  const { buildForkedLine } = await import('../lib/plan-merge-annotation.mjs')
+  const before = compositeKeyOf(G290_OPEN)
+  const flipped = buildForkedLine(G290_OPEN, before, '2026-09-28')
+  if (flipped === G290_OPEN) throw new Error('归并器没改写这一行 ⇒ 本条测的是空气')
+  if (compositeKeyOf(flipped) !== before)
+    throw new Error(
+      `翻勾前后必须同键,实测 ${JSON.stringify({ before, after: compositeKeyOf(flipped) })}`,
+    )
+  // 全角租约**写在编号之后**的那一族:buildForkedLine 用 LEASE_RE 摘牌 ⇒ 编号与题面直接相接。
+  // 这一支是"就地改写保持稳键"的真正考点:摘牌前后的两行必须同键,否则 F1 恰好错过归并产物。
+  const leased =
+    '- [ ]（进行中@2026-09-27/会话X）**G-292（进行中@2026-09-27/会话X）顶部弹层的四个词包键谁都没写 —— 安静存量** —— 说明文字'
+  const lk = compositeKeyOf(leased)
+  const lflipped = buildForkedLine(leased, lk, '2026-09-28')
+  if (/进行中/.test(lk)) throw new Error(`租约字漏进主键:${lk}`)
+  if (compositeKeyOf(lflipped) !== lk)
+    throw new Error(
+      `摘牌后必须同键,实测 ${JSON.stringify({ lk, after: compositeKeyOf(lflipped) })}`,
+    )
+  const a = auditPlan(['# p', leased, lflipped].join('\n'))
+  if (a.counts.forks !== 1) throw new Error(`摘牌产出的两态必须被 F1 点名,实测 ${a.counts.forks}`)
+})
+
+test('M22 形状锁:主键区只有一份实现,状态词表与 DECOR_RE 同源(抄窄版=在自己刚修的族上失明)', () => {
+  const src = readFileSync(path.resolve(ROOT, 'scripts', 'lib', 'plan-task-index.mjs'), 'utf8')
+  // ① 括注跳过逻辑除定义外只允许一处调用点(在 stripOwnKey 里);titleOf 若再抄一份,
+  //    两侧迟早漂成"一边把 (进行中@…) 当装饰吃掉、一边还当题面" —— 与 M15 同一条禁令。
+  const calls = src.split('skipKeyAttachedDecorGroups(').length - 1
+  if (calls !== 2)
+    throw new Error(
+      `skipKeyAttachedDecorGroups 必须"定义 1 处 + 调用 1 处(在 stripOwnKey 内)",实测 ${calls}`,
+    )
+  // ② 题面的收口只许有 cleanTitle 一份(标记剥离 + 分界符截断 + 前缀长度)。
+  const cleans = src.split('function cleanTitle(').length - 1
+  if (cleans !== 1) throw new Error('cleanTitle 出现第二份实现 ⇒ 两份真相')
+  // 分界符截断那一把正则全文件只许出现一次(在 cleanTitle 里)—— 一旦有人为了"顺手修一族"
+  // 在 titleOf 或别处再抄一遍,两侧对"题面到哪里为止"就会漂,而漂的形态永远是安静。
+  if (src.split('[:：.、,，!！?？]').length - 1 !== 1)
+    throw new Error('题面截断判据出现第二份(或一份都没有)⇒ 两处必漂(本仓最高频失效型)')
+  const titleOfBody = /export function titleOf\([\s\S]*?\n}/.exec(src)?.[0] ?? ''
+  if (!titleOfBody || /\.replace\(/.test(titleOfBody))
+    throw new Error('titleOf 自己不得再动手剥题面 —— 一律经 stripOwnKey + cleanTitle')
+  // ③ 状态词表的每个词都必须出现在 DECOR_RE 的源里 —— 词表不得自成一族。
+  for (const w of DECOR_STATUS_WORDS)
+    if (!DECOR_RE_SOURCE.includes(w))
+      throw new Error(`词表项「${w}」不在 DECOR_RE 里 ⇒ 两侧对"什么是状态装饰"已经漂开`)
+  // ④ 发现侧一字未动:主键仍只在"剥掉装饰后的正文开头 48 字内"被认出 ——
+  //    本票放宽的是**题面起点**,不是"编号可以在行里任何地方"(那是把 M7 拆了)。
+  if (!/body\.slice\(0, KEY_MAX_OFFSET\)/.test(src))
+    throw new Error('keyOfRow 的主键位置窗口被拆 ⇒ 行文引用会成百地变成"第二次登记"')
+})
+
+test('M23 恒红门检查:同一把尺子量同一份内容两次,差值必须为 0(新暴露的存量不算"本次新增")', () => {
+  // 判据变宽会把此前隐形的分叉暴露出来。提交链走的是**差值**档(索引面 vs HEAD 面同一把尺子),
+  // 所以"存量刚被看见"不得变成"本次提交带进来的" —— 否则与改动无关的恒红门只会逼人 --no-verify。
+  // 前提刻意用**与本次变宽无关**的经典同键对:把变宽后的形状也写进这条,退回变宽时它会与 M19
+  // 一起红,读不出因果(每条判据测试要能单独指认自己防的那一型)。
+  const doc = [
+    '# p',
+    '- [ ] **D99 复合主键正例**:说明文字。',
+    '- [x] ✅(2026-09-26) **D99 复合主键正例**:同一件事的另一态。',
+  ].join('\n')
+  const a = auditPlan(doc)
+  if (a.counts.forks !== 1) throw new Error(`前提不成立:构造面应有 1 组分叉,实测 ${a.counts.forks}`)
+  if (grewViolations(a, a).length !== 0)
+    throw new Error(`同一份内容自比必须零增长,实测 ${JSON.stringify(grewViolations(a, a))}`)
+  if (newCollisionGroups(a, a).length !== 0) throw new Error('撞号新增同样必须为零')
+  if (ratchetViolations(null, probe(a)).length !== 0) throw new Error('没有基线时不得凭空判红')
 })
