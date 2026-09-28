@@ -23,7 +23,12 @@ function stubFetchCapturingBodies(calls: Sent[]): void {
     'fetch',
     vi.fn(async (url: unknown, init: unknown): Promise<Response> => {
       calls.push({ url: String(url), body: String((init as { body?: unknown }).body ?? '') })
-      return new Response('', { status: 200 })
+      // 200 + `{ok:true}`:端点对"会话不存在"回的是 200 + `{ok:false}`,而 postToolResult
+      // 自 2026-09-28 起必须读包体才能定成败(`assertAiServiceAccepted`)。本文件的主题是
+      // **上行 error 字段的形状**,与接受性无关 ⇒ 桩必须给一个"被接受"的回包,否则会测到
+      // 另一件事(空 body 现在按"读不出被接受"判失败)。接受性本身由
+      // `ai-service-upstream-acceptance.test.ts` 判。
+      return new Response('{"ok":true}', { status: 200 })
     }),
   )
 }
