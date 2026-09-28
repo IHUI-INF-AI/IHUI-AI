@@ -29,9 +29,11 @@ import {
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 30 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request)', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(30)
-    expect(SSE_EVENT_NAMES).toHaveLength(30)
+  it('包含全部 31 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction)', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(31)
+    expect(SSE_EVENT_NAMES).toHaveLength(31)
+    // 光有计数会放过"删了别的、加了这个",新帧必须点名在位:
+    expect(SSE_EVENTS.TERMINAL_INTERACTION).toBe('terminal_interaction')
   })
 
   // V3 #63(2026-09-27 落地生产者):form_request 按 contract.ts 自己写在
@@ -135,6 +137,8 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   TERMINAL_END: 'terminal_end',
   // V3 #48(2026-09-26)补登:终端逐行增量 / agent 流执行开始
   TERMINAL_DELTA: 'terminal_delta',
+  // D151(2026-09-29):命令在等键盘输入的一帧
+  TERMINAL_INTERACTION: 'terminal_interaction',
   START: 'start',
   // V3 #58(2026-09-26):主聊天流工具审批帧
   TOOL_APPROVAL: 'tool-approval',
@@ -186,6 +190,8 @@ const UNION_MEMBER_BY_NAME: Record<SSEEventName, SSEEventPayload['type']> = {
   subagent_progress: 'subagent_progress',
   subagent_spawn: 'subagent_spawn',
   terminal_delta: 'terminal_delta',
+  // D151(2026-09-29):命令在等键盘输入的一帧(判别联合成员见 contract.ts)
+  terminal_interaction: 'terminal_interaction',
   terminal_end: 'terminal_end',
   terminal_start: 'terminal_start',
   thinking: 'thinking',
