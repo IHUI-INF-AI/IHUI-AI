@@ -60,7 +60,7 @@ export default function ColorfulLoader({
         return (
           <View
             key={i}
-            className="absolute rounded-full"
+            className="absolute rounded-2xl"
             style={{
               width: `${dotSize}rpx`,
               height: `${dotSize}rpx`,

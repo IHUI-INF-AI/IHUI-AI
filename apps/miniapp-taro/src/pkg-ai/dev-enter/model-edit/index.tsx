@@ -236,13 +236,13 @@ export default function ModelEdit() {
             <View className="flex items-center mb-[16rpx]">
               {agentInfo.avatar ? (
                 <Image
-                  className="w-[96rpx] h-[96rpx] rounded-full bg-muted flex-shrink-0 mr-[24rpx]"
+                  className="w-[96rpx] h-[96rpx] rounded-2xl bg-muted flex-shrink-0 mr-[24rpx]"
                   src={agentInfo.avatar}
                   mode="aspectFill"
                 />
               ) : (
                 /* RN avatar:w48/h48/r24(圆形)+ surface.muted;AGENTS §4 头像豁免,保留圆形 rounded-full */
-                <View className="w-[96rpx] h-[96rpx] rounded-full bg-muted flex items-center justify-center flex-shrink-0 mr-[24rpx] text-[length:40rpx] font-semibold text-foreground">
+                <View className="w-[96rpx] h-[96rpx] rounded-2xl bg-muted flex items-center justify-center flex-shrink-0 mr-[24rpx] text-[length:40rpx] font-semibold text-foreground">
                   <Text>{(agentInfo.name || '?').slice(0, 1)}</Text>
                 </View>
               )}

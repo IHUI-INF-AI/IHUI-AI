@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   avatarCircle: {
     width: 88,
     height: 88,
-    borderRadius: 44,
+    borderRadius: rnRadius['2xl'],
     borderWidth: 1,
     borderColor: '#BFBEFF',
     backgroundColor: tokens.surface.muted,
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: 86,
     height: 86,
-    borderRadius: 43,
+    borderRadius: rnRadius['2xl'],
   } as ImageStyle,
   decorQr: {
     width: 122,
