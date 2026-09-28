@@ -20,7 +20,22 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-rounded-full.mjs')
 // 这正是守门 70 记过的型:测试靠 cwd 定位夹具,而脚本按定义忽略 cwd,于是整批用例在扫真仓或空扫。
 function createTempScanDir(files) {
   const dir = mkScratch('ihui-rounded-')
-  for (const [relPath, content] of Object.entries(files)) {
+  /**
+   * 夹具必须自带档位表(C7 的判据输入)。2026-09-29 实测:门在**表取不到**时把上限维降级成
+   * "未判定",而旧夹具里没有 `packages/design-tokens/src/radius.js` ⇒ 新建的 C7 用例三条阳性
+   * 对照**全部不触发**却照样各自"通过"(断言写的是"没红就算对"的那一类反向陷阱)。
+   * 表从真仓 HEAD 现读后写进夹具,不在测试里抄一份数字 —— 抄的那份会随档位表演进而变成假账。
+   */
+  const TABLE_REL = 'packages/design-tokens/src/radius.js'
+  const tableSrc =
+    spawnSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${TABLE_REL}`], {
+      cwd: join(__dirname, '..', '..'),
+      encoding: 'utf8',
+      windowsHide: true,
+    }).stdout || ''
+  assert.ok(tableSrc.includes('RADIUS_STEPS'), '夹具依赖闭包不完整:真仓 HEAD 取不到档位表 ⇒ 上限判据会静默降级')
+  const all = { [TABLE_REL]: tableSrc, ...files }
+  for (const [relPath, content] of Object.entries(all)) {
     const fullPath = join(dir, relPath)
     mkdirSync(join(fullPath, '..'), { recursive: true })
     writeFileSync(fullPath, content)
@@ -247,9 +262,9 @@ test('合法: rounded-md → 无违规', () => {
 // 注:源脚本 isExempt() 豁免 <img>/<Image>/AvatarImage(非 <Avatar>),
 // Switch Thumb 特征串,小尺寸装饰点(w/h ≤ 3.5),红点(bg-red-500+小尺寸),animate-spin
 
-test('豁免: <img className="rounded-full"> 头像图片 → 无违规', () => {
+test('豁免: <img className="rounded-full"> 头像图片(32px,等效半径 16px)⇒ 仍在上限内,豁免族照旧成立', () => {
   const dir = createTempScanDir({
-    'apps/web/Avatar.tsx': `export function Avatar() {\n  return <img className="rounded-full w-10 h-10" src="/avatar.png" alt="avatar" />\n}\n`,
+    'apps/web/Avatar.tsx': `export function Avatar() {\n  return <img className="rounded-full w-8 h-8" src="/avatar.png" alt="avatar" />\n}\n`,
   })
   try {
     const r = runScript(dir)
@@ -259,9 +274,29 @@ test('豁免: <img className="rounded-full"> 头像图片 → 无违规', () => 
   }
 })
 
-test('豁免: <Image className="rounded-full"> next/image → 无违规', () => {
+/**
+ * 2026-09-29 用户定档「任何圆角半径不得超过最大档 16px,**圆形头像/图标底板不再豁免**」。
+ * 这条用例把边界钉在**量出来的数值**上,而不是钉在"是不是 img"上:同一族豁免在 32px 以内仍然有效,
+ * 超过 32px 的圆头像一律判红。把旧用例(40px 头像断言"无违规")原地改判红,
+ * 是因为那条断言描述的正是被这条裁决废掉的口径。
+ */
+test('上限优先于 img/Avatar 豁免族:40px 的圆头像(等效半径 20px)必须判红', () => {
   const dir = createTempScanDir({
-    'apps/web/NextImage.tsx': `import Image from 'next/image'\nexport function Profile() {\n  return <Image className="rounded-full w-12 h-12" src="/me.png" alt="me" width={48} height={48} />\n}\n`,
+    'apps/web/Avatar40.tsx': `export function Avatar() {\n  return <img className="rounded-full w-10 h-10" src="/avatar.png" alt="avatar" />\n}\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assert.match(r.stdout, /圆角超过上限/, '豁免族不得挡住上限判据(它排在所有通道之前)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('豁免: <Image className="rounded-full"> next/image(24px,半径 12px 在上限内)→ 无违规', () => {
+  const dir = createTempScanDir({
+    // 尺寸取 24px 而非 48px:48px 的圆头像在 2026-09-29 定档后**必须**判红(见上一条用例),
+    // 这条测的是"Image 族豁免仍然成立"那一维,所以把盒留在上限之内才不会与上限判据混在一起。
+    'apps/web/NextImage.tsx': `import Image from 'next/image'\nexport function Profile() {\n  return <Image className="rounded-full w-6 h-6" src="/me.png" alt="me" width={24} height={24} />\n}\n`,
   })
   try {
     const r = runScript(dir)
@@ -525,6 +560,114 @@ test('形状尺只有一份实现:门内不得再声明 boxShape/boxDims,必须�
   assert.ok(!/function boxDims\(/.test(src), '门内不得再声明 boxDims(同上)')
   assert.match(src, /from '\.\/lib\/box-geometry\.mjs'/, '必须从共用层引形状尺')
   assert.match(src, /from '\.\/lib\/radius-tokens\.mjs'/, '档位换算必须复用 radius-tokens,不得再解析一遍 radius.js')
+})
+
+/**
+ * C7 · 圆角上限(2026-09-29 用户定档:任何半径不得超过档位表最大档 16px,圆形头像/图标底板不豁免)。
+ * 这一组用例的存在理由不是"多测几种写法",而是本条判据**落地当天就抓到两类会伤人的形状**:
+ *  - 豁免通道在判据之后 ⇒ 48dp 头像上的 rounded-full 会被"装饰圆点/Avatar"整族放走,上限形同不存在;
+ *  - 盒形用宽窗口径(`boxDims` 向后 6 行、向前 2 行是主判据刻意放宽的"宁宽不漏")⇒ 实测把同一枚
+ *    `w-2.5 h-2.5`(10px,等效半径 5px)的红点,按邻行 `w-[96rpx]` 的头像量成 44×44 而**判红**。
+ *    判红依据必须只来自这一行自己:假阳的代价不是"多一条红",是逼人把一颗本来正确的圆改方。
+ * 因此下面四条成对写:每条阳性对照都配一条"它不该红"的对照。
+ */
+test('C7 阳性对照:48×48 的盒上 rounded-full(等效半径 24px)必须判"圆角超过上限"', () => {
+  const dir = createTempScanDir({
+    'apps/web/Avatar.tsx': `export function Avatar() {\n  return <div className="w-[48px] h-[48px] rounded-full bg-muted" />\n}\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assert.match(r.stdout, /圆角超过上限/, '48px 见方盒的半边=24px > 16px ⇒ 必须点名')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C7 反向对照:10px 红点不得被邻行大盒顶成超标(盒形只认自己那一行)', () => {
+  const dir = createTempScanDir({
+    'apps/web/Mix.tsx':
+      'export function Mix() {\n' +
+      '  return (\n' +
+      '    <View>\n' +
+      '      <View className="w-[96rpx] h-[96rpx] rounded-full bg-muted" />\n' +
+      '      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-destructive" />\n' +
+      '    </View>\n' +
+      '  )\n' +
+      '}\n',
+  })
+  try {
+    const r = runScript(dir)
+    const hits = (r.stdout.match(/圆角超过上限/g) || []).length
+    assert.equal(hits, 1, `只应抓到 48px 那一处;实得 ${hits} 处 ⇒ 盒形串了行`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C7:注释里写 rounded-full 是"门在解释自己",不得计入判定面', () => {
+  const dir = createTempScanDir({
+    'apps/web/Doc.tsx':
+      'export function Doc() {\n' +
+      '  // 禁 rounded-full(大盒上它会渲染成胶囊)\n' +
+      '  return <div className="rounded-md p-2">Doc</div>\n' +
+      '}\n',
+  })
+  try {
+    const r = runScript(dir)
+    assert.doesNotMatch(r.stdout, /圆角超过上限/, '纯注释行不参与上限判定(守门 131 同型)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C7 覆盖面:RN StyleSheet 的 camelCase `borderRadius: \'50%\'` 同样受上限约束', () => {
+  const dir = createTempScanDir({
+    'apps/mobile-rn/src/x.tsx':
+      'const st = StyleSheet.create({\n' +
+      '  plate: {\n' +
+      '    width: 60,\n' +
+      '    height: 60,\n' +
+      "    borderRadius: '50%',\n" +
+      '  },\n' +
+      '})\n',
+  })
+  try {
+    const r = runScript(dir)
+    assert.match(r.stdout, /圆角超过上限/, "把这一族交给本门之后,camelCase 写法必须看得见 —— 否则'判据接手'是空话")
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C7 量不到盒形 ⇒ 报"未判定",不得静默成"没超标"', () => {
+  const dir = createTempScanDir({
+    'apps/web/Dyn.tsx': `export function Dyn({ size }) {\n  return <div className={size.cls + ' rounded-full'} style={{ borderRadius: size / 2 }} />\n}\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assert.match(r.stdout, /量不到自己那个盒 [1-9]\d* 处/, '动态尺寸是尺子的边界,必须报名而不是当作干净')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * 三条结构锁:上限的**位置**、口径的**共用**、以及"数值族归守门 77"这条分工。
+ * 位置锁的意义:把 checkCap 挪到 isExempt 之后,这四条用例里的阳性对照会全部转绿 ——
+ * 也就是说"豁免族挡住上限判据"这一型失效只有位置锁能固定下来,行为用例本身证不了它。
+ */
+test('C7 结构锁:上限必须排在豁免通道之前,且数值族不重复计数', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.ok(
+    src.indexOf('checkCap(') < src.indexOf('if (isExempt('),
+    '上限判据被挪到豁免通道之后 ⇒ 圆形头像/图标底板又会被整族放走(这条不是风格问题)',
+  )
+  assert.match(src, /ownShortSidePx\(/, '盒形必须用归属明确的那把尺(lib/box-geometry 的 ownShortSidePx),不得退回宽窗 boxDims')
+  assert.ok(
+    !/function capOf[\s\S]{0,400}?boxDims\(lines/.test(src),
+    '上限判据内部不得再用宽窗 boxDims 量盒形(实测会按邻行尺寸判红)',
+  )
+  assert.ok(!/radiusPxInLine\([^\n]*cap/i.test(src), '数值/档位形态的半径上限归守门 77 的 B9,本门不重复计同一笔债')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
