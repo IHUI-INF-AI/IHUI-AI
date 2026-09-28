@@ -261,7 +261,15 @@ export function planStateRegressions(mergedText, sideTexts) {
   const KEYS = [
     ['forks', 'F1 同主键两态并存(组)'],
     ['voidRows', 'F2 带作废声明未落账(行)'],
-    ['rotatedPointers', 'F3 行号指针已腐烂(处)'],
+    // 比较量必须是本行标签说的那个东西(2026-09-29 改,原先拿 rotatedPointers 当判据):
+    // `rotatedPointers` = **全部**腐烂指针,其中绝大多数**没有任何自动出口**(目标行已被归档搬走、
+    // 或作者意图不可推断)。拿它当"归并不得放大"的放行条件,等于要求合并把一个**谁都无法下降**
+    // 的数字降下来 —— 而活文档归并本身就是"两侧行的并集",这条维只会随合并单调上升。
+    // 实测后果:落地闸连 30+ 轮报「各侧最多 277,归并结果 284 ⇒ 判需人工」,部署环停摆。
+    // 一台永远无法满足的 blocking 门 = 每台每次被逼跳门 = 全部守门对每次提交作废(§12f 实测三道同型)。
+    // 现在判的是"有出口却变大"= 本次归并新造出**能收却没收**的债;无出口那一半仍每次大声点名,
+    // 只是不再当放行条件(点名出口见 f3ExitCaliber,不得删)。
+    ['rotatedAuto', 'F3 行号指针·此刻有出口可收(处)'],
     ['dupOpenCopies', 'F4 同一件事多条待办(副本行)'],
     // F6 是块级量纲:整块被并集追加两遍时行级四条一路绿灯,而"每行重数 = max(两侧)"
     // 正是它的生产机制 —— 所以这一维必须在落地闸上判,合并提交不跑 pre-commit。
@@ -302,6 +310,23 @@ export function planStateRegressions(mergedText, sideTexts) {
   if (m.mergeNotes < noteMax)
     out.push(`F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条(被未落账形态顶掉)`)
   return out
+}
+
+/**
+ * F3 三维读数的**口径说明行**(只打印,不进判据、不进 violations)。
+ * 刻意不并入 planStateRegressions 的返回值:那个数组的每一条都判红,把"只报名"塞进去
+ * 就是造一台拦不住任何事却处处拦你的门。无出口部分必须每次现读现报 —— 它不再是
+ * 放行条件,但也不许被读成"这一维没人看"。
+ */
+export function f3ExitCaliber(mergedText, sideTexts) {
+  const sides = (sideTexts ?? []).filter((t) => typeof t === 'string' && t.trim() !== '')
+  if (typeof mergedText !== 'string' || mergedText.trim() === '' || sides.length === 0) return ''
+  const caliber = auditPlan(mergedText).counts
+  return (
+    `F3 口径:归并结果全部腐烂指针 ${caliber.rotatedPointers} 处 = 此刻有出口可收 ${caliber.rotatedAuto} 处` +
+    ` + **无出口交人工 ${caliber.rotatedNoExit} 处**(不拦合并,但必须人工清;本轮未接归档反查索引,` +
+    `auto 只算面内那一族 ⇒ 报 0 不等于"没有出口",归档出口的落地档是 plan-tasks-merge --heal)`
+  )
 }
 
 export function lostAddedLines(baseText, sideText, otherText, mergedText) {
@@ -518,6 +543,7 @@ export function buildUnion(
         const sides = [bt, a, b].filter((t) => typeof t === 'string' && t !== '')
         for (const msg of planStateRegressions(mergedText, sides))
           violations.push(`${p} 归并放大任务状态分叉:${msg}`)
+        console.log(`   ${f3ExitCaliber(mergedText, sides)}`)
       }
     }
 
@@ -642,6 +668,8 @@ export function buildUnion(
         .map((rev) => blobOf(rev, p, cwd))
         .filter((oid) => oid)
         .map((oid) => blobText(oid, cwd))
+      const __cal = f3ExitCaliber(blobText(mergedOid, cwd), sideTexts)
+      if (__cal) console.log(`   ${__cal}`)
       for (const msg of planStateRegressions(blobText(mergedOid, cwd), sideTexts))
         violations.push(`${p} 归并放大任务状态分叉:${msg}`)
     }
