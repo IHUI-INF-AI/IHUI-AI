@@ -76,7 +76,9 @@ async def test_build_loop_v2_tools_passes_role_into_call_tool(
         return {"ok": True, "name": name}
 
     # 关掉超级工具聚合支路,走内置清单装配(与无外部 MCP server 时的产线形态一致)
-    async def no_pool(_tool_names: object) -> None:
+    # G-371 格①(2026-09-29):`_build_supertool_pool` 多了一个必填主体形参,桩必须跟着收
+    # —— 否则这条测试只是在测"签名没改过"。
+    async def no_pool(_tool_names: object, _user_id: str) -> None:
         return None
 
     monkeypatch.setattr(agents_router, "_build_supertool_pool", no_pool)
