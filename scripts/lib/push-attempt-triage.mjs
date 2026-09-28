@@ -184,9 +184,17 @@ function verdict(v) {
 /**
  * 分诊一趟 push。
  * @param {{status?: number|null, stdout?: string|nil, stderr?: string|nil,
- *          remoteEqualsLocal?: boolean|null}} attempt push 的原始结果 +
- *   (仅 up-to-date 档用到)验证段的 local/remote 是否确实相等;null = 没验到,按"未判定"处理
- *   —— 未判定**不等于**成功。
+ *          remoteEqualsLocal?: boolean|null,
+ *          pushedShaContainedInRemote?: boolean|null}} attempt push 的原始结果 +
+ *   (仅 up-to-date 档用到)验证段的两个证据:
+ *   - remoteEqualsLocal:此刻 local HEAD 与远端 tip 是否**逐字相等**;
+ *   - pushedShaContainedInRemote:**本次要推的那枚 sha** 是否已被远端 tip 包含(祖先测)。
+ *   两者任一为 null = 没验到,按"未判定"处理 —— 未判定**不等于**成功。
+ *
+ * 为什么要第二条:多会话共享同一个 gitdir,`git rev-parse HEAD` 在推送与验证之间会被别人
+ * 的 commit 推进,于是"等值"这一把尺子在**推送完全成功**的一趟上也能读出 false(实测把
+ * `8dbacd2322..61f6fdc9d0 main -> main` 报成"push 报告成功但验证失败")。等值问的是
+ * "此刻两台是否同一枚",而本判据要问的是"我推的东西到没到"—— 后者只有祖先测答得上。
  * @returns {PushAttemptVerdict}
  */
 export function triagePushAttempt({
@@ -194,6 +202,7 @@ export function triagePushAttempt({
   stdout = '',
   stderr = '',
   remoteEqualsLocal = null,
+  pushedShaContainedInRemote = null,
 } = {}) {
   const text = `${stdout ?? ''}\n${stderr ?? ''}`
   const failed = status !== 0
@@ -201,8 +210,10 @@ export function triagePushAttempt({
   // ── 成功侧 ──
   if (!failed) {
     if (UP_TO_DATE_RE.test(text)) {
-      // 「什么都没推」与「推成了」必须分档:只有验证确实 local==remote 才配得上 done。
-      const verified = remoteEqualsLocal === true
+      // 「什么都没推」与「推成了」必须分档:要有**一份**能证明"本地那枚已在远端"的证据才配得上 done ——
+      // 等值(两台同一枚)或祖先测(远端 tip 已包含它)任一成立即可,两者都没拿到就是未判定。
+      const contained = pushedShaContainedInRemote === true
+      const verified = contained || remoteEqualsLocal === true
       return verdict({
         kind: 'up-to-date',
         failed: false,
@@ -211,9 +222,13 @@ export function triagePushAttempt({
         allowNoVerifyRetry: false,
         terminalStatus: verified ? 'done' : 'failed',
         why: verified
-          ? '本次未推送任何东西:远端 tip 已包含本地(或已由并发推送落地),且验证 local==remote'
+          ? `本次未推送任何东西:远端 tip 已包含本地(或已由并发推送落地),依据=${
+              contained ? '祖先测(我推的那枚已在远端)' : '验证 local==remote'
+            }`
           : `本次未推送任何东西(远端回显 Everything up-to-date),而验证${
-              remoteEqualsLocal === null ? '取不到(未判定)' : 'local!=remote'
+              remoteEqualsLocal === null && pushedShaContainedInRemote === null
+                ? '两把尺子都没拿到(未判定)'
+                : '既不等值、祖先测也不成立'
             } ⇒ 不得记成推送成功`,
       })
     }

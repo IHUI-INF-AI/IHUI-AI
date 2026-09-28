@@ -509,7 +509,11 @@ test('牙(比正例更重要):不属于任何占位代表的行一条都不许�
     '- [ ] 完全独立的新登记\n' +
     '## 甲条目 ✅\n\n- [x] 甲一\n- [ ] 别人刚在块里补的一行\n- [x] 甲二\n\n' +
     '## 丙条目 ✅\n\n- [x] 丙一\n- [x] 丙二\n'
-  const { dir, run, base, ours, theirs } = moveAwareFixture(theirsDoc)
+  // 只解构用得到的三项:`run`/`base` 在本用例没有调用点,留着会被 eslint(no-unused-vars)
+  // 判红。这一型红在 HEAD 上躺了一段时间,后果是**任何碰这个文件的提交都被 lint-staged 挡在
+  // 守门批之前**(2026-09-28 实测:safe-commit 的归因层把它定责到提交者,这是对的),
+  // 而守门批跑不起来 = 那枚提交上全部对账作废。
+  const { dir, ours, theirs } = moveAwareFixture(theirsDoc)
   try {
     const p = U.plan(ours, theirs, dir)
     const doc = U.show(p.tree, 'PROJECT_PLAN.md', dir)
@@ -536,7 +540,7 @@ test('归档件取不到 = 坏指针 ⇒ 一律照旧取回并打印未判定原
   const theirsDoc = BASE_DOC + '## 甲条目 ✅\n\n- [x] 甲一\n- [x] 甲二\n'
   assertStaleDocHasBlocks(theirsDoc, ['甲条目 ✅'])
   // 占位在,但它点名的归档文件**从来没入库**(真仓里就有这一型:占位指向盘上有、面上没有的文件)
-  const { dir, run, ours, theirs } = moveAwareFixture(theirsDoc, { putArchive: false })
+  const { dir, ours, theirs } = moveAwareFixture(theirsDoc, { putArchive: false })
   try {
     const p = U.plan(ours, theirs, dir)
     const lines = U.show(p.tree, 'PROJECT_PLAN.md', dir).split('\n')
