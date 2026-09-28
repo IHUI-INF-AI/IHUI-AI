@@ -414,6 +414,34 @@ export function scanText(rel, text, table) {
   return bad
 }
 
+/**
+ * A4:角色并集(`RadiusRole`)↔ `RADIUS_ROLES` 键集对账。**纯函数**,两侧输入都由调用方喂,
+ * 这样"缺档 / 多档 / 一致"三态都能在临时构造面上证明,不必改真仓的 d.ts。
+ *
+ * 立因:本票给 `radius.js` 加了 `popover` / `bubble` 两个角色,而 `radius.d.ts` 的 `RadiusRole`
+ * 是**手抄的第二份** —— A 判据当时只比"档位值"(steps),不比"角色名",于是新角色在类型面整族隐身:
+ * 运行时取 `rnRadiusFor.popover` 能拿到 6,而任何 TS 消费方写它都是 TS2339(且 `pnpm typecheck`
+ * 只在 worktree 跑,谁不写这一行就永远不红)。同一型缺陷在守门 128 的"几何表 ↔ 自己的 .d.ts"维
+ * 登记过一次,那一条只覆盖 geometry.js —— **表加了新列,审表的门必须同批改**。
+ */
+export function checkRoleUnion(roles, declText) {
+  const errors = []
+  const table = Object.keys(roles || {})
+  if (table.length === 0) return ['RADIUS_ROLES 为空 —— 角色表被清空,判据不认这个结论']
+  const at = String(declText || '').indexOf('export type RadiusRole')
+  if (at < 0) return ['radius.d.ts 找不到 `export type RadiusRole` 声明 —— 角色名在类型面不可消费']
+  const body = String(declText)
+    .slice(at)
+    .split(/\n\s*(?:export|\/\*\*|interface|type)\b/)[0]
+  const declared = [...body.matchAll(/['"]([\w-]+)['"]/g)].map((m) => m[1])
+  if (declared.length === 0) return ['RadiusRole 声明里取不到任何字面量 —— 判据失明,不记通过']
+  const dset = new Set(declared)
+  const tset = new Set(table)
+  for (const r of table) if (!dset.has(r)) errors.push(`RadiusRole 缺 '${r}'(radius.js 已有该角色)`)
+  for (const r of declared) if (!tset.has(r)) errors.push(`RadiusRole 多 '${r}'(radius.js 已无此角色 = 类型清单腐烂)`)
+  return errors
+}
+
 /** A 判据:四处档位表值一致性。返回红线列表 */
 export async function checkTableConsistency() {
   const mod = await loadTable()
@@ -439,6 +467,17 @@ export async function checkTableConsistency() {
   // 3) tailwind preset 必须引用 RADIUS_REM,不得重新内联字面量表
   const preset = readFileSync(join(ROOT, 'packages/design-tokens/src/tailwind-preset.js'), 'utf8')
   if (!/borderRadius:\s*RADIUS_REM\s*,?/.test(preset)) errors.push('tailwind-preset.js 的 borderRadius 必须写 `borderRadius: RADIUS_REM`,不得重新内联档位字面量')
+  // 4) 角色名两处对账(档值同形,但历史上只比档值 —— 新角色就是这么在类型面隐身的)
+  const roleDecl = (() => {
+    try {
+      const b = catBatch(ROOT, ['HEAD:packages/design-tokens/src/radius.d.ts'])
+      return b.get('packages/design-tokens/src/radius.d.ts') ?? b.get('HEAD:packages/design-tokens/src/radius.d.ts') ?? ''
+    } catch (e) {
+      return null
+    }
+  })()
+  if (roleDecl === null) errors.push('radius.d.ts 取不到(HEAD 面)—— 角色名对账未能执行,不记通过')
+  else errors.push(...checkRoleUnion(mod.RADIUS_ROLES, roleDecl))
   return { errors, table }
 }
 
@@ -632,6 +671,27 @@ async function selfTest() {
   const driftOk = Math.abs(map['--radius-sm'] - 4.8) < 0.01
   console.log(driftOk ? '✅' : '❌', 'A 判据能读出 CSS 漂移值 sm=4.8px', driftOk ? '' : JSON.stringify(map))
   if (!driftOk) fail++
+  /**
+   * A4 角色名对账:三条成对 —— 只加"缺档必红"而不加"一致必须绿",判据失效也会表现为红消失;
+   * 而"多档(清单腐烂)"必须与"缺档"同时判,否则有人删 radius.js 的一档而 d.ts 不删,门一路绿,
+   * 消费方拿到 `rnRadiusFor.<已删角色>` = undefined(颜色/圆角 undefined 是本仓记过的运行时形态)。
+   */
+  const ROLE_DECL_OK = "export type RadiusRole = 'tiny' | 'control' | 'chip'\n\n/** 档位 → px */\nexport declare const RADIUS_STEPS: number\n"
+  const roleMissing = checkRoleUnion({ tiny: 'xs', control: 'sm', chip: 'md', popover: 'md' }, "export type RadiusRole = 'tiny' | 'control' | 'chip'\n")
+  const roleRotten = checkRoleUnion({ tiny: 'xs', control: 'sm' }, ROLE_DECL_OK)
+  const roleOk = checkRoleUnion({ tiny: 'xs', control: 'sm', chip: 'md' }, ROLE_DECL_OK)
+  const roleNoDecl = checkRoleUnion({ tiny: 'xs' }, 'export declare const RADIUS_STEPS: number\n')
+  const roleEmptyTable = checkRoleUnion({}, ROLE_DECL_OK)
+  for (const [nm, cond, det] of [
+    ['A4 radius.js 有新角色而 RadiusRole 未跟上 ⇒ 点名缺档', roleMissing.length === 1 && /缺 'popover'/.test(roleMissing[0]), roleMissing],
+    ['A4 反向:RadiusRole 多出的角色(表里已删)⇒ 判清单腐烂', roleRotten.length === 1 && /多 'chip'/.test(roleRotten[0]), roleRotten],
+    ['A4 两侧一致 ⇒ 零红(与上两条成对,否则"红消失"没有含义)', roleOk.length === 0, roleOk],
+    ['A4 声明整块不见 ⇒ 判"未能执行"而非通过', roleNoDecl.length === 1 && /找不到/.test(roleNoDecl[0]), roleNoDecl],
+    ['A4 角色表被清空 ⇒ 判死,不记绿', roleEmptyTable.length === 1 && /为空/.test(roleEmptyTable[0]), roleEmptyTable],
+  ]) {
+    console.log(cond ? '✅' : '❌', nm, cond ? '' : JSON.stringify(det))
+    if (!cond) fail++
+  }
   // A 判据端到端:真实仓四处档位表必须一致(此例同时钉住 Windows 下 import() 必须走 pathToFileURL 的回归)
   let tableErr = []
   try {
