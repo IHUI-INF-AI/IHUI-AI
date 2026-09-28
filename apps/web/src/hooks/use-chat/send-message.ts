@@ -70,7 +70,7 @@ import {
 import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 import { estimateLiveUsage } from './live-usage'
 // V3 #69:budget 命名帧的唯一落点(输入框上方 ContextBudgetBar 读它;toast 照旧)
-import { clearBudgetEvent, setBudgetEvent } from './budget-state'
+import { clearBudgetEvent, noteBudgetTrustedZeroPhase, setBudgetEvent } from './budget-state'
 // V3 #63(2026-09-27 立):form_request 帧 → 消息流业务表单的对话流消费点。
 // 投影判据(什么帧才配渲染成表单)只在 form-request-frame.ts 一处;此处只接线。
 import { projectFormRequestFrame } from './form-request-frame'
@@ -662,6 +662,10 @@ export function createSendMessage(
           // 原缺陷:流式期间用户切换会话后,setMessages 会用旧会话的压缩消息
           // 整体覆盖新会话的消息列表(消息串会话)。
           if (useChatStore.getState().conversationId !== conversationId) return
+          // G-404(2026-09-29):压缩帧是**结构化**重置信号 —— 紧随其后的那一枚 used=0
+          // budget 采样是真话(上下文确实被压掉了),不得被"瞬时 0"判据 held 成旧值。
+          // 阶段名取自事件本身(onCompaction),不是文案 —— 身份不得从文案重建(§30/守门 135 同族)。
+          noteBudgetTrustedZeroPhase('auto-compaction')
           // 显示底部压缩状态栏(2026-08-16 立)
           useChatStore.getState().setCompactionStatus({
             phase: 'done',
