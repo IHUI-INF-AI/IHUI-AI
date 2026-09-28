@@ -121,7 +121,7 @@ export function Input({
   return (
     <TextInput
       className={cn(
-        'h-10 rounded-md border border-input bg-transparent px-3 text-sm text-foreground',
+        'h-10 rounded-sm border border-input bg-transparent px-3 text-sm text-foreground',
         className,
       )}
       style={[style, focused ? { borderColor: primaryColor } : null]}
