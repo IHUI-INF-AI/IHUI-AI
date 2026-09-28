@@ -20994,6 +20994,7 @@
     "desktopSyncOff": "Cross-device sync disabled",
     "desktopSyncFailed": "Sync failed; this device’s settings are kept",
     "desktopSyncUnknown": "Sync status is unavailable right now (network or sign-in); this device’s settings still apply",
+    "desktopPrefsUnsupported": "This desktop version doesn't support these settings yet. Update to the latest version to change them here.",
     "cliImportDesc": "Import CLI configuration and credentials",
     "cliImportTitle": "CLI Import",
     "connectedAccountsBoundAt": "Bound At",

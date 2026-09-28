@@ -20984,6 +20984,7 @@
     "desktopSyncOff": "デバイス間同期をオフにしました",
     "desktopSyncFailed": "同期に失敗しました。このデバイスの設定は保持されています",
     "desktopSyncUnknown": "同期状態を一時的に取得できません（ネットワークまたはログイン状態）。このデバイスの設定はそのまま有効です",
+    "desktopPrefsUnsupported": "現在のデスクトップ版はこの設定に未対応です。最新バージョンに更新するとここで変更できます。",
     "cliImportDesc": "CLI設定と資格情報をインポート",
     "cliImportTitle": "CLIインポート",
     "connectedAccountsBoundAt": "バインド",
