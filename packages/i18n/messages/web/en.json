@@ -7158,6 +7158,9 @@
       "todo": "To Do",
       "transition": "Transition",
       "triage": "Triage",
+      "terminatedCancelled": "Cancelled",
+      "terminatedQuotaExceeded": "Quota exceeded",
+      "terminatedPreempted": "Preempted",
       "worker": "Worker",
       "workspace": "Workspace",
       "low": "Low",
@@ -13381,8 +13384,30 @@
       "title": "Drama Editor"
     }
   },
+  "aiApprovedRules": {
+    "title": "Approved command rules",
+    "description": "Prefix allow rules created via approval. They expire after 90 days and can be revoked anytime.",
+    "empty": "No approved rules yet",
+    "prefixHeader": "Command prefix",
+    "createdAtHeader": "Created",
+    "expiresAtHeader": "Expires",
+    "neverExpires": "Never expires",
+    "revoke": "Revoke",
+    "revokeConfirmTitle": "Revoke this rule?",
+    "revokeConfirmContent": "After revocation, commands with the prefix \"{prefix}\" will require manual approval again.",
+    "revokeFailed": "Revoke failed, please retry",
+    "loadFailed": "Failed to load approved rules",
+    "refresh": "Refresh",
+    "scopeAlways": "Long-term",
+    "scopeSession": "This session"
+  },
   "editor": {
     "toolApproval": {
+      "grantRuleToggle": "Approve and allow this kind of command",
+      "grantRuleDesc": "Creates an allow rule scoped to the command prefix \"{prefix}…\". It expires automatically after 90 days and can be revoked anytime from the approved rules panel.",
+      "grantRuleConfirmTitle": "Allow this high-risk command?",
+      "grantRuleConfirmContent": "The command \"{prefix}…\" matches a high-risk operation. Once allowed, similar commands will skip approval for 90 days — you assume the risk of use.",
+      "grantRuleConfirmCancel": "Cancel",
       "approve": "Approve",
       "argsPreview": "Arguments",
       "description": "AI requests to run the following high-risk operation. Please confirm whether to allow it.",
