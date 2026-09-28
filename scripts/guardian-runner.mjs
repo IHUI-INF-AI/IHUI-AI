@@ -3998,6 +3998,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 🔐 按凭据存在性豁免对账(blocking,G-459:头名在场即跳过安全判定必须逐条裁过)(1 项,blocking)---
+  {
+    id: '157',
+    label:
+      '🔐 按凭据存在性豁免对账(blocking,G-459:头名在场即跳过安全判定必须逐条裁过)',
+    script: 'check-credential-presence-bypass.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS',
+    stagedTriggers: ['apps/api/src/plugins,apps/api/src/routes,apps/api/src/utils'],
+    onFailHint: [
+      '',
+      '  💡 出路只有两条:行内 credential-presence-exempt: <原因>,或台账 scripts/data/credential-presence-exemptions.json 带 file+anchor+reason+reviewBy。不得为消红放宽判据。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

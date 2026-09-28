@@ -11,10 +11,11 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from ..core.jwt_auth import require_request_user_id
 from ..services import capability_market as capability_market_module
 from ..services import capability_market_store
 from ..services import mcp_server as mcp_server_module
@@ -294,6 +295,7 @@ async def list_mcp_directory() -> dict[str, Any]:
 async def register_directory_server(
     key: str,
     req: ExternalServerRegisterRequest,
+    user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any] | JSONResponse:
     """目录一键注册:把内置条目转换为 MCPClientConfig 并注册连接。
 
@@ -328,7 +330,7 @@ async def register_directory_server(
             env=cfg_dict.get("env") or {},
             timeout=DEFAULT_TIMEOUT,
         )
-        manager.register(cfg)
+        manager.register(cfg, owner_user_id=user_id)
         client = manager.get_client(name)
         if client is not None:
             try:
@@ -344,11 +346,13 @@ async def register_directory_server(
 
 
 @router.get("/mcp/external/servers", response_model=None)
-async def list_external_servers() -> dict[str, Any]:
-    """列出所有已注册的外部 MCP Server(含连接状态)。"""
+async def list_external_servers(
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """列出当前主体看得见的外部 MCP Server(自己注册的 + 部署级;含连接状态)。"""
     try:
         manager = get_mcp_client_manager()
-        servers = manager.list_registered()
+        servers = manager.list_registered(user_id)
         return {"servers": servers, "count": len(servers)}
     except Exception as e:
         logger.error("列出外部 MCP Server 失败: %s", e)
@@ -362,6 +366,7 @@ async def list_external_servers() -> dict[str, Any]:
 @router.post("/mcp/external/servers", response_model=None)
 async def register_external_server(
     req: ExternalServerRegisterRequest,
+    user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any] | JSONResponse:
     """注册外部 MCP Server 并连接。"""
     try:
@@ -394,7 +399,7 @@ async def register_external_server(
             reconnect=req.reconnect,
             max_reconnect_attempts=req.max_reconnect_attempts,
         )
-        manager.register(cfg)
+        manager.register(cfg, owner_user_id=user_id)
         client = manager.get_client(name)
         if client is not None:
             try:
@@ -410,12 +415,19 @@ async def register_external_server(
 
 
 @router.delete("/mcp/external/servers/{name}", response_model=None)
-async def unregister_external_server(name: str) -> dict[str, Any] | JSONResponse:
-    """注销外部 MCP Server 并断开连接。"""
+async def unregister_external_server(
+    name: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """注销外部 MCP Server 并断开连接(只能注销自己注册的;部署级谁都动不了)。"""
     try:
         manager = get_mcp_client_manager()
         if manager.get_client(name) is None:
             return JSONResponse(status_code=404, content={"error": f"MCP Server 不存在: {name}"})
+        if not manager.can_mutate(name, user_id):
+            # 它在列表里本来就看得见(部署级或别人的),所以这里给 403 而不是伪装 404 ——
+            # 伪装成"没这条"与列表面自相矛盾,那是另一种形式的说谎。
+            return JSONResponse(status_code=403, content={"error": f"无权注销该 MCP Server: {name}"})
         await manager.unregister_async(name)
         return {"deleted": name, "ok": True}
     except Exception as e:
@@ -424,13 +436,18 @@ async def unregister_external_server(name: str) -> dict[str, Any] | JSONResponse
 
 
 @router.post("/mcp/external/servers/{name}/connect", response_model=None)
-async def connect_external_server(name: str) -> dict[str, Any] | JSONResponse:
-    """(重)连接指定外部 MCP Server。"""
+async def connect_external_server(
+    name: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """(重)连接指定外部 MCP Server(只允许对自己注册的;部署级由启动流程自己管)。"""
     try:
         manager = get_mcp_client_manager()
         client = manager.get_client(name)
         if client is None:
             return JSONResponse(status_code=404, content={"error": f"MCP Server 不存在: {name}"})
+        if not manager.can_mutate(name, user_id):
+            return JSONResponse(status_code=403, content={"error": f"无权连接该 MCP Server: {name}"})
         await client.connect()
         return _server_info(manager, name)
     except Exception as e:

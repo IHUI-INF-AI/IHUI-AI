@@ -43,6 +43,11 @@ export {
   // `typescript.ignoreBuildErrors: true` 让 TS2724 不进构建,而打包器按 `exports → dist/index.js` 解析,
   // 那里确实没有这个符号 ⇒ 运行时拿到 `undefined`,`tool-approval-dialog.tsx:93` 一点"批准"就抛。
   postToolApprovalResponse,
+  // D151(2026-09-29 立):交互式命令的键入上行出口。必须在此 re-export —— 本包入口是
+  // **显式命名清单**,漏一条端内拿到 undefined;而 `apps/web/next.config.ts` 设了
+  // `typescript.ignoreBuildErrors: true`,TS2724 被吞、构建照过,只有点到那个按钮的人知道
+  // (守门 149 记过的同一型)。
+  postTerminalInput,
 } from './client.js'
 export type {
   TokenProvider,
@@ -68,6 +73,9 @@ export type {
   SubagentProgressEvent,
   CitationsEvent,
   TerminalDeltaEvent,
+  // D151(2026-09-29):命令在等键盘输入的一帧 —— 与 postTerminalInput 同批入入口,
+  // 否则端内要写 onTerminalInteraction 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
+  TerminalInteractionEvent,
   UsageEvent,
   // Budget 用量分档提醒事件(2026-09-19 立,网关发,前端 onBudget toast 提示用量进度)
   BudgetEvent,
