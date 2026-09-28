@@ -9,6 +9,7 @@ import {
   Monitor,
   Power,
   Pin,
+  Info,
   Keyboard,
   Cloud,
   RotateCcw,
@@ -50,6 +51,7 @@ export function DesktopSettingsCard() {
     loading,
     desktopPrefs,
     desktopPrefsLoading,
+    desktopPrefsSupported,
     toggleAutostart,
     toggleTrayAlwaysVisible,
     updateDesktopPrefs,
@@ -66,7 +68,7 @@ export function DesktopSettingsCard() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const sync = useDesktopPrefsSync({
     prefs: desktopPrefs,
-    available: isDesktop,
+    available: isDesktop && desktopPrefsSupported,
     authenticated: isAuthenticated,
     applyRemote: (remote) => updateDesktopPrefs(remote),
   })
@@ -158,26 +160,38 @@ export function DesktopSettingsCard() {
             }}
           />
 
-          {/* 托盘与关闭偏好(六行 + 两种行控件都在 DesktopPrefsSection,受 §4 行数上限所拆) */}
-          <DesktopPrefsSection prefs={desktopPrefs} disabled={busy} onPatch={onPatch} />
+          {/* 托盘与关闭偏好(六行 + 两种行控件都在 DesktopPrefsSection,受 §4 行数上限所拆)。
+              读不到宿主偏好时**不能**把本地默认档摆出去冒充现状 —— 旧安装器没有这套命令,
+              用户拨完什么也不会发生(表现就是"设置无效"却零提示)。改成明说需要更新版本。 */}
+          {desktopPrefsSupported ? (
+            <DesktopPrefsSection prefs={desktopPrefs} disabled={busy} onPatch={onPatch} />
+          ) : (
+            <div className="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{t('desktopPrefsUnsupported')}</span>
+            </div>
+          )}
 
-          {/* 跨设备同步(G-301):本机值永远是执行真相,这里只负责“拉来后经宿主写回”。 */}
-          <SwitchRow
-            icon={Cloud}
-            title={t('desktopSyncTitle')}
-            desc={sync.state === 'unknown' ? t('desktopSyncUnknown') : t('desktopSyncDesc')}
-            checked={sync.state === 'on'}
-            disabled={busy || sync.busy || !isAuthenticated}
-            onCheckedChange={(next) => {
-              void sync.setEnabled(next).then((ok) => {
-                if (!ok) {
-                  toast.error(t('desktopSyncFailed'))
-                  return
-                }
-                toast.success(next ? t('desktopSyncOn') : t('desktopSyncOff'))
-              })
-            }}
-          />
+          {/* 跨设备同步(G-301):本机值永远是执行真相,这里只负责“拉来后经宿主写回”。
+              宿主不支持这套偏好时整行不给 —— 同步开着却无法落回本机,比没有同步更糟。 */}
+          {desktopPrefsSupported && (
+            <SwitchRow
+              icon={Cloud}
+              title={t('desktopSyncTitle')}
+              desc={sync.state === 'unknown' ? t('desktopSyncUnknown') : t('desktopSyncDesc')}
+              checked={sync.state === 'on'}
+              disabled={busy || sync.busy || !isAuthenticated}
+              onCheckedChange={(next) => {
+                void sync.setEnabled(next).then((ok) => {
+                  if (!ok) {
+                    toast.error(t('desktopSyncFailed'))
+                    return
+                  }
+                  toast.success(next ? t('desktopSyncOn') : t('desktopSyncOff'))
+                })
+              }}
+            />
+          )}
 
           {/* 全局快捷键说明 */}
           <div className="space-y-2">

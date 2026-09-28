@@ -155,6 +155,47 @@ describe('useDesktop — 桌面偏好初值与写回', () => {
     expect(result.current.desktopPrefs.closeBehavior).toBe('ask')
     expect(result.current.desktopPrefs.unreadBadge).toBe(false)
   })
+
+  // ── 支持性:读不到 ≠ 支持(旧安装器上六行开关不能照常摆出去) ──
+
+  it('宿主问不到偏好(旧安装器:命令不存在 ⇒ invoke 直接 reject)⇒ desktopPrefsSupported=false', async () => {
+    enterDesktop()
+    // 旧安装器的真实形态不是"回 null",而是"这条命令不存在"⇒ Tauri 侧 reject。
+    // (normalizeDesktopPrefs 对 null 给完整默认档是它自己的契约,用在 patch/广播那两条路上,
+    //  这里刻意不拿它当宿主应答,否则就等于替旧安装器编造一份"读成功"。)
+    invokeMock.mockImplementation((command: string) =>
+      command === 'get_desktop_prefs'
+        ? Promise.reject(new Error('Command get_desktop_prefs not found'))
+        : Promise.resolve(null),
+    )
+    const view = renderHook(() => useDesktop())
+    await waitFor(() => expect(view.result.current.desktopPrefsLoading).toBe(false))
+    expect(view.result.current.desktopPrefsSupported).toBe(false)
+    // 值仍是默认档:界面靠 supported 决定"摆出去冒充"还是"明说不支持",不靠值本身
+    expect(view.result.current.desktopPrefs.closeBehavior).toBe('ask')
+  })
+
+  it('反向对照:读到一份就 supported=true;读不到但写成功,也必须翻正', async () => {
+    const { result } = await mountPrefs({ ...HOST_BASE })
+    expect(result.current.desktopPrefsSupported).toBe(true)
+
+    // 另起一次:先问不到(旧安装器形态),后写成功 ⇒ supported 必须翻正。
+    // "首帧读不到就永远说成不支持"会把一次瞬时失败锁死成永久假阴性。
+    enterDesktop()
+    invokeMock.mockReset()
+    invokeMock.mockImplementation((command: string) => {
+      if (command === 'get_desktop_prefs') return Promise.reject(new Error('not found'))
+      if (command === 'set_desktop_prefs') return Promise.resolve({ ...HOST_BASE })
+      return Promise.resolve(null)
+    })
+    const retry = renderHook(() => useDesktop())
+    await waitFor(() => expect(retry.result.current.desktopPrefsLoading).toBe(false))
+    expect(retry.result.current.desktopPrefsSupported).toBe(false)
+    await act(async () => {
+      await retry.result.current.updateDesktopPrefs({ showTrayIcon: false })
+    })
+    expect(retry.result.current.desktopPrefsSupported).toBe(true)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 

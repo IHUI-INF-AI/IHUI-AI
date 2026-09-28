@@ -20961,6 +20961,7 @@
     "desktopSyncOff": "已关闭跨设备同步",
     "desktopSyncFailed": "同步失败，本机设置已保留",
     "desktopSyncUnknown": "同步状态暂时取不到（网络或登录态），本机设置照常生效",
+    "desktopPrefsUnsupported": "当前桌面端版本还不支持这些设置（升级到最新版后即可在这里调整）",
     "cliImportDesc": "导入 CLI 配置与凭证",
     "cliImportTitle": "CLI 导入",
     "connectedAccountsBoundAt": "绑定时间",
