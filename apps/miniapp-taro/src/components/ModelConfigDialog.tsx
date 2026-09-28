@@ -236,7 +236,7 @@ export default function ModelConfigDialog({
       <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onClose}>
         <View className="absolute inset-0 bg-[var(--color-black-40)]" />
         <View
-          className="relative bg-card rounded-xl mx-6 w-full max-w-sm max-h-[80vh] overflow-y-auto"
+          className="relative bg-card ui-panel rounded-xl mx-6 w-full max-w-sm max-h-[80vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
           hoverClass="opacity-60"
         >
@@ -576,7 +576,7 @@ export default function ModelConfigDialog({
     <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onClose}>
       <View className="absolute inset-0 bg-[var(--color-black-40)]" />
       <View
-        className="relative bg-card rounded-xl mx-4 w-full max-w-md max-h-[85vh] overflow-y-auto"
+        className="relative bg-card ui-panel rounded-xl mx-4 w-full max-w-md max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >

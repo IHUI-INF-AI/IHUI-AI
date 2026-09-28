@@ -66,7 +66,7 @@ export function AiTerminalDock() {
     <div
       data-testid="ai-terminal-dock"
       className={cn(
-        'flex shrink-0 flex-col overflow-hidden rounded-lg bg-card',
+        'flex shrink-0 flex-col overflow-hidden ui-card rounded-lg bg-card',
         isResizing && 'select-none',
       )}
     >

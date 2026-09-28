@@ -38,7 +38,7 @@ export function ServicesContent(): React.JSX.Element {
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           {t('hero.cta')}
         </div>

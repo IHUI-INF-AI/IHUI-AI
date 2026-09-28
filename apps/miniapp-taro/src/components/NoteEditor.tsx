@@ -31,7 +31,7 @@ export default function NoteEditor({
     <View className="fixed inset-0 z-[2000] flex items-end" onClick={onCancel}>
       <View className="absolute inset-0 bg-[var(--color-black-40)]" />
       <View
-        className="relative bg-card rounded-t-2xl w-full px-4 pb-6 pt-4"
+        className="relative bg-card ui-card rounded-$1-2xl w-full px-4 pb-6 pt-4"
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >

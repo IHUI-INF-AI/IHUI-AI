@@ -42,7 +42,7 @@ export default function FavoritesPage() {
   }
   if (error) {
     return (
-      <div className="m-2 bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive text-xs">
+      <div className="m-2 bg-destructive/10 text-destructive px-2.5 py-2 ui-card rounded-lg border border-destructive text-xs">
         <div className="mb-2">{error}</div>
         <button
           type="button"

@@ -324,7 +324,7 @@
   margin: 0 20rpx 24rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 .member-menu-item {
