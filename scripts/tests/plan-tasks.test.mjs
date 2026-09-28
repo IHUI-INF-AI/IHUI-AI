@@ -11,7 +11,7 @@
  * §5c 溯源水印：本文件受 `scripts/watermark.mjs` 管理。
  */
 import path from 'node:path'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
@@ -28,13 +28,19 @@ import {
   titleOf,
 } from '../lib/plan-task-index.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   countNewUndisposed,
+  f9GroupLine,
+  f9KeySetOf,
+  f9Ratchet,
   gate,
   grewViolations,
   newCollisionGroups,
   parseArgs,
+  planF9BaselineRewrite,
   probe,
+  replaceTopLevelJsonValueText,
   ratchetViolations,
 } from '../plan-tasks.mjs'
 
@@ -198,6 +204,20 @@ test('M9 每一维判据都必须有基线键(缺项=那一维静默不判,而�
   )
   for (const k of keys) {
     if (k === 'F5') continue // F5 方向相反,单独由 gate() 判,不走 ratchetViolations
+    if (k === 'F9') {
+      // G-312:F9 的锚点是**键集合**而不是计数。"缺项/错形状 ⇒ 那一维静默不判"这条善意对两种
+      // 形状同样成立,所以本条必须按新形状判 —— 退回 `typeof === 'number'` 等于把迁移后的锚点
+      // 当成"缺项",而 gate() 侧对整数形状是**判无法判定(exit 2)**,两边对同一份基线给出相反结论。
+      if (!Array.isArray(base.F9) || base.F9.some((x) => typeof x !== 'string' || x === ''))
+        throw new Error(
+          `基线 F9 不是"非空字符串数组"⇒ 这一维只能判"形状未迁移",不得被读成通过:${JSON.stringify(base.F9 ?? null).slice(0, 60)}`,
+        )
+      if (JSON.stringify([...base.F9].sort()) !== JSON.stringify(base.F9))
+        throw new Error('基线 F9 必须已排序 —— 未排序时"是否收窄"随人工编辑顺序漂移,锚点就不再是一个集合')
+      if (new Set(base.F9).size !== base.F9.length)
+        throw new Error('基线 F9 有重复键 ⇒ "基线里没有的键"会算重,棘轮读数不再等于组数')
+      continue
+    }
     if (typeof base[k] !== 'number')
       throw new Error(
         `基线缺 ${k}(棘轮对缺项那一维完全不判 ⇒ 加维必须同笔写基线):${JSON.stringify(base)}`,
@@ -628,7 +648,10 @@ test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/
   const base = JSON.parse(
     readFileSync(new URL('../plan-task-state-baseline.json', import.meta.url), 'utf8'),
   )
-  if (typeof base.F9 !== 'number') throw new Error('基线缺 F9 键 ⇒ 棘轮对这一维静默不判(M9 同型)')
+  if (!Array.isArray(base.F9) || base.F9.some((x) => typeof x !== 'string' || x === ''))
+    throw new Error(
+      `基线 F9 不是键数组 ⇒ 棘轮对这一维静默不判(G-312 迁移后必须是排序键集):${JSON.stringify(base.F9 ?? null).slice(0, 60)}`,
+    )
   const face = (n, gs) => ({
     counts: {
       forks: 0,
@@ -670,10 +693,21 @@ test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/
   const flat = run(() => gate(face(0, []), false, ROOT, face(0, []), null))
   if (flat.rc !== 0) throw new Error(`什么都没带进来的提交不得被拦,实测 exit ${flat.rc}`)
   // 恒红门检查:存量撞号(哪怕 --strict)只报数不判红 —— 定级理由见 lib findIdCollisions 头注。
-  const stock = run(() => gate(face(base.F9, []), true, ROOT, null, null))
+  // 这一臂同时是"基线含全部现键 ⇒ 绿"的正向证明(键集逐字取自真仓基线,一个都不多一个都不少)。
+  const stockGroups = base.F9.map((k) => ({
+    key: k,
+    titleCount: 2,
+    titles: [
+      { title: `${k} 标题甲`, lines: [1] },
+      { title: `${k} 标题乙`, lines: [2] },
+    ],
+  }))
+  const stock = run(() => gate(face(base.F9.length, stockGroups), true, ROOT, null, null))
   if (stock.rc !== 0)
-    throw new Error(`--strict 遇存量撞号 ${base.F9} 组不得判红(恒红门),实测 exit ${stock.rc}`)
-  if (!stock.cap.some((x) => x.includes('F9') && x.includes(String(base.F9))))
+    throw new Error(
+      `--strict 遇存量撞号 ${base.F9.length} 组不得判红(恒红门),实测 exit ${stock.rc}:${JSON.stringify(stock.cap.slice(-2))}`,
+    )
+  if (!stock.cap.some((x) => x.includes('F9') && x.includes(String(base.F9.length))))
     throw new Error('绿档也必须把存量撞号数报出来(把看不见混进没问题是本仓最高频失效型)')
 })
 
@@ -722,4 +756,213 @@ test('M18 F3 对"门自己产出的指针措辞"必须有牙(族表两条各一�
   ].join('\n')
   if (findRotatedPointers(anchored).length !== 0)
     throw new Error('内容锚点形态被判红 ⇒ 出口产出的形态被门自己当成违规(两道机制互咬)')
+})
+
+/**
+ * M18–M20 F9 基线层的**键集锚点**(2026-09-27 G-312)。
+ *
+ * 为什么单独立三条而不是靠 M17:M17 钉的是"撞号怎么数出来"(判据侧),本三条钉的是
+ * "数出来之后拿什么当锚点"(台账侧)。台账原文的修法:基线 F9 从计数改成排序键数组,
+ * 判红条件仍是"出现基线里没有的键"。计数锚的后果是确定的 —— 红只说"变多了",
+ * 说不出是哪几组;而它还有第二种失明的形状是**等量换键**(清一组 + 新撞一组 ⇒ 组数不变),
+ * 与守门 134"锚点粒度不够细 ⇒ 换个写法就净零逃逸"同族。四臂成对,一臂都不能少。
+ */
+const BASE_KEYS = JSON.parse(
+  readFileSync(new URL('../../scripts/plan-task-state-baseline.json', import.meta.url), 'utf8'),
+).F9
+const gOf = (key, n = 2) => ({
+  key,
+  titleCount: n,
+  titles: Array.from({ length: n }, (_, i) => ({
+    title: `${key} 标题${'甲乙丙丁戊'[i] ?? i + 1}`,
+    lines: [i + 1],
+  })),
+})
+const f9face = (gs) => ({
+  counts: {
+    forks: 0,
+    voidRows: 0,
+    rotatedPointers: 0,
+    dupOpenCopies: 0,
+    verbatimDupCopies: 0,
+    dupBlocks: 0,
+    newUndisposed: 0,
+    mergeNotes: 99,
+    collisionGroups: gs.length,
+  },
+  staleRows: [],
+  collisions: gs,
+})
+const capture = (fn) => {
+  const log = console.log
+  const cap = []
+  console.log = (s) => cap.push(String(s))
+  try {
+    return { rc: fn(), cap }
+  } finally {
+    console.log = log
+  }
+}
+
+test('M18 F9 键集锚四臂:基线含全部现键⇒绿 / 新键⇒红且点名 / 同键多挂一行⇒读数不动 / 等量换键⇒红(计数锚恒绿那一型)', () => {
+  // (a) 基线含全部现键 ⇒ 绿(逐字用真基线键集,不是自造夹具)
+  if (f9Ratchet({ F9: BASE_KEYS }, f9face(BASE_KEYS.map((k) => gOf(k)))).kind !== 'ok')
+    throw new Error('基线含全部现键却判红 ⇒ 锚点被读成了"集合相等才行"以外的东西')
+  // (b) 注入一个基线里没有的撞号键 ⇒ 红,且点名该键与**两侧标题**
+  const inj = f9Ratchet(
+    { F9: BASE_KEYS },
+    f9face([...BASE_KEYS.map((k) => gOf(k)), gOf('Z-3120927', 2)]),
+  )
+  if (inj.kind !== 'red' || inj.added.join() !== 'Z-3120927')
+    throw new Error(`注入新键必须只点名 Z-3120927,实测 ${JSON.stringify(inj)}`)
+  const red = capture(() =>
+    gate(f9face([...BASE_KEYS.map((k) => gOf(k)), gOf('Z-3120927', 2)]), false, ROOT, null, null),
+  )
+  if (red.rc !== 1) throw new Error(`基线里没有的键必须拦下,实测 exit ${red.rc}`)
+  if (!red.cap.some((x) => x.includes('基线新增撞号') && x.includes('Z-3120927')))
+    throw new Error(`红档必须逐组点名(键),实测 ${JSON.stringify(red.cap.slice(-3))}`)
+  for (const t of ['Z-3120927 标题甲', 'Z-3120927 标题乙'])
+    if (!red.cap.some((x) => x.includes(t)))
+      throw new Error(`红档必须报出两侧标题"${t}"(否则被拦的人拿不到可执行名单),实测 ${JSON.stringify(red.cap.slice(-2))}`)
+  if (!red.cap.some((x) => x.includes('行号只当定位')))
+    throw new Error('必须声明行号不得当判据(§1:每次 append 都会挪位)')
+  // (c) 同键多挂一行 ⇒ 读数不移动(与计数锚的语义差之"多挂"侧)
+  const extraRow = f9face([...BASE_KEYS.map((k) => gOf(k)), gOf(BASE_KEYS[0], 3)])
+  if (f9Ratchet({ F9: BASE_KEYS }, extraRow).kind !== 'ok')
+    throw new Error('同一撞号编号上再多挂一个标题不得移动基线读数(那是 F1/F4 的病,不是新撞号)')
+  const stillGreen = capture(() => gate(extraRow, false, ROOT, null, null))
+  if (stillGreen.rc !== 0)
+    throw new Error(`同键多挂一行不得拦提交,实测 exit ${stillGreen.rc}:${JSON.stringify(stillGreen.cap.slice(-2))}`)
+  // (c2) 等量换键:去掉一个基线键 + 新撞一个非基线键 ⇒ **组数与基线键数相等**,
+  //       计数锚在这一型上恒绿,键集锚必须红。这是本次迁移换来的真本事,必须有名字。
+  const swap = [...BASE_KEYS.slice(1).map((k) => gOf(k)), gOf('Z-3120927')]
+  if (swap.length !== BASE_KEYS.length)
+    throw new Error('夹具不成立(组数没对上基线键数)⇒ 这一臂退化成普通新增测试')
+  const swapped = f9Ratchet({ F9: BASE_KEYS }, f9face(swap))
+  if (swapped.kind !== 'red' || swapped.added.join() !== 'Z-3120927')
+    throw new Error(`等量换键必须被键集锚抓到(计数锚对它恒绿),实测 ${JSON.stringify(swapped)}`)
+  // (d) 基线还是整数 ⇒ 大声"形状未迁移"并按无法判定处理,绝不静默放行
+  const oldShape = f9Ratchet({ F9: 59 }, f9face(BASE_KEYS.map((k) => gOf(k))))
+  if (oldShape.kind !== 'unmigrated' || !oldShape.message.includes('形状'))
+    throw new Error(`整数旧值必须判"形状未迁移",实测 ${JSON.stringify(oldShape)}`)
+  const dir = mkScratch('plan-g312-shape')
+  try {
+    mkdirSync(path.join(dir, 'scripts'), { recursive: true })
+    writeFileSync(
+      path.join(dir, 'scripts', 'plan-task-state-baseline.json'),
+      `${JSON.stringify({ F1: 0, F2: 0, F3: 0, F4: 0, F4b: 0, F6: 0, F5: 21, F8: 0, F9: 59 }, null, 2)}\n`,
+      'utf8',
+    )
+    const g = capture(() => gate(f9face(BASE_KEYS.map((k) => gOf(k))), false, dir, null, null))
+    if (g.rc !== 2)
+      throw new Error(`旧形状基线不得返回 0/1 冒充当过结论,必须 exit 2(无法判定),实测 ${g.rc}`)
+    if (!g.cap.some((x) => x.includes('无法判定') && x.includes('形状')))
+      throw new Error(`旧形状必须大声报"形状未迁移",实测 ${JSON.stringify(g.cap.slice(-2))}`)
+  } finally {
+    rmScratch(dir)
+  }
+  // 出口一致性:键集必须由 f9KeySetOf **排序去重**(否则"是否收窄"随人工编辑顺序漂移),
+  // 点名文案必须出自 f9GroupLine 那一份实现(两处各写一遍必漂移)。
+  if (f9KeySetOf(f9face([gOf('B-2'), gOf('A-1'), gOf('B-2')])).join() !== 'A-1,B-2')
+    throw new Error('f9KeySetOf 未排序去重 ⇒ 键集读数不可比较,收窄与新增都会算错')
+  const line = f9GroupLine(gOf('K-1'))
+  if (!line.includes('K-1 标题甲') || !line.includes('K-1 标题乙') || !line.includes('被 2 个不同标题共用'))
+    throw new Error(`f9GroupLine 没带出两侧标题 ⇒ 逐组点名退化成只报编号:${line}`)
+  // 反向对照:同一份面换回键集形状基线 ⇒ 必须不是 exit 2(否则 (d) 只是"恒 2"的空锁)
+  const okShape = capture(() => gate(f9face(BASE_KEYS.map((k) => gOf(k))), false, ROOT, null, null))
+  if (okShape.rc !== 0) throw new Error(`键集形状基线 + 全部键在册 ⇒ 必须 exit 0,实测 ${okShape.rc}`)
+  // blind 态:有组数却没带逐组明细 ⇒ 未判定,不记通过
+  const blind = f9Ratchet({ F9: BASE_KEYS }, { counts: { collisionGroups: 3 } })
+  if (blind.kind !== 'blind') throw new Error(`缺逐组明细必须判"未判定"而不是 ok,实测 ${JSON.stringify(blind)}`)
+})
+
+test('M19 --update-baseline 只写 F9、只许收窄;拒绝扩大与"顺手刷别的维度"', () => {
+  // 判据层四态
+  const widen = planF9BaselineRewrite({ F9: ['A', 'B'] }, ['A', 'B', 'C'])
+  if (widen.action !== 'refuse-widen' || widen.added.join() !== 'C')
+    throw new Error(`新键集含基线外的键必须拒绝,实测 ${JSON.stringify(widen)}`)
+  const shape = planF9BaselineRewrite({ F9: 59 }, ['A'])
+  if (shape.action !== 'refuse-shape')
+    throw new Error(`旧形状基线不得被"顺手写成键集"(那等于由工具替人决定地板),实测 ${JSON.stringify(shape)}`)
+  const shapeMissing = planF9BaselineRewrite({ F1: 0 }, ['A'])
+  if (shapeMissing.action !== 'refuse-shape')
+    throw new Error(`基线里没有 F9 键时必须拒绝,不能凭空建一份地板:${JSON.stringify(shapeMissing)}`)
+  const noop = planF9BaselineRewrite({ F9: ['A', 'B'] }, ['B', 'A'])
+  if (noop.action !== 'noop') throw new Error(`同键集(乱序输入也一样)不得写盘,实测 ${JSON.stringify(noop)}`)
+  const narrow = planF9BaselineRewrite({ F9: ['A', 'B'] }, ['A'])
+  if (narrow.action !== 'write' || narrow.next.join() !== 'A' || narrow.removed.join() !== 'B')
+    throw new Error(`收窄必须落盘并点名被清掉的键,实测 ${JSON.stringify(narrow)}`)
+  // 写盘层:原位替换必须只动 F9 那一段,注记键与其余维度逐字保留(守门 83 注记键同型事故)
+  const abs = new URL('../../scripts/plan-task-state-baseline.json', import.meta.url)
+  const raw = readFileSync(abs, 'utf8')
+  const old = JSON.parse(raw)
+  const narrowed = old.F9.slice(1)
+  const nextRaw = replaceTopLevelJsonValueText(raw, 'F9', JSON.stringify(narrowed, null, 2).replace(/\n/g, '\n  '))
+  const chk = JSON.parse(nextRaw)
+  if (JSON.stringify(Object.keys(chk)) !== JSON.stringify(Object.keys(old)))
+    throw new Error('原位替换改变了键顺序 ⇒ 注记键被挪动或整文件重写过')
+  for (const k of Object.keys(old))
+    if (k !== 'F9' && JSON.stringify(old[k]) !== JSON.stringify(chk[k]))
+      throw new Error(`原位替换动了 ${k}(本工具只许动 F9)`)
+  if (chk._F9shapeNote !== old._F9shapeNote || typeof chk._F9shapeNote !== 'string')
+    throw new Error('注记键丢失或被改写 —— 整文件重写就是这一型的成因')
+  // F9 值块之外的字节必须逐字相同(一次纯 F9 替换;比"数行数"或"比行数"都更严)
+  const stripF9Value = (t) => {
+    const k = t.indexOf('"F9":')
+    const vStart = t.indexOf('[', k)
+    const vEnd = t.indexOf(']', vStart) + 1
+    if (k < 0 || vStart < 0) throw new Error('夹具不成立:基线里没找到 F9 的数组值')
+    return t.slice(0, vStart) + '[]' + t.slice(vEnd)
+  }
+  if (stripF9Value(raw) !== stripF9Value(nextRaw))
+    throw new Error('F9 值块之外的字节发生了变化 ⇒ 不是一次纯 F9 原位替换')
+  // 找不到键时必须抛错而不是静默"当作没有"(静默跳过 = 基线永远刷不动而账面报成功)
+  let threw = false
+  try {
+    replaceTopLevelJsonValueText('{"F1": 0}\n', 'F9', '[]')
+  } catch {
+    threw = true
+  }
+  if (!threw) throw new Error('基线里没有 F9 时不得静默通过')
+  // 源码锁:刷基线那一段不得再自己造 F1..F8 的值(只许经 planF9BaselineRewrite 写 F9)
+  const src = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  const blk = src.slice(src.indexOf('if (o.updateBaseline) {'), src.indexOf('if (o.json) {'))
+  if (!blk.length || blk.length > 6000) throw new Error(`刷基线代码块解析异常(长度 ${blk.length})⇒ 本锁须同批改`)
+  for (const k of ['F1:', 'F2:', 'F3:', 'F4:', 'F5:', 'F6:', 'F8:'])
+    if (blk.includes(k))
+      throw new Error(`刷基线块里出现了 ${k} —— G-312 起它只许写 F9 这一维,其余维度被工具重写等于跳一次门就能洗自己的账`)
+  if (!blk.includes('planF9BaselineRewrite')) throw new Error('刷基线块没走 planF9BaselineRewrite ⇒ 判据被绕过')
+  if ((blk.match(/writeFileSync\(/g) || []).length !== 1)
+    throw new Error('刷基线块必须只有一个写盘出口(多处写盘 = 绕过"自证只动 F9"那道锁)')
+})
+
+test('M20 粗尺与不变量:两参调用方(converge)照旧判 F9,而非 F9 各维文案逐字不变;gate 必须真调 f9Ratchet', () => {
+  const items = probe(f9face([...BASE_KEYS.map((k) => gOf(k)), gOf('Z-1')]))
+  // 键集形状 + 没给 a ⇒ 粗尺:组数超过基线键数才算债,且文案自报是粗尺
+  const coarse = ratchetViolations({ F9: BASE_KEYS }, items)
+  if (coarse.length !== 1 || !coarse[0].includes('粗尺'))
+    throw new Error(`键数超过基线时粗尺必须点名并自报形状,实测 ${JSON.stringify(coarse)}`)
+  const same = ratchetViolations({ F9: BASE_KEYS }, probe(f9face(BASE_KEYS.map((k) => gOf(k)))))
+  if (same.length) throw new Error(`什么都没多时粗尺不得判红(那是恒红门):${JSON.stringify(same)}`)
+  // 整数旧形状在两参调用方一侧照旧走"比数量"这条通用规则,文案逐字不变
+  const oldTxt = ratchetViolations({ F9: 59 }, probe(f9face(BASE_KEYS.map((k) => gOf(k)))))
+  if (oldTxt.join() !== 'F9 撞号:同编号挂多个不同标题(组) 由基线 59 涨到 71')
+    throw new Error(`旧形状文案漂了(两参消费者跟着变):${JSON.stringify(oldTxt)}`)
+  // 非 F9 各维:与迁移前同一份文案模板(逐字)
+  const f = f9face([])
+  f.counts.forks = 3
+  f.counts.dupBlocks = 2
+  const others = ratchetViolations({ F1: 1, F6: 1, F9: BASE_KEYS }, probe(f))
+  if (others.join(';') !== 'F1 同主键两态并存(组) 由基线 1 涨到 3;F6 整块登记重复(块) 由基线 1 涨到 2')
+    throw new Error(`F1–F8 的基线档语义被动过(本票明令一字不动):${JSON.stringify(others)}`)
+  // 源码锁:gate 必须真把判定面喂给键集档,并把"形状未迁移"落成非零退出
+  const src = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  const body = src.slice(src.indexOf('export function gate('), src.indexOf('// ── 自检'))
+  if (!body.includes('f9Ratchet(base, a)'))
+    throw new Error('gate 没调 f9Ratchet ⇒ 键集判据在提交链上生效次数为 0(自检恒绿那一型)')
+  if (!body.includes('ratchetViolations(base, items, a)'))
+    throw new Error('gate 没把判定面喂给 ratchetViolations ⇒ 基线档还在比数量')
+  if (!/unmigrated[\s\S]{0,400}return 2/.test(body))
+    throw new Error('"形状未迁移"没有落成非零退出 ⇒ 静默放行,等于把这一维关掉')
+  if (!body.includes('f9GroupLine(')) throw new Error('gate 没走逐组点名的唯一文案出口(两处各写一遍必漂移)')
 })
