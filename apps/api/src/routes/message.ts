@@ -533,26 +533,35 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
       // D35(2026-09-26 第三段):本路径绕过 chat-queries 直插,必须自己补齐 turn_ordinal。
       // user 消息开启新轮(max + 1),规则一律取 services/turn-ordinal.js 这个唯一出口,
       // 不得在此重写 role 判断或 +1 语义(与 patrol-scheduler 的补齐同形)。
-      // 同会话并发插入时 max+1 为"尽力而为":顺序双插得到两个不同序号,撞号时序号相等
-      // 但按写入序仍单调不降 —— 由 apps/api/tests/message-send-turn-ordinal.test.ts 证明。
-      const turnRows = await db
-        .select({ maxTurn: sql<number | null>`max(${chatMessages.turnOrdinal})` })
-        .from(chatMessages)
-        .where(eq(chatMessages.conversationId, conversationId))
-      const [created] = await db
-        .insert(chatMessages)
-        .values({
-          conversationId,
-          role: 'user',
-          content,
-          turnOrdinal: turnOrdinalForRole(Number(turnRows[0]?.maxTurn ?? 0), 'user'),
-        })
-        .returning()
+      // O82 续四(2026-09-28)收紧:真库实测无事务的"读 max → 插"同会话并发双插撞号率
+      // 100%(60 对全撞,见 apps/api/tests/turn-ordinal-concurrency.test.ts)。改为事务 +
+      // 会话行 FOR UPDATE:同会话插入按会话行串行,序号必不同且连续;跨会话不受影响。
+      const created = await db.transaction(async (tx) => {
+        await tx
+          .select({ id: chatConversations.id })
+          .from(chatConversations)
+          .where(eq(chatConversations.id, conversationId))
+          .for('update')
+        const turnRows = await tx
+          .select({ maxTurn: sql<number | null>`max(${chatMessages.turnOrdinal})` })
+          .from(chatMessages)
+          .where(eq(chatMessages.conversationId, conversationId))
+        const [row] = await tx
+          .insert(chatMessages)
+          .values({
+            conversationId,
+            role: 'user',
+            content,
+            turnOrdinal: turnOrdinalForRole(Number(turnRows[0]?.maxTurn ?? 0), 'user'),
+          })
+          .returning()
+        await tx
+          .update(chatConversations)
+          .set({ lastMessageAt: new Date(), updatedAt: new Date() })
+          .where(eq(chatConversations.id, conversationId))
+        return row
+      })
       if (!created) return reply.status(500).send(error(500, '消息发送失败'))
-      await db
-        .update(chatConversations)
-        .set({ lastMessageAt: new Date(), updatedAt: new Date() })
-        .where(eq(chatConversations.id, conversationId))
       return reply.status(201).send(
         success({
           message: {
