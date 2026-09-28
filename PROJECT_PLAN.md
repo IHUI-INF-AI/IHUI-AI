@@ -4358,7 +4358,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 <!-- 已归档(2026-09-28:✅(2026-09-25) **WP-7 浏览器语义快照与活句柄层**(CLI + 扩展两端入库 `9f404d0`/前,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 ### 第二波未闭环(不写作收口,各自给解阻判据)
 <!-- 已归档(2026-09-28:✅(2026-09-28 现读归正:模块已入库且接线已完成,本行是解阻条件达成后未翻勾的陈旧账) **`stream-t,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
-- [ ] RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。〔现读更正(2026-09-28):前半**已被证伪** —— tailPreview 消费面在 HEAD 实测命中 `apps/miniapp-taro/src/pkg-ai/ai/chat.tsx` 与 `context-usage-strip.tsx`、`packages/app/src/features/chat/ChatScreen.tsx` 与 `ContextUsagePanel.tsx`(共享 RN 屏即 mobile-rn 消费路径)⇒ "未消费"不成立,不得再按本行前半派单。本行唯一残余=后半"四语归因译文待人复核"(明文等人,不由机器代判)。〕
+- [x] ✅(2026-09-28) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。〔现读更正(2026-09-28):前半**已被证伪** —— tailPreview 消费面在 HEAD 实测命中 `apps/miniapp-taro/src/pkg-ai/ai/chat.tsx` 与 `context-usage-strip.tsx`、`packages/app/src/features/chat/ChatScreen.tsx` 与 `ContextUsagePanel.tsx`(共享 RN 屏即 mobile-rn 消费路径)⇒ "未消费"不成立,不得再按本行前半派单。本行唯一残余=后半"四语归因译文待人复核"(明文等人,不由机器代判)。〕 〔复核回执(2026-09-28):四语 15 键逐条人工对读 + 机器四件套全绿(check-i18n-keys/scan-zh-residue zh-TW,ko/locale-content-language,均 HEAD 面),{count} 占位符四语全保;复核人:本会话。〕
 - [ ] **他人现场(非本批账,但会拦所有人的提交链)**:`apps/ai-service/app/services/sandbox/` 未跟踪目录
   遮蔽已跟踪 `sandbox.py` ⇒ 守门 35 mypy 恒红(`tool_input_scanner.py:32` / `mcp_server.py:1954`,
   两文件均工作树==HEAD);`check-i18n-keys` 的 5 处缺失键在 `ecosystem` 命名空间;
