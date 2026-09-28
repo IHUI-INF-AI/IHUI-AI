@@ -124,7 +124,7 @@ export default function ModelPricingPage() {
               <button
                 key={k}
                 onClick={() => setTab(k)}
-                className={`rounded-lg px-3 py-1.5 text-sm transition ${
+                className={`rounded-sm px-3 py-1.5 text-sm transition ${
                   tab === k ? 'bg-cta text-cta-foreground' : 'border hover:bg-muted'
                 }`}
               >

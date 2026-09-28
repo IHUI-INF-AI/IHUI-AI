@@ -77,7 +77,7 @@ export default function VipPage() {
           <button
             type="button"
             onClick={() => openInWeb('/vip')}
-            className="mt-1 px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors self-start"
+            className="mt-1 px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors self-start"
           >
             {t('page.vip.upgrade')} ↗
           </button>

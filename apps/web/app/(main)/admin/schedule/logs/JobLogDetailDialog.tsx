@@ -100,7 +100,7 @@ export function JobLogDetailDialog({ open, log, onClose }: Props) {
             readOnly
             value={log.exceptionInfo ?? ''}
             placeholder={t('emptyException')}
-            className="h-32 w-full resize-none rounded-md border bg-muted/30 p-3 font-mono text-xs"
+            className="h-32 w-full resize-none rounded-sm border bg-muted/30 p-3 font-mono text-xs"
           />
         </div>
       </DialogContent>

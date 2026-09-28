@@ -161,7 +161,7 @@ export default function AdminLogsPage() {
                 key={d}
                 onClick={() => setStatsDays(d)}
                 className={cn(
-                  'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                  'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
                   statsDays === d
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
@@ -314,7 +314,7 @@ export default function AdminLogsPage() {
                       type="button"
                       onClick={() => setCleanupDays(d)}
                       className={cn(
-                        'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
+                        'rounded-sm border px-3 py-1.5 text-sm font-medium transition-colors',
                         cleanupDays === d
                           ? 'border-brand-accent-deep bg-primary/10 text-primary'
                           : 'border-input text-muted-foreground hover:text-foreground',
