@@ -224,6 +224,62 @@ _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端
 # 决策/超时后由等待方清理(防内存泄漏)。
 _approval_sessions: dict[str, dict[str, dict[str, Any]]] = {}
 
+
+def _persist_grant_rule(entry: dict[str, Any] | None, tool_name: str, session_id: str) -> None:
+    """D158:审批条目带 grant_rule 且工具是 run_command 时,把 argv 前缀落成放行规则。
+
+    键空间唯一实现:approval_persistence.normalize_exec_key(与 mcp_server 共用);
+    TTL=90 天(用户批的预填口径);登记失败只 warn,不阻断本次已批准的执行 ——
+    宁可下次同类命令再问一次,也不因规则落库失败把用户批准的执行打断。
+    """
+    if not isinstance(entry, dict):
+        return
+    gr = entry.get("grant_rule")
+    if not (isinstance(gr, dict) and gr.get("kind") == "exec_prefix"):
+        return
+    if tool_name != "run_command":
+        return
+    argv = entry.get("argv") or []
+    if not isinstance(argv, (list, tuple)) or len(argv) < 1:
+        return
+    try:
+        from app.services import approval_persistence as _ap
+
+        tokens = max(1, min(4, int(gr.get("tokens", 2))))
+        cache_key = _ap.normalize_exec_key([str(x) for x in argv[:tokens]])
+        _ap.grant("always", cache_key, "exec_prefix", ttl_days=90)
+        logger.info(
+            "D158 前缀放行规则已登记(session=%s, argv前缀=%s, ttl=90d)",
+            session_id,
+            list(argv[:tokens]),
+        )
+    except Exception:  # noqa: BLE001 - 登记失败不阻断已批准的执行
+        logger.warning(
+            "D158 前缀放行规则登记失败(session=%s, tool=%s)",
+            session_id,
+            tool_name,
+            exc_info=True,
+        )
+
+
+def _exec_prefix_grant_hits(argv: list[str] | tuple[str, ...]) -> bool:
+    """D158:命令 argv 是否命中任一已登记的前缀放行规则(持久层,经 approval_persistence)。
+
+    匹配键空间与 mcp_server._matches_exec_prefix 同一份(normalize_exec_key);
+    本函数是主对话流(run_command 工具)的**判定出口**,mcp 侧继续用它自己的内存表+持久层
+    双查 —— 两处共用"键怎么算"这一份实现,不共内存表(两套生命周期,各自兜底)。
+    fail-closed:持久层查询异常视为未命中(宁可多问一次,不放行)。
+    """
+    try:
+        from app.services import approval_persistence as _ap
+
+        for _n in range(1, min(4, len(argv)) + 1):
+            if _ap.check(_ap.normalize_exec_key([str(x) for x in argv[:_n]]), "exec_prefix"):
+                return True
+        return False
+    except Exception:  # noqa: BLE001
+        return False
+
 # 会话内「总是允许」授权缓存(内存 dict;轻量对齐 agent_loop_v2 审批缓存语义):
 # session_id -> {tool_name -> scope('session'|'always')}。
 # once 不落缓存;进程重启即失效(session/always 均为内存态,V3 #58 先落地主链路)。
@@ -3744,6 +3800,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if _grant_scope in ("session", "always"):
                                     # 会话内「总是允许」命中:免弹窗(与 agent_loop_v2 审批缓存同语义)
                                     _approval_needed = False
+                                # D158:run_command 额外查前缀放行规则(第四档批准时登记的
+                                # 持久层规则;跨会话、跨重启有效)。命中免弹窗,规则长期
+                                # 有效但可经审批授予列表撤销(见 revoke 出口)。
+                                if (
+                                    _approval_needed
+                                    and tool_name == "run_command"
+                                    and _exec_prefix_grant_hits(args.get("argv") or [])
+                                ):
+                                    _approval_needed = False
                             if _approval_needed:
                                 # 类型收窄兜底(与 delegate 分支同一模式):走到本块 ⇒ 上方 grant
                                 # 块必已执行且未置 False,session_id 在那时已被保证非 None,
@@ -3809,6 +3874,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if _decision == "approve" and _scope in ("session", "always"):
                                     # 落会话内授权缓存(once 不落,下次同工具仍弹窗)
                                     _tool_approval_grants.setdefault(session_id, {})[tool_name] = _scope
+                                # D158:第四档「批准并生成放行规则」—— 只对 run_command 生效,
+                                # 按 argv 前 N 个 token 落**前缀**规则(持久层,90 天 TTL,
+                                # 与 mcp_server 的 exec_prefix 同一键空间)。落规则提成
+                                # _persist_grant_rule(可单测;失败不阻断本次执行)。
+                                if _decision == "approve":
+                                    _persist_grant_rule(_entry, tool_name, session_id)
                                 if _decision is None or _decision != "approve":
                                     _is_timeout = _decision is None
                                     _denied_why = (
@@ -4732,8 +4803,18 @@ async def post_tool_approval_response(session_id: str, body: dict[str, Any] = Bo
     scope = str(body.get("scope") or "once").strip().lower()
     if scope not in ("once", "session", "always"):
         scope = "once"
+    # D158(2026-09-28,用户批"按预填上"):正交扩展 grant_rule —— 与三档 scope 语义并行,
+    # 不新增第四个 scope 字符串。approve 时附带 = "顺手把这类命令写成前缀放行规则"。
+    grant_rule_raw = body.get("grant_rule")
+    grant_rule: dict[str, Any] | None = None
+    if isinstance(grant_rule_raw, dict):
+        _gk = str(grant_rule_raw.get("kind") or "")
+        _gt = grant_rule_raw.get("tokens", 2)
+        if _gk == "exec_prefix" and (isinstance(_gt, int) and 1 <= _gt <= 4):
+            grant_rule = {"kind": "exec_prefix", "tokens": int(_gt)}
     entry["decision"] = decision
     entry["scope"] = scope
+    entry["grant_rule"] = grant_rule  # None = 未要求生成规则(旧客户端语义不变)
     reason = body.get("reason")
     entry["reason"] = str(reason)[:500] if reason else None  # 截断与网关 schema 上限对齐
     entry["event"].set()
