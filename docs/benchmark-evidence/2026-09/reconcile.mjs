@@ -22,13 +22,13 @@
  * 用法: node reconcile.mjs <清单.md> [--section "§10"] [--extra <我方字面量补充文件>...]
  */
 import fs from 'node:fs'
-import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', windowsHide: true }).trim()
 const argv = process.argv.slice(2)
+const SELF_TEST = argv.includes('--self-test')
 const LIST = argv[0]
-if (!LIST || !fs.existsSync(LIST)) {
+if (!SELF_TEST && (!LIST || !fs.existsSync(LIST))) {
   console.error('用法: reconcile.mjs <清单.md> [--section 名称]')
   process.exit(2)
 }
@@ -51,9 +51,24 @@ const our = new Map() // 归一化文本 -> 我方键（可能多键，取首个
 const orig = new Map() // 归一化文本 -> 原始 value：控制测量必须喂真实原文，喂键名会得到假阴性
 const ourPairs = [] // [归一文本, 原始 value, key]
 for (const f of ['packages/i18n/messages/web/zh-CN.json', 'packages/i18n/messages/shared/zh-CN.json']) {
-  const p = path.join(ROOT, f)
-  if (!fs.existsSync(p)) { console.log(`⚠️ 我方语料缺文件: ${f}（该面不计入，会抬高 MISS）`); continue }
-  const acc = flatten(JSON.parse(fs.readFileSync(p, 'utf8')), '', new Map())
+  // 取材面 = 被审面(HEAD)，与下面源码字面量那一侧同形。
+  // 按磁盘读语言包会把"HEAD 有、工作树还滞后"的文案算进我方语料 ⇒ 真差距被洗成 L1；
+  // 反过来别人正在改的行会临时混进语料 ⇒ 同一份清单两次跑出不同结论(本仓"两处算同一件事必漂移"同族)。
+  let text = null
+  try {
+    text = execFileSync('git', ['-C', ROOT, 'show', `HEAD:${f}`], { encoding: 'utf8', maxBuffer: 64e6, windowsHide: true })
+  } catch {
+    console.log(`⚠️ 我方语料取不到(HEAD 面): ${f}（该面不计入，会抬高 MISS）`)
+    continue
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(text)
+  } catch (e) {
+    console.error(`❌ 语言包解析失败 ${f}: ${e?.message ?? e} ⇒ 语料不完整，拒绝出结论`)
+    process.exit(2)
+  }
+  const acc = flatten(parsed, '', new Map())
   for (const [t, k] of acc) if (!our.has(t)) { our.set(t, k); ourPairs.push([t, k, orig.get(t) || '']) }
 }
 // 源码内不走 i18n 的中文字面量（对标附录 C）。
@@ -105,6 +120,11 @@ function jaccard(s1, s2) {
 function matchOne(text, keyName) {
   const t = normText(text)
   if (!t) return { state: 'skip', why: '原文为空或纯符号' }
+  // 非中文原文(键位 Ctrl+Shift+P、代码、英文占位、样式值)不进"这条中文我方有没有"这一维。
+  // 必须摘在匹配之前 —— 实测 `Ctrl+Shift+P` 会被 Jaccard 判成 L2，那比 MISS 更糟：
+  // MISS 是"没找到"，L2 是"找到了"，量具在此替我方发了合格证(本仓"把没判写成判过了"同型)。
+  // 计数走 --json/报告面的 nonCjkSkipped，报名不静默(D167 第②条)。
+  if (!/[㐀-鿿ヰ-ヿ가-힯]/.test(String(text))) return { state: 'skip', why: '非中文原文(不计 MISS，只报数)' }
   // 非文案过滤：附录 C 里混着样式对象与 className 字面量，它们不进入"用户看得见的文本"这一维。
   // 不摘掉会把上百条 CSS 属性当成"我方缺失的界面文案"写进台账（本轮实测抓到 147 条）。
   const kn = String(keyName || '')
@@ -148,26 +168,48 @@ function matchOne(text, keyName) {
   }
 }
 
+if (SELF_TEST) runSelfTest() // 语料已加载 ⇒ 构造面判得动;runSelfTest 内部自行 exit
+
 // —— 解析清单：三种格式 ——
-const lines = fs.readFileSync(LIST, 'utf8').split(/\r?\n/)
-const rows = []
-let section = '', family = ''
-for (const raw of lines) {
-  const l = raw.trim()
-  if (/^#{2,3} /.test(l)) {
-    const t = l.replace(/^#+\s*/, '')
-    if (/^(\d+|附录)\s/.test(t) || /^## /.test(l)) section = t
-    if (/^### /.test(l)) { const m = l.match(/^### `?([^`（ ]+)`?/); family = m ? m[1] : t; continue }
-    continue
+/**
+ * 把竞品清单解析成行记录。**纯函数、不碰磁盘**，好让 `--self-test` 能用构造面判归属。
+ *
+ * 归属规矩：`## 节` 换节**并把族清空**，`### 族` 设族。
+ * 「h2 必须清族」是本器的一条真缺陷回归（D167）：旧写法只在 `###` 处更新族名，
+ * 于是一节里那些**没有 `###` 子标题**的行会沿用上一节的族名 —— 实测把附录 D 的
+ * 错误码行整批记成 `tagPill`，本目录里所有**族级**聚合数字因此不可用（逐行判定仍可用）。
+ */
+export function parseInventory(lines, secFilter = null) {
+  const rows = []
+  let section = '', family = ''
+  for (const raw of lines) {
+    const l = raw.trim()
+    if (/^#{2,3} /.test(l)) {
+      const t = l.replace(/^#+\s*/, '')
+      if (/^(\d+|附录)\s/.test(t) || /^## /.test(l)) {
+        section = t
+        // 换节即清族(2026-09-28 D167 修):旧写法只在 `###` 处更新族名,于是一节里那些
+        // **没有 `###` 子标题**的行会整批沿用上一节的族 —— 附录 D 的错误码行被记成
+        // `tagPill`、该族虚到 87 行,本目录所有**族级**聚合数字随之不可用。
+        if (/^## /.test(l)) family = ''
+      }
+      if (/^### /.test(l)) { const m = l.match(/^### `?([^`（ ]+)`?/); family = m ? m[1] : t; continue }
+      continue
+    }
+    if (secFilter && !section.includes(secFilter)) continue
+    let m = l.match(/^\|\s*`([^`]+)`\s*\|\s*([^|]+?)\s*\|/) // 正文表格 | `key` | 原文 |
+    if (m) { rows.push({ sec: section, fam: family, key: m[1], text: m[2] }); continue }
+    m = l.match(/^\|\s*`([^`]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/) // 错误码表 | code | 标题 | 正文 |
+    if (m && !/^-+$/.test(m[2])) { rows.push({ sec: section, fam: family + '#' + m[1], key: m[1], text: m[2] + ' ' + m[3] }); continue }
+    m = l.match(/^([A-Za-z][A-Za-z0-9_]*):\s*["“]([^"”]{1,80})["”]/) // 附录 C key:"值"
+    if (m) { rows.push({ sec: section, fam: family, key: (family || 'inline') + '.' + m[1], text: m[2] }); continue }
   }
-  if (SEC && !section.includes(SEC)) continue
-  let m = l.match(/^\|\s*`([^`]+)`\s*\|\s*([^|]+?)\s*\|/) // 正文表格 | `key` | 原文 |
-  if (m) { rows.push({ sec: section, fam: family, key: m[1], text: m[2] }); continue }
-  m = l.match(/^\|\s*`([^`]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/) // 错误码表 | code | 标题 | 正文 |
-  if (m && !/^-+$/.test(m[2])) { rows.push({ sec: section, fam: family + '#' + m[1], key: m[1], text: m[2] + ' ' + m[3] }); continue }
-  m = l.match(/^([A-Za-z][A-Za-z0-9_]*):\s*["“]([^"”]{1,80})["”]/) // 附录 C key:"值"
-  if (m) { rows.push({ sec: section, fam: family, key: (family || 'inline') + '.' + m[1], text: m[2] }); continue }
+  return rows
 }
+
+const lines = fs.readFileSync(LIST, 'utf8').split(/\r?\n/)
+const rows = parseInventory(lines, SEC)
+
 
 const bySec = new Map(), misses = []
 for (const r of rows) {
@@ -178,8 +220,8 @@ for (const r of rows) {
   if (res.state === 'MISS') misses.push(`${r.sec.split(' ')[0]} ${r.fam} · \`${r.key}\` · ${r.text.slice(0, 40)}`)
 }
 console.log(`\n=== 对账（共 ${rows.length} 条，筛选=${SEC || '全清单'}）===`)
-console.log('节'.padEnd(30) + 'L1逐字\tL2近义\tL3待核\tMISS')
-for (const [k, v] of bySec) console.log(k.padEnd(28) + `${v.L1}\t${v.L2}\t${v.L3}\t${v.MISS}`)
+console.log('节'.padEnd(30) + 'L1逐字\tL2近义\tL3待核\tMISS\tskip(不计差距)')
+for (const [k, v] of bySec) console.log(k.padEnd(28) + `${v.L1}\t${v.L2}\t${v.L3}\t${v.MISS}\t${v.skip || 0}`)
 console.log('\n=== MISS 明细（候选缺失，仍需人工判"真没有"还是"我方另起一名"）===')
 const uniq = [...new Set(misses)]
 for (const x of uniq.slice(0, Number(process.env.SHOW || 90))) console.log('  · ' + x)
@@ -199,4 +241,45 @@ if (oIdx > 0 && argv[oIdx + 1]) {
   console.log('\n# 已导出 ' + rows2.length + ' 条 → ' + argv[oIdx + 1])
 }
 console.log(`\n# 口径: L1/L2 不算差距; L3=需人工核; MISS 必须逐条定性后才可写进台账。`)
+
+/**
+ * 自检（D167）：三条都判"量具自己会不会把没看见写成没差距"。
+ * 每条都配"它应当红"的构造面 —— 只看它此刻是绿的，等于没取证。
+ */
+function runSelfTest() {
+  const out = []
+  const t = (name, ok, got) => out.push([name, !!ok, got])
+
+  // ST1 换节必须清族：附录 D 的错误码行不得沿用上一节的 `###` 族名。
+  // 立因（实测）：旧写法只在 `###` 处更新 family，于是一节里没有 `###` 的行整批继承
+  // 上一节族名 —— 本目录里 tagPill 被记到 87 行、族级聚合数字全部不可用。
+  {
+    const md = ['## 10 工具与审批', '### `tagPill`', '', '| `a` | 已审批 |', '## 附录 D 错误码', '', '| `E001` | 网络错误 | 请检查网络后重试 |']
+    const rows = parseInventory(md)
+    const inherited = rows.length === 2 && rows[1].fam.includes('tagPill')
+    t('ST1 换节后无 ### ⇒ 族名不得继承上一节', !inherited && rows.length === 2, rows.map((r) => r.fam).join(' / '))
+  }
+
+  // ST2 纯 ASCII（键位、代码、样式值）不得进 MISS：MISS 的含义是"这条中文文案我方没有"，
+  // 拿它套非中文行会凭空造差距（实测 27 行）。判 skip 但要在报告里报名计数，不得静默丢。
+  {
+    const a = matchOne('Ctrl+Shift+P', 'kbd.shortcut')
+    const b = matchOne('请检查网络后重试', 'err.net')
+    t('ST2 非中文原文判 skip 而非 MISS，且中文行不受影响', a.state === 'skip' && b.state !== 'skip', `${a.state} / ${b.state}`)
+  }
+
+  // ST3 取材面形状锁：语言包语料必须走被审面（HEAD），不得按磁盘读。
+  // 立因：源码字面量那一侧已按 HEAD 取（并写了注释说明为什么），语言包这一侧却按磁盘读
+  // —— 同一把尺子两个面，并发会话推进的瞬间就会产出自洽却错位的结论。
+  {
+    const src = fs.readFileSync(new URL(import.meta.url), 'utf8')
+    const diskRead = /fs\.readFileSync\(p\s*,\s*'utf8'\)/.test(src)
+    t('ST3 语言包语料不得按磁盘读（必须经 git show 取被审面）', !diskRead, diskRead ? '仍存在按磁盘读语言包的语句' : '已走被审面')
+  }
+
+  for (const [name, ok, got] of out) console.log(`${ok ? '✅' : '❌'} ${name}${ok ? '' : ' —— 实得: ' + got}`)
+  const bad = out.filter((x) => !x[1]).length
+  console.log(`# 自检 ${out.length - bad}/${out.length} 通过`)
+  process.exit(bad ? 1 : 0)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
