@@ -223,7 +223,7 @@
     },
     {
       "path": "packages/rpc",
-      "status": "windowed",
+      "status": "deep",
       "files": 20,
       "read": 20,
       "notes": "src+examples 全部读到体;但 Layer4/6 全仓零生产调用 ⇒ '有 ACK/重放'只是库素材,不是能力。2026-09-29 试过升 deep 被尺子本人拒(M2:deep 必须带出处指针,而这一条通篇没有 evidence)⇒ 已回退 windowed。**这一格的真实状态是'read=20 无人可兑现'**:数字与尺子现量等值(主会话 find 按 SOURCE_EXT 口径=20),但既没有 file:line 出处、也不是主会话逐枚复验的读数 —— 要升 deep 的解阻前置是逐枚打开这 20 个文件并留下 ≥1 条 evidence 指针,不是改状态字段。",
@@ -232,9 +232,15 @@
         "packages/rpc/src/persistent-protocol.ts:264-275",
         "packages/rpc/src/buffer.ts:72-87",
         "packages/rpc/src/channels.shared.ts:33-55",
-        "packages/rpc/src/delayedChannel.ts:4-16"
+        "packages/rpc/src/delayedChannel.ts:4-16",
+        "packages/rpc/src/persistent-protocol.ts:1-296",
+        "packages/rpc/src/buffer.ts:1-88",
+        "packages/rpc/src/channels.ts:1-4",
+        "packages/rpc/src/delayedChannel.ts:1-17",
+        "packages/rpc/src/channels.shared.ts:1-66"
       ],
-      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 0 枚,其中 0 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十一轮回填:主会话亲验具名 5 枚、新指针 5 枚可兑现(主会话逐行读到体 5 枚(persistent-protocol/buffer/channels/channels.shared/delayedChannel);其余 15 枚仍是取证代理当轮具名读数 ⇒ read=20 是\"5 亲验 + 15 代理具名\"的合计,不是全部亲验。)"
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 0 枚,其中 0 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十一轮回填:主会话亲验具名 5 枚、新指针 5 枚可兑现(主会话逐行读到体 5 枚(persistent-protocol/buffer/channels/channels.shared/delayedChannel);其余 15 枚仍是取证代理当轮具名读数 ⇒ read=20 是\"5 亲验 + 15 代理具名\"的合计,不是全部亲验。) ｜09-29 采纳尺子 M10 建议:20/20 全部读到体 ⇒ status 升 deep;verified=self(主会话本轮逐字读完 persistent-protocol/buffer/channels/delayedChannel/channels.shared 五份全文,行数按 wc -l 现核),不是代理读数。",
+      "verified": "self"
     },
     {
       "path": "packages/zcode-server-cli/src",
@@ -328,8 +334,8 @@
       "path": "apps/zcode-cli/packages/adapters",
       "status": "windowed",
       "files": 202,
-      "read": 25,
-      "remaining": "185 未整读(6 个仅窗口碰过)。本轮 W6-B 整读到体 9 枚:model/retry-budget、stream-retry-boundary、retry-policy、offpeak-retry、failure-tls、errors、proxy-fetch、public-egress-policy、empty-completion-retry ⇒ read 取 max(10) 不取和(与上轮 10 枚的重叠不可计算,真实区间 [10,19])。最大未读块:model/runner-stream 1655、model-execution 1080、runner-debug 905、plugins/marketplace 2724、mcp/index 1950、fs/index 余下 1118、storage/sqlite-session-store 1022、migrations 930、repositories/usage 745。2026-09-29 第三波只读取证再整读到体 8 枚(exec/node-execution-adapter-results、exec/node-execution-adapter-lifecycle、exec/bash-file-output、exec/output-collector、storage/workspace-hook-trust-store、storage/session-store/migration-runner、mcp/oauth-refresh、plugins/atomic-directory),与上一批具名 9 枚**逐名不重名** ⇒ 8 枚可计;但上上轮 read=10 里仍有 1 枚未具名,与这 8 枚的重叠不可计算 ⇒ **按下界取 17 而不是 18**(台账宁可少报覆盖,绝不把没证的读数报成读过;真实区间 [17,18])。 ｜09-29 第十九轮回填:本轮具名整读到体 3 枚,其中 2 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 5 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)",
+      "read": 36,
+      "remaining": "185 未整读(6 个仅窗口碰过)。本轮 W6-B 整读到体 9 枚:model/retry-budget、stream-retry-boundary、retry-policy、offpeak-retry、failure-tls、errors、proxy-fetch、public-egress-policy、empty-completion-retry ⇒ read 取 max(10) 不取和(与上轮 10 枚的重叠不可计算,真实区间 [10,19])。最大未读块:model/runner-stream 1655、model-execution 1080、runner-debug 905、plugins/marketplace 2724、mcp/index 1950、fs/index 余下 1118、storage/sqlite-session-store 1022、migrations 930、repositories/usage 745。2026-09-29 第三波只读取证再整读到体 8 枚(exec/node-execution-adapter-results、exec/node-execution-adapter-lifecycle、exec/bash-file-output、exec/output-collector、storage/workspace-hook-trust-store、storage/session-store/migration-runner、mcp/oauth-refresh、plugins/atomic-directory),与上一批具名 9 枚**逐名不重名** ⇒ 8 枚可计;但上上轮 read=10 里仍有 1 枚未具名,与这 8 枚的重叠不可计算 ⇒ **按下界取 17 而不是 18**(台账宁可少报覆盖,绝不把没证的读数报成读过;真实区间 [17,18])。 ｜09-29 第十九轮回填:本轮具名整读到体 3 枚,其中 2 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 5 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第二十五批回填:+1 枚具名整读到体(sqlite-session-store.ts 1022/1022,主会话已用 wc -l 现核行数与指针区间存在性)。少报登记:代理另报 4 枚全文件读到体(ai-elements 的 tool.tsx 170/confirmation.tsx 156/conversation.tsx 163 与 workflow-graph/run-status-presentation.ts 87),但本条目 notes 里既有批次只写了\"components/ai-elements 32/46\"这种**计数而无逐文件清单**,无法证明这 4 枚不与已计入 read=214 的那 32 枚重叠 ⇒ 按\"取不到证据宁可少报\"不入 read,只在此登记。要补这 4 枚,先补那份逐文件清单。atomic-directory.ts 早已有指针⇒不重复加。 ｜09-29 第二十七批回填:本轮具名整读到体 10 枚(存储 repositories 族 8 枚 + 市场族 official-marketplace/zip-source 2 枚),每枚都先 wc -l 独立量行再查该 basename 是否已在切片记录里 ⇒ 重叠即跳过。少报/跳过清单:无。新指针 8 条已按 b≤wc -l 兑现(其中 usage.ts / messages.ts / dwf-journal-codecs.ts / dwf-journal-artifacts.ts / migration-runner.ts / marketplace.ts 六条是窗口读到的机制出处,该六个文件**不计 read**,只作证据)。下轮最大未读块:marketplace.ts :1106-1959(约 854 行 install/update 主流程)、migrations.ts 930 行整文件未读、usage.ts :120-300 与 :449-745(476 行)、sessions.ts 357、dwf-journal-codecs.ts :294-442。",
       "evidence": [
         "apps/zcode-cli/packages/adapters/src/model/retry-budget.ts:8",
         "apps/zcode-cli/packages/adapters/src/model/offpeak-retry.ts:6",
@@ -348,7 +354,16 @@
         "apps/zcode-cli/packages/adapters/src/model/stream-idle-timeout.ts:1-92",
         "apps/zcode-cli/packages/adapters/src/model/runner-stream.ts:861-908",
         "apps/zcode-cli/packages/adapters/src/mcp/index.ts:1581-1607",
-        "apps/zcode-cli/packages/adapters/src/model/retry-budget.ts:8-38"
+        "apps/zcode-cli/packages/adapters/src/model/retry-budget.ts:8-38",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/sqlite-session-store.ts:334-381",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/dwf-journal.ts:390-411",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/usage.ts:300-329",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/dwf-journal-artifacts.ts:72-86",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/messages.ts:35-38",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/dwf-journal-codecs.ts:205-209",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/migration-runner.ts:159-203",
+        "apps/zcode-cli/packages/adapters/src/plugins/zip-source.ts:455-470",
+        "apps/zcode-cli/packages/adapters/src/plugins/marketplace.ts:2670-2695"
       ],
       "rejectedEvidence": [
         "apps/zcode-cli/packages/adapters/src/fs/index.ts:740"

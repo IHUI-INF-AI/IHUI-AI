@@ -9,21 +9,25 @@ import * as path from 'node:path';
 // 夹具唯一落点(AGENTS §26):活进程的 TEMP 可能仍钉在 C 盘,故一律不写 os.tmpdir()。
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 
-import { getMarketplaceCacheDir } from '../src/plugins/paths.js';
+import { getInstalledPluginsDir, getMarketplaceCacheDir, getRegistryPath } from '../src/plugins/paths.js';
 import {
   DirectorySwapError,
   PluginSwapCancelledError,
+  authorityForTarget,
   commitStagedSwap,
+  currentSwapProcessOwnerId,
   finalizeStagedSwap,
   getCachePath,
   getOrCloneGitCache,
   isUsableDirectoryCopy,
   landStagedSwap,
   prepareStagingDirectory,
+  recoverStaleSwapArtifacts,
   supersededPathFor,
   swapMarkerName,
   swapScratchMarkers,
   takeOwnershipOfTarget,
+  type SwapAuthority,
 } from '../src/plugins/cache.js';
 
 /**
@@ -400,6 +404,290 @@ describe('目录级提交点原语 — 所有权 / 落盘 / 事务号', () => {
     expect(isUsableDirectoryCopy(target)).toBe(true);
     expect(fs.readFileSync(path.join(target, 'old.txt'), 'utf-8')).toBe('old');
     expect(fs.existsSync(path.join(target, 'new.txt'))).toBe(false);
+  });
+});
+
+// ==================== 崩溃后的恢复(G-730 权威面 × G-731 写者证据) ====================
+
+describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
+  /**
+   * 造一份"上一次进程崩在提交序列中间"的现场。
+   *
+   * 刻意用生产原语造(takeOwnershipOfTarget / landStagedSwap),只把**写者身份**改写成外进程
+   * —— 判活与权威对账吃的必须是真实形态的 marker,不是测试自己拼的假结构。
+   * `markerFields: null` ⇒ 连标记都没有(那是"别人家的遗留目录",一条都不许动)。
+   */
+  function seedCrashScene(opts: {
+    name: string;
+    landNewCopy?: boolean;
+    markerFields?: Record<string, unknown> | null;
+  }): { target: string; archive: string; transactionId: string; authorityFile: string; authority: SwapAuthority } {
+    const target = path.join(tmpHome, 'recover', opts.name);
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, 'old.txt'), 'old', 'utf-8');
+    const authorityFile = path.join(tmpHome, 'recover', `${opts.name}.authority.json`);
+    const authority: SwapAuthority = { path: authorityFile, recordKey: 'p1' };
+
+    const staging = prepareStagingDirectory(target);
+    fs.writeFileSync(path.join(staging, 'new.txt'), 'new', 'utf-8');
+    const swap = takeOwnershipOfTarget(target, staging, { authority });
+    if (opts.landNewCopy) landStagedSwap(swap);
+
+    const archive = swap.superseded as string;
+    const markerPath = path.join(archive, swapMarkerName());
+    if (opts.markerFields === null) {
+      fs.rmSync(markerPath, { force: true });
+    } else {
+      fs.writeFileSync(
+        markerPath,
+        JSON.stringify({
+          transactionId: swap.transactionId,
+          target,
+          stagedAt: new Date().toISOString(),
+          ownerPid: 424242,
+          ownerId: 'another-process',
+          authorityPath: authority.path,
+          authorityKey: authority.recordKey,
+          ...(opts.markerFields ?? {}),
+        }),
+        'utf-8',
+      );
+    }
+    return { target, archive, transactionId: swap.transactionId, authorityFile, authority };
+  }
+
+  /** 写权威记录:安装的那条插件记录里 transactionId 是哪个号 */
+  function writeAuthority(file: string, transactionId: string | null): void {
+    const record: Record<string, unknown> = { name: 'p1', sourceType: 'git', installedAt: '2026-09-29T00:00:00.000Z' };
+    if (transactionId !== null) record.transactionId = transactionId;
+    fs.writeFileSync(file, JSON.stringify({ records: [record] }, null, 2), 'utf-8');
+  }
+
+  const deadWriter = async (): Promise<boolean> => false;
+  const liveWriter = async (): Promise<boolean> => true;
+
+  it('① 权威已含该事务号 ⇒ 只清归档,目标(新一代)一字未动', async () => {
+    const scene = seedCrashScene({ name: 'committed', landNewCopy: true });
+    writeAuthority(scene.authorityFile, scene.transactionId);
+
+    const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: deadWriter });
+
+    expect(outcomes.map((o) => o.action)).toEqual(['archive-deleted']);
+    expect(fs.existsSync(scene.archive)).toBe(false);
+    // 目标仍是新副本 —— 恢复没有把它换回旧代,也没有把旧代内容混进来
+    expect(fs.readFileSync(path.join(scene.target, 'new.txt'), 'utf-8')).toBe('new');
+    expect(fs.existsSync(path.join(scene.target, 'old.txt'))).toBe(false);
+  });
+
+  it('② 权威不含该事务号 + 目标为空槽 ⇒ 归档 rename 回位(旧代回到权威槽位)', async () => {
+    const scene = seedCrashScene({ name: 'not-committed-empty' });
+    writeAuthority(scene.authorityFile, 'an-older-generation-txn');
+
+    const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: deadWriter });
+
+    expect(outcomes.map((o) => o.action)).toEqual(['restored']);
+    expect(fs.existsSync(scene.archive)).toBe(false);
+    expect(fs.readFileSync(path.join(scene.target, 'old.txt'), 'utf-8')).toBe('old');
+    // 回位后标记必须被摘掉:它是"在途事务"的凭据,留在权威副本里会骗下一轮恢复
+    expect(fs.existsSync(path.join(scene.target, swapMarkerName()))).toBe(false);
+  });
+
+  it('③ marker 指向活进程 ⇒ 恢复一条都不动(写者的回滚快照没被抢走,G-731)', async () => {
+    const scene = seedCrashScene({ name: 'live-writer' });
+    writeAuthority(scene.authorityFile, 'an-older-generation-txn');
+    const parent = path.dirname(scene.target);
+    const shapeBefore = fs.readdirSync(parent).sort();
+    const bytesBefore = fs.readFileSync(path.join(scene.archive, 'old.txt'), 'utf-8');
+
+    const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: liveWriter });
+
+    expect(outcomes.map((o) => o.action)).toEqual(['skipped-live-writer']);
+    expect(outcomes[0].reason).toContain('G-731');
+    // 备份字节逐字不变
+    expect(fs.readFileSync(path.join(scene.archive, 'old.txt'), 'utf-8')).toBe(bytesBefore);
+    // 目录形状逐字不变(既没回位也没删除)
+    expect(fs.readdirSync(parent).sort()).toEqual(shapeBefore);
+    expect(fs.existsSync(scene.target)).toBe(false);
+  });
+
+  it('④ marker 指向已死进程 ⇒ 正常回位', async () => {
+    const scene = seedCrashScene({ name: 'dead-writer' });
+    writeAuthority(scene.authorityFile, 'an-older-generation-txn');
+
+    const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: deadWriter });
+
+    expect(outcomes.map((o) => o.action)).toEqual(['restored']);
+    expect(isUsableDirectoryCopy(scene.target)).toBe(true);
+    expect(fs.readFileSync(path.join(scene.target, 'old.txt'), 'utf-8')).toBe('old');
+  });
+
+  it('④b 判活复用 mcp-oauth 那份实现:不注入探针也能把已退出写者判成 dead', async () => {
+    // 999999 与 apps/cli/tests/mcp-oauth.test.ts:330 用的是同一枚"无效 PID"夹具口径。
+    // 这一条不注入 ⇒ 走的是 cache.ts 里的 defaultPidAliveProbe;若那条通道接错或 import 失败,
+    // 结论会落 unverifiable,而本用例要的 archive-deleted 只在**正面判死**时才发生。
+    const scene = seedCrashScene({ name: 'dead-real-probe', landNewCopy: true, markerFields: { ownerPid: 999999 } });
+    writeAuthority(scene.authorityFile, scene.transactionId);
+
+    const outcomes = await recoverStaleSwapArtifacts(scene.target);
+
+    expect(outcomes.map((o) => o.action)).toEqual(['archive-deleted']);
+    expect(outcomes[0].reason).toContain('归档已清除');
+  });
+
+  it('④c 同 pid 而 ownerId 不符 ⇒ pid 已被复用,不得判成"写者还活着"', async () => {
+    const scene = seedCrashScene({
+      name: 'pid-reused',
+      markerFields: { ownerPid: process.pid, ownerId: 'not-this-process' },
+    });
+    writeAuthority(scene.authorityFile, 'an-older-generation-txn');
+
+    const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: liveWriter });
+
+    // 判活通道即使一律回 true,这条也不得走 live 分支 —— 短路在 ownerId 对账上
+    expect(outcomes.map((o) => o.action)).toEqual(['restored']);
+    expect(outcomes[0].reason).toContain('pid 已被复用');
+  });
+
+  it('④d 本进程在途的交换(ownerPid+ownerId 都是自己)⇒ 恢复绝不插手', async () => {
+    const scene = seedCrashScene({
+      name: 'own-in-flight',
+      markerFields: { ownerPid: process.pid, ownerId: currentSwapProcessOwnerId() },
+    });
+    writeAuthority(scene.authorityFile, 'an-older-generation-txn');
+
+    const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: liveWriter });
+
+    expect(outcomes.map((o) => o.action)).toEqual(['skipped-in-process']);
+    expect(fs.existsSync(scene.archive)).toBe(true);
+  });
+
+  // ---------- 存量 marker 兼容口径(约束 2:无 ownerPid/ownerId ⇒ 无凭据) ----------
+
+  it('⑤ 存量 marker 无 ownerPid/ownerId + 空槽 ⇒ 只做零破坏的回位(不判活也不判死)', async () => {
+    const scene = seedCrashScene({
+      name: 'legacy-no-owner-empty',
+      markerFields: { ownerPid: undefined, ownerId: undefined },
+    });
+    writeAuthority(scene.authorityFile, 'an-older-generation-txn');
+
+    const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: liveWriter });
+
+    expect(outcomes.map((o) => o.action)).toEqual(['restored']);
+    expect(fs.readFileSync(path.join(scene.target, 'old.txt'), 'utf-8')).toBe('old');
+    // 判活通道一律回 true 也照样回位 ⇒ 走的是"无凭据"这一档,不是"判成已死"
+    expect(outcomes[0].reason).toContain('无从证明写者已退出');
+  });
+
+  it('⑤-negative 存量 marker 无 ownerPid/ownerId + 新一代在位 ⇒ 不抢占,归档保留不删', async () => {
+    const scene = seedCrashScene({
+      name: 'legacy-no-owner-occupied',
+      landNewCopy: true,
+      markerFields: { ownerPid: undefined, ownerId: undefined },
+    });
+    writeAuthority(scene.authorityFile, scene.transactionId); // 权威已经认了这笔
+
+    const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: liveWriter });
+
+    expect(outcomes.map((o) => o.action)).toEqual(['left-as-is']);
+    expect(outcomes[0].reason).toContain('不抢占');
+    expect(fs.existsSync(path.join(scene.archive, 'old.txt'))).toBe(true);
+  });
+
+  it('归档里没有事务标记 ⇒ 不是本机制的现场,一条都不动', async () => {
+    const scene = seedCrashScene({ name: 'no-marker', markerFields: null });
+    const bytesBefore = fs.readFileSync(path.join(scene.archive, 'old.txt'), 'utf-8');
+
+    const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: deadWriter });
+
+    expect(outcomes.map((o) => o.action)).toEqual(['left-as-is']);
+    expect(fs.readFileSync(path.join(scene.archive, 'old.txt'), 'utf-8')).toBe(bytesBefore);
+  });
+
+  it('权威带的是另一笔事务号而新一代已在位 ⇒ 两份并存,一条不动并报名(不得把旧快照当垃圾删)', async () => {
+    const scene = seedCrashScene({ name: 'cross-generation', landNewCopy: true });
+    writeAuthority(scene.authorityFile, 'an-older-generation-txn');
+
+    const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: deadWriter });
+
+    expect(outcomes.map((o) => o.action)).toEqual(['left-as-is']);
+    expect(outcomes[0].reason).toContain('两份都保留');
+    expect(fs.readFileSync(path.join(scene.target, 'new.txt'), 'utf-8')).toBe('new');
+    expect(fs.readFileSync(path.join(scene.archive, 'old.txt'), 'utf-8')).toBe('old');
+  });
+
+  it('finalize 也必须问权威面:权威带的是另一笔号 ⇒ 归档拒删;号对上 ⇒ 才删', () => {
+    // 这一条刻意走**真实提交序列**的句柄(takeOwnershipOfTarget + landStagedSwap),而不是手工铺的
+    // 归档夹具 —— 它判的就是 finalize 自己那一步,句柄必须是生产盖出来的那一份。
+    const target = path.join(tmpHome, 'finalize-gate');
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, 'old.txt'), 'old', 'utf-8');
+    const authorityFile = path.join(tmpHome, 'finalize-gate.registry.json');
+    const staging = prepareStagingDirectory(target);
+    fs.writeFileSync(path.join(staging, 'new.txt'), 'new', 'utf-8');
+    const swap = takeOwnershipOfTarget(target, staging, {
+      authority: { path: authorityFile, recordKey: 'p1' },
+    });
+    landStagedSwap(swap);
+    const archive = swap.superseded as string;
+
+    // 权威记录里写的是别的号 ⇒ 只比"marker ⊕ 本句柄事务号"会误删权威仍指向的旧快照
+    writeAuthority(authorityFile, 'an-older-generation-txn');
+    const refused = finalizeStagedSwap(swap);
+    expect(refused.deleted).toBe(false);
+    expect(refused.reason).toContain('未获权威确认');
+    expect(fs.existsSync(path.join(archive, 'old.txt'))).toBe(true);
+
+    // 权威把这笔事务号写上了 ⇒ 同一句柄、同一片盘,这次可以删
+    writeAuthority(authorityFile, swap.transactionId);
+    const ok = finalizeStagedSwap(swap);
+    expect(ok.deleted).toBe(true);
+    expect(fs.existsSync(archive)).toBe(false);
+    expect(fs.readFileSync(path.join(target, 'new.txt'), 'utf-8')).toBe('new');
+  });
+
+  it('权威面按路径推导:installed-plugins 的直接子目录 ⇒ registry 那条记录;缓存目录 ⇒ null', () => {
+    const installDir = path.join(getInstalledPluginsDir(), 'demo-plugin');
+    const derived = authorityForTarget(installDir);
+    expect(derived).not.toBeNull();
+    expect(derived?.path).toBe(getRegistryPath());
+    expect(derived?.recordKey).toBe('demo-plugin');
+    // 安装根本身、以及不在它下面的路径,都没有权威记录可问
+    expect(authorityForTarget(getInstalledPluginsDir())).toBeNull();
+    expect(authorityForTarget(getCachePath('https://example.test/derivation.git'))).toBeNull();
+    expect(authorityForTarget(path.join(getInstalledPluginsDir(), 'a', 'b'))).toBeNull();
+  });
+
+  it('恢复挂在读入口上:getOrCloneGitCache 先把崩溃遗留的旧副本回位,再照常刷新', async () => {
+    // 没有这一手,过期刷新会走 hadCache=false 去重新 clone,把最后一份可用旧副本永久留在归档里,
+    // 而本次调用照样报成功 —— 账面看不出盘上还躺着一代内容(与"造好没装车"同一型)。
+    const url = 'https://example.test/crash-recovered.git';
+    const cachePath = getCachePath(url);
+    const archive = `${cachePath}${swapScratchMarkers().superseded}424242`;
+    fs.mkdirSync(archive, { recursive: true });
+    fs.writeFileSync(path.join(archive, 'legacy.txt'), 'legacy', 'utf-8');
+    fs.writeFileSync(
+      path.join(archive, swapMarkerName()),
+      JSON.stringify({
+        transactionId: 'a-crashed-txn',
+        target: cachePath,
+        stagedAt: '2026-09-28T00:00:00.000Z',
+      }),
+      'utf-8',
+    );
+    // 回位过来的目录"该按过期算"这件事不能靠 mtime 断言:rename 之后还要摘标记,目录 mtime 会被
+    // 重新盖章,而本机实测它可能比 Date.now() 还新亚毫秒 ⇒ ttlMs:0 照样被"缓存命中"短路(第一轮
+    // 就红在这里)。TTL 取负让"必须刷新"成为确定性前提,不改一行生产判据。
+    writeMockCloneSrc({ 'fresh.txt': 'fresh' });
+
+    const result = await getOrCloneGitCache(url, { ttlMs: -1 });
+
+    expect(result.fromCache).toBe(false);
+    expect(fs.readFileSync(path.join(cachePath, 'fresh.txt'), 'utf-8')).toBe('fresh');
+    // 遗留归档不再躺在盘上:先回位、再被本次提交序列正常处置
+    expect(fs.existsSync(archive)).toBe(false);
+    expect(leftoverSuperseded(getMarketplaceCacheDir())).toEqual([]);
+    // 回位过来的旧内容不该混进新副本
+    expect(fs.existsSync(path.join(cachePath, 'legacy.txt'))).toBe(false);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

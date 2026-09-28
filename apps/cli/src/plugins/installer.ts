@@ -11,7 +11,9 @@
  *   - installMarketplacePlugin(name, marketplaceRoot):从 marketplace 索引查找后安装
  *   - uninstallPlugin(name):删除安装目录 + 可选保留 plugin-data
  *   - Registry 持久化到 ~/.ihui/installed-plugins/registry.json,支持去重短路
- *   - 路径安全:拒 `..` 越界、符号链接逃逸
+ *   - 路径安全:拒 `..` 越界、符号链接逃逸;**realpath 判不了不再等于放行**(G-705)——
+ *     可跳过的 errno 是封闭集 `{ENOENT, ENOTDIR, EISDIR}`(唯一实现在 `./path-safety.ts`),
+ *     EPERM/EACCES/ELOOP 及任何未知形态一律判 unsafe ⇒ 拒装并给出点名到链接/阶段/错误码的诊断。
  *   - **安装落盘有提交点**:新副本先完整复制进 staging,才进入提交序列
  *     (旧副本原子改名挪开 → 新副本落位 → 事务号核对后才处置旧副本)。
  *     复制失败 / 取消 / 落盘失败 ⇒ 旧副本一律仍在位。
@@ -44,6 +46,11 @@ import {
   PluginSwapCancelledError,
 } from './cache.js';
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
+import {
+  checkSymlinkContainment,
+  classifyRealpathFailure,
+  type ContainmentStage,
+} from './path-safety.js';
 import {
   scanMarketplace,
   findPluginInIndex,
@@ -108,11 +115,58 @@ export class PluginManifestMissingError extends Error {
   }
 }
 
-/** 插件路径不安全异常(包含 `..` 越界或符号链接逃逸) */
+/**
+ * 判红的三种来源(调用方据此分流,不靠读文案猜):
+ *   - `outside-base-dir`       解析后路径越出基准目录(原行为)
+ *   - `symlink-escape`         符号链接真实目标越界(原行为)
+ *   - `symlink-unverifiable`   **新增**:可达性判不了(EPERM/EACCES/ELOOP/未知码)——
+ *     旧实现在这一格 `catch {}` / `continue` 直接放行,即 fail-open;现在按不安全处置
+ *   - `unspecified`            未附详情的历史构造形态(保持向后兼容)
+ */
+export type PluginPathUnsafeReason =
+  | 'unspecified'
+  | 'outside-base-dir'
+  | 'symlink-escape'
+  | 'symlink-unverifiable';
+
+/** 附在异常上的结构化诊断(全部可为空,便于旧构造调用一字不改地继续工作)。 */
+export interface PluginPathUnsafeDetail {
+  reason?: PluginPathUnsafeReason;
+  /** 出问题的符号链接自身 */
+  linkPath?: string | null;
+  /** 链接目标 / 解析后的路径 */
+  targetPath?: string | null;
+  /** 允许范围的根 */
+  rootPath?: string | null;
+  /** 判不了时拿到的 errno(null = 连码都取不到,同样判 unsafe) */
+  errno?: string | null;
+  /** 判不了发生在哪一步(仅 symlink-unverifiable 有值) */
+  stage?: ContainmentStage | null;
+}
+
+/**
+ * 插件路径不安全异常(包含 `..` 越界、符号链接逃逸、符号链接可达性判不了)。
+ *
+ * 为什么带字段而不是只带一句文案:第三方插件被拒时,调用方(命令层/日志/未来的装载审计)
+ * 需要能回答"是哪条链接、哪个码、哪一步"。文案里嵌这些信息,读的人就得再解析一次文案。
+ */
 export class PluginPathUnsafeError extends Error {
-  constructor(msg: string) {
+  readonly code = 'plugin_path_unsafe';
+  readonly reason: PluginPathUnsafeReason;
+  readonly linkPath: string | null;
+  readonly targetPath: string | null;
+  readonly rootPath: string | null;
+  readonly errno: string | null;
+  readonly stage: ContainmentStage | null;
+  constructor(msg: string, detail?: PluginPathUnsafeDetail) {
     super(msg);
     this.name = 'PluginPathUnsafeError';
+    this.reason = detail?.reason ?? 'unspecified';
+    this.linkPath = detail?.linkPath ?? null;
+    this.targetPath = detail?.targetPath ?? null;
+    this.rootPath = detail?.rootPath ?? null;
+    this.errno = detail?.errno ?? null;
+    this.stage = detail?.stage ?? null;
   }
 }
 
@@ -152,38 +206,107 @@ export function saveInstallRegistry(reg: InstallRegistry): void {
 
 // ==================== 路径安全检查 ====================
 
+/** 一次本地路径安全校验的结论(把"为什么不安全"带出去,而不是只回一个布尔)。 */
+type LocalPathSafety =
+  | { readonly safe: true }
+  | {
+      readonly safe: false;
+      readonly message: string;
+      readonly detail: PluginPathUnsafeDetail;
+    };
+
 /**
- * 校验本地路径安全:拒 `..` 越界 / 拒符号链接逃逸。
+ * 校验本地路径安全:拒 `..` 越界 / 拒符号链接逃逸 / **符号链接判不了按不安全处置**。
  *
  * 规则:
  *   - 解析后路径必须位于 baseDir 内(relative 不以 `..` 开头)
  *   - 若解析后路径本身是符号链接,其目标也必须位于 baseDir 内
  *
+ * G-705 修的是这里:旧实现把整段包在 `try { … } catch { /* realpath 失败,跳过 *\/ }` 里,
+ * 于是 EPERM / EACCES / ELOOP(以及 lstat 的同类失败)一律被读成"没有链接"= 放行。
+ * 现在只有 `path-safety.ts` 封闭集里的**明确缺失**才降级(行为与改动前逐字一致),
+ * 其它错误一律 `safe: false`。判据不在本文件重写一遍,只消费结论。
+ *
  * @param localPath 待校验路径(相对或绝对)
  * @param baseDir 基准目录(相对路径以此为根)
  */
-function isPathUnsafe(localPath: string, baseDir: string): boolean {
+function inspectLocalPathSafety(localPath: string, baseDir: string): LocalPathSafety {
   const resolved = path.resolve(baseDir, localPath);
   const rel = path.relative(baseDir, resolved);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) return true;
-  // 符号链接逃逸检查:若 resolved 是 symlink,验证其目标也在 baseDir 内
-  try {
-    if (fs.existsSync(resolved) && fs.lstatSync(resolved).isSymbolicLink()) {
-      const real = fs.realpathSync(resolved);
-      const realBase = fs.realpathSync(baseDir);
-      const realRel = path.relative(realBase, real);
-      if (realRel.startsWith('..') || path.isAbsolute(realRel)) return true;
-    }
-  } catch {
-    // 路径不存在或 realpath 失败,跳过 symlink 检查
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    return {
+      safe: false,
+      message: `不安全的本地路径: ${localPath}`,
+      detail: { reason: 'outside-base-dir', targetPath: resolved, rootPath: baseDir },
+    };
   }
-  return false;
+
+  // 符号链接逃逸检查:仅当 resolved 自身是符号链接时才需要解析可达性
+  let isLink: boolean;
+  try {
+    isLink = fs.existsSync(resolved) && fs.lstatSync(resolved).isSymbolicLink();
+  } catch (err) {
+    const verdict = classifyRealpathFailure(err);
+    if (verdict.kind === 'missing') {
+      // 明确缺失:与改动前一致(后续 existsSync/statSync 会给出"本地源不是目录"的常规错误)
+      return { safe: true };
+    }
+    return {
+      safe: false,
+      message:
+        `不安全的本地路径: ${localPath}(符号链接可达性判不了,按拒装处置 —— ` +
+        `这不是"路径不存在",是"这台机读不到它的真实目标",请核查权限/文件系统后重试):: ${verdict.summary}`,
+      detail: {
+        reason: 'symlink-unverifiable',
+        linkPath: resolved,
+        targetPath: resolved,
+        rootPath: baseDir,
+        errno: verdict.errno,
+      },
+    };
+  }
+  if (!isLink) return { safe: true };
+
+  const verdict = checkSymlinkContainment({
+    linkPath: resolved,
+    targetPath: resolved,
+    rootPath: baseDir,
+  });
+  if (verdict.status === 'contained') return { safe: true };
+  if (verdict.status === 'degraded-missing') {
+    // 链接目标明确不存在(封闭集内,如悬空链接 ENOENT):按改动前口径跳过
+    return { safe: true };
+  }
+  const escape = verdict.status === 'escape';
+  return {
+    safe: false,
+    message: escape
+      ? `不安全的本地路径: ${localPath}(${verdict.message})`
+      : `不安全的本地路径: ${localPath}(符号链接可达性判不了,按拒装处置:${verdict.message})`,
+    detail: {
+      reason: escape ? 'symlink-escape' : 'symlink-unverifiable',
+      linkPath: resolved,
+      targetPath: resolved,
+      rootPath: baseDir,
+      errno: verdict.status === 'unsafe' ? verdict.errno : null,
+      stage: verdict.status === 'unsafe' ? verdict.stage : null,
+    },
+  };
 }
 
 // ==================== 递归复制 ====================
 
 /**
  * 递归复制目录,遇到符号链接时校验目标在源树内(防逃逸)。
+ *
+ * G-705 修的第二处:旧实现在 `catch (e) { if (e instanceof PluginPathUnsafeError) throw e; continue; }`
+ * 里把 **realpath 失败**一律 `continue` —— 于是一条指向范围外的链接,只要解析它时出了
+ * 任何错(EPERM/EACCES/ELOOP),就被当成"这条链接不用管"。现在:
+ *   - `degraded-missing`(封闭集 {ENOENT,ENOTDIR,EISDIR} 内的明确缺失)⇒ 与改动前一致,跳过;
+ *   - `unsafe`(判不了)⇒ 抛 `PluginPathUnsafeError`,**一条内容都不复制**。
+ *     抛出点在 staging 阶段,`installFromDirectory` 会清掉 staging 并上抛 ⇒ 旧副本仍在位。
+ *   - `escape` / `contained` ⇒ 行为不变(拒 / 跟随复制)。
+ * 判据住在 `./path-safety.ts`,这里只消费结论(不得再抄一份 errno 列表)。
  */
 function copyDirRecursive(src: string, dest: string, rootSrc?: string): void {
   const root = rootSrc ?? src;
@@ -195,18 +318,26 @@ function copyDirRecursive(src: string, dest: string, rootSrc?: string): void {
       // 解析符号链接目标
       const target = fs.readlinkSync(s);
       const resolvedTarget = path.isAbsolute(target) ? target : path.resolve(path.dirname(s), target);
-      // 校验目标在源树内
-      try {
-        const realRoot = fs.realpathSync(root);
-        const realTarget = fs.realpathSync(resolvedTarget);
-        const rel = path.relative(realRoot, realTarget);
-        if (rel.startsWith('..') || path.isAbsolute(rel)) {
-          throw new PluginPathUnsafeError(`符号链接逃逸: ${s} -> ${resolvedTarget}`);
-        }
-      } catch (e) {
-        if (e instanceof PluginPathUnsafeError) throw e;
-        // realpath 失败,跳过此 symlink
+      // 校验目标在源树内(判不了 = 拒,不再是"跳过这条链接")
+      const verdict = checkSymlinkContainment({ linkPath: s, targetPath: resolvedTarget, rootPath: root });
+      if (verdict.status === 'degraded-missing') {
         continue;
+      }
+      if (verdict.status !== 'contained') {
+        const escape = verdict.status === 'escape';
+        throw new PluginPathUnsafeError(
+          escape
+            ? `符号链接逃逸,拒绝复制:${verdict.message}`
+            : `符号链接可达性判不了,拒绝复制任何内容(旧副本仍在位):${verdict.message}`,
+          {
+            reason: escape ? 'symlink-escape' : 'symlink-unverifiable',
+            linkPath: s,
+            targetPath: resolvedTarget,
+            rootPath: root,
+            errno: verdict.status === 'unsafe' ? verdict.errno : null,
+            stage: verdict.status === 'unsafe' ? verdict.stage : null,
+          },
+        );
       }
       // 目标在树内,跟随复制
       if (fs.statSync(resolvedTarget).isDirectory()) {
@@ -302,7 +433,7 @@ function installFromDirectory(sourceDir: string, destDir: string, signal?: Abort
   try {
     copyDirRecursive(sourceDir, staging);
   } catch (e) {
-    // 复制失败(含符号链接逃逸):目标目录一步没动
+    // 复制失败(符号链接逃逸,或符号链接可达性判不了):目标目录一步没动
     discardStagingDirectory(staging);
     throw e;
   }
@@ -322,9 +453,10 @@ async function installLocal(
   baseDir: string,
   signal?: AbortSignal,
 ): Promise<InstallOutcome> {
-  // 安全校验
-  if (isPathUnsafe(localPath, baseDir)) {
-    throw new PluginPathUnsafeError(`不安全的本地路径: ${localPath}`);
+  // 安全校验(结论结构化:被拒时点名是哪条链接、哪个 errno、发生在哪一步)
+  const safety = inspectLocalPathSafety(localPath, baseDir);
+  if (!safety.safe) {
+    throw new PluginPathUnsafeError(safety.message, safety.detail);
   }
   const resolvedSrc = path.resolve(baseDir, localPath);
   if (!fs.existsSync(resolvedSrc) || !fs.statSync(resolvedSrc).isDirectory()) {
