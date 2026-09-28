@@ -588,7 +588,7 @@ export function ChartTemplateCard({ payload }: { payload: ChartTemplatePayload }
   const meta = chartTemplateMeta(payload.template)
   return (
     <div
-      className="overflow-hidden rounded-sm border border-border/40"
+      className="overflow-hidden ui-card rounded-lg border border-border/40"
       data-testid="chart-template-card"
       data-chart-template={payload.template}
     >

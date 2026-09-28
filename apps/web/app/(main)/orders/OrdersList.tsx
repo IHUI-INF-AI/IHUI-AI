@@ -81,7 +81,7 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
         return (
           <span
             className={cn(
-              'inline-flex shrink-0 flex-nowrap items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium',
+              'inline-flex shrink-0 flex-nowrap items-center gap-1 whitespace-nowrap ui-chip rounded-md px-2 py-0.5 text-xs font-medium',
               sc.cls,
             )}
           >
