@@ -443,7 +443,7 @@ function createStyles(tk: AppThemeTokens) {
     followBtn: {
       paddingHorizontal: 14, // rpx(28)
       paddingVertical: 6, // rpx(12)
-      borderRadius: rnRadius['2xl'], // rpx(32) radius-role-exempt: 关注按钮为胶囊形，radius≥高度一半，不得方档化 until 2026-11-26
+      borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,
     },
     followBtnActive: {
