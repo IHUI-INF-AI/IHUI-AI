@@ -985,6 +985,25 @@ export interface TerminalDeltaEvent {
   /** 关联 assistant 消息 ID(可选) */
   messageId?: string
 }
+/** D151(2026-09-29 立,用户批「默认开 + 单次等待 300s」):命令停在"等键盘输入"的一帧。
+ *  与 TerminalDeltaEvent 的区别就一句话 —— delta 是"它在输出",本帧是"它停住了、在等你敲一行"。
+ *  线格式 camelCase(生产点 mcp_server._await_terminal_input);键入送回是**上行** POST
+ *  `/llm/complete/stream/{session_id}/terminal-input`,形状 snake_case(`terminal_id`/`text`),
+ *  与 form_response 同族 —— 两条通道形状不同不是疏漏。 */
+export interface TerminalInteractionEvent {
+  /** 与 terminal_start 的 terminalId 一致;代答必须带这个 id,服务端只认登记过的那一条 */
+  terminalId: string
+  /** 那句提示原文(来自命令输出,已按凭据形态脱敏但**不保证**不含敏感内容:不得持久化) */
+  promptTail: string
+  /** 从判定"在等人"到发帧的毫秒数 */
+  waitingSinceMs: number
+  /** 输入模式:目前恒 'line'(整行送回,回车即提交) */
+  inputMode: 'line'
+  /** 单次键入长度封顶(超出由服务端截断) */
+  maxInputChars: number
+  /** 关联 assistant 消息 ID(可选) */
+  messageId?: string
+}
 
 /** 消息级 token 用量计量事件(D1,2026-09-19 立)。
  *
@@ -1117,6 +1136,9 @@ export interface StreamChatOptions {
    *  命令执行期间后端逐块下发 terminal_delta SSE 事件,前端按 terminalId 累加到 store.terminalOutputs,
    *  与 onTerminalStart/End(任务级生命周期)互补:本回调负责命令执行中的流式文本。 */
   onTerminalDelta?: (event: TerminalDeltaEvent) => void
+  /** D151(2026-09-29):命令在等键盘输入。默认无回调时**不解析**(与 tool-delta/injection 同口径),
+   *  这样没接这条腿的端不会平白多一份解析开销,也不会出现"监听了但没人生产"的反向失真。 */
+  onTerminalInteraction?: (event: TerminalInteractionEvent) => void
   /** D113:文件写类工具流中 diff 预览帧(默认无回调时不解析,与 injection 同口径) */
   onToolDelta?: (event: ToolDeltaEvent) => void
   /** 自动重连最大次数(默认 3)。网络错误指数退避重连,业务错误(401/403/429)不重连 */
@@ -1314,6 +1336,9 @@ export function parseStreamLine(line: string): string | null {
     // 绝不能回落成正文增量(parseStreamLine 对每行都会调用,必须在兜底抽取前拦截)。
     if (json?.type === 'thinking') return null
     if (json?.type === 'terminal_delta') return null
+    // D151:terminal_interaction 同样走专用通道 —— 它没有 content/text 字段,但兜底抽取
+    // 会把它当"未知帧"处理,显式分流是不依赖兜底行为的写法(与 terminal_delta 同一条禁令)。
+    if (json?.type === 'terminal_interaction') return null
     if (json?.type === 'compaction') return null
     // D1(2026-09-19 立):usage 命名帧走专用通道(tryParseUsage),
     // 同样不可回落成正文增量(历史坑:带 content 的未知帧曾喷进正文;
@@ -2197,6 +2222,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         typeof opts.onTerminalStart === 'function' && typeof opts.onTerminalEnd === 'function'
       // 终端实时输出增量(2026-09-18 立):onTerminalDelta 存在时启用解析
       const hasTerminalDelta = typeof opts.onTerminalDelta === 'function'
+      // D151:没接这条腿就不解析该帧(与 onToolDelta/onInjection 同口径)
+      const hasTerminalInteraction = typeof opts.onTerminalInteraction === 'function'
       // D113:tool-delta 流中预览(未注册回调不解析)
       const hasToolDelta = typeof opts.onToolDelta === 'function'
       // #11 Citations 全链路(2026-09-13 立):knowledge_lookup 工具执行后下发引用溯源
@@ -2868,6 +2895,41 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** D151(2026-09-29):解析 terminal_interaction —— "命令停住了、在等你敲一行"。
+       *  判据与 tryParseTerminalDelta 同形(先看 type 再看 terminalId),但**不看 text 字段**:
+       *  服务端分流靠 payload 的 type,不是靠"有没有 text" —— 前端也必须按 type 认,
+       *  否则同一承载面上两种帧就会互相顶掉。 */
+      const tryParseTerminalInteraction = (line: string): void => {
+        if (!hasTerminalInteraction) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'terminal_interaction') return
+          if (typeof json.terminalId !== 'string') return
+          opts.onTerminalInteraction!({
+            terminalId: json.terminalId,
+            promptTail: typeof json.promptTail === 'string' ? json.promptTail : '',
+            waitingSinceMs: typeof json.waitingSinceMs === 'number' ? json.waitingSinceMs : 0,
+            inputMode: 'line',
+            maxInputChars: typeof json.maxInputChars === 'number' ? json.maxInputChars : 4096,
+            ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+          })
+        } catch {
+          /* 非 JSON 或非 terminal_interaction 事件忽略 */
+        }
+      }
+
       /** 2026-09-18 立:解析 thinking SSE 事件(agent 通道的 hook thinking.delta 映射)。
        *  - 后端发 `event: thinking` + `data: {"type":"thinking","content":"..."}`
        *  - 两种(reasoning / thinking)都走 reasoning 通道:本函数把 content 投递给 onReasoning。
@@ -3306,6 +3368,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             // 2026-09-18 立:terminal_delta / thinking 走专用通道(与 reasoning 同理不落正文)
             case 'terminal_delta':
               return 'terminal_delta'
+            // D151(2026-09-29):命令在等键盘输入 —— 专用通道,不落正文、不当 delta
+            case 'terminal_interaction':
+              return 'terminal_interaction'
             case 'thinking':
               return 'thinking'
             // 2026-09-18 立:补 type==='compaction' 这一路(原仅认 json.compaction 字段形态)
@@ -3359,6 +3424,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseCitations(line)
         } else if (route === 'terminal_delta') {
           tryParseTerminalDelta(line)
+        } else if (route === 'terminal_interaction') {
+          tryParseTerminalInteraction(line)
         } else if (route === 'tool_delta') {
           tryParseToolDelta(line)
         } else if (route === 'thinking') {
@@ -3392,6 +3459,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseUsage(line)
           tryParseMemoryUpdates(line)
           tryParseTerminalDelta(line)
+          tryParseTerminalInteraction(line)
           tryParseThinking(line)
           tryParseSteer(line)
           tryParseBudget(line)
@@ -3758,6 +3826,52 @@ export async function postFormResponse(sessionId: string, event: FormResponseEve
     }
     throw new Error(
       `postFormResponse failed: HTTP ${resp.status} (session=${sessionId}, request=${event.requestId})${detail ? `: ${detail}` : ''}`,
+    )
+  }
+}
+
+/** D151(2026-09-29 立,用户批「默认开 + 单次等待 300s」):把用户键入送回正在等的命令。
+ *
+ * 上行形状是 **snake_case**(`terminal_id` / `text`),与 postFormResponse 同族 ——
+ * 而**下行**的 terminal_interaction 帧是 camelCase。两条通道形状不同是刻意的,
+ * 写错不会报错、只会整帧被服务端丢弃(所以这里把形状写在函数签名旁边,不靠注释找)。
+ *
+ * 失败必抛(照 postFormResponse 的教训):静默吞掉 = 用户按了回车而命令一个字节都没收到,
+ * 界面停在"等待输入"的假象上。调用方据异常把该行改判为 failed。
+ *
+ * 刻意**不返回服务端回包内容**:回包恒 `{ok, accepted, terminalId}`,不含键入 —— 键入
+ * 可能是密码,不要把它回读进状态树或日志。
+ */
+export async function postTerminalInput(
+  sessionId: string,
+  input: { terminalId: string; text: string },
+): Promise<void> {
+  const aiServiceUrl = aiServiceBaseUrl()
+  let resp: Response
+  try {
+    resp = await fetch(`${aiServiceUrl}/llm/complete/stream/${sessionId}/terminal-input`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        terminal_id: input.terminalId,
+        text: input.text,
+      }),
+    })
+  } catch (e) {
+    // 报错面同样不得带上 text —— 只报 id 与原因。
+    throw new Error(
+      `postTerminalInput network error (session=${sessionId}, terminal=${input.terminalId}): ${(e as Error).message}`,
+    )
+  }
+  if (!resp.ok) {
+    let detail = ''
+    try {
+      detail = (await resp.text()).slice(0, 200)
+    } catch {
+      // 忽略 body 读取失败,只保留 status
+    }
+    throw new Error(
+      `postTerminalInput failed: HTTP ${resp.status} (session=${sessionId}, terminal=${input.terminalId})${detail ? `: ${detail}` : ''}`,
     )
   }
 }
