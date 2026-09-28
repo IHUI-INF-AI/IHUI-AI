@@ -15,13 +15,13 @@
  */
 
 /** 剥掉块注释与行注释后的等行文本(行号不变 —— 豁免规则按行生效,删字符会错位)。 */
-import { RPX_PER_PX, lengthToPx, constantMapOf } from './length-units.mjs'
+import { RPX_PER_PX, lengthToPx, constantMapOf, constExprPx } from './length-units.mjs'
 /**
  * 单位折算与常量归集**住在 `lib/length-units.mjs`**,本文件只再导出(既有调用方的 import 一行都不用改):
  * 半径侧与盒形侧量的是同一个物理量,写两份折算必然漂移;而几何层只需要单位层,不该被拖进本文件的
  * 圆角专属逻辑(radiusLookup / 豁免判断)—— 那会让每一个按文件清单搭的几何夹具都得复制圆角层。
  */
-export { RPX_PER_PX, lengthToPx, constantMapOf }
+export { RPX_PER_PX, lengthToPx, constantMapOf, constExprPx }
 
 function maskComments(src) {
   const out = []
@@ -160,17 +160,12 @@ export function radiusOperandPx(text, table, consts, depth = 0) {
   const direct = lengthToPx(t)
   if (direct !== null) return direct
   /**
-   * 标识符 ⇒ 查同文件常量表再解一层。这里**必须限深并排除自引用**:上一版注释写着"最多再解一层,
-   * 防环",而实现里根本没有 depth —— `const A = A`(以及探查夹具里自指的 map)直接 `RangeError:
-   * Maximum call stack size exceeded` 把整门打挂。**承诺了防护而代码没兑现,与本仓守门 137
-   * 判的"名字承诺摘要、实现没兑现"是同一型**;判据写完要拿它应当崩的输入喂一次,不是只看它此刻绿。
+   * 其余形态(成员档 `rnGeometry.tapBox`、指向它们的标识符)交给 `constExprPx` **那一份**求值 ——
+   * 半径侧与盒形侧量的是同一批常量,两边各写一遍必然出现"半径认得、盒形不认"的自洽假结论
+   * (限深与防自引用也在那一份里:上一版注释写着"防环"而实现没有 depth,`const A = A` 直接
+   * 把整门打成 RangeError —— 承诺了防护却没兑现,正是本仓守门 137 判的那一型)。
    */
-  const next =
-    depth < 4 && /^[A-Za-z_$][\w$]*$/.test(t) && consts instanceof Map ? consts.get(t) : undefined
-  if (typeof next === 'string' && next.trim().replace(/\s+/g, '') !== t) {
-    return radiusOperandPx(next, table, consts, depth + 1)
-  }
-  return null
+  return constExprPx(t, consts, depth)
 }
 
 export function radiusPxInLine(line, table, consts) {
