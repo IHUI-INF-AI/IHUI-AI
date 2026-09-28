@@ -64,6 +64,8 @@ import {
   type AICardsData,
 } from './cards/types'
 import { toolActivityText } from './cards/tool-line'
+// D152(2026-09-29 立):goal_updated 的取词/措辞层(端内唯一入口;六档词汇取自 @ihui/types)。
+import { describeGoalNotice, type GoalNotice } from './cards/goal-line'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
 import {
   replayServerConversation,
@@ -114,10 +116,20 @@ export default function ChatPage() {
   const [earlierHasMore, setEarlierHasMore] = useState(false)
   const [loadingEarlier, setLoadingEarlier] = useState(false)
   const earlierCursorRef = useRef<string | null>(null)
+  // D152(2026-09-29 立,拍板「服务化,但存会话元数据、不建新表」):服务端那份目标主副本经
+  // 下行帧 `goal_updated` 到达 ⇒ 本端**看得见状态**(胶囊 + 活动行读同一份数据)。
+  // 刻意不做输入口、不做操作按钮:本端没有 /goal 的发起面,给一个"看得见却改不了"的控件是
+  // 假 affordance(与 D151 本端不接代答输入框同一条理由)。cleared 单帧 ⇒ 胶囊整体消失。
+  // 声明排在 resetEarlierPaging **之前**:下面那个收口要在会话切换时清掉它,顺序倒了就是
+  // "用了还没声明的绑定"。
+  const [goalNotice, setGoalNotice] = useState<GoalNotice | null>(null)
   /** 会话切换/清空/本机快照恢复时重置向前翻页态 —— 防旧会话游标把别的会话的消息前插进来 */
   const resetEarlierPaging = useCallback(() => {
     setEarlierHasMore(false)
     setLoadingEarlier(false)
+    // D152:目标态是**会话级**的 —— 会话切换/清空时必须一起收掉,否则上一会话的「进行中」
+    // 会挂在下一会话头上,而那正是本票要消灭的分叉形态(声明见 goalNotice 上方注释)。
+    setGoalNotice(null)
     earlierCursorRef.current = null
   }, [])
   const [currentModel, setCurrentModel] = useState('')
@@ -835,6 +847,17 @@ export default function ChatPage() {
                 steerNotices: appendSteerNotice(c.steerNotices, notice),
               }))
             },
+            // D152(2026-09-29 立):会话目标的服务端主副本变了 ⇒ 一行活动 + 一行胶囊。
+            // 取词/判档全在 cards/goal-line.ts(六档词汇取自 @ihui/types,认不出的档 ⇒ 不上屏);
+            // 本端**不给输入口、不给操作按钮** —— 手机上没有 /goal 的发起面,给了就是假 affordance。
+            onGoalUpdate: (evt) => {
+              const notice = describeGoalNotice(evt, t)
+              setGoalNotice(notice)
+              if (!notice) return
+              pushStreamActivity(
+                notice.objective ? `${notice.objective} · ${notice.label}` : notice.label,
+              )
+            },
             onRetryScheduled: (evt) =>
               pushStreamActivity(
                 t('ai.stream.gatewayRetry', {
@@ -1475,6 +1498,29 @@ export default function ChatPage() {
 
       {/* 任务进度状态条(plan_updated 驱动;共享派生层返回 null 时整体不挂载,零占位) */}
       <TaskStatusBar cards={lastAssistantCards} isStreaming={thinking} />
+
+      {/*
+        D152(2026-09-29 立):会话目标(goal)的服务端主副本经下行帧 `goal_updated` 到达后,
+        本端以一行胶囊呈现「目标原文 + 状态档」——票面要求的是**看得见状态**这一档,
+        刻意不给输入口/操作按钮(本端没有 /goal 的发起面,"看得见却改不了"是假 affordance,
+        与本端 onTerminalInteraction 拒绝代答同口径)。`status:'cleared'` ⇒ describeGoalNotice
+        返回 null ⇒ 整行消失(幂等)。取词与判档的唯一出口见 cards/goal-line.ts。
+      */}
+      {goalNotice ? (
+        <View
+          data-testid="goal-notice-strip"
+          className="mx-[20rpx] mt-[8rpx] flex flex-row items-center rounded-md bg-muted px-[16rpx] py-[8rpx]"
+        >
+          <Text className="text-[length:22rpx] font-semibold text-muted-foreground">
+            {goalNotice.label}
+          </Text>
+          {goalNotice.objective ? (
+            <Text className="ml-[12rpx] flex-1 text-[length:22rpx] text-foreground">
+              {goalNotice.objective}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
       <View className="input-box-content safe-area-bottom">
         <View className="tool-icons">

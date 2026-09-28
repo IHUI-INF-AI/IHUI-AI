@@ -56,6 +56,9 @@ import type { TerminalDeltaEvent } from '@ihui/api-client'
 import type { ToolDeltaEvent } from '@ihui/api-client'
 // D151:terminal_interaction(命令在等键盘输入)同一纪律;本端**只渲染降级文案**,不接输入口。
 import type { TerminalInteractionEvent } from '@ihui/api-client'
+// D152(2026-09-29 立):goal_updated(会话目标的服务端主副本变了)同一纪律 —— 载荷类型复用
+// @ihui/api-client 的 GoalUpdateEvent,本端不得抄第二份字段(§3 共享层优先)。
+import type { GoalUpdateEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 import type { AICardsData } from '@/pkg-ai/ai/cards/types'
@@ -345,6 +348,13 @@ export interface StreamEventCallbacks {
   onCitations?: (evt: CitationsEvent) => void
   /** D106 中途引导注入确认(Steer 全链路):载荷与 @ihui/api-client 的 SteerEvent 严格对齐 */
   onSteer?: (evt: SteerEvent) => void
+  /**
+   * D152(2026-09-29 立,拍板「服务化,但存会话元数据、不建新表」):会话目标(goal)的服务端
+   * 主副本变了 ⇒ 一帧 `goal_updated`。载荷复用 @ihui/api-client 的 GoalUpdateEvent。
+   * 本端**只把状态看见**(一行活动条 / 胶囊),不做输入口 —— 手机上没有 `/goal` 的发起面,
+   * 给一个"看得见状态却改不了状态"的控件是假 affordance(与 D151 本端不接输入口同一口径)。
+   */
+  onGoalUpdate?: (evt: GoalUpdateEvent) => void
 }
 
 /** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
@@ -520,6 +530,12 @@ export const chatStream = async (
             timestamp: evt.steer.timestamp,
             messageId: evt.steer.messageId,
           })
+        break
+      // D152(2026-09-29 立):会话目标状态帧。共享 sse-parse 已在 `sessionId ⇒ meta` 的泛化
+      // 兜底**之前**认领该帧(状态与目标原文都在载荷里,不认领就整帧丢失),这里只承接
+      // evt.goalUpdated —— 与 api-client 的 onGoalUpdate 专用通道同语义(不注册就等于没接)。
+      case 'goal_updated':
+        if (evt.goalUpdated) callbacks?.onGoalUpdate?.(evt.goalUpdated)
         break
       default:
         break
