@@ -330,25 +330,49 @@ export function findVoidRows(content) {
   return parseTaskRows(content).filter((r) => r.state === 'open' && VOID_MARK_RE.test(r.raw))
 }
 
-/** F3:`L<行号>` 式证据指针,核它指向的行是否仍是同一复合主键的条目行。 */
-export const POINTER_RE = /(?:逐字)?存活于\s*L(\d{1,6})/g
+/**
+ * F3:`L<行号>` 式证据指针,核它指向的行是否仍是同一复合主键的条目行。
+ *
+ * **为什么是"族表"而不是一条正则**(2026-09-28 实测逼出来的):归并器自己产出的指针措辞有两种,
+ * 而旧判据只认最早那一种 —— HEAD 面现读 `存活于 L<行号>` **0 处**,而 `同主键/逐字相同的另一条
+ * 登记在 L<行号>` 244 处,于是 `rotatedPointers` 一路报 0,同时台账里每一条行号指针都在按 §1
+ * 明文禁止的方式腐烂("行号在任何一次 append 后都会挪位…实测复核通过率 0/27")。
+ * 判据只看自己立项那一型、看不见自己后续产出的那一型,是本仓记过最多次的失明形态。
+ * 族表同时是**修复出口的配对清单**:任何一族被加进判据面,`plan-tasks-merge.mjs` 必须给出对应的
+ * 改写规则,否则镜像测试的"族表与修复规则必须同集"直接判红 —— 免得又出现"判得到、修不了"。
+ */
+export const POINTER_FAMILIES = [
+  { id: 'alive', source: '(?:逐字)?存活于\\s*L(\\d{1,6})(?:\\s*的同编号登记)?' },
+  { id: 'dup', source: '(?:同主键|逐字相同)的另一条登记在\\s*L(\\d{1,6})(?:\\(本行无编号主键\\))?' },
+]
+/** 向后兼容的并集面(取第一个捕获组即行号)。 */
+export const POINTER_RE = new RegExp(
+  `(?:${POINTER_FAMILIES.map((f) => f.source).join('|')})`,
+  'g',
+)
 export function findRotatedPointers(content) {
   const lines = String(content).split(/\r?\n/)
   const bad = []
   for (const r of parseTaskRows(content)) {
-    // 共享一个带 /g 的正则跨字符串 exec 会因 lastIndex 残留而漏匹配 —— 每行开一把新的
-    const re = new RegExp(POINTER_RE.source, 'g')
-    for (let m = re.exec(r.raw); m !== null; m = re.exec(r.raw)) {
-      const target = Number(m[1])
-      const t = lines[target - 1]
-      const reason = !t
-        ? '目标行不存在'
-        : !/^\s*[-*]\s\[[ xX]\]/.test(t)
-          ? '目标行不是条目行'
-          : compositeKeyOf(t) !== compositeKeyOf(r.raw)
-            ? '目标行是另一条(复合主键不等)'
-            : null
-      if (reason) bad.push({ line: r.line, target, reason, raw: r.raw })
+    for (const fam of POINTER_FAMILIES) {
+      // 共享一个带 /g 的正则跨字符串 exec 会因 lastIndex 残留而漏匹配 —— 每行每族各开一把新的
+      const re = new RegExp(fam.source, 'g')
+      for (let m = re.exec(r.raw); m !== null; m = re.exec(r.raw)) {
+        const target = Number(m[1])
+        const t = lines[target - 1]
+        const reason = !t
+          ? '目标行不存在'
+          : !/^\s*[-*]\s\[[ xX]\]/.test(t)
+            ? '目标行不是条目行'
+            : compositeKeyOf(t) !== compositeKeyOf(r.raw)
+              ? '目标行是另一条(复合主键不等)'
+              : // §1 的原话是"证据指针**禁止**写行号",不是"禁止写已经指不准的行号"。
+                // 只判已腐烂的那一半,等于允许 35 处"这次恰好还没挪位"的行号指针留在账上,
+                // 而它们下一枚 append 就变哑 —— 旧版正是这一格,配合只认一种措辞的族表,
+                // 账面报 0 而 HEAD 里 222 处指针全烂(2026-09-28 实测)。
+                '行号指针即使还指得准也不许存在(§1 要求内容锚点)'
+        if (reason) bad.push({ line: r.line, target, reason, family: fam.id, raw: r.raw })
+      }
     }
   }
   return bad

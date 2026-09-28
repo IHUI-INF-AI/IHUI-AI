@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
+import { DUP_POINTER_RE, POINTER_FAMILIES, auditPlan } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { buildBlockDedupe, healStopReasons, verifyBlockDedupe, buildMerge, __test__ } from '../plan-tasks-merge.mjs'
 
@@ -211,11 +212,16 @@ test('T9 F4b 归并出口:无主键的逐字孪生行只加指针、不动勾选
   if (marked.length !== 2) throw new Error(`两族孪生各标一条,实测 ${marked.length}`)
   for (const l of marked) {
     if (!/^- \[ \]/.test(l)) throw new Error(`副本行动了勾选状态:${l.slice(0, 40)}`)
-    if (l.includes('同主键的另一条登记在') && !l.includes('D99'))
+    if (l.includes('同主键的另一条登记') && !l.includes('D99'))
       throw new Error(`无主键行被写成"同主键"= 一句无法核验的假话:${l.slice(0, 60)}`)
   }
-  if (!marked.some((l) => l.includes('逐字相同的另一条登记在')))
-    throw new Error('F4b 的措辞档没生效(说明 hasKey 分档在调用点丢了)')
+  if (!marked.some((l) => /逐字相同的另一条登记/.test(l)))
+    throw new Error('F4b 的措辞档没生效(说明无主键分档在调用点丢了)')
+  // 2026-09-28 契约变更:F4/F4b 新指针**一律不写行号**(§1「证据指针禁止写行号」,而 HEAD 面 244 条
+  // 行号指针全是本工具自己产的、F3 当时一条不认)。这一条锁住病根不复发。
+  for (const l of marked)
+    if (/〔【归并】重复登记副本[^〕]*L\d/.test(l))
+      throw new Error(`新指针又写了行号,下一次 append 就成死指针:${l.slice(0, 80)}`)
   // 幂等:第二次跑不得再加第二句
   const again = buildMerge(m.text, '2026-09-28')
   if (again.changed.length > 0)
@@ -232,4 +238,51 @@ test('T10 落地调度锁:早退判据必须看见 F4b,结论数字必须回读�
     throw new Error(`早退判据没把 F4b 算进去 ⇒ 无主键孪生行永远修不掉:${guard[0].slice(0, 90)}`)
   if (/F1\/F2\/F3\/F4 = 0\/0\/0\/0/.test(src))
     throw new Error('落地结论写着死的 0/0/0/0,而不是回读落地那枚提交的现读数字')
+})
+
+/**
+ * T11 指针族的"判得到 ⇔ 修得了"必须成套,且出口一律不再产行号。
+ * 立项凭据(2026-09-28 现读):HEAD 面 244 条 `另一条登记在 L<行号>` 是**本工具自己写的**,
+ * 而 F3 当时只认 `存活于 L<行号>`(该族现读 0 条)⇒ 账面 F3=0、指针全在烂(§1 明文禁止行号指针)。
+ * 四条锁各防一型:① 族表与修复出口不同集 ⇒ 新加一族判得到却修不了,红永久留给下一个人;
+ * ② 出口再写行号 ⇒ 同一条病复发;③ 无主键分支谎称"同主键" ⇒ 一句无法核验的假话;
+ * ④ 端到端不归零 ⇒ "跑过一次"被当成"修好了"。
+ */
+test('T11 指针族表与修复出口成套,且改写后不留任何行号指针', () => {
+  const fams = POINTER_FAMILIES.map((f) => f.id).sort().join(',')
+  const rules = Object.keys(__test__.POINTER_REPAIRS).sort().join(',')
+  if (fams !== rules)
+    throw new Error(`判据族 ${fams} 与修复出口 ${rules} 不同集 ⇒ 有一族判得到却修不了`)
+  const key = 'D7#D7甲事'
+  const dupLine =
+    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L2,派单以那条为准。〕'
+  const fixed = __test__.rewritePointer(dupLine, key)
+  if (/L\d/.test(fixed)) throw new Error(`修复出口仍写着行号:${fixed}`)
+  if (!/另一条登记/.test(fixed) || !fixed.includes('「'))
+    throw new Error(`内容锚点没换上,实测:${fixed.slice(0, 140)}`)
+  // 无主键分支不得谎称"同主键"(F4b 的孪生行本来就没有编号)
+  const noKey =
+    '- [ ] 重启宿主后 %TEMP% 才真指 D 盘 〔【归并】重复登记副本(2026-09-27):逐字相同的另一条登记在 L5841(本行无编号主键),派单以那条为准。〕'
+  const fixedNoKey = __test__.rewritePointer(noKey, '')
+  if (/L\d/.test(fixedNoKey)) throw new Error(`无主键分支仍写行号:${fixedNoKey}`)
+  if (/同主键/.test(fixedNoKey)) throw new Error('对没有编号的行说"同主键"是一句无法核验的假话')
+  if (!/逐字相同/.test(fixedNoKey)) throw new Error('无主键分支必须保留"逐字相同"这个可核验措辞')
+  // 新产的指针(rewriteDup)同样禁止行号
+  const fresh = __test__.rewriteDup('- [ ] **D9 同一件事**:短的那条。', key, '2026-09-28')
+  if (/L\d/.test(fresh)) throw new Error(`rewriteDup 又产出行号指针 ⇒ 病根复发:${fresh}`)
+  if (!DUP_POINTER_RE.test(fresh)) throw new Error('新指针必须被派单口径认得,否则等于没归并')
+  // 端到端:含腐烂指针的文档跑一遍 buildMerge,出口必须把它清零
+  const doc = [
+    '# 计划',
+    '',
+    dupLine,
+    '- [ ] **D8 乙事**:与指针无关的另一条。',
+    '',
+  ].join('\n')
+  if (auditPlan(doc).counts.rotatedPointers === 0)
+    throw new Error('夹具本身就没被判红 ⇒ 这条端到端断言无牙,换一个形态而不是删掉它')
+  const merged = buildMerge(doc, '2026-09-28')
+  if (auditPlan(merged.text).counts.rotatedPointers !== 0)
+    throw new Error('buildMerge 之后 F3 必须归零(否则"跑过一次"会被读成"修好了")')
+  if (/登记在\s*L\d/.test(merged.text)) throw new Error('输出里仍残留行号指针')
 })

@@ -14,11 +14,13 @@
  * 四条判据各自的处置:
  *  - F1 同主键两态并存 → 副本行翻勾 + 注记归并到该主键的已完成登记。
  *  - F2 自带作废声明却未落账 → 同上(作废声明本身就是"已闭环"的一手证据)。
- *  - F3 行号指针已腐烂 → 把 `存活于 L<行号>` 换成**内容锚点**`存活于同主键登记「…」`。
- *    行号在任何一次 append 后都会挪位(实测 27 处指针复核通过率 0/27),它不是证据。
+ *  - F3 行号指针已腐烂 → 把行号换成**内容锚点**。判据是一张**族表**(`POINTER_FAMILIES`),
+ *    修复出口必须与它同集(`POINTER_REPAIRS`,镜像测试钉死):旧版判据只认 `存活于 L<行号>`
+ *    一种措辞,而本工具自己产出的 `另一条登记在 L<行号>` 有 244 条不认(HEAD 面 `存活于` 现读 0 条),
+ *    于是 F3 一路报 0、指针全在烂 —— 行号在任何一次 append 后都会挪位(实测复核通过率 0/27)。
  *  - F4 同一件事多条待办 → **不动勾选**(两件事都还没做完),只给副本行加一句
  *    `〔【归并】重复登记副本…派单以那条为准〕`。索引层认这句字面把它逐出派单口径,
- *    于是"173 条未勾选"与"真待办 97 条"这两个数从此分开。
+ *    于是"173 条未勾选"与"真待办 97 条"这两个数从此分开。**新指针一律写内容锚点,不写行号。**
  *
  * 安全阀(全部由机器核,不靠人眼):
  *  1. 改写按**行号精确 splice**,所以"面上有逐字同文的孪生行"不构成误伤 —— 真正的风险是
@@ -40,7 +42,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-import { DUP_POINTER_RE, auditPlan, compositeKeyOf } from './lib/plan-task-index.mjs'
+import { DUP_POINTER_RE, POINTER_FAMILIES, auditPlan, compositeKeyOf } from './lib/plan-task-index.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN_REL = 'PROJECT_PLAN.md'
@@ -90,8 +92,29 @@ function rewriteFork(line, key, today) {
   return `- [x] ✅(${today}) **[${VERDICT_TAG}]** ${why} ⇒ 只落状态、不删行、不重复计账。 ${body}`
 }
 
+/**
+ * F3 的修复出口。措辞按"族"给,一条正则不能同时改两种措辞(改窄了就漏一族,改宽了会把
+ * "逐字相同"的行写成"同主键"这种假话 —— 判据的取值必须与它修的那一族同形)。
+ * `POINTER_REPAIRS` 的键集必须与 lib 的 `POINTER_FAMILIES` **同集**,由镜像测试钉死:
+ * 判据能看见而出口修不了,等于把红永久留给下一个人。
+ */
+const POINTER_REPAIRS = {
+  alive: (key) => (m) =>
+    `存活于同主键登记 ${key ? anchorOf(key) : '(与本行正文逐字相同,可按正文检索)'}`,
+  dup: (key) => (m) => {
+    const prefix = String(m).startsWith('逐字相同') ? '逐字相同的另一条登记' : '同主键的另一条登记'
+    return `${prefix} ${key ? anchorOf(key) : '(与本行正文逐字相同,可按正文检索)'}`
+  },
+}
+
 function rewritePointer(line, key) {
-  return line.replace(/(?:逐字)?存活于\s*L\d{1,6}(?:\s*的同编号登记)?/g, `存活于同主键登记 ${anchorOf(key)}`)
+  let out = line
+  for (const fam of POINTER_FAMILIES) {
+    const rule = POINTER_REPAIRS[fam.id]
+    if (!rule) throw new Error(`判据族 ${fam.id} 没有修复出口 —— 修它之前先补 POINTER_REPAIRS,否则红永久留给下一个人`)
+    out = out.replace(new RegExp(fam.source, 'g'), rule(key))
+  }
+  return out
 }
 
 /**
@@ -99,10 +122,16 @@ function rewritePointer(line, key) {
  * 说明里的固定字面必须能被 `DUP_POINTER_RE` 认得 ⇒ 派单口径当场不再把它算一条活;
  * 且重复跑归并不会再加第二句(幂等)。**删行是禁的**:§1「禁止无声删除」+ 门 71 防丢面。
  * 措辞按有没有主键分两档:F4b 的孪生行**本来就没有编号**,写"同主键"就是一句核验不了的假话。
+ * **绝不写行号**(2026-09-28 改):上一版这里写 `另一条登记在 L<行号>`,而 §1 明文"证据指针禁止写
+ * 行号 —— 行号在任何一次 append 后都会挪位";更糟的是那批指针措辞 F3 当时根本不认,于是 HEAD 上
+ * 244 条指针全成了无人看守的死指针。现在只写内容锚点:有编号就写"同主键「编号 · 标题」",
+ * 没编号就写"与本行正文逐字相同,可按正文检索" —— 后者天然可核验(逐字相同是定义),且不随 append 挪位。
  */
-function rewriteDup(line, survivorLine, today, hasKey = true) {
+function rewriteDup(line, key, today) {
   if (DUP_POINTER_RE.test(line)) return line
-  const ref = hasKey ? `同主键的另一条登记在 L${survivorLine}` : `逐字相同的另一条登记在 L${survivorLine}(本行无编号主键)`
+  const ref = key
+    ? `同主键的另一条登记 ${anchorOf(key)}`
+    : '逐字相同的另一条登记(与本行正文逐字相同,可按正文检索)'
   return `${line} 〔【归并】重复登记副本(${today}):${ref},派单以那条为准,本行不再单独派单。〕`
 }
 
@@ -128,9 +157,6 @@ export function buildMerge(content, today) {
   // F4b:逐字相同但**没有编号**的孪生行 —— 同一条出口(只加指针、不动勾选、不删行),
   // 措辞按有无主键分档,因为对没有主键的行说"同主键"是一句无法核验的假话。
   for (const c of a.verbatimDups.copies) note(c.row.line, 'F4', c.key)
-  const survivorOf = new Map(
-    [...a.dupCopies, ...a.verbatimDups.copies].map((c) => [c.row.line, c.survivor.line]),
-  )
   const changed = []
   const refused = []
   for (const [ln, v] of [...plan.entries()].sort((x, y) => x[0] - y[0])) {
@@ -148,7 +174,7 @@ export function buildMerge(content, today) {
     if (v.kinds.includes('F3')) after = rewritePointer(after, v.key)
     if ((v.kinds.includes('F1') || v.kinds.includes('F2')) && /^- \[ \]/.test(after)) after = rewriteFork(after, v.key, today)
     // F4 放最后:一行只可能被标一次;F4 与 F1 结构上互斥(dupCopies 只收"全未勾选"的组)
-    if (v.kinds.includes('F4') && /^- \[ \]/.test(after)) after = rewriteDup(after, survivorOf.get(ln), today, !!v.key)
+    if (v.kinds.includes('F4') && /^- \[ \]/.test(after)) after = rewriteDup(after, v.key, today)
     if (after === before) {
       refused.push(`L${ln} 无可施加的改写(${v.kinds.join('+')})`)
       continue
@@ -661,5 +687,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 }
 
 /** §22c:镜像测试直接 import 判据函数,不得复制一份实现 */
-export const __test__ = { rewriteFork, anchorOf }
+export const __test__ = { rewriteFork, rewritePointer, rewriteDup, anchorOf, POINTER_REPAIRS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
