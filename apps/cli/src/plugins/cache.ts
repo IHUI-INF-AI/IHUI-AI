@@ -44,6 +44,11 @@ import { getInstalledPluginsDir, getMarketplaceCacheDir, getRegistryPath } from 
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
 // G-786:git 入参形状白名单的唯一判据(marketplace.ts 用同一份,不得在此重抄正则)
 import { assertGitCloneInputs, GitCloneInputRejectedError } from './url-shape.js';
+// G-747:符号链接可达性判定的**唯一**实现(G-705 落地)。本文件只消费它的四态结论 ——
+// 不得在此再抄一份可降级错误码名单,也不得自己包一层真实路径解析(两处实现必漂移,AGENTS §4/守门 131)。
+import { checkSymlinkContainment, type ContainmentStage } from './path-safety.js';
+// 只取**类型**(编译期擦除):installer.js 在运行期 import 本文件,值边会成环,类型边不会。
+import type { PluginPathUnsafeReason } from './installer.js';
 
 /** 缓存条目元信息(供调试与诊断) */
 export interface CacheEntry {
@@ -71,22 +76,90 @@ export function getCachePath(url: string): string {
   return path.join(getMarketplaceCacheDir(), hash);
 }
 
-/** 递归复制目录(内部工具,供 mock clone 与降级使用) */
-function copyDirRecursive(src: string, dest: string): void {
+/**
+ * 缓存复制面独有的符号链接异常(字段形态与 installer.ts 的 `PluginPathUnsafeError` 同形)。
+ *
+ * 为什么不直接复用那个类:installer.js 在运行期 import cache.js(cache.js 是它的下游),
+ * 反向再引一条值边就是循环依赖 —— 循环里的 class 声明在"谁先被求值"时会拿到未初始化的绑定,
+ * 而这条边守的是复制路径,不该把"抛得出来"寄托在模块求值顺序上(AGENTS §3「跨包循环依赖」同族)。
+ * 所以**共享的是判据(path-safety)与 reason 值域(类型引用)**,复制的只有外壳字段;
+ * errno 名单在本文件零出现 —— 那才是本票要钉的东西。
+ */
+export class PluginCacheCopyUnsafeError extends Error {
+  readonly code = 'plugin_cache_copy_unsafe';
+  readonly reason: PluginPathUnsafeReason;
+  readonly linkPath: string | null;
+  readonly targetPath: string | null;
+  readonly rootPath: string | null;
+  readonly errno: string | null;
+  readonly stage: ContainmentStage | null;
+  constructor(msg: string, detail: { reason: PluginPathUnsafeReason; linkPath: string; targetPath: string; rootPath: string; errno?: string | null; stage?: ContainmentStage | null }) {
+    super(msg);
+    this.name = 'PluginCacheCopyUnsafeError';
+    this.reason = detail.reason;
+    this.linkPath = detail.linkPath;
+    this.targetPath = detail.targetPath;
+    this.rootPath = detail.rootPath;
+    this.errno = detail.errno ?? null;
+    this.stage = detail.stage ?? null;
+  }
+}
+
+/**
+ * 递归复制目录(内部工具,供 mock clone 与降级使用)。
+ *
+ * G-747 补的正是此前完全缺失的一维:旧实现遇到符号链接只做
+ * `fs.statSync(resolved).isDirectory() ? copyDirRecursive(resolved, d) : copyFileSync(resolved, d)`
+ * —— **没有任何可达性校验**,一条指向缓存根之外的链接会把外面那整棵树复制进 staging。
+ * 同一判据我方已有唯一实现(`./path-safety.ts`,G-705 落地 676ee237),G-705 交付报告点名的
+ * 就是这一格。现只消费它的四态结论(与 installer.ts 的 copyDirRecursive 同源同形):
+ *   - `contained`        ⇒ 目标在根内,跟随复制(行为不变)。
+ *   - `escape`           ⇒ 抛 `PluginCacheCopyUnsafeError`,一条内容都不再复制。
+ *   - `unsafe`           ⇒ 同样抛。**为什么这里绝不"跳过"**:G-705 的判序是
+ *     "取不到码 = 未知 = unsafe",未知不并进 missing;把"我没看见"记成"检查通过"就是
+ *     fail-open,而这条链路吃的是**远端 manifest 指定的第三方仓库**。
+ *   - `degraded-missing` ⇒ **允许跳过**:它是 `path-safety.ts` 里那份可降级错误码**封闭集合**内的
+ *     **明确缺失**(悬空链接本机实测就是"路径不存在"那一码),不存在的东西不可能被复制进来;
+ *     这与改动前"等价可过"。
+ *     顺带改掉旧行为里另一处不体面:悬空链接原先在 `statSync` 上抛穿整条复制链(错误不带
+ *     reasonCode),现在走同一份判定 ⇒ 干净跳过,其余内容照拷。
+ * 抛出点仍在 staging 阶段:`getOrCloneGitCache` 的 catch 会 `discardStagingDirectory(staging)`,
+ * 所以要么整棵可用,要么本次暂存被清掉且旧副本仍在位 —— 不留半份目录。
+ */
+function copyDirRecursive(src: string, dest: string, rootSrc?: string): void {
+  const root = rootSrc ?? src;
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     const s = path.join(src, entry.name);
     const d = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
-      copyDirRecursive(s, d);
-    } else if (entry.isSymbolicLink()) {
+    if (entry.isSymbolicLink()) {
       const target = fs.readlinkSync(s);
-      const resolved = path.isAbsolute(target) ? target : path.resolve(path.dirname(s), target);
-      if (fs.statSync(resolved).isDirectory()) {
-        copyDirRecursive(resolved, d);
-      } else {
-        fs.copyFileSync(resolved, d);
+      const resolvedTarget = path.isAbsolute(target) ? target : path.resolve(path.dirname(s), target);
+      const verdict = checkSymlinkContainment({ linkPath: s, targetPath: resolvedTarget, rootPath: root });
+      if (verdict.status === 'degraded-missing') continue;
+      if (verdict.status !== 'contained') {
+        const escape = verdict.status === 'escape';
+        throw new PluginCacheCopyUnsafeError(
+          escape
+            ? `符号链接逃逸,拒绝复制缓存内容:${verdict.message}`
+            : `符号链接可达性判不了,拒绝复制任何内容(旧副本仍在位):${verdict.message}`,
+          {
+            reason: escape ? 'symlink-escape' : 'symlink-unverifiable',
+            linkPath: s,
+            targetPath: resolvedTarget,
+            rootPath: root,
+            errno: verdict.status === 'unsafe' ? verdict.errno : null,
+            stage: verdict.status === 'unsafe' ? verdict.stage : null,
+          },
+        );
       }
+      if (fs.statSync(resolvedTarget).isDirectory()) {
+        copyDirRecursive(resolvedTarget, d, root);
+      } else {
+        fs.copyFileSync(resolvedTarget, d);
+      }
+    } else if (entry.isDirectory()) {
+      copyDirRecursive(s, d, root);
     } else {
       fs.copyFileSync(s, d);
     }
