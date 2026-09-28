@@ -2774,12 +2774,19 @@ function runSelfTest() {
       )
     })(),
   )
+  /**
+   * S19 的规格在 2026-09-29 被 O81 票㊵ 整个反过来:那一族标记的**放行**语义已废除(项目定档
+   * 「不允许任何豁免」,判红住在守门 77、报名住在守门 150),本门因此必须**不认这个标记**。
+   * 照抄旧断言"带标记不得造出分叉",等于把一条已废除的出口重新装回判据。
+   * 有牙证明仍成对给:带标记与不带标记必须**同判**(标记不改变任何结论),而这一对必须真计上
+   * 档差 —— 否则"不放行"与"判据失明"在账面上长得一模一样。
+   */
   t(
-    'S19 RD 维:带 radius-exempt 的真圆/胶囊不得造出分叉(豁免语义与守门 77 同形)',
+    'S19 RD 维:radius-exempt 不构成放行(该族放行语义已由 O81 票㊵ 整体废除)⇒ 带标记与不带标记必须同判、且都判红',
     (() => {
       const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
       const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
-      const bothExempt = audit(
+      const withMark = audit(
         p,
         {
           'a/Foo.tsx': 'borderRadius: 8, // radius-exempt: 选中圆点\n',
@@ -2800,7 +2807,13 @@ function runSelfTest() {
         {},
         tbl,
       )
-      return bothExempt.findings.length === 0 && noMark.red.length === 1
+      const shape = (r) => JSON.stringify((r.findings ?? []).map((f) => [f.name, f.radius]))
+      return (
+        shape(withMark) === shape(noMark) &&
+        withMark.findings.length === 1 &&
+        withMark.red.length === 1 &&
+        noMark.red.length === 1
+      )
     })(),
   )
   t(
