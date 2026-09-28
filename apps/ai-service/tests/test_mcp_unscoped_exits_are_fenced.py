@@ -2,20 +2,27 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""外部 MCP「不判属主」出口的围栏(G-371 的常驻尺子,2026-09-29 立)。
+"""外部 MCP「不判属主」出口的围栏(G-371 的常驻尺子,2026-09-29 立,同日格①落地后收紧)。
 
-判的是三件事,每条都配成对的正例 + 反例:
+判的是五件事,每条都配成对的正例 + 反例:
 
-1. **调用点白名单** —— `app/` 面上 `list_available_tools_unscoped(` 与
-   `call_external_tool_unscoped(` 的**调用点**数量必须恰为 2,且都落在
-   `app/routers/agents.py`(对话装配链 `_build_supertool_pool` / `_supertool_invoke`)。
-   判的是调用点,不是"文件里有没有这个词":定义行(`def xxx_unscoped(`)与 docstring /
-   注释里大量出现这两个名字(解释处、解阻前置处),按出现次数或整文件搜串要么恒红要么恒绿。
-2. **HTTP 端点面必须走收窄出口** —— `app/routers/mcp.py` 里对外部 server 的工具/详情做读写
+1. **旁路出口零调用、且定义也不许在** —— `app/` 面上 `list_available_tools_unscoped(` 与
+   `call_external_tool_unscoped(` 的**调用点**数量必须恰为 0,且这两个 `def` 本身不得再出现。
+   格①(机主拍"隔离")把会话工具池改成按承载层主体收窄以后,这两条"内部路径"没有存在理由,
+   所以判据从"白名单 2 处"收紧成"定义都不许有"。判的是调用点而不是整文件搜串:定义行与
+   docstring / 注释里大量出现这两个名字(解释处、解阻前置处),按出现次数会要么恒红要么恒绿。
+2. **装配链必须把主体传下去** —— `agents.py` / `engine.py` 里每一次 `_build_supertool_pool(` 与
+   `_build_loop_v2_tools(` 调用,其括号内(含跨行)必须出现主体实参。漏传不报错、不红类型,
+   表现是"用户自己注册的外部 server 从他的会话里静默消失"。
+3. **绑定点必须真在** —— 上面那三种主体实参里的 `current_mcp_principal()` 读的是一个 ContextVar,
+   而 ContextVar 最容易犯的错不是传错,而是**压根没人绑**。所以 `engine.py` 的每一个
+   `ENGINE.handle_message(` 入口都要包在 `_mcp_principal_scope(...)` 里,且那个助手必须
+   bind+reset 成对、取的是 `params` 里的 `userId`(已被令牌主体覆盖过客户端自述值的那一个)。
+4. **HTTP 端点面必须走收窄出口** —— `app/routers/mcp.py` 里对外部 server 的工具/详情做读写
    的那三支(`GET /mcp/external/tools`、`POST /mcp/external/tools/call`、
    `GET /mcp/external/servers/{name}/capabilities`)必须调**带主体**的出口,且主体实参要在
    那次调用的括号内;那一支文件里出现 `_unscoped` 调用即判红。防的是"新加一支端点顺手复制旧写法"。
-3. **反向对照(最重要)** —— 判据必须能咬住它要防的那个坏形态:同一行写成真代码必须报,
+5. **反向对照(最重要)** —— 判据必须能咬住它要防的那个坏形态:同一行写成真代码必须报,
    只写进注释/docstring 必须不报。两个方向都由构造面证明,见 `_ROUTER_*` / `*_SNIPPET` 夹具。
 
 判据 1 与判据 2 吃两个等长的遮噪面(见 `mask_non_code` / `mask_prose` 上方说明):调用点判据
@@ -25,11 +32,11 @@
 取材面 = **工作树磁盘**,因为本文件是回归锁不是守门:它判的是"这条禁令今天还在不在",
 而守门要按被审面(HEAD blob / 索引 blob)取内容并配棘轮基线,那是另一张票的口径。
 它也因此**刻意不接进** `scripts/guardian-runner.mjs` 或任何注册表。
-为什么它不是一台恒红门:动手前现读 `grep -rn "_unscoped" app/ --include=*.py` 量到 5 处,
-其中调用点恰 2 处且都在 `agents.py`(另 3 处是 2 个定义行 + 1 处 docstring 提及),
-所以它在干净工作树上恒绿;一旦有人在别的文件或端点里新调 `_unscoped`,它当场红 ——
-那正是它存在的理由(散文约束没有尺子,下一次有人在 HTTP 端点图省事调 `_unscoped`,
-账面什么都不会红,而收窄等于没做)。
+为什么它不是一台恒红门:格①落地那一轮先现读 `grep -rn "_unscoped" app/ --include=*.py` 量到
+**0 处**(两个定义与它们的调用点在同一笔里一起消失),装配链的调用点逐条带主体、四个引擎入口
+逐个包在作用域里 —— 所以在干净工作树上恒绿;而任何人重新引入旁路、新加一处不传主体的装配
+调用、或把某个引擎入口的作用域拆掉,它当场红。那正是它存在的理由:散文约束没有尺子,下一次
+有人在 HTTP 端点或装配链里图省事复制旧写法时,账面什么都不会红。
 
 判据只扫 `app/**`,不扫 `tests/**`,所以本文件里出现的这两个名字(正则与夹具文本)
 结构上不会自己触发判据,无需任何行内豁免。已知覆盖面边界:只判 `.py`;把函数名与其左
@@ -46,14 +53,28 @@ from typing import Final, NamedTuple
 SERVICE_ROOT: Final = Path(__file__).resolve().parent.parent
 APP_DIR: Final = SERVICE_ROOT / "app"
 MCP_ROUTER_PATH: Final = APP_DIR / "routers" / "mcp.py"
+MCP_CLIENT_PATH: Final = APP_DIR / "services" / "mcp_client.py"
+# 引擎传输层:`tool_lister` 那一个无参回调的主体就是从这一格的作用域里取的,
+# 所以它既是"装配链"的一部分(判据 1c),也是**绑定点**(判据 1d)。
+ENGINE_PATH: Final = APP_DIR / "routers" / "engine.py"
 
-# 两个"不判属主"的兄弟出口(定义在 app/services/mcp_client.py::MCPClientManager)
+# 两个"不判属主"的兄弟出口。G-371 格①(2026-09-29,机主拍"隔离")把它们**整个删掉**了:
+# 会话工具池改由承载层主体收窄,于是"内部路径"这个借口没有出口可选了。
+# 因此本围栏的判据从"调用点白名单 = 2 处"收紧成**零**:出现即是在重新引入旁路。
 UNSCOPED_EXITS: Final = ("list_available_tools_unscoped", "call_external_tool_unscoped")
-# 调用点白名单:装配链那两处,别的文件一处都不许有
-ALLOWED_CALL_SITE_FILES: Final = frozenset({"app/routers/agents.py"})
-EXPECTED_CALL_SITE_TOTAL: Final = 2
-# 每个出口各一次(总量对了但同一个出口被调两次、另一个被搬去别处,同样是破围栏)
-EXPECTED_PER_EXIT: Final = 1
+EXPECTED_CALL_SITE_TOTAL: Final = 0
+# 每个出口各 0 次(总量对了但某一个被调两次同样破围栏,所以逐出口也判)
+EXPECTED_PER_EXIT: Final = 0
+# 装配链必须显式带主体的三个入口(漏传就是"只看得到部署级",那是静默降档)
+PRINCIPAL_BEARING_CALLS: Final = ("_build_supertool_pool(", "_build_loop_v2_tools(")
+ASSEMBLY_PATHS: Final = (
+    APP_DIR / "routers" / "agents.py",
+    APP_DIR / "routers" / "engine.py",
+    # v2 适配器:它**手里就有** user_id(下一行就喂给 AgentLoopV2),所以没有"拿不到主体"
+    # 这个借口。把它列进来是因为这类"另一个调用方忘了跟着改"正是签名收紧时最常见的漏网 ——
+    # 少了这一格,围栏只证明两个已知文件写对了,证明不了"所有装配调用点都带主体"。
+    APP_DIR / "services" / "agent_loop_v2.py",
+)
 
 UNSCOPED_CALL_RE: Final = re.compile(rf"\b(?:{'|'.join(UNSCOPED_EXITS)})\s*\(")
 DEF_LINE_RE: Final = re.compile(r"^\s*(?:async\s+)?def\s")
@@ -436,23 +457,130 @@ _ROUTER_COMMENT_ONLY: Final = _ROUTER_GOOD.replace(
 # ---------------------------------------------------------------------------
 
 
-def test_unscoped_call_sites_are_exactly_the_assembly_chain():
-    """判据 1(正例面向真仓):app/ 面上的 _unscoped 调用点恰为 2 且都在 agents.py。"""
+def test_no_unscoped_exit_is_called_anywhere_in_app():
+    """判据 1(真仓面):`app/**` 里不得有任何 `_unscoped` 调用点(格①收口后期望 0 处)。"""
     found = app_unscoped_sites()
     detail = describe_sites(found)
     total = sum(len(sites) for sites in found.values())
     assert total == EXPECTED_CALL_SITE_TOTAL, (
         f"_unscoped 调用点现读 {total} 处(期望 {EXPECTED_CALL_SITE_TOTAL}):{detail}"
     )
-    assert set(found) == set(ALLOWED_CALL_SITE_FILES), (
-        f"_unscoped 调用点只许落在对话装配链 {sorted(ALLOWED_CALL_SITE_FILES)},"
-        f"实际出现在:{sorted(found)}({detail})"
+
+
+def test_the_unscoped_exits_themselves_are_gone():
+    """判据 1b:`mcp_client.py` 里**不得再有这两个出口的定义**。
+
+    只判调用点会被"重新加一个 def 就又能调"绕过;判定义面才是把旁路焊死。
+    构造面反向对照见 test_ruler_stays_silent_when_the_same_line_lives_in_a_docstring
+    (同一字样写在 docstring 里不得报红)。
+    """
+    assert MCP_CLIENT_PATH.is_file(), f"取不到被审文件:{MCP_CLIENT_PATH}"
+    masked = mask_non_code(MCP_CLIENT_PATH.read_text(encoding="utf-8-sig"))
+    defined = [
+        name
+        for name in UNSCOPED_EXITS
+        if re.search(rf"(?:async\s+)?def\s+{re.escape(name)}\s*\(", masked)
+    ]
+    assert defined == [], f"不判属主的出口又被加回来了:{defined}(格①已把它们删掉,不该再有)"
+
+
+def test_assembly_chain_passes_the_principal():
+    """判据 1c:装配链的每个调用点都必须把主体传下去(漏传 = 静默降档成"只看得到部署级")。
+
+    判的是"这次调用的参数里出现了主体实参",不是"文件里出现过 user_id 字样"。
+    主体实参只有三种正当来源:`current_user`(端点取到的令牌主体)、`caller_user_id=`
+    (显式具名透传)、`current_mcp_principal()`(承载层作用域 —— 见
+    test_engine_entries_bind_the_principal_scope)。
+    """
+    missing: list[str] = []
+    for path in ASSEMBLY_PATHS:
+        rel = path.relative_to(SERVICE_ROOT).as_posix()
+        masked = mask_non_code(path.read_text(encoding="utf-8-sig"))
+        for lineno, line in enumerate(masked.splitlines(), start=1):
+            for call in PRINCIPAL_BEARING_CALLS:
+                if call not in line:
+                    continue
+                if "def " in line:  # 定义处不算调用点
+                    continue
+                if not _PRINCIPAL_ARG_RE.search(line):
+                    # 跨行调用:实参在后续行,按括号配平取整段再判
+                    body = _call_span(masked, lineno)
+                    if not _PRINCIPAL_ARG_RE.search(body):
+                        missing.append(f"{rel}:{lineno} {line.strip()}")
+    assert missing == [], "装配链有调用点没把主体传下去:\n  - " + "\n  - ".join(missing)
+
+
+#: 主体实参的正当来源(唯一一份判据,别处不得各写一遍正则)
+_PRINCIPAL_ARG_RE: Final = re.compile(
+    r"user_id|caller_user_id|\bcurrent_user\b|current_mcp_principal\("
+)
+
+
+def test_engine_entries_bind_the_principal_scope():
+    """判据 1d:`tool_lister` 读的那个作用域必须**真的有人绑**。
+
+    为什么单列一条:`_default_tool_lister` 是**无参回调**,它的主体来自
+    `mcp_client.current_mcp_principal()` 这个 ContextVar。上下文最容易犯的错不是传错,
+    而是**压根没绑** —— 那样它恒为默认空串,清单永远只报部署级,而 1c 那条判据看起来
+    仍然满足(参数位确实写了取主体的表达式)。这就是本仓反复记过的"看起来有、其实没装车"。
+
+    判两条结构事实(都在同一份遮噪后的代码面上):
+    ① `ENGINE.handle_message(` 的每一个入口都被 `with _mcp_principal_scope(...)` 包着
+       (四个:HTTP 单发 / HTTP 批量 / SSE 派生 task / WS 每帧);
+    ② 那个作用域助手自己必须 bind+reset 成对,且取的是 `params` 里的 `userId` ——
+       那一个由 `_bind_principal` 用令牌主体覆盖过客户端自述值;读别的字段就是读自报身份。
+    """
+    assert ENGINE_PATH.is_file(), f"取不到被审文件:{ENGINE_PATH}"
+    masked = mask_non_code(ENGINE_PATH.read_text(encoding="utf-8-sig"))
+
+    entries = _call_count(masked, r"ENGINE\.handle_message\(")
+    scopes = _call_count(masked, r"_mcp_principal_scope\(") - 1  # 减掉 def 那一处
+    assert entries > 0, "ENGINE.handle_message 一个都没扫到 —— 尺子失明,不是通过"
+    assert scopes >= entries, (
+        f"引擎入口 {entries} 个,而 _mcp_principal_scope 只用了 {scopes} 处:"
+        "没绑作用域的那一格会让 tool_lister 恒按空主体取清单(只报部署级)"
     )
-    counts = _names_of([site for sites in found.values() for site in sites])
-    for name in UNSCOPED_EXITS:
-        assert counts[name] == EXPECTED_PER_EXIT, (
-            f"`{name}` 的调用点现读 {counts[name]} 处(期望 {EXPECTED_PER_EXIT}):{detail}"
-        )
+
+    helper = _span_after(mask_prose(ENGINE_PATH.read_text(encoding="utf-8-sig")),
+                         r"def _mcp_principal_scope\(")
+    assert helper, "engine.py 里找不到 _mcp_principal_scope 的定义"
+    assert re.search(r"\bbind_mcp_principal\(", helper), "作用域助手没有 bind"
+    assert re.search(r"\breset_mcp_principal\(", helper), "作用域助手没有 reset(泄漏上一层作用域)"
+    assert re.search(r"""["']userId["']""", helper), (
+        "作用域助手取的不是 params 里的 userId —— 那等于从别处找主体"
+    )
+
+
+def _call_span(masked: str, lineno: int) -> str:
+    """从 lineno 起按括号配平取一次完整调用(跨行签名的实参在后续行)。"""
+    lines = masked.splitlines()
+    depth = 0
+    out: list[str] = []
+    for line in lines[lineno - 1 : lineno + 12]:
+        out.append(line)
+        depth += line.count("(") - line.count(")")
+        if depth <= 0:
+            break
+    return "\n".join(out)
+
+
+def _call_count(masked: str, pattern: str) -> int:
+    """遮噪后的代码面上数一个模式出现几次(注释/docstring 里的提及不计)。"""
+    return len(re.findall(pattern, masked))
+
+
+def _span_after(masked: str, def_pattern: str) -> str:
+    """取某个 `def` 起的整段(到下一个同缩进 `def`/`@` 或文件尾),用于判函数体内部结构。
+
+    刻意不做 AST/缩进完美解析:这里只需要"这个助手自己写了什么",而它的体在下一个顶层
+    `def` / 装饰器之前结束。取错范围只会让断言更严(找不到 bind ⇒ 红),不会让它变松。
+    """
+    m = re.search(def_pattern, masked)
+    if not m:
+        return ""
+    rest = masked[m.end() :]
+    nxt = re.search(r"\n(?:@|\S)", rest)
+    return rest[: nxt.start()] if nxt else rest
 
 
 def test_external_endpoints_call_the_principal_bearing_exit():
