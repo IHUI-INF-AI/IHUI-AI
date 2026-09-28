@@ -273,7 +273,7 @@ export function SidebarUserRow({
       type="button"
       aria-label={tc('login')}
       className={cn(
-        'flex w-full items-center justify-center gap-1.5 rounded-md p-1 text-sm font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        'flex w-full items-center justify-center gap-1.5 rounded-sm p-1 text-sm font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
       )}
     >
       <LogIn className="h-3.5 w-3.5 shrink-0" />
@@ -288,7 +288,7 @@ export function SidebarUserRow({
       className={cn(
         // 整行 row 容器样式:flex + h-9(与 NavLink 行高一致) + gap-2 + 圆角 + padding
         // flex w-full 与导航项(NavLink w-full)同宽,px-2.5 与导航区对齐
-        'group/row flex h-9 w-full items-center justify-center gap-2 rounded-md px-2.5 transition-colors hover:bg-sidebar-item-hover-bg',
+        'group/row flex h-9 w-full items-center justify-center gap-2 rounded-sm px-2.5 transition-colors hover:bg-sidebar-item-hover-bg',
         // 按钮态样式:outline-none + focus-visible ring 保留键盘可访问性
         'outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
       )}
