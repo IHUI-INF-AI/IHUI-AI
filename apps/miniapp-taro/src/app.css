@@ -943,7 +943,7 @@ iframe#webpack-dev-server-client-overlay {
   width: 4rpx;
   height: 30rpx;
   background: var(--color-brand);
-  border-radius: 2rpx; /* radius-exempt: 4rpx 宽音频竖条,半径取宽度一半为圆头端点,改方档会破坏胶囊形 */
+  border-radius: 2rpx;
   transform-origin: center;
   transform: scaleY(0.3);
   transition: transform 0.2s ease;

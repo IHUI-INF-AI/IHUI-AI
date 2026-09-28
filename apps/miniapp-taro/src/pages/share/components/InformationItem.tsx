@@ -87,7 +87,7 @@ export default function InformationItem({
             style={{
               width: rpx(16),
               height: rpx(16),
-              borderRadius: '50%', // radius-exempt: 16rpx 时间轴节点圆点(直径=边长),非容器圆角
+              borderRadius: '50%',
               background: TIMELINE_COLOR,
             }}
           />

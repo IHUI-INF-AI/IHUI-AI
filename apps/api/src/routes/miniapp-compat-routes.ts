@@ -61,6 +61,7 @@ import {
 } from '@ihui/database'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { ensureSafeFetchUrl } from '../utils/ssrf-guard.js'
+import { isUuidString } from '../utils/uuid.js'
 
 /**
  * 内部路由转发:通过 server.inject 复用同进程已注册的主路由
@@ -1468,6 +1469,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   server.get('/distribution/withdrawal/:id/status', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const { id } = request.params as { id: string }
+    if (!isUuidString(id)) return reply.status(404).send(error(404, '记录不存在'))
     const userId = request.userId!
     const [flow] = await dbRead
       .select({
@@ -2037,6 +2039,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   server.get('/agents/charge/:agentId', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const { agentId } = request.params as { agentId: string }
+    if (!isUuidString(agentId)) return reply.status(404).send(error(404, '记录不存在'))
     const userId = request.userId!
     const [record] = await dbRead
       .select()
@@ -2181,6 +2184,10 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/agents/charge/:id', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const { id } = request.params as { id: string }
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const userId = request.userId!
     const [existing] = await dbRead
       .select({ id: zhsAgentBuy.id })
