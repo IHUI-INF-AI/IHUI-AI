@@ -45,6 +45,13 @@
  *         从未进任何提交的归档文件不构成删行凭据(2026-09-25 G-183 补,详见 `archivedCopy` 头注);
  *      b) 本次提交同时改动了基线里没有该行的位置(即该行本就不是 HEAD 内容) —— 由
  *         "只从 HEAD 取基线"天然保证。
+ *   4. **编号形态维(G-722 接入提交链)**:登记行出现"族名在编号段重复"的畸形号(两形态同视)——
+ *      `--staged` / `--worktree` 拿 HEAD 当基准,只判**本次新增**即红;全量档锚点 = 该文件 HEAD
+ *      自身存量 ⇒ **只报数不判红**(§12e:与任何提交都无关的红只会逼人 --no-verify 并连带废掉全部守门)。
+ *      判据的唯一实现住在 `scripts/live-doc-edit.mjs`(`MALFORMED_ID_RE` / `MALFORMED_BODY_RE` /
+ *      `findMalformedIds` / `newMalformed`),门内**禁止再抄一份形态正则**(镜像测试有形状锁)。
+ *      立因:该判据过去只在"经过本器落地"时生效,而 `git add + git commit` / safe-commit 按 pathspec
+ *      那条路径上没有任何一道门看编号形态 —— 实测 2026-09-29 一小时内同一批 27 行畸形号被并发旧底稿带回两遍。
  *
  * 用法:
  *   node scripts/check-plan-line-loss.mjs --staged    # pre-commit:审**索引 blob**(提交链真正带走的那份)
@@ -80,6 +87,10 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // 防丢层把合法改写读成"整行消失"⇒ 回捞未勾原行 ⇒ F1 再红 ⇒ 再翻勾……(两小时 24 枚恢复型提交)。
 // 剥注记的实现与生产者共用一份(scripts/lib/plan-merge-annotation.mjs,§22c 同一条纪律)。
 import { stripForkPrefix } from './lib/plan-merge-annotation.mjs'
+// G-722:编号形态判据(畸形号 = 族名在编号段出现两次)的**唯一实现**住在活文档编辑器里 ——
+// 判据住在 `scripts/lib/plan-task-index.mjs` 的下沉方案因该文件正被并发会话在飞编辑而未采,
+// 按票面指定的 import 方案接。两处各抄一遍形态正则必然漂移(§22c 同一条纪律),镜像形状锁钉死。
+import { findMalformedIds, newMalformed } from './live-doc-edit.mjs'
 
 const GIT_TIMEOUT = 60000
 const GIT = process.env.IHUI_GIT_BIN || 'git'
@@ -561,6 +572,7 @@ function candidateContent(face, root = ROOT) {
  * @param faceOverride 非提交链时选 `head`(缺省)或 `worktree`(人工逃生舱)
  * @param opts.root 取证通道:临时 git 仓构造"三面互异"的现场用;生产调用点不传 ⇒ 默认仓库根
  * @returns {{face:string, ok?:boolean, lost?:Array, prose?:{lostCount:number,sample:string[]}|null,
+ *            malformed?:{added:Array,preexisting:Array,red:boolean,undetermined?:boolean},
  *            undetermined?:boolean, reason?:string, scanned?:number}}
  */
 export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false } = {}) {
@@ -568,7 +580,8 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
   const candidate = candidateContent(face, root)
   if (candidate === null) {
     // 暂存区里根本没有该文件 = 本次提交不动计划文档,无需比对(既有语义,保持不变)
-    if (face === 'staged') return { ok: true, lost: [], face, prose: null }
+    if (face === 'staged')
+      return { ok: true, lost: [], face, prose: null, malformed: { added: [], preexisting: [], red: false } }
     // 其余两面取不到 ⇒ **无法判定**:既不记绿也不冒红。无提交 / 浅克隆 / git 失败都落这一支。
     return {
       undetermined: true,
@@ -581,12 +594,15 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
   let lost
   let reportOnly = []
   let prose = null
+  let malformed
   let scanned = 0
   if (face === 'staged') {
     const baseline = readSpec(`HEAD:${PLAN}`, root)
     lost = dropArchivedLost(lostMarkers(baseline, candidate), archive)
     // 叙述行差值:提交链上是"索引 vs HEAD"(与收口前同一对输入,只报数不判红)
     prose = proseLossReport(baseline, candidate)
+    // 编号形态维(G-722):同一对输入(索引 ⊖ HEAD),只判本次新增
+    malformed = malformedReport(face, candidate, baseline)
   } else {
     // 全量档问的是本来那个问题:**最近历史里已入库的登记行,在被审面上是否仍在**
     // (与 --heal 共用同一把尺子 missingFrom,不另写一份判据;豁免面同样是当次面)
@@ -627,12 +643,18 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
     const disk = candidateContent('worktree', root)
     const base = readSpecOrNull(`HEAD:${PLAN}`, root)
     if (disk !== null && base !== null) prose = proseLossReport(base, disk)
+    /**
+     * 编号形态维(G-722)在历史面的两支:head ⇒ 锚点是 HEAD 自身存量,只报数不判红;
+     * worktree ⇒ 人工档按"磁盘 ⊖ HEAD"判新增(base 取不到时 malformedReport 判未判定,不记通过)。
+     */
+    malformed = malformedReport(face, candidate, base)
   }
   return {
-    ok: lost.length === 0,
+    ok: lost.length === 0 && !(malformed && malformed.red),
     lost,
     face,
     prose,
+    malformed,
     scanned,
     window: lastHistoryWindow(),
     reportOnly,
@@ -669,6 +691,28 @@ export function faceNoticeFor(face) {
     '   **不要照下面的 1) 去"从 HEAD 取回再提交"** —— 那会把别人未提交的在飞内容整批覆盖掉(§12)。\n' +
     '   要判"已入库的登记行还在不在",跑不带旗号的缺省档(HEAD blob)。'
   )
+}
+
+/**
+ * **编号形态维(G-722)**:畸形登记编号 = 族名在编号段出现两次。判据(两条正则与其编排
+ * `findMalformedIds` / `newMalformed`)只在 `scripts/live-doc-edit.mjs` 有一份实现,本函数
+ * **只做"按面选基准"的编排**,门体内再抄一份形态正则即违反镜像形状锁。
+ * 三档口径与本门其余判据同形:
+ *  - `staged`   索引 ⊖ HEAD ⇒ 本次新增即判红(提交链真正带走的那一份在这里被审);
+ *  - `worktree` 磁盘 ⊖ HEAD ⇒ 人工逃生舱同样判新增;HEAD 基准取不到 ⇒ **未判定**
+ *    (不冒红也不记绿 —— 把"没基准"写成"没有新增"就是本仓最高频的失效型);
+ *  - `head`     锚点 = 该文件 HEAD 自身存量 ⇒ **结构上不判新增,只报名存量**(§12e:
+ *    与任何提交都无关的红唯一结局是逼人 --no-verify、连带废掉全部守门)。
+ */
+export function malformedReport(face, candidateSrc, baselineSrc) {
+  if (face === 'head') {
+    return { added: [], preexisting: findMalformedIds(candidateSrc), red: false }
+  }
+  if (typeof baselineSrc !== 'string') {
+    return { added: [], preexisting: [], red: false, undetermined: true }
+  }
+  const m = newMalformed(baselineSrc, candidateSrc)
+  return { added: m.added, preexisting: m.preexisting, red: m.added.length > 0 }
 }
 
 /**
@@ -1912,6 +1956,76 @@ function selfTest() {
     }
   })
 
+  // ── 编号形态维(G-722):本次新增即判红,存量只报数(成对档注入/摘前缀)──────────────
+  // 夹具基线自带一行存量畸形号(已在 HEAD)与一行正常登记行:
+  //  · 注入档 ⇒ added 点名新增行、preexisting 只剩存量 ⇒ 判红;
+  //  · 摘完重复前缀的正常行 ⇒ added=0 ⇒ 判绿(存量仍报名,不得静默)。
+  const MAL_BASE = [
+    '# 计划',
+    '',
+    '- [ ] G-9001 形态维基线行:这一行三面都在,用来确认注入只动了要动的那一行。',
+    '',
+    '- [ ] DD9002 存量畸形号(台账历史遗留):已在 HEAD ⇒ 只报数;当场判红就是恒红门(§12e)。',
+    '',
+  ].join('\n')
+  const MAL_ADDED = '- [ ] G-G-987 注入的畸形新增行:族名在编号段出现两次,必须被本判据点名,长度足够。'
+  const MAL_NORMAL = '- [ ] G-987 摘掉重复族名后的正常登记行:与注入行只差编号形态,必须判绿,长度也够。'
+  t('编号形态(必红档):索引新增一行畸形号 ⇒ staged 判红且点名该行;HEAD 里的存量只进 preexisting 不判红', () => {
+    const dir = faceFixtureRepo({
+      commits: [{ plan: MAL_BASE }],
+      index: `${MAL_BASE}\n${MAL_ADDED}\n`,
+    })
+    try {
+      const r = runCheck(true, 'staged', { root: dir })
+      return (
+        r.ok === false &&
+        r.lost.length === 0 &&
+        r.malformed.red === true &&
+        r.malformed.added.length === 1 &&
+        r.malformed.added[0].family === 'G' &&
+        r.malformed.preexisting.length === 1 &&
+        r.malformed.preexisting[0].family === 'D'
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  t('编号形态(必绿档/成对反向):同一行摘完重复前缀 ⇒ staged 判绿,存量畸形号仍报名不静默', () => {
+    const dir = faceFixtureRepo({
+      commits: [{ plan: MAL_BASE }],
+      index: `${MAL_BASE}\n${MAL_NORMAL}\n`,
+    })
+    try {
+      const r = runCheck(true, 'staged', { root: dir })
+      return (
+        r.ok === true &&
+        r.malformed.added.length === 0 &&
+        r.malformed.red === false &&
+        r.malformed.preexisting.length === 1
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  t('编号形态(全量档):HEAD 自身带着畸形号 ⇒ 缺省档只报数不判红(§12e 恒红门禁令),worktree 才判新增', () => {
+    const dir = faceFixtureRepo({ commits: [{ plan: `${MAL_BASE}\n${MAL_ADDED}\n` }] })
+    try {
+      const head = runCheck(false, 'head', { root: dir })
+      // 工作树把新增行删掉 ⇒ 相对 HEAD 没有"新增",worktree 档也不得因此判红(存量在 HEAD 里)
+      const wt = runCheck(false, 'worktree', { root: dir })
+      return (
+        head.ok === true &&
+        head.malformed.red === false &&
+        head.malformed.preexisting.length === 2 &&
+        wt.ok === true &&
+        wt.malformed.red === false &&
+        wt.malformed.added.length === 0
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
   let failed = 0
   for (const c of cases) {
     console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
@@ -2126,7 +2240,7 @@ if (isDirectRun) {
   const notice = faceNoticeFor(face)
   if (notice) console.warn(notice)
   try {
-    const { ok, lost, prose, undetermined, reason, scanned, window, reportOnly } = runCheck(
+    const { ok, lost, prose, malformed, undetermined, reason, scanned, window, reportOnly } = runCheck(
       face === 'staged',
       face,
       { root: ROOT, strict: args.includes('--strict') },
@@ -2156,6 +2270,45 @@ if (isDirectRun) {
           }${srcNote}`,
       )
     }
+    /**
+     * 编号形态维的两段输出(G-722)。红段(本次新增)进 stderr 并参与退出码;
+     * 存量段只报数且**必须报名** —— 静默省略就是把没判写成判过了(本仓最高频失效型)。
+     */
+    const printMalformedAdded = () => {
+      if (!malformed || !malformed.added.length) return
+      console.error(
+        `❌ [plan-line-loss] 判定面(${FACE_LABEL[face]})上出现本次新增的畸形登记编号 ${malformed.added.length} 行` +
+          '(族名在编号段出现两次)⇒ 判红:\n' +
+          malformed.added
+            .slice(0, 4)
+            .map((x) => `   · [族 ${x.family}] ${x.line}`)
+            .join('\n') +
+          (malformed.added.length > 4 ? `\n   …另 ${malformed.added.length - 4} 行未列出` : ''),
+      )
+      console.error(
+        '   改法:删掉编号段里重复的那个族名(例:族名单写两遍 → 只留一遍)。判据与 scripts/live-doc-edit.mjs\n' +
+        '   共用同一份实现;经本器落地的内容在写 blob 前已被拦过,这一档补的是 git add + git commit /\n' +
+        '   safe-commit 按 pathspec 那条此前无人看守编号形态的路径。存量畸形号只报数不判红(§12e)。\n',
+      )
+    }
+    const printMalformedStock = () => {
+      if (!malformed) return
+      if (malformed.undetermined) {
+        console.warn('⚠️  [plan-line-loss] 编号形态维未判定:HEAD 基准面取不到 ⇒ 不判新增,也不记通过。')
+        return
+      }
+      if (malformed.preexisting.length) {
+        console.warn(
+          `ℹ️  [plan-line-loss] 判定面上有 ${malformed.preexisting.length} 行畸形登记编号,均为存量(锚点=该文件 HEAD 自身存量)` +
+            ' ⇒ 只报数不判红:\n' +
+            malformed.preexisting
+              .slice(0, 5)
+              .map((x) => `   · ${x.line}`)
+              .join('\n') +
+            (malformed.preexisting.length > 5 ? `\n   …另 ${malformed.preexisting.length - 5} 行未列出` : ''),
+        )
+      }
+    }
     if (ok) {
       const winNote = historyWindowNote(window, face)
       console.log(
@@ -2178,7 +2331,20 @@ if (isDirectRun) {
           )
       }
       reportProse()
+      printMalformedStock()
       process.exit(0)
+    }
+    // 红灯路径:先点名"本次新增的畸形编号"(可能与登记行丢失同轮出现),再走原有丢失报告。
+    printMalformedAdded()
+    if (lost.length === 0) {
+      // 登记行一条没丢,只有编号形态这一维判红(本次带进来的新账)——不得打"0 条丢失"的丢失报告
+      console.error(
+        '  💡 本闸在判定面上未检出登记行丢失,红点只在编号形态维(见上方清单)。\n' +
+          '     紧急跳过:HUSKY_SKIP_PLAN_LINE_LOSS=1(会把畸形号写进台账,慎用)\n',
+      )
+      reportProse()
+      printMalformedStock()
+      process.exit(1)
     }
     console.error(
       `❌ [plan-line-loss] ${lost.length} 条登记行在判定面(${FACE_LABEL[face]})上已不在,而最近历史里出现过` +
@@ -2222,6 +2388,7 @@ if (isDirectRun) {
         '        不可区分,同样判红:旧标题必须留在原处(或按 §1 归档),新编号另起一节。\n' +
         '     紧急跳过:HUSKY_SKIP_PLAN_LINE_LOSS=1(会把别人的登记行写没,慎用)\n',
     )
+    printMalformedStock()
     process.exit(1)
   } catch (e) {
     console.error(`❌ [plan-line-loss] 检查失败:${e?.message ?? e}`)
@@ -2264,6 +2431,8 @@ export const __test__ = {
   // 取材面三件套:镜像测试据此证明"选面"这件事只有一份实现(§22c 禁止在测试里再抄一份)
   pickPlanContent,
   faceNoticeFor,
+  // 编号形态维(G-722):按面选基准的编排出口(判据本体在 live-doc-edit.mjs,门内不抄第二份)
+  malformedReport,
   runCheck,
   historyMarkers,
 }
