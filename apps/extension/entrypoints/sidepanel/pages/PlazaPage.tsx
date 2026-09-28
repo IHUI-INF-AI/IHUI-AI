@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react'
 import { getPlazaList, type PlazaItem } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@ihui/ui-react'
+import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { useI18n } from '../../../src/i18n'
 import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
 import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
@@ -27,9 +28,18 @@ export default function PlazaPage() {
     try {
       const res = await getPlazaList({ page: 1, pageSize: 20 })
       if (res.success) setItems(res.data.list)
-      else setError(res.error || t('common.failed'))
+      // 失败分支必须走共享唯一出口 `apiFailureToText`:它按 errorCode → HTTP status → 兜底
+      // 定"这条错误是谁",再出中文。原写法 `res.error || t('common.failed')` 把服务端原始
+      // message 直接上屏 —— 会话过期时展示的是英文原文 "Invalid or expired token",
+      // 而这条端点根本没有 errorCode,身份只剩 `status` 一档,不走出口就一定丢。
+      // (守门 135 判的是 `throw` 站点;本处是"message 直接进 state 显示"那一半,
+      //  那道门结构上看不见 —— 见 packages/shared/src/utils/error-messages.ts 的
+      //  apiFailureToText 头注。)
+      else setError(apiFailureToText(res, t('common.failed')))
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('common.failed'))
+      // 同一条判序:抛出来的多是网络/取消类 Error,原始 message 是英文(`fetch failed` 等),
+      // 直接上屏等于把堆栈术语给用户。无 Error 时才回本页自己的词表键(保住本地化兜底)。
+      setError(e instanceof Error ? toUserFriendlyMessage(e) : t('common.failed'))
     } finally {
       setLoading(false)
     }

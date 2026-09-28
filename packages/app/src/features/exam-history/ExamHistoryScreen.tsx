@@ -40,7 +40,7 @@ export function ExamHistoryScreen({
       <View style={styles.center}>
         <Text style={styles.error}>{error}</Text>
         <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
-          <ChevronLeft size={16} color={tk.surface.light} />
+          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
         </TouchableOpacity>
       </View>
     )

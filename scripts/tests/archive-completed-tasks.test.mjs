@@ -494,7 +494,7 @@ test('无日期的 ✅ 标题不得被自动档搬走(≥7 天判据要求有日
   }
 })
 
-test('大批量阀门:自动档一次搬 >25 条必须拒绝且不写盘,人工 --allow-mass 才放行', () => {
+test('大批量阀门:超预算时自动档搬"最旧前缀"并把余量留在原地(旧"全批或不动"= 永久卡死)', () => {
   const dir = createTempGitRepo()
   try {
     const d = dateAgo(30)
@@ -506,18 +506,18 @@ test('大批量阀门:自动档一次搬 >25 条必须拒绝且不写盘,人工 
     assert.equal(r.status, 0, `阀门只挡不报红(钩子链不得因此失败),实得 ${r.status}`)
     assert.match(
       r.out,
-      /大批量归档阀门关闭中\(自动档\):26 条/,
-      `必须报出实测条数,实得:\n${r.out.slice(0, 300)}`,
+      /体积预算内取最旧前缀:本次搬 25 段/,
+      `必须报出本批实搬段数(预算 25 段),实得:\n${r.out.slice(0, 400)}`,
     )
-    assert.equal(
-      readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'),
-      planText,
-      '被阀门挡下时计划文档必须逐字节未变',
-    )
-    assert.ok(!existsSync(archiveFilePath(dir)), '被挡下时不得写出归档文件')
+    assert.match(r.out, /余 1 段/, '必须点名余量,不得静默少搬')
+    const head = gitShow(dir, 'HEAD:PROJECT_PLAN.md')
+    const stillThere = entries.filter((l) => /^### T\d+ /.test(l) && head.includes(l))
+    assert.equal(stillThere.length, 1, `未达预算的余量必须原样还在,实得 ${stillThere.length} 条:${stillThere}`)
+    assert.ok(head.includes('### T26 ✅'), '最旧前缀之外的段不得被搬走')
+    assert.ok(!head.includes('### T1 ✅'), '预算内的最旧段必须真被搬走(旧实现这里是整批拒绝 ⇒ 积压永远清不掉)')
+    assert.ok(existsSync(archiveFilePath(dir)), '真搬了就必须有归档文件(§1 两步走的第一步)')
     const r2 = runScript(dir, ['--auto-commit', '--allow-mass'])
     assert.equal(r2.status, 0)
-    assert.ok(existsSync(archiveFilePath(dir)), '显式放行后才真归档')
   } finally {
     rmScratch(dir)
   }
@@ -740,6 +740,345 @@ test('真实 HEAD 面逐字行作夹具:## O74 完成条目必须被认出(§22c
     )
     const archive = readFileSync(archiveFilePath(dir), 'utf8')
     assert.ok(archive.includes('收敛器不再拿'), '归档件须含真实标题原文')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 21. 2026-09-28 根治「归档器把别人已入库的翻勾退回未勾」───
+// 事故:底稿取**工作树磁盘副本**、写回也写磁盘副本,而 PROJECT_PLAN.md 是多会话共写的活文档,
+// 磁盘副本常年滞后 HEAD(AGENTS §12 为这条立过铁律)。于是一枚自动归档 = 把一份滞后底稿整文件
+// 写进提交 ⇒ 父提交里至少 10 条 `[x]` 原样变成 `[ ]`(实测枚 b54c79c36 一次改动 4,249 行 /
+// +2040 −2364),并让门 71 的回捞层补回未勾形态、门 130 再红,互咬成 6+8 枚修复提交。
+// 这组用例按三条改动各钉一条:① 底稿 = 被审面(HEAD)② 落地 = 对象空间 + 零损失闸
+// ③ 绝不覆盖共享工作树。**全部在临时 git 仓里造,不拿真仓当夹具。**
+
+const FOREIGN_DONE_ROW = '- [x] ✅(%d) **G-207 另一件已完成的事**(已入库的翻勾不得被退回)'
+const FOREIGN_STALE_ROW = '- [ ] **G-207 另一件已完成的事**(已入库的翻勾不得被退回)'
+
+/** 夹具:一条可归档的 ## 条目(内含一条 [x])+ 一条**不属于该条目**的已入库 [x](要被保住的那一条)。 */
+function staleFixturePlan(row) {
+  const d = dateAgo(30)
+  return [
+    '# plan',
+    '',
+    `## G-206 同一个缺口今天被补了两遍(${d} 完成 ✅)`,
+    `- [x] ✅(${d}) **G-206 同一个缺口今天被补了两遍**(刻意不给 F1 判红开关)`,
+    '条目正文 A',
+    '',
+    '## 活章节',
+    row.replace('%d', d),
+    '活内容',
+    '',
+  ].join('\n')
+}
+
+function gitShow(dir, spec) {
+  const r = spawnSync('git', ['-c', 'safe.directory=*', '-C', dir, 'show', spec], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60_000,
+  })
+  return r.status === 0 ? r.stdout : null
+}
+function revCount(dir) {
+  const r = spawnSync('git', ['-C', dir, 'rev-list', '--count', 'HEAD'], {
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+  return parseInt(String(r.stdout).trim(), 10)
+}
+function commitFiles(dir) {
+  return spawnSync('git', ['-c', 'safe.directory=*', '-C', dir, 'show', '--name-only', '--format=', 'HEAD'], {
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+    .stdout.split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+function cachedDiff(dir) {
+  return spawnSync('git', ['-C', dir, 'diff', '--cached', '--name-only'], {
+    encoding: 'utf8',
+    windowsHide: true,
+  }).stdout.trim()
+}
+function runScriptEnv(cwd, args, env) {
+  const r = spawnSync('node', [SCRIPT_PATH, ...args], {
+    cwd,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    env: { ...process.env, ...env },
+  })
+  const strip = (s) => String(s || '').replace(/\x1b\[[0-9;]*m/g, '')
+  r.out = strip(r.stdout)
+  r.err = strip(r.stderr)
+  r.all = r.out + r.err
+  return r
+}
+const ARCHIVE_REL = `.ihui-agent/archive/PROJECT_PLAN_${todayStr()}_auto-archive.md`
+
+test('A1 底稿面=HEAD:工作树滞后把已入库的 [x] 写成 [ ] 时,归档产出的那一面里它必须仍是 [x]', () => {
+  const dir = createTempGitRepo()
+  try {
+    commitPlan(dir, staleFixturePlan(FOREIGN_DONE_ROW))
+    const staleText = staleFixturePlan(FOREIGN_STALE_ROW)
+    // "别人/滞后的工作树副本":改过但**没有 git add** —— 这正是旧实现拿去做底稿的那一份
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), staleText)
+    const before = revCount(dir)
+    const r = runScriptEnv(dir, ['--auto-commit'], {})
+    assert.equal(r.status, 0, `应成功,实得 ${r.status}\n${r.all}`)
+    assert.equal(revCount(dir), before + 1, '应新增一枚归档提交')
+    const head = gitShow(dir, 'HEAD:PROJECT_PLAN.md')
+    // ★ 本票核心断言的新形态(2026-09-28):归档粒度扩到 bullet 级后,一条不属于被搬条目的
+    // 已入库 `- [x]` 行有**两种正当归宿** —— 原样留在 HEAD,或整行逐字进归档件并在原位留占位。
+    // 唯一**绝不合法**的形态是它被读成 `- [ ]`(把做过的记成没做)。旧版只允许第一种,
+    // 而那一版在 HEAD 面上把这一行写成 `- [ ] …` 就是本票立项要拦的那一型。
+    assert.doesNotMatch(
+      head,
+      /^- \[ \] .*G-207/m,
+      '★ 已入库的 [x] 行绝不得在归档产出的那一面被写成 [ ]',
+    )
+    const archived207 = gitShow(dir, 'HEAD:' + ARCHIVE_REL) || ''
+    const eitherAliveOrArchived =
+      /^- \[x\] .*G-207/m.test(head) || (/G-207/.test(archived207) && /<!--\s*已归档\(/.test(head))
+    assert.ok(
+      eitherAliveOrArchived,
+      '不属于被搬条目的已入库 [x] 行:要么原样留在 HEAD,要么带占位逐字进归档件 —— 二者皆无即丢失',
+    )
+    assert.match(head, /<!--\s*已归档\(/, '被搬条目在原位置留了占位')
+    const files = commitFiles(dir)
+    assert.ok(files.includes('PROJECT_PLAN.md'), '计划文档在本次提交面上')
+    assert.ok(
+      files.includes(ARCHIVE_REL),
+      `占位点名的归档文件必须真在本次提交面上,实得:\n  ${files.join('\n  ')}`,
+    )
+    assert.ok((gitShow(dir, 'HEAD:' + ARCHIVE_REL) || '').includes('条目正文 A'), '完整内容进了归档件')
+    assert.equal(
+      readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'),
+      staleText,
+      '工作树滞后 ⇒ 磁盘副本必须逐字未动(不得把 HEAD 派生的正文塞进别人的现场)',
+    )
+    assert.match(r.all, /底稿面:head/, '必须报名"底稿取的是哪一面"')
+    assert.match(r.all, /工作树滞后|归属他人/, '不覆盖磁盘这件事必须喊出来,不得静默')
+    assert.equal(cachedDiff(dir), '', '索引逐路径对齐到新 HEAD ⇒ 不得留下 `M ` 假暂存(§12d 第三层那型)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('A2 零损失闸有牙:显式 --plan-face worktree 拿滞后磁盘当底稿 ⇒ 拒落、不建提交、盘与归档件一字未写、逐条点名原行', () => {
+  const dir = createTempGitRepo()
+  try {
+    commitPlan(dir, staleFixturePlan(FOREIGN_DONE_ROW))
+    const staleText = staleFixturePlan(FOREIGN_STALE_ROW)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), staleText)
+    const before = revCount(dir)
+    const r = runScriptEnv(dir, ['--auto-commit', '--plan-face', 'worktree'], {})
+    assert.notEqual(r.status, 0, `拿滞后底稿覆盖已入库翻勾必须被拒,实得 RC=${r.status}\n${r.all}`)
+    assert.equal(revCount(dir), before, '拒绝落地 ⇒ 不得推进 HEAD')
+    assert.equal(readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'), staleText, '计划文档一字未动')
+    assert.ok(!existsSync(join(dir, ARCHIVE_REL)), '判据不过时连归档文件都不该创建(不留半截现场)')
+    assert.equal(cachedDiff(dir), '', '共享索引未被本脚本动过')
+    assert.match(r.all, /零损失断言不通过/, '必须喊出为什么拒落')
+    assert.match(r.all, /G-207/, '并逐条点名被退回的原行')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('A3 未知面开关不得静默掉进默认档:--plan-face 值非 head|worktree ⇒ RC=1 并给出合法取值', () => {
+  const dir = createTempGitRepo()
+  try {
+    commitPlan(dir, staleFixturePlan(FOREIGN_DONE_ROW))
+    const before = revCount(dir)
+    const r = runScriptEnv(dir, ['--auto-commit', '--plan-face', 'HEAD'], {})
+    assert.equal(r.status, 1, `非法值必须报错,实得 ${r.status}\n${r.all}`)
+    assert.equal(revCount(dir), before, '报错路径上不得有提交')
+    assert.match(r.all, /只接受 head\|worktree/, '必须给出合法取值,不能只说"参数错误"')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('B 正当归档仍在工作:条目确实完成 ≥7 天 ⇒ 搬走 + 留占位 + 归档件在提交面 + 磁盘随提交对齐 + 13c 判绿', () => {
+  const dir = createTempGitRepo()
+  try {
+    const base = staleFixturePlan(FOREIGN_DONE_ROW)
+    commitPlan(dir, base) // 磁盘 == HEAD:没有人在这上面写 ⇒ 允许对齐
+    const before = revCount(dir)
+    const r = runScriptEnv(dir, ['--auto-commit'], {})
+    assert.equal(r.status, 0, `应成功,实得 ${r.status}\n${r.all}`)
+    assert.equal(revCount(dir), before + 1)
+    const head = gitShow(dir, 'HEAD:PROJECT_PLAN.md')
+    assert.match(head, /<!--\s*已归档\(/)
+    assert.ok(!head.includes('条目正文 A'), '正文应已从计划文档搬走')
+    assert.doesNotMatch(head, /^- \[ \] .*G-207/m, '已入库的翻勾绝不得被读成未勾')
+    const arch207 = (gitShow(dir, 'HEAD:' + ARCHIVE_REL) || '').includes('G-207')
+    assert.ok(
+      /^- \[x\] .*G-207/m.test(head) || (arch207 && /<!--\s*已归档\(/.test(head)),
+      '不属于被搬块的已入库行:原样在 HEAD,或带占位逐字进归档件(bullet 级自 2026-09-28 起在射程内)',
+    )
+    assert.ok((gitShow(dir, 'HEAD:' + ARCHIVE_REL) || '').includes('G-206 同一个缺口'), '归档件含被搬条目')
+    assert.equal(
+      readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8').replace(/\r\n/g, '\n'),
+      head.replace(/\r\n/g, '\n'),
+      '盘上那份 == 父提交那份 ⇒ 允许把本次搬运等价地写进磁盘(对齐,不是覆盖)',
+    )
+    assert.equal(
+      spawnSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8', windowsHide: true }).stdout.trim(),
+      '',
+      '落地后工作区应干净(索引与工作树都随提交对齐)',
+    )
+    const g = spawnSync('node', [GATE_PATH, '--root', dir], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+    })
+    const gout = String(g.stdout || '')
+      .concat(String(g.stderr || ''))
+      .replace(/\x1b\[[0-9;]*m/g, '')
+    assert.equal(g.status, 0, `归档落地后守门 13c 必须判绿,实得 ${g.status}:\n${gout.slice(0, 600)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C 不覆盖他人现场:磁盘副本被"别人"加了一行未提交内容 ⇒ 落地后磁盘逐字未变且那行仍在,HEAD 侧归档照常完成', () => {
+  const dir = createTempGitRepo()
+  try {
+    const base = staleFixturePlan(FOREIGN_DONE_ROW)
+    commitPlan(dir, base)
+    const theirs = `${base}\n- [ ] 别人此刻正在写的一行(未提交)\n`
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), theirs)
+    const r = runScriptEnv(dir, ['--auto-commit'], {})
+    assert.equal(r.status, 0, `归档本身不该失败,实得 ${r.status}\n${r.all}`)
+    const now = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.equal(now, theirs, '★ 磁盘逐字未动:别人那行在、本次的占位没被塞进来')
+    assert.ok(now.includes('别人此刻正在写的一行'), '别人的内容必须还在')
+    assert.ok(!now.includes('已归档('), 'HEAD 派生的正文不得写进别人的现场')
+    assert.match(gitShow(dir, 'HEAD:PROJECT_PLAN.md'), /<!--\s*已归档\(/, '而 HEAD 侧该做的搬运完成了')
+    assert.match(r.all, /工作树滞后|归属他人/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D 应急通道如实:HUSKY_SKIP_ARCHIVE=1 在脚本里真被读取(钩子内外同一把开关),置位即 RC=0 且不写任何东西', () => {
+  const dir = createTempGitRepo()
+  try {
+    commitPlan(dir, staleFixturePlan(FOREIGN_DONE_ROW))
+    const before = revCount(dir)
+    const r = runScriptEnv(dir, ['--auto-commit'], { HUSKY_SKIP_ARCHIVE: '1' })
+    assert.equal(r.status, 0, `跳过通道必须 RC=0(少做一件事不是错误),实得 ${r.status}\n${r.all}`)
+    assert.match(r.all, /HUSKY_SKIP_ARCHIVE=1/, '必须报名是这把开关生效了,而不是"没有可归档条目"')
+    assert.equal(revCount(dir), before, '跳过 ⇒ 不得建提交')
+    assert.ok(!existsSync(join(dir, ARCHIVE_REL)), '跳过 ⇒ 不得写归档文件')
+    assert.match(readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'), /G-206 同一个缺口/, '计划文档一字未动')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('E 形状锁:底稿必须走取材层的 HEAD 面,落地必须走 plumbing 那一份实现(退回旧写法即红)', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.ok(/from '\.\/lib\/face-reader\.mjs'/.test(src), '必须经 face-reader 取被审面')
+  assert.ok(/catBatch\(/.test(src), '必须真用层的读取入口(引了层却不用 = 守门 118 的 half-wired)')
+  assert.ok(
+    !/readWorktreeFile\(ROOT,\s*['"]PROJECT_PLAN\.md['"]\)/.test(src),
+    '底稿不得再写成"按磁盘读计划文档"(那正是本票根治的那一型)',
+  )
+  assert.ok(/from '\.\/lib\/bypass-git\.mjs'/.test(src), '对象空间 plumbing 只有一份,不得在器内重抄')
+  for (const entry of [
+    'commitTreeWithIndex(',
+    'casUpdateRef(',
+    'alignSharedIndex(',
+    'writeBlob(',
+    'headBlobOf(',
+  ]) {
+    assert.ok(src.includes(entry), `落地必须真用 ${entry} —— 缺了就是又手写了第二份 CAS`)
+  }
+  assert.ok(
+    /clobberedPaths\(/.test(src),
+    'CAS 循环内"被别人改过即停"的判据必须取自常驻出口 object-space-land,不得另写一份',
+  )
+  assert.ok(/zeroLossViolations\(/.test(src), '零损失闸必须真被接线(判据在而无人调 = 没有)')
+  assert.ok(/IHUI_ARCHIVE_COMMIT/.test(src), '防递归语义保留')
+})
+
+test('F --self-test 连跑两次都必须 RC=0 并报"失败 0"(本仓有一道门的自检第二次起恒 exit 2,那等于没有取证)', () => {
+  const dir = createTempDir()
+  try {
+    for (const round of [1, 2]) {
+      const r = runScriptEnv(dir, ['--self-test'], {})
+      assert.equal(r.status, 0, `第 ${round} 次 --self-test 应 RC=0,实得 ${r.status}\n${r.all}`)
+      assert.match(r.all, /自检共 \d+ 条断言,通过 \d+,失败 0/, '必须打印总量与失败数,不得默默退 0')
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── G/H 子弹级归档与"假条目"守卫(2026-09-28,响应用户"完成的内容不要再留在计划文档里")───
+// 端到端双向锁:只测纯函数不够 —— 采集器写对了但主流程没接线,就是本仓最高频的"造好没装车"。
+
+test('G 子弹级 - [x] 真被搬走,且同一章节里的 - [ ] 一字不动地留在原地', () => {
+  const dir = createTempGitRepo()
+  try {
+    const plan = [
+      '# 计划',
+      '',
+      '## 活章节',
+      `- [x] ✅(${dateAgo(30)}) **G-900 早就做完的一件事**`,
+      '  这行是上一条的缩进续行',
+      '- [ ] **G-901 这件还开着**',
+      '',
+    ].join('\n')
+    commitPlan(dir, plan)
+    const r = runScriptEnv(dir, ['--auto-commit'], {})
+    assert.equal(r.status, 0, `应 RC=0\n${r.all}`)
+    const head = execSync('git show HEAD:PROJECT_PLAN.md', {
+      cwd: dir,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    assert.ok(!/- \[x\].*G-900/.test(head), '已过阈值的已完成登记应被搬走(没搬=这一维没装车)')
+    assert.ok(/^- \[ \] \*\*G-901/m.test(head), '未完成行必须原样留在计划文档里')
+    assert.ok(/<!-- 已归档\(/.test(head), '原位必须留 §1 要求的归档占位')
+    const arch = execSync(`git show HEAD:.ihui-agent/archive/PROJECT_PLAN_${todayStr()}_auto-archive.md`, {
+      cwd: dir,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    assert.ok(arch.includes(`- [x] ✅(${dateAgo(30)}) **G-900 早就做完的一件事**`), '归档件里必须有逐字原文(第一步)')
+    assert.ok(arch.includes('  这行是上一条的缩进续行'), '缩进续行必须随条目一起进归档')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('H 标题写"已完成"但体内含未勾登记的假条目:连 --allow-mass 也不得搬走它', () => {
+  const dir = createTempGitRepo()
+  try {
+    const plan = [
+      '# 计划',
+      '',
+      `## 假装完成的条目(${dateAgo(30)} 立并完成 ✅)`,
+      '- [ ] **G-902 其实还开着,而且后面再没有同级标题**',
+      '',
+    ].join('\n')
+    commitPlan(dir, plan)
+    const r = runScriptEnv(dir, ['--auto-commit', '--allow-mass'], {})
+    assert.equal(r.status, 0, `应 RC=0\n${r.all}`)
+    const head = execSync('git show HEAD:PROJECT_PLAN.md', {
+      cwd: dir,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    assert.ok(/^- \[ \] \*\*G-902/m.test(head), '未勾行被搬进归档 = 把别人正开着的账记成做过的(判据必须拦,且不被 --allow-mass 绕过)')
+    assert.match(r.all, /不参与归档/, '拒绝必须大声点名,不得静默少搬')
   } finally {
     rmScratch(dir)
   }

@@ -100,7 +100,7 @@ export default function QueueBar({
       <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground">{t(`${OPS_NS}.mode.label`)}</span>
         <select
-          className="rounded-md border border-border bg-card px-1 py-px text-xs text-foreground focus:outline-none focus:border-muted-foreground"
+          className="rounded-sm border border-border bg-card px-1 py-px text-xs text-foreground focus:outline-none focus:border-muted-foreground"
           value={mode}
           onChange={(e) => {
             const resolved = extResolveFollowUpMode(e.target.value, runtimeSupportsInterjection)

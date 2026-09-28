@@ -213,7 +213,7 @@ export default function BehaviorPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-end gap-2">
             <button
-              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+              className="rounded-sm border px-3 py-1 text-sm disabled:opacity-50"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
             >
@@ -223,7 +223,7 @@ export default function BehaviorPage() {
               {page} / {totalPages}
             </span>
             <button
-              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+              className="rounded-sm border px-3 py-1 text-sm disabled:opacity-50"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
             >

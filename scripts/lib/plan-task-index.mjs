@@ -497,7 +497,25 @@ export function pointerBlindness(content) {
 export function findRotatedPointers(content) {
   const lines = String(content).split(/\r?\n/)
   const bad = []
-  for (const r of parseTaskRows(content)) {
+  const rows = parseTaskRows(content)
+  /**
+   * 「与本行正文逐字相同,可按正文检索」这句锚点的**唯一事实依据**,是"面上还有另一份与本行
+   * 逐字相同的条目行"。旧版没量这一条,而是让 `compositeKeyOf(t) === compositeKeyOf(r.raw)`
+   * 一句兜两种语义 —— 而**两边都没有主键**时它也成立(`null === null`),后果有两层:
+   *  ① 出口会给一行既不同主键、也不同正文的行写上"逐字相同",那是替别人编证据;
+   *  ② F3 的"可自动收口"这一维会**自己长回来**:面上另有 200+ 处无自动出口的行号指针,任何一次
+   *     append 挪了行号,就可能有一处的目标恰好落到"也是无主键的条目行"上 ⇒ 该维凭空 +1,
+   *     与本次提交内容毫无关系(2026-09-28 实测:归并落地后 8 分钟内 F3(自动) 由 0 回到 1,
+   *     而那一行在面上逐字相同的份数是 1)。这一维挂在 blocking 提交链上,自己会长红 ⇒ 每台每次
+   *     提交被逼 `--no-verify` ⇒ 全部守门对该提交作废(§12f 那一型)。
+   * 本层**早已写明** null 是"没有主键"而不是"主键相等"(见 `compositeKeyOf` 头注;F4 抓不到无主键
+   * 孪生行时才另起 F4b 那把逐字尺子,同一条理由)—— 所以这里是把 F3 对齐到本层已声明的语义,
+   * **不是放宽判据**:自动收口的资格只认两种可核验事实 —— 同主键(两侧都有主键且逐字等值)
+   * ∨ 逐字孪生(本行确有另一份) —— 二者皆不成立仍照旧计"无出口交人工",一处都不会从账上消失。
+   */
+  const verbatimCount = new Map()
+  for (const r of rows) verbatimCount.set(r.raw, (verbatimCount.get(r.raw) ?? 0) + 1)
+  for (const r of rows) {
     const quoted = quotedRanges(r.raw)
     // 一条指针只归第一个命中的族:族表之间是**有意的宽窄层次**,不做并集计数(否则同一条被算两次,
     // 而 F3 的读数会随族表增删而跳,谁都没改台账却在涨)。
@@ -544,7 +562,13 @@ export function findRotatedPointers(content) {
               !POINTER_NO_AUTO_REPAIR[fam.id] &&
               !!t &&
               /^\s*[-*]\s\[[ xX]\]/.test(t) &&
-              compositeKeyOf(t) === compositeKeyOf(r.raw),
+              // ↓ 这一行是本层语义的落点:两侧**都有**主键且逐字等值,才算"同主键";任一侧没有主键,
+              //   就退回"逐字孪生"那把尺子(与本层 `compositeKeyOf`/F4b 的既有口径同形)。
+              //   写成旧版那样 `compositeKeyOf(t) === compositeKeyOf(r.raw)` 会让 null===null 通过,
+              //   于是"自动收口"实际是"自动编一句核验不了的证据",且该维会随行号挪位自己长红。
+              (compositeKeyOf(r.raw) !== null
+                ? compositeKeyOf(r.raw) === compositeKeyOf(t)
+                : (verbatimCount.get(r.raw) ?? 0) >= 2),
           })
       }
     }

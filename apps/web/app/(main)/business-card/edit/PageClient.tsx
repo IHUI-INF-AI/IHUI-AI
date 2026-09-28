@@ -227,7 +227,7 @@ export default function BusinessCardEditPage() {
                       type="button"
                       onClick={() => setForm((p) => ({ ...p, template: tpl.value }))}
                       className={cn(
-                        'flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors',
+                        'flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition-colors',
                         form.template === tpl.value
                           ? 'border-brand-accent-deep bg-primary/10 text-primary'
                           : 'border-input text-muted-foreground hover:bg-accent',
