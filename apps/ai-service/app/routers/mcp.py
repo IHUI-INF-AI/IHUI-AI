@@ -19,6 +19,7 @@ from ..core.jwt_auth import require_request_user_id
 from ..services import capability_market as capability_market_module
 from ..services import capability_market_store
 from ..services import mcp_server as mcp_server_module
+from ..services.connector_store import OWNER_FIELD  # 属主键名只有一份定义,两个 store 不得各写字面量
 from ..services.mcp_client import (
     DEFAULT_TIMEOUT,
     TRANSPORT_SSE,
@@ -268,9 +269,14 @@ async def mcp_sampling_audit_logs() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _server_info(manager: Any, name: str) -> dict[str, Any]:
-    """构造单个已注册 Server 的摘要信息(含协商能力/协议/身份)。"""
-    status = manager.client_status(name)
+def _server_info(manager: Any, name: str, caller_user_id: str) -> dict[str, Any]:
+    """构造单个已注册 Server 的摘要(含协商能力/协议/身份)—— **必须带主体**。
+
+    它以前直接调不判属主的 `client_status`,而它是被复用的那一个(注册成功与连接成功两处
+    都回它)。改成走 `client_status_visible`:新调用点若忘了先判归属,拿到的是空对象而不是
+    别人的配置 —— "有没有先过闸"这件事不该只靠调用点自觉。
+    """
+    status = manager.client_status_visible(name, caller_user_id)
     return status if status is not None else {}
 
 
@@ -337,7 +343,7 @@ async def register_directory_server(
                 await client.connect()
             except Exception as e:
                 logger.warning("MCP 目录 Server 连接失败(%s): %s", name, e)
-        return JSONResponse(status_code=201, content=_server_info(manager, name))
+        return JSONResponse(status_code=201, content=_server_info(manager, name, user_id))
     except HTTPException:
         raise
     except Exception as e:
@@ -406,7 +412,7 @@ async def register_external_server(
                 await client.connect()
             except Exception as e:
                 logger.warning("外部 MCP Server 连接失败(%s): %s", name, e)
-        return JSONResponse(status_code=201, content=_server_info(manager, name))
+        return JSONResponse(status_code=201, content=_server_info(manager, name, user_id))
     except HTTPException:
         raise
     except Exception as e:
@@ -449,7 +455,7 @@ async def connect_external_server(
         if not manager.can_mutate(name, user_id):
             return JSONResponse(status_code=403, content={"error": f"无权连接该 MCP Server: {name}"})
         await client.connect()
-        return _server_info(manager, name)
+        return _server_info(manager, name, user_id)
     except Exception as e:
         logger.error("连接外部 MCP Server 失败(%s): %s", name, e)
         return JSONResponse(status_code=500, content={"error": f"连接外部 MCP Server 失败: {e}"})
@@ -582,6 +588,7 @@ async def list_mcp_store() -> dict[str, Any]:
 @router.post("/mcp/store/install", response_model=None)
 async def install_mcp_store_server(
     req: McpStoreInstallRequest,
+    user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any] | JSONResponse:
     """商店安装:目录条目 → 热挂载(官方 SDK stdio)→ 持久化。
 
@@ -633,6 +640,13 @@ async def install_mcp_store_server(
         # 那是外部工具命名空间 `mcp:{server}__{tool}` 的约定)。统一用 key。
         name = req.key
         existing = mcp_store.get_installed(name)
+        if existing is not None and not mcp_store.can_mutate(name, user_id):
+            # 复用同名记录等于**把别人的 env/args 整条换掉**(不只是"再装一次"),
+            # 所以覆盖与启停/卸载同判:只有安装者(或存量的回退档)能做。
+            return JSONResponse(
+                status_code=403,
+                content={"error": f"MCP Server 已由他人安装,不能覆盖其配置: {name}"},
+            )
         if existing and existing.get("enabled"):
             return JSONResponse(
                 status_code=409,
@@ -655,6 +669,9 @@ async def install_mcp_store_server(
         record = {
             "name": name,
             "key": req.key,
+            # 属主由承载层盖章(AGENTS §5:身份只能从承载层显式入参进来)。这是**写侧**——
+            # 读侧今天仍全站可见(商店挂的是进程级工具池),收紧无主记录另等人拍。
+            OWNER_FIELD: user_id,
             "transport": cfg_dict["transport"],
             "command": cfg_dict["command"],
             "args": list(cfg_dict.get("args") or []),
@@ -676,14 +693,24 @@ async def install_mcp_store_server(
 
 
 @router.post("/mcp/store/{name}/uninstall", response_model=None)
-async def uninstall_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse:
-    """商店卸载:关闭子进程 + 移除注入工具 + 删除持久化记录。"""
+async def uninstall_mcp_store_server(
+    name: str, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """商店卸载:关闭子进程 + 移除注入工具 + 删除持久化记录。
+
+    只有安装者能卸(存量无属主记录走 `can_mutate` 的回退档,见 mcp_store 模块文档串)。
+    判据顺序是"先 404 再 403":这一面的商店列表全站可见,装看不见别人的安装会与列表自相矛盾。
+    """
     try:
         from ..services import mcp_store
         from ..services.mcp_stdio_bridge import remove_stdio_server
 
         if mcp_store.get_installed(name) is None:
             return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
+        if not mcp_store.can_mutate(name, user_id):
+            return JSONResponse(
+                status_code=403, content={"error": f"MCP Server 由他人安装,无权卸载: {name}"}
+            )
         tool_names = await remove_stdio_server(name)
         removed_tools = mcp_server_module.unregister_external_tools(tool_names)
         mcp_store.remove_installed(name)
@@ -695,8 +722,10 @@ async def uninstall_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse
 
 
 @router.post("/mcp/store/{name}/enable", response_model=None)
-async def enable_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse:
-    """启用已安装但停用的 Server:重新热挂载并注入工具。"""
+async def enable_mcp_store_server(
+    name: str, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """启用已安装但停用的 Server:重新热挂载并注入工具(只有安装者能启)。"""
     try:
         from ..services import mcp_store
         from ..services.mcp_stdio_bridge import add_stdio_server_tool
@@ -704,6 +733,10 @@ async def enable_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse:
         rec = mcp_store.get_installed(name)
         if rec is None:
             return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
+        if not mcp_store.can_mutate(name, user_id):
+            return JSONResponse(
+                status_code=403, content={"error": f"MCP Server 由他人安装,无权启用: {name}"}
+            )
         if rec.get("enabled"):
             return {
                 "ok": True,
@@ -735,8 +768,13 @@ async def enable_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse:
 
 
 @router.post("/mcp/store/{name}/disable", response_model=None)
-async def disable_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse:
-    """停用已启用的 Server:关闭子进程 + 移除注入工具(保留持久化记录)。"""
+async def disable_mcp_store_server(
+    name: str, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """停用已启用的 Server:关闭子进程 + 移除注入工具(保留持久化记录)。
+
+    只有安装者能停 —— 停别人的 Server 会把它注入的工具从**别人的会话**里抽走。
+    """
     try:
         from ..services import mcp_store
         from ..services.mcp_stdio_bridge import remove_stdio_server
@@ -744,6 +782,10 @@ async def disable_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse:
         rec = mcp_store.get_installed(name)
         if rec is None:
             return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
+        if not mcp_store.can_mutate(name, user_id):
+            return JSONResponse(
+                status_code=403, content={"error": f"MCP Server 由他人安装,无权停用: {name}"}
+            )
         if not rec.get("enabled"):
             return {"ok": True, "name": name, "enabled": False}
         tool_names = await remove_stdio_server(name)
