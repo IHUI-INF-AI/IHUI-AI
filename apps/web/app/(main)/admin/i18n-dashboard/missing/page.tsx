@@ -114,7 +114,7 @@ export default function I18nMissingPage() {
             type="button"
             onClick={() => setLocale(l.value)}
             className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
               locale === l.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',

@@ -197,7 +197,7 @@ export default function AiSkillsPageClient() {
           <button
             type="button"
             onClick={() => setImportOpen(true)}
-            className="inline-flex items-center gap-1 rounded-md bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+            className="inline-flex items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
           >
             <Upload className="h-3.5 w-3.5" />
             {td('importBtn')}
@@ -229,7 +229,7 @@ export default function AiSkillsPageClient() {
               type="button"
               onClick={() => setActiveTab(tab.key as TabKey)}
               className={cn(
-                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                'rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
                 activeTab === tab.key
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -261,7 +261,7 @@ export default function AiSkillsPageClient() {
               aria-pressed={sortKey === opt.key}
               data-testid={`skills-sort-${opt.key}`}
               className={cn(
-                'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                'rounded-sm px-2.5 py-1.5 text-xs font-medium transition-colors',
                 sortKey === opt.key
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -319,7 +319,7 @@ export default function AiSkillsPageClient() {
               onChange={(e) => setImportJson(e.target.value)}
               placeholder={t('importPlaceholder')}
               rows={10}
-              className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-xs font-mono outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+              className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-3 py-2 text-xs font-mono outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
             />
           </div>
           <DialogFooter>

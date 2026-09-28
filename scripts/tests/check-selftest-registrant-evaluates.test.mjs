@@ -1,0 +1,226 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// §22c 镜像测试:`scripts/check-selftest-registrant-evaluates.mjs`
+//
+// 为什么必须存在(而不是只靠门自己的 --self-test):本门的判据是"读别人门体的形状",
+// 而 --self-test 只喂**构造面**夹具 —— 它证明的是"函数会给答案",不是"真仓上有人问它"。
+// 本文件补的正是后者:真仓 HEAD 面的覆盖面自证、以及一个真临时 git 仓的端到端双向锁。
+//
+// 一条硬约束:本文件**只 import 生产实现**(`__test__`),一条判据都不重写。
+// 在测试里再抄一份"什么叫不求值",源门漂移时测试照样绿 —— 那正是 §22c 立项要杀的形态。
+//
+// 跑法:node --test scripts/tests/check-selftest-registrant-evaluates.test.mjs
+
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { resolveGitBin } from '../lib/gitdir.mjs'
+import { __test__ as gate } from '../check-selftest-registrant-evaluates.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROOT = resolve(HERE, '..', '..')
+const SRC_NAME = 'check-selftest-registrant-evaluates.mjs'
+const GATE_FILE = join(ROOT, 'scripts', SRC_NAME)
+const GIT = resolveGitBin() || 'git'
+
+const gitShow = (refPath) =>
+  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', ROOT, 'show', refPath], {
+    encoding: 'utf8',
+    maxBuffer: 64 << 20,
+    windowsHide: true,
+    timeout: 120_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+
+const gateSrc = readFileSync(GATE_FILE, 'utf8')
+
+/** 端到端夹具:潜伏登记 + 函数形态用例(本门要抓的那一型)。 */
+const FIXTURE_LATENT = [
+  'export function selfTest() {',
+  '  const cases = []',
+  '  const t = (name, ok) => cases.push({ name, ok })',
+  "  t('remote 清单要能判', () => true)",
+  '  return cases.length',
+  '}',
+  '',
+].join('\n')
+
+/** 同一份夹具的**合规**形态:thunk 族 —— 登记侧裸存,消费循环真的调用它。 */
+const FIXTURE_THUNK = [
+  'export function selfTest() {',
+  '  const cases = []',
+  '  const t = (name, fn) => cases.push({ name, fn })',
+  "  t('remote 清单要能判', () => true)",
+  '  let pass = 0',
+  '  for (const c of cases) if (c.fn() === true) pass++',
+  '  return pass',
+  '}',
+  '',
+].join('\n')
+
+/** 只有形状、没有代码:同一形态全部写在注释里 ⇒ 不得判红。 */
+const FIXTURE_COMMENT_ONLY = [
+  'export function selfTest() {',
+  '  // 早先这里写 const t = (name, ok) => cases.push({ name, ok })',
+  "  //   并且 t('remote 清单要能判', () => true)",
+  '  const cases = []',
+  '  const t = (name, fn) => cases.push({ name, fn })',
+  "  t('remote 清单要能判', () => true)",
+  '  for (const c of cases) c.fn()',
+  '  return cases.length',
+  '}',
+  '',
+].join('\n')
+
+function runGate(args, cwd = ROOT) {
+  const r = spawnSync(process.execPath, [GATE_FILE, ...args], {
+    encoding: 'utf8',
+    cwd,
+    windowsHide: true,
+    timeout: 300_000,
+    maxBuffer: 64 << 20,
+  })
+  return { rc: r.status, out: `${r.stdout || ''}${r.stderr || ''}` }
+}
+
+/** 造一个真临时 git 仓(端到端要跑的是被审面,不是磁盘上的临时文本)。 */
+function makeRepo(fixtureText) {
+  const dir = mkScratch('selftest-registrant-')
+  const run = (args) =>
+    execFileSync(
+      GIT,
+      ['-c', 'safe.directory=*', '-c', 'user.email=g@t', '-c', 'user.name=g', '-C', dir, ...args],
+      { encoding: 'utf8', windowsHide: true, timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+  run(['init', '-q'])
+  mkdirSync(join(dir, 'scripts'), { recursive: true })
+  writeFileSync(join(dir, 'scripts', 'fixture-gate.mjs'), fixtureText, 'utf8')
+  run(['add', 'scripts/fixture-gate.mjs'])
+  run(['commit', '-q', '-m', 'fixture'])
+  return dir
+}
+
+test('T1 镜像只 import 生产实现,不得有第二份判据/遮噪', () => {
+  const self = readFileSync(join(ROOT, 'scripts', 'tests', `${SRC_NAME.replace('.mjs', '')}.test.mjs`), 'utf8')
+  assert.match(self, /import \{ __test__ as gate \} from '\.\.\/check-selftest-registrant-evaluates\.mjs'/)
+  // 判据函数名只属于源门;在测试里出现同名定义 ⇒ 两份真相(§22c 的原始动因)
+  for (const fn of ['classifyRegistrar', 'findRegistrars', 'secondArgForm', 'findSelfTestHosts'])
+    assert.ok(
+      !new RegExp(`function ${fn}\\s*\\(`).test(self),
+      `测试里定义了 ${fn} ⇒ 复制了判据实现`,
+    )
+  // 门体只引一份遮罩:不得自带 maskCommentsAndStrings 的定义
+  assert.match(gateSrc, /from '\.\/lib\/code-mask\.mjs'/, '没引那一份遮罩实现')
+  assert.ok(
+    !/function\s+maskCommentsAndStrings\s*\(/.test(gateSrc),
+    '门体自带第二份遮噪 ⇒ 两处实现必漂移(§22c)',
+  )
+})
+
+test('T2 门体走统一取材层,不得散写 git / 按磁盘判被审内容(守门 118 同口径)', () => {
+  assert.match(gateSrc, /from '\.\/lib\/face-reader\.mjs'/)
+  assert.match(gateSrc, /catBatch\(/, '引了层却没用它读内容 = 半接线')
+  assert.ok(
+    !/execFileSync\(\s*GIT[^)]*'show'/.test(gateSrc) && !/gitRaw\(\s*\[\s*'show'/.test(gateSrc),
+    '自己派生 git show 读内容 ⇒ 判定面绕开了层',
+  )
+})
+
+test('T3 真仓 HEAD 面:覆盖面自证 + 现读必须零配对红(看不见存量不算通过,判红则不得接线)', () => {
+  const a = gate.analyze(ROOT, 'head')
+  const d = gate.decide({ verdicts: a.verdicts, enumerated: a.enumerated })
+  assert.ok(a.enumerated > 0, '在射程文件枚举到 0 ⇒ 判据失效,不得当成通过')
+  assert.equal(d.counts.unreadable, 0, `有文件取不到内容(未判定被算进通过):${d.counts.unreadable}`)
+  assert.ok(d.counts.hosts > 0, '真仓上一处自检宿主都没看见 ⇒ 宿主判据对整面失明')
+  assert.ok(d.counts.registrars > 0, '真仓上一处登记函数都没看见 ⇒ 本门的绿灯没有任何含义')
+  assert.ok(d.counts.latent > 0, '潜伏档在真仓上读为空 ⇒ "只报数"那一格从未被验证过')
+  assert.deepEqual(
+    d.red,
+    [],
+    `真仓 HEAD 现读有配对红 ⇒ 要么 R-CASE 过宽(收紧方向必须少误报),要么真找到了一个从未判过的自检:` +
+      JSON.stringify(d.red),
+  )
+})
+
+test('T4 端到端双向锁(真临时 git 仓,判被审面而非磁盘):注入必红 / thunk 必绿 / 只有注释必绿', () => {
+  const arms = [
+    { text: FIXTURE_LATENT, wantRc: 1, wantNamed: 'fixture-gate.mjs', why: '潜伏登记 + 函数用例' },
+    { text: FIXTURE_THUNK, wantRc: 0, wantNamed: null, why: 'thunk 族(消费循环真调用)' },
+    { text: FIXTURE_COMMENT_ONLY, wantRc: 0, wantNamed: null, why: '形状只出现在注释里' },
+  ]
+  for (const arm of arms) {
+    const dir = makeRepo(arm.text)
+    try {
+      const r = runGate(['--root', dir])
+      assert.equal(
+        r.rc,
+        arm.wantRc,
+        `${arm.why}:期望 rc=${arm.wantRc},实得 ${r.rc}\n--- 输出 ---\n${r.out}`,
+      )
+      if (arm.wantNamed) {
+        assert.match(r.out, new RegExp(arm.wantNamed), '判红未点名被审文件')
+        assert.match(r.out, /函数形态用例/, '结论行要能看出是哪一型')
+      }
+    } finally {
+      rmScratch(dir)
+    }
+  }
+})
+
+test('T5 装车证明:未注册不得被读成已装车;已注册则成套且定级必须是 warn', () => {
+  const runner = gitShow('HEAD:scripts/guardian-runner.mjs')
+  const at = runner.indexOf(`    script: '${SRC_NAME}'`)
+  if (at < 0)
+    assert.fail(
+      `${SRC_NAME} 尚未注册进 guardian-runner —— 本用例的意义就是拦住"以为已接线"。`,
+    )
+  const entry = runner.slice(Math.max(0, at - 900), at + 900)
+  assert.match(
+    entry,
+    /mode:\s*'warn'/,
+    '定级被改成 blocking:接线瞬间 36 处潜伏 + 判不出的形态会把每台每次提交钉红(§12f)。' +
+      '要升档必须先(a)真仓现读配对红为 0 且未判定被逐条定性、(b)把本条与门体头注一起改掉。',
+  )
+  assert.match(entry, new RegExp(`skipEnv:\\s*'${gate.SELF_SKIP}'`), '应急跳过名必须与门自己声明的同一个')
+  // 提交链跑的是默认档(不带 --strict):有未判定就 rc=2 的话,这道门就成了恒红门
+  assert.ok(
+    !/args:\s*\[[^\]]*'--strict'/.test(entry),
+    "runner 不得给本门追加 --strict:现读有未判定档 ⇒ 每次提交都 exit 2",
+  )
+})
+
+test('T6 门体头注不得谎报定级或接线(守门 89 专判这一格)', () => {
+  const head = gateSrc.slice(0, 5200)
+  assert.doesNotMatch(head, /已接 pre-commit|CI 必跑|已 blocking/, '头注写死"已接线/已 blocking"是假承诺')
+  assert.match(head, /warn 起步/, '定级理由必须写在头注里,否则后人只会看到 warn 不知道为什么')
+})
+
+test('T7 判据自身的 --self-test 必须连跑两次都为 0(曾有过"第二次起恒红"的门)', () => {
+  const first = gate.selfTest()
+  const second = gate.selfTest()
+  assert.equal(first, 0, '第一次就不为 0 ⇒ 判据有未通过的构造面')
+  assert.equal(second, 0, `第二次为 ${second} ⇒ 自检留了状态或写了非幂等断言`)
+})
+
+test('T8 豁免族不得静默:标记必须带原因,只救本行(端到端在 T4 的注释臂已证)', () => {
+  const withReason = gate.exemptOnLine(`// ${gate.EXEMPT_MARK}: 该登记由外部 runner 求值`)
+  assert.equal(withReason.exempt, true)
+  const terminator = gate.exemptOnLine(`// ${gate.EXEMPT_MARK}: */`)
+  assert.equal(terminator.exempt, false, '注释闭合符冒充原因竟被放行')
+  const bare = gate.exemptOnLine(`// ${gate.EXEMPT_MARK}`)
+  assert.equal(bare.exempt, false, '不带原因的裸标记竟被放行')
+})
+
+test('T9 射程边界:lib/ 与 tests/ 不在面内(node:test 的 test(name, fn) 本来就该传函数)', () => {
+  for (const p of ['scripts/lib/face-reader.mjs', 'scripts/tests/x.test.mjs', 'apps/web/a.mjs'])
+    assert.equal(gate.SCOPE_RE.test(p), false, `${p} 不该进射程`)
+  assert.equal(gate.SCOPE_RE.test('scripts/check-foo.mjs'), true)
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

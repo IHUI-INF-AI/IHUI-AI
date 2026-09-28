@@ -68,7 +68,7 @@ export default function SettingsPage() {
             <select
               value={locale}
               onChange={(e) => setLocale(e.target.value as Locale)}
-              className="text-xs text-foreground px-2 py-1 border border-border rounded-md bg-card cursor-pointer transition-colors hover:border-muted-foreground focus:outline-none focus:border-muted-foreground"
+              className="text-xs text-foreground px-2 py-1 border border-border rounded-sm bg-card cursor-pointer transition-colors hover:border-muted-foreground focus:outline-none focus:border-muted-foreground"
             >
               {localeOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>

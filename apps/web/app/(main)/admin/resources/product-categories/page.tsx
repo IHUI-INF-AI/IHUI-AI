@@ -53,7 +53,7 @@ function TreeRow({ node, depth }: { node: ProductTreeNode; depth: number }) {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted"
             aria-label={open ? 'collapse' : 'expand'}
           >
             {open ? (
