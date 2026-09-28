@@ -520,10 +520,18 @@ describe('PromptQueue', () => {
 
     it('saveToDisk 写入失败不抛错(只 log warn)', async () => {
       // 用一个不可能的路径触发写入失败
-      const impossiblePath = path.join('/nonexistent-root', 'no-perm', 'prompt-queue.json');
+      // 真"不可能路径":某个**普通文件**之下再拼一层 ⇒ POSIX 与 Windows 都是 ENOTDIR。
+      // 旧写法 path.join('/nonexistent-root', …) 在 Windows 上会被解析成盘根并**真的建出目录**,
+      // 于是本用例其实走的是成功分支,而它断言的是"失败被吞掉" ⇒ 恒真、零判据力,
+      // 还会往仓库外的盘根留测试件(AGENTS §15b 禁止)。两条都由本次改动一并钉死。
+      const blocker = path.join(tmpDir, 'not-a-dir');
+      fs.writeFileSync(blocker, 'x');
+      const impossiblePath = path.join(blocker, 'no-perm', 'prompt-queue.json');
       const q = new PromptQueue();
       q.enqueue('task');
       await expect(q.saveToDisk(impossiblePath)).resolves.toBeUndefined();
+      // 正向证据:失败分支真被走到(文件没被创建),而不是"写成功了也照样绿"。
+      expect(fs.existsSync(impossiblePath)).toBe(false);
     });
 
     it('持久化文件结构正确(version + savedAt + counter + pending)', async () => {
