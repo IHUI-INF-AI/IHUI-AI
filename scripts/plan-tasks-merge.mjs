@@ -70,6 +70,10 @@ import { TASK_ID_PATTERN, headIdOf, lostMarkers } from './check-plan-line-loss.m
 // (G-307:两层自愈互咬的根因之一就是"注记长什么样"在两边各写一遍)。
 import { buildForkedLine, forkPreserved, anchorOf } from './lib/plan-merge-annotation.mjs'
 import { alignSharedIndex, casUpdateRef, commitTreeWithIndex } from './lib/bypass-git.mjs'
+// 落地要按**调用方给的 root** 问 HEAD(未勾单行档的端到端取证跑在临时仓里,而上面那三个出口
+// 都收 root 参数)。单独一条 import 语句不是笔误:镜像测试 R4 把上一行逐字钉成"落地只走
+// bypass-git 那一份 plumbing"的装车证明,把 `git` 塞进那一行会让那条锁静默失效。
+import { git as bypassGit } from './lib/bypass-git.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN_REL = 'PROJECT_PLAN.md'
@@ -866,8 +870,17 @@ export function buildRowDedupe(content, match = null) {
 /**
  * 单行副本档的零损失断言 —— 五条同时成立才允许落地。
  * 与块级档**同源但不等值**:块级要证"F6 必降",这里要证"这一档自己清干净了(幂等)"。
+ *
+ * 已完成档与未勾选档**共用下面那一份核**(本仓"两处算同一件事必漂移"记过最多次,
+ * 而这两处产出的是同一个词——"零损失")。两档唯一的差别是"什么算等值副本"的取组函数,
+ * 它由调用方喂进来;把断言抄第二份,就等于允许两档在不同日子给出相反的零损失结论。
+ * 各档独有的更强断言走 `extra` 参数,不得塞回公共核里(公共核必须两档都能过)。
  */
 export function verifyRowDedupe(srcText, outText, deletedCount, match = null) {
+  return verifyRowDedupeCore(srcText, outText, deletedCount, match, findRowTwins)
+}
+
+export function verifyRowDedupeCore(srcText, outText, deletedCount, match, findTwins) {
   const problems = []
   const a = String(srcText).split('\n')
   const b = String(outText).split('\n')
@@ -883,7 +896,9 @@ export function verifyRowDedupe(srcText, outText, deletedCount, match = null) {
     }
     i++
   }
-  // ② 每个被删值都必须在输出里仍有一份逐字相同的幸存行,且任何值都不得变多
+  // ② 每个被删值都必须在输出里仍有一份逐字相同的幸存行;任何值都不得变多;
+  //    且**不得出现输入里没有的新行**(子序列判据漏得掉"末尾新加一行"以外的插行形态,
+  //    这条把它补成双向对账 —— 只断"不删"会造出重复行而账面全绿,本仓实测过 1543 行那一型)。
   const countOf = (arr) => {
     const m = new Map()
     for (const l of arr) m.set(l, (m.get(l) ?? 0) + 1)
@@ -895,6 +910,9 @@ export function verifyRowDedupe(srcText, outText, deletedCount, match = null) {
     const m = cb.get(line) ?? 0
     if (m === 0 && n > 0) problems.push(`值「${line.slice(0, 40)}…」在输出里一份都不剩`)
     if (m > n) problems.push(`值「${line.slice(0, 40)}…」反而变多 ${n}→${m}`)
+  }
+  for (const [line, m] of cb) {
+    if (!ca.has(line)) problems.push(`产物里出现输入中不存在的行(= 新增,本档只许删):「${line.slice(0, 40)}…」`)
   }
   // ③ F1–F4 + F6 无一上涨(这把尺子不许替别的维度制造红点)
   const before = auditPlan(srcText).counts
@@ -919,8 +937,8 @@ export function verifyRowDedupe(srcText, outText, deletedCount, match = null) {
   if (kindsAfter < kindsBefore)
     problems.push(`归并落账注记的种类由 ${kindsBefore} 掉到 ${kindsAfter}(不得整类消失;份数变少不算,那正是本档在做的事)`)
   // ⑤ 幂等:做完之后**本档范围内**的等值副本必须清零(带 --match 时只核该子集),
-  //    否则要么没删净、要么判据自己错了。
-  const left = findRowTwins(outText).filter((g) => !match || g.line.includes(match))
+  //    否则要么没删净、要么判据自己错了。取组函数由调用方喂进来,不在这里二次判档。
+  const left = findTwins(outText).filter((g) => !match || g.line.includes(match))
   if (deletedCount > 0 && left.length > 0)
     problems.push(`删了 ${deletedCount} 行而仍有 ${left.length} 组等值副本未清 ⇒ 不闭合,交人工`)
   return problems
@@ -1013,6 +1031,247 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
         after.dupOpenCopies,
         after.dupBlocks,
       ].join('/')} 未涨;共享索引 移动 ${nOf(align.moved)} / 已就位 ${nOf(align.already)}` +
+        `${nOf(align.skipped) ? ` / 归属他人未动 ${align.skipped.map((s) => s.path).join(',')}` : ''}` +
+        `${nOf(align.undetermined) ? ` / 未判定 ${nOf(align.undetermined)}` : ''}` +
+        `${align.lockAbandoned || align.failed ? '(共享索引未对齐 ⇒ 必须复跑一次,否则下一次普通提交会写回旧版)' : ''}`,
+    )
+    return 0
+  }
+  console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  return 1
+}
+
+// ── 未勾单行等值副本档(G-741,2026-09-29 立)─────────────────────────
+/** 未勾选行的行首形态(与已完成档的 `ROW_DONE_RE` 同位、同窄度,只差这一个字符)。 */
+const ROW_OPEN_RE = /^- \[ \]/
+
+/**
+ * 已完成那一族已由 `--dedupe-rows` 收口,但**未勾选**的逐字孪生行到今天仍然没有任何出口。
+ *
+ * 为什么现有四条判据与两块档都不响(现读 HEAD 面,2026-09-29):
+ *  - F1 要"一勾一未勾"两态并存;两份同态 ⇒ 不响。
+ *  - F4 按"编号 + 题面"配主键,它的处置出口是**给副本行加一句"重复登记副本"指针、一行不删**
+ *    (§1 禁止无声删除);加完指针之后两份都带同一句指针 ⇒ 行仍在那儿。
+ *  - F4b 刻意排除带指针的行,也排除有主键的行 ⇒ 这一族两头都不计。
+ *  - F6 只认"≥3 行且每行 ≥40 字符的连续块" ⇒ 单行结构上看不见。
+ *  - 守门 71 防"丢行",从不防"重行"。
+ * 后果不是难看,是**功能被卡死**:台账里任何按该行内容定位的自动动作(
+ * `scripts/live-doc-edit.mjs`、自建锚点脚本)都按"锚点命中≠1 不猜"拒绝插入 ——
+ * 派单口径已经把它们逐出 claimable(现读 dupPointerRows 1725 / claimable 490),
+ * 而"这一行有两份"这件事永久无人可清。真仓现读:顶层 ≥40 字符的未勾选逐字孪生 **220 组 /
+ * 可删份数 1148**,其中 6 组带租约 `（进行中@…）`。
+ *
+ * 判据比已完成档**更窄一档**,五条件同时成立才动手:
+ *  ① 行首 `- [ ]`(未勾选);
+ *  ② 整行 ≥40 字符(与 F6/已完成档同一噪声阈);
+ *  ③ 顶层行(不以空白缩进开头)—— 缩进续行归 F6 那把尺子;
+ *  ④ 两份以上**逐字节相同**(含行尾空白/BOM/CRLF:差一个字就是漂移副本,机器折半即有损 ⇒
+ *     一份不动并逐条点名交人工);
+ *  ⑤ **该行已带 `【归并】重复登记副本` 指针**。
+ *
+ * 第⑤条是本档全部安全论据的落点,也是"复用尺子、不另写一份什么算重复"的实现方式:
+ * 尺子(auditPlan 的 claimable 排除)早已把带该指针的行算作**同一条活的副本**,所以删掉第 2..N 份
+ * 不改活数 —— 这一点不靠注释承诺,由 `verifyOpenRowDedupe` 的"派单口径活数一枚不少"当场反证。
+ * **没带指针**的逐字孪生则是 F4/F4b 的当次活账,那一族的出口是 `--heal` 加注记(一行不删);
+ * 本档若去删它,等于替人做出"这条待办没人要了"的判断 ⇒ 一律点名、一份不删(见 findOpenRowRefusals)。
+ *
+ * 幸存者取**首次出现**(与已完成档同形;两份逐字节相同 ⇒ 保留哪一份不影响内容)。
+ */
+export function findOpenRowTwins(content) {
+  const lines = String(content).split('\n')
+  const seen = new Map()
+  lines.forEach((l, i) => {
+    if (!ROW_OPEN_RE.test(l)) return
+    if (l.length < ROW_MIN_LEN) return
+    if (!DUP_POINTER_RE.test(l)) return
+    if (!seen.has(l)) seen.set(l, [])
+    seen.get(l).push(i + 1)
+  })
+  const groups = []
+  for (const [line, at] of seen) if (at.length > 1) groups.push({ line, copies: at.length, at })
+  return groups.sort((a, b) => a.at[0] - b.at[0])
+}
+
+/**
+ * 本档**刻意不删**的两族,一律报名(判据失效的表现永远是安静,所以三态必须点名到行)。
+ *  - `noPointer`:未勾选 + 顶层 + ≥40 + 逐字相同,但没带指针 ⇒ 交 `--heal`(F4/F4b 加注记)。
+ *  - `drifted` :同复合主键下 ≥2 条未勾选而正文已漂开 ⇒ 交人工。取组一律喂**尺子自己的**
+ *    `auditPlan().dupOpen`(findForks 的产物),本档不重写"什么算同题"—— 重写的那一份迟早与
+ *    判据漂开,而漂开的表现是"这一族没人看见"而不是"报错"。
+ * @returns {{noPointer:Array<{line:string,copies:number,at:number[]}>,drifted:Array<{key:string,copies:number,at:number[]}>}}
+ */
+export function findOpenRowRefusals(content) {
+  const lines = String(content).split('\n')
+  const seen = new Map()
+  lines.forEach((l, i) => {
+    if (!ROW_OPEN_RE.test(l)) return
+    if (l.length < ROW_MIN_LEN) return
+    if (DUP_POINTER_RE.test(l)) return
+    if (!seen.has(l)) seen.set(l, [])
+    seen.get(l).push(i + 1)
+  })
+  const noPointer = []
+  for (const [line, at] of seen) if (at.length > 1) noPointer.push({ line, copies: at.length, at })
+  noPointer.sort((a, b) => a.at[0] - b.at[0])
+  const drifted = []
+  for (const g of auditPlan(content).dupOpen) {
+    const texts = new Set(g.open.map((r) => r.raw))
+    if (texts.size > 1) drifted.push({ key: g.key, copies: g.open.length, at: g.open.map((r) => r.line) })
+  }
+  return { noPointer, drifted }
+}
+
+/** 只删第 2..N 份;`match` 是内容锚点(整行子串,不认行号),不命中的组一份不动。 */
+export function buildOpenRowDedupe(content, match = null) {
+  const groups = findOpenRowTwins(content).filter((g) => !match || g.line.includes(match))
+  const drop = new Set()
+  const removed = []
+  for (const g of groups) {
+    for (const ln of g.at.slice(1)) {
+      if (drop.has(ln)) throw new Undetermined(`未勾单行副本判据自相矛盾:L${ln} 被两组同时认领`)
+      drop.add(ln)
+      removed.push({ line: g.line, at: ln })
+    }
+  }
+  const out = String(content).split('\n').filter((_, i) => !drop.has(i + 1))
+  return { text: out.join('\n'), removed, droppedLines: drop, deletedCount: drop.size, groups }
+}
+
+/**
+ * 未勾档的零损失断言 = 已完成档那**一份**核(顺序子序列 / 幸存份在位 / 无新增行 / 无值变多 /
+ * F1–F4+F6 不涨、注记种类不整类消失 / 本档幂等清零)+ 本档独有的三条更强断言:
+ *  ⑥ 派单口径活数**必须一枚不少** —— 这是"删的是副本而不是一条真待办"的唯一机器证据;
+ *  ⑦ 未勾选行数减量必须与声明删除数吻合(删的全是 `- [ ]` 行,不许顺手吃掉别的形态);
+ *  ⑧ 不越界:没带指针的等值孪生必须一份不少地留着(那一族的出口是 --heal,不是本档)。
+ * `droppedLines` 给定时再补一条最硬的:产物必须逐行等于"原文件减去声明的那几行"。
+ */
+export function verifyOpenRowDedupe(srcText, outText, deletedCount, match = null, droppedLines = null) {
+  const problems = verifyRowDedupeCore(srcText, outText, deletedCount, match, findOpenRowTwins)
+  if (droppedLines) {
+    const expect = String(srcText)
+      .split('\n')
+      .filter((_, i) => !droppedLines.has(i + 1))
+    const got = String(outText).split('\n')
+    if (expect.length !== got.length || expect.some((l, idx) => l !== got[idx]))
+      problems.push('产物 ≠「原文件减去声明的那几行」—— 除被删的重复行外必须逐行等值')
+  }
+  const before = auditPlan(srcText).counts
+  const after = auditPlan(outText).counts
+  if (after.claimable !== before.claimable)
+    problems.push(
+      `派单口径活数由 ${before.claimable} 变到 ${after.claimable} ⇒ 删掉的不是"副本"而是一条真待办(或反向造出一条),整批不落`,
+    )
+  if (after.open !== before.open - deletedCount)
+    problems.push(`未勾选行由 ${before.open} 到 ${after.open},与声明删除数 ${deletedCount} 不吻合`)
+  const r0 = findOpenRowRefusals(srcText).noPointer
+  const r1 = findOpenRowRefusals(outText).noPointer
+  if (r0.length !== r1.length)
+    problems.push(
+      `未带指针的等值孪生由 ${r0.length} 组变成 ${r1.length} 组 —— 那一族的出口是 --heal 加注记,本档不得碰`,
+    )
+  return problems
+}
+
+/**
+ * 未勾档的落地:底稿**一律取被审面上的 HEAD blob**(经 face-reader 的 catBatch,绝不 readFileSync
+ * 工作树当判定输入),写盘只走 `lib/bypass-git.mjs` 已有的三个出口 —— 同一套 plumbing 在本仓被手写
+ * 过 6 份并互相漂开,其中一份把"重复行计数"当零损失判据,一次也没落地成功。
+ *
+ * `--staged` 面**允许出报告、拒绝落地**(rc 2 并说明理由):索引里的 PROJECT_PLAN.md 含别人 staged 的
+ * 内容,把它连我的删除一起交出去就是 §12 的污染型。这一格宁可不做,不可代交。
+ *
+ * 每次 CAS 尝试都按**当次 HEAD** 重算组与行号(并发会话一天推进几十枚提交,行号必挪位),
+ * 落地后回读复核"本档清零 ∧ 活数未变",任一条不符即 CAS 回退到 parent,不留半落地现场。
+ */
+export function openRowsDedupeAndLand(match = null, maxAttempts = 8, opts = {}) {
+  const root = opts.root ?? ROOT
+  const allowMass = !!opts.allowMass
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const spec = `HEAD:${PLAN_REL}`
+    const src = catBatch(root, [spec], { maxBuffer: 1 << 28 }).get(spec)
+    if (src === null || src === undefined) {
+      console.log('未勾单行副本档未判定 —— 被审面取不到 PROJECT_PLAN.md(不记为已修)')
+      return 2
+    }
+    const groups = findOpenRowTwins(src).filter((g) => !match || g.line.includes(match))
+    if (!groups.length) {
+      console.log(
+        `✅ 无"已写明重复登记副本"的未勾选等值单行副本(本档=0),不动任何东西${attempt > 1 ? ` (第 ${attempt} 轮)` : ''}`,
+      )
+      return 0
+    }
+    let r
+    try {
+      r = buildOpenRowDedupe(src, match)
+    } catch (e) {
+      console.log(`❌ 未勾单行副本档停手 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
+      return 1
+    }
+    if (r.deletedCount > ROW_MASS_LIMIT && !allowMass) {
+      console.log(
+        `❌ 拒批量:本次拟删 ${r.deletedCount} 行 > 单批上限 ${ROW_MASS_LIMIT} 行 —— 活文档上一次删几百行没人复核得动。\n` +
+          `   逐批做法:\`--dedupe-open-rows --match "<该行的一段原文>"\` 看清范围,确认断言后加 --commit;确要整档放开再显式加 --allow-mass。`,
+      )
+      return 1
+    }
+    const problems = verifyOpenRowDedupe(src, r.text, r.deletedCount, match, r.droppedLines)
+    if (problems.length) {
+      console.log('❌ 未勾单行副本档停手(现场保留,交人工):')
+      for (const p of problems.slice(0, 10)) console.log('   ' + p)
+      return 1
+    }
+    const c0 = auditPlan(src).counts
+    const parent = bypassGit(['rev-parse', 'HEAD'], { root })
+    const msg = [
+      'fix(plan): 收口被逐字重复的未勾选单行登记(G-741 未勾单行档)',
+      '',
+      `触发时被审面 HEAD 现读:${groups.length} 组等值副本 / 共 ${groups.reduce((s, g) => s + g.copies, 0)} 份` +
+        `${match ? ';本次按内容锚点定向执行(锚点=整行子串,不含行号)' : ';本次为全档清理'}${allowMass ? ';--allow-mass 已由人工放行' : ''}。`,
+      `删去第 2..N 份共 ${r.deletedCount} 行,保留每组首次出现(两份逐字节相同 ⇒ 保留哪一份不改内容)。`,
+      '只折**已写明「【归并】重复登记副本」指针**的未勾选行:尺子的派单口径早已把带该指针的行算作同一条活的副本,所以本档不改活数(落地前后各跑一次同一把尺子当场反证)。',
+      '刻意不删并逐条点名的两族:① 未带指针的逐字等值孪生(出口是 --heal 加注记,一行不删);② 同主键而正文已漂开的副本(机器折半即有损,交人工)。',
+      `零损失判据(八条,任一不过即整批不落):行数差=待删数 ∧ 输出是输入的顺序子序列 ∧ 每个被删值仍有同文幸存份 ∧ 无任何值变多 ∧ 产物不含新增行 ∧ 除声明删除行外逐行等值 ∧ F1/F2/F3/F4/F6 无一上涨且归并注记种类不整类消失 ∧ 派单口径活数不变 ∧ 未带指针的等值孪生组数不变 ∧ 本档清零(幂等)。`,
+      `行数 ${src.split('\n').length} → ${r.text.split('\n').length};claimable ${c0.claimable} → 由落地后回读复核。`,
+    ].join('\n')
+    let landed
+    try {
+      landed = commitTreeWithIndex({
+        root,
+        parent,
+        baseRef: parent,
+        message: msg,
+        entries: [{ path: PLAN_REL, text: r.text }],
+      })
+    } catch (e) {
+      console.log(`❌ 未勾单行副本档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
+      return 1
+    }
+    if (!casUpdateRef(landed.commit, parent, { root })) {
+      console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),整轮按新 HEAD 重算副本位置再来`)
+      continue
+    }
+    const landedSpec = `${landed.commit}:${PLAN_REL}`
+    const landedText = catBatch(root, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
+    if (landedText === null || landedText === undefined) {
+      console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
+      casUpdateRef(parent, landed.commit, { root })
+      return 1
+    }
+    const leftAfter = findOpenRowTwins(landedText).filter((g) => !match || g.line.includes(match))
+    const after = auditPlan(landedText).counts
+    if (leftAfter.length > 0 || after.claimable !== c0.claimable) {
+      console.log(
+        `❌ 落地后回读不闭合(本档残留 ${leftAfter.length} 组 / 活数 ${c0.claimable}→${after.claimable}),回退到 ${parent.slice(0, 11)}`,
+      )
+      casUpdateRef(parent, landed.commit, { root })
+      return 1
+    }
+    const align = alignSharedIndex({ root, paths: [PLAN_REL], parentRef: parent })
+    const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
+    console.log(
+      `✅ 未勾单行副本档落地 ${landed.commit.slice(0, 11)}:删 ${r.deletedCount} 行(保留首次出现),` +
+        `claimable ${c0.claimable} 未变,F1–F4/F6 ${[after.forks, after.voidRows, after.rotatedAuto, after.dupOpenCopies, after.dupBlocks].join('/')} 未涨` +
+        `;共享索引 移动 ${nOf(align.moved)} / 已就位 ${nOf(align.already)}` +
         `${nOf(align.skipped) ? ` / 归属他人未动 ${align.skipped.map((s) => s.path).join(',')}` : ''}` +
         `${nOf(align.undetermined) ? ` / 未判定 ${nOf(align.undetermined)}` : ''}` +
         `${align.lockAbandoned || align.failed ? '(共享索引未对齐 ⇒ 必须复跑一次,否则下一次普通提交会写回旧版)' : ''}`,
@@ -2104,6 +2363,53 @@ function selfTest() {
     '空面不得凭空造出折叠',
   )
   /**
+   * 未勾单行等值副本档(G-741)。成对写:每条"该删的必须删得动"都配一条"不该碰的一份都不许动",
+   * 再给四条零损失断言各配一条"故意做坏必须拒" —— 只判坏的会退化成永拒,只判好的等于没判。
+   */
+  const O_TWIN =
+    '- [ ] **G-741 单行档自检夹具**:〔【归并】重复登记副本 2026-09-28·派单以另一条为准〕正文逐字相同,长度足够越过 40 字符噪声阈。'
+  const O_NOPTR =
+    '- [ ] **G-742 未带指针的等值孪生**:两份逐字相同,但本档不得碰 —— 那一族的出口是 --heal 加注记,一行不删才对。'
+  const O_DRA =
+    '- [ ] **G-743 同主键漂移**:第一段正文,长度足够越过噪声阈以便证明它不是被长度筛掉的而是被逐字不同筛掉的。'
+  const O_DRB =
+    '- [ ] **G-743 同主键漂移**:第二段正文,与甲同复合主键而正文不同 ⇒ 机器折半即有损,必须点名交人工才对。'
+  const O_SHORT = '- [ ] G-744 短〔【归并】重复登记副本〕'
+  const O_IND =
+    '  - [ ] G-745 缩进未勾副本〔【归并】重复登记副本〕长度足够越过噪声阈,所以它不是被长度筛掉的而是被顶层判据筛掉的。'
+  const oSrc = ['# 台账', '', O_TWIN, O_TWIN, O_TWIN, O_NOPTR, O_NOPTR, O_SHORT, O_SHORT, O_DRA, O_DRB, O_IND, O_IND, ''].join(
+    '\n',
+  )
+  const oT = findOpenRowTwins(oSrc)
+  ok(oT.length === 1 && oT[0].copies === 3, `未勾档应只命中 1 组×3 份(带指针+顶层+≥40+逐字同),实得 ${JSON.stringify(oT.map((g) => g.copies))}`)
+  const oRef = findOpenRowRefusals(oSrc)
+  ok(oRef.noPointer.length === 1, `未带指针的等值孪生必须被点名而不被删:实得 ${oRef.noPointer.length} 组`)
+  ok(oRef.drifted.length === 1, `同主键而正文已漂开必须被点名交人工:实得 ${oRef.drifted.length} 组`)
+  const oR = buildOpenRowDedupe(oSrc)
+  ok(oR.deletedCount === 2, `三份等值副本只删第 2..N 份 ⇒ 应删 2,实得 ${oR.deletedCount}`)
+  ok(oR.text.split('\n').filter((l) => l === O_TWIN).length === 1, '必须留一份原件幸存')
+  ok(oR.text.includes(O_NOPTR) && oR.text.includes(O_DRB), '刻意不删的两族必须逐字留在产物里')
+  ok(verifyOpenRowDedupe(oSrc, oR.text, oR.deletedCount, null, oR.droppedLines).length === 0, '纯删除必须过全部零损失断言')
+  ok(buildOpenRowDedupe(oR.text).deletedCount === 0, '第二次必须报"无可归并"(幂等)')
+  // 四条"故意做坏必须拒":漏保留行 / 多删一行 / 新增行 / 行数差不等
+  const oLost = oR.text.split('\n').filter((l) => l !== O_TWIN).join('\n')
+  ok(verifyOpenRowDedupe(oSrc, oLost, oR.deletedCount, null, oR.droppedLines).some((p) => p.includes('一份都不剩')), '漏保留行必须被拒')
+  const oExtra = oR.text.replace(O_DRB + '\n', '')
+  ok(
+    verifyOpenRowDedupe(oSrc, oExtra, oR.deletedCount, null, new Set([4, 5])).some((p) => p.includes('活数') || p.includes('逐行等值')),
+    '多删一行(吃掉一条真待办)必须被拒',
+  )
+  ok(
+    verifyOpenRowDedupe(oSrc, `${oR.text}\n- [ ] 凭空新增的一行待办(长度足够越过噪声阈以便证明不是被长度筛掉的)`, oR.deletedCount, null, oR.droppedLines).some((p) =>
+      p.includes('新增'),
+    ),
+    '产物含新增行必须被拒(只断"不删"会造出重复行而账面全绿)',
+  )
+  ok(
+    verifyOpenRowDedupe(oSrc, oR.text, oR.deletedCount + 1, null, oR.droppedLines).some((p) => p.includes('行数差')),
+    '行数减少量必须等于声明删除量',
+  )
+  /**
    * 带值旗标的取值判据(枚 380431ffc 同族口径)。成对,单向断言等于没有:
    * 只判"坏的必被拒"会让它退化成"永远拒",而 (b) 那一臂证明合法路径照写。
    */
@@ -2155,6 +2461,7 @@ export const KNOWN_FLAGS = [
   '--commit',
   '--dedupe-blocks',
   '--dedupe-rows',
+  '--dedupe-open-rows',
   '--fold-twins',
   '--audit-pointers',
   '--restore-terminals',
@@ -2490,6 +2797,105 @@ function main() {
       return 0
     }
     return rowsDedupeAndLand(match)
+  }
+  /**
+   * 未勾单行等值副本档(G-741)。与 `--dedupe-rows` / `--dedupe-blocks` 同样**绝不进 post-commit 自动档**:
+   * 删行是活文档上最危险的动作,自动档只做"改行内状态"那一类(--heal 的翻勾/加注记)。
+   * 它补的是那一档的第①条门槛(行首必须是 `- [x]`)留下的整格:真仓 HEAD 现读 220 组 / 1148 份
+   * 带指针的未勾选逐字孪生,派单口径已排除、锚点唯一性却永久坏掉。
+   */
+  if (has('--dedupe-open-rows')) {
+    const mv = flagValue(argv, '--match')
+    if (mv.present && !mv.valid) {
+      console.log(
+        `❌ --match 需要一个非旗标值(实得 ${JSON.stringify(mv.token)})—— 把空值静默当"不带锚点"会退化成全档清理,方向反了。`,
+      )
+      return 2
+    }
+    const match = mv.value
+    const selO = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
+    if (selO.error) {
+      console.log(`⚠️ 无法判定 —— ${selO.error}`)
+      return 2
+    }
+    let srcO
+    try {
+      srcO = readPlan(ROOT, selO.face)
+    } catch (e) {
+      console.log(`⚠️ 无法判定 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
+      return 2
+    }
+    const allO = findOpenRowTwins(srcO)
+    const groupsO = allO.filter((g) => !match || g.line.includes(match))
+    const refO = findOpenRowRefusals(srcO)
+    const cO = auditPlan(srcO).counts
+    console.log(
+      `判定面:${LABEL[selO.face]}  未勾等值副本(已带「重复登记副本」指针)全档 ${allO.length} 组 / 共 ${allO.reduce((s, g) => s + g.copies, 0)} 份` +
+        (match ? `;本次锚点命中 ${groupsO.length} 组` : ''),
+    )
+    // readPlan 的 'worktree' 档沿用既有实现(它取的是 HEAD blob),本档不偷偷修正也不假装看见工作树:
+    // 报出来,免得读的人把一个 HEAD 面的结论当成"我这一棵树上的现场"。
+    if (selO.face === 'worktree')
+      console.log('   ⚠️ 上面那个面的正文实际取自 HEAD blob(readPlan 既有形态,与本档无关)—— 要看工作树请另跑')
+    // 三态必须报名,不得只报数 —— 拿到计数的人无法判断哪一族该走 --heal、哪一族该人工裁。
+    console.log(
+      `刻意不删的两族:① 未带指针的逐字等值孪生 ${refO.noPointer.length} 组(出口是 --heal 加注记,一行不删)` +
+        ` ② 同主键而正文已漂开 ${refO.drifted.length} 组(机器折半即有损,交人工)`,
+    )
+    console.log(
+      `尺子现读:F4 dupOpen ${cO.dupOpenGroups} 组 / 副本 ${cO.dupOpenCopies} 份 · F4b 无主键逐字孪生 ${cO.verbatimDupGroups} 组 / ${cO.verbatimDupCopies} 份` +
+        ` · 已标副本行 ${cO.dupPointerRows} · 派单口径 claimable ${cO.claimable}(本档落地前后必须同值)`,
+    )
+    for (const g of refO.noPointer.slice(0, has('--all') ? 9999 : 5))
+      console.log(`  · 交 --heal:${g.copies} 份 @ L${g.at.join(',L')}: ${g.line.slice(0, 60)}`)
+    for (const d of refO.drifted.slice(0, has('--all') ? 9999 : 5))
+      console.log(`  · 交人工(同主键漂移):${d.copies} 份 @ L${d.at.join(',L')} 键「${String(d.key).slice(0, 40)}」`)
+    if (!groupsO.length) {
+      console.log(
+        match
+          ? `ℹ️ 锚点没命中任何"带指针的未勾等值副本" ⇒ 一行未删(锚点是内容子串,不认行号;不命中不等于"没有副本")`
+          : `✅ 无带指针的未勾选等值单行副本(本档=0),不动任何东西`,
+      )
+      return 0
+    }
+    let rO
+    try {
+      rO = buildOpenRowDedupe(srcO, match)
+    } catch (e) {
+      console.log(`❌ 未勾单行副本档停手 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
+      return 1
+    }
+    for (const g of groupsO.slice(0, has('--all') ? 9999 : 10))
+      console.log(`  - ${g.copies} 份 @ L${g.at.join(',L')}: ${g.line.slice(0, 60)}`)
+    const pO = verifyOpenRowDedupe(srcO, rO.text, rO.deletedCount, match, rO.droppedLines)
+    if (pO.length) {
+      console.log('❌ 零损失断言未过,拒交付:')
+      for (const x of pO) console.log('   ' + x)
+      return 1
+    }
+    console.log(
+      `拟删第 2..N 份共 ${rO.deletedCount} 行;✅ 零损失断言全过(纯删除 / 幸存份在位 / 无新增行 / F1–F4+F6 不涨、注记种类不整类消失 / 派单口径活数不变=${cO.claimable} / 未带指针组数不变 / 幂等清零)`,
+    )
+    if (rO.deletedCount > ROW_MASS_LIMIT && !has('--allow-mass')) {
+      console.log(
+        `❌ 拒批量:本次拟删 ${rO.deletedCount} 行 > 单批上限 ${ROW_MASS_LIMIT} 行 —— 这不是错误,是"必须由人一次一批放行"。\n` +
+          `   逐批做法:\`--dedupe-open-rows --match "<该行的一段原文>"\` 确认该批断言后加 --commit;确要整档放开再显式加 --allow-mass(它会原样写进落地提交信息)。`,
+      )
+      return 1
+    }
+    if (selO.face !== 'head') {
+      console.log(
+        `❌ 本档只从 **HEAD 面**落地(当前判定面=${LABEL[selO.face]}):索引里的 PROJECT_PLAN.md 含别人 staged 的内容,` +
+          `把它的正文连我的删除一起交出去就是 §12 的污染型。\n` +
+          `   报告已按该面出完;要落地请去掉 --staged/--worktree(底稿取 HEAD blob,删的仍是同一批逐字副本)。`,
+      )
+      return 2
+    }
+    if (!has('--commit')) {
+      console.log('ℹ️ 未加 --commit:只出报告,一行未删。确认后再跑 --dedupe-open-rows --commit')
+      return 0
+    }
+    return openRowsDedupeAndLand(match, 8, { root: ROOT, allowMass: has('--allow-mass') })
   }
   const sel = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
   if (sel.error) {
