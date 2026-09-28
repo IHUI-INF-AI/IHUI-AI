@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { maskComments } from '../lib/code-mask.mjs'
 import { planPrune } from '../prune-rotated-nssm-logs.mjs'
 
 const SRC = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'prune-rotated-nssm-logs.mjs'), 'utf8')
@@ -96,5 +97,25 @@ test('M8 合写组不得顶掉同服务 err/out 组的保留名额(分组键的�
   const r = planPrune(input, { keep: 1, nowMs: NOW })
   assert.equal(r.groups, 2, 'api|log 与 api|err 必须是两组')
   assert.ok(r.kept.some((k) => k.name.includes('-err-')), '唯一的 err 份不得被合写型挤出保留集')
+})
+
+// ─────────── 落点反向锁(§15b):logs 根只许有一个出口,本模块不得再自己截盘符 ───────────
+// 与 `sync-prometheus-live-config.test.mjs` T11 同一条锁;旧写法是
+// `resolve(HERE,'..').slice(0,1).toUpperCase()` + `join(`${D}:\`, 'DevEnv', 'logs')` ——
+// 用 slice(0,1) 从路径字符串上"猜"盘根,仓一旦被检出到 `<盘>/<子层>/<仓名>` 就直接错位。
+// 判据对象是真实源文件的形态(§22c),遮噪只遮注释、保留字符串(被禁的那一型活在字符串里)。
+test('M9 落点反向锁:不得再自取盘符,必须真的 import 共用出口 devEnvRoot()', () => {
+  const code = maskComments(SRC)
+  assert.doesNotMatch(code, /slice\(\s*0\s*,\s*1\s*\)/, '自取盘符首字符那一份实现不得回来(否则同一件事又有两个答案)')
+  assert.doesNotMatch(code, /['"]\\{0,2}DevEnv['"]/, "DevEnv 字面量档位不得回来 —— 它住在 §15b 共用出口里")
+  assert.doesNotMatch(code, /['"]\.\.['"]\s*,\s*['"]\.\.['"]/, '不得再靠"往上数两级"推盘根(工作树落在夹具里时落点会跟着夹具走)')
+  assert.doesNotMatch(code, /function\s+devEnvRoot\s*\(/, '本模块不得再声明私有 devEnvRoot —— 落点只许有一个出口')
+  assert.match(
+    code,
+    /import\s*\{[^}]*\bdevEnvRoot\b[^}]*\}\s*from\s*'\.\/seal-c-root-stray\.mjs'/,
+    '必须真的 import 共用出口(§22c 装车证明:函数在而没人调 = 提交链上一路绿灯)',
+  )
+  // 射程仍必须是 logs 目录本身(换出口不得顺手把删除面挪到别处)
+  assert.match(code, /join\(\s*devEnvRoot\(\)\s*,\s*['"]logs['"]\s*\)/, 'LOGS_DIR 必须是 <外置根>/logs')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
