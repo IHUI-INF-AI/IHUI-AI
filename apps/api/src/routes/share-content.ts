@@ -22,6 +22,13 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(400).send(error(400, '分享链接无效'))
     }
 
+    // 非 UUID 码按 UUID 主键查询会触发 Postgres invalid input syntax 而 500,提前按 404 短路。
+    const UUID_RE: RegExp =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!UUID_RE.test(code)) {
+      return reply.code(404).send(error(404, '分享内容不存在或已下线'))
+    }
+
     const rows = await dbRead
       .select({
         id: aiGcContent.id,

@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 50,
     height: 50,
-    borderRadius: 50 / 2, // radius-exempt: 圆形头像,半径=宽高一半(50dp)
+    borderRadius: 50 / 2,
   } as ImageStyle,
   bottomTopText: {
     flex: 1,
