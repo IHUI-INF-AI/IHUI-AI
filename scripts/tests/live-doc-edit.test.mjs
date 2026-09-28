@@ -1219,3 +1219,27 @@ test('I15 装车锁:I14 那条判据必须接在 CAS 循环内、writeBlob 之�
     '必须先取到远端读数再判闸门,反过来判的是上一轮的读数',
   )
 })
+
+test('T14b 装饰括注行必须顶起号段基准(本票病根);行文引用不得顶起(2026-09-29 立)', () => {
+  // 正向:2026-09-29 当天两次当场自伤的形态 —— 上一批由本器落地的登记行长这样:
+  // `- [ ]（待派/QODER-O81）G-627 **…`。旧解析不认这个行首括注:keyOfRow 取到括注里的 O81,
+  // G-627 整行不进号段 ⇒ 下一次调用打印 `号段基准:G=626` 并**重发 627**。
+  const maskedBase = [
+    '- [ ] **G-700 基准行**:先给该族一个已用号。',
+    '- [ ]（待派/QODER-O81）G-777 **守门 149:包入口 barrel 漏 re-export 对端内 barrel 整片失明** —— 上一批由本器发出。',
+  ].join('\n')
+  const r = __test__.resolveIdTokens(['- [ ] {{NEXT_ID:G}} **新事** —— 题面。'], maskedBase)
+  assert.equal(r.ok, true, `取号必须成功,实测 ${JSON.stringify(r)}`)
+  assert.equal(r.basis[0].localMax, 777, `号段基准必须把装饰行顶进来(旧尺子只给 700 ⇒ 重发 777),实测 ${r.basis[0].localMax}`)
+  assert.equal(r.assigned, 'G-778', `不得重发 777,实测 ${r.assigned}`)
+  // 反向:纯行文引用(落在 48 字窗口之外)不得顶高基准 —— 否则"漏算"被掩盖成"虚涨跳号",
+  // 两个方向的错在账面上都是"号变大了",只有这一对照能把它们分开。
+  const proseBase = [
+    '- [ ] **G-700 基准行**:唯一的已用号。',
+    '- [ ] ' + '无编号题面的中文垫子'.repeat(8) + ',后文才提到 G-900 —— 只是行文引用,不得顶高开号(垫子保证引用起点 >48 字)',
+  ].join('\n')
+  const p = __test__.resolveIdTokens(['- [ ] {{NEXT_ID:G}} **新事** —— 题面。'], proseBase)
+  assert.equal(p.ok, true)
+  assert.equal(p.basis[0].localMax, 700, `散文引用不得进号段基准,实测 ${p.basis[0].localMax}`)
+  assert.equal(p.assigned, 'G-701', `应紧接基准发号,实测 ${p.assigned}`)
+})
