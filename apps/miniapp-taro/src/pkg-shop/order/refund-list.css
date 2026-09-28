@@ -186,7 +186,7 @@
 .refund-step-dot {
   width: 18rpx;
   height: 18rpx;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   background: var(--color-muted);
   flex-shrink: 0;
 }
