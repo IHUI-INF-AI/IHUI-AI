@@ -513,7 +513,7 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <Image
-          className="max-w-[480rpx] w-full min-w-[200rpx] min-h-[200rpx] rounded-sm block bg-muted"
+          className="max-w-[480rpx] w-full min-w-[200rpx] min-h-[200rpx] ui-bubble rounded-2xl block bg-muted"
           src={url}
           mode="aspectFit"
           onClick={() => previewImage(url)}
@@ -524,7 +524,7 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <Video
-          className="max-w-[480rpx] max-h-[600rpx] rounded-sm block"
+          className="max-w-[480rpx] max-h-[600rpx] ui-bubble rounded-2xl block"
           src={url}
           controls
           poster={msg.poster || ''}

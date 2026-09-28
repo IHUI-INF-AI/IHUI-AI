@@ -39,7 +39,7 @@ export function AnnouncementBar() {
   if (!visible) return null
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2">
+    <div className="flex items-center gap-2 ui-card rounded-lg border border-primary/30 bg-primary/5 px-4 py-2">
       <Megaphone className="h-4 w-4 shrink-0 text-primary" />
       <p className="flex-1 truncate text-sm text-foreground/80">{text}</p>
       <CloseButton

@@ -310,7 +310,7 @@ export default function CourseDetail() {
             onClick={() => setShowShare(false)}
           >
             <View
-              className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl"
+              className="absolute bottom-0 left-0 right-0 bg-card ui-panel rounded-$1-2xl"
               hoverClass="opacity-60"
               onClick={(e) => e.stopPropagation()}
             >
