@@ -29,6 +29,8 @@ import { useThirdPartyConfig } from '@/hooks/use-third-party-config'
 import { verifyTwoFactorLogin } from '@ihui/api-client'
 import { QrCodeLogin } from './QrCodeLogin'
 import { useTurnstile } from './LoginWithTurnstile'
+import { canSilentlyReLogin } from '@ihui/shared/auth/auto-login-policy'
+import { isSessionLoggedOut } from '@/lib/session-marker'
 
 interface LoginFormContentProps {
   onSuccess?: () => void
@@ -348,6 +350,11 @@ export function LoginFormContent({ onSuccess, tabs }: LoginFormContentProps) {
         tabs={tabs}
         // 2026-07-30 立:启用凭据持久化(记住密码 + 自动登录 + 账号历史下拉)
         enableCredentialPersistence
+        // 2026-09-29 立:自动提交凭据必须先过跨端判据。此前这条径路只读 localStorage 里的
+        // 持久标志,从不问"用户刚刚是不是主动退出",于是 web 点完退出落到登录页,300ms 后
+        // 表单自己把账密提交上去又登回去了 —— 绕过了 use-auth-bootstrap / api.ts 那两条
+        // 已收口的径路。判据唯一住在 @ihui/shared/auth/auto-login-policy,这里只注入 web 落盘实现。
+        canAutoSubmitCredentials={() => canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })}
         // 2026-09-06 立:移动端开启微信整行大按钮 + 最近手机号自动回填
         thirdPartyFeaturedPlatform={isMobileLayout ? 'wechat' : undefined}
         thirdPartyFeaturedBackground={isMobileLayout ? OAUTH_BRAND_COLORS.wechat : undefined}

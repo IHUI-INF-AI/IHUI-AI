@@ -287,7 +287,7 @@ export default function Bill() {
         {/* 底部说明 */}
         <View className="mt-[32rpx] px-[40rpx] text-center">
           <Button
-            className="h-[72rpx] rounded-[36rpx] text-[length:26rpx] leading-[72rpx]" // radius-exempt: 胶囊按钮(高 72rpx,半径=高度一半)
+            className="h-[72rpx] rounded-sm text-[length:26rpx] leading-[72rpx]" /* 控件档 sm:项目不允许胶囊 */
             plain
             onClick={() => void onSubscribe()}
           >

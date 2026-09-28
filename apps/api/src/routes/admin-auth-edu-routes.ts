@@ -14,6 +14,7 @@ import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { dedupeIds } from '../utils/batch-outcome.js'
+import { isUuidString } from '../utils/uuid.js'
 import {
   userAuthInfo,
   userMargins,
@@ -194,6 +195,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.get('/auth-find-info/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(404).send(error(404, '记录不存在'))
     const [r] = await db
       .select()
       .from(userAuthInfo)
@@ -254,6 +256,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/auth-find-info/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = z
       .object({
         title: z.string().max(100).nullable().optional(),
@@ -293,6 +296,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-find-info/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const removed = await db
       .delete(userAuthInfo)
       .where(eq(userAuthInfo.userUuid, p.data.id))
@@ -341,6 +345,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.get('/auth-user-margin/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(404).send(error(404, '记录不存在'))
     const [r] = await db
       .select()
       .from(userMargins)
@@ -377,6 +382,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/auth-user-margin/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = z
       .object({
         tokenQuantity: z.coerce.number().int().min(0).optional(),
@@ -402,6 +408,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-user-margin/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
 
     // 先查 margin 是否有资金,有余额/冻结时禁止硬删,防资金丢失(P0 修复)
     const [margin] = await db
@@ -476,6 +483,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.get('/auth-veri-codes/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(404).send(error(404, '记录不存在'))
     const [r] = await db.select().from(captchas).where(eq(captchas.id, p.data.id)).limit(1)
     if (!r) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(
@@ -498,6 +506,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-veri-codes/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const removed = await db
       .delete(captchas)
       .where(eq(captchas.id, p.data.id))
@@ -647,6 +656,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/member/blacklist/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const removed = await db
       .delete(systemConfigs)
       .where(eq(systemConfigs.id, p.data.id))
@@ -752,6 +762,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.get('/edu/classes/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(404).send(error(404, '记录不存在'))
     const [r] = await db.select().from(lessons).where(eq(lessons.id, p.data.id)).limit(1)
     if (!r) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success(mapClass(r)))
@@ -782,6 +793,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/edu/classes/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = z
       .object({
         name: z.string().min(1).max(200).optional(),
@@ -807,6 +819,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/edu/classes/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const removed = await db
       .delete(lessons)
       .where(eq(lessons.id, p.data.id))
@@ -853,6 +866,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.get('/edu/classes/schedules/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(404).send(error(404, '记录不存在'))
     const [r] = await db
       .select()
       .from(lessonChapters)
@@ -887,6 +901,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/edu/classes/schedules/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = z
       .object({
         title: z.string().min(1).max(200).optional(),
@@ -909,6 +924,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/edu/classes/schedules/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const removed = await db
       .delete(lessonChapters)
       .where(eq(lessonChapters.id, p.data.id))
@@ -953,6 +969,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.get('/learn/materials/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(404).send(error(404, '记录不存在'))
     const [r] = await db.select().from(resources).where(eq(resources.id, p.data.id)).limit(1)
     if (!r) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success(mapMaterial(r)))
@@ -987,6 +1004,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/learn/materials/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = z
       .object({
         title: z.string().min(1).max(200).optional(),
@@ -1016,6 +1034,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/learn/materials/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const removed = await db
       .delete(resources)
       .where(eq(resources.id, p.data.id))
@@ -1061,6 +1080,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.get('/learn/plans/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(404).send(error(404, '记录不存在'))
     const [r] = await db.select().from(learnMaps).where(eq(learnMaps.id, p.data.id)).limit(1)
     if (!r) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success(mapPlan(r)))
@@ -1089,6 +1109,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/learn/plans/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = z
       .object({
         title: z.string().min(1).max(200).optional(),
@@ -1116,6 +1137,10 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/learn/plans/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const removed = await db
       .delete(learnMaps)
       .where(eq(learnMaps.id, p.data.id))

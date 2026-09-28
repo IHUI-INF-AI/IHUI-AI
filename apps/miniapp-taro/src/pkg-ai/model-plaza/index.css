@@ -69,7 +69,7 @@
 .provider-icon-wrap {
   width: 36rpx;
   height: 36rpx;
-  border-radius: 18rpx; /* radius-exempt: 圆形厂商图标底,半径=宽高一半 */
+  border-radius: 18rpx;
   background: var(--color-secondary);
   display: flex;
   align-items: center;

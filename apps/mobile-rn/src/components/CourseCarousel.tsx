@@ -746,7 +746,7 @@ const swiperStyles = StyleSheet.create({
   dot: {
     width: 8,
     height: 8,
-    borderRadius: rnRadius.sm, // radius-exempt: 8dp 轮播指示点,sm 恰为半高胶囊(装饰点族不得方档化)
+    borderRadius: rnRadius.sm,
     backgroundColor: 'rgba(255, 255, 255, 0.5)',
     marginHorizontal: 5,
   },

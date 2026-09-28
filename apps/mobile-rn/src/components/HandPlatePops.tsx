@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   radio: {
     width: RADIO_SIZE,
     height: RADIO_SIZE,
-    borderRadius: RADIO_SIZE / 2, // radius-exempt: 支付方式单选项几何正圆(18dp 直径/2)
+    borderRadius: RADIO_SIZE / 2,
     borderWidth: 1.5,
     borderColor: tokens.border.medium,
     alignItems: 'center',
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   radioDot: {
     width: 10,
     height: 10,
-    borderRadius: 10 / 2, // radius-exempt: 选中态圆点正圆(10dp 直径/2)
+    borderRadius: 10 / 2,
     backgroundColor: tokens.success.DEFAULT,
   } as ViewStyle,
   purchaseAgreement: {

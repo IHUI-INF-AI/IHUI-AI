@@ -58,6 +58,19 @@ function findTagClose(lines, start) {
  * 一条会喊错的 blocking 尺子比漏报贵得多(§12e:恒红/误红的唯一结局是人人 `--no-verify`)。
  */
 export function ownAttributeArea(allLines, idx) {
+  const self = String(allLines[idx] ?? '')
+  /**
+   * 锚点行**自己就带开标签**时,属性区只取本行 —— 从前这里先向上"猜"祖先标签,猜中谁就把谁的
+   * 尺寸当成本盒的:实测把两个全宽内容面板(`UpdatePrompt.tsx` 的 `h-9 flex-1 … rounded-lg` 条、
+   * `computer-use/page.tsx` 的提取结果块)量成 16×36 / 16×320 —— 那 16 是**子图标**的 `w-4` ——
+   * 于是 8px 半径刚好"等于短边一半",两道都判成胶囊。假阳的代价从来不是"多一条红",
+   * 是逼人把一个本来正确的样式改成方的(与本仓"假阳比漏报贵"同条)。
+   * 本行开标签闭合不确定(属性区跨行写)⇒ 返回 confident:false,由调用方计"未判定"报名,**不猜**。
+   */
+  if (/<[A-Za-z][\w.]*/.test(self)) {
+    if (findTagClose([self], 0).end === null) return { text: '', confident: false }
+    return { text: self, confident: true }
+  }
   const indentOf = (s) => (s || '').match(/^\s*/)[0].length
   const myIndent = indentOf(allLines[idx])
   let back = 2
@@ -76,10 +89,10 @@ export function ownAttributeArea(allLines, idx) {
 }
 
 /** 与 `boxDims` 同形,但只在属性区能确定闭合时才给结论;否则 `{confident:false}`。 */
-export function boxDimsOwn(allLines, idx) {
+export function boxDimsOwn(allLines, idx, consts) {
   const area = ownAttributeArea(allLines, idx)
   if (!area.confident) return { w: 0, h: 0, shape: null, sameExpr: false, confident: false }
-  return { ...dimsFromText(area.text), confident: true }
+  return { ...dimsFromText(area.text, constsForLines(allLines, consts)), confident: true }
 }
 
 /**
@@ -110,16 +123,186 @@ export function elementWindow(allLines, idx) {
  * 保守地按"最大者"判形状只会把该拦的拦住、不会把方形误判成胶囊。rpx 按 2:1 折成 px,
  * Tailwind 刻度按 4px 折。返回 `{w,h,shape,sameExpr}`,量不到的一侧为 0。
  */
-export function boxDims(allLines, idx) {
-  return dimsFromText(elementWindow(allLines, idx))
+export function boxDims(allLines, idx, consts) {
+  return dimsFromText(elementWindow(allLines, idx), constsForLines(allLines, consts))
+}
+
+/**
+ * 取"这一行的盒尺寸是**按什么写的**"—— 作用域内所有 `width` / `height` 声明的字面原文。
+ *
+ * 为什么需要字面而不是折算后的数值:判"半径是不是由这个盒的边长算出来的"时,
+ * `width: rpx(96)` 配的半径应写成 `rpx(96) / 2`,而不是拿折算后的数值去比 ——
+ * 单位折算现已统一(`lengthToPx` 一份),但**数值相等仍可能是巧合**:字面同形才是作者自己
+ * 写下的推导关系(半径由这个盒算出来),而"半径 ≥ 短边一半"这种数值判断会把一个恰好等于
+ * 半边长的固定值读成真圆。**跨语义比数值会造出假方形**(假方形=把胶囊读成真圆,比漏报更贵:
+ * 它替"已清零"发合格证)。
+ * 字面同形则是作者自己写下的证据,与单位折算无关。
+ */
+export function scopeDimTexts(lines, i, anchor = /border(?:-?[A-Za-z-]*)?[Rr]adius/) {
+  const sc = objectScope(lines, i)
+  // objectScope 是按"最近的 { 行"找的,而 JSX 一行里就可能有 `{var(...)}` 这类花括号 ——
+  // 那会把窗口收成"只有这一行且大括号已闭合",锚点落不到窗口里,depth 全算错(实测小程序的
+  // `className="w-[56rpx] h-[56rpx] rounded-[28rpx]"` 就是这样:边长明明写在同一行,却读成"量不到")。
+  // 所以:窗口不含该行 ⇒ 退回按**该行自己**取,这也是 Tailwind 形态唯一正确的取材面。
+  const usable = sc && sc.start <= i && i <= sc.end ? sc : null
+  const win = usable ? lines.slice(usable.start, usable.end + 1).join('\n') : String(lines[i] ?? '')
+  const lineStart = usable ? lines.slice(usable.start, i).join('\n').length + 1 : 0
+  const at = win.slice(lineStart).search(anchor)
+  const anchorIdx = lineStart + (at < 0 ? 0 : at)
+  /**
+   * 只取**与半径声明同一层**的宽高。
+   * 为什么不能取整个作用域:RN 的 StyleSheet 里 `shadowOffset: { width: 0, height: 2 }` 与按钮自己的
+   * `width: 34, height: 34` 住在同一个对象里 —— 把阴影偏移当边长读,一条正方声明会因为
+   * "四个值不逐字相同"而判不出形状(实测 AgentScreen / CoursePlanetScreen / ProfileScreen 的
+   * 返回顶部钮全中这一型,每个都自带 iOS 阴影)。
+   * 也不用"行首深度":`const st = { a: { width: 20, borderRadius: 10 } }` 这种整行对象,
+   * 行首还在 0 层,声明却在 2 层 —— 锚点必须是那条圆角声明自己所在的位置。
+   */
+  const depthOf = (pos) => {
+    const before = win.slice(0, pos)
+    return (before.match(/\{/g) || []).length - (before.match(/\}/g) || []).length
+  }
+  const want = depthOf(anchorIdx)
+  const texts = []
+  for (const m of win.matchAll(/\b(?:width|height)\s*[:=]\s*([^,;}\n]+)/g)) {
+    if (depthOf(m.index) !== want) continue
+    const v = m[1].trim().replace(/\s+/g, '').replace(/^\{/, '').replace(/\}$/, '')
+    if (v) texts.push(v)
+  }
+  // Tailwind 的 `w-[96rpx] h-[96rpx]` / `w-12 h-12` 是**同一件事的第二种书写语言**:小程序与 RN 的
+  // className 形态里盒尺寸就长这样。只认 `width:/height:` 的门会把这类正方盒读成"量不到",
+  // 于是按规矩写的真圆只能靠挂标记平息(§4 记过的"覆盖面两半必须同改"同型)。
+  for (const m of win.matchAll(/\b([wh])-(?:\[(.*?)\]|(\d+(?:\.\d+)?))(?![\w-])/g)) {
+    if (depthOf(m.index) !== want) continue
+    const v = (m[2] ?? m[3] ?? '').trim()
+    // 只推**值**不推轴名:`w-[56rpx] h-[56rpx]` 要能被认成"同一个边长",带轴前缀就永远不相等。
+    if (v) texts.push(v)
+  }
+  return texts
+}
+
+/** 一条长度字面量拆成 `{v, unit}`;拆不出返回 null(表达式、百分比、变量名都不算数值长度)。 */
+export function lengthLiteral(text) {
+  const m = /^(?:rpx\()?(\d+(?:\.\d+)?)(px|rpx|rem|em)?\)?$/.exec(String(text).trim())
+  if (!m) return null
+  return { v: Number(m[1]), unit: m[2] || '' }
+}
+
+/**
+ * **胶囊判定的物理下限(px)**:短边小于它的不算胶囊,算"圆头端点"。
+ * 住在几何层是因为两把尺子都要用它 —— 门 150 的 C6 判"这个元素是不是胶囊",门 77 判"这个半径
+ * 是不是几何而不是档位取用",同一道物理线各写一遍必然漂移(一处改成 12、另一处留 16,同一个
+ * 6px 高的骨架条就会一边判红一边进队列)。要挪就只挪这里。
+ */
+export const CAPSULE_MIN_SHORT_PX = 16
+
+/**
+ * 半径写成 `<某串> / <数>` 时的几何结论。§4 明令真圆/胶囊一族"优先 `size / 2` 表达式",
+ * 也就是说**这是本项目最规范的圆角写法**;而 `classifyRadiusGeometry` 从前只经 `lengthLiteral`
+ * 取半径,那一支只认纯字面量 ⇒ 这一族整族返回 'tier'。后果是门 77 把规范写法当成"绕档位表
+ * 写死数字":实测把 `ProfileScreen.tsx` 的 `rnRadius.xl` 改成 `72 / 2` 会当场被 B1 判红 ——
+ * **判据不认自己要求的写法,就等于逼人把代码改回旧档**(与本仓"门让你怎么写就得怎么看见"同条)。
+ *
+ * 正方一侧不依赖任何数值:`分子串 === 边长串` 且除数是 2,就是作者写下的推导关系,
+ * 对单位折算完全免疫(`width: AVATAR, borderRadius: AVATAR / 2` 也算)。
+ * 非正方一侧才需要把分子折成 px 去比物理下限;折不到(标识符来自跨文件)⇒ 返回 null,
+ * 由调用方按"判不出"处理,不猜形状。
+ */
+export function halvedSideVerdict(lines, i, radiusText, anchor) {
+  const t = String(radiusText ?? '')
+    .trim()
+    .replace(/^\{\s*|\s*\}$/g, '')
+    .trim()
+  const m = /^(.+?)\s*\/\s*(\d+(?:\.\d+)?)$/.exec(t)
+  if (!m) return null
+  const divisor = Number(m[2])
+  if (!Number.isFinite(divisor) || divisor <= 0) return null
+  const operand = m[1].trim().replace(/\s+/g, '')
+  if (!operand) return null
+  const sides = (anchor ? scopeDimTexts(lines, i, anchor) : scopeDimTexts(lines, i))
+    .map(s => String(s).trim().replace(/\s+/g, ''))
+    .filter(Boolean)
+  if (!sides.length || !sides.includes(operand)) return null
+  const uniq = new Set(sides)
+  if (uniq.size === 1 && sides.length >= 2 && divisor === 2) return 'circle'
+  const lit = lengthLiteral(operand)
+  if (!lit || lit.v <= 0) return null
+  const shortPx = lit.unit === 'rpx' ? lit.v / 2 : lit.unit === 'rem' ? lit.v * 16 : lit.v
+  return shortPx >= CAPSULE_MIN_SHORT_PX ? 'capsule' : 'rounded-end'
+}
+
+/**
+ * 一条半径相对**它自己那个盒**的几何定性(与 `isGeometricCircle` 同取材、同一把尺):
+ *  - `circle`       :正方盒 + 半径=边长一半 ⇒ 真圆装饰件,出了档位表射程;
+ *  - `capsule`      :非正方(或只量到一条边)+ 半径=那条边一半 + 短边 ≥ 下限 ⇒ 胶囊,项目不允许;
+ *  - `rounded-end`  :同样的"半径=边长一半",但那条边细于下限 ⇒ 圆头端点(§4 明令不得方档化);
+ *  - `tier`         :以上都不成立 ⇒ 这就是一个普通的圆角取用,必须走档位。
+ */
+export function classifyRadiusGeometry(lines, i, radiusText, anchor) {
+  /**
+   * 除法写法(`size / 2`)先问几何 —— 它是 §4 规定的写法,不能因为"取不出纯字面量"就退成 'tier'
+   * (那一退,门 77 就把最规范的圆角读成"绕档位表写死数字")。
+   */
+  const hv = halvedSideVerdict(lines, i, radiusText, anchor)
+  if (hv) return hv
+  const r = lengthLiteral(String(radiusText).replace(/^\{\s*|\s*\}$/g, ''))
+  if (!r || r.v <= 0) return 'tier'
+  const sides = (anchor ? scopeDimTexts(lines, i, anchor) : scopeDimTexts(lines, i))
+    .map(lengthLiteral)
+    .filter((x) => x && x.unit === r.unit && x.v > 0)
+    .map((x) => x.v)
+  if (!sides.length) return 'tier'
+  const hit = sides.find((s) => s === r.v * 2)
+  if (hit === undefined) return 'tier'
+  const uniq = new Set(sides)
+  // "正方"要求**两条边都量到**且同值:只量到一条(如 `h-[12rpx] w-full`)时,另一条可能是 100% 宽,
+  // 那它就是胶囊而不是圆 —— 单侧证据永远不足以判"圆"。
+  if (uniq.size === 1 && sides.length >= 2) return 'circle'
+  const short = Math.min(...sides)
+  const px = (v) => (r.unit === 'rpx' ? v / 2 : r.unit === 'rem' ? v * 16 : v)
+  return px(short) >= CAPSULE_MIN_SHORT_PX ? 'capsule' : 'rounded-end'
+}
+
+/**
+ * **几何真圆的字面同形证明**:`radius × 2 === 边长`,且半径与边长写在同一套单位里。
+ *
+ * 为什么按字面而不按折算后的数值:`dimsFromText` 对不同书写形态的折算口径本来就不同
+ * (`w-[96rpx]` 折成 48px、`width: 96rpx` 取原值 96),拿折算值互比会造出**假方形** ——
+ * 而假方形=把胶囊读成真圆,它比漏报贵:那等于替"已清零"发合格证。
+ * 判定要求作用域里所有宽高写成**同一个值**(正方),否则不算证明。
+ */
+export function isGeometricCircle(lines, i, radiusText, anchor) {
+  if (halvedSideVerdict(lines, i, radiusText, anchor) === 'circle') return true
+  const r = lengthLiteral(String(radiusText).replace(/^\{\s*|\s*\}$/g, ''))
+  if (!r || r.v <= 0) return false
+  const sides = anchor ? scopeDimTexts(lines, i, anchor) : scopeDimTexts(lines, i)
+  if (sides.length < 2) return false
+  const uniq = new Set(sides)
+  if (uniq.size !== 1) return false
+  const s = lengthLiteral([...uniq][0])
+  if (!s) return false
+  if (s.unit !== r.unit) return false
+  return s.v === r.v * 2
+}
+
+/**
+ * `<边长> / 2` 这种**把推导写在源码里**的形态:分子必须与同一作用域的边长逐字同形。
+ * 与 `isGeometricCircle` 的区别是它判的是"作者写的是不是同一个量",而不是"两个数是不是二倍关系" ——
+ * 前者对单位折算完全免疫(`width: AVATAR, borderRadius: AVATAR / 2` 也算),后者只认数值字面量。
+ */
+export function isHalfOfDeclaredSide(lines, i, numeratorText) {
+  const n = String(numeratorText).trim().replace(/\s+/g, '')
+  if (!n) return false
+  const sides = scopeDimTexts(lines, i)
+  return sides.length >= 2 && new Set(sides).size === 1 && [...sides][0] === n
 }
 
 /**
  * 只问形状、不要数值的调用方走这条投影 —— **形状判据仍然只有一份实现**。
  * 返回 'square' / 'wide' / null(量不到 ⇒ 不猜)。
  */
-export function boxShape(allLines, idx) {
-  return boxDims(allLines, idx).shape
+export function boxShape(allLines, idx, consts) {
+  return boxDims(allLines, idx, consts).shape
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -164,15 +347,41 @@ export function objectScope(lines, idx) {
  * 返回 `{w,h,shape,sameExpr}`,与 `boxDims` 同形 —— 两个上下文共用一把形状尺,
  * 差别只在"从哪里取属性",不在"怎么算形状"。
  */
-export function objectDims(lines, idx) {
+export function objectDims(lines, idx, consts) {
   const scope = objectScope(lines, idx)
   if (!scope) return { w: 0, h: 0, shape: null, sameExpr: false }
   const win = lines.slice(scope.start, scope.end + 1).join('\n')
-  return dimsFromText(win)
+  return dimsFromText(win, constsForLines(lines, consts))
+}
+
+/**
+ * 长度折算与半径侧**共用同一份实现**(`lengthToPx`):半径读的是 px、盒形读的也是 px,两处各写
+ * 一遍单位换算必然漂开。本轮"除法半径读成被除数 / `width: 96rpx` 不折半"就是同一笔债的两半,
+ * 而只修一半会产出自洽的假阳(半径 8 配上量不到的 16×16 盒 ⇒ 把圆钮判成"该取 sm")。
+ */
+import { lengthToPx, constantMapOf } from './length-units.mjs'
+
+/**
+ * 盒形标识符常量表(`width: IMAGE_REMOVE_SIZE`)—— **默认自取,显式传入优先**。
+ *
+ * 为什么不把 `consts` 铺成每个调用方必传的参数:`classifyRadiusGeometry` / `isHalfOfDeclaredSide`
+ * / `boxShape` / `boxDims` / `objectDims` 是一条链,铺参数要同批改 5 个门 × 3 个 lib 出口,而
+ * **漏改一处的表现不是报错,是"那一侧量不到"** —— 本轮"半径认得除法、盒形认不得标识符"就是
+ * 只改一半的产出:半径读出 8、盒形量不到 16×16,于是把一枚圆钮判成"control 该取 sm(4)"。
+ * 缓存按 `lines` 的数组身份(同一文件逐行调用命中同一份),换文件即重算。
+ */
+let constsMemo = { key: null, map: null }
+export function constsForLines(lines, provided) {
+  if (provided instanceof Map) return provided
+  if (!Array.isArray(lines)) return new Map()
+  if (constsMemo.key === lines) return constsMemo.map
+  const map = constantMapOf(lines.join('\n'))
+  constsMemo = { key: lines, map }
+  return map
 }
 
 /** 从一段文本量出宽高与形状 —— boxDims 与 objectDims 的共同出口(单位折算只此一处)。 */
-export function dimsFromText(win) {
+export function dimsFromText(win, consts) {
   let w = 0
   let h = 0
   for (const m of win.matchAll(/\b([wh])-\[(\d+(?:\.\d+)?)(rpx|px)\]/g)) {
@@ -180,9 +389,34 @@ export function dimsFromText(win) {
     if (m[1] === 'w') w = Math.max(w, v)
     else h = Math.max(h, v)
   }
-  for (const m of win.matchAll(/\b(?:width|height)\s*[:=]\s*(\d+(?:\.\d+)?)/g)) {
-    if (m[0].startsWith('w')) w = Math.max(w, Number(m[1]))
-    else h = Math.max(h, Number(m[1]))
+  for (const m of win.matchAll(
+    /\b(width|height)\s*[:=]\s*(rpx\(\s*[0-9.]+\s*\)|[0-9.]+(?:px|rpx|rem)?)/g,
+  )) {
+    /**
+     * **单位必须折成同一套**。本函数对 Tailwind 形态是折的(`w-[96rpx]` → 48px),而这一支从前
+     * 直接取原值(`width: 96rpx` → 96)—— 同一个几何量在两种书写下差 2 倍,于是
+     * `width: 96rpx; height: 96rpx; border-radius: 48rpx` 这种**写得最规范的真圆**永远证不出来
+     * (96 vs 半径 24 在 px 空间,而盒按 96 在 rpx 空间),HEAD 实测 57 处因此卡在"量不到/不在档"。
+     * 折算口径与半径侧**共用 `lengthToPx`** —— 两处各写一遍就必然漂开。
+     */
+    const v = lengthToPx(m[2])
+    if (v === null || v <= 0) continue
+    if (m[1] === 'width') w = Math.max(w, v)
+    else h = Math.max(h, v)
+  }
+  /**
+   * 标识符尺寸(`width: IMAGE_REMOVE_SIZE`)—— 查同一份文件的常量表。
+   * 半径侧已经认得 `IMAGE_REMOVE_SIZE / 2`,盒形侧若不认同一个标识符,"半径 ≥ 短边一半"的等式
+   * 就永远差一截:实测 `BottomActionBar.tsx:942` 与 `SearchInput.tsx:275` 两条 16×16 圆钮因此
+   * 量不到盒形,被判成"control 该取 sm(4)" —— 那是**尺子的假阳**,照着它改代码就是把圆钮改方。
+   * 两半必须同批改,这是本轮记下的一条规矩。
+   */
+  for (const m of win.matchAll(/\b(width|height)\s*[:=]\s*([A-Za-z_$][\w$]*)\b/g)) {
+    if (!(consts instanceof Map) || !consts.has(m[2])) continue
+    const v = lengthToPx(consts.get(m[2]))
+    if (v === null || v <= 0) continue
+    if (m[1] === 'width') w = Math.max(w, v)
+    else h = Math.max(h, v)
   }
   const dims = [...win.matchAll(/\b(width|height)\s*[:=]\s*([^,}\n]+)/g)].map((m) => ({
     axis: m[1] === 'width' ? 'w' : 'h',
