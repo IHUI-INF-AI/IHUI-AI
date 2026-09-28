@@ -164,7 +164,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
-    avatarImg: { width: '100%', height: '100%', borderRadius: 24 }, // radius-exempt: 跟随 48x48 父容器裁剪为真圆
+    avatarImg: { width: '100%', height: '100%', borderRadius: '50%' }, // 跟随见方父容器:相对式即几何真圆(不需要标记)
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     cardInfo: { flex: 1, marginLeft: 12 },
     cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
