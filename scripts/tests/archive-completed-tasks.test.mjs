@@ -99,17 +99,30 @@ test('无已完成任务(只有未完成 [ ])→ exit 0 + 跳过消息', () => {
 
 // ─── 3. 日期阈值(默认 7 天)──────────────────────────────
 
-test('已完成任务日期 < 7 天(默认阈值)→ 不归档 exit 0', () => {
+test('已完成任务日期 < 7 天:默认档(阈值 0)照样归档,只有显式 --days 7 才留在原地', () => {
+  // 2026-09-28 改默认(用户原话"2053 条应该全归档才对啊 为什么完成的不归档"):旧默认 ≥7 天
+  // 让一周内做完的 2008/2053 条按规则一条都不动。节流档仍然有效,只是不再是默认。
   const dir = createTempDir()
   try {
-    const recent = dateAgo(2) // 2 天前,< 7 天阈值
+    const recent = dateAgo(2) // 2 天前
     writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# plan\n\n### [x] ✅(${recent}) 任务A\n内容A\n`)
     const r = runScript(dir)
-    assert.equal(r.status, 0, `近期任务不应归档\nstdout: ${r.out}`)
-    assert.match(r.out, /无可归档|跳过/)
-    assert.ok(!existsSync(archiveFilePath(dir)), '归档文件不应存在')
+    assert.equal(r.status, 0, `默认档应归档近期完成项\nstdout: ${r.out}`)
+    assert.match(r.out, /已归档/, `默认阈值 0 必须真搬,实得:\n${r.out.slice(0, 300)}`)
+    assert.ok(existsSync(archiveFilePath(dir)), '归档文件应存在')
   } finally {
     rmScratch(dir)
+  }
+  const dir2 = createTempDir()
+  try {
+    const recent = dateAgo(2)
+    writeFileSync(join(dir2, 'PROJECT_PLAN.md'), `# plan\n\n### [x] ✅(${recent}) 任务A\n内容A\n`)
+    const r2 = runScript(dir2, ['--days', '7'])
+    assert.equal(r2.status, 0)
+    assert.match(r2.out, /无可归档|跳过/, '--days 7 节流档必须把 2 天前的留在原地')
+    assert.ok(!existsSync(archiveFilePath(dir2)), '节流档不得写出归档文件')
+  } finally {
+    rmScratch(dir2)
   }
 })
 
@@ -194,23 +207,31 @@ test('--days 3: 任务 2 天前不归档,5 天前归档', () => {
 
 // ─── 7. 无日期的已完成任务 ───────────────────────────────
 
-test('无日期的已完成任务: 默认模式不归档,--all 归档', () => {
-  // 源脚本 shouldArchive: 无 date 返回 false(除非 --all)
+test('无日期的已完成任务: 默认档(阈值 0)归档 —— 阈值 >0 时才"不造生日"留在原地', () => {
+  // 2026-09-28 规格反转(用户要求完成即归档):旧默认 ≥7 天 ⇒ 无日期的行无法判龄,只能留下。
+  // 阈值 0 时**不需要年龄判据**,所以无日期也搬;而一旦设了 `--days N`,"没日期就不搬"这条
+  // 保护必须照旧成立 —— 它防的是"替一行伪造一个生日",那才是这条判据真正的在乎的东西。
   const dir = createTempDir()
   try {
     writeFileSync(join(dir, 'PROJECT_PLAN.md'), '# plan\n\n### [x] ✅ 任务A\n内容A\n')
-    // 默认模式:不归档
     const r1 = runScript(dir)
     assert.equal(r1.status, 0)
-    assert.match(r1.out, /无可归档|跳过/)
-    // --all 模式:归档
-    const r2 = runScript(dir, ['--all'])
-    assert.equal(r2.status, 0)
-    assert.match(r2.out, /已归档/)
+    assert.match(r1.out, /已归档/, `默认档应搬走无日期完成项,实得:\n${r1.out.slice(0, 300)}`)
     const archive = readFileSync(archiveFilePath(dir), 'utf8')
-    assert.ok(archive.includes('任务A'), '--all 应归档无日期任务')
+    assert.ok(archive.includes('任务A'), '归档件里必须有逐字原文(§1 第一步)')
   } finally {
     rmScratch(dir)
+  }
+  const dir2 = createTempDir()
+  try {
+    writeFileSync(join(dir2, 'PROJECT_PLAN.md'), '# plan\n\n### [x] ✅ 任务A\n内容A\n')
+    const r2 = runScript(dir2, ['--days', '3'])
+    assert.equal(r2.status, 0)
+    assert.match(r2.out, /无可归档|跳过/, '设了阈值却给无日期的行造生日 ⇒ 必须留在原地')
+    const plan = readFileSync(join(dir2, 'PROJECT_PLAN.md'), 'utf8')
+    assert.ok(plan.includes('任务A'), '--days 档下没日期的行一字不动')
+  } finally {
+    rmScratch(dir2)
   }
 })
 
@@ -470,7 +491,7 @@ test('真实形态「### XXX(YYYY-MM-DD 完成 ✅)」必须被认出并归档;�
   }
 })
 
-test('无日期的 ✅ 标题不得被自动档搬走(≥7 天判据要求有日期),但 --all 应放开', () => {
+test('无日期的 ✅ 标题: 默认档(阈值 0)搬走;设了阈值才"不造生日"留原地,--all 照搬', () => {
   const dir = createTempDir()
   try {
     writeFileSync(
@@ -481,16 +502,32 @@ test('无日期的 ✅ 标题不得被自动档搬走(≥7 天判据要求有日
     assert.equal(r.status, 0)
     assert.match(
       r.out,
-      /无可归档的已完成任务条目\s*\(共 1 个已完成/,
-      '认作已完成条目,但因无日期不搬',
+      /发现 1 个可归档/,
+      `默认档(阈值 0)不需要年龄判据 ⇒ 无日期的 ✅ 条目也该搬,实得:\n${r.out.slice(0, 300)}`,
     )
-    const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
-    assert.ok(plan.includes('### 批次1:考勤管理(P0) ✅'), '没日期就留在原地,不静默搬走')
-    const r2 = runScript(dir, ['--all'])
-    assert.equal(r2.status, 0)
-    assert.match(r2.out, /发现 1 个可归档/, '--all 才放开无日期的条目')
   } finally {
     rmScratch(dir)
+  }
+  const dir2 = createTempDir()
+  try {
+    writeFileSync(
+      join(dir2, 'PROJECT_PLAN.md'),
+      ['# plan', '', '### 批次1:考勤管理(P0) ✅', '- 内容行', ''].join('\n'),
+    )
+    const r2 = runScript(dir2, ['--days', '30'])
+    assert.equal(r2.status, 0)
+    assert.match(
+      r2.out,
+      /无可归档的已完成任务条目\s*\(共 1 个已完成/,
+      `设了阈值就必须有日期可判,否则不得搬,实得:\n${r2.out.slice(0, 300)}`,
+    )
+    const plan = readFileSync(join(dir2, 'PROJECT_PLAN.md'), 'utf8')
+    assert.ok(plan.includes('### 批次1:考勤管理(P0) ✅'), '没日期就留在原地,不静默搬走')
+    const r3 = runScript(dir2, ['--all'])
+    assert.equal(r3.status, 0)
+    assert.match(r3.out, /发现 1 个可归档/, '--all 显式放开无日期的条目')
+  } finally {
+    rmScratch(dir2)
   }
 })
 
@@ -665,7 +702,7 @@ test('回滚分支必须真被执行过:git add 失败时计划文档要写回�
 
 const GATE_PATH = join(__dirname, '..', 'check-project-plan-archive.mjs')
 
-test('## 级条目端到端:父块吞并嵌套 ✅ 子标题一起搬;无 ✅ 的 ### 小节闭合父块留在原地;bullet 级如实报数;归档后 13c 必须绿', () => {
+test('## 级条目端到端:父块吞并嵌套 ✅ 子标题一起搬;无 ✅ 的 ### 小节闭合父块留在原地;bullet 级同批搬走;归档后 13c 必须绿', () => {
   const dir = createTempGitRepo()
   try {
     const d = dateAgo(30)
@@ -690,8 +727,8 @@ test('## 级条目端到端:父块吞并嵌套 ✅ 子标题一起搬;无 ✅ �
     assert.equal(r.status, 0, `应归档+commit 成功\n${r.out}\n${r.err}`)
     assert.match(
       r.out,
-      /发现 1 个可归档的已完成任务条目/,
-      `## 与嵌套 ### 是**一个**块,实得:\n${r.out.slice(0, 400)}`,
+      /发现 2 个可归档的已完成任务条目/,
+      `本批应是"1 个 ## 条目 + 1 段 bullet 级"(bullet 自 2026-09-28 起在射程内),实得:\n${r.out.slice(0, 400)}`,
     )
     assert.match(
       r.out,
@@ -700,9 +737,19 @@ test('## 级条目端到端:父块吞并嵌套 ✅ 子标题一起搬;无 ✅ �
     )
     const archive = readFileSync(archiveFilePath(dir), 'utf8')
     assert.ok(archive.includes('父正文') && archive.includes('子正文'), '父子正文应一起进归档件')
+    // "## 与嵌套 ### 是一个块"不再靠数条目条数证明(那条会被 bullet 段的加入弄脏)——
+    // 直接验归档件里父子正文**连续**,这才是"并成一块一起搬"的本来含义。
+    assert.ok(
+      archive.includes('父正文\n### 子阶段('),
+      '嵌套 ✅ 子标题必须并入父块连续归档,不另立条目(否则范围重叠会踩行)',
+    )
     const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
     assert.ok(plan.includes('### 已完成清单') && plan.includes('索引留在原地'), '不可搬小节不得被动')
-    assert.ok(plan.includes('活内容') && plan.includes('- [x] bullet'), '条目外内容与 bullet 行原样保留')
+    assert.ok(plan.includes('活内容'), '条目外的普通正文原样保留')
+    assert.ok(
+      !plan.includes('- [x] bullet') && archive.includes('- [x] bullet 级已完成'),
+      'bullet 级已完成行应被搬走并逐字进归档件(旧规格是"只报数不搬",2026-09-28 由用户点名反转)',
+    )
     assert.match(plan, /<!--\s*已归档\(/, '原位置须留 13c 认得的占位')
     // 端到端"两侧同形"装车证明:归档落地后,13c(同一份 lib 的保护集/占位反查/锚点判据)必须判绿。
     // 若归档器写的占位标题形态与门反查的剥前缀形态漂开,这一步会红 —— 那正是本票要根治的那一型。
@@ -1082,4 +1129,18 @@ test('H 标题写"已完成"但体内含未勾登记的假条目:连 --allow-mas
   } finally {
     rmScratch(dir)
   }
+})
+
+test('I 选段结果必须先按行号排序再交给拼接(2026-09-28 实测:按日期返回的 picked 直接 splice 会产出交错损坏的文档)', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(
+    src,
+    /sel\.picked\.sort\(\(a, b\) => a\.startLine - b\.startLine\)/,
+    '体积阀返回的是按日期排序的最旧前缀 ⇒ 落地前必须按行号重排,否则倒序 splice 会乱序损坏',
+  )
+  assert.match(
+    src,
+    /搬运范围必须按行号升序且互不重叠|throw new Error\(\s*`搬运范围/,
+    '拼接处必须有"必须升序且不重叠"的前置断言(不能只靠下游的结构等值自证兜)',
+  )
 })

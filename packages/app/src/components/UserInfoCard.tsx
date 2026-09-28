@@ -81,7 +81,7 @@ const viewStyles = {
     // 白底按钮上的墨档描边(text.primary 亮 #0A0A0A)就是"纯黑描边",项目设计里没有这一档;
     // 强调描边统一走 brandAccent.deep(与端内/共享层其余强调描边同一既有写法)
     borderColor: tk.brandAccent.deep,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
     paddingTop: 14,
     paddingBottom: 14,
     paddingLeft: 32,
@@ -91,7 +91,7 @@ const viewStyles = {
   card: (tk: AppThemeTokens): CSSProperties => ({
     marginTop: 8,
     padding: 8,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: tk.border.light,
@@ -145,7 +145,7 @@ const viewStyles = {
     paddingTop: 2,
     paddingBottom: 2,
     backgroundColor: isVip ? tk.warning.light : tk.surface.card,
-    borderRadius: rnRadius.xs,
+    borderRadius: rnRadius.md,
   }),
   tokenRow: (tk: AppThemeTokens): CSSProperties => ({
     display: 'flex',
@@ -171,7 +171,7 @@ const viewStyles = {
     paddingTop: 4,
     paddingBottom: 4,
     backgroundColor: tk.brand.cta,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
     cursor: 'pointer',
   }),
 }

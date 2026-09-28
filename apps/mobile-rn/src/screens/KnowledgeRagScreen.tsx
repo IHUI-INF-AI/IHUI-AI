@@ -209,7 +209,7 @@ export function KnowledgeRagScreen() {
         onSubmitEditing={() => {
           void onSearch()
         }}
-        className={`flex-1 rounded-md border px-3 py-2 text-sm ${dark ? 'border-neutral-700 bg-neutral-800 text-white' : 'border-gray-300 bg-white text-black'}`}
+        className={`flex-1 rounded-sm border px-3 py-2 text-sm ${dark ? 'border-neutral-700 bg-neutral-800 text-white' : 'border-gray-300 bg-white text-black'}`}
       />
       <TouchableOpacity
         onPress={() => {

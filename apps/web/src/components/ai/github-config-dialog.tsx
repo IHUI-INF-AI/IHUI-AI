@@ -253,7 +253,7 @@ export function GithubConfigDialog() {
           type="button"
           onClick={() => closeGithubConfig()}
           disabled={busy !== null}
-          className="inline-flex h-8 items-center justify-center rounded-md border border-border px-3 text-xs text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+          className="inline-flex h-8 items-center justify-center rounded-xl border border-border px-3 text-xs text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
           data-testid="github-token-cancel"
         >
           {tcommon('cancel')}
@@ -293,7 +293,7 @@ export function GithubConfigDialog() {
               type="button"
               onClick={() => void handleClear()}
               disabled={busy !== null}
-              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-md border border-border px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-sm border border-border px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
               data-testid="github-token-clear"
             >
               {busy === 'clear' && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
@@ -309,7 +309,7 @@ export function GithubConfigDialog() {
               type="button"
               onClick={() => void handleStartAuth()}
               disabled={busy !== null || !workspacePath}
-              className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-foreground px-3 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="inline-flex h-8 items-center justify-center gap-1 rounded-sm bg-foreground px-3 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
               data-testid="github-auth-start"
             >
               {busy === 'auth' && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
@@ -332,7 +332,7 @@ export function GithubConfigDialog() {
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     placeholder={t('tokenPlaceholder')}
-                    className="h-8 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-brand-accent-deep"
+                    className="h-8 w-full rounded-sm border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-brand-accent-deep"
                     data-testid="github-token-input"
                     autoComplete="off"
                     spellCheck={false}
@@ -344,7 +344,7 @@ export function GithubConfigDialog() {
                     type="button"
                     onClick={() => void handleSave()}
                     disabled={!token.trim() || busy !== null || !workspacePath}
-                    className="inline-flex h-8 items-center justify-center gap-1 self-start rounded-md bg-foreground px-3 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                    className="inline-flex h-8 items-center justify-center gap-1 self-start rounded-sm bg-foreground px-3 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                     data-testid="github-token-save"
                   >
                     {busy === 'save' && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
@@ -365,7 +365,7 @@ export function GithubConfigDialog() {
                 <button
                   type="button"
                   onClick={() => void handleCopyCode()}
-                  className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent"
+                  className="inline-flex h-7 items-center gap-1 rounded-sm border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent"
                   data-testid="github-copy-code"
                 >
                   <Copy className="h-3 w-3" aria-hidden />
@@ -395,7 +395,7 @@ export function GithubConfigDialog() {
             <button
               type="button"
               onClick={handleOpenAuthPage}
-              className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-foreground px-3 text-xs font-medium text-background transition-opacity hover:opacity-90"
+              className="inline-flex h-8 items-center justify-center gap-1 rounded-sm bg-foreground px-3 text-xs font-medium text-background transition-opacity hover:opacity-90"
               data-testid="github-open-auth-page"
             >
               {t('openAuthPage')}

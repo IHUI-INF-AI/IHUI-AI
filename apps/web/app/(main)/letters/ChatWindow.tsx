@@ -149,7 +149,7 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
                   aria-label={t('delete')}
                   disabled={isDeleting}
                   onClick={() => setDeleteTarget(msg)}
-                  className="shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-40"
+                  className="shrink-0 rounded-sm p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-40"
                 >
                   {isDeleting ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />

@@ -13,13 +13,23 @@
 //  「同一个元素两端各按直觉选档」这一型**两台尺子互相指认、无人看守**,即用户实拍
 //  「App 端、小程序端还有那么多容器圆角没按 token」的成因。本门补的就是这一格。
 //
-// 判据三条(缺一不可,任一条单独用都会满天假红):
+// 判据四条(缺一不可,任一条单独用都会满天假红):
 //  C1 **取用形态**:七类写法全部要看见(含 `rounded-t-xl` 方向形态、`rnRadius['2xl']` 括号形态、
 //     `borderRadius: '8px'` 字符串形态、CSS `border-radius: 8px 8px 0 0` 四值简写与方向变体)
 //     —— 方向形态是既有解析的实测盲区,本门不得复制它。
 //  C2 **类别证据**:角色只由证据推出(形态自带 `rnRadiusFor.<role>` / 同条声明的 `RADIUS_ROLES.<role>`
 //     / 样式键·CSS 类·JSX 组件·className 的**头词元**命中角色词元表),**不做语义猜**。
 //  C3 **档位比**:实际 px 与该角色的应有 px 比(两数都来自被审面上的那张表,门内零抄表)。
+//  C4 **包含关系优先于名字**(2026-09-28 立,`scripts/lib/jsx-scope.mjs` + `classifySurfaces`):
+//     一个元素自称 card、而它的祖先链上第一个给出类别信号的是**模态载体**(`<Modal>` / `<*Popup>` /
+//     遮罩键 `overlay|backdrop|StyleSheet.absoluteFill`)⇒ 它是**模态面**,按 panel 判而非 card。
+//     立因是实测:四个 RN 模态件与小程序 `.pp-card` 都把弹窗本体命名为 `card:` —— 按名字判就是在
+//     要求给模态面补一个卡片档圆角(拿尺子改设计)。反向条件同时成立才算面:往外先撞上另一张
+//     card ⇒ 那是模态内容里的卡片,仍按 card 判;同一个键既当过面又当过卡 ⇒ `contested`,**不改判**
+//     只报名(两边各有一半是错的,猜哪边都是假账)。
+//     证据分级同批收紧:属性区跨行的开标签(`<select` 在 119 行、`className=` 在 122 行)现在认得出
+//     "这行属于哪个元素" ⇒ 元素自己的标签是强证据,祖先标签不再混进同一集合(HEAD 实测 5 处
+//     `role-conflict` 由此消解;`z-popover` 这类**层叠档名**也不再冒充类别)。
 //
 // 三态与诚实性(本仓最高频失效型就是"把没判写成判过了"):
 //  · 判红 = 一条元素有**恰好一个**类别信号、档位表读得出该角色、而实际档 ≠ 应有档;
@@ -67,10 +77,12 @@ import { catBatch, gitRaw, readWorktreeFile, selectFace, Undetermined } from './
 import { isRadiusExemptAt, radiusLookup, blockOwnerOf } from './lib/radius-tokens.mjs'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { scanJsx, hasJsxShape } from './lib/jsx-scope.mjs'
 import {
   CORNER_NAMES,
   ROLE_STEMS,
   classStringsInLine,
+  classifySurfaces,
   headToken,
   isRoleExemptAt,
   maskFaces,
@@ -138,12 +150,30 @@ export function auditFileText(rel, src, table) {
     compliant: 0,
     exempted: 0,
     usages: 0,
+    surfaceOverrides: 0,
+    scopeFallback: 0,
+    scopeAmbiguous: 0,
+    scopeCorrupt: 0,
+    contested: [],
   }
   const rawLines = src.split('\n')
   // 注释与字符串的抹法只有一份实现(lib/code-mask.mjs);本门要的两面都由它派生(见 radius-roles)。
-  const { code, kept } = maskFaces(src)
+  const { code, kept, strings } = maskFaces(src)
   const codeLines = code.split('\n')
   const keptLines = kept.split('\n')
+  /**
+   * C4 的输入:**元素作用域**。只在"这一面里确实有 JSX"时才解析(纯 CSS / 纯 TS 不必付这个钱);
+   * 解析器判不出归属的行一律**退回旧逐行判序**并计 `scopeFallback` —— 解析失败不得被读成
+   * "这个元素没有祖先"(那会把判不出写成判过了,本仓最高频失效型)。
+   */
+  let scope = null
+  let surfaces = null
+  if (hasJsxShape(kept)) {
+    scope = scanJsx(kept, { strings })
+    surfaces = classifySurfaces(scope.elements, { roleOf: rolesOfName })
+    out.scopeCorrupt = scope.corrupt
+    for (const k of surfaces.contestedKeys) out.contested.push({ file: rel, key: k })
+  }
   /** @type {{names: string[], indent: number}[]} */
   const stack = []
   let pending = ''
@@ -170,6 +200,15 @@ export function auditFileText(rel, src, table) {
       let k
       while ((k = line.indexOf('{', from)) >= 0) {
         const seg = (prelude + ' ' + line.slice(from, k)).trim()
+        /**
+         * 一行里有**多个** `{` 时,最后一个 `{` 的主人整行生效(见上面注释与自检 55c):
+         * 紧凑单行声明 `create({ backdrop: {…}, card: {…} })` 里,最后一个 `{` 之前的尾巴是
+         * ` flex: 1 }, ` —— 取不到 `card` 这个主人,于是这一行**落"无类别证据"**(如实报数),
+         * 而不是被安到一个猜出来的主人头上。刻意不去"修好"它:把尾巴切掉会让最后一个键
+         * (`overlay`)冒充前一个取用(`card`)的主人 —— 那是把"判不出"换成"判错",
+         * 而判错的代价是逼人改一个本来对的东西(假阳比漏报更贵,门 118 记过)。
+         * 真仓的样式声明绝大多数是一行一键,这一格只影响压行的写法。
+         */
         const owner = blockOwnerOf(seg)
         if (owner.names.length) names = owner.names
         prelude = ''
@@ -206,11 +245,33 @@ export function auditFileText(rel, src, table) {
     const weak = new Set()
     for (const n of names) for (const r of rolesOfName(n)) strong.add(r)
     const codeLine = codeLines[i] || ''
-    for (const m of codeLine.matchAll(/<([A-Za-z][\w.]*[-\w.]*)/g)) {
-      for (const r of rolesOfName(m[1].split(/[./]/).pop() || '')) strong.add(r)
+    /**
+     * 这一行落在某个元素的**开标签区间**里 ⇒ 该元素自己就是取证对象:它的标签名与它应用的
+     * 样式键都是作者给**这个元素**起的名字(强证据),而祖先不再混进同一个集合。
+     * 归属不明(区间并列 / 解析器失配)⇒ 退回旧的"整行抓 `<Tag`",并计一次 scopeFallback:
+     * 旧行为继续有效,新判据只在不明的地方不生效,这样覆盖面扩大不会把任何人已有结论顶红。
+     */
+    const info = scope ? scope.byLine.get(i + 1) : undefined
+    let thisElementIsSurface = false
+    if (info && !info.ambiguous) {
+      for (const r of rolesOfName(info.selfName)) strong.add(r)
+      for (const k of info.keys) for (const r of rolesOfName(k)) strong.add(r)
+      thisElementIsSurface = surfaces ? surfaces.surfaceIdx.has(info.self) : false
+    } else {
+      if (info) out.scopeAmbiguous++
+      let flatTags = 0
+      for (const m of codeLine.matchAll(/<([A-Za-z][\w.]*[-\w.]*)/g)) {
+        flatTags++
+        for (const r of rolesOfName(m[1].split(/[./]/).pop() || '')) strong.add(r)
+      }
+      // 只在这一行**真的**靠整行抓到了标签时才计退回:否则每一行 StyleSheet 声明都会被算成
+      // "容器维没生效",读数会大得没有意义(报数也要报得能看懂)。
+      if (flatTags && scope) out.scopeFallback++
     }
     const classText = classStringsInLine(codeLine, rawLines[i] || '').join(' ')
     if (classText) for (const r of rolesOfClassList(classText)) weak.add(r)
+    const ownerName = names.length ? names[names.length - 1] : null
+    const keyIsSurface = !!(surfaces && ownerName && surfaces.surfaceKeys.has(ownerName))
 
     for (const f of forms) {
       const rec = { file: rel, line: i + 1, form: f.form, kind: f.kind }
@@ -219,9 +280,33 @@ export function auditFileText(rel, src, table) {
         if (corner) rec.corner = corner
       }
       // 形态自带角色时它是唯一权威(写 `rnRadiusFor.panel` 的人已经把类别说清楚了)
-      const roles = f.role ? new Set([f.role]) : strong.size ? strong : weak
-      if (roles !== strong && roles !== weak) rec.declared = true
-      else if (!strong.size && roles.size) rec.evidence = 'weak'
+      let roles
+      let evidence
+      if (f.role) {
+        roles = new Set([f.role])
+        evidence = 'declared'
+      } else if (strong.size) {
+        roles = strong
+        evidence = 'strong'
+      } else if (weak.size) {
+        roles = weak
+        evidence = 'weak'
+      } else {
+        roles = new Set()
+        evidence = 'none'
+      }
+      /**
+       * C4:自称 card 而容器给出的是模态面 ⇒ 按 panel 判。
+       * 只在**恰好一个** card 信号时生效:角色已经冲突时改判等于替人挑一个(那才是假账)。
+       */
+      if (evidence !== 'declared' && roles.size === 1 && roles.has('card') && (thisElementIsSurface || keyIsSurface)) {
+        roles = new Set(['panel'])
+        evidence = 'surface'
+        rec.via = 'surface'
+        out.surfaceOverrides++
+      }
+      if (evidence === 'declared') rec.declared = true
+      else if (evidence === 'weak') rec.evidence = 'weak'
       if (f.px === null || !Number.isFinite(f.px)) {
         rec.reason = f.kind === 'role' ? 'role-not-in-table' : 'unknown-step'
         rec.detail = f.role || f.form
@@ -387,9 +472,14 @@ export function runAudit(repoRoot, face, { only } = {}) {
   const undetermined = []
   const unclassified = []
   const weakFindings = []
+  const contested = []
   let usages = 0
   let exempted = 0
   let compliant = 0
+  let surfaceOverrides = 0
+  let scopeFallback = 0
+  let scopeAmbiguous = 0
+  let scopeCorrupt = 0
   for (const rel of files) {
     const src = got.get(face === 'staged' ? `:${rel}` : `HEAD:${rel}`)
     if (src === null || src === undefined)
@@ -398,6 +488,11 @@ export function runAudit(repoRoot, face, { only } = {}) {
     usages += r.usages
     exempted += r.exempted
     compliant += r.compliant
+    surfaceOverrides += r.surfaceOverrides
+    scopeFallback += r.scopeFallback
+    scopeAmbiguous += r.scopeAmbiguous
+    scopeCorrupt += r.scopeCorrupt
+    contested.push(...r.contested)
     violations.push(...r.violations)
     undetermined.push(...r.undetermined)
     unclassified.push(...r.unclassified)
@@ -412,9 +507,14 @@ export function runAudit(repoRoot, face, { only } = {}) {
     undetermined,
     unclassified,
     weakFindings,
+    contested,
     usages,
     exempted,
     compliant,
+    surfaceOverrides,
+    scopeFallback,
+    scopeAmbiguous,
+    scopeCorrupt,
     red: applyRatchet(countByKey(violations), baseline.anchors || {}),
     roleTableProblems: roleTableProblems(table),
   }
@@ -448,9 +548,14 @@ function runAuditWorktree(repoRoot, only) {
   const undetermined = []
   const unclassified = []
   const weakFindings = []
+  const contested = []
   let usages = 0
   let exempted = 0
   let compliant = 0
+  let surfaceOverrides = 0
+  let scopeFallback = 0
+  let scopeAmbiguous = 0
+  let scopeCorrupt = 0
   for (const rel of files) {
     const src = readWorktreeFile(repoRoot, rel)
     if (src === null) continue
@@ -458,6 +563,11 @@ function runAuditWorktree(repoRoot, only) {
     usages += r.usages
     exempted += r.exempted
     compliant += r.compliant
+    surfaceOverrides += r.surfaceOverrides
+    scopeFallback += r.scopeFallback
+    scopeAmbiguous += r.scopeAmbiguous
+    scopeCorrupt += r.scopeCorrupt
+    contested.push(...r.contested)
     violations.push(...r.violations)
     undetermined.push(...r.undetermined)
     unclassified.push(...r.unclassified)
@@ -472,9 +582,14 @@ function runAuditWorktree(repoRoot, only) {
     undetermined,
     unclassified,
     weakFindings,
+    contested,
     usages,
     exempted,
     compliant,
+    surfaceOverrides,
+    scopeFallback,
+    scopeAmbiguous,
+    scopeCorrupt,
     red: applyRatchet(countByKey(violations), baseline.anchors || {}),
     roleTableProblems: roleTableProblems(table),
   }
@@ -549,6 +664,11 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
         unclassifiedCount: res.unclassified.length,
         unclassified: argv.includes('--all') ? res.unclassified : undefined,
         weakFindings: res.weakFindings,
+        surfaceOverrides: res.surfaceOverrides,
+        scopeFallback: res.scopeFallback,
+        scopeAmbiguous: res.scopeAmbiguous,
+        scopeCorrupt: res.scopeCorrupt,
+        contested: res.contested,
         roleTableProblems: res.roleTableProblems,
         baselineAnchors: Object.keys(res.baseline?.anchors || {}).length,
         undetFileCount,
@@ -604,6 +724,19 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
       for (const v of res.weakFindings.slice(0, 15)) console.log(lineOf(v).replace(/^ {2}/, '   '))
       if (res.weakFindings.length > 15)
         console.log(`   …其余 ${res.weakFindings.length - 15} 条见 --json 的 weakFindings`)
+    }
+    console.log(
+      `◦ 包含关系(C4):按模态面改判 ${res.surfaceOverrides} 处(自称 card 而容器是模态载体)、` +
+        `同名既当过面又当过卡 ⇒ 不改判 ${res.contested.length} 键、` +
+        `归属判不出退回旧判序 ${res.scopeFallback} 行(其中并列候选 ${res.scopeAmbiguous} 行)、` +
+        `闭合失配 ${res.scopeCorrupt} 处。退回与失配都**不是通过**:那些行仍按原逐行判序判,` +
+        '只是容器这一维对它们不生效(判不出必须报名,不得静默当成"没有祖先")。',
+    )
+    if (res.contested.length) {
+      console.log('   contested(不改判,逐条报名):')
+      for (const c of res.contested.slice(0, 10)) console.log(`     ${c.file} 键 ${c.key}`)
+      if (res.contested.length > 10)
+        console.log(`     …其余 ${res.contested.length - 10} 条见 --json 的 contested`)
     }
     console.log(
       `结论(五个体各算各的,谁也不替谁背书):判红 ${res.red.length} 族 / ` +
@@ -848,6 +981,170 @@ export async function selfTest(repoRoot = ROOT) {
       return !!spec && spec.px === tbl['2xl'] && tbl['2xl'] === 16
     })(),
   )
+  /**
+   * —— C4 包含关系(容器优先于名字)。四条成对 + 两条真仓对照,缺一不算数:
+   *  74/75 是**同一段样式声明**换一个容器 ⇒ 结论必须翻;75 证明"有模态面判据"不等于
+   *  "凡是 card 都改判"(那才是真放宽)。76 证明内层卡不被外层的面吃掉。77 证明载体可以是
+   *  遮罩键而不是 `<Modal>` 标签。78 证明同名键身份冲突时**不改判**而是报名。
+   */
+  const MODAL_FX = `const styles = StyleSheet.create({
+  box: { flex: 1 },
+  card: { borderRadius: rnRadius.xl },
+})
+export default function Pop() {
+  return (
+    <Modal visible>
+      <View style={styles.box}>
+        <View style={styles.card} />
+      </View>
+    </Modal>
+  )
+}`
+  t('74 自称 card 而容器是模态面 ⇒ 按 panel 判(xl 合规)并记 via=surface', (() => {
+    const r = A(MODAL_FX)
+    return (
+      r.violations.length === 0 &&
+      r.compliant === 1 &&
+      r.surfaceOverrides === 1 &&
+      r.contested.length === 0
+    )
+  })())
+  t(
+    '75 同一段声明换一个**非模态**容器 ⇒ 仍按 card 判红(容器判据不是免罪通道)',
+    (() => {
+      const r = A(MODAL_FX.replace('<Modal visible>', '<Pressable onPress={x}>').replace('</Modal>', '</Pressable>'))
+      return r.violations[0]?.role === 'card' && r.surfaceOverrides === 0
+    })(),
+  )
+  t(
+    '76 模态里再嵌一张卡:外层键是面、内层键仍是卡(两层各自判,不合并)',
+    (() => {
+      // 两层必须用**不同键名**:同一个键既当过面又当过卡属于 78 的 contested,不是嵌套测试。
+      const nested = `const s = StyleSheet.create({
+  card: { borderRadius: rnRadius.xl },
+  noticeCard: { borderRadius: rnRadius.xl },
+})
+export default function P() {
+  return (
+    <Modal visible>
+      <View style={s.card}>
+        <View style={s.noticeCard} />
+      </View>
+    </Modal>
+  )
+}`
+      const r = A(nested)
+      return r.compliant === 1 && r.violations.length === 1 && r.violations[0].role === 'card'
+    })(),
+  )
+  t(
+    '77 载体也可以是遮罩键(没有 <Modal> 标签时同样成立)',
+    (() => {
+      const noModal = `const s = StyleSheet.create({
+  backdrop: { flex: 1 },
+  card: { borderRadius: rnRadius.xl },
+})
+export default function P() {
+  return (
+    <View style={s.backdrop}>
+      <View style={s.card} />
+    </View>
+  )
+}`
+      const r = A(noModal)
+      return r.compliant === 1 && r.surfaceOverrides === 1
+    })(),
+  )
+  t(
+    '78 同一个键既当过面又当过卡 ⇒ 不改判,contested 报名(猜一边就是造一半假账)',
+    (() => {
+      const contested = `const s = StyleSheet.create({
+  overlay: { flex: 1 },
+  card: { borderRadius: rnRadius.xl },
+})
+export default function P() {
+  return (
+    <View>
+      <View style={s.card} />
+      <Modal visible>
+        <View style={s.overlay}>
+          <View style={s.card} />
+        </View>
+      </Modal>
+    </View>
+  )
+}`
+      const r = A(contested)
+      return (
+        r.surfaceOverrides === 0 &&
+        r.contested.length === 1 &&
+        r.contested[0].key === 'card' &&
+        r.violations[0]?.role === 'card'
+      )
+    })(),
+  )
+  t(
+    '79 层叠档名不得冒充类别:`z-popover` + `bg-card` 只给一个 card 弱证据(不再 role-conflict)',
+    (() => {
+      const r = A('<div className="z-popover min-w-[16rem] rounded-xl border bg-card p-1" />')
+      return r.undetermined.length === 0 && r.weakFindings[0]?.role === 'card'
+    })(),
+  )
+  t(
+    '80 跨行开标签:属性行认得出自己的标签(select ⇒ control 强证据,不再靠色档猜)',
+    (() => {
+      const r = A(
+        'const x = (\n  <select\n    value={k}\n    onChange={f}\n    className="h-7 rounded-md border bg-card px-1.5"\n  />\n)',
+      )
+      return r.undetermined.length === 0 && r.violations[0]?.role === 'control' && r.violations[0]?.evidence !== 'weak'
+    })(),
+  )
+  t(
+    '81 归属并列(同一行两个等宽开标签)⇒ 计 ambiguous 并退回旧判序,绝不挑一个元素当祖先',
+    (() => {
+      const r = A('const s = <Card><Button className="rounded-xl" /></Card>')
+      return r.scopeAmbiguous >= 1 && r.scopeFallback >= 1 && r.undetermined[0]?.reason === 'role-conflict'
+    })(),
+  )
+  // —— C4 的真仓双向对照(夹具只能证明函数会给答案,证明不了有人在问它)
+  /**
+   * 取材 ref 钉在**清偿前的出处提交**而不是 HEAD:票⑳ 把该形态从 HEAD 清掉之后,"HEAD 上还能量到"
+   * 这条前提当天失效 —— 阳性对照若跟着账一起消失,门就退化成没有牙的尺子而自检照绿。
+   * 与 A13 投影等价性取 `git show dd5142f2255^` 历史源码快照是同一手法(出处逐字取回,不重写)。
+   */
+  const SURF_PROBE = 'apps/mobile-rn/src/components/LoginPopUp.tsx'
+  const NOTSURF_PROBE = 'packages/app/src/features/course-detail/CourseDetailScreen.tsx'
+  const PROBE_REF = process.env.IHUI_RADIUS_PROBE_REF || 'acf1927e96'
+  const surfSrc = catBatch(repoRoot, [`${PROBE_REF}:${SURF_PROBE}`], { maxBuffer: 1 << 27 }).get(
+    `${PROBE_REF}:${SURF_PROBE}`,
+  )
+  const notsurfSrc = catBatch(repoRoot, [`${PROBE_REF}:${NOTSURF_PROBE}`], { maxBuffer: 1 << 27 }).get(
+    `${PROBE_REF}:${NOTSURF_PROBE}`,
+  )
+  let surfOk = false
+  if (surfSrc) {
+    const r = A(surfSrc)
+    const overridden = r.compliant + r.violations.filter((v) => v.role === 'panel').length
+    // 面成立的两条同时要看:改判确实发生,且 16px 的模态面**仍被判红**(panel 应 xl=12)
+    surfOk =
+      r.surfaceOverrides >= 1 &&
+      r.violations.some((v) => v.role === 'panel' && v.actualStep === '2xl' && v.expectedStep === 'xl') &&
+      overridden >= 1
+  }
+  t(
+    `82 真仓出处阳性对照(${PROBE_REF.slice(0, 9)}):${SURF_PROBE.split(String.fromCharCode(47)).pop()} 的 card 键必须改判 panel,且 2xl 仍判红`,
+    surfOk,
+  )
+  t(
+    `83 真仓反向对照:${NOTSURF_PROBE.split(String.fromCharCode(47)).pop()} 的 btn/tag 不得被容器判据吃掉`,
+    (() => {
+      if (!notsurfSrc) return false
+      const r = A(notsurfSrc)
+      const roles = new Set(r.violations.map((v) => v.role))
+      return roles.has('control') && roles.has('chip') && r.surfaceOverrides === 0
+    })(),
+  )
+  const SURF_PROVE_NAME = (p) => p.split('/').pop()
   const bad = results.filter((r) => !r.ok)
   for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.name}${r.extra ? ` —— ${r.extra}` : ''}`)
   console.log(`--self-test: ${results.length} 条,失败 ${bad.length} 条`)

@@ -195,14 +195,14 @@ function DataTableImpl<T>({
             <button
               disabled={pagination.page <= 1}
               onClick={() => onPageChange?.(pagination.page - 1)}
-              className="rounded border px-2 py-1 disabled:opacity-50"
+              className="rounded-sm border px-2 py-1 disabled:opacity-50"
             >
               {t('prevPageAriaLabel')}
             </button>
             <button
               disabled={pagination.page * pagination.pageSize >= pagination.total}
               onClick={() => onPageChange?.(pagination.page + 1)}
-              className="rounded border px-2 py-1 disabled:opacity-50"
+              className="rounded-sm border px-2 py-1 disabled:opacity-50"
             >
               {t('nextPageAriaLabel')}
             </button>

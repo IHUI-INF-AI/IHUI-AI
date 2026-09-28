@@ -241,8 +241,8 @@ function createStyles(tk: AppThemeTokens) {
     modalMask: { flex: 1, backgroundColor: tk.overlay.modal, justifyContent: 'flex-end' },
     modalCard: {
       backgroundColor: tk.surface.light,
-      borderTopLeftRadius: rnRadius['2xl'],
-      borderTopRightRadius: rnRadius['2xl'],
+      borderTopLeftRadius: rnRadius.xl,
+      borderTopRightRadius: rnRadius.xl,
       padding: 14,
       paddingBottom: 32,
       maxHeight: '85%',
