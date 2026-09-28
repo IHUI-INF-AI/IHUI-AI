@@ -1753,21 +1753,22 @@ async def _emit_terminal_delta(command: str, stream_name: str, text: str) -> Non
         return
     try:
         ctx = _terminal_stream_ctx.get() or {}
-        # 进程内直投:优先走 push,不再经 hook_engine(前端 SSE 由调用方直接 yield)
-        push = ctx.get("push")
-        if callable(push):
-            _payload: dict[str, Any] = {
-                "type": "terminal_delta",
-                "terminalId": ctx.get("tool_call_id") or "",
-                "command": command,
-                "stream": stream_name,  # stdout / stderr
-                "text": text,
-                "iteration": ctx.get("iteration"),
-            }
-            _msg_id = ctx.get("messageId")
-            if _msg_id:  # 上下文带 messageId 时才带上(与 terminal_start 对齐)
-                _payload["messageId"] = _msg_id
-            push(_payload)
+        # 进程内直投:优先走 push(取道与 terminal_interaction 同一份实现,禁止两处各写
+        # 一遍"怎么找到 push"),不再经 hook_engine —— 增量帧由调用方直接 yield 成 SSE,
+        # 不阻塞命令主链路、不改变既有 SSE 顺序语义。无 push(agent_loop_v2 等)
+        # 时维持原 hook_engine 广播行为,agent 通道零回归。
+        _payload: dict[str, Any] = {
+            "type": "terminal_delta",
+            "terminalId": ctx.get("tool_call_id") or "",
+            "command": command,
+            "stream": stream_name,  # stdout / stderr
+            "text": text,
+            "iteration": ctx.get("iteration"),
+        }
+        _msg_id = ctx.get("messageId")
+        if _msg_id:  # 上下文带 messageId 时才带上(与 terminal_start 对齐)
+            _payload["messageId"] = _msg_id
+        if _push_terminal_stream_frame(_payload):
             return
         from .hook_engine import hook_engine
 
@@ -1810,6 +1811,299 @@ def _spawn_terminal_delta(command: str, stream_name: str, text: str) -> None:
         return
     _terminal_delta_tasks.add(task)
     task.add_done_callback(_terminal_delta_tasks.discard)
+
+
+# =====================================================================
+# D151(2026-09-29 立;用户 2026-09-28 批「默认开 + 单次等待上限 300s」):
+# 交互式命令的「等待用户输入」态 + 键入送回的唯一登记/结算出口。
+#
+# 为什么住在 mcp_server:`proc.stdin` 只有执行循环拿得到,端点能做的是"把用户键入
+# 交给那条已登记的 future"。所以登记表在此、盖章也在此,结算方(llm.py 的
+# terminal-input 端点)只经本模块导出的唯一出口取用 —— 照 batch-59/60 的规矩
+# **存带主记录**(terminalId + user_id),归属判定发生在结算点而不是注册点。
+#
+# 已知边界(如实登记,不当待办):判定用的是"输出静默窗口 + 尾行提示形态"两条启发式,
+# 不是 tty 层真信号(run_command 走 create_subprocess_exec 管道,没有 PTY)。所以它
+# **只影响是否发帧、是否多给一段等人时间**,绝不改变命令本身的执行结果口径。
+# =====================================================================
+
+#: 单次等待用户键入的上限(秒)。与 llm.py 的 _FORM_WAIT_TIMEOUT 数值相同但**刻意不共享**:
+#: 表单等的是"填完整内容",这里等的是"敲一行字",两条语义各自调参。
+TERMINAL_INTERACTION_WAIT_TIMEOUT_S: Final[int] = 300
+#: 判定"进程在等人"的静默窗口(秒)。
+TERMINAL_INTERACTION_QUIET_S: Final[float] = 2.0
+#: 代答输入长度封顶(stdin 直通进程是新入口,必须限界;键入内容一律不落日志)。
+TERMINAL_INTERACTION_MAX_INPUT_CHARS: Final[int] = 4096
+#: 总上限护栏:命令自身超时 + 一段等待人的时间;绝不因为"有人在等"就无限挂流。
+TERMINAL_INTERACTION_EXTRA_GRACE_S: Final[int] = TERMINAL_INTERACTION_WAIT_TIMEOUT_S
+_TERMINAL_INTERACTION_ENV: Final[str] = "IHUI_TERMINAL_INTERACTION"
+_TERMINAL_INTERACTION_POLL_S: Final[float] = 0.5
+#: 尾行超过这个长度就不当"提示符"(超长行是输出噪声,不是等人)。
+_TERMINAL_INTERACTION_MAX_TAIL_CHARS: Final[int] = 240
+
+#: 尾行"像在等输入"的形态表 —— 命中才发帧并等待。**全部行尾锚定**,理由两条:
+#: ① 提示符的定义就是"这行到此为止、等下面接字",句中出现的词不是提示;
+#: ② 假阳的代价不是"多一帧"而是**凭空多等**(最长 300 秒),假阴的代价只是命令照常走到它
+#:    原本的超时 —— 两边不对称,所以判据必须偏保守。
+_TERMINAL_INTERACTION_PROMPT_RES: Final[tuple[re.Pattern[str], ...]] = (
+    # y/n 类确认
+    re.compile(r"(?:\[[yY]/[nN]\]|\([yY]/[nN]\)|\[[yY]es/[nN]o\])\s*$"),
+    # "它明确在问"
+    re.compile(r"(?i)(?:continue|proceed|are you sure)\s*\??\s*$"),
+    re.compile(r"(?:是否继续|请确认|是否覆盖)\s*[?？]?\s*$"),
+    # 凭据类:词边界是硬要求(少了 \b,"passwordless" 会命中),且必须收尾在冒号/尖括号
+    re.compile(r"(?i)\b(?:password|passphrase|secret)\s*[:>]\s*$"),
+    re.compile(r"(?:密码|口令)\s*[:：]?\s*$"),
+    # "Enter your name:" / "请输入文件名:"
+    re.compile(r"(?i)\b(?:enter|input|type|please)\b[^:\n]{0,50}[:?]\s*$"),
+    re.compile(r"请输入[^:\n]{0,20}[:：]\s*$"),
+    # shell/REPL 与 `read -p "x: "`:整行以冒号或 > 收尾
+    re.compile(r"[\w ./@:\-]{1,60}[:>]\s*$"),
+    re.compile(r"^\s*(?:>>>|\.\.\.|[$#>])\s*$"),
+)
+
+
+def terminal_interaction_enabled() -> bool:
+    """交互代答开关(默认开)。关掉只影响这一维:命令执行与既有帧一字不变。"""
+    raw = str(os.environ.get(_TERMINAL_INTERACTION_ENV, "")).strip().lower()
+    return raw not in ("0", "false", "off", "no")
+
+
+def looks_like_input_prompt(tail_text: str) -> str | None:
+    """取末段输出里最后一行非空文本,判断它是否"像在等输入"。
+
+    返回命中的提示片段(进帧给前端当"它在等什么"的说明),不命中返回 None。
+    """
+    tail = ""
+    for line in reversed((tail_text or "").split("\n")):
+        stripped = line.strip()
+        if stripped:
+            tail = stripped
+            break
+    if not tail or len(tail) > _TERMINAL_INTERACTION_MAX_TAIL_CHARS:
+        return None
+    for pat in _TERMINAL_INTERACTION_PROMPT_RES:
+        if pat.search(tail):
+            return tail
+    return None
+
+
+#: terminalId -> {future, user_id, session_id, command, prompt_tail, registered_at}
+#: 只在"确实在等人"的窗口内存在;结算/超时/取消三条路都由等待方 pop(与 _form_sessions 同律)。
+_terminal_input_pending: dict[str, dict[str, Any]] = {}
+
+
+def terminal_input_waiter_count() -> int:
+    """只读探针(测试与诊断用;不返回内容,键入值绝不从这一面出去)。"""
+    return len(_terminal_input_pending)
+
+
+def settle_terminal_input(
+    session_id: str,
+    terminal_id: str,
+    text: str,
+    caller_user_id: str | None,
+) -> dict[str, Any]:
+    """键入送回的唯一结算出口。
+
+    命中条件 = terminalId 在待决表 ∧ 该条登记的**属主等于当前调用方主体**。越权与"没这条"
+    **同形回包**(端点 otherwise 会变成存在性预言机),且两种情形都**绝不 set_result** ——
+    "先把进程喂了再抛 403"是本仓越权用例专门要断言排掉的写法。
+    """
+    entry = _terminal_input_pending.get(str(terminal_id or ""))
+    if not isinstance(entry, dict) or not isinstance(entry.get("future"), asyncio.Future):
+        return {"settled": False, "reason": "not_found"}
+    # 会话维度也要对上:terminalId 用的是工具调用的 id,跨会话撞号在小概率下仍然可能,
+    # 而撞上的后果是"把 A 会话的键入喂给 B 会话的进程"。登记时空串表示未鉴权开发态,
+    # 那种情况下不比对(比对一个双方都没有的字段等于没有判据)。
+    entry_session = str(entry.get("session_id") or "")
+    if entry_session and entry_session != str(session_id or ""):
+        return {"settled": False, "reason": "not_found"}
+    owner = entry.get("user_id")
+    if isinstance(owner, str) and owner:
+        if caller_user_id != owner:
+            return {"settled": False, "reason": "not_found"}
+    elif caller_user_id is not None:
+        # 待决项没有主体(未鉴权的开发/进程内路径),而调用方带身份 —— 这是两条不同
+        # 身份通道的偶然相遇,不予结算(与 form-response 同一条口径)。
+        return {"settled": False, "reason": "not_found"}
+    # 落到这里:两侧都没有主体。这是 jwt 未启用时(开发态 / ASGI in-process 测试)的
+    # 回退路径,**不构成授权结论**,不是"匹配上了"。
+    future = cast("asyncio.Future[str]", entry["future"])
+    if future.done():
+        return {"settled": False, "reason": "already_settled"}
+    future.set_result(str(text)[:TERMINAL_INTERACTION_MAX_INPUT_CHARS])
+    # 刻意不回显 text:键入可能是密码,返回值会进日志/响应体。
+    return {"settled": True}
+
+
+def _push_terminal_stream_frame(payload: dict[str, Any]) -> bool:
+    """把一帧塞进宿主注入的 push 通道(delta 与 interaction **共用这一份**取道实现)。
+
+    返回 False = 这条通道此刻不存在(例如 agent_loop_v2 路径没注入 push)。调用方必须
+    据此决定后续动作,不得把"没送到"读成"送到了" —— 那是本仓最高频的失效型。
+    发射本身失败一律降级吞掉:事件面故障不得打断命令主链路。
+    """
+    if not payload:
+        return False
+    try:
+        ctx = _terminal_stream_ctx.get() or {}
+        push = ctx.get("push")
+        if callable(push):
+            push(payload)
+            return True
+        return False
+    except Exception:  # noqa: BLE001 - 事件发射失败绝不阻塞工具主链路
+        return False
+
+
+async def _await_terminal_input(
+    terminal_id: str,
+    command: str,
+    prompt_tail: str,
+    ctx: dict[str, Any],
+) -> tuple[str | None, bool]:
+    """登记待决项 → 发 terminal_interaction 帧 → 等待键入。
+
+    返回 (键入内容 | None, 是否超时)。帧**送不出去就不等**(没有承载面的等待,
+    等于把一条命令凭空挂 300 秒)。
+    """
+    payload: dict[str, Any] = {
+        "type": "terminal_interaction",
+        "terminalId": terminal_id,
+        "promptTail": prompt_tail,
+        "waitingSinceMs": 0,
+        "inputMode": "line",
+        "maxInputChars": TERMINAL_INTERACTION_MAX_INPUT_CHARS,
+    }
+    message_id = ctx.get("messageId")
+    if message_id:
+        payload["messageId"] = message_id
+    if not _push_terminal_stream_frame(payload):
+        return (None, False)
+
+    loop = asyncio.get_running_loop()
+    future: asyncio.Future[str] = loop.create_future()
+    entry: dict[str, Any] = {
+        "future": future,
+        # 盖章发生在注册点:owner 来自宿主注入的终端流上下文(llm.py 用令牌主体填),
+        # 模型与请求体都碰不到它。
+        "user_id": ctx.get("user_id"),
+        "session_id": str(ctx.get("session_id") or ""),
+        "command": command,
+        "prompt_tail": prompt_tail,
+        "registered_at": time.monotonic(),
+    }
+    _terminal_input_pending[terminal_id] = entry
+    try:
+        try:
+            text = await asyncio.wait_for(future, timeout=TERMINAL_INTERACTION_WAIT_TIMEOUT_S)
+            return (text, False)
+        except TimeoutError:
+            return (None, True)
+    finally:
+        # 命令结束后待决条目必删(风险面:不留一个还能被写入的把手)。
+        if _terminal_input_pending.get(terminal_id) is entry:
+            _terminal_input_pending.pop(terminal_id, None)
+
+
+async def _watch_terminal_input(
+    proc: Any,
+    activity: dict[str, Any],
+    state: dict[str, Any],
+    terminal_id: str,
+    ctx: dict[str, Any],
+    command: str,
+) -> None:
+    """旁路观察器:探测"进程停住且尾行像提示符"→ 发帧并等人敲一行。
+
+    它**不碰退出判定**(那归 drain),也不改 stdout/stderr 内容;state 里只累计
+    interactionCount / inputWaitTimedOut 两笔账,供 tool-result 如实回灌(验收②:
+    有交互必须有计数,不得静默)。
+    """
+    while True:
+        await asyncio.sleep(_TERMINAL_INTERACTION_POLL_S)
+        if getattr(proc, "returncode", None) is not None:
+            return
+        idle = time.monotonic() - float(activity.get("ts") or time.monotonic())
+        if idle < TERMINAL_INTERACTION_QUIET_S:
+            continue
+        prompt = looks_like_input_prompt(str(activity.get("last_line") or ""))
+        stdin_writer = getattr(proc, "stdin", None)
+        if not prompt:
+            # 静默但**不像**等人:立刻把写端关掉,把"命令一启动就拿到 EOF"的旧语义还给它。
+            # 不做这一步,`cat` 这类读 stdin 的命令会从"马上结束"变成"挂到超时"。
+            if not state.get("eofSent") and stdin_writer is not None and not stdin_writer.is_closing():
+                with contextlib.suppress(Exception):
+                    stdin_writer.write_eof()
+                state["eofSent"] = True
+            continue
+        if state.get("eofSent"):
+            # 写端已经交出去了:这时再发帧就是给前端一个"能代答"的假承诺,只能不等。
+            return
+        if activity.get("last_prompt") == prompt:
+            # 同一条提示只问一次:否则没人敲也会每秒重复发帧刷屏。
+            continue
+        activity["last_prompt"] = prompt
+        state["waiting"] = True
+        try:
+            text, timed_out = await _await_terminal_input(terminal_id, command, prompt, ctx)
+            if text:
+                writer = getattr(proc, "stdin", None)
+                if writer is not None and not writer.is_closing():
+                    writer.write((text + "\n").encode("utf-8", errors="replace"))
+                    with contextlib.suppress(Exception):
+                        await writer.drain()
+                    state["interactionCount"] = int(state.get("interactionCount") or 0) + 1
+                    # 键入之后进程会继续输出,提示窗口重新计时。
+                    activity["ts"] = time.monotonic()
+                    activity["last_prompt"] = None
+            elif timed_out:
+                state["inputWaitTimedOut"] = True
+                state["inputWaitTimeoutMs"] = TERMINAL_INTERACTION_WAIT_TIMEOUT_S * 1000
+                return
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - 观察器故障不得影响命令本身
+            logger.warning("terminal interaction 观察器异常(忽略,命令继续): %s", exc)
+            return
+        finally:
+            state["waiting"] = False
+
+
+async def _drain_with_input_grace(
+    drain: "asyncio.Future[Any]",
+    base_timeout: float,
+    state: dict[str, Any],
+) -> bool:
+    """等 drain 结束;返回是否超时。
+
+    等待用户键入的那段墙钟**不计入命令超时**(那 300 秒是给人的,不是给命令的),
+    但整段仍有总上限 `base_timeout + TERMINAL_INTERACTION_EXTRA_GRACE_S` ——
+    "有人在等"不得把一次工具调用变成无限挂流。
+    """
+    started = time.monotonic()
+    paused_s = 0.0
+    was_waiting = False
+    hard_deadline = started + base_timeout + TERMINAL_INTERACTION_EXTRA_GRACE_S
+    while True:
+        remaining = started + base_timeout + paused_s - time.monotonic()
+        if remaining <= 0:
+            return True
+        try:
+            await asyncio.wait_for(asyncio.shield(drain), timeout=min(remaining, 0.5))
+            return False
+        except TimeoutError:
+            now = time.monotonic()
+            waiting = bool(state.get("waiting"))
+            if waiting and was_waiting:
+                paused_s += 0.5
+            was_waiting = waiting
+            if now >= hard_deadline:
+                return True
+            continue
+        except asyncio.CancelledError:
+            raise
 
 
 async def _drain_stream(
@@ -2387,10 +2681,22 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
         args = shlex.split(command, posix=sys.platform != "win32")
         env_for_proc = _build_subprocess_env(user_env) if user_env else None
 
+        # D151(2026-09-29,用户批"默认开 + 单次等待 300s"):交互代答只在"宿主给了 push
+        # 通道"时才开 —— 没有承载面的等待等于凭空挂住一条命令。
+        # 已知边界(不是待办,是启发式的代价):开 PIPE 会改变"读 stdin 的命令"的结束方式
+        # (原本立刻拿到 EOF)。所以观察器在**第一个静默窗口判定"不像在等人"时立即 write_eof()**,
+        # 把旧语义还给它;此后若该命令又冒出提示,已关闭的写端无法再喂字,观察器不再等待。
+        _term_ctx = dict(_terminal_stream_ctx.get() or {})
+        _terminal_id = str(_term_ctx.get("tool_call_id") or "")
+        _interaction_on = bool(
+            terminal_interaction_enabled() and _terminal_id and _term_ctx.get("push")
+        )
+
         if sys.platform == "win32" and cmd_name in _WIN_BUILTINS:
             proc = await asyncio.create_subprocess_exec(
                 "cmd", "/c", command,
                 cwd=cwd, env=env_for_proc,
+                stdin=asyncio.subprocess.PIPE if _interaction_on else None,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 # 第三十三批:_drain_stream 按行读,不声明 limit 就是默认 65536,
@@ -2401,6 +2707,7 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             proc = await asyncio.create_subprocess_exec(
                 *args,
                 cwd=cwd, env=env_for_proc,
+                stdin=asyncio.subprocess.PIPE if _interaction_on else None,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 limit=PROTOCOL_FRAME_LIMIT_BYTES,  # 同上,见 _drain_stream 注释
@@ -2411,28 +2718,55 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
         # fire-and-forget 不阻塞读取;上下文经 contextvar 由 agent_loop 注入)
         stdout_lines: list[str] = []
         stderr_lines: list[str] = []
-        on_stdout_line = functools.partial(_spawn_terminal_delta, command, "stdout")
-        on_stderr_line = functools.partial(_spawn_terminal_delta, command, "stderr")
+        # D151 观察器读这三样:最后一行非空输出(判提示)、最近一次输出时刻(判静默)、
+        # 以及本条命令的交互账本。刻意不复制 stdout 内容本身 —— 键入与输出都不落日志。
+        _activity: dict[str, Any] = {"ts": time.monotonic(), "last_line": "", "last_prompt": None}
+        _inter_state: dict[str, Any] = {
+            "interactionCount": 0,
+            "inputWaitTimedOut": False,
+            "waiting": False,
+            "eofSent": False,
+        }
+
+        def _note_line(stream_name: str, line_text: str) -> None:
+            _activity["ts"] = time.monotonic()
+            if line_text and line_text.strip():
+                _activity["last_line"] = line_text
+            _spawn_terminal_delta(command, stream_name, line_text)
+
+        on_stdout_line = functools.partial(_note_line, "stdout")
+        on_stderr_line = functools.partial(_note_line, "stderr")
         drain = asyncio.gather(
             _drain_stream(proc.stdout, stdout_lines, on_line=on_stdout_line),
             _drain_stream(proc.stderr, stderr_lines, on_line=on_stderr_line),
         )
+        _watcher: "asyncio.Future[None] | None" = None
+        if _interaction_on and getattr(proc, "stdin", None) is not None:
+            _watcher = asyncio.ensure_future(
+                _watch_terminal_input(proc, _activity, _inter_state, _terminal_id, _term_ctx, command)
+            )
         try:
-            await asyncio.wait_for(drain, timeout=timeout)
-            await proc.wait()
-            timed_out = False
-        except TimeoutError:
-            timed_out = True
-            with contextlib.suppress(ProcessLookupError):
-                proc.kill()
-            # 取消 drain task 并等其退出(readline 会被 CancelledError 中断)
-            drain.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await drain
             try:
-                await proc.wait()
-            except Exception as e:
-                logger.warning("mcp_server proc.wait 失败: %s", e, exc_info=True)
+                timed_out = await _drain_with_input_grace(drain, float(timeout), _inter_state)
+                if not timed_out:
+                    await proc.wait()
+            except TimeoutError:
+                timed_out = True
+                with contextlib.suppress(ProcessLookupError):
+                    proc.kill()
+                # 取消 drain task 并等其退出(readline 会被 CancelledError 中断)
+                drain.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await drain
+                try:
+                    await proc.wait()
+                except Exception as e:
+                    logger.warning("mcp_server proc.wait 失败: %s", e, exc_info=True)
+        finally:
+            if _watcher is not None:
+                _watcher.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await _watcher
 
         stdout = "\n".join(stdout_lines)
         stderr = "\n".join(stderr_lines)
@@ -2449,7 +2783,26 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
         stdout = _redact_secrets(stdout)
         stderr = _redact_secrets(stderr)
 
+        _interaction_count = int(_inter_state.get("interactionCount") or 0)
         if timed_out:
+            # 两种"到点"要分得开(验收②:有交互必须有计数,不得静默):
+            # 命令本身跑过头 vs 它在等人、人没敲。后者回灌给模型的是"没人代答"这个事实,
+            # 它才能自己决定换命令/放弃,而不是读到一条普通的超时失败。
+            if _inter_state.get("inputWaitTimedOut"):
+                return {
+                    "tool": "run_command", "command": command,
+                    "exit_code": -1,
+                    "stdout": stdout, "stderr": stderr,
+                    "partial_output": stdout,
+                    "ok": False, "streamed": True,
+                    "errorCode": "NEEDS_INPUT_TIMEOUT",
+                    "interactionCount": _interaction_count,
+                    "inputWaitTimeoutMs": TERMINAL_INTERACTION_WAIT_TIMEOUT_S * 1000,
+                    "message": (
+                        f"命令在等待键盘输入,等待 {TERMINAL_INTERACTION_WAIT_TIMEOUT_S} 秒内无人代答"
+                        f"(此前已完成 {_interaction_count} 次代答),进程已终止"
+                    ),
+                }
             return {
                 "tool": "run_command", "command": command,
                 "exit_code": -1,
@@ -2457,16 +2810,19 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                 "partial_output": stdout,
                 "ok": False, "streamed": True,
                 "errorCode": "TIMEOUT",
+                "interactionCount": _interaction_count,
                 "message": f"命令执行超时({timeout} 秒,已 kill 进程)",
             }
 
         exit_code = proc.returncode if proc.returncode is not None else -1
-        return {
+        _outcome: dict[str, Any] = {
             "tool": "run_command", "command": command,
             "exit_code": exit_code, "stdout": stdout, "stderr": stderr,
             "ok": exit_code == 0, "streamed": True,
+            "interactionCount": _interaction_count,
             "message": f"命令退出码: {exit_code}",
         }
+        return _outcome
     except FileNotFoundError:
         return {
             "tool": "run_command", "command": command,

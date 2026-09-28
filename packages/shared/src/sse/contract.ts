@@ -45,6 +45,13 @@ export const SSE_EVENTS = {
   // V3 #48(2026-09-26)补登:终端命令逐行增量。生产在 mcp_server._emit_terminal_delta
   // (dict 形态 {"type": "terminal_delta"}),此前 parity 门只扫 _sse(...)/event: 形态漏网。
   TERMINAL_DELTA: 'terminal_delta',
+  // D151(2026-09-29 立,用户批「默认开 + 单次等待 300s」):命令停在"等键盘输入"时的一帧。
+  // 生产点 mcp_server._await_terminal_input(经 llm.py 注入的 push 通道直投,与
+  // terminal_delta 同一承载面);载荷 {terminalId, promptTail, waitingSinceMs, inputMode,
+  // maxInputChars, messageId?}。键入送回是**上行** POST
+  // /llm/complete/stream/{session_id}/terminal-input(snake_case),同 form_response 族,
+  // 不进本集合。必须与 apps/ai-service/app/core/sse_contract.py 同步。
+  TERMINAL_INTERACTION: 'terminal_interaction',
   DONE: 'done',
   ERROR: 'error',
   FALLBACK: 'fallback',
@@ -247,6 +254,21 @@ export type SSEEventPayload =
       /** 输出流:stdout / stderr */
       stream: 'stdout' | 'stderr'
       text: string
+    }>
+  // 命令在等键盘输入(D151):mcp_server 观察到"输出静默 + 尾行像提示符"时发出。
+  // 与 terminal_delta 的区别就一句话 —— 后者是"它在输出",前者是"它停住了、在等你敲一行"。
+  // promptTail 是那句提示原文(已脱敏路径与凭据形态,但不保证不含敏感内容:它来自命令输出,
+  // 所以渲染面**不得**把它写进本地持久化)。inputMode 目前恒 'line'(整行送回,含回车)。
+  | SSEEventWithMeta<{
+      type: 'terminal_interaction'
+      terminalId: string
+      promptTail: string
+      /** 从判定"在等人"到发帧的毫秒数(观察器每 0.5s 一轮,故这是量出来的值不是装饰) */
+      waitingSinceMs: number
+      inputMode: 'line'
+      /** 单次键入长度封顶,与 mcp_server.TERMINAL_INTERACTION_MAX_INPUT_CHARS 同值 */
+      maxInputChars: number
+      messageId?: string
     }>
   // agent 流执行开始(V3 #48 补登:agents.py,断点续跑时 resume_from 指向续传位点)
   | SSEEventWithMeta<{

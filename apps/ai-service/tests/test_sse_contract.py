@@ -20,9 +20,20 @@ from app.core.sse_contract import SSE_EVENT_CONTRACTS, SSE_EVENTS
 
 
 def test_sse_events_completeness() -> None:
-    """事件名集合共 26 个且无重复。"""
-    assert len(SSE_EVENTS) == 26
-    assert len(set(SSE_EVENTS)) == 26
+    """事件名集合共 31 个且无重复。
+
+    这个数字此前**落后实际两轮**还一路报绿:`26` 是 2026-09-19 的读数,D113 入
+    `tool-delta`、V3 #63 入 `form_request` 都没同步它 ⇒ 本用例红在干净 HEAD 上
+    (即"恒红门"那一型,AGENTS §12f)。下面那条对齐用例同时补上了 `tool-delta` 缺失的
+    契约条目 —— 两处都是记账缺口,不是本票引入的行为变化。
+
+    30 → 31 是 D151(2026-09-29)新增 `terminal_interaction` 一帧:**改被审代码的写法
+    必须同时改审它的数字**,否则这条计数就变成替旧契约背书的死账。
+    """
+    assert len(SSE_EVENTS) == 31
+    assert len(set(SSE_EVENTS)) == 31
+    # D151 的新帧必须真在集合里(光有计数会放过"删了别的、加了这个"):
+    assert "terminal_interaction" in SSE_EVENTS
 
 
 def test_sse_events_p4_d1_steer_members() -> None:
