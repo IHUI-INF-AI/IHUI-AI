@@ -7161,6 +7161,7 @@
       "terminatedCancelled": "キャンセル済み",
       "terminatedQuotaExceeded": "割り当て超過",
       "terminatedPreempted": "プリエンプト",
+      "unrecognizedStatus": "未認識",
       "worker": "ワーカー",
       "workspace": "ワークスペース",
       "low": "低",
