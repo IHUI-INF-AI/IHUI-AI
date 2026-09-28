@@ -211,7 +211,7 @@ function pushVerdict(st, { now, localHead, remoteHead }) {
   const alive = isPidAlive(st.pid)
   if (
     st.status === 'failed' &&
-    st.kind === 'protected-branch' &&
+    (st.kind === 'protected-branch' || st.kind === 'remote-ref-race') &&
     remoteHead &&
     isAncestorOfHead(String(remoteHead), localHead)
   ) {
@@ -225,9 +225,20 @@ function pushVerdict(st, { now, localHead, remoteHead }) {
     // 判据是"通道被策略挡住"而不是"我忘了推"的几何事实:**远端 tip 已在本地祖先线内**
     // (ls-remote 网络真值)。所以这一档刻意不看 freshness —— 策略不改就读数必然变旧,
     // 拿 freshness 当条件等于自己造一台恒红门;而真分叉(远端已推进)时祖先不成立,照拦。
+    // 2026-09-28 G-353 把 `remote-ref-race`(并发插队)并进同一条几何判据,**不是放宽**:
+    // 同一段远端回显在改动前被分诊成 protected-branch 并吃到这条豁免;分类修正之后若不同步,
+    // 豁免就从"按几何事实放行"退化成"按措辞放行",而竞态读数同样会稳定老化越过 5min 窗口
+    // ⇒ 每次提交被逼 --no-verify(正是 §12e 禁的那型)。两型共享的只有"远端 tip 在本地祖先线内
+    // ⇒ 积压不是本枚提交的疏忽"这一句事实;下一步动作相反,所以**出路文案按 kind 分开**。
+    const isRaceKind = st.kind === 'remote-ref-race'
     return {
       pass: true,
-      why: `推送通道被远端**分支保护策略**挡住(protected-branch,读数 ${ageText(now, st.ts)}前),而 ls-remote 现读远端 tip 已在本地祖先线内 ⇒ 积压不是本枚提交的疏忽,拦下只会逼人跳门。出路在机主侧:仓库 Settings→Branches 放开直推,或整仓改走 PR(那要同时改 §16/§20 的交付语义)`,
+      why: isRaceKind
+        ? `推送落在**并发插队的竞态窗口**里(remote-ref-race,读数 ${ageText(now, st.ts)}前),` +
+          '而 ls-remote 现读远端 tip 已在本地祖先线内 ⇒ 积压不是本枚提交的疏忽,拦下只会逼人跳门。' +
+          '出路:重跑 node scripts/git-push-guard.mjs(它先现读远端 tip 再推,窗口最短且幂等);' +
+          '**不得**按"去改仓库设置"处置 —— 那一句只属于 protected-branch,两型出路相反'
+        : `推送通道被远端**分支保护策略**挡住(protected-branch,读数 ${ageText(now, st.ts)}前),而 ls-remote 现读远端 tip 已在本地祖先线内 ⇒ 积压不是本枚提交的疏忽,拦下只会逼人跳门。出路在机主侧:仓库 Settings→Branches 放开直推,或整仓改走 PR(那要同时改 §16/§20 的交付语义)`,
     }
   }
   if (st.status === 'failed' && fresh) {

@@ -282,6 +282,59 @@ test('push-state: 同一 protected-branch 读数,但远端已推进(真分叉)�
   }
 })
 
+// 2026-09-28 G-353:分诊把"并发插队"从 protected-branch 里拆出来之后,门 29 的豁免档必须跟着改。
+// 这一族的红不在判据方向,而在**措辞耦合**:豁免原本按 kind 字面量匹配,分类一变(仍同一条几何
+// 事实:远端 tip 在本地祖先线内)豁免就掉档 ⇒ 竞态读数同样会稳定老化越过 5min 窗口 ⇒ 每一次提交
+// 都被逼 --no-verify(§12e 禁的那型)。所以两条用例成对:几何成立必须放行,且出路文案按 kind 分开。
+test('push-state: remote-ref-race 且远端 tip 在本地祖先线内 → 放行,但出路**不得**写成"去改仓库设置"(2026-09-28 立)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'ahead while another session stole the ref')
+    writePushState(work, {
+      status: 'failed',
+      kind: 'remote-ref-race',
+      headSha: execSync('git rev-parse HEAD~1', { cwd: work, encoding: 'utf8' }).trim(),
+      ts: Date.now() - 3600_000,
+      pid: process.pid,
+    })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 0, `竞态 + 本地已含远端 ⇒ 不该拦提交。实得 ${r.status}:${stripAnsi(r.stdout)}`)
+    const out = stripAnsi(r.stdout)
+    assert.match(out, /竞态/, '必须点名是并发插队这一型,不能含糊放行')
+    assert.doesNotMatch(out, /分支保护|Settings/, '两型出路相反:把竞态的出路写成"改仓库设置"就是本票立项时 measured 的那条错指引')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('push-state: remote-ref-race 但远端已推进(真分叉)→ 仍 exit 1(并档不等于放宽,几何不成立照拦)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  const other = createTempRepo()
+  try {
+    const originUrl = origin.replace(/\\/g, '/')
+    const second = join(other, 'second')
+    execSync(`git clone "${originUrl}" "${second}"`, { cwd: other, stdio: 'pipe' })
+    makeLocalCommit(second, 'someone else pushed this')
+    execSync('git push origin HEAD:refs/heads/main', { cwd: second, stdio: 'pipe' })
+    execSync('git fetch -q origin', { cwd: work, stdio: 'pipe' })
+    makeLocalCommit(work, 'and a local commit on top of the older remote')
+    writePushState(work, {
+      status: 'failed',
+      kind: 'remote-ref-race',
+      headSha: '0000000000000000000000000000000000000000',
+      ts: Date.now() - 3600_000,
+      pid: process.pid,
+    })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 1, `远端不在本地祖先线内时不得放行 —— 上面那条放行的用例若把这条也放行,证的就是"按 kind 无条件豁免"而不是几何事实`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+    rmScratch(other)
+  }
+})
+
 test('push-state: failed 新鲜 → exit 0 并把话说响(2026-09-26 改判:实测拦我的那记 failed 来自死 worker 终态自愈,与本次提交无因果)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
