@@ -39,7 +39,12 @@ from typing import Any
 
 import pytest
 
+from pathlib import Path
+
 from app.services.agent_engine import AgentEngine
+
+#: 被审文件(形状锁读源码面,不读内存态)
+ENGINE_FILE = Path(__file__).resolve().parent.parent / "app" / "services" / "agent_engine.py"
 
 ALICE = "alice"
 BOB = "bob"
@@ -182,3 +187,28 @@ async def test_thread_review_derived_run_keeps_owner() -> None:
     spec = _derived_spec(loops, known)
     assert spec.get("user_id") == ALICE, "审查子线程无属主(与 spawn 同一格,独立站点)"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+# =============================================================================
+# 常驻形状锁:派生点的身份继承不得被"顺手新造一份 params"绕过
+# =============================================================================
+
+
+def test_every_fresh_sub_params_carries_identity() -> None:
+    """凡"自己新造 dict 再喂 `_handle_thread_start`"的地方,必须带 `_identity_of(thread)`。
+
+    为什么要有这条形状锁而不是只测行为:G-742 这一族有两个站点(`_handle_thread_review`
+    与 `spawn_subagent`),两处各写各的 —— 只修一处时行为测试仍然只盯到自己那一条路径,
+    第二处可以悄无声息地留着。形状锁问的是"还有没有第三个不带身份的派生点",
+    它不依赖我想到哪几个函数。
+
+    只走 `_handle_thread_start(params, …)` 那一种(承载层已绑过主体)是合法的,所以判据
+    只约束**新造字面量 dict** 的那些站点:每个 `sub_params: dict[str, Any] = {…}` 块
+    必须含 `**_identity_of(`。站点数与"带身份的块数"必须相等,少一个即红。
+    """
+    src = ENGINE_FILE.read_text(encoding="utf-8")
+    sites = src.count("_handle_thread_start(") - src.count("async def _handle_thread_start(")
+    built = src.count("sub_params: dict[str, Any] = {")
+    carried = src.count("**_identity_of(thread)")
+    assert sites == 3, f"派生入口数与本判据的既有口径不等(sites={sites}):需要重新判一次,不是顺手改数"
+    assert built == carried, (
+        f"有 {built} 处新造 sub_params 却只有 {carried} 处继承身份 ⇒ 新增的派生点在铸无属主线程"
+    )
