@@ -126,7 +126,7 @@ export default function AiCircle() {
                   >
                     <View className="flex items-center gap-[16rpx]">
                       <Image
-                        className="w-[56rpx] h-[56rpx] rounded-[28rpx] bg-[var(--color-muted)] flex-shrink-0" // radius-exempt: 圆形头像(直径 56rpx,半径=直径一半)
+                        className="w-[56rpx] h-[56rpx] rounded-[28rpx] bg-[var(--color-muted)] flex-shrink-0"
                         src={avatar}
                         mode="aspectFill"
                       />
@@ -215,7 +215,7 @@ export default function AiCircle() {
         )}
       </View>
       <View
-        className="fixed right-[48rpx] bottom-[64rpx] w-[104rpx] h-[104rpx] bg-primary rounded-[52rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_var(--color-black-20)]" // radius-exempt: 圆形发布悬浮按钮(直径 104rpx,半径=直径一半)
+        className="fixed right-[48rpx] bottom-[64rpx] w-[104rpx] h-[104rpx] bg-primary rounded-[52rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_var(--color-black-20)]"
         onClick={onPublish}
         hoverClass="opacity-60"
       >

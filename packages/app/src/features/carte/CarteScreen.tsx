@@ -188,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 24, // radius-exempt: 48x48 圆形头像底,半径=边长一半
+      borderRadius: 24,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',

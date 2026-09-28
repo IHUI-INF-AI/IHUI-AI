@@ -647,7 +647,7 @@
   height: 30rpx;
   z-index: 10;
   background: var(--color-card);
-  border-radius: 100rpx; /* radius-exempt: 30rpx 见方的图片删除按钮,半径取边长一半即真圆,改方档会破坏圆形 */
+  border-radius: 50%; /* 30rpx 见方盒 + 相对式 ⇒ 几何真圆(门 77 量得出等值宽高,不需标记) */
 }
 .imgs-list-item-img {
   width: 100%;
@@ -707,7 +707,7 @@
   width: 6rpx;
   height: 6rpx;
   background-color: var(--color-card);
-  border-radius: 5rpx; /* radius-exempt: 6rpx 宽竖条(高度动画到 25-65rpx),半径取宽度一半形成圆头端点,方档会破坏形状 */
+  border-radius: 50%; /* 半径 = 6rpx 见方盒的边长一半 ⇒ 几何真圆(门 77 量得出,不需标记) */
   animation: voiceMove 0.75s linear infinite alternate;
   transition: all 1s;
 }
@@ -818,14 +818,14 @@
   width: 100%;
   height: 36rpx;
   background: var(--color-muted);
-  border-radius: 18rpx; /* radius-exempt: 容器高 36rpx,半径取高度一半为胶囊端头 */
+  border-radius: var(--radius-sm); /* 项目不允许胶囊:进度容器取控件档 sm */
   overflow: hidden;
   margin-top: 8rpx;
 }
 .thinking-progress-bar {
   position: relative;
   height: 100%;
-  border-radius: 18rpx; /* radius-exempt: 进度条 height:100% 跟随 36rpx 容器,半径=高度一半为胶囊 */
+  border-radius: var(--radius-sm); /* 与容器同档(项目不允许胶囊) */
   background: linear-gradient(214deg);
   background-size: 200% 100%;
   animation: progressAnimation 2s linear infinite;
@@ -870,7 +870,7 @@
 .loader-dot {
   width: 12rpx;
   height: 12rpx;
-  border-radius: 50%; /* radius-exempt: 12rpx 见方加载装饰点,按项目规则真圆豁免 */
+  border-radius: 50%;
   background: var(--color-card);
   animation: loaderpulse 1.5s infinite ease-in-out;
 }

@@ -16,6 +16,7 @@ import { hashPassword } from '../../utils/password-crypto.js'
 import { isSystemAdminUser } from '../../db/queries.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
+import { isUuidString } from '../../utils/uuid.js'
 const memberUsersRoutes: FastifyPluginAsync = async (server) => {
   // admin 会员列表/详情含 phone/email,需跳过响应脱敏
   // 防止 response-sanitizer 把敏感字段误伤为 '***'
@@ -94,6 +95,7 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
   server.get('/member/users/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(404).send(error(404, '用户不存在'))
     const [row] = await db
       .select({
         id: users.id,
@@ -121,6 +123,7 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
   server.patch('/member/users/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     if (await isSystemAdminUser(p.data.id)) {
       return reply.status(403).send(error(403, '系统内置管理员不可修改'))
     }
@@ -174,6 +177,10 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/member/users/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     if (await isSystemAdminUser(p.data.id)) {
       return reply.status(403).send(error(403, '系统内置管理员不可删除'))
     }

@@ -26,6 +26,10 @@ import {
 } from '@ihui/shared/constants'
 import { createInMemoryTokenStore } from '@ihui/shared/auth'
 import type { TokenStoreWithUserInfo } from '@ihui/shared/auth'
+import {
+  canSilentlyReLogin,
+  SESSION_LOGGED_OUT_STORAGE_KEY,
+} from '@ihui/shared/auth/auto-login-policy'
 
 // legacy underscore key (read-only for migration); new key uses hyphen via USER_INFO_STORAGE_KEY
 const USER_INFO_KEY_LEGACY = 'ihui_user_info'
@@ -91,6 +95,9 @@ export function getToken(): string {
 
 /** 设置 Token */
 export function setToken(token: string): void {
+  // 写入非空凭据 = 新一轮会话开始 ⇒ 登出标记作废(否则用户下次正常登录又被判成"刚登出")。
+  // 判据本体在 @ihui/shared/auth/auto-login-policy,这里只是本端落盘的一侧。
+  if (token) eraseLogoutMarker()
   void tokenStoreCore.setToken(token)
 }
 
@@ -122,8 +129,70 @@ export function setUserInfo(info: UserInfo): void {
   setStorageSync(USER_INFO_STORAGE_KEY, info)
 }
 
+/**
+ * 持久「登出标记」——本端落盘侧(判据本体在 `@ihui/shared/auth/auto-login-policy`)。
+ *
+ * 为什么小程序必须有这一条:`app.tsx` 的 useLaunch 在 `!getToken()` 时会调
+ * `trySilentMiniAppLogin()`,用 wx.login 的 code 直接换一份新凭据(不需要账密、也没有勾选位)。
+ * 而登出走的 `clearAuth()` 清的正是这份凭据 —— 于是"用户点了退出登录"之后下一次冷启动
+ * 必然满足静默登录条件,应用自己登回去。凭据可以清,平台 code 每次都拿得到,
+ * 所以唯一的出口是把"这一轮会话已被用户结束"这件事单独记住,活得比凭据久。
+ *
+ * key 名与 RN / web 同值(由共享层导出,端内不得自立第二个名字)。
+ * 值只是会话结束的代次,判据只看**存在性**。
+ */
+
+/**
+ * 落标记(排在清凭据之前:两步之间进程被杀的后果是"标记在、静默登录被抑制",保守且正确)。
+ *
+ * 导出是给"不经过 clearAuth 的登出入口"用的:`pages/setting/index.tsx` 与
+ * `pkg-user/user/settings.tsx` 只调后端登出接口 + 清 storage(`Taro.clearStorageSync()`),
+ * 不经过本文件的 `clearAuth()` ⇒ 标记不会自动落。没有这一次显式落盘,那两条出口下冷启动
+ * 仍会靠残留 refreshToken 静默续期或靠平台 code 静默登回。**不得**用它替代 clearAuth。
+ */
+export function markSessionLoggedOut(): void {
+  try {
+    setStorageSync(SESSION_LOGGED_OUT_STORAGE_KEY, String(Date.now()))
+  } catch (e) {
+    console.warn(
+      `[mp-auth] failed to persist logout marker (a cold restart may still silently re-login): ` +
+        `${e instanceof Error ? e.message : 'unknown error'}`,
+    )
+  }
+}
+
+/** 抹标记(登录成功写入凭据时)。 */
+function eraseLogoutMarker(): void {
+  try {
+    removeStorageSync(SESSION_LOGGED_OUT_STORAGE_KEY)
+  } catch (e) {
+    console.warn(
+      `[mp-auth] failed to clear logout marker (new session is active, but the next cold ` +
+        `start may skip silent login): ${e instanceof Error ? e.message : 'unknown error'}`,
+    )
+  }
+}
+
+/**
+ * 本机是否处于"已显式登出 / 会话失效"状态。
+ * 读失败时判"未登出"并喊出来:抑制静默登录是改变用户可见行为的动作,
+ * 不得由一次存储抖动触发(与 RN / web 同一条失效方向)。
+ */
+export function isSessionLoggedOut(): boolean {
+  try {
+    return getStorageSync(SESSION_LOGGED_OUT_STORAGE_KEY) !== ''
+  } catch (e) {
+    console.warn(
+      `[mp-auth] failed to read logout marker, treating session as NOT logged out ` +
+        `(silent login stays enabled): ${e instanceof Error ? e.message : 'unknown error'}`,
+    )
+    return false
+  }
+}
+
 /** 清除登录态 */
 export function clearAuth(): void {
+  markSessionLoggedOut()
   void tokenStoreCore.clearAll()
 }
 
@@ -184,6 +253,9 @@ const LOGIN_PAGE = 'pages/login/login'
  * 成功 → 轮转写回 token(+ refreshToken);失败 → 返回 null,由 api-client 的失败冷却兜底。
  */
 export async function refreshAccessToken(): Promise<string | null> {
+  // 会话已被用户结束 ⇒ 不再静默续期(与 RN lib/token.ts、web lib/api.ts 同一判据同一条闸)。
+  // 没有这一道:pages/setting 那条登出只调后端接口、不清本地凭据,一次 401 就能把用户登回去。
+  if (!canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })) return null
   const storedRefresh = getRefreshToken()
   const res = await fetchApi<{ accessToken: string; refreshToken?: string | null }>(
     '/auth/refresh',
