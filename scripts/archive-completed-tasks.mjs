@@ -85,7 +85,7 @@
  *   2 = 脚本自身异常(main 抛出未捕获错误;与 §22d 的"业务失败 vs 脚本异常"退出码约定一致)
  */
 import { existsSync, mkdirSync, appendFileSync, writeFileSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 // 底稿取的是**被审面**(HEAD blob),不是磁盘副本 —— 取正文只有取材层这一条路(守门 118 判的
@@ -196,6 +196,33 @@ function dateDiffDays(dateStr) {
   const target = new Date(dateStr + 'T00:00:00')
   const now = new Date(todayStr() + 'T00:00:00')
   return Math.floor((now - target) / 86400000)
+}
+
+/**
+ * 归档件是 git 跟踪文件,必须由本器自带水印注入 —— 它是 §5c 对生成器的原话要求("任何 writeFileSync
+ * 产出 git 跟踪文件后,必须紧随一次水印注入,失败即 process.exit(1)"),在这里不是"最好有":
+ * 本器落地走 `git commit --no-verify`(§1 归档机制,防递归),所以提交链上那道**自愈式**水印门
+ * (check-watermark-coverage 检出缺口就注入并 git add)对归档件结构上一次都不会跑;而 CI 跑的是
+ * `watermark.mjs verify` 严格档(不自愈)。两侧合起来的后果 = 每一枚自动归档提交都把 CI 的必需上下文
+ * `lint-typecheck-test` 钉红,而分支保护一红就堵住全队的 PR 通道(2026-09-28 实测枚 0e1ada72a5 即此型,
+ * 由本轮接上的失败自述步骤点名)。注入失败必须**不落提交**:留一份没载荷的归档件在版本树里,
+ * 比少归档一次贵得多。
+ */
+function injectWatermarkOrDie(filePath, label) {
+  const wm = join(dirname(fileURLToPath(import.meta.url)), 'watermark.mjs')
+  try {
+    execFileSync(process.execPath, [wm, 'inject', filePath], {
+      stdio: 'inherit',
+      windowsHide: true,
+      timeout: 120_000,
+    })
+  } catch (e) {
+    console.error(
+      C.red + `❌ ${label}的水印注入失败 ⇒ 拒绝落地(把没载荷的文件提交 = 钉红 CI 的必需上下文)` + C.reset,
+    )
+    console.error(C.dim + `   文件:${filePath} | 错误:${e && e.message ? e.message : String(e)}` + C.reset)
+    process.exit(1)
+  }
 }
 
 /**
@@ -982,6 +1009,9 @@ async function landThroughObjectSpace({ base, toArchive }) {
   } else {
     appendFileSync(archiveFile, chunk, 'utf8')
   }
+  // §5c 生成器自带注入(理由见 injectWatermarkOrDie 头注)。放在"落盘字节复核"**之前**,
+  // 所以下面那道 notLanded 验的就是最终要入库的那一份字节,不是注入前的中间态。
+  injectWatermarkOrDie(archiveFile, '归档件')
   const archiveAfter = readWorktreeFile(ROOT, archiveRel) ?? ''
   const notLanded = toArchive.filter((t, i) => !blockLandsContiguously(archiveAfter, bodies[i]))
   if (notLanded.length > 0) {
@@ -1449,6 +1479,9 @@ async function main() {
 
   // 追加到归档文件
   appendFileSync(archiveFile, archiveContent, 'utf8')
+  // 同一支要求对工作树档也成立:两支写盘路径产出的都是 git 跟踪文件,少一处就是留一条
+  // "某一条路上归档件永远没载荷"的暗通道(本仓最高频失效型 = 只修看得见那一支)。
+  injectWatermarkOrDie(archiveFile, '归档件(工作树档)')
 
   // 构建 PROJECT_PLAN.md 新内容:用占位注释替换每个已归档条目(同一份 buildNewPlanText)
   const { newText: newContent } = buildNewPlanText({
@@ -2185,6 +2218,41 @@ function runSelfTest() {
         new Set(titles).size === N &&
         titles.every((t) => String(t ?? '').trim() !== ''),
       `tasks=${p.tasks.length} candidates=${p.candidates.length} blocked=${p.blocked.length} movable=${p.movable.length} 去重块名=${new Set(titles).size}(应为 ${N})`,
+    )
+  }
+
+  // S27 装车锁:生成器自带水印注入必须**真接在两处写盘之后**(守门 70/76/81/115 同型 —— 判据在、
+  // 没人调,表现是永远绿灯)。这里判的是"注入调用紧跟在写盘之后、且在两份 blob 被取用之前",
+  // 不是"文件里出现过 injectWatermark 这个词"。
+  {
+    const src27 = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    ok(
+      'S27a 对象空间档:归档件写完必须立即注入水印(缺这一步 = 每枚自动归档把 CI 必需上下文钉红)',
+      /if \(rec\.verdict === 'stale'\)[\s\S]{0,400}injectWatermarkOrDie\(archiveFile, '归档件'\)[\s\S]{0,200}const archiveAfter = readWorktreeFile/.test(
+        src27,
+      ),
+      '注入调用必须夹在"写归档件"与"落盘字节复核"之间,使复核验的是最终入库的那一份',
+    )
+    ok(
+      'S27b 工作树档同样注入:两支写盘路径少一处就是留一条暗通道',
+      /appendFileSync\(archiveFile, archiveContent, 'utf8'\)\s*\n[\s\S]{0,240}injectWatermarkOrDie\(archiveFile/.test(
+        src27,
+      ),
+      '工作树档的 append 之后必须紧跟同一出口',
+    )
+    ok(
+      'S27c 注入失败必须拒绝落地(不得静默提交没载荷的归档件),且派生 node 走 process.execPath + windowsHide',
+      (() => {
+        const s = src27.indexOf('function injectWatermarkOrDie')
+        const e = src27.indexOf('\nfunction ', s + 10)
+        const body = s >= 0 ? src27.slice(s, e > s ? e : src27.length) : ''
+        return (
+          body.includes('process.execPath') &&
+          /windowsHide:\s*true/.test(body) &&
+          /catch[\s\S]{0,400}process\.exit\(1\)/.test(body)
+        )
+      })(),
+      '裸 node / 缺 windowsHide / 失败仍继续,三者任一都算这条锁红(前者依赖 PATH,后者必弹窗,末者把红留给 CI)',
     )
   }
 
