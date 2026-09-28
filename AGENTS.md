@@ -310,6 +310,23 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - 游客视图的公开数据由 handler 自证:强制 `status=published` + `sanitizePublicAgent` 脱敏,并且测试要断言"未发布读不到 + 脱敏字段不出现",不得只断言 200。
 - 改动 router 鉴权面前必须做**影响面核查**:全仓 grep 该路径(含 `packages/` 与各端)确认没有未登录调用方;本仓这两个端点的实际调用方为 0。
 - 部署侧 nginx 与蓝绿 nginx 是两份配置:边缘限流(`limit_req_zone` / `limit_req_status 429` / `error_page 429`)改一处必须同步另一处,docker 侧 zone 名须带 `docker_` 前缀以免与 `deploy/nginx/conf.d/*.conf` 重名(Nginx 同 http 上下文重名 zone 会**启动失败**)。静态自检:`apps/api/tests/o5-nginx-edge-ratelimit.test.ts`。
+- **对外能力白名单对账(2026-09-28 立,拍板②"按能力目录逐项放开"的尺子)**:`scripts/check-public-exposure-list.mjs`
+  钉四件事 —— X1 每条 `@public-exposure` 申报必须配对一个**精确** `location =`(前缀/正则型一律红,AGENTS §5
+  那条"兜底正则连静态子路由一起放行"的失效型就是它要防的);X2 站点壳与 docker 壳按 **(capability, method,**
+  upstream)** 同批(两侧 zone/map 名必须 `docker_` 前缀错开,重名是 nginx **启动失败**不是警告;公网 path 命名空间
+  分离:`/ai-service/api/mcp` 而非 `/api/mcp`,后者被 `packages/api-client` 的 MCP **项目** CRUD 占着);X3 资格
+  (申报的 scope 必须在 `packages/types/generated/capabilities.json` 里 `host:'ai-service'` ∧ `thirdPartyEligible:true`
+  ∧ `dataClass≠platform`);X4 每个开放 location 必须剥掉 `X-IHUI-Principal` / `X-Api-Key`(公网能携带内网身份头
+  = 冒名面);X7 **已放开的每一条必须回查 ai-service 的 handler 真的解析身份** —— 身份出口名单从
+  `app/core/jwt_auth.py` / `app/services/capability_gate.py` 的顶层函数**现读推导**(不抄第二份名字,空名单判
+  "未判定"),允许同文件一跳委托,解析不到一律点名"未判定";刻意**只对开放集判红**(HEAD 面 266 条可解析路由里
+  212 条不引用身份出口,全量判红就是恒红门)。
+  **定级与问责入口(不要写一个跑不通的出路)**:手动 / 只读档 —— `node scripts/check-public-exposure-list.mjs`
+  (缺省判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工),取证 `--self-test` 与
+  `node --test scripts/tests/check-public-exposure-list.test.mjs`。**刻意不接提交链**(它判跨面一致性,一次只改
+  一份配置的提交结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`,连带废掉全部守门,§12e 同型),
+  这条定级由镜像测试 T6 钉住:**它一旦被接进 `guardian-runner`,那条测试就红** —— 想接必须先带着
+  "为什么现在能接"的证据改那条测试,而不是悄悄接线。
 ### 认证不等于授权:身份只能从承载层显式入参进来(强制,2026-09-27 立,批 59/60)
 
 - **规矩**:任何"按 id 读/改/删某条归属型记录"的入口,**令牌主体必须由承载层用显式入参传给被调方**,不得(a)取到手后原地丢弃,也不得(b)从"被操作记录"的字段里反推,更不得(c)接受请求体/参数里自报的同名字段。`app/routers/sessions.py` 的 13 个端点全部 `Depends(get_current_user_id)` 却**一次都没用** —— 那就是"过了认证等于没鉴权"的成批形态。
