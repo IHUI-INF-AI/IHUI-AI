@@ -307,6 +307,20 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - 游客视图的公开数据由 handler 自证:强制 `status=published` + `sanitizePublicAgent` 脱敏,并且测试要断言"未发布读不到 + 脱敏字段不出现",不得只断言 200。
 - 改动 router 鉴权面前必须做**影响面核查**:全仓 grep 该路径(含 `packages/` 与各端)确认没有未登录调用方;本仓这两个端点的实际调用方为 0。
 - 部署侧 nginx 与蓝绿 nginx 是两份配置:边缘限流(`limit_req_zone` / `limit_req_status 429` / `error_page 429`)改一处必须同步另一处,docker 侧 zone 名须带 `docker_` 前缀以免与 `deploy/nginx/conf.d/*.conf` 重名(Nginx 同 http 上下文重名 zone 会**启动失败**)。静态自检:`apps/api/tests/o5-nginx-edge-ratelimit.test.ts`。
+### 内部机器调用的豁免必须"验过才免"(强制,2026-09-28 立)
+
+- **规矩**:`apps/api` 里任何"因为这是内部调用,所以跳过某道校验"的分支,**判据必须是验证过凭据的布尔,不得是"某个凭据头在不在"**。实测病灶(2026-09-28 由票#23 收口):`plugins/csrf.ts` 曾写 `if (request.headers['x-internal-service-token']) return` —— 任何客户端带一个同名头(值随便填)即可对**全部路由**拿到 CSRF 豁免;而该豁免与被它跳过的动作之间鉴权强度不对齐,正是"认证不等于授权"那一型。
+- **唯一出口**:`apps/api/src/utils/internal-principal.ts` 的 `isVerifiedInternalServiceCall` / `isVerifiedAgentControlInternalCall` / `isVerifiedInternalMachineCall`。三者复用 `plugins/internal-service-token.ts` 里那一份 `secretsEqual`(SHA-256 定长摘要 + `timingSafeEqual`),**禁止在别处再写第二把比较**;配置缺失一律 **fail-closed**(没配密钥 = 谁都不免),不得写"没配就放行"的兜底。
+- **同一条豁免与它所跳过的校验必须共用同一个判定实现**:`routes/agent-control.ts` 的 `/execute` 与 CSRF 钩子现在都调 `isVerifiedAgentControlInternalCall`。两处各写一遍必然漂开,而漂开的表现是"钩子放行、控制面拒绝"或反过来 —— 两种都比直接 403 难查(§"两处算同一件事必漂移"同族)。
+- **越权用例必须断言"未发出查询/未产生副作用"**,只断言 403 会放过"先改了再抛 403"与"授权判定发生在查库之后"两种写法(与本节"已登录不等于可以动这条数据"是同一条禁令)。
+- **已知无尺子的一格**(如实登记,别误以为这里有门):"新内部凭据族又写成按存在性放行"这一型目前**零判据**,票#23 只修了量到的那一处;判据草案与前置见 PROJECT_PLAN G-367。
+
+### 会话状态:登出标记必须比凭据活得久、且不同层(强制,2026-09-28 立)
+
+- **规矩**:凡是"用户显式退出/会话失效之后,某些历史勾选不得再生效"的判据,它的**标记位不得与凭据同层同删除路径** —— 同层会被 `clearAll` 一起删掉,等于自己否决自己。RN 侧落点:`apps/mobile-rn/src/lib/token.ts` 的持久标记 `ihui-session-logged-out`(AsyncStorage),凭据在 SecureStore,两层,理由写在该文件注释里。
+- **判据唯一出口**:`apps/mobile-rn/src/lib/auto-login-policy.ts` 的 `shouldAttemptAutoLogin(deps)`(依赖注入三个读口:登出标记 / 自动登录勾选 / 盘上是否还有凭据)。单独成文件的理由不是整洁:渲染整张 `LoginScreen` 去测它要 mock WebView / react-native-svg / 导航栈,那种测试断在第一处无关依赖上,**证不了判据本身**。
+- **写序**:标记**先于**删除凭据落盘(排在同一条串行链内)。顺序错了就等于每次都按内存默认值判;而反过来(先删凭据再落标记)会留下"凭据没了、下次冷启动仍静默重登"的原缺陷。两步之间进程被杀的后果是"标记在、凭据可能还在"⇒ 自动登录被抑制(保守方向);读取失败时**不**抑制,那会把"存储抖动"变成"用户的自动登录悄悄没了"。
+- **待收口**:web 与小程序同型未收(判据目前只在 RN 一端)。按 §3 共享层优先,该判据应提到 `packages/shared` 由三端各注入存储 adapter,**不得每端各抄一份 if** —— 台账见 PROJECT_PLAN G-363。
 
 ### 测试隔离铁律(强制,2026-09-12 立)
 
