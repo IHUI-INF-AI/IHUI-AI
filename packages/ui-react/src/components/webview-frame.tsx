@@ -25,6 +25,106 @@ import { Tooltip, TooltipTrigger, TooltipContent } from './tooltip'
 export type WebViewMode = 'iframe' | 'screenshot' | 'external'
 export type WebViewStatus = 'idle' | 'loading' | 'loaded' | 'screenshot' | 'failed' | 'blocked'
 
+/* ────────────────────────────────────────────────────────────────────────────────
+ * iframe 沙箱档位:全仓唯一实现(2026-09-27 安全票「严档缺省 + 放宽必须逐处声明」)
+ *
+ * 立因:本组件此前把 sandbox 当"调用方爱传什么传什么"的自由字符串,而**缺省值本身**是
+ * 全仓最宽的一档 `allow-same-origin allow-scripts allow-forms allow-popups`。缺省即最宽,
+ * 等于"不写 sandbox 的人拿到最松的沙箱";而 `allow-scripts` 与 `allow-same-origin` 同时给
+ * 时沙箱形同虚设 —— 帧内脚本可以自己摘掉 sandbox 属性、读同源存储。实测那条缺省正被
+ * `apps/web/src/components/work-panel/web-work-panel.tsx` 的直接嵌入分支原样使用(它不传 sandbox)。
+ *
+ * 三条规矩(判据由 `__tests__/webview-frame-sandbox.test.tsx` 逐条钉住):
+ *   ① 缺省 = STRICT_SANDBOX(空串)⇒ 渲染 `sandbox=""` ⇒ 浏览器施加**全部**限制。
+ *      注意不是"不渲染该属性":属性缺席 = 完全不限,那正是旧缺陷的形态。
+ *   ② 放宽只有一条出路:传 `{ tokens, reason }`,reason 去空白后必须非空 ——
+ *      没有理由的放宽**不生效**(仍然落到严档),而不是"少一道提醒"。
+ *   ③ 裸 token 字符串一律不生效。这是刻意的破坏性收紧:静默把一串 token 递进来
+ *      就放宽,等于没有这条政策。旧调用点必须改成 ② 的形态。
+ *
+ * 不得在本文件之外再写第二份 sandbox 字符串字面量。apps/web 里那几处**原生 `<iframe>`**
+ * 暂时引不到这里的常量(`@ihui/ui-react` 的 barrel `src/index.ts` 未导出它们,补导出属该包
+ * 持有人职权),由 `apps/web/tests/iframe-sandbox-declaration.test.ts` 按**源码审计**口径
+ * 与本文件的常量逐字对账,并要求每一处宽档都带行内 `iframe-sandbox-relax: <原因>`。
+ * ──────────────────────────────────────────────────────────────────────────────── */
+
+/** 严档:属性存在且不含任何 token ⇒ 脚本/表单/弹窗/同源身份全部禁止 */
+export const STRICT_SANDBOX = ''
+export const STRICT_SANDBOX_TOKENS: readonly string[] = []
+
+/**
+ * 模型生成 / 用户上传 HTML 的渲染档:只给 `allow-scripts`。
+ * 这类内容必须有脚本才能出图(图表、Canvas 动画),但**绝不给** `allow-same-origin`
+ * —— 给了就等于把本站 Cookie/localStorage 交到一段模型现写的 HTML 手里。
+ */
+export const MODEL_CONTENT_SANDBOX = 'allow-scripts'
+export const MODEL_CONTENT_SANDBOX_TOKENS: readonly string[] = ['allow-scripts']
+
+/** HTML 规范里 sandbox 合法的 token 全集;词外的值会被 resolveSandbox 丢掉(不静默放宽) */
+export const SANDBOX_TOKEN_VOCAB: readonly string[] = [
+  'allow-scripts',
+  'allow-same-origin',
+  'allow-forms',
+  'allow-popups',
+  'allow-popups-to-escape-sandbox',
+  'allow-modals',
+  'allow-orientation-lock',
+  'allow-pointer-lock',
+  'allow-presentation',
+  'allow-downloads',
+  'allow-top-navigation',
+  'allow-top-navigation-by-user-activation',
+  'allow-top-navigation-to-custom-protocols',
+  'allow-storage-access-by-user-activation',
+]
+
+const SANDBOX_TOKEN_SET = new Set(SANDBOX_TOKEN_VOCAB)
+
+/** 一次显式的沙箱放宽声明:tokens 之外**必须**带 reason */
+export interface SandboxRelaxation {
+  tokens: readonly string[]
+  /** 为什么这一处非放宽不可。空白 / 缺省视为未声明 ⇒ 不放宽(仍然严档) */
+  reason: string
+}
+
+/** WebViewFrame 的 sandbox 入参形态(裸串接受但不生效,见文件头规矩③) */
+export type SandboxInput = string | SandboxRelaxation | null | undefined
+
+/**
+ * 把入参折成最终要写进 DOM 的 sandbox 值。**唯一**的判定出口,别处不得再抄一份逻辑。
+ * 返回空串 = 严档。
+ */
+export function resolveSandbox(input?: SandboxInput): string {
+  if (input === null || input === undefined) return STRICT_SANDBOX
+
+  if (typeof input === 'string') {
+    // 规矩③:裸 token 串不生效。能走到这里说明调用点还留着旧写法,喊出来而不是照办。
+    if (process.env.NODE_ENV !== 'production' && input.trim() !== '') {
+      console.warn(
+        '[WebViewFrame] sandbox 收到裸字符串已被忽略(仍按严档渲染)。' +
+          '放宽请传 resolveSandbox({ tokens, reason }) 的形态并写明理由:' +
+          ` 收到的值是 ${JSON.stringify(input)}`,
+      )
+    }
+    return STRICT_SANDBOX
+  }
+
+  const reason = typeof input.reason === 'string' ? input.reason.trim() : ''
+  if (!reason) {
+    if (process.env.NODE_ENV !== 'production' && input.tokens.length > 0) {
+      console.warn('[WebViewFrame] 放宽声明缺少 reason,已按严档渲染:', JSON.stringify(input.tokens))
+    }
+    return STRICT_SANDBOX
+  }
+
+  // 词表外的 token 直接丢弃:拼出一个浏览器不认识的档不算放宽,只算把严档写坏
+  const kept: string[] = []
+  for (const token of input.tokens) {
+    if (SANDBOX_TOKEN_SET.has(token) && !kept.includes(token)) kept.push(token)
+  }
+  return kept.join(' ')
+}
+
 export interface WebViewFrameProps extends Omit<
   React.HTMLAttributes<HTMLDivElement>,
   'onLoad' | 'onError'
@@ -41,8 +141,11 @@ export interface WebViewFrameProps extends Omit<
   title?: string
   /** 错误信息 */
   error?: string
-  /** iframe sandbox 属性(默认 allow-same-origin allow-scripts allow-forms allow-popups) */
-  sandbox?: string
+  /**
+   * iframe 沙箱。**缺省 = 严档**(`sandbox=""`,全禁),见文件头 STRICT_SANDBOX 的三条规矩。
+   * 需要放宽只能传 `{ tokens, reason }` 且 reason 非空;裸 token 字符串不生效(仍渲染严档)。
+   */
+  sandbox?: SandboxInput
   /** iframe 加载完成回调 */
   onLoad?: () => void
   /** iframe 加载失败回调 */
@@ -88,7 +191,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
       screenshot,
       title,
       error,
-      sandbox = 'allow-same-origin allow-scripts allow-forms allow-popups',
+      sandbox,
       onLoad,
       onError,
       onOpenExternal,
@@ -206,7 +309,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
             src={url}
             title={title ?? url}
             className="h-full w-full border-0"
-            sandbox={sandbox}
+            sandbox={resolveSandbox(sandbox)}
             referrerPolicy="no-referrer"
             loading="lazy"
             scrolling="no"
