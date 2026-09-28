@@ -56,9 +56,12 @@ async def test_带grant_rule的approve落前缀放行规则_非run_command不落
         aid: {"event": asyncio.Event(), "tool_name": "run_command", "argv": argv},
     }
     await _submit(loop, sid, aid, "approve", "once", {"kind": "exec_prefix", "tokens": 2})
-    loop._persist_grant_rule(loop._approval_sessions[sid][aid], "run_command", sid)
-    key = ap.normalize_exec_key(argv)
-    assert ap.check(key, "exec_prefix"), "approve+grant_rule 应已把前缀规则写进持久层"
+    # D158 owner-binding(2026-09-29 同步):落规则必须带令牌主体,键 = 主体+归一前缀
+    loop._persist_grant_rule(
+        loop._approval_sessions[sid][aid], "run_command", sid, "user-g3"
+    )
+    key = ap.scoped_cache_key("user-g3", ap.normalize_exec_key(argv))
+    assert ap.check(key, "exec_prefix"), "approve+grant_rule 应已把主体绑定的前缀规则写进持久层"
 
 
 async def test_非run_command的grant_rule不落规则(loop):
@@ -80,10 +83,15 @@ async def test_同前缀下一次免弹窗_不同前缀仍弹(loop):
         aid: {"event": asyncio.Event(), "tool_name": "run_command", "argv": ["git", "push"]},
     }
     await _submit(loop, sid, aid, "approve", "once", {"kind": "exec_prefix", "tokens": 2})
-    loop._persist_grant_rule(loop._approval_sessions[sid][aid], "run_command", sid)
-    key = ap.normalize_exec_key(["git", "push"])
+    loop._persist_grant_rule(
+        loop._approval_sessions[sid][aid], "run_command", sid, "user-g5"
+    )
+    key = ap.scoped_cache_key("user-g5", ap.normalize_exec_key(["git", "push"]))
     assert ap.check(key, "exec_prefix") is not None
-    # 命中判定出口:同前缀 ⇒ 不需要审批;换前缀(不同命令) ⇒ 仍需要
-    assert llm_mod._exec_prefix_grant_hits(["git", "push", "--force"]) is True
-    assert llm_mod._exec_prefix_grant_hits(["rm", "-rf", "/"]) is False
+    # 命中判定出口(D158 owner-binding 同步):同主体同前缀 ⇒ 免弹窗;
+    # 换主体 ⇒ 不放行(旧语义"A 批准 B 免弹"是敞口,已随主体绑定修复作废);
+    # 换前缀(不同命令)⇒ 仍需要
+    assert llm_mod._exec_prefix_grant_hits(["git", "push", "--force"], "user-g5") is True
+    assert llm_mod._exec_prefix_grant_hits(["git", "push", "--force"], "user-other") is False
+    assert llm_mod._exec_prefix_grant_hits(["rm", "-rf", "/"], "user-g5") is False
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
