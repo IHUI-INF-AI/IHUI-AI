@@ -1,0 +1,30 @@
+{
+  "$comment": "守门 check-fixture-tmpdir.mjs 的 B 堆台账(AGENTS §26「临时夹具唯一落点 = scripts/lib/scratch-dir.mjs」的唯一豁免通道)。每条必须 {file, reason(非空、且是可复核的事实), reviewBy(ISO 日期)};形态坏或已过期 ⇒ 不再豁免且照计违规(entryProblem/applyLedger),条目指向的被审文件在该面上已无 F1/F2 命中 ⇒ 判清单腐烂 rot(修好了就删行,挂着腐烂的行会替后来人做出「这一端已被想过」的判断)。刻意不收 A 堆:凡是「用完即删的临时夹具」都必须迁 mkScratch/rmScratch,写进本表等于把本门存在的理由抹掉。⚠️ 如实登记接线现状(不得读成已生效):门体 run() 目前**从未加载本文件**、也从未调用 applyLedger —— LEDGER_FILE 只在常量处出现,applyLedger/entryProblem 仅在 --self-test 的构造面上被跑;因此本表对现读 violations/rotations 零影响(violations 仍 = 原始 F1+F2 计数,rotations 恒 0)。补齐这一格是主会话那一票的活,判据本体不得由本表消费方顺手改。台账形态与字段口径取自同族 scripts/auth-handler-registration-exemptions.json。本文件不注入溯源水印横幅:// 横幅会让 JSON.parse 失败,而 check-watermark-coverage 的分母只含 .ts/.tsx/.js/.mjs/.cjs/.css,.json 不在内。",
+  "exemptions": [
+    {
+      "file": "scripts/check-c-drive-pollution.mjs",
+      "reason": "本门判据对象之一就是「这台机器此刻的 TEMP 落在哪」,不在被审面上。HEAD:490 detectTempDrift() 拿 tmpdir() 当活进程实得的 proc TEMP,与 HKCU 声明值对账(§26 实测:HKCU 已改指 D:\\DevEnv\\Temp 而活进程仍持 C:\\Users\\...\\AppData\\Local\\Temp ⇒ 这个差值本身就是本门的「TEMP 漂移」结论);HEAD:594 tempScanDirs(sysRoot, tmpdir()) 把「守门自己那一侧」与「服务身份那一侧」(LocalSystem = C:\\Windows\\Temp)一并纳入扫描面 —— §26 记过只扫 tmpdir() 时部署脚本每轮构建泄漏 2 个 ihui-next-build-*.log、累计 526 项/6.86MB 而门一路报「本项目产物 0 项」,那是假绿灯不是漏扫;HEAD:872 是自检里的实机阳性对照,断言扫描面真覆盖到 Windows\\Temp。迁成 mkScratch 或改成 HEAD 档取值 ⇒ 门看不见自己要量的运行时状态,后果是这台机唯一一条 TEMP 漂移哨兵静默失效。到期重看条件:§26 的 TEMP 漂移在全机消失后,490/594 的输入可换成显式注入,届时删本行。",
+      "reviewBy": "2027-03-31"
+    },
+    {
+      "file": "scripts/desktop-installer-assets.mjs",
+      "reason": "HEAD:65 的 PREVIEWS = join(tmpdir(), 'ihui-installer-preview') 是**给人审阅的产物输出位**,不是用完即删的夹具:该文件 904 建目录、921 按 tag 落 PNG 预览、974 在 --previews 模式把这同一个路径打印给用户去看,全文没有任何删除动作(可复核:grep -c 'rmSync|rmScratch' 该文件 = 0)。换用 mkScratch 会把「稳定可复看的预览位」改成「每次运行换一个随机目录、且本进程退出即被回收」(scratch-dir 的 exit 钩子会删未显式摘牌的夹具)——改的是该 CLI 的对外契约,其头注 52-54 行明写「输出 BMP + %TEMP% PNG 预览」。真要收口必须先定预览落点(§15b 四个批准落点之一)并同步改 CLI 帮助与 check-installer-assets 的对账口径,属另票,不由豁免通道顺手做。",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "file": "scripts/install-console-window-hook.mjs",
+      "reason": "HEAD:44 resolve(tmpdir(), '..') 取的是**永久安装位的父目录**,不是临时落点:该脚本把 windows-hide 钩子写到仓库外的稳定目录并把 --import=file:///... 写进 HKCU NODE_OPTIONS,而 §5b/§26 明写「放仓库外是因为 NODE_OPTIONS 指向的文件一旦缺失会让全机所有 node 进程启动失败」——rmScratch 的「用完必删」语义与该用途直接相反,43 行已有 IHUI_NODE_HOOKS_DIR 显式覆盖、46 行退 homedir,三档里没有一档是夹具。同时如实登记残留风险(不得把本行读成「已合规」):TEMP 漂移时这一档推导会把安装位落到 C:\\Users\\...\\AppData\\Local,属 §26 的 C 盘债;正解是给钩子目录一个显式出口函数(与 scratchRoot() 同族推导、不借 TEMP 的父目录),那是改本机全部 node 进程的启动配置,须单独决策,不得由本门消费方在这里顺手改。",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "file": "scripts/scrub-temp-fixtures.mjs",
+      "reason": "HEAD:197 const root = arg('--root') || tmpdir() 就是这个工具的定义本身:它是 §26 链条上「清掉散落在活 TEMP 里的旧 ihui-* 夹具」的清理器,默认根必须落在**被清理对象所在的那一层**,而那一层只存在于运行时 TEMP(可复核:该文件的 --root 参数与 --older-than 龄期判定,清理动作按名字白名单只认本项目产物)。把它迁到 mkScratch 等于让一台扫地机去扫一个刚建好的空目录 —— 永远扫不到东西,而账面仍是绿的。它读的是机器状态而非被审内容,按 HEAD 档结构上无从判,故留在台账而不是留在 A 堆。",
+      "reviewBy": "2027-03-31"
+    },
+    {
+      "file": "scripts/tests/visible-window-probe.test.mjs",
+      "reason": "HEAD:104 唯一的 tmpdir( 出现在**正则字面量** /tmpdir()/ 里:T3 形状锁用它断言被测对象(§5b 的可见窗口探针 scripts/visible-window-probe.mjs)不得取临时目录 —— 本测试文件自己不调 os.tmpdir(),其夹具走 mkScratch(可复核:该文件 import 的是 ../lib/scratch-dir.mjs,且 106 行另有一条 rawSource() 面上的 doesNotMatch(/from 'node:os'/) 锁)。本门的遮罩只抹注释与字符串、不抹正则(maskCommentsAndStrings 的既定语义),于是把「锁别人」的判据字样读成「自己用了」。既没有真实取 TEMP 的动作可迁,也不得为了让这一档变绿去改写那条断言的写法 —— 改了写法形状锁就失去它锁的东西。自清通道照本表口径:若日后把正则纳入遮罩面,本文件 rawHits 归 0 ⇒ 门按 rot 判红,届时删行(挂着腐烂的行比没有行更糟)。",
+      "reviewBy": "2026-12-31"
+    }
+  ]
+}
