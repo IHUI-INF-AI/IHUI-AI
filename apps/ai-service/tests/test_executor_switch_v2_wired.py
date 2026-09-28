@@ -309,9 +309,16 @@ class TestRegisteredSurfaceReallyRunsLoopV2:
             executed.append(args)
             return {"city": args.get("city"), "weather": "晴"}
 
-        async def _fake_build(tool_names: list[str] | None, user_role: int = 0) -> list[Any]:
+        async def _fake_build(
+            tool_names: list[str] | None, user_role: int = 0, user_id: str = ""
+        ) -> list[Any]:
             assert tool_names == ["get_weather"]
             assert user_role == 0, "缺省角色必须 fail-closed 到 0,不得被放宽"
+            # G-371 格①:适配器手里就有 user_id(它同一笔就喂给 AgentLoopV2),所以装配调用
+            # 必须把它一起传下来。这里**不**断言非空 —— 本用例的投影入参刻意没给主体
+            # (`user_id=None` ⇒ ""),而"空串 ⇒ 只看得到部署级"正是 fail-closed 的那一档;
+            # 真把主体透到手里的证明在围栏 test_mcp_unscoped_exits_are_fenced 的静态判据里
+            # (把 `user_id=…` 从调用点删掉 → 那条当场红),不在这里造会触碰记忆后端的登录态。
             return [
                 ToolDefinition(
                     name="get_weather",
@@ -362,7 +369,9 @@ class TestRegisteredSurfaceReallyRunsLoopV2:
         from app.routers import agents as agents_router
         from app.services.agent_loop_v2 import ToolDefinition
 
-        async def _noop_build(tool_names: list[str] | None, user_role: int = 0) -> list[Any]:
+        async def _noop_build(
+            tool_names: list[str] | None, user_role: int = 0, user_id: str = ""
+        ) -> list[Any]:
             return [
                 ToolDefinition(name="get_weather", description="d", parameters={}, executor=None)
             ]
@@ -394,7 +403,9 @@ class TestRegisteredSurfaceReallyRunsLoopV2:
         async def _llm(messages: list[dict[str, Any]], tools: list[Any]) -> dict[str, Any]:
             return {"content": "", "tool_calls": None}
 
-        async def _empty_build(tool_names: list[str] | None, user_role: int = 0) -> list[Any]:
+        async def _empty_build(
+            tool_names: list[str] | None, user_role: int = 0, user_id: str = ""
+        ) -> list[Any]:
             return []
 
         monkeypatch.setattr(agents_router, "_build_loop_v2_tools", _empty_build)
