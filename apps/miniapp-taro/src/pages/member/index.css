@@ -33,7 +33,7 @@
 .member-avatar {
   width: 120rpx;
   height: 120rpx;
-  border-radius: 50%; /* radius-exempt: 用户头像真圆 */
+  border-radius: 50%;
   background: var(--color-muted);
   margin-right: 24rpx;
   flex-shrink: 0;

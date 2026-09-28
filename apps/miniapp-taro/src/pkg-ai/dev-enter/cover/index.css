@@ -33,7 +33,7 @@
 .dc-avatar {
   width: 128rpx;
   height: 128rpx;
-  border-radius: 64rpx; /* radius-exempt: 开发者头像正圆=宽高 128rpx 的一半 */
+  border-radius: 64rpx;
   margin-bottom: 16rpx;
   background: var(--color-muted);
 }
@@ -105,7 +105,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-muted);
-  border-radius: 48rpx; /* radius-exempt: 入口图标底正圆=宽高 96rpx 的一半 */
+  border-radius: 48rpx;
 }
 .dc-entry-emoji {
   font-size: 56rpx; /* RN devIcon 28dp=56rpx */

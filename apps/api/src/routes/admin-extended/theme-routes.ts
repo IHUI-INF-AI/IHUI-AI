@@ -15,6 +15,7 @@ import { themes, themeColors, themeFonts, themeAssets, themePresets } from '@ihu
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
+import { isUuidString } from '../../utils/uuid.js'
 
 const themesPaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -276,6 +277,7 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/admin/themes/colors/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = parseOrThrow(updateThemeColorSchema, request.body)
     const [updated] = await db
       .update(themeColors)
@@ -291,6 +293,7 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request, reply) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
+      if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
       const removed = await db
         .delete(themeColors)
         .where(eq(themeColors.id, id))
@@ -329,6 +332,7 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
 
   server.patch('/admin/themes/fonts/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = parseOrThrow(updateThemeFontSchema, request.body)
     const [updated] = await db
       .update(themeFonts)
@@ -341,6 +345,7 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/admin/themes/fonts/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const removed = await db
       .delete(themeFonts)
       .where(eq(themeFonts.id, id))
@@ -381,6 +386,7 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request, reply) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
+      if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
       const removed = await db
         .delete(themeAssets)
         .where(eq(themeAssets.id, id))
@@ -438,6 +444,7 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/admin/themes/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    if (!isUuidString(id)) return reply.status(404).send(error(404, '主题不存在'))
     const [theme] = await db.select().from(themes).where(eq(themes.id, id)).limit(1)
     if (!theme) return reply.status(404).send(error(404, '主题不存在'))
     const [colors, fonts, assets] = await Promise.all([
@@ -458,6 +465,7 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/admin/themes/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = parseOrThrow(updateThemeSchema, request.body)
     if (body.isCurrent) {
       const [updated] = await db.transaction(async (tx) => {
@@ -485,6 +493,7 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
 
   server.patch('/admin/themes/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = parseOrThrow(updateThemeSchema, request.body)
     if (body.isCurrent) {
       const [updated] = await db.transaction(async (tx) => {
@@ -512,6 +521,10 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/admin/themes/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const [deleted] = await db.delete(themes).where(eq(themes.id, id)).returning()
     if (!deleted) return reply.status(404).send(error(404, '主题不存在'))
     return reply.send(success({ deleted: Boolean(deleted) }))

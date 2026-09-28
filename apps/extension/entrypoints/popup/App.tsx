@@ -162,6 +162,10 @@ export default function App() {
           <LoginForm
             t={t}
             apiClient={loginApiClient}
+            // 本表面没传 enableCredentialPersistence(默认 false)⇒ 组件里的自动提交分支
+            // 结构上不会执行,这里给显式 true 只是把"扩展弹窗没有登出标记"这件事写出来,
+            // 而不是留一个看不见的缺省。web 那侧的写法才是判据的正解。
+            canAutoSubmitCredentials={() => true}
             thirdParty={thirdParty.config}
             showAgreement
             agreementMode="notice-dialog"

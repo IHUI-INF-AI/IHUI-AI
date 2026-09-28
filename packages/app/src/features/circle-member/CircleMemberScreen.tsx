@@ -130,7 +130,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 44,
       height: 44,
-      borderRadius: 44 / 2, // radius-exempt: 圆形头像 fallback,半径=宽高一半
+      borderRadius: 44 / 2,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

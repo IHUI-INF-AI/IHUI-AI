@@ -96,7 +96,7 @@
 .ai-card-plan-dot {
   width: 36rpx;
   height: 36rpx;
-  border-radius: 18rpx; /* radius-exempt: 36rpx 圆形序号装饰点,半径=边长一半 */
+  border-radius: 18rpx;
   display: flex;
   align-items: center;
   justify-content: center;
