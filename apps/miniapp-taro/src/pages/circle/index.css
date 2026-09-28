@@ -383,7 +383,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-brand);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-sm);
   z-index: 10;
 }
 
