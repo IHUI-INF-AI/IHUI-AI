@@ -62,8 +62,16 @@ export const ROLE_STEMS = {
     evidence: 'Tag / CountBadge / UnreadBadge / CategoryChip —— 胶囊**类**元素,不是胶囊形状',
   },
   panel: {
-    stems: ['panel', 'modal', 'dialog', 'drawer', 'sheet', 'popover'],
+    stems: ['panel', 'modal', 'dialog', 'drawer', 'sheet'],
     evidence: 'PayPopup / ModelDetailDialog / Drawer / RightPanel —— 面板弹窗档 xl',
+  },
+  popover: {
+    stems: ['popover', 'menu', 'contextmenu', 'ctxmenu', 'tooltip'],
+    evidence: 'TerminalContextMenu / FileContextMenu / TagsView 右键菜单 / add-menu-popover —— 轻量浮层档 md',
+  },
+  bubble: {
+    stems: ['bubble', 'chatbubble', 'messagebubble'],
+    evidence: '会话流消息盒(voice.tsx / ai-assistant 气泡)—— 与卡片不同类,档 2xl',
   },
   hero: {
     stems: ['hero', 'banner', 'spotlight'],
@@ -339,6 +347,13 @@ export function maskFaces(src) {
 /**
  * 一行里 `className=` / `class=` 属性的**字符串字面量内容**。
  * 锚点取自 `code` 面(证明属性是真的),内容取自原文(类名活在字符串里)。
+ *
+ * 两个字面量之间必须**仍在同一个 class 表达式里** —— 实测原写法靠"距离 ≤60 字符"连采 3 段,
+ * 于是 `className="rounded-xl border bg-card" data-testid="plan-review-panel"` 把**兄弟属性**的值
+ * 也当类名收了,产出一条根本不存在的 `panel` 弱证据,和 `bg-card` 的 card 撞成 `role-conflict`。
+ * 判据越界的表现不是"多算一个角色",而是**把能判的格写成判不出**。
+ * 允许继续采集的间隔只可能是 `cn(` / `,` / `||` / `? :` / `+` 这类表达式连接符;
+ * 出现 `=`(新属性)、`>`(开标签结束)、`}`(表达式收尾)一律停。
  */
 export function classStringsInLine(codeLine, rawLine) {
   const out = []
@@ -347,15 +362,69 @@ export function classStringsInLine(codeLine, rawLine) {
   while ((m = RE.exec(codeLine))) {
     const rest = rawLine.slice(m.index)
     let taken = 0
+    let prevEnd = -1
     for (const lit of rest.matchAll(/(["'`])([^"'`\n]*)\1/g)) {
       if (lit.index > 60) break // 离锚点太远的那段字符串不属于这个属性
+      if (prevEnd >= 0 && /[=>}]/.test(rest.slice(prevEnd, lit.index))) break // 已离开本属性
       if (lit[2] && /\S/.test(lit[2])) {
         out.push(lit[2])
+        prevEnd = lit.index + lit[0].length
         if (++taken >= 3) break
+      } else {
+        prevEnd = lit.index + lit[0].length
       }
     }
   }
   return out
+}
+
+/**
+ * 声明作用域表:`function X(...){}` / `const X = () => {}` / `const X = function` 的**行区间**。
+ * 取材面必须是已抹注释与字符串的 code 面(否则注释里的假声明会造出不存在的区间)。
+ * 括号配平失败(不闭合)⇒ 该声明**不记**,判"归属判不出"而不是猜一个范围。
+ * @returns {{name:string, start:number, end:number, exported:boolean}[]} 按 start 升序
+ */
+export function declarationRanges(codeSource) {
+  const lines = String(codeSource || '').split('\n')
+  const RE =
+    /(?:^|\s)(export\s+)?(?:default\s+)?(?:async\s+)?(?:function\*?\s+|const\s+|let\s+|var\s+)([A-Z][\w$]*)\s*(?:[=(:]|\s*function)/
+  const found = []
+  for (let i = 0; i < lines.length; i++) {
+    const m = RE.exec(lines[i])
+    if (!m) continue
+    if (!/^[A-Z]/.test(m[2])) continue // 只有 PascalCase 才是"这是个界面元素"的主张
+    let depth = 0
+    let seen = false
+    let end = -1
+    for (let j = i; j < lines.length; j++) {
+      for (const ch of lines[j]) {
+        if (ch === '{') {
+          depth++
+          seen = true
+        } else if (ch === '}') {
+          depth--
+          if (seen && depth === 0) {
+            end = j + 1
+            break
+          }
+        }
+      }
+      if (end > 0) break
+      if (j - i > 1200) break // 病态文件护栏:配平不到就判"判不出",不扫全文件
+    }
+    if (end > 0) found.push({ name: m[2], start: i + 1, end, exported: Boolean(m[1]) })
+  }
+  return found
+}
+
+/** 某行的**内层**声明归属(取区间最小者 = 最内层);没有 ⇒ null(判不出,不是"没有组件")。 */
+export function ownerOfLine(ranges, line) {
+  let best = null
+  for (const r of ranges || []) {
+    if (line < r.start || line > r.end) continue
+    if (!best || r.end - r.start < best.end - best.start) best = r
+  }
+  return best
 }
 
 /** px → 档位名列表(同值可能不止一档:`DEFAULT` 与 `lg` 都是 8)。 */export function stepsForPx(table, px) {
@@ -621,3 +690,56 @@ export function isRoleExemptAt(rawLines, i) {
   return i > 0 && !!roleExemptReason(rawLines[i - 1])
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * **身份通道**(2026-09-28 票㉘):类别不该只靠猜 —— 代码里已经写着"这是什么"的三处权威信号,
+ * 此前一律没被采:
+ *  ① ARIA 「role=」(menu / dialog / tooltip / listbox / button…)—— ARIA 角色就是元素的身份;
+ *  ② 「data-testid」(annotation-popover / plan-review-panel / tagsview-context-menu)—— 作者自己给这个盒子起的名字;
+ *  ③ 身份标记类 「ui-<role>」(§3.1 的角色名,封闭集)—— 给"连名字都没有"的元素留的显式出口。
+ * 另加一条窄口径:色档名里只有 **popover** 算身份(bg-popover 说的是"这是一层浮出",
+ * 项目里它就是浮层的类族);bg-card / bg-muted 仍只是背景档,**不**算身份 ——
+ * 那正是上一票 5 处 role-conflict 的成因,放宽到它们等于把身份判据整片关掉。
+ */
+export const IDENTITY_ROLES = ['tiny', 'control', 'chip', 'card', 'panel', 'popover', 'bubble', 'hero']
+const ARIA_ROLE_TO_RADIUS = {
+  menu: 'popover',
+  menuitem: 'control',
+  listbox: 'card',
+  combobox: 'control',
+  button: 'control',
+  tab: 'control',
+  tooltip: 'popover',
+  dialog: 'panel',
+  alertdialog: 'panel',
+  drawer: 'panel',
+}
+const IDENTITY_CLASS_PREFIX = 'ui-'
+
+/** 一行里的身份证据(强档)。返回 {roles:Set, via:string[]}。 */
+export function identityEvidenceInLine(codeLine, rawLine) {
+  const roles = new Set()
+  const via = []
+  const add = (r, from) => {
+    if (!r || !IDENTITY_ROLES.includes(r)) return
+    if (!roles.has(r)) {
+      roles.add(r)
+      via.push(from)
+    }
+  }
+  for (const m of String(rawLine || '').matchAll(/\brole\s*=\s*["']([\w-]+)["']/g)) {
+    add(ARIA_ROLE_TO_RADIUS[String(m[1]).toLowerCase()], 'aria')
+  }
+  for (const m of String(rawLine || '').matchAll(/\bdata-(?:testid|test-id|test)\s*=\s*["']([^"'\n]+)["']/g)) {
+    for (const r of rolesOfName(m[1])) add(r, 'testid')
+  }
+  for (const c of classStringsInLine(codeLine, rawLine)) {
+    for (const tok of String(c).split(/[\s,{}'"]+/)) {
+      const t = String(tok || '').replace(/^[\w[\].-]+:/, '')
+      if (t.startsWith(IDENTITY_CLASS_PREFIX)) add(t.slice(IDENTITY_CLASS_PREFIX.length), 'marker')
+      // 只有 popover 这一色档算身份(浮层类族名),其余色档继续走弱证据
+      if (t === 'bg-popover' || t === 'text-popover-foreground') add('popover', 'popover-tier')
+    }
+  }
+  return { roles, via }
+}
