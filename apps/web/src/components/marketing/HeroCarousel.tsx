@@ -86,7 +86,7 @@ export function HeroCarousel({
 
   return (
     <div
-      className="relative flex min-h-[420px] overflow-hidden rounded-2xl border bg-card shadow-sm min-[768px]:min-h-[480px]"
+      className="relative flex min-h-[420px] overflow-hidden ui-card rounded-lg border bg-card shadow-sm min-[768px]:min-h-[480px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >

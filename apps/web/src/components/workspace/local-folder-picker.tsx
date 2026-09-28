@@ -283,7 +283,7 @@ function PathNav({
 
   if (mode === 'input') {
     return (
-      <div className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 ring-1 ring-amber-500/30">
+      <div className="flex items-center gap-1.5 ui-card rounded-lg border bg-card px-2 py-1.5 ring-1 ring-amber-500/30">
         <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500" />
         <input
           ref={inputRef}
