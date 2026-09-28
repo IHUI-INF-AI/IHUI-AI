@@ -7445,3 +7445,55 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 <!-- 已归档(2026-09-28:✅(2026-09-28) G-250 引擎只读/销毁面(`thread.search` / `items.list` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 - [ ] **86F. 导出信封与审计链的"链锚"绑定 + `canonicalStringify` 合一(86C 的下一票)**:今天收件方能证明"这份信封自签后没被改",**还不能证明"这段就是那条链的一部分"** —— 信封里没有"区间↔链尾哈希"的锚点字段,而 CEF/LEEF 两种行格式根本不含 `prevHash`/`currentHash`。要做:① 信封加 `chainAnchor{起始 currentHash / 结束 currentHash / 区间行数}`,并由 `verifyAuditChainIntegrity` 侧证明该区间连续;② 把**两份** `canonicalStringify` 并成一份(现有:本层一份 + `apps/api/src/services/audit-log-service.ts` 私有那份)—— 两处实现必漂移是本仓记过最多次的失败型,合并方向是提到 `packages/shared`(或 `@ihui/types`)单点,并加源码级反向锁"生产面声明处 ≤1"。**判据**:改任一行数据 ⇒ 验签失败(已有)∧ 篡改区间端点 ⇒ 链锚校验失败(新增);`git grep -c "function canonicalStringify"` 生产面 ≤1。**先决**:86A2 路由已挂载(否则链上没有 tool.invoke 行,区间锚无从可测)。 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记 「86F · 导出信封与审计链的"链锚"绑定+canonica」,派单以那条为准,本行不再单独派单。〕
 <!-- 已归档(2026-09-28:✅(2026-09-28) G-338 **`connectors:read` 的公网语义与 ai-service 侧的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
+
+### 第五十八波·续六 —— 第九轮第 3 波收口 + 覆盖度改成一把尺子 + 四波作战表（2026-09-28，22 路取证全部回收）
+
+#### 一、口径：从"我们看了很多"改成一个可重跑的数
+- 新增尺子 `scripts/zcode-absorption-matrix.mjs` + 登记表 `config/zcode-absorption.json`（提交 `88cff8573` 与后续读数更新枚）。它把两件事变成机器可问：**①** 上游每个源文件都必须落进恰好一个已登记切片（最长前缀匹配），落不进去即 `M1` 判红 —— 杜绝"还剩一些"这种含糊话；**②** 凡声称 `deep`/`rejected` 必须带 `path:line` 出处，且**指针要能兑现**（`M3`：文件不在被审面 ⇒ 红；行号 > 该文件实际行数 ⇒ 红）。
+- **当轮现读头条**：源文件 **4093** 个 / 未归类 **0** / **整文件读到体 621 个 = 15.2%**，另有窗口读覆盖约 3756 个文件中的相当一部分（`windowed` 只代表"这个目录我们碰过"，**不代表读完** —— 这正是本器把它和 `deep` 分开的原因）。`rejected` 24、`na` 11、`unread` 302。
+- 判据族：M0 解析不出切片⇒判"未判定"不判通过；M2 无出处/无拒绝理由；M4 标 unread 却挂出处；M5 同切片登记两次；M7 出处未经主会话复验⇒警告（**代理读数不得当已证事实派单**，这是历轮最贵的教训）；M8 读量超过现量；M10 已全部读到体却仍标 windowed⇒提示可升档；M11 标 deep 而 read<现量⇒红（状态与读量矛盾）。
+- **刻意不接提交链**（不在 guardian-runner、不在 `check:all`）：克隆是 gitignore 的本机文件，在非部署机判不存在就是恒红门（与守门 prod-bundle 影子对账 S2 同取向）。问责入口 `node scripts/zcode-absorption-matrix.mjs --strict`；自检 `--self-test` 13 条（含"标 deep 却只读到部分必须红"与"读量超现量必须红"的正反构造面）。
+- 每条命令现读、不写基线：`node scripts/zcode-absorption-matrix.mjs`（人读表）/ `--json`（可 parse）/ `--strict`（未闭合即 exit 1）。
+
+#### 二、我方现存缺陷清单（22 路对照逼出；A 档我已逐条量过落点）
+**A 档｜可立即修，不动对外语义**
+- A1 `scripts/re-home-junctions.mjs:106` 改道校验的指纹是 `相对路径 → st.size`，而 AGENTS §26 写的是"逐文件（相对路径 + **字节**）校验"⇒ **同尺寸不同内容会"校验通过 → 删源"**，删的是 `.cargo`/`.codex` 这类别人的真实数据。**我已现读确认**（该行只 set size）。修法：加流式 sha256（947MB 级目录哈希成本可接受），验收 = `--self-test` 成对（同尺寸异内容必判不等）+ 一次真改道 A/B。
+- A2 `scripts/deploy-lock.mjs:171` 只判 `Number.isFinite(ts) && ts > 0`，`:399` 又 `Math.max(0, now-ts)` ⇒ **未来 ts 使锁龄恒 0**，叠加"pid 名义存活"正是 G-193 那次冻结 11h50m 的复现路径。**我已现读确认**。修法照上游 `atomicFileLock.ts:27-34`：`createdAt ≤ now+5min` 否则作废，且回退用的 mtime 走同一条校。
+- A3 `apps/web/app/sso/mobile-auth/PageClient.tsx:57` 裸 `window.location.replace(redirectUrl)`，而同一参数在 `sso/login:87,99`、`sso/register:62,146`、`sso/redirect` 都过 origin 白名单守卫 ⇒ **同族漏一处**。**我已现读确认**。修法复用既有守卫出口 + 一条形状门（形如守门 148 AP1）。
+- A4 `apps/cli/src/utils/prompt-boundary.ts:64` 的 `sanitizeSkillName` 按 UTF-16 **码元** slice 截断，可产出孤立高位代理对；同一文件下方的 `truncateUtf8` 注释明写"不切断代理对" ⇒ **一文件内两处算法、名称档走了错的那一份**（代理实测量到 `0xd83d` 孤立）。修法一行 `Array.from` + 码位正例。**待我复跑确认**（登记为代理读数）。
+- A5 A6 见 G-375/G-376（cache token 三端硬编码 null；上下文占用把"短暂 0"当真值）。
+- A7 `apps/web/components/ai/KanbanBoard.tsx:59` 消费投影是 `Record<string, string>` 开放映射 ⇒ 守门 151 把**声明集**钉成六档闭集，新增档在展示侧仍会静默无标签。改 `Record<AgentTaskStatus, string>`，一行、tsc 强制、无灰度需求。
+- A8 小程序图标名可解析性：`apps/miniapp-taro/src/components/LineIcon/index.tsx` 取不到素材时 `return null`（静默空白），调用点 HEAD 面 8 处用四种互不相同的兜法（`|| 'bot'`、`as never`、`MEDALS[idx]!`、裸 `e.icon`）；守门 105 只核 svg↔注册表两面，**调用点"值→键"这一格零看守**。落 105 加一维、按该文件 HEAD 存量套棘轮（不新增恒红面）。
+- A9 行改动统计**至少 6 处各算**（`apps/ai-service/app/routers/llm.py:747-794`、`tool-call-summary-card.tsx:76-80` 注释自称"复刻 llm.py 口径"、`agent_deliverables.py:95-97`、`mcp_server.py:6985`、`apps/web/src/lib/{hunk-diff,diff-service}`），且已量到两处真漂移：`pySplitLines` 正则缺 `\u001c\u001d\u001e` 三个行边界码位（同仓 venv py 与 node 对照 `a\x1cb` 得 2 vs 1）、工具名集合两侧不同且前端 `create_file` **在两份注册表都 0 命中**（死名）。修法：补码位 + 删死名 + 跨语言快照测试（照守门 147/151 形状）。
+- A10 `apps/web/src/components/settings/full-access-confirm-dialog.tsx:36-42` 用 `localStorage==='1'` **永久压制安全确认弹窗**（无 TTL/无版本/无字段校验）；同族 `use-permission-mode-cycle.ts:39` 的 `ihui:preferred-permission-mode` 现读**只写不读**（setItem:122、全仓 getItem 0 命中）⇒ 注释承诺的"记住上次主动选择的权限模式"未兑现。**待我复验后**：补 TTL+三态属可落地，"是否据此恢复档位"属拍板。
+
+**B 档｜需拍板（动对外语义或架构）**：见 G-373（MCP 只读档四跳已复验）、G-374（设置三态已复验）、加以下本轮新登记格 ——
+- 重试预算共用一个计数器这一型：上游 `streaming-recovery.ts:14/21/85-113` 把"通用流恢复上限 10"与"Start Plan 准入上限 2"都读写 `state.streamRecoveryRetryCount`，还会产出 `retryNumber:5 / maxRetries:2` 的自相矛盾事件 ⇒ **我方同型自查**未做（`apps/cli` 与 ai-service 的重试计数是否有共用位）。
+- `packages/api-client/src/client.ts:2243-2272` 前缀 dedupe 在前缀不等时"放弃 dedupe 全量追加"，方向与上游"越界必须整批清空并让 subscribe 明确失败"（`ackActivationBarrier.ts:120-128`）**相反**，可能把重复/半截拼进正文；而我方服务端 `ai-chat-stream.ts:309-345` 已是上游那一向 ⇒ 客户端这半拉不齐。
+- 乐观气泡无对账锚：`send-message.ts:465` 直接 `store.addMessage({role:'user'})` 造无 commandId 的本地行，落库走 `:395 void persistMessageSafe(...)`，失败只 toast，而 `stores/chat.ts` 无删除消息出口 ⇒ 该行永久悬空到下次快照覆盖（上游把乐观条目只当对账锚，`conversationProjectionStore.ts:1245-1317`）。
+- 后台任务幂等账本全在内存（`_tasks`/`_idempotency` 两 dict、`packages/database` 对 `background_task` 零命中）⇒ 重启即失；上游把它做成与副作用同事务的复合主键事实（`session-store.port.ts:204-245` + `sqlite-session-store.ts:334-356`）。
+- 已读态"有清单、无写前置门"：`result-envelope/read-state.ts` 只做压缩后重建，`file-edit.ts`/`file-batch-edit.ts` 对它零引用；另记上游一条限制（`edit.ts:426` 宿主不给映射即不生效）—— 别把它当硬保证。
+- 时间格式化单一入口 + `DEFAULT_TZ`：上游 `codingPlanQuotaPresentation.ts:144-156` 的"当日只给时刻、非当日只给日期"我方无出口，且它用宿主本地 `getFullYear()` 而我方 formatter 恒 `Asia/Shanghai` ⇒ **直抄会造新分叉**，须先给 shared 一个按时区的 `isToday`。
+
+**C 档｜判不抄（带否证，别当缺口派单）**：① 上游**没有**"第三方边界 env 表"（其 runtime 族 78 文件 `process.env` 零命中，靠端口借用代理把凭据留在父 adapter）——我方 `buildFilteredEnv` 五站点已接线，这一格我方不缺；② `traceId` 契约层可选**不等于**丢：进程内第 4 位必填 + ALS 三层回退 + `createChildTraceContext` parent 必填，跨进程只在会话建立时接续一次 ⇒ trace 粒度是"一个会话"不是"一次请求"，且 wire 的 W3C `traceparent` 全树零消费者（这条修正历轮"契约不强制=没实现"的措辞）；③ 上游 repair/nudge 我方已独立收敛（`argument-validation-telemetry.ts:55` + `off|shadow|enforce`），不得当新素材；④ 上游 `mapToolStatus` 未知态默认 `input-streaming`、`JSON.stringify` 判配置变更、`Don't tell the user about this truncation` 三处均违反我方既有禁令（守门 151 / `canonical-json` / 守门 129）；⑤ 上游全仓仅 4 个 `.test.ts`、根与 CLI 的 `package.json` **无 test 脚本**，而代码 6 处自称"契约测钉住"⇒ **取其设计，取其"已验证"声称即为假**（守门 114 同题）。
+
+#### 三、剩余覆盖面与波次（分母全部由尺子现量，下表是本枚登记时的读数）
+- **W4｜ui 剩余 ≈1379 个**（`packages/ui/src` 1492 − 已读 113）：优先 `lib/messageTelemetry` 后半 1300 行、`ai-elements` 42、`ui` 根 44、`workflow-timeline` 39、`hooks` 97。派 6 路，按目录切互斥。
+- **W5｜cli/core 剩余 ≈456 个**：`runtime/methods` 余 80（`session-fork` 1487 / `rewind-message` 740 / `file-rewind` 717 / `compact-active` 725 行等）、`tool/handlers` 余 116、`attachment-*`/`media-*`/`provider-*` 63、`dynamic-workflow/analysis` 52 整目录。派 5 路。
+- **W6｜其余包 ≈640 个**：`bootstrap` 余 219、`adapters` 余 192、`contracts` 余 106、`tui` 92、`cli` 97。派 5 路。
+- **W7｜桌面与服务边角 ≈250 个**：`desktop/src/main` 余 174（`processResource*`/`resourceManager*` ≈25、`cua*`/`windows*` ≈20、`chromeCookie*` ≈8）、`server/src/remote` 13、`zcode-server-cli` 余 34、`packages/web` 16、`.agents` 未逐篇（rules 70 / references 50）。派 4 路。
+- **每波交付判据（三条，缺一不算收波）**：① 该波覆盖的切片在登记表里更新 `read`/`evidence`/`remaining`；② `node scripts/zcode-absorption-matrix.mjs --strict` 仍为覆盖闭合（未归类 0）；③ 新发现逐条落 PROJECT_PLAN 票面（带落点 file:line 与我方权威入口证明），**代理读数一律标 `verified` 缺省，我复验后才写"已复验"**。
+- 全部四波完成后才允许出现"ZCode 已榨干"这句话；在那之前任何交付报告不得写"抄无可抄"（AGENTS §1 新登记必须有交代 + 本仓"有残余不得说收口"）。
+
+#### 四、纪律三条（本轮 22 路实测出来的）
+1. **代理给的路径必须重取**：本轮两次踩到（`apps/cli/src/permissions.ts` 不存在，真路径 `tools/permissions.ts`；`apps/web/app/settings/notifications/page.tsx` 缺路由组 `(main)`）。派单模板里"他仓/他端路径"要求代理先 glob 真实文件名。
+2. **覆盖面不靠"我 grep 没命中"**：两次自纠都是同一根（`git grep --include=*.ts ../../` 相对路径把命中洗掉；按"调用行同现 maxBuffer"判覆盖面而忽略 `face-reader.gitRaw` 的中心默认值）。判覆盖面 = 先找共用出口。
+3. **恒红门优先于新增工作**（§12e）：`safe-commit` 本轮三次 `--no-verify`，其中两枚归因 `not-ours`、一枚 `undetermined-red`（基线面在隔离面跑不通 ⇒ 归属**未证明**，不得读成"过了守门"）；被点名的批外红（i18n 死 key、门 150 存量、门 84 指他人索引里的 AGENTS.md）**都还在原地等各自持有人**。
+
+#### 五、待办登记（本枚同时挂账）
+- [ ] G-G-385 **A1 改道校验只比大小不比内容（可立即修；归属：§26 C 盘改道线，本票持有人即我）** —— 见上文 A1 与现读落点。
+- [ ] G-G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁持有人）** —— 见 A2；这条与 G-193 是同一根，不修就等于"下次冻结只是时间问题"。
+- [ ] G-G-387 **A3 sso/mobile-auth 的 redirect 未过 origin 守卫（可立即修；归属：web 鉴权出口持有者）** —— 见 A3；同参数三处已守卫、一处裸用。
+- [ ] G-G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码元截断产孤立代理对；权限确认弹窗被 `localStorage==='1'` 永久压制 + 偏好档位只写不读。
+- [ ] G-G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影开放映射、LineIcon 调用点值→键零看守、行统计 6 处各算且已量到两处真漂移。
+- [ ] G-G-390 **W4-W7 四波覆盖票（每波一票，交付判据见上）** —— 派单前先看登记表 `remaining` 名单，勿凭记忆切范围。
