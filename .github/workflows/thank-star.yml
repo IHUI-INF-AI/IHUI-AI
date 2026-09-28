@@ -7,9 +7,15 @@ name: Thank New Stargazers
 on:
   watch:
     types: [started]
+  # 2026-09-28 新增:定时清理过期感谢帖(每 6 小时;判据见 auto-close-stale)。
+  # 立因:开放 issue 中感谢帖+机器人帖占比 72%,真实反馈被列表淹没。
+  # 感谢保留(互动不砍),但 48 小时无人回复自动关闭,有人回复则长期保留。
+  schedule:
+    - cron: '17 */6 * * *'
 
 jobs:
   thank:
+    if: github.event_name == 'watch'
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -87,5 +93,76 @@ jobs:
                 description: '自动感谢 Star 用户'
               });
             }
+
+  auto-close-stale:
+    # 感谢帖自动归档:创建满 48 小时且无真人回复 ⇒ 留言后关闭;有真人回复 ⇒ 保留(真实互动)。
+    # 判据只认非 Bot 评论(github-actions 自己的关闭留言 type==='Bot',不会阻止后续轮次)。
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Close stale thank-you issues
+        uses: actions/github-script@v7
+        env:
+          STALE_HOURS: '48'
+        with:
+          script: |
+            const staleMs = Number(process.env.STALE_HOURS || '48') * 3600 * 1000;
+            const { owner, repo } = context.repo;
+            const now = Date.now();
+            let closed = 0;
+            let kept = 0;
+            for (let page = 1; page <= 10; page++) {
+              const { data: issues } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                labels: ['thank-you'],
+                state: 'open',
+                per_page: 100,
+                page,
+              });
+              if (issues.length === 0) break;
+              for (const issue of issues) {
+                if (issue.pull_request) continue;
+                if (now - new Date(issue.created_at).getTime() < staleMs) {
+                  kept++;
+                  continue;
+                }
+                const { data: comments } = await github.rest.issues.listComments({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  per_page: 100,
+                });
+                const human = comments.filter((c) => c.user && c.user.type !== 'Bot');
+                if (human.length > 0) {
+                  kept++;
+                  console.log(`#${issue.number} 有真人回复,保留不关`);
+                  continue;
+                }
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  body:
+                    '本感谢帖已按自动归档策略关闭(创建满 48 小时且无人回复)。\n\n' +
+                    '感谢你的 Star ⭐ 有任何问题或建议,欢迎随时开新 issue,或到 [Discussions](https://github.com/' +
+                    owner +
+                    '/' +
+                    repo +
+                    '/discussions) 交流。',
+                });
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  state: 'closed',
+                  state_reason: 'completed',
+                });
+                closed++;
+              }
+            }
+            console.log(`auto-close-stale: closed=${closed} kept=${kept}`);
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
