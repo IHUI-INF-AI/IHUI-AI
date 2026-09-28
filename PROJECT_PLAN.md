@@ -13172,6 +13172,21 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
     全量回归:`packages/api-client` 30 文件 270 例全绿、`tsc --noEmit` 0 错误、eslint 干净;
     `client.ts` 里 prettier 不满意的 453-459 行是 **HEAD 既有形态**(本枚 diff 只有 +16 行且 prettier 满意),
     走对象空间落地因此没有连带别人的格式改动。
+  - **上一条只修了一条腿,这条把同一条病修全(提交见 `packages/api-client` 那枚)**:
+    `tool-result` / `approval-response` / `form-response` 三条直连 ai-service 的上行应答通道,
+    对端点侧"会话不存在/条目不存在/待决项不存在"回的都是 HTTP 200 + `{ok:false}`
+    (三个 handler 的头两个 return + `_form_settle_rejected`,逐字核过 HEAD),而三条腿原先都只看
+    `resp.ok` ⇒ 全部读成"已送达":工具协程等满 60s、审批协程等满 120s、表单卡停在"已批准"假象。
+    判据收成一份 `assertAiServiceAccepted`,三条腿共用(两份实现必漂移是本仓记过最多次的失败型)。
+    **同族的另一半一起修**:`streamChat` 里包着 delegate 回调的那个空 `catch {}` 会把
+    `postToolResult` 的抛出整个咽掉 —— 2026-08-06 那句"失败抛错让调用方重试"从来没有出口,
+    回传失败与"这一行不是 tool-delegate 帧"在账面上完全同形。现在用 `invoked` 旗分开:
+    非本帧仍静默(不产新噪音),回调已起跑后再抛 ⇒ 喊一行可定位诊断且不中断读流。
+    新测试 `ai-service-upstream-acceptance.test.ts` 16 例 = 三条腿 × 四种回包 + 两条"只允许一份实现"
+    的锁(抛出点恰好 1 处、0 命中不记绿;三条腿各自必须真出现该出口调用)+ 两条**成对**的诊断用例
+    (被拒 ⇒ 恰喊一次 / 非本帧 ⇒ 一次都不许喊)。变异自证:摘掉 `postFormResponse` 那条调用并把诊断条件
+    短路 ⇒ 恰 4 条翻红、其余 12 条绿;还原后整包 286 例全绿(上一枚时 270)。
+    相邻事实:web 表单上行本来就有 try/catch 并"据异常改判 failed",本枚让那条 catch **第一次真的会触发**。
   - **顺带登记两条不在本票射程的 ruff 命中**(在 HEAD 副本上复跑同两条仍成立 ⇒ 归属该处持有者,不代改):
     ① `llm.py` 的 D120 轮次预算续跑判据读 `tool_exec_tracker`,而它的声明在同一函数的**后续语句**上 ——
     该支有"非首轮"前置,正常路径读得到上一轮值;若某轮在声明之前就退出而轮次已自增,下一轮会撞
