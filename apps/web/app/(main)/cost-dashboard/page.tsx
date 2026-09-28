@@ -131,7 +131,7 @@ export default function CostDashboardPage() {
             <button
               key={g}
               onClick={() => setGranularity(g)}
-              className={`rounded-lg border px-3 py-1 text-sm transition ${
+              className={`rounded-sm border px-3 py-1 text-sm transition ${
                 granularity === g
                   ? 'border-primary/40 bg-primary/10 text-primary'
                   : 'hover:bg-muted'
