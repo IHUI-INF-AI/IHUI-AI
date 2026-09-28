@@ -301,6 +301,166 @@ def carry_identity_keys(current: dict[str, Any], proposed: dict[str, Any]) -> di
     return result
 
 
+# ---------------------------------------------------------------------------
+# D152(2026-09-29 立,用户拍板「服务化,但存会话元数据、不建新表」):
+# 会话内「目标(goal)」的服务侧主副本 —— 第三条通道,与上面两条都**不相交**
+# ---------------------------------------------------------------------------
+#
+# 为什么单开一组,而不是并进 IDENTITY_METADATA_KEYS 或 ENGINE_OWNED_METADATA_KEYS:
+#   · 身份键的真值来自「承载层绑定的已验证主体」,配置段的真值来自「线程当前生效的
+#     配置」,而 goalState 的真值来自 **POST /llm/sessions/{session_id}/goal 这一条
+#     服务端专有写入口**(set/pause/resume/clear)。三种判序不同,混用就是本仓反复
+#     记过的「两处算同一件事必漂移」。
+#   · 引擎自己已有一个 `goal` 字符串键(`_engine_config_of` 注入 system 用),那是
+#     **提示词载荷**不是**状态机**;这里落的是 `goalState`(带 status 的对象),
+#     两个键名刻意不同,免得一次系统提示注入顺带把状态机改了。
+#   · 零迁移:它就是一个 metadata 键,不新增列、不建新表(拍板口径)。
+GOAL_METADATA_KEYS: tuple[str, ...] = ("goalState",)
+
+# goal 状态六档(2026-09-29 拍板:在现存四态上并入 usageLimited/budgetLimited)。
+# ⚠️ 这是**第三个域**:与 packages/types/src/agent-runtime.ts 的 AGENT_TASK_STATUSES
+#    (Kanban 六档)与 WORKSPACE_AGENT_TASK_STATUSES **不得并集**,同名值
+#    (blocked/done)属同词不同义 —— 守门 check-agent-status-vocabulary-parity 判的
+#    是前两个域的等值与本域的「不得被并进去」,加档必须同枚补齐五语言词表(AGENTS §30)。
+GOAL_STATUSES: tuple[str, ...] = (
+    "active",
+    "paused",
+    "blocked",
+    "done",
+    "usageLimited",
+    "budgetLimited",
+)
+
+
+def scrub_goal_keys(metadata: dict[str, Any]) -> dict[str, Any]:
+    """创建时剥掉调用方自带的 goalState(返回新 dict,不改入参)。
+
+    与 `scrub_identity_keys` 同一条理由:`POST /sessions/threads` 的 body.metadata
+    是客户端可整写的字段,若允许自带 goalState,就等于把「这台浏览器声称的目标状态」
+    写成服务端主副本 —— 换浏览器即分叉,正是本票要修的那一型。
+    """
+    return {k: v for k, v in metadata.items() if k not in GOAL_METADATA_KEYS}
+
+
+def carry_goal_keys(current: dict[str, Any], proposed: dict[str, Any]) -> dict[str, Any]:
+    """让 goalState 以 `current`(已落库的那份)为准盖回 `proposed`。
+
+    判序与 `carry_identity_keys` 逐字同形:current 没有该键 ⇒ 从结果里**删掉**,
+    而不是留下调用方写的新值。合法写口是 `set_thread_goal_state`(它直接写 metadata,
+    不经本函数),所以客户端任何一次 `thread/metadata` 整写(merge=False)都既抹不掉
+    也改不动服务端那份。
+    """
+    result = dict(proposed)
+    for key in GOAL_METADATA_KEYS:
+        if key in current:
+            result[key] = current[key]
+        else:
+            result.pop(key, None)
+    return result
+
+
+def normalize_goal_state(raw: Any) -> dict[str, Any] | None:
+    """把 goalState 收窄成受管形状;形状不对一律返回 None(不猜、不静默补默认)。"""
+    if not isinstance(raw, dict):
+        return None
+    status = raw.get("status")
+    if not isinstance(status, str) or status not in GOAL_STATUSES:
+        return None
+    objective = raw.get("objective")
+    state: dict[str, Any] = {
+        "status": status,
+        "objective": objective if isinstance(objective, str) else "",
+    }
+    for num_key in ("elapsedMs", "tokenUsage"):
+        value = raw.get(num_key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int) and value >= 0:
+            state[num_key] = value
+    updated_at = raw.get("updatedAt")
+    if isinstance(updated_at, (int, float)) and not isinstance(updated_at, bool):
+        state["updatedAt"] = float(updated_at)
+    return state
+
+
+# ---------------------------------------------------------------------------
+# 引擎 owns 的配置段:由引擎写入、客户端不得经 `thread/metadata` 整写冲掉
+# (2026-09-27 G-255)
+# ---------------------------------------------------------------------------
+#
+# 为什么身份键之外还要这一份清单:`thread.start` 落库时把**线程当前生效的配置**
+# (模型 / 权限档 / 迭代上限 / 工具集 / 工作区 / 审批策略 / token 预算 / 自动压缩 /
+# 系统提示……)整体写进 `threads.metadata`,注释就写着"供重启恢复还原"。而
+# `agent_engine._handle_thread_metadata` 无论 merge 与否,落库那一趟走的都是
+# `update_thread_metadata(..., merge=False)` —— 于是客户端一次只带业务键的 metadata
+# 写入,就会把库里这十几个配置键整行替换掉。内存侧那时还是空 dict(引擎的配置住在
+# `EngineThread` 字段上,不住在 `thread.metadata` 里),所以进程内一切正常,只有**重启
+# 恢复**时才现形:恢复侧按缺省还原(`model` → None、`permissionMode` → 校验失败、
+# `maxIterations` → 8……),表现为"线程的配置在重启后悄悄换了一套",而任何一次调用
+# 的响应体都看不见这一格。身份那三条(批 60)只盖住 `userId`/`roleId`,所以这一型
+# 当时仍然无人看守。
+#
+# 清单内容不是手抄直觉,而是从**写侧实际写了什么**推导:`agent_engine.
+# AgentEngine._engine_config_of` 逐键给出线程当前生效值,`_persist_thread_created`
+# 写库的就是它的产物;那个方法在构造完字典后与本清单做双向对账(缺一个键或多一个键
+# 即抛),所以清单与实际写入永不漂开 —— 两处各记一份"哪些键算引擎的"正是本仓反复
+# 记过的失效型。
+#
+# 与 `IDENTITY_METADATA_KEYS` 是两条独立通道、键集刻意不相交:身份键的真值来自
+# "承载层绑定的已验证主体",配置段的真值来自"线程当前生效的配置",两者判序不同
+# (见 `carry_identity_keys` / `carry_engine_owned_keys` 的 docstring)。
+# **不得**把配置名塞进 `IDENTITY_METADATA_KEYS` —— 那条通道会把"引擎刚改的档位"和
+# "库里那行旧值"混成一件事。
+ENGINE_OWNED_METADATA_KEYS: tuple[str, ...] = (
+    "sessionId",
+    "model",
+    "permissionMode",
+    "maxIterations",
+    "toolNames",
+    "workspace",
+    "conversationId",
+    "approvalPolicies",
+    "modelParams",
+    "reasoning",
+    "denyTools",
+    "tokenBudget",
+    "goal",
+    "outputSchema",
+    "autoCompact",
+    "autoCompactThreshold",
+    "role",
+    "systemPromptSource",
+    "systemPrompt",
+)
+
+
+def carry_engine_owned_keys(
+    provided: dict[str, Any], proposed: dict[str, Any]
+) -> dict[str, Any]:
+    """让引擎 owns 的配置段以 `provided`(引擎当场给出的生效值)盖回 `proposed`。
+
+    守的位置是 **RPC 处理器** `agent_engine._handle_thread_metadata`(客户端 metadata
+    的唯一入口),真值取**线程当前生效的配置**,而**不是库里那一行的旧值**。理由是要紧
+    的一条:合法写者与客户端整写走的是**同一个** `update_thread_metadata(merge=False)`
+    出口 —— `thread.settings` 先改档位(写 `EngineThread` 字段)、随后一次 metadata
+    整写,若在 store 咽喉点按"库里那行为准"回灌,就会把**刚改的档位**回滚成改之前的
+    旧值(实测这条正向对照见 tests/test_thread_metadata_config_segment.py)。取"线程
+    当前值"则两种结果同时成立:整写冲不掉配置段,也冲不掉刚生效的新配置。
+
+    `provided` 里没有某键 ⇒ 从结果里**删掉**该键,而不是留下调用方写的新值 —— 与
+    `carry_identity_keys` 同一条判序:引擎不再产出该配置项时,客户端不得替它占位。
+    业务键(清单之外)一律照原样保留,所以"整写"仍然能整体替换业务段 —— 本函数收的
+    是配置段被连带抹掉,不是把 metadata 冻成只读。
+    """
+    result = dict(proposed)
+    for key in ENGINE_OWNED_METADATA_KEYS:
+        if key in provided:
+            result[key] = provided[key]
+        else:
+            result.pop(key, None)
+    return result
+
+
 def owner_scoped_allows(principal: str | None, owner: str | None) -> bool:
     """**只读/销毁面**的严格属主判据:带身份时要求逐字相等(批 61 / G-250)。
 
@@ -744,7 +904,7 @@ class SessionStore:
 
         tid = thread_id or uuid.uuid4().hex
         now = _now()
-        stored = scrub_identity_keys(dict(metadata or {}))
+        stored = scrub_goal_keys(scrub_identity_keys(dict(metadata or {})))
         if user_id:
             stored["userId"] = user_id
         if role_id:
@@ -822,6 +982,69 @@ class SessionStore:
             )
             return cur.rowcount > 0
 
+    def set_thread_goal_state(
+        self, thread_id: str, state: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        """D152(2026-09-29 立):写 / 清 服务端那份 goal 主副本。
+
+        这是 `goalState` 的**唯一合法写入口**,刻意不经 `update_thread_metadata`
+        —— 那个咽喉点对 goalState 做的是「以库内那份为准盖回」(见
+        `carry_goal_keys`),若本方法也走它,自己的写就会被自己的守卫挡掉。
+        直写 metadata 的读-改-写在同一把锁 + 同一个事务里完成,只碰 `goalState`
+        这一个键,其余键逐字不动(所以它不会顺带冲掉身份键或配置段)。
+
+        Args:
+            state: 已收窄的 goal 状态对象;None = 清除(clear 动作)。
+
+        Returns:
+            更新后的完整 metadata;线程不存在返回 None(调用方据此回"没这条会话")。
+        """
+        with self._lock, self._tx() as conn:
+            row = conn.execute(
+                "SELECT metadata FROM threads WHERE thread_id = ?", (thread_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            current = _json_dict(_row_str(row, "metadata"))
+            new_meta = dict(current)
+            if state is None:
+                new_meta.pop("goalState", None)
+            else:
+                new_meta["goalState"] = state
+            conn.execute(
+                "UPDATE threads SET metadata = ?, updated_at = ? WHERE thread_id = ?",
+                (json.dumps(new_meta, ensure_ascii=False), _now(), thread_id),
+            )
+        return new_meta
+
+    def get_thread_goal_state(self, thread_id: str) -> dict[str, Any] | None:
+        """读服务端那份 goal 主副本(形状不对 ⇒ None,不猜)。"""
+        thread = self.get_thread(thread_id)
+        if thread is None:
+            return None
+        return normalize_goal_state(thread.metadata.get("goalState"))
+
+    def resolve_thread_id_for_conversation(self, conversation_id: str) -> str | None:
+        """按 conversationId 找它的引擎线程 id(2026-09-29 D152)。
+
+        为什么需要这一层:客户端知道的是**会话(conversationId)**,而 goal 主副本
+        落在 threads.metadata 上,键是 thread_id;`ENGINE_OWNED_METADATA_KEYS` 里
+        正是引擎把 conversationId 写进了自己的 metadata(`_engine_config_of`)。
+        用 json_extract 定位,零新表零迁移;命中多行时取**最近一次更新**的那一行
+        (同一会话重开/续跑会派生新线程,当前目标必然挂在最新那份上)。
+        找不到返回 None —— 调用方必须回"没有这条会话"的同形包,不得据此区分归属。
+        """
+        if not conversation_id:
+            return None
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT thread_id FROM threads"
+                " WHERE json_extract(metadata, '$.conversationId') = ?"
+                " ORDER BY updated_at DESC LIMIT 1",
+                (conversation_id,),
+            ).fetchone()
+        return _row_str(row, "thread_id") if row is not None else None
+
     def update_thread_metadata(
         self,
         thread_id: str,
@@ -857,7 +1080,7 @@ class SessionStore:
             merged = (
                 self._deep_merge_metadata(current, patch) if merge else dict(patch)
             )
-            new_meta = carry_identity_keys(current, merged)
+            new_meta = carry_goal_keys(current, carry_identity_keys(current, merged))
             conn.execute(
                 "UPDATE threads SET metadata = ?, updated_at = ? WHERE thread_id = ?",
                 (json.dumps(new_meta, ensure_ascii=False), _now(), thread_id),

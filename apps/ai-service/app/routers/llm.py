@@ -2902,6 +2902,40 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 str((req.metadata or {}).get("conversationId") or ""),
                 session_id,
             )
+        # D152(2026-09-29 立):goal 主副本的**流内推送口**。按 conversationId 注册
+        # (不是 streamSessionId —— REST 写入口拿的是会话 id,同一会话的多条流都要收到),
+        # 与 _steer_sessions 同一生命周期、在同一个 finally 里摘除。
+        from ..services.agent_events import (
+            drain_goal_updates as _drain_goal_updates,
+            register_goal_listener as _register_goal_listener,
+            unregister_goal_listener as _unregister_goal_listener,
+        )
+
+        _goal_conversation_id = str((req.metadata or {}).get("conversationId") or "")
+        _goal_queue = _register_goal_listener(_goal_conversation_id)
+        # 流首带出当前目标:新接入的端不必等下一次 set 就能看到"这个会话正在追什么"。
+        # 取不到(会话无引擎线程行 / 无 goal / 主副本坏了)一律静默跳过 —— 一帧都没有
+        # 是本来的形状,不得为这一格把整条流改判成 error。
+        try:
+            if _goal_conversation_id:
+                from ..routers.sessions import get_session_store as _get_session_store
+
+                _goal_store = _get_session_store()
+                _goal_thread_id = _goal_store.resolve_thread_id_for_conversation(_goal_conversation_id)
+                _goal_state = _goal_store.get_thread_goal_state(_goal_thread_id or "")
+                if _goal_state:
+                    yield _sse(
+                        "goal_updated",
+                        {
+                            "type": "goal_updated",
+                            "sessionId": _goal_conversation_id,
+                            "status": _goal_state["status"],
+                            "objective": _goal_state.get("objective", ""),
+                            "updatedAt": _goal_state.get("updatedAt"),
+                        },
+                    )
+        except Exception as _goal_seed_err:
+            logger.info("goal 流首帧取不到(已忽略): %s", _goal_seed_err)
         # 2026-08-31 原生 function calling:标记服务端 agent tool loop 是否执行。
         # 执行过则 messages 已归一化且工具循环结束,generic astream 不再带 tools;
         # 未执行(generic 路径)则透传请求体的 tools/tool_choice 给 astream。
@@ -3009,6 +3043,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         # 把流期间用户提交的引导消息注入 messages 尾部(上一轮工具结果之后,
                         # OpenAI 协议合法:user 可跟在 tool 结果后),不打断当前工具执行;
                         # 每条发一帧 event: steer(phase=injected) 通知前端换 badge。
+                        # ===== D152:goal 主副本变更注入点(每轮 drain 一次,与 steer 同位)=====
+                        # 别的端在同一个会话上 /goal 了什么,这一轮就上一屏 —— 票面验收①
+                        # 要的是"不刷新即见",所以必须在流里发帧,不能只在流首带一次。
+                        for _goal_payload in _drain_goal_updates(_goal_queue):
+                            _goal_evt: dict[str, Any] = {
+                                "type": "goal_updated",
+                                "sessionId": _goal_payload.get("sessionId") or _goal_conversation_id,
+                                "status": _goal_payload.get("status"),
+                            }
+                            for _goal_key in ("objective", "elapsedMs", "tokenUsage", "updatedAt"):
+                                if _goal_payload.get(_goal_key) is not None:
+                                    _goal_evt[_goal_key] = _goal_payload[_goal_key]
+                            yield _sse("goal_updated", _goal_evt)
                         if session_id and _steer_sessions.get(session_id):
                             _drained_steers = _steer_sessions[session_id]
                             _steer_sessions[session_id] = []
@@ -4836,6 +4883,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 两件事必须拆开:会话桶删在这里删就等于把「本会话总是允许」又降回「本轮」,
             # 而内存上界改由 `_GRANT_TTL_SECONDS` + `_GRANT_MAX_BUCKETS` 兜(见 `_grant_evict`)。
             _grant_drop_if_turn_scoped(_grants_bucket())
+            # D152:摘掉本流的 goal 监听(与上面三个注册表同一收尾)。不摘就会留着
+            # 一个没人 await 的队列,后续 publish 只会把帧堆进内存直到满。
+            _unregister_goal_listener(_goal_conversation_id, _goal_queue)
             # D1(2026-09-19 立):流收尾处发出消息级 usage 计量帧(event: usage)。
             # 覆盖所有收尾路径(正常 done / 异常 error / 客户端断开),确保每条回复结束都能拿到
             # 本条消息的 token 用量与耗时。独立 try:计量帧失败/生成器关闭绝不影响主链路。
@@ -5114,6 +5164,133 @@ async def post_terminal_input(
         )
         return {"ok": False, "error": "terminal input request not found"}
     return {"ok": True, "accepted": True, "terminalId": terminal_id}
+
+
+@router.post("/llm/sessions/{session_id}/goal", response_model=None)
+async def post_session_goal(
+    request: Request,
+    session_id: str,
+    body: dict[str, Any] = Body(...),
+) -> dict[str, Any]:
+    """D152(2026-09-29 立,用户拍板「服务化,但存会话元数据、不建新表」):
+    把一个会话的「当前目标 + 状态」写进**服务端主副本**。
+
+    一个端点带 `action`(set / pause / resume / clear),不拆四条路由 —— 四种动作改的是
+    同一个键、走同一条归属判定,拆四条就会有人只接三条(AGENTS §4「一条门只管自己立项
+    那一型」的同族风险)。上行 body 是 **snake_case**(`elapsed_ms` / `token_usage`),
+    与同通道的 form-response、terminal-input 同族;**下行** `goal_updated` 帧是 camelCase。
+
+    三条不可漂的写法(AGENTS §5「认证不等于授权」):
+      1. principal **只取令牌主体**(`_resolve_owner_uuid` 读 request.state.user_id,
+         由 JWT 中间件注入),body 里自报的 userId **一律不读** —— 读了就是"可认领
+         他人会话"的入口;
+      2. "没这条会话"与"不是你的"**同形回包**(HTTP 200 + accepted:false),端点因此
+         不可能被当成存在性预言机;两种情形**都不写库、都不发帧**;
+      3. 未鉴权通道(caller_uid 为 None)对**写面**一律拒绝:这与 `_principal_allows`
+         对内存线程放宽的方向不同 —— 那是"已经建在内存里、无人可证明身份的线程要不要
+         继续跑",而这里是"能不能替这个会话改状态",没有 dev 回退可言。
+
+    存储落点:`threads.metadata.goalState`(唯一写口
+    `session_store.set_thread_goal_state`)。`thread/metadata` 的整写(merge=False)
+    既抹不掉也改不动它 —— 守卫在 `carry_goal_keys`,由 `update_thread_metadata` 咽喉点
+    施加,判序与身份键同形。
+
+    回退口径(票第 8 栏):`accepted:false` 时调用方**退回纯本地态**(web stores/goal
+    仍是缓存,功能不中断),不得弹"设置失败"。
+    """
+    from ..routers.sessions import get_session_store
+    from ..services.agent_events import SSE_GOAL_UPDATED, publish_goal_update
+    from ..services.session_store import (
+        GOAL_STATUSES,
+        normalize_goal_state,
+        owner_scoped_allows,
+        thread_owner,
+    )
+
+    def _rejected() -> dict[str, Any]:
+        # 不带任何"为什么被拒"的差异字段 —— 差异本身就是可枚举的信息。
+        return {"ok": False, "accepted": False, "sessionId": session_id}
+
+    action = str(body.get("action") or "").strip().lower()
+    if action not in ("set", "pause", "resume", "clear"):
+        # 形状不对也不告诉调用方差在哪一位:与 not-found 同形。
+        return _rejected()
+
+    caller_uid = _resolve_owner_uuid(request)
+    if caller_uid is None:
+        return _rejected()
+
+    store = get_session_store()
+    thread_id = store.resolve_thread_id_for_conversation(session_id)
+    if not thread_id:
+        return _rejected()
+    thread = store.get_thread(thread_id)
+    if thread is None or not owner_scoped_allows(caller_uid, thread_owner(thread)):
+        if thread is not None:
+            # 别人的会话:**不写库、不发帧**,只留一行服务端日志(不给调用方任何差异)。
+            logger.warning(
+                "goal 越权尝试(session=%s, caller=%s)已拒绝:未写入、未广播",
+                session_id,
+                caller_uid,
+            )
+        return _rejected()
+
+    existing = store.get_thread_goal_state(thread_id) or {}
+    now = time.time()
+    if action == "clear":
+        new_state = None
+        status = "cleared"
+    else:
+        objective = body.get("objective")
+        status = {"set": "active", "pause": "paused", "resume": "active"}[action]
+        candidate: dict[str, Any] = {
+            "status": status,
+            # set 带新文本;pause/resume 保留既有 objective(状态变了但目标没换)
+            "objective": (
+                str(objective)[:2000].strip()
+                if isinstance(objective, str) and objective.strip()
+                else str(existing.get("objective") or "")
+            ),
+            "updatedAt": now,
+        }
+        for src_key, dst_key in (("elapsed_ms", "elapsedMs"), ("token_usage", "tokenUsage")):
+            value = body.get(src_key)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                value = existing.get(dst_key)
+            if isinstance(value, int):
+                candidate[dst_key] = value
+        new_state = normalize_goal_state(candidate)
+        if new_state is None or not new_state["objective"]:
+            # set 却没目标文本 / 状态不在六档内:同形拒绝,且不写库。
+            return _rejected()
+        if not new_state["objective"] and status != "active":
+            return _rejected()
+        assert status in GOAL_STATUSES
+
+    if store.set_thread_goal_state(thread_id, new_state) is None:
+        return _rejected()
+
+    payload: dict[str, Any] = {
+        "type": SSE_GOAL_UPDATED,
+        "sessionId": session_id,
+        "status": status,
+    }
+    if new_state is not None:
+        payload["objective"] = new_state.get("objective", "")
+        payload["updatedAt"] = new_state.get("updatedAt", now)
+        for _k in ("elapsedMs", "tokenUsage"):
+            if new_state.get(_k) is not None:
+                payload[_k] = new_state[_k]
+    # 推进该会话当前所有活跃流(别的端**不刷新**即见)。返回 0 不是失败:主副本已落库,
+    # 下一次流首会带出当前目标 —— 所以刻意不因 0 投递而改判 accepted。
+    publish_goal_update(session_id, payload)
+    return {
+        "ok": True,
+        "accepted": True,
+        "status": status,
+        "sessionId": session_id,
+        "threadId": thread_id,
+    }
 
 
 @router.post("/llm/complete/stream/{session_id}/steer", response_model=None)
