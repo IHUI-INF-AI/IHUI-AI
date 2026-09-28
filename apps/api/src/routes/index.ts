@@ -501,6 +501,8 @@ import mobileStatsRoutes from './admin/mobile-stats.js'
 import { openCapabilityGateway } from '../utils/open-capability-gate.js'
 // 86A2(2026-09-28 立):CLI 工具证据流水摄入路由 POST /api/cli/audit/tool-invokes
 import { cliToolInvokeAuditRoutes } from './cli-tool-invoke-audit.js'
+// 86H(2026-09-28 立):CLI agent 审批决策摄入路由 POST /api/cli/audit/tool-approvals
+import { cliToolApprovalAuditRoutes } from './cli-tool-approval-audit.js'
 
 export function registerRoutes(server: FastifyInstance) {
   // O6(2026-09-21)`/api` 面机器凭据入口闸:仅放行 config/open-capability-registry.ts
@@ -1030,6 +1032,11 @@ export function registerRoutes(server: FastifyInstance) {
   // TOOL_LEDGER_AUDIT_INGEST_PATH('/api/cli/audit/tool-invokes');测试自 mount 路由,既有教训:
   // 路由测试绿从不覆盖"注册过"——这一行缺失时 CLI 上报 404、typecheck/lint/单测全绿。
   server.register(cliToolInvokeAuditRoutes, { prefix: '/api/cli' })
+
+  // 86H(2026-09-28 立):CLI agent 审批决策摄入。路径必须逐字等于 CLI 侧
+  // TOOL_APPROVAL_AUDIT_INGEST_PATH('/api/cli/audit/tool-approvals');教训同上——
+  // 测试自 mount 路由从不覆盖"注册过",这一行缺失时 CLI 上报 404 而全链绿。
+  server.register(cliToolApprovalAuditRoutes, { prefix: '/api/cli' })
 
   // ===== P3-2 补建：Telemetry 极简上报端点（/api/v1/telemetry/*）=====
   server.register(telemetryRoutes, { prefix: '/api' })
