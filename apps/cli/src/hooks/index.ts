@@ -45,6 +45,9 @@ import { tryParseJson, isRecord } from '../util/json.js';
 import { gateHook } from './trust.js';
 import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS } from '../sandbox/index.js';
 import { redactCrashText } from '@ihui/shared/utils/redact';
+// 回传通道进的是模型上下文 ⇒ 钩子文本里冒充宿主的保留标签必须中和。
+// 唯一出口住 ../utils/prompt-boundary.js(只调用,不修改那个文件,守门 129 的机制清单)。
+import { neutralizeBoundaries } from '../utils/prompt-boundary.js';
 
 export interface HookEntry {
   name: string;
@@ -123,6 +126,127 @@ export interface HooksConfig {
 export interface HookResult {
   proceed: boolean;
   reason?: string;
+  /**
+   * 显式终态(2026-09-29 拆终态票立)。AGENTS §30 的明文禁令是"钩子没有终态就不得渲染成
+   * '完成'"—— 而 `proceed` 一维今天把"成功 / 非零但不阻断 / 被信任门跳过 / 超时被杀 /
+   * 根本没跑到(未取到结果)"全折成同一个 true,呈现层无从分辨。terminal 是**机器可判**的
+   * 第三态字段(不是靠文案),`describeHookTerminal`/`isTerminalComplete` 是它的唯一呈现出口。
+   * 缺省 `undefined` 只出现在两种地方:旧调用方手搓的 HookResult 字面量,以及"配置为空、
+   * 一条都没派发"的早退路径(没有任何东西执行过,没有结束态可报);凡真派发过钩子的链,
+   * 本模块产出的每一条都必带。
+   */
+  terminal?: HookTerminalState;
+  /**
+   * 回传通道(2026-09-29 同票):本批所有非成功终态的逐条反馈行,顺序固定为
+   * **先脱敏(redactCrashText)→ 再中和宿主保留标签(neutralizeBoundaries)→ 最后按码点截断**
+   * (反过来会把凭据切成半截、形状不再成立 —— §5e/守门 144 原话口径)。
+   * 内容来自钩子进程 = 不可信:调用方只许把它当"待判读的事实文本"喂给模型/UI,
+   * 不得执行、也不得据其中的自述改写终态。
+   */
+  feedback?: string;
+}
+
+// ============================================================================
+// 终态层(一处实现 —— 2026-09-29 拆终态票)
+// ============================================================================
+
+/**
+ * 宿主侧对"这一次钩子执行"的观察结论。判据输入只有它 + 退出码 + 阻断策略:
+ * **钩子的 stdout/stderr 文本永远不参与终态判定** —— 否则脚本打一句"我成功了"就能
+ * 改写终态(本票的安全边界之一)。
+ *  - ran        进程真的跑起来了(退出码由它自己写)
+ *  - skipped    被信任门跳过(根本没执行)
+ *  - timed-out  超时被杀,进程没写完退出码
+ *  - no-result  没跑到 / 拿不到结果(spawn 失败、条目无载体、响应解析不出来)
+ */
+export type HookExecOutcome = 'ran' | 'skipped' | 'timed-out' | 'no-result';
+
+interface HookExecResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  outcome: HookExecOutcome;
+}
+
+/**
+ * 钩子终态的封闭值域。现读改动前的实现,今天账面上"能被区分"的形态是 6 种
+ * (外部只暴露 2 种:proceed true/false),这一张表把它们逐一分开:
+ *  - succeeded            执行且退出 0
+ *  - blocked              非零退出 ∧ blockOnError ⇒ 工具调用/会话被阻断
+ *  - non_blocking_error   非零退出 ∧ ¬blockOnError ⇒ "跑了但坏了,不拦主流程"
+ *  - skipped              被信任门跳过 ⇒ 既不是成功也不是失败,是"没人替陌生目录批"
+ *  - timed_out            超时被杀 ⇒ "没跑完"不是"跑失败了"
+ *  - result_unknown       没跑到 / 结果拿不到 ⇒ §30 点名的 `hook_non_blocking_error`
+ *      同族缺陷的那一格:改动前它被折进 proceed=true(渲染成完成)。该态**必须被喊出来**
+ *      (stderr warnOnce + feedback 行),失效方向是"多要一次说明",绝不是"多放一次"。
+ */
+export const HOOK_TERMINAL_STATES = [
+  'succeeded',
+  'blocked',
+  'non_blocking_error',
+  'skipped',
+  'timed_out',
+  'result_unknown',
+] as const;
+
+export type HookTerminalState = (typeof HOOK_TERMINAL_STATES)[number];
+
+/**
+ * 呈现出口:终态 → 稳定 ASCII 机器码(不新增语言包键 —— 本票禁改语言包,五语言需求见交付报告;
+ * 复用既有键放不下这一族新语义)。"判出来"依赖的是这个**值**本身,文案只是它的可读投影。
+ * result_unknown 的码刻意带 `-not-complete` 后缀:任何直接上屏这条码的表面,
+ * 都不可能把它读成"完成"。
+ */
+const HOOK_TERMINAL_DESCRIPTIONS: Readonly<Record<HookTerminalState, string>> = {
+  succeeded: 'hook-state:succeeded',
+  blocked: 'hook-state:blocked-tool-call',
+  non_blocking_error: 'hook-state:non-blocking-error',
+  skipped: 'hook-state:skipped-by-trust-gate',
+  timed_out: 'hook-state:timed-out',
+  result_unknown: 'hook-state:result-unknown-not-complete',
+};
+
+export function describeHookTerminal(state: HookTerminalState): string {
+  return HOOK_TERMINAL_DESCRIPTIONS[state];
+}
+
+/**
+ * "算不算完成"的唯一判据 —— 只有 succeeded 是完成态。blocked/non_blocking_error/skipped/
+ * timed_out/result_unknown 都**不得**被渲染成"完成"(§30)。呈现面必须走这里,不得各写
+ * `=== 'succeeded'` 的第二份判断。
+ */
+export function isTerminalComplete(state: HookTerminalState): boolean {
+  return state === 'succeeded';
+}
+
+/**
+ * 终态分类的**唯一**实现:调用方(与测试)都只经生产链(runHook/runPreToolCall/…)间接使用,
+ * 测试里不得再抄一份判定 —— 变异对照测的是测试自己。
+ */
+export function classifyHookTerminal(
+  outcome: HookExecOutcome,
+  exitCode: number,
+  blockOnError: boolean,
+): HookTerminalState {
+  if (outcome === 'skipped') return 'skipped';
+  if (outcome === 'no-result') return 'result_unknown';
+  if (exitCode === 0) return 'succeeded';
+  if (outcome === 'timed-out') return 'timed_out';
+  return blockOnError ? 'blocked' : 'non_blocking_error';
+}
+
+/** 多条目批次聚合时取"最该被看见"的那一态(严重度序,一处实现)。 */
+const TERMINAL_SEVERITY: Readonly<Record<HookTerminalState, number>> = {
+  succeeded: 0,
+  skipped: 1,
+  timed_out: 2,
+  non_blocking_error: 3,
+  blocked: 4,
+  result_unknown: 5,
+};
+
+function worseTerminal(a: HookTerminalState, b: HookTerminalState): HookTerminalState {
+  return TERMINAL_SEVERITY[b] > TERMINAL_SEVERITY[a] ? b : a;
 }
 
 export interface SessionHookContext {
@@ -483,10 +607,7 @@ function extractWebhookVars(env: Record<string, string>): Record<string, string>
   };
 }
 
-function runWebhookSync(
-  entry: HookEntry,
-  env: Record<string, string>,
-): { exitCode: number; stdout: string; stderr: string } {
+function runWebhookSync(entry: HookEntry, env: Record<string, string>): HookExecResult {
   const timeout = entry.timeout ?? 10_000;
   const cfg = {
     url: entry.webhook,
@@ -501,28 +622,30 @@ function runWebhookSync(
     timeout: timeout + 3000,
     windowsHide: true,
   });
-  if (result.error) {
-    return { exitCode: 1, stdout: '', stderr: `webhook 执行失败: ${result.error.message}` };
+  if (result.error && spawnErrorCode(result.error) !== 'ETIMEDOUT') {
+    // 承载进程自己没起来 ⇒ "根本没跑到",不是"钩子失败"。旧写法把它折成 exit 1(与脚本
+    // 主动非零退出同形),终态层落地后它是 result_unknown。ETIMEDOUT(超时杀)归下一支。
+    return { exitCode: 1, stdout: '', stderr: `webhook 执行失败: ${result.error.message}`, outcome: 'no-result' };
   }
   if (result.status === null) {
-    return { exitCode: 1, stdout: '', stderr: 'webhook 超时' };
+    return { exitCode: 1, stdout: '', stderr: 'webhook 超时', outcome: 'timed-out' };
   }
   const out = typeof result.stdout === 'string' ? result.stdout.trim() : '';
   const parsed = tryParseJson(out);
   if (!isRecord(parsed)) {
-    return { exitCode: 1, stdout: '', stderr: 'webhook 响应解析失败' };
+    return { exitCode: 1, stdout: '', stderr: 'webhook 响应解析失败', outcome: 'no-result' };
   }
   const res = parsed as unknown as WebhookResult;
   if (res.kind === 'response') {
     if (res.status >= 200 && res.status < 300) {
-      return { exitCode: 0, stdout: `webhook ${res.status}`, stderr: '' };
+      return { exitCode: 0, stdout: `webhook ${res.status}`, stderr: '', outcome: 'ran' };
     }
-    return { exitCode: 1, stdout: '', stderr: `webhook 返回 ${res.status}` };
+    return { exitCode: 1, stdout: '', stderr: `webhook 返回 ${res.status}`, outcome: 'ran' };
   }
   if (res.error === 'timeout') {
-    return { exitCode: 1, stdout: '', stderr: 'webhook 超时' };
+    return { exitCode: 1, stdout: '', stderr: 'webhook 超时', outcome: 'timed-out' };
   }
-  return { exitCode: 1, stdout: '', stderr: res.message || 'webhook 网络错误' };
+  return { exitCode: 1, stdout: '', stderr: res.message || 'webhook 网络错误', outcome: 'ran' };
 }
 
 /** IHUI_TRUST_WORKSPACE 放行只提示一次,免得每条钩子刷一行 */
@@ -590,30 +713,48 @@ export function hookTrustSkipReason(entry: HookEntry, trustFileText?: string): s
   return gate.detail ?? `hook "${entry.name}" 未通过信任门控`;
 }
 
+/**
+ * spawnSync 失败对象的 errno。@types 把它标成裸 `Error`(code 挂在真实对象上,
+ * Node 运行时类型是 `ErrnoException`)—— 用精确交叉类型读,不开 `any`。
+ * 本机实测(2026-09-29):Windows shell 形态超时会给出 `error.code === 'ETIMEDOUT'`
+ * 且 `status === null`,若只按"有 error 就没跑起来"判,超时会被折成 result_unknown。
+ */
+function spawnErrorCode(err: Error | undefined): string | undefined {
+  return (err as (Error & { code?: string }) | undefined)?.code;
+}
+
 function runHookEntry(
   entry: HookEntry,
   env: Record<string, string>,
-): { exitCode: number; stdout: string; stderr: string } {
+): HookExecResult {
   // 两种形态过**同一道**门:判据只写一份。webhook 的外泄面不比 command 小 ——
   // IHUI_TOOL_INPUT / IHUI_TOOL_OUTPUT 会被原样 POST 到配置里的外部 URL
   // (见 extractWebhookVars 的 toolArgs),等价于"把工具输入输出发给外人"。
   // 上一版只在 command 分支查门,所以 clone 陌生仓库 + 仓库自带 webhook 钩子
   // 仍然会在无人知晓的情况下把会话内容送到外部地址。
   //
-  // 先短路"两者皆空"的条目:它没有任何外部副作用,不值得为它查门并刷一行提示。
+  // 先短路"两者皆空"的条目:它没有任何外部副作用,不值得为它查门。但它也不再算
+  // "成功"—— 没有任何东西被执行过却回报 exit 0,正是本票要拆的"没跑到被折成完成"
+  // 的一格;exitCode 保持 0(不阻断的行为逐字不变),outcome 如实给 no-result。
   if (!entry.webhook && !entry.command) {
-    return { exitCode: 0, stdout: '', stderr: '' };
+    return {
+      exitCode: 0,
+      stdout: '',
+      stderr: '钩子条目没有 command/webhook 载体(什么都没执行)',
+      outcome: 'no-result',
+    };
   }
   const skipReason = hookTrustSkipReason(entry);
   if (skipReason) {
     // 跳过 ≠ 失败:exitCode 必须给 0。返回非 0 会让 blockOnError 的钩子反过来
     // 阻断工具调用,用户看到的是"我的工具坏了",而不是真实原因"这个目录没被信任"。
+    // (拆终态前这一格在外部与"成功"完全同形 —— 现在它是 skipped,可被机器判出。)
     const key = `${entry.source ?? 'unstamped'}::${entry.name}`;
     if (!announcedSkips.has(key)) {
       announcedSkips.add(key);
       warnOnce(`⚠ 已跳过钩子 "${entry.name}":${skipReason}`);
     }
-    return { exitCode: 0, stdout: '', stderr: skipReason };
+    return { exitCode: 0, stdout: '', stderr: skipReason, outcome: 'skipped' };
   }
   if (entry.webhook) {
     return runWebhookSync(entry, env);
@@ -626,12 +767,55 @@ function runHookEntry(
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
   });
-  const timedOut = result.signal === 'SIGTERM' && result.status === null;
+  if (result.error && spawnErrorCode(result.error) !== 'ETIMEDOUT') {
+    // spawn 层面就没起来(ENOENT/EPERM 这类)⇒ 钩子脚本从未执行,"未取到结果"。
+    // 旧写法折成 exit 1,与"脚本跑了并失败"同形。ETIMEDOUT 不在这支:那是"跑起来了
+    // 但被超时杀掉"(本机实测 Windows shell 形态三件套:error.code=ETIMEDOUT + signal
+    // SIGTERM + status=null),归下一支的 timed-out。
+    return {
+      exitCode: 1,
+      stdout: '',
+      stderr: `钩子子进程启动失败: ${result.error.message}`,
+      outcome: 'no-result',
+    };
+  }
+  // status === null ⇒ 进程在写下退出码之前被杀。实测(2026-09-29 本机):Windows shell 形态
+  // 超时会同时给 error.code==='ETIMEDOUT' + signal SIGTERM + status null,旧判据只认
+  // signal==='SIGTERM' 且把 error 分支让位给"失败",换杀法/换平台就退回假形;
+  // 按"没写完退出码"判更准,且 124 的既有映射逐字保留。
+  if (result.status === null) {
+    return {
+      exitCode: 124,
+      stdout: typeof result.stdout === 'string' ? result.stdout.trim() : '',
+      stderr: typeof result.stderr === 'string' ? result.stderr.trim() : '',
+      outcome: 'timed-out',
+    };
+  }
   return {
-    exitCode: timedOut ? 124 : (result.status ?? 1),
+    exitCode: result.status,
     stdout: typeof result.stdout === 'string' ? result.stdout.trim() : '',
     stderr: typeof result.stderr === 'string' ? result.stderr.trim() : '',
+    outcome: 'ran',
   };
+}
+
+/** 钩子文本(阻断 reason 与回传 feedback 共用的**唯一**上限常量,上一票立的原样保留)。 */
+export const HOOK_REASON_MAX_CHARS = 4000
+
+/**
+ * 钩子文本进任何外部面(TUI / 模型上下文 / 日志)前的**唯一**成形出口:
+ * 脱敏(redactCrashText)→ 中和宿主保留标签(neutralizeBoundaries)→ 按码点截断
+ * (HOOK_REASON_MAX_CHARS,超长留 `[已截断 N 个码点]`)。
+ * 顺序固定不可翻转:先截后盖会把凭据切成半截、形状不再成立(§5e/守门 144 原话);
+ * 截断必须留痕 —— 静默变短等于伪造完整性(AGENTS §30)。
+ * 阻断 reason 与回传 feedback **共用这一个函数与这一个上限常量**,不得各写一份。
+ */
+function redactThenClip(raw: string): string {
+  const redacted = neutralizeBoundaries(redactCrashText(raw));
+  const cps = Array.from(redacted);
+  return cps.length <= HOOK_REASON_MAX_CHARS
+    ? redacted
+    : `${cps.slice(0, HOOK_REASON_MAX_CHARS).join('')}…[已截断 ${cps.length - HOOK_REASON_MAX_CHARS} 个码点]`;
 }
 
 /**
@@ -643,28 +827,78 @@ function runHookEntry(
  * key),管不住**输出**侧这一路。
  *
  * 脱敏唯一出口 = `redactCrashText`(packages/shared/src/utils/redact.ts,端内不得再建第二套,
- * 守门 144 的 V3 判「声明处 ≤ 1」)。顺序必须**先脱敏再截断** —— 反过来会把凭据切成半截、
- * 形状不再成立(与 apps/api/src/services/crash-report-service.ts:49 同一姿势)。
- * 截断必须留下被截掉多少:静默变短等于伪造完整性(AGENTS §30 同一条禁令)。
+ * 守门 144 的 V3 判「声明处 ≤ 1」);截断唯一实现 = `redactThenClip`(与回传通道共用)。
  */
-export const HOOK_REASON_MAX_CHARS = 4000
-
 export function hookBlockReason(
   label: string,
   r: { exitCode: number; stdout: string; stderr: string },
 ): string {
-  const raw = redactCrashText(r.stderr || r.stdout || `exit ${r.exitCode}`)
-  const cps = Array.from(raw)
-  const body =
-    cps.length <= HOOK_REASON_MAX_CHARS
-      ? raw
-      : `${cps.slice(0, HOOK_REASON_MAX_CHARS).join('')}…[已截断 ${cps.length - HOOK_REASON_MAX_CHARS} 个码点]`
-  return `${label}: ${body}`
+  return `${label}: ${redactThenClip(r.stderr || r.stdout || `exit ${r.exitCode}`)}`;
+}
+
+/** feedback 行的稳定前缀与"来源不可信"标注(机器码,不依赖语言包)。 */
+export const HOOK_FEEDBACK_LINE_PREFIX = 'hook-feedback v1';
+export const HOOK_FEEDBACK_UNTRUSTED_ORIGIN = 'untrusted-hook-output';
+
+export interface HookFeedbackInput {
+  /** 所属事件名(内部枚举,但仍按外部文本处理) */
+  event: string;
+  /** 该条钩子的终态 —— 回传给模型/上层做决策的就是它,不靠正文自述 */
+  state: HookTerminalState;
+  hookName?: string;
+  exitCode?: number;
+  stdout?: string;
+  stderr?: string;
+  /** 无执行结果可引用时的替代正文(如 runHook 外层异常) */
+  note?: string;
+}
+
+/**
+ * 回传通道的唯一出口:把一条钩子执行成形为一行**可进模型上下文**的反馈。
+ * 三条硬约束都在实现里,不在调用方的自觉里:
+ *  ① 内容必过唯一脱敏出口(redactThenClip 内的 redactCrashText);
+ *  ② 长度上限 = 同一个 HOOK_REASON_MAX_CHARS、同一份截断实现(截掉的码点数可见);
+ *  ③ 来源标注为不可信 + 保留标签已中和(钩子 stdout 是注入面)。
+ * 顺序 ①脱敏 → 中和 → ②截断 由 redactThenClip 一处保证。
+ */
+export function buildHookFeedback(input: HookFeedbackInput): string {
+  const res = { stdout: input.stdout ?? '', stderr: input.stderr ?? '', exitCode: input.exitCode ?? -1 };
+  const raw = input.note ?? (res.stderr || res.stdout || `exit ${res.exitCode}`);
+  const hook = input.hookName === undefined ? '-' : redactThenClip(input.hookName);
+  return (
+    `${HOOK_FEEDBACK_LINE_PREFIX} | hook=${hook} | event=${redactThenClip(input.event)}` +
+    ` | state=${input.state} | origin=${HOOK_FEEDBACK_UNTRUSTED_ORIGIN}` +
+    ` | exit=${res.exitCode} | body=${redactThenClip(raw)}`
+  );
+}
+
+/** 批次累积的 feedback 行 → HookResult.feedback(没有非成功态时保持 undefined,旧形状不变)。 */
+function joinHookFeedback(lines: string[]): string | undefined {
+  return lines.length === 0 ? undefined : lines.join('\n');
+}
+
+/** 单条执行结果 → 该条的 feedback 行(event 由调用方传,与阻断标签同源)。 */
+function feedbackForEntry(
+  event: string,
+  entry: HookEntry,
+  state: HookTerminalState,
+  r: HookExecResult,
+): string {
+  return buildHookFeedback({
+    event,
+    hookName: entry.name,
+    state,
+    exitCode: r.exitCode,
+    stdout: r.stdout,
+    stderr: r.stderr,
+  });
 }
 
 export function runPreToolCall(toolName: string, input: unknown): HookResult {
   const config = loadHooks();
   const hooks = config.preToolCall ?? [];
+  const feedbackLines: string[] = [];
+  let worst: HookTerminalState = 'succeeded';
   for (const entry of hooks) {
     if (!matchesTool(entry, toolName)) continue;
     const r = runHookEntry(entry, {
@@ -673,19 +907,30 @@ export function runPreToolCall(toolName: string, input: unknown): HookResult {
       IHUI_TOOL_INPUT: JSON.stringify(input ?? {}),
     });
     const blockOnError = entry.blockOnError ?? true;
+    const state = classifyHookTerminal(r.outcome, r.exitCode, blockOnError);
+    if (state !== 'succeeded') {
+      worst = worseTerminal(worst, state);
+      feedbackLines.push(feedbackForEntry('preToolCall', entry, state, r));
+    }
+    // 阻断条件逐字保持改动前的 `blockOnError && exitCode !== 0`(proceed 语义零变化);
+    // 拆的只是"被阻断之外,剩下几种结束法不得再共用一个 proceed=true"。
     if (blockOnError && r.exitCode !== 0) {
       return {
         proceed: false,
+        terminal: state,
         reason: hookBlockReason(`钩子 "${entry.name}" 阻断`, r),
+        feedback: joinHookFeedback(feedbackLines),
       };
     }
   }
-  return { proceed: true };
+  return { proceed: true, terminal: worst, feedback: joinHookFeedback(feedbackLines) };
 }
 
 export function runPostToolCall(toolName: string, output: unknown): HookResult {
   const config = loadHooks();
   const hooks = config.postToolCall ?? [];
+  const feedbackLines: string[] = [];
+  let worst: HookTerminalState = 'succeeded';
   for (const entry of hooks) {
     if (!matchesTool(entry, toolName)) continue;
     const r = runHookEntry(entry, {
@@ -694,18 +939,27 @@ export function runPostToolCall(toolName: string, output: unknown): HookResult {
       IHUI_TOOL_OUTPUT: JSON.stringify(output ?? {}),
     });
     const blockOnError = entry.blockOnError ?? false;
+    const state = classifyHookTerminal(r.outcome, r.exitCode, blockOnError);
+    if (state !== 'succeeded') {
+      worst = worseTerminal(worst, state);
+      feedbackLines.push(feedbackForEntry('postToolCall', entry, state, r));
+    }
     if (blockOnError && r.exitCode !== 0) {
       return {
         proceed: false,
+        terminal: state,
         reason: hookBlockReason(`postToolCall 钩子 "${entry.name}" 阻断`, r),
+        feedback: joinHookFeedback(feedbackLines),
       };
     }
   }
-  return { proceed: true };
+  return { proceed: true, terminal: worst, feedback: joinHookFeedback(feedbackLines) };
 }
 
 export function runSessionStartHooks(config: HooksConfig | null, ctx: SessionHookContext): HookResult {
   if (!config?.sessionStart) return { proceed: true };
+  const feedbackLines: string[] = [];
+  let worst: HookTerminalState = 'succeeded';
   for (const entry of config.sessionStart) {
     const r = runHookEntry(entry, {
       IHUI_HOOK_TYPE: 'sessionStart',
@@ -713,27 +967,47 @@ export function runSessionStartHooks(config: HooksConfig | null, ctx: SessionHoo
       IHUI_SESSION_ID: ctx.sessionId ?? '',
     });
     const blockOnError = entry.blockOnError ?? true;
+    const state = classifyHookTerminal(r.outcome, r.exitCode, blockOnError);
+    if (state !== 'succeeded') {
+      worst = worseTerminal(worst, state);
+      feedbackLines.push(feedbackForEntry('sessionStart', entry, state, r));
+    }
     if (blockOnError && r.exitCode !== 0) {
       return {
         proceed: false,
+        terminal: state,
         reason: hookBlockReason(`sessionStart 钩子 "${entry.name}" 阻断`, r),
+        feedback: joinHookFeedback(feedbackLines),
       };
     }
   }
-  return { proceed: true };
+  return { proceed: true, terminal: worst, feedback: joinHookFeedback(feedbackLines) };
 }
 
 export function runSessionEndHooks(config: HooksConfig | null, ctx: SessionHookContext): void {
   if (!config?.sessionEnd) return;
   for (const entry of config.sessionEnd) {
     try {
-      runHookEntry(entry, {
+      const r = runHookEntry(entry, {
         IHUI_HOOK_TYPE: 'sessionEnd',
         IHUI_WORKSPACE: ctx.workspacePath,
         IHUI_SESSION_ID: ctx.sessionId ?? '',
       });
-    } catch {
-      // sessionEnd 失败不阻塞退出
+      const state = classifyHookTerminal(r.outcome, r.exitCode, entry.blockOnError ?? false);
+      if (state !== 'succeeded') {
+        // sessionEnd 今天没有返回面 —— 终态只能喊在 stderr 上,静默吞掉正是 §30 那一型。
+        warnOnce(
+          `⚠ sessionEnd 钩子 "${entry.name}" 终态=${describeHookTerminal(state)},未被执行成功:` +
+            ` ${feedbackForEntry('sessionEnd', entry, state, r)}`,
+        );
+      }
+    } catch (err) {
+      // sessionEnd 失败不阻塞退出,但"没取到结果"必须落一个明确终态并喊出来。
+      const note = err instanceof Error ? err.message : String(err);
+      warnOnce(
+        `⚠ sessionEnd 钩子 "${entry.name}" 未取到最终结果(hook-state:result-unknown-not-complete,` +
+          `这不是"完成"): ${buildHookFeedback({ event: 'sessionEnd', hookName: entry.name, state: 'result_unknown', note })}`,
+      );
     }
   }
 }
@@ -774,27 +1048,44 @@ function buildHookEnv(event: HookEvent, ctx: HookContext): Record<string, string
 /**
  * 通用 hook 分发:按事件类型加载对应配置并执行所有匹配的钩子。
  * 钩子失败时按 blockOnError 决定是否阻断(默认 preToolCall/sessionStart 阻断,其余仅通知)。
- * 任何异常均吞掉返回 proceed=true,确保 hook 故障不影响主流程。
+ * 任何异常均吞掉返回 proceed=true,确保 hook 故障不影响主流程 —— 但"吞掉"不再等于
+ * "渲染成完成":外层异常与"条目没载体"都落 result_unknown,并同时喊在 stderr 与
+ * feedback 行上(§30"钩子无终态不得渲染成'完成'"的落点)。
  */
 export function runHook(event: HookEvent, ctx: HookContext): HookResult {
   try {
     const config = loadHooks();
     const hooks = config[event] ?? [];
     const env = buildHookEnv(event, ctx);
+    const feedbackLines: string[] = [];
+    let worst: HookTerminalState = 'succeeded';
     for (const entry of hooks) {
       if (isToolEvent(event) && ctx.toolName && !matchesTool(entry, ctx.toolName)) continue;
       const r = runHookEntry(entry, env);
       const blockOnError = entry.blockOnError ?? defaultBlockOnError(event);
+      const state = classifyHookTerminal(r.outcome, r.exitCode, blockOnError);
+      if (state !== 'succeeded') {
+        worst = worseTerminal(worst, state);
+        feedbackLines.push(feedbackForEntry(event, entry, state, r));
+      }
+      // 阻断条件与改动前逐字同形(blockOnError && 非零退出 ⇒ proceed=false)。
       if (blockOnError && r.exitCode !== 0) {
         return {
           proceed: false,
+          terminal: state,
           reason: hookBlockReason(`${event} 钩子 "${entry.name}" 阻断`, r),
+          feedback: joinHookFeedback(feedbackLines),
         };
       }
     }
-    return { proceed: true };
-  } catch {
-    return { proceed: true };
+    return { proceed: true, terminal: worst, feedback: joinHookFeedback(feedbackLines) };
+  } catch (err) {
+    // 旧写法在这里返回 {proceed:true} 后什么都不留 —— "跑没跑过"整格消失,正是本票的立点。
+    // proceed 语义保持 true(不因此多拦一次),但终态必须落 result_unknown 并被喊出来。
+    const note = err instanceof Error ? err.message : String(err);
+    const fb = buildHookFeedback({ event, state: 'result_unknown', note });
+    warnOnce(`⚠ runHook(${event}) 在执行链中断,未取到最终结果(${describeHookTerminal('result_unknown')}):${fb}`);
+    return { proceed: true, terminal: 'result_unknown', feedback: fb };
   }
 }
 
