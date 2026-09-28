@@ -74,7 +74,7 @@ describe('自动提交凭据这一径路必须过跨端判据', () => {
       .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
       .join('\n')
     expect(codeFace).not.toMatch(/canAutoSubmitCredentials\s*=\s*/)
-    expect(codeFace).toMatch(/\n\s*canAutoSubmitCredentials,/, '组件必须以"无默认值的解构"接这个必填项')
+    expect(codeFace, '组件必须以"无默认值的解构"接这个必填项').toMatch(/\n\s*canAutoSubmitCredentials,/)
   })
 
   it('父组件必须真的把它透传给 password tab(接了参数没下传=没接)', () => {
