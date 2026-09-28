@@ -51,6 +51,13 @@
  *     注册集与不透明前缀**双双为 0** 判死(解析器失明不得读成"没有声明被打到 ⇒ 绿")。
  *     取材一律走 `scripts/lib/face-reader.mjs` 的读取入口(`catBatch` / `readWorktreeFile`)——
  *     门 118 专判"引了层却自己派生 git"的半接线。
+ *   - **`--files` 的两个假绿灯同族缺陷(2026-09-28 收)**:① 取值判据 —— 值必须存在且不以 `-` 开头
+ *     才算清单(口径同 `scan-hardcoded-zh` / `check-direct-backend-calls` 的 `flagValue`);旧写法
+ *     无条件吞紧邻下一个 token,而 runner 每道门都追加 `--staged`,于是 `--files --staged` 把清单
+ *     收成"一个叫 --staged 的文件",实测 `声明 0 / 未匹配 0`**且 `--strict` 也 exit 0** = 账面全绿的
+ *     空扫。② 显式给了 `--files` 而收窄后声明侧为 0 条 ⇒ 判"无法判定"(exit 2),**不是**"通过";
+ *     但**没给** `--files` 而这份面本来就是 0 条(本次提交不涉及射程)⇒ 照旧放行不得判红,
+ *     否则就是一台与任何提交都无关的恒红门(§12e)。两态的分界写在 `analyze()` 里,不得合并。
  *
  * 行内豁免:`route-declare-exempt: <原因>`(须带原因),只救本行;被豁免处计数并打印。
  *
@@ -62,6 +69,8 @@
  *   node scripts/check-declared-outbound-routes.mjs --explain        # 逐条声明 + 证据 + 匹配结果
  *   node scripts/check-declared-outbound-routes.mjs --json           # 机器可读
  *   node scripts/check-declared-outbound-routes.mjs --files a.py,b.ts  # 只审指定文件的声明面(注册面仍全量)
+ *                                                          #  值缺失/以 - 开头/拆出 0 个路径名 ⇒ exit 2 无法判定;
+ *                                                          #  显式收窄后声明侧 0 条 ⇒ exit 2(不是"通过")
  *   node scripts/check-declared-outbound-routes.mjs --self-test      # 判据自检(构造面正反例 + 真语料端到端)
  * 退出码:0 = 默认档(或 --strict 且零未匹配);1 = --strict 且检出未匹配;2 = 无法判定
  *
@@ -167,6 +176,23 @@ export function analyze(root, face, opts = {}) {
   const extracted = extractDeclarations(texts)
   const only = opts.onlyFiles && opts.onlyFiles.length ? new Set(opts.onlyFiles) : null
   const candidates = only ? extracted.decls.filter((d) => only.has(d.file)) : extracted.decls
+  /**
+   * **两种"声明侧 0 条"必须分开**(2026-09-28 收假绿灯那票的第二半;判据的输入面问题,不是措辞偏好):
+   *   ① **没人显式给 `--files`** 而这份面上就是 0 条声明 ⇒ 本次提交结构上不涉及本门射程(实测夹具:
+   *      把 hub 那张路径表从索引里摘掉 ⇒ `--staged` 档声明 0)。这一态**照旧放行**、不得判红 ——
+   *      把它判红就产出一台"与任何提交都无关的恒红门",唯一结局是每台每次被逼 `--no-verify`,
+   *      连带其余全部守门对该提交作废(AGENTS §12e,一天之内同型实测三道)。
+   *   ② **有人显式给了 `--files`** 而收窄后一条声明都解析不到 ⇒ 那不是"没有违规",而是"本门被问了
+   *      一个它看不见的问题"(路径写歪 / 清单里全是别人的文件 / 旗标吞了下一个 token)。0 条声明 ⇒
+   *      判据没有输入,任何"0 未匹配"都是无中生有的合格证。这一态必须喊,并且**走既有的「无法判定」
+   *      档**(与本文件"枚举到 0 个源文件判死"、守门 70/77/83/98/103/118 同一个三态口径)——
+   *      不得新开第四个"看起来像通过"的档。
+   */
+  if (opts.onlyFilesGiven && candidates.length === 0)
+    throw new Undetermined(
+      `显式 --files(收窄到 ${(opts.onlyFiles || []).length} 个路径)在 ${face} 面上解析到 0 条声明:` +
+        '判据没有输入 ⇒ 属"无法判定",不得记为通过(清单写歪/路径不在这份面上/旗标吞了下一个 token,都是这一型)。',
+    )
   const verdict = decide({
     decls: candidates,
     reg,
@@ -228,6 +254,50 @@ const USAGE = `用法: node scripts/check-declared-outbound-routes.mjs [--staged
         ③ 禁止为本门加基线文件/豁免清单让它好看,禁止为消红削判据。
   紧急跳过(接入提交链后):${SELF_SKIP}=1`
 
+/**
+ * `--files <逗号分隔的路径清单>` 的取值判据。
+ *
+ * 口径**照抄已入库的那两处同型修法**(`scan-hardcoded-zh.mjs` 的 `flagValue` / `--root`、
+ * `check-direct-backend-calls.mjs` 的 `flagValue`,枚 `380431ffc`):**值必须存在且不以 `-` 开头**,
+ * 否则不算该旗标的值 —— 不得另发明一份(两处实现必漂移是本仓记过最多次的失败型)。
+ *
+ * 为什么本门的处置是「无法判定」而不是「退回默认」:那两处退的是**输出档**(退回 stdout 仍是完整结论,
+ * 结论本身没被削弱);而 `--files` 收窄的是**判据的输入面**。旧写法
+ * `String(argv[argv.indexOf('--files') + 1] || '')` 无条件吞紧邻的下一个 token,而
+ * `guardian-runner.mjs` 会给每道门追加 `--staged`,于是 `--files --staged` 把清单收成"一个叫 --staged
+ * 的文件":实测(2026-09-28)`声明 0 / 未匹配 0`**且 `--strict` 也 exit 0** —— 一次账面读起来像
+ * "扫过了、零漂移"的**空扫**。"静默当成没有 --files"(退回全量)与"静默当成清单为空"都把"没看清"
+ * 写成"看清了",所以两态一律走本文件既有的 `❌ 无法判定:` + exit 2 通道,并点名收到的 token。
+ *
+ * 返回 `{ given, files, error }`:`given` 供 analyze 分辨上面那两种 0(见那里的长注释)。
+ */
+export function parseFilesFlag(argv) {
+  const i = argv.indexOf('--files')
+  if (i < 0) return { given: false, files: null, error: null }
+  const raw = argv[i + 1]
+  if (typeof raw !== 'string' || raw === '')
+    return {
+      given: true,
+      files: null,
+      error: "--files 需要一个值(逗号分隔的路径清单),但它已是最后一个参数 / 后面那个 token 是空串 ⇒ 无法按清单审,不退回全量",
+    }
+  if (raw.startsWith('-'))
+    return {
+      given: true,
+      files: null,
+      error:
+        `--files 的紧邻下一个 token 是「${raw}」:以 - 开头的是旗标不是文件路径,不得当成清单值` +
+        '(runner 给每道门追加 --staged,于是 --files --staged 曾被当成"只审一个叫 --staged 的文件" ⇒ 声明 0 / 未匹配 0 的空扫)',
+    }
+  const files = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (files.length === 0)
+    return { given: true, files: null, error: `--files 的值「${raw}」拆分后得到 0 个路径名(只有空白/逗号),不构成清单` }
+  return { given: true, files, error: null }
+}
+
 function main(argv) {
   if (argv.includes('--help') || argv.includes('-h')) {
     console.log(USAGE)
@@ -238,15 +308,18 @@ function main(argv) {
     console.error(`❌ 无法判定: ${error}`)
     return 2
   }
-  const onlyFiles = argv.includes('--files')
-    ? String(argv[argv.indexOf('--files') + 1] || '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : null
+  const filesFlag = parseFilesFlag(argv)
+  if (filesFlag.error) {
+    console.error(`❌ 无法判定: ${filesFlag.error}`)
+    return 2
+  }
   let out
   try {
-    out = analyze(ROOT, face, { strict: argv.includes('--strict'), onlyFiles })
+    out = analyze(ROOT, face, {
+      strict: argv.includes('--strict'),
+      onlyFiles: filesFlag.files,
+      onlyFilesGiven: filesFlag.given,
+    })
   } catch (e) {
     const msg = e instanceof Undetermined ? e.message : e?.message ?? String(e)
     console.error(`❌ 无法判定(exit 2): ${msg}`)
@@ -308,6 +381,35 @@ function selfTest() {
   /* 面选择 */
   eq('A1 两面旗同给 ⇒ 判死', selectFace({ staged: true, worktree: true, def: 'head' }).error, '--staged 与 --worktree 不得同用(两个判定面互斥)')
   eq('A2 默认面是 HEAD(不是磁盘)', selectFace({ staged: false, worktree: false, def: 'head' }).face, 'head')
+
+  /* --files 取值 + 空声明集(2026-09-28 假绿灯收口;两种 0 的分界见 analyze 里的注释) */
+  const swallowed = parseFilesFlag(['--strict', '--files', '--staged'])
+  eq('N1 runner 追加形态:--files --staged 不得当成清单 ⇒ 报错', [swallowed.given, swallowed.files, /--staged/.test(swallowed.error || '')], [true, null, true])
+  eq('N2 尾随无值 ⇒ 报错(不得静默当成"没有 --files"而退回全量)', [parseFilesFlag(['--files']).given, parseFilesFlag(['--files']).files], [true, null])
+  eq('N2b 尾随无值的报错必须点名旗标本身', /--files/.test(parseFilesFlag(['--files']).error || ''), true)
+  const goodFiles = parseFilesFlag(['--files', 'a.py, b/c.ts ,,d.py'])
+  eq('N3 合法清单 ⇒ 正常解析且拆分去空白(正向对照:值校验不得写死成永远拒)', [goodFiles.files, goodFiles.error], [['a.py', 'b/c.ts', 'd.py'], null])
+  eq('N4 值只由空白/逗号组成 ⇒ 报错(0 个路径名不构成清单)', parseFilesFlag(['--files', ' , ']).error !== null, true)
+  eq(
+    'N5 未给 --files ⇒ given=false 且无错(不涉及射程的提交照旧按原语义放行)',
+    parseFilesFlag(['--staged', '--strict']),
+    { given: false, files: null, error: null },
+  )
+  const und = (fn) => {
+    try {
+      fn()
+      return 'no-throw'
+    } catch (e) {
+      return e instanceof Undetermined ? 'undetermined' : `other:${e && e.message}`
+    }
+  }
+  eq(
+    'N6 显式 --files 指向这份面上没有的路径 ⇒ 判据无输入必须判"无法判定",不得报 0 未匹配并通过',
+    und(() => analyze(ROOT, 'head', { onlyFiles: ['scripts/nope.py'], onlyFilesGiven: true })),
+    'undetermined',
+  )
+  // N6b 的对称面(没给 --files 而这份面本来 0 条声明 ⇒ 仍按原语义放行)由镜像 T8 在临时夹具仓上打:
+  // 真仓恒有声明,构造不出那个 0,而在真仓上多跑一次全量扫描只为"证明没抛"是不划算的重复取材。
 
   /* 归一与匹配 */
   eq('B1 :id 归一', normSegs('/api/agents/:id'), ['api', 'agents', '*'])
@@ -540,6 +642,7 @@ export const __test__ = {
   listSourceFiles,
   readSourceFiles,
   formatReport,
+  parseFilesFlag,
   SELF_HOSTS,
   SCAN_DIRS,
   FASTIFY_ENTRY,
