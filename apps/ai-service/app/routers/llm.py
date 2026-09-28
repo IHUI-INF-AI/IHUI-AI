@@ -73,6 +73,7 @@ from ..services.agent_events import (
     SSE_SUBAGENT_SPAWN,
     SSE_TERMINAL_DELTA,
     SSE_TERMINAL_END,
+    SSE_TERMINAL_INTERACTION,
     SSE_TERMINAL_START,
     SSE_TOOL_CALL_START,
     SSE_TOOL_DELEGATE,
@@ -90,6 +91,7 @@ from ..services.mcp_server import (
     get_registered_tool_names,
     reset_terminal_stream_context,
     set_terminal_stream_context,
+    settle_terminal_input,
 )
 from ..services.project_memory import build_system_prompt
 from ..services.user_quota import user_trial_quota
@@ -4208,10 +4210,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _term_token = None
                                     if _is_terminal_tool and _terminal_id:
                                         _delta_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+                                        # D151(2026-09-29):user_id 走**令牌主体**注入 ——
+                                        # 交互式命令的代答待决项在注册点盖章,结算点只比对
+                                        # 该值;模型参数与请求体都碰不到它(§5 认证≠授权)。
                                         _term_token = set_terminal_stream_context(
                                             session_id=session_id or "",
                                             iteration=_tool_iter + 1,
                                             tool_call_id=_terminal_id,
+                                            user_id=owner_uuid,
+                                            messageId=message_id,
                                             push=_delta_queue.put_nowait,
                                         )
                                     if _term_token is not None:
@@ -4238,12 +4245,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                                     continue
                                                 while not _delta_queue.empty():
                                                     _d = _delta_queue.get_nowait()
-                                                    if _d and _d.get("text"):
+                                                    # D151:同一 push 通道现在有两种帧。按 payload 的
+                                                    # type 分流,**不得**再靠"有没有 text 字段"判 ——
+                                                    # 那样交互帧会被静默丢掉(前端永远等不到)。
+                                                    if _d and _d.get("type") == "terminal_interaction":
+                                                        yield _sse(SSE_TERMINAL_INTERACTION, _d)
+                                                    elif _d and _d.get("text"):
                                                         yield _sse(SSE_TERMINAL_DELTA, _d)
                                             # 任务结束后排空残余 delta 帧
                                             while not _delta_queue.empty():
                                                 _d = _delta_queue.get_nowait()
-                                                if _d and _d.get("text"):
+                                                if _d and _d.get("type") == "terminal_interaction":
+                                                    yield _sse(SSE_TERMINAL_INTERACTION, _d)
+                                                elif _d and _d.get("text"):
                                                     yield _sse(SSE_TERMINAL_DELTA, _d)
                                             exec_result = _call_task.result()
                                         finally:
@@ -4908,6 +4922,44 @@ async def post_form_response(
     ev = entry["event"]
     ev.set()
     return {"ok": True, "accepted": True, "requestId": request_id, "action": action}
+
+
+@router.post("/llm/complete/stream/{session_id}/terminal-input", response_model=None)
+async def post_terminal_input(
+    request: Request,
+    session_id: str,
+    body: dict[str, Any] = Body(...),
+) -> dict[str, Any]:
+    """D151(2026-09-29 立,用户批「默认开 + 单次等待 300s」):把用户键入送回正在等的命令。
+
+    上行形状是 **snake_case**(`terminal_id` / `text`),与同通道的 form-response、
+    tool-result 同族 —— 注意**下行**的 `terminal_interaction` 帧是 camelCase。
+
+    归属判定只认**令牌主体**,不读 body 里的任何 userId;比对发生在 mcp_server 的
+    唯一结算出口 `settle_terminal_input`(那里存的是带主记录的待决项)。
+    "没这条"与"不是你的"**同形回包** —— 否则本端点会变成存在性预言机。
+
+    刻意**不回显 text**:键入内容可能是密码,而返回值会进访问日志与响应体。
+    """
+    terminal_id = str(body.get("terminal_id") or body.get("terminalId") or "")
+    text = body.get("text")
+    if not terminal_id or not isinstance(text, str):
+        # 形状不对也不告诉调用方差在哪一位:与"not found"同形,少一条可枚举的差异。
+        return {"ok": False, "error": "terminal input request not found"}
+    outcome = settle_terminal_input(
+        session_id=session_id,
+        terminal_id=terminal_id,
+        text=text,
+        caller_user_id=_resolve_owner_uuid(request),
+    )
+    if not outcome.get("settled"):
+        logger.info(
+            "terminal-input 未结算(session=%s, terminal=%s)—— 不存在或不属于本调用方",
+            session_id,
+            terminal_id,
+        )
+        return {"ok": False, "error": "terminal input request not found"}
+    return {"ok": True, "accepted": True, "terminalId": terminal_id}
 
 
 @router.post("/llm/complete/stream/{session_id}/steer", response_model=None)
