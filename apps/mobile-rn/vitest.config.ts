@@ -77,6 +77,13 @@ export default defineConfig({
       // 证据:auth-cold-start-after-logout.test.ts / auth-single-credential-source.test.ts
       // 的文件头"取材纪律"明写"别名仍是手写替身 ⇒ 必须自带 vi.mock 才测得到实现",
       // 本条收口正是把那个 vi.mock 绕道补成默认正确。
+      // 2026-09-29 收口(G-365 另一半):冷启动静默重登判据的唯一实现住在共享层,端内那份
+      // 已降级成 re-export。这一条必须排在 '@ihui/shared/auth' 之前 —— 父别名按 startsWith
+      // 吞子路径是本文件上方反复登记过的陷阱;指向真实源码而不是替身,因为测的就是这条判据。
+      '@ihui/shared/auth/auto-login-policy': resolve(
+        __dirname,
+        '../../packages/shared/src/auth/auto-login-policy.ts',
+      ),
       '@ihui/shared/auth': resolve(__dirname, '../../packages/shared/src/auth/index.ts'),
       '@ihui/shared/utils/date-utils': resolve(
         __dirname,
