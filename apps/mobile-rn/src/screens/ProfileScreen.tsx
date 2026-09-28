@@ -1861,7 +1861,7 @@ const styles = StyleSheet.create({
     bottom: 76, // TabBar 上方
     width: 34,
     height: 34,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2308,7 +2308,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 72,
     height: 72,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadius.sm,
     overflow: 'hidden',
   },
   editProfileAvatar: {
