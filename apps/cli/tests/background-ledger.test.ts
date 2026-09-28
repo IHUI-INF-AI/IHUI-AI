@@ -26,7 +26,7 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 // 测试夹具唯一落点(§26)。它住在 scripts/ —— 运行时代码不引它,只有测试引;
 // 跨包相对路径在本仓没有配置 import plugin,故不写 eslint-disable(引用一条不存在的规则本身就是错误)。
-import { mkScratch, rmScratch } from '../../scripts/lib/scratch-dir.mjs';
+import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs';
 import {
   LEDGER_MAX_LINES,
   classifyLedgerRecord,
