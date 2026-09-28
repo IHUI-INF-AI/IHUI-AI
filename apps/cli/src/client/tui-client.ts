@@ -19,6 +19,8 @@ import { tryParseJson, isRecord } from '../util/json.js';
 // W13 远程渲染增强:复用 REPL 同源 markdown 渲染器与工具卡片着色(单一事实源)
 import { createMarkdownRenderer } from '../commands/markdown-renderer.js';
 import { formatToolResultForCard } from '../commands/ui-tool-cards.js';
+// G-701:工具入参回显必须走键名档出口(裸 slice(0,100) 会原样带出 {"api_key":"…"} 这类明文凭据)
+import { redactObjectDeepKeyed } from '../redact.js';
 
 const dynamicRequire = createRequire(import.meta.url);
 
@@ -144,7 +146,9 @@ export async function startTuiInteractive(opts: TuiClientOptions): Promise<void>
           for (const r of mdRenderer.pushLine(mdPending)) console.info(r);
           mdPending = '';
         }
-        const argsJson = JSON.stringify(event.args);
+        // G-701:原为裸 `JSON.stringify(event.args)` 再 slice(0,100) —— 截断不等于脱敏,
+        // 前 100 字符里照样可能出现键名档凭据;先过键名档出口再截断。
+        const argsJson = JSON.stringify(redactObjectDeepKeyed(event.args));
         const argDisplay = argsJson.length > 100 ? `${argsJson.slice(0, 100)}…` : argsJson;
         console.info(chalk.cyan(`\n  ┌─ 🔧 ${chalk.bold(event.name)}`));
         console.info(chalk.cyan(`  │  ${chalk.dim('参数:')} ${argDisplay}`));
