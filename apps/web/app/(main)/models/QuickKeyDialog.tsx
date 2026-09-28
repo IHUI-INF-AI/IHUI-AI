@@ -288,7 +288,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
                     <button
                       type="button"
                       onClick={() => setShowKey((s) => !s)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     >
                       {showKey ? (
                         <EyeOff className="h-3.5 w-3.5" />

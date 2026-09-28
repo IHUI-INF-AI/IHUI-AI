@@ -84,7 +84,7 @@ export default function AgentsPage() {
               type="button"
               onClick={() => setCategory(c.value)}
               className={
-                'rounded-md border px-3 py-1 text-sm transition-colors ' +
+                'rounded-sm border px-3 py-1 text-sm transition-colors ' +
                 (category === c.value
                   ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                   : 'border-border hover:bg-muted')
