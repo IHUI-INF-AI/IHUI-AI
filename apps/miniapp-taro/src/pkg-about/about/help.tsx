@@ -184,7 +184,7 @@ export default function HelpPage() {
               {tt('about.help.username', '姓名')}
             </Text>
             <Input
-              className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-xl text-[length:28rpx] text-foreground"
+              className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
               value={form.username}
               placeholder={tt('about.help.usernamePlaceholder', '请输入姓名')}
               onInput={(e) => updateField('username', e.detail.value)}
@@ -196,7 +196,7 @@ export default function HelpPage() {
               {tt('about.help.phone', '联系方式')}
             </Text>
             <Input
-              className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-xl text-[length:28rpx] text-foreground"
+              className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
               value={form.phone}
               placeholder={tt('about.help.phonePlaceholder', '请输入联系方式')}
               onInput={(e) => updateField('phone', e.detail.value)}
@@ -208,7 +208,7 @@ export default function HelpPage() {
               {tt('about.help.context', '问题描述')}
             </Text>
             <Textarea
-              className="w-full min-h-[180rpx] px-[24rpx] py-[16rpx] box-border bg-muted border-[length:2rpx] border-border rounded-xl text-[length:28rpx] text-foreground"
+              className="w-full min-h-[180rpx] px-[24rpx] py-[16rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
               value={form.context}
               placeholder={tt('about.help.contextPlaceholder', '请输入反馈详情')}
               onInput={(e) => updateField('context', e.detail.value)}
@@ -218,7 +218,7 @@ export default function HelpPage() {
             {tt('about.help.submitTip', '您的反馈将用于改进我们的产品与服务,发送后请耐心等待处理')}
           </Text>
           <Button
-            className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] text-[length:32rpx] font-semibold rounded-xl m-0 after:border-0 disabled:opacity-60"
+            className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] text-[length:32rpx] font-semibold rounded-sm m-0 after:border-0 disabled:opacity-60"
             disabled={feedbackState === 'submitting'}
             onClick={submit}
           >

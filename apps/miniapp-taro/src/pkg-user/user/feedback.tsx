@@ -133,7 +133,7 @@ export default function Feedback() {
               {tt('feedback.content', '内容')}
             </Text>
             <Textarea
-              className="mt-[16rpx] box-border w-full min-h-[188rpx] rounded-xl bg-muted p-[24rpx] text-[length:28rpx] text-foreground"
+              className="mt-[16rpx] box-border w-full min-h-[188rpx] rounded-sm bg-muted p-[24rpx] text-[length:28rpx] text-foreground"
               placeholder={tt('feedback.contentPlaceholder', '请输入反馈详情')}
               value={content}
               onInput={(e) => setContent(e.detail.value)}
@@ -144,7 +144,7 @@ export default function Feedback() {
               {tt('feedback.contact', '联系方式')}
             </Text>
             <Input
-              className="mt-[16rpx] box-border h-[100rpx] w-full rounded-xl bg-muted px-[24rpx] text-[length:28rpx] text-foreground"
+              className="mt-[16rpx] box-border h-[100rpx] w-full rounded-sm bg-muted px-[24rpx] text-[length:28rpx] text-foreground"
               type="text"
               placeholder={tt('feedback.contactPlaceholder', '请输入联系方式(选填)')}
               value={contact}
@@ -196,7 +196,7 @@ export default function Feedback() {
             )}
 
             <Button
-              className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-[var(--color-brand-accent)] text-[length:28rpx] font-semibold text-[var(--color-brand-accent-foreground)] ${
+              className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-sm bg-[var(--color-brand-accent)] text-[length:28rpx] font-semibold text-[var(--color-brand-accent-foreground)] ${
                 content.trim() ? '' : 'opacity-60'
               }`}
               disabled={!content.trim()}

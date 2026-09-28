@@ -187,7 +187,7 @@ export default function DeveloperSubscribePage() {
             </Text>
           </View>
           <Button
-            className={`flex-shrink-0 px-[28rpx] h-[56rpx] leading-[56rpx] text-[length:26rpx] font-semibold rounded-2xl border-none disabled:opacity-60 ${dev.subscribed ? 'bg-[var(--color-muted)] text-muted-foreground' : 'bg-primary text-[var(--color-surface-light)]'}`}
+            className={`flex-shrink-0 px-[28rpx] h-[56rpx] leading-[56rpx] text-[length:26rpx] font-semibold rounded-sm border-none disabled:opacity-60 ${dev.subscribed ? 'bg-[var(--color-muted)] text-muted-foreground' : 'bg-primary text-[var(--color-surface-light)]'}`}
             disabled={subscribing}
             onClick={toggleSubscribe}
           >
