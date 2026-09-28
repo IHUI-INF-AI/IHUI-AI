@@ -19,9 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        id: checkout
 
       # 版权溯源水印守护: 任何删除水印的 PR 将导致 CI 失败
       - name: Provenance watermark check
+        id: watermark
         run: node scripts/watermark.mjs verify
 
       # 守门 77 的远端面(2026-09-23 接):本地 pre-commit 拦得住"成对 <<<<====>>>> 冲突标记入树",
@@ -30,12 +32,15 @@ jobs:
       # 必须用 --rev HEAD(判刚被 push/合并出来的提交树);**禁止**改成 --staged —— CI 没有
       # 暂存区,索引恒等于 HEAD,那会退化成永远判绿。零依赖(纯 node + git),故前置到 install 之前。
       - name: Conflict marker check (committed tree)
+        id: conflict-markers
         run: node scripts/check-no-conflict-markers.mjs --rev HEAD
 
       - name: Install pnpm
+        id: install-pnpm
         uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
+        id: setup-node
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -58,6 +63,7 @@ jobs:
       # **禁止**改成裸 `pnpm install` 或加 --no-frozen-lockfile —— 那等于把这道门删掉;
       # 也**禁止**挪到任何 build 步骤之后。
       - name: Install dependencies (frozen lockfile = dependency truth)
+        id: install
         run: pnpm install --frozen-lockfile
 
       # Shared typecheck 的前置构建(2026-09-25 补,修"每次推送连红";2026-09-27 换成拓扑闭包):
@@ -72,6 +78,7 @@ jobs:
       # 本仓已有 7+ 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
       # context-compaction),"落后一次的形态是 CI 恒红而本地全绿"(守门 72/78 同族)。
       - name: Build shared's workspace deps (topological closure, prerequisite of shared typecheck)
+        id: build-shared-deps
         run: pnpm --filter "@ihui/shared^..." run build
 
       # 缺陷 1 的门:@ihui/shared 的 exports["."] 直指 src/index.ts,而 index.ts:19 再
@@ -85,15 +92,19 @@ jobs:
       # `export * from './voice-note'` 注进同一文件即报
       # `error TS2307: Cannot find module './voice-note'`(exit≠0),撤掉即回绿。
       - name: Shared package typecheck (dangling `export *` gate)
+        id: shared-typecheck
         run: pnpm --filter @ihui/shared typecheck
 
       - name: Build database package
+        id: build-database
         run: pnpm --filter @ihui/database build
 
       - name: Build auth package
+        id: build-auth
         run: pnpm --filter @ihui/auth build
 
       - name: Build api-client package
+        id: build-api-client
         # 尾缀 `...` 连 workspace 依赖一起拓扑构建(同 openapi-check.yml:77 既有正解);
         # 不带 `...` 时若上游包(如 @ihui/types)未来产物化入口切到 dist,本步会静默踩坑。
         run: pnpm --filter "@ihui/api-client..." run build
@@ -102,6 +113,7 @@ jobs:
       # 缺此步 -> TS5083 读不到文件, 连带 200+ 个路径解析/自动导入错误(2026-09-10 实测)。
       # 本地由 apps/extension 的 postinstall 兜底, CI 显式前置保证确定性。
       - name: Prepare WXT types (extension)
+        id: wxt-prepare
         run: pnpm --filter @ihui/extension exec wxt prepare
 
       # ↓↓↓ Build 原是本 job 的**最后**一步(排在 typecheck/schema/migration/routes/ports/
@@ -113,9 +125,11 @@ jobs:
       # `turbo run build --filter=@ihui/tsconfig` → "Tasks: 0 successful, 0 total" 且 exit 0)。
       # 也就是有人把 apps/web 的 build 脚本改名或删掉,turbo 照样全绿而 web 端从未被构建。
       - name: Assert web declares a build script
+        id: assert-web-build-script
         run: node -e "const p=require('./apps/web/package.json'); if(!p.scripts||!p.scripts.build){console.error('apps/web 缺 build 脚本 -> turbo run build 会静默跳过,web 端本次从未被构建验证');process.exit(1)} console.log('web build =',p.scripts.build)"
 
       - name: Build
+        id: build
         # desktop(tauri) 构建极重且发布由专门工作流负责,CI 仅验证其余包可构建;
         # 连续两轮 desktop build 阶段遭 runner shutdown(cancel)。
         # 禁止加 continue-on-error / `|| true`:这一步是"生产构建能不能过"的唯一真值来源。
@@ -125,34 +139,172 @@ jobs:
       # 独占生成(turbo 会把 .next/** 作为 outputs 一并回缓存),它不在位就说明本次根本没有
       # 构建过 web —— 宁可在这里红,也不让"形同虚设的构建步骤"继续给人假绿。
       - name: Assert web build artifact exists
+        id: assert-web-artifact
         run: node -e "const fs=require('fs');const f='apps/web/.next/BUILD_ID';if(!fs.existsSync(f)){console.error('Build 步报绿但没有 '+f+' -> web 端本次未被真正构建,该步骤形同虚设');process.exit(1)}console.log('web BUILD_ID =',fs.readFileSync(f,'utf8').trim())"
 
       - name: Typecheck
+        id: typecheck
         run: pnpm turbo run typecheck
 
       - name: Schema drift check
+        id: schema-drift
         run: node scripts/check-db-schema-drift.mjs
 
       # 迁移记账守门(2026-09-13 立):journal ↔ .sql 一一对应、when 严格单调唯一。
       # 背景: journal 的 when 曾是合成时间戳 < 库内真实 created_at → drizzle-kit migrate
       # 恒空转,静默数周无守门。CI 只跑离线维度(无 DB);库内双射用 pnpm migration:check:db。
       - name: Migration bookkeeping check
+        id: migration-bookkeeping
         run: node scripts/check-migration-bookkeeping.mjs
 
       - name: API route consistency check
+        id: api-routes
         run: node scripts/check-api-routes.mjs
 
       - name: Port registry check
+        id: port-registry
         run: node scripts/check-port-registry.mjs
 
       - name: Lint
+        id: lint
         run: pnpm turbo run lint
 
       - name: Test
+        id: test
         run: pnpm turbo run test
 
       # Build 步已上移至 2026-09-24(见 Prepare WXT types 之后),不再作为本 job 最后一步 ——
       # 留在末尾意味着任何前置步骤变红时"能否构建"这一结论直接缺失。
+
+      # ═════════════════ 失败分诊(公开 annotations,2026-09-28 立)═════════════════
+      # 立因:本作业的 job 日志接口 `GET /actions/runs/<id>/jobs/<id>/logs` 对未授权访问返回 404,
+      # 而本机既无 gh CLI 也无凭据文件(HTTPS 凭据在 Windows 凭据管理器里)——"CI 为什么红"
+      # 在结构上零出口。`::error::` workflow command 会变成 check-run annotation,公开接口
+      # `GET /repos/<owner>/<repo>/commits/<sha>/check-runs` 即可读。所以让失败分支把
+      # "第一个红的步骤 + 该步骤单独重跑的最后 60 行输出"以 annotation 形式打出来,
+      # 这件事就从"需要日志权限"变成"任何会话零凭据可读"。
+      # 边界(硬):只在 failure() 分支跑;不碰上面任何步骤的判据严格程度(无 continue-on-error、
+      # 不删步骤、不扩 permissions、不新增 secret);成功路径本步被 skip,行为与耗时不变。
+      # 重跑命令不是手抄第二份清单,而是按 id 从本文件自身提取单行 run(两处算同一件事必漂移);
+      # 提取不到 / 失败步骤是 action 步骤 / 没有任何已知 id 报 failure —— 三种退路都各自打印,绝不静默。
+      - name: Failure triage (public annotations)
+        if: failure()
+        env:
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_WATERMARK: ${{ steps.watermark.outcome }}
+          O_CONFLICT_MARKERS: ${{ steps.conflict-markers.outcome }}
+          O_INSTALL_PNPM: ${{ steps.install-pnpm.outcome }}
+          O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
+          O_BUILD_SHARED_DEPS: ${{ steps.build-shared-deps.outcome }}
+          O_SHARED_TYPECHECK: ${{ steps.shared-typecheck.outcome }}
+          O_BUILD_DATABASE: ${{ steps.build-database.outcome }}
+          O_BUILD_AUTH: ${{ steps.build-auth.outcome }}
+          O_BUILD_API_CLIENT: ${{ steps.build-api-client.outcome }}
+          O_WXT_PREPARE: ${{ steps.wxt-prepare.outcome }}
+          O_ASSERT_WEB_BUILD_SCRIPT: ${{ steps.assert-web-build-script.outcome }}
+          O_BUILD: ${{ steps.build.outcome }}
+          O_ASSERT_WEB_ARTIFACT: ${{ steps.assert-web-artifact.outcome }}
+          O_TYPECHECK: ${{ steps.typecheck.outcome }}
+          O_SCHEMA_DRIFT: ${{ steps.schema-drift.outcome }}
+          O_MIGRATION_BOOKKEEPING: ${{ steps.migration-bookkeeping.outcome }}
+          O_API_ROUTES: ${{ steps.api-routes.outcome }}
+          O_PORT_REGISTRY: ${{ steps.port-registry.outcome }}
+          O_LINT: ${{ steps.lint.outcome }}
+          O_TEST: ${{ steps.test.outcome }}
+        run: |
+          set -uo pipefail
+          WF=".github/workflows/ci.yml"
+          FAILED_ID=""
+          FAILED_NAME=""
+          DUMP=""
+          annotate() {
+            # One ::error:: annotation per call: strip CR/LF, then percent-encode '%' first so the
+            # workflow-command grammar can never be broken by tool output payload.
+            local esc
+            esc=$(printf '%s' "$1" | tr -d '\r\n' | sed 's/%/%25/g')
+            printf '::error::%s\n' "$esc"
+          }
+          probe() {
+            # $1=step id, $2=outcome, $3=display name; keeps the FIRST failure in job order.
+            DUMP="$DUMP $1=$2"
+            if [ -z "$FAILED_ID" ] && [ "$2" = "failure" ]; then
+              FAILED_ID="$1"
+              FAILED_NAME="$3"
+            fi
+          }
+          probe checkout "$O_CHECKOUT" "actions/checkout@v4"
+          probe watermark "$O_WATERMARK" "Provenance watermark check"
+          probe conflict-markers "$O_CONFLICT_MARKERS" "Conflict marker check committed tree"
+          probe install-pnpm "$O_INSTALL_PNPM" "Install pnpm pnpm/action-setup@v6"
+          probe setup-node "$O_SETUP_NODE" "Setup Node.js actions/setup-node@v4"
+          probe install "$O_INSTALL" "Install dependencies frozen lockfile = dependency truth"
+          probe build-shared-deps "$O_BUILD_SHARED_DEPS" "Build shared workspace deps topological closure"
+          probe shared-typecheck "$O_SHARED_TYPECHECK" "Shared package typecheck dangling export-star gate"
+          probe build-database "$O_BUILD_DATABASE" "Build database package"
+          probe build-auth "$O_BUILD_AUTH" "Build auth package"
+          probe build-api-client "$O_BUILD_API_CLIENT" "Build api-client package"
+          probe wxt-prepare "$O_WXT_PREPARE" "Prepare WXT types extension"
+          probe assert-web-build-script "$O_ASSERT_WEB_BUILD_SCRIPT" "Assert web declares a build script"
+          probe build "$O_BUILD" "Build pnpm turbo run build"
+          probe assert-web-artifact "$O_ASSERT_WEB_ARTIFACT" "Assert web build artifact exists"
+          probe typecheck "$O_TYPECHECK" "Typecheck pnpm turbo run typecheck"
+          probe schema-drift "$O_SCHEMA_DRIFT" "Schema drift check"
+          probe migration-bookkeeping "$O_MIGRATION_BOOKKEEPING" "Migration bookkeeping check"
+          probe api-routes "$O_API_ROUTES" "API route consistency check"
+          probe port-registry "$O_PORT_REGISTRY" "Port registry check"
+          probe lint "$O_LINT" "Lint pnpm turbo run lint"
+          probe test "$O_TEST" "Test pnpm turbo run test"
+
+          if [ -z "$FAILED_ID" ]; then
+            # failure() fired but no step with an id reported 'failure' (job cancelled, or a step
+            # outside this list). Printing all outcomes keeps this branch diagnosable, not silent.
+            annotate "triage: job failed but no known step reported outcome=failure. all outcomes:$DUMP"
+            exit 0
+          fi
+
+          annotate "triage: first failing step is [$FAILED_ID] ($FAILED_NAME)"
+
+          case "$FAILED_ID" in
+            checkout|install-pnpm|setup-node)
+              # Action steps have no single 'run:' line to re-execute; naming the step is the honest ceiling here.
+              annotate "triage: [$FAILED_ID] is an action step - there is no run command to re-execute. Read that step's own log panel or reproduce with the same action version."
+              exit 0
+              ;;
+          esac
+
+          # Rerun mapping = this workflow file itself: extract the failed step's single-line run command by id,
+          # instead of maintaining a second hand-copied command list (two sources of truth would drift).
+          # If the step ever moves to a block scalar, extraction returns empty -> mapping-missing branch below.
+          RUN_CMD=""
+          if [ -f "$WF" ]; then
+            RUN_CMD=$(awk -v want="$FAILED_ID" '
+              state == 0 && $0 ~ ("^[[:space:]]*id:[[:space:]]*" want "[[:space:]]*$") { state = 1; next }
+              state == 1 && /^[[:space:]]*-[[:space:]]/ { exit }
+              state == 1 && /^[[:space:]]*run:[[:space:]]*$/ { exit }
+              state == 1 && /^[[:space:]]*run:/ { sub(/^[[:space:]]*run:[[:space:]]*/, ""); print; exit }
+            ' "$WF" | tr -d '\r')
+          fi
+
+          if [ -z "$RUN_CMD" ]; then
+            annotate "triage: 重跑映射缺失 (rerun mapping missing) for [$FAILED_ID] ($FAILED_NAME) - no single-line run: found after id: $FAILED_ID in $WF. The failing step is named above; re-run its command manually."
+            exit 0
+          fi
+
+          annotate "triage: re-running ONLY this command: $RUN_CMD"
+          LOG="${RUNNER_TEMP:-/tmp}/ci-triage-rerun.log"
+          RC=0
+          bash -c "$RUN_CMD" >"$LOG" 2>&1 || RC=$?
+          TOTAL=$(wc -l <"$LOG" | tr -d '[:space:]')
+          if [ "$RC" -eq 0 ]; then
+            annotate "triage: rerun exited 0 from the same checkout - failure not reproducible standalone (order/cache/env sensitive). Captured $TOTAL line(s); printing last 60 anyway."
+          else
+            annotate "triage: rerun reproduced failure, exit $RC. Captured $TOTAL line(s), printing last 60 below - these are readable via the PUBLIC check-runs annotations API without log rights."
+          fi
+          tail -n 60 "$LOG" | while IFS= read -r line || [ -n "$line" ]; do
+            annotate "[$FAILED_ID] ${line:0:1000}"
+          done
+          exit 0
 
   python-ai-service:
     runs-on: ubuntu-latest
