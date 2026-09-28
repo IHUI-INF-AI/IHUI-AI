@@ -42,10 +42,13 @@
  *      清单替每次提交挡路(§12e 同型),而这一格需要的是"有人看见",不是"有人被打断"。
  *   X7 **只对已放开的条目**回查 ai-service 的 handler:函数体(或它一跳调用的同文件 helper)
  *      必须引用一个身份出口,出口名单由 `jwt_auth.py` / `capability_gate.py` 的顶层函数**现读推导**
- *      (不抄第二份名字)。立论是实测:`connectors:read` 在目录里写着 `thirdPartyEligible:true`,
+ *      (不抄第二份名字)。立论是实测:`connectors:read` 立项时在目录里写着 `thirdPartyEligible:true`,
  *      而它的 handler 是 `connector_store.list_all()` 零属主过滤 —— "目录说有对外语义"与
  *      "实现收不收身份"此前没有任何一把尺子连着(门 117 / 152 判的都是"收了身份却没比对",
- *      对"一个身份参数都不收的整片读"结构上失明)。刻意不判全量:HEAD 面 266 条可解析路由里
+ *      对"一个身份参数都不收的整片读"结构上失明)。该 scope 已于 2026-09-28 按 X7 的实测改标
+ *      `false`(恢复 true 的前置是 handler 侧先落属主)—— **X7 因此不是替一处已修的账背书,
+ *      而是那条前置的看守**:谁把 `thirdPartyEligible` 改回 true 而实现仍无身份出口,它就点名。
+ *      刻意不判全量:HEAD 面 266 条可解析路由里
  *      212 条不引用出口,当场判红就是一台恒红门。
  *
  * 三态与退出码(绝不把"没判"写成"判过了"):
@@ -55,8 +58,12 @@
  *
  * 定级:**warn / 纯手动档,刻意不接提交链**。① 它判的是"两份部署配置 + 一份契约产物"的跨面
  * 一致性,一次只改其中一份的提交结构上满足不了它 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`,
- * 一次绕过等于该提交上全部守门作废;② 现读到的 (B) 与本票判断存在一处真实分歧
- * (connectors:read),它还没人拍板,不该由脚本替谁定案。问责入口就是下面这行命令。
+ * 一次绕过等于该提交上全部守门作废。② 它立项时量到的那处 (B) 与目录的分歧(`connectors:read`)
+ * 已由机主在 2026-09-28 拍板收口:该 scope 标成 `thirdPartyEligible:false`、(B) 里的广告同步
+ * 撤除、并把该 scope 写进 `apps/api/tests/o5-nginx-edge-ratelimit.test.ts` 的负面清单;
+ * 真正的放开前置是给连接器配置落属主(见 PROJECT_PLAN 的 G-338 后续票)。**本条定级不因此改变**
+ * —— 判跨面一致性的门挂进提交链仍然是恒红门,理由 ① 与分歧是否已解决无关。
+ * 问责入口就是下面这行命令。
  *
  * 用法:
  *   node scripts/check-public-exposure-list.mjs                # 全量,判 HEAD 面
@@ -287,10 +294,12 @@ export function readEdgeTable(tsText) {
  * 并要求该函数体引用到一个**身份出口**。
  *
  * 立论不是风格而是实测到的两件事(2026-09-28,拍板②第一档当轮):
- *  - 能力目录把 `connectors:read` 标成 `thirdPartyEligible:true`,而它的两个 handler
+ *  - 能力目录立项时把 `connectors:read` 标成 `thirdPartyEligible:true`,而它的两个 handler
  *    (`routers/connectors.py::list_connectors` 走 `connector_store.list_all()`、
  *     `routers/mcp.py::list_external_servers` 走 `manager.list_registered()`)**零属主过滤** ——
  *    "目录说有对外语义"与"实现收不收身份"之间没有任何一把尺子。
+ *    (同轮已按这条实测把该 scope 改标 false;X7 留着,是为了让"改回 true 而实现没变"必须
+ *     先过这把尺子,而不是靠人记得。)
  *  - 门 117 / 门 152 判的都是"收了 user_id 或读了 state.user_id 却没比对",所以
  *    "**一个身份参数都不收的整片读**"在两把尺子的候选集里根本不存在 ⇒ 它们双 RC=0 不构成
  *    "ai-service 无未对齐读面"。X7 补的就是那一格,且**只对已放开的条目判红**

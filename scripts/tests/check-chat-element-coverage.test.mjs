@@ -8,9 +8,11 @@
 // V3种子数据文件 scripts/data/chat-element-coverage.json 由本文件做 schema 自检,清单变更不同步即红。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 import { __test__ as src } from '../check-chat-element-coverage.mjs'
 
@@ -429,6 +431,189 @@ test('台账自身两张基线必须齐备(整文件被旧基线回写时,本条
   assert.equal(typeof LEDGER.anchorCountBaseline?.total, 'number')
   assert.ok(Array.isArray(LEDGER.commentOnlyAnchorBaseline?.entries))
   assert.ok(LEDGER.implemented.length > 0)
+})
+
+// ═══ 审面(2026-09-28 立):清单条目数 = 台账 ⊕ **同面**归档件 ═══════════════════
+//
+// 起因(不是假想):自动归档档改成"完成即归档"后,完成的 D 行被搬进
+// `.ihui-agent/archive/PROJECT_PLAN_*.md`;本门只数台账正文,于是"搬走"被读成"撤销"
+// —— 当天实测 entryCount 103(基线)→ 74 判红,而台账行数一行未减、元素一个未删。
+// 这组用例钉的是**判据有牙**:归档件带着那一行 ⇒ 不判红;两侧都没有 ⇒ 仍判红。
+// 基线(chat-flow-elements.json 的 entryCountBaseline)不是本票的可调项 —— 下面所有断言
+// 都在构造面上改**内容**,不改阈值。
+
+const { mergeGapIds, gapIdsOfText, archiveFaceFor, readArchiveCorpus, ARCHIVE_FILE_RE } = src
+
+const PS = LEDGER.planSource
+const ARCH_LINE = '- [x] ✅(2026-09-27)**D77 被搬走的元素(G-151)**:归档件里的原文\n'
+const PLAN_LINE = '- [ ] **D90 示例元素(G-140)**:台账正文里的行\n'
+
+test('审面纯判据:归档件补回 ⇒ 计入;两侧都无 ⇒ 不计;两侧各一份 ⇒ 不双计', () => {
+  const only = mergeGapIds({ planText: PLAN_LINE, archives: [], planSource: PS })
+  assert.deepEqual([...only.gapIds], ['G-140'])
+  assert.equal(only.fromPlan, 1)
+  assert.deepEqual(only.archivedOnly, [])
+
+  const recovered = mergeGapIds({
+    planText: '',
+    archives: [{ path: '.ihui-agent/archive/PROJECT_PLAN_2026-09-28.md', text: ARCH_LINE }],
+    planSource: PS,
+  })
+  assert.deepEqual([...recovered.gapIds], ['G-151'], '台账一行没有而归档件带着 ⇒ 审面必须仍数到它')
+  assert.deepEqual(recovered.archivedOnly, ['G-151'], '"只在归档件里"必须单独报名,不得混进台账计数')
+
+  const dup = mergeGapIds({
+    planText: PLAN_LINE + ARCH_LINE,
+    archives: [{ path: '.ihui-agent/archive/PROJECT_PLAN_x.md', text: ARCH_LINE }],
+    planSource: PS,
+  })
+  assert.deepEqual([...dup.gapIds].sort(), ['G-140', 'G-151'], '同一 G-ID 两侧各一份只算一条(双计=刷额度)')
+  assert.deepEqual(dup.archivedOnly, [], '台账里已有的那条不得被算成"归档件补回"')
+  assert.equal(gapIdsOfText('# 没有任务行的散文\nG-999 提一句\n', PS).size, 0, '非任务行里的 G-ID 不得被计入(判据仍是 taskLinePattern)')
+})
+
+test('归档面的选择:磁盘面从来不是归档凭据(G-183),worktree 也必须落回 HEAD 树', () => {
+  assert.equal(archiveFaceFor('staged'), 'staged')
+  assert.equal(archiveFaceFor('head'), 'head')
+  assert.equal(archiveFaceFor('worktree'), 'head')
+})
+
+test('形状锁:归档面取材必须走 face-reader,不得回到 readdirSync / 按磁盘读', () => {
+  const srcText = readFileSync(join(ROOT_DIR, 'scripts', 'check-chat-element-coverage.mjs'), 'utf8')
+  assert.match(srcText, /from '\.\/lib\/face-reader\.mjs'/, '必须引 face-reader(散写 git 读内容 = 本仓判据漂移的源头)')
+  assert.match(srcText, /catBatch\(root, specs/, '归档件内容必须一次 catBatch 批量读满(逐文件开 git = 守门 80 的 fork 风暴)')
+  assert.doesNotMatch(srcText, /readdirSync\(/, '归档清单不得用 readdirSync —— 本机未入库的副本不构成凭据')
+  assert.doesNotMatch(srcText, /readFileSync\(join\(root[^)]*archive/, '不得按磁盘读归档目录当被审内容')
+  // 两面旗同给 / 枚举到 0 / blob 取不到 三格都必须有出口,少一格就是"把没判写成判过了"
+  assert.match(srcText, /selectFace\(\{/, '必须经 selectFace 选面(两面旗同给 ⇒ 判死)')
+  assert.match(srcText, /corpus\.enumerated === 0/, '枚举到 0 个归档候选必须判死,不得记绿')
+  assert.match(srcText, /corpus\.error/, '归档面取材失败必须显式未判定,不得静默')
+  assert.match(srcText, /res\.archiveMissing\.length > 0[\s\S]{0,120}return 2/, 'blob 取不到 ⇒ 拒绝出具合格证')
+})
+
+test('真仓取材:HEAD 面上的归档件必须真被枚举到(空扫 = 尺子失效,不是"没有归档")', () => {
+  const res = readArchiveCorpus('head', ROOT_DIR)
+  assert.equal(res.error, null, `归档面取材失败:${res.error}`)
+  assert.ok(res.enumerated > 0, `${ROOT_DIR} 的 HEAD 树里枚举到 0 份 PROJECT_PLAN_*.md ⇒ 无法判定`)
+  assert.equal(res.archives.length, res.enumerated - res.missing.length, '枚举数必须 = 读到 + 点名缺的,不得静默少一份')
+  assert.ok(
+    res.archives.every((a) => ARCHIVE_FILE_RE.test(a.path)),
+    '读到的必须都是 PROJECT_PLAN_*.md 形状(别的归档件不参与本判据)',
+  )
+})
+
+// ─── 端到面(私有索引注入):证明"审面"这条判据真的有牙 ─────────────────────────
+//
+// 只在构造面上动**内容**(台账去掉全部 D 行 + 归档件带/不带同一批原文),基线一个字没改。
+// 全程只写私有索引(`GIT_INDEX_FILE` 指向 scratch)与 scratch 里的临时 blob,**不碰任何被跟踪文件**。
+
+const GIT = process.env.GIT_BIN || (process.platform === 'win32' ? 'C:/Program Files/Git/bin/git.exe' : 'git')
+
+function gitIn(args, env, input) {
+  const r = spawnSync(GIT, ['-c', 'safe.directory=*', '-C', ROOT_DIR, ...args], {
+    encoding: 'utf8',
+    env,
+    input,
+    windowsHide: true,
+    timeout: 120_000,
+    maxBuffer: 64 << 20,
+  })
+  if (r.status !== 0) throw new Error(`git ${args[0]} 失败: ${(r.stderr || r.error?.message || '').split('\n')[0]}`)
+  return r.stdout
+}
+
+/**
+ * @param {{planText:string|null, archiveText:string|null, dropRealArchives:boolean}} spec
+ * @returns {{rc:number, out:string}}
+ */
+function runStagedWithPrivateIndex(spec) {
+  const dir = mkScratch('g57-e2e')
+  const idx = join(dir, 'idx')
+  const env = { ...process.env, GIT_INDEX_FILE: idx }
+  try {
+    gitIn(['read-tree', 'HEAD'], env)
+    const realArchives = gitIn(['ls-files', '--', '.ihui-agent/archive'], env)
+      .split('\n')
+      .filter((p) => ARCHIVE_FILE_RE.test(p))
+    if (spec.dropRealArchives) {
+      for (const p of realArchives) gitIn(['update-index', '--force-remove', p], env)
+    }
+    if (spec.planText !== null) {
+      const f = join(dir, 'plan.md')
+      writeFileSync(f, spec.planText, 'utf8')
+      const sha = gitIn(['hash-object', '-w', f], env).trim()
+      gitIn(['update-index', '--add', '--cacheinfo', `100644,${sha},PROJECT_PLAN.md`], env)
+    }
+    if (spec.archiveText !== null) {
+      const f = join(dir, 'arch.md')
+      writeFileSync(f, spec.archiveText, 'utf8')
+      const sha = gitIn(['hash-object', '-w', f], env).trim()
+      gitIn(
+        ['update-index', '--add', '--cacheinfo', `100644,${sha},.ihui-agent/archive/PROJECT_PLAN_E2E-injected.md`],
+        env,
+      )
+    }
+    const r = spawnSync(process.execPath, [join(ROOT_DIR, 'scripts', 'check-chat-element-coverage.mjs'), '--staged'], {
+      encoding: 'utf8',
+      env,
+      cwd: ROOT_DIR,
+      windowsHide: true,
+      timeout: 300_000,
+      maxBuffer: 64 << 20,
+    })
+    return { rc: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` }
+  } finally {
+    rmScratch(dir)
+  }
+}
+
+test('端到端①(牙):台账里整批 D 行消失、同字逐字出现在同面归档件 ⇒ --staged 不判红', () => {
+  const headPlan = gitIn(['show', 'HEAD:PROJECT_PLAN.md'], { ...process.env, GIT_INDEX_FILE: undefined })
+  const re = new RegExp(PS.taskLinePattern, 'mu')
+  const lines = headPlan.split('\n')
+  const kept = []
+  const moved = []
+  for (const l of lines) (re.test(l) ? moved : kept).push(l)
+  assert.ok(moved.length >= 20, `夹具不成立:HEAD 台账只匹配到 ${moved.length} 行 D 任务行`)
+  const a = runStagedWithPrivateIndex({
+    planText: kept.join('\n'),
+    archiveText: `# 已归档(E2E 注入,内容 = 从台账搬走的原文逐字)\n\n${moved.join('\n')}\n`,
+    // 保留真实归档件:台账清空后 rc=0 只能由"归档面确实带着那一行"换来(基线 103 = 63 条 G-ID
+    // + 40 个已实现元素,而本夹具让台账贡献 0 条),不靠夹具自己凑数。
+    dropRealArchives: false,
+  })
+  assert.equal(a.rc, 0, `搬走不得算撤销,实得 rc=${a.rc}\n${a.out}`)
+  assert.match(a.out, /planned 任务 0 行/, `夹具必须真把台账的 D 行清空:\n${a.out}`)
+  assert.match(a.out, /归档件补回 [1-9]/, `必须报出"归档件补回"的条数,实得:\n${a.out}`)
+  assert.doesNotMatch(a.out, /inventory-regression/, `不得判红:\n${a.out}`)
+  // 反向锁:同一批原文若在归档面上找不到,补回数必须掉下来 —— 证明"补回"不是常量装饰
+  const cov = gitIn(['ls-files', '--', '.ihui-agent/archive'], { ...process.env, GIT_INDEX_FILE: undefined })
+    .split('\n')
+    .filter((p) => ARCHIVE_FILE_RE.test(p)).length
+  assert.ok(cov > 0, '归档面在本仓必须非空(否则本用例的 rc=0 无从谈起)')
+})
+
+test('端到端②(反向对照):台账与归档件**两侧都没有**那批行 ⇒ --staged 仍判红并点名', () => {
+  const headPlan = gitIn(['show', 'HEAD:PROJECT_PLAN.md'], { ...process.env, GIT_INDEX_FILE: undefined })
+  const re = new RegExp(PS.taskLinePattern, 'mu')
+  const lines = headPlan.split('\n')
+  const kept = []
+  const moved = []
+  for (const l of lines) (re.test(l) ? moved : kept).push(l)
+  const b = runStagedWithPrivateIndex({
+    planText: kept.join('\n'),
+    archiveText: '# 已归档(E2E 注入,里面一行任务行都没有)\n\n普通散文,不含 D 族行。\n',
+    dropRealArchives: true,
+  })
+  assert.equal(b.rc, 1, `两侧都无必须判红,实得 rc=${b.rc}\n${b.out}`)
+  assert.match(b.out, /inventory-regression/, `必须点名条目倒退:\n${b.out}`)
+  assert.ok(moved.length >= 20)
+})
+
+test('端到端③(判死):归档面枚举到 0 个候选 ⇒ exit 2「无法判定」,不得记绿', () => {
+  const c = runStagedWithPrivateIndex({ planText: null, archiveText: null, dropRealArchives: true })
+  assert.equal(c.rc, 2, `空枚举必须判死,实得 rc=${c.rc}\n${c.out}`)
+  assert.match(c.out, /枚举到 0 份/, `必须点名是"枚举失效"而不是"没有违规":\n${c.out}`)
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
