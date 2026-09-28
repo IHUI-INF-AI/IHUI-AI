@@ -15,10 +15,12 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import * as path from 'node:path'
+// 临时件一律走 §26 的落点(mkScratch 锚定工作树同盘的 DevEnv/Temp,不写 os.tmpdir())
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const GATE = path.resolve(__dirname, '..', 'check-desktop-event-wiring.mjs')
@@ -96,6 +98,131 @@ test('T5 取材面纪律:判据面必须先剥注释(blankComments 只有一份�
   for (const l of fsImportLines) {
     if (/^\s*(\/\/|\*|\/\*)/.test(l)) continue // 纯注释行不构成执行面
     assert.ok(!l.includes('readFileSync'), `门又从磁盘直读被审内容:${l.trim()}`)
+  }
+})
+
+// ============================================================================
+// G9(整页导航发起点必须先触发存草稿出口,2026-09-29 · G-407 票①)
+//
+// 行为面(注入必红 / 补出口必绿 / 存量不得判红)已在 `--self-test` 与一次私有索引
+// 端到端里证过(见该组用例与票的交付报告)。这一组是**形状锁**:G9 与 G8 的分工
+// 是"同一份发起点枚举 + 同一份失明护栏",而分工一旦靠散文约束就会漂 ——
+// 本仓记过最多次的失效型正是"判据在、没人接进取材/调用链"与"复制一份必漂移"。
+// ============================================================================
+
+/** 取某个顶层函数/常量声明的源码切片(到下一个顶层 `function ` / `const ` 之前),供形状锁定位 */
+function srcSlice(fromMarker, toMarkers) {
+  const from = SRC.indexOf(fromMarker)
+  assert.ok(from >= 0, `源码里找不到「${fromMarker}」—— G9 的实现被摘线或改名`)
+  let end = SRC.length
+  for (const m of toMarkers) {
+    const i = SRC.indexOf(m, from + fromMarker.length)
+    if (i > 0 && i < end) end = i
+  }
+  return SRC.slice(from, end)
+}
+
+test('T6 反向依赖:G9 不得复制 G8 的"找不到发起点即失明"护栏(整仓只允许一份)', () => {
+  const msg = '找不到任何整页导航发起点'
+  const hits = SRC.split(msg).length - 1
+  assert.equal(hits, 1, `失明护栏文案出现 ${hits} 份 —— 两份护栏会各自与取材面漂移,而 G9 那一份还从未与宿主面同步过(守门 102/70/76/81 同族)`)
+  const g8 = srcSlice('  // G8 —— 整页导航发起处必须先复位闸门', ['\n  return violations'])
+  assert.ok(g8.includes(msg), '那条唯一护栏必须住在 G8 里(G9 反向依赖它)')
+  const g9 = srcSlice('export function auditPageNavExit', ['export function decidePageNavReds'])
+  assert.ok(!g9.includes(msg), 'G9 自己不许再判一次"失明"')
+})
+
+test('T7 发起点枚举只许一份实现,且 G8 与 G9 都必须调用它', () => {
+  assert.equal(SRC.split('function collectPageNavSites(').length - 1, 1, 'collectPageNavSites 被抄了第二份')
+  const g8 = srcSlice('  // G8 —— 整页导航发起处必须先复位闸门', ['\n  return violations'])
+  const g9 = srcSlice('export function auditPageNavExit', ['export function decidePageNavReds'])
+  assert.ok(g8.includes('collectPageNavSites('), 'G8 没走共用枚举 ⇒ 两侧形态集合必然分叉')
+  assert.ok(g9.includes('collectPageNavSites('), 'G9 没走共用枚举 ⇒ 同上')
+  // 主流程必须真的调用 G9 的判据与棘轮出口(判据在而无人喂 = 没有,本门 G8 注册史的同型)
+  assert.match(SRC, /const info = auditPageNavExit\(rel, masked, raw\)/, '主循环没调 auditPageNavExit')
+  assert.match(SRC, /const dec = decidePageNavReds\(g9Judged, anchors\)/, '主流程没走棘轮出口 ⇒ G9 只打印不拦')
+  assert.match(SRC, /out\.set\(p, auditPageNavExit\(p, masked, text\)\.gaps\)/, 'HEAD 锚点必须用**同一份**判据算,不得另抄正则')
+})
+
+test('T8 渲染面是"报名"不是"隐身":两侧切分与逐文件清单都必须在位', () => {
+  const scopeBody = srcSlice('export function pageNavScopeOf', ['\n/**', '\n// ===='])
+  assert.ok(
+    scopeBody.includes("return /\\.rs$/.test(rel) ? 'host' : 'renderer'"),
+    'host/renderer 切分漂移(或整个出口被摘线)',
+  )
+  assert.match(SRC, /g9RendererLedger\.push\(/, '渲染面站点没被收集 ⇒ "不判红"退化成"看不见"')
+  assert.match(SRC, /⚠ 渲染面同类发起点/, '渲染面台账没有输出行 ⇒ 报名不成立')
+})
+
+test('T9 行内豁免出口必须带原因、逐行生效,且族已登记进门 108 的存活期表', () => {
+  assert.ok(
+    SRC.includes('const PAGE_NAV_EXEMPT_RE = /page-nav-exempt:\\s*(\\S.*)/'),
+    '豁免正则形状漂移(捕获组一丢,"裸标记也算带了原因")',
+  )
+  const g9 = srcSlice('export function auditPageNavExit', ['export function decidePageNavReds'])
+  assert.ok(g9.includes('NOT_A_REASON_RE'), 'G9 没剥标点/注释闭合符 ⇒ "裸标记 + */" 会被当成带了原因(守门 102 记过同一条)')
+  assert.ok(g9.includes('s.line - 1, s.line - 2'), '豁免不是逐行(命中行 + 紧邻上一行)⇒ 一份标记救整棵文件')
+  const expiry = readFileSync(path.resolve(__dirname, '..', 'check-exemption-expiry.mjs'), 'utf8')
+  assert.match(expiry, /'page-nav-exempt':\s*30/, 'page-nav-exempt 未进 FAMILY_LIFETIME_DAYS ⇒ 一条没人管寿命的出口')
+})
+
+test('T10 端到端双向锁:私有索引注入(宿主面红 / 补出口绿 / 存量只报数 / 渲染面报名)', () => {
+  const ROOT = path.resolve(__dirname, '..', '..')
+  const gitBin = process.env.GIT_BIN || 'git'
+  const git = (args, idx) =>
+    execFileSync(gitBin, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: 1 << 26,
+      env: { ...process.env, ...(idx ? { GIT_INDEX_FILE: idx } : {}) },
+    })
+  const REL = 'apps/desktop/src-tauri/src/g9probe.rs'
+  const TS_REL = 'apps/web/src/lib/g9probe.ts'
+  const NO_EXIT = 'fn nav(w: &tauri::WebviewWindow) {\n    let _ = w.eval("location.reload()");\n    let _ = w.eval("location.href=u");\n}\n'
+  const WITH_EXIT =
+    'fn nav(w: &tauri::WebviewWindow) {\n    let _ = w.emit("desktop-before-close", ());\n    let _ = w.eval("location.reload()");\n    let _ = w.eval("location.href=u");\n}\n'
+  const TS_TEXT = 'export function go(u: string): void {\n  window.location.href = u\n  window.location.reload()\n}\n'
+  const scratch = mkScratch('g9-mirror-e2e')
+  const idx = path.join(scratch, 'i').replace(/\\/g, '/')
+  try {
+    const run = (files, want, extra) => {
+      git(['read-tree', 'HEAD'], idx)
+      for (const [rel, text] of files) {
+        const tmp = path.join(scratch, 'blob.txt')
+        writeFileSync(tmp, text, 'utf8')
+        const blob = git(['hash-object', '-w', '-t', 'blob', tmp], idx).trim()
+        git(['update-index', '--add', '--cacheinfo', `100644,${blob},${rel}`], idx)
+      }
+      const r = spawnSync(process.execPath, [GATE, '--staged'], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        timeout: 300000,
+        windowsHide: true,
+        env: { ...process.env, GIT_INDEX_FILE: idx },
+      })
+      const out = (r.stdout || '') + (r.stderr || '')
+      const mine = out.includes(`✗ G9 ${REL} 新增`)
+      const tsMine = out.includes(`✗ G9 ${TS_REL} 新增`)
+      // "别的 G9 红"必须按**被点名的文件**判,不得用 /✗ G9 / 一律算红 —— 那会把本用例
+      // 自己要求的那一条红算成"意外红",断言恒假(第一版就栽在这里)。
+      const otherRed = [...out.matchAll(/✗ G9 (\S+) 新增/g)].some((m) => m[1] !== REL && m[1] !== TS_REL)
+      if (want === 1)
+        assert.ok(r.status === 1 && mine && !otherRed, `${extra}:exit ${r.status} 点名=${mine} 其它G9红=${otherRed}\n${out.split('\n').filter((l) => /G9|错误/.test(l)).slice(0, 6).join('\n')}`)
+      else
+        assert.ok(
+          r.status === 0 && !mine && !tsMine && !otherRed,
+          `${extra}:exit ${r.status} 点名=${mine || tsMine} 其它G9红=${otherRed}\n${out.split('\n').filter((l) => /G9|错误/.test(l)).slice(0, 6).join('\n')}`,
+        )
+      return out
+    }
+    run([], 0, 'C 索引==HEAD 必须绿(存量不得算新增)')
+    run([[REL, NO_EXIT]], 1, 'A 宿主面两处无出口发起点必须红并点名')
+    run([[REL, WITH_EXIT]], 0, 'B 补上 emit 必须绿(同一站点、只多一行出口)')
+    const outD = run([[TS_REL, TS_TEXT]], 0, 'D 渲染面同样站点不得判红')
+    assert.ok(outD.includes('⚠ 渲染面同类发起点') && outD.includes(TS_REL), 'D 渲染面必须逐文件报名,不判红也不许隐身')
+  } finally {
+    rmScratch(scratch)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

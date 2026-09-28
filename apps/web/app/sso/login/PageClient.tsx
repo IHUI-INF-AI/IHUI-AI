@@ -12,7 +12,7 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { fetchApi } from '@/lib/api'
 import { buildSsoRedirectUrl } from '@ihui/shared'
-import { ensureSsoRedirectAllowed } from '@/lib/sso-redirect-guard'
+import { ensureSsoRedirectAllowed, resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
 import { Button } from '@ihui/ui-react'
 import { Loader2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -84,8 +84,13 @@ export default function SsoLoginPage() {
       // 2026-09-22 修复"关闭按钮点了没反应":redirect 若是受保护的同源路径
       // (如 /edu/edu-management/*),直接跳回去必被守卫 307 弹回本页 → 看起来像按钮失灵。
       // 先确保能被放行;仍不行则回首页,避免陷入 307 重定向闭环。
-      const allowed = await ensureSsoRedirectAllowed(redirectUrl)
-      router.push(allowed ? redirectUrl : '/')
+      // 2026-09-28 票 A3/G-413:ensureSsoRedirectAllowed 判的是"守卫会不会放行"(站内相对路径才受
+      // 约束),它**不是**协议闸 —— 所以这一跳此前可以把 `javascript:` / `/\evil.com` 原样喂给
+      // router.push(Next 对跨 origin 的目标执行整页导航 ⇒ 在本站源里执行 = 同源 XSS)。
+      // 现与其余三处回跳落点共用同一把尺子,deep-link 按本页既有契约继续放行。
+      const target = resolveSafeRedirectTarget(redirectUrl, { allowDeepLink: true })
+      const allowed = await ensureSsoRedirectAllowed(target)
+      router.push(allowed ? target : '/')
     })()
   }, [redirectUrl, router])
 
@@ -94,26 +99,31 @@ export default function SsoLoginPage() {
     if (!currentToken) return
     setExchanging(true)
     try {
+      // 2026-09-28 票 A3/G-413:sso_code 只会跟着"过了同一把尺子的那一跳"离开本站 ——
+      // 服务端 isSafeRedirectUri 认 `startsWith('/') && !startsWith('//')`,而 `/\evil.com`
+      // 在那条规则下成立、在浏览器里却解析成 https://evil.com(WHATWG 把 special scheme 下的
+      // 反斜杠等值当斜杠),于是"过了服务端校验的 code"会被送到外站。落点判据统一走
+      // @/lib/sso-redirect-guard 这一把尺子,不在此另写一份 origin 判断(AGENTS §3)。
+      const target = resolveSafeRedirectTarget(redirectUrl, { allowDeepLink: true })
       // 2026-09-22:先确认回跳目标能被守卫放行(必要时静默续种 cookie)——
       // 否则生成的 sso_code 还没被消费就被 307 打回本页,用户感知即"按钮没反应"。
-      if (!(await ensureSsoRedirectAllowed(redirectUrl))) {
+      if (!(await ensureSsoRedirectAllowed(target))) {
         toast.error(tSso('sessionExpired'))
         return
       }
       const r = await fetchApi<{ code: string; redirectUri: string }>('/api/auth/sso/code', {
         method: 'POST',
-        body: JSON.stringify({ clientId, redirectUri: redirectUrl }),
+        body: JSON.stringify({ clientId, redirectUri: target }),
       })
       if (r.success && r.data?.code) {
         // 幂等构造:先剥离 redirect 里可能残留的 sso_code 再附加(2026-09-22 去重),
         // 防守卫打回重入导致 ?sso_code=A&sso_code=B 递归膨胀。
-        const finalUrl = buildSsoRedirectUrl(redirectUrl, r.data.code)
+        const finalUrl = buildSsoRedirectUrl(target, r.data.code)
         // Custom scheme(如 ihui://)需用 window.location.href 触发 OS deep-link handler,
         // router.push 无法处理非 http/https 协议(2026-08-01 desktop SSO 闭环修复)
         const isCustomScheme =
-          !redirectUrl.startsWith('http://') &&
-          !redirectUrl.startsWith('https://') &&
-          !redirectUrl.startsWith('/')
+          !target.startsWith('http://') && !target.startsWith('https://') && !target.startsWith('/')
+
         if (isCustomScheme) {
           window.location.href = finalUrl
         } else {
@@ -139,7 +149,10 @@ export default function SsoLoginPage() {
   const fromOidc = searchParams.get('sso') === 'oidc'
   React.useEffect(() => {
     if (fromOidc && token && user) {
-      router.push(redirectUrl)
+      // 票 A3/G-413 的"那一处裸用":这一跳此前**不经过任何判据**(既不走 ensureSsoRedirectAllowed
+      // 的守卫探测,也不走导航安全判据),redirect 参数由客户端整条可控 —— 而它正发生在
+      // "刚完成企业 SSO、会话已落 cookie"的那一刻。现与其余落点共用同一把尺子。
+      router.push(resolveSafeRedirectTarget(redirectUrl, { allowDeepLink: true }))
     }
   }, [fromOidc, token, user, redirectUrl, router])
 
