@@ -14696,3 +14696,36 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   - **仍开着的两格(不在本票射程,已点名)**:① 把登记逻辑收敛成一份 `scripts/lib/selftest-cases.mjs`(要处理 3 道 `async` selfTest 的 Promise,否则把"未吞 promise 即算通过"换成新坑;上线必须同笔配判据,不然只是第二份散文规矩)—— 本轮只评估不动手,**不得**顺手改那 41 个文件;② `check-plan-sha-resolvable.mjs`、`check-lsp-language-table.mjs` 此刻在他人手里(工作树 ` M`),真到改造那天先确认归属。
 
 - [ ] G-G-336 **`plan-tasks-merge.mjs --dedupe-blocks` 的阈值覆盖不到"两行逐字相同的单行副本"这一型（现读实证：86H 那一条已完成行在 HEAD 面有 2 份逐字相同副本 —— 计数用 `git show HEAD:PROJECT_PLAN.md | grep -c "86H. agent 审批的权限决策落审计链"` = 2；按 §1 判据 3 不写行号，行号在 append 后必挪位）**：该出口只认 **≥3 行且每行 ≥40 字符的连续 bullet 块逐字相同**（阈值本身是对的 —— 低于它会把台账里天然成对的短行成百地报出来，噪声淹信号），于是"同一件事被写成两份、每份都是单行"恰好落在缝隙里；而 F1/F2/F4 也都不计它（四条判据里"待办副本"要求未勾形态，两份都已 `[x]` ⇒ 账面 0，`plan-tasks.mjs --staged` 现读 F 维全 0）。**这一型有两条候选制造路径(本票未定性,不得读成已归因)**:活文档 union 把改写前那份带回来;门 71 的 post-commit 自愈按标记回捞"丢失"的行 —— 若那一行其实是被**就地改写**(旧行已按 §1 留在原位、新行另处再写一份),回捞就会补出第二份。定性要跑一次可控复现(独立临时仓里"改写一行 → 触发自愈"看它补不补),不在本票顺手做。**在等谁**：归并器持有人裁 —— 出路只有两条且都要人拍：a) 给 `--dedupe-blocks` 加"同主键 + 逐字等值 + 已完成形态"的单行档（判据必须是**逐字等值**，半行不同就交人工，理由同它现有那条"机器折半即有损"）；b) 或在门 71 自愈侧改为"编号在面上已存在即不追加"（那是生产者侧收口，比事后清账更对，但要证明不会把真丢行也一并按住）。**不得**由本票手工删行：删已完成行受 §1"禁止无声删除"约束，而两份哪份作数要按主键而不是按行号（§1 判据 3 已把行号指针判为不可用作证据）。
+
+- [ ] G-338 **`connectors:read` 的公网语义与 ai-service 侧的零属主过滤互相矛盾,放开=任何登录主体枚举他人配置;收紧=改变对外契约 ⇒ 交 owner 定性**(2026-09-28 拍板②第一档的当轮实测,归 ai-service 鉴权面 + v1 对外语义)
+
+  **实测到的三件事(逐条读体,不是推断)**:
+
+  1. **两个 handler 都不按属主过滤**:`apps/ai-service/app/routers/connectors.py` 的
+     `list_connectors()` 直接 `connector_store.list_all()`、`app/routers/mcp.py` 的
+     `list_external_servers()` 直接 `manager.list_registered()` —— 二者都是**全站单文件 store**,函数体里
+     没有任何 `user_id` / `owner` 条件,也没有 `require_request_user_id`。所以"能力目录把它标成
+     `thirdPartyEligible:true` + `dataClass:scoped-read`"这句**与实现不符**:scoped 需要一份属主判定,而它
+     结构上不存在。
+  2. **这一格现有守门全看不见**:门 117(记忆端点属主绑定)与门 152(引擎身份消费)判的都是"端点收了
+     `user_id`/读了 `state.user_id` 却没比对";这两个 handler **一个身份参数都不收** ⇒ 两把尺子的候选集里
+     根本没有它们。所以"117/152 双 RC=0"不构成"ai-service 无未对齐读面"的结论 —— 这是**判据边界**,不是已防住。
+  3. **今天它已经在公网面上**:`deploy/docker/nginx.web.conf` 里 `location /ai-service/`(2026-07-24 的
+     整棵子树套壳,早于本票)按前缀代理 ⇒ `/ai-service/api/connectors` 与 `/ai-service/api/mcp/external/servers`
+     对**任何持有有效 JWT 的人**可达;而 `apps/web/src/config/ai-service-edge.ts:78` 又把 `connectors:read`
+     当作可公开能力广告出去(web 端有真实消费点)。⇒ 拍板②里"逐项放开"这道闸,**对这一项来说不是"要不要开",
+     而是"早就开着,要不要修"**。
+
+  **三条出路(爆炸半径各不相同,故不代裁)**:
+  - A **补属主后按目录放**:给连接器配置加归属(新结构:store 记 owner 或改库),读侧按 `require_request_user_id`
+    过滤,再把 `connectors:read` 加进白名单片段。改动面最大但语义最对,且与目录标注重新一致。
+  - B **收窄既有宽面**:把 `location /ai-service/` 从"整棵子树"降到白名单(本票刻意没做:§7 删除安全要求先证
+    功能承接,而 web 端确实有消费点依赖它)。等于把"已泄漏"变成"未泄漏",但会让依赖旧前缀的调用方 404。
+  - C **降级目录标注**:把 `connectors:read` 的 `thirdPartyEligible` 改成 false(承认它今天不具备对外语义),
+    同步撤 `ai-service-edge.ts` 那一条广告 + 让 `NEVER_PUBLIC_SCOPES` 继续钉住。最小、最快、账面最诚实,
+    代价是"对外能力清单"少一项(属对外契约变化,故仍需 owner 点)。
+
+  **本批已做的不阻塞部分**:白名单第一档**不放这一项**(只开 `mcp:connect`,枚 `f7a231f5a`),并把五项 scope
+  写进 `o5-nginx-edge-ratelimit.test.ts` 的负面清单 ⇒ 任何人把它加进 nginx 白名单都会让既有测试红,
+  不需要靠人记得这条台账。**在等谁**:owner 定性 A/B/C(或另定第四种)。判据边界那一格(117/152 看不见
+"不收身份的整片读")另计一票:它属"整层不挂身份依赖"的第四型,门 117 头注自述刻意未覆盖,不得读成已防住。
