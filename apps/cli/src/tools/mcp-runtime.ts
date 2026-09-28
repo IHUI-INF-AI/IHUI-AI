@@ -747,6 +747,8 @@ function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
 
   return {
     name: mcpTool.name,
+    // 注册归属:同名冲突时要点名"是哪一台服务器"(见 tools/index.ts 的 registrationOwner)
+    registrationOwner: `mcp:${serverName}`,
     description: mcpTool.description ?? `MCP 工具 (${serverName})`,
     parameters: params,
     required,
