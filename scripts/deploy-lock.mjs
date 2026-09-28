@@ -28,6 +28,12 @@
  *   `unverifiable`(旧 meta 没记 / 量不到启动时间 / 别机持有 / PowerShell 不可达 / 权限不足)
  *   一律**维持改动前行为** —— 抢错的代价是两次构建同时写 `.next`(8-09 那记 502),
  *   少抢的代价只是多等一轮。现测只在"原判据要我等"那一格发生、每次 acquire 至多一次;
+ *   ⚠️ 2026-09-28 补一环:**没声明 owner 时不再拿"本次 CLI 自己"当判活主体** —— CLI 打印
+ *   "锁已获取"就退 ⇒ 每把锁一落地就等价于"持有者已退出",而本工具的规则是悬挂死锁**不限锁龄立即
+ *   抢占**,现象正是"别人正在跑构建,第二条构建秒抢"(当轮现读 `ownerPid=0`)。现改为记
+ *   **派生本次调用的父进程**,并在 meta 里打 `ownerPidSource:'inferred-ppid'` 标明它**不是确证**;
+ *   两处边界如实登记:`predev` 那条脚本与 dev server 生死无关(仍欠心跳,AGENTS 已记该格),
+ *   交互终端手工 acquire 后另起构建则父终端长活 ⇒ 由既有 `--stale` 年龄线收口,**不为此放宽判据**。
  *   `check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者的动作)。
  *   既有的 30min 硬上限(`--owner-pid` + HARD_CAP_MS)**保留不动**,它现在是第二道兜底
  *   而不是唯一出路:有身份凭据时确证得更早,没凭据时仍按原兜底逃生。
@@ -218,25 +224,41 @@ function readMeta(dir) {
  * 逐字同形,判读侧走 unverifiable = 维持改动前行为。
  */
 function writeMeta(dir, mode, opts = {}) {
-  const ownerPid = Number(opts.ownerPid ?? process.env.IHUI_DEPLOY_LOCK_OWNER_PID) || 0
+  const declared = Number(opts.ownerPid ?? process.env.IHUI_DEPLOY_LOCK_OWNER_PID) || 0
+  // 没声明 owner 时**不再退回"本次 CLI 自己"** —— CLI 打印"锁已获取"就退出,拿它判活等于
+  // 每把锁一落地就是死锁主,于是"持有者已退出的悬挂锁不限锁龄立即抢占"这条规则会在**别人正在
+  // 跑的构建**上立刻成立(8-09 那两个构建同时写 .next ⇒ 8801 短暂 502 的那一型)。
+  // 改问"派生我这一次的父进程":npm 生命周期(prebuild / predev)是 `<shell> -c "acquire && 真活"`
+  // 形态,那条 shell 在整个脚本链结束前都活着 ⇒ 它才是这段锁的持有人。
+  // 两个已知边界如实登记:① `predev` 是与 dev server **分离**的一条脚本,父 shell 会先退 ⇒ 这一路
+  // 与改动前同样落回"按年龄/stale 判",并没有得到心跳(AGENTS 已登记的那格仍然欠着);
+  // ② 人工在交互终端里直接 acquire 再另起构建 ⇒ 父进程是那台终端,活得很久 ⇒ 由既有
+  // `--stale`(默认 600s)这条年龄线收口,**不得**为它去放宽任何判据。
+  const inferred =
+    declared > 0 ? 0 : Number(opts.ppid ?? process.ppid) > 0 ? Number(opts.ppid ?? process.ppid) : 0
+  const ownerPid = declared > 0 ? declared : inferred
   const subjectPid = holderPid({ pid: process.pid, ownerPid })
   // 刻意不调 lib 的 `identityFields()` —— 它算的是"我自己"的启动时刻,而本锁的判活主体
   // 可以是 ownerPid(见上)。用错主体的话每次对账都必然 mismatch,那条"确证"就成了
   // "确证可以抢",比没有身份更糟。这里只借 lib 的两个更小的出口:host 与量的动作。
   const started = processStartEpoch(subjectPid, opts.run ? { run: opts.run } : {})
-  writeFileSync(
-    metaFile(dir),
-    JSON.stringify({
-      mode: mode ?? '',
-      pid: process.pid,
-      ownerPid,
-      ts: Date.now(),
-      host: hostname(),
-      // 量不到 ⇒ undefined ⇒ JSON.stringify 整键丢掉 ⇒ 与改动前的 meta 形态逐字相同
-      pidStart: started.epoch ?? undefined,
-    }),
-    'utf8',
-  )
+  const meta = {
+    mode: mode ?? '',
+    pid: process.pid,
+    ownerPid,
+    ts: Date.now(),
+    host: hostname(),
+    // 量不到 ⇒ undefined ⇒ JSON.stringify 整键丢掉 ⇒ 与改动前的 meta 形态逐字相同
+    pidStart: started.epoch ?? undefined,
+    // 只在**推断**出来的那一档才多写一个键:调用方自己声明 owner(经 `--owner-pid`)时
+    // 落盘字节与改动前逐字同形 —— 这条"没有新行为就不改字节"是本仓幂等纪律。
+    // 判读侧靠它区分"人明确说了 owner 是谁"与"我们按父进程猜的",后者不得被读成确证。
+    ownerPidSource: inferred > 0 && declared === 0 ? 'inferred-ppid' : undefined,
+  }
+  writeFileSync(metaFile(dir), JSON.stringify(meta), 'utf8')
+  // 返回**写出去的那一份**:readMeta 会把内容归一成已知键的四态投影,新键在归一里被丢掉,
+  // 拿归一后的投影当"是否推断"的依据就会把非确证打印成确证(见 acquire 那条日志的注释)。
+  return meta
 }
 
 /** 判活对象是谁:有 owner 用 owner,没有就退回 CLI 自己(向后兼容旧 meta)。 */
@@ -695,8 +717,16 @@ async function acquire({
     let mkdirErr = null
     try {
       mkdirSync(dir, { recursive: false })
-      writeMeta(dir, mode, { ownerPid, ...identityOpts })
-      const owner = Number(ownerPid) > 0 ? `owner pid=${ownerPid}` : 'owner 未声明(退回 CLI pid 判活)'
+      // 用 writeMeta 的**返回值**而不是 readMeta:readMeta 会把 meta 归一成已知键的四态投影,
+      // 新加的 ownerPidSource 在归一里被丢掉 —— 拿它当"是否推断"的依据就会打印成"调用方声明",
+      // 把一条我们刻意标成"非确证"的凭据说成确证(本行日志正是给别人看的判读依据)。
+      const written = writeMeta(dir, mode, { ownerPid, ...identityOpts })
+      const owner =
+        Number(written?.ownerPid) > 0
+          ? written.ownerPidSource === 'inferred-ppid'
+            ? `owner pid=${written.ownerPid}(未声明 ⇒ 按派生本次调用的父进程判活,非确证)`
+            : `owner pid=${written.ownerPid}(调用方声明)`
+          : 'owner 无从确定(父进程也量不到)⇒ 退回 CLI pid 判活,与改动前同形'
       console.log(`[deploy-lock] ${mode} 锁已获取 (cli pid=${process.pid};${owner})`)
       return true
     } catch (e) {
@@ -1185,6 +1215,37 @@ async function runSelfTest() {
     const m38 = JSON.parse(readFileSync(metaFile(d38), 'utf8'))
     t('S38 writeMeta 记录 ownerPid', m38.ownerPid === 4242 && Number(m38.pid) === process.pid, JSON.stringify(m38))
     t('S39 holderPid:有 owner 用 owner,没有退回 CLI pid', holderPid({ pid: 7, ownerPid: 4242 }) === 4242 && holderPid({ pid: 7, ownerPid: 0 }) === 7)
+
+    // —— 39a..39c) 未声明 owner 时**不得**再拿"本次 CLI 自己"当判活主体(2026-09-28 实测
+    // `ownerPid=0` 的锁一落地就是"持有者已退出",而悬挂死锁不限锁龄立即抢占 ⇒ 别人正在跑的构建被秒抢,
+    // 正是 8-09 两次构建同时写 .next 那一型)。现改为按派生本次调用的父进程判活,并显式标明非确证。
+    const d39a = freshDir()
+    mkdirSync(d39a, { recursive: true })
+    writeMeta(d39a, 'build', { ownerPid: 4242, ppid: 999, run: () => null })
+    const m39a = JSON.parse(readFileSync(metaFile(d39a), 'utf8'))
+    t(
+      'S39a 声明了 owner ⇒ 推断不得覆盖它,且不写 ownerPidSource(落盘键集与改动前同形)',
+      m39a.ownerPid === 4242 && m39a.ownerPidSource === undefined,
+      JSON.stringify(m39a),
+    )
+    const d39b = freshDir()
+    mkdirSync(d39b, { recursive: true })
+    writeMeta(d39b, 'build', { ppid: 999, run: () => null })
+    const m39b = JSON.parse(readFileSync(metaFile(d39b), 'utf8'))
+    t(
+      'S39b 未声明 owner ⇒ 按父进程判活并打 inferred-ppid(不是确证)',
+      m39b.ownerPid === 999 && m39b.ownerPidSource === 'inferred-ppid' && holderPid(m39b) === 999,
+      JSON.stringify(m39b),
+    )
+    const d39c = freshDir()
+    mkdirSync(d39c, { recursive: true })
+    writeMeta(d39c, 'build', { ppid: 0, run: () => null })
+    const m39c = JSON.parse(readFileSync(metaFile(d39c), 'utf8'))
+    t(
+      'S39c 父进程也量不到 ⇒ 退回改动前形态(ownerPid=0 / 无 source 键 / 判活问 CLI pid),不得凭空造主体',
+      m39c.ownerPid === 0 && m39c.ownerPidSource === undefined && holderPid(m39c) === Number(m39c.pid),
+      JSON.stringify(m39c),
+    )
 
     // —— 40..45) 进程身份三元组的接线(2026-09-27;全部用注入的假 run,绝不为取证真派生 PowerShell)
     const SELF_START = 1_780_000_000

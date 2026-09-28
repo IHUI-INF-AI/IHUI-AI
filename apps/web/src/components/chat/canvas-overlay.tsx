@@ -223,6 +223,10 @@ export function CanvasOverlay() {
       {tab === 'preview' ? (
         <iframe
           title={title || 'canvas-preview'}
+          /* iframe-sandbox-relax: srcDoc 是画布里的模型产出正文(用户可切到 code 页自行编辑),
+             不给 allow-scripts 预览就是一片空白。档值 = MODEL_CONTENT_SANDBOX
+             (packages/ui-react/src/components/webview-frame.tsx 的唯一实现),
+             刻意**不含** allow-same-origin ⇒ 帧内 opaque origin,读不到本站 Cookie/存储。 */
           sandbox="allow-scripts"
           srcDoc={content}
           className="min-h-0 w-full flex-1 bg-white"

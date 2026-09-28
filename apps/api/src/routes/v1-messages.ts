@@ -127,6 +127,41 @@ const anthropicMessagesSchema = z.object({
 })
 
 // =============================================================================
+// 上游结束原因(非流式)
+// =============================================================================
+
+/** 上游非流式响应里可能携带结束原因的那两种形状 */
+interface UpstreamFinishReasonCarrier {
+  finish_reason?: string | null
+  choices?: Array<{ finish_reason?: string | null }>
+}
+
+/**
+ * 如实读出上游给的结束原因;读不到就返回 `null`(= 上游真没发)。
+ *
+ * 立因(2026-09-28 现读复核):本路由的非流式分支此前**无条件**写 `finish_reason: 'stop'`,
+ * 从不看上游给的是什么 —— 于是 `length`(输出达 max_tokens 被截断)会在这里被洗成 `stop`,
+ * 经 FINISH_REASON_MAP 变成对外 `stop_reason: 'end_turn'`,即"我正常说完了"。Anthropic SDK
+ * 用户据此既不会续写也不会重试,截断信号被静默抹掉(取证见 `apps/api/tests/v1-messages-finish-reason.test.ts`
+ * 的①:改前实测拿到 `end_turn`)。
+ *
+ * 认两形:ai-service `/api/llm/complete` 是摊平字典(`finish_reason` 在顶层),而 OpenAI 兼容
+ * 上游把它放在 `choices[0]`;两形都按"非空串才算发过"处理 —— **空串不是结论,是没发**,
+ * 兜底 'stop' 只活在这一格(与本文件流式那条"若上游未发 finish_reason,补一个 stop 收尾"同一条语义)。
+ *
+ * 刻意不做的事:不改响应键名、不改状态码、不新增字段(既有键集由 v1-latency-persistence 用例当契约钉着)。
+ *
+ * @param data 上游 JSON(只取结束原因两形,其余字段不在此判)
+ */
+function upstreamFinishReason(data: UpstreamFinishReasonCarrier): string | null {
+  const flat = typeof data.finish_reason === 'string' ? data.finish_reason.trim() : ''
+  if (flat) return flat
+  const nested = data.choices?.[0]?.finish_reason
+  const fromChoices = typeof nested === 'string' ? nested.trim() : ''
+  return fromChoices || null
+}
+
+// =============================================================================
 // 流式 Anthropic Messages 输出
 // =============================================================================
 
@@ -522,6 +557,9 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
           usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
           error?: boolean
           error_message?: string
+          /** 上游若给出结束原因(ai-service 摊平形状 / OpenAI 形状两形都收),必须如实带走 */
+          finish_reason?: string | null
+          choices?: Array<{ finish_reason?: string | null }>
         }
 
         if (data.error) {
@@ -574,7 +612,13 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
             {
               index: 0,
               message: { role: 'assistant', content: data.content ?? '' },
-              finish_reason: 'stop',
+              // 结束原因**如实化**(2026-09-28 立):这里原先无条件写 `'stop'`,于是上游给的
+              // `finish_reason: 'length'`(输出达 max_tokens 被截断)会被洗成 `stop`,经
+              // openAIResponseToAnthropic 的映射变成对外 `stop_reason: 'end_turn'` —— 客户端
+              // 再也看不出这条回复是被切断的,既不会续写也不会重试。'stop' 只该是
+              // "上游真没发"时的兜底(与本文件 :255 流式那条注释同一正当语义),不是结论。
+              // 参照写法:apps/api/src/routes/v1-gemini.ts 读 choices[0].finish_reason。
+              finish_reason: upstreamFinishReason(data) ?? 'stop',
             },
           ],
           usage: {
