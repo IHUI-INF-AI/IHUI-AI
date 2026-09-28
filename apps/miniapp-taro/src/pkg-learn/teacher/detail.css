@@ -28,7 +28,7 @@
 .tdetail-avatar {
   width: 128rpx;
   height: 128rpx;
-  border-radius: 64rpx;
+  border-radius: var(--radius-2xl);
   background: var(--color-muted);
   flex-shrink: 0;
 }
