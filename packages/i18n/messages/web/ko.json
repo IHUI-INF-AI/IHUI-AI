@@ -10448,6 +10448,9 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "attachRejectType": "형식이 지원되지 않아 파일 {count}개를 건너뛰었습니다: {names}",
+    "attachRejectSize": "파일이 크기 한도({max}MB)를 초과하여 파일 {count}개를 건너뛰었습니다: {names}",
+    "attachRejectCount": "첨부 파일은 최대 {max}개까지 가능하며, 이번 요청에서 {count}개가 거부되었습니다",
     "mentionEngine": {
       "tabFile": "파일",
       "tabFolder": "폴더",
