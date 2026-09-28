@@ -104,8 +104,10 @@ export default function Carousel({
     // 它当前与小程序叠加层的 p-3/text-xs 数值巧合相消,不是两端同值;别把这一行读成已收口档
     // (映射与裁决依据见 @ihui/shared/ui/carousel-spec 头注,O81)。
     return (
+      // 空态盒与下方主容器共用同一档(hero),否则两端比出来的圆角集合会凭空多出一档。
+      // 它是主容器在"无数据"那一帧的同一屏槽位形态,不是另一种元素。
       <View
-        className="w-full items-center justify-center rounded-lg"
+        className="w-full items-center justify-center rounded-2xl"
         style={{ height, backgroundColor: tokens.surface.muted }}
       >
         <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
@@ -116,7 +118,11 @@ export default function Carousel({
   }
 
   return (
-    <View className="w-full" style={{ height }}>
+    // 圆角改在**组件根容器**这一层声明,与小程序端同名组件同层同档(hero → 2xl)。
+    // 此前 RN 端的圆角落在各屏的外层 wrapper 上,于是:同名组件在两端声明在不同层 →
+    // 跨端对账门读到的两个集合恒等而屏幕上并不等;而没包 wrapper 的那一屏干脆是方角。
+    // 端内各屏的 wrapper 不再需要补圆角(边距仍归各屏)。
+    <View className="w-full overflow-hidden rounded-2xl" style={{ height }}>
       <ScrollView
         ref={scrollRef}
         horizontal
