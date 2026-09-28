@@ -426,4 +426,86 @@ export function workspaceSignaturesEqual(
     )
   })
 }
+
+// =============================================================================
+// 缓存(2026-09-28 由 apps/web/src/hooks/use-chat/workspace.ts 提取,票㉕ 补账②)
+// =============================================================================
+
+/**
+ * 为什么这份住在共享层而不各端各写:它决定**发给服务端的 `workspaceContext` 是不是旧的**。
+ * 策略只要有一份漂移,表现就是"同一句话在 web 拿到最新代码、在扩展拿到首屏快照" ——
+ * 而两端各自的测试都只会对着自己那份绿。委托开关本身就是这个字段
+ * (`llm.py`: `if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS`),
+ * 所以"缓存何时失效"是协议问题,不是端内偏好问题。
+ *
+ * 策略与 web 原实现逐字同形:命中前先按**全量可加载文件签名**(path+mtime+size)校验,
+ * 任何文本文件增删改都触发整体重读;签名收集本身抛错时**选择重读而不是沿用旧值**
+ * (沿用 = 拿一份不知道过没过期的快照喂模型)。
+ */
+export interface WorkspaceContextCacheEntry {
+  name: string
+  text: string
+  fileSig: WorkspaceFileSignature[]
+}
+
+export type WorkspaceContextCacheLogger = (level: 'info' | 'warn', message: string) => void
+
+let cached: WorkspaceContextCacheEntry | null = null
+
+/** 只读取当前缓存(诊断与测试用;不得拿它当"绕过校验"的快通道) */
+export function peekWorkspaceContextCache(): WorkspaceContextCacheEntry | null {
+  return cached
+}
+
+/**
+ * 清除缓存:传 name 只清该工作区(移除/切换时),不传清全部(登出/重置)。
+ * 刻意在"缓存名不等于传入名"时什么都不做 —— 换工作区的过程中误清别人的缓存,
+ * 表现是下一轮莫名其妙重扫一遍,而没人会把它当成一次缺陷去查。
+ */
+export function invalidateWorkspaceContextCache(name?: string): void {
+  if (!name || cached?.name === name) cached = null
+}
+
+/**
+ * 带缓存的工作区上下文加载:返回注入 system prompt 的那段文本,失败/无内容时返回 undefined。
+ *
+ * `onLog` 是注入的(共享层不 import 端内 logger):日志端各用自己的,但**判据**(什么时候重载)
+ * 只有一份。
+ */
+export async function loadWorkspaceContextCached(
+  handle: FileSystemDirectoryHandle,
+  opts: { onLog?: WorkspaceContextCacheLogger } = {},
+): Promise<string | undefined> {
+  const log: WorkspaceContextCacheLogger = opts.onLog ?? (() => {})
+  const name = handle.name
+
+  if (cached?.name === name) {
+    try {
+      const currentSig = await collectWorkspaceFileSignatures(handle)
+      if (workspaceSignaturesEqual(currentSig, cached.fileSig)) {
+        log('info', `[workspace-context] cache hit (${name})`)
+        return cached.text
+      }
+      log('info', '[workspace-context] workspace files changed, reloading full context')
+    } catch (err) {
+      log('warn', `[workspace-context] signature check failed, reloading: ${String(err)}`)
+    }
+  }
+
+  try {
+    const result = await loadWorkspaceContext(handle)
+    const fileSig = await collectWorkspaceFileSignatures(handle)
+    cached = { name, text: result.text, fileSig }
+    log(
+      'info',
+      `[workspace-context] loaded ${result.stats.fileCount} files, ` +
+        `${result.stats.totalSize} bytes, truncated=${result.stats.truncated}`,
+    )
+    return result.text
+  } catch (err) {
+    // 失败不写缓存:留下一次机会给下一轮重试,而不是把"空上下文"钉在缓存里
+    log('warn', `[workspace-context] load failed: ${String(err)}`)
+    return undefined
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
