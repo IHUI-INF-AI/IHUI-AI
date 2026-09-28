@@ -320,7 +320,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **规矩**:凡是"用户显式退出/会话失效之后,某些历史勾选不得再生效"的判据,它的**标记位不得与凭据同层同删除路径** —— 同层会被 `clearAll` 一起删掉,等于自己否决自己。RN 侧落点:`apps/mobile-rn/src/lib/token.ts` 的持久标记 `ihui-session-logged-out`(AsyncStorage),凭据在 SecureStore,两层,理由写在该文件注释里。
 - **判据唯一出口**:`apps/mobile-rn/src/lib/auto-login-policy.ts` 的 `shouldAttemptAutoLogin(deps)`(依赖注入三个读口:登出标记 / 自动登录勾选 / 盘上是否还有凭据)。单独成文件的理由不是整洁:渲染整张 `LoginScreen` 去测它要 mock WebView / react-native-svg / 导航栈,那种测试断在第一处无关依赖上,**证不了判据本身**。
 - **写序**:标记**先于**删除凭据落盘(排在同一条串行链内)。顺序错了就等于每次都按内存默认值判;而反过来(先删凭据再落标记)会留下"凭据没了、下次冷启动仍静默重登"的原缺陷。两步之间进程被杀的后果是"标记在、凭据可能还在"⇒ 自动登录被抑制(保守方向);读取失败时**不**抑制,那会把"存储抖动"变成"用户的自动登录悄悄没了"。
-- **待收口**:web 与小程序同型未收(判据目前只在 RN 一端)。按 §3 共享层优先,该判据应提到 `packages/shared` 由三端各注入存储 adapter,**不得每端各抄一份 if** —— 台账见 PROJECT_PLAN G-363。
+- **待收口**:web 与小程序同型未收(判据目前只在 RN 一端)。按 §3 共享层优先,该判据应提到 `packages/shared` 由三端各注入存储 adapter,**不得每端各抄一份 if** —— 台账见 PROJECT_PLAN G-370。
 
 ### 测试隔离铁律(强制,2026-09-12 立)
 
