@@ -35,7 +35,12 @@ import {
   releaseTaskLockByTaskId,
 } from '../services/workspace-lock-heartbeat.js'
 import { sseEventBus, broadcastSSEEvent } from '../services/agent-sse-bus.js'
-import { ALLOWED_TRANSITIONS, STATUS_VARIANTS, mapStatus } from '../services/agent-task-status.js'
+import {
+  ALLOWED_TRANSITIONS,
+  STATUS_VARIANTS,
+  mapStatus,
+  terminationOf,
+} from '../services/agent-task-status.js'
 import type {
   KanbanTask,
   KanbanColumn,
@@ -77,6 +82,10 @@ function toKanbanTask(row: AgentTaskRow): KanbanTask {
     name: row.name,
     description: row.description ?? undefined,
     status: mapStatus(row.status),
+    // 次级标记:被折叠进 blocked 的终态成因(取消 / 配额超限 / 被抢占)。
+    // 刻意**新增可选字段**而不是拆第七档状态 —— 后者要同时动落库列 / REST 枚举 / SSE 载荷 /
+    // Python 调度器 / 五语言词表(2026-09-28 拍板)。取不到即 undefined,不猜一个标记。
+    termination: terminationOf(row.status) ?? undefined,
     priority: row.priority,
     payload: row.payload ?? {},
     result: row.result ?? undefined,
