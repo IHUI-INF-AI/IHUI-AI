@@ -25,7 +25,7 @@
  * mock db(internal-service-token.ts 静态依赖),与 internal-service-token-constant-time
  * / agent-control-addressed-delivery 两个既有夹具同源;不连生产 PG/Redis(§5 铁律)。
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import Fastify, { type FastifyInstance } from 'fastify'
@@ -167,14 +167,22 @@ describe('B. fail-closed:错误/缺失/未配置一律拒,豁免根据是密钥�
       method: 'POST',
       url: `${PREFIX}/execute`,
       payload: EXECUTE_BODY,
-      headers: { authorization: WRONG_BEARER, 'x-csrf-token': token, cookie: `XSRF-TOKEN=${cookieValue}` },
+      headers: {
+        authorization: WRONG_BEARER,
+        'x-csrf-token': token,
+        cookie: `XSRF-TOKEN=${cookieValue}`,
+      },
     })
     expect(res.statusCode).toBe(401)
     expect(res.json().message).toContain('未授权')
   })
 
   it('完全没有 Authorization(无 CSRF 对)→ 仍拒', async () => {
-    const res = await app.inject({ method: 'POST', url: `${PREFIX}/execute`, payload: EXECUTE_BODY })
+    const res = await app.inject({
+      method: 'POST',
+      url: `${PREFIX}/execute`,
+      payload: EXECUTE_BODY,
+    })
     expect(res.statusCode).toBe(403)
     expect(res.json().message).toContain('CSRF')
   })
@@ -270,13 +278,21 @@ describe('D. 授权先于写:未鉴权时不得触碰任何状态(不得"先改�
       method: 'POST',
       url: `${PREFIX}/execute`,
       payload: EXECUTE_BODY,
-      headers: { authorization: WRONG_BEARER, 'x-csrf-token': token, cookie: `XSRF-TOKEN=${cookieValue}` },
+      headers: {
+        authorization: WRONG_BEARER,
+        'x-csrf-token': token,
+        cookie: `XSRF-TOKEN=${cookieValue}`,
+      },
     })
     expect(res.statusCode).toBe(401)
     expect(__test__.pending.size).toBe(0) // 授权判定先于派发/登记
     expect(__test__.endpoints.size).toBe(1)
     expect(__test__.endpoints.has('inst-keep')).toBe(true)
-    expect(__test__.droppedResults).toEqual({ tokenMismatch: 0, instanceMismatch: 0, unattributed: 0 })
+    expect(__test__.droppedResults).toEqual({
+      tokenMismatch: 0,
+      instanceMismatch: 0,
+      unattributed: 0,
+    })
   })
 
   it('/capability 鉴权失败:不得把实例写进注册表', async () => {
@@ -344,12 +360,24 @@ describe('E. 唯一出口 + 形状锁(行为断言测不到的那一维只能钉
   })
 
   it('出口函数本体:对/错/缺/未配置四臂逐项判定(fail-closed)', async () => {
-    await expect(isVerifiedInternalServiceCall(asRequest({ 'x-internal-service-token': AI_CALLBACK_SECRET_TEST }))).resolves.toBe(true)
-    await expect(isVerifiedInternalServiceCall(asRequest({ 'x-internal-service-token': 'nope' }))).resolves.toBe(false)
+    await expect(
+      isVerifiedInternalServiceCall(
+        asRequest({ 'x-internal-service-token': AI_CALLBACK_SECRET_TEST }),
+      ),
+    ).resolves.toBe(true)
+    await expect(
+      isVerifiedInternalServiceCall(asRequest({ 'x-internal-service-token': 'nope' })),
+    ).resolves.toBe(false)
     await expect(isVerifiedInternalServiceCall(asRequest({}))).resolves.toBe(false)
-    await expect(isVerifiedAgentControlInternalCall(asRequest({ authorization: `Bearer ${CTRL_SECRET}` }))).resolves.toBe(true)
-    await expect(isVerifiedAgentControlInternalCall(asRequest({ authorization: WRONG_BEARER }))).resolves.toBe(false)
-    await expect(isVerifiedAgentControlInternalCall(asRequest({ authorization: 'garbage' }))).resolves.toBe(false)
+    await expect(
+      isVerifiedAgentControlInternalCall(asRequest({ authorization: `Bearer ${CTRL_SECRET}` })),
+    ).resolves.toBe(true)
+    await expect(
+      isVerifiedAgentControlInternalCall(asRequest({ authorization: WRONG_BEARER })),
+    ).resolves.toBe(false)
+    await expect(
+      isVerifiedAgentControlInternalCall(asRequest({ authorization: 'garbage' })),
+    ).resolves.toBe(false)
     const saved = process.env.AGENT_CONTROL_INTERNAL_SECRET
     delete process.env.AGENT_CONTROL_INTERNAL_SECRET
     try {
