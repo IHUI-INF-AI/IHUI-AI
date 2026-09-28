@@ -9,9 +9,12 @@
 # 由本机定时任务轮询 origin/main 触发;也可手动执行。
 #
 # 行为(每个阶段失败即中止,不切流):
-#   1. git fetch origin main + 以 FETCH_HEAD 计算本地落后提交数(不用被宿主吞掉的 origin/main ref)
+#   1. git fetch origin main + 把当次远端 tip **立刻定格成显式 sha**($remoteTip)再算落后提交数
+#      (既不用会被宿主清理层吞掉、读回残值的 origin/main 嵌套 ref,也不用会被并发 fetch 改写的
+#       共享文件 FETCH_HEAD —— 2026-09-28 实测后者造成"behind=15 却照常切流旧提交")
 #   2. 落后>0 才继续;先做幻影漂移现场对齐(heal-worktree-tracked --align-drift,真编辑不碰),
-#      再 git merge --ff-only FETCH_HEAD(禁 force,不动他人未提交改动;对齐后仍脏 → BLOCKED-WIP)
+#      再 git merge --ff-only $remoteTip,并用 merge-base --is-ancestor **复核 HEAD 真的包含了
+#      那一枚**才允许往下走(禁 force,不动他人未提交改动;对齐后仍脏 → BLOCKED-WIP)
 #   3. 备份当前 web 构建产物(.next → .rollback)
 #   4. 重建 web(next build);api/ai-service 跑源码(tsx/uvicorn)无需独立构建
 #   5. 重启 NSSM 服务(走非活跃逻辑,健康全过才保留)
@@ -839,20 +842,33 @@ function Invoke-Diagnose {
         Push-Location $Root
         try {
             $srcs = @('origin', 'https://gitcode.com/IHUI-AI/IHUI-AI.git', 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git')
+            # 诊断面同样必须"取完立刻定格":旧写法在三个源各 fetch 一次之后才读 FETCH_HEAD,
+            # 那一刻它是**最后一个应答的镜像**而不是 origin —— 镜像按设计会落后,于是
+            # ahead 被报成 >0,而 :971 那句提示把"本地领先 ⇒ 分叉,需人工决定处理策略"写给
+            # 下一个读日志的人。同一条竞态在决策面造成的是静默部署旧提交,在诊断面造成的
+            # 是错误归因(本仓 09-24 那次"把排查带去清扫工作树、白耗 1.5h"就是这类)。
+            $diagOriginTip = $null
             foreach ($s in $srcs) {
                 $o = & git @gitNet fetch $s main 2>&1 | Out-String
                 if ($LASTEXITCODE -eq 0) {
                     DiagLog ("fetch {0} → OK" -f $s)
                     $script:diagFetched = $true
+                    $t = (GitText @('rev-parse','FETCH_HEAD')).Trim()
+                    if ($t -match '^[0-9a-f]{40}$') {
+                        $bN = GitText @('rev-list','--count',"HEAD..$t")
+                        $aN = GitText @('rev-list','--count',"$t..HEAD")
+                        $short = $t.Substring(0, 10)
+                        if ($bN -match '^\d+$') { DiagLog ("相对 {0}(tip {1}):behind={2} ahead={3}" -f $s, $short, $bN, $aN) }
+                        if ($s -eq 'origin' -and $null -eq $diagOriginTip) {
+                            $diagOriginTip = $t
+                            if ($aN -match '^\d+$') { $script:diagAhead = [int]$aN }
+                        }
+                    } else {
+                        DiagLog ("rev-parse FETCH_HEAD 未给出 40 位 sha(实得:{0})⇒ 该源的 behind/ahead 未判定,不写进结论" -f $t)
+                    }
                 } else {
                     DiagLog ("fetch {0} → FAIL:{1}" -f $s, (($o.Trim() -split "`n" | Select-Object -First 2) -join ' / '))
                 }
-            }
-            if ($script:diagFetched) {
-                $bN = GitText @('rev-list','--count','HEAD..FETCH_HEAD')
-                $aN = GitText @('rev-list','--count','FETCH_HEAD..HEAD')
-                if ($bN -match '^\d+$') { DiagLog ("相对 FETCH_HEAD: behind={0} ahead={1}" -f $bN, $aN) }
-                if ($aN -match '^\d+$') { $script:diagAhead = [int]$aN }
             }
         } finally { Pop-Location }
     }
@@ -968,7 +984,7 @@ function Invoke-Diagnose {
     # ── [8] 判读提示 ──
     DiagLog "── [8] 判读提示 ──"
     if ($script:diagDirty -gt 0) { DiagLog ("  · 工作树有 {0} 条未提交改动 → git merge --ff-only 会被拒,现象是「每轮 behind>0 却永不部署」。先跑 node scripts/heal-worktree-tracked.mjs --align-drift --dry-run 分清是幻影漂移(部署轮询会自愈)还是真在写的活儿(须等对方收尾,勿代提交勿删除)。" -f $script:diagDirty) }
-    if ($script:diagAhead -gt 0) { DiagLog "  · 本地领先 FETCH_HEAD(分叉)→ ff-only 必失败,需人工决定处理策略(勿盲目 reset)。" }
+    if ($script:diagAhead -gt 0) { DiagLog "  · 本地领先 origin 的当次 tip(分叉)→ ff-only 必失败,需人工决定处理策略(勿盲目 reset)。" }
     if (-not $script:diagFetched) { DiagLog "  · 三源 fetch 全失败 → 部署循环必然停摆;先恢复网络/代理(Clash 127.0.0.1:7897),或用镜像手动 fetch。" }
     if ($script:diagDivergent) { DiagLog "  · apps/api 源码含主干从未有过的字段 → 本目录源码并非 origin/main,须核对来源后再部署。" }
     if ($script:diagDirty -eq 0 -and $script:diagAhead -le 0 -and $script:diagFetched) { DiagLog "  · 仓库侧未见异常;若线上仍是旧代码,重点看 [3]/[4]:服务是否真的重启、API 是否跑在非 git 载体上。" }
@@ -1261,7 +1277,8 @@ $fetchOut.Trim() | Write-Host
 #    代理未运行/被防火墙拦时 fetch 必失败 → fail-closed → 部署循环长时间停摆(实测 09-13
 #    出现 uptime 单调上升 35 分钟、新提交不入库)。三仓 main 由本项目推送流程保证同步,
 #    故 origin 失败时回退国内镜像;镜像落后时 behind=0 会自然跳过,不会回滚。
-#    注意:镜像 fetch 同样写 FETCH_HEAD,下游 behind/merge 逻辑无需改动。
+#    注意:镜像 fetch 同样写 FETCH_HEAD,而下游只认下面立刻定格的 $remoteTip(取自当次
+#    FETCH_HEAD 的第一行),所以镜像回退不需要另一条取值路径 —— 但它也不再回头看那枚共享文件。
 $MirrorUrls = @(
     'https://gitcode.com/IHUI-AI/IHUI-AI.git',
     'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'
@@ -1285,13 +1302,42 @@ if ($LASTEXITCODE -eq 0 -and -not ($fetchOut -match 'fatal:|Could not connect|RP
 if (-not $fetched) {
     Fail "git fetch 全部来源失败(origin + 镜像),fetch 未成功则无法判定是否落后,本轮不部署"
 }
-# 落后提交数 = 本地未含 origin/main 的提交数
+# 落后提交数 = 本地未含本轮远端 tip 的提交数
 # 2026-09-13 修复(实测):本机 origin/main 这个嵌套 remote-tracking ref 会被宿主吞掉、永不更新
 # (fetch 打印 6eedf5b0f1..adcc23136a 但 rev-parse origin/main 仍读回旧值)→
 # 旧写法 git rev-list --count HEAD..origin/main 恒 0 → 循环判定"已是最新"提前退出、永不部署。
-# 改为对齐刚 fetch 下来的 FETCH_HEAD(fetch 之后它必然是远端最新),彻底免疫该问题。
-$behindRaw = (& git @gitNet rev-list --count HEAD..FETCH_HEAD 2>&1 | Out-String).Trim()
-if ($behindRaw -notmatch '^\d+$') { Fail "无法计算 behind(FETCH_HEAD 无效:'$behindRaw'),本轮不部署" }
+# 改为对齐刚 fetch 下来的远端 tip,彻底免疫该问题。
+# ── 但那枚 tip 必须先"定格"成一枚显式 sha(2026-09-28 实测竞态)────────────────────
+# FETCH_HEAD 是 .git 下**全局共享的单文件**:任何一次并发 `git fetch`(其它会话、post-commit 的
+# push-guard、git-guardian、本文件的镜像回退分支)都会整体重写它。旧写法在 behind 计算与
+# `git merge --ff-only FETCH_HEAD` 之间夹了一次现场对齐(实测 15 秒),那 15 秒里 FETCH_HEAD
+# 可以被换成一枚**本地 HEAD 的祖先**,于是 merge 打印 "Already up to date." 且 **exit 0**,
+# 旧代码只看退出码 ⇒ 照常打一条"merge 已完成"的成功结论,随后备份、重建、切流。
+# 后果不是报错而是**安静地部署旧版本**:2026-09-28 09:02 那一轮 behind 现读 15、日志写"merge
+# 完成"并进入构建,而 apps/web/.next/IHUI_BUILD_SHA 仍是 4d6d62ba1d —— 一台"成功"的部署环对
+# 远端 15 枚提交零感知,且 4h 去重的告警永远不会因此响起(它认为没失败)。
+# 与 §5b 那句"origin/main 以 FETCH_HEAD 为准"不冲突:那一局否的是**嵌套跟踪 ref 的残值**,
+# 这一行做的是把"刚 fetch 到的那一枚"从可被别人改写的共享文件里取出来、定格成变量。
+# 下游三处决策(behind / 挡路路径清单 / merge)一律只认这个变量,不再回头看 FETCH_HEAD。
+$remoteTipRaw = (& git rev-parse FETCH_HEAD 2>&1 | Out-String).Trim()
+if ($remoteTipRaw -notmatch '^[0-9a-f]{40}$') {
+    Log "git rev-parse FETCH_HEAD 未给出 40 位十六进制(实得:'$(($remoteTipRaw -split "`n")[0])'),无法判定远端在哪"
+    # Fail 文案刻意不含变量:告警按整条文案去重(:230 `$sig = 文案本身`),把 sha/计数写进去
+    # 等于每轮一个新签名 ⇒ 去重结构上永不命中(09-27 每 ~80 秒寄一封、连续 17 封的实录教训)。
+    Fail "无法固化本轮远端 sha,fetch 结论不可用则不部署"
+}
+$remoteTip = $remoteTipRaw
+# 对象必须在当轮真的在本地:并发进程可能把 FETCH_HEAD 换成一枚尚未下载对象的 sha,那样下游
+# rev-list/merge 会以 `Not a valid object name` 崩在调用栈里而不是给出结论(G-209 同一口径)。
+& git cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Log "远端 sha $remoteTip 的对象不在本地对象库:定向 fetch 一次后复核"
+    & git @gitNet fetch origin $remoteTip 2>&1 | Out-String | Write-Host
+    & git cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { Fail "本轮远端 sha 的对象取不到,无法判定是否落后 ⇒ 本轮不部署、不切流" }
+}
+$behindRaw = (& git @gitNet rev-list --count "HEAD..$remoteTip" 2>&1 | Out-String).Trim()
+if ($behindRaw -notmatch '^\d+$') { Fail "无法计算 behind(本轮远端 sha 无效),本轮不部署" }
 $behind = [int]$behindRaw
 
 if ($behind -eq 0 -and -not $deployLatest -and -not (Get-BuildStale)) {
@@ -1310,10 +1356,10 @@ if ($behind -eq 0 -and -not $deployLatest) {
     }
     Log "WARN  触发原因=构建新鲜度:源码未落后但 web 构建非当前提交产物 → 强制重建"
 }
-if ($dryrun) { Ok "dryrun 模式: behind=$behind,即将部署到 origin/main=$($(git rev-parse --short FETCH_HEAD | Out-String).Trim())"; Release-DeployLock; exit 0 }
+if ($dryrun) { Ok "dryrun 模式: behind=$behind,即将部署到本轮远端 tip=$($remoteTip.Substring(0,10))"; Release-DeployLock; exit 0 }
 
 if ($behind -gt 0) {
-    Log "本地落后远端 $behind 个提交,进行 fast-forward merge(FETCH_HEAD)"
+    Log "本地落后远端 $behind 个提交,进行 fast-forward merge(本轮钉住的显式 sha)"
     # 前置现场对齐(实现见 Invoke-WorktreeAlign):脏工作树是 ff-only 最常见的失败原因,其中一部分
     # 是可自愈的幻影漂移。工作树本就干净时不跑自愈,省掉逐路径扫 git log 的开销。
     $dirtyBefore = Get-TrackedDirtyEntry
@@ -1323,7 +1369,7 @@ if ($behind -gt 0) {
         $dirtyAfter = Get-TrackedDirtyEntry
         Log "ff-only 前置:对齐后剩余 $($dirtyAfter.Count) 个未提交被跟踪文件(本轮对齐掉 $($dirtyBefore.Count - $dirtyAfter.Count) 个)"
     }
-    $mergeOut = (& git merge --ff-only FETCH_HEAD 2>&1 | Out-String)
+    $mergeOut = (& git merge --ff-only $remoteTip 2>&1 | Out-String)
     Write-Host $mergeOut
     if ($LASTEXITCODE -ne 0) {
         # 2026-09-24 更正判据的成因归属:下面这段原先只看"工作树有没有脏文件"就判 BLOCKED-WIP,
@@ -1351,10 +1397,10 @@ if ($behind -gt 0) {
             # 寄一封,连续 17 封到人(状态文件 repeatNo 恒 0 即证据)。轮数是运维要看的信息,
             # 已经写在上面那条 BLOCKED-DIVERGED 日志行里,不需要也不应该进签名。
             # (第二半同理:换阈值/换措辞都会造出一个新签名,所以文案保持与计数无关。)
-            Fail "git merge --ff-only FETCH_HEAD 分叉且自动收敛无效:需人工收敛后才能切流(未强推、未动任何在途改动)"
+            Fail "git merge --ff-only 本轮远端 tip 分叉且自动收敛无效:需人工收敛后才能切流(未强推、未动任何在途改动)"
         }
         $dirtyPaths = @($stillDirty | ForEach-Object { $_.Substring([Math]::Min(3, $_.Length)).Trim() })
-        $mustTouch = @(& git -C $Root diff --name-only HEAD FETCH_HEAD 2>&1 | Out-String) -split "`r?`n" |
+        $mustTouch = @(& git -C $Root diff --name-only HEAD $remoteTip 2>&1 | Out-String) -split "`r?`n" |
             Where-Object { $_.Trim() }
         $blockers = @($dirtyPaths | Where-Object { $mustTouch -contains $_ })
         if ($blockers.Count -gt 0) {
@@ -1362,14 +1408,29 @@ if ($behind -gt 0) {
             # 同上一条:挡路的文件数随其他会话在飞的改动逐轮漂移,把它写进签名等于每轮换一次
             # 身份 ⇒ 去重失效。数量与清单由 Report-BlockedWip 逐轮写进日志(BLOCKED-WIP 行),
             # 证据不丢,只是不再参与"这是不是同一件事"的判定。
-            Fail "git merge --ff-only FETCH_HEAD 失败:有未提交文件与本次要更新的路径重叠,挡住 ff(不代提交不删除),已停止,未切流"
+            Fail "git merge --ff-only 失败:有未提交文件与本次要更新的路径重叠,挡住 ff(不代提交不删除),已停止,未切流"
         }
         if ($stillDirty.Count -gt 0) {
             # 走到这里 = git 既没说分叉、脏文件也不与本次更新重叠 ⇒ 未判定,如实报出原文
             Log "WARN  merge 失败成因未归类(git 输出不含上述两种指纹);脏文件 $($stillDirty.Count) 个但与本次更新不重叠。git 原文尾 5 行:"
             @($mergeOut -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 5) | ForEach-Object { Log "  [git] $_" }
         }
-        Fail "git merge --ff-only FETCH_HEAD 失败(成因见紧邻上一行),已停止,未切流"
+        Fail "git merge --ff-only 失败(成因见紧邻上一行),已停止,未切流"
+    }
+    # ── "merge 成功"必须由内容证明,不得由退出码证明(2026-09-28 竞态的第三刀)──────────
+    # 钉了显式 sha 之后,窗口从 15 秒缩到接近 0,但**结构上仍然存在**(并发进程可以在我们
+    # rev-parse 与 merge 之间再推一枚)。git 在"本轮 tip 已是 HEAD 祖先"这种现场里照样
+    # exit 0 并打印 "Already up to date." —— 退出码在这里不携带任何信息。所以判据下沉一层:
+    # **本轮钉住的那枚 commit 必须真的被 HEAD 包含**,否则就是"什么都没推进",绝不能继续
+    # 备份/重建/切流(那等于用一条写着成功的日志替旧版本背书)。
+    # 用 is-ancestor 而不是字符串等值:并发会话在 tip 之上又本地提交一枚时,HEAD 是 tip 的
+    # **后代**,那种情况确实包含 tip ⇒ 必须放过,否则会把正常并发误判成故障。
+    & git merge-base --is-ancestor $remoteTip HEAD 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Log ("ff 返回成功但 HEAD 未包含本轮远端 tip:期望包含 {0} 实得 HEAD={1};git 原文尾 3 行:" -f $remoteTip, (& git rev-parse HEAD 2>&1 | Out-String).Trim())
+        @($mergeOut -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 3) | ForEach-Object { Log "  [git] $_" }
+        # 文案同样保持与 sha 无关(理由见上面 :230 去重那三条注释):sha 已在 Log 里逐轮点名。
+        Fail "git merge --ff-only 未真正推进到本轮远端 tip,不按未推进的提交切流(未动任何在途改动)"
     }
     Reset-DivergedStreak   # 能走到这里 = ff 成功 ⇒ 连续计数归零(否则一次抖动会永久累加到阈值)
     Ok "merge 完成,HEAD=$(git rev-parse --short HEAD | Out-String)"

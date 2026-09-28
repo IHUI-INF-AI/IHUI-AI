@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
 
@@ -784,6 +784,125 @@ describe('O17b-④ authenticateOAuthClient + mintClientCredentialsToken', () => 
     if (mint.ok) return
     expect(mint.status).toBe(401)
     expect(mint.error).toBe('unauthorized_client')
+  })
+})
+
+/**
+ * 设备码流程的 client_id 绑定与过期条目摊销清理(2026-09-28 立,第九轮 ZCode 对照逼出)。
+ *
+ * 病灶:`POST /oauth/device/token` 的 schema 一直**强制** body.client_id 存在,但从头到尾
+ * 没有把它和发起时记下的 `entry.clientId` 比对过(RFC 8628 §3.4 要求换 token 的那一侧证明
+ * 是同一个 client)。device_code 是"把手"不是"身份" —— 任何拿到别人 device_code 的客户端
+ * 都能换走那条流程的 token。
+ *
+ * 四例成对,方向各不相同:
+ * ① 换一个 client_id 去换 ⇒ 400,且回包与"device_code 不存在"**同形同码**(否则这个端点
+ *    就变成 device_code 的存在性预言机);同时该码必须被作废(重放同一码连正当 client 也不给)。
+ * ② 用回原 client_id ⇒ 428 authorization_pending —— 这条是正向对照:证明本改动没有把
+ *    正当路径一起挡掉(只留①的门等于把功能改坏还自称收紧)。
+ * ③ 时间越过 TTL 后新建另一条码 ⇒ 旧码在**新建那一刻**就被清掉,轮询它拿到的是"无效"
+ *    而不是"已过期" —— 这个差异就是清理发生过的唯一可见证据(旧写法只在被轮询到时才删)。
+ */
+describe('POST /api/oauth/device — client_id 绑定与过期清理', () => {
+  let app: FastifyInstance
+
+  beforeAll(async () => {
+    app = Fastify({ logger: false })
+    await app.register(cookie)
+    app.decorate('redis', {
+      get: vi.fn(),
+      set: vi.fn(),
+      getdel: vi.fn(),
+      del: vi.fn(),
+    })
+    await app.register(authExtendedRoutes, { prefix: '/api' })
+    await app.ready()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockFindOAuthAppByClientId.mockResolvedValue(mockOAuthApp)
+    mockCreateAuditLog.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  async function newDeviceCode(clientId: string): Promise<string> {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/oauth/device',
+      payload: { client_id: clientId },
+    })
+    if (res.statusCode !== 200) {
+      throw new Error(`设备码创建失败(status=${res.statusCode}):${res.body}`)
+    }
+    const body = res.json() as { data?: { device_code?: string } }
+    const code = body?.data?.device_code
+    if (!code) throw new Error(`响应里没有 device_code:${res.body}`)
+    return code
+  }
+
+  it('换一个 client_id 去换 token ⇒ 400 且与"不存在"同形,该码随即作废', async () => {
+    const deviceCode = await newDeviceCode('test-client-001')
+
+    const stolen = await app.inject({
+      method: 'POST',
+      url: '/api/oauth/device/token',
+      payload: { device_code: deviceCode, client_id: 'other-client-002' },
+    })
+    expect(stolen.statusCode).toBe(400)
+    // 同形:不得区分"这条码不存在"与"这条码是真的但不属于你的 client"
+    expect(stolen.json().message).toBe('device_code 无效')
+
+    // 码已被作废 —— 正当持有者现在也换不到(不给无限重试去试探正确 client_id)
+    const afterBurn = await app.inject({
+      method: 'POST',
+      url: '/api/oauth/device/token',
+      payload: { device_code: deviceCode, client_id: 'test-client-001' },
+    })
+    expect(afterBurn.statusCode).toBe(400)
+  })
+
+  it('正向对照:同一个 client_id 轮询仍走 authorization_pending(428),比对没把正当路径挡掉', async () => {
+    const deviceCode = await newDeviceCode('test-client-001')
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/oauth/device/token',
+      payload: { device_code: deviceCode, client_id: 'test-client-001' },
+    })
+    expect(res.statusCode).toBe(428)
+    expect(res.json().message).toContain('authorization_pending')
+  })
+
+  it('过期条目在新建时被清掉:旧码回"无效"而不是"已过期"(清理唯一可见证据)', async () => {
+    // 只伪 Date —— setTimeout/timers 必须留给真实现,否则 Fastify 的 inject() 调度被一起冻住
+    // (第一版用裸 vi.useFakeTimers(),这条用例直接 15s 超时,红的是夹具不是产品代码)。
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-28T12:00:00Z'))
+
+    const staleCode = await newDeviceCode('test-client-001')
+
+    // 越过 15 分钟 TTL
+    vi.setSystemTime(new Date('2026-09-28T12:16:00Z'))
+    // 新建另一条码 —— 这一步应顺带把过期条目扫掉
+    const freshCode = await newDeviceCode('test-client-001')
+    expect(freshCode).not.toBe(staleCode)
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/oauth/device/token',
+      payload: { device_code: staleCode, client_id: 'test-client-001' },
+    })
+    // 旧写法:条目还在 ⇒ 命中"已过期"分支。新写法:已被清理 ⇒ 与"不存在"同答。
+    expect(res.statusCode).toBe(400)
+    expect(res.json().message).toBe('device_code 无效')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
