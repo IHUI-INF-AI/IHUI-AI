@@ -38,6 +38,16 @@ const GIT_BATCH_TIMEOUT = 120000
 const API_ROUTES_DIR = 'apps/api/src/routes'
 const API_PLUGINS_DIR = 'apps/api/src/plugins'
 const AI_SERVICE_ROUTERS_DIR = 'apps/ai-service/app/routers'
+/**
+ * ai-service 还有第二个 routers 面:`app/api/**`(memory.py / dag.py / v1/*)。
+ * 2026-09-28 随 `apps/cli` 纳入时实测发现:cli 的 `POST /api/memory/procedural`、
+ * `POST /api/memory/save`、`DELETE /api/memory/forget` 全部注册在
+ * `apps/ai-service/app/api/memory.py`,而注册面只枚举 `app/routers/**` ⇒ 三条**已实现**
+ * 的端点被判成死调用。挂载前缀不需要在这里额外解析:`/api` 本身就是 server.ts /
+ * routes/index.ts 里的绝对 prefix,compositePrefixes 会把每条 localPath 拼上它,
+ * 与 `app/routers/**` 走的是同一条既有推导(所以这不是第二份注册面实现,只是同一份的输入变宽)。
+ */
+const AI_SERVICE_API_DIR = 'apps/ai-service/app/api'
 const SERVER_FILE = 'apps/api/src/server.ts'
 const AI_SERVICE_MAIN_FILE = 'apps/ai-service/app/main.py'
 const IGNORE_FILE_REL = '.check-api-routes-ignore.json'
@@ -65,6 +75,26 @@ const FRONTEND_ENDS = [
     // 全部住在这个包里,而"扩面到三端"那次改动碰不到它们。
     // 与端内不同:这里的 fetchApi 基址由**宿主注入**,`/cozeZhsApi` 是改写前缀 —— 两者都
     // 按字面路径参与对账,拼不出来的退到「未判定」计数,绝不静默算通过。
+  },
+  {
+    name: 'cli',
+    dir: 'apps/cli',
+    ratchet: true,
+    // 2026-09-28 纳入(票面理由:一条门只管自己立项那一型 —— 前一轮扩到四端时 cli 就是留下的
+    // 那一格)。HEAD 面实测 44 行「引号紧邻的 `/api/` 字面量」,而它的出口形态与 web 不同:
+    // 自家 wrapper `apiRequest(baseUrl, '/api/x')` 把路径放在**第二个实参**,以及
+    // `fetch(` + 模板串里 `${this.apiUrl}/api/x` 这类**前缀插值** —— 裸 pathRe 要求引号紧邻路径,
+    // 后者结构上抽不出(判据失明的那一型,见文件内 CLI_* 提取式)。
+  },
+  {
+    name: 'app-shared',
+    dir: 'packages/app',
+    ratchet: true,
+    // 零成本防未来盲区(2026-09-28):HEAD 面实测 5 处 `/api/` **全部在注释里**(如
+    // `MemoryScreen.tsx:119`「API(fetchApi /api/memory*)…由 wrapper 注入」),quote-adjacent
+    // 字面量 0 条 ⇒ 当次存量为 0。纳不纳今天没有差别,而"因为现在没有就不纳"正是本票立项
+    // 要防的判断 —— 这一端一旦开始直接写路径字面量,没有判据会喊。
+    // 注意:`.test.` 过滤与 `isIgnoredSourceFile` 对它同样生效,注释里的字面量不计调用点。
   },
 ]
 /** 容得下各端真实扩展名(RN/extension 有 .js/.jsx 形态) */
@@ -187,31 +217,263 @@ function readSource(rel) {
   return CONTENT.get(rel)
 }
 
-/** 提取前端 API 调用路径，返回 [{ method, path, file, line }] */
-function extractFrontendCalls(src, file) {
+/**
+ * 「这段 `${...}` 插值是查询串构造器还是路径段?」—— 全脚本唯一实现(2026-09-28 抽出)。
+ * 原先它内联在 extractFrontendCalls 里;CLI 形态提取也要判同一件事,而**两处算同一件事必漂移**
+ * 是本仓记过最多次的失败型,所以判据只留这一份,两个消费方各调它。
+ * 2026-09-17 加固的原判据一字未改:`?` 只在**非可选链**时才算查询串构造器
+ * (`${editing?.id}` 是值,退化成丢 :param 会造成误报)。
+ */
+function looksLikeQueryStringBuilder(expr) {
+  return (
+    /\?(?!\.)/.test(expr) ||
+    /(^|[^a-zA-Z0-9_])(qs|query|search|params|filter|filters|sort|pagination|listQs|pageQuery|searchParams|queryString|searchQuery)([^a-zA-Z0-9_]|$)/i.test(
+      expr,
+    )
+  )
+}
+
+/** 模板字符串变量:查询串构建器直接去掉,其余替换为 :param;尾部 `?...` 整段丢弃 */
+function normalizeCallPath(rawPath) {
+  return rawPath
+    .replace(/\$\{([^}]+)\}/g, (_match, expr) =>
+      looksLikeQueryStringBuilder(expr) ? '' : ':param',
+    )
+    .replace(/\?.*$/, '')
+    .replace(/\/+$/, '')
+}
+
+// ===== CLI 端形态提取(2026-09-28,随 `apps/cli` 纳入同一笔)=====
+/**
+ * 为什么必须有这一段:裸 `pathRe` 要求**引号紧邻 `/api/`**,而 HEAD 面实测 apps/cli 的出口形态是
+ *   ① `` fetch(`${this.apiUrl}/api/registry/items?${qs}`) `` —— base 由插值提供(21 处),
+ *   ② `` apiRequest(baseUrl, '/list', {…}) `` —— 路径住在**第二个实参**,真路径要拼上
+ *      `createApiRequest(API_PREFIX, …)` 绑定的那个 `/api/...` 常量(约 10 个命令文件),
+ *   ③ `` memorySend('POST', '/api/memory/save', body) `` —— method 是**位置实参**,而既有 method
+ *      推断只认 `method: 'X'` 形态,于是三处 POST/DELETE 被当成 GET ⇒ 假死调用。
+ * 三种形态在 web 端不存在(§3 规定端内走 api-client),所以这段是**端形态差异**的补丁,
+ * 不是把判据放宽:解析不出来的一律落「未判定」并点名,绝不静默算通过,也绝不臆造路径。
+ */
+const CLI_END_NAME = 'cli'
+
+/** 从 at 处(`` $ `` 紧跟 `` { ``)走到配对的 ``} ``;跳过引号内内容。-1 = 不配平,不猜 */
+function skipTemplateGroup(text, at) {
+  let depth = 0
+  for (let i = at; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === "'" || ch === '"') {
+      const q = ch
+      for (i += 1; i < text.length; i++) {
+        if (text[i] === '\\') i++
+        else if (text[i] === q) break
+      }
+      continue
+    }
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return i
+    }
+  }
+  return -1
+}
+
+/** 字面量结束引号下标;模板串里的 `${...}` 整组跳过(嵌套引号不算结束)。-1 = 未闭合 */
+function findLiteralEnd(text, openIdx) {
+  const q = text[openIdx]
+  for (let i = openIdx + 1; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '\\') {
+      i++
+      continue
+    }
+    if (q === '`' && ch === '$' && text[i + 1] === '{') {
+      const end = skipTemplateGroup(text, i + 1)
+      if (end === -1) return -1
+      i = end
+      continue
+    }
+    if (ch === q) return i
+  }
+  return -1
+}
+
+/** 合法路径字符 / 明确的终止符之外的字符 ⇒ 形态不认识 ⇒ null(不猜) */
+const CLI_PATH_CHAR_RE = /[A-Za-z0-9/_.:\-]/
+const CLI_PATH_STOP_CHARS = new Set(['`', "'", '"', ',', ')', ';', ' ', '\t', '\r', ']', '}'])
+
+/**
+ * 把一个字符串字面量**内容**(已剥外层引号)读成路径:
+ *  - 前缀插值形态 `${base}/api/x` ⇒ 从 `/api/` 起算(②③之外的第 ① 型);
+ *  - `/list?${qs}` / `/projects/${id}` ⇒ 逐段读,`${}` 按共享谓词退化为 '' 或 `:param`,`?` 之后整段丢;
+ * 返回 `{ path, relative }`:relative=true 表示不以 `/api/` 起头(需拼文件级前缀)。
+ * 解析不出 ⇒ null。
+ */
+function cliPathFromLiteralContent(content) {
+  let s = content
+  if (s.startsWith('${')) {
+    const end = skipTemplateGroup(s, 1)
+    if (end === -1) return null
+    s = s.slice(end + 1)
+    if (!s.startsWith('/api/')) return null // 前缀插值后面不是 /api/ ⇒ 拼不出,交人工
+  }
+  if (!s.startsWith('/')) return null
+  let path = ''
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (ch === '?') break // 查询串尾巴对路由比对无意义
+    if (ch === '$' && s[i + 1] === '{') {
+      const end = skipTemplateGroup(s, i + 1)
+      if (end === -1) return null
+      const expr = s.slice(i + 2, end)
+      path += looksLikeQueryStringBuilder(expr) ? '' : ':param'
+      i = end
+      continue
+    }
+    if (CLI_PATH_CHAR_RE.test(ch)) {
+      path += ch
+      continue
+    }
+    if (CLI_PATH_STOP_CHARS.has(ch)) break
+    return null
+  }
+  path = path.replace(/\/+$/, '')
+  if (!path.startsWith('/') || path === '/') return null
+  return { path, relative: !path.startsWith('/api/') }
+}
+
+/**
+ * 文件级 `const NAME = createApiRequest(PREFIX_NAME, ms)` 绑定:
+ * 只有当该文件里 PREFIX_NAME 恰好解析到**一个**以 `/api/` 起头的常量时才成立;
+ * 多个候选 / 解析不到 ⇒ 返回 null(宁可不判,也不替文件挑一个前缀)。
+ */
+function resolveCliRequestFactory(src) {
+  const callNames = new Set() // `const apiRequest = createApiRequest(API_PREFIX, ms)` 左边的可调用名
+  const prefixNames = new Set() // 同一行的第二个实参 = 前缀常量名
+  const factoryRe =
+    /(?:const|let)\s+([A-Za-z0-9_$]+)\s*=\s*createApiRequest\(\s*([A-Za-z0-9_$]+)\s*[,)]/g
+  let m
+  while ((m = factoryRe.exec(src)) !== null) {
+    callNames.add(m[1])
+    prefixNames.add(m[2])
+  }
+  if (callNames.size === 0) return null
+  const consts = new Map() // 前缀常量名 -> { value, line }
+  const constRe = /(?:const|let)\s+([A-Za-z0-9_$]+)\s*=\s*(['"])((?:[^'"\\]|\\.)*?)\2/g
+  while ((m = constRe.exec(src)) !== null) {
+    if (!prefixNames.has(m[1])) continue
+    consts.set(m[1], { value: m[3], line: src.slice(0, m.index).split('\n').length })
+  }
+  const prefixes = new Set()
+  const fragmentLines = new Set()
+  for (const { value, line } of consts.values()) {
+    if (!value.startsWith('/api/')) continue // 传 '' 的文件用完整 path,无需拼接
+    prefixes.add(value.replace(/\/+$/, ''))
+    fragmentLines.add(line)
+  }
+  // 0 个 ⇒ 该文件的前缀不是 /api/(完整 path 形态);>1 个 ⇒ 文件里有两张候选表,不猜。
+  if (prefixes.size !== 1) return null
+  return { callNames: [...callNames], prefix: [...prefixes][0], fragmentLines }
+}
+
+/** 位置实参形态的 method:`xxx('POST', '/api/x')` 或跨行 `xxx(\n  'POST',\n  '/api/x',` */
+function cliPositionalMethod(lines, idx) {
+  const cur = lines[idx] || ''
+  const sameLine = /(['"`])(get|post|put|patch|delete)\1\s*,\s*['"`]\/api\//i.exec(cur)
+  if (sameLine) return sameLine[2].toUpperCase()
+  for (let i = idx - 1; i >= Math.max(0, idx - 2); i--) {
+    // 上一行以 `'POST',` 收尾 = 正处在一个实参列表中间(强信号,不会撞到普通语句)
+    const m = /(['"`])(get|post|put|patch|delete)\1\s*,\s*$/i.exec((lines[i] || '').trimEnd())
+    if (m) return m[2].toUpperCase()
+  }
+  return null
+}
+
+/**
+ * CLI 三条形态的产出:`{ calls, unresolved }`。
+ * `unresolved` = 调用点确实存在、路径住在变量里 ⇒ **未判定**(逐条点名,不记通过)。
+ */
+function extractCliShapeCalls(src, file, factory) {
   const calls = []
+  const unresolved = []
   const lines = src.split('\n')
-  // 匹配 fetchApi(`/api/...`) 或 fetch(`/api/...`) 或 xxxApi(`/api/admin/...`)
-  // 捕获 method（从上下文推断）和路径
-  // 2026-09-17 加固:字符类补 `?&=%,+~#@!;` —— 原正则不含 `?`,导致「单行字面量内联查询串」的
-  // 调用(形如 `/api/memory/graph?query=${encodeURIComponent(q)}`)整条无法匹配、静默跳过,
-  // 形成守门结构盲区(实测漏检 288 条路径;其中 `/api/memory/graph` 后端从未实现 → 记忆图谱面板
-  // 线上恒 404 却一路绿灯)。刻意**不含 `*` 与括号**,避免把 next.config.ts 的 rewrite 源
-  // ('/api/:path*')与函数调用文本误当成调用点。
-  const pathRe = /['"`](\/api\/(?:admin\/)?[a-zA-Z0-9/_\-${}:.?&=%,+~#@!;]+)['"`]/g
-  lines.forEach((line, idx) => {
-    let m
-    pathRe.lastIndex = 0
-    while ((m = pathRe.exec(line)) !== null) {
-      const rawPath = m[1]
-      // 跳过非 API 路径（如 /api/health 这种纯字面量但被误捕）
-      if (!rawPath.startsWith('/api/')) continue
-      // /api/llm/* 走 Next.js rewrite 到 ai-service (port 8000)，不在 API 路由检查范围
-      if (rawPath.startsWith('/api/llm/')) continue
-      // /api/voice/* 走 Next.js rewrite 到 ai-service 8803(2026-08-31 新增),
-      // 与 /api/llm/ 同类——ai-service 路由由 router 扫描覆盖,此处纯字面量(如
-      // voice-input.tsx STT_ENDPOINT 常量)会误报 GET /api/voice/stt
-      if (rawPath.startsWith('/api/voice/')) continue
+  // ① `${base}/api/x` —— 与通用 pathRe 天然不相交(那边要求引号紧邻 /api/)
+  const tplRe = /(['"`])\$\{/g
+  let m
+  while ((m = tplRe.exec(src)) !== null) {
+    const openIdx = m.index
+    const close = findLiteralEnd(src, openIdx)
+    if (close === -1) continue
+    const content = src.slice(openIdx + 1, close)
+    const parsed = cliPathFromLiteralContent(content)
+    if (!parsed || parsed.relative) continue
+    const line = src.slice(0, openIdx).split('\n').length
+    // **有证据才认 method**:开引号前是 `(` 或 `,` ⇒ 该字面量是某个调用的实参,既有推断链
+    // (同行 / 后 4 行 / 前 3 行)对它有效;否则它只是 `const url = \`…\`` 这类赋值,
+    // 真正的请求在别处发 —— 此时默认 GET 会把"后端只有 POST"的真实路由判成死调用
+    // (实测 voice/index.ts 的 `/api/voice/stt`)。判"不知道"用 ANY,
+    // 它在本门的比对里等价于"任一拍即算注册",不制造假阳也不放过"整条路径没人注册"。
+    const before = src.slice(Math.max(0, openIdx - 40), openIdx).trimEnd()
+    const isCallArgument = before.endsWith('(') || before.endsWith(',')
+    const method =
+      cliPositionalMethod(lines, line - 1) ||
+      (isCallArgument ? inferMethodAtLine(lines, line - 1) : 'ANY')
+    calls.push({
+      method,
+      path: parsed.path,
+      file,
+      line,
+      shape: 'cli-template-prefix',
+    })
+  }
+  // ② `apiRequest(baseUrl, '/rel')` —— 拼文件级前缀;第三个实参里的 method 仍走既有推断
+  if (factory) {
+    for (const name of factory.callNames) {
+      const callRe = new RegExp(`\\b${name}\\(\\s*([^,()]*?)\\s*,\\s*`, 'g')
+      let c
+      while ((c = callRe.exec(src)) !== null) {
+        const argStart = c.index + c[0].length
+        const ch = src[argStart]
+        const line = src.slice(0, c.index).split('\n').length
+        if (ch === "'" || ch === '"' || ch === '`') {
+          const close = findLiteralEnd(src, argStart)
+          if (close === -1) continue
+          const content = src.slice(argStart + 1, close)
+          const parsed = cliPathFromLiteralContent(content)
+          if (!parsed) continue
+          const full = parsed.relative ? `${factory.prefix}${parsed.path}` : parsed.path
+          calls.push({
+            method: cliPositionalMethod(lines, line - 1) || inferMethodAtLine(lines, line - 1),
+            path: full.replace(/\/+$/, ''),
+            file,
+            line,
+            shape: 'cli-prefixed-arg',
+          })
+          continue
+        }
+        // 第二个实参是变量 ⇒ 判不了,点名(例:mcp-market.ts 的 `apiRequest(baseUrl, qs, …)`)
+        if (/^[A-Za-z_$][A-Za-z0-9_$.]*$/.test(src.slice(argStart, argStart + 60).split(/[,),]/)[0])) {
+          unresolved.push({
+            file,
+            line,
+            site: `${name}(${c[1]}, <变量路径>)`,
+          })
+        }
+      }
+    }
+  }
+  return { calls, unresolved }
+}
+
+
+/**
+ * method 推断的**唯一**实现(2026-09-28 由 extractFrontendCalls 整体搬出,判据一字未改)。
+ * 搬的理由:CLI 形态提取也要算同一件事,而"两处算同一件事必漂移"是本仓记过最多次的失败型。
+ * 优先级:显式注释 `// method: POST` > 同行 method: > 向后第一个 method(遇调用收尾行即停)
+ * > 向前最近 method > 同文件 wrapper 作用域 > 上下文启发式 > GET。
+ * CLI 的位置实参形态由调用方先问 cliPositionalMethod(),命中才不走这里。
+ */
+function inferMethodAtLine(lines, idx) {
       // 推断 method: 优先 path 同行 → 向后第一个 method → 向前最近 method → 动态值用 ANY
       let method = 'GET'
       const sameLine = (lines[idx] || '').toLowerCase()
@@ -321,23 +583,65 @@ function extractFrontendCalls(src, file) {
       if (annotMatch) {
         method = annotMatch[1].toUpperCase()
       }
-      // 模板字符串变量：查询字符串构建器直接去掉，其余替换为 :param
-      const normalized = rawPath
-        .replace(/\$\{([^}]+)\}/g, (_match, expr) => {
-          // 2026-09-17 加固:`?` 只在**非可选链**时才算查询字符串构建器。
-          // 原实现用 expr.includes('?') → `${editing?.id}` 这类可选链被误判为查询串、
-          // 整个插值被清空,路径退化为 `/api/admin/exam/questions`(丢掉 :param),
-          // 再与后端 `/admin/exam/questions/:id` 比对必然报缺失(误报)。
-          // 判据:`?` 之后紧跟 `.` 是可选链(值),否则是三元/查询串(应清空)。
-          const isQueryStringBuilder =
-            /\?(?!\.)/.test(expr) ||
-            /(^|[^a-zA-Z0-9_])(qs|query|search|params|filter|filters|sort|pagination|listQs|pageQuery|searchParams|queryString|searchQuery)([^a-zA-Z0-9_]|$)/i.test(
-              expr,
-            )
-          return isQueryStringBuilder ? '' : ':param'
-        })
-        .replace(/\?.*$/, '')
-        .replace(/\/+$/, '')
+      return method
+}
+
+/**
+ * 提取前端 API 调用路径，返回 [{ method, path, file, line }]
+ * `opts.cli` = 该文件所属端已解析出的 createApiRequest 工厂绑定(仅 `apps/cli` 传),
+ * 用于把"路径住在第二个实参"的形态拼回完整路径,并**不再把前缀常量声明行当调用点**
+ * (它只是片段);其余端 opts 省略 ⇒ 行为与本笔改动前逐字相同。
+ */
+function extractFrontendCalls(src, file, opts) {
+  const cli = opts && opts.cli ? opts.cli : null
+  const cliShapes = Boolean(opts && opts.cliShapes)
+  const calls = []
+  const lines = src.split('\n')
+  // 匹配 fetchApi(`/api/...`) 或 fetch(`/api/...`) 或 xxxApi(`/api/admin/...`)
+  // 捕获 method（从上下文推断）和路径
+  // 2026-09-17 加固:字符类补 `?&=%,+~#@!;` —— 原正则不含 `?`,导致「单行字面量内联查询串」的
+  // 调用(形如 `/api/memory/graph?query=${encodeURIComponent(q)}`)整条无法匹配、静默跳过,
+  // 形成守门结构盲区(实测漏检 288 条路径;其中 `/api/memory/graph` 后端从未实现 → 记忆图谱面板
+  // 线上恒 404 却一路绿灯)。刻意**不含 `*` 与括号**,避免把 next.config.ts 的 rewrite 源
+  // ('/api/:path*')与函数调用文本误当成调用点。
+  const pathRe = /['"`](\/api\/(?:admin\/)?[a-zA-Z0-9/_\-${}:.?&=%,+~#@!;]+)['"`]/g
+  lines.forEach((line, idx) => {
+    let m
+    pathRe.lastIndex = 0
+    while ((m = pathRe.exec(line)) !== null) {
+      const rawPath = m[1]
+      // 跳过非 API 路径（如 /api/health 这种纯字面量但被误捕）
+      if (!rawPath.startsWith('/api/')) continue
+      // 前缀常量声明行**不是调用点**:cli 端 `const API_PREFIX = '/api/chat'` 会被 pathRe 命中,
+      // 而真路径要由 createApiRequest 工厂在第二个实参处拼出来(见 extractCliShapeCalls)。
+      // 把片段当调用 = 凭空造一条谁都没发过的请求(实测 capabilities.ts 的 4 条真调用之上
+      // 会多出一条 `/api/v1/ai/capabilities`)。只对 cli 端生效,其余端行为一字不变。
+      if (cli && cli.fragmentLines.has(idx + 1)) continue
+      // 下面两条 skip 的前提是「Next.js rewrite 把该前缀转发到 ai-service」——那是 **web 端**的
+      // 部署形态。apps/cli 是直连后端进程(resolveBaseUrl 默认 http://localhost:8802),
+      // 同一条字面量在 cli 侧就是一次真实调用,跳过 = 判据对整族隐身(实测 models.ts:242)。
+      // /api/llm/* 走 Next.js rewrite 到 ai-service (port 8000)，不在 API 路由检查范围
+      if (!cliShapes && rawPath.startsWith('/api/llm/')) continue
+      // /api/voice/* 走 Next.js rewrite 到 ai-service 8803(2026-08-31 新增),
+      // 与 /api/llm/ 同类——ai-service 路由由 router 扫描覆盖,此处纯字面量(如
+      // voice-input.tsx STT_ENDPOINT 常量)会误报 GET /api/voice/stt
+      if (!cliShapes && rawPath.startsWith('/api/voice/')) continue
+      // method 推断与路径归一化都走文件级唯一出口(通用面与 CLI 形态面共用同一份实现)
+      // cli 端额外允许两种"没有字面量 method:"的形态:
+      //  ① **位置实参 method**:`memorySend('POST', '/api/memory/save', body)` —— 上一行以
+      //     `'POST',` 收尾即认,普通语句撞不上;不补这条,三处 POST/DELETE 会被当 GET,
+      //     把后端真实册的路由判成死调用(实测 tools/memory.ts:295/322/362)。
+      //  ② **纯路径常量声明行**:`export const FOO_PATH = '/api/x'` —— 它是片段不是调用点,
+      //     真调用在别处(`client.post(FOO_PATH, …)`),在那里静态读不到 method。
+      //     这类刻意用 ANY(= 任一拍即算注册),而不是猜一个 GET。
+      const isPathConstDecl =
+        cliShapes &&
+        /^\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z0-9_$]+\s*=\s*['"`]\/api\/[^'"`]+['"`];?\s*$/.test(
+          line,
+        )
+      const positional = cliShapes ? cliPositionalMethod(lines, idx) : null
+      const method = positional || (isPathConstDecl ? 'ANY' : inferMethodAtLine(lines, idx))
+      const normalized = normalizeCallPath(rawPath)
       calls.push({
         method,
         path: normalized,
@@ -609,8 +913,11 @@ function extractBackendRoutes() {
   // 项目实际使用: server / s (admin-sys) / child (exam) / scope (live) / authed (member) / fastify (zhs-course 等)
   // / sub (admin-sys/role-routes.ts:99 的嵌套 authUser 子路由)—— 2026-09-28 补:漏 `sub` 让
   //   嵌套子路由整型看不见,后端真实册的路由被判死(假阳性;方向:把正确实现钉红)。
+  // 2026-09-28 再补 `(?:<[^<>()]*>)?`:**带泛型参数的注册** `server.post<{ Params: { source: X } }>(
+  //   '/registry/webhook/:source', …)` 原本整型看不见(registry-sync.ts:374)—— 泛型夹在动词与
+  //   `(` 之间,旧式要求两者紧邻。漏识别 = 前端真调用被报死调用(cli 的 registry-webhook 即此例)。
   const methodRe =
-    /\b(?:server|s|sub|child|scope|authed|instance|app|fastify)\.(get|post|put|patch|delete)\(\s*['"`]([^'"`]*)['"`]/g
+    /\b(?:server|s|sub|child|scope|authed|instance|app|fastify)\.(get|post|put|patch|delete)(?:<[^<>()]*>)?\(\s*['"`]([^'"`]*)['"`]/g
   // registerCrud(VAR, 'basePath', ...) 工厂: 展开为 GET list/GET :id/POST/PUT :id/DELETE :id/DELETE(batch) 共 6 条
   // (2026-09-28 根修:上一版漏了 GET `${basePath}/:id` —— 工厂在 admin/_shared.ts:276 真注册了
   //  getById,漏展开让三枚 GET :id 前端调用被假判死调用(台账豁免文件里 admin/courses 那条
@@ -660,14 +967,25 @@ function extractBackendRoutes() {
       }
     }
   }
-  // FastAPI 路由(ai-service):从 apps/ai-service/app/routers/*.py 提取
+  // FastAPI 路由(ai-service):从 apps/ai-service/app/routers/*.py **与 app/api/**.py** 提取
   // 模式1: router = APIRouter(prefix="/api/...") → 记录 prefix
   // 模式2: @router.(get|post|...)("/path") → 记录 method + localPath
   // 完整路径 = prefix + localPath（main.py include_router 时统一挂载 /api 或 /api/v1 等）
-  const routerFiles = listFace(AI_SERVICE_ROUTERS_DIR, ['.py'])
+  const routerFiles = [
+    ...listFace(AI_SERVICE_ROUTERS_DIR, ['.py']),
+    ...listFace(AI_SERVICE_API_DIR, ['.py']),
+  ]
   if (routerFiles.length > 0) {
     // 1. 先从 main.py 提取 include_router(router.router, prefix="...") 映射
     const includePrefixMap = new Map() // router变量名 -> prefix
+    /**
+     * 1b. 同一份 include 面还有第二种写法:`from app.api.memory import router as memory_router`
+     *     + `app.include_router(memory_router, prefix="/api")` —— 变量名不等于模块名,旧写法
+     *     按"变量名 == 文件名"查,对这一族**整型失明**(实测 ai-service 的 app/api/memory.py
+     *     九个端点全无挂载上下文,前端三条真调用被当死调用)。现按"点分模块路径"建映射,
+     *     与被扫文件的路径同形 ⇒ 两个目录共用一条判据,不各写一份。
+     */
+    const modulePrefixMap = new Map() // 'app.api.memory' -> '/api'
     const mainSrc = readSource(AI_SERVICE_MAIN_FILE)
     if (mainSrc !== null && mainSrc !== undefined) {
       const includeRe =
@@ -676,11 +994,24 @@ function extractBackendRoutes() {
       while ((im = includeRe.exec(mainSrc)) !== null) {
         includePrefixMap.set(im[1], im[2])
       }
+      const aliasToModule = new Map()
+      const importRe = /from\s+(app[\w.]*)\s+import\s+(?:\w+\s*,\s*)?router\s+as\s+([A-Za-z0-9_]+)/g
+      let ir
+      while ((ir = importRe.exec(mainSrc)) !== null) aliasToModule.set(ir[2], ir[1])
+      const bareRe =
+        /app\.include_router\(\s*([A-Za-z0-9_]+)\s*(?:,\s*prefix\s*=\s*['"`]([^'"`]+)['"`])?/g
+      let br
+      while ((br = bareRe.exec(mainSrc)) !== null) {
+        const mod = aliasToModule.get(br[1])
+        if (!mod || !br[2]) continue
+        modulePrefixMap.set(mod, br[2])
+      }
     }
     for (const rel of routerFiles) {
       const src = readSource(rel)
       if (src === null || src === undefined) continue
-      const fileName = rel.slice(AI_SERVICE_ROUTERS_DIR.length + 1).replace(/\.py$/, '')
+      const fileName = rel.split('/').pop().replace(/\.py$/, '')
+      const moduleKey = rel.replace(/^apps\/ai-service\//, '').replace(/\.py$/, '').replaceAll('/', '.')
       // 提取 router 的 prefix（文件内 APIRouter(prefix=...)）
       const prefixRe = /APIRouter\(\s*prefix\s*=\s*['"`]([^'"`]+)['"`]/g
       const routerPrefixes = []
@@ -688,9 +1019,10 @@ function extractBackendRoutes() {
       while ((pm = prefixRe.exec(src)) !== null) {
         routerPrefixes.push(pm[1])
       }
-      // 如果文件内无 prefix，尝试从 main.py include_router 映射获取
-      if (routerPrefixes.length === 0 && includePrefixMap.has(fileName)) {
-        routerPrefixes.push(includePrefixMap.get(fileName))
+      // 如果文件内无 prefix，尝试从 main.py include_router 映射获取(两种写法都查)
+      if (routerPrefixes.length === 0) {
+        const mounted = modulePrefixMap.get(moduleKey) ?? includePrefixMap.get(fileName)
+        if (mounted) routerPrefixes.push(mounted)
       }
       // 如果仍无 prefix，使用空字符串
       const prefixes2 = routerPrefixes.length > 0 ? routerPrefixes : ['']
@@ -992,6 +1324,136 @@ function runSelfTest() {
   } finally {
     rmScratch(opaqueNeighborRoot)
   }
+
+  // ===== CLI 端形态提取(2026-09-28 随 apps/cli 纳入)=====
+  // 空基线 = "该端存量为 0",所以夹具里任何被判红的 cli 调用都会 exit 1(棘轮有牙)。
+  const EMPTY_BASELINE = JSON.stringify({ version: 1, perFileCount: {} })
+  const cliFixture = (files) =>
+    makeSelfTestRoot({
+      [BASELINE_FILE_REL]: EMPTY_BASELINE,
+      'apps/api/src/routes/none.ts': "server.get('/api/nothing', async () => ({}))\n",
+      ...files,
+    })
+  // 16. `createApiRequest(API_PREFIX,…)` + `apiRequest(baseUrl,'/ghost')`:
+  //     路径住在**第二个实参**,裸 pathRe 只会看见那行前缀常量 ⇒ 不补提取式就等于没扩面。
+  const cliComposeRoot = cliFixture({
+    'apps/cli/src/commands/probe.ts': [
+      "const API_PREFIX = '/api/probe';",
+      'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+      "const r = await apiRequest(baseUrl, '/ghost', { method: 'POST' });",
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliComposeRoot)
+    eq(
+      'CLI 前缀拼接:apiRequest(baseUrl, \'/ghost\') 必须被拼成 /api/probe/ghost 并判红',
+      [1, true],
+      [r.status, /POST \/api\/probe\/ghost/.test(r.out)],
+    )
+  } finally {
+    rmScratch(cliComposeRoot)
+  }
+  // 17. 正例对照(证明拼接是对的,不是"造出路径就判红"):后端真注册 /api/probe/list ⇒ 不得报
+  const cliComposeOkRoot = makeSelfTestRoot({
+    [BASELINE_FILE_REL]: EMPTY_BASELINE,
+    'apps/api/src/routes/probe.ts': "server.post('/api/probe/list', async () => ({}))\n",
+    'apps/cli/src/commands/probe.ts': [
+      "const API_PREFIX = '/api/probe';",
+      'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+      "const r = await apiRequest(baseUrl, '/list', { method: 'POST' });",
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliComposeOkRoot)
+    eq('CLI 前缀拼接的正例:已注册的 /api/probe/list 不得判红', [0, true], [
+      r.status,
+      /通过/.test(r.out),
+    ])
+  } finally {
+    rmScratch(cliComposeOkRoot)
+  }
+  // 18. `${base}/api/x` 模板前缀插值:引号不紧邻路径 ⇒ 旧判据整型隐身(实测 21 处)
+  const cliTplRoot = cliFixture({
+    'apps/cli/src/lib/tpl.ts':
+      "const res = await fetch(`${cfg.apiUrl}/api/tpl/ghost`, { method: 'POST' })\n",
+  })
+  try {
+    const r = runGateIn(cliTplRoot)
+    eq(
+      'CLI 模板前缀插值必须被抽出并判红',
+      [1, true],
+      [r.status, /POST \/api\/tpl\/ghost/.test(r.out)],
+    )
+  } finally {
+    rmScratch(cliTplRoot)
+  }
+  // 19. 位置实参 method:`memorySend('POST', path)` —— 不认它就把真存在的 POST 端点报成 GET 缺失
+  const cliPosMethodRoot = makeSelfTestRoot({
+    [BASELINE_FILE_REL]: EMPTY_BASELINE,
+    'apps/api/src/routes/pos.ts': "server.post('/api/pos/save', async () => ({}))\n",
+    'apps/cli/src/tools/pos.ts': [
+      'async function call(body) {',
+      '  const r = await memorySend(',
+      "    'POST',",
+      "    '/api/pos/save',",
+      '    body,',
+      '  );',
+      '  return r',
+      '}',
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliPosMethodRoot)
+    eq('位置实参 method:后端只有 POST 时不得把该调用报成 GET', 0, r.status)
+  } finally {
+    rmScratch(cliPosMethodRoot)
+  }
+  // 19b. 同一条判据的反向:实参写 'DELETE' 而后端只有 POST ⇒ 必须点名 DELETE 并判红
+  const cliPosMethodBadRoot = makeSelfTestRoot({
+    [BASELINE_FILE_REL]: EMPTY_BASELINE,
+    'apps/api/src/routes/pos.ts': "server.post('/api/pos/save', async () => ({}))\n",
+    'apps/cli/src/tools/pos.ts': [
+      "const r = await memorySend('DELETE', '/api/pos/save', body)",
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliPosMethodBadRoot)
+    eq(
+      '位置实参 method 反向:DELETE 调用不得被算成已注册',
+      [1, true],
+      [r.status, /DELETE \/api\/pos\/save/.test(r.out)],
+    )
+  } finally {
+    rmScratch(cliPosMethodBadRoot)
+  }
+  // 20. 变量路径(`apiRequest(baseUrl, qs, …)`)⇒ **未判定**并点名,既不判红也不记通过
+  const cliVarPathRoot = cliFixture({
+    'apps/cli/src/commands/var.ts': [
+      "const API_PREFIX = '/api/vartest';",
+      'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+      'const qs = buildQs()',
+      "const r = await apiRequest(baseUrl, qs, { apiKey })",
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliVarPathRoot)
+    eq(
+      '变量路径 ⇒ 未判定 + 点名(不得静默算通过)',
+      [0, true, true],
+      [
+        r.status,
+        /未判定\(CLI 变量路径调用点\)/.test(r.out),
+        /apps\/cli\/src\/commands\/var\.ts:4/.test(r.out),
+      ],
+    )
+  } finally {
+    rmScratch(cliVarPathRoot)
+  }
   return { failures, assertions }
 }
 
@@ -1113,6 +1575,7 @@ const baseInputs = new Set([
   ...listFace(API_ROUTES_DIR, ['.ts']),
   ...listFace(API_PLUGINS_DIR, ['.ts']),
   ...listFace(AI_SERVICE_ROUTERS_DIR, ['.py']),
+  ...listFace(AI_SERVICE_API_DIR, ['.py']),
 ])
 prefetch([...frontendRels, ...baseInputs])
 
@@ -1193,8 +1656,12 @@ const TRANSPORT_RE =
   /fetchApi\s*\(|Taro\.request|\bwx\.request|\bmy\.request|\btt\.request|XMLHttpRequest|axios\.|\bfetch\s*\(|from\s+['"]@ihui\/api-client['"]/
 /** 取不到内容的**前端代码文件**(与"配置面缺失"分开报,免得一句"取不到 1 个文件"混着两件事) */
 const unreadCode = []
+/** CLI 端"调用点确实在、路径住在变量里"的站点 ⇒ 未判定,逐条点名(不记通过、也不判红) */
+const cliUnresolved = []
 for (const rel of frontendRels) {
-  const st = endStats.get(endByFile.get(rel))
+  const end = endByFile.get(rel)
+  const isCli = end === CLI_END_NAME
+  const st = endStats.get(end)
   st.files++
   const src = readSource(rel)
   if (src === null || src === undefined) {
@@ -1202,13 +1669,48 @@ for (const rel of frontendRels) {
     unreadCode.push(rel)
     continue
   }
-  const calls = extractFrontendCalls(src, rel)
+  const cliFactory = isCli ? resolveCliRequestFactory(src) : null
+  const calls = extractFrontendCalls(src, rel, isCli ? { cli: cliFactory, cliShapes: true } : undefined)
+  if (isCli) {
+    // ① 型(`${base}/api/x`)不需要工厂绑定就能判,所以**不绑在 cliFactory 上** ——
+    //    第一版把整段挂在 `if (cliFactory)` 里,结果 registry-client.ts 等 11 个文件
+    //    一处没抽(扩了面却仍失明,正是本票要防的那一型)。
+    const extra = extractCliShapeCalls(src, rel, cliFactory)
+    calls.push(...extra.calls)
+    cliUnresolved.push(...extra.unresolved)
+  }
   st.calls += calls.length
   if (calls.length === 0 && TRANSPORT_RE.test(src)) st.shapeUnknown++
   allCalls.push(...calls)
 }
 
 console.log(`${C.dim}[API 路由比对] 前端 API 调用: ${allCalls.length} 处${C.reset}`)
+if (frontendRels.length > 0) {
+  /**
+   * "某端本轮一个调用点都没抽出来"必须与"该端已判过"分开说 —— `packages/app` 就是这一格:
+   * HEAD 面 224 个受管文件、`/api/` 字面量 5 处**全在注释里** ⇒ 0 调用点。账面 exit 0 而结论行
+   * 什么都不说,读报告的人就会把"没有红"当成"这一端对齐过了"(本仓最高频失效型:判据失效的
+   * 表现永远是安静)。刻意**不改退出码**:这些端在多数提交里本就没有调用点,为此判红就是一台
+   * 与改动无关的恒红门,唯一结局是逼人 `--no-verify`(§12e 同型)⇒ 只在结论行喊。
+   */
+  const silentEnds = FRONTEND_ENDS.filter((e) => endStats.get(e.name).calls === 0)
+  if (silentEnds.length > 0) {
+    console.log(
+      `${C.yellow}[API 路由比对] ⚠️ 本轮 0 个调用点的端:${silentEnds
+        .map((e) => `${e.name}(文件 ${endStats.get(e.name).files})`)
+        .join(' / ')} —— 无判据不等于已判过${C.reset}`,
+    )
+  }
+}
+const faceEmptyEnds = FRONTEND_ENDS.filter((e) => endStats.get(e.name).files === 0)
+if (faceEmptyEnds.length > 0) {
+  // 面里**一个受管源文件都没枚举到** ≠ 这一端干净:要么是目录搬走了,要么是枚举失效。
+  // 判红会把"与本次提交无关的目录形态"算到提交者头上(恒红门,§12e),所以走 exit 0 + 大声点名,
+  // 但结论行必须带上这条 —— 否则 `app-shared:文件 0 / 调用 0` 读起来就像"已判过且没问题"。
+  console.log(
+    `${C.yellow}[API 路由比对] ⚠️ 未判定:${faceEmptyEnds.map((e) => e.name).join(' / ')} 在 ${FACE} 面枚举到 0 个受管源文件(枚举失效或目录搬家,本轮对这一格没有判据)${C.reset}`,
+  )
+}
 for (const e of FRONTEND_ENDS) {
   const s = endStats.get(e.name)
   console.log(
@@ -1407,9 +1909,11 @@ if (UPDATE_BASELINE) {
     version: 1,
     anchor: '该文件在基线里的死调用存量数(只减不增;新增即判红,存量只报数)',
     reason:
-      '2026-09-26 把守门 8 的前端调用面从 apps/web 扩到 mobile-rn / miniapp-taro / extension,再扩到 packages/api-client,首次纳入的存量。' +
+      '2026-09-26 把守门 8 的前端调用面从 apps/web 扩到 mobile-rn / miniapp-taro / extension,再扩到 packages/api-client。' +
       'api-client 这批不是本次改动引入的调用:那 15 个文件最近的提交 ca93dd962e 只改了 import 的 .js 扩展名,' +
-      '逐文件新增 /api/ 字面量 0 条(实测),所以它们是从写下起就没人对账过的存量。',
+      '逐文件新增 /api/ 字面量 0 条(实测),所以它们是从写下起就没人对账过的存量。' +
+      '2026-09-28 再扩两端:apps/cli(首次纳入即补三条形态提取式,实测调用点 35 → 76)与 packages/app' +
+      '(受管文件 224 个、/api/ 字面量全在注释里 ⇒ 存量为 0,进表是为"以后有人直接写路径"那天已有判据)。',
     ends: [...RATCHET_ENDS].sort(),
     face: FACE,
     perFileCount: Object.fromEntries(
@@ -1508,6 +2012,23 @@ const shapeUnknownTotal = [...endStats.values()].reduce((a, s) => a + s.shapeUnk
 console.log(
   `${C.yellow}[API 路由比对] ⚠️ 未判定调用形态 ${shapeUnknownTotal} 个文件(有传输口却抽不出 /api/ 路径,判据看不见 ≠ 没有死调用)${C.reset}`,
 )
+/**
+ * CLI 端特有的一格:调用点**确实在**(工厂第二实参),但路径住在变量里 —— 变量可能由
+ * `new URLSearchParams()` 之类拼出,静态判据结构上读不出真路径。这类站点既不能记通过
+ * (等于把"没看清"写成"没问题"),也不能判红(那是把别人的正确实现钉成缺陷),
+ * 所以照本门「不透明挂载未判定」同一条口径:**逐条点名 + 不计入失败**。
+ */
+if (cliUnresolved.length > 0) {
+  console.log(
+    `${C.yellow}[API 路由比对] ⚠️ 未判定(CLI 变量路径调用点)${cliUnresolved.length} 处 —— 调用在、路径拼不出,本轮既不判红也不记通过:${C.reset}`,
+  )
+  for (const u of cliUnresolved.slice(0, 25)) {
+    console.log(`${C.dim}    ${u.site} @ ${u.file}:${u.line}${C.reset}`)
+  }
+  if (cliUnresolved.length > 25) {
+    console.log(`${C.dim}    ... 还有 ${cliUnresolved.length - 25} 处${C.reset}`)
+  }
+}
 if (opaqueUndetermined.length > 0) {
   console.log(
     `${C.yellow}[API 路由比对] ⚠️ 未判定(不透明挂载)${opaqueUndetermined.length} 处调用落在本门看不见的挂载前缀下,不判红也不计通过:${C.reset}`,
