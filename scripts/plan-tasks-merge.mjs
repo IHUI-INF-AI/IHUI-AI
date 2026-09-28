@@ -192,6 +192,84 @@ export function buildMerge(content, today) {
   return { text: lines.join('\n'), changed, refused, dupTwins, before: a.counts }
 }
 
+/**
+ * 只读诊断:找出"**每一行都带着副本指针**"的主键族 —— 这些族对派单口径完全隐形。
+ *
+ * 为什么这一型存在:F4 的语义是"只给副本加指针、幸存者不动",而 `findDupOpenCopies` 选幸存者
+ * 是按组内顺序算的,**不看那一行自己是不是已经带了历史指针**。于是当幸存者本身早在上一轮(或
+ * 被旧版 `rewriteDup` 写行号锚那一版)标了 `【归并】重复登记副本` 时,归并器照样"成功"给其余行
+ * 加指针,`dupOpenCopies` 归零、验收链过、账面全绿 —— 而这一族已经没有任何一行能进 `--open`。
+ *
+ * 实测(2026-09-28,HEAD 面):19 个族 / 101 条未勾选行全带互指指针,`plan-tasks.mjs --open` 零命中。
+ * 典型一站:`D18 Agent SDK 对外开放(G-23)` 两行,指针分别写"另一条登记在 L258x"和"在 L6xxx",
+ * 而 §1 早已判定行号指针不可复核(F3 现读 300 处、可自动收口 0)⇒ 两边都指向不存在的东西。
+ *
+ * **本函数只读、只报数,不改一行**:把"加指针前先验终端性"直接接进 `rewriteDup` 会让
+ * 归并后 `dupOpenCopies` 不归零,而那正是落地验收链(:741)的硬判据 ⇒ 单改生产者侧等于让
+ * 归并器每次自我拒绝(与恒红门同罪,§12e)。要收这一族必须**同笔**改两处:
+ * ① `rewriteDup` 加指针前问一次本函数;② 验收链从「F4=0」升级为「F4=0 ∨ 剩余副本各有终端」。
+ * 这属于提交链上的收敛行为变更,归台账判据持有人裁决,不在本诊断票射程内。
+ *
+ * 口径边界(如实登记,不得当成"扫全了"):
+ *  - 主键优先取 `compositeKeyOf`(与派单口径同一把尺子);**给不出主键的行不跳过**,改按
+ *    "剥掉归并注记后的正文"兜底分组 —— 这一族的锚点语义本来就是 F4b 那句"与本行正文逐字相同",
+ *    所以它同样可核验、同样会隐形。跳过无主键行等于对台账里最大的一批隐形族(实测
+ *    `D18`、`47.`、`82.` 与 12 行"真机走查"孪生全是这一型)失明,而报告看起来一切正常
+ *    —— 第一版就犯了这个错:真仓只报 3 族 / 5 行,独立口径同一面数到 19 族 / 101 行。
+ *  - 未勾选行按行首 `[-*+] [ ]` 认;台账里若有缩进形态的登记行,这一版看不见它(实测面内
+ *    行首口径与 `parseTaskRows` 口径同为 688 行,故本轮无差;将来漂了要回来补)。
+ *
+ * @returns {{families:number, rows:number, groups:Array<{key:string,lines:{line:number,text:string}[]}>}}
+ */
+export function auditPointerTerminals(content) {
+  const lines = String(content ?? '').split(/\r?\n/)
+  const by = new Map()
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]
+    if (!/^[-*+] \[ \]/.test(raw)) continue
+    let key = null
+    try {
+      key = compositeKeyOf(raw)
+    } catch {
+      key = null
+    }
+    // 兜底键:剥掉归并注记再去空白,取正文前缀。必须与 F4b 的锚点语义同形,否则同一件事在
+    // 派单侧按正文判、在这里按"看不见"判,读数就会替人做出"没有债"的判断。
+    const k = key || 'TXT:' + raw.replace(/〔【归并】[^〕]*〕/g, '').replace(/\s+/g, '').slice(0, 60)
+    if (!by.has(k)) by.set(k, [])
+    by.get(k).push({ line: i + 1, text: raw })
+  }
+  const groups = []
+  // 第二层索引:同一**编号**在别的主键形态下有没有终端代表。
+  // 为什么必须有这一层:`compositeKeyOf` 的键是"编号 + 标题前缀逐字等值",而台账里同一件事
+  // 常挂着多种标题写法(实测 `D18` 三条:L1503/L6632 是短标题 + 归并指针、L1504 是长标题正文版)。
+  // 按主键判,L1503/L6632 这一族"无终端";按编号判,这件活由 L1504 代表、**并没有隐形**。
+  // 只报第一层就会把 F9 撞号的副产物写成"活账消失",派单人会去修一件不存在的事
+  // (本仓对"读数误导派单"的代价记过多次,包括照过期数字派单那一型)。
+  const idLines = new Map()
+  for (const [k, rs] of by) {
+    const id = k.startsWith('TXT:') ? null : k.split('#')[0]
+    if (!id) continue
+    if (!idLines.has(id)) idLines.set(id, [])
+    idLines.get(id).push(...rs)
+  }
+  for (const [key, rs] of by) {
+    if (rs.some((r) => !DUP_POINTER_RE.test(r.text))) continue // 有终端代表 ⇒ 这件活仍可被看见,不计
+    const id = key.startsWith('TXT:') ? null : key.split('#')[0]
+    const pool = id ? idLines.get(id) || rs : rs
+    groups.push({ key, id, lines: rs, hidden: !pool.some((r) => !DUP_POINTER_RE.test(r.text)) })
+  }
+  groups.sort((a, b) => Number(b.hidden) - Number(a.hidden) || b.lines.length - a.lines.length || String(a.key).localeCompare(String(b.key)))
+  const hiddenCount = groups.filter((g) => g.hidden).length
+  return {
+    families: groups.length,
+    rows: groups.reduce((n, g) => n + g.lines.length, 0),
+    hiddenFamilies: hiddenCount,
+    hiddenRows: groups.filter((g) => g.hidden).reduce((n, g) => n + g.lines.length, 0),
+    groups,
+  }
+}
+
 
 // ── 块级重复的收口出口(F6)────────────────────────────────────────────
 /**
@@ -882,6 +960,42 @@ function selfTest() {
     'F4 未归零时自愈必须停手 —— 否则"跑过一次"会被当成"修好了"',
   )
   /**
+   * 隐形族诊断必须**成对**有牙:全族互指要点名(不点名等于没有这个出口),有终端代表不得点名
+   * (乱点名会让读数变成"每一族都是债",那与没有读数一样不能用来派单)。
+   * 夹具的两行都带指针 —— 就是 HEAD 面实测 19 族 / 101 行的形态本身。
+   */
+  const ptrDead = [
+    '- [ ] **G-9. 甲事** 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记,派单以那条为准,本行不再单独派单。〕',
+    '- [ ] **G-9. 甲事** 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记,派单以那条为准,本行不再单独派单。〕',
+  ].join('\n')
+  const tDead = auditPointerTerminals(ptrDead)
+  ok(
+    tDead.families === 1 && tDead.rows === 2,
+    `全族互指必须被点名为无终端,实测 ${tDead.families} 族 / ${tDead.rows} 行 —— 若为 0,说明 compositeKeyOf 对这一形态给不出键且兜底键也没接住,本诊断对它失明`,
+  )
+  ok(tDead.hiddenFamilies === 1, `同编号也没有任何代表 ⇒ 必须算"真隐形",实测 hiddenFamilies=${tDead.hiddenFamilies}`)
+  const tAlive = auditPointerTerminals(
+    ['- [ ] **G-9. 甲事**', '- [ ] **G-9. 甲事** 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记〕'].join('\n'),
+  )
+  ok(tAlive.families === 0, `族内有一行不带指针就不算无终端,实测报了 ${tAlive.families} 族(误伤)`)
+  /**
+   * 第三臂钉"不把撞号副产物报成债"。真仓形态:`D18` 挂着两种标题写法(短标题+指针 / 长正文版),
+   * 按主键判前者"无终端",按编号判这件活由长正文那行代表、**没有隐形**。
+   * 少了这一臂,读数就会把 F9 撞号的副产物写成"活账消失",派单人去修一件不存在的事。
+   */
+  const tSplit = auditPointerTerminals(
+    [
+      '- [ ] D18 甲题 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记,派单以那条为准。〕',
+      '- [ ] D18 甲题 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记,派单以那条为准。〕',
+      '- [ ] D18 甲题的长正文版(同编号、另一种标题写法,自己不带指针)',
+    ].join('\n'),
+  )
+  ok(
+    tSplit.families >= 1 && tSplit.hiddenFamilies === 0,
+    `同编号另有代表时不得计为真隐形,实测 families=${tSplit.families} hiddenFamilies=${tSplit.hiddenFamilies}`,
+  )
+  ok(auditPointerTerminals('').families === 0 && auditPointerTerminals(null).families === 0, '空面不得凭空造出债')
+  /**
    * 带值旗标的取值判据(枚 380431ffc 同族口径)。成对,单向断言等于没有:
    * 只判"坏的必被拒"会让它退化成"永远拒",而 (b) 那一臂证明合法路径照写。
    */
@@ -933,6 +1047,8 @@ export const KNOWN_FLAGS = [
   '--commit',
   '--dedupe-blocks',
   '--dedupe-rows',
+  '--audit-pointers',
+  '--json',
   '--match',
   '--allow-mass',
   '--staged',
@@ -976,6 +1092,45 @@ function main() {
     return 2
   }
   if (has('--self-test')) return selfTest()
+  /**
+   * 只读诊断:点名"全族都带副本指针 ⇒ 对派单口径隐形"的主键族。
+   * 刻意**不改一行、不判红**(退出码恒 0):存量 19 族若当场 blocking,就是一台与任何提交都无关的
+   * 恒红门,唯一结局是逼人 `--no-verify` 连带废掉全部守门(§12e)。问责走人读输出与 `--json`。
+   */
+  if (has('--audit-pointers')) {
+    const selP = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
+    if (selP.error) {
+      console.log(`⚠️ 无法判定 —— ${selP.error}`)
+      return 2
+    }
+    let srcP
+    try {
+      srcP = readPlan(ROOT, selP.face)
+    } catch (e) {
+      console.log(`⚠️ 无法判定 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
+      return 2
+    }
+    const tP = auditPointerTerminals(srcP)
+    if (has('--json')) {
+      console.log(JSON.stringify({ face: LABEL[selP.face], families: tP.families, rows: tP.rows, groups: tP.groups }, null, 2))
+      return 0
+    }
+    console.log(
+      `判定面:${LABEL[selP.face]}  ★ 主键族内无终端代表 = ${tP.families} 族 / ${tP.rows} 行;` +
+        `其中**按编号也找不到任何代表**(真隐形)= ${tP.hiddenFamilies} 族 / ${tP.hiddenRows} 行 —— 只报数,本命令不改任何一行`,
+    )
+    for (const g of tP.groups.slice(0, has('--all') ? 99999 : 12)) {
+      console.log(
+        `   [${g.hidden ? '真隐形' : '该编号另有代表(撞号副产物,不计债)'}] ${String(g.key).slice(0, 52)} —— ${g.lines.length} 行: L${g.lines.map((x) => x.line).join(', L')}`,
+      )
+    }
+    if (tP.families > 12 && !has('--all')) console.log(`   …另 ${tP.families - 12} 族(--all 全列)`)
+    console.log(
+      '   修法必须同笔两处(单改生产者侧会让归并器自我拒绝,撞 :741 那条「F4 必须归零」验收):' +
+        '① rewriteDup 加指针前先问本判据;② 验收链从「F4=0」升级为「F4=0 ∨ 剩余副本各有终端」。',
+    )
+    return 0
+  }
   if (has('--heal') && has('--commit')) return healAndLand()
   if (has('--heal')) {
     console.log('ℹ️ --heal 需与 --commit 同给才动手(单独的 --heal 只出报告,不写任何内容)')
