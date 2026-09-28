@@ -27,10 +27,10 @@
 
 /**
  * 本通道**全部**已定义的事件名。
- * D154(MCP 连接状态下行)按拍板与 D153 共用同一载体:届时往这里追加 `'mcp:status'`
- * 并补一个判别成员 + 一条 DATA_GUARDS 判据即可,**不得**另建第二条 per-user 通道。
+ * D154(MCP 连接状态下行)按拍板与 D153 共用同一载体:`'mcp:status'` 已于 2026-09-30 追加,
+ * 判别成员 + 一条 DATA_GUARDS 判据同笔落地。**不得**另建第二条 per-user 通道。
  */
-export const USER_BROADCAST_EVENT_NAMES = ['conversation:updated'] as const
+export const USER_BROADCAST_EVENT_NAMES = ['conversation:updated', 'mcp:status'] as const
 
 export type UserBroadcastEventName = (typeof USER_BROADCAST_EVENT_NAMES)[number]
 
@@ -92,9 +92,69 @@ export interface ConversationUpdatedEvent {
   data: ConversationUpdatedData
 }
 
+// ===================== mcp:status(D154)=====================
+
+/**
+ * MCP Server 连接生命周期的封闭状态集 —— 与 ai-service
+ * `app/services/mcp_client.py` 的 `MCP_CONNECTION_STATES` 逐项对应(两侧同笔,新增须同枚提交)。
+ *
+ * 为什么是封闭集而不是字符串:消费端要为每一档给一句可操作的话(票第 1 栏),
+ * 开放集会让"多出来的一档"静默渲染成空白,而这一族的缺陷形态恰恰是"什么都看不到"。
+ */
+export const MCP_CONNECTION_STATES = [
+  'connecting',
+  'connected',
+  'failed',
+  'reconnecting',
+] as const
+
+export type McpConnectionState = (typeof MCP_CONNECTION_STATES)[number]
+
+export function isMcpConnectionState(v: unknown): v is McpConnectionState {
+  return typeof v === 'string' && (MCP_CONNECTION_STATES as readonly string[]).includes(v)
+}
+
+/**
+ * D154 载荷(票第 3 栏钉的形状:`{server, state, reason?, attempt?, maxAttempts?}`)。
+ *
+ * **没有 userId 成员** —— 主体只能从承载层进来(AGENTS §5「认证不等于授权」):
+ * 上报端点用的是内部服务凭据 + `X-User-Id`(验票方查过 users 表才注入 `request.userId`),
+ * 请求体自报的身份结构上无处可去(路由的 zod 是 strict,多一个键就 400)。
+ * 谁收到这一帧,由"这台 server 的注册者是谁"决定,而不是由发帧的人决定。
+ */
+export interface McpStatusData {
+  /** server 名(MCPClientManager 的注册名,全站共享命名空间) */
+  server: string
+  state: McpConnectionState
+  /**
+   * 技术性原因(诊断用,不是界面文案)。界面句子一律由 `state` + 五语言词表产出,
+   * 后端不得往这里塞中文 —— 那会让另一端拿到没人翻译过的字符串(D155 同一条边界)。
+   */
+  reason?: string
+  /** 第几次重连(仅 `reconnecting` 携带;`failed` 的放弃位不带,因为分母已用完) */
+  attempt?: number
+  maxAttempts?: number
+  /**
+   * 该 server 当前对外提供的工具名(可选,消费端"这次对话会不会用到它"的升级判据输入)。
+   *
+   * 为什么加它(与 D153 的 `values?` 同一类调和):票第 8 栏要求
+   * "只在本次对话会用到该 server 的工具时升级为对话内行",而 web 手里只有工具名 ——
+   * 外部 MCP 工具按**原始名**注册(`mcp_stdio_bridge.py:288-295`,不带 server 前缀),
+   * 所以"用到没用到"必须靠这份名单判,不能靠名字猜。
+   * 缺席 = 生产面判不出(例如从未连接成功过、没有工具清单),
+   * 消费端此时**按可见处理**(判不出不得写成"没用到",否则正是要提示的那一型被静默吞掉)。
+   */
+  tools?: string[]
+}
+
+export interface McpStatusEvent {
+  event: 'mcp:status'
+  data: McpStatusData
+}
+
 // ===================== 联合本体与线上帧形态 =====================
 
-export type UserBroadcastEvent = ConversationUpdatedEvent
+export type UserBroadcastEvent = ConversationUpdatedEvent | McpStatusEvent
 
 /** 传输线上的裸帧形态:`/ws/broadcast` 推送的就是这个对象 */
 export interface UserBroadcastFrame {
@@ -126,9 +186,38 @@ function isConversationUpdatedData(v: unknown): v is ConversationUpdatedData {
   return true
 }
 
+/** `mcp:status` 的字段判据(与 `mcpStatusEvent` 同源同规则,构造侧与解析侧不得两套标准) */
+function isMcpStatusData(v: unknown): v is McpStatusData {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (typeof d.server !== 'string' || d.server.length === 0 || d.server.length > 128) return false
+  if (!isMcpConnectionState(d.state)) return false
+  if (d.reason !== undefined && typeof d.reason !== 'string') return false
+  if (d.attempt !== undefined) {
+    // 有分子必须有分母:文案 `chat.mcp.state.reconnecting` 要 {{attempt}}/{{maxAttempts}} 两格,
+    // 只给一半会渲染成"第 2/ 次重连"—— 半句话比不发帧更糟。
+    if (!isPositiveInt(d.attempt)) return false
+    if (d.maxAttempts === undefined) return false
+  }
+  if (d.maxAttempts !== undefined && !isPositiveInt(d.maxAttempts)) return false
+  if (d.tools !== undefined) {
+    if (!Array.isArray(d.tools)) return false
+    if (!(d.tools as unknown[]).every((t) => typeof t === 'string' && t.length > 0)) return false
+  }
+  // 主体不得从载荷进来(§5):这一格判据与 zod strict 是同一件事的两层,
+  // 少任何一层,"客户端自报 userId" 就还有一条路。
+  if ('userId' in d || 'user_id' in d) return false
+  return true
+}
+
+function isPositiveInt(v: unknown): boolean {
+  return typeof v === 'number' && Number.isInteger(v) && v > 0
+}
+
 /** 事件名 → 值判据的唯一映射(新增事件名而不在此登记 ⇒ TS 报错,联合不会静默扩宽) */
 const DATA_GUARDS: Record<UserBroadcastEventName, (v: unknown) => boolean> = {
   'conversation:updated': isConversationUpdatedData,
+  'mcp:status': isMcpStatusData,
 }
 
 /**
@@ -190,6 +279,51 @@ export function conversationUpdatedEvent(input: {
     if (Object.keys(picked).length > 0) data.values = picked
   }
   return { event: 'conversation:updated', data }
+}
+
+// ===================== 生产侧构造 mcp:status 的唯一出口 =====================
+
+/**
+ * 构造 `mcp:status` 事件(D154 生产侧唯一写法;路由内不得手拼 `{event,data}` 字面量)。
+ *
+ * 与 `conversationUpdatedEvent` 同一条设计:**在构造点就拒坏值**,而不是等消费端
+ * 把整帧判成「未判定」—— 后者等于把生产面的 bug 换成用户可见的"什么都没提示"。
+ * `server` 为空 ⇒ 这一帧没人能应用;未知 `state` ⇒ 词表里没有对应句子,渲染出的是空白。
+ */
+export function mcpStatusEvent(input: {
+  server: string
+  state: McpConnectionState
+  reason?: string
+  attempt?: number
+  maxAttempts?: number
+  tools?: readonly string[]
+}): McpStatusEvent {
+  const server = input.server.trim()
+  if (!server) throw new Error('mcpStatusEvent: server 名不得为空')
+  if (!isMcpConnectionState(input.state)) {
+    throw new Error(`mcpStatusEvent: 未知状态 ${String(input.state)}(封闭集见 MCP_CONNECTION_STATES)`)
+  }
+  const data: McpStatusData = { server, state: input.state }
+  if (input.reason !== undefined) data.reason = input.reason
+  if (input.attempt !== undefined) {
+    if (!isPositiveInt(input.attempt)) throw new Error(`mcpStatusEvent: attempt 非法:${String(input.attempt)}`)
+    if (input.maxAttempts === undefined) {
+      throw new Error('mcpStatusEvent: 带 attempt 必须同时带 maxAttempts(否则文案只有分子)')
+    }
+    data.attempt = input.attempt
+  }
+  if (input.maxAttempts !== undefined) {
+    if (!isPositiveInt(input.maxAttempts)) {
+      throw new Error(`mcpStatusEvent: maxAttempts 非法:${String(input.maxAttempts)}`)
+    }
+    data.maxAttempts = input.maxAttempts
+  }
+  if (input.tools !== undefined) {
+    const tools = Array.from(new Set(input.tools.map((t) => t.trim()).filter((t) => t.length > 0)))
+    // 给了 tools 键却全被滤空 ⇒ 丢掉该键:留着会让消费端把"名单为空"读成"这次用不到"
+    if (tools.length > 0) data.tools = tools
+  }
+  return { event: 'mcp:status', data }
 }
 
 // ===================== 同字段"以库为准"的新旧判定 =====================
