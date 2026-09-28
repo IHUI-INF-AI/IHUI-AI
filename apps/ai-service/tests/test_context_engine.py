@@ -33,6 +33,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -58,6 +59,36 @@ from app.services.context_engine import (
 # ════════════════════════════════════════════════════════════════════════
 # fixtures
 # ════════════════════════════════════════════════════════════════════════
+
+
+@pytest.fixture(autouse=True)
+def preserve_codebase_indexer_module():
+    """把 `sys.modules["app.services.codebase_indexer"]` 的**原对象**在每条用例后放回。
+
+    延迟 import 的用例需要往 `sys.modules` 里塞假 indexer,而旧写法收尾用
+    `sys.modules.pop(...)` —— pop 不是"撤销我的替换",而是**把真模块一并删掉**。
+    之后任何一次 `import app.services.codebase_indexer` 都会重新执行该模块、产出一个
+    **新的模块对象**,而 `tests/test_codebase_indexer.py` 在收集期就握着旧模块里的
+    `CodebaseIndexer`(其方法的 `__globals__` 指向旧模块字典)。于是那批用例里的
+    `patch("app.services.codebase_indexer.MAX_FILES_PER_INDEX", 5)` 打到的是新模块,
+    对旧模块里的函数毫无作用 ⇒ `_collect_code_files` 仍按 5000 截断,
+    `test_max_files_limit` 翻成 `assert 10 <= 5`(单跑绿、与
+    `tests/test_context_engine.py` 同进程先后跑才红)。
+    这里按"原样放回"收尾:用例前记下条目对象(含"本来就没有"这一态),用例后逐字还原,
+    所以无论用例体内怎么写,模块身份都不外泄给同进程后续文件。
+    """
+    key = "app.services.codebase_indexer"
+    missing = object()
+    before = sys.modules.get(key, missing)
+    yield
+    if before is missing:
+        # 该模块在本用例前确实不在 sys.modules 里:保持"没有",但不许留下假模块。
+        # type(sys) 就是 module 类型 —— 用它判"是不是真模块",避免为此新增 import。
+        current = sys.modules.get(key)
+        if current is not None and not isinstance(current, type(sys)):
+            sys.modules.pop(key, None)
+    else:
+        sys.modules[key] = before
 
 
 @pytest.fixture

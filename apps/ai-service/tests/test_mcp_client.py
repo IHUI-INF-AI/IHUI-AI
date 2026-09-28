@@ -683,7 +683,7 @@ async def test_manager_call_external_tool():
         asyncio.create_task(
             _feed_after_delay(reader, f"{call_resp}\n".encode()),
         )
-        result = await manager.call_external_tool_unscoped("svr", "my_tool", {"x": 1})
+        result = await manager.call_external_tool("svr", "my_tool", {"x": 1}, caller_user_id="any")
 
     assert result == {"content": [{"type": "text", "text": "done"}]}
     await manager.disconnect_all()
@@ -693,7 +693,7 @@ async def test_manager_call_external_tool():
 async def test_manager_call_external_tool_unknown_server():
     """调用未知 Server 的工具返回错误。"""
     manager = MCPClientManager()
-    result = await manager.call_external_tool_unscoped("unknown_svr", "tool", {})
+    result = await manager.call_external_tool("unknown_svr", "tool", {}, caller_user_id="any")
     assert result["ok"] is False
     assert "未知" in result["error"]
 
@@ -704,7 +704,7 @@ async def test_manager_call_external_tool_not_connected():
     manager = MCPClientManager()
     manager.register(MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command="echo"))
     # 不调用 connect_all
-    result = await manager.call_external_tool_unscoped("svr", "tool", {})
+    result = await manager.call_external_tool("svr", "tool", {}, caller_user_id="any")
     assert result["ok"] is False
     assert "未连接" in result["error"]
 
@@ -735,7 +735,7 @@ async def test_manager_list_available_tools_async():
         asyncio.create_task(
             _feed_after_delay(reader, f"{tools_resp}\n".encode()),
         )
-        tools = await manager.list_available_tools_unscoped()
+        tools = await manager.list_available_tools_async("any")
 
     assert len(tools) == 1
     assert tools[0].name == "t1"
@@ -782,7 +782,7 @@ def test_get_mcp_client_manager_singleton():
 async def test_list_available_tools_async_no_connections():
     """无任何连接时 list_available_tools_async 返回空列表且不抛异常。"""
     manager = MCPClientManager()
-    tools = await manager.list_available_tools_unscoped()
+    tools = await manager.list_available_tools_async("any")
     assert tools == []
 
 

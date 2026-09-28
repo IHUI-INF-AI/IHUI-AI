@@ -333,7 +333,14 @@ class TestRegisteredSurfaceReallyRunsLoopV2:
         async def _fake_llm(messages: list[dict[str, Any]], tools: list[Any]) -> dict[str, Any]:
             state["turn"] += 1
             assert messages[0]["role"] == "system"
-            assert messages[0]["content"] == "你是一个写代码的助手"
+            # 只断"基础指令在开头",不断整串相等:agent_loop_v2 会**按需往 system 追块**
+            # (meta_learner 的避坑指南 :2588-2606、L5-7 元认知反思、team relay 上下文),
+            # 追不追取决于进程内是否已有 lesson —— 整串相等因此在单跑时绿、在 1.5 万例的
+            # 整序里红,红的不是装配线,是这条断言把"生产刻意组合的提示词"当成了快照。
+            # 本用例的判据始终是"真构造了 AgentLoopV2 并真执行了一次工具",与提示词全文无关。
+            assert str(messages[0]["content"]).startswith("你是一个写代码的助手"), messages[0][
+                "content"
+            ]
             if state["turn"] == 1:
                 return {
                     "content": "先查天气",
