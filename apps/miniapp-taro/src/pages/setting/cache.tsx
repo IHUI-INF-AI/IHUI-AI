@@ -149,7 +149,7 @@ export default function CachePage() {
 
         {clearing ? (
           <View className="mx-[20rpx] mt-[32rpx] rounded-lg bg-card p-[24rpx] dark:bg-muted">
-            <View className="h-[12rpx] w-full overflow-hidden rounded-[6rpx] bg-border">
+            <View className="h-[12rpx] w-full overflow-hidden rounded-sm bg-border">
               <View
                 className="h-full bg-primary transition-[width] duration-100"
                 style={{ width: `${progress}%` }}

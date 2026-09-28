@@ -93,6 +93,22 @@ export const MULTIPLIER_RE = [
   /^pnpm-(workspace|lock)\.yaml$/,
   /^\.github\/workflows\//,
   /^scripts\/tests\//,
+  /**
+   * 三本活文档(2026-09-29 补,由一次只读取证实测逼出)。原先它们算"普通文件",于是
+   * **一次 ≥301 个普通文件的暂存集**就会让护栏把 `judged` 收成"仅乘数级"—— 那一刻
+   * `PROJECT_PLAN.md` 同时躲过 R1 与 R1r(两处都只遍历 `judged`,L671–672),而台账被写回
+   * 旧版的表现不是"少一个功能",是**整本账回退**(§1 的状态分叉、§12 的旧基线回写都在这一格里)。
+   * 取证构造证明:同一"等于祖先版本"的内容,311 个普通文件同批暂存 ⇒ 退出 0 且不点名;
+   * 只暂存 1 个 ⇒ 判红 —— 即"没点名"来自护栏短路,不是判据看不见。
+   * 代价量过再收进来:`analyze` 里祖先提交只对**内容与 HEAD 不等**的路径才取(见该函数),
+   * 所以这三条只在"真的动了这三本"时才付一次 `git log` 的价;`resolveBlobs` 走 oid 批读,
+   * 不取正文 ⇒ 台账 2.7 MB 也不会被整片读进内存。乘数级不吃 `MAX_FILES` 预算(它数的是 `rest`)。
+   * 变异自证(本轮实跑):删掉下面 `/^PROJECT_PLAN\.md$/` 这一条 ⇒ "识别"与"护栏短路时仍被点名"
+   * 两条同时翻红(`16 pass / 2 fail`)⇒ 这两条断言真的吃这一条名单,不是恒绿。
+   */
+  /^PROJECT_PLAN\.md$/,
+  /^AGENTS\.md$/,
+  /^README\.md$/,
 ]
 
 export function isMultiplierPath(p) {
@@ -215,27 +231,43 @@ export function analyze(repoRoot, paths, { source = 'index' } = {}) {
   const wt = source === 'worktree' ? worktreeBlobs(repoRoot, present) : new Map()
   if (source === 'worktree' && wt.size !== present.length) return []
 
-  const ancestry = new Map(present.map((p) => [p, ancestorCommits(repoRoot, p)]))
-  const specs = []
+  /**
+   * 祖先窗口**只对"内容与 HEAD 不等"的路径取**(2026-09-29 改,是三本活文档进乘数级的前提)。
+   * 旧写法对每个 present 路径无条件跑一次 `git log --max-count=40 -- <path>`,而"相等"的路径
+   * 按定义不可能等于某个祖先版本 ⇒ 那次遍历纯属白付;把 PROJECT_PLAN.md / AGENTS.md / README.md
+   * 收进 `MULTIPLIER_RE`(恒照判,不吃 300 预算)之后,这笔白付就落在**每一枚提交**头上。
+   * 失效方向同时收窄了一格:旧写法里"某路径 `git log` 超时"会不分青红皂白把整轮抛成未判定,
+   * 现在只有可疑路径才有资格触发那次读取 —— 而对"与 HEAD 逐字相同"的路径不判是**定义**,不是漏判。
+   * `analyzeMerge` 保持原样(它只在合并上下文跑,且 ours/theirs 两侧本来都要取, lazify 它不省钱)。
+   */
+  const first = []
   for (const p of present) {
-    specs.push(source === 'index' ? `:${p}` : `HEAD:${p}`) // [i*2] 当前内容(或再次 HEAD,略)
-    specs.push(`HEAD:${p}`)
-    for (const c of ancestry.get(p)) specs.push(`${c}:${p}`)
+    first.push(source === 'index' ? `:${p}` : `HEAD:${p}`) // [i*2] 当前内容(或再次 HEAD,略)
+    first.push(`HEAD:${p}`)
   }
-  const blobs = resolveBlobs(repoRoot, specs)
-
-  const violations = []
-  let idx = 0
+  const blobs = resolveBlobs(repoRoot, first)
+  const suspects = []
+  let pre = 0
   for (const p of present) {
-    const curSpec = specs[idx]
-    const headSpec = specs[idx + 1]
-    idx += 2
+    const curSpec = first[pre]
+    const headSpec = first[pre + 1]
+    pre += 2
     const cur = source === 'index' ? blobs.get(curSpec) : wt.get(p)
     const head = blobs.get(headSpec)
     if (cur === undefined) continue
     if (!cur || !head) continue // 新增/取不到 → 不判
-    if (cur === head) continue // 与 HEAD 一致,无回退
-    const hit = ancestry.get(p).find((c) => blobs.get(`${c}:${p}`) === cur)
+    if (cur === head) continue // 与 HEAD 一致,结构上不可能是回写
+    suspects.push({ p, cur })
+  }
+
+  const ancestry = new Map(suspects.map(({ p }) => [p, ancestorCommits(repoRoot, p)]))
+  const more = []
+  for (const { p } of suspects) for (const c of ancestry.get(p)) more.push(`${c}:${p}`)
+  if (more.length) for (const [k, v] of resolveBlobs(repoRoot, more)) blobs.set(k, v)
+
+  const violations = []
+  for (const { p, cur } of suspects) {
+    const hit = (ancestry.get(p) ?? []).find((c) => blobs.get(`${c}:${p}`) === cur)
     if (hit) violations.push({ path: p, commit: hit.slice(0, 9) })
   }
   return violations

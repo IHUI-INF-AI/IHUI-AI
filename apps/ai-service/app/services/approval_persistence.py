@@ -55,6 +55,12 @@ _KINDS = frozenset({KIND_EXEC_PREFIX, KIND_EXEC_ONCE, KIND_MCP_TOOL, KIND_NET})
 # 内出现空格/引号造成歧义;语义对齐 mcp_server 既有 `_canonical_approval_key`)
 _UNIT_SEP = "\x1f"
 
+# 主体绑定键的记录分隔符(owner-bound cache_key 用;D158 owner-binding 修复)。
+# 与 _UNIT_SEP 区分:argv 归一键内部以 \x1f 连接,主体段以 \x1e 与其分隔;
+# 主体取自 JWT(形如 UUID / "system-worker"),不含 \x1e ⇒ 首段切分无歧义,
+# 且残余原文完整保留(argv token 即便含 \x1e 也不影响"同主体同命令同键")。
+_OWNER_SEP = "\x1e"
+
 # env 赋值 token 判定:VAR=val 形态(等号前为合法标识符)
 _ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
@@ -163,6 +169,52 @@ def normalize_exec_key(command_tokens: Sequence[str]) -> str:
             continue
         break
     return _UNIT_SEP.join(lowered[i:])
+
+
+def scoped_cache_key(owner: str, cache_key: str) -> str:
+    """把主体编进 cache_key 的唯一规范化实现(D158 owner-binding 修复,2026-09-29)。
+
+    背景:`grant("always", normalize_exec_key(argv前缀), "exec_prefix")` 落的是
+    **无主体**键 —— A 用户批准的 `git push` 前缀会让 B 用户同样操作在 90 天内被
+    静默放行。修复走键组合而非加列(不改 _SCHEMA_DDL、不需要 ALTER TABLE 迁移,
+    存量无主体行因永远匹配不上而等效失效,方向是收紧)。
+
+    主体约束:caller 必须传**令牌主体**(JWT / request.state.user_id 派生),
+    禁止传客户端自报 userId(本仓 §5"认证不等于授权";与 llm.py
+    `_grant_bucket_key` 的 `conv::<主体>::<会话>` 同一设计意图)。
+    空主体直接抛错 —— 不存在"无主体放行"这一档,fail-closed 由调用方兜。
+    """
+    o = str(owner or "").strip()
+    if not o:
+        raise ValueError("scoped_cache_key 需要非空主体(令牌主体;空 ⇒ 不落规则)")
+    return o + _OWNER_SEP + cache_key
+
+
+def split_scoped_key(key: str) -> tuple[str | None, str]:
+    """`scoped_cache_key` 的逆运算:返回 (主体, 裸键)。
+
+    不含主体段的键(存量行 / mcp_server 与 agent_loop 既有无主体键空间)⇒
+    (None, 原键)。首段切分:主体段(JWT 派生,UUID / "system-worker")不含
+    _OWNER_SEP,残余一律归裸键,不做二次解释。
+    """
+    if _OWNER_SEP in key:
+        owner, _, bare = key.partition(_OWNER_SEP)
+        if owner:
+            return owner, bare
+    return None, key
+
+
+def key_is_owned_by(key: str, owner: str) -> bool:
+    """该 cache_key 是否绑定在指定主体上(管理出口列表过滤 / 撤销归属闸用)。
+
+    无主体键(存量行)对任何主体都返回 False —— 它不再属于任何人,
+    面板不可见、不可撤,只能由 DB 级 purge 处置(不在此判据射程)。
+    """
+    o = str(owner or "").strip()
+    if not o:
+        return False
+    bound, _bare = split_scoped_key(key)
+    return bound == o
 
 
 # ==================== 核心 API ====================
@@ -369,6 +421,9 @@ __all__ = [
     "KIND_NET",
     "set_db_path",
     "normalize_exec_key",
+    "scoped_cache_key",
+    "split_scoped_key",
+    "key_is_owned_by",
     "grant",
     "check",
     "revoke",

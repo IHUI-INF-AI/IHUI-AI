@@ -10,6 +10,10 @@
 
 四态口径：**L1 逐字 / L2 近义(Jaccard≥0.5) 不算差距**；L3=需人工核（键同名或子串同形，形似不等于等同）；MISS=候选缺失，须逐条定性后才可写进台账。控制测量在运行前已通过，故 MISS 不是匹配器空转的产物。
 
+> 族级归属：480 行全部归到某个族，族级计数可用于归因。
+
+> 不计 MISS 的 skip 明细（逐档报名）：非中文原文(不计 MISS，只报数) 2 条 / 枚举/样式值非文案(值层主筛) 2 条
+
 | 节 | 族 | 竞品键 | 竞品原文 | 判定 | 我方对应 |
 | --- | --- | --- | --- | --- | --- |
 | 14 会话管理·分享·导 | applicationMenu.* | `applicationMenu.label` | 应用菜单 | MISS |  |
@@ -40,7 +44,7 @@
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.sideChat.cleanup` | 清理侧边任务 | L2 | ai.pane.sideTask.title (J=0.60) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.sideChat.cleanupExpired` | 清理全部已过期侧边任务 | L3 | 子串同形:admin.developer.statusExpired |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.sideChat.fileChanges` | 文件变更（{{count}}） | L2 | ide.sourceControl.changes (J=0.67) |
-| 14 会话管理·分享·导 | chatSession.* | `chatSession.sideChat.from` | 来自 {{title}} | MISS |  |
+| 14 会话管理·分享·导 | chatSession.* | `chatSession.sideChat.from` | 来自 {{title}} | L3 | 键末段同名+词头同形:我方 messageDetail.from=「来自」 |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.sideChat.fromCleaned` | 来自已清理的 {{title}} | L2 | ai.pane.sideTask.cleanedFrom (J=0.86) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.sideChat.cleanupFailed` | 侧边任务清理失败，请重试。 | L3 | 子串同形:ai.pane.sideTask.title |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.sideChat.cleanupConfirmTitle` | 清理侧边任务？ | L2 | ai.pane.sideTask.title (J=0.60) |
@@ -81,14 +85,14 @@
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.openTerminal` | 打开终端面板 | L2 | aiChat.openTerminal (J=0.60) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.closeTerminal` | 关闭终端面板 | L2 | ide.terminalSessionList.closeTerminalAria (J=0.60) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.terminalUnavailable` | 开始任务后可打开终端面板 | L3 | 子串同形:aiChat.openTerminal |
-| 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.createPullRequest` | Create PR | skip |  |
+| 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.createPullRequest` | Create PR | skip | 非中文原文(不计 MISS，只报数) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.createDraftPullRequest` | 创建 Draft PR | MISS |  |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.headerActions.createPullRequestManually` | 手动创建 PR | L2 | dispatchDialog.manualCreate (J=0.50) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.label` | 任务工作面 | MISS |  |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.typeLabel` | 工作面与文件标签页 | MISS |  |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.instancesLabel` | 当前类型标签页 | MISS |  |
-| 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.add` | 添加标签页 | MISS |  |
-| 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.close` | 关闭 {{label}} 标签页 | MISS |  |
+| 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.add` | 添加标签页 | L3 | 键末段同名+词头同形:我方 admin.eduClassMembers.add=「添加」 |
+| 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.close` | 关闭 {{label}} 标签页 | L3 | 键末段同名+词头同形:我方 a11y.close=「关闭」 |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.closeMenu.close` | 关闭标签页 | L1 | workPanel.closeTab |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.closeMenu.closeOthers` | 关闭其他标签页 | L2 | ide.editorTabBar.closeOthers (J=0.50) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.closeMenu.closeRight` | 关闭右侧标签页 | MISS |  |
@@ -128,10 +132,10 @@
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.spec` | 计划 | L1 | agent.tabPlan |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.terminal` | 终端 | L1 | ai.pane.overview.terminals |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.evidence` | 证据 | L1 | 源码字面量 |
-| 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.agent` | 成员任务 | L3 | 键末段同名，原文待核 |
+| 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.agent` | 成员任务 | MISS |  |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.sidechat` | 侧边任务 | L1 | ai.pane.sideTask.title |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.sideChatOrdinal` | 新侧边任务 | L2 | ai.pane.sideTask.title (J=0.75) |
-| 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.plugin` | 插件视图 | L3 | 子串同形:viewFailure.runtimeException.action |
+| 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.plugin` | 插件视图 | L3 | 键末段同名+词头同形:我方 ai.pane.hookSummary.source.plugin=「插件」 |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.pluginLoading` | 正在加载插件视图 | L2 | viewFailure.reloadView (J=0.56) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.pluginUnavailableTitle` | 插件视图不可用 | L3 | 子串同形:eduScheduling.timeEntryDialog.unavailable |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.pluginUnavailableDescription` | 未找到插件视图资源。请检查插件是否已启用或重新安装插件。 | L3 | 子串同形:admin.integrations.enabled |
@@ -185,7 +189,7 @@
 | 14 会话管理·分享·导 | feedback.* | `feedback.contentLabel` | 问题或建议（必填） | MISS |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.contentPlaceholder` | 描述你看到了什么、期望发生什么，以及可以稳定复现的操作步骤 | L3 | 子串同形:llmSettings.v2.byok.stepsTitle |
 | 14 会话管理·分享·导 | feedback.* | `feedback.diagnosticsNotice` | 发送时会附带当前运行日志和你选择的截图，以帮助定位问题。 | L3 | 子串同形:agentCanvas.logsTitle |
-| 14 会话管理·分享·导 | feedback.* | `feedback.characterCount` | {{current}} / {{max}} | skip |  |
+| 14 会话管理·分享·导 | feedback.* | `feedback.characterCount` | {{current}} / {{max}} | skip | 非中文原文(不计 MISS，只报数) |
 | 14 会话管理·分享·导 | feedback.* | `feedback.screenshotLabel` | 屏幕截图 | MISS |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.screenshotDescription` | 可添加、拖入或粘贴 PNG、JPG、GIF 或 WebP，最多 3 张，单张不超过 10 M | MISS |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.screenshotAlt` | 反馈截图 {{index}} | MISS |  |
@@ -201,17 +205,17 @@
 | 14 会话管理·分享·导 | feedback.* | `feedback.emailLabel` | 联系邮箱（可选） | L2 | about.contactEmail (J=0.60) |
 | 14 会话管理·分享·导 | feedback.* | `feedback.emailPlaceholder` | 便于我们联系你进一步了解问题 | MISS |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.emailInvalid` | 请输入有效的邮箱地址。 | L2 | admin.ipReputation.invalidIp (J=0.50) |
-| 14 会话管理·分享·导 | feedback.* | `feedback.send` | 发送反馈 | MISS |  |
+| 14 会话管理·分享·导 | feedback.* | `feedback.send` | 发送反馈 | L3 | 键末段同名+词头同形:我方 a11y.send=「发送」 |
 | 14 会话管理·分享·导 | feedback.* | `feedback.sending` | 正在发送反馈… | MISS |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.sent` | 反馈已发送，编号：{{requestId}} | L3 | 子串同形:admin.notificationLogs.sent |
 | 14 会话管理·分享·导 | feedback.* | `feedback.sentAndCopied` | 反馈已发送，编号：{{requestId}}，已自动复制到剪切板。 | L3 | 子串同形:admin.notificationLogs.sent |
 | 14 会话管理·分享·导 | feedback.* | `feedback.requestIdSuffix` | 反馈编号：{{requestId}}。 | MISS |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.errors.validation` | 反馈内容或附件不符合要求，请修改后重试。 | L3 | 子串同形:admin.edu.course.audit.dialog.after |
 | 14 会话管理·分享·导 | feedback.* | `feedback.errors.network` | 反馈未能发送，请检查网络后重试。 | L3 | 子串同形:ai.pane.errorCatalog.DOWNLOAD_FAILED.action |
-| 14 会话管理·分享·导 | feedback.* | `feedback.errors.server` | 反馈服务暂时无法处理请求，请稍后重试。 | L3 | 键末段同名，原文待核 |
+| 14 会话管理·分享·导 | feedback.* | `feedback.errors.server` | 反馈服务暂时无法处理请求，请稍后重试。 | L3 | 子串同形:ai.pane.errorCatalog.API_BRIDGE_ERROR.action |
 | 14 会话管理·分享·导 | feedback.* | `feedback.errors.unsupported` | 当前宿主尚不支持发送问题反馈。 | L3 | 子串同形:ecosystem.capUnsupported |
 | 14 会话管理·分享·导 | feedback.* | `feedback.errors.unknown` | 反馈未能发送，请稍后重试。 | L3 | 子串同形:ai.pane.errorCatalog.API_BRIDGE_ERROR.action |
-| 14 会话管理·分享·导 | myWork.* | `myWork.title` | Attention | skip |  |
+| 14 会话管理·分享·导 | myWork.* | `myWork.title` | Attention | skip | 枚举/样式值非文案(值层主筛) |
 | 14 会话管理·分享·导 | myWork.* | `myWork.description` | 集中处理只有你能作出的判断；执行过程、普通更新和可自动恢复的问题不会出现在这里。 | MISS |  |
 | 14 会话管理·分享·导 | myWork.* | `myWork.decisions` | 需要我判断 | MISS |  |
 | 14 会话管理·分享·导 | myWork.* | `myWork.assigned` | 分配给我 | MISS |  |
@@ -224,7 +228,7 @@
 | 14 会话管理·分享·导 | nav.* | `nav.members` | 成员 | L1 | search.quickSuggestions.4 |
 | 14 会话管理·分享·导 | nav.* | `nav.projects` | 项目 | L1 | ai.pane.hookSummary.source.project |
 | 14 会话管理·分享·导 | nav.* | `nav.discussion` | 讨论 | MISS |  |
-| 14 会话管理·分享·导 | nav.* | `nav.betaTag` | Beta | skip |  |
+| 14 会话管理·分享·导 | nav.* | `nav.betaTag` | Beta | skip | 枚举/样式值非文案(值层主筛) |
 | 14 会话管理·分享·导 | nav.* | `nav.search` | 搜索 | L1 | knowledgeCard.searchLabel |
 | 14 会话管理·分享·导 | nav.* | `nav.automation` | 自动化 | L1 | floatingChat.openclaw.tabAutomation |
 | 14 会话管理·分享·导 | nav.* | `nav.extensions` | 扩展 | MISS |  |
@@ -381,7 +385,7 @@
 | 14 会话管理·分享·导 | sidebarGroup.* | `sidebarGroup.color.custom` | 自定义颜色 | L2 | admin.roles.builtinNo (J=0.50) |
 | 14 会话管理·分享·导 | sidebarGroup.* | `sidebarGroup.shapeLabel` | 标记形状 | MISS |  |
 | 14 会话管理·分享·导 | sidebarGroup.* | `sidebarGroup.shape.circle` | 圆形 | MISS |  |
-| 14 会话管理·分享·导 | sidebarGroup.* | `sidebarGroup.shape.diamond` | 菱形 | L3 | 键末段同名，原文待核 |
+| 14 会话管理·分享·导 | sidebarGroup.* | `sidebarGroup.shape.diamond` | 菱形 | MISS |  |
 | 14 会话管理·分享·导 | sidebarGroup.* | `sidebarGroup.shape.square` | 方形 | MISS |  |
 | 14 会话管理·分享·导 | sidebarGroup.* | `sidebarGroup.shape.triangle` | 三角形 | MISS |  |
 | 14 会话管理·分享·导 | sidebarGroup.* | `sidebarGroup.shape.hexagon` | 六边形 | MISS |  |
@@ -428,20 +432,20 @@
 | 14 会话管理·分享·导 | sidebarView.* | `sidebarView.group.older` | 更早 | MISS |  |
 | 14 会话管理·分享·导 | sidebarView.* | `sidebarView.group.all` | 全部任务 | L1 | agent.kanban.allTeams |
 | 14 会话管理·分享·导 | updates.* | `updates.title` | 动态 | L1 | bookmark.type.post |
-| 14 会话管理·分享·导 | updates.* | `updates.open` | 打开动态 | MISS |  |
+| 14 会话管理·分享·导 | updates.* | `updates.open` | 打开动态 | L3 | 键末段同名+词头同形:我方 ide.fileTreeNode.open=「打开」 |
 | 14 会话管理·分享·导 | updates.* | `updates.important` | 需要了解 | MISS |  |
 | 14 会话管理·分享·导 | updates.* | `updates.recent` | 最近更新 | L1 | settings.modelRecordUpdatedAt |
 | 14 会话管理·分享·导 | updates.* | `updates.viewAll` | 查看全部动态 | L2 | aiNews.live.viewMore (J=0.60) |
 | 14 会话管理·分享·导 | updates.* | `updates.hiddenTitle` | 已隐藏动态 | L2 | admin.asks.statusHidden (J=0.50) |
 | 14 会话管理·分享·导 | updates.* | `updates.viewHidden` | 查看已隐藏动态 | L3 | 子串同形:admin.asks.statusHidden |
 | 14 会话管理·分享·导 | updates.* | `updates.viewActive` | 返回动态 | MISS |  |
-| 14 会话管理·分享·导 | updates.* | `updates.more` | 更多动态操作 | MISS |  |
+| 14 会话管理·分享·导 | updates.* | `updates.more` | 更多动态操作 | L3 | 键末段同名+词头同形:我方 a11y.more=「更多」 |
 | 14 会话管理·分享·导 | updates.* | `updates.markAllRead` | 全部标为已读 | MISS |  |
 | 14 会话管理·分享·导 | updates.* | `updates.markAllReadFailed` | 未能把动态标为已读，请重试。 | MISS |  |
-| 14 会话管理·分享·导 | updates.* | `updates.hide` | 隐藏动态 | MISS |  |
+| 14 会话管理·分享·导 | updates.* | `updates.hide` | 隐藏动态 | L3 | 键末段同名+词头同形:我方 common.hide=「隐藏」 |
 | 14 会话管理·分享·导 | updates.* | `updates.hiding` | 正在隐藏… | MISS |  |
 | 14 会话管理·分享·导 | updates.* | `updates.hideFailed` | 这条动态未隐藏，请重试。 | MISS |  |
-| 14 会话管理·分享·导 | updates.* | `updates.restore` | 恢复动态 | MISS |  |
+| 14 会话管理·分享·导 | updates.* | `updates.restore` | 恢复动态 | L3 | 键末段同名+词头同形:我方 admin.edu.course.trash.restore=「恢复」 |
 | 14 会话管理·分享·导 | updates.* | `updates.restoring` | 正在恢复… | MISS |  |
 | 14 会话管理·分享·导 | updates.* | `updates.restoreFailed` | 这条动态未恢复，请重试。 | MISS |  |
 | 14 会话管理·分享·导 | updates.* | `updates.read` | 已读 | L1 | admin.edu.learn.remind.colRead |
@@ -452,7 +456,7 @@
 | 14 会话管理·分享·导 | updates.* | `updates.emptyArchivedDescription` | 你隐藏的动态会保留在这里，随时可以恢复。 | MISS |  |
 | 14 会话管理·分享·导 | updates.* | `updates.unavailable` | 无法读取动态 | MISS |  |
 | 14 会话管理·分享·导 | updates.* | `updates.unavailableDescription` | 本地协作数据暂时不可用，请稍后重试。 | L3 | 子串同形:ai.pane.errorCatalog.API_BRIDGE_ERROR.action |
-| 14 会话管理·分享·导 | updates.* | `updates.select` | 选择一条动态 | MISS |  |
+| 14 会话管理·分享·导 | updates.* | `updates.select` | 选择一条动态 | L3 | 键末段同名+词头同形:我方 chatHistory.select=「选择」 |
 | 14 会话管理·分享·导 | updates.* | `updates.selectDescription` | 选择左侧动态后，可在原 Issue 上下文中查看变化。 | L3 | 子串同形:ai.pane.overview.context |
 | 14 会话管理·分享·导 | windowControls.* | `windowControls.minimize` | 最小化 | L1 | a11y.minimize |
 | 14 会话管理·分享·导 | windowControls.* | `windowControls.maximize` | 最大化 | L1 | nav.maximize |
@@ -468,9 +472,9 @@
 | 14 会话管理·分享·导 | workspace.* | `workspace.createAction` | 创建工作区 | L2 | agent.fieldWorkspace (J=0.50) |
 | 14 会话管理·分享·导 | workspace.* | `workspace.expandAll` | 展开全部工作区 | L2 | ai.pane.expandAll (J=0.50) |
 | 14 会话管理·分享·导 | workspace.* | `workspace.collapseAll` | 折叠全部工作区 | L2 | ai.pane.collapseAll (J=0.50) |
-| 14 会话管理·分享·导 | workspace.* | `workspace.edit` | 编辑工作区 {{name}} | L3 | 子串同形:agent.fieldWorkspace |
-| 14 会话管理·分享·导 | workspace.* | `workspace.pin` | 置顶工作区 {{name}} | L3 | 子串同形:agent.fieldWorkspace |
-| 14 会话管理·分享·导 | workspace.* | `workspace.unpin` | 取消置顶工作区 {{name}} | L3 | 子串同形:agent.fieldWorkspace |
+| 14 会话管理·分享·导 | workspace.* | `workspace.edit` | 编辑工作区 {{name}} | L3 | 键末段同名+词头同形:我方 knowledgeCard.edit=「编辑」 |
+| 14 会话管理·分享·导 | workspace.* | `workspace.pin` | 置顶工作区 {{name}} | L3 | 键末段同名+词头同形:我方 ai.pane.pin=「置顶」 |
+| 14 会话管理·分享·导 | workspace.* | `workspace.unpin` | 取消置顶工作区 {{name}} | L3 | 键末段同名+词头同形:我方 ai.pane.unpin=「取消置顶」 |
 | 14 会话管理·分享·导 | workspace.* | `workspace.editWorkspaceAction` | 编辑工作区 | L2 | commandPalette.commands.document.description (J=0.67) |
 | 14 会话管理·分享·导 | workspace.* | `workspace.editActiveSessionDisabled` | 当前会话已锁定工作区，无法切换。如需使用其他工作区，请新建会话。 | L3 | 子串同形:agent.fieldWorkspace |
 | 14 会话管理·分享·导 | workspace.* | `workspace.contextWorkspaceCount` | {{count}} 个工作区 | L2 | mcpStore.toolCount (J=0.62) |

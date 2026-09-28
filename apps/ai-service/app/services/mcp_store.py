@@ -11,6 +11,7 @@
     "name": "filesystem",            # 唯一标识(与 stdio 热挂载名一致,2026-09-02 起用 key
                                      # 而非 mcp:{key}——bridge 名校验禁冒号)
     "key": "filesystem",             # 目录条目 key
+    "owner_user_id": "42",           # 安装者(承载层注入的令牌主体);"" = 存量/部署级,见 mutate_decision
     "transport": "stdio",
     "command": "npx",
     "args": [...],
@@ -21,6 +22,23 @@
     "tool_count": 0,
     "last_error": ""
   }
+- **启停/卸载/覆盖的归属判据(2026-09-29 立 G-371 格②;同日按机主拍板收紧无主档)**:
+  安装记录今天全站可见(它挂的是进程级 stdio 工具池,不是个人配置),但**改它**必须有归属。
+  三档(唯一一份实现在 `mutate_decision`,端点不得各写一遍):
+    1. 属主 == 调用者 ⇒ 可改;
+    2. 记录**无属主**(`owner == ""`,存量)⇒ **只有管理员**可改;
+    3. 属主是别人 ⇒ 普通用户一律不可改,**管理员可改**(管理员是这一台的运维主体 ——
+       否则平台装的 Server 出了故障没人能停;这一档放行必须**记 warning**,不得静默)。
+  **旧行为与改它的时间点(留痕,防被读成"一直是这样")**:第 2 档在 2026-09-29 当天早些
+  时候(G-371 格②)刻意是"任何已登录主体可改"的回退档,理由写在当时的归属判据文档串里
+  (那一版还是个布尔出口 `can_mutate`,2026-09-29 收紧后其调用方全数改读 `mutate_decision`,
+  它已被删除 —— 要回看原文用 `git log -S can_mutate -- app/services/mcp_store.py`) ——
+  收紧的前置是"先由人逐条认领"。机主 2026-09-29 直接拍了另一半:连接器维持现状
+  (无主记录对所有人不可见、只有人工认领才复活),**商店改成只有管理员能改无主记录**。
+  所以这一档不再是回退,而是决定;`connector_store` 的读侧语义按拍板**未动**。
+- **角色从哪来**:管理员判定只认 `app/core/jwt_auth.resolve_request_role_id` 那一个出口
+  (roleId >= 1,与 AGENTS §5 同档)。本模块是 store 层,**不碰 HTTP 对象** —— 角色由承载层
+  作为入参传进来,缺省 0 = 普通用户(fail-closed:只带 user_id 不带角色的调用不得被当管理员)。
 - 读写失败降级:读失败返回空列表/None,写失败返回 False,不抛异常不崩服务
 - 进程内加锁防止并发写坏文件(跨进程并发不在本模块职责内)
 """
@@ -32,6 +50,8 @@ import threading
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from .connector_store import OWNER_FIELD as OWNER_FIELD  # 显式 re-export:属主键名只有一份定义
 
 # apps/ai-service/data/mcp_store.json(父目录不存在时自动创建)
 _STORE_PATH = Path(__file__).resolve().parents[2] / "data" / "mcp_store.json"
@@ -137,4 +157,60 @@ def set_enabled(name: str, enabled: bool) -> dict[str, Any] | None:
                     return dict(rec)
                 return None
     return None
+
+
+def owner_of(name: str) -> str | None:
+    """该安装记录的属主;"" = 存量/部署级;未安装返回 None。"""
+    rec = get_installed(name)
+    if rec is None:
+        return None
+    return str(rec.get(OWNER_FIELD) or "")
+
+
+#: 管理员门槛(roleId >= 1)—— 与 AGENTS §5「admin 路由用 preHandler 统一校验(roleId >= 1)」
+#: 及 `app/routers/usage.py` 的 `ADMIN_ROLE_ID` 同一条口径,不得在别处再拍一个数。
+ADMIN_ROLE_ID = 1
+
+#: `mutate_decision` 的四个结论(字符串常量,便于承载层按档记日志/回文案)。
+MUTATE_BY_OWNER = "by_owner"  # 属主本人
+MUTATE_BY_ADMIN = "by_admin"  # 管理员越档改(无主记录或别人的记录)⇒ 放行但必须留痕
+MUTATE_DENIED = "denied"  # 既不是属主也不是管理员
+MUTATE_NEEDS_ADMIN = "denied_needs_admin"  # 无属主的存量记录 + 非管理员(承载层文案要说"需管理员",不是"由他人安装")
+MUTATE_MISSING = "missing"  # 没有这条安装记录(承载层回 404)
+
+
+def is_admin_role(role_id: int) -> bool:
+    """这一档角色算不算管理员。**只**接受由 `jwt_auth.resolve_request_role_id` 取出的整数。
+
+    非整数/None 一律按普通用户(fail-closed:角色取不到绝不等于放开)。
+    """
+    return isinstance(role_id, int) and not isinstance(role_id, bool) and role_id >= ADMIN_ROLE_ID
+
+
+def mutate_decision(name: str, caller_user_id: str, caller_role_id: int = 0) -> str:
+    """这条安装记录当前主体能不能改 —— **唯一一份判据**,返回上面四个常量之一。
+
+    三档语义见模块文档串。刻意**只**返回结论枚举,不提供布尔版:布尔会把"不是你的"与
+    "没这条"压成同一个 False,而这一面刻意区分(商店列表全站可见,详情再装看不见就与
+    列表自相矛盾),而且承载层必须能认出"管理员越档"那一档才能留痕。曾经有一个
+    `can_mutate` 布尔投影,2026-09-29 按机主拍板收紧无主档后它的调用方全部改用本函数,
+    于是被删 —— 留一个更弱的入口,下一次就有人用它,而它给不出该给的那两句文案。
+
+    第三参数缺省 0 是刻意的:只带主体不带角色的调用**不得**被当管理员(fail-closed)。
+    """
+    owner = owner_of(name)
+    if owner is None:
+        return MUTATE_MISSING
+    # 空 caller_user_id 不算"和无主记录同属主":`owner == ""` 只能由管理员改。
+    if owner and owner == str(caller_user_id or ""):
+        return MUTATE_BY_OWNER
+    if is_admin_role(caller_role_id):
+        return MUTATE_BY_ADMIN
+    # 剩两档都是拒绝,但**要说的话不一样**:无主存量记录该说"这是存量安装,需要管理员",
+    # 别人的记录该说"由他人安装"。2026-09-29 收紧无主档之后第一版把两档压成同一个
+    # MUTATE_DENIED,于是四处端点给用户回的是「MCP Server 由他人安装,无权停用」—— 而那台
+    # 根本没有"他人",提示把人引导成"去找装它的人",正确出路是"找管理员"。分档就是为了让
+    # 文案能说实话(与本仓"失败必须响"、"越权与不存在同形"并列的第三条:同形只用于
+    # 会泄露存在性的场合,这里清单本来就全站可见,不该拿同形当省事)。
+    return MUTATE_NEEDS_ADMIN if not owner else MUTATE_DENIED
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

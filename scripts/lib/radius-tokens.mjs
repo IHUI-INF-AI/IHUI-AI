@@ -10,18 +10,27 @@
  *  1. **档位表取值**:唯一真相源是 `packages/design-tokens/src/radius.js`。门若把 `lg=8` 抄进
  *     自己的判据,档位表一改(2026-09-23 就把 sm 从 2px 改成 4px)门就悄悄在对着旧表打分。
  *     所以这里**解析被审面上的那份表**,而不是 import 磁盘常量 —— 与"清单与内容同面同轮"同一条规矩。
- *  2. **`radius-exempt` 的生效范围**:真圆/装饰点/胶囊按"同行或紧邻上一行有标记"放行。77 与 128
- *     若各写一遍,同一处豁免会一边认、一边判红 —— 那是台必然恒红的尺子。
+ *  2. **圆角豁免标记**:该族标记曾是"真圆/装饰点/胶囊按同行或紧邻上行放行"的出口。出口已于
+ *     O81 票㊵ **整体废除**(项目定档「不允许有任何豁免」),本文件里那道按行放行的判断随之删除;
+ *     剩下的"认出哪里写过它"住在 `lib/radius-exempt-marker.mjs`,由门 77(判红)与门 150(报名)
+ *     共用那一份 —— 两处各写一遍正则,同一枚标记就会一边被判红、一边被当成不存在。
  */
 
-/** 剥掉块注释与行注释后的等行文本(行号不变 —— 豁免规则按行生效,删字符会错位)。 */
-import { RPX_PER_PX, lengthToPx, constantMapOf } from './length-units.mjs'
+/** 剥掉块注释与行注释后的等行文本(行号不变 —— 判红要指得回原文行,删字符会错位)。 */
+import { RPX_PER_PX, lengthToPx, constantMapOf, constExprPx } from './length-units.mjs'
+/**
+ * "这条半径相对它自己那个盒是几何真圆/胶囊还是档位取用"的判定**只有一份实现**,住在
+ * `lib/box-geometry.mjs`(守门 77 的 B1/C6 用的就是它)。RD 维要排除真圆/胶囊时必须调它,
+ * 不得在本文件另写一份 `radius == box/2` 的等式 —— 两处算同一件事必漂移(§22c/守门 135 记过多次)。
+ * 无环:box-geometry 只依赖 length-units,本文件也依赖 length-units,半径层引入几何层不成回边。
+ */
+import { classifyRadiusGeometry } from './box-geometry.mjs'
 /**
  * 单位折算与常量归集**住在 `lib/length-units.mjs`**,本文件只再导出(既有调用方的 import 一行都不用改):
  * 半径侧与盒形侧量的是同一个物理量,写两份折算必然漂移;而几何层只需要单位层,不该被拖进本文件的
- * 圆角专属逻辑(radiusLookup / 豁免判断)—— 那会让每一个按文件清单搭的几何夹具都得复制圆角层。
+ * 圆角专属逻辑(radiusLookup / 标记识别)—— 那会让每一个按文件清单搭的几何夹具都得复制圆角层。
  */
-export { RPX_PER_PX, lengthToPx, constantMapOf }
+export { RPX_PER_PX, lengthToPx, constantMapOf, constExprPx }
 
 function maskComments(src) {
   const out = []
@@ -110,13 +119,10 @@ export function radiusLookup(radiusSrc) {
 }
 
 /**
- * `radius-exempt` 是否覆盖第 i 行(0 基)。规则与守门 77 原文同形:本行或紧邻上一行。
- * 不得放宽成"整块/整个文件豁免" —— 一个标记救一棵子树,等于没有这条豁免。
+ * 圆角豁免标记族的识别式住在 `lib/radius-exempt-marker.mjs`(该族的放行语义已由 O81 票㊵ 整体废除,
+ * 只剩"认出哪里写过它"这一半,被门 77 判红与门 150 报名共用那一份)。本文件不再转它:
+ * 单位折算层与档位表层都不该因为一个禁令正则而多一个依赖面。
  */
-export function isRadiusExemptAt(lines, i) {
-  if (/radius-exempt/.test(lines[i] || '')) return true
-  return i > 0 && /radius-exempt/.test(lines[i - 1] || '')
-}
 
 
 /**
@@ -160,44 +166,47 @@ export function radiusOperandPx(text, table, consts, depth = 0) {
   const direct = lengthToPx(t)
   if (direct !== null) return direct
   /**
-   * 标识符 ⇒ 查同文件常量表再解一层。这里**必须限深并排除自引用**:上一版注释写着"最多再解一层,
-   * 防环",而实现里根本没有 depth —— `const A = A`(以及探查夹具里自指的 map)直接 `RangeError:
-   * Maximum call stack size exceeded` 把整门打挂。**承诺了防护而代码没兑现,与本仓守门 137
-   * 判的"名字承诺摘要、实现没兑现"是同一型**;判据写完要拿它应当崩的输入喂一次,不是只看它此刻绿。
+   * 其余形态(成员档 `rnGeometry.tapBox`、指向它们的标识符)交给 `constExprPx` **那一份**求值 ——
+   * 半径侧与盒形侧量的是同一批常量,两边各写一遍必然出现"半径认得、盒形不认"的自洽假结论
+   * (限深与防自引用也在那一份里:上一版注释写着"防环"而实现没有 depth,`const A = A` 直接
+   * 把整门打成 RangeError —— 承诺了防护却没兑现,正是本仓守门 137 判的那一型)。
    */
-  const next =
-    depth < 4 && /^[A-Za-z_$][\w$]*$/.test(t) && consts instanceof Map ? consts.get(t) : undefined
-  if (typeof next === 'string' && next.trim().replace(/\s+/g, '') !== t) {
-    return radiusOperandPx(next, table, consts, depth + 1)
-  }
-  return null
+  return constExprPx(t, consts, depth)
 }
 
-export function radiusPxInLine(line, table, consts) {
+/**
+ * 一行源码里的圆角取用 → `[{px, raw}]`。`raw` 是**源码原文**(档名 / 数值 / `<被除数> / <数>`),
+ * 供 RD 维按 `classifyRadiusGeometry(lines, i, raw)` 判这条半径是几何真圆/胶囊还是档位取用。
+ * 之所以要带原文而不是只回 px:几何判据是**字面同形**比较(`width: 48, borderRadius: 24` 认得出,
+ * `width: 96rpx` 与折算后的 48px 不互比 —— 拿折算值比会把胶囊读成真圆,见 box-geometry 头注),
+ * 折成 px 再分类就等于把"作者写的是不是同一个量"这一维抹掉。
+ * `radiusPxInLine` 现在是它到 px 的投影(既有调用方一字不动)。
+ */
+export function radiusItemsInLine(line, table, consts) {
   const out = []
-  const push = (v) => {
-    if (Number.isFinite(v) && v > 0) out.push(Math.round(v * 100) / 100)
+  const push = (v, raw) => {
+    if (Number.isFinite(v) && v > 0) out.push({ px: Math.round(v * 100) / 100, raw })
   }
   for (const m of line.matchAll(/\brounded-(?:(?:tr|tl|br|bl|[tblr])-)?(xs|sm|md|lg|xl|2xl)\b/g)) {
-    if (table[m[1]] !== undefined) push(table[m[1]])
+    if (table[m[1]] !== undefined) push(table[m[1]], m[1])
   }
   for (const m of line.matchAll(/\brounded-\[\s*(\d+(?:\.\d+)?)(rpx|px)?\s*\]/g)) {
-    push(m[2] === 'rpx' ? Number(m[1]) / RPX_PER_PX : Number(m[1]))
+    push(m[2] === 'rpx' ? Number(m[1]) / RPX_PER_PX : Number(m[1]), `${m[1]}${m[2] || ''}`)
   }
   for (const m of line.matchAll(/var\(--radius-(xs|sm|md|lg|xl|2xl)\)(?!\s*\/)/g)) {
-    if (table[m[1]] !== undefined) push(table[m[1]])
+    if (table[m[1]] !== undefined) push(table[m[1]], m[1])
   }
   for (const m of line.matchAll(
     /\brnRadius\s*(?:\.\s*(xs|sm|md|lg|xl|2xl)\b|\[\s*['"](2xl|xs|sm|md|lg|xl)['"]\s*\])(?!\s*\/)/g,
   )) {
     const step = m[1] || m[2]
-    if (table[step] !== undefined) push(table[step])
+    if (table[step] !== undefined) push(table[step], step)
   }
   for (const m of line.matchAll(
     /\brnRadiusFor\s*(?:\.\s*(\w+)\b|\[\s*['"](\w+)['"]\s*\])(?!\s*\/)/g,
   )) {
     const role = m[1] || m[2]
-    if (table[`role:${role}`] !== undefined) push(table[`role:${role}`])
+    if (table[`role:${role}`] !== undefined) push(table[`role:${role}`], role)
   }
   /**
    * 裸数字半径 —— **不得把除法的被除数当成半径**。旧实现只看 `(?![\w.])`,而 `borderRadius: 60 / 2`
@@ -209,7 +218,7 @@ export function radiusPxInLine(line, table, consts) {
   for (const m of line.matchAll(
     /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*(\d+(?:\.\d+)?)(?![\w.])(?!\s*\/)/g,
   ))
-    push(Number(m[1]))
+    push(Number(m[1]), m[1])
   /**
    * 除法形态 `borderRadius: <被除数> / <数>`(`60 / 2`、`rnRadius.lg / 2`、`rpx(40) / 2`、
    * `SIZE_PX / 2`)。被除数经 `radiusOperandPx` 折 px 再除右值;**解不到整条不 push**
@@ -220,7 +229,7 @@ export function radiusPxInLine(line, table, consts) {
   )) {
     const left = radiusOperandPx(m[1], table, consts)
     if (left === null) continue
-    push(left / Number(m[2]))
+    push(left / Number(m[2]), `${m[1].trim()} / ${m[2]}`)
   }
   /**
    * CSS 声明形态:`border-radius: 8px` / `border-radius: 24rpx` / 四值简写
@@ -234,8 +243,8 @@ export function radiusPxInLine(line, table, consts) {
     /\bborder(?:-top|bottom)?-(?:left|right)?radius\s*:\s*(\d+(?:\.\d+)?)(rpx|px|%)?(?!\s*\/)(?:\s|;|\*|$)/g,
   )) {
     if (m[2] === '%') continue
-    if (m[2] === undefined || m[2] === 'px') push(Number(m[1]))
-    else push(Number(m[1]) / RPX_PER_PX)
+    if (m[2] === undefined || m[2] === 'px') push(Number(m[1]), `${m[1]}${m[2] || ''}`)
+    else push(Number(m[1]) / RPX_PER_PX, `${m[1]}${m[2] || ''}`)
   }
   /**
    * CSS 侧除法形态(`border-radius: 60rpx / 2`):与 JS 侧共用 `radiusOperandPx` 那一份算术,
@@ -246,7 +255,7 @@ export function radiusPxInLine(line, table, consts) {
   )) {
     const left = radiusOperandPx(m[1], table, consts)
     if (left === null) continue
-    push(left / Number(m[2]))
+    push(left / Number(m[2]), `${m[1].trim()} / ${m[2]}`)
   }
   // 四值/两值简写:每个长度档都要看见(只取第一个数 = 横向档整族隐身,票⑫同一记实测教训)
   for (const m of line.matchAll(
@@ -254,19 +263,39 @@ export function radiusPxInLine(line, table, consts) {
   )) {
     for (const v of m[1].trim().split(/\s+/)) {
       if (/%$/.test(v)) continue
-      push(/rpx$/.test(v) ? Number(v.replace('rpx', '')) / RPX_PER_PX : Number(v.replace('px', '')))
+      push(
+        /rpx$/.test(v) ? Number(v.replace('rpx', '')) / RPX_PER_PX : Number(v.replace('px', '')),
+        v,
+      )
     }
   }
   return out
 }
 
-/** 整份源码 → 圆角档集合(按行遮豁免)。返回排序后的去重数组。 */
+/** 一行源码里的圆角取档 → px 数组(`radiusItemsInLine` 到 px 的投影;既有调用方口径不变)。 */
+export function radiusPxInLine(line, table, consts) {
+  return radiusItemsInLine(line, table, consts).map((it) => it.px)
+}
+
+/**
+ * 真圆/胶囊那一型:半径由盒的边长决定(`size / 2` 或字面量 `边长`/2),**不是"这一类元素该取哪一档"
+ * 的判断**。守门 77 的 B1/C6 用同一把尺(`classifyRadiusGeometry`)认它,只是那道判据的产物是"放行/判红",
+ * RD 维的产物是"别把它当成端上多出来的一档"。两者必须共用那一份几何判定 —— 否则门 128 会替门 77 已
+ * 认定为"规范真圆写法"的 `IMAGE_REMOVE_SIZE / 2`(HEAD 实测 37 处该族)凭空记上一档,
+ * 而那一档在另一端根本没有对应元素 ⇒ 假分叉。几何档只从 RD 档集里排除,RE 维(按元素名配对)不动。
+ */
+const GEOMETRY_KINDS = new Set(['circle', 'capsule', 'rounded-end'])
+function isGeometricRadius(lines, i, raw) {
+  if (raw === undefined || raw === null) return false
+  return GEOMETRY_KINDS.has(classifyRadiusGeometry(lines, i, raw))
+}
+
+/** 整份源码 → 圆角档集合。返回排序后的去重数组。 */
 export function radiusSetOf(src, table) {
   const lines = (src || '').split('\n')
   const consts = constantMapOf(src)
   const set = new Set()
   for (let i = 0; i < lines.length; i++) {
-    if (isRadiusExemptAt(lines, i)) continue
     const t = lines[i].trim()
     /**
      * 整行注释一律跳过:注释里出现 `rounded-2xl` / `border-radius: 50%` 是在**说明规则或对齐
@@ -276,7 +305,15 @@ export function radiusSetOf(src, table) {
      * 当注释吃掉(守门 70 的 `'https://x/*'` 假绿同型),那需要一份字符串感知的遮罩,另票做。
      */
     if (/^(\/\/|\/\*|\*|\{\/\*|<!--)/.test(t)) continue
-    for (const px of radiusPxInLine(lines[i], table, consts)) set.add(px)
+    /**
+     * RD 维排除真圆/胶囊:逐取用点问 `classifyRadiusGeometry`(那份唯一的几何判定)是几何还是档位。
+     * 只按 px 值分不了(UserInfoCard 头像 24 = 48 边 / 2,而 rnRadius.xl 也 = 12 —— 同值两义),
+     * 必须带着源码原文与同一作用域的边长量。排除只发生在这里(RD 档集);RE 维按元素名配对另有判据。
+     */
+    for (const it of radiusItemsInLine(lines[i], table, consts)) {
+      if (isGeometricRadius(lines, i, it.raw)) continue
+      set.add(it.px)
+    }
   }
   return [...set].sort((a, b) => a - b)
 }
@@ -335,7 +372,6 @@ export function blockOwnerOf(prelude) {
  * @returns {{ entries: Record<string, number[]>, unnamed: number, cssNames: string[] }}
  */
 export function radiusEntriesOf(src, table) {
-  const originalLines = (src || '').split('\n')
   const lines = maskComments(src || '').split('\n')
   const entries = {}
   const cssNames = new Set()
@@ -383,8 +419,6 @@ export function radiusEntriesOf(src, table) {
      * 下一票要不要扩配对判据的唯一输入,报错的数比不报更坏。
      */
     if (/\bclass(?:Name)?\s*=/.test(raw)) continue
-    // 豁免标记活在注释里 ⇒ 判据看遮罩面、豁免看原文面(两处同一件事不得各遮一套)。
-    if (isRadiusExemptAt(originalLines, i)) continue
     if (!names.length) {
       unnamed += pxs.length
       continue
@@ -405,7 +439,6 @@ export function radiusEntriesOf(src, table) {
     const text = lits.join(' ')
     const pxs = radiusPxInLine(text, table, consts)
     if (!pxs.length) continue
-    if (isRadiusExemptAt(originalLines, i)) continue
     const toks = new Set(text.split(/[\s{}]+/).filter(Boolean))
     const known = [...toks].filter((k) => cssNames.has(k))
     if (!known.length) {

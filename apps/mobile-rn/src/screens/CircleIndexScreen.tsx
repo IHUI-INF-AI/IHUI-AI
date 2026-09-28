@@ -477,7 +477,7 @@ const createStyles = (tk: RnThemeTokens) =>
     userAvatar: {
       width: rpx(96),
       height: rpx(96),
-      borderRadius: rpx(48),
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: {},
@@ -626,7 +626,7 @@ const createStyles = (tk: RnThemeTokens) =>
       bottom: rpx(64),
       width: rpx(104),
       height: rpx(104),
-      borderRadius: rpx(52),
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

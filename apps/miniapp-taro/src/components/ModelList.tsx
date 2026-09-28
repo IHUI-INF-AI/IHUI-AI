@@ -267,7 +267,7 @@ export default function ModelList({
                 style={{
                   width: rpx(32),
                   height: rpx(32),
-                  borderRadius: '50%',
+                  borderRadius: rnRadius['2xl'],
                   // 票⑤续:底色与字形改为 §4 品牌实底成对档,与 RN `styles.check`
                   // (brand.cta 底 + ctaForeground 勾)同形;此前位图压在 --color-foreground 上
                   background: 'var(--color-cta)',

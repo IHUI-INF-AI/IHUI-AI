@@ -28,7 +28,7 @@ import {
 // 遮罩判据只引这一份实现(守门 131/135 同族规矩:两处实现必漂移)。本门新加的"一跳常量解析"
 // 要在**代码面**上找 `const X =` 声明与 import 绑定 —— 按原文找会把注释里的示例声明当真声明
 // (守门 70 的 URL 假注释态同型),而 code-mask 等长遮罩保证行/列号不漂。
-import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+import { maskComments, maskCommentsAndStrings } from './lib/code-mask.mjs'
 
 /**
  * ROOT 由脚本自身位置推导(§15)。此前是 `process.cwd()` —— "扫哪棵树"由调用者站哪决定,
@@ -254,7 +254,341 @@ function normalizeCallPath(rawPath) {
     .replace(/\/+$/, '')
 }
 
-// ===== CLI 端形态提取(2026-09-28,随 `apps/cli` 纳入同一笔)=====
+/**
+ * 同一入口的两种拼写候选:normalizeUrl 会把不以 `/api/` 开头的字面量补成 `/api/...`,
+ * 所以调用点写的 `/admin/x` 与后端在册的 `/api/admin/x` 是**同一个入口**。刻意不把
+ * "剥掉 /api" 也算一种候选 —— 那会让任何 `/api/x` 调用都凭空获得一个 `/x` 分身,
+ * 等价判据就把"两处不同前缀"读成"处处都等价"(假阳的代价是各会话合法 --no-verify,§12e)。
+ */
+function aliasPathCandidates(p) {
+  const out = [p]
+  const bare = p.startsWith('/') ? p : `/${p}`
+  if (
+    bare.startsWith('/') &&
+    !bare.startsWith('/api/') &&
+    !bare.startsWith('/uploads/') &&
+    !bare.startsWith('/ws/')
+  )
+    out.push(`/api${bare}`)
+  return [...new Set(out)]
+}
+
+// ===== 通道等价对账(2026-09-29,G-466 换维后的新格子)=====
+/**
+ * **这一维判的是什么,以及既有判据为什么结构上看不见它**
+ * 本门的比对是「前端字面路径 ↔ 后端注册路径」的等值对账(`backendPathSet` / `matchSegs`)。
+ * 若满足下面三条,则**两侧各自都"已注册"**,等值对账两侧同时成立 ⇒ 门一路报绿,
+ * 而实际上这两条字面路径在后端是同一个入口,其中一条本该有的通道校验被有意跳过了:
+ *  ① 前端确有把前缀 A 归并进前缀 B 的改写(读 transport 的实现,不读注释);
+ *  ② 后端确有按"客户端自报的通道头"判定的守卫,且该守卫对某个 HTTP 方法**有意放行**;
+ *  ③ 面上存在一处真实调用点,同时落在 A 与 B 两种拼写上(等价因此是活的,不是纸面的)。
+ *
+ * **本票立项时逐条否证过票面给的现场**(三条都不成立 ⇒ 本维今天落「未判定」,不判红):
+ *  - `normalizeUrl` 在 `packages/api-client/src/client.ts:404-416`,唯一改写档是
+ *    `if (url.startsWith('/cozeZhsApi')) return url.replace(/^\/cozeZhsApi/, '/api')`(:408-410)
+ *    —— **没有** `/admin/*`→`/console/*` 这一档,也没有任何注入通道头的语句;
+ *  - `apps/api/src/plugins/admin-client-channel.ts` 在工作树 / 索引 / HEAD **三面均不存在**,
+ *    `git log --all -- <该路径>` 零命中 ⇒ 它在仓库历史里从未存在过;
+ *  - `X-Client-Channel` 字面量在 HEAD 的代码面零命中(全仓唯一出处是 PROJECT_PLAN.md 里
+ *    描述它的那句票面本身)⇒ 后端没有任何守卫读通道头。
+ * 所以本维**不是**去把那一处"敞口"清掉(它不在本仓),而是把"字面等值对账看不见等价改写"
+ * 这一型装上判据:三条同时成立才判红,缺一律落未判定并**点名缺哪一条、为什么判不出**
+ * (§守门速查"三态绝不并桶";不得把"没判"写成"判过了",也不得把"没看见"写成"没有")。
+ *
+ * **不得为消红去改后端放行或前端归一化** —— 那是产品/安全决策,不在本票射程。
+ */
+/** 通道等价的事实源①:transport 的 URL 归一实现(读它,不在门里抄第二份改写表) */
+const CLIENT_TRANSPORT_FILE = 'packages/api-client/src/client.ts'
+/** 通道等价的事实源②:通道守卫只可能住在这里(Fastify 插件 = 全局 preHandler 的落点) */
+const CHANNEL_GUARD_GLOBS = [API_PLUGINS_DIR]
+/** 通道等价的首锚台账(键集与判据**同判定面**;缺档 ⇒ 未判定,不冒红也不记绿) */
+const CHANNEL_EQUIV_BASELINE_REL = 'scripts/data/channel-equiv-baseline.json'
+
+/**
+ * ① 读 transport 的归一实现,取出"前缀改写档"。
+ * 判据只在**遮注释面**上算(`maskComments` 保留字符串、整段删行注释 ⇒ 不等长,所以索引
+ * 一律在遮噪面上取、也在遮噪面上截 —— 写门时先用原文截体截到了别处,表现为"改写档 0 条"
+ * 的安静失明)。函数体里要读的两样东西(守卫串与替换式)本来就在代码面上,遮噪无信息损失。
+ * 锚在**定义**上而不是调用点:`normalizeUrlPublic` 与 `return normalizeUrl(url)` 都在定义之前,
+ * 按"第一个 normalizeUrl(" 找会把起点落到别的函数里。
+ */
+function sliceNormalizeUrlBody(src) {
+  if (typeof src !== 'string') return null
+  const masked = maskComments(src)
+  const def = masked.search(
+    /\b(?:async\s+)?function\s+normalizeUrl\b|\b(?:const|let)\s+normalizeUrl\s*=/,
+  )
+  if (def === -1) return null
+  const paramsOpen = masked.indexOf('(', def)
+  const paramsClose = paramsOpen === -1 ? -1 : masked.indexOf(')', paramsOpen)
+  const bodyOpen = paramsClose === -1 ? -1 : masked.indexOf('{', paramsClose)
+  if (bodyOpen === -1) return null
+  let depth = 0
+  for (let i = bodyOpen; i < masked.length; i++) {
+    if (masked[i] === '{') depth++
+    else if (masked[i] === '}') {
+      depth--
+      if (depth === 0) return masked.slice(bodyOpen + 1, i)
+    }
+  }
+  return null
+}
+
+/**
+ * 归一实现 → `{parsed, reason, rules:[{from,to,fromRe,head}], passthrough, ambiguous}`。
+ * 三条设计前提(与本门其余判据同一条纪律):
+ * 1. **守卫与替换式必须同形** —— `startsWith('/A')` 配的 replace 式就得是 `/^\/A/`;
+ *    不同形 ⇒ 一条都不采用(那是"改写到别处"的新写法,判据猜不得),计入 `ambiguous` 如实报数。
+ * 2. 取不到函数体 ⇒ `parsed:false` ⇒ 本维整条落未判定并点名,绝不静默算通过。
+ * 3. `rules` 为空而函数体在位 = 真的没有改写档(档被撤了),这不是判据失效 ⇒ `parsed:true`。
+ */
+function readUrlAliasRules(clientSrc) {
+  const out = { parsed: false, reason: '', rules: [], passthrough: [], ambiguous: 0 }
+  if (clientSrc === null || clientSrc === undefined) {
+    out.reason = `${CLIENT_TRANSPORT_FILE} 在判定面上取不到内容`
+    return out
+  }
+  const body = sliceNormalizeUrlBody(clientSrc)
+  if (body === null) {
+    out.reason = `${CLIENT_TRANSPORT_FILE} 的 normalizeUrl 函数体配平不到(写法变了,不猜)`
+    return out
+  }
+  let m
+  // 替换式里的斜杠按 JS 正则字面量写的是 `\/`,所以捕获用惰性 `.+?` 截到"下一个未转义 `/` + 逗号",
+  // 再统一去转义后与守卫比对(字符类 `\\.?[^/]` 那版对 `\\/cozeZhsApi` **一条都匹配不上** ——
+  // 判据静默为空比判错更危险,所以留这一句反例记录)
+  const ruleRe =
+    /url\.startsWith\(\s*['"`]([^'"`]+)['"`][\s\S]{0,60}?url\.replace\(\s*\/\^(.+?)\/\s*,\s*['"`]([^'"`]*)['"`]/g
+  while ((m = ruleRe.exec(body)) !== null) {
+    const guard = m[1]
+    const pattern = m[2].replace(/\\([^a-zA-Z0-9])/g, '$1')
+    const to = m[3]
+    if (!guard.startsWith('/') || pattern !== guard || !to.startsWith('/')) {
+      out.ambiguous++
+      continue
+    }
+    out.rules.push({ from: guard, to })
+  }
+  // 原样透传档(`/api/`、`/uploads/` 这类不 rewritten 的前缀):只用于把"两侧同值"说清,不参与判红
+  const passRe =
+    /url\.startsWith\(\s*['"`]([^'"`]+)['"`]\s*\)((?:\s*\|\|\s*url\.startsWith\(\s*['"`][^'"`]+['"`]\s*\))*)\s*\)\s*return\s+url\b/g
+  while ((m = passRe.exec(body)) !== null) {
+    out.passthrough.push(m[1])
+    for (const extra of (m[2] || '').matchAll(/['"`]([^'"`]+)['"`]/g)) out.passthrough.push(extra[1])
+  }
+  out.passthrough = [...new Set(out.passthrough)]
+  out.parsed = true
+  if (out.rules.length === 0 && out.ambiguous > 0) {
+    out.reason = `读到 ${out.ambiguous} 对守卫与替换式不同形的改写形态,一条都不采用`
+  }
+  return out
+}
+
+/**
+ * 从 `if (...)` 条件右括号之后取**该语句自己的分支体**。
+ * `{` 起 ⇒ 括号配平取整块(配平不到返回 null,不猜);否则取到行尾或 `;`(单语句形态)。
+ * 这一格必须精确:早退与拒绝常写成相邻两行,按"读后 N 行"会把 `return` 与下一档的 4xx 同时
+ * 读进同一个分支体 ⇒ 放行档被读成拒绝档 ⇒ 本维在自己立项那一型上失明(整段变 partial)。
+ */
+function sliceBranch(masked, fromIdx) {
+  const rest = masked.slice(fromIdx)
+  const ws = /^\s*/.exec(rest)
+  const start = fromIdx + (ws ? ws[0].length : 0)
+  if (start >= masked.length) return ''
+  if (masked[start] !== '{') {
+    const tail = masked.slice(start)
+    const cut = tail.search(/[\n;]/)
+    return cut === -1 ? tail : tail.slice(0, cut)
+  }
+  let depth = 0
+  for (let i = start; i < masked.length; i++) {
+    if (masked[i] === '{') depth++
+    else if (masked[i] === '}') {
+      depth--
+      if (depth === 0) return masked.slice(start + 1, i)
+    }
+  }
+  return null
+}
+
+/**
+ * ② 在后端通道守卫面上读"按客户端自报通道头判定、且对某方法有意放行"的实现。
+ * 全部在**遮注释面**上判(注释里的 `X-Client-Channel` 不得给实现背书 —— 守门 70/131 同型)。
+ * 一条守卫要同时给得出三样:
+ *  ②-a 读了一个名字含 `channel` 的请求头(通道身份来自**客户端自报**,不是令牌主体);
+ *  ②-b 面上确有拒绝分支(throw / 4xx / forbidden)⇒ 它真在校验,而不是只把通道头记进日志;
+ *  ②-c 该拒绝之前有一档**按方法**的早退:`m === 'GET'` + return/next ⇒ 放行那一档方法;
+ *       或 `m !== 'GET'` + 拒绝 ⇒ 除 GET 外都校验 ⇒ 放行集是通配 `*`。
+ * 三样不齐 ⇒ 该文件进 `partial` 并**点名缺哪一格**:既不据此判红,也不因为"像个守卫"就把本维
+ * 记成已成立(§守门速查"三态绝不并桶")。
+ * 分支体必须用 `sliceBranch` 精确取,**不得**顺手多读几行 —— `if (m === 'GET') return` 之后紧跟的
+ * 就是拒绝分支,连着读会把"有意放行"读成"既放行又拒绝",本维就在自己立项那一型上失明。
+ */
+function readChannelGuards(entries) {
+  const guards = []
+  const partial = []
+  let scanned = 0
+  for (const { file, src } of entries) {
+    if (src === null || src === undefined) continue
+    scanned++
+    const masked = maskComments(src)
+    const headerRe = /headers\s*(?:\[[^\]]*\])?\s*[\[.]\s*['"`]([\w-]*channel[\w-]*)['"`]\s*\]?/i
+    const headerMatch = headerRe.exec(masked)
+    if (!headerMatch) continue // 面上这个文件根本不读通道头 ⇒ 不是候选,不计 partial
+    const headerLine = masked.slice(0, headerMatch.index).split('\n').length
+    // 通道头必须被"判定"用过(同一文件里有拒绝分支),否则那只是个埋点/日志字段
+    const enforces = /\bthrow\s+new\b|reply\.code\(\s*4|sendStatus\(\s*4|forbidden|denied/i.test(
+      masked,
+    )
+    if (!enforces) {
+      partial.push({
+        file,
+        line: headerLine,
+        missing: '②-b 读到通道头但面上没有拒绝分支(那只是埋点/日志字段,不是校验)',
+      })
+      continue
+    }
+    const exempt = new Set()
+    let wildcard = false
+    let ambiguous = 0
+    const methodRe = /if\s*\(([^)]*\.method[^)]*?)\)/gi
+    let mm
+    while ((mm = methodRe.exec(masked)) !== null) {
+      const branch = sliceBranch(masked, mm.index + mm[0].length)
+      const cmp = mm[1].match(/\.method\s*(===?|!==)\s*['"]([A-Za-z]+)['"]/)
+      if (branch === null || !cmp) {
+        ambiguous++
+        continue
+      }
+      const negated = cmp[1] === '!=='
+      const methodName = cmp[2].toUpperCase()
+      const releases = /\breturn\b|\bnext\s*\(/.test(branch)
+      const denies = /throw\s+new|reply\.code\(\s*4|sendStatus\(\s*4/i.test(branch)
+      if (!negated && releases && !denies) exempt.add(methodName)
+      else if (negated && denies && !releases) wildcard = true
+      else ambiguous++
+    }
+    if (exempt.size === 0 && !wildcard) {
+      partial.push({
+        file,
+        line: headerLine,
+        missing: `②-c 守卫对所有方法都执行,没有有意放行的那一档${
+          ambiguous > 0 ? `(另有 ${ambiguous} 处形态判不出,一条都不采用)` : ''
+        }`,
+      })
+      continue
+    }
+    guards.push({
+      file,
+      line: headerLine,
+      header: headerMatch[1],
+      exemptMethods: wildcard ? ['*'] : [...exempt].sort(),
+    })
+  }
+  return { guards, partial, scanned }
+}
+
+/**
+ * ③ 面上是否存在一处真实调用点,**两种拼写各自都在册**(等价是活的,不是纸面的)。
+ * 逐前端文件在**遮注释面**上找紧邻引号的 `${from}` 字面量(注释里的示例调用不得算站点 ——
+ * 守门 70/131 同型:判据失效的表现永远是安静,而门给自己发合格证是最坏的一种),
+ * 再经 `backendHasRoute`(与主对账共用同一份索引与判据,不另写一台匹配器)问两侧是否都在册:
+ * 两侧都在册 ⇒ 等值对账一处都不报,而通道校验只在其中一条拼写上有效 ⇒ 这一格无人看守。
+ * 方法取**唯一**实现 `inferMethodAtLine`(两处各写一遍必然漂移)。
+ */
+function findLiveAliasSites({ frontendFiles, alias, guards, hasRoute }) {
+  const hits = []
+  const seen = new Set()
+  if (alias.rules.length === 0 || guards.length === 0) return hits
+  for (const { file, src } of frontendFiles) {
+    if (src === null || src === undefined) continue
+    // transport 自己不是调用方:它体内的 `startsWith('/admin')` 是**改写规则**,把它当站点
+    // 会让门把事实源读成消费者(自指型假阳;守门 131"判据看遮罩面"同一族)
+    if (file === CLIENT_TRANSPORT_FILE) continue
+    const maskedLines = maskComments(src).split('\n')
+    const rawLines = src.split('\n')
+    for (const rule of alias.rules) {
+      const litRe = new RegExp(
+        `['"\`]${rule.from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/[^'"\`]*)?['"\`]`,
+      )
+      maskedLines.forEach((line, idx) => {
+        if (!litRe.test(line)) return
+        const raw = (line.match(litRe)?.[0] || '').slice(1, -1) || rule.from
+        const rewritten = rule.to + raw.slice(rule.from.length)
+        const method = inferMethodAtLine(rawLines, idx)
+        const rawLive = aliasPathCandidates(normalizeCallPath(raw)).some((c) =>
+          hasRoute(method, c),
+        )
+        const rewrittenLive = aliasPathCandidates(normalizeCallPath(rewritten)).some((c) =>
+          hasRoute(method, c),
+        )
+        if (!rawLive || !rewrittenLive) return // 单侧在册 = 既有等值对账已经看得见,不属本维
+        for (const g of guards) {
+          if (g.exemptMethods.length > 0 && !g.exemptMethods.includes(method)) continue
+          if (method === 'ANY') continue // 动态方法读不出 ⇒ 不猜(交给未判定档点名)
+          const key = `${file}:${idx + 1}:${raw}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          hits.push({
+            file,
+            line: idx + 1,
+            method,
+            raw,
+            rewritten,
+            guard: `${g.file}:${g.line}`,
+            exempt: g.exemptMethods.join('/'),
+          })
+        }
+      })
+    }
+  }
+  return hits
+}
+
+/**
+ * ③ 的另一半:`guards` 与改写档都在册,但一处站点都落不进射程时,**为什么落不进**必须报名。
+ * 只看 `method === 'ANY'` 与"单侧在册"两档 —— 这两档是本维真正"看得见但判不了"的形态,
+ * 与"这一族没人写"是两件事(把没判写成判过了,与本仓最高频失效型同源)。
+ */
+function collectAliasSiteUndetermined({ frontendFiles, alias, hasRoute }) {
+  const out = []
+  if (alias.rules.length === 0) return out
+  for (const { file, src } of frontendFiles) {
+    if (src === null || src === undefined) continue
+    const maskedLines = maskComments(src).split('\n')
+    const rawLines = src.split('\n')
+    for (const rule of alias.rules) {
+      const litRe = new RegExp(
+        `['"\`]${rule.from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/[^'"\`]*)?['"\`]`,
+      )
+      maskedLines.forEach((line, idx) => {
+        if (!litRe.test(line)) return
+        const raw = (line.match(litRe)?.[0] || '').slice(1, -1) || rule.from
+        const method = inferMethodAtLine(rawLines, idx)
+        if (method === 'ANY') {
+          out.push({ file, line: idx + 1, raw, reason: '方法是动态值,放行是否适用判不出' })
+          return
+        }
+        const rawLive = aliasPathCandidates(normalizeCallPath(raw)).some((c) => hasRoute(method, c))
+        const rewritten = rule.to + raw.slice(rule.from.length)
+        const rewrittenLive = aliasPathCandidates(normalizeCallPath(rewritten)).some((c) =>
+          hasRoute(method, c),
+        )
+        if (rawLive !== rewrittenLive) {
+          out.push({
+            file,
+            line: idx + 1,
+            raw,
+            reason: `只有单侧在册(${rawLive ? '改写前' : '改写后'}),等价不成立;另一侧由既有死调用判据管`,
+          })
+        }
+      })
+    }
+  }
+  return out
+}
+
+
 /**
  * 为什么必须有这一段:裸 `pathRe` 要求**引号紧邻 `/api/`**,而 HEAD 面实测 apps/cli 的出口形态是
  *   ① `` fetch(`${this.apiUrl}/api/registry/items?${qs}`) `` —— base 由插值提供(21 处),
@@ -1871,10 +2205,21 @@ function runSelfTest() {
   })
   try {
     const r = runGateIn(cliTernaryOkRoot)
+    /**
+     * 第三条判据必须按**计数 ≥1** 判,不能按"这一行出不出现"判 —— 本条断言从写下起就恒红:
+     * `6a5a53658` 在同一次提交里既写了它,又给门加了「0 也要出声」那两档输出行(区分"全部解析
+     * 成功"与"一条都没枚举到",防空扫型假绿),于是门**总是**打印
+     * `ℹ️ 未判定(CLI 变量路径调用点)0 处 —— …`,而这条断言要求它不出现。
+     * 账面表现:HEAD 面 `--self-test` 与镜像的「--self-test 端到端 exit 0」一起红,与本票无关的
+     * 每一次提交都被这台门自身钉住(§12f:恒红 ⇒ 各会话合法 --no-verify ⇒ 链上全部守门作废)。
+     * 两档 0 形态的行文都以 `0 处` 开头,`[1-9]` 天然不匹配;真未判定那一档是
+     * `未判定(CLI 变量路径调用点)<n> 处`,n≥1 ⇒ 匹配。**反向对照**由下一条(22)与 case 24/26 提供:
+     * 那几条只注册一条分支 / 解析不到,必须仍然判出"1 处" —— 所以这一改不会把门改成恒绿。
+     */
     eq(
       '三元两分支(都注册)⇒ 判红 0 且不再落未判定',
       [0, true, false],
-      [r.status, /通过/.test(r.out), /未判定\(CLI 变量路径调用点\)/.test(r.out)],
+      [r.status, /通过/.test(r.out), /未判定\(CLI 变量路径调用点\)[1-9]/.test(r.out)],
     )
   } finally {
     rmScratch(cliTernaryOkRoot)
@@ -2074,6 +2419,194 @@ function runSelfTest() {
   } finally {
     rmScratch(cliVarCommentRoot)
   }
+  // ===== 通道等价(CE)族(2026-09-29,G-466 换维;正反成对)=====
+  /**
+   * 夹具逐字照 HEAD 面 `packages/api-client/src/client.ts:404-416` 的 normalizeUrl 形态写,
+   * 只把改写档换成票面那一型(`/admin`→`/console`),守卫形态照 Fastify preHandler 真写法。
+   * 门读的是**这些文件的内容**,不是自带的第二张表(反向锁见镜像 T-CE-1)。
+   */
+  const CE_TRANSPORT = [
+    'export async function fetchApi<T>(url: string): Promise<T> {',
+    '  const normalizedUrl = normalizeUrl(url)',
+    '  return normalizedUrl as T',
+    '}',
+    'function normalizeUrl(url: string): string {',
+    '  if (/^https?:\\/\\//i.test(url)) return url',
+    '  const normalized = (() => {',
+    "    if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/ws/')) return url",
+    "    if (url.startsWith('/admin')) {",
+    "      return url.replace(/^\\/admin/, '/console')",
+    '    }',
+    "    if (url.startsWith('/')) return `/api${url}`",
+    '    return `/api/${url}`',
+    '  })()',
+    '  return normalized',
+    '}',
+    '',
+  ].join('\n')
+  const CE_GUARD_EXEMPT = [
+    'export async function clientChannelGuard(server) {',
+    "  server.addHook('preHandler', async (req, reply) => {",
+    "    const channel = req.headers['x-client-channel']",
+    "    const enforce = process.env.CHANNEL_ENFORCE === '1'",
+    '    if (!enforce) return',
+    "    if (req.method === 'GET') return",
+    "    if (channel !== 'admin') {",
+    "      return reply.code(403).send({ message: 'forbidden channel' })",
+    '    }',
+    '  })',
+    '}',
+    '',
+  ].join('\n')
+  /** 同一个守卫,但**没有**按方法放行的那一档 ⇒ ② 不成立 ⇒ 该维必须落未判定而不是判红 */
+  const CE_GUARD_NO_EXEMPT = [
+    'export async function clientChannelGuard(server) {',
+    "  server.addHook('preHandler', async (req, reply) => {",
+    "    const channel = req.headers['x-client-channel']",
+    "    if (channel !== 'admin') {",
+    "      return reply.code(403).send({ message: 'forbidden channel' })",
+    '    }',
+    '  })',
+    '}',
+    '',
+  ].join('\n')
+  const CE_ROUTES = [
+    // 这条 2 段路由是给**夹具自己**的:transport 夹具里的 `return \`/api${url}\`` 会被既有的
+    // 字面量提取式收成一处 `GET /api/:param` 调用(真仓里它命中成百条 2 段路由所以不报),
+    // 临时根里若没有一条 2 段路由,夹具自己就会先冒一枚与 CE 维无关的死调用红。
+    "server.get('/api/nothing', async () => ({}))",
+    "server.get('/api/admin/secret', async () => ({}))",
+    "server.get('/api/console/secret', async () => ({}))",
+    '',
+  ].join('\n')
+  const CE_SITE = "export const load = () => fetchApi('/admin/secret')\n"
+  const CE_EMPTY_LEDGER = JSON.stringify({ version: 1, declared: [] })
+  const ceRoot = (files) =>
+    makeSelfTestRoot({
+      [BASELINE_FILE_REL]: EMPTY_BASELINE,
+      [CHANNEL_EQUIV_BASELINE_REL]: CE_EMPTY_LEDGER,
+      [CLIENT_TRANSPORT_FILE]: CE_TRANSPORT,
+      'apps/api/src/plugins/ce-guard.ts': CE_GUARD_EXEMPT,
+      'apps/api/src/routes/ce.ts': CE_ROUTES,
+      'apps/mobile-rn/src/screens/Ce.tsx': CE_SITE,
+      ...files,
+    })
+  // 27. 阳性对照(本票立项那一型):三条件齐备 ⇒ 判红并点名"两种拼写等价"
+  const ceLiveRoot = ceRoot({})
+  try {
+    const r = runGateIn(ceLiveRoot)
+    eq(
+      '通道等价:改写档+放行档+两侧都在册的站点 ⇒ exit 1 且点名等价对',
+      [1, true],
+      [r.status, /\/admin\/secret ≡ \/console\/secret/.test(r.out)],
+    )
+  } finally {
+    rmScratch(ceLiveRoot)
+  }
+  // 28. 反向对照一:守卫对所有方法都执行(没有有意放行)⇒ ②不成立,不得判红
+  const ceNoExemptRoot = ceRoot({ 'apps/api/src/plugins/ce-guard.ts': CE_GUARD_NO_EXEMPT })
+  try {
+    const r = runGateIn(ceNoExemptRoot)
+    eq(
+      '通道等价:缺② ⇒ 未判定并点名,不判红也不记通过',
+      [0, true, false],
+      [
+        r.status,
+        /未判定\(通道等价 CE\):②/.test(r.out),
+        /\/admin\/secret ≡ \/console\/secret/.test(r.out),
+      ],
+    )
+  } finally {
+    rmScratch(ceNoExemptRoot)
+  }
+  // 29. 反向对照二(本就合法的一档):台账逐条写明理由 ⇒ 判绿,并且要说清是"已交代"
+  const ceDeclaredRoot = ceRoot({
+    [CHANNEL_EQUIV_BASELINE_REL]: JSON.stringify({
+      version: 1,
+      declared: [
+        {
+          file: 'apps/mobile-rn/src/screens/Ce.tsx',
+          path: '/admin/secret',
+          reason: '只读公开路由:该入口返回的字段与 /console 侧完全同集合,无租户数据',
+        },
+      ],
+    }),
+  })
+  try {
+    const r = runGateIn(ceDeclaredRoot)
+    eq(
+      '通道等价:站点已在台账逐条写明理由 ⇒ exit 0 且报"已交代"',
+      [0, true],
+      [r.status, /已在 .*declared|已交代|逐条写明理由/.test(r.out)],
+    )
+  } finally {
+    rmScratch(ceDeclaredRoot)
+  }
+  // 30. 反向对照三:只有单侧在册 = 等价不成立(那是既有死调用判据的地盘),本维不得冒红
+  const ceOneSideRoot = ceRoot({
+    'apps/api/src/routes/ce.ts': [
+      "server.get('/api/nothing', async () => ({}))",
+      "server.get('/api/admin/secret', async () => ({}))",
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(ceOneSideRoot)
+    eq(
+      '通道等价:单侧在册 ⇒ 未判定③并点名"只有单侧在册",不判红',
+      [0, true, true],
+      [
+        r.status,
+        /未判定\(通道等价 CE\):③/.test(r.out),
+        /只有单侧在册/.test(r.out),
+      ],
+    )
+  } finally {
+    rmScratch(ceOneSideRoot)
+  }
+  // 31. 遮噪证明:通道头与放行档**只写在注释里** ⇒ ②不成立(注释不得给实现发合格证)
+  const ceCommentRoot = ceRoot({
+    'apps/api/src/plugins/ce-guard.ts': [
+      '/**',
+      " * 设计稿(未实现):const channel = req.headers['x-client-channel']",
+      " * 曾计划 if (req.method === 'GET') return,现按全方法校验",
+      ' */',
+      'export async function clientChannelGuard(server) {}',
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(ceCommentRoot)
+    eq(
+      '通道等价:注释里的通道头/放行档不得被当实现 ⇒ 未判定,不判红',
+      [0, true, false],
+      [
+        r.status,
+        /未判定\(通道等价 CE\)/.test(r.out),
+        /\/admin\/secret ≡ \/console\/secret/.test(r.out),
+      ],
+    )
+  } finally {
+    rmScratch(ceCommentRoot)
+  }
+  // 32. 事实源①取不到 ⇒ 整维未判定并点名"取不到内容",不得静默也不得冒红
+  const ceNoTransportRoot = makeSelfTestRoot({
+    [BASELINE_FILE_REL]: EMPTY_BASELINE,
+    [CHANNEL_EQUIV_BASELINE_REL]: CE_EMPTY_LEDGER,
+    'apps/api/src/plugins/ce-guard.ts': CE_GUARD_EXEMPT,
+    'apps/api/src/routes/ce.ts': CE_ROUTES,
+    'apps/mobile-rn/src/screens/Ce.tsx': CE_SITE,
+  })
+  try {
+    const r = runGateIn(ceNoTransportRoot)
+    eq(
+      '通道等价:transport 取不到 ⇒ 未判定①点名"取不到内容",不判红不记通过',
+      [0, true, true],
+      [r.status, /未判定\(通道等价 CE\):①/.test(r.out), /取不到内容/.test(r.out)],
+    )
+  } finally {
+    rmScratch(ceNoTransportRoot)
+  }
   return { failures, assertions }
 }
 
@@ -2192,6 +2725,10 @@ const baseInputs = new Set([
   AI_SERVICE_MAIN_FILE,
   IGNORE_FILE_REL,
   BASELINE_FILE_REL,
+  // 通道等价维的三份输入:①归一实现、通道守卫面(整目录已在下一行)、首锚台账。
+  // 必须与其余内容**同面同轮**读满 —— 分开取会产出自洽而基准错位的尺子(守门 101/116 同型)。
+  CLIENT_TRANSPORT_FILE,
+  CHANNEL_EQUIV_BASELINE_REL,
   ...listFace(API_ROUTES_DIR, ['.ts']),
   ...listFace(API_PLUGINS_DIR, ['.ts']),
   ...listFace(AI_SERVICE_ROUTERS_DIR, ['.py']),
@@ -2508,6 +3045,28 @@ function matchStar(fParts, bParts) {
   return true
 }
 /**
+ * 「这条路径在这个 method 下在册吗」—— 与主对账循环**共用一份索引与判据**的唯一查询出口
+ * (通道等价维要问的就是同一件事,另写一遍必然与主循环漂移;主循环本身一字未动)。
+ */
+function backendHasRoute(method, callPath) {
+  const f = callPath.replace(/\/$/, '')
+  const fParts = f.split('/')
+  if (exactKeys.has(`${method} ${f}`)) return true
+  const byMethodMap = segBuckets.get(fParts.length)
+  if (byMethodMap) {
+    const buckets =
+      method === 'ANY' ? [...byMethodMap.values()] : [byMethodMap.get(method)].filter(Boolean)
+    for (const arr of buckets) {
+      for (const bParts of arr) if (matchSegs(fParts, bParts)) return true
+    }
+  }
+  for (const e of starEntries) {
+    const methodOk = method === 'ANY' || e.method === method
+    if (methodOk && matchStar(fParts, e.parts)) return true
+  }
+  return false
+}
+/**
  * 不透明挂载前缀 —— ai-service 的 MCP 导出面用 `mount_to_app(app)` 挂载,不是装饰器注册
  * (实测 `apps/ai-service/app/main.py:921-924` + `app/services/mcp_export.py:1050` 自行裁前缀),
  * 本门的静态注册面**结构上看不见**这些路径。与守门 127「不透明前缀下的未判定」同一口径:
@@ -2621,6 +3180,95 @@ function matchesIgnore(call) {
 
 const ignored = missing.filter(matchesIgnore)
 const realMissing = missing.filter((c) => !matchesIgnore(c))
+
+/**
+ * ===== 通道等价对账的执行段(三条件同时成立才判红;缺一落未判定并点名)=====
+ * 三条件各自的事实源都在**同一个判定面**上、同一次 prefetch 里读满(不得一面读盘一面读 git)。
+ */
+let channelVerdict = null
+{
+  const alias = readUrlAliasRules(readSource(CLIENT_TRANSPORT_FILE))
+  const guardEntries = []
+  for (const dir of CHANNEL_GUARD_GLOBS) {
+    for (const rel of listFace(dir, ['.ts'])) guardEntries.push({ file: rel, src: readSource(rel) })
+  }
+  const { guards, partial, scanned } = readChannelGuards(guardEntries)
+  const frontendFiles = frontendRels.map((rel) => ({ file: rel, src: readSource(rel) }))
+  /**
+   * 首锚台账:缺档 ⇒ 该维**未判定**(不判红也不记绿,同本门 `BASELINE_FILE_REL` 缺档的手法)。
+   * 键集与判据同面:`declared[]` 里每条必须带 file + path + reason,坏 JSON 不冒充空清单。
+   */
+  const ledgerSrc = readSource(CHANNEL_EQUIV_BASELINE_REL)
+  let declared = null
+  let ledgerNote = ''
+  if (ledgerSrc === null || ledgerSrc === undefined) {
+    ledgerNote = `${CHANNEL_EQUIV_BASELINE_REL} 不在 ${FACE} 面上 ⇒ 无首锚,本轮该维不判红`
+  } else {
+    try {
+      const parsedLedger = JSON.parse(ledgerSrc)
+      declared = Array.isArray(parsedLedger.declared) ? parsedLedger.declared : null
+      if (!declared) ledgerNote = `${CHANNEL_EQUIV_BASELINE_REL} 缺 declared 数组 ⇒ 无首锚`
+    } catch (e) {
+      ledgerNote = `${CHANNEL_EQUIV_BASELINE_REL} 不是合法 JSON(${e.message})—— 坏台账不冒充空清单`
+    }
+  }
+  const missingConditions = []
+  if (!alias.parsed) missingConditions.push(`①归一实现读不出(${alias.reason})`)
+  else if (alias.rules.length === 0)
+    missingConditions.push(
+      `①归一实现里没有"前缀 A→前缀 B"的改写档(改写档 0 条${alias.ambiguous ? ` / 判不出的改写形态 ${alias.ambiguous} 对` : ''})`,
+    )
+  if (guards.length === 0)
+    missingConditions.push(
+      `②通道守卫不在册(扫了 ${scanned} 个 ${API_PLUGINS_DIR} 文件,读到通道头的候选 ${partial.length} 个${
+        partial.length > 0
+          ? `:${partial.map((p) => `${p.file}:${p.line} 缺 ${p.missing}`).join(' / ')}`
+          : ',即全仓没有任何文件按客户端自报的通道头做判定'
+      })`,
+    )
+  if (ledgerNote) missingConditions.push(`首锚台账缺档 ⇒ 无锚点不判红(${ledgerNote})`)
+
+  let sites = []
+  let siteUndetermined = []
+  let declaredHits = []
+  if (missingConditions.length === 0) {
+    sites = findLiveAliasSites({
+      frontendFiles,
+      alias,
+      guards,
+      hasRoute: backendHasRoute,
+    })
+    siteUndetermined = collectAliasSiteUndetermined({ frontendFiles, alias, hasRoute: backendHasRoute })
+    // ③ 落不到调用点 = "这一族没人走" ⇒ 未判定(不得读成"已判过且没问题")
+    if (sites.length === 0)
+      missingConditions.push(
+        `③面上没有一处调用点同时落在两种拼写(等价是纸面的;看得见但判不了的 ${siteUndetermined.length} 处见下)`,
+      )
+    else {
+      declaredHits = sites.filter((s) =>
+        (declared || []).some(
+          (d) => d && d.file === s.file && d.path === s.raw && String(d.reason || '').trim(),
+        ),
+      )
+      sites = sites.filter((s) => !declaredHits.includes(s))
+      if (sites.length === 0)
+        console.log(
+          `${C.dim}[API 路由比对] ℹ️ 通道等价:${declaredHits.length} 处已在 ${CHANNEL_EQUIV_BASELINE_REL} 里逐条写明理由 ⇒ 本轮不判红(是"已交代",不是"没判")${C.reset}`,
+        )
+    }
+  }
+  channelVerdict = {
+    alias,
+    guards,
+    partial,
+    scanned,
+    sites,
+    siteUndetermined,
+    declaredHits,
+    missingConditions,
+    undetermined: missingConditions.length > 0,
+  }
+}
 
 /**
  * ===== 棘轮分流(2026-09-26)=====
@@ -2830,7 +3478,59 @@ if (DUMP_MISSING) {
   for (const d of dump) console.log(`    ${d}`)
 }
 
-if (webViolations.length === 0 && ratchetNew.length === 0) {
+/**
+ * ===== 通道等价维的读数(每轮必打,三态不并桶)=====
+ * 这一维今天在本仓的结论是「未判定」—— 但**未判定必须点名缺哪一条**,否则读报告的人会把它
+ * 读成"这一格已对齐"(本仓最高频失效型)。反过来,三条件齐备而一处不漏,才是真的"已判过且干净"。
+ */
+{
+  const v = channelVerdict
+  const aliasText = v.alias.parsed
+    ? v.alias.rules.length > 0
+      ? v.alias.rules.map((r) => `${r.from}→${r.to}`).join(' / ')
+      : '(无改写档)'
+    : `(读不出:${v.alias.reason})`
+  console.log(
+    `${C.dim}[API 路由比对] 通道等价(CE)① 归一改写档(读自 ${FACE} 面 ${CLIENT_TRANSPORT_FILE}::normalizeUrl):${aliasText}${v.alias.ambiguous > 0 ? ` | 判不出的改写形态 ${v.alias.ambiguous} 对(一条都不采用)` : ''}${C.reset}`,
+  )
+  console.log(
+    `${C.dim}[API 路由比对] 通道等价(CE)② 通道守卫:扫了 ${v.scanned} 个 ${API_PLUGINS_DIR} 文件,在册 ${v.guards.length} 个${
+      v.guards.length > 0
+        ? `(${v.guards.map((g) => `${g.file}:${g.line} 头 ${g.header} 放行 ${g.exemptMethods.join('/')}`).join(' / ')})`
+        : ''
+    }${v.partial.length > 0 ? `;读到通道头但要素不齐 ${v.partial.length} 个` : ''}${C.reset}`,
+  )
+  if (v.undetermined) {
+    console.log(
+      `${C.yellow}[API 路由比对] ⚠️ 未判定(通道等价 CE):${v.missingConditions.join(';')} ⇒ 这一格本轮没有判据,既不判红也不记通过${C.reset}`,
+    )
+    for (const u of v.siteUndetermined.slice(0, 10)) {
+      console.log(
+        `${C.dim}    ${u.file}:${u.line} ${u.raw} —— ${u.reason}${C.reset}`,
+      )
+    }
+  } else if (v.sites.length > 0) {
+    console.log(
+      `${C.red}[API 路由比对] ❌ 通道等价旁路 ${v.sites.length} 处:同一入口的两种拼写都在册,而通道守卫对该方法有意放行 ⇒ 等值对账两侧同时成立,本门原有的判据看不见这一型:${C.reset}`,
+    )
+    for (const s of v.sites.slice(0, 20)) {
+      console.log(
+        `${C.red}  ${s.method} ${s.raw} ≡ ${s.rewritten}${C.reset}\n${C.dim}    @ ${s.file}:${s.line};放行依据:${s.guard}(对 ${s.exempt} 跳过通道校验)${C.reset}`,
+      )
+    }
+    if (v.sites.length > 20)
+      console.log(`${C.dim}    ... 还有 ${v.sites.length - 20} 处${C.reset}`)
+    console.log(
+      `${C.dim}  出路只有两条:① 让该入口只保留一种拼写(删掉等价的那一侧注册),或 ② 在 ${CHANNEL_EQUIV_BASELINE_REL} 的 declared[] 里逐条写 file+path+reason 交代"这一处为什么可以走等价"。禁止为变绿去放宽判据或改后端放行(那是安全决策,不属本门)。${C.reset}`,
+    )
+  } else {
+    console.log(
+      `${C.green}[API 路由比对] ✅ 通道等价(CE)已判过:改写档与通道守卫都在册,而等价拼写上一处未交代的调用点都没有${v.declaredHits.length > 0 ? `(另有 ${v.declaredHits.length} 处已在台账里逐条写明理由,是"已交代"不是"没判")` : ''}${C.reset}`,
+    )
+  }
+}
+
+if (webViolations.length === 0 && ratchetNew.length === 0 && channelVerdict.sites.length === 0) {
   console.log(
     `${C.green}[API 路由比对] ✅ 通过(新增 0 处死调用;三端存量 ${ratchetStock.reduce((a, s) => a + s.count, 0)} 处按棘轮只报数)${C.reset}`,
   )

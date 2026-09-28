@@ -217,7 +217,7 @@
 .agent-h-avatar-wrap {
   width: 88rpx;
   height: 88rpx;
-  border-radius: 44rpx;
+  border-radius: var(--radius-2xl);
   overflow: hidden;
   background-color: var(--color-muted);
   border: 2rpx solid var(--color-border, var(--color-border));
@@ -529,7 +529,7 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  border-radius: 34rpx;
+  border-radius: var(--radius-2xl);
   margin: 0 auto;
   pointer-events: auto;
   background: var(--color-card);

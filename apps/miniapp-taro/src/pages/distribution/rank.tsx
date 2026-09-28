@@ -72,7 +72,7 @@ export default function DistributionRank() {
                 className={`flex-1 flex flex-col items-center p-[28rpx] rounded-xl ${rank === 1 ? 'bg-[var(--color-warning-amber-light)]' : 'bg-[var(--color-muted)]'}`}
               >
                 <View
-                  className="w-[96rpx] h-[96rpx] rounded-full border-[length:4rpx] bg-[var(--color-background)] overflow-hidden"
+                  className="w-[96rpx] h-[96rpx] rounded-2xl border-[length:4rpx] bg-[var(--color-background)] overflow-hidden"
                   style={{ borderColor: border }}
                 >
                   <Image
@@ -108,7 +108,7 @@ export default function DistributionRank() {
               <Text className="w-[72rpx] text-[length:32rpx] font-bold text-[var(--color-muted-foreground)]">
                 {i + 4}
               </Text>
-              <View className="w-[88rpx] h-[88rpx] rounded-full border-[length:3rpx] border-[var(--color-muted-foreground)] bg-[var(--color-muted)] overflow-hidden">
+              <View className="w-[88rpx] h-[88rpx] rounded-2xl border-[length:3rpx] border-[var(--color-muted-foreground)] bg-[var(--color-muted)] overflow-hidden">
                 <Image
                   className="w-full h-full"
                   src={u.avatar || '/static/default-avatar.png'}
