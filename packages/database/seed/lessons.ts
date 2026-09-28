@@ -5,7 +5,7 @@
 import { createDb } from '../src/client.js'
 import { lessons, learnCategories } from '../src/schema/learn.js'
 import { eq } from 'drizzle-orm'
-import { domesticImageAt } from '../../shared/src/constants/image-source-pool.js'
+import { domesticImageAt } from './image-source-pool.js'
 
 const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui')
 
