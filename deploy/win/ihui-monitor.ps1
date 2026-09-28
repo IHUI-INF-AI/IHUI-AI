@@ -103,6 +103,13 @@ $AlertRepeatHours    = [double](EnvOr 'IHUI_MONITOR_REPEAT_HOURS' '4')
 
 function Log($m) { "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $m" | Add-Content $alertLog -Encoding utf8 }
 
+# ── 去重实现只有一份(alert-dedup.ps1,与本文件同目录)────────────────────────────
+# 2026-09-28 起本文件的 Test-AlertDue 退化成**适配器**:去重逻辑住在共享模块里。
+# 立因:部署环与监控两侧各写过一遍"按签名去重",而两份共用同一条致命结构缺陷 ——
+# 状态文件只有一个槽,于是同一故障的两条措辞交替出现时互相抹掉对方的时间戳,
+# 4h 窗口结构上永不命中(实测 48h 寄出 47 封)。两处各写一遍必然漂开,故收成一份。
+. (Join-Path $PSScriptRoot 'alert-dedup.ps1')
+
 function Resolve-NodeExe {
   # NSSM(LocalSystem)服务上下文的 PATH 常常没有 node,Get-Command 落空后必须按绝对路径兜底。
   $cmd = Get-Command node.exe -ErrorAction SilentlyContinue
@@ -169,38 +176,11 @@ function Invoke-BrandMail {
 }
 
 function Test-AlertDue {
-  # 按**告警身份**去重,状态跨进程重启持久(NSSM 硬杀不走 SIGINT,内存态会随进程丢)。
-  # 返回 @{ Due=$true|$false; Note='持续时长/重发序号' }
+  # 适配器:判定住在共享模块 alert-dedup.ps1 的 Test-AlertDueByIdentity(**按签名分槽**持久)。
+  # 保留这个函数名与 { Due; Note } 返回形态,是为了不改上面 Send-Alert 那一处调用点;
+  # 真正的缺陷修复在模块里 —— 旧实现在此处自持"单槽"状态,是 47 封/48h 的成因。
   param([string]$Sig)
-  $state = $null
-  try { $state = Get-Content $MonitorStateFile -Raw -ErrorAction Stop | ConvertFrom-Json } catch { $state = $null }
-  $now = Get-Date
-  $sigFirstTs = $null
-  $repeatNo = 0
-  if ($state -and [string]$state.sig -eq $Sig -and $state.sigTs) {
-    $prevTs = $null
-    try { $prevTs = [datetime]$state.sigTs } catch { $prevTs = $null }
-    if ($prevTs) {
-      $ageH = ($now - $prevTs).TotalHours
-      if ($ageH -ge 0 -and $ageH -lt $AlertRepeatHours) {
-        return @{ Due = $false; Note = "同身份告警 $([Math]::Round($ageH,1))h 前已寄过(未到 ${AlertRepeatHours}h 重发周期)" }
-      }
-      try { if ($state.sigFirstTs) { $sigFirstTs = [datetime]$state.sigFirstTs } } catch { $sigFirstTs = $null }
-      if (-not $sigFirstTs) { $sigFirstTs = $prevTs }
-      $repeatNo = [int]$state.repeatNo + 1
-    }
-  }
-  if (-not $sigFirstTs) { $sigFirstTs = $now }
-  $durH = [Math]::Round(($now - $sigFirstTs).TotalHours, 1)
-  $note = if ($repeatNo -gt 0) { "`n- 备注: 同一故障已持续 ${durH} 小时,本条为第 $($repeatNo + 1) 次重发(每 $AlertRepeatHours 小时一次,身份变化则立即另发)" } else { '' }
-  $props = [ordered]@{ sig = $Sig; sigTs = $now.ToString('o'); sigFirstTs = $sigFirstTs.ToString('o'); repeatNo = $repeatNo; lastSend = $now.ToString('o') }
-  try {
-    $dir = Split-Path $MonitorStateFile -Parent
-    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-    $json = ConvertTo-Json $props -Depth 4
-    [System.IO.File]::WriteAllText($MonitorStateFile, $json, [System.Text.UTF8Encoding]::new($false))
-  } catch { Log "STATE 去重状态写入失败(不阻塞告警,但重启后可能重发一次): $($_.Exception.Message)" }
-  return @{ Due = $true; Note = $note }
+  return Test-AlertDueByIdentity -Sig $Sig -StateFile $MonitorStateFile -RepeatHours $AlertRepeatHours
 }
 
 function Write-Undelivered {
