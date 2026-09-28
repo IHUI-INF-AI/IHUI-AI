@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 import {
+  POINTER_FAMILIES,
   VOID_MARK_RE,
   auditPlan,
   compositeKeyOf,
@@ -120,7 +121,12 @@ test('M5 真实文档的行号指针确实会腐烂(F3 守的是发生过的事,
     throw new Error(`${SAMPLE_REV} 里已无 L 号指针样本 —— 换历史版本,不得跳过`)
   const bad = findRotatedPointers(pointerRows.join('\n'))
   if (bad.length === 0) throw new Error('F3 对真实形态一条都没点到 ⇒ 判据对该形态失明')
-  const known = ['目标行不存在', '目标行不是条目行', '目标行是另一条(复合主键不等)']
+  const known = [
+    '目标行不存在',
+    '目标行不是条目行',
+    '目标行是另一条(复合主键不等)',
+    '行号指针即使还指得准也不许存在(§1 要求内容锚点)',
+  ]
   for (const b of bad)
     if (!known.includes(b.reason)) throw new Error(`出现未登记的原因分类:${b.reason}`)
 })
@@ -669,4 +675,51 @@ test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/
     throw new Error(`--strict 遇存量撞号 ${base.F9} 组不得判红(恒红门),实测 exit ${stock.rc}`)
   if (!stock.cap.some((x) => x.includes('F9') && x.includes(String(base.F9))))
     throw new Error('绿档也必须把存量撞号数报出来(把看不见混进没问题是本仓最高频失效型)')
+})
+
+/**
+ * M18 F3 必须认得**归并器自己产出**的那一族指针措辞。
+ * 立项凭据是现读而非假想:HEAD 面 `存活于 L<行号>` 0 处,而 `同主键/逐字相同的另一条登记在 L<行号>`
+ * 244 处(2026-09-28 量)—— 旧判据只认前者,于是 rotatedPointers 一路报 0,而每一条行号指针都在烂。
+ * 这一条用例同时是反向锁:把族表删回一条,分支②立刻翻红。
+ */
+test('M18 F3 对"门自己产出的指针措辞"必须有牙(族表两条各一正一反)', () => {
+  if (POINTER_FAMILIES.length < 2)
+    throw new Error(`族表至少要有"存活于"与"另一条登记在"两族,实测 ${POINTER_FAMILIES.length}`)
+  // 两族各一条**指向别的话题**的指针 ⇒ 必须各自被点名并归到正确族名
+  const badDoc = [
+    '# 计划', // L1
+    '', // L2
+    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L5,派单以那条为准。〕', // L3
+    '- [ ] **D9 丙事**:说明。 〔另见登记:存活于 L5 的同编号登记。〕', // L4
+    '- [ ] **D8 乙事**:与两条指针都不同的另一条。', // L5
+  ].join('\n')
+  const bad = findRotatedPointers(badDoc)
+  if (bad.length !== 2)
+    throw new Error(`两族各应点名 1 处,实测 ${bad.length} 处:${JSON.stringify(bad.map((b) => b.family))}`)
+  for (const fam of ['alive', 'dup'])
+    if (!bad.some((b) => b.family === fam))
+      throw new Error(`族 ${fam} 一条都没判到 ⇒ 判据对该形态失明(这正是 2026-09-28 立项那一格)`)
+  // ② 行号**还指得准**时也必须判红:§1 禁的是"用行号当证据",不是"用指错的行号当证据"。
+  //    只判已腐烂那一半,等于允许一批"这次恰好还没挪位"的行号指针留在账上,下一枚 append 就变哑。
+  const okDoc = [
+    '# 计划', // L1
+    '', // L2
+    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L4,派单以那条为准。〕', // L3
+    '- [ ] **D7 甲事**:还没人做。', // L4 —— 与 L3 同主键,指针当前指得准
+  ].join('\n')
+  const ok = findRotatedPointers(okDoc)
+  if (ok.length !== 1)
+    throw new Error(`指得准的行号指针同样不得留在账上(§1 禁止的是行号本身),实测 ${ok.length} 处`)
+  if (ok[0].reason !== '行号指针即使还指得准也不许存在(§1 要求内容锚点)')
+    throw new Error(`应归到新原因,实测:${ok[0].reason}`)
+  // ③ 真正的"不红"形态 = 内容锚点(修复出口的产物),它必须一条都不判
+  const anchored = [
+    '# 计划',
+    '',
+    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记 「D7 · 甲事」,派单以那条为准。〕',
+    '- [ ] **D7 甲事**:还没人做。',
+  ].join('\n')
+  if (findRotatedPointers(anchored).length !== 0)
+    throw new Error('内容锚点形态被判红 ⇒ 出口产出的形态被门自己当成违规(两道机制互咬)')
 })
