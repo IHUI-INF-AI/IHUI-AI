@@ -107,34 +107,34 @@ export function VideoPlayer({
             max={100}
             value={progress}
             onChange={handleSeek}
-            className="mb-2 h-1 w-full cursor-pointer appearance-none rounded-xs bg-white/30 accent-primary"
+            className="mb-2 h-1 w-full cursor-pointer appearance-none rounded-sm bg-white/30 accent-primary"
           />
           <div className="flex items-center gap-2 text-white">
             <button
               onClick={togglePlay}
               aria-label={playing ? t('pause') : t('play')}
-              className="rounded p-1 hover:bg-white/20"
+              className="rounded-sm p-1 hover:bg-white/20"
             >
               {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
             </button>
             <button
               onClick={() => skip(-10)}
               aria-label={t('seekBackward')}
-              className="rounded p-1 hover:bg-white/20"
+              className="rounded-sm p-1 hover:bg-white/20"
             >
               <SkipBack className="h-4 w-4" />
             </button>
             <button
               onClick={() => skip(10)}
               aria-label={t('seekForward')}
-              className="rounded p-1 hover:bg-white/20"
+              className="rounded-sm p-1 hover:bg-white/20"
             >
               <SkipForward className="h-4 w-4" />
             </button>
             <button
               onClick={toggleMute}
               aria-label={mutedState ? t('unmute') : t('mute')}
-              className="rounded p-1 hover:bg-white/20"
+              className="rounded-sm p-1 hover:bg-white/20"
             >
               {mutedState ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
             </button>
@@ -144,7 +144,7 @@ export function VideoPlayer({
             <button
               onClick={fullscreen}
               aria-label={t('fullscreen')}
-              className="ml-auto rounded p-1 hover:bg-white/20"
+              className="ml-auto rounded-sm p-1 hover:bg-white/20"
             >
               <Maximize className="h-4 w-4" />
             </button>
