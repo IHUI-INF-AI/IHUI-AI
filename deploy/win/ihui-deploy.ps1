@@ -127,6 +127,13 @@ function Release-DeployLock {
 function Log   { param([string]$m) Write-Host "[$(Get-Date -Format 'HH:mm:ss zzz')] $m" }
 function Ok    { param([string]$m) Log "OK    $m" }
 
+# 去重实现与监控侧共用同一份模块(路径按 $PSScriptRoot 推导,不写死盘符 —— AGENTS 顶部
+# 「盘符每次现取」口径;本仓从 G: 迁到 D: 时写死绝对路径的脚本集体失效过一次)。
+# 为什么收成一份:本文件与 ihui-monitor.ps1 各写过一遍"按签名去重",两份都只存"最后一条
+# 签名",同故障两条措辞交替时互相抹时间戳 ⇒ 48h 寄出 47 封同一件事。两处各写一遍必漂,
+# 修法只能是一份实现(与「两处算同一件事必须共用一份实现」那条同族)。
+. (Join-Path $PSScriptRoot 'alert-dedup.ps1')
+
 # ── 运维告警邮件(AGENTS.md §5e;2026-09-24 起为唯一到人通道)──────────────────────
 #    部署失败自动寄品牌运维邮件。此前并行的第三方推送腿(免费额度 5 条/天的推送网关)已
 #    整体摘除。"当日计数"配额自保的成因是那份额度是**第三方配额**(撞顶即静默丢);SMTP 是
@@ -249,35 +256,22 @@ function Send-EmailNotify {
 }
 function Invoke-FailNotify {
     param([string]$m)
-    $state = $null
-    try {
-        $state = Get-Content $AlertNotifyStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
-    } catch { $state = $null }
-    # 同签名到点重发、换签名立即发(周期见 $FailAlertRepeatHours)。旧实现把"上次发过了"当成
-    # "不用再发",持续故障第二次起彻底无人知晓;这里只未到重发周期才静音,并把持续时长与
-    # 重发序号写进正文,让运维一眼看出"这个故障还没修好"而不是以为已处置。
+    # 去重逻辑住在共享模块 deploy/win/alert-dedup.ps1(**按签名分槽**持久),本函数只负责发送。
+    # 2026-09-28 之前的这里是"单槽"实现:状态文件只存最后一条签名,于是同一故障的两条措辞
+    # ("远端分叉需人工收敛" / "有未提交文件挡住 ff")随现场交替出现时,每次交替都①被当成
+    # 新告警立即另发、②顺手把另一条的时间戳覆盖掉 ⇒ 4h 窗口结构上永不命中。
+    # 实测代价:近 48h 寄出 47 封,内容全是同一件事"ff 切流被挡"。
     # 这是**按身份去重**,不是总量封顶 —— 无"每日 N 封"计数闸(成因见文件头 §5e 注释块)。
     $sig = ($m -replace '\s+', ' ').Trim()
-    $repeatNote = ''
-    $sigFirstTs = $null
-    $repeatNo = 0
-    if ($state -and [string]$state.sig -eq $sig -and $state.sigTs) {
-        $prevTs = $null
-        try { $prevTs = [datetime]$state.sigTs } catch { $prevTs = $null }
-        if ($prevTs) {
-            $ageH = ((Get-Date) - $prevTs).TotalHours
-            if ($ageH -ge 0 -and $ageH -lt $FailAlertRepeatHours) {
-                Log "ALERT 同签名失败告警 $([Math]::Round($ageH,1))h 前已寄过(未到 ${FailAlertRepeatHours}h 重发周期),本轮跳过"
-                return
-            }
-            try { if ($state.sigFirstTs) { $sigFirstTs = [datetime]$state.sigFirstTs } } catch { $sigFirstTs = $null }
-            if (-not $sigFirstTs) { $sigFirstTs = $prevTs }
-            $repeatNo = [int]$state.repeatNo + 1
-            $durH = [Math]::Round(((Get-Date) - $sigFirstTs).TotalHours, 1)
-            $repeatNote = "`n- 备注: 同一故障已持续 ${durH} 小时,本条为第 $repeatNo 次重发(每 $FailAlertRepeatHours 小时一次,签名变化则立即另发)"
-        }
+    $due = Test-AlertDueByIdentity -Sig $sig -StateFile $AlertNotifyStateFile -RepeatHours $FailAlertRepeatHours
+    if (-not $due.Due) {
+        Log "ALERT 同身份失败告警本轮跳过:$($due.Note)"
+        return
     }
-    if (-not $sigFirstTs) { $sigFirstTs = Get-Date }
+    if ($due.Decision -eq 'undetermined') {
+        Log "ALERT 去重状态不可用,本轮按'未寄过'照常寄出(宁可多喊一次,绝不静默压掉真失败)"
+    }
+    $repeatNote = $due.Note
     $nowTxt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'
     # 唯一到人通道:到点即寄,失败=告警从未被人看见,必须留下 UNDELIVERED 标记(参照
     # scripts/check-credential-health.mjs 的 UNDEL 机制),下一次成功投递自动清除。
@@ -297,12 +291,6 @@ function Invoke-FailNotify {
             Log "ALERT CRITICAL 邮件未送达且标记也写不出去 —— 告警面双盲,须人工核查本条失败: $m"
         }
     }
-    try {
-        Set-Content -Path $AlertNotifyStateFile -Value (@{
-            sig = $sig; sigTs = (Get-Date).ToString('o')
-            sigFirstTs = $sigFirstTs.ToString('o'); repeatNo = $repeatNo
-        } | ConvertTo-Json) -NoNewline
-    } catch {}
 }
 function Fail {
     param([string]$m)
@@ -596,6 +584,73 @@ function Report-BlockedWip {
     Log "BLOCKED-WIP 有 $($Entries.Count) 个被跟踪文件存在真实未提交改动(非幻影漂移),不代提交不删除"
     Log "BLOCKED-WIP 清单(最多 10 个): $(($paths | Select-Object -First 10) -join ' | ')"
     if ($Entries.Count -gt 10) { Log "BLOCKED-WIP 其余 $($Entries.Count - 10) 个未列出,完整清单看 git status --porcelain --untracked-files=no" }
+}
+
+# 多会话共写的活文档:工作区副本常年滞后 HEAD(旁路提交只推进 HEAD,不 checkout 工作树)。
+$LiveDocPaths = @('PROJECT_PLAN.md', 'README.md', 'AGENTS.md')
+function Invoke-LiveDocStaleRecovery {
+    <#
+      挡 ff 的路径**全部**是活文档时,先逐行证明"这份副本没有任何 HEAD 与归档之外的内容",
+      证得了才把它复原到 HEAD(先落逐字节备份),并让调用方重试一次 ff。
+      返回 $true = 已复原可重试;$false = 不复原(照旧 BLOCKED-WIP)。
+
+      2026-09-28 实测代价:这一型把生产整整挡住 4.5 小时(16:30 起连续 19 轮),期间每 4 小时
+      给机主寄一封"有未提交文件挡住 ff",而那两个文件里没有任何人在写的东西 —— 它们只是
+      归档前的旧快照。当时是我人工逐行验完才 checkout 的;判据必须常驻,否则下一个人只能
+      凭感觉决定要不要覆盖别人的台账,而凭感觉覆盖台账会抹掉别人正在写的活账。
+      判据本身不住在这里:在 scripts/live-doc-staleness-decision.mjs(多重集逐行出处判定)。
+    #>
+    param([string[]]$Blockers)
+    $nonLive = @($Blockers | Where-Object { $LiveDocPaths -notcontains $_ })
+    if ($nonLive.Count -gt 0) {
+        Log "LIVE-DOC 不复原:挡路清单里有 $($nonLive.Count) 个非活文档路径($($nonLive -join ', '))"
+        return $false
+    }
+    $node = Resolve-NodeExe
+    if (-not $node) { Log 'LIVE-DOC 未判定:node.exe 取不到,本轮不复原(等同改动前行为)'; return $false }
+    $decider = Join-Path $Root 'scripts/live-doc-staleness-decision.mjs'
+    if (-not (Test-Path -LiteralPath $decider)) { Log "LIVE-DOC 未判定:判定器不在位 $decider,本轮不复原"; return $false }
+    $argv = @($decider, '--paths') + @($Blockers) + @('--json')
+    $out = & $node @argv 2>&1 | Out-String
+    $code = $LASTEXITCODE
+    if ($code -ne 0) {
+        # exit 1 = 有无出处行(可能有人的活账就在这份副本里) / exit 2 = 判不出。两种都不许覆盖。
+        Log "LIVE-DOC 判不可复原(exit=$code):副本含 HEAD 与归档都无出处的行,禁止覆盖(不代提交不删除)"
+        @($out -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 14) | ForEach-Object { Log "  [decide] $_" }
+        return $false
+    }
+    $bakDir = Join-Path $Root '.ihui-agent/tmp/live-doc-stale'
+    # 备份必须是**终止错误 + 逐字节自证**。两条都是被实测逼出来的:
+    # ① 本脚本 $ErrorActionPreference='Continue',而 Copy-Item 的失败默认是**非终止错误** ⇒
+    #    裸 try/catch 接不住,备份没成也照样往下走到 git checkout(镜像测试 D5 第一次跑就
+    #    抓到我这个写法:结果是 False,但理由是"git checkout 失败",守卫等于没写)。
+    # ② "写了个同名文件"不等于"底稿可用" ⇒ 落盘后必须比哈希,不一致就不覆盖。
+    try {
+        if (-not (Test-Path -LiteralPath $bakDir)) { New-Item -ItemType Directory -Path $bakDir -Force -ErrorAction Stop | Out-Null }
+        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+        foreach ($p in $Blockers) {
+            $srcP = Join-Path $Root $p
+            if (-not (Test-Path -LiteralPath $srcP)) {
+                Log "LIVE-DOC 不复原:台账路径 $p 在工作区读不出来,拿不到逐字节底稿"
+                return $false
+            }
+            $dst = Join-Path $bakDir ("{0}.pre-align.{1}" -f (Split-Path $p -Leaf), $stamp)
+            Copy-Item -LiteralPath $srcP -Destination $dst -Force -ErrorAction Stop
+            $hSrc = (Get-FileHash -LiteralPath $srcP -Algorithm SHA256).Hash
+            $hDst = (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash
+            if ($hSrc -ne $hDst) {
+                Log "LIVE-DOC 不复原:底稿哈希与原件不一致($p),不能声称有可还原的备份"
+                return $false
+            }
+        }
+    } catch {
+        Log "LIVE-DOC 备份失败,放弃复原(没有逐字节底稿就不许覆盖台账): $($_.Exception.Message)"
+        return $false
+    }
+    & git -C $Root checkout HEAD -- @Blockers 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { Log "LIVE-DOC git checkout 失败(exit=$LASTEXITCODE),不复原"; return $false }
+    Log "LIVE-DOC 已复原 $($Blockers.Count) 个滞台活文档副本到 HEAD(逐行证明其内容在 HEAD ∪ 归档全部有出处;逐字节底稿在 $bakDir;判据实现 scripts/live-doc-staleness-decision.mjs)"
+    return $true
 }
 
 function New-BackupDir { if (-not (Test-Path $BackupDir)) { New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null } }
@@ -1371,6 +1426,7 @@ if ($behind -gt 0) {
     }
     $mergeOut = (& git merge --ff-only $remoteTip 2>&1 | Out-String)
     Write-Host $mergeOut
+    $ffRecovered = $false
     if ($LASTEXITCODE -ne 0) {
         # 2026-09-24 更正判据的成因归属:下面这段原先只看"工作树有没有脏文件"就判 BLOCKED-WIP,
         # 但"有脏文件"只是背景,不是这次 merge 失败的原因。真分叉时 git 报的是
@@ -1408,14 +1464,30 @@ if ($behind -gt 0) {
             # 同上一条:挡路的文件数随其他会话在飞的改动逐轮漂移,把它写进签名等于每轮换一次
             # 身份 ⇒ 去重失效。数量与清单由 Report-BlockedWip 逐轮写进日志(BLOCKED-WIP 行),
             # 证据不丢,只是不再参与"这是不是同一件事"的判定。
-            Fail "git merge --ff-only 失败:有未提交文件与本次要更新的路径重叠,挡住 ff(不代提交不删除),已停止,未切流"
+            # 挡路的全是活文档时先试一次"有出处的复原"(实现见 Invoke-LiveDocStaleRecovery):
+            # 逐行证明这份副本没有任何 HEAD 与归档之外的内容才覆盖,证不了就照旧停 —— 停是对的,
+            # 但 2026-09-28 它把生产挡了 4.5 小时,而那两个文件里根本没有人在写的东西。
+            if (Invoke-LiveDocStaleRecovery -Blockers $blockers) {
+                Log "LIVE-DOC 复原后重试一次 ff-only"
+                $mergeOut = (& git merge --ff-only $remoteTip 2>&1 | Out-String)
+                Write-Host $mergeOut
+                if ($LASTEXITCODE -eq 0) {
+                    $ffRecovered = $true
+                    Log "LIVE-DOC ff 重试成功,本轮按正常路径继续(仍要走下面的'HEAD 必须含本轮 tip'内容复核)"
+                }
+            }
+            if (-not $ffRecovered) {
+                Fail "git merge --ff-only 失败:有未提交文件与本次要更新的路径重叠,挡住 ff(不代提交不删除),已停止,未切流"
+            }
         }
-        if ($stillDirty.Count -gt 0) {
-            # 走到这里 = git 既没说分叉、脏文件也不与本次更新重叠 ⇒ 未判定,如实报出原文
-            Log "WARN  merge 失败成因未归类(git 输出不含上述两种指纹);脏文件 $($stillDirty.Count) 个但与本次更新不重叠。git 原文尾 5 行:"
-            @($mergeOut -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 5) | ForEach-Object { Log "  [git] $_" }
+        if (-not $ffRecovered) {
+            if ($stillDirty.Count -gt 0) {
+                # 走到这里 = git 既没说分叉、脏文件也不与本次更新重叠 ⇒ 未判定,如实报出原文
+                Log "WARN  merge 失败成因未归类(git 输出不含上述两种指纹);脏文件 $($stillDirty.Count) 个但与本次更新不重叠。git 原文尾 5 行:"
+                @($mergeOut -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 5) | ForEach-Object { Log "  [git] $_" }
+            }
+            Fail "git merge --ff-only 失败(成因见紧邻上一行),已停止,未切流"
         }
-        Fail "git merge --ff-only 失败(成因见紧邻上一行),已停止,未切流"
     }
     # ── "merge 成功"必须由内容证明,不得由退出码证明(2026-09-28 竞态的第三刀)──────────
     # 钉了显式 sha 之后,窗口从 15 秒缩到接近 0,但**结构上仍然存在**(并发进程可以在我们
