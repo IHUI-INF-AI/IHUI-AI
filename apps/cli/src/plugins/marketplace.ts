@@ -143,10 +143,41 @@ export function isLocalSource(s: MarketplaceSource): s is string | { type: 'loca
   return false;
 }
 
-/** 类型守卫:source 是 Git URL({ source: 'url', url }) */
+/**
+ * 类型守卫:source 是 Git URL({ source: 'url', url })。
+ *
+ * G-786 扩了这一条守卫的**形态判定**:`url` 必须是非空字符串。旧实现只判 `source === 'url'`,
+ * 于是 manifest 里 `"url":123` / `"url":""` 都能通过守卫并一路流到 `cache.ts::performClone` 的 argv
+ * (空串在位置参数位上是"没有仓库却像有",非字符串则在 execFileSync 里炸成无归属的 TypeError)。
+ *
+ * **这里刻意不判 scheme 白名单**,不是漏掉:守卫在 `installer.ts::installFromMarketplaceEntry` 里
+ * 承担的是**分流**职责(false 会落到 `未知的 source 类型` 分支)。若按 scheme 在这一层拒绝,恶意条目
+ * 虽然照样不会被 clone,但结构化 `reasonCode` 会被降级成一句拼出来的文案 —— 而 AGENTS 与本仓守门
+ * 67/135 反复记过"流程判断不得依赖错误文案"。形状白名单问责点收敛在 clone 的唯一咽喉点
+ * (`cache.ts::performClone` → `assertGitCloneInputs`),它同时覆盖"直接调 installPlugin(url)"这条
+ * 不经 marketplace 的入口,所以判一遍就够,且两处共用同一份实现。
+ */
 export function isGitSource(s: MarketplaceSource): s is { source: 'url'; url: string; ref?: string; sha?: string; path?: string } {
   if (!s || typeof s !== 'object') return false;
   if (!('source' in s)) return false;
-  return (s as { source: unknown }).source === 'url';
+  if ((s as { source: unknown }).source !== 'url') return false;
+  const url = (s as { url?: unknown }).url;
+  return typeof url === 'string' && url.length > 0;
 }
+
+/**
+ * Git 入参形状白名单的转发出口(唯一实现在 `./url-shape.ts`,与 `cache.ts` 同一份)。
+ * marketplace 侧做预检、cache 侧做咽喉点,两边都必须从这里取判据 —— 不得在端内各抄一遍正则。
+ */
+export {
+  assertGitCloneInputs,
+  evaluateGitRef,
+  evaluateGitSha,
+  evaluateGitUrl,
+  GitCloneInputRejectedError,
+  type GitUrlKind,
+  type GitUrlVerdict,
+  type GitRefVerdict,
+  type GitShaVerdict,
+} from './url-shape.js';
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
