@@ -817,7 +817,20 @@ function currentBranch(cwd = ROOT) {
  *    对着本机 HEAD 喊 fetch 既无效又掩盖了更严重的现场 ⇒ 文案按缺失侧分流。
  * 取不到可信分支名时宁可打印 `<当前分支名>` 占位,也不得回落到跟踪 ref 残值继续往下判。
  */
-export function unreachableObjectGuidance({ missing, theirs, head, branch } = {}) {
+export function unreachableObjectGuidance({ missing, theirs, head, branch, noRemoteTruth } = {}) {
+  // 第二种"没资格判"的形态:远端真值根本没问到(网络失败 / ls-remote 空输出)。过去它被塞进
+  // skip ⇒ 打印"无需合并"并 exit 0,于是「网络问不到」与「确实已同步」在账面上同形,调用方据此
+  // 跳过一整轮收敛 —— 而本器头注早就把这一格写成 "2 = 无法判定:…或取不到远端真值",属于
+  // 守门 137 判的那一型:文字承诺了,实现没兑现。出路文案只在这里写一份,两处分流共用。
+  if (noRemoteTruth) {
+    return [
+      `取不到 ${branch || '<当前分支名>'} 的当次远端真值 ⇒ 本次没有任何可落地的结论(既不是"无事可做",也不是"需人工")`,
+      `原因:${noRemoteTruth}`,
+      `出口① 联网问一次分支:git fetch origin ${branch || '<当前分支名>'} 后重跑本器(它会重新问一次远端真值,不沿用上一步的结果)`,
+      '出口② 免联网:显式喂一个**本地已可达**的目标 —— node scripts/union-converge.mjs --theirs <sha>(先自证:git cat-file -e <sha>^{commit})',
+      '出口③ 连续问不到先查 refs 存续:node scripts/git-refs-heal.mjs --status 与 node scripts/git-guardian.mjs --status',
+    ].join('\n')
+  }
   const list = [...(missing || [])].filter(Boolean)
   const names = list.map((s) => String(s).slice(0, 11)).join('、') || '(未点名)'
   const out = [
@@ -857,14 +870,24 @@ export function resolveTargets(theirsArg, cwd = ROOT) {
         return {
           head,
           theirs: '',
-          skip: `取不到 ${branch} 的当次远端真值(不拿跟踪 ref 残值落槌):${r.reason}`,
+          skip: null,
+          // 与「对象不在本机」同属"没资格判",不得共用 skip:skip 的文案是"无需合并"+exit 0,
+          // 那会把一次网络失败读成一次同步完成。
+          undetermined: unreachableObjectGuidance({
+            noRemoteTruth: `不拿跟踪 ref 残值落槌:${r.reason || '(未给出原因)'}`,
+            branch,
+          }),
         }
       theirs = r.sha
     } catch (e) {
       return {
         head,
         theirs: '',
-        skip: `取远端 ${branch} 异常:${String((e && e.message) || e).slice(0, 90)}`,
+        skip: null,
+        undetermined: unreachableObjectGuidance({
+          noRemoteTruth: `取远端异常:${String((e && e.message) || e).slice(0, 160)}`,
+          branch,
+        }),
       }
     }
   }
