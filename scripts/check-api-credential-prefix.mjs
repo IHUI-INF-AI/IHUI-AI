@@ -22,21 +22,49 @@
  *     (`tests/` `__tests__/` `*.test.*` `*.spec.*` 与 `apps/ai-service/scripts/` 均不在扫描面)
  *   - 脱敏展示值 `sk-***`(响应示例里已被掩码,非可复制凭据)
  *
- * 用法:
- *   node scripts/check-api-credential-prefix.mjs --staged   (pre-commit, 有违规则 exit 1)
- *   node scripts/check-api-credential-prefix.mjs             (全量扫描报告, exit 0)
+ * 用法(取材面 2026-09-28 收口,与守门 36/70/77/83/93/98/101/103/118 同口径):
+ *   node scripts/check-api-credential-prefix.mjs --staged    (pre-commit,判**索引 blob**,有违规则 exit 1)
+ *   node scripts/check-api-credential-prefix.mjs             (全量报告,判 **HEAD blob**,有违规 exit 0)
+ *   node scripts/check-api-credential-prefix.mjs --worktree  (人工逃生舱:判磁盘,提交链不走这档)
  *   node scripts/check-api-credential-prefix.mjs --self-test (自检规则正则)
+ * 退出码:0 = 通过(或全量档只报告)/ 1 = 暂存档发现违规 / 2 = 无法判定(两面旗同给、ROOT 不是仓库根、
+ * 被审面取不到正文、全量面枚举到 0 个候选)。
+ *
+ * 只换取材来源,**六条规则、行级豁免(LINE_ALLOW/SUPPRESS/BYOK)、inScope/isExcluded 判据、
+ * "暂存档才判红"的退出码含义,一项都没动**。换掉的是三处:
+ *   ① 全量档 `readdirSync` 磁盘枚举 + `readFileSync` 取正文 —— 共享工作树常年滞后 HEAD,同一份 HEAD
+ *      代码会在"恒红"与"假绿"之间来回跳;
+ *   ② 暂存档**清单来自索引而正文来自磁盘**(自洽却错位的尺子:本次提交带走的是索引那一份);
+ *   ③ `ROOT = process.cwd()` 落在仓库子目录时,`ls-tree`/`ls-files` 回的是**前缀相对路径**,inScope
+ *      一条都匹配不上 ⇒ 旧形态在此刻打"✅ 凭据前缀一致(0 个文件)"= 把"根本没扫"洗成通过。
+ *      现由 `assertRepoRoot` 判死(2 = 无法判定)。
+ * 一条如实登记的口径边界:**暂存档枚举到 0 个射程内文件不判死** —— `scripts/lib/pre-commit-hook.js`
+ * 对每次提交都调本门 `--staged`(无暂存路径触发条件),一次只改代码的提交结构上不会暂存 docs/README,
+ * 判死等于替每一次无关提交挡路,而恒挡的唯一结局是各会话走应急跳门、连带全部守门作废(§12e 同型)。
+ * 覆盖面差值也说清(数字按当次实测取,别照本行派单):旧磁盘遍历比三面多出来的那批候选**全部是
+ * gitignore 的第三方构建产物** —— `.gitignore:12` 的 `apps/web/public/vs/**`(Monaco bundle)与
+ * `:15` 的 `apps/web/public/downloads/manifest.json`。它们既不在 HEAD 也不在索引,按定义不属于任何
+ * 被审面(与守门 118 对"只存在于部署机的 gitignore 副本"的同一处置)。所以磁盘面是"跟踪 ⊕ 未跟踪
+ * 非忽略",而不是"盘上所有后缀匹配的文件" —— 这一格是写明在案的忽略项,不是暗减。
+ * 枚举(ls-tree / diff --cached --name-only / ls-files)都不产正文,不算散写读内容;正文一律经
+ * `scripts/lib/face-reader.mjs` 的读取入口(`catBatch` / `readWorktreeFile`)。
  */
-import { execSync } from 'node:child_process'
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import {
+  Undetermined,
+  assertRepoRoot,
+  catBatch,
+  gitRaw,
+  readWorktreeFile,
+  selectFace,
+} from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 
 const ROOT = process.cwd()
 const argv = process.argv.slice(2)
-const isStaged = argv.includes('--staged')
 const isSelfTest = argv.includes('--self-test')
+const GIT_TIMEOUT = 120000
 
 /** 扫描面:面向用户暴露凭据文案的目录/文件(相对 ROOT)。 */
 const SCAN_ROOTS = [
@@ -112,33 +140,63 @@ const RULES = [
 /** 允许出现的正则(行级豁免)——脱敏展示值。 */
 const LINE_ALLOW = [/sk-\*{2,}/, /\bsk-\*\*\*/, /X-Api-Secret/i]
 
-function walk(target, out = []) {
-  const full = join(ROOT, target)
-  if (!existsSync(full)) return out
-  if (statSync(full).isFile()) {
-    if (SCAN_EXTS.some((e) => target.endsWith(e))) out.push(target)
-    return out
-  }
-  for (const name of readdirSync(full)) {
-    if (EXCLUDE_DIR_NAMES.has(name)) continue
-    const rel = `${target}/${name}`
-    const abs = join(ROOT, rel)
-    if (statSync(abs).isDirectory()) walk(rel, out)
-    else if (SCAN_EXTS.some((e) => name.endsWith(e))) out.push(rel)
-  }
-  return out
+/**
+ * 纯函数:argv → 判定面(默认 **head**)。导出是为了"默认不再判磁盘"这一格能被构造面证明,
+ * 而不是等人跑一次真仓看结论行 —— 结论行会被人改,函数不会。
+ */
+export function faceFromArgv(list) {
+  return selectFace({
+    staged: list.includes('--staged'),
+    worktree: list.includes('--worktree'),
+    def: 'head',
+  })
 }
 
-function listStagedFiles() {
-  try {
-    const out = execSync('git diff --cached --name-only --diff-filter=ACM', { encoding: 'utf8', windowsHide: true })
-    return out
-      .split('\n')
-      .map((f) => f.trim().replace(/\\/g, '/'))
-      .filter((f) => f && SCAN_EXTS.some((e) => f.endsWith(e)))
-  } catch {
-    return []
+/**
+ * 枚举走**被审面的清单出口**:head→ls-tree、staged→diff --cached --name-only、worktree→ls-files
+ * ⊕ 未跟踪(`--others --exclude-standard`,与旧 `walk()` 磁盘遍历的覆盖面同形)。
+ * 暂存档带 `--diff-filter=ACMR` ⇒ 索引里的删除不在清单上,所以"清单有而正文取不到"只可能是取材失败
+ * 或未合并冲突态,那一格由调用方判"无法判定",不静默跳过。(旧实现是 `--diff-filter=ACM`:改名条目
+ * 不进面 ⇒ 一次"重命名 + 顺手改内容"的暂存会整条躲过本门。ACMR 是**收紧**,不是放宽判据。)
+ */
+export function listFacePaths(root, face) {
+  if (face === 'head')
+    return gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z'], root, { timeout: GIT_TIMEOUT })
+      .split('\0')
+      .filter(Boolean)
+  if (face === 'staged')
+    return gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'], root, {
+      timeout: GIT_TIMEOUT,
+    })
+      .split('\0')
+      .filter(Boolean)
+  return [
+    ...new Set([
+      ...gitRaw(['ls-files', '-z'], root, { timeout: GIT_TIMEOUT }).split('\0').filter(Boolean),
+      // 磁盘面 = 跟踪 ⊕ 未跟踪(旧 `readdirSync` 磁盘遍历看得见未跟踪文件;只列跟踪面会把那一族
+      // 覆盖丢掉 ⇒ 收口变成缩小扫描面)。逃生舱仍必须是"盘上那棵树"。
+      ...gitRaw(['ls-files', '--others', '--exclude-standard', '-z'], root, {
+        timeout: GIT_TIMEOUT,
+      })
+        .split('\0')
+        .filter(Boolean),
+    ]),
+  ]
+}
+
+/** 清单与内容**同面同轮**:一次 `cat-file --batch` 读满整批正文;取不到 ⇒ null(调用方判"无法判定")。 */
+export function readFaceContents(root, paths, face) {
+  const map = new Map()
+  if (paths.length === 0) return map
+  if (face === 'worktree') {
+    for (const p of paths) map.set(p, readWorktreeFile(root, p))
+    return map
   }
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const specs = paths.map((p) => prefix + p)
+  const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT })
+  paths.forEach((p, i) => map.set(p, got.get(specs[i]) ?? null))
+  return map
 }
 
 /** 该文件是否属于扫描面。 */
@@ -151,23 +209,31 @@ function isExcluded(file) {
   return file.split('/').some((seg) => EXCLUDE_DIR_NAMES.has(seg) || isExcludedDirName(seg))
 }
 
+/** 与旧 `walk()` / `listStagedFiles()` 出口同形的选取判据(扩展名 + 扫描面 + 排除段)。 */
+export function selectCandidate(file) {
+  return SCAN_EXTS.some((e) => file.endsWith(e)) && inScope(file) && !isExcluded(file)
+}
+
 const SUPPRESS = /check-api-credential-prefix-disable-next-line|api-credential-prefix-ignore/i
 
 /** BYOK 语境标记:该处 apiKey 指的是用户自有的上游厂商 key,而非平台凭据。 */
 const BYOK_CONTEXT = /["']?provider["']?\s*[:=]|create_user_model|CreateUserModel/
 
-/** 扫描单个文件,返回 findings。 */
-export function scanFile(file) {
-  const abs = join(ROOT, file)
-  if (!existsSync(abs)) return []
-  let text
-  try {
-    text = readFileSync(abs, 'utf8')
-  } catch {
-    return []
-  }
+/**
+ * 扫描单个文件,返回 findings。
+ * ⚠️ 正文由调用方**按判定面**取好再传进来(旧形态在这里 `readFileSync(join(ROOT, file))`,
+ * 于是"清单来自索引、内容来自磁盘"—— 本门只换取材来源,下面的六条规则与三档豁免一行都没动)。
+ * `text` 不是字符串 ⇒ 交给调用方判"无法判定",这里绝不返回 `[]`(空数组会被读成"扫过且干净")。
+ */
+export function scanFile(file, text) {
+  // 契约:正文必须是调用方从**判定面**取到的字符串。传进来不是字符串 ⇒ 抛,而不是 `return []` ——
+  // 旧实现在这里 `readFileSync` 失败就返回空数组,把"读不到"洗成"扫过且干净"(守门 118 要防的那一型)。
+  if (typeof text !== 'string')
+    throw new TypeError(
+      `scanFile(${file}) 需要由调用方按判定面取好的字符串正文,实得 ${typeof text}`,
+    )
   const findings = []
-  const lines = text.split(/\r?\n/)
+  const lines = String(text).split(/\r?\n/)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (LINE_ALLOW.some((re) => re.test(line))) continue
@@ -230,22 +296,96 @@ function selfTest() {
   return bad === 0
 }
 
+/**
+ * 结论 → 退出码,判据语义与旧版逐字同形:
+ *  - **只有暂存档判红**(`return isStaged ? 1 : 0`),全量/磁盘面是报告档 ⇒ 0;
+ *  - 新增的只有"无法判定"这一档:被审面取不到正文 ⇒ 2(不静默跳过,不回落另一个面)、
+ *    全量面/磁盘面枚举到 0 个候选 ⇒ 2(空转不是通过)、暂存档零候选 ⇒ 0(见头注那条口径边界)。
+ */
+export function decideExit({ face, files, unreadable, findings }) {
+  if (unreadable.length > 0) return 2
+  if (files.length === 0 && face !== 'staged') return 2
+  if (findings.length === 0) return 0
+  return face === 'staged' ? 1 : 0
+}
+
+/**
+ * 一次审计(root/face 都是入参:镜像与自检因此能在临时 git 仓里造"索引≠磁盘"的现场,
+ * 不依赖真仓瞬时状态)。取材面不是仓库根 ⇒ assertRepoRoot 抛,由调用方折成 2。
+ */
+export function runGate(root, face) {
+  assertRepoRoot(root, 'credential-prefix 的 ROOT')
+  const files = listFacePaths(root, face).filter(selectCandidate)
+  const contents = readFaceContents(root, files, face)
+  // 磁盘面的 null = 盘上没有这一份(跟踪清单里有而工作树里没落盘,§5b 清理层形态),那不属于"这一面
+  // 读错了",只点名不判死 —— 否则人工逃生舱恰在最需要它的时刻不可用。全量/暂存档的 null 才是
+  // "面上有而正文取不到" ⇒ 判死,不静默跳过(旧 `scanFile` 在这里 `return []`,把读不到洗成扫过且干净)。
+  const missing =
+    face === 'worktree' ? files.filter((f) => typeof contents.get(f) !== 'string') : []
+  const unreadable =
+    face === 'worktree' ? [] : files.filter((f) => typeof contents.get(f) !== 'string')
+  const findings = files
+    .filter((f) => typeof contents.get(f) === 'string')
+    .flatMap((f) => scanFile(f, contents.get(f)))
+  return {
+    face,
+    files,
+    unreadable,
+    missing,
+    findings,
+    exit: decideExit({ face, files, unreadable, findings }),
+  }
+}
+
 function main() {
-  if (isSelfTest) process.exit(selfTest() ? 0 : 1)
+  if (isSelfTest) return selfTest() ? 0 : 1
+  const sel = faceFromArgv(argv)
+  if (sel.error) {
+    console.error(`${C.red}❌ 无法判定:${sel.error}`)
+    return 2
+  }
+  let out
+  try {
+    out = runGate(ROOT, sel.face)
+  } catch (e) {
+    const known = e instanceof Undetermined
+    console.error(
+      `${C.red}❌ 无法判定(${sel.face} 面)⇒ 不记为通过:${
+        known ? e.message : `${e?.message ?? e}\n${e?.stack ?? ''}`
+      }`,
+    )
+    return 2
+  }
+  if (out.unreadable.length > 0) {
+    console.error(
+      `${C.red}❌ 无法判定:${out.face} 面取不到 ${out.unreadable.length} 个候选正文 —— ${out.unreadable
+        .slice(0, 5)
+        .join(', ')}(不静默跳过,也不回落另一个面)`,
+    )
+    return 2
+  }
+  if (out.files.length === 0 && out.face !== 'staged') {
+    console.error(`${C.red}❌ 无法判定:${out.face} 面枚举到 0 个射程内候选 ⇒ 尺子空转不是通过`)
+    return 2
+  }
 
-  const files = isStaged
-    ? listStagedFiles().filter((f) => inScope(f) && !isExcluded(f))
-    : SCAN_ROOTS.flatMap((r) => walk(r)).filter((f) => !isExcluded(f))
+  if (out.missing?.length) {
+    console.error(
+      `${C.yellow}⚠️ 磁盘面有 ${out.missing.length} 个跟踪路径盘上没有(§5b 清理层形态,不属于本面判定对象):${out.missing
+        .slice(0, 5)
+        .join(', ')}`,
+    )
+  }
 
-  const findings = files.flatMap(scanFile)
-
+  const findings = out.findings
   if (findings.length === 0) {
-    const scope = isStaged ? `${files.length} 个已暂存文件` : `${files.length} 个文件`
-    console.log(`${C.green}✅ 凭据前缀一致(${scope})`)
+    const scope =
+      out.face === 'staged' ? `${out.files.length} 个已暂存文件` : `${out.files.length} 个文件`
+    console.log(`${C.green}✅ 凭据前缀一致(${scope},取材面:${out.face})`)
     return 0
   }
 
-  console.error(`${C.red}❌ 发现 ${findings.length} 处凭据前缀误用:`)
+  console.error(`${C.red}❌ 发现 ${findings.length} 处凭据前缀误用(取材面:${out.face}):`)
   for (const f of findings) {
     console.error(`   ${f.file}:${f.line}  [${f.rule}]  ${f.text}`)
     console.error(`      → ${f.why}`)
@@ -253,8 +393,29 @@ function main() {
   console.error('')
   console.error('   统一口径:`Authorization: Bearer ihui_xxx`;`sk_xxx` 仅用于 `X-Api-Secret`。')
   console.error('   权威说明:docs/developer/getting-started/authentication.md')
-  return isStaged ? 1 : 0
+  return out.exit
 }
 
-process.exit(main())
+/** §22d 双形态入口守护:测试 import 不触发 CLI 副作用(旧版是顶层裸 `process.exit(main())`,
+ *  任何 import 都会在 setup 阶段就把整条 CLI 跑一遍并按结论退出 —— 镜像测试因此无法成立)。 */
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) process.exit(main())
+
+export const __test__ = {
+  RULES,
+  LINE_ALLOW,
+  SUPPRESS,
+  BYOK_CONTEXT,
+  SCAN_ROOTS,
+  SCAN_EXTS,
+  inScope,
+  isExcluded,
+  selectCandidate,
+  scanFile,
+  faceFromArgv,
+  listFacePaths,
+  readFaceContents,
+  runGate,
+  decideExit,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
