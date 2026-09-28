@@ -9,7 +9,10 @@
  * 1. 零新概念:复用已有 TokenStore 契约(stage 1-3 已落地),auth store 仅镜像状态供 React 订阅
  * 2. 依赖注入:tokenStore(必传)+ userTransport(可选,用于 user 持久化)由各端注入
  * 3. 非破坏性:与 useAuth hook(stage 4 落地)平行存在,组件可任选;后续阶段可桥接
- * 4. 安全优先:token/refreshToken/expiresIn 一律不持久化(走 tokenStore),只持久化 isAuthenticated + user
+ * 4. 安全优先:token/refreshToken/expiresIn 一律不持久化(走 tokenStore);持久化 blob 只存 user 资料,
+ *    登录态一律由「有没有 token」派生(hydrate),不写进存储(2026-09-28 G-456 收口:
+ *    「isAuthenticated 入库」是登录态的第二份真相,失效形态是 token 已清而 blob 里仍 true
+ *    ⇒ UI 认为已登录、请求全 401)
  *    遵循 web 端 2026-07-21 安全审计结论:localStorage 不可存 token,httpOnly cookie 才是正解
  *
  * 与 useAuth hook(stage 4)的差异:
@@ -153,7 +156,7 @@ export function createAuthStore<TUser = AuthUser>(
   } = options
 
   // 包装 transport 为 zustand persist 需要的 StateStorage 接口(返回 raw string)
-  // 注意:user persist 只存 user + isAuthenticated(security: 不存 token)
+  // 注意:user persist 只存 user 资料(security: 不存 token;登录态不入库,由 hydrate 派生)
   const persistStorage: StateStorage = {
     getItem: async (name) => {
       if (!userTransport) return null
@@ -232,11 +235,10 @@ export function createAuthStore<TUser = AuthUser>(
     persist(() => initialState, {
       name: userPersistKey,
       storage: createJSONStorage(() => persistStorage),
-      // 安全:仅持久化 user + isAuthenticated,token 一律不落盘
+      // 安全:仅持久化 user 资料,token 一律不落盘;登录态不入库(由 hydrate 从 token 派生)
       partialize: (state) => {
-        const persisted: Pick<AuthStoreState<TUser>, 'user' | 'isAuthenticated'> = {
+        const persisted: Pick<AuthStoreState<TUser>, 'user'> = {
           user: state.user,
-          isAuthenticated: state.isAuthenticated,
         }
         if (userPartialize && state.user) {
           const partial = userPartialize(state.user)
@@ -245,6 +247,17 @@ export function createAuthStore<TUser = AuthUser>(
           }
         }
         return persisted
+      },
+      // 登录态是派生值,不是存储值(2026-09-28,G-456):zustand 默认 merge 是
+      // {...currentState, ...persistedState},旧 blob 里那份 isAuthenticated 会原样渗进
+      // state —— 「token 已清而 UI 认为已登录」那型事故的来源。这里把旧形状的该键剥掉
+      // (user 资料照收),真值由 hydrate() 从 tokenStore 派生。刻意**不**在这里顺手用
+      // tokenStore 派生:异步 transport 的就绪时序不归本层管,提前派生会把「还没读到的
+      // token」误判成「没登录」,那是把用户踢下线(比原病更响)。
+      merge: (persisted, current) => {
+        const rest = { ...(persisted ?? {}) } as Partial<AuthStoreState<TUser>>
+        delete rest.isAuthenticated
+        return { ...current, ...rest }
       },
       // SSR 友好:hydrate 完成后设置 ready
       onRehydrateStorage: () => (state) => {
