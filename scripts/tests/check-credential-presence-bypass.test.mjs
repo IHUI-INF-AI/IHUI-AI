@@ -45,9 +45,14 @@ function runJson(args) {
  * 报"未注册" —— 那不是门没装上,是尺子站错了面。
  */
 function runnerFace() {
+  return faceShow('scripts/guardian-runner.mjs')
+}
+
+/** 同一张面(HEAD blob)的唯一取法,供注册表与守门 108 的存活期表共用 —— 别为第二个文件再抄一份 execFileSync。 */
+function faceShow(relPath) {
   return execFileSync(
     'C:/Program Files/Git/cmd/git.exe',
-    ['-c', 'safe.directory=*', 'show', 'HEAD:scripts/guardian-runner.mjs'],
+    ['-c', 'safe.directory=*', 'show', `HEAD:${relPath}`],
     { cwd: REPO, encoding: 'utf8', timeout: 120_000, maxBuffer: 1 << 26, windowsHide: true },
   )
 }
@@ -156,5 +161,26 @@ test('T9 自检必须端到端有牙:注释/字符串形态不得被计入,代�
   const inComment = code.replace("if (request.headers['x-id-token']) return", '// if (request.headers[\'x-id-token\']) return')
   assert.equal(gate.scanSource('a.ts', code).findings.length, 1)
   assert.equal(gate.scanSource('a.ts', inComment).findings.length, 0)
+})
+
+/**
+ * T10 跨文件锁:本门的行内豁免族必须进守门 108 的 `FAMILY_LIFETIME_DAYS`,且**族名由门体自己给出**
+ * (不在此处手抄 —— 手抄的那份会在改名时既匹配不上门体、也匹配不上表,变成一把空锁)。
+ * 两侧一律读 **HEAD 面**:读磁盘会把"门体已落地而 108 那张表还没落地"读成一致(两面不同形 =
+ * 自洽却错位的尺子,AGENTS 对 93/103/124 各记过一次)。
+ * 不登记的实际代价不是"少一个到期日",而是走 90 天默认档 + 第一处真写出来的行内豁免被 108 的 E4
+ * 判成"新引入的未登记豁免族"—— 一道门自己的合法出口被邻居钉红(两道门互咬)。
+ */
+test('T10 跨文件锁:行内豁免族必须进守门 108 的存活期表(30 天,待偿的裁决债)', () => {
+  const gateFace = faceShow('scripts/check-credential-presence-bypass.mjs')
+  const fam = /const EXEMPT_RE = \/([a-z-]+):\\s/.exec(gateFace)?.[1]
+  assert.ok(fam, "门体里读不出豁免族名 ⇒ 本锁空转(锁必须问结构,不接受'看着像')")
+  const expiry = faceShow('scripts/check-exemption-expiry.mjs')
+  const m = new RegExp(`'${fam}':\\s*(\\d+)`).exec(expiry)
+  assert.ok(
+    m,
+    `${fam} 没进 FAMILY_LIFETIME_DAYS ⇒ 走 90 天默认档,且第一处行内豁免会被守门 108 的 E4 判成"新引入的未登记族"`,
+  )
+  assert.equal(m[1], '30', '该族是待偿的裁决债(补验真或改台账带复核日),取 30 天;改档要走 108 表旁注释,不得就地放宽')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
