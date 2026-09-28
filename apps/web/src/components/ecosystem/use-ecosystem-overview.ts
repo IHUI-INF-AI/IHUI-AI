@@ -14,6 +14,8 @@ import { getCapabilities, getMcpStore } from '@ihui/api-client/endpoints/mcp'
 import { getConnectors, type ConnectorEntry } from '@ihui/api-client/endpoints/connectors'
 import { fetchMarketSkills, type SkillMarketItem } from '@ihui/api-client/endpoints/skills-market'
 
+import { useAuthStore } from '@/stores/auth'
+
 import type { MarketKey } from './expert-packs'
 
 /** 入口首页只展示前 N 条深链,其余走各自列表页 */
@@ -47,10 +49,35 @@ interface ConnectorsOverview {
   entries: ConnectorEntry[]
 }
 
-/** 连接器条目(列表 + 计数同源,避免两次请求算同一件事) */
+/**
+ * 当前登录主体 id(未取到主体时为 null)。
+ * 只订阅 `user?.id` 这一个标量字段,不订阅整个 user 对象(全对象订阅会让任何
+ * setUser 触发本组件重渲染,Sidebar.tsx:98 记过同一型)。
+ */
+function usePrincipalId(): string | null {
+  return useAuthStore((s) => s.user?.id ?? null)
+}
+
+/**
+ * 连接器条目(列表 + 计数同源,避免两次请求算同一件事)
+ *
+ * queryKey 必须含登录主体(2026-09-29 立):后端 `GET /api/connectors` 已按调用方收窄
+ * (a7379cdba:只返回你自己拥有的连接器),条目含 name / key / type ⇒ 属个人配置数据。
+ * 而这份缓存落在模块级单例(lib/query-client.ts:47-53,staleTime 5min / gcTime 10min),
+ * 键里不带主体时,同一浏览器换账号会在 refetch 完成前把上一个账号的条目渲染给新账号。
+ *
+ * 刻意**不用** `enabled: principal !== null` 把请求关掉:那会让"还没有主体"的渲染永久停在
+ * pending,而 `ecosystem-hub.tsx` 的 pending 分支与"零条目"走同一个 <ul> ⇒ 整段空白,
+ * 正是 D17 那条"取数未成功时分区正文不得整段空白"要防的形态(它由
+ * `__tests__/ecosystem-hub.test.tsx` 钉着)。无主体时请求照发(拿 401 也好、拿数据也好),
+ * 结果落在 'anonymous' 这一格;跨账号的那一半由 `providers/query-provider.tsx` 的
+ * "主体由有到无 ⇒ 清空缓存"补上 —— 那一条同时覆盖全站其它按用户取数的查询,
+ * 所以不在这儿给每个键单独加闸。
+ */
 export function useConnectors(): ConnectorsOverview {
+  const principalId = usePrincipalId()
   const q = useQuery({
-    queryKey: ['ecosystem', 'connectors'],
+    queryKey: ['ecosystem', 'connectors', principalId ?? 'anonymous'],
     queryFn: () => unwrap(getConnectors()),
   })
   return { status: statusOf(q), entries: q.data?.connectors ?? [] }
