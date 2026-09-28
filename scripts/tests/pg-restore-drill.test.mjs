@@ -10,12 +10,15 @@
  *  ② 拿不到 dump 必须判"无法判定",不得伪装成"通过";
  *  ③ check / dry-run / offline-verify / 凭据不足的 apply 一档都不派生连库写命令
  *    (注入假执行器记录每一次调用;并各配"apply 确实会派生写"的阳性对照 —— 否则断言恒真)。
- * 外加:口令哨兵不得出现在任何输出、存在同名库时中止且绝不 CREATE/DROP、runPlan 写闸门。
+ * 外加:口令哨兵不得出现在任何输出、存在同名库时中止且绝不 CREATE/DROP、runPlan 写闸门,
+ * 以及**落点解析三条**(P-落点 1/2/3):接共用出口后真值逐字不变、共用出口真被 consult、
+ * 结果与 `process.cwd()` 无关(该出口不接收工作树参数,所以夹具深度这一维**未被修复**,见用例注释)。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFileSync, mkdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
+import { dirname, join, parse, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as D } from '../pg-restore-drill.mjs'
 
@@ -313,5 +316,84 @@ test('renderHuman:public 数对 public 数;全模式数必须另立并标明口�
   const allLine = String(text).split(/\r?\n/).find((l) => l.includes('全模式 TABLE DATA'))
   assert.ok(allLine && allLine.includes('722'), '全模式数仍在,但单独成行并标明口径')
   assert.equal(/dump 内 public 表 722/.test(String(text)), false, '反向锁:全模式数不得再被冠以 public')
+})
+
+// ──────────────── 落点解析(2026-09-28:私有数层推导 → 共用出口 devEnvRoot()) ────────────────
+// 背景:本模块曾自己 `join(resolve(repoRoot,'..','..'),'DevEnv')` 并在注释里称"与 gitdir.mjs
+// gitArchiveDir 同式"。`971690247` 把 gitdir 改成盘根锚定(`parse(wt).root`)后那句话就反了,
+// 所以接线到 §15b 唯一外置根出口(`seal-c-root-stray.mjs` 的 `devEnvRoot()`,与
+// `re-home-junctions.mjs` / `check-c-drive-pollution.mjs` 同源)并让文案与实现同形。
+
+/**
+ * 期望值 oracle **刻意不 import 被测出口**(import 它来证明它 = 拿实现给自己发合格证,§22c)。
+ * 这里按 `gitdir.mjs` / `scratch-dir.mjs` 同一套盘根锚定独立算一遍,并把"改前那个数层式"
+ * 与它在当前布局下逐字等值一起判 —— 那正是本票的核心验收"真值逐字不变"。
+ */
+const REPO_FROM_TEST = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const DRIVE_ANCHORED_DEVENV = join(parse(REPO_FROM_TEST).root, 'DevEnv')
+const OLD_DEPTH_BASED_DEVENV = join(resolve(REPO_FROM_TEST, '..', '..'), 'DevEnv')
+
+test('P-落点1 真值不变:共用出口与"改前数层式"在真仓逐字同值(盘根锚定为 oracle)', () => {
+  assert.equal(
+    OLD_DEPTH_BASED_DEVENV,
+    DRIVE_ANCHORED_DEVENV,
+    '本用例的 oracle 前提:仓在 <盘>:/<仓名> 布局下,数两级与盘根锚定同值 —— 不成立则下面的断言不构成"真值不变"证明',
+  )
+  assert.equal(D.pgBinDir(), join(DRIVE_ANCHORED_DEVENV, 'runtimes', 'pgsql', 'bin'))
+  assert.equal(D.backupPgDir(), join(DRIVE_ANCHORED_DEVENV, 'backups', 'pg'))
+  // 显式 env 覆盖仍然优先(接线共用出口不得把那条逃生舱挤掉)
+  const saved = process.env.IHUI_BACKUP_PG_DIR
+  process.env.IHUI_BACKUP_PG_DIR = join(DRIVE_ANCHORED_DEVENV, 'somewhere', 'else')
+  try {
+    assert.equal(D.backupPgDir(), process.env.IHUI_BACKUP_PG_DIR, 'IHUI_BACKUP_PG_DIR 必须赢过任何推导')
+  } finally {
+    if (saved === undefined) delete process.env.IHUI_BACKUP_PG_DIR
+    else process.env.IHUI_BACKUP_PG_DIR = saved
+  }
+})
+
+test('P-落点2 共用出口真被 consult:IHUI_DEVENV_ROOT 改写落点,且解析零副作用', () => {
+  const dir = mkScratch('pg-drill-devenv-root')
+  const saved = process.env.IHUI_DEVENV_ROOT
+  process.env.IHUI_DEVENV_ROOT = dir
+  try {
+    assert.equal(D.backupPgDir(), join(dir, 'backups', 'pg'))
+    assert.equal(D.pgBinDir(), join(dir, 'runtimes', 'pgsql', 'bin'))
+    // 解析必须是纯问路:只读地算落点不得在被问到的位置长出目录
+    // (gitdir.mjs 那次把 mkdir 从解析挪到写出口,同一条规矩)
+    assert.equal(existsSync(join(dir, 'backups')), false, '仅问一次落点就把目录建出来了 = 解析带副作用')
+    assert.equal(existsSync(join(dir, 'runtimes')), false, '同上:pgBinDir 只该问路,不该建路')
+  } finally {
+    if (saved === undefined) delete process.env.IHUI_DEVENV_ROOT
+    else process.env.IHUI_DEVENV_ROOT = saved
+    rmScratch(dir)
+  }
+})
+
+test('P-落点3 反向对照与边界:落点与 process.cwd() 无关;私有数层实现不得回来', () => {
+  const before = { bin: D.pgBinDir(), backup: D.backupPgDir() }
+  const dir = mkScratch('pg-drill-cwd-invariant')
+  const deep = join(dir, 'L0', 'L1')
+  mkdirSync(deep, { recursive: true })
+  const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'pg-restore-drill.mjs'), 'utf8')
+  const cwd0 = process.cwd()
+  process.chdir(deep)
+  try {
+    assert.deepEqual({ bin: D.pgBinDir(), backup: D.backupPgDir() }, before, '同一进程换 CWD 就换落点 = 按"站在哪儿"推导')
+    // 源码级反向锁:私有实现一旦回来,本模块就又多一份推导,而文档里那句"同一出口"变成假话
+    assert.equal(/function\s+devEnvRoot\s*\(/.test(src), false, '本模块不得再声明私有 devEnvRoot —— 落点只许有一个出口')
+    assert.match(src, /import \{ devEnvRoot \} from '\.\/seal-c-root-stray\.mjs'/, '必须真的 import 共用出口(§22c 装车证明)')
+  } finally {
+    process.chdir(cwd0)
+    rmScratch(dir)
+  }
+  // 如实登记**未被本票关闭的一格**:`devEnvRoot()` 不接收工作树参数(它锚在自己的模块位置),
+  // 所以"把工作树喂成两层深夹具 ⇒ 落点跟着夹具走"这一维不能由本票修复,也不得假装修好了。
+  // 要关它只有两条路,都不在本票改区:① 在 seal-c-root-stray 侧改盘根锚定 + 夹具闸(照 `971690247`
+  // 那一枚对 gitdir 做的事);② 改用 gitdir.mjs 的 gitArchiveRootFor —— 但它表达的是
+  // `<盘>/DevEnv/backups/git`,与"DevEnv 根本身"语义不符。这条边界下面用签名锁钉住:
+  // 出口一旦开始接收工作树参数,就说明这一格已被别人关闭,本注释与断言必须同步改写(而不是静默腐烂)。
+  const sealSrc = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'seal-c-root-stray.mjs'), 'utf8')
+  assert.match(sealSrc, /export function devEnvRoot\(\)/, '共用出口签名已变(开始接收参数?)⇒ 本用例那段"夹具洞未由本票关闭"的登记需重新判定')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

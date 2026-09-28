@@ -19,14 +19,117 @@
  * 8. 跨端类型导出(createAuthStore 工厂都接受 PersistTransport)
  *
  * 用法:node scripts/check-cross-store-parity.mjs
+ *       node scripts/check-cross-store-parity.mjs --staged    # 提交链档:判定面 = 索引 blob
+ *       node scripts/check-cross-store-parity.mjs --worktree  # 显式磁盘档(人工逃生舱)
+ *       node scripts/check-cross-store-parity.mjs --root <dir># 显式仓库根(测试/夹具通道)
  * 集成:.husky/pre-commit 守门(无 --no-verify 时生效)
+ *
+ * 判定面(2026-09-28 收口,与守门 70/118 及 2i 死 key 扫描同口径):
+ *   本步是**批外 blocking**,旧形态把 5 份输入按磁盘读 ⇒ 并行会话对任一端 storage-adapter
+ *   或 shared auth-store 的**未暂存**改动都会把无关提交钉红,唯一出路 --no-verify
+ *   (一次绕过约等于链上全部守门作废,§12e/§12f)。`--staged` ⇒ 5 份输入在同一次
+ *   `cat-file --batch` 里取自索引 blob(清单与内容同面同轮);面上取不到 ⇒ **exit 2「未判定」**,
+ *   绝不回退磁盘、绝不记为通过。缺省 / `--worktree` ⇒ 磁盘,既有行为逐字不变。
+ *   退出码:0 通过 / 1 契约漂移 / 2 无法判定(未判定)。
  */
-import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { readFileSync, existsSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { Undetermined, assertRepoRoot, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const ROOT = resolve(__dirname, '..')
+
+/** `--root <dir>` / `--root=<dir>` 都认:只认一种会让假根被静默忽略 ⇒ 扫真仓假绿。 */
+function resolveRootArg(list) {
+  const eq = list.find((a) => a.startsWith('--root='))
+  if (eq !== undefined) {
+    const v = eq.slice('--root='.length)
+    return v ? { root: resolve(v), error: null } : { root: null, error: '--root= 缺目录值' }
+  }
+  const i = list.indexOf('--root')
+  if (i < 0) return { root: null, error: null }
+  const v = list[i + 1]
+  if (!v || v.startsWith('-')) return { root: null, error: '--root 必须带目录值' }
+  return { root: resolve(v), error: null }
+}
+const argv = process.argv.slice(2)
+const rootArg = resolveRootArg(argv)
+if (rootArg.error) {
+  console.error(`[cross-store-parity] 无法判定(exit 2,未判定): ${rootArg.error}`)
+  process.exit(2)
+}
+const ROOT = rootArg.root ?? resolve(__dirname, '..')
+
+const facePick = selectFace({
+  staged: argv.includes('--staged'),
+  worktree: argv.includes('--worktree'),
+  def: 'worktree',
+})
+if (facePick.error) {
+  console.error(`[cross-store-parity] 无法判定(exit 2,未判定): ${facePick.error}`)
+  process.exit(2)
+}
+const FACE = facePick.face
+const FACE_LABEL_TEXT = FACE === 'staged' ? '索引 blob' : '工作树磁盘'
+
+function failUndetermined(what) {
+  console.error(`[cross-store-parity] 无法判定(exit 2,未判定): ${what}`)
+  console.error('   这不是"契约漂移",是这次判不了。**未判定 ≠ 通过**,也绝不回退磁盘。')
+  process.exit(2)
+}
+
+let faceIndex = null
+/** 按判定面一次读满全部输入;git 派生失败 ⇒ exit 2(不回退磁盘)。 */
+function ensureFaceIndex(rels) {
+  if (faceIndex) return
+  try {
+    assertRepoRoot(ROOT, '本门')
+    const got = catBatch(ROOT, rels.map((r) => `:${r}`), { timeout: 120000 })
+    faceIndex = new Map()
+    for (const r of rels) {
+      const t = got.get(`:${r}`)
+      if (typeof t === 'string') faceIndex.set(r, t)
+    }
+  } catch (e) {
+    if (e instanceof Undetermined) failUndetermined(`索引面取材失败(**不回退磁盘**):${e.message}`)
+    throw e
+  }
+}
+/** 路径是否在**判定面**上存在(索引面 = 索引里有这条路径)。 */
+function faceListed(rel) {
+  if (FACE !== 'staged') return existsSync(join(ROOT, rel))
+  ensureFaceIndex(ALL_RELS)
+  try {
+    return gitRaw(['ls-files', '--', rel], ROOT, { timeout: 60000 })
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .includes(rel)
+  } catch (e) {
+    if (e instanceof Undetermined) failUndetermined(`索引面存在性问不到 ${rel}:${e.message}`)
+    throw e
+  }
+}
+/** 读一份输入(已确认在面上);面上取不到正文 ⇒ 未判定。磁盘档的读失败保留旧语义(记 issue)。 */
+function faceRead(rel, label) {
+  if (FACE !== 'staged') {
+    const abs = join(ROOT, rel)
+    if (!existsSync(abs)) {
+      issues.push(`[${label}] 无法读取 ${rel}: 文件不存在`)
+      return null
+    }
+    try {
+      return readFileSync(abs, 'utf-8')
+    } catch (err) {
+      issues.push(`[${label}] 无法读取 ${rel}: ${err.message}`)
+      return null
+    }
+  }
+  ensureFaceIndex(ALL_RELS)
+  const t = faceIndex.get(rel)
+  if (typeof t !== 'string')
+    failUndetermined(`索引面列出了 ${rel} 却取不到正文(unmerged / 非 blob),**不回退磁盘**`)
+  return t.charCodeAt(0) === 0xfeff ? t.slice(1) : t
+}
 
 const ENDPOINTS = [
   { name: 'web', path: 'apps/web/src/stores/storage-adapter.ts' },
@@ -43,18 +146,19 @@ const REQUIRED_EXPORTS = {
 }
 
 const PERSIST_KEY = 'ihui-auth-user' // shared/src/stores/auth-store.ts userPersistKey default
+/** 本门全部输入(索引面一次读满的清单)。 */
+const ALL_RELS = [
+  ...ENDPOINTS.map((e) => e.path),
+  'packages/shared/src/stores/auth-store.ts',
+]
 
 const issues = []
 
 async function checkEndpoint(endpoint) {
-  const fullPath = resolve(ROOT, endpoint.path)
-  let content
-  try {
-    content = await readFile(fullPath, 'utf-8')
-  } catch (err) {
-    issues.push(`[${endpoint.name}] 无法读取 ${endpoint.path}: ${err.message}`)
-    return
-  }
+  const content = faceListed(endpoint.path)
+    ? faceRead(endpoint.path, endpoint.name)
+    : (issues.push(`[${endpoint.name}] 无法读取 ${endpoint.path}: 判定面(${FACE_LABEL_TEXT})上没有这条路径`), null)
+  if (content === null) return
 
   // 检查 1: 必需导出
   for (const exportName of REQUIRED_EXPORTS[endpoint.name] ?? []) {
@@ -83,14 +187,11 @@ async function checkEndpoint(endpoint) {
 
 async function checkSharedContract() {
   // 检查 shared 工厂的 userPersistKey 默认值
-  const sharedAuthPath = resolve(ROOT, 'packages/shared/src/stores/auth-store.ts')
-  let sharedAuth
-  try {
-    sharedAuth = await readFile(sharedAuthPath, 'utf-8')
-  } catch (err) {
-    issues.push(`[shared] 无法读取 auth-store.ts: ${err.message}`)
-    return
-  }
+  const SHARED_AUTH_REL = 'packages/shared/src/stores/auth-store.ts'
+  const sharedAuth = faceListed(SHARED_AUTH_REL)
+    ? faceRead(SHARED_AUTH_REL, 'shared')
+    : (issues.push(`[shared] 无法读取 auth-store.ts: 判定面(${FACE_LABEL_TEXT})上没有这条路径`), null)
+  if (sharedAuth === null) return
   if (!sharedAuth.includes(`userPersistKey = '${PERSIST_KEY}'`)) {
     issues.push(`[shared] auth-store.ts userPersistKey 默认值不是 '${PERSIST_KEY}'`)
   }
@@ -101,7 +202,9 @@ async function checkSharedContract() {
 }
 
 async function main() {
-  console.log('[cross-store-parity] 扫描 4 端 storage-adapter + shared 工厂一致性...\n')
+  console.log(
+    `[cross-store-parity] 扫描 4 端 storage-adapter + shared 工厂一致性…(判定面:${FACE_LABEL_TEXT})\n`,
+  )
 
   for (const endpoint of ENDPOINTS) {
     await checkEndpoint(endpoint)
@@ -126,8 +229,16 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error('[cross-store-parity] 守门脚本异常:', err)
-  process.exit(2)
-})
+// §22d 双形态入口守护:上面那段是 CLI 副作用(取材 + process.exit),测试 import 纯判据时不得触发。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((err) => {
+    // 抛到这里 = 脚本自身异常(不是业务结论)。判 2 而不是 1,免得"没判成"被读成"判过了"。
+    console.error('[cross-store-parity] 守门脚本异常(未判定,exit 2):', err?.message ?? err)
+    process.exit(2)
+  })
+}
+
+export const __test__ = { resolveRootArg, ENDPOINTS, ALL_RELS, PERSIST_KEY, REQUIRED_EXPORTS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

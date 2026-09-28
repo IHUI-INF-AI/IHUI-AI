@@ -10,7 +10,13 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
-import { encryptJSON, decryptJSON, isEncryptedPayload } from '../src/utils/crypto.js'
+import {
+  encryptJSON,
+  decryptJSON,
+  isEncryptedPayload,
+  encryptField,
+  decryptField,
+} from '../src/utils/crypto.js'
 
 describe('crypto — AES-256-GCM 加密/解密', () => {
   describe('encryptJSON + decryptJSON 往返', () => {
@@ -134,6 +140,39 @@ describe('crypto — AES-256-GCM 加密/解密', () => {
 
     it('空对象返回 false', () => {
       expect(isEncryptedPayload({})).toBe(false)
+    })
+  })
+
+  describe('decryptField — 字段级读路径', () => {
+    it('encryptField/decryptField 往返', () => {
+      const id = '110101199003072319'
+      expect(decryptField(encryptField(id))).toBe(id)
+    })
+
+    it('存量明文（非 JSON）原样返回', () => {
+      expect(decryptField('张三丰')).toBe('张三丰')
+    })
+
+    it('存量明文（纯数字身份证号串，会被 JSON.parse 成 number）原样返回', () => {
+      // 身份证是 18 位数字，JSON.parse 成功但结果不是加密荷载形状
+      expect(decryptField('110101199003072319')).toBe('110101199003072319')
+    })
+
+    it('存量明文（合法 JSON 但不是加密荷载）原样返回', () => {
+      expect(decryptField('{"a":1}')).toBe('{"a":1}')
+    })
+
+    it('解密失败必须抛出，绝不把密文原值当明文返回', () => {
+      // 回归锁：旧实现把 decryptJSON 的抛错和"不是 JSON"混在同一个 catch 里，
+      // 于是密钥轮换/数据损坏时返回 stored（整段密文 JSON），并被 auth-identity 当身份证号送进响应。
+      const payload = JSON.parse(encryptField('110101199003072319'))
+      // 用等长(16 字节)的合法 base64 标签替换：只让 GCM 校验失败，不触发 authTagLength 弃用告警
+      const broken = JSON.stringify({ ...payload, tag: Buffer.alloc(16, 7).toString('base64') })
+      let returned: string | undefined
+      expect(() => {
+        returned = decryptField(broken)
+      }).toThrow()
+      expect(returned).toBeUndefined()
     })
   })
 })
