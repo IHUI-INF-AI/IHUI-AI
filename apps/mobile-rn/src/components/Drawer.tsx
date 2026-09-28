@@ -12,13 +12,14 @@
  * - 历史对话列表:按模型分组 → 按日期分组(今天/昨天/更早) → 左滑收藏/删除
  * - 底部操作区:设置 / 消息 / 回到主页(对齐 Uniapp bottom_userInfo + back_index_btn)
  *
- * 左侧滑入,半透明遮罩(bg-black/50),80% 屏宽(最大 320dp)。
+ * 左侧滑入,半透明遮罩(收口到 --color-black-40 同一档:0.4,与小程序端同值),
+ * 0.66 屏宽、封顶取几何档 rnGeometry.drawerWidth(250,与小程序 500rpx 同源)。
  * 左滑操作(收藏+删除)用 Animated + PanResponder 自定义实现(无 react-native-gesture-handler 依赖)。
  *
  * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
  */
 import { tokens } from '../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
@@ -59,6 +60,7 @@ import {
   Trash2,
   User,
   Wrench,
+  X,
 } from 'lucide-react-native'
 import { favoriteConversation, unfavoriteConversation } from '@ihui/api-client'
 
@@ -124,10 +126,12 @@ export interface DrawerProps {
 
 // ── 常量 ──
 
-const MAX_DRAWER_WIDTH = 256
+// 抽屉宽度封顶收进几何档 rnGeometry.drawerWidth(250,与小程序 500rpx 同源) ——
+// 端内不再留 MAX_DRAWER_WIDTH 这个第二数字;0.66 是窄屏自适应比例,属平台机制不是档。
 const DRAWER_WIDTH_RATIO = 0.66
 const ANIM_DURATION_MS = 250
-const OVERLAY_OPACITY = 0.5
+// 遮罩不透明度对齐 --color-black-40(0.4):此前 RN 写 0.5、小程序走 token 0.4,两端反极。
+const OVERLAY_OPACITY = 0.4
 const DELETE_WIDTH = 50 // 左滑露出的删除按钮宽度(对齐 Uniapp 101rpx ≈ 50dp)
 const FAVORITE_WIDTH = 50 // 左滑露出的收藏按钮宽度
 const SWIPE_WIDTH = DELETE_WIDTH + FAVORITE_WIDTH // 左滑总露出宽度(收藏 + 删除)
@@ -391,8 +395,8 @@ function SwipeableConversationItem({
           android_ripple={{ color: tokens.surface.muted }}
         >
           <Text
-            className="flex-1 text-[14px]"
-            style={{ color: tokens.text.primary }}
+            className="flex-1"
+            style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}
             numberOfLines={1}
           >
             {item.title}
@@ -428,7 +432,7 @@ export function Drawer(props: DrawerProps) {
   const { logout } = useAuth()
   const navigation = useNavigation<DrawerNav>()
   const screenWidth = Dimensions.get('window').width
-  const drawerWidth = Math.min(screenWidth * DRAWER_WIDTH_RATIO, MAX_DRAWER_WIDTH)
+  const drawerWidth = Math.min(screenWidth * DRAWER_WIDTH_RATIO, rnGeometry.drawerWidth)
 
   // progress: 0 = 隐藏, 1 = 显示
   const progress = useRef(new Animated.Value(0)).current
@@ -637,8 +641,8 @@ export function Drawer(props: DrawerProps) {
                 </View>
                 <View className="flex-1">
                   <Text
-                    className="text-[15px] font-semibold"
-                    style={{ color: tokens.text.primary }}
+                    className="font-semibold"
+                    style={{ color: tokens.text.primary, fontSize: rnGeometry.textStrong }}
                     numberOfLines={1}
                   >
                     {nickname}
@@ -667,12 +671,8 @@ export function Drawer(props: DrawerProps) {
                   accessibilityLabel="关闭抽屉"
                   android_ripple={{ color: tokens.surface.muted }}
                 >
-                  <Text
-                    className="text-[22px] leading-none"
-                    style={{ color: tokens.text.tertiary }}
-                  >
-                    ×
-                  </Text>
+                  {/* 关闭键载体择优 = 矢量(与小程序端 LineIcon x 同档 glyphMd);文字 × 冒充图标已收口 */}
+                  <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
                 </Pressable>
               </View>
 
@@ -695,8 +695,8 @@ export function Drawer(props: DrawerProps) {
                       <Icon size={22} color={tokens.text.primary} />
                     </View>
                     <Text
-                      className="text-[11px] text-center"
-                      style={{ color: tokens.text.secondary }}
+                      className="text-center"
+                      style={{ color: tokens.text.secondary, fontSize: rnGeometry.textLabel }}
                     >
                       {i18nKey ? t(i18nKey) : label}
                     </Text>
@@ -747,10 +747,10 @@ export function Drawer(props: DrawerProps) {
                   <View className="w-8 h-8 rounded-lg items-center justify-center bg-accent-light mr-3">
                     <Building2 size={18} color={tokens.brandAccent.deep} />
                   </View>
-                  <Text className="flex-1 text-[14px]" style={{ color: tokens.text.primary }}>
+                  <Text className="flex-1" style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}>
                     我的一人公司
                   </Text>
-                  <ChevronRight size={16} color={tokens.text.tertiary} />
+                  <ChevronRight size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
                 </Pressable>
                 <Pressable
                   className="flex-row items-center px-3 py-2.5 rounded-lg"
@@ -760,10 +760,10 @@ export function Drawer(props: DrawerProps) {
                   <View className="w-8 h-8 rounded-lg items-center justify-center bg-success-lighter mr-3">
                     <Gift size={18} color={tokens.success.DEFAULT} />
                   </View>
-                  <Text className="flex-1 text-[14px]" style={{ color: tokens.text.primary }}>
+                  <Text className="flex-1" style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}>
                     领取免费资料
                   </Text>
-                  <ChevronRight size={16} color={tokens.text.tertiary} />
+                  <ChevronRight size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
                 </Pressable>
                 <Pressable
                   className="flex-row items-center px-3 py-2.5 rounded-lg"
@@ -773,10 +773,10 @@ export function Drawer(props: DrawerProps) {
                   <View className="w-8 h-8 rounded-lg items-center justify-center bg-purple-light mr-3">
                     <Plus size={18} color={tokens.brandAccent.deep} />
                   </View>
-                  <Text className="flex-1 text-[14px]" style={{ color: tokens.text.primary }}>
+                  <Text className="flex-1" style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}>
                     创建新对话
                   </Text>
-                  <ChevronRight size={16} color={tokens.text.tertiary} />
+                  <ChevronRight size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
                 </Pressable>
               </View>
 
@@ -858,7 +858,7 @@ export function Drawer(props: DrawerProps) {
 
               {/* 6. 历史对话列表(按模型分组 → 按日期分组 → 左滑收藏/删除) */}
               <View className="px-4 pt-3 pb-2 flex-row items-center justify-between">
-                <Text className="text-[14px] font-bold" style={{ color: tokens.text.primary }}>
+                <Text className="font-bold" style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}>
                   历史对话
                 </Text>
                 <Text className="text-[11px]" style={{ color: tokens.text.tertiary }}>
@@ -868,7 +868,9 @@ export function Drawer(props: DrawerProps) {
 
               {modelGroups.length === 0 ? (
                 <View className="px-4 py-8 items-center">
-                  <Text className="text-[13px]" style={{ color: tokens.text.tertiary }}>
+                  <Text
+                    style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textLabel }}
+                  >
                     暂无历史对话
                   </Text>
                 </View>
@@ -892,8 +894,8 @@ export function Drawer(props: DrawerProps) {
                           </View>
                         )}
                         <Text
-                          className="text-[12px] font-semibold"
-                          style={{ color: tokens.text.secondary }}
+                          className="font-semibold"
+                          style={{ color: tokens.text.secondary, fontSize: rnGeometry.textLabel }}
                         >
                           {mg.modelName}
                         </Text>
@@ -902,8 +904,8 @@ export function Drawer(props: DrawerProps) {
                       {mg.dateGroups.map((dg) => (
                         <View key={dg.bucket} className="ml-3 mb-1">
                           <Text
-                            className="text-[11px] px-3 py-1"
-                            style={{ color: tokens.text.tertiary }}
+                            className="px-3 py-1"
+                            style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textCaption }}
                           >
                             {dg.label}
                           </Text>
@@ -970,7 +972,9 @@ export function Drawer(props: DrawerProps) {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    // 底色只取纯黑档,不透明度由 OVERLAY_OPACITY(= --color-black-40 的 0.4)单点携带;
+    // 旧写法 rgba(0,0,0,0.5) × 动画 0.5 叠加出 0.25 的实际观感,与小程序 0.4 反极,已收口。
+    backgroundColor: tokens.gray.black,
   },
   drawer: {
     position: 'absolute',
