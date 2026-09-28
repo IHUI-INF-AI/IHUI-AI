@@ -7,7 +7,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 // 夹具唯一落点(AGENTS §26):一律不写 os.tmpdir()(活进程的 TEMP 可能仍钉在 C 盘)。
-import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs';
+import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 
 import { getInstalledPluginsDir, getPluginInstallPath, getRegistryPath } from '../src/plugins/paths.js';
 import { isUsableDirectoryCopy, supersededPathFor, swapScratchMarkers, DirectorySwapError, PluginSwapCancelledError } from '../src/plugins/cache.js';
