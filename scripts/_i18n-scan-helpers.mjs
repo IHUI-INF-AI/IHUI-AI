@@ -28,8 +28,19 @@
  * 契约键出口:scripts/i18n-contract-keys.json —— 跨端词包契约键 / 被测试钉住的形状键在此声明,
  *          依据逐条按 HEAD 核验(见 CONTRACT_FILE_REL 处注释);它只免除"死键"一项,不影响其他判据
  *
+ * 判定面(2026-09-28 立,与守门 70/118 同口径):
+ *   - `face:'staged'` ⇒ **索引 blob**:locale JSON、契约文件、参照语料(全部 ~4.5k 个 .ts/.tsx)
+ *     在同一轮里经 `git ls-files -z` 枚举 + 一次 `cat-file --batch`(`scripts/lib/face-reader.mjs`
+ *     的 `catBatch`)读满 —— 清单与内容**同面同轮**。这一档是提交链门禁(`--staged`)用的:
+ *     并行会话**未暂存**的磁盘半编辑态结构上不进索引,所以"别人的在飞改动"再也判不红本次提交
+ *     (2026-09-28 实测:本步以批外 blocking 形态红过一次,各会话唯一出路是 --no-verify,
+ *     一次绕过约等于链上全部守门对该提交作废,AGENTS §12e/§12f)。
+ *     取不到 ⇒ **exit 2 未判定**并点名路径,**不回退磁盘**、不记通过。
+ *   - 缺省 / `face:'worktree'` ⇒ **工作树磁盘**(既有全量档行为逐字不变;CI 与 `check:all` 用它,
+ *     它们没有"别人的在飞改动"这个问题,干净检出上索引==HEAD)。
+ *
  * 跳过条件:
- *   - messagesPath 不存在(messages 目录缺失,如 desktop 端)
+ *   - messagesPath 不存在(messages 目录缺失,如 desktop 端;staged 档 = 不在索引面)
  *   - scanTargets 为空数组(端无 JS 代码,如 desktop 端)
  *   两种情况都直接 exit 0,不计入死 key。
  */
@@ -37,7 +48,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { resolveGitBin } from './lib/gitdir.mjs'
+// 判定面取材的唯一出口(守门 118 的 loose/half-wired 收口):绝对 git + safe.directory +
+// stdio[0]=pipe + 一次 cat-file --batch 读完整批 + 取不到抛 Undetermined,由调用方折成 exit 2。
+import { Undetermined, catBatch, gitRaw, assertRepoRoot } from './lib/face-reader.mjs'
 
+// 磁盘档(缺省全量)沿用进程 cwd —— 这是既有 CLI 契约:5 份端内测试套件的夹具靠
+// `process.chdir(tmpDir)` + dynamic import 在**进程内**调 main(),改默认值会整批打爆它们
+// (迁移属另票)。统一入口 scripts/scan-dead-i18n-keys.mjs 的默认根已改由脚本自身位置推导,
+// 且 main(opts) 接受显式 opts.root —— 提交链与镜像测试一律走显式 root,不依赖 cwd。
 const ROOT = process.cwd()
 const LOCALES = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 const EXCLUDE_DIRS = new Set([
@@ -270,6 +288,23 @@ export function loadJson(p) {
   }
 }
 
+/**
+ * 「这一份路径算不算可扫源码」的**唯一**判据(2026-09-28 立)。
+ * 磁盘枚举(walkDir)与索引枚举(indexScannableRels)必须共用它 —— 两种取材面若各写一遍排除规则,
+ * 必然漂开(本仓"两处算同一件事必漂移"记过多次)。
+ * @param {string} rel 相对仓库根的 POSIX 风格路径
+ */
+export function isScannableRel(rel) {
+  const norm = rel.split('\\').join('/')
+  if (!/\.(tsx|ts)$/.test(norm)) return false
+  // 目录段命中 EXCLUDE_DIRS 即排除(与 walkDir 的"进目录前剪枝"同语义:只看目录段,不看文件名段)
+  const segs = norm.split('/')
+  for (const seg of segs.slice(0, -1)) if (EXCLUDE_DIRS.has(seg)) return false
+  // EXCLUDE_FILE_PATTERNS 里带 `(?:^|/)` 锚的按"根锚定"跑,与旧 walkDir 传绝对路径时的 \/ 分支同形
+  return !EXCLUDE_FILE_PATTERNS.some((re) => re.test('/' + norm))
+}
+
+/** walkDir 的语义保持不变:剪掉排除目录后收集 .ts/.tsx —— 判据本体在 isScannableRel,不重复。 */
 export function walkDir(dir, out = []) {
   if (!fs.existsSync(dir)) return out
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -278,20 +313,40 @@ export function walkDir(dir, out = []) {
     if (entry.isDirectory()) walkDir(full, out)
     else if (/\.(tsx|ts)$/.test(entry.name)) {
       // 归一化为 `/` 再匹配排除规则,避免 Windows(反斜杠)与 Linux(正斜杠)结果分叉
-      const norm = full.split(path.sep).join('/')
-      if (EXCLUDE_FILE_PATTERNS.some((re) => re.test(norm))) continue
+      const norm = path.relative(ROOT, full).split(path.sep).join('/')
+      if (!isScannableRel(norm)) continue
       out.push(full)
     }
   }
   return out
 }
 
-export function scanCode(files) {
+/**
+ * 索引面枚举:**清单**也来自被审面(git ls-files 读的是索引),不是磁盘目录树。
+ * git 问不到 ⇒ 抛 Undetermined,由调用方折成 exit 2「无法判定」,绝不静默换一把尺子。
+ * @param {string} root 仓库根(必须 == git toplevel,由 assertRepoRoot 在调用侧先核)
+ * @param {string[]} scanTargets 相对根的目录清单(与磁盘档同一份配置)
+ */
+export function indexScannableRels(root, scanTargets) {
+  const out = gitRaw(['ls-files', '-z', '--', ...scanTargets], root, { timeout: 120000 })
+  return out
+    .split('\0')
+    .filter(Boolean)
+    .map((p) => p.split('\\').join('/'))
+    .filter(isScannableRel)
+    .sort()
+}
+
+/**
+ * 从**一批文本**提取静态引用 / 命名空间 / 动态命中(判据本体,2026-09-28 自 scanCode 抽出)。
+ * 输入是 `{rel, text}` —— 磁盘档与索引档把"取材"隔开之后,判定只认这一份实现,
+ * 不允许出现"磁盘一套正则、索引另一套"。
+ */
+export function scanTexts(items) {
   const staticRefs = new Set()
   const usedNamespaces = new Set()
   const dynamicHits = []
-  for (const f of files) {
-    const content = fs.readFileSync(f, 'utf8')
+  for (const { rel, text: content } of items) {
     // 2026-07-26 三次增强:整文件级匹配 STATIC_T_RE / TLIST_RE
     // 背景:miniapp-taro 普遍存在 `tt('a.b', '默认值', {\n  n: x,\n})` 跨多行调用,
     // 按行扫描时第一行没有 `)`,`[^)]*\)` 整体匹配失败,导致 4 个 key 被误判为死 key。
@@ -390,7 +445,7 @@ export function scanCode(files) {
       DYNAMIC_T_RE.lastIndex = 0
       while ((m = DYNAMIC_T_RE.exec(line)) !== null) {
         dynamicHits.push({
-          file: path.relative(ROOT, f),
+          file: rel,
           line: i + 1,
           snippet: trimmed.slice(0, 200),
         })
@@ -403,14 +458,25 @@ export function scanCode(files) {
   }
   // 2026-09-03 增强:扫描 path-labels.ts 中的命名空间注册,
   // 这些命名空间通过 TagsView 的 useTranslations(spec.ns) 动态引用,静态扫描无法检测。
-  const PATH_LABELS_FILES = files.filter((file) => file.includes('path-labels.ts'))
-  for (const f of PATH_LABELS_FILES) {
-    const content = fs.readFileSync(f, 'utf8')
+  // 判序与旧实现一致:走**未剥注释**的原文(取材换成 items 里的同一份 text,不再二次读盘 ——
+  // 磁盘档逐字节同值,索引档由此也看得见同一面)。
+  for (const it of items) {
+    if (!it.rel.includes('path-labels.ts')) continue
     const NS_RE = /ns:\s*'([a-zA-Z][a-zA-Z0-9_]*)/g
     let m
-    while ((m = NS_RE.exec(content)) !== null) usedNamespaces.add(m[1])
+    while ((m = NS_RE.exec(it.text)) !== null) usedNamespaces.add(m[1])
   }
-  return { staticRefs, usedNamespaces, dynamicHits, scanned: files.length }
+  return { staticRefs, usedNamespaces, dynamicHits, scanned: items.length }
+}
+
+/** 磁盘档薄包装:读盘 → 交给同一份 scanTexts(判据只有一份,§22c)。 */
+export function scanCode(files) {
+  return scanTexts(
+    files.map((f) => ({
+      rel: path.relative(ROOT, f).split(path.sep).join('/'),
+      text: fs.readFileSync(f, 'utf8'),
+    })),
+  )
 }
 
 // 判定 leaf key 是否在某个 used namespace 下
@@ -548,11 +614,12 @@ export function contractEntriesFor(raw, target) {
  * @param {Map<string, {reason:string, evidence:Array<Object>}>} p.entries - contractEntriesFor 的结果
  * @param {Set<string>} p.leafKeys - 本端基准语言包 leaf key 全集
  * @param {Set<string>} p.deadKeys - 本端判出的死键集合
- * @param {(rel: string) => string|null} p.readHead - 读 HEAD 版本内容,不存在返回 null
+ * @param {(rel: string) => string|null} p.readHead - 读被审面上的文件内容,取不到返回 null
  * @param {string} [p.target]
+ * @param {string} [p.faceLabel='HEAD'] - 结论文案里的面名(全量档 HEAD / --staged 档「索引面」)
  * @returns {{ violations: Array<{key:string,code:string,msg:string}>, exempted: Array<{key:string,reason:string,evidence:Array<Object>}> }}
  */
-export function verifyContractEntries({ entries, leafKeys, deadKeys, readHead, target = '' }) {
+export function verifyContractEntries({ entries, leafKeys, deadKeys, readHead, target = '', faceLabel = 'HEAD' }) {
   const violations = []
   const exempted = []
   for (const [key, decl] of entries) {
@@ -569,12 +636,12 @@ export function verifyContractEntries({ entries, leafKeys, deadKeys, readHead, t
     for (const ev of decl.evidence) {
       const content = readHead(ev.file)
       if (typeof content !== 'string') {
-        evidenceProblems.push(`${ev.file}:${ev.line} 依据文件在 HEAD 中不存在`)
+        evidenceProblems.push(`${ev.file}:${ev.line} 依据文件在 ${faceLabel} 中不存在`)
         continue
       }
       const lines = content.split(/\r?\n/)
       if (ev.line > lines.length) {
-        evidenceProblems.push(`${ev.file}:${ev.line} 行号越界(HEAD 该文件共 ${lines.length} 行)`)
+        evidenceProblems.push(`${ev.file}:${ev.line} 行号越界(${faceLabel} 该文件共 ${lines.length} 行)`)
         continue
       }
       const text = lines[ev.line - 1] ?? ''
@@ -638,14 +705,19 @@ export function makeHeadReader(root = ROOT) {
  *
  * @param {Object} opts
  * @param {string} opts.name - 端名(用于日志/报告,例 'extension')
- * @param {string} opts.messagesPath - 相对 ROOT 的 zh-CN.json 路径
- * @param {string[]} [opts.scanTargets=[]] - 相对 ROOT 的代码扫描目录列表
+ * @param {string} opts.messagesPath - 相对 root 的 zh-CN.json 路径
+ * @param {string[]} [opts.scanTargets=[]] - 相对 root 的代码扫描目录列表
  * @param {string} opts.outputPattern - 报告输出路径模板,可用 {date} 占位当天日期
  * @param {boolean} [opts.dryRun=false] - 只打印统计,不写报告
  * @param {boolean} [opts.exitOnDead=false] - 发现死 key 时返回 1
  * @param {string|null} [opts.out=null] - 自定义输出路径(覆盖 outputPattern)
  * @param {string} [opts.scriptName] - 日志前缀(默认 scan-{name}-dead-i18n-keys)
- * @returns {number} 0 成功;1 = --exit 1 模式发现死 key,或契约声明不成立(后者与 --exit 无关,必红)
+ * @param {'worktree'|'staged'} [opts.face='worktree'] - 判定面:磁盘(缺省,既有全量行为)或索引 blob(提交链)
+ * @param {string} [opts.root] - 仓库根(缺省 = 模块加载时的 process.cwd(),即既有 CLI 契约;
+ *                               提交链与测试请显式传入)
+ * @param {unknown} [opts.contractPreload] - 契约文件已解析内容(入口按同一面预读后传入,免二次取材)
+ * @returns {number} 0 成功;1 = --exit 1 模式发现死 key,或契约声明不成立(后者与 --exit 无关,必红);
+ *                  2 = 判定面无法取材(未判定 —— 既不冒红也绝不记绿,不回退磁盘)
  */
 export function main(opts) {
   const {
@@ -657,53 +729,167 @@ export function main(opts) {
     exitOnDead = false,
     out = null,
     scriptName,
+    face = 'worktree',
+    root = ROOT,
+    contractPreload,
   } = opts
 
   const TAG = scriptName || `scan-${name}-dead-i18n-keys`
   const TODAY = new Date().toISOString().slice(0, 10)
-  const ZH_CN_PATH = path.join(ROOT, messagesPath)
-  const LOCALE_DIR = path.dirname(ZH_CN_PATH)
+  const STAGED_FACE = face === 'staged'
+  const messagesRel = messagesPath.split('\\').join('/')
+  const LOCALE_DIR_REL = messagesRel.slice(0, messagesRel.lastIndexOf('/'))
+  const ZH_CN_PATH = path.join(root, messagesPath)
+  // 语言包 rel 一律 POSIX 风格:索引面拿它拼 `:<rel>` 喂 cat-file(git 只认 `/`,
+  // 而 Windows 的 path.join 给反斜杠 ⇒ 索引面全部"取不到",曾把 --staged 整档静默判成"跳过")。
+  // 磁盘档拼绝对路径时 path.join 本身也吃正斜杠,两同一面。
   const LOCALE_PATHS = Object.fromEntries(
-    LOCALES.map((l) => [l, path.join(LOCALE_DIR, `${l}.json`)]),
+    LOCALES.map((l) => [l, `${LOCALE_DIR_REL}/${l}.json`]),
   )
-  const SCAN_TARGETS = scanTargets.map((t) => path.join(ROOT, t))
+  const SCAN_TARGETS = scanTargets.map((t) => path.join(root, t))
 
-  // 0. 跳过条件:messages 不存在(端无独立 i18n,如 desktop)
-  if (!fs.existsSync(ZH_CN_PATH)) {
-    console.log(
-      `[${TAG}] 跳过:基准语言文件不存在 ${path.relative(ROOT, ZH_CN_PATH)}(端无独立 i18n)`,
-    )
-    return 0
+  const dieUndetermined = (msg) => {
+    console.error(`[${TAG}] 无法判定(exit 2,未判定 ≠ 通过 ≠ 失败): ${msg}`)
+    return 2
   }
 
-  // 0b. 跳过条件:无 JS 代码扫描目标(端是纯原生包装,如 desktop)
+  // 0b. 跳过条件:无 JS 代码扫描目标(端是纯原生包装,如 desktop)—— 与取材面无关,先判
   if (SCAN_TARGETS.length === 0) {
     console.log(`[${TAG}] 跳过:scanTargets 为空(端无 JS 代码,无法静态扫描)`)
     return 0
   }
 
-  // 1. 加载 zh-CN.json + 其他 4 语言
-  console.log(`[${TAG}] target=${name} 加载基准: ${path.relative(ROOT, ZH_CN_PATH)}`)
-  const leafKeys = flatten(loadJson(ZH_CN_PATH))
-  const localeData = { 'zh-CN': { keys: leafKeys } }
-  for (const l of LOCALES) {
-    if (l === 'zh-CN') continue
-    if (!fs.existsSync(LOCALE_PATHS[l])) {
-      console.warn(`[${TAG}] 警告:语言文件不存在: ${path.relative(ROOT, LOCALE_PATHS[l])}`)
-      localeData[l] = { keys: new Set() }
-      continue
+  // ── 取材面装配(2026-09-28 立;清单与内容**同面同轮**,不得"键来自磁盘、引用来自 git"或反之)──
+  /** rel -> 内容 | null;null 仅由"面上确实没有/取不到"产生,由调用方定性 */
+  let faceTexts = null
+  /** 索引面枚举出的语料清单 —— **只枚举一次**,与内容同轮(二次 ls-files 可能跨并发写索引,清单与批读错位) */
+  let stagedCorpusRels = null
+  if (STAGED_FACE) {
+    try {
+      assertRepoRoot(root, `[${TAG}] --staged 判定面`)
+    } catch (e) {
+      return dieUndetermined(`仓库基准不成立:${e instanceof Undetermined ? e.message : e?.message ?? String(e)}`)
     }
-    localeData[l] = { keys: flatten(loadJson(LOCALE_PATHS[l])) }
+    const localeRels = LOCALES.map((l) => LOCALE_PATHS[l])
+    try {
+      stagedCorpusRels = indexScannableRels(root, scanTargets)
+    } catch (e) {
+      return dieUndetermined(
+        `索引面枚举(git ls-files)失败,且**不回退磁盘**:${e instanceof Undetermined ? e.message : e?.message ?? String(e)}`,
+      )
+    }
+    // 枚举到 0 个可扫源码 = 判据失明,不是"这一端干净"(与守门 70/118"空扫不记绿"同口径)
+    if (stagedCorpusRels.length === 0) {
+      return dieUndetermined(
+        `索引面在 [${scanTargets.join(', ')}] 枚举到 0 个可扫源码文件 —— 判据失效不计通过`,
+      )
+    }
+    const rels = [...localeRels, CONTRACT_FILE_REL, ...stagedCorpusRels]
+    const specs = rels.map((r) => `:${r}`)
     console.log(
-      `[${TAG}] 加载: ${path.relative(ROOT, LOCALE_PATHS[l])} (${localeData[l].keys.size} keys)`,
+      `[${TAG}] 判定面: 索引 blob(git ls-files + 一次 cat-file --batch 读满 ${specs.length} 个对象;` +
+        `盘上未暂存的并行改动不参与本次判定 —— 盘上随后改对不算修好,提交进去的仍是索引这一份)`,
     )
+    try {
+      const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: 120000 })
+      faceTexts = new Map()
+      for (const r of rels) faceTexts.set(r, got.get(`:${r}`) ?? null)
+    } catch (e) {
+      return dieUndetermined(
+        `索引 blob 一次批量读取失败,且**不回退磁盘**:${e instanceof Undetermined ? e.message : e?.message ?? String(e)}`,
+      )
+    }
+    // 基准语言文件不在索引面 = 与磁盘档"messages 目录缺失(端无独立 i18n)"同一跳过语义
+    if (typeof faceTexts.get(LOCALE_PATHS['zh-CN']) !== 'string') {
+      console.log(
+        `[${TAG}] 跳过:基准语言文件不在索引面 ${LOCALE_PATHS['zh-CN']}(端无独立 i18n)`,
+      )
+      return 0
+    }
+  } else {
+    console.log(`[${TAG}] 判定面: 工作树磁盘(缺省全量档;提交链门禁请用 --staged 判索引 blob)`)
+    // 0. 跳过条件:messages 不存在(端无独立 i18n,如 desktop)
+    if (!fs.existsSync(ZH_CN_PATH)) {
+      console.log(
+        `[${TAG}] 跳过:基准语言文件不存在 ${path.relative(root, ZH_CN_PATH)}(端无独立 i18n)`,
+      )
+      return 0
+    }
   }
 
-  // 2. 扫描代码
-  const files = []
-  for (const t of SCAN_TARGETS) walkDir(t, files)
-  console.log(`[${TAG}] 扫描代码: ${files.length} 个文件`)
-  const { staticRefs, usedNamespaces, dynamicHits } = scanCode(files)
+  const parseFaceJson = (rel, text) => {
+    try {
+      return JSON.parse(text)
+    } catch (e) {
+      throw new Error(`JSON 解析失败: ${rel} (${e.message})`)
+    }
+  }
+
+  // 1. 加载 zh-CN.json + 其他 4 语言(按当轮选定的面)
+  console.log(`[${TAG}] target=${name} 加载基准: ${messagesRel}`)
+  const localeData = {}
+  let leafKeys
+  if (STAGED_FACE) {
+    leafKeys = flatten(parseFaceJson(messagesRel, faceTexts.get(LOCALE_PATHS['zh-CN'])))
+    localeData['zh-CN'] = { keys: leafKeys }
+    for (const l of LOCALES) {
+      if (l === 'zh-CN') continue
+      const text = faceTexts.get(LOCALE_PATHS[l])
+      if (typeof text !== 'string') {
+        console.warn(`[${TAG}] 警告:语言文件不在索引面: ${LOCALE_PATHS[l]}`)
+        localeData[l] = { keys: new Set() }
+        continue
+      }
+      localeData[l] = { keys: flatten(parseFaceJson(LOCALE_PATHS[l], text)) }
+      console.log(`[${TAG}] 加载: ${LOCALE_PATHS[l]} (${localeData[l].keys.size} keys)`)
+    }
+  } else {
+    leafKeys = flatten(loadJson(ZH_CN_PATH))
+    localeData['zh-CN'] = { keys: leafKeys }
+    for (const l of LOCALES) {
+      if (l === 'zh-CN') continue
+      const abs = path.join(root, LOCALE_PATHS[l])
+      if (!fs.existsSync(abs)) {
+        console.warn(`[${TAG}] 警告:语言文件不存在: ${path.relative(root, abs)}`)
+        localeData[l] = { keys: new Set() }
+        continue
+      }
+      localeData[l] = { keys: flatten(loadJson(abs)) }
+      console.log(
+        `[${TAG}] 加载: ${path.relative(root, abs)} (${localeData[l].keys.size} keys)`,
+      )
+    }
+  }
+
+  // 2. 扫描代码(同一面的参照语料;清单 = 装配那一轮枚举的那一份,不再二次 ls-files)
+  let scan
+  if (STAGED_FACE) {
+    const items = []
+    const unreadable = []
+    for (const rel of stagedCorpusRels) {
+      const text = faceTexts.get(rel)
+      if (typeof text !== 'string') {
+        unreadable.push(rel) // unmerged / 非 blob / 输出错位 ⇒ 面上取不到正文,逐条点名
+        continue
+      }
+      items.push({ rel, text })
+    }
+    if (unreadable.length > 0) {
+      const shown = unreadable.slice(0, 10).join(', ')
+      return dieUndetermined(
+        `${unreadable.length} 个索引条目取不到 blob 正文(${shown}${unreadable.length > 10 ? ' …' : ''})——` +
+          ` --staged 面**不回退磁盘**,未判定`,
+      )
+    }
+    console.log(`[${TAG}] 扫描代码: ${items.length} 个文件`)
+    scan = scanTexts(items)
+  } else {
+    const files = []
+    for (const t of SCAN_TARGETS) walkDir(t, files)
+    console.log(`[${TAG}] 扫描代码: ${files.length} 个文件`)
+    scan = scanCode(files)
+  }
+  const { staticRefs, usedNamespaces, dynamicHits } = scan
   console.log(`[${TAG}] 静态引用 key: ${staticRefs.size} 个(去重)`)
   console.log(`[${TAG}] useTranslations/getTranslations namespace: ${usedNamespaces.size} 个`)
 
@@ -712,21 +898,51 @@ export function main(opts) {
   for (const k of leafKeys) {
     if (!staticRefs.has(k) && !isInUsedNamespace(k, usedNamespaces)) deadKeys.add(k)
   }
-  // 3b. 契约键声明:仅把「有依据且依据已在 HEAD 逐条核验」的键从死键判定里免除(见文件头注释)
-  const contract = loadContractFile(ROOT)
-  const { entries: contractEntries, issues: contractShapeIssues } = contractEntriesFor(contract.raw, name)
+  // 3b. 契约键声明:仅把「有依据且依据已在判定面上逐条核验」的键从死键判定里免除(见文件头注释)。
+  //     --staged 档:契约文件与依据文件都取**索引面**(与语料同面;HEAD 档沿用既有语义 ——
+  //     契约读磁盘、依据按 HEAD 核验 —— 逐字不变,收紧只发生在提交链那一档)。
+  const contractFaceLabel = STAGED_FACE ? '索引面' : 'HEAD'
+  let contractRaw = null
+  if (STAGED_FACE) {
+    if (contractPreload !== undefined) contractRaw = contractPreload
+    else {
+      const text = faceTexts.get(CONTRACT_FILE_REL)
+      contractRaw = typeof text === 'string' ? parseFaceJson(CONTRACT_FILE_REL, text) : null
+    }
+  } else {
+    contractRaw = contractPreload !== undefined ? contractPreload : loadContractFile(root).raw
+  }
+  const { entries: contractEntries, issues: contractShapeIssues } = contractEntriesFor(contractRaw, name)
+  const evidenceTexts = new Map()
+  if (STAGED_FACE && contractEntries.size > 0) {
+    const evRels = new Set()
+    for (const decl of contractEntries.values()) for (const ev of decl.evidence) evRels.add(ev.file)
+    const rels = [...evRels]
+    if (rels.length > 0) {
+      try {
+        const specs = rels.map((r) => `:${r}`)
+        const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: 120000 })
+        for (let i = 0; i < rels.length; i++) evidenceTexts.set(rels[i], got.get(specs[i]) ?? null)
+      } catch (e) {
+        return dieUndetermined(
+          `契约依据文件在索引面取不到(${rels.length} 个),**不回退磁盘**:${e instanceof Undetermined ? e.message : e?.message ?? String(e)}`,
+        )
+      }
+    }
+  }
   const { violations: contractViolations, exempted: contractExempted } = verifyContractEntries({
     entries: contractEntries,
     leafKeys,
     deadKeys,
-    readHead: makeHeadReader(ROOT),
+    readHead: STAGED_FACE ? (rel) => evidenceTexts.get(rel) ?? null : makeHeadReader(root),
     target: name,
+    faceLabel: contractFaceLabel,
   })
   for (const e of contractExempted) deadKeys.delete(e.key)
   const contractHardFail = contractShapeIssues.length > 0 || contractViolations.length > 0
   if (contractExempted.length > 0) {
     console.log(
-      `[${TAG}] 契约键声明:${contractExempted.length} 枚按声明免除死键判定(依据已在 HEAD 逐条核验,不影响 parity/翻译完整性)`,
+      `[${TAG}] 契约键声明:${contractExempted.length} 枚按声明免除死键判定(依据已在 ${contractFaceLabel} 逐条核验,不影响 parity/翻译完整性)`,
     )
     for (const e of contractExempted) {
       console.log(`  - \`${e.key}\` ← ${e.reason}`)
@@ -783,6 +999,19 @@ export function main(opts) {
     return 0
   }
 
+  // 5b. --staged 档不写报告:提交链审计不得在盘上留新产物(全量档的报告行为逐字保留,
+  //     CI / check:all 仍产出 .ihui-agent/tmp/i18n-dead-keys-*.md)。
+  if (STAGED_FACE) {
+    console.log(`\n[${TAG}] --staged 档:不写报告文件(结论已在 stdout;需要报告请跑缺省全量档)`)
+    if (contractHardFail) return 1
+    if (exitOnDead && deadCount > 0) {
+      console.error(`[${TAG}] --exit 1:发现 ${deadCount} 个死 key:`)
+      for (const k of deadKeys) console.error(`  - ${k}`)
+      return 1
+    }
+    return 0
+  }
+
   // 6. 生成 markdown 报告
   const lines = []
   const L = (s = '') => lines.push(s)
@@ -790,10 +1019,11 @@ export function main(opts) {
   L()
   L(`> 自动生成 by \`scripts/${TAG}.mjs\`(2026-07-26 公共函数抽象到 _i18n-scan-helpers.mjs)`)
   L(`> target=${name},messagesPath=${messagesPath}`)
+  L('> 判定面:**工作树磁盘(缺省全量档)** —— 干净检出(CI / check:all)上索引==HEAD==磁盘,三面同值')
   L('## 总览')
   L(`- target:**${name}**`)
   L(
-    `- 扫描文件:5 语言(\`${LOCALES.map((l) => path.relative(ROOT, LOCALE_PATHS[l])).join('`, `')}\`)`,
+    `- 扫描文件:5 语言(\`${LOCALES.map((l) => LOCALE_PATHS[l]).join('`, `')}\`)`,
   )
   L(`- 递归 leaf key 总数:**${totalLeaves}**`)
   L(`- 代码静态引用 key(全路径 \`t('a.b.c')\` 形式):**${totalRefs}**(去重)`)
@@ -866,11 +1096,11 @@ export function main(opts) {
   L(`_Generated at ${summary.scannedAt}_`)
 
   const outPath = out
-    ? path.resolve(ROOT, out)
-    : path.join(ROOT, outputPattern.replace('{date}', TODAY))
+    ? path.resolve(root, out)
+    : path.join(root, outputPattern.replace('{date}', TODAY))
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
   fs.writeFileSync(outPath, lines.join('\n') + '\n', 'utf8')
-  console.log(`\n[${TAG}] 报告写入: ${path.relative(ROOT, outPath)}`)
+  console.log(`\n[${TAG}] 报告写入: ${path.relative(root, outPath)}`)
 
   if (contractHardFail) {
     console.error(
