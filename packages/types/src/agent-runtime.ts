@@ -1212,7 +1212,14 @@ export type GitHubOperation =
  * `agents.kanban.<status>` 五语言词表(AGENTS §30:状态词汇是一等契约)。
  * 常驻尺子:`scripts/check-agent-status-vocabulary-parity.mjs`。
  */
-export const AGENT_TASK_STATUSES = ['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done'] as const
+export const AGENT_TASK_STATUSES = [
+  'triage',
+  'todo',
+  'ready',
+  'in_progress',
+  'blocked',
+  'done',
+] as const
 
 export type AgentTaskStatus = (typeof AGENT_TASK_STATUSES)[number]
 
@@ -1280,6 +1287,113 @@ export function mapStatus(raw: string): AgentTaskStatus {
   return LEGACY_STATUS_MAP[raw] ?? (raw as AgentTaskStatus)
 }
 
+/**
+ * 被 `LEGACY_STATUS_MAP` 折叠进 `blocked` 的三种终态**成因**(2026-09-28 拍板:
+ * **不动六档枚举**(那是落库列 + REST 校验 + SSE 载荷 + Python 调度器 + 五语言的对外契约),
+ * 只在看板卡片上加一枚次级标记)。
+ *
+ * 为什么必须有这一层:这三档与"真的在等解阻塞"在折叠后完全同形,而它们的下一步动作相反 ——
+ * 「已取消 / 配额超限 / 被抢占」重跑大概率就好，「待解阻塞」要先去解阻塞。用户按同一张脸
+ * 决定重跑还是去查依赖，是被状态显示指错了方向。
+ */
+export const COLLAPSED_TERMINATIONS = ['cancelled', 'quota_exceeded', 'preempted'] as const
+export type AgentTaskTermination = (typeof COLLAPSED_TERMINATIONS)[number]
+
+/** 次级标记的 i18n 键(单一来源;`agents.kanban.*` 五语言必须同批齐,守门 151 同一条口径) */
+export const TERMINATION_LABEL_KEYS: Record<AgentTaskTermination, string> = {
+  cancelled: 'agents.kanban.terminatedCancelled',
+  quota_exceeded: 'agents.kanban.terminatedQuotaExceeded',
+  preempted: 'agents.kanban.terminatedPreempted',
+}
+
+/**
+ * 取原始状态里的终态成因;非终态(含 `blocked` 本身与 `failed`)一律返回 null。
+ * 刻意返回 null 而不是"猜测一个":把真失败说成被取消,比不标更糟。
+ */
+export function terminationOf(raw: string | null | undefined): AgentTaskTermination | null {
+  if (typeof raw !== 'string') return null
+  return (COLLAPSED_TERMINATIONS as readonly string[]).includes(raw)
+    ? (raw as AgentTaskTermination)
+    : null
+}
+
+// ---------------------------------------------------------------------------
+// "未识别"档(2026-09-28 立):落在六档之外的状态值的唯一归一出口
+// ---------------------------------------------------------------------------
+
+/**
+ * **刻意不并进 `AGENT_TASK_STATUSES`,也刻意不进 `COLLAPSED_TERMINATIONS`**:
+ *   · 六档值是落库列 + REST `z.enum` + SSE 载荷三重对外契约(见上方 AGENT_TASK_STATUSES 头注),
+ *     加一档等于改对外契约;
+ *   · `COLLAPSED_TERMINATIONS` 的语义是"被折叠进 blocked 的**已知**终态成因",
+ *     把一个没人认得的值写成终态就是替它猜一个结论 —— 那正是 AGENTS §30
+ *     「钩子无终态不得渲染成"完成"」点名的失效型。
+ * 所以本档只做两件事:让外部写进来的未知状态**独立呈现**,并让它**只以一个计数**存在 ——
+ * 既不被塞进任何已知列,也不被静默读成成功或失败。
+ */
+export const UNRECOGNIZED_STATUS = 'unrecognized' as const
+
+export type UnrecognizedStatus = typeof UNRECOGNIZED_STATUS
+
+/** 六档 ∪ 未识别档:只有"取呈现档位"这一维需要同时容纳两者 */
+export type KanbanStatusBucket = AgentTaskStatus | UnrecognizedStatus
+
+/** 未识别档的徽章文案键(与 TERMINATION_LABEL_KEYS 同一条规矩:键只在 types 有一份) */
+export const UNRECOGNIZED_STATUS_LABEL_KEY = 'agents.kanban.unrecognizedStatus'
+
+/**
+ * 取 i18n 全键的点号末段(端内 `useTranslations('agents.kanban')` 已绑命名空间时用)。
+ * 卡片与看板都要"未识别"这一枚标签,所以这段切片只许有这一份实现 ——
+ * 两处各写一遍 `slice(lastIndexOf('.'))` 就是第二份真相,任一处改形态另一端只显示键名。
+ */
+export function i18nLeafKey(fullKey: string): string {
+  return fullKey.slice(fullKey.lastIndexOf('.') + 1)
+}
+
+/** 原始值是否**逐字**落在六档内(不含 legacy 别名 —— 先过 mapStatus 再问这一句)。 */
+export function isAgentTaskStatus(raw: string): raw is AgentTaskStatus {
+  return (AGENT_TASK_STATUSES as readonly string[]).includes(raw)
+}
+
+export interface NormalizedKanbanStatus {
+  /** 六档之一;不在六档内时恒为 UNRECOGNIZED_STATUS(绝不返回某个已知档顶替) */
+  bucket: KanbanStatusBucket
+  /** true = 原始值在六档之外(含空值与非字符串) */
+  unrecognized: boolean
+  /**
+   * 仅未识别时出现:数据库里的原始状态串。用途只有两个 —— 报数与无障碍名称,
+   * **不得**当可信文案直接渲染(它是外部可写的值,渲染进界面就是注入面)。
+   */
+  rawStatus?: string
+}
+
+/**
+ * 任意状态值的唯一归一出口:先经 `LEGACY_STATUS_MAP` 归一(legacy 别名仍算已知档),
+ * 落在六档内 ⇒ 返回该档;否则 ⇒ 返回未识别档并带上原值。
+ *
+ * 为什么必须由这里兜:`mapStatus` 对未知值是**原样透传**并带 `as AgentTaskStatus` 断言,
+ * 编译期完全静默,而运行时那个值不是任何一档 —— 拿它去查 `STATUS_BADGE_CLASS` 得到
+ * undefined、去 `t(status)` 会把原值当文案打出来。判不出时不猜,也不假装判得出。
+ */
+export function statusOrUnrecognized(raw: string | null | undefined): NormalizedKanbanStatus {
+  if (typeof raw !== 'string' || raw.length === 0) {
+    return { bucket: UNRECOGNIZED_STATUS, unrecognized: true }
+  }
+  const mapped = mapStatus(raw)
+  if (isAgentTaskStatus(mapped)) return { bucket: mapped, unrecognized: false }
+  return { bucket: UNRECOGNIZED_STATUS, unrecognized: true, rawStatus: raw }
+}
+
+/** 序列化面上的"未识别"判据:只看 `KanbanTask.rawStatus` 这一个可选字段(定义见该接口)。 */
+export function isUnrecognizedKanbanTask(task: Pick<KanbanTask, 'rawStatus'>): boolean {
+  return typeof task.rawStatus === 'string'
+}
+
+/** 未识别档计数(唯一出口):纯数组函数,所以不必挂载组件也能被用例钉住。 */
+export function countUnrecognizedTasks(tasks: readonly Pick<KanbanTask, 'rawStatus'>[]): number {
+  return tasks.reduce((n, t) => (isUnrecognizedKanbanTask(t) ? n + 1 : n), 0)
+}
+
 /** 流转合法性校验(transition / admin PUT 共用) */
 export function isTransitionAllowed(from: AgentTaskStatus, to: AgentTaskStatus): boolean {
   return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false
@@ -1307,6 +1421,18 @@ export interface KanbanTask {
   description?: string
   /** Kanban 状态(默认 triage) */
   status: AgentTaskStatus
+  /**
+   * 被折叠进 `blocked` 的终态成因(2026-09-28 拍板:六档枚举不动,加次级标记)。
+   * 缺省 = 原始状态本身就是 blocked/failed 等,没有可点名的终态 —— 前端**不得**为消白标而猜一个。
+   */
+  termination?: AgentTaskTermination
+  /**
+   * 仅当原始 status 落在六档之外时出现("未识别"档的只报数载体;值 = 库里原始串)。
+   * 刻意是**新增可选字段**:既有字段名与状态码一字未动(有用例当契约钉),而未知状态
+   * 既不能不进账(静默消失),也不能被猜成某个已知档 —— 见 UNRECOGNIZED_STATUS 头注。
+   * 前端取用只走 `isUnrecognizedKanbanTask` / `countUnrecognizedTasks`,不得直接当文案渲染。
+   */
+  rawStatus?: string
   /** 优先级(数值越大越优先,默认 0) */
   priority: number
   /** 任务负载(输入参数,JSON) */
@@ -1423,9 +1549,9 @@ export interface AgentSSEEvent {
     | 'task_failed' // 失败
     | 'workspace_lock_acquired' // 工作区锁被获取(2-2)
     | 'workspace_lock_released' // 工作区锁被释放(2-2)
-    // D44(2026-09-23 收口):task_progress / worker_status / dag_level_advanced / log
-    // 为从未有生产点的死声明(WorkerPool._emit 只发 task_created/status_changed/
-    // completed/failed;apps/api 无 broadcastSSEEvent 写出),已从本联合类型回收,parity 不再登记。
+  // D44(2026-09-23 收口):task_progress / worker_status / dag_level_advanced / log
+  // 为从未有生产点的死声明(WorkerPool._emit 只发 task_created/status_changed/
+  // completed/failed;apps/api 无 broadcastSSEEvent 写出),已从本联合类型回收,parity 不再登记。
   /** 关联任务 ID */
   taskId?: string
   /** 关联 worker ID */

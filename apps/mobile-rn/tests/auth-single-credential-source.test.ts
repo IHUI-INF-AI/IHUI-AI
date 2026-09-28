@@ -108,8 +108,12 @@ describe('RN 凭据单一数据源', () => {
     expect(rnAuthStore.getState().isAuthenticated).toBe(false)
     // 持久化块不得携带 isAuthenticated(2026-09-28 收口:登录态唯一真相是 token,
     // 盘上第二份只会漂移)。键集合断言 = "持久化写入不含该键"常驻锁的 RN 侧一半。
+    // —— 对侧(G-456)对同一收口的措辞,语义相同,并陈于此以免丢账:
+    // 持久化快照结构位不得含 isAuthenticated(G-456:登录态是「有没有 token」的派生值,
+    // 入库即第二份真相;旧断言期望它落在快照里,正是被收口的那份形态)
     expect(persistedSnapshot()?.state?.isAuthenticated).toBeUndefined()
     expect(Object.keys(persistedSnapshot()?.state ?? {})).toEqual(['user'])
+    expect(Object.keys(persistedSnapshot()?.state ?? {})).not.toContain('isAuthenticated')
   })
 
   it('登录成功 → 冷启动 hydrate → token 仍在', async () => {
@@ -145,6 +149,7 @@ describe('RN 凭据单一数据源', () => {
     expect(rnAuthStore.getState().isAuthenticated).toBe(false)
     expect(persistedSnapshot()?.state?.isAuthenticated).toBeUndefined()
     expect(Object.keys(persistedSnapshot()?.state ?? {})).toEqual(['user'])
+    expect(Object.keys(persistedSnapshot()?.state ?? {})).not.toContain('isAuthenticated')
   })
 
   it('旧 storage 块迁移现场:升级后首启(新 store 实例 rehydrate)忽略残留 isAuthenticated,不产生"无 token 却已登录"', async () => {

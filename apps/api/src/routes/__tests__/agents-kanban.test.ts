@@ -21,6 +21,9 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:8810/test'
@@ -255,6 +258,8 @@ import {
   mapStatus,
   isTransitionAllowed,
   STATUS_VARIANTS,
+  terminationOf,
+  TERMINATION_LABEL_KEYS,
 } from '../../services/agent-task-status.js'
 
 // ─────────────────────────────────────────────────────────────
@@ -609,6 +614,47 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       expect(STATUS_VARIANTS.blocked).toEqual(
         expect.arrayContaining(['blocked', 'failed', 'cancelled', 'quota_exceeded', 'preempted']),
       )
+    })
+
+    /**
+     * 2026-09-28 拍板:六档枚举**不动**,但被折叠掉的终态成因必须还能点名 ——
+     * 「已取消 / 配额超限 / 被抢占」重跑大概率就好,「待解阻塞」要先去解阻塞;
+     * 两者同形会把用户的下一步动作指错方向。
+     */
+    it('terminationOf 只点名被折叠的三种终态,其余一律 null(不得猜一个标记)', () => {
+      expect(terminationOf('cancelled')).toBe('cancelled')
+      expect(terminationOf('quota_exceeded')).toBe('quota_exceeded')
+      expect(terminationOf('preempted')).toBe('preempted')
+      // 真·阻塞与真·失败没有可点名的终态:标成"已取消"就是把猜测当事实
+      expect(terminationOf('blocked')).toBeNull()
+      expect(terminationOf('failed')).toBeNull()
+      expect(terminationOf('done')).toBeNull()
+      expect(terminationOf(undefined)).toBeNull()
+      expect(terminationOf('nonsense_status')).toBeNull()
+    })
+
+    it('每个终态都有 i18n 键(表里加一档就必须同批改五语言,不得留悬空键)', () => {
+      expect(Object.keys(TERMINATION_LABEL_KEYS).sort()).toEqual(
+        ['cancelled', 'preempted', 'quota_exceeded'].sort(),
+      )
+      for (const key of Object.values(TERMINATION_LABEL_KEYS)) {
+        expect(key.startsWith('agents.kanban.')).toBe(true)
+      }
+      // 键在表里 ≠ 端上取得到:逐语言真解析一次(取不到就是显示键名,而不是报错)
+      const messagesRoot = fileURLToPath(
+        new URL('../../../../../packages/i18n/messages/web', import.meta.url),
+      )
+      for (const locale of ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']) {
+        const messages = JSON.parse(
+          readFileSync(join(messagesRoot, `${locale}.json`), 'utf8'),
+        ) as Record<string, Record<string, Record<string, string>>>
+        for (const key of Object.values(TERMINATION_LABEL_KEYS)) {
+          const leaf = key.slice(key.lastIndexOf('.') + 1)
+          const value = messages?.agents?.kanban?.[leaf]
+          expect(value, `${locale} 缺键 ${key}`).toBeTruthy()
+          expect(value, `${locale} 的 ${key} 不得等于键名本身`).not.toBe(leaf)
+        }
+      }
     })
 
     it('isTransitionAllowed:blocked 可回 todo/ready,done 终态', () => {

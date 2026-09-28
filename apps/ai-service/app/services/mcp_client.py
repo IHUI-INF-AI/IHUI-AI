@@ -872,18 +872,52 @@ class MCPClientManager:
 
     def __init__(self) -> None:
         self._clients: dict[str, MCPClient] = {}
+        # 注册者身份(name -> user_id;"" = 部署级,由 main.py 启动时注入)
+        self._owners: dict[str, str] = {}
 
-    def register(self, config: MCPClientConfig) -> str:
-        """注册一个外部 MCP Server 配置。"""
+    def register(self, config: MCPClientConfig, *, owner_user_id: str = "") -> str:
+        """注册一个外部 MCP Server 配置,并盖章注册者。
+
+        `owner_user_id=""` 是**部署级**(启动时由 main.py 注入):它对任何已登录主体
+        都可见,但**谁都注销不了**(否则一个成员就能摘掉平台配的 server)。
+        用户自己注册的必须带身份 —— 端点侧的属主来自 `require_request_user_id`,
+        不接受请求体自报(AGENTS §5"认证不等于授权")。
+        名字仍是全站共享命名空间:跨用户同名会被 409 挡下而不是覆盖别人的配置,
+        代价是"这个名字存在"可被探测(见 routers/mcp.py 的登记注释)。
+        """
         name = config.name
         if name in self._clients:
             logger.warning("MCP Client 已存在，覆盖: %s", name)
+        self._owners[name] = owner_user_id
         self._clients[name] = MCPClient(config)
         logger.info("MCP Client 已注册: %s[%s]", name, config.transport)
         return name
 
+    def owner_of(self, name: str) -> str | None:
+        """该 server 的注册者;"" 表示部署级;未注册返回 None。""" 
+        if name not in self._clients:
+            return None
+        return self._owners.get(name, "")
+
+    def can_mutate(self, name: str, caller_user_id: str) -> bool:
+        """当前主体能否注销/改连这台 server —— **唯一一份判据**,端点不得各写一遍。"""
+        owner = self.owner_of(name)
+        return owner is not None and owner != "" and owner == caller_user_id
+
+    def is_visible(self, name: str, caller_user_id: str) -> bool:
+        """当前主体**看得见**这台 server 吗 —— 读侧的唯一判据(与 `can_mutate` 同住本类)。
+
+        可见集 = 自己注册的 + 部署级(owner 为空串,由 `main.py` 启动期按配置播种的共享
+        基础设施)。未注册的 name 一律不可见 ⇒ 调用方拿到的形态与"没这条"相同,
+        端点不会变成存在性预言机。**不得在端点里再抄一份 `owner_of(...) in ("", uid)`** ——
+        两处算同一件事必漂移(本仓记过多次)。
+        """
+        owner = self.owner_of(name)
+        return owner is not None and (owner == "" or owner == caller_user_id)
+
     def unregister(self, name: str) -> None:
         """注销并断开指定 Client。"""
+        self._owners.pop(name, None)
         client = self._clients.pop(name, None)
         if client is not None:
             try:
@@ -896,6 +930,7 @@ class MCPClientManager:
 
     async def unregister_async(self, name: str) -> None:
         """注销并等待断开完成(异步上下文,如 HTTP 端点)。"""
+        self._owners.pop(name, None)
         client = self._clients.pop(name, None)
         if client is not None:
             try:
@@ -932,13 +967,32 @@ class MCPClientManager:
             "capabilities": client.capabilities(),
         }
 
-    def list_registered(self) -> list[dict[str, Any]]:
-        """列出所有已注册 Server 的摘要信息(含连接状态,不含 env 等敏感字段)。"""
+    def list_registered(self, caller_user_id: str) -> list[dict[str, Any]]:
+        """列出该主体**看得见**的 Server 摘要(含连接状态,不含 env 等敏感字段)。
+
+        可见集 = 自己注册的 + 部署级(owner 为空串)的。别人的用户级 server 不列 ——
+        这才是 `connectors:read` 敢被放开的唯一前提;属主判据与 `can_mutate` 同住在
+        本类,端点侧不得再抄一份(两处算同一件事必漂移)。
+        """
         return [
             status
             for name in self._clients
-            if (status := self.client_status(name)) is not None
+            if self.is_visible(name, caller_user_id)
+            and (status := self.client_status(name)) is not None
         ]
+
+    def client_status_visible(
+        self, name: str, caller_user_id: str
+    ) -> dict[str, Any] | None:
+        """按主体取单台 Server 摘要;**看不见就返回 None**。
+
+        返回 None(而不是抛 403)是刻意的:详情端点与"这台不存在"必须是同一模板(只差调用方自己提交的那段名字,
+        否则它变成存在性预言机 —— 清单端点已经收窄,再让详情端点区分"有但不是你的",
+        等于把清单省掉的泄露从另一头放回来。
+        """
+        if not self.is_visible(name, caller_user_id):
+            return None
+        return self.client_status(name)
 
     async def connect_all(self) -> None:
         """连接所有已注册的 Server。"""
@@ -966,10 +1020,36 @@ class MCPClientManager:
                 pass
         return tools
 
-    async def list_available_tools_async(self) -> list[MCPClientTool]:
-        """异步列出所有已连接 Client 的工具。"""
+    async def list_available_tools_async(self, caller_user_id: str) -> list[MCPClientTool]:
+        """异步列出该主体**看得见**的已连接 Client 的工具(自己的 + 部署级)。
+
+        与 `list_registered` 共用 `is_visible` 这一份判据:工具清单不能比 server 清单更宽,
+        否则"看不见那台 server"只是修辞 —— 工具名/描述/input_schema 本身就是配置内容。
+        """
+        return await self._collect_tools(
+            [
+                client
+                for name, client in self._clients.items()
+                if self.is_visible(name, caller_user_id)
+            ]
+        )
+
+    async def list_available_tools_unscoped(self) -> list[MCPClientTool]:
+        """遍历**全部** Client 取工具 —— 属主判据未接线的内部路径,不是"更快的那一个"。
+
+        为什么还存在:对话装配链 `app/routers/agents.py::_build_supertool_pool` 手里只有
+        `user_role`(角色),没有会话主体 user_id —— 把工具池按属主收窄需要先把主体透到
+        装配与 call_forward 两处,那是**所有 agent 会话的工具可见集**的行为变更(用户会突然
+        看不见某些工具),不是安全收口的顺带清理。已登记在 PROJECT_PLAN 的 G-371 追加段,
+        解阻前置 = 主体透进 `_build_supertool_pool` 后改调 `list_available_tools_async`。
+        新代码**不得**选用这一支;端点侧一律走 `list_available_tools_async`。
+        """
+        return await self._collect_tools(list(self._clients.values()))
+
+    async def _collect_tools(self, clients: list["MCPClient"]) -> list[MCPClientTool]:
+        """两份枚举共用的取工具循环(遍历面不同、失败语义相同 —— 一份实现,不分叉)。"""
         tools: list[MCPClientTool] = []
-        for client in self._clients.values():
+        for client in clients:
             if client.is_connected():
                 try:
                     client_tools = await client.list_tools()
@@ -979,6 +1059,27 @@ class MCPClientManager:
         return tools
 
     async def call_external_tool(
+        self, server_name: str, tool_name: str, args: dict[str, Any], *, caller_user_id: str
+    ) -> dict[str, Any]:
+        """按主体调用外部工具:看不见那台 server ⇒ 返回与"没这台 server"同模板的结果(名字回显来自请求,不构成泄露)。
+
+        刻意不回 403:调用外部工具是**用别人的配置往出站发进程/请求**,而"这条 id 是真的"
+        本身就是要保护的信息。错误文本走未知 server 那同一个字符串出口,
+        端点侧也就无从把两者区分成不同状态码。
+        """
+        if not self.is_visible(server_name, caller_user_id):
+            return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
+        return await self._call_tool(server_name, tool_name, args)
+
+    async def call_external_tool_unscoped(
+        self, server_name: str, tool_name: str, args: dict[str, Any]
+    ) -> dict[str, Any]:
+        """不判属主的内部调用路径 —— 只服务对话装配链,理由与解阻前置见
+        `list_available_tools_unscoped` 的文档串(同一格缺口,两处不得各自解释)。
+        """
+        return await self._call_tool(server_name, tool_name, args)
+
+    async def _call_tool(
         self, server_name: str, tool_name: str, args: dict[str, Any]
     ) -> dict[str, Any]:
         """调用指定 Server 的工具(2026-09-12 起附带质量指标采集,1-4)。"""

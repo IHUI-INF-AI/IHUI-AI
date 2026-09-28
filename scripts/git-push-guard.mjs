@@ -731,6 +731,18 @@ if (behind > 0 && ahead === 0) {
 }
 
 if (ahead === 0) {
+  // 这一支原先只说"可能是 shallow clone 等异常状态",把最常见的一种成因说丢了:
+  // remoteHead 来自 ls-remote(§5b 规定远端真值只认它),而 **ls-remote 只问引用、不下载对象** ⇒
+  // 上面那句 `rev-list --left-right --count <远端sha>...HEAD` 直接失败,revList=null ⇒ ahead/behind 都是 0,
+  // 于是"对象还没取回"被误述成"仓库形态异常"(G-473 ③,2026-09-28 同一窗口两次)。
+  // 取不到一律写成"未判定 + 一步 fetch 出路",不得让人去查 shallow、也不得读成"本地一切正常"。
+  // 判存在用 `cat-file -t`(execSync 走 cmd.exe,`^{commit}` 里的 `^` 会被当转义符吃掉 —— 见 check-push-sync 同条注记)。
+  const remoteObjType = run(`git cat-file -t ${remoteHead}`, { allowFail: true })
+  if (!remoteObjType) {
+    log('warn', `未判定:远端 ${remoteShort} 的对象不在本机(ls-remote 只问引用,不下载对象)`)
+    log('warn', `  出路:git fetch --no-tags origin ${remoteHead} 后重跑核验;或直接跑 node scripts/git-sync-converge.mjs(它先 fetch 再合)`)
+    process.exit(1)
+  }
   log('warn', `本地与 origin/${branch} HEAD 不同但无 ahead commit(可能是 shallow clone 等异常状态)`)
   process.exit(1)
 }

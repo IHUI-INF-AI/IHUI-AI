@@ -208,7 +208,8 @@ export function SidebarChatHistory({
   const t = useTranslations('chatHistory')
   const tc = useTranslations('aiChat')
   const te = useTranslations('chat.exportMenu')
-  // V3 #62:复用 chatSearchBar.searchAriaLabel(孤儿件 ChatSearchBar 删除后该键的唯一消费者)
+  // V3 #62:复用 chatSearchBar.searchAriaLabel(旧孤儿件 ChatSearchBar 仍在库内未接线,
+  // D149 三分法处置=保留;该文件删除前本键在此与它双消费,此处不是唯一消费者)
   const t2 = useTranslations('chatSearchBar')
   const tCommon = useTranslations('common')
   const locale = useLocale()
@@ -244,7 +245,8 @@ export function SidebarChatHistory({
   const [searchOpen, setSearchOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
   const searchInputRef = React.useRef<HTMLInputElement>(null)
-  // 展开时自动聚焦(对齐已删除旧孤儿件 ChatSearchBar 的 show→focus 交互)
+  // 展开时自动聚焦(对齐旧孤儿件 ChatSearchBar 的 show→focus 交互;该文件仍在库内
+  // 未接线、D149 处置保留 —— 此前注释误称"已删除",按磁盘现状更正)
   React.useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus()
   }, [searchOpen])

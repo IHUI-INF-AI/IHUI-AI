@@ -177,6 +177,9 @@ for (const ep of endpoints) {
       const parsed = JSON.parse(raw!)
       // 持久化内容应只含 user:token 不落盘(安全),isAuthenticated 不落盘
       // (2026-09-28 收口:登录态唯一判据是 token,盘上再存一份必然漂移)
+      // —— 对侧同一注记的原文措辞(语义相同,并陈于此以免丢账):
+      // 持久化内容应只含 user 资料,不含 token/refreshToken/expiresIn;
+      // 登录态也不入库(G-456:它是「有没有 token」的派生值,入库即第二份真相)
       expect(parsed.state.user).toEqual(testUser('1', 'Bob'))
       expect(parsed.state.isAuthenticated).toBeUndefined()
       expect(Object.keys(parsed.state)).toEqual(['user'])
