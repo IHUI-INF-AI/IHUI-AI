@@ -174,9 +174,10 @@ for (const ep of endpoints) {
       const raw = await transport.getItem('ihui-auth-user')
       expect(raw).not.toBeNull()
       const parsed = JSON.parse(raw!)
-      // 持久化内容应只含 user + isAuthenticated,不含 token/refreshToken/expiresIn
+      // 持久化内容应只含 user 资料,不含 token/refreshToken/expiresIn;
+      // 登录态也不入库(G-456:它是「有没有 token」的派生值,入库即第二份真相)
       expect(parsed.state.user).toEqual(testUser('1', 'Bob'))
-      expect(parsed.state.isAuthenticated).toBe(true)
+      expect(parsed.state.isAuthenticated).toBeUndefined()
       expect(parsed.state.token).toBeUndefined()
       expect(parsed.state.refreshToken).toBeUndefined()
       expect(parsed.state.expiresIn).toBeUndefined()
