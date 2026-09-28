@@ -1119,10 +1119,32 @@ prefetch([...frontendRels, ...baseInputs])
 const { routes: backendRoutes, prefixes } = extractBackendRoutes()
 const compositePrefixes = buildCompositePrefixes(prefixes)
 
-const backendDumpIdx = process.argv.indexOf('--dump-backend')
-if (backendDumpIdx !== -1 && process.argv[backendDumpIdx + 1]) {
+/**
+ * 带值旗标的取值(2026-09-28 修 `--dump-* --staged` 这一型;口径照抄枚 `380431ffc`,不另发明):
+ * **紧邻的下一个 token 必须存在且不以 `-` 开头**才算该旗标的值,否则视为"没带值"。
+ * `scripts/guardian-runner.mjs` 会给每道门追加 `--staged`,而旧写法是**无条件**的
+ * `process.argv[idx + 1]`,于是 `--dump-missing --staged` 把 `--staged` 当输出路径,
+ * 在当前工作目录写出一个名叫 `--staged` 的文件(违反 AGENTS §28 根目录整洁;
+ * `check-root-dir-clean --staged` 看不见未跟踪产物,不会自己现形),同时 stdout 结论照打
+ * ⇒ 调用方以为没写盘。无效值(token 存在但以 `-` 开头)**不得静默按未给值处理**:
+ * 点名一行到 stderr。判据、棘轮、`--staged` 降级语义、退出码、文件档字节形态一字未动。
+ * 两处 `--dump-*` 站点共用这一份实现,不得各写一遍(两处算同一件事必漂移)。
+ */
+function dumpFlagValue(flag) {
+  const i = process.argv.indexOf(flag)
+  if (i === -1) return null
+  const v = process.argv[i + 1]
+  if (typeof v === 'string' && v !== '') {
+    if (!v.startsWith('-')) return v
+    console.error(`[API 路由比对] 忽略无效的 ${flag} 值: ${v}`)
+  }
+  return null
+}
+
+const backendDumpPath = dumpFlagValue('--dump-backend')
+if (backendDumpPath) {
   writeFileSync(
-    process.argv[backendDumpIdx + 1],
+    backendDumpPath,
     JSON.stringify(
       backendRoutes.map((r) => {
         const fullPaths = compositePrefixes.map(
@@ -1319,9 +1341,9 @@ for (const call of allCalls) {
   }
 }
 
-const dumpIdx = process.argv.indexOf('--dump-missing')
-if (dumpIdx !== -1 && process.argv[dumpIdx + 1]) {
-  writeFileSync(process.argv[dumpIdx + 1], JSON.stringify(missing, null, 2), 'utf8')
+const dumpMissingPath = dumpFlagValue('--dump-missing')
+if (dumpMissingPath) {
+  writeFileSync(dumpMissingPath, JSON.stringify(missing, null, 2), 'utf8')
 }
 
 // 读取 ignore 配置(**按判定面取,不读磁盘**)

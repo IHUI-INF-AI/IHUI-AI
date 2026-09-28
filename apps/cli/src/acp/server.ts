@@ -43,7 +43,7 @@ import {
   type RewindPoint,
 } from '../commands/session.js';
 import { setupAgentTools, runToolLoop, type ToolContext } from '../commands/agent.js';
-import { createDangerGate } from '../tools/danger-gate.js';
+import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
 import { PlanMachine } from '../plan/machine.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import {
@@ -468,11 +468,14 @@ export class IhuiAcpAgent {
           allowDangerous: this.opts.allowDangerous,
         },
         // D5:危险工具审批接入 request_permission(此前静默 false,IDE 内无弹窗)。
-        // 策略收口到唯一出口 createDangerGate:silent 保持本端零额外输出,
+        // 策略收口到唯一出口(经带审计的包装器):silent 保持本端零额外输出,
         // 编辑器不支持/取消 → prompt 非 true → denied(安全默认与旧行为逐路径等价)
-        confirmDangerous: createDangerGate({
+        // 86H:IDE 弹窗是"真人批准"的主通路,决策必须落审计链;会话取 ACP 的
+        // params.sessionId,入参原文仍不上线(那是 86A 的 tool.invoke 行的事)。
+        confirmDangerous: createAuditedDangerGate({
           allowDangerous: this.opts.allowDangerous,
           silent: true,
+          auditSessionId: params.sessionId,
           prompt: async (tool, args) => {
             // 格①:审批 id 提出为变量,得到结果后必须落 tool_call_update 终态,
             // 否则面板上那张卡永远"等待中"(此前全仓无人对 dangerous-* 发更新)。

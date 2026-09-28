@@ -24,6 +24,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
+// 夹具唯一落点(AGENTS §26 / §15b):新增用例一律落 DevEnv 临时根,不再往 os.tmpdir() 写。
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -558,6 +560,132 @@ describe('--target 未知值一律判死(不再静默按 web 处理)', () => {
     )
     assert.match(code, /function resolveTarget\(/, '应经 resolveTarget 显式解析')
     assert.match(code, /resolveTarget\(TARGET\s*,\s*ROOT\s*,\s*TARGET_IS_EXPLICIT/, '解析结果必须真被使用')
+  })
+})
+
+// ─── 带值旗标的吞噬:--output 的值以 - 开头 / 缺失 / 空串 ⇒ 大声拒绝,绝不静默回落默认路径 ───
+// 事故形态是 `--output --staged`(guardian-runner 给每道门追加 --staged)⇒ 在 cwd 写出一个名叫
+// `--staged` 的文件,而 DEFAULT_OUTPUT 不更新 ⇒ 2f-web / 2f-miniapp-taro / 2f-shared-diff 三道 blocking
+// 复验仍去读默认路径,于是流水线报"翻译流水线通过"而 pending 根本没刷新(比写出垃圾文件更糟的一层)。
+// 口径照抄枚 380431ffc / 636c28f58 / 8832e73a4,不另发明。
+describe('--output 的取值(带值旗标不得吞掉相邻旗标)', () => {
+  // 有 pending 的夹具(en 缺 cancel)⇒ 正常路径应 exit 1,便于把"拒绝"与"通过"分得开
+  const mkPendingProject = () => {
+    const root = mkScratch('ihui-i18n-diff-out-')
+    fs.mkdirSync(path.join(root, 'packages', 'i18n', 'messages', 'web'), { recursive: true })
+    fs.mkdirSync(path.join(root, '.ihui-agent', 'tmp'), { recursive: true })
+    writeAllLangs(
+      root,
+      'web',
+      { common: { save: '保存', cancel: '取消' } },
+      {
+        en: { common: { save: 'Save' } },
+        ja: { common: { save: '保存', cancel: 'キャンセル' } },
+        ko: { common: { save: '저장', cancel: '취소' } },
+        'zh-TW': { common: { save: '儲存', cancel: '取消' } },
+      },
+    )
+    return root
+  }
+  const listing = (dir) => fs.readdirSync(dir).sort().join('|')
+  const defaultPending = (root) => path.join(root, '.ihui-agent', 'tmp', 'i18n-pending.json')
+  // generatedAt 每次运行都不同 ⇒ 内容对账必须剥掉它,否则"一致"永远判不出来
+  const semantic = (file) => {
+    const j = JSON.parse(fs.readFileSync(file, 'utf8'))
+    delete j.generatedAt
+    return JSON.stringify(j)
+  }
+
+  test('(a) --output --staged:exit 2 + 点名实得 token + 不写任何文件(含默认路径)', () => {
+    const root = mkPendingProject()
+    try {
+      const before = listing(root)
+      const r = runScript(['--output', '--staged'], { cwd: root })
+      assert.equal(r.status, 2, `无效值必须非零退出,实际 ${r.status}`)
+      assert.match(r.stderr, /--output 没有收到有效路径/, '必须点名是哪个旗标')
+      assert.match(r.stderr, /"--staged"/, '必须原样带出实得的 token')
+      assert.equal(listing(root), before, '拒绝时不得在夹具根写出任何东西')
+      assert.ok(!fs.existsSync(path.join(root, '--staged')), '不得产出一个名叫 --staged 的文件')
+      assert.ok(!fs.existsSync(defaultPending(root)), '不得静默回落默认路径写别处')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('(a) --output 后面没有参数:exit 2 + 点名"(其后没有任何参数)" + 零写入', () => {
+    const root = mkPendingProject()
+    try {
+      const before = listing(root)
+      const r = runScript(['--output'], { cwd: root })
+      assert.equal(r.status, 2, `缺值必须非零退出,实际 ${r.status}`)
+      assert.match(r.stderr, /\(其后没有任何参数\)/, '两种失败形态不能合成一句"参数错"')
+      assert.equal(listing(root), before, '拒绝时不得写任何文件')
+      assert.ok(!fs.existsSync(defaultPending(root)), '缺值时同样不得静默按默认路径写')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('(a) --output ""(空串):exit 2 + 点名空 token,空串不是路径', () => {
+    const root = mkPendingProject()
+    try {
+      const r = runScript(['--output', ''], { cwd: root })
+      assert.equal(r.status, 2, `空串值必须非零退出,实际 ${r.status}`)
+      assert.match(r.stderr, /""/, '必须原样带出实得的空 token')
+      assert.ok(!fs.existsSync(defaultPending(root)), '不得静默回落')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('(b) --output <合法路径>:仍按给定路径写、exit 1(有 pending),默认路径不写', () => {
+    const root = mkPendingProject()
+    try {
+      const custom = path.join('.ihui-agent', 'tmp', 'custom-pending.json')
+      const r = runScript(['--output', custom], { cwd: root })
+      assert.equal(r.status, 1, `有 pending 应 exit 1(与改动前同),实际 ${r.status}`)
+      assert.ok(fs.existsSync(path.join(root, custom)), '合法值必须真写到给定路径')
+      assert.ok(!fs.existsSync(defaultPending(root)), '给了合法值就不该再写默认路径')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('(b) 不带 --output 的默认档:默认路径照旧写,内容与合法自定义路径那份逐字等值(仅时间戳除外)', () => {
+    const a = mkPendingProject()
+    const b = mkPendingProject()
+    try {
+      const ra = runScript([], { cwd: a })
+      const rb = runScript(['--output', path.join('.ihui-agent', 'tmp', 'c.json')], { cwd: b })
+      assert.equal(ra.status, rb.status, '两条出口的退出码必须一致')
+      assert.ok(fs.existsSync(defaultPending(a)), '默认档必须落默认路径')
+      assert.equal(
+        semantic(defaultPending(a)),
+        semantic(path.join(b, '.ihui-agent', 'tmp', 'c.json')),
+        '同一份夹具下,默认档与自定义档的 pending 内容必须等值',
+      )
+    } finally {
+      rmScratch(a)
+      rmScratch(b)
+    }
+  })
+
+  test('(c) 源码形状锁:--output 取值必须走 flagValue,裸 argv[indexOf+1] 形态不得回来', () => {
+    const src = fs.readFileSync(SCRIPT_PATH, 'utf8')
+    const code = src
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n')
+      .filter((line) => !/^\s*\/\//.test(line))
+      .join('\n')
+      .replace(/\/\/[^\n]*/g, '')
+    assert.doesNotMatch(
+      code,
+      /argv\[\s*outputIdx\s*\+\s*1\s*\]/,
+      '旧写法 process.argv[outputIdx + 1] 不得回来(它是本判据要防的形态)',
+    )
+    assert.match(code, /function\s+flagValue\s*\(/, '唯一取值出口必须在位')
+    assert.match(code, /flagValue\(\s*process\.argv\.slice\(2\)\s*,\s*'--output'\s*\)/, '站点必须走出口')
+    assert.match(code, /outputFlag\.present\s*&&\s*!outputFlag\.valid/, '拒绝分支必须挂在"旗标在场而值无效"上')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
