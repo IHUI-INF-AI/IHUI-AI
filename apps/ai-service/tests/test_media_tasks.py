@@ -107,9 +107,12 @@ async def test_persist_db_error_not_raised():
 async def test_persist_ownerless_row_is_loudly_warned(caplog):
     """G-754②:无主体通道铸出的空属主行必须**喊出来**,但本步不改行为。
 
-    读侧闸门把 `user_uuid=''` 的行对任何登录用户放开,其注释称这是"历史行为";而只要还有
+    读侧闸门原先把 `user_uuid=''` 的行对任何登录用户放开,其注释称这是"历史行为";而只要还有
     一条不带主体的通道在跑工具,这类行就在持续新增 —— 那行注释的前提已不成立。这里钉的是
-    "从此不静默":有告警、仍照常落库、返回值不变(收紧可见性是产品决策,不在一行日志里顺手做掉)。
+    "从此不静默":有告警、仍照常落库、返回值不变。
+    (G-754① 同日已把**读侧**收紧成"空属主仅 admin 可达",见
+     `test_rest_media_task_ownerless_row_non_admin_closed_on_all_three_doors`;
+     本例钉的是**写侧**仍照常落库并喊出 —— 铸行方拿不到主体属通道问题,归 G-753。)
     """
     mock_conn = AsyncMock()
     mock_conn.fetch = AsyncMock(return_value=[{"id": 7}])
@@ -410,6 +413,118 @@ async def test_rest_media_task_cancel_other_user_404(monkeypatch):
         resp = await ac.post("/api/media/tasks/t-o/cancel")
     assert resp.status_code == 404
     upd.assert_not_awaited()
+
+
+async def test_owner_allows_unknown_owner_is_not_public():
+    """G-754① 判据本身的语义钉死:空属主 = 属主**未知** ⇒ 非 admin 不可达、admin 可达。
+
+    不调任何 I/O,只把"禁止把空属主读成'人人可见'"写成可判事实。带正向对照
+    (自己的行必须放行、admin 必须可达)—— 只测收紧的那一侧,等于没测收紧的边界。
+    """
+    assert mt_router._owner_allows("", ("u-plain", False)) is False
+    assert mt_router._owner_allows("someone-else", ("u-plain", False)) is False
+    assert mt_router._owner_allows("u-plain", ("u-plain", False)) is True
+    assert mt_router._owner_allows("", ("u-admin", True)) is True
+
+
+async def test_rest_media_task_ownerless_row_non_admin_closed_on_all_three_doors(monkeypatch):
+    """G-754①:按 task_id 直取的三侧门(详情/取消/删除)对空属主行一律 404,且**未发出后续查询**。
+
+    只断状态码会放过"先改了再抛 404":这里除"必须读一次才知道属主"那次取行
+    (`get_media_task`),任何写/删出口都不得被 awaited。
+    """
+    get = AsyncMock(return_value={
+        "task_id": "t-orphan", "user_uuid": "", "status": "processing", "provider": "token6688",
+    })
+    upd = AsyncMock(return_value=True)
+    dele = AsyncMock(return_value=True)
+    monkeypatch.setattr("app.routers.media_tasks.get_media_task", get)
+    monkeypatch.setattr("app.routers.media_tasks.update_media_task", upd)
+    monkeypatch.setattr("app.routers.media_tasks.delete_media_task", dele)
+    app = _make_app(scope=("u-plain", False))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        detail = await ac.get("/api/media/tasks/t-orphan")
+        cancel = await ac.post("/api/media/tasks/t-orphan/cancel")
+        delete = await ac.delete("/api/media/tasks/t-orphan")
+    assert (detail.status_code, cancel.status_code, delete.status_code) == (404, 404, 404)
+    assert "data" not in detail.json(), "详情不得把无主行内容回给非 admin"
+    upd.assert_not_awaited()
+    dele.assert_not_awaited()
+
+
+async def test_rest_media_task_ownerless_gate_fires_before_terminal_409(monkeypatch):
+    """归属闸排在状态闸之前:已终态的无主行也回 404,而不是带 status=… 的 409。
+
+    409 的文案等于告诉调用者"这条 id 是真的"—— 存在性 oracle,与本仓"越权与不存在
+    同码同形"那条口径同源(见 AGENTS §5"认证不等于授权")。
+    """
+    monkeypatch.setattr(
+        "app.routers.media_tasks.get_media_task",
+        AsyncMock(return_value={"task_id": "t-orphan2", "user_uuid": "", "status": "succeeded"}),
+    )
+    app = _make_app(scope=("u-plain", False))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/api/media/tasks/t-orphan2/cancel")
+    assert resp.status_code == 404
+
+
+async def test_rest_media_task_ownerless_row_still_reachable_by_admin(monkeypatch):
+    """影响面·正向对照①:收紧的是"任意登录用户",不是将数据销毁。
+
+    admin 仍可读/可删无主历史行 —— 否则本例只是在证明"门把功能改坏了"。
+    **行为变更如实登记**:非 admin 此前按 task_id 能读到并取消/删除这类行,现一律 404;
+    对普通用户的表现从"任务中心列表里本来就看不见(list/stats 等值过滤)但知道 id 就能开"
+    变成"哪儿都打不开",不再有"侧门比正门宽"这种自相矛盾。
+    """
+    monkeypatch.setattr(
+        "app.routers.media_tasks.get_media_task",
+        AsyncMock(return_value={"task_id": "t-orphan3", "user_uuid": "", "status": "succeeded"}),
+    )
+    monkeypatch.setattr("app.routers.media_tasks.delete_media_task", AsyncMock(return_value=True))
+    app = _make_app()  # 默认 admin
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        detail = await ac.get("/api/media/tasks/t-orphan3")
+        delete = await ac.delete("/api/media/tasks/t-orphan3")
+    assert detail.status_code == 200
+    assert detail.json()["data"]["task_id"] == "t-orphan3"
+    assert delete.status_code == 200
+
+
+async def test_rest_media_task_own_row_unchanged_after_narrowing(monkeypatch):
+    """影响面·正向对照②:自己的行照旧(详情 200 + 取消真的置 cancelled)。"""
+    monkeypatch.setattr(
+        "app.routers.media_tasks.get_media_task",
+        AsyncMock(return_value={
+            "task_id": "t-mine", "user_uuid": "u-plain", "status": "processing", "provider": "other",
+        }),
+    )
+    upd = AsyncMock(return_value=True)
+    monkeypatch.setattr("app.routers.media_tasks.update_media_task", upd)
+    app = _make_app(scope=("u-plain", False))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        detail = await ac.get("/api/media/tasks/t-mine")
+        cancel = await ac.post("/api/media/tasks/t-mine/cancel")
+    assert detail.status_code == 200
+    assert cancel.status_code == 200
+    upd.assert_awaited()
+
+
+async def test_list_and_stats_scope_params_still_exclude_ownerless_rows(monkeypatch):
+    """没有第二道门:非 admin 的 list/stats 走**等值过滤**,空属主行结构上取不到。
+
+    这一例钉"本次只关了三侧门,没把 list/stats 改成另一种语义"—— 等值参数若被改成
+    含空属主,G-754 的收紧就从三条路由退回整端。
+    """
+    q = AsyncMock(return_value={"items": [], "total": 0})
+    st = AsyncMock(return_value={"by_kind": {}, "total": 0})
+    monkeypatch.setattr("app.routers.media_tasks.query_media_tasks", q)
+    monkeypatch.setattr("app.routers.media_tasks.media_task_stats", st)
+    app = _make_app(scope=("u-plain", False))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        assert (await ac.get("/api/media/tasks")).status_code == 200
+        assert (await ac.get("/api/media/tasks/stats")).status_code == 200
+    assert q.await_args.kwargs.get("user_uuid") == "u-plain"
+    assert st.await_args.kwargs.get("user_uuid") == "u-plain"
 
 
 async def test_rest_media_tasks_cancel_batch_user_scoped(monkeypatch):
