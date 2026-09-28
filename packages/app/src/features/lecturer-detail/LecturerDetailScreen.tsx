@@ -398,7 +398,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 64, // rpx(128)
       height: 64, // rpx(128)
-      borderRadius: 64 / 2,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: {
