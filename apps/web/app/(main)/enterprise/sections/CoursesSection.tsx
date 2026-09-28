@@ -56,7 +56,7 @@ export function CoursesSection() {
               key={id}
               onClick={() => setActivePhase(id)}
               className={cn(
-                'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                'flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition-colors',
                 active
                   ? 'outline outline-1 outline-border bg-primary/5 text-primary'
                   : 'hover:bg-accent',

@@ -94,7 +94,7 @@ function ThreeDViewerImpl({ url, format = 'glb', className }: ThreeDViewerProps)
         <button
           onClick={() => setAutoRotate((v) => !v)}
           className={cn(
-            'absolute right-2 top-2 rounded-md border border-input bg-background/90 p-1.5 shadow-sm transition-colors hover:bg-accent',
+            'absolute right-2 top-2 rounded-sm border border-input bg-background/90 p-1.5 shadow-sm transition-colors hover:bg-accent',
             autoRotate && 'text-primary',
           )}
         >

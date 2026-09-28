@@ -21,7 +21,7 @@ export function SpecGenerateTab({ p }: { p: SpecPanelApi }) {
             onChange={(e) =>
               p.setRequirementFormat(e.target.value as 'text' | 'markdown' | 'image_description')
             }
-            className="h-7 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
+            className="h-7 rounded-sm border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
           >
             <option value="text">纯文本</option>
             <option value="markdown">markdown</option>
@@ -33,7 +33,7 @@ export function SpecGenerateTab({ p }: { p: SpecPanelApi }) {
           onClick={p.handleGenerateFromRequirement}
           disabled={p.genLoading || !p.requirementInput.trim()}
           className={cn(
-            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
             'bg-cta text-cta-foreground hover:bg-cta/90',
             (p.genLoading || !p.requirementInput.trim()) && 'cursor-not-allowed opacity-60',
           )}
@@ -55,7 +55,7 @@ export function SpecGenerateTab({ p }: { p: SpecPanelApi }) {
             : '需求描述(支持 markdown,LLM 生成 5 章节 spec 草稿)'
         }
         rows={6}
-        className="w-full rounded-md border border-border bg-background p-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+        className="w-full rounded-sm border border-border bg-background p-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
       />
       {p.genResult?.spec ? (
         <div className="max-h-[45vh] overflow-auto rounded-md border border-border bg-background p-3">

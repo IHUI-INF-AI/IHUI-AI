@@ -200,7 +200,7 @@ export function AccountHistoryInput({
                       setLoginHistory(removeFromLoginHistory(account))
                       if (loginHistory.length <= 1) setShowHistory(false)
                     }}
-                    className="shrink-0 rounded p-0.5 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+                    className="shrink-0 rounded-sm p-0.5 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
                     aria-label={t('auth.removeAccount')}
                   >
                     <X className="h-3.5 w-3.5" />

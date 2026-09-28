@@ -21,7 +21,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
@@ -45,7 +45,8 @@ const SHARED_AUTH_PATH = 'packages/shared/src/stores/auth-store.ts'
 function createTempProject() {
   const root = mkScratch('ihui-parity-')
   mkdirSync(join(root, 'scripts'), { recursive: true })
-  copyFileSync(SOURCE_SCRIPT, join(root, 'scripts', 'check-cross-store-parity.mjs'))
+  // 2026-09-28:本门收口为"判定面可选"并支持 `--root` 测试通道 ⇒ 不再需要把脚本(和它的
+  // scripts/lib 依赖闭包)拷进夹具 —— 直接派生真脚本 + `--root <夹具>` 判磁盘面。
   return root
 }
 
@@ -65,11 +66,14 @@ function writeAuthStore(root, content) {
 
 // ─── 辅助:运行脚本(从临时项目根目录) ───────────────────
 function runScript(root) {
-  const scriptPath = join(root, 'scripts', 'check-cross-store-parity.mjs')
-  return spawnSync('node', [scriptPath], {
+  return spawnSync(process.execPath, [SOURCE_SCRIPT, '--root', root.replace(/\\/g, '/')], {
     cwd: root,
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
+    // 绝对 node 二进制 + windowsHide + 数字 timeout(AGENTS §5b / §守门 52):
+    // 裸 'node' 依赖 PATH,钩子/服务上下文里取不到;无 windowsHide 会为每次派生弹可见控制台。
+    windowsHide: true,
+    timeout: 120000,
   })
 }
 

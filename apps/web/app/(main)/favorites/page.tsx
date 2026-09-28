@@ -97,7 +97,7 @@ export default function FavoritesPage() {
             key={tabItem.value}
             onClick={() => setTab(tabItem.value)}
             className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
               tab === tabItem.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',

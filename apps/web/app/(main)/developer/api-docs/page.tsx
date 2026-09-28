@@ -277,7 +277,7 @@ export default function ApiDocsPage() {
                         key={e.id}
                         onClick={() => setSelectedId(e.id)}
                         className={cn(
-                          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors',
+                          'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
                           selected?.id === e.id
                             ? 'bg-primary/10 text-primary'
                             : 'hover:bg-accent hover:text-accent-foreground',
@@ -312,7 +312,7 @@ export default function ApiDocsPage() {
                   <code className="flex-1 min-w-0 text-sm font-medium">{selected.path}</code>
                   <button
                     onClick={() => copyPath(selected.path)}
-                    className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   >
                     <Copy className="h-3.5 w-3.5" />
                   </button>

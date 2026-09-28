@@ -376,7 +376,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                 type="button"
                 onClick={() => setDropdownTab('favorites')}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+                  'inline-flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors',
                   dropdownTab === 'favorites'
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground',
@@ -392,7 +392,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                 type="button"
                 onClick={() => setDropdownTab('history')}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+                  'inline-flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors',
                   dropdownTab === 'history'
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground',
@@ -442,7 +442,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                               e.stopPropagation()
                               onRemoveFavorite(item.url)
                             }}
-                            className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
+                            className="shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -464,7 +464,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                     onClearHistory()
                     setDropdownOpen(false)
                   }}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="inline-flex items-center gap-1 rounded-sm px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <Trash2 className="h-3 w-3" />
                   <span>{labels.clearHistory}</span>
@@ -579,7 +579,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                             e.stopPropagation()
                             onTabClose(tab.id)
                           }}
-                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 group-focus-within:opacity-100"
+                          className="rounded-sm p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 group-focus-within:opacity-100"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -635,7 +635,7 @@ const ToolbarButton = React.forwardRef<HTMLButtonElement, ToolbarButtonProps>(
         {...props}
         aria-label={props['aria-label'] ?? (typeof title === 'string' ? title : undefined)}
         className={cn(
-          'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40',
+          'inline-flex shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40',
           size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
           className,
         )}

@@ -622,7 +622,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
               testId="global-topbar-plus-menu"
               zIndexClassName="z-header"
               className={cn(
-                'rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md',
+                'rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-md',
                 // 移动端:弹窗宽度约束为视口宽度减去边距,最大 288px
                 isMobile ? 'w-[calc(100vw-2rem)] max-w-72' : 'w-72',
               )}
@@ -661,7 +661,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
                         // 鼠标 hover 时同步 activeIndex(键盘 ↑↓←→ 跟鼠标 hover 联动)
                         onMouseEnter={() => setActiveIndex(idx)}
                         className={cn(
-                          'relative flex aspect-square flex-col items-center justify-center gap-1 rounded-md p-2 text-center transition-colors focus:outline-none',
+                          'relative flex aspect-square flex-col items-center justify-center gap-1 rounded-sm p-2 text-center transition-colors focus:outline-none',
                           isActive
                             ? 'bg-accent text-foreground'
                             : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground focus:bg-muted/50 focus:text-foreground',
@@ -953,7 +953,7 @@ function TopBarEcosystemMenu() {
         testId="global-topbar-ecosystem-menu"
         zIndexClassName="z-header"
         className={cn(
-          'w-60 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md',
+          'w-60 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-md',
         )}
       >
         <Link
