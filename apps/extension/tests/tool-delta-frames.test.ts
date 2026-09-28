@@ -122,12 +122,14 @@ describe('D113 端到端:真实帧经共享 parser 解析后可直接喂归并�
   })
 })
 
-describe('D113 能力面:扩展会话刻意不带文件族工具(带过去必然执行失败)', () => {
+describe('D113 能力面:文件族由闸门决定,闸门此刻是关的', () => {
   /** prettier 会把长 import 折行 —— 形状锁必须比归一化后的文本(本仓记过多次) */
   const flat = (s: string) => s.replace(/\s+/g, ' ')
 
-  it('操控+改文件混合话术 ⇒ UI 族照常带,文件族一个不带(不带≠整族关掉)', () => {
-    // 这条刻意用混合句:只测"普通问答不带宽具"会是空集恒真,那等于没判
+  it('闸门默认关(本端尚无执行代理)⇒ 混合句只带 UI 族,不带文件族', () => {
+    // 这条刻意用混合句:只测"普通问答不带宽具"会是空集恒真,那等于没判。
+    // 2026-09-28(票㉑)之后,"不带"不再是 import 层面的禁令,而是 fileToolsAllowed() 判出来的:
+    // 节点环境探测不到 FSA、且没有执行代理注册 ⇒ 两半都不成立 ⇒ 结果与今天一致。
     const tools = toolsForChatRequest('打开设置页面,帮我修改 src/a.ts 文件的代码逻辑')
     const FILE_FAMILY =
       /(^|_)(read|write|edit|create|delete|move)_?file|file_(search|edit)|search_codebase|analyze_code|list_files/
@@ -135,11 +137,14 @@ describe('D113 能力面:扩展会话刻意不带文件族工具(带过去必然
     expect(tools.filter((n) => FILE_FAMILY.test(n))).toEqual([])
   })
 
-  it('端内不得 import 那份策略,也不得自写第二份正则(补回 import = 塞进两个必败工具)', () => {
+  it('端内 import 那份策略必须挂在闸门后面,且不得自写第二份正则', () => {
     const src = readFileSync(join(END_ROOT, 'lib/ui-control-tools.ts'), 'utf8')
-    expect(flat(src)).not.toContain("from '@ihui/shared/chat/file-tool-intent'")
+    // 改判记录:此前这条锁的是"根本不许 import"。票㉑ 第一枚落了能力探测 + 执行代理注册表之后,
+    // 真正的不变量变成"import 了也必须过 fileToolsAllowed()" —— 放行与否是运行时判,不是文件级禁令。
+    expect(flat(src)).toContain("from '@ihui/shared/chat/file-tool-intent'")
+    expect(flat(src)).toContain('fileToolsAllowed(')
     expect(src).not.toMatch(/FILE_(READ|WRITE)_INTENT_RE\s*=\s*\//)
-    // 而"为什么不带"必须写在文件里 —— 没有理由的排除,下一个人一定会"顺手补回来"
+    // 而"为什么不能裸带"必须写在文件里 —— 没有理由的放行,下一个人一定会当成装饰删掉闸门
     expect(flat(src)).toContain('_ADMIN_ONLY_TOOLS')
     expect(flat(src)).toContain('workspace_context')
   })
