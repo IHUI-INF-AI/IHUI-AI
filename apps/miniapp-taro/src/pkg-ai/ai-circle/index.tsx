@@ -215,7 +215,7 @@ export default function AiCircle() {
         )}
       </View>
       <View
-        className="fixed right-[48rpx] bottom-[64rpx] w-[104rpx] h-[104rpx] bg-primary rounded-[52rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_var(--color-black-20)]"
+        className="fixed right-[48rpx] bottom-[64rpx] w-[104rpx] h-[104rpx] bg-primary rounded-2xl flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_var(--color-black-20)]"
         onClick={onPublish}
         hoverClass="opacity-60"
       >

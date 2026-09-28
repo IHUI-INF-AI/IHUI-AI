@@ -40,7 +40,7 @@ export function Loading({ variant = 'spinner', size = 'md', className, text }: L
           {[0, 1, 2].map((i) => (
             <span
               key={`dot-${i}`}
-              className={cn('animate-bounce rounded-full bg-current', dotSize)}
+              className={cn('animate-bounce rounded-2xl bg-current', dotSize)}
               style={{ animationDelay: `${i * 0.15}s` }}
             />
           ))}
