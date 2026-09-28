@@ -35,7 +35,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawn } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
-import { setCredential, getCredentialWithGeneration, commitCredentialCas, isExpired, type McpCredentialEntry } from './mcp-credentials.js';
+import { setCredential, getCredentialWithGeneration, commitCredentialCas, isExpired, announceCredentialStore, type McpCredentialEntry } from './mcp-credentials.js';
 import { tryParseJson, isRecord } from '../util/json.js';
 import { assertSafeFetchUrl, formatSsrfRejection, type SelfHostedTrust } from '@ihui/shared/utils/ssrf-guard';
 
@@ -253,7 +253,7 @@ export async function startOAuthFlow(
     // 7. 换取 token
     const result = await exchangeCodeForToken(config, code, codeVerifier);
 
-    // 8. 保存凭证
+    // 8. 保存凭证(落盘档位由 mcp-credentials 的三档降级决定)
     await setCredential(config.serverUrl, {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
@@ -261,6 +261,11 @@ export async function startOAuthFlow(
       scope: result.scope,
       obtainedAt: Date.now(),
     });
+
+    // 8.5 D146:新写入必须当场把"存在哪、哪一档、为什么"喊出来(不得静默)。
+    //     降级到明文时这里就是用户唯一能看到的那一行;announce 本身不抛错,
+    //     绝不因为"报状态失败"把一次已成功的授权报成失败。
+    await announceCredentialStore();
 
     return result;
   } finally {
