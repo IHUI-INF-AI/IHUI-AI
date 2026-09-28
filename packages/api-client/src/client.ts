@@ -260,10 +260,8 @@ export function getUnauthorizedHandler(): UnauthorizedHandler | null {
  * 三条不变量,对应本票的三条要求:
  * 1. **未注册即零副作用** —— 第一行就 return,不产生任何对象/微任务/日志,
  *    保证"没注册钩子时行为与改动前逐字节一致"(有 fetch-api-baseline.test.ts 的逐字对账钉死)。
- * 2. **不在"续期成功且重试成功"路径上被调用,但必须在"续期成功后重试仍 401"时调用** ——
- *    前者是 bootstrap 静默刷新的正常形态(误弹会打断它);后者新 token 已被服务端拒绝,
- *    与"续期拿不到 token"同属**不可恢复**,2026-09-27 真机实测补上(旧判据把整块 401 处理
- *    挂在 `!authRetried` 上,于是这一格连通知都不发)。
+ * 2. **绝不在"续期成功"路径上被调用** —— 调用点在 `refreshAccessTokenOnce()` 返回 falsy
+ *    的分支里;续期拿到 token 后走重试,不进本函数(误弹会打断 bootstrap 静默刷新)。
  *    认证端点(isAuthEndpoint)的 401 是它自己的最终结果,同理不通知。
  * 3. **处理器抛错不得影响 fetchApi 的返回,但也不得静默吞** —— try/catch 包住后
  *    走本包既有的 console 约定(该包没有独立 logger,唯一先例是 streamChat 的
@@ -445,17 +443,31 @@ export function deriveFailureFromBody(
     // 非 JSON 响应,保留 text 作为 message
   }
   if (parsed) {
-    // FastAPI 的错误体是 {detail:"..."};只认 message 会让 toast 直接显示整段原始 JSON 文本。
-    // 多结论端点的标准写法是形态② {detail:{errorCode,message}}(如 /agents/{sid}/pause|resume,
-    // V3 #65 契约测试钉住"errorCode 原样带回,不折成一句失败"):detail 是字典时从壳内取,
-    // 否则结论在派生出口这一层就丢了。优先级仍是顶层 message 先、detail 后。
-    const detailDict =
-      parsed.detail && typeof parsed.detail === 'object' ? (parsed.detail as Record<string, unknown>) : undefined
+    // FastAPI 的错误体有**两种**形态:
+    //   ① `{"detail":"字符串"}` —— 路由只给一句话;
+    //   ② `{"detail":{"errorCode":"…","message":"…"}}` —— 路由显式传 dict(多结论端点的
+    //      标准写法,如 `/agents/{sid}/pause` 用状态码分辨 403/404/409/503)。
+    // 旧实现只认 ①:形态 ② 下 `message`/`errorCode` 双双取不到,于是 error 落回**整段
+    // 原始 JSON 文本**、errorCode 恒 undefined —— 端上想按结论格分流就只能自己去解析响应体,
+    // 而"哪种失败"恰恰是本仓最不允许折叠成一格的信息(§5 响应必须可分辨)。
+    const detailObject =
+      parsed.detail && typeof parsed.detail === 'object'
+        ? (parsed.detail as Record<string, unknown>)
+        : undefined
+    const nestedMessage =
+      detailObject && typeof detailObject.message === 'string' && detailObject.message.trim()
+        ? detailObject.message
+        : undefined
+    const nestedErrorCode =
+      detailObject && typeof detailObject.errorCode === 'string'
+        ? detailObject.errorCode
+        : undefined
+    // message 优先于 detail(自家 api 契约是 {code,message,data};detail 只作 FastAPI 透传的补位)
     if (typeof parsed.message === 'string' && parsed.message.trim()) message = parsed.message
     else if (typeof parsed.detail === 'string' && parsed.detail.trim()) message = parsed.detail
-    else if (typeof detailDict?.message === 'string' && detailDict.message.trim()) message = detailDict.message
+    else if (nestedMessage) message = nestedMessage
     if (typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
-    else if (typeof detailDict?.errorCode === 'string') errorCode = detailDict.errorCode
+    else if (nestedErrorCode) errorCode = nestedErrorCode
   }
   return { message, errorCode }
 }
@@ -651,22 +663,20 @@ export async function fetchApi<T>(
         try {
           const result = await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
           // 401 自动续期(2026-08-06):access token 过期 → 静默刷新 → 重试一次
-          if ('status' in result && result.status === 401 && !isAuthEndpoint(normalizedUrl)) {
-            if (authRetried) {
-              // 续期拿到了新 token、重试**仍然 401** ⇒ 新凭据也被服务端拒 = 会话真死了。
-              // 这一格此前是静默的:`!authRetried` 把整个 401 块跳过,连通知都不发 ——
-              // 而它恰恰是最不可恢复的那一种 401(真机实测:能力上报每 60s 重复,永远不进登录页)。
-              notifyUnauthorized(normalizedUrl, restOptions.method)
-            } else {
-              const newToken = await refreshAccessTokenOnce()
-              if (newToken) {
-                headers['Authorization'] = `Bearer ${newToken}`
-                authRetried = true
-                continue
-              }
-              // 401 且续期没拿到 token(未注入续期实现 / 续期失败)→ 通知端内(2026-09-25)
-              notifyUnauthorized(normalizedUrl, restOptions.method)
+          if (
+            'status' in result &&
+            result.status === 401 &&
+            !authRetried &&
+            !isAuthEndpoint(normalizedUrl)
+          ) {
+            const newToken = await refreshAccessTokenOnce()
+            if (newToken) {
+              headers['Authorization'] = `Bearer ${newToken}`
+              authRetried = true
+              continue
             }
+            // 401 且续期没拿到 token(未注入续期实现 / 续期失败)→ 通知端内(2026-09-25)
+            notifyUnauthorized(normalizedUrl, restOptions.method)
           }
           return result as ApiResult<T>
         } catch (err) {
@@ -705,10 +715,6 @@ export async function fetchApi<T>(
           result = await circuitBreaker.execute(async () => {
             return await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
           })
-          // 与无熔断分支同一出口:重试仍 401 = 新凭据也被拒,必须通知(2026-09-27)
-          if ('status' in result && result.status === 401) {
-            notifyUnauthorized(normalizedUrl, restOptions.method)
-          }
         } else {
           // 401 且续期没拿到 token → 通知端内(与上方无熔断分支同一出口,2026-09-25)
           notifyUnauthorized(normalizedUrl, restOptions.method)
@@ -3538,8 +3544,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
  * 注意:webpack 只对 `process.env.NEXT_PUBLIC_X` **直接点号访问**做构建期内联,
  * 把 process.env 赋给变量再取属性不会被替换;import.meta.env 保留给 Vite 系构建(Taro/extension)。
  * 上行回传帧(tool-result / form-response)共用这一处,不得各抄一份默认值。
+ * D158(2026-09-28)起 export:approval-grants 管理出口(list/revoke)也直连
+ * ai-service,经同一解析出口取 base URL,不抄第二份默认值。
  */
-function aiServiceBaseUrl(): string {
+export function aiServiceBaseUrl(): string {
   const viteEnv = (import.meta as unknown as { env?: Record<string, unknown> }).env
   const nextUrl =
     typeof process !== 'undefined' && process.env
@@ -3633,6 +3641,12 @@ export async function postToolApprovalResponse(input: {
   scope?: 'once' | 'session' | 'always'
   /** 用户附带原因(可选,拒绝理由为主) */
   reason?: string
+  /**
+   * D158(2026-09-28):审批第四档「批准并生成放行规则」的正交扩展 —— 与三档 scope
+   * 语义并行,不是第四个 scope 字符串。仅 chat-stream 通道生效(llm.py 回传端点);
+   * agent 任务流通道的网关 schema 会静默丢弃该字段,调用方应避免在那一档传入。
+   */
+  grantRule?: { kind: 'exec_prefix'; tokens: number }
 }): Promise<void> {
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
@@ -3646,6 +3660,9 @@ export async function postToolApprovalResponse(input: {
         ...(input.scope !== undefined ? { scope: input.scope } : {}),
         // 空原因不携带(与"用户没说原因"区分于"说了个空原因")
         ...(input.reason !== undefined && input.reason !== '' ? { reason: input.reason } : {}),
+        // D158:第四档批准时随 approve 一并上送(与后端 grant_rule 校验同形;
+        // 缺省不携带 = 旧客户端语义,不生成任何规则)
+        ...(input.grantRule ? { grant_rule: input.grantRule } : {}),
       }),
     })
   } catch (e) {
