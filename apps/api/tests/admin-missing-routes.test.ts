@@ -284,7 +284,7 @@ describe('admin-missing-routes', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/edu/classes/123',
+        url: '/api/admin/edu/classes/00000000-0000-4000-8000-000000000123',
         body: { name: 'updated' },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -312,7 +312,7 @@ describe('admin-missing-routes', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/auth-veri-codes/1',
+        url: '/api/admin/auth-veri-codes/00000000-0000-4000-8000-000000000001',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(200)
@@ -413,7 +413,7 @@ describe('admin-missing-routes', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/carousel/test-id',
+        url: '/api/admin/carousel/00000000-0000-4000-8000-0000000000c1',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(200)
@@ -517,6 +517,24 @@ describe('admin-missing-routes', () => {
   // ===========================================================================
   // 7. 11 条升级路由的 POST/PUT/DELETE 覆盖
   //    每个写方法至少 1 成功 + 1 失败（POST/DELETE 失败=403 非 admin；PUT 失败=404 资源不存在）
+  //
+  //    夹具 id 形态不变式(2026-09-28 立,清这批红时定下):
+  //      喂进 uuid 主键路由的 :id **必须**是合法 uuid(形如 00000000-0000-4000-8000-…)。
+  //      理由不是洁癖:这些路由在进 SQL 之前有形状闸(utils/uuid.ts 的 isUuidString),
+  //      非 uuid 会被**提前 400** 短路 —— 于是 (a) 断言 200/404 的用例恒红,
+  //      (b) 更坏的是它让用例**根本没走到**被测的那段逻辑却照样可能绿:
+  //          形状闸的 400 与 body 校验的 400 在响应上同形,本文件曾因此留过 4 枚假绿
+  //          (见下方「参数校验」段 PUT …返回 400 四条),它们断言 body 非法,
+  //          实际却是 id 闸门先落;body 校验被整体删掉它们也不会红。
+  //      (c) 提前 return 还会让该用例排队的 mockSelectResult/mockUpdateReturning 的
+  //          Once 值**不被消费**而漏进后续用例 —— 本文件没有 beforeEach 重置这些 mock,
+  //          Once 队列是全文件共享的 FIFO,所以上面那种短路会污染后面看起来无关的红
+  //          (实例:/auth-accounts DELETE 泄漏 [{id:'mock-id'}] → login-logs 的
+  //           "不存在返回 404" 被读成 200;单独 -t 跑它是 404,即证明那枚红不属它自己)。
+  //    例外(有意保留非 uuid 字面量,勿顺手"修"):
+  //      ① 只断言 401/403 的门控用例 —— preHandler 在 handler 之前拒绝,:id 根本不参与;
+  //      ② /system/login-logs/:id —— sys_logininfor.info_id 是 bigserial 整型主键,
+  //         该路由**没有** uuid 闸,发整数才是正确形态(发 uuid 反而会 400/500)。
   // ===========================================================================
   describe('升级路由 POST/PUT/DELETE 覆盖', () => {
     // 1. /auth-accounts — DELETE
@@ -526,7 +544,7 @@ describe('admin-missing-routes', () => {
         mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
-          url: '/api/admin/auth-accounts/acc-1',
+          url: '/api/admin/auth-accounts/00000000-0000-4000-8000-000000000a01',
           headers: { authorization: ADMIN_TOKEN },
         })
         expect(res.statusCode).toBe(200)
@@ -549,7 +567,7 @@ describe('admin-missing-routes', () => {
         mockAdmin()
         const res = await server.inject({
           method: 'PUT',
-          url: '/api/admin/auth-info/user-uuid-1',
+          url: '/api/admin/auth-info/00000000-0000-4000-8000-000000000b01',
           body: { phone: '13900000001', authStatus: 'verified' },
           headers: { authorization: ADMIN_TOKEN },
         })
@@ -561,7 +579,7 @@ describe('admin-missing-routes', () => {
         mockUpdateReturning.mockResolvedValueOnce([])
         const res = await server.inject({
           method: 'PUT',
-          url: '/api/admin/auth-info/missing-uuid',
+          url: '/api/admin/auth-info/00000000-0000-4000-8000-000000000bff',
           body: { phone: '13900000001' },
           headers: { authorization: ADMIN_TOKEN },
         })
@@ -597,7 +615,7 @@ describe('admin-missing-routes', () => {
         mockAdmin()
         const res = await server.inject({
           method: 'PUT',
-          url: '/api/admin/auth-role/role-1',
+          url: '/api/admin/auth-role/00000000-0000-4000-8000-000000000c01',
           body: { displayName: '编辑者' },
           headers: { authorization: ADMIN_TOKEN },
         })
@@ -609,7 +627,7 @@ describe('admin-missing-routes', () => {
         mockUpdateReturning.mockResolvedValueOnce([])
         const res = await server.inject({
           method: 'PUT',
-          url: '/api/admin/auth-role/missing',
+          url: '/api/admin/auth-role/00000000-0000-4000-8000-000000000cff',
           body: { displayName: 'x' },
           headers: { authorization: ADMIN_TOKEN },
         })
@@ -620,7 +638,7 @@ describe('admin-missing-routes', () => {
         mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
-          url: '/api/admin/auth-role/role-1',
+          url: '/api/admin/auth-role/00000000-0000-4000-8000-000000000c01',
           headers: { authorization: ADMIN_TOKEN },
         })
         expect(res.statusCode).toBe(200)
@@ -644,7 +662,7 @@ describe('admin-missing-routes', () => {
         mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
-          url: '/api/admin/auth-tokens/sk-1',
+          url: '/api/admin/auth-tokens/00000000-0000-4000-8000-000000000d01',
           headers: { authorization: ADMIN_TOKEN },
         })
         expect(res.statusCode).toBe(200)
@@ -668,7 +686,7 @@ describe('admin-missing-routes', () => {
         mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
-          url: '/api/admin/auth-user-vip/vip-1',
+          url: '/api/admin/auth-user-vip/00000000-0000-4000-8000-000000000e01',
           headers: { authorization: ADMIN_TOKEN },
         })
         expect(res.statusCode).toBe(200)
@@ -712,7 +730,7 @@ describe('admin-missing-routes', () => {
         mockAdmin()
         const res = await server.inject({
           method: 'PUT',
-          url: '/api/admin/auth-vip-level/lvl-1',
+          url: '/api/admin/auth-vip-level/00000000-0000-4000-8000-000000000f01',
           body: { price: 50, status: 1 },
           headers: { authorization: ADMIN_TOKEN },
         })
@@ -724,7 +742,7 @@ describe('admin-missing-routes', () => {
         mockUpdateReturning.mockResolvedValueOnce([])
         const res = await server.inject({
           method: 'PUT',
-          url: '/api/admin/auth-vip-level/missing',
+          url: '/api/admin/auth-vip-level/00000000-0000-4000-8000-000000000fff',
           body: { price: 50 },
           headers: { authorization: ADMIN_TOKEN },
         })
@@ -735,7 +753,7 @@ describe('admin-missing-routes', () => {
         mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
-          url: '/api/admin/auth-vip-level/lvl-1',
+          url: '/api/admin/auth-vip-level/00000000-0000-4000-8000-000000000f01',
           headers: { authorization: ADMIN_TOKEN },
         })
         expect(res.statusCode).toBe(200)
@@ -779,7 +797,7 @@ describe('admin-missing-routes', () => {
         mockAdmin()
         const res = await server.inject({
           method: 'PUT',
-          url: '/api/admin/auth-sms-temp/tpl-1',
+          url: '/api/admin/auth-sms-temp/00000000-0000-4000-8000-000000001a01',
           body: { content: '新内容 {code}', status: 0 },
           headers: { authorization: ADMIN_TOKEN },
         })
@@ -791,7 +809,7 @@ describe('admin-missing-routes', () => {
         mockUpdateReturning.mockResolvedValueOnce([])
         const res = await server.inject({
           method: 'PUT',
-          url: '/api/admin/auth-sms-temp/missing',
+          url: '/api/admin/auth-sms-temp/00000000-0000-4000-8000-000000001aff',
           body: { status: 0 },
           headers: { authorization: ADMIN_TOKEN },
         })
@@ -802,7 +820,7 @@ describe('admin-missing-routes', () => {
         mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
-          url: '/api/admin/auth-sms-temp/tpl-1',
+          url: '/api/admin/auth-sms-temp/00000000-0000-4000-8000-000000001a01',
           headers: { authorization: ADMIN_TOKEN },
         })
         expect(res.statusCode).toBe(200)
@@ -847,7 +865,7 @@ describe('admin-missing-routes', () => {
         mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
-          url: '/api/admin/user-roles/ur-1',
+          url: '/api/admin/user-roles/00000000-0000-4000-8000-000000001b01',
           headers: { authorization: ADMIN_TOKEN },
         })
         expect(res.statusCode).toBe(200)
@@ -896,7 +914,7 @@ describe('admin-missing-routes', () => {
         mockAdmin()
         const res = await server.inject({
           method: 'PUT',
-          url: '/api/admin/member/permissions/perm-1',
+          url: '/api/admin/member/permissions/00000000-0000-4000-8000-000000001c01',
           body: { displayName: '权限管理' },
           headers: { authorization: ADMIN_TOKEN },
         })
@@ -908,7 +926,7 @@ describe('admin-missing-routes', () => {
         mockUpdateReturning.mockResolvedValueOnce([])
         const res = await server.inject({
           method: 'PUT',
-          url: '/api/admin/member/permissions/missing',
+          url: '/api/admin/member/permissions/00000000-0000-4000-8000-000000001cff',
           body: { displayName: 'x' },
           headers: { authorization: ADMIN_TOKEN },
         })
@@ -919,7 +937,7 @@ describe('admin-missing-routes', () => {
         mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
-          url: '/api/admin/member/permissions/perm-1',
+          url: '/api/admin/member/permissions/00000000-0000-4000-8000-000000001c01',
           headers: { authorization: ADMIN_TOKEN },
         })
         expect(res.statusCode).toBe(200)
@@ -943,7 +961,7 @@ describe('admin-missing-routes', () => {
         mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
-          url: '/api/admin/system/operation-logs/log-1',
+          url: '/api/admin/system/operation-logs/00000000-0000-4000-8000-000000001d01',
           headers: { authorization: ADMIN_TOKEN },
         })
         expect(res.statusCode).toBe(200)
@@ -1016,7 +1034,7 @@ describe('admin-missing-routes', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/auth-info/user-uuid-1',
+        url: '/api/admin/auth-info/00000000-0000-4000-8000-000000000b01',
         body: { phone: 12345 },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -1038,7 +1056,7 @@ describe('admin-missing-routes', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/auth-vip-level/lvl-1',
+        url: '/api/admin/auth-vip-level/00000000-0000-4000-8000-000000000f01',
         body: { levelName: '' },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -1115,7 +1133,7 @@ describe('admin-missing-routes', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/member/permissions/perm-1',
+        url: '/api/admin/member/permissions/00000000-0000-4000-8000-000000001c01',
         body: { name: '' },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -1126,7 +1144,7 @@ describe('admin-missing-routes', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/auth-role/role-1',
+        url: '/api/admin/auth-role/00000000-0000-4000-8000-000000000c01',
         body: { name: 12345 },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -1143,7 +1161,7 @@ describe('admin-missing-routes', () => {
       mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/auth-accounts/missing-id',
+        url: '/api/admin/auth-accounts/00000000-0000-4000-8000-000000000afe',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
@@ -1155,7 +1173,7 @@ describe('admin-missing-routes', () => {
       mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/auth-role/missing-id',
+        url: '/api/admin/auth-role/00000000-0000-4000-8000-000000000cfe',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
@@ -1166,7 +1184,7 @@ describe('admin-missing-routes', () => {
       mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/auth-tokens/missing-id',
+        url: '/api/admin/auth-tokens/00000000-0000-4000-8000-000000000dfe',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
@@ -1177,7 +1195,7 @@ describe('admin-missing-routes', () => {
       mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/auth-user-vip/missing-id',
+        url: '/api/admin/auth-user-vip/00000000-0000-4000-8000-000000000efe',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
@@ -1188,7 +1206,7 @@ describe('admin-missing-routes', () => {
       mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/auth-vip-level/missing-id',
+        url: '/api/admin/auth-vip-level/00000000-0000-4000-8000-000000000ffe',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
@@ -1199,7 +1217,7 @@ describe('admin-missing-routes', () => {
       mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/auth-sms-temp/missing-id',
+        url: '/api/admin/auth-sms-temp/00000000-0000-4000-8000-000000001afe',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
@@ -1210,7 +1228,7 @@ describe('admin-missing-routes', () => {
       mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/user-roles/missing-id',
+        url: '/api/admin/user-roles/00000000-0000-4000-8000-000000001bfe',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
@@ -1221,7 +1239,7 @@ describe('admin-missing-routes', () => {
       mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/member/permissions/missing-id',
+        url: '/api/admin/member/permissions/00000000-0000-4000-8000-000000001cfe',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
@@ -1232,7 +1250,7 @@ describe('admin-missing-routes', () => {
       mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/system/operation-logs/missing-id',
+        url: '/api/admin/system/operation-logs/00000000-0000-4000-8000-000000001dfe',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
