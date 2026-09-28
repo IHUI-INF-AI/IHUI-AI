@@ -60,11 +60,8 @@ import {
   BillingUnavailableError,
   type PreDeduction,
 } from '../services/relay-billing-service.js'
-// 用户级并发限制(H,2026-09-16 立)
-import {
-  tryAcquireUserConcurrency,
-  releaseUserConcurrency,
-} from '../services/user-concurrency-service.js'
+// 用户级并发限制(H,2026-09-16 立;G-727 收口泄漏面:占用与登记同笔完成)
+import { acquireUserConcurrencyForResponse } from '../services/user-concurrency-service.js'
 // 渠道直连转发器(2026-09-12 立):公开链路接通渠道路由 + 逐请求 failover
 import { forwardToChannel, pipeChannelStream } from '../services/relay-upstream-forwarder.js'
 import type { SelectedChannelKey } from '../services/relay-channel-router.js'
@@ -1440,8 +1437,13 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     // 用户级并发限制(H,2026-09-16 立):同一用户挂起请求数超上限直接 429
     // (进程内计数,单实例正确;多实例需迁 Redis——见 user-concurrency-service)。
     // 释放挂在 reply.raw 'close'(正常完成与客户端断开都触发),防漏释放。
+    // G-727(2026-09-28 修):旧写法占用后隔约 10 行才把释放挂到 reply.raw 'close',
+    // 中间任何一句抛错都不会再来 close ⇒ 槽位永久泄漏,该用户计数只增不减;
+    // 一旦顶格,本进程余生对他全部 429(服务里"防止异常路径漏释放导致永久顶格"即此后果)。
+    // 现改走 acquireUserConcurrencyForResponse():占用成功与释放登记在**同一函数内**完成,
+    // 挂不上就当场释放并继续抛错(创建方兜底),且 release 是幂等闩(close/finish 双挂只减一次)。
     if (apiKey?.userId) {
-      const slot = tryAcquireUserConcurrency(apiKey.userId)
+      const slot = acquireUserConcurrencyForResponse(apiKey.userId, reply.raw)
       if (!slot.ok) {
         return reply.status(429).send({
           error: {
@@ -1451,7 +1453,6 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           },
         })
       }
-      reply.raw.on('close', () => releaseUserConcurrency(apiKey.userId))
     }
 
     let preDeduction: PreDeduction | null = null

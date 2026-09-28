@@ -279,7 +279,11 @@ export async function resumePendingMessage(
     opts.signal.removeEventListener('abort', onAbort)
     // 仅当仍在同一会话时收尾,避免污染用户已切换到的新会话
     if (useChatStore.getState().conversationId === p.conversationId) {
-      useChatStore.getState().setStreaming(false)
+      // G-703(2026-09-29 立):续接也是"本轮在跑"的一条流,终态必须走 store 的单一出口把
+      // isStreaming / streamingAssistantId / aiStreamSessionId 一次性回收。
+      // 原先这里只写 setStreaming(false) —— 续接期间由同源帧观察到的 sessionId 会活到下一轮,
+      // 下一轮的终端输入行于是把字送进一条早已结束的流(而界面看不出来)。
+      useChatStore.getState().clearRunScopedState()
     }
   }
 }

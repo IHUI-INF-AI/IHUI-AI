@@ -108,7 +108,12 @@
       "fsExhaustedInodes": "根因診斷:命令空輸出且以 {status} 退出,而 {cwd} 所在檔案系統實測 inode 已盡(ffree={freeInodes},低於 1000 診斷閾)—— 目錄項已滿;請清理大量小文件/目錄,或檢查該檔案系統的 inode 配額後重試。"
     },
     "goalNotAchieved": "獨立校驗未通過:本次執行不得宣佈完成",
-    "truncatedByLength": "本輪輸出已達長度上限被截斷,回覆可能不完整;可讓我分次繼續,或調高 max_tokens 後重試。"
+    "truncatedByLength": "本輪輸出已達長度上限被截斷,回覆可能不完整;可讓我分次繼續,或調高 max_tokens 後重試。",
+    "mcpCredentials": {
+      "storePlaintext": "MCP 憑證目前以明文存於 {path}(本機降階)",
+      "storeEncrypted": "MCP 憑證已加密儲存(後端:{backend})",
+      "migrationFailed": "憑證遷移未完成,已保留原檔案且未覆蓋({reason})"
+    }
   },
   "waiting": {
     "agent": {

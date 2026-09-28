@@ -113,6 +113,27 @@ export {
 } from './ws-client.js'
 export type { WebSocketClientOptions, WebSocketClientHandlers, WebSocketLike } from './ws-client.js'
 
+// D153(2026-09-29 立)per-user 广播订阅出口 —— 设备级单例 + 引用计数,消费端一律走这里,
+// 端内不得自己 new WebSocket 再解析一遍帧形态(第二份真相;事件联合在 @ihui/types)
+export {
+  subscribeUserBroadcast,
+  feedUserBroadcastFrame,
+  buildBroadcastWsUrl,
+  refreshUserBroadcastConnection,
+  getUserBroadcastHubStats,
+  resetUserBroadcastHub,
+  createUserBroadcastClient,
+  USER_BROADCAST_SUBSCRIBABLE_EVENTS,
+} from './broadcast-client.js'
+export type {
+  UserBroadcastConfig,
+  UserBroadcastHandlers,
+  UserBroadcastSubscription,
+  UserBroadcastTransport,
+  UserBroadcastConnectionState,
+  UserBroadcastConnection,
+} from './broadcast-client.js'
+
 // D116 原始 SSE 全帧采集器(默认关闭;展示端 web stream-inspector 挂工具托盘)
 export {
   setStreamFrameCapture,
