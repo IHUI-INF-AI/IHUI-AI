@@ -1802,7 +1802,12 @@ struct CloseGateState {
 }
 
 /// 等前端答复的上限:超过就按「有托盘→hide / 无托盘→quit」兜底,并喊一行 warn。
-const CLOSE_ASK_TIMEOUT_MS: u64 = 3_000;
+/// 关窗询问的兜底时限。这条**不是**人的决策时间预算,而是"前端根本没接住这条事件"
+/// (webview 卡死 / 监听没注册)的机器故障兜底 —— 3s 会让正常Speed的用户点慢一点就被
+/// 兜底顶掉,而迟到的答复按 pending 已认领只能记一笔,用户视角是"弹框自己消失了、
+/// 我点什么用没有"(2026-09-28 真机走这一路时实测到的体感)。取 30s:仍然有界,
+/// 但人在 30 秒内不可能没注意到一个居中的模态。
+const CLOSE_ASK_TIMEOUT_MS: u64 = 30_000;
 
 fn lock_close_gate(gate: &CloseGate) -> std::sync::MutexGuard<'_, CloseGateState> {
     // 事件循环里绝不因为别人 panic 过就再 panic 一次(锁中毒取内值继续)。
@@ -2945,7 +2950,10 @@ pub fn run() {
             // 2026-07-27 立:仅恢复 main 窗口,admin 窗口在 open_admin_window 时恢复
             let _ = restore_window_state(Some("main".to_string()), app.handle().clone());
             // 2026-09-17 薄壳化配套:启动线上前端自动刷新(3min 构建指纹轮询)+ 断网兜底守卫(30s 健康检查)
-            auto_refresh::start(app.handle().clone());
+            // ⚠️ 2026-09-28:守卫在启动探活落定时会 `w.show()`(窗口以 visible:false 创建,历史上
+            // 靠这一次点亮)。用户勾了「启动后先进托盘」就必须把它按住,否则 8~11 秒后窗口自己冒出来
+            // (真机实测过一遍)。判据只留这一份,不许 auto_refresh 自己再读一遍偏好。
+            auto_refresh::start(app.handle().clone(), !startup_prefs.launch_minimized);
             // 2026-08-16 修复:autostart 插件透传 --minimized(开机自启最小化到托盘),
             // 此前无任何 args 解析,开机自启会直接弹出主窗口。须在恢复窗口状态后执行。
             // 2026-09-28 立:**用户开关压过命令行参数** —— 这条反直觉,所以把理由写全:
