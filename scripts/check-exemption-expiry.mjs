@@ -223,18 +223,6 @@ const TOOL_FACE_RE = /^scripts\//
  * 边界由 G09/G10 与镜像 T25 成对钉住:**活文件**里同一条过期豁免必须照旧无条件判红。
  */
 const ARCHIVE_FACE_RE = /^\.ihui-agent\/archive\//
-/**
- * 「不记账的面」只有一处判据:扫描侧、基线清洗侧、汇总侧共用它。三处各写一份必然漂开 ——
- * 清洗条件若只认 TOOL_FACE_RE,存档面的存量一旦进了台账就永远出不去(判据说不计账,
- * 台账却还在替它记账)。斜杠归一放在出口里,ARCHIVE_FACE_RE 本身的形态保持对侧那份。
- */
-export function isNonLiveFace(rel) {
-  const n = String(rel || '').replace(/\\/g, '/')
-  return TOOL_FACE_RE.test(n) || ARCHIVE_FACE_RE.test(n)
-}
-export function isArchiveFace(rel) {
-  return ARCHIVE_FACE_RE.test(String(rel || '').replace(/\\/g, '/'))
-}
 const SUPPRESS_KINDS = {
   'eslint-disable': /\beslint-disable(?:-next-line|-line|-unrestricted)?\b/g,
   'ts-ignore': /@ts-(?:ignore|nocheck)\b/g,
@@ -279,7 +267,7 @@ export function scanFile(rel, text) {
   const entries = []
   const suppressions = {}
   if (typeof text !== 'string' || text === '') return { entries, suppressions }
-  const toolFace = isNonLiveFace(rel)
+  const toolFace = TOOL_FACE_RE.test(String(rel).replace(/\\/g, '/'))
   const archiveFace = ARCHIVE_FACE_RE.test(String(rel).replace(/\\/g, '/'))
   const seenFileScoped = new Set()
   for (const [i, line] of String(text).split(/\r?\n/).entries()) {
@@ -635,7 +623,7 @@ export function mergeBaseline(old, observed) {
   // --update-baseline 会自行收干净(自愈),不需要有人记得。
   const purged = []
   for (const k of Object.keys(next.undatedCounts)) {
-    if (!isNonLiveFace(String(k).split('::')[0] || '')) continue
+    if (!TOOL_FACE_RE.test(String(k).split('::')[0] || '')) continue
     purged.push(`${k}=${next.undatedCounts[k]}`)
     delete next.undatedCounts[k]
   }
@@ -959,24 +947,6 @@ function selfTest() {
       mp.next.undatedCounts['apps/x.ts::radius-exempt'] === 3 &&
       mp.purged.length === 1,
   )
-  // M04 与 M03 成对:清洗条件若只认工具面,存档面的键一进了台账就永远出不去 ——
-  // 判据说那一面"不计账",台账却还在替它记账,两边读出的数就不是同一件事。
-  const mp4 = mergeBaseline(
-    {
-      undatedCounts: {
-        '.ihui-agent/archive/PROJECT_PLAN_dedup-2026-09-26.md::alpha-plugin-exempt': 4,
-        '.ihui-agent/notes/x.md::radius-exempt': 2,
-      },
-    },
-    { undatedCounts: {} },
-  )
-  ok(
-    'M04 存档面键同样不得留在账里(与 M03 成对:两侧共用一个判据出口)',
-    mp4.next.undatedCounts['.ihui-agent/archive/PROJECT_PLAN_dedup-2026-09-26.md::alpha-plugin-exempt'] ===
-      undefined &&
-      mp4.next.undatedCounts['.ihui-agent/notes/x.md::radius-exempt'] === 2 &&
-      mp4.purged.length === 1,
-  )
   const e2e = endToEndCase()
   ok('X01 临时仓 HEAD 面:已过期豁免判红并点名', e2e.headRed)
   ok('X02 临时仓索引面与 HEAD 面结论不同(取材面真的有牙)', e2e.facesDiffer)
@@ -1287,8 +1257,6 @@ export const __test__ = {
   SELF_EXEMPT_RE,
   TOOL_FACE_RE,
   ARCHIVE_FACE_RE,
-  isNonLiveFace,
-  isArchiveFace,
   FAMILY_LIFETIME_DAYS,
   DEFAULT_LIFETIME_DAYS,
   BASELINE_REL,
