@@ -1043,7 +1043,13 @@ async function main() {
   }
 
   console.log(
-    `[radius-guard] 扫描 ${files.length} 文件(B 射程外按声明摘除 ${bExcludedCount} 个)| 违规 ${violations.length} 处(HEAD 自身/基线容忍 ${violations.length - fresh.length} / 新增 ${fresh.length})| 基线已修 ${healed.length} 处 | 覆盖面对账:范围外已声明 ${cov.exempt.length} 个、未归类 ${cov.red.length} 个`,
+    `[radius-guard] 判定面 ${
+      isStaged
+        ? '工作树(--staged 与本门既有约定:同 lint-staged 形态,**不是**索引 blob)'
+        : FILES_MODE
+          ? '工作树(--files 人工自验)'
+          : 'HEAD blob(磁盘≠HEAD 者按 HEAD 取)'
+    } | 扫描 ${files.length} 文件(B 射程外按声明摘除 ${bExcludedCount} 个)| 违规 ${violations.length} 处(HEAD 自身/基线容忍 ${violations.length - fresh.length} / 新增 ${fresh.length})| 基线已修 ${healed.length} 处 | 覆盖面对账:范围外已声明 ${cov.exempt.length} 个、未归类 ${cov.red.length} 个`,
   )
   if (tableErrors.length) {
     console.error('\n❌ 档位表漂移(单一源头被破,必须修):')

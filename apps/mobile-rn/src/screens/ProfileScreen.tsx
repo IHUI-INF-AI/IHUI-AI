@@ -2308,7 +2308,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 72,
     height: 72,
-    borderRadius: rnRadius.xl,
+    borderRadius: 72 / 2,
     overflow: 'hidden',
   },
   editProfileAvatar: {

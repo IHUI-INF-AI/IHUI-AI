@@ -90,7 +90,7 @@ const GUARD_REL = 'scripts/check-radius-single-source.mjs'
  * ERR_MODULE_NOT_FOUND(第一版四条端到端全被这一条咬红)。**门依赖层**这件事因此
  * 由夹具形态本身证明:缺依赖链就跑不起来,而不是"引了层却没用它"。
  */
-const GUARD_DEPS = ['scripts/lib/face-reader.mjs', 'scripts/lib/gitdir.mjs', 'scripts/lib/scratch-dir.mjs', 'scripts/lib/box-geometry.mjs']
+const GUARD_DEPS = ['scripts/lib/face-reader.mjs', 'scripts/lib/gitdir.mjs', 'scripts/lib/scratch-dir.mjs', 'scripts/lib/box-geometry.mjs', 'scripts/lib/length-units.mjs']
 function copyGuardWithDeps(base) {
   const g = writeAt(base, GUARD_REL, readFileSync(GUARD, 'utf8'))
   for (const d of GUARD_DEPS) writeAt(base, d, readFileSync(join(ROOT, ...d.split('/')), 'utf8'))
@@ -342,4 +342,41 @@ test('T-B7c 装车形状锁:B7 挂在类名属性取材上、档位名单现取�
   assert.match(txt, /rule: 'B7-dead-class'/, 'B7 的判红不见了 ⇒ 死类名再次静默通过')
   assert.match(txt, /const classStepNames = new Set\(\[\.\.\.Object\.keys\(table\.RADIUS_STEPS\)/, '档位名单必须是 radius.js 现取,不是抄死的名单')
   assert.doesNotMatch(txt, /classStepNames = new Set\(\['xs'/, '固定名单一腐烂,B7 就会拿旧档名判新代码')
+})
+
+/**
+ * 夹具依赖清单必须是**传递闭包**,不是手抄名单。
+ *
+ * 实测理由(2026-09-28 票㉞):给 `box-geometry` 加一条 `import './length-units.mjs'`,
+ * 门 77 的 7 条端到端**同时红成 ERR_MODULE_NOT_FOUND** —— 表现完全不像"少复制一个文件",
+ * 而像判据坏了。清单手写、无对账,就注定每次给 lib 加依赖都要重演一次"七条红各自解释"。
+ * 这条锁把它压成一句人话:哪个文件在被审链上、却不在 GUARD_DEPS 里。
+ */
+test('T-DEPS 夹具清单必须覆盖门→lib 的传递 import 闭包(少一个文件 = 7 条端到端红)', () => {
+  const closure = new Set()
+  const queue = [GUARD_REL]
+  const dangling = []
+  while (queue.length) {
+    const rel = queue.shift()
+    if (closure.has(rel)) continue
+    closure.add(rel)
+    let src
+    try {
+      src = readFileSync(join(ROOT, ...rel.split('/')), 'utf8')
+    } catch {
+      dangling.push(rel)
+      continue
+    }
+    for (const m of src.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
+      const dep = join(dirname(rel), m[1]).split('\\').join('/')
+      queue.push(dep)
+    }
+  }
+  const need = [...closure].filter(p => p !== GUARD_REL).sort()
+  const have = new Set(GUARD_DEPS)
+  assert.deepEqual(dangling, [], `闭包里有文件读不到(说明 import 指向不存在的路径):${dangling.join(', ')}`)
+  const missing = need.filter(p => !have.has(p))
+  assert.deepEqual(missing, [], `在依赖闭包里、却不在 GUARD_DEPS 的清单上:${missing.join(', ')} ⇒ 夹具跑不起来`)
+  const extra = [...have].filter(p => !closure.has(p))
+  assert.deepEqual(extra, [], `GUARD_DEPS 里多出不存在的依赖(清单腐烂):${extra.join(', ')}`)
 })
