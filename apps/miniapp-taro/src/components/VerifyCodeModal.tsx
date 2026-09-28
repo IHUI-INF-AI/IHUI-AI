@@ -163,14 +163,14 @@ export default function VerifyCodeModal({
         </View>
         <View className="flex space-x-3">
           <View
-            className="flex-1 py-2.5 rounded-md bg-muted text-center"
+            className="flex-1 py-[20rpx] rounded-md bg-muted text-center"
             onClick={onClose}
             hoverClass="opacity-60"
           >
             <Text className="text-sm text-foreground">{tt('common.cancel', '取消')}</Text>
           </View>
           <View
-            className={`flex-1 py-2.5 rounded-md text-center ${
+            className={`flex-1 py-[20rpx] rounded-md text-center ${
               submitting ? 'bg-muted' : 'bg-primary'
             }`}
             onClick={submitting ? undefined : verifyCode}

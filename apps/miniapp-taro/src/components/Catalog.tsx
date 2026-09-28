@@ -59,7 +59,7 @@ export default function Catalog({
         return (
           <View
             key={chapter.id}
-            className={`flex py-2.5 px-3 mb-2 rounded-lg transition-colors ${
+            className={`flex py-[20rpx] px-3 mb-2 rounded-lg transition-colors ${
               active ? 'bg-primary/10' : 'bg-muted'
             }`}
             onClick={() => onSelect?.(chapter)}
@@ -87,7 +87,7 @@ export default function Catalog({
                 {idx + 1}. {chapter.title}
               </Text>
               {chapter.content && (
-                <Text className="block text-xs text-muted-foreground truncate mt-0.5">
+                <Text className="block text-xs text-muted-foreground truncate mt-[4rpx]">
                   {chapter.content}
                 </Text>
               )}

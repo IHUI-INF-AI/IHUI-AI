@@ -1,6 +1,6 @@
 {
   "$comment": "SSE 双解析器归属台账(守门 scripts/check-sse-parser-parity.mjs 读取)。parseCoverageBaseline = packages/shared/src/utils/sse-parse.ts 侧覆盖帧数的下限(ratchet,只挡倒退不挡增长);webOnly = packages/api-client 已解析、sse-parse 未解析的帧,以及「为什么只有该端消费」的理由。每在 sse-parse 补接一帧,就同步删除该登记项并上调 parseCoverageBaseline。",
-  "parseCoverageBaseline": 23,
+  "parseCoverageBaseline": 24,
   "webOnly": [
     {
       "event": "question",
