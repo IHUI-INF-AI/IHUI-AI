@@ -70,14 +70,17 @@ jobs:
 
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@v4
 
       - name: Setup Node
+        id: setup-node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: 运行 i18n 扫描器单测 + 4 端集成测试
+        id: run-tests
         # 6 个测试文件:
         #   - i18n-scan-helpers.test.mjs:正则单元测试(STATIC_T_RE / USE_T_RE / DYNAMIC_T_RE)
         #   - scan-web-dead-i18n-keys.test.mjs 等 4 份:各端 main() 端到端集成测试
@@ -94,6 +97,20 @@ jobs:
             scripts/tests/scan-miniapp-taro-dead-i18n-keys.test.mjs \
             scripts/tests/scan-mobile-rn-dead-i18n-keys.test.mjs \
             scripts/tests/scan-extension-dead-i18n-keys.test.mjs
+
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # 立因与行为契约见该脚本头注;边界:只在 failure() 分支跑,不碰上面任何步骤的判据
+      # 严格程度(无 continue-on-error、不删步骤、不扩 permissions、不新增 secret)。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/i18n-dead-key-audit.yml
+          TRIAGE_IDS: checkout setup-node run-tests
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_RUN_TESTS: ${{ steps.run-tests.outcome }}
+        run: bash scripts/ci-failure-triage.sh
 
   dead-key-audit:
     name: i18n 死 key 审计
