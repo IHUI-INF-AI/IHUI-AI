@@ -44,10 +44,12 @@ export const KEY_MAX_OFFSET = 48
 const PRIORITY_LABEL_RE = /^P\d+$/
 
 const CHECKBOX_RE = /^\s*[-*]\s\[( |x|X)\]\s*/
-/** 复选框之后可连续出现的状态装饰:租约标记、`✅(日期)`、`✅ 日期`、`【已完成】`。 */
-const DECOR_RE = new RegExp(
-  `^(?:${CLAIM_SOURCE}|✅\\s*(?:\\([^）)]{1,40}\\))?|\\(已完成\\)|【已完成】|已完成)\\s*[::]?\\s*`,
-)
+/** 复选框之后可连续出现的状态装饰:租约标记、`✅(日期)`、`✅ 日期`、`【已完成】`。
+ *  导出理由:主键区那一侧的"状态词表"(`DECOR_STATUS_WORDS`)必须与**这里**同源 ——
+ *  两处各列一份迟早漂成"一边把 `(进行中@…)` 当装饰吃掉、一边还当题面"。
+ *  漂移由自检/镜像测试的逐词对账当场翻红,不靠人记得。 */
+export const DECOR_RE_SOURCE = `^(?:${CLAIM_SOURCE}|✅\\s*(?:\\([^）)]{1,40}\\))?|\\(已完成\\)|【已完成】|已完成)\\s*[::]?\\s*`
+export const DECOR_RE = new RegExp(DECOR_RE_SOURCE)
 
 function stripInlineMarks(s) {
   return s.replace(/^[*\s`【(「]+/, '').replace(/[*\s`】)」]+$/, '')
@@ -93,7 +95,8 @@ export function leadingNumericId(body) {
 const LEADING_NUMERIC_FULL_RE = /^[*\s`]*(\d{1,3}[A-Z]?)[.、]\s*/
 
 /**
- * 剥掉"行首就是本行主键 + 分界符"的那一截(`**G-257. 审计日志族…**` 这一族,全仓最常见形态)。
+ * 剥掉"行首就是本行主键(+ 紧跟主键的状态括注)+ 分界符"的那一截
+ * (`**G-257. 审计日志族…**` 与 `**G-290(进行中@2026-09-28/主会话)题面…**` 两族,全仓最常见形态)。
  *
  * 不剥会怎样:`titleOf` 后面的 `[.、]` 截断会把标题切成**只剩编号本身** ⇒ `titleIsDegenerate`
  * 判退化 ⇒ 整族 composite=null ⇒ F1/F4 对这一族**完全失明**。这不是假设:2026-09-27 补
@@ -104,6 +107,14 @@ const LEADING_NUMERIC_FULL_RE = /^[*\s`]*(\d{1,3}[A-Z]?)[.、]\s*/
  *  - `**G-257. 审计…**` ⇒ 标题 `审计…`,真实、非退化 ⇒ 恢复对账;
  *  - `**G-257(新登记)**:…` ⇒ 编号后紧跟括号,不是 `.`/`、` ⇒ 不剥,标题被切成空 ⇒ 仍退化、
  *    仍 null。**撞号误翻勾那条防线一字不松**(它防的正是"编号之外给不出实质标题")。
+ *  - `**G-290(进行中@2026-09-28/主会话)题面…**` ⇒ 括注内容以**状态字**开头 ⇒ 属主键区,题面
+ *    从括注之后开始。**这一族此前判退化 ⇒ composite=null ⇒ F1 对它完全失明**(HEAD 现读
+ *    3 行属于"有编号、有题面、却因装饰吃掉题面而不成键"的那一格)。
+ *    翻勾/改写只动装饰(checkbox、`✅(日期)`、租约括注、行尾注记)⇒ 题面逐字不变 ⇒ **键稳定**:
+ *    这正是 `buildForkedLine` 摘牌前后仍同键的理由。
+ *    ⚠ 但它**不**把"连题面一起改写"的行配成对 —— `- [x] ✅(日期) **G-290(本票的判据被推翻…)** 原登记:…`
+ *    那种行给不出与原件逐字等值的题面,仍算无复合主键(要配它只能靠相似度,而 §1 明令
+ *    "相似度只能报数,不配判红";那一格由 F9 撞号与人工归并负责,不由本键负责)。
  *
  * 刻意用**逐字符扫描**而不是拼正则:编号要插进 pattern 里,而 `key` 含 `-`、且我们得先写
  * `\s`/`\*` 这类元字符 —— 一把"转义整条 pattern"的 helper 会把 `\s` 变成"反斜杠 + s",
@@ -111,17 +122,95 @@ const LEADING_NUMERIC_FULL_RE = /^[*\s`]*(\d{1,3}[A-Z]?)[.、]\s*/
  */
 const KEY_LEAD_NOISE = new Set(['*', '`', ' ', '\t'])
 
-export function stripOwnKey(body, key) {
+/** 状态装饰词 —— **只列 DECOR_RE 已经认的那三个**(`进行中` / `已完成` / `✅`)。
+ *  这一份词表不新增任何字面:镜像测试(M22)逐词对账"这里的每个词都必须出现在 DECOR_RE 的源里",
+ *  两边一旦漂开(比如有人给 DECOR_RE 加了 `已闭环` 而忘了这边,或反过来)当场翻红 ——
+ *  又一处会腐烂的登记表正是本仓记过最多次的失效型(§4 对 RN_ONLY_BRAND_KEYS)。
+ *  ⚠ 词表短到只有三个,是因为它判的是**形状所属族**而不是"这句话像不像注记":
+ *  `(本票的"落地判据"被现读推翻,改按台账出口收口)` 这种**叙述性括注**刻意不吃 —— 把它吃掉
+ *  等于让 `**G-257(新登记)**:另一议题**` 那一族(M16 钉过的"两个不同议题抢一个号")
+ *  突然给得出题面,撞号防线就没了。那一族的行仍按"给不出题面"处理(计无主键,交 F4b/人工)。 */
+export const DECOR_STATUS_WORDS = ['进行中', '已完成', '✅']
+
+/** 紧跟主键的成对括注,只有**内容以状态字或纯日期开头**的那一批才算主键区的一部分。
+ *  判据是形状而不是"任意括号":`(新登记)` / `(对标 Codex)` 这类**议题自带**的括注必须留在题面里
+ *  (M16 那条撞号防线防的正是"编号之外给不出实质标题"的形态,把任意括号都吃掉就等于拆掉它)。 */
+const GROUP_DECOR_CONTENT_RE = new RegExp(
+  `^(?:${DECOR_STATUS_WORDS.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}|20\\d{2}-\\d{2}-\\d{2})`,
+)
+const GROUP_PAIRS = { '(': ')', '（': '）', '[': ']', '【': '】' }
+const KEY_TRAILING_NOISE = new Set(['*', '`', ' ', '\t', ':', '：'])
+
+/** 从 `from` 起连续跳过"紧跟主键的状态括注"(可夹强调记号/冒号/空白)。
+ *  未闭合的括号**不吃**(那会把整行吞成括注,题面变空 ⇒ 反而把这一族判成退化)。
+ *  @returns 吃到的位置;一个都没吃到 ⇒ 原样返回 `from` */
+export function skipKeyAttachedDecorGroups(s, from) {
+  let i = from
+  for (;;) {
+    let k = i
+    while (k < s.length && KEY_TRAILING_NOISE.has(s[k])) k += 1
+    const opener = s[k]
+    const closer = GROUP_PAIRS[opener]
+    if (!closer) return i
+    let depth = 0
+    let j = k
+    for (; j < s.length; j += 1) {
+      if (s[j] === opener) depth += 1
+      else if (s[j] === closer && --depth === 0) break
+    }
+    if (depth !== 0) return i
+    if (!GROUP_DECOR_CONTENT_RE.test(s.slice(k + 1, j))) return i
+    i = j + 1
+  }
+}
+
+/** 剥掉"本行主键(+ 紧跟其后的状态括注)+ 分界符"的那一截,露出题面。
+ *  三个分支各自守着一件事,少任何一个都会把某一族推回失明:
+ *  ① **状态括注**(`(进行中@…)` / `（已完成）` / `(2026-09-28)`)属主键区 ⇒ 题面从其后开始;
+ *  ② `.` / `、` 分界符 ⇒ 题面从其后开始(全仓最常见形态 `**G-257. 题面…**`);
+ *  ③ 编号与题面**直接相接**(`**G-290题面**`)⇒ 仍要剥掉编号,否则归并器翻勾那一刻键会漂:
+ *     `plan-merge-annotation.mjs` 的 `buildForkedLine` 翻勾时**摘租约括注**(LEASE_RE),
+ *     于是同一件事的两侧变成 `G-290（进行中@…）题面` 与 `G-290题面` —— 一侧剥了括注、
+ *     一侧留着编号,题面不同形 ⇒ F1 恰好看不见归并器自己产出的那一批分叉(而它正是为 F1 而生的)。
+ *  **例外**:编号后紧跟**开括号**时整条不剥 —— `(新登记)` 一族必须留在"题面给不出来"的形态里,
+ *  由 `titleIsDegenerate` 判退化、不成键(撞号误翻勾那条防线,M16 钉着,一字不松)。
+ *  `mode:'lenient'` 是 ③ 的退让档(编号留在题面里,即 ③ 之前的老行为),只由 `titleOf` 在
+ *  严格档给不出实质题面时回退用 —— 回退判据见 `titleOf` 头注,两侧必须走同一份实现。
+ */
+export function stripOwnKey(body, key, mode = 'strict') {
   if (!key || typeof body !== 'string') return body
   let i = 0
   while (i < body.length && KEY_LEAD_NOISE.has(body[i])) i += 1
   if (!body.startsWith(key, i)) return body
+  const afterGroups = skipKeyAttachedDecorGroups(body, i + key.length)
+  if (afterGroups !== i + key.length) {
+    let k = afterGroups
+    while (k < body.length && KEY_TRAILING_NOISE.has(body[k])) k += 1
+    if (body[k] === '.' || body[k] === '、') k += 1
+    return body.slice(k)
+  }
   let j = i + key.length
   while (j < body.length && (body[j] === ' ' || body[j] === '\t')) j += 1
-  if (body[j] !== '.' && body[j] !== '、') return body
-  j += 1
-  while (j < body.length && (body[j] === ' ' || body[j] === '\t')) j += 1
+  if (body[j] === '.' || body[j] === '、') {
+    j += 1
+    while (j < body.length && (body[j] === ' ' || body[j] === '\t')) j += 1
+    return body.slice(j)
+  }
+  if (GROUP_PAIRS[body[j]]) return body
+  if (mode === 'lenient') return body
   return body.slice(j)
+}
+
+/** 把 stripOwnKey 的产物收成题面候选(与 `titleOf` 用的是同一套剥法,不得另抄)。 */
+function cleanTitle(s) {
+  return String(s ?? '')
+    .replace(/[*`_\s]/g, '')
+    .replace(/[（(【[:：.、,，!！?？].*$/, '')
+    .slice(0, TITLE_PREFIX)
+}
+/** 题面"给得出来"的判据与 `compositeKeyOf` 同一条(≥4 字且不是编号本身)。 */
+function usableTitle(t, key) {
+  return !!t && t.length >= 4 && t.replace(/[*`_\s]/g, '') !== String(key).replace(/[*`_\s]/g, '')
 }
 
 /** 剥掉行首编号形态(含其前置强调记号)。只在 `leadingNumericId` 判成立后调用。 */
@@ -207,15 +296,18 @@ export const TITLE_PREFIX = 24
 export function titleOf(line) {
   const rawBody = bodyOfRow(line)
   if (rawBody === null) return null
+  const key = keyOfRow(line)
   // 行首裸编号形态:编号不算标题的一部分(否则 `.` 截断后标题只剩编号本身,长度 <4 ⇒ composite=null)。
   // ⚠️ 这里**必须**调用 leadingNumericId 的同一个出口(经 stripLeadingNumeric),不得在本行再抄一份
   // 正则:上一版这里抄了一份不含 `**` 与字母后缀的窄版,于是 `- [ ] **86A. …**` 的标题被 cut 在
   // 编号后面那个 `.` 上 ⇒ 标题只剩 "86A"(3 字 <4)⇒ composite=null —— 判据在**自己刚修的这一族**上失明。
-  const body = stripOwnKey(stripLeadingNumeric(rawBody), keyOfRow(line))
-  return body
-    .replace(/[*`_\s]/g, '')
-    .replace(/[（(【[:：.、,，!！?？].*$/, '')
-    .slice(0, TITLE_PREFIX)
+  const stripped = stripLeadingNumeric(rawBody)
+  const strict = cleanTitle(stripOwnKey(stripped, key, 'strict'))
+  if (usableTitle(strict, key)) return strict
+  // 严格档给不出实质题面时退回老口径(编号留在题面里)——**只许退让,不许没收已有的键**:
+  // 实测 HEAD 面有 20 行(如 `**O52「残余…」三条全部落地**`)在严格档下题面会短到不成键,
+  // 若不退让就是"为了修一族而把另一族的覆盖面削掉",而那正是本层立项要防的反面(看不见≠没有)。
+  return cleanTitle(stripOwnKey(stripped, key, 'lenient'))
 }
 
 /**

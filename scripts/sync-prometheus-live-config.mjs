@@ -8,7 +8,8 @@
  * 直接指回仓库那份 alerts.yml —— 于是**告警规则只剩一份**,抓取目标也只剩一份真相。
  *
  * 立因(2026-09-27 运维覆盖缺口审计 + 本次现量):
- *   部署机读 D:\DevEnv\monitor\prometheus\ 下一份手抄副本,而那份副本
+ *   部署机读 D:\DevEnv\monitor\prometheus\ 下一份手抄副本(那个盘符是**部署机当次实测值**,
+ *   本机落点一律由下面的共用出口推导,不得照抄),而那份副本
  *   ① 少了 alertmanager / alertbridge 两个 job ⇒ `AlertmanagerDown` / `AlertBridgeDown`
  *      这两条"检测运维告警链是否断裂"的规则里 up{job=...} 序列**根本不存在**,
  *      `== 0` 恒不成立 ⇒ 邮件链路死了也不会响,一条永远不会响的告警比没有告警更危险;
@@ -29,16 +30,20 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from '
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
+// DevEnv 根的唯一出口(§15b;`re-home-junctions.mjs` / `check-c-drive-pollution.mjs` /
+// `pg-restore-drill.mjs` 复用同一份)。**不再**由本文件自取工作树盘符首字符拼 `X:\DevEnv`:
+// 那是同一件事的第三份独立实现 —— 它碰巧与工作树深度无关,但"碰巧对"不等于"按同一个出口推"。
+// 未设 `IHUI_DEVENV_ROOT` 时两者逐字同值(本机同为 `G:\DevEnv\monitor\prometheus`)。
+import { devEnvRoot } from './seal-c-root-stray.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_DIR = join(ROOT, 'monitoring', 'prometheus')
 const RULES_IN_REPO = join(REPO_DIR, 'alerts.yml')
 const CONFIG_SRC = join(REPO_DIR, 'prometheus.yml')
 
-// 盘符按当次实测取(§5b/§15b:不得把另一台机的现状当本机事实)。
-// 工作树在哪个盘,DevEnv 就在哪个盘 —— 与 gitArchiveDir()/devEnvRoot() 同一套推导。
-const WORKTREE_DRIVE = ROOT.slice(0, 1).toUpperCase()
-const CANDIDATE_LIVE_DIRS = [join(`${WORKTREE_DRIVE}:\\`, 'DevEnv', 'monitor', 'prometheus')]
+// 部署机运行副本的候选落点:盘符按当次实测取(§5b/§15b 不得把另一台机的现状当本机事实),
+// 而推导只许有一份 —— 走上面的共用出口。
+const CANDIDATE_LIVE_DIRS = [join(devEnvRoot(), 'monitor', 'prometheus')]
 const DEFAULT_RELOAD_URL = 'http://127.0.0.1:8815/-/reload'
 
 function parseArgs(argv) {
@@ -104,7 +109,7 @@ function findLiveDir(override) {
   return null
 }
 
-export const __test__ = { parseArgs, findLiveDir, deriveLiveConfig, ROOT, REPO_DIR, CONFIG_SRC, RULES_IN_REPO }
+export const __test__ = { parseArgs, findLiveDir, deriveLiveConfig, ROOT, REPO_DIR, CONFIG_SRC, RULES_IN_REPO, CANDIDATE_LIVE_DIRS }
 
 function main() {
   const args = parseArgs(process.argv.slice(2))

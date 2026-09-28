@@ -142,13 +142,30 @@ export const authIdentityRoutes: FastifyPluginAsync = async (server) => {
       )
     }
 
-    // P0 隐私修复：读时解密 idCard（存量明文经 decryptField 兼容返回）
+    // P0 隐私修复：读时解密 idCard（存量明文经 decryptField 兼容返回）。
+    // 解密失败（密钥轮换 / 数据损坏）显式落 null 并喊日志 —— 否则"读不出"会被伪装成"读到了"，
+    // 而 decryptField 现在也不再回落原值（那会把密文当身份证号送出去）。
+    let idCard: string | null = null
+    if (info.idCard) {
+      try {
+        idCard = decryptField(info.idCard)
+      } catch (e) {
+        request.log.warn(
+          {
+            err: (e as Error).message,
+            code: (e as Error & { code?: string }).code,
+            userUuid: info.userUuid,
+          },
+          'idCard 解密失败：返回 null 而非密文',
+        )
+      }
+    }
     return reply.send(
       success({
         userUuid: info.userUuid,
         authStatus: info.authStatus,
         realName: info.realName,
-        idCard: info.idCard ? decryptField(info.idCard) : null,
+        idCard,
         authSource: info.authSource,
         authAt: info.authAt,
         rejectReason: info.rejectReason,

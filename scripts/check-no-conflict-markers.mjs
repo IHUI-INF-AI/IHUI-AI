@@ -34,7 +34,10 @@
  * 护栏:
  *   G1 自豁免:本脚本与其测试文件必然含这些字面量,按文件名前缀跳过 —— 跳过项**在输出里如实
  *      计数说明**,不静默吞掉。
- *   G2 大文件:单文件 >2MB 跳过并计数(位图、锁文件、压缩产物等不是"手写冲突"的载体)。
+ *   G2 大文件:单文件 >2MB **且不含任何标记线索**时跳过并计数(位图、锁文件、压缩产物等不是
+ *      "手写冲突"的载体)。**含标记线索的大文件一律照判** —— `PROJECT_PLAN.md` 常年 >2MB,
+ *      旧版那条"体积优先"把多会话唯一会真撞车的文件挡在射程外(2026-09-28 实测被自动归档
+ *      提交带进台账那一枚,本门对它报绿),次序因此改成"先问有没有线索,再谈体积"。
  *   G3 二进制:前 8KB 含 NUL 字节即跳过并计数(二进制里偶然出现的字节序列不该判红)。
  *   G4 git 解析不到(候选全失败)按脚本自身异常 exit 2,绝不静默放行。
  *
@@ -181,22 +184,34 @@ export function looksBinary(buf) {
 /**
  * 单文件判定(纯函数 + 计数副作用写进 stats)。
  * 返回 violations(成对标记数组);跳过原因只累加计数,由汇总行如实打印。
+ *
+ * ⚠️ **体积护栏不得挡在"文件里确实有标记线索"之前**(2026-09-28 实测的自盲):
+ * `MAX_BYTES` 的本意是"位图 / 锁文件 / 压缩产物不是手写冲突的载体",而 `PROJECT_PLAN.md`
+ * 长期 >2MB —— 恰是多会话唯一会真撞在一起的那份文件。实测枚 `b54c79c36`(自动归档提交)
+ * 把带 `<<<<<<< ours` 的工作树副本提交进台账,而本门对那一枚报"未检出成对标记",
+ * 汇总行里的 `跳过 >2MB 大文件=1` 就是它唯一的痕迹(没人读)。所以次序改成:
+ * **先用两次 `buf.includes(needle)` 问"有没有标记线索"(快、零字符串化),没有才按体积跳过;
+ * 有标记线索的文件无论多大都必须判**(配对逻辑只跑在标记行上,不是整文件正则)。
  */
 export function judgeBuffer(path, buf, stats) {
   if (isSelfExempt(path)) {
     stats.selfExempt += 1
     return []
   }
-  if (buf.length > MAX_BYTES) {
-    stats.tooLarge += 1
-    return []
-  }
   if (looksBinary(buf)) {
     stats.binary += 1
     return []
   }
+  const big = buf.length > MAX_BYTES
+  const hasNeedle = buf.includes(OPEN_NEEDLE) || buf.includes(END_NEEDLE)
+  if (big && !hasNeedle) {
+    // 护栏只放过"又大又没有标记线索"的文件(位图 / 压缩产物 / minified js)。
+    stats.tooLarge += 1
+    return []
+  }
+  if (big) stats.largeWithMarkers += 1
   stats.judged += 1
-  if (!buf.includes(OPEN_NEEDLE) && !buf.includes(END_NEEDLE)) return []
+  if (!hasNeedle) return []
   const { pairs, unpairedStarts, unpairedEnds, exempt } = findMarkerPairs(buf.toString('utf8'))
   stats.unpairedStarts += unpairedStarts.length
   stats.unpairedEnds += unpairedEnds.length
@@ -212,6 +227,8 @@ export function newStats() {
     filesWithViolations: 0,
     selfExempt: 0,
     tooLarge: 0,
+    /** >2MB **且**含标记线索的文件数:这些不被护栏挡掉,必须如实报出"照判了"。 */
+    largeWithMarkers: 0,
     binary: 0,
     unreadable: 0,
     unpairedStarts: 0,
@@ -250,7 +267,10 @@ export function render(modeLabel, totalPaths, violations, stats) {
   }
   const skips = [
     stats.selfExempt > 0 ? `自豁免(本门自身与测试文件,判据含字面量)=${stats.selfExempt}` : '',
-    stats.tooLarge > 0 ? `跳过 >2MB 大文件=${stats.tooLarge}` : '',
+    stats.tooLarge > 0 ? `跳过 >2MB 且无标记线索的大文件=${stats.tooLarge}` : '',
+    stats.largeWithMarkers > 0
+      ? `>2MB 但含标记线索 ⇒ 照判不误=${stats.largeWithMarkers}`
+      : '',
     stats.binary > 0 ? `跳过二进制=${stats.binary}` : '',
     stats.unreadable > 0 ? `取不到内容=${stats.unreadable}` : '',
     stats.patchFormatExempt > 0
@@ -565,7 +585,24 @@ function selfTestRun() {
     )
     g(['add', '-A'])
     const big = audit(repo, { staged: true })
-    check('20 >2MB 大文件跳过并计数(不计红)', big.code === 0 && big.stats.tooLarge === 1)
+    // 20 号断言的**方向在 2026-09-28 反过来**了:原先它钉的是">2MB 就跳过、不计红",
+    // 而那份夹具正是"大文件 + 真成对标记"—— 台账 `PROJECT_PLAN.md` 天天 >2MB,
+    // 于是护栏把唯一会真撞车的文件挡在射程外(实测枚 b54c79c36 把带标记的工作树副本
+    // 提交进台账,本门对它报"未检出成对",汇总里只剩一句 `跳过 >2MB 大文件=1`)。
+    // 现在两型分别钉:含标记线索的大文件必红,无标记线索的大文件仍按护栏跳过并计数。
+    check(
+      '20 >2MB 且含成对标记 ⇒ 判红(护栏不得变成盲区)',
+      big.code === 1 && big.stats.largeWithMarkers === 1 && big.violations.length === 1,
+      `code=${big.code} largeWithMarkers=${big.stats.largeWithMarkers} v=${big.violations.length}`,
+    )
+    writeFileSync(join(repo, 'big.txt'), `${'x'.repeat(2 * 1024 * 1024)}\n干净内容\n`)
+    g(['add', '-A'])
+    const bigClean = audit(repo, { staged: true })
+    check(
+      '20b >2MB 而无任何标记线索 ⇒ 仍按护栏跳过并计数(不计红)',
+      bigClean.code === 0 && bigClean.stats.tooLarge === 1 && bigClean.stats.largeWithMarkers === 0,
+      `code=${bigClean.code} tooLarge=${bigClean.stats.tooLarge}`,
+    )
     writeFileSync(join(repo, 'big.txt'), 'shrink\n')
     g(['add', '-A'])
 
