@@ -24,20 +24,44 @@ export type { CourseFilterScreenProps }
 
 const PRICE_TABS = ['all', 'free', 'paid'] as const
 
+/**
+ * 难度档位取自服务端取值域(lessons.difficulty,迁移 20260928050000)。
+ * 这张表**只是档位**,不是"当前有数据的档位" —— 现网全部行为 NULL 时选了照样是空列表,
+ * 那由列表空态如实说明,不得在这里删档位去假装"这一根轴有货"。
+ */
+const DIFFICULTY_TABS = ['all', 'beginner', 'intermediate', 'advanced'] as const
+
 const COURSE_PRICE_KEYS: Record<(typeof PRICE_TABS)[number], string> = {
   all: 'courseFilter.price_all',
   free: 'courseFilter.price_free',
   paid: 'courseFilter.price_paid',
 }
 
+const COURSE_DIFFICULTY_KEYS: Record<(typeof DIFFICULTY_TABS)[number], string> = {
+  all: 'courseFilter.difficulty_all',
+  beginner: 'courseFilter.difficulty_beginner',
+  intermediate: 'courseFilter.difficulty_intermediate',
+  advanced: 'courseFilter.difficulty_advanced',
+}
+
+/** 分类轴的"未选"哨兵(与 usePaginatedList 的 categoryId:undefined 由调用方互转)。 */
+const ALL_CATEGORIES = 'all'
+
 export function CourseFilterScreen({
   t,
   items,
   loading,
   refreshing,
+  loadingMore,
   error,
   priceTab,
   onPriceTabChange,
+  difficultyTab,
+  onDifficultyTabChange,
+  categories,
+  categoryId,
+  onCategoryChange,
+  onLoadMore,
   onApply,
   onReset,
   onRefresh,
@@ -50,12 +74,62 @@ export function CourseFilterScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('courseFilter.title')}</Text>
         <Text style={styles.subtitle}>{t('courseFilter.subtitle')}</Text>
       </View>
 
       <View style={styles.filterSection}>
+        {/* 分类轴:选项一律来自服务端真实分类(中文 name + UUID id),端内不得硬编码。 */}
+        <Text style={styles.filterLabel}>{t('courseFilter.categoryRange')}</Text>
+        {categories.length === 0 ? (
+          <Text style={styles.axisNotice}>{t('courseFilter.noCategories')}</Text>
+        ) : (
+          <View style={styles.chipRow}>
+            <TouchableOpacity
+              onPress={() => onCategoryChange(ALL_CATEGORIES)}
+              style={[styles.chip, categoryId === ALL_CATEGORIES && styles.chipActive]}
+            >
+              <Text
+                style={[styles.chipText, categoryId === ALL_CATEGORIES && styles.chipTextActive]}
+              >
+                {t('courseFilter.price_all')}
+              </Text>
+            </TouchableOpacity>
+            {categories.map((c) => (
+              <TouchableOpacity
+                key={c.id}
+                onPress={() => onCategoryChange(c.id)}
+                style={[styles.chip, categoryId === c.id && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, categoryId === c.id && styles.chipTextActive]}>
+                  {c.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <Text style={styles.filterLabel}>{t('courseFilter.difficultyRange')}</Text>
+        <View style={styles.chipRow}>
+          {DIFFICULTY_TABS.map((d) => (
+            <TouchableOpacity
+              key={d}
+              onPress={() => onDifficultyTabChange(d)}
+              style={[styles.chip, difficultyTab === d && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, difficultyTab === d && styles.chipTextActive]}>
+                {t(COURSE_DIFFICULTY_KEYS[d])}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <Text style={styles.filterLabel}>{t('courseFilter.priceRange')}</Text>
         <View style={styles.chipRow}>
           {PRICE_TABS.map((p) => (
@@ -102,6 +176,17 @@ export function CourseFilterScreen({
           contentContainerStyle={{ padding: 10, paddingBottom: 32 }}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          // 分页由服务端取下一页:触底即取,不再"只拿第一页然后在端内过滤"
+          onEndReached={onLoadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.center}>
+                <ActivityIndicator color={tk.brand.DEFAULT} />
+                <Text style={styles.emptyText}>{t('courseFilter.loadingMore')}</Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.center}>
               <Text style={styles.emptyText}>{t('courseFilter.empty')}</Text>
@@ -115,6 +200,17 @@ export function CourseFilterScreen({
               <Text style={styles.cardMeta}>
                 {t('courseFilter.instructor')}：{item.instructor}
               </Text>
+              {/* NULL(未标注)就整行不渲染 —— 不得用任何默认档把"未标注"洗成"入门" */}
+              {item.difficulty ? (
+                <Text style={styles.cardMeta}>
+                  {t('courseFilter.difficultyRange')}：{t(COURSE_DIFFICULTY_KEYS[item.difficulty])}
+                </Text>
+              ) : null}
+              {item.categoryName ? (
+                <Text style={styles.cardMeta}>
+                  {t('courseFilter.categoryRange')}：{item.categoryName}
+                </Text>
+              ) : null}
               <View style={styles.cardMetaRow}>
                 <Text style={styles.priceText}>
                   {item.price === 0 ? t('courseFilter.free') : `¥${item.price}`}
@@ -147,6 +243,8 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       marginBottom: 6,
     },
+    // 某一轴在服务端当前没有可选值时的如实提示(不是错误态,故用 tertiary 而非 danger)
+    axisNotice: { fontSize: 12, color: tk.text.tertiary, marginBottom: 6 },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     chip: {
       paddingHorizontal: 10,
