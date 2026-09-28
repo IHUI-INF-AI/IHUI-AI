@@ -85,7 +85,7 @@ export default function ProvidersHealthPage() {
           type="button"
           onClick={() => refetch()}
           disabled={isFetching}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-3 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60"
+          className="inline-flex h-9 items-center gap-1.5 rounded-sm border bg-card px-3 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60"
         >
           <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
           刷新

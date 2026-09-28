@@ -159,7 +159,7 @@ export default function LiveHost() {
             {tt('liveHost.streamTitle', '直播标题')}
           </Text>
           <Input
-            className="rounded-xl border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[28rpx] text-[length:32rpx] text-foreground bg-[var(--color-muted)]"
+            className="rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[28rpx] text-[length:32rpx] text-foreground bg-[var(--color-muted)]"
             value={streamTitle}
             onInput={(e) => setStreamTitle(e.detail.value)}
             placeholder={tt('liveHost.streamTitlePlaceholder', '请输入直播标题')}

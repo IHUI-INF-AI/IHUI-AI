@@ -12,8 +12,11 @@ import {
   sendMessage as persistChatMessage,
   branchConversation,
   getMessages as getConversationMessages,
+  postToolResult,
+  postToolApprovalResponse,
   type StreamChatOptions,
   type TerminalDeltaEvent,
+  type ToolApprovalEvent,
   type LlmModel,
 } from '@ihui/api-client'
 import { GitBranch } from 'lucide-react'
@@ -32,6 +35,14 @@ import {
 import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
 import { toolsForChatRequest } from '../../../lib/ui-control-tools'
 import { applyToolCallStart, applyToolDelta } from '../../../lib/tool-call-frames'
+// 票㉑(2026-09-28):工作区句柄 + 委托执行。执行器与上下文预加载都在共享层,
+// 不在端内重写 —— 服务端委托分支(`if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS`)
+// 读的就是这里预加载出来的那份文本,口径分叉的症状是"同一句话在 web 委托、在扩展不委托"。
+import { executeWorkspaceTool } from '@ihui/shared/chat/workspace-tool-executor'
+import { loadWorkspaceContext } from '@ihui/shared/chat/workspace-context-loader'
+import { getActiveWorkspace } from '../../../lib/workspace-store'
+import { WorkspacePicker } from '../components/WorkspacePicker'
+import { ToolApprovalBanner } from '../components/ToolApprovalBanner'
 import { VoiceInput } from '../components/VoiceInput'
 import { MessageContent } from '../components/MessageContent'
 import QueueBar from '../components/QueueBar'
@@ -134,6 +145,9 @@ export default function ChatPage() {
   // 一切许可/重排/编辑/打断判定经 lib/ext-queue-ops → @ihui/shared 真相源,端内零判定分支。
   const [queuedItems, setQueuedItems] = useState<ExtQueueItem[]>([])
   const [followUpMode, setFollowUpMode] = useState<FollowUpMode>(EXT_DEFAULT_FOLLOW_UP_MODE)
+  // V3 #58 同族:主对话流的高危工具审批帧。null ⇒ 不渲染横幅;一轮流式结束(finally)必须收回 null,
+  // 否则上一轮的决策按钮会留在屏幕上指向一个已经结束的会话。
+  const [pendingApproval, setPendingApproval] = useState<ToolApprovalEvent | null>(null)
   /**
    * Runtime 插话能力协商位:全仓尚无 runtimeSupportsInterjection 生产者
    * (PROJECT_PLAN D38 未闭环③),接线前宿主必须诚实传 false ⇒ steer 经 effectiveMode
@@ -324,6 +338,21 @@ export default function ChatPage() {
     // W6:记录每个工具调用的起始时间,tool-result 到达时补算耗时(与 web stream-handlers 一致)
     const toolStartTimes = new Map<string, number>()
 
+    // 票㉑:活动工作区决定两件事 —— 请求带不带 workspaceContext(服务端委托开关),
+    // 以及本端有没有执行面来回传 tool-delegate。预加载失败(句柄失效/目录被搬走)时
+    // 按"没有工作区"走,而不是硬塞一份空上下文:空串在 Python 里为假,那恰好就是委托分支的反面。
+    const workspace = getActiveWorkspace()
+    let workspaceContext: string | undefined
+    if (workspace) {
+      try {
+        workspaceContext = (await loadWorkspaceContext(workspace.handle)).text
+      } catch {
+        // 句柄失效 / 目录被移动或删除:这轮按"无工作区"发,不硬塞空上下文
+        // (空串在 Python 为假 ⇒ 委托分支不进,工具会落回服务端执行面,与不带头一样要如实降级)
+        workspaceContext = undefined
+      }
+    }
+
     const opts: StreamChatOptions = {
       model,
       messages: next
@@ -332,6 +361,12 @@ export default function ChatPage() {
       // 2026-09-21 第五族 ext_ui:命中"操控本站"意图才带工具名(llm.py 的 tool loop
       // 入口是 `if req.agent_tools and chat_mode != "ask"`,不带就不进工具链)
       agentTools: toolsForChatRequest(text),
+      // 票㉑:这两行必须同看 —— `workspaceContext` 是服务端**委托开关**本身
+      // (`llm.py`: `if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS`)。
+      // 只带工具不带上下文,fs 类工具就不会回到本端执行,而是落到服务端
+      // (`write_file`/`file_edit` 在 `_ADMIN_ONLY_TOOLS` 而对话链 `__user_role` 恒 0 ⇒ 必败)。
+      workspacePath: workspace?.name,
+      workspaceContext,
       signal: controller.signal,
       // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
       stream: true,
@@ -434,6 +469,23 @@ export default function ChatPage() {
           ...m,
           toolCalls: applyToolDelta(m.toolCalls ?? [], event),
         }))
+      },
+      // 票㉑(2026-09-28):服务端把 fs 类工具交回本端执行。执行器在共享层(web 用的同一份),
+      // 结果一律经 postToolResult 回传 —— 回传缺席 = 后端协程等到超时,而屏幕上什么都不会说。
+      // 没有活动工作区时也必须回传错误(而不是 return),否则那一轮 tool loop 就悬在那里。
+      onToolDelegate: async (event) => {
+        const ws = getActiveWorkspace()
+        if (!ws) {
+          await postToolResult(event.session_id, event.tool_call_id, null, 'No active workspace')
+          return
+        }
+        const exec = await executeWorkspaceTool(event.tool_name, event.args, ws.handle)
+        await postToolResult(event.session_id, event.tool_call_id, exec.result, exec.error)
+      },
+      // V3 #58 同族:高危工具执行前的审批帧。注册即打开 api-client 的解析开关;
+      // 决策经 postToolApprovalResponse 回到 llm.py 的流级注册表(与 agent 任务流那套互不相通)。
+      onToolApproval: (event) => {
+        setPendingApproval(event)
       },
       // 工具调用汇总:流末尾一次性写入 message.toolCallSummary
       onToolSummary: (summary) => {
@@ -599,6 +651,9 @@ export default function ChatPage() {
       setStreaming(false)
     } finally {
       if (abortRef.current === controller) abortRef.current = null
+      // 流一结束就收回横幅:后端这时要么已按超时判"未批准",要么会话注册表已销毁,
+      // 再点一次等于把决策发往一个不存在的轮次(屏幕上却是一片"已经处理过"的安静)。
+      setPendingApproval(null)
     }
   }
 
@@ -658,6 +713,29 @@ export default function ChatPage() {
   }, [messages])
   const taskStreaming = streaming && taskMessage?.id === lastMessageId
 
+  /**
+   * 审批决策回传(票㉑)。三条都是刻意的:
+   *  - 缺 `sessionId` 就不发 —— 端点按会话寻址,发错会话等于把决策落到别人的轮次上;
+   *  - **成功才收起横幅**:回传失败时后端仍在等,横幅留着才有重试的机会,
+   *    收掉就等于"用户点了允许、AI 那边永远等超时"(§5e 失败必须响同一禁令);
+   *    - 报错文本用 formatSSEError 的技术消息(与流错误同一出口),不新增界面文案键。
+   */
+  const resolveApproval = async (decision: 'approve' | 'reject', scope?: 'once' | 'session') => {
+    const evt = pendingApproval
+    if (!evt?.sessionId) return
+    try {
+      await postToolApprovalResponse({
+        sessionId: evt.sessionId,
+        approvalId: evt.approvalId,
+        decision,
+        scope,
+      })
+      setPendingApproval(null)
+    } catch (err) {
+      setError(formatSSEError(err).message)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between pb-2 border-b border-border">
@@ -687,6 +765,8 @@ export default function ChatPage() {
             </optgroup>
           ))}
         </select>
+        {/* 票㉑:工作区句柄是委托执行面的前提,入口挂在标题行,与模型选择同一档 */}
+        <WorkspacePicker />
         <Button
           type="button"
           variant="ghost"
@@ -791,6 +871,8 @@ export default function ChatPage() {
           />
         </div>
       ) : null}
+      {/* V3 #58 同族:高危工具执行前的审批横幅;pendingApproval 为空时组件自身返回 null */}
+      <ToolApprovalBanner event={pendingApproval} onResolve={resolveApproval} />
       <form
         className="flex gap-1.5 px-2.5 py-2 border-t border-border bg-card"
         onSubmit={(e) => {

@@ -45,7 +45,7 @@ export default function NoteEditor({
         </View>
 
         <Textarea
-          className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
+          className="w-full px-3 py-2 text-sm bg-muted rounded-sm"
           style={{ minHeight: '180px' }}
           placeholder={tt('study.notePlaceholder', '记录你的学习心得...')}
           value={content}

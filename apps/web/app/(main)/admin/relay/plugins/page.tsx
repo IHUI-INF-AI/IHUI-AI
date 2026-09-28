@@ -164,7 +164,7 @@ export default function RelayPluginsPage() {
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
           <select
-            className="rounded-md border bg-background px-3 py-2 text-sm"
+            className="rounded-sm border bg-background px-3 py-2 text-sm"
             value={form.pluginType}
             onChange={(e) => setForm({ ...form, pluginType: e.target.value, config: '' })}
             aria-label="插件类型"
@@ -174,7 +174,7 @@ export default function RelayPluginsPage() {
           </select>
         </div>
         <textarea
-          className="min-h-[72px] w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
+          className="min-h-[72px] w-full rounded-sm border bg-background px-3 py-2 font-mono text-xs"
           placeholder={`JSON 配置,如 ${TYPE_PLACEHOLDER[form.pluginType]}`}
           value={form.config}
           onChange={(e) => setForm({ ...form, config: e.target.value })}

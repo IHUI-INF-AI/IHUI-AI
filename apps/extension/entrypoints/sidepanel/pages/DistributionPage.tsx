@@ -119,7 +119,7 @@ export default function DistributionPage() {
             <button
               type="button"
               onClick={() => openInWeb('/distribution')}
-              className="mt-2 px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors self-start"
+              className="mt-2 px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors self-start"
             >
               {t('page.distribution.open')} ↗
             </button>
@@ -139,7 +139,7 @@ export default function DistributionPage() {
             <button
               type="button"
               onClick={() => openInWeb('/distribution')}
-              className="mt-2 px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors self-start"
+              className="mt-2 px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors self-start"
             >
               {t('page.distribution.open')} ↗
             </button>
