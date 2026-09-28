@@ -337,6 +337,14 @@ function Get-Diagnosis {
 
 function Send-Alert($msg) {
   $diag = Get-Diagnosis
+  # 诊断已判"部署重启中-预期现象"(部署锁在 / 15 分钟内有构建)⇒ 换流窗口的短暂拒连是
+  # 预期内现象,只记日志不寄信。2026-09-28 实测:两天 30+ 封告警邮件全是这一种 —— 每轮部署
+  # 窗口里 web/api/ai 与各公网域名各算一个不同告警身份,按身份去重拦不住。窗口结束后服务仍
+  # 异常时,诊断会落到真实原因分支([服务进程异常]/[公网隧道异常]),本函数照常寄信,不漏报。
+  if ($diag.Contains('[部署重启中-预期现象]')) {
+    "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 预期窗口(部署重启中)告警已抑制,不推送: $msg | 诊断: $($diag -replace '`n', ' | ')" | Add-Content $alertLog -Encoding utf8
+    return
+  }
   # 去重身份只取**异常清单**,不含诊断段:诊断里的构建时间/pid/持续分钟每轮都变,
   # 拿它当身份等于没去重(5 分钟一轮 → 一条持续故障一天 288 封)。
   $sig = ($msg -replace '\s+', ' ').Trim()
