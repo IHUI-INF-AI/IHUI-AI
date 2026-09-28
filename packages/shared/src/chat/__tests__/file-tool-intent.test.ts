@@ -14,7 +14,7 @@
  *        ② 单一源(消费方指向本子路径、任何端内不得再写关键词正则、
  *           且本模块**故意不进 `./chat` barrel** —— 与 task-status.ts 的同名词并置会产出
  *           `export *` 歧义,web 按 `.has()` 消费那一份,拿到数组是运行时崩)。
- *           扩展端此刻不是消费方(它没有委托面),这一格也由第②组钉住:排除要带理由。
+ *           扩展端自 2026-09-28(票㉑)是消费方,但带不带由它的闸门运行时判 —— 该锁仍在第②组里。
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -77,9 +77,14 @@ describe('单一源:消费方指回这一处,且没有第二份判据', () => {
     expect(flat(webConfig)).toContain(`from '${SUBPATH}'`)
   })
 
-  it('扩展端此刻**不**是消费方 —— 它没有委托面,带文件族等于塞两个必败工具(理由见端内头注)', () => {
-    expect(flat(extTools)).not.toContain(`from '${SUBPATH}'`)
-    expect(flat(extTools)).toContain('_ADMIN_ONLY_TOOLS') // 排除必须带理由,否则会被"顺手补回来"
+  it('扩展端消费本表,但必须挂在闸门后面(不带闸门地放行 = 往对话链塞两个必败工具)', () => {
+    // 2026-09-28 票㉑ 第一枚改判:此前这条锁的是"扩展根本不许 import"。
+    // 现在扩展有了能力探测 + 执行代理注册表(lib/workspace-capability.ts),放行与否是**运行时判**的,
+    // 所以"禁 import"已不是正确不变量 —— 真正的不变量是"import 了也必须过闸门"。
+    // 反向锁仍在:闸门调用缺席 ⇒ 红(那才是 promise-then-fail 的形态)。
+    expect(flat(extTools)).toContain(`from '${SUBPATH}'`)
+    expect(flat(extTools)).toContain('fileToolsAllowed(')
+    expect(flat(extTools)).toContain('_ADMIN_ONLY_TOOLS') // 排除理由必须留在码上,否则会被"顺手放行"
   })
 
   it('消费方(含扩展)都不得再写第二份关键词正则', () => {
