@@ -946,9 +946,18 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     dataClass: 'scoped-read',
     risk: 'low',
     billable: false,
-    thirdPartyEligible: true,
+    // 2026-09-28 由 true 改 false(机主拍板"按能力目录逐项放开"第一档的当轮实测,详见本行注释):
+    // 标注写着"可第三方",而它的两个 handler 都是**整片读**、一个身份参数都不收 ——
+    //   GET /api/connectors          ← app/routers/connectors.py:105 `connector_store.list_all()`
+    //   GET /api/mcp/external/servers ← app/routers/mcp.py:346        `manager.list_registered()`
+    // 两处都是全站单文件 store,函数体里没有 user_id/owner 条件,所以"scoped-read"这个档位
+    // 名不副实:没有 scope,任何有效凭据都能读到别人的配置。**放开等于造一个越权面**。
+    // 恢复成 true 的前置 = 先给连接器配置落归属(另计一票),而不是把标注改回去。
+    // 这道判据由 scripts/check-public-exposure-list.mjs 的 X3/X7 +
+    // apps/api/tests/o5-nginx-edge-ratelimit.test.ts 的 NEVER_PUBLIC_SCOPES 双向钉住。
+    thirdPartyEligible: false,
     idempotencyRequired: false,
-    description: '外部连接器/MCP server 清单与能力',
+    description: '外部连接器/MCP server 清单与能力(实现侧无属主过滤 ⇒ 暂不对第三方开放)',
     // GET /api/connectors      ← app/routers/connectors.py:29(prefix /connectors)+ :107(@router.get(""))
     // GET /api/mcp/external/servers ← app/routers/mcp.py:346(main.py:697 挂 /api)
     host: 'ai-service',
