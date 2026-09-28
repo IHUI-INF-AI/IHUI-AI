@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { maskComments } from '../lib/code-mask.mjs'
 import { planPrune } from '../prune-rotated-nssm-logs.mjs'
 
 const SRC = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'prune-rotated-nssm-logs.mjs'), 'utf8')
@@ -67,5 +68,54 @@ test('M5 反向形状锁:默认档绝不派生删除动作,rmSync 只能在 --ap
 test('M6 keep 非正整数在命令行被拒,在纯函数里可表达(边界校验只留一处)', () => {
   assert.equal(planPrune([mk(rot('a', 'err', '20260901T010000'))], { keep: 0, nowMs: NOW }).candidate.length, 1, 'keep=0 必须可表达,否则年龄分支无从证明')
   assert.equal(planPrune([mk(rot('a', 'err', '20260901T010000'))], { keep: -3, nowMs: NOW }).kept.length, 1, '非法值退回默认 10 而不是"留 0 份"')
+})
+
+// M7 —— 2026-09-27 实测的整族失明:nssm 在 stdout/stderr 合写一份文件时,轮转名里**没有流段**
+// (`svc-api-nssm-20260913T180028.620.log`)。旧判据只认带 `-err-`/`-out-` 的那一种,于是真仓
+// 164 份 / 1,004MB 不进射程,而工具照样打印"可回收候选 20 份 / 0.1 MB" 并 exit 0。
+// 这条测试的用处不是"多覆盖一种形态",而是**让"少算"变成可判红的东西**。
+test('M7 无流段的轮转形态必须在射程内,且其活文件同样永不进候选', () => {
+  const rotNo = (svc, ts) => `svc-${svc}-nssm-${ts}.log`
+  const many = []
+  for (let i = 1; i <= 5; i++) many.push(mk(rotNo('api', `202609${String(i).padStart(2, '0')}T010000.620`)))
+  const r = planPrune(many, { keep: 2, nowMs: NOW })
+  assert.equal(r.groups, 1, '合写型要成一组')
+  assert.equal(r.kept.length, 2, 'keep=2 时合写型也要按同一政策留 2 份')
+  assert.equal(r.candidate.length, 3, '旧判据在这一族上整族失明(命中 0 份)')
+
+  const live = 'svc-api-nssm.log' // 没有时间戳 = 正在写的那一份
+  const r2 = planPrune([mk(live), mk(rotNo('api', '20260901T010000.620'))], { keep: 0, nowMs: NOW })
+  assert.ok(!r2.candidate.some((c) => c.name === live), '放宽形态不得把无流段的活文件一起放进来')
+  assert.equal(r2.notRotatedCount, 1)
+})
+
+test('M8 合写组不得顶掉同服务 err/out 组的保留名额(分组键的两个维度都要成立)', () => {
+  const rotNo = (svc, ts) => `svc-${svc}-nssm-${ts}.log`
+  const input = []
+  for (let i = 1; i <= 6; i++) input.push(mk(rotNo('api', `202609${String(i).padStart(2, '0')}T010000.620`)))
+  input.push(mk(rot('api', 'err', '20260901T010000')))
+  const r = planPrune(input, { keep: 1, nowMs: NOW })
+  assert.equal(r.groups, 2, 'api|log 与 api|err 必须是两组')
+  assert.ok(r.kept.some((k) => k.name.includes('-err-')), '唯一的 err 份不得被合写型挤出保留集')
+})
+
+// ─────────── 落点反向锁(§15b):logs 根只许有一个出口,本模块不得再自己截盘符 ───────────
+// 与 `sync-prometheus-live-config.test.mjs` T11 同一条锁;旧写法是
+// `resolve(HERE,'..').slice(0,1).toUpperCase()` + `join(`${D}:\`, 'DevEnv', 'logs')` ——
+// 用 slice(0,1) 从路径字符串上"猜"盘根,仓一旦被检出到 `<盘>/<子层>/<仓名>` 就直接错位。
+// 判据对象是真实源文件的形态(§22c),遮噪只遮注释、保留字符串(被禁的那一型活在字符串里)。
+test('M9 落点反向锁:不得再自取盘符,必须真的 import 共用出口 devEnvRoot()', () => {
+  const code = maskComments(SRC)
+  assert.doesNotMatch(code, /slice\(\s*0\s*,\s*1\s*\)/, '自取盘符首字符那一份实现不得回来(否则同一件事又有两个答案)')
+  assert.doesNotMatch(code, /['"]\\{0,2}DevEnv['"]/, "DevEnv 字面量档位不得回来 —— 它住在 §15b 共用出口里")
+  assert.doesNotMatch(code, /['"]\.\.['"]\s*,\s*['"]\.\.['"]/, '不得再靠"往上数两级"推盘根(工作树落在夹具里时落点会跟着夹具走)')
+  assert.doesNotMatch(code, /function\s+devEnvRoot\s*\(/, '本模块不得再声明私有 devEnvRoot —— 落点只许有一个出口')
+  assert.match(
+    code,
+    /import\s*\{[^}]*\bdevEnvRoot\b[^}]*\}\s*from\s*'\.\/seal-c-root-stray\.mjs'/,
+    '必须真的 import 共用出口(§22c 装车证明:函数在而没人调 = 提交链上一路绿灯)',
+  )
+  // 射程仍必须是 logs 目录本身(换出口不得顺手把删除面挪到别处)
+  assert.match(code, /join\(\s*devEnvRoot\(\)\s*,\s*['"]logs['"]\s*\)/, 'LOGS_DIR 必须是 <外置根>/logs')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
