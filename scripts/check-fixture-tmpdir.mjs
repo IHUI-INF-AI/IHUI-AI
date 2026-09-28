@@ -170,6 +170,32 @@ export function applyLedger({ wired, rawHits, entry, today }) {
   return { violations: [], rawHits, exempted: violations.length + (rawHits.length - violations.length), problem, rot: false }
 }
 
+/**
+ * 台账必须**从被审面**读(与其余取材同一档),过去 `run()` 从不加载它 —— 于是那份
+ * `scripts/fixture-tmpdir-exemptions.json` 对现读读数零影响,账面却读起来像"豁免已生效"
+ * (本仓把这一型叫半接线:函数在、自检过、调用点没接 —— 守门 70/76/81/115 同族)。
+ * 三态:文件不在该面上 ⇒ 零豁免并大声报出(缺席不等于通过);JSON 解析失败 ⇒ 判"无法判定"
+ * (坏清单静默当空清单 = 把"没判"写成"判过了");正常 ⇒ 按 file 建索引。
+ */
+function loadLedger(face) {
+  const got = readFace([LEDGER_FILE], face).get(LEDGER_FILE)
+  if (got === null || got === undefined) return { byPath: new Map(), absent: true }
+  let parsed
+  try {
+    parsed = JSON.parse(got)
+  } catch (e) {
+    throw new Undetermined(`${LEDGER_FILE} 不是合法 JSON:${e.message}(坏台账不得当"无豁免"静默放过)`)
+  }
+  const list = Array.isArray(parsed && parsed.exemptions) ? parsed.exemptions : []
+  const byPath = new Map()
+  for (const en of list) if (en && typeof en.file === 'string') byPath.set(en.file, en)
+  return { byPath, absent: false }
+}
+
+function todayIso(now = new Date()) {
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10)
+}
+
 function listFacePaths(face) {
   if (face === 'head')
     return gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z'], ROOT, { timeout: GIT_TIMEOUT })
@@ -228,7 +254,13 @@ export function formatReport(perFile, verdict, opts = {}) {
     )
   }
   if (totalHits === 0 && rots.length === 0 && problems.length === 0) {
-    out.push('✅ 射程内没有 F1/F2(§26 唯一落点这一维已闭合)。')
+    // "已闭合"这句话必须带上台账是否真被读过:台账缺席时 0 处的含义是"没扫到违规",
+    // 而不是"豁免口径复核过了"—— 两者混成一句就是"把没判写成判过了"(本仓最高频失效型)。
+    out.push(
+      opts.ledgerAbsent
+        ? '✅ 射程内没有 F1/F2(注:本轮台账未加载 ⇒ 只证明"没扫到违规",不证明"豁免口径已复核")。'
+        : '✅ 射程内没有 F1/F2(§26 唯一落点这一维已闭合,台账已按被审面加载)。',
+    )
   } else if (totalHits > 0) {
     out.push(
       '  F1 = mkdtempSync( 调用(该文件未 import scratch-dir 才计红)· F2 = tmpdir( 调用(接线也照计)。',
@@ -503,6 +535,31 @@ function run({ strict, face, json, all, files }) {
       perFile.push({ path: p, ...scanFixtureText(text) })
     }
   }
+  // 台账在这里真正生效:每一行的原始命中先过 applyLedger,得到"该判的违规 / 被正当豁免的 /
+  // 清单腐烂"三态。hits 保留**判据结论后的集合**,rawHits 才是原始命中 —— 报告与计数都读 hits,
+  // 这样"豁免生效"与"什么都没扫到"在账面上是两件事(后者由 undetermined/unreadable 表达)。
+  const ledger = loadLedger(usedFace)
+  const today = todayIso()
+  for (const f of perFile) {
+    if (f.unreadable) {
+      f.rawHits = []
+      f.exempted = 0
+      f.problem = null
+      f.rot = false
+      continue
+    }
+    const res = applyLedger({
+      wired: f.wired,
+      rawHits: f.hits,
+      entry: ledger.byPath.get(f.path) ?? null,
+      today,
+    })
+    f.rawHits = res.rawHits
+    f.hits = res.violations
+    f.exempted = res.exempted
+    f.problem = res.problem
+    f.rot = res.rot
+  }
   const violations = perFile.reduce((a, f) => a + f.hits.length, 0)
   // rot 必须喂给 decide:台账里指向"已无命中文件"的条目 = 清单腐烂,过去 run() 一侧从未传这一维
   // ⇒ 判据只在 --self-test 的构造面上"存在",在提交链上永不成立(半接线)。
@@ -510,10 +567,11 @@ function run({ strict, face, json, all, files }) {
   const verdict = decide({ listed: scope.length, unreadable, violations, rotations, strict })
   if (json) {
     process.stdout.write(
-      `${JSON.stringify({ face: label, usedFace, retreated, listed: scope.length, unreadable, violations, rotations, verdict, perFile }, null, 2)}\n`,
+      `${JSON.stringify({ face: label, usedFace, retreated, listed: scope.length, unreadable, violations, rotations, exemptionsLoaded: !ledger.absent, verdict, perFile }, null, 2)}\n`,
     )
   } else {
-    for (const l of formatReport(perFile, verdict, { face: label, all })) console.log(l)
+    for (const l of formatReport(perFile, verdict, { face: label, all, ledgerAbsent: ledger.absent }))
+      console.log(l)
     if (retreated) {
       console.log('ℹ 本次暂存没触及射程 ⇒ 已回退按 HEAD 全量判(不是"无事可做",也不是"无法判定")。')
     }
