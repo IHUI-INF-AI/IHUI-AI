@@ -42,6 +42,8 @@ import * as crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { getInstalledPluginsDir, getMarketplaceCacheDir, getRegistryPath } from './paths.js';
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
+// G-786:git 入参形状白名单的唯一判据(marketplace.ts 用同一份,不得在此重抄正则)
+import { assertGitCloneInputs, GitCloneInputRejectedError } from './url-shape.js';
 
 /** 缓存条目元信息(供调试与诊断) */
 export interface CacheEntry {
@@ -91,8 +93,25 @@ function copyDirRecursive(src: string, dest: string): void {
   }
 }
 
-/** 执行 git clone(或测试 mock)到 target 目录 */
+/**
+ * 执行 git clone(或测试 mock)到 target 目录。
+ *
+ * G-786(形状白名单 + `--` 分隔,判据唯一实现在 `./url-shape.ts`):
+ *   远端 manifest 的 `url` / `ref` / `sha` 是**外部字符串**,旧实现把它们原样塞进 argv 的位置参数位、
+ *   且没有任何分隔符 —— git 的选项解析在位置参数之后仍然生效,于是 `"url":"--upload-pack=…"` 被当**选项**、
+ *   `"url":"ext::sh -c …"` 在启用该 transport 的构建下等于执行。现在:
+ *     1. **先审后动**,且审在测试钩子之前(否则 IHUI_MOCK_GIT_CLONE_SRC 会让用例绕开判据,
+ *        而"拒绝路径根本不派生 git"就成了断言不出来的话);
+ *     2. 位置参数前插 `--`(clone 的 url/target、fetch 的 sha);fetch 那一趟的 `origin` 是本函数的
+ *        常量、不是外部串,所以分隔符放在它之后;
+ *     3. `checkout` **不加** `--` —— 本机实测 `git checkout -- <sha>` 把 `<sha>` 当 pathspec 而 rc=1
+ *        (`error: pathspec '504f…' did not match any file(s) known to git`),这一维改由
+ *        `evaluateGitSha` 的十六进制值域闭合兜住,加分隔符等于把 SHA pin 的功能弄坏。
+ *   派生方式一字未动(execFileSync + windowsHide,AGENTS §5b/守门 52)。
+ */
 function performClone(url: string, target: string, ref?: string, sha?: string): void {
+  // 咽喉点:任何 git 派生之前必须过形状白名单(结构化 reasonCode,不靠错误文案判断)
+  assertGitCloneInputs({ url, ref, sha });
   const mockSrc = process.env[MOCK_CLONE_SRC_ENV];
   if (mockSrc) {
     // 测试钩子:复制指定目录作为 clone 结果
@@ -102,11 +121,11 @@ function performClone(url: string, target: string, ref?: string, sha?: string): 
   const gitBin = process.env[GIT_BIN_ENV] || 'git';
   const args = ['clone', '--depth', '1'];
   if (ref) args.push('--branch', ref);
-  args.push(url, target);
+  args.push('--', url, target);
   execFileSync(gitBin, args, { stdio: 'pipe', windowsHide: true });
   if (sha) {
     // 拉取指定 commit 并 checkout(SHA pin)
-    execFileSync(gitBin, ['-C', target, 'fetch', '--depth=1', 'origin', sha], {
+    execFileSync(gitBin, ['-C', target, 'fetch', '--depth=1', 'origin', '--', sha], {
       stdio: 'pipe',
       windowsHide: true,
     });
@@ -921,6 +940,12 @@ export async function getOrCloneGitCache(
   try {
     performClone(url, staging, opts?.ref, opts?.sha);
   } catch (e) {
+    // G-786:形状白名单的拒绝**不是**"网络失败"—— 输入根本没进 git,把它包成缓存失败、或据此降级
+    // 复用过期副本,都会让调用方丢掉结构化 reasonCode 并把"被拒"读成"离线可用"。staging 照清,错误原样上抛。
+    if (e instanceof GitCloneInputRejectedError) {
+      discardStagingDirectory(staging);
+      throw e;
+    }
     // 只清 staging —— 目标目录到此为止一步没动过(旧实现的缺陷恰恰是"先删目标再改名")
     discardStagingDirectory(staging);
     const reason = e instanceof Error ? e.message : String(e);
