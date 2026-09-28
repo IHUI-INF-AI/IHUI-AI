@@ -25,6 +25,21 @@ from typing import Any
 import asyncpg
 
 from ..core.db_pool import get_shared_pool
+from ._load_lifecycle import (
+    DECISION_BACKOFF as _DECISION_BACKOFF,
+)
+from ._load_lifecycle import (
+    DECISION_GAVE_UP as _DECISION_GAVE_UP,
+)
+from ._load_lifecycle import (
+    DECISION_LOADED as _DECISION_LOADED,
+)
+from ._load_lifecycle import (
+    LoadRecord,
+)
+from ._load_lifecycle import (
+    monotonic as _monotonic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +69,10 @@ class MemoryDecayManager:
         # entry_id -> MemoryDecayState(内存存储,DB hydrate + 写穿)
         self._states: dict[str, dict[str, Any]] = {}
         # P1 修复:按需懒加载,替代 main.py startup 全量 hydrate
-        # 跟踪已加载用户,首次访问该用户时才从 DB 加载衰减状态
-        self._loaded_users: set[str] = set()
+        # G-748(2026-09-29):原来的 `_loaded_users: set[str]` 只能表达"加载过",
+        # 表达不了"试过了但没读到" —— 而 `finally: add(user_id)` 正是把后者写成前者
+        # 的那一型。换成 per-key 的 LoadRecord(判定住在 _load_lifecycle,唯一一份)。
+        self._load_records: dict[str, LoadRecord] = {}
         self._loaded_lock: asyncio.Lock = asyncio.Lock()
 
     # ==================================================================
@@ -70,24 +87,42 @@ class MemoryDecayManager:
         只加载该用户的衰减状态。
 
         线程安全:asyncio.Lock 防止并发首次访问重复加载同一用户。
-        加载失败也标记为已加载(避免每次调用都重试,DB 异常时降级空内存)。
+
+        G-748(2026-09-29,取代旧口径"加载失败也标记为已加载、从此不再重试"):
+        旧写法把该用户的一次瞬时 DB 故障永久固化成"这个用户没有衰减状态"且余生不再
+        重试 —— 与 G-702 在 ab_test_tracker 上修掉的那一处同型。判定住在
+        _load_lifecycle(唯一一份):读成功(含空表)才固化;读失败不置 loaded,
+        指数退避(底 1s 封顶 60s),连续失败到上限才停自动重试且仍非 loaded。
         """
-        if not user_id or user_id in self._loaded_users:
+        if not user_id:
+            return
+        rec = self._load_records.get(user_id)
+        if rec is not None and rec.loaded:
             return
         async with self._loaded_lock:
             # double-check:拿到锁后再次确认(可能在等锁期间被其他协程加载)
-            if user_id in self._loaded_users:
+            rec = self._load_records.setdefault(user_id, LoadRecord())
+            now = _monotonic()
+            decision = rec.decide(now)
+            if decision == _DECISION_LOADED:
                 return
-            try:
-                await self.load_states_for_user(user_id)
-            except Exception as e:
-                logger.warning(
-                    "[memory_decay] _ensure_loaded 加载失败(user=%s 降级空内存): %s",
-                    user_id, e,
-                )
-            finally:
-                # 无论成功失败都标记已加载(避免重复重试)
-                self._loaded_users.add(user_id)
+            if decision == _DECISION_GAVE_UP:
+                if not rec.give_up_logged:
+                    rec.give_up_logged = True
+                    logger.warning(
+                        "[memory_decay] _ensure_loaded 连续 %d 次读取失败,停止自动重试"
+                        "(user=%s 状态=读不到,非空表;恢复靠下一次进程重启或人工触发)",
+                        rec.failures,
+                        user_id,
+                    )
+                return
+            if decision == _DECISION_BACKOFF:
+                return  # 退避窗口内:本次调用不打 DB
+            ok, _count = await self._try_load_states_for_user(user_id)
+            if ok:
+                rec.apply_success()
+            else:
+                rec.apply_failure(now)
 
     # ==================================================================
     # 单条记忆衰减计算
@@ -355,16 +390,27 @@ class MemoryDecayManager:
         return count
 
     async def load_states_for_user(self, user_id: str) -> int:
-        """按用户从 DB 加载衰减状态到内存(按需 hydrate,避免全表扫描)。
+        """公开计数投影:成功返回条数,失败返回 0。
+
+        ⚠️ 这里的 0 **分不出**"该用户确实没有衰减状态"与"读取失败"(失败也被投成
+        0)——内部判定必须走 _try_load_states_for_user 的二元组(G-748)。
+        """
+        ok, count = await self._try_load_states_for_user(user_id)
+        return count if ok else 0
+
+    async def _try_load_states_for_user(self, user_id: str) -> tuple[bool, int]:
+        """按用户从 DB 加载衰减状态,并把"读不到"与"读到但为空"分开返回。
+
+        返回 (read_ok, count):
+        - (False, 0) ⇒ 连接/查询/UUID 解析异常 = "读不到",**不得**固化;
+        - (True, 0)  ⇒ 查询成功且该用户无衰减状态 = **权威的空**,可以固化。
+        失败不抛(调用方按 read_ok 决定退避)。
 
         Args:
             user_id: 用户 ID
-
-        Returns:
-            加载到内存的状态条数
         """
         if not user_id:
-            return 0
+            return True, 0
         try:
             pool = await _get_pool()
             async with pool.acquire() as conn:
@@ -377,10 +423,10 @@ class MemoryDecayManager:
                 )
         except Exception as e:
             logger.warning(
-                "[memory_decay] load_states_for_user 失败(user=%s 降级空): %s",
+                "[memory_decay] _try_load_states_for_user 读取失败(user=%s,不固化为空): %s",
                 user_id, e,
             )
-            return 0
+            return False, 0
         count = 0
         for row in rows:
             entry_id = str(row["entry_id"])
@@ -398,7 +444,7 @@ class MemoryDecayManager:
                 "isDecayed": bool(row["is_decayed"]),
             }
             count += 1
-        return count
+        return True, count
 
     async def _persist_state(
         self,

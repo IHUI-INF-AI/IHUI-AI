@@ -227,12 +227,43 @@ _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端
 _approval_sessions: dict[str, dict[str, dict[str, Any]]] = {}
 
 
-def _persist_grant_rule(entry: dict[str, Any] | None, tool_name: str, session_id: str) -> None:
+def _scoped_exec_prefix_key(owner_uuid: str | None, prefix_tokens: list[str]) -> str | None:
+    """D158 owner-binding(2026-09-29):exec_prefix 放行规则 cache_key 的**唯一**算键出口。
+
+    写入侧(`_persist_grant_rule`)与命中侧(`_exec_prefix_grant_hits`)共用这一份,
+    主体拼接与规范化都委托 approval_persistence.scoped_cache_key +
+    normalize_exec_key —— 存储层与 llm 层各只有一份实现,不在此重抄规则
+    (本仓最高频失效型就是"两处算同一件事必漂移";主体来源也只有一个:
+    端点入口的 `owner_uuid = _resolve_owner_uuid(request)`,即 JWT 派生,
+    绝不取客户端自报 userId —— 与内存侧 `_grant_bucket_key` 的
+    `conv::<JWT subject>::<conversationId>` 同一设计意图)。
+
+    缺主体 ⇒ None ⇒ 两侧都不落/不命中(fail-closed,与 `_grant_bucket_key`
+    "归属不齐不新增放行面"同语义;绝不允许无主体的全局放行规则存在)。
+    """
+    uid = str(owner_uuid or "").strip()
+    if not uid:
+        return None
+    try:
+        from app.services import approval_persistence as _ap
+
+        return _ap.scoped_cache_key(uid, _ap.normalize_exec_key(prefix_tokens))
+    except Exception:  # noqa: BLE001 - 算键失败按无规则处理,两侧调用方各自降级
+        return None
+
+
+def _persist_grant_rule(
+    entry: dict[str, Any] | None, tool_name: str, session_id: str, owner_uuid: str | None
+) -> None:
     """D158:审批条目带 grant_rule 且工具是 run_command 时,把 argv 前缀落成放行规则。
 
-    键空间唯一实现:approval_persistence.normalize_exec_key(与 mcp_server 共用);
-    TTL=90 天(用户批的预填口径);登记失败只 warn,不阻断本次已批准的执行 ——
-    宁可下次同类命令再问一次,也不因规则落库失败把用户批准的执行打断。
+    键空间唯一实现:`_scoped_exec_prefix_key`(主体 + normalize_exec_key;
+    与命中侧同一份);TTL=90 天(用户批的预填口径);登记失败只 warn,不阻断本次
+    已批准的执行 —— 宁可下次同类命令再问一次,也不因规则落库失败把用户批准的执行打断。
+
+    D158 owner-binding(2026-09-29):规则必须绑定**令牌主体**(owner_uuid,
+    由端点入口 `_resolve_owner_uuid(request)` 单一来源传入)。缺主体 ⇒ 跳过登记,
+    本次已批准的执行照常进行,只是不产生持久放行规则(第四档退化为本轮放行)。
     """
     if not isinstance(entry, dict):
         return
@@ -248,10 +279,17 @@ def _persist_grant_rule(entry: dict[str, Any] | None, tool_name: str, session_id
         from app.services import approval_persistence as _ap
 
         tokens = max(1, min(4, int(gr.get("tokens", 2))))
-        cache_key = _ap.normalize_exec_key([str(x) for x in argv[:tokens]])
+        cache_key = _scoped_exec_prefix_key(owner_uuid, [str(x) for x in argv[:tokens]])
+        if cache_key is None:
+            logger.info(
+                "D158 前缀放行规则未登记:缺令牌主体(session=%s, argv前缀=%s)",
+                session_id,
+                list(argv[:tokens]),
+            )
+            return
         _ap.grant("always", cache_key, "exec_prefix", ttl_days=90)
         logger.info(
-            "D158 前缀放行规则已登记(session=%s, argv前缀=%s, ttl=90d)",
+            "D158 前缀放行规则已登记(session=%s, owner=<JWT主体>, argv前缀=%s, ttl=90d)",
             session_id,
             list(argv[:tokens]),
         )
@@ -264,19 +302,27 @@ def _persist_grant_rule(entry: dict[str, Any] | None, tool_name: str, session_id
         )
 
 
-def _exec_prefix_grant_hits(argv: list[str] | tuple[str, ...]) -> bool:
+def _exec_prefix_grant_hits(argv: list[str] | tuple[str, ...], owner_uuid: str | None) -> bool:
     """D158:命令 argv 是否命中任一已登记的前缀放行规则(持久层,经 approval_persistence)。
 
-    匹配键空间与 mcp_server._matches_exec_prefix 同一份(normalize_exec_key);
+    键空间唯一实现:`_scoped_exec_prefix_key`(与写入侧同一份,主体 + normalize);
     本函数是主对话流(run_command 工具)的**判定出口**,mcp 侧继续用它自己的内存表+持久层
     双查 —— 两处共用"键怎么算"这一份实现,不共内存表(两套生命周期,各自兜底)。
+
+    D158 owner-binding(2026-09-29):只匹配**当前令牌主体**登记的规则。
+    A 批准的 `git push` 前缀对 B 不再免弹窗(B 返回 False ⇒ 调用方保持弹窗,
+    即"未发出放行");存量无主体行落在另一键空间,对本判定永不命中(等效失效)。
+    缺主体 ⇒ False(无从比对 ⇒ 不放行)。
     fail-closed:持久层查询异常视为未命中(宁可多问一次,不放行)。
     """
     try:
         from app.services import approval_persistence as _ap
 
         for _n in range(1, min(4, len(argv)) + 1):
-            if _ap.check(_ap.normalize_exec_key([str(x) for x in argv[:_n]]), "exec_prefix"):
+            cache_key = _scoped_exec_prefix_key(owner_uuid, [str(x) for x in argv[:_n]])
+            if cache_key is None:
+                return False
+            if _ap.check(cache_key, "exec_prefix"):
                 return True
         return False
     except Exception:  # noqa: BLE001
@@ -767,6 +813,13 @@ def _format_terminal_end_event(
         _evt["exitCode"] = _exit_code
     if message_id:
         _evt["messageId"] = message_id
+    # D151 验收②:"terminal_end 之前若有交互,必须有交互计数(不得静默)"。计数原本只活在
+    # tool-result 的 dict 里 —— 模型看得见、用户看不见,而"我刚才替它答过一次"恰恰是用户
+    # 复盘这条命令时的第一个问题。仅在 >0 时下发,零交互的旧帧形状一字不变。
+    if isinstance(exec_result, dict):
+        _inter = exec_result.get("interactionCount")
+        if isinstance(_inter, int) and _inter > 0:
+            _evt["interactionCount"] = _inter
     return _sse(SSE_TERMINAL_END, _evt)
 
 
@@ -3905,7 +3958,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if (
                                     _approval_needed
                                     and tool_name == "run_command"
-                                    and _exec_prefix_grant_hits(args.get("argv") or [])
+                                    and _exec_prefix_grant_hits(
+                                        args.get("argv") or [], owner_uuid
+                                    )
                                 ):
                                     _approval_needed = False
                             if _approval_needed:
@@ -3987,7 +4042,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # 与 mcp_server 的 exec_prefix 同一键空间)。落规则提成
                                 # _persist_grant_rule(可单测;失败不阻断本次执行)。
                                 if _decision == "approve":
-                                    _persist_grant_rule(_entry, tool_name, session_id)
+                                    _persist_grant_rule(_entry, tool_name, session_id, owner_uuid)
                                 if _decision is None or _decision != "approve":
                                     _is_timeout = _decision is None
                                     _denied_why = (
@@ -6420,6 +6475,7 @@ async def list_approval_grants(request: Request) -> dict[str, Any]:
         from app.services import approval_persistence as _ap
 
         unexpired = set(_ap.list_keys("exec_prefix"))
+        uid = _resolve_owner_uuid(request)  # D158 owner-binding:只看自己主体的规则
         conn = _ap._get_conn()
         with _ap._lock:
             rows = conn.execute(
@@ -6437,12 +6493,17 @@ async def list_approval_grants(request: Request) -> dict[str, Any]:
         if key not in unexpired:
             # 已过期/未登记:以 list_keys 权威集为准(过期行留给 purge 清理)
             continue
+        if not _ap.key_is_owned_by(key, uid):
+            # D158 owner-binding:别人主体的规则与存量无主体行一律不可见
+            # (cacheKey 回显保留完整绑定键,撤销用它精确回传并再过归属闸)
+            continue
+        _bare = _ap.split_scoped_key(key)[1]
         grant = by_key.setdefault(
             key,
             {
                 "cacheKey": key,
-                "prefix": _readable_exec_prefix(key),
-                "tokenCount": len([t for t in key.split("\x1f") if t]),
+                "prefix": _readable_exec_prefix(_bare),
+                "tokenCount": len([t for t in _bare.split("\x1f") if t]),
                 "kind": "exec_prefix",
                 "scopes": [],
                 "createdAt": None,
@@ -6481,6 +6542,11 @@ async def revoke_approval_grant(request: Request) -> dict[str, Any] | JSONRespon
     try:
         from app.services import approval_persistence as _ap
 
+        if not _ap.key_is_owned_by(cache_key, _resolve_owner_uuid(request)):
+            # D158 owner-binding:非本人主体的键(含存量无主体行)一律不删,
+            # 回 ok 与"没这条"同形(面板语义本就无存在性探针)—— B 拿 A 的键
+            # 撤销 ⇒ A 的规则原样存活,B 也探测不出它存在。
+            return {"ok": True}
         _ap.revoke(cache_key, kind)
     except Exception as e:  # noqa: BLE001
         logger.warning("D158 放行规则撤销失败(kind=%s): %s", kind, e)

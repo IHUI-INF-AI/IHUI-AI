@@ -353,6 +353,27 @@ async function sendSseRpc(
 }
 
 /**
+ * 票A 调用侧类型读数(mcp-oauth.ts 的 McpRefreshFailureKind 同域)。
+ * **刻意不从 mcp-oauth import 判读函数**:分流决策本来就住在调用侧;而按属性读数
+ * (非 instanceof / 非文案匹配)也保证模块 mock / 跨副本下 instanceof 失真不影响分流。
+ */
+type McpRefreshFailureKind = 'temporary' | 'invalid_grant' | 'invalid_client' | 'undetermined';
+
+function readMcpRefreshKind(err: unknown): McpRefreshFailureKind | undefined {
+  if (err === null || typeof err !== 'object') return undefined;
+  const raw = (err as { mcpRefreshKind?: unknown }).mcpRefreshKind;
+  switch (raw) {
+    case 'temporary':
+    case 'invalid_grant':
+    case 'invalid_client':
+    case 'undetermined':
+      return raw;
+    default:
+      return undefined;
+  }
+}
+
+/**
  * 解析 MCP server 的认证 headers。
  *
  * 三条路径(按优先级):
@@ -361,7 +382,10 @@ async function sendSseRpc(
  *   2. OAuth(server.auth.type === 'oauth' 且 server.oauth 元数据存在)
  *      a. 读 credentials store,有未过期 access_token → 用之
  *      b. 有 access_token 但过期且有 refresh_token → refreshAccessToken 刷新
- *      c. 无凭证 → startOAuthFlow 走浏览器授权 + 本地回调
+ *         (票A:跨进程单飞锁 + 代次 CAS;失败按类型三分 ——
+ *          temporary / undetermined / invalid_client 直接向上抛,**不起交互**;
+ *          invalid_grant 或无类型旧语义才落到 c)
+ *      c. 无凭证或 refresh 确定性失效 → startOAuthFlow 走浏览器授权 + 本地回调
  *      d. OAuth 失败 → 回退到静态 token(若有),否则抛错
  *   3. 无认证(server.auth.type === 'none' 或未配置)
  *      → 不加 Authorization header
@@ -398,6 +422,11 @@ export async function resolveMcpAuthHeaders(server: McpServer): Promise<Record<s
         settingsKey: 'mcpServers[].auth.oauth.tokenEndpoint',
         configuredEndpoint: server.oauth.tokenEndpoint,
       },
+      // 票A(2026-09-28):生产刷新路径必须走"跨进程单飞锁 + 代次 CAS + 失败三分"。
+      // 上一版这里是一次裸 refreshAccessToken —— 两个进程用同一 refresh_token 并发刷新
+      // 会撞授权服务器的 rotation reuse-detection,整个 token family 被撤销,
+      // 用户侧表现就是"突然要重新授权"。协议本体在 mcp-oauth.ts 的 refreshAccessToken 里。
+      refreshSingleFlight: true,
     };
 
     try {
@@ -408,7 +437,7 @@ export async function resolveMcpAuthHeaders(server: McpServer): Promise<Record<s
         return headers;
       }
 
-      // 2b. access_token 过期但 refresh_token 存在 → 刷新
+      // 2b. access_token 过期但 refresh_token 存在 → 单飞刷新(锁 + 代次 CAS 在 refreshAccessToken 内)
       if (cred?.refreshToken) {
         try {
           const refreshed = await refreshAccessToken(oauthConfig, cred.refreshToken);
@@ -422,16 +451,35 @@ export async function resolveMcpAuthHeaders(server: McpServer): Promise<Record<s
           headers['Authorization'] = `Bearer ${refreshed.accessToken}`;
           return headers;
         } catch (err) {
-          // refresh 失败 → 回退到重新授权流程(不抛错,继续走 2c)
-          console.warn(`[mcp-runtime] OAuth refresh 失败,回退到重新授权: ${err instanceof Error ? err.message : String(err)}`);
+          // 票A 三分:只有 invalid_grant(确定性失效)允许落到 2c 起交互式授权。
+          // temporary(网络/discovery 失败)与 undetermined(换代但 winner 没留可用 token)
+          // 直接向上抛 —— 网络抖动起浏览器是把"稍后再试"错办成"突然要重新授权";
+          // invalid_client(clientId 静态配置)起交互必然撞同一个错,是造环。
+          const kind = readMcpRefreshKind(err);
+          if (kind !== undefined && kind !== 'invalid_grant') {
+            console.warn(
+              `[mcp-runtime] OAuth 刷新未完成(kind=${kind}),不触发交互式授权;向上抛出等待重试/人工处置: server=${server.name}`,
+            );
+            throw err;
+          }
+          console.warn(
+            `[mcp-runtime] OAuth refresh 失败(${kind ?? '未分类型,按既有语义视为失效'}),回退到重新授权: ${err instanceof Error ? err.message : String(err)}`,
+          );
         }
       }
 
-      // 2c. 无凭证或 refresh 失败 → 启动 OAuth 授权流程
+      // 2c. 无凭证或 refresh 确定性失效 → 启动 OAuth 授权流程
       const result = await startOAuthFlow(oauthConfig);
       headers['Authorization'] = `Bearer ${result.accessToken}`;
       return headers;
     } catch (err) {
+      // 票A:带类型的刷新失败(temporary / undetermined / invalid_client)原样上抛 ——
+      // 它不是"授权失败",回退静态 token 或改写文案都会把真实故障类型抹平,
+      // 让下一次排障无从下手(失效方向必须是"多问一次",不是"换个说法糊过去")。
+      const kind = readMcpRefreshKind(err);
+      if (kind !== undefined && kind !== 'invalid_grant') {
+        throw err;
+      }
       // 2d. OAuth 失败 → 回退到静态 token(若有),否则抛错
       if (server.auth?.token) {
         console.warn(`[mcp-runtime] OAuth 失败,回退到静态 token: ${err instanceof Error ? err.message : String(err)}`);
@@ -448,6 +496,77 @@ export async function resolveMcpAuthHeaders(server: McpServer): Promise<Record<s
     headers['Authorization'] = `Bearer ${server.auth.token}`;
   }
   return headers;
+}
+
+/**
+ * 票B(2026-09-28):第三方 stdio MCP 子进程的 env 构造 —— 白名单基底 + 单键重注。
+ *
+ * 为什么从黑名单换向:黑名单(`buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS)`)的后缀族只认
+ * `*_API_KEY`/`*_SECRET`/`*_TOKEN`/`*_PASSWORD`,G-465 已量到 `*_KEY`/`*_SENDKEY`/
+ * `*_TOKEN_ID` 一律盖不住 —— 即"**新增任何密钥名默认进入每个第三方子进程**"。
+ * 白名单把默认方向反过来:**没被基底点名、也没被该 server 显式声明的键,默认不可达**。
+ * 其它通道(交互终端 / hook)刻意**不动**它们的黑名单 —— 白名单化会打断 `aws`/`gcloud`
+ * 这类靠 env 工作的第三方 CLI,那属于用户可见回归,不在本票射程。
+ *
+ * 基底取值依据(本机实测 2026-09-28,勿照抄别机):裸 node 运行时在空 env 下也能起
+ * (os.homedir()/os.tmpdir() 走 Win32/POSIX API 兜底),但 **stdio MCP server 的实际生态**
+ * 需要这些非密钥的定位档:npx/工具链找 node 要 PATH、Windows 子进程 spawn shell 要
+ * COMSPEC/SYSTEMROOT、临时文件要 TEMP/TMP/TMPDIR、配置与缓存目录要 HOME/USERPROFILE/
+ * APPDATA/LOCALAPPDATA/XDG_*、语言与时区要 LANG/LC_ALL/TZ。逐项列死在下面,
+ * 不放进来的键必须由 server.env 显式声明才可达。
+ */
+const MCP_CHILD_ENV_BASE_ALLOWLIST: readonly string[] = [
+  // 路径与解释器定位
+  'path',
+  'pathext',
+  'systemroot',
+  'windir',
+  'comspec',
+  'shell',
+  // 家目录与用户配置/缓存位置
+  'home',
+  'userprofile',
+  'homedrive',
+  'homepath',
+  'appdata',
+  'localappdata',
+  'xdg_config_home',
+  'xdg_cache_home',
+  'xdg_data_home',
+  // 临时目录
+  'temp',
+  'tmp',
+  'tmpdir',
+  // 语言 / 时区(第三方 server 的日志与时区行为)
+  'lang',
+  'lc_all',
+  'tz',
+];
+const MCP_CHILD_ENV_BASE_SET = new Set(MCP_CHILD_ENV_BASE_ALLOWLIST);
+
+/**
+ * 构造 MCP stdio 子进程 env(三层,顺序不可颠倒):
+ *  ① 先过既有那一份黑名单出口(复用,不另立第二份遮蔽清单 —— G-465 登记的 4 个残留名
+ *     在基底里根本不存在,双保险且与 child-env-boundary 的装车对账兼容);
+ *  ② 只保留白名单基底点名的键(**默认不可达**就发生在这一步);
+ *  ③ 该 server 显式声明的 server.env 全量并入(单键重注通道;同名大小写冲突时
+ *     显式声明优先,并先摘掉基底里的同名键,避免 Windows 上同一名字两种拼写同时进 env 块)。
+ */
+export function buildMcpChildEnv(serverEnv?: Record<string, string>): NodeJS.ProcessEnv {
+  const filteredFirstLayer = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS);
+  const declared = serverEnv ?? {};
+  const declaredLower = new Set(Object.keys(declared).map((k) => k.toLowerCase()));
+  const env: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(filteredFirstLayer)) {
+    if (value === undefined) continue;
+    const lower = key.toLowerCase();
+    if (declaredLower.has(lower)) continue; // 同名冲突:显式声明那份在后面覆盖,这里直接让位
+    if (MCP_CHILD_ENV_BASE_SET.has(lower)) env[key] = value;
+  }
+  for (const [key, value] of Object.entries(declared)) {
+    env[key] = value;
+  }
+  return env;
 }
 
 /**
@@ -472,8 +591,9 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       if (!server.command) throw new Error('stdio transport 需要 command');
       const proc = spawn(server.command, server.args ?? [], {
         stdio: ['pipe', 'pipe', 'pipe'],
-        // 第三方 MCP 子进程不该看到我方平台凭据;显式写在 server.env 里的值仍然生效(过滤在后合并)
-        env: { ...buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS), ...server.env },
+        // 票B:白名单基底 + server.env 显式声明(单键重注)—— 新增密钥名默认不可达,
+        // 只有写在该 server 配置 env 里的键才进第三方子进程(过滤与声明的构造在 buildMcpChildEnv)
+        env: buildMcpChildEnv(server.env),
         windowsHide: true,
       });
       proc.stderr?.on('data', () => { /* 忽略 stderr */ });

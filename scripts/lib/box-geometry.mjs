@@ -359,7 +359,7 @@ export function objectDims(lines, idx, consts) {
  * 一遍单位换算必然漂开。本轮"除法半径读成被除数 / `width: 96rpx` 不折半"就是同一笔债的两半,
  * 而只修一半会产出自洽的假阳(半径 8 配上量不到的 16×16 盒 ⇒ 把圆钮判成"该取 sm")。
  */
-import { lengthToPx, constantMapOf } from './length-units.mjs'
+import { lengthToPx, constantMapOf, constExprPx } from './length-units.mjs'
 
 /**
  * 盒形标识符常量表(`width: IMAGE_REMOVE_SIZE`)—— **默认自取,显式传入优先**。
@@ -411,9 +411,16 @@ export function dimsFromText(win, consts) {
    * 量不到盒形,被判成"control 该取 sm(4)" —— 那是**尺子的假阳**,照着它改代码就是把圆钮改方。
    * 两半必须同批改,这是本轮记下的一条规矩。
    */
-  for (const m of win.matchAll(/\b(width|height)\s*[:=]\s*([A-Za-z_$][\w$]*)\b/g)) {
-    if (!(consts instanceof Map) || !consts.has(m[2])) continue
-    const v = lengthToPx(consts.get(m[2]))
+  for (const m of win.matchAll(
+    /\b(width|height)\s*[:=]\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\b/g,
+  )) {
+    /**
+     * 求值走 `constExprPx` 那一份:它认标识符、成员档与链式
+     * (`const SECONDARY_BTN_SIZE = rnGeometry.tapBox` 这种"常量指向具名档"的写法)。
+     * 上一版只查一层 map 再交给 `lengthToPx`,所以这类盒形量不到 —— 半径侧认得、盒形侧不认,
+     * 产出的是**自洽的假结论**,比"读不出来"更坏:它会替一个未判定发合格证。
+     */
+    const v = constExprPx(m[2], consts)
     if (v === null || v <= 0) continue
     if (m[1] === 'width') w = Math.max(w, v)
     else h = Math.max(h, v)
@@ -437,9 +444,43 @@ export function dimsFromText(win, consts) {
       for (const m of win.matchAll(/\bpx-(\d+(?:\.\d+)?)(?![\w-])/g)) pxMax = Math.max(pxMax, Number(m[1]) * 4)
       for (const m of win.matchAll(/\bpx-\[(\d+(?:\.\d+)?)(rpx|px)\]/g))
         pxMax = Math.max(pxMax, Number(m[1]) * (m[2] === 'rpx' ? 0.5 : 1) * 2)
+      /**
+       * RN 侧的水平内边距与 Tailwind 的 `px-N` 是同一件事的两种书写 —— 只认后者会把
+       * `paddingHorizontal: 8` 的按钮整个判成"量不到盒形",于是**半径=短边一半的胶囊从尺子上消失**
+       * (2026-09-29 票㊼ 的立因:`BottomActionBar.addFileBtn`、`DevErrorToast.badge` 全是这一型)。
+       */
+      for (const m of win.matchAll(/\bpaddingHorizontal\s*:\s*([0-9.]+)/g))
+        pxMax = Math.max(pxMax, Number(m[1]))
+      for (const m of win.matchAll(/\bpadding(?:Left|Right)\s*:\s*([0-9.]+)/g))
+        pxMax = Math.max(pxMax, Number(m[1]))
+      /**
+       * `minWidth` 是**下限**不是定值:渲染宽度只会 ≥ 它。单独出现不足以下结论(没有内边距时
+       * 它可以正好等于高度 ⇒ 仍是方盒),但**只要有水平内边距**,宽度就必然超过这个下限 ⇒
+       * 不得再按"可证正方盒"声称几何真圆。反过来,把 minWidth 直接当宽度用会把
+       * `minWidth 36 + paddingHorizontal 8` 量成 36×36 的方盒 —— 那正是给胶囊发合格证。
+       */
+      const minW = minWidthPx(win, consts)
+      if (minW !== null && pxMax > 0) return { w: Math.max(w, minW), h, shape: 'wide', sameExpr }
       if (pxMax && pxMax * 2 >= h) return { w, h, shape: 'wide', sameExpr }
     }
     return { w, h, shape: null, sameExpr }
   }
   return { w, h, shape: Math.max(w, h) / Math.min(w, h) <= 1.35 ? 'square' : 'wide', sameExpr }
+}
+
+/**
+ * 量一段文本里的**宽度下限**(`minWidth: X` / `min-w-[24rpx]`),标识符与具名档都按 `constExprPx`
+ * 那一份求值 —— 半径侧与盒形侧解的是同一个常量,两边各写一遍就必然出现"半径认得、盒形不认"
+ * 那种自洽假结论(票㉟ 同一条)。取不到返回 null,由调用方按"没有下限"处理。
+ */
+export function minWidthPx(win, consts) {
+  for (const m of String(win || '').matchAll(/\bminWidth\s*[:=]\s*([^,;}\n]+)/g)) {
+    const v = constExprPx(m[1], consts)
+    if (v !== null && v > 0) return v
+  }
+  for (const m of String(win || '').matchAll(/\bmin-w-\[(\d+(?:\.\d+)?)(rpx|px)\]/g)) {
+    const v = lengthToPx(`${m[1]}${m[2]}`)
+    if (v !== null && v > 0) return v
+  }
+  return null
 }

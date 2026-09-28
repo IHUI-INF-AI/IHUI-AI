@@ -483,6 +483,27 @@
     "captchaRefresh": "인증 코드 새로고침"
   },
   "chat": {
+    "mcp": {
+      "state": {
+        "connecting": "{server} 연결 중…",
+        "failed": "{server} 연결에 실패했습니다",
+        "reconnecting": "{server} 재연결 중 ({attempt}/{maxAttempts}회)"
+      },
+      "action": {
+        "retry": "지금 재연결",
+        "openSettings": "MCP 설정 열기"
+      },
+      "mobileSettingsHint": "MCP 연결은 데스크톱 또는 웹에서 관리해 주세요"
+    },
+    "meta": {
+      "changedElsewhere": "이 대화의 {field}이(가) 다른 기기에서 “{value}”(으)로 업데이트되었습니다",
+      "pullOnly": "미니프로그램은 다음에 열 때 이 변경을 동기화합니다",
+      "field": {
+        "title": "제목",
+        "archive": "보관 상태",
+        "model": "모델"
+      }
+    },
     "icuProbe": {
       "flowState": "{state, select, running {{count, plural, =0 {스트림 실행 중, 대기 도구 없음} other {스트림 실행 중, {count}개 도구 예약됨}}} paused {스트림 일시 중지} failed {실행 실패: <b>{reason}</b>}}"
     },

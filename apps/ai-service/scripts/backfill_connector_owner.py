@@ -63,6 +63,7 @@ class Plan:
     unknown_keys: list[str] = field(default_factory=list)  # 点名的 key 不在文件里
     untouched_ownerless: list[str] = field(default_factory=list)  # 无主且没被点名
     reassigned: list[str] = field(default_factory=list)  # 经 --reassign 改写了属主的 key
+    duplicate_keys: list[str] = field(default_factory=list)  # 同一 key 有多条 ⇒ **拒绝落**并点名
 
     @property
     def changed(self) -> bool:
@@ -93,16 +94,25 @@ def plan_backfill(
     """纯函数:按 claims 算出**该落哪些**,不碰入参。"""
     reassign = reassign or set()
     plan = Plan()
-    by_key: dict[str, dict[str, Any]] = {}
+    # key -> 该 key 的**全部**记录(不是"最后一条")。这里曾按"每 key 一条"建模:
+    # `by_key[key] = rec` 让重复 key 只留最后一条,于是"已有属主"的检查只看得到其中一条,
+    # 而 `apply_plan` 是**按 key 写**的 —— 同一 key 的另一条(带着 owner=7)会被顺手改成
+    # 新属主,而 dry-run 打印的是"改写已有属主 0 条"。按 key 回填在这个文件里无法表达
+    # "改哪一条"(没有第二个判别位),所以整型直接拒绝并点名,交人工先合条。
+    by_key: dict[str, list[dict[str, Any]]] = {}
     for rec in records:
         key = rec.get("key")
         if isinstance(key, str):
-            by_key[key] = rec
+            by_key.setdefault(key, []).append(rec)
     for key, owner in claims.items():
-        target = by_key.get(key)
-        if target is None:
+        occurrences = by_key.get(key)
+        if occurrences is None:
             plan.unknown_keys.append(key)
             continue
+        if len(occurrences) > 1:
+            plan.duplicate_keys.append(key)
+            continue
+        target = occurrences[0]
         current = target.get(OWNER_FIELD)
         if current and key not in reassign:
             plan.already_owned.append(key)
@@ -114,7 +124,9 @@ def plan_backfill(
         if current:
             plan.reassigned.append(key)
     plan.untouched_ownerless = [
-        k for k, rec in by_key.items() if not rec.get(OWNER_FIELD) and k not in claims
+        k
+        for k, recs in by_key.items()
+        if len(recs) == 1 and not recs[0].get(OWNER_FIELD) and k not in claims
     ]
     return plan
 
@@ -200,11 +212,27 @@ def main(argv: list[str] | None = None) -> int:
             print(f"   点了名而文件里没有(不落):{len(plan.unknown_keys)} 条 {sorted(plan.unknown_keys)}")
         if plan.untouched_ownerless:
             print(f"   ⚠️ 仍无主且未被点名:{len(plan.untouched_ownerless)} 条 {sorted(plan.untouched_ownerless)}")
+        if plan.duplicate_keys:
+            print(
+                f"   ❌ 同一 key 有多条记录、本次**拒绝**回填:{len(plan.duplicate_keys)} 个 "
+                f"{sorted(plan.duplicate_keys)} —— 按 key 写无法表达「改哪一条」,而本工具的"
+                "旧写法会顺手改掉同 key 里**已属主**的那条,且 dry-run 报「改写已有属主 0 条」。"
+                "先人工合条/删重,再回来点名认领。"
+            )
 
     if not args.apply:
         print("   [dry-run] 未写盘。确认无误后加 --apply")
         if args.json:
-            print(json.dumps({"apply": False, "stamps": plan.stamps}, ensure_ascii=False))
+            print(
+                json.dumps(
+                    {
+                        "apply": False,
+                        "stamps": plan.stamps,
+                        "duplicateKeys": sorted(plan.duplicate_keys),
+                    },
+                    ensure_ascii=False,
+                )
+            )
         return 0
 
     if not plan.changed:
@@ -227,7 +255,16 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(f"✅ 已回填 {len(plan.stamps)} 条 owner")
     if args.json:
-        print(json.dumps({"apply": True, "stamps": plan.stamps}, ensure_ascii=False))
+        print(
+        json.dumps(
+            {
+                "apply": True,
+                "stamps": plan.stamps,
+                "duplicateKeys": sorted(plan.duplicate_keys),
+            },
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 

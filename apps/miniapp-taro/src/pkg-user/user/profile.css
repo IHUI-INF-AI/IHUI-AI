@@ -115,7 +115,7 @@
   position: relative;
   width: 96rpx;
   height: 96rpx;
-  border-radius: 50%;
+  border-radius: var(--radius-2xl);
   overflow: hidden;
   flex-shrink: 0;
   background: var(--color-muted);

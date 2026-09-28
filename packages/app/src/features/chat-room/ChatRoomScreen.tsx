@@ -344,10 +344,10 @@ function Avatar({
 }) {
   const initial = (name || '友').trim().charAt(0) || '友'
   if (uri) {
-    return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
+    return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: rnRadius['2xl']}} />
   }
   return (
-    <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2 }]}>
+    <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: rnRadius['2xl']}]}>
       <Text style={[styles.avatarFallbackText, { fontSize: size / 2.4 }]}>{initial}</Text>
     </View>
   )

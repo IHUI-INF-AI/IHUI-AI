@@ -22,20 +22,30 @@
 
 ## 复现取法（两件工具的不变量由各自自检钉，不在提交链）
 
+> 2026-09-29（票 D157）：这两件工具已从本目录升为 `scripts/` **常驻**工具，本目录不再留副本
+> （两份真相会漂）。它们判的是仓库外的竞品包体与本目录的清单，与提交内容无关，所以**刻意不接提交链**
+> —— 接进链就是一台与任何提交都无关的恒红门。不变量由 `--self-test` +
+> `scripts/tests/benchmark-evidence-tools.test.mjs`（§22c 镜像测试，含端到端 spawn 与真语料对照）钉住。
+
 ```bash
 # asar 直读（列清单 / 取文件 / 捞内容）。注意必须 Windows 形式路径 + 禁 MSYS 路径改写：
 export MSYS_NO_PATHCONV=1
-node docs/benchmark-evidence/2026-09/asar-read.mjs "G:/Qoder CN/resources/app.asar" --list "^/out/"
-node docs/benchmark-evidence/2026-09/asar-read.mjs "G:/Qoder CN/resources/app.asar" --get /package.json
+node scripts/benchmark-asar-read.mjs "G:/Qoder CN/resources/app.asar" --list "^/out/"
+node scripts/benchmark-asar-read.mjs "G:/Qoder CN/resources/app.asar" --get /package.json
 # Codex 协议面（最硬的一层：机器可读的能力清单）
 "C:/Users/<user>/AppData/Local/Programs/codex/codex.exe" app-server generate-json-schema --experimental
 # 三份清单 + 我方侧数据并排（本器不下结论，只归一并标零条目类）
-node docs/benchmark-evidence/2026-09/diff-matrix.mjs
+node scripts/benchmark-diff-matrix.mjs
+# 两件工具各自的自检（改过它们必须跑这两个）
+node scripts/benchmark-asar-read.mjs --self-test
+node scripts/benchmark-diff-matrix.mjs --self-test
+node --test scripts/tests/benchmark-evidence-tools.test.mjs
 ```
 
-`asar-read.mjs` 的头解析按 asar 官方格式：前 8 字节 pickle 前言，`readUInt32LE(4)` 给 header 块大小，
+`scripts/benchmark-asar-read.mjs` 的头解析按 asar 官方格式：前 8 字节 pickle 前言，`readUInt32LE(4)` 给 header 块大小，
 JSON 起于 16，**数据区起于 `8 + headerSize`**。用错的 offset 表现不是报错而是"读出无关字节"——
-本工具第一版就把 `/package.json` 读成了别的东西，靠 `JSON.parse` 才现形。
+本器第一版就把 `/package.json` 读成了别的东西，靠 `JSON.parse` 才现形；现在这一格由自检的
+"植入内容在原始字节里的位置 === 自报数据区起点 + offset"那把独立尺子钉着。
 
 ## 这批证据的已知边界（不得读成"已核完"）
 
