@@ -14,7 +14,7 @@
  *   - 原位置留 HTML 注释占位(符合 AGENTS.md §1 归档规则 + check-project-plan-archive.mjs 守门)
  *
  * 用法:
- *   node scripts/archive-completed-tasks.mjs              # 默认: 归档 ≥7 天前的已完成条目
+ *   node scripts/archive-completed-tasks.mjs              # 默认: 阈值 0 = 完成即归档(main() 里那句注释才是真值)
  *   node scripts/archive-completed-tasks.mjs --days 3     # 归档 ≥3 天前的
  *   node scripts/archive-completed-tasks.mjs --all        # 归档所有已完成条目(不论日期)
  *   node scripts/archive-completed-tasks.mjs --allow-mass  # 人工放行大批量(自动档阀门见 main())
@@ -68,7 +68,11 @@
  *   本脚本只搬其中**含 ✅** 的子集 —— 搬运集必须是保护集的真子集,由
  *   lib 的构造保证(isArchivableTaskHeading 先过 isCompletedTaskHeading),不是注释约定。
  *   无 ✅ 的「### 已完成清单」一类小节标题因此永远不动。
- *   node scripts/archive-completed-tasks.mjs --dry-run    # 只打印不实际归档
+ *   node scripts/archive-completed-tasks.mjs --dry-run    # 只打印清单不写盘。**注意**:它在体积阀**之前**返回,
+ *                                                          # 所以既不打字节也不判阀 —— 想预览"这批会不会撞阀"
+ *                                                          # 要跑 --list-blocked 或直接读 --auto-commit 的拒绝行。
+ *                                                          # (2026-09-28 实测:把它当体积预览会得出错结论,登记为
+ *                                                          #  文档-vs-代码分歧的同批产出之一)
  *   node scripts/archive-completed-tasks.mjs --auto-commit # 归档后自动 git add + commit(防递归: IHUI_ARCHIVE_COMMIT=1)
  *
  * 集成:
@@ -378,8 +382,6 @@ export function selectWithinBudget(candidates, { maxEntries, maxBytes, entryByte
   }
 }
 
-
-
 /**
  * 归档占位的标题形态。**与守门 13c 的反查同形** —— 两边各写一遍就是"一边写一边看不见"
  * (AGENTS §1「标题形态三处必须同形」)。归档器与 13c 都从 lib 的 `headingTitle` 取标题文本。
@@ -424,13 +426,17 @@ export function resolvePlanBase({ root, requested }) {
   let repo = true
   let headCommit = null
   try {
-    headCommit = plumbingGit(['rev-parse', '--verify', '--quiet', 'HEAD'], { root, allowFail: true })
+    headCommit = plumbingGit(['rev-parse', '--verify', '--quiet', 'HEAD'], {
+      root,
+      allowFail: true,
+    })
   } catch {
     repo = false
   }
   if (!repo || headCommit === null) {
     const wt = readWorktreeFileOrNull(root)
-    if (wt === null) return { face: 'none', text: null, why: '既不是可用的 git 仓,盘上也没有 PROJECT_PLAN.md' }
+    if (wt === null)
+      return { face: 'none', text: null, why: '既不是可用的 git 仓,盘上也没有 PROJECT_PLAN.md' }
     return {
       face: 'worktree',
       auto: true,
@@ -462,7 +468,12 @@ export function resolvePlanBase({ root, requested }) {
   }
   if (requested === 'worktree') {
     const wt = readWorktreeFileOrNull(root)
-    if (wt === null) return { face: 'undetermined', text: null, why: '指定了 --plan-face worktree 而盘上没有该文件' }
+    if (wt === null)
+      return {
+        face: 'undetermined',
+        text: null,
+        why: '指定了 --plan-face worktree 而盘上没有该文件',
+      }
     return {
       face: 'worktree',
       explicit: true,
@@ -472,7 +483,13 @@ export function resolvePlanBase({ root, requested }) {
       why: '人工取证逃生舱:刻意以磁盘副本为底稿(默认档是 HEAD)。零损失闸仍按父提交面判,不因逃生舱而放宽',
     }
   }
-  return { face: 'head', text: headText, parentText: headText, headSha: headCommit, why: '被审面 HEAD blob(默认档)' }
+  return {
+    face: 'head',
+    text: headText,
+    parentText: headText,
+    headSha: headCommit,
+    why: '被审面 HEAD blob(默认档)',
+  }
 }
 
 /** 磁盘面的"取不到即 null",不把编码/权限错误伪装成"该文件不存在"(取材层原样抛 ⇒ 这里接成 null 前先判存在)。 */
@@ -487,13 +504,17 @@ function readWorktreeFileOrNull(root) {
 /** 写通道自检:落任何东西之前,先用**本脚本解析出的 git 二进制**问一次 HEAD。 */
 function writeChannelProbe(root) {
   try {
-    const out = execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', root, 'rev-parse', '--verify', '--quiet', 'HEAD'], {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 30_000,
-      maxBuffer: 8 << 20,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const out = execFileSync(
+      GIT_BIN,
+      ['-c', 'safe.directory=*', '-C', root, 'rev-parse', '--verify', '--quiet', 'HEAD'],
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 30_000,
+        maxBuffer: 8 << 20,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
     return { ok: true, sha: String(out ?? '').trim() }
   } catch (e) {
     return { ok: false, why: String(e?.stderr ?? e?.message ?? e).split(/\r?\n/)[0] }
@@ -545,7 +566,8 @@ export function zeroLossViolations({ parentText, newText, movedRanges = [], bloc
     // 没有父提交面可比(非 git 夹具 / 文件尚未入库)⇒ 本判据**不适用**,如实报"未判定"而不是"通过"
     return { violations: [], kept: 0, exempted: 0, undetermined: 1 }
   }
-  const inMoved = (line1) => movedRanges.some((r) => line1 >= r.startLine + 1 && line1 <= r.endLine + 1)
+  const inMoved = (line1) =>
+    movedRanges.some((r) => line1 >= r.startLine + 1 && line1 <= r.endLine + 1)
   const needKept = new Map()
   const needMoved = new Map()
   let kept = 0
@@ -617,7 +639,13 @@ export function zeroLossViolations({ parentText, newText, movedRanges = [], bloc
 }
 
 /** 结构等值零损失判据的**原子**验证:产出面必须恰好等于"父面把被搬块逐块换成占位",别动一行。 */
-export function derivedByConstructionOk({ parentText, newText, movedRanges, today, archiveBaseName }) {
+export function derivedByConstructionOk({
+  parentText,
+  newText,
+  movedRanges,
+  today,
+  archiveBaseName,
+}) {
   const lines = String(parentText).split('\n')
   const sorted = [...movedRanges].sort((a, b) => a.startLine - b.startLine)
   let cursor = 0
@@ -782,7 +810,9 @@ async function landThroughObjectSpace({ base, toArchive }) {
     archiveBaseName,
   })
   if (!derived) {
-    console.error(C.red + '❌ 产出面不等于"底稿 ⊕ 本次搬运"的结构等值 ⇒ 拒绝落地(搬运范围算错了)' + C.reset)
+    console.error(
+      C.red + '❌ 产出面不等于"底稿 ⊕ 本次搬运"的结构等值 ⇒ 拒绝落地(搬运范围算错了)' + C.reset,
+    )
     process.exit(1)
   }
 
@@ -804,8 +834,15 @@ async function landThroughObjectSpace({ base, toArchive }) {
         `❌ 待归档正文里还有 ${chunkScars.length} 对**非空**冲突标记 ⇒ 拒绝落地(两侧都有内容时,选哪边是裁决,不是搬运)` +
         C.reset,
     )
-    for (const s of chunkScars.slice(0, 5)) console.error(C.red + `   行 ${s.startLine}–${s.endLine} | ${String(s.startText).trim()}` + C.reset)
-    console.error(C.yellow + '   先按 §12d 归并解冲突(`--ours/--theirs` 或重新三方合并),禁止手删三行标记当作已解决。' + C.reset)
+    for (const s of chunkScars.slice(0, 5))
+      console.error(
+        C.red + `   行 ${s.startLine}–${s.endLine} | ${String(s.startText).trim()}` + C.reset,
+      )
+    console.error(
+      C.yellow +
+        '   先按 §12d 归并解冲突(`--ours/--theirs` 或重新三方合并),禁止手删三行标记当作已解决。' +
+        C.reset,
+    )
     process.exit(1)
   }
   const existingArchive = existsSync(archiveFile) ? readWorktreeFile(ROOT, archiveRel) : null
@@ -859,7 +896,9 @@ async function landThroughObjectSpace({ base, toArchive }) {
   const notLanded = toArchive.filter((t, i) => !blockLandsContiguously(archiveAfter, bodies[i]))
   if (notLanded.length > 0) {
     console.error(
-      C.red + `❌ 归档文件写完后复核不通过:${notLanded.length} 个条目块没有逐字落进归档件 ⇒ 不落提交` + C.reset,
+      C.red +
+        `❌ 归档文件写完后复核不通过:${notLanded.length} 个条目块没有逐字落进归档件 ⇒ 不落提交` +
+        C.reset,
     )
     for (const t of notLanded) console.error(`     ${t.titleText.slice(0, 80)}`)
     process.exit(1)
@@ -872,7 +911,9 @@ async function landThroughObjectSpace({ base, toArchive }) {
   if (!probe.ok) {
     console.error(C.red + '❌ 归档未被索引收下:写通道自检失败(git 不可用)——' + probe.why + C.reset)
     console.error(
-      C.yellow + '   计划文档一字未动、未建提交;归档文件留在磁盘当证据。修好 git 通道后重跑即可。' + C.reset,
+      C.yellow +
+        '   计划文档一字未动、未建提交;归档文件留在磁盘当证据。修好 git 通道后重跑即可。' +
+        C.reset,
     )
     process.exit(1)
   }
@@ -928,14 +969,20 @@ async function landThroughObjectSpace({ base, toArchive }) {
         baseRef: head,
       })
     } catch (e) {
-      console.error(C.red + '❌ 归档未被索引收下:临时索引/commit-tree 失败 ——' + e.message + C.reset)
+      console.error(
+        C.red + '❌ 归档未被索引收下:临时索引/commit-tree 失败 ——' + e.message + C.reset,
+      )
       process.exit(1)
     }
     try {
       if (casUpdateRef(made.commit, head, { root: ROOT })) {
         landed = made.commit
         parentSha = head
-        console.log(C.green + `✅ 第 ${attempt} 次 CAS 成功 HEAD=${landed.slice(0, 9)}(父 ${head.slice(0, 9)})` + C.reset)
+        console.log(
+          C.green +
+            `✅ 第 ${attempt} 次 CAS 成功 HEAD=${landed.slice(0, 9)}(父 ${head.slice(0, 9)})` +
+            C.reset,
+        )
         break
       }
     } catch (e) {
@@ -964,7 +1011,9 @@ async function landThroughObjectSpace({ base, toArchive }) {
   )
   const notProven = paths.filter((p) => !inCommit.has(p))
   if (notProven.length > 0) {
-    console.error(C.red + '❌ 归档未被索引收下:提交面回读缺路径 ——' + notProven.join(', ') + C.reset)
+    console.error(
+      C.red + '❌ 归档未被索引收下:提交面回读缺路径 ——' + notProven.join(', ') + C.reset,
+    )
     process.exit(1)
   }
   const landedText = catBatch(ROOT, [`${landed}:${PLAN_REL}`]).get(`${landed}:${PLAN_REL}`) ?? null
@@ -980,18 +1029,23 @@ async function landThroughObjectSpace({ base, toArchive }) {
   })
   if (zl2.violations.length > 0) {
     console.error(C.red + `❌ 提交面复核:${zl2.violations.length} 组已完成行不在了 ——` + C.reset)
-    for (const v of zl2.violations) console.error(`     ${v.id} 缺 ${v.missing} 条:${v.samples[0] ?? ''}`)
+    for (const v of zl2.violations)
+      console.error(`     ${v.id} 缺 ${v.missing} 条:${v.samples[0] ?? ''}`)
     process.exit(1)
   }
   console.log(`${C.green}✅ 已归档 ${toArchive.length} 个条目${C.reset}`)
   console.log(`${C.dim}   归档文件: ${archiveRel}${C.reset}`)
   console.log(`${C.dim}   PROJECT_PLAN.md 原位置已留归档占位注释${C.reset}`)
-  console.log(`${C.green}✅ 归档 commit 已创建(对象空间:IHUI_ARCHIVE_COMMIT=1 防递归语义不变)${C.reset}`)
+  console.log(
+    `${C.green}✅ 归档 commit 已创建(对象空间:IHUI_ARCHIVE_COMMIT=1 防递归语义不变)${C.reset}`,
+  )
 
   // ⑦ 共享主索引按归属对齐(判据只有一份:alignSharedIndex),然后才谈工作树。
   const align = alignSharedIndex({ root: ROOT, paths, parentRef: parentSha })
   if (align.lockAbandoned) {
-    console.error(C.red + '❌ .git/index.lock 锁龄超上限:不代删别人的锁,请人工确认后单跑索引对齐' + C.reset)
+    console.error(
+      C.red + '❌ .git/index.lock 锁龄超上限:不代删别人的锁,请人工确认后单跑索引对齐' + C.reset,
+    )
     process.exit(1)
   }
   if (align.failed) {
@@ -1008,17 +1062,23 @@ async function landThroughObjectSpace({ base, toArchive }) {
   const wtText = readWorktreeFileOrNull(ROOT)
   if (planOwnedByOther) {
     console.log(
-      C.yellow + `⚠️ ${PLAN_REL} 已被他人暂存 ⇒ 磁盘副本一字未动(本脚本不替你把它交回任何一版)` + C.reset,
+      C.yellow +
+        `⚠️ ${PLAN_REL} 已被他人暂存 ⇒ 磁盘副本一字未动(本脚本不替你把它交回任何一版)` +
+        C.reset,
     )
   } else if (wtText === null) {
-    console.log(C.yellow + `⚠️ 磁盘上没有 ${PLAN_REL} ⇒ 不代写文件(找回它属工作区自愈那一层)` + C.reset)
+    console.log(
+      C.yellow + `⚠️ 磁盘上没有 ${PLAN_REL} ⇒ 不代写文件(找回它属工作区自愈那一层)` + C.reset,
+    )
   } else if (base.explicit) {
     // 显式逃生舱的磁盘**就是**底稿,拿它跟自己对齐是恒真式 ⇒ 一律不写盘(取证动作不改共享现场)
     console.log(C.yellow + '⚠️ 取证档(--plan-face worktree)⇒ 磁盘副本一字未动' + C.reset)
   } else if (wtText === base.text) {
     writeFileSync(PLAN_FILE, newText, 'utf8')
     console.log(
-      C.dim + `   工作树副本此前与父提交逐字相同 ⇒ 已随提交对齐(等价一次最小手工编辑,不覆盖任何人)` + C.reset,
+      C.dim +
+        `   工作树副本此前与父提交逐字相同 ⇒ 已随提交对齐(等价一次最小手工编辑,不覆盖任何人)` +
+        C.reset,
     )
   } else {
     console.log(
@@ -1026,17 +1086,21 @@ async function landThroughObjectSpace({ base, toArchive }) {
         `⚠️ 工作树滞后 / 归属他人:磁盘副本与父提交那份不相同 ⇒ **一字未动**并点名(本票立的正是这一条)` +
         C.reset,
     )
-    console.log(C.dim + `   下一次谁按磁盘提交都只会交出他自己那份;归档结果已在 HEAD(${landed.slice(0, 9)})` + C.reset)
+    console.log(
+      C.dim +
+        `   下一次谁按磁盘提交都只会交出他自己那份;归档结果已在 HEAD(${landed.slice(0, 9)})` +
+        C.reset,
+    )
   }
 }
-
-
 
 async function main() {
   // 应急通道**在本脚本里真被读取**(2026-09-28 补):此前只有 .husky/post-commit:108 读它,
   // 于是 AGENTS §1 那句"跳过用 HUSKY_SKIP_ARCHIVE=1"对手动直跑与任何非钩子调用方是空头支票。
   if (process.env.HUSKY_SKIP_ARCHIVE === '1' && !listBlocked) {
-    console.log(`${C.dim}⏭  HUSKY_SKIP_ARCHIVE=1 ⇒ 跳过归档(钩子内外同一把开关,不再只靠钩子侧兜)${C.reset}`)
+    console.log(
+      `${C.dim}⏭  HUSKY_SKIP_ARCHIVE=1 ⇒ 跳过归档(钩子内外同一把开关,不再只靠钩子侧兜)${C.reset}`,
+    )
     process.exit(0)
   }
   if (requestedFace.error) {
@@ -1051,11 +1115,17 @@ async function main() {
   // 底稿**取被审面(HEAD)**,不取磁盘副本(2026-09-28 立,理由见文件头"底稿面与落盘形态")。
   const base = resolvePlanBase({ root: ROOT, requested: requestedFace.face })
   if (base.face === 'undetermined') {
-    console.error(C.red + `❌ 无法判定:底稿取不到 ⇒ 既不写盘也不落提交(绝不偷偷退回磁盘副本)——${base.why}` + C.reset)
+    console.error(
+      C.red +
+        `❌ 无法判定:底稿取不到 ⇒ 既不写盘也不落提交(绝不偷偷退回磁盘副本)——${base.why}` +
+        C.reset,
+    )
     process.exit(1)
   }
   if (base.face === 'none') {
-    console.log(`${C.dim}⏭  PROJECT_PLAN.md 不存在(或被取材层判为非文本),跳过归档 —— ${base.why}${C.reset}`)
+    console.log(
+      `${C.dim}⏭  PROJECT_PLAN.md 不存在(或被取材层判为非文本),跳过归档 —— ${base.why}${C.reset}`,
+    )
     process.exit(0)
   }
   // `--list-blocked --json` 的面必须是**可 JSON.parse 的纯 JSON**:上面那行"底稿面"是人读输出,
@@ -1081,7 +1151,7 @@ async function main() {
   // 771 行 / 575,577 B,块内 `- [ ]` 237 条)。搬走它等于把别人正开着的 237 件活账归档,
   // 派单口径静默少 237 行 —— 那比"积压没清"严重得多。
   // 本判据与体积阀**正交**:`--allow-mass` 只放宽"一次搬多少字节",不放宽"这一条能不能搬"。
-  const { tasks, candidates, blocked, movable } = partitionPlanBlocks(content)
+  const { tasks, blocked, movable } = partitionPlanBlocks(content)
   if (listBlocked) {
     const blocks = blocked.map((t) => describeBlockedBlock(t, content))
     const openRowTotal = blocks.reduce((n, b) => n + b.openRowCount, 0)
@@ -1089,7 +1159,14 @@ async function main() {
     if (jsonOut) {
       console.log(
         JSON.stringify(
-          { face: faceTag, faceWhy: base.why, blockedCount: blocks.length, movableCount: movable.length, openRowTotal, blocks },
+          {
+            face: faceTag,
+            faceWhy: base.why,
+            blockedCount: blocks.length,
+            movableCount: movable.length,
+            openRowTotal,
+            blocks,
+          },
           null,
           2,
         ),
@@ -1292,7 +1369,8 @@ async function main() {
   })
   // 零损失闸在没有父提交面时不适用(上面已如实打印"退回工作树档"的理由);但结构性搬运
   // 仍要自证"搬走的内容真在归档文件里",否则就是"内容进了虚空"。
-  const archiveAfter = readWorktreeFile(ROOT, `.ihui-agent/archive/${archiveBaseName}`) ?? archiveContent
+  const archiveAfter =
+    readWorktreeFile(ROOT, `.ihui-agent/archive/${archiveBaseName}`) ?? archiveContent
   const lost = toArchive.filter(
     (t, i) =>
       !blockLandsContiguously(archiveAfter, archivedBodies[i]) ||
@@ -1329,7 +1407,6 @@ async function main() {
   }
 
   writeFileSync(PLAN_FILE, newContent, 'utf8')
-
 
   console.log(`${C.green}✅ 已归档 ${toArchive.length} 个条目${C.reset}`)
   console.log(
@@ -1460,7 +1537,11 @@ function runSelfTest() {
     '',
   ].join('\n')
   const tasks = parseCompletedTaskBlocks(parentText)
-  ok('S0 夹具本身就是一条可归档条目(否则后面全在对着空气判)', tasks.length === 1, `实得 ${tasks.length}`)
+  ok(
+    'S0 夹具本身就是一条可归档条目(否则后面全在对着空气判)',
+    tasks.length === 1,
+    `实得 ${tasks.length}`,
+  )
   const built = buildNewPlanText({ baseText: parentText, tasks, today, archiveBaseName })
   const ev = [
     {
@@ -1482,34 +1563,60 @@ function runSelfTest() {
     movedRanges: built.movedRanges,
     blockEvidence: ev,
   })
-  ok('S1 正当归档(占位齐 + 正文进归档件)⇒ 零违规', zlGood.violations.length === 0, JSON.stringify(zlGood.violations))
-  ok('S1b 被搬的那条 [x] 计入 exempted 而不是被无声放过', zlGood.exempted === 1, JSON.stringify(zlGood))
+  ok(
+    'S1 正当归档(占位齐 + 正文进归档件)⇒ 零违规',
+    zlGood.violations.length === 0,
+    JSON.stringify(zlGood.violations),
+  )
+  ok(
+    'S1b 被搬的那条 [x] 计入 exempted 而不是被无声放过',
+    zlGood.exempted === 1,
+    JSON.stringify(zlGood),
+  )
 
   // S2 结构等值:产出面 == 底稿 ⊕ 本次搬运
   ok(
     'S2 产出面等于"底稿把被搬块换成占位"的结构等值',
-    derivedByConstructionOk({ parentText, newText: built.newText, movedRanges: built.movedRanges, today, archiveBaseName }),
+    derivedByConstructionOk({
+      parentText,
+      newText: built.newText,
+      movedRanges: built.movedRanges,
+      today,
+      archiveBaseName,
+    }),
   )
   // S3 反向:别人的一行被改动 ⇒ 结构等值必须红(它才是"只拦我这次改动"的那道锁)
   const tampered = built.newText.replace('G-208 还没做完的事', 'G-208 被别人顺手改了')
   ok(
     'S3 产出面被夹带一行他人改动 ⇒ 结构等值判红',
-    derivedByConstructionOk({ parentText, newText: tampered, movedRanges: built.movedRanges, today, archiveBaseName }) === false,
+    derivedByConstructionOk({
+      parentText,
+      newText: tampered,
+      movedRanges: built.movedRanges,
+      today,
+      archiveBaseName,
+    }) === false,
   )
 
   // S4 本票根治的那一型:底稿滞后(已入库的 [x] 在磁盘上是 [ ])⇒ 零损失闸必须点名
-  const staleBase = parentText.replace(
-    '- [x] ✅(2026-09-01) **G-207',
-    '- [ ] **G-207',
-  )
-  const staleBuilt = buildNewPlanText({ baseText: staleBase, tasks: parseCompletedTaskBlocks(staleBase), today, archiveBaseName })
+  const staleBase = parentText.replace('- [x] ✅(2026-09-01) **G-207', '- [ ] **G-207')
+  const staleBuilt = buildNewPlanText({
+    baseText: staleBase,
+    tasks: parseCompletedTaskBlocks(staleBase),
+    today,
+    archiveBaseName,
+  })
   const zlStale = zeroLossViolations({
     parentText,
     newText: staleBuilt.newText,
     movedRanges: staleBuilt.movedRanges,
     blockEvidence: ev,
   })
-  ok('S4 滞后底稿把已入库的 [x] 退回 [ ] ⇒ 零损失闸点名', zlStale.violations.length === 1, JSON.stringify(zlStale.violations))
+  ok(
+    'S4 滞后底稿把已入库的 [x] 退回 [ ] ⇒ 零损失闸点名',
+    zlStale.violations.length === 1,
+    JSON.stringify(zlStale.violations),
+  )
   ok(
     'S4b 违规条目带得出原行(报告要能读,不能只给计数)',
     (zlStale.violations[0]?.samples ?? []).some((s) => s.includes('G-207')),
@@ -1533,7 +1640,11 @@ function runSelfTest() {
     movedRanges: built.movedRanges,
     blockEvidence: ev,
   })
-  ok('S6 产出面多出父面没有的 [x] ⇒ 同样拒落(双向断言)', zlInvent.violations.length > 0, JSON.stringify(zlInvent.violations))
+  ok(
+    'S6 产出面多出父面没有的 [x] ⇒ 同样拒落(双向断言)',
+    zlInvent.violations.length > 0,
+    JSON.stringify(zlInvent.violations),
+  )
 
   // S7 两类身份不得混桶:产出面上把行首编号摘掉 ⇒ 主键档仍须判缺
   const rewritten = parentText.replace(
@@ -1551,16 +1662,30 @@ function runSelfTest() {
     movedRanges: built.movedRanges,
     blockEvidence: ev,
   })
-  ok('S7 换写法(编号被摘掉)不得顶掉主键行的名额 ⇒ 仍判红', zlRewrite.violations.length > 0, JSON.stringify(zlRewrite.violations))
+  ok(
+    'S7 换写法(编号被摘掉)不得顶掉主键行的名额 ⇒ 仍判红',
+    zlRewrite.violations.length > 0,
+    JSON.stringify(zlRewrite.violations),
+  )
 
   // S8 没有父提交面可比 ⇒ 判"不适用/未判定",绝不记为通过
   const zlNone = zeroLossViolations({ parentText: null, newText: built.newText })
-  ok('S8 无父面 ⇒ 不适用(undetermined=1)且不当合格证', zlNone.undetermined === 1 && zlNone.violations.length === 0, JSON.stringify(zlNone))
+  ok(
+    'S8 无父面 ⇒ 不适用(undetermined=1)且不当合格证',
+    zlNone.undetermined === 1 && zlNone.violations.length === 0,
+    JSON.stringify(zlNone),
+  )
 
   // S9 面开关:未知值必须报错,不得静默掉进默认档
   ok('S9 --plan-face 缺省 ⇒ 不指定(走默认档)', resolveRequestedFace([]).face === null)
-  ok('S9b --plan-face worktree 认得', resolveRequestedFace(['--plan-face', 'worktree']).face === 'worktree')
-  ok('S9c --plan-face 非法值 ⇒ 报错而非吞成默认档', !!resolveRequestedFace(['--plan-face', 'HEAD']).error)
+  ok(
+    'S9b --plan-face worktree 认得',
+    resolveRequestedFace(['--plan-face', 'worktree']).face === 'worktree',
+  )
+  ok(
+    'S9c --plan-face 非法值 ⇒ 报错而非吞成默认档',
+    !!resolveRequestedFace(['--plan-face', 'HEAD']).error,
+  )
   ok('S9d --plan-face 缺值 ⇒ 报错', !!resolveRequestedFace(['--plan-face']).error)
 
   // S10 §22c:判据的输入必须包含**真实文件里逐字取来的形态**(此行逐字取自 2026-09-28 的
@@ -1568,8 +1693,15 @@ function runSelfTest() {
   const REAL_ROW =
     '- [x] ✅(2026-09-26) **G-206 同一个缺口今天被补了两遍**(刻意不给 F1 判红开关:开关就是下一次静默)'
   const realKey = compositeKeyOf(REAL_ROW)
-  ok('S10 真实登记行能给出复合主键(不是 null)', typeof realKey === 'string' && realKey.length > 8, String(realKey))
-  ok('S10b 真实登记行被认作 done 行', parseTaskRows(REAL_ROW).length === 1 && parseTaskRows(REAL_ROW)[0].state === 'done')
+  ok(
+    'S10 真实登记行能给出复合主键(不是 null)',
+    typeof realKey === 'string' && realKey.length > 8,
+    String(realKey),
+  )
+  ok(
+    'S10b 真实登记行被认作 done 行',
+    parseTaskRows(REAL_ROW).length === 1 && parseTaskRows(REAL_ROW)[0].state === 'done',
+  )
   ok(
     'S10c 同一行换成 [ ] 后身份不变(证明判据认的是"同一件事",不是"哪个字符")',
     doneIdentityOf(REAL_ROW) === doneIdentityOf(REAL_ROW.replace('- [x]', '- [ ]')),
@@ -1577,8 +1709,17 @@ function runSelfTest() {
 
   // S11 占位形态与 13c 反查同形:必须是"<!-- 已归档(日期):标题,完整内容在 .ihui-agent/archive/<文件> -->"
   const ph = placeholderLine(today, '某个已完成任务条目(2026-09-01 完成 ✅)', archiveBaseName)
-  ok('S11 占位含相对路径且以 HTML 注释闭合', ph.startsWith('<!-- 已归档(') && ph.endsWith('-->') && ph.includes('.ihui-agent/archive/' + archiveBaseName), ph)
-  ok('S11b 标题超 60 字被截断(既有形态,不得改)', placeholderLine(today, 'x'.repeat(80), archiveBaseName).includes('x'.repeat(60)))
+  ok(
+    'S11 占位含相对路径且以 HTML 注释闭合',
+    ph.startsWith('<!-- 已归档(') &&
+      ph.endsWith('-->') &&
+      ph.includes('.ihui-agent/archive/' + archiveBaseName),
+    ph,
+  )
+  ok(
+    'S11b 标题超 60 字被截断(既有形态,不得改)',
+    placeholderLine(today, 'x'.repeat(80), archiveBaseName).includes('x'.repeat(60)),
+  )
 
   // S12 子弹级采集器:连续 - [x] 并成一段,缩进续行算正文,**遇到任何未勾选行当场断开**
   // (把别人正开着的账搬进归档比不归档严重得多 ⇒ 这一条是本维的安全底座,必须可测)。
@@ -1593,14 +1734,30 @@ function runSelfTest() {
     '  - [ ] 丁的缩进子项还开着',
   ].join('\n')
   const bRuns = collectCompletedBullets(bFix)
-  ok('S12 连续已完成登记并成一段(含缩进续行)', bRuns.length === 2 && bRuns[0].bodyLines.length === 3, JSON.stringify(bRuns.map((r) => r.bodyLines.length)))
+  ok(
+    'S12 连续已完成登记并成一段(含缩进续行)',
+    bRuns.length === 2 && bRuns[0].bodyLines.length === 3,
+    JSON.stringify(bRuns.map((r) => r.bodyLines.length)),
+  )
   ok(
     'S12b 采集段内一条未勾选都不许有(正反两章都验)',
     bRuns.every((r) => !r.bodyLines.some((l) => /^\s*[-*+] \[ \]/.test(l))),
     JSON.stringify(bRuns.map((r) => r.bodyLines)),
   )
-  ok('S12c 未勾选行的缩进子项不得被裹进上一条', !String(bRuns[1] && bRuns[1].bodyLines).includes('丁的缩进子项还开着'), JSON.stringify(bRuns[1]))
-  ok('S12d skipRanges 内的子弹不采(与条目级搬运互斥)', collectCompletedBullets(bFix, { skipRanges: [{ startLine: 1, endLine: 3 }] }).length === 1, JSON.stringify(collectCompletedBullets(bFix, { skipRanges: [{ startLine: 1, endLine: 3 }] }).map((r) => r.startLine)))
+  ok(
+    'S12c 未勾选行的缩进子项不得被裹进上一条',
+    !String(bRuns[1] && bRuns[1].bodyLines).includes('丁的缩进子项还开着'),
+    JSON.stringify(bRuns[1]),
+  )
+  ok(
+    'S12d skipRanges 内的子弹不采(与条目级搬运互斥)',
+    collectCompletedBullets(bFix, { skipRanges: [{ startLine: 1, endLine: 3 }] }).length === 1,
+    JSON.stringify(
+      collectCompletedBullets(bFix, { skipRanges: [{ startLine: 1, endLine: 3 }] }).map(
+        (r) => r.startLine,
+      ),
+    ),
+  )
 
   // S12e 逐行判资格(2026-09-28 由实测逼出的缺陷):旧写法按"块内第一条日期"定整块年龄 ⇒
   // 满阈值的老行紧跟在新行后面就被整段带着留下,而采集器还报"达阈值 0 段"(报数与真值分叉)。
@@ -1612,10 +1769,19 @@ function runSelfTest() {
   const oldOnly = collectCompletedBullets(mixFix, {
     lineEligible: (l) => String(l).includes('(2025-'),
   })
-  ok('S12e 混合段里满阈值的行单独成段被搬走,不搭新行的车', oldOnly.length === 1 && oldOnly[0].bodyLines.length === 1 && oldOnly[0].bodyLines[0].includes('G-911'), JSON.stringify(oldOnly))
+  ok(
+    'S12e 混合段里满阈值的行单独成段被搬走,不搭新行的车',
+    oldOnly.length === 1 &&
+      oldOnly[0].bodyLines.length === 1 &&
+      oldOnly[0].bodyLines[0].includes('G-911'),
+    JSON.stringify(oldOnly),
+  )
   ok(
     'S12f 相邻两条都满阈值时仍并成一段(不得为逐行判龄把占位数炸成一比一)',
-    collectCompletedBullets([ '- [x] ✅(2025-01-01) **G-913 甲**', '- [x] ✅(2025-01-02) **G-914 乙**' ].join('\n'), { lineEligible: (l) => String(l).includes('(2025-') }).length === 1,
+    collectCompletedBullets(
+      ['- [x] ✅(2025-01-01) **G-913 甲**', '- [x] ✅(2025-01-02) **G-914 乙**'].join('\n'),
+      { lineEligible: (l) => String(l).includes('(2025-') },
+    ).length === 1,
   )
 
   // S13 假条目守卫:标题写着已完成、体内还有未勾选 ⇒ 不搬(真仓 L13850 那一枚 575,577 B /
@@ -1623,12 +1789,18 @@ function runSelfTest() {
   // §22c:标题逐字取自 HEAD:PROJECT_PLAN.md 第 13850 行,不得用自造形态。
   const REAL_FALSE_HEADING =
     '## P1 侧边栏底部 5 工具按钮收进用户行下拉菜单(2026-09-21 立并完成 ✅,平台独占:仅 apps/web)'
-  ok('S13 真实形态标题确实被认作可搬条目(否则守卫无从谈起)', isArchivableTaskHeading(REAL_FALSE_HEADING))
+  ok(
+    'S13 真实形态标题确实被认作可搬条目(否则守卫无从谈起)',
+    isArchivableTaskHeading(REAL_FALSE_HEADING),
+  )
   ok(
     'S13b 体内有未勾选行 ⇒ 守卫判不搬',
     entryHasOpenRows([REAL_FALSE_HEADING, '- [ ] 还开着的活账']) === true,
   )
-  ok('S13c 体内全是已完成 ⇒ 守卫不得拦(否则归档整族失效)', entryHasOpenRows([REAL_FALSE_HEADING, '- [x] ✅(2026-09-21) 做完了']) === false)
+  ok(
+    'S13c 体内全是已完成 ⇒ 守卫不得拦(否则归档整族失效)',
+    entryHasOpenRows([REAL_FALSE_HEADING, '- [x] ✅(2026-09-21) 做完了']) === false,
+  )
 
   // S14 体积预算取最旧前缀:每轮都搬得动(旧"全批或不动"= 永久卡死);单条超预算 ⇒ 空集(不拆条目)
   const eb = (t) => Buffer.byteLength(t.bodyLines.join('\n'), 'utf8')
@@ -1638,11 +1810,27 @@ function runSelfTest() {
     { date: '2026-09-05', bodyLines: ['- [x] ' + 'C'.repeat(100)] },
   ]
   const g1 = selectWithinBudget(cands, { maxEntries: 25, maxBytes: 150, entryBytes: eb })
-  ok('S14 超预算时按最旧优先取前缀,不是整批拒绝', g1.picked.length === 1 && g1.picked[0].date === '2026-09-05' && g1.deferredCount === 2, JSON.stringify({ p: g1.picked.map((x) => x.date), d: g1.deferredCount }))
-  const g2 = selectWithinBudget([{ date: '2026-09-01', bodyLines: ['- [x] ' + 'X'.repeat(400)] }], { maxEntries: 25, maxBytes: 150, entryBytes: eb })
-  ok('S14b 最旧一条自身超预算 ⇒ 返回空集(拒绝路径,绝不搬半条)', g2.picked.length === 0 && g2.oldestBytes > 150, JSON.stringify({ p: g2.picked.length, o: g2.oldestBytes }))
+  ok(
+    'S14 超预算时按最旧优先取前缀,不是整批拒绝',
+    g1.picked.length === 1 && g1.picked[0].date === '2026-09-05' && g1.deferredCount === 2,
+    JSON.stringify({ p: g1.picked.map((x) => x.date), d: g1.deferredCount }),
+  )
+  const g2 = selectWithinBudget([{ date: '2026-09-01', bodyLines: ['- [x] ' + 'X'.repeat(400)] }], {
+    maxEntries: 25,
+    maxBytes: 150,
+    entryBytes: eb,
+  })
+  ok(
+    'S14b 最旧一条自身超预算 ⇒ 返回空集(拒绝路径,绝不搬半条)',
+    g2.picked.length === 0 && g2.oldestBytes > 150,
+    JSON.stringify({ p: g2.picked.length, o: g2.oldestBytes }),
+  )
   const g3 = selectWithinBudget(cands, { maxEntries: 25, maxBytes: 100000, entryBytes: eb })
-  ok('S14c 预算内 ⇒ 整批原样通过(不得为"更安全"而少搬)', g3.picked.length === 3 && g3.deferredCount === 0, JSON.stringify(g3.picked.length))
+  ok(
+    'S14c 预算内 ⇒ 整批原样通过(不得为"更安全"而少搬)',
+    g3.picked.length === 3 && g3.deferredCount === 0,
+    JSON.stringify(g3.picked.length),
+  )
 
   // S15 拼接前置断言:乱序/重叠的范围必须当场抛错,而不是悄悄产出一份交错损坏的文档。
   // (2026-09-28 真实形态:贪心选段按日期返回 picked,直接交给倒序 splice ⇒ 结构等值自证拒落。
@@ -1688,7 +1876,11 @@ function runSelfTest() {
     archiveBaseName,
     mergeNotesOf([`- [x] ✅(2026-09-26) 某已完成条目 ${NOTE}`]),
   )
-  ok('S17 随块搬走的归并落账注记留在占位里(门 130 数得到)', withNote.includes('落账:复测 2026-09-26'), withNote)
+  ok(
+    'S17 随块搬走的归并落账注记留在占位里(门 130 数得到)',
+    withNote.includes('落账:复测 2026-09-26'),
+    withNote,
+  )
   ok(
     'S17b 「完整内容在 …」仍是最后一个逗号段 ⇒ 13c 的文件名反查不被新字段打断',
     withNote.split(',').pop().startsWith('完整内容在 .ihui-agent/archive/'),
@@ -1703,7 +1895,11 @@ function runSelfTest() {
   // 拿整串字面量去数会得到 0 —— 那是断言写错,不是判据没取到(第一版就错在这里)。
   const NOTE_M = mergeNotesOf([`x ${NOTE}`])
   const occ = (hay, needle) => hay.split(needle).length - 1
-  ok('S17c2 取到的是"到日期为止"那一段(后半句叙述不入选)', NOTE_M === '〔【归并】O7 落账:复测 2026-09-26', NOTE_M)
+  ok(
+    'S17c2 取到的是"到日期为止"那一段(后半句叙述不入选)',
+    NOTE_M === '〔【归并】O7 落账:复测 2026-09-26',
+    NOTE_M,
+  )
   const twoNotes = mergeNotesOf([`a ${NOTE}`, 'b 〔【归并】O9 落账:复测 2026-09-27: 第二条〕'])
   ok(
     'S17d 同一注记跨行重复只留一份,不同注记各留一份(去重不是丢弃)',
@@ -1771,24 +1967,38 @@ function runSelfTest() {
   const s19src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
   // S20 空冲突三连:两侧皆零字节 ⇒ 可机械摘除(实测枚 3a603ce89 就是这么把标记带进归档件的)。
   const em = stripEmptyMarkerTriples('a\n<<<<<<< ours\n=======\n>>>>>>> theirs\nb\n')
-  ok('S20 两侧皆空的三连被摘除且不误伤正文', em.removed === 3 && em.text === 'a\nb\n', JSON.stringify(em))
+  ok(
+    'S20 两侧皆空的三连被摘除且不误伤正文',
+    em.removed === 3 && em.text === 'a\nb\n',
+    JSON.stringify(em),
+  )
   const ne = stripEmptyMarkerTriples('a\n<<<<<<< ours\nX\n=======\nY\n>>>>>>> theirs\nb\n')
-  ok('S20b 非空三连一律不碰(那是裁决不是搬运)', ne.removed === 0 && ne.text === 'a\n<<<<<<< ours\nX\n=======\nY\n>>>>>>> theirs\nb\n', JSON.stringify(ne))
+  ok(
+    'S20b 非空三连一律不碰(那是裁决不是搬运)',
+    ne.removed === 0 && ne.text === 'a\n<<<<<<< ours\nX\n=======\nY\n>>>>>>> theirs\nb\n',
+    JSON.stringify(ne),
+  )
   const half = stripEmptyMarkerTriples('a\n<<<<<<< ours\nX\n=======\n>>>>>>> theirs\nb\n')
   ok('S20c 只有一侧有内容也不摘(保守:宁可留给闸拒绝)', half.removed === 0)
   ok(
     'S20d 装车锁:归档侧必须真过这道闸(台账侧那道拦不住被搬走一侧的标记)',
-    /const chunkScars = findMarkerPairs\(chunk\)\.pairs/.test(s19src) && /stripEmptyMarkerTriples\(trimTrailingEmpty/.test(s19src),
+    /const chunkScars = findMarkerPairs\(chunk\)\.pairs/.test(s19src) &&
+      /stripEmptyMarkerTriples\(trimTrailingEmpty/.test(s19src),
   )
   // 锁的范围必须切到 main() 体内:全文件级"不得出现 entryHasOpenRows"会打到
   // partitionPlanBlocks 自己那一行 —— 那是判据的唯一合法居所,把它判红等于要求门自杀。
   const s19MainStart = s19src.indexOf('async function main()')
   const s19MainEnd = s19src.indexOf('function runSelfTest')
-  const s19Main = s19MainStart >= 0 && s19MainEnd > s19MainStart ? s19src.slice(s19MainStart, s19MainEnd) : ''
+  const s19Main =
+    s19MainStart >= 0 && s19MainEnd > s19MainStart ? s19src.slice(s19MainStart, s19MainEnd) : ''
   ok(
     'S19d 装车锁:main() 只走 partitionPlanBlocks(体内不得留第二份分区筛选),且 --json 诊断面不得混入人读行',
     s19Main.length > 500 &&
-      /const \{ tasks, candidates, blocked, movable \} = partitionPlanBlocks\(content\)/.test(s19Main) &&
+      // 锁的是"main 只走 partitionPlanBlocks、体内不留第二份筛选",**不是**那份解构的键清单。
+      // 初版把键清单写进正则,于是"删掉一个没用到的键"这种纯净化动作会当场把装车锁判红 ——
+      // 一条锁着"唯一入口"的断言不该顺带锁住入口返回对象的取用形状(锁错粒度等于给自己造绊索)。
+      /const \{[^}]*\} = partitionPlanBlocks\(content\)/.test(s19Main) &&
+      !/tasks\.filter\(/.test(s19Main) &&
       !/entryHasOpenRows\(/.test(s19Main) &&
       /if \(!\(listBlocked && jsonOut\)\) \{/.test(s19src),
     `main 体切片长度=${s19Main.length}`,
