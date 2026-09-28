@@ -238,6 +238,71 @@ try {
         cleared = (Clear-IhuiDeployLockStale -Path $pCas2 -State $cas2State -Logger { param($m) })
         gone = (-not (Test-Path -LiteralPath $pCas2))
     }
+    # ── 判据 2 的库层现场:锁 mtime 早于本机**真** LastBootUpTime ──────────────
+    # 与上面 c3_boot_changed 的区别很重要:那一条是**构造**的 bootId 字符串(证的是
+    # "bootId 不等 ⇒ 判陈旧"这条规则本身),这一条形是在本票判据 2 要求的那句话上 ——
+    # 拿盘上真实的开机时刻与真实的文件系统时间比,不掺任何模拟值。两式都要:
+    #   (a) pid 已随重启消失(重启后最常见的形态)⇒ C1 当场判陈旧,不需要等任何上限
+    #   (b) pid 被复用 **且** 锁是旧裸 pid 格式(没有 bootId,C3 只能跳过)⇒ 这一格
+    #       唯一能拦住它的就是 C2 的启动时刻比对 —— 也就是 2026-09-26 08:37 那次冻结
+    #       的真实形状。少了 (b),"跨重启会自动让位"这句话在旧格式锁上就是没证的。
+    #   (c) 已知**未覆盖**的一格,按现读结果登记而不是写成已收:同一形态再叠上
+    #       "StartTime 读不到"(跨会话/权限不足),四条里就没有任何一条看得见"这个文件
+    #       比本次开机还老"—— C3 因锁侧没有 bootId 而跳过,C2 落到 start-unreadable,
+    #       于是只由 C5 的绝对上限兜住(要等满 180 分钟)。把"mtime 早于 LastBootUpTime"
+    #       本身做成一条判据才当场就能让位,而那属于 deploy-lock-common.ps1 的射程
+    #       (不在本票可改文件内,已按归属登记给该库持有人)。
+    #       这里断言的下界刻意是"**绝不被认证成持有**",不是"当场判陈旧" —— 将来那条
+    #       判据落地后这一格自动变好,测试不会反过来挡它。
+    $bootUtc = ConvertTo-IhuiLockUtc (Get-IhuiDeployLockBootId)
+    if ($null -eq $bootUtc) { throw '夹具失效:本机启动标识量不到,跨重启现场无从核对' }
+    $pBootA = Join-Path $Scratch 'cross-boot-pid-gone.lock'
+    [System.IO.File]::WriteAllText($pBootA, "$freePid")
+    (Get-Item -LiteralPath $pBootA).LastWriteTimeUtc = $bootUtc.AddMinutes(-30)
+    $stBootA = Resolve-IhuiDeployLockState -Path $pBootA -OwnerKind 'loop'
+    $pBootB = Join-Path $Scratch 'cross-boot-pid-reused.lock'
+    [System.IO.File]::WriteAllText($pBootB, "$youngPid")
+    (Get-Item -LiteralPath $pBootB).LastWriteTimeUtc = $bootUtc.AddMinutes(-30)
+    $stBootB = Resolve-IhuiDeployLockState -Path $pBootB -OwnerKind 'loop'
+    # (c) 的那一格:用**纯谓词**构造(真实现场里"某个真 pid 的 StartTime 读不到"没法按
+    # 意愿造出来 —— 要么读得到、要么进程根本不在,那是另一格),把"读不到"这一档直接喂给
+    # 判据本身,走的仍是它真实会走的那一支(不绕开任何一条判据)。
+    # 算一次就存下来:两处各调一次会在两次之间读到不同的量,账面却长得一样。
+    $gapObs = New-Obs @{
+        Pid = $youngPid; ProcessExists = $true; ProcessStartUtc = $null
+        WrittenAtUtc = $bootUtc.AddMinutes(-30); HeartbeatAtUtc = $bootUtc.AddMinutes(-20)
+        BootIdLock = ''; BootIdCurrent = (Format-IhuiLockUtc $bootUtc)
+        NowUtc = $bootUtc.AddMinutes(10)
+    }
+    $gapVerdict = Test-IhuiDeployLockHeld -Observation $gapObs
+    $gapC = ($gapVerdict.Verdict -ne 'held')
+    $out['_cross_boot'] = [ordered]@{
+        lastBootUpTimeUtc = (Format-IhuiLockUtc $bootUtc)
+        pidGone = [ordered]@{
+            # 两个值都从盘上现读:断言"mtime 早于开机"必须拿文件系统给的答案,
+            # 拿自己做过的减法去断言就是恒真式(永远绿的断言与永远红的同样没用)。
+            mtimeUtc = (Format-IhuiLockUtc (Get-Item -LiteralPath $pBootA).LastWriteTimeUtc)
+            earlierThanBoot = (((Get-Item -LiteralPath $pBootA).LastWriteTimeUtc) -lt $bootUtc)
+            verdict = $stBootA.Verdict; failed = $stBootA.Failed; shouldHold = [bool]$stBootA.ShouldHold
+        }
+        pidReused = [ordered]@{
+            mtimeUtc = (Format-IhuiLockUtc (Get-Item -LiteralPath $pBootB).LastWriteTimeUtc)
+            earlierThanBoot = (((Get-Item -LiteralPath $pBootB).LastWriteTimeUtc) -lt $bootUtc)
+            verdict = $stBootB.Verdict; failed = $stBootB.Failed; shouldHold = [bool]$stBootB.ShouldHold
+            bootIdOnLock = $stBootB.Meta.BootId
+        }
+        # (c) 那一格的现读结论(判据原文见上方 $gapObs 处):见 **未覆盖的一格**,
+        # 下界是"绝不被认证成持有",不是"当场判陈旧"。
+        gapStartUnreadable = [ordered]@{
+            verdict = $gapVerdict.Verdict; failed = $gapVerdict.Failed
+            # 刻意不放"writtenAt 早于开机"这类**我自己算出来的**比较 —— 拿
+            # $boot.AddMinutes(-30) -lt $boot 断言是恒真式(永远绿的断言与永远红的同样
+            # 没用)。这一格要登记的只有"判据在缺 StartTime 时看得见什么、看不见什么"。
+            writtenAtUtc = (Format-IhuiLockUtc $bootUtc.AddMinutes(-30))
+            nowUtc = (Format-IhuiLockUtc $bootUtc.AddMinutes(10))
+            neverCertifiedAsHeld = $gapC
+        }
+    }
 } finally {
     if ($null -ne $childProc) { try { Stop-Process -Id $childProc.Id -Force -ErrorAction SilentlyContinue } catch {} }
 }
