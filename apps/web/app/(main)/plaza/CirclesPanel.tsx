@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Users, MessageSquare, Circle, Loader2, ArrowRight } from 'lucide-react'
 
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 import type { CircleItem } from './types'
 
@@ -28,8 +29,12 @@ export function CirclesPanel({ isLoading, error, circles }: Props) {
           {tc('loading')}
         </div>
       ) : error ? (
+        // 同 AsksPanel:文案必须经 toUserFriendlyMessage,否则 401 的原文会直接摊给用户,
+        // 而带着 status 的身份在这一步又被丢一次(守门 135 的第二半)。
+        // 容器沿用既有的"染色底 + 完整描边"(bg-destructive/10 + border-destructive/50),
+        // 不是实底黑块;图标位刻意留空 —— §4 禁止把告警图形当错误态的唯一表达。
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          {(error as Error).message}
+          {toUserFriendlyMessage(error)}
         </div>
       ) : circles.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
