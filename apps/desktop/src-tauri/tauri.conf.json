@@ -66,7 +66,7 @@
     ],
     "category": "Productivity",
     "shortDescription": "智汇AI",
-    "longDescription": "智汇AI 多端平台客户端,基于 Tauri 2 + WebView2",
+    "longDescription": "智汇AI 桌面端,基于 Tauri 2 + WebView2。桌面端 = Tauri 薄壳 + 直连线上站点:frontendDist 指向 src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/agents(V3 #72 拍板,桌面端不打包本地 web 产物)。桌面端 AI 版本由线上站点决定,本仓不可校验:线上不可用=桌面端一起不可用、无法本地降级、无法离线首屏(仅有薄壳占位页与 Rust 侧 offline:// 重连提示,本地无可渲染 UI)。",
     "windows": {
       "nsis": {
         "template": "windows/installer.nsi",
