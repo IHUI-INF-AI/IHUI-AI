@@ -11,6 +11,7 @@ import {
   Copy,
   Download,
   FileText,
+  ImageOff,
   Play,
   Loader2,
   FilePlus2,
@@ -506,9 +507,32 @@ function ThemedCodeBlock(props: {
 }
 
 // 图片放大容器:点击图片在 WorkPanel 打开(同源);外链在新标签页打开
+// G-738(2026-09-28 立,吸收上游 ui/ai-elements/markdown-image.tsx 的三态纪律):
+// 此前内联 <img> 裸挂载——加载失败只剩空白区域且零状态;而流式中同位置图片改写
+// (src 变化)时 React 会复用旧 img 节点,旧资源的异步事件可能命中新 src 的处理器。
+// 两条写法纪律:① **状态↔src 配对**——状态只在属于它的 source 与当前 src 等值时可信,
+// src 换了旧状态一律作废;该判据语义与本仓 `use-preview-staleness.ts` 的 `case 'reset'`
+// ("url 变了:上一文件的记录必须作废")同源。那台状态机服务的是 fetch 文本内容身份
+// (content/version/pending 维度),内联图的事件源是 DOM img 的 onLoad/onError,不能直接
+// 复用其 reducer,但"资源变更 ⇒ 旧记录不得续用"只此一条判据,不造第二种语义。
+// ② **key 按资源重建**——<img key={srcStr}>,换 src 即换节点,load/error 只更新
+// 触发该事件的那张图的状态。
+type MarkdownImageStatus = 'loading' | 'loaded' | 'error'
+
 function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
+  const tA11y = useTranslations('a11y')
+  // 复用既有键(ai.toolCall.imageLoadFailed = "图片加载失败",五语言已在位),
+  // 不新增语言包键;加载中文案同理复用 a11y.loading。
+  const tImage = useTranslations('ai.toolCall')
   const srcStr = typeof src === 'string' ? src : undefined
+  const [imageState, setImageState] = React.useState<{
+    source: string
+    status: MarkdownImageStatus
+  }>(() => ({ source: srcStr ?? '', status: 'loading' }))
   if (!srcStr) return null
+
+  // 纪律①:状态↔src 配对。state.source !== 当前 src ⇒ 旧状态不可信,视为 loading。
+  const effectiveStatus = imageState.source === srcStr ? imageState.status : 'loading'
 
   const isExternal = /^https?:\/\//i.test(srcStr)
   const isDataUri = srcStr.startsWith('data:')
@@ -530,13 +554,46 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
       className="my-0 block max-w-full overflow-hidden rounded-sm bg-streamed-container-bg transition-colors hover:bg-streamed-container-bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
       aria-label={alt ? `图片: ${alt}` : '点击放大图片'}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- AI 返回的图片 URL 可能是任意来源,不走 next/image 优化 */}
-      <img
-        src={srcStr}
-        alt={alt ?? ''}
-        className="max-h-[400px] max-w-full object-contain"
-        loading="lazy"
-      />
+      {effectiveStatus === 'error' ? (
+        // G-738:失败态独立容器 role="img" + aria-label(上游 markdown-image.tsx 同构),
+        // 与加载中的 role="status" **分开**——两种 aria 语义不共用一个承载元素。
+        <span
+          role="img"
+          aria-label={tImage('imageLoadFailed')}
+          data-markdown-image-state="error"
+          className="flex min-h-24 w-full items-center justify-center px-3 py-2 text-muted-foreground"
+        >
+          <ImageOff className="h-6 w-6" aria-hidden />
+        </span>
+      ) : (
+        <>
+          {effectiveStatus === 'loading' && (
+            <span
+              role="status"
+              data-markdown-image-state="loading"
+              className="flex min-h-24 w-full items-center justify-center gap-1.5 px-3 py-2 text-xs text-muted-foreground"
+            >
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              {tA11y('loading')}
+            </span>
+          )}
+          {/* eslint-disable-next-line @next/next/no-img-element -- AI 返回的图片 URL 可能是任意来源,不走 next/image 优化 */}
+          <img
+            // G-738 纪律②:按资源重建节点(上游 key={displaySrc} 同判据)——React 复用
+            // 同一 img 时,旧资源的异步事件可能命中新 src 的处理器;换 key 即换节点。
+            key={srcStr}
+            src={srcStr}
+            alt={alt ?? ''}
+            className={cn(
+              'max-h-[400px] max-w-full object-contain',
+              effectiveStatus === 'loading' && 'invisible',
+            )}
+            loading="lazy"
+            onLoad={() => setImageState({ source: srcStr, status: 'loaded' })}
+            onError={() => setImageState({ source: srcStr, status: 'error' })}
+          />
+        </>
+      )}
     </button>
   )
 }
@@ -737,6 +794,17 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
   // 流式场景:未闭合代码块临时闭合让 react-markdown 能解析
   // 流式中的代码块用 isStreamingCodeRef 标记,渲染时 opacity-60
   const isStreamingCodeRef = React.useRef(false)
+  // G-737(2026-09-28 立,吸收上游 ui/ai-elements/message.tsx 的渲染键纪律——
+  // "streaming/static 只是解析模式,不应参与渲染器身份;否则流式状态抖动会卸载
+  // 整棵 markdown 子树,让已显示的正文重新触发淡入动画"):isStreaming 此前直接进
+  // components 的 useMemo deps,它一翻 components 就是新引用 ⇒ StableBlock(默认浅
+  // 比较)在内容已冻结时仍 memo 失效、稳定前缀整段重 parse。下载卡/富预览所需的
+  // 读取改走 ref(与本文件既有 isStreamingCodeRef 同型):StableBlock 仅在
+  // isStreaming=true 时挂载(P3 #35 切分门),该路径上 a 组件读到的 ref 恒为 true;
+  // 非稳定路径每次随父渲染 pass,ref 在渲染前已更新为当前值 ⇒
+  // "PDF/CSV 流式中渲染下载卡,完成后升级富预览"(P3 #32)行为逐字不变。
+  const isStreamingRef = React.useRef(isStreaming)
+  isStreamingRef.current = isStreaming
   const parseContent = React.useMemo(() => {
     if (hasUnclosedFence(deferredContent)) {
       isStreamingCodeRef.current = true
@@ -788,7 +856,7 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
       },
       a({ href, children }) {
         return (
-          <MarkdownLink href={href} isStreaming={isStreaming}>
+          <MarkdownLink href={href} isStreaming={isStreamingRef.current}>
             {children}
           </MarkdownLink>
         )
@@ -909,7 +977,10 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
     // 2026-08-16 修复:code 组件内部使用 collapseLines(透传给 ThemedCodeBlock),
     // 此前 deps 为空导致闭包捕获旧值,代码折叠行数变化不生效。
     // P3 #32:a 组件透传 isStreaming(PDF/CSV 流式中渲染下载卡,完成后升级富预览)。
-    [collapseLines, isStreaming],
+    // G-737(2026-09-28):isStreaming **移出 deps** —— 解析模式不得进入渲染器身份,
+    // 否则它一翻 components 新引用 ⇒ StableBlock memo 失效、冻结前缀整段重 parse。
+    // a 组件改读 isStreamingRef(渲染 pass 前已同步),语义不变、身份不再抖动。
+    [collapseLines],
   )
 
   // P3 #35(2026-09-16 立):稳定段/活跃段切分。

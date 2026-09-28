@@ -25,10 +25,17 @@ test('§22c 锚点:__test__ 暴露判据函数且样例表非空', () => {
     'resolveDeclaredEntry',
     'main',
     'readBaselineRaw',
+    // AT 维(2026-09-29 D146)的判据与出口同样必须可 import —— 镜像测试只复读实现就是复读机
+    'scanAtRest',
+    'evalAtCase',
+    'topLevelArgsOfCall',
+    'applyAtRatchet',
+    'readHeadBlob',
   ]) {
     assert.ok(typeof G[k] === 'function', `__test__ 缺少 ${k}`)
   }
   assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 28)
+  assert.ok(Array.isArray(G.AT_SELFTEST_CASES) && G.AT_SELFTEST_CASES.length >= 9)
 })
 
 test('判据样例表逐条与 want 一致(含"非凭据变量不拦"的反例)', () => {
@@ -454,5 +461,79 @@ test('F 通道②:两行式(上一行取体、下一行拼消息)必须命中,�
     )
     .replace('${errMsg}', '${code}')
   assert.equal(G.scanSource(fixed, 'apps/api/src/services/oss-sts-service.ts').violations.length, 0)
+})
+
+// ==================== AT 维(2026-09-29 D146:凭据落盘明文) ====================
+// 这一组只判**落盘形态**,与上面 A–F 判的传输语义互不重叠;每条正例都配一条只差一点点的反例。
+
+test('AT 样例表逐条与 want 一致(含"注释形态不得计入"与"出口在位必须放过")', () => {
+  for (const c of G.AT_SELFTEST_CASES) {
+    assert.equal(G.evalAtCase(c.src, c.file), c.want, `AT 样例失败: ${c.name}`)
+  }
+})
+
+test('AT 端到端双向锁①:真代码形态必须命中(阳性对照,证明判据不是空转)', () => {
+  const src = "import { promises as fs } from 'node:fs'\nexport function persist(tok){ fs.writeFileSync('/tmp/x.json', JSON.stringify({ accessToken: tok })) }\n"
+  const r = G.scanAtRest(src, 'apps/cli/src/tools/__at_probe__.ts')
+  assert.equal(r.violations.length, 1, '未封装的凭据写盘必须判红')
+  assert.equal(r.violations[0].kind, 'at-rest-credential-write')
+  assert.match(r.violations[0].evidence, /accessToken/)
+})
+
+test('AT 端到端双向锁②:同一形态只写进注释必须归绿(遮罩关掉误报,不是关掉判据)', () => {
+  const src = "// export function persist(tok){ fs.writeFileSync('/tmp/x.json', JSON.stringify({ accessToken: tok })) }\nconst a = 1\n"
+  const r = G.scanAtRest(src, 'apps/cli/src/tools/__at_probe__.ts')
+  assert.equal(r.violations.length, 0, '注释形态不得计入')
+  assert.equal(r.undetermined.length, 0, '注释形态也不得冒充"未判定"')
+})
+
+test('AT 端到端双向锁③:同文件调用信封出口即放过(本维拦"没封就写",不拦"写了凭据")', () => {
+  const withOutlet =
+    'import { sealCredentialEnvelope } from "./mcp-credentials.js"\n' +
+    "export function persist(text){ fs.writeFileSync(p, text) }\n" +
+    "export function make(tok){ return JSON.stringify({ accessToken: tok }) }\n"
+  assert.equal(G.scanAtRest(withOutlet, 'apps/cli/src/tools/mcp-oauth.ts').violations.length, 0)
+})
+
+test('AT 棘轮有牙:等于 HEAD 存量只报数,超过才判红;锚点取不到不得静默放过', () => {
+  const one = 'export function a(tok){ fs.writeFileSync(p, JSON.stringify({ accessToken: tok })) }'
+  const two = one + '\nexport function b(tok){ fs.writeFileSync(p, JSON.stringify({ refreshToken: tok })) }'
+  const file = 'apps/cli/src/tools/x.ts'
+  // 当前 1 处 / HEAD 也 1 处 ⇒ 存量
+  const stock = G.applyAtRatchet(G.scanAtRest(one, file).violations, () => one)
+  assert.equal(stock.fresh.length, 0)
+  assert.equal(stock.stock.length, 1)
+  // 当前 2 处 / HEAD 1 处 ⇒ 新增判红
+  const fresh = G.applyAtRatchet(G.scanAtRest(two, file).violations, () => one)
+  assert.equal(fresh.fresh.length, 2, '超过 HEAD 存量必须整组判新增')
+  // HEAD 取不到 ⇒ 按新增对待并点名"锚点未知"(绝不悄悄放绿)
+  const unknown = G.applyAtRatchet(G.scanAtRest(one, file).violations, () => null)
+  assert.equal(unknown.anchorUnknown.length, 1)
+  assert.equal(unknown.fresh.length, 1)
+})
+
+test('AT 遮罩只有一份实现:本门不得自带第二份注释剥离(§22c 反向锁)', () => {
+  const srcText = readFileSync(
+    new URL('../check-credential-leak-in-message.mjs', import.meta.url),
+    'utf8',
+  )
+  assert.match(srcText, /import \{ maskComments \} from '\.\/lib\/code-mask\.mjs'/)
+  assert.match(srcText, /const code = maskComments\(src\)/)
+})
+
+test('AT 认的信封出口必须在被审面真的存在(否则"放过通道"就是张空支票)', () => {
+  const outlets = ['sealCredentialEnvelope', 'sealVaultText']
+  const producers = {
+    sealCredentialEnvelope: '../../apps/cli/src/tools/mcp-credentials.ts',
+    sealVaultText: '../../apps/web/src/lib/local-vault.ts',
+  }
+  for (const name of outlets) {
+    const srcText = readFileSync(new URL(producers[name], import.meta.url), 'utf8')
+    assert.match(
+      srcText,
+      new RegExp(`export (async )?function ${name}\\(`),
+      `${name} 必须真被 export,否则 AT 的放过①是永久绿灯`,
+    )
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
