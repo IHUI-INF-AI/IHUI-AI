@@ -135,7 +135,7 @@ export function CompareModelsDialog({ open, providers, initialSelectedIds, onClo
                     key={model.id}
                     type="button"
                     onClick={() => toggle(model.id)}
-                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
+                    className={`inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-xs transition-colors ${
                       checked
                         ? 'border-brand-accent-deep bg-primary/10 text-primary'
                         : 'border-input bg-background hover:bg-accent'

@@ -563,6 +563,19 @@ export function derivedByConstructionOk({ parentText, newText, movedRanges, toda
 export function buildNewPlanText({ baseText, tasks, today, archiveBaseName }) {
   const lines = String(baseText).split('\n')
   const ranges = tasks.map((t) => ({ start: t.startLine, end: t.endLine, title: t.titleText }))
+  // 前置断言:倒序 splice 只在"按行号升序且互不重叠"时等价于"逐块换成占位"。
+  // 实测代价(2026-09-28):贪心选段按**日期**返回picked,直接把这里变成乱序 splice,产出面是一份
+  // 交错损坏的文档 —— 靠下面的结构等值自证拒落才没写进提交面。判据不猜、不修,当场喊。
+  for (let i = 0; i < ranges.length; i++) {
+    if (ranges[i].end < ranges[i].start) {
+      throw new Error(`搬运范围算错了:第 ${i} 段 end<start(${ranges[i].start}..${ranges[i].end})`)
+    }
+    if (i > 0 && ranges[i].start <= ranges[i - 1].end) {
+      throw new Error(
+        `搬运范围必须按行号升序且互不重叠:第 ${i} 段起于 ${ranges[i].start},而第 ${i - 1} 段止于 ${ranges[i - 1].end}`,
+      )
+    }
+  }
   for (let i = ranges.length - 1; i >= 0; i--) {
     const r = ranges[i]
     lines.splice(r.start, r.end - r.start + 1, placeholderLine(today, r.title, archiveBaseName))
@@ -1032,7 +1045,9 @@ async function main() {
       process.exit(0)
     }
     if (sel.deferredCount > 0) {
-      toArchive = sel.picked
+      // 选段返回的是**按日期**的最旧前缀,而拼接要求按行号升序 —— 直接把 picked 交给
+      // buildNewPlanText 会产出交错损坏的文档(2026-09-28 实测被结构等值闸拦下过一次)。
+      toArchive = sel.picked.sort((a, b) => a.startLine - b.startLine)
       console.log(
         C.dim +
           `   体积预算内取最旧前缀:本次搬 ${sel.picked.length} 段 / ${sel.totalBytes - sel.deferredBytes} B,` +
@@ -1415,6 +1430,40 @@ function runSelfTest() {
   ok('S14b 最旧一条自身超预算 ⇒ 返回空集(拒绝路径,绝不搬半条)', g2.picked.length === 0 && g2.oldestBytes > 150, JSON.stringify({ p: g2.picked.length, o: g2.oldestBytes }))
   const g3 = selectWithinBudget(cands, { maxEntries: 25, maxBytes: 100000, entryBytes: eb })
   ok('S14c 预算内 ⇒ 整批原样通过(不得为"更安全"而少搬)', g3.picked.length === 3 && g3.deferredCount === 0, JSON.stringify(g3.picked.length))
+
+  // S15 拼接前置断言:乱序/重叠的范围必须当场抛错,而不是悄悄产出一份交错损坏的文档。
+  // (2026-09-28 真实形态:贪心选段按日期返回 picked,直接交给倒序 splice ⇒ 结构等值自证拒落。
+  //  那道自证是最后一道闸,本断言把它往前挪一步,并让"必须排序"这件事由代码而不是注释负责。)
+  let threw = false
+  try {
+    buildNewPlanText({
+      baseText: ['# plan', '- [x] A', '- [x] B'].join('\n'),
+      tasks: [
+        { startLine: 2, endLine: 2, titleText: 'B' },
+        { startLine: 1, endLine: 1, titleText: 'A' },
+      ],
+      today,
+      archiveBaseName,
+    })
+  } catch {
+    threw = true
+  }
+  ok('S15 范围未按行号升序 ⇒ 当场抛,不产出损坏文档', threw === true)
+  let threw2 = false
+  try {
+    buildNewPlanText({
+      baseText: ['# plan', '- [x] A', '- [x] B'].join('\n'),
+      tasks: [
+        { startLine: 1, endLine: 1, titleText: 'A' },
+        { startLine: 2, endLine: 2, titleText: 'B' },
+      ],
+      today,
+      archiveBaseName,
+    })
+  } catch {
+    threw2 = true
+  }
+  ok('S15b 升序且不重叠 ⇒ 放行(不得为了"更安全"把正常搬运也拒掉)', threw2 === false)
 
   let failed = 0
   for (const r of results) {

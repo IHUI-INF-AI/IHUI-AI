@@ -313,7 +313,7 @@ export function SdkExamples(): React.JSX.Element {
           </div>
           <button
             onClick={() => setReveal((v) => !v)}
-            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex items-center gap-1 rounded-sm px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {reveal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             {reveal ? t('hideKey') : t('showKey')}
@@ -360,7 +360,7 @@ export function SdkExamples(): React.JSX.Element {
                       </pre>
                       <button
                         onClick={() => handleCopy(id, code)}
-                        className="absolute right-2 top-2 rounded-md bg-zinc-800 p-1.5 text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
+                        className="absolute right-2 top-2 rounded-sm bg-zinc-800 p-1.5 text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
                         aria-label={t('copyCodeAriaLabel')}
                       >
                         {copied ? (

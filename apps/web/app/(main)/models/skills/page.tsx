@@ -167,8 +167,8 @@ export default async function SkillsPage() {
             type="button"
             className={
               i === 0
-                ? 'h-8 rounded-md border border-brand-accent-deep bg-cta px-3 text-xs font-medium text-cta-foreground'
-                : 'h-8 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+                ? 'h-8 rounded-sm border border-brand-accent-deep bg-cta px-3 text-xs font-medium text-cta-foreground'
+                : 'h-8 rounded-sm border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
             }
           >
             {t(c)}
@@ -206,7 +206,7 @@ export default async function SkillsPage() {
                       </span>
                       <button
                         type="button"
-                        className="rounded-md border border-border bg-background px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-cta hover:text-cta-foreground"
+                        className="rounded-sm border border-border bg-background px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-cta hover:text-cta-foreground"
                       >
                         {t('skills.install')}
                       </button>
@@ -238,7 +238,7 @@ export default async function SkillsPage() {
                   <span className="text-[10px] text-muted-foreground">{s.installs}</span>
                   <button
                     type="button"
-                    className="rounded-md border border-border bg-background px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-cta hover:text-cta-foreground"
+                    className="rounded-sm border border-border bg-background px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-cta hover:text-cta-foreground"
                   >
                     {t('skills.install')}
                   </button>

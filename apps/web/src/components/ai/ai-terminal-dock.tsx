@@ -82,7 +82,7 @@ export function AiTerminalDock() {
               type="button"
               onClick={handleNew}
               aria-label={t('terminalDock.newSession')}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -92,7 +92,7 @@ export function AiTerminalDock() {
               type="button"
               onClick={() => setOpen(false)}
               aria-label={t('terminalDock.collapse')}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <ChevronDown className="h-3.5 w-3.5" />
             </button>

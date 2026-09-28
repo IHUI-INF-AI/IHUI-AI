@@ -184,7 +184,7 @@ export function SearchBar({
         align="start"
         gap={4}
         style={anchorWidth ? { width: anchorWidth } : undefined}
-        className="overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+        className="overflow-hidden rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
       >
         {!value ? (
           <>

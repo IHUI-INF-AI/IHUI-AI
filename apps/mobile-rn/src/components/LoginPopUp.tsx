@@ -504,8 +504,8 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius['2xl'],
-    borderTopRightRadius: rnRadius['2xl'],
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
     paddingTop: LOGIN_POPUP_SHEET_PADDING_TOP_PX,
     paddingHorizontal: LOGIN_POPUP_CARD_PADDING_X_PX,
     paddingBottom: LOGIN_POPUP_CARD_PADDING_BOTTOM_PX,

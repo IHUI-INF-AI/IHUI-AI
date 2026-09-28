@@ -193,7 +193,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
         <button
           type="button"
           onClick={handleRetry}
-          className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+          className="mt-1 inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           {t('appQrRetry')}
@@ -220,7 +220,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
         <button
           type="button"
           onClick={handleRetry}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+          className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           {t('appQrExpired')}

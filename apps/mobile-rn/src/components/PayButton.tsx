@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   face: { width: '100%' } as ViewStyle,
   button: {
     height: 50,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

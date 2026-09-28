@@ -90,10 +90,10 @@ export function FloatIndicatorDot({
         /**
          * 选中态是 16×8 的**竖向条**,若沿用圆形形状类(半径 ≥ 短边一半),渲染出来就是胶囊
          * —— 用户 2026-09-27 定档:本项目不允许出现胶囊型,且不保留任何豁免通道。
-         * 因此选中态显式取最小档 rounded-xs(2px),非选中的 8×8 装饰点仍是正圆(方形盒 + 半径
+         * 因此选中态显式取最小档 rounded-sm(2px),非选中的 8×8 装饰点仍是正圆(方形盒 + 半径
          * ≥ 半边长 = 圆,不是胶囊)。
          */
-        active ? 'rounded-xs' : shapeCls
+        active ? 'rounded-sm' : shapeCls
       } transition-all duration-300 ${
         active
           ? `${INDICATOR_PILL_SIZE} ${colorCls}`
